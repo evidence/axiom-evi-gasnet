@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2007/10/05 06:52:11 $
- * $Revision: 1.277 $
+ *     $Date: 2007/10/05 08:00:24 $
+ * $Revision: 1.278 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1790,15 +1790,11 @@
         #define GASNETI_HYBRID_ATOMIC64	1
       #endif
 
-      /* Can we use native 64-bit atomics on ILP32? */
-      #if (PLATFORM_OS_DARWIN || PLATFORM_OS_AIX || PLATFORM_OS_LINUX)
+      /* Should we use native 64-bit atomics on ILP32? */
+      #if PLATFORM_ARCH_32 && \
+	  (PLATFORM_OS_DARWIN || PLATFORM_OS_AIX || PLATFORM_OS_LINUX)
         #define GASNETI_PPC64_ILP32_NATIVE_ATOMICS 1
       #endif
-    #endif
-    #if PLATFORM_COMPILER_XLC && PLATFORM_ARCH_32 && (PLATFORM_OS_LINUX || PLATFORM_OS_BLRTS)
-      /* Disabled: */
-      #undef GASNETI_HYBRID_ATOMIC64
-      #undef GASNETI_PPC64_ILP32_NATIVE_ATOMICS
     #endif
 
     #if PLATFORM_COMPILER_XLC
@@ -1917,31 +1913,36 @@
         }
         #pragma reg_killed_by _gasneti_atomic64_read cr0, gr0, gr5
 	#if PLATFORM_OS_LINUX || PLATFORM_OS_BLRTS /* ABI differs from Darwin and AIX */
-          #error "Known to be broken"
           #pragma mc_func _gasneti_atomic64_set { \
-            /* ARGS: r3 = p, r5 = hi32, r6 = lo32 */ \
-            "78a507c6"  /* sldi  r5,r5,32  */ \
-            "7ca53378"  /* or    r5,r5,r6  */ \
-            "f8a30000"  /* std   r5,0(r3)  */ \
+            /* ARGS: r3 = p, r5 = hi32, r6 = lo32  LOCAL: r0 = tmp */ \
+	    "78c60020"  /*    clrldi  r6,r6,32 */ \
+	    "7c0018a8"  /* 0: ldarx   r0,r0,r3 */ \
+	    "78a007c6"  /*    sldi    r0,r5,32 */ \
+	    "7c003378"  /*    or      r0,r0,r6 */ \
+	    "7c0019ad"  /*    stdcx.  r0,r0,r3 */ \
+	    "40a2fff0"  /*    bne-    0b       */ \
           }
-          #pragma reg_killed_by _gasneti_atomic64_set gr5
+          #pragma reg_killed_by _gasneti_atomic64_set cr0, gr0, gr6
           #pragma mc_func _gasneti_atomic64_compare_and_swap {\
 	    /* ARGS: r3 = p, r5=oldhi32, r6=oldlo32, r7=newhi32, r8=newlo32 */ \
-            "78a507c6"  /*    sldi    r5,r5,32     */ \
-            "7ca53378"  /*    or      r5,r5,r6     */ \
-            "78e707c6"  /*    sldi    r7,r7,32     */ \
-            "7ce74378"  /*    or      r7,r7,r8     */ \
-            "39000000"  /*    li      r8,0         */ \
-            "7cc018a8"  /* 0: ldarx   r6,0,r3      */ \
-            "7c262800"  /*    cmpd    0,r6,r5      */ \
-            "40820010"  /*    bne-    1f           */ \
-            "7ce019ad"  /*    stdcx.  r7,0,r3      */ \
-            "40a2fff0"  /*    bne-    0b           */ \
-            "39000001"  /*    li      r8,1         */ \
-            "7d034378"  /* 1: mr      r3,r8        */ \
+	    /* LOCAL: r0 = tmp1, r4 = tmp2 */ \
+	    "78c60020"  /*    clrldi  r6,r6,32 */ \
+	    "79080020"  /*    clrldi  r8,r8,32 */ \
+	    "7c0018a8"  /* 0: ldarx   r0,r0,r3 */ \
+	    "78a407c6"  /*    sldi    r4,r5,32 */ \
+	    "7c843378"  /*    or      r4,r4,r6 */ \
+	    "7c240000"  /*    cmpd    r4,r0    */ \
+	    "38800000"  /*    li      r4,0     */ \
+	    "40820010"  /*    bne-    1f       */ \
+	    "38800001"  /*    li      r4,1     */ \
+	    "78e007c6"  /*    sldi    r0,r7,32 */ \
+	    "7c004378"  /*    or      r0,r0,r8 */ \
+	    "7c0019ad"  /* 1: stdcx.  r0,r0,r3 */ \
+	    "40a2ffd8"  /*    bne-    0b       */ \
+	    "7c832378"  /*    mr      r3,r4    */ \
 	    /* RETURN in r3 = 1 iff swap took place */ \
           }
-          #pragma reg_killed_by _gasneti_atomic64_compare_and_swap cr0
+          #pragma reg_killed_by _gasneti_atomic64_compare_and_swap cr0, gr0, gr4, gr6, gr7
         #else
           #pragma mc_func _gasneti_atomic64_set { \
             /* ARGS: r3 = p, r4 = hi32, r5 = lo32  LOCAL: r0 = tmp */ \
