@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2007/09/24 23:52:24 $
- * $Revision: 1.211 $
+ *     $Date: 2007/10/07 22:42:00 $
+ * $Revision: 1.212 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1581,6 +1581,9 @@ extern int gasneti_cpu_count() {
   #include <sys/sysctl.h>
 #elif PLATFORM_OS_CATAMOUNT
   #include <catamount/catmalloc.h>
+#elif PLATFORM_OS_HPUX
+  #include <sys/param.h>
+  #include <sys/pstat.h>
 #endif
 extern uint64_t gasneti_getPhysMemSz(int failureIsFatal) {
   uint64_t retval = _gasneti_getPhysMemSysconf();
@@ -1646,6 +1649,11 @@ extern uint64_t gasneti_getPhysMemSz(int failureIsFatal) {
         result = total_free + total_used;
      }
      retval = result;
+    }
+  #elif PLATFORM_OS_HPUX
+    { struct pst_static pst;
+      gasneti_assert_zeroret(pstat_getstatic(&pst, sizeof(pst), (size_t)1, 0) == -1);
+      retval = (uint64_t)(pst.physical_memory) * pst.page_size;
     }
   #else  /* unknown OS */
     { }
