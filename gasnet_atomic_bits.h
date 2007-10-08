@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2007/10/05 08:00:24 $
- * $Revision: 1.278 $
+ *     $Date: 2007/10/08 03:27:25 $
+ * $Revision: 1.279 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2271,7 +2271,7 @@
   #if defined(_INCLUDED_GASNET_H) && GASNETI_USE_TRUE_MUTEXES
     /* Case I: Real HSLs in a gasnet client */
     #define GASNETI_GENATOMIC_LOCK_PREP(ptr) \
-		gasnet_hsl_t * const lock = gasneti_hsl_atomic_hash_lookup((void *)ptr)
+		gasnet_hsl_t * const lock = gasneti_hsl_atomic_hash_lookup((uintptr_t)ptr)
     #define GASNETI_GENATOMIC_LOCK()   gasnet_hsl_lock(lock)
     #define GASNETI_GENATOMIC_UNLOCK() gasnet_hsl_unlock(lock)
 
@@ -2299,7 +2299,7 @@
     /* Case III: a version for pthreads which is independent of GASNet HSL's */
     #include <pthread.h>
     #define GASNETI_GENATOMIC_LOCK_PREP(ptr) \
-		pthread_mutex_t * const lock = gasneti_pthread_atomic_hash_lookup((void *)ptr)
+		pthread_mutex_t * const lock = gasneti_pthread_atomic_hash_lookup((uintptr_t)ptr)
     #define GASNETI_GENATOMIC_LOCK()   pthread_mutex_lock(lock)
     #define GASNETI_GENATOMIC_UNLOCK() pthread_mutex_unlock(lock)
 
@@ -2359,8 +2359,7 @@
         extern uintptr_t stem##tbl_mask;                                  \
         extern void stem##tbl_init(void);                                 \
         GASNETI_INLINE(stem##hash_lookup) GASNETI_CONST                   \
-        type##t * stem##hash_lookup(const void *addr) {                   \
-          uintptr_t val = (uintptr_t)addr;                                \
+        type##t * stem##hash_lookup(uintptr_t val) {                      \
           /* Step 0. Initialization check */                              \
           if_pf (!stem##tbl_mask) stem##tbl_init();                       \
           else gasneti_local_rmb();                                       \
