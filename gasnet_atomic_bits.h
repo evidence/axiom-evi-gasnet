@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2007/10/08 03:27:25 $
- * $Revision: 1.279 $
+ *     $Date: 2007/10/08 07:37:43 $
+ * $Revision: 1.280 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -140,15 +140,15 @@
            int retval;
            __asm__ __volatile__ (
                 "1:\n\t"
-                "ll        %1,%5\n\t"          /* Load from *p */
+                "ll        %1,0(%5)\n\t"       /* Load from *p */
                 "move      %0,$0\n\t"          /* Assume mismatch */
                 "bne       %1,%3,2f\n\t"       /* Break loop on mismatch */
                 "move      %0,%4\n\t"          /* Move newval to retval */
-                "sc        %0,%2\n\t"          /* Try SC to store retval */
+                "sc        %0,0(%5)\n\t"       /* Try SC to store retval */
                 GASNETI_MIPS_BEQZ "%0,1b\n"   /* Retry on contention */
                 "2:\n\t"
                 : "=&r" (retval), "=&r" (temp), "=m" (*p)
-                : "r" (oldval), "r" (newval), "m" (*p) );
+                : "r" (oldval), "r" (newval), "r" (p), "m" (*p) );
           return retval;
         }
       #else /* flaky OS-provided CAS */
@@ -2143,26 +2143,26 @@
       void _gasneti_atomic32_increment(gasneti_atomic32_t *p) {
 	uint32_t tmp;
 	__asm__ __volatile__(
-		"1:		\n\t"
-		"ll	%0,%1	\n\t"
-		"addu	%0,1	\n\t"
-		"sc	%0,%1	\n\t"
+		"1:			\n\t"
+		"ll	%0,0(%2)	\n\t"
+		"addu	%0,1		\n\t"
+		"sc	%0,0(%2)	\n\t"
 		GASNETI_MIPS_BEQZ "%0,1b"
 		: "=&r" (tmp), "=m" (p->ctr)
-		: "m" (p->ctr) );
+		: "r" (p), "m" (p->ctr) );
       } 
       #define _gasneti_atomic32_increment _gasneti_atomic32_increment
       GASNETI_INLINE(_gasneti_atomic32_decrement)
       void _gasneti_atomic32_decrement(gasneti_atomic32_t *p) {
 	uint32_t tmp;
 	__asm__ __volatile__(
-		"1:		\n\t"
-		"ll	%0,%1	\n\t"
-		"subu	%0,1 	\n\t"
-		"sc	%0,%1 	\n\t"
+		"1:			\n\t"
+		"ll	%0,0(%2)	\n\t"
+		"subu	%0,1 		\n\t"
+		"sc	%0,0(%2) 	\n\t"
 		GASNETI_MIPS_BEQZ "%0,1b"
 		: "=&r" (tmp), "=m" (p->ctr)
-		: "m" (p->ctr) );
+		: "r" (p), "m" (p->ctr) );
       }
       #define _gasneti_atomic32_decrement _gasneti_atomic32_decrement
 
@@ -2171,12 +2171,12 @@
 	uint32_t tmp, retval;
 	__asm__ __volatile__(
 		"1:			\n\t"
-		"ll	%0,%2		\n\t"
+		"ll	%0,0(%4)	\n\t"
 		"addu	%1,%0,%3	\n\t"
-		"sc	%1,%2		\n\t"
+		"sc	%1,0(%4)	\n\t"
 		GASNETI_MIPS_BEQZ "%1,1b"
 		: "=&r" (retval), "=&r" (tmp), "=m" (p->ctr)
-		: "Ir" (op), "m" (p->ctr) );
+		: "Ir" (op), "r" (p), "m" (p->ctr) );
 	return retval;
       }
       #define _gasneti_atomic32_fetchadd gasneti_atomic32_fetchadd
@@ -2187,14 +2187,14 @@
          int retval = 0;
          __asm__ __volatile__ (
 		"1:			\n\t"
-		"ll	%1,%2		\n\t"	/* Load from *p */
+		"ll	%1,0(%5)	\n\t"	/* Load from *p */
 		"bne	%1,%z3,2f	\n\t"	/* Break loop on mismatch */
 		"move	%0,%z4		\n\t"	/* Move newval to retval */
-		"sc	%0,%2		\n\t"	/* Try SC to store retval */
+		"sc	%0,0(%5)	\n\t"	/* Try SC to store retval */
 		GASNETI_MIPS_BEQZ "%0,1b\n"	/* Retry on contention */
 		"2:			"
                 : "+&r" (retval), "=&r" (temp), "=m" (p->ctr)
-                : "Jr" (oldval), "Jr" (newval), "m" (p->ctr) );
+                : "Jr" (oldval), "Jr" (newval), "r" (p), "m" (p->ctr) );
         return retval;
       }
 
@@ -2211,14 +2211,14 @@
 	  int retval = 0;
           __asm__ __volatile__ (
 		  "1:			\n\t"
-		  "lld	%1,%2		\n\t"	/* Load from *p */
+		  "lld	%1,0(%5)	\n\t"	/* Load from *p */
 		  "bne	%1,%z3,2f	\n\t"	/* Break loop on mismatch */
 		  "move	%0,%z4		\n\t"	/* Copy newval to retval */
-		  "scd	%0,%2		\n\t"	/* Try SC to store retval */
+		  "scd	%0,0(%5)	\n\t"	/* Try SC to store retval */
 		  GASNETI_MIPS_BEQZ "%0,1b\n"	/* Retry on contention */
 		  "2:			"
 		  : "+&r" (retval), "=&r" (temp), "=m" (p->ctr)
-		  : "Jr" (oldval), "Jr" (newval), "m" (p->ctr) );
+		  : "Jr" (oldval), "Jr" (newval), "r" (p), "m" (p->ctr) );
 	  return retval;
         }
       #endif
