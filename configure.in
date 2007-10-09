@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2007/09/14 21:40:39 $
-# $Revision: 1.460 $
+#     $Date: 2007/10/09 02:31:18 $
+# $Revision: 1.461 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.460 $)
+AC_REVISION($Revision: 1.461 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -610,7 +610,15 @@ AM_CONDITIONAL(GASNET_SEGMENT_EVERYTHING, test "$segconfig" = everything)
 GASNET_IF_DISABLED([aligned-segments],
                    [Disable requirement to achieve aligned VM segments, for heterogeneous clusters],
 		   [GASNETI_DISABLE_ALIGNED_SEGMENTS=1
-		    AC_DEFINE(GASNETI_DISABLE_ALIGNED_SEGMENTS)])
+		    AC_DEFINE(GASNETI_DISABLE_ALIGNED_SEGMENTS)],
+		   [RVMFILE="/proc/sys/kernel/randomize_va_space"
+		    if test -f $RVMFILE && test "`cat $RVMFILE`" = "1" ; then
+WMSG="$RVMFILE on this node indicates the Linux VM space randomization \
+security feature is enabled. If this feature is also enabled on the compute \
+nodes, you need to re-run configure with --disable-aligned-segments"
+		      GASNET_MSG_WARN([$WMSG])
+		    fi
+		   ])
 
 GASNET_WITH(segment-mmap-max,
    [Upper bound for mmap-based GASNet segments (ex: "2GB", "1045MB")],
