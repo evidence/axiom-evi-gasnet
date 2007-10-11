@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcore2.c,v $
- * $Date: 2007/10/11 08:59:24 $
- * $Revision: 1.1 $
+ * $Date: 2007/10/11 16:10:21 $
+ * $Revision: 1.2 $
  * Copyright 2007, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  *
@@ -31,6 +31,8 @@ uint8_t *peerreqseg; /* long request landing zone */
 uint8_t *peerrepseg; /* long reply landing zone */
 uint8_t *localseg;
 
+GASNETT_THREADKEY_DECLARE(mythread);
+GASNETT_THREADKEY_DEFINE(mythread);
 
 #define ELEM_VALUE(iter,chunkidx,elemidx) \
         ((((uint8_t)(iter)&0x3) << 6) | (((uint8_t)(chunkidx)&0x3) << 4) | (((uint8_t)(elemidx))&0xF))
@@ -48,8 +50,9 @@ void validate_chunk(const char *context, uint8_t *buf, size_t sz, int iter, int 
     uint8_t actual = buf[elemidx];
     uint8_t expected = ELEM_VALUE(iter,chunkidx,elemidx);
     if (actual != expected) {
-      ERR("data mismatch at sz=%i iter=%i chunk=%i elem=%i : actual=%02x expected=%02x in %s",
-           (int)sz,iter,chunkidx,(int)elemidx,
+      int id = (uintptr_t)gasnett_threadkey_get(mythread); 
+      ERR("TH%i data mismatch at sz=%i iter=%i chunk=%i elem=%i : actual=%02x expected=%02x in %s",
+           id, (int)sz,iter,chunkidx,(int)elemidx,
            (unsigned int)actual,(unsigned int)expected,
            context);
     }
@@ -157,6 +160,7 @@ int main(int argc, char **argv) {
 }
 
 void *doit(void *id) {
+  gasnett_threadkey_set(mythread,id); 
   if ((uintptr_t)id != 0) { /* additional threads polling, to encourage handler concurrency */
     while (!done) {
       gasnet_AMPoll();
