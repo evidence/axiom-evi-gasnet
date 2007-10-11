@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2007/10/09 02:31:18 $
-# $Revision: 1.461 $
+#     $Date: 2007/10/11 04:52:16 $
+# $Revision: 1.462 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.461 $)
+AC_REVISION($Revision: 1.462 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -3236,9 +3236,14 @@ case "$target_os" in
     # when linking with the mpich libs.
     LDFLAGS="$LDFLAGS -Wl,-multiply_defined,suppress"
   ;;
-esac
-case "$gasnet_cv_cc_family" in
-  MIPS) LDFLAGS="$LDFLAGS -LD_MSG:off=84" # don't warn about unused libm
+
+  irix*)
+    case "$gasnet_cv_cc_family" in
+      MIPS) LDFLAGS="$LDFLAGS -LD_MSG:off=84" # don't warn about unused libm
+      ;;
+      GNU) LDFLAGS="$LDFLAGS -Wl,-LD_MSG:off=84" # don't warn about unused libm
+      ;;
+    esac
   ;;
 esac
 AC_SUBST(LDFLAGS)
