@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2007/08/24 05:39:57 $
- * $Revision: 1.218 $
+ *     $Date: 2007/10/11 04:49:26 $
+ * $Revision: 1.219 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -255,7 +255,7 @@ static gasnetc_cep_t			**gasnetc_node2cep;
   #define GASNETC_PERTHREAD_PASS_ALONE	(_core_threadinfo)
   #define GASNETC_PERTHREAD_PASS	, GASNETC_PERTHREAD_PASS_ALONE
   #define GASNETC_MY_PERTHREAD()	((gasnetc_per_thread_t *)_core_threadinfo)
-  #define GASNETC_PERTHREAD_LOOKUP	void * const _core_threadinfo = gasnetc_my_perthread()
+  #define GASNETC_PERTHREAD_LOOKUP	void * const _core_threadinfo = (void *)gasnetc_my_perthread()
 #else
   #define GASNETC_PERTHREAD_FARG_ALONE
   #define GASNETC_PERTHREAD_FARG
