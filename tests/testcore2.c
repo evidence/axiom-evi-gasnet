@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcore2.c,v $
- * $Date: 2007/10/11 16:10:21 $
- * $Revision: 1.2 $
+ * $Date: 2007/10/12 05:47:19 $
+ * $Revision: 1.3 $
  * Copyright 2007, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  *
@@ -15,7 +15,7 @@
 int max_payload = 0;
 int depth = 0;
 #ifndef TEST_SEGSZ
-  #define TEST_SEGSZ_EXPR ((uintptr_t)max_payload*depth*2)
+  #define TEST_SEGSZ_EXPR ((uintptr_t)max_payload*depth*4)
 #endif
 
 #include "test.h"
@@ -66,40 +66,53 @@ void validate_chunk(const char *context, uint8_t *buf, size_t sz, int iter, int 
 #define hidx_ping_longhandler    205
 #define hidx_pong_longhandler    206
 
+#define hidx_ping_alonghandler   207
+
 gasnett_atomic_t pong_recvd;
 
-#define CHECK_SRC(token) do {               \
-    gasnet_node_t srcnode;                  \
-    gasnet_AMGetMsgSource(token, &srcnode); \
-    assert_always(srcnode == peerproc);     \
+#define INIT_CHECKS() do {                               \
+    gasnet_node_t srcnode;                                        \
+    gasnet_AMGetMsgSource(token, &srcnode);                       \
+    assert_always(srcnode == peerproc);                           \
+    assert_always(iter < iters);                                  \
+    assert_always(nbytes <= max_payload);                         \
   } while (0)
+
 
 void ping_medhandler(gasnet_token_t token, void *buf, size_t nbytes, 
                      gasnet_handlerarg_t iter, gasnet_handlerarg_t chunkidx) {
+  INIT_CHECKS();
   validate_chunk("Medium Request", buf, nbytes, iter, chunkidx);
-  CHECK_SRC(token);
   GASNET_Safe(gasnet_AMReplyMedium2(token, hidx_pong_medhandler, buf, nbytes, iter, chunkidx));
 }
 void pong_medhandler(gasnet_token_t token, void *buf, size_t nbytes,
                      gasnet_handlerarg_t iter, gasnet_handlerarg_t chunkidx) {
+  INIT_CHECKS();
   validate_chunk("Medium Reply", buf, nbytes, iter, chunkidx);
-  CHECK_SRC(token);
   gasnett_atomic_increment(&pong_recvd,0);
 }
 
 void ping_longhandler(gasnet_token_t token, void *buf, size_t nbytes,
                      gasnet_handlerarg_t iter, gasnet_handlerarg_t chunkidx) {
+  INIT_CHECKS();
   validate_chunk("Long Request", buf, nbytes, iter, chunkidx);
-  CHECK_SRC(token);
   GASNET_Safe(gasnet_AMReplyLong2(token, hidx_pong_longhandler, buf, nbytes, peerrepseg+chunkidx*nbytes, iter, chunkidx));
 }
 
 void pong_longhandler(gasnet_token_t token, void *buf, size_t nbytes,
                      gasnet_handlerarg_t iter, gasnet_handlerarg_t chunkidx) {
+  INIT_CHECKS();
   validate_chunk("Long Reply", buf, nbytes, iter, chunkidx);
-  CHECK_SRC(token);
   gasnett_atomic_increment(&pong_recvd,0);
 }
+
+void ping_alonghandler(gasnet_token_t token, void *buf, size_t nbytes,
+                     gasnet_handlerarg_t iter, gasnet_handlerarg_t chunkidx) {
+  INIT_CHECKS();
+  validate_chunk("AsyncLong Request", buf, nbytes, iter, chunkidx);
+  GASNET_Safe(gasnet_AMReplyLong2(token, hidx_pong_longhandler, buf, nbytes, peerrepseg+(depth+chunkidx)*nbytes, iter, chunkidx));
+}
+
 
 void *doit(void *id);
 
@@ -109,6 +122,7 @@ int main(int argc, char **argv) {
     { hidx_pong_medhandler,    pong_medhandler    },
     { hidx_ping_longhandler,   ping_longhandler   },
     { hidx_pong_longhandler,   pong_longhandler   },
+    { hidx_ping_alonghandler,  ping_alonghandler  },
   };
 
   /* call startup */
@@ -204,6 +218,15 @@ void *doit(void *id) {
           for (chunkidx = 0; chunkidx < depth; chunkidx++) {
             GASNET_Safe(gasnet_AMRequestLong2(peerproc, hidx_ping_longhandler, localseg+chunkidx*sz, sz,
                                   peerreqseg+chunkidx*sz, iter, chunkidx));
+          }
+          /* wait for completion */
+          GASNET_BLOCKUNTIL(gasnett_atomic_read(&pong_recvd,0) == depth);
+
+          /* test AsyncLong AMs */
+          gasnett_atomic_set(&pong_recvd,0,0);
+          for (chunkidx = 0; chunkidx < depth; chunkidx++) {
+            GASNET_Safe(gasnet_AMRequestLongAsync2(peerproc, hidx_ping_alonghandler, localseg+chunkidx*sz, sz,
+                                  peerreqseg+(depth+chunkidx)*sz, iter, chunkidx));
           }
           /* wait for completion */
           GASNET_BLOCKUNTIL(gasnett_atomic_read(&pong_recvd,0) == depth);
