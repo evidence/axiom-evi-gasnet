@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcore2.c,v $
- * $Date: 2007/10/14 14:10:53 $
- * $Revision: 1.4 $
+ * $Date: 2007/10/14 16:35:19 $
+ * $Revision: 1.5 $
  * Copyright 2007, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  *
@@ -219,8 +219,8 @@ int main(int argc, char **argv) {
   }
   myseg = TEST_MYSEG();
   peerreqseg = TEST_SEG(peerproc);
-  peerrepseg = peerreqseg+max_payload*depth;
-  assert_always(TEST_SEGSZ >= max_payload*depth*2);
+  peerrepseg = peerreqseg+max_payload*depth*2;
+  assert_always(TEST_SEGSZ >= max_payload*depth*4);
   localseg = test_malloc(max_payload*depth);
 
   #ifdef GASNET_PAR
