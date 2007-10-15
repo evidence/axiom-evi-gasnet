@@ -5,6 +5,11 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <fcntl.h>
+
+int segsize = 0;
+#ifndef TEST_SEGSZ
+  #define TEST_SEGSZ_EXPR ((uintptr_t)segsize)
+#endif
 #include "test.h"
 
 void assert_eq(char *x, char *y, int len, int start, int i, int j, char *msg)
@@ -18,15 +23,14 @@ void assert_eq(char *x, char *y, int len, int start, int i, int j, char *msg)
     }
   }
   if(error) {
-    ERR("FAILURE %s outer iteration %d inner iteration %d starting point = %d length = %d FAILURE\n",msg,i,j,start,len);
+    ERR("FAILURE %s outer iteration %d inner iteration %d starting point = %d length = %d",msg,i,j,start,len);
   } else {
-    MSG("SUCCESS %s outer iteration %d inner iteration %d starting point = %d length = %d SUCCESS\n",msg,i,j,start,len);
+    MSG("SUCCESS %s outer iteration %d inner iteration %d starting point = %d length = %d",msg,i,j,start,len);
   }
 }
 
 int main(int argc, char **argv)
 {
-    int segsize;
     int outer_iterations;
     int inner_iterations;
     int numprocs, myproc;
