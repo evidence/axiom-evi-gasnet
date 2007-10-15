@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2005/06/01 03:52:54 $
- * $Revision: 1.40 $
+ *     $Date: 2007/10/15 21:06:16 $
+ * $Revision: 1.41 $
  * Description: GASNet lapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -19,6 +19,9 @@
 #define _GASNET_CORE_INTERNAL_H
 
 #include <gasnet_internal.h>
+#if GASNETC_LAPI_RDMA
+  #include <firehose.h>
+#endif
 
 /* LAPI Specific decls */
 #include <stddef.h>
@@ -31,7 +34,7 @@ extern void**             gasnetc_remote_req_hh;
 extern void**             gasnetc_remote_reply_hh;
 
 /* Enable loopback by setting to 1, disable by setting to 0 */
-#define GASNETC_ENABLE_LOOPBACK 1
+#define GASNETC_ENABLE_LOOPBACK 0
 
 #define GASNETC_MAX_NUMHANDLERS   256
 
@@ -299,4 +302,34 @@ extern void gasnetc_token_enqueue(gasnetc_token_queue_t *q, gasnetc_token_t *p, 
 
 /* ------------------------------------------------------------------------------------ */
 
+#if GASNETC_LAPI_RDMA
+#define GASNETC_LAPI_PVO_EXTENT (16L*1024L*1024L)
+#define GASNETC_LAPI_RDMA_GET_TAG (0)
+#define GASNETC_LAPI_RDMA_PUT_TAG (1)
+#define GASNETC_MAX_PVOS 16
+#define GASNETC_LAPI_MAX_TAGS 16
+extern int gasnetc_use_firehose;
+
+typedef struct _gasnetc_lapi_pvo_struct {
+  lapi_user_pvo_t pvo;
+  size_t len;
+  int num_waiting;
+  struct _gasnetc_lapi_pvo_struct *next;
+} gasnetc_lapi_pvo;
+
+extern int gasnetc_num_pvos;
+extern lapi_get_pvo_t *gasnetc_node_pvo_list;
+extern lapi_remote_cxt_t **gasnetc_remote_ctxts;
+extern int *gasnetc_lapi_current_rctxt;
+extern lapi_user_pvo_t **gasnetc_pvo_table;
+extern lapi_long_t *gasnetc_segbase_table;
+extern int *gasnetc_lapi_local_target_counters;
+extern lapi_cntr_t **gasnetc_lapi_completion_ptrs;
+extern lapi_long_t *gasnetc_lapi_target_counter_directory;
+extern gasnetc_lapi_pvo **gasnetc_lapi_pvo_free_list;
+extern gasnetc_lapi_pvo **gasnetc_lapi_pvo_pool;  /* So that we can free at end */
+extern int gasnetc_lapi_done;
+extern int gasnetc_lapi_empty;
+extern int gasnetc_lapi_occupied;
+#endif
 #endif

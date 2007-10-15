@@ -1,6 +1,6 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v $
-#     $Date: 2007/10/15 20:00:24 $
-# $Revision: 1.102 $
+#     $Date: 2007/10/15 21:06:20 $
+# $Revision: 1.103 $
 # Description: Makefile for GASNet tests
 # @configure_input@
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -66,6 +66,7 @@ testprograms_seq =      \
         testmisc        \
         testcore1       \
         testcore2       \
+	testslice	\
         testbarrier     \
         testbarrierconf \
         testbarrierlate \

@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/Makefile.am,v $
-#     $Date: 2007/01/05 10:40:19 $
-# $Revision: 1.34 $
+#     $Date: 2007/10/15 21:06:16 $
+# $Revision: 1.35 $
 # Description: Makefile for GASNet lapi conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -9,6 +9,33 @@
 AUTOMAKE_OPTIONS = foreign 1.4
 
 CONDUIT_NAME=lapi
+
+## From VAPI conduit
+##
+## Firehose
+##
+fh_srcdir = $(top_srcdir)/other/firehose
+
+if HAVE_LAPI_RDMA
+# Some Firehose source files need extra CFLAGS do disable strict/ANSI aliasing
+# optimizations.  By building them separately we can avoid disabling these
+# useful optimizations for the entire conduit.
+fh_special_objs =                                 \
+      $(builddir)/firehose-$(THREAD_MODEL).o      \
+      $(builddir)/firehose_region-$(THREAD_MODEL).o
+fh_install_hdrs = $(fh_srcdir)/firehose_trace.h
+$(builddir)/firehose-$(THREAD_MODEL).o: force
+	@CC@ $(LIBCFLAGS) $(FH_CFLAGS) -o $@ -c $(fh_srcdir)/firehose.c
+$(builddir)/firehose_region-$(THREAD_MODEL).o: force
+	@CC@ $(LIBCFLAGS) $(FH_CFLAGS) -o $@ -c $(fh_srcdir)/firehose_region.c
+
+# These source files, flags, etc. are only needed when building for RDMA
+fh_srclist = \
+      $(srcdir)/gasnet_firehose.c \
+      $(fh_srcdir)/firehose_hash.c
+fh_extralibcflags = -I$(fh_srcdir)
+fh_extradeps = $(fh_srcdir)/*.[ch]
+endif
 
 # any conduit-specific subdirectories containing Makefile.am's
 SUBDIRS = .
@@ -25,6 +52,8 @@ CONDUIT_FILELIST =           \
       gasnet_extended.c      \
       gasnet_extended_fwd.h  \
       gasnet_extended_internal.h \
+      gasnet_firehose.c      \
+      firehose_fwd.h         \
       STATUS                 \
       license.txt
 
@@ -32,23 +61,24 @@ CONDUIT_FILELIST =           \
 # to be compiled into libgasnet on the compiler command line
 CONDUIT_SOURCELIST =          \
       $(srcdir)/gasnet_core.c \
-      $(srcdir)/gasnet_extended.c 
+      $(srcdir)/gasnet_extended.c \
+      $(fh_srclist)
 
 # additional -I or -D directives needed by this specific conduit
 # other than the standard GASNet includes and flags
-CONDUIT_EXTRALIBCFLAGS = 
+CONDUIT_EXTRALIBCFLAGS = $(fh_extralibcflags)
 
 # additional conduit header files to install from external, non-standard directories
-CONDUIT_EXTRAHEADERS = 
+CONDUIT_EXTRAHEADERS = $(fh_install_hdrs)
 
 # additional file dependencies not mentioned elsewhere 
 # that should force libgasnet rebuild on update
-CONDUIT_EXTRADEPS = 
+CONDUIT_EXTRADEPS = $(fh_extradeps)
 
 # additional object files to be included in libgasnet that need to be compiled 
 # using a special, conduit-specific command. These should also be included as
 # forced targets in this file, and should probably use LIBINCLUDES/LIBDEFINES
-CONDUIT_SPECIAL_OBJS = 
+CONDUIT_SPECIAL_OBJS = $(fh_special_objs)
 
 # the default job spawn command to be used for "make run-tests"
 # The following substitutions are performed:
@@ -56,26 +86,20 @@ CONDUIT_SPECIAL_OBJS =
 #   %N = requested node count
 #   %A = program arguments
 #   %Q: Bug1039 - poe requires overquoting
-CONDUIT_RUNCMD = @ENVCMD@ MP_FENCE=-- poe %P -nodes %N -tasks_per_node 1 -rmpool 1 -msg_api LAPI -euilib us -retry 1 -retrycount 10000 -- %Q
+CONDUIT_RUNCMD = @ENVCMD@ MP_FENCE=-- poe %P -nodes %N -tasks_per_node 1 -rmpool 1 -msg_api LAPI -euilib us -retry 1 -retrycount 10000 @POE_RDMA_ARGS@ -- %Q
 
 # conduit-specific tests in ../tests directory
 CONDUIT_TESTS =
 
 # -------- Do not modify anything below this line --------
 
-if BUILD_SEQ_LIBS
-libgasnet_lapi_seq_a_SOURCES =
-libraries_seq = libgasnet-lapi-seq.a
-endif
-if BUILD_PAR_LIBS
+if HAVE_PTHREAD
 libgasnet_lapi_par_a_SOURCES =
-libraries_par = libgasnet-lapi-par.a
-endif
-if BUILD_PARSYNC_LIBS
 libgasnet_lapi_parsync_a_SOURCES =
-libraries_parsync = libgasnet-lapi-parsync.a
+threaded_libraries = libgasnet-lapi-par.a libgasnet-lapi-parsync.a
 endif
-libraries = $(libraries_seq) $(libraries_par) $(libraries_parsync)
+libgasnet_lapi_seq_a_SOURCES =
+libraries = libgasnet-lapi-seq.a $(threaded_libraries)
 
 include $(top_builddir)/other/Makefile-conduit.mak
 
