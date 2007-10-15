@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_putget.c,v $
- *     $Date: 2007/10/15 20:00:18 $
- * $Revision: 1.65 $
+ *     $Date: 2007/10/15 21:29:42 $
+ * $Revision: 1.66 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2004, Rajesh Nishtala <rajeshn@eecs.berkeley.edu> Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -3780,7 +3780,7 @@ static int gasnete_coll_pf_exchg_Dissem(gasnete_coll_op_t *op GASNETE_THREAD_FAR
     int i;
     int srcnode;
     for(i=0; i<op->team->total_ranks; i++) {
-      srcnode  = (op->team->myrank - i) % op->team->total_ranks;
+      srcnode  = (op->team->myrank - i);
       if(srcnode < 0) {
 	srcnode = op->team->total_ranks+srcnode;
       }
@@ -3955,7 +3955,7 @@ static int gasnete_coll_pf_exchgM_Dissem(gasnete_coll_op_t *op GASNETE_THREAD_FA
     int srcnode;
     gasneti_sync_reads();
     for(i=0; i<op->team->total_ranks; i++) {
-      srcnode  = (op->team->myrank - i) % op->team->total_ranks;
+      srcnode  = (op->team->myrank - i);
       if(srcnode < 0) {
 	srcnode = op->team->total_ranks+srcnode;
       }
