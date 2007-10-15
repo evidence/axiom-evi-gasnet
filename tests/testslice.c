@@ -43,8 +43,8 @@ int main(int argc, char **argv)
     numprocs = gasnet_nodes();
 
     if(numprocs != 2) {
-        printf("This test only runs with 2 nodes\n");
-        gasnet_exit(1);
+        MSG("WARNING: This test requires exactly 2 nodes. Test skipped.\n");
+        gasnet_exit(0); /* exit 0 to prevent false negatives in test harnesses for smp-conduit */
     }
     sender_p = (myproc == 0);
 
