@@ -76,7 +76,7 @@ int main(int argc, char **argv)
     for(i=0;i < segsize;i++) {
       shadow_region_1[i] = (char) TEST_RAND(0,255);
     }
-    bzero(shadow_region_2,segsize);
+    memset(shadow_region_2,0,segsize);
 
     /* Big loop performing the following */
     if(sender_p) {
