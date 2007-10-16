@@ -48,8 +48,8 @@ gasnete_coll_autotune_info_t* gasnete_coll_autotune_init(gasnet_node_t mynode, g
   dissem_limit_per_thread = gasneti_getenv_int_withdefault("GASNET_COLL_GATHER_ALL_DISSEM_LIMIT_PER_THREAD", dissem_limit/my_images, 1);
   if(dissem_limit_per_thread*my_images != dissem_limit) {
     if(mynode == 0) {
-      fprintf(stderr, "WARNING: Conflicting environment values for GASNET_COLL_GATHER_ALL_DISSEM_LIMIT (%ld) and GASNET_COLL_GATHER_ALL_DISSEM_LIMIT_PER_THREAD (%ld)\n", dissem_limit, dissem_limit_per_thread);
-      fprintf(stderr, "WARNING: Using: %ld\n", MIN(dissem_limit, dissem_limit_per_thread));
+      fprintf(stderr, "WARNING: Conflicting environment values for GASNET_COLL_GATHER_ALL_DISSEM_LIMIT (%ld) and GASNET_COLL_GATHER_ALL_DISSEM_LIMIT_PER_THREAD (%ld)\n", (long int) dissem_limit, (long int) dissem_limit_per_thread);
+      fprintf(stderr, "WARNING: Using: %ld\n", (long int) MIN(dissem_limit, dissem_limit_per_thread));
     }
   }
   ret->gather_all_dissem_limit = MIN(dissem_limit, dissem_limit_per_thread*my_images);
@@ -58,8 +58,8 @@ gasnete_coll_autotune_info_t* gasnete_coll_autotune_init(gasnet_node_t mynode, g
   dissem_limit_per_thread = gasneti_getenv_int_withdefault("GASNET_COLL_EXCHANGE_DISSEM_LIMIT_PER_THREAD", dissem_limit/(my_images*my_images), 1);
   if(dissem_limit_per_thread*my_images*my_images != dissem_limit) {
     if(mynode == 0) {
-      fprintf(stderr, "WARNING: Conflicting environment values for GASNET_COLL_EXCHANGE_DISSEM_LIMIT (%ld) and GASNET_COLL_EXCHANGE_DISSEM_LIMIT_PER_THREAD (%ld)\n", dissem_limit, dissem_limit_per_thread);
-      fprintf(stderr, "WARNING: Using: %ld\n", MIN(dissem_limit, dissem_limit_per_thread));
+      fprintf(stderr, "WARNING: Conflicting environment values for GASNET_COLL_EXCHANGE_DISSEM_LIMIT (%ld) and GASNET_COLL_EXCHANGE_DISSEM_LIMIT_PER_THREAD (%ld)\n", (long int) dissem_limit, (long int) dissem_limit_per_thread);
+      fprintf(stderr, "WARNING: Using: %ld\n", (long int) MIN(dissem_limit, dissem_limit_per_thread));
     }
   }
   ret->exchange_dissem_limit = MIN(dissem_limit, dissem_limit_per_thread*my_images*my_images);
