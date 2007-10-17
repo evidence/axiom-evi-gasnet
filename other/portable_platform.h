@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/portable_platform.h,v $
- *     $Date: 2007/09/08 17:55:01 $
- * $Revision: 1.15 $
+ *     $Date: 2007/10/17 02:06:59 $
+ * $Revision: 1.16 $
  * Description: Portable platform detection header
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -232,9 +232,16 @@
   #else
     #define PLATFORM_COMPILER_CRAY_C  1
   #endif
-  #define PLATFORM_COMPILER_VERSION \
-          PLATFORM_COMPILER_VERSION_INT(_RELEASE,_RELEASE_MINOR,0)
-  #define PLATFORM_COMPILER_VERSION_STR _RELEASE_STRING
+  #if defined(_RELEASE) && defined(_RELEASE_MINOR) /* X1 */
+    #define PLATFORM_COMPILER_VERSION \
+            PLATFORM_COMPILER_VERSION_INT(_RELEASE,_RELEASE_MINOR,0)
+  #elif defined(_RELEASE) /* T3E */
+    #define PLATFORM_COMPILER_VERSION \
+            PLATFORM_COMPILER_VERSION_INT(_RELEASE,0,0)
+  #endif
+  #ifdef _RELEASE_STRING /* X1 */
+    #define PLATFORM_COMPILER_VERSION_STR _RELEASE_STRING
+  #endif
 
 #elif defined(__KCC)
   #define PLATFORM_COMPILER_KAI  1
