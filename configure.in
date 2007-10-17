@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2007/10/15 21:06:14 $
-# $Revision: 1.463 $
+#     $Date: 2007/10/17 08:27:28 $
+# $Revision: 1.464 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.463 $)
+AC_REVISION($Revision: 1.464 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -512,6 +512,7 @@ esac
 
 GASNET_IF_ENABLED(debug, Build GASNet in a debugging mode, 
   [ 
+    if test -z "$GASNET_SUPPRESS_DEBUG_WARNING" ; then
 GASNET_MSG_WARN([
 -----------------------------------------------------------------------
  WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING
@@ -523,6 +524,7 @@ GASNET_MSG_WARN([
 
  WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING
 -----------------------------------------------------------------------])
+    fi
     CFLAGS="$CCDEBUGFLAGS"
     AC_DEFINE(GASNET_DEBUG)
     BUILDCONFIG="debug"

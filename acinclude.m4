@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2007/09/10 13:14:31 $
-dnl $Revision: 1.126 $
+dnl     $Date: 2007/10/17 08:27:28 $
+dnl $Revision: 1.127 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -536,8 +536,14 @@ AC_DEFUN([GASNET_ENV_DEFAULT],[
 dnl $1 = optional env variables to restore
 AC_DEFUN([GASNET_START_CONFIGURE],[
   GASNET_FUN_BEGIN([$0($1)])
-  rm -f .[]cv_prefix[]configure_warnings.tmp
   GASNET_PATH_PROGS(PWD_PROG, pwd, pwd)
+
+  define([GASNET_CONFIGURE_WARNING_LOCAL],[.[]cv_prefix[]configure_warnings.tmp])
+  if test -z "$GASNET_CONFIGURE_WARNING_GLOBAL" ; then
+    GASNET_CONFIGURE_WARNING_GLOBAL="`$PWD_PROG`/GASNET_CONFIGURE_WARNING_LOCAL"
+    export GASNET_CONFIGURE_WARNING_GLOBAL
+  fi
+  rm -f "GASNET_CONFIGURE_WARNING_LOCAL"
 
   dnl Save and display useful info about the configure environment
   GASNET_GET_AUTOCONF_VERSION()
@@ -1279,24 +1285,28 @@ AC_DEFUN([GASNET_MSG_WARN],[
   pushdef([usermsg],[patsubst([$1],["],[\\"])])
   GASNET_FUN_BEGIN([$0()])
   AC_MSG_WARN([$1])
-  echo "usermsg" >> .[]cv_prefix[]configure_warnings.tmp
-  echo " " >> .[]cv_prefix[]configure_warnings.tmp
+  echo "usermsg" >> "GASNET_CONFIGURE_WARNING_LOCAL"
+  echo " " >> "GASNET_CONFIGURE_WARNING_LOCAL"
   GASNET_FUN_END([$0()])
   popdef([usermsg])
 ])
 
 dnl Display the warning summary
 AC_DEFUN([GASNET_MSG_WARN_FINISH],[
-  if test -f .[]cv_prefix[]configure_warnings.tmp ; then
+  if test -f "GASNET_CONFIGURE_WARNING_LOCAL" ; then
     echo "--------------------------------------------------------------------" >&2
     echo "--------------------------------------------------------------------" >&5
     echo "configure warning summary:" >&2
     echo "configure warning summary:" >&5
     echo " " >&2
     echo " " >&5
-    cat .[]cv_prefix[]configure_warnings.tmp >&2
-    cat .[]cv_prefix[]configure_warnings.tmp >&5
-    rm -f .[]cv_prefix[]configure_warnings.tmp
+    cat "GASNET_CONFIGURE_WARNING_LOCAL" >&2
+    cat "GASNET_CONFIGURE_WARNING_LOCAL" >&5
+    mv "GASNET_CONFIGURE_WARNING_LOCAL" "GASNET_CONFIGURE_WARNING_LOCAL"-
+    if test -n "$GASNET_CONFIGURE_WARNING_GLOBAL" ; then
+      cat "GASNET_CONFIGURE_WARNING_LOCAL"- >> "$GASNET_CONFIGURE_WARNING_GLOBAL"
+    fi
+    rm -f "GASNET_CONFIGURE_WARNING_LOCAL" "GASNET_CONFIGURE_WARNING_LOCAL"-
   fi
 ])
 
