@@ -1,3 +1,10 @@
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testslice.c,v $
+ *     $Date: 2007/10/17 08:59:34 $
+ * $Revision: 1.7 $
+ * Description: GASNet randomized get/put correctness validation test
+ * Copyright 2007, Parry Husbands and Dan Bonachea <bonachea@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
+ */
 #include "gasnet.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,7 +21,7 @@ int segsize = 0;
 
 #define OUTPUT_SUCCESS 0
 uint64_t failures = 0;
-void assert_eq(char *x, char *y, int len, int start, int i, int j, char *msg)
+void assert_eq(char *x, char *y, int len, int start, int i, int j, const char *msg)
 {
   int k;
   int error = 0;
@@ -36,8 +43,9 @@ void assert_eq(char *x, char *y, int len, int start, int i, int j, char *msg)
 
 int main(int argc, char **argv)
 {
-    int outer_iterations;
-    int inner_iterations;
+    int outer_iterations = 0;
+    int inner_iterations = 0;
+    int seedoffset = 0;
     int numprocs, myproc;
     int sender_p;
     char *shadow_region_1, *shadow_region_2;
@@ -51,26 +59,38 @@ int main(int argc, char **argv)
     myproc = gasnet_mynode();
     numprocs = gasnet_nodes();
 
+    if (argc > 1) segsize = atoi(argv[1]);
+    if (!segsize) segsize = 1024*1000;
+    if (argc > 2) outer_iterations = atoi(argv[2]);
+    if (!outer_iterations) outer_iterations = 10;
+    if (argc > 3) inner_iterations = atoi(argv[3]);
+    if (!inner_iterations) inner_iterations = 10;
+    if (argc > 4) seedoffset = atoi(argv[4]);
+
+    GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ, TEST_MINHEAPOFFSET));
+
+    test_init("testslice",0, "(segsize) (iterations) (# of sizes per iteration) (seed)");
+
+    /* parse arguments */
+    if (argc > 5) test_usage();
+    
     if(numprocs != 2) {
         MSG("WARNING: This test requires exactly 2 nodes. Test skipped.\n");
         gasnet_exit(0); /* exit 0 to prevent false negatives in test harnesses for smp-conduit */
     }
     sender_p = (myproc == 0);
 
-    /* parse arguments */
-    if (argc != 4) {
-        printf("Usage: %s (segsize) (iterations) (# of sizes per iteration)\n", argv[0]);
-        gasnet_exit(1);
+    if (seedoffset == 0) {
+      seedoffset = (((unsigned int)TIME()) & 0xFFFF);
+      #if 0 /* currently omit seed bcast, as only P0 uses rand */
+        TEST_BCAST(&seedoffset, 0, &seedoffset, sizeof(&seedoffset));
+      #endif
     }
+    TEST_SRAND(myproc+seedoffset);
 
-    segsize = atoi(argv[1]);
-    outer_iterations = atoi(argv[2]);
-    inner_iterations = atoi(argv[3]);
+    MSG0("Running with segment size = %d outer iterations=%d inner iterations=%d seed=%d",
+         segsize,outer_iterations, inner_iterations, seedoffset);
 
-    printf("Running with segment size = %d outer iterations=%d inner iterations=%d\n",segsize,outer_iterations, inner_iterations);
-
-    GASNET_Safe(gasnet_attach(NULL, 0, segsize, TEST_MINHEAPOFFSET));
-    
     BARRIER();
 
     /* Allocate two shadow regions the same size as the segment */
@@ -117,7 +137,7 @@ int main(int argc, char **argv)
         TEST_PROGRESS_BAR(i,outer_iterations);
       }
       if(failures == 0) {
-        MSG("testslice PASSED\n");
+        MSG("testslice PASSED");
       }
     }
     BARRIER();
