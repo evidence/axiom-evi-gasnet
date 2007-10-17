@@ -204,7 +204,7 @@ void gasnete_coll_scratch_add_op_to_config(gasnete_coll_scratch_config_t *config
 }
 
 /* remove the first op from the configuration and return it*/
-GASNETI_INLINE(gasnete_coll_scratch_remove_op_from_config)
+GASNETI_INLINE(gasnete_coll_scratch_remove_first_op_from_config)
 gasnete_coll_op_info_t* gasnete_coll_scratch_remove_first_op_from_config(gasnete_coll_scratch_config_t *config) {
   gasnete_coll_op_info_t *ret;
 
