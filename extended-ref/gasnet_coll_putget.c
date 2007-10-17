@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_putget.c,v $
- *     $Date: 2007/10/17 16:28:18 $
- * $Revision: 1.67 $
+ *     $Date: 2007/10/17 18:51:39 $
+ * $Revision: 1.68 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2004, Rajesh Nishtala <rajeshn@eecs.berkeley.edu> Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -437,6 +437,10 @@ static int gasnete_coll_pf_bcast_TreePutSeg(gasnete_coll_op_t *op GASNETE_THREAD
         handle_vec->num_handles = num_segs;
         handle_vec->handles = gasneti_malloc(sizeof(gasnet_coll_handle_t)*num_segs);
         
+        /*
+          the TreePut routines only work w/ the single address mode and therefore we need ensure choose 
+          between TreePut and TreePutScratch which collective routine gets invoked when the we are segmenting broadcast
+        */
         if(flags & GASNET_COLL_SINGLE) {
           for(i=0; i<num_segs-1; i++) {
             handle_vec->handles[i] = gasnete_coll_bcast_TreePut(op->team, gasnete_coll_scale_ptr(args->dst, sent_bytes, 1), 
