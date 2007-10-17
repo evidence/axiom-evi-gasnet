@@ -24,6 +24,10 @@
   } cnos_nidpid_map_t;
   extern void cnos_barrier_init(ptl_handle_ni_t ni_handle); /* NOOP function on Catamount */
   extern int cnos_barrier(void);
+  #if PLATFORM_OS_CNL
+    extern void cnos_pm_barrier(int);
+    extern int cnos_register_ptlid(ptl_process_id_t);
+  #endif
 #endif
 
 /* set to one for ReqRB Auto Unlink
