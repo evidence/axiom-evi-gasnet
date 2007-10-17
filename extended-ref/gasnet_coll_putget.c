@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_putget.c,v $
- *     $Date: 2007/10/15 21:29:42 $
- * $Revision: 1.66 $
+ *     $Date: 2007/10/17 16:28:18 $
+ * $Revision: 1.67 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2004, Rajesh Nishtala <rajeshn@eecs.berkeley.edu> Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -437,19 +437,33 @@ static int gasnete_coll_pf_bcast_TreePutSeg(gasnete_coll_op_t *op GASNETE_THREAD
         handle_vec->num_handles = num_segs;
         handle_vec->handles = gasneti_malloc(sizeof(gasnet_coll_handle_t)*num_segs);
         
-        for(i=0; i<num_segs-1; i++) {
-          
+        if(flags & GASNET_COLL_SINGLE) {
+          for(i=0; i<num_segs-1; i++) {
+            handle_vec->handles[i] = gasnete_coll_bcast_TreePut(op->team, gasnete_coll_scale_ptr(args->dst, sent_bytes, 1), 
+                                                                srcproc, gasnete_coll_scale_ptr(args->src, sent_bytes, 1), seg_size, flags, 
+                                                                tree->geom->tree_type, op->sequence+i+1 GASNETE_THREAD_PASS);
+            gasnete_coll_save_coll_handle(&handle_vec->handles[i] GASNETE_THREAD_PASS);
+            sent_bytes+=seg_size;
+          }
           handle_vec->handles[i] = gasnete_coll_bcast_TreePut(op->team, gasnete_coll_scale_ptr(args->dst, sent_bytes, 1), 
-                                                              srcproc, gasnete_coll_scale_ptr(args->src, sent_bytes, 1), seg_size, flags, 
+                                                              srcproc, 
+                                                              gasnete_coll_scale_ptr(args->src, sent_bytes, 1), args->nbytes-sent_bytes, flags, 
                                                               tree->geom->tree_type, op->sequence+i+1 GASNETE_THREAD_PASS);
           gasnete_coll_save_coll_handle(&handle_vec->handles[i] GASNETE_THREAD_PASS);
-          sent_bytes+=seg_size;
+        } else {
+          for(i=0; i<num_segs-1; i++) {
+            handle_vec->handles[i] = gasnete_coll_bcast_TreePutScratch(op->team, gasnete_coll_scale_ptr(args->dst, sent_bytes, 1), 
+                                                                srcproc, gasnete_coll_scale_ptr(args->src, sent_bytes, 1), seg_size, flags, 
+                                                                tree->geom->tree_type, op->sequence+i+1 GASNETE_THREAD_PASS);
+            gasnete_coll_save_coll_handle(&handle_vec->handles[i] GASNETE_THREAD_PASS);
+            sent_bytes+=seg_size;
+          }
+          handle_vec->handles[i] = gasnete_coll_bcast_TreePutScratch(op->team, gasnete_coll_scale_ptr(args->dst, sent_bytes, 1), 
+                                                              srcproc, 
+                                                              gasnete_coll_scale_ptr(args->src, sent_bytes, 1), args->nbytes-sent_bytes, flags, 
+                                                              tree->geom->tree_type, op->sequence+i+1 GASNETE_THREAD_PASS);
+          gasnete_coll_save_coll_handle(&handle_vec->handles[i] GASNETE_THREAD_PASS);          
         }
-        handle_vec->handles[i] = gasnete_coll_bcast_TreePut(op->team, gasnete_coll_scale_ptr(args->dst, sent_bytes, 1), 
-                                                                   srcproc, 
-                                                                   gasnete_coll_scale_ptr(args->src, sent_bytes, 1), args->nbytes-sent_bytes, flags, 
-                                                                  tree->geom->tree_type, op->sequence+i+1 GASNETE_THREAD_PASS);
-        gasnete_coll_save_coll_handle(&handle_vec->handles[i] GASNETE_THREAD_PASS);
       }
         data->state = 2;
         
@@ -1069,17 +1083,31 @@ static int gasnete_coll_pf_bcastM_TreePutSeg(gasnete_coll_op_t *op GASNETE_THREA
         handle_vec->handles = gasneti_malloc(sizeof(gasnet_coll_handle_t)*num_segs);
         dstlist = (void**) ((int8_t*) data->private_data + sizeof(gasnete_coll_handle_vec_t));
 
-        for(i=0; i<num_segs-1; i++) {
+        if(flags & GASNET_COLL_SINGLE) {
+          for(i=0; i<num_segs-1; i++) {
+            gasnete_coll_scale_ptrM(dstlist, args->dstlist, sent_bytes, 1, numaddrs); 
+            handle_vec->handles[i] = gasnete_coll_bcastM_TreePut(op->team, dstlist, srcproc, (int8_t*) args->src+sent_bytes, seg_size, flags, 
+                                                                tree->geom->tree_type, op->sequence+i+1 GASNETE_THREAD_PASS);
+            gasnete_coll_save_coll_handle(&handle_vec->handles[i] GASNETE_THREAD_PASS);
+            sent_bytes+=seg_size;
+          }
           gasnete_coll_scale_ptrM(dstlist, args->dstlist, sent_bytes, 1, numaddrs); 
-          handle_vec->handles[i] = gasnete_coll_bcastM_TreePut(op->team, dstlist, srcproc, (int8_t*) args->src+sent_bytes, seg_size, flags, 
-                                                                      tree->geom->tree_type, op->sequence+i+1 GASNETE_THREAD_PASS);
+          handle_vec->handles[i] = gasnete_coll_bcastM_TreePut(op->team, dstlist, srcproc, (int8_t*) args->src+i*seg_size, args->nbytes-sent_bytes, flags, 
+                                                               tree->geom->tree_type, op->sequence+i+1 GASNETE_THREAD_PASS);
           gasnete_coll_save_coll_handle(&handle_vec->handles[i] GASNETE_THREAD_PASS);
-          sent_bytes+=seg_size;
+        } else {
+          for(i=0; i<num_segs-1; i++) {
+            gasnete_coll_scale_ptrM(dstlist, args->dstlist, sent_bytes, 1, numaddrs); 
+            handle_vec->handles[i] = gasnete_coll_bcastM_TreePutScratch(op->team, dstlist, srcproc, (int8_t*) args->src+sent_bytes, seg_size, flags, 
+                                                                 tree->geom->tree_type, op->sequence+i+1 GASNETE_THREAD_PASS);
+            gasnete_coll_save_coll_handle(&handle_vec->handles[i] GASNETE_THREAD_PASS);
+            sent_bytes+=seg_size;
+          }
+          gasnete_coll_scale_ptrM(dstlist, args->dstlist, sent_bytes, 1, numaddrs); 
+          handle_vec->handles[i] = gasnete_coll_bcastM_TreePutScratch(op->team, dstlist, srcproc, (int8_t*) args->src+i*seg_size, args->nbytes-sent_bytes, flags, 
+                                                               tree->geom->tree_type, op->sequence+i+1 GASNETE_THREAD_PASS);
+          gasnete_coll_save_coll_handle(&handle_vec->handles[i] GASNETE_THREAD_PASS);
         }
-        gasnete_coll_scale_ptrM(dstlist, args->dstlist, sent_bytes, 1, numaddrs); 
-        handle_vec->handles[i] = gasnete_coll_bcastM_TreePut(op->team, dstlist, srcproc, (int8_t*) args->src+i*seg_size, args->nbytes-sent_bytes, flags, 
-                                                                    tree->geom->tree_type, op->sequence+i+1 GASNETE_THREAD_PASS);
-        gasnete_coll_save_coll_handle(&handle_vec->handles[i] GASNETE_THREAD_PASS);
       }
       data->state = 2;
         
