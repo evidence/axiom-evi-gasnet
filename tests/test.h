@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2007/10/15 20:00:24 $
- * $Revision: 1.111 $
+ *     $Date: 2007/10/17 08:05:32 $
+ * $Revision: 1.112 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -253,11 +253,11 @@ static void test_free(void *ptr) {
 #define TEST_PROGRESS_BAR(curriter, numiters) do {    \
     static int _breakwidth, _breakpt;                 \
     if_pf(curriter == 0) {                            \
-      _breakwidth = (numiters/TEST_PROGRESS_STEPS);   \
+      _breakwidth = ((numiters)/TEST_PROGRESS_STEPS);   \
       _breakpt = _breakwidth;                         \
     }                                                 \
     if (((curriter)+1) == _breakpt) {                 \
-      MSG0("%i%%",(int)(100.0*((curriter)+1)/iters)); \
+      MSG0("%i%%",(int)(100.0*((curriter)+1)/(numiters))); \
       _breakpt += _breakwidth;                        \
     }                                                 \
   } while (0)

@@ -12,6 +12,8 @@ int segsize = 0;
 #endif
 #include "test.h"
 
+#define OUTPUT_SUCCESS 0
+uint64_t failures = 0;
 void assert_eq(char *x, char *y, int len, int start, int i, int j, char *msg)
 {
   int k;
@@ -24,8 +26,11 @@ void assert_eq(char *x, char *y, int len, int start, int i, int j, char *msg)
   }
   if(error) {
     ERR("FAILURE %s outer iteration %d inner iteration %d starting point = %d length = %d",msg,i,j,start,len);
+    failures++;
   } else {
+#if OUTPUT_SUCCESS
     MSG("SUCCESS %s outer iteration %d inner iteration %d starting point = %d length = %d",msg,i,j,start,len);
+#endif
   }
 }
 
@@ -109,6 +114,10 @@ int main(int argc, char **argv)
           /* Verify */
           assert_eq(shadow_region_2+local_starting_point_2, shadow_region_1 + starting_point, len,starting_point,i,j,"Out of segment get");
         }
+        TEST_PROGRESS_BAR(i,outer_iterations);
+      }
+      if(failures == 0) {
+        MSG("testslice PASSED\n");
       }
     }
     BARRIER();
