@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_putget.c,v $
- *     $Date: 2007/10/17 18:51:39 $
- * $Revision: 1.68 $
+ *     $Date: 2007/10/17 23:23:05 $
+ * $Revision: 1.69 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2004, Rajesh Nishtala <rajeshn@eecs.berkeley.edu> Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -3725,7 +3725,7 @@ static int gasnete_coll_pf_exchg_Dissem(gasnete_coll_op_t *op GASNETE_THREAD_FAR
   } 
   
    scratch1 = (int8_t*)op->team->scratch_segs[op->team->myrank].addr + op->myscratchpos;
-   scratch2 = (int8_t*)scratch1 + ((args->nbytes)*dissem->max_dissem_blocks)*((dissem->dissemination_phases+1)*(dissem->dissemination_radix-1));
+   scratch2 = (int8_t*)scratch1 + ((args->nbytes)*dissem->max_dissem_blocks)*((2)*(dissem->dissemination_radix-1));
 
    
    if(data->state == 1) {
@@ -3880,15 +3880,15 @@ static int gasnete_coll_pf_exchgM_Dissem(gasnete_coll_op_t *op GASNETE_THREAD_FA
   /*state dissem_phases*2+2 will represent memory copies on the output side*/
   /*states 2 through dissem_phases*2+1 represent intermediary steps*/
   /*each dissem phase will get two steps, one for sending and one for recieiving*/
+  
   if(data->state == 0) {
     if(!gasnete_coll_scratch_alloc_nb(op GASNETE_THREAD_PASS)) return 0;
     data->state = 1;
   } 
   
   scratch1 = (int8_t*)op->team->scratch_segs[op->team->myrank].addr + op->myscratchpos;
-  scratch2 = (int8_t*)scratch1 + ((args->nbytes*gasnete_coll_my_images*gasnete_coll_my_images)*dissem->max_dissem_blocks)*((dissem->dissemination_phases+1)*(dissem->dissemination_radix-1));
-  
-  
+  scratch2 = (int8_t*)scratch1 + ((args->nbytes*gasnete_coll_my_images*gasnete_coll_my_images)*dissem->max_dissem_blocks)*((2)*(dissem->dissemination_radix-1));
+   
   if(data->state == 1) {
     int i,j,k=0;
     int8_t **out_ptr;
@@ -3896,10 +3896,7 @@ static int gasnete_coll_pf_exchgM_Dissem(gasnete_coll_op_t *op GASNETE_THREAD_FA
         !gasnete_coll_generic_insync(data)) {
       return result;
     }
-    
-    scratch1 = (int8_t*)op->team->scratch_segs[op->team->myrank].addr + op->myscratchpos;
-    scratch2 = (int8_t*)scratch1 + ((args->nbytes*gasnete_coll_my_images*gasnete_coll_my_images)*dissem->max_dissem_blocks)*((dissem->dissemination_phases+1)*(dissem->dissemination_radix-1));
-  
+      
     /* perform local rotation and gather*/
     data->private_data = (void**) gasneti_malloc(sizeof(void*)*gasnete_coll_my_images);
     
@@ -3992,6 +3989,7 @@ static int gasnete_coll_pf_exchgM_Dissem(gasnete_coll_op_t *op GASNETE_THREAD_FA
 	srcnode = op->team->total_ranks+srcnode;
       }
       
+
       gasnete_coll_scale_ptrM((void**) data->private_data, &GASNETE_COLL_MY_1ST_IMAGE(args->dstlist, op->flags), i*gasnete_coll_my_images,
                               args->nbytes, gasnete_coll_my_images);
       gasnete_coll_local_scatter(gasnete_coll_my_images,
