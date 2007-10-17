@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refcoll.c,v $
- *     $Date: 2007/10/15 20:00:19 $
- * $Revision: 1.65 $
+ *     $Date: 2007/10/17 00:52:16 $
+ * $Revision: 1.66 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1019,7 +1019,6 @@ extern void gasnete_coll_init(const gasnet_image_t images[], gasnet_image_t my_i
   static int team_all_set = 0;
   static int barrier_fn_set = 0;
   static gasnet_image_t remain = 0;
-  static size_t eager_min, eager_scale;
   size_t image_size = gasneti_nodes * sizeof(gasnet_image_t);
   static size_t smallest_scratch_seg;
   int first;
@@ -1065,9 +1064,9 @@ extern void gasnete_coll_init(const gasnet_image_t images[], gasnet_image_t my_i
     gasnete_coll_opt_gather_all_enabled = gasneti_getenv_yesno_withdefault("GASNET_COLL_GATHER_ALL_OPT", gasnete_coll_opt_enabled);
     gasnete_coll_opt_exchange_enabled = gasneti_getenv_yesno_withdefault("GASNET_COLL_EXCHANGE_OPT", gasnete_coll_opt_enabled);
 
-    eager_min = gasneti_getenv_int_withdefault("GASNET_COLL_P2P_EAGER_MIN",
+    gasnete_coll_p2p_eager_min = gasneti_getenv_int_withdefault("GASNET_COLL_P2P_EAGER_MIN",
 								GASNETE_COLL_P2P_EAGER_MIN_DEFAULT, 0);
-    eager_scale = gasneti_getenv_int_withdefault("GASNET_COLL_P2P_EAGER_SCALE",
+    gasnete_coll_p2p_eager_scale = gasneti_getenv_int_withdefault("GASNET_COLL_P2P_EAGER_SCALE",
 								  GASNETE_COLL_P2P_EAGER_SCALE_DEFAULT, 0);
     
     gasnete_coll_active_init();
@@ -1208,8 +1207,6 @@ extern void gasnete_coll_init(const gasnet_image_t images[], gasnet_image_t my_i
   gasneti_mutex_unlock(&team_all_setup_lock);
   
   gasnete_coll_init_done = 1;
-  gasnete_coll_p2p_eager_min = eager_min;
-  gasnete_coll_p2p_eager_scale = eager_scale;
 
 }
 
