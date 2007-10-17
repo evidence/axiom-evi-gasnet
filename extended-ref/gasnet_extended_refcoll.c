@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refcoll.c,v $
- *     $Date: 2007/10/17 01:26:09 $
- * $Revision: 1.69 $
+ *     $Date: 2007/10/17 01:53:24 $
+ * $Revision: 1.70 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1015,10 +1015,6 @@ extern void gasnete_coll_init(const gasnet_image_t images[], gasnet_image_t my_i
   gasnete_coll_threaddata_t *td = GASNETE_COLL_MYTHREAD;
   static gasneti_cond_t init_cond = GASNETI_COND_INITIALIZER;
   static gasneti_mutex_t init_lock = GASNETI_MUTEX_INITIALIZER;
-  static gasneti_mutex_t barrier_fn_lock = GASNETI_MUTEX_INITIALIZER;
-  static gasneti_mutex_t team_all_setup_lock = GASNETI_MUTEX_INITIALIZER;
-  static int team_all_set = 0;
-  static int barrier_fn_set = 0;
   static gasnet_image_t remain = 0;
   size_t image_size = gasneti_nodes * sizeof(gasnet_image_t);
   static size_t smallest_scratch_seg;
@@ -1146,6 +1142,29 @@ extern void gasnete_coll_init(const gasnet_image_t images[], gasnet_image_t my_i
       #endif
     }
 
+    /* setup information for the global team */
+    GASNET_TEAM_ALL = (struct gasnete_coll_team_t_*) gasneti_malloc(sizeof(struct gasnete_coll_team_t_));
+    GASNET_TEAM_ALL->team_id = 0;
+    GASNET_TEAM_ALL->global_team = 1;
+    GASNET_TEAM_ALL->tree_geom_cache_head = NULL;
+    GASNET_TEAM_ALL->tree_geom_cache_tail = NULL;
+    GASNET_TEAM_ALL->dissem_cache_head = NULL;
+    GASNET_TEAM_ALL->dissem_cache_tail = NULL;
+    GASNET_TEAM_ALL->myrank = gasneti_mynode;
+    GASNET_TEAM_ALL->total_ranks = gasneti_nodes;
+    GASNET_TEAM_ALL->scratch_segs = gasnete_coll_auxseg_save;
+    GASNET_TEAM_ALL->smallest_scratch_seg = smallest_scratch_seg;
+    GASNET_TEAM_ALL->autotune_info = gasnete_coll_autotune_init(gasneti_mynode, gasneti_nodes, 
+                                                                gasnete_coll_my_images, gasnete_coll_total_images,
+                                                                smallest_scratch_seg);
+    gasnete_coll_alloc_new_scratch_status(GASNET_TEAM_ALL);
+    if(!gasnete_coll_fixed_image_count && gasneti_mynode ==0) {
+      fprintf(stderr, "WARNING: Current collective implementation requires constant number of threads on each node\n");
+      fprintf(stderr, "WARNING: for optimized collectives.\n");
+    }
+
+    /* This barrier, together with the thread barrier that follows, ensures all global
+       collectives initialization is complete before any collectives can be called. */
     gasnet_barrier_notify((int)gasnete_coll_sequence,0);
     gasnet_barrier_wait((int)gasnete_coll_sequence,0);
   }
@@ -1162,6 +1181,10 @@ extern void gasnete_coll_init(const gasnet_image_t images[], gasnet_image_t my_i
     }
     gasneti_mutex_unlock(&init_lock);
   }
+  gasnete_coll_init_done = 1;
+
+  /* Only thread-local initialization may follow this point */
+
   #if GASNET_DEBUG
     /* Ensure agreement across threads */
     gasneti_assert(fn_count == gasnete_coll_fn_count);
@@ -1176,41 +1199,6 @@ extern void gasnete_coll_init(const gasnet_image_t images[], gasnet_image_t my_i
   } else {
     td->my_local_image = 0;
   }
-  
-
-  gasneti_mutex_lock(&team_all_setup_lock);
-  if(!team_all_set) {
-   
-    team_all_set = 1;
-    
-    /*setup information for the global team*/
-    GASNET_TEAM_ALL = (struct gasnete_coll_team_t_*) gasneti_malloc(sizeof(struct gasnete_coll_team_t_));
-    GASNET_TEAM_ALL->team_id = 0;
-    GASNET_TEAM_ALL->global_team = 1;
-    GASNET_TEAM_ALL->tree_geom_cache_head = NULL;
-    GASNET_TEAM_ALL->tree_geom_cache_tail = NULL;
-    GASNET_TEAM_ALL->dissem_cache_head = NULL;
-    GASNET_TEAM_ALL->dissem_cache_tail = NULL;
-    GASNET_TEAM_ALL->myrank = gasneti_mynode;
-    GASNET_TEAM_ALL->total_ranks = gasneti_nodes;
-    GASNET_TEAM_ALL->scratch_segs = gasnete_coll_auxseg_save;
-    GASNET_TEAM_ALL->smallest_scratch_seg = smallest_scratch_seg;
-    GASNET_TEAM_ALL->autotune_info = gasnete_coll_autotune_init(gasneti_mynode, gasneti_nodes, 
-                                                                gasnete_coll_my_images, gasnete_coll_total_images,
-                                                                smallest_scratch_seg);
-    gasnete_coll_alloc_new_scratch_status(GASNET_TEAM_ALL);
-    /* barrier to make sure that no one sends us scratch clear messages before our scratch space is initialized*/
-    if(!gasnete_coll_fixed_image_count && gasneti_mynode ==0) {
-      fprintf(stderr, "WARNING: Current collective implementation requires constant number of threads on each node\n");
-      fprintf(stderr, "WARNING: for optimized collectives.\n");
-    }
-    gasnet_barrier_notify(0, GASNET_BARRIERFLAG_ANONYMOUS);
-    gasnet_barrier_wait(0, GASNET_BARRIERFLAG_ANONYMOUS);
-  }
-  gasneti_mutex_unlock(&team_all_setup_lock);
-  
-  gasnete_coll_init_done = 1;
-
 }
 
 /*---------------------------------------------------------------------------------*/
