@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refcoll.c,v $
- *     $Date: 2007/10/17 01:05:19 $
- * $Revision: 1.67 $
+ *     $Date: 2007/10/17 01:18:20 $
+ * $Revision: 1.68 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -27,7 +27,7 @@ the files are compiled under their own .o files)*/
 
 size_t gasnete_coll_p2p_eager_min = 0;
 size_t gasnete_coll_p2p_eager_scale = 0;
-size_t gasnete_coll_p2p_eager_scaled = 0;
+static size_t gasnete_coll_p2p_eager_buffersz = 0;
 /*set a std segment size of 1024 bytes*/
 
 /*---------------------------------------------------------------------------------*/
@@ -1098,8 +1098,8 @@ extern void gasnete_coll_init(const gasnet_image_t images[], gasnet_image_t my_i
     }
     gasnete_coll_my_images = gasnete_coll_all_images[gasneti_mynode];
     gasnete_coll_my_offset = gasnete_coll_all_offset[gasneti_mynode];
-    gasnete_coll_p2p_eager_scaled = MAX(gasnete_coll_p2p_eager_min,
-			      		gasnete_coll_total_images * gasnete_coll_p2p_eager_scale);
+    gasnete_coll_p2p_eager_buffersz = MAX(gasnete_coll_p2p_eager_min,
+					  gasnete_coll_total_images * gasnete_coll_p2p_eager_scale);
     #if GASNET_PAR
       if (!images) {
         gasnete_coll_multi_images = 0;
@@ -1395,14 +1395,14 @@ extern void gasnete_coll_init(const gasnet_image_t images[], gasnet_image_t my_i
 
       /* If not found, create it with all zeros */
       if_pf (p2p == head) {
-	size_t buffersz = gasnete_coll_p2p_eager_scaled;
 	size_t statesz = GASNETI_ALIGNUP(2*gasnete_coll_total_images * sizeof(uint32_t), 8);
 
 	p2p = gasnete_coll_p2p_freelist;	/* XXX: per-team */
 
 	if_pf (p2p == NULL) {
 	  /* Round to 8-byte alignment of entry array */
-	  size_t alloc_size = GASNETI_ALIGNUP(sizeof(gasnete_coll_p2p_t) + statesz,8) + buffersz;
+	  size_t alloc_size = GASNETI_ALIGNUP(sizeof(gasnete_coll_p2p_t) + statesz,8)
+					+ gasnete_coll_p2p_eager_buffersz;
 	  uintptr_t p = (uintptr_t)gasneti_malloc(alloc_size);
 
 	  p2p = (gasnete_coll_p2p_t *)p;
@@ -1418,7 +1418,7 @@ extern void gasnete_coll_init(const gasnet_image_t images[], gasnet_image_t my_i
 	}
 
 	memset((void *)p2p->state, 0, statesz);
-	memset(p2p->data, 0, buffersz);
+	memset(p2p->data, 0, gasnete_coll_p2p_eager_buffersz);
 	gasneti_weakatomic_set(&p2p->counter, 0, 0);
         
         /*allocate an empty interval for the free list */
