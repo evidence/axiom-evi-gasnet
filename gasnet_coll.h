@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_coll.h,v $
- *     $Date: 2007/10/15 20:00:12 $
- * $Revision: 1.52 $
+ *     $Date: 2007/10/18 19:17:18 $
+ * $Revision: 1.53 $
  * Description: GASNet Extended API Collective declarations
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -173,8 +173,8 @@ gasnet_team_handle_t gasnete_coll_team_all;
  *---------------------------------------------------------------------------------*/
 
 
-extern void gasnet_coll_set_tree_kind(char *STR); 
-extern void gasnet_coll_set_fanout(int FANOUT); 
+extern void gasnet_coll_set_tree_kind(char *); 
+extern void gasnet_coll_set_fanout(int); 
                                                                                                               
 
 /*---------------------------------------------------------------------------------*/
