@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2007/10/17 08:27:28 $
-# $Revision: 1.464 $
+#     $Date: 2007/10/18 08:06:29 $
+# $Revision: 1.465 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.464 $)
+AC_REVISION($Revision: 1.465 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1090,6 +1090,11 @@ if expr "$enabled_sgi_ip27@$target_cpu" : "unknown@mips" >/dev/null; then
 fi
 if test "$enabled_sgi_ip27" = yes; then
   AC_DEFINE(GASNETI_ARCH_SGI_IP27)
+  # Suppress linker warning about our special branch instrution
+  case "$gasnet_cv_cc_family" in
+      # No inline asm to worry about MIPS) LDFLAGS="$LDFLAGS -LD_MSG:off=47" ;;
+      GNU) LDFLAGS="$LDFLAGS -Wl,-LD_MSG:off=47" ;;
+  esac
 fi
 
 
