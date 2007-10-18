@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2007/10/18 08:06:29 $
-# $Revision: 1.465 $
+#     $Date: 2007/10/18 23:42:44 $
+# $Revision: 1.466 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.465 $)
+AC_REVISION($Revision: 1.466 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -82,6 +82,25 @@ AC_PROG_AWK
 #     --disable-pthreads: don't even look for pthreads library 
 GASNET_IF_ENABLED_WITH_AUTO(pthreads, [enable use of pthreads (required to support pthreaded GASNet clients)],
                  [use_pthreads="yes"], [use_pthreads="no"], [use_pthreads="try"])
+
+
+# This is to support a very conservative implementation of
+# GASNETE_FAST_ALIGNED_MEMCPY and other type-punning operations.
+# It is to be enabled only to test if a given problem is related
+# to our type-punning issues (see bug 1389)
+GASNET_IF_ENABLED(conservative-local-copy, [enable use of conservative (slower) mechanism for local data movement (default is no)],[
+  AC_DEFINE(GASNETI_BUG1389_WORKAROUND)
+  GASNET_MSG_WARN([
+-----------------------------------------------------------------------
+ WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING
+
+ You passed --enable-conservative-local-copy
+ This usually has a SERIOUS impact on performance, so you should NOT
+ trust any performance numbers obtained from programs built
+ using this GASNet installation!!!
+
+ WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING
+-----------------------------------------------------------------------])])
 
 ########################################################################
 ##

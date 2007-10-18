@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_help.h,v $
- *     $Date: 2007/08/17 06:08:40 $
- * $Revision: 1.46 $
+ *     $Date: 2007/10/18 23:42:46 $
+ * $Revision: 1.47 $
  * Description: GASNet Extended API Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -54,6 +54,10 @@ GASNETI_BEGIN_EXTERNC
    Other options include forcing gasneti_compiler_fence before&after the type-punning,
    globally disabling ansi aliasing using compiler flags, or redundantly copying the 
    first byte of the value as a (char *) (last is not guaranteed to work)
+
+   See also instances of GASNETI_BUG1389_WORKAROUND, which enable a very conservative
+   approach using memcpy() and compiler fences.  This is to allow us to determine if
+   a given failure may be related to a recurrance of bug 1389.
  */
 typedef union {
   uint8_t _gasnete_anytype_u8; /* might be a compiler builtin type */
@@ -138,6 +142,13 @@ typedef union {
 #endif
 
 /*  undefined results if the regions are overlapping */
+#ifdef GASNETI_BUG1389_WORKAROUND
+  #define GASNETE_FAST_ALIGNED_MEMCPY(dest, src, nbytes) do { \
+    gasneti_compiler_fence();                                 \
+    memcpy(dest, src, nbytes);                                \
+    gasneti_compiler_fence();                                 \
+  } while(0)
+#else
 #define GASNETE_FAST_ALIGNED_MEMCPY(dest, src, nbytes) do { \
   switch(nbytes) {                                          \
     case 0:                                                 \
@@ -160,6 +171,7 @@ typedef union {
       memcpy(dest, src, nbytes);                            \
   }                                                         \
   } while(0)
+#endif /* GASNETI_BUG1389_WORKAROUND */
 
 #define GASNETE_FAST_UNALIGNED_MEMCPY(dest, src, nbytes) memcpy(dest, src, nbytes)
 
@@ -184,6 +196,13 @@ typedef union {
    8*nbytes low-order bits of value, written with the endianness appropriate 
    for an nbytes integral value on the current architecture
    */
+#ifdef GASNETI_BUG1389_WORKAROUND
+  #define GASNETE_VALUE_ASSIGN(dest, value, nbytes) do {            \
+    gasneti_compiler_fence();                                       \
+    memcpy((dest), GASNETE_STARTOFBITS(&(value),nbytes), nbytes);   \
+    gasneti_compiler_fence();                                       \
+  } while(0)
+#else
 #define GASNETE_VALUE_ASSIGN(dest, value, nbytes) do {              \
   switch (nbytes) {                                                 \
     case 0:                                                         \
@@ -202,9 +221,18 @@ typedef union {
       memcpy((dest), GASNETE_STARTOFBITS(&(value),nbytes), nbytes); \
   }                                                                 \
   } while (0)
+#endif /* GASNETI_BUG1389_WORKAROUND */
 
 /* interpret *src as a ptr to an nbytes type,
    and return the value as a gasnet_register_value_t */
+#ifdef GASNETI_BUG1389_WORKAROUND
+  #define GASNETE_VALUE_RETURN(src, nbytes) do {              \
+    gasnet_register_value_t result = 0;                       \
+    gasneti_compiler_fence();                                 \
+    memcpy(GASNETE_STARTOFBITS(&result,nbytes), src, nbytes); \
+    return result;                                            \
+  } while(0)
+#else
 #define GASNETE_VALUE_RETURN(src, nbytes) do {                               \
     gasneti_assert(nbytes > 0 && nbytes <= sizeof(gasnet_register_value_t)); \
     switch (nbytes) {                                                        \
@@ -221,6 +249,7 @@ typedef union {
       }                                                                      \
     }                                                                        \
   } while (0)
+#endif /* GASNETI_BUG1389_WORKAROUND */
 
 
 #if GASNET_NDEBUG

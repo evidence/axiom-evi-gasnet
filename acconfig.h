@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2007/09/07 23:02:03 $ */
-/*  $Revision: 1.124 $ */
+/*      $Date: 2007/10/18 23:42:44 $ */
+/*  $Revision: 1.125 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -257,6 +257,9 @@
 
 /* GASNet portals-conduit specific */
 #undef GASNETC_PORTALS_MISSING_EQ_HANDLER_T
+
+/* GASNet bug1389 detection/work-around */
+#undef GASNETI_BUG1389_WORKAROUND
 
 @BOTTOM@
 
