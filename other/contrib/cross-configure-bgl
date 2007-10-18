@@ -6,8 +6,8 @@
 
 if test "$USE_GCC" != "" ; then
 # GCC-based compilers
-CC='mpicc' ; export CC  # vanilla target C compiler
-CXX='mpicxx' ; export CXX  # vanilla target C++ compiler
+CC='mpicc -O0' ; export CC  # vanilla target C compiler
+CXX='mpicxx -O0' ; export CXX  # vanilla target C++ compiler
 else
 # XLC-based compilers
 CC='blrts_xlc' ; export CC  # vanilla target C compiler
@@ -32,7 +32,7 @@ HOST_CXXFLAGS='' ; export HOST_CXXFLAGS
 
 if test "$USE_GCC" != "" ; then
 # GCC-based compilers
-MPI_CC='mpicc' ; export MPI_CC     # MPI-enabled C compiler
+MPI_CC='mpicc -O0' ; export MPI_CC     # MPI-enabled C compiler
 #MPI_CFLAGS='' ; export MPI_CFLAGS  # flags for MPI_CC
 else
 # XLC-based compilers
