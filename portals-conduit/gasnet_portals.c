@@ -3037,20 +3037,27 @@ extern void gasnetc_chunk_free(gasnetc_PtlBuffer_t *buf, ptl_size_t offset)
     gasneti_mutex_unlock(&buf->lock);
 }
 
+/* bug 2102: PtlEQAlloc/PtlEQFree are not thread-safe */
+static gasneti_mutex_t gasnetc_eqalloc_lock = GASNETI_MUTEX_INITIALIZER;
+
 extern gasnetc_eq_t* gasnetc_eq_alloc(long num_events, const char* name, ptl_eq_handler_t hndlr)
 {
   gasnetc_eq_t *eq = (gasnetc_eq_t*)gasneti_malloc(sizeof(gasnetc_eq_t));
   eq->num_events = num_events;
-  GASNETC_PTLSAFE(PtlEQAlloc(gasnetc_ni_h, num_events, hndlr, &eq->eq_h));
+  gasneti_mutex_lock(&gasnetc_eqalloc_lock);
+    GASNETC_PTLSAFE(PtlEQAlloc(gasnetc_ni_h, num_events, hndlr, &eq->eq_h));
+  gasneti_mutex_unlock(&gasnetc_eqalloc_lock);
   gasneti_mutex_init(&eq->lock);
   eq->name = gasneti_strdup(name);
-  GASNETI_TRACE_PRINTF(C,("gasnetc_eq_alloc %s with %ld events",eq->name,num_events));
+  GASNETI_TRACE_PRINTF(C,("gasnetc_eq_alloc %s with %ld events (%i)",eq->name,num_events,(int)eq->eq_h));
   return eq;
 }
 extern void gasnetc_eq_free(gasnetc_eq_t *eq)
 {
-  GASNETC_PTLSAFE(PtlEQFree(eq->eq_h));
-  GASNETI_TRACE_PRINTF(C,("gasnetc_eq_free %s with %ld events",eq->name,eq->num_events));
+  gasneti_mutex_lock(&gasnetc_eqalloc_lock);
+    GASNETC_PTLSAFE(PtlEQFree(eq->eq_h));
+  gasneti_mutex_unlock(&gasnetc_eqalloc_lock);
+  GASNETI_TRACE_PRINTF(C,("gasnetc_eq_free %s with %ld events (%i)",eq->name,eq->num_events,(int)eq->eq_h));
   gasneti_free(eq->name);
   gasneti_free(eq);
 }
