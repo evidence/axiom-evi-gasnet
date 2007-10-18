@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2007/09/11 05:50:13 $
-# $Revision: 1.61 $
+#     $Date: 2007/10/18 22:50:17 $
+# $Revision: 1.62 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -98,7 +98,7 @@ sub gasnet_encode($) {
     my $is_aprun    = ($mpirun_help =~ m|rchitecture type.*?xt|);
     my $is_yod      = ($mpirun_help =~ m| yod |);
     my $is_bgl_mpi  = ($mpirun_help =~ m|COprocessor or VirtualNode mode|);
-    my $is_bgl_cqsub = ($mpirun_help =~ m| cqsub .*?co/vn|);
+    my $is_bgl_cqsub = ($mpirun_help =~ m| cqsub .*?co/vn|s);
     my $is_hp_mpi  = ($mpirun_help =~ m|-universe_size|);
     my $is_elan_mpi  = ($mpirun_help =~ m|MPIRUN_ELANIDMAP_FILE|);
     my $is_jacquard = ($mpirun_help =~ m| \[-noenv\] |) && !$is_elan_mpi;
