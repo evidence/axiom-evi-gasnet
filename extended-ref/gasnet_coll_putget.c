@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_putget.c,v $
- *     $Date: 2007/10/17 23:23:05 $
- * $Revision: 1.69 $
+ *     $Date: 2007/10/19 03:26:20 $
+ * $Revision: 1.70 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2004, Rajesh Nishtala <rajeshn@eecs.berkeley.edu> Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2294,6 +2294,7 @@ static int gasnete_coll_pf_gath_TreePut(gasnete_coll_op_t *op GASNETE_THREAD_FAR
     case 2:	/* Local Data Movement */
       /* go up the tree with the data */
       /* copy my data into the start of the scratch space */
+     
       if(child_count > 0) {
          if(direct_put_ok && gasneti_mynode==args->dstnode) {
           GASNETE_FAST_UNALIGNED_MEMCPY(gasnete_coll_scale_ptr(args->dst,op->team->myrank,args->nbytes), 
@@ -2303,6 +2304,9 @@ static int gasnete_coll_pf_gath_TreePut(gasnete_coll_op_t *op GASNETE_THREAD_FAR
                                         (int8_t*)args->src, args->nbytes);
 
         }
+      } else if_pf(op->team->total_ranks == 1) {
+        GASNETE_FAST_UNALIGNED_MEMCPY(args->dst, 
+                                      args->src, args->nbytes);
       }
       data->state = 3;
         
@@ -2346,7 +2350,7 @@ static int gasnete_coll_pf_gath_TreePut(gasnete_coll_op_t *op GASNETE_THREAD_FAR
                                           args->nbytes);          
           }
         }
-      } else if(tree->geom->seq_dfs_order==0 || args->nbytes!=args->dist){        
+      } else if((tree->geom->seq_dfs_order==0 || args->nbytes!=args->dist) && op->team->total_ranks > 1){        
           /* Sync data movement */
           gasneti_sync_reads();
           /* reorder the information if i am not the root*/
@@ -2359,7 +2363,7 @@ static int gasnete_coll_pf_gath_TreePut(gasnete_coll_op_t *op GASNETE_THREAD_FAR
                                             args->nbytes);
 
             }
-      } else if(!direct_put_ok) {
+      } else if_pt(!direct_put_ok && op->team->total_ranks > 1) {
         /* no need to reorder but the data is in the scartch space so pull it out*/
         GASNETE_FAST_UNALIGNED_MEMCPY(args->dst,
                                      (int8_t*)op->team->scratch_segs[op->team->myrank].addr+op->myscratchpos,
