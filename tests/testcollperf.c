@@ -320,7 +320,7 @@ void run_SINGLE_ADDR_test(thread_data_t *td, uint8_t **dst_arr, uint8_t **src_ar
   print_timer(td,  "exchange", output_str,  "SINGLE-addr", flag_str, nelem, end);  
   
   
-  if(td->my_local_thread==0) MSG0("%s/SINGLE-addr sync_mode: %s size: %d bytes root: %d tests pass", output_str, flag_str, (int) (sizeof(int)*nelem), root_thread);
+  if(td->my_local_thread==0) MSG0("%s/SINGLE-addr sync_mode: %s size: %d bytes root: %d.  PASS", output_str, flag_str, (int) (sizeof(int)*nelem), root_thread);
   
   COLL_BARRIER();
 }
@@ -572,7 +572,7 @@ void run_MULTI_ADDR_test(thread_data_t *td, uint8_t **dst_arr, uint8_t **src_arr
   COLL_BARRIER();  
   print_timer(td, "exchangeM", output_str,  "MULTI-addr", flag_str, nelem, end);  
   
-  if(td->my_local_thread==0) MSG0("%s/MULTI-addr sync_mode: %s size: %d bytes root: %d tests pass", output_str, flag_str, (int) (sizeof(int)*nelem), root_thread);
+  if(td->my_local_thread==0) MSG0("%s/MULTI-addr sync_mode: %s size: %d bytes root: %d.  PASS", output_str, flag_str, (int) (sizeof(int)*nelem), root_thread);
   
   COLL_BARRIER();
   test_free(tmp_src);
