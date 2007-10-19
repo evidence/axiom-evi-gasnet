@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_putget.c,v $
- *     $Date: 2007/10/19 03:26:20 $
- * $Revision: 1.70 $
+ *     $Date: 2007/10/19 21:07:05 $
+ * $Revision: 1.71 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2004, Rajesh Nishtala <rajeshn@eecs.berkeley.edu> Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -239,7 +239,7 @@ static int gasnete_coll_pf_bcast_TreePut(gasnete_coll_op_t *op GASNETE_THREAD_FA
       data->state = 3;
       
     case 3:     /* sync data movement */
-      if (child_count > 0 && data->handle != GASNET_INVALID_HANDLE) {
+      if (data->handle != GASNET_INVALID_HANDLE) {
 	break;
       }
       data->state = 4;
@@ -365,11 +365,10 @@ static int gasnete_coll_pf_bcast_TreePutScratch(gasnete_coll_op_t *op GASNETE_TH
       if (!gasnete_coll_generic_outsync(data)) {
 	break;
       }
-
-      gasnete_coll_generic_free(data GASNETE_THREAD_PASS);
-      result = (GASNETE_COLL_OP_COMPLETE | GASNETE_COLL_OP_INACTIVE);
       /*free up the scratch space used by this op*/
       gasnete_coll_free_scratch(op);
+      gasnete_coll_generic_free(data GASNETE_THREAD_PASS);
+      result = (GASNETE_COLL_OP_COMPLETE | GASNETE_COLL_OP_INACTIVE);
   }
 
   return result;
@@ -885,7 +884,7 @@ static int gasnete_coll_pf_bcastM_TreePut(gasnete_coll_op_t *op GASNETE_THREAD_F
       data->state = 3;
       
     case 3:     /* sync data movement */
-      if (child_count > 0 && data->handle!=GASNET_INVALID_HANDLE) {
+      if (data->handle!=GASNET_INVALID_HANDLE) {
 	break;
       }
       data->state = 4;
@@ -1470,9 +1469,10 @@ static int gasnete_coll_pf_scat_TreePut(gasnete_coll_op_t *op GASNETE_THREAD_FAR
       data->state = 6;
     
     case 6: /*done*/    
+      gasnete_coll_free_scratch(op);
       gasnete_coll_generic_free(data GASNETE_THREAD_PASS);
       result = (GASNETE_COLL_OP_COMPLETE | GASNETE_COLL_OP_INACTIVE);
-      gasnete_coll_free_scratch(op);
+ 
   }
   
   return result;
@@ -1922,9 +1922,10 @@ static int gasnete_coll_pf_scatM_TreePut(gasnete_coll_op_t *op GASNETE_THREAD_FA
         data->state = 5;
           
       case 5: /*done*/    
+	gasnete_coll_free_scratch(op);
         gasnete_coll_generic_free(data GASNETE_THREAD_PASS);
         result = (GASNETE_COLL_OP_COMPLETE | GASNETE_COLL_OP_INACTIVE);
-        gasnete_coll_free_scratch(op);
+
   }
   
   return result;
@@ -3103,11 +3104,11 @@ static int gasnete_coll_pf_gall_TreePut(gasnete_coll_op_t *op GASNETE_THREAD_FAR
         if (!gasnete_coll_generic_outsync(data)) {
           break;
         }
+	/*free up the scratch space used by this op*/
+        gasnete_coll_free_scratch(op);
         gasneti_free(data->private_data);
         gasnete_coll_generic_free(data GASNETE_THREAD_PASS);
         result = (GASNETE_COLL_OP_COMPLETE | GASNETE_COLL_OP_INACTIVE);
-        /*free up the scratch space used by this op*/
-        gasnete_coll_free_scratch(op);
   }
   
   return result;
@@ -3397,11 +3398,11 @@ static int gasnete_coll_pf_gall_Dissem(gasnete_coll_op_t *op GASNETE_THREAD_FARG
     if (!gasnete_coll_generic_outsync(data)) {
       return 0;
     }
-    
+
+    /*free up the scratch space used by this op*/
+    if(op->team->total_ranks > 1) gasnete_coll_free_scratch(op);    
     gasnete_coll_generic_free(data GASNETE_THREAD_PASS);
     result = (GASNETE_COLL_OP_COMPLETE | GASNETE_COLL_OP_INACTIVE);
-    /*free up the scratch space used by this op*/
-    if(op->team->total_ranks > 1) gasnete_coll_free_scratch(op);
     
   }
 
@@ -3832,11 +3833,11 @@ static int gasnete_coll_pf_exchg_Dissem(gasnete_coll_op_t *op GASNETE_THREAD_FAR
     if (!gasnete_coll_generic_outsync(data)) {
       return 0;
     }
-    
+
+    /*free up the scratch space used by this op*/
+    if(op->team->total_ranks != 1) gasnete_coll_free_scratch(op);    
     gasnete_coll_generic_free(data GASNETE_THREAD_PASS);
     result = (GASNETE_COLL_OP_COMPLETE | GASNETE_COLL_OP_INACTIVE);
-    /*free up the scratch space used by this op*/
-    if(op->team->total_ranks != 1) gasnete_coll_free_scratch(op);
     
   }
   
@@ -4007,13 +4008,13 @@ static int gasnete_coll_pf_exchgM_Dissem(gasnete_coll_op_t *op GASNETE_THREAD_FA
     if (!gasnete_coll_generic_outsync(data)) {
       return 0;
     }
-    
+
+    gasnete_coll_free_scratch(op);
+    gasneti_free(data->private_data);
+    data->private_data = NULL;    
     gasnete_coll_generic_free(data GASNETE_THREAD_PASS);
     result = (GASNETE_COLL_OP_COMPLETE | GASNETE_COLL_OP_INACTIVE);
     /*free up the scratch space used by this op*/
-    gasnete_coll_free_scratch(op);
-    gasneti_free(data->private_data);
-    data->private_data = NULL;
   }
   
   return result;
