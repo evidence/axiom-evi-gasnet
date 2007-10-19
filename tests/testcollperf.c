@@ -606,9 +606,8 @@ void *thread_main(void *arg) {
       case 5: flags = GASNET_COLL_IN_MYSYNC  | GASNET_COLL_OUT_ALLSYNC; break;
       case 6: flags = GASNET_COLL_IN_ALLSYNC | GASNET_COLL_OUT_NOSYNC; break;
       case 7: flags = GASNET_COLL_IN_ALLSYNC | GASNET_COLL_OUT_MYSYNC; break;
-      case 8: flags = GASNET_COLL_IN_ALLSYNC | GASNET_COLL_OUT_ALLSYNC; break;
-        
-      default: flags = GASNET_COLL_IN_MYSYNC|GASNET_COLL_OUT_MYSYNC; break;
+      case 8: flags = GASNET_COLL_IN_ALLSYNC | GASNET_COLL_OUT_ALLSYNC; break;  
+      default: continue;
     }
     
 #if GASNET_ALIGNED_SEGMENTS
