@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2007/10/17 08:27:28 $
-dnl $Revision: 1.127 $
+dnl     $Date: 2007/10/19 06:34:48 $
+dnl $Revision: 1.128 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -2083,7 +2083,7 @@ AC_DEFUN([GASNET_CHECK_OVERRIDE_PTHREADS], [
       mkdir -p "$PATCHED_HEADERS_DIR"
       /usr/bin/patch -N -o "$PATCHED_HEADERS_DIR/pthread.h" -i "$PTHREADS_PATCHFILE" "$PTHREADS_INCLUDE/pthread.h" || \
         AC_MSG_ERROR([failed to apply patch $PTHREADS_PATCHFILE to $PTHREADS_INCLUDE/pthread.h - try again without PTHREADS_PATCH option])
-      PATCHED_HEADERS="pthread.h"
+      PATCHED_HEADER="pthread.h"
       # PATCHED_HEADERS_DIR must precede PTHREADS_INCLUDE to override it
       SYS_HEADER_INST="-I###INSTALL_PREFIX###/include/patched-headers $SYS_HEADER_INST"
       SYS_HEADER_BLD="-I$PATCHED_HEADERS_DIR $SYS_HEADER_BLD"
@@ -2091,7 +2091,7 @@ AC_DEFUN([GASNET_CHECK_OVERRIDE_PTHREADS], [
   fi
   AC_SUBST(SYS_HEADER_BLD)
   AC_SUBST(SYS_HEADER_INST)
-  AC_SUBST(PATCHED_HEADERS)
+  AC_SUBST(PATCHED_HEADER)
   GASNET_FUN_END([$0])
 ])
 

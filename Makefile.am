@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/Makefile.am,v $
-#     $Date: 2007/10/15 07:01:59 $
-# $Revision: 1.75 $
+#     $Date: 2007/10/19 06:34:48 $
+# $Revision: 1.76 $
 # Description: Makefile for GASNet 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -253,7 +253,7 @@ install-data-local:
 	    $(INSTALL_DATA) $(top_srcdir)/$$file $(DESTDIR)$(docdir)/`basename $$file` || exit $$? ; \
 	  fi ; \
 	done
-	for file in @PATCHED_HEADERS@ DUMMY ; do \
+	for file in @PATCHED_HEADER@ DUMMY ; do \
 	  if test -f $$file ; then \
 	    $(mkinstalldirs) $(DESTDIR)$(includedir)/patched-headers ; \
 	    $(INSTALL_DATA) patched-headers/$$file $(DESTDIR)$(includedir)/patched-headers/$$file || exit $$? ; \
@@ -266,7 +266,7 @@ uninstall-local:
 	@$(MAKE) $(recurse_local) DO_WHAT=uninstall
 	@$(MAKE) recurse_special DO_WHAT=uninstall
 	rm -Rf $(DESTDIR)$(docdir)
-	for file in @PATCHED_HEADERS@ ; do \
+	for file in @PATCHED_HEADER@ ; do \
 	  rm -f $(DESTDIR)$(includedir)/patched-headers/$$file ; \
 	done
 
