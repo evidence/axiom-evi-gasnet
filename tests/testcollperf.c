@@ -620,7 +620,7 @@ void *thread_main(void *arg) {
       if(td->my_local_thread == 0) MSG0("skipping SINGLE/SINGLE test (multiple threads per node)");
     }
 #else
-    MSG0("skipping SINGLE/SINGLE test (unaligned segments)");
+    if(td->my_local_thread == 0) MSG0("skipping SINGLE/SINGLE test (unaligned segments)");
 #endif
     for(size = 1; size<=max_data_size; size=size*2) {
       run_SINGLE_ADDR_test(td, my_dsts, my_srcs, size, 0, flags|GASNET_COLL_LOCAL);   
