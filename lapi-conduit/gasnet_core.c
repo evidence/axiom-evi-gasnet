@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2007/10/15 21:06:16 $
- * $Revision: 1.85 $
+ *     $Date: 2007/10/19 22:21:25 $
+ * $Revision: 1.86 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -357,13 +357,15 @@ static int gasnetc_init(int *argc, char ***argv) {
     gasneti_auxseg_init(); /* adjust max seg values based on auxseg */
    
     if(gasneti_mynode == 0) {
-      if(gasneti_getenv("MP_TASK_AFFINITY") != NULL) {
-        fprintf(stderr,"WARNING: The environment variable MP_TASK_AFFINITY is set (value = %s).  This has the potential for serious performance degradation.\n", gasneti_getenv("MP_TASK_AFFINITY"));
+      char *mp_task_affinity = gasneti_getenv("MP_TASK_AFFINITY");
+      char *mp_mem_affinity = gasneti_getenv("MP_MEMORY_AFFINITY");
+      if((mp_task_affinity != NULL) && (strcmp(mp_task_affinity,"-1") != 0)) {
+        fprintf(stderr,"WARNING: The environment variable MP_TASK_AFFINITY is set (value = %s).  This has the potential for serious performance degradation.\n", mp_task_affinity);
         fflush(stderr);
       }
 
-      if(gasneti_getenv("MP_MEMORY_AFFINITY") != NULL) {
-        fprintf(stderr,"WARNING: The environment variable MP_MEMORY_AFFINITY is set (value = %s).  This has the potential for serious performance degradation.\n", gasneti_getenv("MP_MEMORY_AFFINITY"));
+      if(mp_mem_affinity != NULL) {
+        fprintf(stderr,"WARNING: The environment variable MP_MEMORY_AFFINITY is set (value = %s).  This has the potential for serious performance degradation.\n", mp_mem_affinity);
         fflush(stderr);
       }
     }
@@ -496,13 +498,13 @@ void gasnetc_lapi_test_pin(int rdma_declared_on)
   /* P0 does the talking */
   for(i=0;i < gasneti_nodes;i++) {
     int rc = return_codes[i];
-    char *error_str = NULL;
+    const char *error_str = NULL;
     if(rc != LAPI_SUCCESS) {
       gasnetc_lapi_use_rdma = 0;
 
       switch(rc) {
          case(LAPI_ERR_UTIL_CMD): /* RDMA not supported on this system */
-           error_str = "RDMA is not supported on this version of the LAPI library.";
+           error_str =  "RDMA is not supported on this version of the LAPI library.";
            break;
          case(LAPI_ERR_NO_RDMA_RESOURCE): /* No rdma resources.  May need -rdma_count 2 or something*/ 
            error_str = "conduit cannot initialize RDMA resources. Was -rdma_count n/MP_RDMA_COUNT passed to poe or rcxtblocks passed to LoadLeveler?";
@@ -686,13 +688,14 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 	 int num_pvos;
          int i=0;
          int j=0;
-
+         lapi_get_pvo_t *gasnetc_node_pvo_list = NULL;
+         uintptr_t tmp_offset = 0;
 	 /* Break up the segment */
 	 gasnetc_num_pvos = num_pvos = (segsize + (GASNETC_LAPI_PVO_EXTENT-1))/GASNETC_LAPI_PVO_EXTENT;
-         GASNETI_TRACE_PRINTF(C,("gasnetc_attach: node = %d num_pvos = %d extent = %d segment size = %d segment base = %ld\n",gasneti_mynode,num_pvos,GASNETC_LAPI_PVO_EXTENT,segsize,(size_t) segbase));
-	 lapi_get_pvo_t *gasnetc_node_pvo_list = gasneti_malloc(num_pvos*sizeof(lapi_get_pvo_t));
+         GASNETI_TRACE_PRINTF(C,("gasnetc_attach: node = %d num_pvos = %d extent = %ld segment size = %ld segment base = %ld\n",gasneti_mynode,num_pvos,GASNETC_LAPI_PVO_EXTENT,segsize,(uint64_t) segbase));
+	 gasnetc_node_pvo_list = gasneti_malloc(num_pvos*sizeof(lapi_get_pvo_t));
          memset((void *) gasnetc_node_pvo_list,0,num_pvos*sizeof(lapi_get_pvo_t));
-         uintptr_t tmp_offset=0;
+
 	 while(tmp_offset < segsize) {
 	 	/* Attempt to get a PVO for this section */
 	 	gasnetc_node_pvo_list[i].Util_type = LAPI_XLATE_ADDRESS;
@@ -702,13 +705,13 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 	 	gasnetc_node_pvo_list[i].address = (void *) (((lapi_long_t) segbase) + i*GASNETC_LAPI_PVO_EXTENT);
 	 	gasnetc_node_pvo_list[i].operation = LAPI_RDMA_ACQUIRE;									
 	 	GASNETC_LCHECK(LAPI_Util(gasnetc_lapi_context, (lapi_util_t *) (&(gasnetc_node_pvo_list[i]))));
-                GASNETI_TRACE_PRINTF(C,("gasnetc_attach: node = %d i=%d usr_pvo=%ld (size=%ld) length=%d address=%ld segbase=%ld\n",gasneti_mynode,i,gasnetc_node_pvo_list[i].usr_pvo,sizeof(lapi_user_pvo_t),gasnetc_node_pvo_list[i].length,(size_t) gasnetc_node_pvo_list[i].address,(size_t) segbase));
+                GASNETI_TRACE_PRINTF(C,("gasnetc_attach: node = %d i=%d usr_pvo=%ld (size=%ld) length=%d address=%ld segbase=%ld\n",gasneti_mynode,i,(uint64_t) gasnetc_node_pvo_list[i].usr_pvo,sizeof(lapi_user_pvo_t),gasnetc_node_pvo_list[i].length,(size_t) gasnetc_node_pvo_list[i].address,(size_t) segbase));
 	 	tmp_offset += GASNETC_LAPI_PVO_EXTENT;
 	 	i++;
 	 }
 	 
     for(i=0;i < num_pvos;i++) {
-      GASNETI_TRACE_PRINTF(C,("after getting node %d gasnetc_node_pvo_list[%d].usr_pvo = %ld\n",gasneti_mynode, i,(lapi_long_t)( gasnetc_node_pvo_list[i].usr_pvo)));
+      GASNETI_TRACE_PRINTF(C,("after getting node %d gasnetc_node_pvo_list[%d].usr_pvo = %ld\n",gasneti_mynode, i,(uint64_t)( gasnetc_node_pvo_list[i].usr_pvo)));
     }		
 
 	 

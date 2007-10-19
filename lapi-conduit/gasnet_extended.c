@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2007/10/15 21:06:16 $
- * $Revision: 1.57 $
+ *     $Date: 2007/10/19 22:21:25 $
+ * $Revision: 1.58 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -610,7 +610,7 @@ void gasnete_lapi_setup_nb()
     req.address = all_data + size_pinned_region;
     req.operation = LAPI_RDMA_ACQUIRE;
     GASNETC_LCHECK(LAPI_Util(gasnetc_lapi_context, (lapi_util_t *) &req));
-    GASNETI_TRACE_PRINTF(C,("gasnete_lapi_setup_nb: %d got pvo %ld for network buffer\n",gasneti_mynode,req.usr_pvo)); 
+    GASNETI_TRACE_PRINTF(C,("gasnete_lapi_setup_nb: %d got pvo %ld for network buffer\n",gasneti_mynode,(uint64_t) req.usr_pvo)); 
     num_slices = this_region_size/gasnete_pin_threshold;
     for(s = 0; s < num_slices; s++) {
       gasnete_free_nb_list[count].data = all_data + size_pinned_region + s*gasnete_pin_threshold;
@@ -898,7 +898,7 @@ extern gasnete_eop_t *gasnete_lapi_do_rdma(void *dest, gasnet_node_t node, void 
   new_eop->origin_counter = NULL;
   new_eop->initiated_cnt = 0;
 
-  GASNETI_TRACE_PRINTF(C,("gasnete_lapi_do_rdma: dest = %ld node = %ld size = %ld op = %s\n",remote_p_to_long, node, nbytes, op == LAPI_RDMA_GET ? "GET" : "PUT"));
+  GASNETI_TRACE_PRINTF(C,("gasnete_lapi_do_rdma: dest = %ld node = %d size = %ld op = %s\n",(uint64_t) remote_p_to_long, node, nbytes, op == LAPI_RDMA_GET ? "GET" : "PUT"));
   
 
   if(iop == NULL) {
@@ -997,7 +997,7 @@ extern gasnete_eop_t *gasnete_lapi_do_rdma(void *dest, gasnet_node_t node, void 
   memset ((void *) &xfer_struct, 0, sizeof (xfer_struct));
   /* If the transfer is really small (for some definition of "really small") */
 
-  GASNETI_TRACE_PRINTF(C,("gasnete_lapi_do_rdma: nbytes = %ld threshold = %ld\n",nbytes,gasnete_pin_threshold));
+  GASNETI_TRACE_PRINTF(C,("gasnete_lapi_do_rdma: nbytes = %ld threshold = %d\n",nbytes,gasnete_pin_threshold));
 
   if(!gasnetc_use_firehose && (!(((local_p_to_long >= gasnetc_segbase_table[gasneti_mynode])
       && (local_p_to_long < gasnetc_segbase_table[gasneti_mynode] + gasneti_seginfo[gasneti_mynode].size))) && nbytes <= gasnete_pin_threshold)) {
@@ -1095,7 +1095,7 @@ extern gasnete_eop_t *gasnete_lapi_do_rdma(void *dest, gasnet_node_t node, void 
 	  xfer_struct.HwXfer.sinfo = (void *) NULL;
 	  xfer_struct.HwXfer.org_cntr = new_eop->origin_counter;
         }
-        GASNETI_TRACE_PRINTF(C,("gasnete_lapi_do_rdma: transfer length = %d nbytes_transferred = %ld bytes remaining = %ld remote_offset=%d real remote offfset=%ld segment start = %ld GASNETC_LAPI_PVO_EXTENT=%d offset in remote pvo table = %d tag=%d remote pvo=%ld get = %d source_offset=%d real source offset=%ld offset in local pvo table=%d\n",length_to_remote_boundary, nbytes_transferred, chunk_remaining,remote_offset,remote_p_to_long + nbytes_transferred-gasnetc_segbase_table[node],gasnetc_segbase_table[node],GASNETC_LAPI_PVO_EXTENT,(remote_p_to_long + nbytes_transferred-gasnetc_segbase_table[node])/GASNETC_LAPI_PVO_EXTENT, xfer_struct.HwXfer.rdma_tag,remote_pvo,op == LAPI_RDMA_GET,source_offset, local_p_to_long + nbytes_transferred - gasnetc_segbase_table[gasneti_mynode],(local_p_to_long + nbytes_transferred - gasnetc_segbase_table[gasneti_mynode])/GASNETC_LAPI_PVO_EXTENT));
+        GASNETI_TRACE_PRINTF(C,("gasnete_lapi_do_rdma: transfer length = %d nbytes_transferred = %ld bytes remaining = %ld remote_offset=%d real remote offfset=%ld segment start = %ld GASNETC_LAPI_PVO_EXTENT=%ld offset in remote pvo table = %ld tag=%d remote pvo=%ld get = %d source_offset=%d real source offset=%ld offset in local pvo table=%ld\n",length_to_remote_boundary, nbytes_transferred, (uint64_t) chunk_remaining,remote_offset,(uint64_t) (remote_p_to_long + nbytes_transferred-gasnetc_segbase_table[node]),(uint64_t) gasnetc_segbase_table[node],GASNETC_LAPI_PVO_EXTENT,(uint64_t) (remote_p_to_long + nbytes_transferred-gasnetc_segbase_table[node])/GASNETC_LAPI_PVO_EXTENT, xfer_struct.HwXfer.rdma_tag,(uint64_t) remote_pvo,op == LAPI_RDMA_GET,source_offset, (uint64_t) (local_p_to_long + nbytes_transferred - gasnetc_segbase_table[gasneti_mynode]),(uint64_t) (local_p_to_long + nbytes_transferred - gasnetc_segbase_table[gasneti_mynode])/GASNETC_LAPI_PVO_EXTENT));
         
 	GASNETC_LCHECK (LAPI_Xfer (gasnetc_lapi_context, &xfer_struct));
        
