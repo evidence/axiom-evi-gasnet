@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2006/12/20 22:53:21 $
- * $Revision: 1.65 $
+ *     $Date: 2007/10/21 05:44:48 $
+ * $Revision: 1.66 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -1202,6 +1202,16 @@ static void do_master(int argc, char **argv) {
   char myhost[1024];
   char *p;
   int argi=1;
+
+  #if PLATFORM_OS_LINUX
+  { /* Work around for bug 2136 by setting O_APPEND on stdout and stderr */
+    int tmp;
+    tmp = fcntl(STDOUT_FILENO, F_GETFL, 0);
+    if (tmp >= 0) (void)fcntl(STDOUT_FILENO, F_SETFL, tmp | O_APPEND);
+    tmp = fcntl(STDERR_FILENO, F_GETFL, 0);
+    if (tmp >= 0) (void)fcntl(STDERR_FILENO, F_SETFL, tmp | O_APPEND);
+  }
+  #endif
 
   is_master = 1;
   gasneti_reghandler(SIGURG, &sigurg_handler);
