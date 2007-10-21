@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2007/10/11 04:49:26 $
- * $Revision: 1.219 $
+ *     $Date: 2007/10/21 05:53:19 $
+ * $Revision: 1.220 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -1325,18 +1325,17 @@ int gasnetc_rcv_amrdma(gasnetc_cep_t *cep) {
 
 GASNETI_INLINE(gasnetc_poll_rcv_hca)
 void gasnetc_poll_rcv_hca(gasnetc_hca_t *hca, int limit) {
-  int count = gasneti_weakatomic_read(&hca->amrdma_rcv.count, 0);
+  int count = gasneti_weakatomic_read(&hca->amrdma_rcv.count, GASNETI_ATOMIC_RMB_POST);
   int limit2 = count + 1;
 
   /* BUG1652: full solution may require more atomicity when the polling set is changing? */
 
   /* Poll round-robin over the AMRDMA landing zones and the CQ */
   while (limit && limit2--) {
-    /* NOTE: bug 1586 work-around requires the volatile casts */
-    static int prev = 0;
-    int index = *(volatile int *)(&prev); /* The associated data race is harmless */
+    static gasneti_atomic_t prev = gasneti_atomic_init(0); /* The associated data race is harmless */
+    int index = gasneti_atomic_read(&prev, 0);
     index = (index == 0) ? count : (index - 1);
-    *(volatile int *)(&prev) = index;
+    gasneti_atomic_set(&prev, index, GASNETI_ATOMIC_RMB_POST);
 
     gasneti_assert(limit > 0);
     gasneti_assert(limit2 >= 0);
