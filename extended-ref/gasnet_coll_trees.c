@@ -203,7 +203,7 @@ void gasnete_coll_build_recursive_tree(int fanout, gasnet_node_t mynode, gasnet_
     */
   
   /*find children*/
-  *parent = -1;
+  *parent = (gasnet_node_t)(-1);
   if(options & GASNETE_COLL_DFS_RECURSIVE) {
     for(j=0; j<d; j++) {
       if(gasnete_coll_get_jth_digit(relrank,j,fanout) == 0) {
@@ -266,7 +266,7 @@ gasnete_coll_local_tree_geom_t*  gasnete_coll_build_tree(gasnete_coll_tree_class
   geom = (gasnete_coll_local_tree_geom_t*)gasneti_malloc(sizeof(gasnete_coll_local_tree_geom_t));
   gasneti_assert(gasnete_coll_tree_nodes > gasnete_coll_tree_mynode);
 
-  geom->parent = -1;
+  geom->parent = (gasnet_node_t)(-1);
   /*initialize num_sibllings to zero so it can be set externally if need be*/
  
   geom->num_siblings = 0;
