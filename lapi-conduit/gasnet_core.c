@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2007/10/22 21:36:29 $
- * $Revision: 1.87 $
+ *     $Date: 2007/10/22 23:17:47 $
+ * $Revision: 1.88 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1253,8 +1253,6 @@ extern int gasnetc_AMRequestMediumM(
       gasneti_fatalerror("token too large in AMmedium request %d",gasneti_mynode);
     }
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&o_cntr,0));
-    p_cntr = &c_cntr;
-    GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,p_cntr,0));
 #if GASNETC_LAPI_FED_POLLBUG_WORKAROUND
     p_cntr = &c_cntr;
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,p_cntr,0));
@@ -1292,7 +1290,7 @@ extern int gasnetc_AMRequestMediumM(
     
     /* wait for the Amsend call to complete locally */
     GASNETC_WAITCNTR(&o_cntr,1,&cur_cntr);
-    GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,p_cntr,1,&cur_cntr));
+
 #if GASNETC_LAPI_FED_POLLBUG_WORKAROUND
     GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,p_cntr,1,&cur_cntr));
 #endif
