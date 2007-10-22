@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2007/10/19 22:21:25 $
- * $Revision: 1.86 $
+ *     $Date: 2007/10/22 21:36:29 $
+ * $Revision: 1.87 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1190,7 +1190,6 @@ extern int gasnetc_AMRequestMediumM(
     void *udata_start = NULL;
     int udata_avail;
     int udata_packed = 0;
-    lapi_cntr_t c_cntr;
 #if GASNETC_LAPI_FED_POLLBUG_WORKAROUND
     lapi_cntr_t c_cntr;
 #endif
