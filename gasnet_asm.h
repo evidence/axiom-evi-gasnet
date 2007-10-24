@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_asm.h,v $
- *     $Date: 2007/03/12 23:45:04 $
- * $Revision: 1.120 $
+ *     $Date: 2007/10/24 01:42:20 $
+ * $Revision: 1.121 $
  * Description: GASNet header for semi-portable inline asm support
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -47,6 +47,10 @@
    *   resolved in 6.2-5.  So, we use the vendor's more conservative value.
    *   Implies PLATFORM_COMPILER_PGI && GASNETI_PGI_ASM_GNU
    *
+   * GASNETI_PGI_ASM_BUG2149
+   *   Compiler suffers from "tpr <???>" in which extended asm() register outputs are "lost"
+   *   when the "register" qualifier is applied to the output variable.
+   *
    * See GASNet bug 1621 (http://upc-bugs.lbl.gov/bugzilla/show_bug.cgi?id=1621) for more
    * info on the bugs indicated by GASNETI_PGI_ASM_THREADSAFE and GASNETI_PGI_ASM_X86_A.
    *
@@ -56,6 +60,9 @@
    *
    * See GASNet bug 1754 for discussion related to the BUG1754 problem and its symptoms.
    * See also PGI "tpr 3936".
+   *
+   * See GASNet bug 2149 for discussion related to the BUG2149 problem and its symptoms.
+   * See also PGI "tpr <???>".
    */
   #if (PLATFORM_COMPILER_PGI_C && PLATFORM_COMPILER_VERSION_GE(6,1,1)) || \
       (PLATFORM_COMPILER_PGI_CXX && PLATFORM_COMPILER_VERSION_GE(6,2,2))
@@ -70,6 +77,9 @@
   #endif
   #if PLATFORM_COMPILER_VERSION_LT(6,2,5)
     #define GASNETI_PGI_ASM_BUG1754 1
+  #endif
+  #if PLATFORM_COMPILER_VERSION_GE(7,1,0) /* XXX: need end of range once fixed */
+    #define GASNETI_PGI_ASM_BUG2149 1
   #endif
   #define GASNETI_ASM_SPECIAL(mnemonic) asm(mnemonic)
 #elif PLATFORM_COMPILER_COMPAQ

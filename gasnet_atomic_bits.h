@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2007/10/08 07:37:43 $
- * $Revision: 1.280 $
+ *     $Date: 2007/10/24 01:42:20 $
+ * $Revision: 1.281 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -362,6 +362,15 @@
       #else
         #define GASNETI_ATOMIC_MEM_CLOBBER
       #endif
+
+      #if GASNETI_PGI_ASM_BUG2149
+        /* PGI can generate bad code in the presence of "register".
+	 * See gasnet_asm.h and bug 2149 for info. */
+	#define GASNETI_ASM_REGISTER_KEYWORD /* empty */
+      #else
+	#define GASNETI_ASM_REGISTER_KEYWORD register
+      #endif
+
       #define _gasneti_atomic32_read(p)      ((p)->ctr)
       #define _gasneti_atomic32_set(p,v)     ((p)->ctr = (v))
 
@@ -387,7 +396,7 @@
       #define _gasneti_atomic32_decrement _gasneti_atomic32_decrement
       GASNETI_INLINE(_gasneti_atomic32_decrement_and_test)
       int _gasneti_atomic32_decrement_and_test(gasneti_atomic32_t *v) {
-          register unsigned char retval;
+          GASNETI_ASM_REGISTER_KEYWORD unsigned char retval;
           __asm__ __volatile__(
 	          GASNETI_X86_LOCK_PREFIX
 		  "decl %0		\n\t"
@@ -405,8 +414,8 @@
 
       GASNETI_INLINE(_gasneti_atomic32_compare_and_swap)
       int _gasneti_atomic32_compare_and_swap(gasneti_atomic32_t *v, uint32_t oldval, uint32_t newval) {
-        register unsigned char retval;
-        register uint32_t readval;
+        GASNETI_ASM_REGISTER_KEYWORD unsigned char retval;
+        GASNETI_ASM_REGISTER_KEYWORD uint32_t readval;
         __asm__ __volatile__ (
 		GASNETI_X86_LOCK_PREFIX
 		"cmpxchgl %3, %1	\n\t"
@@ -459,8 +468,8 @@
         #else
           GASNETI_INLINE(_gasneti_atomic64_compare_and_swap)
           int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval) {
-            register unsigned char retval;
-            register uint64_t readval = oldval;
+            GASNETI_ASM_REGISTER_KEYWORD unsigned char retval;
+            GASNETI_ASM_REGISTER_KEYWORD uint64_t readval = oldval;
             __asm__ __volatile__ (
 		    GASNETI_X86_LOCK_PREFIX
 		    "cmpxchgq %3, %1	\n\t"
@@ -501,7 +510,7 @@
         #define gasneti_atomic64_align 4 /* only need 4-byte alignment, not the default 8 */
         GASNETI_INLINE(_gasneti_atomic64_compare_and_swap)
         int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval) {
-	  register uint64_t retval = newval;
+	  GASNETI_ASM_REGISTER_KEYWORD uint64_t retval = newval;
           __asm__ __volatile__ (
 		    "xchgl	%2, %%ebx	\n\t"
 		    "lock;			"
@@ -561,8 +570,8 @@
         #define gasneti_atomic64_align 4 /* only need 4-byte alignment, not the default 8 */
         GASNETI_INLINE(_gasneti_atomic64_compare_and_swap)
         int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval) {
-	  register uint32_t newlo = (uint32_t)newval;
-	  register uint32_t newhi = (uint32_t)(newval >> 32);
+	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newlo = (uint32_t)newval;
+	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newhi = (uint32_t)(newval >> 32);
           __asm__ __volatile__ (
 		    "xchgl	%2, %%ebx	\n\t"
 		    "lock;			"
@@ -577,9 +586,9 @@
         }
         GASNETI_INLINE(gasneti_atomic64_set)
         void gasneti_atomic64_set(gasneti_atomic64_t *p, uint64_t v, int flags) {
-	  register uint64_t oldval = p->ctr;
-	  register uint32_t newlo = (uint32_t)v;
-	  register uint32_t newhi = (uint32_t)(v >> 32);
+	  GASNETI_ASM_REGISTER_KEYWORD uint64_t oldval = p->ctr;
+	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newlo = (uint32_t)v;
+	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newhi = (uint32_t)(v >> 32);
           __asm__ __volatile__ (
 		    "xchgl	%1, %%ebx	\n\t"
 		    "0:				\n\t"
@@ -594,8 +603,8 @@
 	#define gasneti_atomic64_set gasneti_atomic64_set
         GASNETI_INLINE(gasneti_atomic64_read)
         uint64_t gasneti_atomic64_read(gasneti_atomic64_t *p, int flags) {
-	  register uint64_t retval = p->ctr;
-	  register uint32_t save_ebx, ecx;
+	  GASNETI_ASM_REGISTER_KEYWORD uint64_t retval = p->ctr;
+	  GASNETI_ASM_REGISTER_KEYWORD uint32_t save_ebx, ecx;
           __asm__ __volatile__ (
 		    "movl	%%ebx, %2	\n\t"
 		    "0:				\n\t"
@@ -622,10 +631,10 @@
         #define gasneti_atomic64_align 4 /* only need 4-byte alignment, not the default 8 */
         GASNETI_INLINE(_gasneti_atomic64_compare_and_swap)
         int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval) {
-	  register uint32_t oldlo = GASNETI_LOWORD(oldval);
-	  register uint32_t oldhi = GASNETI_HIWORD(oldval);
-	  register uint32_t newlo = GASNETI_LOWORD(newval);
-	  register uint32_t newhi = GASNETI_HIWORD(newval);
+	  GASNETI_ASM_REGISTER_KEYWORD uint32_t oldlo = GASNETI_LOWORD(oldval);
+	  GASNETI_ASM_REGISTER_KEYWORD uint32_t oldhi = GASNETI_HIWORD(oldval);
+	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newlo = GASNETI_LOWORD(newval);
+	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newhi = GASNETI_HIWORD(newval);
           __asm__ __volatile__ (
 		    "lock;			"
 		    "cmpxchg8b	%0		\n\t"
@@ -639,10 +648,10 @@
         GASNETI_INLINE(gasneti_atomic64_set)
         void gasneti_atomic64_set(gasneti_atomic64_t *p, uint64_t v, int flags) {
 	  uint64_t oldval = p->ctr;
-	  register uint32_t oldlo = GASNETI_LOWORD(oldval);
-	  register uint32_t oldhi = GASNETI_HIWORD(oldval);
-	  register uint32_t newlo = GASNETI_LOWORD(v);
-	  register uint32_t newhi = GASNETI_HIWORD(v);
+	  GASNETI_ASM_REGISTER_KEYWORD uint32_t oldlo = GASNETI_LOWORD(oldval);
+	  GASNETI_ASM_REGISTER_KEYWORD uint32_t oldhi = GASNETI_HIWORD(oldval);
+	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newlo = GASNETI_LOWORD(v);
+	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newhi = GASNETI_HIWORD(v);
           __asm__ __volatile__ (
 		    "0:				\n\t"
 		    "lock;			"
@@ -656,9 +665,9 @@
         GASNETI_INLINE(gasneti_atomic64_read)
         uint64_t gasneti_atomic64_read(gasneti_atomic64_t *p, int flags) {
 	  uint64_t retval = p->ctr;
-	  register uint32_t retlo = GASNETI_LOWORD(retval);
-	  register uint32_t rethi = GASNETI_HIWORD(retval);
-	  register uint32_t tmplo, tmphi;
+	  GASNETI_ASM_REGISTER_KEYWORD uint32_t retlo = GASNETI_LOWORD(retval);
+	  GASNETI_ASM_REGISTER_KEYWORD uint32_t rethi = GASNETI_HIWORD(retval);
+	  GASNETI_ASM_REGISTER_KEYWORD uint32_t tmplo, tmphi;
           __asm__ __volatile__ (
 		    "0:				\n\t"
 		    "movl	%%eax, %%ebx	\n\t"
