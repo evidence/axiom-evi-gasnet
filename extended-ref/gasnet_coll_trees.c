@@ -53,18 +53,18 @@ void gasnete_coll_print_tree(gasnete_coll_local_tree_geom_t *geom, int gasnete_c
   int i;
   
   for(i=0; i<geom->child_count; i++) {
-    fprintf(stderr, "%d> child %d: %d, subtree for that child: %d\n", gasnete_coll_tree_mynode, i, geom->child_list[i], geom->subtree_sizes[i]);
+    fprintf(stderr, "%d> child %d: %d, subtree for that child: %d\n", gasnete_coll_tree_mynode, i, (int)geom->child_list[i], (int)geom->subtree_sizes[i]);
   }
   if(gasneti_mynode == geom->root) {
     for(i=0; i<geom->total_size; i++) {
-      fprintf(stderr, "%d> dfs order %d: %d\n", gasneti_mynode, i, geom->dfs_order[i]);
+      fprintf(stderr, "%d> dfs order %d: %d\n", (int)gasneti_mynode, i, (int)geom->dfs_order[i]);
     }
   } else {
-     fprintf(stderr, "%d> parent: %d\n", gasnete_coll_tree_mynode, geom->parent);
+     fprintf(stderr, "%d> parent: %d\n", (int)gasnete_coll_tree_mynode, (int)geom->parent);
   }
-  fprintf(stderr, "%d> mysubtree size: %d\n", gasneti_mynode, geom->mysubtree_size);
+  fprintf(stderr, "%d> mysubtree size: %d\n", (int)gasneti_mynode, (int)geom->mysubtree_size);
 #if 1
-  fprintf(stderr, "%d> My sibling info: (id: %d, offset %d)\n", gasnete_coll_tree_mynode, geom->sibling_id, geom->sibling_offset);
+  fprintf(stderr, "%d> My sibling info: (id: %d, offset %d)\n", (int)gasnete_coll_tree_mynode, (int)geom->sibling_id, (int)geom->sibling_offset);
 #endif
 }
 
@@ -543,7 +543,7 @@ gasnet_node_t* gasnete_coll_get_sibling_list(gasnete_coll_local_tree_geom_t *geo
     gasneti_free(temp->subtree_sizes);
     
     if(flag == 0) {
-      gasneti_fatalerror("%d> FATAL TREE ERROR: I am not in my parents child list\n", gasnete_coll_tree_mynode);
+      gasneti_fatalerror("%d> FATAL TREE ERROR: I am not in my parents child list\n", (int)gasnete_coll_tree_mynode);
       
     }
     gasneti_free(temp);

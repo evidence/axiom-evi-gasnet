@@ -407,7 +407,7 @@ int8_t gasnete_coll_scratch_alloc_nb(gasnete_coll_op_t* op GASNETE_THREAD_FARG) 
   /*if the incoming size is greater than the total allocated scratch space signal an error*/
   if(scratch_req->incoming_size > scratch_req->team->scratch_segs[scratch_req->team->myrank].size) {
     gasneti_fatalerror("%d> collective requires temporary storage (%ld bytes) which is greater than total scratch space (%ld bytes)\nIncrease size of collective scratch space through GASNET_COLL_SCRATCH_SIZE environment variable to at least %ld bytes\n", 
-                       scratch_req->team->myrank, 
+                       (int)scratch_req->team->myrank, 
                        (long int)scratch_req->incoming_size, (long int)scratch_req->team->scratch_segs[0].size, (long int)scratch_req->incoming_size); 
   }
   gasneti_assert(op->waiting_scratch_op == 0 || op->waiting_scratch_op == 1);
