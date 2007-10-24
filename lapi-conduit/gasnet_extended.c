@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2007/10/19 22:47:44 $
- * $Revision: 1.59 $
+ *     $Date: 2007/10/24 23:04:37 $
+ * $Revision: 1.60 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -401,7 +401,7 @@ void gasnete_op_free(gasnete_op_t *op) {
     }
 }
 
-#if 0
+
 #if GASNETC_LAPI_FED_POLLBUG_WORKAROUND && !GASNETC_LAPI_RDMA
 /*
  * MLW: HACK to get around LAPI FEDERATION bug.
@@ -421,7 +421,7 @@ static void gasnete_wait_syncnbi_myputs(int numputs GASNETE_THREAD_FARG)
     gasneti_sync_reads();  /* MLW: is this needed? */
 }
 #endif
-#endif
+
 
 #if GASNETC_LAPI_RDMA || GASNETC_LAPI_FED_BUG_WORKAROUND
 static void gasnete_wait_syncnbi_myputs(int numputs GASNETE_THREAD_FARG)
@@ -1713,7 +1713,8 @@ extern void gasnete_wait_syncnbi_gets(GASNETE_THREAD_FARG_ALONE)
 }
 
 #endif
-#if 0
+
+#if !GASNETC_LAPI_RDMA && GASNETC_LAPI_FED_POLLBUG_WORKAROUND
 extern void gasnete_wait_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) 
 {
     gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
@@ -1738,6 +1739,10 @@ extern void gasnete_wait_syncnbi_puts(GASNETE_THREAD_FARG_ALONE)
 
 #if GASNETC_LAPI_RDMA
 extern void gasnete_wait_syncnb_original(gasnet_handle_t handle) {
+#elif GASNETC_LAPI_FED_POLLBUG_WORKAROUND
+extern void gasnete_wait_syncnb(gasnet_handle_t handle) {
+#endif
+#if GASNETC_LAPI_RDMA || GASNETC_LAPI_FED_POLLBUG_WORKAROUND
     int cnt = 0;
     gasnete_op_t *op = handle;
     if (handle == GASNET_INVALID_HANDLE)
