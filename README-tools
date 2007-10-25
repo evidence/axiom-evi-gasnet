@@ -2,7 +2,7 @@
 README file for GASNet tools
 ============================
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.14 $
+$Revision: 1.15 $
 GASNet tools specification version: 1.1
 
 The GASNet tools are a set of communication-independent utilities that are used
@@ -406,7 +406,7 @@ consider exposing those in a future version of the tools interface.
 
   It is not safe to concurrently access the same memory location as both
   an atomic type and a non-atomic type.  For the purpose of this distinction
-  only references using the gasnet_atomic32_ or gasnett_atomic64_ prefixes
+  only references using the gasnett_atomic32_ or gasnett_atomic64_ prefixes
   are atomic.  All non-GASNet references and any other GASNet references are
   non-atomic (including all gets and puts, Active Message calls, etc.).
 
