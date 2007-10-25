@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2007/09/08 10:52:58 $
- * $Revision: 1.80 $
+ *     $Date: 2007/10/25 21:30:18 $
+ * $Revision: 1.81 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -843,7 +843,7 @@ void * thread_fn(void *arg) {
       for (i=0;i<iters2;i++) {
         uint64_t v;
         gasnett_atomic64_set(&s1.a, myval, 0);
-        gasnett_atomic64_set((gasnett_atomic64_t *)&s2.d, myval, 0);
+        gasnett_atomic64_set((gasnett_atomic64_t *)(void *)&s2.d, myval, 0); /* (void*) suppresses g++ warning (bug 2158) */
         gasnett_atomic64_set(&a1, myval, 0);
         gasnett_atomic64_set(&a2, myval, 0);
 	v = gasnett_atomic64_read(&a2,0);
@@ -854,7 +854,7 @@ void * thread_fn(void *arg) {
             ((v >> 32) & 0xFFFF) != (v & 0xFFFF) ||
             ((v >> 16) & 0xFFFF) != (v & 0xFFFF)) 
             ERR("observed word tearing on gasnett_atomic64_set alignment test");
-        v = gasnett_atomic64_read((gasnett_atomic64_t *)&s2.d,0);
+        v = gasnett_atomic64_read((gasnett_atomic64_t *)(void *)&s2.d,0); /* (void*) suppresses g++ warning (bug 2158) */
         if (((v >> 48) & 0xFFFF) != (v & 0xFFFF) ||
             ((v >> 32) & 0xFFFF) != (v & 0xFFFF) ||
             ((v >> 16) & 0xFFFF) != (v & 0xFFFF)) 

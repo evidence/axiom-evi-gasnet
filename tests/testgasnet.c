@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testgasnet.c,v $
- *     $Date: 2007/09/08 12:20:49 $
- * $Revision: 1.55 $
+ *     $Date: 2007/10/25 21:30:18 $
+ * $Revision: 1.56 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -587,13 +587,13 @@ void doit5(int partner, int *partnerseg) {
       (void)gasnett_atomic64_compare_and_swap(ptr64, 0, 1, 0);
     }
     { double dbl = 1.0;
-      ptr64 = (gasnett_atomic64_t *)&dbl;
+      ptr64 = (gasnett_atomic64_t *)(void *)&dbl; /* (void*) suppresses g++ warning (bug 2158) */
       tmp64 = gasnett_atomic64_read(ptr64, 0);
       gasnett_atomic64_set(ptr64, tmp64, 0);
       (void)gasnett_atomic64_compare_and_swap(ptr64, 0, 1, 0);
     }
     { struct { char c; double dbl; } s = {0, 1.0};
-      ptr64 = (gasnett_atomic64_t *)&s.dbl;
+      ptr64 = (gasnett_atomic64_t *)(void *)&s.dbl; /* (void*) suppresses g++ warning (bug 2158) */
       tmp64 = gasnett_atomic64_read(ptr64, 0);
       gasnett_atomic64_set(ptr64, tmp64, 0);
       (void)gasnett_atomic64_compare_and_swap(ptr64, 0, 1, 0);
