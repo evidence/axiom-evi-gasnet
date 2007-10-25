@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2007/10/15 20:00:12 $
- * $Revision: 1.53 $
+ *     $Date: 2007/10/25 17:29:01 $
+ * $Revision: 1.54 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -403,7 +403,7 @@ void gasneti_segmentInit(uintptr_t localSegmentLimit,
            FILE *fp = fopen("/proc/sys/kernel/randomize_va_space", "r");
            if (fp) {
              int VMrand = fgetc(fp);
-             if (VMrand != EOF && VMrand) {
+             if (VMrand != EOF && VMrand != '0') {
                const char *wmsg = "WARNING: It appears your compute nodes are using a Linux security feature "
                                   "which intentionally randomizes the virtual address space, "
                                   "but GASNet was configured to optimize for congruent address spaces. "
