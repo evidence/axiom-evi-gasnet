@@ -1,6 +1,6 @@
 README file for GASNet
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.100 $
+$Revision: 1.101 $
 
 This is a combination user manual and design document for GASNet. Anyone
 planning on using, modifying or adding to the GASNet code base should read this
@@ -292,6 +292,33 @@ application-specific support.
  scatter gets - ie cases that are locally non-contiguous but remotely
  contiguous. Currently unsafe for use on gm and vapi conduits, thus disabled by default.
 
+* GASNET_COLL_OPT - set to 1 to enable the optimized versions of 
+ the collectives. These include binomial trees for the rooted collectives 
+ (broadcast, scatter, and gather) and Bruck's algorithm for the non-rooted ones
+ (gather all, and exchange) for small enough message sizes. Defaults to 1 if no 
+ value is specified.
+
+* GASNET_COLL_BROADCAST_OPT - set to 1 to enable optimized binomial tree broadcast. 
+ Defaults to GASNET_COLL_OPT.
+
+* GASNET_COLL_SCATTER_OPT - set to 1 to enable optimized binomial tree scatter.
+ Defaults to GASNET_COLL_OPT.
+
+* GASNET_COLL_GATHER_OPT - set to 1 to enable optimized binomial tree gather.
+ Defaults to GASNET_COLL_OPT.
+
+* GASNET_COLL_GATHER_ALL_OPT - set to 1 to enable optimized gather all. Defaults to 
+ GASNET_COLL_OPT.
+
+* GASNET_COLL_EXCHANGE_OPT - set to 1 to enable optimized exchange. Defaults to 
+ GASNET_COLL_OPT
+
+* GASNET_COLL_SCRATCH_SIZE - specifies the size of the GASNet auxiliary scratch space 
+ per node. Most of the optimized collectives rely on this auxiliary space to enable 
+ optimized communication schedules. If the size is set too low, then the collectives 
+ will send a lot more control messages which could adversely affect performance. 
+ Defaults to 2MB per node.
+
 * OPTIONAL: GASNET_EXITTIMEOUT, GASNET_EXITTIMEOUT_MAX, GASNET_EXITTIMEOUT_MIN, and
  GASNET_EXITTIMEOUT_FACTOR - control exit-coordination timeout.  Some conduits use a
  timeout to distinugish orderly job exit from uncoordinated failure of one or more
@@ -308,8 +335,7 @@ application-specific support.
  Default values differ among these conduits.
 
 * see conduit-specific documentation in conduit directories for more settings
-
-
+ 
 GASNet tracing & statistical collection
 =======================================
 
