@@ -2,7 +2,7 @@
 README file for GASNet tools
 ============================
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.12 $
+$Revision: 1.13 $
 GASNet tools specification version: 1.1
 
 The GASNet tools are a set of communication-independent utilities that are used
@@ -403,6 +403,22 @@ consider exposing those in a future version of the tools interface.
   This will ensure the storage is suitably aligned for accesses via pointers
   to both the atomic and non-atomic types (assuming, of course, that the
   non-atomic type is one allowed by the previous paragraph.)
+
+  It is not safe to concurrently access the same memory location as both
+  an atomic type and a non-atomic type.  For the purpose of this distinction
+  only references using the gasnet_atomic32_ or gasnett_atomic64_ prefixes
+  are atomic.  For instance, all GASNet extended API references are non-atomic,
+  including all gets and puts, Active Message calls, etc.
+
+  The client code is responsible for providing sufficient synchronization
+  (such as barriers or mutexes) to prevent the concurrent use of any given
+  memory location as both atomic and non-atomic.  Use of non-atomic "flag"
+  variables is not sufficient synchronization (even when volatile) in the
+  presence of certain compiler optimizations.  Additionally, use of an
+  atomic variable as a "flag" is only sufficient when memory fences are
+  used correctly.  When practical, one possible mechanism to have the
+  client code separate the atomic and non-atomic treatment of memory into
+  distinct phases of the computation, separated by a barrier.
    
 -------------------------
 Portable platform defines
