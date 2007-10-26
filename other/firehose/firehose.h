@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose.h,v $
- *     $Date: 2005/12/14 01:42:18 $
- * $Revision: 1.18 $
+ *     $Date: 2007/10/26 20:22:47 $
+ * $Revision: 1.19 $
  * Description: Public Header file
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -36,7 +36,7 @@ typedef struct _firehose_private_t	firehose_private_t;
  * firehose_*_pin functions, clients can pass a pointer to their own
  * allocated request_t or NULL which causes firehose to use its own
  * request_t allocation.  If a request_t is to be returned and the
- * client passed a non-null request_t pointer, firehose guarentees
+ * client passed a non-null request_t pointer, firehose guarantees
  * that the returned pointer will equal the one the client passed.
  */
 
@@ -168,7 +168,7 @@ firehose_remote_callback(gasnet_node_t node,
  * allowing pinning resources to be used more effectively.
  *
  * If the client has defined FIREHOSE_CLIENT_T, the function should
- * fill-in any neccesary data in the 'client' field of the 'pin_list'
+ * fill-in any necessary data in the 'client' field of the 'pin_list'
  * of firehose regions, which will be copied back to the node owning
  * the firehose (could be the local node) in an AMReplyMedium().
  * Changes to the client type in the region type will be reflected in
@@ -277,7 +277,7 @@ firehose_unexport_callback(gasnet_node_t node,
  * the array of gasnet_handlerentry_t and fill in a valid
  * gasnet_handler_t index for each function pointer.  At firehose
  * initialization, a check is made to make sure each function pointer
- * has been assigned a useable index number.
+ * has been assigned a usable index number.
  */
 extern gasnet_handlerentry_t * firehose_get_handlertable();
 
@@ -294,14 +294,20 @@ extern gasnet_handlerentry_t * firehose_get_handlertable();
  *
  * If a list of prepinned page-aligned regions is passed, firehose
  * initializes the reference count for these regions to 1 (which
- * guarentees that these regions remain pinned).  It is up to the
+ * guarantees that these regions remain pinned).  It is up to the
  * client to make sure that these regions are pinned prior to calling
  * firehose_init.  These regions may lie anywhere in the address space
- * -- in or out of the GASNet segment, in stack-adressable memory,
+ * -- in or out of the GASNet segment, in stack-addressable memory,
  * etc.  The client is free to issue additional firehose_local_* and
  * firehose_remote_* calls on these regions.  The memory for the
  * regions list is owned by the client and may safely be reused or
  * freed after firehose_init() returns.
+ *
+ * Prepinned regions are not given any special treatment except that
+ * their length may exceed the max_LocalPinSize.  In particular the
+ * information about a prepinned region is not automatically propagated
+ * to remote peers.  Only the process of resolving a remote firehose
+ * miss will propagate such information across the network.
  *
  * Firehose separates pinning resources using two parameters:
  *   1. The 'maximum_pinnable_memory' is the upper bound for the
@@ -320,7 +326,7 @@ extern gasnet_handlerentry_t * firehose_get_handlertable();
  * to pass the same 'max_pinnable_memory' and 'max_regions' values to
  * the function.  Setting either value to zero removes the constraints
  * associated to the count.  In other words, the firehose algorithm
- * can consider there to be no contraints on the amount of pinned
+ * can consider there to be no constraints on the amount of pinned
  * memory or maximum regions if either value is set to 0.
  */
 extern void
@@ -335,7 +341,7 @@ firehose_init(uintptr_t max_pinnable_memory, size_t max_regions,
  * parameters through environment variables.
  *
  * Except where noted, the numerical values are assumed to be base-2
- * megabytes.  For these environement variables, a suffix of 'GB' can
+ * megabytes.  For these environment variables, a suffix of 'GB' can
  * be appended for (base-2) gigabytes or 'KB' for (base-2) kilobytes 
  * ('MB' will simply be ignored if it is specified).
  *
@@ -352,7 +358,7 @@ firehose_init(uintptr_t max_pinnable_memory, size_t max_regions,
  * GASNET_FIREHOSE_MAXVICTIM_M limits, in megabytes, the length of
  *                             the FIFO queue and hence the amount of
  *                             inactive pinned regions.  This allows
- *                             firehose to ammortize the number
+ *                             firehose to amortize the number
  *                             of unpin operations.
  *
  * GASNET_FIREHOSE_MAXVICTIM_R limits, in units of regions, the
@@ -381,7 +387,7 @@ firehose_init(uintptr_t max_pinnable_memory, size_t max_regions,
  *
  * FIREHOSE_INIT_FLAG_LOCAL_ONLY
  *   Though firehose is designed to address the management of remote
- *   pinning resources, it is also usefull for managing purely local
+ *   pinning resources, it is also useful for managing purely local
  *   dynamic pinnings (for instance when the GASNet conduit has
  *   prepinned the segment and only needs to dynamically pin local
  *   out-of-segment memory).
@@ -446,7 +452,7 @@ firehose_poll(void);
  * Clients can retrieve M and Maxvictim values if firehose is given 
  * a maximum amount of pinnable memory.
  *
- * AM-handler context: Irrelevent, but safe.
+ * AM-handler context: Irrelevant, but safe.
  *
  */
 extern 
@@ -481,7 +487,7 @@ firehose_get_params(uintptr_t max_pinnable_memory,
  *  + The balancing call to firehose_release() will recover the
  *    storage.
  *
- * The regions returned (or pased to completion callbacks) by the
+ * The regions returned (or passed to completion callbacks) by the
  * firehose_*_pin() functions may lie partly outside of the requested
  * region.  Specifically, the start address can be lower than requested
  * and/or the end of the region can be higher than requested.
@@ -541,7 +547,7 @@ firehose_get_params(uintptr_t max_pinnable_memory,
  * this rule, submitting a callback argument to firehose_remote_pin()
  * is sufficient, even though the callback may not run until a later
  * time (provided, of course, that the callback will make progress
- * toward the release).  To ensure progess is made, clients of
+ * toward the release).  To ensure progress is made, clients of
  * firehose are guaranteed that firehose_local_pin() and
  * firehose_remote_pin() will call gasnet_AMPoll() while they are
  * awaiting release of resources.
@@ -605,7 +611,7 @@ firehose_get_params(uintptr_t max_pinnable_memory,
  *
  * This is an immediate operation, meaning no network communication is
  * required to complete the operation, and all side effects have
- * occured before this call returns.
+ * occurred before this call returns.
  * 
  * See the section "FIREHOSE PINNING FUNCTIONS (LOCAL & REMOTE)" for the
  * use of the "req" argument, and additional semantics common to all
@@ -625,7 +631,7 @@ firehose_local_pin(uintptr_t addr, size_t len, firehose_request_t *req);
  * pinned, the function returns NULL.
  *
  * This is an immediate operation, meaning no network communication is
- * required to complete the operation, and all side effects have occured
+ * required to complete the operation, and all side effects have occurred
  * before this call returns.
  *
  * See the section "FIREHOSE PINNING FUNCTIONS (LOCAL & REMOTE)" for the
@@ -646,7 +652,7 @@ firehose_try_local_pin(uintptr_t addr, size_t len, firehose_request_t *req);
  * requested region is already pinned does the call return NULL.
  *
  * This is an immediate operation, meaning no network communication is
- * required to complete the operation, and all side effects have occured
+ * required to complete the operation, and all side effects have occurred
  * before this call returns.
  *
  * When multiple pinned regions intersect the requested region, then
@@ -684,7 +690,7 @@ firehose_partial_local_pin(uintptr_t addr, size_t len,
  *******************
  * Remote Pin flags
  *******************
- * Remote pin request behaviour may be additionally controlled through
+ * Remote pin request behavior may be additionally controlled through
  * options set through the remote pin 'flags' parameter.  The flags
  * are described below as
  *
@@ -710,7 +716,7 @@ firehose_partial_local_pin(uintptr_t addr, size_t len,
  * client defines FIREHOSE_COMPLETION_IN_HANDLER in which case the
  * completion callback will be executed from within the firehose reply
  * handler.  In either case, the callback must be thread-safe and
- * firehose makes no guarentees as to what thread the callback is run
+ * firehose makes no guarantees as to what thread the callback is run
  * on (which means the callback can run a thread different from the
  * thread that initiated the operation).
  *
@@ -767,7 +773,7 @@ typedef size_t (*firehose_remotecallback_args_fn_t)
  * If FIREHOSE_FLAG_ENABLE_REMOTE_CALLBACK is set, the client must pass
  * as 'remote_args_callback' a valid function pointer of type
  * firehose_remotecallback_args_fn_t.  If an AM needs to be sent to a
- * remote node to complete the pinning, this calback will be invoked
+ * remote node to complete the pinning, this callback will be invoked
  * before firehose_remote_pin() returns, to construct the arguments
  * to pass when firehose_remote_callback() is invoked.  If the request
  * can be satisfied from local tables, no network communication will
@@ -798,7 +804,7 @@ firehose_remote_pin(gasnet_node_t node, uintptr_t addr, size_t len,
  * pinned, the function returns NULL.
  *
  * This is an immediate operation, meaning no network communication is
- * required to complete the operation, and all side effects have occured
+ * required to complete the operation, and all side effects have occurred
  * before this call returns.
  * 
  * See the section "FIREHOSE PINNING FUNCTIONS (LOCAL & REMOTE)" for the
@@ -820,7 +826,7 @@ firehose_try_remote_pin(gasnet_node_t node, uintptr_t addr, size_t len,
  * requested region is already pinned does the call return NULL.
  *
  * This is an immediate operation, meaning no network communication is
- * required to complete the operation, and all side effects have occured
+ * required to complete the operation, and all side effects have occurred
  * before this call returns.
  *
  * When multiple pinned regions intersect the requested region, then
