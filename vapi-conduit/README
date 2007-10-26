@@ -1,7 +1,7 @@
 README file for vapi-conduit and ibv-conduit
 ============================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.48 $
+$Revision: 1.49 $
 
 @ TOC: @
 @ Section: VAPI vs IBV @
@@ -167,10 +167,11 @@ $Revision: 1.48 $
 
   Connection settings:
   Under normal conditions, Host Channel Adapters and Ports will be
-  located automatically.  However, in the event you have multiple
-  adapters or multiple active ports on a single adapter, you may wish
-  to set these environment variables to identify the correct HCAs and
-  Ports.  These parameters may legally take different values on each node.
+  located and configured automatically.  However, in the event you have
+  multiple adapters or multiple active ports on a single adapter, you may
+  wish to set environment variables to identify the correct HCAs and Ports.
+  Or, you may wish to use non-default values for configuring connections.
+  These parameters may legally take different values on each node.
 
   See "Build-time Configuration", above, for information on enabling
   use of multiple HCAs in GASNet vapi-conduit.
@@ -222,6 +223,18 @@ $Revision: 1.48 $
     the available HCAs and the status of their ports, while for IBV the
     equivalent is 'ibv_devices'.
     The default is no filter.
+
+  + GASNET_QP_TIMEOUT
+    This sets the timeout value used to configure InfiniBand QueuePairs.
+    The IB specification uses (4.096us * 2^qp_timeout) as the length of
+    time an HCA waits to receive and ACK from its peer before attempting
+    retransmisson.
+    The default is currently 18 (roughly 1 second).
+
+  + GASNET_QP_RETRY_COUNT
+    This sets the maximum number of retransmissions due to ACK timeout
+    before the HCA signals a fatal error.
+    The default is currently 7 (the max supported by early Mellanox HCAs)
 
   Software configuration settings:
   There are some optional behaviors in vapi-conduit that can be turned

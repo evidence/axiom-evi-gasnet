@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2007/09/07 01:18:15 $
- * $Revision: 1.196 $
+ *     $Date: 2007/10/26 00:32:23 $
+ * $Revision: 1.197 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -80,8 +80,13 @@ GASNETI_IDENT(gasnetc_IdentString_Name,    "$GASNetCoreLibraryName: " GASNET_COR
 #define GASNETC_DEFAULT_EXITTIMEOUT_FACTOR	0.25	/* 1/4 second */
 static double gasnetc_exittimeout = GASNETC_DEFAULT_EXITTIMEOUT_MAX;
 
+/* HW level retry knobs */
+static int gasnetc_qp_timeout, gasnetc_qp_retry_count;
+#define GASNETC_DEFAULT_QP_TIMEOUT		18	/* about 1s */
+#define GASNETC_DEFAULT_QP_RETRY_COUNT		7
+
 /*
-  These calues cannot yet be overridden by environment variables.
+  The following values cannot yet be overridden by environment variables.
 */
 #if GASNET_CONDUIT_VAPI
   #define GASNETC_QP_PATH_MTU		MTU1024
@@ -92,8 +97,6 @@ static double gasnetc_exittimeout = GASNETC_DEFAULT_EXITTIMEOUT_MAX;
 #endif
 #define GASNETC_QP_STATIC_RATE		0
 #define GASNETC_QP_RNR_RETRY		7	/* retry forever, but almost never happens */
-#define GASNETC_QP_TIMEOUT		18	/* about 1s */
-#define GASNETC_QP_RETRY_COUNT		7
 
 #ifndef MT_MELLANOX_IEEE_VENDOR_ID
   #define MT_MELLANOX_IEEE_VENDOR_ID      0x02c9
@@ -408,6 +411,8 @@ static int gasnetc_load_settings(void) {
       program_var = _tmp;                                                            \
     } while (0)
 
+  GASNETC_ENVINT(gasnetc_qp_timeout, GASNET_QP_TIMEOUT, GASNETC_DEFAULT_QP_TIMEOUT, 0, 0);
+  GASNETC_ENVINT(gasnetc_qp_retry_count, GASNET_QP_RETRY_COUNT, GASNETC_DEFAULT_QP_RETRY_COUNT, 1, 0);
   GASNETC_ENVINT(gasnetc_op_oust_pp, GASNET_NETWORKDEPTH_PP, GASNETC_DEFAULT_NETWORKDEPTH_PP, 1, 0);
   GASNETC_ENVINT(gasnetc_op_oust_limit, GASNET_NETWORKDEPTH_TOTAL, GASNETC_DEFAULT_NETWORKDEPTH_TOTAL, 0, 0);
   GASNETC_ENVINT(gasnetc_am_oust_pp, GASNET_AM_CREDITS_PP, GASNETC_DEFAULT_AM_CREDITS_PP, 1, 0);
@@ -572,6 +577,8 @@ static int gasnetc_load_settings(void) {
 #else
   GASNETI_TRACE_PRINTF(C,  ("  GASNET_RCV_THREAD               disabled at build time"));
 #endif
+  GASNETI_TRACE_PRINTF(C,  ("  GASNET_QP_TIMEOUT               = %d (%g sec)", gasnetc_qp_timeout, 4.096e-6*(1<<gasnetc_qp_timeout)));
+  GASNETI_TRACE_PRINTF(C,  ("  GASNET_QP_RETRY_COUNT           = %d", gasnetc_qp_retry_count));
   GASNETI_TRACE_PRINTF(C,  ("}"));
 
   gasnetc_exittimeout = gasneti_get_exittimeout(GASNETC_DEFAULT_EXITTIMEOUT_MAX,
@@ -1374,8 +1381,8 @@ static int gasnetc_init(int *argc, char ***argv) {
     QP_ATTR_MASK_SET(qp_mask, QP_ATTR_RNR_RETRY);
     QP_ATTR_MASK_SET(qp_mask, QP_ATTR_OUS_DST_RD_ATOM);
     qp_attr.qp_state         = VAPI_RTS;
-    qp_attr.timeout          = GASNETC_QP_TIMEOUT;
-    qp_attr.retry_count      = GASNETC_QP_RETRY_COUNT;
+    qp_attr.timeout          = gasnetc_qp_timeout;
+    qp_attr.retry_count      = gasnetc_qp_retry_count;
     qp_attr.rnr_retry        = GASNETC_QP_RNR_RETRY;
     for (i = 0; i < ceps; ++i) {
       if (i/gasnetc_num_qps == gasneti_mynode) continue;
@@ -1394,8 +1401,8 @@ static int gasnetc_init(int *argc, char ***argv) {
 #else
     qp_mask = (enum ibv_qp_attr_mask)(IBV_QP_STATE | IBV_QP_SQ_PSN | IBV_QP_TIMEOUT | IBV_QP_RETRY_CNT | IBV_QP_RNR_RETRY | IBV_QP_MAX_QP_RD_ATOMIC);
     qp_attr.qp_state         = IBV_QPS_RTS;
-    qp_attr.timeout          = GASNETC_QP_TIMEOUT;
-    qp_attr.retry_cnt        = GASNETC_QP_RETRY_COUNT;
+    qp_attr.timeout          = gasnetc_qp_timeout;
+    qp_attr.retry_cnt        = gasnetc_qp_retry_count;
     qp_attr.rnr_retry        = GASNETC_QP_RNR_RETRY;
     for (i = 0; i < ceps; ++i) {
       if (i/gasnetc_num_qps == gasneti_mynode) continue;
