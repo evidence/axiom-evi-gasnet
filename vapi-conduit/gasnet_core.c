@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2007/10/26 00:32:23 $
- * $Revision: 1.197 $
+ *     $Date: 2007/10/26 01:37:32 $
+ * $Revision: 1.198 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -412,7 +412,17 @@ static int gasnetc_load_settings(void) {
     } while (0)
 
   GASNETC_ENVINT(gasnetc_qp_timeout, GASNET_QP_TIMEOUT, GASNETC_DEFAULT_QP_TIMEOUT, 0, 0);
+  if_pf (gasnetc_qp_timeout > 31) {
+    fprintf(stderr,
+            "WARNING: GASNET_QP_TIMEOUT reduced from the requested value, %d, to the maximum supported value 31.\n", (int)gasnetc_qp_timeout);
+    gasnetc_qp_timeout = 31;
+  }
   GASNETC_ENVINT(gasnetc_qp_retry_count, GASNET_QP_RETRY_COUNT, GASNETC_DEFAULT_QP_RETRY_COUNT, 1, 0);
+  if_pf (gasnetc_qp_retry_count > 255) {
+    fprintf(stderr,
+            "WARNING: GASNET_QP_RETRY_COUNT reduced from the requested value, %d, to the maximum supported value 255.\n", (int)gasnetc_qp_retry_count);
+    gasnetc_qp_retry_count = 255;
+  }
   GASNETC_ENVINT(gasnetc_op_oust_pp, GASNET_NETWORKDEPTH_PP, GASNETC_DEFAULT_NETWORKDEPTH_PP, 1, 0);
   GASNETC_ENVINT(gasnetc_op_oust_limit, GASNET_NETWORKDEPTH_TOTAL, GASNETC_DEFAULT_NETWORKDEPTH_TOTAL, 0, 0);
   GASNETC_ENVINT(gasnetc_am_oust_pp, GASNET_AM_CREDITS_PP, GASNETC_DEFAULT_AM_CREDITS_PP, 1, 0);
