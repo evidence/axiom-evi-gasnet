@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_asm.h,v $
- *     $Date: 2007/10/24 01:42:20 $
- * $Revision: 1.121 $
+ *     $Date: 2007/10/26 01:13:58 $
+ * $Revision: 1.122 $
  * Description: GASNet header for semi-portable inline asm support
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -48,7 +48,7 @@
    *   Implies PLATFORM_COMPILER_PGI && GASNETI_PGI_ASM_GNU
    *
    * GASNETI_PGI_ASM_BUG2149
-   *   Compiler suffers from "tpr <???>" in which extended asm() register outputs are "lost"
+   *   Compiler suffers from "tpr 4336" in which extended asm() register outputs are "lost"
    *   when the "register" qualifier is applied to the output variable.
    *
    * See GASNet bug 1621 (http://upc-bugs.lbl.gov/bugzilla/show_bug.cgi?id=1621) for more
@@ -62,7 +62,7 @@
    * See also PGI "tpr 3936".
    *
    * See GASNet bug 2149 for discussion related to the BUG2149 problem and its symptoms.
-   * See also PGI "tpr <???>".
+   * See also PGI "tpr 4336".
    */
   #if (PLATFORM_COMPILER_PGI_C && PLATFORM_COMPILER_VERSION_GE(6,1,1)) || \
       (PLATFORM_COMPILER_PGI_CXX && PLATFORM_COMPILER_VERSION_GE(6,2,2))
