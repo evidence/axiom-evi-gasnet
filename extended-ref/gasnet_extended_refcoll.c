@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refcoll.c,v $
- *     $Date: 2007/10/30 00:02:11 $
- * $Revision: 1.71 $
+ *     $Date: 2007/10/30 15:21:01 $
+ * $Revision: 1.72 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -3096,7 +3096,7 @@ gasnete_coll_broadcast_nb_default(gasnet_team_handle_t team,
 {
   const size_t eager_limit = gasnete_coll_p2p_eager_min;
   gasnete_coll_tree_type_t tree_type;
-  if_pf (!gasnete_coll_opt_broadcast_enabled) {
+  if_pf (!gasnete_coll_opt_broadcast_enabled || gasnete_coll_get_pipe_seg_size(team->autotune_info, GASNETE_COLL_BROADCAST_OP, flags)==0) {
     return gasnete_coll_broadcast_nb_default_OLD(team, dst, srcimage, src, nbytes,
                                                  flags, sequence GASNETE_THREAD_PASS);
   }
@@ -3280,7 +3280,7 @@ gasnete_coll_broadcastM_nb_default(gasnet_team_handle_t team,
 {
   const size_t eager_limit = gasnete_coll_p2p_eager_min;
   gasnete_coll_tree_type_t tree_type;
-  if_pf (!gasnete_coll_opt_broadcast_enabled) {
+  if_pf (!gasnete_coll_opt_broadcast_enabled || gasnete_coll_get_pipe_seg_size(team->autotune_info, GASNETE_COLL_BROADCAST_OP, flags)==0) {
     return gasnete_coll_broadcastM_nb_default_OLD(team, dstlist, srcimage, src, nbytes,
 				                  flags, sequence GASNETE_THREAD_PASS);
   }
@@ -3410,7 +3410,7 @@ gasnete_coll_scatter_nb_default(gasnet_team_handle_t team,
 {
   const size_t eager_limit = gasnete_coll_p2p_eager_min;
   gasnete_coll_tree_type_t tree_type;
-  if_pf (!gasnete_coll_opt_scatter_enabled) {
+  if_pf (!gasnete_coll_opt_scatter_enabled || gasnete_coll_get_pipe_seg_size(team->autotune_info, GASNETE_COLL_SCATTER_OP, flags)==0) {
     return gasnete_coll_scatter_nb_default_OLD(team, dst, srcimage, src, nbytes,
 				               flags, sequence GASNETE_THREAD_PASS);
   }
@@ -3586,7 +3586,7 @@ gasnete_coll_scatterM_nb_default(gasnet_team_handle_t team,
   const size_t eager_limit = gasnete_coll_p2p_eager_min;
   gasnete_coll_tree_type_t tree_type;
   size_t pipe_seg_size = gasnete_coll_get_pipe_seg_size(team->autotune_info, GASNETE_COLL_SCATTER_OP, flags);
-  if_pf (!gasnete_coll_opt_scatter_enabled) {
+  if_pf (!gasnete_coll_opt_scatter_enabled || gasnete_coll_get_pipe_seg_size(team->autotune_info, GASNETE_COLL_SCATTER_OP, flags)==0) {
     return gasnete_coll_scatterM_nb_default_OLD(team, dstlist, srcimage, src, nbytes,
 				                flags, sequence GASNETE_THREAD_PASS);
   }
@@ -3730,7 +3730,7 @@ gasnete_coll_gather_nb_default(gasnet_team_handle_t team,
   const size_t eager_limit = gasnete_coll_p2p_eager_min;
   gasnete_coll_tree_type_t tree_type;
   
-  if_pf (!gasnete_coll_opt_gather_enabled) {
+  if_pf (!gasnete_coll_opt_gather_enabled || gasnete_coll_get_pipe_seg_size(team->autotune_info, GASNETE_COLL_GATHER_OP, flags)==0) {
     return gasnete_coll_gather_nb_default_OLD(team, dstimage, dst, src, nbytes,
 				              flags, sequence GASNETE_THREAD_PASS);
   }
@@ -3923,7 +3923,7 @@ gasnete_coll_gatherM_nb_default(gasnet_team_handle_t team,
 {
   const size_t eager_limit = gasnete_coll_p2p_eager_min;
   gasnete_coll_tree_type_t tree_type;
-  if_pf(!gasnete_coll_opt_gather_enabled) {
+  if_pf(!gasnete_coll_opt_gather_enabled || gasnete_coll_get_pipe_seg_size(team->autotune_info, GASNETE_COLL_GATHER_OP, flags)==0) {
     return gasnete_coll_gatherM_nb_default_OLD(team, dstimage, dst, srclist, nbytes,
 				               flags, sequence GASNETE_THREAD_PASS);
   }
@@ -4119,6 +4119,7 @@ gasnete_coll_gather_all_nb_default(gasnet_team_handle_t team,
 				   void *dst, void *src,
 				   size_t nbytes, int flags, uint32_t sequence
 				   GASNETE_THREAD_FARG) {
+  size_t max_dissem_msg_size = gasnete_coll_total_images*nbytes;
   if_pf (!gasnete_coll_opt_gather_all_enabled) {
     return gasnete_coll_gather_all_nb_default_OLD(team, dst, src, nbytes,
 				                  flags, sequence GASNETE_THREAD_PASS);
@@ -4139,7 +4140,7 @@ gasnete_coll_gather_all_nb_default(gasnet_team_handle_t team,
 
   
   if(gasnete_coll_my_images*nbytes <=  gasnete_coll_get_dissem_limit(team->autotune_info, GASNETE_COLL_GATHER_ALL_OP, flags) &&
-     gasnete_coll_total_images*nbytes <= team->smallest_scratch_seg) {
+     max_dissem_msg_size <= MIN(team->smallest_scratch_seg, gasnet_AMMaxLongRequest())) {
     return gasnete_coll_gall_Dissem(team, dst, src, nbytes, flags, sequence GASNETE_THREAD_PASS); 
   } else {
     if((flags & GASNET_COLL_SINGLE) && (flags & GASNET_COLL_DST_IN_SEGMENT)) {
@@ -4330,6 +4331,7 @@ gasnete_coll_gather_allM_nb_default(gasnet_team_handle_t team,
 				    size_t nbytes, int flags, uint32_t sequence
 				    GASNETE_THREAD_FARG)
 {
+  size_t max_dissem_msg_size = gasnete_coll_total_images*nbytes;
   if_pf (!gasnete_coll_opt_gather_all_enabled) {
     return gasnete_coll_gather_allM_nb_default_OLD(team, dstlist, srclist, nbytes,
 				                   flags, sequence GASNETE_THREAD_PASS);
@@ -4349,7 +4351,7 @@ gasnete_coll_gather_allM_nb_default(gasnet_team_handle_t team,
 
   
   if (gasnete_coll_my_images*nbytes <=  gasnete_coll_get_dissem_limit(team->autotune_info, GASNETE_COLL_GATHER_ALL_OP, flags) &&
-      gasnete_coll_total_images*nbytes <= team->smallest_scratch_seg &&
+      max_dissem_msg_size <= MIN(team->smallest_scratch_seg, gasnet_AMMaxLongRequest()) &&
       gasnete_coll_fixed_image_count) { 
     return gasnete_coll_gallM_Dissem(team, dstlist, srclist, nbytes, flags, sequence GASNETE_THREAD_PASS);
   } else  {
@@ -4489,6 +4491,7 @@ gasnete_coll_exchange_nb_default(gasnet_team_handle_t team,
 				 size_t nbytes, int flags, uint32_t sequence
 				 GASNETE_THREAD_FARG)
 {
+  size_t max_dissem_msg_size = (gasnete_coll_my_images*gasnete_coll_my_images*nbytes)*(team->total_ranks/2+(team->total_ranks%2));
   if_pf (!gasnete_coll_opt_exchange_enabled) {
     return gasnete_coll_exchange_nb_default_OLD(team, dst, src, nbytes,
 				                flags, sequence GASNETE_THREAD_PASS);
@@ -4508,10 +4511,9 @@ gasnete_coll_exchange_nb_default(gasnet_team_handle_t team,
 				     0, 0, src, nbytes*gasneti_nodes);
 
   /* XXX: need more implementations to choose from here */
-  if (gasnete_coll_my_images*gasnete_coll_my_images*nbytes <=  gasnete_coll_get_dissem_limit(team->autotune_info, GASNETE_COLL_EXCHANGE_OP, flags) &&
-      gasnete_coll_my_images*nbytes*gasnete_coll_total_images+
-      ((gasnete_coll_my_images*gasnete_coll_my_images*nbytes)*(team->total_ranks/2+(team->total_ranks%2))*2)
-      <= team->smallest_scratch_seg &&
+  if (nbytes <=  gasnete_coll_get_dissem_limit(team->autotune_info, GASNETE_COLL_EXCHANGE_OP, flags) &&
+      nbytes*gasnete_coll_total_images+(max_dissem_msg_size*2)<= team->smallest_scratch_seg  &&
+      max_dissem_msg_size <=  gasnet_AMMaxLongRequest() &&
       gasnete_coll_fixed_image_count) {
      return gasnete_coll_exchg_Dissem(team, dst, src, nbytes, flags, sequence GASNETE_THREAD_PASS);
   } else {
@@ -4713,6 +4715,8 @@ gasnete_coll_exchangeM_nb_default(gasnet_team_handle_t team,
 				  size_t nbytes, int flags, uint32_t sequence
 				  GASNETE_THREAD_FARG)
 {
+  size_t max_dissem_msg_size = (gasnete_coll_my_images*gasnete_coll_my_images*nbytes)*(team->total_ranks/2+team->total_ranks%2);
+
   if_pf (!gasnete_coll_opt_exchange_enabled) {
     return gasnete_coll_exchangeM_nb_default_OLD(team, dstlist, srclist, nbytes,
 				                 flags, sequence GASNETE_THREAD_PASS);
@@ -4732,9 +4736,8 @@ gasnete_coll_exchangeM_nb_default(gasnet_team_handle_t team,
 
   /* XXX: need more implementations to choose from here */
   if (gasnete_coll_my_images*gasnete_coll_my_images*nbytes <=  gasnete_coll_get_dissem_limit(team->autotune_info, GASNETE_COLL_EXCHANGE_OP, flags) &&
-      gasnete_coll_my_images*nbytes*gasnete_coll_total_images+
-      ((gasnete_coll_my_images*gasnete_coll_my_images*nbytes)*(team->total_ranks/2+(team->total_ranks%2))*2)
-      <= team->smallest_scratch_seg &&
+      gasnete_coll_my_images*nbytes*gasnete_coll_total_images+(max_dissem_msg_size*2) <= team->smallest_scratch_seg &&
+      max_dissem_msg_size <= gasnet_AMMaxLongRequest() && 
       gasnete_coll_fixed_image_count)  {
     return gasnete_coll_exchgM_Dissem(team, dstlist, srclist, nbytes, flags, sequence GASNETE_THREAD_PASS);
   } else {
