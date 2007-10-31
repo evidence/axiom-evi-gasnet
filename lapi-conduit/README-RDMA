@@ -1,26 +1,23 @@
-Update strategy
-===============
+Overview
+========
+
 RDMA support for LAPI conduit is currently implemented with #ifdef
-regions providing the required functionality.  Jason has added
-the --enable-lapi-rdma configure option that adds GASNETC_LAPI_RDMA
-to the compilation environment.
+regions providing the required functionality.  It is automatically
+detected at configure time.
 
 Setup (mostly in gasnet_core.c:gasnetc_attach())
 ================================================
 
 In this routine we take the regular segment (SEGMENT_FAST only)
-and split it up into a number of 32MB regions, each with its
+and split it up into a number of 16MB regions, each with its
 own PVO (LAPI_Util with LAPI_XLATE_ADDRESS).  These PVOs are
 then exchanged (loop of LAPI_Address_init64() calls).  In addition
 lapi_remote_ctxt_t objects are obtained (LAPI_Util with
 LAPI_RDMA_ACQUIRE).  At this point a node has enough to identify
 and manipulate data in the shared segment on any other node.
 
-Finally, target notification callbacks are registed for ensuring
-GASNet semantics for completion of PUT operations (see subsequent
-discussion)
 
-GET Operations
+GET and PUT Operations
 ==============
 
 Shared segment to shared segment
@@ -32,82 +29,32 @@ is to loop over source regions, splitting the transfer into one
 or two, depending on whether the source region crosses a PVO boundary
 at the target.
 
-[Alternative: Investigate interchanging loop order]
 
 Out of shared segment to shared segment
 ---------------------------------------
 
 Bounce buffers are used for transfers shorter than 
-gasnete_pin_threshold.  For longer transfers,
-the regions are lined up, i.e. the source PVO boundaries are matched
+gasnete_pin_threshold.  For longer transfers, one of two schemes
+is used depending on whether firehose is enabled:
+1) The regions are lined up, i.e. the source PVO boundaries are matched
 to target PVO boundaries.  The source regions are then pinned using 
 this decomposition and the LAPI_Xfer() calls are made.
+2) Local firehose is used to pin the source region.
+
+For segment everything, both local and remote firehose is used.
 
 Completion
 ----------
 
 Here the origin counter is sufficient.  Upon completion all the source
-out of segment registrations are freed.
-
-[Improvements (probably mandatory for any kind of performance):
-Use firehose to manage source pinning etc.]
-
-PUT Operations
-==============
-
-The decomposition strategy is similar to GETs.  The only wrinkle here
-is that the origin counter only indicates local completion.
-For remote completion we use the following strategy:
-
-At setup each node decides on a number of tags, the number of
-concurrent transfers it would like to handle.  Each node also
-registers a remote callback for each tag (a single function pointer,
-with a different sinfo for each tag).  Each tag is associated with a
-word at the initiator.  For PUT operations the initiator gets a free
-word from an array indexed by tag.  This location in the array is
-atomically set to OCCUPIED.  This tag is then placed in the rdma_tag
-field of the HwXfer struct.  In addition the completion pointer is
-placed at the corresponding part in an array of completion pointers.
-When the remote node receives the data of the put, the
-callback is executed with (source, tag) as arguments.  
-This lets it call an AM at the source with the tag.  The AM just
-increments the completion pointer and sets the tag location back to EMPTY.
-
-[Alternative: In addition to the array of tags, pre-allocate an 
-array of completion pointers.]
-
-the target.  The initiator can pull this table periodically (some
-intelligence is needed here).  This has the advantage of aggregating
-not just the chunks of a single transfer, but multiple transfers as
-well.  More investigation definitely needed]
-
-[Alternative: Use LAPI_Fence() to ensure completion.  However, this 
-completes
-everything from the node which is probably too big of a hammer when we 
-have
-Pthreads.  We could get separate LAPI handles for each Pthread to 
-solve this,
-though.]
-
-[Alternative: Have the notification handler update a table local to
-the target.  The initiator can pull this table periodically (some
-intelligence is needed here).  This has the advantage of aggregating
-not just the chunks of a single transfer, but multiple transfers as
-well.  More investigation definitely needed]
-
+out of segment registrations are freed (if firehose isn't used).
 
 Managing GASNet Handles
 =======================
 
-For GETs, as mentioned earlier, only the origin counter and
-list of locally pinned regions are needed.
-For PUTs, the origin counter only helps us with source completion.
-For target completion we also need to know when all the initiator's
-words have been modified by the target.  We either need to keep the
-list of words or have another counter be atomically updated when
-the words are "reaped".
-It's probably easiest to add a target counter and pointer to list of
-PVOs to the eops/iops.  The list of PVOs will soon go.
+Only the origin counter and list of locally pinned regions are needed.
+In the non-firehose case, the send completion handler unpins what needed
+to be pinned.
 
 
 Managing Network Buffers
@@ -132,19 +79,16 @@ Tuning parameters
 GASNET_LAPI_RCTXTS_PER_NODE - a (small) integer specifying how many
 remote contexts to open up to each peer.  Default value: 1
 
-TODO List Once We Have a Machine
-================================
+GASNET_LAPI_USE_RDMA - use RDMA with this conduit.  If RDMA is detected
+at configure time, it is enabled by default.  Note that -rdma_count
+must be passed to poe or rcxtblocks passed to LL.  If the conduit cannot
+use RDMA at startup it will degrade to the older conduit code and
+print a warning.
 
-- Get timings for pin/unpin
-- Perform some empirical studies to help us choose
-  among design alternatives, particularly for PUTs
-- Local firehose (improved FAST & LARGE)
-- Remote firehose (EVERYTHING)
-- Revisit current AM implementation
-- Check that resources get reaped as soon as possible
-- Tests with threads
-- Add GASNET_NETWORK_DEPTH environment variable
-  Two issues: table size for puts
-              number of network buffers
-- Also have MAX_PVO be an environment variable
-- The pin threshold
+GASNET_LAPI_PIN_THRESHOLD - the message size (in bytes) where we crossover
+from using network buffers to pinning.  Limited to be <= 16384.
+
+GASNET_LAPI_USE_FIREHOSE - Use the firehose dynamic memory registration
+scheme for segment fast (defaults to yes).  This is automatically
+enabled for segment everything.
+
