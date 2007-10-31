@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2007/10/24 23:04:37 $
- * $Revision: 1.60 $
+ *     $Date: 2007/10/31 09:35:19 $
+ * $Revision: 1.61 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -289,7 +289,7 @@ void gasnete_free_network_buffer(gasnete_lapi_nb *nb);
 /* Use bounce buffers for transfers below the following threshold */
 /* 4K for now, will/should be user controlled later */
 int gasnete_pin_threshold = (4*1024); 
-
+int gasnete_pin_max = 16*1024*1024;
 #endif
 
 /*  query an op for completeness - for iop this means both puts and gets */

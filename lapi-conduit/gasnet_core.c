@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2007/10/30 22:39:13 $
- * $Revision: 1.89 $
+ *     $Date: 2007/10/31 09:35:19 $
+ * $Revision: 1.90 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -90,6 +90,8 @@ firehose_info_t gasnetc_firehose_info;
 lapi_cntr_t gasnetc_incoming_puts_cntr;
 lapi_cntr_t gasnetc_incoming_gets_cntr;
 int gasnetc_initiated_am_mediums = 0;
+extern int gasnete_pin_threshold;
+extern int gasnete_pin_max;
 #endif
 
 /* This is the official core AM handler table.  All registered
@@ -645,6 +647,19 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 
 #if GASNETC_LAPI_RDMA
     if_pt(gasnetc_lapi_use_rdma) {
+      {
+        int64_t user_pin_threshold = gasneti_getenv_int_withdefault("GASNET_LAPI_PIN_THRESHOLD", gasnete_pin_threshold, 0);
+        fprintf(stderr,"GASNET_LAPI_PIN_THRESHOLD is %ld\n",user_pin_threshold);
+        fflush(stderr);
+        if(user_pin_threshold < 0 || user_pin_threshold > gasnete_pin_max) {
+          if(gasneti_mynode == 0) {
+            fprintf(stderr,"WARNING: GASNET_LAPI_PIN_THRESHOLD must be greater than 0 and less than %d.  Using default (%d bytes)\n",gasnete_pin_max, gasnete_pin_threshold);
+            fflush(stderr);
+          }
+        } else {
+          gasnete_pin_threshold = user_pin_threshold;
+        }
+      }
 #if GASNET_SEGMENT_EVERYTHING
     /* Always use firehose for segment everything, else there's no point */
     gasnetc_use_firehose = 1;
