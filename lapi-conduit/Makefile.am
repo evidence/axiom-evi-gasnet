@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/Makefile.am,v $
-#     $Date: 2007/10/15 21:20:58 $
-# $Revision: 1.36 $
+#     $Date: 2007/10/31 18:32:58 $
+# $Revision: 1.37 $
 # Description: Makefile for GASNet lapi conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -54,6 +54,7 @@ CONDUIT_FILELIST =           \
       gasnet_extended_internal.h \
       gasnet_firehose.c      \
       firehose_fwd.h         \
+      README-RDMA            \
       STATUS                 \
       license.txt
 
@@ -90,6 +91,14 @@ CONDUIT_RUNCMD = @ENVCMD@ MP_FENCE=-- poe %P -nodes %N -tasks_per_node 1 -rmpool
 
 # conduit-specific tests in ../tests directory
 CONDUIT_TESTS =
+
+if HAVE_LAPI_RDMA
+# conduit-specific hook to install README-RDMA
+# stadard uninstall rules are sufficient
+conduit_has_install_data_hook = yes
+do-install-data-conduit:
+	$(INSTALL_DATA) $(srcdir)/README-RDMA $(DESTDIR)$(docdir)/README-lapi_rdma
+endif
 
 # -------- Do not modify anything below this line --------
 
