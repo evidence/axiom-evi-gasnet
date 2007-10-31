@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/udp-conduit/gasnet_core.c,v $
- *     $Date: 2007/04/10 01:21:29 $
- * $Revision: 1.36 $
+ *     $Date: 2007/10/31 04:57:51 $
+ * $Revision: 1.37 $
  * Description: GASNet UDP conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -28,6 +28,7 @@ eb_t gasnetc_bundle;
 ep_t gasnetc_endpoint;
 
 gasneti_mutex_t gasnetc_AMlock = GASNETI_MUTEX_INITIALIZER; /*  protect access to AMUDP */
+volatile int gasnetc_AMLockYield = 0;
 
 #if GASNET_TRACE
   extern void gasnetc_enteringHandler_hook(amudp_category_t cat, int isReq, int handlerId, void *token, 
@@ -457,6 +458,9 @@ extern void gasnetc_trace_finish() {
     int retval = 0;
     amudp_stats_t stats = AMUDP_initial_stats;
 
+    /* bug 2181 - lock state is unknown, eg we may be in handler context */
+    AMLOCK_CAUTIOUS();
+
     if (isglobal) {
       /* TODO: tricky bit - if this exit is collective, we can display more interesting and useful
          statistics with collective cooperation. But there's no easy way to know for sure whether
@@ -467,21 +471,15 @@ extern void gasnetc_trace_finish() {
          quiescent, but no way to do this unless we know things are collective */
 
       if (gasnet_mynode() != 0) {
-        AMLOCK();
           GASNETI_AM_SAFE_NORETURN(retval, AMUDP_GetEndpointStatistics(gasnetc_endpoint, &stats)); /* get statistics */
-        AMUNLOCK();
         /* TODO: send stats to zero */
       } else {
         amudp_stats_t *remote_stats = NULL;
         /* TODO: gather stats from all nodes */
-        AMLOCK();
           GASNETI_AM_SAFE_NORETURN(retval, AMUDP_AggregateStatistics(&stats, remote_stats));
-        AMUNLOCK();
       }
     } else {
-      AMLOCK();
         GASNETI_AM_SAFE_NORETURN(retval, AMUDP_GetEndpointStatistics(gasnetc_endpoint, &stats)); /* get statistics */
-      AMUNLOCK();
     }
 
     if ((gasnet_mynode() == 0 || !isglobal) && !retval) {
@@ -489,10 +487,8 @@ extern void gasnetc_trace_finish() {
       GASNETI_STATS_PRINTF(C,("AMUDP Statistics:"));
       if (!isglobal)
         GASNETI_STATS_PRINTF(C,("*** AMUDP stat dump reflects only local node info, because gasnet_exit is non-collective ***"));
-      AMLOCK();
         statdump = AMUDP_DumpStatistics(NULL, &stats, isglobal);
         GASNETI_STATS_PRINTF(C,("\n%s",statdump)); /* note, dump has embedded '%' chars */
-      AMUNLOCK();
       GASNETI_STATS_PRINTF(C,("--------------------------------------------------------------------------------"));
     }
   }
@@ -525,6 +521,11 @@ extern void gasnetc_exit(int exitcode) {
   gasneti_flush_streams();
   gasneti_trace_finish();
   gasneti_sched_yield();
+
+  /* bug2181: try to prevent races where we exit while other local pthreads are in AMUDP
+     can't use a blocking lock here, because may be in a signal context
+  */
+  AMLOCK_CAUTIOUS();
 
   AMUDP_SPMDExit(exitcode);
   gasneti_fatalerror("AMUDP_SPMDExit failed!");

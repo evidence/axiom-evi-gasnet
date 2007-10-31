@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/udp-conduit/gasnet_core_internal.h,v $
- *     $Date: 2006/04/25 09:50:02 $
- * $Revision: 1.8 $
+ *     $Date: 2007/10/31 04:57:51 $
+ * $Revision: 1.9 $
  * Description: GASNet MPI conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -17,8 +17,23 @@
 extern ep_t gasnetc_endpoint;
 
 extern gasneti_mutex_t gasnetc_AMlock; /*  protect access to AMUDP */
-#define AMLOCK()             gasneti_mutex_lock(&gasnetc_AMlock)
+extern volatile int gasnetc_AMLockYield;
+#if GASNETI_THREADS
+  #define _AMLOCKYIELD() do {      \
+    if_pf(gasnetc_AMLockYield) {   \
+      int _i;                      \
+      for (_i = 0; _i < 10; _i++)  \
+        gasneti_sched_yield();     \
+    } } while (0)
+#else
+  #define _AMLOCKYIELD() ((void)0)
+#endif
+#define AMLOCK()        do {             \
+    _AMLOCKYIELD();                      \
+    gasneti_mutex_lock(&gasnetc_AMlock); \
+} while (0)
 #define AMLOCK_TOSEND() do {             \
+    _AMLOCKYIELD();                      \
     gasneti_suspend_spinpollers();       \
     gasneti_mutex_lock(&gasnetc_AMlock); \
     gasneti_resume_spinpollers();        \
@@ -26,6 +41,25 @@ extern gasneti_mutex_t gasnetc_AMlock; /*  protect access to AMUDP */
 #define AMUNLOCK()           gasneti_mutex_unlock(&gasnetc_AMlock)
 #define AM_ASSERT_LOCKED()   gasneti_mutex_assertlocked(&gasnetc_AMlock)
 #define AM_ASSERT_UNLOCKED() gasneti_mutex_assertunlocked(&gasnetc_AMlock)
+
+/* AMLOCK_CAUTIOUS is only for use in very limited contexts where lock status
+   is unknown, eg exit-time processing */
+#if GASNET_DEBUG
+  /* ignore recursive lock attempts */
+  #define _AMLOCK_CAUTIOUS_HELPER() if (gasnetc_AMlock.owner == GASNETI_THREADIDQUERY()) break
+#else
+  #define _AMLOCK_CAUTIOUS_HELPER() ((void)0)
+#endif
+#define AMLOCK_CAUTIOUS()    do {                         \
+    int _i;                                               \
+    gasnetc_AMLockYield = 1;                              \
+    for (_i=0; _i < 50; _i++) {                           \
+      _AMLOCK_CAUTIOUS_HELPER();                          \
+      if (!gasneti_mutex_trylock(&gasnetc_AMlock)) break; \
+      gasneti_sched_yield();                              \
+    }                                                     \
+    gasnetc_AMLockYield = 0;                              \
+} while (0)
 
 /* ------------------------------------------------------------------------------------
  *  AM Error Handling
