@@ -91,4 +91,14 @@ from using network buffers to pinning.  Limited to be <= 16384.
 GASNET_LAPI_USE_FIREHOSE - Use the firehose dynamic memory registration
 scheme for segment fast (defaults to yes).  This is automatically
 enabled for segment everything.
+ 
+Known Bugs
+==========
+
+A known bug in the new lapi-conduit RDMA support will cause crashes
+at startup for jobs where the GASNet FAST or LARGE segment size differs across
+nodes (eg. this arises in UPC where the number of pthreads per node differs
+across nodes).  The suggested workaround is either to select a uniform segment
+size, or to set GASNET_LAPI_USE_RDMA=0 in the environment to disable the RDMA
+support.
 
