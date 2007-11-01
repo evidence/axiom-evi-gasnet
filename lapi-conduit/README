@@ -1,7 +1,7 @@
 GASNet-LAPI README file
 =======================
 Mike Welcome <mlwelcome@lbl.gov>
-$Revision: 1.9 $
+$Revision: 1.10 $
 
 This is an implementation of the GASNet CORE and EXTENDED
 API using the IBM LAPI communication protocol.
@@ -46,6 +46,17 @@ GASNET_BARRIER=LAPIGFENCE (default)
 
 GASNET_BARRIER=LAPIAM
   Enables centralized implementation of GASNet barriers, using LAPI-AMs
+
+===========================================================
+Known Bugs
+
+* In AM-heavy applications, it's possible for the default 
+LAPIGFENCE barrier algorithm to cause a deadlock, as under 
+some circumstances LAPI_Gfence can cause a node to become
+unresponsive to incoming AM operations. If you believe your 
+application has encountered this problem, the recommended
+workaround is to set GASNET_BARRIER=AMDISSEM, to disable the
+use of LAPI_Gfence for implementing barrier.
 
 ===========================================================
 Memory Management
