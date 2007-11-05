@@ -1,6 +1,6 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v $
-#     $Date: 2007/10/15 23:19:58 $
-# $Revision: 1.104 $
+#     $Date: 2007/11/05 20:28:12 $
+# $Revision: 1.105 $
 # Description: Makefile for GASNet tests
 # @configure_input@
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -141,6 +141,7 @@ TEST_PARAMS=                    					\
    testenv_args='GASNet is \"Global Address Space Networking\"';	\
    testvisperf_args="-maxdata 131072 -maxcontig 512 10"; 		\
    testslice_args="1024000 10 10";			 		\
+   testcollperf_args="32768 2 50 0";			 		\
    $(CONDUIT_TESTPARAMS) dummy=1 ; 					\
    $(MANUAL_TESTPARAMS) dummy=1 ;
 
