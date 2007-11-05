@@ -83,7 +83,7 @@ gasnete_coll_autotune_info_t* gasnete_coll_autotune_init(gasnet_node_t mynode, g
   if(ret->pipe_seg_size*total_images > gasnet_AMMaxLongRequest()) {
     if(mynode == 0) {
       fprintf(stderr, "WARNING: GASNET_COLL_PIPE_SEG_SIZE (%d bytes) * total images (%d) has to be less than max size for an AMLong for this conduit (%ld)\n", 
-              (int)ret->pipe_seg_size, total_images, (long int) gasnet_AMMaxLongRequest());
+              (int)ret->pipe_seg_size, (int)total_images, (long int) gasnet_AMMaxLongRequest());
       fprintf(stderr, "WARNING: Using %ld bytes for GASNET_COLL_PIPE_SEG_SIZE instead\n", (long int) gasnet_AMMaxLongRequest()/total_images);
       ret->pipe_seg_size = gasnet_AMMaxLongRequest()/total_images;
     }
