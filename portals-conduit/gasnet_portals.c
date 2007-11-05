@@ -164,6 +164,10 @@ uint32_t gasnetc_amseqno = 0;
 /* Forward reference for ReqRB event handler */
 static void ReqRB_event(ptl_event_t *ev);
 
+/* Forward declarations for event queue alloc/free */
+static gasnetc_eq_t* gasnetc_eq_alloc(long num_events, const char* name, ptl_eq_handler_t hndlr);
+static void gasnetc_eq_free(gasnetc_eq_t *eq);
+
 /* ------------------------------------------------------------------------------------
  * Search the lid cache for this object.
  * If not found, create one, add to list and return it, setting found = false.
@@ -1050,7 +1054,10 @@ static void RARSRC_event(ptl_event_t *ev)
       if (amflag & GASNETC_PTL_AM_SYNC) {
 	gasnetc_threaddata_t *th = gasnete_threadtable[GASNETE_THREADID(threadid)]->gasnetc_threaddata;
 	/* caller is AMLong (sync, not async), and is waiting for this counter to decrement */
-	gasneti_weakatomic_decrement(&th->amlong_data_inflight, 0);
+	gasneti_weakatomic_t *counter = (amflag & GASNETC_PTL_AM_REQUEST) ? &th->amlongReq_data_inflight
+									  : &th->amlongRep_data_inflight;
+	gasneti_assert(gasneti_weakatomic_read(counter, 0) != 0);
+	gasneti_weakatomic_decrement(counter, 0);
       }
     }
     break;
@@ -1131,7 +1138,10 @@ static void TMPMD_event(ptl_event_t *ev)
       if (amflag & GASNETC_PTL_AM_SYNC) {
 	gasnetc_threaddata_t *th = gasnete_threadtable[GASNETE_THREADID(threadid)]->gasnetc_threaddata;
 	/* caller is AMLong (sync, not async), and is waiting for this counter to decrement */
-	gasneti_weakatomic_decrement(&th->amlong_data_inflight, 0);
+	gasneti_weakatomic_t *counter = (amflag & GASNETC_PTL_AM_REQUEST) ? &th->amlongReq_data_inflight
+									  : &th->amlongRep_data_inflight;
+	gasneti_assert(gasneti_weakatomic_read(counter, 0) != 0);
+	gasneti_weakatomic_decrement(counter, 0);
       }
       /* unlink the tmp MD used in the AM Long data put */
       gasnetc_free_tmpmd(ev->md_handle);
@@ -3037,26 +3047,24 @@ extern void gasnetc_chunk_free(gasnetc_PtlBuffer_t *buf, ptl_size_t offset)
     gasneti_mutex_unlock(&buf->lock);
 }
 
-/* bug 2102: PtlEQAlloc/PtlEQFree are not thread-safe */
-static gasneti_mutex_t gasnetc_eqalloc_lock = GASNETI_MUTEX_INITIALIZER;
+/* bug 2102: PtlEQAlloc/PtlEQFree are not thread-safe.
+ * However, we no longer perform these dynamically (only at startup and cleanup now).
+ * So, we don't need the mutex introduced for bug 2102.
+ */
 
-extern gasnetc_eq_t* gasnetc_eq_alloc(long num_events, const char* name, ptl_eq_handler_t hndlr)
+static gasnetc_eq_t* gasnetc_eq_alloc(long num_events, const char* name, ptl_eq_handler_t hndlr)
 {
   gasnetc_eq_t *eq = (gasnetc_eq_t*)gasneti_malloc(sizeof(gasnetc_eq_t));
   eq->num_events = num_events;
-  gasneti_mutex_lock(&gasnetc_eqalloc_lock);
-    GASNETC_PTLSAFE(PtlEQAlloc(gasnetc_ni_h, num_events, hndlr, &eq->eq_h));
-  gasneti_mutex_unlock(&gasnetc_eqalloc_lock);
+  GASNETC_PTLSAFE(PtlEQAlloc(gasnetc_ni_h, num_events, hndlr, &eq->eq_h));
   gasneti_mutex_init(&eq->lock);
   eq->name = gasneti_strdup(name);
   GASNETI_TRACE_PRINTF(C,("gasnetc_eq_alloc %s with %ld events (%i)",eq->name,num_events,(int)eq->eq_h));
   return eq;
 }
-extern void gasnetc_eq_free(gasnetc_eq_t *eq)
+static void gasnetc_eq_free(gasnetc_eq_t *eq)
 {
-  gasneti_mutex_lock(&gasnetc_eqalloc_lock);
-    GASNETC_PTLSAFE(PtlEQFree(eq->eq_h));
-  gasneti_mutex_unlock(&gasnetc_eqalloc_lock);
+  GASNETC_PTLSAFE(PtlEQFree(eq->eq_h));
   GASNETI_TRACE_PRINTF(C,("gasnetc_eq_free %s with %ld events (%i)",eq->name,eq->num_events,(int)eq->eq_h));
   gasneti_free(eq->name);
   gasneti_free(eq);
@@ -3069,10 +3077,9 @@ extern void gasnetc_eq_free(gasnetc_eq_t *eq)
  * of a Get operation.  MD to be free floating, not target of remote op.
  * Associated with eq_h Event Queue (usually the SAFE_EQ).
  * NOTE:  Assumes caller has already allocated a tmpmd ticket
- * See gasnetc_try_alloc_tmpmd or gasnetc_alloc_tmpmd_withpoll for interfaces
- * that do not already have a ticket.
+ * Use gasnetc_alloc_tmpmd_withpoll for a caller that does not already have a ticket.
  * --------------------------------------------------------------------------------- */
-extern ptl_handle_md_t gasnetc_alloc_tmpmd(void* start, size_t nbytes, ptl_handle_eq_t eq_h)
+extern ptl_handle_md_t gasnetc_alloc_tmpmd(void* start, size_t nbytes)
 {
   ptl_md_t md;
   ptl_handle_md_t md_h;
@@ -3089,7 +3096,7 @@ extern ptl_handle_md_t gasnetc_alloc_tmpmd(void* start, size_t nbytes, ptl_handl
 #else
   md.user_ptr = (void*)TMPMD_event;
 #endif
-  md.eq_handle = eq_h;
+  md.eq_handle = gasnetc_SAFE_EQ->eq_h;
 
   GASNETC_PTLSAFE(PtlMDBind(gasnetc_ni_h, md, PTL_UNLINK, &md_h));
 
@@ -3997,7 +4004,7 @@ void gasnetc_getmsg(void *dest, gasnet_node_t node, void *src, size_t nbytes,
     GASNETI_TRACE_EVENT(C, GET_BB);
   } else {
     /* alloc a temp md for the destination region */
-    md_h = gasnetc_alloc_tmpmd_withpoll(dest, nbytes, gasnetc_SAFE_EQ->eq_h);
+    md_h = gasnetc_alloc_tmpmd_withpoll(dest, nbytes);
     local_offset = 0;
     GASNETI_TRACE_EVENT(C, GET_TMPMD);
   }
@@ -4071,7 +4078,7 @@ void gasnetc_putmsg(void *dest, gasnet_node_t node, void *src, size_t nbytes,
     GASNETI_TRACE_EVENT(C, PUT_BB);
   } else {
     /* alloc a temp md for the source region */
-    md_h = gasnetc_alloc_tmpmd_withpoll(src, nbytes, gasnetc_SAFE_EQ->eq_h);
+    md_h = gasnetc_alloc_tmpmd_withpoll(src, nbytes);
     local_offset = 0;
     if (! isbulk) *wait_lcc = 1;
     GASNETI_TRACE_EVENT(C, PUT_TMPMD);

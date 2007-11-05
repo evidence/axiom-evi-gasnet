@@ -731,7 +731,11 @@ typedef struct _gasnetc_threaddata_t {
    * poll on this variable until cleared.  Thread processing the SEND_END event
    * will decrement the count.  Issuing thread ID must be sent in match_bits.
    * Each thread allowed to issue one non-async amlong at a time.  */
-  gasneti_weakatomic_t amlong_data_inflight;
+  gasneti_weakatomic_t amlongReq_data_inflight;
+
+  /* like amlongReq_data_inflight, but for replies (which are always non-async).
+   * A separate counter is required because both may be in flight simultaneously */
+  gasneti_weakatomic_t amlongRep_data_inflight;
 
   /* When (flags & GASNETC_THREAD_HAVE_RPLSB)
    * rplsb_off contains offset of cached request send buffer  */
@@ -822,7 +826,7 @@ extern int gasnetc_chunk_alloc(gasnetc_PtlBuffer_t *buf, size_t nbytes, ptl_size
 extern int gasnetc_chunk_alloc_withpoll(gasnetc_PtlBuffer_t *buf, size_t nbytes, ptl_size_t *offset,
 					int pollcnt, gasnetc_pollflag_t poll_type);
 extern void gasnetc_chunk_free(gasnetc_PtlBuffer_t *buf, ptl_size_t offset);
-extern ptl_handle_md_t gasnetc_alloc_tmpmd(void* dest, size_t nbytes, ptl_handle_eq_t eq_h);
+extern ptl_handle_md_t gasnetc_alloc_tmpmd(void* dest, size_t nbytes);
 extern void gasnetc_free_tmpmd(ptl_handle_md_t md_h);
 extern void gasnetc_init_portals_network(int *argc, char ***argv);
 extern uintptr_t gasnetc_portalsMaxPinMem(void);
@@ -860,8 +864,6 @@ extern void gasnetc_dump_credits(int epoch_count);
 extern void gasnetc_print_scavenge_list(void);
 extern void gasnetc_scavenge_list_remove(gasnet_node_t node);
 extern void gasnetc_scavenge_list_add(gasnet_node_t node, int locked);
-extern gasnetc_eq_t* gasnetc_eq_alloc(long num_events, const char* name, ptl_eq_handler_t hndlr);
-extern void gasnetc_eq_free(gasnetc_eq_t *eq);
 
 /* Inline Function Definitions */
 GASNETI_INLINE(gasnetc_compute_credits)
@@ -924,23 +926,13 @@ int gasnetc_in_local_rar(uint8_t* pstart, size_t n)
   return (pstart >= start) && (pend <= end);
 }
 
-GASNETI_INLINE(gasnetc_try_alloc_tmpmd)
-int gasnetc_try_alloc_tmpmd(void* start, size_t nbytes, ptl_handle_eq_t eq_h, ptl_handle_md_t *md_h)
-{
-  if (gasnetc_alloc_ticket(&gasnetc_tmpmd_tickets)) {
-    *md_h = gasnetc_alloc_tmpmd(start,nbytes,eq_h);
-    return 1;
-  }
-  return 0;
-}
-
 GASNETI_INLINE(gasnetc_alloc_tmpmd_withpoll)
-ptl_handle_md_t gasnetc_alloc_tmpmd_withpoll(void* start, size_t nbytes, ptl_handle_eq_t eq_h)
+ptl_handle_md_t gasnetc_alloc_tmpmd_withpoll(void* start, size_t nbytes)
 {
   while (! gasnetc_alloc_ticket(&gasnetc_tmpmd_tickets)) {
     gasnetc_portals_poll(GASNETC_SAFE_POLL);
   }
-  return gasnetc_alloc_tmpmd(start, nbytes, eq_h);
+  return gasnetc_alloc_tmpmd(start, nbytes);
 }
 
 GASNETI_INLINE(gasnetc_get_event)
@@ -985,7 +977,8 @@ gasnetc_threaddata_t* gasnetc_new_threaddata(gasnete_threadidx_t idx)
   th->tmpmd_tickets = 0;
   th->snd_credits = 0;
   th->rplsb_off = -9999;     /* bogus value */
-  gasneti_weakatomic_set(&th->amlong_data_inflight, 0, 0);
+  gasneti_weakatomic_set(&th->amlongReq_data_inflight, 0, 0);
+  gasneti_weakatomic_set(&th->amlongRep_data_inflight, 0, 0);
   return th;
 }
 
