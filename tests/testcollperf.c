@@ -15,13 +15,15 @@ options that is covered testcoll
 #include "gasnet_coll.h"
 
 
-#define DEFAULT_OUTER_VERIFICATION_ITERS 5
+#define DEFAULT_OUTER_VERIFICATION_ITERS 2
 #define DEFAULT_INNER_VERIFICATION_ITERS 50
-#define DEFAULT_PERFORMANCE_ITERS 1000
+#define DEFAULT_PERFORMANCE_ITERS 0
 
 /* max data size for the test in bytes*/
-#define DEFAULT_MAX_DATA_SIZE 65536 
+#define DEFAULT_MAX_DATA_SIZE 32768 
 
+#define PRINT_TIMERS 1
+#define VERBOSE_VERIFICATION_OUTPUT 0
 
 /*max_dsize is a variable set in main*/
 #define TOTAL_THREADS threads_per_node*gasnet_nodes()
@@ -95,7 +97,7 @@ void scale_ptrM(void * out_ptr[], void * const in_ptr[], size_t elem_count, size
 
 #if PRINT_TIMERS
 #define print_timer(td, coll_str, addr_mode, num_addrs, sync_mode, nelem, total_ticks) \
-if(td->my_local_thread==0) MSG0("%d> %s/%s %s sync_mode: (%s) size: %ld bytes time: %g us", td->mythread, addr_mode, num_addrs,\
+if(td->my_local_thread==0 && performance_iters>0) MSG0("%d> %s/%s %s sync_mode: (%s) size: %ld bytes time: %g us", td->mythread, addr_mode, num_addrs,\
                                 coll_str, sync_mode, nelem*sizeof(int), (double)gasnett_ticks_to_us(total_ticks)/performance_iters)
 #else
 #define print_timer(td, coll_str, addr_mode, num_addrs, sync_mode, nelem, total_ticks)
@@ -320,7 +322,7 @@ void run_SINGLE_ADDR_test(thread_data_t *td, uint8_t **dst_arr, uint8_t **src_ar
   print_timer(td,  "exchange", output_str,  "SINGLE-addr", flag_str, nelem, end);  
   
   
-  if(td->my_local_thread==0) MSG0("%s/SINGLE-addr sync_mode: %s size: %d bytes root: %d.  PASS", output_str, flag_str, (int) (sizeof(int)*nelem), root_thread);
+  if(td->my_local_thread==0 && VERBOSE_VERIFICATION_OUTPUT) MSG0("%s/SINGLE-addr sync_mode: %s size: %d bytes root: %d.  PASS", output_str, flag_str, (int) (sizeof(int)*nelem), root_thread);
   
   COLL_BARRIER();
 }
@@ -572,7 +574,7 @@ void run_MULTI_ADDR_test(thread_data_t *td, uint8_t **dst_arr, uint8_t **src_arr
   COLL_BARRIER();  
   print_timer(td, "exchangeM", output_str,  "MULTI-addr", flag_str, nelem, end);  
   
-  if(td->my_local_thread==0) MSG0("%s/MULTI-addr sync_mode: %s size: %d bytes root: %d.  PASS", output_str, flag_str, (int) (sizeof(int)*nelem), root_thread);
+  if(td->my_local_thread==0  && VERBOSE_VERIFICATION_OUTPUT) MSG0("%s/MULTI-addr sync_mode: %s size: %d bytes root: %d.  PASS", output_str, flag_str, (int) (sizeof(int)*nelem), root_thread);
   
   COLL_BARRIER();
   test_free(tmp_src);
@@ -585,6 +587,8 @@ void *thread_main(void *arg) {
   thread_data_t *td = (thread_data_t*) arg;
   size_t size;
   int i,flag_iter;
+  gasnet_node_t root_thread = 0;
+  int skip_msg_printed = 0;
 #if GASNET_PAR
   gasnet_image_t *imagearray = test_malloc(nodes * sizeof(gasnet_image_t));
   for (i=0; i<nodes; ++i) { imagearray[i] = threads_per_node; }
@@ -613,22 +617,29 @@ void *thread_main(void *arg) {
 #if GASNET_ALIGNED_SEGMENTS
     if(threads_per_node == 1) { 
       for(size = 1; size<=max_data_size; size=size*2) {
-        run_SINGLE_ADDR_test(td, all_dsts, all_srcs, size, 0, flags|GASNET_COLL_SINGLE);
+        run_SINGLE_ADDR_test(td, all_dsts, all_srcs, size, root_thread, flags|GASNET_COLL_SINGLE);
       }
     } else {
-      if(td->my_local_thread == 0) MSG0("skipping SINGLE/SINGLE test (multiple threads per node)");
+      if(td->my_local_thread == 0 && !skip_msg_printed) MSG0("skipping SINGLE/SINGLE test (multiple threads per node)");
     }
 #else
-    if(td->my_local_thread == 0) MSG0("skipping SINGLE/SINGLE test (unaligned segments)");
+    if(td->my_local_thread == 0 && !skip_msg_printed) MSG0("skipping SINGLE/SINGLE test (unaligned segments)");
 #endif
+    skip_msg_printed =1;
     for(size = 1; size<=max_data_size; size=size*2) {
-      run_SINGLE_ADDR_test(td, my_dsts, my_srcs, size, 0, flags|GASNET_COLL_LOCAL);   
+      run_SINGLE_ADDR_test(td, my_dsts, my_srcs, size, root_thread, flags|GASNET_COLL_LOCAL);   
     }
     for(size = 1; size<=max_data_size; size=size*2) {
-      run_MULTI_ADDR_test(td, all_dsts, all_srcs, size, 0, flags|GASNET_COLL_SINGLE);
+      run_MULTI_ADDR_test(td, all_dsts, all_srcs, size, root_thread, flags|GASNET_COLL_SINGLE);
     }
     for(size = 1; size<=max_data_size; size=size*2) {
-      run_MULTI_ADDR_test(td, my_dsts, my_srcs, size, 0, flags|GASNET_COLL_LOCAL);
+      run_MULTI_ADDR_test(td, my_dsts, my_srcs, size, root_thread, flags|GASNET_COLL_LOCAL);
+    }
+    
+    if(td->my_local_thread==0  && !VERBOSE_VERIFICATION_OUTPUT) {
+      char flag_str[8];
+      fill_flag_str(flags, flag_str);
+      MSG0("sync_mode: %s %d-%d (powers of 2) bytes root: %d.  PASS",  flag_str, (int) (sizeof(int)*1), sizeof(int)*max_data_size, root_thread);
     }
   }
   return NULL;
