@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2007/11/06 04:00:15 $
- * $Revision: 1.116 $
+ * $Date: 2007/11/06 04:20:32 $
+ * $Revision: 1.117 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -20,6 +20,7 @@ GASNETI_IDENT(gasnetc_IdentString_Version, "$GASNetCoreLibraryVersion: " GASNET_
 GASNETI_IDENT(gasnetc_IdentString_Name,    "$GASNetCoreLibraryName: " GASNET_CORE_NAME_STR " $");
 
 uintptr_t	gasnetc_MaxPinnableMemory = 0;
+static size_t	gasnetc_packed_long_limit = 0;
 
 firehose_info_t	  gasnetc_firehose_info;
 
@@ -93,6 +94,13 @@ gasnetc_init(int *argc, char ***argv)
 							GASNETC_DEFAULT_EXITTIMEOUT_MIN,
 							GASNETC_DEFAULT_EXITTIMEOUT_FACTOR,
 							GASNETC_DEFAULT_EXITTIMEOUT_MIN);
+
+	/* Upper bound on "packed long" */
+	gasnetc_packed_long_limit = gasneti_getenv_int_withdefault("GASNET_PACKEDLONG_LIMIT", GASNETC_AM_LEN-GASNETC_LONG_OFFSET, 1);
+	if (gasnetc_packed_long_limit > GASNETC_AM_LEN-GASNETC_LONG_OFFSET) {
+	    fprintf(stderr, "WARNING: GASNET_PACKEDLONG_LIMIT reduced from requested value %d to maximum supported value %d.\n", (int)gasnetc_packed_long_limit, (int)(GASNETC_AM_LEN-GASNETC_LONG_OFFSET));
+	    gasnetc_packed_long_limit = GASNETC_AM_LEN-GASNETC_LONG_OFFSET;
+	}
 
 	/* 
 	 * Find the upper bound on pinnable memory for firehose algorithm.
