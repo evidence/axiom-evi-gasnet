@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2007/11/06 04:20:32 $
- * $Revision: 1.117 $
+ * $Date: 2007/11/06 05:29:22 $
+ * $Revision: 1.118 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -21,6 +21,7 @@ GASNETI_IDENT(gasnetc_IdentString_Name,    "$GASNetCoreLibraryName: " GASNET_COR
 
 uintptr_t	gasnetc_MaxPinnableMemory = 0;
 static size_t	gasnetc_packed_long_limit = 0;
+#define		GASNETC_PACKEDLONG_LIMIT_DEFAULT	(2*1024)
 
 firehose_info_t	  gasnetc_firehose_info;
 
@@ -96,7 +97,7 @@ gasnetc_init(int *argc, char ***argv)
 							GASNETC_DEFAULT_EXITTIMEOUT_MIN);
 
 	/* Upper bound on "packed long" */
-	gasnetc_packed_long_limit = gasneti_getenv_int_withdefault("GASNET_PACKEDLONG_LIMIT", GASNETC_AM_LEN-GASNETC_LONG_OFFSET, 1);
+	gasnetc_packed_long_limit = gasneti_getenv_int_withdefault("GASNET_PACKEDLONG_LIMIT", GASNETC_PACKEDLONG_LIMIT_DEFAULT, 1);
 	if (gasnetc_packed_long_limit > GASNETC_AM_LEN-GASNETC_LONG_OFFSET) {
 	    fprintf(stderr, "WARNING: GASNET_PACKEDLONG_LIMIT reduced from requested value %d to maximum supported value %d.\n", (int)gasnetc_packed_long_limit, (int)(GASNETC_AM_LEN-GASNETC_LONG_OFFSET));
 	    gasnetc_packed_long_limit = GASNETC_AM_LEN-GASNETC_LONG_OFFSET;
@@ -1382,7 +1383,8 @@ gasnetc_AMRequestLongM_DMA_inner(gasnet_node_t node, gasnet_handler_t handler,
 		(uintptr_t) dest_addr, GASNETC_AM_REQUEST);
 
 	/* If bytes are left, write them in the remainder of the AM buffer */
-	if (bytes_left > 0) {
+	if (bytes_left > gasnetc_packed_long_limit) {
+		/* single-copy, using separate gm-level messages for payload and header */
 		gasnetc_write_AMBufferBulk(
 			(uint8_t *)bufd->buf+GASNETC_LONG_OFFSET, 
 			psrc, (size_t) bytes_left);
@@ -1390,6 +1392,13 @@ gasnetc_AMRequestLongM_DMA_inner(gasnet_node_t node, gasnet_handler_t handler,
 		    (uint8_t *)bufd->buf+GASNETC_LONG_OFFSET,
 		    bytes_left, id, port, gasnetc_callback_lo, NULL,
 		    (uintptr_t) pdest);
+	}
+	else if (bytes_left) {
+		/* two-copy, but with only a single gm-level message for both payload and header */
+		gasnetc_write_AMBufferBulk(
+			(uint8_t *)bufd->buf+len,
+			psrc, (size_t) bytes_left);
+		len += bytes_left;
 	}
 
 	/* Set the firehose request type in the last bufd, so it may be
