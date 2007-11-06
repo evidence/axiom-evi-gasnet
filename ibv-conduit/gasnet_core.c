@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2007/10/26 01:37:32 $
- * $Revision: 1.198 $
+ *     $Date: 2007/11/06 04:21:44 $
+ * $Revision: 1.199 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -517,7 +517,7 @@ static int gasnetc_load_settings(void) {
   }
   if_pf (gasnetc_packedlong_limit > GASNETC_MAX_PACKEDLONG) {
     fprintf(stderr,
-            "WARNING: GASNETC_PACKEDLONG_LIMIT reduced from %u to %u\n",
+            "WARNING: GASNET_PACKEDLONG_LIMIT reduced from %u to %u\n",
             (unsigned int)gasnetc_packedlong_limit, GASNETC_MAX_PACKEDLONG);
     gasnetc_packedlong_limit = GASNETC_MAX_PACKEDLONG;
   }
