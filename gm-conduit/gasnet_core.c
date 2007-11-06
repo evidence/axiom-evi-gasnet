@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2007/11/06 05:29:22 $
- * $Revision: 1.118 $
+ * $Date: 2007/11/06 06:21:31 $
+ * $Revision: 1.119 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -1552,9 +1552,9 @@ gasnetc_AMRequestLongAsyncM(
 		return GASNET_OK;
 	}
 
-	/* If length is 0 or the remote local is not pinned, send using
-	 * AMMedium payloads */
-	if (nbytes == 0 
+	/* If length is below the packed long limit, or the remote local is not pinned,
+	 * then we send using packed longs, or AMMedium payloads, respectively */
+	if (nbytes <= gasnetc_packed_long_limit 
 #if !defined(GASNET_SEGMENT_FAST)
 	    || !(reqr = firehose_try_remote_pin(dest, (uintptr_t) dest_addr, nbytes, 0, NULL))
 #endif
