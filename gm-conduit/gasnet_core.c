@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2007/11/05 23:27:56 $
- * $Revision: 1.115 $
+ * $Date: 2007/11/06 04:00:15 $
+ * $Revision: 1.116 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -1436,16 +1436,12 @@ gasnetc_AMRequestLongM_inner(gasnet_node_t node, gasnet_handler_t handler,
 	        handler, numargs, argptr, nbytes, source_addr, 
 		(uintptr_t) dest_addr, GASNETC_AM_REQUEST);
 
-	if (bytes_left > 0) {
-		uintptr_t	pbuf;
-		pbuf = (uintptr_t) bufd->buf + (uintptr_t) long_len;
-
-		len = gasnetc_write_AMBufferMediumMedcopy((void *)pbuf,
-			(void *) psrc, bytes_left, (void *) pdest, 
-			GASNETC_AM_REQUEST);
-
-		gasnetc_GMSend_AMRequest((void *)pbuf, len, id, port,
-		    gasnetc_callback_lo, NULL, 0);
+	/* Since we must 2-copy anyway, always send remainder as a "packed" long */
+	if (bytes_left) {
+		gasnetc_write_AMBufferBulk(
+			(uint8_t *)bufd->buf+long_len, 
+			psrc, (size_t) bytes_left);
+		long_len += bytes_left;
 	}
 	gasnetc_GMSend_AMRequest(bufd->buf, long_len, id, port, 
 	    gasnetc_callback_lo, (void *)bufd, 0);
