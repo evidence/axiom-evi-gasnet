@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcore2.c,v $
- * $Date: 2007/10/14 16:35:19 $
- * $Revision: 1.5 $
+ * $Date: 2007/11/15 00:06:30 $
+ * $Revision: 1.6 $
  * Copyright 2007, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  *
@@ -15,7 +15,7 @@
 int max_payload = 0;
 int depth = 0;
 #ifndef TEST_SEGSZ
-  #define TEST_SEGSZ_EXPR ((uintptr_t)max_payload*depth*4)
+  #define TEST_SEGSZ_EXPR ((uintptr_t)max_payload*depth*5)
 #endif
 
 #include "test.h"
@@ -29,9 +29,16 @@ int maxlong;
 volatile int done = 0;
 int allowretry = 1;
 uint8_t *myseg;      /* my segment */
+int doinseg = 1;
+int dooutseg = 1;
+#define INSEG(iter) ((doinseg&&dooutseg)?(iter&0x1):doinseg)
+#define ITERSEG(iter) (INSEG(iter)?localseg:privateseg)
 uint8_t *peerreqseg; /* long request landing zone */
 uint8_t *peerrepseg; /* long reply landing zone */
 uint8_t *localseg;
+uint8_t *privateseg;
+uint8_t *longreplysrc;
+uint8_t *alongreplysrc;
 
 GASNETT_THREADKEY_DECLARE(mythread);
 GASNETT_THREADKEY_DEFINE(mythread);
@@ -108,9 +115,15 @@ void pong_medhandler(gasnet_token_t token, void *buf, size_t nbytes,
 
 void ping_longhandler(gasnet_token_t token, void *buf, size_t nbytes,
                      gasnet_handlerarg_t iter, gasnet_handlerarg_t chunkidx) {
+  uint8_t *srcbuf;
   INIT_CHECKS();
   validate_chunk("Long Request", buf, nbytes, iter, chunkidx);
-  GASNET_Safe(gasnet_AMReplyLong2(token, hidx_pong_longhandler, buf, nbytes, peerrepseg+chunkidx*nbytes, iter, chunkidx));
+  if (INSEG(iter)) srcbuf = buf;
+  else {
+    srcbuf = longreplysrc+chunkidx*nbytes;
+    memcpy(srcbuf, buf, nbytes);
+  }
+  GASNET_Safe(gasnet_AMReplyLong2(token, hidx_pong_longhandler, srcbuf, nbytes, peerrepseg+chunkidx*nbytes, iter, chunkidx));
 }
 
 void pong_longhandler(gasnet_token_t token, void *buf, size_t nbytes,
@@ -122,9 +135,15 @@ void pong_longhandler(gasnet_token_t token, void *buf, size_t nbytes,
 
 void ping_alonghandler(gasnet_token_t token, void *buf, size_t nbytes,
                      gasnet_handlerarg_t iter, gasnet_handlerarg_t chunkidx) {
+  uint8_t *srcbuf;
   INIT_CHECKS();
   validate_chunk("AsyncLong Request", buf, nbytes, iter, chunkidx);
-  GASNET_Safe(gasnet_AMReplyLong2(token, hidx_pong_longhandler, buf, nbytes, peerrepseg+(depth+chunkidx)*nbytes, iter, chunkidx));
+  if (INSEG(iter)) srcbuf = buf;
+  else {
+    srcbuf = alongreplysrc+chunkidx*nbytes;
+    memcpy(srcbuf, buf, nbytes);
+  }
+  GASNET_Safe(gasnet_AMReplyLong2(token, hidx_pong_longhandler, srcbuf, nbytes, peerrepseg+(depth+chunkidx)*nbytes, iter, chunkidx));
 }
 
 
@@ -165,6 +184,12 @@ int main(int argc, char **argv) {
     } else if (!strcmp(argv[arg], "-n")) {
       allowretry = 0;
       ++arg;
+    } else if (!strcmp(argv[arg], "-in")) {
+      doinseg = 1; dooutseg = 0;
+      ++arg;
+    } else if (!strcmp(argv[arg], "-out")) {
+      doinseg = 0; dooutseg = 1;
+      ++arg;
     } else if (!strcmp(argv[arg], "-m")) {
       AMOPT();
       domed = 1; 
@@ -203,6 +228,7 @@ int main(int argc, char **argv) {
                  "  -u   loosen sychronization to allow diff payload sizes to be in flight at once\n"
                  "  -s   single-threaded PAR mode (default is to start a polling thread in PAR mode)\n"
                  "  -n   no retry on failure\n"
+                 "  -in/-out use only in- or out-of-segment sources for AMLong(Async) (default is both)\n"
                  );
   if (help || argc > arg) test_usage();
 
@@ -220,8 +246,11 @@ int main(int argc, char **argv) {
   myseg = TEST_MYSEG();
   peerreqseg = TEST_SEG(peerproc);
   peerrepseg = peerreqseg+max_payload*depth*2;
-  assert_always(TEST_SEGSZ >= max_payload*depth*4);
-  localseg = test_malloc(max_payload*depth);
+  localseg = myseg + max_payload*depth*4;
+  assert_always(TEST_SEGSZ >= max_payload*depth*5);
+  privateseg = test_malloc(max_payload*depth*3); /* out-of-seg request src, long reply src, along reply src  */
+  longreplysrc = privateseg+max_payload*depth;
+  alongreplysrc = privateseg+max_payload*depth*2;
 
   #ifdef GASNET_PAR
     if (domultith) test_createandjoin_pthreads(2,doit,NULL,0);
@@ -230,7 +259,7 @@ int main(int argc, char **argv) {
       doit(0);
 
   BARRIER();
-  test_free(localseg);
+  test_free(privateseg);
   MSG("done. (detected %i errs)", test_errs);
   gasnet_exit(test_errs > 0 ? 1 : 0);
   return 0;
@@ -246,13 +275,14 @@ void *doit(void *id) {
     return 0;
   } 
 
-  MSG0("Running %sAM%s%s%s correctness test %s%swith %i iterations, max_payload=%i, depth=%i...",
+  MSG0("Running %sAM%s%s%s%s correctness test %s%swith %i iterations, max_payload=%i, depth=%i...",
 #if GASNET_PAR
     (domultith?"multi-threaded ":"single-threaded "),
 #else
     "",
 #endif
     (amopt?(domed?" Medium":""):""),(amopt?(dolong?" Long":""):""),(amopt?(dolongasync?" LongAsync":""):""),
+    ((doinseg^dooutseg)?(doinseg?" in-segment":" out-of-segment"):""),
     (dosizesync?"":"loosely-synced "),
     (doprime?"with priming ":""),
     iters,max_payload,depth);
@@ -262,13 +292,17 @@ void *doit(void *id) {
     int chunkidx;
     for (chunkidx = 0; chunkidx < depth; chunkidx++) {
       /* AMRequestLong primer */
+      gasnet_put(peerproc, peerreqseg+chunkidx*max_payload, privateseg+chunkidx*max_payload, max_payload);
       gasnet_put(peerproc, peerreqseg+chunkidx*max_payload, localseg+chunkidx*max_payload, max_payload);
       /* AMRequestLongAsync primer */
+      gasnet_put(peerproc, peerreqseg+(depth+chunkidx)*max_payload, privateseg+chunkidx*max_payload, max_payload);
       gasnet_put(peerproc, peerreqseg+(depth+chunkidx)*max_payload, localseg+chunkidx*max_payload, max_payload);
       /* AMReplyLong primer */
       gasnet_put(peerproc, peerrepseg+chunkidx*max_payload, myseg+chunkidx*max_payload, max_payload);
+      gasnet_put(peerproc, peerrepseg+chunkidx*max_payload, longreplysrc+chunkidx*max_payload, max_payload);
       /* AMReplyLongAsync primer */
       gasnet_put(peerproc, peerrepseg+(depth+chunkidx)*max_payload, myseg+(depth+chunkidx)*max_payload, max_payload);
+      gasnet_put(peerproc, peerrepseg+(depth+chunkidx)*max_payload, alongreplysrc+chunkidx*max_payload, max_payload);
     }
     BARRIER();
   }
@@ -279,20 +313,22 @@ void *doit(void *id) {
     assert_always(max1 <= max2);
 
     for (sz = 1; sz <= max_payload; ) {
-      if (dosizesync) BARRIER(); /* optional barrier, to separate tests at each payload size */
+      if (dosizesync) BARRIER(); /* optional barrier, to synchronize tests at each payload size across nodes */
       
       MSG0("payload = %i",sz);
 
       for (iter = 0; iter < iters; iter++) {
         int chunkidx;
+        uint8_t *srcseg = ITERSEG(iter);
+
         /* initialize local seg to known values */
         for (chunkidx = 0; chunkidx < depth; chunkidx++) {
-          init_chunk(localseg,sz,iter,chunkidx);
+          init_chunk(srcseg,sz,iter,chunkidx);
         }
         if (domed && sz <= gasnet_AMMaxMedium()) { /* test Medium AMs */
           gasnett_atomic_set(&pong_recvd,0,0);
           for (chunkidx = 0; chunkidx < depth; chunkidx++) {
-            GASNET_Safe(gasnet_AMRequestMedium2(peerproc, hidx_ping_medhandler, localseg+chunkidx*sz, sz,
+            GASNET_Safe(gasnet_AMRequestMedium2(peerproc, hidx_ping_medhandler, srcseg+chunkidx*sz, sz,
                                     iter, chunkidx));
           }
           /* wait for completion */
@@ -303,7 +339,7 @@ void *doit(void *id) {
          if (dolong) { /* test Long AMs */
           gasnett_atomic_set(&pong_recvd,0,0);
           for (chunkidx = 0; chunkidx < depth; chunkidx++) {
-            GASNET_Safe(gasnet_AMRequestLong2(peerproc, hidx_ping_longhandler, localseg+chunkidx*sz, sz,
+            GASNET_Safe(gasnet_AMRequestLong2(peerproc, hidx_ping_longhandler, srcseg+chunkidx*sz, sz,
                                   peerreqseg+chunkidx*sz, iter, chunkidx));
           }
           /* wait for completion */
@@ -313,7 +349,7 @@ void *doit(void *id) {
          if (dolongasync) {  /* test AsyncLong AMs */
           gasnett_atomic_set(&pong_recvd,0,0);
           for (chunkidx = 0; chunkidx < depth; chunkidx++) {
-            GASNET_Safe(gasnet_AMRequestLongAsync2(peerproc, hidx_ping_alonghandler, localseg+chunkidx*sz, sz,
+            GASNET_Safe(gasnet_AMRequestLongAsync2(peerproc, hidx_ping_alonghandler, srcseg+chunkidx*sz, sz,
                                   peerreqseg+(depth+chunkidx)*sz, iter, chunkidx));
           }
           /* wait for completion */
