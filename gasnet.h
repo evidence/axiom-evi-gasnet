@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet.h,v $
- *     $Date: 2006/09/15 23:24:25 $
- * $Revision: 1.56 $
+ *     $Date: 2007/12/04 23:35:37 $
+ * $Revision: 1.57 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -379,6 +379,7 @@ extern int GASNETI_LINKCONFIG_IDIOTCHECK(_CONCAT(EXTENDED_,GASNET_EXTENDED_NAME)
 static int *gasneti_linkconfig_idiotcheck();
 /* use of void* here avoids a tinyc bug */
 static void *_gasneti_linkconfig_idiotcheck = (void *)&gasneti_linkconfig_idiotcheck;
+GASNETI_USED
 static int *gasneti_linkconfig_idiotcheck() {
   static int val;
   val +=  GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_THREAD_MODEL)

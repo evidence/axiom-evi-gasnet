@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2007/09/04 08:16:38 $
- * $Revision: 1.87 $
+ *     $Date: 2007/12/04 23:35:37 $
+ * $Revision: 1.88 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -184,6 +184,12 @@
   #define GASNETI_MALLOCP(fnname) GASNETI_PRAGMA(ALLOCS_NEW_MEMORY fnname)
 #else
   #define GASNETI_MALLOCP(fnname)
+#endif
+
+#if GASNETI_HAVE_GCC_ATTRIBUTE_USED
+  #define GASNETI_USED __attribute__((__used__))
+#else
+  #define GASNETI_USED 
 #endif
 
 #if GASNETI_HAVE_GCC_ATTRIBUTE_NORETURN

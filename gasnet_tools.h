@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2007/09/07 00:50:15 $
- * $Revision: 1.111 $
+ *     $Date: 2007/12/04 23:35:37 $
+ * $Revision: 1.112 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -109,6 +109,7 @@ GASNETI_BEGIN_EXTERNC
 #define GASNETT_PLEASE_INLINE           GASNETI_PLEASE_INLINE
 #define GASNETT_NEVER_INLINE            GASNETI_NEVER_INLINE
 #define GASNETT_RESTRICT                GASNETI_RESTRICT
+#define GASNETT_USED                    GASNETI_USED
 #define GASNETT_NORETURN                GASNETI_NORETURN
 #define GASNETT_NORETURNP               GASNETI_NORETURNP
 #define GASNETT_MALLOC                  GASNETI_MALLOC
@@ -504,9 +505,11 @@ extern int GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_ATOMIC_CONFIG);
 extern int GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_ATOMIC32_CONFIG);
 extern int GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_ATOMIC64_CONFIG);
 #endif
-static int *gasnett_linkconfig_idiotcheck();
+static int *gasnett_linkconfig_idiotcheck(void);
 static void *_gasnett_linkconfig_idiotcheck = (void *)&gasnett_linkconfig_idiotcheck;
-static int *gasnett_linkconfig_idiotcheck() {
+GASNETT_USED
+static int *gasnett_linkconfig_idiotcheck(void) 
+{
   static int val;
   val +=  GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_THREAD_MODEL)
         + GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_DEBUG_CONFIG)
