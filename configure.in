@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2007/11/11 08:46:59 $
-# $Revision: 1.471 $
+#     $Date: 2007/12/04 23:07:53 $
+# $Revision: 1.472 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.471 $)
+AC_REVISION($Revision: 1.472 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1100,6 +1100,9 @@ if expr "$enabled_sgi_ip27@$cross_compiling@$target_cpu" : "unknown@no@mips" >/d
 	   else
              enabled_sgi_ip27=no
 	   fi ;;
+    *) # SiCortex/Linux, others?
+       enabled_sgi_ip27=no
+       ;;
   esac
   AC_MSG_RESULT($enabled_sgi_ip27)
 fi

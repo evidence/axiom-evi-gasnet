@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/portable_platform.h,v $
- *     $Date: 2007/10/17 02:06:59 $
- * $Revision: 1.16 $
+ *     $Date: 2007/12/04 23:07:55 $
+ * $Revision: 1.17 $
  * Description: Portable platform detection header
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -611,7 +611,13 @@
     defined(_MIPS_ARCH) || defined(__R4000)
   #define PLATFORM_ARCH_MIPS 1
   #define PLATFORM_ARCH_FAMILYNAME MIPS
-  #define PLATFORM_ARCH_BIG_ENDIAN 1
+  #ifdef _MIPSEL /* MIPS cores support both little and big endian modes */
+    /* SiCortex */
+    #define PLATFORM_ARCH_LITTLE_ENDIAN 1
+  #else
+    /* IRIX */
+    #define PLATFORM_ARCH_BIG_ENDIAN 1
+  #endif
 
 #elif defined(__sparc) || defined(__sparc__) || \
     defined(__sparclet__) || defined(__sparclite__) || \
