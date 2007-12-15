@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core_receive.c,v $
- * $Date: 2007/11/06 03:31:32 $
- * $Revision: 1.46 $
+ * $Date: 2007/12/15 00:17:39 $
+ * $Revision: 1.47 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -239,10 +239,11 @@ gasnetc_process_AMRequest(gasnetc_bufdesc_t *bufd)
 		case GASNETC_AM_LONG: {
 			uint32_t payload_len = *((uint32_t *) &ptr[4]);
 			uintptr_t dest_addr = *((uintptr_t *) &ptr[8]);
-			len -= GASNETC_AM_LONG_HEADER_LEN(numargs);
+			uint32_t header_len = GASNETC_AM_LONG_HEADER_LEN(numargs);
+			len -= header_len;
 			if (len) {
 			    memcpy((uint8_t *)dest_addr + (payload_len - len),
-				   ptr+GASNETC_AM_LONG_HEADER_LEN(numargs), len);
+				   ptr+header_len, len);
 			}
 			argptr = (int32_t *) &ptr[GASNETC_AM_LONG_ARGS_OFF];
 			GASNETI_RUN_HANDLER_LONG(1, handler_idx, _gmc.handlers[handler_idx],
@@ -293,13 +294,19 @@ gasnetc_process_AMReply(gasnetc_bufdesc_t *bufd)
 			    len - GASNETC_AM_MEDIUM_HEADER_LEN(numargs)); 
 			break;
 
-		case GASNETC_AM_LONG:
+		case GASNETC_AM_LONG: {
+			uint32_t header_len = GASNETC_AM_LONG_HEADER_LEN(numargs);
+			uint32_t payload_len = *((uint32_t *) &ptr[4]);
 			dest_addr = *((uintptr_t *) &ptr[8]);
-			len = *((uint32_t *) &ptr[4]);
+			if (len != header_len) {
+			    gasneti_assert(len == header_len + payload_len); /* Reply packs all or none */
+			    memcpy((uint8_t *)dest_addr, ptr+header_len, payload_len);
+			}
 			argptr = (int32_t *) &ptr[GASNETC_AM_LONG_ARGS_OFF];
 			GASNETI_RUN_HANDLER_LONG(0, handler_idx, _gmc.handlers[handler_idx],
-			    bufd, argptr, numargs, (void *)dest_addr, len);
+			    bufd, argptr, numargs, (void *)dest_addr, payload_len);
 			break;
+		}
 
 		default:
 			gasneti_fatalerror("AMReply type unknown 0x%x",

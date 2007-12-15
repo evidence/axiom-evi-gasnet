@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2007/11/06 06:21:31 $
- * $Revision: 1.119 $
+ * $Date: 2007/12/15 00:17:39 $
+ * $Revision: 1.120 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -1895,7 +1895,7 @@ extern int gasnetc_AMReplyLongM(
 		bufd->dest_addr = (uintptr_t) dest_addr;
 		bufd->node      = dest;
 
-		if (nbytes > 0
+		if (nbytes > gasnetc_packed_long_limit
 #if !defined(GASNET_SEGMENT_FAST)
 		   && (req = firehose_try_remote_pin(dest, (uintptr_t) dest_addr, 
 	    	            nbytes, 0,  NULL)) != NULL
@@ -1929,25 +1929,19 @@ extern int gasnetc_AMReplyLongM(
 			bufd->remote_req = NULL;
 			bufd->local_req = NULL;
 
-			bufd->len = header_len = 
+			header_len = 
 			    gasnetc_write_AMBufferLong(bufd->buf, 
 			        handler, numargs, argptr, nbytes, source_addr, 
 				(uintptr_t) dest_addr, GASNETC_AM_REPLY);
-			pbuf = (uintptr_t)bufd->buf + (uintptr_t) header_len;
 
 			if_pt (nbytes > 0) { /* Handle zero-length messages */
-				len = gasnetc_write_AMBufferMediumMedcopy(
-					(void *)pbuf, (void *)source_addr, nbytes,
-					(void *)dest_addr, GASNETC_AM_REPLY);
-
-				BUFD_SET(bufd, BUFD_PAYLOAD);
-
-				bufd->payload_off = header_len;
-				bufd->payload_len = len;
+				pbuf = (uintptr_t)bufd->buf + (uintptr_t) header_len;
+				gasnetc_write_AMBufferBulk((void *)pbuf,
+				    (void *)source_addr, nbytes);
 	                        GASNETI_TRACE_EVENT_VAL(C, AMREPLYLONG_TWOCOPY, nbytes);
 			}
 
-			bufd->len = header_len;
+			bufd->len = header_len + nbytes;
 		}
 
 		#if !GASNET_TRACE
