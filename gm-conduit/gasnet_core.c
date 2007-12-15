@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2007/12/15 00:17:39 $
- * $Revision: 1.120 $
+ * $Date: 2007/12/15 06:35:53 $
+ * $Revision: 1.121 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -2255,7 +2255,7 @@ gasnetc_GMSend_AMRequest(void *buf, uint32_t len,
 	while (!sent) {
 		/* don't force locking when polling */
 		while (!GASNETC_TOKEN_LO_AVAILABLE())
-			gasneti_AMPoll();
+			gasnetc_AMPoll();
 
 		gasneti_mutex_lock(&gasnetc_lock_gm);
 		/* assure last poll was successful */
@@ -2326,7 +2326,7 @@ gasnetc_AMRequestPool_block()
 
 	while (bufd_idx < 0) {
 		while (_gmc.reqs_pool_cur < 0)
-			gasneti_AMPoll();
+			gasnetc_AMPoll();
 
 		gasneti_mutex_lock(&gasnetc_lock_reqpool);
 		if_pt (_gmc.reqs_pool_cur >= 0) {
