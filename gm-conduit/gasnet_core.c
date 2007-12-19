@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2007/12/15 06:35:53 $
- * $Revision: 1.121 $
+ * $Date: 2007/12/19 22:33:09 $
+ * $Revision: 1.122 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -1678,7 +1678,7 @@ gasnetc_GMSend_bufd(gasnetc_bufdesc_t *bufd)
 
 	gasneti_assert(BUFD_ISSET(bufd, BUFD_REPLY));
 
-	if (BUFD_ISSET(bufd, BUFD_PAYLOAD) && BUFD_ISSET(bufd, BUFD_DMA)) {
+	if (BUFD_ISSET(bufd, BUFD_PAYLOAD)) {
 		gasneti_assert(bufd->dest_addr > 0);
 		gasneti_assert(bufd->payload_len > 0);
 
@@ -1686,7 +1686,7 @@ gasnetc_GMSend_bufd(gasnetc_bufdesc_t *bufd)
 			send_ptr = bufd->source_addr;
 		else
 			send_ptr = (uintptr_t) 
-				   bufd->buf + bufd->payload_off;
+				   bufd->buf + GASNETC_LONG_OFFSET;
 
 		GASNETI_TRACE_PRINTF(C, ("gm_put (%d,%p <- %p,%d bytes)",
 		    bufd->node, (void *) bufd->dest_addr, (void *) send_ptr,
@@ -1703,20 +1703,8 @@ gasnetc_GMSend_bufd(gasnetc_bufdesc_t *bufd)
 		    (void *) bufd);
 	}
 	else {
-		void	*context;
-
-		if (BUFD_ISSET(bufd, BUFD_PAYLOAD)) {
-			len = bufd->payload_len;
-			context = NULL;
-			send_ptr = 
-				(uintptr_t) bufd->buf + 
-				(uintptr_t) bufd->payload_off;
-		}
-		else {
-			len = bufd->len;
-			send_ptr = (uintptr_t) bufd->buf;
-			context = (void *)bufd;
-		}
+		len = bufd->len;
+		send_ptr = (uintptr_t) bufd->buf;
 
 		GASNETI_TRACE_PRINTF(C, ("gm_send (gm id %d <- %p,%d bytes) %s",
 		    (unsigned) bufd->gm_id, (void *) send_ptr, len,
@@ -1733,7 +1721,7 @@ gasnetc_GMSend_bufd(gasnetc_bufdesc_t *bufd)
 			GM_HIGH_PRIORITY,
 			(uint32_t) bufd->gm_id,
 			gasnetc_callback_hi,
-			context);
+			(void *) bufd);
 		else
 		gm_send_with_callback(_gmc.port, 
 			(void *) send_ptr,
@@ -1743,7 +1731,7 @@ gasnetc_GMSend_bufd(gasnetc_bufdesc_t *bufd)
 			(uint32_t) bufd->gm_id,
 			(uint32_t) bufd->gm_port,
 			gasnetc_callback_hi,
-			context);
+			(void *) bufd);
 	}
 	return;
 }
@@ -1758,11 +1746,12 @@ gasnetc_AMReplyLongTrySend(gasnetc_bufdesc_t *bufd)
 	gasneti_assert(BUFD_ISSET(bufd, BUFD_REPLY));
 
 	if (gasnetc_token_hi_acquire()) {
-		/* First send the payload */
+		/* First send : the payload if present, header otherwise */
 		gasnetc_GMSend_bufd(bufd);
 		sends++;
 
 		if_pt (BUFD_ISSET(bufd, BUFD_PAYLOAD)) { 
+			/* payload was sent, now worry about the header */
 			BUFD_UNSET(bufd, BUFD_PAYLOAD);
 
 			if (gasnetc_token_hi_acquire()) {
@@ -1916,10 +1905,9 @@ extern int gasnetc_AMReplyLongM(
 			bufd->local_req = NULL;
 			bufd->source_addr = 0;
 
-			bufd->payload_off = GASNETC_LONG_OFFSET;
 			bufd->payload_len = nbytes;
 
-    			BUFD_SET(bufd, BUFD_PAYLOAD | BUFD_DMA);
+    			BUFD_SET(bufd, BUFD_PAYLOAD);
 	                GASNETI_TRACE_EVENT_VAL(C, AMREPLYLONG_ONECOPY, nbytes);
 		}
 		else {
@@ -2002,7 +1990,6 @@ gasnetc_AMReplyLongAsyncM(
 
 	bufd->len = len;
 	bufd->node = dest;
-	bufd->payload_off = 0;
 	bufd->payload_len = nbytes;
 	bufd->dest_addr = (uintptr_t) dest_addr;
 	bufd->source_addr = (uintptr_t) source_addr;
@@ -2019,7 +2006,7 @@ gasnetc_AMReplyLongAsyncM(
 			    dest_addr, source_addr, nbytes);
 		}
 		else {
-			BUFD_SET(bufd, BUFD_PAYLOAD | BUFD_DMA);
+			BUFD_SET(bufd, BUFD_PAYLOAD);
 	                GASNETI_TRACE_EVENT_VAL(C, AMREPLYLONGASYNC_ZEROCOPY, nbytes);
 		}
 	}

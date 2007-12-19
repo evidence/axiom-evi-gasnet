@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core_internal.h,v $
- * $Date: 2007/12/15 06:35:53 $
- * $Revision: 1.75 $
+ * $Date: 2007/12/19 22:33:09 $
+ * $Revision: 1.76 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -158,7 +158,7 @@ gasnetc_token_t;
  * of these attached to it. */
 #define BUFD_REPLY	0x01
 #define BUFD_PAYLOAD	0x02
-#define BUFD_DMA	0x04
+/* 0x04 was BUFD_DMA, now unused */
 #define BUFD_REQMEDIUM	0x08
 
 /* The buffer descriptor has various states, each describing where it is
@@ -201,7 +201,6 @@ struct gasnetc_bufdesc {
 	uintptr_t	source_addr;	/* used only in Async AMs */
 	uint16_t	gm_id;
 	uint16_t	gm_port;
-	off_t		payload_off;	/* payload offset for AMLong */
 	uint32_t	payload_len;	/* payload length for AMLong */
 	uint32_t	len;		/* length for queued sends */
 	int		*done;		/* Used in AM Systems */
@@ -440,7 +439,6 @@ gasnetc_reset_bufdesc(gasnetc_bufdesc_t *bufd)
 {
 	bufd->dest_addr = 0;
 	bufd->source_addr = 0;
-	bufd->payload_off = 0;
 	bufd->payload_len = 0;
 	bufd->len = 0;
 	bufd->remote_req = NULL;
@@ -588,7 +586,7 @@ gasnetc_fifo_progress()
 		 * let the next loop iteration send the header
 		 */
 		if (BUFD_ISSET(bufd, BUFD_PAYLOAD))
-			BUFD_UNSET(bufd, BUFD_PAYLOAD | BUFD_DMA);
+			BUFD_UNSET(bufd, BUFD_PAYLOAD);
 		else
 			gasnetc_fifo_remove();
 	}

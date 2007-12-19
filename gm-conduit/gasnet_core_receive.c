@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core_receive.c,v $
- * $Date: 2007/12/15 00:17:39 $
- * $Revision: 1.47 $
+ * $Date: 2007/12/19 22:33:09 $
+ * $Revision: 1.48 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -51,7 +51,6 @@ gasnetc_bufdesc_from_event(gm_recv_event_t *e)
 	GASNETC_ASSERT_BUFDESC_PTR(bufd, gm_ntohp(e->recv.buffer));
 
 	bufd->dest_addr   = 0;
-	bufd->payload_off = 0;
 	bufd->len         = (uint32_t) gm_ntoh_u32(e->recv.length);
 	bufd->gm_id       = gm_ntoh_u16(e->recv.sender_node_id);
 	bufd->gm_port     = (uint16_t) gm_ntoh_u8(e->recv.sender_port_id);
