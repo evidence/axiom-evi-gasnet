@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/portable_platform.h,v $
- *     $Date: 2007/12/04 23:07:55 $
- * $Revision: 1.17 $
+ *     $Date: 2008/01/03 03:05:41 $
+ * $Revision: 1.18 $
  * Description: Portable platform detection header
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -658,6 +658,16 @@
   #define PLATFORM_ARCH_FAMILYNAME MICROBLAZE
   #define PLATFORM_ARCH_BIG_ENDIAN 1
   #define _PLATFORM_ARCH_32 1
+
+#elif defined(__arm__)
+  #define PLATFORM_ARCH_ARM 1
+  #define PLATFORM_ARCH_FAMILYNAME ARM
+  #define _PLATFORM_ARCH_32 1
+  #if defined(__ARMEB__)
+    #define PLATFORM_ARCH_BIG_ENDIAN 1
+  #elif defined(__ARMEL__)
+    #define PLATFORM_ARCH_LITTLE_ENDIAN 1
+  #endif
 
 #else /* unknown CPU */
   #define PLATFORM_ARCH_UNKNOWN 1
