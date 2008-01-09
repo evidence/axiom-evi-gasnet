@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2008/01/09 02:30:27 $
- * $Revision: 1.200 $
+ *     $Date: 2008/01/09 03:14:45 $
+ * $Revision: 1.201 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -107,8 +107,10 @@ static int gasnetc_qp_timeout, gasnetc_qp_retry_count;
 
 #if GASNET_CONDUIT_VAPI
   #define GASNET_VAPI_PORTS_STR "GASNET_VAPI_PORTS"
+  #define GASNET_CONDUIT_NAME_STR_LC "vapi"
 #else
   #define GASNET_VAPI_PORTS_STR "GASNET_IBV_PORTS"
+  #define GASNET_CONDUIT_NAME_STR_LC "ibv"
 #endif
 
 /* ------------------------------------------------------------------------------------ */
@@ -527,7 +529,7 @@ static int gasnetc_load_settings(void) {
 
 
   /* Report */
-  GASNETI_TRACE_PRINTF(C,("vapi-conduit build time configuration settings = {"));
+  GASNETI_TRACE_PRINTF(C,(GASNET_CONDUIT_NAME_STR_LC "-conduit build time configuration settings = {"));
   GASNETI_TRACE_PRINTF(C,("  AM receives in internal thread %sabled (GASNETC_" GASNET_CONDUIT_NAME_STR"_RCV_THREAD)",
 				GASNETC_IB_RCV_THREAD ? "en" : "dis"));
 #if GASNET_CONDUIT_VAPI && GASNETC_VAPI_POLL_LOCK
@@ -543,15 +545,14 @@ static int gasnetc_load_settings(void) {
 				GASNETC_RCV_REAP_LIMIT));
   GASNETI_TRACE_PRINTF(C,  ("}"));
 
+  GASNETI_TRACE_PRINTF(C,(GASNET_CONDUIT_NAME_STR_LC "-conduit run time configuration settings = {"));
 #if GASNET_CONDUIT_VAPI
-  GASNETI_TRACE_PRINTF(C,("vapi-conduit run time configuration settings = {"));
   if (gasnetc_vapi_ports && strlen(gasnetc_vapi_ports)) {
     GASNETI_TRACE_PRINTF(C,  ("  GASNET_VAPI_PORTS               = '%s'", gasnetc_vapi_ports));
   } else {
     GASNETI_TRACE_PRINTF(C,  ("  GASNET_VAPI_PORTS               = empty or unset (probe all)"));
   }
 #else
-  GASNETI_TRACE_PRINTF(C,("ibv-conduit run time configuration settings = {"));
   if (gasnetc_vapi_ports && strlen(gasnetc_vapi_ports)) {
     GASNETI_TRACE_PRINTF(C,  ("  GASNET_IBV_PORTS                = '%s'", gasnetc_vapi_ports));
   } else {
@@ -1042,7 +1043,7 @@ static int gasnetc_init(int *argc, char ***argv) {
   gasnetc_max_msg_sz = ~0;
   GASNETC_FOR_ALL_HCA_INDEX(h) {
     hca = &gasnetc_hca[h];
-    GASNETI_TRACE_PRINTF(C,("vapi-conduit HCA properties (%d of %d) = {", h+1, gasnetc_num_hcas));
+    GASNETI_TRACE_PRINTF(C,(GASNET_CONDUIT_NAME_STR_LC "-conduit HCA properties (%d of %d) = {", h+1, gasnetc_num_hcas));
     GASNETI_TRACE_PRINTF(C,("  HCA id                   = '%s'", hca->hca_id));
 #if GASNET_CONDUIT_VAPI
     GASNETI_TRACE_PRINTF(C,("  HCA vendor id            = 0x%x", (unsigned int)hca->hca_vendor.vendor_id));
