@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_syncops.h,v $
- *     $Date: 2008/01/09 04:02:42 $
- * $Revision: 1.41 $
+ *     $Date: 2008/01/09 08:59:31 $
+ * $Revision: 1.42 $
  * Description: GASNet header for synchronization operations used in GASNet implementation
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -878,18 +878,13 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
    * allow for the load we perform between the ll and the sc.  More complex algorithms are
    * probably possible.  I'll continue to look into this.  -PHH 2006.04.19
    *
-   * No Opteron or Itanium support yet because there is no CAS2 or DCSS (double-compare single-swap)
-   * support for 8-byte pointers.  While the x86_64 architecture includes an optional cmpxchg16b
-   * (CAS2), no current CPU implements it.  For ia64, we lack even an optional CAS2 or DCSS.
-   * The CS literature offers many ways to simulate CAS2 or DCSS using just CAS (cmpxchg8b), but
-   * they all are either very complex and/or require thread-specific data to help resolve the ABA
-   * problem.  I'll continue to look into this.  -PHH 2006.01.19
+   * No Itanium support yet because there is no CAS2 or DCSS (double-compare single-swap)
+   * support for 8-byte pointers.  However there are optional ld16, st16 and cmp8xchg16
+   * instructions.  The cmp8xchg16 instruction is a "SCDS" (single-compare double-swap)
+   * that can implement a stack by performing the comparison on the tag (which must be
+   * updated on both PUSH and POP).
    *
-   * Update: Recent Opteron CPUs are implementing their optional CAS2 (cmpxchg16b) instruction,
-   * and recent Itaniums are implementing their optional ld16, st16 and cmp8xchg16 instructions.
-   * The Itanium instruction is a "SCDS" (single-compare double-swap) that can implement a stack
-   * by performing the comparison on the tag (which must now be updated on both PUSH and POP).
-   * -PHH 2007.10.02
+   * We do support x86-64 CPUs which implement their optional CAS2 (cmpxchg16b) instruction.
    *
    * One possible solution for all remaining platforms is "software ll/sc".  Using just pointer
    * CAS, one can implement an ideal LL/SC which allows for arbitrary loads and stores between
