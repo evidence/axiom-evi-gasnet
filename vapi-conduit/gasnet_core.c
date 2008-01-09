@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2007/11/06 04:21:44 $
- * $Revision: 1.199 $
+ *     $Date: 2008/01/09 02:30:27 $
+ * $Revision: 1.200 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -100,6 +100,9 @@ static int gasnetc_qp_timeout, gasnetc_qp_retry_count;
 
 #ifndef MT_MELLANOX_IEEE_VENDOR_ID
   #define MT_MELLANOX_IEEE_VENDOR_ID      0x02c9
+#endif
+#ifndef PCI_DEVICE_ID_MELLANOX_TAVOR
+  #define PCI_DEVICE_ID_MELLANOX_TAVOR    0x5a44
 #endif
 
 #if GASNET_CONDUIT_VAPI
@@ -1099,9 +1102,11 @@ static int gasnetc_init(int *argc, char ***argv) {
       #endif
     }
   
-    /* Vendor-specific firmware checks */
+    /* Vendor/device-specific firmware checks */
 #if GASNET_CONDUIT_VAPI
-    if (hca->hca_vendor.vendor_id == MT_MELLANOX_IEEE_VENDOR_ID) {
+    if ((hca->hca_vendor.vendor_id == MT_MELLANOX_IEEE_VENDOR_ID) &&
+        (hca->hca_vendor.vendor_part_id == PCI_DEVICE_ID_MELLANOX_TAVOR)) {
+       /* Known defects w/ firmware for Mellanox InfiniHost (Tavor) HCAs */
        int defect;
 
       #if !GASNETC_VAPI_POLL_LOCK
@@ -1133,9 +1138,7 @@ static int gasnetc_init(int *argc, char ***argv) {
 			      defect ? "" : "not "));
     }
 #else
-    if (hca->hca_cap.vendor_id == MT_MELLANOX_IEEE_VENDOR_ID) {
-      /* NONE OF OUR KNOWN DEFECTS ARE PRESENT IN IBV-CAPABLE FW */
-    }
+    /* NONE OF OUR KNOWN DEFECTS ARE PRESENT IN IBV-CAPABLE FW */
 #endif
       
     /* Per-port: */
