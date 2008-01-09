@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2007/12/05 05:53:16 $ */
-/*  $Revision: 1.127 $ */
+/*      $Date: 2008/01/09 03:53:02 $ */
+/*  $Revision: 1.128 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -124,6 +124,9 @@
 
 /* has x86 EBX register (not reserved for GOT) */
 #undef GASNETI_HAVE_X86_EBX
+
+/* has support (toolchain and cpu) for x86_64 cmpxchg16b instruction */
+#undef GASNETI_HAVE_X86_CMPXCHG16B
 
 /* gcc/gas support "LDCW,CO" psuedo-op on PA-RISC */
 #undef GASNETI_HAVE_PARISC_LDCW_CO
