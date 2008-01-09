@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2008/01/03 03:05:39 $
- * $Revision: 1.282 $
+ *     $Date: 2008/01/09 08:55:44 $
+ * $Revision: 1.283 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -686,6 +686,71 @@
 
       /* x86 and x86_64 include full memory fence in locked RMW insns */
       #define GASNETI_ATOMIC_FENCE_RMW (GASNETI_ATOMIC_MB_PRE | GASNETI_ATOMIC_MB_POST)
+
+      /* Optionally build a 128-bit atomic type using 64-bit types for all args */
+      #if GASNETI_HAVE_X86_CMPXCHG16B && (PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_INTEL)
+	/* XXX: Only support GNU and Intel compilers at this time
+	 * PGI: early tests w/ pgi 6.2-5 showed bugs (32bit moves of 64bit asm args)
+	 * PATHSCALE: no tests yet w/ pathcc (lack a platform w/ pathcc + recent gas)
+	 */
+
+	#define GASNETI_HAVE_ATOMIC128_T 1
+	typedef struct { volatile uint64_t lo, hi; } gasneti_atomic128_t;
+	#define gasneti_atomic128_init(hi,lo)      { (lo),(hi) }
+
+	GASNETI_INLINE(gasneti_atomic128_compare_and_swap)
+	int gasneti_atomic128_compare_and_swap(gasneti_atomic128_t *p, uint64_t oldhi, uint64_t oldlo, uint64_t newhi, uint64_t newlo, int flags) {
+	  GASNETI_ASM_REGISTER_KEYWORD unsigned char retval;
+	  __asm__ __volatile__ (
+		"lock; "
+		"cmpxchg16b  %1   \n\t"
+		"sete        %0   "
+		: "=q" (retval), "=m" (*p), "+&a" (oldlo), "+&d" (oldhi)
+		: "b" (newlo), "c" (newhi)
+		: "cc", "memory");
+	  #if GASNETI_PGI_ASM_BUG1754
+	    return retval & 0xFF;
+	  #else
+	    return retval;
+	  #endif
+	}
+	#define gasneti_atomic128_compare_and_swap gasneti_atomic128_compare_and_swap
+
+	GASNETI_INLINE(gasneti_atomic128_set)
+	void gasneti_atomic128_set(gasneti_atomic128_t *p, uint64_t newhi, uint64_t newlo, int flags) {
+	  GASNETI_ASM_REGISTER_KEYWORD uint32_t oldlo = p->lo;
+	  GASNETI_ASM_REGISTER_KEYWORD uint32_t oldhi = p->hi;
+	  __asm__ __volatile__ (
+		"0:               \n\t"
+		"lock; "
+		"cmpxchg16b  %0   \n\t"
+		"jnz         0b   "
+		: "=m" (*p), "+&a" (oldlo), "+&d" (oldhi)
+		: "b" (newlo), "c" (newhi)
+		: "cc", "memory");
+	}
+	#define gasneti_atomic128_set gasneti_atomic128_set
+
+	GASNETI_INLINE(gasneti_atomic128_read)
+	void gasneti_atomic128_read(uint64_t *outhi, uint64_t *outlo, gasneti_atomic128_t *p, int flags) {
+	  GASNETI_ASM_REGISTER_KEYWORD uint64_t retlo = p->lo;
+	  GASNETI_ASM_REGISTER_KEYWORD uint64_t rethi = p->hi;
+	  GASNETI_ASM_REGISTER_KEYWORD uint64_t tmphi, tmplo;
+	  __asm__ __volatile__ (
+		"0:                 \n\t"
+		"movq        %1, %3 \n\t"
+		"movq        %2, %4 \n\t"
+		"lock; "
+		"cmpxchg16b  %0     \n\t"
+		"jnz         0b          "
+		: "+m" (*p), "+&a" (retlo),  "+&d" (rethi), "=&b" (tmplo), "=&c" (tmphi)
+		: /* no inputs */
+		: "cc", "memory");
+	  *outlo = retlo;
+	  *outhi = rethi;
+	}
+	#define gasneti_atomic128_read gasneti_atomic128_read
+      #endif /* GASNETI_HAVE_X86_CMPXCHG16B */
     #elif PLATFORM_COMPILER_SUN || PLATFORM_COMPILER_PGI_C
       /* First, some macros to hide the x86 vs. x86-64 ABI differences */
       #if PLATFORM_ARCH_X86_64
