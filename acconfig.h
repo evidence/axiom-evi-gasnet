@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2008/01/09 03:53:02 $ */
-/*  $Revision: 1.128 $ */
+/*      $Date: 2008/01/15 08:14:40 $ */
+/*  $Revision: 1.129 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -122,6 +122,10 @@
 /* pause instruction, if any */
 #undef GASNETI_PAUSE_INSTRUCTION
 
+/* has ARM kernel-level support for cmpxchg */
+#undef GASNETI_HAVE_ARM_CMPXCHG
+
+/* has support (toolchain and cpu) for x86_64 cmpxchg16b instruction */
 /* has x86 EBX register (not reserved for GOT) */
 #undef GASNETI_HAVE_X86_EBX
 

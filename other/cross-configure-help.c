@@ -33,6 +33,9 @@
 #ifndef CHECK_MMAP
 #define CHECK_MMAP 1         /* test for working mmap() */
 #endif
+#ifndef CHECK_ARM_CMPXCHG
+#define CHECK_ARM_CMPXCHG 1  /* test for ARM cmpxchg support (ignored on other arch) */
+#endif
 /* ------------------------------ */
 #ifndef CHECK_VERBOSE
 #define CHECK_VERBOSE 1         /* enable verbose error reporting during checks */
@@ -146,6 +149,9 @@ NOOP_CHECK(unsigned long,pagesize_check,"system page size")
 #endif
 
 int mmap_check();
+#if defined(__arm__)
+  int arm_cmpxchg_check();
+#endif
 
 int main() {
 
@@ -182,6 +188,11 @@ int main() {
 
   printf("\n################################################\n");
   printf("# AUTOMATICALLY DETECTED SETTINGS:\n\n");
+#if defined(__arm__)
+  printf("\n# Whether the ARM system has working kernel support for cmpxchg\n\n");
+  printf("CROSS_HAVE_ARM_CMPXCHG='%i' ; export CROSS_HAVE_ARM_CMPXCHG\n",arm_cmpxchg_check());
+#endif
+
   printf("\n# Whether the system has a working version of anonymous mmap\n\n");
   printf("CROSS_HAVE_MMAP='%i' ; export CROSS_HAVE_MMAP\n",mmap_check());
 
@@ -291,4 +302,55 @@ int main() {
   }
 #else
   NOOP_CHECK(int,mmap_check,"mmap operation")
+#endif
+
+#if defined(__arm__)
+  #if CHECK_ARM_CMPXCHG
+    #include <sys/types.h>
+    #include <sys/wait.h>
+    #include <unistd.h>
+    int cmp_swap(volatile unsigned int *p, unsigned int oldval, unsigned int newval) {   
+	register unsigned int result asm("r0");
+	register unsigned int _newval asm("r1") = newval;
+	register unsigned int _p asm("r2") = (unsigned long)p;
+
+	__asm__ __volatile__ (
+		"       mov     r3, #0xffff0fff\n"
+		"       mov     lr, pc\n"
+		"       sub     pc, r3, #0x3f\n"
+		: "=&r" (result)
+		: "0" (oldval), "r" (_p), "r" (_newval)
+		: "r3", "ip", "lr", "cc", "memory" );
+
+	return !result;
+    }
+    int arm_cmpxchg_check(void) {
+	/* Since failure may crash, run in a child process */
+	int pid;
+
+	fflush(NULL);
+	pid = fork();
+	if (pid < 0) {
+	    warning("ARM cmpxchg check failed to fork()");
+	    return 0;
+	} else if (pid == 0) {
+	    /* Child */
+	    volatile unsigned int X = 4321;
+
+	    /* Expect FAIL and X unchanged */
+	    if (cmp_swap(&X, 0, 1234) || (X != 4321)) exit(1);
+
+	    /* Expect SUCCESS and X changed */
+	    if (!cmp_swap(&X, 4321, 1234) || (X != 1234)) exit(1);
+
+	    exit(0);
+	} else {
+	    int rc, status;
+	    rc = waitpid(pid, &status, 0);
+	    return (WIFEXITED(status) && !WEXITSTATUS(status));
+	}
+    }
+  #else
+    NOOP_CHECK(int,arm_cmpxchg_check,"ARM cmpxchg support")
+  #endif
 #endif

@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2008/01/15 03:40:12 $
-# $Revision: 1.476 $
+#     $Date: 2008/01/15 08:14:40 $
+# $Revision: 1.477 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.476 $)
+AC_REVISION($Revision: 1.477 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1128,6 +1128,47 @@ if test "$enabled_sgi_ip27" = yes; then
   esac
 fi
 
+## Does ARM kernel have cmpxchg support?
+if expr "$target_cpu" : "arm" >/dev/null; then
+  if test "$cross_compiling" = "yes" ; then
+    GASNET_CROSS_VAR(GASNETI_HAVE_ARM_CMPXCHG, HAVE_ARM_CMPXCHG)
+  else
+    GASNET_TRY_CACHE_RUN([for ARM cmpxchg kernel support], have_arm_cmpxchg, [
+      int cmp_swap(volatile unsigned int *p, unsigned int oldval, unsigned int newval)
+      {   
+	register unsigned int result asm("r0");
+	register unsigned int _newval asm("r1") = newval;
+	register unsigned int _p asm("r2") = (unsigned long)p;
+
+	__asm__ __volatile__ (
+	  "       mov     r3, #0xffff0fff\n"
+	  "       mov     lr, pc\n"
+	  "       sub     pc, r3, #0x3f\n"
+	  : "=&r" (result)
+	  : "0" (oldval), "r" (_p), "r" (_newval)
+	  : "r3", "ip", "lr", "cc", "memory" );
+
+	return !result;
+      }
+
+      int main(void) {
+	volatile unsigned int X = 4321;
+
+	/* Expect FAIL and X unchanged */
+	if (cmp_swap(&X, 0, 1234) || (X != 4321)) return 1;
+
+	/* Expect SUCCESS and X changed */
+	if (!cmp_swap(&X, 4321, 1234) || (X != 1234)) return 1;
+
+       	return 0;
+      }
+    ], [GASNETI_HAVE_ARM_CMPXCHG=1]
+     , [GASNETI_HAVE_ARM_CMPXCHG=0])
+  fi
+  if test $GASNETI_HAVE_ARM_CMPXCHG = 1; then
+    AC_DEFINE(GASNETI_HAVE_ARM_CMPXCHG)
+  fi
+fi
 
 ## Do gcc/gas and CPU support "cmpxchg16b"?
 GASNET_PUSHVAR(CFLAGS,"$CFLAGS $MISC_CPPFLAGS $MISC_CFLAGS -I$TOP_SRCDIR -I$TOP_SRCDIR/other -D_IN_CONFIGURE")
