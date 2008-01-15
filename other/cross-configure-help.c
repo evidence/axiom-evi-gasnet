@@ -36,6 +36,9 @@
 #ifndef CHECK_ARM_CMPXCHG
 #define CHECK_ARM_CMPXCHG 1  /* test for ARM cmpxchg support (ignored on other arch) */
 #endif
+#ifndef CHECK_ARM_MEMBAR
+#define CHECK_ARM_MEMBAR 1   /* test for ARM membar/SMP support (ignored on other arch) */
+#endif
 /* ------------------------------ */
 #ifndef CHECK_VERBOSE
 #define CHECK_VERBOSE 1         /* enable verbose error reporting during checks */
@@ -151,6 +154,7 @@ NOOP_CHECK(unsigned long,pagesize_check,"system page size")
 int mmap_check();
 #if defined(__arm__)
   int arm_cmpxchg_check();
+  int arm_membar_check();
 #endif
 
 int main() {
@@ -191,6 +195,9 @@ int main() {
 #if defined(__arm__)
   printf("\n# Whether the ARM system has working kernel support for cmpxchg\n\n");
   printf("CROSS_HAVE_ARM_CMPXCHG='%i' ; export CROSS_HAVE_ARM_CMPXCHG\n",arm_cmpxchg_check());
+
+  printf("\n# Whether the ARM system has working kernel support for memory barriers\n\n");
+  printf("CROSS_HAVE_ARM_MEMBAR='%i' ; export CROSS_HAVE_ARM_MEMBAR\n",arm_membar_check());
 #endif
 
   printf("\n# Whether the system has a working version of anonymous mmap\n\n");
@@ -352,5 +359,49 @@ int main() {
     }
   #else
     NOOP_CHECK(int,arm_cmpxchg_check,"ARM cmpxchg support")
+  #endif
+
+  #if CHECK_ARM_MEMBAR
+    #include <sys/types.h>
+    #include <sys/wait.h>
+    #include <unistd.h>
+    #define arm_membar()                           \
+	__asm__ __volatile__ (                     \
+		"       mov     r0, #0xffff0fff\n" \
+		"       mov     lr, pc\n"          \
+		"       sub     pc, r0, #0x5f\n"   \
+		: : : "r0", "lr", "cc", "memory" )
+    int arm_membar_check(void) {
+	/* Since failure may crash, run in a child process */
+	int pid;
+
+	fflush(NULL);
+	pid = fork();
+	if (pid < 0) {
+	    warning("ARM membar check failed to fork()");
+	    return 0;
+	} else if (pid == 0) {
+	    /* First check the interface version (number of helpers) */
+	    unsigned int kernel_helper_version = *(unsigned int *)0xffff0ffcUL;
+
+	    /* Max possible is 128 32-byte helper "slots".
+	     * We check this because prior to 2.6.12, the same location
+	     * held the thread-specific pointer! */
+	    if (kernel_helper_version > 128) exit(1);
+
+	    /* memory barrier occupies slot #3 */
+	    if (kernel_helper_version < 3) exit(1);
+
+	    /* Can't test any side effect, but at least check for crash */
+	    arm_membar();
+	    exit(0);
+	} else {
+	    int rc, status;
+	    rc = waitpid(pid, &status, 0);
+	    return (WIFEXITED(status) && !WEXITSTATUS(status));
+	}
+    }
+  #else
+    NOOP_CHECK(int,arm_membar_check,"ARM membar support")
   #endif
 #endif

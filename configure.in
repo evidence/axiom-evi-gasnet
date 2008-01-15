@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2008/01/15 08:14:40 $
-# $Revision: 1.477 $
+#     $Date: 2008/01/15 21:12:53 $
+# $Revision: 1.478 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.477 $)
+AC_REVISION($Revision: 1.478 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1128,8 +1128,9 @@ if test "$enabled_sgi_ip27" = yes; then
   esac
 fi
 
-## Does ARM kernel have cmpxchg support?
+## ARM-specific checks for "kernel helpers"
 if expr "$target_cpu" : "arm" >/dev/null; then
+  ## Does ARM kernel have cmpxchg support?
   if test "$cross_compiling" = "yes" ; then
     GASNET_CROSS_VAR(GASNETI_HAVE_ARM_CMPXCHG, HAVE_ARM_CMPXCHG)
   else
@@ -1167,6 +1168,40 @@ if expr "$target_cpu" : "arm" >/dev/null; then
   fi
   if test $GASNETI_HAVE_ARM_CMPXCHG = 1; then
     AC_DEFINE(GASNETI_HAVE_ARM_CMPXCHG)
+  fi
+
+  ## Does ARM kernel have membar support?
+  if test "$cross_compiling" = "yes" ; then
+    GASNET_CROSS_VAR(GASNETI_HAVE_ARM_MEMBAR, HAVE_ARM_MEMBAR)
+  else
+    GASNET_TRY_CACHE_RUN([for ARM membar kernel support], have_arm_membar, [
+      #define arm_membar()                           \
+	  __asm__ __volatile__ (                     \
+		  "       mov     r0, #0xffff0fff\n" \
+		  "       mov     lr, pc\n"          \
+		  "       sub     pc, r0, #0x5f\n"   \
+		  : : : "r0", "lr", "cc", "memory" )
+      int main(void) {
+	/* First check the interface version (number of helpers) */
+	unsigned int kernel_helper_version = *(unsigned int *)0xffff0ffcUL;
+
+	/* Max possible is 128 32-byte helper "slots".
+	 * We check this because prior to 2.6.12, the same location
+	 * held the thread-specific pointer! */
+	if (kernel_helper_version > 128) exit(1);
+
+	/* memory barrier occupies slot #3 */
+	if (kernel_helper_version < 3) exit(1);
+
+	/* Can't test any side effect, but at least check for crash */
+	arm_membar();
+	exit(0);
+      }
+    ], [GASNETI_HAVE_ARM_MEMBAR=1]
+     , [GASNETI_HAVE_ARM_MEMBAR=0])
+  fi
+  if test $GASNETI_HAVE_ARM_MEMBAR = 1; then
+    AC_DEFINE(GASNETI_HAVE_ARM_MEMBAR)
   fi
 fi
 
