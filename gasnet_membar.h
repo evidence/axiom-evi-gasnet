@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_membar.h,v $
- *     $Date: 2008/01/03 03:05:39 $
- * $Revision: 1.118 $
+ *     $Date: 2008/01/15 04:53:25 $
+ * $Revision: 1.119 $
  * Description: GASNet header for portable memory barrier operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -367,9 +367,8 @@
 /* ------------------------------------------------------------------------------------ */
 #elif PLATFORM_ARCH_ARM && PLATFORM_OS_LINUX
    /* XXX: no ARM SMP support in GASNet yet */
-   #include <linux/config.h>
-   #if defined(CONFIG_SMP) && !defined(GASNETI_UNI_BUILD)
-     #error "Building against an SMP kernel (not yet supported for ARM).  Configure with --disable-smp-safe to continue."
+   #if !defined(GASNETI_UNI_BUILD)
+     #error "ARM support requires configuring with --disable-smp-safe."
    #endif
    #define gasneti_local_wmb() gasneti_compiler_fence()
    #define gasneti_local_rmb() gasneti_compiler_fence()
