@@ -316,21 +316,33 @@ int main() {
     #include <sys/types.h>
     #include <sys/wait.h>
     #include <unistd.h>
-    int cmp_swap(volatile unsigned int *p, unsigned int oldval, unsigned int newval) {   
+    int cmp_swap(volatile unsigned int *v, int oldval, int newval) {
 	register unsigned int result asm("r0");
 	register unsigned int _newval asm("r1") = newval;
-	register unsigned int _p asm("r2") = (unsigned long)p;
+	register unsigned int _v asm("r2") = (unsigned long)v;
+	register unsigned int _oldval asm("r4") = oldval;
 
+	/* Transient failure is possible if interrupted.
+	 * Since we can't distinguish the cause of the failure,
+	 * we must retry as long as the failure looks "improper"
+	 * which is defined as (!swapped && (v->ctr == oldval))
+	 */
 	__asm__ __volatile__ (
-		"       mov     r3, #0xffff0fff\n"
-		"       mov     lr, pc\n"
-		"       sub     pc, r3, #0x3f\n"
+		"0:	mov	r0, r4          @ r0 = oldval              \n"
+		"	mov	r3, #0xffff0fff @ r3 = base addr           \n"
+		"	mov	lr, pc		@ lr = return addr         \n"
+		"	sub	pc, r3, #0x3f   @ call 0xffff0fc0          \n"
+		"	ldrcc	ip, [r2, #0]	@ if (!swapped) ip=v->ctr  \n"
+		"	eorcs	ip, r4, #1	@ else ip=oldval^1         \n"
+		"	teq	r4, ip		@ if (ip == oldval)        \n"
+		"	beq	0b		@    then retry            \n"
+		"1:	"
 		: "=&r" (result)
-		: "0" (oldval), "r" (_p), "r" (_newval)
+		: "r" (_oldval), "r" (_v), "r" (_newval)
 		: "r3", "ip", "lr", "cc", "memory" );
 
 	return !result;
-    }
+    } 
     int arm_cmpxchg_check(void) {
 	/* Since failure may crash, run in a child process */
 	int pid;
