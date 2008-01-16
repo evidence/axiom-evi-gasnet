@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2008/01/09 08:55:44 $
- * $Revision: 1.283 $
+ *     $Date: 2008/01/16 05:50:12 $
+ * $Revision: 1.284 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -20,7 +20,7 @@
     PLATFORM_ARCH_CRAYT3E    || /* T3E seems to have no atomic ops */              \
     PLATFORM_ARCH_NECSX      || /* NEC SX-6 atomics not available to user code? */ \
     PLATFORM_COMPILER_LCC    || /* not implemented - lacks inline asm */           \
-    PLATFORM_ARCH_ARM        || /* not yet implemented - requires kernel support */\
+    (PLATFORM_ARCH_ARM && !defined(GASNETI_HAVE_ARM_CMPXCHG)) ||                   \
     PLATFORM_ARCH_MICROBLAZE   /* no atomic instructions */
   #define GASNETI_USE_GENERIC_ATOMICOPS
 #elif defined(GASNETI_FORCE_OS_ATOMICOPS) || /* for debugging */ \
@@ -2299,6 +2299,110 @@
       #endif
 
       /* No memory fences in our asm, so using default fences */
+    #endif
+  /* ------------------------------------------------------------------------------------ */
+  #elif PLATFORM_ARCH_ARM && defined(GASNETI_HAVE_ARM_CMPXCHG)
+    #if PLATFORM_COMPILER_GNU && PLATFORM_OS_LINUX
+      #define GASNETI_HAVE_ATOMIC32_T 1
+
+      typedef struct { volatile unsigned int ctr; } gasneti_atomic32_t;
+      #define _gasneti_atomic32_read(p)      ((p)->ctr)
+      #define _gasneti_atomic32_set(p,v)     ((p)->ctr = (v))
+      #define _gasneti_atomic32_init(v)      { (v) }
+
+      #define gasneti_atomic32_addfetch_const(p, op) ({                         \
+	register unsigned long __sum asm("r1");                                 \
+	register unsigned long __ptr asm("r2") = (unsigned long)(p);            \
+	__asm__ __volatile__ (                                                  \
+		"0:	ldr	r0, [r2]	@ r0 = *p		\n"     \
+		"	mov	r3, #0xffff0fff @ r3 = base addr        \n"     \
+		"	adr	lr, 1f		@ lr = return to '1:'	\n"     \
+		"	add	r1, r0, %2	@ r1 = r0 + op		\n"     \
+		"	sub	pc, r3, #0x3f   @ call 0xfff0fc0        \n"     \
+		"1:	bcc     0b		@ retry on Carry Clear"         \
+		: "=&r" (__sum)                                                 \
+		: "r" (__ptr), "IL" (op)                                        \
+		: "r0", "r3", "ip", "lr", "cc", "memory" );                     \
+	(__sum);                                                                \
+      })
+
+      GASNETI_INLINE(gasneti_atomic32_inc)
+      void gasneti_atomic32_inc(gasneti_atomic32_t *p) {
+        (void)gasneti_atomic32_addfetch_const(p, 1);
+      }
+      #define _gasneti_atomic32_increment gasneti_atomic32_inc
+
+      GASNETI_INLINE(gasneti_atomic32_dec)
+      void gasneti_atomic32_dec(gasneti_atomic32_t *p) {
+        (void)gasneti_atomic32_addfetch_const(p, -1);
+      }
+      #define _gasneti_atomic32_decrement gasneti_atomic32_dec
+
+      GASNETI_INLINE(gasneti_atomic32_dec_and_test)
+      int gasneti_atomic32_dec_and_test(gasneti_atomic32_t *p) {
+        return !gasneti_atomic32_addfetch_const(p, -1);
+      }
+      #define _gasneti_atomic32_decrement_and_test gasneti_atomic32_dec_and_test
+
+      /* Need to schedule r4, since '=&r' doesn't appear to prevent
+       * selection of the same register for __op and __sum.
+       * XXX: otherwise could use for inc, dec, dec-and-test
+       */
+      GASNETI_INLINE(gasneti_atomic32_addfetch)
+      uint32_t gasneti_atomic32_addfetch(gasneti_atomic32_t *p, int32_t op) {
+	register unsigned long __sum asm("r1");
+	register unsigned long __ptr asm("r2") = (unsigned long)(p);
+	register unsigned long __op asm("r4") = op;
+
+	__asm__ __volatile__ (
+		"0:	ldr	r0, [r2]	@ r0 = *p		\n"
+		"	mov	r3, #0xffff0fff @ r3 = base addr        \n"
+		"	adr	lr, 1f		@ lr = return to '1:'	\n"
+		"	add	r1, r0, %2	@ r1 = r0 + op		\n"
+		"	sub	pc, r3, #0x3f   @ call 0xfff0fc0        \n"
+		"1:	bcc     0b		@ retry on Carry Clear  "
+		: "=&r" (__sum)
+		: "r" (__ptr), "r" (__op)
+		: "r0", "r3", "ip", "lr", "cc", "memory" );
+	
+    	return __sum;
+      }
+      #define _gasneti_atomic32_addfetch gasneti_atomic32_addfetch
+
+      /* Default impls of add and sub */
+
+      GASNETI_INLINE(_gasneti_atomic32_compare_and_swap)
+      int _gasneti_atomic32_compare_and_swap(gasneti_atomic32_t *v, int oldval, int newval) {
+	register unsigned int result asm("r0");
+	register unsigned int _newval asm("r1") = newval;
+	register unsigned int _v asm("r2") = (unsigned long)v;
+	register unsigned int _oldval asm("r4") = oldval;
+
+	/* Transient failure is possible if interrupted.
+	 * Since we can't distinguish the cause of the failure,
+	 * we must retry as long as the failure looks "improper"
+	 * which is defined as (!swapped && (v->ctr == oldval))
+	 */
+	__asm__ __volatile__ (
+		"0:	mov	r0, r4          @ r0 = oldval              \n"
+		"	mov	r3, #0xffff0fff @ r3 = base addr           \n"
+		"	mov	lr, pc		@ lr = return addr         \n"
+		"	sub	pc, r3, #0x3f   @ call 0xffff0fc0          \n"
+		"	ldrcc	ip, [r2]	@ if (!swapped) ip=v->ctr  \n"
+		"	eorcs	ip, r4, #1	@ else ip=oldval^1         \n"
+		"	teq	r4, ip		@ if (ip == oldval)        \n"
+		"	beq	0b		@    then retry            "
+		: "=&r" (result)
+		: "r" (_oldval), "r" (_v), "r" (_newval)
+		: "r3", "ip", "lr", "cc", "memory" );
+
+	return !result;
+      } 
+
+      /* Linux kernel sources say c-a-s "includes memory barriers as needed" */
+      #define GASNETI_ATOMIC_FENCE_RMW (GASNETI_ATOMIC_MB_PRE | GASNETI_ATOMIC_MB_POST)
+    #else
+      #error "unrecognized ARM compiler and/or OS - need to implement GASNet atomics (or #define GASNETI_USE_GENERIC_ATOMICOPS)"
     #endif
   /* ------------------------------------------------------------------------------------ */
   #else
