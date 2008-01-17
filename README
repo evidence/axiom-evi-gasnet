@@ -1,6 +1,6 @@
 README file for GASNet
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.102 $
+$Revision: 1.103 $
 
 This is a combination user manual and design document for GASNet. Anyone
 planning on using, modifying or adding to the GASNet code base should read this
@@ -188,6 +188,8 @@ Platforms where GASNet and Berkeley UPC have been successfully tested:
     * SuperUX/SX-6/NEC-C/64: smp, udp, mpi %&
 
     * ucLinux/Microblaze/gcc/32: smp, udp, #%
+
+    * Linux/ARM/gcc/32: smp, udp, #	- EXPERIMENTAL (see bug 2116)
 
 # = No working MPI implementation available, although we have every reason to
 believe mpi conduit would work if one was available.
