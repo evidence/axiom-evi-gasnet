@@ -98,7 +98,7 @@ void scale_ptrM(void * out_ptr[], void * const in_ptr[], size_t elem_count, size
 #if PRINT_TIMERS
 #define print_timer(td, coll_str, addr_mode, num_addrs, sync_mode, nelem, total_ticks) \
 if(td->my_local_thread==0 && performance_iters>0) MSG0("%d> %s/%s %s sync_mode: (%s) size: %ld bytes time: %g us", td->mythread, addr_mode, num_addrs,\
-                                coll_str, sync_mode, nelem*sizeof(int), (double)gasnett_ticks_to_us(total_ticks)/performance_iters)
+                                coll_str, sync_mode, (long int) nelem*sizeof(int), (double)gasnett_ticks_to_us(total_ticks)/performance_iters)
 #else
 #define print_timer(td, coll_str, addr_mode, num_addrs, sync_mode, nelem, total_ticks)
 #endif
@@ -322,7 +322,7 @@ void run_SINGLE_ADDR_test(thread_data_t *td, uint8_t **dst_arr, uint8_t **src_ar
   print_timer(td,  "exchange", output_str,  "SINGLE-addr", flag_str, nelem, end);  
   
   
-  if(td->my_local_thread==0 && VERBOSE_VERIFICATION_OUTPUT) MSG0("%s/SINGLE-addr sync_mode: %s size: %d bytes root: %d.  PASS", output_str, flag_str, (int) (sizeof(int)*nelem), root_thread);
+  if(td->my_local_thread==0 && VERBOSE_VERIFICATION_OUTPUT) MSG0("%s/SINGLE-addr sync_mode: %s size: %ld bytes root: %d.  PASS", output_str, flag_str, (long int) (sizeof(int)*nelem), root_thread);
   
   COLL_BARRIER();
 }
@@ -574,7 +574,7 @@ void run_MULTI_ADDR_test(thread_data_t *td, uint8_t **dst_arr, uint8_t **src_arr
   COLL_BARRIER();  
   print_timer(td, "exchangeM", output_str,  "MULTI-addr", flag_str, nelem, end);  
   
-  if(td->my_local_thread==0  && VERBOSE_VERIFICATION_OUTPUT) MSG0("%s/MULTI-addr sync_mode: %s size: %d bytes root: %d.  PASS", output_str, flag_str, (int) (sizeof(int)*nelem), root_thread);
+  if(td->my_local_thread==0  && VERBOSE_VERIFICATION_OUTPUT) MSG0("%s/MULTI-addr sync_mode: %s size: %ld bytes root: %d.  PASS", output_str, flag_str, (long int) (sizeof(int)*nelem), (int) root_thread);
   
   COLL_BARRIER();
   test_free(tmp_src);
@@ -639,7 +639,7 @@ void *thread_main(void *arg) {
     if(td->my_local_thread==0  && !VERBOSE_VERIFICATION_OUTPUT) {
       char flag_str[8];
       fill_flag_str(flags, flag_str);
-      MSG0("sync_mode: %s %d-%d (powers of 2) bytes root: %d.  PASS",  flag_str, (int) (sizeof(int)*1), sizeof(int)*max_data_size, root_thread);
+      MSG0("sync_mode: %s %ld-%ld (powers of 2) bytes root: %d.  PASS",  flag_str, (long int) (sizeof(int)*1), (long int) sizeof(int)*max_data_size, (int) root_thread);
     }
   }
   return NULL;
@@ -694,7 +694,7 @@ int main(int argc, char **argv)
   }
   if (threads_per_node > gasnett_cpu_count()) {
     MSG0("WARNING: thread count (%i) exceeds physical cpu count (%i) - enabling  \"polite\", low-performance synchronization algorithms",
-         threads_per_node, gasnett_cpu_count());
+          (int) threads_per_node, gasnett_cpu_count());
     gasnet_set_waitmode(GASNET_WAIT_BLOCK);
   }
 #else
@@ -713,8 +713,8 @@ int main(int argc, char **argv)
   {
     size_t curr_req = inner_verification_iters * THREADS * threads_per_node * sizeof(int) * max_data_size * 2;
     size_t max_mem_usage = gasnet_getMaxGlobalSegmentSize()/2;
-    MSG0("command line args: max_data_size=%d bytes outer_verification_iters=%d inner_verification_iters=%d performance_iters=%d threads_per_node=%d ", (int)(max_data_size*sizeof(int)), 
-         outer_verification_iters, inner_verification_iters, performance_iters, threads_per_node);
+    MSG0("command line args: max_data_size=%ld bytes outer_verification_iters=%d inner_verification_iters=%d performance_iters=%d threads_per_node=%d ", (long int)(max_data_size*sizeof(int)), 
+         outer_verification_iters, inner_verification_iters, performance_iters, (int) threads_per_node);
     if(curr_req > max_mem_usage) {
       MSG0("WARNING: inner iterations too large.\n");
       MSG0("Scaling down inner iterations and scaling up outer iterations to compensate\n");
@@ -736,8 +736,8 @@ int main(int argc, char **argv)
         MSG0("ERROR: Segment too small ... can't run testcollperf");
         gasnet_exit(1);
       }
-      MSG0("adjusted args: max_data_size=%d bytes outer_verification_iters=%d inner_verification_iters=%d performance_iters=%d threads_per_node=%d ", (int)(max_data_size*sizeof(int)), 
-           outer_verification_iters, inner_verification_iters, performance_iters, threads_per_node);
+      MSG0("adjusted args: max_data_size=%ld bytes outer_verification_iters=%d inner_verification_iters=%d performance_iters=%d threads_per_node=%d ", (long int)(max_data_size*sizeof(int)), 
+           outer_verification_iters, inner_verification_iters, performance_iters, (int) threads_per_node);
     } 
   }
   
