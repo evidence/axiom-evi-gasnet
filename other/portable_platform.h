@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/portable_platform.h,v $
- *     $Date: 2008/01/03 03:05:41 $
- * $Revision: 1.18 $
+ *     $Date: 2008/01/18 10:12:52 $
+ * $Revision: 1.19 $
  * Description: Portable platform detection header
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -498,7 +498,8 @@
   #define PLATFORM_OS_SOLARIS 1
   #define PLATFORM_OS_FAMILYNAME SOLARIS
 
-#elif (defined(__APPLE__) && defined(__MACH__))
+#elif (defined(__APPLE__) && defined(__MACH__)) || \
+      defined(__osx86__) /* PGI on OSX */
   #define PLATFORM_OS_DARWIN 1
   #define PLATFORM_OS_FAMILYNAME DARWIN
 
