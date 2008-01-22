@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testmpi.c,v $
- *     $Date: 2007/01/24 18:33:06 $
- * $Revision: 1.13 $
+ *     $Date: 2008/01/22 11:05:44 $
+ * $Revision: 1.14 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -139,7 +139,9 @@ void attach_test_mpi() {
 void mpi_barrier(threaddata_t *tdata) {
 #if GASNET_PAR
   static pthread_mutex_t  barrier_mutex = PTHREAD_MUTEX_INITIALIZER;
+  static char _pad[GASNETT_CACHE_LINE_BYTES] = { 0 }; /* bug 2231 workaround */
   static pthread_cond_t   barrier_cond = PTHREAD_COND_INITIALIZER;
+  static char _pad2[GASNETT_CACHE_LINE_BYTES] = { 0 }; /* bug 2231 workaround */
   static volatile int     barrier_count = 0;
   static int volatile phase = 0;
   pthread_mutex_lock(&barrier_mutex);

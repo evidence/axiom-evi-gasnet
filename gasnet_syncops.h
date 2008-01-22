@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_syncops.h,v $
- *     $Date: 2008/01/09 08:59:31 $
- * $Revision: 1.42 $
+ *     $Date: 2008/01/22 11:05:41 $
+ * $Revision: 1.43 $
  * Description: GASNet header for synchronization operations used in GASNet implementation
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -435,46 +435,49 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
 */
 
 #if GASNETI_USE_TRUE_MUTEXES
-  typedef pthread_cond_t            gasneti_cond_t;
+  typedef struct {
+    pthread_cond_t cond;
+    GASNETI_BUG2231_WORKAROUND_PAD
+  } gasneti_cond_t;
 
-  #define GASNETI_COND_INITIALIZER    PTHREAD_COND_INITIALIZER
+  #define GASNETI_COND_INITIALIZER    { PTHREAD_COND_INITIALIZER }
   #define gasneti_cond_init(pc) do {                       \
-      GASNETI_MUTEX_INITCLEAR(pc);                         \
-      gasneti_assert_zeroret(pthread_cond_init((pc), NULL)); \
+      GASNETI_MUTEX_INITCLEAR(&((pc)->cond));                         \
+      gasneti_assert_zeroret(pthread_cond_init(&((pc)->cond), NULL)); \
   } while (0)
-  #define gasneti_cond_destroy(pc)    gasneti_assert_zeroret(pthread_cond_destroy(pc))
+  #define gasneti_cond_destroy(pc)    gasneti_assert_zeroret(pthread_cond_destroy(&((pc)->cond)))
 
   #if PLATFORM_ARCH_CRAYX1 /* bug 993 - workaround for buggy pthread library */
     static gasneti_cond_t const gasneti_cond_staticinitialized = GASNETI_COND_INITIALIZER;
     #define GASNETI_COND_INIT_CHECK(pc) \
-      (!memcmp(&gasneti_cond_staticinitialized,(pc),sizeof(gasneti_cond_t)) ? \
-        (void)pthread_cond_init((pc), NULL) : (void)0 )
+      (!memcmp(&(gasneti_cond_staticinitialized.cond),&((pc)->cond),sizeof(pthread_cond_t)) ? \
+        (void)pthread_cond_init(&((pc)->cond), NULL) : (void)0 )
   #else
     #define GASNETI_COND_INIT_CHECK(pc) ((void)0)
   #endif
 
   #define gasneti_cond_signal(pc) do {                 \
       GASNETI_COND_INIT_CHECK(pc);                     \
-      gasneti_assert_zeroret(pthread_cond_signal(pc)); \
+      gasneti_assert_zeroret(pthread_cond_signal(&((pc)->cond))); \
     } while (0)
   #define gasneti_cond_broadcast(pc) do {                 \
       GASNETI_COND_INIT_CHECK(pc);                        \
-      gasneti_assert_zeroret(pthread_cond_broadcast(pc)); \
+      gasneti_assert_zeroret(pthread_cond_broadcast(&((pc)->cond))); \
     } while (0)
 
-  #if GASNET_DEBUG
+  #if GASNET_DEBUG || GASNETI_BUG2231_WORKAROUND
     #define gasneti_cond_wait(pc,pl)  do {                          \
       gasneti_assert((pl)->owner == GASNETI_THREADIDQUERY());       \
       (pl)->owner = GASNETI_MUTEX_NOOWNER;                          \
       GASNETI_COND_INIT_CHECK(pc);                                  \
-      gasneti_assert_zeroret(pthread_cond_wait(pc, &((pl)->lock))); \
+      gasneti_assert_zeroret(pthread_cond_wait(&((pc)->cond), &((pl)->lock))); \
       gasneti_assert((pl)->owner == GASNETI_MUTEX_NOOWNER);         \
       (pl)->owner = GASNETI_THREADIDQUERY();                        \
     } while (0)
   #else
     #define gasneti_cond_wait(pc,pl)  do {               \
       GASNETI_COND_INIT_CHECK(pc);                       \
-      gasneti_assert_zeroret(pthread_cond_wait(pc, pl)); \
+      gasneti_assert_zeroret(pthread_cond_wait(&((pc)->cond), pl)); \
     } while (0)
   #endif
 #else

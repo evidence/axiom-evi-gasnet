@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2008/01/22 03:40:22 $
- * $Revision: 1.113 $
+ *     $Date: 2008/01/22 11:05:41 $
+ * $Revision: 1.114 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -310,6 +310,16 @@ GASNETI_BEGIN_EXTERNC
 #define gasnett_count0s_uint32_t  gasneti_count0s_uint32_t
 #define gasnett_count0s_uint64_t  gasneti_count0s_uint64_t
 
+#define gasnett_mutex_t               gasneti_mutex_t               
+#define gasnett_mutex_init            gasneti_mutex_init            
+#define gasnett_mutex_destroy         gasneti_mutex_destroy         
+#define GASNETT_MUTEX_INITIALIZER     GASNETI_MUTEX_INITIALIZER     
+#define gasnett_mutex_lock            gasneti_mutex_lock            
+#define gasnett_mutex_trylock         gasneti_mutex_trylock         
+#define gasnett_mutex_unlock          gasneti_mutex_unlock          
+#define gasnett_mutex_assertlocked    gasneti_mutex_assertlocked    
+#define gasnett_mutex_assertunlocked  gasneti_mutex_assertunlocked  
+
 #define GASNETT_THREADKEY_DECLARE                 GASNETI_THREADKEY_DECLARE
 #define GASNETT_THREADKEY_DEFINE                  GASNETI_THREADKEY_DEFINE
 #define gasnett_threadkey_get(key)                gasneti_threadkey_get(key)
@@ -464,7 +474,7 @@ static void _gasnett_trace_printf_noop(const char *_format, ...)) {
   #define gasnett_mmap(sz)        gasnett_fatalerror("gasnett_mmap not available")
 
   #if defined(GASNETI_ATOMIC_LOCK_TBL_DECLS)
-    GASNETI_ATOMIC_LOCK_TBL_DECLS(gasneti_pthread_atomic_, pthread_mutex_)
+    GASNETI_ATOMIC_LOCK_TBL_DECLS(gasneti_pthread_atomic_, gasnett_mutex_)
   #endif
 #endif
 

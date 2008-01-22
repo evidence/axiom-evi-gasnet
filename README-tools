@@ -2,8 +2,8 @@
 README file for GASNet tools
 ============================
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.16 $
-GASNet tools specification version: 1.2
+$Revision: 1.17 $
+GASNet tools specification version: 1.3
 
 The GASNet tools are a set of communication-independent utilities that are used
 to implement GASNet, and constitute a useful portability tool for GASNet
@@ -532,6 +532,35 @@ if_pt(cond) S;
   if_pf and if_pt behave just like 'if' except they give the C compiler a hint that 
   the condition is predicted to be false (if_pf) and the branch not taken, 
   or predicted to be true (pt) and the branch taken.
+
+-----------------------------
+Error-checking System Mutexes
+-----------------------------
+
+GASNet tools provides convenience wrappers around the system's pthread mutexes.
+In debug mode, these mutexes add error checking capabilities to detect common
+mutex usage violations (such as attempts to recursively acquire a mutex, or
+release a mutex that has not been acquired).  The wrappers also implement
+workarounds for known bugs in the pthread mutex implementations of several
+systems.  In non-threaded builds, these wrappers still compile and expand to
+appropriate no-ops.
+
+gasnett_mutex_t             
+GASNETT_MUTEX_INITIALIZER
+void gasnett_mutex_init(gasnett_mutex_t *)
+void gasnett_mutex_destroy(gasnett_mutex_t *)
+void gasnett_mutex_lock(gasnett_mutex_t *)
+int gasnett_mutex_trylock(gasnett_mutex_t *)
+void gasnett_mutex_unlock(gasnett_mutex_t *)
+
+  These all function identically to the pthread_mutex symbols of the same name.
+
+void gasnett_mutex_assertlocked(gasnett_mutex_t *)
+void gasnett_mutex_assertunlocked(gasnett_mutex_t *) 
+
+  In debug builds, these functions respectively assert that the given mutex is 
+  currently locked or not locked by the calling thread, generating a fatal error
+  if the assertion is violated. Has no effect in non-debug builds.
 
 --------------------
 Thread-specific data

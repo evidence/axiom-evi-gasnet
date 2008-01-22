@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_toolhelp.h,v $
- *     $Date: 2007/09/07 00:50:15 $
- * $Revision: 1.31 $
+ *     $Date: 2008/01/22 11:05:41 $
+ * $Revision: 1.32 $
  * Description: misc declarations needed by both gasnet_tools and libgasnet
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -213,7 +213,17 @@ int gasneti_count0s_uint32_t(uint32_t x) {
   #define GASNETI_MUTEX_INITCLEAR(pm) ((void)0)
 #endif
 
-#if GASNET_DEBUG
+#if !defined(GASNETI_BUG2231_WORKAROUND) && \
+    (PLATFORM_OS_DARWIN && PLATFORM_COMPILER_PGI && PLATFORM_ARCH_64)
+  #define GASNETI_BUG2231_WORKAROUND       1
+#endif
+#if GASNETI_BUG2231_WORKAROUND
+  #define GASNETI_BUG2231_WORKAROUND_PAD   char _bug2231_pad[64];
+#else
+  #define GASNETI_BUG2231_WORKAROUND_PAD  
+#endif
+
+#if GASNET_DEBUG || GASNETI_BUG2231_WORKAROUND
   #define GASNETI_MUTEX_NOOWNER         ((uintptr_t)-1)
   #ifndef GASNETI_THREADIDQUERY
     /* allow conduit override of thread-id query */
@@ -226,16 +236,17 @@ int gasneti_count0s_uint32_t(uint32_t x) {
   #if GASNETI_USE_TRUE_MUTEXES
     #include <pthread.h>
     typedef struct {
-      pthread_mutex_t lock;
       volatile uintptr_t owner;
+      pthread_mutex_t lock;
+      GASNETI_BUG2231_WORKAROUND_PAD
     } gasneti_mutex_t;
     #if defined(PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP)
       /* These are faster, though less "featureful" than the default
        * mutexes on linuxthreads implementations which offer them.
        */
-      #define GASNETI_MUTEX_INITIALIZER { PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP, GASNETI_MUTEX_NOOWNER }
+      #define GASNETI_MUTEX_INITIALIZER { GASNETI_MUTEX_NOOWNER, PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP }
     #else
-      #define GASNETI_MUTEX_INITIALIZER { PTHREAD_MUTEX_INITIALIZER, GASNETI_MUTEX_NOOWNER }
+      #define GASNETI_MUTEX_INITIALIZER { GASNETI_MUTEX_NOOWNER, PTHREAD_MUTEX_INITIALIZER }
     #endif
     #define gasneti_mutex_lock(pl) do {                                        \
               gasneti_assert((pl)->owner != GASNETI_THREADIDQUERY());          \

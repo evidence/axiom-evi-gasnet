@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2007/10/17 08:05:32 $
- * $Revision: 1.112 $
+ *     $Date: 2008/01/22 11:05:44 $
+ * $Revision: 1.113 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -106,9 +106,9 @@ static char _test_baseformat[_TEST_MSG_BUFSZ];
 static volatile int _test_squashmsg = 0;
 static volatile int _test_fatalmsg = 0;
 #if defined(HAVE_PTHREAD_H) && !defined(GASNET_SEQ)
-  static pthread_mutex_t _test_msg_lock = PTHREAD_MUTEX_INITIALIZER;
-  #define _test_LOCKMSG()   pthread_mutex_lock(&_test_msg_lock)
-  #define _test_UNLOCKMSG() pthread_mutex_unlock(&_test_msg_lock)
+  static gasnett_mutex_t _test_msg_lock = GASNETT_MUTEX_INITIALIZER;
+  #define _test_LOCKMSG()   gasnett_mutex_lock(&_test_msg_lock)
+  #define _test_UNLOCKMSG() gasnett_mutex_unlock(&_test_msg_lock)
 #else
   #define _test_LOCKMSG()   ((void)0)
   #define _test_UNLOCKMSG() ((void)0)
@@ -459,11 +459,11 @@ static void test_createandjoin_pthreads(int numthreads, void *(*start_routine)(v
     /* pthread_cond is unreliable on some versions of these OS's - use semaphores */
     #include <semaphore.h>
     static void test_pthread_barrier(unsigned int local_pthread_count, int doGASNetbarrier) {
-      static pthread_mutex_t barrier_mutex = PTHREAD_MUTEX_INITIALIZER;
+      static gasnett_mutex_t barrier_mutex = GASNETT_MUTEX_INITIALIZER;
       static volatile int phase = 0;
       static volatile unsigned int barrier_count = 0;
       static sem_t sem[2];
-      check_zeroret(pthread_mutex_lock(&barrier_mutex));
+      gasnett_mutex_lock(&barrier_mutex);
       { int myphase = phase;
         static volatile int firsttime = 1;
         if (firsttime) {
@@ -473,14 +473,14 @@ static void test_createandjoin_pthreads(int numthreads, void *(*start_routine)(v
         }
         barrier_count++;
         if (barrier_count < local_pthread_count) { 
-          check_zeroret(pthread_mutex_unlock(&barrier_mutex));
+          gasnett_mutex_unlock(&barrier_mutex);
           check_zeroret(sem_wait(&sem[myphase]));
         } else {
           int i;
           if (doGASNetbarrier) BARRIER();
           barrier_count = 0;
           phase = !phase;
-          check_zeroret(pthread_mutex_unlock(&barrier_mutex));
+          gasnett_mutex_unlock(&barrier_mutex);
           for (i=0; i < (int)(local_pthread_count-1); i++) {
             check_zeroret(sem_post(&sem[myphase]));
           }
@@ -489,14 +489,18 @@ static void test_createandjoin_pthreads(int numthreads, void *(*start_routine)(v
     }
   #else
     static void test_pthread_barrier(unsigned int local_pthread_count, int doGASNetbarrier) {
-      static pthread_cond_t barrier_cond[2] = /* must be phased on some OS's (HPUX) */
-        { PTHREAD_COND_INITIALIZER, PTHREAD_COND_INITIALIZER };
-      static pthread_mutex_t barrier_mutex[2] = 
-        { PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER };
+      /* cond variables must be phased on some OS's (HPUX) */
+      static struct {
+        pthread_cond_t cond;
+        char _pad[GASNETT_CACHE_LINE_BYTES]; /* bug 2231 workaround */
+        pthread_mutex_t mutex;
+        char _pad2[GASNETT_CACHE_LINE_BYTES]; /* bug 2231 workaround */
+      } barrier[2] = { { PTHREAD_COND_INITIALIZER, { 0 }, PTHREAD_MUTEX_INITIALIZER, { 0 } }, 
+                       { PTHREAD_COND_INITIALIZER, { 0 }, PTHREAD_MUTEX_INITIALIZER, { 0 } }};
       static volatile unsigned int barrier_count = 0;
       static volatile int phase = 0;
       const int myphase = phase;
-      check_zeroret(pthread_mutex_lock(&barrier_mutex[myphase]));
+      check_zeroret(pthread_mutex_lock(&(barrier[myphase].mutex)));
       barrier_count++;
       if (barrier_count < local_pthread_count) {
 	/* CAUTION: changing the "do-while" to a "while" triggers a bug in the SunStudio 2006-08
@@ -504,16 +508,16 @@ static void test_createandjoin_pthreads(int numthreads, void *(*start_routine)(v
          * which includes a link to Sun's own database entry for this issue.
          */
         do {
-          check_zeroret(pthread_cond_wait(&barrier_cond[myphase], &barrier_mutex[myphase]));
+          check_zeroret(pthread_cond_wait(&(barrier[myphase].cond), &(barrier[myphase].mutex)));
         } while (myphase == phase);
       } else {  
         /* Now do the gasnet barrier */
         if (doGASNetbarrier) BARRIER();
         barrier_count = 0;
         phase = !phase;
-        check_zeroret(pthread_cond_broadcast(&barrier_cond[myphase]));
+        check_zeroret(pthread_cond_broadcast(&(barrier[myphase].cond)));
       }       
-      check_zeroret(pthread_mutex_unlock(&barrier_mutex[myphase]));
+      check_zeroret(pthread_mutex_unlock(&(barrier[myphase].mutex)));
     }
   #endif
   #define PTHREAD_BARRIER(local_pthread_count)      \
