@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2007/12/04 23:35:37 $
- * $Revision: 1.112 $
+ *     $Date: 2008/01/22 03:40:22 $
+ * $Revision: 1.113 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -342,6 +342,9 @@ gasnett_backtrace_type_t gasnett_backtrace_user;
   #define GASNETT_TRACE_UNFREEZESOURCELINE()        ((void)0)
 #endif
 
+#if PLATFORM_COMPILER_PGI
+  #include <stdarg.h>
+#endif
 GASNETI_FORMAT_PRINTF(_gasnett_trace_printf_noop,1,2,
 static void _gasnett_trace_printf_noop(const char *_format, ...)) {
   #if PLATFORM_COMPILER_PGI
