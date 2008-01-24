@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testmpi.c,v $
- *     $Date: 2008/01/22 11:05:44 $
- * $Revision: 1.14 $
+ *     $Date: 2008/01/24 07:37:30 $
+ * $Revision: 1.15 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -138,27 +138,25 @@ void attach_test_mpi() {
 
 void mpi_barrier(threaddata_t *tdata) {
 #if GASNET_PAR
-  static pthread_mutex_t  barrier_mutex = PTHREAD_MUTEX_INITIALIZER;
-  static char _pad[GASNETT_CACHE_LINE_BYTES] = { 0 }; /* bug 2231 workaround */
-  static pthread_cond_t   barrier_cond = PTHREAD_COND_INITIALIZER;
-  static char _pad2[GASNETT_CACHE_LINE_BYTES] = { 0 }; /* bug 2231 workaround */
+  static gasnett_mutex_t  barrier_mutex = PTHREAD_MUTEX_INITIALIZER;
+  static gasnett_cond_t   barrier_cond = PTHREAD_COND_INITIALIZER;
   static volatile int     barrier_count = 0;
   static int volatile phase = 0;
-  pthread_mutex_lock(&barrier_mutex);
+  gasnett_mutex_lock(&barrier_mutex);
   barrier_count++;
   if (barrier_count < threads_num) {
     int myphase = phase;
     while (myphase == phase) {
-      pthread_cond_wait(&barrier_cond, &barrier_mutex);
+      gasnett_cond_wait(&barrier_cond, &barrier_mutex);
     }
   } else {
     /* All threads here - now do the MPI barrier */
     MPI_SAFE(MPI_Barrier(MPI_COMM_WORLD));
     barrier_count = 0;
     phase = !phase;
-    pthread_cond_broadcast(&barrier_cond);
+    gasnett_cond_broadcast(&barrier_cond);
   }
-  pthread_mutex_unlock(&barrier_mutex);
+  gasnett_mutex_unlock(&barrier_mutex);
 #else
   MPI_SAFE(MPI_Barrier(MPI_COMM_WORLD));
 #endif

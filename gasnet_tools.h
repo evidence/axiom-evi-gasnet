@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2008/01/22 11:05:41 $
- * $Revision: 1.114 $
+ *     $Date: 2008/01/24 07:37:28 $
+ * $Revision: 1.115 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -310,15 +310,23 @@ GASNETI_BEGIN_EXTERNC
 #define gasnett_count0s_uint32_t  gasneti_count0s_uint32_t
 #define gasnett_count0s_uint64_t  gasneti_count0s_uint64_t
 
-#define gasnett_mutex_t               gasneti_mutex_t               
-#define gasnett_mutex_init            gasneti_mutex_init            
-#define gasnett_mutex_destroy         gasneti_mutex_destroy         
-#define GASNETT_MUTEX_INITIALIZER     GASNETI_MUTEX_INITIALIZER     
-#define gasnett_mutex_lock            gasneti_mutex_lock            
-#define gasnett_mutex_trylock         gasneti_mutex_trylock         
-#define gasnett_mutex_unlock          gasneti_mutex_unlock          
-#define gasnett_mutex_assertlocked    gasneti_mutex_assertlocked    
-#define gasnett_mutex_assertunlocked  gasneti_mutex_assertunlocked  
+#define gasnett_mutex_t               gasneti_mutex_t
+#define gasnett_mutex_init            gasneti_mutex_init
+#define gasnett_mutex_destroy         gasneti_mutex_destroy
+#define GASNETT_MUTEX_INITIALIZER     GASNETI_MUTEX_INITIALIZER
+#define gasnett_mutex_lock            gasneti_mutex_lock
+#define gasnett_mutex_trylock         gasneti_mutex_trylock
+#define gasnett_mutex_unlock          gasneti_mutex_unlock
+#define gasnett_mutex_assertlocked    gasneti_mutex_assertlocked
+#define gasnett_mutex_assertunlocked  gasneti_mutex_assertunlocked
+
+#define gasnett_cond_t               gasneti_cond_t
+#define gasnett_cond_init            gasneti_cond_init
+#define gasnett_cond_destroy         gasneti_cond_destroy
+#define GASNETT_COND_INITIALIZER     GASNETI_COND_INITIALIZER
+#define gasnett_cond_wait            gasneti_cond_wait
+#define gasnett_cond_signal          gasneti_cond_signal
+#define gasnett_cond_broadcast       gasneti_cond_broadcast
 
 #define GASNETT_THREADKEY_DECLARE                 GASNETI_THREADKEY_DECLARE
 #define GASNETT_THREADKEY_DEFINE                  GASNETI_THREADKEY_DEFINE
