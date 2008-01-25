@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2008/01/24 07:37:28 $
- * $Revision: 1.115 $
+ *     $Date: 2008/01/25 00:01:40 $
+ * $Revision: 1.116 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -313,6 +313,7 @@ GASNETI_BEGIN_EXTERNC
 #define gasnett_mutex_t               gasneti_mutex_t
 #define gasnett_mutex_init            gasneti_mutex_init
 #define gasnett_mutex_destroy         gasneti_mutex_destroy
+#define gasnett_mutex_destroy_ignoreerr gasneti_mutex_destroy_ignoreerr
 #define GASNETT_MUTEX_INITIALIZER     GASNETI_MUTEX_INITIALIZER
 #define gasnett_mutex_lock            gasneti_mutex_lock
 #define gasnett_mutex_trylock         gasneti_mutex_trylock

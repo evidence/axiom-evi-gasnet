@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_toolhelp.h,v $
- *     $Date: 2008/01/24 07:37:28 $
- * $Revision: 1.33 $
+ *     $Date: 2008/01/25 00:01:40 $
+ * $Revision: 1.34 $
  * Description: misc declarations needed by both gasnet_tools and libgasnet
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -273,8 +273,10 @@ int gasneti_count0s_uint32_t(uint32_t x) {
               gasneti_assert_zeroret(pthread_mutex_init(&((pl)->lock),NULL)); \
               (pl)->owner = GASNETI_MUTEX_NOOWNER;                            \
             } while (0)
+    #define gasneti_mutex_destroy_ignoreerr(pl) \
+              pthread_mutex_destroy(&((pl)->lock))
     #define gasneti_mutex_destroy(pl) \
-              gasneti_assert_zeroret(pthread_mutex_destroy(&((pl)->lock)))
+              gasneti_assert_zeroret(gasneti_mutex_destroy_ignoreerr(pl))
   #else /* GASNET_DEBUG non-pthread (error-check-only) mutexes */
     typedef struct {
       volatile uintptr_t owner;
@@ -297,7 +299,8 @@ int gasneti_count0s_uint32_t(uint32_t x) {
     #define gasneti_mutex_init(pl) do {                       \
               (pl)->owner = GASNETI_MUTEX_NOOWNER;            \
             } while (0)
-    #define gasneti_mutex_destroy(pl)
+    #define gasneti_mutex_destroy_ignoreerr(pl) 0
+    #define gasneti_mutex_destroy(pl) ((void)0)
   #endif
   #define gasneti_mutex_assertlocked(pl)    gasneti_assert((pl)->owner == GASNETI_THREADIDQUERY())
   #define gasneti_mutex_assertunlocked(pl)  gasneti_assert((pl)->owner != GASNETI_THREADIDQUERY())
@@ -318,7 +321,8 @@ int gasneti_count0s_uint32_t(uint32_t x) {
     #define gasneti_mutex_unlock(pl)    pthread_mutex_unlock(pl)
     #define gasneti_mutex_init(pl)      (GASNETI_MUTEX_INITCLEAR(pl),  \
                                          pthread_mutex_init((pl),NULL))
-    #define gasneti_mutex_destroy(pl)   pthread_mutex_destroy(pl)
+    #define gasneti_mutex_destroy_ignoreerr(pl)   pthread_mutex_destroy(pl)
+    #define gasneti_mutex_destroy(pl)   gasneti_mutex_destroy_ignoreerr(pl)
   #else
     typedef char           gasneti_mutex_t;
     #define GASNETI_MUTEX_INITIALIZER '\0'
@@ -326,6 +330,7 @@ int gasneti_count0s_uint32_t(uint32_t x) {
     #define gasneti_mutex_trylock(pl) 0
     #define gasneti_mutex_unlock(pl)  ((void)0)
     #define gasneti_mutex_init(pl)    ((void)0)
+    #define gasneti_mutex_destroy_ignoreerr(pl) 0
     #define gasneti_mutex_destroy(pl) ((void)0)
   #endif
   #define gasneti_mutex_assertlocked(pl)    ((void)0)

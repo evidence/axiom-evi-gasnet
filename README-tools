@@ -2,7 +2,7 @@
 README file for GASNet tools
 ============================
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.18 $
+$Revision: 1.19 $
 GASNet tools specification version: 1.3
 
 The GASNet tools are a set of communication-independent utilities that are used
@@ -555,8 +555,11 @@ gasnett_mutex_t
 GASNETT_MUTEX_INITIALIZER
 void gasnett_mutex_init(gasnett_mutex_t *)
 void gasnett_mutex_destroy(gasnett_mutex_t *)
+int gasnett_mutex_destroy_ignoreerr(gasnett_mutex_t *)
 
      mutex creation and destruction, as with pthread_mutex_t
+     gasnett_mutex_destroy_ignoreerr performs no error checking and silently returns any errors 
+     (eg as may occur when attempting to destroy a locked mutex)
 
 void gasnett_mutex_lock(gasnett_mutex_t *)
 void gasnett_mutex_unlock(gasnett_mutex_t *)
