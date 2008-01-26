@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2008/01/22 11:05:41 $
-# $Revision: 1.480 $
+#     $Date: 2008/01/26 02:28:47 $
+# $Revision: 1.481 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.480 $)
+AC_REVISION($Revision: 1.481 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -803,6 +803,9 @@ case "$target_os" in
 	      GASNET_MSG_ERROR([Compiling for a catamount target, but __LIBCATAMOUNT__ is not predefined! Are you using the right compiler? (perhaps try mpicc)])
 	    ])
           ;;
+          powerpc-bgp-linux*) # apparently lacks any identifying preprocessor macro
+	    AC_DEFINE(GASNETI_ARCH_BGP)
+	    ;;
         esac
         # Defining _GNU_SOURCE gives us accesss to the "adaptive"
         # implementation of pthread_mutex_t, which is faster then

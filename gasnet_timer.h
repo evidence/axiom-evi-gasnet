@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2007/12/05 05:53:16 $
- * $Revision: 1.83 $
+ *     $Date: 2008/01/26 02:28:47 $
+ * $Revision: 1.84 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -413,7 +413,7 @@ GASNETI_BEGIN_EXTERNC
 /* ------------------------------------------------------------------------------------ */
 #elif PLATFORM_ARCH_POWERPC && \
       ( PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_XLC ) && \
-      ( PLATFORM_OS_LINUX || PLATFORM_OS_BLRTS )
+      ( PLATFORM_OS_LINUX || PLATFORM_OS_BLRTS || PLATFORM_OS_BGP )
   /* Use the 64-bit "timebase" register on both 32- and 64-bit PowerPC CPUs */
   #include <sys/types.h>
   #include <dirent.h>
@@ -486,6 +486,9 @@ GASNETI_BEGIN_EXTERNC
      #if PLATFORM_OS_BLRTS
       /* don't know how to query this, so hard-code it for now */
       freq = 700000000;
+     #elif PLATFORM_OS_BGP
+      /* don't know how to query this, so hard-code it for now */
+      freq = 850000000;
      #else 
       DIR *dp = opendir("/proc/device-tree/cpus");
       struct dirent *de = NULL;

@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2008/01/15 21:12:53 $ */
-/*  $Revision: 1.130 $ */
+/*      $Date: 2008/01/26 02:28:47 $ */
+/*  $Revision: 1.131 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -190,6 +190,9 @@
 
 /* platform is an SGI Altix multiprocessor */
 #undef GASNETI_ARCH_ALTIX
+
+/* platform is an IBM BlueGene/P multiprocessor */
+#undef GASNETI_ARCH_BGP
 
 /* platform is a SiCortex multiprocessor */
 #undef GASNETI_ARCH_SICORTEX

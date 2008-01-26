@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/portable_platform.h,v $
- *     $Date: 2008/01/18 10:12:52 $
- * $Revision: 1.19 $
+ *     $Date: 2008/01/26 02:28:49 $
+ * $Revision: 1.20 $
  * Description: Portable platform detection header
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -453,6 +453,10 @@
 #elif defined(__blrts) || defined(__blrts__) || defined(__gnu_blrts__)
   #define PLATFORM_OS_BLRTS 1
   #define PLATFORM_OS_FAMILYNAME BLRTS
+
+#elif defined(GASNETI_ARCH_BGP)
+  #define PLATFORM_OS_BGP 1
+  #define PLATFORM_OS_FAMILYNAME BGP
 
 #elif defined(__K42)
   #define PLATFORM_OS_K42 1
