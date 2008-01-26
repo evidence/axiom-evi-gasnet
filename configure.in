@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2008/01/26 02:28:47 $
-# $Revision: 1.481 $
+#     $Date: 2008/01/26 10:12:11 $
+# $Revision: 1.482 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.481 $)
+AC_REVISION($Revision: 1.482 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -697,7 +697,11 @@ GASNET_PUSHVAR(CPPFLAGS,"$CPPFLAGS -I$TOP_SRCDIR/other")
 AC_DEFUN([GASNET_GET_PLATFORM_COMPILER], [
   GASNET_TRY_CACHE_EXTRACT_$2(PLATFORM_COMPILER_$1, PLATFORM_COMPILER_$1,
     [ #include "portable_platform.h" ], [ PLATFORM_COMPILER_$1 ], GASNETI_PLATFORM_COMPILER_$1)
-  AC_DEFINE_UNQUOTED(GASNETI_PLATFORM_COMPILER_$1,$GASNETI_PLATFORM_COMPILER_$1)
+  if test "$2" = "STR" ; then
+    AC_DEFINE_UNQUOTED(GASNETI_PLATFORM_COMPILER_$1,"$GASNETI_PLATFORM_COMPILER_$1")
+  else
+    AC_DEFINE_UNQUOTED(GASNETI_PLATFORM_COMPILER_$1,$GASNETI_PLATFORM_COMPILER_$1)
+  fi
 ])
 GASNET_GET_PLATFORM_COMPILER([IDSTR],[STR])
 GASNET_GET_PLATFORM_COMPILER([FAMILYID],[EXPR])

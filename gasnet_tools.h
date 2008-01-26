@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2008/01/25 00:01:40 $
- * $Revision: 1.116 $
+ *     $Date: 2008/01/26 10:12:11 $
+ * $Revision: 1.117 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -98,7 +98,7 @@ GASNETI_BEGIN_EXTERNC
 #endif
 
 /* platform identifiers for the compiler detected at *configure*-time */
-#define GASNETT_PLATFORM_COMPILER_IDSTR    _STRINGIFY(GASNETI_PLATFORM_COMPILER_IDSTR)
+#define GASNETT_PLATFORM_COMPILER_IDSTR    GASNETI_PLATFORM_COMPILER_IDSTR
 #define GASNETT_PLATFORM_COMPILER_FAMILYID GASNETI_PLATFORM_COMPILER_FAMILYID
 #define GASNETT_PLATFORM_COMPILER_ID       GASNETI_PLATFORM_COMPILER_ID 
 #define GASNETT_PLATFORM_COMPILER_VERSION  GASNETI_PLATFORM_COMPILER_VERSION 
