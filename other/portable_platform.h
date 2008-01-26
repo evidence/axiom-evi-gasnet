@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/portable_platform.h,v $
- *     $Date: 2008/01/26 02:28:49 $
- * $Revision: 1.20 $
+ *     $Date: 2008/01/26 09:51:58 $
+ * $Revision: 1.21 $
  * Description: Portable platform detection header
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -103,7 +103,12 @@
   #else
     #define PLATFORM_COMPILER_PGI_C  1
   #endif
-  #if defined(__PGIC__) && defined(__PGIC_MINOR__) && defined(__PGIC_PATCHLEVEL__)
+  #if __PGIC__ == 99 
+    /* bug 2230: PGI versioning was broken for some platforms in 7.0
+                 no way to know exact version, but provide something slightly more accurate */
+    #define PLATFORM_COMPILER_VERSION 0x070000
+    #define PLATFORM_COMPILER_VERSION_STR "7.?-?"
+  #elif defined(__PGIC__) && defined(__PGIC_MINOR__) && defined(__PGIC_PATCHLEVEL__)
     #define PLATFORM_COMPILER_VERSION \
             PLATFORM_COMPILER_VERSION_INT(__PGIC__,__PGIC_MINOR__,__PGIC_PATCHLEVEL__)
     #define PLATFORM_COMPILER_VERSION_STR \
