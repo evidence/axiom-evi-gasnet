@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2008/01/24 07:37:30 $
- * $Revision: 1.114 $
+ *     $Date: 2008/01/28 02:45:59 $
+ * $Revision: 1.115 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -393,10 +393,20 @@ GASNETT_IDENT(GASNetT_TiCompiler_IdentString,
    else threadarg_arr is an array of numthreads opaque datastructures of size threadarg_elemsz bytes each,
      and each thread recieves a pointer to a unique element of this array as the arg to start_routine
    then join the threads and add any non-zero results to test_errs
+   TEST_USE_PRIMORDIAL_THREAD can be defined to spawn only numthreads-1 new pthreads and run the last on this thread
  */
+#ifndef TEST_USE_PRIMORDIAL_THREAD
+  #if PLATFORM_OS_BGP 
+    /* some systems have strict limits on how many threads can exist */
+    #define TEST_USE_PRIMORDIAL_THREAD 1
+  #else
+    #define TEST_USE_PRIMORDIAL_THREAD 0
+  #endif
+#endif
 static void test_createandjoin_pthreads(int numthreads, void *(*start_routine)(void *), 
                                       void *threadarg_arr, size_t threadarg_elemsz) {
     int i;
+    int jointhreads = 0;
     uint8_t *threadarg_pos = (uint8_t *)threadarg_arr;
     pthread_t *threadid = (pthread_t *)test_malloc(sizeof(pthread_t)*numthreads);
     #ifdef HAVE_PTHREAD_SETCONCURRENCY
@@ -404,17 +414,26 @@ static void test_createandjoin_pthreads(int numthreads, void *(*start_routine)(v
     #endif
 
     for(i=0;i<numthreads;i++) {
-      void *threadarg;
-      pthread_attr_t attr;   
-      pthread_attr_init(&attr);   
-      pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM); /* ignore failures */
-      if (threadarg_arr == NULL) threadarg = (void *)(uintptr_t)i;
-      else { threadarg = threadarg_pos; threadarg_pos += threadarg_elemsz; }
-      check_zeroret(pthread_create(&threadid[i], &attr, start_routine, threadarg));
-      check_zeroret(pthread_attr_destroy(&attr));
+      void *threadarg = (void *)(uintptr_t)i;
+      if (threadarg_arr) { 
+        threadarg = threadarg_pos; 
+        threadarg_pos += threadarg_elemsz; 
+      }
+    #if TEST_USE_PRIMORDIAL_THREAD
+      if (i == numthreads-1) {
+        test_errs += (intptr_t)start_routine(threadarg); /* execute the last thread on primordial thread */
+      } else
+    #endif
+      { pthread_attr_t attr;   
+        pthread_attr_init(&attr);   
+        pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM); /* ignore failures */
+        check_zeroret(pthread_create(&threadid[i], &attr, start_routine, threadarg));
+        check_zeroret(pthread_attr_destroy(&attr));
+        jointhreads++;
+      }
     }
 
-    for(i=0;i<numthreads;i++) {
+    for(i=0;i<jointhreads;i++) {
       void *retval = NULL;
       check_zeroret(pthread_join(threadid[i], &retval));
       test_errs += (intptr_t)retval;
