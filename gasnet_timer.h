@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2008/01/29 01:15:27 $
- * $Revision: 1.85 $
+ *     $Date: 2008/01/29 05:46:36 $
+ * $Revision: 1.86 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -611,8 +611,6 @@ GASNETI_BEGIN_EXTERNC
                            "andi %1, %0, ~2\n\t"
                            "mts rmsr, %1\n\t"
                            "get %M2, rfsl6\n\t"
-                           "get %M2, rfsl6\n\t"
-                           "cget %L2, rfsl7\n\t"
                            "cget %L2, rfsl7\n\t"
                            "mts rmsr, %0\n\t"
                            : "=r"(msr), "=r"(tmp), "=r"(retval)
