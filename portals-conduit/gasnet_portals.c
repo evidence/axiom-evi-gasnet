@@ -3887,7 +3887,7 @@ extern void gasnetc_portals_poll(gasnetc_pollflag_t poll_type)
   poll_level--;
 #endif
 
-  GASNETI_TRACE_EVENT_VAL(C, EVENT_CNT, processed);
+  GASNETI_TRACE_EVENT_VAL(C, EVENT_REAP, processed);
 }
 
 /* ------------------------------------------------------------------------------------
