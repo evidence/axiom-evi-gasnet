@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_toolhelp.h,v $
- *     $Date: 2008/01/25 00:01:40 $
- * $Revision: 1.34 $
+ *     $Date: 2008/02/03 04:31:08 $
+ * $Revision: 1.35 $
  * Description: misc declarations needed by both gasnet_tools and libgasnet
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -212,7 +212,8 @@ int gasneti_count0s_uint32_t(uint32_t x) {
 #endif
 
 #if !defined(GASNETI_BUG2231_WORKAROUND) && \
-    (PLATFORM_OS_DARWIN && PLATFORM_COMPILER_PGI && PLATFORM_ARCH_64)
+    (PLATFORM_OS_DARWIN && PLATFORM_ARCH_64 && \
+     PLATFORM_COMPILER_PGI && PLATFORM_COMPILER_VERSION_LT(7,1,4))
   #define GASNETI_BUG2231_WORKAROUND       1
 #endif
 #if GASNETI_BUG2231_WORKAROUND
