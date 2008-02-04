@@ -71,6 +71,10 @@ gasnetc_PtlBuffer_t gasnetc_RAR;
 gasnetc_PtlBuffer_t gasnetc_RARAM;
 gasnetc_PtlBuffer_t gasnetc_RARSRC;
 
+/* Max size of a bounced put or get (differ by space for bounce addr in the get) */
+size_t gasnetc_put_bounce_limit;
+size_t gasnetc_get_bounce_limit;
+
 ptl_handle_ni_t gasnetc_ni_h;              /* the network interface handle */
 gasnetc_eq_t *gasnetc_AM_EQ = NULL;        /* The AM Event Queue */
 gasnetc_eq_t *gasnetc_SAFE_EQ = NULL;      /* The SAFE Event Queue */
@@ -3327,6 +3331,17 @@ extern void gasnetc_init_portals_resources(void)
   int64_t cred_per_buffer = cred_bytes_per_buffer/GASNETC_BYTES_PER_CREDIT;
   
   /* read Portals specific env vars */
+  gasnetc_put_bounce_limit = (int64_t)gasneti_getenv_int_withdefault("GASNET_PORTAL_PUTGET_BOUNCE_LIMIT",
+				(int64_t)GASNETC_PUTGET_BOUNCE_LIMIT_DFLT,1);
+  if (gasnetc_put_bounce_limit > GASNETC_CHUNKSIZE) {
+    if (!gasneti_mynode) {
+      fprintf(stderr,
+		"WARNING: Requested GASNET_PORTAL_PUTGET_BOUNCE_LIMIT %u reduced to chunksize %u\n",
+		(unsigned int)gasnetc_put_bounce_limit, (unsigned int)GASNETC_CHUNKSIZE);
+    }
+    gasnetc_put_bounce_limit = GASNETC_CHUNKSIZE;
+  }
+  gasnetc_get_bounce_limit = GASNETC_MIN(gasnetc_put_bounce_limit, GASNETC_CHUNKSIZE - sizeof(void *));
   gasnetc_dump_stats = (int)gasneti_getenv_int_withdefault("GASNET_PORTAL_STATS",
 				 (int64_t)gasnetc_dump_stats,0);
   gasnetc_ReqSB_numchunk = (int)gasneti_getenv_int_withdefault("GASNET_PORTAL_SB_CHUNKS",
@@ -3989,7 +4004,7 @@ void gasnetc_getmsg(void *dest, gasnet_node_t node, void *src, size_t nbytes,
     md_h = gasnetc_RARSRC.md_h;
     local_offset = GASNETC_PTL_OFFSET(gasneti_mynode,dest);
     GASNETI_TRACE_EVENT(C, GET_RAR);
-  } else if ( (nbytes <= (GASNETC_PUTGET_BOUNCE_SIZE - (sizeof(void*))))  &&
+  } else if ( (nbytes <= gasnetc_get_bounce_limit)  &&
 	      gasnetc_chunk_alloc_withpoll(&gasnetc_ReqSB, nbytes, &local_offset, 1, GASNETC_SAFE_POLL) ) {
     /* Encode dest addr in BB chunk for later copy */
     void* bb;
@@ -4065,7 +4080,7 @@ void gasnetc_putmsg(void *dest, gasnet_node_t node, void *src, size_t nbytes,
     local_offset = GASNETC_PTL_OFFSET(gasneti_mynode,src);
     if (! isbulk) *wait_lcc = 1;
     GASNETI_TRACE_EVENT(C, PUT_RAR);
-  } else if ( (nbytes <= GASNETC_PUTGET_BOUNCE_SIZE)  &&
+  } else if ( (nbytes <= gasnetc_put_bounce_limit)  &&
 	      gasnetc_chunk_alloc_withpoll(&gasnetc_ReqSB,nbytes, &local_offset, 1, GASNETC_SAFE_POLL) ) {
     void* bb;
     md_h = gasnetc_ReqSB.md_h;

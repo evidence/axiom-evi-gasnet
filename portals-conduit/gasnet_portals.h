@@ -90,15 +90,16 @@
  * Pinning costs under Catamount are minimal and the switch is at about 1KB.
  * Finally, this value must be <= GASNETC_CHUNKSIZE.
  * We check this in an assertion at job startup time.
+ * This is the *default* value, which can be overridden by env var.
  */
 #if PLATFORM_OS_CATAMOUNT
-#define GASNETC_PUTGET_BOUNCE_SIZE 1024
+#define GASNETC_PUTGET_BOUNCE_LIMIT_DFLT 1024
 #else
 /* Under CNL, this value is not yet known.  Assume as large as a CHUNK */
-#define GASNETC_PUTGET_BOUNCE_SIZE GASNETC_CHUNKSIZE
+#define GASNETC_PUTGET_BOUNCE_LIMIT_DFLT GASNETC_CHUNKSIZE
 #endif
-#if (GASNETC_PUTGET_BOUNCE_SIZE > GASNETC_CHUNKSIZE)
-#error "GASNETC_PUTGET_BOUNCE_SIZE MUST BE <= GASNETC_CHUNKSIZE"
+#if (GASNETC_PUTGET_BOUNCE_LIMIT_DFLT > GASNETC_CHUNKSIZE)
+#error "GASNETC_PUTGET_BOUNCE_LIMIT_DFLT MUST BE <= GASNETC_CHUNKSIZE"
 #endif
 
 /* Do we register an EQ handler with a queue or just poll ourselves */
