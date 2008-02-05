@@ -2970,6 +2970,8 @@ extern int gasnetc_chunk_alloc(gasnetc_PtlBuffer_t *buf, size_t nbytes, ptl_size
      * gain lock to check if freelist is empty.  It would be last var set before unlock
      * and membar would insure reads would reflect it.  Of course, would still have to
      * check freelist condition when lock is gotten
+     * PHH: But why optimize for the empty case?  If we have no chunks left then we
+     * are going to spin-poll anyway, unless we are already in gasnetc_portals_poll().
      */
     gasneti_mutex_lock(&buf->lock);
     if (buf->freelist == NULL) {
