@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/Makefile.am,v $
-#     $Date: 2008/02/07 22:31:36 $
-# $Revision: 1.6 $
+#     $Date: 2008/02/08 01:23:54 $
+# $Revision: 1.7 $
 # Description: Makefile for GASNet ibv conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -18,7 +18,7 @@ vapi_install_hdrs = $(vapi_srcdir)/*.h
 
 ## Firehose
 fh_type=region
-include $(top_srcdir)/other/firehose/firehose.mak
+include $(top_builddir)/other/firehose/firehose.mak
 
 ##
 ## SSH bootstrap support (built unless fork() is unavailable)

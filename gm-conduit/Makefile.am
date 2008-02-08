@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/Makefile.am,v $
-#     $Date: 2008/02/08 00:45:59 $
-# $Revision: 1.58 $
+#     $Date: 2008/02/08 01:23:52 $
+# $Revision: 1.59 $
 # Description: Makefile for GASNet gm conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -12,7 +12,7 @@ CONDUIT_NAME=gm
 
 # Firehose
 fh_type=page
-include $(top_srcdir)/other/firehose/firehose.mak
+include $(top_builddir)/other/firehose/firehose.mak
 
 # any conduit-specific subdirectories containing Makefile.am's
 SUBDIRS = contrib

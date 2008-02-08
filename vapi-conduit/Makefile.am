@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/Makefile.am,v $
-#     $Date: 2008/02/07 22:31:34 $
-# $Revision: 1.45 $
+#     $Date: 2008/02/08 01:23:58 $
+# $Revision: 1.46 $
 # Description: Makefile for GASNet vapi conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -12,7 +12,7 @@ CONDUIT_NAME=vapi
 
 ## Firehose
 fh_type=region
-include $(top_srcdir)/other/firehose/firehose.mak
+include $(top_builddir)/other/firehose/firehose.mak
 
 ##
 ## SSH bootstrap support (built unless fork() is unavailable)
