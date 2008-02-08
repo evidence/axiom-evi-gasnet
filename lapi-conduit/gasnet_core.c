@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2007/10/31 22:40:38 $
- * $Revision: 1.91 $
+ *     $Date: 2008/02/08 04:29:14 $
+ * $Revision: 1.92 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -68,9 +68,9 @@ unsigned long  gasnetc_max_lapi_data_size = LAPI_MAX_MSG_SZ;
  * Extra information needed for LAPI User Level RDMA
  */
 
+static int gasnetc_num_pvos = 0;
+static lapi_get_pvo_t *gasnetc_node_pvo_list = NULL;
 int gasnetc_lapi_use_rdma;
-int gasnetc_num_pvos;
-lapi_get_pvo_t *gasnetc_node_pvo_list = NULL;
 lapi_remote_cxt_t **gasnetc_remote_ctxts = NULL;
 lapi_user_pvo_t **gasnetc_pvo_table = NULL;
 lapi_long_t *gasnetc_segbase_table = NULL;
@@ -702,7 +702,6 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 	 int num_pvos;
          int i=0;
          int j=0;
-         lapi_get_pvo_t *gasnetc_node_pvo_list = NULL;
          uintptr_t tmp_offset = 0;
          if (segbase) { /* bug 2176: warn if segment is not large page */
            size_t large_pagesz = sysconf(_SC_LARGE_PAGESIZE);
