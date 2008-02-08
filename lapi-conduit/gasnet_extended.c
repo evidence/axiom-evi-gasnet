@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2008/01/22 04:48:51 $
- * $Revision: 1.63 $
+ *     $Date: 2008/02/08 18:38:44 $
+ * $Revision: 1.64 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1641,14 +1641,14 @@ extern int  gasnete_try_syncnb_all (gasnet_handle_t *phandle, size_t numhandles)
 extern void gasnete_wait_syncnb_original(gasnet_handle_t handle);
 extern void gasnete_wait_syncnb(gasnet_handle_t handle)
 {
+    if (handle == GASNET_INVALID_HANDLE) {
+      return;
+    }
     if_pt(gasnetc_lapi_use_rdma) {
     gasnete_op_t *op = handle;
     int cnt = 0;
     int cnt2 = 0;
     gasneti_assert(op->threadidx == gasnete_mythread()->threadidx);
-    if (op == GASNET_INVALID_HANDLE) {
-      return;
-    }
 
     if_pt (OPTYPE(op) == OPTYPE_EXPLICIT) {
 	gasnete_eop_t *eop = (gasnete_eop_t*)op;
