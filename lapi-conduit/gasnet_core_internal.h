@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2008/02/08 16:50:19 $
- * $Revision: 1.45 $
+ *     $Date: 2008/02/09 01:49:39 $
+ * $Revision: 1.46 $
  * Description: GASNet lapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -315,12 +315,9 @@ extern int gasnetc_use_firehose;
 typedef struct _gasnetc_lapi_pvo_struct {
   lapi_user_pvo_t pvo;
   size_t len;
-  int num_waiting;
   struct _gasnetc_lapi_pvo_struct *next;
 } gasnetc_lapi_pvo;
 
-extern int gasnetc_num_pvos;
-extern lapi_get_pvo_t *gasnetc_node_pvo_list;
 extern lapi_remote_cxt_t **gasnetc_remote_ctxts;
 extern int *gasnetc_lapi_current_rctxt;
 extern lapi_user_pvo_t **gasnetc_pvo_table;

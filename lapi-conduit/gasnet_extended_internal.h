@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2008/02/08 16:50:19 $
- * $Revision: 1.21 $
+ *     $Date: 2008/02/09 01:49:39 $
+ * $Revision: 1.22 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -302,8 +302,6 @@ void gasnete_op_free(gasnete_op_t *op);
 
 #if GASNETC_LAPI_RDMA
 /* Should put these somewhere else to avoid duplication */
-extern int gasnetc_num_pvos;
-extern lapi_get_pvo_t *gasnetc_node_pvo_list;
 extern lapi_remote_cxt_t **gasnetc_remote_ctxts;
 extern int *gasnetc_lapi_current_rctxt;
 extern int gasnetc_rctxts_per_node;
