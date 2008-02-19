@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2008/01/28 02:45:59 $
- * $Revision: 1.115 $
+ *     $Date: 2008/02/19 03:43:51 $
+ * $Revision: 1.116 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -664,7 +664,7 @@ static void TEST_DEBUGPERFORMANCE_WARNING() {
 
 #if defined(GASNET_PAR) || defined(GASNET_PARSYNC)
   #ifndef TEST_MAXTHREADS
-    #define TEST_MAXTHREADS      256
+    #define TEST_MAXTHREADS      GASNETT_MAX_THREADS
   #endif
   #ifndef TEST_SEGZ_PER_THREAD
     #define TEST_SEGZ_PER_THREAD (64*1024)

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2008/02/09 01:49:39 $
- * $Revision: 1.22 $
+ *     $Date: 2008/02/19 03:43:47 $
+ * $Revision: 1.23 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -61,7 +61,6 @@ typedef struct {
 #endif
 
 /* ------------------------------------------------------------------------------------ */
-typedef uint8_t gasnete_threadidx_t;
 
 /* gasnet_handle_t is a void* pointer to a gasnete_op_t, 
    which is either a gasnete_eop_t or an gasnete_iop_t

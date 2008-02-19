@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2008/01/26 10:12:11 $
- * $Revision: 1.117 $
+ *     $Date: 2008/02/19 03:43:39 $
+ * $Revision: 1.118 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -447,6 +447,8 @@ static void _gasnett_trace_printf_noop(const char *_format, ...)) {
   #define GASNETT_FAST_UNALIGNED_MEMCPY GASNETE_FAST_UNALIGNED_MEMCPY
   #define GASNETT_VALUE_ASSIGN          GASNETE_VALUE_ASSIGN
   #define GASNETT_VALUE_RETURN          GASNETE_VALUE_RETURN
+
+  #define GASNETT_MAX_THREADS GASNETI_MAX_THREADS 
 
   #if GASNET_DEBUG
     #define gasnett_debug_malloc(sz)      gasneti_extern_malloc(sz) 

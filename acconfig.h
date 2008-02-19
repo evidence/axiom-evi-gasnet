@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2008/01/26 02:28:47 $ */
-/*  $Revision: 1.131 $ */
+/*      $Date: 2008/02/19 03:43:39 $ */
+/*  $Revision: 1.132 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -73,6 +73,9 @@
 
 /* --with-segment-mmap-max value (if given) */
 #undef GASNETI_MMAP_MAX_SIZE
+
+/* --with-max-threads value (if given) */
+#undef GASNETI_MAX_THREADS_CONFIGURE
 
 /* has usleep() */
 #undef HAVE_USLEEP
