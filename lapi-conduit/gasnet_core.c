@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2008/02/09 01:49:39 $
- * $Revision: 1.95 $
+ *     $Date: 2008/03/05 21:51:37 $
+ * $Revision: 1.96 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -935,6 +935,8 @@ void *gasnetc_run_shutdown(void *arg)
     pthread_detach(pthread_self());
     /* we were created to die */
     gasnet_exit(amexit_exitcode);
+    /* NOT REACHED */
+    return NULL;
 }
 
 void* gasnetc_amexit_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len,
