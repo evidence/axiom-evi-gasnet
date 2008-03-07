@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2008/03/05 23:54:24 $
- * $Revision: 1.97 $
+ *     $Date: 2008/03/07 07:12:14 $
+ * $Revision: 1.98 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -796,10 +796,10 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     GASNETC_LCHECK(LAPI_Address_init64(gasnetc_lapi_context, (lapi_long_t) segbase, gasnetc_segbase_table));
     
 
-    /* Not so fast, create your pvo objects (256 = max threads) for local pinning*/
-    gasnetc_lapi_pvo_free_list = gasneti_malloc(256*sizeof(gasnetc_lapi_pvo *));
+    /* Not so fast, create your pvo objects (max threads) for local pinning*/
+    gasnetc_lapi_pvo_free_list = gasneti_malloc(GASNETI_MAX_THREADS*sizeof(gasnetc_lapi_pvo *));
     gasnetc_lapi_pvo_pool = gasnetc_lapi_pvo_free_list;
-    for(i=0;i < 256;i++) {
+    for(i=0;i < GASNETI_MAX_THREADS;i++) {
       int j;
       gasnetc_lapi_pvo_free_list[i] = gasneti_malloc(GASNETC_MAX_PVOS*sizeof(gasnetc_lapi_pvo));
       for(j=0;j < GASNETC_MAX_PVOS-1;j++) {
