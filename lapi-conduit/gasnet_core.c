@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2008/03/07 07:28:35 $
- * $Revision: 1.100 $
+ *     $Date: 2008/03/07 20:59:08 $
+ * $Revision: 1.101 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -86,7 +86,6 @@ lapi_long_t *gasnetc_segbase_table = NULL;
 int *gasnetc_lapi_local_target_counters = NULL;
 lapi_cntr_t **gasnetc_lapi_completion_ptrs = NULL;
 lapi_long_t *gasnetc_lapi_target_counter_directory = NULL;
-gasnetc_lapi_pvo **gasnetc_lapi_pvo_free_list;
 extern void gasnete_lapi_setup_nb();
 extern void gasnete_lapi_free_nb();
 /* In case people call exit before attach */
@@ -794,18 +793,6 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     gasnetc_segbase_table = gasneti_malloc(gasneti_nodes*sizeof(lapi_long_t));
     GASNETC_LCHECK(LAPI_Address_init64(gasnetc_lapi_context, (lapi_long_t) segbase, gasnetc_segbase_table));
     
-
-    /* Not so fast, create your pvo objects (max threads) for local pinning*/
-    gasnetc_lapi_pvo_free_list = gasneti_malloc(GASNETI_MAX_THREADS*sizeof(gasnetc_lapi_pvo *));
-    for(i=0;i < GASNETI_MAX_THREADS;i++) {
-      int j;
-      gasnetc_lapi_pvo_free_list[i] = gasneti_malloc(GASNETC_MAX_PVOS*sizeof(gasnetc_lapi_pvo));
-      for(j=0;j < GASNETC_MAX_PVOS-1;j++) {
-	gasnetc_lapi_pvo_free_list[i][j].next = &(gasnetc_lapi_pvo_free_list[i][j+1]);
-      }
-      gasnetc_lapi_pvo_free_list[i][GASNETC_MAX_PVOS-1].next = NULL;
-    } 
-    
     /* Finally, really, set up the bounce buffers */
     GASNETI_TRACE_PRINTF(C,("gasnetc_attach: %d bounce buffer setup\n",gasneti_mynode));
     gasnete_lapi_setup_nb();
@@ -891,10 +878,6 @@ void gasnetc_lapi_free()
   }
   gasneti_free(gasnetc_pvo_table);
   gasneti_free(gasnetc_segbase_table);
-  for(i=0;i < GASNETI_MAX_THREADS;i++) {
-    gasneti_free(gasnetc_lapi_pvo_free_list[i]);
-  }
-  gasneti_free(gasnetc_lapi_pvo_free_list);
   
   /* Free and unpin the network buffers */
   gasnete_lapi_free_nb();

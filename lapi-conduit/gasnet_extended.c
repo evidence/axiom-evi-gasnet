@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2008/03/07 06:52:48 $
- * $Revision: 1.66 $
+ *     $Date: 2008/03/07 20:59:08 $
+ * $Revision: 1.67 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -35,6 +35,12 @@ extern void _gasnete_iop_check(gasnete_iop_t *iop) { gasnete_iop_check(iop); }
 void** gasnete_remote_memset_hh;
 void** gasnete_remote_barrier_hh;
 
+#if GASNETC_LAPI_RDMA
+/* Bound the number of in-use PVOs.
+ * Note that initial value is 0, but gasnete_new_threaddata() adds to it.
+ */
+static gasneti_semaphore_t gasnete_lapi_pvo_sema = GASNETI_SEMAPHORE_INITIALIZER(0,0);
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -72,6 +78,9 @@ static gasnete_threaddata_t * gasnete_new_threaddata() {
 
     gasnete_threadtable[idx] = threaddata;
     threaddata->current_iop = gasnete_iop_new(threaddata);
+
+    /* Increase the limit on in-flight PVOs */
+    gasneti_semaphore_up_n(&gasnete_lapi_pvo_sema, GASNETC_MAX_PVOS_PER_THREAD);
 
     return threaddata;
 }
@@ -539,7 +548,6 @@ unsigned int gasnetc_lapi_pvo_and_offset(gasnet_node_t node, lapi_long_t offset,
 #endif
 
 static gasneti_mutex_t nb_lock = GASNETI_MUTEX_INITIALIZER;
-int64_t gasnet_lapi_bytes_pinned = 0;
 /* Pin like there's no tomorrow! */
 lapi_user_pvo_t gasnetc_lapi_get_local_pvo(lapi_long_t addr, size_t len)
 {
@@ -551,50 +559,40 @@ lapi_user_pvo_t gasnetc_lapi_get_local_pvo(lapi_long_t addr, size_t len)
 	new_pvo.operation = LAPI_RDMA_ACQUIRE;
 	/* Keep track of the PVOs and release the ones that have been around too long */
 	GASNETC_LCHECK(LAPI_Util(gasnetc_lapi_context,(lapi_util_t *) &new_pvo));
-        fetch_and_addlp(&gasnet_lapi_bytes_pinned, len);
 	return(new_pvo.usr_pvo);
 }
 
-gasnetc_lapi_pvo *gasnetc_lapi_new_pvo()
+static void gasnetc_lapi_new_pvo(void)
 {
-   gasnetc_lapi_pvo *ret;
-   int my_thread_id = gasnete_mythread()->threadidx;
-   volatile gasnetc_lapi_pvo **current = (volatile gasnetc_lapi_pvo **) &(gasnetc_lapi_pvo_free_list[my_thread_id]);
-   gasneti_mutex_lock(&nb_lock);
-   while(*current == NULL) {
-     gasneti_mutex_unlock(&nb_lock);
-     gasneti_AMPoll();
-     gasneti_mutex_lock(&nb_lock);
+  /* XXX: We once managed a free list of small wrapper structs here,
+   * so se could pass the user_pvo and len to the LAPI send completion
+   * handler.  Now we just pass the user_pvo in the sinfo field and
+   * don't bother with the small struct.  HOWEVER, that only works
+   * because void* and lapi_user_pvo_t are both 64 bits.
+   * If we wish to extend LAPI-RDMA support to 32-bit builds, we'll
+   * want to replace the semaphore with a gasneti_lifo_t to manage
+   * small structs again (and this function will need to return them).
+   */
+  if_pf (!gasneti_semaphore_trydown(&gasnete_lapi_pvo_sema)) {
+     /* TODO: stats/trace the stall count and duration? */
+     do {
+       gasneti_AMPoll();
+     } while (!gasneti_semaphore_trydown(&gasnete_lapi_pvo_sema));
    }
-   ret = (gasnetc_lapi_pvo *) (*current);
-   gasnetc_lapi_pvo_free_list[my_thread_id] = ret->next;
-   ret->next = NULL;
-   gasneti_mutex_unlock(&nb_lock);
-   return(ret);
 }
 
-void gasnetc_lapi_free_pvo(gasnetc_lapi_pvo *current)
-{
-  /* Add current to the free list */
-  gasneti_mutex_lock(&nb_lock);
-  current->next = gasnetc_lapi_pvo_free_list[gasnete_mythread()->threadidx];
-  gasnetc_lapi_pvo_free_list[gasnete_mythread()->threadidx] = current;
-  gasneti_mutex_unlock(&nb_lock);
-}
-
-void gasnetc_lapi_release_pvo(gasnetc_lapi_pvo *entry)
+static void gasnetc_lapi_release_pvo(lapi_user_pvo_t pvo)
 {
   lapi_get_pvo_t new_pvo;
   /* Unpin */
   new_pvo.Util_type = LAPI_XLATE_ADDRESS;
   new_pvo.length = 0;
-  new_pvo.usr_pvo = entry->pvo;
+  new_pvo.usr_pvo = pvo;
   new_pvo.address = 0;
   new_pvo.operation = LAPI_RDMA_RELEASE;
   GASNETC_LCHECK(LAPI_Util(gasnetc_lapi_context, (lapi_util_t *) &new_pvo)); 
-  fetch_and_addlp(&gasnet_lapi_bytes_pinned, entry->len);
-  /* Return this guy to the free list */
-  gasnetc_lapi_free_pvo(entry);
+
+  gasneti_semaphore_up(&gasnete_lapi_pvo_sema);
 }
 
 gasnete_lapi_nb *gasnete_free_nb_list_original = NULL;
@@ -737,8 +735,8 @@ void gasnete_lapi_reap_network_buffer(lapi_handle_t *hndl, void *user_data, lapi
 
 void gasnete_lapi_reap_pvo(lapi_handle_t *hndl, void *user_data, lapi_sh_info_t *info)
 {
-  gasnetc_lapi_pvo *pvo_container = (gasnetc_lapi_pvo *) user_data; 
-  gasnetc_lapi_release_pvo(pvo_container);
+  gasneti_assert(sizeof(lapi_user_pvo_t) <= sizeof(void *));
+  gasnetc_lapi_release_pvo((lapi_user_pvo_t) user_data);
 }
 
 extern firehose_info_t gasnetc_firehose_info;
@@ -869,7 +867,6 @@ extern gasnete_eop_t *gasnete_lapi_do_rdma(void *dest, gasnet_node_t node, void 
   lapi_long_t local_p_to_long;
   lapi_user_pvo_t remote_pvo, source_pvo;
   int allocated_tag;
-  gasnetc_lapi_pvo *pvo_container = NULL;
   lapi_cntr_t *cptr;
   gasnete_eop_t *new_eop;
   int using_network_buffer = 0;
@@ -1158,7 +1155,7 @@ extern gasnete_eop_t *gasnete_lapi_do_rdma(void *dest, gasnet_node_t node, void 
          * is transferred with each call */
       
         /* Do this first to put a brake on pinning */
-        pvo_container = gasnetc_lapi_new_pvo();
+        gasnetc_lapi_new_pvo();
 
       	/* Transfer only up to the next PVO boundary on the remote side */
         /* We could (and once did) try to optimize for the fact that after
@@ -1167,11 +1164,9 @@ extern gasnete_eop_t *gasnete_lapi_do_rdma(void *dest, gasnet_node_t node, void 
           remote_offset = gasnetc_lapi_pvo_and_offset(node, remote_segment_offset, &xfer_struct.HwXfer.tgt_pvo);
 	  transfer_len = MIN (remaining_bytes, GASNETC_LAPI_PVO_EXTENT - remote_offset);
 	  xfer_struct.HwXfer.src_pvo = gasnetc_lapi_get_local_pvo(local_addr, transfer_len);
-          pvo_container->len = transfer_len;
 	  xfer_struct.HwXfer.tgt_offset = remote_offset;
 	  xfer_struct.HwXfer.src_offset = 0;
 
-        pvo_container->pvo = xfer_struct.HwXfer.src_pvo;
         xfer_struct.HwXfer.Xfer_type = LAPI_RDMA_XFER;
         xfer_struct.HwXfer.tgt = node;
         xfer_struct.HwXfer.op = op;
@@ -1183,7 +1178,7 @@ extern gasnete_eop_t *gasnete_lapi_do_rdma(void *dest, gasnet_node_t node, void 
         xfer_struct.HwXfer.remote_cxt = rcxt.usr_rcxt;
         xfer_struct.HwXfer.len = transfer_len;
         xfer_struct.HwXfer.shdlr = gasnete_lapi_reap_pvo;
-        xfer_struct.HwXfer.sinfo = (void *) pvo_container;
+        xfer_struct.HwXfer.sinfo = (void *) xfer_struct.HwXfer.src_pvo;
         xfer_struct.HwXfer.org_cntr = new_eop->origin_counter;
       
         /* Do the transfer */

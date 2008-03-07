@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2008/03/07 07:28:35 $
- * $Revision: 1.24 $
+ *     $Date: 2008/03/07 20:59:08 $
+ * $Revision: 1.25 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -309,6 +309,5 @@ extern lapi_long_t *gasnetc_segbase_table;
 extern int *gasnetc_local_target_counters;
 extern lapi_cntr_t **gasnetc_lapi_completion_ptrs;
 extern lapi_long_t *gasnetc_lapi_target_counter_directory;
-extern gasnetc_lapi_pvo **gasnetc_lapi_pvo_free_list;
 #endif
 #endif
