@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2008/03/07 07:12:14 $
- * $Revision: 1.98 $
+ *     $Date: 2008/03/07 07:21:23 $
+ * $Revision: 1.99 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -894,7 +894,7 @@ void gasnetc_lapi_free()
   }
   gasneti_free(gasnetc_pvo_table);
   gasneti_free(gasnetc_segbase_table);
-  for(i=0;i < GASNETC_MAX_PVOS;i++) {
+  for(i=0;i < GASNETI_MAX_THREADS;i++) {
     gasneti_free(gasnetc_lapi_pvo_free_list[i]);
   }
   gasneti_free(gasnetc_lapi_pvo_free_list);
