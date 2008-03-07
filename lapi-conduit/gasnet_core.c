@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2008/03/07 07:21:23 $
- * $Revision: 1.99 $
+ *     $Date: 2008/03/07 07:28:35 $
+ * $Revision: 1.100 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -87,7 +87,6 @@ int *gasnetc_lapi_local_target_counters = NULL;
 lapi_cntr_t **gasnetc_lapi_completion_ptrs = NULL;
 lapi_long_t *gasnetc_lapi_target_counter_directory = NULL;
 gasnetc_lapi_pvo **gasnetc_lapi_pvo_free_list;
-gasnetc_lapi_pvo **gasnetc_lapi_pvo_pool;  /* So that we can free at end */
 extern void gasnete_lapi_setup_nb();
 extern void gasnete_lapi_free_nb();
 /* In case people call exit before attach */
@@ -798,7 +797,6 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 
     /* Not so fast, create your pvo objects (max threads) for local pinning*/
     gasnetc_lapi_pvo_free_list = gasneti_malloc(GASNETI_MAX_THREADS*sizeof(gasnetc_lapi_pvo *));
-    gasnetc_lapi_pvo_pool = gasnetc_lapi_pvo_free_list;
     for(i=0;i < GASNETI_MAX_THREADS;i++) {
       int j;
       gasnetc_lapi_pvo_free_list[i] = gasneti_malloc(GASNETC_MAX_PVOS*sizeof(gasnetc_lapi_pvo));
@@ -806,7 +804,6 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 	gasnetc_lapi_pvo_free_list[i][j].next = &(gasnetc_lapi_pvo_free_list[i][j+1]);
       }
       gasnetc_lapi_pvo_free_list[i][GASNETC_MAX_PVOS-1].next = NULL;
-      gasnetc_lapi_pvo_pool[i] = gasnetc_lapi_pvo_free_list[i];
     } 
     
     /* Finally, really, set up the bounce buffers */

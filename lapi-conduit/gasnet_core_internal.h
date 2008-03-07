@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2008/02/09 01:49:39 $
- * $Revision: 1.46 $
+ *     $Date: 2008/03/07 07:28:35 $
+ * $Revision: 1.47 $
  * Description: GASNet lapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -326,7 +326,6 @@ extern int *gasnetc_lapi_local_target_counters;
 extern lapi_cntr_t **gasnetc_lapi_completion_ptrs;
 extern lapi_long_t *gasnetc_lapi_target_counter_directory;
 extern gasnetc_lapi_pvo **gasnetc_lapi_pvo_free_list;
-extern gasnetc_lapi_pvo **gasnetc_lapi_pvo_pool;  /* So that we can free at end */
 extern int gasnetc_lapi_done;
 extern int gasnetc_lapi_empty;
 extern int gasnetc_lapi_occupied;
