@@ -76,7 +76,7 @@ also provided for the check).
 Tuning parameters
 =================
 
-GASNET_LAPI_RCTXTS_PER_NODE - a (small) integer specifying how many
+GASNET_LAPI_RCTXTS_PER_NODE - a (small) power of 2 specifying how many
 remote contexts to open up to each peer.  Default value: 1
 
 GASNET_LAPI_USE_RDMA - use RDMA with this conduit.  If RDMA is detected
@@ -94,11 +94,4 @@ enabled for segment everything.
  
 Known Bugs
 ==========
-
-A known bug in the new lapi-conduit RDMA support will cause crashes
-at startup for jobs where the GASNet FAST or LARGE segment size differs across
-nodes (eg. this arises in UPC where the number of pthreads per node differs
-across nodes).  The suggested workaround is either to select a uniform segment
-size, or to set GASNET_LAPI_USE_RDMA=0 in the environment to disable the RDMA
-support.
 
