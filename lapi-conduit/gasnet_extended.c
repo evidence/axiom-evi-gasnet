@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2008/03/08 23:18:28 $
- * $Revision: 1.81 $
+ *     $Date: 2008/03/08 23:23:52 $
+ * $Revision: 1.82 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -762,7 +762,6 @@ static gasnete_eop_t *gasnete_lapi_do_rdma(void *dest, gasnet_node_t node, void 
   lapi_long_t remote_p_to_long;
   lapi_long_t local_p_to_long;
   lapi_remote_cxt_t rcxt;
-  lapi_cntr_t *cptr;
   gasnete_eop_t *new_eop;
   int total_transfers = 0;
 #if GASNET_SEGMENT_EVERYTHING
@@ -827,8 +826,6 @@ static gasnete_eop_t *gasnete_lapi_do_rdma(void *dest, gasnet_node_t node, void 
       }
     }
   }
-
-  cptr = NULL;
 
   /* Cannot do an RDMA with yourself.  For now do a memcpy and fake everything else */
   if(node == gasneti_mynode) {
