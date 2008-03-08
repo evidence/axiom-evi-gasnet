@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2008/03/08 06:13:57 $
- * $Revision: 1.77 $
+ *     $Date: 2008/03/08 06:59:01 $
+ * $Revision: 1.78 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -40,6 +40,8 @@ void** gasnete_remote_barrier_hh;
  * Note that initial value is 0, but gasnete_new_threaddata() adds to it.
  */
 static gasneti_semaphore_t gasnete_lapi_pvo_sema = GASNETI_SEMAPHORE_INITIALIZER(0,0);
+
+extern firehose_info_t gasnetc_firehose_info;
 #endif
 
 /* ------------------------------------------------------------------------------------ */
@@ -524,7 +526,6 @@ void* gasnete_lapi_memset_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len,
 #if !GASNET_SEGMENT_EVERYTHING
 #define gasnetc_lapi_find_pvo(_node, _offset) \
 	(gasnetc_pvo_table[(_node)][(_offset) >> GASNETC_LAPI_PVO_EXTENT_BITS])
-#endif
 
 static gasneti_mutex_t nb_lock = GASNETI_MUTEX_INITIALIZER;
 
@@ -575,12 +576,11 @@ static void gasnetc_lapi_release_pvo(lapi_user_pvo_t pvo)
   gasneti_semaphore_up(&gasnete_lapi_pvo_sema);
 }
 
-gasnete_lapi_nb *gasnete_free_nb_list_original = NULL;
-char *gasnete_lapi_all_buffers = NULL;
-gasnete_lapi_nb *gasnete_free_nb_list = NULL;
-gasnete_lapi_nb *gasnete_active_nb_list = NULL;
+static gasnete_lapi_nb *gasnete_free_nb_list_original = NULL;
+static char *gasnete_lapi_all_buffers = NULL;
+static gasnete_lapi_nb *gasnete_free_nb_list = NULL;
 #define GASNETE_LAPI_NUM_NB 1024
-int gasnete_num_nb = GASNETE_LAPI_NUM_NB;
+static int gasnete_num_nb = GASNETE_LAPI_NUM_NB;
 extern void gasnete_lapi_setup_nb()
 {
   size_t total_pinned_region = gasnete_num_nb * gasnete_pin_threshold;
@@ -607,7 +607,6 @@ extern void gasnete_lapi_setup_nb()
       gasnete_free_nb_list[count].data = all_data + size_pinned_region + s*gasnete_pin_threshold;
       gasnete_free_nb_list[count].offset = s*gasnete_pin_threshold;
       gasnete_free_nb_list[count].pvo = req.usr_pvo;
-      gasnete_free_nb_list[count].prev = NULL;
       if(count < gasnete_num_nb-1) {
         gasnete_free_nb_list[count].next = &(gasnete_free_nb_list[count+1]);
       } else {
@@ -639,7 +638,6 @@ extern void gasnete_lapi_free_nb()
   gasneti_free(gasnete_free_nb_list_original);
 }
 
-/* Need back pointers etc. so that reaping happens */
 static gasnete_lapi_nb *gasnete_get_free_network_buffer()
 {
   gasnete_lapi_nb *ret;
@@ -661,14 +659,6 @@ static gasnete_lapi_nb *gasnete_get_free_network_buffer()
   ret = (gasnete_lapi_nb *) *fl_ptr;
   *fl_ptr = (*fl_ptr)->next;
 
-  /* Place on active list */
-  ret->next = gasnete_active_nb_list;
-  ret->prev = NULL;
-  if(gasnete_active_nb_list != NULL) {
-    gasnete_active_nb_list->prev = ret;
-  }
-  gasnete_active_nb_list = ret;
-
   gasneti_mutex_unlock(&nb_lock);  /* This should take care of memory consistency nastiness, right? */
   return(ret);
 }
@@ -681,19 +671,6 @@ static void gasnete_free_network_buffer(gasnete_lapi_nb *nb)
   }
 
   gasneti_mutex_lock(&nb_lock);
-  /* Remove from active list */
-  if(gasnete_active_nb_list == nb) {
-    gasnete_active_nb_list = nb->next;
-    if(nb->next != NULL) {
-      nb->next->prev = NULL;
-    }
-  } else {
-    nb->prev->next = nb->next;
-    if(nb->next != NULL) {
-      nb->next->prev = nb->prev;
-    }
-  }
-
   /* Add back to free list */
   nb->next = gasnete_free_nb_list;
   gasnete_free_nb_list = nb; 
@@ -718,15 +695,14 @@ static void gasnete_lapi_reap_pvo(lapi_handle_t *hndl, void *user_data, lapi_sh_
   gasnetc_lapi_release_pvo((lapi_user_pvo_t) user_data);
 }
 
-extern firehose_info_t gasnetc_firehose_info;
-
 static void gasnete_lapi_release_firehose(lapi_handle_t *hndl, void *user_data, lapi_sh_info_t *info)
 {
   const firehose_request_t *fh_req = (firehose_request_t *) user_data;
   firehose_release(&fh_req,1);
 }
 
-#if GASNET_SEGMENT_EVERYTHING
+#else /* !GASNET_SEGMENT_EVERYTHING */
+
 static gasneti_lifo_head_t gasnete_lapi_transfer_info_freelist = GASNETI_LIFO_INITIALIZER;
 
 typedef struct _gasnete_lapi_transfer_info_struct {

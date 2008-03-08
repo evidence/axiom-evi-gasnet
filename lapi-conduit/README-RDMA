@@ -62,13 +62,11 @@ Managing Network Buffers
 
 For short transfers we use pre-pinned network buffers.  They are of
 size gasnete_pin_threshold and we have gasnete_num_nb of them.
-They are managed with two lists, protected by a Pthread mutex (we can
-do better synchronization in the future, if needed).  They are:
-gasnete_free_nb_list, the free list, and gasnete_active_nb_list, 
-the list of active operations.  Initiators get an entry from the
-free list, if possible, and use the buffer for the transfer.  The
-entry then gets put on the active list.  Upon completion of a
-transfer, the entry is placed back on the free list.
+They are managed with a free list, protected by a Pthread mutex (we can
+do better synchronization in the future, if needed).  Initiators get
+an entry from the free list, blocking until one is available, and use
+the buffer for the transfer.  Upon completion of a transfer, the
+entry is placed back on the free list.
 
 Tuning parameters
 =================
