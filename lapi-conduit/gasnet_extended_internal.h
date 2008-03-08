@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2008/03/08 06:59:01 $
- * $Revision: 1.29 $
+ *     $Date: 2008/03/08 07:54:20 $
+ * $Revision: 1.30 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -98,14 +98,13 @@ typedef struct _gasnete_eop_t {
 
 #if GASNETC_LAPI_RDMA
 typedef struct _gasnete_lapi_nb_struct {
+  void *get_buffer;  /* Shares space w/ "next" when on free list */
+  size_t get_length;
   lapi_user_pvo_t pvo;
   void *data;
   int offset;
   gasneti_atomic_t num_waiting;
-  void *get_buffer;
-  size_t get_length;
   lapi_cntr_t *origin_counter;
-  struct _gasnete_lapi_nb_struct *next; 
 } gasnete_lapi_nb;
 #endif
 

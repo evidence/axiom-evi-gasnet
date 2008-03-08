@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2008/03/08 06:59:01 $
- * $Revision: 1.78 $
+ *     $Date: 2008/03/08 07:54:20 $
+ * $Revision: 1.79 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -527,8 +527,6 @@ void* gasnete_lapi_memset_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len,
 #define gasnetc_lapi_find_pvo(_node, _offset) \
 	(gasnetc_pvo_table[(_node)][(_offset) >> GASNETC_LAPI_PVO_EXTENT_BITS])
 
-static gasneti_mutex_t nb_lock = GASNETI_MUTEX_INITIALIZER;
-
 /* Pin like there's no tomorrow! */
 static lapi_user_pvo_t gasnetc_lapi_get_local_pvo(lapi_long_t addr, size_t len)
 {
@@ -578,7 +576,7 @@ static void gasnetc_lapi_release_pvo(lapi_user_pvo_t pvo)
 
 static gasnete_lapi_nb *gasnete_free_nb_list_original = NULL;
 static char *gasnete_lapi_all_buffers = NULL;
-static gasnete_lapi_nb *gasnete_free_nb_list = NULL;
+static gasneti_lifo_head_t gasnete_free_nb_list = GASNETI_LIFO_INITIALIZER;
 #define GASNETE_LAPI_NUM_NB 1024
 static int gasnete_num_nb = GASNETE_LAPI_NUM_NB;
 extern void gasnete_lapi_setup_nb()
@@ -588,7 +586,7 @@ extern void gasnete_lapi_setup_nb()
   size_t size_pinned_region = 0;
   lapi_get_pvo_t req;
   int count = 0;
-  gasnete_free_nb_list_original = gasnete_free_nb_list = (gasnete_lapi_nb *) gasneti_malloc(gasnete_num_nb*sizeof(gasnete_lapi_nb));
+  gasnete_free_nb_list_original = (gasnete_lapi_nb *) gasneti_malloc(gasnete_num_nb*sizeof(gasnete_lapi_nb));
   all_data = gasnete_lapi_all_buffers = (char *) gasneti_malloc(total_pinned_region);
   gasneti_assert(GASNETC_LAPI_PVO_EXTENT % gasnete_pin_threshold == 0);
   GASNETI_TRACE_PRINTF(C,("gasnete_lapi_setup_nb: node = %d pinned size = %ld #buffers = %d\n",gasneti_mynode,total_pinned_region,gasnete_num_nb));
@@ -604,18 +602,17 @@ extern void gasnete_lapi_setup_nb()
     GASNETI_TRACE_PRINTF(C,("gasnete_lapi_setup_nb: %d got pvo %ld for network buffer\n",gasneti_mynode,(uint64_t) req.usr_pvo)); 
     num_slices = this_region_size/gasnete_pin_threshold;
     for(s = 0; s < num_slices; s++) {
-      gasnete_free_nb_list[count].data = all_data + size_pinned_region + s*gasnete_pin_threshold;
-      gasnete_free_nb_list[count].offset = s*gasnete_pin_threshold;
-      gasnete_free_nb_list[count].pvo = req.usr_pvo;
+      gasnete_free_nb_list_original[count].data = all_data + size_pinned_region + s*gasnete_pin_threshold;
+      gasnete_free_nb_list_original[count].offset = s*gasnete_pin_threshold;
+      gasnete_free_nb_list_original[count].pvo = req.usr_pvo;
       if(count < gasnete_num_nb-1) {
-        gasnete_free_nb_list[count].next = &(gasnete_free_nb_list[count+1]);
-      } else {
-        gasnete_free_nb_list[count].next = NULL;
+        gasneti_lifo_link(&gasnete_free_nb_list_original[count], &gasnete_free_nb_list_original[count+1]);
       }
       count++;
     }
     size_pinned_region += this_region_size;
   }
+  gasneti_lifo_push_many(&gasnete_free_nb_list, &gasnete_free_nb_list_original[0], &gasnete_free_nb_list_original[gasnete_num_nb-1]);
 }
 
 extern void gasnete_lapi_free_nb()
@@ -623,7 +620,7 @@ extern void gasnete_lapi_free_nb()
   int i;
   lapi_get_pvo_t req;
   for(i=0;i < gasnete_num_nb;i++) {
-    /* Only release the PVO once.  The guy with offset == 0 is in some sense
+    /* Only release each PVO once.  The guy with offset == 0 is in some sense
        the "head" */
     if(gasnete_free_nb_list_original[i].offset == 0) {
       req.Util_type = LAPI_XLATE_ADDRESS;
@@ -640,26 +637,23 @@ extern void gasnete_lapi_free_nb()
 
 static gasnete_lapi_nb *gasnete_get_free_network_buffer()
 {
-  gasnete_lapi_nb *ret;
-  volatile gasnete_lapi_nb **fl_ptr = (volatile gasnete_lapi_nb **) &gasnete_free_nb_list;
-  int cnt = 0;
-  gasneti_mutex_lock(&nb_lock);
-  while(*fl_ptr == NULL) {
-    /* Need to give up the lock for a while.  Need to tune this */
-    gasneti_mutex_unlock(&nb_lock);
-    gasneti_AMPoll();
-    cnt++;
-    if(cnt > 100000) {
-      cnt = 0;
-      printf("%d Spinning too much waiting for a network buffer?\n",gasneti_mynode);
-    }
-    gasneti_mutex_lock(&nb_lock);
-  }
-  /* Remove from free list */
-  ret = (gasnete_lapi_nb *) *fl_ptr;
-  *fl_ptr = (*fl_ptr)->next;
+  gasnete_lapi_nb *ret = gasneti_lifo_pop(&gasnete_free_nb_list);
 
-  gasneti_mutex_unlock(&nb_lock);  /* This should take care of memory consistency nastiness, right? */
+  if_pf (!ret) {
+    /* TODO: stats/trace the stall count and duration? */
+    int cnt = 0;
+    do {
+      /* Need to tune this? */
+      gasneti_AMPoll();
+      cnt++;
+      if(cnt > 100000) {
+        cnt = 0;
+        printf("%d Spinning too much waiting for a network buffer?\n",gasneti_mynode);
+      }
+      ret = gasneti_lifo_pop(&gasnete_free_nb_list);
+    } while (!ret);
+  }
+
   return(ret);
 }
 
@@ -670,11 +664,7 @@ static void gasnete_free_network_buffer(gasnete_lapi_nb *nb)
     memcpy(nb->get_buffer,nb->data,nb->get_length);
   }
 
-  gasneti_mutex_lock(&nb_lock);
-  /* Add back to free list */
-  nb->next = gasnete_free_nb_list;
-  gasnete_free_nb_list = nb; 
-  gasneti_mutex_unlock(&nb_lock);
+  gasneti_lifo_push(&gasnete_free_nb_list, nb);
 }
 
 static void gasnete_lapi_reap_network_buffer(lapi_handle_t *hndl, void *user_data, lapi_sh_info_t *info)
