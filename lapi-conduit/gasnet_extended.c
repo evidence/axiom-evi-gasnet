@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2008/03/08 05:02:57 $
- * $Revision: 1.73 $
+ *     $Date: 2008/03/08 05:45:13 $
+ * $Revision: 1.74 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -725,6 +725,8 @@ void gasnete_lapi_release_firehose(lapi_handle_t *hndl, void *user_data, lapi_sh
 }
 
 #if GASNET_SEGMENT_EVERYTHING
+static gasneti_lifo_head_t gasnete_lapi_transfer_info_freelist = GASNETI_LIFO_INITIALIZER;
+
 typedef struct _gasnete_lapi_transfer_info_struct {
   lapi_long_t local_p;
   lapi_long_t remote_p;
@@ -737,11 +739,20 @@ typedef struct _gasnete_lapi_transfer_info_struct {
   const firehose_request_t *fh[2];
 } gasnete_lapi_transfer_info;
 
+gasnete_lapi_transfer_info *gasnete_lapi_alloc_transfer_info(void)
+{
+  gasnete_lapi_transfer_info *ret = gasneti_lifo_pop(&gasnete_lapi_transfer_info_freelist);
+  if_pf(!ret) {
+    ret = gasneti_malloc(sizeof(gasnete_lapi_transfer_info));
+  }
+  return ret;
+}
+
 void gasnete_lapi_release_transfer_info(lapi_handle_t *hndl, void *user_data, lapi_sh_info_t *info)
 {
   gasnete_lapi_transfer_info *my_info = (gasnete_lapi_transfer_info *) user_data;
   firehose_release(my_info->fh, 2);
-  gasneti_free(my_info);
+  gasneti_lifo_push(&gasnete_lapi_transfer_info_freelist, my_info);
 }
 
 /* Callback after remote stuff is pinned */
