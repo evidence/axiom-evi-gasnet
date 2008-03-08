@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2008/03/08 00:56:40 $
- * $Revision: 1.71 $
+ *     $Date: 2008/03/08 02:49:29 $
+ * $Revision: 1.72 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -520,16 +520,8 @@ void* gasnete_lapi_memset_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len,
  */
 
 #if !GASNET_SEGMENT_EVERYTHING
-/* returns offset, sets pvo by reference
- * 'offset' is the offset relative to the GASNet segment (e.g. addr - segbase[node])
- * TODO: use shift and mask, not / and %
- */
-GASNETI_INLINE(gasnetc_lapi_pvo_and_offset)
-unsigned int gasnetc_lapi_pvo_and_offset(gasnet_node_t node, lapi_long_t offset, lapi_user_pvo_t *pvo_p)
-{
-	*pvo_p = gasnetc_pvo_table[offset / GASNETC_LAPI_PVO_EXTENT][node];
-	return (unsigned int)(offset % GASNETC_LAPI_PVO_EXTENT);
-}
+#define gasnetc_lapi_find_pvo(_node, _offset) \
+	(gasnetc_pvo_table[(_node)][(_offset) >> GASNETC_LAPI_PVO_EXTENT_BITS])
 #endif
 
 static gasneti_mutex_t nb_lock = GASNETI_MUTEX_INITIALIZER;
@@ -975,14 +967,16 @@ extern gasnete_eop_t *gasnete_lapi_do_rdma(void *dest, gasnet_node_t node, void 
             one or two RDMA calls depending on whether or not it is entirely
             within a single PVO region at the target */
        
-        source_offset = gasnetc_lapi_pvo_and_offset(gasneti_mynode, local_segment_offset, &source_pvo);
+        source_pvo = gasnetc_lapi_find_pvo(gasneti_mynode, local_segment_offset);
+        source_offset = local_segment_offset & GASNETC_LAPI_PVO_EXTENT_MASK;
         length_to_boundary = (int) MIN(GASNETC_LAPI_PVO_EXTENT - source_offset, remaining_bytes);
         chunk_remaining = length_to_boundary;
       }
 
       first_call=1; 
       do {
-        remote_offset = gasnetc_lapi_pvo_and_offset(node, remote_segment_offset, &remote_pvo);
+        remote_pvo = gasnetc_lapi_find_pvo(node, remote_segment_offset);
+        remote_offset = remote_segment_offset & GASNETC_LAPI_PVO_EXTENT_MASK;
 	length_to_remote_boundary = MIN(GASNETC_LAPI_PVO_EXTENT - remote_offset, chunk_remaining);
 
         if(using_network_buffer && first_call) {
@@ -1048,7 +1042,8 @@ extern gasnete_eop_t *gasnete_lapi_do_rdma(void *dest, gasnet_node_t node, void 
 	xfer_struct.HwXfer.src_pvo = fh_req->client.pvo;
 
         /* Remote offset and PVO */
-	remote_offset = gasnetc_lapi_pvo_and_offset(node, remote_segment_offset, &xfer_struct.HwXfer.tgt_pvo);
+	xfer_struct.HwXfer.tgt_pvo = gasnetc_lapi_find_pvo(node, remote_segment_offset);
+	remote_offset = remote_segment_offset & GASNETC_LAPI_PVO_EXTENT_MASK;
 	xfer_struct.HwXfer.tgt_offset = remote_offset;
 
         /* Update because of remote alignment issues */
@@ -1082,7 +1077,8 @@ extern gasnete_eop_t *gasnete_lapi_do_rdma(void *dest, gasnet_node_t node, void 
         /* We could (and once did) try to optimize for the fact that after
          * the first pass we are guaranteed to be remotely aligned.  However,
          * that eliminates so little work as not to seem worth it.  -PHH */
-          remote_offset = gasnetc_lapi_pvo_and_offset(node, remote_segment_offset, &xfer_struct.HwXfer.tgt_pvo);
+          xfer_struct.HwXfer.tgt_pvo = gasnetc_lapi_find_pvo(node, remote_segment_offset);
+          remote_offset = remote_segment_offset & GASNETC_LAPI_PVO_EXTENT_MASK;
 	  transfer_len = MIN (remaining_bytes, GASNETC_LAPI_PVO_EXTENT - remote_offset);
 	  xfer_struct.HwXfer.src_pvo = gasnetc_lapi_get_local_pvo(local_addr, transfer_len);
 	  xfer_struct.HwXfer.tgt_offset = remote_offset;

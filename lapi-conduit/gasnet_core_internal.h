@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2008/03/08 00:54:57 $
- * $Revision: 1.50 $
+ *     $Date: 2008/03/08 02:49:29 $
+ * $Revision: 1.51 $
  * Description: GASNet lapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -305,7 +305,11 @@ extern size_t gasnetc_get_pagesize(void *addr);
 /* ------------------------------------------------------------------------------------ */
 
 #if GASNETC_LAPI_RDMA
-#define GASNETC_LAPI_PVO_EXTENT (16L*1024L*1024L)
+/* PVOs of 16M length, where 2^24 = 16*1024*1024 */
+#define GASNETC_LAPI_PVO_EXTENT_BITS	24
+#define GASNETC_LAPI_PVO_EXTENT		(1UL << GASNETC_LAPI_PVO_EXTENT_BITS)
+#define GASNETC_LAPI_PVO_EXTENT_MASK	(GASNETC_LAPI_PVO_EXTENT - 1)
+
 #define GASNETC_MAX_PVOS_PER_THREAD 16
 extern int gasnetc_use_firehose;
 
