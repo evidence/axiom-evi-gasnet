@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2008/03/08 09:51:50 $
- * $Revision: 1.106 $
+ *     $Date: 2008/03/08 20:12:14 $
+ * $Revision: 1.107 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -88,8 +88,10 @@ lapi_long_t gasnetc_my_segtop = 0;
 int *gasnetc_lapi_local_target_counters = NULL;
 lapi_cntr_t **gasnetc_lapi_completion_ptrs = NULL;
 lapi_long_t *gasnetc_lapi_target_counter_directory = NULL;
+#if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
 extern void gasnete_lapi_setup_nb();
 extern void gasnete_lapi_free_nb();
+#endif
 /* In case people call exit before attach */
 int gasnetc_lapi_rdma_initialized = 0;
 /* For opening up some concurrency in multiple transfers to the same node */
@@ -817,19 +819,14 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     }
 #endif /* GASNETC_LAPI_RDMA */
 #else
+    /* GASNET_SEGMENT_EVERYTHING */
 #if GASNETC_LAPI_RDMA
     if_pt(gasnetc_lapi_use_rdma) {
     /* Segment everything setup */
     gasnetc_lapi_get_remote_contexts();
-#if 0
-    /* Just initialize the network buffers */
-    GASNETI_TRACE_PRINTF(C,("gasnetc_attach: %d bounce buffer setup\n",gasneti_mynode));
-    gasnete_lapi_setup_nb();
-#endif
     GASNETC_LCHECK(LAPI_Gfence(gasnetc_lapi_context));
     }
 #endif /* GASNETC_LAPI_RDMA */
-    /* GASNET_SEGMENT_EVERYTHING */
     {
 	int i;
 	for (i=0;i<gasneti_nodes;i++) {
@@ -889,8 +886,10 @@ void gasnetc_lapi_free()
   gasneti_free(gasnetc_pvo_table);
   gasneti_free(gasnetc_segbase_table);
   
+#if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
   /* Free and unpin the network buffers */
   gasnete_lapi_free_nb();
+#endif
 }
 #endif
 /* ------------------------------------------------------------------------------------ */
