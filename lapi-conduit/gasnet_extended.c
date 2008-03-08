@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2008/03/08 00:54:57 $
- * $Revision: 1.70 $
+ *     $Date: 2008/03/08 00:56:40 $
+ * $Revision: 1.71 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -911,6 +911,7 @@ extern gasnete_eop_t *gasnete_lapi_do_rdma(void *dest, gasnet_node_t node, void 
                         NULL,
                         gasnete_lapi_complete_transfer, info);
 
+    total_transfers++;
     local_addr += ask_bytes;
     remote_addr += ask_bytes;
     remaining_bytes -= ask_bytes;
