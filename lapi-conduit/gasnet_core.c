@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2008/03/08 06:52:04 $
- * $Revision: 1.105 $
+ *     $Date: 2008/03/08 09:51:50 $
+ * $Revision: 1.106 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -83,6 +83,8 @@ int gasnetc_lapi_use_rdma;
 lapi_remote_cxt_t **gasnetc_remote_ctxts = NULL;
 lapi_user_pvo_t **gasnetc_pvo_table = NULL;
 lapi_long_t *gasnetc_segbase_table = NULL;
+lapi_long_t gasnetc_my_segbase = 0;
+lapi_long_t gasnetc_my_segtop = 0;
 int *gasnetc_lapi_local_target_counters = NULL;
 lapi_cntr_t **gasnetc_lapi_completion_ptrs = NULL;
 lapi_long_t *gasnetc_lapi_target_counter_directory = NULL;
@@ -705,6 +707,8 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 	gasneti_assert(segsize % GASNET_PAGESIZE == 0);
     }
 #if GASNETC_LAPI_RDMA
+    gasnetc_my_segbase = (lapi_long_t)segbase;
+    gasnetc_my_segtop = (lapi_long_t)segbase + (segsize - 1);
     if_pt(gasnetc_lapi_use_rdma) {
 	/* 
 	 * For LAPI RDMA attempt to pin, i.e. get PVOs 
@@ -796,7 +800,6 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 
     GASNETC_LCHECK(LAPI_Gfence(gasnetc_lapi_context));
 	  
-    GASNETC_LCHECK(LAPI_Gfence(gasnetc_lapi_context));
     GASNETI_TRACE_PRINTF(C,("gasnetc_attach: %d exchanging base addresses\n",gasneti_mynode));
     /* Finally, exchange the base addresses */
     gasnetc_segbase_table = gasneti_malloc(gasneti_nodes*sizeof(lapi_long_t));
