@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2008/03/07 20:59:08 $
- * $Revision: 1.101 $
+ *     $Date: 2008/03/08 00:15:20 $
+ * $Revision: 1.102 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -527,7 +527,7 @@ void gasnetc_lapi_test_pin(int rdma_declared_on)
           gasneti_fatalerror("GASNET_LAPI_USE_RDMA set to yes, but %s",error_str);
         } else {
           /* Wait for the error */
-          gasneti_fatalerror(""); 
+          gasneti_fatalerror("exiting"); 
         }
       } else {
         if(gasneti_mynode == 0) {
@@ -708,7 +708,6 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 	 {
 	 int my_num_pvos;
          int i=0;
-         int j=0;
          uintptr_t tmp_offset = 0;
          if (segbase) { /* bug 2176: warn if segment is not large page */
            size_t large_pagesz = sysconf(_SC_LARGE_PAGESIZE);
@@ -2138,7 +2137,6 @@ void* gasnetc_lapi_AMreply_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len
     void* destloc = NULL;
     gasnetc_token_t *new_token;
     unsigned int numargs;
-    int token_len = *uhdr_len;
     gasnet_handler_t func_ix = msg->handlerId;
     gasnetc_handler_fn_t am_func = gasnetc_handler[func_ix];
     gasnet_handlerarg_t *am_args = &msg->args[0];
