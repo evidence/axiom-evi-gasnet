@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2008/03/08 05:46:47 $
- * $Revision: 1.75 $
+ *     $Date: 2008/03/08 05:50:41 $
+ * $Revision: 1.76 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -296,7 +296,7 @@ gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t * const thread) {
 
 #if GASNETC_LAPI_RDMA
 
-void gasnete_free_network_buffer(gasnete_lapi_nb *nb);
+static void gasnete_free_network_buffer(gasnete_lapi_nb *nb);
 /* Use bounce buffers for transfers below the following threshold */
 /* 4K for now, will/should be user controlled later */
 int gasnete_pin_threshold = (4*1024); 
@@ -527,8 +527,9 @@ void* gasnete_lapi_memset_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len,
 #endif
 
 static gasneti_mutex_t nb_lock = GASNETI_MUTEX_INITIALIZER;
+
 /* Pin like there's no tomorrow! */
-lapi_user_pvo_t gasnetc_lapi_get_local_pvo(lapi_long_t addr, size_t len)
+static lapi_user_pvo_t gasnetc_lapi_get_local_pvo(lapi_long_t addr, size_t len)
 {
 	lapi_get_pvo_t new_pvo;
 	new_pvo.Util_type = LAPI_XLATE_ADDRESS;
@@ -580,7 +581,7 @@ gasnete_lapi_nb *gasnete_free_nb_list = NULL;
 gasnete_lapi_nb *gasnete_active_nb_list = NULL;
 #define GASNETE_LAPI_NUM_NB 1024
 int gasnete_num_nb = GASNETE_LAPI_NUM_NB;
-void gasnete_lapi_setup_nb()
+extern void gasnete_lapi_setup_nb()
 {
   size_t total_pinned_region = gasnete_num_nb * gasnete_pin_threshold;
   char *all_data;
@@ -618,7 +619,7 @@ void gasnete_lapi_setup_nb()
   }
 }
 
-void gasnete_lapi_free_nb()
+extern void gasnete_lapi_free_nb()
 {
   int i;
   lapi_get_pvo_t req;
@@ -639,7 +640,7 @@ void gasnete_lapi_free_nb()
 }
 
 /* Need back pointers etc. so that reaping happens */
-gasnete_lapi_nb *gasnete_get_free_network_buffer()
+static gasnete_lapi_nb *gasnete_get_free_network_buffer()
 {
   gasnete_lapi_nb *ret;
   volatile gasnete_lapi_nb **fl_ptr = (volatile gasnete_lapi_nb **) &gasnete_free_nb_list;
@@ -672,7 +673,7 @@ gasnete_lapi_nb *gasnete_get_free_network_buffer()
   return(ret);
 }
 
-void gasnete_free_network_buffer(gasnete_lapi_nb *nb)
+static void gasnete_free_network_buffer(gasnete_lapi_nb *nb)
 {
   if(nb->get_p) {
     /* Copy out */
@@ -699,7 +700,7 @@ void gasnete_free_network_buffer(gasnete_lapi_nb *nb)
   gasneti_mutex_unlock(&nb_lock);
 }
 
-void gasnete_lapi_reap_network_buffer(lapi_handle_t *hndl, void *user_data, lapi_sh_info_t *info)
+static void gasnete_lapi_reap_network_buffer(lapi_handle_t *hndl, void *user_data, lapi_sh_info_t *info)
 {
   gasnete_lapi_nb *nb_id = (gasnete_lapi_nb *) user_data;
   int done = gasneti_atomic_decrement_and_test(&(nb_id->num_waiting),0);
@@ -711,14 +712,15 @@ void gasnete_lapi_reap_network_buffer(lapi_handle_t *hndl, void *user_data, lapi
   }
 }
 
-void gasnete_lapi_reap_pvo(lapi_handle_t *hndl, void *user_data, lapi_sh_info_t *info)
+static void gasnete_lapi_reap_pvo(lapi_handle_t *hndl, void *user_data, lapi_sh_info_t *info)
 {
   gasneti_assert(sizeof(lapi_user_pvo_t) <= sizeof(void *));
   gasnetc_lapi_release_pvo((lapi_user_pvo_t) user_data);
 }
 
 extern firehose_info_t gasnetc_firehose_info;
-void gasnete_lapi_release_firehose(lapi_handle_t *hndl, void *user_data, lapi_sh_info_t *info)
+
+static void gasnete_lapi_release_firehose(lapi_handle_t *hndl, void *user_data, lapi_sh_info_t *info)
 {
   const firehose_request_t *fh_req = (firehose_request_t *) user_data;
   firehose_release(&fh_req,1);
@@ -739,7 +741,7 @@ typedef struct _gasnete_lapi_transfer_info_struct {
   const firehose_request_t *fh[2];
 } gasnete_lapi_transfer_info;
 
-gasnete_lapi_transfer_info *gasnete_lapi_alloc_transfer_info(void)
+static gasnete_lapi_transfer_info *gasnete_lapi_alloc_transfer_info(void)
 {
   gasnete_lapi_transfer_info *ret = gasneti_lifo_pop(&gasnete_lapi_transfer_info_freelist);
   if_pf(!ret) {
@@ -748,7 +750,7 @@ gasnete_lapi_transfer_info *gasnete_lapi_alloc_transfer_info(void)
   return ret;
 }
 
-void gasnete_lapi_release_transfer_info(lapi_handle_t *hndl, void *user_data, lapi_sh_info_t *info)
+static void gasnete_lapi_release_transfer_info(lapi_handle_t *hndl, void *user_data, lapi_sh_info_t *info)
 {
   gasnete_lapi_transfer_info *my_info = (gasnete_lapi_transfer_info *) user_data;
   firehose_release(my_info->fh, 2);
@@ -756,7 +758,7 @@ void gasnete_lapi_release_transfer_info(lapi_handle_t *hndl, void *user_data, la
 }
 
 /* Callback after remote stuff is pinned */
-void gasnete_lapi_complete_transfer(void *context, const firehose_request_t *req, int allLocalHit)
+static void gasnete_lapi_complete_transfer(void *context, const firehose_request_t *req, int allLocalHit)
 {
     lapi_xfer_t xfer_struct;
     gasnete_lapi_transfer_info *info = (gasnete_lapi_transfer_info *) context;
