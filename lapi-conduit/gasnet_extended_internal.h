@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2008/03/08 00:17:16 $
- * $Revision: 1.26 $
+ *     $Date: 2008/03/08 00:51:14 $
+ * $Revision: 1.27 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -299,15 +299,4 @@ void gasnete_op_free(gasnete_op_t *op);
 #define _hidx_gasnete_amcbarrier_notify_reqh (GASNETE_HANDLER_BASE+1) 
 #define _hidx_gasnete_amcbarrier_done_reqh   (GASNETE_HANDLER_BASE+2)
 
-#if GASNETC_LAPI_RDMA
-/* Should put these somewhere else to avoid duplication */
-extern lapi_remote_cxt_t **gasnetc_remote_ctxts;
-extern int *gasnetc_lapi_current_rctxt;
-extern int gasnetc_rctxts_per_node;
-extern lapi_user_pvo_t **gasnetc_pvo_table;
-extern lapi_long_t *gasnetc_segbase_table;
-extern int *gasnetc_local_target_counters;
-extern lapi_cntr_t **gasnetc_lapi_completion_ptrs;
-extern lapi_long_t *gasnetc_lapi_target_counter_directory;
-#endif
 #endif
