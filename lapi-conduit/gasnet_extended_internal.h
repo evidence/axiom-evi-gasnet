@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2008/03/08 00:51:14 $
- * $Revision: 1.27 $
+ *     $Date: 2008/03/08 06:13:57 $
+ * $Revision: 1.28 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -83,9 +83,6 @@ typedef union _gasnete_eopaddr_t {
 
 #define gasnete_eopaddr_equal(addr1,addr2) ((addr1).fulladdr == (addr2).fulladdr)
 #define gasnete_eopaddr_isnil(addr) ((addr).fulladdr == EOPADDR_NIL.fulladdr)
-#if GASNETC_LAPI_RDMA
-struct _gasnete_lapi_nb_struct;
-#endif
 typedef struct _gasnete_eop_t {
     uint8_t flags;                  /*  state flags */
     gasnete_threadidx_t threadidx;  /*  thread that owns me */
@@ -105,9 +102,8 @@ typedef struct _gasnete_lapi_nb_struct {
   void *data;
   int offset;
   gasneti_atomic_t num_waiting;
-  void *user_buffer;
-  size_t user_length;
-  int get_p;
+  void *get_buffer;
+  size_t get_length;
   lapi_cntr_t *origin_counter;
   struct _gasnete_lapi_nb_struct *next; 
   struct _gasnete_lapi_nb_struct *prev; 

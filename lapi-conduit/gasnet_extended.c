@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2008/03/08 05:50:41 $
- * $Revision: 1.76 $
+ *     $Date: 2008/03/08 06:13:57 $
+ * $Revision: 1.77 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -675,9 +675,9 @@ static gasnete_lapi_nb *gasnete_get_free_network_buffer()
 
 static void gasnete_free_network_buffer(gasnete_lapi_nb *nb)
 {
-  if(nb->get_p) {
+  if(nb->get_length) {
     /* Copy out */
-    memcpy(nb->user_buffer,nb->data,nb->user_length);
+    memcpy(nb->get_buffer,nb->data,nb->get_length);
   }
 
   gasneti_mutex_lock(&nb_lock);
@@ -948,11 +948,12 @@ extern gasnete_eop_t *gasnete_lapi_do_rdma(void *dest, gasnet_node_t node, void 
       /* Copy in for puts */
       if(op != LAPI_RDMA_GET) {
         memcpy(nb_id->data,(void *) local_p_to_long,nbytes);
+        nb_id->get_length = 0;
+      } else {
+        nb_id->get_buffer = (void *) local_p_to_long;
+        nb_id->get_length = nbytes;
       }
 
-      nb_id->user_buffer = (void *) local_p_to_long;
-      nb_id->user_length = nbytes;
-      nb_id->get_p = (op == LAPI_RDMA_GET);
       nb_id->origin_counter = new_eop->origin_counter;
   } 
 
