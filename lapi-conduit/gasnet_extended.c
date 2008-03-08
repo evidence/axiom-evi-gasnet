@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2008/03/08 00:15:20 $
- * $Revision: 1.68 $
+ *     $Date: 2008/03/08 00:24:30 $
+ * $Revision: 1.69 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -708,7 +708,7 @@ void gasnete_free_network_buffer(gasnete_lapi_nb *nb)
 void gasnete_lapi_reap_network_buffer(lapi_handle_t *hndl, void *user_data, lapi_sh_info_t *info)
 {
   gasnete_lapi_nb *nb_id = (gasnete_lapi_nb *) user_data;
-  int done = gasneti_decrement_and_test(&(nb_id->num_waiting),0);
+  int done = gasneti_atomic_decrement_and_test(&(nb_id->num_waiting),0);
   /* Bump up the origin counter */
   GASNETC_LCHECK(LAPI_Put(gasnetc_lapi_context, gasneti_mynode, 0,NULL, NULL, NULL, NULL, nb_id->origin_counter));
   if (done) {
@@ -784,8 +784,7 @@ void gasnete_lapi_complete_transfer(void *context, const firehose_request_t *req
       /* Do the transfer */
       GASNETC_LCHECK (LAPI_Xfer (gasnetc_lapi_context, &xfer_struct));
     
-      /* Bump up counters */
-      gasneti_atomic_inc(num_transfers_p, 0);
+      gasneti_atomic_increment(num_transfers_p, 0);
    }
 }
 #endif /* GASNET_SEGMENT_EVERYTHING */
@@ -983,7 +982,7 @@ extern gasnete_eop_t *gasnete_lapi_do_rdma(void *dest, gasnet_node_t node, void 
 
         if(using_network_buffer && first_call) {
           first_call=0;
-          gasneti_atomic_set(&nb_id->num_waiting, ((length_to_remote_boundary != nbytes) : 2 : 1), 0);
+          gasneti_atomic_set(&nb_id->num_waiting, ((length_to_remote_boundary != nbytes) ? 2 : 1), 0);
         }
 	/* Send this off now */
 
