@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2008/03/08 00:24:30 $
- * $Revision: 1.69 $
+ *     $Date: 2008/03/08 00:54:57 $
+ * $Revision: 1.70 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -795,7 +795,6 @@ extern gasnete_eop_t *gasnete_lapi_do_rdma(void *dest, gasnet_node_t node, void 
   lapi_long_t remote_p_to_long;
   lapi_long_t local_p_to_long;
   lapi_remote_cxt_t rcxt;
-  int rctxt_index;
   lapi_cntr_t *cptr;
   gasnete_eop_t *new_eop;
   int total_transfers = 0;
@@ -814,9 +813,14 @@ extern gasnete_eop_t *gasnete_lapi_do_rdma(void *dest, gasnet_node_t node, void 
 #endif
 
   /* Get an rctxt for this peer, round robin */
-     
-  rctxt_index = fetch_and_add(gasnetc_lapi_current_rctxt + node, 1) % gasnetc_rctxts_per_node;
-  rcxt = gasnetc_remote_ctxts[node][rctxt_index];
+#if !GASNETT_HAVE_ATOMIC_ADD_SUB
+#error "lapi-conduit requires atomic add support"
+#endif
+  {
+    gasneti_atomic_t *ctr = &(gasnetc_lapi_current_rctxt[node]);
+    gasneti_atomic_val_t rctxt_index = (gasneti_atomic_add(ctr, 1, 0) & gasnetc_rctxts_per_node_mask);
+    rcxt = gasnetc_remote_ctxts[node][rctxt_index];
+  }
 
   if(op == LAPI_RDMA_GET) {
     remote_p_to_long = (lapi_long_t) origin;

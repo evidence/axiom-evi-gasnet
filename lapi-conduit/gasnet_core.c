@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2008/03/08 00:15:20 $
- * $Revision: 1.102 $
+ *     $Date: 2008/03/08 00:54:57 $
+ * $Revision: 1.103 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -91,8 +91,8 @@ extern void gasnete_lapi_free_nb();
 /* In case people call exit before attach */
 int gasnetc_lapi_rdma_initialized = 0;
 /* For opening up some concurrency in multiple transfers to the same node */
-int gasnetc_rctxts_per_node = 1;
-int *gasnetc_lapi_current_rctxt;
+gasneti_atomic_t *gasnetc_lapi_current_rctxt;
+gasneti_atomic_val_t gasnetc_rctxts_per_node_mask = 0;
 firehose_info_t gasnetc_firehose_info;
 lapi_cntr_t gasnetc_incoming_puts_cntr;
 lapi_cntr_t gasnetc_incoming_gets_cntr;
@@ -454,20 +454,25 @@ int gasnetc_use_firehose = 0;
 void gasnetc_lapi_get_remote_contexts()
 {
   int i,j;
-  /* Get rCtxts, the connections to remote nodes */
-  gasnetc_remote_ctxts = gasneti_malloc(gasneti_nodes*sizeof(lapi_remote_cxt_t *));
-  gasnetc_lapi_current_rctxt = gasneti_malloc(gasneti_nodes*sizeof(int));
-  memset((void *) gasnetc_lapi_current_rctxt,0,gasneti_nodes*sizeof(int));
+  int rctxts_per_node;
 
   /* Too verbose? */
-  gasnetc_rctxts_per_node = (int) gasneti_getenv_int_withdefault("GASNET_LAPI_RCTXTS_PER_NODE",1,0);
+  rctxts_per_node = (int) gasneti_getenv_int_withdefault("GASNET_LAPI_RCTXTS_PER_NODE",1,0);
+  if (!GASNETI_POWEROFTWO(rctxts_per_node)) {
+    gasneti_fatalerror("If set, GASNET_LAPI_RCTXTS_PER_NODE must be a power of two (is %d)", rctxts_per_node);
+  }
+  gasnetc_rctxts_per_node_mask = (rctxts_per_node - 1);
+
+  /* Get rCtxts, the connections to remote nodes */
+  gasnetc_remote_ctxts = gasneti_malloc(gasneti_nodes*sizeof(lapi_remote_cxt_t *));
+  gasnetc_lapi_current_rctxt = gasneti_malloc(gasneti_nodes*sizeof(gasneti_atomic_t));
 
   for(i=0;i < gasneti_nodes;i++) {
+    gasneti_atomic_set(&gasnetc_lapi_current_rctxt[i], 0, 0);
     /* This will give an error if you try to get a remote context for yourself */
-    gasnetc_remote_ctxts[i] = gasneti_malloc(gasnetc_rctxts_per_node*sizeof(lapi_remote_cxt_t));
-    memset((void *) (gasnetc_remote_ctxts[i]),0,gasnetc_rctxts_per_node*sizeof(lapi_remote_cxt_t));
+    gasnetc_remote_ctxts[i] = gasneti_calloc(rctxts_per_node,sizeof(lapi_remote_cxt_t));
     if(i != gasneti_mynode) {
-      for(j=0;j < gasnetc_rctxts_per_node;j++) {
+      for(j=0;j < rctxts_per_node;j++) {
         gasnetc_remote_ctxts[i][j].Util_type = LAPI_REMOTE_RCXT;
         gasnetc_remote_ctxts[i][j].operation = LAPI_RDMA_ACQUIRE;
         gasnetc_remote_ctxts[i][j].dest = i;

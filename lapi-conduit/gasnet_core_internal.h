@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2008/03/08 00:15:20 $
- * $Revision: 1.49 $
+ *     $Date: 2008/03/08 00:54:57 $
+ * $Revision: 1.50 $
  * Description: GASNet lapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -310,7 +310,8 @@ extern size_t gasnetc_get_pagesize(void *addr);
 extern int gasnetc_use_firehose;
 
 extern lapi_remote_cxt_t **gasnetc_remote_ctxts;
-extern int *gasnetc_lapi_current_rctxt;
+extern gasneti_atomic_t *gasnetc_lapi_current_rctxt;
+extern gasneti_atomic_val_t gasnetc_rctxts_per_node_mask;
 extern lapi_user_pvo_t **gasnetc_pvo_table;
 extern lapi_long_t *gasnetc_segbase_table;
 extern int *gasnetc_lapi_local_target_counters;
