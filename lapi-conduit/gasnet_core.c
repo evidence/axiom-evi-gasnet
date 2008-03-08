@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2008/03/08 02:49:29 $
- * $Revision: 1.104 $
+ *     $Date: 2008/03/08 06:52:04 $
+ * $Revision: 1.105 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -868,9 +868,9 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 #if GASNETC_LAPI_RDMA
 void gasnetc_lapi_free()
 {
+#if 0
   int i;
 
-#if 0
   for(i=0;i < gasnetc_num_pvos;i++) {
    lapi_get_pvo_t new_pvo;
    new_pvo.Util_type = LAPI_XLATE_ADDRESS;
