@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2008/03/08 05:45:13 $
- * $Revision: 1.74 $
+ *     $Date: 2008/03/08 05:46:47 $
+ * $Revision: 1.75 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -891,7 +891,7 @@ extern gasnete_eop_t *gasnete_lapi_do_rdma(void *dest, gasnet_node_t node, void 
   remote_addr = remote_p_to_long;
 
   while(remaining_bytes) {
-    gasnete_lapi_transfer_info *info = (gasnete_lapi_transfer_info *) gasneti_malloc(sizeof(gasnete_lapi_transfer_info));
+    gasnete_lapi_transfer_info *info = gasnete_lapi_alloc_transfer_info();
 
     /* Try to pin remote piece */
     lapi_long_t ask_bytes = MIN(remaining_bytes, gasnetc_firehose_info.max_RemotePinSize - (remote_addr & (GASNETI_PAGESIZE-1)));
