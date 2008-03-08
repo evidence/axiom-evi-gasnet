@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2008/03/08 02:49:29 $
- * $Revision: 1.72 $
+ *     $Date: 2008/03/08 05:02:57 $
+ * $Revision: 1.73 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -79,8 +79,10 @@ static gasnete_threaddata_t * gasnete_new_threaddata() {
     gasnete_threadtable[idx] = threaddata;
     threaddata->current_iop = gasnete_iop_new(threaddata);
 
+#if GASNETC_LAPI_RDMA
     /* Increase the limit on in-flight PVOs */
     gasneti_semaphore_up_n(&gasnete_lapi_pvo_sema, GASNETC_MAX_PVOS_PER_THREAD);
+#endif
 
     return threaddata;
 }
