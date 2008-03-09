@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2008/03/09 07:38:56 $
- * $Revision: 1.90 $
+ *     $Date: 2008/03/09 09:06:18 $
+ * $Revision: 1.91 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -542,9 +542,10 @@ static void gasnetc_lapi_new_pvo(void)
    * If we wish to extend LAPI-RDMA support to 32-bit builds, we'll
    * want to replace the semaphore with a gasneti_lifo_t to manage
    * small structs again (and this function will need to return them).
+   * -PHH
    */
   if_pf (!gasneti_semaphore_trydown(&gasnete_lapi_pvo_sema)) {
-     /* TODO: stats/trace the stall count and duration? */
+     /* TODO: stats/trace the stall count and duration? -PHH */
      do {
        gasneti_AMPoll();
      } while (!gasneti_semaphore_trydown(&gasnete_lapi_pvo_sema));
@@ -631,7 +632,7 @@ static gasnete_lapi_nb *gasnete_get_free_network_buffer()
   gasnete_lapi_nb *ret = gasneti_lifo_pop(&gasnete_free_nb_list);
 
   if_pf (!ret) {
-    /* TODO: stats/trace the stall count and duration? */
+    /* TODO: stats/trace the stall count and duration? -PHH */
     int cnt = 0;
     do {
       /* Need to tune this? */
@@ -749,7 +750,7 @@ static void gasnete_lapi_complete_transfer(void *context, const firehose_request
 #endif /* GASNET_SEGMENT_EVERYTHING */
 
 /* Note: Pointers are passed as remote/local, their identity as src/dest depends on op */
-static gasnete_eop_t *gasnete_lapi_do_rdma(gasnet_node_t node, void *remote_ptr, void *local_ptr, const size_t nbytes, int op, lapi_cntr_t *origin_counter, gasnete_iop_t *iop GASNETE_THREAD_FARG)
+static gasnete_eop_t *gasnete_lapi_do_rdma(gasnet_node_t node, void *remote_ptr, void *local_ptr, const size_t nbytes, int op, lapi_cntr_t *origin_counter GASNETE_THREAD_FARG)
 {
   lapi_long_t remaining_bytes = nbytes;
   lapi_remote_cxt_t rcxt;
@@ -780,7 +781,10 @@ static gasnete_eop_t *gasnete_lapi_do_rdma(gasnet_node_t node, void *remote_ptr,
     rcxt = gasnetc_remote_ctxts[node][rctxt_index];
   }
 
-  /* XXX: This was here before me.  I won't remove it w/o first understanding it. -PHH */
+  /* XXX: This was here before me.  I won't remove it w/o first understanding it.
+   * The CVS commit that first put it here says only "LAPI RDMA cleanup. No config changes yet."
+   * -PHH
+   */
   if(op == LAPI_RDMA_PUT) {
     gasneti_sync_reads();
   }
@@ -789,19 +793,14 @@ static gasnete_eop_t *gasnete_lapi_do_rdma(gasnet_node_t node, void *remote_ptr,
   new_eop = gasnete_eop_new(GASNETE_MYTHREAD);
   gasneti_assert(new_eop->initiated_cnt == 0);
 
+  /* Default origin counter as needed */
+  if(origin_counter == NULL) {
+    origin_counter = &(new_eop->cntr);
+  }
+  new_eop->origin_counter = origin_counter;
+
   GASNETI_TRACE_PRINTF(C,("gasnete_lapi_do_rdma: dest = %p node = %d size = %ld op = %s\n", remote_ptr, node, nbytes, op == LAPI_RDMA_GET ? "GET" : "PUT"));
   
-  /* Select the proper origin counter */
-#if GASNET_DEBUG
-  if(origin_counter && !iop) { /* eop counters should have been initialized zero */
-    int cnt;
-    GASNETC_LCHECK(LAPI_Getcntr(gasnetc_lapi_context, origin_counter, &cnt));
-    gasneti_assert(cnt == 0);
-  }
-#endif
-  gasneti_assert(origin_counter || !iop); /* No implicit counter for iop */
-  new_eop->origin_counter = origin_counter ? origin_counter : &(new_eop->cntr);
-
 #if GASNET_SEGMENT_EVERYTHING
   /* Be driven by remote pinning */
 
@@ -827,8 +826,9 @@ static gasnete_eop_t *gasnete_lapi_do_rdma(gasnet_node_t node, void *remote_ptr,
     info->remote_cxt = rcxt.usr_rcxt;
     /* Pin local piece */
     info->fh[0] = firehose_local_pin(local_addr, ask_bytes,NULL);
-    info->origin_counter = new_eop->origin_counter;
+    info->origin_counter = origin_counter;
 
+    /* XXX: We would hide some of the AM latency if the remote pin request was first -PHH */
     firehose_remote_pin(node, remote_addr, ask_bytes,
                         0, NULL,
                         NULL,
@@ -881,8 +881,8 @@ static gasnete_eop_t *gasnete_lapi_do_rdma(gasnet_node_t node, void *remote_ptr,
         nb_id->get_length = nbytes;
       }
 
-      nb_id->origin_counter = new_eop->origin_counter;
-      gasneti_atomic_set(&nb_id->num_waiting,
+      nb_id->origin_counter = origin_counter;
+      gasneti_atomic_set(&nb_id->num_waiting,	 /* do we cross 1 or 2 PVOs? */
 			 ((GASNETC_LAPI_PVO_EXTENT - remote_offset < nbytes) ? 2 : 1), 0);
   } 
 
@@ -910,7 +910,7 @@ static gasnete_eop_t *gasnete_lapi_do_rdma(gasnet_node_t node, void *remote_ptr,
         chunk_remaining = nbytes;
       } else {
         xfer_struct.HwXfer.shdlr = (scompl_hndlr_t *) NULL;
-        xfer_struct.HwXfer.org_cntr = new_eop->origin_counter;
+        xfer_struct.HwXfer.org_cntr = origin_counter;
         xfer_struct.HwXfer.src_pvo = gasnetc_lapi_find_pvo(gasneti_mynode, local_segment_offset);
         source_offset = local_segment_offset & GASNETC_LAPI_PVO_EXTENT_MASK;
         chunk_remaining = (int) MIN(GASNETC_LAPI_PVO_EXTENT - source_offset, remaining_bytes);
@@ -952,7 +952,7 @@ static gasnete_eop_t *gasnete_lapi_do_rdma(gasnet_node_t node, void *remote_ptr,
   } else {
     lapi_long_t local_addr = (lapi_long_t) local_ptr;
 
-    xfer_struct.HwXfer.org_cntr = new_eop->origin_counter;
+    xfer_struct.HwXfer.org_cntr = origin_counter;
     if(gasnetc_use_firehose) {
       xfer_struct.HwXfer.shdlr = gasnete_lapi_release_firehose;
       do {
@@ -1026,13 +1026,6 @@ static gasnete_eop_t *gasnete_lapi_do_rdma(gasnet_node_t node, void *remote_ptr,
 #endif /* GASNET_SEGMENT_EVERYTHING */
   /* Return an eop  with all the required information */
   new_eop->num_transfers = total_transfers;
-  if(iop != NULL) {
-    if(op == LAPI_RDMA_GET) {
-      iop->initiated_get_cnt += total_transfers;
-    } else {
-      iop->initiated_put_cnt += total_transfers;
-    }
-  }
   return(new_eop);
 }
 #endif
@@ -1051,7 +1044,7 @@ extern void gasnete_get_bulk (void *dest, gasnet_node_t node, void *src,
       GASNETI_TRACE_PRINTF(C,("gasnete_get_bulk\n"));
       GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context, &c_cntr, 0));
       /* gasneti_suspend_spinpollers(); */
-      eop = gasnete_lapi_do_rdma(node,src,dest,nbytes,LAPI_RDMA_GET, &c_cntr,NULL GASNETE_THREAD_GET);
+      eop = gasnete_lapi_do_rdma(node,src,dest,nbytes,LAPI_RDMA_GET,&c_cntr GASNETE_THREAD_GET);
       /* gasneti_resume_spinpollers(); */
       /* Wait on this eop */
       GASNETI_TRACE_PRINTF(C,("gasnete_get_bulk: wait on sync\n"));
@@ -1098,7 +1091,7 @@ extern void gasnete_put_bulk (gasnet_node_t node, void *dest, void *src,
       GASNETI_TRACE_PRINTF(C,("gasnete_put_bulk target node=%d\n",node));
       GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context, &c_cntr, 0));
       /* gasneti_suspend_spinpollers(); */
-      eop = gasnete_lapi_do_rdma(node,dest,src,nbytes,LAPI_RDMA_PUT, &c_cntr,NULL GASNETE_THREAD_GET);
+      eop = gasnete_lapi_do_rdma(node,dest,src,nbytes,LAPI_RDMA_PUT,&c_cntr GASNETE_THREAD_GET);
       /* gasneti_resume_spinpollers(); */
       /* Wait on this eop */
       GASNETI_TRACE_PRINTF(C,("gasnete_put_bulk: wait on sync\n"));
@@ -1181,7 +1174,7 @@ extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void
       gasnete_eop_t *eop;
       GASNETI_TRACE_PRINTF(C,("gasnete_get_nb_bulk\n"));
       /* gasneti_suspend_spinpollers(); */
-      eop = gasnete_lapi_do_rdma(node,src,dest,nbytes,LAPI_RDMA_GET, NULL, NULL GASNETE_THREAD_GET);
+      eop = gasnete_lapi_do_rdma(node,src,dest,nbytes,LAPI_RDMA_GET,NULL GASNETE_THREAD_GET);
       /* gasneti_resume_spinpollers(); */
       return((gasnet_handle_t) eop);
     } else {
@@ -1216,7 +1209,7 @@ extern gasnet_handle_t gasnete_put_nb_bulk (gasnet_node_t node, void *dest, void
       gasnete_eop_t *eop;
       GASNETI_TRACE_PRINTF(C,("gasnete_put_nb_bulk\n"));
       /* gasneti_suspend_spinpollers(); */
-      eop = gasnete_lapi_do_rdma(node,dest,src,nbytes,LAPI_RDMA_PUT, NULL, NULL GASNETE_THREAD_GET);
+      eop = gasnete_lapi_do_rdma(node,dest,src,nbytes,LAPI_RDMA_PUT,NULL GASNETE_THREAD_GET);
       /* gasneti_resume_spinpollers(); */
       /* Don't wait for source completion */
       return((gasnet_handle_t) eop);
@@ -1260,7 +1253,7 @@ extern gasnet_handle_t gasnete_put_nb (gasnet_node_t node, void *dest, void *src
       int cur_cntr;
       GASNETI_TRACE_PRINTF(C,("gasnete_put_nb\n"));
       /* gasneti_suspend_spinpollers(); */
-      eop = gasnete_lapi_do_rdma(node,dest,src,nbytes,LAPI_RDMA_PUT, NULL, NULL GASNETE_THREAD_GET);
+      eop = gasnete_lapi_do_rdma(node,dest,src,nbytes,LAPI_RDMA_PUT,NULL GASNETE_THREAD_GET);
       /* gasneti_resume_spinpollers(); */
       /* Wait for the origin counter to indicate local completion */
         GASNETC_WAITCNTR(eop->origin_counter,eop->num_transfers,&cur_cntr);
@@ -1634,7 +1627,8 @@ extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src,
     gasnete_eop_t *eop;
     GASNETI_TRACE_PRINTF(C,("gasnete_get_nbi_bulk\n"));
     /* gasneti_suspend_spinpollers(); */
-    eop = gasnete_lapi_do_rdma(node,src,dest,nbytes,LAPI_RDMA_GET,&(op->get_cntr),op GASNETE_THREAD_GET);
+    eop = gasnete_lapi_do_rdma(node,src,dest,nbytes,LAPI_RDMA_GET,&(op->get_cntr) GASNETE_THREAD_GET);
+    op->initiated_get_cnt += eop->num_transfers;
     eop->origin_counter = NULL;
     gasnete_op_free((gasnete_op_t *) eop); 
     /* gasneti_resume_spinpollers(); */
@@ -1666,7 +1660,8 @@ extern void gasnete_put_nbi_bulk (gasnet_node_t node, void *dest, void *src,
     if_pt(gasnetc_lapi_use_rdma) {
     gasnete_eop_t *eop;
     /* gasneti_suspend_spinpollers(); */
-    eop = gasnete_lapi_do_rdma(node,dest,src,nbytes,LAPI_RDMA_PUT,&(op->put_cntr),op GASNETE_THREAD_GET);
+    eop = gasnete_lapi_do_rdma(node,dest,src,nbytes,LAPI_RDMA_PUT,&(op->put_cntr) GASNETE_THREAD_GET);
+    op->initiated_put_cnt += eop->num_transfers;
     eop->origin_counter = NULL;
     gasnete_op_free((gasnete_op_t *) eop); 
     /* gasneti_resume_spinpollers(); */
@@ -1713,13 +1708,13 @@ extern void gasnete_put_nbi (gasnet_node_t node, void *dest, void *src,
     GASNETI_TRACE_PRINTF(C,("gasnete_put_nbi\n"));
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context, &o_cntr, 0));
     /* gasneti_suspend_spinpollers(); */
-    result = gasnete_lapi_do_rdma(node,dest,src,nbytes,LAPI_RDMA_PUT, &o_cntr, op GASNETE_THREAD_GET);
+    result = gasnete_lapi_do_rdma(node,dest,src,nbytes,LAPI_RDMA_PUT,&o_cntr GASNETE_THREAD_GET);
+    /* SEE BELOW: op->initiated_put_cnt += result->num_transfers; */
     /* gasneti_resume_spinpollers(); */
     gasneti_assert(result->origin_counter == &o_cntr);
     GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&o_cntr,result->num_transfers,&cur_cntr));
-    /* Because this actually completes the operation, act like it never happened and decrement the
-       put count */
-    op->initiated_put_cnt-=result->num_transfers;
+    /* Because this actually completes the operation, act like it never happened and don't
+       increment the put count above (the "SEE BELOW" remark).*/
     result->num_transfers = 0;
     result->origin_counter = NULL;
     gasnete_op_free((gasnete_op_t *) result); 
