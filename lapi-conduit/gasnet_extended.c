@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2008/03/09 04:51:01 $
- * $Revision: 1.86 $
+ *     $Date: 2008/03/09 05:31:24 $
+ * $Revision: 1.87 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -798,18 +798,15 @@ static gasnete_eop_t *gasnete_lapi_do_rdma(gasnet_node_t node, void *remote_ptr,
   GASNETI_TRACE_PRINTF(C,("gasnete_lapi_do_rdma: dest = %ld node = %d size = %ld op = %s\n",(uint64_t) remote_p_to_long, node, nbytes, op == LAPI_RDMA_GET ? "GET" : "PUT"));
   
   /* Select the proper origin counter */
-  if(origin_counter) {
 #if GASNET_DEBUG
+  if(origin_counter && !iop) { /* eop counters should have been initialized zero */
     int cnt;
     GASNETC_LCHECK(LAPI_Getcntr(gasnetc_lapi_context, origin_counter, &cnt));
     gasneti_assert(cnt == 0);
-#endif
-    new_eop->origin_counter = origin_counter;
-  } else if(iop == NULL) {
-    new_eop->origin_counter = &(new_eop->cntr);
-  } else {
-    new_eop->origin_counter = (op == LAPI_RDMA_GET) ? &(iop->get_cntr) : &(iop->put_cntr);
   }
+#endif
+  gasneti_assert(origin_counter || !iop); /* No implicit counter for iop */
+  new_eop->origin_counter = origin_counter ? origin_counter : &(new_eop->cntr);
 
 #if GASNET_SEGMENT_EVERYTHING
   /* Be driven by remote pinning */
@@ -1657,7 +1654,7 @@ extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src,
     gasnete_eop_t *eop;
     GASNETI_TRACE_PRINTF(C,("gasnete_get_nbi_bulk\n"));
     /* gasneti_suspend_spinpollers(); */
-    eop = gasnete_lapi_do_rdma(node,src,dest,nbytes,LAPI_RDMA_GET, NULL, op GASNETE_THREAD_GET);
+    eop = gasnete_lapi_do_rdma(node,src,dest,nbytes,LAPI_RDMA_GET,&(op->get_cntr),op GASNETE_THREAD_GET);
     eop->origin_counter = NULL;
     gasnete_op_free((gasnete_op_t *) eop); 
     /* gasneti_resume_spinpollers(); */
@@ -1689,7 +1686,7 @@ extern void gasnete_put_nbi_bulk (gasnet_node_t node, void *dest, void *src,
     if_pt(gasnetc_lapi_use_rdma) {
     gasnete_eop_t *eop;
     /* gasneti_suspend_spinpollers(); */
-    eop = gasnete_lapi_do_rdma(node,dest,src,nbytes,LAPI_RDMA_PUT, NULL, op GASNETE_THREAD_GET);
+    eop = gasnete_lapi_do_rdma(node,dest,src,nbytes,LAPI_RDMA_PUT,&(op->put_cntr),op GASNETE_THREAD_GET);
     eop->origin_counter = NULL;
     gasnete_op_free((gasnete_op_t *) eop); 
     /* gasneti_resume_spinpollers(); */
