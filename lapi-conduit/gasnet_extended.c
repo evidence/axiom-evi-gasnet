@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2008/03/09 04:21:23 $
- * $Revision: 1.84 $
+ *     $Date: 2008/03/09 04:38:55 $
+ * $Revision: 1.85 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1087,7 +1087,8 @@ extern void gasnete_get_bulk (void *dest, gasnet_node_t node, void *src,
       /* gasneti_resume_spinpollers(); */
       /* Wait on this eop */
       GASNETI_TRACE_PRINTF(C,("gasnete_get_bulk: wait on sync\n"));
-      GASNETC_LCHECK((LAPI_Waitcntr(gasnetc_lapi_context, eop->origin_counter,eop->num_transfers,&num_get)));
+      gasneti_assert(eop->origin_counter == &c_cntr);
+      GASNETC_LCHECK((LAPI_Waitcntr(gasnetc_lapi_context,&c_cntr,eop->num_transfers,&num_get)));
 
       gasnete_op_free((gasnete_op_t *)eop);
     } else {
@@ -1133,7 +1134,8 @@ extern void gasnete_put_bulk (gasnet_node_t node, void *dest, void *src,
       /* gasneti_resume_spinpollers(); */
       /* Wait on this eop */
       GASNETI_TRACE_PRINTF(C,("gasnete_put_bulk: wait on sync\n"));
-      GASNETC_LCHECK((LAPI_Waitcntr(gasnetc_lapi_context, eop->origin_counter,eop->num_transfers,&num_put)));
+      gasneti_assert(eop->origin_counter == &c_cntr);
+      GASNETC_LCHECK((LAPI_Waitcntr(gasnetc_lapi_context,&c_cntr,eop->num_transfers,&num_put)));
       GASNETI_TRACE_PRINTF(C,("gasnete_put_bulk: wait done\n"));
 
       gasnete_op_free((gasnete_op_t *)eop);
@@ -1752,7 +1754,8 @@ extern void gasnete_put_nbi (gasnet_node_t node, void *dest, void *src,
     /* gasneti_suspend_spinpollers(); */
     result = gasnete_lapi_do_rdma(node,dest,src,nbytes,LAPI_RDMA_PUT, &o_cntr, op GASNETE_THREAD_GET);
     /* gasneti_resume_spinpollers(); */
-    GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,result->origin_counter,result->num_transfers,&cur_cntr));
+    gasneti_assert(result->origin_counter == &o_cntr);
+    GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&o_cntr,result->num_transfers,&cur_cntr));
     /* Because this actually completes the operation, act like it never happened and decrement the
        put count */
     op->initiated_put_cnt-=result->num_transfers;
