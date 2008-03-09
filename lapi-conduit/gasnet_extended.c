@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2008/03/09 05:31:24 $
- * $Revision: 1.87 $
+ *     $Date: 2008/03/09 06:06:44 $
+ * $Revision: 1.88 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -752,8 +752,6 @@ static void gasnete_lapi_complete_transfer(void *context, const firehose_request
 static gasnete_eop_t *gasnete_lapi_do_rdma(gasnet_node_t node, void *remote_ptr, void *local_ptr, const size_t nbytes, int op, lapi_cntr_t *origin_counter, gasnete_iop_t *iop GASNETE_THREAD_FARG)
 {
   lapi_long_t remaining_bytes = nbytes;
-  lapi_long_t remote_p_to_long;
-  lapi_long_t local_p_to_long;
   lapi_remote_cxt_t rcxt;
   gasnete_eop_t *new_eop;
   int total_transfers = 0;
@@ -783,9 +781,6 @@ static gasnete_eop_t *gasnete_lapi_do_rdma(gasnet_node_t node, void *remote_ptr,
     rcxt = gasnetc_remote_ctxts[node][rctxt_index];
   }
 
-  remote_p_to_long = (lapi_long_t) remote_ptr;
-  local_p_to_long = (lapi_long_t) local_ptr;
-
   /* XXX: This was here before me.  I won't remove it w/o first understanding it. -PHH */
   if(op == LAPI_RDMA_PUT) {
     gasneti_sync_reads();
@@ -795,7 +790,7 @@ static gasnete_eop_t *gasnete_lapi_do_rdma(gasnet_node_t node, void *remote_ptr,
   new_eop = gasnete_eop_new(GASNETE_MYTHREAD);
   gasneti_assert(new_eop->initiated_cnt == 0);
 
-  GASNETI_TRACE_PRINTF(C,("gasnete_lapi_do_rdma: dest = %ld node = %d size = %ld op = %s\n",(uint64_t) remote_p_to_long, node, nbytes, op == LAPI_RDMA_GET ? "GET" : "PUT"));
+  GASNETI_TRACE_PRINTF(C,("gasnete_lapi_do_rdma: dest = %p node = %d size = %ld op = %s\n", remote_ptr, node, nbytes, op == LAPI_RDMA_GET ? "GET" : "PUT"));
   
   /* Select the proper origin counter */
 #if GASNET_DEBUG
@@ -812,8 +807,8 @@ static gasnete_eop_t *gasnete_lapi_do_rdma(gasnet_node_t node, void *remote_ptr,
   /* Be driven by remote pinning */
 
   initiated_bytes = 0;
-  local_addr = local_p_to_long;
-  remote_addr = remote_p_to_long;
+  local_addr =  (lapi_long_t) local_ptr;
+  remote_addr = (lapi_long_t) remote_ptr;
 
   do {
     gasnete_lapi_transfer_info *info = gasnete_lapi_alloc_transfer_info();
@@ -862,12 +857,12 @@ static gasnete_eop_t *gasnete_lapi_do_rdma(gasnet_node_t node, void *remote_ptr,
   GASNETI_TRACE_PRINTF(C,("gasnete_lapi_do_rdma: nbytes = %ld threshold = %d\n",nbytes,gasnete_pin_threshold));
   /* Note that in computing in_local_seg, we don't bother to check for an xfer
    * that crosses gasnetc_my_segtop.  That should be impossible, so assert. */
-  in_local_seg = (local_p_to_long >= gasnetc_my_segbase) &&
-                 (local_p_to_long <= gasnetc_my_segtop);
-  gasneti_assert(!in_local_seg || ((local_p_to_long+nbytes) <= gasnetc_my_segtop));
+  in_local_seg = ((lapi_long_t) local_ptr >= gasnetc_my_segbase) &&
+                 ((lapi_long_t) local_ptr <= gasnetc_my_segtop);
+  gasneti_assert(!in_local_seg || ((((lapi_long_t) local_ptr) + nbytes) <= gasnetc_my_segtop));
 
   /* Remote addr as offsets from remote segment and remote PVO */
-  remote_segment_offset = remote_p_to_long - gasnetc_segbase_table[node];
+  remote_segment_offset = ((lapi_long_t) remote_ptr) - gasnetc_segbase_table[node];
   remote_offset = remote_segment_offset & GASNETC_LAPI_PVO_EXTENT_MASK;
 
   /* If the transfer is really small (for some definition of "really small") */
@@ -877,11 +872,11 @@ static gasnete_eop_t *gasnete_lapi_do_rdma(gasnet_node_t node, void *remote_ptr,
       nb_id = gasnete_get_free_network_buffer();
       if(op != LAPI_RDMA_GET) {
         /* Copy in for puts */
-        memcpy(nb_id->data,(void *) local_p_to_long,nbytes);
+        memcpy(nb_id->data,local_ptr,nbytes);
         nb_id->get_length = 0;
       } else {
         /* Save addr/len for gets */
-        nb_id->get_buffer = (void *) local_p_to_long;
+        nb_id->get_buffer = local_ptr;
         nb_id->get_length = nbytes;
       }
 
@@ -893,7 +888,7 @@ static gasnete_eop_t *gasnete_lapi_do_rdma(gasnet_node_t node, void *remote_ptr,
   /* Do something special if the origin is within the pinned segment or we can use a network buffer */
   if ((nb_id != NULL) || in_local_seg) {
     /* Offsets of local addr relative to base of segment */
-    lapi_long_t local_segment_offset = local_p_to_long - gasnetc_my_segbase;
+    lapi_long_t local_segment_offset = ((lapi_long_t) local_ptr) - gasnetc_my_segbase;
 
     /* No need to pin origin, but you need to deal with misalignment 
        (in terms of the PVO boundaries)
@@ -961,7 +956,7 @@ static gasnete_eop_t *gasnete_lapi_do_rdma(gasnet_node_t node, void *remote_ptr,
     } while(remaining_bytes);
              
   } else {
-    lapi_long_t local_addr = local_p_to_long;
+    lapi_long_t local_addr = (lapi_long_t) local_ptr;
 
     if(gasnetc_use_firehose) {
       do {
