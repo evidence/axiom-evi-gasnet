@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2008/03/09 06:06:44 $
- * $Revision: 1.88 $
+ *     $Date: 2008/03/09 06:30:10 $
+ * $Revision: 1.89 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -756,7 +756,6 @@ static gasnete_eop_t *gasnete_lapi_do_rdma(gasnet_node_t node, void *remote_ptr,
   gasnete_eop_t *new_eop;
   int total_transfers = 0;
 #if GASNET_SEGMENT_EVERYTHING
-  int64_t initiated_bytes;
   lapi_long_t local_addr, remote_addr;
   gasneti_atomic_t initiated_xfers = gasneti_atomic_init(0); /* incremented by callback */
 #else
@@ -806,7 +805,6 @@ static gasnete_eop_t *gasnete_lapi_do_rdma(gasnet_node_t node, void *remote_ptr,
 #if GASNET_SEGMENT_EVERYTHING
   /* Be driven by remote pinning */
 
-  initiated_bytes = 0;
   local_addr =  (lapi_long_t) local_ptr;
   remote_addr = (lapi_long_t) remote_ptr;
 
