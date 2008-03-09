@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2008/03/09 04:51:01 $
- * $Revision: 1.31 $
+ *     $Date: 2008/03/09 09:38:31 $
+ * $Revision: 1.32 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -102,7 +102,7 @@ typedef struct _gasnete_lapi_nb_struct {
   lapi_user_pvo_t pvo;
   void *data;
   int offset;
-  gasneti_atomic_t num_waiting;
+  gasneti_weakatomic_t num_waiting;
   lapi_cntr_t *origin_counter;
 } gasnete_lapi_nb;
 #endif

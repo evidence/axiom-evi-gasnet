@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2008/03/08 20:12:14 $
- * $Revision: 1.107 $
+ *     $Date: 2008/03/09 09:38:31 $
+ * $Revision: 1.108 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -95,8 +95,8 @@ extern void gasnete_lapi_free_nb();
 /* In case people call exit before attach */
 int gasnetc_lapi_rdma_initialized = 0;
 /* For opening up some concurrency in multiple transfers to the same node */
-gasneti_atomic_t *gasnetc_lapi_current_rctxt;
-gasneti_atomic_val_t gasnetc_rctxts_per_node_mask = 0;
+gasneti_weakatomic_t *gasnetc_lapi_current_rctxt;
+gasneti_weakatomic_val_t gasnetc_rctxts_per_node_mask = 0;
 firehose_info_t gasnetc_firehose_info;
 lapi_cntr_t gasnetc_incoming_puts_cntr;
 lapi_cntr_t gasnetc_incoming_gets_cntr;
@@ -469,10 +469,10 @@ void gasnetc_lapi_get_remote_contexts()
 
   /* Get rCtxts, the connections to remote nodes */
   gasnetc_remote_ctxts = gasneti_malloc(gasneti_nodes*sizeof(lapi_remote_cxt_t *));
-  gasnetc_lapi_current_rctxt = gasneti_malloc(gasneti_nodes*sizeof(gasneti_atomic_t));
+  gasnetc_lapi_current_rctxt = gasneti_malloc(gasneti_nodes*sizeof(gasneti_weakatomic_t));
 
   for(i=0;i < gasneti_nodes;i++) {
-    gasneti_atomic_set(&gasnetc_lapi_current_rctxt[i], 0, 0);
+    gasneti_weakatomic_set(&gasnetc_lapi_current_rctxt[i], 0, 0);
     /* This will give an error if you try to get a remote context for yourself */
     gasnetc_remote_ctxts[i] = gasneti_calloc(rctxts_per_node,sizeof(lapi_remote_cxt_t));
     if(i != gasneti_mynode) {

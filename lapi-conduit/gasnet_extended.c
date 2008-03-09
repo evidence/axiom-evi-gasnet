@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2008/03/09 09:37:25 $
- * $Revision: 1.92 $
+ *     $Date: 2008/03/09 09:38:31 $
+ * $Revision: 1.93 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -652,7 +652,7 @@ static gasnete_lapi_nb *gasnete_get_free_network_buffer()
 static void gasnete_lapi_reap_network_buffer(lapi_handle_t *hndl, void *user_data, lapi_sh_info_t *info)
 {
   gasnete_lapi_nb *nb_id = (gasnete_lapi_nb *) user_data;
-  int done = gasneti_atomic_decrement_and_test(&(nb_id->num_waiting),0);
+  int done = gasneti_weakatomic_decrement_and_test(&(nb_id->num_waiting),0);
   /* Bump up the origin counter (ICK, loopback Put to get it incremented) */
   GASNETC_LCHECK(LAPI_Put(gasnetc_lapi_context, gasneti_mynode, 0,NULL, NULL, NULL, NULL, nb_id->origin_counter));
   if (done) {
@@ -686,7 +686,7 @@ typedef struct _gasnete_lapi_transfer_info_struct {
   lapi_long_t local_p;
   lapi_long_t remote_p;
   lapi_long_t nbytes;
-  gasneti_atomic_t *num_transfers_p;
+  gasneti_weakatomic_t *num_transfers_p;
   int op;
   int node;
   lapi_user_cxt_t remote_cxt;
@@ -739,12 +739,12 @@ static void gasnete_lapi_complete_transfer(void *context, const firehose_request
 
     {
       /* Fetch pointer now to avoid race against shdlr freeing info */
-      gasneti_atomic_t *num_transfers_p = info->num_transfers_p;
+      gasneti_weakatomic_t *num_transfers_p = info->num_transfers_p;
 
       /* Do the transfer */
       GASNETC_LCHECK (LAPI_Xfer (gasnetc_lapi_context, &xfer_struct));
     
-      gasneti_atomic_increment(num_transfers_p, 0);
+      gasneti_weakatomic_increment(num_transfers_p, 0);
    }
 }
 #endif /* GASNET_SEGMENT_EVERYTHING */
@@ -758,7 +758,7 @@ static gasnete_eop_t *gasnete_lapi_do_rdma(gasnet_node_t node, void *remote_ptr,
   int total_transfers = 0;
 #if GASNET_SEGMENT_EVERYTHING
   lapi_long_t local_addr, remote_addr;
-  gasneti_atomic_t initiated_xfers = gasneti_atomic_init(0); /* incremented by callback */
+  gasneti_weakatomic_t initiated_xfers = gasneti_weakatomic_init(0); /* incremented by callback */
 #else
   lapi_xfer_t xfer_struct;
   int transfer_len;
@@ -772,12 +772,12 @@ static gasnete_eop_t *gasnete_lapi_do_rdma(gasnet_node_t node, void *remote_ptr,
   gasneti_assert(node != gasneti_mynode);
 
   /* Get an rctxt for this peer, round robin */
-#if !GASNETT_HAVE_ATOMIC_ADD_SUB
+#if !defined(GASNETI_HAVE_WEAKATOMIC_ADD_SUB)
 #error "lapi-conduit requires atomic add support"
 #endif
   {
-    gasneti_atomic_t *ctr = &(gasnetc_lapi_current_rctxt[node]);
-    gasneti_atomic_val_t rctxt_index = (gasneti_atomic_add(ctr, 1, 0) & gasnetc_rctxts_per_node_mask);
+    gasneti_weakatomic_t *ctr = &(gasnetc_lapi_current_rctxt[node]);
+    gasneti_weakatomic_val_t rctxt_index = (gasneti_weakatomic_add(ctr, 1, 0) & gasnetc_rctxts_per_node_mask);
     rcxt = gasnetc_remote_ctxts[node][rctxt_index];
   }
 
@@ -791,7 +791,6 @@ static gasnete_eop_t *gasnete_lapi_do_rdma(gasnet_node_t node, void *remote_ptr,
 
   /* Create an eop for this operation */
   new_eop = gasnete_eop_new(GASNETE_MYTHREAD);
-  gasneti_assert(new_eop->initiated_cnt == 0);
 
   /* Default origin counter as needed */
   if(origin_counter == NULL) {
@@ -844,7 +843,7 @@ static gasnete_eop_t *gasnete_lapi_do_rdma(gasnet_node_t node, void *remote_ptr,
   /* Wait for all initiations to complete before proceeding
      because of a potential race if you try to sync on the handle
      before you even send stuff out */
-  while(gasneti_atomic_read(&initiated_xfers,0) != total_transfers) {
+  while(gasneti_weakatomic_read(&initiated_xfers,0) != total_transfers) {
     gasnetc_AMPoll();
   }
   gasneti_sync_reads();
@@ -882,7 +881,7 @@ static gasnete_eop_t *gasnete_lapi_do_rdma(gasnet_node_t node, void *remote_ptr,
       }
 
       nb_id->origin_counter = origin_counter;
-      gasneti_atomic_set(&nb_id->num_waiting,	 /* do we cross 1 or 2 PVOs? */
+      gasneti_weakatomic_set(&nb_id->num_waiting,	 /* do we cross 1 or 2 PVOs? */
 			 ((GASNETC_LAPI_PVO_EXTENT - remote_offset < nbytes) ? 2 : 1), 0);
   } 
 
