@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2008/03/08 23:23:52 $
- * $Revision: 1.82 $
+ *     $Date: 2008/03/09 00:32:56 $
+ * $Revision: 1.83 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -778,6 +778,7 @@ static gasnete_eop_t *gasnete_lapi_do_rdma(void *dest, gasnet_node_t node, void 
 #endif
 
   gasneti_assert(nbytes != 0);
+  gasneti_assert(node != gasneti_mynode);
 
   /* Get an rctxt for this peer, round robin */
 #if !GASNETT_HAVE_ATOMIC_ADD_SUB
@@ -800,48 +801,24 @@ static gasnete_eop_t *gasnete_lapi_do_rdma(void *dest, gasnet_node_t node, void 
 
   /* Create an eop for this operation */
   new_eop = gasnete_eop_new(GASNETE_MYTHREAD);
-  new_eop->origin_counter = NULL;
-  new_eop->initiated_cnt = 0;
+  gasneti_assert(new_eop->initiated_cnt == 0);
+  gasneti_assert(!gasnetc_lapi_use_rdma || (new_eop->local_p == 0));
 
   GASNETI_TRACE_PRINTF(C,("gasnete_lapi_do_rdma: dest = %ld node = %d size = %ld op = %s\n",(uint64_t) remote_p_to_long, node, nbytes, op == LAPI_RDMA_GET ? "GET" : "PUT"));
   
-
-  if(iop == NULL) {
-    if(origin_counter != NULL) {
-      new_eop->origin_counter = origin_counter;
-    } else {
-      new_eop->origin_counter = &(new_eop->cntr);
-    }
-    GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context, new_eop->origin_counter, 0));
+  /* Select the proper origin counter */
+  if(origin_counter) {
+#if GASNET_DEBUG
+    int cnt;
+    GASNETC_LCHECK(LAPI_Getcntr(gasnetc_lapi_context, origin_counter, &cnt));
+    gasneti_assert(cnt == 0);
+#endif
+    new_eop->origin_counter = origin_counter;
+  } else if(iop == NULL) {
+    new_eop->origin_counter = &(new_eop->cntr);
   } else {
-    if(origin_counter != NULL) {
-      new_eop->origin_counter = origin_counter;
-    } else {
-      if(op == LAPI_RDMA_GET) {
-        /* One typically doesn't pass iops between threads, right?
-    	 So this should be safe */
-        new_eop->origin_counter = &(iop->get_cntr);
-      } else {
-        new_eop->origin_counter = &(iop->put_cntr);
-      }
-    }
+    new_eop->origin_counter = (op == LAPI_RDMA_GET) ? &(iop->get_cntr) : &(iop->put_cntr);
   }
-
-  /* Cannot do an RDMA with yourself.  For now do a memcpy and fake everything else */
-  if(node == gasneti_mynode) {
-    memcpy(dest,origin,nbytes);
-    if(iop == NULL) {
-      new_eop->origin_counter = NULL;
-      new_eop->local_p = 1;
-    }
-    new_eop->num_transfers = 0;
-    return(new_eop);
-  } else {
-    if(iop == NULL) {
-      new_eop->local_p = 0;
-    }
-  }
-  
 
 #if GASNET_SEGMENT_EVERYTHING
   /* Be driven by remote pinning */
@@ -910,11 +887,12 @@ static gasnete_eop_t *gasnete_lapi_do_rdma(void *dest, gasnet_node_t node, void 
       /* Get a free buffer */
       GASNETI_TRACE_PRINTF(C,("gasnete_lapi_do_rdma: looking for network buffer\n"));
       nb_id = gasnete_get_free_network_buffer();
-      /* Copy in for puts */
       if(op != LAPI_RDMA_GET) {
+        /* Copy in for puts */
         memcpy(nb_id->data,(void *) local_p_to_long,nbytes);
         nb_id->get_length = 0;
       } else {
+        /* Save addr/len for gets */
         nb_id->get_buffer = (void *) local_p_to_long;
         nb_id->get_length = nbytes;
       }
@@ -1080,16 +1058,14 @@ static gasnete_eop_t *gasnete_lapi_do_rdma(void *dest, gasnet_node_t node, void 
 #endif /* GASNET_SEGMENT_EVERYTHING */
   /* Return an eop  with all the required information */
   new_eop->num_transfers = total_transfers;
-  if(iop == NULL) {
-    return(new_eop);
-  } else {
+  if(iop != NULL) {
     if(op == LAPI_RDMA_GET) {
       iop->initiated_get_cnt += total_transfers;
     } else {
       iop->initiated_put_cnt += total_transfers;
     }
-    return(new_eop);
   }
+  return(new_eop);
 }
 #endif
 
