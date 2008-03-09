@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2008/03/09 04:38:55 $
- * $Revision: 1.85 $
+ *     $Date: 2008/03/09 04:51:01 $
+ * $Revision: 1.86 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -185,11 +185,8 @@ gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread) {
 	GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&eop->cntr,0));
 	eop->initiated_cnt = 0;
 #if GASNETC_LAPI_RDMA
-        if_pt(gasnetc_lapi_use_rdma) {
-          eop->local_p = 0;
-          eop->origin_counter = NULL;
-          eop->num_transfers = 0;
-        }
+        eop->origin_counter = NULL;
+        eop->num_transfers = 0;
 #endif
 	return eop;
     } else { /*  free list empty - need more eops */
@@ -318,17 +315,12 @@ int gasnete_op_isdone(gasnete_op_t *op)
 #if GASNETC_LAPI_RDMA
         if(gasnetc_lapi_use_rdma) {
 	  if (eop->initiated_cnt > 0) {
-            gasneti_assert(!eop->local_p);
             /* Internal interface used for eop */
 	    GASNETC_LCHECK(LAPI_Getcntr(gasnetc_lapi_context,&eop->cntr,&cnt));
 	    gasneti_assert(cnt <= eop->initiated_cnt);
 	    return (eop->initiated_cnt == cnt);
 	  }
         
-          if(eop->local_p) {
-            return(1);
-          }
-
 	  GASNETC_LCHECK(LAPI_Getcntr(gasnetc_lapi_context,eop->origin_counter,&cnt));
 	  gasneti_assert(cnt <= eop->num_transfers);
           if(eop->num_transfers == cnt) {
@@ -802,7 +794,6 @@ static gasnete_eop_t *gasnete_lapi_do_rdma(gasnet_node_t node, void *remote_ptr,
   /* Create an eop for this operation */
   new_eop = gasnete_eop_new(GASNETE_MYTHREAD);
   gasneti_assert(new_eop->initiated_cnt == 0);
-  gasneti_assert(!gasnetc_lapi_use_rdma || (new_eop->local_p == 0));
 
   GASNETI_TRACE_PRINTF(C,("gasnete_lapi_do_rdma: dest = %ld node = %d size = %ld op = %s\n",(uint64_t) remote_p_to_long, node, nbytes, op == LAPI_RDMA_GET ? "GET" : "PUT"));
   
@@ -1295,11 +1286,9 @@ extern gasnet_handle_t gasnete_put_nb (gasnet_node_t node, void *dest, void *src
       eop = gasnete_lapi_do_rdma(node,dest,src,nbytes,LAPI_RDMA_PUT, NULL, NULL GASNETE_THREAD_GET);
       /* gasneti_resume_spinpollers(); */
       /* Wait for the origin counter to indicate local completion */
-      if(!eop->local_p) {
         GASNETC_WAITCNTR(eop->origin_counter,eop->num_transfers,&cur_cntr);
         eop->num_transfers = 0;
         gasneti_assert(cur_cntr == 0);
-      }
       return((gasnet_handle_t) eop);
     } else {
 #endif
@@ -1364,7 +1353,6 @@ extern gasnet_handle_t gasnete_memset_nb   (gasnet_node_t node, void *dest, int 
     if_pt(gasnetc_lapi_use_rdma) {
     /* gasneti_suspend_spinpollers(); */
     op->num_transfers = 1;
-    op->local_p = 0;
     op->origin_counter = &(op->cntr);
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context, op->origin_counter, 0));
     GASNETC_LCHECK(LAPI_Amsend(gasnetc_lapi_context, (unsigned int)node,
@@ -1496,10 +1484,6 @@ extern void gasnete_wait_syncnb(gasnet_handle_t handle)
 	gasnete_eop_t *eop = (gasnete_eop_t*)op;
 	gasneti_assert(OPSTATE(op) != OPSTATE_FREE);
         gasnete_eop_check(eop);
-        if(eop->local_p) {
-          gasneti_assert(eop->initiated_cnt == 0);
-          goto END;
-        }
 	if (eop->initiated_cnt > 0) {
 	    GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&eop->cntr,eop->initiated_cnt,&cnt));
 	    gasneti_assert(cnt == 0);
