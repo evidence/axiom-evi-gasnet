@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2008/03/09 09:06:18 $
- * $Revision: 1.91 $
+ *     $Date: 2008/03/09 09:37:25 $
+ * $Revision: 1.92 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -860,7 +860,7 @@ static gasnete_eop_t *gasnete_lapi_do_rdma(gasnet_node_t node, void *remote_ptr,
    * that crosses gasnetc_my_segtop.  That should be impossible, so assert. */
   in_local_seg = ((lapi_long_t) local_ptr >= gasnetc_my_segbase) &&
                  ((lapi_long_t) local_ptr <= gasnetc_my_segtop);
-  gasneti_assert(!in_local_seg || ((((lapi_long_t) local_ptr) + nbytes) <= gasnetc_my_segtop));
+  gasneti_assert(!in_local_seg || ((((lapi_long_t) local_ptr) + nbytes - 1) <= gasnetc_my_segtop));
 
   /* Remote addr as offsets from remote segment and remote PVO */
   remote_segment_offset = ((lapi_long_t) remote_ptr) - gasnetc_segbase_table[node];
