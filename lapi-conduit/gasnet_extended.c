@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2008/03/09 09:38:31 $
- * $Revision: 1.93 $
+ *     $Date: 2008/03/10 21:18:24 $
+ * $Revision: 1.94 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1457,10 +1457,10 @@ extern void gasnete_wait_syncnb(gasnet_handle_t handle)
 	    GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&eop->cntr,eop->initiated_cnt,&cnt));
 	    gasneti_assert(cnt == 0);
 	    eop->initiated_cnt =0;
-            goto END;
-	}
+	} else {
           GASNETC_LCHECK((LAPI_Waitcntr(gasnetc_lapi_context, eop->origin_counter,eop->num_transfers,&cnt)));
           gasneti_assert(cnt == 0);
+	}
     } else {
 	gasnete_iop_t *iop = (gasnete_iop_t*)op;
         gasnete_iop_check(iop);
@@ -1477,7 +1477,6 @@ extern void gasnete_wait_syncnb(gasnet_handle_t handle)
         GASNET_BLOCKUNTIL(gasneti_weakatomic_read(&iop->put_aux_cntr, 0) == 0);
 
     }
-END:
     gasneti_sync_reads();
     gasnete_op_free(handle);
   
