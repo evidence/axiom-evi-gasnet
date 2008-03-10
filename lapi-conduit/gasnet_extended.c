@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2008/03/10 21:18:24 $
- * $Revision: 1.94 $
+ *     $Date: 2008/03/10 22:56:06 $
+ * $Revision: 1.95 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1033,26 +1033,23 @@ static gasnete_eop_t *gasnete_lapi_do_rdma(gasnet_node_t node, void *remote_ptr,
 extern void gasnete_get_bulk (void *dest, gasnet_node_t node, void *src,
 			      size_t nbytes GASNETE_THREAD_FARG)
 {
-    lapi_cntr_t c_cntr;
-    int num_get = 0;
-    int cur_cntr;
-
 #if GASNETC_LAPI_RDMA
     if_pt(gasnetc_lapi_use_rdma) {
       gasnete_eop_t *eop;
       GASNETI_TRACE_PRINTF(C,("gasnete_get_bulk\n"));
-      GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context, &c_cntr, 0));
       /* gasneti_suspend_spinpollers(); */
-      eop = gasnete_lapi_do_rdma(node,src,dest,nbytes,LAPI_RDMA_GET,&c_cntr GASNETE_THREAD_GET);
+      eop = gasnete_lapi_do_rdma(node,src,dest,nbytes,LAPI_RDMA_GET,NULL GASNETE_THREAD_PASS);
       /* gasneti_resume_spinpollers(); */
       /* Wait on this eop */
       GASNETI_TRACE_PRINTF(C,("gasnete_get_bulk: wait on sync\n"));
-      gasneti_assert(eop->origin_counter == &c_cntr);
-      GASNETC_LCHECK((LAPI_Waitcntr(gasnetc_lapi_context,&c_cntr,eop->num_transfers,&num_get)));
-
+      GASNETC_WAITCNTR(eop->origin_counter,eop->num_transfers,&eop->num_transfers);
+      gasneti_assert(eop->num_transfers == 0);
       gasnete_op_free((gasnete_op_t *)eop);
     } else {
 #endif
+    lapi_cntr_t c_cntr;
+    int num_get = 0;
+    int cur_cntr;
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context, &c_cntr, 0));
 
     /* Issue as many gets as required.
@@ -1080,27 +1077,25 @@ extern void gasnete_get_bulk (void *dest, gasnet_node_t node, void *src,
 extern void gasnete_put_bulk (gasnet_node_t node, void *dest, void *src,
 			      size_t nbytes GASNETE_THREAD_FARG)
 {
-    lapi_cntr_t  c_cntr;
-    int num_put = 0;
-    int cur_cntr;
-
 #if GASNETC_LAPI_RDMA
     if_pt(gasnetc_lapi_use_rdma) {
       gasnete_eop_t *eop;
       GASNETI_TRACE_PRINTF(C,("gasnete_put_bulk target node=%d\n",node));
-      GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context, &c_cntr, 0));
       /* gasneti_suspend_spinpollers(); */
-      eop = gasnete_lapi_do_rdma(node,dest,src,nbytes,LAPI_RDMA_PUT,&c_cntr GASNETE_THREAD_GET);
+      eop = gasnete_lapi_do_rdma(node,dest,src,nbytes,LAPI_RDMA_PUT,NULL GASNETE_THREAD_PASS);
       /* gasneti_resume_spinpollers(); */
       /* Wait on this eop */
       GASNETI_TRACE_PRINTF(C,("gasnete_put_bulk: wait on sync\n"));
-      gasneti_assert(eop->origin_counter == &c_cntr);
-      GASNETC_LCHECK((LAPI_Waitcntr(gasnetc_lapi_context,&c_cntr,eop->num_transfers,&num_put)));
-      GASNETI_TRACE_PRINTF(C,("gasnete_put_bulk: wait done\n"));
-
+      GASNETC_WAITCNTR(eop->origin_counter,eop->num_transfers,&eop->num_transfers);
+      gasneti_assert(eop->num_transfers == 0);
       gasnete_op_free((gasnete_op_t *)eop);
+      GASNETI_TRACE_PRINTF(C,("gasnete_put_bulk: wait done\n"));
     } else {
 #endif
+    lapi_cntr_t  c_cntr;
+    int num_put = 0;
+    int cur_cntr;
+
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context, &c_cntr, 0));
 
     /* Issue as many puts as required.
@@ -1169,11 +1164,10 @@ extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void
 {
 #if GASNETC_LAPI_RDMA
     if_pt(gasnetc_lapi_use_rdma) {
-      /* Need to clean up the calling sequence here */
       gasnete_eop_t *eop;
       GASNETI_TRACE_PRINTF(C,("gasnete_get_nb_bulk\n"));
       /* gasneti_suspend_spinpollers(); */
-      eop = gasnete_lapi_do_rdma(node,src,dest,nbytes,LAPI_RDMA_GET,NULL GASNETE_THREAD_GET);
+      eop = gasnete_lapi_do_rdma(node,src,dest,nbytes,LAPI_RDMA_GET,NULL GASNETE_THREAD_PASS);
       /* gasneti_resume_spinpollers(); */
       return((gasnet_handle_t) eop);
     } else {
@@ -1208,7 +1202,7 @@ extern gasnet_handle_t gasnete_put_nb_bulk (gasnet_node_t node, void *dest, void
       gasnete_eop_t *eop;
       GASNETI_TRACE_PRINTF(C,("gasnete_put_nb_bulk\n"));
       /* gasneti_suspend_spinpollers(); */
-      eop = gasnete_lapi_do_rdma(node,dest,src,nbytes,LAPI_RDMA_PUT,NULL GASNETE_THREAD_GET);
+      eop = gasnete_lapi_do_rdma(node,dest,src,nbytes,LAPI_RDMA_PUT,NULL GASNETE_THREAD_PASS);
       /* gasneti_resume_spinpollers(); */
       /* Don't wait for source completion */
       return((gasnet_handle_t) eop);
@@ -1249,16 +1243,17 @@ extern gasnet_handle_t gasnete_put_nb (gasnet_node_t node, void *dest, void *src
 #if GASNETC_LAPI_RDMA
     if_pt(gasnetc_lapi_use_rdma) {
       gasnete_eop_t *eop;
-      int cur_cntr;
       GASNETI_TRACE_PRINTF(C,("gasnete_put_nb\n"));
       /* gasneti_suspend_spinpollers(); */
-      eop = gasnete_lapi_do_rdma(node,dest,src,nbytes,LAPI_RDMA_PUT,NULL GASNETE_THREAD_GET);
+      eop = gasnete_lapi_do_rdma(node,dest,src,nbytes,LAPI_RDMA_PUT,NULL GASNETE_THREAD_PASS);
       /* gasneti_resume_spinpollers(); */
-      /* Wait for the origin counter to indicate local completion */
-        GASNETC_WAITCNTR(eop->origin_counter,eop->num_transfers,&cur_cntr);
-        eop->num_transfers = 0;
-        gasneti_assert(cur_cntr == 0);
-      return((gasnet_handle_t) eop);
+
+      /* XXX: non-bulk put is implemented as fully blocking */
+      GASNETC_WAITCNTR(eop->origin_counter,eop->num_transfers,&eop->num_transfers);
+      gasneti_assert(eop->num_transfers == 0);
+      gasnete_op_free((gasnete_op_t *)eop);
+
+      return GASNET_INVALID_HANDLE;
     } else {
 #endif
     gasnete_eop_t *op = gasnete_eop_new(GASNETE_MYTHREAD);
@@ -1625,9 +1620,9 @@ extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src,
     gasnete_eop_t *eop;
     GASNETI_TRACE_PRINTF(C,("gasnete_get_nbi_bulk\n"));
     /* gasneti_suspend_spinpollers(); */
-    eop = gasnete_lapi_do_rdma(node,src,dest,nbytes,LAPI_RDMA_GET,&(op->get_cntr) GASNETE_THREAD_GET);
+    eop = gasnete_lapi_do_rdma(node,src,dest,nbytes,LAPI_RDMA_GET,&(op->get_cntr) GASNETE_THREAD_PASS);
     op->initiated_get_cnt += eop->num_transfers;
-    eop->origin_counter = NULL;
+    eop->origin_counter = NULL; /* Otherwise eop_check will incorrectly bounds check against iop's counter */
     gasnete_op_free((gasnete_op_t *) eop); 
     /* gasneti_resume_spinpollers(); */
    } else {
@@ -1658,9 +1653,9 @@ extern void gasnete_put_nbi_bulk (gasnet_node_t node, void *dest, void *src,
     if_pt(gasnetc_lapi_use_rdma) {
     gasnete_eop_t *eop;
     /* gasneti_suspend_spinpollers(); */
-    eop = gasnete_lapi_do_rdma(node,dest,src,nbytes,LAPI_RDMA_PUT,&(op->put_cntr) GASNETE_THREAD_GET);
+    eop = gasnete_lapi_do_rdma(node,dest,src,nbytes,LAPI_RDMA_PUT,&(op->put_cntr) GASNETE_THREAD_PASS);
     op->initiated_put_cnt += eop->num_transfers;
-    eop->origin_counter = NULL;
+    eop->origin_counter = NULL; /* Otherwise eop_check will incorrectly bounds check against iop's counter */
     gasnete_op_free((gasnete_op_t *) eop); 
     /* gasneti_resume_spinpollers(); */
     } else {
@@ -1684,7 +1679,7 @@ extern void gasnete_put_nbi_bulk (gasnet_node_t node, void *dest, void *src,
     gasneti_resume_spinpollers();
 
 #if GASNETC_LAPI_FED_POLLBUG_WORKAROUND
-    gasnete_wait_syncnbi_myputs(num_put GASNETE_THREAD_GET);
+    gasnete_wait_syncnbi_myputs(num_put GASNETE_THREAD_PASS);
 #endif    
 #if GASNETC_LAPI_RDMA
     }
@@ -1696,29 +1691,25 @@ extern void gasnete_put_nbi (gasnet_node_t node, void *dest, void *src,
 			     size_t nbytes GASNETE_THREAD_FARG)
 {
     gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
-    gasnete_iop_t *op = mythread->current_iop;
-    lapi_cntr_t  o_cntr;
-    int num_put = 0;
-    int cur_cntr;
 #if GASNETC_LAPI_RDMA
     if(gasnetc_lapi_use_rdma) {
-    gasnete_eop_t *result;
-    GASNETI_TRACE_PRINTF(C,("gasnete_put_nbi\n"));
-    GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context, &o_cntr, 0));
-    /* gasneti_suspend_spinpollers(); */
-    result = gasnete_lapi_do_rdma(node,dest,src,nbytes,LAPI_RDMA_PUT,&o_cntr GASNETE_THREAD_GET);
-    /* SEE BELOW: op->initiated_put_cnt += result->num_transfers; */
-    /* gasneti_resume_spinpollers(); */
-    gasneti_assert(result->origin_counter == &o_cntr);
-    GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&o_cntr,result->num_transfers,&cur_cntr));
-    /* Because this actually completes the operation, act like it never happened and don't
-       increment the put count above (the "SEE BELOW" remark).*/
-    result->num_transfers = 0;
-    result->origin_counter = NULL;
-    gasnete_op_free((gasnete_op_t *) result); 
-    gasneti_assert(cur_cntr == 0);
+      gasnete_eop_t *eop;
+      GASNETI_TRACE_PRINTF(C,("gasnete_put_nbi\n"));
+      /* gasneti_suspend_spinpollers(); */
+      eop = gasnete_lapi_do_rdma(node,dest,src,nbytes,LAPI_RDMA_PUT,NULL GASNETE_THREAD_PASS);
+      /* gasneti_resume_spinpollers(); */
+      /* Because this is fully blocking, we don't advance op->initiated_put_cnt here */
+
+      /* XXX: non-bulk put is implemented as fully blocking */
+      GASNETC_WAITCNTR(eop->origin_counter,eop->num_transfers,&eop->num_transfers);
+      gasneti_assert(eop->num_transfers == 0);
+      gasnete_op_free((gasnete_op_t *)eop);
     } else {
 #endif
+    gasnete_iop_t *op = mythread->current_iop;
+    int num_put = 0;
+    int cur_cntr;
+    lapi_cntr_t  o_cntr;
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context, &o_cntr, 0));
 
     /* Issue as many puts as required.
@@ -1744,7 +1735,7 @@ extern void gasnete_put_nbi (gasnet_node_t node, void *dest, void *src,
     gasneti_assert(cur_cntr == 0);
 
 #if GASNETC_LAPI_FED_POLLBUG_WORKAROUND
-    gasnete_wait_syncnbi_myputs(num_put GASNETE_THREAD_GET);
+    gasnete_wait_syncnbi_myputs(num_put GASNETE_THREAD_PASS);
 #endif    
 #if GASNETC_LAPI_RDMA
     }
@@ -1792,7 +1783,7 @@ extern void gasnete_memset_nbi (gasnet_node_t node, void *dest, int val,
     gasneti_assert(cur_cntr == 0);
 
 #if GASNETC_LAPI_FED_POLLBUG_WORKAROUND
-    gasnete_wait_syncnbi_myputs(1 GASNETE_THREAD_GET);
+    gasnete_wait_syncnbi_myputs(1 GASNETE_THREAD_PASS);
 #endif    
 }
 /* ------------------------------------------------------------------------------------ */
@@ -1909,8 +1900,8 @@ extern void gasnete_wait_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
 }
 
 extern void gasnete_wait_syncnbi_all(GASNETE_THREAD_FARG_ALONE) {
-    gasnete_wait_syncnbi_puts(GASNETE_THREAD_GET_ALONE);
-    gasnete_wait_syncnbi_gets(GASNETE_THREAD_GET_ALONE);
+    gasnete_wait_syncnbi_puts(GASNETE_THREAD_PASS_ALONE);
+    gasnete_wait_syncnbi_gets(GASNETE_THREAD_PASS_ALONE);
 }
 #endif
 /* ------------------------------------------------------------------------------------ */
