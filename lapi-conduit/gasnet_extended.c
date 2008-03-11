@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2008/03/10 22:56:06 $
- * $Revision: 1.95 $
+ *     $Date: 2008/03/11 03:49:19 $
+ * $Revision: 1.96 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -312,32 +312,20 @@ int gasnete_op_isdone(gasnete_op_t *op)
 	gasnete_eop_t *eop = (gasnete_eop_t*)op;
 	gasneti_assert(OPSTATE(op) != OPSTATE_FREE);
         gasnete_eop_check(eop);
-#if GASNETC_LAPI_RDMA
-        if(gasnetc_lapi_use_rdma) {
-	  if (eop->initiated_cnt > 0) {
-            /* Internal interface used for eop */
-	    GASNETC_LCHECK(LAPI_Getcntr(gasnetc_lapi_context,&eop->cntr,&cnt));
-	    gasneti_assert(cnt <= eop->initiated_cnt);
-	    return (eop->initiated_cnt == cnt);
-	  }
-        
-	  GASNETC_LCHECK(LAPI_Getcntr(gasnetc_lapi_context,eop->origin_counter,&cnt));
-	  gasneti_assert(cnt <= eop->num_transfers);
-          if(eop->num_transfers == cnt) {
-	    return (1);
-          } else {
-	    return (0);
-          }
-        } else {
-#endif
+
 	if (eop->initiated_cnt > 0) {
 	    GASNETC_LCHECK(LAPI_Getcntr(gasnetc_lapi_context,&eop->cntr,&cnt));
 	    gasneti_assert(cnt <= eop->initiated_cnt);
+	    return (eop->initiated_cnt == cnt);
 	}
-	return (eop->initiated_cnt == cnt);
 #if GASNETC_LAPI_RDMA
-       }
+        if (gasnetc_lapi_use_rdma && (eop->num_transfers > 0)) {
+	    GASNETC_LCHECK(LAPI_Getcntr(gasnetc_lapi_context,eop->origin_counter,&cnt));
+	    gasneti_assert(cnt <= eop->num_transfers);
+	    return (eop->num_transfers == cnt);
+        }
 #endif
+	return 1; /* Counts are zero */
     } else {
 	gasnete_iop_t *iop = (gasnete_iop_t*)op;
         gasnete_iop_check(iop);
@@ -1039,6 +1027,7 @@ extern void gasnete_get_bulk (void *dest, gasnet_node_t node, void *src,
       GASNETI_TRACE_PRINTF(C,("gasnete_get_bulk\n"));
       /* gasneti_suspend_spinpollers(); */
       eop = gasnete_lapi_do_rdma(node,src,dest,nbytes,LAPI_RDMA_GET,NULL GASNETE_THREAD_PASS);
+      gasnete_eop_check(eop);
       /* gasneti_resume_spinpollers(); */
       /* Wait on this eop */
       GASNETI_TRACE_PRINTF(C,("gasnete_get_bulk: wait on sync\n"));
@@ -1083,6 +1072,7 @@ extern void gasnete_put_bulk (gasnet_node_t node, void *dest, void *src,
       GASNETI_TRACE_PRINTF(C,("gasnete_put_bulk target node=%d\n",node));
       /* gasneti_suspend_spinpollers(); */
       eop = gasnete_lapi_do_rdma(node,dest,src,nbytes,LAPI_RDMA_PUT,NULL GASNETE_THREAD_PASS);
+      gasnete_eop_check(eop);
       /* gasneti_resume_spinpollers(); */
       /* Wait on this eop */
       GASNETI_TRACE_PRINTF(C,("gasnete_put_bulk: wait on sync\n"));
@@ -1168,6 +1158,7 @@ extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void
       GASNETI_TRACE_PRINTF(C,("gasnete_get_nb_bulk\n"));
       /* gasneti_suspend_spinpollers(); */
       eop = gasnete_lapi_do_rdma(node,src,dest,nbytes,LAPI_RDMA_GET,NULL GASNETE_THREAD_PASS);
+      gasnete_eop_check(eop);
       /* gasneti_resume_spinpollers(); */
       return((gasnet_handle_t) eop);
     } else {
@@ -1203,6 +1194,7 @@ extern gasnet_handle_t gasnete_put_nb_bulk (gasnet_node_t node, void *dest, void
       GASNETI_TRACE_PRINTF(C,("gasnete_put_nb_bulk\n"));
       /* gasneti_suspend_spinpollers(); */
       eop = gasnete_lapi_do_rdma(node,dest,src,nbytes,LAPI_RDMA_PUT,NULL GASNETE_THREAD_PASS);
+      gasnete_eop_check(eop);
       /* gasneti_resume_spinpollers(); */
       /* Don't wait for source completion */
       return((gasnet_handle_t) eop);
@@ -1246,6 +1238,7 @@ extern gasnet_handle_t gasnete_put_nb (gasnet_node_t node, void *dest, void *src
       GASNETI_TRACE_PRINTF(C,("gasnete_put_nb\n"));
       /* gasneti_suspend_spinpollers(); */
       eop = gasnete_lapi_do_rdma(node,dest,src,nbytes,LAPI_RDMA_PUT,NULL GASNETE_THREAD_PASS);
+      gasnete_eop_check(eop);
       /* gasneti_resume_spinpollers(); */
 
       /* XXX: non-bulk put is implemented as fully blocking */
@@ -1440,8 +1433,6 @@ extern void gasnete_wait_syncnb(gasnet_handle_t handle)
     }
     if_pt(gasnetc_lapi_use_rdma) {
     gasnete_op_t *op = handle;
-    int cnt = 0;
-    int cnt2 = 0;
     gasneti_assert(op->threadidx == gasnete_mythread()->threadidx);
 
     if_pt (OPTYPE(op) == OPTYPE_EXPLICIT) {
@@ -1449,22 +1440,21 @@ extern void gasnete_wait_syncnb(gasnet_handle_t handle)
 	gasneti_assert(OPSTATE(op) != OPSTATE_FREE);
         gasnete_eop_check(eop);
 	if (eop->initiated_cnt > 0) {
-	    GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&eop->cntr,eop->initiated_cnt,&cnt));
-	    gasneti_assert(cnt == 0);
-	    eop->initiated_cnt =0;
+	    GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&eop->cntr,eop->initiated_cnt,&eop->initiated_cnt));
+	    gasneti_assert(eop->initiated_cnt == 0);
 	} else {
-          GASNETC_LCHECK((LAPI_Waitcntr(gasnetc_lapi_context, eop->origin_counter,eop->num_transfers,&cnt)));
-          gasneti_assert(cnt == 0);
+          GASNETC_LCHECK((LAPI_Waitcntr(gasnetc_lapi_context, eop->origin_counter,eop->num_transfers,&eop->num_transfers)));
+	  gasneti_assert(eop->num_transfers == 0);
 	}
     } else {
 	gasnete_iop_t *iop = (gasnete_iop_t*)op;
         gasnete_iop_check(iop);
    
-      GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&iop->get_cntr,iop->initiated_get_cnt,&cnt));
-      GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&iop->put_cntr,iop->initiated_put_cnt,&cnt2));
-      /* Got to do this because put_cntr is decremented */
-      iop->initiated_put_cnt=0;
-      iop->initiated_get_cnt=0;
+      /* Decrements initiated_{get,put}_cnt because corresponding {get,put}_cntr is decremented */
+      GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&iop->get_cntr,iop->initiated_get_cnt,&iop->initiated_get_cnt));
+      GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&iop->put_cntr,iop->initiated_put_cnt,&iop->initiated_put_cnt));
+      gasneti_assert(iop->initiated_put_cnt == 0);
+      gasneti_assert(iop->initiated_get_cnt == 0);
 
       if (gasneti_weakatomic_read(&iop->get_aux_cntr, 0)) /* avoid extra rmb when possible */
         GASNET_BLOCKUNTIL(gasneti_weakatomic_read(&iop->get_aux_cntr, 0) == 0);
@@ -1484,7 +1474,6 @@ extern void gasnete_wait_syncnbi_gets(GASNETE_THREAD_FARG_ALONE)
 {
     gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
     gasnete_iop_t *iop = mythread->current_iop;
-    int cnt = 0;
     gasneti_assert(iop->threadidx == mythread->threadidx);
     gasneti_assert(iop->next == NULL);
     gasneti_assert(OPTYPE(iop) == OPTYPE_IMPLICIT);
@@ -1493,9 +1482,8 @@ extern void gasnete_wait_syncnbi_gets(GASNETE_THREAD_FARG_ALONE)
 	gasneti_fatalerror("VIOLATION: attempted to call gasnete_wait_syncnbi_gets() inside an NBI access region");
 #endif
 
-    GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&iop->get_cntr,iop->initiated_get_cnt,&cnt));
-    gasneti_assert(cnt == 0);
-    iop->initiated_get_cnt = 0;
+    GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&iop->get_cntr,iop->initiated_get_cnt,&iop->initiated_get_cnt));
+    gasneti_assert(iop->initiated_get_cnt == 0);
     if (gasneti_weakatomic_read(&iop->get_aux_cntr, 0)) /* avoid extra rmb when possible */
       GASNET_BLOCKUNTIL(gasneti_weakatomic_read(&iop->get_aux_cntr, 0) == 0);
     /* gasneti_sync_mem(); */  /* Don't think this is necessary, PH */
@@ -1508,7 +1496,6 @@ extern void gasnete_wait_syncnbi_puts(GASNETE_THREAD_FARG_ALONE)
 {
     gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
     gasnete_iop_t *iop = mythread->current_iop;
-    int cnt = 0;
     gasneti_assert(iop->threadidx == mythread->threadidx);
     gasneti_assert(iop->next == NULL);
     gasneti_assert(OPTYPE(iop) == OPTYPE_IMPLICIT);
@@ -1516,9 +1503,8 @@ extern void gasnete_wait_syncnbi_puts(GASNETE_THREAD_FARG_ALONE)
     if (iop->next != NULL)
 	gasneti_fatalerror("VIOLATION: attempted to call gasnete_wait_syncnbi_puts() inside an NBI access region");
 #endif
-    GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&iop->put_cntr,iop->initiated_put_cnt,&cnt));
-    gasneti_assert(cnt == 0);
-    iop->initiated_put_cnt = 0;
+    GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&iop->put_cntr,iop->initiated_put_cnt,&iop->initiated_put_cnt));
+    gasneti_assert(iop->initiated_put_cnt == 0);
     if (gasneti_weakatomic_read(&iop->put_aux_cntr, 0)) /* avoid extra rmb when possible */
       GASNET_BLOCKUNTIL(gasneti_weakatomic_read(&iop->put_aux_cntr, 0) == 0);
     gasneti_sync_mem();
@@ -1532,7 +1518,6 @@ extern void gasnete_wait_syncnb_original(gasnet_handle_t handle) {
 extern void gasnete_wait_syncnb(gasnet_handle_t handle) {
 #endif
 #if GASNETC_LAPI_RDMA || GASNETC_LAPI_FED_POLLBUG_WORKAROUND
-    int cnt = 0;
     gasnete_op_t *op = handle;
     if (handle == GASNET_INVALID_HANDLE)
 	return;
@@ -1542,22 +1527,19 @@ extern void gasnete_wait_syncnb(gasnet_handle_t handle) {
 	gasneti_assert(OPSTATE(op) != OPSTATE_FREE);
         gasnete_eop_check(eop);
 	if (eop->initiated_cnt > 0) {
-	    GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&eop->cntr,eop->initiated_cnt,&cnt));
-	    gasneti_assert(cnt == 0);
-	    eop->initiated_cnt =0;
+	    GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&eop->cntr,eop->initiated_cnt,&eop->initiated_cnt));
+	    gasneti_assert(eop->initiated_cnt == 0);
 	}
     } else {
 	gasnete_iop_t *iop = (gasnete_iop_t*)op;
         gasnete_iop_check(iop);
 	if (iop->initiated_get_cnt > 0) {
-	    GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&iop->get_cntr,iop->initiated_get_cnt,&cnt));
-	    gasneti_assert(cnt == 0);
-	    iop->initiated_get_cnt = 0;
+	    GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&iop->get_cntr,iop->initiated_get_cnt,&iop->initiated_get_cnt));
+	    gasneti_assert(iop->initiated_get_cnt == 0);
 	}
 	if (iop->initiated_put_cnt > 0) {
-	    GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&iop->put_cntr,iop->initiated_put_cnt,&cnt));
-	    gasneti_assert(cnt == 0);
-	    iop->initiated_put_cnt = 0;
+	    GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&iop->put_cntr,iop->initiated_put_cnt,&iop->initiated_put_cnt));
+	    gasneti_assert(iop->initiated_put_cnt == 0);
 	}
         if (gasneti_weakatomic_read(&iop->get_aux_cntr, 0)) /* avoid extra rmb when possible */
           GASNET_BLOCKUNTIL(gasneti_weakatomic_read(&iop->get_aux_cntr, 0) == 0);
@@ -1880,7 +1862,6 @@ extern int  gasnete_try_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
 extern void gasnete_wait_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
     gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
     gasnete_iop_t *iop = mythread->current_iop;
-    int cnt = 0;
     gasneti_assert(iop->threadidx == mythread->threadidx);
     gasneti_assert(iop->next == NULL);
     gasneti_assert(OPTYPE(iop) == OPTYPE_IMPLICIT);
@@ -1891,10 +1872,9 @@ extern void gasnete_wait_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
     if (gasneti_weakatomic_read(&iop->put_aux_cntr, 0)) /* avoid extra rmb when possible */
       GASNET_BLOCKUNTIL(gasneti_weakatomic_read(&iop->put_aux_cntr, 0) == 0);
     if (iop->initiated_put_cnt > 0) {
-	GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&iop->put_cntr,iop->initiated_put_cnt,&cnt));
-	/* note that waitcntr decreemnts counter by amount waited for */
-	gasneti_assert(cnt == 0);
-	iop->initiated_put_cnt = 0;
+	GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&iop->put_cntr,iop->initiated_put_cnt,&iop->initiated_put_cnt));
+	/* note that waitcntr decrements counter by amount waited for */
+	gasneti_assert(iop->initiated_put_cnt == 0);
 	gasneti_sync_reads();
     } 
 }
