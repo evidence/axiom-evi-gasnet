@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2008/03/09 09:38:31 $
- * $Revision: 1.32 $
+ *     $Date: 2008/03/11 00:13:11 $
+ * $Revision: 1.33 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -191,32 +191,22 @@ void gasnete_op_free(gasnete_op_t *op);
 #if GASNETC_LAPI_RDMA
   /* check an in-flight/complete eop */
   #define gasnete_eop_check(eop) do {                                     \
-    if_pt(gasnetc_lapi_use_rdma) { \
     gasnete_threaddata_t * _th;                                           \
     int _temp;                                                            \
     gasneti_assert(OPTYPE(eop) == OPTYPE_EXPLICIT);                       \
     gasneti_assert(OPSTATE(eop) == OPSTATE_INFLIGHT ||                    \
                    OPSTATE(eop) == OPSTATE_COMPLETE);                     \
+    gasneti_assert(!eop->initiated_cnt || !eop->num_transfers);           \
+    gasneti_assert(!eop->initiated_cnt || !eop->origin_counter);          \
     if(eop->origin_counter != NULL) { \
       GASNETC_LCHECK(LAPI_Getcntr(gasnetc_lapi_context,eop->origin_counter,&_temp)); \
       gasneti_assert(_temp <= eop->num_transfers);                          \
-    } \
-    if(eop->initiated_cnt > 0) { \
-      gasneti_assert(eop->num_transfers == 0); \
+    } else { \
+      GASNETC_LCHECK(LAPI_Getcntr(gasnetc_lapi_context,&eop->cntr,&_temp)); \
+      gasneti_assert(_temp <= eop->initiated_cnt);                          \
     } \
     _th = gasnete_threadtable[(eop)->threadidx];                          \
     gasneti_assert(GASNETE_EOPADDR_TO_PTR(_th, (eop)->addr) == eop);      \
-    } else { \
-      gasnete_threaddata_t * _th;                                           \
-      int _temp;                                                            \
-      gasneti_assert(OPTYPE(eop) == OPTYPE_EXPLICIT);                       \
-      gasneti_assert(OPSTATE(eop) == OPSTATE_INFLIGHT ||                    \
-                     OPSTATE(eop) == OPSTATE_COMPLETE);                     \
-      GASNETC_LCHECK(LAPI_Getcntr(gasnetc_lapi_context,&eop->cntr,&_temp)); \
-      gasneti_assert(_temp <= eop->initiated_cnt);                          \
-      _th = gasnete_threadtable[(eop)->threadidx];                          \
-      gasneti_assert(GASNETE_EOPADDR_TO_PTR(_th, (eop)->addr) == eop);      \
-    } \
   } while (0)
   #define gasnete_iop_check(iop) do {                                             \
     if_pt(gasnetc_lapi_use_rdma) { \
