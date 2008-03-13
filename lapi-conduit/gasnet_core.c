@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2008/03/13 04:33:16 $
- * $Revision: 1.109 $
+ *     $Date: 2008/03/13 05:43:39 $
+ * $Revision: 1.110 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1282,9 +1282,6 @@ extern int gasnetc_AMRequestMediumM(
     token_len = GASNETC_ROUND_DOUBLEWORD(token_len);
     /* issue the request for remote execution of the user handler */
     gasneti_assert( token_len <= gasnetc_max_lapi_uhdr_size);
-    if(token_len > gasnetc_max_lapi_uhdr_size) {
-      gasneti_fatalerror("token too large in AMmedium request %d",gasneti_mynode);
-    }
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&o_cntr,0));
 #if GASNETC_LAPI_FED_POLLBUG_WORKAROUND
     p_cntr = &c_cntr;
@@ -1642,9 +1639,6 @@ extern int gasnetc_AMReplyMediumM(
     /* issue the request for remote execution of the user handler */
     token_len = GASNETC_ROUND_DOUBLEWORD(token_len);
     gasneti_assert( token_len <= gasnetc_max_lapi_uhdr_size);
-    if(token_len > gasnetc_max_lapi_uhdr_size) {
-      gasneti_fatalerror("token too large in AMmedium reply %d",gasneti_mynode);
-    }
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&o_cntr,0));
 #if GASNETC_LAPI_FED_POLLBUG_WORKAROUND
     p_cntr = &c_cntr;
