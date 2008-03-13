@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2008/03/13 23:27:41 $
- * $Revision: 1.98 $
+ *     $Date: 2008/03/13 23:39:52 $
+ * $Revision: 1.99 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -310,22 +310,35 @@ int gasnete_op_isdone(gasnete_op_t *op)
 
     if_pt (OPTYPE(op) == OPTYPE_EXPLICIT) {
 	gasnete_eop_t *eop = (gasnete_eop_t*)op;
+	int result = 1; /* Assume success if both counts are zero */
 	gasneti_assert(OPSTATE(op) != OPSTATE_FREE);
         gasnete_eop_check(eop);
 
 	if (eop->initiated_cnt > 0) {
 	    GASNETC_LCHECK(LAPI_Getcntr(gasnetc_lapi_context,&eop->cntr,&cnt));
 	    gasneti_assert(cnt <= eop->initiated_cnt);
-	    return (eop->initiated_cnt == cnt);
+	    result = (eop->initiated_cnt == cnt);
+          #if GASNET_DEBUG
+	    if (result) {
+		/* To match wait_syncnb() behavior and thus satisfy assertion in op_free() */
+		GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&eop->cntr,cnt,&eop->initiated_cnt));
+	    }
+          #endif
 	}
 #if GASNETC_LAPI_RDMA
-        if (eop->num_transfers > 0) {
+        else if (eop->num_transfers > 0) {
 	    GASNETC_LCHECK(LAPI_Getcntr(gasnetc_lapi_context,eop->origin_counter,&cnt));
 	    gasneti_assert(cnt <= eop->num_transfers);
-	    return (eop->num_transfers == cnt);
+	    result = (eop->num_transfers == cnt);
+          #if GASNET_DEBUG
+	    if (result) {
+		/* To match wait_syncnb() behavior and thus satisfy assertion in op_free() */
+		GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,eop->origin_counter,cnt,&eop->num_transfers));
+	    }
+          #endif
         }
 #endif
-	return 1; /* Counts are zero */
+	return result;
     } else {
 	gasnete_iop_t *iop = (gasnete_iop_t*)op;
         gasnete_iop_check(iop);
@@ -343,7 +356,15 @@ int gasnete_op_isdone(gasnete_op_t *op)
 	    GASNETC_LCHECK(LAPI_Getcntr(gasnetc_lapi_context,&iop->put_cntr,&cnt));
 	    gasneti_assert(cnt <= iop->initiated_put_cnt);
 	}
-	return (iop->initiated_put_cnt == cnt);
+	if (iop->initiated_put_cnt != cnt) {
+	    return(0);
+	}
+#if GASNET_DEBUG
+	/* To match wait_syncnb() behavior and thus satisfy assertion in op_free() */
+	iop->initiated_get_cnt = 0;
+	iop->initiated_put_cnt = 0;
+#endif
+	return (1);
     }
 }
 
@@ -374,16 +395,18 @@ void gasnete_op_free(gasnete_op_t *op) {
 	gasnete_eopaddr_t addr = eop->addr;
         /* DOB: OPSTATE_COMPLETE not currently used by lapi-conduit
           gasneti_assert(OPSTATE(eop) == OPSTATE_COMPLETE);*/
+        gasneti_assert(eop->initiated_cnt == 0);
+#if GASNETC_LAPI_RDMA
+        gasneti_assert(eop->num_transfers == 0);
+#endif
         gasnete_eop_check(eop);
 	SET_OPSTATE(eop, OPSTATE_FREE);
 	eop->addr = thread->eop_free;
 	thread->eop_free = addr;
     } else {
 	gasnete_iop_t *iop = (gasnete_iop_t *)op;
-#if GASNETC_LAPI_RDMA /* The RDMA conduit zeros these out.  The other one doesn't */
         gasneti_assert(iop->initiated_get_cnt == 0);
         gasneti_assert(iop->initiated_put_cnt == 0);
-#endif
         gasneti_assert(gasneti_weakatomic_read(&iop->get_aux_cntr, 0) == 0);
         gasneti_assert(gasneti_weakatomic_read(&iop->put_aux_cntr, 0) == 0);
         gasnete_iop_check(iop);
@@ -1357,11 +1380,7 @@ extern int  gasnete_try_syncnb(gasnet_handle_t handle) {
 
     if (gasnete_op_isdone(handle)) {
 	gasneti_sync_reads();
-#if GASNETC_LAPI_RDMA
-        gasnete_wait_syncnb(handle); /* PH: reset it, wait_syncnb frees it */
-#else
 	gasnete_op_free(handle); 
-#endif
 	return GASNET_OK;
     }
     else return GASNET_ERR_NOT_READY;
@@ -1381,11 +1400,7 @@ extern int gasnete_try_syncnb_some (gasnet_handle_t *phandle, size_t numhandles)
 	    empty = 0;
 	    if (gasnete_op_isdone(op)) {
 		gasneti_sync_reads();
-#if GASNETC_LAPI_RDMA
-                gasnete_wait_syncnb(op); /* PH: reset it */
-#else
 		gasnete_op_free(op);
-#endif
 		phandle[i] = GASNET_INVALID_HANDLE;
 		success = 1;
 	    }  
@@ -1409,11 +1424,7 @@ extern int  gasnete_try_syncnb_all (gasnet_handle_t *phandle, size_t numhandles)
 	if (op != GASNET_INVALID_HANDLE) {
 	    if (gasnete_op_isdone(op)) {
 		gasneti_sync_reads();
-#if GASNETC_LAPI_RDMA
-                gasnete_wait_syncnb(op); /* PH: reset it */
-#else
 		gasnete_op_free(op);
-#endif
 		phandle[i] = GASNET_INVALID_HANDLE;
 	    } else success = 0;
 	}
@@ -1561,7 +1572,10 @@ extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src,
     /* gasneti_suspend_spinpollers(); */
     eop = gasnete_lapi_do_rdma(node,src,dest,nbytes,LAPI_RDMA_GET,&(op->get_cntr) GASNETE_THREAD_PASS);
     op->initiated_get_cnt += eop->num_transfers;
+  #if GASNET_DEBUG
     eop->origin_counter = NULL; /* Otherwise eop_check will incorrectly bounds check against iop's counter */
+    eop->num_transfers = 0; /* Otherwise op_free will fail assertion */
+  #endif
     gasnete_op_free((gasnete_op_t *) eop); 
     /* gasneti_resume_spinpollers(); */
    } else {
@@ -1594,7 +1608,10 @@ extern void gasnete_put_nbi_bulk (gasnet_node_t node, void *dest, void *src,
     /* gasneti_suspend_spinpollers(); */
     eop = gasnete_lapi_do_rdma(node,dest,src,nbytes,LAPI_RDMA_PUT,&(op->put_cntr) GASNETE_THREAD_PASS);
     op->initiated_put_cnt += eop->num_transfers;
+  #if GASNET_DEBUG
     eop->origin_counter = NULL; /* Otherwise eop_check will incorrectly bounds check against iop's counter */
+    eop->num_transfers = 0; /* Otherwise op_free will fail assertion */
+  #endif
     gasnete_op_free((gasnete_op_t *) eop); 
     /* gasneti_resume_spinpollers(); */
     } else {
