@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2008/03/13 21:33:33 $
- * $Revision: 1.97 $
+ *     $Date: 2008/03/13 23:27:41 $
+ * $Revision: 1.98 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1525,6 +1525,22 @@ extern void gasnete_wait_syncnb_all(gasnet_handle_t *phandle, size_t numhandles)
 }
 #endif
 
+#if GASNETC_LAPI_FED_POLLBUG_WORKAROUND
+extern void gasnete_wait_syncnb_some(gasnet_handle_t *phandle, size_t numhandles) {
+    gasneti_assert(phandle);
+    { int i;
+    for (i = 0; i < numhandles; i++) {
+	gasnete_op_t *op = phandle[i];
+	if (op != GASNET_INVALID_HANDLE) {
+	    gasnete_wait_syncnb(op);
+	    phandle[i] = GASNET_INVALID_HANDLE;
+	    /* got one, just return */
+	    break;
+	}
+    }
+    }
+}
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 /*
