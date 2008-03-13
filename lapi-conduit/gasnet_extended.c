@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2008/03/11 03:49:19 $
- * $Revision: 1.96 $
+ *     $Date: 2008/03/13 21:33:33 $
+ * $Revision: 1.97 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -319,7 +319,7 @@ int gasnete_op_isdone(gasnete_op_t *op)
 	    return (eop->initiated_cnt == cnt);
 	}
 #if GASNETC_LAPI_RDMA
-        if (gasnetc_lapi_use_rdma && (eop->num_transfers > 0)) {
+        if (eop->num_transfers > 0) {
 	    GASNETC_LCHECK(LAPI_Getcntr(gasnetc_lapi_context,eop->origin_counter,&cnt));
 	    gasneti_assert(cnt <= eop->num_transfers);
 	    return (eop->num_transfers == cnt);
@@ -1425,50 +1425,6 @@ extern int  gasnete_try_syncnb_all (gasnet_handle_t *phandle, size_t numhandles)
 }
 
 #if GASNETC_LAPI_RDMA
-extern void gasnete_wait_syncnb_original(gasnet_handle_t handle);
-extern void gasnete_wait_syncnb(gasnet_handle_t handle)
-{
-    if (handle == GASNET_INVALID_HANDLE) {
-      return;
-    }
-    if_pt(gasnetc_lapi_use_rdma) {
-    gasnete_op_t *op = handle;
-    gasneti_assert(op->threadidx == gasnete_mythread()->threadidx);
-
-    if_pt (OPTYPE(op) == OPTYPE_EXPLICIT) {
-	gasnete_eop_t *eop = (gasnete_eop_t*)op;
-	gasneti_assert(OPSTATE(op) != OPSTATE_FREE);
-        gasnete_eop_check(eop);
-	if (eop->initiated_cnt > 0) {
-	    GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&eop->cntr,eop->initiated_cnt,&eop->initiated_cnt));
-	    gasneti_assert(eop->initiated_cnt == 0);
-	} else {
-          GASNETC_LCHECK((LAPI_Waitcntr(gasnetc_lapi_context, eop->origin_counter,eop->num_transfers,&eop->num_transfers)));
-	  gasneti_assert(eop->num_transfers == 0);
-	}
-    } else {
-	gasnete_iop_t *iop = (gasnete_iop_t*)op;
-        gasnete_iop_check(iop);
-   
-      /* Decrements initiated_{get,put}_cnt because corresponding {get,put}_cntr is decremented */
-      GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&iop->get_cntr,iop->initiated_get_cnt,&iop->initiated_get_cnt));
-      GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&iop->put_cntr,iop->initiated_put_cnt,&iop->initiated_put_cnt));
-      gasneti_assert(iop->initiated_put_cnt == 0);
-      gasneti_assert(iop->initiated_get_cnt == 0);
-
-      if (gasneti_weakatomic_read(&iop->get_aux_cntr, 0)) /* avoid extra rmb when possible */
-        GASNET_BLOCKUNTIL(gasneti_weakatomic_read(&iop->get_aux_cntr, 0) == 0);
-      if (gasneti_weakatomic_read(&iop->put_aux_cntr, 0)) /* avoid extra rmb when possible */
-        GASNET_BLOCKUNTIL(gasneti_weakatomic_read(&iop->put_aux_cntr, 0) == 0);
-
-    }
-    gasneti_sync_reads();
-    gasnete_op_free(handle);
-  
-    } else {
-      gasnete_wait_syncnb_original(handle);
-    }
-}
 
 extern void gasnete_wait_syncnbi_gets(GASNETE_THREAD_FARG_ALONE) 
 {
@@ -1512,12 +1468,8 @@ extern void gasnete_wait_syncnbi_puts(GASNETE_THREAD_FARG_ALONE)
 #endif
 
 
-#if GASNETC_LAPI_RDMA
-extern void gasnete_wait_syncnb_original(gasnet_handle_t handle) {
-#elif GASNETC_LAPI_FED_POLLBUG_WORKAROUND
-extern void gasnete_wait_syncnb(gasnet_handle_t handle) {
-#endif
 #if GASNETC_LAPI_RDMA || GASNETC_LAPI_FED_POLLBUG_WORKAROUND
+extern void gasnete_wait_syncnb(gasnet_handle_t handle) {
     gasnete_op_t *op = handle;
     if (handle == GASNET_INVALID_HANDLE)
 	return;
@@ -1530,6 +1482,13 @@ extern void gasnete_wait_syncnb(gasnet_handle_t handle) {
 	    GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&eop->cntr,eop->initiated_cnt,&eop->initiated_cnt));
 	    gasneti_assert(eop->initiated_cnt == 0);
 	}
+#if GASNETC_LAPI_RDMA
+	else  if (eop->num_transfers > 0) {
+	  gasneti_assert(eop->origin_counter != NULL);
+          GASNETC_LCHECK((LAPI_Waitcntr(gasnetc_lapi_context,eop->origin_counter,eop->num_transfers,&eop->num_transfers)));
+	  gasneti_assert(eop->num_transfers == 0);
+	}
+#endif
     } else {
 	gasnete_iop_t *iop = (gasnete_iop_t*)op;
         gasnete_iop_check(iop);
@@ -1565,24 +1524,6 @@ extern void gasnete_wait_syncnb_all(gasnet_handle_t *phandle, size_t numhandles)
     }
 }
 #endif
-
-#if 0
-extern void gasnete_wait_syncnb_some(gasnet_handle_t *phandle, size_t numhandles) {
-    gasneti_assert(phandle);
-    { int i;
-    for (i = 0; i < numhandles; i++) {
-	gasnete_op_t *op = phandle[i];
-	if (op != GASNET_INVALID_HANDLE) {
-	    gasnete_wait_syncnb(op);
-	    phandle[i] = GASNET_INVALID_HANDLE;
-	    /* got one, just return */
-	    break;
-	}
-    }
-    }
-}
-#endif
-
 
 
 /* ------------------------------------------------------------------------------------ */
