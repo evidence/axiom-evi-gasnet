@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2008/03/13 05:43:39 $
- * $Revision: 1.110 $
+ *     $Date: 2008/03/13 19:41:28 $
+ * $Revision: 1.111 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2338,11 +2338,6 @@ void gasnetc_run_handler(gasnetc_token_t *token)
 			    is_packed,numargs,func_ix,dataptr,datalen));
 #endif
 
-#if 0
-    printf("CH received %s from %d is_req %d is_packed %d numargs %d handlerix %d dataptr %x datalen %d\n",
-			    gasnetc_catname[msg_type],msg->sourceId,is_request,
-			    is_packed,numargs,func_ix,dataptr,datalen);
-#endif
     if (am_func == NULL) {
 	gasneti_fatalerror("lapi_AMch: node %d, invalid handler index %d",
 			   gasneti_mynode,func_ix);
