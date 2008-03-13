@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2008/03/13 23:39:52 $
- * $Revision: 1.99 $
+ *     $Date: 2008/03/13 23:41:49 $
+ * $Revision: 1.100 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -11,7 +11,6 @@
 #include <gasnet_handler.h>
 
 #ifdef GASNETC_LAPI_RDMA
-#include <sys/atomic_op.h>
 extern int gasnetc_lapi_use_rdma;
 #endif
 
