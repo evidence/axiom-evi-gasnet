@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2008/03/09 09:38:31 $
- * $Revision: 1.108 $
+ *     $Date: 2008/03/13 04:33:16 $
+ * $Revision: 1.109 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1291,34 +1291,12 @@ extern int gasnetc_AMRequestMediumM(
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,p_cntr,0));
 #endif
     gasneti_suspend_spinpollers();
-#if 0 /* Newer Interface */
-    {
-      lapi_xfer_t am_struct;
-      am_struct.Am.Xfer_type = LAPI_AM_XFER;
-      am_struct.Am.tgt = dest;
-      am_struct.Am.hdr_hdl = (lapi_long_t) gasnetc_remote_req_hh[dest];
-      am_struct.Am.uhdr = (void *) token;
-      am_struct.Am.uhdr_len = token_len;
-      am_struct.Am.udata = (udata_packed ? NULL : source_addr);
-      am_struct.Am.udata_len = (udata_packed ? 0    : nbytes);
-      am_struct.Am.shdlr = NULL;
-      am_struct.Am.sinfo = NULL;
-      am_struct.Am.tgt_cntr = NULL;
-      am_struct.Am.org_cntr = &o_cntr;
-      am_struct.Am.cmpl_cntr = p_cntr;
-      gasnetc_initiated_am_mediums++;
-      am_struct.Am.flags = 0; 
-      
-      GASNETC_LCHECK(LAPI_Xfer(gasnetc_lapi_context, &am_struct));
-    }
-#else
     GASNETC_LCHECK(LAPI_Amsend(gasnetc_lapi_context, dest,
 			       gasnetc_remote_req_hh[dest],
 			       (void*)token, token_len,
 			       (udata_packed ? NULL : source_addr),
 			       (udata_packed ? 0    : nbytes),
 			       NULL, &o_cntr, p_cntr));
-#endif
     gasneti_resume_spinpollers();
     
     /* wait for the Amsend call to complete locally */
@@ -1668,37 +1646,17 @@ extern int gasnetc_AMReplyMediumM(
       gasneti_fatalerror("token too large in AMmedium reply %d",gasneti_mynode);
     }
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&o_cntr,0));
-    gasneti_suspend_spinpollers();
-#if 0  /* Newer interface */
-    {
-      lapi_xfer_t am_struct;
-      am_struct.Am.Xfer_type = LAPI_AM_XFER;
-      am_struct.Am.tgt = requester;
-      am_struct.Am.hdr_hdl = (lapi_long_t) gasnetc_remote_reply_hh[requester];
-      am_struct.Am.uhdr = (void *) token;
-      am_struct.Am.uhdr_len = token_len;
-      am_struct.Am.udata = (udata_packed ? NULL : source_addr);
-      am_struct.Am.udata_len = (udata_packed ? 0    : nbytes);
-      am_struct.Am.shdlr = NULL;
-      am_struct.Am.sinfo = NULL;
-      am_struct.Am.tgt_cntr = NULL;
-      am_struct.Am.org_cntr = &o_cntr;
-      am_struct.Am.cmpl_cntr = NULL;
-      am_struct.Am.flags = 0; 
-      GASNETC_LCHECK(LAPI_Xfer(gasnetc_lapi_context, &am_struct));
-    }
-#else
 #if GASNETC_LAPI_FED_POLLBUG_WORKAROUND
     p_cntr = &c_cntr;
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,p_cntr,0));
 #endif
+    gasneti_suspend_spinpollers();
     GASNETC_LCHECK(LAPI_Amsend(gasnetc_lapi_context, requester,
 			       gasnetc_remote_reply_hh[requester],
 			       (void*)token, token_len,
 			       (udata_packed ? NULL : source_addr),
 			       (udata_packed ? 0    : nbytes),
 			       NULL, &o_cntr, p_cntr));
-#endif
      gasneti_resume_spinpollers();
    
     /* wait for the Amsend call to complete locally */
