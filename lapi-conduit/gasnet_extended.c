@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2008/03/13 23:57:47 $
- * $Revision: 1.102 $
+ *     $Date: 2008/03/14 00:12:48 $
+ * $Revision: 1.103 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -42,6 +42,14 @@ static gasneti_semaphore_t gasnete_lapi_pvo_sema = GASNETI_SEMAPHORE_INITIALIZER
 
 extern firehose_info_t gasnetc_firehose_info;
 #endif
+
+#if GASNET_DEBUG
+  /* assertions in free_op() expect the counters zeroed every time we sync */
+  #define GASNETC_NBI_CNTR_LIMIT 0
+#else
+  /* just want to prevent counter overflow */
+  #define GASNETC_NBI_CNTR_LIMIT 65000
+#endif 
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -1753,18 +1761,10 @@ extern int  gasnete_try_syncnbi_gets(GASNETE_THREAD_FARG_ALONE) {
 	    gasneti_assert(cnt <= iop->initiated_get_cnt);
 	}
         if (iop->initiated_get_cnt == cnt) {
-#if GASNETC_LAPI_RDMA
-          if_pt(gasnetc_lapi_use_rdma) {
-	    GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&iop->get_cntr,0));
-            iop->initiated_get_cnt = 0;
-          } else
-#endif
-          {
-            if (cnt > 65000) { /* make sure we don't overflow the counters */
+            if_pf (cnt > GASNETC_NBI_CNTR_LIMIT) { /* make sure we don't overflow the counters */
 	      GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&iop->get_cntr,0));
               iop->initiated_get_cnt = 0;
             }
-          }
 	    gasneti_sync_reads();
 	    return GASNET_OK;
         } else return GASNET_ERR_NOT_READY;
@@ -1782,35 +1782,19 @@ extern int  gasnete_try_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
 	    gasneti_fatalerror("VIOLATION: attempted to call gasnete_try_syncnbi_puts() inside an NBI access region");
 #endif
 
-#if GASNETC_LAPI_RDMA
-    if(gasnetc_lapi_use_rdma) {
-        if (gasneti_weakatomic_read(&iop->put_aux_cntr, 0) > 0) return GASNET_ERR_NOT_READY;
-        GASNETI_TRACE_PRINTF(C,("gasnete_try_syncnbi_puts\n"));
-	GASNETC_LCHECK(LAPI_Getcntr(gasnetc_lapi_context,&iop->put_cntr,&cnt));
-        if(iop->initiated_put_cnt == cnt) {
-	    gasneti_sync_reads();
-	    GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&iop->put_cntr,0));
-            iop->initiated_put_cnt = 0;
-	    gasneti_sync_reads();
-            return GASNET_OK;
-        } else return GASNET_ERR_NOT_READY;
-    } else
-#endif
-    {
         if (gasneti_weakatomic_read(&iop->put_aux_cntr, 0) > 0) return GASNET_ERR_NOT_READY;
 	if (iop->initiated_put_cnt > 0) {
 	    GASNETC_LCHECK(LAPI_Getcntr(gasnetc_lapi_context,&iop->put_cntr,&cnt));
 	    gasneti_assert(cnt <= iop->initiated_put_cnt);
 	}
         if (iop->initiated_put_cnt == cnt) {
-            if (cnt > 65000) { /* make sure we don't overflow the counters */
+            if_pf (cnt > GASNETC_NBI_CNTR_LIMIT) { /* make sure we don't overflow the counters */
 	      GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&iop->put_cntr,0));
               iop->initiated_put_cnt = 0;
             }
 	    gasneti_sync_reads();
 	    return GASNET_OK;
         } else return GASNET_ERR_NOT_READY;
-    }
 }
 
 
