@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2008/03/14 20:12:25 $
- * $Revision: 1.113 $
+ *     $Date: 2008/03/14 23:15:49 $
+ * $Revision: 1.114 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -974,6 +974,9 @@ void gasnetc_atexit(void)
 extern void gasnetc_exit(int exitcode) {
     gasnetc_called_exit = 1;
     
+    /* ARBITRARY args:  MIN(120s, 5s + nodes*0.05s), error if user ask for less than 2s */
+    double sleep_time = gasneti_get_exittimeout(120., 5., 0.05, 2.);
+
     /* once we start a shutdown, ignore all future SIGQUIT signals or we risk reentrancy */
     gasneti_reghandler(SIGQUIT, SIG_IGN);
     gasneti_reghandler(SIGUSR1, SIG_IGN);
@@ -986,7 +989,7 @@ extern void gasnetc_exit(int exitcode) {
 
 #if GASNETC_VERBOSE_EXIT
     fprintf(stderr,">> GASNET_EXIT[%d]: reset sigquit,sigusr1,sigterm\n",gasneti_mynode);
-    fprintf(stderr,">> GASNET_EXIT[%d]: setting 5 second alarm\n",gasneti_mynode);
+    fprintf(stderr,">> GASNET_EXIT[%d]: setting %g second alarm\n",gasneti_mynode, sleep_time);
     fflush(stderr);
 #endif
 
@@ -1001,10 +1004,9 @@ extern void gasnetc_exit(int exitcode) {
      * will forcefully kill the task if called.
      */
     gasneti_reghandler(SIGALRM, gasnetc_sigalarm_handler );
-    /* set the alarm for avoid hangs... this time may need to be
-     * scaled by the number of tasks/threads
+    /* set the alarm for avoid hangs... 
      */
-    alarm(5);
+    alarm((int)sleep_time);
 
     if (gasnetc_got_exit_signal) {
 	/* async exit, got shutdown AM from remote node */
