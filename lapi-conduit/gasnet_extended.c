@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2008/03/14 03:44:07 $
- * $Revision: 1.105 $
+ *     $Date: 2008/03/14 21:06:49 $
+ * $Revision: 1.106 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1777,7 +1777,6 @@ extern void gasnete_wait_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
     } 
     gasneti_assert(iop->initiated_put_cnt == 0);
 }
-#endif /* GASNETC_LAPI_RDMA || GASNETC_LAPI_FED_POLLBUG_WORKAROUND */
 
 #if GASNETC_LAPI_RDMA
 extern void gasnete_wait_syncnbi_gets(GASNETE_THREAD_FARG_ALONE) 
@@ -1799,12 +1798,13 @@ extern void gasnete_wait_syncnbi_gets(GASNETE_THREAD_FARG_ALONE)
     }
     gasneti_assert(iop->initiated_get_cnt == 0);
 }
+#endif /* GASNETC_LAPI_RDMA */
 
 extern void gasnete_wait_syncnbi_all(GASNETE_THREAD_FARG_ALONE) {
     gasnete_wait_syncnbi_puts(GASNETE_THREAD_PASS_ALONE);
     gasnete_wait_syncnbi_gets(GASNETE_THREAD_PASS_ALONE);
 }
-#endif /* GASNETC_LAPI_RDMA */
+#endif /* GASNETC_LAPI_RDMA || GASNETC_LAPI_FED_POLLBUG_WORKAROUND */
 
 /* ------------------------------------------------------------------------------------ */
 /*
