@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2008/03/13 20:20:25 $
- * $Revision: 1.112 $
+ *     $Date: 2008/03/14 20:12:25 $
+ * $Revision: 1.113 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -667,7 +667,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
         int64_t user_pin_threshold = gasneti_getenv_int_withdefault("GASNET_LAPI_PIN_THRESHOLD", gasnete_pin_threshold, 1);
         if(user_pin_threshold < 0 || user_pin_threshold > gasnete_pin_max) {
           if(gasneti_mynode == 0) {
-            fprintf(stderr,"WARNING: GASNET_LAPI_PIN_THRESHOLD must be greater than 0 and less than %d.  Using default (%d bytes)\n",gasnete_pin_max, gasnete_pin_threshold);
+            fprintf(stderr,"WARNING: GASNET_LAPI_PIN_THRESHOLD must be greater than 0 and less than or equal to %d.  Using default (%d bytes)\n",gasnete_pin_max, gasnete_pin_threshold);
             fflush(stderr);
           }
         } else {
