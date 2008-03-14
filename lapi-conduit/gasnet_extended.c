@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2008/03/14 01:58:42 $
- * $Revision: 1.104 $
+ *     $Date: 2008/03/14 03:44:07 $
+ * $Revision: 1.105 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1436,50 +1436,6 @@ extern int  gasnete_try_syncnb_all (gasnet_handle_t *phandle, size_t numhandles)
     else return GASNET_ERR_NOT_READY;
 }
 
-#if GASNETC_LAPI_RDMA
-
-extern void gasnete_wait_syncnbi_gets(GASNETE_THREAD_FARG_ALONE) 
-{
-    gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
-    gasnete_iop_t *iop = mythread->current_iop;
-    gasneti_assert(iop->threadidx == mythread->threadidx);
-    gasneti_assert(iop->next == NULL);
-    gasneti_assert(OPTYPE(iop) == OPTYPE_IMPLICIT);
-#if GASNET_DEBUG
-    if (iop->next != NULL)
-	gasneti_fatalerror("VIOLATION: attempted to call gasnete_wait_syncnbi_gets() inside an NBI access region");
-#endif
-
-    GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&iop->get_cntr,iop->initiated_get_cnt,&iop->initiated_get_cnt));
-    gasneti_assert(iop->initiated_get_cnt == 0);
-    if (gasneti_weakatomic_read(&iop->get_aux_cntr, 0)) /* avoid extra rmb when possible */
-      GASNET_BLOCKUNTIL(gasneti_weakatomic_read(&iop->get_aux_cntr, 0) == 0);
-    /* gasneti_sync_mem(); */  /* Don't think this is necessary, PH */
-}
-
-#endif
-
-#if !GASNETC_LAPI_RDMA && GASNETC_LAPI_FED_POLLBUG_WORKAROUND
-extern void gasnete_wait_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) 
-{
-    gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
-    gasnete_iop_t *iop = mythread->current_iop;
-    gasneti_assert(iop->threadidx == mythread->threadidx);
-    gasneti_assert(iop->next == NULL);
-    gasneti_assert(OPTYPE(iop) == OPTYPE_IMPLICIT);
-#if GASNET_DEBUG
-    if (iop->next != NULL)
-	gasneti_fatalerror("VIOLATION: attempted to call gasnete_wait_syncnbi_puts() inside an NBI access region");
-#endif
-    GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&iop->put_cntr,iop->initiated_put_cnt,&iop->initiated_put_cnt));
-    gasneti_assert(iop->initiated_put_cnt == 0);
-    if (gasneti_weakatomic_read(&iop->put_aux_cntr, 0)) /* avoid extra rmb when possible */
-      GASNET_BLOCKUNTIL(gasneti_weakatomic_read(&iop->put_aux_cntr, 0) == 0);
-    gasneti_sync_mem();
-}
-#endif
-
-
 #if GASNETC_LAPI_RDMA || GASNETC_LAPI_FED_POLLBUG_WORKAROUND
 extern void gasnete_wait_syncnb(gasnet_handle_t handle) {
     gasnete_op_t *op = handle;
@@ -1739,6 +1695,7 @@ extern void gasnete_memset_nbi (gasnet_node_t node, void *dest, int val,
     gasnete_wait_syncnbi_myputs(1 GASNETE_THREAD_PASS);
 #endif    
 }
+
 /* ------------------------------------------------------------------------------------ */
 /*
   Synchronization for implicit-handle non-blocking operations:
@@ -1797,9 +1754,7 @@ extern int  gasnete_try_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
         } else return GASNET_ERR_NOT_READY;
 }
 
-
-/* don't poll for put operations, polling for gets is ok */
-#if GASNETC_LAPI_RDMA
+#if GASNETC_LAPI_RDMA || GASNETC_LAPI_FED_POLLBUG_WORKAROUND
 extern void gasnete_wait_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
     gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
     gasnete_iop_t *iop = mythread->current_iop;
@@ -1814,17 +1769,43 @@ extern void gasnete_wait_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
       GASNET_BLOCKUNTIL(gasneti_weakatomic_read(&iop->put_aux_cntr, 0) == 0);
     if (iop->initiated_put_cnt > 0) {
 	GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&iop->put_cntr,iop->initiated_put_cnt,&iop->initiated_put_cnt));
-	/* note that waitcntr decrements counter by amount waited for */
-	gasneti_assert(iop->initiated_put_cnt == 0);
+      #if GASNETC_LAPI_FED_POLLBUG_WORKAROUND  /* XXX: Why the different membars here? -PHH */
+	gasneti_sync_mem();
+      #else
 	gasneti_sync_reads();
+      #endif
     } 
+    gasneti_assert(iop->initiated_put_cnt == 0);
+}
+#endif /* GASNETC_LAPI_RDMA || GASNETC_LAPI_FED_POLLBUG_WORKAROUND */
+
+#if GASNETC_LAPI_RDMA
+extern void gasnete_wait_syncnbi_gets(GASNETE_THREAD_FARG_ALONE) 
+{
+    gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
+    gasnete_iop_t *iop = mythread->current_iop;
+    gasneti_assert(iop->threadidx == mythread->threadidx);
+    gasneti_assert(iop->next == NULL);
+    gasneti_assert(OPTYPE(iop) == OPTYPE_IMPLICIT);
+#if GASNET_DEBUG
+    if (iop->next != NULL)
+	gasneti_fatalerror("VIOLATION: attempted to call gasnete_wait_syncnbi_gets() inside an NBI access region");
+#endif
+    if (gasneti_weakatomic_read(&iop->get_aux_cntr, 0)) /* avoid extra rmb when possible */
+      GASNET_BLOCKUNTIL(gasneti_weakatomic_read(&iop->get_aux_cntr, 0) == 0);
+    if (iop->initiated_get_cnt > 0) {
+	GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&iop->get_cntr,iop->initiated_get_cnt,&iop->initiated_get_cnt));
+	/* gasneti_sync_mem(); */  /* Don't think this is necessary, PH */
+    }
+    gasneti_assert(iop->initiated_get_cnt == 0);
 }
 
 extern void gasnete_wait_syncnbi_all(GASNETE_THREAD_FARG_ALONE) {
     gasnete_wait_syncnbi_puts(GASNETE_THREAD_PASS_ALONE);
     gasnete_wait_syncnbi_gets(GASNETE_THREAD_PASS_ALONE);
 }
-#endif
+#endif /* GASNETC_LAPI_RDMA */
+
 /* ------------------------------------------------------------------------------------ */
 /*
   Implicit access region synchronization
