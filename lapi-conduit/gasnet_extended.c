@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2008/03/14 00:12:48 $
- * $Revision: 1.103 $
+ *     $Date: 2008/03/14 01:58:42 $
+ * $Revision: 1.104 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -367,9 +367,9 @@ int gasnete_op_isdone(gasnete_op_t *op)
 	    return(0);
 	}
 #if GASNET_DEBUG
-	/* To match wait_syncnb() behavior and thus satisfy assertion in op_free() */
-	iop->initiated_get_cnt = 0;
-	iop->initiated_put_cnt = 0;
+	/* To match wait_syncnb() behavior and thus satisfy assertions in op_free() */
+	GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&iop->get_cntr,iop->initiated_get_cnt,&iop->initiated_get_cnt));
+	GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&iop->put_cntr,iop->initiated_put_cnt,&iop->initiated_put_cnt));
 #endif
 	return (1);
     }
