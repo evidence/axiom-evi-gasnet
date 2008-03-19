@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_asm.h,v $
- *     $Date: 2007/10/26 01:13:58 $
- * $Revision: 1.122 $
+ *     $Date: 2008/03/19 19:38:56 $
+ * $Revision: 1.123 $
  * Description: GASNet header for semi-portable inline asm support
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -78,7 +78,9 @@
   #if PLATFORM_COMPILER_VERSION_LT(6,2,5)
     #define GASNETI_PGI_ASM_BUG1754 1
   #endif
-  #if PLATFORM_COMPILER_VERSION_GE(7,1,0) /* XXX: need end of range once fixed */
+  #if PLATFORM_COMPILER_VERSION_GE(7,1,0) && PLATFORM_COMPILER_VERSION_LT(7,1,4)
+    /* NOTE: 7.1-4 tested and found to be correct, though PGI reports fixed in 7.1-2 (not yet tested).
+     * Until I can test 7.1-2, I'll conservatively assume 7.1-2 and -3 still have this bug. -PHH */
     #define GASNETI_PGI_ASM_BUG2149 1
   #endif
   #define GASNETI_ASM_SPECIAL(mnemonic) asm(mnemonic)
