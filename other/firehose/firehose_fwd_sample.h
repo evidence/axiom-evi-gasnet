@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_fwd_sample.h,v $
- *     $Date: 2008/03/05 23:54:26 $
- * $Revision: 1.6 $
+ *     $Date: 2008/04/02 17:57:16 $
+ * $Revision: 1.7 $
  * Description: Firehose forward declarations
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -128,3 +128,17 @@ firehose_remotecallback_args_t;
  */
 #undef FIREHOSE_UNEXPORT_CALLBACK
 
+/* Define to a zero-argument macro that calls the "AMPoll()" function
+ * which firehose should call when it needs to stall for resources.
+ * If not set, defaults to
+ *   #define FIREHOSE_AMPOLL() gasneti_AMPoll()
+ *
+ * + This should be a non-tracing poll.
+ * + To ensure progress of firehose, this poll function:
+ *   - should call firehose_release() where RDMAs have completed
+ *   - must run AM Replies if using firehose remotely
+ * + To avoid recursion, this poll function must not call firehose
+ *   pinning request functions.  For instance, if sending an AM Reply
+ *   could require a firehose then the poll must not run AM Requests.
+ */
+#undef FIREHOSE_AMPOLL

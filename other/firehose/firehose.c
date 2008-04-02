@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose.c,v $
- *     $Date: 2008/03/05 23:54:26 $
- * $Revision: 1.34 $
+ *     $Date: 2008/04/02 17:57:16 $
+ * $Revision: 1.35 $
  * Description: 
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -955,7 +955,7 @@ fh_WaitLocalFirehoses(int count, firehose_region_t *region)
 		}
 		else {
 			FH_TABLE_UNLOCK;
-			gasneti_AMPoll();
+			FIREHOSE_AMPOLL();
 			FH_TABLE_LOCK;
 
 			/* May have had a D->E state transition */
@@ -1000,7 +1000,7 @@ fh_WaitRemoteFirehoses(gasnet_node_t node, int count,
 		}
 		else {
 			FH_TABLE_UNLOCK;
-			gasneti_AMPoll();
+			FIREHOSE_AMPOLL();
 			FH_TABLE_LOCK;
 		}
 	}

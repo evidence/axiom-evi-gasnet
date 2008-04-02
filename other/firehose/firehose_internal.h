@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_internal.h,v $
- *     $Date: 2008/03/05 23:54:26 $
- * $Revision: 1.37 $
+ *     $Date: 2008/04/02 17:57:16 $
+ * $Revision: 1.38 $
  * Description: Internal Header file
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -35,6 +35,12 @@
 #if defined(FIREHOSE_REMOTE_CALLBACK_IN_HANDLER) && \
     defined(FIREHOSE_COMPLETION_IN_HANDLER)
 #define FH_POLL_NOOP
+#endif
+
+/* If unspecified in the firehose_fwd.h, we default to using gasneti_AMPoll().
+ */
+#ifndef FIREHOSE_AMPOLL
+#define FIREHOSE_AMPOLL() gasneti_AMPoll()
 #endif
 
 typedef uintptr_t	fh_uint_t;
