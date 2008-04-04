@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_syncops.h,v $
- *     $Date: 2008/04/04 00:56:33 $
- * $Revision: 1.45 $
+ *     $Date: 2008/04/04 03:50:56 $
+ * $Revision: 1.46 $
  * Description: GASNet header for synchronization operations used in GASNet implementation
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -817,6 +817,26 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
       } while (0)
       #define _gasneti_lifo_st8_rel(_addr, _val) \
 	_Asm_st_volatile(_SZ_D, _LDHINT_NONE, (void *)(_addr), (int64_t)(_val))
+
+      #define GASNETI_HAVE_ARCH_LIFO	1
+    #elif PLATFORM_COMPILER_GNU
+      GASNETI_INLINE(_gasneti_lifo_store16)
+      int _gasneti_lifo_store16(void volatile *ptr, uint64_t oldtag, void *newval) {
+	register uint64_t tmp = oldtag + 1;
+        __asm__ __volatile__ (
+          "mov			ar.ccv=%1		\n\t"
+          "mov			ar.csd=%2;;		\n\t"
+          "cmp8xchg16.acq	%0=[%3],%0,ar.csd,ar.ccv\n"
+          : "+r"(tmp) : "r"(oldtag), "r"(newval), "r"(ptr) : "memory" );
+        return tmp != oldtag;
+      }
+      #define _gasneti_lifo_load16(_addr, _tag, _head)        \
+        __asm__ __volatile__ (                                \
+          "ld16		%0,ar.csd=[%2];;\n\t"                 \
+          "mov		%1=ar.csd	\n"                   \
+          : "=r"(_tag), "=r"(_head) : "r"(_addr) : "memory" )
+      #define _gasneti_lifo_st8_rel(_addr, _val) \
+	__asm__ __volatile__ ( "st8.rel [%0]=%1" : : "r"(_addr), "r"(_val) : "memory")
 
       #define GASNETI_HAVE_ARCH_LIFO	1
     #else

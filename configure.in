@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2008/04/04 01:52:26 $
-# $Revision: 1.488 $
+#     $Date: 2008/04/04 03:50:56 $
+# $Revision: 1.489 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.488 $)
+AC_REVISION($Revision: 1.489 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1228,7 +1228,9 @@ AC_MSG_CHECKING(for ia64 cmp8xchg16 support)
 AC_TRY_RUN([
   #include "gasnet_asm.h" /* For PLATFORM_COMPILER_* and GASNETI_*_ASM_* */
 
-  #if PLATFORM_COMPILER_HP && !GASNETI_HP_ASM_BAD_16B_ATOMICS
+  #if !PLATFORM_ARCH_IA64
+    #error wrong CPU architecture
+  #elif PLATFORM_COMPILER_HP && !GASNETI_HP_ASM_BAD_16B_ATOMICS
     #include <machine/sys/inline.h>
     int cmp8xchg16(void volatile *ptr, unsigned long oldlo, unsigned long newlo, unsigned long newhi) {
       _Asm_mov_to_ar(_AREG_CSD, newhi);
@@ -1236,12 +1238,21 @@ AC_TRY_RUN([
       return oldlo == _Asm_cmp8xchg16(_SEM_ACQ, ptr, newlo, _LDHINT_NONE, _UNGUARDED,
                                       (_Asm_fence)(_UP_MEM_FENCE | _DOWN_MEM_FENCE));
     }
+  #elif PLATFORM_COMPILER_GNU
+    int cmp8xchg16(void volatile *ptr, unsigned long oldlo, unsigned long newlo, unsigned long newhi) {
+      register unsigned long tmp = newlo;
+      __asm__ __volatile__ (
+	"mov		ar.ccv=%1			\n\t"
+	"mov		ar.csd=%2;;			\n\t"
+	"cmp8xchg16.acq	%0=[%3],%0,ar.csd,ar.ccv	\n"
+	: "+r"(tmp) : "rO"(oldlo), "rO"(newhi), "r"(ptr) : "memory" );
+      return tmp == oldlo;
+    }
   #else
-    choke me - compiler is unsupported
+    #error compiler is unsupported
   #endif
 
   int main(void) {
-  #if PLATFORM_ARCH_IA64
 	unsigned long *array[3];
 	unsigned long *p = (void *)(((unsigned long)array + 15) & ~(unsigned long)15);
 	int swapped;
@@ -1253,9 +1264,6 @@ AC_TRY_RUN([
 
 	/* Want SUCCESS and changed X */
 	return (!swapped || (p[0] != 5678) || (p[1] != 0xabcdef));
-  #else
-    #error wrong CPU architecture
-  #endif
   }
 ], [AC_DEFINE(GASNETI_HAVE_IA64_CMP8XCHG16)
     AC_MSG_RESULT(yes)
