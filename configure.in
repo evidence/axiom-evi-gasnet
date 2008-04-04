@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2008/04/04 03:50:56 $
-# $Revision: 1.489 $
+#     $Date: 2008/04/04 04:49:45 $
+# $Revision: 1.490 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.489 $)
+AC_REVISION($Revision: 1.490 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1237,6 +1237,11 @@ AC_TRY_RUN([
       _Asm_mov_to_ar(_AREG_CCV, oldlo);
       return oldlo == _Asm_cmp8xchg16(_SEM_ACQ, ptr, newlo, _LDHINT_NONE, _UNGUARDED,
                                       (_Asm_fence)(_UP_MEM_FENCE | _DOWN_MEM_FENCE));
+    }
+  #elif PLATFORM_COMPILER_INTEL
+    #include <ia64intrin.h>
+    int cmp8xchg16(void volatile *ptr, unsigned long oldlo, unsigned long newlo, unsigned long newhi) {
+      return oldlo == _InterlockedCompare64Exchange128_acq(ptr, newhi, newlo, oldlo);
     }
   #elif PLATFORM_COMPILER_GNU
     int cmp8xchg16(void volatile *ptr, unsigned long oldlo, unsigned long newlo, unsigned long newhi) {
