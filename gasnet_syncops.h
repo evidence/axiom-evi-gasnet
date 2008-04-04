@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_syncops.h,v $
- *     $Date: 2008/04/04 04:49:45 $
- * $Revision: 1.47 $
+ *     $Date: 2008/04/04 05:44:47 $
+ * $Revision: 1.48 $
  * Description: GASNet header for synchronization operations used in GASNet implementation
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -861,7 +861,7 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
     #ifdef GASNETI_HAVE_ARCH_LIFO /* Only true if compiler-specific parts defined above */
       typedef struct {
         void 			*array[3]; /* for 16-byte aligment use either 0+1 or 1+2 */
-        char			_pad[GASNETI_CACHE_PAD(3*+sizeof(void *))];
+        char			_pad[GASNETI_CACHE_PAD(3*sizeof(void *))];
       } gasneti_lifo_head_t;
 
       GASNETI_INLINE(_gasneti_lifo_push)
