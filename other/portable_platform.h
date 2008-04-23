@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/portable_platform.h,v $
- *     $Date: 2008/01/26 09:51:58 $
- * $Revision: 1.21 $
+ *     $Date: 2008/04/23 15:46:30 $
+ * $Revision: 1.22 $
  * Description: Portable platform detection header
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -415,7 +415,7 @@
 
 #ifndef _PLATFORM_COMPILER_MISC_VERSION_STR
   #ifdef __VERSION__
-    #define _PLATFORM_COMPILER_MISC_VERSION_STR "|misc:"_STRINGIFY(__VERSION__)
+    #define _PLATFORM_COMPILER_MISC_VERSION_STR "|misc:"__VERSION__
   #else
     #define _PLATFORM_COMPILER_MISC_VERSION_STR
   #endif
