@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2008/04/04 04:49:45 $
-# $Revision: 1.490 $
+#     $Date: 2008/07/17 22:57:09 $
+# $Revision: 1.491 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.490 $)
+AC_REVISION($Revision: 1.491 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2784,7 +2784,7 @@ if test "$enabled_portals" = yes; then
     fi
   fi
   if test $have_portals = yes; then
-    GASNET_PUSHVAR(CFLAGS,"$CFLAGS ${PORTALS_INCLUDES}")
+    GASNET_PUSHVAR(CPPFLAGS,"$CPPFLAGS ${PORTALS_INCLUDES}")
   
     AC_CHECK_HEADERS(pctmbox.h)
     AC_CHECK_HEADERS(catamount/cnos_mpi_os.h)
@@ -2815,7 +2815,7 @@ if test "$enabled_portals" = yes; then
        cnos_get_nidpid_map(NULL);
        PtlNIInit(ptl_iface, PTL_PID_ANY, NULL, NULL, &ptl_ni_h);
     }], [ portals_test_worked=yes ], [ portals_test_worked=no GASNET_ERR_SAVE() ] )
-    GASNET_POPVAR(CFLAGS)
+    GASNET_POPVAR(CPPFLAGS)
   
     if test "$portals_test_worked" != yes; then
       GASNET_MSG_WARN(build test failed: I don't know how to build Portals programs on your system)
