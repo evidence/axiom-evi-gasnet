@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2008/03/14 23:15:49 $
- * $Revision: 1.114 $
+ *     $Date: 2008/07/18 20:22:20 $
+ * $Revision: 1.115 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -461,7 +461,7 @@ void gasnetc_lapi_get_remote_contexts()
   int rctxts_per_node;
 
   /* Too verbose? */
-  rctxts_per_node = (int) gasneti_getenv_int_withdefault("GASNET_LAPI_RCTXTS_PER_NODE",1,0);
+  rctxts_per_node = (int) gasneti_getenv_int_withdefault("GASNET_LAPI_RCTXTS_PER_NODE",4,0);
   if (!GASNETI_POWEROFTWO(rctxts_per_node)) {
     gasneti_fatalerror("If set, GASNET_LAPI_RCTXTS_PER_NODE must be a power of two (is %d)", rctxts_per_node);
   }

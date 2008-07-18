@@ -71,7 +71,7 @@ Tuning parameters
 =================
 
 GASNET_LAPI_RCTXTS_PER_NODE - a (small) power of 2 specifying how many
-remote contexts to open up to each peer.  Default value: 1
+remote contexts to open up to each peer.  Default value: 4
 
 GASNET_LAPI_USE_RDMA - use RDMA with this conduit.  If RDMA is detected
 at configure time, it is enabled by default.  Note that -rdma_count
