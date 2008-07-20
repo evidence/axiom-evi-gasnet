@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2008/03/05 23:54:28 $
- * $Revision: 1.202 $
+ *     $Date: 2008/07/20 20:01:38 $
+ * $Revision: 1.203 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -66,7 +66,8 @@ GASNETI_IDENT(gasnetc_IdentString_Name,    "$GASNetCoreLibraryName: " GASNET_COR
 #if GASNET_CONDUIT_VAPI
   #define GASNETC_DEFAULT_INLINESEND_LIMIT	72
 #else
-  #define GASNETC_DEFAULT_INLINESEND_LIMIT	256
+  /* Use HCA maximum */
+  #define GASNETC_DEFAULT_INLINESEND_LIMIT	(size_t)(-1)
 #endif
 #define GASNETC_DEFAULT_NONBULKPUT_BOUNCE_LIMIT	(64*1024)
 #define GASNETC_DEFAULT_PACKEDLONG_LIMIT	GASNETC_MAX_PACKEDLONG
@@ -448,7 +449,7 @@ static int gasnetc_load_settings(void) {
   GASNETC_ENVINT(gasnetc_am_credits_slack, GASNET_AM_CREDITS_SLACK, GASNETC_DEFAULT_AM_CREDITS_SLACK, 0, 0);
   GASNETC_ENVINT(gasnetc_bbuf_limit, GASNET_BBUF_COUNT, GASNETC_DEFAULT_BBUF_COUNT, 0, 0);
   GASNETC_ENVINT(gasnetc_num_qps, GASNET_NUM_QPS, GASNETC_DEFAULT_NUM_QPS, 0, 0);
-  GASNETC_ENVINT(gasnetc_inline_limit, GASNET_INLINESEND_LIMIT, GASNETC_DEFAULT_INLINESEND_LIMIT, 0, 1);
+  GASNETC_ENVINT(gasnetc_inline_limit, GASNET_INLINESEND_LIMIT, GASNETC_DEFAULT_INLINESEND_LIMIT, -1, 1);
   GASNETC_ENVINT(gasnetc_bounce_limit, GASNET_NONBULKPUT_BOUNCE_LIMIT, GASNETC_DEFAULT_NONBULKPUT_BOUNCE_LIMIT, 0, 1);
   GASNETC_ENVINT(gasnetc_packedlong_limit, GASNET_PACKEDLONG_LIMIT, GASNETC_DEFAULT_PACKEDLONG_LIMIT, 0, 1);
   GASNETC_ENVINT(gasnetc_amrdma_max_peers, GASNET_AMRDMA_MAX_PEERS, GASNETC_DEFAULT_AMRDMA_MAX_PEERS, 0, 0);
@@ -589,7 +590,8 @@ static int gasnetc_load_settings(void) {
 #if GASNETC_PIN_SEGMENT
   GASNETI_TRACE_PRINTF(C,  ("  GASNET_PIN_MAXSZ                = %lu", gasnetc_pin_maxsz));
 #endif
-  GASNETI_TRACE_PRINTF(C,  ("  GASNET_INLINESEND_LIMIT         = %u", (unsigned int)gasnetc_inline_limit));
+  GASNETI_TRACE_PRINTF(C,  ("  GASNET_INLINESEND_LIMIT         = %d%s", (int)gasnetc_inline_limit,
+				(gasnetc_inline_limit == (size_t)-1 ? " (automatic)" : "")));
   GASNETI_TRACE_PRINTF(C,  ("  GASNET_NONBULKPUT_BOUNCE_LIMIT  = %u", (unsigned int)gasnetc_bounce_limit));
 #if !GASNETC_PIN_SEGMENT
   GASNETI_TRACE_PRINTF(C,  ("  GASNET_PUTINMOVE_LIMIT          = %u", (unsigned int)gasnetc_putinmove_limit));
@@ -1419,9 +1421,11 @@ static int gasnetc_init(int *argc, char ***argv) {
       vstat = VAPI_modify_qp(gasnetc_cep[i].hca_handle, gasnetc_cep[i].qp_handle, &qp_attr, &qp_mask, &qp_cap);
       GASNETC_VAPI_CHECK(vstat, "from VAPI_modify_qp(RTS)");
       if (qp_cap.max_inline_data_sq < gasnetc_inline_limit) {
-	fprintf(stderr,
+	if (gasnetc_inline_limit != (size_t)-1) {
+	  fprintf(stderr,
 		"WARNING: Requested GASNET_INLINESEND_LIMIT %d reduced to HCA limit %d\n",
 		(int)gasnetc_inline_limit, (int)qp_cap.max_inline_data_sq);
+	}
         gasnetc_inline_limit = qp_cap.max_inline_data_sq;
       }
     }
@@ -1444,9 +1448,11 @@ static int gasnetc_init(int *argc, char ***argv) {
         rc = ibv_query_qp(gasnetc_cep[i].qp_handle, &qp_attr2, IBV_QP_CAP, &qp_init_attr);
         GASNETC_VAPI_CHECK(rc, "from ibv_query_qp(RTS)");
         if (qp_attr2.cap.max_inline_data < gasnetc_inline_limit) {
-	  fprintf(stderr,
+	  if (gasnetc_inline_limit != (size_t)-1) {
+	    fprintf(stderr,
 		"WARNING: Requested GASNET_INLINESEND_LIMIT %d reduced to HCA limit %d\n",
 		(int)gasnetc_inline_limit, (int)qp_attr2.cap.max_inline_data);
+	  }
           gasnetc_inline_limit = qp_attr2.cap.max_inline_data;
         }
       }

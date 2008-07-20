@@ -1,7 +1,7 @@
 README file for vapi-conduit and ibv-conduit
 ============================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.51 $
+$Revision: 1.52 $
 
 @ TOC: @
 @ Section: VAPI vs IBV @
@@ -298,11 +298,15 @@ $Revision: 1.51 $
     VAPI includes an "inline send" operation that transfers the data to
     the HCA at the same time it transfers the request.  This normally
     provides a measurable performance improvement, but is only available
-    up to an firmware-dependent maximum size.  Therefore, the default of
-    72 is normally correct.
+    up to an firmware-dependent maximum size.
+
+    A value of 0 disables use of inline sends.
+    For vapi-conduit the default of 72 is normally correct.
+    For ibv-conduit the default of -1 causes use of the maximum value
+    reported by the HCA.
    
-    In firmware versions after 1.17 and prior to 3.0, there is a
-    performance anomaly with the call EVAPI_post_inline_sr().
+    In Mellanox firmware versions after 1.17 and prior to 3.0, there
+    is a performance anomaly with the call EVAPI_post_inline_sr().
     By default, vapi-conduit will use this call to perform small
     PUTs.  If firmware in the range [1.18, 3.0) is detected at
     runtime, a warning will be printed but the call will still
