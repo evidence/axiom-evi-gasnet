@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2007/08/24 05:50:16 $
- * $Revision: 1.152 $
+ *     $Date: 2008/07/20 23:55:50 $
+ * $Revision: 1.153 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -57,7 +57,7 @@
 #else
   #define GASNETC_VAPI_CHECK(rc,msg) \
     if_pf ((rc) != 0) \
-      { gasneti_fatalerror("Unexpected error %s (errno=%d) %s",strerror(errno),errno,(msg)); }
+      { gasneti_fatalerror("Unexpected error %s (rc=%d errno=%d) %s",strerror(errno),(rc), errno,(msg)); }
   #define GASNETC_VAPI_CHECK_PTR(ptr,msg) GASNETC_VAPI_CHECK((ptr)==NULL,(msg))
 #endif
 
