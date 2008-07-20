@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2008/01/27 09:48:42 $
-# $Revision: 1.63 $
+#     $Date: 2008/07/20 18:56:00 $
+# $Revision: 1.64 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -102,6 +102,7 @@ sub gasnet_encode($) {
     my $is_hp_mpi  = ($mpirun_help =~ m|-universe_size|);
     my $is_elan_mpi  = ($mpirun_help =~ m|MPIRUN_ELANIDMAP_FILE|);
     my $is_jacquard = ($mpirun_help =~ m| \[-noenv\] |) && !$is_elan_mpi;
+    my $is_infinipath = ($mpirun_help =~ m|InfiniPath |);
     my $envprog = $ENV{'ENVCMD'};
     if (! -x $envprog) { # SuperUX has broken "which" implementation, so avoid if possible
       $envprog = `which env`;
@@ -238,6 +239,12 @@ sub gasnet_encode($) {
 		    );
           $extra_quote_argv = 2;
 	}
+    } elsif ($is_infinipath) {
+	$spawner_desc = "InfiniPath";
+	%envfmt = ( 'pre' => $envprog, 'val' => '');
+        $encode_args = 1;
+        $encode_env = 1;
+	@verbose_opt = ("-V");
     } else {
 	$spawner_desc = "unknown program (using generic MPI spawner)";
 	# the OS already propagates the environment for us automatically
