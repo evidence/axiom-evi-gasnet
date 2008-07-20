@@ -1,7 +1,7 @@
 README file for vapi-conduit and ibv-conduit
 ============================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.50 $
+$Revision: 1.51 $
 
 @ TOC: @
 @ Section: VAPI vs IBV @
@@ -105,6 +105,14 @@ $Revision: 1.50 $
   + Resolution for all given hostnames must be possible from both the
     master node and the compute nodes.
 
+  It has been noted that some InfiniBand driver implementations may not
+  allow for multiple open()s of the adapter.  In this case, spawning via
+  MPI is not possible because the MPI and GASNet implementations cannot
+  share the adapter.  If your GASNet jobs fail to spawn via MPI, but
+  spawn correctly with ssh, this may be the reason.
+  Our recommended response to this situation is to completely disable
+  MPI support in GASNet by configuring with --without-mpi-cc.
+  
 @ Section: Multi-rail Support @
 
   Multi-rail support is ON in GASNet vapi-conduit by default.
