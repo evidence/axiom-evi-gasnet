@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2008/07/20 20:01:38 $
- * $Revision: 1.203 $
+ *     $Date: 2008/07/20 22:00:53 $
+ * $Revision: 1.204 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -122,10 +122,9 @@ static int gasnetc_qp_timeout, gasnetc_qp_retry_count;
  * With 32k * 128k = 4G we can pin upto 4GB of physical memory with these.
  * We don't yet deal well with many small regions.
  * Note that GASNET_FIREHOSE_* env vars can override these.
- * XXX: HCA-specific defaults should be used (see bug 2229).
  */
-unsigned int gasnetc_fh_maxregions = 32768;
-unsigned int gasnetc_fh_maxsize    = 131072;
+static unsigned int gasnetc_fh_maxregions = 32768;
+static unsigned int gasnetc_fh_maxsize    = 131072;
 
 /* ------------------------------------------------------------------------------------ */
 
@@ -365,8 +364,8 @@ static void gasnetc_init_pin_info(int first_local, int num_local) {
 
   gasnetc_pin_info.memory    = ~((uintptr_t)0);
   gasnetc_pin_info.num_local = num_local;
-  gasnetc_pin_info.regions = gasnetc_hca[0].hca_cap.gasnetc_f_max_mr;
-  for (i = 1; i < gasnetc_num_hcas; ++i) {
+  gasnetc_pin_info.regions = gasnetc_fh_maxregions;
+  GASNETC_FOR_ALL_HCA_INDEX(i) {
     gasnetc_pin_info.regions = MIN(gasnetc_pin_info.regions, gasnetc_hca[i].hca_cap.gasnetc_f_max_mr);
   }
 
@@ -1091,33 +1090,15 @@ static int gasnetc_init(int *argc, char ***argv) {
     gasneti_assert_always(hca->hca_cap.gasnetc_f_max_cq >= 2);
     GASNETI_TRACE_PRINTF(C,("  max_num_ent_cq           = %u", (unsigned int)hca->hca_cap.gasnetc_f_max_cqe));
   
-    /* Check for sufficient pinning resources */
-    {
-      int mr_needed = 2;		/* rcv bufs and snd bufs */
-      #if FIREHOSE_VAPI_USE_FMR
-        int fmr_needed = 0;	/* none by default */
-      #endif
   
-      #if GASNETC_PIN_SEGMENT
-        mr_needed++;		/* XXX: need more than 1 due to gasnetc_pin_maxsz */
-      #endif
-      #if FIREHOSE_VAPI_USE_FMR
-        fmr_needed += gasnetc_fh_maxregions;	/* FMRs needed for firehoses */
-      #else
-        mr_needed += gasnetc_fh_maxregions;	/* regular MRs needed for firehoses */
-      #endif
-  
-      GASNETI_TRACE_PRINTF(C,("  max_mr                   = %u", (unsigned int)hca->hca_cap.gasnetc_f_max_mr));
-      gasneti_assert_always(hca->hca_cap.gasnetc_f_max_mr >=  mr_needed);
-      #if FIREHOSE_VAPI_USE_FMR
-        GASNETI_TRACE_PRINTF(C,("  max_num_fmr              = %u", (unsigned int)hca->hca_cap.max_num_fmr));
-	if_pf (hca->hca_cap.max_num_fmr == 0) {
-	  gasneti_fatalerror("GASNet's vapi-conduit was configured to use FMRs, but libvapi reports none available.  You must pass the --disable-vapi-fmr flag to configure.");
-	}
-        gasneti_assert_always(hca->hca_cap.max_num_fmr >= fmr_needed);
-      #endif
-    }
-  
+    GASNETI_TRACE_PRINTF(C,("  max_mr                   = %u", (unsigned int)hca->hca_cap.gasnetc_f_max_mr));
+    #if FIREHOSE_VAPI_USE_FMR
+      GASNETI_TRACE_PRINTF(C,("  max_num_fmr              = %u", (unsigned int)hca->hca_cap.max_num_fmr));
+      if_pf (hca->hca_cap.max_num_fmr == 0) {
+	gasneti_fatalerror("GASNet's vapi-conduit was configured to use FMRs, but libvapi reports none available.  You must pass the --disable-vapi-fmr flag to configure.");
+      }
+    #endif
+
     /* Vendor/device-specific firmware checks */
 #if GASNET_CONDUIT_VAPI
     if ((hca->hca_vendor.vendor_id == MT_MELLANOX_IEEE_VENDOR_ID) &&
@@ -1847,8 +1828,8 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
         /* Adjust for the pinned segment (which is not advertised to firehose as prepinned) */
         gasneti_assert_always(firehose_mem > maxsize);
         firehose_mem -= maxsize;
-        gasneti_assert_always(firehose_reg > gasnetc_seg_reg_count);
-        firehose_reg -= gasnetc_seg_reg_count;
+        gasneti_assert_always(firehose_reg > gasnetc_max_regs);
+        firehose_reg -= gasnetc_max_regs;
 
 	flags |= FIREHOSE_INIT_FLAG_LOCAL_ONLY;
       #endif
