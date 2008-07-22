@@ -602,7 +602,9 @@ void *thread_main(void *arg) {
   test_section=0;
   for(flag_iter=0; flag_iter<9; flag_iter++) {
     int flags;
-    if(TEST_SECTION_BEGIN_ENABLED()) {
+		if(td->my_local_thread==0) TEST_SECTION_BEGIN();
+		COLL_BARRIER();
+    if(TEST_SECTION_ENABLED()) {
     
     switch(flag_iter) { 
       case 0: flags = GASNET_COLL_IN_NOSYNC  | GASNET_COLL_OUT_NOSYNC; break;
