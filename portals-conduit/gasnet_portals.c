@@ -161,6 +161,24 @@ uint32_t gasnetc_snd_seqno=0;
 uint32_t gasnetc_rcv_seqno=0;
 uint32_t gasnetc_amseqno = 0;
 
+/* Firehose stuff */
+
+/* XXX: Need dynamic discovery of limits, but bug 2053 makes that problematic.
+ * For now we'll use 1024 regions of maximum length 128K.
+ * That should be sufficiently small usage (128MB worst case) to not crash.
+ */
+#ifndef GASNETC_FIREHOSE_MAXREGIONS
+  #define GASNETC_FIREHOSE_MAXREGIONS 1024
+#endif
+#ifndef GASNETC_FIREHOSE_MAXREGION_SIZE
+  #define GASNETC_FIREHOSE_MAXREGION_SIZE (128*1024)
+#endif
+
+#if GASNET_DEBUG
+  int gasnetc_use_firehose;
+#endif
+firehose_info_t gasnetc_firehose_info;
+
 /* =================================================================================
  * This top portion of the file is where file-scope worker routines are located.
  * ================================================================================= */
@@ -1096,10 +1114,11 @@ static void RARSRC_event(ptl_event_t *ev)
 }
 
 /* ---------------------------------------------------------------------------------
- * Handle events on Temporary Memory Descriptors.
- * Used only as local source of GASNet Put or dest of GASNet Get when not
- * in local RAR and too large to use bounce buffer (on no chunks available).
- *  SEND_END => Put (or Get) completed locally.
+ * Handle events on Temporary Memory Descriptors and/or Firehoses.
+ * Used as local md (source of Put or Long; or dest of Get) when not in
+ * local RAR and even then only if either firehose is enabled, or if we can't
+ * use bounce bufers (either size was too large or no chunks were available).
+ *  SEND_END => Put, Get or Long payload completed locally.
  *       ACK => Put completed, mark operation as done and free MD.
  * REPLY_END => Get completed, mark operation done and free MD.
  * --------------------------------------------------------------------------------- */
@@ -1149,19 +1168,27 @@ static void TMPMD_event(ptl_event_t *ev)
     break;
 
   case PTL_EVENT_ACK:
-    /* Put from TmpMD */
+    /* Put from Firehose or TmpMD */
     gasneti_assert(msg_type & GASNETC_PTL_MSG_PUT);
-    gasnetc_free_tmpmd(ev->md_handle);
+    if_pt (gasnetc_use_firehose) {
+      gasnetc_fh_free((uint16_t)(mbits >> 32));
+    } else {
+      gasnetc_free_tmpmd(ev->md_handle);
+    }
     op = gasnete_opaddr_to_ptr(threadid, addr);
     /* mark the put (isget=0) operation complete */
     gasnete_op_markdone(op, 0 /* !isget */);
     break;
 
   case PTL_EVENT_REPLY_END:
-    /* Get into TmpMD */
+    /* Get into Firehose or TmpMD */
     gasneti_assert(msg_type & GASNETC_PTL_MSG_GET);
     gasnetc_return_ticket(&gasnetc_send_tickets);
-    gasnetc_free_tmpmd(ev->md_handle);
+    if_pt (gasnetc_use_firehose) {
+      gasnetc_fh_free((uint16_t)(mbits >> 32));
+    } else {
+      gasnetc_free_tmpmd(ev->md_handle);
+    }
     op = gasnete_opaddr_to_ptr(threadid, addr);
     /* mark the get (isget=1) operation complete */
     gasnete_op_markdone(op, 1);
@@ -3720,6 +3747,21 @@ extern void gasnetc_init_portals_resources(void)
   ReqSB_init();  /* required to init ReqSB after ReqRB, since it must go on end of list */
   RplSB_init();
 
+  /* Initialize firehose */
+  #if GASNETC_FIREHOSE_LOCAL
+  #if GASNET_DEBUG /* Always ON in an opt build (avoids branches) */
+  gasnetc_use_firehose = gasneti_getenv_yesno_withdefault("GASNET_USE_FIREHOSE", 1);
+  #endif
+  if (gasnetc_use_firehose) {
+    size_t firehose_mem = GASNETC_FIREHOSE_MAXREGIONS * GASNETC_FIREHOSE_MAXREGION_SIZE;
+
+    firehose_init(firehose_mem, GASNETC_FIREHOSE_MAXREGIONS, GASNETC_FIREHOSE_MAXREGION_SIZE,
+                  NULL, 0, FIREHOSE_INIT_FLAG_LOCAL_ONLY, &gasnetc_firehose_info);
+  }
+  #else
+    #error "Firehose REMOTE is not yet supported"
+  #endif
+
 #if 0
 #ifndef GASNETC_USE_EQ_HANDLER
   /* Enable the progress function */
@@ -3729,6 +3771,7 @@ extern void gasnetc_init_portals_resources(void)
 #endif
 }
 
+#if 0  /* Note: this is currently unused -PHH */
 /* ---------------------------------------------------------------------------------
  * Pre-exit function
  * Attempts to poll until all local resources have been reclaimed,
@@ -3753,6 +3796,7 @@ extern void gasnetc_portals_preexit(int do_trace)
     iter++;
   } 
 }
+#endif
 
 /* ---------------------------------------------------------------------------------
  * Release Portals resources
@@ -3767,6 +3811,9 @@ extern void gasnetc_portals_exit()
 #if DO_CLEANUP_PORTALS
   {
     ptl_event_t ev;
+
+    firehose_fini();
+
     sys_exit();
 
     RplSB_exit();
@@ -3966,11 +4013,62 @@ extern void gasnetc_ptl_trace_finish(void)
 }
 
 /* ------------------------------------------------------------------------------------
+ * Firehose helper(s)
+ */
+
+/* This limits the amount we ask for in a firehose_{local,remote}_pin() call,
+ * to ensure that after rounding up to page boundaries, we don't exceed the max.
+ */
+GASNETI_INLINE(gasnetc_fh_aligned_len)
+size_t gasnetc_fh_aligned_len(uintptr_t start, size_t len) {
+  size_t limit = gasnetc_firehose_info.max_LocalPinSize - (start & (GASNET_PAGESIZE - 1));
+  return MIN(len, limit);
+}
+
+GASNETI_INLINE(gasnetc_fh_aligned_local_pin)
+gasnetc_fh_op_t *gasnetc_fh_aligned_local_pin(uintptr_t start, size_t len) {
+  gasnetc_fh_op_t *op = gasnetc_fh_new();
+  size_t ask_bytes = gasnetc_fh_aligned_len(start, len);
+  op->fh[0] = firehose_local_pin(start, ask_bytes, NULL);
+  return op;
+}
+
+GASNETI_INLINE(gasnetc_send_ticket_stall)
+void gasnetc_send_ticket_stall(gasnetc_pollflag_t pollflag) {
+  while( !gasnetc_alloc_ticket(&gasnetc_send_tickets) ) {
+#if 1 /* Currently all callers use GASNETC_FULL_POLL */
+    gasneti_assert(pollflag == GASNETC_FULL_POLL);
+    gasneti_AMPoll();
+#else    
+    switch (pollflag) {
+    case GASNETC_NO_POLL:
+      gasneti_fatalerror("gasnetc_(get|put)msg: msg limit but NO_POLL allowed");
+      break;
+    case GASNETC_SAFE_POLL:
+      gasnetc_portals_poll(pollflag);
+      break;
+    case GASNETC_FULL_POLL:
+      gasneti_AMPoll();
+      break;
+    }
+#endif
+  }
+}
+
+/* ------------------------------------------------------------------------------------
  * This function does the actual Portals Get operation for the extended API Get
  * operations.
+ * dest       => Address of destination
+ * node       => Which GASNet node to send message to
+ * src        => Address of source, must be in remote RAR
+ * nbytes     => Length of message
+ * match_bits => Destination MD, may be modified in case of bb or fh
+ * pollflag   => What type of polling to allow before Get operation is posted.
  * If we have reached the put/get limit, we poll as directed.
+ *
+ * Returns the number of bytes actually initiated
  * --------------------------------------------------------------------------------- */
-void gasnetc_getmsg(void *dest, gasnet_node_t node, void *src, size_t nbytes,
+size_t gasnetc_getmsg(void *dest, gasnet_node_t node, void *src, size_t nbytes,
 		    ptl_match_bits_t match_bits, gasnetc_pollflag_t pollflag)
 {
   ptl_process_id_t target_id = gasnetc_procid_map[node].ptl_id;
@@ -3982,25 +4080,23 @@ void gasnetc_getmsg(void *dest, gasnet_node_t node, void *src, size_t nbytes,
   gasneti_assert(remote_offset >= 0 && remote_offset < gasneti_seginfo[node].size);
 
   /* stall here if too many puts/gets in progress */
-  while( !gasnetc_alloc_ticket(&gasnetc_send_tickets) ) {
-    switch (pollflag) {
-    case GASNETC_NO_POLL:
-      gasneti_fatalerror("gasnetc_getmsg: msg limit but NO_POLL allowed");
-      break;
-    case GASNETC_SAFE_POLL:
-      gasnetc_portals_poll(pollflag);
-      break;
-    case GASNETC_FULL_POLL:
-      gasneti_AMPoll();
-      break;
-    }
-  }
+  gasnetc_send_ticket_stall(pollflag);
 
   /* Determine destination MD for Ptl Get */
   if (gasnetc_in_local_rar(dest,nbytes)) {
     md_h = gasnetc_RARSRC.md_h;
     local_offset = GASNETC_PTL_OFFSET(gasneti_mynode,dest);
+    nbytes = MIN(nbytes,GASNETC_PTL_MAX_TRANS_SZ);
     GASNETI_TRACE_EVENT(C, GET_RAR);
+  } else if_pt (gasnetc_use_firehose) {
+    /* alloc a firehose for the destination region */
+    gasnetc_fh_op_t *op = gasnetc_fh_aligned_local_pin((uintptr_t)dest, nbytes);
+    const firehose_request_t *fh_loc = op->fh[0];
+    md_h = fh_loc->client;
+    local_offset = (uintptr_t)dest - fh_loc->addr;
+    nbytes = MIN(nbytes, (fh_loc->len - local_offset));
+    match_bits |= ((uint64_t)(op->addr.fulladdr) << 32); /* encode "op" for later release */
+    GASNETI_TRACE_EVENT(C, GET_FH);
   } else if ( (nbytes <= gasnetc_get_bounce_limit)  &&
 	      gasnetc_chunk_alloc_withpoll(&gasnetc_ReqSB, nbytes, &local_offset, 1, GASNETC_SAFE_POLL) ) {
     /* Encode dest addr in BB chunk for later copy */
@@ -4016,6 +4112,7 @@ void gasnetc_getmsg(void *dest, gasnet_node_t node, void *src, size_t nbytes,
     GASNETI_TRACE_EVENT(C, GET_BB);
   } else {
     /* alloc a temp md for the destination region */
+    nbytes = MIN(nbytes,GASNETC_PTL_MAX_TRANS_SZ);
     md_h = gasnetc_alloc_tmpmd_withpoll(dest, nbytes);
     local_offset = 0;
     GASNETI_TRACE_EVENT(C, GET_TMPMD);
@@ -4026,6 +4123,7 @@ void gasnetc_getmsg(void *dest, gasnet_node_t node, void *src, size_t nbytes,
 
   GASNETC_PTLSAFE(PtlGetRegion(md_h, local_offset, nbytes, target_id, GASNETC_PTL_RAR_PTE, ac_index, match_bits, remote_offset));
 
+  return nbytes;
 }
 
 /* ------------------------------------------------------------------------------------
@@ -4036,15 +4134,14 @@ void gasnetc_getmsg(void *dest, gasnet_node_t node, void *src, size_t nbytes,
  * node       => Which GASNet node to send message to
  * src        => Address of message source
  * nbytes     => Length of message
- * match_bits => Destination MD, may be modified in case of wait_lcc
- * isbulk     => Is this an extended API BULK Put?
- * wait_lcc   => Tells caller to wait for local completion flag
- *               Important: initialized by sender, only modify if must wait for local compl.
- * lcc        => Pointer to weakatomic that we increment before posting Put
+ * match_bits => Destination MD, may be modified in case of wait_lcc or fh
+ * lcc        => Pointer to weakatomic counter of pending local completions (or NULL).
  * pollflag   => What type of polling to allow before Put operation is posted.
+ *
+ * Returns the number of bytes actually initiated
  * --------------------------------------------------------------------------------- */
-void gasnetc_putmsg(void *dest, gasnet_node_t node, void *src, size_t nbytes,
-		    ptl_match_bits_t match_bits, int isbulk, int *wait_lcc, gasneti_weakatomic_t *lcc,
+size_t gasnetc_putmsg(void *dest, gasnet_node_t node, void *src, size_t nbytes,
+		    ptl_match_bits_t match_bits, gasneti_weakatomic_t *lcc,
 		    gasnetc_pollflag_t pollflag)
 {
   ptl_size_t local_offset = 0;
@@ -4053,30 +4150,28 @@ void gasnetc_putmsg(void *dest, gasnet_node_t node, void *src, size_t nbytes,
   ptl_process_id_t target_id = gasnetc_procid_map[node].ptl_id;
   ptl_ac_index_t ac_index = GASNETC_PTL_AC_ID;
   ptl_hdr_data_t hdr_data = 0;
+  int inc_lcc = (lcc != NULL);
   
   gasneti_assert(remote_offset >= 0 && remote_offset < gasneti_seginfo[node].size);
 
   /* stall here if too many puts/gets in progress */
-  while( !gasnetc_alloc_ticket(&gasnetc_send_tickets) ) {
-    switch (pollflag) {
-    case GASNETC_NO_POLL:
-      gasneti_fatalerror("gasnetc_getmsg: msg limit but NO_POLL allowed");
-      break;
-    case GASNETC_SAFE_POLL:
-      gasnetc_portals_poll(pollflag);
-      break;
-    case GASNETC_FULL_POLL:
-      gasneti_AMPoll();
-      break;
-    }
-  }
+  gasnetc_send_ticket_stall(pollflag);
 
   /* Determine source MD for Ptl Put */
   if (gasnetc_in_local_rar(src,nbytes)) {
     md_h = gasnetc_RARSRC.md_h;
     local_offset = GASNETC_PTL_OFFSET(gasneti_mynode,src);
-    if (! isbulk) *wait_lcc = 1;
+    nbytes = MIN(nbytes,GASNETC_PTL_MAX_TRANS_SZ);
     GASNETI_TRACE_EVENT(C, PUT_RAR);
+  } else if_pt (gasnetc_use_firehose) {
+    /* alloc a firehose for the source region */
+    gasnetc_fh_op_t *op = gasnetc_fh_aligned_local_pin((uintptr_t)src, nbytes);
+    const firehose_request_t *fh_loc = op->fh[0];
+    md_h = fh_loc->client;
+    local_offset = (uintptr_t)src - fh_loc->addr;
+    nbytes = MIN(nbytes, (fh_loc->len - local_offset));
+    match_bits |= ((uint64_t)(op->addr.fulladdr) << 32); /* encode "op" for later release */
+    GASNETI_TRACE_EVENT(C, PUT_FH);
   } else if ( (nbytes <= gasnetc_put_bounce_limit)  &&
 	      gasnetc_chunk_alloc_withpoll(&gasnetc_ReqSB,nbytes, &local_offset, 1, GASNETC_SAFE_POLL) ) {
     void* bb;
@@ -4087,16 +4182,18 @@ void gasnetc_putmsg(void *dest, gasnet_node_t node, void *src, size_t nbytes,
     memcpy(bb,src,nbytes);
     /* store the local offset in the upper bits of the match bits */
     match_bits |= ((uint64_t)local_offset << 32);
+    inc_lcc = 0; /* Already completed locally */ 
     GASNETI_TRACE_EVENT(C, PUT_BB);
   } else {
     /* alloc a temp md for the source region */
+    nbytes = MIN(nbytes,GASNETC_PTL_MAX_TRANS_SZ);
     md_h = gasnetc_alloc_tmpmd_withpoll(src, nbytes);
     local_offset = 0;
-    if (! isbulk) *wait_lcc = 1;
     GASNETI_TRACE_EVENT(C, PUT_TMPMD);
   }
-  if (*wait_lcc) {
+  if (inc_lcc) {
     /* increment local completion flag and indicate to event handler to decrement */
+    gasneti_assert(lcc != NULL);
     gasneti_weakatomic_increment(lcc, 0);
     match_bits |= GASNETC_PTL_MSG_DOLC;
   }
@@ -4106,6 +4203,7 @@ void gasnetc_putmsg(void *dest, gasnet_node_t node, void *src, size_t nbytes,
   /* Issue Ptl Put operation */
   GASNETC_PTLSAFE(PtlPutRegion(md_h, local_offset, nbytes, PTL_ACK_REQ, target_id, GASNETC_PTL_RAR_PTE, ac_index, match_bits, remote_offset, hdr_data));
 
+  return nbytes;
 }
 
 /* Need a special signal handler for Catamount, cant even do I/O in signal context.
@@ -4139,3 +4237,170 @@ void gasnetc_portalsSignalHandler(int sig) {
   }
 }
 
+/* ------------------------------------------------------------------------------------ */
+/* Firehose bits */
+
+#if GASNETI_STATS_OR_TRACE
+  #define GASNETC_TRACE_WAIT_BEGIN() \
+    gasneti_tick_t _waitstart = GASNETI_TICKS_NOW_IFENABLED(C)
+  #define GASNETC_TRACE_MR(_event, _verb, _region) do {                  \
+	const firehose_region_t *_reg = (_region);                       \
+	int _pages = (int)(_reg->len/GASNET_PAGESIZE);                   \
+	GASNETI_TRACE_PRINTF(D, ("FIREHOSE_MOVE: " _STRINGIFY(_verb)     \
+				 " %d page(s) at " GASNETI_LADDRFMT,     \
+				 _pages, GASNETI_LADDRSTR(_reg->addr))); \
+	_GASNETI_STAT_EVENT_VAL(C, _event, _pages);                         \
+  } while(0)
+  #define GASNETC_TRACE_PIN(_region)	GASNETC_TRACE_MR(FIREHOSE_PIN, pin, (_region))
+  #define GASNETC_TRACE_UNPIN(_region)	GASNETC_TRACE_MR(FIREHOSE_UNPIN, unpin, (_region))
+#else
+  #define GASNETC_TRACE_WAIT_BEGIN() \
+    static char _dummy = (char)sizeof(_dummy)
+  #define GASNETC_TRACE_PIN(_region) 	((void)0)
+  #define GASNETC_TRACE_UNPIN(_region) 	((void)0)
+#endif
+#define GASNETC_TRACE_WAIT_END(name) \
+  GASNETI_TRACE_EVENT_TIME(C,name,gasneti_ticks_now() - _waitstart)
+
+/* XXX: Could/should use PtlMDUpdate?  When I tried PTL_EQ_NONE was flagged as invalid */
+extern int
+firehose_move_callback(gasnet_node_t node,
+                       const firehose_region_t *unpin_list,
+                       size_t unpin_num,
+                       firehose_region_t *pin_list,
+                       size_t pin_num)
+{
+  GASNETC_TRACE_WAIT_BEGIN();
+  int i;
+
+  /* Step 1: unpins */
+  for (i = 0; i < unpin_num; i++) {
+    GASNETC_TRACE_UNPIN(unpin_list+i);
+    GASNETC_PTLSAFE(PtlMDUnlink(unpin_list[i].client));
+  }
+
+  /* Step 2: pins */
+  for (i = 0; i < pin_num; i++) {
+    firehose_region_t *region = pin_list + i;
+    ptl_md_t md;
+
+    GASNETC_TRACE_PIN(region);
+
+    gasneti_assert(region->addr % GASNET_PAGESIZE == 0);
+    gasneti_assert(region->len % GASNET_PAGESIZE == 0);
+
+    md.start = (void *)(region->addr);
+    md.length = region->len;
+    md.threshold = PTL_MD_THRESH_INF;
+    md.max_size = 0;
+    md.options = PTL_MD_EVENT_START_DISABLE;
+#if GASNETC_USE_EQ_HANDLER
+    md.user_ptr = (void*)(uint64_t)GASNETC_TMP_MD;
+#else
+    md.user_ptr = (void*)TMPMD_event;
+#endif
+    md.eq_handle = gasnetc_SAFE_EQ->eq_h;
+
+    GASNETC_PTLSAFE(PtlMDBind(gasnetc_ni_h, md, PTL_UNLINK, &region->client));
+  }
+
+  GASNETC_TRACE_WAIT_END(FIREHOSE_MOVE);
+  return 0;
+}
+
+extern int
+firehose_remote_callback(gasnet_node_t node,
+                         const firehose_region_t *pin_list, size_t num_pinned,
+                         firehose_remotecallback_args_t *args)
+{
+    /* DO NOTHING.  IF WE GET CALLED WE COMPLAIN. */
+    gasneti_fatalerror("invalid attempted to call firehose_remote_callback()");
+    return -1;
+}
+
+
+/* Freelist of fh ops (lockfree when arch support available) */
+static gasneti_lifo_head_t gasnetc_fh_freelist = GASNETI_LIFO_INITIALIZER;
+
+/* The allocation table for fh ops.
+ * The mutex protects only allocation of additional buffers, not the
+ * critical path alloc/free operations (which use the freelist head).
+ */
+static gasneti_mutex_t gasnetc_fh_buffer_lock = GASNETI_MUTEX_INITIALIZER;
+static gasnetc_fh_op_t *gasnetc_fh_buffer_tbl[256];
+static int gasnetc_fh_buffer_cnt = 0;
+
+/*  get a new fh op (parts ripped off from eop_new) */
+gasnetc_fh_op_t *gasnetc_fh_new(void) {
+  gasnetc_fh_op_t *result;
+
+  GASNETI_TRACE_EVENT(C, FH_OP_ALLOC);
+
+  result = gasneti_lifo_pop(&gasnetc_fh_freelist);
+
+  if_pf (result == NULL) { /*  free list empty - try polling ONCE */
+    gasnetc_portals_poll(GASNETC_SAFE_POLL);
+    result = gasneti_lifo_pop(&gasnetc_fh_freelist);
+  }
+
+  if_pf (result == NULL) { /*  free list empty - need more fh ops */
+    gasneti_mutex_lock(&gasnetc_fh_buffer_lock);
+
+    /* Recheck, in case list was refilled while waiting on the lock */
+    result = gasneti_lifo_pop(&gasnetc_fh_freelist);
+
+    if (result == NULL) {
+      int bufidx = gasnetc_fh_buffer_cnt;
+      gasnetc_fh_op_t *buf;
+      int i;
+
+      GASNETI_TRACE_EVENT(C, FH_OP_ALLOC_BUF);
+
+      if (bufidx != 256) {
+        ++gasnetc_fh_buffer_cnt;
+
+        buf = (gasnetc_fh_op_t *)gasneti_calloc(256,sizeof(gasnetc_fh_op_t));
+        for (i=0; i < 256; i++) {
+          gasnete_opaddr_t addr;
+          addr.bufferidx = bufidx;
+          addr.opidx = i;
+          buf[i].addr = addr;
+          gasneti_lifo_link(buf+i, buf+i+1); /* bogus final link ptr is harmless */
+        }
+        gasneti_lifo_push_many(&gasnetc_fh_freelist, buf+1, buf+255); /* push all but 1st */
+        gasnetc_fh_buffer_tbl[bufidx] = buf;
+        result = buf+0; /* keep 1st for ourselves */
+      }
+    }
+
+    gasneti_mutex_unlock(&gasnetc_fh_buffer_lock);
+  }
+
+  if_pf (result == NULL) { /*  free list at max size but STILL empty - poll forever */
+    do {
+      gasnetc_portals_poll(GASNETC_SAFE_POLL);
+      result = gasneti_lifo_pop(&gasnetc_fh_freelist);
+    } while (result == NULL);
+  }
+
+  return result;
+}
+
+/*  free a fh op */
+void gasnetc_fh_free(uint16_t fulladdr) {
+  gasnete_opaddr_t addr;
+  gasnetc_fh_op_t *op;
+
+  GASNETI_TRACE_EVENT(C, FH_OP_FREE);
+  addr.fulladdr = fulladdr;
+  op = gasnetc_fh_buffer_tbl[addr.bufferidx] + addr.opidx;
+  gasneti_assert(op->fh[0] != NULL); /* Never allocated w/o use */
+#if (GASNETC_FH_PER_OP == 1)
+  firehose_release(op->fh, 1);
+#elif (GASNETC_FH_PER_OP == 2)
+  firehose_release(op->fh, op->fh[1] ? 2 : 1);
+#else
+  #error "Unknown/invalid GASNETC_FH_PER_OP"
+#endif
+  gasneti_lifo_push(&gasnetc_fh_freelist, op);
+}

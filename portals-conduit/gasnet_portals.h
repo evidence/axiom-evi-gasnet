@@ -824,17 +824,16 @@ extern void gasnetc_bootstrapBarrier(void);
 extern void gasnetc_bootstrapBroadcast(void *src, size_t len, void *dest, int rootnode);
 extern void gasnetc_bootstrapExchange(void *src, size_t len, void *dest);
 extern void gasnetc_init_portals_resources(void);
-extern void gasnetc_portals_preexit(int do_trace);
 extern void gasnetc_portals_exit();
 extern void gasnetc_portals_poll(gasnetc_pollflag_t poll_type);
 extern void gasnetc_event_handler(ptl_event_t *ev);
 extern void gasnetc_ptl_trace_finish(void);
 extern gasnet_node_t gasnetc_get_nodeid(ptl_process_id_t *proc);
-extern void gasnetc_getmsg(void *dest, gasnet_node_t node, void *src, size_t nbytes,
+extern size_t gasnetc_getmsg(void *dest, gasnet_node_t node, void *src, size_t nbytes,
 			   ptl_match_bits_t match_bits, gasnetc_pollflag_t pollflag);
-extern void gasnetc_putmsg(void *dest, gasnet_node_t node, void *src, size_t nbytes,
-			   ptl_match_bits_t match_bits, int is_bulk, int *wait_lcc,
-			   gasneti_weakatomic_t *lcc, gasnetc_pollflag_t pollflag);
+extern size_t gasnetc_putmsg(void *dest, gasnet_node_t node, void *src, size_t nbytes,
+			   ptl_match_bits_t match_bits, gasneti_weakatomic_t *lcc,
+			   gasnetc_pollflag_t pollflag);
 extern void gasnetc_sys_SendMsg(gasnet_node_t node, gasnetc_sys_t msg_id,
 				int32_t arg0, int32_t arg1, int32_t arg2);
 extern void gasnetc_sys_barrier(void);
@@ -1026,5 +1025,39 @@ uint32_t gasnetc_new_lid(gasnet_node_t dest)
   /* use _add rather than _incr since it returns the new value */
   return gasneti_weakatomic_add(&gasnetc_conn_state[dest].src_lid,1,0);
 }
+
+/* ----------------------------------------------------------------------------
+ * Firehose bits
+ */
+
+#if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
+  #define GASNETC_FIREHOSE_LOCAL  1
+  #define GASNETC_FIREHOSE_REMOTE 0
+  #define GASNETC_FH_PER_OP	  1
+#else
+  #define GASNETC_FIREHOSE_LOCAL  0
+  #define GASNETC_FIREHOSE_REMOTE 1
+  #define GASNETC_FH_PER_OP	  2
+#endif
+
+#include <firehose.h>
+#if GASNET_DEBUG
+  extern int gasnetc_use_firehose;
+#else
+  #define gasnetc_use_firehose 1
+#endif
+extern firehose_info_t gasnetc_firehose_info;
+
+/* A "handle" on a firehose request.
+ * Used for compact encoding in the upper match bits
+ */
+typedef struct _gasnetc_fh_op_t {
+  const firehose_request_t	*fh[GASNETC_FH_PER_OP]; /* shared w/ freelist's next ptr */
+  gasnete_opaddr_t		addr;
+} gasnetc_fh_op_t;
+
+extern gasnetc_fh_op_t *gasnetc_fh_new(void);
+extern void gasnetc_fh_free(uint16_t fulladdr);
+
 
 #endif
