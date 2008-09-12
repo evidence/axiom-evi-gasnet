@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2008/09/12 17:44:37 $
-# $Revision: 1.494 $
+#     $Date: 2008/09/12 23:07:52 $
+# $Revision: 1.495 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.494 $)
+AC_REVISION($Revision: 1.495 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1613,6 +1613,12 @@ AC_DEFUN([GASNET_IB_OPTIONS],[
   pushdef([GASNETC_IB_MAX_HCAS],GASNETC_[]uppername[]_MAX_HCAS)
   pushdef([GASNET_IB_SPAWNER_CONF],GASNET_[]uppername[]_SPAWNER_CONF)
 
+  # Since we are using firehose we need to disable certain optimizations.
+  # See bug #350 for an example of why firehose needs this.
+  # See bug #596 or #1031 for evidence that VAPI is affected by this.
+  # See bug #1052 for evidence that xlc is affected.
+  GASNET_FH_CFLAGS
+
   GASNET_IF_ENABLED_WITH_AUTO(lowername[]-poll-lock, [See vapi-conduit/README (disabled by default)], 
     enabled_ib_poll_lock=yes, enabled_ib_poll_lock=no, enabled_ib_poll_lock=no)
     if test "$enabled_ib_poll_lock" = yes; then
@@ -2154,15 +2160,16 @@ if test $enabled_gm = yes; then
     if test "$gm_test_worked" != yes; then
       have_gm=no
     fi
-    # GM conduit was shown to break horribly on some versions of gcc, because
-    # of our reuse of memory storage in firehose.  We disable strict aliasing
-    # altogether as the problem appears and disappears across gcc3 minor
-    # versions.
-    # This is a firehose problem, and bug #1052 showed xlc to be affected as well.
-    GASNET_FH_CFLAGS
 
     # Only test if working GM config
     if test $have_gm = yes; then
+      # GM conduit was shown to break horribly on some versions of gcc, because
+      # of our reuse of memory storage in firehose.  We disable strict aliasing
+      # altogether as the problem appears and disappears across gcc3 minor
+      # versions.
+      # This is a firehose problem, and bug #1052 showed xlc to be affected as well.
+      GASNET_FH_CFLAGS
+
       GASNET_IF_ENABLED(broken-gm, Allow 2.x GM versions with broken RDMA gets,
         [AC_DEFINE(GASNETC_GM_ENABLE_BROKEN_VERSIONS) 
 	 allow_broken_gm=yes],
@@ -2349,8 +2356,9 @@ if test "$enabled_lapi" = yes; then
 	      AC_MSG_ERROR([--with-lapi-rdma-count requires a postive integer argument])
 	   fi])
         POE_RDMA_ARGS="-rdma_count $lapi_rdma_count"
+
         # Since we are using firehose we need to disable certain optimizations.
-        # See VAPI config logic for more detail
+        # See comment in GASNET_IB_OPTIONS for more detail
         GASNET_FH_CFLAGS
       fi
     fi
@@ -2613,12 +2621,6 @@ if test "$enabled_vapi" = yes; then
     ])
   fi
 
-  # Since we are using firehose we need to disable certain optimizations.
-  # See bug #350 for an example of why firehose needs this.
-  # See bug #596 or #1031 for evidence that VAPI is affected by this.
-  # See bug #1052 for evidence that xlc is affected.
-  GASNET_FH_CFLAGS
-
   # Try to compile and link a basic VAPI program
   GASNET_PUSHVAR(CFLAGS,"$CFLAGS -I$VAPI_INCLUDE $GASNET_THREAD_DEFINES $VAPI_LIBCFLAGS")
   GASNET_PUSHVAR(LIBS,"$LIBS -L$VAPI_LIBDIR $VAPI_LIBS $GASNET_THREAD_LIBS")
@@ -2721,9 +2723,6 @@ if test "$enabled_ibv" = yes; then
 
   # Assemble any extra flags needed at library build time
   IBV_LIBCFLAGS='' # None yet
-
-  # Since we are using firehose we need to disable certain optimizations.
-  GASNET_FH_CFLAGS
 
   # Try to compile and link a basic IB Verbs program
   GASNET_PUSHVAR(CFLAGS,"$CFLAGS -I$IBV_INCLUDE $GASNET_THREAD_DEFINES $IBV_LIBCFLAGS")
