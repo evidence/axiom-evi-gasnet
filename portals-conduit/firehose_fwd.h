@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/firehose_fwd.h,v $
- *     $Date: 2008/09/10 01:56:58 $
- * $Revision: 1.2 $
+ *     $Date: 2008/09/12 23:21:55 $
+ * $Revision: 1.3 $
  * Description: Configuration of firehose code to fit portals-conduit
  * Copyright 2003, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -30,5 +30,8 @@ typedef ptl_handle_md_t firehose_client_t;
 typedef int firehose_remotecallback_args_t;
 
 #define FIREHOSE_REMOTE_CALLBACK_IN_HANDLER
+
+extern void gasnetc_firehose_ampoll(void);
+#define FIREHOSE_AMPOLL() gasnetc_firehose_ampoll()
 
 #endif
