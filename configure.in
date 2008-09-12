@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2008/09/12 17:28:13 $
-# $Revision: 1.493 $
+#     $Date: 2008/09/12 17:44:37 $
+# $Revision: 1.494 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.493 $)
+AC_REVISION($Revision: 1.494 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -223,7 +223,28 @@ case "$gasnet_cv_cc_family" in
         CCOPTFLAGS="$CFLAGS"
 	GASNET_POPVAR(CFLAGS)
   ;;
-  Pathscale)  CCOPTFLAGS="-O3 -Winline" ;;
+  Pathscale)
+        GASNET_PUSHVAR(CFLAGS,"-O3")
+        # We'd like to use -Winline (for the same reasons as with gcc).
+  	# However, some installations have been observed to complain
+        # on every inline keyword, due to -fno-inline being inserted
+        # by the compiler driver.  Avoid using -Winline in such a case.
+        GASNET_TRY_CFLAG([-Winline],[
+          noninlineCFLAGS="$CFLAGS"
+          CFLAGS="$CFLAGS -Winline"
+          AC_MSG_CHECKING(for -Winline flags conflict)
+          GASNET_TRY_CCOMPILE_WITHWARN([
+           inline int foo() { return 0; }
+          ], [ 
+           int x = foo(); 
+          ], [ AC_MSG_RESULT(ok) # keep -Winline
+          ], [ AC_MSG_RESULT(conflict)
+               CFLAGS="$noninlineCFLAGS" # remove -Winline
+          ], [ GASNET_MSG_ERROR(failure when detecting -Winline conflict)])
+        ])
+        CCOPTFLAGS="$CFLAGS"
+	GASNET_POPVAR(CFLAGS)
+  ;;
   Sun) if test "$GASNETI_PTR_BITS" = 64; then # -fast => -xarch=v8 which clobbers user's 64-bit choice
          SUN_ARCH_FLAG=`echo "$CC $CFLAGS" | $PERL -ne 'foreach(split(/ /,$_)) { print "$_" if (m/^-xarch/);}'` 
        else
