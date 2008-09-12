@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2008/07/17 22:57:09 $
-# $Revision: 1.491 $
+#     $Date: 2008/09/12 17:27:20 $
+# $Revision: 1.492 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.491 $)
+AC_REVISION($Revision: 1.492 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2784,6 +2784,9 @@ if test "$enabled_portals" = yes; then
     fi
   fi
   if test $have_portals = yes; then
+    # Since we are using firehose we need to disable certain optimizations.
+    GASNET_FH_CFLAGS
+
     GASNET_PUSHVAR(CPPFLAGS,"$CPPFLAGS ${PORTALS_INCLUDES}")
   
     AC_CHECK_HEADERS(pctmbox.h)
