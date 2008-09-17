@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2008/07/18 20:22:20 $
- * $Revision: 1.115 $
+ *     $Date: 2008/09/17 04:16:57 $
+ * $Revision: 1.116 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -972,10 +972,12 @@ void gasnetc_atexit(void)
 }
     
 extern void gasnetc_exit(int exitcode) {
+    double sleep_time;
+
     gasnetc_called_exit = 1;
     
     /* ARBITRARY args:  MIN(120s, 5s + nodes*0.05s), error if user ask for less than 2s */
-    double sleep_time = gasneti_get_exittimeout(120., 5., 0.05, 2.);
+    sleep_time = gasneti_get_exittimeout(120., 5., 0.05, 2.);
 
     /* once we start a shutdown, ignore all future SIGQUIT signals or we risk reentrancy */
     gasneti_reghandler(SIGQUIT, SIG_IGN);
