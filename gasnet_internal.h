@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2007/09/07 01:07:18 $
- * $Revision: 1.111 $
+ *     $Date: 2008/09/22 21:43:23 $
+ * $Revision: 1.112 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -40,6 +40,10 @@ GASNETI_BEGIN_EXTERNC
   /* replace a stupidly broken implementation of toupper on Tru64 
      (fails to correctly implement required integral promotion of
       character-typed arguments, leading to bogus warnings)
+     WARNING: This may evaluate the argument multiple times.
+              So, usage like
+                 *p = toupper(*q++);
+              is not going to work as expected.
    */
   #undef toupper
   #define toupper(c) ((c) >= 'a' && (c) <= 'z' ? (c) & 0x5F:(c))

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2008/01/22 11:05:41 $
- * $Revision: 1.215 $
+ *     $Date: 2008/09/22 21:43:23 $
+ * $Revision: 1.216 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -976,7 +976,13 @@ extern int gasneti_print_backtrace(int fd) {
         int i;
         static char btsel[255]; /* parse selection */
         char *psel = btsel;
-        while (*plist && !strchr(" ,|;",*plist)) { *psel++ = toupper(*plist++); }
+        while (*plist && !strchr(" ,|;",*plist)) {
+	    /* ICK: Our toupper() replacement for Tru64 is a macro that 
+	     * evaluates its argument multiple times.
+	     * So, need ++ outside toupper();
+	     */
+	    *psel++ = toupper(*plist); plist++;
+	}
         *psel = '\0';
         if (*plist) plist++;
 
