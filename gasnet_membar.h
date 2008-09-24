@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_membar.h,v $
- *     $Date: 2008/01/15 23:07:47 $
- * $Revision: 1.120 $
+ *     $Date: 2008/09/24 03:38:20 $
+ * $Revision: 1.121 $
  * Description: GASNet header for portable memory barrier operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -154,10 +154,10 @@
 /* ------------------------------------------------------------------------------------ */
 #elif PLATFORM_ARCH_IA64 /* Itanium */
     /* Empirically observed that IA64 requires a full "mf" for both wmb and rmb (see bug 1000).
-     * The reason is that the Itanium memeory model only ensures ordering in one direction when
+     * The reason is that the Itanium memory model only ensures ordering in one direction when
      * using st.rel or ld.acq.  In particular, they implement the minimum required for proper
-     * mutex implementation.  While preventing loads and stores from moving OUT of the creitical
-     * section, this still allows for loads before the lock and stored after the unlock to reorder
+     * mutex implementation.  While preventing loads and stores from moving OUT of the critical
+     * section, this still allows for loads before the lock and stores after the unlock to reorder
      * INTO the critical section.  We need more than that.
      */
    #if PLATFORM_COMPILER_INTEL
