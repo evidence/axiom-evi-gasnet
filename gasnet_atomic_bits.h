@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2008/01/22 11:05:41 $
- * $Revision: 1.285 $
+ *     $Date: 2008/09/24 05:32:38 $
+ * $Revision: 1.286 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1530,7 +1530,6 @@
             gasneti_assert(p->initflag == GASNETI_ATOMIC_INIT_MAGIC);
             gasneti_local_wmb();
             gasneti_atomic_spinuntil(p->ctr && (retval = gasneti_loadandclear_32(&(p->ctr))));
-            gasneti_assert(retval & GASNETI_ATOMIC_PRESENT);
 	    return retval;
 	  }
 	#else
@@ -1557,7 +1556,6 @@
             gasneti_assert(p->initflag == GASNETI_ATOMIC_INIT_MAGIC);
             gasneti_local_wmb();
 	    retval = (*(uint32_t (*)(gasneti_atomic_t *p))(&_gasneti_special_atomic_checkout))(p);
-            gasneti_assert(retval & GASNETI_ATOMIC_PRESENT);
 	    return retval;
 	  }
 	#endif
@@ -1565,6 +1563,7 @@
         GASNETI_INLINE(gasneti_atomic_fetchandadd_32)
         uint32_t gasneti_atomic_fetchandadd_32(gasneti_atomic_t *p, int32_t op) {
           const uint32_t tmp = gasneti_checkout_32(p);
+          gasneti_assert(tmp & GASNETI_ATOMIC_PRESENT);
           p->ctr = (GASNETI_ATOMIC_PRESENT | (tmp + op));
           return (tmp & ~GASNETI_ATOMIC_PRESENT);
         }
@@ -1606,6 +1605,7 @@
         int _gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, uint32_t oldval, uint32_t newval) {
           uint32_t tmp = gasneti_checkout_32(p);
           const int retval = (tmp == (GASNETI_ATOMIC_PRESENT | oldval));
+          gasneti_assert(tmp & GASNETI_ATOMIC_PRESENT);
           if_pt (retval) {
             tmp = (GASNETI_ATOMIC_PRESENT | newval);
           }
@@ -1710,13 +1710,13 @@
         gasneti_assert(p->initflag == GASNETI_ATOMIC_INIT_MAGIC);
         gasneti_local_wmb();
         gasneti_atomic_spinuntil(*pctr && (retval = gasneti_loadandclear_32(pctr)));
-        gasneti_assert(retval & GASNETI_ATOMIC_PRESENT);
 	return retval;
       }
       GASNETI_INLINE(gasneti_atomic_fetchandadd_32)
       uint32_t gasneti_atomic_fetchandadd_32(gasneti_atomic_t *p, int32_t op) {
         volatile uint32_t * const pctr = GASNETI_ATOMIC_CTR(p);
         const uint32_t tmp = gasneti_checkout_32(p, pctr);
+        gasneti_assert(tmp & GASNETI_ATOMIC_PRESENT);
         *pctr = (GASNETI_ATOMIC_PRESENT | (tmp + op));
         return (tmp & ~GASNETI_ATOMIC_PRESENT);
       }
@@ -1762,6 +1762,7 @@
         volatile uint32_t * const pctr = GASNETI_ATOMIC_CTR(p);
         uint32_t tmp = gasneti_checkout_32(p, pctr);
         const int retval = (tmp == (GASNETI_ATOMIC_PRESENT | oldval));
+        gasneti_assert(tmp & GASNETI_ATOMIC_PRESENT);
         if_pt (retval) {
           tmp = (GASNETI_ATOMIC_PRESENT | newval);
         }
