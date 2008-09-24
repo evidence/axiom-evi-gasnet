@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_syncops.h,v $
- *     $Date: 2008/09/24 08:16:36 $
- * $Revision: 1.49 $
+ *     $Date: 2008/09/24 08:40:39 $
+ * $Revision: 1.50 $
  * Description: GASNet header for synchronization operations used in GASNet implementation
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -830,9 +830,7 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
       #define _gasneti_lifo_st8_rel(_addr, _val) \
 	__st8_rel((_addr), (_val))
 
-      #if 0/* XXX: DISABLED UNTIL THIS CAN BE TESTED */
       #define GASNETI_HAVE_ARCH_LIFO	1
-      #endif
     #elif PLATFORM_COMPILER_GNU
       GASNETI_INLINE(_gasneti_lifo_store16)
       int _gasneti_lifo_store16(void volatile *ptr, uint64_t oldtag, void *newval) {
