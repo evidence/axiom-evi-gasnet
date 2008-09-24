@@ -1,6 +1,6 @@
 README file for GASNet
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.108 $
+$Revision: 1.109 $
 
 This is a combination user manual and design document for GASNet. Anyone
 planning on using, modifying or adding to the GASNet code base should read this
@@ -20,6 +20,9 @@ system and may already have been done for you)
 current working directory.  You can run configure from a different directory to
 place your build files somewhere other than inside the source tree (a nice
 option when maintaining several build trees on the same source tree). 
+  Unlike many other configure-based software, GASNet's configure will ignore
+any setting of CFLAGS or CXXFLAGS.  Therefore, any flags that are required
+(e.g. for the correct ABI) must be included in the values of CC, CXX and MPI_CC.
 
   Some of the useful configure options:
 
