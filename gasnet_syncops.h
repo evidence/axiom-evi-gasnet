@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_syncops.h,v $
- *     $Date: 2008/04/04 05:44:47 $
- * $Revision: 1.48 $
+ *     $Date: 2008/09/24 08:16:36 $
+ * $Revision: 1.49 $
  * Description: GASNet header for synchronization operations used in GASNet implementation
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -899,13 +899,9 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
    * allow for the load we perform between the ll and the sc.  More complex algorithms are
    * probably possible.  I'll continue to look into this.  -PHH 2006.04.19
    *
-   * No Itanium support yet because there is no CAS2 or DCSS (double-compare single-swap)
-   * support for 8-byte pointers.  However there are optional ld16, st16 and cmp8xchg16
-   * instructions.  The cmp8xchg16 instruction is a "SCDS" (single-compare double-swap)
-   * that can implement a stack by performing the comparison on the tag (which must be
-   * updated on both PUSH and POP).
-   *
    * We do support x86-64 CPUs which implement their optional CAS2 (cmpxchg16b) instruction.
+   *
+   * We do support IA64 CPUs which implement their optional SCDS (cmp8xchg16) instruction.
    *
    * One possible solution for all remaining platforms is "software ll/sc".  Using just pointer
    * CAS, one can implement an ideal LL/SC which allows for arbitrary loads and stores between
