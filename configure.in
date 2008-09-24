@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2008/09/18 22:50:27 $
-# $Revision: 1.496 $
+#     $Date: 2008/09/24 08:03:38 $
+# $Revision: 1.497 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.496 $)
+AC_REVISION($Revision: 1.497 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1300,7 +1300,7 @@ AC_TRY_RUN([
     AC_MSG_RESULT(no)])
 GASNET_POPVAR(CFLAGS)
 
-## Do gcc/gas and CPU support "cmpxchg16b"?
+## Do CC/gas and CPU support "cmpxchg16b"?
 GASNET_PUSHVAR(CFLAGS,"$CFLAGS $MISC_CPPFLAGS $MISC_CFLAGS -I$TOP_SRCDIR -I$TOP_SRCDIR/other -D_IN_CONFIGURE")
 AC_MSG_CHECKING(for x86-64 cmpxchg16b support)
 AC_TRY_RUN([

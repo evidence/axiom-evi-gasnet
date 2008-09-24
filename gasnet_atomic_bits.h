@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2008/09/24 05:32:38 $
- * $Revision: 1.286 $
+ *     $Date: 2008/09/24 08:03:38 $
+ * $Revision: 1.287 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -688,12 +688,7 @@
       #define GASNETI_ATOMIC_FENCE_RMW (GASNETI_ATOMIC_MB_PRE | GASNETI_ATOMIC_MB_POST)
 
       /* Optionally build a 128-bit atomic type using 64-bit types for all args */
-      #if GASNETI_HAVE_X86_CMPXCHG16B && (PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_INTEL)
-	/* XXX: Only support GNU and Intel compilers at this time
-	 * PGI: early tests w/ pgi 6.2-5 showed bugs (32bit moves of 64bit asm args)
-	 * PATHSCALE: no tests yet w/ pathcc (lack a platform w/ pathcc + recent gas)
-	 */
-
+      #if GASNETI_HAVE_X86_CMPXCHG16B
 	#define GASNETI_HAVE_ATOMIC128_T 1
 	typedef struct { volatile uint64_t lo, hi; } gasneti_atomic128_t;
 	#define gasneti_atomic128_init(hi,lo)      { (lo),(hi) }
