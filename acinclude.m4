@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2008/09/12 16:25:17 $
-dnl $Revision: 1.130 $
+dnl     $Date: 2008/09/30 08:39:12 $
+dnl $Revision: 1.131 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -26,6 +26,32 @@ dnl AUTOCONF_VERSION=`cat ${srcdir}/configure | perl -e '{ while (<STDIN>) { if 
 AUTOCONF_VERSION_STR=`cat ${srcdir}/configure | $AWK '/.*enerated.*utoconf.*([[0-9]]+).([[0-9]]+).*/ { [match]([$]0,"[[0-9]]+.[[0-9]]+"); print [substr]([$]0,RSTART,RLENGTH); exit 0 } '`
 AUTOCONF_VERSION=`echo $AUTOCONF_VERSION_STR | $AWK -F. '{ printf("%i%i",[$]1,[$]2); }'`
 AC_MSG_RESULT($AUTOCONF_VERSION_STR)
+GASNET_FUN_END([$0])
+])
+
+AC_DEFUN([GASNET_FORBID_PROGRAM_TRANSFORM],[
+GASNET_FUN_BEGIN([$0])
+  # echo program_prefix=$program_prefix  program_suffix=$program_suffix program_transform_name=$program_transform_name
+  # undo prefix autoconf automatically adds during cross-compilation
+  if test "$cross_compiling" = yes && test "$program_prefix" = "${target_alias}-" ; then
+    program_prefix=NONE
+  fi
+  # normalize empty prefix/suffix
+  if test -z "$program_prefix" ; then
+    program_prefix=NONE
+  fi
+  if test -z "$program_suffix" ; then
+    program_suffix=NONE
+  fi
+  # undo transforms caused by empty prefix/suffix
+  if test "$program_transform_name" = 's,^,,' || \
+     test "$program_transform_name" = 's,$$,,' || \
+     test "$program_transform_name" = 's,$$,,;s,^,,' ; then
+    program_transform_name="s,x,x,"
+  fi
+  if test "$program_prefix$program_suffix$program_transform_name" != "NONENONEs,x,x," ; then
+    GASNET_MSG_ERROR([This configure script does not support --program-prefix, --program-suffix or --program-transform-name. Users are recommended to instead use --prefix with a unique directory and make symbolic links as desired for renaming.])
+  fi
 GASNET_FUN_END([$0])
 ])
 

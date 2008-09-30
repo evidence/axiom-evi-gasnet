@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2008/09/29 19:30:02 $
-# $Revision: 1.498 $
+#     $Date: 2008/09/30 08:39:12 $
+# $Revision: 1.499 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.498 $)
+AC_REVISION($Revision: 1.499 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -83,6 +83,7 @@ AC_PROG_AWK
 GASNET_IF_ENABLED_WITH_AUTO(pthreads, [enable use of pthreads (required to support pthreaded GASNet clients)],
                  [use_pthreads="yes"], [use_pthreads="no"], [use_pthreads="try"])
 
+GASNET_FORBID_PROGRAM_TRANSFORM
 
 # This is to support a very conservative implementation of
 # GASNETE_FAST_ALIGNED_MEMCPY and other type-punning operations.
