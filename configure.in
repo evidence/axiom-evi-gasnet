@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2008/09/30 08:39:12 $
-# $Revision: 1.499 $
+#     $Date: 2008/10/01 02:27:53 $
+# $Revision: 1.500 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.499 $)
+AC_REVISION($Revision: 1.500 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2004,7 +2004,8 @@ if test "$enabled_mpi" = yes || test "$enabled_mpi_compat" = yes; then
     MPIHELPER_SRC=$MPIHELPER_BASE.c
     MPIHELPER_OBJ=$MPIHELPER_BASE.o
     MPIHELPER_LIBS="$MPIHELPER_OBJ $LIBM"
-    MPIHELPER_CODE="extern int mpihelper_cint; extern void mpihelper_cfunc(int val); mpihelper_cfunc(mpihelper_cint);"
+    MPIHELPER_DECL="extern int mpihelper_cint; extern void mpihelper_cfunc(int val);"
+    MPIHELPER_CODE="mpihelper_cfunc(mpihelper_cint);"
     cat >$MPIHELPER_BASE.c <<_GASNET_EOF
     #include <stdio.h>
     #include <string.h>
@@ -2040,6 +2041,7 @@ _GASNET_EOF
     # we just try to link an MPI app - running MPI apps is a whole new can of worms
     GASNET_TRY_CACHE_LINK(for working MPI configuration, mpi_works, [
       #include <mpi.h>
+      $MPIHELPER_DECL
     ], [
       $MPIHELPER_CODE
       MPI_Init((void*)0,(void*)0);
