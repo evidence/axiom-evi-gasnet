@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2008/10/06 20:41:10 $
-# $Revision: 1.501 $
+#     $Date: 2008/10/06 21:06:18 $
+# $Revision: 1.502 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.501 $)
+AC_REVISION($Revision: 1.502 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2307,7 +2307,7 @@ if test "$enabled_lapi" = yes; then
           fi
         fi
         if test have_lapi_pollbug = yes; then
-	  AC_MSG_ERROR([--enable-lapi-rdma passed but support is not available for Federation software prior to version 2.3.2.0])
+	  AC_MSG_ERROR([Detected unsupported LAPI Federation version (older than 2.3.2.0).  Please update your system software, or pass --disable-lapi to omit LAPI support if you really don't want/need it.])
         fi
     elif test "${have_col}" = "yes"; then
       AC_DEFINE(GASNETC_LAPI_COLONY)
