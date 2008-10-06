@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2008/10/01 02:27:53 $
-# $Revision: 1.500 $
+#     $Date: 2008/10/06 20:41:10 $
+# $Revision: 1.501 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.500 $)
+AC_REVISION($Revision: 1.501 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2294,6 +2294,21 @@ if test "$enabled_lapi" = yes; then
            AC_DEFINE_UNQUOTED(GASNETC_LAPI_VERSION_D,$LAPI_VER_NUM4)
         fi
         AC_MSG_RESULT([$LAPI_VER])
+        have_lapi_pollbug=no
+        if test $LAPI_VER_NUM1 -lt 2; then
+          have_lapi_pollbug=yes
+        elif test $LAPI_VER_NUM1 -eq 2; then
+          if test $LAPI_VER_NUM2 -lt 3; then
+            have_lapi_pollbug=yes
+          elif test $LAPI_VER_NUM2 -eq 3; then
+            if test $LAPI_VER_NUM3 -lt 2; then
+              have_lapi_pollbug=yes
+            fi
+          fi
+        fi
+        if test have_lapi_pollbug = yes; then
+	  AC_MSG_ERROR([--enable-lapi-rdma passed but support is not available for Federation software prior to version 2.3.2.0])
+        fi
     elif test "${have_col}" = "yes"; then
       AC_DEFINE(GASNETC_LAPI_COLONY)
 	AC_MSG_CHECKING([For LAPI Colony Version])
