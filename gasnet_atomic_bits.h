@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2008/09/24 08:03:38 $
- * $Revision: 1.287 $
+ *     $Date: 2008/10/08 05:28:03 $
+ * $Revision: 1.288 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -420,8 +420,13 @@
         __asm__ __volatile__ (
 		GASNETI_X86_LOCK_PREFIX
 		"cmpxchgl %3, %1	\n\t"
+	#if GASNETI_PGI_ASM_BUG2294 /* Sensitive to output constraint order */
+		"sete %2"
+		: "=a" (readval), "=m" (v->ctr), "=qm" (retval)
+	#else /* The version that has always worked everywhere else */
 		"sete %0"
 		: "=qm" (retval), "=m" (v->ctr), "=a" (readval)
+	#endif
 		: "r" (newval), "m" (v->ctr), "a" (oldval)
 		: "cc" GASNETI_ATOMIC_MEM_CLOBBER);
 	#if GASNETI_PGI_ASM_BUG1754
