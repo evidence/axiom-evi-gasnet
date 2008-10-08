@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core_fwd.h,v $
- *     $Date: 2007/10/31 05:13:57 $
- * $Revision: 1.27 $
+ *     $Date: 2008/10/08 03:00:52 $
+ * $Revision: 1.28 $
  * Description: GASNet header for lapi conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -26,22 +26,23 @@
     * reference bug 717.  Was fixed in version 2.3.2.0
     */
 #  ifndef GASNETC_LAPI_VERSION_A
-#    define GASNETC_LAPI_FED_POLLBUG_WORKAROUND 1
+#    define GASNETC_LAPI_FED_POLLBUG_PRESENT 1
 #  elif GASNETC_LAPI_VERSION_A <= 2
 #    if GASNETC_LAPI_VERSION_A < 2
-#      define GASNETC_LAPI_FED_POLLBUG_WORKAROUND 1
+#      define GASNETC_LAPI_FED_POLLBUG_PRESENT 1
 #    elif GASNETC_LAPI_VERSION_B <= 3
 #      if GASNETC_LAPI_VERSION_B < 3
-#        define GASNETC_LAPI_FED_POLLBUG_WORKAROUND 1
+#        define GASNETC_LAPI_FED_POLLBUG_PRESENT 1
 #      elif GASNETC_LAPI_VERSION_C < 2
-#        define GASNETC_LAPI_FED_POLLBUG_WORKAROUND 1
+#        define GASNETC_LAPI_FED_POLLBUG_PRESENT 1
 #      endif
 #    endif
 #  endif
 #endif
-#ifndef GASNETC_LAPI_FED_POLLBUG_WORKAROUND
-#  define GASNETC_LAPI_FED_POLLBUG_WORKAROUND 0
+#if GASNETC_LAPI_FED_POLLBUG_PRESENT
+  #error "LAPI Federation versions prior to 2.3.2.0 are not supported"
 #endif
+#undef GASNETC_LAPI_FED_POLLBUG_PRESENT
 
 /* defined to be 1 if gasnet_init guarantees that the remote-access
  * memory segment will be aligned at the same virtual address on all
