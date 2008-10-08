@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2008/09/30 08:39:12 $
-dnl $Revision: 1.131 $
+dnl     $Date: 2008/10/08 02:20:09 $
+dnl $Revision: 1.132 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -92,6 +92,25 @@ GASNET_IF_ENABLED(allow-gcc32, Allow the use of the known broken gcc/g++ 3.2.0-2
   ],[
   AC_MSG_ERROR([$badgccmsg \
   You may enable use of this broken compiler at your own risk by passing the --enable-allow-gcc32 flag.])
+])
+])
+AC_TRY_COMPILE([
+#if __GNUC__ == 4 && __GNUC_MINOR__ < 3
+# error
+#endif
+],[ ], [:], [
+AC_MSG_RESULT([$1 is gcc 4.x, for x < 3])
+badgccmsg="Use of gcc/g++ 4.0, 4.1 or 4.2 for compiling this software is strongly discouraged. \
+These versions have a known bug in the optimizer regarding aliasing analysis which may lead \
+to bad code and incorrect runtime behavior when optimization is enabled. \
+Consider using \$[$1] to select a different compiler."
+GASNET_IF_ENABLED(allow-gcc4, Allow the use of a broken gcc/g++ 4.0-4.2 compiler, [
+  GASNET_MSG_WARN([$badgccmsg])
+  ],[
+  AC_MSG_ERROR([$badgccmsg \
+  You may enable use of this broken compiler at your own risk by passing the --enable-allow-gcc4 flag.\
+  If you do so, please see the documentation on --enable-conservative-local-copy for a possible \
+work around for the gcc-4.x bug.])
 ])
 ])
 if test -z "$badgccmsg"; then
