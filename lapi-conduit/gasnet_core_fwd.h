@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core_fwd.h,v $
- *     $Date: 2008/10/08 03:00:52 $
- * $Revision: 1.28 $
+ *     $Date: 2008/10/08 03:22:42 $
+ * $Revision: 1.29 $
  * Description: GASNet header for lapi conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -20,6 +20,23 @@
 #define GASNET_CONDUIT_NAME      GASNET_CORE_NAME
 #define GASNET_CONDUIT_NAME_STR  _STRINGIFY(GASNET_CONDUIT_NAME)
 #define GASNET_CONDUIT_LAPI      1
+
+
+#ifdef GASNETC_LAPI_FEDERATION
+  #define GASNETC_LAPI_TYPE_STR "Federation"
+#elif GASNETC_LAPI_COLONY
+  #define GASNETC_LAPI_TYPE_STR "Colony"
+#else
+  #define GASNETC_LAPI_TYPE_STR "UNKNOWN"
+#endif
+
+#ifdef GASNETC_LAPI_RDMA
+  #define GASNETC_LAPI_RDMA_STR "yes"
+#else
+  #define GASNETC_LAPI_RDMA_STR "no"
+#endif
+
+#define GASNETC_EXTRA_CONFIG_INFO ",lapi_type=" GASNETC_LAPI_TYPE_STR ",lapi_rdma=" GASNETC_LAPI_RDMA_STR
 
 #ifdef GASNETC_LAPI_FEDERATION
    /* Check for broken version of LAPI on early Federation HW.
