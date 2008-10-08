@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2007/09/08 17:54:59 $
- * $Revision: 1.195 $
+ *     $Date: 2008/10/08 03:30:46 $
+ * $Revision: 1.196 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -67,6 +67,10 @@ GASNETI_IDENT(gasneti_IdentString_ThreadModel, "$GASNetThreadModel: GASNET_" GAS
 
 #define GASNETI_SEGMENT_CONFIG_STR _STRINGIFY(GASNETI_SEGMENT_CONFIG)
 GASNETI_IDENT(gasneti_IdentString_SegConfig, "$GASNetSegment: GASNET_SEGMENT_" GASNETI_SEGMENT_CONFIG_STR " $");
+
+#ifdef GASNETI_BUG1389_WORKAROUND
+  GASNETI_IDENT(gasneti_IdentString_ConservativeLocalCopy, "$GASNetConservativeLocalCopy: 1 $");
+#endif
 
 /* embed a string with complete configuration info to support versioning checks */
 GASNETI_IDENT(gasneti_IdentString_libraryConfig, "$GASNetConfig: (libgasnet.a) " GASNET_CONFIG_STRING " $");
