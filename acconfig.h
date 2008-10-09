@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2008/04/04 01:52:26 $ */
-/*  $Revision: 1.133 $ */
+/*      $Date: 2008/10/09 08:31:33 $ */
+/*  $Revision: 1.134 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -278,6 +278,7 @@
 #undef HAVE_ELAN_QUEUETXINIT
 
 /* GASNet portals-conduit specific */
+#undef HAVE_PCTMBOX_H
 #undef GASNETC_PORTALS_MISSING_EQ_HANDLER_T
 
 /* GASNet bug1389 detection/work-around */

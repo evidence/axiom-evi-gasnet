@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2008/10/06 21:06:18 $
-# $Revision: 1.502 $
+#     $Date: 2008/10/09 08:31:33 $
+# $Revision: 1.503 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.502 $)
+AC_REVISION($Revision: 1.503 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2823,7 +2823,16 @@ if test "$enabled_portals" = yes; then
 
     GASNET_PUSHVAR(CPPFLAGS,"$CPPFLAGS ${PORTALS_INCLUDES}")
   
-    AC_CHECK_HEADERS(pctmbox.h)
+    # pctmbox.h requires portals/portals3.h
+    # newer autoconf isn't happy w/o including portals3.h in 4th arg
+    # older autoconf lacks the 4-argument AC_CHECK_HEADERS
+    # want AC_CHECK_HEADERS(pctmbox.h, [:], [:], [ #include <portals/portals3.h> ])
+    # but end up with:
+    GASNET_TRY_CACHE_CHECK([for pctmbox.h], pctmbox_h, [
+      #include <portals/portals3.h>
+      #include <pctmbox.h>
+    ], [], [AC_DEFINE(HAVE_PCTMBOX_H)])
+
     AC_CHECK_HEADERS(catamount/cnos_mpi_os.h)
 
     dnl Some PE versions lack a ptl_eq_handler_t definition in portals3.h
