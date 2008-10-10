@@ -165,6 +165,8 @@ uint32_t gasnetc_amseqno = 0;
 
 size_t gasnetc_AMMaxLong;
 
+#if !PLATFORM_OS_CATAMOUNT
+
 /* XXX: Need dynamic discovery of limits, but bug 2053 makes that problematic.
  * For now we'll use 1024 regions of maximum length 128K.
  * That should be sufficiently small usage (128MB worst case) to not crash.
@@ -180,6 +182,8 @@ size_t gasnetc_AMMaxLong;
   int gasnetc_use_firehose;
 #endif
 firehose_info_t gasnetc_firehose_info;
+
+#endif /* !PLATFORM_OS_CATAMOUNT */
 
 /* =================================================================================
  * This top portion of the file is where file-scope worker routines are located.
@@ -1164,9 +1168,9 @@ static void TMPMD_event(ptl_event_t *ev)
 	GASNETC_DEC_INFLIGHT(counter);
       }
       /* unlink the tmp MD or free the firehose used in the AM Long data put */
-      if_pt (gasnetc_use_firehose) {
+      GASNETC_IF_USE_FIREHOSE (
         gasnetc_fh_free((uint16_t)(mbits >> 32));
-      } else {
+      ) else {
         gasnetc_free_tmpmd(ev->md_handle);
       }
     }
@@ -1175,9 +1179,9 @@ static void TMPMD_event(ptl_event_t *ev)
   case PTL_EVENT_ACK:
     /* Put from Firehose or TmpMD */
     gasneti_assert(msg_type & GASNETC_PTL_MSG_PUT);
-    if_pt (gasnetc_use_firehose) {
+    GASNETC_IF_USE_FIREHOSE (
       gasnetc_fh_free((uint16_t)(mbits >> 32));
-    } else {
+    ) else {
       gasnetc_free_tmpmd(ev->md_handle);
     }
     op = gasnete_opaddr_to_ptr(threadid, addr);
@@ -1189,9 +1193,9 @@ static void TMPMD_event(ptl_event_t *ev)
     /* Get into Firehose or TmpMD */
     gasneti_assert(msg_type & GASNETC_PTL_MSG_GET);
     gasnetc_return_ticket(&gasnetc_send_tickets);
-    if_pt (gasnetc_use_firehose) {
+    GASNETC_IF_USE_FIREHOSE (
       gasnetc_fh_free((uint16_t)(mbits >> 32));
-    } else {
+    ) else {
       gasnetc_free_tmpmd(ev->md_handle);
     }
     op = gasnete_opaddr_to_ptr(threadid, addr);
@@ -3768,7 +3772,7 @@ extern void gasnetc_init_portals_resources(void)
   } else {
     gasnetc_AMMaxLong = 1024 * 1024 * 1024; /* 1GB */
   }
-  #else
+  #elif GASNETC_FIREHOSE_REMOTE
     #error "Firehose REMOTE is not yet supported"
   #endif
 
@@ -4077,7 +4081,7 @@ size_t gasnetc_getmsg(void *dest, gasnet_node_t node, void *src, size_t nbytes,
     local_offset = GASNETC_PTL_OFFSET(gasneti_mynode,dest);
     nbytes = MIN(nbytes,GASNETC_PTL_MAX_TRANS_SZ);
     GASNETI_TRACE_EVENT(C, GET_RAR);
-  } else if_pt (gasnetc_use_firehose) {
+  } else GASNETC_IF_USE_FIREHOSE (
     /* alloc a firehose for the destination region */
     gasnetc_fh_op_t *op = gasnetc_fh_aligned_local_pin(dest, nbytes);
     const firehose_request_t *fh_loc = op->fh[0];
@@ -4086,7 +4090,7 @@ size_t gasnetc_getmsg(void *dest, gasnet_node_t node, void *src, size_t nbytes,
     nbytes = MIN(nbytes, (fh_loc->len - local_offset));
     match_bits |= ((ptl_match_bits_t)(op->addr.fulladdr) << 32); /* encode "op" for later release */
     GASNETI_TRACE_EVENT(C, GET_FH);
-  } else if ( (nbytes <= gasnetc_get_bounce_limit)  &&
+  ) else if ( (nbytes <= gasnetc_get_bounce_limit)  &&
 	      gasnetc_chunk_alloc_withpoll(&gasnetc_ReqSB, nbytes, &local_offset, 1, GASNETC_SAFE_POLL) ) {
     /* Encode dest addr in BB chunk for later copy */
     void* bb;
@@ -4152,7 +4156,7 @@ size_t gasnetc_putmsg(void *dest, gasnet_node_t node, void *src, size_t nbytes,
     local_offset = GASNETC_PTL_OFFSET(gasneti_mynode,src);
     nbytes = MIN(nbytes,GASNETC_PTL_MAX_TRANS_SZ);
     GASNETI_TRACE_EVENT(C, PUT_RAR);
-  } else if_pt (gasnetc_use_firehose) {
+  } else GASNETC_IF_USE_FIREHOSE (
     /* alloc a firehose for the source region */
     gasnetc_fh_op_t *op = gasnetc_fh_aligned_local_pin(src, nbytes);
     const firehose_request_t *fh_loc = op->fh[0];
@@ -4161,7 +4165,7 @@ size_t gasnetc_putmsg(void *dest, gasnet_node_t node, void *src, size_t nbytes,
     nbytes = MIN(nbytes, (fh_loc->len - local_offset));
     match_bits |= ((ptl_match_bits_t)(op->addr.fulladdr) << 32); /* encode "op" for later release */
     GASNETI_TRACE_EVENT(C, PUT_FH);
-  } else if ( (nbytes <= gasnetc_put_bounce_limit)  &&
+  ) else if ( (nbytes <= gasnetc_put_bounce_limit)  &&
 	      gasnetc_chunk_alloc_withpoll(&gasnetc_ReqSB,nbytes, &local_offset, 1, GASNETC_SAFE_POLL) ) {
     void* bb;
     md_h = gasnetc_ReqSB.md_h;
@@ -4226,6 +4230,7 @@ void gasnetc_portalsSignalHandler(int sig) {
   }
 }
 
+#if !PLATFORM_OS_CATAMOUNT
 /* ------------------------------------------------------------------------------------ */
 /* Firehose bits */
 
@@ -4399,3 +4404,4 @@ void gasnetc_firehose_ampoll(void) {
   gasnetc_portals_poll(GASNETC_SAFE_POLL);
 }
 
+#endif /* !PLATFORM_OS_CATAMOUNT */

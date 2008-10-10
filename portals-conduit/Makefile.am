@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/Makefile.am,v $
-#     $Date: 2008/10/08 01:51:42 $
-# $Revision: 1.14 $
+#     $Date: 2008/10/10 07:54:11 $
+# $Revision: 1.15 $
 # Description: Makefile for GASNet portals conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -11,8 +11,12 @@ AUTOMAKE_OPTIONS = foreign 1.4
 CONDUIT_NAME=portals
 
 # Firehose
+if OS_CATAMOUNT
+# no firehose for Catamount
+else
 fh_type=region
 include $(top_builddir)/other/firehose/firehose.mak
+endif
 
 # any conduit-specific subdirectories containing Makefile.am's
 SUBDIRS = .

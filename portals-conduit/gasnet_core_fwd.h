@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_core_fwd.h,v $
- *     $Date: 2008/09/12 23:21:55 $
- * $Revision: 1.12 $
+ *     $Date: 2008/10/10 07:54:11 $
+ * $Revision: 1.13 $
  * Description: GASNet header for PORTALS conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -46,14 +46,25 @@
 
   /* this can be used to add conduit-specific 
      statistical collection values (see gasnet_trace.h) */
+#if PLATFORM_OS_CATAMOUNT
+  #define GASNETC_FIREHOSE_STATS(CNT,VAL,TIME) /*empty*/
+#else
+  #define GASNETC_FIREHOSE_STATS(CNT,VAL,TIME)  \
+        CNT(C, FH_OP_ALLOC_BUF, count)          \
+        CNT(C, FH_OP_ALLOC, count)              \
+        CNT(C, FH_OP_FREE, count)               \
+        CNT(C, GET_FH, count)                   \
+        CNT(C, PUT_FH, count)                   \
+        CNT(C, LONG_FH, count)                  \
+        TIME(C, FIREHOSE_MOVE, processing time) \
+        VAL(C, FIREHOSE_PIN, pages)             \
+        VAL(C, FIREHOSE_UNPIN, pages)
+#endif
 #define GASNETC_CONDUIT_STATS(CNT,VAL,TIME)     \
         CNT(C, CHUNK_ALLOC, count)              \
         CNT(C, CHUNK_FREE, count)               \
         CNT(C, TMPMD_ALLOC, count)              \
         CNT(C, TMPMD_FREE, count)               \
-        CNT(C, FH_OP_ALLOC_BUF, count)          \
-        CNT(C, FH_OP_ALLOC, count)              \
-        CNT(C, FH_OP_FREE, count)               \
         CNT(C, MSG_THROTTLE, count)             \
         CNT(C, CREDIT_THROTTLE, count)		\
         CNT(C, TMPMD_THROTTLE, count)		\
@@ -62,19 +73,14 @@
         CNT(C, END_EPOCH, count)		\
 	CNT(C, GET_RAR, count)                  \
 	CNT(C, GET_BB, count)                   \
-	CNT(C, GET_FH, count)                   \
 	CNT(C, GET_TMPMD, count)                \
 	CNT(C, PUT_RAR, count)                  \
 	CNT(C, PUT_BB, count)                   \
-	CNT(C, PUT_FH, count)                   \
 	CNT(C, PUT_TMPMD, count)                \
 	CNT(C, LONG_PACKED, count)              \
 	CNT(C, LONG_RAR, count)                 \
-	CNT(C, LONG_FH, count)                  \
 	CNT(C, LONG_TMPMD, count)               \
-	TIME(C, FIREHOSE_MOVE, processing time) \
-	VAL(C, FIREHOSE_PIN, pages)             \
-	VAL(C, FIREHOSE_UNPIN, pages)           \
+	GASNETC_FIREHOSE_STATS(CNT,VAL,TIME)	\
         VAL(C, EVENT_REAP, numreaped)
 
 #endif

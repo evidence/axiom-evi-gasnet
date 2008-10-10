@@ -1051,6 +1051,11 @@ uint32_t gasnetc_new_lid(gasnet_node_t dest)
  * Firehose bits
  */
 
+#if PLATFORM_OS_CATAMOUNT
+ #define GASNETC_IF_USE_FIREHOSE(X) if (0) { /*empty*/ }
+ #define gasnetc_use_firehose       0
+#else
+
 #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
   #define GASNETC_FIREHOSE_LOCAL  1
   #define GASNETC_FIREHOSE_REMOTE 0
@@ -1061,10 +1066,13 @@ uint32_t gasnetc_new_lid(gasnet_node_t dest)
   #define GASNETC_FH_PER_OP	  2
 #endif
 
+#define GASNETC_IF_USE_FIREHOSE(X) if_pt (gasnetc_use_firehose) {X}
+
 #include <firehose.h>
 #if GASNET_DEBUG
   extern int gasnetc_use_firehose;
 #else
+  /* Always on in an opt build (avoids branches) */
   #define gasnetc_use_firehose 1
 #endif
 extern firehose_info_t gasnetc_firehose_info;
@@ -1096,5 +1104,6 @@ gasnetc_fh_op_t *gasnetc_fh_aligned_local_pin(const void* start, size_t len) {
   op->fh[0] = firehose_local_pin((uintptr_t)start, ask_bytes, NULL);
   return op;
 }
+#endif /* !PLATFORM_OS_CATAMOUNT */
 
 #endif

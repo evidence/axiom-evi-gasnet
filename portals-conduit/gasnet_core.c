@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2008/09/12 23:21:55 $
- * $Revision: 1.15 $
+ *     $Date: 2008/10/10 07:54:11 $
+ * $Revision: 1.16 $
  * Description: GASNet portals conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *                 Michael Welcome <mlwelcome@lbl.gov>
@@ -901,7 +901,7 @@ extern int gasnetc_AMRequestMediumM(
 	data_md_h = gasnetc_RARSRC.md_h;				\
 	data_offset = GASNETC_PTL_OFFSET(gasneti_mynode,source_addr);	\
 	GASNETI_TRACE_EVENT(C, LONG_RAR);				\
-      } else if_pt (gasnetc_use_firehose) {				\
+      } else GASNETC_IF_USE_FIREHOSE (					\
 	gasnetc_fh_op_t *op =						\
 	    	gasnetc_fh_aligned_local_pin(source_addr, nbytes);	\
 	const firehose_request_t *fh_loc = op->fh[0];			\
@@ -910,7 +910,7 @@ extern int gasnetc_AMRequestMediumM(
 	data_mbits |= ((ptl_match_bits_t)(op->addr.fulladdr) << 32);	\
 	gasneti_assert(nbytes <= (fh_loc->len - data_offset));		\
 	GASNETI_TRACE_EVENT(C, LONG_FH);				\
-      } else {								\
+      ) else {								\
 	gasneti_assert(th->tmpmd_tickets > 0);				\
 	data_md_h = gasnetc_alloc_tmpmd(source_addr, nbytes);		\
 	th->tmpmd_tickets--;						\
@@ -1394,14 +1394,14 @@ extern int gasnetc_AMReplyLongM(
     if (gasnetc_in_local_rar(source_addr,nbytes)) {
       dp_md_h = gasnetc_RARSRC.md_h;
       dp_offset = GASNETC_PTL_OFFSET(gasneti_mynode,source_addr);
-    } else if_pt (gasnetc_use_firehose) {
+    } else GASNETC_IF_USE_FIREHOSE (
       gasnetc_fh_op_t *op = gasnetc_fh_aligned_local_pin(source_addr, nbytes);
       const firehose_request_t *fh_loc = op->fh[0];
       dp_md_h = fh_loc->client;
       dp_offset = (uintptr_t)source_addr - fh_loc->addr;
       dp_mbits |= ((ptl_match_bits_t)(op->addr.fulladdr) << 32);
       gasneti_assert(nbytes <= (fh_loc->len - dp_offset));
-    } else {
+    ) else {
       gasneti_assert(th->tmpmd_tickets > 0);
       dp_md_h = gasnetc_alloc_tmpmd(source_addr, nbytes);
       th->tmpmd_tickets--;

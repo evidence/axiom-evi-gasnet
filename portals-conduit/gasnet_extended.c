@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2008/09/10 01:56:58 $
- * $Revision: 1.11 $
+ *     $Date: 2008/10/10 07:54:11 $
+ * $Revision: 1.12 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -434,14 +434,14 @@ extern void gasnete_init() {
   gasnete_vis_init();
 
   /* Initialize get/put */
-  if (gasnetc_use_firehose) {
+  GASNETC_IF_USE_FIREHOSE (
     /* The largest size we can be certain will fit in a single OP is the pin limit
      * minus one page to allow for alignment considerations. */
     gasnete_max_put_single = MIN(gasnete_max_put_single,
 				 gasnetc_firehose_info.max_LocalPinSize - GASNET_PAGESIZE);
     gasnete_max_get_single = MIN(gasnete_max_get_single,
 				 gasnetc_firehose_info.max_LocalPinSize - GASNET_PAGESIZE);
-  }
+  )
   /* ELSE default to GASNETC_PTL_MAX_TRANS_SZ */
 }
 
