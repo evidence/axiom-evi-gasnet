@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2008/10/08 05:28:03 $
- * $Revision: 1.288 $
+ *     $Date: 2008/10/11 22:25:01 $
+ * $Revision: 1.289 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -134,24 +134,6 @@
         int _gasneti_atomic32_compare_and_swap(gasneti_atomic32_t *p, int oldval, int newval) {
             return __compare_and_swap( p, oldval, newval ); /* bug1534: compiler built-in */
         }
-      #elif PLATFORM_COMPILER_GNU
-        GASNETI_INLINE(_gasneti_atomic32_compare_and_swap)
-        int _gasneti_atomic32_compare_and_swap(gasneti_atomic32_t *p, uint32_t oldval, uint32_t newval) {
-           uint32_t temp;
-           int retval;
-           __asm__ __volatile__ (
-                "1:\n\t"
-                "ll        %1,0(%5)\n\t"       /* Load from *p */
-                "move      %0,$0\n\t"          /* Assume mismatch */
-                "bne       %1,%3,2f\n\t"       /* Break loop on mismatch */
-                "move      %0,%4\n\t"          /* Move newval to retval */
-                "sc        %0,0(%5)\n\t"       /* Try SC to store retval */
-                GASNETI_MIPS_BEQZ "%0,1b\n"   /* Retry on contention */
-                "2:\n\t"
-                : "=&r" (retval), "=&r" (temp), "=m" (*p)
-                : "r" (oldval), "r" (newval), "r" (p), "m" (*p) );
-          return retval;
-        }
       #else /* flaky OS-provided CAS */
         usptr_t * volatile _gasneti_usmem_ptr;
         gasneti_atomic32_t _gasneti_usmem_ptr_init;
@@ -167,30 +149,7 @@
       #endif
 
       #if PLATFORM_ARCH_64 || (defined(_MIPS_ISA) && (_MIPS_ISA >= 3) /* 64-bit capable CPU */)
-        #if PLATFORM_COMPILER_GNU
-          #define GASNETI_HAVE_ATOMIC64_T 1
-          typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
-          #define _gasneti_atomic64_read(p)      ((p)->ctr)
-          #define _gasneti_atomic64_set(p,v)     do { (p)->ctr = (v); } while(0)
-          #define _gasneti_atomic64_init(v)      { (v) }
-
-          GASNETI_INLINE(_gasneti_atomic64_compare_and_swap)
-          int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *v, uint64_t oldval, uint64_t newval) {
-	    uint64_t temp;
-	    int retval = 0;
-            __asm__ __volatile__ (
-		  "1:			\n\t"
-		  "lld	%1,%2		\n\t"	/* Load from *v */
-		  "bne	%1,%3,2f	\n\t"	/* Break loop on mismatch */
-		  "move	%0,%4		\n\t"	/* Copy newval to retval */
-		  "scd	%0,%2		\n\t"	/* Try SC to store retval */
-		  GASNETI_MIPS_BEQZ "%0,1b\n"	/* Retry on contention */
-		  "2:			"
-		  : "+&r" (retval), "=&r" (temp), "=m" (v->ctr)
-		  : "r" (oldval), "r" (newval), "m" (v->ctr) );
-	    return retval;
-          }
-        #elif PLATFORM_COMPILER_SGI
+        #if PLATFORM_COMPILER_SGI
           #define GASNETI_HAVE_ATOMIC64_T 1
           typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
           #define _gasneti_atomic64_read(p)      ((p)->ctr)
@@ -2215,62 +2174,61 @@
       #define _gasneti_atomic32_read(p)      ((p)->ctr)
       #define _gasneti_atomic32_init(v)      { (v) }
       #define _gasneti_atomic32_set(p,v)     ((p)->ctr = (v))
-      GASNETI_INLINE(_gasneti_atomic32_increment)
-      void _gasneti_atomic32_increment(gasneti_atomic32_t *p) {
-	uint32_t tmp;
-	__asm__ __volatile__(
-		"1:			\n\t"
-		"ll	%0,0(%2)	\n\t"
-		"addu	%0,1		\n\t"
-		"sc	%0,0(%2)	\n\t"
-		GASNETI_MIPS_BEQZ "%0,1b"
-		: "=&r" (tmp), "=m" (p->ctr)
-		: "r" (p), "m" (p->ctr) );
-      } 
-      #define _gasneti_atomic32_increment _gasneti_atomic32_increment
-      GASNETI_INLINE(_gasneti_atomic32_decrement)
-      void _gasneti_atomic32_decrement(gasneti_atomic32_t *p) {
-	uint32_t tmp;
-	__asm__ __volatile__(
-		"1:			\n\t"
-		"ll	%0,0(%2)	\n\t"
-		"subu	%0,1 		\n\t"
-		"sc	%0,0(%2) 	\n\t"
-		GASNETI_MIPS_BEQZ "%0,1b"
-		: "=&r" (tmp), "=m" (p->ctr)
-		: "r" (p), "m" (p->ctr) );
-      }
-      #define _gasneti_atomic32_decrement _gasneti_atomic32_decrement
 
       GASNETI_INLINE(gasneti_atomic32_fetchadd)
       uint32_t gasneti_atomic32_fetchadd(gasneti_atomic32_t *p, int32_t op) {
-	uint32_t tmp, retval;
+	uint32_t retval;
 	__asm__ __volatile__(
+		".set	noat		\n\t"
+		".set	mips2		\n\t"
 		"1:			\n\t"
-		"ll	%0,0(%4)	\n\t"
-		"addu	%1,%0,%3	\n\t"
-		"sc	%1,0(%4)	\n\t"
-		GASNETI_MIPS_BEQZ "%1,1b"
-		: "=&r" (retval), "=&r" (tmp), "=m" (p->ctr)
-		: "Ir" (op), "r" (p), "m" (p->ctr) );
+		"ll	%0,0(%3)	\n\t"
+		"addu	%@,%0,%2	\n\t"
+		"sc	%@,0(%3)	\n\t"
+		GASNETI_MIPS_BEQZ "%@,1b\n\t"
+		".set	mips0		\n\t"
+		".set	at		\n\t"
+		: "=&r" (retval), "=m" (p->ctr)
+		: "Ir" (op), "r" (p), "m" (p->ctr)
+		: "memory" );
 	return retval;
       }
       #define _gasneti_atomic32_fetchadd gasneti_atomic32_fetchadd
 
+      /* Macro that expands to either 32- or 64-bit CAS */
+      /* NOTE: evaluates _p multiple times */
+      #define __gasneti_atomic_compare_and_swap_inner(_abi, _ll, _sc, _retval, _p, _oldval, _newval) \
+         __asm__ __volatile__ (                                                                \
+                "1:                      \n\t"                                                 \
+                ".set   " _abi "         \n\t" /* [ set ABI to allow ll/sc ]                */ \
+                _ll "   %0,0(%4)         \n\t" /* _retval = *p (starts ll/sc reservation)   */ \
+                ".set   mips0            \n\t" /* [ set ABI back to default ]               */ \
+                ".set   noreorder        \n\t" /* [ disable assembler magic so we           */ \
+                ".set   nomacro          \n\t" /*   can fill our own delay slot ]           */ \
+                "bne    %0,%z2,2f        \n\t" /* Break loop on mismatch                    */ \
+                " move  %0,$0            \n\t" /* Zero _retval (in delay slot)              */ \
+                ".set   macro            \n\t" /* [ restore assempbler magic so it          */ \
+                ".set   reorder          \n\t" /*   can fill future delay slots ]           */ \
+                "move   %0,%z3           \n\t" /* _retval = _newval                         */ \
+                ".set   " _abi "         \n\t" /* [ set ABI to allow ll/sc ]                */ \
+                _sc "   %0,0(%4)         \n\t" /* Try *p = _retval (sets _retval 0 or 1)    */ \
+                ".set   mips0            \n\t" /* [ set ABI back to default ]               */ \
+                GASNETI_MIPS_BEQZ "%0,1b \n"   /* Retry on contention                       */ \
+                "2:                        "                                                   \
+                : "=r" (_retval), "=m" ((_p)->ctr)                                             \
+                : "Jr" (_oldval), "Jr" (_newval), "r" ((_p)), "m" ((_p)->ctr)                  \
+                : "memory" )
+      #define __gasneti_atomic32_compare_and_swap_inner(_retval, _p, _oldval, _newval) \
+              __gasneti_atomic_compare_and_swap_inner("mips2", "ll", "sc", \
+                                                      (_retval), (_p), (_oldval), (_newval))
+      #define __gasneti_atomic64_compare_and_swap_inner(_retval, _p, _oldval, _newval) \
+              __gasneti_atomic_compare_and_swap_inner("mips3", "lld", "scd", \
+                                                      (_retval), (_p), (_oldval), (_newval))
+
       GASNETI_INLINE(_gasneti_atomic32_compare_and_swap)
       int _gasneti_atomic32_compare_and_swap(gasneti_atomic32_t *p, uint32_t oldval, uint32_t newval) {
-         uint32_t temp;
-         int retval = 0;
-         __asm__ __volatile__ (
-		"1:			\n\t"
-		"ll	%1,0(%5)	\n\t"	/* Load from *p */
-		"bne	%1,%z3,2f	\n\t"	/* Break loop on mismatch */
-		"move	%0,%z4		\n\t"	/* Move newval to retval */
-		"sc	%0,0(%5)	\n\t"	/* Try SC to store retval */
-		GASNETI_MIPS_BEQZ "%0,1b\n"	/* Retry on contention */
-		"2:			"
-                : "+&r" (retval), "=&r" (temp), "=m" (p->ctr)
-                : "Jr" (oldval), "Jr" (newval), "r" (p), "m" (p->ctr) );
+        int retval;
+        __gasneti_atomic32_compare_and_swap_inner(retval, p, oldval, newval);
         return retval;
       }
 
@@ -2283,19 +2241,9 @@
 
         GASNETI_INLINE(_gasneti_atomic64_compare_and_swap)
         int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval) {
-	  uint64_t temp;
-	  int retval = 0;
-          __asm__ __volatile__ (
-		  "1:			\n\t"
-		  "lld	%1,0(%5)	\n\t"	/* Load from *p */
-		  "bne	%1,%z3,2f	\n\t"	/* Break loop on mismatch */
-		  "move	%0,%z4		\n\t"	/* Copy newval to retval */
-		  "scd	%0,0(%5)	\n\t"	/* Try SC to store retval */
-		  GASNETI_MIPS_BEQZ "%0,1b\n"	/* Retry on contention */
-		  "2:			"
-		  : "+&r" (retval), "=&r" (temp), "=m" (p->ctr)
-		  : "Jr" (oldval), "Jr" (newval), "r" (p), "m" (p->ctr) );
-	  return retval;
+          int retval;
+          __gasneti_atomic64_compare_and_swap_inner(retval, p, oldval, newval);
+          return retval;
         }
       #endif
 
