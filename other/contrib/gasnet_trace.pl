@@ -2,8 +2,8 @@
 
 #############################################################
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/contrib/gasnet_trace.pl,v $
-#     $Date: 2008/10/11 11:40:02 $
-# $Revision: 1.36 $
+#     $Date: 2008/10/11 22:41:47 $
+# $Revision: 1.37 $
 #
 # All files in this directory (except where otherwise noted) are subject to the
 #following licensing terms:
@@ -674,6 +674,7 @@ EOF
         
         # Options for showing the full file name
         if ($pgb eq "MEMORY") {
+	  next if (($source =~ m@/(gasnet|upcr)_[^/]*@) && !$opt_internal);
           if ($opt_full) {
 	    printf "%s\n", $source;
 	    $handle->format_name("MEMFULL");             
