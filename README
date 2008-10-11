@@ -1,6 +1,6 @@
 README file for GASNet
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.110 $
+$Revision: 1.111 $
 
 This is a combination user manual and design document for GASNet. Anyone
 planning on using, modifying or adding to the GASNet code base should read this
@@ -796,6 +796,11 @@ All GASNet conduit code is required to meet the following coding standards:
   moving code into different files, renaming existing identifiers, etc.)
   as this makes it more difficult to patch your conduit if a bug is 
   discovered in template-conduit or a GASNet-wide change is required.
+
+* Do NOT use tab characters in GASNet code files. Use spaces to ensure correct
+  formatting in any editor. 
+    Emacs users should: (setq-default indent-tabs-mode nil)
+    Vim users should: :set expandtab
 
 * Do not make any conduit-specific changes to the files in the
   extended-ref or tests directories.  They do not have any Makefiles because they
