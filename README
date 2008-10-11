@@ -1,6 +1,6 @@
 README file for GASNet
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.111 $
+$Revision: 1.112 $
 
 This is a combination user manual and design document for GASNet. Anyone
 planning on using, modifying or adding to the GASNet code base should read this
@@ -459,7 +459,8 @@ GASNET_MALLOCFILE: specify a file name to recieve a report of malloc heap
  The filename may also be "stdout" or "stderr", (or "-" to indicate stderr)
  Each node may have its output directed to a separate file,
  and any '%' character in the value is replaced by the node number at runtime
- (e.g. GASNET_MALLOCFILE="mallocreport-%")
+ (e.g. GASNET_MALLOCFILE="mallocreport-%"). These output files are
+ human-readable, but can be passed to gasnet_trace for summarization.
 
 MPI Interoperability
 ====================
