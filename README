@@ -1,6 +1,6 @@
 README file for GASNet
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.109 $
+$Revision: 1.110 $
 
 This is a combination user manual and design document for GASNet. Anyone
 planning on using, modifying or adding to the GASNet code base should read this
@@ -453,6 +453,13 @@ GASNET_MALLOC_SCANFREED: set to 1 to enable scanning of freed objects, to
 
 GASNET_MALLOC_EXTRACHECK: set to 1 to enable more frequent checking for memory
  corruption (at a cost in performance)
+
+GASNET_MALLOCFILE: specify a file name to recieve a report of malloc heap
+ behavior and utilization at process exit. Includes a list of leaked objects.
+ The filename may also be "stdout" or "stderr", (or "-" to indicate stderr)
+ Each node may have its output directed to a separate file,
+ and any '%' character in the value is replaced by the node number at runtime
+ (e.g. GASNET_MALLOCFILE="mallocreport-%")
 
 MPI Interoperability
 ====================

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2007/03/06 22:41:23 $
- * $Revision: 1.98 $
+ *     $Date: 2008/10/11 07:45:27 $
+ * $Revision: 1.99 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -28,8 +28,19 @@ typedef struct {
 } gasneti_heapstats_t;
 
 #if GASNET_DEBUG
+  /* curloc is passed to debug mallocator as "file:line",
+     or the special constant "SRCPOS" to retrieve the info from gasnet_srclines 
+     To enable use of srcpos for a compilation unit, client should: 
+       #undef GASNETT_MALLOC_USE_SRCPOS
+       #define GASNETT_MALLOC_USE_SRCPOS 1 
+  */
+  #ifndef GASNETT_MALLOC_USE_SRCPOS
+  #define GASNETT_MALLOC_USE_SRCPOS 0 /* off by default */
+  #endif
   #define GASNETI_CURLOCFARG , const char *curloc
-  #define GASNETI_CURLOCAARG , __FILE__ ":" _STRINGIFY(__LINE__)
+  #define GASNETI_CURLOCAARG , (GASNETT_MALLOC_USE_SRCPOS ? \
+                               "SRCPOS" :                   \
+                                __FILE__ ":" _STRINGIFY(__LINE__))
   #define GASNETI_CURLOCPARG , curloc
   extern size_t _gasneti_memcheck(void *ptr, const char *curloc, int checktype);
   extern void _gasneti_memcheck_one(const char *curloc);
