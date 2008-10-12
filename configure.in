@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2008/10/11 05:27:59 $
-# $Revision: 1.505 $
+#     $Date: 2008/10/12 02:32:01 $
+# $Revision: 1.506 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.505 $)
+AC_REVISION($Revision: 1.506 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1157,6 +1157,26 @@ if test "$enabled_sgi_ip27" = yes; then
       # No inline asm to worry about MIPS) LDFLAGS="$LDFLAGS -LD_MSG:off=47" ;;
       GNU) LDFLAGS="$LDFLAGS -Wl,-LD_MSG:off=47" ;;
   esac
+fi
+
+# Check how to reference MIPS assembler temporary register ("$1" or "$at")
+if expr "$target_cpu" : "mips" >/dev/null; then
+  GASNET_PUSHVAR(CFLAGS,"$CFLAGS $MISC_CPPFLAGS $MISC_CFLAGS -I$TOP_SRCDIR -I$TOP_SRCDIR/other -D_IN_CONFIGURE")
+  GASNET_TRY_CACHE_CHECK(for MIPS register '\$[]1', mips_reg_1, [
+    #include "gasnet_asm.h"
+  ], [
+    GASNETI_ASM(".set noat\n\t"
+                "move \$1,\$0\n\t"
+                ".set at"); 
+  ], [AC_DEFINE(GASNETI_HAVE_MIPS_REG_1)])
+  GASNET_TRY_CACHE_CHECK(for MIPS register '\$at', mips_reg_at, [
+    #include "gasnet_asm.h"
+  ], [
+    GASNETI_ASM(".set noat\n\t"
+                "move \$at,\$0\n\t"
+                ".set at"); 
+  ], [AC_DEFINE(GASNETI_HAVE_MIPS_REG_AT)])
+  GASNET_POPVAR(CFLAGS)
 fi
 
 ## ARM-specific checks for "kernel helpers"

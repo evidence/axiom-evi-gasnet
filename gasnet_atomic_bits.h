@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2008/10/11 22:25:01 $
- * $Revision: 1.289 $
+ *     $Date: 2008/10/12 02:32:01 $
+ * $Revision: 1.290 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -76,6 +76,12 @@
   #define GASNETI_MIPS_BEQZ "beqzl "	/* 'l' = likely */
 #else
   #define GASNETI_MIPS_BEQZ "beqz "
+#endif
+
+#if defined(GASNETI_HAVE_MIPS_REG_AT)
+  #define GASNETI_MIPS_AT "$at"
+#elif defined(GASNETI_HAVE_MIPS_REG_1)
+  #define GASNETI_MIPS_AT "$1"
 #endif
 
 /* ------------------------------------------------------------------------------------ */
@@ -2177,20 +2183,36 @@
 
       GASNETI_INLINE(gasneti_atomic32_fetchadd)
       uint32_t gasneti_atomic32_fetchadd(gasneti_atomic32_t *p, int32_t op) {
+#ifdef GASNETI_MIPS_AT
 	uint32_t retval;
 	__asm__ __volatile__(
 		".set	noat		\n\t"
 		".set	mips2		\n\t"
 		"1:			\n\t"
 		"ll	%0,0(%3)	\n\t"
-		"addu	%@,%0,%2	\n\t"
-		"sc	%@,0(%3)	\n\t"
-		GASNETI_MIPS_BEQZ "%@,1b\n\t"
+		"addu	" GASNETI_MIPS_AT ",%0,%2	\n\t"
+		"sc	" GASNETI_MIPS_AT ",0(%3)	\n\t"
+		GASNETI_MIPS_BEQZ "" GASNETI_MIPS_AT ",1b\n\t"
 		".set	mips0		\n\t"
 		".set	at		\n\t"
 		: "=&r" (retval), "=m" (p->ctr)
 		: "Ir" (op), "r" (p), "m" (p->ctr)
 		: "memory" );
+#else
+        /* Don't know how to access $1/$at.  So use another temporary */
+        uint32 tmp, retval;
+	__asm__ __volatile__(
+		".set	mips2		\n\t"
+		"1:			\n\t"
+		"ll	%0,0(%4)	\n\t"
+		"addu	%1,%0,%3	\n\t"
+		"sc	%1,0(%4)	\n\t"
+		GASNETI_MIPS_BEQZ "%1,1b\n\t"
+		".set	mips0		\n\t"
+		: "=&r" (retval), "=&r" (tmp), "=m" (p->ctr)
+		: "Ir" (op), "r" (p), "m" (p->ctr)
+		: "memory" );
+#endif
 	return retval;
       }
       #define _gasneti_atomic32_fetchadd gasneti_atomic32_fetchadd
