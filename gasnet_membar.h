@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_membar.h,v $
- *     $Date: 2008/09/24 03:38:20 $
- * $Revision: 1.121 $
+ *     $Date: 2008/10/12 06:12:06 $
+ * $Revision: 1.122 $
  * Description: GASNet header for portable memory barrier operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -78,7 +78,9 @@
   #else
     GASNETI_INLINE(_gasneti_local_mb)
     void _gasneti_local_mb(void) {
-      GASNETI_ASM("sync");  /* MIPS II+ memory barrier */ 
+      GASNETI_ASM(".set mips2  \n\t"
+                  "sync        \n\t"  /* MIPS II+ memory barrier */ 
+                  ".set mips0");
     }
     #define gasneti_local_mb()  _gasneti_local_mb()
     #define gasneti_local_wmb() _gasneti_local_mb()
