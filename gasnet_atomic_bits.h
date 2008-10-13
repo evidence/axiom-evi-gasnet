@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2008/10/12 02:32:01 $
- * $Revision: 1.290 $
+ *     $Date: 2008/10/13 04:51:59 $
+ * $Revision: 1.291 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2237,7 +2237,7 @@
                 ".set   mips0            \n\t" /* [ set ABI back to default ]               */ \
                 GASNETI_MIPS_BEQZ "%0,1b \n"   /* Retry on contention                       */ \
                 "2:                        "                                                   \
-                : "=r" (_retval), "=m" ((_p)->ctr)                                             \
+                : "=&r" (_retval), "=m" ((_p)->ctr)                                            \
                 : "Jr" (_oldval), "Jr" (_newval), "r" ((_p)), "m" ((_p)->ctr)                  \
                 : "memory" )
       #define __gasneti_atomic32_compare_and_swap_inner(_retval, _p, _oldval, _newval) \
