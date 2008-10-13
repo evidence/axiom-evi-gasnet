@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2008/02/19 03:43:39 $
- * $Revision: 1.118 $
+ *     $Date: 2008/10/13 23:16:24 $
+ * $Revision: 1.119 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -283,6 +283,9 @@ GASNETI_BEGIN_EXTERNC
 
 /* ------------------------------------------------------------------------------------ */
 /* misc tools utilities */
+
+/* return a (possibly empty) string of any configuration options that might negtively impact performance */
+extern const char *gasnett_performance_warning_str();
 
 #define gasnett_sched_yield     gasneti_sched_yield 
 #define gasnett_cpu_count       gasneti_cpu_count
