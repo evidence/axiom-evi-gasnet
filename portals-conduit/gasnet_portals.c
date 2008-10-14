@@ -2464,8 +2464,7 @@ extern void gasnetc_init_portals_network(int *argc, char ***argv)
   ptl_iface = IFACE_FROM_BRIDGE_AND_NALID(use_bridge,use_nal);
 
 #if GASNETC_USE_SANDIA_ACCEL
-  /* MLW: can we use gasneti_getenv here? */
-  if (getenv("GASNET_PORTAL_ACCEL") != NULL) {
+  if (gasneti_getenv_yesno_withdefault("GASNET_PORTAL_ACCEL",0)) {
     gasnetc_use_accel = 1;
     pid_offset = 4096;
     ptl_iface = CRAY_ACCEL;
@@ -3387,18 +3386,18 @@ extern void gasnetc_init_portals_resources(void)
 				 (int64_t)GASNETC_MAX_TMP_MDS,0);
   gasnetc_msg_limit = (int)gasneti_getenv_int_withdefault("GASNET_PORTAL_MSG_LIMIT",
 				 (int64_t)gasnetc_msg_limit,0);
-  gasnetc_allow_packed_long = (int)gasneti_getenv_int_withdefault("GASNET_PORTAL_PACKED_LONG",
-				 (int64_t)gasnetc_allow_packed_long,0);
+  gasnetc_allow_packed_long = gasneti_getenv_yesno_withdefault("GASNET_PORTAL_PACKED_LONG",
+				 gasnetc_allow_packed_long);
   if (gasnetc_msg_limit < gasnetc_msg_minimum) {
     gasnetc_msg_limit = gasnetc_msg_minimum;
   }
   gasnetc_epoch_duration = (int)gasneti_getenv_int_withdefault("GASNET_PORTAL_EPOCH_DURATION",
  		                (int64_t)gasnetc_epoch_duration,0);
-  val = (int)gasneti_getenv_int_withdefault("GASNET_PORTAL_FLOW_CONTROL",
-					    (int64_t)gasnetc_use_flow_control,0);
+  val = gasneti_getenv_yesno_withdefault("GASNET_PORTAL_FLOW_CONTROL",
+					    gasnetc_use_flow_control);
   gasnetc_use_flow_control = val;
-  val = (int)gasneti_getenv_int_withdefault("GASNET_PORTAL_DYNAMIC_CREDITS",
-					    (int64_t)gasnetc_use_dynamic_credits,0);
+  val = gasneti_getenv_yesno_withdefault("GASNET_PORTAL_DYNAMIC_CREDITS",
+					    gasnetc_use_dynamic_credits);
   gasnetc_use_dynamic_credits = val;
   if (val) gasnetc_use_flow_control = 1;  /* implied by use of dynamic credits */
   val = (int)gasneti_getenv_int_withdefault("GASNET_PORTAL_MAX_CRED_PER_NODE",
