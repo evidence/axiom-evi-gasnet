@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2008/10/11 07:45:27 $
- * $Revision: 1.99 $
+ *     $Date: 2008/10/14 11:53:49 $
+ * $Revision: 1.100 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -78,6 +78,29 @@ GASNETI_MALLOCP(_gasneti_extern_strndup)
 #define gasneti_extern_free(ptr)       _gasneti_extern_free((ptr) GASNETI_CURLOCAARG)
 #define gasneti_extern_strdup(s)       _gasneti_extern_strdup((s) GASNETI_CURLOCAARG)
 #define gasneti_extern_strndup(s,n)    _gasneti_extern_strndup((s),(n) GASNETI_CURLOCAARG)
+
+/* aligned malloc - allocated size bytes with given power-of-2 alignment
+   may only be freed using gasneti_free_aligned */
+GASNETI_INLINE(_gasneti_malloc_aligned) GASNETI_MALLOC
+void * _gasneti_malloc_aligned(size_t alignment, size_t size GASNETI_CURLOCFARG) {
+  size_t alloc_size = size + sizeof(void *) + alignment;
+  void *base = _gasneti_extern_malloc(alloc_size GASNETI_CURLOCPARG);
+  void **result = (void **)GASNETI_ALIGNUP((uintptr_t)base + sizeof(void *), alignment);
+  *(result - 1) = base; /* hidden base ptr for free() */
+  gasneti_assert(result == (void **)GASNETI_ALIGNUP(result, alignment));
+  gasneti_assert((void *)(result - 1) >= base);
+  gasneti_assert(((uint8_t *)result + size) <= ((uint8_t *)base + alloc_size));
+  return (void *)result;
+}
+GASNETI_MALLOCP(_gasneti_malloc_aligned)
+#define gasneti_malloc_aligned(align,sz) _gasneti_malloc_aligned((align), (sz) GASNETI_CURLOCAARG)
+
+GASNETI_INLINE(_gasneti_free_aligned)
+void _gasneti_free_aligned(void *ptr GASNETI_CURLOCFARG) {
+  gasneti_assert(ptr);
+  _gasneti_extern_free(*((void **)ptr - 1) GASNETI_CURLOCPARG);
+}
+#define gasneti_free_aligned(ptr) _gasneti_free_aligned((ptr) GASNETI_CURLOCAARG)
 
 extern uint64_t gasnet_max_segsize; /* client-overrideable max segment size */
 #if GASNET_SEGMENT_EVERYTHING

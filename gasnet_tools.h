@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2008/10/13 23:16:24 $
- * $Revision: 1.119 $
+ *     $Date: 2008/10/14 11:53:49 $
+ * $Revision: 1.120 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -466,6 +466,9 @@ static void _gasnett_trace_printf_noop(const char *_format, ...)) {
     #define gasnett_heapstats_t           gasneti_heapstats_t
     #define gasnett_getheapstats(pstat)   gasneti_getheapstats(pstat)
   #endif
+
+  #define gasnett_malloc_aligned(align,sz) gasneti_malloc_aligned((align),(sz))
+  #define gasnett_free_aligned(ptr)        gasneti_free_aligned(ptr)
 
   /* VIS string formatting */
   #define gasnett_format_memveclist_bufsz gasneti_format_memveclist_bufsz 
