@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2008/03/17 06:53:11 $
- * $Revision: 1.222 $
+ *     $Date: 2008/10/14 23:30:43 $
+ * $Revision: 1.223 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -1275,14 +1275,16 @@ int gasnetc_rcv_amrdma(gasnetc_cep_t *cep) {
 
   GASNETC_STAT_EVENT(RCV_AM_RDMA);
 
+  /* Account for any recv buffer that was reserved for the reply, but not used.
+   * Must preced credit processing in gasnetc_processPacket (bug 2359) */
+  if (GASNETC_MSG_ISREPLY(flags)) {
+    gasneti_semaphore_up(&cep->am_loc);
+  }
+
+  /* Process the packet, includes running handler and processing credits/acks */
   rbuf.cep = cep;
   rbuf.rr_is_rdma = 1;
   gasnetc_processPacket(cep, &rbuf, flags);
-
-  if (GASNETC_MSG_ISREPLY(flags)) {
-    /* Account for recv buffer that was reserved for the reply, but not used. */
-    gasneti_semaphore_up(&cep->am_loc);
-  }
 
   /* Mark slot free locally prior to enabling the ack */
   hdr->length = 0; hdr->length_again = -1;
