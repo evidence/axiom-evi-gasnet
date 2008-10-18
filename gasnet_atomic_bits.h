@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2008/10/13 04:51:59 $
- * $Revision: 1.291 $
+ *     $Date: 2008/10/18 00:21:20 $
+ * $Revision: 1.292 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2200,7 +2200,7 @@
 		: "memory" );
 #else
         /* Don't know how to access $1/$at.  So use another temporary */
-        uint32 tmp, retval;
+        uint32_t tmp, retval;
 	__asm__ __volatile__(
 		".set	mips2		\n\t"
 		"1:			\n\t"
