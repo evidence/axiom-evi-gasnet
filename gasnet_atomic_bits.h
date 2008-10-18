@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2008/10/18 06:01:34 $
- * $Revision: 1.296 $
+ *     $Date: 2008/10/18 07:48:13 $
+ * $Revision: 1.297 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2270,6 +2270,12 @@
       GASNETI_INLINE(_gasneti_atomic32_compare_and_swap)
       int _gasneti_atomic32_compare_and_swap(gasneti_atomic32_t *p, uint32_t oldval, uint32_t newval) {
         int retval;
+        #if PLATFORM_ARCH_64 || (defined(_MIPS_ISA) && (_MIPS_ISA >= 3) /* 64-bit capable CPU */)
+        if (!__builtin_constant_p(oldval)) {
+          /* Ensure oldval is properly sign-extended for comparison to read value */
+          __asm__ __volatile__("sll %0,%0,0" : "+r" (oldval));
+        }
+        #endif
         __gasneti_atomic32_compare_and_swap_inner(retval, p, oldval, newval);
         return retval;
       }
