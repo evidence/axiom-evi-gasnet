@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2008/10/18 05:26:57 $
- * $Revision: 1.294 $
+ *     $Date: 2008/10/18 05:37:40 $
+ * $Revision: 1.295 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -64,26 +64,6 @@
   #ifndef GASNETI_USE_X86_EBX
     #define GASNETI_USE_X86_EBX GASNETI_HAVE_X86_EBX
   #endif
-#endif
-
-#if GASNETI_ARCH_SGI_IP27
-  /* According to the Linux kernel source, there is an erratum for the R10k cpu
-   * (multi-processor only) in which ll/sc or lld/scd may not execute atomically!
-   * The work-around is to predict-taken the back-branch after the sc or scd.
-   * We must *not* use "beqzl" unconditionally, since the MIPS32 manual warns
-   * that the "branch likely" instructions will be removed in a future revision.
-   */
-  #define GASNETI_MIPS_BEQZ "beqzl "	/* 'l' = likely */
-#else
-  #define GASNETI_MIPS_BEQZ "beqz "
-#endif
-
-#if PLATFORM_COMPILER_PATHSCALE
-  /* Don't define GASNETI_MIPS_AT, as pathcc uses $at as a GP register */
-#elif defined(GASNETI_HAVE_MIPS_REG_AT)
-  #define GASNETI_MIPS_AT "$at"
-#elif defined(GASNETI_HAVE_MIPS_REG_1)
-  #define GASNETI_MIPS_AT "$1"
 #endif
 
 /* ------------------------------------------------------------------------------------ */
@@ -2176,6 +2156,27 @@
     #endif
   /* ------------------------------------------------------------------------------------ */
   #elif PLATFORM_ARCH_MIPS
+    #if GASNETI_ARCH_SGI_IP27
+      /* According to the Linux kernel source, there is an erratum for the R10k cpu
+       * (multi-processor only) in which ll/sc or lld/scd may not execute atomically!
+       * The work-around is to predict-taken the back-branch after the sc or scd.
+       * We must *not* use "beqzl" unconditionally, since the MIPS32 manual warns
+       * that the "branch likely" instructions will be removed in a future revision.
+       */
+      #define GASNETI_MIPS_BEQZ "beqzl "	/* 'l' = likely */
+    #else
+      #define GASNETI_MIPS_BEQZ "beqz "
+    #endif
+  
+    #if PLATFORM_COMPILER_PATHSCALE
+      /* Don't define GASNETI_MIPS_AT, as pathcc uses $at as a GP register */
+      #undef GASNETI_MIPS_AT
+    #elif defined(GASNETI_HAVE_MIPS_REG_AT)
+      #define GASNETI_MIPS_AT "$at"
+    #elif defined(GASNETI_HAVE_MIPS_REG_1)
+      #define GASNETI_MIPS_AT "$1"
+    #endif
+
     #if PLATFORM_COMPILER_GNU
       #define GASNETI_HAVE_ATOMIC32_T 1
       typedef struct { volatile uint32_t ctr; } gasneti_atomic32_t;
