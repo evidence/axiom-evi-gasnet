@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2008/10/18 07:48:13 $
- * $Revision: 1.297 $
+ *     $Date: 2008/10/18 07:50:37 $
+ * $Revision: 1.298 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2177,7 +2177,7 @@
       #define GASNETI_MIPS_AT "$1"
     #endif
 
-    #if PLATFORM_COMPILER_GNU
+    #if PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_PATHSCALE
       #define GASNETI_HAVE_ATOMIC32_T 1
       typedef struct { volatile uint32_t ctr; } gasneti_atomic32_t;
       #define _gasneti_atomic32_read(p)      ((p)->ctr)
@@ -2296,6 +2296,8 @@
       #endif
 
       /* No memory fences in our asm, so using default fences */
+    #else
+      #error "unrecognized MIPS compiler and/or OS - need to implement GASNet atomics (or #define GASNETI_USE_GENERIC_ATOMICOPS)"
     #endif
   /* ------------------------------------------------------------------------------------ */
   #elif PLATFORM_ARCH_ARM && defined(GASNETI_HAVE_ARM_CMPXCHG)
