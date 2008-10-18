@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2008/10/18 03:38:07 $
- * $Revision: 1.293 $
+ *     $Date: 2008/10/18 05:26:57 $
+ * $Revision: 1.294 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2183,12 +2183,29 @@
       #define _gasneti_atomic32_init(v)      { (v) }
       #define _gasneti_atomic32_set(p,v)     ((p)->ctr = (v))
 
+      /* We can't assume GNU as, so no push/pop. */
+      #if PLATFORM_COMPILER_GNU
+        /* Default is at,reorder,macro */
+        #define GASNETI_MIPS_START_NOAT        ".set   noat\n\t"
+        #define GASNETI_MIPS_END_NOAT          ".set   at\n\t"
+        #define GASNETI_MIPS_START_NOREORDER   ".set   noreorder\n\t.set   nomacro\n\t"
+        #define GASNETI_MIPS_END_NOREORDER     ".set   reorder\n\t.set   macro\n\t"
+      #elif PLATFORM_COMPILER_PATHSCALE
+        /* Default is noat,noreorder,nomacro */
+        #define GASNETI_MIPS_START_NOAT
+        #define GASNETI_MIPS_END_NOAT
+        #define GASNETI_MIPS_START_NOREORDER
+        #define GASNETI_MIPS_END_NOREORDER
+      #else
+        #error
+      #endif
+
       GASNETI_INLINE(gasneti_atomic32_fetchadd)
       uint32_t gasneti_atomic32_fetchadd(gasneti_atomic32_t *p, int32_t op) {
 #ifdef GASNETI_MIPS_AT
 	uint32_t retval;
 	__asm__ __volatile__(
-		".set	noat		\n\t"
+		GASNETI_MIPS_START_NOAT
 		".set	mips2		\n\t"
 		"1:			\n\t"
 		"ll	%0,0(%3)	\n\t"
@@ -2196,7 +2213,7 @@
 		"sc	" GASNETI_MIPS_AT ",0(%3)	\n\t"
 		GASNETI_MIPS_BEQZ "" GASNETI_MIPS_AT ",1b\n\t"
 		".set	mips0		\n\t"
-		".set	at		\n\t"
+		GASNETI_MIPS_END_NOAT
 		: "=&r" (retval), "=m" (p->ctr)
 		: "Ir" (op), "r" (p), "m" (p->ctr)
 		: "memory" );
@@ -2227,12 +2244,10 @@
                 ".set   " _abi "         \n\t" /* [ set ABI to allow ll/sc ]                */ \
                 _ll "   %0,0(%4)         \n\t" /* _retval = *p (starts ll/sc reservation)   */ \
                 ".set   mips0            \n\t" /* [ set ABI back to default ]               */ \
-                ".set   noreorder        \n\t" /* [ disable assembler magic so we           */ \
-                ".set   nomacro          \n\t" /*   can fill our own delay slot ]           */ \
+                GASNETI_MIPS_START_NOREORDER   /* [ tell assembler we fill our delay slot ] */ \
                 "bne    %0,%z2,2f        \n\t" /* Break loop on mismatch                    */ \
                 " move  %0,$0            \n\t" /* Zero _retval (in delay slot)              */ \
-                ".set   macro            \n\t" /* [ restore assempbler magic so it          */ \
-                ".set   reorder          \n\t" /*   can fill future delay slots ]           */ \
+                GASNETI_MIPS_END_NOREORDER     /* [ tell assembler to fill delay slots ]    */ \
                 "move   %0,%z3           \n\t" /* _retval = _newval                         */ \
                 ".set   " _abi "         \n\t" /* [ set ABI to allow ll/sc ]                */ \
                 _sc "   %0,0(%4)         \n\t" /* Try *p = _retval (sets _retval 0 or 1)    */ \
