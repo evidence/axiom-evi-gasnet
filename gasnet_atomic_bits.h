@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2008/10/18 05:37:40 $
- * $Revision: 1.295 $
+ *     $Date: 2008/10/18 06:01:34 $
+ * $Revision: 1.296 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2191,12 +2191,14 @@
         #define GASNETI_MIPS_END_NOAT          ".set   at\n\t"
         #define GASNETI_MIPS_START_NOREORDER   ".set   noreorder\n\t.set   nomacro\n\t"
         #define GASNETI_MIPS_END_NOREORDER     ".set   reorder\n\t.set   macro\n\t"
+        #define GASNETI_MIPS_RETRY(ARGS)       GASNETI_MIPS_BEQZ ARGS "\n\t"
       #elif PLATFORM_COMPILER_PATHSCALE
         /* Default is noat,noreorder,nomacro */
         #define GASNETI_MIPS_START_NOAT
         #define GASNETI_MIPS_END_NOAT
         #define GASNETI_MIPS_START_NOREORDER
         #define GASNETI_MIPS_END_NOREORDER
+        #define GASNETI_MIPS_RETRY(ARGS)       GASNETI_MIPS_BEQZ ARGS "\n\tnop\n\t"
       #else
         #error
       #endif
@@ -2212,7 +2214,7 @@
 		"ll	%0,0(%3)	\n\t"
 		"addu	" GASNETI_MIPS_AT ",%0,%2	\n\t"
 		"sc	" GASNETI_MIPS_AT ",0(%3)	\n\t"
-		GASNETI_MIPS_BEQZ "" GASNETI_MIPS_AT ",1b\n\t"
+		GASNETI_MIPS_RETRY(GASNETI_MIPS_AT ",1b")
 		".set	mips0		\n\t"
 		GASNETI_MIPS_END_NOAT
 		: "=&r" (retval), "=m" (p->ctr)
@@ -2227,7 +2229,7 @@
 		"ll	%0,0(%4)	\n\t"
 		"addu	%1,%0,%3	\n\t"
 		"sc	%1,0(%4)	\n\t"
-		GASNETI_MIPS_BEQZ "%1,1b\n\t"
+		GASNETI_MIPS_RETRY("%1,1b")
 		".set	mips0		\n\t"
 		: "=&r" (retval), "=&r" (tmp), "=m" (p->ctr)
 		: "Ir" (op), "r" (p), "m" (p->ctr)
@@ -2253,7 +2255,7 @@
                 ".set   " _abi "         \n\t" /* [ set ABI to allow ll/sc ]                */ \
                 _sc "   %0,0(%4)         \n\t" /* Try *p = _retval (sets _retval 0 or 1)    */ \
                 ".set   mips0            \n\t" /* [ set ABI back to default ]               */ \
-                GASNETI_MIPS_BEQZ "%0,1b \n"   /* Retry on contention                       */ \
+                GASNETI_MIPS_RETRY("%0,1b")    /* Retry on contention                       */ \
                 "2:                        "                                                   \
                 : "=&r" (_retval), "=m" ((_p)->ctr)                                            \
                 : "Jr" (_oldval), "Jr" (_newval), "r" ((_p)), "m" ((_p)->ctr)                  \
