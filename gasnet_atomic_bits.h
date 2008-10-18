@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2008/10/18 00:21:20 $
- * $Revision: 1.292 $
+ *     $Date: 2008/10/18 03:38:07 $
+ * $Revision: 1.293 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -78,7 +78,9 @@
   #define GASNETI_MIPS_BEQZ "beqz "
 #endif
 
-#if defined(GASNETI_HAVE_MIPS_REG_AT)
+#if PLATFORM_COMPILER_PATHSCALE
+  /* Don't define GASNETI_MIPS_AT, as pathcc uses $at as a GP register */
+#elif defined(GASNETI_HAVE_MIPS_REG_AT)
   #define GASNETI_MIPS_AT "$at"
 #elif defined(GASNETI_HAVE_MIPS_REG_1)
   #define GASNETI_MIPS_AT "$1"
