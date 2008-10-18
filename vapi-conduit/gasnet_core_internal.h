@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2008/07/20 23:55:50 $
- * $Revision: 1.153 $
+ *     $Date: 2008/10/18 07:56:13 $
+ * $Revision: 1.154 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -461,7 +461,9 @@ typedef struct {
   struct {
     gasneti_weakatomic_t	count;
     gasneti_weakatomic_val_t	mask;
-    gasneti_atomic_t		lock;	/* Spinlock XXX: should compile-away for non-threaded builds */
+#if GASNETI_THREADS
+    gasneti_atomic_t		lock;
+#endif
     gasneti_weakatomic_val_t	floor;
     gasnetc_amrdma_balance_tbl_t *table;
   }	  amrdma_balance;
