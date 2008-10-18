@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2008/10/18 07:50:37 $
- * $Revision: 1.298 $
+ *     $Date: 2008/10/18 07:51:41 $
+ * $Revision: 1.299 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2205,7 +2205,7 @@
 
       GASNETI_INLINE(gasneti_atomic32_fetchadd)
       uint32_t gasneti_atomic32_fetchadd(gasneti_atomic32_t *p, int32_t op) {
-#ifdef GASNETI_MIPS_AT
+       #ifdef GASNETI_MIPS_AT
 	uint32_t retval;
 	__asm__ __volatile__(
 		GASNETI_MIPS_START_NOAT
@@ -2220,7 +2220,7 @@
 		: "=&r" (retval), "=m" (p->ctr)
 		: "Ir" (op), "r" (p), "m" (p->ctr)
 		: "memory" );
-#else
+       #else
         /* Don't know how to access $1/$at.  So use another temporary */
         uint32_t tmp, retval;
 	__asm__ __volatile__(
@@ -2234,7 +2234,7 @@
 		: "=&r" (retval), "=&r" (tmp), "=m" (p->ctr)
 		: "Ir" (op), "r" (p), "m" (p->ctr)
 		: "memory" );
-#endif
+       #endif
 	return retval;
       }
       #define _gasneti_atomic32_fetchadd gasneti_atomic32_fetchadd
