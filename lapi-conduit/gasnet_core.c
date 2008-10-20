@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2008/10/08 03:22:42 $
- * $Revision: 1.118 $
+ *     $Date: 2008/10/20 22:47:11 $
+ * $Revision: 1.119 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1038,9 +1038,11 @@ extern void gasnetc_exit(int exitcode) {
 #endif
     LAPI_Gfence(gasnetc_lapi_context);
 #if GASNETC_VERBOSE_EXIT
-    fprintf(stderr,">> GASNET_EXIT[%d]: Start LAPI_Term\n",gasneti_mynode);
+    fprintf(stderr,">> GASNET_EXIT[%d]: Ignore SIGILL and start LAPI_Term\n",gasneti_mynode);
     fflush(stderr);
 #endif
+    /* Ignore SIGILL caused by inter-thread interacions in LAPI_Term() (bug 2362) */
+    gasneti_reghandler(SIGILL, SIG_IGN);
     LAPI_Term(gasnetc_lapi_context);
 #if GASNETC_VERBOSE_EXIT
     fprintf(stderr,">> GASNET_EXIT[%d]: cancel alarm and exit\n",gasneti_mynode);
