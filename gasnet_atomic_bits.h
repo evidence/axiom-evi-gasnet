@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2008/10/23 03:47:14 $
- * $Revision: 1.300 $
+ *     $Date: 2008/10/23 04:23:16 $
+ * $Revision: 1.301 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2296,6 +2296,13 @@
         }
       #endif
 
+      /* XXX: SGI docs say ll/sc include a memory fence.
+       *    SGI Part Number 02-00036-005, page 5-5 and 5-7
+       * I find no other docs that support this, but the mutex constructs
+       * in both the Linux kernel and NPTL are consistent with fully
+       * fenced ll/sc and lld/scd.
+       * TODO: test this to see if we can remove the default fences.
+       */
       /* No memory fences in our asm, so using default fences */
     #else
       #error "unrecognized MIPS compiler and/or OS - need to implement GASNet atomics (or #define GASNETI_USE_GENERIC_ATOMICOPS)"
