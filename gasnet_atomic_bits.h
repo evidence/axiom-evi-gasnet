@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2008/10/23 05:00:45 $
- * $Revision: 1.302 $
+ *     $Date: 2008/10/23 06:35:45 $
+ * $Revision: 1.303 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2296,12 +2296,16 @@
         }
       #endif
 
-      /* XXX: SGI docs say ll/sc include a memory fence.
+      /* SGI docs say ll/sc include a memory fence.
        *    SGI Part Number 02-00036-005, page 5-5 and 5-7
        * I find no other docs that support this, but the mutex constructs
        * in both the Linux kernel and NPTL are consistent with fully
        * fenced ll/sc and lld/scd.
-       * TODO: test this to see if we can remove the default fences.
+       * However, testing on a SiCortex machine shows that assuming full MB in
+       * RMW atomics yields failures in testtools/"O: parallel atomic-op fence test".
+       * These failures are present w/ both gcc and pathcc.
+       * No such failures are evident on an SGI Origin 2000.
+       * We'll stick w/ the safe option for now: use the default fences.
        */
       /* No memory fences in our asm, so using default fences */
     #else
