@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2008/10/12 02:32:01 $
-# $Revision: 1.506 $
+#     $Date: 2008/10/23 17:03:42 $
+# $Revision: 1.507 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.506 $)
+AC_REVISION($Revision: 1.507 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -819,12 +819,10 @@ case "$target_os" in
 	if test -d "/dev/hw/cpunum" -o -c "/dev/xpmem"; then
 	  AC_DEFINE(GASNETI_ARCH_ALTIX)
 	fi
-	# Check for SiCortex hardware (is there a better way?)
-	case `/usr/bin/uname -p 2>&1` in
-	  *SiCortex*)
+	# Check for SiCortex hardware by device or cpu name
+	if test -c "/dev/scfabric" || expr `/usr/bin/uname -p 2>&1` : SiCortex >/dev/null; then
 	    AC_DEFINE(GASNETI_ARCH_SICORTEX)
-	    ;;
-	esac
+	fi
         case "$target" in
           *-catamount-*) 
 	    GASNET_IFDEF(__LIBCATAMOUNT__,[],[
