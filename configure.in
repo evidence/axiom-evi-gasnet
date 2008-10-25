@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2008/10/23 17:03:42 $
-# $Revision: 1.507 $
+#     $Date: 2008/10/25 07:05:33 $
+# $Revision: 1.508 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.507 $)
+AC_REVISION($Revision: 1.508 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -3080,6 +3080,7 @@ AC_CHECK_FUNCS(setenv unsetenv putenv)
 AC_CHECK_FUNCS([getrlimit setrlimit getrlimit64 setrlimit64], [], [])
 AC_CHECK_HEADERS(sys/resource.h)
 
+AC_CHECK_HEADERS(sgidefs.h)
 AC_CHECK_HEADERS(features.h)
 AC_CHECK_FUNCS(fopen64)
 
