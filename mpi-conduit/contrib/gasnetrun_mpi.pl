@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2008/07/20 18:56:00 $
-# $Revision: 1.64 $
+#     $Date: 2008/10/27 03:34:36 $
+# $Revision: 1.65 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -103,6 +103,7 @@ sub gasnet_encode($) {
     my $is_elan_mpi  = ($mpirun_help =~ m|MPIRUN_ELANIDMAP_FILE|);
     my $is_jacquard = ($mpirun_help =~ m| \[-noenv\] |) && !$is_elan_mpi;
     my $is_infinipath = ($mpirun_help =~ m|InfiniPath |);
+    my $is_srun    = ($mpirun_help =~ m|srun: invalid option|);
     my $envprog = $ENV{'ENVCMD'};
     if (! -x $envprog) { # SuperUX has broken "which" implementation, so avoid if possible
       $envprog = `which env`;
@@ -245,6 +246,11 @@ sub gasnet_encode($) {
         $encode_args = 1;
         $encode_env = 1;
 	@verbose_opt = ("-V");
+    } elsif ($is_srun) {
+	$spawner_desc = "SLURM srun";
+	# this spawner already propagates the environment for us automatically
+	%envfmt = ( 'noenv' => 1 );
+	@verbose_opt = ("-v");
     } else {
 	$spawner_desc = "unknown program (using generic MPI spawner)";
 	# the OS already propagates the environment for us automatically
@@ -574,6 +580,11 @@ if ($is_lam && $numnode) {
   my @tmp = (0..($numnode-1));
   expand \@tmp;
   @numprocargs = ($numproc, 'n' . join(',', @tmp));
+}
+    
+if ($is_srun && $numnode) {
+  @numprocargs = ($numproc, '-N', $numnode);
+  $dashN_ok = 1;
 }
     
 if ($numnode && ($is_aprun || $is_yod)) { 
