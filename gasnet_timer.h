@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2008/10/14 09:10:23 $
- * $Revision: 1.87 $
+ *     $Date: 2008/10/28 01:42:32 $
+ * $Revision: 1.88 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -239,19 +239,18 @@ GASNETI_BEGIN_EXTERNC
     return (uint64_t)(st * gasneti_timer_tick);
   }
 /* ------------------------------------------------------------------------------------ */
-#elif GASNETI_ARCH_SICORTEX && 0
- #if 0
-  /* this unfortunately does not currently work because the cycle counters 
-   * are apparently not synchronized across CPUs, so process migration across cores breaks it */
+#elif GASNETI_ARCH_SICORTEX
+ #if 1
   typedef uint64_t gasneti_tick_t;
   GASNETI_INLINE(gasneti_ticks_now)
   gasneti_tick_t gasneti_ticks_now() {
     gasneti_tick_t _count = 0;
-    __asm__ __volatile__(".set push \n"
-                         ".set mips32r2\n"
+    __asm__ __volatile__(".set push     \n"
+                         ".set mips32r2 \n"
                          "rdhwr $3, $30 \n"
-                         "move %0, $3 \n"
-                         ".set pop" : "=r"(_count) : : "$3");
+                         ".set pop      \n"
+                         "move %0, $3   \n"
+                         : "=r"(_count) : : "$2", "$3");
     return _count;
   }
 
