@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2008/10/27 03:34:36 $
-# $Revision: 1.65 $
+#     $Date: 2008/10/28 05:43:43 $
+# $Revision: 1.66 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -99,6 +99,8 @@ sub gasnet_encode($) {
     my $is_yod      = ($mpirun_help =~ m| yod |);
     my $is_bgl_mpi  = ($mpirun_help =~ m|COprocessor or VirtualNode mode|);
     my $is_bgl_cqsub = ($mpirun_help =~ m| cqsub .*?co/vn|s);
+#   my $is_bgp_mpi  = ($mpirun_help =~ m|fake-mpirun| && $mpirun_help =~ m|-partition|);
+    my $is_bgp = ($mpirun_help =~ m|--mode <mode co/vn>|s);
     my $is_hp_mpi  = ($mpirun_help =~ m|-universe_size|);
     my $is_elan_mpi  = ($mpirun_help =~ m|MPIRUN_ELANIDMAP_FILE|);
     my $is_jacquard = ($mpirun_help =~ m| \[-noenv\] |) && !$is_elan_mpi;
@@ -110,6 +112,10 @@ sub gasnet_encode($) {
       chomp $envprog;
     }
     my $spawner_desc = undef;
+
+    if ($ENV{'MPIRUN_CMD_BATCH'}) {
+      print "WARNING: MPIRUN_CMD_BATCH only has siginificant on the BlueGene/P" unless($is_bgp);
+    }
 
     if ($is_lam) {
 	$spawner_desc = "LAM/MPI";
@@ -222,6 +228,21 @@ sub gasnet_encode($) {
 		    'join' => ':',
 		    'val' => ''
 		  );
+        $encode_env = 1; # botches spaces in environment values
+        $encode_args = 1; # and in arguments
+    } elsif ($is_bgp) {
+        $spawner_desc = "IBM BG/P";
+        if($ENV{'COBALT_JOBID'}) {
+           %envfmt = ( 'pre' => '-env',
+                       'join' => ':',
+                       'val' => ''
+                     );
+        } else {
+           %envfmt = ( 'pre' => '--env',
+                       'join' => ':',
+                       'val' => ''
+                     );
+        }   
         $encode_env = 1; # botches spaces in environment values
         $encode_args = 1; # and in arguments
     } elsif ($is_jacquard) {
@@ -602,6 +623,61 @@ if ($numnode && ($is_aprun || $is_yod)) {
       @numprocargs = ($numproc, '-VN');
     } else {
       die "yod does not support more than 2 processes per node.\n";
+    }
+  }
+  $dashN_ok = 1;
+}
+
+
+if ($numproc && $is_bgp) {
+  if(!defined($numnode)) {
+    $numnode = $numproc
+  }
+
+  if ($ENV{'COBALT_JOBID'}) { # inside the job script
+    my $partsz = undef;
+    print "inside cobalt job spawner\n" if ($verbose);
+    #spawning command needs to be changed to cobalt-mpirun and not qsub
+    $spawncmd = $ENV{'MPIRUN_CMD_BATCH'} || 'cobalt-mpirun %N %P %A';
+    $spawncmd = stripouterquotes($spawncmd);
+    $spawncmd =~ s/%C/%P %A/;  # deal with common alias
+    # pass as: -env A=val:B=val .... this si really dumb cobalt-mpirun has one less - than qsub
+    
+
+    open(QSTAT, "qstat -f $ENV{'COBALT_JOBID'}|") || die "Failed to run qstat";
+    while (<QSTAT>) {
+      if (/^[1-9]/) {
+        my @F = split;
+        $partsz = $F[6];
+        last;
+      }
+    }
+    close(QSTAT); 
+    die "Failed to query partition size" unless (defined $partsz);
+    
+    if ($numproc <= $partsz) {
+      @numprocargs = ('-np', $numproc);
+    } elsif ($numproc * 2 == $partsz) {
+      @numprocargs = ('-mode', 'dual');
+    } elsif ($numproc * 4 == $partsz) {
+      @numprocargs = ('-mode', 'vn');
+    } else {
+      die "BG/P only supports 1, 2 or 4 ppn, and must conform to partition size $numproc $partsz.  See README.dcmf.";
+    }
+  } else { # qsub requires
+    my $ppn = int( ( $numproc + $numnode - 1 ) / $numnode );
+    if ($ppn * $numnode != $numproc) {
+    warn "WARNING: non-uniform process distribution not supported\n";
+    warn "WARNING: PROCESS LAYOUT MIGHT NOT MATCH YOUR REQUEST\n";
+    }
+    if ($ppn == 1) {
+      @numprocargs = ($numproc, '--mode', 'smp');
+    } elsif ($ppn == 2) {
+      @numprocargs = ($numproc/2, '--mode', 'dual');
+    } elsif ($ppn == 4) {
+      @numprocargs = ($numproc/4, '--mode', 'vn');
+    } else {
+      die "BG/P only supports 1, 2 or 4 ppn";
     }
   }
   $dashN_ok = 1;
