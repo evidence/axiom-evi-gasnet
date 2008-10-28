@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2008/10/28 01:42:32 $
- * $Revision: 1.88 $
+ *     $Date: 2008/10/28 01:56:09 $
+ * $Revision: 1.89 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -259,15 +259,26 @@ GASNETI_BEGIN_EXTERNC
     static int firsttime = 1;
     static double adjust;
     if_pf(firsttime) {
-      /* hard-coded frequency for now */
-      #ifndef GASNETI_CPU_CLOCK_MHZ
-      #define GASNETI_CPU_CLOCK_MHZ 500
-      #endif
-      double freq = GASNETI_CPU_CLOCK_MHZ;
-      /* cycle counter runs at half of core clock speed */
-      adjust = 2.0E3/freq;
+      #define GASNETI_HZ_FILE "/sys/devices/system/clusterclock/hz"
+      FILE *fp = fopen(GASNETI_HZ_FILE,"r");
+      char input[255];
+      int hz;
+      if (fp && fgets(input, 255, fp)) {
+        hz = atoi(input);
+        gasneti_assert(hz > 100000000);
+        adjust = 1.0E9 / hz;
+      } else {
+        /* fall back on hard-coded frequency */
+        #ifndef GASNETI_CPU_CLOCK_MHZ
+        #define GASNETI_CPU_CLOCK_MHZ 500
+        #endif
+        double freq = GASNETI_CPU_CLOCK_MHZ;
+        /* cycle counter runs at half of core clock speed */
+        adjust = 2.0E3/freq;
+      }
       gasneti_sync_writes();
       firsttime = 0;
+      if (fp) fclose(fp);
     } else gasneti_sync_reads();
     return (uint64_t)(((double)ticks) * adjust);
   }
