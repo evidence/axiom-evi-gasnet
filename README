@@ -1,6 +1,6 @@
 README file for GASNet
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.113 $
+$Revision: 1.114 $
 
 This is a combination user manual and design document for GASNet. Anyone
 planning on using, modifying or adding to the GASNet code base should read this
@@ -186,7 +186,7 @@ Platforms where GASNet and Berkeley UPC have been successfully tested:
     * Linux/Cray-XD1/{gcc,PGI}/64: smp, mpi
 
     * BLRTS/IBM-BlueGeneL-PowerPC/{gcc,xlc}/32: smp, mpi %&
-    * BLRTS/IBM-BlueGeneP-PowerPC/{gcc,xlc}/32: smp, mpi, dcmf %&
+    * BLRTS/IBM-BlueGeneP-PowerPC/{gcc,xlc}/32: smp, mpi, dcmf %
  
     * MTX/Cray-MTA/CrayMTAC/64: smp, udp &
  
