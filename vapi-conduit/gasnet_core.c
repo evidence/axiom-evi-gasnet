@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2008/07/20 22:00:53 $
- * $Revision: 1.204 $
+ *     $Date: 2008/10/29 07:15:35 $
+ * $Revision: 1.205 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1257,6 +1257,11 @@ static int gasnetc_init(int *argc, char ***argv) {
       while (1) {	/* No query for max_inline_data limit */
         hndl = ibv_create_qp(hca->pd, &qp_init_attr);
 	if (hndl != NULL) break;
+        if (qp_init_attr.cap.max_inline_data == -1) {
+          /* Automatic max not working, fall back on manual search */
+          qp_init_attr.cap.max_inline_data = 1024;
+          continue;
+        }
 	if ((errno != EINVAL) || (qp_init_attr.cap.max_inline_data == 0)) {
           GASNETC_VAPI_CHECK_PTR(hndl, "from ibv_create_qp()");
 	  /* NOT REACHED */
