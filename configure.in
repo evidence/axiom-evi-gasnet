@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2008/10/28 05:43:37 $
-# $Revision: 1.510 $
+#     $Date: 2008/10/29 06:06:12 $
+# $Revision: 1.511 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.510 $)
+AC_REVISION($Revision: 1.511 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1331,10 +1331,10 @@ AC_TRY_RUN([
         PLATFORM_COMPILER_PATHSCALE || GASNETI_PGI_ASM_GNU
 	volatile struct {
 		unsigned long lo, hi;
-	} X = {0,1};
-
+	} X = {0,(0x1234llu << 32)};
+	/* Note oldhi selected to detect bug 2408 (anything in upper 32bits) */
 	register unsigned long oldlo = 0;
-	register unsigned long oldhi = 1;
+	register unsigned long oldhi = 0x1234llu << 32;
 	register unsigned long newlo = 1234;
 	register unsigned long newhi = 5678;
 
