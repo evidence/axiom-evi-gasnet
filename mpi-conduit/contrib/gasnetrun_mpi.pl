@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2008/10/28 05:43:43 $
-# $Revision: 1.66 $
+#     $Date: 2008/10/31 03:19:57 $
+# $Revision: 1.67 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -635,34 +635,22 @@ if ($numproc && $is_bgp) {
   }
 
   if ($ENV{'COBALT_JOBID'}) { # inside the job script
-    my $partsz = undef;
     print "inside cobalt job spawner\n" if ($verbose);
     #spawning command needs to be changed to cobalt-mpirun and not qsub
     $spawncmd = $ENV{'MPIRUN_CMD_BATCH'} || 'cobalt-mpirun %N %P %A';
     $spawncmd = stripouterquotes($spawncmd);
     $spawncmd =~ s/%C/%P %A/;  # deal with common alias
-    # pass as: -env A=val:B=val .... this si really dumb cobalt-mpirun has one less - than qsub
+  
+    my $ppn = int( ( $numproc + $numnode - 1 ) / $numnode );
     
-
-    open(QSTAT, "qstat -f $ENV{'COBALT_JOBID'}|") || die "Failed to run qstat";
-    while (<QSTAT>) {
-      if (/^[1-9]/) {
-        my @F = split;
-        $partsz = $F[6];
-        last;
-      }
-    }
-    close(QSTAT); 
-    die "Failed to query partition size" unless (defined $partsz);
-    
-    if ($numproc <= $partsz) {
-      @numprocargs = ('-np', $numproc);
-    } elsif ($numproc * 2 == $partsz) {
-      @numprocargs = ('-mode', 'dual');
-    } elsif ($numproc * 4 == $partsz) {
-      @numprocargs = ('-mode', 'vn');
+    if ($ppn == 1) {
+      @numprocargs = ('-np', $numproc, '-mode', 'smp');
+    } elsif ($ppn == 2) {
+      @numprocargs = ('-np', $numproc, '-mode', 'dual');
+    } elsif ($ppn == 4) {
+      @numprocargs = ('-np', $numproc, '-mode', 'vn');
     } else {
-      die "BG/P only supports 1, 2 or 4 ppn, and must conform to partition size $numproc $partsz.  See README.dcmf.";
+      die "BG/P only supports 1, 2 or 4 ppn.  See README.dcmf.";
     }
   } else { # qsub requires
     my $ppn = int( ( $numproc + $numnode - 1 ) / $numnode );
