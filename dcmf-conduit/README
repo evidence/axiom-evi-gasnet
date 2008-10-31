@@ -1,7 +1,7 @@
 README file for dcmf-conduit
 ============================
 Rajesh Nishtala <rajeshn@cs.berkeley.edu>
-$Revision: 1.4 $
+$Revision: 1.5 $
 
 
 GASNet's DCMF conduit is the native port of GASNet to the BlueGene/P
@@ -154,6 +154,8 @@ Section: Known Issues
 hardware collectives offered by the BlueGene/P. Thus we expect the
 collective performance to be slower than MPIs. This will be addressed
 in the next release of GASNet.
++ The GASNet job spawning scripts only know about the cobalt job control system. This is the current
+default on Surveyor and Intrepid at Argonne.
 
 
 Section: Torus Information
