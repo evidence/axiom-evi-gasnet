@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2008/10/23 06:35:45 $
- * $Revision: 1.303 $
+ *     $Date: 2008/11/02 22:14:01 $
+ * $Revision: 1.304 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2219,8 +2219,7 @@
 		".set	mips0		\n\t"
 		GASNETI_MIPS_END_NOAT
 		: "=&r" (retval), "=m" (p->ctr)
-		: "Ir" (op), "r" (p), "m" (p->ctr)
-		: "memory" );
+		: "Ir" (op), "r" (p), "m" (p->ctr) );
        #else
         /* Don't know how to access $1/$at.  So use another temporary */
         uint32_t tmp, retval;
@@ -2233,8 +2232,7 @@
 		GASNETI_MIPS_RETRY("%1,1b")
 		".set	mips0		\n\t"
 		: "=&r" (retval), "=&r" (tmp), "=m" (p->ctr)
-		: "Ir" (op), "r" (p), "m" (p->ctr)
-		: "memory" );
+		: "Ir" (op), "r" (p), "m" (p->ctr) );
        #endif
 	return retval;
       }
@@ -2259,8 +2257,7 @@
                 GASNETI_MIPS_RETRY("%0,1b")    /* Retry on contention                       */ \
                 "2:                        "                                                   \
                 : "=&r" (_retval), "=m" ((_p)->ctr)                                            \
-                : "Jr" (_oldval), "Jr" (_newval), "r" ((_p)), "m" ((_p)->ctr)                  \
-                : "memory" )
+                : "Jr" (_oldval), "Jr" (_newval), "r" ((_p)), "m" ((_p)->ctr) )
       #define __gasneti_atomic32_compare_and_swap_inner(_retval, _p, _oldval, _newval) \
               __gasneti_atomic_compare_and_swap_inner("mips2", "ll", "sc", \
                                                       (_retval), (_p), (_oldval), (_newval))
