@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2008/11/02 22:14:01 $
- * $Revision: 1.304 $
+ *     $Date: 2008/11/03 00:52:24 $
+ * $Revision: 1.305 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1265,7 +1265,7 @@
             "bne,a,pn %%icc, 0b  \n\t" /* otherwise, retry (,pn == predict not taken; ,a == annul) */
             "  mov    %1, %0     "     /* oldval = newval; (branch delay slot, annulled if not taken) */
             : "=&r"(oldval), "=&r"(newval), "=m"(v->ctr)
-            : "rn"(op), "r"(addr), "m"(v->ctr) );
+            : "rI"(op), "r"(addr), "m"(v->ctr) );
           return oldval;
         }
         #define _gasneti_atomic32_fetchadd _gasneti_atomic32_fetchadd
