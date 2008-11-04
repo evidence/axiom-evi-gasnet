@@ -3412,7 +3412,7 @@ extern void gasnetc_init_portals_resources(void)
   val = (int)gasneti_getenv_int_withdefault("GASNET_PORTAL_SYS_LIMIT",
 					    (int64_t)gasnetc_sys_poll_limit,0);
   if (val >= 0) gasnetc_sys_poll_limit = val;
-  gasnetc_shutdown_seconds = gasneti_get_exittimeout(shutdown_max, 3., 0.125, 0.);
+  gasnetc_shutdown_seconds = gasneti_get_exittimeout(shutdown_max, 5., 0.25, 0.);
 
 #if GASNETC_CREDIT_TESTING
   gasnetc_debug_node = (int)gasneti_getenv_int_withdefault("GASNET_PORTAL_DEBUG_NODE",
