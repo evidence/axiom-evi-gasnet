@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_core.c,v $
- *     $Date: 2008/10/28 05:43:39 $
- * $Revision: 1.2 $
+ *     $Date: 2008/11/04 14:41:07 $
+ * $Revision: 1.3 $
  * Description: GASNet dcmf conduit Implementation
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>, 
                    Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -31,10 +31,20 @@ GASNETI_IDENT(gasnetc_IdentString_Name,    "$GASNetCoreLibraryName: " GASNET_COR
 #define GASNETC_FLOW_CONTROL_ENABLED 1
 
 
+
 /* Exit coordination timeouts */
+#ifndef GASNETC_DEFAULT_EXITTIMEOUT_MAX
 #define GASNETC_DEFAULT_EXITTIMEOUT_MAX   360.0 /* 6 minutes! */
+#endif
+
+#ifndef GASNETC_DEFAULT_EXITTIMEOUT_MIN
 #define GASNETC_DEFAULT_EXITTIMEOUT_MIN   2 /* 2 seconds */
+#endif
+
+#ifndef GASNETC_DEFAULT_EXITTIMEOUT_FACTOR
 #define GASNETC_DEFAULT_EXITTIMEOUT_FACTOR  0.25  /* 1/4 second */
+#endif
+
 static double gasnetc_exittimeout = GASNETC_DEFAULT_EXITTIMEOUT_MAX;
 
 
@@ -85,6 +95,7 @@ static DCMF_Protocol_t gasnetc_dcmf_ack_registration;
 static DCMF_Protocol_t gasnetc_dcmf_nack_registration;
 static DCMF_Protocol_t gasnetc_dcmf_short_msg_registration;
 static DCMF_Protocol_t gasnetc_force_exit_registration;
+static DCMF_Protocol_t gasnetc_exit_barrier_registration;
 
 #if GASNET_DEBUG
 static gasneti_semaphore_t gasnetc_num_replay_buffers_active= GASNETI_SEMAPHORE_INITIALIZER(0,0);
@@ -266,6 +277,13 @@ static void gasnetc_dcmf_init(gasnet_node_t* mynode, gasnet_node_t *nodes) {
 
   } while(0);
   
+  { /*register exit barrier*/
+    DCMF_GlobalAllreduce_Configuration_t config;
+    bzero(&config, sizeof(DCMF_GlobalAllreduce_Configuration_t));
+    config.protocol = DCMF_DEFAULT_GLOBALALLREDUCE_PROTOCOL;
+    GASNETC_DCMF_CHECK_PTR(&gasnetc_exit_barrier_registration);
+    DCMF_SAFE(DCMF_GlobalAllreduce_register(&gasnetc_exit_barrier_registration, &config));
+  }
  
   
   GASNETC_DCMF_UNLOCK();  
@@ -617,13 +635,8 @@ static void gasnetc_tryCollectiveExit(int exitcode) {
   uint32_t inputexit_code;
   uint32_t outputexit_code;
   DCMF_Request_t req;
-  /*register the protocol here*/
-  DCMF_Protocol_t exit_barrier_registration;
-  DCMF_GlobalAllreduce_Configuration_t config;
   DCMF_Callback_t cb_done;
   volatile int done=0;
-  bzero(&config, sizeof(DCMF_GlobalAllreduce_Configuration_t));
-  config.protocol = DCMF_DEFAULT_GLOBALALLREDUCE_PROTOCOL;
   
   cb_done.function = gasnetc_inc_uint32_arg_cb;
   cb_done.clientdata =(void*)  &done;
@@ -639,14 +652,11 @@ static void gasnetc_tryCollectiveExit(int exitcode) {
   fprintf(stderr, "%d> exit initiated... checking for collective exit (exit code: %d)\n", gasneti_mynode, exitcode);
 #endif
   
-
-  
   
   DCMF_CriticalSection_enter(0);
-  GASNETC_DCMF_CHECK_PTR(&exit_barrier_registration);
+  GASNETC_DCMF_CHECK_PTR(&gasnetc_exit_barrier_registration);
   GASNETC_DCMF_CHECK_PTR(&req);
-  DCMF_SAFE_NO_CHECK(DCMF_GlobalAllreduce_register(&exit_barrier_registration, &config));
-  DCMF_SAFE_NO_CHECK(DCMF_GlobalAllreduce(&exit_barrier_registration, &req,
+  DCMF_SAFE_NO_CHECK(DCMF_GlobalAllreduce(&gasnetc_exit_barrier_registration, &req,
                                           cb_done, DCMF_MATCH_CONSISTENCY,
                                           -1, (char*) &inputexit_code,
                                           (char*) &outputexit_code, 1, DCMF_UNSIGNED_INT, DCMF_MAX));
