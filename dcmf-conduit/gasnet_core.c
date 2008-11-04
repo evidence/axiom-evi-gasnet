@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_core.c,v $
- *     $Date: 2008/11/04 14:41:07 $
- * $Revision: 1.3 $
+ *     $Date: 2008/11/04 14:42:18 $
+ * $Revision: 1.4 $
  * Description: GASNet dcmf conduit Implementation
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>, 
                    Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -42,7 +42,7 @@ GASNETI_IDENT(gasnetc_IdentString_Name,    "$GASNetCoreLibraryName: " GASNET_COR
 #endif
 
 #ifndef GASNETC_DEFAULT_EXITTIMEOUT_FACTOR
-#define GASNETC_DEFAULT_EXITTIMEOUT_FACTOR  0.25  /* 1/4 second */
+#define GASNETC_DEFAULT_EXITTIMEOUT_FACTOR  1  /* 1 second */
 #endif
 
 static double gasnetc_exittimeout = GASNETC_DEFAULT_EXITTIMEOUT_MAX;
