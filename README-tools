@@ -2,7 +2,7 @@
 README file for GASNet tools
 ============================
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.20 $
+$Revision: 1.21 $
 GASNet tools specification version: 1.4
 
 The GASNet tools are a set of communication-independent utilities that are used
@@ -336,6 +336,9 @@ the section on strong atomics below.
  on all platforms.  These are guaranteed to consume exactly the "natural"
  storage, without padding or any extra alignment.  However, one or both may
  use mutexes or lack signal-safety, even where gasnett_atomic_t does not.
+ Additionally, unlike gasnett_atomic_t, the same set of operations is present
+ on all platforms, even if that requires a mutex-based approach to support
+ the compare-and-swap operation.
 
   gasnett_atomic32_t
   gasnett_atomic64_t
