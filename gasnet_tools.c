@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2008/10/13 23:16:24 $
- * $Revision: 1.217 $
+ *     $Date: 2008/11/05 16:16:09 $
+ * $Revision: 1.218 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -81,6 +81,38 @@
   #ifdef GASNETI_GENATOMIC64_DEFN
     GASNETI_GENATOMIC64_DEFN
   #endif
+#endif
+
+#if GASNETI_MUTEX_CAUTIOUS_INIT
+#if GASNETI_ATOMIC32_NOT_SIGNALSAFE
+  #error GASNETI_MUTEX_CAUTIOUS_INIT requires !GASNETI_ATOMIC32_NOT_SIGNALSAFE
+#endif
+/* initstep values: 0 = initial value for a new mutex
+                    1 = initialization of mutex in progress by some thread
+                    2 = mutex is fully initialized and ready for use
+ */
+extern void gasneti_mutex_cautious_init(/*gasneti_mutex_t*/void *_pl) {
+  gasneti_mutex_t *pl = _pl;
+  gasneti_atomic32_t *initstep = (gasneti_atomic32_t *)&(pl->initstep);
+  while (1) {
+    /* check if initialization is complete */
+    if (gasneti_atomic32_read(initstep,GASNETI_ATOMIC_RMB_POST) == 2) return;
+    /* mutex needs initialization, try to acquire that job */
+    if (gasneti_atomic32_compare_and_swap(initstep, 0, 1,
+                                           GASNETI_ATOMIC_ACQ_IF_TRUE)) break;
+    /* some other thread beat us to it */
+    gasneti_sched_yield();
+  }
+
+  /* perform an uncontended lock/unlock cycle on the new mutex, 
+     to ensure pthread library data structures are correctly created */
+  gasneti_assert_zeroret(pthread_mutex_lock(&(pl->lock)));
+  gasneti_assert_zeroret(pthread_mutex_unlock(&(pl->lock)));
+
+  /* init complete, release */
+  gasneti_atomic32_set(initstep, 2, GASNETI_ATOMIC_WMB_PRE);
+  return;
+}
 #endif
 
 /* ------------------------------------------------------------------------------------ */
