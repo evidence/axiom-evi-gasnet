@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended_fwd.h,v $
- *     $Date: 2008/10/08 03:00:52 $
- * $Revision: 1.28 $
+ *     $Date: 2008/11/06 16:01:33 $
+ * $Revision: 1.29 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -19,7 +19,7 @@
   #define GASNETI_FIREHOSE_STATS(CNT,VAL,TIME)	/* Empty */
 #endif
 
-#define GASNET_EXTENDED_VERSION      1.8
+#define GASNET_EXTENDED_VERSION      1.9
 #define GASNET_EXTENDED_VERSION_STR  _STRINGIFY(GASNET_EXTENDED_VERSION)
 #define GASNET_EXTENDED_NAME         LAPI
 #define GASNET_EXTENDED_NAME_STR     _STRINGIFY(GASNET_EXTENDED_NAME)
