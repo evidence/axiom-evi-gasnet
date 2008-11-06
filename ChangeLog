@@ -1,6 +1,6 @@
 GASNet ChangeLog 
 ----------------
-$Revision: 1.21 $
+$Revision: 1.22 $
 
 ----------------------------------------------------------------------
 11-03-2008 : Release 1.12
@@ -42,6 +42,7 @@ $Revision: 1.21 $
   - Add configure option --with-max-pthreads-per-node=N to override the 
     GASNet default limit of 256 pthreads per node
   - Add support for autoconf 2.62 and newer
+  - Workaround stability problems in cygwin pthread mutexes (bug 1847)
 
 * GASNet tools:
   - Upgrades to error reporting in the GASNet debug mallocator
