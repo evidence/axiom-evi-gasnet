@@ -1,7 +1,7 @@
 README file for dcmf-conduit
 ============================
 Rajesh Nishtala <rajeshn@cs.berkeley.edu>
-$Revision: 1.5 $
+$Revision: 1.6 $
 
 
 GASNet's DCMF conduit is the native port of GASNet to the BlueGene/P
@@ -10,8 +10,13 @@ the lower level communication between the nodes. DCMF also supports
 running over other network layers such as UDP, however we currently
 only support DCMF over BlueGene/P. To run GASNet over other network
 APIs (such as UDP) we recommend compiling directly with the
-appropriate network conduit listed in GASNet README.
+appropriate network conduit listed in GASNet README. 
 
+GASNet also requires at least version 0.2.0 of DCMF. DCMF can be
+installed by the users without root access. The DCMF library along
+with documentation and installation instructions can be found at:
+
+http://dcmf.anl-external.org/wiki/index.php/Main_Page
 
 Section: Building GASNet for BlueGene/P
  Since the BlueGene/P compute nodes run a different processor than the
