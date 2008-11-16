@@ -53,13 +53,14 @@ if test "$USE_LINUX" != ""; then
 #MMAP and BG/P linux don't play well together so disabling it for now... until we hear better
 CROSS_HAVE_MMAP='0' ; export CROSS_HAVE_MMAP
 EXTRA_CONFIGURE_ARGS='--enable-dcmf-linux --disable-aligned-segments --disable-udp --disable-amudp' ; export EXTRA_CONFIGURE_ARGS  # misc configure args to pass
+EXTRA_CONFIGURE_ARGS="$EXTRA_CONFIGURE_ARGS --with-feature-list=os_bgp_linux"
 else
 CROSS_HAVE_MMAP='1' ; export CROSS_HAVE_MMAP
 EXTRA_CONFIGURE_ARGS='-with-max-pthreads-per-node=4 --disable-dcmf-linux --disable-udp --disable-amudp' ; export EXTRA_CONFIGURE_ARGS  # misc configure args to pass
+EXTRA_CONFIGURE_ARGS="$EXTRA_CONFIGURE_ARGS --with-feature-list=os_bgp"
 fi
 
 #EXTRA_CONFIGURE_ARGS='--disable-aligned-segments --enable-mpi --disable-udp --disable-amudp' ; export EXTRA_CONFIGURE_ARGS  # misc configure args to pass
-
 
 # 2. Fill in the canonical target machine type. You can usually obtain this
 #   by running config-aux/config.guess on the target machine
