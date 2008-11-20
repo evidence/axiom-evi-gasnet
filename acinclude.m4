@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2008/10/08 02:20:09 $
-dnl $Revision: 1.132 $
+dnl     $Date: 2008/11/20 00:58:17 $
+dnl $Revision: 1.133 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -43,10 +43,10 @@ GASNET_FUN_BEGIN([$0])
   if test -z "$program_suffix" ; then
     program_suffix=NONE
   fi
-  # undo transforms caused by empty prefix/suffix
-  if test "$program_transform_name" = 's,^,,' || \
-     test "$program_transform_name" = 's,$$,,' || \
-     test "$program_transform_name" = 's,$$,,;s,^,,' ; then
+  # canonicalize transforms caused by empty prefix/suffix
+  if expr "$program_transform_name" : 's.^..$' >/dev/null || \
+     expr "$program_transform_name" : 's.$$..$' >/dev/null || \
+     expr "$program_transform_name" : 's.$$..;s.^..$' >/dev/null ; then
     program_transform_name="s,x,x,"
   fi
   if test "$program_prefix$program_suffix$program_transform_name" != "NONENONEs,x,x," ; then
