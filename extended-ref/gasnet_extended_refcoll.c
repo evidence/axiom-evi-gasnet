@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refcoll.c,v $
- *     $Date: 2007/10/30 15:21:01 $
- * $Revision: 1.72 $
+ *     $Date: 2008/11/28 23:19:24 $
+ * $Revision: 1.73 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -986,7 +986,8 @@ void gasnete_coll_poll(GASNETE_THREAD_FARG_ALONE) {
 }
 static gasnet_seginfo_t *gasnete_coll_auxseg_save = NULL;
 
-
+/* spawner hint of our auxseg requirements */
+GASNETI_IDENT(gasnete_coll_auxseg_IdentString, "$GASNetAuxSeg_coll: GASNET_COLL_SCRATCH_SIZE:" _STRINGIFY(GASNETE_COLL_SCRATCH_SIZE_DEFAULT) " $");
 
 /* AuxSeg setup for distributed scratch space*/
 gasneti_auxseg_request_t gasnete_coll_auxseg_alloc(gasnet_seginfo_t *auxseg_info) {

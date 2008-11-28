@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2008/11/13 01:43:50 $
- * $Revision: 1.56 $
+ *     $Date: 2008/11/28 23:19:22 $
+ * $Revision: 1.57 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -718,12 +718,16 @@ static uintptr_t gasneti_auxseg_client_request_sz = 0;
 static int gasneti_auxseg_numfns;
 
 #if GASNET_DEBUG
+  /* spawner hint of our auxseg requirements */
+  #define GASNETI_AUXSEG_DUMMY_SZ    463
+  GASNETI_IDENT(gasneti_dummy_auxseg_IdentString, "$GASNetAuxSeg_dummy: "_STRINGIFY(GASNETI_AUXSEG_DUMMY_SZ)" $");
+
   gasneti_auxseg_request_t gasneti_auxseg_dummy(gasnet_seginfo_t *auxseg_info) {
     gasneti_auxseg_request_t retval;
     static gasnet_seginfo_t *auxseg_save = NULL;
     int i, selftest=0;
     retval.minsz = 213;
-    retval.optimalsz = 463;
+    retval.optimalsz = GASNETI_AUXSEG_DUMMY_SZ;
     if (auxseg_info == NULL) return retval; /* initial query */
     if (auxseg_info == (void*)(uintptr_t)-1) { /* self test */
       selftest = 1;
