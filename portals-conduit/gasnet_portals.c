@@ -4003,9 +4003,9 @@ extern void gasnetc_event_handler(ptl_event_t *ev)
     CB_event(ev);
     break;
 
-  case GASNETC_SYS_SEND:
-  case GASNETC_SYS_RECV:
-    SYS_event(ev);
+  case GASNETC_SYS_SEND_MD:
+  case GASNETC_SYS_RECV_MD:
+    sys_event(ev);
     break;
 
   default:
