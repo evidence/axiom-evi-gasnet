@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2008/10/25 07:05:33 $
- * $Revision: 1.90 $
+ *     $Date: 2008/12/21 00:29:49 $
+ * $Revision: 1.91 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -365,8 +365,14 @@
   extern char *_##identName##_identfn() { return (char*)identName; } \
   static int _dummy_##identName = sizeof(_dummy_##identName)
 #if PLATFORM_COMPILER_CRAY
+  #if PLATFORM_COMPILER_VERSION_LT(6,0,0)
+    #define GASNETI_PRAGMA_SEMI ;
+  #else
+    /* Cray CC v6.0+ complains if a semicolon follows a _Pragma() */
+    #define GASNETI_PRAGMA_SEMI 
+  #endif
   #define GASNETI_IDENT(identName, identText) \
-    GASNETI_PRAGMA(_CRI ident identText);     \
+    GASNETI_PRAGMA(_CRI ident identText) GASNETI_PRAGMA_SEMI     \
     _GASNETI_IDENT(identName, identText)
 #elif PLATFORM_COMPILER_HP_C && PLATFORM_ARCH_IA64 /* bug 1490 */
   #define GASNETI_IDENT(identName, identText) \
