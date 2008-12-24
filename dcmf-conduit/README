@@ -1,7 +1,7 @@
 README file for dcmf-conduit
 ============================
 Rajesh Nishtala <rajeshn@cs.berkeley.edu>
-$Revision: 1.6 $
+$Revision: 1.7 $
 
 
 GASNet's DCMF conduit is the native port of GASNet to the BlueGene/P
@@ -62,7 +62,7 @@ directory structure.
  appropriate places.
 
 Section: Running on the BlueGene/P Systems
- We also provide a script $GASNET_BUILD_DIR/contrib/gasnetrun_dcmf
+ We also provide a script $GASNET_BUILD_DIR/dcmf-conduit/contrib/gasnetrun_dcmf
  that is a wrapper around qsub or cobalt-mpirun depending on the
  context in which it is called. If it is called outside a batch script
  then the script will invoke qsub to submit the batch script on to the

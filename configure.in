@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2008/12/24 03:52:54 $
-# $Revision: 1.515 $
+#     $Date: 2008/12/24 04:26:35 $
+# $Revision: 1.516 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.515 $)
+AC_REVISION($Revision: 1.516 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -3026,8 +3026,8 @@ if test $enabled_dcmf = yes; then
     fi
   fi #end if for dcmf-linux
 
-  force_dcmf="no"
-  GASNET_IF_ENABLED_NOHELP(force-compile-dcmf, [force_dcmf="yes"])  
+  force_dcmf_compile="no"
+  GASNET_IF_ENABLED_NOHELP(force-compile-dcmf, [force_dcmf_compile="yes"])  
   
   # if we can't even find a valid incldue path no point trying to compile even if user requests it
   AC_MSG_CHECKING(for valid DCMF include path)
@@ -3039,7 +3039,7 @@ if test $enabled_dcmf = yes; then
   fi
 
   AC_MSG_CHECKING(for forced dcmf compile)
-  if test $force_dcmf = yes; then
+  if test $force_dcmf_compile = yes; then
     AC_MSG_RESULT(yes)
   else
     AC_MSG_RESULT(no)
@@ -3057,8 +3057,7 @@ if test $enabled_dcmf = yes; then
     GASNET_PUSHVAR(CFLAGS,"$CFLAGS -I$DCMF_INCLUDE -I$DCMF_SYS_INCLUDE -L$DCMF_LIBDIR -L$DCMF_SYS_LIBDIR")
     GASNET_PUSHVAR(LIBS,"$LIBS $DCMF_LIBS")
     if test $have_dcmf = yes; then
-      AC_MSG_CHECKING(DCMF Version) 
-      AC_TRY_COMPILE([
+      GASNET_TRY_CACHE_CHECK(DCMF Version, dcmf_version_check, [
         #include <dcmf.h>
          #include <dcmf_collectives.h>
          #if (DCMF_VERSION_RELEASE == 0)
@@ -3072,32 +3071,28 @@ if test $enabled_dcmf = yes; then
          #else
             #warning this release version not been tested with GASNet
          #endif
-      ], [], [dcmf_version_worked=yes], [dcmf_version_worked=no GASNET_ERR_SAVE() ])
-      if test "$dcmf_version_worked" = yes; then
-        AC_MSG_RESULT(ok)
-        AC_MSG_CHECKING(for working DCMF configuration) 
-        AC_TRY_LINK([
-           #include <stdio.h>
+      ], [], [ ], [
+        GASNET_ERR_SAVE() 
+        AC_MSG_RESULT(GASNet needs at least DCMF 0.2.0)    
+        have_dcmf=no
+      ])
+    fi
+    if test $have_dcmf = yes; then
+      GASNET_TRY_CACHE_LINK(for working DCMF configuration, dcmf_link_test, [
+          #include <stdio.h>
           #include <stdlib.h>
           #include <dcmf.h>
           #include <dcmf_collectives.h>
          ], [
           DCMF_Messager_initialize();
           DCMF_Messager_finalize();  
-        ], [ dcmf_test_worked=yes ], [ dcmf_test_worked=no GASNET_ERR_SAVE() ])
-      
-      
-        if test "$dcmf_test_worked" = yes; then 
-          AC_MSG_RESULT(yes)
-        else 
-          AC_MSG_RESULT(no)
+        ], [ 
+	  dcmf_test_worked=yes 
+	], [ 
+	  GASNET_ERR_SAVE() 
           have_dcmf=no
-        fi
-      else #DCMF Version FAILED
-        AC_MSG_RESULT(GASNet needs at least DCMF 0.2.0)    
-        have_dcmf=no
-      fi #END DCMF VERSION CHECK
-    fi #END DCMF CHECK
+	])
+    fi
     GASNET_POPVAR(CFLAGS)
     GASNET_POPVAR(LIBS)
   fi #END FORCE_DCMF_CHECK
