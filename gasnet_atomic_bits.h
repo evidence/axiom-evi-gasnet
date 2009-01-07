@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2008/11/03 00:52:24 $
- * $Revision: 1.305 $
+ *     $Date: 2009/01/07 22:57:28 $
+ * $Revision: 1.306 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2168,6 +2168,15 @@
     #else
       #define GASNETI_MIPS_BEQZ "beqz "
     #endif
+
+    #if GASNETI_ARCH_ICE9A
+      /* According to SiCortex the ICE9A processor has an errata that
+       * can be worked-around by doubling of the LL or LLD instruction.
+       */
+      #define GASNETI_MIPS_LL(_insn) _insn _insn
+    #else
+      #define GASNETI_MIPS_LL(_insn) _insn
+    #endif
   
     #if PLATFORM_COMPILER_PATHSCALE
       /* Don't define GASNETI_MIPS_AT, as pathcc uses $at as a GP register */
@@ -2212,7 +2221,7 @@
 		GASNETI_MIPS_START_NOAT
 		".set	mips2		\n\t"
 		"1:			\n\t"
-		"ll	%0,0(%3)	\n\t"
+GASNETI_MIPS_LL("ll	%0,0(%3)	\n\t")
 		"addu	" GASNETI_MIPS_AT ",%0,%2	\n\t"
 		"sc	" GASNETI_MIPS_AT ",0(%3)	\n\t"
 		GASNETI_MIPS_RETRY(GASNETI_MIPS_AT ",1b")
@@ -2226,7 +2235,7 @@
 	__asm__ __volatile__(
 		".set	mips2		\n\t"
 		"1:			\n\t"
-		"ll	%0,0(%4)	\n\t"
+GASNETI_MIPS_LL("ll	%0,0(%4)	\n\t")
 		"addu	%1,%0,%3	\n\t"
 		"sc	%1,0(%4)	\n\t"
 		GASNETI_MIPS_RETRY("%1,1b")
@@ -2244,7 +2253,7 @@
          __asm__ __volatile__ (                                                                \
                 "1:                      \n\t"                                                 \
                 ".set   " _abi "         \n\t" /* [ set ABI to allow ll/sc ]                */ \
-                _ll "   %0,0(%4)         \n\t" /* _retval = *p (starts ll/sc reservation)   */ \
+GASNETI_MIPS_LL(_ll "   %0,0(%4)         \n\t")/* _retval = *p (starts ll/sc reservation)   */ \
                 ".set   mips0            \n\t" /* [ set ABI back to default ]               */ \
                 GASNETI_MIPS_START_NOREORDER   /* [ tell assembler we fill our delay slot ] */ \
                 "bne    %0,%z2,2f        \n\t" /* Break loop on mismatch                    */ \
