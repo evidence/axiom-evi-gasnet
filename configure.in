@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2008/12/26 05:33:43 $
-# $Revision: 1.517 $
+#     $Date: 2009/01/07 21:35:00 $
+# $Revision: 1.518 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.517 $)
+AC_REVISION($Revision: 1.518 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1929,7 +1929,11 @@ if test "$enabled_mpi" = yes || test "$enabled_mpi_compat" = yes; then
     irix*)
 	# use SGI native MPI library
         # user may need to do a "module load mpt" to make this work
-    	GASNET_ENV_DEFAULT(MPI_CC, cc -n32)
+        if test "$GASNETI_PTR_BITS" = 64; then
+          GASNET_ENV_DEFAULT(MPI_CC, cc -64)
+        else
+          GASNET_ENV_DEFAULT(MPI_CC, cc -n32)
+        fi
         # cannot use MISC_CFLAGS here because C compiler may not be MIPSPro
         # -common gets us correct linking behavior for tentative definitions
 	BASIC_MPI_CFLAGS="-diag_error 1035 -diag_suppress1171,1174,1209,1552 -common"
