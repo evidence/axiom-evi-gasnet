@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2009/01/07 22:57:28 $
- * $Revision: 1.306 $
+ *     $Date: 2009/01/07 23:44:29 $
+ * $Revision: 1.307 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2304,14 +2304,24 @@ GASNETI_MIPS_LL(_ll "   %0,0(%4)         \n\t")/* _retval = *p (starts ll/sc res
 
       /* SGI docs say ll/sc include a memory fence.
        *    SGI Part Number 02-00036-005, page 5-5 and 5-7
-       * I find no other docs that support this, but the mutex constructs
-       * in both the Linux kernel and NPTL are consistent with fully
-       * fenced ll/sc and lld/scd.
-       * However, testing on a SiCortex machine shows that assuming full MB in
-       * RMW atomics yields failures in testtools/"O: parallel atomic-op fence test".
-       * These failures are present w/ both gcc and pathcc.
-       * No such failures are evident on an SGI Origin 2000.
+       * Tests conducted on the an SGI Origin 2000 are consistent with this.
+       *
+       * Since the 2.6.23 kernel, Linux is supporting a configuration option
+       * (CONFIG_WEAK_REORDERING_BEYOND_LLSC) for MIPS processors, though there
+       * are no template configs that set this option as of the 2.6.28 kernel.
+       * When set, this option causes a "SYNC" to be inserted in the kernel's
+       * mutex-type assembly routines as follows:
+       *   - AFTER lock acquisition
+       *   - BEFORE lock release
+       * The behavior of a SiCortex machine appears consistent with this
+       * "weak reordering beyond ll/sc" behavior.
+       *
        * We'll stick w/ the safe option for now: use the default fences.
+       * However, we could potentially improve peformance on SGI machines
+       * as follows:
+       * #if PLATFORM_OS_IRIX
+       *   #define GASNETI_ATOMIC_FENCE_RMW (GASNETI_ATOMIC_MB_PRE | GASNETI_ATOMIC_MB_POST)
+       * #endif
        */
       /* No memory fences in our asm, so using default fences */
     #else
