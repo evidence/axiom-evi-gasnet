@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2009/01/07 21:35:00 $
-# $Revision: 1.518 $
+#     $Date: 2009/01/07 22:33:32 $
+# $Revision: 1.519 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.518 $)
+AC_REVISION($Revision: 1.519 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1138,7 +1138,7 @@ if expr "$enabled_sgi_ip27@$cross_compiling@$target_cpu" : "unknown@no@mips" >/d
 	   else
              enabled_sgi_ip27=no
 	   fi ;;
-    *) # SiCortex/Linux, others?
+    *) # Linux, others?
        enabled_sgi_ip27=no
        ;;
   esac
@@ -1155,6 +1155,27 @@ if test "$enabled_sgi_ip27" = yes; then
       # No inline asm to worry about MIPS) LDFLAGS="$LDFLAGS -LD_MSG:off=47" ;;
       GNU) LDFLAGS="$LDFLAGS -Wl,-LD_MSG:off=47" ;;
   esac
+fi
+
+## Look for potentially buggy SiCortex ICE9A processor
+# There is a processor erratum to work-around in our atomics :-(
+GASNET_IF_ENABLED_WITH_AUTO(arch-ice9a, Enable/disable work-around for buggy SiCoretex ICE9A processor (auto-detected),
+  enabled_arch_ice9a=yes, enabled_arch_ice9a=no, enabled_arch_ice9a=unknown)
+if (expr "$enabled_arch_ice9a@$target_cpu" : "unknown@mips" && \
+    expr "$target_os" : "linux") >/dev/null; then
+  if test "$cross_compiling" = "yes" ; then
+    AC_MSG_ERROR([Cannot probe for ICE9A processor when cross compiling.  Please configure either with --enable-arch-ice9a or --disable-arch-ice9a])
+  fi
+  AC_MSG_CHECKING(for potentially buggy ICE9A processor)
+  if grep -i ICE9A /proc/cpuinfo >/dev/null 2>&1; then
+    enabled_arch_ice9a=yes
+  else
+    enabled_arch_ice9a=no
+  fi
+  AC_MSG_RESULT($enabled_arch_ice9a)
+fi
+if test "$enabled_arch_ice9a" = yes; then
+  AC_DEFINE(GASNETI_ARCH_ICE9A)
 fi
 
 # Check how to reference MIPS assembler temporary register ("$1" or "$at")

@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2008/10/12 02:32:01 $ */
-/*  $Revision: 1.135 $ */
+/*      $Date: 2009/01/07 22:33:32 $ */
+/*  $Revision: 1.136 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -205,6 +205,9 @@
 
 /* platform is a SiCortex multiprocessor */
 #undef GASNETI_ARCH_SICORTEX
+
+/* have (potentially buggy) SiCortex ICE9A CPU */
+#undef GASNETI_ARCH_ICE9A
 
 /* have (potentially buggy) MIPS R10000 multiprocessor */
 #undef GASNETI_ARCH_SGI_IP27
