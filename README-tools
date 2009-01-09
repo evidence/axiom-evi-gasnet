@@ -2,7 +2,7 @@
 README file for GASNet tools
 ============================
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.21 $
+$Revision: 1.22 $
 GASNet tools specification version: 1.4
 
 The GASNet tools are a set of communication-independent utilities that are used
@@ -288,8 +288,9 @@ the section on strong atomics below.
  those requested, but never weaker. 
 
  Most cases where atomics are used to implement thread synchronization (eg where 
- the atomic operation indicates the availability or consumption of other non-atomic data)
- will need to include some fences for to ensure consistency of non-atomic data.
+ the atomic operation indicates the availability or consumption of other data)
+ will need to include some fences to ensure consistency of other data (this includes
+ both non-atomic data, and other atomic variables).
  Specifying the necessary fence properties
  as arguments to the atomic operation helps to reduce duplication of fences on some 
  platforms (relative to issuing explicit fences before/after the atomic op), because it
@@ -305,16 +306,15 @@ the section on strong atomics below.
   GASNETT_ATOMIC_WMB_PRE
   GASNETT_ATOMIC_MB_PRE
 	
-  GASNETT_ATOMIC_RMB_POST - enforce a read/write/full fence before the atomic operation	
+  GASNETT_ATOMIC_RMB_POST - enforce a read/write/full fence after the atomic operation	
   GASNETT_ATOMIC_WMB_POST
   GASNETT_ATOMIC_MB_POST
 	
   GASNETT_ATOMIC_RMB_POST_IF_TRUE 
   GASNETT_ATOMIC_RMB_POST_IF_FALSE
-    - These enforce a read fence after a compare-and-swap operation that succeeds (true) or
+    - These enforce a read fence after a boolean atomic operation that succeeds (true) or
       fails (false). 
-    - They can similarly be used to enforce a read fence after a 
-      gasnett_atomic_decrement_and_test operation that returns 1 (true) or 0 (false).
+    - The boolean atomic operations are compare-and-swap and decrement-and-test.
 
  Convenience names for specifying acquire/release semantics in critical sections built from atomics:
   
