@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2007/10/25 21:30:18 $
- * $Revision: 1.81 $
+ *     $Date: 2009/01/09 08:51:04 $
+ * $Revision: 1.82 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -663,7 +663,9 @@ void * thread_fn(void *arg) {
 
       gasnett_atomic_set(&down, 2*NUM_THREADS, 0);
 
-      gasnett_atomic_increment(&up,0);
+      /* Why the _REL?. The set(down) above must complete before the inc(up).
+       * Otherwise, it might clobber a decrement by another thread in the count-down below. */
+      gasnett_atomic_increment(&up, GASNETT_ATOMIC_REL);
       while (gasnett_atomic_read(&up,0) < (gasnett_atomic_val_t)(2*NUM_THREADS)) gasnett_sched_yield(); 
 
       tmp = gasnett_atomic_read(&up,0);
@@ -676,7 +678,9 @@ void * thread_fn(void *arg) {
 
       gasnett_atomic_set(&up, 0, 0);
 
-      gasnett_atomic_decrement(&down,0);
+      /* Why the _REL?. The set(up) above must complete before the dec(down).
+       * Otherwise, it might clobber an increment by another thread in the next count-up. */
+      gasnett_atomic_decrement(&down, GASNETT_ATOMIC_REL);
       while (gasnett_atomic_read(&down,0) > 0) gasnett_sched_yield(); 
 
       tmp = gasnett_atomic_read(&down,0);
