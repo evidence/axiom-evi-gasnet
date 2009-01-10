@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2009/01/10 02:24:07 $
- * $Revision: 1.84 $
+ *     $Date: 2009/01/10 02:38:29 $
+ * $Revision: 1.85 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -996,9 +996,9 @@ void * thread_fn(void *arg) {
       THREAD_BARRIER();
       oldval = gasnett_atomic64_read(&counter64,0);
       if (oldval != goal) 
-        ERR("failed 64-bit compare-and-swap test: counter=%li expecting=%li", (long)oldval, (long)goal);
+        ERR("failed 64-bit compare-and-swap test: counter=%llu expecting=%llu", (unsigned long long)oldval, (unsigned long long)goal);
       if (woncnt != (uint64_t)iters) 
-        ERR("failed 64-bit compare-and-swap test: woncnt=%li iters=%li", (long)woncnt, (long)iters);
+        ERR("failed 64-bit compare-and-swap test: woncnt=%llu iters=%llu", (unsigned long long)woncnt, (unsigned long long)iters);
     }
   }
 
