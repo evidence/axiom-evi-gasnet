@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2009/01/10 01:08:37 $
- * $Revision: 1.83 $
+ *     $Date: 2009/01/10 02:24:07 $
+ * $Revision: 1.84 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -984,11 +984,11 @@ void * thread_fn(void *arg) {
 
     {
       static gasnett_atomic64_t counter64 = gasnett_atomic64_init(0);
-      uint64_t goal = (NUM_THREADS * iters);
+      uint64_t goal = (NUM_THREADS * (uint64_t)iters);
       uint64_t woncnt = 0;
       uint64_t oldval;
 
-      while (woncnt < (uint32_t)iters && (oldval = gasnett_atomic64_read(&counter64,0)) != goal) {
+      while (woncnt < (uint64_t)iters && (oldval = gasnett_atomic64_read(&counter64,0)) != goal) {
         if (gasnett_atomic64_compare_and_swap(&counter64, oldval, (oldval + 1), 0)) {
            woncnt++;
         }
@@ -996,9 +996,9 @@ void * thread_fn(void *arg) {
       THREAD_BARRIER();
       oldval = gasnett_atomic64_read(&counter64,0);
       if (oldval != goal) 
-        ERR("failed 64-bit compare-and-swap test: counter=%i expecting=%i", (int)oldval, (int)goal);
-      if (woncnt != (uint32_t)iters) 
-        ERR("failed 64-bit compare-and-swap test: woncnt=%i iters=%i", (int)woncnt, (int)iters);
+        ERR("failed 64-bit compare-and-swap test: counter=%li expecting=%li", (long)oldval, (long)goal);
+      if (woncnt != (uint64_t)iters) 
+        ERR("failed 64-bit compare-and-swap test: woncnt=%li iters=%li", (long)woncnt, (long)iters);
     }
   }
 
