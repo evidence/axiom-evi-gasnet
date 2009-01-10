@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2009/01/10 02:52:15 $
- * $Revision: 1.86 $
+ *     $Date: 2009/01/10 04:33:11 $
+ * $Revision: 1.87 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -643,16 +643,15 @@ gasnett_atomic_t _thread_barrier = gasnett_atomic_init(0);
 void * thread_fn(void *arg) {
   int id = (int)(uintptr_t)arg;
   int i;
-  int iters2=100*iters;
+  int iters2;
   int barcnt = 0;
   char th_test_section = test_section;
   #define test_section th_test_section
  
-  /* Check overflow (doesn't catch all cases, but ensures a sane iters2 value) */
-  if (iters2 < iters) {
-    iters2 = INT_MAX;
-  }
-  iters2 &= ~1; /* parallel atomic-op pounding test assumes iters2 is even */
+  /* Avoid overflow to ensure a sane iters2 value. */
+  iters2 = (iters >= (INT_MAX / 100)) ? INT_MAX : (100 * iters);
+  /* Parallel atomic-op pounding test assumes iters2 is even */
+  iters2 &= ~1;
 
   /* sanity check - ensure unique threadids */
   if (!gasnett_atomic_decrement_and_test(thread_flag+id,0)) {
