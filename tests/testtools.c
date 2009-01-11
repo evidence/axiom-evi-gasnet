@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2009/01/10 04:33:11 $
- * $Revision: 1.87 $
+ *     $Date: 2009/01/11 05:04:53 $
+ * $Revision: 1.88 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -920,11 +920,13 @@ void * thread_fn(void *arg) {
     #if defined(GASNETT_HAVE_ATOMIC_CAS)
       static gasnett_atomic_t counter2 = gasnett_atomic_init(0);
       static uint32_t shared_counter = 0;
-      uint32_t goal = (NUM_THREADS * iters);
       uint32_t woncnt = 0;
+      uint32_t share = (iters >= (0xffffffff / NUM_THREADS)) ? (0xffffffff / NUM_THREADS) : iters;
+      uint32_t goal = NUM_THREADS * share;
       uint32_t oldval;
 
-      while (woncnt < (uint32_t)iters &&
+      /* Look for missing or doubled updates by taking an equal share of increments */
+      while (woncnt < share &&
              (oldval = gasnett_atomic_read(&counter2,0)) != goal) {
         if (gasnett_atomic_compare_and_swap(&counter2, oldval, (oldval + 1), 0)) {
            woncnt++;
@@ -933,13 +935,13 @@ void * thread_fn(void *arg) {
       THREAD_BARRIER();
       oldval = gasnett_atomic_read(&counter2,0);
       if (oldval != goal) 
-        ERR("failed compare-and-swap test: counter=%i expecting=%i", (int)oldval, (int)goal);
-      if (woncnt != (uint32_t)iters) 
-        ERR("failed compare-and-swap test: woncnt=%i iters=%i", (int)woncnt, (int)iters);
+        ERR("failed compare-and-swap test: counter=%u expecting=%u", (unsigned)oldval, (unsigned)goal);
+      if (woncnt != share) 
+        ERR("failed compare-and-swap test: woncnt=%u share=%u", (unsigned)woncnt, (unsigned)share);
 
       /* Now try spinlock construct */
       THREAD_BARRIER();
-      for (i=0;i<iters;i++) {
+      for (i=0;i<share;i++) {
 	while (!gasnett_atomic_compare_and_swap(&counter2, oldval, ~oldval, 0)) {};
         gasnett_local_rmb(); /* Acquire */
 	shared_counter ++;
@@ -948,11 +950,11 @@ void * thread_fn(void *arg) {
       }
       THREAD_BARRIER();
       if (shared_counter != goal)
-        ERR("failed compare-and-swap spinlock (rmb/wmb) test: counter=%i expecting=%i", (int)shared_counter, (int)goal);
+        ERR("failed compare-and-swap spinlock (rmb/wmb) test: counter=%i expecting=%i", (unsigned)shared_counter, (unsigned)goal);
 
       /* Now try spinlock construct using mb() */
       THREAD_BARRIER();
-      for (i=0;i<iters;i++) {
+      for (i=0;i<share;i++) {
 	while (!gasnett_atomic_compare_and_swap(&counter2, oldval, ~oldval, 0)) {};
         gasnett_local_mb(); /* Acquire */
 	shared_counter --;
@@ -961,16 +963,18 @@ void * thread_fn(void *arg) {
       }
       THREAD_BARRIER();
       if (shared_counter != 0)
-        ERR("failed compare-and-swap spinlock (mb/mb) test: counter=%i expecting=0", (int)shared_counter);
+        ERR("failed compare-and-swap spinlock (mb/mb) test: counter=%i expecting=0", (unsigned)shared_counter);
     #endif
 
     {
       static gasnett_atomic32_t counter32 = gasnett_atomic32_init(0);
-      uint32_t goal = (NUM_THREADS * iters);
       uint32_t woncnt = 0;
+      uint32_t share = (iters >= (0xffffffff / NUM_THREADS)) ? (0xffffffff / NUM_THREADS) : iters;
+      uint32_t goal = NUM_THREADS * share;
       uint32_t oldval;
 
-      while (woncnt < (uint32_t)iters && (oldval = gasnett_atomic32_read(&counter32,0)) != goal) {
+      /* Look for missing or doubled updates by taking an equal share of increments */
+      while (woncnt < share && (oldval = gasnett_atomic32_read(&counter32,0)) != goal) {
         if (gasnett_atomic32_compare_and_swap(&counter32, oldval, (oldval + 1), 0)) {
            woncnt++;
         }
@@ -978,18 +982,20 @@ void * thread_fn(void *arg) {
       THREAD_BARRIER();
       oldval = gasnett_atomic32_read(&counter32,0);
       if (oldval != goal) 
-        ERR("failed 32-bit compare-and-swap test: counter=%i expecting=%i", (int)oldval, (int)goal);
-      if (woncnt != (uint32_t)iters) 
-        ERR("failed 32-bit compare-and-swap test: woncnt=%i iters=%i", (int)woncnt, (int)iters);
+        ERR("failed 32-bit compare-and-swap test: counter=%u expecting=%u", (unsigned)oldval, (unsigned)goal);
+      if (woncnt != share) 
+        ERR("failed 32-bit compare-and-swap test: woncnt=%u share=%u", (unsigned)woncnt, (unsigned)share);
     }
 
     {
       static gasnett_atomic64_t counter64 = gasnett_atomic64_init(0);
-      uint64_t goal = (NUM_THREADS * (uint64_t)iters);
       uint64_t woncnt = 0;
+      uint64_t share = iters;
+      uint64_t goal = NUM_THREADS * share; /* Not going to overflow */
       uint64_t oldval;
 
-      while (woncnt < (uint64_t)iters && (oldval = gasnett_atomic64_read(&counter64,0)) != goal) {
+      /* Look for missing or doubled updates by taking an equal share of increments */
+      while (woncnt < share && (oldval = gasnett_atomic64_read(&counter64,0)) != goal) {
         if (gasnett_atomic64_compare_and_swap(&counter64, oldval, (oldval + 1), 0)) {
            woncnt++;
         }
@@ -998,8 +1004,8 @@ void * thread_fn(void *arg) {
       oldval = gasnett_atomic64_read(&counter64,0);
       if (oldval != goal) 
         ERR("failed 64-bit compare-and-swap test: counter=%llu expecting=%llu", (unsigned long long)oldval, (unsigned long long)goal);
-      if (woncnt != (uint64_t)iters) 
-        ERR("failed 64-bit compare-and-swap test: woncnt=%llu iters=%llu", (unsigned long long)woncnt, (unsigned long long)iters);
+      if (woncnt != share) 
+        ERR("failed 64-bit compare-and-swap test: woncnt=%llu share=%llu", (unsigned long long)woncnt, (unsigned long long)share);
     }
   }
 
