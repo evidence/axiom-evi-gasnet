@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2009/01/11 05:04:53 $
- * $Revision: 1.88 $
+ *     $Date: 2009/01/14 07:38:14 $
+ * $Revision: 1.89 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -8,6 +8,7 @@
 
 #define TEST_GASNET_TOOLS_ONLY
 #include "test.h"
+#include <limits.h> /* For INT_MAX */
 
 /* specifically omit gasnet.h/test.h to test independence */
 #if defined(_GASNET_H) || defined(TEST_GASNET_H)
