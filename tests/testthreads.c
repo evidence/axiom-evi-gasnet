@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testthreads.c,v $
- *     $Date: 2008/12/26 05:31:12 $
- * $Revision: 1.28 $
+ *     $Date: 2009/01/14 05:00:20 $
+ * $Revision: 1.29 $
  *
  * Description: GASNet threaded tester.
  *   The test initializes GASNet and forks off up to 256 threads.  Each of
@@ -360,7 +360,7 @@ alloc_thread_data(int threads)
 				tt_thread_map[tid] = i;
 				tt_addr_map[tid] = (void *) 
 				    ((uintptr_t) segbase + 
-				     j * TEST_SEGZ_PER_THREAD);
+				     (uintptr_t) (j * TEST_SEGZ_PER_THREAD));
 
 				if (i == gasnet_mynode()) {
 					td = &tt_thread_data[j];
