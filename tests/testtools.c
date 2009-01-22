@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2009/01/14 07:38:14 $
- * $Revision: 1.89 $
+ *     $Date: 2009/01/22 23:59:08 $
+ * $Revision: 1.90 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -271,6 +271,20 @@ int main(int argc, char **argv) {
 	    ERR("memory clobbered by gasnett_count0s_copy(dst+%i, src+%i, %i)",i,j,l);
         }
       }
+    }
+
+    { /* Long strings of zeros and non-zeros */
+      #define CNT0SMAX 4096
+      char *src = test_malloc(CNT0SMAX);
+      memset(src, 0, CNT0SMAX);
+      for (i=0;i<CNT0SMAX;++i)
+	if (gasnett_count0s(src, i) != i)
+          ERR("incorrect return from gasnett_count0s(string-of-%i-zeros)", i);
+      memset(src, 1, CNT0SMAX);
+      for (i=0;i<CNT0SMAX;++i)
+	if (gasnett_count0s(src, i) != 0)
+          ERR("incorrect return from gasnett_count0s(string-of-%i-nonzeros)", i);
+      test_free(src);
     }
 
     for (i=0;i<8*(int)sizeof(uintptr_t);++i) {
