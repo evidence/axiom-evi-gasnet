@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2008/11/05 16:16:09 $
- * $Revision: 1.218 $
+ *     $Date: 2009/01/22 19:39:56 $
+ * $Revision: 1.219 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1902,7 +1902,19 @@ GASNETI_ALWAYS_INLINE(gasneti_count0s_xform2) GASNETI_CONST
 uintptr_t gasneti_count0s_xform2(uintptr_t x) {
 #if 0
   return x % 255; /* simplest expression, but usually a poor performer */
+#elif 0
+  /* Form that is equvalent to the one below, and is said to be faster
+   * IFF one has a fast integer multiply instruction.
+   * Works because the product is x + (x<<8) + (x<<16) + ...
+   * and thus our sum is in the UPPER 8 bis.
+   * See, for instance, http://en.wikipedia.org/wiki/Hamming_weight */
+ #if PLATFORM_ARCH_64
+  return (x * 0x0101010101010101UL) >> 56;
+ #else
+  return (x * 0x01010101UL) >> 24;
+ #endif
 #else
+ /* "tree" reduction of 4 or 8 "fields" of 8-bits each */
  #if PLATFORM_ARCH_64
   x += (x >> 32);
  #endif
