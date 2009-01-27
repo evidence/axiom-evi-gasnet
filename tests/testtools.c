@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2009/01/27 06:51:15 $
- * $Revision: 1.91 $
+ *     $Date: 2009/01/27 07:58:53 $
+ * $Revision: 1.92 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -277,11 +277,11 @@ int main(int argc, char **argv) {
       #define CNT0SMAX 4096
       char *src = (char *)test_malloc(CNT0SMAX);
       memset(src, 0, CNT0SMAX);
-      for (i=0;i<CNT0SMAX;++i)
+      for (i=0;i<=CNT0SMAX;++i)
 	if (gasnett_count0s(src, i) != (unsigned)i)
           ERR("incorrect return from gasnett_count0s(string-of-%i-zeros)", i);
       memset(src, 1, CNT0SMAX);
-      for (i=0;i<CNT0SMAX;++i)
+      for (i=0;i<=CNT0SMAX;++i)
 	if (gasnett_count0s(src, i) != 0)
           ERR("incorrect return from gasnett_count0s(string-of-%i-nonzeros)", i);
       test_free(src);
