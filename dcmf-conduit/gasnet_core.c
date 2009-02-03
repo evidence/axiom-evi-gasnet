@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_core.c,v $
- *     $Date: 2008/11/08 08:16:06 $
- * $Revision: 1.5 $
+ *     $Date: 2009/02/03 23:06:08 $
+ * $Revision: 1.6 $
  * Description: GASNet dcmf conduit Implementation
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>, 
                    Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -552,19 +552,30 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     segsize = gasneti_seginfo[gasneti_mynode].size;
     gasneti_assert(((uintptr_t)segbase) % GASNET_PAGESIZE == 0);
     gasneti_assert(segsize % GASNET_PAGESIZE == 0);
+   
+
   }
 #else
   /* GASNET_SEGMENT_EVERYTHING */
-  segbase = (void *)0;
-  segsize = (uintptr_t)-1;
-  /* (###) add any code here needed to setup GASNET_SEGMENT_EVERYTHING support */
+ {
+   int i;
+   segbase = (void *)0;
+   segsize = (uintptr_t)-1;
+   for(i=0; i<gasneti_nodes; i++) {
+     gasneti_seginfo[i].addr = segbase;
+     gasneti_seginfo[i].size = segsize;
+   }
+ }
 #endif
 
   /* ------------------------------------------------------------------------------------ */
   /*  gather segment information */
 
   /*done through segmentAttach*/
-
+  
+  gasneti_assert(gasneti_seginfo[gasneti_mynode].addr == segbase &&
+                 gasneti_seginfo[gasneti_mynode].size == segsize);
+  
   /* ------------------------------------------------------------------------------------ */
   /*  primary attach complete */
   gasneti_attach_done = 1;
@@ -572,9 +583,6 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   
   GASNETI_TRACE_PRINTF(C,("gasnetc_attach(): primary attach complete :"GASNETI_LADDRFMT" size: %lu", GASNETI_LADDRSTR(segbase), (unsigned long)segsize));
   
-  gasneti_assert(gasneti_seginfo[gasneti_mynode].addr == segbase &&
-     gasneti_seginfo[gasneti_mynode].size == segsize);
-
   gasneti_auxseg_attach(); /* provide auxseg */
 
   gasnete_init(); /* init the extended API */
