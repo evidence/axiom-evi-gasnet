@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_putget.c,v $
- *     $Date: 2009/02/10 19:42:45 $
- * $Revision: 1.73 $
+ *     $Date: 2009/02/10 21:37:08 $
+ * $Revision: 1.74 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2004, Rajesh Nishtala <rajeshn@eecs.berkeley.edu> Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -3771,22 +3771,25 @@ static int gasnete_coll_pf_exchg_Dissem(gasnete_coll_op_t *op GASNETE_THREAD_FAR
     if((data->state-2) % 3 == 0) {
       /*send the ok to send signal*/
       for(j=0; j<h; j++) {
-        /*XXX: switch to counting put for higher radices*/
-        gasnete_coll_p2p_change_states(op, in_nodes[j], 1, phase*2, 1);
+        
+        gasnete_coll_p2p_advance(op, in_nodes[j], phase*2);
+        /*XXX: switch to counting put for higher radices*/ 
+        /*gasnete_coll_p2p_change_states(op, in_nodes[j], 1, phase*2, 1);*/
       }
       data->state++;
     }
     if((data->state-2) % 3 == 1) {
       /*XXX: Need atomic counter read for higher radices*/
-      if(data->p2p->state[phase*2] != h) return 0;
+      /* if(data->p2p->state[phase*2] != h) return 0;*/
+      if_pf(gasneti_weakatomic_read(&(data->p2p->counter[phase*2]),0)!=h) return 0;
       for(j=0; j<h; j++) {
         destnode = out_nodes[j];
         nblocks = 
           gasnete_coll_pack_all_to_all_msg(scratch2, (int8_t*)scratch1+IDX_EXPR,args->nbytes,
                                            phase, dissem->dissemination_radix, j+1, op->team->total_ranks);
-        gasnete_coll_p2p_signalling_put(op, destnode, 
-                                        (int8_t*)op->team->scratch_segs[destnode].addr+op->scratchpos[0]+IDXP1_EXPR, (int8_t*)scratch1+IDX_EXPR,
-                                        nblocks*args->nbytes, phase*2+1, 1);
+        gasnete_coll_p2p_counting_put(op, destnode, 
+                                      (int8_t*)op->team->scratch_segs[destnode].addr+op->scratchpos[0]+IDXP1_EXPR, (int8_t*)scratch1+IDX_EXPR,
+                                      nblocks*args->nbytes, phase*2+1);
       }
       /*once all the change the state and return 0*/
       /*let the poll function bring us back here*/
@@ -3796,7 +3799,7 @@ static int gasnete_coll_pf_exchg_Dissem(gasnete_coll_op_t *op GASNETE_THREAD_FAR
     if((data->state-2) % 3 == 2) { /*receive in odd sub phases*/
       /*wait for all the states to trip*/
       /*need to change this to an atomic state increment to do this properly for radix>2*/
-      if(data->p2p->state[phase*2+1] == h) {
+      if(gasneti_weakatomic_read(&(data->p2p->counter[phase*2+1]),0) == h) {
         for(j=0; j<h; j++) {
           gasnete_coll_unpack_all_to_all_msg((int8_t*)scratch1+IDXP1_EXPR, (int8_t*)scratch2, args->nbytes, phase,
                                              dissem->dissemination_radix, j+1, op->team->total_ranks);
@@ -3945,21 +3948,23 @@ static int gasnete_coll_pf_exchgM_Dissem(gasnete_coll_op_t *op GASNETE_THREAD_FA
       /*send the ok to send signal*/
       for(j=0; j<h; j++) {
         /*XXX: switch to counting put for higher radices*/
-        gasnete_coll_p2p_change_states(op, in_nodes[j], 1, phase*2, 1);
+        gasnete_coll_p2p_advance(op, in_nodes[j], phase*2);
+        /*gasnete_coll_p2p_change_states(op, in_nodes[j], 1, phase*2, 1);*/
       }
       data->state++;
     }
     if((data->state-2) % 3 == 1) {
-      if(data->p2p->state[phase*2] != h) return 0;
+      if_pf(gasneti_weakatomic_read(&(data->p2p->counter[phase*2]),0)!=h) return 0;
+      /*if(data->p2p->state[phase*2] != h) return 0;*/
 
       for(j=0; j<h; j++) {
 	destnode = out_nodes[j];
 	nblocks = 
 	  gasnete_coll_pack_all_to_all_msg(scratch2, (int8_t*)scratch1+IDX_EXPR,args->nbytes*gasnete_coll_my_images*gasnete_coll_my_images,
 					   phase, dissem->dissemination_radix, j+1, op->team->total_ranks);
-        gasnete_coll_p2p_signalling_put(op, destnode, 
+        gasnete_coll_p2p_counting_put(op, destnode, 
 					(int8_t*)op->team->scratch_segs[destnode].addr+op->scratchpos[0]+IDXP1_EXPR, (int8_t*)scratch1+IDX_EXPR,
-					nblocks*args->nbytes*gasnete_coll_my_images*gasnete_coll_my_images, phase*2+1, 1);
+					nblocks*args->nbytes*gasnete_coll_my_images*gasnete_coll_my_images, phase*2+1);
       }
       /*once all the change the state and return 0*/
       /*let the poll function bring us back here*/
@@ -3968,7 +3973,8 @@ static int gasnete_coll_pf_exchgM_Dissem(gasnete_coll_op_t *op GASNETE_THREAD_FA
     if((data->state-2) % 3 == 2) { /*receive in odd sub phases*/
       /*wait for all the states to trip*/
       /*need to change this to an atomic state increment to do this properly for radix>2*/
-      if(data->p2p->state[phase*2+1] == h) {
+      if(gasneti_weakatomic_read(&(data->p2p->counter[phase*2+1]),0) == h) {
+        /*if(data->p2p->state[phase*2+1] == h) {*/
         gasneti_sync_reads();
 	for(j=0; j<h; j++) {
 	  gasnete_coll_unpack_all_to_all_msg((int8_t*)scratch1+IDXP1_EXPR, (int8_t*)scratch2, args->nbytes*gasnete_coll_my_images*gasnete_coll_my_images, phase,
@@ -4031,11 +4037,13 @@ gasnete_coll_exchgM_Dissem(gasnet_team_handle_t team,
   int options =  GASNETE_COLL_USE_SCRATCH | GASNETE_COLL_GENERIC_OPT_P2P | 
                  GASNETE_COLL_GENERIC_OPT_INSYNC_IF (!(flags & GASNET_COLL_IN_NOSYNC)) |
                  GASNETE_COLL_GENERIC_OPT_OUTSYNC_IF(!(flags & GASNET_COLL_OUT_NOSYNC));
+  int radix = gasnete_coll_get_dissem_radix(team->autotune_info, GASNETE_COLL_EXCHANGE_OP, 0);
+ 
   gasneti_assert(!(flags & GASNETE_COLL_SUBORDINATE));
   
   return gasnete_coll_generic_exchangeM_nb(team, dstlist, srclist, nbytes, flags,
 					  &gasnete_coll_pf_exchgM_Dissem, options,
-					  NULL, gasnete_coll_fetch_dissemination(2,team), 0 GASNETE_THREAD_PASS);
+					  NULL, gasnete_coll_fetch_dissemination(radix,team), 0 GASNETE_THREAD_PASS);
 }
 
 /*---------------------------------------------------------------------------------*/
