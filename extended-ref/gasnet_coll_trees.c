@@ -902,6 +902,7 @@ gasnete_coll_dissem_info_t *gasnete_coll_fetch_dissemination(int radix, gasnete_
 	temp = gasnete_coll_build_dissemination(radix, team);
 	temp->next = NULL;
 	temp->prev = team->dissem_cache_tail;
+  team->dissem_cache_tail->next = temp;
 	team->dissem_cache_tail = temp;  
     }
     return temp;
