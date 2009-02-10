@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_eager.c,v $
- *     $Date: 2007/10/15 20:00:18 $
- * $Revision: 1.65 $
+ *     $Date: 2009/02/10 19:42:45 $
+ * $Revision: 1.66 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -99,11 +99,11 @@ static int gasnete_coll_pf_bcast_TreeEager(gasnete_coll_op_t *op GASNETE_THREAD_
 
     case 1:	/* Optional IN barrier over the SAME tree */
       if(op->flags & GASNET_COLL_IN_ALLSYNC) {
-    	if (gasneti_weakatomic_read(&data->p2p->counter, 0) != child_count) {
+    	if (gasneti_weakatomic_read(&data->p2p->counter[0], 0) != child_count) {
 	  break;
 	}
         if (gasneti_mynode != args->srcnode) {
-	  gasnete_coll_p2p_advance(op, GASNETE_COLL_TREE_GEOM_PARENT(tree->geom));
+          gasnete_coll_p2p_advance(op, GASNETE_COLL_TREE_GEOM_PARENT(tree->geom),0);
 	}
       }
       data->state = 2;
@@ -258,11 +258,11 @@ static int gasnete_coll_pf_bcastM_TreeEager(gasnete_coll_op_t *op GASNETE_THREAD
     case 1:
       if((op->flags & GASNET_COLL_IN_ALLSYNC)) {
         
-        if (gasneti_weakatomic_read(&(data->p2p->counter), 0) != child_count) {
+        if (gasneti_weakatomic_read(&(data->p2p->counter[0]), 0) != child_count) {
           break;
         }
         if (gasneti_mynode != args->srcnode) {
-          gasnete_coll_p2p_advance(op, GASNETE_COLL_TREE_GEOM_PARENT(tree->geom));
+          gasnete_coll_p2p_advance(op, GASNETE_COLL_TREE_GEOM_PARENT(tree->geom),0);
         }
       }
       data->state = 2;
