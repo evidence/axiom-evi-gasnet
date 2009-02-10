@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_putget.c,v $
- *     $Date: 2007/10/19 21:07:05 $
- * $Revision: 1.71 $
+ *     $Date: 2009/02/10 03:21:53 $
+ * $Revision: 1.72 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2004, Rajesh Nishtala <rajeshn@eecs.berkeley.edu> Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -3853,11 +3853,13 @@ gasnete_coll_exchg_Dissem(gasnet_team_handle_t team,
   int options =  GASNETE_COLL_USE_SCRATCH | GASNETE_COLL_GENERIC_OPT_P2P | 
                 GASNETE_COLL_GENERIC_OPT_INSYNC_IF (!(flags & GASNET_COLL_IN_NOSYNC)) |
 		GASNETE_COLL_GENERIC_OPT_OUTSYNC_IF(!(flags & GASNET_COLL_OUT_NOSYNC));
-  gasneti_assert(!(flags & GASNETE_COLL_SUBORDINATE));
+
   
+  int radix = gasnete_coll_get_dissem_radix(team->autotune_info, GASNETE_COLL_EXCHANGE_OP, 0);
+  gasneti_assert(!(flags & GASNETE_COLL_SUBORDINATE));
   return gasnete_coll_generic_exchange_nb(team, dst, src, nbytes, flags,
 					  &gasnete_coll_pf_exchg_Dissem, options,
-					  NULL, gasnete_coll_fetch_dissemination(2,team), 0 GASNETE_THREAD_PASS);
+					  NULL, gasnete_coll_fetch_dissemination(radix ,team), 0 GASNETE_THREAD_PASS);
 }
 
 /*---------------------------------------------------------------------------------*/

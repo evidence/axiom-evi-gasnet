@@ -15,7 +15,7 @@ struct gasnete_coll_autotune_info_t_ {
   
   size_t gather_all_dissem_limit;
   size_t exchange_dissem_limit;
-  
+  int exchange_dissem_radix;
   size_t pipe_seg_size;
 };
 
@@ -76,7 +76,8 @@ gasnete_coll_autotune_info_t* gasnete_coll_autotune_init(gasnet_node_t mynode, g
     }
   }
   ret->exchange_dissem_limit = MIN(dissem_limit, temp_size);
-  
+  ret->exchange_dissem_radix = MIN(gasneti_getenv_int_withdefault("GASNET_COLL_EXCHANGE_DISSEM_RADIX", 2, 0),total_images);
+
   if(min_scratch_size < total_images) {
     gasneti_fatalerror("SCRATCH SPACE TOO SMALL Please set it to at least (%ld bytes) through the GASNET_COLL_SCRATCH_SIZE environment variable", (long int) total_images);
   }
@@ -132,7 +133,13 @@ size_t gasnete_coll_get_dissem_limit(gasnete_coll_autotune_info_t* autotune_info
   }
 }
 
+int gasnete_coll_get_dissem_radix(gasnete_coll_autotune_info_t* autotune_info, gasnete_coll_autotune_optype_t op_type, int flags) {
+  switch(op_type) {
+  case GASNETE_COLL_EXCHANGE_OP: return autotune_info->exchange_dissem_radix;
+  default: gasneti_fatalerror("op doesn't specify dissem radix");   return 0;
+  }
 
+}
 size_t gasnete_coll_get_pipe_seg_size(gasnete_coll_autotune_info_t* autotune_info, gasnete_coll_autotune_optype_t op_type, int flags){
   return autotune_info->pipe_seg_size;
 }
