@@ -810,7 +810,7 @@ gasnete_coll_dissem_info_t *gasnete_coll_build_dissemination(int r, gasnete_coll
   int h,w,i,j,distance,k,numpeers,destproc;
   int num_out_peers, num_in_peers;
   ret = (gasnete_coll_dissem_info_t*) gasneti_malloc(sizeof(gasnete_coll_dissem_info_t));
-  fprintf(stderr, "%d building dissem radix: %d\n", gasneti_mynode, r);
+
   w = gasnete_coll_build_tree_mylogn(team->total_ranks, r);
  
   ret->dissemination_radix = r;
