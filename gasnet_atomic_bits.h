@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2009/03/06 09:16:43 $
- * $Revision: 1.308 $
+ *     $Date: 2009/03/06 09:32:11 $
+ * $Revision: 1.309 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -649,7 +649,7 @@
 	GASNETI_INLINE(gasneti_atomic128_compare_and_swap)
 	int gasneti_atomic128_compare_and_swap(gasneti_atomic128_t *p, uint64_t oldhi, uint64_t oldlo, uint64_t newhi, uint64_t newlo, int flags) {
 	  GASNETI_ASM_REGISTER_KEYWORD unsigned char retval;
-          gasneti_assert(!(((uintptr_t)addr) & 0xF)); /* cmpxchg16b requires 16-byte alignment */
+          gasneti_assert(!(((uintptr_t)p) & 0xF)); /* cmpxchg16b requires 16-byte alignment */
 	  __asm__ __volatile__ (
 		"lock; "
 		"cmpxchg16b  %1   \n\t"
@@ -669,7 +669,7 @@
 	void gasneti_atomic128_set(gasneti_atomic128_t *p, uint64_t newhi, uint64_t newlo, int flags) {
 	  GASNETI_ASM_REGISTER_KEYWORD uint32_t oldlo = p->lo;
 	  GASNETI_ASM_REGISTER_KEYWORD uint32_t oldhi = p->hi;
-          gasneti_assert(!(((uintptr_t)addr) & 0xF)); /* cmpxchg16b requires 16-byte alignment */
+          gasneti_assert(!(((uintptr_t)p) & 0xF)); /* cmpxchg16b requires 16-byte alignment */
 	  __asm__ __volatile__ (
 		"0:               \n\t"
 		"lock; "
@@ -686,7 +686,7 @@
 	  GASNETI_ASM_REGISTER_KEYWORD uint64_t retlo = p->lo;
 	  GASNETI_ASM_REGISTER_KEYWORD uint64_t rethi = p->hi;
 	  GASNETI_ASM_REGISTER_KEYWORD uint64_t tmphi, tmplo;
-          gasneti_assert(!(((uintptr_t)addr) & 0xF)); /* cmpxchg16b requires 16-byte alignment */
+          gasneti_assert(!(((uintptr_t)p) & 0xF)); /* cmpxchg16b requires 16-byte alignment */
 	  __asm__ __volatile__ (
 		"0:                 \n\t"
 		"movq        %1, %3 \n\t"
