@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_syncops.h,v $
- *     $Date: 2008/09/24 08:40:39 $
- * $Revision: 1.50 $
+ *     $Date: 2009/03/06 09:23:22 $
+ * $Revision: 1.51 $
  * Description: GASNet header for synchronization operations used in GASNet implementation
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -477,7 +477,8 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
      return gasneti_atomic64_compare_and_swap(&(v->a64), oldval, newval, flags);
   }
   #define GASNETI_GEN_ATOMIC_DBLPTR_CAS 1 /* Causes default version to be constructed below */
-#elif PLATFORM_ARCH_64 && defined(GASNETI_HAVE_ATOMIC_PTR_CAS) && defined(GASNETI_HAVE_ATOMIC128_T)
+#elif PLATFORM_ARCH_64 && defined(GASNETI_HAVE_ATOMIC_PTR_CAS) && \
+	defined(GASNETI_HAVE_ATOMIC128_T) && (GASNETI_HAVE_ATOMIC128_T <= 8 /*alignment*/)
   #if PLATFORM_ARCH_BIG_ENDIAN
     typedef union {
       struct { gasneti_atomic_ptr_t hi_ptr, lo_ptr; } ptrs;	/* must be first for initializer */
