@@ -13,9 +13,8 @@ case "$1" in
     exit 0
     ;;
   -np)
-    # The ibrun spawner always runs with the full submit-time geometery
-    # XXX: We should check that the argument matches the job geometry!
-    #export MY_NSLOTS=$2 doesn't work quite right
+    MY_NSLOTS=$2
+    export MY_NSLOTS
     shift; shift;  # Remove "-np N"
     ;;
   -*)
