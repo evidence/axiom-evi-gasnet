@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2009/03/23 05:01:08 $
-# $Revision: 1.522 $
+#     $Date: 2009/03/23 05:32:14 $
+# $Revision: 1.523 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.522 $)
+AC_REVISION($Revision: 1.523 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2841,7 +2841,7 @@ esac
 if test "$enabled_portals" = yes; then
   have_portals=yes # start by assuming we have it
   GASNET_ENV_DEFAULT(PE_DIR, /opt/xt-pe/default)
-  GASNET_ENV_DEFAULT(MPT_DIR, /opt/xt-pe/default)
+  GASNET_ENV_DEFAULT(MPT_DIR, /opt/xt-mpt/default)
   GASNET_ENV_DEFAULT(PORTALS_INCLUDE, $PE_DIR/include)
   PORTALS_INCLUDES="-I${PORTALS_INCLUDE}"
   GASNET_ENV_DEFAULT(PORTALS_LIBS, )
