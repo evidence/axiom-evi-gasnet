@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/delay.c,v $
- *     $Date: 2006/01/23 17:34:13 $
- * $Revision: 1.8 $
+ *     $Date: 2009/03/24 23:42:27 $
+ * $Revision: 1.9 $
  * Description: 
  * Copyright 2004, Paul Hargrove <PHHargrove@lbl.gov>
  * Terms of use are as specified in license.txt
@@ -12,7 +12,7 @@
 static volatile float x, y;
 static volatile float z = (1.00001);
 
-float test_bogus() { /* ensure the values escape (otherwise x is dead) */
+float test_bogus(void) { /* ensure the values escape (otherwise x is dead) */
  return x+y+z;
 }
 

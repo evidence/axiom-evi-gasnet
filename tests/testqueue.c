@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testqueue.c,v $
- *     $Date: 2006/10/18 02:43:13 $
- * $Revision: 1.12 $
+ *     $Date: 2009/03/24 23:42:27 $
+ * $Revision: 1.13 $
  * Description: GASNet put/get injection performance test
  *   measures the average non-blocking put/get injection time 
  *   for increasing number of back-to-back operations
@@ -69,10 +69,10 @@ int numsync = 0;
 int do_bulk = 0, do_nonbulk = 0;
 int do_implicit = 0, do_explicit = 0, do_blocking = 0;
 
-void do_bulkputgets();
-void do_nonbulkputgets();
-void do_blockingputgets();
-void do_amtests();
+void do_bulkputgets(void);
+void do_nonbulkputgets(void);
+void do_blockingputgets(void);
+void do_amtests(void);
 
 int main(int argc, char **argv) {
     /* call startup */
@@ -344,7 +344,7 @@ int main(int argc, char **argv) {
       }                                                                     \
     } while (0)
 
-void do_bulkputgets() {
+void do_bulkputgets(void) {
     if (do_puts && do_bulk && do_explicit) {
       QUEUE_TEST("gasnet_put_nb_bulk", 
                  handles[i] = gasnet_put_nb_bulk(peerproc, tgtmem, msgbuf, payload), 
@@ -369,7 +369,7 @@ void do_bulkputgets() {
                  gasnet_wait_syncnbi_all(), (void)0, 0);
     }
 }
-void do_nonbulkputgets() {
+void do_nonbulkputgets(void) {
     if (do_puts && do_nonbulk && do_explicit) {
       QUEUE_TEST("gasnet_put_nb", 
                  handles[i] = gasnet_put_nb(peerproc, tgtmem, msgbuf, payload), 
@@ -394,7 +394,7 @@ void do_nonbulkputgets() {
                  gasnet_wait_syncnbi_all(), (void)0, 0);
     }
 }
-void do_blockingputgets() {
+void do_blockingputgets(void) {
     if (do_puts && do_nonbulk && do_blocking) {
       QUEUE_TEST("gasnet_put (BLOCKING - represents round-trip latency)", 
                  gasnet_put(peerproc, tgtmem, msgbuf, payload), 
@@ -419,7 +419,7 @@ void do_blockingputgets() {
                  (void)0, (void)0, 0);
     }
 }
-void do_amtests() {
+void do_amtests(void) {
     if (do_amshort) {
       gasnett_atomic_set(&amcount, 0, 0);
       QUEUE_TEST("gasnet_AMRequestShort0", 

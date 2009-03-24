@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcontend.c,v $
- *     $Date: 2006/08/10 07:37:26 $
- * $Revision: 1.14 $
+ *     $Date: 2009/03/24 23:42:27 $
+ * $Revision: 1.15 $
  *
  * Description: GASNet threaded contention tester.
  *   The test initializes GASNet and forks off up to 256 threads.  
@@ -86,7 +86,7 @@ gasnet_handlerentry_t htable[] = {
     
 int _havereport = 0;
 char _reportstr[255];
-const char *getreport() {
+const char *getreport(void) {
   if (_havereport) {
     _havereport = 0;
     return _reportstr;

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testvis.c,v $
- *     $Date: 2008/10/11 05:13:45 $
- * $Revision: 1.24 $
+ *     $Date: 2009/03/24 23:42:27 $
+ * $Revision: 1.25 $
  * Description: GASNet Vector, Indexed & Strided correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -681,7 +681,7 @@ VEC_T *my_heap_unused_area;
 VEC_T *partner_seg_read_area;
 VEC_T *partner_seg_remotewrite_area;
 
-void checkmem() {
+void checkmem(void) {
  if (verify) {
   /* check for corruption of read-only memory segments */
   size_t i;

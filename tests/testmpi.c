@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testmpi.c,v $
- *     $Date: 2008/01/24 10:15:57 $
- * $Revision: 1.16 $
+ *     $Date: 2009/03/24 23:42:27 $
+ * $Revision: 1.17 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -94,7 +94,7 @@ char **mpi_buf;
 int *mpi_bufsz;
 
 /* called by a single thread after gasnet_attach and args parsing */
-void attach_test_mpi() {
+void attach_test_mpi(void) {
     int rank;
     int gasnet_node;
     int mpinodes;

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2008/12/26 05:31:12 $
- * $Revision: 1.118 $
+ *     $Date: 2009/03/24 23:42:27 $
+ * $Revision: 1.119 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -568,7 +568,7 @@ static int test_collinit = 0;
 
 /* ------------------------------------------------------------------------------------ */
 /* standard messages */
-static void TEST_DEBUGPERFORMANCE_WARNING() {
+static void TEST_DEBUGPERFORMANCE_WARNING(void) {
   if (gasnet_mynode() == 0) {
     const char *warning = gasnett_performance_warning_str();
     if (*warning) {
@@ -774,7 +774,7 @@ static void TEST_DEBUGPERFORMANCE_WARNING() {
   #define TEST_SIG_INIT()
 #endif
 
-static void TEST_GENERICS_WARNING() {
+static void TEST_GENERICS_WARNING(void) {
   #ifdef TEST_GASNET_H
     if (gasnet_mynode() == 0)
   #endif

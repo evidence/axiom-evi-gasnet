@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testgasnet.c,v $
- *     $Date: 2009/03/06 09:56:55 $
- * $Revision: 1.59 $
+ *     $Date: 2009/03/24 23:42:27 $
+ * $Revision: 1.60 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -143,7 +143,7 @@ void test_threadinfo(int threadid, int numthreads) {
     return NULL;
   }
 #endif
-void test_libgasnet_tools() {
+void test_libgasnet_tools(void) {
   void *p;
   TEST_TRACING_MACROS();
   #ifdef HAVE_MMAP
