@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2009/03/27 20:45:49 $
-# $Revision: 1.527 $
+#     $Date: 2009/03/27 21:13:18 $
+# $Revision: 1.528 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.527 $)
+AC_REVISION($Revision: 1.528 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -3226,6 +3226,14 @@ dnl GASNET_TOOLSONLY_TRUE_BEGIN
 dnl undefine([GASNET_ENV_DEFAULT_SUPPRESSHELP])
 dnl GASNET_TOOLSONLY_TRUE_END
 AC_DEFINE_UNQUOTED(GASNETI_CONDUITS,"$CONDUITS")
+if test "$gasnet_toolsonly_mode" = "no" -a -z "$CONDUITS" ; then
+  AC_MSG_ERROR([No network conduits were auto-detected.
+Some conduits require --enable-XXX configure flags and/or additional
+variables providing the install location of vendor drivers.
+If you intend to use GASNet without network support, you must use the
+GASNet_Tools distribution instead.
+See the GASNet documentation for details.])
+fi
 
 ########################################################################
 # Configure conduit-independent spawners
