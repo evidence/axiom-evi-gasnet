@@ -15,6 +15,10 @@
 #define GASNETC_DEBUG 0
 #endif
 
+#if GASNET_SEGMENT_EVERYTHING
+    #error "GASNET_SEGMENT_EVERYTHING is not yet supported by portals-conduit"
+#endif
+
 /* set to 1 to compile in Sandia specific Accelerated Portals code */
 #ifndef GASNETC_USE_SANDIA_ACCEL
 #define GASNETC_USE_SANDIA_ACCEL 0
