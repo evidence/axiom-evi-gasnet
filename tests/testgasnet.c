@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testgasnet.c,v $
- *     $Date: 2009/03/24 23:42:27 $
- * $Revision: 1.60 $
+ *     $Date: 2009/03/27 19:26:13 $
+ * $Revision: 1.61 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -320,7 +320,6 @@ void doit3(int partner, int *partnerseg) {
 
   { /*  value test */
     GASNET_BEGIN_FUNCTION();
-    int vals[300];
     int i, success=1;
     unsigned char *partnerbase2 = (unsigned char *)(partnerseg+300);
     for (i=0; i < 100; i++) {
