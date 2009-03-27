@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2009/03/27 20:03:10 $
-# $Revision: 1.526 $
+#     $Date: 2009/03/27 20:45:49 $
+# $Revision: 1.527 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.526 $)
+AC_REVISION($Revision: 1.527 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1606,6 +1606,15 @@ dnl GASNET_TOOLSONLY_FALSE_BEGIN
    enabled_[]$1=yes)
 dnl GASNET_TOOLSONLY_FALSE_END
 ])
+dnl CONDUIT_DISALLOW_SEGMENT(segment_type)
+AC_DEFUN([CONDUIT_DISALLOW_SEGMENT],[
+  pushdef([upperseg],translit($1,'a-z','A-Z'))
+  if test "$enabled_[]CONDUIT_NAME" = "yes" && expr "$segconfig" : $1 >/dev/null; then
+    GASNET_MSG_WARN([CONDUIT_NAME[]-conduit does not support the upperseg shared segment configuration - disabling CONDUIT_NAME])
+    enabled_[]CONDUIT_NAME=no
+  fi
+  popdef([upperseg])
+])
 dnl CONDUIT_END(test_conduit_enabled)
 AC_DEFUN([CONDUIT_END],[
   if test "$gasnet_toolsonly_mode" = "no" ; then
@@ -2837,6 +2846,7 @@ case "$target" in
      fi
   ;;
 esac
+CONDUIT_DISALLOW_SEGMENT(everything)
 
 if test "$enabled_portals" = yes; then
   have_portals=yes # start by assuming we have it
@@ -2853,10 +2863,7 @@ if test "$enabled_portals" = yes; then
       ;;
   esac
 
-  if expr "$segconfig" : everything >/dev/null; then
-    GASNET_MSG_WARN([portals-conduit does not support the EVERYTHING shared segment configuration])
-    have_portals=no
-  elif test "$gasnet_cv_cc_family" != GNU; then
+  if test "$gasnet_cv_cc_family" != GNU; then
     # bug 1584 - non-GNU compilers don't support portals until PE v1.5
     if test -z "$XTOS_VERSION" ; then
       for val in "$PE_DIR" "$PRGENV_DIR" "$OS_DIR" "$CATAMOUNT_DIR" ; do
@@ -3172,15 +3179,10 @@ CONDUIT_END([test "$enabled_dcmf$have_dcmf" = yesyes])
 # SCI configuration
 
 CONDUIT_BEGIN(sci,[Dolphin SISCI network conduit (sci)])
+CONDUIT_DISALLOW_SEGMENT(everything)
+CONDUIT_DISALLOW_SEGMENT(large)
 
 if test "$enabled_sci" = yes; then
- if expr "$segconfig" : everything >/dev/null; then
-    GASNET_MSG_WARN([sci-conduit does not support the EVERYTHING shared segment configuration])
-    have_sci=no
- elif expr "$segconfig" : large >/dev/null; then
-    GASNET_MSG_WARN([sci-conduit does not support the LARGE shared segment configuration])
-    have_sci=no
- else
   # Look for sci binaries in our path
   AC_PATH_PROGS(scibench2, scibench2)
   if test "$scibench2"; then
@@ -3207,7 +3209,6 @@ if test "$enabled_sci" = yes; then
     }], [ have_sci=yes ], [ have_sci=no GASNET_ERR_SAVE() ] )
   GASNET_POPVAR(CFLAGS)
   GASNET_POPVAR(LIBS)
- fi
 fi
 AC_SUBST(SCI_INCLUDES)
 AC_SUBST(SCI_LIBS)
