@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2009/03/27 21:13:18 $
-# $Revision: 1.528 $
+#     $Date: 2009/03/27 22:02:50 $
+# $Revision: 1.529 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.528 $)
+AC_REVISION($Revision: 1.529 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1575,6 +1575,11 @@ fi
 am__fastdepCXX_TRUE='#'
 am__fastdepCXX_FALSE=
 
+dnl GASNET_TOOLSONLY_FALSE_BEGIN
+enabled_auto_detect=yes
+GASNET_IF_ENABLED(auto-conduit-detect, [Enable/disable automatic detection of supported network conduits (enabled by default)], [:], [enabled_auto_detect=no])
+dnl GASNET_TOOLSONLY_FALSE_END
+
 CONDUITS=
 AC_SUBST(CONDUITS)
 # reporting file output at completion
@@ -1603,7 +1608,7 @@ dnl GASNET_TOOLSONLY_FALSE_BEGIN
  GASNET_IF_ENABLED_WITH_AUTO($1, Enable/disable the CONDUIT_DESC (auto-detected),
   [enabled_[]$1=yes;force_[]$1=yes],
    enabled_[]$1=no,
-   enabled_[]$1=yes)
+   enabled_[]$1=$enabled_auto_detect)
 dnl GASNET_TOOLSONLY_FALSE_END
 ])
 dnl CONDUIT_DISALLOW_SEGMENT(segment_type)
@@ -3225,15 +3230,29 @@ AM_CONDITIONAL(USE_AMMPI, test "$have_ammpi" = yes)
 dnl GASNET_TOOLSONLY_TRUE_BEGIN
 dnl undefine([GASNET_ENV_DEFAULT_SUPPRESSHELP])
 dnl GASNET_TOOLSONLY_TRUE_END
-AC_DEFINE_UNQUOTED(GASNETI_CONDUITS,"$CONDUITS")
-if test "$gasnet_toolsonly_mode" = "no" -a -z "$CONDUITS" ; then
-  AC_MSG_ERROR([No network conduits were auto-detected.
+dnl GASNET_TOOLSONLY_FALSE_BEGIN
+if test -z "$CONDUITS" ; then
+  pushdef([COMMONMSG],[If you intend to use GASNet without network support, you must use the
+GASNet_Tools distribution instead (see http://gasnet.cs.berkeley.edu).
+See the GASNet documentation for additional details.])
+  if test "$enabled_auto_detect" = yes; then
+    GASNET_MSG_ERROR([No network conduits were auto-detected.
+
 Some conduits require --enable-XXX configure flags and/or additional
 variables providing the install location of vendor drivers.
-If you intend to use GASNet without network support, you must use the
-GASNet_Tools distribution instead.
-See the GASNet documentation for details.])
+COMMONMSG])
+  else
+    # if user had passed any --enable-* args then we would have failed earlier
+    GASNET_MSG_ERROR([No network conduits were enabled.
+
+When using --disable-auto-conduit-detect, at least one argument
+of the form --enable-SOME_NETWORK is required.
+COMMONMSG])
+  fi
+  popdef([COMMONMSG])
 fi
+dnl GASNET_TOOLSONLY_FALSE_END
+AC_DEFINE_UNQUOTED(GASNETI_CONDUITS,"$CONDUITS")
 
 ########################################################################
 # Configure conduit-independent spawners
