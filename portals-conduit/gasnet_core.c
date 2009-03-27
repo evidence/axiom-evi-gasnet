@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2008/10/10 07:54:11 $
- * $Revision: 1.16 $
+ *     $Date: 2009/03/27 19:47:39 $
+ * $Revision: 1.17 $
  * Description: GASNet portals conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *                 Michael Welcome <mlwelcome@lbl.gov>
@@ -308,7 +308,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     /* GASNET_SEGMENT_EVERYTHING */
     segbase = (void *)0;
     segsize = (uintptr_t)-1;
-    gasnetc_segbase = (0;
+    gasnetc_segbase = 0;
     gasnetc_segend = (uintptr_t)-1;
     /* (###) add any code here needed to setup GASNET_SEGMENT_EVERYTHING support */
   #endif

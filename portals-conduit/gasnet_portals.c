@@ -3807,7 +3807,7 @@ extern void gasnetc_init_portals_resources(void)
     gasnetc_AMMaxLong = 1024 * 1024 * 1024; /* 1GB */
   }
   #elif GASNETC_FIREHOSE_REMOTE
-    #error "Firehose REMOTE is not yet supported"
+    #error "Firehose REMOTE (for GASNET_SEGMENT_EVERYTHING) is not yet supported"
   #endif
 
 #if 0
