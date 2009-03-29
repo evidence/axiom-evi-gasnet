@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_internal.h,v $
- *     $Date: 2009/03/29 03:39:41 $
- * $Revision: 1.41 $
+ *     $Date: 2009/03/29 06:54:28 $
+ * $Revision: 1.42 $
  * Description: AMMPI internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -739,7 +739,7 @@ extern int AMMPI_PostRecvBuffer(ammpi_buf_t *rxBuf, MPI_Request *prxHandle, MPI_
 #define _AMMPI_IDENT(identName, identText)  \
   extern char volatile identName[];         \
   char volatile identName[] = identText;    \
-  extern char *_##identName##_identfn() { return (char*)identName; } \
+  extern char *_##identName##_identfn(void) { return (char*)identName; } \
   static int _dummy_##identName = sizeof(_dummy_##identName)
 #if PLATFORM_COMPILER_CRAY
   #define AMMPI_IDENT(identName, identText) \
