@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet.h,v $
- *     $Date: 2009/03/27 05:07:58 $
- * $Revision: 1.60 $
+ *     $Date: 2009/03/29 04:03:01 $
+ * $Revision: 1.61 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -245,7 +245,11 @@ GASNETI_END_EXTERNC
   /*  struct type used to negotiate handler registration in gasnet_init() */
   typedef struct gasneti_handlerentry_s {
     gasnet_handler_t index; /*  == 0 for don't care  */
+   #ifdef GASNET_USE_STRICT_PROTOTYPES
+    void *fnptr;    
+   #else
     void (*fnptr)();    
+   #endif
   } gasnet_handlerentry_t;
 #endif
 

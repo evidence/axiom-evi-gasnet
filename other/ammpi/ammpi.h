@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi.h,v $
- *     $Date: 2009/03/27 05:08:13 $
- * $Revision: 1.43 $
+ *     $Date: 2009/03/29 04:03:03 $
+ * $Revision: 1.44 $
  * Description: AMMPI Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -64,7 +64,11 @@ typedef struct ammpi_ep *ep_t;
 
 /* ------------------------------------------------------------------------------------ */
 /* AMMPI extension types */
+#ifdef GASNET_USE_STRICT_PROTOTYPES
+typedef void *ammpi_handler_fn_t;
+#else
 typedef void (*ammpi_handler_fn_t)();  /* prototype for handler function */
+#endif
 
 typedef enum {
   ammpi_Short=0, 

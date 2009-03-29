@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp.h,v $
- *     $Date: 2009/03/27 05:08:15 $
- * $Revision: 1.39 $
+ *     $Date: 2009/03/29 04:03:05 $
+ * $Revision: 1.40 $
  * Description: AMUDP Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -211,7 +211,11 @@ typedef struct {
   uint64_t TotalBytesSent; /* total user level packet sizes for all req/rep */
 } amudp_stats_t;
 
+#ifdef GASNET_USE_STRICT_PROTOTYPES
+typedef void *amudp_handler_fn_t;
+#else
 typedef void (*amudp_handler_fn_t)();  /* prototype for handler function */
+#endif
 typedef struct {
   char inuse; /*  entry in use */
   en_t name;  /*  remote address */
