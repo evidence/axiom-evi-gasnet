@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2009/03/29 07:40:00 $
- * $Revision: 1.206 $
+ *     $Date: 2009/03/29 19:20:44 $
+ * $Revision: 1.207 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -725,7 +725,7 @@
 
 #if GASNET_DEBUG
  #define GASNETI_ATOMIC_CHECKALIGN(stem,p)                          \
-  void *_dummy_checkalign = (gasneti_assert(!stem##align || !(((uintptr_t)(p))&(stem##align-1))),&_dummy_checkalign)
+  void *_dummy_checkalign = (gasneti_assert(!stem##align || !(((uintptr_t)(p))&(stem##align-1))),&_dummy_checkalign);
 #else
  #define GASNETI_ATOMIC_CHECKALIGN(stem,p) /*empty*/
 #endif
@@ -734,7 +734,7 @@
   do {                                                              \
     stem##t * const __p = (p);                                      \
     const int __flags = (f);                                        \
-    GASNETI_ATOMIC_CHECKALIGN(stem,__p);                            \
+    GASNETI_ATOMIC_CHECKALIGN(stem,__p)                             \
     _gasneti_##group##_fence_before_set(__p,__flags)                \
     _func(__p,(v));                                                 \
     _gasneti_##group##_fence_after_set(__p,__flags)                 \
@@ -743,7 +743,7 @@
   do {                                                              \
     stem##t * const __p = (p);                                      \
     const int __flags = (f);                                        \
-    GASNETI_ATOMIC_CHECKALIGN(stem,__p);                            \
+    GASNETI_ATOMIC_CHECKALIGN(stem,__p)                             \
     _gasneti_##group##_fence_before_rmw(__p,__flags)                \
     _func(__p);                                                     \
     _gasneti_##group##_fence_after_rmw(__p,__flags)                 \
@@ -759,7 +759,7 @@
   }
 #define GASNETI_ATOMIC_FENCED_READ_DEFN_NOT_INLINE(group,func,_func,stem) \
   stem##val_t func(stem##t *p, const int flags) {                   \
-    GASNETI_ATOMIC_CHECKALIGN(stem,p);                              \
+    GASNETI_ATOMIC_CHECKALIGN(stem,p)                               \
     _gasneti_##group##_fence_before_read(p,flags)                   \
     { const stem##val_t retval = _func(p);                          \
       _gasneti_##group##_fence_after_read(p,flags)                  \
@@ -768,7 +768,7 @@
   }
 #define GASNETI_ATOMIC_FENCED_DECTEST_DEFN_NOT_INLINE(group,func,_func,stem) \
   int func(stem##t *p, const int flags) {                           \
-    GASNETI_ATOMIC_CHECKALIGN(stem,p);                              \
+    GASNETI_ATOMIC_CHECKALIGN(stem,p)                               \
     _gasneti_##group##_fence_before_rmw(p,flags)                    \
     { const int retval = _func(p);                                  \
       _gasneti_##group##_fence_after_bool(p,flags, retval)          \
@@ -778,7 +778,7 @@
 #define GASNETI_ATOMIC_FENCED_CAS_DEFN_NOT_INLINE(group,func,_func,stem) \
   int func(stem##t *p, stem##val_t oldval,                          \
            stem##val_t newval, const int flags) {                   \
-    GASNETI_ATOMIC_CHECKALIGN(stem,p);                              \
+    GASNETI_ATOMIC_CHECKALIGN(stem,p)                               \
     _gasneti_##group##_fence_before_rmw(p,flags)                    \
     { const int retval = _func(p,oldval,newval);                    \
       _gasneti_##group##_fence_after_bool(p,flags, retval)          \
@@ -788,7 +788,7 @@
 #define GASNETI_ATOMIC_FENCED_ADDSUB_DEFN_NOT_INLINE(group,func,_func,stem) \
   stem##val_t func(stem##t *p, stem##val_t op, const int flags) {   \
     /* TODO: prohibit zero as well? */                              \
-    GASNETI_ATOMIC_CHECKALIGN(stem,p);                              \
+    GASNETI_ATOMIC_CHECKALIGN(stem,p)                               \
     gasneti_assert((stem##sval_t)op >= 0);                          \
     _gasneti_##group##_fence_before_rmw(p,flags)                    \
     { const stem##val_t retval = _func(p, op);                      \
@@ -798,7 +798,7 @@
   }
 #define GASNETI_ATOMIC_FENCED_ADDFETCH_DEFN_NOT_INLINE(group,func,_func,stem) \
   stem##val_t func(stem##t *p, stem##sval_t op, const int flags) {  \
-    GASNETI_ATOMIC_CHECKALIGN(stem,p);                              \
+    GASNETI_ATOMIC_CHECKALIGN(stem,p)                               \
     _gasneti_##group##_fence_before_rmw(p,flags)                    \
     { const stem##val_t retval = _func(p, op);                      \
       _gasneti_##group##_fence_after_rmw(p,flags)                   \
