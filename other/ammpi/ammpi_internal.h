@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_internal.h,v $
- *     $Date: 2008/10/02 07:56:49 $
- * $Revision: 1.40 $
+ *     $Date: 2009/03/29 03:39:41 $
+ * $Revision: 1.41 $
  * Description: AMMPI internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -687,7 +687,7 @@ static int AMMPI_checkMPIreturn(int retcode, const char *fncallstr,
 #endif
 
 extern int AMMPI_enEqual(en_t en1, en_t en2);
-extern int64_t AMMPI_getMicrosecondTimeStamp();
+extern int64_t AMMPI_getMicrosecondTimeStamp(void);
 /* ------------------------------------------------------------------------------------ */
 /*  global data */
 extern int AMMPI_numBundles;
