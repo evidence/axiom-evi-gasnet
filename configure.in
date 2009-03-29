@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2009/03/27 22:02:50 $
-# $Revision: 1.529 $
+#     $Date: 2009/03/29 02:49:56 $
+# $Revision: 1.530 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.529 $)
+AC_REVISION($Revision: 1.530 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1576,8 +1576,7 @@ am__fastdepCXX_TRUE='#'
 am__fastdepCXX_FALSE=
 
 dnl GASNET_TOOLSONLY_FALSE_BEGIN
-enabled_auto_detect=yes
-GASNET_IF_ENABLED(auto-conduit-detect, [Enable/disable automatic detection of supported network conduits (enabled by default)], [:], [enabled_auto_detect=no])
+GASNET_IF_DISABLED(auto-conduit-detect, [Enable/disable automatic detection of supported network conduits (enabled by default)], [enabled_auto_detect=no], [enabled_auto_detect=yes])
 dnl GASNET_TOOLSONLY_FALSE_END
 
 CONDUITS=
