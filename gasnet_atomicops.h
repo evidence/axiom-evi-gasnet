@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2009/03/29 06:52:05 $
- * $Revision: 1.205 $
+ *     $Date: 2009/03/29 07:40:00 $
+ * $Revision: 1.206 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -723,8 +723,12 @@
 /* Part 4.  Fenced atomic templates, using the fencing macros of Part 3, above.
  */
 
-#define GASNETI_ATOMIC_CHECKALIGN(stem,p)                           \
-  char _dummy_checkalign = (gasneti_assert(!stem##align || !(((uintptr_t)(p))&(stem##align-1))),0)
+#if GASNET_DEBUG
+ #define GASNETI_ATOMIC_CHECKALIGN(stem,p)                          \
+  void *_dummy_checkalign = (gasneti_assert(!stem##align || !(((uintptr_t)(p))&(stem##align-1))),&_dummy_checkalign)
+#else
+ #define GASNETI_ATOMIC_CHECKALIGN(stem,p) /*empty*/
+#endif
 
 #define GASNETI_ATOMIC_FENCED_SET(group,_func,stem,p,v,f)           \
   do {                                                              \
