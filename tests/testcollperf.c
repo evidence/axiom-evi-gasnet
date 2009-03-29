@@ -595,10 +595,11 @@ void run_MULTI_ADDR_test(thread_data_t *td, uint8_t **dst_arr, uint8_t **src_arr
 void *thread_main(void *arg) {
   thread_data_t *td = (thread_data_t*) arg;
   size_t size;
-  int i,flag_iter;
+  int flag_iter;
   gasnet_node_t root_thread = 0;
   int skip_msg_printed = 0;
 #if GASNET_PAR
+  int i;
   gasnet_image_t *imagearray = test_malloc(nodes * sizeof(gasnet_image_t));
   for (i=0; i<nodes; ++i) { imagearray[i] = threads_per_node; }
   gasnet_coll_init(imagearray, td->mythread, NULL, 0, 0);

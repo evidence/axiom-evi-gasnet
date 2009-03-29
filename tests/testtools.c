@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2009/01/27 07:58:53 $
- * $Revision: 1.92 $
+ *     $Date: 2009/03/29 07:57:51 $
+ * $Revision: 1.93 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -986,7 +986,7 @@ void * thread_fn(void *arg) {
       uint32_t woncnt = 0;
       uint32_t share = ((unsigned)iters >= (0xffffffffU / NUM_THREADS)) ? (0xffffffffU / NUM_THREADS) : iters;
       uint32_t goal = NUM_THREADS * share;
-      uint32_t i, oldval;
+      uint32_t oldval;
 
       /* Look for missing or doubled updates by taking an equal share of increments */
       while (woncnt < share && (oldval = gasnett_atomic32_read(&counter32,0)) != goal) {

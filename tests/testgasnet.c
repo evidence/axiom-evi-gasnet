@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testgasnet.c,v $
- *     $Date: 2009/03/27 19:26:13 $
- * $Revision: 1.61 $
+ *     $Date: 2009/03/29 07:57:51 $
+ * $Revision: 1.62 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -406,7 +406,7 @@ void doit3(int partner, int *partnerseg) {
   doit4(partner, partnerseg);
 }
 void doit4(int partner, int *partnerseg) {
-  int mynode = gasnet_mynode();
+  /* int mynode = gasnet_mynode(); UNUSED */
 #endif
 
   BARRIER();
