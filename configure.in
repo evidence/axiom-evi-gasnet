@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2009/03/29 02:49:56 $
-# $Revision: 1.530 $
+#     $Date: 2009/03/30 03:59:56 $
+# $Revision: 1.531 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.530 $)
+AC_REVISION($Revision: 1.531 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -284,6 +284,11 @@ case "$gasnet_cv_cc_family" in
 esac
 AC_SUBST(SEPARATE_CC)
 
+GASNET_IF_ENABLED(strict-prototypes, [Use strict prototypes in GASNet headers (at the expense of slight deviation from the specification)], [
+  enabled_strict_prototypes=yes
+  AC_DEFINE(GASNET_USE_STRICT_PROTOTYPES)
+])
+
 dnl GASNET_GET_GNUWARNINGFLAGS(type)  type=C or CXX
 AC_DEFUN([GASNET_GET_GNUWARNINGFLAGS],[
         [$1]FLAGS="-g3"
@@ -295,6 +300,9 @@ AC_DEFUN([GASNET_GET_GNUWARNINGFLAGS],[
         ]GASNET_TRY_[$1]FLAG[([-Wwrite-strings],[[$1]FLAGS="$[$1]FLAGS -Wwrite-strings"])
         ]GASNET_TRY_[$1]FLAG[([-Wdeclaration-after-statement],[[$1]FLAGS="$[$1]FLAGS -Wdeclaration-after-statement"])
         ]GASNET_TRY_[$1]FLAG[([-Wmissing-format-attribute],[[$1]FLAGS="$[$1]FLAGS -Wmissing-format-attribute"])
+	if test "$enabled_strict_prototypes" = "yes" ; then
+          ]GASNET_TRY_[$1]FLAG[([-Wstrict-prototypes],[[$1]FLAGS="$[$1]FLAGS -Wstrict-prototypes"])
+	fi
 	if test "$use_pthreads" != "no" ; then
         # some crappy pthread mutex implementations generate warnings without -Wno-missing-braces
 	AC_MSG_CHECKING(for buggy pthread.h mutex initializers)
