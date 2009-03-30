@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2009/03/30 08:04:22 $
- * $Revision: 1.231 $
+ *     $Date: 2009/03/30 23:12:48 $
+ * $Revision: 1.232 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -411,7 +411,7 @@ void *gasnetc_sr_desc_init(gasnetc_snd_wr_t *result, gasnetc_sge_t *sg_lst_p, in
 #define GASNETC_DECL_SR_DESC(_name, _sg_lst_len, _count)                \
 	gasnetc_snd_wr_t _name[_count];                                   \
 	gasnetc_sge_t _CONCAT(_name,_sg_lst)[_count*_sg_lst_len];       \
-	GASNETI_USED                                                    \
+	GASNETI_UNUSED                                                  \
 	void *_CONCAT(_name,_dummy) = gasnetc_sr_desc_init(_name, _CONCAT(_name,_sg_lst), _sg_lst_len, _count) /* note intentional lack of final semicolon */
 
 /* Use of IB's 32-bit immediate data:
