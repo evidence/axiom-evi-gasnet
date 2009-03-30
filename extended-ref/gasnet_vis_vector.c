@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_vis_vector.c,v $
- *     $Date: 2007/05/02 13:17:29 $
- * $Revision: 1.21 $
+ *     $Date: 2009/03/30 07:25:48 $
+ * $Revision: 1.22 $
  * Description: GASNet Vector implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -57,7 +57,6 @@ extern void gasnete_packetize_verify(gasnete_packetdesc_t *pt, size_t ptidx, int
   size_t firstoffset = pt[ptidx].firstoffset;
   size_t lastidx = pt[ptidx].lastidx;
   size_t lastlen = pt[ptidx].lastlen;
-  size_t entries = lastidx - firstidx + 1;
   gasneti_assert(firstidx <= lastidx);
   gasneti_assert(lastidx < count);
   if (ptidx == 0) gasneti_assert(firstidx == 0 && firstoffset == 0); /* first packet */

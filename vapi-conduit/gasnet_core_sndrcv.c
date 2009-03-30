@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2009/03/30 02:41:05 $
- * $Revision: 1.229 $
+ *     $Date: 2009/03/30 07:25:52 $
+ * $Revision: 1.230 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -3346,13 +3346,15 @@ extern void gasnetc_sndrcv_attach_peer(gasnet_node_t node) {
 
 extern void gasnetc_sndrcv_fini(void) {
   gasnetc_hca_t *hca;
+#if 0 /* See below */
   int vstat;
+#endif
 
   GASNETC_FOR_ALL_HCA(hca) {
     if (gasneti_nodes > 1) {
 #if GASNET_CONDUIT_VAPI
       if (gasnetc_use_rcv_thread) {
-        vstat = EVAPI_clear_comp_eventh(hca->handle, hca->rcv_handler);
+        int vstat = EVAPI_clear_comp_eventh(hca->handle, hca->rcv_handler);
         GASNETC_VAPI_CHECK(vstat, "from EVAPI_clear_comp_eventh()");
       }
 #endif

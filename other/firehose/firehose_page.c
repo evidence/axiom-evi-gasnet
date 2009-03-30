@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_page.c,v $
- *     $Date: 2009/03/30 02:40:49 $
- * $Revision: 1.55 $
+ *     $Date: 2009/03/30 07:25:50 $
+ * $Revision: 1.56 $
  * Description: 
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -185,9 +185,6 @@ GASNETI_INLINE(fh_bucket_lookup)
 fh_bucket_t *
 fh_bucket_lookup(gasnet_node_t node, uintptr_t bucket_addr)
 {
-	fh_bucket_t *entry;
-	fh_int_t key;
-
 	FH_TABLE_ASSERT_LOCKED;
 
 	FH_ASSERT_BUCKET_ADDR(bucket_addr);
@@ -580,7 +577,7 @@ fh_init_plugin(uintptr_t max_pinnable_memory,
 	       const firehose_region_t *regions, size_t num_prepinned,
 	       firehose_info_t *fhinfo)
 {
-    int	      i,j;
+    int	      i;
     uintptr_t M, maxvictim, firehoses, m_prepinned = 0;
     size_t    b_prepinned = 0;
 
@@ -786,7 +783,6 @@ fh_priv_check_fn(void *val, void *arg)
 void
 fh_fini_plugin(void)
 {
-	fhi_RegionPool_t	*rpool;
 	int			i;
 
 #ifdef DEBUG_BUCKETS
@@ -1782,7 +1778,6 @@ fhsmp_RemotePinWithLogAgain(int n_avail, gasnet_node_t node,
 	              fhi_RegionPool_t *pin_p, fhi_RegionPool_t *unpin_p)
 {
     uintptr_t	 bucket_addr, rem_addr;
-    int		 numpend = 0;
     fh_bucket_t *bd;
 
     FH_TABLE_ASSERT_LOCKED;
@@ -2118,11 +2113,10 @@ fhsmp_Commit(firehose_request_t *req,
 void
 fh_acquire_local_region(firehose_request_t *req)
 {
-    int			b_num, b_total, b_new, b_reused;
+    int			b_total, b_new, b_reused;
     int			outer_limit, inner_limit;
     int			my_da = 0;
     int			outer_count = 0;
-    firehose_region_t	region;
     fhi_RegionPool_t	*pin_p = NULL, *unpin_p = NULL;
     fh_bucket_t		*bd;
 
@@ -2302,7 +2296,6 @@ fh_acquire_remote_region(firehose_request_t *req,
     int	da_count = 0, b_total;
     int	my_da = 0;
     int n_buckets, n_avail, n_pending, n_avail_old;
-    int a = 0;
 
     gasnet_node_t   node = req->node;
     uintptr_t	    end_addr = req->addr + req->len - 1;

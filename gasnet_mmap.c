@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2008/11/28 23:19:22 $
- * $Revision: 1.57 $
+ *     $Date: 2009/03/30 07:25:46 $
+ * $Revision: 1.58 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -284,7 +284,6 @@ uintptr_t _gasneti_max_segsize(uint64_t configure_val) {
   static uintptr_t result = 0;
   uint64_t tmp;
   if (!result) {
-    char *p;
     int is_dflt = 1;
     /* start with the configure-selected default */
     tmp = configure_val;
@@ -632,7 +631,9 @@ extern int gasneti_getSegmentInfo(gasnet_seginfo_t *seginfo_table, int numentrie
     }
     #else
     { int i; 
+      #if GASNET_ALIGNED_SEGMENTS
       void *segbase = NULL;
+      #endif
       for (i=0; i < gasneti_nodes; i++) {
         if (gasneti_seginfo[i].size == 0) {
           gasneti_assert(gasneti_seginfo[i].addr == 0);
@@ -715,7 +716,6 @@ static gasneti_auxseg_request_t gasneti_auxseg_total_alignedsz = { 0, 0 };
 static gasneti_auxseg_request_t *gasneti_auxseg_alignedsz = NULL;
 static uintptr_t gasneti_auxseg_sz = 0;
 static uintptr_t gasneti_auxseg_client_request_sz = 0;
-static int gasneti_auxseg_numfns;
 
 #if GASNET_DEBUG
   /* spawner hint of our auxseg requirements */

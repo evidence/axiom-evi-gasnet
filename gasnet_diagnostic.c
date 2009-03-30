@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_diagnostic.c,v $
- *     $Date: 2009/03/30 02:40:24 $
- * $Revision: 1.24 $
+ *     $Date: 2009/03/30 07:25:46 $
+ * $Revision: 1.25 $
  * Description: GASNet internal diagnostics
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -691,7 +691,6 @@ static void op_test(int id) {
   PTHREAD_BARRIER(num_threads);
   TEST_HEADER("internal op interface test"); else return;
   for (iter=0; iter < iters0; iter++) {
-    int i;
     static const void **share = NULL;
     int peerid = ( id + 1 ) % num_threads;
 
@@ -755,7 +754,6 @@ static void op_test(int id) {
           assert_always(gasnet_try_syncnbi_gets() == GASNET_OK),            \
           assert_always(gasnet_try_syncnbi_all() == GASNET_ERR_NOT_READY)) )
 
-        gasnet_handle_t h;
         gasneti_iop_t *iop1, *iop2;
         gasneti_iop_t *peer_iop1, *peer_iop2;
         ASSERT_NBI_SYNCED();

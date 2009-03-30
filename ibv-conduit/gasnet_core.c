@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2009/03/30 02:41:05 $
- * $Revision: 1.208 $
+ *     $Date: 2009/03/30 07:25:52 $
+ * $Revision: 1.209 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -779,7 +779,9 @@ static gasnetc_port_info_t* gasnetc_probe_ports(int *port_count_p) {
   int			port_count = 0;
   int			hca_count = 0;
   int			curr_hca;
+#if GASNET_CONDUIT_VAPI
   int			rc;
+#endif
 
   if (gasnetc_parse_ports(gasnetc_vapi_ports)) {
     GASNETI_TRACE_PRINTF(C,("Failed to parse " GASNET_VAPI_PORTS_STR "='%s'", gasnetc_vapi_ports));

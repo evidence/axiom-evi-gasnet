@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2009/03/30 02:40:24 $
- * $Revision: 1.221 $
+ *     $Date: 2009/03/30 07:25:46 $
+ * $Revision: 1.222 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -923,7 +923,6 @@ static char gasneti_exename_bt[GASNETI_BT_PATHSZ];
       #define XLBUF 1024
       static char xlstr[XLBUF];
       static char linebuf[XLBUF];
-      int len;
       xlstr[0] = '\0';
       #if defined(ADDR2LINE_PATH) && !GASNETI_NO_FORK
         /* use addr2line when available to retrieve symbolic info */
@@ -1048,7 +1047,6 @@ extern int gasneti_print_backtrace(int fd) {
     gasneti_sighandlerfn_t old_BUS  = gasneti_reghandler(SIGBUS,  SIG_DFL);
     gasneti_sighandlerfn_t old_FPE  = gasneti_reghandler(SIGFPE,  SIG_DFL);
     FILE *file;
-    const char *btlist = NULL;
 
     /* Create a tmpfile to hold the backtrace */
     file = tmpfile();
