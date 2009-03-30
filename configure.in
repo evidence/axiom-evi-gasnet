@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2009/03/30 07:36:29 $
-# $Revision: 1.532 $
+#     $Date: 2009/03/30 21:07:13 $
+# $Revision: 1.533 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.532 $)
+AC_REVISION($Revision: 1.533 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -370,7 +370,7 @@ AC_DEFUN([GASNET_GET_ULTRASPARC_FLAGS],[
       if test "$ultrasparc_flag_worked" = 1; then
         GASNET_PUSHVAR([$1]FLAGS,"$[$1]FLAGS $MISC_[$1]FLAGS $flag")
 	AC_MSG_CHECKING(for working flag $flag)
-	AC_TRY_RUN(ultrasparc3code [ int main() { return 0; } ], 
+	AC_TRY_RUN(ultrasparc3code [ int main(void) { return 0; } ], 
 	           [ultrasparc_flag_worked=1], [ultrasparc_flag_worked=0], [ultrasparc_flag_worked=1])
         GASNET_POPVAR([$1]FLAGS)
 	if test "$ultrasparc_flag_worked" = 1; then
@@ -435,7 +435,7 @@ AC_DEFUN([GASNET_GET_PPC64_FLAGS],[
         if test "$ppc64_flag_worked" = 1; then
           GASNET_PUSHVAR([$1]FLAGS,"$[$1]FLAGS $MISC_[$1]FLAGS $flag")
 	  AC_MSG_CHECKING(for working flag $flag)
-	  AC_TRY_RUN(ppc64code [ int main() { double x; return testme(&x); } ],
+	  AC_TRY_RUN(ppc64code [ int main(void) { double x; return testme(&x); } ],
 	             [ppc64_flag_worked=1], [ppc64_flag_worked=0], [ppc64_flag_worked=1])
           GASNET_POPVAR([$1]FLAGS)
 	  if test "$ppc64_flag_worked" = 1; then
@@ -452,7 +452,7 @@ AC_DEFUN([GASNET_GET_PPC64_FLAGS],[
   AC_MSG_CHECKING(for PPC64 instruction support)
   GASNET_PUSHVAR([$1]FLAGS,"$[$1]FLAGS $MISC_[$1]FLAGS")
   ]GASNET_TRY_[$1]COMPILE_WITHWARN[( [ ppc64code ] , [ ], 
-          AC_TRY_RUN(ppc64code [ int main() { double x; return testme(&x); } ],
+          AC_TRY_RUN(ppc64code [ int main(void) { double x; return testme(&x); } ],
                      [AC_MSG_RESULT(yes) 
                       AC_DEFINE(GASNETI_ARCH_PPC64)],
 		     [AC_MSG_RESULT(no/failure)],
@@ -476,7 +476,7 @@ AC_DEFUN([GASNET_GET_HPUX_FLAGS],[
   pushdef([hpuxcode],[[
 	#define _LARGEFILE64_SOURCE 1
 	#include <errno.h> /* Many other headers possible here */
-	int main() { return 0; }]])
+	int main(void) { return 0; }]])
   AC_MSG_CHECKING(for Large File support by default)
   AC_TRY_RUN(hpuxcode, [hpux_flag_worked=1], [hpux_flag_worked=0])
   if test "$hpux_flag_worked" = 1; then
@@ -3599,7 +3599,7 @@ GASNET_TRY_CACHE_RUN(for working mmap(), have_mmap, [
   #include <stdlib.h>
   char junk[[16384]];
   int testfd(int);
-  int main() {
+  int main(void) {
     int fd, retval;
     #if 0
       char filename[[255]];
