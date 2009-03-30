@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2008/03/05 23:54:22 $
- * $Revision: 1.124 $
+ * $Date: 2009/03/30 01:35:33 $
+ * $Revision: 1.125 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -177,13 +177,13 @@ gasnetc_AM_InitHandler()
 	int	i;
 
 	for (i = 0; i < GASNETC_AM_MAX_HANDLERS; i++) 
-		_gmc.handlers[i] = (gasnetc_handler_fn_t) gasneti_defaultAMHandler;  
+		_gmc.handlers[i] = (gasneti_handler_fn_t) gasneti_defaultAMHandler;  
 
 	return;
 }
 
 int
-gasnetc_AM_SetHandler(gasnet_handler_t handler, gasnetc_handler_fn_t func)
+gasnetc_AM_SetHandler(gasnet_handler_t handler, gasneti_handler_fn_t func)
 {
 	if (!handler || func == NULL)
 		GASNETI_RETURN_ERRR(BAD_ARG, "Invalid handler paramaters set");
@@ -193,7 +193,7 @@ gasnetc_AM_SetHandler(gasnet_handler_t handler, gasnetc_handler_fn_t func)
 }
 
 int
-gasnetc_AM_SetHandlerAny(gasnet_handler_t *handler, gasnetc_handler_fn_t func)
+gasnetc_AM_SetHandlerAny(gasnet_handler_t *handler, gasneti_handler_fn_t func)
 {
 	int	i;
 
@@ -604,7 +604,7 @@ gasnetc_disable_AMs(void)
   int i;
 
   for (i = 0; i < GASNETC_AM_MAX_HANDLERS; ++i) {
-    _gmc.handlers[i] = (gasnetc_handler_fn_t)&gasnetc_noop;
+    _gmc.handlers[i] = (gasneti_handler_fn_t)&gasnetc_noop;
   }
 }
 

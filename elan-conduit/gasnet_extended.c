@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2008/12/26 05:30:56 $
- * $Revision: 1.85 $
+ *     $Date: 2009/03/30 01:35:31 $
+ * $Revision: 1.86 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -9,7 +9,6 @@
 #include <gasnet_internal.h>
 #include <gasnet_core_internal.h>
 #include <gasnet_extended_internal.h>
-#include <gasnet_handler.h>
 #include <elan3/elan3.h> /* for ELAN_POLL_EVENT */
 
 static int gasnete_nbi_throttle = 0;

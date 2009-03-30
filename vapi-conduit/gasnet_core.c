@@ -1,13 +1,12 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2009/03/06 23:05:28 $
- * $Revision: 1.206 $
+ *     $Date: 2009/03/30 01:35:45 $
+ * $Revision: 1.207 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  */
 
 #include <gasnet_internal.h>
-#include <gasnet_handler.h>
 #include <gasnet_core_internal.h>
 
 #include <errno.h>
@@ -165,7 +164,7 @@ typedef struct gasnetc_pin_info_t_ {
 } gasnetc_pin_info_t;
 static gasnetc_pin_info_t gasnetc_pin_info;
 
-gasnetc_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS]; /* handler table */
+gasneti_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS]; /* handler table */
 
 static void gasnetc_atexit(void);
 static void gasnetc_exit_sighandler(int sig);
@@ -1643,7 +1642,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   /*  register handlers */
   { int i;
     for (i = 0; i < GASNETC_MAX_NUMHANDLERS; i++) 
-      gasnetc_handler[i] = (gasnetc_handler_fn_t)&gasneti_defaultAMHandler;
+      gasnetc_handler[i] = (gasneti_handler_fn_t)&gasneti_defaultAMHandler;
   }
   { /*  core API handlers */
     gasnet_handlerentry_t *ctable = (gasnet_handlerentry_t *)gasnetc_get_handlertable();
@@ -1922,7 +1921,7 @@ static void gasnetc_disable_AMs(void) {
   int i;
 
   for (i = 0; i < GASNETC_MAX_NUMHANDLERS; ++i) {
-    gasnetc_handler[i] = (gasnetc_handler_fn_t)&gasnetc_noop;
+    gasnetc_handler[i] = (gasneti_handler_fn_t)&gasnetc_noop;
   }
 }
 

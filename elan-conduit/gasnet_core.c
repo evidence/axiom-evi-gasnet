@@ -1,13 +1,12 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2008/12/26 05:30:56 $
- * $Revision: 1.77 $
+ *     $Date: 2009/03/30 01:35:31 $
+ * $Revision: 1.78 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  */
 
 #include <gasnet_internal.h>
-#include <gasnet_handler.h>
 #include <gasnet_core_internal.h>
 
 #if GASNETC_ALLOW_ELAN_PERM_REMAP
@@ -85,7 +84,7 @@ extern uint64_t gasnetc_clock() {
     return 0;
 }
 
-gasnetc_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS]; /* handler table */
+gasneti_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS]; /* handler table */
 
 #ifdef GASNETC_ELAN4
 #include <elan4/library.h>
@@ -453,7 +452,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   /*  register handlers */
   { int i;
     for (i = 0; i < GASNETC_MAX_NUMHANDLERS; i++) 
-      gasnetc_handler[i] = (gasnetc_handler_fn_t)&gasneti_defaultAMHandler;
+      gasnetc_handler[i] = (gasneti_handler_fn_t)&gasneti_defaultAMHandler;
   }
   { /*  core API handlers */
     gasnet_handlerentry_t *ctable = (gasnet_handlerentry_t *)gasnetc_get_handlertable();

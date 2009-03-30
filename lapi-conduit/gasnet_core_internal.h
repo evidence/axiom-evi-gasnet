@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2008/03/09 09:38:31 $
- * $Revision: 1.53 $
+ *     $Date: 2009/03/30 01:35:35 $
+ * $Revision: 1.54 $
  * Description: GASNet lapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -74,8 +74,7 @@ extern void**             gasnetc_remote_reply_hh;
 #define GASNETC_LAPI_POLL(context) GASNETC_LCHECK(LAPI_Probe(context))
 #endif
 
-typedef void (*gasnetc_handler_fn_t)();  /* prototype for handler function */
-extern gasnetc_handler_fn_t gasnetc_handler[]; /* handler table */
+extern gasneti_handler_fn_t gasnetc_handler[]; /* handler table */
 
 extern void gasnetc_lapi_exchange(void *src, size_t len, void *dest);
 

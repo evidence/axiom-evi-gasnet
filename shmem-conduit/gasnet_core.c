@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_core.c,v $
- *     $Date: 2007/04/10 01:21:23 $
- * $Revision: 1.36 $
+ *     $Date: 2009/03/30 01:35:39 $
+ * $Revision: 1.37 $
  * Description: GASNet shmem conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -26,8 +26,7 @@ static uintptr_t        gasnetc_aligndown_pow2(uintptr_t addr);
 static uintptr_t        gasnetc_alignup_pow2(uintptr_t addr);
 
 #define GASNETC_MAX_NUMHANDLERS   256
-typedef void (*gasnetc_handler_fn_t)();  /* prototype for handler function */
-gasnetc_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS]; /* handler table */
+gasneti_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS]; /* handler table */
 
 gasnet_seginfo_t	 gasnetc_seginfo_init;
 int			 gasnetc_seginfo_allocated = 0;
@@ -265,7 +264,7 @@ static int gasnetc_reghandlers(gasnet_handlerentry_t *table, int numentries,
     /* register the handler */
     /* add code here to register table[i].fnptr 
              on index (gasnet_handler_t)newindex */
-    gasnetc_handler[(gasnet_handler_t)newindex] = (gasnetc_handler_fn_t)table[i].fnptr;
+    gasnetc_handler[(gasnet_handler_t)newindex] = (gasneti_handler_fn_t)table[i].fnptr;
 
     /* The check below for !table[i].index is redundant and present
      * only to defeat the over-aggressive optimizer in pathcc 2.1
@@ -313,7 +312,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   /*  register handlers */
   { int i;
     for (i = 0; i < GASNETC_MAX_NUMHANDLERS; i++) 
-      gasnetc_handler[i] = (gasnetc_handler_fn_t)&gasneti_defaultAMHandler;
+      gasnetc_handler[i] = (gasneti_handler_fn_t)&gasneti_defaultAMHandler;
   }
   { /*  core API handlers */
     gasnet_handlerentry_t *ctable = (gasnet_handlerentry_t *)gasnetc_get_handlertable();
@@ -632,7 +631,7 @@ GASNETI_INLINE(gasnetc_AMProcess)
 void
 gasnetc_AMProcess(gasnetc_am_header_t *hdr, uint32_t *args /* header */)
 {
-	gasnetc_handler_fn_t	handler;
+	gasneti_handler_fn_t	handler;
 	gasnet_token_t		token;
 	size_t			numargs = (size_t) hdr->numargs;
 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2009/03/27 05:08:03 $
- * $Revision: 1.43 $
+ *     $Date: 2009/03/30 01:35:31 $
+ * $Revision: 1.44 $
  * Description: GASNet elan conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -10,6 +10,7 @@
 #define _GASNET_CORE_INTERNAL_H
 
 #include <gasnet_internal.h>
+#include <gasnet_handler.h>
 
 #if PLATFORM_COMPILER_PGI || PLATFORM_COMPILER_SUN
   /* this workaround enables use of these compilers with the libelan headers */
@@ -414,8 +415,7 @@ typedef struct _gasnetc_bufdesc_t {
 } gasnetc_bufdesc_t;
 
 #define GASNETC_MAX_NUMHANDLERS   256
-typedef void (*gasnetc_handler_fn_t)();  /* prototype for handler function */
-gasnetc_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS]; /* handler table */
+gasneti_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS]; /* handler table */
 
 extern int gasnetc_RequestGeneric(gasnetc_category_t category, 
                          int dest, gasnet_handler_t handler, 

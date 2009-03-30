@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_core.c,v $
- *     $Date: 2009/02/04 19:20:09 $
- * $Revision: 1.7 $
+ *     $Date: 2009/03/30 01:35:29 $
+ * $Revision: 1.8 $
  * Description: GASNet dcmf conduit Implementation
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>, 
                    Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -58,8 +58,7 @@ gasnet_handlerentry_t const *gasnetc_get_handlertable(void);
 static void gasnetc_atexit(void);
 
 #define GASNETC_MAX_NUMHANDLERS   256
-typedef void (*gasnetc_handler_fn_t)();  /* prototype for handler function */
-gasnetc_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS]; /* handler table (recommended impl) */
+gasneti_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS]; /* handler table (recommended impl) */
 
 #if GASNET_DEBUG
 uint8_t gasnetc_have_dcmf_lock=0;
@@ -465,7 +464,7 @@ static int gasnetc_reghandlers(gasnet_handlerentry_t *table, int numentries,
     checkuniqhandler[newindex] = 1;
 
     /* register the handler */
-    gasnetc_handler[(gasnet_handler_t)newindex] = (gasnetc_handler_fn_t)table[i].fnptr;
+    gasnetc_handler[(gasnet_handler_t)newindex] = (gasneti_handler_fn_t)table[i].fnptr;
 
     /* The check below for !table[i].index is redundant and present
      * only to defeat the over-aggressive optimizer in pathcc 2.1
@@ -508,7 +507,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   /*  register handlers */
   { int i;
     for (i = 0; i < GASNETC_MAX_NUMHANDLERS; i++) 
-      gasnetc_handler[i] = (gasnetc_handler_fn_t)&gasneti_defaultAMHandler;
+      gasnetc_handler[i] = (gasneti_handler_fn_t)&gasneti_defaultAMHandler;
   }
   { /*  core API handlers */
     gasnet_handlerentry_t *ctable = (gasnet_handlerentry_t *)gasnetc_get_handlertable();
@@ -1318,7 +1317,7 @@ void gasnetc_dcmf_handle_am_short_inner(void *clientdata,
                                         unsigned bytes){
     
   DCQuad headerquad;
-  gasnetc_handler_fn_t pfn;
+  gasneti_handler_fn_t pfn;
   gasnet_handler_t handleridx;
   gasnetc_token_t *token;
   gasnetc_dcmf_amtype_t amtype;
@@ -1499,7 +1498,7 @@ DCMF_Request_t* gasnetc_dcmf_handle_am_header(void *clientdata,
                 unsigned *rcvlen, char **rcvbuf,
                 DCMF_Callback_t *cb_done){
   DCQuad headerquad;
-  gasnetc_handler_fn_t pfn;
+  gasneti_handler_fn_t pfn;
   gasnet_handler_t handleridx;
   gasnetc_token_t *token;
   gasnetc_dcmf_amtype_t amtype; 
