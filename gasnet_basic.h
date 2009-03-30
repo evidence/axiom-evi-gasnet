@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2009/03/30 02:40:24 $
- * $Revision: 1.93 $
+ *     $Date: 2009/03/30 07:36:29 $
+ * $Revision: 1.94 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -196,6 +196,12 @@
   #define GASNETI_USED GASNETI_ATTRIBUTE((__used__))
 #else
   #define GASNETI_USED 
+#endif
+
+#if GASNETI_HAVE_GCC_ATTRIBUTE_UNUSED
+  #define GASNETI_UNUSED GASNETI_ATTRIBUTE((__unused__))
+#else
+  #define GASNETI_UNUSED 
 #endif
 
 #if GASNETI_HAVE_GCC_ATTRIBUTE_NORETURN
