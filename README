@@ -1,11 +1,33 @@
 README file for GASNet
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.117 $
+$Revision: 1.118 $
 
 This is a combination user manual and design document for GASNet. Anyone
 planning on using, modifying or adding to the GASNet code base should read this
-file. For documentation on a particular GASNet conduit, see the README file
-in the conduit directory. For GASNet licensing and usage terms, see license.txt.
+file.
+
+Other documentation:
+ * For GASNet licensing and usage terms, see license.txt.
+ * For documentation on a particular GASNet conduit, see the README file
+   in the conduit directory.
+ * For documentation on the communication-indepenent GASNet-tools library,
+   see README-tools.
+ * Additional information, including the GASNet specification and our bug
+   tracking database, is available from http://gasnet.cs.berkeley.edu
+
+Contents of this file:
+ * Building and Installing GASNet
+ * Basic Usage Information
+ * Supported Platforms
+ * Recognized Environment Variables
+ * GASNet tracing & statistical collection
+ * GASNet debug malloc services
+ * MPI Interoperability
+ * GASNet Design Information
+ * System Organization
+ * GASNet coding standards
+ * GASNet porting guide
+ * Source Control and GASNet
 
 Building and Installing GASNet
 ==============================
