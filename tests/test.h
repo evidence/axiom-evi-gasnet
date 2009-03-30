@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2009/03/24 23:42:27 $
- * $Revision: 1.119 $
+ *     $Date: 2009/03/30 02:21:04 $
+ * $Revision: 1.120 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -705,9 +705,14 @@ static void TEST_DEBUGPERFORMANCE_WARNING(void) {
     gasnet_handlerentry_t *mytab = (gasnet_handlerentry_t *)malloc((numentries+2)*sizeof(gasnet_handlerentry_t));
     if (numentries) memcpy(mytab, table, numentries*sizeof(gasnet_handlerentry_t));
     mytab[numentries].index = 0; /* "dont care" index */
-    mytab[numentries].fnptr = (void (*)())_test_seggather;
     mytab[numentries+1].index = 0; /* "dont care" index */
+#if GASNET_USE_STRICT_PROTOTYPES
+    mytab[numentries].fnptr = (void *)_test_seggather;
+    mytab[numentries+1].fnptr = (void *)_test_segbcast;
+#else
+    mytab[numentries].fnptr = (void (*)())_test_seggather;
     mytab[numentries+1].fnptr = (void (*)())_test_segbcast;
+#endif
     /* do regular attach, then setup seg_everything segment */
     GASNET_Safe(result = gasnet_attach(mytab, numentries+2, segsize, minheapoffset));
     _test_seggather_idx = mytab[numentries].index;
