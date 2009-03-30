@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2009/03/30 21:14:26 $
-# $Revision: 1.534 $
+#     $Date: 2009/03/30 21:26:10 $
+# $Revision: 1.535 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.534 $)
+AC_REVISION($Revision: 1.535 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -300,9 +300,10 @@ AC_DEFUN([GASNET_GET_GNUWARNINGFLAGS],[
         ]GASNET_TRY_[$1]FLAG[([-Wwrite-strings],[[$1]FLAGS="$[$1]FLAGS -Wwrite-strings"])
         ]GASNET_TRY_[$1]FLAG[([-Wdeclaration-after-statement],[[$1]FLAGS="$[$1]FLAGS -Wdeclaration-after-statement"])
         ]GASNET_TRY_[$1]FLAG[([-Wmissing-format-attribute],[[$1]FLAGS="$[$1]FLAGS -Wmissing-format-attribute"])
-	if test "$enabled_strict_prototypes" = "yes" ; then
-          ]GASNET_TRY_[$1]FLAG[([-Wstrict-prototypes],[[$1]FLAGS="$[$1]FLAGS -Wstrict-prototypes"])
-	fi
+dnl  DISABLED because -Wstrict-prototypes can break configure probes that look for warnings -PHH 2009.03.30
+dnl	if test "$enabled_strict_prototypes" = "yes" ; then
+dnl       ]GASNET_TRY_[$1]FLAG[([-Wstrict-prototypes],[[$1]FLAGS="$[$1]FLAGS -Wstrict-prototypes"])
+dnl	fi
 	if test "$use_pthreads" != "no" ; then
         # some crappy pthread mutex implementations generate warnings without -Wno-missing-braces
 	AC_MSG_CHECKING(for buggy pthread.h mutex initializers)
