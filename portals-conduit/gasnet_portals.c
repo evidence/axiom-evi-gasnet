@@ -1532,7 +1532,7 @@ static void CB_event(ptl_event_t *ev)
  *     Receipt of a PUT_END on this MD causes the execution of an AMLong handler.
  * Both RAR_MD and RARAM_MD are linked on the GASNETC_RAR_PTE portals table entry list.
  * --------------------------------------------------------------------------------- */
-static void RAR_init()
+static void RAR_init(void)
 {
   ptl_md_t md;
   ptl_handle_me_t me1_h, me2_h;
@@ -1633,7 +1633,7 @@ static void RAR_init()
  * Remove the memory descriptors associated with the Remote Access Region, but dont
  * deallocate the memory.
  * --------------------------------------------------------------------------------- */
-static void RAR_exit()
+static void RAR_exit(void)
 {
   /* these will automatically unlink the match-list entries as well */
   GASNETC_PTLSAFE(PtlMDUnlink(gasnetc_RAR.md_h));
@@ -1646,7 +1646,7 @@ static void RAR_exit()
  * Replies to AM Requests are issued from this buffer.  It is never the target of
  * a remote operation so it is allocated a free-floating memory descriptor.
  * --------------------------------------------------------------------------------- */
-static void RplSB_init()
+static void RplSB_init(void)
 {
   ptl_md_t md;
 
@@ -1672,7 +1672,7 @@ static void RplSB_init()
 /* ------------------------------------------------------------------------------------
  * Clean up the Reply Send Buffer.  Unlink and delete the memory.
  * --------------------------------------------------------------------------------- */
-static void RplSB_exit()
+static void RplSB_exit(void)
 {
   GASNETC_PTLSAFE(PtlMDUnlink(gasnetc_RplSB.md_h));
   gasnetc_buf_free(&gasnetc_RplSB);
@@ -1689,7 +1689,7 @@ static void RplSB_exit()
  * We also allocate the Catch-Basin Memory descriptor here.  It lives at the end of
  * the list and uses the same match-bits as the Receive buffers.  
  * --------------------------------------------------------------------------------- */
-static void ReqRB_init()
+static void ReqRB_init(void)
 {
   int i;
   ptl_md_t md;
@@ -1768,7 +1768,7 @@ static void ReqRB_init()
 /* ---------------------------------------------------------------------------------
  * Cleanup Request Receive Buffer resources.
  * --------------------------------------------------------------------------------- */
-static void ReqRB_exit()
+static void ReqRB_exit(void)
 {
   int i;
 
@@ -1790,7 +1790,7 @@ static void ReqRB_exit()
  *        Match-list for AM Replys and for Catch-Basin algorithm to work.  
  *        Put it on GASNETC_AM_PTE table entry.
  * --------------------------------------------------------------------------------- */
-static void ReqSB_init()
+static void ReqSB_init(void)
 {
   ptl_md_t md;
   gasnetc_PtlBuffer_t *p = &gasnetc_ReqSB;
@@ -1825,7 +1825,7 @@ static void ReqSB_init()
 /* ---------------------------------------------------------------------------------
  * Cleanup Request Send Buffer Resources
  * --------------------------------------------------------------------------------- */
-static void ReqSB_exit()
+static void ReqSB_exit(void)
 {
   /* unlink the MD */
   GASNETC_PTLSAFE(PtlMDUnlink(gasnetc_ReqSB.md_h));
@@ -2074,7 +2074,7 @@ void gasnetc_end_epoch(int epoch_count)
  * Walk list of nodes, hitting them up for credits to be returned to us
  * Walk in circular list, always re-start from where we left off last time.
  * --------------------------------------------------------------------------------- */
-void gasnetc_scavenge_for_credits()
+void gasnetc_scavenge_for_credits(void)
 {
   /* Simply walk list of remote nodes, requesting that they return credits */
   int node, start;
@@ -2291,7 +2291,7 @@ static void sys_event(ptl_event_t *ev)
 /* ---------------------------------------------------------------------------------
  * Init the system SYS MDs and Event Queue
  * --------------------------------------------------------------------------------- */
-static void sys_init()
+static void sys_init(void)
 {
   ptl_size_t eq_len = 2*gasneti_nodes + 10;
   ptl_md_t   md;
@@ -2356,7 +2356,7 @@ static void sys_init()
 /* ---------------------------------------------------------------------------------
  * Remove the system SYS resources
  * --------------------------------------------------------------------------------- */
-static void sys_exit()
+static void sys_exit(void)
 {
   ptl_event_t ev;
   /* these will automatically unlink the match-list entries as well */
@@ -2632,7 +2632,7 @@ extern gasnet_node_t gasnetc_get_nodeid(ptl_process_id_t *proc)
  * Bootstrap barrier function.
  * Just use cnos_barrier on XT3, but might have to init it first.
  * --------------------------------------------------------------------------------- */
-extern void gasnetc_bootstrapBarrier() {
+extern void gasnetc_bootstrapBarrier(void) {
   static int gasnetc_bootstrapBarrierCnt = 0;
 
   gasnetc_bootstrapBarrierCnt++;
@@ -3852,7 +3852,7 @@ extern void gasnetc_portals_preexit(int do_trace)
  *   - Remove MDs and match-list entries
  *   - Free the buffers used for bounce, send/recv
  * --------------------------------------------------------------------------------- */
-extern void gasnetc_portals_exit()
+extern void gasnetc_portals_exit(void)
 {
 
 #define DO_CLEANUP_PORTALS 0

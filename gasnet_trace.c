@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.c,v $
- *     $Date: 2008/12/26 05:30:52 $
- * $Revision: 1.135 $
+ *     $Date: 2009/03/30 02:40:24 $
+ * $Revision: 1.136 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -271,7 +271,7 @@ extern size_t gasneti_format_putsgets(char *buf, void *_pstats,
       gasneti_free(_td);
     }
     GASNETI_INLINE(gasneti_mysrclineinfo)
-    gasneti_srclineinfo_t *gasneti_mysrclineinfo() {
+    gasneti_srclineinfo_t *gasneti_mysrclineinfo(void) {
       gasneti_srclineinfo_t *srclineinfo = gasneti_threadkey_get(gasneti_srclineinfo_key);
       if_pt (srclineinfo) {
         gasneti_memcheck(srclineinfo);
@@ -295,11 +295,11 @@ extern size_t gasneti_format_putsgets(char *buf, void *_pstats,
       *pfilename = sli->filename;
       *plinenum = sli->linenum;
     }
-    extern void gasneti_trace_freezesourceline() {
+    extern void gasneti_trace_freezesourceline(void) {
       gasneti_srclineinfo_t *sli = gasneti_mysrclineinfo();
       sli->frozen++;
     }
-    extern void gasneti_trace_unfreezesourceline() {
+    extern void gasneti_trace_unfreezesourceline(void) {
       gasneti_srclineinfo_t *sli = gasneti_mysrclineinfo();
       gasneti_assert(sli->frozen > 0);
       sli->frozen--;
@@ -334,7 +334,7 @@ extern size_t gasneti_format_putsgets(char *buf, void *_pstats,
   GASNETI_FORMAT_PRINTF(gasneti_tracestats_printf,1,2,
   static void gasneti_tracestats_printf(const char *format, ...));
 
-  static char *gasneti_getbuf() {
+  static char *gasneti_getbuf(void) {
     int bufidx;
 
     gasneti_mutex_lock(&gasneti_buflock);
@@ -776,7 +776,7 @@ AGGR(I);
 AGGR(C);
 AGGR(D);
 
-extern void gasneti_trace_finish() {
+extern void gasneti_trace_finish(void) {
 #if GASNETI_STATS_OR_TRACE
   static gasneti_mutex_t gasneti_tracefinishlock = GASNETI_MUTEX_INITIALIZER;
   gasneti_mutex_lock(&gasneti_tracefinishlock);

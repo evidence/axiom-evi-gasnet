@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2008/12/26 05:31:06 $
- * $Revision: 1.13 $
+ *     $Date: 2009/03/30 02:40:51 $
+ * $Revision: 1.14 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -65,7 +65,7 @@ static size_t gasnete_max_get_single = GASNETC_PTL_MAX_TRANS_SZ;
   ==============
 */
 /* called at startup to check configuration sanity */
-static void gasnete_check_config() {
+static void gasnete_check_config(void) {
   gasneti_check_config_postattach();
 
   gasneti_assert_always(GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD <= gasnet_AMMaxMedium());
@@ -349,7 +349,7 @@ void gasneti_iop_markdone(gasneti_iop_t *iop, unsigned int noperations, int isge
   gasnete_iop_check(op);
 }
 
-extern void gasnete_init() {
+extern void gasnete_init(void) {
   static int firstcall = 1;
   GASNETI_TRACE_PRINTF(C,("gasnete_init()"));
   gasneti_assert(firstcall); /*  make sure we haven't been called before */
@@ -1130,7 +1130,7 @@ static gasnet_handlerentry_t const gasnete_handlers[] = {
   { 0, NULL }
 };
 
-extern gasnet_handlerentry_t const *gasnete_get_handlertable() {
+extern gasnet_handlerentry_t const *gasnete_get_handlertable(void) {
   return gasnete_handlers;
 }
 /* ------------------------------------------------------------------------------------ */

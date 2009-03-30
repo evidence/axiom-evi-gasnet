@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2009/03/30 01:35:45 $
- * $Revision: 1.207 $
+ *     $Date: 2009/03/30 02:41:05 $
+ * $Revision: 1.208 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -190,7 +190,7 @@ static char *gasnetc_vapi_ports;
   ==============
 */
 /* called at startup to check configuration sanity */
-static void gasnetc_check_config() {
+static void gasnetc_check_config(void) {
   gasneti_check_config_preinit();
 
   gasneti_assert_always(offsetof(gasnetc_medmsg_t,args) == GASNETC_MEDIUM_HDRSZ);
@@ -1995,7 +1995,7 @@ static void gasnetc_exit_role_reph(gasnet_token_t token, gasnet_handlerarg_t *ar
  * Note that if we get here as a result of a remote exit request then our role has already been
  * set to "slave" and we won't touch the network from inside the request handler.
  */
-static int gasnetc_get_exit_role()
+static int gasnetc_get_exit_role(void)
 {
   int role;
 
@@ -2715,11 +2715,11 @@ extern int gasnetc_AMReplyLongM(
 */
 #if GASNETC_USE_INTERRUPTS
   #error interrupts not implemented
-  extern void gasnetc_hold_interrupts() {
+  extern void gasnetc_hold_interrupts(void) {
     GASNETI_CHECKATTACH();
     /* add code here to disable handler interrupts for _this_ thread */
   }
-  extern void gasnetc_resume_interrupts() {
+  extern void gasnetc_resume_interrupts(void) {
     GASNETI_CHECKATTACH();
     /* add code here to re-enable handler interrupts for _this_ thread */
   }
@@ -2847,7 +2847,7 @@ static gasnet_handlerentry_t const gasnetc_handlers[] = {
   { 0, NULL }
 };
 
-gasnet_handlerentry_t const *gasnetc_get_handlertable() {
+gasnet_handlerentry_t const *gasnetc_get_handlertable(void) {
   return gasnetc_handlers;
 }
 

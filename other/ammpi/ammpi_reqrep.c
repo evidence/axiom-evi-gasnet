@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_reqrep.c,v $
- *     $Date: 2007/02/02 22:18:19 $
- * $Revision: 1.37 $
+ *     $Date: 2009/03/30 02:40:43 $
+ * $Revision: 1.38 $
  * Description: AMMPI Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -38,7 +38,7 @@ static int intpow(int val, int exp) {
 }
 /* ------------------------------------------------------------------------------------ */
 #ifdef WIN32
-  extern int64_t AMMPI_getMicrosecondTimeStamp() {
+  extern int64_t AMMPI_getMicrosecondTimeStamp(void) {
     static int status = -1;
     static double multiplier;
     if (status == -1) { /*  first time run */
@@ -66,7 +66,7 @@ static int intpow(int val, int exp) {
  */
 
 #else /* unknown processor - use generic UNIX call */
-  extern int64_t AMMPI_getMicrosecondTimeStamp() {
+  extern int64_t AMMPI_getMicrosecondTimeStamp(void) {
     int64_t retval;
     struct timeval tv;
     if (gettimeofday(&tv, NULL))

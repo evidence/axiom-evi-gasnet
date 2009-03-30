@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2009/03/30 01:35:33 $
- * $Revision: 1.125 $
+ * $Date: 2009/03/30 02:40:34 $
+ * $Revision: 1.126 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -32,9 +32,9 @@ gasneti_atomic_t gasnetc_exit_running = gasneti_atomic_init(0);	/* boolean used 
 
 gasnetc_state_t _gmc;
 
-gasnet_handlerentry_t const		*gasnetc_get_handlertable();
-extern gasnet_handlerentry_t const	*gasnete_get_handlertable();
-extern gasnet_handlerentry_t const	*gasnete_get_extref_handlertable();
+gasnet_handlerentry_t const		*gasnetc_get_handlertable(void);
+extern gasnet_handlerentry_t const	*gasnete_get_handlertable(void);
+extern gasnet_handlerentry_t const	*gasnete_get_extref_handlertable(void);
 
 static void gasnetc_atexit(void);
 
@@ -49,7 +49,7 @@ static double gasnetc_exittimeout = GASNETC_DEFAULT_EXITTIMEOUT_MAX;
   ==============
 */
 /* called at startup to check configuration sanity */
-static void gasnetc_check_config() {
+static void gasnetc_check_config(void) {
   gasneti_check_config_preinit();
 
   gasneti_assert_always(GASNETC_AM_SIZE >= 12);
@@ -172,7 +172,7 @@ gasnetc_init(int *argc, char ***argv)
 /* ------------------------------------------------------------------------------------ */
 static char checkuniqhandler[256] = { 0 };
 void
-gasnetc_AM_InitHandler()
+gasnetc_AM_InitHandler(void)
 {
 	int	i;
 
@@ -691,7 +691,7 @@ gasnetc_SysExitRole_reph(gasnet_token_t token, void *nop, size_t nsz,
  *
  * XXX gasnetc_get_exit_role is called from a single thread.
  */
-static int gasnetc_get_exit_role()
+static int gasnetc_get_exit_role(void)
 {
   int role;
 
@@ -2083,7 +2083,7 @@ int gasnetc_ReplySystem(
 /* -------------------------------------------------------------------------- */
 /* Core misc. functions                                                       */
 void
-gasnetc_AllocPinnedBufs()
+gasnetc_AllocPinnedBufs(void)
 {
 	int	i, nbufs;
 	size_t	buflen;
@@ -2202,7 +2202,7 @@ gasnetc_AllocPinnedBufs()
 }
 
 void
-gasnetc_DestroyPinnedBufs()
+gasnetc_DestroyPinnedBufs(void)
 {
 	if (_gmc.dma_bufs != NULL)
 		gm_free_pages(_gmc.dma_bufs, 
@@ -2392,7 +2392,7 @@ static volatile int	gasnetc_bootstrapBroadcast_recvd[2]  = { 0, 0 };
 #endif
 
 void
-gasnetc_AllocGatherBufs()
+gasnetc_AllocGatherBufs(void)
 {
     size_t  allocsz;
 
@@ -2408,7 +2408,7 @@ gasnetc_AllocGatherBufs()
 }
 
 void
-gasnetc_DestroyGatherBufs()
+gasnetc_DestroyGatherBufs(void)
 {
     if (gasnetc_bootstrapGather_buf[0] != NULL)
 	    gasneti_free(gasnetc_bootstrapGather_buf[0]);
@@ -2629,7 +2629,7 @@ gasnetc_bootstrapExchange(void *src, size_t len, void *dest)
 }
 
 void
-gasnetc_dump_tokens()
+gasnetc_dump_tokens(void)
 {
 	GASNETI_TRACE_PRINTF(C,
 	    ("Send tokens: lo=%3d, hi=%3d, tot=%3d, max=%3d\n",
@@ -2691,7 +2691,7 @@ gasnetc_gmport_allocate(int *board, int *port)
 }
 
 void
-gasnetc_getconf_conffile()
+gasnetc_getconf_conffile(void)
 {
 	FILE		*fp;
 	char		line[128];
@@ -2841,7 +2841,7 @@ gasnetc_getconf_conffile()
 #ifdef GASNETI_GM_RODATA_WORKAROUND
   /* ensure rodata object is linked into every executable */
   extern const int gasneti_dummy_rodata_writable;
-  extern int gasneti_dummy_rodata_fn() { return gasneti_dummy_rodata_writable; }
+  extern int gasneti_dummy_rodata_fn(void) { return gasneti_dummy_rodata_writable; }
 #endif
 
 /* ------------------------------------------------------------------------------------ */
@@ -2857,11 +2857,11 @@ gasnetc_getconf_conffile()
 */
 #if GASNETC_USE_INTERRUPTS
   #error interrupts not implemented
-  extern void gasnetc_hold_interrupts() {
+  extern void gasnetc_hold_interrupts(void) {
     GASNETI_CHECKATTACH();
     /* add code here to disable handler interrupts for _this_ thread */
   }
-  extern void gasnetc_resume_interrupts() {
+  extern void gasnetc_resume_interrupts(void) {
     GASNETI_CHECKATTACH();
     /* add code here to re-enable handler interrupts for _this_ thread */
   }
@@ -2986,7 +2986,7 @@ static gasnet_handlerentry_t const gasnetc_handlers[] = {
   { 0, NULL }
 };
 
-gasnet_handlerentry_t const *gasnetc_get_handlertable() {
+gasnet_handlerentry_t const *gasnetc_get_handlertable(void) {
   return gasnetc_handlers;
 }
 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_page.c,v $
- *     $Date: 2008/04/02 17:57:16 $
- * $Revision: 1.54 $
+ *     $Date: 2009/03/30 02:40:49 $
+ * $Revision: 1.55 $
  * Description: 
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -81,7 +81,7 @@ int	fhi_AcquireLocalRegionsList(int local_ref,
 void	fhi_ReleaseLocalRegionsList(int local_ref, firehose_region_t *reg, 
 				size_t reg_num);
 
-void	fh_dump_counters();
+void	fh_dump_counters(void);
 
 /* ##################################################################### */
 /* BUFFERS AND QUEUES                                                    */
@@ -784,7 +784,7 @@ fh_priv_check_fn(void *val, void *arg)
 #endif
 
 void
-fh_fini_plugin()
+fh_fini_plugin(void)
 {
 	fhi_RegionPool_t	*rpool;
 	int			i;
@@ -1265,7 +1265,7 @@ fh_PendingCallbacksEnqueue(firehose_request_t *req,
 
 #if FIREHOSE_SMP
 extern void
-fhsmp_ServiceLocalPendingList()
+fhsmp_ServiceLocalPendingList(void)
 {
     int		i;
     uintptr_t	bucket_addr, end_addr;
@@ -3026,7 +3026,7 @@ fh_dump_fhparams(FILE *fp)
 }
 
 void
-fh_dump_counters()
+fh_dump_counters(void)
 {
     int 		i;
 

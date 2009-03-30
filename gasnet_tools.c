@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2009/01/22 19:46:29 $
- * $Revision: 1.220 $
+ *     $Date: 2009/03/30 02:40:24 $
+ * $Revision: 1.221 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -133,35 +133,35 @@ extern void gasneti_mutex_cautious_init(/*gasneti_mutex_t*/void *_pl) {
 #ifdef GASNETI_TICKS_NOW_BODY
   GASNETI_SPECIAL_ASM_DEFN(gasneti_slow_ticks_now, GASNETI_TICKS_NOW_BODY)
 #else
-  extern gasneti_tick_t gasneti_slow_ticks_now() {
+  extern gasneti_tick_t gasneti_slow_ticks_now(void) {
     return gasneti_ticks_now();
   }
 #endif
 #ifdef GASNETI_COMPILER_FENCE_BODY
   GASNETI_SPECIAL_ASM_DEFN(gasneti_slow_compiler_fence, GASNETI_COMPILER_FENCE_BODY)
 #else
-  extern void gasneti_slow_compiler_fence() {
+  extern void gasneti_slow_compiler_fence(void) {
     gasneti_compiler_fence();
   }
 #endif
 #ifdef GASNETI_LOCAL_WMB_BODY
   GASNETI_SPECIAL_ASM_DEFN(gasneti_slow_local_wmb, GASNETI_LOCAL_WMB_BODY)
 #else
-  extern void gasneti_slow_local_wmb() {
+  extern void gasneti_slow_local_wmb(void) {
     gasneti_local_wmb();
   }
 #endif
 #ifdef GASNETI_LOCAL_RMB_BODY
   GASNETI_SPECIAL_ASM_DEFN(gasneti_slow_local_rmb, GASNETI_LOCAL_RMB_BODY)
 #else
-  extern void gasneti_slow_local_rmb() {
+  extern void gasneti_slow_local_rmb(void) {
     gasneti_local_rmb();
   }
 #endif
 #ifdef GASNETI_LOCAL_MB_BODY
   GASNETI_SPECIAL_ASM_DEFN(gasneti_slow_local_mb, GASNETI_LOCAL_MB_BODY)
 #else
-  extern void gasneti_slow_local_mb() {
+  extern void gasneti_slow_local_mb(void) {
     gasneti_local_mb();
   }
 #endif
@@ -259,7 +259,7 @@ int GASNETT_LINKCONFIG_IDIOTCHECK(GASNETI_ATOMIC64_CONFIG) = 1;
 static gasneti_atomic_t gasneti_backtrace_enabled = gasneti_atomic_init(1);
 
 
-extern const char *gasnett_performance_warning_str() {
+extern const char *gasnett_performance_warning_str(void) {
   static char *result = NULL;
   static gasneti_mutex_t gasnett_performance_warning_lock = GASNETI_MUTEX_INITIALIZER;
   gasnett_mutex_lock(&gasnett_performance_warning_lock);
@@ -392,7 +392,7 @@ extern void gasneti_killmyprocess(int exitcode) {
   _exit(exitcode); /* use _exit to bypass atexit handlers */
   gasneti_fatalerror("gasneti_killmyprocess failed to kill the process!");
 }
-extern void gasneti_flush_streams() {
+extern void gasneti_flush_streams(void) {
   if (fflush(NULL)) /* passing NULL to fflush causes it to flush all open FILE streams */
     gasneti_fatalerror("failed to fflush(NULL): %s", strerror(errno));
   if (fflush(stdout)) 
@@ -404,7 +404,7 @@ extern void gasneti_flush_streams() {
   gasneti_filesystem_sync();
   gasneti_sched_yield();
 }
-extern void gasneti_close_streams() {
+extern void gasneti_close_streams(void) {
   gasneti_reghandler(SIGPIPE, SIG_IGN); /* In case we still try to generate output */
   if (fclose(stdin)) 
     gasneti_fatalerror("failed to fclose(stdin) in gasnetc_exit: %s", strerror(errno));
@@ -638,7 +638,7 @@ static void gasneti_ondemandHandler(int sig) {
   } else gasneti_fatalerror("unrecognized signal in gasneti_ondemandHandler: %i", sig);
 }
 
-extern void gasneti_ondemand_init() {
+extern void gasneti_ondemand_init(void) {
   static int firsttime = 1;
   if (firsttime) {
     const char *str = gasneti_getenv_withdefault("GASNET_FREEZE_SIGNAL",NULL);
@@ -663,7 +663,7 @@ extern void gasneti_ondemand_init() {
     gasneti_reghandler(gasneti_freezesignal, gasneti_ondemandHandler);
 }
 
-static void gasneti_freezeForDebugger_init() {
+static void gasneti_freezeForDebugger_init(void) {
   if (gasneti_freezeonerr_isinit) { gasneti_local_rmb(); return; }
   gasneti_freezeonerr_userenabled = gasneti_getenv_yesno_withdefault("GASNET_FREEZE_ON_ERROR",0);
   gasneti_local_wmb();
@@ -671,7 +671,7 @@ static void gasneti_freezeForDebugger_init() {
 
   gasneti_ondemand_init();
 }
-extern void gasneti_freezeForDebuggerErr() {
+extern void gasneti_freezeForDebuggerErr(void) {
   gasneti_freezeForDebugger_init();
   if (gasneti_freezeonerr_userenabled)
     gasneti_freezeForDebuggerNow(&gasnet_frozen,"gasnet_frozen"); /* allow user freeze */
@@ -1149,7 +1149,7 @@ extern uint64_t gasneti_checksum(const void *p, int numbytes) {
  return result;
 }
 /* ------------------------------------------------------------------------------------ */
-extern int gasneti_isLittleEndian() {
+extern int gasneti_isLittleEndian(void) {
   union {
     int i;                  /* machine word */
     unsigned char b[sizeof(int)];    /* b[0] overlaid with first byte of i */
@@ -1363,7 +1363,7 @@ extern char *gasneti_getenv(const char *keyname) {
 /* indicate whether GASNET_VERBOSEENV reporting is enabled on this node 
    1 = yes, 0 = no, -1 = not yet / don't know
 */
-extern int gasneti_verboseenv() {
+extern int gasneti_verboseenv(void) {
   if (gasneti_verboseenv_fn) return (*gasneti_verboseenv_fn)();
   else return !!gasneti_getenv("GASNET_VERBOSEENV");
 }
@@ -1622,7 +1622,7 @@ int gasnett_maximize_rlimit(int res, const char *lim_desc) {
 #endif
 /* return the physical count of CPU's on this node, 
    or zero if that cannot be determined */
-extern int gasneti_cpu_count() {
+extern int gasneti_cpu_count(void) {
   static int hwprocs = -1;
   if (hwprocs >= 0) return hwprocs;
 

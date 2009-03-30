@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_extended.c,v $
- *     $Date: 2008/12/26 05:31:08 $
- * $Revision: 1.24 $
+ *     $Date: 2009/03/30 02:40:57 $
+ * $Revision: 1.25 $
  * Description: GASNet Extended API SHMEM Implementation
  * Copyright 2003, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -42,12 +42,12 @@ gasnete_threaddata_t  * const gasnete_threaddata_ptr = &gasnete_threaddata;
 #include "gasnet_extended_common.c"
 
 extern void gasnete_register_threadcleanup(void (*cleanupfn)(void *), void *context) { }
-extern uint64_t gasneti_max_threads() { return 1; }
+extern uint64_t gasneti_max_threads(void) { return 1; }
 
 /* ------------------------------------------------------------------------------------ */
 
 
-extern void gasnete_init() {
+extern void gasnete_init(void) {
   int	    i;
   static int firstcall = 1;
   GASNETI_TRACE_PRINTF(C,("gasnete_init()"));
@@ -258,11 +258,11 @@ _BARRIER_PAD(n1);
 static long volatile		    barrier_notify_ctr[2] = { 0, 0 };
 static gasnete_barrier_state_t	    barrier_state[2];
 
-static void gasnete_shmembarrier_init() {
+static void gasnete_shmembarrier_init(void) {
   /* nothing to do.. */
 }
 
-static void gasnete_barrier_broadcastmismatch() {
+static void gasnete_barrier_broadcastmismatch(void) {
   int i;
   for (i=0; i < gasneti_nodes; i++) 
     *((int *)shmem_ptr(&barrier_mismatch[barrier_phase], i)) = 1;
@@ -443,7 +443,7 @@ gasnete_handlers[] = {
 };
 
 extern gasnet_handlerentry_t const *
-gasnete_get_handlertable() {
+gasnete_get_handlertable(void) {
   return gasnete_handlers;
 }
 

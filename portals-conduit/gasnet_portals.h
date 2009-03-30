@@ -974,7 +974,7 @@ gasnetc_threaddata_t* gasnetc_new_threaddata(gasnete_threadidx_t idx)
 }
 
 GASNETI_INLINE(gasnetc_sys_poll)
-void gasnetc_sys_poll()
+void gasnetc_sys_poll(void)
 {
   ptl_event_t ev;
   unsigned sys_cnt = 0;

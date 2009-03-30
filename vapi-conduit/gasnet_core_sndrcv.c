@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2009/03/30 01:35:45 $
- * $Revision: 1.228 $
+ *     $Date: 2009/03/30 02:41:05 $
+ * $Revision: 1.229 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -3701,7 +3701,7 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
   return GASNET_OK;
 }
 
-extern int gasnetc_AMPoll() {
+extern int gasnetc_AMPoll(void) {
 #if 0 /* Timings show peek optimization is no longer effective */
   int h, work;
 

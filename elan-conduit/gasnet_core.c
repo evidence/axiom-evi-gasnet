@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2009/03/30 01:35:31 $
- * $Revision: 1.78 $
+ *     $Date: 2009/03/30 02:40:29 $
+ * $Revision: 1.79 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -65,7 +65,7 @@ ELAN_GROUP *gasnetc_elan_group = NULL;
 void *gasnetc_elan_ctx         = NULL;
 ELAN_TPORT *gasnetc_elan_tport = NULL;
 
-extern uint64_t gasnetc_clock() {
+extern uint64_t gasnetc_clock(void) {
   if_pt (STATE()) {
     uint64_t val;
     #if 1
@@ -88,7 +88,7 @@ gasneti_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS]; /* handler table 
 
 #ifdef GASNETC_ELAN4
 #include <elan4/library.h>
-extern int gasnetc_ispatchfree_driver() {
+extern int gasnetc_ispatchfree_driver(void) {
   int patchfree_flag = -1;
   int patchfree;
   #if defined(ELAN4_PARAM_DRIVER_FEATURES) && \
@@ -119,7 +119,7 @@ extern int gasnetc_ispatchfree_driver() {
   ==============
 */
 /* called at startup to check configuration sanity */
-static void gasnetc_check_config() {
+static void gasnetc_check_config(void) {
   gasneti_check_config_preinit();
 
   /* add code to do some sanity checks on the number of nodes, handlers
@@ -169,7 +169,7 @@ static void gasnetc_check_config() {
   gasneti_assert_always(GASNETC_ELAN_MAX_QUEUEMSG >= GASNETC_LONG_HEADERSZ + GASNETC_MAX_ARGS*4);
 }
 
-static void gasnetc_bootstrapBarrier() {
+static void gasnetc_bootstrapBarrier(void) {
   /* add code here to implement an external barrier 
       this barrier should not rely on AM or the GASNet API because it's used 
       during bootstrapping before such things are fully functional
@@ -914,7 +914,7 @@ extern void gasnetc_new_threaddata_callback(void **core_threadinfo) {
   #endif
 }
 /* ------------------------------------------------------------------------------------ */
-extern void gasnetc_trace_finish() {
+extern void gasnetc_trace_finish(void) {
   /* dump elan statistics */
   if (GASNETI_STATS_ENABLED(C) ) {
     if (GASNETC_REMOTEEXITINPROGRESS()) {
@@ -1111,11 +1111,11 @@ extern int gasnetc_AMReplyLongM(
 */
 #if GASNETC_USE_INTERRUPTS
   #error interrupts not implemented
-  extern void gasnetc_hold_interrupts() {
+  extern void gasnetc_hold_interrupts(void) {
     GASNETI_CHECKATTACH();
     /* add code here to disable handler interrupts for _this_ thread */
   }
-  extern void gasnetc_resume_interrupts() {
+  extern void gasnetc_resume_interrupts(void) {
     GASNETI_CHECKATTACH();
     /* add code here to re-enable handler interrupts for _this_ thread */
   }
@@ -1241,7 +1241,7 @@ static gasnet_handlerentry_t const gasnetc_handlers[] = {
   { 0, NULL }
 };
 
-gasnet_handlerentry_t const *gasnetc_get_handlertable() {
+gasnet_handlerentry_t const *gasnetc_get_handlertable(void) {
   return gasnetc_handlers;
 }
 

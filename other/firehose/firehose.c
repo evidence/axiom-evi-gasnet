@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose.c,v $
- *     $Date: 2008/04/02 17:57:16 $
- * $Revision: 1.35 $
+ *     $Date: 2009/03/30 02:40:49 $
+ * $Revision: 1.36 $
  * Description: 
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1342,6 +1342,6 @@ gasnet_handlerentry_t fh_am_handlers[] = {
 };
 
 gasnet_handlerentry_t *
-firehose_get_handlertable() {
+firehose_get_handlertable(void) {
         return fh_am_handlers;
 }

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2008/10/11 07:45:27 $
- * $Revision: 1.197 $
+ *     $Date: 2009/03/30 02:40:24 $
+ * $Revision: 1.198 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -79,11 +79,11 @@ GASNETI_IDENT(gasneti_IdentString_ConduitName, "$GASNetConduitName: " GASNET_CON
 
 int gasneti_init_done = 0; /*  true after init */
 int gasneti_attach_done = 0; /*  true after attach */
-extern void gasneti_checkinit() {
+extern void gasneti_checkinit(void) {
   if (!gasneti_init_done)
     gasneti_fatalerror("Illegal call to GASNet before gasnet_init() initialization");
 }
-extern void gasneti_checkattach() {
+extern void gasneti_checkattach(void) {
    gasneti_checkinit();
    if (!gasneti_attach_done)
     gasneti_fatalerror("Illegal call to GASNet before gasnet_attach() initialization");
@@ -135,11 +135,11 @@ extern int gasneti_internal_idiotcheck(gasnet_handlerentry_t *table, int numentr
 #endif
 
 #if GASNET_DEBUG
-  static void gasneti_disabled_progressfn() {
+  static void gasneti_disabled_progressfn(void) {
     gasneti_fatalerror("Called a disabled progress function");
   }
-  void (*gasneti_debug_progressfn_bool)() = gasneti_disabled_progressfn;
-  void (*gasneti_debug_progressfn_counted)() = gasneti_disabled_progressfn;
+  gasneti_progressfn_t gasneti_debug_progressfn_bool = gasneti_disabled_progressfn;
+  gasneti_progressfn_t gasneti_debug_progressfn_counted = gasneti_disabled_progressfn;
 #endif
 
 #ifdef _GASNETI_SEGINFO_DEFAULT
@@ -151,7 +151,7 @@ extern int gasneti_internal_idiotcheck(gasnet_handlerentry_t *table, int numentr
 
 /* ------------------------------------------------------------------------------------ */
 /* conduit-independent sanity checks */
-extern void gasneti_check_config_preinit() {
+extern void gasneti_check_config_preinit(void) {
   gasneti_assert_always(sizeof(int8_t) == 1);
   gasneti_assert_always(sizeof(uint8_t) == 1);
   gasneti_assert_always(sizeof(gasnete_anytype8_t) == 1);
@@ -215,7 +215,7 @@ extern void gasneti_check_config_preinit() {
 }
 
 static void gasneti_check_portable_conduit(void);
-extern void gasneti_check_config_postattach() {
+extern void gasneti_check_config_postattach(void) {
   gasneti_check_config_preinit();
 
   /*  verify sanity of the core interface */
@@ -278,7 +278,7 @@ extern const char *gasnet_ErrorDesc(int errval) {
 }
 #endif
 /* ------------------------------------------------------------------------------------ */
-extern void gasneti_freezeForDebugger() {
+extern void gasneti_freezeForDebugger(void) {
   if (gasneti_getenv_yesno_withdefault("GASNET_FREEZE",0)) {
     gasneti_freezeForDebuggerNow(&gasnet_frozen,"gasnet_frozen");
   }
@@ -600,7 +600,7 @@ const char * (*gasnett_decode_envval_fn)(const char *) = &gasneti_decode_envval;
    1 = yes, 0 = no, -1 = not yet / don't know
  */
 #define GASNETI_ENV_OUTPUT_NODE()  (gasneti_mynode == 0)
-extern int _gasneti_verboseenv_fn() {
+extern int _gasneti_verboseenv_fn(void) {
   static int verboseenv = -1;
   if (verboseenv == -1) {
     if (gasneti_init_done && gasneti_mynode != (gasnet_node_t)-1) {
@@ -616,7 +616,7 @@ extern int _gasneti_verboseenv_fn() {
 }
 int (*gasneti_verboseenv_fn)(void) = &_gasneti_verboseenv_fn;
 
-extern const char * _gasneti_backtraceid_fn() {
+extern const char * _gasneti_backtraceid_fn(void) {
   static char myid[255];
   sprintf(myid, "[%i] ", (int)gasneti_mynode);
   return myid;
@@ -703,7 +703,7 @@ extern double gasneti_get_exittimeout(double dflt_max, double dflt_min, double d
 #endif
 
 /* ------------------------------------------------------------------------------------ */
-static void gasneti_check_portable_conduit() { /* check for portable conduit abuse */
+static void gasneti_check_portable_conduit(void) { /* check for portable conduit abuse */
   char mycore[80], myext[80];
   char const *mn = GASNET_CORE_NAME_STR;
   char *m;
@@ -912,7 +912,7 @@ static void gasneti_check_portable_conduit() { /* check for portable conduit abu
   }
 
   GASNETI_INLINE(gasneti_memalloc_envinit)
-  void gasneti_memalloc_envinit() {
+  void gasneti_memalloc_envinit(void) {
     if (!gasneti_memalloc_envisinit) {
       gasneti_mutex_lock(&gasneti_memalloc_lock);
         if (!gasneti_memalloc_envisinit && gasneti_init_done) {

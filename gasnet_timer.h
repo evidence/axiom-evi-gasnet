@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2009/03/27 05:07:58 $
- * $Revision: 1.90 $
+ *     $Date: 2009/03/30 02:40:24 $
+ * $Revision: 1.91 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -63,7 +63,7 @@ GASNETI_BEGIN_EXTERNC
   #if PLATFORM_COMPILER_GNU
     #define _rtc rtclock
   #else
-    extern long _rtc();
+    extern long _rtc(void);
   #endif
 
   #define gasneti_ticks_now()      (_rtc())
@@ -76,7 +76,7 @@ GASNETI_BEGIN_EXTERNC
     #define gasneti_ticks_to_ns(st)  ((gasneti_tick_t)(((gasneti_tick_t)(st)) * (1000000000.0 / GASNETI_UNICOS_SYS_CLOCK)))
   #elif PLATFORM_ARCH_CRAYX1
     #include <intrinsics.h>
-    extern long IRTC_RATE();
+    extern long IRTC_RATE(void);
     /* 100 or 113 Mhz sys. clock, depending on hardware */
     GASNETI_INLINE(gasneti_ticks_to_ns)
     uint64_t gasneti_ticks_to_ns(gasneti_tick_t st) {

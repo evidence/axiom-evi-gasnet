@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2009/03/27 05:07:58 $
- * $Revision: 1.92 $
+ *     $Date: 2009/03/30 02:40:24 $
+ * $Revision: 1.93 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -413,7 +413,7 @@
      #define PREDICT_FALSE(exp) ((exp) && ({; _Pragma("execution_frequency(very_low)"); 1; }))
    #else /* experimentally determined that pragma is sometimes(?) ignored unless it is
             preceded by a non-trivial statement - unfortunately the dummy statement can also hurt performance */
-     static __inline gasneti_xlc_pragma_dummy() {} 
+     static __inline gasneti_xlc_pragma_dummy(void) {} 
      #define PREDICT_TRUE(exp)  ((exp) && ({ gasneti_xlc_pragma_dummy(); _Pragma("execution_frequency(very_high)"); 1; }))
      #define PREDICT_FALSE(exp) ((exp) && ({ gasneti_xlc_pragma_dummy(); _Pragma("execution_frequency(very_low)"); 1; }))
    #endif

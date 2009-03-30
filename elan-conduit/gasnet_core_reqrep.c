@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core_reqrep.c,v $
- *     $Date: 2009/03/30 01:35:31 $
- * $Revision: 1.34 $
+ *     $Date: 2009/03/30 02:40:29 $
+ * $Revision: 1.35 $
  * Description: GASNet elan conduit - AM request/reply implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -171,7 +171,7 @@ static void gasnetc_tportReleaseTxBuf(gasnetc_bufdesc_t *desc) {
   UNLOCK_SENDFIFO();
 }
 /* ------------------------------------------------------------------------------------ */
-static gasnetc_bufdesc_t *gasnetc_tportCheckRx() {
+static gasnetc_bufdesc_t *gasnetc_tportCheckRx(void) {
  /* return a buffer if there's an incoming tport msg 
      assumes elan lock is held 
   */
@@ -238,7 +238,7 @@ static void gasnetc_tportAddRxBuf(gasnetc_bufdesc_t *desc) {
 }
 
 /* ------------------------------------------------------------------------------------ */
-extern void gasnetc_initbufs() {
+extern void gasnetc_initbufs(void) {
   /* create a tport message queue */
   ELAN_QUEUE *tport_queue;
   LOCK_ELAN();
@@ -420,7 +420,7 @@ static void gasnetc_processPacket(gasnetc_bufdesc_t *desc) {
   desc->handlerRunning = 0;
 }
 /* ------------------------------------------------------------------------------------ */
-extern int gasnetc_AMPoll() {
+extern int gasnetc_AMPoll(void) {
   int i;
   GASNETI_CHECKATTACH();
 

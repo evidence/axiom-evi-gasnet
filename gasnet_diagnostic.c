@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_diagnostic.c,v $
- *     $Date: 2008/10/14 11:53:49 $
- * $Revision: 1.23 $
+ *     $Date: 2009/03/30 02:40:24 $
+ * $Revision: 1.24 $
  * Description: GASNet internal diagnostics
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -82,7 +82,7 @@ static int id = 0;
 
 #if GASNET_DEBUG
   extern gasneti_auxseg_request_t gasneti_auxseg_dummy(gasnet_seginfo_t *auxseg_info);
-  static void auxseg_test() {
+  static void auxseg_test(void) {
     BARRIER();
     TEST_HEADER("auxseg test") {
       gasneti_auxseg_dummy((void *)(uintptr_t)-1); /* call self-test */
@@ -617,8 +617,8 @@ static void progressfn_tester(int *counter) {
   gasneti_local_mb();
   active = 0;
 }
-static void progressfn_bool() { progressfn_tester(&pf_cnt_boolean); }
-static void progressfn_counted() { progressfn_tester(&pf_cnt_counted); }
+static void progressfn_bool(void) { progressfn_tester(&pf_cnt_boolean); }
+static void progressfn_counted(void) { progressfn_tester(&pf_cnt_counted); }
 static void progressfns_test(int id) {
   int iter;
 #if !GASNET_DEBUG

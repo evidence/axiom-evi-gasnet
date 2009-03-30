@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2009/03/30 01:50:37 $
- * $Revision: 1.109 $
+ *     $Date: 2009/03/30 02:40:36 $
+ * $Revision: 1.110 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -61,14 +61,14 @@ extern firehose_info_t gasnetc_firehose_info;
   ==============
 */
 /* called at startup to check configuration sanity */
-static void gasnete_check_config() {
+static void gasnete_check_config(void) {
   gasneti_check_config_postattach();
 
   gasneti_assert_always(gasnete_eopaddr_isnil(EOPADDR_NIL));
   GASNETE_WIREFLAGS_SANITYCHECK();
 }
 
-extern void gasnete_init() {
+extern void gasnete_init(void) {
     static int firstcall = 1;
     GASNETI_TRACE_PRINTF(C,("gasnete_init()"));
     gasneti_assert(firstcall); /*  make sure we haven't been called before */
@@ -512,7 +512,7 @@ static char *gasnete_lapi_all_buffers = NULL;
 static gasneti_lifo_head_t gasnete_free_nb_list = GASNETI_LIFO_INITIALIZER;
 #define GASNETE_LAPI_NUM_NB 1024
 static int gasnete_num_nb = GASNETE_LAPI_NUM_NB;
-extern void gasnete_lapi_setup_nb()
+extern void gasnete_lapi_setup_nb(void)
 {
   size_t total_pinned_region = gasnete_num_nb * gasnete_pin_threshold;
   char *all_data;
@@ -548,7 +548,7 @@ extern void gasnete_lapi_setup_nb()
   gasneti_lifo_push_many(&gasnete_free_nb_list, &gasnete_free_nb_list_original[0], &gasnete_free_nb_list_original[gasnete_num_nb-1]);
 }
 
-extern void gasnete_lapi_free_nb()
+extern void gasnete_lapi_free_nb(void)
 {
   int i;
   lapi_get_pvo_t req;
@@ -568,7 +568,7 @@ extern void gasnete_lapi_free_nb()
   gasneti_free(gasnete_free_nb_list_original);
 }
 
-static gasnete_lapi_nb *gasnete_get_free_network_buffer()
+static gasnete_lapi_nb *gasnete_get_free_network_buffer(void)
 {
   gasnete_lapi_nb *ret = gasneti_lifo_pop(&gasnete_free_nb_list);
 
@@ -2099,7 +2099,7 @@ static gasnet_handlerentry_t const gasnete_handlers[] = {
     { 0, NULL }
 };
 
-extern gasnet_handlerentry_t const *gasnete_get_handlertable() {
+extern gasnet_handlerentry_t const *gasnete_get_handlertable(void) {
     return gasnete_handlers;
 }
 

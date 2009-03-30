@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_core.c,v $
- *     $Date: 2009/03/30 01:35:39 $
- * $Revision: 1.37 $
+ *     $Date: 2009/03/30 02:40:57 $
+ * $Revision: 1.38 $
  * Description: GASNet shmem conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -21,7 +21,7 @@ GASNETI_IDENT(gasnetc_IdentString_Name,    "$GASNetCoreLibraryName: " GASNET_COR
 gasnet_handlerentry_t const *gasnetc_get_handlertable(void);
 static void gasnetc_atexit(void);
 
-static gasnet_seginfo_t gasnetc_SHMallocSegmentSearch();
+static gasnet_seginfo_t gasnetc_SHMallocSegmentSearch(void);
 static uintptr_t        gasnetc_aligndown_pow2(uintptr_t addr);
 static uintptr_t        gasnetc_alignup_pow2(uintptr_t addr);
 
@@ -53,7 +53,7 @@ gasnetc_am_packet_t  gasnetc_amq_reqs[2*GASNETC_AMQUEUE_MAX_DEPTH];
    * Altix requires mpirun to start jobs, and also requests that jobs
    * explicitly call MPI_Finalize() or else they abort.
    */
-  extern void MPI_Finalize();
+  extern void MPI_Finalize(void);
 #endif
 
 /* ------------------------------------------------------------------------------------ */
@@ -62,7 +62,7 @@ gasnetc_am_packet_t  gasnetc_amq_reqs[2*GASNETC_AMQUEUE_MAX_DEPTH];
   ==============
 */
 /* called at startup to check configuration sanity */
-static void gasnetc_check_config() {
+static void gasnetc_check_config(void) {
   /* add code to do some sanity checks on the number of nodes, handlers
    * and/or segment sizes */ 
   /* ensure our AM buffer placement and sizes are 8-byte aligned */
@@ -72,7 +72,7 @@ static void gasnetc_check_config() {
   gasneti_assert(sizeof(gasnetc_amq_reqs[0].state) == 4);
 }
 
-static void gasnetc_bootstrapBarrier() {
+static void gasnetc_bootstrapBarrier(void) {
 	shmem_barrier_all();
 }
 
@@ -1187,11 +1187,11 @@ extern int gasnetc_AMReplyLongM(
 */
 #if GASNETC_USE_INTERRUPTS
   #error interrupts not implemented
-  extern void gasnetc_hold_interrupts() {
+  extern void gasnetc_hold_interrupts(void) {
     GASNETI_CHECKATTACH();
     /* add code here to disable handler interrupts for _this_ thread */
   }
-  extern void gasnetc_resume_interrupts() {
+  extern void gasnetc_resume_interrupts(void) {
     GASNETI_CHECKATTACH();
     /* add code here to re-enable handler interrupts for _this_ thread */
   }
@@ -1317,7 +1317,7 @@ static gasnet_handlerentry_t const gasnetc_handlers[] = {
   { 0, NULL }
 };
 
-gasnet_handlerentry_t const *gasnetc_get_handlertable() {
+gasnet_handlerentry_t const *gasnetc_get_handlertable(void) {
   return gasnetc_handlers;
 }
 
@@ -1354,7 +1354,7 @@ gasnetc_SHMallocBinarySearch(size_t low, size_t high)
 	}
 }
 
-uintptr_t gasnetc_getMaxMem() {
+uintptr_t gasnetc_getMaxMem(void) {
   #ifdef CRAY_SHMEM
     return (uintptr_t)(64UL<<30);
   #else

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/portable_platform.h,v $
- *     $Date: 2009/03/24 19:31:02 $
- * $Revision: 1.24 $
+ *     $Date: 2009/03/30 02:40:40 $
+ * $Revision: 1.25 $
  * Description: Portable platform detection header
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -744,7 +744,7 @@ OS_FAMILYNAME = _STRINGIFY(PLATFORM_OS_FAMILYNAME)
 , *
 ARCH_FAMILYNAME = _STRINGIFY(PLATFORM_ARCH_FAMILYNAME)
 ;
-int main() {
+int main(void) {
   #define PLATFORM_DISP(x) printf("PLATFORM_"#x"=%s\n",x)
   #define PLATFORM_DISPI(x) printf("PLATFORM_"#x"=%i\n",PLATFORM_##x)
   #define PLATFORM_DISPX(x) printf("PLATFORM_"#x"=0x%x\n",PLATFORM_##x)
@@ -756,6 +756,7 @@ int main() {
   PLATFORM_DISP(COMPILER_IDSTR);
   PLATFORM_DISP(OS_FAMILYNAME);
   PLATFORM_DISP(ARCH_FAMILYNAME);
+  return 0;
 }
 #endif
 /* ------------------------------------------------------------------------------------ */

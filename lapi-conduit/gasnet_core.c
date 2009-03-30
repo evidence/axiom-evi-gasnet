@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2009/03/30 01:50:37 $
- * $Revision: 1.121 $
+ *     $Date: 2009/03/30 02:40:36 $
+ * $Revision: 1.122 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -74,8 +74,8 @@ int *gasnetc_lapi_local_target_counters = NULL;
 lapi_cntr_t **gasnetc_lapi_completion_ptrs = NULL;
 lapi_long_t *gasnetc_lapi_target_counter_directory = NULL;
 #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
-extern void gasnete_lapi_setup_nb();
-extern void gasnete_lapi_free_nb();
+extern void gasnete_lapi_setup_nb(void);
+extern void gasnete_lapi_free_nb(void);
 #endif
 /* In case people call exit before attach */
 int gasnetc_lapi_rdma_initialized = 0;
@@ -136,14 +136,14 @@ gasnetc_uhdr_freelist_t gasnetc_uhdr_freelist;
   ==============
 */
 /* called at startup to check configuration sanity */
-static void gasnetc_check_config() {
+static void gasnetc_check_config(void) {
   gasneti_check_config_preinit();
 
   /* (###) add code to do some sanity checks on the number of nodes, handlers
      * and/or segment sizes */ 
 }
 
-static void gasnetc_bootstrapBarrier() {
+static void gasnetc_bootstrapBarrier(void) {
     /* (###) add code here to implement an external barrier 
        this barrier should not rely on AM or the GASNet API because it's used 
        during bootstrapping before such things are fully functional
@@ -437,7 +437,7 @@ static int gasnetc_reghandlers(gasnet_handlerentry_t *table, int numentries,
 
 int gasnetc_use_firehose = 0;
 
-void gasnetc_lapi_get_remote_contexts()
+void gasnetc_lapi_get_remote_contexts(void)
 {
   int i,j;
   int rctxts_per_node;
@@ -848,7 +848,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 }
     
 #if GASNETC_LAPI_RDMA
-void gasnetc_lapi_free()
+void gasnetc_lapi_free(void)
 {
 #if 0
   int i;
@@ -1075,7 +1075,7 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
     return GASNET_OK;
 }
 
-extern int gasnetc_AMPoll() {
+extern int gasnetc_AMPoll(void) {
     GASNETI_CHECKATTACH();
 
     /* Check if any request handlers are queued for processing
@@ -1682,7 +1682,7 @@ extern int gasnetc_AMReplyLongM(
  * ============================================================================
  */
 #if GASNETC_USE_INTERRUPTS
-extern void gasnetc_hold_interrupts() {
+extern void gasnetc_hold_interrupts(void) {
     GASNETI_CHECKATTACH();
 
     /* Check to see of interrupts are already being held */
@@ -1698,7 +1698,7 @@ extern void gasnetc_hold_interrupts() {
     #error interrupts not implemented
     /* add code here to disable handler interrupts for _this_ thread */
 }
-extern void gasnetc_resume_interrupts() {
+extern void gasnetc_resume_interrupts(void) {
     GASNETI_CHECKATTACH();
 
     /* Check to insure that interrupts are being held */
@@ -1844,7 +1844,7 @@ static gasnet_handlerentry_t const gasnetc_handlers[] = {
   { 0, NULL }
 };
 
-gasnet_handlerentry_t const *gasnetc_get_handlertable() {
+gasnet_handlerentry_t const *gasnetc_get_handlertable(void) {
     return gasnetc_handlers;
 }
 
