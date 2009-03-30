@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2009/03/30 22:42:34 $
-# $Revision: 1.536 $
+#     $Date: 2009/03/30 23:00:36 $
+# $Revision: 1.537 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.536 $)
+AC_REVISION($Revision: 1.537 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -332,7 +332,11 @@ case "$gasnet_cv_cc_family" in
   HP)   CCDEBUGFLAGS="-g +ESdbgasm" ;; # need +ESdbgasm to use -g with _asm()
   MTA)  CCDEBUGFLAGS="-g2" ;; # need +ESdbgasm to use -g with _asm()
   Compaq) CCDEBUGFLAGS="-trapuv -g2" ;;
-  Pathscale) CCDEBUGFLAGS="-g -O0" ;; # need to explicitly disable optimization
+  Pathscale) GASNET_PUSHVAR(CFLAGS,"-g -O0") # need to explicitly disable optimization
+        GASNET_GET_GNUWARNINGFLAGS(C)
+        CCDEBUGFLAGS="$CFLAGS"
+        GASNET_POPVAR(CFLAGS)
+  ;;
   *)    CCDEBUGFLAGS="-g" ;;
 esac
 
@@ -3789,7 +3793,7 @@ AC_SUBST(LDFLAGS)
 GASNET_IF_ENABLED(strict-prototypes, [Use strict prototypes in GASNet headers (at the expense of slight deviation from the specification)], [
   AC_DEFINE(GASNET_USE_STRICT_PROTOTYPES)
   case "$gasnet_cv_cc_family" in
-  GNU)
+  GNU|Pathscale)
         dnl Consistent w/ other GNU warning flags:
         dnl    CFLAGS and MPI_CFLAGS get the flag only for a debug build
         dnl    MISC_CXXFLAGS gets the flag for any build
