@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_toolhelp.h,v $
- *     $Date: 2009/03/27 05:07:58 $
- * $Revision: 1.38 $
+ *     $Date: 2009/03/31 22:05:58 $
+ * $Revision: 1.39 $
  * Description: misc declarations needed by both gasnet_tools and libgasnet
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -106,6 +106,17 @@ extern char *gasneti_build_loc_str(const char *funcname, const char *filename, i
 #else
   #define gasneti_assert_zeroret(op)  op
   #define gasneti_assert_nzeroret(op) op
+#endif
+
+#if GASNET_DEBUG
+  #define GASNETI_UNUSED_UNLESS_DEBUG
+#else
+  #define GASNETI_UNUSED_UNLESS_DEBUG GASNETI_UNUSED
+#endif
+#if GASNETI_THREADS
+  #define GASNETI_UNUSED_UNLESS_THREADS
+#else
+  #define GASNETI_UNUSED_UNLESS_THREADS GASNETI_UNUSED
 #endif
 
 /* return physical memory of machine
