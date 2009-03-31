@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_diagnostic.c,v $
- *     $Date: 2009/03/30 07:25:46 $
- * $Revision: 1.25 $
+ *     $Date: 2009/03/31 21:38:30 $
+ * $Revision: 1.26 $
  * Description: GASNet internal diagnostics
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -620,11 +620,11 @@ static void progressfn_tester(int *counter) {
 static void progressfn_bool(void) { progressfn_tester(&pf_cnt_boolean); }
 static void progressfn_counted(void) { progressfn_tester(&pf_cnt_counted); }
 static void progressfns_test(int id) {
-  int iter;
 #if !GASNET_DEBUG
   TEST_HEADER("progress functions test - SKIPPED"); else return;
   return;
 #else
+  int iter;
   TEST_HEADER("progress functions test"); else return;
   for (iter=0; iter < iters0; iter++) {
     int i;

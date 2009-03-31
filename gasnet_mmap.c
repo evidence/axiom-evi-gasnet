@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2009/03/30 07:25:46 $
- * $Revision: 1.58 $
+ *     $Date: 2009/03/31 21:38:30 $
+ * $Revision: 1.59 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -309,9 +309,11 @@ uintptr_t _gasneti_max_segsize(uint64_t configure_val) {
 #if !GASNET_SEGMENT_EVERYTHING
 /* mmap-based segment init/attach */
 static gasnet_seginfo_t gasneti_segment = {0,0}; /* local segment info */
+#ifdef HAVE_MMAP
 static uintptr_t gasneti_myheapend = 0; /* top of my malloc heap */
 static uintptr_t gasneti_maxheapend = 0; /* top of max malloc heap */
 static uintptr_t gasneti_maxbase = 0; /* start of segment overlap region */
+#endif
 
 typedef struct {
   gasnet_seginfo_t seginfo;
@@ -331,9 +333,6 @@ static gasneti_segexch_t *gasneti_segexch = NULL; /* exchanged segment informati
  */
 void gasneti_segmentInit(uintptr_t localSegmentLimit,
                          gasneti_bootstrapExchangefn_t exchangefn) {
-  gasneti_segexch_t se;
-  int i;
-
   gasneti_assert(gasneti_MaxLocalSegmentSize == 0);
   gasneti_assert(gasneti_MaxGlobalSegmentSize == 0);
   gasneti_assert(exchangefn);
@@ -346,6 +345,9 @@ void gasneti_segmentInit(uintptr_t localSegmentLimit,
     localSegmentLimit = GASNETI_PAGE_ALIGNDOWN(localSegmentLimit);
 
   #ifdef HAVE_MMAP
+  { gasneti_segexch_t se;
+    int i;
+
     gasneti_segment = gasneti_mmap_segment_search(localSegmentLimit == (uintptr_t)-1 ?
                                                   GASNETI_MMAP_LIMIT : 
                                                   MIN(localSegmentLimit,GASNETI_MMAP_LIMIT));
@@ -446,6 +448,7 @@ void gasneti_segmentInit(uintptr_t localSegmentLimit,
         gasneti_MaxGlobalSegmentSize = minsize;
       #endif
     }
+  }
   #else /* !HAVE_MMAP */
     #if GASNET_ALIGNED_SEGMENTS && !GASNET_CONDUIT_SMP
       #error bad config: dont know how to provide GASNET_ALIGNED_SEGMENTS when !HAVE_MMAP
