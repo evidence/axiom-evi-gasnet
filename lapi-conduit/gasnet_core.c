@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2009/03/30 02:40:36 $
- * $Revision: 1.122 $
+ *     $Date: 2009/03/31 21:01:13 $
+ * $Revision: 1.123 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -55,6 +55,10 @@ gasnet_handlerentry_t const *gasnetc_get_handlertable(void);
 lapi_handle_t  gasnetc_lapi_context;
 int            gasnetc_max_lapi_uhdr_size;
 unsigned long  gasnetc_max_lapi_data_size = LAPI_MAX_MSG_SZ;
+
+#if 0 /* For debugging */
+static const char *gasnetc_catname[] = {"Short","Medium","Long","AsyncLong"};
+#endif
 
 #if GASNETC_LAPI_RDMA
 

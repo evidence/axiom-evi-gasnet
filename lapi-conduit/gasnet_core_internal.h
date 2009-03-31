@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2009/03/30 01:50:37 $
- * $Revision: 1.55 $
+ *     $Date: 2009/03/31 21:01:13 $
+ * $Revision: 1.56 $
  * Description: GASNet lapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -95,8 +95,6 @@ typedef enum {
     gasnetc_Long=2,
     gasnetc_AsyncLong=3
 } gasnetc_category_t;
-
-static const char *gasnetc_catname[] = {"Short","Medium","Long","AsyncLong"};
 
 #if GASNETC_USE_INTERRUPTS
 #define GASNETC_MAX_THREAD 20
