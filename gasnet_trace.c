@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.c,v $
- *     $Date: 2009/03/30 02:40:24 $
- * $Revision: 1.136 $
+ *     $Date: 2009/03/31 21:55:34 $
+ * $Revision: 1.137 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -129,7 +129,7 @@ extern size_t gasneti_format_putvgetv(char *buf, gasnet_node_t node,
   char * dstlist_str = (char *)gasneti_malloc(gasneti_format_memveclist_bufsz(dstcount));
   char * srclist_str = (char *)gasneti_malloc(gasneti_format_memveclist_bufsz(srccount));
   gasneti_memveclist_stats_t dststats = gasneti_format_memveclist(dstlist_str, dstcount, dstlist);
-  gasneti_memveclist_stats_t srcstats = gasneti_format_memveclist(srclist_str, srccount, srclist);
+  (void) gasneti_format_memveclist(srclist_str, srccount, srclist);
   sprintf(buf,"(%i data bytes) node=%i\n"
               "dst: %s\nsrc: %s",
               (int)dststats.totalsz, (int)(node),
@@ -177,11 +177,9 @@ extern size_t gasneti_format_putigeti(char *buf, gasnet_node_t node,
   const int bufsz = gasneti_format_putigeti_bufsz(dstcount, srccount);
   char * dstlist_str = (char *)gasneti_malloc(gasneti_format_addrlist_bufsz(dstcount));
   char * srclist_str = (char *)gasneti_malloc(gasneti_format_addrlist_bufsz(srccount));
-  gasneti_addrlist_stats_t dststats =
-          gasneti_format_addrlist(dstlist_str, dstcount, (void * const *)dstlist, dstlen);
-  gasneti_addrlist_stats_t srcstats =
-          gasneti_format_addrlist(srclist_str, srccount, (void * const *)srclist, srclen);
   size_t totalsz = dstcount * dstlen;
+  (void) gasneti_format_addrlist(dstlist_str, dstcount, (void * const *)dstlist, dstlen);
+  (void) gasneti_format_addrlist(srclist_str, srccount, (void * const *)srclist, srclen);
   sprintf(buf,"(%i data bytes) node=%i\n"
               "dst: %s\nsrc: %s",
               (int)totalsz, (int)node,
@@ -196,7 +194,6 @@ extern size_t gasneti_format_strides_bufsz(size_t count) {
   return count*30+10;
 }
 extern void gasneti_format_strides(char *buf, size_t count, const size_t *list) {
-  char * retval;
   const int bufsz = gasneti_format_strides_bufsz(count);
   char * p = buf;
   int i;
@@ -757,11 +754,15 @@ extern void gasneti_trace_init(int *pargc, char ***pargv) {
  #endif
 }
 
+#if GASNETI_STATS_OR_TRACE
 #define AGGRNAME(cat,type) gasneti_aggregate_##cat##_##type
 #define AGGR(type)                                       \
+  GASNETI_UNUSED                                         \
   static gasneti_statctr_t AGGRNAME(ctr,type) = 0;       \
+  GASNETI_UNUSED                                         \
   static gasneti_stat_intval_t AGGRNAME(intval,type) =   \
     { 0, GASNETI_STATCTR_MAX, GASNETI_STATCTR_MIN, 0 };  \
+  GASNETI_UNUSED                                         \
   static gasneti_stat_timeval_t AGGRNAME(timeval,type) = \
     { 0, GASNETI_TICK_MAX, GASNETI_TICK_MIN, 0 }
 AGGR(G);
@@ -775,6 +776,7 @@ AGGR(A);
 AGGR(I);
 AGGR(C);
 AGGR(D);
+#endif
 
 extern void gasneti_trace_finish(void) {
 #if GASNETI_STATS_OR_TRACE
