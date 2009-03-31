@@ -1,6 +1,6 @@
 README file for GASNet
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.118 $
+$Revision: 1.119 $
 
 This is a combination user manual and design document for GASNet. Anyone
 planning on using, modifying or adding to the GASNet code base should read this
@@ -787,6 +787,14 @@ All GASNet conduit code is required to meet the following coding standards:
   Running your code through "gcc -pedantic" is a good way to track down
   violations of these rules.
 
+* GASNet code should use full prototypes whenever possible:
+    NO:  extern void foo();
+    YES: extern void foo(void);
+    NO:  int bar() { return xyz; }
+    YES: int bar(void) { return xyz; }
+  Configuring with --enable-strict-protoypes and compiling with the GNU or
+  Pathscale compilers will give you warnings for violations of this rule.
+
 * All code in public header files should be C++-compliant to support C++ 
   GASNet clients. This means using GASNETI_{BEGIN,END}_EXTERNC around function 
   prototypes, and ensuring any inline function code passes the C++ typechecker.
@@ -833,6 +841,14 @@ All GASNet conduit code is required to meet the following coding standards:
   formatting in any editor. 
     Emacs users should: (setq-default indent-tabs-mode nil)
     Vim users should: :set expandtab
+
+* Do NOT commit gratuitous changes to whitespace, even to remove tab characters.
+  Such changes have no sematic content and can make use of CVS history more
+  difficult.  You can preview your changes with the following two commands:
+     cvs diff -u | wc -l
+     cvs diff -ub | wc -l
+  and if the outputs differ, then your changes include lines that have changed
+  in only the whitespace characters.
 
 * Do not make any conduit-specific changes to the files in the
   extended-ref or tests directories.  They do not have any Makefiles because they
