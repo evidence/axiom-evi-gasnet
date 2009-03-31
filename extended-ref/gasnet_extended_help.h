@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_help.h,v $
- *     $Date: 2009/03/27 05:08:05 $
- * $Revision: 1.50 $
+ *     $Date: 2009/03/31 22:07:45 $
+ * $Revision: 1.51 $
  * Description: GASNet Extended API Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -109,6 +109,7 @@ typedef struct _gasnete_thread_cleanup {
 /* high-water mark on highest thread index allocated thus far */
 extern int gasnete_maxthreadidx;
 #define gasnete_assert_valid_threadid(threadidx) do {   \
+    GASNETI_UNUSED_UNLESS_DEBUG                         \
     int _thid = (threadidx);                            \
     gasneti_assert(_thid <= gasnete_maxthreadidx);      \
     gasneti_assert(gasnete_threadtable[_thid] != NULL); \

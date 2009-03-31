@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2009/03/30 07:25:46 $
- * $Revision: 1.222 $
+ *     $Date: 2009/03/31 22:07:43 $
+ * $Revision: 1.223 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -261,6 +261,7 @@ static gasneti_atomic_t gasneti_backtrace_enabled = gasneti_atomic_init(1);
 
 extern const char *gasnett_performance_warning_str(void) {
   static char *result = NULL;
+  GASNETI_UNUSED_UNLESS_THREADS
   static gasneti_mutex_t gasnett_performance_warning_lock = GASNETI_MUTEX_INITIALIZER;
   gasnett_mutex_lock(&gasnett_performance_warning_lock);
     if (result) return result;
@@ -999,7 +1000,8 @@ extern void gasneti_backtrace_init(const char *exename) {
   }
 
   { static char btlist_def[255];
-    int i, th;
+    GASNETI_UNUSED_UNLESS_THREADS int th;
+    int i;
     btlist_def[0] = '\0';
     #if GASNETI_THREADS
       for (th = 1; th >= 0; th--) 
@@ -1381,6 +1383,7 @@ extern void gasneti_envstr_display(const char *key, const char *val, int is_dflt
   else if (strlen(val) == 0) displayval = "*empty*";
   GASNETT_TRACE_PRINTF("ENV parameter: %s = %s%s", key, displayval, dflt);
   if (verbose) {
+    GASNETI_UNUSED_UNLESS_THREADS
     static gasneti_mutex_t envmutex = GASNETI_MUTEX_INITIALIZER;
     static gasneti_verboseenv_t *displaylist = NULL;
     static gasneti_verboseenv_t *displaylist_tail = NULL;
@@ -1838,6 +1841,7 @@ void gasneti_set_affinity(int rank) {
   #endif
 #endif
 const char *gasneti_gethostname() {
+  GASNETI_UNUSED_UNLESS_THREADS
   static gasneti_mutex_t hnmutex = GASNETI_MUTEX_INITIALIZER;
   static int firsttime = 1;
   static char hostname[MAXHOSTNAMELEN];
