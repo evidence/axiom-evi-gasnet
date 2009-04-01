@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testhsl.c,v $
- *     $Date: 2009/04/01 19:39:37 $
- * $Revision: 1.21 $
+ *     $Date: 2009/04/01 23:16:33 $
+ * $Revision: 1.22 $
  * Description: GASNet HSL correctness test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -174,8 +174,8 @@ int main(int argc, char **argv) {
         gasnet_hsl_lock(&lock1);
       break;
       case 8:
-        gasnet_hsl_trylock(&lock1);
-        gasnet_hsl_trylock(&lock1);
+        (void) gasnet_hsl_trylock(&lock1);
+        (void) gasnet_hsl_trylock(&lock1);
       break;
       case 9:
         gasnet_hsl_lock(&lock1);
@@ -205,7 +205,7 @@ int main(int argc, char **argv) {
         goto done;
       break;
       case 15:
-        gasnet_hsl_trylock(&lock1);
+        (void) gasnet_hsl_trylock(&lock1);
         sleep(2);
         gasnet_hsl_unlock(&lock1);
         goto done;
