@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2009/03/31 22:07:43 $
- * $Revision: 1.223 $
+ *     $Date: 2009/04/01 00:23:10 $
+ * $Revision: 1.224 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -981,6 +981,8 @@ static gasnett_backtrace_type_t gasneti_backtrace_mechanisms[] = {
 };
 static int gasneti_backtrace_mechanism_count = /* excludes the NULL */
    (sizeof(gasneti_backtrace_mechanisms)/sizeof(gasneti_backtrace_mechanisms[0])) - 1;
+
+gasnett_backtrace_type_t gasnett_backtrace_user;
 
 static int gasneti_backtrace_isinit = 0;
 static int gasneti_backtrace_userenabled = 0;
