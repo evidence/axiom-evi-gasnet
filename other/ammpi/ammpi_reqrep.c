@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_reqrep.c,v $
- *     $Date: 2009/03/30 02:40:43 $
- * $Revision: 1.38 $
+ *     $Date: 2009/04/01 23:50:29 $
+ * $Revision: 1.39 $
  * Description: AMMPI Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -1269,7 +1269,9 @@ extern void AMMPI_DefaultReturnedMsg_Handler(int status, op_t opcode, void *toke
     strcat(argStr, tmp);
   }
   { char temp1[80];
+   #if AMMPI_USE_AMTAGS
     char temp2[80];
+   #endif
     AMMPI_FatalErr("An active message was returned to sender,\n"
              "    and trapped by the default returned message handler (handler 0):\n"
              "Error Code: %s\n"
