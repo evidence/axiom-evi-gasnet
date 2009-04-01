@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testqueue.c,v $
- *     $Date: 2009/03/24 23:42:27 $
- * $Revision: 1.13 $
+ *     $Date: 2009/04/01 18:38:54 $
+ * $Revision: 1.14 $
  * Description: GASNet put/get injection performance test
  *   measures the average non-blocking put/get injection time 
  *   for increasing number of back-to-back operations
@@ -285,6 +285,7 @@ int main(int argc, char **argv) {
         if (!multisender) { printf("%s",row); fflush(stdout); prow = row; } \
         depth = 1;                                                          \
         if (iamsender) { /* Prime i-cache, free-lists, firehose, etc. */    \
+          GASNETI_UNUSED /* 'i' not used in all expansions of QUEUE_TEST */ \
           int i = 0;                                                        \
           OP;                                                               \
           { SYNC; }                                                         \
@@ -317,7 +318,10 @@ int main(int argc, char **argv) {
             }                                                               \
             { double avgus = gasnett_ticks_to_ns(total) / 1000.0 /          \
                              (double)iters / (double)depth;                 \
+              /* '{min,max}us' not used in all expansions of QUEUE_TEST */  \
+              GASNETI_UNUSED                                                \
               double minus = gasnett_ticks_to_ns(min) / 1000.0 / (double)depth; \
+              GASNETI_UNUSED                                                \
               double maxus = gasnett_ticks_to_ns(max) / 1000.0 / (double)depth; \
               int prec;                                                     \
               if (avgus < 1000.0) prec = 3;                                 \

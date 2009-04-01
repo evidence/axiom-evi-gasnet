@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testvis.c,v $
- *     $Date: 2009/03/24 23:42:27 $
- * $Revision: 1.25 $
+ *     $Date: 2009/04/01 18:38:54 $
+ * $Revision: 1.26 $
  * Description: GASNet Vector, Indexed & Strided correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -586,7 +586,7 @@ void _verify_strided_desc_data_both(test_strided_desc *desc, void *result,
   size_t * idx;
   size_t * const count = desc->count;
   size_t * const srcstrides = desc->srcstrides;
-  size_t * const dststrides = desc->dststrides;
+  /* size_t * const dststrides = desc->dststrides; */
   VEC_T *resultp = result;
   size_t srcoffset = 0; /* in bytes */
   size_t curdim = 0;
@@ -967,9 +967,9 @@ void doit(int iters, int runtests) {
 
       /* puts */
       for(i=0; i < numops; i++) {
-        VEC_T *op_my_seg_write1_area = my_seg_write1_area + opareasz*i;
+        /* VEC_T *op_my_seg_write1_area = my_seg_write1_area + opareasz*i; */
         VEC_T *op_my_seg_write2_area = my_seg_write2_area + opareasz*i;
-        VEC_T *op_my_heap_write1_area = my_heap_write1_area + opareasz*i;
+        /* VEC_T *op_my_heap_write1_area = my_heap_write1_area + opareasz*i; */
         VEC_T *op_my_heap_write2_area = my_heap_write2_area + opareasz*i;
         VEC_T *op_partner_seg_remotewrite_area = partner_seg_remotewrite_area + opareasz*i;
 
