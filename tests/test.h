@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2009/04/01 18:21:51 $
- * $Revision: 1.122 $
+ *     $Date: 2009/04/01 19:04:38 $
+ * $Revision: 1.123 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -905,6 +905,16 @@ static void _test_init(const char *testname, int reports_performance, int early,
   GASNETT_STATS_SETMASK(GASNETT_STATS_GETMASK());                                  \
   GASNETT_TRACE_SET_TRACELOCAL(GASNETT_TRACE_GET_TRACELOCAL());                    \
 } while (0)
+
+/* Wrapper around GASNET_BEGIN_FUNCTION() to avoid unused variable warnings
+ * from gcc.  The alternative of omitting calls to GASNET_BEGIN_FUNCTION()
+ * in functions that don't *currently* need it is a bad idea, since it risks
+ * a silent perfomance loss if/when adds a test that would have benefited
+ * from GASNET_BEGIN_FUNCTION()
+ */
+#define TEST_BEGIN_FUNCTION() \
+  GASNET_BEGIN_FUNCTION(); \
+  char *_test_begin_function_dummy = (char *)GASNET_GET_THREADINFO() + sizeof(_test_begin_function_dummy)
 
 GASNETT_END_EXTERNC
 

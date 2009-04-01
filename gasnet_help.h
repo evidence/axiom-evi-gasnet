@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2009/03/27 05:07:58 $
- * $Revision: 1.102 $
+ *     $Date: 2009/04/01 19:04:36 $
+ * $Revision: 1.103 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -324,7 +324,8 @@ extern uint64_t gasnet_max_segsize; /* client-overrideable max segment size */
     gasnet_threadinfo_t gasnete_threadinfo_cache = (info); \
     uint32_t gasnete_threadinfo_available = 0
     /* if you get an unused variable warning on gasnete_threadinfo_available, 
-       it means you POST'ed in a function which made no GASNet calls that needed it */
+       it means you POST'ed in a function which made no GASNet calls that needed it
+       So, PLEASE don't add GASNETI_UNUSED annotations here. */
 
   #if GASNETI_LAZY_BEGINFUNCTION
     #define GASNET_GET_THREADINFO()                              \
