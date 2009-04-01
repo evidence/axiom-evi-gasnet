@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amxtests/apputils.h,v $
- *     $Date: 2009/03/27 05:08:17 $
- * $Revision: 1.20 $
+ *     $Date: 2009/04/01 23:44:23 $
+ * $Revision: 1.21 $
  * Description: AMX Application utilities
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -88,7 +88,6 @@
     if (AMX_SPMDIsWorker(argv)) { /* slave */                                         \
       AM_Safe(AMX_SPMDStartup(&(argc), &(argv), 0, &(networkpid), &(eb), &(ep)));     \
       if ((argc) < (minargs)+1 || (argc) > (maxargs)+1 ) {                                \
-        eb_t eb; ep_t ep; uint64_t networkpid;                                        \
         fprintf(stderr, "Usage: %s %s\n", (argv)[0], (usagestr));                     \
         fflush(stderr);                                                               \
         AMX_SPMDExit(-1);                                                             \
