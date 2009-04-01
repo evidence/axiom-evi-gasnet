@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refcoll.c,v $
- *     $Date: 2009/03/30 02:40:31 $
- * $Revision: 1.76 $
+ *     $Date: 2009/04/01 00:11:36 $
+ * $Revision: 1.77 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -24,6 +24,8 @@ the files are compiled under their own .o files)*/
 */
 #include <gasnet_coll_autotune.c>
 #include <gasnet_coll_scratch.c>
+
+gasnet_team_handle_t gasnete_coll_team_all;
 
 size_t gasnete_coll_p2p_eager_min = 0;
 size_t gasnete_coll_p2p_eager_scale = 0;
