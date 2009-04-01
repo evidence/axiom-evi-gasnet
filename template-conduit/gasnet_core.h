@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/template-conduit/gasnet_core.h,v $
- *     $Date: 2009/03/27 05:08:27 $
- * $Revision: 1.24 $
+ *     $Date: 2009/04/01 23:33:14 $
+ * $Revision: 1.25 $
  * Description: GASNet header for <conduitname> conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -109,7 +109,7 @@ typedef struct _gasnet_hsl_t {
   extern void gasnetc_hsl_destroy(gasnet_hsl_t *hsl);
   extern void gasnetc_hsl_lock   (gasnet_hsl_t *hsl);
   extern void gasnetc_hsl_unlock (gasnet_hsl_t *hsl);
-  extern int  gasnetc_hsl_trylock(gasnet_hsl_t *hsl);
+  extern int  gasnetc_hsl_trylock(gasnet_hsl_t *hsl) GASNETI_WARN_UNUSED_RESULT;
 
   #define gasnet_hsl_init    gasnetc_hsl_init
   #define gasnet_hsl_destroy gasnetc_hsl_destroy

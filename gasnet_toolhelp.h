@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_toolhelp.h,v $
- *     $Date: 2009/04/01 23:23:08 $
- * $Revision: 1.40 $
+ *     $Date: 2009/04/01 23:33:20 $
+ * $Revision: 1.41 $
  * Description: misc declarations needed by both gasnet_tools and libgasnet
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -293,7 +293,7 @@ int gasneti_count0s_uint32_t(uint32_t x) {
               gasneti_assert((pl)->owner == GASNETI_MUTEX_NOOWNER);            \
               (pl)->owner = GASNETI_THREADIDQUERY();                           \
             } while (0)
-    GASNETI_INLINE(gasneti_mutex_trylock)
+    GASNETI_INLINE(gasneti_mutex_trylock) GASNETI_WARN_UNUSED_RESULT
     int gasneti_mutex_trylock(gasneti_mutex_t *pl) {
               int retval;
               _GASNETI_MUTEX_CAUTIOUS_INIT_CHECK(pl);
@@ -331,7 +331,7 @@ int gasneti_count0s_uint32_t(uint32_t x) {
               gasneti_assert((pl)->owner == GASNETI_MUTEX_NOOWNER); \
               (pl)->owner = GASNETI_THREADIDQUERY();                \
             } while (0)
-    GASNETI_INLINE(gasneti_mutex_trylock)
+    GASNETI_INLINE(gasneti_mutex_trylock) GASNETI_WARN_UNUSED_RESULT
     int gasneti_mutex_trylock(gasneti_mutex_t *pl) {
               gasneti_assert((pl)->owner == GASNETI_MUTEX_NOOWNER);
               (pl)->owner = GASNETI_THREADIDQUERY();

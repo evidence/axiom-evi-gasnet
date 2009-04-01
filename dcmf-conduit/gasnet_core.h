@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_core.h,v $
- *     $Date: 2009/03/27 05:08:01 $
- * $Revision: 1.3 $
+ *     $Date: 2009/04/01 23:32:56 $
+ * $Revision: 1.4 $
  * Description: GASNet header for dcmf conduit core
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
  *                 Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -110,7 +110,7 @@ typedef struct _gasnet_hsl_t {
   extern void gasnetc_hsl_destroy(gasnet_hsl_t *hsl);
   extern void gasnetc_hsl_lock   (gasnet_hsl_t *hsl);
   extern void gasnetc_hsl_unlock (gasnet_hsl_t *hsl);
-  extern int  gasnetc_hsl_trylock(gasnet_hsl_t *hsl);
+  extern int  gasnetc_hsl_trylock(gasnet_hsl_t *hsl) GASNETI_WARN_UNUSED_RESULT;
 
   #define gasnet_hsl_init    gasnetc_hsl_init
   #define gasnet_hsl_destroy gasnetc_hsl_destroy
