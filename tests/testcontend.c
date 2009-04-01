@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcontend.c,v $
- *     $Date: 2009/03/24 23:42:27 $
- * $Revision: 1.15 $
+ *     $Date: 2009/04/01 19:24:21 $
+ * $Revision: 1.16 $
  *
  * Description: GASNet threaded contention tester.
  *   The test initializes GASNet and forks off up to 256 threads.  
@@ -213,6 +213,7 @@ PGFIGHT(get_put_active, gasnet_get(&tmp, peer, peerseg, 8), gasnet_put(peer, pee
 PGFIGHT(get_get_active, gasnet_get(&tmp, peer, peerseg, 8), gasnet_get(&tmp, peer, peerseg, 8))
 
 void * poll_passive(void *args) {
+  GASNETI_UNUSED
   int mythread = (int)(intptr_t)args;
   signal_done = 0;
   thread_barrier();
@@ -221,6 +222,7 @@ void * poll_passive(void *args) {
   return NULL;
 }
 void * block_passive(void *args) {
+  GASNETI_UNUSED
   int mythread = (int)(intptr_t)args;
   signal_done = 0;
   thread_barrier();
