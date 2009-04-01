@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_toolhelp.h,v $
- *     $Date: 2009/03/31 22:05:58 $
- * $Revision: 1.39 $
+ *     $Date: 2009/04/01 23:23:08 $
+ * $Revision: 1.40 $
  * Description: misc declarations needed by both gasnet_tools and libgasnet
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -555,9 +555,17 @@ int gasneti_count0s_uint32_t(uint32_t x) {
 
 #if _GASNETI_THREADKEY_USES_PTHREAD_GETSPECIFIC
   /* struct prevents accidental direct access, magic provides extra safety checks */
+ #if GASNET_DEBUG
   #define _gasneti_threadkey_check(key, requireinit)         \
    ( gasneti_assert((key).magic == _GASNETI_THREADKEY_MAGIC), \
      (requireinit ? gasneti_assert((key).isinit) : ((void)0)))
+ #else
+  /* Special case needed to suppress -Wunused-value warnings.
+   * You would think the DEBUG version would be fine, but it's not
+   * regardnless of how many (void) casts one inserts (gcc bug?).
+   */
+  #define _gasneti_threadkey_check(key, requireinit)         ((void)0)
+ #endif
   #define gasneti_threadkey_get_noinit(key) \
     ( _gasneti_threadkey_check((key), 1),   \
       pthread_getspecific((key).value) )
