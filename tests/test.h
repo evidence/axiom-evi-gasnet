@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2009/03/31 22:12:29 $
- * $Revision: 1.121 $
+ *     $Date: 2009/04/01 18:21:51 $
+ * $Revision: 1.122 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -891,7 +891,9 @@ static void _test_init(const char *testname, int reports_performance, int early,
 
 
 #define TEST_TRACING_MACROS() do {                                                 \
-  const char *file; unsigned int line;                                             \
+  /* 'file' and 'line' unused in tools-only or when srclines disabled */           \
+  GASNETI_UNUSED const char *file;                                                 \
+  GASNETI_UNUSED unsigned int line;                                                \
   GASNETT_TRACE_GETSOURCELINE(&file, &line);                                       \
   GASNETT_TRACE_SETSOURCELINE(file, line);                                         \
   GASNETT_TRACE_FREEZESOURCELINE();                                                \
