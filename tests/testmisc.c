@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testmisc.c,v $
- *     $Date: 2009/04/01 19:04:38 $
- * $Revision: 1.41 $
+ *     $Date: 2009/04/01 20:25:36 $
+ * $Revision: 1.42 $
  * Description: GASNet misc performance test
  *   Measures the overhead associated with a number of purely local 
  *   operations that involve no communication. 
@@ -291,6 +291,11 @@ void doit3(void) {
   }
 
   TEST_SECTION_BEGIN();
+  /* TODO: How to suppress unused var warnings in the timings of
+   * GASNET_BEGIN_FUNCTION and GASNET_POST_THREADINFO w/o knowledge of
+   * how they are implemented AND w/o adding operations that would
+   * effect the timings.
+   */
   TIME_OPERATION("GASNET_BEGIN_FUNCTION (" _STRINGIFY(TEST_PARSEQ) " mode)", 
       { GASNET_BEGIN_FUNCTION(); });
   memset((void *)&ti,0,sizeof(ti));

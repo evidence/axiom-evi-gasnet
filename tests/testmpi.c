@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testmpi.c,v $
- *     $Date: 2009/03/24 23:42:27 $
- * $Revision: 1.17 $
+ *     $Date: 2009/04/01 20:25:36 $
+ * $Revision: 1.18 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -166,6 +166,7 @@ void mpi_barrier(threaddata_t *tdata) {
   #define MPI_LOCK()
   #define MPI_UNLOCK()
 #else
+  GASNETI_UNUSED_UNLESS_THREADS
   static gasnet_hsl_t  mpi_hsl = GASNET_HSL_INITIALIZER;
   #define MPI_LOCK()   gasnet_hsl_lock(&mpi_hsl)
   #define MPI_UNLOCK() gasnet_hsl_unlock(&mpi_hsl)

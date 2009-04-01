@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2009/03/29 07:57:51 $
- * $Revision: 1.93 $
+ *     $Date: 2009/04/01 20:25:36 $
+ * $Revision: 1.94 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -86,8 +86,17 @@ GASNETT_THREADKEY_DEFINE(partest_key2);
 } while (0)
 
 int main(int argc, char **argv) {
-  test_init("testtools", 0,"(iters) (num_threads) (tests_to_run)");
+  /* avoid unused function warnings */
+  uintptr_t test_dummies =
+          (uintptr_t)&test_dummy  ^
+          (uintptr_t)&test_dummy2 ^
+          (uintptr_t)&test_dummy3 ^
+          (uintptr_t)&test_dummy4 ^
+          (uintptr_t)&test_dummy5 ^
+          (uintptr_t)&test_dummies;
 
+  test_init("testtools", 0,"(iters) (num_threads) (tests_to_run)");
+  
   if (argc > 1) iters = atoi(argv[1]);
   if (iters < 1) iters = DEFAULT_ITERS;
   #ifdef HAVE_PTHREAD_H
