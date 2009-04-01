@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testhsl.c,v $
- *     $Date: 2006/11/26 03:10:57 $
- * $Revision: 1.20 $
+ *     $Date: 2009/04/01 19:39:37 $
+ * $Revision: 1.21 $
  * Description: GASNet HSL correctness test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -93,7 +93,9 @@ int main(int argc, char **argv) {
   if (argc < 2) test_usage();
   {
     int errtest = atoi(argv[1]);
+    GASNETI_UNUSED_UNLESS_THREADS
     gasnet_hsl_t lock1 = GASNET_HSL_INITIALIZER;
+    GASNETI_UNUSED_UNLESS_THREADS
     gasnet_hsl_t lock2;
     gasnet_hsl_init(&lock2);
 
