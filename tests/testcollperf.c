@@ -254,7 +254,7 @@ void run_SINGLE_ADDR_test(thread_data_t *td, uint8_t **dst_arr, uint8_t **src_ar
     COLL_BARRIER();
     for(i=0; i<inner_verification_iters; i++) {
       for(j=0; j<nelem; j++) {
-        src[i*nelem+j] != 42+i*THREADS*nelem+td->mythread*nelem;
+        src[i*nelem+j] = 42+i*THREADS*nelem+td->mythread*nelem+j;
       }
     }
     for(i=0; i<nelem*inner_verification_iters*THREADS; i++) {
@@ -504,7 +504,7 @@ void run_MULTI_ADDR_test(thread_data_t *td, uint8_t **dst_arr, uint8_t **src_arr
     COLL_BARRIER();
     for(i=0; i<inner_verification_iters; i++) {
       for(j=0; j<nelem; j++) {
-        mysrc[i*nelem+j] != 42+i*THREADS*nelem+td->mythread*nelem;
+        mysrc[i*nelem+j] = 42+i*THREADS*nelem+td->mythread*nelem+j;
       }
     }
     for(i=0; i<nelem*inner_verification_iters*THREADS; i++) {
