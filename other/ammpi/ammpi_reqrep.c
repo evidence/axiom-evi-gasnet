@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_reqrep.c,v $
- *     $Date: 2009/04/01 23:50:29 $
- * $Revision: 1.39 $
+ *     $Date: 2009/04/02 00:03:22 $
+ * $Revision: 1.40 $
  * Description: AMMPI Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -616,7 +616,9 @@ extern int _AMMPI_ServiceIncomingMessages(ep_t ep, int blockForActivity, int rep
 
     /* we have a real message waiting - get it */
     { ammpi_bufstatus_t* status = &(buf->status); /* the status block for this buffer */
+     #if AMMPI_DEBUG || AMMPI_DEBUG_VERBOSE
       int recvlen;
+     #endif
 
       if_pf (mpistatus.MPI_TAG != ep->name.mpitag) {
         #if AMMPI_DEBUG
