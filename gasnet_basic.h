@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2009/03/30 07:36:29 $
- * $Revision: 1.94 $
+ *     $Date: 2009/04/05 23:23:37 $
+ * $Revision: 1.95 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -66,6 +66,17 @@
   #define GASNETI_END_EXTERNC 
   #define GASNETI_TENTATIVE_EXTERN 
 #endif
+
+/* Add "extern" when building libgasnet-*.a but not libgasnet_tools-*.a
+ * Works around bug 2117 on AIX w/ gcc, but is also expected to be more
+ * robust than tentative definitions.
+ */
+#if defined(GASNETT_BUILDING_TOOLS)
+  #define GASNETI_EXTERN_UNLESS_BUILDING_TOOLS /*empty*/
+#else
+  #define GASNETI_EXTERN_UNLESS_BUILDING_TOOLS extern
+#endif
+
 
 #if defined(__cplusplus) || GASNETI_CONFIGURE_MISMATCH
   /* bug 1206: the restrict keyword is not part of the C++ spec, and many C++

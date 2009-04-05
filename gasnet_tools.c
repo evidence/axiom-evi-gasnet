@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2009/04/01 00:32:50 $
- * $Revision: 1.225 $
+ *     $Date: 2009/04/05 23:23:37 $
+ * $Revision: 1.226 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -985,6 +985,7 @@ static int gasneti_backtrace_mechanism_count = /* excludes the NULL */
 static int gasneti_backtrace_isinit = 0;
 static int gasneti_backtrace_userenabled = 0;
 static const char *gasneti_backtrace_list = 0;
+GASNETI_EXTERN_UNLESS_BUILDING_TOOLS
 const char *(*gasneti_backtraceid_fn)(void); /* allow client override of backtrace line prefix */
 extern void gasneti_backtrace_init(const char *exename) {
   char tmp[GASNETI_BT_PATHSZ];
@@ -1317,7 +1318,9 @@ extern void gasneti_unsetenv(const char *key) {
   #endif
 }
 /* ------------------------------------------------------------------------------------ */
+GASNETI_EXTERN_UNLESS_BUILDING_TOOLS
 const char * (*gasnett_decode_envval_fn)(const char *);
+GASNETI_EXTERN_UNLESS_BUILDING_TOOLS
 int (*gasneti_verboseenv_fn)(void);
 gasneti_getenv_fn_t *gasneti_conduit_getenv = NULL;
 char *gasneti_globalEnv = NULL;
