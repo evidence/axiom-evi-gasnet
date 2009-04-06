@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/Makefile.am,v $
-#     $Date: 2009/04/04 02:16:55 $
-# $Revision: 1.79 $
+#     $Date: 2009/04/06 18:52:04 $
+# $Revision: 1.80 $
 # Description: Makefile for GASNet 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -243,11 +243,11 @@ check tests-clean:
 	@cd "$(top_builddir)/other" && $(MAKE) $@
 
 install-data-local: 
-	@if test -n "$(DESTDIR)" -a `expr "$(DESTDIR)" : /` = 0; then \
+	@if test -n "$(DESTDIR)" -a `expr "X$(DESTDIR)" : X/` = 0; then \
           echo "ERROR: \$$DESTDIR must begin with a '/' character."; \
 	  exit 1; \
 	 fi
-	@if test `expr "$(prefix)" : /` = 0; then \
+	@if test `expr "X$(prefix)" : X/` = 0; then \
           echo "ERROR: \$$prefix must begin with a '/' character."; \
 	  exit 1; \
 	 fi
@@ -269,22 +269,22 @@ install-data-local:
 	  fi ; \
 	done
 install-exec-local:
-	@if test -n "$(DESTDIR)" -a `expr "$(DESTDIR)" : /` = 0; then \
+	@if test -n "$(DESTDIR)" -a `expr "X$(DESTDIR)" : X/` = 0; then \
           echo "ERROR: \$$DESTDIR must begin with a '/' character."; \
 	  exit 1; \
 	 fi
-	@if test `expr "$(prefix)" : /` = 0; then \
+	@if test `expr "X$(prefix)" : X/` = 0; then \
           echo "ERROR: \$$prefix must begin with a '/' character."; \
 	  exit 1; \
 	 fi
 	@$(MAKE) $(recurse_local) DO_WHAT=install-exec
 	@$(MAKE) recurse_special DO_WHAT=install-exec
 uninstall-local: 
-	@if test -n "$(DESTDIR)" -a  `expr "$(DESTDIR)" : /` = 0; then \
+	@if test -n "$(DESTDIR)" -a `expr "X$(DESTDIR)" : X/` = 0; then \
           echo "ERROR: \$$DESTDIR must begin with a '/' character."; \
 	  exit 1; \
 	 fi
-	@if test `expr "$(prefix)" : /` = 0; then \
+	@if test `expr "X$(prefix)" : X/` = 0; then \
           echo "ERROR: \$$prefix must begin with a '/' character."; \
 	  exit 1; \
 	 fi
