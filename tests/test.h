@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2009/04/06 02:58:54 $
- * $Revision: 1.124 $
+ *     $Date: 2009/04/06 03:11:08 $
+ * $Revision: 1.125 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -901,7 +901,7 @@ static void _test_init(const char *testname, int reports_performance, int early,
     test_my_backtrace_ran = 1;                              \
     return 0;                                               \
   }                                                         \
-  extern gasnett_backtrace_type_t gasnett_backtrace_user = {\
+  gasnett_backtrace_type_t gasnett_backtrace_user = {       \
     "USER", &test_my_backtrace_fn, 1                        \
   }
 #define TEST_BACKTRACE_INIT(_exename)                       \
