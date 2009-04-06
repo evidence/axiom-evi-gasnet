@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2009/04/05 23:23:37 $
- * $Revision: 1.95 $
+ *     $Date: 2009/04/06 01:59:35 $
+ * $Revision: 1.96 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -59,22 +59,20 @@
   #define GASNETI_BEGIN_EXTERNC extern "C" {
   #define GASNETI_EXTERNC       extern "C" 
   #define GASNETI_END_EXTERNC   }
-  #define GASNETI_TENTATIVE_EXTERN extern
 #else
   #define GASNETI_BEGIN_EXTERNC 
   #define GASNETI_EXTERNC       
   #define GASNETI_END_EXTERNC 
-  #define GASNETI_TENTATIVE_EXTERN 
 #endif
 
-/* Add "extern" when building libgasnet-*.a but not libgasnet_tools-*.a
- * Works around bug 2117 on AIX w/ gcc, but is also expected to be more
- * robust than tentative definitions.
+/* Some symbols need a tentative definition when building libgasnet_tools-*.a.
+ * However we want an extern definition in libgasnet-*.a and all clients.
+ * This includes C++ clients where tentative definitions are not supported.
  */
 #if defined(GASNETT_BUILDING_TOOLS)
-  #define GASNETI_EXTERN_UNLESS_BUILDING_TOOLS /*empty*/
+  #define GASNETI_TENTATIVE_EXTERN /*empty*/
 #else
-  #define GASNETI_EXTERN_UNLESS_BUILDING_TOOLS extern
+  #define GASNETI_TENTATIVE_EXTERN extern
 #endif
 
 
