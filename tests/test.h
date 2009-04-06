@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2009/04/01 19:04:38 $
- * $Revision: 1.123 $
+ *     $Date: 2009/04/06 02:58:54 $
+ * $Revision: 1.124 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -889,6 +889,38 @@ static void _test_init(const char *testname, int reports_performance, int early,
 #define test_init_early(testname, reports_performance, usagestr) \
        _test_init(testname, reports_performance, 1, argc, (const char * const *)argv, usagestr)
 
+#define TEST_BACKTRACE_DECLS()                              \
+  static int test_my_backtrace = 0;                         \
+  static volatile int test_my_backtrace_ran = 0;            \
+  static int test_my_backtrace_fn(int fd) {                 \
+    if (test_my_backtrace_ran != -1) {                      \
+      /* Indicate FAILURE if we were not testing */         \
+      /* So the next available mechanism will run. */       \
+      return 1;                                             \
+    }                                                       \
+    test_my_backtrace_ran = 1;                              \
+    return 0;                                               \
+  }                                                         \
+  extern gasnett_backtrace_type_t gasnett_backtrace_user = {\
+    "USER", &test_my_backtrace_fn, 1                        \
+  }
+#define TEST_BACKTRACE_INIT(_exename)                       \
+  /* Only test our backtrace handler if the user is not trying to backtrace */ \
+  if (!gasnett_getenv("GASNET_BACKTRACE")) {                \
+    test_my_backtrace = 1;                                  \
+    gasnett_setenv("GASNET_BACKTRACE_TYPE","USER");         \
+  }                                                         \
+  gasnett_backtrace_init(_exename)
+#define TEST_BACKTRACE() do {                               \
+    if (test_my_backtrace) {                                \
+      test_my_backtrace_ran = -1;                           \
+      gasnett_print_backtrace(STDOUT_FILENO);               \
+      if (test_my_backtrace_ran != 1) {                     \
+        ERR("failed to run user-supplied backtrace code\n");\
+      }                                                     \
+    }                                                       \
+  } while(0)
+  
 
 #define TEST_TRACING_MACROS() do {                                                 \
   /* 'file' and 'line' unused in tools-only or when srclines disabled */           \
