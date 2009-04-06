@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2009/04/06 01:59:35 $
- * $Revision: 1.227 $
+ *     $Date: 2009/04/06 03:18:48 $
+ * $Revision: 1.228 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -987,6 +987,7 @@ static int gasneti_backtrace_userenabled = 0;
 static const char *gasneti_backtrace_list = 0;
 GASNETT_TENTATIVE_EXTERN
 const char *(*gasneti_backtraceid_fn)(void); /* allow client override of backtrace line prefix */
+gasnett_backtrace_type_t gasnett_backtrace_user; /* allow client provided backtrace function */
 extern void gasneti_backtrace_init(const char *exename) {
   char tmp[GASNETI_BT_PATHSZ];
   if (exename[0] == '/' || exename[0] == '\\') tmp[0] = '\0';
