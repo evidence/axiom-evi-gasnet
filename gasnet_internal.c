@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2009/03/30 02:40:24 $
- * $Revision: 1.198 $
+ *     $Date: 2009/04/11 01:45:36 $
+ * $Revision: 1.199 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -783,6 +783,9 @@ static void gasneti_check_portable_conduit(void) { /* check for portable conduit
       #elif PLATFORM_OS_CATAMOUNT || PLATFORM_OS_CNL
         if (strlen(natives)) strcat(natives,", ");
         strcat(natives,"Cray XT");
+      #elif PLATFORM_OS_BGP
+        if (strlen(natives)) strcat(natives,", ");
+        strcat(natives,"IBM BG/P");
       #endif
       if (natives[0]) {
         sprintf(reason, "WARNING: This system appears to contain recognized network hardware: %s\n"
