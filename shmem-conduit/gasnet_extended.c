@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_extended.c,v $
- *     $Date: 2009/03/30 02:40:57 $
- * $Revision: 1.25 $
+ *     $Date: 2009/04/17 22:59:31 $
+ * $Revision: 1.26 $
  * Description: GASNet Extended API SHMEM Implementation
  * Copyright 2003, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -174,7 +174,7 @@ gasnete_end_nbi_accessregion(GASNETE_THREAD_FARG_ALONE)
   =========
 */
 
-static void gasnete_shmembarrier_init();
+static void gasnete_shmembarrier_init(void);
 static void gasnete_shmembarrier_notify(int id, int flags);
 static int gasnete_shmembarrier_wait(int id, int flags);
 static int gasnete_shmembarrier_try(int id, int flags);
