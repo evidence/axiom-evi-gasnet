@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2009/04/11 02:25:14 $
- * $Revision: 1.200 $
+ *     $Date: 2009/04/17 23:47:25 $
+ * $Revision: 1.201 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -763,6 +763,8 @@ static void gasneti_check_portable_conduit(void) { /* check for portable conduit
         { "/dev/elan3/control0", S_IFCHR, "Quadrics QsNetI", 4 },
         { "/dev/elan4/control0", S_IFCHR, "Quadrics QsNetII", 4 },
         { "/proc/qsnet/version", S_IFREG, "Quadrics QsNet", 4 },
+        { "/dev/ukbridge",         S_IFCHR, "Cray XT", 5 },
+        { "/proc/portals/meminfo", S_IFREG, "Cray Portals", 5 }
       };
       int i, lim = sizeof(known_devs)/sizeof(known_devs[0]);
       for (i = 0; i < lim; i++) {
