@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_core.c,v $
- *     $Date: 2009/04/18 03:30:12 $
- * $Revision: 1.39 $
+ *     $Date: 2009/04/18 03:51:10 $
+ * $Revision: 1.40 $
  * Description: GASNet shmem conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -139,7 +139,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     fprintf(stderr,"gasnetc_init(): about to spawn...\n"); fflush(stderr);
   #endif
 
-  #if defined(CRAY_SHMEM) || PLATFORM_ARCH_ALTIX
+  #if defined(CRAY_SHMEM) || GASNETI_ARCH_ALTIX
     start_pes(0);
   #elif PLATFORM_OS_IRIX
     MPI_Init(argc, argv);
