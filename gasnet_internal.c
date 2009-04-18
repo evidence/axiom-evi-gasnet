@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2009/04/17 23:47:25 $
- * $Revision: 1.201 $
+ *     $Date: 2009/04/18 00:26:34 $
+ * $Revision: 1.202 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -543,6 +543,7 @@ extern size_t gasneti_decodestr(char *dst, const char *src) {
   }
   dst[dstidx] = '\0';
   return dstidx;
+  #undef VAL_HEX_DIGIT
   #undef IS_HEX_DIGIT
 }
 
