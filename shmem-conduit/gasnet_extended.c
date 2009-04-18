@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_extended.c,v $
- *     $Date: 2009/04/17 22:59:31 $
- * $Revision: 1.26 $
+ *     $Date: 2009/04/18 03:30:12 $
+ * $Revision: 1.27 $
  * Description: GASNet Extended API SHMEM Implementation
  * Copyright 2003, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -225,7 +225,10 @@ static int gasnete_shmembarrier_try(int id, int flags);
  * broadcast.
  *
  * On X1, performance-critical code paths replace the shmem_ptr shmem library
- * translation function with GASNet's inllined GASNETE_TRANSLATE_X1 macro.
+ * translation function with GASNet's inlined GASNETE_TRANSLATE_X1 macro.
+ *
+ * There incomplete/buggy SGI Origin (IRIX) support which has not been tuned.
+ * It is so far using the same code as Altix.
  */
 
 #define BARRIER_PAD_CACHELINE_SIZE 128
@@ -269,6 +272,11 @@ static void gasnete_barrier_broadcastmismatch(void) {
   shmem_quiet();
   gasneti_local_wmb();
 }
+
+#if PLATFORM_OS_IRIX
+  /* This is missing from shmem.h, but appears in the man pages and libsma. */
+  extern long shmem_long_finc(long *addr, int pe);
+#endif
 
 static void gasnete_shmembarrier_notify(int id, int flags) {
     int i;

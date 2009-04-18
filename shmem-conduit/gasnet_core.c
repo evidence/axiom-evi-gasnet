@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_core.c,v $
- *     $Date: 2009/03/30 02:40:57 $
- * $Revision: 1.38 $
+ *     $Date: 2009/04/18 03:30:12 $
+ * $Revision: 1.39 $
  * Description: GASNet shmem conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -52,7 +52,9 @@ gasnetc_am_packet_t  gasnetc_amq_reqs[2*GASNETC_AMQUEUE_MAX_DEPTH];
   /*
    * Altix requires mpirun to start jobs, and also requests that jobs
    * explicitly call MPI_Finalize() or else they abort.
+   * Origin 2000 only seems happy w/ both MPI_Init() and _Finalize().
    */
+  extern int MPI_Init(int *, char ***);
   extern void MPI_Finalize(void);
 #endif
 
@@ -137,8 +139,10 @@ static int gasnetc_init(int *argc, char ***argv) {
     fprintf(stderr,"gasnetc_init(): about to spawn...\n"); fflush(stderr);
   #endif
 
-  #if defined(CRAY_SHMEM) || defined(SGI_SHMEM)
+  #if defined(CRAY_SHMEM) || PLATFORM_ARCH_ALTIX
     start_pes(0);
+  #elif PLATFORM_OS_IRIX
+    MPI_Init(argc, argv);
   #elif defined(QUADRICS_SHMEM)
     shmem_init();
   #endif
@@ -379,7 +383,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 	    int		i;
 
 	    if (segsize < gasnetc_seginfo_init.size) {
-		/* Enforce power of 2 per thread on Altix */
+		/* Enforce power of 2 per thread on Altix and Origin */
 		#if 0 && defined(SGI_SHMEM)
 		  char buf[64];
 		  uintptr_t segup = gasnetc_alignup_pow2(segsize);
@@ -1426,7 +1430,7 @@ gasnetc_SHMallocSegmentSearch()
 	uintptr_t	    maxsz;
 
 	maxsz = gasnetc_getMaxMem();
-        #if GASNETI_ARCH_ALTIX
+        #if defined(SGI_SHMEM)
           maxsz = gasnetc_aligndown_pow2(maxsz/gasneti_nodes);
         #endif
 
@@ -1436,7 +1440,7 @@ gasnetc_SHMallocSegmentSearch()
           gasnet_max_segsize = maxsz; 
         }
         maxsz = GASNETI_MMAP_LIMIT;
-        #if GASNETI_ARCH_ALTIX
+        #if defined(SGI_SHMEM)
             /* alignup here in case user requested a non-power of two size */
 	    maxsz = gasnetc_alignup_pow2(maxsz);
         #endif
@@ -1455,7 +1459,7 @@ gasnetc_SHMallocSegmentSearch()
 		}
 #endif
 
-	#if GASNETI_ARCH_ALTIX
+	#if defined(SGI_SHMEM)
 	{
 	    uintptr_t alloc_perthread;
 	    double  frac;
