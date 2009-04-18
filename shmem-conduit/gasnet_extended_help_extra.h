@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_extended_help_extra.h,v $
- *     $Date: 2009/04/18 08:37:06 $
- * $Revision: 1.8 $
+ *     $Date: 2009/04/18 21:07:35 $
+ * $Revision: 1.9 $
  * Description: GASNet Extended Shmem-specific Header 
  * Copyright 2005, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -89,7 +89,7 @@
 	} while (0)
 
 #define _GASNETE_DESTSRC_ALIGNED(dest,src,al)			    \
-	    (!(((uintptr_t)dest|(uintptr_t)src)&(al)))
+	    (!((((uintptr_t)dest)|((uintptr_t)src))&(al)))
 	    
 #define _gasnete_global_ldst(dest,src,nbytes)			    \
 	do {							    \
