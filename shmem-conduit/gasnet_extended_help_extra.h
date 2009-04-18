@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_extended_help_extra.h,v $
- *     $Date: 2006/05/23 12:42:37 $
- * $Revision: 1.6 $
+ *     $Date: 2009/04/18 00:18:20 $
+ * $Revision: 1.7 $
  * Description: GASNet Extended Shmem-specific Header 
  * Copyright 2005, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -158,7 +158,7 @@
 			_GASNETE_INLINE_VLOOP(pDest,pSrc,nbytes);   \
 		    else					    \
 		    )						    \
-			bcopy(src, dest, nbytes);		    \
+			memcpy(dest, src, nbytes);		    \
 		    break;					    \
 	    }							    \
 	} while (0)
@@ -202,7 +202,7 @@
 			nbytes <= 256 && !(nbytes&0x7))	            \
 			_GASNETE_INLINE_VLOOP(pDest,pSrc,nbytes);   \
 		    else					    \
-			bcopy(src, dest, nbytes);		    \
+			memcpy(dest, src, nbytes);		    \
 		    break;					    \
 	    }							    \
 	} while (0)
