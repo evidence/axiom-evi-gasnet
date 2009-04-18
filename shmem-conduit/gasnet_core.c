@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_core.c,v $
- *     $Date: 2009/04/18 03:51:10 $
- * $Revision: 1.40 $
+ *     $Date: 2009/04/18 04:33:45 $
+ * $Revision: 1.41 $
  * Description: GASNet shmem conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1326,7 +1326,11 @@ gasnet_handlerentry_t const *gasnetc_get_handlertable(void) {
 }
 
 /* ------------------------------------------------------------------------------------ */
-#define GASNETC_SHMALLOC_GRANULARITY	(256<<20)
+#ifdef CRAY_SHMEM
+  #define GASNETC_SHMALLOC_GRANULARITY	(256<<20)
+#else
+  #define GASNETC_SHMALLOC_GRANULARITY	(16<<20)
+#endif
 
 static
 gasnet_seginfo_t
@@ -1430,7 +1434,7 @@ gasnetc_SHMallocSegmentSearch()
 	uintptr_t	    maxsz;
 
 	maxsz = gasnetc_getMaxMem();
-        #if defined(SGI_SHMEM)
+        #if GASNETI_ARCH_ALTIX
           maxsz = gasnetc_aligndown_pow2(maxsz/gasneti_nodes);
         #endif
 
@@ -1440,7 +1444,7 @@ gasnetc_SHMallocSegmentSearch()
           gasnet_max_segsize = maxsz; 
         }
         maxsz = GASNETI_MMAP_LIMIT;
-        #if defined(SGI_SHMEM)
+        #if GASNETI_ARCH_ALTIX
             /* alignup here in case user requested a non-power of two size */
 	    maxsz = gasnetc_alignup_pow2(maxsz);
         #endif
@@ -1459,7 +1463,7 @@ gasnetc_SHMallocSegmentSearch()
 		}
 #endif
 
-	#if defined(SGI_SHMEM)
+	#if GASNETI_ARCH_ALTIX
 	{
 	    uintptr_t alloc_perthread;
 	    double  frac;
