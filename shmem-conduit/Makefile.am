@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/Makefile.am,v 1.8 2009/04/18 21:53:31 phargrov Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/Makefile.am,v 1.9 2009/04/18 22:43:04 phargrov Exp $
 # Description: Makefile for GASNet shmem conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -55,8 +55,10 @@ CONDUIT_SPECIAL_OBJS=
 #   %Q = program arguments w/ an extra level of quotes
 #   %D = the current working directory 
 #   %H = hostfile (if any)
-# For now, assume we can use mpirun, as this works on most platforms
-CONDUIT_RUNCMD = mpirun -np %N %P %A
+#
+# Assume we can use mpirun for shmem apps, as this works on most platforms
+#CONDUIT_RUNCMD = @MPIRUN_CMD@
+CONDUIT_RUNCMD = @TOP_BUILDDIR@/mpi-conduit/contrib/gasnetrun_mpi -np %N %P %A
 
 # -------- Do not modify anything below this line --------
 
