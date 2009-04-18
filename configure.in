@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2009/04/18 03:30:10 $
-# $Revision: 1.541 $
+#     $Date: 2009/04/18 09:21:40 $
+# $Revision: 1.542 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.541 $)
+AC_REVISION($Revision: 1.542 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -3002,16 +3002,12 @@ if test $enabled_shmem = yes; then
       SHMEM_FLAVOUR="CRAY_SHMEM"
       ;;
     irix*)
-      AC_MSG_RESULT([SGI/IRIX - not yet supported])
-      # Too many test failures for real use.  So, only build if --enable-irix-shmem
-      GASNET_IF_ENABLED_NOHELP(irix-shmem, [
-        SHMEM_FLAVOUR="SGI_SHMEM"
-        GASNET_ENV_DEFAULT(SHMEM_INCLUDE, /usr/include)
-        # Explict -L/usr/lib would only be correct for o32 objects
-        GASNET_ENV_DEFAULT(SHMEM_LIBDIR, /anything/but/usr/lib)
-        GASNET_ENV_DEFAULT(SHMEM_LIBS, [-lsma -lmpi])
-        GASNET_MSG_WARN([Known-buggy IRIX SHMEM support requested by --enable-irix-shmem])
-      ], [ have_shmem="no" ])
+      AC_MSG_RESULT(SGI/IRIX)
+      SHMEM_FLAVOUR="SGI_SHMEM"
+      GASNET_ENV_DEFAULT(SHMEM_INCLUDE, /usr/include)
+      # Explict -L/usr/lib would only be correct for o32 objects
+      GASNET_ENV_DEFAULT(SHMEM_LIBDIR, /anything/but/usr/lib)
+      GASNET_ENV_DEFAULT(SHMEM_LIBS, [-lsma -lmpi])
       ;;
     # Linux shmem may mean Quadrics shmem or SGI shmem, but only SGI shmem is supported.
     linux*)
