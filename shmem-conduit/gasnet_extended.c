@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_extended.c,v $
- *     $Date: 2009/04/19 04:47:45 $
- * $Revision: 1.29 $
+ *     $Date: 2009/04/19 05:50:11 $
+ * $Revision: 1.30 $
  * Description: GASNet Extended API SHMEM Implementation
  * Copyright 2003, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -176,11 +176,14 @@ gasnete_end_nbi_accessregion(GASNETE_THREAD_FARG_ALONE)
 
 /* Our SHMEM barrier uses a 64-bit atomic operation to allow the user's
  * 32-bit barrier value to be distinguished from a "uninitialized" marker.
- * On ILP32, we are currently blindly assuming longlong shmem atomics work.
+ * This code requires shmem_long_finc() and an 8-byte shmem_*_cswap().
  */
 #if defined(GASNETE_USE_SHMEM_BARRIER)
   /* Keep the current value */
-#else
+#elif PLATFORM_ARCH_CRAYX1 || GASNETI_ARCH_ALTIX || \
+     (HAVE_SHMEM_LONG_FINC && \
+      (((SIZEOF_LONG == 8) && HAVE_SHMEM_LONG_CSWAP) || \
+       ((SIZEOF_LONG_LONG == 8) && HAVE_SHMEM_LONGLONG_CSWAP)))
   #define GASNETE_USE_SHMEM_BARRIER 1
 #endif
 
@@ -289,15 +292,15 @@ static void gasnete_barrier_broadcastmismatch(void)) {
 }
 
 #if PLATFORM_OS_IRIX
-  /* These are sometimes missing from shmem.h,
-     but they always appear in the man pages and libsma. */
-  extern long shmem_long_finc(long *addr, int pe);
-  #if (SIZEOF_LONG == 8)
+  /* These are sometimes missing from shmem.h */
+  #if HAVE_SHMEM_LONG_FINC
+    extern long shmem_long_finc(long *addr, int pe);
+  #endif
+  #if HAVE_SHMEM_LONG_CSWAP
     extern long shmem_long_cswap(long *target, long cond, long value, int pe);
-  #elif (SIZEOF_LONG_LONG == 8)
+  #endif
+  #if HAVE_SHMEM_LONGLONG_CSWAP
     extern long long shmem_longlong_cswap(long long *target, long long cond, long long value, int pe);
-  #else
-    #error "No 64-bit atomic operations available"
   #endif
 #endif
 
