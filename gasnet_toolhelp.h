@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_toolhelp.h,v $
- *     $Date: 2009/04/01 23:33:20 $
- * $Revision: 1.41 $
+ *     $Date: 2009/04/19 23:13:02 $
+ * $Revision: 1.42 $
  * Description: misc declarations needed by both gasnet_tools and libgasnet
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -652,12 +652,14 @@ int gasnett_maximize_rlimit(int res, const char *lim_desc);
 
 /* ------------------------------------------------------------------------------------ */
 
-#if PLATFORM_OS_AIX
-  /* AIX's stdio.h won't provide prototypes for snprintf() and vsnprintf()
+  /* Older AIX's stdio.h won't provide prototypes for snprintf() and vsnprintf()
    * by default since they are in C99 but not C89.
    */
+#if !HAVE_SNPRINTF_DECL
   GASNETI_FORMAT_PRINTF(snprintf,3,4,
   extern int snprintf(char * s, size_t n, const char * format, ...));
+#endif
+#if !HAVE_VSNPRINTF_DECL
   GASNETI_FORMAT_PRINTF(vsnprintf,3,0,
   extern int vsnprintf(char * s, size_t n, const char * format, va_list ap));
 #endif

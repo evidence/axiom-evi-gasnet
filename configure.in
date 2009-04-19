@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2009/04/19 21:12:42 $
-# $Revision: 1.545 $
+#     $Date: 2009/04/19 23:13:02 $
+# $Revision: 1.546 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.545 $)
+AC_REVISION($Revision: 1.546 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -3328,13 +3328,24 @@ AC_CHECK_FUNCS(fopen64)
 
 AC_CHECK_HEADERS([sn/mmtimer.h linux/mmtimer.h])
 
-AC_DEFUN([GASNET_CHECK_DECL], [
+########################################################################
+# On various systems, the headers are missing certain functions
+# or only declare them under some condition we don't satisfy.
+
+AC_DEFUN([GASNET_CHECK_SYS_DECL], [
   pushdef([uppername],translit($1,'a-z','A-Z'))
-  pushdef([cvname],uppername[]_decl)
+  pushdef([cvname],have_[]uppername[]_decl)
   GASNET_TRY_CACHE_CHECK(for declaration/definition of $1, cvname, [
-    $2
+	#include <stddef.h>
+	#include <stdarg.h>
+	#include <stdio.h>
+	#include <stdlib.h>
+	#include <unistd.h>
+	#include <string.h>
   ], [
-    #ifndef $1 /* Might be a macro */
+    #ifdef $1
+      /* It is a macro and that is OK */
+    #else
       int x = (int)sizeof(&$1);
     #endif
   ], [ cvname=yes ], [ cvname=no ])
@@ -3345,10 +3356,10 @@ AC_DEFUN([GASNET_CHECK_DECL], [
   popdef([uppername])
 ])
 
-GASNET_CHECK_DECL(setenv, [#include <stdlib.h>])
-GASNET_CHECK_DECL(unsetenv, [#include <stdlib.h>])
-
-#---------------------------------------------------------------------------------------------------------------
+GASNET_CHECK_SYS_DECL(setenv)
+GASNET_CHECK_SYS_DECL(unsetenv)
+GASNET_CHECK_SYS_DECL(snprintf)
+GASNET_CHECK_SYS_DECL(vsnprintf)
 
 ########################################################################
 # BACKTRACE support
