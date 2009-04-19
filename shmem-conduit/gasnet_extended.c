@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_extended.c,v $
- *     $Date: 2009/04/19 03:12:29 $
- * $Revision: 1.28 $
+ *     $Date: 2009/04/19 04:47:45 $
+ * $Revision: 1.29 $
  * Description: GASNet Extended API SHMEM Implementation
  * Copyright 2003, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -176,14 +176,12 @@ gasnete_end_nbi_accessregion(GASNETE_THREAD_FARG_ALONE)
 
 /* Our SHMEM barrier uses a 64-bit atomic operation to allow the user's
  * 32-bit barrier value to be distinguished from a "uninitialized" marker.
- * So, this has not been ported to ILP32 (not even for a 64-bit CPU).
+ * On ILP32, we are currently blindly assuming longlong shmem atomics work.
  */
 #if defined(GASNETE_USE_SHMEM_BARRIER)
   /* Keep the current value */
-#elif PLATFORM_ARCH_64
-  #define GASNETE_USE_SHMEM_BARRIER 1
 #else
-  #define GASNETE_USE_SHMEM_BARRIER 0
+  #define GASNETE_USE_SHMEM_BARRIER 1
 #endif
 
 #if GASNETE_USE_SHMEM_BARRIER
@@ -260,13 +258,13 @@ static int gasnete_shmembarrier_try(int id, int flags);
 #endif
 
 typedef struct {
-    long volatile barrier_value;
-    long volatile barrier_flags;
+    int barrier_value;
+    int barrier_flags;
 } gasnete_barrier_state_t;
 
-#define BARRIER_INITVAL 0x1234567800000000
+#define BARRIER_INITVAL 0x1234567800000000LL
 
-static long barrier_value[2] = { BARRIER_INITVAL, BARRIER_INITVAL };
+static uint64_t barrier_value[2] = { BARRIER_INITVAL, BARRIER_INITVAL };
 static int  barrier_mismatch[2] = { 0, 0 };
 static int  barrier_phase = 0;
 
@@ -281,7 +279,8 @@ static void gasnete_shmembarrier_init(void) {
   /* nothing to do.. */
 }
 
-static void gasnete_barrier_broadcastmismatch(void) {
+GASNETI_NEVER_INLINE(gasnete_barrier_broadcastmismatch,
+static void gasnete_barrier_broadcastmismatch(void)) {
   int i;
   for (i=0; i < gasneti_nodes; i++) 
     *((int *)shmem_ptr(&barrier_mismatch[barrier_phase], i)) = 1;
@@ -290,13 +289,21 @@ static void gasnete_barrier_broadcastmismatch(void) {
 }
 
 #if PLATFORM_OS_IRIX
-  /* This is missing from shmem.h, but appears in the man pages and libsma. */
+  /* These are sometimes missing from shmem.h,
+     but they always appear in the man pages and libsma. */
   extern long shmem_long_finc(long *addr, int pe);
+  #if (SIZEOF_LONG == 8)
+    extern long shmem_long_cswap(long *target, long cond, long value, int pe);
+  #elif (SIZEOF_LONG_LONG == 8)
+    extern long long shmem_longlong_cswap(long long *target, long long cond, long long value, int pe);
+  #else
+    #error "No 64-bit atomic operations available"
+  #endif
 #endif
 
 static void gasnete_shmembarrier_notify(int id, int flags) {
     int i;
-    long curval;
+    uint64_t curval;
     if_pf (barrier_splitstate == INSIDE_BARRIER)
 	gasneti_fatalerror("gasnet_barrier_notify() called twice in a row");
 
@@ -314,9 +321,12 @@ static void gasnete_shmembarrier_notify(int id, int flags) {
 	    curval = _amo_acswap(
 		    GASNETE_TRANSLATE_X1(&barrier_value[barrier_phase], 0), 
 		    BARRIER_INITVAL, (long) id);
-	#else
-	    curval = shmem_long_cswap(&barrier_value[barrier_phase], 
+	#elif (SIZEOF_LONG == 8)
+	    curval = shmem_long_cswap((long *)&barrier_value[barrier_phase], 
 				      BARRIER_INITVAL, (long) id, 0);
+	#elif (SIZEOF_LONG_LONG == 8)
+	    curval = shmem_longlong_cswap((long long *)&barrier_value[barrier_phase], 
+					  BARRIER_INITVAL, (long long) id, 0);
 	#endif
 	/*
 	 * Value mismatch -- broadcast to the mismatch flag. Operation is in a
