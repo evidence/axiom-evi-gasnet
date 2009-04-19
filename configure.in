@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2009/04/19 07:46:41 $
-# $Revision: 1.544 $
+#     $Date: 2009/04/19 21:12:42 $
+# $Revision: 1.545 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.544 $)
+AC_REVISION($Revision: 1.545 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -3327,6 +3327,28 @@ AC_CHECK_HEADERS(features.h)
 AC_CHECK_FUNCS(fopen64)
 
 AC_CHECK_HEADERS([sn/mmtimer.h linux/mmtimer.h])
+
+AC_DEFUN([GASNET_CHECK_DECL], [
+  pushdef([uppername],translit($1,'a-z','A-Z'))
+  pushdef([cvname],uppername[]_decl)
+  GASNET_TRY_CACHE_CHECK(for declaration/definition of $1, cvname, [
+    $2
+  ], [
+    #ifndef $1 /* Might be a macro */
+      int x = (int)sizeof(&$1);
+    #endif
+  ], [ cvname=yes ], [ cvname=no ])
+  if test $cvname = yes; then
+    AC_DEFINE(HAVE_[]uppername[]_DECL)
+  fi
+  popdef([cvname])
+  popdef([uppername])
+])
+
+GASNET_CHECK_DECL(setenv, [#include <stdlib.h>])
+GASNET_CHECK_DECL(unsetenv, [#include <stdlib.h>])
+
+#---------------------------------------------------------------------------------------------------------------
 
 ########################################################################
 # BACKTRACE support

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2009/04/19 20:05:14 $
- * $Revision: 1.231 $
+ *     $Date: 2009/04/19 21:12:42 $
+ * $Revision: 1.232 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1285,6 +1285,12 @@ extern char *gasneti_format_number(int64_t val, char *buf, size_t bufsz, int is_
 }
 /* ------------------------------------------------------------------------------------ */
 /* environment support */
+#if HAVE_SETENV && !HAVE_SETENV_DECL
+  extern int setenv(const char *, const char *, int);
+#endif
+#if HAVE_UNSETENV && !HAVE_UNSETENV_DECL
+  extern int unsetenv(const char *);
+#endif
 /* set an environment variable, for the local process ONLY */
 extern void gasneti_setenv(const char *key, const char *value) {
   /* both are POSIX - prefer setenv because it manages memory for us */

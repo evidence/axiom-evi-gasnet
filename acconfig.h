@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2009/03/30 07:36:29 $ */
-/*  $Revision: 1.139 $ */
+/*      $Date: 2009/04/19 21:12:42 $ */
+/*  $Revision: 1.140 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -98,6 +98,10 @@
 
 /* have ptmalloc's mallopt() options */
 #undef HAVE_PTMALLOC
+
+/* have declarations/definitions */
+#undef HAVE_SETENV_DECL
+#undef HAVE_UNSETENV_DECL
 
 /* Forbidden to use fork(), popen() and system()? */
 #undef GASNETI_NO_FORK
