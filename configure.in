@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2009/04/19 05:50:09 $
-# $Revision: 1.543 $
+#     $Date: 2009/04/19 07:46:41 $
+# $Revision: 1.544 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.543 $)
+AC_REVISION($Revision: 1.544 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -628,6 +628,7 @@ case "$gasnet_cv_cc_family" in
   PGI) KEEPTMP_CFLAGS="-Mkeepasm" ;; # XXX: only keeps .s.  Can't find a way to preserve .i
   Intel) KEEPTMP_CFLAGS="-save-temps" ;; # XXX: only keeps .s.  Can't find a way to preserve .i
   Sun) KEEPTMP_CFLAGS="-keeptmp" ;;
+  MIPS) KEEPTMP_CFLAGS="-keep" ;; # XXX: only keeps .s and .B.  Can't find a way to preserve .i
   *) KEEPTMP_CFLAGS="" ;;
 esac
 AC_SUBST(KEEPTMP_CFLAGS)      # flags to preserve intermediate file (,i, .s, etc.)
