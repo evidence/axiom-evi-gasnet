@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_core.h,v $
- *     $Date: 2009/04/01 23:33:10 $
- * $Revision: 1.15 $
+ *     $Date: 2009/04/19 02:42:07 $
+ * $Revision: 1.16 $
  * Description: GASNet header for shmem conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -125,7 +125,7 @@ typedef struct _gasnet_hsl_t {
 
 #define GASNETC_SHORT_HEADERSZ      4
 #define GASNETC_MED_HEADERSZ        8
-#define GASNETC_LONG_HEADERSZ       (8+8)
+#define GASNETC_LONG_HEADERSZ       (8+SIZEOF_VOID_P)
 
 #define GASNETC_MAX_ARGS             16
 #define GASNETC_MAX_MEDIUM          512

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_core.c,v $
- *     $Date: 2009/04/18 04:33:45 $
- * $Revision: 1.41 $
+ *     $Date: 2009/04/19 02:42:07 $
+ * $Revision: 1.42 $
  * Description: GASNet shmem conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -663,10 +663,16 @@ gasnetc_AMProcess(gasnetc_am_header_t *hdr, uint32_t *args /* header */)
 		}
 		break;
 	    case GASNETC_AMLONG_T:
-		{   gasnet_handlerarg_t *pargs =
+		{   int nbytes = args[1];
+#if PLATFORM_ARCH_64
+		    gasnet_handlerarg_t *pargs =
 			(gasnet_handlerarg_t *) &args[4];
-		    int nbytes = args[1];
 		    void *pdata = (void *) GASNETI_MAKEWORD(args[2],args[3]);
+#else
+		    gasnet_handlerarg_t *pargs =
+			(gasnet_handlerarg_t *) &args[3];
+		    void *pdata = (void *) args[2];
+#endif
 		    GASNETI_RUN_HANDLER_LONG(GASNETC_AMHEADER_ISREQUEST(hdr->reqrep),hdr->handler,
                                              handler,token,pargs,numargs,
 					     pdata,nbytes);
@@ -974,10 +980,15 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
 			GASNETC_REQUEST_T, GASNETC_AMLONG_T, numargs, 
 			handler, gasneti_mynode);
   _amstub.args[1] = nbytes;
+#if PLATFORM_ARCH_64
   _amstub.args[2] = (gasnet_handlerarg_t) GASNETI_HIWORD(dest_addr);
   _amstub.args[3] = (gasnet_handlerarg_t) GASNETI_LOWORD(dest_addr);
-
   args = &_amstub.args[4];
+#else
+  _amstub.args[2] = (gasnet_handlerarg_t) dest_addr;
+  args = &_amstub.args[3];
+#endif
+
   for (i = 0; i < numargs; i++)
 	  args[i] = (gasnet_handlerarg_t)va_arg(argptr, uint32_t);
 
@@ -1142,10 +1153,15 @@ extern int gasnetc_AMReplyLongM(
 			GASNETC_REPLY_T, GASNETC_AMLONG_T, numargs, 
 			handler, gasneti_mynode);
   _amstub.args[1] = nbytes;
+#if PLATFORM_ARCH_64
   _amstub.args[2] = (gasnet_handlerarg_t) GASNETI_HIWORD(dest_addr);
   _amstub.args[3] = (gasnet_handlerarg_t) GASNETI_LOWORD(dest_addr);
-
   args = &_amstub.args[4];
+#else
+  _amstub.args[2] = (gasnet_handlerarg_t) dest_addr;
+  args = &_amstub.args[3];
+#endif
+
   for (i = 0; i < numargs; i++)
 	  args[i] = (gasnet_handlerarg_t)va_arg(argptr, uint32_t);
 
