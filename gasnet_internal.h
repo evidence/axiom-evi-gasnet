@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2009/03/30 02:40:24 $
- * $Revision: 1.114 $
+ *     $Date: 2009/04/19 20:05:14 $
+ * $Revision: 1.115 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -36,17 +36,39 @@ GASNETI_BEGIN_EXTERNC
   #pragma error_messages(off, E_STATEMENT_NOT_REACHED)
 #endif
 
-#if PLATFORM_OS_TRU64
-  /* replace a stupidly broken implementation of toupper on Tru64 
-     (fails to correctly implement required integral promotion of
-      character-typed arguments, leading to bogus warnings)
-     WARNING: This may evaluate the argument multiple times.
-              So, usage like
-                 *p = toupper(*q++);
-              is not going to work as expected.
-   */
-  #undef toupper
-  #define toupper(c) ((c) >= 'a' && (c) <= 'z' ? (c) & 0x5F:(c))
+/* On some platforms ctypes.h lacks the required integer promotion
+ * of character-typed arguments, leading to bogus warnings.
+ */
+#if PLATFORM_OS_TRU64 || PLATFORM_OS_IRIX
+  GASNETI_ALWAYS_INLINE(toupper) GASNETI_CONST
+  int gasneti_toupper(int _c) { return toupper(_c); }
+  #undef  toupper
+  #define toupper gasneti_toupper
+
+  GASNETI_ALWAYS_INLINE(tolower) GASNETI_CONST
+  int gasneti_tolower(int _c) { return tolower(_c); }
+  #undef  tolower
+  #define tolower gasneti_tolower
+
+  GASNETI_ALWAYS_INLINE(isspace) GASNETI_CONST
+  int gasneti_isspace(int _c) { return isspace(_c); }
+  #undef  isspace 
+  #define isspace gasneti_isspace
+
+  GASNETI_ALWAYS_INLINE(isdigit) GASNETI_CONST
+  int gasneti_isdigit(int _c) { return isdigit(_c); }
+  #undef  isdigit 
+  #define isdigit gasneti_isdigit
+
+  GASNETI_ALWAYS_INLINE(isalpha) GASNETI_CONST
+  int gasneti_isalpha(int _c) { return isalpha(_c); }
+  #undef  isalpha 
+  #define isalpha gasneti_isalpha
+
+  GASNETI_ALWAYS_INLINE(isprint) GASNETI_CONST
+  int gasneti_isprint(int _c) { return isprint(_c); }
+  #undef  isprint 
+  #define isprint gasneti_isprint
 #endif
 
 extern int gasneti_init_done; /*  true after init */

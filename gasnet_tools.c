@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2009/04/06 19:32:02 $
- * $Revision: 1.230 $
+ *     $Date: 2009/04/19 20:05:14 $
+ * $Revision: 1.231 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -54,13 +54,29 @@
   #pragma error_messages(off, E_STATEMENT_NOT_REACHED)
 #endif
 
-#if PLATFORM_OS_TRU64
-  /* replace a stupidly broken implementation of toupper on Tru64 
-     (fails to correctly implement required integral promotion of
-      character-typed arguments, leading to bogus warnings)
-   */
-  #undef toupper
-  #define toupper(c) ((c) >= 'a' && (c) <= 'z' ? (c) & 0x5F:(c))
+/* On some platforms ctypes.h lacks the required integer promotion
+ * of character-typed arguments, leading to bogus warnings.
+ */
+#if PLATFORM_OS_TRU64 || PLATFORM_OS_IRIX
+  GASNETI_ALWAYS_INLINE(toupper) GASNETI_CONST
+  int gasneti_toupper(int _c) { return toupper(_c); }
+  #undef  toupper
+  #define toupper gasneti_toupper
+
+  GASNETI_ALWAYS_INLINE(isspace) GASNETI_CONST
+  int gasneti_isspace(int _c) { return isspace(_c); }
+  #undef  isspace 
+  #define isspace gasneti_isspace
+
+  GASNETI_ALWAYS_INLINE(isdigit) GASNETI_CONST
+  int gasneti_isdigit(int _c) { return isdigit(_c); }
+  #undef  isdigit 
+  #define isdigit gasneti_isdigit
+
+  GASNETI_ALWAYS_INLINE(isalpha) GASNETI_CONST
+  int gasneti_isalpha(int _c) { return isalpha(_c); }
+  #undef  isalpha 
+  #define isalpha gasneti_isalpha
 #endif
 
 /* ------------------------------------------------------------------------------------ */
