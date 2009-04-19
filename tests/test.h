@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2009/04/06 03:11:08 $
- * $Revision: 1.125 $
+ *     $Date: 2009/04/19 19:53:06 $
+ * $Revision: 1.126 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -200,7 +200,7 @@ static char test_sections[255];
 #define TEST_SECTION_PARSE(arg) do {       \
       const char *p = (arg);               \
       char *q = test_sections;             \
-      while (*p) *(q++) = toupper(*(p++)); \
+      while (*p) *(q++) = toupper((int)*(p++)); \
     } while (0)
 
 /* ------------------------------------------------------------------------------------ */
