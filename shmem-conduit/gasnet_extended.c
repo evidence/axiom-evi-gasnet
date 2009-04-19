@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_extended.c,v $
- *     $Date: 2009/04/18 03:30:12 $
- * $Revision: 1.27 $
+ *     $Date: 2009/04/19 03:12:29 $
+ * $Revision: 1.28 $
  * Description: GASNet Extended API SHMEM Implementation
  * Copyright 2003, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -174,6 +174,19 @@ gasnete_end_nbi_accessregion(GASNETE_THREAD_FARG_ALONE)
   =========
 */
 
+/* Our SHMEM barrier uses a 64-bit atomic operation to allow the user's
+ * 32-bit barrier value to be distinguished from a "uninitialized" marker.
+ * So, this has not been ported to ILP32 (not even for a 64-bit CPU).
+ */
+#if defined(GASNETE_USE_SHMEM_BARRIER)
+  /* Keep the current value */
+#elif PLATFORM_ARCH_64
+  #define GASNETE_USE_SHMEM_BARRIER 1
+#else
+  #define GASNETE_USE_SHMEM_BARRIER 0
+#endif
+
+#if GASNETE_USE_SHMEM_BARRIER
 static void gasnete_shmembarrier_init(void);
 static void gasnete_shmembarrier_notify(int id, int flags);
 static int gasnete_shmembarrier_wait(int id, int flags);
@@ -188,11 +201,14 @@ static int gasnete_shmembarrier_try(int id, int flags);
       gasnete_shmembarrier_init();                           \
     }                                                        \
   } while (0)
+#endif /* GASNETE_USE_SHMEM_BARRIER */
 
 /* allow reference implementation of barrier */
 #define GASNETI_GASNET_EXTENDED_REFBARRIER_C 1
 #include "gasnet_extended_refbarrier.c"
 #undef GASNETI_GASNET_EXTENDED_REFBARRIER_C
+
+#if GASNETE_USE_SHMEM_BARRIER
 /* ------------------------------------------------------------------------------------ */
 /* SHMEM barrier */
 /*
@@ -227,8 +243,8 @@ static int gasnete_shmembarrier_try(int id, int flags);
  * On X1, performance-critical code paths replace the shmem_ptr shmem library
  * translation function with GASNet's inlined GASNETE_TRANSLATE_X1 macro.
  *
- * There incomplete/buggy SGI Origin (IRIX) support which has not been tuned.
- * It is so far using the same code as Altix.
+ * The SGI Origin (IRIX) support is so far using the same code as Altix.
+ * However, it has not been tuned and is not ported to ILP32.
  */
 
 #define BARRIER_PAD_CACHELINE_SIZE 128
@@ -404,6 +420,7 @@ static int gasnete_shmembarrier_try(int id, int flags) {
 	gasneti_fatalerror("gasnet_barrier_try() called without a matching notify");
     return gasnete_shmembarrier_wait(id, flags);
 }
+#endif /* GASNETE_USE_SHMEM_BARRIER */
 
 /* ------------------------------------------------------------------------ */
 /*
