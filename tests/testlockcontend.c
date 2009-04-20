@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testlockcontend.c,v $
- *     $Date: 2009/04/01 19:04:38 $
- * $Revision: 1.6 $
+ *     $Date: 2009/04/20 06:40:08 $
+ * $Revision: 1.7 $
  * Description: GASNet lock performance test
  *   Measures the overhead associated with contended locks
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -133,13 +133,13 @@ do {                                                            \
   }                                                             \
 } while (0)
 
-void * thread_fn1(void *arg) { TEST_BEGIN_FUNCTION();
+void * thread_fn1(void *arg) { GASNET_BEGIN_FUNCTION();
   int id = (int)(uintptr_t)arg;
   TIME_OPERATION_SOME(id, { pthread_mutex_lock(&mutex); pthread_mutex_unlock(&mutex); });
   return NULL;
 }
 
-void * thread_fn2(void *arg) { TEST_BEGIN_FUNCTION();
+void * thread_fn2(void *arg) { GASNET_BEGIN_FUNCTION();
   int id = (int)(uintptr_t)arg;
   TIME_OPERATION_SOME(id, { gasnet_hsl_lock(&hsl); gasnet_hsl_unlock(&hsl); });
   return NULL;
@@ -162,13 +162,13 @@ do {                                                            \
   }                                                             \
 } while (0)
 
-void * thread_fn3(void *arg) { TEST_BEGIN_FUNCTION();
+void * thread_fn3(void *arg) { GASNET_BEGIN_FUNCTION();
   int id = (int)(uintptr_t)arg;
   TIME_OPERATION_ALL(id, { pthread_mutex_lock(&mutex); pthread_mutex_unlock(&mutex); });
   return NULL;
 }
 
-void * thread_fn4(void *arg) { TEST_BEGIN_FUNCTION();
+void * thread_fn4(void *arg) { GASNET_BEGIN_FUNCTION();
   int id = (int)(uintptr_t)arg;
   TIME_OPERATION_ALL(id, { gasnet_hsl_lock(&hsl); gasnet_hsl_unlock(&hsl); });
   return NULL;

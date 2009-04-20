@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testam.c,v $
- *     $Date: 2009/04/01 19:04:38 $
- * $Revision: 1.29 $
+ *     $Date: 2009/04/20 06:40:08 $
+ * $Revision: 1.30 $
  * Description: GASNet Active Messages performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -186,7 +186,7 @@ int main(int argc, char **argv) {
 }
 /* ------------------------------------------------------------------------------------ */
 void doAMShort(void) {
-    TEST_BEGIN_FUNCTION();
+    GASNET_BEGIN_FUNCTION();
 
     if (sender) { /* warm-up */
       flag = 0;                                                                                  
@@ -443,17 +443,17 @@ void doAMShort(void) {
   #define LONGDEST , peerseg
 /* ------------------------------------------------------------------------------------ */
 void doAMMed(void) {
-  TEST_BEGIN_FUNCTION();
+  GASNET_BEGIN_FUNCTION();
   TESTAM_PERF("AMMedium   ",    gasnet_AMRequestMedium0,    hidx_ping_medhandler,  hidx_pong_medhandler,  maxmed, maxmed, MEDDEST);
 }
 /* ------------------------------------------------------------------------------------ */
 void doAMLong(void) {
-  TEST_BEGIN_FUNCTION();
+  GASNET_BEGIN_FUNCTION();
   TESTAM_PERF("AMLong     ",      gasnet_AMRequestLong0,      hidx_ping_longhandler, hidx_pong_longhandler, maxlongreq, maxlongrep, LONGDEST);
 }
 /* ------------------------------------------------------------------------------------ */
 void doAMLongAsync(void) {
-  TEST_BEGIN_FUNCTION();
+  GASNET_BEGIN_FUNCTION();
   TESTAM_PERF("AMLongAsync", gasnet_AMRequestLongAsync0, hidx_ping_longhandler, hidx_pong_longhandler, maxlongreq, maxlongrep, LONGDEST);
 }
 /* ------------------------------------------------------------------------------------ */
