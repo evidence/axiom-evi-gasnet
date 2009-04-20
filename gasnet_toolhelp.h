@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_toolhelp.h,v $
- *     $Date: 2009/04/19 23:13:02 $
- * $Revision: 1.42 $
+ *     $Date: 2009/04/20 00:10:48 $
+ * $Revision: 1.43 $
  * Description: misc declarations needed by both gasnet_tools and libgasnet
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -660,6 +660,7 @@ int gasnett_maximize_rlimit(int res, const char *lim_desc);
   extern int snprintf(char * s, size_t n, const char * format, ...));
 #endif
 #if !HAVE_VSNPRINTF_DECL
+  #include <stdarg.h>
   GASNETI_FORMAT_PRINTF(vsnprintf,3,0,
   extern int vsnprintf(char * s, size_t n, const char * format, va_list ap));
 #endif
