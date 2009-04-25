@@ -1077,12 +1077,7 @@ uint32_t gasnetc_new_lid(gasnet_node_t dest)
 #define GASNETC_IF_USE_FIREHOSE(X) if_pt (gasnetc_use_firehose) {X}
 
 #include <firehose.h>
-#if GASNET_DEBUG
-  extern int gasnetc_use_firehose;
-#else
-  /* Always on in an opt build (avoids branches) */
-  #define gasnetc_use_firehose 1
-#endif
+extern int gasnetc_use_firehose;
 extern firehose_info_t gasnetc_firehose_info;
 
 /* A "handle" on a firehose request.

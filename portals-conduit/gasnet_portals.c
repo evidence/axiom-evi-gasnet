@@ -187,9 +187,7 @@ size_t gasnetc_AMMaxLong;
   #define GASNETC_FIREHOSE_MAXREGION_SIZE (128*1024)
 #endif
 
-#if GASNET_DEBUG
-  int gasnetc_use_firehose;
-#endif
+int gasnetc_use_firehose;
 firehose_info_t gasnetc_firehose_info;
 
 #endif /* !PLATFORM_OS_CATAMOUNT */
@@ -3794,9 +3792,7 @@ extern void gasnetc_init_portals_resources(void)
 
   /* Initialize firehose */
   #if GASNETC_FIREHOSE_LOCAL
-  #if GASNET_DEBUG /* Always ON in an opt build (avoids branches) */
   gasnetc_use_firehose = gasneti_getenv_yesno_withdefault("GASNET_USE_FIREHOSE", 1);
-  #endif
   if (gasnetc_use_firehose) {
     size_t firehose_mem = GASNETC_FIREHOSE_MAXREGIONS * GASNETC_FIREHOSE_MAXREGION_SIZE;
 

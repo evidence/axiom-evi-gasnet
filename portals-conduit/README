@@ -1,6 +1,6 @@
 GASNet Portals-conduit documentation
 Michael Welcome <mlwelcome@lbl.gov>
-$Revision: 1.14 $
+$Revision: 1.15 $
 
 User Information:
 -----------------
@@ -984,8 +984,6 @@ Firehose configuration
   of local out-of-segment memory.
 
   + GASNET_USE_FIREHOSE
-    This environment variable is only available in a DEBUG build of
-    GASNet (one configured with --enable-debug).
     This gives a boolean: "0" to disable or "1" to enable the use
     of the firehose dynamic pinning library.
     The GASNet segment is registered (pinned) with portals at
@@ -1000,8 +998,7 @@ Firehose configuration
     of firehose, forcing the use of bounce buffers or non-cached dynamic
     memory registration for out-of-segment transfers.  This will result
     in lower peak bandwidth for large PUTs and GETs, with little or no
-    affect on small message latency.  It is available only for debugging
-    purposes.
+    affect on small message latency.
 
   + GASNET_FIREHOSE_M
   + GASNET_FIREHOSE_R
