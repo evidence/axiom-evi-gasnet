@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_extended_help_extra.h,v $
- *     $Date: 2009/04/18 21:07:35 $
- * $Revision: 1.9 $
+ *     $Date: 2009/04/27 10:43:12 $
+ * $Revision: 1.10 $
  * Description: GASNet Extended Shmem-specific Header 
  * Copyright 2005, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -75,8 +75,10 @@
 
 #if PLATFORM_ARCH_CRAYX1
 #define _GASNETE_CRAYX1_ONLY(x)  x
+#define _GASNETE_BCOPY bcopy
 #else
 #define _GASNETE_CRAYX1_ONLY(x)
+#define _GASNETE_BCOPY(s,d,n) memcpy((d),(s),(n))
 #endif
 
 #define _GASNETE_INLINE_VLOOP(dest,src,nbytes)      \
@@ -154,7 +156,7 @@
 			_GASNETE_INLINE_VLOOP(pDest,pSrc,nbytes);   \
 		    else					    \
 		    )						    \
-			memcpy(dest, src, nbytes);		    \
+			_GASNETE_BCOPY(src, dest, nbytes);	    \
 		    break;					    \
 	      }                                                     \
 	    } else {						    \
@@ -213,7 +215,7 @@
 			nbytes <= 256 && !(nbytes&0x7))	            \
 			_GASNETE_INLINE_VLOOP(pDest,pSrc,nbytes);   \
 		    else					    \
-			memcpy(dest, src, nbytes);		    \
+			_GASNETE_BCOPY(src, dest, nbytes);	    \
 		    break;					    \
 	    }							    \
 	} while (0)
