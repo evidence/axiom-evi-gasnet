@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2009/04/19 20:05:14 $
- * $Revision: 1.115 $
+ *     $Date: 2009/04/27 10:55:53 $
+ * $Revision: 1.116 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -40,32 +40,32 @@ GASNETI_BEGIN_EXTERNC
  * of character-typed arguments, leading to bogus warnings.
  */
 #if PLATFORM_OS_TRU64 || PLATFORM_OS_IRIX
-  GASNETI_ALWAYS_INLINE(toupper) GASNETI_CONST
+  GASNETI_ALWAYS_INLINE(gasneti_toupper) GASNETI_CONST
   int gasneti_toupper(int _c) { return toupper(_c); }
   #undef  toupper
   #define toupper gasneti_toupper
 
-  GASNETI_ALWAYS_INLINE(tolower) GASNETI_CONST
+  GASNETI_ALWAYS_INLINE(gasneti_tolower) GASNETI_CONST
   int gasneti_tolower(int _c) { return tolower(_c); }
   #undef  tolower
   #define tolower gasneti_tolower
 
-  GASNETI_ALWAYS_INLINE(isspace) GASNETI_CONST
+  GASNETI_ALWAYS_INLINE(gasneti_isspace) GASNETI_CONST
   int gasneti_isspace(int _c) { return isspace(_c); }
   #undef  isspace 
   #define isspace gasneti_isspace
 
-  GASNETI_ALWAYS_INLINE(isdigit) GASNETI_CONST
+  GASNETI_ALWAYS_INLINE(gasneti_isdigit) GASNETI_CONST
   int gasneti_isdigit(int _c) { return isdigit(_c); }
   #undef  isdigit 
   #define isdigit gasneti_isdigit
 
-  GASNETI_ALWAYS_INLINE(isalpha) GASNETI_CONST
+  GASNETI_ALWAYS_INLINE(gasneti_isalpha) GASNETI_CONST
   int gasneti_isalpha(int _c) { return isalpha(_c); }
   #undef  isalpha 
   #define isalpha gasneti_isalpha
 
-  GASNETI_ALWAYS_INLINE(isprint) GASNETI_CONST
+  GASNETI_ALWAYS_INLINE(gasneti_isprint) GASNETI_CONST
   int gasneti_isprint(int _c) { return isprint(_c); }
   #undef  isprint 
   #define isprint gasneti_isprint

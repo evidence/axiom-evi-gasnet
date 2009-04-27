@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2009/04/25 23:40:09 $
- * $Revision: 1.233 $
+ *     $Date: 2009/04/27 10:55:53 $
+ * $Revision: 1.234 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -58,22 +58,22 @@
  * of character-typed arguments, leading to bogus warnings.
  */
 #if PLATFORM_OS_TRU64 || PLATFORM_OS_IRIX
-  GASNETI_ALWAYS_INLINE(toupper) GASNETI_CONST
+  GASNETI_ALWAYS_INLINE(gasneti_toupper) GASNETI_CONST
   int gasneti_toupper(int _c) { return toupper(_c); }
   #undef  toupper
   #define toupper gasneti_toupper
 
-  GASNETI_ALWAYS_INLINE(isspace) GASNETI_CONST
+  GASNETI_ALWAYS_INLINE(gasneti_isspace) GASNETI_CONST
   int gasneti_isspace(int _c) { return isspace(_c); }
   #undef  isspace 
   #define isspace gasneti_isspace
 
-  GASNETI_ALWAYS_INLINE(isdigit) GASNETI_CONST
+  GASNETI_ALWAYS_INLINE(gasneti_isdigit) GASNETI_CONST
   int gasneti_isdigit(int _c) { return isdigit(_c); }
   #undef  isdigit 
   #define isdigit gasneti_isdigit
 
-  GASNETI_ALWAYS_INLINE(isalpha) GASNETI_CONST
+  GASNETI_ALWAYS_INLINE(gasneti_isalpha) GASNETI_CONST
   int gasneti_isalpha(int _c) { return isalpha(_c); }
   #undef  isalpha 
   #define isalpha gasneti_isalpha
