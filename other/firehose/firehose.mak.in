@@ -21,7 +21,7 @@
 # fh_srcdir is also set, but probably isn't needed outside this fragment
 
 fh_srcdir = $(top_srcdir)/other/firehose
-fh_sourcelist = $(fh_srcdir)/firehose_hash.c
+fh_sourcelist = 
 fh_extraheaders = $(fh_srcdir)/firehose_trace.h
 fh_extralibcflags = -I$(fh_srcdir)
 fh_extradeps = $(fh_srcdir)/*.[ch]

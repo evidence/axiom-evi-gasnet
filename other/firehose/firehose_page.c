@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_page.c,v $
- *     $Date: 2009/03/30 07:25:50 $
- * $Revision: 1.56 $
+ *     $Date: 2009/04/27 21:37:04 $
+ * $Revision: 1.57 $
  * Description: 
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -10,6 +10,9 @@
 #include <gasnet.h>
 
 #ifdef FIREHOSE_PAGE
+
+#include <firehose_hash.c> /* For possible inlining */
+
 typedef firehose_private_t fh_bucket_t;
 
 
