@@ -4119,7 +4119,7 @@ size_t gasnetc_getmsg(void *dest, gasnet_node_t node, void *src, size_t nbytes,
   } else GASNETC_IF_USE_FIREHOSE (
     /* alloc a firehose for the destination region */
     gasnetc_fh_op_t *op = gasnetc_fh_aligned_local_pin(dest, nbytes);
-    const firehose_request_t *fh_loc = op->fh[0];
+    const firehose_request_t *fh_loc = &op->fh[0];
     md_h = fh_loc->client;
     local_offset = (uintptr_t)dest - fh_loc->addr;
     nbytes = MIN(nbytes, (fh_loc->len - local_offset));
@@ -4194,7 +4194,7 @@ size_t gasnetc_putmsg(void *dest, gasnet_node_t node, void *src, size_t nbytes,
   } else GASNETC_IF_USE_FIREHOSE (
     /* alloc a firehose for the source region */
     gasnetc_fh_op_t *op = gasnetc_fh_aligned_local_pin(src, nbytes);
-    const firehose_request_t *fh_loc = op->fh[0];
+    const firehose_request_t *fh_loc = &op->fh[0];
     md_h = fh_loc->client;
     local_offset = (uintptr_t)src - fh_loc->addr;
     nbytes = MIN(nbytes, (fh_loc->len - local_offset));
@@ -4412,6 +4412,9 @@ gasnetc_fh_op_t *gasnetc_fh_new(void) {
     } while (result == NULL);
   }
 
+#if (GASNETC_FH_PER_OP != 1)
+  op->count = 0;
+#endif
   return result;
 }
 
@@ -4423,13 +4426,21 @@ void gasnetc_fh_free(uint16_t fulladdr) {
   GASNETI_TRACE_EVENT(C, FH_OP_FREE);
   addr.fulladdr = fulladdr;
   op = gasnetc_fh_buffer_tbl[addr.bufferidx] + addr.opidx;
-  gasneti_assert(op->fh[0] != NULL); /* Never allocated w/o use */
 #if (GASNETC_FH_PER_OP == 1)
-  firehose_release(op->fh, 1);
-#elif (GASNETC_FH_PER_OP == 2)
-  firehose_release(op->fh, op->fh[1] ? 2 : 1);
+  {
+    const firehose_request_t *tmp = &op->fh[0];
+    firehose_release(&tmp, 1);
+  }
 #else
-  #error "Unknown/invalid GASNETC_FH_PER_OP"
+  {
+    const firehose_request_t *tmp[GASNETC_FH_PER_OP];
+    int i;
+    for (i = 0; i < op->count; ++i) {
+      tmp[i] = &op->fh[i];
+    }
+    gasneti_assert(op->count != 0); /* Never allocated w/o use */
+    firehose_release(tmp, op->count);
+  }
 #endif
   gasneti_lifo_push(&gasnetc_fh_freelist, op);
 }

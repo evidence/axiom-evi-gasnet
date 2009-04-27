@@ -1084,7 +1084,10 @@ extern firehose_info_t gasnetc_firehose_info;
  * Used for compact encoding in the upper match bits
  */
 typedef struct _gasnetc_fh_op_t {
-  const firehose_request_t	*fh[GASNETC_FH_PER_OP]; /* shared w/ freelist's next ptr */
+  firehose_request_t		fh[GASNETC_FH_PER_OP]; /* shared w/ freelist's next ptr */
+#if (GASNETC_FH_PER_OP != 1)
+  int				count;  /* Since might need just local or remote, need a count */
+#endif
   gasnete_opaddr_t		addr;
 } gasnetc_fh_op_t;
 
@@ -1104,7 +1107,10 @@ GASNETI_INLINE(gasnetc_fh_aligned_local_pin)
 gasnetc_fh_op_t *gasnetc_fh_aligned_local_pin(const void* start, size_t len) {
   gasnetc_fh_op_t *op = gasnetc_fh_new();
   size_t ask_bytes = gasnetc_fh_aligned_len(start, len);
-  op->fh[0] = firehose_local_pin((uintptr_t)start, ask_bytes, NULL);
+  (void) firehose_local_pin((uintptr_t)start, ask_bytes, &op->fh[0]);
+#if (GASNETC_FH_PER_OP != 1)
+  op->count++;
+#endif
   return op;
 }
 #endif /* !PLATFORM_OS_CATAMOUNT */

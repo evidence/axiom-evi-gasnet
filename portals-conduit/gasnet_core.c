@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2009/03/30 02:40:51 $
- * $Revision: 1.19 $
+ *     $Date: 2009/04/27 22:10:53 $
+ * $Revision: 1.20 $
  * Description: GASNet portals conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *                 Michael Welcome <mlwelcome@lbl.gov>
@@ -904,7 +904,7 @@ extern int gasnetc_AMRequestMediumM(
       } else GASNETC_IF_USE_FIREHOSE (					\
 	gasnetc_fh_op_t *op =						\
 	    	gasnetc_fh_aligned_local_pin(source_addr, nbytes);	\
-	const firehose_request_t *fh_loc = op->fh[0];			\
+	const firehose_request_t *fh_loc = &op->fh[0];			\
 	data_md_h = fh_loc->client;					\
 	data_offset = (uintptr_t)source_addr - fh_loc->addr;		\
 	data_mbits |= ((ptl_match_bits_t)(op->addr.fulladdr) << 32);	\
@@ -1396,7 +1396,7 @@ extern int gasnetc_AMReplyLongM(
       dp_offset = GASNETC_PTL_OFFSET(gasneti_mynode,source_addr);
     } else GASNETC_IF_USE_FIREHOSE (
       gasnetc_fh_op_t *op = gasnetc_fh_aligned_local_pin(source_addr, nbytes);
-      const firehose_request_t *fh_loc = op->fh[0];
+      const firehose_request_t *fh_loc = &op->fh[0];
       dp_md_h = fh_loc->client;
       dp_offset = (uintptr_t)source_addr - fh_loc->addr;
       dp_mbits |= ((ptl_match_bits_t)(op->addr.fulladdr) << 32);
