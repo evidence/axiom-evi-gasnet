@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_toolhelp.h,v $
- *     $Date: 2009/04/20 00:10:48 $
- * $Revision: 1.43 $
+ *     $Date: 2009/04/28 01:49:28 $
+ * $Revision: 1.44 $
  * Description: misc declarations needed by both gasnet_tools and libgasnet
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -664,6 +664,89 @@ int gasnett_maximize_rlimit(int res, const char *lim_desc);
   GASNETI_FORMAT_PRINTF(vsnprintf,3,0,
   extern int vsnprintf(char * s, size_t n, const char * format, va_list ap));
 #endif
+
+/* ------------------------------------------------------------------------------------ */
+
+/* By default GASNet(tools) enforces a spec-compliant ctype interface,
+   even when the OS version is buggy / warning-prone.
+   Clients who want the buggy OS version can -DGASNET_USE_CTYPE_WRAPPERS=0
+ */
+#ifndef GASNET_USE_CTYPE_WRAPPERS
+   #if PLATFORM_OS_TRU64 || PLATFORM_OS_IRIX
+      #define GASNET_USE_CTYPE_WRAPPERS 1
+   #else
+      #define GASNET_USE_CTYPE_WRAPPERS 0
+   #endif
+#endif
+
+#include <ctype.h>
+#if GASNET_USE_CTYPE_WRAPPERS 
+  GASNETI_ALWAYS_INLINE(gasnett_toupper) GASNETI_CONST
+  int gasnett_toupper(int _c) { return toupper(_c); }
+  #undef toupper
+  #define toupper gasnett_toupper
+
+  GASNETI_ALWAYS_INLINE(gasnett_tolower) GASNETI_CONST
+  int gasnett_tolower(int _c) { return tolower(_c); }
+  #undef tolower
+  #define tolower gasnett_tolower
+
+  GASNETI_ALWAYS_INLINE(gasnett_isalnum) GASNETI_CONST
+  int gasnett_isalnum(int _c) { return isalnum(_c); }
+  #undef isalnum
+  #define isalnum gasnett_isalnum
+
+  GASNETI_ALWAYS_INLINE(gasnett_isalpha) GASNETI_CONST
+  int gasnett_isalpha(int _c) { return isalpha(_c); }
+  #undef isalpha
+  #define isalpha gasnett_isalpha
+
+  GASNETI_ALWAYS_INLINE(gasnett_iscntrl) GASNETI_CONST
+  int gasnett_iscntrl(int _c) { return iscntrl(_c); }
+  #undef iscntrl
+  #define iscntrl gasnett_iscntrl
+
+  GASNETI_ALWAYS_INLINE(gasnett_isdigit) GASNETI_CONST
+  int gasnett_isdigit(int _c) { return isdigit(_c); }
+  #undef isdigit
+  #define isdigit gasnett_isdigit
+
+  GASNETI_ALWAYS_INLINE(gasnett_isgraph) GASNETI_CONST
+  int gasnett_isgraph(int _c) { return isgraph(_c); }
+  #undef isgraph
+  #define isgraph gasnett_isgraph
+
+  GASNETI_ALWAYS_INLINE(gasnett_islower) GASNETI_CONST
+  int gasnett_islower(int _c) { return islower(_c); }
+  #undef islower
+  #define islower gasnett_islower
+
+  GASNETI_ALWAYS_INLINE(gasnett_isprint) GASNETI_CONST
+  int gasnett_isprint(int _c) { return isprint(_c); }
+  #undef isprint
+  #define isprint gasnett_isprint
+
+  GASNETI_ALWAYS_INLINE(gasnett_ispunct) GASNETI_CONST
+  int gasnett_ispunct(int _c) { return ispunct(_c); }
+  #undef ispunct
+  #define ispunct gasnett_ispunct
+
+  GASNETI_ALWAYS_INLINE(gasnett_isspace) GASNETI_CONST
+  int gasnett_isspace(int _c) { return isspace(_c); }
+  #undef isspace
+  #define isspace gasnett_isspace
+
+  GASNETI_ALWAYS_INLINE(gasnett_isupper) GASNETI_CONST
+  int gasnett_isupper(int _c) { return isupper(_c); }
+  #undef isupper
+  #define isupper gasnett_isupper
+
+  GASNETI_ALWAYS_INLINE(gasnett_isxdigit) GASNETI_CONST
+  int gasnett_isxdigit(int _c) { return isxdigit(_c); }
+  #undef isxdigit
+  #define isxdigit gasnett_isxdigit
+#endif
+/* ------------------------------------------------------------------------------------ */
 
 GASNETI_END_EXTERNC
 
