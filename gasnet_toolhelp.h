@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_toolhelp.h,v $
- *     $Date: 2009/04/28 02:07:42 $
- * $Revision: 1.45 $
+ *     $Date: 2009/04/28 03:02:43 $
+ * $Revision: 1.46 $
  * Description: misc declarations needed by both gasnet_tools and libgasnet
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -767,6 +767,34 @@ int gasnett_maximize_rlimit(int res, const char *lim_desc);
   #define toascii gasnett_toascii
  #endif
 #endif
+
+/* If a platform lacks isblank() we supply it, assuming the C/POSIX locale.
+ */
+#if !HAVE_ISBLANK
+  GASNETI_ALWAYS_INLINE(gasnett_isblank) GASNETI_CONST
+  int gasnett_isblank(int _c) { return (_c == ' ') || (_c == '\t'); }
+  #undef isblank /* Paranoia */
+  #define isblank gasnett_isblank
+#endif
+
+/* If a platform lacks isascii() we supply it.
+ */
+#if !HAVE_ISASCII
+  GASNETI_ALWAYS_INLINE(gasnett_isascii) GASNETI_CONST
+  int gasnett_isascii(int _c) { return !(_c & ~0x7f); }
+  #undef isascii /* Paranoia */
+  #define isascii gasnett_isascii
+#endif
+
+/* If a platform lacks toascii() we supply it.
+ */
+#if !HAVE_TOASCII
+  GASNETI_ALWAYS_INLINE(gasnett_toascii) GASNETI_CONST
+  int gasnett_toascii(int _c) { return (_c & 0x7f); }
+  #undef toascii /* Paranoia */
+  #define toascii gasnett_toascii
+#endif
+
 /* ------------------------------------------------------------------------------------ */
 
 GASNETI_END_EXTERNC
