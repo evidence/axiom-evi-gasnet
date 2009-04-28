@@ -1,6 +1,6 @@
 GASNet Portals-conduit documentation
 Michael Welcome <mlwelcome@lbl.gov>
-$Revision: 1.16 $
+$Revision: 1.17 $
 
 User Information:
 -----------------
@@ -98,7 +98,7 @@ GASNET_PORTAL_NUM_TMPMD=N
   If firehose is disabled Temporary MDs are also allocated
   for Put or Get operations with local addresses (src for Put, dest for get)
   outside the GASNet segment and length too large for a Request chunk (bounce
-  buffer).  See also GASNET_PORTAL_PUTGET_BOUNCE_LIMIT.
+  buffer).  See also GASNET_PORTAL_{PUT,GET}_BOUNCE_LIMIT.
 
 GASNET_PORTAL_PACKED_LONG=boolean (0, 1, y, n, true, false)
   If FALSE, this turns off the ability to pack short-payload AM Long messages
@@ -184,16 +184,29 @@ GASNET_PORTAL_AMRECV_SPACE=N
   By default, this is determined via a table lookup based on the number of
   nodes in the job.
 
-GASNET_PORTAL_PUTGET_BOUNCE_LIMIT=N
-  The largest transfer size for which a Put or Get with out-of-segment local
+GASNET_PORTAL_PUT_BOUNCE_LIMIT=N
+  The largest transfer size for which a Put with out-of-segment local
   address is copied through pre-pinned bounce buffers.  For out-of-segment
-  transfers of larger size, dynamic memory registration (TMPMD) is used.
-  The current default is 1k on Catamount and 2k on Linux.
+  transfers of larger size, dynamic memory registration (TMPMD or firehose)
+  is used.
+  On Catamount the current default is 1k.
+  On CNL the current default is 0 (or 2k if firehose is disabled).
   The maximum is the size of a ReqSB chunk.
-  (The Gets require sizeof(void*) of additional temporary storage, which will
-  be silently deducted from this limit if the sum would otherwise exceed the
-  chunk size.)
-  This parameter has no effect unless firehose is disabled.
+
+GASNET_PORTAL_GET_BOUNCE_LIMIT=N
+  The largest transfer size for which a Get with out-of-segment local
+  address is copied through pre-pinned bounce buffers.  For out-of-segment
+  transfers of larger size, dynamic memory registration (TMPMD or firehose)
+  is used.
+  The current defaults are the same as for GASNET_PORTAL_PUT_BOUNCE_LIMIT.
+  The maximum is sizeof(void*) less than the size of a ReqSB chunk.
+  If the value of this parameter equals the chunk size, then the required
+  sizeof(void*) is silently deducted.
+
+GASNET_PORTAL_PUTGET_BOUNCE_LIMIT=N
+  For compatibility with past releases, if GASNET_PORTAL_PUT_BOUNCE_LIMIT
+  or GASNET_PORTAL_GET_BOUNCE_LIMIT are unset, then this variable is used.
+  The defaults are the same as for GASNET_PORTAL_PUT_BOUNCE_LIMIT.
 
 * All the standard GASNet environment variables (see top-level README)
 
