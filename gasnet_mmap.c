@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2009/03/31 21:38:30 $
- * $Revision: 1.59 $
+ *     $Date: 2009/04/28 04:11:42 $
+ * $Revision: 1.60 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -759,7 +759,7 @@ static uintptr_t gasneti_auxseg_client_request_sz = 0;
 #endif
 
 /* collect required auxseg sizes and subtract them from the values to report to client */
-void gasneti_auxseg_init() {
+void gasneti_auxseg_init(void) {
   int i;
   int numfns = (sizeof(gasneti_auxsegfns)/sizeof(gasneti_auxsegregfn_t))-1;
 
@@ -871,7 +871,7 @@ uintptr_t gasneti_auxseg_preattach(uintptr_t client_request_sz) {
 /* provide auxseg to GASNet components and init secondary segment arrays 
    requires gasneti_seginfo has been initialized to the correct values
  */
-void gasneti_auxseg_attach() {
+void gasneti_auxseg_attach(void) {
   gasnet_seginfo_t *si;
   int numfns = (sizeof(gasneti_auxsegfns)/sizeof(gasneti_auxsegregfn_t))-1;
   int i,j;

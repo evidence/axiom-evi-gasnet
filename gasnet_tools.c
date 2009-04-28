@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2009/04/28 01:49:28 $
- * $Revision: 1.235 $
+ *     $Date: 2009/04/28 04:11:42 $
+ * $Revision: 1.236 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1535,7 +1535,7 @@ extern double gasneti_getenv_dbl_withdefault(const char *keyname, double default
 /* ------------------------------------------------------------------------------------ */
 /* Resource limit control */
 
-int gasnett_maximize_rlimits() {
+int gasnett_maximize_rlimits(void) {
    int success = 1;
    struct res_s { int res; const char *desc; } res[] = {
     #ifdef RLIMIT_CPU
@@ -1863,7 +1863,7 @@ void gasneti_set_affinity(int rank) {
     #define MAXHOSTNAMELEN 1024 /* give up */
   #endif
 #endif
-const char *gasneti_gethostname() {
+const char *gasneti_gethostname(void) {
   GASNETI_UNUSED_UNLESS_THREADS
   static gasneti_mutex_t hnmutex = GASNETI_MUTEX_INITIALIZER;
   static int firsttime = 1;
