@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_toolhelp.h,v $
- *     $Date: 2009/04/28 01:49:28 $
- * $Revision: 1.44 $
+ *     $Date: 2009/04/28 02:07:42 $
+ * $Revision: 1.45 $
  * Description: misc declarations needed by both gasnet_tools and libgasnet
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -745,6 +745,27 @@ int gasnett_maximize_rlimit(int res, const char *lim_desc);
   int gasnett_isxdigit(int _c) { return isxdigit(_c); }
   #undef isxdigit
   #define isxdigit gasnett_isxdigit
+
+ #if HAVE_ISBLANK /* Added in ISO C99 */
+  GASNETI_ALWAYS_INLINE(gasnett_isblank) GASNETI_CONST
+  int gasnett_isblank(int _c) { return isblank(_c); }
+  #undef isblank
+  #define isblank gasnett_isblank
+ #endif
+
+ #if HAVE_ISASCII /* X/OPEN */
+  GASNETI_ALWAYS_INLINE(gasnett_isascii) GASNETI_CONST
+  int gasnett_isascii(int _c) { return isascii(_c); }
+  #undef isascii
+  #define isascii gasnett_isascii
+ #endif
+
+ #if HAVE_TOASCII /* X/OPEN */
+  GASNETI_ALWAYS_INLINE(gasnett_toascii) GASNETI_CONST
+  int gasnett_toascii(int _c) { return toascii(_c); }
+  #undef toascii
+  #define toascii gasnett_toascii
+ #endif
 #endif
 /* ------------------------------------------------------------------------------------ */
 
