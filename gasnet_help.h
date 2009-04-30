@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2009/04/01 23:33:20 $
- * $Revision: 1.104 $
+ *     $Date: 2009/04/30 09:14:00 $
+ * $Revision: 1.105 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -87,6 +87,7 @@ void * _gasneti_malloc_aligned(size_t alignment, size_t size GASNETI_CURLOCFARG)
   void *base = _gasneti_extern_malloc(alloc_size GASNETI_CURLOCPARG);
   void **result = (void **)GASNETI_ALIGNUP((uintptr_t)base + sizeof(void *), alignment);
   *(result - 1) = base; /* hidden base ptr for free() */
+  gasneti_assert(GASNETI_POWEROFTWO(alignment));
   gasneti_assert(result == (void **)GASNETI_ALIGNUP(result, alignment));
   gasneti_assert((void *)(result - 1) >= base);
   gasneti_assert(((uint8_t *)result + size) <= ((uint8_t *)base + alloc_size));
