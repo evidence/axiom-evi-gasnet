@@ -985,6 +985,9 @@ static void ReqRB_refresh(uintptr_t start_addr)
   md.threshold = PTL_MD_THRESH_INF;
   md.max_size = GASNETC_CHUNKSIZE;
   md.options = PTL_MD_OP_PUT | PTL_MD_EVENT_START_DISABLE | PTL_MD_MAX_SIZE;
+#if GASNETC_REQRB_AUTO_UNLINK
+  md.options |= PTL_MD_FLAG_AUTO_UNLINK | PTL_MD_EVENT_AUTO_UNLINK_ENABLE;
+#endif
 #if GASNETC_USE_EQ_HANDLER
   md.user_ptr = (void*)(uintptr_t)GASNETC_REQRB_MD;
 #else
