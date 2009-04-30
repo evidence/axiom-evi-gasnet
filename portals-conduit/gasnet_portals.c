@@ -1447,16 +1447,12 @@ static void ReqRB_event(ptl_event_t *ev)
 #endif
 	switch (rc) {
 	case PTL_OK:
-	case PTL_MD_INVALID:
-	  /* MLW: implementation error: spec does not even list this
-	   * as possible return code for PtlMDUnlink, but it seems to indicate
-	   * the MD has been unlinked, so refresh it */
 	  /* put it back on the end of the list */
 	  /* printf("[%d] Manual Unlink of ReqRB with handle %lu, rc=%d\n",gasneti_mynode,(ulong)ev->md_handle,rc); */
 	  ReqRB_refresh((intptr_t)ev->md.start);
 	  break;
-	case PTL_MD_IN_USE:
-	  /* do nothing, will unlink later */
+	case PTL_MD_INVALID: /* do nothing, already unlinked */
+	case PTL_MD_IN_USE:  /* do nothing, will unlink later */
 	  break;
 	default:
 	  gasneti_fatalerror("ReqRB_event: unlink attempt returned error %d",rc);
@@ -3419,7 +3415,7 @@ extern void gasnetc_init_portals_resources(void)
     if (!gasneti_mynode) {
       fprintf(stderr,
 		"WARNING: Requested GASNET_PORTAL_GET_BOUNCE_LIMIT %u reduced to %u\n",
-		(unsigned int)gasnetc_get_bounce_limit, (unsigned int)GASNETC_CHUNKSIZE - sizeof(void *));
+		(unsigned int)gasnetc_get_bounce_limit, (unsigned int)(GASNETC_CHUNKSIZE - sizeof(void *)));
     }
   }
   gasnetc_get_bounce_limit = GASNETC_MIN(gasnetc_get_bounce_limit, GASNETC_CHUNKSIZE - sizeof(void *));
