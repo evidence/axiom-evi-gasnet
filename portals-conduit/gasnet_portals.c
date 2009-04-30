@@ -821,46 +821,6 @@ static int  exec_amlong_data(int isReq, ptl_event_t *ev)
 }
 
 /* ------------------------------------------------------------------------------------
- * Allocate memory with a given byte alignment.
- *  -- The aligned memory is the function return value
- *  -- The actual start of the memory (for freeing it) is returned in allocated_start
- *  -- The alignment MUST be a power of 2
- * --------------------------------------------------------------------------------- */
-static void* gasnetc_aligned_alloc(size_t nbytes, uint32_t alignment, void **allocated_start)
-{
-  size_t bytes;
-  void *loc;
-  uintptr_t ptr, mask;
-
-  bytes = nbytes + (alignment > 0 ? alignment - 1 : 0);
-  loc = gasneti_malloc(bytes);
-  *allocated_start = loc;
-
-  if (alignment == 0) {
-    /* no alignment constraint */
-    return loc;
-  }
-
-  /* insure alignment is power of 2 (contains exactly one non-zero bit) */
-  {
-    uintptr_t bits = alignment;
-    int cnt = 0;
-    while (bits > 0) {
-      if (bits & 0x1) cnt++;
-      bits = bits >> 1;
-    }
-    if (cnt != 1) {
-      gasneti_fatalerror("gasnetc_aligned_alloc with non-power-of-2 alignment %d",(int)alignment);
-    }
-  }
-    
-  /* finally, do the alignment by zeroing the low order bits */
-  mask = alignment-1;
-  ptr = ((uintptr_t)( (uint8_t*)loc + alignment - 1)) & ~mask;
-  return (void*)ptr;
-}
-
-/* ------------------------------------------------------------------------------------
  * Allocate a buffer with the given alignment.
  * This buffer will NOT be managed by a chunk allocator
  * --------------------------------------------------------------------------------- */
@@ -870,8 +830,8 @@ static void gasnetc_buf_init(gasnetc_PtlBuffer_t *buf, const char *name, size_t 
   buf->alignment = alignment;
   buf->nbytes = nbytes;
   if (nbytes > 0) {
-    buf->start = gasnetc_aligned_alloc(nbytes,alignment,&buf->actual_start);
-    GASNETI_TRACE_PRINTF(C,("gasnetc_buf_init for %s alignment %u at %p, start=%p",name,alignment,buf->start,buf->actual_start));
+    buf->actual_start = buf->start = gasneti_malloc_aligned(alignment,nbytes);
+    GASNETI_TRACE_PRINTF(C,("gasnetc_buf_init for %s alignment %u at %p",name,alignment,buf->start));
   } else {
     buf->start = buf->actual_start = NULL;
     buf->alignment = 0;
@@ -899,7 +859,7 @@ static void gasnetc_chunk_init(gasnetc_PtlBuffer_t *buf, const char *name, size_
   buf->name = gasneti_strdup(name);
   buf->alignment = GASNETC_CHUNKSIZE;
   buf->nbytes = nbytes;
-  buf->start = gasnetc_aligned_alloc(nbytes,buf->alignment,&buf->actual_start);
+  buf->actual_start = buf->start = gasneti_malloc_aligned(buf->alignment,nbytes);
   buf->use_chunks = 1;
   gasneti_mutex_init(&buf->lock);
   buf->numchunks = nchunks;
@@ -925,7 +885,7 @@ static void gasnetc_buf_free(gasnetc_PtlBuffer_t *buf)
 {
   gasneti_free(buf->name);
   if (buf->actual_start != NULL) {
-    gasneti_free(buf->actual_start);
+    gasneti_free_aligned(buf->actual_start);
   }
   buf->start = buf->actual_start = NULL;
   buf->nbytes = 0;
