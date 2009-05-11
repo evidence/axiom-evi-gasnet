@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2009/04/28 04:11:42 $
- * $Revision: 1.236 $
+ *     $Date: 2009/05/11 22:59:00 $
+ * $Revision: 1.237 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1853,6 +1853,8 @@ void gasneti_set_affinity(int rank) {
  #include <common/bgp_personality.h>
  #undef MAXHOSTNAMELEN
  #define MAXHOSTNAMELEN 18
+#elif PLATFORM_OS_CATAMOUNT
+ #include <catamount/data.h>
 #else
 #include <sys/param.h>
 #endif 
@@ -1895,6 +1897,9 @@ const char *gasneti_gethostname(void) {
                 * where log_2_cores_per_proc expression is valid for 1,2,4 */
                sprg5.CoreID >> ((sprg4.ShmNumCores + 1) >> 1)
               );
+    #elif PLATFORM_OS_CATAMOUNT
+      /* TODO: can we do anything special for VN? */
+      snprintf(hostname, MAXHOSTNAMELEN, "nid%05u", _my_pnid);
     #else
       if (gethostname(hostname, MAXHOSTNAMELEN))
         gasnett_fatalerror("gasneti_gethostname() failed to get hostname: aborting");
