@@ -653,7 +653,6 @@ extern void* gasnetc_flush_buffer;
  * structures to gasnet_node_t.
  */
 typedef struct gasnetc_procrec {
-  gasnet_node_t     node_id;
   ptl_process_id_t  ptl_id;
   struct gasnetc_procrec *next;  /* linked list for hash table reverse lookup */
 } gasnetc_procid_t;
@@ -668,25 +667,25 @@ extern gasnetc_procid_t   *gasnetc_procid_map;
 extern char* ptl_event_str[];
 
 
-#ifdef GASNET_PAR
-#define GASNETC_REQRB_START(start_addr) do {				\
-    gasnetc_PtlBuffer_t *p = ReqRB_getbuf((uintptr_t)(start_addr));	\
-    gasneti_weakatomic_increment(&p->threads_active, 0);		\
-  } while(0)
-#define GASNETC_REQRB_FINISH(start_addr) do {				\
-    gasnetc_PtlBuffer_t *p = ReqRB_getbuf((uintptr_t)(start_addr));	\
-    gasneti_weakatomic_decrement(&p->threads_active, 0);		\
-  } while(0)
+#ifndef GASNET_PAR
+  /* No accounting required */
+  #define GASNETC_REQRB_START(bufptr)      do {} while(0)
+  #define GASNETC_REQRB_FINISH(bufptr)     do {} while(0)
+  #define GASNETC_REQRB_BUSY(bufptr)       0
 #else
-#define GASNETC_REQRB_START(bufptr)  do {} while(0)
-#define GASNETC_REQRB_FINISH(bufptr)  do {} while(0)
+  /* "threads_active" counts threads referencing the buffer */
+  #define GASNETC_REQRB_START(bufptr) \
+      gasneti_weakatomic_increment(&(bufptr)->threads_active, 0)
+  #define GASNETC_REQRB_FINISH(bufptr) \
+      gasneti_weakatomic_decrement(&(bufptr)->threads_active, 0)
+  #define GASNETC_REQRB_BUSY(bufptr) \
+      (gasneti_weakatomic_read(&(bufptr)->threads_active, 0) != 0)
 #endif
 
 /* ----------------------------------------------------------------------------------- */
 
 /* The RAR, RARAM, and the AM request/reply send/receive buffers are described by */
 typedef struct {
-  size_t alignment;                    /* alignment (power of 2) */
   size_t nbytes;                       /* number of bytes in buffer after alignment */
   void*  actual_start;                 /* returned by allocator */
   void*  start;                        /* aligned start */
@@ -756,7 +755,7 @@ extern size_t gasnetc_RplSB_numchunk;         /* Number of chunks to alloc for R
 extern gasnetc_PtlBuffer_t gasnetc_ReqSB;
 extern gasnetc_PtlBuffer_t gasnetc_RplSB;    /* MLW: Can elim this, and alloc a per-thread buffer and MD
 					      * No need for an EQ since will only use it to send */
-extern gasnetc_PtlBuffer_t *gasnetc_ReqRB;   /* an array of buffers */
+extern gasnetc_PtlBuffer_t **gasnetc_ReqRB;  /* an array of buffers */
 extern gasnetc_PtlBuffer_t gasnetc_RAR;
 extern gasnetc_PtlBuffer_t gasnetc_RARAM;
 extern gasnetc_PtlBuffer_t gasnetc_RARSRC;
@@ -920,15 +919,31 @@ ptl_handle_md_t gasnetc_alloc_tmpmd_withpoll(void* start, size_t nbytes)
   return gasnetc_alloc_tmpmd(start, nbytes);
 }
 
+enum { /* lock_op argument to gasnetc_get_event and gasnetc_sys_poll */
+  GASNETC_EQ_NOLOCK = 0, /* Caller must hold the lock */
+  GASNETC_EQ_LOCK,       /* Obtain and release the lock */
+  GASNETC_EQ_TRYLOCK     /* trylock and return 0 on failure to acquire */
+};
+
 GASNETI_INLINE(gasnetc_get_event)
-int gasnetc_get_event(gasnetc_eq_t *eq, ptl_event_t *ev)
+int gasnetc_get_event(gasnetc_eq_t *eq, ptl_event_t *ev, int lock_op)
 {
   int rc;
   int retcode = 0;
 
-  gasneti_mutex_lock(&eq->lock);
+  switch (lock_op) {
+  case GASNETC_EQ_NOLOCK:
+    gasneti_mutex_assertlocked(&eq->lock);
+    break;
+  case GASNETC_EQ_LOCK:
+    gasneti_mutex_lock(&eq->lock);
+    break;
+  case GASNETC_EQ_TRYLOCK:
+    if (gasneti_mutex_trylock(&eq->lock)) return 0;
+    break;
+  }
   rc = PtlEQGet( eq->eq_h, ev);
-  gasneti_mutex_unlock(&eq->lock);
+  if (lock_op != GASNETC_EQ_NOLOCK) gasneti_mutex_unlock(&eq->lock);
   switch (rc) {
   case PTL_OK:
     retcode = 1;
@@ -974,7 +989,7 @@ gasnetc_threaddata_t* gasnetc_new_threaddata(gasnete_threadidx_t idx)
 }
 
 GASNETI_INLINE(gasnetc_sys_poll)
-void gasnetc_sys_poll(void)
+void gasnetc_sys_poll(int lock_op)
 {
   ptl_event_t ev;
   unsigned sys_cnt = 0;
@@ -987,9 +1002,19 @@ void gasnetc_sys_poll(void)
   while ((gasnetc_sys_poll_limit == 0) || (sys_cnt < gasnetc_sys_poll_limit)) {
     /* attempt to get an event, ok if EQ overflowed (but not until after sys initialization) */
     int rc;
-    gasneti_mutex_lock(&gasnetc_SYS_EQ->lock);
+    switch (lock_op) {
+    case GASNETC_EQ_NOLOCK:
+      gasneti_mutex_assertlocked(&gasnetc_SYS_EQ->lock);
+      break;
+    case GASNETC_EQ_LOCK:
+      gasneti_mutex_lock(&gasnetc_SYS_EQ->lock);
+      break;
+    case GASNETC_EQ_TRYLOCK:
+      if (gasneti_mutex_trylock(&gasnetc_SYS_EQ->lock)) return;
+      break;
+    }
     rc = PtlEQGet(gasnetc_SYS_EQ->eq_h, &ev);
-    gasneti_mutex_unlock(&gasnetc_SYS_EQ->lock);
+    if (lock_op != GASNETC_EQ_NOLOCK) gasneti_mutex_unlock(&gasnetc_SYS_EQ->lock);
     switch (rc) {
     case PTL_EQ_EMPTY:
       /* no work, return to caller */

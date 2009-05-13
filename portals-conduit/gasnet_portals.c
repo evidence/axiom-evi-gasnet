@@ -4,6 +4,9 @@
 #include <gasnet_handler.h>
 #include <gasnet_portals.h>
 #include <signal.h>
+#ifdef HAVE_MMAP
+#include <sys/mman.h> /* For MAP_FAILED */
+#endif
 
 #define GASNETC_DEBUG_RB_VERBOSE 0
 
@@ -40,17 +43,19 @@
 #endif
 
 /* set to one for ReqRB Auto Unlink
- * Not advised since unlink event may be reaped so late that all
- * receive buffers are filled and overflow before the first
- * unlink event is seen.  Manual unlink seems to be the best option.
+ * We used to prefer Manual unlink, until bug 2461 revealed that it
+ * was flawed.  Now AUTO_UNLINK is the only safe option.
  */
-#define GASNETC_REQRB_AUTO_UNLINK 0
+#define GASNETC_REQRB_AUTO_UNLINK 1
 #define GASNETC_REQRB_UNLINK_VERBOSE 0
 
 /* macros used for simple hash table lookup.  Only accessed in this file. */
 #define HASHTABLE_SIZE 512
 #define HASHVAL HASHTABLE_SIZE
 #define HASHFUNC(procid) (((procid)->nid) % HASHVAL)
+
+/* for all the MEs we create */
+static const ptl_process_id_t gasnetc_any_id = {PTL_NID_ANY,PTL_PID_ANY};
 
 /* Max number of events we will process per polling call */
 unsigned gasnetc_safe_poll_limit = 12;
@@ -64,7 +69,7 @@ gasnetc_PtlBuffer_t gasnetc_ReqSB;
 /* We maintain an array of Request Receive Buffers */
 int    gasnetc_ReqRB_pool_size = 8;
 size_t gasnetc_ReqRB_numchunk = 1024;
-gasnetc_PtlBuffer_t *gasnetc_ReqRB;          
+gasnetc_PtlBuffer_t **gasnetc_ReqRB;          
 
 /* We maintain a single Reply send buffer.
  * Each threads is allowed to cache up to one buffer.
@@ -87,6 +92,8 @@ size_t gasnetc_get_bounce_limit;
 ptl_handle_ni_t gasnetc_ni_h;              /* the network interface handle */
 gasnetc_eq_t *gasnetc_AM_EQ = NULL;        /* The AM Event Queue */
 gasnetc_eq_t *gasnetc_SAFE_EQ = NULL;      /* The SAFE Event Queue */
+
+gasnetc_eq_t *gasnetc_EMPTY_EQ = NULL;     /* For MDUpdate, since it rejects PTL_EQ_NONE */
 
 /* out of band MDs for sending system messages */
 gasnetc_PtlBuffer_t gasnetc_SYS_Send;       /* out-of-band message send buffer */
@@ -577,7 +584,6 @@ static int exec_ammedium_handler(int isReq, ptl_event_t *ev, int numarg, int gha
  * AMLong messages with small data payloads may have the payload packed with the header
  * message (and no data message).  isPacked=true if a packed message.
  * In summary, this function is called from:
- * - RARAM_event: in response to a Request or Reply AMLong data packet arrival.
  * - ReqRB_event: in response to an AM Long Header Request message.
  * - ReqSB_event: in response to an AM Long Header Reply message.
  * --------------------------------------------------------------------------------- */
@@ -760,7 +766,8 @@ static int exec_amlong_header(int isReq, int isPacked,
  * The last to arrive will execute the requested handler.
  * The first to arrive will cache its metadata in a LID cache that the second can retrieve.
  * This function is called from:
- * - RARAM_event: in response to a Request or Reply AMLong data packet arrival.
+ * - RARAM_event:  in response to a Request AMLong data packet arrival.
+ * - RARSRC_event: in response to a Reply AMLong data packet arrival.
  * --------------------------------------------------------------------------------- */
 static int  exec_amlong_data(int isReq, ptl_event_t *ev)
 {
@@ -820,22 +827,36 @@ static int  exec_amlong_data(int isReq, ptl_event_t *ev)
   return ran_handler;
 }
 
+#if HAVE_MMAP
+  GASNETI_INLINE(gasnetc_malloc_aligned)
+  void *gasnetc_malloc_aligned(size_t alignment, size_t nbytes) {
+    void *result = gasneti_mmap(GASNETI_PAGE_ALIGNUP(nbytes));
+    gasneti_assert_always(result != MAP_FAILED);
+    gasneti_assert(alignment <= GASNET_PAGESIZE);
+    return result;
+  }
+  GASNETI_INLINE(gasnetc_free_aligned)
+  void gasnetc_free_aligned(void *addr, size_t nbytes) {
+    gasneti_munmap(addr, GASNETI_PAGE_ALIGNUP(nbytes));
+  }
+#else
+  #define gasnetc_malloc_aligned(_alignment,_nbytes) \
+    gasneti_malloc_aligned(_alignment,_nbytes)
+  #define gasnetc_free_aligned(_addr,_nbytes) \
+    gasneti_free_aligned(_addr)
+#endif
+
 /* ------------------------------------------------------------------------------------
- * Allocate a buffer with the given alignment.
+ * Initialize a buffer with the given size and address.
  * This buffer will NOT be managed by a chunk allocator
  * --------------------------------------------------------------------------------- */
-static void gasnetc_buf_init(gasnetc_PtlBuffer_t *buf, const char *name, size_t nbytes, uint32_t alignment)
+static void gasnetc_buf_init(gasnetc_PtlBuffer_t *buf, const char *name, size_t nbytes, void *addr)
 {
+  GASNETI_TRACE_PRINTF(C,("gasnetc_buf_init for %s with length %lu at %p",name,(unsigned long)nbytes,addr));
+  gasneti_assert((addr && nbytes) || (!addr && !nbytes));
   buf->name = gasneti_strdup(name);
-  buf->alignment = alignment;
   buf->nbytes = nbytes;
-  if (nbytes > 0) {
-    buf->actual_start = buf->start = gasneti_malloc_aligned(alignment,nbytes);
-    GASNETI_TRACE_PRINTF(C,("gasnetc_buf_init for %s alignment %u at %p",name,alignment,buf->start));
-  } else {
-    buf->start = buf->actual_start = NULL;
-    buf->alignment = 0;
-  }
+  buf->actual_start = buf->start = addr;
   buf->use_chunks = 0;
 #ifdef GASNET_PAR
   gasneti_weakatomic_set(&buf->threads_active, 0, 0);
@@ -857,9 +878,8 @@ static void gasnetc_chunk_init(gasnetc_PtlBuffer_t *buf, const char *name, size_
 
   GASNETI_TRACE_PRINTF(C,("gasnetc_chunk_init for %s with %lu chunks",name,(ulong)nchunks));
   buf->name = gasneti_strdup(name);
-  buf->alignment = GASNETC_CHUNKSIZE;
   buf->nbytes = nbytes;
-  buf->actual_start = buf->start = gasneti_malloc_aligned(buf->alignment,nbytes);
+  buf->actual_start = buf->start = gasnetc_malloc_aligned(GASNETC_CHUNKSIZE,nbytes);
   buf->use_chunks = 1;
   gasneti_mutex_init(&buf->lock);
   buf->numchunks = nchunks;
@@ -885,7 +905,7 @@ static void gasnetc_buf_free(gasnetc_PtlBuffer_t *buf)
 {
   gasneti_free(buf->name);
   if (buf->actual_start != NULL) {
-    gasneti_free_aligned(buf->actual_start);
+    gasnetc_free_aligned(buf->actual_start, buf->nbytes);
   }
   buf->start = buf->actual_start = NULL;
   buf->nbytes = 0;
@@ -894,60 +914,22 @@ static void gasnetc_buf_free(gasnetc_PtlBuffer_t *buf)
 }
 
 /* ---------------------------------------------------------------------------------
- * Find the ReqRB with a memory starting address of start_addr
+ * Attach the MD for a ReqRB buffer
  * --------------------------------------------------------------------------------- */
-static gasnetc_PtlBuffer_t* ReqRB_getbuf(uintptr_t start_addr)
+static void ReqRB_attach(gasnetc_PtlBuffer_t *p)
 {
-  int i;
-  gasnetc_PtlBuffer_t *p = NULL;
-
-  for (i = 0; i < gasnetc_ReqRB_pool_size; i++) {
-    uintptr_t buf_start = (uintptr_t)gasnetc_ReqRB[i].start;
-    if (buf_start == start_addr) {
-      return &gasnetc_ReqRB[i];
-    }
-  }
-  gasneti_fatalerror("ReqRB_getbuf: Unable to find ReqRB with starting address 0x%llx",(unsigned long long)start_addr);
-}
-
-/* ---------------------------------------------------------------------------------
- * This function is called when a Request Receive Buffer needs to be refreshed
- * and placed on the match list just before the catch-basin buffer.
- * The start_addr is the starting address of the memory buffer.  We use this
- * to determine which ReqRB from the pool needs to be re-cycled
- * --------------------------------------------------------------------------------- */
-static void ReqRB_refresh(uintptr_t start_addr)
-{
-  int i;
-  gasnetc_PtlBuffer_t *p = NULL;
   ptl_md_t md;
-  ptl_process_id_t match_id;
 
-
-  GASNETI_TRACE_PRINTF(C,("ReqRB_refresh called with start address %lx",start_addr));
-  p = ReqRB_getbuf(start_addr);
-#if GASNETC_DEBUG_RB_VERBOSE
-  printf("[%d] ReqRB_refresh buffer %s at start address %lx\n",gasneti_mynode,p->name,start_addr); fflush(stdout);
-#endif
-#ifdef GASNET_PAR 
-  /* must wait until all other threads have completed work in this buffer before
-   * re-threading back onto ME list.  
-   */
-  while (gasneti_weakatomic_read(&p->threads_active, 0) > 0) {
-    /* probably should do-nothing poll since if other threads are active they
-     * should be done soon and should not block
-     */
-    gasneti_sched_yield();
-  }
-#endif
   md.start = p->start;
   md.length = p->nbytes;
   md.threshold = PTL_MD_THRESH_INF;
   md.max_size = GASNETC_CHUNKSIZE;
   md.options = PTL_MD_OP_PUT | PTL_MD_EVENT_START_DISABLE | PTL_MD_MAX_SIZE;
 #if GASNETC_REQRB_AUTO_UNLINK
+  /* NOTE: these flags are Cray extensions to the spec */
   md.options |= PTL_MD_FLAG_AUTO_UNLINK | PTL_MD_EVENT_AUTO_UNLINK_ENABLE;
 #endif
+
 #if GASNETC_USE_EQ_HANDLER
   md.user_ptr = (void*)(uintptr_t)GASNETC_REQRB_MD;
 #else
@@ -955,12 +937,49 @@ static void ReqRB_refresh(uintptr_t start_addr)
 #endif
   md.eq_handle = gasnetc_AM_EQ->eq_h;
 
-  match_id.nid = PTL_NID_ANY;
-  match_id.pid = PTL_PID_ANY;
-
-  GASNETC_PTLSAFE(PtlMEInsert(gasnetc_CB.me_h, match_id, GASNETC_PTL_REQRB_BITS, GASNETC_PTL_IGNORE_BITS,PTL_UNLINK, PTL_INS_BEFORE, &p->me_h));
-
+  GASNETC_PTLSAFE(PtlMEInsert(gasnetc_CB.me_h, gasnetc_any_id,
+                              GASNETC_PTL_REQRB_BITS, GASNETC_PTL_IGNORE_BITS,
+                              PTL_UNLINK, PTL_INS_BEFORE, &p->me_h));
   GASNETC_PTLSAFE(PtlMDAttach(p->me_h, md, PTL_UNLINK, &p->md_h));
+}
+
+/* ---------------------------------------------------------------------------------
+ * "Find" the ReqRB with a memory starting address of start_addr
+ * --------------------------------------------------------------------------------- */
+GASNETI_ALWAYS_INLINE(ReqRB_getbuf) GASNETI_CONST
+gasnetc_PtlBuffer_t* ReqRB_getbuf(uintptr_t start_addr)
+{
+  const size_t skip = GASNETI_ALIGNUP(sizeof(gasnetc_PtlBuffer_t),sizeof(double));
+  gasnetc_PtlBuffer_t *result = (gasnetc_PtlBuffer_t *)(start_addr - skip);
+  gasneti_assert((uintptr_t)result->start == start_addr);
+  return result;
+}
+
+/* ---------------------------------------------------------------------------------
+ * This function is called when a Request Receive Buffer needs to be refreshed
+ * and placed on the match list just before the catch-basin buffer.
+ * --------------------------------------------------------------------------------- */
+static void ReqRB_refresh(gasnetc_PtlBuffer_t *p)
+{
+  gasneti_assert(p);
+
+  GASNETI_TRACE_PRINTF(C,("ReqRB_refresh called with start address %p",p->start));
+#if GASNETC_DEBUG_RB_VERBOSE
+  printf("[%d] ReqRB_refresh buffer %s at start address %lx\n",gasneti_mynode,p->name,p->start); fflush(stdout);
+#endif
+
+#if GASNET_PAR
+  /* must wait until all other threads have completed work in this buffer before
+   * re-threading back onto ME list.  
+   */
+  if_pf (GASNETC_REQRB_BUSY(p)) {
+    GASNETC_TRACE_WAIT_BEGIN();
+    gasneti_waitwhile(GASNETC_REQRB_BUSY(p));
+    GASNETC_TRACE_WAIT_END(REFRESH_STALL);
+  }
+#endif
+
+  ReqRB_attach(p);
 }
 
 /* ---------------------------------------------------------------------------------
@@ -973,14 +992,21 @@ static void ReqRB_refresh(uintptr_t start_addr)
  * --------------------------------------------------------------------------------- */
 static void RARAM_event(ptl_event_t *ev)
 {
-  ptl_size_t offset = ev->offset;
-  ptl_match_bits_t   mbits = ev->match_bits;
+  ptl_size_t offset;
+  ptl_match_bits_t mbits;
   uint8_t msg_type;
-  ptl_match_bits_t amflag = ((mbits & GASNETC_SELECT_BYTE1) >> 8);
-  int isReq = (amflag & GASNETC_PTL_AM_REQUEST);
+  ptl_match_bits_t amflag;
+  int isReq;
   int ran_handler;
 
+  gasneti_mutex_unlock(&gasnetc_AM_EQ->lock);
+
+  offset = ev->offset;
+  mbits = ev->match_bits;
+  amflag = ((mbits & GASNETC_SELECT_BYTE1) >> 8);
+  isReq = (amflag & GASNETC_PTL_AM_REQUEST);
   msg_type = GASNETC_GET_MSG_TYPE(mbits);
+
   GASNETI_TRACE_PRINTF(C,("RARAM event %s offset = %i, mbits = 0x%lx, msg_type = 0x%x, amflag=%x",ptl_event_str[ev->type],(int)offset,(uint64_t)mbits,msg_type,(uint32_t)amflag));
 
   /* extract the lower bits based on message type */
@@ -1190,7 +1216,7 @@ static void TMPMD_event(ptl_event_t *ev)
  *              to actual destination, mark op free, free chunk.
  *   PUT_END => Reply AM arrived in same chunk as Request was sent.
  *              Call GASNet handler then free chunk.
- *   GET_END => Catch-basin recovery underway.  Mark source node as in-recovery.
+ *   GET_END => Catch-basin recovery underway.  Mark source node as in-recovery (NYI).
  * --------------------------------------------------------------------------------- */
 static void ReqSB_event(ptl_event_t *ev)
 {
@@ -1263,6 +1289,7 @@ static void ReqSB_event(ptl_event_t *ev)
     gasnete_op_markdone(op, 1);
     break;
 
+#if 0 /* Not Yet Implemented */
   case PTL_EVENT_GET_END:
     /* CB Recovery of dropped AM Request, stop all further AMs to this node */
     srcnode = gasnetc_get_nodeid(&ev->initiator);
@@ -1274,6 +1301,7 @@ static void ReqSB_event(ptl_event_t *ev)
     gasneti_fatalerror("ReqSB got GET_END event, but CB not implemented");
     
     break;
+#endif
 
   case PTL_EVENT_PUT_END:
     /* This is an AM reply from a previous request */
@@ -1343,9 +1371,13 @@ static void ReqRB_event(ptl_event_t *ev)
 {
   ptl_match_bits_t   mbits = ev->match_bits;
   uint8_t msg_type, amflag, numarg, ghandler;
+  gasnetc_PtlBuffer_t *bufptr = ReqRB_getbuf((uintptr_t)ev->md.start);
 
-  /* increment ref counter on this buffer */
-  GASNETC_REQRB_START(ev->md.start);
+  /* increment ref counter on this buffer, atomic w.r.t. poll of the AM_EQ */
+  if (ev->mlength && (ev->type == PTL_EVENT_PUT_END)) {
+    GASNETC_REQRB_START(bufptr);
+  }
+  gasneti_mutex_unlock(&gasnetc_AM_EQ->lock);
 
   msg_type = GASNETC_GET_MSG_TYPE(mbits);
   GASNETI_TRACE_PRINTF(C,("ReqRB event %s offset = %i, mbits = 0x%lx, msg_type = 0x%x",ptl_event_str[ev->type],(int)ev->offset,(uint64_t)mbits,msg_type));
@@ -1363,7 +1395,6 @@ static void ReqRB_event(ptl_event_t *ev)
 
   switch (ev->type) {
   case PTL_EVENT_PUT_END:
-
     if (amflag & GASNETC_PTL_AM_SHORT) {
       exec_amshort_handler(1,ev,numarg,ghandler);
     } else if (amflag & GASNETC_PTL_AM_MEDIUM) {
@@ -1377,7 +1408,7 @@ static void ReqRB_event(ptl_event_t *ev)
     }
 
     /* decrement ref counter on this buffer */
-    GASNETC_REQRB_FINISH(ev->md.start);
+    if (ev->mlength) GASNETC_REQRB_FINISH(bufptr);
 
     /* Should we check if this buffer can be recycled here as well as below? */
     /* THREAD SAFETY ISSUE: multiple threads could be executing handlers that
@@ -1416,7 +1447,7 @@ static void ReqRB_event(ptl_event_t *ev)
 	   * the MD has been unlinked, so refresh it */
 	  /* put it back on the end of the list */
 	  /* printf("[%d] Manual Unlink of ReqRB with handle %lu, rc=%d\n",gasneti_mynode,(ulong)ev->md_handle,rc); */
-	  ReqRB_refresh((intptr_t)ev->md.start);
+	  ReqRB_refresh(bufptr);
 	  break;
 	case PTL_MD_IN_USE:
 	  /* do nothing, will unlink later */
@@ -1435,14 +1466,10 @@ static void ReqRB_event(ptl_event_t *ev)
 #if GASNETC_REQRB_UNLINK_VERBOSE
     printf("[%d] Got Unlink event of ReqRB with handle %lu\n",gasneti_mynode,(ulong)ev->md_handle);
 #endif
-    /* decrement ref counter on this buffer */
-    GASNETC_REQRB_FINISH(ev->md.start);
-    ReqRB_refresh((intptr_t)ev->md.start);
+    ReqRB_refresh(bufptr);
     break;
 
   default:
-    /* decrement ref counter on this buffer */
-    GASNETC_REQRB_FINISH(ev->md.start);
     gasneti_fatalerror("Invalid event %s on ReqRB",ptl_event_str[ev->type]);
   }
 }
@@ -1473,6 +1500,8 @@ static void CB_event(ptl_event_t *ev)
 
   switch (ev->type) {
   case PTL_EVENT_PUT_END:
+    gasneti_fatalerror("PUT_END event on CB indicates flow-control failure");
+    break;
 
   default:
     gasneti_fatalerror("Invalid event %s on CB",ptl_event_str[ev->type]);
@@ -1497,24 +1526,19 @@ static void RAR_init(void)
 {
   ptl_md_t md;
   ptl_handle_me_t me1_h, me2_h;
-  ptl_process_id_t  match_id;
   void* rar_start   = gasneti_seginfo[gasneti_mynode].addr;
   size_t rar_len    = gasneti_seginfo[gasneti_mynode].size;
 
   GASNETI_TRACE_PRINTF(C,("RAR_init with len = %lu at %p",(unsigned long)rar_len,rar_start));
 
-  match_id.nid = PTL_NID_ANY;
-  match_id.pid = PTL_PID_ANY;
-
   gasnetc_RAR.start = rar_start;
   gasnetc_RAR.nbytes = rar_len;
-  gasnetc_RAR.alignment = GASNET_PAGESIZE;
   gasnetc_RAR.actual_start = NULL;      /* this gets lost in gasneti_segmentattach, so cant free */
   gasnetc_RAR.name = gasneti_strdup("RAR");
   gasnetc_RAR.use_chunks = 0;
 
   /* Insert a MLE at the head of the list */
-  GASNETC_PTLSAFE(PtlMEAttach(gasnetc_ni_h, GASNETC_PTL_RAR_PTE, match_id, GASNETC_PTL_RAR_BITS,
+  GASNETC_PTLSAFE(PtlMEAttach(gasnetc_ni_h, GASNETC_PTL_RAR_PTE, gasnetc_any_id, GASNETC_PTL_RAR_BITS,
 			      GASNETC_PTL_IGNORE_BITS, PTL_UNLINK, PTL_INS_BEFORE, &gasnetc_RAR.me_h));
 
   /* The RAR does not generate events, but will produce ACKs */
@@ -1535,7 +1559,6 @@ static void RAR_init(void)
    */
   gasnetc_RARAM.start = rar_start;
   gasnetc_RARAM.nbytes = rar_len;
-  gasnetc_RARAM.alignment = GASNET_PAGESIZE;
   gasnetc_RARAM.actual_start = NULL;      /* this gets lost in gasneti_segmentattach, so cant free */
   gasnetc_RARAM.name = gasneti_strdup("RARAM");
   gasnetc_RARAM.use_chunks = 0;
@@ -1552,7 +1575,7 @@ static void RAR_init(void)
 #endif
   md.eq_handle = gasnetc_AM_EQ->eq_h;
 
-  GASNETC_PTLSAFE(PtlMEInsert(gasnetc_RAR.me_h, match_id, GASNETC_PTL_RARAM_BITS,
+  GASNETC_PTLSAFE(PtlMEInsert(gasnetc_RAR.me_h, gasnetc_any_id, GASNETC_PTL_RARAM_BITS,
 			      GASNETC_PTL_IGNORE_BITS, PTL_UNLINK, PTL_INS_AFTER,
 			      &gasnetc_RARAM.me_h));
   GASNETC_PTLSAFE(PtlMDAttach(gasnetc_RARAM.me_h, md, PTL_RETAIN, &gasnetc_RARAM.md_h));
@@ -1567,7 +1590,6 @@ static void RAR_init(void)
    */
   gasnetc_RARSRC.start = rar_start;
   gasnetc_RARSRC.nbytes = rar_len;
-  gasnetc_RARSRC.alignment = GASNET_PAGESIZE;
   gasnetc_RARSRC.actual_start = NULL;      /* this gets lost in gasneti_segmentattach, so cant free */
   gasnetc_RARSRC.name = gasneti_strdup("RARSRC");
   gasnetc_RARSRC.use_chunks = 0;
@@ -1584,7 +1606,7 @@ static void RAR_init(void)
 #endif
   md.eq_handle = gasnetc_SAFE_EQ->eq_h;
 
-  GASNETC_PTLSAFE(PtlMEInsert(gasnetc_RARAM.me_h, match_id, GASNETC_PTL_RARSRC_BITS,
+  GASNETC_PTLSAFE(PtlMEInsert(gasnetc_RARAM.me_h, gasnetc_any_id, GASNETC_PTL_RARSRC_BITS,
 			      GASNETC_PTL_IGNORE_BITS, PTL_UNLINK, PTL_INS_AFTER,
 			      &gasnetc_RARSRC.me_h));
   GASNETC_PTLSAFE(PtlMDAttach(gasnetc_RARSRC.me_h, md, PTL_RETAIN, &gasnetc_RARSRC.md_h));
@@ -1655,59 +1677,11 @@ static void ReqRB_init(void)
   int i;
   ptl_md_t md;
   size_t nbytes = gasnetc_ReqRB_numchunk * GASNETC_CHUNKSIZE;
-  gasnetc_PtlBuffer_t *p;
   ptl_handle_me_t me_h;
-  ptl_process_id_t  match_id;
   char name[32];
 
-  match_id.nid = PTL_NID_ANY;
-  match_id.pid = PTL_PID_ANY;
-
-  p = gasnetc_ReqRB = (gasnetc_PtlBuffer_t*)gasneti_malloc(gasnetc_ReqRB_pool_size*sizeof(gasnetc_PtlBuffer_t));
-  gasneti_assert(gasnetc_ReqRB != NULL);
-  for (i = 0; i < gasnetc_ReqRB_pool_size; i++) {
-    sprintf(&name[0],"ReqRB_%02d",i);
-
-    gasnetc_buf_init(p,name,nbytes,sizeof(double));
-
-    md.start = p->start;
-    md.length = p->nbytes;
-    md.threshold = PTL_MD_THRESH_INF;
-    md.max_size = GASNETC_CHUNKSIZE;
-    md.options = PTL_MD_OP_PUT | PTL_MD_EVENT_START_DISABLE | PTL_MD_MAX_SIZE;
-#if GASNETC_REQRB_AUTO_UNLINK
-    /* Not advised.  See notes above where GASNETC_REQRB_AUTO_UNLINK is defined */
-    /* NOTE: these flags are Cray extensions to the spec */
-    md.options |= PTL_MD_FLAG_AUTO_UNLINK | PTL_MD_EVENT_AUTO_UNLINK_ENABLE;
-#endif
-
-#if GASNETC_USE_EQ_HANDLER
-    md.user_ptr = (void*)(uintptr_t)GASNETC_REQRB_MD;
-#else
-    md.user_ptr = (void*)ReqRB_event;
-#endif
-    md.eq_handle = gasnetc_AM_EQ->eq_h;
-
-    if (i == 0) {
-      /* make first in list */
-      GASNETC_PTLSAFE(PtlMEAttach(gasnetc_ni_h, GASNETC_PTL_AM_PTE, match_id, GASNETC_PTL_REQRB_BITS, GASNETC_PTL_IGNORE_BITS, PTL_UNLINK, PTL_INS_BEFORE, &p->me_h));
-    } else {
-      /* insert after i-1 */
-      GASNETC_PTLSAFE(PtlMEInsert(gasnetc_ReqRB[i-1].me_h, match_id, GASNETC_PTL_REQRB_BITS, GASNETC_PTL_IGNORE_BITS, PTL_UNLINK, PTL_INS_AFTER, &p->me_h));
-    }
-    GASNETC_PTLSAFE(PtlMDAttach(p->me_h, md, PTL_UNLINK, &(p->md_h)));
-
-    GASNETI_TRACE_PRINTF(C,("ReqRB_init[%d]: %s %lu bytes me=%lu md=%lu",i,p->name,(ulong)nbytes,(ulong)p->me_h,(ulong)p->md_h));
-
-#if GASNETC_DEBUG_RB_VERBOSE
-    printf("[%d] ReqRB_Init: buffer %s at start address %lx\n",gasneti_mynode,p->name,(uintptr_t)p->start); fflush(stdout);
-#endif
-
-    p++;
-  }
-
-  /* Now add the Catch-Basin MD */
-  gasnetc_buf_init(&gasnetc_CB,"Catch_Basin",0,0);
+  /* First add the Catch-Basin MD */
+  gasnetc_buf_init(&gasnetc_CB,"Catch_Basin",0,NULL);
   md.start = NULL;
   md.length = 0;
   md.threshold = PTL_MD_THRESH_INF;
@@ -1719,11 +1693,30 @@ static void ReqRB_init(void)
   md.user_ptr = (void*)CB_event;
 #endif
   md.eq_handle = gasnetc_SAFE_EQ->eq_h;
-  GASNETC_PTLSAFE(PtlMEInsert(gasnetc_ReqRB[gasnetc_ReqRB_pool_size-1].me_h, match_id, GASNETC_PTL_REQRB_BITS, GASNETC_PTL_IGNORE_BITS, PTL_UNLINK, PTL_INS_AFTER, &gasnetc_CB.me_h));
+  GASNETC_PTLSAFE(PtlMEAttach(gasnetc_ni_h, GASNETC_PTL_AM_PTE, gasnetc_any_id, GASNETC_PTL_REQRB_BITS, GASNETC_PTL_IGNORE_BITS, PTL_UNLINK, PTL_INS_AFTER, &gasnetc_CB.me_h));
   GASNETC_PTLSAFE(PtlMDAttach(gasnetc_CB.me_h, md, PTL_RETAIN, &gasnetc_CB.md_h));
 
   GASNETI_TRACE_PRINTF(C,("CB_init: %s me=%lu md=%lu",gasnetc_CB.name,(ulong)gasnetc_CB.me_h,(ulong)gasnetc_CB.md_h));
 
+  /* Then add the ReqRB MDs */
+  gasnetc_ReqRB = (gasnetc_PtlBuffer_t**)gasneti_malloc(gasnetc_ReqRB_pool_size*sizeof(gasnetc_PtlBuffer_t*));
+  for (i = 0; i < gasnetc_ReqRB_pool_size; i++) {
+    gasnetc_PtlBuffer_t *p;
+    size_t skip = GASNETI_ALIGNUP(sizeof(gasnetc_PtlBuffer_t),sizeof(double));
+
+    sprintf(&name[0],"ReqRB_%02d",i);
+
+    p = gasnetc_ReqRB[i] = gasnetc_malloc_aligned(sizeof(double),nbytes + skip);
+    gasnetc_buf_init(p,name,nbytes,(void *)((uintptr_t)p + skip));
+
+    ReqRB_attach(p);
+
+    GASNETI_TRACE_PRINTF(C,("ReqRB_init[%d]: %s %lu bytes me=%lu md=%lu",i,p->name,(ulong)nbytes,(ulong)p->me_h,(ulong)p->md_h));
+
+#if GASNETC_DEBUG_RB_VERBOSE
+    printf("[%d] ReqRB_Init: buffer %s at start address %lx\n",gasneti_mynode,p->name,(uintptr_t)p->start); fflush(stdout);
+#endif
+  }
 }
 
 /* ---------------------------------------------------------------------------------
@@ -1735,8 +1728,8 @@ static void ReqRB_exit(void)
 
   for (i = 0; i < gasnetc_ReqRB_pool_size; i++) {
     /* This should also unlink the associated MEs */
-    GASNETC_PTLSAFE(PtlMDUnlink(gasnetc_ReqRB[i].md_h));
-    gasnetc_buf_free(&gasnetc_ReqRB[i]);
+    GASNETC_PTLSAFE(PtlMDUnlink(gasnetc_ReqRB[i]->md_h));
+    gasnetc_buf_free(gasnetc_ReqRB[i]);
   }
   gasneti_free(gasnetc_ReqRB);
 
@@ -1755,10 +1748,6 @@ static void ReqSB_init(void)
 {
   ptl_md_t md;
   gasnetc_PtlBuffer_t *p = &gasnetc_ReqSB;
-  ptl_process_id_t  match_id;
-
-  match_id.nid = PTL_NID_ANY;
-  match_id.pid = PTL_PID_ANY;
 
   gasnetc_chunk_init(p, "ReqSB", gasnetc_ReqSB_numchunk);
 
@@ -1776,7 +1765,7 @@ static void ReqSB_init(void)
   md.eq_handle = gasnetc_SAFE_EQ->eq_h;
 
   /* Insert this after the Catch-Basin ME entry (at end of list) */
-  GASNETC_PTLSAFE(PtlMEInsert(gasnetc_CB.me_h, match_id, GASNETC_PTL_REQSB_BITS, GASNETC_PTL_IGNORE_BITS, PTL_UNLINK, PTL_INS_AFTER, &p->me_h));
+  GASNETC_PTLSAFE(PtlMEInsert(gasnetc_CB.me_h, gasnetc_any_id, GASNETC_PTL_REQSB_BITS, GASNETC_PTL_IGNORE_BITS, PTL_UNLINK, PTL_INS_AFTER, &p->me_h));
   GASNETC_PTLSAFE(PtlMDAttach(p->me_h, md, PTL_UNLINK, &p->md_h ));
 
   GASNETI_TRACE_PRINTF(C,("ReqSB_init: %s %lu chunks me=%lu md=%lu",p->name,(ulong)gasnetc_ReqSB_numchunk,(ulong)p->me_h,(ulong)p->md_h));
@@ -2256,16 +2245,12 @@ static void sys_init(void)
 {
   ptl_size_t eq_len = 2*gasneti_nodes + 10;
   ptl_md_t   md;
-  ptl_process_id_t  match_id;
-
-  match_id.nid = PTL_NID_ANY;
-  match_id.pid = PTL_PID_ANY;
 
   /*  printf("[%d] SYS_init: allocated %ld events on SYS_EQ\n",(int)gasneti_mynode,(long)eq_len); */
   gasnetc_SYS_EQ = gasnetc_eq_alloc(eq_len,"SYS_EQ",NULL);
 
   /* allocate the SYS send buffer */
-  gasnetc_buf_init(&gasnetc_SYS_Send,"SYS_Send",0,0);
+  gasnetc_buf_init(&gasnetc_SYS_Send,"SYS_Send",0,NULL);
   md.start = NULL;
   md.length = 0;
   md.threshold = PTL_MD_THRESH_INF;
@@ -2282,7 +2267,7 @@ static void sys_init(void)
   GASNETI_TRACE_PRINTF(C,("SYS_init: %s initialized, md=%lu",gasnetc_SYS_Send.name,(ulong)gasnetc_SYS_Send.md_h));
 
   /* allocate the SYS receive buffer */
-  gasnetc_buf_init(&gasnetc_SYS_Recv,"SYS_Recv",0,0);
+  gasnetc_buf_init(&gasnetc_SYS_Recv,"SYS_Recv",0,NULL);
   md.start = NULL;
   md.length = 0;
   md.threshold = PTL_MD_THRESH_INF;
@@ -2296,7 +2281,7 @@ static void sys_init(void)
   md.eq_handle = gasnetc_SYS_EQ->eq_h;
 
   /* Insert a MLE at the head of the list */
-  GASNETC_PTLSAFE(PtlMEAttach(gasnetc_ni_h, GASNETC_PTL_AM_PTE, match_id, GASNETC_PTL_SYS_BITS,
+  GASNETC_PTLSAFE(PtlMEAttach(gasnetc_ni_h, GASNETC_PTL_AM_PTE, gasnetc_any_id, GASNETC_PTL_SYS_BITS,
 			      GASNETC_PTL_IGNORE_BITS, PTL_UNLINK, PTL_INS_BEFORE, &gasnetc_SYS_Recv.me_h));
   GASNETC_PTLSAFE(PtlMDAttach(gasnetc_SYS_Recv.me_h, md, PTL_RETAIN, &gasnetc_SYS_Recv.md_h));
 
@@ -2314,18 +2299,24 @@ static void sys_init(void)
 
 }
 
+static void gasnetc_eq_destroy(gasnetc_eq_t *eq)
+{
+  ptl_event_t ev;
+  gasneti_mutex_lock(&eq->lock);
+  while (gasnetc_get_event(eq,&ev,GASNETC_EQ_NOLOCK)) {};
+  gasneti_mutex_unlock(&eq->lock);
+  gasnetc_eq_free(eq);
+}
+
 /* ---------------------------------------------------------------------------------
  * Remove the system SYS resources
  * --------------------------------------------------------------------------------- */
 static void sys_exit(void)
 {
-  ptl_event_t ev;
   /* these will automatically unlink the match-list entries as well */
   GASNETC_PTLSAFE(PtlMDUnlink(gasnetc_SYS_Send.md_h));
   GASNETC_PTLSAFE(PtlMDUnlink(gasnetc_SYS_Recv.md_h));
-  /* drain the queue */
-  while (gasnetc_get_event(gasnetc_SYS_EQ,&ev)) {};
-  gasnetc_eq_free(gasnetc_SYS_EQ);
+  gasnetc_eq_destroy(gasnetc_SYS_EQ);
 }
 
 /* ---------------------------------------------------------------------------------
@@ -2361,7 +2352,9 @@ extern void gasnetc_sys_barrier(void)
   GASNETI_TRACE_PRINTF(C,("Entering SYS BARRIER cnt=%d",barr_cnt));
   if (gasneti_mynode == 0) {
     /* wait for all other nodes to check in */
-    while (gasneti_weakatomic_read(&sys_barrier_checkin,0) < gasneti_nodes-1) gasnetc_sys_poll();
+    while (gasneti_weakatomic_read(&sys_barrier_checkin,0) < gasneti_nodes-1) {
+      gasnetc_sys_poll(GASNETC_EQ_LOCK);
+    }
 
     /* reset this for next barrier */
     gasneti_weakatomic_set(&sys_barrier_checkin, 0, 0);
@@ -2377,7 +2370,9 @@ extern void gasnetc_sys_barrier(void)
     gasnetc_sys_SendMsg(0,GASNETC_SYS_BARRIER_ARRIVE,gasneti_mynode,barr_cnt,0);
 
     /* wait for node 0 to reply */
-    while (!gasneti_weakatomic_read(&sys_barrier_got,0)) gasnetc_sys_poll();
+    while (!gasneti_weakatomic_read(&sys_barrier_got,0)) {
+      gasnetc_sys_poll(GASNETC_EQ_LOCK);
+    }
   }
 }
 
@@ -2507,7 +2502,6 @@ extern void gasnetc_init_portals_network(int *argc, char ***argv)
 
   gasnetc_procid_map = (gasnetc_procid_t*)gasneti_malloc(gasneti_nodes * sizeof(gasnetc_procid_t));
   for (node = 0; node < gasneti_nodes; node++) {
-    gasnetc_procid_map[node].node_id = node;
     gasnetc_procid_map[node].ptl_id.nid = cnos_map[node].nid;
     gasnetc_procid_map[node].ptl_id.pid = cnos_map[node].pid + pid_offset;
     gasnetc_procid_map[node].next = NULL;
@@ -2539,7 +2533,7 @@ extern void gasnetc_init_portals_network(int *argc, char ***argv)
       gasnetc_procid_t *p = gasnetc_addrtable[i];
       if (p == NULL) numzero++;
       while (p != NULL) {
-	GASNETI_TRACE_PRINTF(C,("Table[%d][%d] :: Node=%d, Nid=%d, Pid=%d",i,cnt,p->node_id,p->ptl_id.nid,p->ptl_id.pid));
+	GASNETI_TRACE_PRINTF(C,("Table[%d][%d] :: Node=%d, Nid=%d, Pid=%d",i,cnt,(int)(p-gasnetc_procid_map),p->ptl_id.nid,p->ptl_id.pid));
 	cnt++;
 	p = p->next;
       }
@@ -2572,6 +2566,10 @@ extern void gasnetc_init_portals_network(int *argc, char ***argv)
   /* setup system SYS Send/Recv resources */
   sys_init();
 
+  /* setup an empty EQ for firehose */
+  #if GASNETC_FIREHOSE_LOCAL
+    gasnetc_EMPTY_EQ = gasnetc_eq_alloc(1,"EMPTY_EQ",NULL);
+  #endif
 }
 
 /* Function to convert a ptl_process_id_t to a GASNet Node id */
@@ -2581,7 +2579,7 @@ extern gasnet_node_t gasnetc_get_nodeid(ptl_process_id_t *proc)
   gasnetc_procid_t *p = gasnetc_addrtable[indx];
   while (p != NULL) {
     if ((p->ptl_id.nid == proc->nid) && (p->ptl_id.pid == proc->pid)) {
-      return p->node_id;
+      return (p - gasnetc_procid_map);
     }
     p = p->next;
   }
@@ -2623,15 +2621,11 @@ extern void gasnetc_bootstrapBroadcast(void *src, size_t len, void *dest, int ro
   ptl_handle_me_t dest_me_h;
   ptl_handle_md_t src_h, dest_h;
   ptl_handle_eq_t eq_h;
-  ptl_process_id_t  match_id;
   ptl_event_t ev;
   ptl_match_bits_t match_bits  = 0x0F0F0F0F0F0F0F0F;
   ptl_match_bits_t ignore_bits = 0x0000000000000000;
   int eq_len;
   int i, rc;
-
-  match_id.nid = PTL_NID_ANY;
-  match_id.pid = PTL_PID_ANY;
 
   GASNETI_TRACE_PRINTF(C,("bootBroadcast from %d len = %d, src=%p dest=%p",rootnode,(int)len,src,dest));
 
@@ -2649,7 +2643,7 @@ extern void gasnetc_bootstrapBroadcast(void *src, size_t len, void *dest, int ro
     dest_md.eq_handle = eq_h;
 
     /* construct the match entry */
-    GASNETC_PTLSAFE(PtlMEAttach(gasnetc_ni_h, GASNETC_PTL_AM_PTE, match_id, match_bits, ignore_bits, PTL_UNLINK, PTL_INS_AFTER, &dest_me_h));
+    GASNETC_PTLSAFE(PtlMEAttach(gasnetc_ni_h, GASNETC_PTL_AM_PTE, gasnetc_any_id, match_bits, ignore_bits, PTL_UNLINK, PTL_INS_AFTER, &dest_me_h));
 
     /* attach the dest memory descriptor */
     GASNETC_PTLSAFE(PtlMDAttach(dest_me_h, dest_md, PTL_RETAIN, &dest_h));
@@ -2737,16 +2731,12 @@ extern void gasnetc_bootstrapExchange(void *src, size_t len, void *dest)
   ptl_handle_md_t src_h, dest_h;
   ptl_handle_eq_t eq_h;
   int eq_len = gasneti_nodes * 4;
-  ptl_process_id_t  match_id;
   int found = 0;
   ptl_event_t ev;
   ptl_match_bits_t match_bits  = 0xF0F0F0F0F0F0F0F0;
   ptl_match_bits_t ignore_bits = 0x0000000000000000;
   int dest_offset = gasneti_mynode*len;
   int i;
-
-  match_id.nid = PTL_NID_ANY;
-  match_id.pid = PTL_PID_ANY;
 
   GASNETI_TRACE_PRINTF(C,("bootExch with len = %d, src = %p dest = %p",(int)len,src,dest));
 
@@ -2760,7 +2750,6 @@ extern void gasnetc_bootstrapExchange(void *src, size_t len, void *dest)
   src_md.max_size = 0;
   src_md.options = PTL_MD_EVENT_START_DISABLE;
   src_md.user_ptr = 0;
-  src_md.eq_handle = PTL_EQ_NONE;
   src_md.eq_handle = eq_h;
   GASNETC_PTLSAFE(PtlMDBind(gasnetc_ni_h, src_md, PTL_RETAIN, &src_h));
 
@@ -2774,7 +2763,7 @@ extern void gasnetc_bootstrapExchange(void *src, size_t len, void *dest)
   dest_md.eq_handle = eq_h;
 
   /* construct the match entry */
-  GASNETC_PTLSAFE(PtlMEAttach(gasnetc_ni_h, GASNETC_PTL_AM_PTE, match_id, match_bits, ignore_bits, PTL_UNLINK, PTL_INS_AFTER, &dest_me_h));
+  GASNETC_PTLSAFE(PtlMEAttach(gasnetc_ni_h, GASNETC_PTL_AM_PTE, gasnetc_any_id, match_bits, ignore_bits, PTL_UNLINK, PTL_INS_AFTER, &dest_me_h));
 
   /* attach the dest memory descriptor */
   GASNETC_PTLSAFE(PtlMDAttach(dest_me_h, dest_md, PTL_RETAIN, &dest_h));
@@ -2889,7 +2878,7 @@ static int try_pin(uintptr_t size)
   if (mem == NULL) return 0;
 
   /* poll system queue here since these operations can take some time */
-  gasnetc_sys_poll();
+  gasnetc_sys_poll(GASNETC_EQ_LOCK);
 
 #if GASNETC_DEBUG
   printf("[%d] try_pin with %lu bytes\n",gasneti_mynode,(unsigned long)size);
@@ -3833,7 +3822,10 @@ extern void gasnetc_portals_exit(void)
   {
     ptl_event_t ev;
 
-    firehose_fini();
+    #if GASNETC_FIREHOSE_LOCAL
+      firehose_fini();
+      gasnetc_eq_free(gasnetc_EMPTY_EQ);
+    #endif
 
     sys_exit();
 
@@ -3843,11 +3835,9 @@ extern void gasnetc_portals_exit(void)
     RAR_exit();
 
     /* remove the event queues */
-    while (gasnetc_get_event(gasnetc_SAFE_EQ,&ev)) {};
-    gasnetc_eq_free(gasnetc_SAFE_EQ);
+    gasnetc_eq_destroy(gasnetc_SAFE_EQ);
     gasnetc_SAFE_EQ = NULL;
-    while (gasnetc_get_event(gasnetc_AM_EQ,&ev)) {};
-    gasnetc_eq_free(gasnetc_AM_EQ);
+    gasnetc_eq_destroy(gasnetc_AM_EQ);
     gasnetc_AM_EQ = NULL;
 
     /* free the proc id map */
@@ -3899,20 +3889,20 @@ extern void gasnetc_portals_poll(gasnetc_pollflag_t poll_type)
   gasneti_assert(poll_type != GASNETC_NO_POLL);
 
   /* always poll on the system queue, adds .074 usec to poll, cost of extra PtlEQGet call */
-  gasnetc_sys_poll();
+  gasnetc_sys_poll(GASNETC_EQ_TRYLOCK);
 
   /* always try to get a few events from the SAFE eq first 
    * all puts and gets generate two events so need to reap these queues faster
    * to prevent send_ticket starvation
    */
   while (safe_cnt < gasnetc_safe_poll_limit) {
-    if ( gasnetc_get_event(gasnetc_SAFE_EQ, &ev) ) {
+    if ( gasnetc_get_event(gasnetc_SAFE_EQ, &ev, GASNETC_EQ_TRYLOCK) ) {
       GASNETI_TRACE_PRINTF(C,("Got event %s from SAFE_EQ, md=%lu, mbits=0x%lx, th_id=%d",ptl_event_str[ev.type],(ulong)ev.md_handle,(unsigned long)ev.match_bits,th->threadidx));
       GASNETC_CALL_EQ_HANDLER(ev);
       processed++;
       safe_cnt++;
     } else {
-      /* no ready events, stop trying */
+      /* no ready events or another poller holds the lock, stop trying */
       break;
     }
   }
@@ -3955,12 +3945,15 @@ extern void gasnetc_portals_poll(gasnetc_pollflag_t poll_type)
       GASNETI_TRACE_PRINTF(C,("PtlPoll: FULL thread=0x%p flags=0x%x",th,th->flags));
 
       /* if we got here, we have enough resources to poll the AM queue */
-      if (gasnetc_get_event(gasnetc_AM_EQ, &ev) ) {
+      if (gasneti_mutex_trylock(&gasnetc_AM_EQ->lock)) goto out;
+      if (gasnetc_get_event(gasnetc_AM_EQ, &ev, GASNETC_EQ_NOLOCK) ) {
 	GASNETI_TRACE_PRINTF(C,("Got event %s from AM_EQ, md=%lu, mbits=0x%lx th_id=%d",ptl_event_str[ev.type],(ulong)ev.md_handle,(ulong)ev.match_bits,th->threadidx));
 	GASNETC_CALL_EQ_HANDLER(ev);
+        gasneti_mutex_assertunlocked(&gasnetc_AM_EQ->lock);
 	processed++;
 	am_cnt++;
       } else {
+        gasneti_mutex_unlock(&gasnetc_AM_EQ->lock);
 	goto out;
       }
     } /* end while */
@@ -4247,8 +4240,6 @@ void gasnetc_portalsSignalHandler(int sig) {
 /* Firehose bits */
 
 #if GASNETI_STATS_OR_TRACE
-  #define GASNETC_TRACE_WAIT_BEGIN() \
-    gasneti_tick_t _waitstart = GASNETI_TICKS_NOW_IFENABLED(C)
   #define GASNETC_TRACE_MR(_event, _verb, _region) do {                  \
 	const firehose_region_t *_reg = (_region);                       \
 	int _pages = (int)(_reg->len/GASNET_PAGESIZE);                   \
@@ -4260,15 +4251,10 @@ void gasnetc_portalsSignalHandler(int sig) {
   #define GASNETC_TRACE_PIN(_region)	GASNETC_TRACE_MR(FIREHOSE_PIN, pin, (_region))
   #define GASNETC_TRACE_UNPIN(_region)	GASNETC_TRACE_MR(FIREHOSE_UNPIN, unpin, (_region))
 #else
-  #define GASNETC_TRACE_WAIT_BEGIN() \
-    static char _dummy = (char)sizeof(_dummy)
   #define GASNETC_TRACE_PIN(_region) 	((void)0)
   #define GASNETC_TRACE_UNPIN(_region) 	((void)0)
 #endif
-#define GASNETC_TRACE_WAIT_END(name) \
-  GASNETI_TRACE_EVENT_TIME(C,name,gasneti_ticks_now() - _waitstart)
 
-/* XXX: Could/should use PtlMDUpdate?  When I tried PTL_EQ_NONE was flagged as invalid */
 extern int
 firehose_move_callback(gasnet_node_t node,
                        const firehose_region_t *unpin_list,
@@ -4277,10 +4263,11 @@ firehose_move_callback(gasnet_node_t node,
                        size_t pin_num)
 {
   GASNETC_TRACE_WAIT_BEGIN();
+  int updates = MIN(unpin_num, pin_num);
   int i;
 
-  /* Step 1: unpins */
-  for (i = 0; i < unpin_num; i++) {
+  /* Step 1: unpaired unpins */
+  for (i = updates; i < unpin_num; i++) {
     GASNETC_TRACE_UNPIN(unpin_list+i);
     GASNETC_PTLSAFE(PtlMDUnlink(unpin_list[i].client));
   }
@@ -4289,8 +4276,6 @@ firehose_move_callback(gasnet_node_t node,
   for (i = 0; i < pin_num; i++) {
     firehose_region_t *region = pin_list + i;
     ptl_md_t md;
-
-    GASNETC_TRACE_PIN(region);
 
     gasneti_assert(region->addr % GASNET_PAGESIZE == 0);
     gasneti_assert(region->len % GASNET_PAGESIZE == 0);
@@ -4307,7 +4292,15 @@ firehose_move_callback(gasnet_node_t node,
 #endif
     md.eq_handle = gasnetc_SAFE_EQ->eq_h;
 
-    GASNETC_PTLSAFE(PtlMDBind(gasnetc_ni_h, md, PTL_UNLINK, &region->client));
+    if (i < updates) {
+      /* PTL_EQ_NONE gets flagged as invalid.  So I've created an EMPTY_EQ. */
+      GASNETC_TRACE_UNPIN(unpin_list+i);
+      region->client = unpin_list[i].client;
+      GASNETC_PTLSAFE(PtlMDUpdate(region->client, NULL, &md, gasnetc_EMPTY_EQ->eq_h));
+    } else {
+      GASNETC_PTLSAFE(PtlMDBind(gasnetc_ni_h, md, PTL_RETAIN, &region->client));
+    }
+    GASNETC_TRACE_PIN(region);
   }
 
   GASNETC_TRACE_WAIT_END(FIREHOSE_MOVE);
