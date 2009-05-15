@@ -359,8 +359,10 @@ extern unsigned gasnetc_sys_poll_limit;
     int navail;								\
     uint8_t end_epoch = 0;						\
     gasneti_assert(th->snd_credits == 0);				\
+    gasneti_assert(pollcnt == 0);					\
     cred_byte = 0;							\
     if (gasnetc_use_flow_control) {					\
+      GASNETC_TRACE_WAIT_BEGIN();					\
       do {								\
 	GASNETC_LOCK_STATE(state);					\
 	navail = state->SendCredits - state->SendInuse;			\
@@ -384,7 +386,6 @@ extern unsigned gasnetc_sys_poll_limit;
 	    need = (uint8_t)(ncredit - navail);				\
 	    state->SendStalls++;					\
 	    UPDATE_STALL_TOT(state);					\
-	    GASNETI_TRACE_EVENT(C, CREDIT_STALL);			\
 	  }								\
 	  GASNETC_UNLOCK_STATE(state);					\
 	  GASNETI_TRACE_EVENT(C, CREDIT_THROTTLE);			\
@@ -392,6 +393,7 @@ extern unsigned gasnetc_sys_poll_limit;
 	  gasneti_AMPoll();						\
 	}								\
       } while(th->snd_credits < ncredit);				\
+      if (pollcnt) GASNETC_TRACE_WAIT_END(CREDIT_STALL);		\
     }									\
   } while(0)
 

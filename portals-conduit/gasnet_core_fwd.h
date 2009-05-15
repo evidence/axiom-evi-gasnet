@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_core_fwd.h,v $
- *     $Date: 2009/05/13 21:39:03 $
- * $Revision: 1.15 $
+ *     $Date: 2009/05/15 22:21:11 $
+ * $Revision: 1.16 $
  * Description: GASNet header for PORTALS conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -68,7 +68,7 @@
         CNT(C, MSG_THROTTLE, count)             \
         CNT(C, CREDIT_THROTTLE, count)		\
         CNT(C, TMPMD_THROTTLE, count)		\
-        CNT(C, CREDIT_STALL, count)		\
+        TIME(C, CREDIT_STALL, stalled time)	\
         CNT(C, SYSQ_DROPPED, count)		\
         CNT(C, END_EPOCH, count)		\
 	CNT(C, GET_RAR, count)                  \
