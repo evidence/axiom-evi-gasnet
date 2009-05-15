@@ -756,6 +756,27 @@ static int exec_amlong_header(int isReq, int isPacked,
 }
 
 /* ------------------------------------------------------------------------------------
+ * Unpack the data from the event structure and attempt to execute the AM handler.
+ * --------------------------------------------------------------------------------- */
+GASNETI_INLINE(exec_am_header)
+void exec_am_header(int isReq, ptl_match_bits_t mbits, ptl_event_t *ev)
+{
+  uint8_t numarg, ghandler, amflag;
+  GASNETC_GET_AM_LOWBITS(mbits, numarg, ghandler, amflag);
+
+  if (amflag & GASNETC_PTL_AM_SHORT) {
+    exec_amshort_handler(isReq,ev,numarg,ghandler);
+  } else if (amflag & GASNETC_PTL_AM_MEDIUM) {
+    exec_ammedium_handler(isReq,ev,numarg,ghandler);
+  } else if (amflag & GASNETC_PTL_AM_LONG) {
+    int is_packed = amflag & GASNETC_PTL_AM_PACKED;
+    exec_amlong_header(isReq,is_packed,ev,numarg,ghandler);
+  } else {
+    gasneti_fatalerror("Invalid amflag from mbits = %lx",(uint64_t)mbits);
+  }
+}
+
+/* ------------------------------------------------------------------------------------
  * Unpack the data from the event structure and attempt to execute the AM Long handler.
  * Return TRUE if we ran the gasnet handler.
  * 
@@ -826,6 +847,8 @@ static int  exec_amlong_data(int isReq, ptl_event_t *ev)
 
   return ran_handler;
 }
+
+/* ------------------------------------------------------------------------------------ */
 
 #if HAVE_MMAP
   GASNETI_INLINE(gasnetc_malloc_aligned)
@@ -1224,7 +1247,7 @@ static void ReqSB_event(ptl_event_t *ev)
   ptl_match_bits_t   mbits = ev->match_bits;
   gasnete_threadidx_t threadid;
   gasnete_opaddr_t addr;
-  uint8_t msg_type, amflag, numarg, ghandler;
+  uint8_t msg_type;
   gasnete_op_t *op;
   uint8_t *pdata, *q;
   void *dest;
@@ -1239,9 +1262,7 @@ static void ReqSB_event(ptl_event_t *ev)
   GASNETI_TRACE_PRINTF(C,("ReqSB event %s offset = %i, mbits = 0x%lx, msg_type = 0x%x",ptl_event_str[ev->type],(int)offset,(uint64_t)mbits,msg_type));
 
   /* extract the lower bits based on message type */
-  if (msg_type & GASNETC_PTL_MSG_AM) {
-    GASNETC_GET_AM_LOWBITS(mbits, numarg, ghandler, amflag);
-  } else {
+  if (!(msg_type & GASNETC_PTL_MSG_AM)) {
     gasnete_get_op_lowbits(mbits, &threadid, &addr);
   }
 
@@ -1305,18 +1326,7 @@ static void ReqSB_event(ptl_event_t *ev)
 
   case PTL_EVENT_PUT_END:
     /* This is an AM reply from a previous request */
-    if (amflag & GASNETC_PTL_AM_SHORT) {
-      ran_handler = exec_amshort_handler(0,ev,numarg,ghandler);
-    } else if (amflag & GASNETC_PTL_AM_MEDIUM) {
-      ran_handler = exec_ammedium_handler(0,ev,numarg,ghandler);
-    } else if (amflag & GASNETC_PTL_AM_LONG) {
-      int is_packed = amflag & GASNETC_PTL_AM_PACKED;
-      gasneti_assert(! (amflag & GASNETC_PTL_AM_REQUEST) );
-      /* isReq = 0, only Replies come into ReqSB */
-      ran_handler = exec_amlong_header(0,is_packed,ev,numarg,ghandler);
-    } else {
-      gasneti_fatalerror("ReqSB: Invalid amflag from mbits = %lx",(uint64_t)mbits);
-    }
+    exec_am_header(0,mbits,ev);
 
     /* dealloc the chunk */
     gasnetc_chunk_free(&gasnetc_ReqSB,offset);
@@ -1370,7 +1380,7 @@ static void RplSB_event(ptl_event_t *ev)
 static void ReqRB_event(ptl_event_t *ev)
 {
   ptl_match_bits_t   mbits = ev->match_bits;
-  uint8_t msg_type, amflag, numarg, ghandler;
+  uint8_t msg_type;
   gasnetc_PtlBuffer_t *bufptr = ReqRB_getbuf((uintptr_t)ev->md.start);
 
   /* increment ref counter on this buffer, atomic w.r.t. poll of the AM_EQ */
@@ -1388,24 +1398,13 @@ static void ReqRB_event(ptl_event_t *ev)
     gasneti_fatalerror("Invalid event msg type on ReqRB, mbits = 0x%lx",(uint64_t)mbits);
   }
 #endif
-  GASNETC_GET_AM_LOWBITS(mbits, numarg, ghandler, amflag);
 
   /* we never truncate on this MD */
   gasneti_assert(ev->rlength == ev->mlength);
 
   switch (ev->type) {
   case PTL_EVENT_PUT_END:
-    if (amflag & GASNETC_PTL_AM_SHORT) {
-      exec_amshort_handler(1,ev,numarg,ghandler);
-    } else if (amflag & GASNETC_PTL_AM_MEDIUM) {
-      exec_ammedium_handler(1,ev,numarg,ghandler);
-    } else if (amflag & GASNETC_PTL_AM_LONG) {
-      int is_packed = amflag & GASNETC_PTL_AM_PACKED;
-      /* isReq = true */
-      exec_amlong_header(1,is_packed,ev,numarg,ghandler);
-    } else {
-      gasneti_fatalerror("ReqRB: Invalid amflag from mbits = %lx",(uint64_t)mbits);
-    }
+    exec_am_header(1,mbits,ev);
 
     /* decrement ref counter on this buffer */
     if (ev->mlength) GASNETC_REQRB_FINISH(bufptr);
@@ -1482,7 +1481,7 @@ static void CB_event(ptl_event_t *ev)
 {
   ptl_size_t offset = ev->offset;
   ptl_match_bits_t   mbits = ev->match_bits;
-  uint8_t msg_type, amflag, numarg, ghandler;
+  uint8_t msg_type;
 
   msg_type = GASNETC_GET_MSG_TYPE(mbits);
   GASNETI_TRACE_PRINTF(C,("CB event %s offset = %i, mbits = 0x%lx, msg_type = 0x%x",ptl_event_str[ev->type],(int)offset,(uint64_t)mbits,msg_type));
@@ -1493,7 +1492,6 @@ static void CB_event(ptl_event_t *ev)
     gasneti_fatalerror("Invalid event msg type on CB, mbits = 0x%lx",(uint64_t)mbits);
   }
 #endif
-  GASNETC_GET_AM_LOWBITS(mbits, numarg, ghandler, amflag);
 
   /* we always truncate on this MD */
   gasneti_assert(ev->mlength == 0);
