@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testam.c,v $
- *     $Date: 2009/05/15 20:39:28 $
- * $Revision: 1.31 $
+ *     $Date: 2009/05/15 20:56:06 $
+ * $Revision: 1.32 $
  * Description: GASNet Active Messages performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -147,13 +147,11 @@ int main(int argc, char **argv) {
 
   GASNET_Safe(gasnet_init(&argc, &argv));
 
-#if GASNET_PAR
   if ((argc-arg >= 2) && !strcmp(argv[arg], "-p")) {
+#if GASNET_PAR
     pollers = atoi(argv[arg+1]);
     arg += 2;
-  }
 #else
-  if (!strcmp(argv[arg], "-p")) {
     if (gasnet_mynode() == 0) {
       fprintf(stderr, "testam %s\n", GASNET_CONFIG_STRING);
       fprintf(stderr, "ERROR: The -p option is only available in the PAR configuration.\n");
@@ -161,8 +159,8 @@ int main(int argc, char **argv) {
     }
     sleep(1);
     gasnet_exit(1);
-  }
 #endif
+  }
   if (argc-arg >= 1) iters = atoi(argv[arg]);
   if (!iters) iters = 1000;
   if (argc-arg >= 2) maxsz = atoi(argv[arg+1]);
