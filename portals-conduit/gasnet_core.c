@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2009/05/13 21:39:03 $
- * $Revision: 1.21 $
+ *     $Date: 2009/05/16 01:42:23 $
+ * $Revision: 1.22 $
  * Description: GASNet portals conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *                 Michael Welcome <mlwelcome@lbl.gov>
@@ -645,7 +645,8 @@ extern int gasnetc_AMRequestMediumM(
   if (dest == gasneti_mynode) {
     gasnetc_ptl_token_t tok;
     gasnet_token_t      token = (gasnet_token_t)&tok;
-    void *tmpdata = gasneti_malloc(nbytes);
+    void *tmpdata = gasnetc_alloc_tmp(nbytes);
+    gasneti_assert(!((uintptr_t)tmpdata & 7)); /* x86_64 ABI ensures this, alloca() does not */
     va_start(argptr, numargs);
     for (i = 0; i < gasnet_AMMaxArgs(); i++) tok.args[i] = 0;
     for (i = 0; i < numargs; i++) tok.args[i] = va_arg(argptr,gasnet_handlerarg_t);
@@ -658,7 +659,7 @@ extern int gasnetc_AMRequestMediumM(
     GASNETI_TRACE_PRINTF(C,("AM_LOOPBACK: M_Req handler=%d, narg=%d nbytes=%d",handler,numargs,(int)nbytes));
     GASNETC_DBGMSG(1,1,"M",gasneti_mynode,dest,handler,numargs,tok.args,0,cred_byte,nbytes,source_addr,th);
     GASNETI_RUN_HANDLER_MEDIUM(1, handler, gasnetc_handler[handler], token, tok.args, numargs, tmpdata, nbytes);
-    gasneti_free(tmpdata);
+    gasnetc_free_tmp(tmpdata);
     gasneti_AMPoll();
     GASNETI_RETURN(GASNET_OK);
   }
@@ -1190,7 +1191,8 @@ extern int gasnetc_AMReplyMediumM(
   /* handle loopback case */
   if (ptok->srcnode == gasneti_mynode) {
     gasnet_handlerarg_t args[gasnet_AMMaxArgs()];
-    void *tmpdata = gasneti_malloc(nbytes);
+    void *tmpdata = gasnetc_alloc_tmp(nbytes);
+    gasneti_assert(!((uintptr_t)tmpdata & 7)); /* x86_64 ABI ensures this, alloca() does not */
     va_start(argptr, numargs);
     for (i = 0; i < gasnet_AMMaxArgs(); i++) args[i] = 0;
     for (i = 0; i < numargs; i++) args[i] = va_arg(argptr,gasnet_handlerarg_t);
@@ -1200,7 +1202,7 @@ extern int gasnetc_AMReplyMediumM(
     GASNETI_TRACE_PRINTF(C,("AM_LOOPBACK: M_Rpl handler=%d, narg=%d nbytes=%d",handler,numargs,(int)nbytes));
     GASNETC_DBGMSG(1,0,"M",gasneti_mynode,ptok->srcnode,handler,numargs,args,0,ptok->credits,nbytes,source_addr,th);
     GASNETI_RUN_HANDLER_MEDIUM(0, handler, gasnetc_handler[handler], token, args, numargs, tmpdata, nbytes);
-    gasneti_free(tmpdata);
+    gasnetc_free_tmp(tmpdata);
     GASNETI_RETURN(GASNET_OK);
   }
 

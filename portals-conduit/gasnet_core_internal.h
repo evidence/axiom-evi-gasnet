@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2009/05/13 21:39:03 $
- * $Revision: 1.5 $
+ *     $Date: 2009/05/16 01:42:23 $
+ * $Revision: 1.6 $
  * Description: GASNet PORTALS conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -41,6 +41,16 @@
 #endif
 #define GASNETC_TRACE_WAIT_END(name) \
   GASNETI_TRACE_EVENT_TIME(C,name,gasneti_ticks_now() - _waitstart)
+
+/* ------------------------------------------------------------------------------------ */
+
+#if HAVE_ALLOCA
+  #define gasnetc_alloc_tmp(_nbytes) alloca(_nbytes)
+  #define gasnetc_free_tmp(_ptr)     ((void)0)
+#else
+  #define gasnetc_alloc_tmp(_nbytes) gasneti_malloc(_nbytes)
+  #define gasnetc_free_tmp(_ptr)     gasneti_free(_ptr)
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 
