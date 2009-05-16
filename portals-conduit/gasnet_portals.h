@@ -415,7 +415,7 @@ extern unsigned gasnetc_sys_poll_limit;
       | ((uint64_t)(hndlr) << 16) | ((uint64_t)(amflag) << 8) | (uint64_t)(targ_mbits)
 
 #define GASNETC_UNPACK_AM_MBITS(mbits, offset, numarg, hndlr, amflag, targ_mbits) do { \
-    offset     = (mbits)>>32;						\
+    offset     = GASNETI_HIWORD(mbits);					\
     numarg     = ((mbits)&GASNETC_SELECT_BYTE3)>>24;			\
     hndlr      = ((mbits)&GASNETC_SELECT_BYTE2)>>16;			\
     amflag     = ((mbits)&GASNETC_SELECT_BYTE1)>>8;			\

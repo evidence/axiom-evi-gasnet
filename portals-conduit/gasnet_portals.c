@@ -378,7 +378,7 @@ static void exec_amshort_handler(int isReq, ptl_event_t *ev, int numarg, int gha
     gasneti_assert(th->flags & GASNETC_THREAD_HAVE_RPLSB);
     th->flags &= ~GASNETC_THREAD_HAVE_RPLSB;
     tok.rplsb_offset = (uint32_t)th->rplsb_off;
-    tok.initiator_offset = (uint32_t)(mbits >> 32);
+    tok.initiator_offset = GASNETI_HIWORD(mbits);
   }
 
   /* set data pointer and verify alignment */
@@ -486,7 +486,7 @@ static void exec_ammedium_handler(int isReq, ptl_event_t *ev, int numarg, int gh
     th->flags &= ~GASNETC_THREAD_HAVE_RPLSB;
     /* MLW: NOTE that rpl send buffer is small, offset never > 4GB */
     tok.rplsb_offset = (uint32_t)th->rplsb_off;
-    tok.initiator_offset = (uint32_t)(mbits >> 32);
+    tok.initiator_offset = GASNETI_HIWORD(mbits);
   }
 
   /* AM Medium Data Format:
@@ -1125,7 +1125,7 @@ static void TMPMD_event(ptl_event_t *ev)
       }
       /* unlink the tmp MD or free the firehose used in the AM Long data put */
       GASNETC_IF_USE_FIREHOSE (
-        gasnetc_fh_free((uint16_t)(mbits >> 32));
+        gasnetc_fh_free((uint16_t)GASNETI_HIWORD(mbits));
       ) else {
         gasnetc_free_tmpmd(ev->md_handle);
       }
@@ -1136,7 +1136,7 @@ static void TMPMD_event(ptl_event_t *ev)
     /* Put from Firehose or TmpMD */
     gasneti_assert(msg_type & GASNETC_PTL_MSG_PUT);
     GASNETC_IF_USE_FIREHOSE (
-      gasnetc_fh_free((uint16_t)(mbits >> 32));
+      gasnetc_fh_free((uint16_t)GASNETI_HIWORD(mbits));
     ) else {
       gasnetc_free_tmpmd(ev->md_handle);
     }
@@ -1149,7 +1149,7 @@ static void TMPMD_event(ptl_event_t *ev)
     gasneti_assert(msg_type & GASNETC_PTL_MSG_GET);
     gasnetc_return_ticket(&gasnetc_send_tickets);
     GASNETC_IF_USE_FIREHOSE (
-      gasnetc_fh_free((uint16_t)(mbits >> 32));
+      gasnetc_fh_free((uint16_t)GASNETI_HIWORD(mbits));
     ) else {
       gasnetc_free_tmpmd(ev->md_handle);
     }
@@ -1201,7 +1201,7 @@ static void ReqSB_event(ptl_event_t *ev)
     if (msg_type & GASNETC_PTL_MSG_PUT) {
       /* Put bounced through ReqSB, can free chunk now */
       gasneti_assert(!(msg_type & GASNETC_PTL_MSG_DOLC));
-      local_offset = mbits>>32;
+      local_offset = GASNETI_HIWORD(mbits);
       gasnetc_chunk_free(&gasnetc_ReqSB,local_offset);
     }
     break;
@@ -1217,7 +1217,7 @@ static void ReqSB_event(ptl_event_t *ev)
     /* Get bouncing through ReqSB, copy to dest and complete */
     gasneti_assert(msg_type & GASNETC_PTL_MSG_GET);
     gasnetc_return_ticket(&gasnetc_send_tickets);
-    local_offset = (mbits >> 32);
+    local_offset = GASNETI_HIWORD(mbits);
     pdata = ((uint8_t*)ev->md.start + local_offset);
     q = pdata - sizeof(void*);
     /* q points to location where real destination address is stored */
@@ -1270,7 +1270,7 @@ static void RplSB_event(ptl_event_t *ev)
 {
   ptl_match_bits_t   mbits = ev->match_bits;
   ptl_size_t offset = ev->offset;
-  ptl_size_t local_offset = (mbits >> 32);
+  ptl_size_t local_offset = GASNETI_HIWORD(mbits);
   uint8_t msg_type;
 
   msg_type = GASNETC_GET_MSG_TYPE(mbits);
@@ -2256,8 +2256,8 @@ extern void gasnetc_sys_SendMsg(gasnet_node_t node, gasnetc_sys_t msg_id,
   uint64_t           hdr_data;
 
   GASNETI_TRACE_PRINTF(C,("SYS_SendMsg: Sending msg_id=%u to node %d",(unsigned)msg_id,node));
-  match_bits = ((ptl_match_bits_t)arg0 << 32) | ((ptl_match_bits_t)msg_id << 8) | GASNETC_PTL_SYS_BITS;
-  hdr_data = ((uint64_t)arg1 << 32) | (uint64_t)arg2;
+  match_bits = GASNETI_MAKEWORD(arg0,((ptl_match_bits_t)msg_id << 8) | GASNETC_PTL_SYS_BITS);
+  hdr_data = GASNETI_MAKEWORD(arg1, arg2);
   GASNETC_PTLSAFE(PtlPutRegion(md_h, local_offset, msg_bytes, PTL_NOACK_REQ, target_id, GASNETC_PTL_AM_PTE, GASNETC_PTL_AC_ID, match_bits, remote_offset, hdr_data));
 
 }
