@@ -397,14 +397,14 @@ static int exec_amshort_handler(int isReq, ptl_event_t *ev, int numarg, int ghan
    * NOTE: seqno included only in debug mode
    * NOTE: Reply is identical, except without trailing pad
    */
-  if (numarg > 0) tok.args[argcnt++] = (gasnet_handlerarg_t)GASNETC_UNPACK_UPPER(ev->hdr_data);
+  if (numarg > 0) tok.args[argcnt++] = (gasnet_handlerarg_t)GASNETI_HIWORD(ev->hdr_data);
   if (numarg < 2) {
     /* credit info is packed in LOWER bits of hdr_data */
-    uint32_t cred = (uint32_t)GASNETC_UNPACK_LOWER(ev->hdr_data);
+    uint32_t cred = (uint32_t)GASNETI_LOWORD(ev->hdr_data);
     tok.credits = (uint8_t)(cred & 0x000000FF);
   } else {
     /* second arg in LOWER bits of hdr_data */
-    tok.args[argcnt++] = (gasnet_handlerarg_t)GASNETC_UNPACK_LOWER(ev->hdr_data);
+    tok.args[argcnt++] = (gasnet_handlerarg_t)GASNETI_LOWORD(ev->hdr_data);
   }
   /* unpack remaining args from data payload */
   for(; argcnt < numarg; argcnt++) {
@@ -513,13 +513,13 @@ static int exec_ammedium_handler(int isReq, ptl_event_t *ev, int numarg, int gha
    * NOTE: seqno only included in debug mode
    */
   /* payload len and credit info in upper bits of hdr_data */
-  payload_bytes = (uint32_t)GASNETC_UNPACK_UPPER(ev->hdr_data);
+  payload_bytes = (uint32_t)GASNETI_HIWORD(ev->hdr_data);
   tok.credits = (uint8_t)(payload_bytes >> 24);
   payload_bytes &= 0x00FFFFFF;     /* mask off credit_byte */
   nbytes = (size_t)payload_bytes;  /* type conversion */
 
   /* crack args out of hdr_data, mbits if available */
-  if (numarg > 0) tok.args[argcnt++] = (gasnet_handlerarg_t)GASNETC_UNPACK_LOWER(ev->hdr_data);
+  if (numarg > 0) tok.args[argcnt++] = (gasnet_handlerarg_t)GASNETI_LOWORD(ev->hdr_data);
 
   /* unpack remaining args from data payload */
   for(; argcnt < numarg; argcnt++) {
@@ -632,14 +632,14 @@ static int exec_amlong_header(int isReq, int isPacked,
 
   /* extract LID and check if this is a packed AM Long */
   /* if this is a packed AM, the resulting LID is actually the data payload length */
-  lid = (uint32_t)GASNETC_UNPACK_LOWER(ev->hdr_data);
+  lid = (uint32_t)GASNETI_LOWORD(ev->hdr_data);
 
   /* crack args out of hdr_data */
-  if (numarg > 0) tok.args[argcnt++] = (gasnet_handlerarg_t)GASNETC_UNPACK_UPPER(ev->hdr_data);
+  if (numarg > 0) tok.args[argcnt++] = (gasnet_handlerarg_t)GASNETI_HIWORD(ev->hdr_data);
 
   /* crack upper portion of match_bits */
   if (isReq) {
-    tok.initiator_offset = (uint32_t)GASNETC_UNPACK_UPPER(mbits);
+    tok.initiator_offset = (uint32_t)GASNETI_HIWORD(mbits);
   } 
 
   /* unpack remaining args from data payload */
@@ -808,7 +808,7 @@ static int  exec_amlong_data(int isReq, ptl_event_t *ev)
 
   /* extract LID and check if this is a packed AM Long */
   /* if this is a packed AM, the resulting LID is actually the data payload length */
-  lid = GASNETC_UNPACK_LOWER(ev->hdr_data);
+  lid = GASNETI_LOWORD(ev->hdr_data);
 
   /* see if header message has arrived */
   p = get_lid_obj_from_data(srcnode, lid, dataaddr, datalen);
@@ -2197,9 +2197,9 @@ static void sys_event(ptl_event_t *ev)
     /* Must be a system message */
     {
       gasnetc_sys_t msg_id = (gasnetc_sys_t) ((mbits & GASNETC_SELECT_BYTE1)>>8);
-      int32_t arg0 = (int32_t) ((mbits & GASNETC_SELECT_UPPER32) >> 32);
-      int32_t arg1 = (int32_t) ((ev->hdr_data & GASNETC_SELECT_UPPER32) >> 32);
-      int32_t arg2 = (int32_t) (ev->hdr_data & GASNETC_SELECT_LOWER32);
+      int32_t arg0 = (int32_t) GASNETI_HIWORD(mbits);
+      int32_t arg1 = (int32_t) GASNETI_HIWORD(ev->hdr_data);
+      int32_t arg2 = (int32_t) GASNETI_LOWORD(ev->hdr_data);
       exec_sys_msg(msg_id, arg0, arg1, arg2);
     }
     

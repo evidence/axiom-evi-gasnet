@@ -224,16 +224,13 @@ extern unsigned gasnetc_sys_poll_limit;
 #define GASNETC_SELECT_BYTE6       0x00FF000000000000ULL
 #define GASNETC_SELECT_BYTE7       0xFF00000000000000ULL
 
-/* x is a uint64_t and a and b are int32_t */
 #define GASNETC_PACK_UPPER(lhs,rhs) lhs = ((lhs) & GASNETC_SELECT_LOWER32) | ((uint64_t)(rhs) << 32)
 #define GASNETC_PACK_LOWER(lhs,rhs) lhs = ((lhs) & GASNETC_SELECT_UPPER32) | ((uint64_t)(rhs) & GASNETC_SELECT_LOWER32)
-#define GASNETC_PACK_2INT(x,up,low) x = ((uint64_t)(up)<<32) | ((uint64_t)(low) & GASNETC_SELECT_LOWER32)
+#define GASNETC_PACK_2INT(x,up,low) x = GASNETI_MAKEWORD(up,low)
 
-#define GASNETC_UNPACK_UPPER(x) (int32_t)((x)>>32)
-#define GASNETC_UNPACK_LOWER(x) (int32_t)((x)&GASNETC_SELECT_LOWER32)
 #define GASNETC_UNPACK_2INT(x,up,low) do { \
-    (up) = GASNETC_UNPACK_UPPER(x);	   \
-    (low) = GASNETC_UNPACK_LOWER(x);	   \
+    (up) = GASNETI_HIWORD(x);	   \
+    (low) = GASNETI_LOWORD(x);	   \
   } while (0)
 
 #define gasnetc_alloc_ticket(semptr) gasneti_semaphore_trydown(semptr)
