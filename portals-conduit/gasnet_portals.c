@@ -155,7 +155,7 @@ int gasnetc_dump_stats = 0;                   /* write some stats info to files 
 int gasnetc_debug_node = -1;                  /* used in debugging */
 
 gasnetc_conn_t *gasnetc_conn_state = NULL;
-
+static gasneti_lifo_head_t gasnetc_lid_freelist = GASNETI_LIFO_INITIALIZER;
 
 /* ------------------------------------------------------------------------------------ */
 /* The number of available send tickets and the message limit.
@@ -249,7 +249,8 @@ static int get_or_insert_lid(gasnet_node_t src, uint32_t lid, gasnetc_amlongcach
   }
 
   /* not found, create new entry and add to list */
-  p = (gasnetc_amlongcache_t*)gasneti_malloc(sizeof(gasnetc_amlongcache_t));
+  p = gasneti_lifo_pop(&gasnetc_lid_freelist);
+  if_pf (!p) p = (gasnetc_amlongcache_t*)gasneti_malloc(sizeof(gasnetc_amlongcache_t));
   p->dest_lid = lid;
   p->flags = 0;
   /* prev is either NULL, or points to the end of the list */
@@ -720,7 +721,7 @@ static void exec_amlong_header(int isReq, int isPacked,
       GASNETI_RUN_HANDLER_LONG(isReq, ghandler ,gasnetc_handler[ghandler], token, tok.args, numarg, p->data, p->nbytes);
 
       /* free the lid object, it has already been removed from the list */
-      gasneti_free(p);
+      gasneti_lifo_push(&gasnetc_lid_freelist, p);
     } else {
 
       /* first to arrive, cant run handler */
@@ -821,7 +822,7 @@ static void exec_amlong_data(int isReq, ptl_event_t *ev)
     } 
 
     /* free the lid object, it has already been removed from the list */
-    gasneti_free(p);
+    gasneti_lifo_push(&gasnetc_lid_freelist, p);
 
   } else {
     GASNETI_TRACE_PRINTF(C,("exec_amlong_data, first to arrive, isReq=%d, lid=%d",isReq,lid));
