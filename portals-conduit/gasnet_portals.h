@@ -895,14 +895,22 @@ void gasnete_set_mbits_lowbits(ptl_match_bits_t *mbits, uint8_t msg_type, gasnet
     GASNETI_TRACE_PRINTF(C,("set lowbits th = 0x%x, addr = 0x%x, type = 0x%x, bits = 0x%llx",th_b,addr_b,m_b,*mbits));
 }
 
-GASNETI_INLINE(gasnete_get_op_lowbits)
-void gasnete_get_op_lowbits(ptl_match_bits_t mbits, uint8_t *threadid, gasnete_opaddr_t *addr)
-			    
+GASNETI_INLINE(gasnete_mbits2op)
+gasnete_op_t* gasnete_mbits2op(ptl_match_bits_t mbits)
 {
-    uint32_t lb    = (uint32_t)(GASNETC_SELECT_LOWER32 & mbits);
-    *threadid      = (uint8_t)(lb >> 24);
-    addr->fulladdr = (uint16_t)((lb & 0x00FFFF00) >> 8);
-    GASNETI_TRACE_PRINTF(C,("get bits = 0x%lx, th = 0x%x, addr = 0x%x",(unsigned long)mbits,*threadid,addr->fulladdr));
+  uint32_t lo = GASNETI_LOWORD(mbits);
+  uint8_t tid = lo >> 24;
+  gasnete_opaddr_t addr;
+  addr.fulladdr = lo >> 8;
+  return gasnete_opaddr_to_ptr(tid, addr);
+}
+
+GASNETI_INLINE(gasnete_mbits2td)
+gasnete_threaddata_t* gasnete_mbits2td(ptl_match_bits_t mbits)
+{
+  uint32_t lo = GASNETI_LOWORD(mbits);
+  uint8_t tid = lo >> 24;
+  return gasnete_threadtable[GASNETE_THREADID(tid)];
 }
 
 GASNETI_INLINE(gasnetc_in_local_rar)

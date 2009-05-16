@@ -1070,16 +1070,10 @@ static void RARSRC_event(ptl_event_t *ev)
 {
   ptl_size_t offset = ev->offset;
   ptl_match_bits_t   mbits = ev->match_bits;
-  gasnete_threadidx_t threadid;
-  gasnete_opaddr_t addr;
   uint8_t msg_type;
-  gasnete_op_t *op;
 
   msg_type = GASNETC_GET_MSG_TYPE(mbits);
   GASNETI_TRACE_PRINTF(C,("RARSRC event %s offset = %i, mbits = 0x%lx, msg_type = 0x%x",ptl_event_str[ev->type],(int)offset,(uint64_t)mbits,msg_type));
-
-  /* extract the lower bits based on message type */
-  gasnete_get_op_lowbits(mbits, &threadid, &addr);
 
   /* we never truncate on this MD */
   gasneti_assert(ev->rlength == ev->mlength);
@@ -1090,12 +1084,12 @@ static void RARSRC_event(ptl_event_t *ev)
     if ( !(msg_type & GASNETC_PTL_MSG_GET) )
       gasnetc_return_ticket(&gasnetc_send_tickets);
     if ((msg_type & GASNETC_PTL_MSG_PUT) && (msg_type & GASNETC_PTL_MSG_DOLC)) {
-      gasnete_threaddata_t *th = gasnete_threadtable[GASNETE_THREADID(threadid)];
+      gasnete_threaddata_t *th = gasnete_mbits2td(mbits);
       gasneti_weakatomic_decrement(&(th->local_completion_count), 0);
     } else if (msg_type & GASNETC_PTL_MSG_AMDATA) {
       ptl_match_bits_t amflag = (mbits & GASNETC_SELECT_BYTE1) >> 8;
       if (amflag & GASNETC_PTL_AM_SYNC) {
-	gasnetc_threaddata_t *th = gasnete_threadtable[GASNETE_THREADID(threadid)]->gasnetc_threaddata;
+	gasnetc_threaddata_t *th = gasnete_mbits2td(mbits)->gasnetc_threaddata;
 	/* caller is AMLong (sync, not async), and is waiting for this counter to decrement */
 	gasneti_weakatomic_t *counter = (amflag & GASNETC_PTL_AM_REQUEST) ? &th->amlongReq_data_inflight
 									  : &th->amlongRep_data_inflight;
@@ -1118,18 +1112,16 @@ static void RARSRC_event(ptl_event_t *ev)
   case PTL_EVENT_ACK:
     /* InSegment Put (from local RAR) */
     gasneti_assert(msg_type & GASNETC_PTL_MSG_PUT);
-    op = gasnete_opaddr_to_ptr(threadid, addr);
     /* mark the put (isget=0) operation complete */
-    gasnete_op_markdone(op, 0 /* !isget */);
+    gasnete_op_markdone(gasnete_mbits2op(mbits), 0 /* !isget */);
     break;
 
   case PTL_EVENT_REPLY_END:
     /* InSegment Get (to local RAR) */
     gasneti_assert(msg_type & GASNETC_PTL_MSG_GET);
     gasnetc_return_ticket(&gasnetc_send_tickets);
-    op = gasnete_opaddr_to_ptr(threadid, addr);
     /* mark the get (isget=1) operation complete */
-    gasnete_op_markdone(op, 1);
+    gasnete_op_markdone(gasnete_mbits2op(mbits), 1);
     break;
 
   default:
@@ -1150,21 +1142,16 @@ static void TMPMD_event(ptl_event_t *ev)
 {
   ptl_size_t offset = ev->offset;
   ptl_match_bits_t   mbits = ev->match_bits;
-  gasnete_threadidx_t threadid;
-  gasnete_opaddr_t addr;
   uint8_t msg_type;
-  gasnete_op_t *op;
 
   msg_type = GASNETC_GET_MSG_TYPE(mbits);
   GASNETI_TRACE_PRINTF(C,("TMPMD event %s offset = %i, mbits = 0x%lx, msg_type = 0x%x",ptl_event_str[ev->type],(int)offset,(uint64_t)mbits,msg_type));
 
-  /* extract the lower bits based on message type */
 #if GASNET_DEBUG
   if (msg_type & GASNETC_PTL_MSG_AM) {
     gasneti_fatalerror("Unexpected AM msg type on TMPMD, mbits = 0x%lx",(uint64_t)mbits);
   }
 #endif
-  gasnete_get_op_lowbits(mbits, &threadid, &addr);
 
   /* we never truncate on this MD */
   gasneti_assert(ev->rlength == ev->mlength);
@@ -1175,12 +1162,12 @@ static void TMPMD_event(ptl_event_t *ev)
       gasnetc_return_ticket(&gasnetc_send_tickets);
     /* Put from TmpMD */
     if ((msg_type & GASNETC_PTL_MSG_PUT) && (msg_type & GASNETC_PTL_MSG_DOLC)) {
-      gasnete_threaddata_t *th = gasnete_threadtable[GASNETE_THREADID(threadid)];
+      gasnete_threaddata_t *th = gasnete_mbits2td(mbits);
       gasneti_weakatomic_decrement(&(th->local_completion_count), 0);
     } else if (msg_type & GASNETC_PTL_MSG_AMDATA) {
       ptl_match_bits_t amflag = (mbits & GASNETC_SELECT_BYTE1) >> 8;
       if (amflag & GASNETC_PTL_AM_SYNC) {
-	gasnetc_threaddata_t *th = gasnete_threadtable[GASNETE_THREADID(threadid)]->gasnetc_threaddata;
+	gasnetc_threaddata_t *th = gasnete_mbits2td(mbits)->gasnetc_threaddata;
 	/* caller is AMLong (sync, not async), and is waiting for this counter to decrement */
 	gasneti_weakatomic_t *counter = (amflag & GASNETC_PTL_AM_REQUEST) ? &th->amlongReq_data_inflight
 									  : &th->amlongRep_data_inflight;
@@ -1203,9 +1190,8 @@ static void TMPMD_event(ptl_event_t *ev)
     ) else {
       gasnetc_free_tmpmd(ev->md_handle);
     }
-    op = gasnete_opaddr_to_ptr(threadid, addr);
     /* mark the put (isget=0) operation complete */
-    gasnete_op_markdone(op, 0 /* !isget */);
+    gasnete_op_markdone(gasnete_mbits2op(mbits), 0 /* !isget */);
     break;
 
   case PTL_EVENT_REPLY_END:
@@ -1217,9 +1203,8 @@ static void TMPMD_event(ptl_event_t *ev)
     ) else {
       gasnetc_free_tmpmd(ev->md_handle);
     }
-    op = gasnete_opaddr_to_ptr(threadid, addr);
     /* mark the get (isget=1) operation complete */
-    gasnete_op_markdone(op, 1);
+    gasnete_op_markdone(gasnete_mbits2op(mbits), 1);
     break;
 
   default:
@@ -1245,10 +1230,7 @@ static void ReqSB_event(ptl_event_t *ev)
 {
   ptl_size_t offset = ev->offset;
   ptl_match_bits_t   mbits = ev->match_bits;
-  gasnete_threadidx_t threadid;
-  gasnete_opaddr_t addr;
   uint8_t msg_type;
-  gasnete_op_t *op;
   uint8_t *pdata, *q;
   void *dest;
   gasnetc_conn_t      *state;
@@ -1260,11 +1242,6 @@ static void ReqSB_event(ptl_event_t *ev)
 
   msg_type = GASNETC_GET_MSG_TYPE(mbits);
   GASNETI_TRACE_PRINTF(C,("ReqSB event %s offset = %i, mbits = 0x%lx, msg_type = 0x%x",ptl_event_str[ev->type],(int)offset,(uint64_t)mbits,msg_type));
-
-  /* extract the lower bits based on message type */
-  if (!(msg_type & GASNETC_PTL_MSG_AM)) {
-    gasnete_get_op_lowbits(mbits, &threadid, &addr);
-  }
 
   /* we never truncate on this MD */
   gasneti_assert(ev->rlength == ev->mlength);
@@ -1284,9 +1261,8 @@ static void ReqSB_event(ptl_event_t *ev)
   case PTL_EVENT_ACK:
     /* Put bounced through ReqSB, mark op complete */
     gasneti_assert(msg_type & GASNETC_PTL_MSG_PUT);
-    op = gasnete_opaddr_to_ptr(threadid, addr);
     /* mark the put (isget=0) operation complete */
-    gasnete_op_markdone(op, 0 /* !isget */);
+    gasnete_op_markdone(gasnete_mbits2op(mbits), 0 /* !isget */);
     break;
 
   case PTL_EVENT_REPLY_END:
@@ -1302,12 +1278,11 @@ static void ReqSB_event(ptl_event_t *ev)
     /* free the bounce buffer */
     local_offset -= sizeof(void*);
     gasnetc_chunk_free(&gasnetc_ReqSB,local_offset);
-    op = gasnete_opaddr_to_ptr(threadid, addr);
     /* mark the get (isget=1) operation complete */
     /* Do we need membar here?  Above chunk free required lock/unlock
      * of mutex => membar, right?
      */
-    gasnete_op_markdone(op, 1);
+    gasnete_op_markdone(gasnete_mbits2op(mbits), 1);
     break;
 
 #if 0 /* Not Yet Implemented */
