@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_core_fwd.h,v $
- *     $Date: 2009/05/15 22:21:11 $
- * $Revision: 1.16 $
+ *     $Date: 2009/05/16 18:41:47 $
+ * $Revision: 1.17 $
  * Description: GASNet header for PORTALS conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -83,5 +83,8 @@
 	GASNETC_FIREHOSE_STATS(CNT,VAL,TIME)	\
         TIME(C, REFRESH_STALL, stalled time)    \
         VAL(C, EVENT_REAP, numreaped)
+
+/* This is the default, but we define it here for use in gasnet_core.h */
+#define GASNETI_MEDBUF_ALIGNMENT 8
 
 #endif

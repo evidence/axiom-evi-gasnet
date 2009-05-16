@@ -350,7 +350,7 @@ static gasnetc_amlongcache_t* get_lid_obj_from_header(gasnet_node_t src, uint32_
  *   hdr_data:      [arg0 << 32 | arg1]
  *   Data Payload:  [remaining args]
  * NOTES:
- *   - message should be sizeof(double) aligned.
+ *   - message should be GASNETI_MEDBUF_ALIGNMENT aligned.
  * This function is called from:
  * - ReqRB_event in response to the arrival of an AM Short Request
  * - ReqSB_event in response to the arrival of an AM Short Reply
@@ -360,16 +360,13 @@ static void exec_amshort_handler(int isReq, ptl_event_t *ev, int numarg, int gha
   ptl_match_bits_t   mbits = ev->match_bits;
   gasnetc_ptl_token_t tok;
   gasnet_token_t token = (gasnet_token_t)&tok;
-  uint8_t *data;
+  uint32_t *data32;
   int  argcnt = 0;
-  int  msg_bytes = 0;
+  GASNETI_UNUSED_UNLESS_DEBUG int msg_bytes = 0;
   gasnetc_threaddata_t *th = gasnetc_mythread();
 
   GASNETC_DEF_HARGS();    /* debug, must be first statement */
-  {
-    int i;
-    for (i = 0; i < gasnet_AMMaxArgs(); i++) tok.args[i] = 0;
-  }
+  GASNETC_ZERO_AMARGS(tok.args);
 
   tok.flags = 0;
   tok.initiator = ev->initiator;
@@ -384,16 +381,14 @@ static void exec_amshort_handler(int isReq, ptl_event_t *ev, int numarg, int gha
     tok.initiator_offset = (uint32_t)(mbits >> 32);
   }
 
-  /* set data pointer */
-  data = (uint8_t*)ev->md.start + ev->offset;
-
-  /* insure our data pointer is aligned for a double */
-  gasnetc_assert_aligned(data,sizeof(double));
+  /* set data pointer and verify alignment */
+  data32 = (uint32_t*)((uintptr_t)ev->md.start + ev->offset);
+  gasnetc_assert_aligned(data32,GASNETI_MEDBUF_ALIGNMENT);
 
   /* AM Short Request Data Format:
    * numarg=0:   HD=[----,cred] MB=[off,XX] Data=[seqno][pad]
    * numarg=1:   HD=[arg1,cred] MB=[off,XX] Data=[seqno][pad]
-   * numarg=2+:  HD=[arg1,arg2] MB=[off,XX] Data=[args][cred][seqno][pad]
+   * numarg=2+:  HD=[arg1,arg2] MB=[off,XX] Data=[args][seqno][cred][pad]
    * NOTE: seqno included only in debug mode
    * NOTE: Reply is identical, except without trailing pad
    */
@@ -408,21 +403,17 @@ static void exec_amshort_handler(int isReq, ptl_event_t *ev, int numarg, int gha
   }
   /* unpack remaining args from data payload */
   for(; argcnt < numarg; argcnt++) {
-    memcpy(&tok.args[argcnt], data, sizeof(gasnet_handlerarg_t));
-    data += sizeof(gasnet_handlerarg_t);
-    msg_bytes += sizeof(gasnet_handlerarg_t);
+    tok.args[argcnt] = *(data32++);
+    GASNETC_MSGLEN_ADD(msg_bytes, sizeof(uint32_t));
   }
+  GASNETC_EXTRACT_SEQNO(data32,msg_bytes,tok);      /* debug */
   if (numarg > 1) {
     /* unpack the credit info */
-    tok.credits = *data;
-    data += sizeof(uint8_t);
-    msg_bytes += sizeof(uint8_t);
+    tok.credits = *(uint8_t*)data32;
+    GASNETC_MSGLEN_ADD(msg_bytes, sizeof(uint8_t));
   }
-  GASNETC_EXTRACT_SEQNO(data,msg_bytes);
   if (isReq) { /* message length accounting: Request contains pad at end of message */
-    int pad;
-    GASNETC_COMPUTE_DOUBLE_PAD(msg_bytes,pad);
-    msg_bytes += pad;
+    GASNETC_MSGLEN_PAD(msg_bytes);
   }
   {
     uint8_t ee,nx,nc;
@@ -437,7 +428,6 @@ static void exec_amshort_handler(int isReq, ptl_event_t *ev, int numarg, int gha
     
   gasneti_assert(ev->mlength == ev->rlength);
   gasneti_assert(msg_bytes == ev->rlength);
-  GASNETC_SAVE_SEQNO(&tok);
   GASNETC_DBGMSG(0,isReq,"S",tok.srcnode,gasneti_mynode,ghandler,numarg,tok.args,msg_bytes,tok.credits,0,NULL,th);
 
   GASNETI_RUN_HANDLER_SHORT(isReq, ghandler, gasnetc_handler[ghandler], token, tok.args, numarg);
@@ -461,8 +451,8 @@ static void exec_amshort_handler(int isReq, ptl_event_t *ev, int numarg, int gha
  *   hdr_data:      [arg0 << 32 | arg1]
  *   Data Payload:  [remaining args][data payload length][pad][data payload]
  * NOTES:
- *   - message should be sizeof(double) aligned.
- *   - pad insures data payload is sizeof(double) aligned.
+ *   - message should be GASNETI_MEDBUF_ALIGNMENT aligned.
+ *   - pad insures data payload is GASNETI_MEDBUF_ALIGNMENT aligned.
  * This function is called from:
  * - ReqRB_event in response to the arrival of an AM Medium Request
  * - ReqSB_event in response to the arrival of an AM Medium Reply
@@ -472,18 +462,14 @@ static void exec_ammedium_handler(int isReq, ptl_event_t *ev, int numarg, int gh
   ptl_match_bits_t   mbits = ev->match_bits;
   gasnetc_ptl_token_t tok;
   gasnet_token_t token = (gasnet_token_t)&tok;
-  uint8_t *data;
-  int      pad;
+  uint32_t *data32;
   uint32_t payload_bytes;
   size_t   nbytes;
   int      argcnt = 0;
-  int      msg_bytes = 0;
+  GASNETI_UNUSED_UNLESS_DEBUG int msg_bytes = 0;
   gasnetc_threaddata_t *th = gasnetc_mythread();
   GASNETC_DEF_HARGS();    /* debug, must be first statement */
-  {
-    int i;
-    for (i = 0; i < gasnet_AMMaxArgs(); i++) tok.args[i] = 0;
-  }
+  GASNETC_ZERO_AMARGS(tok.args);
 
   tok.flags = 0;
   tok.initiator = ev->initiator;
@@ -491,11 +477,9 @@ static void exec_ammedium_handler(int isReq, ptl_event_t *ev, int numarg, int gh
   tok.narg = numarg;
   tok.ghandler = ghandler;
 
-  /* set data pointer */
-  data = (uint8_t*)ev->md.start + ev->offset;
-
-  /* insure our data pointer is aligned for a double */
-  gasnetc_assert_aligned(data,sizeof(double));
+  /* set data pointer and verify alignment */
+  data32 = (uint32_t*)((uintptr_t)ev->md.start + ev->offset);
+  gasnetc_assert_aligned(data32,GASNETI_MEDBUF_ALIGNMENT);
 
   if (isReq) {
     gasneti_assert(th->flags & GASNETC_THREAD_HAVE_RPLSB);
@@ -520,25 +504,20 @@ static void exec_ammedium_handler(int isReq, ptl_event_t *ev, int numarg, int gh
 
   /* unpack remaining args from data payload */
   for(; argcnt < numarg; argcnt++) {
-    memcpy(&tok.args[argcnt], data, sizeof(gasnet_handlerarg_t));
-    data += sizeof(gasnet_handlerarg_t);
-    msg_bytes += sizeof(gasnet_handlerarg_t);
+    tok.args[argcnt] = *(data32++);
+    GASNETC_MSGLEN_ADD(msg_bytes, sizeof(uint32_t));
   }
 
-  GASNETC_EXTRACT_SEQNO(data,msg_bytes);            /* debug */
-  GASNETC_SAVE_SEQNO(&tok);                         /* debug */
+  GASNETC_EXTRACT_SEQNO(data32,msg_bytes,tok);      /* debug */
 
-  /* Skip over any pad field so that handler payload is double-aligned */
-  GASNETC_COMPUTE_DOUBLE_PAD(msg_bytes,pad);
-  data += pad;
-  msg_bytes += pad;
-  gasnetc_assert_aligned(data,sizeof(double));
+  /* Skip over any pad field so that handler payload is properly aligned */
+  GASNETC_MSGLEN_PAD(msg_bytes);
+  data32 = (uint32_t*)GASNETI_ALIGNUP(data32,GASNETI_MEDBUF_ALIGNMENT);
 
   /* accounting: this should be same as message length */
-  msg_bytes += nbytes;
+  GASNETC_MSGLEN_ADD(msg_bytes, nbytes);
   if (isReq) {  /* trailing pad only on Requests */
-    GASNETC_COMPUTE_DOUBLE_PAD(msg_bytes,pad);
-    msg_bytes += pad;
+    GASNETC_MSGLEN_PAD(msg_bytes);
   }
 
   gasneti_assert(ev->mlength == ev->rlength);
@@ -555,9 +534,9 @@ static void exec_ammedium_handler(int isReq, ptl_event_t *ev, int numarg, int gh
     tok.credits = gasnetc_credit_update(isReq,tok.credits,tok.srcnode,"Med");
   }
 
-  GASNETC_DBGMSG(0,isReq,"M",tok.srcnode,gasneti_mynode,ghandler,numarg,tok.args,msg_bytes,tok.credits,nbytes,data,th);
+  GASNETC_DBGMSG(0,isReq,"M",tok.srcnode,gasneti_mynode,ghandler,numarg,tok.args,msg_bytes,tok.credits,nbytes,data32,th);
 
-  GASNETI_RUN_HANDLER_MEDIUM(isReq, ghandler, gasnetc_handler[ghandler], token, tok.args, numarg, data, nbytes);
+  GASNETI_RUN_HANDLER_MEDIUM(isReq, ghandler, gasnetc_handler[ghandler], token, tok.args, numarg, data32, nbytes);
 
   if (isReq && !(tok.flags & GASNETC_PTL_REPLY_SENT)) {
     GASNETI_SAFE(
@@ -587,21 +566,16 @@ static void exec_amlong_header(int isReq, int isPacked,
   ptl_match_bits_t   mbits = ev->match_bits;
   gasnetc_ptl_token_t tok;
   gasnet_token_t token = (gasnet_token_t)&tok;
-  gasnet_handlerarg_t args[gasnet_AMMaxArgs()];
-  uint8_t *data;
-  int      pad;
+  uint32_t *data32;
   int32_t  payload_bytes;
   int      argcnt;
-  int      msg_bytes = 0;
   void    *dest;
   int      check_reply = isReq;  /* AM Request must reply for Portals Conduit */
+  GASNETI_UNUSED_UNLESS_DEBUG int msg_bytes = 0;
   gasnetc_threaddata_t *th = gasnetc_mythread();
 
   GASNETC_DEF_HARGS();           /* debug, must be first statement */
-  {
-    int i;
-    for (i = 0; i < gasnet_AMMaxArgs(); i++) tok.args[i] = 0;
-  }
+  GASNETC_ZERO_AMARGS(tok.args);
 
   tok.flags = 0;
   tok.initiator = ev->initiator;
@@ -610,11 +584,9 @@ static void exec_amlong_header(int isReq, int isPacked,
   tok.narg = numarg;
   tok.ghandler = ghandler;
 
-  /* set data pointer */
-  data = (uint8_t*)ev->md.start + ev->offset;
-
-  /* insure our data pointer is aligned for a double */
-  gasnetc_assert_aligned(data,sizeof(double));
+  /* set data pointer and verify alignment */
+  data32 = (uint32_t*)((uintptr_t)ev->md.start + ev->offset);
+  gasnetc_assert_aligned(data32,GASNETI_MEDBUF_ALIGNMENT);
 
   /* Request formats:
    *   Regular Format: hdr_data=[arg0,cred]     data=[args][seqno][pad] 
@@ -632,20 +604,17 @@ static void exec_amlong_header(int isReq, int isPacked,
   /* unpack args from hdr_data and data payload */
   if (numarg > 0) tok.args[0] = (gasnet_handlerarg_t)GASNETI_HIWORD(ev->hdr_data);
   for(argcnt = 1; argcnt < numarg; argcnt++) {
-    memcpy(&tok.args[argcnt], data, sizeof(gasnet_handlerarg_t));
-    data += sizeof(gasnet_handlerarg_t);
-    msg_bytes += sizeof(gasnet_handlerarg_t);
+    tok.args[argcnt] = *(data32++);
+    GASNETC_MSGLEN_ADD(msg_bytes, sizeof(uint32_t));
   }
-  GASNETC_EXTRACT_SEQNO(data,msg_bytes);
-  GASNETC_SAVE_SEQNO(&tok);
+  GASNETC_EXTRACT_SEQNO(data32,msg_bytes,tok);      /* debug */
 
   if (isPacked || isReq) {
     tok.credits = GASNETI_LOWORD(ev->hdr_data) >> 24;
   } else if (numarg) {
     /* unpack credit byte */
-    tok.credits = *data;
-    data += sizeof(uint8_t);
-    msg_bytes += sizeof(uint8_t);
+    tok.credits = *(uint8_t*)data32;
+    GASNETC_MSGLEN_ADD(msg_bytes, sizeof(uint8_t));
   } else {
     tok.credits = GASNETI_HIWORD(ev->hdr_data) >> 24;
   }
@@ -667,15 +636,15 @@ static void exec_amlong_header(int isReq, int isPacked,
     size_t   nbytes;
 
     /* extract the data payload destination, should be in local RAR */
-    memcpy(&dest, data, sizeof(void*));
-    data += sizeof(void*);
-    msg_bytes += sizeof(void*);
+    dest = (void*)GASNETI_MAKEWORD(data32[1],data32[0]);
+    data32 += 2;
+    GASNETC_MSGLEN_ADD(msg_bytes, 2*sizeof(uint32_t));
       
     /* copy the data payload to the specified destination */
     nbytes = GASNETI_LOWORD(ev->hdr_data) & 0xFFFF; /* Really just 10 bits */
     gasneti_assert(gasnetc_in_local_rar(dest,nbytes));
-    memcpy(dest,data,nbytes);
-    msg_bytes += nbytes;
+    memcpy(dest,data32,nbytes);
+    GASNETC_MSGLEN_ADD(msg_bytes, nbytes);
 
     if (isReq) {
       gasnetc_threaddata_t *th = gasnetc_mythread();
@@ -683,8 +652,7 @@ static void exec_amlong_header(int isReq, int isPacked,
       th->flags &= ~GASNETC_THREAD_HAVE_RPLSB;
       tok.rplsb_offset = (uint32_t)th->rplsb_off;
       /* message length accounting */
-      GASNETC_COMPUTE_DOUBLE_PAD(msg_bytes,pad);
-      msg_bytes += pad;
+      GASNETC_MSGLEN_PAD(msg_bytes);
     }
     gasneti_assert(msg_bytes == ev->rlength);
     gasneti_assert(msg_bytes <= GASNETC_CHUNKSIZE);
@@ -700,8 +668,7 @@ static void exec_amlong_header(int isReq, int isPacked,
     if (isReq) {
       lid = tok.initiator_offset;
       /* message length accounting */
-      GASNETC_COMPUTE_DOUBLE_PAD(msg_bytes,pad);
-      msg_bytes += pad;
+      GASNETC_MSGLEN_PAD(msg_bytes);
     } else {
       lid = GASNETI_LOWORD(ev->hdr_data);
     }
@@ -785,7 +752,6 @@ static void exec_amlong_data(int isReq, ptl_event_t *ev)
 {
   uint32_t lid;
   uint8_t *data;
-  int      pad;
   size_t   nbytes;
   void    *dest;
   uint8_t* dataaddr = (uint8_t*)ev->md.start + ev->offset;
@@ -958,7 +924,7 @@ static void ReqRB_attach(gasnetc_PtlBuffer_t *p)
 GASNETI_ALWAYS_INLINE(ReqRB_getbuf) GASNETI_CONST
 gasnetc_PtlBuffer_t* ReqRB_getbuf(uintptr_t start_addr)
 {
-  const size_t skip = GASNETI_ALIGNUP(sizeof(gasnetc_PtlBuffer_t),sizeof(double));
+  const size_t skip = GASNETI_ALIGNUP(sizeof(gasnetc_PtlBuffer_t),GASNETI_MEDBUF_ALIGNMENT);
   gasnetc_PtlBuffer_t *result = (gasnetc_PtlBuffer_t *)(start_addr - skip);
   gasneti_assert((uintptr_t)result->start == start_addr);
   return result;
@@ -1657,11 +1623,11 @@ static void ReqRB_init(void)
   gasnetc_ReqRB = (gasnetc_PtlBuffer_t**)gasneti_malloc(gasnetc_ReqRB_pool_size*sizeof(gasnetc_PtlBuffer_t*));
   for (i = 0; i < gasnetc_ReqRB_pool_size; i++) {
     gasnetc_PtlBuffer_t *p;
-    size_t skip = GASNETI_ALIGNUP(sizeof(gasnetc_PtlBuffer_t),sizeof(double));
+    size_t skip = GASNETI_ALIGNUP(sizeof(gasnetc_PtlBuffer_t),GASNETI_MEDBUF_ALIGNMENT);
 
     sprintf(&name[0],"ReqRB_%02d",i);
 
-    p = gasnetc_ReqRB[i] = gasnetc_malloc_aligned(sizeof(double),nbytes + skip);
+    p = gasnetc_ReqRB[i] = gasnetc_malloc_aligned(GASNETI_MEDBUF_ALIGNMENT,nbytes + skip);
     gasnetc_buf_init(p,name,nbytes,(void *)((uintptr_t)p + skip));
 
     ReqRB_attach(p);

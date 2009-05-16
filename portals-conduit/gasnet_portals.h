@@ -285,6 +285,8 @@ extern unsigned gasnetc_sys_poll_limit;
 
 /* debugging functions and macros */
 #if GASNET_DEBUG
+#define GASNETC_MSGLEN_PAD(n)   do { (n) = GASNETI_ALIGNUP((n),GASNETI_MEDBUF_ALIGNMENT); } while(0)
+#define GASNETC_MSGLEN_ADD(n,l) do {	(n) += (l); } while(0)
 #define GASNETC_NEXTSEQNO() do {	  \
     db_seqno = gasnetc_amseqno++;	  \
   }while(0)
@@ -295,17 +297,14 @@ extern unsigned gasnetc_sys_poll_limit;
 #define GASNETC_DEF_HARGS() gasnet_handlerarg_t hargs[16]; int hargcnt=0; uint32_t db_seqno; int db_cntr=0; GASNETC_INIT_HARGS
 #define GASNETC_ADD_HARG(foo) hargs[hargcnt++] = foo
 #define GASNETC_GET_SEQNO(ptoken) db_seqno = (ptoken)->seqno
-#define GASNETC_SAVE_SEQNO(ptoken) (ptoken)->seqno = db_seqno
-#define GASNETC_EXTRACT_SEQNO(data,cntr) do {\
-    memcpy(&db_seqno,data,sizeof(uint32_t)); \
-    data += sizeof(uint32_t);		     \
-    cntr += sizeof(uint32_t);		     \
-  } while(0);
-#define GASNETC_INJECT_SEQNO(data,cntr) do { \
-    memcpy(data,&db_seqno,sizeof(uint32_t)); \
-    data += sizeof(uint32_t);		     \
-    cntr += sizeof(uint32_t);		     \
-  } while(0);
+#define GASNETC_EXTRACT_SEQNO(data32,cntr,tok) do { \
+    tok.seqno = db_seqno = *(data32++);             \
+    cntr += sizeof(uint32_t);                       \
+  } while(0)
+#define GASNETC_INJECT_SEQNO(data32,cntr) do {  \
+    *(data32++) = db_seqno;                     \
+    cntr += sizeof(uint32_t);                   \
+  } while(0)
 #define GASNETC_SEQNO_MSGLEN(cntr) cntr += sizeof(uint32_t)
 #define GASNETC_AMLONG_DEFSEQARG ,uint32_t db_seqno
 #define GASNETC_AMLONG_SEQARG ,db_seqno
@@ -325,19 +324,22 @@ extern unsigned gasnetc_sys_poll_limit;
     GASNETC_READ_CREDIT_BYTE(cred,end_epoch,nextra,ncredit);		\
     GASNETI_TRACE_PRINTF(C,(fmt_str,(snd?"S":"R"),str,(req?"Req":"Rpl"),src,dest,db_seqno,sr_seqno,handler,mlen,dlen,crc,end_epoch,nextra,ncredit,th->threadidx,narg,a[0],a[1],a[2],a[3],a[4],a[5],a[6],a[7])); \
   } while(0)
+  #define GASNETC_ZERO_AMARGS(_args) memset((_args), 0, sizeof(_args))
     
 #else
+#define GASNETC_MSGLEN_PAD(n)   do {} while(0)
+#define GASNETC_MSGLEN_ADD(n,l) do {} while(0)
 #define GASNETC_NEXTSEQNO(sn) do {} while(0)
 #define GASNETC_DEF_HARGS() do {} while(0)
 #define GASNETC_ADD_HARG(foo) do {} while(0)
 #define GASNETC_GET_SEQNO(ptok) do {} while(0)
-#define GASNETC_SAVE_SEQNO(ptok) do {} while(0)
-#define GASNETC_EXTRACT_SEQNO(data,cntr) do {} while(0)
+#define GASNETC_EXTRACT_SEQNO(data,cntr,tok) do {} while(0)
 #define GASNETC_INJECT_SEQNO(data,cntr) do {} while(0)
 #define GASNETC_SEQNO_MSGLEN(cntr) do {} while(0)
 #define GASNETC_AMLONG_DEFSEQARG
 #define GASNETC_AMLONG_SEQARG
 #define GASNETC_DBGMSG(snd,req,str,src,dest,handler,narg,a,mlen,cred,dlen,data,th) do{}while(0)
+#define GASNETC_ZERO_AMARGS(args) do {} while(0)
 #endif
 
 #if GASNETC_CREDIT_TESTING
@@ -428,11 +430,6 @@ extern unsigned gasnetc_sys_poll_limit;
 
 #define GASNETC_GET_MSG_TYPE(mbits) ((mbits) & 0xF0)
 #define GASNETC_SET_MSG_TYPE(mbits,mtyp) (((mbits) & 0xFFFFFFFFFFFFFF0F) | ((mtyp) & 0xF0))
-
-#define GASNETC_COMPUTE_DOUBLE_PAD(n,pad) do {	\
-    int p = (n) % sizeof(double);		\
-    pad = (p == 0 ? 0 : sizeof(double)-p);	\
-  } while(0)
 
 #define GASNETC_PTL_OFFSET(n,s) ((uint8_t*)(s) - (uint8_t*)gasneti_seginfo[n].addr)
 
