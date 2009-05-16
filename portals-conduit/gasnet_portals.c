@@ -588,12 +588,10 @@ static void exec_amlong_header(int isReq, int isPacked,
   gasnetc_ptl_token_t tok;
   gasnet_token_t token = (gasnet_token_t)&tok;
   gasnet_handlerarg_t args[gasnet_AMMaxArgs()];
-  uint32_t lid;
   uint8_t *data;
   int      pad;
   int32_t  payload_bytes;
-  size_t   nbytes = -1;
-  int      argcnt = 0;
+  int      argcnt;
   int      msg_bytes = 0;
   void    *dest;
   int      check_reply = isReq;  /* AM Request must reply for Portals Conduit */
@@ -618,25 +616,22 @@ static void exec_amlong_header(int isReq, int isPacked,
   /* insure our data pointer is aligned for a double */
   gasneti_assert( ((intptr_t)data % sizeof(double)) == 0 );
 
-  /* Regular Format: hdr_dara=[arg0,lid]      data=[args][seqno][cred][pad] 
-   * Packed  Format: hdr_data=[arg0,cred:len] data=[args][seqno][destaddr][data][pad]
-   * NOTE: seqno only in debug mode, pad only for Req
+  /* Request formats:
+   *   Regular Format: hdr_data=[arg0,cred]     data=[args][seqno][pad] 
+   *   Packed  Format: hdr_data=[arg0,cred:len] data=[args][seqno][destaddr][data][pad]
+   * Reply formats
+   *   Regular Format  0 arg: hdr_data=[cred,lid]      data=[seqno]
+   *                 > 0 arg: hdr_data=[arg0,lid]      data=[args][seqno][cred]
+   *   Packed  Format       : hdr_data=[arg0,cred:len] data=[args][seqno][destaddr][data]
+   * NOTE: seqno only in debug mode
    */
 
-  /* extract LID and check if this is a packed AM Long */
-  /* if this is a packed AM, the resulting LID is actually the data payload length */
-  lid = (uint32_t)GASNETI_LOWORD(ev->hdr_data);
+  /* crack upper portion of match_bits (only used for Req, but cheaper not to branch */
+  tok.initiator_offset = GASNETI_HIWORD(mbits);
 
-  /* crack args out of hdr_data */
-  if (numarg > 0) tok.args[argcnt++] = (gasnet_handlerarg_t)GASNETI_HIWORD(ev->hdr_data);
-
-  /* crack upper portion of match_bits */
-  if (isReq) {
-    tok.initiator_offset = (uint32_t)GASNETI_HIWORD(mbits);
-  } 
-
-  /* unpack remaining args from data payload */
-  for(; argcnt < numarg; argcnt++) {
+  /* unpack args from hdr_data and data payload */
+  if (numarg > 0) tok.args[0] = (gasnet_handlerarg_t)GASNETI_HIWORD(ev->hdr_data);
+  for(argcnt = 1; argcnt < numarg; argcnt++) {
     memcpy(&tok.args[argcnt], data, sizeof(gasnet_handlerarg_t));
     data += sizeof(gasnet_handlerarg_t);
     msg_bytes += sizeof(gasnet_handlerarg_t);
@@ -644,14 +639,15 @@ static void exec_amlong_header(int isReq, int isPacked,
   GASNETC_EXTRACT_SEQNO(data,msg_bytes);
   GASNETC_SAVE_SEQNO(&tok);
 
-  if (isPacked) {
-    tok.credits = (lid >> 24);
-    nbytes = (lid & 0x00FFFFFF);
-  } else {
+  if (isPacked || isReq) {
+    tok.credits = GASNETI_LOWORD(ev->hdr_data) >> 24;
+  } else if (numarg) {
     /* unpack credit byte */
     tok.credits = *data;
     data += sizeof(uint8_t);
     msg_bytes += sizeof(uint8_t);
+  } else {
+    tok.credits = GASNETI_HIWORD(ev->hdr_data) >> 24;
   }
 
   {
@@ -668,12 +664,16 @@ static void exec_amlong_header(int isReq, int isPacked,
 
   if (isPacked) {
     
-    /* extract the data payload destination, shoud be in local RAR */
+    size_t   nbytes;
+
+    /* extract the data payload destination, should be in local RAR */
     memcpy(&dest, data, sizeof(void*));
     data += sizeof(void*);
     msg_bytes += sizeof(void*);
       
     /* copy the data payload to the specified destination */
+    nbytes = GASNETI_LOWORD(ev->hdr_data) & 0xFFFF; /* Really just 10 bits */
+    gasneti_assert(gasnetc_in_local_rar(dest,nbytes));
     memcpy(dest,data,nbytes);
     msg_bytes += nbytes;
 
@@ -695,10 +695,15 @@ static void exec_amlong_header(int isReq, int isPacked,
 
     /* called from Header packet, but not a packed message, check if data message has arrived */
     gasnetc_amlongcache_t *p;
+    uint32_t lid;
 
-    if (isReq) { /* message length accounting */
+    if (isReq) {
+      lid = tok.initiator_offset;
+      /* message length accounting */
       GASNETC_COMPUTE_DOUBLE_PAD(msg_bytes,pad);
       msg_bytes += pad;
+    } else {
+      lid = GASNETI_LOWORD(ev->hdr_data);
     }
     gasneti_assert(msg_bytes == ev->rlength);
     gasneti_assert(msg_bytes <= GASNETC_CHUNKSIZE);

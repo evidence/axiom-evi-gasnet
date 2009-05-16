@@ -1078,7 +1078,7 @@ void gasnetc_sys_poll(int lock_op)
 #endif
 
 /* ---------------------------------------------------------------------------------
- * Allocate a new LID = "Long ID" for a new AMLong Request or Reply operation
+ * Allocate a new LID = "Long ID" for a new AMLong Reply operation
  * --------------------------------------------------------------------------------- */
 GASNETI_INLINE(gasnetc_new_lid)
 uint32_t gasnetc_new_lid(gasnet_node_t dest)
