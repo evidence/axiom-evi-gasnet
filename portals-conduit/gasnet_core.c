@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2009/05/16 07:30:51 $
- * $Revision: 1.23 $
+ *     $Date: 2009/05/16 15:19:34 $
+ * $Revision: 1.24 $
  * Description: GASNet portals conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *                 Michael Welcome <mlwelcome@lbl.gov>
@@ -299,8 +299,8 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
       gasneti_segmentAttach(segsize, minheapoffset, gasneti_seginfo, &gasnetc_bootstrapExchange);
       segbase = gasneti_seginfo[gasneti_mynode].addr;
       segsize = gasneti_seginfo[gasneti_mynode].size;
-      gasneti_assert(((uintptr_t)segbase) % GASNET_PAGESIZE == 0);
-      gasneti_assert(segsize % GASNET_PAGESIZE == 0);
+      gasnetc_assert_aligned(segbase, GASNET_PAGESIZE);
+      gasnetc_assert_aligned(segsize, GASNET_PAGESIZE);
     }
     gasnetc_segbase = (uintptr_t)segbase;
     gasnetc_segend = gasnetc_segbase + segsize;
@@ -543,7 +543,7 @@ extern int gasnetc_AMRequestShortM(
   /* add padding for 8-byte alignment */
   GASNETC_COMPUTE_DOUBLE_PAD(msg_bytes,pad);
   msg_bytes += pad;
-  gasneti_assert( (msg_bytes % sizeof(double)) == 0 );
+  gasnetc_assert_aligned(msg_bytes,sizeof(double));
   ncredit = gasnetc_compute_credits(msg_bytes);
   if (!gasnetc_use_flow_control) gasneti_assert(ncredit == 0);
   nsend = 1;
@@ -681,7 +681,7 @@ extern int gasnetc_AMRequestMediumM(
   msg_bytes += nbytes;
   GASNETC_COMPUTE_DOUBLE_PAD(msg_bytes,pad2);
   msg_bytes += pad2;
-  gasneti_assert( (msg_bytes % sizeof(double)) == 0 );
+  gasnetc_assert_aligned(msg_bytes,sizeof(double));
   gasneti_assert(msg_bytes <= GASNETC_CHUNKSIZE);
 
   /* resources we need */
@@ -694,7 +694,7 @@ extern int gasnetc_AMRequestMediumM(
 
   /* get the addr of the start of the chunk */
   data = (uint8_t*)gasnetc_ReqSB.start + local_offset;
-  gasneti_assert( ((intptr_t)data % sizeof(double)) == 0 );
+  gasnetc_assert_aligned(data,sizeof(double));
 
   /* construct the match bits */
   GASNETC_PACK_AM_MBITS(mbits,local_offset,numargs,handler,amtype,targ_mbits);
@@ -807,7 +807,7 @@ extern int gasnetc_AMRequestMediumM(
         }								\
       }									\
     }									\
-    gasneti_assert( (msg_bytes % sizeof(double)) == 0 );		\
+    gasnetc_assert_aligned(msg_bytes,sizeof(double));			\
     gasneti_assert(msg_bytes <= GASNETC_CHUNKSIZE);			\
   } while(0)
 
@@ -839,7 +839,7 @@ extern int gasnetc_AMRequestMediumM(
 									\
     /* get the addr of the start of the chunk */			\
     data = (uint8_t*)gasnetc_ReqSB.start + local_offset;		\
-    gasneti_assert( ((intptr_t)data % sizeof(double)) == 0 );		\
+    gasnetc_assert_aligned(data,sizeof(double));			\
 									\
     va_start(argptr, numargs);						\
     if (numargs > 0) {							\

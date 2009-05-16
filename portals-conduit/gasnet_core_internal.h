@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2009/05/16 01:42:23 $
- * $Revision: 1.6 $
+ *     $Date: 2009/05/16 15:19:34 $
+ * $Revision: 1.7 $
  * Description: GASNet PORTALS conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -30,6 +30,9 @@
 #else
   #define gasnetc_assert_value(_val, _expr)	_expr
 #endif
+
+/* Assert that a value is aligned to at least the given size */
+#define gasnetc_assert_aligned(_val,_align)	gasneti_assert(!((uintptr_t)(_val) % (_align)))
 
 /* ------------------------------------------------------------------------------------ */
 #if GASNETI_STATS_OR_TRACE

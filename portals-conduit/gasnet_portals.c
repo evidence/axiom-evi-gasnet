@@ -388,7 +388,7 @@ static void exec_amshort_handler(int isReq, ptl_event_t *ev, int numarg, int gha
   data = (uint8_t*)ev->md.start + ev->offset;
 
   /* insure our data pointer is aligned for a double */
-  gasneti_assert( ((intptr_t)data % sizeof(double)) == 0 );
+  gasnetc_assert_aligned(data,sizeof(double));
 
   /* AM Short Request Data Format:
    * numarg=0:   HD=[----,cred] MB=[off,XX] Data=[seqno][pad]
@@ -495,7 +495,7 @@ static void exec_ammedium_handler(int isReq, ptl_event_t *ev, int numarg, int gh
   data = (uint8_t*)ev->md.start + ev->offset;
 
   /* insure our data pointer is aligned for a double */
-  gasneti_assert( ((intptr_t)data % sizeof(double)) == 0 );
+  gasnetc_assert_aligned(data,sizeof(double));
 
   if (isReq) {
     gasneti_assert(th->flags & GASNETC_THREAD_HAVE_RPLSB);
@@ -532,7 +532,7 @@ static void exec_ammedium_handler(int isReq, ptl_event_t *ev, int numarg, int gh
   GASNETC_COMPUTE_DOUBLE_PAD(msg_bytes,pad);
   data += pad;
   msg_bytes += pad;
-  gasneti_assert( ((intptr_t)data % sizeof(double)) == 0 );
+  gasnetc_assert_aligned(data,sizeof(double));
 
   /* accounting: this should be same as message length */
   msg_bytes += nbytes;
@@ -614,7 +614,7 @@ static void exec_amlong_header(int isReq, int isPacked,
   data = (uint8_t*)ev->md.start + ev->offset;
 
   /* insure our data pointer is aligned for a double */
-  gasneti_assert( ((intptr_t)data % sizeof(double)) == 0 );
+  gasnetc_assert_aligned(data,sizeof(double));
 
   /* Request formats:
    *   Regular Format: hdr_data=[arg0,cred]     data=[args][seqno][pad] 
@@ -4232,8 +4232,8 @@ firehose_move_callback(gasnet_node_t node,
     firehose_region_t *region = pin_list + i;
     ptl_md_t md;
 
-    gasneti_assert(region->addr % GASNET_PAGESIZE == 0);
-    gasneti_assert(region->len % GASNET_PAGESIZE == 0);
+    gasnetc_assert_aligned(region->addr, GASNET_PAGESIZE);
+    gasnetc_assert_aligned(region->len,  GASNET_PAGESIZE);
 
     md.start = (void *)(region->addr);
     md.length = region->len;
