@@ -341,7 +341,6 @@ static gasnetc_amlongcache_t* get_lid_obj_from_header(gasnet_node_t src, uint32_
  * Unpack the data from the event structure and execute the Request or Reply AM Short
  * handler function.
  * isReq is true if this is an AM Short Request, false for a Reply.
- * Return TRUE if we executed a handler (should always be true for AM Short)
  *
  * NOTE: the lower 32 bits of the match_bits have already been unpacked.
  * For a Request: upper 32 bits of match_bits = offset in sender ReqSB.
@@ -355,7 +354,7 @@ static gasnetc_amlongcache_t* get_lid_obj_from_header(gasnet_node_t src, uint32_
  * - ReqRB_event in response to the arrival of an AM Short Request
  * - ReqSB_event in response to the arrival of an AM Short Reply
  * --------------------------------------------------------------------------------- */
-static int exec_amshort_handler(int isReq, ptl_event_t *ev, int numarg, int ghandler)
+static void exec_amshort_handler(int isReq, ptl_event_t *ev, int numarg, int ghandler)
 {
   ptl_match_bits_t   mbits = ev->match_bits;
   gasnetc_ptl_token_t tok;
@@ -447,15 +446,12 @@ static int exec_amshort_handler(int isReq, ptl_event_t *ev, int numarg, int ghan
 		 SHORT_REP(0,0, (token , gasneti_handleridx(gasnetc_noop_reph)) )
 		 );
   }
-
-  return 1;
 }
 
 /* ------------------------------------------------------------------------------------
  * Unpack the data from the event structure and execute the Request or Reply AM Medium
  * handler function.
  * isReq is true if this is an AM Medium Request, false for a Reply.
- * Return TRUE if we executed a handler (always true for AM Medium)
  *
  * NOTE: the lower 32 bits of the match_bits have already been unpacked.
  * For a Request: upper 32 bits of match_bits = offset in sender ReqSB.
@@ -470,7 +466,7 @@ static int exec_amshort_handler(int isReq, ptl_event_t *ev, int numarg, int ghan
  * - ReqRB_event in response to the arrival of an AM Medium Request
  * - ReqSB_event in response to the arrival of an AM Medium Reply
  * --------------------------------------------------------------------------------- */
-static int exec_ammedium_handler(int isReq, ptl_event_t *ev, int numarg, int ghandler)
+static void exec_ammedium_handler(int isReq, ptl_event_t *ev, int numarg, int ghandler)
 {
   ptl_match_bits_t   mbits = ev->match_bits;
   gasnetc_ptl_token_t tok;
@@ -567,13 +563,10 @@ static int exec_ammedium_handler(int isReq, ptl_event_t *ev, int numarg, int gha
 		 SHORT_REP(0,0, (token , gasneti_handleridx(gasnetc_noop_reph)) )
 		 );
   }
-
-  return 1;
 }
 
 /* ------------------------------------------------------------------------------------
  * Unpack the data from the event structure and attempt to execute the AM Long handler.
- * Return true if we executed the gasnet handler function
  *
  * This routine will be called from both Request and Reply AMs, isReq=true of Request.
  * In general, AM Longs require two messages, a data payload sent directly to the RAR
@@ -587,7 +580,7 @@ static int exec_ammedium_handler(int isReq, ptl_event_t *ev, int numarg, int gha
  * - ReqRB_event: in response to an AM Long Header Request message.
  * - ReqSB_event: in response to an AM Long Header Reply message.
  * --------------------------------------------------------------------------------- */
-static int exec_amlong_header(int isReq, int isPacked,
+static void exec_amlong_header(int isReq, int isPacked,
 			       ptl_event_t *ev, int numarg, int ghandler)
 {
   ptl_match_bits_t   mbits = ev->match_bits;
@@ -603,7 +596,6 @@ static int exec_amlong_header(int isReq, int isPacked,
   int      msg_bytes = 0;
   void    *dest;
   int      check_reply = isReq;  /* AM Request must reply for Portals Conduit */
-  int      ran_handler = 0;
   gasnetc_threaddata_t *th = gasnetc_mythread();
 
   GASNETC_DEF_HARGS();           /* debug, must be first statement */
@@ -698,8 +690,6 @@ static int exec_amlong_header(int isReq, int isPacked,
     GASNETC_DBGMSG(0,isReq,"L",tok.srcnode,gasneti_mynode,ghandler,numarg,tok.args,msg_bytes,tok.credits,nbytes,dest,th);
     GASNETI_RUN_HANDLER_LONG(isReq, ghandler, gasnetc_handler[ghandler], token, tok.args, numarg, dest, nbytes);
 
-    ran_handler = 1;
-
   } else {
 
     /* called from Header packet, but not a packed message, check if data message has arrived */
@@ -729,8 +719,6 @@ static int exec_amlong_header(int isReq, int isPacked,
       GASNETI_TRACE_PRINTF(C,("exec_amlong_header, second to arrive: isReq=%d, numarg=%d, hndlr=%d, nbytes=%d",isReq,numarg,ghandler,(int)p->nbytes));
       GASNETI_RUN_HANDLER_LONG(isReq, ghandler ,gasnetc_handler[ghandler], token, tok.args, numarg, p->data, p->nbytes);
 
-      ran_handler = 1;
-
       /* free the lid object, it has already been removed from the list */
       gasneti_free(p);
     } else {
@@ -751,8 +739,6 @@ static int exec_amlong_header(int isReq, int isPacked,
 		 SHORT_REP(0,0, (token , gasneti_handleridx(gasnetc_noop_reph)) )
 		 );
   }
-
-  return ran_handler;
 }
 
 /* ------------------------------------------------------------------------------------
@@ -778,7 +764,6 @@ void exec_am_header(int isReq, ptl_match_bits_t mbits, ptl_event_t *ev)
 
 /* ------------------------------------------------------------------------------------
  * Unpack the data from the event structure and attempt to execute the AM Long handler.
- * Return TRUE if we ran the gasnet handler.
  * 
  * This routine will be called from both Request and Reply AMs, isReq=true of Request.
  * In general, AM Longs require two messages, a data payload sent directly to the RAR
@@ -790,7 +775,7 @@ void exec_am_header(int isReq, ptl_match_bits_t mbits, ptl_event_t *ev)
  * - RARAM_event:  in response to a Request AMLong data packet arrival.
  * - RARSRC_event: in response to a Reply AMLong data packet arrival.
  * --------------------------------------------------------------------------------- */
-static int  exec_amlong_data(int isReq, ptl_event_t *ev)
+static void exec_amlong_data(int isReq, ptl_event_t *ev)
 {
   uint32_t lid;
   uint8_t *data;
@@ -799,7 +784,6 @@ static int  exec_amlong_data(int isReq, ptl_event_t *ev)
   void    *dest;
   uint8_t* dataaddr = (uint8_t*)ev->md.start + ev->offset;
   size_t   datalen = ev->mlength;
-  int      ran_handler = 0;
   gasnetc_amlongcache_t *p;
   gasnet_node_t srcnode = gasnetc_get_nodeid(&ev->initiator);
   gasnetc_threaddata_t *th = gasnetc_mythread();
@@ -827,8 +811,6 @@ static int  exec_amlong_data(int isReq, ptl_event_t *ev)
     GASNETI_TRACE_PRINTF(C,("exec_amlong_data, second to arrive, running handler isReq=%d, lid=%d",isReq,lid));
     GASNETI_RUN_HANDLER_LONG(isReq, p->tok.ghandler ,gasnetc_handler[p->tok.ghandler], token, p->tok.args, p->tok.narg, dataaddr, datalen);
 
-    ran_handler = 1;
-
     if (isReq && !(p->tok.flags & GASNETC_PTL_REPLY_SENT)) {
       /* must always issue a reply to dealloc ReqSB chunk.  If GASNet handler did
        * not reply, we reply here with a short no-op */
@@ -844,8 +826,6 @@ static int  exec_amlong_data(int isReq, ptl_event_t *ev)
   } else {
     GASNETI_TRACE_PRINTF(C,("exec_amlong_data, first to arrive, isReq=%d, lid=%d",isReq,lid));
   }
-
-  return ran_handler;
 }
 
 /* ------------------------------------------------------------------------------------ */
@@ -1020,7 +1000,6 @@ static void RARAM_event(ptl_event_t *ev)
   uint8_t msg_type;
   ptl_match_bits_t amflag;
   int isReq;
-  int ran_handler;
 
   gasneti_mutex_unlock(&gasnetc_AM_EQ->lock);
 
@@ -1101,7 +1080,6 @@ static void RARSRC_event(ptl_event_t *ev)
   case PTL_EVENT_PUT_END:
     /* Must be a AM Long Reply data message */
     {
-      int ran_handler;
       ptl_match_bits_t amflag = (mbits & GASNETC_SELECT_BYTE1) >> 8;
       gasneti_assert( msg_type & GASNETC_PTL_MSG_AMDATA);
       gasneti_assert( !( amflag & GASNETC_PTL_AM_REQUEST) );
@@ -1236,9 +1214,7 @@ static void ReqSB_event(ptl_event_t *ev)
   gasnetc_conn_t      *state;
   int pending;
   gasnet_node_t srcnode;
-  int ran_handler = 0;
   ptl_size_t local_offset;
-
 
   msg_type = GASNETC_GET_MSG_TYPE(mbits);
   GASNETI_TRACE_PRINTF(C,("ReqSB event %s offset = %i, mbits = 0x%lx, msg_type = 0x%x",ptl_event_str[ev->type],(int)offset,(uint64_t)mbits,msg_type));
