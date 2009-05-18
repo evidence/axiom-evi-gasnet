@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2009/05/16 18:41:47 $
- * $Revision: 1.25 $
+ *     $Date: 2009/05/18 04:54:11 $
+ * $Revision: 1.26 $
  * Description: GASNet portals conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *                 Michael Welcome <mlwelcome@lbl.gov>
@@ -21,7 +21,6 @@ GASNETI_IDENT(gasnetc_IdentString_Name,    "$GASNetCoreLibraryName: " GASNET_COR
 
 gasnet_handlerentry_t const *gasnetc_get_handlertable(void);
 static void gasnetc_atexit(void);
-static void gasnetc_traceoutput(int);
 
 #define GASNETC_MAX_NUMHANDLERS   256
 gasneti_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS]; /* handler table (recommended impl) */
@@ -440,7 +439,6 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
 }
 
 extern int gasnetc_AMPoll(void) {
-  int retval;
   GASNETI_CHECKATTACH();
 
   gasnetc_portals_poll(GASNETC_FULL_POLL);
@@ -481,7 +479,6 @@ extern int gasnetc_AMRequestShortM(
                             gasnet_node_t dest,       /* destination node */
                             gasnet_handler_t handler, /* index into destination endpoint's handler table */ 
                             int numargs, ...) {
-  int retval;
   va_list argptr;
   ptl_size_t         local_offset;
   ptl_size_t         remote_offset = 0;
@@ -607,7 +604,6 @@ extern int gasnetc_AMRequestMediumM(
                             gasnet_handler_t handler, /* index into destination endpoint's handler table */ 
                             void *source_addr, size_t nbytes,   /* data payload */
                             int numargs, ...) {
-  int retval;
   va_list argptr;
   ptl_size_t         local_offset;
   ptl_size_t         remote_offset = 0;
@@ -1037,7 +1033,6 @@ extern int gasnetc_AMReplyShortM(
                             gasnet_token_t token,       /* token provided on handler entry */
                             gasnet_handler_t handler, /* index into destination endpoint's handler table */ 
                             int numargs, ...) {
-  int retval;
   va_list argptr; 
   gasnetc_ptl_token_t *ptok = (gasnetc_ptl_token_t*)token;
   ptl_size_t           local_offset = ptok->rplsb_offset;
@@ -1137,7 +1132,6 @@ extern int gasnetc_AMReplyMediumM(
                             gasnet_handler_t handler, /* index into destination endpoint's handler table */ 
                             void *source_addr, size_t nbytes,   /* data payload */
                             int numargs, ...) {
-  int retval;
   va_list argptr;
   gasnetc_ptl_token_t  *ptok = (gasnetc_ptl_token_t*)token;
   ptl_size_t            local_offset = ptok->rplsb_offset;
@@ -1236,7 +1230,6 @@ extern int gasnetc_AMReplyLongM(
                             void *source_addr, size_t nbytes,   /* data payload */
                             void *dest_addr,                    /* data destination on destination node */
                             int numargs, ...) {
-  int retval;
   va_list argptr;
   gasnetc_ptl_token_t  *ptok = (gasnetc_ptl_token_t*)token;
   ptl_size_t            local_offset = ptok->rplsb_offset;
@@ -1251,9 +1244,8 @@ extern int gasnetc_AMReplyLongM(
   ptl_match_bits_t      mbits;
   ptl_hdr_data_t        hdr_data = 0;
   ptl_size_t            msg_bytes = 0;
-  int32_t               payload_bytes = nbytes;
   uint32_t             *data32 = (uint32_t*)((uintptr_t)gasnetc_RplSB.start + local_offset);
-  int                   i, nstart;
+  int                   i;
   gasnet_node_t         dest = ptok->srcnode;
   gasnetc_threaddata_t *th = gasnetc_mythread();
 
@@ -1351,7 +1343,6 @@ extern int gasnetc_AMReplyLongM(
      * both the RARSRC MD and the possible TMP_MD both use the SAFE_EQ.
      * NOTE: Data Reply sent to RARSRC (not RARAM) MD !!!
      */
-    int dp_eq_len = 2;
     ptl_handle_md_t dp_md_h;
     ptl_match_bits_t dp_mbits = 0;
     ptl_size_t remote_dataoffset = GASNETC_PTL_OFFSET(dest,dest_addr);

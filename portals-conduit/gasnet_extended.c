@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2009/03/30 02:40:51 $
- * $Revision: 1.14 $
+ *     $Date: 2009/05/18 04:54:11 $
+ * $Revision: 1.15 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -923,7 +923,6 @@ void gasnete_put_nbi_inner(gasnet_node_t node, void *dest, void *src, size_t nby
   gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
   gasnete_iop_t * const op = mythread->current_iop;
   ptl_match_bits_t match_bits = 0ULL;
-  ptl_hdr_data_t hdr_data = 0;
   uint8_t lbits = GASNETC_PTL_RAR_BITS | GASNETC_PTL_MSG_PUT;
   gasneti_weakatomic_t *lcc = isbulk ? (gasneti_weakatomic_t *)NULL : &(mythread->local_completion_count);
 

@@ -575,7 +575,6 @@ static void exec_amlong_header(int isReq, int isPacked,
   gasnetc_ptl_token_t tok;
   gasnet_token_t token = (gasnet_token_t)&tok;
   uint32_t *data32;
-  int32_t  payload_bytes;
   int      argcnt;
   void    *dest;
   int      check_reply = isReq;  /* AM Request must reply for Portals Conduit */
@@ -760,9 +759,6 @@ void exec_am_header(int isReq, ptl_match_bits_t mbits, ptl_event_t *ev)
 static void exec_amlong_data(int isReq, ptl_event_t *ev)
 {
   uint32_t lid;
-  uint8_t *data;
-  size_t   nbytes;
-  void    *dest;
   uint8_t* dataaddr = (uint8_t*)ev->md.start + ev->offset;
   size_t   datalen = ev->mlength;
   gasnetc_amlongcache_t *p;
@@ -1204,9 +1200,6 @@ static void ReqSB_event(ptl_event_t *ev)
   uint8_t msg_type;
   uint8_t *pdata, *q;
   void *dest;
-  gasnetc_conn_t      *state;
-  int pending;
-  gasnet_node_t srcnode;
   ptl_size_t local_offset;
 
   msg_type = GASNETC_GET_MSG_TYPE(mbits);
@@ -1472,7 +1465,6 @@ static void CB_event(ptl_event_t *ev)
 static void RAR_init(void)
 {
   ptl_md_t md;
-  ptl_handle_me_t me1_h, me2_h;
   void* rar_start   = gasneti_seginfo[gasneti_mynode].addr;
   size_t rar_len    = gasneti_seginfo[gasneti_mynode].size;
 
@@ -1624,7 +1616,6 @@ static void ReqRB_init(void)
   int i;
   ptl_md_t md;
   size_t nbytes = gasnetc_ReqRB_numchunk * GASNETC_CHUNKSIZE;
-  ptl_handle_me_t me_h;
   char name[32];
 
   /* First add the Catch-Basin MD */
@@ -1947,7 +1938,6 @@ void gasnetc_print_scavenge_list(void)
 void gasnetc_end_epoch(int epoch_count)
 {
   int i;
-  FILE *fh;
   if (!gasnetc_use_dynamic_credits) return;
   if ( gasneti_mutex_trylock(&gasnetc_epoch_lock) ) {
     /* could not get lock, another thread must still be doing epoch update */
@@ -2166,7 +2156,6 @@ static void exec_sys_msg(gasnetc_sys_t msg_id, int32_t arg0, int32_t arg1, int32
  * --------------------------------------------------------------------------------- */
 static void sys_event(ptl_event_t *ev)
 {
-  ptl_size_t offset = ev->offset;
   ptl_match_bits_t   mbits = ev->match_bits;
 
   switch (ev->type) {
@@ -2288,7 +2277,7 @@ extern void gasnetc_sys_SendMsg(gasnet_node_t node, gasnetc_sys_t msg_id,
   GASNETI_TRACE_PRINTF(C,("SYS_SendMsg: Sending msg_id=%u to node %d",(unsigned)msg_id,node));
   match_bits = GASNETI_MAKEWORD(arg0,((ptl_match_bits_t)msg_id << 8) | GASNETC_PTL_SYS_BITS);
   hdr_data = GASNETI_MAKEWORD(arg1, arg2);
-  GASNETC_PTLSAFE(PtlPutRegion(md_h, local_offset, msg_bytes, PTL_NOACK_REQ, target_id, GASNETC_PTL_AM_PTE, GASNETC_PTL_AC_ID, match_bits, remote_offset, hdr_data));
+  GASNETC_PTLSAFE(PtlPutRegion(md_h, local_offset, msg_bytes, PTL_NOACK_REQ, target_id, GASNETC_PTL_AM_PTE, ac_index, match_bits, remote_offset, hdr_data));
 
 }
 
@@ -2875,7 +2864,6 @@ extern uintptr_t gasnetc_portalsMaxPinMem(void)
   uint64_t high;
   uint64_t limit = 16ULL * 1024ULL * MBYTE;
   uint64_t prev;
-  void *mem = NULL;
 #undef MBYTE
 
 #if PLATFORM_OS_CNL
@@ -3151,7 +3139,6 @@ static void compute_default_credits(int *cpn, int64_t *banked, int64_t *rb_space
   int64_t cred_per_node = 0;
   int64_t num_banked =  0;
   int64_t tot_credits;
-  int64_t cred_bytes_per_buffer = (gasnetc_ReqRB_numchunk-1)*GASNETC_CHUNKSIZE;
 
   /* search table for this job size */
   for (i = 0; i < i_max; i++) {
@@ -3276,7 +3263,7 @@ static void print_address_vals(void)
 extern void gasnetc_init_portals_resources(void)
 {
   ptl_size_t   num_safe_events, num_am_events;
-  int          i, rc;
+  int          i;
   int          val;
   int forced_cpn = 0;
   int forced_banked = 0;
@@ -3424,7 +3411,9 @@ extern void gasnetc_init_portals_resources(void)
     /* ignore forced_banked, dont bank credits, distribute all to remote nodes, fixed for runtime */
     banked = 0;
     if (forced_cpn) {
+#if GASNETC_CREDIT_TESTING
       int cpn_saved = cred_per_node;
+#endif
       adjust_bufspace_from_cred(&banked, &cred_per_node, &total_credits, &num_reqRB);
 
 #if GASNETC_CREDIT_TESTING
@@ -3451,7 +3440,9 @@ extern void gasnetc_init_portals_resources(void)
     /* using flow control with dynamic credit distribution */
     if (forced_cpn) {
       if (forced_banked) {
+#if GASNETC_CREDIT_TESTING
 	int64_t banked_save = banked;
+#endif
 	/* cpn && banked, ignore forced_bufspace if set in env */
 	/* NOTE: ignore forced_banked if set, overspecified */
 	adjust_bufspace_from_cred(&banked,&cred_per_node,&total_credits,&num_reqRB);

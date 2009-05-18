@@ -316,9 +316,7 @@ extern unsigned gasnetc_sys_poll_limit;
 #endif
 #define GASNETC_DBGMSG(snd,req,str,src,dest,handler,narg,a,mlen,cred,dlen,data,th) do { \
     const char *fmt_str = "AMD %s %s %s s=%d d=%d sq=%d sr=%d h=%d mlen=%d dlen=%d crc=%lu cred=%d:%d:%d th=%d narg=%d %x %x %x %x %x %x %x %x"; \
-    uint64_t i;								\
     uint8_t end_epoch,nextra,ncredit;					\
-    uint8_t *udata = (uint8_t*)data;					\
     uint32_t sr_seqno = (snd ? (gasnetc_snd_seqno++) : (gasnetc_rcv_seqno++)); \
     uint64_t crc = GASNETC_CHECKSUM(data,dlen);				\
     GASNETC_READ_CREDIT_BYTE(cred,end_epoch,nextra,ncredit);		\
@@ -780,9 +778,6 @@ typedef enum{GASNETC_SYS_SHUTDOWN_REQUEST=0,
 	     GASNETC_SYS_CREDIT_REVOKE,
 	     GASNETC_SYS_CREDIT_RETURN,
 	     GASNETC_SYS_NUM} gasnetc_sys_t;
-static gasneti_weakatomic_t sys_barrier_cnt;
-static gasneti_weakatomic_t sys_barrier_got;
-static gasneti_weakatomic_t sys_barrier_checkin;
 extern int gasnetc_resource_init_complete;         /* After this is set, should be ok to tolerate
 						    * dropped events on SYS queue */
 
@@ -946,14 +941,14 @@ int gasnetc_get_event(gasnetc_eq_t *eq, ptl_event_t *ev, int lock_op)
     gasneti_mutex_assertlocked(&eq->lock);
     break;
   case GASNETC_EQ_LOCK:
-    gasneti_mutex_lock(&eq->lock);
+    //gasneti_mutex_lock(&eq->lock);
     break;
   case GASNETC_EQ_TRYLOCK:
-    if (gasneti_mutex_trylock(&eq->lock)) return 0;
+    //if (gasneti_mutex_trylock(&eq->lock)) return 0;
     break;
   }
   rc = PtlEQGet( eq->eq_h, ev);
-  if (lock_op != GASNETC_EQ_NOLOCK) gasneti_mutex_unlock(&eq->lock);
+  //if (lock_op != GASNETC_EQ_NOLOCK) gasneti_mutex_unlock(&eq->lock);
   switch (rc) {
   case PTL_OK:
     retcode = 1;
