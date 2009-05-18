@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_internal.h,v $
- *     $Date: 2009/04/27 21:37:04 $
- * $Revision: 1.39 $
+ *     $Date: 2009/05/18 04:44:53 $
+ * $Revision: 1.40 $
  * Description: Internal Header file
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -57,7 +57,7 @@ extern int fh_verbose;
   #define fhi_debug_local_table() _fhi_debug_local_table(GASNETI_CURRENT_FUNCTION, __LINE__)
   extern int fhc_LocalReserved; /* space reserved for upcoming pin */
 #else
-  #define fhi_debug_local_table() (0)
+  #define fhi_debug_local_table() ((void)0)
 #endif
 
 extern gasneti_mutex_t		fh_table_lock;
