@@ -440,7 +440,6 @@ typedef struct token_rec {
   uint8_t           flags;
   uint8_t           credits;             /* credit info: end_epoch flag, nextra, ncredit */
   uint32_t          initiator_offset;    /* offset in senders ReqSB, where Reply is sent */
-  ptl_size_t        rplsb_offset;        /* offset in replyer RplSB to use in Reply */
   ptl_process_id_t  initiator;           /* process ID of requestor */
   gasnet_node_t     srcnode;             /* gasnet node ID of requestor */
   gasnet_handlerarg_t args[gasnet_AMMaxArgs()]; /* handler arguments [expands to constant] */
@@ -708,11 +707,8 @@ typedef struct {
 /* Thread local data
  * This is attached to the gasnetc_threaddata hook in gasnete_threaddata_t
  */
-#define GASNETC_THREAD_HAVE_RPLSB   0x02U
-typedef gasnete_threadidx_t gasnetc_threadidx_t;
 typedef struct _gasnetc_threaddata_t {
-  uint8_t flags;
-  gasnetc_threadidx_t threadidx;     /* must be identical to corresponding gasnete value */
+  gasnete_threadidx_t threadidx;     /* must be identical to corresponding gasnete value */
 
   /* holding place for tickets and credits that we have already allocated */
   uint8_t snd_tickets;
@@ -729,9 +725,8 @@ typedef struct _gasnetc_threaddata_t {
    * A separate counter is required because both may be in flight simultaneously */
   gasneti_weakatomic_t amlongRep_data_inflight;
 
-  /* When (flags & GASNETC_THREAD_HAVE_RPLSB)
-   * rplsb_off contains offset of cached request send buffer  */
-  ptl_size_t rplsb_off;
+  /* rplsb is cached request send buffer, or NULL */
+  void *rplsb;
 } gasnetc_threaddata_t;
 
 /* ----------------------------------------------------------------------------
@@ -809,6 +804,7 @@ extern uint32_t gasnetc_amseqno;
 extern gasneti_handler_fn_t gasnetc_handler[]; /* the handler table */
 
 /* Functions we export to the core and extended API */
+extern void *gasnetc_chunk_alloc_byaddr(gasnetc_PtlBuffer_t *buf, size_t nbytes);
 extern int gasnetc_chunk_alloc(gasnetc_PtlBuffer_t *buf, size_t nbytes, ptl_size_t *offset);
 extern int gasnetc_chunk_alloc_withpoll(gasnetc_PtlBuffer_t *buf, size_t nbytes, ptl_size_t *offset,
 					int pollcnt, gasnetc_pollflag_t poll_type);
@@ -852,6 +848,16 @@ extern void gasnetc_scavenge_list_remove(gasnet_node_t node);
 extern void gasnetc_scavenge_list_add(gasnet_node_t node, int locked);
 
 /* Inline Function Definitions */
+
+GASNETI_ALWAYS_INLINE(get_rplsb) 
+void *claim_rplsb(gasnetc_threaddata_t *th)
+{
+  void *retval = th->rplsb;
+  th->rplsb = NULL;
+  gasneti_assert(retval != NULL);
+  return retval;
+}
+
 GASNETI_INLINE(gasnetc_compute_credits)
 unsigned long gasnetc_compute_credits(unsigned long nbytes)
 {
@@ -981,12 +987,11 @@ gasnetc_threaddata_t* gasnetc_new_threaddata(gasnete_threadidx_t idx)
 {
   gasnetc_threaddata_t *th = (gasnetc_threaddata_t*)gasneti_malloc(sizeof(gasnetc_threaddata_t));
   gasneti_assert_always(th);
-  th->flags = 0;
   th->threadidx = idx;       /* keep this consistent with gasnete_threaddata */
   th->snd_tickets = 0;
   th->tmpmd_tickets = 0;
   th->snd_credits = 0;
-  th->rplsb_off = -9999;     /* bogus value */
+  th->rplsb = NULL;
   gasneti_weakatomic_set(&th->amlongReq_data_inflight, 0, 0);
   gasneti_weakatomic_set(&th->amlongRep_data_inflight, 0, 0);
   gasnete_register_threadcleanup(gasnetc_free_threaddata, th);
