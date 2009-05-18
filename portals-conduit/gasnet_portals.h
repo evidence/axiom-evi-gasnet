@@ -941,14 +941,14 @@ int gasnetc_get_event(gasnetc_eq_t *eq, ptl_event_t *ev, int lock_op)
     gasneti_mutex_assertlocked(&eq->lock);
     break;
   case GASNETC_EQ_LOCK:
-    //gasneti_mutex_lock(&eq->lock);
+    gasneti_mutex_lock(&eq->lock);
     break;
   case GASNETC_EQ_TRYLOCK:
-    //if (gasneti_mutex_trylock(&eq->lock)) return 0;
+    if (gasneti_mutex_trylock(&eq->lock)) return 0;
     break;
   }
   rc = PtlEQGet( eq->eq_h, ev);
-  //if (lock_op != GASNETC_EQ_NOLOCK) gasneti_mutex_unlock(&eq->lock);
+  if (lock_op != GASNETC_EQ_NOLOCK) gasneti_mutex_unlock(&eq->lock);
   switch (rc) {
   case PTL_OK:
     retcode = 1;
