@@ -1036,12 +1036,11 @@ static void RARAM_event(ptl_event_t *ev)
  * --------------------------------------------------------------------------------- */
 static void RARSRC_event(ptl_event_t *ev)
 {
-  ptl_size_t offset = ev->offset;
   ptl_match_bits_t   mbits = ev->match_bits;
   uint8_t msg_type;
 
   msg_type = GASNETC_GET_MSG_TYPE(mbits);
-  GASNETI_TRACE_PRINTF(C,("RARSRC event %s offset = %i, mbits = 0x%lx, msg_type = 0x%x",ptl_event_str[ev->type],(int)offset,(uint64_t)mbits,msg_type));
+  GASNETI_TRACE_PRINTF(C,("RARSRC event %s offset = %i, mbits = 0x%lx, msg_type = 0x%x",ptl_event_str[ev->type],(int)ev->offset,(uint64_t)mbits,msg_type));
 
   /* we never truncate on this MD */
   gasneti_assert(ev->rlength == ev->mlength);
@@ -1068,12 +1067,14 @@ static void RARSRC_event(ptl_event_t *ev)
 
   case PTL_EVENT_PUT_END:
     /* Must be a AM Long Reply data message */
+    #if GASNET_DEBUG
     {
       ptl_match_bits_t amflag = (mbits & GASNETC_SELECT_BYTE1) >> 8;
       gasneti_assert( msg_type & GASNETC_PTL_MSG_AMDATA);
       gasneti_assert( !( amflag & GASNETC_PTL_AM_REQUEST) );
-      exec_amlong_data(0, ev);
     }
+    #endif
+    exec_amlong_data(0, ev);
     break;
 
   case PTL_EVENT_ACK:
@@ -1107,12 +1108,11 @@ static void RARSRC_event(ptl_event_t *ev)
  * --------------------------------------------------------------------------------- */
 static void TMPMD_event(ptl_event_t *ev)
 {
-  ptl_size_t offset = ev->offset;
   ptl_match_bits_t   mbits = ev->match_bits;
   uint8_t msg_type;
 
   msg_type = GASNETC_GET_MSG_TYPE(mbits);
-  GASNETI_TRACE_PRINTF(C,("TMPMD event %s offset = %i, mbits = 0x%lx, msg_type = 0x%x",ptl_event_str[ev->type],(int)offset,(uint64_t)mbits,msg_type));
+  GASNETI_TRACE_PRINTF(C,("TMPMD event %s offset = %i, mbits = 0x%lx, msg_type = 0x%x",ptl_event_str[ev->type],(int)ev->offset,(uint64_t)mbits,msg_type));
 
 #if GASNET_DEBUG
   if (msg_type & GASNETC_PTL_MSG_AM) {
@@ -1269,18 +1269,17 @@ static void ReqSB_event(ptl_event_t *ev)
 static void RplSB_event(ptl_event_t *ev)
 {
   ptl_match_bits_t   mbits = ev->match_bits;
-  ptl_size_t offset = ev->offset;
   ptl_size_t local_offset = GASNETI_HIWORD(mbits);
   uint8_t msg_type;
 
   msg_type = GASNETC_GET_MSG_TYPE(mbits);
-  GASNETI_TRACE_PRINTF(C,("RplSB event %s offset = %i, loc_offset = %i, mbits = 0x%lx, msg_type = 0x%x",ptl_event_str[ev->type],(int)offset,(int)local_offset,(uint64_t)mbits,msg_type));
+  GASNETI_TRACE_PRINTF(C,("RplSB event %s offset = %i, loc_offset = %i, mbits = 0x%lx, msg_type = 0x%x",ptl_event_str[ev->type],(int)ev->offset,(int)local_offset,(uint64_t)mbits,msg_type));
 
   /* we never truncate on this MD */
   gasneti_assert(ev->rlength == ev->mlength);
 
   /* MLW: debug check */
-  gasneti_assert(offset == local_offset);
+  gasneti_assert(ev->offset == local_offset);
   
   switch (ev->type) {
   case PTL_EVENT_SEND_END:
@@ -1421,12 +1420,11 @@ static void ReqRB_event(ptl_event_t *ev)
  * --------------------------------------------------------------------------------- */
 static void CB_event(ptl_event_t *ev)
 {
-  ptl_size_t offset = ev->offset;
   ptl_match_bits_t   mbits = ev->match_bits;
   uint8_t msg_type;
 
   msg_type = GASNETC_GET_MSG_TYPE(mbits);
-  GASNETI_TRACE_PRINTF(C,("CB event %s offset = %i, mbits = 0x%lx, msg_type = 0x%x",ptl_event_str[ev->type],(int)offset,(uint64_t)mbits,msg_type));
+  GASNETI_TRACE_PRINTF(C,("CB event %s offset = %i, mbits = 0x%lx, msg_type = 0x%x",ptl_event_str[ev->type],(int)ev->offset,(uint64_t)mbits,msg_type));
 
   /* extract the lower bits based on message type */
 #if GASNET_DEBUG
@@ -2105,8 +2103,10 @@ static void exec_sys_msg(gasnetc_sys_t msg_id, int32_t arg0, int32_t arg1, int32
   case GASNETC_SYS_BARRIER_ARRIVE:
     {
       /* we are root and message that a node has arrived at a barrier */
+    #if GASNET_DEBUG || GASNETI_STATS_OR_TRACE
       int sender = arg0;
       int b_cnt = arg1;
+    #endif
       gasneti_assert(gasneti_mynode == 0);
       gasneti_weakatomic_increment(&sys_barrier_checkin,0);
       GASNETI_TRACE_PRINTF(C,("Got BARRIER_ARRIVE from node %d, cnt=%d",sender,b_cnt));
@@ -2116,7 +2116,9 @@ static void exec_sys_msg(gasnetc_sys_t msg_id, int32_t arg0, int32_t arg1, int32
   case GASNETC_SYS_BARRIER_GO:
     {
       /* we are root and message that a node has arrived at a barrier */
+    #if GASNET_DEBUG || GASNETI_STATS_OR_TRACE
       int sender = arg0;
+    #endif
       int b_cnt = arg1;
       gasneti_assert(sender == 0);
       gasneti_assert(b_cnt == gasneti_weakatomic_read(&sys_barrier_cnt,0));

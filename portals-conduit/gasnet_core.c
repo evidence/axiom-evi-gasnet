@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2009/05/18 04:54:11 $
- * $Revision: 1.26 $
+ *     $Date: 2009/05/18 05:10:14 $
+ * $Revision: 1.27 $
  * Description: GASNet portals conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *                 Michael Welcome <mlwelcome@lbl.gov>
@@ -1044,7 +1044,6 @@ extern int gasnetc_AMReplyShortM(
   uint64_t             targ_mbits = GASNETC_PTL_REQSB_BITS | GASNETC_PTL_MSG_AM;
   gasnet_handlerarg_t  garg0 = 0;
   gasnet_handlerarg_t  garg1 = 0;
-  gasnet_handlerarg_t  garg2 = 0;
   ptl_match_bits_t     mbits;
   ptl_hdr_data_t       hdr_data = 0;
   ptl_size_t           msg_bytes = 0;
@@ -1143,7 +1142,6 @@ extern int gasnetc_AMReplyMediumM(
   uint64_t              targ_mbits = GASNETC_PTL_REQSB_BITS | GASNETC_PTL_MSG_AM;
   gasnet_handlerarg_t   garg0 = 0;
   gasnet_handlerarg_t   garg1 = 0;
-  gasnet_handlerarg_t   garg2 = 0;
   ptl_match_bits_t      mbits;
   ptl_hdr_data_t        hdr_data = 0;
   ptl_size_t            msg_bytes = 0;
