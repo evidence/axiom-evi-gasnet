@@ -369,7 +369,7 @@ static void exec_amshort_handler(int isReq, ptl_event_t *ev, int numarg, int gha
   uint32_t *data32;
   int  argcnt = 0;
   GASNETI_UNUSED_UNLESS_DEBUG int msg_bytes = 0;
-  gasnetc_threaddata_t *th = gasnetc_mythread();
+  gasnetc_threaddata_t *th = NULL;
 
   GASNETC_DEF_HARGS();    /* debug, must be first statement */
   GASNETC_ZERO_AMARGS(tok.args);
@@ -381,6 +381,7 @@ static void exec_amshort_handler(int isReq, ptl_event_t *ev, int numarg, int gha
   tok.ghandler = ghandler;
 
   if (isReq) {
+    th = gasnetc_mythread();
     gasneti_assert(th->flags & GASNETC_THREAD_HAVE_RPLSB);
     th->flags &= ~GASNETC_THREAD_HAVE_RPLSB;
     tok.rplsb_offset = (uint32_t)th->rplsb_off;
@@ -473,7 +474,7 @@ static void exec_ammedium_handler(int isReq, ptl_event_t *ev, int numarg, int gh
   size_t   nbytes;
   int      argcnt = 0;
   GASNETI_UNUSED_UNLESS_DEBUG int msg_bytes = 0;
-  gasnetc_threaddata_t *th = gasnetc_mythread();
+  gasnetc_threaddata_t *th = NULL;
   GASNETC_DEF_HARGS();    /* debug, must be first statement */
   GASNETC_ZERO_AMARGS(tok.args);
 
@@ -488,6 +489,7 @@ static void exec_ammedium_handler(int isReq, ptl_event_t *ev, int numarg, int gh
   gasnetc_assert_aligned(data32,GASNETI_MEDBUF_ALIGNMENT);
 
   if (isReq) {
+    th = gasnetc_mythread();
     gasneti_assert(th->flags & GASNETC_THREAD_HAVE_RPLSB);
     th->flags &= ~GASNETC_THREAD_HAVE_RPLSB;
     /* MLW: NOTE that rpl send buffer is small, offset never > 4GB */
@@ -578,7 +580,7 @@ static void exec_amlong_header(int isReq, int isPacked,
   void    *dest;
   int      check_reply = isReq;  /* AM Request must reply for Portals Conduit */
   GASNETI_UNUSED_UNLESS_DEBUG int msg_bytes = 0;
-  gasnetc_threaddata_t *th = gasnetc_mythread();
+  gasnetc_threaddata_t *th = NULL;
 
   GASNETC_DEF_HARGS();           /* debug, must be first statement */
   GASNETC_ZERO_AMARGS(tok.args);
@@ -653,7 +655,7 @@ static void exec_amlong_header(int isReq, int isPacked,
     GASNETC_MSGLEN_ADD(msg_bytes, nbytes);
 
     if (isReq) {
-      gasnetc_threaddata_t *th = gasnetc_mythread();
+      th = gasnetc_mythread();
       gasneti_assert(th->flags & GASNETC_THREAD_HAVE_RPLSB);
       th->flags &= ~GASNETC_THREAD_HAVE_RPLSB;
       tok.rplsb_offset = (uint32_t)th->rplsb_off;
@@ -689,6 +691,7 @@ static void exec_amlong_header(int isReq, int isPacked,
     if (p) {
       /* data has arrived, run handler */
       if (isReq) {  
+	th = gasnetc_mythread();
 	gasneti_assert(th->flags & GASNETC_THREAD_HAVE_RPLSB);
 	th->flags &= ~GASNETC_THREAD_HAVE_RPLSB;
 	tok.rplsb_offset = (uint32_t)th->rplsb_off;
@@ -764,7 +767,7 @@ static void exec_amlong_data(int isReq, ptl_event_t *ev)
   size_t   datalen = ev->mlength;
   gasnetc_amlongcache_t *p;
   gasnet_node_t srcnode = gasnetc_get_nodeid(&ev->initiator);
-  gasnetc_threaddata_t *th = gasnetc_mythread();
+  gasnetc_threaddata_t *th = NULL;
 
   GASNETC_DEF_HARGS();
 
@@ -779,6 +782,7 @@ static void exec_amlong_data(int isReq, ptl_event_t *ev)
     gasnet_token_t token = (gasnet_token_t)&p->tok;
 
     if (isReq) {
+      th = gasnetc_mythread();
       gasneti_assert(th->flags & GASNETC_THREAD_HAVE_RPLSB);
       th->flags &= ~GASNETC_THREAD_HAVE_RPLSB;
 
@@ -3813,7 +3817,6 @@ extern void gasnetc_portals_poll(gasnetc_pollflag_t poll_type)
   ptl_event_t ev;
   unsigned safe_cnt = 0;
   unsigned am_cnt = 0;
-  gasnetc_threaddata_t *th = gasnetc_mythread();
 
 #if defined(GASNET_DEBUG) || defined(GASNETI_STATS_OR_TRACE)
   static int poll_level = 0;
@@ -3835,7 +3838,10 @@ extern void gasnetc_portals_poll(gasnetc_pollflag_t poll_type)
    */
   while (safe_cnt < gasnetc_safe_poll_limit) {
     if ( gasnetc_get_event(gasnetc_SAFE_EQ, &ev, GASNETC_EQ_TRYLOCK) ) {
+#if GASNETI_STATS_OR_TRACE
+      gasnetc_threaddata_t *th = gasnetc_mythread();
       GASNETI_TRACE_PRINTF(C,("Got event %s from SAFE_EQ, md=%lu, mbits=0x%lx, th_id=%d",ptl_event_str[ev.type],(ulong)ev.md_handle,(unsigned long)ev.match_bits,th->threadidx));
+#endif
       GASNETC_CALL_EQ_HANDLER(ev);
       processed++;
       safe_cnt++;
@@ -3846,6 +3852,8 @@ extern void gasnetc_portals_poll(gasnetc_pollflag_t poll_type)
   }
 
   if (poll_type == GASNETC_FULL_POLL) {
+    gasnetc_threaddata_t *th = gasnetc_mythread();
+
     /* Accumulate all resources needed to execute an AM Request handler and reply.
      * If we fail, just return to caller and assume they will continue polling.
      * We do not release resources that we have acquired since the number of
