@@ -859,21 +859,26 @@ static void gasnetc_chunk_init(gasnetc_PtlBuffer_t *buf, const char *name, size_
   buf->nbytes = nbytes;
   buf->actual_start = buf->start = gasnetc_malloc_aligned(GASNETC_CHUNKSIZE,nbytes);
   buf->use_chunks = 1;
+#if GASNETI_STATS_OR_TRACE
   gasneti_mutex_init(&buf->lock);
   buf->numchunks = nchunks;
   buf->inuse = 0;
   buf->hwm = 0;
-  buf->freelist = NULL;
+#endif
+
   GASNETI_TRACE_PRINTF(C,("CHUNK_INIT: %s nchunks=%i, nbytes=%i, start=0x%p",name,(int)nchunks,(int)nbytes,buf->start));
+
   p = (void **)buf->start;
   if (p == NULL) {
     gasneti_fatalerror("failed to alloc %i bytes for chunk allocator %s at %s",(int)nbytes,name,gasneti_current_loc);
   }
-  for (i = 0; i < nchunks; i++) {
-    *p = buf->freelist;
-    buf->freelist = p;
-    p = (void**)((uint8_t*)p + GASNETC_CHUNKSIZE);
+  gasneti_lifo_init(&buf->freelist);
+  for (i = 0; i < nchunks-1; i++) {
+    void *next = (void*)((uintptr_t)p + GASNETC_CHUNKSIZE);
+    *p = next;
+    p = (void**)next;
   }
+  gasneti_lifo_push_many(&buf->freelist, buf->start, p);
 }
 
 /* ---------------------------------------------------------------------------------
@@ -2920,39 +2925,30 @@ extern uintptr_t gasnetc_portalsMaxPinMem(void)
  * --------------------------------------------------------------------------------- */
 extern int gasnetc_chunk_alloc(gasnetc_PtlBuffer_t *buf, size_t nbytes, ptl_size_t *offset)
 {
-    void **p;
+    void *p;
     
     gasneti_assert(buf->use_chunks);
 
     if (nbytes > GASNETC_CHUNKSIZE) {
       gasneti_fatalerror("gasnetc_chunk_alloc requested %lu bytes, limit is %lu",(ulong)nbytes,(ulong)GASNETC_CHUNKSIZE);
     }
-    /* MLW: Could have an atomic var, or just a regular volitile "isempty" var that is set
-     * when empty and unset when items are on the free list.  That would prevent having to
-     * gain lock to check if freelist is empty.  It would be last var set before unlock
-     * and membar would insure reads would reflect it.  Of course, would still have to
-     * check freelist condition when lock is gotten
-     * PHH: But why optimize for the empty case?  If we have no chunks left then we
-     * are going to spin-poll anyway, unless we are already in gasnetc_portals_poll().
-     */
-    gasneti_mutex_lock(&buf->lock);
-    if (buf->freelist == NULL) {
-      gasneti_mutex_unlock(&buf->lock);
-      return 0;
-    }
-    p = buf->freelist;
-    buf->freelist = *p;
-    *offset = ((uint8_t*)p - (uint8_t*)(buf->start));
+
+    p = gasneti_lifo_pop(&buf->freelist);
+    if_pf (!p) return 0;
+    *offset = ((uintptr_t)p - (uintptr_t)buf->start);
+
 #if GASNETI_STATS_OR_TRACE
+    gasneti_mutex_lock(&buf->lock);
     buf->inuse++;
     if (buf->inuse > buf->hwm) buf->hwm = buf->inuse;
     GASNETI_TRACE_PRINTF(C,("CHUNK_ALLOC: name %s, inuse = %d, hwm = %d, offset=%lu",buf->name,buf->inuse,buf->hwm,(unsigned long)*offset));
     GASNETI_TRACE_EVENT(C, CHUNK_ALLOC);
-#endif
     gasneti_mutex_unlock(&buf->lock);
+#endif
 
     return 1;
 }
+
 /* ---------------------------------------------------------------------------------
  * get a chunk from the allocator.
  * returns 1=TRUE on success, 0=FAIL if not able to satisfly request.
@@ -2996,18 +2992,18 @@ extern int gasnetc_chunk_alloc_withpoll(gasnetc_PtlBuffer_t *buf, size_t nbytes,
  * --------------------------------------------------------------------------------- */
 extern void gasnetc_chunk_free(gasnetc_PtlBuffer_t *buf, ptl_size_t offset)
 {
-    void **p = (void**)((uint8_t*)buf->start + offset);
+    void *p = (void*)((uintptr_t)buf->start + offset);
     gasneti_assert(buf->use_chunks);
     
-    gasneti_mutex_lock(&buf->lock);
-    *p = buf->freelist;
-    buf->freelist = p;
+    gasneti_lifo_push(&buf->freelist, p);
+
 #if GASNETI_STATS_OR_TRACE
+    gasneti_mutex_lock(&buf->lock);
     buf->inuse--;
     GASNETI_TRACE_PRINTF(C,("CHUNK_FREE: name %s, inuse = %d, hwm = %d, offset=%lu",buf->name,buf->inuse,buf->hwm,(unsigned long)offset));
     GASNETI_TRACE_EVENT(C, CHUNK_FREE);
-#endif
     gasneti_mutex_unlock(&buf->lock);
+#endif
 }
 
 /* bug 2102: PtlEQAlloc/PtlEQFree are not thread-safe.

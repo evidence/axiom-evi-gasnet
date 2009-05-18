@@ -696,11 +696,15 @@ typedef struct {
 
   /* The following fields are only used in the case of a chunk allocator */
   /* NOTE: Only ReqSB and RplSB objects are controlled by chunk allocation, others are not. */
-  gasneti_mutex_t      lock;           /* locks access to chunk allocator freelist */
+#if GASNETI_STATS_OR_TRACE
   int numchunks;                       /* number of chunks in buffer */
   int inuse;                           /* number of chunks currently in use */
   int hwm;                             /* High water mark of chunk use */
-  void **freelist;                     /* chunk freelist */
+#endif
+  gasneti_lifo_head_t freelist;        /* chunk freelist */
+
+  /* locks access to "fresh" (if !use_chunks), or "inuse" and "hwm" (if use_chunks) */
+  gasneti_mutex_t      lock;
 } gasnetc_PtlBuffer_t;
 
 /* Thread local data
