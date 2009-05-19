@@ -297,8 +297,8 @@ extern unsigned gasnetc_sys_poll_limit;
 #define GASNETC_DEF_HARGS() gasnet_handlerarg_t hargs[16]; int hargcnt=0; uint32_t db_seqno; int db_cntr=0; GASNETC_INIT_HARGS
 #define GASNETC_ADD_HARG(foo) hargs[hargcnt++] = foo
 #define GASNETC_GET_SEQNO(ptoken) db_seqno = (ptoken)->seqno
-#define GASNETC_EXTRACT_SEQNO(data32,cntr,tok) do { \
-    tok.seqno = db_seqno = *(data32++);             \
+#define GASNETC_EXTRACT_SEQNO(data32,cntr,ptok) do {\
+    ptok->seqno = db_seqno = *(data32++);           \
     cntr += sizeof(uint32_t);                       \
   } while(0)
 #define GASNETC_INJECT_SEQNO(data32,cntr) do {  \

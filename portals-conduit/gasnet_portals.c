@@ -353,27 +353,19 @@ static gasnetc_amlongcache_t* get_lid_obj_from_header(gasnet_node_t src, uint32_
  * - ReqRB_event in response to the arrival of an AM Short Request
  * - ReqSB_event in response to the arrival of an AM Short Reply
  * --------------------------------------------------------------------------------- */
-static void exec_amshort_handler(int isReq, ptl_event_t *ev, int numarg, int ghandler)
+static void exec_amshort_handler(gasnetc_ptl_token_t *ptok, ptl_event_t *ev, int numarg, int ghandler)
 {
   ptl_match_bits_t   mbits = ev->match_bits;
-  gasnetc_ptl_token_t tok;
-  gasnet_token_t token = (gasnet_token_t)&tok;
+  gasnet_token_t token;
   uint32_t *data32;
-  int  argcnt = 0;
+  int  argcnt;
+  int  isReq = ptok->need_reply;
   GASNETI_UNUSED_UNLESS_DEBUG int msg_bytes = 0;
 #if GASNET_DEBUG || GASNETI_STATS_OR_TRACE
   gasnetc_threaddata_t *th = gasnetc_mythread();
 #endif
 
   GASNETC_DEF_HARGS();    /* debug, must be first statement */
-  GASNETC_ZERO_AMARGS(tok.args);
-
-  gasneti_assert(th->rplsb || !isReq);
-
-  tok.need_reply = isReq;
-  tok.initiator = ev->initiator;
-  tok.srcnode = gasnetc_get_nodeid(&ev->initiator);
-  tok.initiator_offset = GASNETI_HIWORD(mbits); /* only used if isReq, but no need to branch */
 
   /* set data pointer and verify alignment */
   data32 = (uint32_t*)((uintptr_t)ev->md.start + ev->offset);
@@ -386,24 +378,25 @@ static void exec_amshort_handler(int isReq, ptl_event_t *ev, int numarg, int gha
    * NOTE: seqno included only in debug mode
    * NOTE: Reply is identical, except without trailing pad
    */
-  if (numarg > 0) tok.args[argcnt++] = (gasnet_handlerarg_t)GASNETI_HIWORD(ev->hdr_data);
+  ptok->args[0] = (gasnet_handlerarg_t)GASNETI_HIWORD(ev->hdr_data); /* safe even if !numarg */
+  argcnt = 1;
   if (numarg < 2) {
     /* credit info is packed in LOWER bits of hdr_data */
     uint32_t cred = (uint32_t)GASNETI_LOWORD(ev->hdr_data);
-    tok.credits = (uint8_t)(cred & 0x000000FF);
+    ptok->credits = (uint8_t)(cred & 0x000000FF);
   } else {
     /* second arg in LOWER bits of hdr_data */
-    tok.args[argcnt++] = (gasnet_handlerarg_t)GASNETI_LOWORD(ev->hdr_data);
+    ptok->args[argcnt++] = (gasnet_handlerarg_t)GASNETI_LOWORD(ev->hdr_data);
   }
   /* unpack remaining args from data payload */
   for(; argcnt < numarg; argcnt++) {
-    tok.args[argcnt] = *(data32++);
+    ptok->args[argcnt] = *(data32++);
     GASNETC_MSGLEN_ADD(msg_bytes, sizeof(uint32_t));
   }
-  GASNETC_EXTRACT_SEQNO(data32,msg_bytes,tok);      /* debug */
+  GASNETC_EXTRACT_SEQNO(data32,msg_bytes,ptok);      /* debug */
   if (numarg > 1) {
     /* unpack the credit info */
-    tok.credits = *(uint8_t*)data32;
+    ptok->credits = *(uint8_t*)data32;
     GASNETC_MSGLEN_ADD(msg_bytes, sizeof(uint8_t));
   }
   if (isReq) { /* message length accounting: Request contains pad at end of message */
@@ -411,26 +404,21 @@ static void exec_amshort_handler(int isReq, ptl_event_t *ev, int numarg, int gha
   }
   {
     uint8_t ee,nx,nc;
-    GASNETC_READ_CREDIT_BYTE(tok.credits,ee,nx,nc);
-    GASNETI_TRACE_PRINTF(C,("CREDINFO: Short %s s=%d r=%d cred_byte=%x %d:%d:%d",(isReq?"Req":"Rpl"),tok.srcnode,gasneti_mynode,tok.credits,ee,nx,nc));
+    GASNETC_READ_CREDIT_BYTE(ptok->credits,ee,nx,nc);
+    GASNETI_TRACE_PRINTF(C,("CREDINFO: Short %s s=%d r=%d cred_byte=%x %d:%d:%d",(isReq?"Req":"Rpl"),ptok->srcnode,gasneti_mynode,ptok->credits,ee,nx,nc));
   }
 
   /* Process credit info and prep credit byte for return (if isReq) */
   if (gasnetc_use_flow_control) {
-    tok.credits = gasnetc_credit_update(isReq,tok.credits,tok.srcnode,"Short");
+    ptok->credits = gasnetc_credit_update(isReq,ptok->credits,ptok->srcnode,"Short");
   }
     
   gasneti_assert(ev->mlength == ev->rlength);
   gasneti_assert(msg_bytes == ev->rlength);
-  GASNETC_DBGMSG(0,isReq,"S",tok.srcnode,gasneti_mynode,ghandler,numarg,tok.args,msg_bytes,tok.credits,0,NULL,th);
+  GASNETC_DBGMSG(0,isReq,"S",ptok->srcnode,gasneti_mynode,ghandler,numarg,ptok->args,msg_bytes,ptok->credits,0,NULL,th);
 
-  GASNETI_RUN_HANDLER_SHORT(isReq, ghandler, gasnetc_handler[ghandler], token, tok.args, numarg);
-
-  if (tok.need_reply) {
-    GASNETI_SAFE(
-		 SHORT_REP(0,0, (token , gasneti_handleridx(gasnetc_noop_reph)) )
-		 );
-  }
+  token = (gasnet_token_t)ptok;
+  GASNETI_RUN_HANDLER_SHORT(isReq, ghandler, gasnetc_handler[ghandler], token, ptok->args, numarg);
 }
 
 /* ------------------------------------------------------------------------------------
@@ -451,29 +439,21 @@ static void exec_amshort_handler(int isReq, ptl_event_t *ev, int numarg, int gha
  * - ReqRB_event in response to the arrival of an AM Medium Request
  * - ReqSB_event in response to the arrival of an AM Medium Reply
  * --------------------------------------------------------------------------------- */
-static void exec_ammedium_handler(int isReq, ptl_event_t *ev, int numarg, int ghandler)
+static void exec_ammedium_handler(gasnetc_ptl_token_t *ptok, ptl_event_t *ev, int numarg, int ghandler)
 {
   ptl_match_bits_t   mbits = ev->match_bits;
-  gasnetc_ptl_token_t tok;
-  gasnet_token_t token = (gasnet_token_t)&tok;
+  gasnet_token_t token;
   uint32_t *data32;
   uint32_t payload_bytes;
   size_t   nbytes;
-  int      argcnt = 0;
+  int      argcnt;
+  int      isReq = ptok->need_reply;
   GASNETI_UNUSED_UNLESS_DEBUG int msg_bytes = 0;
 #if GASNET_DEBUG || GASNETI_STATS_OR_TRACE
   gasnetc_threaddata_t *th = gasnetc_mythread();
 #endif
 
   GASNETC_DEF_HARGS();    /* debug, must be first statement */
-  GASNETC_ZERO_AMARGS(tok.args);
-
-  gasneti_assert(th->rplsb || !isReq);
-
-  tok.need_reply = isReq;
-  tok.initiator = ev->initiator;
-  tok.srcnode = gasnetc_get_nodeid(&ev->initiator);
-  tok.initiator_offset = GASNETI_HIWORD(mbits); /* only used if isReq, but no need to branch */
 
   /* set data pointer and verify alignment */
   data32 = (uint32_t*)((uintptr_t)ev->md.start + ev->offset);
@@ -485,20 +465,20 @@ static void exec_ammedium_handler(int isReq, ptl_event_t *ev, int numarg, int gh
    */
   /* payload len and credit info in upper bits of hdr_data */
   payload_bytes = (uint32_t)GASNETI_HIWORD(ev->hdr_data);
-  tok.credits = (uint8_t)(payload_bytes >> 24);
+  ptok->credits = (uint8_t)(payload_bytes >> 24);
   payload_bytes &= 0x00FFFFFF;     /* mask off credit_byte */
   nbytes = (size_t)payload_bytes;  /* type conversion */
 
-  /* crack args out of hdr_data, mbits if available */
-  if (numarg > 0) tok.args[argcnt++] = (gasnet_handlerarg_t)GASNETI_LOWORD(ev->hdr_data);
+  /* crack args out of hdr_data if available */
+  ptok->args[0] = (gasnet_handlerarg_t)GASNETI_LOWORD(ev->hdr_data); /* safe even if !numarg */
 
   /* unpack remaining args from data payload */
-  for(; argcnt < numarg; argcnt++) {
-    tok.args[argcnt] = *(data32++);
+  for(argcnt = 1; argcnt < numarg; argcnt++) {
+    ptok->args[argcnt] = *(data32++);
     GASNETC_MSGLEN_ADD(msg_bytes, sizeof(uint32_t));
   }
 
-  GASNETC_EXTRACT_SEQNO(data32,msg_bytes,tok);      /* debug */
+  GASNETC_EXTRACT_SEQNO(data32,msg_bytes,ptok);      /* debug */
 
   /* Skip over any pad field so that handler payload is properly aligned */
   GASNETC_MSGLEN_PAD(msg_bytes);
@@ -515,24 +495,19 @@ static void exec_ammedium_handler(int isReq, ptl_event_t *ev, int numarg, int gh
 
   {
     uint8_t ee,nx,nc;
-    GASNETC_READ_CREDIT_BYTE(tok.credits,ee,nx,nc);
-    GASNETI_TRACE_PRINTF(C,("CREDINFO: Med %s s=%d r=%d cred_byte=%x %d:%d:%d",(isReq?"Req":"Rpl"),tok.srcnode,gasneti_mynode,tok.credits,ee,nx,nc));
+    GASNETC_READ_CREDIT_BYTE(ptok->credits,ee,nx,nc);
+    GASNETI_TRACE_PRINTF(C,("CREDINFO: Med %s s=%d r=%d cred_byte=%x %d:%d:%d",(isReq?"Req":"Rpl"),ptok->srcnode,gasneti_mynode,ptok->credits,ee,nx,nc));
   }
 
   /* Process credit info and prep credit byte for return (if isReq) */
   if (gasnetc_use_flow_control) {
-    tok.credits = gasnetc_credit_update(isReq,tok.credits,tok.srcnode,"Med");
+    ptok->credits = gasnetc_credit_update(isReq,ptok->credits,ptok->srcnode,"Med");
   }
 
-  GASNETC_DBGMSG(0,isReq,"M",tok.srcnode,gasneti_mynode,ghandler,numarg,tok.args,msg_bytes,tok.credits,nbytes,data32,th);
+  GASNETC_DBGMSG(0,isReq,"M",ptok->srcnode,gasneti_mynode,ghandler,numarg,ptok->args,msg_bytes,ptok->credits,nbytes,data32,th);
 
-  GASNETI_RUN_HANDLER_MEDIUM(isReq, ghandler, gasnetc_handler[ghandler], token, tok.args, numarg, data32, nbytes);
-
-  if (tok.need_reply) {
-    GASNETI_SAFE(
-		 SHORT_REP(0,0, (token , gasneti_handleridx(gasnetc_noop_reph)) )
-		 );
-  }
+  token = (gasnet_token_t)ptok;
+  GASNETI_RUN_HANDLER_MEDIUM(isReq, ghandler, gasnetc_handler[ghandler], token, ptok->args, numarg, data32, nbytes);
 }
 
 /* ------------------------------------------------------------------------------------
@@ -550,30 +525,22 @@ static void exec_ammedium_handler(int isReq, ptl_event_t *ev, int numarg, int gh
  * - ReqRB_event: in response to an AM Long Header Request message.
  * - ReqSB_event: in response to an AM Long Header Reply message.
  * --------------------------------------------------------------------------------- */
-static void exec_amlong_header(int isReq, int isPacked,
+static int exec_amlong_header(gasnetc_ptl_token_t *ptok, int isPacked,
 			       ptl_event_t *ev, int numarg, int ghandler)
 {
   ptl_match_bits_t   mbits = ev->match_bits;
-  gasnetc_ptl_token_t tok;
-  gasnet_token_t token = (gasnet_token_t)&tok;
+  gasnet_token_t token;
   uint32_t *data32;
   int      argcnt;
   void    *dest;
-  int      check_reply = isReq;  /* AM Request must reply for Portals Conduit */
+  int      ran_handler = 0;
+  int      isReq = ptok->need_reply;
   GASNETI_UNUSED_UNLESS_DEBUG int msg_bytes = 0;
 #if GASNET_DEBUG || GASNETI_STATS_OR_TRACE
   gasnetc_threaddata_t *th = gasnetc_mythread();
 #endif
 
   GASNETC_DEF_HARGS();           /* debug, must be first statement */
-  GASNETC_ZERO_AMARGS(tok.args);
-
-  gasneti_assert(th->rplsb || !isReq);
-
-  tok.need_reply = isReq;
-  tok.initiator = ev->initiator;
-  tok.srcnode = gasnetc_get_nodeid(&ev->initiator);
-  tok.credits = 0;
 
   /* set data pointer and verify alignment */
   data32 = (uint32_t*)((uintptr_t)ev->md.start + ev->offset);
@@ -589,37 +556,34 @@ static void exec_amlong_header(int isReq, int isPacked,
    * NOTE: seqno only in debug mode
    */
 
-  /* crack upper portion of match_bits (only used for Req, but cheaper not to branch */
-  tok.initiator_offset = GASNETI_HIWORD(mbits);
-
   /* unpack args from hdr_data and data payload */
-  if (numarg > 0) tok.args[0] = (gasnet_handlerarg_t)GASNETI_HIWORD(ev->hdr_data);
+  ptok->args[0] = (gasnet_handlerarg_t)GASNETI_HIWORD(ev->hdr_data); /* safe even if !numarg */
   for(argcnt = 1; argcnt < numarg; argcnt++) {
-    tok.args[argcnt] = *(data32++);
+    ptok->args[argcnt] = *(data32++);
     GASNETC_MSGLEN_ADD(msg_bytes, sizeof(uint32_t));
   }
-  GASNETC_EXTRACT_SEQNO(data32,msg_bytes,tok);      /* debug */
+  GASNETC_EXTRACT_SEQNO(data32,msg_bytes,ptok);      /* debug */
 
   if (isPacked || isReq) {
-    tok.credits = GASNETI_LOWORD(ev->hdr_data) >> 24;
+    ptok->credits = GASNETI_LOWORD(ev->hdr_data) >> 24;
   } else if (numarg) {
     /* unpack credit byte */
-    tok.credits = *(uint8_t*)data32;
+    ptok->credits = *(uint8_t*)data32;
     GASNETC_MSGLEN_ADD(msg_bytes, sizeof(uint8_t));
   } else {
-    tok.credits = GASNETI_HIWORD(ev->hdr_data) >> 24;
+    ptok->credits = GASNETI_HIWORD(ev->hdr_data) >> 24;
   }
 
   {
     uint8_t ee,nx,nc;
-    GASNETC_READ_CREDIT_BYTE(tok.credits,ee,nx,nc);
-    GASNETI_TRACE_PRINTF(C,("CREDINFO: Long%s %s s=%d r=%d cred_byte=%x %d:%d:%d",(isPacked?"Packed":""),(isReq?"Req":"Rpl"),tok.srcnode,gasneti_mynode,tok.credits,ee,nx,nc));
+    GASNETC_READ_CREDIT_BYTE(ptok->credits,ee,nx,nc);
+    GASNETI_TRACE_PRINTF(C,("CREDINFO: Long%s %s s=%d r=%d cred_byte=%x %d:%d:%d",(isPacked?"Packed":""),(isReq?"Req":"Rpl"),ptok->srcnode,gasneti_mynode,ptok->credits,ee,nx,nc));
   }
   if (gasnetc_use_flow_control) {
     /* In case of Request:  process credit update and store in token field for return.
      * In case of Reply:  ok to process returned credits here.
      */
-    tok.credits = gasnetc_credit_update(isReq,tok.credits,tok.srcnode,"Long");
+    ptok->credits = gasnetc_credit_update(isReq,ptok->credits,ptok->srcnode,"Long");
   }
 
   if (isPacked) {
@@ -640,9 +604,10 @@ static void exec_amlong_header(int isReq, int isPacked,
 
     gasneti_assert(msg_bytes == ev->rlength);
     gasneti_assert(msg_bytes <= GASNETC_CHUNKSIZE);
-    GASNETC_DBGMSG(0,isReq,"L",tok.srcnode,gasneti_mynode,ghandler,numarg,tok.args,msg_bytes,tok.credits,nbytes,dest,th);
-    GASNETI_RUN_HANDLER_LONG(isReq, ghandler, gasnetc_handler[ghandler], token, tok.args, numarg, dest, nbytes);
-
+    GASNETC_DBGMSG(0,isReq,"L",ptok->srcnode,gasneti_mynode,ghandler,numarg,ptok->args,msg_bytes,ptok->credits,nbytes,dest,th);
+    token = (gasnet_token_t)ptok;
+    GASNETI_RUN_HANDLER_LONG(isReq, ghandler, gasnetc_handler[ghandler], token, ptok->args, numarg, dest, nbytes);
+    ran_handler = 1;
   } else {
 
     /* called from Header packet, but not a packed message, check if data message has arrived */
@@ -650,7 +615,7 @@ static void exec_amlong_header(int isReq, int isPacked,
     uint32_t lid;
 
     if (isReq) {
-      lid = tok.initiator_offset;
+      lid = ptok->initiator_offset;
       /* message length accounting */
       GASNETC_MSGLEN_PAD(msg_bytes);
     } else {
@@ -660,16 +625,18 @@ static void exec_amlong_header(int isReq, int isPacked,
     gasneti_assert(msg_bytes <= GASNETC_CHUNKSIZE);
 
 #if GASNET_DEBUG
-    tok.msg_bytes = msg_bytes;  /* used in debug/tracing message */
+    ptok->msg_bytes = msg_bytes;  /* used in debug/tracing message */
 #endif
 
-    p = get_lid_obj_from_header(tok.srcnode, lid, &tok);
+    p = get_lid_obj_from_header(ptok->srcnode, lid, ptok);
     if (p) {
       /* data has arrived, run handler */
 
-      GASNETC_DBGMSG(0,isReq,"L",tok.srcnode,gasneti_mynode,ghandler,numarg,tok.args,msg_bytes,tok.credits,p->nbytes,p->data,th);
+      GASNETC_DBGMSG(0,isReq,"L",ptok->srcnode,gasneti_mynode,ghandler,numarg,ptok->args,msg_bytes,ptok->credits,p->nbytes,p->data,th);
       GASNETI_TRACE_PRINTF(C,("exec_amlong_header, second to arrive: isReq=%d, numarg=%d, hndlr=%d, nbytes=%d",isReq,numarg,ghandler,(int)p->nbytes));
-      GASNETI_RUN_HANDLER_LONG(isReq, ghandler ,gasnetc_handler[ghandler], token, tok.args, numarg, p->data, p->nbytes);
+      token = (gasnet_token_t)ptok;
+      GASNETI_RUN_HANDLER_LONG(isReq, ghandler ,gasnetc_handler[ghandler], token, ptok->args, numarg, p->data, p->nbytes);
+      ran_handler = 1;
 
       /* free the lid object, it has already been removed from the list */
       gasneti_lifo_push(&gasnetc_lid_freelist, p);
@@ -677,20 +644,10 @@ static void exec_amlong_header(int isReq, int isPacked,
 
       /* first to arrive, cant run handler */
       GASNETI_TRACE_PRINTF(C,("exec_amlong_header, first to arrive: isReq=%d, numarg=%d, hndlr=%d",isReq,numarg,ghandler));
-      check_reply = 0;
     }
   }
 
-
-  if (check_reply && tok.need_reply) {
-    /* must always issue a reply to dealloc ReqSB chunk.  If GASNet handler did
-     * not reply, we reply here with a short no-op
-     */
-    GASNETI_TRACE_PRINTF(C,("exec_amlong_header, sending noop reply"));
-    GASNETI_SAFE(
-		 SHORT_REP(0,0, (token , gasneti_handleridx(gasnetc_noop_reph)) )
-		 );
-  }
+  return ran_handler;
 }
 
 /* ------------------------------------------------------------------------------------
@@ -700,17 +657,38 @@ GASNETI_INLINE(exec_am_header)
 void exec_am_header(int isReq, ptl_match_bits_t mbits, ptl_event_t *ev)
 {
   uint8_t numarg, ghandler, amflag;
+  gasnetc_ptl_token_t tok;
+#if GASNET_DEBUG
+  gasnetc_threaddata_t *th = gasnetc_mythread();
+  gasneti_assert(th->rplsb || !isReq);
+#endif
+
+  GASNETC_ZERO_AMARGS(tok.args);
+
+  tok.need_reply = isReq;
+  tok.initiator = ev->initiator;
+  tok.initiator_offset = GASNETI_HIWORD(mbits); /* only used if isReq, but no need to branch */
+  tok.srcnode = gasnetc_get_nodeid(&ev->initiator);
+  tok.credits = 0; /* Is this needed? */
+
   GASNETC_GET_AM_LOWBITS(mbits, numarg, ghandler, amflag);
 
   if (amflag & GASNETC_PTL_AM_SHORT) {
-    exec_amshort_handler(isReq,ev,numarg,ghandler);
+    exec_amshort_handler(&tok,ev,numarg,ghandler);
   } else if (amflag & GASNETC_PTL_AM_MEDIUM) {
-    exec_ammedium_handler(isReq,ev,numarg,ghandler);
+    exec_ammedium_handler(&tok,ev,numarg,ghandler);
   } else if (amflag & GASNETC_PTL_AM_LONG) {
     int is_packed = amflag & GASNETC_PTL_AM_PACKED;
-    exec_amlong_header(isReq,is_packed,ev,numarg,ghandler);
+    int ran_handler = exec_amlong_header(&tok,is_packed,ev,numarg,ghandler);
+    if (!ran_handler) return; /* Skip need_reply check */
   } else {
     gasneti_fatalerror("Invalid amflag from mbits = %lx",(uint64_t)mbits);
+  }
+
+  if (tok.need_reply) {
+    GASNETI_SAFE(
+		 SHORT_REP(0,0, ((gasnet_token_t)&tok , gasneti_handleridx(gasnetc_noop_reph)) )
+		 );
   }
 }
 
