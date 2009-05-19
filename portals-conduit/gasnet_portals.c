@@ -370,7 +370,7 @@ static void exec_amshort_handler(int isReq, ptl_event_t *ev, int numarg, int gha
 
   gasneti_assert(th->rplsb || !isReq);
 
-  tok.flags = 0;
+  tok.need_reply = isReq;
   tok.initiator = ev->initiator;
   tok.srcnode = gasnetc_get_nodeid(&ev->initiator);
   tok.initiator_offset = GASNETI_HIWORD(mbits); /* only used if isReq, but no need to branch */
@@ -426,7 +426,7 @@ static void exec_amshort_handler(int isReq, ptl_event_t *ev, int numarg, int gha
 
   GASNETI_RUN_HANDLER_SHORT(isReq, ghandler, gasnetc_handler[ghandler], token, tok.args, numarg);
 
-  if (isReq && !(tok.flags & GASNETC_PTL_REPLY_SENT)) {
+  if (tok.need_reply) {
     GASNETI_SAFE(
 		 SHORT_REP(0,0, (token , gasneti_handleridx(gasnetc_noop_reph)) )
 		 );
@@ -470,7 +470,7 @@ static void exec_ammedium_handler(int isReq, ptl_event_t *ev, int numarg, int gh
 
   gasneti_assert(th->rplsb || !isReq);
 
-  tok.flags = 0;
+  tok.need_reply = isReq;
   tok.initiator = ev->initiator;
   tok.srcnode = gasnetc_get_nodeid(&ev->initiator);
   tok.initiator_offset = GASNETI_HIWORD(mbits); /* only used if isReq, but no need to branch */
@@ -528,7 +528,7 @@ static void exec_ammedium_handler(int isReq, ptl_event_t *ev, int numarg, int gh
 
   GASNETI_RUN_HANDLER_MEDIUM(isReq, ghandler, gasnetc_handler[ghandler], token, tok.args, numarg, data32, nbytes);
 
-  if (isReq && !(tok.flags & GASNETC_PTL_REPLY_SENT)) {
+  if (tok.need_reply) {
     GASNETI_SAFE(
 		 SHORT_REP(0,0, (token , gasneti_handleridx(gasnetc_noop_reph)) )
 		 );
@@ -570,7 +570,7 @@ static void exec_amlong_header(int isReq, int isPacked,
 
   gasneti_assert(th->rplsb || !isReq);
 
-  tok.flags = 0;
+  tok.need_reply = isReq;
   tok.initiator = ev->initiator;
   tok.srcnode = gasnetc_get_nodeid(&ev->initiator);
   tok.credits = 0;
@@ -682,7 +682,7 @@ static void exec_amlong_header(int isReq, int isPacked,
   }
 
 
-  if (check_reply && !(tok.flags & GASNETC_PTL_REPLY_SENT)) {
+  if (check_reply && tok.need_reply) {
     /* must always issue a reply to dealloc ReqSB chunk.  If GASNet handler did
      * not reply, we reply here with a short no-op
      */
@@ -759,7 +759,7 @@ static void exec_amlong_data(int isReq, ptl_event_t *ev)
     GASNETI_TRACE_PRINTF(C,("exec_amlong_data, second to arrive, running handler isReq=%d, lid=%d",isReq,lid));
     GASNETI_RUN_HANDLER_LONG(isReq, ghandler ,gasnetc_handler[ghandler], token, p->tok.args, numarg, dataaddr, datalen);
 
-    if (isReq && !(p->tok.flags & GASNETC_PTL_REPLY_SENT)) {
+    if (p->tok.need_reply) {
       /* must always issue a reply to dealloc ReqSB chunk.  If GASNet handler did
        * not reply, we reply here with a short no-op */
       GASNETI_TRACE_PRINTF(C,("exec_amlong_data, sending noop reply"));

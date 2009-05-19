@@ -437,7 +437,7 @@ extern unsigned gasnetc_sys_poll_limit;
  * object, retaining its state until both header and data payload arrives.
  */
 typedef struct token_rec {
-  uint8_t           flags;
+  uint8_t           need_reply;
   uint8_t           credits;             /* credit info: end_epoch flag, nextra, ncredit */
   uint32_t          initiator_offset;    /* offset in senders ReqSB, where Reply is sent */
   ptl_process_id_t  initiator;           /* process ID of requestor */

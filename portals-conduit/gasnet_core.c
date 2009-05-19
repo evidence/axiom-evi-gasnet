@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2009/05/19 00:35:19 $
- * $Revision: 1.29 $
+ *     $Date: 2009/05/19 01:03:31 $
+ * $Revision: 1.30 $
  * Description: GASNet portals conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *                 Michael Welcome <mlwelcome@lbl.gov>
@@ -1121,7 +1121,7 @@ extern int gasnetc_AMReplyShortM(
   GASNETC_PTLSAFE(PtlPutRegion(md_h, local_offset, msg_bytes, PTL_NOACK_REQ, target_id, GASNETC_PTL_AM_PTE, ac_index, mbits, remote_offset, hdr_data));
 
   /* Indicate to reply code that AM did in fact send a reply message */
-  ptok->flags |= GASNETC_PTL_REPLY_SENT;
+  ptok->need_reply = 0;
 
   GASNETI_RETURN(GASNET_OK);
 }
@@ -1220,7 +1220,7 @@ extern int gasnetc_AMReplyMediumM(
   GASNETC_PTLSAFE(PtlPutRegion(md_h, local_offset, msg_bytes, PTL_NOACK_REQ, target_id, GASNETC_PTL_AM_PTE, ac_index, mbits, remote_offset, hdr_data));
 
   /* Indicate to reply code that AM did in fact send a reply message */
-  ptok->flags |= GASNETC_PTL_REPLY_SENT;
+  ptok->need_reply = 0;
 
   GASNETI_RETURN(GASNET_OK);
 }
@@ -1402,7 +1402,7 @@ extern int gasnetc_AMReplyLongM(
   }
 
   /* Indicate to reply code that AM did in fact send a reply message */
-  ptok->flags |= GASNETC_PTL_REPLY_SENT;
+  ptok->need_reply = 0;
 
   GASNETI_RETURN(GASNET_OK);
 }
