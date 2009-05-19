@@ -454,10 +454,12 @@ typedef struct token_rec {
  * They will be created when the first of the AM Long Header or data packet arrives
  * and deallocated after the handler is run.
  */
-#define GASNETC_LID_DATA_HERE    0x1
-#define GASNETC_LID_HEADER_HERE  0x2
 typedef struct gasnetc_amlongcache_rec {
+#if GASNET_DEBUG
+  #define GASNETC_LID_DATA_HERE    0x1
+  #define GASNETC_LID_HEADER_HERE  0x2
   uint8_t             flags;              /* indicates if HEADER and/or DATA has arrived */
+#endif
   uint32_t            dest_lid;           /* ID of this Long AM */
   gasnetc_ptl_token_t tok;                /* token for this AM, only gets written by header */
   void*               data;               /* location of data packet payload */

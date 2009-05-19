@@ -258,7 +258,9 @@ static int get_or_insert_lid(gasnet_node_t src, uint32_t lid, gasnetc_amlongcach
   p = gasneti_lifo_pop(&gasnetc_lid_freelist);
   if_pf (!p) p = (gasnetc_amlongcache_t*)gasneti_malloc(sizeof(gasnetc_amlongcache_t));
   p->dest_lid = lid;
+#if GASNET_DEBUG
   p->flags = 0;
+#endif
   /* prev is either NULL, or points to the end of the list */
   if (prev == NULL) {
     /* empty list */
@@ -294,19 +296,15 @@ static gasnetc_amlongcache_t* get_lid_obj_from_data(gasnet_node_t src, uint32_t 
 
   GASNETC_LOCK_NODE(src);
   found = get_or_insert_lid(src, lid, &obj);
-  gasneti_assert( ! (obj->flags & GASNETC_LID_DATA_HERE) );
+#if GASNET_DEBUG
+  gasneti_assert( obj->flags == (found ? GASNETC_LID_HEADER_HERE : 0) );
   obj->flags |= GASNETC_LID_DATA_HERE;
+#endif
   obj->data = dataptr;                  /* only data message writes this */
   obj->nbytes = datalen;                /* only data message writes this */
   GASNETC_UNLOCK_NODE(src);
-  /* unlock the list */
-  if (found) {
-    /* second to arrive, return obj to caller */
-    gasneti_assert( obj->flags & GASNETC_LID_HEADER_HERE );
-    return obj;
-  }
-  /* we are the first to arrive, obj remains on the list */
-  return NULL;
+
+  return found ? obj : NULL;
 }
 
 /* ------------------------------------------------------------------------------------
@@ -326,22 +324,16 @@ static gasnetc_amlongcache_t* get_lid_obj_from_header(gasnet_node_t src, uint32_
   gasnetc_amlongcache_t *obj;
   int found;
 
-  /* lock the list here */
   GASNETC_LOCK_NODE(src);
   found = get_or_insert_lid(src, lid, &obj);
-  gasneti_assert( !(obj->flags & GASNETC_LID_HEADER_HERE) );
+#if GASNET_DEBUG
+  gasneti_assert( obj->flags == (found ? GASNETC_LID_DATA_HERE : 0) );
   obj->flags |= GASNETC_LID_HEADER_HERE;
+#endif
   obj->tok = *ptok;             /* only header message writes these */
   GASNETC_UNLOCK_NODE(src);
 
-  if (found) {
-    /* second to arrive, return obj to caller */
-    gasneti_assert( obj->flags & GASNETC_LID_DATA_HERE );
-    return obj;
-  }
-
-  /* we are the first to arrive, obj remains on the list */
-  return NULL;
+  return found ? obj : NULL;
 }
 
 /* ------------------------------------------------------------------------------------
