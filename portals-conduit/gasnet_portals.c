@@ -2886,14 +2886,14 @@ extern uintptr_t gasnetc_portalsMaxPinMem(void)
 /* ---------------------------------------------------------------------------------
  * get a chunk from the allocator, or NULL if not available.
  * --------------------------------------------------------------------------------- */
-extern void *gasnetc_chunk_alloc_byaddr(gasnetc_PtlBuffer_t *buf, size_t nbytes)
+extern void *gasnetc_chunk_alloc_no_off(gasnetc_PtlBuffer_t *buf, size_t nbytes)
 {
     void *p;
     
 #if GASNET_DEBUG
     gasneti_assert(buf->use_chunks);
     if (nbytes > GASNETC_CHUNKSIZE) {
-      gasneti_fatalerror("gasnetc_chunk_alloc requested %lu bytes, limit is %lu",(ulong)nbytes,(ulong)GASNETC_CHUNKSIZE);
+      gasneti_fatalerror("gasnetc_chunk_alloc*() requested %lu bytes, limit is %lu",(ulong)nbytes,(ulong)GASNETC_CHUNKSIZE);
     }
 #endif
 
@@ -2915,50 +2915,49 @@ extern void *gasnetc_chunk_alloc_byaddr(gasnetc_PtlBuffer_t *buf, size_t nbytes)
 
 /* ---------------------------------------------------------------------------------
  * get a chunk from the allocator.
- * returns 1=TRUE on success, 0=FAIL if not able to satisfly request.
+ * returns the address on success, NULL if not able to satisfy request.
  * --------------------------------------------------------------------------------- */
-extern int gasnetc_chunk_alloc(gasnetc_PtlBuffer_t *buf, size_t nbytes, ptl_size_t *offset)
+extern void *gasnetc_chunk_alloc(gasnetc_PtlBuffer_t *buf, size_t nbytes, ptl_size_t *offset)
 {
-    void *p = gasnetc_chunk_alloc_byaddr(buf, nbytes);
+    void *p = gasnetc_chunk_alloc_no_off(buf, nbytes);
     
-    if_pf (!p) return 0;
-
+    /* offset is garbage on failure, but we avoid a branch */
     *offset = ((uintptr_t)p - (uintptr_t)buf->start);
-    return 1;
+
+    return p;
 }
 
 /* ---------------------------------------------------------------------------------
  * get a chunk from the allocator.
- * returns 1=TRUE on success, 0=FAIL if not able to satisfly request.
+ * returns the address on success, NULL if not able to satisfy request.
  * May poll network at most pollmax times.
  * --------------------------------------------------------------------------------- */
-extern int gasnetc_chunk_alloc_withpoll(gasnetc_PtlBuffer_t *buf, size_t nbytes, ptl_size_t *offset,
+extern void *gasnetc_chunk_alloc_withpoll(gasnetc_PtlBuffer_t *buf, size_t nbytes, ptl_size_t *offset,
 					int pollmax, gasnetc_pollflag_t poll_type)
 {
     int cnt = 0;
-    int gotone = 0;
+    void *p;
     
-    gasneti_assert(buf->use_chunks);
     gasneti_assert(pollmax > 0);
     gasneti_assert(poll_type != GASNETC_NO_POLL);
 
-    gotone = gasnetc_chunk_alloc(buf,nbytes,offset);
-    if (gotone) return gotone;
+    p = gasnetc_chunk_alloc_no_off(buf,nbytes);
 
     /* poll up to pollmax times, waiting for chunk to free-up */
-    while (cnt < pollmax) {
+    while (!p && (cnt++ < pollmax)) {
       if (poll_type == GASNETC_FULL_POLL) {
 	gasneti_AMPoll();
       } else if (poll_type == GASNETC_SAFE_POLL) {
 	gasnetc_portals_poll(poll_type);
       }
-      cnt++;
 
-      gotone = gasnetc_chunk_alloc(buf,nbytes,offset);
-      if (gotone) break;
+      p = gasnetc_chunk_alloc_no_off(buf,nbytes);
     }
 
-    return gotone;
+    /* offset is garbage on failure, but we avoid a branch */
+    *offset = ((uintptr_t)p - (uintptr_t)buf->start);
+
+    return p;
 }
 
 /* ---------------------------------------------------------------------------------
@@ -3859,7 +3858,7 @@ extern void gasnetc_portals_poll(gasnetc_pollflag_t poll_type)
 
       /* Finally, we will need a RplSB chunk, if not already cached, try to alloc one */
       if (th->rplsb == NULL) {
-        th->rplsb = gasnetc_chunk_alloc_byaddr(&gasnetc_RplSB,GASNETC_CHUNKSIZE);
+        th->rplsb = gasnetc_chunk_alloc_no_off(&gasnetc_RplSB,GASNETC_CHUNKSIZE);
         if (th->rplsb == NULL) {
 	  goto out;
 	} 
@@ -3997,6 +3996,7 @@ size_t gasnetc_getmsg(void *dest, gasnet_node_t node, void *src, size_t nbytes,
   ptl_ac_index_t ac_index = GASNETC_PTL_AC_ID;
   ptl_size_t local_offset;
   ptl_size_t remote_offset = GASNETC_PTL_OFFSET(node,src);
+  void* bb;
   
   gasneti_assert(remote_offset >= 0 && remote_offset < gasneti_seginfo[node].size);
 
@@ -4010,12 +4010,9 @@ size_t gasnetc_getmsg(void *dest, gasnet_node_t node, void *src, size_t nbytes,
     nbytes = MIN(nbytes,GASNETC_PTL_MAX_TRANS_SZ);
     GASNETI_TRACE_EVENT(C, GET_RAR);
   } else if ( (nbytes <= gasnetc_get_bounce_limit)  &&
-	      gasnetc_chunk_alloc_withpoll(&gasnetc_ReqSB, nbytes, &local_offset, 1, GASNETC_SAFE_POLL) ) {
+	      (bb = gasnetc_chunk_alloc_withpoll(&gasnetc_ReqSB, nbytes, &local_offset, 1, GASNETC_SAFE_POLL) )) {
     /* Encode dest addr in BB chunk for later copy */
-    void* bb;
     md_h = gasnetc_ReqSB.md_h;
-    /* get the addr of the start of the chunk */
-    bb = ((uint8_t*)gasnetc_ReqSB.start + local_offset);
     /* store the dest address at this location */
     *(uintptr_t*)bb = (uintptr_t)dest;
     /* Let portals use the rest of the chunk */
@@ -4072,6 +4069,7 @@ size_t gasnetc_putmsg(void *dest, gasnet_node_t node, void *src, size_t nbytes,
   ptl_ac_index_t ac_index = GASNETC_PTL_AC_ID;
   ptl_hdr_data_t hdr_data = 0;
   int inc_lcc = (lcc != NULL);
+  void* bb;
   
   gasneti_assert(remote_offset >= 0 && remote_offset < gasneti_seginfo[node].size);
 
@@ -4085,11 +4083,8 @@ size_t gasnetc_putmsg(void *dest, gasnet_node_t node, void *src, size_t nbytes,
     nbytes = MIN(nbytes,GASNETC_PTL_MAX_TRANS_SZ);
     GASNETI_TRACE_EVENT(C, PUT_RAR);
   } else if ( (nbytes <= gasnetc_put_bounce_limit)  &&
-	      gasnetc_chunk_alloc_withpoll(&gasnetc_ReqSB,nbytes, &local_offset, 1, GASNETC_SAFE_POLL) ) {
-    void* bb;
+	      (bb = gasnetc_chunk_alloc_withpoll(&gasnetc_ReqSB,nbytes, &local_offset, 1, GASNETC_SAFE_POLL)) ) {
     md_h = gasnetc_ReqSB.md_h;
-    /* get the addr of the start of the chunk */
-    bb = ((uint8_t*)gasnetc_ReqSB.start + local_offset);
     /* copy the src data to the bounce buffer */
     memcpy(bb,src,nbytes);
     /* store the local offset in the upper bits of the match bits */
