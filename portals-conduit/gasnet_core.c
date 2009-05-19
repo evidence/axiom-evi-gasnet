@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2009/05/18 21:43:21 $
- * $Revision: 1.28 $
+ *     $Date: 2009/05/19 00:35:19 $
+ * $Revision: 1.29 $
  * Description: GASNet portals conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *                 Michael Welcome <mlwelcome@lbl.gov>
@@ -862,7 +862,7 @@ extern int gasnetc_AMRequestMediumM(
       ptl_match_bits_t data_mbits = GASNETC_PTL_MSG_AMDATA | GASNETC_PTL_RARAM_BITS; \
       ptl_size_t data_offset = 0;					\
       ptl_size_t data_rmt_offset = GASNETC_PTL_OFFSET(dest,dest_addr);	\
-      ptl_hdr_data_t data_hdr_data = (ptl_hdr_data_t)local_offset;	\
+      ptl_hdr_data_t data_hdr_data = GASNETI_MAKEWORD(handler|(numargs<<8), local_offset);\
 									\
       gasneti_assert(th->snd_credits >= ncredit);			\
       gasneti_assert(th->snd_tickets > 1);				\
@@ -1350,7 +1350,7 @@ extern int gasnetc_AMReplyLongM(
     ptl_handle_md_t dp_md_h;
     ptl_match_bits_t dp_mbits = 0;
     ptl_size_t remote_dataoffset = GASNETC_PTL_OFFSET(dest,dest_addr);
-    ptl_hdr_data_t dp_hdr_data = (ptl_hdr_data_t) data1;
+    ptl_hdr_data_t dp_hdr_data = GASNETI_MAKEWORD(handler|(numargs<<8), data1);
     ptl_size_t dp_offset = 0;
 
     /* already allocated a send ticket, spend them now */

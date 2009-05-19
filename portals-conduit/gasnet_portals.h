@@ -443,10 +443,6 @@ typedef struct token_rec {
   ptl_process_id_t  initiator;           /* process ID of requestor */
   gasnet_node_t     srcnode;             /* gasnet node ID of requestor */
   gasnet_handlerarg_t args[gasnet_AMMaxArgs()]; /* handler arguments [expands to constant] */
-  /* the remaining fields are only used in the case of a two-message AM Long and may
-   * not be set for AM Short, AM Medium or Packed AM Longs */
-  gasnet_handler_t  ghandler;            /* handler to run */
-  uint32_t          narg;                /* number of arguments */
 #if GASNET_DEBUG
   size_t            msg_bytes;           /* Entire length of header message (for debugging) */
   uint32_t          seqno;               /* Debug Seq number for AM Req/Reply */
@@ -457,20 +453,15 @@ typedef struct token_rec {
  * These data structures are allocated dynamically and updated atomically.
  * They will be created when the first of the AM Long Header or data packet arrives
  * and deallocated after the handler is run.
- * The args field is a dynamic array, the size of the array (and structure) is 
- * determined by the narg field.
  */
 #define GASNETC_LID_DATA_HERE    0x1
 #define GASNETC_LID_HEADER_HERE  0x2
 typedef struct gasnetc_amlongcache_rec {
   uint8_t             flags;              /* indicates if HEADER and/or DATA has arrived */
   uint32_t            dest_lid;           /* ID of this Long AM */
-#if GASNET_DEBUG
-  uint32_t            seqno;              /* AM sequence number for debugging */
-#endif
   gasnetc_ptl_token_t tok;                /* token for this AM, only gets written by header */
   void*               data;               /* location of data packet payload */
-  size_t              nbytes;             /* data payload size (med/long) */
+  size_t              nbytes;             /* data payload size */
   struct gasnetc_amlongcache_rec *next;   /* link into conn_state list of active AMLong lid objs */
 } gasnetc_amlongcache_t;
 

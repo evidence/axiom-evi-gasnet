@@ -381,8 +381,6 @@ static void exec_amshort_handler(int isReq, ptl_event_t *ev, int numarg, int gha
   tok.flags = 0;
   tok.initiator = ev->initiator;
   tok.srcnode = gasnetc_get_nodeid(&ev->initiator);
-  tok.narg = numarg;
-  tok.ghandler = ghandler;
   tok.initiator_offset = GASNETI_HIWORD(mbits); /* only used if isReq, but no need to branch */
 
   /* set data pointer and verify alignment */
@@ -483,8 +481,6 @@ static void exec_ammedium_handler(int isReq, ptl_event_t *ev, int numarg, int gh
   tok.flags = 0;
   tok.initiator = ev->initiator;
   tok.srcnode = gasnetc_get_nodeid(&ev->initiator);
-  tok.narg = numarg;
-  tok.ghandler = ghandler;
   tok.initiator_offset = GASNETI_HIWORD(mbits); /* only used if isReq, but no need to branch */
 
   /* set data pointer and verify alignment */
@@ -586,8 +582,6 @@ static void exec_amlong_header(int isReq, int isPacked,
   tok.initiator = ev->initiator;
   tok.srcnode = gasnetc_get_nodeid(&ev->initiator);
   tok.credits = 0;
-  tok.narg = numarg;
-  tok.ghandler = ghandler;
 
   /* set data pointer and verify alignment */
   data32 = (uint32_t*)((uintptr_t)ev->md.start + ev->offset);
@@ -744,6 +738,8 @@ void exec_am_header(int isReq, ptl_match_bits_t mbits, ptl_event_t *ev)
 static void exec_amlong_data(int isReq, ptl_event_t *ev)
 {
   uint32_t lid;
+  int numarg;
+  gasnet_handler_t ghandler;
   uint8_t* dataaddr = (uint8_t*)ev->md.start + ev->offset;
   size_t   datalen = ev->mlength;
   gasnetc_amlongcache_t *p;
@@ -756,9 +752,10 @@ static void exec_amlong_data(int isReq, ptl_event_t *ev)
 
   gasneti_assert(th->rplsb || !isReq);
 
-  /* extract LID and check if this is a packed AM Long */
-  /* if this is a packed AM, the resulting LID is actually the data payload length */
+  /* extract LID, numarg and ghandler from hdr_data */
   lid = GASNETI_LOWORD(ev->hdr_data);
+  numarg = GASNETI_HIWORD(ev->hdr_data) >> 8;
+  ghandler = GASNETI_HIWORD(ev->hdr_data) & 0xFF;
 
   /* see if header message has arrived */
   p = get_lid_obj_from_data(srcnode, lid, dataaddr, datalen);
@@ -766,9 +763,9 @@ static void exec_amlong_data(int isReq, ptl_event_t *ev)
     /* Header has arrived, run handler */
     gasnet_token_t token = (gasnet_token_t)&p->tok;
 
-    GASNETC_DBGMSG(0,isReq,"L",p->tok.srcnode,gasneti_mynode,p->tok.ghandler,p->tok.narg,p->tok.args,p->tok.msg_bytes,p->tok.credits,datalen,dataaddr,th);
+    GASNETC_DBGMSG(0,isReq,"L",p->tok.srcnode,gasneti_mynode,ghandler,numarg,p->tok.args,p->tok.msg_bytes,p->tok.credits,datalen,dataaddr,th);
     GASNETI_TRACE_PRINTF(C,("exec_amlong_data, second to arrive, running handler isReq=%d, lid=%d",isReq,lid));
-    GASNETI_RUN_HANDLER_LONG(isReq, p->tok.ghandler ,gasnetc_handler[p->tok.ghandler], token, p->tok.args, p->tok.narg, dataaddr, datalen);
+    GASNETI_RUN_HANDLER_LONG(isReq, ghandler ,gasnetc_handler[ghandler], token, p->tok.args, numarg, dataaddr, datalen);
 
     if (isReq && !(p->tok.flags & GASNETC_PTL_REPLY_SENT)) {
       /* must always issue a reply to dealloc ReqSB chunk.  If GASNet handler did
