@@ -289,8 +289,10 @@ static int get_or_insert_lid(gasnet_node_t src, uint32_t lid, gasnetc_amlongcach
  *     - return NULL.
  *
  * --------------------------------------------------------------------------------- */
-static gasnetc_amlongcache_t* get_lid_obj_from_data(gasnet_node_t src, uint32_t lid, void* dataptr, size_t datalen)
+static gasnetc_amlongcache_t* get_lid_obj_from_data(ptl_hdr_data_t hdr_data, void* dataptr, size_t datalen)
 {
+  uint32_t lid = GASNETI_LOWORD(hdr_data);
+  gasnet_node_t src = GASNETI_HIWORD(hdr_data);
   gasnetc_amlongcache_t *obj;
   int found;
 
@@ -686,13 +688,9 @@ void exec_am_header(int isReq, ptl_match_bits_t mbits, ptl_event_t *ev)
  * --------------------------------------------------------------------------------- */
 static void exec_amlong_data(int isReq, ptl_event_t *ev)
 {
-  uint32_t lid;
-  int numarg;
-  gasnet_handler_t ghandler;
   uint8_t* dataaddr = (uint8_t*)ev->md.start + ev->offset;
   size_t   datalen = ev->mlength;
   gasnetc_amlongcache_t *p;
-  gasnet_node_t srcnode = gasnetc_get_nodeid(&ev->initiator);
 #if GASNET_DEBUG || GASNETI_STATS_OR_TRACE
   gasnetc_threaddata_t *th = gasnetc_mythread();
 #endif
@@ -701,19 +699,18 @@ static void exec_amlong_data(int isReq, ptl_event_t *ev)
 
   gasneti_assert(th->rplsb || !isReq);
 
-  /* extract LID, numarg and ghandler from hdr_data */
-  lid = GASNETI_LOWORD(ev->hdr_data);
-  numarg = GASNETI_HIWORD(ev->hdr_data) >> 8;
-  ghandler = GASNETI_HIWORD(ev->hdr_data) & 0xFF;
-
   /* see if header message has arrived */
-  p = get_lid_obj_from_data(srcnode, lid, dataaddr, datalen);
+  p = get_lid_obj_from_data(ev->hdr_data, dataaddr, datalen);
   if (p) {
     /* Header has arrived, run handler */
     gasnet_token_t token = (gasnet_token_t)&p->tok;
 
+    /* extract numarg and ghandler from match bits */
+    int numarg = (ev->match_bits >> 56);
+    gasnet_handler_t ghandler = (ev->match_bits >> 48) & 0xFF;
+
     GASNETC_DBGMSG(0,isReq,"L",p->tok.srcnode,gasneti_mynode,ghandler,numarg,p->tok.args,p->tok.msg_bytes,p->tok.credits,datalen,dataaddr,th);
-    GASNETI_TRACE_PRINTF(C,("exec_amlong_data, second to arrive, running handler isReq=%d, lid=%d",isReq,lid));
+    GASNETI_TRACE_PRINTF(C,("exec_amlong_data, second to arrive, running handler isReq=%d, lid=%d",isReq,p->dest_lid));
     GASNETI_RUN_HANDLER_LONG(isReq, ghandler ,gasnetc_handler[ghandler], token, p->tok.args, numarg, dataaddr, datalen);
 
     if (p->tok.need_reply) {
@@ -729,7 +726,7 @@ static void exec_amlong_data(int isReq, ptl_event_t *ev)
     gasneti_lifo_push(&gasnetc_lid_freelist, p);
 
   } else {
-    GASNETI_TRACE_PRINTF(C,("exec_amlong_data, first to arrive, isReq=%d, lid=%d",isReq,lid));
+    GASNETI_TRACE_PRINTF(C,("exec_amlong_data, first to arrive, isReq=%d, lid=%d",isReq,GASNETI_LOWORD(ev->hdr_data)));
   }
 }
 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2009/05/20 05:03:15 $
- * $Revision: 1.32 $
+ *     $Date: 2009/05/20 22:52:38 $
+ * $Revision: 1.33 $
  * Description: GASNet portals conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *                 Michael Welcome <mlwelcome@lbl.gov>
@@ -848,7 +848,7 @@ extern int gasnetc_AMRequestMediumM(
       ptl_match_bits_t data_mbits = GASNETC_PTL_MSG_AMDATA | GASNETC_PTL_RARAM_BITS; \
       ptl_size_t data_offset = 0;					\
       ptl_size_t data_rmt_offset = GASNETC_PTL_OFFSET(dest,dest_addr);	\
-      ptl_hdr_data_t data_hdr_data = GASNETI_MAKEWORD(handler|(numargs<<8), local_offset);\
+      ptl_hdr_data_t data_hdr_data = GASNETI_MAKEWORD(gasneti_mynode, local_offset);\
 									\
       gasneti_assert(th->snd_credits >= ncredit);			\
       gasneti_assert(th->snd_tickets > 1);				\
@@ -856,6 +856,8 @@ extern int gasnetc_AMRequestMediumM(
       /* first issue data put message and request sync */		\
       data_mbits |= ((ptl_match_bits_t)GASNETC_PTL_AM_REQUEST << 8);	\
       data_mbits |= ((ptl_match_bits_t)(th->threadidx) << 24);		\
+      data_mbits |= ((ptl_match_bits_t)(handler) << 48);		\
+      data_mbits |= ((ptl_match_bits_t)(numargs) << 56);		\
       if (gasnetc_in_local_rar(source_addr,nbytes)) {			\
 	data_md_h = gasnetc_RARSRC.md_h;				\
 	data_offset = GASNETC_PTL_OFFSET(gasneti_mynode,source_addr);	\
@@ -1256,7 +1258,7 @@ extern int gasnetc_AMReplyLongM(
     ptl_handle_md_t dp_md_h;
     ptl_match_bits_t dp_mbits = 0;
     ptl_size_t remote_dataoffset = GASNETC_PTL_OFFSET(dest,dest_addr);
-    ptl_hdr_data_t dp_hdr_data = GASNETI_MAKEWORD(handler|(numargs<<8), data1);
+    ptl_hdr_data_t dp_hdr_data = GASNETI_MAKEWORD(gasneti_mynode, data1);
     ptl_size_t dp_offset = 0;
 
     /* already allocated a send ticket, spend them now */
@@ -1283,6 +1285,8 @@ extern int gasnetc_AMReplyLongM(
     /* NOTE: dp_mbits explicitly does not include the REQUEST flag, since this is a reply */
     dp_mbits |= GASNETC_PTL_MSG_AMDATA | GASNETC_PTL_RARSRC_BITS | (GASNETC_PTL_AM_SYNC << 8);
     dp_mbits |= ((ptl_match_bits_t)(th->threadidx) << 24);
+    dp_mbits |= ((ptl_match_bits_t)(handler) << 48);
+    dp_mbits |= ((ptl_match_bits_t)(numargs) << 56);
     GASNETC_INC_INFLIGHT(&th->amlongRep_data_inflight);
     GASNETC_PTLSAFE(PtlPutRegion(dp_md_h, dp_offset, nbytes, PTL_NOACK_REQ, target_id, GASNETC_PTL_RAR_PTE, ac_index, dp_mbits, remote_dataoffset, dp_hdr_data));
 
