@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2009/03/31 21:01:13 $
- * $Revision: 1.56 $
+ *     $Date: 2009/05/20 18:23:08 $
+ * $Revision: 1.57 $
  * Description: GASNet lapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -149,15 +149,11 @@ typedef struct gasnetc_token_rec {
 } gasnetc_token_t;
 /*
  * We currently set the token length at compile time.
- * Will change this in the future.
+ * Will might this in the future.
  * On Federation systems the packet size if 2KB, whereas
  * its 1KB on older, switch2-based systems like Seaborg.
- * Dont know how to detect this at compile time, so for now
- * we just use the lapi version number.  All federation systems
- * use the new version of LAPI and seaborg uses the older version
- * (at least for now).
  */
-#if (GASNETC_LAPI_VERSION > 1)
+#if GASNETC_LAPI_FEDERATION
 #define GASNETC_TOKEN_SIZE 2048
 #else
 #define GASNETC_TOKEN_SIZE 1024
