@@ -297,9 +297,9 @@ extern unsigned gasnetc_sys_poll_limit;
 #define GASNETC_DEF_HARGS() gasnet_handlerarg_t hargs[16]; int hargcnt=0; uint32_t db_seqno; int db_cntr=0; GASNETC_INIT_HARGS
 #define GASNETC_ADD_HARG(foo) hargs[hargcnt++] = foo
 #define GASNETC_GET_SEQNO(ptoken) db_seqno = (ptoken)->seqno
-#define GASNETC_EXTRACT_SEQNO(data32,cntr,ptok) do {\
-    ptok->seqno = db_seqno = *(data32++);           \
-    cntr += sizeof(uint32_t);                       \
+#define GASNETC_EXTRACT_SEQNO(data32,tok) do {\
+    tok.seqno = *(data32++);                  \
+    tok.msg_bytes += sizeof(uint32_t);        \
   } while(0)
 #define GASNETC_INJECT_SEQNO(data32,cntr) do {  \
     *(data32++) = db_seqno;                     \
@@ -331,7 +331,7 @@ extern unsigned gasnetc_sys_poll_limit;
 #define GASNETC_DEF_HARGS() do {} while(0)
 #define GASNETC_ADD_HARG(foo) do {} while(0)
 #define GASNETC_GET_SEQNO(ptok) do {} while(0)
-#define GASNETC_EXTRACT_SEQNO(data,cntr,tok) do {} while(0)
+#define GASNETC_EXTRACT_SEQNO(data,tok) do {} while(0)
 #define GASNETC_INJECT_SEQNO(data,cntr) do {} while(0)
 #define GASNETC_SEQNO_MSGLEN(cntr) do {} while(0)
 #define GASNETC_AMLONG_DEFSEQARG
