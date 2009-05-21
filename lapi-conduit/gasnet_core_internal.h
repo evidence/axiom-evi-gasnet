@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2009/05/20 18:23:08 $
- * $Revision: 1.57 $
+ *     $Date: 2009/05/21 05:14:33 $
+ * $Revision: 1.58 $
  * Description: GASNet lapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -38,6 +38,14 @@ extern void**             gasnetc_remote_reply_hh;
 #define GASNETC_ENABLE_LOOPBACK 1
 
 #define GASNETC_MAX_NUMHANDLERS   256
+
+/* Limits on number of queued AM Requests to run per call.
+ * Note that both functions may call gasnetc_service_req_q()
+ * twice, with this limit applied to EACH call independently.
+ * 0 yields 2^32 (essentially unlimited)
+ */
+#define GASNETC_POLL_LIMIT 32 /* In gasnetc_AMPoll() */
+#define GASNETC_AMCH_LIMIT 0  /* In gasnetc_lapi_AMch() */
 
 #define GASNETC_LCHECK(func) do {                                 \
     int lapi_errno;                                               \

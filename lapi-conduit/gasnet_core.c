@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2009/03/31 21:01:13 $
- * $Revision: 1.123 $
+ *     $Date: 2009/05/21 05:14:33 $
+ * $Revision: 1.124 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1079,20 +1079,27 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
     return GASNET_OK;
 }
 
+/* Run up to max_count request handlers (essentially unbounded if max_count==0) */
+GASNETI_INLINE(gasnetc_service_req_q)
+void gasnetc_service_req_q(unsigned int max_count, int update_schedule) {
+    gasnetc_token_t *q_token = NULL;
+    unsigned int count = 0;
+
+    while ( (q_token = gasnetc_token_dequeue(&gasnetc_req_q, update_schedule)) != NULL ) {
+	gasnetc_run_handler(q_token);
+	/* deallocate the token, it was allocated in the header handler */
+	gasnetc_uhdr_free(q_token);
+	++count;
+	if (count == max_count) break; /* If max_count==0, will match only when count wraps */
+    }
+}
+
 extern int gasnetc_AMPoll(void) {
     GASNETI_CHECKATTACH();
 
     /* Check if any request handlers are queued for processing
-     * and execute all on the list
      */
-    {
-	gasnetc_token_t *q_token = NULL;
-	while ( (q_token = gasnetc_token_dequeue(&gasnetc_req_q, 0)) != NULL ) {
-	    gasnetc_run_handler(q_token);
-	    /* deallocate the token, it was allocated in the header handler */
-	    gasnetc_uhdr_free(q_token);
-	}
-    }
+    gasnetc_service_req_q(GASNETC_POLL_LIMIT, 0);
 
     /* NOTE: a call to probe is not needed when LAPI is executing
      * in interrupt mode.  In that mode, polling can sometimes
@@ -1105,17 +1112,9 @@ extern int gasnetc_AMPoll(void) {
      */
     GASNETC_LAPI_POLL(gasnetc_lapi_context);
 
-    /* Check if any request handlers are queued for processing
-     * and execute all on the list
+    /* Check again if any request handlers are queued for processing
      */
-    {
-	gasnetc_token_t *q_token = NULL;
-	while ( (q_token = gasnetc_token_dequeue(&gasnetc_req_q, 0)) != NULL ) {
-	    gasnetc_run_handler(q_token);
-	    /* deallocate the token, it was allocated in the header handler */
-	    gasnetc_uhdr_free(q_token);
-	}
-    }
+    gasnetc_service_req_q(GASNETC_POLL_LIMIT, 0);
     
 #if GASNETC_LAPI_RDMA
     if(gasnetc_use_firehose) {
@@ -2201,11 +2200,7 @@ void gasnetc_lapi_AMch(lapi_handle_t *context, void *uinfo)
     /* first, process all items on the request queue to keep
      * latencies to a minimum
      */
-    while ( (q_token = gasnetc_token_dequeue(&gasnetc_req_q, do_schedule)) != NULL ) {
-	gasnetc_run_handler(q_token);
-	/* deallocate the token, it was allocated in the header handler */
-	gasnetc_uhdr_free(q_token);
-    }
+    gasnetc_service_req_q(0, do_schedule);
 
     if (token != NULL) {
 	/* Our request was not put on the queue either because
@@ -2217,14 +2212,8 @@ void gasnetc_lapi_AMch(lapi_handle_t *context, void *uinfo)
 	gasnetc_uhdr_free(token);
 
 	/* Check the request queue again */
-	while ( (q_token = gasnetc_token_dequeue(&gasnetc_req_q, 1)) != NULL ) {
-	    gasnetc_run_handler(q_token);
-	    /* deallocate the token, it was allocated in the header handler */
-	    gasnetc_uhdr_free(q_token);
-	}
+        gasnetc_service_req_q(0, 1);
     }
-
-
 }
 
 void gasnetc_run_handler(gasnetc_token_t *token)
