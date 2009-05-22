@@ -235,6 +235,7 @@ extern unsigned gasnetc_sys_poll_limit;
 
 #define gasnetc_alloc_ticket(semptr) gasneti_semaphore_trydown(semptr)
 #define gasnetc_return_ticket(semptr) gasneti_semaphore_up(semptr)
+#define gasnetc_return_tickets(semptr,n) gasneti_semaphore_up_n(semptr,n)
 #define gasnetc_num_tickets(semptr) gasneti_semaphore_read(semptr)
 
 /* poll until thread has cached requested number of send tickets

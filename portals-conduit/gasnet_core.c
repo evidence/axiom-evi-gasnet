@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2009/05/22 01:16:05 $
- * $Revision: 1.34 $
+ *     $Date: 2009/05/22 02:03:47 $
+ * $Revision: 1.35 $
  * Description: GASNet portals conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *                 Michael Welcome <mlwelcome@lbl.gov>
@@ -464,13 +464,14 @@ SHORT_HANDLER(gasnetc_noop_reph,0,0,
 
 
 #define AM_RELEASE_RESOURCES(th) do {			\
-    while (th->snd_tickets > 0) {			\
-      gasnetc_return_ticket(&gasnetc_send_tickets);	\
-      th->snd_tickets--;				\
+    if (th->snd_tickets) {				\
+      gasnetc_return_tickets(&gasnetc_send_tickets, th->snd_tickets);\
+      th->snd_tickets = 0;				\
     }							\
-    while (th->tmpmd_tickets) {				\
+    if (th->tmpmd_tickets) {				\
+      gasneti_assert(th->tmpmd_tickets == 1);		\
       gasnetc_return_ticket(&gasnetc_tmpmd_tickets);	\
-      th->tmpmd_tickets--;				\
+      th->tmpmd_tickets = 0;				\
     }							\
     gasneti_assert(th->snd_credits == 0);		\
   } while(0)
