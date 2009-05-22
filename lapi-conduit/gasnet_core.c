@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2009/05/21 05:14:33 $
- * $Revision: 1.124 $
+ *     $Date: 2009/05/22 05:20:33 $
+ * $Revision: 1.125 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1352,6 +1352,10 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
     GASNETI_RETURN(retval);
 }
 
+#ifndef HAVE_BUG2582
+#define HAVE_BUG2582 1
+#endif 
+
 extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destination node */
 					gasnet_handler_t handler, /* index into destination endpoint's handler table */ 
 					void *source_addr, size_t nbytes,   /* data payload */
@@ -1365,11 +1369,18 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
     int udata_avail;
     int udata_packed = 0;
     int retval;
+#if HAVE_BUG2582
+    char raw_token[GASNETC_TOKEN_SIZE + GASNETC_DOUBLEWORD];
+#endif
     va_list argptr;
 
     GASNETI_COMMON_AMREQUESTLONGASYNC(dest,handler,source_addr,nbytes,dest_addr,numargs);
 
+#if HAVE_BUG2582
+    token = (gasnetc_token_t*)GASNETC_ALIGN_PTR(&raw_token[0]);
+#else
     token = gasnetc_uhdr_alloc();
+#endif
     msg = &token->msg;
     msg->handlerId = handler;
     msg->sourceId = gasneti_mynode;
@@ -1417,14 +1428,32 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
 	GASNETC_MSG_SET_PACKED(msg);
     }
     
+    token_len = GASNETC_ROUND_DOUBLEWORD(token_len);
+    gasneti_assert( token_len <= gasnetc_max_lapi_uhdr_size);
+
+#if HAVE_BUG2582 /* Work around BUG 2582 - memory leak w/ LongAsync. */
+  {
+    lapi_cntr_t o_cntr;
+    GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&o_cntr,0));
+    gasneti_suspend_spinpollers();
+    GASNETC_LCHECK(LAPI_Amsend(gasnetc_lapi_context, dest,
+			       gasnetc_remote_req_hh[dest],
+			       (void*)token, token_len,
+			       (udata_packed ? NULL : source_addr),
+			       (udata_packed ? 0    : nbytes),
+			       NULL, &o_cntr, NULL));
+    gasneti_resume_spinpollers();
+    
+    /* wait for the Amsend call to complete locally */
+    GASNETC_WAITCNTR(&o_cntr,1,NULL);
+  }
+#else
     /* issue the request for remote execution of the user handler */
     /* NOTE: no LAPI counters are used here, the token will be deallocated
      * later (by the completion handler when the reply handler is executed).
      * It is up to the client not to modify the source_addr data until his 
      * reply handler runs.
      */
-    token_len = GASNETC_ROUND_DOUBLEWORD(token_len);
-    gasneti_assert( token_len <= gasnetc_max_lapi_uhdr_size);
     gasneti_suspend_spinpollers();
     GASNETC_LCHECK(LAPI_Amsend(gasnetc_lapi_context, dest,
 			       gasnetc_remote_req_hh[dest],
@@ -1434,6 +1463,7 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
 			       NULL, NULL, NULL));
     
     gasneti_resume_spinpollers();
+#endif
 
     retval = GASNET_OK;
     GASNETI_RETURN(retval);
@@ -2035,6 +2065,9 @@ void* gasnetc_lapi_AMreply_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len
     }
 #endif
     
+#if HAVE_BUG2582
+    msg->uhdrLoc = (uintptr_t)NULL;
+#else
     /* This is a reply. If the uhdrLoc field of the token is set
      * that means the origional GASNET call was an AsyncLong and we
      * should deallocate the origional uhdr memory.
@@ -2044,6 +2077,7 @@ void* gasnetc_lapi_AMreply_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len
 	gasnetc_uhdr_free(loc);
 	msg->uhdrLoc = (uintptr_t)NULL;
     }
+#endif
 
     switch (cat) {
     case gasnetc_Short:
