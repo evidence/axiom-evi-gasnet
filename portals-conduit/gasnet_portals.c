@@ -3587,10 +3587,10 @@ extern void gasnetc_init_portals_resources(void)
 #endif
   
   /* Init the temp md counter to max allowed */
-  gasneti_semaphore_init(&gasnetc_tmpmd_tickets, gasnetc_max_tmpmd, 0);
+  gasneti_semaphore_init(&gasnetc_tmpmd_tickets, gasnetc_max_tmpmd, gasnetc_max_tmpmd);
 
   /* keep a counter of number of send tickets available */
-  gasneti_semaphore_init(&gasnetc_send_tickets, gasnetc_msg_limit, 0);
+  gasneti_semaphore_init(&gasnetc_send_tickets, gasnetc_msg_limit, gasnetc_msg_limit);
 
   /* Create two EQs:
    * gasnetc_SAFE_EQ:  Used to reclaim buffer space.  Always safe to poll on this
