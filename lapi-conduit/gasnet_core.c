@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2009/05/22 05:20:33 $
- * $Revision: 1.125 $
+ *     $Date: 2009/05/22 05:56:18 $
+ * $Revision: 1.126 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2088,6 +2088,7 @@ void* gasnetc_lapi_AMreply_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len
     case gasnetc_Medium:
 	if (is_packed) {
 	    /* can run the AM handler in-line, data payload is packed in uhdr */
+	    /* Note that bug 2583 is not a problem, since there is no Reply from a Reply */
 	    void *srcloc = (void*)&msg->args[numargs];
 	    GASNETI_RUN_HANDLER_MEDIUM(0,func_ix,am_func,token,am_args,numargs,srcloc,msg->dataLen);
 	    done = 1;
@@ -2285,15 +2286,13 @@ void gasnetc_run_handler(gasnetc_token_t *token)
 	
     case gasnetc_Medium:
 	if (is_packed) {
-	    /* data is cached in this uhdr */
-	    dataptr = (void*)&msg->args[numargs];
+	    /* data is cached in this uhdr, but we must make a copy (bug 2583) */
+	    dataptr = gasneti_malloc(datalen);
+	    memcpy(dataptr,(void*)&msg->args[numargs],datalen);
 	}
 	GASNETI_RUN_HANDLER_MEDIUM(is_request,func_ix,am_func,token,am_args,numargs,dataptr,datalen);
-	/* need to free this data memory (allocated in header handler) */
-	if (! is_packed) {
-	    /* we allocated a buffer for the payload in the header handler */
-	    gasneti_free(dataptr);
-	}
+	/* need to free this data memory (either allocated in header handler, or just now) */
+	gasneti_free(dataptr);
 	break;
 
     case gasnetc_Long:
