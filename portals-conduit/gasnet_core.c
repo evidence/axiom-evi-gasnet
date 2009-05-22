@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2009/05/20 22:52:38 $
- * $Revision: 1.33 $
+ *     $Date: 2009/05/22 01:16:05 $
+ * $Revision: 1.34 $
  * Description: GASNet portals conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *                 Michael Welcome <mlwelcome@lbl.gov>
@@ -1307,8 +1307,6 @@ extern int gasnetc_AMReplyLongM(
     while(GASNETC_TEST_INFLIGHT(&th->amlongRep_data_inflight)) {
       gasnetc_portals_poll(GASNETC_SAFE_POLL);
     }
-    /* return the send ticket from the data payload message */
-    if (gasnetc_msg_limit) gasnetc_return_ticket(&gasnetc_send_tickets);
   }
 
   /* Indicate to reply code that AM did in fact send a reply message */
