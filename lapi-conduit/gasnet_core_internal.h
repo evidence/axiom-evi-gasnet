@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2009/05/21 05:14:33 $
- * $Revision: 1.58 $
+ *     $Date: 2009/05/25 04:07:15 $
+ * $Revision: 1.59 $
  * Description: GASNet lapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -36,6 +36,9 @@ extern void**             gasnetc_remote_reply_hh;
 
 /* Enable loopback by setting to 1, disable by setting to 0 */
 #define GASNETC_ENABLE_LOOPBACK 1
+
+/* Enable (expensive) checksum of AM traffic */
+#define GASNETC_DO_CSUM 0
 
 #define GASNETC_MAX_NUMHANDLERS   256
 
@@ -112,6 +115,10 @@ extern volatile int gasnetc_interrupt_held[];
 /* the important contents of a gasnet token */
 typedef unsigned int gasnetc_flag_t;
 typedef struct {
+#if GASNETC_DO_CSUM
+    uint64_t             args_csum;
+    uint64_t             data_csum;
+#endif
     gasnetc_flag_t       flags;
     gasnet_handler_t     handlerId;
     gasnet_node_t        sourceId;
@@ -120,6 +127,29 @@ typedef struct {
     uintptr_t            uhdrLoc;    /* only used on AsyncLong messages */
     gasnet_handlerarg_t  args[GASNETC_AM_MAX_ARGS];
 } gasnetc_msg_t;
+
+#if GASNETC_DO_CSUM
+  /* Write args_csum and data_csum fields of msg */
+  #define GASNETC_GEN_CSUM(_msg, _numargs, _dataptr, _datalen) do {\
+    (_msg)->data_csum = gasneti_checksum((_dataptr),(_datalen));   \
+    (_msg)->args_csum = gasneti_checksum(&(_msg)->args, (_numargs)*sizeof(gasnet_handlerarg_t));\
+  } while(0)
+  /* Check args_csum and data_csum fields of msg */
+  #define GASNETC_CHECK_CSUM(_msg, _numargs, _dataptr, _datalen) do {\
+     uint64_t orig_args_csum = (_msg)->args_csum;                    \
+     uint64_t orig_data_csum = (_msg)->data_csum;                    \
+     GASNETC_GEN_CSUM((_msg),(_numargs),(_dataptr),(_datalen));      \
+     if_pf (orig_args_csum != (_msg)->args_csum)                     \
+	gasneti_fatalerror("args_csum(%d args) validation failed at %s:%d",\
+                           (int)(_numargs), __FILE__,  __LINE__);    \
+     if_pf (orig_data_csum != (_msg)->data_csum)                     \
+	gasneti_fatalerror("data_csum(%d bytes) validation failed at %s:%d",\
+                           (int)(_datalen), __FILE__,  __LINE__);    \
+  } while(0)
+#else
+  #define GASNETC_GEN_CSUM(_msg, _numargs, _dataptr, _datalen)   ((void)0)
+  #define GASNETC_CHECK_CSUM(_msg, _numargs, _dataptr, _datalen) ((void)0)
+#endif
 
 #define GASNETC_MSG_SETFLAGS(pmsg, isreq, cat, packed, numargs) \
   ((pmsg)->flags = (gasnetc_flag_t) (                   \

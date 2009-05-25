@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2009/05/22 05:56:18 $
- * $Revision: 1.126 $
+ *     $Date: 2009/05/25 04:07:15 $
+ * $Revision: 1.127 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -58,6 +58,25 @@ unsigned long  gasnetc_max_lapi_data_size = LAPI_MAX_MSG_SZ;
 
 #if 0 /* For debugging */
 static const char *gasnetc_catname[] = {"Short","Medium","Long","AsyncLong"};
+#endif
+
+#if 0
+#define LAPI_Amsend(_hndl, _tgt, _hdr_hdl, _uhdr, _uhdr_len, _udata, _udata_len, _tgt_cntr, _org_cntr, _cmpl_cntr) \
+({ \
+  lapi_xfer_t xfer; \
+  memset(&xfer, 0, sizeof(xfer)); \
+  xfer.Am.Xfer_type = LAPI_AM_XFER; \
+  xfer.Am.tgt = _tgt; \
+  xfer.Am.hdr_hdl = (lapi_long_t)_hdr_hdl; \
+  xfer.Am.uhdr = _uhdr; \
+  xfer.Am.uhdr_len = _uhdr_len; \
+  xfer.Am.udata = _udata; \
+  xfer.Am.udata_len = _udata_len; \
+  xfer.Am.tgt_cntr = (lapi_long_t)_tgt_cntr; \
+  xfer.Am.org_cntr = _org_cntr; \
+  xfer.Am.cmpl_cntr = _cmpl_cntr; \
+  LAPI_Xfer (gasnetc_lapi_context, &xfer);\
+})
 #endif
 
 #if GASNETC_LAPI_RDMA
@@ -1160,6 +1179,8 @@ extern int gasnetc_AMRequestShortM(
     }
     va_end(argptr);
 
+    GASNETC_GEN_CSUM(msg, numargs, NULL, 0);
+
     /* Do Loopback check here */
 #if GASNETC_ENABLE_LOOPBACK
     if (dest == gasneti_mynode) {
@@ -1227,6 +1248,7 @@ extern int gasnetc_AMRequestMediumM(
     token_len = TOKEN_LEN(numargs);
     udata_avail = gasnetc_max_lapi_uhdr_size - token_len - GASNETC_DOUBLEWORD;
 
+#if 0
     /* can we pack the data into the uhdr? */
     if (nbytes <= udata_avail) {
 	memcpy(udata_start,source_addr,nbytes);
@@ -1234,6 +1256,9 @@ extern int gasnetc_AMRequestMediumM(
 	udata_packed = 1;
 	GASNETC_MSG_SET_PACKED(msg);
     }
+#endif
+
+    GASNETC_GEN_CSUM(msg, numargs, source_addr, nbytes);
 
     /* Do Loopback check here */
 #if GASNETC_ENABLE_LOOPBACK
@@ -1312,6 +1337,8 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
     udata_start = (void*)&msg->args[numargs];
     token_len = TOKEN_LEN(numargs);
     udata_avail = gasnetc_max_lapi_uhdr_size - token_len - GASNETC_DOUBLEWORD;
+
+    GASNETC_GEN_CSUM(msg, numargs, source_addr, nbytes);
 
     /* Do Loopback check here */
 #if GASNETC_ENABLE_LOOPBACK
@@ -1402,6 +1429,8 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
     udata_start = (void*)&msg->args[numargs];
     token_len = TOKEN_LEN(numargs);
     udata_avail = gasnetc_max_lapi_uhdr_size - token_len - GASNETC_DOUBLEWORD;
+
+    GASNETC_GEN_CSUM(msg, numargs, source_addr, nbytes);
 
     /* Do Loopback check here */
 #if GASNETC_ENABLE_LOOPBACK
@@ -1501,6 +1530,8 @@ extern int gasnetc_AMReplyShortM(
     }
     va_end(argptr);
 
+    GASNETC_GEN_CSUM(msg, numargs, NULL, 0);
+
 #if GASNETC_ENABLE_LOOPBACK
     if (requester == gasneti_mynode) {
 	gasneti_handler_fn_t pfn = gasnetc_handler[handler];
@@ -1568,6 +1599,7 @@ extern int gasnetc_AMReplyMediumM(
     token_len = TOKEN_LEN(numargs);
     udata_avail = gasnetc_max_lapi_uhdr_size - token_len - GASNETC_DOUBLEWORD;
 
+#if 0
     /* can we pack the data into the uhdr? */
     if (nbytes <= udata_avail) {
 	memcpy(udata_start,source_addr,nbytes);
@@ -1575,6 +1607,9 @@ extern int gasnetc_AMReplyMediumM(
 	udata_packed = 1;
 	GASNETC_MSG_SET_PACKED(msg);
     }
+#endif
+
+    GASNETC_GEN_CSUM(msg, numargs, source_addr, nbytes);
 
 #if GASNETC_ENABLE_LOOPBACK
     if (requester == gasneti_mynode) {
@@ -1650,6 +1685,7 @@ extern int gasnetc_AMReplyLongM(
     token_len = TOKEN_LEN(numargs);
     udata_avail = gasnetc_max_lapi_uhdr_size - token_len - GASNETC_DOUBLEWORD;
 
+    GASNETC_GEN_CSUM(msg, numargs, source_addr, nbytes);
 
 #if GASNETC_ENABLE_LOOPBACK
     if (dest == gasneti_mynode) {
@@ -2090,6 +2126,7 @@ void* gasnetc_lapi_AMreply_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len
 	    /* can run the AM handler in-line, data payload is packed in uhdr */
 	    /* Note that bug 2583 is not a problem, since there is no Reply from a Reply */
 	    void *srcloc = (void*)&msg->args[numargs];
+            GASNETC_CHECK_CSUM(msg, numargs, srcloc, msg->dataLen);
 	    GASNETI_RUN_HANDLER_MEDIUM(0,func_ix,am_func,token,am_args,numargs,srcloc,msg->dataLen);
 	    done = 1;
 	} else {
@@ -2290,6 +2327,7 @@ void gasnetc_run_handler(gasnetc_token_t *token)
 	    dataptr = gasneti_malloc(datalen);
 	    memcpy(dataptr,(void*)&msg->args[numargs],datalen);
 	}
+        GASNETC_CHECK_CSUM(msg, numargs, dataptr, datalen);
 	GASNETI_RUN_HANDLER_MEDIUM(is_request,func_ix,am_func,token,am_args,numargs,dataptr,datalen);
 	/* need to free this data memory (either allocated in header handler, or just now) */
 	gasneti_free(dataptr);
