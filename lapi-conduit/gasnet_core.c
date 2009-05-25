@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2009/05/25 22:12:50 $
- * $Revision: 1.128 $
+ *     $Date: 2009/05/25 23:47:38 $
+ * $Revision: 1.129 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -58,25 +58,6 @@ unsigned long  gasnetc_max_lapi_data_size = LAPI_MAX_MSG_SZ;
 
 #if 0 /* For debugging */
 static const char *gasnetc_catname[] = {"Short","Medium","Long","AsyncLong"};
-#endif
-
-#if 0
-#define LAPI_Amsend(_hndl, _tgt, _hdr_hdl, _uhdr, _uhdr_len, _udata, _udata_len, _tgt_cntr, _org_cntr, _cmpl_cntr) \
-({ \
-  lapi_xfer_t xfer; \
-  memset(&xfer, 0, sizeof(xfer)); \
-  xfer.Am.Xfer_type = LAPI_AM_XFER; \
-  xfer.Am.tgt = _tgt; \
-  xfer.Am.hdr_hdl = (lapi_long_t)_hdr_hdl; \
-  xfer.Am.uhdr = _uhdr; \
-  xfer.Am.uhdr_len = _uhdr_len; \
-  xfer.Am.udata = _udata; \
-  xfer.Am.udata_len = _udata_len; \
-  xfer.Am.tgt_cntr = (lapi_long_t)_tgt_cntr; \
-  xfer.Am.org_cntr = _org_cntr; \
-  xfer.Am.cmpl_cntr = _cmpl_cntr; \
-  LAPI_Xfer (gasnetc_lapi_context, &xfer);\
-})
 #endif
 
 #if GASNETC_LAPI_RDMA
