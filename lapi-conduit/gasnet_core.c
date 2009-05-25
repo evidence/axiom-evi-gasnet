@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2009/05/25 04:07:15 $
- * $Revision: 1.127 $
+ *     $Date: 2009/05/25 22:12:50 $
+ * $Revision: 1.128 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -741,27 +741,22 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
          }
 	 /* Break up the segment */
 	 my_num_pvos = (segsize + (GASNETC_LAPI_PVO_EXTENT-1)) >> GASNETC_LAPI_PVO_EXTENT_BITS;
-         GASNETI_TRACE_PRINTF(C,("gasnetc_attach: node = %d num_pvos = %d extent = %ld segment size = %ld segment base = %ld\n",gasneti_mynode,my_num_pvos,GASNETC_LAPI_PVO_EXTENT,segsize,(uint64_t) segbase));
+         GASNETI_TRACE_PRINTF(C,("num_pvos = %d pvo_extent = %ld",my_num_pvos,GASNETC_LAPI_PVO_EXTENT));
 	 gasnetc_node_pvo_list = gasneti_calloc(my_num_pvos,sizeof(lapi_get_pvo_t));
 
-	 while(tmp_offset < segsize) {
+	 while(tmp_offset != segsize) {
 	 	/* Attempt to get a PVO for this section */
+	 	uintptr_t len = MIN(segsize - tmp_offset, GASNETC_LAPI_PVO_EXTENT);
 	 	gasnetc_node_pvo_list[i].Util_type = LAPI_XLATE_ADDRESS;
-	 	gasnetc_node_pvo_list[i].length = ((tmp_offset + GASNETC_LAPI_PVO_EXTENT) < segsize) ? GASNETC_LAPI_PVO_EXTENT :
-		  (segsize - i*GASNETC_LAPI_PVO_EXTENT);
+	 	gasnetc_node_pvo_list[i].length = len;
 	 	gasnetc_node_pvo_list[i].usr_pvo = 0;
-	 	gasnetc_node_pvo_list[i].address = (void *) (((lapi_long_t) segbase) + i*GASNETC_LAPI_PVO_EXTENT);
+	 	gasnetc_node_pvo_list[i].address = (void *) (((lapi_long_t) segbase) + tmp_offset);
 	 	gasnetc_node_pvo_list[i].operation = LAPI_RDMA_ACQUIRE;									
 	 	GASNETC_LCHECK(LAPI_Util(gasnetc_lapi_context, (lapi_util_t *) (&(gasnetc_node_pvo_list[i]))));
-                GASNETI_TRACE_PRINTF(C,("gasnetc_attach: node = %d i=%d usr_pvo=%ld (size=%ld) length=%d address=%ld segbase=%ld\n",gasneti_mynode,i,(uint64_t) gasnetc_node_pvo_list[i].usr_pvo,sizeof(lapi_user_pvo_t),gasnetc_node_pvo_list[i].length,(size_t) gasnetc_node_pvo_list[i].address,(size_t) segbase));
-	 	tmp_offset += GASNETC_LAPI_PVO_EXTENT;
+                GASNETI_TRACE_PRINTF(C,("pvo[i=%d]: usr_pvo=0x%lx length=0x%lx address=%p",i,(ulong) gasnetc_node_pvo_list[i].usr_pvo,len,gasnetc_node_pvo_list[i].address));
+	 	tmp_offset += len;
 	 	i++;
 	 }
-
-    for(i=0;i < my_num_pvos;i++) {
-      GASNETI_TRACE_PRINTF(C,("after getting node %d gasnetc_node_pvo_list[%d].usr_pvo = %ld\n",gasneti_mynode, i,(uint64_t)( gasnetc_node_pvo_list[i].usr_pvo)));
-    }		
-
 	 
     /* Exchange PVOs with everybody else so that given a
      * (node, offset) pair, a remode node can find the
@@ -797,6 +792,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
       GASNETC_LCHECK(LAPI_Address_init64(gasnetc_lapi_context, tmp_long, tmp_pvo_ptr));
       for (j=0;j < gasneti_nodes;j++) {
         gasnetc_pvo_table[j][i] = tmp_pvo_ptr[j];
+        GASNETI_TRACE_PRINTF(C,("gasnetc_pvo_table[node=%d][idx=%d] = 0x%lx",j,i,(ulong)gasnetc_pvo_table[j][i]));
       }
     }		
     gasneti_free(tmp_pvo_ptr);
