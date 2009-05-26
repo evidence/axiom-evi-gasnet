@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2009/05/25 22:12:50 $
- * $Revision: 1.111 $
+ *     $Date: 2009/05/26 01:24:59 $
+ * $Revision: 1.112 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -594,17 +594,19 @@ static void gasnete_lapi_reap_network_buffer(lapi_handle_t *hndl, void *user_dat
 {
   gasnete_lapi_nb *nb_id = (gasnete_lapi_nb *) user_data;
   int done = gasneti_weakatomic_decrement_and_test(&(nb_id->num_waiting),0);
-  /* Bump up the origin counter (ICK, loopback Put to get it incremented) */
-  GASNETC_LCHECK(LAPI_Put(gasnetc_lapi_context, gasneti_mynode, 0,NULL, NULL, NULL, NULL, nb_id->origin_counter));
+  lapi_cntr_t *origin_counter = nb_id->origin_counter;
   if (done) {
     /* Copy out GET if needed*/
     if(nb_id->get_length) {
       memcpy(nb_id->get_buffer, nb_id->data, nb_id->get_length);
+      gasneti_sync_writes();
     }
 
     /* Return this guy to the pool */
     gasneti_lifo_push(&gasnete_free_nb_list, nb_id);
   }
+  /* Bump up the origin counter (ICK, loopback Put to get it incremented) */
+  GASNETC_LCHECK(LAPI_Put(gasnetc_lapi_context, gasneti_mynode, 0,NULL, NULL, NULL, origin_counter, NULL));
 }
 
 static void gasnete_lapi_reap_pvo(lapi_handle_t *hndl, void *user_data, lapi_sh_info_t *info)
