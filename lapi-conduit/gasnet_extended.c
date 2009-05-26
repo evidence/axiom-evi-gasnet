@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2009/05/26 03:20:05 $
- * $Revision: 1.113 $
+ *     $Date: 2009/05/26 03:40:31 $
+ * $Revision: 1.114 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -595,7 +595,7 @@ static void gasnete_lapi_reap_network_buffer(lapi_handle_t *hndl, void *user_dat
   gasnete_lapi_nb *nb_id = (gasnete_lapi_nb *) user_data;
   lapi_cntr_t *origin_counter = nb_id->origin_counter;
 
-  if (gasneti_weakatomic_decrement_and_test(&(nb_id->num_waiting),0)) {
+  if (gasneti_weakatomic_decrement_and_test(&(nb_id->num_waiting),GASNETI_ATOMIC_RMB_PRE)) {
     /* Copy out GET if needed*/
     if(nb_id->get_length) {
       memcpy(nb_id->get_buffer, nb_id->data, nb_id->get_length);
