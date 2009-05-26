@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2009/05/25 23:47:38 $
- * $Revision: 1.129 $
+ *     $Date: 2009/05/26 00:08:04 $
+ * $Revision: 1.130 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1225,7 +1225,6 @@ extern int gasnetc_AMRequestMediumM(
     token_len = TOKEN_LEN(numargs);
     udata_avail = gasnetc_max_lapi_uhdr_size - token_len - GASNETC_DOUBLEWORD;
 
-#if 0
     /* can we pack the data into the uhdr? */
     if (nbytes <= udata_avail) {
 	memcpy(udata_start,source_addr,nbytes);
@@ -1233,7 +1232,6 @@ extern int gasnetc_AMRequestMediumM(
 	udata_packed = 1;
 	GASNETC_MSG_SET_PACKED(msg);
     }
-#endif
 
     GASNETC_GEN_CSUM(msg, numargs, source_addr, nbytes);
 
@@ -1576,7 +1574,6 @@ extern int gasnetc_AMReplyMediumM(
     token_len = TOKEN_LEN(numargs);
     udata_avail = gasnetc_max_lapi_uhdr_size - token_len - GASNETC_DOUBLEWORD;
 
-#if 0
     /* can we pack the data into the uhdr? */
     if (nbytes <= udata_avail) {
 	memcpy(udata_start,source_addr,nbytes);
@@ -1584,7 +1581,6 @@ extern int gasnetc_AMReplyMediumM(
 	udata_packed = 1;
 	GASNETC_MSG_SET_PACKED(msg);
     }
-#endif
 
     GASNETC_GEN_CSUM(msg, numargs, source_addr, nbytes);
 
