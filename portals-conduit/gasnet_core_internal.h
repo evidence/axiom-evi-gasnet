@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2009/05/16 15:19:34 $
- * $Revision: 1.7 $
+ *     $Date: 2009/06/05 00:33:14 $
+ * $Revision: 1.8 $
  * Description: GASNet PORTALS conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -47,7 +47,7 @@
 
 /* ------------------------------------------------------------------------------------ */
 
-#if HAVE_ALLOCA
+#if HAVE_ALLOCA && !PLATFORM_COMPILER_PGI
   #define gasnetc_alloc_tmp(_nbytes) alloca(_nbytes)
   #define gasnetc_free_tmp(_ptr)     ((void)0)
 #else
