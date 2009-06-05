@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2009/05/22 02:03:47 $
- * $Revision: 1.35 $
+ *     $Date: 2009/06/05 00:16:06 $
+ * $Revision: 1.36 $
  * Description: GASNet portals conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *                 Michael Welcome <mlwelcome@lbl.gov>
@@ -476,13 +476,12 @@ SHORT_HANDLER(gasnetc_noop_reph,0,0,
     gasneti_assert(th->snd_credits == 0);		\
   } while(0)
 
-#define GASNETC_AM_LOOPBACK_COMMON() \
-    gasnet_handlerarg_t args[gasnet_AMMaxArgs()];	\
-    GASNETC_ZERO_AMARGS(args);				\
+#define GASNETC_AM_LOOPBACK_COMMON(_args) \
+    GASNETC_ZERO_AMARGS(_args);				\
     do {						\
       va_list argptr; int i;				\
       va_start(argptr, numargs);			\
-      for (i = 0; i < numargs; i++) args[i] = va_arg(argptr,gasnet_handlerarg_t);\
+      for (i = 0; i < numargs; i++) _args[i] = va_arg(argptr,gasnet_handlerarg_t);\
       va_end(argptr);					\
     } while (0)
 
@@ -550,7 +549,7 @@ extern int gasnetc_AMRequestShortM(
   if (dest == gasneti_mynode) {
     gasnetc_ptl_token_t tok;
     gasnet_token_t      token = (gasnet_token_t)&tok;
-    GASNETC_AM_LOOPBACK_COMMON();
+    GASNETC_AM_LOOPBACK_COMMON(tok.args);
     tok.srcnode = gasneti_mynode;
     tok.initiator_offset = 0;
     GASNETI_TRACE_PRINTF(C,("AM_LOOPBACK: S_Req handler=%d, narg=%d",handler,numargs));
@@ -646,7 +645,7 @@ extern int gasnetc_AMRequestMediumM(
     gasnetc_ptl_token_t tok;
     gasnet_token_t      token = (gasnet_token_t)&tok;
     void *tmpdata = gasnetc_alloc_tmp(nbytes);
-    GASNETC_AM_LOOPBACK_COMMON();
+    GASNETC_AM_LOOPBACK_COMMON(tok.args);
     gasneti_assert(!((uintptr_t)tmpdata & 7)); /* x86_64 ABI ensures this, alloca() does not */
     tok.srcnode = gasneti_mynode;
     tok.initiator_offset = 0;
@@ -904,7 +903,7 @@ extern int gasnetc_AMRequestMediumM(
     if (dest == gasneti_mynode) {					\
       gasnetc_ptl_token_t tok;						\
       gasnet_token_t      token = (gasnet_token_t)&tok;			\
-      GASNETC_AM_LOOPBACK_COMMON();					\
+      GASNETC_AM_LOOPBACK_COMMON(tok.args);				\
       tok.srcnode = gasneti_mynode;					\
       tok.initiator_offset = 0;						\
       memcpy(dest_addr,source_addr,nbytes);				\
@@ -1024,7 +1023,8 @@ extern int gasnetc_AMReplyShortM(
 
   /* handle loopback case */
   if (ptok->srcnode == gasneti_mynode) {
-    GASNETC_AM_LOOPBACK_COMMON();
+    gasnet_handlerarg_t args[gasnet_AMMaxArgs()];
+    GASNETC_AM_LOOPBACK_COMMON(args);
     GASNETI_TRACE_PRINTF(C,("AM_LOOPBACK: S_Rpl handler=%d, narg=%d",handler,numargs));
     GASNETC_DBGMSG(1,0,"S",gasneti_mynode,ptok->srcnode,handler,numargs,args,0,ptok->credits,0,NULL,th);
     GASNETI_RUN_HANDLER_SHORT(0, handler, gasnetc_handler[handler], token, args, numargs);
@@ -1094,8 +1094,9 @@ extern int gasnetc_AMReplyMediumM(
 
   /* handle loopback case */
   if (ptok->srcnode == gasneti_mynode) {
+    gasnet_handlerarg_t args[gasnet_AMMaxArgs()];
     void *tmpdata = gasnetc_alloc_tmp(nbytes);
-    GASNETC_AM_LOOPBACK_COMMON();
+    GASNETC_AM_LOOPBACK_COMMON(args);
     gasneti_assert(!((uintptr_t)tmpdata & 7)); /* x86_64 ABI ensures this, alloca() does not */
     /* dont allow handler to modify source memory */
     memcpy(tmpdata,source_addr,nbytes);
@@ -1180,7 +1181,8 @@ extern int gasnetc_AMReplyLongM(
 
   /* handle loopback case */
   if (dest == gasneti_mynode) {
-    GASNETC_AM_LOOPBACK_COMMON();
+    gasnet_handlerarg_t args[gasnet_AMMaxArgs()];
+    GASNETC_AM_LOOPBACK_COMMON(args);
     memcpy(dest_addr,source_addr,nbytes);
     GASNETI_TRACE_PRINTF(C,("AM_LOOPBACK: L_Rpl handler=%d, narg=%d nbytes=%d",handler,numargs,(int)nbytes));
     GASNETC_DBGMSG(1,0,"L",gasneti_mynode,ptok->srcnode,handler,numargs,args,0,ptok->credits,nbytes,source_addr,th);
