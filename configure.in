@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2009/06/04 22:45:46 $
-# $Revision: 1.549 $
+#     $Date: 2009/06/06 00:09:56 $
+# $Revision: 1.550 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.549 $)
+AC_REVISION($Revision: 1.550 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -3363,6 +3363,7 @@ AC_DEFUN([GASNET_CHECK_SYS_DECL], [
 	#include <stdlib.h>
 	#include <unistd.h>
 	#include <string.h>
+	#include <ctype.h>
   ], [
     #ifdef $1
       /* It is a macro and that is OK */
@@ -3381,6 +3382,10 @@ GASNET_CHECK_SYS_DECL(setenv)
 GASNET_CHECK_SYS_DECL(unsetenv)
 GASNET_CHECK_SYS_DECL(snprintf)
 GASNET_CHECK_SYS_DECL(vsnprintf)
+
+GASNET_CHECK_SYS_DECL(isblank)
+GASNET_CHECK_SYS_DECL(isascii)
+GASNET_CHECK_SYS_DECL(toascii)
 
 ########################################################################
 # BACKTRACE support
