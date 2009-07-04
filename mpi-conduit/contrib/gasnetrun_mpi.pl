@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2009/02/10 04:50:50 $
-# $Revision: 1.68 $
+#     $Date: 2009/07/04 23:53:44 $
+# $Revision: 1.69 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -668,6 +668,12 @@ if ($numproc && $is_bgp) {
       die "BG/P only supports 1, 2 or 4 ppn";
     }
   }
+  $dashN_ok = 1;
+}
+
+if ($numnode && $is_infinipath) {
+  my $ppn = int( ( $numproc + $numnode - 1 ) / $numnode );
+  @numprocargs = ($numproc, '-ppn', $ppn);
   $dashN_ok = 1;
 }
 
