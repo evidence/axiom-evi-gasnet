@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2009/07/04 23:53:44 $
-# $Revision: 1.69 $
+#     $Date: 2009/07/05 21:28:35 $
+# $Revision: 1.70 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -106,6 +106,7 @@ sub gasnet_encode($) {
     my $is_jacquard = ($mpirun_help =~ m| \[-noenv\] |) && !$is_elan_mpi;
     my $is_infinipath = ($mpirun_help =~ m|InfiniPath |);
     my $is_srun    = ($mpirun_help =~ m|srun: invalid option|);
+    my $is_prun    = ($mpirun_help =~ m|railmask|);
     my $envprog = $ENV{'ENVCMD'};
     if (! -x $envprog) { # SuperUX has broken "which" implementation, so avoid if possible
       $envprog = `which env`;
@@ -269,6 +270,11 @@ sub gasnet_encode($) {
 	@verbose_opt = ("-V");
     } elsif ($is_srun) {
 	$spawner_desc = "SLURM srun";
+	# this spawner already propagates the environment for us automatically
+	%envfmt = ( 'noenv' => 1 );
+	@verbose_opt = ("-v");
+    } elsif ($is_prun) {
+	$spawner_desc = "Quadrics/RMS prun";
 	# this spawner already propagates the environment for us automatically
 	%envfmt = ( 'noenv' => 1 );
 	@verbose_opt = ("-v");
@@ -603,7 +609,7 @@ if ($is_lam && $numnode) {
   @numprocargs = ($numproc, 'n' . join(',', @tmp));
 }
     
-if ($is_srun && $numnode) {
+if (($is_srun || $is_prun) && $numnode) {
   @numprocargs = ($numproc, '-N', $numnode);
   $dashN_ok = 1;
 }
