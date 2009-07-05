@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2009/03/30 23:12:48 $
- * $Revision: 1.232 $
+ *     $Date: 2009/07/05 17:17:14 $
+ * $Revision: 1.233 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -822,7 +822,6 @@ void gasnetc_dump_cqs(gasnetc_wc_t *comp, gasnetc_hca_t *hca, const int is_snd))
     gasnetc_sreq_t *sreq = (gasnetc_sreq_t *)(uintptr_t)comp->gasnetc_f_wr_id;
     gasnet_node_t node = gasnetc_epid2node(sreq->cep->epid);
     int qpi = gasnetc_epid2qpi(sreq->cep->epid);
-    label = "rcv";
     if (comp->status == GASNETC_WC_RETRY_EXC_ERR) {
       fprintf(stderr, "@ %d> snd status=TIMEOUT opcode=%d dst_node=%d dst_qp=%d\n", gasneti_mynode, comp->opcode, (int)node, qpi-1);
     } else {
