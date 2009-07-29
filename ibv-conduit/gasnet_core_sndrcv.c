@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2009/07/11 22:29:25 $
- * $Revision: 1.234 $
+ *     $Date: 2009/07/29 05:51:06 $
+ * $Revision: 1.235 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -3060,7 +3060,7 @@ extern int gasnetc_sndrcv_init(void) {
     /* no AM or RDMA on the wire, but still need bufs for constructing AMs */
     gasnetc_bbuf_limit = gasnetc_num_qps * gasnetc_am_oust_pp;
   }
-  GASNETI_TRACE_PRINTF(C, ("Final/effective GASNET_BBUF_LIMIT = %d", gasnetc_bbuf_limit));
+  GASNETI_TRACE_PRINTF(C, ("Final/effective GASNET_BBUF_COUNT = %d", gasnetc_bbuf_limit));
 
   /*
    * setup RCV resources
