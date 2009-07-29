@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2009/07/11 22:29:25 $
- * $Revision: 1.210 $
+ *     $Date: 2009/07/29 05:52:00 $
+ * $Revision: 1.211 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1448,6 +1448,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     }
 #endif
   }
+  GASNETI_TRACE_PRINTF(C, ("Final/effective GASNET_INLINESEND_LIMIT = %d", (int)gasnetc_inline_limit));
 
   gasneti_free(port_map);
   gasneti_free(port_tbl);
