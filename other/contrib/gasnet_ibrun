@@ -6,8 +6,8 @@
 # for mpi- and ibv-conduits on Ranger, or as the mpi_spawn and
 # ibv_spawn settings with Berkeley UPC.
 # -PHH 2009.03.06
-# $Id: gasnet_ibrun,v 1.5 2009/05/13 17:09:16 phargrov Exp $
-while [ $# -gt 1 ]; do
+# $Id: gasnet_ibrun,v 1.6 2009/08/02 05:00:42 phargrov Exp $
+while [ $# -ge 1 ]; do
   case "$1" in
     -v) 
       set -x
