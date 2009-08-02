@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2009/08/02 23:22:48 $
- * $Revision: 1.214 $
+ *     $Date: 2009/08/02 23:57:59 $
+ * $Revision: 1.215 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -62,12 +62,7 @@ GASNETI_IDENT(gasnetc_IdentString_Name,    "$GASNetCoreLibraryName: " GASNET_COR
 #define GASNETC_DEFAULT_NUM_QPS			0	/* 0 = one per HCA */
 
 /* Protocol switch points */
-#if GASNET_CONDUIT_VAPI
-  #define GASNETC_DEFAULT_INLINESEND_LIMIT	72
-#else
-  /* Use HCA maximum */
-  #define GASNETC_DEFAULT_INLINESEND_LIMIT	(size_t)(-1)
-#endif
+#define GASNETC_DEFAULT_INLINESEND_LIMIT	72
 #define GASNETC_DEFAULT_NONBULKPUT_BOUNCE_LIMIT	(64*1024)
 #define GASNETC_DEFAULT_PACKEDLONG_LIMIT	GASNETC_MAX_PACKEDLONG
 #if !GASNETC_PIN_SEGMENT
