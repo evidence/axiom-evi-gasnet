@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2009/07/29 05:52:00 $
- * $Revision: 1.211 $
+ *     $Date: 2009/08/02 03:07:58 $
+ * $Revision: 1.212 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -137,8 +137,8 @@ uintptr_t	gasnetc_max_msg_sz;
   int			gasnetc_max_regs;
   uintptr_t		gasnetc_seg_start;
   uintptr_t		gasnetc_seg_end;
-  unsigned long		gasnetc_pin_maxsz;
-  int			gasnetc_pin_maxsz_shift;
+  uint64_t 		gasnetc_pin_maxsz;
+  unsigned int		gasnetc_pin_maxsz_shift;
 #endif
 firehose_info_t	gasnetc_firehose_info;
 
@@ -484,7 +484,7 @@ static int gasnetc_load_settings(void) {
   }
 
   #if GASNETC_PIN_SEGMENT
-  { long tmp;
+  { uint64_t tmp;
 
     GASNETC_ENVINT(gasnetc_pin_maxsz, GASNET_PIN_MAXSZ, GASNETC_DEFAULT_PIN_MAXSZ, GASNET_PAGESIZE, 1);
     if_pf (!GASNETI_POWEROFTWO(gasnetc_pin_maxsz)) {
@@ -1057,7 +1057,7 @@ static int gasnetc_init(int *argc, char ***argv) {
   }
 
   /* Report/check hca and port properties */
-  gasnetc_max_msg_sz = ~0;
+  gasnetc_max_msg_sz = ~((uintptr_t)0);
   GASNETC_FOR_ALL_HCA_INDEX(h) {
     hca = &gasnetc_hca[h];
     GASNETI_TRACE_PRINTF(C,(GASNET_CONDUIT_NAME_STR_LC "-conduit HCA properties (%d of %d) = {", h+1, gasnetc_num_hcas));
@@ -1179,8 +1179,15 @@ static int gasnetc_init(int *argc, char ***argv) {
   }
   #if GASNETC_PIN_SEGMENT
     if_pf (gasnetc_max_msg_sz < gasnetc_pin_maxsz) {
-      GASNETC_FOR_ALL_HCA(hca) { (void)gasnetc_close_hca(hca->handle); }
-      GASNETI_RETURN_ERRR(RESOURCE, "GASNET_PIN_MAXSZ exceeds HCA capabilities");
+      char val1[16], val2[16];
+      uint64_t tmp = gasnetc_max_msg_sz;
+      for (gasnetc_pin_maxsz_shift=-1; tmp != 0; ++gasnetc_pin_maxsz_shift) { tmp >>= 1; }
+      gasneti_format_number(gasnetc_pin_maxsz, val1, sizeof(val1), 1);
+      gasnetc_pin_maxsz = ((uint64_t)1) << gasnetc_pin_maxsz_shift;
+      gasneti_format_number(gasnetc_pin_maxsz, val2, sizeof(val2), 1);
+      fprintf(stderr,
+              "WARNING: Requested GASNET_PIN_MAXSZ %s reduced by HCA's max_msg_sz to %s\n",
+              val1, val2);
     }
   #endif
   gasnetc_bounce_limit = MIN(gasnetc_max_msg_sz, gasnetc_bounce_limit);
