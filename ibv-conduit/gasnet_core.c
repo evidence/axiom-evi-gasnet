@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2009/08/02 22:24:18 $
- * $Revision: 1.213 $
+ *     $Date: 2009/08/02 23:22:48 $
+ * $Revision: 1.214 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -56,7 +56,7 @@ GASNETI_IDENT(gasnetc_IdentString_Name,    "$GASNetCoreLibraryName: " GASNET_COR
 #define GASNETC_DEFAULT_BBUF_COUNT		1024	/* Max bounce buffers prepinned, 0 = automatic */
 
 /* Limit on size of prepinned regions */
-#define GASNETC_DEFAULT_PIN_MAXSZ	(256*1024)
+#define GASNETC_DEFAULT_PIN_MAXSZ		0	/* 0 = automatic (VAPI->256K, IBV->max_msg_sz) */
 
 /* Use of multiple QPs */
 #define GASNETC_DEFAULT_NUM_QPS			0	/* 0 = one per HCA */
@@ -195,6 +195,14 @@ static void gasnetc_check_config(void) {
 
   gasneti_assert_always(offsetof(gasnetc_medmsg_t,args) == GASNETC_MEDIUM_HDRSZ);
   gasneti_assert_always(offsetof(gasnetc_longmsg_t,args) == GASNETC_LONG_HDRSZ);
+}
+
+/* Set gasnetc_pin_maxsz_shift while rounding gasnetc_pin_maxsz down to a power of two */
+static void setup_pin_maxsz(uint64_t size) {
+  gasneti_assert(size != 0);
+  size >>= 1;
+  for (gasnetc_pin_maxsz_shift=0; size != 0; ++gasnetc_pin_maxsz_shift) { size >>= 1; }
+  gasnetc_pin_maxsz = ((uint64_t)1) << gasnetc_pin_maxsz_shift;
 }
 
 extern void gasnetc_unpin(gasnetc_hca_t *hca, gasnetc_memreg_t *reg) {
@@ -484,15 +492,17 @@ static int gasnetc_load_settings(void) {
   }
 
   #if GASNETC_PIN_SEGMENT
-  { uint64_t tmp;
-
-    GASNETC_ENVINT(gasnetc_pin_maxsz, GASNET_PIN_MAXSZ, GASNETC_DEFAULT_PIN_MAXSZ, GASNET_PAGESIZE, 1);
-    if_pf (!GASNETI_POWEROFTWO(gasnetc_pin_maxsz)) {
+    GASNETC_ENVINT(gasnetc_pin_maxsz, GASNET_PIN_MAXSZ, GASNETC_DEFAULT_PIN_MAXSZ, 0, 1);
+    if (!gasnetc_pin_maxsz) {
+      /* 0=automatic.  Will setup later */
+    } else if (!GASNETI_POWEROFTWO(gasnetc_pin_maxsz)) {
       gasneti_fatalerror("GASNET_PIN_MAXSZ (%lu) is not a power of 2", gasnetc_pin_maxsz);
+    } else if (gasnetc_pin_maxsz < GASNET_PAGESIZE) {
+      gasneti_fatalerror("GASNET_PIN_MAXSZ (%lu) is less than GASNET_PAGESIZE (%lu)",
+                         (unsigned long)gasnetc_pin_maxsz, (unsigned long)GASNET_PAGESIZE);
+    } else {
+      setup_pin_maxsz(gasnetc_pin_maxsz);
     }
-    tmp = gasnetc_pin_maxsz;
-    for (gasnetc_pin_maxsz_shift=-1; tmp != 0; ++gasnetc_pin_maxsz_shift) { tmp >>= 1; }
-  }
   #else
     GASNETC_ENVINT(gasnetc_putinmove_limit, GASNET_PUTINMOVE_LIMIT, GASNETC_DEFAULT_PUTINMOVE_LIMIT, 0, 1);
     if_pf (gasnetc_putinmove_limit > GASNETC_PUTINMOVE_LIMIT_MAX) {
@@ -588,7 +598,8 @@ static int gasnetc_load_settings(void) {
   GASNETI_TRACE_PRINTF(C,  ("  GASNET_BBUF_COUNT               = %d%s",
 			  	gasnetc_bbuf_limit, gasnetc_bbuf_limit ? "": " (automatic)"));
 #if GASNETC_PIN_SEGMENT
-  GASNETI_TRACE_PRINTF(C,  ("  GASNET_PIN_MAXSZ                = %lu", gasnetc_pin_maxsz));
+  GASNETI_TRACE_PRINTF(C,  ("  GASNET_PIN_MAXSZ                = %lu%s", (unsigned long)gasnetc_pin_maxsz,
+				(!gasnetc_pin_maxsz ? " (automatic)" : "")));
 #endif
   GASNETI_TRACE_PRINTF(C,  ("  GASNET_INLINESEND_LIMIT         = %d%s", (int)gasnetc_inline_limit,
 				(gasnetc_inline_limit == (size_t)-1 ? " (automatic)" : "")));
@@ -1178,16 +1189,25 @@ static int gasnetc_init(int *argc, char ***argv) {
     }
   }
   #if GASNETC_PIN_SEGMENT
-    if_pf (gasnetc_max_msg_sz < gasnetc_pin_maxsz) {
-      char val1[16], val2[16];
-      uint64_t tmp = gasnetc_max_msg_sz;
-      for (gasnetc_pin_maxsz_shift=-1; tmp != 0; ++gasnetc_pin_maxsz_shift) { tmp >>= 1; }
-      gasneti_format_number(gasnetc_pin_maxsz, val1, sizeof(val1), 1);
-      gasnetc_pin_maxsz = ((uint64_t)1) << gasnetc_pin_maxsz_shift;
-      gasneti_format_number(gasnetc_pin_maxsz, val2, sizeof(val2), 1);
-      fprintf(stderr,
-              "WARNING: Requested GASNET_PIN_MAXSZ %s reduced by HCA's max_msg_sz to %s\n",
-              val1, val2);
+    if (!gasnetc_pin_maxsz || (gasnetc_pin_maxsz > gasnetc_max_msg_sz)) {
+      uint64_t orig = gasnetc_pin_maxsz;
+      char newval[16];
+
+#if GASNET_CONDUIT_VAPI
+      setup_pin_maxsz(MIN(256 * 1024, gasnetc_max_msg_sz));
+#else
+      setup_pin_maxsz(gasnetc_max_msg_sz);
+#endif
+      gasneti_format_number(gasnetc_pin_maxsz, newval, sizeof(newval), 1);
+      GASNETI_TRACE_PRINTF(C, ("Final/effective GASNET_PIN_MAXSZ = %s", newval));
+
+      if (orig != 0) {
+        char oldval[16];
+        gasneti_format_number(orig, oldval, sizeof(oldval), 1);
+        fprintf(stderr,
+                "WARNING: Requested GASNET_PIN_MAXSZ %s reduced by HCA's max_msg_sz to %s\n",
+                oldval, newval);
+      }
     }
   #endif
   gasnetc_bounce_limit = MIN(gasnetc_max_msg_sz, gasnetc_bounce_limit);
