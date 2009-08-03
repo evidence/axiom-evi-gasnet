@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2009/07/30 05:59:14 $
- * $Revision: 1.236 $
+ *     $Date: 2009/08/03 03:05:37 $
+ * $Revision: 1.237 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -2359,7 +2359,9 @@ int gasnetc_get_rkey_index(const gasnetc_epid_t epid, uintptr_t start, size_t *l
 #if GASNET_ALIGNED_SEGMENTS
   const uintptr_t segbase = gasnetc_seg_start;
 #else
-  const uintptr_t segbase = (uintptr_t)gasneti_seginfo[gasnetc_epid2node(epid)].addr;
+  const gasnet_seginfo_t *seginfo = &gasneti_seginfo[gasnetc_epid2node(epid)];
+  const uintptr_t segbase = (uintptr_t)seginfo->addr;
+  const uintptr_t seglen  = (uintptr_t)seginfo->size;
 #endif
   size_t len = *len_p;
   uintptr_t end = start + (len - 1);
@@ -2379,7 +2381,7 @@ int gasnetc_get_rkey_index(const gasnetc_epid_t epid, uintptr_t start, size_t *l
   tmp = gasnetc_seg_ends[index];
 #else
   /* gasnetc_seg_ends values are relative */
-  tmp = gasnetc_seg_ends[index] + segbase;
+  tmp = MIN(gasnetc_seg_ends[index], seglen) + segbase;
 #endif
   if (end > tmp) {
     *len_p = (tmp - start) + 1;
@@ -3339,6 +3341,15 @@ extern void gasnetc_sndrcv_attach_peer(gasnet_node_t node) {
       gasnetc_seg_ends[i] = ((uintptr_t)(i+1) << gasnetc_pin_maxsz_shift) - 1;
 #endif
     }
+#if GASNET_ALIGNED_SEGMENTS
+    gasneti_assert(i == gasnetc_max_regs);
+    if (gasnetc_seg_ends[i-1] < gasnetc_seg_start) {
+      /* Fixup any wrap-around */
+      gasnetc_seg_ends[i-1] = ~((uintptr_t)0);
+    }
+#else
+    /* Fixup is in gasnetc_get_rkey_index() due to differing lengths */
+#endif
   }
 #else
   /* Nothing currently needed */
