@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2009/08/02 23:57:59 $
- * $Revision: 1.215 $
+ *     $Date: 2009/08/03 00:22:55 $
+ * $Revision: 1.216 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -381,7 +381,7 @@ static void gasnetc_init_pin_info(int first_local, int num_local) {
     if (gasneti_mynode == first_local) {
       uintptr_t size = gasnetc_trypin(limit, step);
       if_pf (!size) {
-        gasneti_fatalerror("ERROR: Failure to determine the max pinnable memory.  VAPI may be misconfigured.");
+        gasneti_fatalerror("ERROR: Failure to determine the max pinnable memory.  " GASNET_CONDUIT_NAME_STR " may be misconfigured.");
       }
       gasnetc_pin_info.memory = size;
     }
