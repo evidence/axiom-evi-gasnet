@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2009/08/03 02:16:53 $
- * $Revision: 1.217 $
+ *     $Date: 2009/08/03 02:19:10 $
+ * $Revision: 1.218 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -493,7 +493,7 @@ static int gasnetc_load_settings(void) {
     if (!gasnetc_pin_maxsz) {
       /* 0=automatic.  Will setup later */
     } else if (!GASNETI_POWEROFTWO(gasnetc_pin_maxsz)) {
-      gasneti_fatalerror("GASNET_PIN_MAXSZ (%lu) is not a power of 2", gasnetc_pin_maxsz);
+      gasneti_fatalerror("GASNET_PIN_MAXSZ (%llu) is not a power of 2", (unsigned long long)gasnetc_pin_maxsz);
     } else if (gasnetc_pin_maxsz < GASNET_PAGESIZE) {
       gasneti_fatalerror("GASNET_PIN_MAXSZ (%lu) is less than GASNET_PAGESIZE (%lu)",
                          (unsigned long)gasnetc_pin_maxsz, (unsigned long)GASNET_PAGESIZE);
