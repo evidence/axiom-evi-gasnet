@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2009/08/03 02:19:10 $
- * $Revision: 1.218 $
+ *     $Date: 2009/08/03 08:46:13 $
+ * $Revision: 1.219 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -192,6 +192,7 @@ static void gasnetc_check_config(void) {
   gasneti_assert_always(offsetof(gasnetc_longmsg_t,args) == GASNETC_LONG_HDRSZ);
 }
 
+#if GASNETC_PIN_SEGMENT
 /* Set gasnetc_pin_maxsz_shift while rounding gasnetc_pin_maxsz down to a power of two */
 static void setup_pin_maxsz(uint64_t size) {
   gasneti_assert(size != 0);
@@ -199,6 +200,7 @@ static void setup_pin_maxsz(uint64_t size) {
   for (gasnetc_pin_maxsz_shift=0; size != 0; ++gasnetc_pin_maxsz_shift) { size >>= 1; }
   gasnetc_pin_maxsz = ((uint64_t)1) << gasnetc_pin_maxsz_shift;
 }
+#endif
 
 extern void gasnetc_unpin(gasnetc_hca_t *hca, gasnetc_memreg_t *reg) {
   int rc = gasnetc_dereg_mr(hca->handle, reg->handle);
