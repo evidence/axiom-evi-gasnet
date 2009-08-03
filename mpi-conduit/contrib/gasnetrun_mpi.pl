@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2009/07/05 21:28:35 $
-# $Revision: 1.70 $
+#     $Date: 2009/08/03 10:48:56 $
+# $Revision: 1.71 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -748,7 +748,7 @@ if ($numnode && $is_infinipath) {
  	}
     } else {
 	exec(@spawncmd);
-	die "gasnetrun: exec failed: $!\n";
+	die "gasnetrun: exec(@spawncmd) failed: $!\n";
     }
     exit(0);
 __END__
