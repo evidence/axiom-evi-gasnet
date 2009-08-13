@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2009/08/13 07:34:56 $
- * $Revision: 1.238 $
+ *     $Date: 2009/08/13 08:48:01 $
+ * $Revision: 1.239 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -3145,8 +3145,8 @@ extern int gasnetc_sndrcv_init(void) {
       gasneti_weakatomic_set(&hca->amrdma_rcv.count, 0, 0);
       if (gasnetc_amrdma_max_peers) {
 	const int max_peers = hca->amrdma_rcv.max_peers;
-	size_t alloc_size = max_peers * (gasnetc_amrdma_depth << GASNETC_AMRDMA_SZ_LG2) + GASNETC_AMRDMA_PAD;
-	void *buf = gasneti_mmap(GASNETI_PAGE_ALIGNUP(alloc_size));
+	size_t alloc_size = GASNETI_PAGE_ALIGNUP(max_peers * (gasnetc_amrdma_depth << GASNETC_AMRDMA_SZ_LG2) + GASNETC_AMRDMA_PAD);
+	void *buf = gasneti_mmap(alloc_size);
 
         if_pf (buf == MAP_FAILED) {
           buf = NULL;
