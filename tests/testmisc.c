@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testmisc.c,v $
- *     $Date: 2009/08/13 03:05:26 $
- * $Revision: 1.44 $
+ *     $Date: 2009/08/13 04:13:31 $
+ * $Revision: 1.45 $
  * Description: GASNet misc performance test
  *   Measures the overhead associated with a number of purely local 
  *   operations that involve no communication. 
@@ -463,9 +463,11 @@ void doit7(void) { GASNET_BEGIN_FUNCTION();
 }
 /* ------------------------------------------------------------------------------------ */
 void doit8(void) { GASNET_BEGIN_FUNCTION();
-    /* 1024-byte buffers, aligned and not on the stack */
-    static long src[1024 / sizeof(long)];
-    static long dst[1024 / sizeof(long)];
+    /* buffers, aligned and not on the stack */
+    static long src[(1024 + sizeof(void*)) / sizeof(long)];
+    static long dst[(1024 + sizeof(void*)) / sizeof(long)];
+    const char *s = (const char *)src;
+    char *d = (char *)dst;
 
     TEST_SECTION_BEGIN();
     if (TEST_SECTION_ENABLED()) {
@@ -474,14 +476,36 @@ void doit8(void) { GASNET_BEGIN_FUNCTION();
         ((uint8_t*)src)[i] = TEST_RAND(0,255);
       }
     }
+
     TIME_OPERATION("1024-byte gasnett_count0s()",
-      { GASNETI_UNUSED int junk = gasnett_count0s(src, 1024); });
+      { GASNETI_UNUSED int junk = gasnett_count0s(s, 1024); });
     TIME_OPERATION("1024-byte gasnett_count0s_copy()",
-      { GASNETI_UNUSED int junk = gasnett_count0s_copy(dst, src, 1024); });
+      { GASNETI_UNUSED int junk = gasnett_count0s_copy(d, s, 1024); });
     TIME_OPERATION("1024-byte gasnett_count0s() + memcpy()",
-      { GASNETI_UNUSED int junk = gasnett_count0s(src, 1024);
-        (void)memcpy(dst,src,1024);
+      { GASNETI_UNUSED int junk = gasnett_count0s(s, 1024);
+        (void)memcpy(d,s,1024);
       });
+
+    s += sizeof(void*) / 2;
+    d += sizeof(void*) / 2;
+    TIME_OPERATION("unaligned 1024-byte gasnett_count0s()",
+      { GASNETI_UNUSED int junk = gasnett_count0s(s, 1024); });
+    TIME_OPERATION("unaligned 1024-byte gasnett_count0s_copy()",
+      { GASNETI_UNUSED int junk = gasnett_count0s_copy(d, s, 1024); });
+    TIME_OPERATION("unaligned 1024-byte gasnett_count0s() + memcpy()",
+      { GASNETI_UNUSED int junk = gasnett_count0s(s, 1024);
+        (void)memcpy(d,s,1024);
+      });
+
+    s -= 1;
+    d += 1;
+    TIME_OPERATION("misaligned 1024-byte gasnett_count0s_copy()",
+      { GASNETI_UNUSED int junk = gasnett_count0s_copy(d, s, 1024); });
+    TIME_OPERATION("misaligned 1024-byte gasnett_count0s() + memcpy()",
+      { GASNETI_UNUSED int junk = gasnett_count0s(s, 1024);
+        (void)memcpy(d,s,1024);
+      });
+
     { volatile int temp;
       int volatile *ptr = &temp;
       TIME_OPERATION("gasnett_count0s_uint32_t()",
