@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2009/08/02 03:07:58 $
- * $Revision: 1.157 $
+ *     $Date: 2009/08/13 07:34:56 $
+ * $Revision: 1.158 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -395,7 +395,8 @@ typedef struct {
 #define GASNETC_AMRDMA_HDRSZ    sizeof(gasnetc_amrdma_hdr_t)
 #define GASNETC_AMRDMA_SZ	4096 /* Keep to a power-of-2 */  /* XXX: should determine automatically */
 #define GASNETC_AMRDMA_SZ_LG2	12 /* log-base-2(GASNETC_AMRDMA_SZ) */
-#define GASNETC_AMRDMA_LIMIT_MAX (GASNETC_AMRDMA_SZ - GASNETC_AMRDMA_HDRSZ)
+#define GASNETC_AMRDMA_PAD      (GASNETI_ALIGNUP(GASNETC_AMRDMA_HDRSZ,SIZEOF_VOID_P) - GASNETC_AMRDMA_HDRSZ)
+#define GASNETC_AMRDMA_LIMIT_MAX (GASNETC_AMRDMA_SZ - GASNETC_AMRDMA_HDRSZ - GASNETC_AMRDMA_PAD)
 typedef char gasnetc_amrdma_buf_t[GASNETC_AMRDMA_SZ];
 
 #define GASNETC_DEFAULT_AMRDMA_MAX_PEERS 32
