@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testmisc.c,v $
- *     $Date: 2009/04/20 06:40:08 $
- * $Revision: 1.43 $
+ *     $Date: 2009/08/13 03:05:26 $
+ * $Revision: 1.44 $
  * Description: GASNet misc performance test
  *   Measures the overhead associated with a number of purely local 
  *   operations that involve no communication. 
@@ -36,6 +36,7 @@ void doit4(void);
 void doit5(void);
 void doit6(void);
 void doit7(void);
+void doit8(void);
 /* ------------------------------------------------------------------------------------ */
 #define hidx_null_shorthandler        201
 #define hidx_justreply_shorthandler   202
@@ -457,6 +458,37 @@ void doit7(void) { GASNET_BEGIN_FUNCTION();
     if (TEST_SECTION_ENABLED() && (gasnet_nodes() > 1))
       MSG0("Note: this is actually the barrier time for %i nodes, "
            "since you're running with more than one node.\n", (int)gasnet_nodes());
+
+    doit8();
+}
+/* ------------------------------------------------------------------------------------ */
+void doit8(void) { GASNET_BEGIN_FUNCTION();
+    /* 1024-byte buffers, aligned and not on the stack */
+    static long src[1024 / sizeof(long)];
+    static long dst[1024 / sizeof(long)];
+
+    TEST_SECTION_BEGIN();
+    if (TEST_SECTION_ENABLED()) {
+      int i;
+      for (i = 0; i < sizeof(src); i++) {
+        ((uint8_t*)src)[i] = TEST_RAND(0,255);
+      }
+    }
+    TIME_OPERATION("1024-byte gasnett_count0s()",
+      { GASNETI_UNUSED int junk = gasnett_count0s(src, 1024); });
+    TIME_OPERATION("1024-byte gasnett_count0s_copy()",
+      { GASNETI_UNUSED int junk = gasnett_count0s_copy(dst, src, 1024); });
+    TIME_OPERATION("1024-byte gasnett_count0s() + memcpy()",
+      { GASNETI_UNUSED int junk = gasnett_count0s(src, 1024);
+        (void)memcpy(dst,src,1024);
+      });
+    { volatile int temp;
+      int volatile *ptr = &temp;
+      TIME_OPERATION("gasnett_count0s_uint32_t()",
+        { (*ptr) = gasnett_count0s_uint32_t((uint32_t)i); });
+      TIME_OPERATION("gasnett_count0s_uint64_t()",
+        { (*ptr) = gasnett_count0s_uint64_t((uint64_t)i); });
+    }
 }
 /* ------------------------------------------------------------------------------------ */
 
