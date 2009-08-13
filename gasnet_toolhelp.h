@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_toolhelp.h,v $
- *     $Date: 2009/06/06 00:09:56 $
- * $Revision: 1.47 $
+ *     $Date: 2009/08/13 02:28:00 $
+ * $Revision: 1.48 $
  * Description: misc declarations needed by both gasnet_tools and libgasnet
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -166,11 +166,25 @@ extern size_t gasneti_count0s(const void * src, size_t len);
 
 GASNETI_INLINE(gasneti_count0s_uint32_t) GASNETI_CONST
 int gasneti_count0s_uint32_t(uint32_t x) {
+#if 0
   x |= (x >> 4); x |= (x >> 2); x |= (x >> 1);
   x &= 0x01010101UL;
   x += (x >> 16); x += (x >> 8);
   return sizeof(x) - (x & 0xf);
+#else
+  const uint32_t mask = 0x7f7f7f7fUL;
+  uint32_t tmp;
+  tmp = x & mask;
+  tmp += mask;
+  tmp |= x;
+  tmp &= ~mask;
+  tmp >>= 7;
+  tmp += (tmp >> 16);
+  tmp += (tmp >> 8);
+  return sizeof(x) - (tmp & 0xf);
+#endif
 }
+
 #if PLATFORM_ARCH_32
   GASNETI_INLINE(gasneti_count0s_uint64_t) GASNETI_CONST
   int gasneti_count0s_uint64_t(uint64_t x) {
@@ -180,11 +194,25 @@ int gasneti_count0s_uint32_t(uint32_t x) {
   #define gasneti_count0s_uintptr_t(x) gasneti_count0s_uint32_t(x)
 #elif PLATFORM_ARCH_64
   GASNETI_INLINE(gasneti_count0s_uint64_t) GASNETI_CONST
-  int gasneti_count0s_uint64_t(uintptr_t x) {
+  int gasneti_count0s_uint64_t(uint64_t x) {
+  #if 0
     x |= (x >> 4); x |= (x >> 2); x |= (x >> 1);
     x &= 0x0101010101010101UL;
     x += (x >> 32); x += (x >> 16); x += (x >> 8);
     return sizeof(x) - (x & 0xf);
+  #else
+    const uint64_t mask = 0x7f7f7f7f7f7f7f7fULL;
+    uint64_t tmp;
+    tmp = x & mask;
+    tmp += mask;
+    tmp |= x;
+    tmp &= ~mask;
+    tmp >>= 7;
+    tmp += (tmp >> 32);
+    tmp += (tmp >> 16);
+    tmp += (tmp >> 8);
+    return sizeof(x) - (tmp & 0xf);
+  #endif
   }
   #define gasneti_count0s_uintptr_t(x) gasneti_count0s_uint64_t(x)
 #else
