@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2009/08/13 08:48:01 $
- * $Revision: 1.239 $
+ *     $Date: 2009/08/13 23:42:15 $
+ * $Revision: 1.240 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -149,53 +149,53 @@ typedef struct gasnetc_sreq_t_ {
   /* Firehose, bounce buffers, and AMs are mutually exclusive. */
   union {
     struct { /* Firehose data */
-      int			fh_count;
-      const firehose_request_t	*fh_ptr[GASNETC_MAX_FH];
+      int			count;
+      const firehose_request_t	*ptr[GASNETC_MAX_FH];
     } fh;
     struct { /* Bounce buffer data */
-      gasnetc_buffer_t		*bb_buff;
-      void			*bb_addr;	/* local address for bounced GETs */
-      size_t			bb_len;		/* length for bounced GETs */
+      gasnetc_buffer_t		*buff;
+      void			*addr;	/* local address for bounced GETs */
+      size_t			len;	/* length for bounced GETs */
     } bb;
     struct { /* AM buffer */
-      gasnetc_buffer_t		*am_buff;
+      gasnetc_buffer_t		*buff;
     } am;
   } u;
-  #define fh_count	u.fh.fh_count
-  #define fh_ptr	u.fh.fh_ptr
-  #define bb_buff	u.bb.bb_buff
-  #define bb_addr	u.bb.bb_addr
-  #define bb_len	u.bb.bb_len
-  #define am_buff	u.am.am_buff
+  #define fh_count	u.fh.count
+  #define fh_ptr	u.fh.ptr
+  #define bb_buff	u.bb.buff
+  #define bb_addr	u.bb.addr
+  #define bb_len	u.bb.len
+  #define am_buff	u.am.buff
 #else
   /* Firehose, and AMs are mutually exclusive. */
   union {
     /* Firehose data */
     struct {
-      int			fh_count;
-      const firehose_request_t	*fh_ptr[GASNETC_MAX_FH];
-      size_t			fh_len;
-      size_t			fh_putinmove;	/* bytes piggybacked on an Move AM */
-      uintptr_t			fh_loc_addr;
-      uintptr_t			fh_rem_addr;
-      gasnetc_buffer_t		*fh_bbuf;
-      gasneti_weakatomic_t	fh_ready;	/* 0 when loc and rem both ready */
-      gasnetc_counter_t		*fh_oust;	/* fh transactions outstanding */
+      int			count;
+      const firehose_request_t	*ptr[GASNETC_MAX_FH];
+      size_t			len;
+      size_t			putinmove;	/* bytes piggybacked on an Move AM */
+      uintptr_t			loc_addr;
+      uintptr_t			rem_addr;
+      gasnetc_buffer_t		*bbuf;
+      gasneti_weakatomic_t	ready;	/* 0 when loc and rem both ready */
+      gasnetc_counter_t		*oust;	/* fh transactions outstanding */
     } fh;
     struct { /* AM buffer */
-      gasnetc_buffer_t		*am_buff;
+      gasnetc_buffer_t		*buff;
     } am;
   } u;
-  #define fh_count	u.fh.fh_count
-  #define fh_ptr	u.fh.fh_ptr
-  #define fh_len	u.fh.fh_len
-  #define fh_putinmove	u.fh.fh_putinmove
-  #define fh_loc_addr	u.fh.fh_loc_addr
-  #define fh_rem_addr	u.fh.fh_rem_addr
-  #define fh_bbuf	u.fh.fh_bbuf
-  #define fh_ready	u.fh.fh_ready
-  #define fh_oust	u.fh.fh_oust
-  #define am_buff	u.am.am_buff
+  #define fh_count	u.fh.count
+  #define fh_ptr	u.fh.ptr
+  #define fh_len	u.fh.len
+  #define fh_putinmove	u.fh.putinmove
+  #define fh_loc_addr	u.fh.loc_addr
+  #define fh_rem_addr	u.fh.rem_addr
+  #define fh_bbuf	u.fh.bbuf
+  #define fh_ready	u.fh.ready
+  #define fh_oust	u.fh.oust
+  #define am_buff	u.am.buff
 #endif
 } gasnetc_sreq_t;
 
