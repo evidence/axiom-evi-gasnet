@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2009/08/13 01:43:25 $
- * $Revision: 1.238 $
+ *     $Date: 2009/08/13 04:29:06 $
+ * $Revision: 1.239 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2048,12 +2048,6 @@ size_t gasneti_count0s_nzs_aligned_region(const uintptr_t *p, size_t words) {
   return non_zeros;
 }
 
-/* Count non-zero bytes in a word */
-GASNETI_ALWAYS_INLINE(gasneti_count0s_nzs_word) GASNETI_CONST
-int gasneti_count0s_nzs_word(uintptr_t x) {
-  return gasneti_count0s_xform2(gasneti_count0s_xform1(x));
-}
-
 /* Copy and count non-zero bytes w/o any alignment requirement */
 GASNETI_ALWAYS_INLINE(gasneti_count0s_copy_bytes)
 int gasneti_count0s_copy_bytes(void * GASNETI_RESTRICT dst, const void * GASNETI_RESTRICT src, size_t bytes) {
@@ -2225,24 +2219,6 @@ gasneti_count0s(const void * src, size_t bytes) {
   size_t zeros = 0;
   while (bytes--) { zeros += !*(s++); }
 #else /* Carefully optimized (but still portable) word-oriented loop */
- #if PLATFORM_ARCH_64
-  static const uintptr_t keep_lsb[8] = {
-          0x0000000000000000UL, 0x00000000000000ffUL, 0x000000000000ffffUL, 0x0000000000ffffffUL,
-          0x00000000ffffffffUL, 0x000000ffffffffffUL, 0x0000ffffffffffffUL, 0x00ffffffffffffffUL};
-  static const uintptr_t keep_msb[8] = {
-          0x0000000000000000UL, 0xff00000000000000UL, 0xffff000000000000UL, 0xffffff0000000000UL,
-          0xffffffff00000000UL, 0xffffffffff000000UL, 0xffffffffffff0000UL, 0xffffffffffffff00UL};
- #else
-  static const uintptr_t keep_lsb[4] = {0x00000000UL, 0x000000ffUL, 0x0000ffffUL, 0x00ffffffUL};
-  static const uintptr_t keep_msb[4] = {0x00000000UL, 0xff000000UL, 0xffff0000UL, 0xffffff00UL};
- #endif
- #if WORDS_BIGENDIAN
-  #define keep_last_bytes(tmp,x)  ((x) & keep_lsb[tmp])
-  #define keep_first_bytes(tmp,x) ((x) & keep_msb[tmp])
- #else
-  #define keep_last_bytes(tmp,x)  ((x) & keep_msb[tmp])
-  #define keep_first_bytes(tmp,x) ((x) & keep_lsb[tmp])
- #endif
   const uintptr_t *s;
   size_t zeros, tmp;
 
@@ -2259,9 +2235,10 @@ gasneti_count0s(const void * src, size_t bytes) {
 
   /* Count partial leading word (if any) */
   tmp = (uintptr_t)s - (uintptr_t)src;
-  if (tmp) {
-    zeros -= gasneti_count0s_nzs_word(keep_last_bytes(tmp, *(s-1)));
+  if_pf (tmp) {
+    const uint8_t *s8 = src;
     bytes -= tmp;
+    do { zeros -= !!*(s8++); } while (--tmp);
   }
 
   /* Count full words of src */
@@ -2271,12 +2248,10 @@ gasneti_count0s(const void * src, size_t bytes) {
  
   /* Count partial trailing word (if any) */
   tmp = bytes & (SIZEOF_VOID_P - 1);
-  if (tmp) {
-    zeros -= gasneti_count0s_nzs_word(keep_first_bytes(tmp, *s));
+  if_pf (tmp) {
+    const uint8_t *s8 = (const uint8_t *)s;
+    do { zeros -= !!*(s8++); } while (--tmp);
   }
-
-  #undef keep_last_bytes
-  #undef keep_first_bytes
 #endif
 
   return zeros;
