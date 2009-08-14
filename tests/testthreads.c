@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testthreads.c,v $
- *     $Date: 2009/03/24 23:42:27 $
- * $Revision: 1.30 $
+ *     $Date: 2009/08/14 01:44:09 $
+ * $Revision: 1.31 $
  *
  * Description: GASNet threaded tester.
  *   The test initializes GASNet and forks off up to 256 threads.  Each of
@@ -50,8 +50,15 @@ int     verbose = 0;
 int     amtrace = 0;
 int     threadstress = 0;
 
+#if PLATFORM_COMPILER_TINY
+/* Appears unable to expand GASNETT_TRACE_SETSOURCELINE multiple times per line.
+ * The instance in MSG should be sufficient, right? */
+#define ACTION_PRINTF \
+  if (verbose) MSG
+#else
 #define ACTION_PRINTF \
   if (GASNETT_TRACE_SETSOURCELINE(__FILE__,__LINE__), verbose) MSG
+#endif
 
 int	sizes[] = { 0, /* gasnet_AMMaxMedium()-1      */
                     0, /* gasnet_AMMaxMedium()        */
@@ -388,8 +395,15 @@ free_thread_data(void)
 
 /****************************************************************/
 /* AM Handlers */
+#if PLATFORM_COMPILER_TINY
+/* Appears unable to expand GASNETT_TRACE_SETSOURCELINE multiple times per line.
+ * The instance in MSG should be sufficient, right? */
+#define PRINT_AM(x) \
+  if (amtrace) ACTION_PRINTF x
+#else
 #define PRINT_AM(x) \
   if (GASNETT_TRACE_SETSOURCELINE(__FILE__,__LINE__), amtrace) ACTION_PRINTF x
+#endif
 
 void 
 ping_shorthandler(gasnet_token_t token, harg_t idx) 
