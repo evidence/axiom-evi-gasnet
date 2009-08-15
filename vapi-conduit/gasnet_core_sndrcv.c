@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2009/08/15 10:11:22 $
- * $Revision: 1.241 $
+ *     $Date: 2009/08/15 10:47:36 $
+ * $Revision: 1.242 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -3554,6 +3554,7 @@ extern int gasnetc_rdma_put_fh(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr
     nbytes -= count;
   } while (nbytes);
 
+  gasnetc_poll_rcv(); /* Progress may depend on firehose AM Reply */
   return 0;
 }
 
@@ -3582,6 +3583,7 @@ extern int gasnetc_rdma_get(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, s
     nbytes -= count;
   } while (nbytes);
 
+  gasnetc_poll_rcv(); /* Progress may depend on firehose AM Reply */
   return 0;
 }
 #endif
