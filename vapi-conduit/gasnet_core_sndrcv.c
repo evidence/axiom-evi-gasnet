@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2009/08/13 23:42:15 $
- * $Revision: 1.240 $
+ *     $Date: 2009/08/15 10:11:22 $
+ * $Revision: 1.241 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -2801,7 +2801,7 @@ static size_t gasnetc_fh_put_args_fn(void * context, firehose_remotecallback_arg
 }
 
 GASNETI_INLINE(gasnetc_fh_put_helper)
-int gasnetc_fh_put_helper(gasnet_node_t node, gasnetc_sreq_t *sreq,
+size_t gasnetc_fh_put_helper(gasnet_node_t node, gasnetc_sreq_t *sreq,
 		          uintptr_t loc_addr, uintptr_t rem_addr, size_t len) {
   const firehose_request_t *fh_rem;
   size_t putinmove = sreq->fh_putinmove = 0;
@@ -2917,7 +2917,7 @@ int gasnetc_fh_put_helper(gasnet_node_t node, gasnetc_sreq_t *sreq,
 }
 
 GASNETI_INLINE(gasnetc_fh_get_helper)
-int gasnetc_fh_get_helper(gasnet_node_t node, gasnetc_sreq_t *sreq,
+size_t gasnetc_fh_get_helper(gasnet_node_t node, gasnetc_sreq_t *sreq,
 		          uintptr_t loc_addr, uintptr_t rem_addr, size_t len) {
   const firehose_request_t *fh_rem;
 
