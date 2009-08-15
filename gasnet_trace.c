@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.c,v $
- *     $Date: 2009/08/14 23:29:32 $
- * $Revision: 1.138 $
+ *     $Date: 2009/08/15 01:19:41 $
+ * $Revision: 1.139 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -316,6 +316,11 @@ extern size_t gasneti_format_putsgets(char *buf, void *_pstats,
   };
 
   #define BUFSZ     8192
+  #define NUMBUFS   4
+  typedef struct {
+    int bufidx;
+    char bufs[NUMBUFS][BUFSZ];
+  } gasneti_printbuf_t;
   GASNETI_THREADKEY_DEFINE(gasneti_printbuf_key);
   static void gasneti_printbuf_cleanup_threaddata(void *_td) {
       gasneti_free(_td);
@@ -332,14 +337,16 @@ extern size_t gasneti_format_putsgets(char *buf, void *_pstats,
   static void gasneti_tracestats_printf(const char *format, ...));
 
   static char *gasneti_getbuf(void) {
-    char * printbuf;
+    gasneti_printbuf_t * printbuf;
     if ((printbuf = gasneti_threadkey_get(gasneti_printbuf_key)) == NULL) {
-      printbuf = gasneti_malloc(BUFSZ);
+      printbuf = gasneti_malloc(sizeof(gasneti_printbuf_t));
       gasneti_threadkey_set(gasneti_printbuf_key, printbuf);
+      printbuf->bufidx = 0;
       gasnete_register_threadcleanup(gasneti_printbuf_cleanup_threaddata, printbuf);
     }
     gasneti_memcheck(printbuf);
-    return printbuf;
+    printbuf->bufidx = (printbuf->bufidx+1) % NUMBUFS;
+    return printbuf->bufs[printbuf->bufidx];
   }
 
   /* format and return a string result
