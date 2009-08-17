@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2009/07/05 02:35:26 $
- * $Revision: 1.37 $
+ *     $Date: 2009/08/17 02:47:59 $
+ * $Revision: 1.38 $
  * Description: GASNet portals conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *                 Michael Welcome <mlwelcome@lbl.gov>
@@ -879,7 +879,6 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
                             int numargs, ...) {
   ptl_size_t           local_offset;
   gasnetc_conn_t      *state = gasnetc_conn_state + dest;
-  int                  do_sync = 1;
   int                  isPacked, msg_bytes, nsend, ncredit, ntmpmd;
   uint8_t              cred_byte = 0;
   gasnetc_threaddata_t *th = gasnetc_mythread();
@@ -901,7 +900,7 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
   GASNETC_COMMON_AMREQ_START(state,local_offset,th,nsend,ncredit,cred_byte);
 
   /* do all the work in sending the messages(s) */
-  AM_LONG_COMMON(do_sync,isPacked,th,cred_byte);
+  AM_LONG_COMMON(1 /*do_sync*/,isPacked,th,cred_byte);
   
   /* Always poll at end of AM Request */
   gasneti_AMPoll();
@@ -920,7 +919,6 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
                             int numargs, ...) {
   ptl_size_t           local_offset;
   gasnetc_conn_t      *state = gasnetc_conn_state + dest;
-  int                  do_sync = 0;
   int                  isPacked, msg_bytes, nsend, ncredit, ntmpmd;
   uint8_t              cred_byte = 0;
   gasnetc_threaddata_t *th = gasnetc_mythread();
@@ -941,7 +939,7 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
   GASNETC_COMMON_AMREQ_START(state,local_offset,th,nsend,ncredit,cred_byte);
 
   /* do all the work in sending the messages(s) */
-  AM_LONG_COMMON(do_sync,isPacked,th,cred_byte);
+  AM_LONG_COMMON(0 /*do_sync*/,isPacked,th,cred_byte);
   
   /* Always poll at end of AM Request */
   gasneti_AMPoll();
