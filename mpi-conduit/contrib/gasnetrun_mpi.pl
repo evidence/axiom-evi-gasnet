@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2009/08/17 07:48:30 $
-# $Revision: 1.73 $
+#     $Date: 2009/08/19 21:06:49 $
+# $Revision: 1.74 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -624,7 +624,24 @@ if (($is_srun || $is_prun) && $numnode) {
 
 if ($is_aprun || $is_yod) {
   @numprocargs = ($numproc);
-  $numnode ||= $ENV{'PBS_NNODES'}; # Try to honor allocation if no -N given
+
+  # Try to honor allocation if no -N given
+  if (!defined($numnode)) {
+        my $pbs_nodes = $ENV{'PBS_NNODES'};
+        my $pbs_jobid = $ENV{'PBS_JOBID'};
+        if (defined $pbs_nodes) {
+            $numnode = $pbs_nodes;
+        } elsif (defined($pbs_jobid) && open(QSTAT, "qstat -f $pbs_jobid |")) {
+            while (<QSTAT>) {
+                if (/mppnodect\s*=\s*([0-9]+)/) {
+                    $numnode = $1;
+                    last;
+                }
+            }
+            close(QSTAT);
+        }
+  }
+
   if ($numnode) {
     my $ppn = int( ( $numproc + $numnode - 1 ) / $numnode );
     if ($ppn * $numnode != $numproc) {
