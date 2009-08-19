@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2009/08/19 21:06:49 $
-# $Revision: 1.74 $
+#     $Date: 2009/08/19 21:38:54 $
+# $Revision: 1.75 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -644,9 +644,8 @@ if ($is_aprun || $is_yod) {
 
   if ($numnode) {
     my $ppn = int( ( $numproc + $numnode - 1 ) / $numnode );
-    if ($ppn * $numnode != $numproc) {
-        my $name = $is_aprun ? 'aprun' : 'yod';
-	warn "WARNING: $name does not fully support non-uniform process distribution\n";
+    if ($is_yod && ($ppn * $numnode != $numproc)) {
+	warn "WARNING: yod does not fully support non-uniform process distribution\n";
 	warn "WARNING: PROCESS LAYOUT MIGHT NOT MATCH YOUR REQUEST\n";
     }
     if ($is_aprun) { # aprun requires -N ppn
