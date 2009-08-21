@@ -41,6 +41,19 @@
 #define GASNETC_USE_SPINLOCK 0
 #endif
 
+/* Set to 1 to enable use of PtlMDUpdate in the firehose move callback.
+ * The code that this enables currently works around an apparent bug in
+ * PtlMDUPdate in which it returns PTL_INVALID_EQ when passed PTL_EQ_NONE.
+ * However, it does NOT currently work-around GASNet bug 2617, and so is
+ * disabled by default.
+ * Additionally, testing done while examining Bug 2617 suggests that the
+ * cost of an PtlMDUpdate in PE-2.1.50HD is as much as 50% higher than the
+ * corresponding PtlMDUnlink() + PtlMDBind().
+ */
+#ifndef GASNETC_USE_MDUPDATE
+#define GASNETC_USE_MDUPDATE 0
+#endif
+
 /* Comments on the value of GASNETC_CHUNKSIZE:
  *
  *         ==> NOTE: This value set in gasnet_core_help.h <==
@@ -153,20 +166,24 @@ extern unsigned gasnetc_sys_poll_limit;
     }									\
   } while(0);
 #else
-#define GASNETC_CHECKSIG()
+#define GASNETC_CHECKSIG() ((void)0)
 #endif
 
-/* Macro that checks error condition of Portals calls */
+/* Macro that checks return code from a Portals calls */
+#define GASNETC_PTLCHECK(_retcode, _message) do {			\
+    if_pf (_retcode != (int)PTL_OK) {					\
+      gasneti_fatalerror("\nGASNet Portals encountered an error: %s (%i)\n" \
+			 "  %s\n  at %s",				\
+			 ptl_err_str[_retcode], _retcode, _message, gasneti_current_loc); \
+    }									\
+ } while (0)
+
+/* Macro that makes a Portals calls and checks return code */
 #define GASNETC_PTLSAFE(fncall) do {					\
     int _retcode;							\
     GASNETC_CHECKSIG();							\
     _retcode = (fncall);						\
-    if_pf (_retcode != (int)PTL_OK) {					\
-      gasneti_fatalerror("\nGASNet Portals encountered an error: %s (%i)\n" \
-			 "  while calling: %s\n"			\
-			 "  at %s",					\
-			 ptl_err_str[_retcode], _retcode, #fncall, gasneti_current_loc); \
-    }									\
+    GASNETC_PTLCHECK(_retcode, "while calling: " #fncall);		\
  } while (0)
 
 /* Portals Access table not implemented on XT3 */

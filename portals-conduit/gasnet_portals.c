@@ -94,7 +94,9 @@ ptl_handle_ni_t gasnetc_ni_h;              /* the network interface handle */
 gasnetc_eq_t *gasnetc_AM_EQ = NULL;        /* The AM Event Queue */
 gasnetc_eq_t *gasnetc_SAFE_EQ = NULL;      /* The SAFE Event Queue */
 
+#if GASNETC_USE_MDUPDATE
 gasnetc_eq_t *gasnetc_EMPTY_EQ = NULL;     /* For MDUpdate, since it rejects PTL_EQ_NONE */
+#endif
 
 /* out of band MDs for sending system messages */
 gasnetc_PtlBuffer_t gasnetc_SYS_Send;       /* out-of-band message send buffer */
@@ -2339,7 +2341,7 @@ extern void gasnetc_init_portals_network(int *argc, char ***argv)
   sys_init();
 
   /* setup an empty EQ for firehose */
-  #if GASNETC_FIREHOSE_LOCAL
+  #if GASNETC_FIREHOSE_LOCAL && GASNETC_USE_MDUPDATE
     gasnetc_EMPTY_EQ = gasnetc_eq_alloc(1,"EMPTY_EQ",NULL);
   #endif
 }
@@ -3593,7 +3595,7 @@ extern void gasnetc_portals_exit(void)
   {
     ptl_event_t ev;
 
-    #if GASNETC_FIREHOSE_LOCAL
+    #if GASNETC_FIREHOSE_LOCAL && GASNETC_USE_MDUPDATE
       firehose_fini();
       gasnetc_eq_free(gasnetc_EMPTY_EQ);
     #endif
@@ -4034,7 +4036,11 @@ firehose_move_callback(gasnet_node_t node,
                        size_t pin_num)
 {
   GASNETC_TRACE_WAIT_BEGIN();
+#if GASNETC_USE_MDUPDATE
   int updates = MIN(unpin_num, pin_num);
+#else
+  const int updates = 0;
+#endif
   int i;
 
   /* Step 1: unpaired unpins */
@@ -4063,12 +4069,15 @@ firehose_move_callback(gasnet_node_t node,
 #endif
     md.eq_handle = gasnetc_SAFE_EQ->eq_h;
 
+#if GASNETC_USE_MDUPDATE
     if (i < updates) {
       /* PTL_EQ_NONE gets flagged as invalid.  So I've created an EMPTY_EQ. */
       GASNETC_TRACE_UNPIN(unpin_list+i);
       region->client = unpin_list[i].client;
       GASNETC_PTLSAFE(PtlMDUpdate(region->client, NULL, &md, gasnetc_EMPTY_EQ->eq_h));
-    } else {
+    } else
+#endif
+    {
       GASNETC_PTLSAFE(PtlMDBind(gasnetc_ni_h, md, PTL_RETAIN, &region->client));
     }
     GASNETC_TRACE_PIN(region);
