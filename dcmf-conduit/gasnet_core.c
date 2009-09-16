@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_core.c,v $
- *     $Date: 2009/03/30 02:40:26 $
- * $Revision: 1.9 $
+ *     $Date: 2009/09/16 01:13:22 $
+ * $Revision: 1.10 $
  * Description: GASNet dcmf conduit Implementation
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>, 
                    Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -78,6 +78,7 @@ uint8_t gasnetc_have_dcmf_lock=0;
 static size_t gasnetc_active_amhandlers = 0;
 
 static gasneti_lifo_head_t gasnetc_dcmf_req_free_list = GASNETI_LIFO_INITIALIZER;
+static gasneti_lifo_head_t gasnetc_dcmf_coll_req_free_list = GASNETI_LIFO_INITIALIZER;
 static gasneti_lifo_head_t gasnetc_dcmf_nack_req_free_list = GASNETI_LIFO_INITIALIZER;
 static gasneti_lifo_head_t gasnetc_token_free_list = GASNETI_LIFO_INITIALIZER;
 static gasneti_lifo_head_t gasnetc_amhandler_free_list = GASNETI_LIFO_INITIALIZER;
@@ -279,18 +280,20 @@ static void gasnetc_dcmf_init(gasnet_node_t* mynode, gasnet_node_t *nodes) {
                               hw.xTorus, hw.yTorus, hw.zTorus, hw.tTorus));
     }    
 
+    DCMF_SAFE(DCMF_Messager_configure(NULL, &dcmf_config_out));
+    
 #if GASNET_SEQ
     dcmf_config.thread_level = DCMF_THREAD_SINGLE;
 #else
     dcmf_config.thread_level = DCMF_THREAD_MULTIPLE;
 #endif
 
-#if GASNETC_DCMF_INTERRUPTS
+#if GASNETC_USE_INTERRUPTS
     dcmf_config.interrupts = DCMF_INTERRUPTS_ON;
 #else
     dcmf_config.interrupts = DCMF_INTERRUPTS_OFF;
 #endif
-
+ 
     DCMF_SAFE(DCMF_Messager_configure(&dcmf_config, &dcmf_config_out));
 
     gasneti_assert(dcmf_config.thread_level == dcmf_config_out.thread_level);
@@ -866,6 +869,25 @@ gasnetc_dcmf_req_t * gasnetc_get_dcmf_req(void) {
 void gasnetc_free_dcmf_req(gasnetc_dcmf_req_t *req){
   /*add it back tot he free list*/
   gasneti_lifo_push(&gasnetc_dcmf_req_free_list,(void*) req);
+}
+
+gasnetc_dcmf_coll_req_t * gasnetc_get_dcmf_coll_req(void) {
+  gasnetc_dcmf_coll_req_t *req;
+
+  req = gasneti_lifo_pop(&gasnetc_dcmf_coll_req_free_list);
+  if(!req) {
+    /*must allocate new structure*/
+    GASNETI_TRACE_PRINTF(C, ("malloc of coll req (%d bytes)", sizeof(gasnetc_dcmf_coll_req_t)));
+    req = (gasnetc_dcmf_coll_req_t*) gasneti_malloc_aligned(16, sizeof(gasnetc_dcmf_coll_req_t));
+  }
+  GASNETC_DCMF_CHECK_PTR(&(req->req));
+  return req;
+}
+
+/*GASNETI_INLINE(gasnetc_free_dcmf_req) */
+void gasnetc_free_dcmf_coll_req(gasnetc_dcmf_coll_req_t *req){
+  /*add it back tot he free list*/
+  gasneti_lifo_push(&gasnetc_dcmf_coll_req_free_list,(void*) req);
 }
 
 
@@ -2067,14 +2089,51 @@ extern int gasnetc_AMReplyLongM(
   (and this is one place you'll probably want to use it)
 */
 #if GASNETC_USE_INTERRUPTS
-#error interrupts not implemented
+//#error interrupts not implemented
+
+/*email communication from IBM DCMF Team (4/15/09)
+  
+If you turn on interrupts, then the interrupt handler will get called on certain network events and it will invoke DCMF_Messager_advance() one (or more?) times and then exit.  When the main thread enters a critical section it disables interrupts, then the thread invokes other DCMF functions (send, advance, etc) and then exits the critical section. When the critical section exit code is invoked it re-enables interrupts if they were previously enabled. So, the interrupt handler is never invoked when another thread has the critical section lock. 
+
+
+From this I don't think anything needs to be done specifically to hold or resume interrupts
+*/
 extern void gasnetc_hold_interrupts(void) {
+  DCMF_Configure_t dcmf_config, dcmf_config_out;
   GASNETI_CHECKATTACH();
+  
+#if GASNET_SEQ
+  dcmf_config.thread_level = DCMF_THREAD_SINGLE;
+#else
+  dcmf_config.thread_level = DCMF_THREAD_MULTIPLE;
+#endif
   /* add code here to disable handler interrupts for _this_ thread */
+  dcmf_config.interrupts = DCMF_INTERRUPTS_OFF;
+  GASNETC_DCMF_LOCK();
+  DCMF_SAFE(DCMF_Messager_configure(&dcmf_config, &dcmf_config_out));
+  GASNETC_DCMF_UNLOCK();
+  gasneti_assert(dcmf_config.thread_level == dcmf_config_out.thread_level);
+  gasneti_assert(dcmf_config.interrupts == dcmf_config_out.interrupts);
+
 }
+
 extern void gasnetc_resume_interrupts(void) {
+  DCMF_Configure_t dcmf_config, dcmf_config_out;
   GASNETI_CHECKATTACH();
+  
+#if GASNET_SEQ
+  dcmf_config.thread_level = DCMF_THREAD_SINGLE;
+#else
+  dcmf_config.thread_level = DCMF_THREAD_MULTIPLE;
+#endif
   /* add code here to re-enable handler interrupts for _this_ thread */
+  dcmf_config.interrupts = DCMF_INTERRUPTS_ON;
+  GASNETC_DCMF_LOCK();
+  DCMF_SAFE(DCMF_Messager_configure(&dcmf_config, &dcmf_config_out));
+  GASNETC_DCMF_UNLOCK();
+  gasneti_assert(dcmf_config.thread_level == dcmf_config_out.thread_level);
+  gasneti_assert(dcmf_config.interrupts == dcmf_config_out.interrupts);
+
 }
 #endif
 
@@ -2090,7 +2149,7 @@ extern void gasnetc_hsl_init   (gasnet_hsl_t *hsl) {
 
 #if GASNETC_USE_INTERRUPTS
   /* add code here to init conduit-specific HSL state */
-#error interrupts not implemented
+  //#error interrupts not implemented
 #endif
 }
 
@@ -2100,7 +2159,7 @@ extern void gasnetc_hsl_destroy(gasnet_hsl_t *hsl) {
 
 #if GASNETC_USE_INTERRUPTS
   /* add code here to cleanup conduit-specific HSL state */
-#error interrupts not implemented
+  //#error interrupts not implemented
 #endif
 }
 
@@ -2136,7 +2195,7 @@ extern void gasnetc_hsl_lock   (gasnet_hsl_t *hsl) {
      disable handler interrupts on _this_ thread, (if this is the outermost
      HSL lock acquire and we're not inside an enclosing no-interrupt section)
   */
-#error interrupts not implemented
+  //#error interrupts not implemented
 #endif
 }
 
@@ -2148,7 +2207,7 @@ extern void gasnetc_hsl_unlock (gasnet_hsl_t *hsl) {
      re-enable handler interrupts on _this_ thread, (if this is the outermost
      HSL lock release and we're not inside an enclosing no-interrupt section)
   */
-#error interrupts not implemented
+  //#error interrupts not implemented
 #endif
 
   GASNETI_TRACE_EVENT_TIME(L, HSL_UNLOCK, GASNETI_TICKS_NOW_IFENABLED(L)-hsl->acquiretime);
@@ -2172,7 +2231,7 @@ extern int  gasnetc_hsl_trylock(gasnet_hsl_t *hsl) {
    disable handler interrupts on _this_ thread, (if this is the outermost
    HSL lock acquire and we're not inside an enclosing no-interrupt section)
       */
-#error interrupts not implemented
+      //#error interrupts not implemented
 #endif
     }
 

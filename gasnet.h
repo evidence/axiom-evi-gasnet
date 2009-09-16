@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet.h,v $
- *     $Date: 2009/03/29 04:03:01 $
- * $Revision: 1.61 $
+ *     $Date: 2009/09/16 01:13:20 $
+ * $Revision: 1.62 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -193,6 +193,7 @@
   /* barrier flags */
   #define GASNET_BARRIERFLAG_ANONYMOUS 1
   #define GASNET_BARRIERFLAG_MISMATCH  2
+  #define GASNET_BARRIERFLAG_IMAGES 4
 #endif
 
 /* Errors: GASNET_OK must be zero */
