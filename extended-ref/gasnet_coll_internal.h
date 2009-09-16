@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_internal.h,v $
- *     $Date: 2009/09/16 01:13:28 $
- * $Revision: 1.55 $
+ *     $Date: 2009/09/16 23:36:36 $
+ * $Revision: 1.56 $
  * Description: GASNet Collectives conduit header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -283,7 +283,7 @@ typedef struct gasnete_coll_team_barrier_t_ {
   
 } gasnete_coll_team_barrier_t;
 
-gasnete_coll_team_barrier_t *gasnete_coll_initialize_barrier();
+gasnete_coll_team_barrier_t *gasnete_coll_initialize_barrier(void);
 
 /* Type for collective teams: */
 struct gasnete_coll_team_t_ {

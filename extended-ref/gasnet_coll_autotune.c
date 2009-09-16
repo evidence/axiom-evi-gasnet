@@ -1115,7 +1115,7 @@ void gasnete_coll_register_collectives(gasnete_coll_autotune_info_t* info, size_
 
 static gasneti_lifo_head_t gasnete_coll_autotune_tree_node_free_list = GASNETI_LIFO_INITIALIZER;
 
-gasnete_coll_autotune_tree_node_t *gasnete_coll_get_autotune_tree_node() {
+gasnete_coll_autotune_tree_node_t *gasnete_coll_get_autotune_tree_node(void) {
   gasnete_coll_autotune_tree_node_t *ret;
   ret = gasneti_lifo_pop(&gasnete_coll_autotune_tree_node_free_list);
   if(!ret) {
@@ -1382,7 +1382,7 @@ struct gasnet_coll_tuning_parameter_t gasnet_coll_get_param(gasnet_team_handle_t
 
 
 static gasneti_lifo_head_t gasnete_coll_impl_free_list = GASNETI_LIFO_INITIALIZER;
-gasnete_coll_implementation_t gasnete_coll_get_implementation() {
+gasnete_coll_implementation_t gasnete_coll_get_implementation(void) {
   gasnete_coll_implementation_t ret;
 
   ret = gasneti_lifo_pop(&gasnete_coll_impl_free_list);

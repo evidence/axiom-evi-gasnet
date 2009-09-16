@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refcoll.c,v $
- *     $Date: 2009/09/16 21:06:00 $
- * $Revision: 1.79 $
+ *     $Date: 2009/09/16 23:36:36 $
+ * $Revision: 1.80 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1476,7 +1476,7 @@ static gasnet_hsl_t gasnete_coll_p2p_seg_free_list_lock = GASNET_HSL_INITIALIZER
 static gasnete_coll_seg_interval_t *gasnet_coll_p2p_seg_interval_free_list = NULL;
 
 
-gasnete_coll_seg_interval_t *gasnet_coll_p2p_alloc_seg_interval() {
+gasnete_coll_seg_interval_t *gasnet_coll_p2p_alloc_seg_interval(void) {
   gasnete_coll_seg_interval_t *curr_interval;
 
            

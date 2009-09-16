@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2009/09/16 01:13:26 $
- * $Revision: 1.88 $
+ *     $Date: 2009/09/16 23:36:33 $
+ * $Revision: 1.89 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1374,7 +1374,7 @@ extern gasnet_handle_t gasnete_end_nbi_accessregion(GASNETE_THREAD_FARG_ALONE) {
   =========
 */
 static void gasnete_elanbarrier_init(void);
-static void dummy_fn() {}
+static void dummy_fn(void) {}
 static void gasnete_elanbarrier_notify(gasnete_coll_team_t team, int id, int flags);
 static int gasnete_elanbarrier_wait(gasnete_coll_team_t team, int id, int flags);
 static int gasnete_elanbarrier_try(gasnete_coll_team_t team, int id, int flags);
