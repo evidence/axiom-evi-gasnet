@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refcoll.c,v $
- *     $Date: 2009/09/16 01:13:28 $
- * $Revision: 1.78 $
+ *     $Date: 2009/09/16 21:06:00 $
+ * $Revision: 1.79 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1168,9 +1168,11 @@ extern void gasnete_coll_init(const gasnet_image_t images[], gasnet_image_t my_i
       } while (remain);
     }
     gasneti_mutex_unlock(&init_lock);
-    
-
   }
+  if(td->my_local_image == 0) gasnete_coll_init_done = 1;
+
+  /* Only thread-local data initialization may follow this point */
+
   if (images) {
     td->my_local_image = my_image - GASNET_TEAM_ALL->my_offset;
     gasneti_assert(td->my_local_image < GASNET_TEAM_ALL->my_images);
@@ -1189,10 +1191,6 @@ extern void gasnete_coll_init(const gasnet_image_t images[], gasnet_image_t my_i
                                           1, 0);
     }
   }
-
-  if(td->my_local_image == 0) gasnete_coll_init_done = 1;
-  
-  /* Only thread-local initialization may follow this point */
 
 #if GASNET_DEBUG
   /* Ensure agreement across threads */
