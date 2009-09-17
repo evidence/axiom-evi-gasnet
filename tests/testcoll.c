@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcoll.c,v $
- *     $Date: 2009/09/17 06:23:09 $
- * $Revision: 1.37 $
+ *     $Date: 2009/09/17 19:59:01 $
+ * $Revision: 1.38 $
  * Description: GASNet collectives test
  * Copyright 2002-2004, Jaein Jeong and Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -235,7 +235,7 @@ void PREFIX##_ALLALL(int root, thread_data_t *td) {                          \
 	     FLAGS | GASNET_COLL_IN_ALLSYNC | GASNET_COLL_OUT_ALLSYNC);      \
 	gasnet_get(&tmp, peerproc, REMOTE(B,peerthread), sizeof(int));       \
 	if (tmp != peerthread*R[j]) {                                        \
-	    MSG("ERROR: %s scatter validation failed", name);                \
+	    MSG("ERROR: %s scatter validation failed expected: %d got %d", name, peerthread*R[j], tmp);                \
 	    gasnet_exit(1);                                                  \
 	}                                                                    \
 	global_barrier(); /* to avoid conflict on B */                       \
