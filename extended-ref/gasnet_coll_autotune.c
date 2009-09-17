@@ -2665,8 +2665,7 @@ gasnete_coll_autotune_get_scatter_algorithm(gasnet_team_handle_t team, void *dst
     if (nbytes <= eager_limit) {
       /* Small enough for Eager, which works for out-of-segment src and/or dst */
       ret->fn_ptr = (void*)team->autotune_info->collective_algorithms[GASNET_COLL_SCATTER_OP][GASNETE_COLL_SCATTER_TREE_EAGER].fn_ptr.scatter_fn;
-    }
-    if(nbytes <= gasnete_coll_get_pipe_seg_size(team->autotune_info, GASNET_COLL_SCATTER_OP, flags)) {
+    } else if(nbytes <= gasnete_coll_get_pipe_seg_size(team->autotune_info, GASNET_COLL_SCATTER_OP, flags)) {
       ret->fn_ptr = (void*)team->autotune_info->collective_algorithms[GASNET_COLL_SCATTER_OP][GASNETE_COLL_SCATTER_TREE_PUT_NO_COPY].fn_ptr.scatter_fn;
     } else {
       ret->num_params = 1;
