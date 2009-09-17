@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcoll.c,v $
- *     $Date: 2009/09/16 01:13:43 $
- * $Revision: 1.36 $
+ *     $Date: 2009/09/17 06:23:09 $
+ * $Revision: 1.37 $
  * Description: GASNet collectives test
  * Copyright 2002-2004, Jaein Jeong and Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -457,7 +457,7 @@ void *thread_main(void *arg) {
     testSM_ALLALL(root, td);
     testSM_NB(root, td);
 
-#if 0
+#if 1
     testLS_NONO(root, td);
     testLS_MYMY(root, td);
     testLS_ALLALL(root, td);
