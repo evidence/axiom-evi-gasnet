@@ -2723,6 +2723,10 @@ gasnete_coll_autotune_get_scatterM_algorithm(gasnet_team_handle_t team, void * c
                                                         GASNET_COLL_SCATTERM_OP, 
                                                         srcimage, nbytes, flags);
   /* Choose algorithm based on arguments */
+  if(!team->fixed_image_count) {
+    ret->fn_ptr = (void*)team->autotune_info->collective_algorithms[GASNET_COLL_SCATTERM_OP][GASNETE_COLL_SCATTERM_RVOUS].fn_ptr.scatterM_fn;
+    return ret;
+  }
   if ((flags & GASNET_COLL_DST_IN_SEGMENT) && (flags & GASNET_COLL_SRC_IN_SEGMENT)) {
     /* Both ends are in-segment */
     if(team->fixed_image_count) {
