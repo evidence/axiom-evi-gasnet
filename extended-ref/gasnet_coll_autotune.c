@@ -1515,6 +1515,7 @@ static gasnete_coll_syncmode_t get_syncmode_from_str(char *str) {
   else if(STRINGS_MATCH(str, "all/my")) return GASNETE_COLL_ALLMY;
   else if(STRINGS_MATCH(str, "all/all")) return GASNETE_COLL_ALLALL;
   gasneti_fatalerror("unknown syncmode from str %s", str);
+  return (gasnete_coll_syncmode_t)(-1); /* NOT REACHED */
 }
 
 static char* syncmode_to_str(char *buffer, gasnete_coll_syncmode_t mode) {
@@ -1632,6 +1633,7 @@ static gasnet_coll_optype_t get_optype_from_str(char *str) {
     return GASNET_COLL_REDUCEM_OP;
   
   else gasneti_fatalerror("op %s not yet supported\n", str);
+  return (gasnet_coll_optype_t)(-1); /* NOT REACHED */
 }
 
 static char * optype_to_str(char *buffer, gasnet_coll_optype_t op) {
