@@ -19,21 +19,21 @@ options that is covered testcoll
 #define DEFAULT_PERFORMANCE_ITERS 0
 
 
-#define ALL_COLL_ENABLED 1
+#define ALL_COLL_ENABLED 0
 #define BROADCAST_ENABLED 1
-#define SCATTER_ENABLED 1
-#define GATHER_ENABLED 1
-#define GATHER_ALL_ENABLED 1
-#define EXCHANGE_ENABLED 1
-#define REDUCE_ENABLED 1
+#define SCATTER_ENABLED 0
+#define GATHER_ENABLED 0
+#define GATHER_ALL_ENABLED 0
+#define EXCHANGE_ENABLED 0
+#define REDUCE_ENABLED 0
 
 
-#define ALL_ADDR_MODE_ENABLED 1
+#define ALL_ADDR_MODE_ENABLED 0
 
-#define SINGLE_SINGLE_MODE_ENABLED 1
+#define SINGLE_SINGLE_MODE_ENABLED 0
 #define SINGLE_LOCAL_MODE_ENABLED 1
-#define MULTI_SINGLE_MODE_ENABLED 1
-#define MULTI_LOCAL_MODE_ENABLED 1
+#define MULTI_SINGLE_MODE_ENABLED 0
+#define MULTI_LOCAL_MODE_ENABLED 0
 
 
 
@@ -164,6 +164,9 @@ void run_SINGLE_ADDR_test(thread_data_t *td, uint8_t **dst_arr, uint8_t **src_ar
   char output_str[8];
   gasnett_tick_t begin, end;
   char flag_str[8];
+  gasnet_coll_handle_t *handles;
+  handles = test_malloc(sizeof(gasnet_coll_handle_t)*performance_iters);
+
   fill_flag_str(flags, flag_str);
   if(flags & GASNET_COLL_SINGLE) {
     src = (int*) (src_arr[0]); /* all threads have the same address so just use slot 0*/
@@ -213,6 +216,23 @@ void run_SINGLE_ADDR_test(thread_data_t *td, uint8_t **dst_arr, uint8_t **src_ar
   end =  gasnett_ticks_now() - begin;
   COLL_BARRIER();
   print_timer(td, "broadcast", output_str,  "SINGLE-addr", flag_str, nelem, end);  
+
+  COLL_BARRIER();
+  begin = gasnett_ticks_now();
+  if(flags & GASNET_COLL_IN_NOSYNC) {COLL_BARRIER();}
+  {
+    for(i=0; i<performance_iters; i++) { 
+      handles[i] = gasnet_coll_broadcast_nb(GASNET_TEAM_ALL, dst, root_thread, src, sizeof(int)*nelem, flags);
+    }
+    for(i=0; i<performance_iters; i++) {
+      gasnet_coll_wait_sync(handles[i]);
+    }
+  }
+  if(flags & GASNET_COLL_OUT_NOSYNC) {COLL_BARRIER();}
+  end =  gasnett_ticks_now() - begin;
+  COLL_BARRIER();
+  print_timer(td, "broadcastNB", output_str,  "SINGLE-addr", flag_str, nelem, end);  
+
 #endif
   
 #if SCATTER_ENABLED || ALL_COLL_ENABLED  
@@ -254,6 +274,22 @@ void run_SINGLE_ADDR_test(thread_data_t *td, uint8_t **dst_arr, uint8_t **src_ar
   end =  gasnett_ticks_now() - begin;
   COLL_BARRIER();  
   print_timer(td,  "scatter", output_str,  "SINGLE-addr", flag_str, nelem, end);  
+  
+  COLL_BARRIER();
+  begin = gasnett_ticks_now();
+  if(flags & GASNET_COLL_IN_NOSYNC) {COLL_BARRIER();}
+
+  for(i=0; i<performance_iters; i++) {  
+    handles[i] = gasnet_coll_scatter_nb(GASNET_TEAM_ALL, dst, root_thread, src, sizeof(int)*nelem, flags);
+  }
+  for(i=0; i<performance_iters; i++) {
+    gasnet_coll_wait_sync(handles[i]); 
+  }
+  if(flags & GASNET_COLL_OUT_NOSYNC) {COLL_BARRIER();}
+  end =  gasnett_ticks_now() - begin;
+  COLL_BARRIER();  
+  print_timer(td,  "scatterNB", output_str,  "SINGLE-addr", flag_str, nelem, end);  
+
 #endif
   
 #if GATHER_ENABLED || ALL_COLL_ENABLED  
@@ -296,6 +332,20 @@ void run_SINGLE_ADDR_test(thread_data_t *td, uint8_t **dst_arr, uint8_t **src_ar
   end =  gasnett_ticks_now() - begin;
   COLL_BARRIER();  
   print_timer(td,  "gather", output_str,  "SINGLE-addr", flag_str, nelem, end);  
+  COLL_BARRIER();
+  begin = gasnett_ticks_now();
+  if(flags & GASNET_COLL_IN_NOSYNC) {COLL_BARRIER();}
+  for(i=0; i<performance_iters; i++) { 
+    handles[i]  = gasnet_coll_gather_nb(GASNET_TEAM_ALL, root_thread, dst, src, sizeof(int)*nelem, flags);
+  }
+  for(i=0; i<performance_iters; i++) {
+    gasnet_coll_wait_sync(handles[i]);
+  }
+  if(flags & GASNET_COLL_OUT_NOSYNC) {COLL_BARRIER();}
+  end =  gasnett_ticks_now() - begin;
+  COLL_BARRIER();  
+  print_timer(td,  "gatherNB", output_str,  "SINGLE-addr", flag_str, nelem, end);  
+
 #endif
   
 #if GATHER_ALL_ENABLED || ALL_COLL_ENABLED    
