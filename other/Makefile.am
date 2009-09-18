@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/Makefile.am,v $
-#     $Date: 2009/09/16 01:13:33 $
-# $Revision: 1.32 $
+#     $Date: 2009/09/18 23:33:36 $
+# $Revision: 1.33 $
 # Description: Makefile for GASNet other 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -32,7 +32,7 @@ SUBDIRS = $(CONDUITMODE_SUBDIRS)
 EXTRA_DIST =        			\
         $(CONDUITMODE_EXTRADIST) 	\
 	detect-cachesz.c 		\
-	detect-sysv.c	 		\
+	detect-pshm.c	 		\
 	tools-toggle.pl
 
 include_HEADERS = \

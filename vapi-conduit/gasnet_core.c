@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2009/08/03 08:46:13 $
- * $Revision: 1.219 $
+ *     $Date: 2009/09/18 23:33:54 $
+ * $Revision: 1.220 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -137,10 +137,12 @@ uintptr_t	gasnetc_max_msg_sz;
 #endif
 firehose_info_t	gasnetc_firehose_info;
 
+typedef GASNETC_IB_CHOOSE(IB_lid_t, uint16_t) gasnetc_lid_t;
+
 /* Used only once, to exchange addresses at connection time */
 typedef struct _gasnetc_addr_t {
   GASNETC_IB_CHOOSE(VAPI_qp_num_t, uint32_t)	qp_num;
-  GASNETC_IB_CHOOSE(IB_lid_t,      uint16_t)	lid;
+  gasnetc_lid_t                                 lid;
 } gasnetc_addr_t;
 
 gasnet_handlerentry_t const *gasnetc_get_handlertable(void);
@@ -395,6 +397,7 @@ static void gasnetc_init_pin_info(int first_local, int num_local) {
       /* Extra mmap traffic to ensure compatible VM spaces */
       gasnetc_fakepin(all_info[first_local].memory, step);
     }
+    gasneti_bootstrapBarrier(); /* Ensure fakepin completes unmap before continuing */
 #endif
   } else {
     /* Note that README says PHYSMEM_NOPROBE must be equal on all nodes */
@@ -1312,6 +1315,23 @@ static int gasnetc_init(int *argc, char ***argv) {
   /* exchange endpoint info for connecting */
   gasneti_bootstrapAlltoall(local_addr, gasnetc_num_qps*sizeof(gasnetc_addr_t), remote_addr);
 
+  /* Derive nodemap from the LID info we have just exchanged */
+  {
+    if (gasneti_nodes > 1) { /* Would otherwise access non-existant localaddr[>0] */
+        /* Fill in otherwise unused remote_addr[self].lid for the helper.
+         * We use local_addr[!mynode] since local_addr[mynode] is always 0 */
+        remote_addr[gasnetc_num_qps * gasneti_mynode].lid =
+                             local_addr[gasnetc_num_qps * !gasneti_mynode].lid;
+    }
+    gasneti_nodemapInit(NULL, &remote_addr[0].lid,
+                        sizeof(remote_addr[0].lid),
+                        sizeof(remote_addr[0]) * gasnetc_num_qps);
+  }
+
+  #if GASNET_PSHM
+    gasneti_pshm_init(&gasneti_bootstrapExchange, 0);
+  #endif
+
   /* connect the endpoints */
   {
 #if GASNET_CONDUIT_VAPI
@@ -1322,6 +1342,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     struct ibv_qp_attr	qp_attr;
     enum ibv_qp_attr_mask	qp_mask;
     int rc;
+    int user_inline_limit = (gasnet_getenv("GASNET_INLINESEND_LIMIT") != NULL);
 #endif
 
     /* advance RST -> INIT */
@@ -1463,7 +1484,7 @@ static int gasnetc_init(int *argc, char ***argv) {
         rc = ibv_query_qp(gasnetc_cep[i].qp_handle, &qp_attr2, IBV_QP_CAP, &qp_init_attr);
         GASNETC_VAPI_CHECK(rc, "from ibv_query_qp(RTS)");
         if (qp_attr2.cap.max_inline_data < gasnetc_inline_limit) {
-	  if (gasnetc_inline_limit != (size_t)-1) {
+	  if ((gasnetc_inline_limit != (size_t)-1) && user_inline_limit) {
 	    fprintf(stderr,
 		"WARNING: Requested GASNET_INLINESEND_LIMIT %d reduced to HCA limit %d\n",
 		(int)gasnetc_inline_limit, (int)qp_attr2.cap.max_inline_data);
@@ -1476,6 +1497,8 @@ static int gasnetc_init(int *argc, char ***argv) {
   }
   GASNETI_TRACE_PRINTF(C, ("Final/effective GASNET_INLINESEND_LIMIT = %d", (int)gasnetc_inline_limit));
 
+  gasneti_free(remote_addr);
+  gasneti_free(local_addr);
   gasneti_free(port_map);
   gasneti_free(port_tbl);
 
@@ -1486,6 +1509,7 @@ static int gasnetc_init(int *argc, char ***argv) {
       gasneti_mynode, gasneti_nodes); fflush(stderr);
   #endif
   
+  #if GASNET_DEBUG
   /* Verify that we are actually connected. */
   if (gasnetc_use_rcv_thread) {
     /* All QPs must reach RTS before we can test connectivity.
@@ -1494,23 +1518,22 @@ static int gasnetc_init(int *argc, char ***argv) {
      */
     gasneti_bootstrapBarrier();
   }
-  /* BLOCKING AM Send */
-  {
+  { /* Each node sends an AM to node self-1 and then waits for local completion. */
     gasnetc_counter_t counter = GASNETC_COUNTER_INITIALIZER;
     gasnet_node_t peer;
-#if 1 /* Each node sends an AM to node i-1 and then waits for local completion. */
     peer = (gasneti_mynode ? gasneti_mynode : gasneti_nodes) - 1;
-    GASNETI_SAFE(gasnetc_RequestSystem(peer, &counter, gasneti_handleridx(gasnetc_SYS_init_ping), 0));
-#else /* XXX: If we every actually want a full all-to-all here */
-    for (peer = gasneti_mynode + 1; peer < gasneti_nodes; ++peer) {
+  #if GASNET_PSHM
+    /* Send only off-node AMs (cannot use AMPSHM yet because gasneti_mmapLimit()
+     * still needs the "raw" vnet for pshmnet_bootstrapBroadcast).
+     */
+    if (!gasneti_pshm_in_supernode(peer))
+  #endif
+    {
       GASNETI_SAFE(gasnetc_RequestSystem(peer, &counter, gasneti_handleridx(gasnetc_SYS_init_ping), 0));
+      gasnetc_counter_wait(&counter, gasnetc_use_rcv_thread); /* BLOCKING AM Send */
     }
-    for (peer = 0; peer < gasneti_mynode; ++peer) {
-      GASNETI_SAFE(gasnetc_RequestSystem(peer, &counter, gasneti_handleridx(gasnetc_SYS_init_ping), 0));
-    }
-#endif
-    gasnetc_counter_wait(&counter, gasnetc_use_rcv_thread);
   }
+  #endif
 
   /* Find max pinnable size before we start carving up memory w/ mmap()s.
    *
@@ -1519,35 +1542,17 @@ static int gasnetc_init(int *argc, char ***argv) {
    * which is easily determined from the connection information we exchanged above.
    */
   {
-    gasnet_node_t	num_local;
-    gasnet_node_t	first_local;
-
-    /* Determine the number of local processes and distinguish one */
-    num_local = 1;
-    first_local = gasneti_mynode;
-    for (i = 0; i < gasneti_nodes; ++i) {
-      /* Use lid of 1st qp to match procs on same node */
-      if (i == gasneti_mynode) continue;
-      if (remote_addr[i * gasnetc_num_qps].lid == local_addr[0].lid) {
-        ++num_local;
-        first_local = MIN(i, first_local);
-      }
-    }
-    gasneti_assert(num_local != 0);
-    gasneti_assert(first_local != gasneti_nodes);
-    GASNETI_TRACE_PRINTF(C,("Detected %d on-node peer(s)", num_local-1));
+    GASNETI_TRACE_PRINTF(C,("I am node %d of %d on-node peers",
+                            gasneti_nodemap_local_rank, gasneti_nodemap_local_count));
 
     /* Query the pinning limits of the HCA */
-    gasnetc_init_pin_info(first_local, num_local);
+    gasnetc_init_pin_info(gasneti_nodemap[gasneti_mynode], gasneti_nodemap_local_count);
 
     gasneti_assert(gasnetc_pin_info.memory != 0);
     gasneti_assert(gasnetc_pin_info.memory != (uintptr_t)(-1));
     gasneti_assert(gasnetc_pin_info.regions != 0);
   }
-
-  gasneti_free(remote_addr);
-  gasneti_free(local_addr);
-
+ 
   #if GASNET_SEGMENT_FAST
   {
     /* Reserved memory needed by firehose on each node */
@@ -1561,7 +1566,12 @@ static int gasnetc_init(int *argc, char ***argv) {
     gasneti_segmentInit((gasnetc_pin_info.memory - reserved_mem), &gasneti_bootstrapExchange);
   }
   #elif GASNET_SEGMENT_LARGE
-    gasneti_segmentInit((uintptr_t)(-1), &gasneti_bootstrapExchange);
+  {
+    uintptr_t limit = gasneti_mmapLimit((uintptr_t)-1, (uint64_t)-1,
+                                  &gasneti_bootstrapExchange,
+                                  &gasneti_bootstrapBarrier);
+    gasneti_segmentInit(limit, &gasneti_bootstrapExchange);
+  }
   #elif GASNET_SEGMENT_EVERYTHING
     /* segment is everything - nothing to do */
   #endif
@@ -1903,6 +1913,8 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 
   gasnete_init(); /* init the extended API */
 
+  gasneti_nodemapFini();
+
   /* ensure extended API is initialized across nodes */
   gasneti_bootstrapBarrier();
 
@@ -1962,11 +1974,10 @@ static void gasnetc_disable_AMs(void) {
  * This request handler (invoked only on the "root" node) handles the election
  * of a single exit "master", who will coordinate an orderly shutdown.
  */
-static void gasnetc_exit_role_reqh(gasnet_token_t token, gasnet_handlerarg_t *args, int numargs) {
+static void gasnetc_exit_role_reqh(gasnet_token_t token) {
   gasnet_node_t src;
   int local_role, result;
 
-  gasneti_assert(numargs == 0);
   gasneti_assert(gasneti_mynode == GASNETC_ROOT_NODE);	/* May only send this request to the root node */
 
   
@@ -1989,7 +2000,7 @@ static void gasnetc_exit_role_reqh(gasnet_token_t token, gasnet_handlerarg_t *ar
  * This reply handler receives the result of the election of an exit "master".
  * The reply contains the exit "role" this node should assume.
  */
-static void gasnetc_exit_role_reph(gasnet_token_t token, gasnet_handlerarg_t *args, int numargs) {
+static void gasnetc_exit_role_reph(gasnet_token_t token, gasnet_handlerarg_t arg0) {
   int role;
 
   #if GASNET_DEBUG
@@ -2001,9 +2012,7 @@ static void gasnetc_exit_role_reph(gasnet_token_t token, gasnet_handlerarg_t *ar
   #endif
 
   /* What role has this node been assigned? */
-  gasneti_assert(args != NULL);
-  gasneti_assert(numargs == 1);
-  role = (int)args[0];
+  role = (int)arg0;
   gasneti_assert((role == GASNETC_EXIT_ROLE_MASTER) || (role == GASNETC_EXIT_ROLE_SLAVE));
 
   /* Set the role if not yet set.  Then assert that the assigned role has been assumed.
@@ -2433,10 +2442,7 @@ static void gasnetc_exit_body(void) {
  * exit procedure, via gasnetc_exit_{body,tail}().  Additionally, we are responsible for
  * firing off a SIGQUIT to let the user's handler, if any, run before we begin to exit.
  */
-static void gasnetc_exit_reqh(gasnet_token_t token, gasnet_handlerarg_t *args, int numargs) {
-  gasneti_assert(args != NULL);
-  gasneti_assert(numargs == 1);
-
+static void gasnetc_exit_reqh(gasnet_token_t token, gasnet_handlerarg_t arg0) {
   /* The master will send this AM, but should _never_ receive it */
   gasneti_assert(gasneti_atomic_read(&gasnetc_exit_role, 0) != GASNETC_EXIT_ROLE_MASTER);
 
@@ -2455,7 +2461,7 @@ static void gasnetc_exit_reqh(gasnet_token_t token, gasnet_handlerarg_t *args, i
   gasneti_atomic_increment(&gasnetc_exit_reqs, 0);
 
   /* Initiate an exit IFF this is the first we've heard of it */
-  if (gasnetc_exit_head(args[0])) {
+  if (gasnetc_exit_head(arg0)) {
     gasneti_sighandlerfn_t handler;
     /* IMPORTANT NOTE
      * When we reach this point we are in a request handler which will never return.
@@ -2507,9 +2513,7 @@ static void gasnetc_exit_reqh(gasnet_token_t token, gasnet_handlerarg_t *args, i
  *
  * Simply count replies
  */
-static void gasnetc_exit_reph(gasnet_token_t token, gasnet_handlerarg_t *args, int numargs) {
-  gasneti_assert(numargs == 0);
-
+static void gasnetc_exit_reph(gasnet_token_t token) {
   gasneti_atomic_increment(&gasnetc_exit_reps, 0);
 }
   
@@ -2554,7 +2558,7 @@ extern void gasnetc_exit(int exitcode) {
 
 /* ------------------------------------------------------------------------------------ */
 
-static void gasnetc_init_ping(gasnet_token_t token, gasnet_handlerarg_t *args, int numargs) {
+static void gasnetc_init_ping(gasnet_token_t token) {
   #if GASNET_DEBUG_VERBOSE
   {
     gasnet_node_t src;
@@ -2598,11 +2602,16 @@ extern int gasnetc_AMRequestShortM(
   va_list argptr;
   GASNETI_COMMON_AMREQUESTSHORT(dest,handler,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
-
+#if GASNET_PSHM
+  if_pt (gasneti_pshm_in_supernode(dest)) {
+    retval = gasneti_AMPSHM_RequestGeneric(gasnetc_Short, dest, handler, 
+                                           0, 0, 0,
+                                           numargs, argptr); 
+  } else
+#endif
   retval = gasnetc_RequestGeneric(gasnetc_Short, dest, handler,
 		  		  NULL, 0, NULL,
 				  numargs, NULL, argptr);
-
   va_end(argptr);
   GASNETI_RETURN(retval);
 }
@@ -2616,11 +2625,16 @@ extern int gasnetc_AMRequestMediumM(
   va_list argptr;
   GASNETI_COMMON_AMREQUESTMEDIUM(dest,handler,source_addr,nbytes,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
-
+#if GASNET_PSHM
+  if_pt (gasneti_pshm_in_supernode(dest)) {
+    retval = gasneti_AMPSHM_RequestGeneric(gasnetc_Medium, dest, handler, 
+                                           source_addr, nbytes, 0,
+                                           numargs, argptr);
+  } else
+#endif
   retval = gasnetc_RequestGeneric(gasnetc_Medium, dest, handler,
 		  		  source_addr, nbytes, NULL,
 				  numargs, NULL, argptr);
-
   va_end(argptr);
   GASNETI_RETURN(retval);
 }
@@ -2635,14 +2649,21 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
   va_list argptr;
   GASNETI_COMMON_AMREQUESTLONG(dest,handler,source_addr,nbytes,dest_addr,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
-
-  retval = gasnetc_RequestGeneric(gasnetc_Long, dest, handler,
+#if GASNET_PSHM
+  if_pt (gasneti_pshm_in_supernode(dest)) {
+      retval = gasneti_AMPSHM_RequestGeneric(gasnetc_Long, dest, handler, 
+                                             source_addr, nbytes, dest_addr,
+                                             numargs, argptr);
+  } else
+#endif
+  {
+    retval = gasnetc_RequestGeneric(gasnetc_Long, dest, handler,
 		  		  source_addr, nbytes, dest_addr,
 				  numargs, &mem_oust, argptr);
 
-  /* block for completion of RDMA transfer */
-  gasnetc_counter_wait(&mem_oust, 0);
-
+    /* block for completion of RDMA transfer */
+    gasnetc_counter_wait(&mem_oust, 0);
+  }
   va_end(argptr);
   GASNETI_RETURN(retval);
 }
@@ -2656,11 +2677,16 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
   va_list argptr;
   GASNETI_COMMON_AMREQUESTLONGASYNC(dest,handler,source_addr,nbytes,dest_addr,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
-
+#if GASNET_PSHM
+  if_pt (gasneti_pshm_in_supernode(dest)) {
+      retval = gasneti_AMPSHM_RequestGeneric(gasnetc_Long, dest, handler, 
+                                             source_addr, nbytes, dest_addr,
+                                             numargs, argptr);
+  } else
+#endif
   retval = gasnetc_RequestGeneric(gasnetc_Long, dest, handler,
 		  		  source_addr, nbytes, dest_addr,
 				  numargs, NULL, argptr);
-
   va_end(argptr);
   GASNETI_RETURN(retval);
 }
@@ -2673,11 +2699,16 @@ extern int gasnetc_AMReplyShortM(
   va_list argptr;
   GASNETI_COMMON_AMREPLYSHORT(token,handler,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
-
+#if GASNET_PSHM
+  if_pt (gasnetc_token_is_pshm(token)) {
+    retval = gasneti_AMPSHM_ReplyGeneric(gasnetc_Short, token, handler, 
+                                         0, 0, 0,
+                                         numargs, argptr);
+  } else
+#endif
   retval = gasnetc_ReplyGeneric(gasnetc_Short, token, handler,
 		  		NULL, 0, NULL,
 				numargs, NULL, argptr);
-
   va_end(argptr);
   GASNETI_RETURN(retval);
 }
@@ -2691,11 +2722,16 @@ extern int gasnetc_AMReplyMediumM(
   va_list argptr;
   GASNETI_COMMON_AMREPLYMEDIUM(token,handler,source_addr,nbytes,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
-
+#if GASNET_PSHM
+  if_pt (gasnetc_token_is_pshm(token)) {
+    retval = gasneti_AMPSHM_ReplyGeneric(gasnetc_Medium, token, handler, 
+                                         source_addr, nbytes, 0,
+                                         numargs, argptr);
+  } else
+#endif
   retval = gasnetc_ReplyGeneric(gasnetc_Medium, token, handler,
 		  		source_addr, nbytes, NULL,
 				numargs, NULL, argptr);
-
   va_end(argptr);
   GASNETI_RETURN(retval);
 }
@@ -2710,7 +2746,13 @@ extern int gasnetc_AMReplyLongM(
   va_list argptr;
   GASNETI_COMMON_AMREPLYLONG(token,handler,source_addr,nbytes,dest_addr,numargs); 
   va_start(argptr, numargs); /*  pass in last argument */
-
+#if GASNET_PSHM
+  if_pt (gasnetc_token_is_pshm(token)) {
+      retval = gasneti_AMPSHM_ReplyGeneric(gasnetc_Long, token, handler, 
+                                           source_addr, nbytes, dest_addr,
+                                           numargs, argptr);
+  } else
+#endif
   #if GASNETC_PIN_SEGMENT
   {
     gasnetc_counter_t mem_oust = GASNETC_COUNTER_INITIALIZER;
@@ -2728,7 +2770,6 @@ extern int gasnetc_AMReplyLongM(
 				numargs, NULL, argptr);
 
   #endif
-
   va_end(argptr);
   GASNETI_RETURN(retval);
 }
@@ -2886,8 +2927,13 @@ gasnet_handlerentry_t const *gasnetc_get_handlertable(void) {
   System handlers, available even between _init and _attach
 */
 
-const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLERS] = {
+const gasneti_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLERS] = {
+#if GASNET_PSHM
+  /* AMPSHM doesn't like NULL handlers */
+  (gasneti_handler_fn_t)&gasnetc_noop,
+#else
   NULL,	/* ACK: NULL -> do nothing */
+#endif
   gasnetc_exit_role_reqh,
   gasnetc_exit_role_reph,
   gasnetc_exit_reqh,

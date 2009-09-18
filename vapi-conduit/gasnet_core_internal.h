@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2009/08/13 07:34:56 $
- * $Revision: 1.158 $
+ *     $Date: 2009/09/18 23:33:54 $
+ * $Revision: 1.159 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -83,6 +83,28 @@ extern gasneti_atomic_t gasnetc_exit_running;
 #define _hidx_gasnetc_SYS_init_ping       5
 
 /* ------------------------------------------------------------------------------------ */
+/* handler table (recommended impl) */
+#define GASNETC_MAX_NUMHANDLERS   256
+extern gasneti_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS];
+extern const gasneti_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLERS];
+
+#if GASNET_PSHM
+  #define GASNETC_SYS_HANDLER_FLAG (GASNETC_MAX_NUMHANDLERS << 1)
+  #define gasnetc_get_handler(_idx) (((_idx)&GASNETC_SYS_HANDLER_FLAG) \
+                                     ? gasnetc_sys_handler[(_idx)^GASNETC_SYS_HANDLER_FLAG] \
+                                     : gasnetc_handler[(_idx)])
+#endif
+
+/* ------------------------------------------------------------------------------------ */
+/* AM category (recommended impl if supporting PSHM) */
+typedef enum {
+  gasnetc_Short=0,
+  gasnetc_Medium=1,
+  gasnetc_Long=2,
+  gasnetc_System=3 /* Conduit-specific addition */
+} gasnetc_category_t;
+
+/* ------------------------------------------------------------------------------------ */
 
 #define GASNETC_ARGSEND_AUX(s,nargs) \
 	(offsetof(s,args)+((nargs)*sizeof(gasnet_handlerarg_t)))
@@ -128,24 +150,25 @@ typedef union {
   gasnetc_longmsg_t	longmsg;
 } gasnetc_buffer_t;
 
-typedef enum {
-  gasnetc_Short=0,
-  gasnetc_Medium=1,
-  gasnetc_Long=2,
-  gasnetc_System=3
-} gasnetc_category_t;
-
 /* ------------------------------------------------------------------------------------ */
 
-#define GASNETC_MAX_NUMHANDLERS   256
-extern gasneti_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS];
+#define GASNETC_RUN_HANDLER_SYS(isReq, hid, phandlerfn, token, pArgs, numargs) do {       \
+    if (isReq) GASNETC_TRACE_SYSTEM_REQHANDLER(hid, token, numargs, pArgs);               \
+    else       GASNETC_TRACE_SYSTEM_REPHANDLER(hid, token, numargs, pArgs);               \
+    if (GASNET_PSHM || phandlerfn) { /* NULL handler only possible when !GASNET_PSHM */   \
+      if (numargs == 0) (*(gasneti_HandlerShort)phandlerfn)((gasnet_token_t)token);       \
+      else {                                                                              \
+        gasnet_handlerarg_t *_args = (gasnet_handlerarg_t *)(pArgs); /* eval only once */ \
+        switch (numargs) {                                                                \
+          case 1:  (*(gasneti_HandlerShort)phandlerfn)((gasnet_token_t)token, _args[0]); break; \
+          case 2:  (*(gasneti_HandlerShort)phandlerfn)((gasnet_token_t)token, _args[0], _args[1]); break;\
+          default: gasneti_fatalerror("Illegal numargs=%i in GASNETC_RUN_HANDLER_SYS", (int)numargs); \
+        }                                                                                 \
+      }                                                                                   \
+    }                                                                                     \
+    GASNETI_TRACE_PRINTF(C,("AM%s_SYS_HANDLER: handler execution complete", (isReq?"REQUEST":"REPLY"))); \
+  } while (0)  
 
-/* ------------------------------------------------------------------------------------ */
-typedef void (*gasnetc_sys_handler_fn_t)(gasnet_token_t token, gasnet_handlerarg_t *args, int numargs);
-extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLERS];
-
-#define RUN_HANDLER_SYSTEM(phandlerfn, token, args, numargs) \
-    if (phandlerfn != NULL) (*phandlerfn)(token, args, numargs)
 
 #if GASNET_TRACE
   #define _GASNETC_TRACE_SYSTEM(name,dest,handler,numargs) do {                        \

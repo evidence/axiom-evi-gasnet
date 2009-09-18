@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.h,v $
- *     $Date: 2009/04/01 23:33:18 $
- * $Revision: 1.56 $
+ *     $Date: 2009/09/18 23:33:54 $
+ * $Revision: 1.57 $
  * Description: GASNet header for vapi conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -183,8 +183,14 @@ void gasnetc_counter_wait(gasnetc_counter_t *counter, int handler_context) {
 #define GASNETC_MAX_ARGS_USER	16
 #define GASNETC_MAX_ARGS_EXTRA	1	/* For flow-control info */
 #define GASNETC_MAX_ARGS	(GASNETC_MAX_ARGS_USER + GASNETC_MAX_ARGS_EXTRA)
-#define GASNETC_MAX_MEDIUM	\
-		(GASNETC_BUFSZ - GASNETI_ALIGNUP(GASNETC_MEDIUM_HDRSZ + 4*GASNETC_MAX_ARGS, 8))
+
+#define GASNETC_MAX_MEDIUM_	\
+               (GASNETC_BUFSZ - GASNETI_ALIGNUP_NOASSERT(GASNETC_MEDIUM_HDRSZ + 4*GASNETC_MAX_ARGS, 8))
+#if GASNET_PSHM
+  #define GASNETC_MAX_MEDIUM	MIN(GASNETC_MAX_MEDIUM_, GASNETI_MAX_MEDIUM_PSHM)
+#else
+  #define GASNETC_MAX_MEDIUM	GASNETC_MAX_MEDIUM_
+#endif
 #define GASNETC_MAX_LONG_REQ	(0x7fffffff)
 #define GASNETC_MAX_PACKEDLONG	(GASNETC_BUFSZ - GASNETC_LONG_HDRSZ - 4*GASNETC_MAX_ARGS)
 #if GASNETC_PIN_SEGMENT

@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/Makefile.am,v $
-#     $Date: 2009/09/16 01:13:20 $
-# $Revision: 1.81 $
+#     $Date: 2009/09/18 23:33:23 $
+# $Revision: 1.82 $
 # Description: Makefile for GASNet 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -40,6 +40,7 @@ CONDUITMODE_headers = 		\
 	gasnet_ammacros.h  	\
 	gasnet_coll.h      	\
 	gasnet_handler.h   	\
+	gasnet_pshm.h		\
 	gasnet_trace.h     	\
 	gasnet_vis.h      
 CONDUITMODE_EXTRA_DIST =    	\
@@ -51,6 +52,7 @@ CONDUITMODE_EXTRA_DIST =    	\
 	gasnet_internal.c 	\
 	gasnet_mmap.c  	  	\
 	gasnet_diagnostic.c 	\
+	gasnet_pshm.c		\
 	gasnet_trace.c
 # GASNET_TOOLSONLY_FALSE_END
 

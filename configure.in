@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2009/09/16 01:13:20 $
-# $Revision: 1.555 $
+#     $Date: 2009/09/18 23:33:23 $
+# $Revision: 1.556 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.555 $)
+AC_REVISION($Revision: 1.556 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1100,6 +1100,84 @@ AC_SUBST(PTHREADS)
 AC_CHECK_LIB(thread, thr_create, have_solthread=yes, have_solthread=no)
 
 ########################################################################
+## Process-shared memory (pshm)
+
+dnl GASNET_TOOLSONLY_FALSE_BEGIN
+have_pshm=no
+enabled_pshm=no
+GASNET_IF_ENABLED(pshm,
+  [Enable/disable inter-process shared memory support (default disabled)],
+  [enabled_pshm=yes])
+if test "$segconfig$enabled_pshm" = everythingyes; then
+  GASNET_MSG_ERROR([User requested --enable-segment-everything and --enable-pshm but PSHM support does not include GASNET_SEGMENT_EVERYTHING.])
+fi
+if expr "$enabled_pshm@$target_os" : "yes@darwin" >/dev/null; then
+  GASNET_MSG_ERROR([User requested --enable-pshm but PSHM support is not permitted on Mac OS X.])
+  dnl We can crash Macs!  See bib 2629.
+fi
+if test "$enabled_pshm" = yes; then
+  GASNET_PSHM_LIBS=""
+
+  # shm_open() might be in libc (e.g. AIX, Darwin) or librt (e.g. Linux, Solaris)
+  GASNET_PUSHVAR(LIBS,"$LIBS")
+  have_shm_open=no
+  AC_SEARCH_LIBS(shm_open, rt, [
+    if test "$cross_compiling" = "yes" ; then
+      # To the best of my knowledge CNL, Catamount, BG/L and BG/P all lack
+      # working shm_open() support, though at least CNL finds the symbol.
+      # So, we assume NO shm_open() when cross-compiling. -PHH
+      # We can add exceptions or CROSS_* should the need arise.
+      have_shm_open=no
+    else
+      GASNET_TRY_CACHE_RUN([for working shm_open()], have_shm_open, [
+        #include <sys/types.h>
+        #include <sys/stat.h>
+        #include <sys/mman.h>
+        #include <unistd.h>
+        #include <fcntl.h>
+        #include <stdlib.h>
+        #define SHM_NAME "/GASNETconftst"
+        int main(void) {
+          int size = GASNETI_PAGESIZE;
+          int fd;
+          void * addr;
+
+          fd = shm_open(SHM_NAME, O_CREAT|O_RDWR, S_IRUSR|S_IWUSR);
+          (void)shm_unlink(SHM_NAME);
+          if (fd < 0) return 1;
+          if (ftruncate(fd, size) < 0) return 1;
+          addr = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+          (void)close(fd);
+          if (!addr || (addr == MAP_FAILED)) return 1;
+          (void)munmap(addr, size);
+          return 0;
+        }
+      ],[ have_shm_open=yes ])
+    fi
+    if test "$have_shm_open" = yes; then
+      AC_DEFINE(HAVE_SHM_OPEN)
+      GASNET_PSHM_LIBS="$LIBS"
+      have_pshm=yes
+    fi
+  ])
+  GASNET_POPVAR(LIBS)
+
+  # could search for other mechanisms here
+
+  if test "$have_pshm" = yes; then
+    AC_DEFINE(GASNET_PSHM)
+  fi
+fi
+if test "$have_pshm$enabled_pshm" = noyes; then
+  GASNET_MSG_ERROR([User requested --enable-pshm but no supported implementation was found])
+fi
+AC_SUBST(GASNET_PSHM_LIBS)
+dnl GASNET_TOOLSONLY_FALSE_END
+
+AM_CONDITIONAL(USE_PSHM, test "$enabled_pshm$have_pshm" = yesyes)
+
+
+########################################################################
 ## CPU feature checks
 
 ## Does gcc/gas support "ldcw,co" pseudo-op on PA-RISC?
@@ -1597,6 +1675,41 @@ GASNET_MSG_WARN([
 fi
 
 #---------------------------------------------------------------------------------------------------------------
+# PSHM uses atomics in shared memory for IPC.
+# So we assume that Generic and O/S atomics are insufficient.
+# If that is ever not the case, one can add exceptions as needed.
+dnl GASNET_TOOLSONLY_FALSE_BEGIN
+if test "$enabled_pshm" = yes; then
+  if test -n "$enabled_generic_atomicops" ; then
+    GASNET_MSG_ERROR([User passed --enable-force-generic-atomicops and --enable-pshm, but PSHM support requires native atomics])
+  elif test -n "$enabled_os_atomicops"; then
+    GASNET_MSG_ERROR([User passed --enable-force-os-atomicops and --enable-pshm, but PSHM support requires native atomics])
+  else
+    dnl Check for non-native atomics on this platform
+    dnl To avoid false positives should the compilation fail for unrelated reasons, this
+    dnl test is written to PASS only if we can positively ID generic or OS atomics.
+    dnl So, if gasnet_atomic_bits.h has any unsatisfied dependencies on a given platform
+    dnl then we could miss detecting the problem here, but will still catch at compile time.
+    dnl Note that native atomics w/o signal safety are okay.
+    GASNET_PUSHVAR(CFLAGS,"$CFLAGS $MISC_CPPFLAGS $MISC_CFLAGS -I$TOP_SRCDIR -I$TOP_SRCDIR/other -D_IN_CONFIGURE")
+    GASNET_TRY_CACHE_CHECK(for non-native atomics, non_native_atomics, [
+      #include "portable_inttypes.h"
+      #include "gasnet_asm.h" /* Includes portable_platform.h */
+      #define GASNETI_INLINE(arg) /* empty */
+      #include "gasnet_atomic_bits.h"
+    ], [
+      #if !defined(GASNETI_USE_GENERIC_ATOMICOPS) && !defined(GASNETI_USE_OS_ATOMICOPS)
+        #error "Native atomics"
+      #endif
+    ], [
+      GASNET_MSG_ERROR([User passed --enable-pshm, but PSHM support requires native atomics which GASNet does not appear to support on your platform])
+    ])
+    GASNET_POPVAR(CFLAGS)
+  fi
+fi
+dnl GASNET_TOOLSONLY_FALSE_END
+
+#---------------------------------------------------------------------------------------------------------------
 # CONDUIT CONFIGURATION UTILITIES
 #---------------------------------------------------------------------------------------------------------------
 # Hack-around to prevent a bogus autoconf 2.58 bug when AC_PROG_CXX is called conditionally below
@@ -1642,10 +1755,38 @@ dnl CONDUIT_DISALLOW_SEGMENT(segment_type)
 AC_DEFUN([CONDUIT_DISALLOW_SEGMENT],[
   pushdef([upperseg],translit($1,'a-z','A-Z'))
   if test "$enabled_[]CONDUIT_NAME" = "yes" && expr "$segconfig" : $1 >/dev/null; then
-    GASNET_MSG_WARN([CONDUIT_NAME[]-conduit does not support the upperseg shared segment configuration - disabling CONDUIT_NAME])
+    msg="CONDUIT_NAME[]-conduit does not support the upperseg shared segment configuration"
+    if test "$force_[]CONDUIT_NAME" = yes ; then
+     GASNET_MSG_ERROR([User requested --enable-CONDUIT_NAME but $msg])
+    fi
+    GASNET_MSG_WARN([$msg - disabling CONDUIT_NAME])
     enabled_[]CONDUIT_NAME=no
   fi
   popdef([upperseg])
+])
+dnl CONDUIT_DISALLOW_PSHM(optional_segment_type)
+AC_DEFUN([CONDUIT_DISALLOW_PSHM],[
+  m4_ifval([$1],[
+    pushdef([upperseg],translit($1,'a-z','A-Z'))
+    if test "$enabled_pshm$enabled_[]CONDUIT_NAME" = "yesyes" && expr "$segconfig" : $1 >/dev/null; then
+      msg="CONDUIT_NAME[]-conduit does not support PSHM in the upperseg shared segment configuration"
+      if test "$force_[]CONDUIT_NAME" = yes ; then
+       GASNET_MSG_ERROR([User requested --enable-CONDUIT_NAME and --enable-pshm but $msg])
+      fi
+      GASNET_MSG_WARN([$msg - disabling CONDUIT_NAME])
+      enabled_[]CONDUIT_NAME=no
+    fi
+    popdef([upperseg])
+  ],[
+    if test "$enabled_pshm$enabled_[]CONDUIT_NAME" = "yesyes" >/dev/null; then
+      msg="CONDUIT_NAME[]-conduit does not support PSHM"
+      if test "$force_[]CONDUIT_NAME" = yes ; then
+       GASNET_MSG_ERROR([User requested --enable-CONDUIT_NAME and --enable-pshm but $msg])
+      fi
+      GASNET_MSG_WARN([$msg - disabling CONDUIT_NAME])
+      enabled_[]CONDUIT_NAME=no
+    fi
+  ])
 ])
 dnl CONDUIT_END(test_conduit_enabled)
 AC_DEFUN([CONDUIT_END],[
@@ -1785,6 +1926,7 @@ fi
 # UDP/AMUDP Configuration
 
 CONDUIT_BEGIN(udp,[portable UDP network conduit (udp)])
+CONDUIT_DISALLOW_PSHM()
 if test $enabled_udp = yes; then
 
   # Do C++ configuration
@@ -2322,6 +2464,7 @@ CONDUIT_END([test "$enabled_gm$have_gm" = yesyes])
 # LAPI configuration
 
 CONDUIT_BEGIN(lapi,[LAPI (IBM SP) network conduit (lapi)])
+CONDUIT_DISALLOW_PSHM()
 if test "$enabled_lapi$have_pthread" = yesno; then
   enabled_lapi=no
   GASNET_MSG_WARN([lapi-conduit requires pthread support but pthreads $pthread_reason - disabling lapi])
@@ -2494,6 +2637,7 @@ CONDUIT_END([test "$have_lapi" = yes])
 # ELAN configuration
 
 CONDUIT_BEGIN(elan,[Quadrics Elan3/Elan4 network conduit (elan)])
+CONDUIT_DISALLOW_PSHM()
 if test $enabled_elan = yes; then
 
   case "$target_os" in
@@ -2881,6 +3025,7 @@ case "$target" in
   ;;
 esac
 CONDUIT_DISALLOW_SEGMENT(everything)
+CONDUIT_DISALLOW_PSHM()
 
 if test "$enabled_portals" = yes; then
   have_portals=yes # start by assuming we have it
@@ -3011,6 +3156,7 @@ CONDUIT_END([test "$have_portals" = yes])
 # SHMEM configuration
 
 CONDUIT_BEGIN(shmem,[Shmem network conduit (shmem)])
+CONDUIT_DISALLOW_PSHM()
 
 if test $enabled_shmem = yes; then
   SHMEM_FLAVOUR="unknown"
@@ -3096,6 +3242,7 @@ CONDUIT_END([test "$enabled_shmem$have_shmem" = yesyes])
 #--------------------------------------------------------------------------------------------------------
 # DCMF configuration
 CONDUIT_BEGIN(dcmf,[BlueGene/P network conduit (dcmf)])
+CONDUIT_DISALLOW_PSHM()
 if test $enabled_dcmf = yes; then
   # Assume the best
   have_dcmf=yes
@@ -3221,6 +3368,7 @@ CONDUIT_END([test "$enabled_dcmf$have_dcmf" = yesyes])
 CONDUIT_BEGIN(sci,[Dolphin SISCI network conduit (sci)])
 CONDUIT_DISALLOW_SEGMENT(everything)
 CONDUIT_DISALLOW_SEGMENT(large)
+CONDUIT_DISALLOW_PSHM()
 
 if test "$enabled_sci" = yes; then
   # Look for sci binaries in our path
@@ -3339,6 +3487,10 @@ fi
 
 # Check for alloca in C code
 GASNET_FUNC_ALLOCA
+
+AC_CHECK_FUNCS(on_exit)
+
+AC_CHECK_FUNCS(gethostid)
 
 AC_CHECK_FUNCS(setenv unsetenv putenv)
 
@@ -3641,10 +3793,12 @@ AM_CONDITIONAL(USE_PLPA,test "$enabled_plpa" = "yes")
 # Check for mmap functionality we actually use
 if test "$cross_compiling" = "yes" ; then
  GASNET_CROSS_VAR(HAVE_MMAP,HAVE_MMAP)
+ mmap_reason="was disabled"
 else
  case "$target_os" in
   cygwin*)  # mmap is known to be broken on Cygwin - dont even try
   HAVE_MMAP=0
+  mmap_reason="is not supported on Cygwin"
   ;;
   *) # default to trying it
   HAVE_MMAP=1
@@ -3654,7 +3808,8 @@ fi
 GASNET_IF_ENABLED_WITH_AUTO(mmap,[force the use or non-use of mmap (default to probe)],
   [ HAVE_MMAP=1
     FORCE_MMAP=1 ],
-  [ HAVE_MMAP=0 ],
+  [ HAVE_MMAP=0
+    mmap_reason="was disabled" ],
   [])
 if test "$HAVE_MMAP" != "0" && test "$cross_compiling" = "no" ; then
 GASNET_TRY_CACHE_RUN(for working mmap(), have_mmap, [
@@ -3703,6 +3858,7 @@ GASNET_TRY_CACHE_RUN(for working mmap(), have_mmap, [
        if test "$FORCE_MMAP" = "1" ; then
          GASNET_MSG_ERROR([--enable-mmap was passed, but mmap functionality test failed])
        fi
+       mmap_reason="test failed"
    ])
 fi
 if test "$HAVE_MMAP" != "0" ; then
@@ -3717,6 +3873,8 @@ if test "$HAVE_MMAP" != "0" ; then
   GASNET_TRY_CACHE_LINK([for MAP_ANON],map_anon,
      [ #include <sys/mman.h> ],[ void *junk = mmap(0, 0, 0, MAP_ANON, 0, 0); ],
      [ AC_DEFINE(HAVE_MAP_ANON) ] )
+elif test "$enabled_pshm" = yes; then
+  GASNET_MSG_ERROR([--enable-pshm was passed, but required mmap functionality $mmap_reason])
 fi
 
 case "$target" in

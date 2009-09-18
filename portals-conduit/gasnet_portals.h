@@ -11,12 +11,17 @@
 #include <gasnet_handler.h>
 /* ------------------------------------------------------------------------------------ */
 /* MLW:  Support for Portals 3.0 */
+#if GASNET_SEGMENT_EVERYTHING
+    #error "GASNET_SEGMENT_EVERYTHING is not yet supported by portals-conduit"
+#endif
+
 #ifndef GASNETC_DEBUG
 #define GASNETC_DEBUG 0
 #endif
 
-#if GASNET_SEGMENT_EVERYTHING
-    #error "GASNET_SEGMENT_EVERYTHING is not yet supported by portals-conduit"
+/* default fraction of phys mem to assume is pinnable under CNL */
+#ifndef GASNETC_DEFAULT_PHYSMEM_PINNABLE_RATIO
+#define GASNETC_DEFAULT_PHYSMEM_PINNABLE_RATIO 0.75
 #endif
 
 /* set to 1 to compile in Sandia specific Accelerated Portals code */
@@ -806,8 +811,6 @@ extern int gasnetc_msg_limit;
 /* debugging aid */
 extern uint32_t gasnetc_snd_seqno, gasnetc_rcv_seqno;
 extern uint32_t gasnetc_amseqno;
-
-extern gasneti_handler_fn_t gasnetc_handler[]; /* the handler table */
 
 /* Functions we export to the core and extended API */
 extern void *gasnetc_chunk_alloc_no_off(gasnetc_PtlBuffer_t *buf, size_t nbytes);

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_core.c,v $
- *     $Date: 2009/04/19 02:42:07 $
- * $Revision: 1.42 $
+ *     $Date: 2009/09/18 23:33:44 $
+ * $Revision: 1.43 $
  * Description: GASNet shmem conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -25,8 +25,7 @@ static gasnet_seginfo_t gasnetc_SHMallocSegmentSearch(void);
 static uintptr_t        gasnetc_aligndown_pow2(uintptr_t addr);
 static uintptr_t        gasnetc_alignup_pow2(uintptr_t addr);
 
-#define GASNETC_MAX_NUMHANDLERS   256
-gasneti_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS]; /* handler table */
+gasneti_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS]; /* handler table (recommended impl) */
 
 gasnet_seginfo_t	 gasnetc_seginfo_init;
 int			 gasnetc_seginfo_allocated = 0;
@@ -172,6 +171,8 @@ static int gasnetc_init(int *argc, char ***argv) {
     fprintf(stderr,"gasnetc_init(): spawn successful - node %i/%i starting...\n", 
       gasneti_mynode, gasneti_nodes); fflush(stderr);
   #endif
+
+  gasneti_nodemapInit(&gasnetc_bootstrapExchange, NULL, 0, 0);
 
   #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
     { 
@@ -559,6 +560,8 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   gasneti_auxseg_attach(); /* provide auxseg */
 
   gasnete_init(); /* init the extended API */
+
+  gasneti_nodemapFini();
 
   /* ensure extended API is initialized across nodes */
   gasnetc_bootstrapBarrier();

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2009/08/15 10:47:36 $
- * $Revision: 1.242 $
+ *     $Date: 2009/09/18 23:33:54 $
+ * $Revision: 1.243 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -661,6 +661,11 @@ void gasnetc_processPacket(gasnetc_cep_t *cep, gasnetc_rbuf_t *rbuf, uint32_t fl
   int user_numargs = full_numargs;
   gasnet_handlerarg_t *args;
 
+  #if GASNET_PSHM
+    gasneti_assert(!gasneti_pshm_in_supernode(GASNETC_MSG_SRCIDX(flags)));
+    gasneti_assert(cep != NULL);
+  #endif
+
   rbuf->rbuf_needReply = GASNETC_MSG_ISREQUEST(flags);
   rbuf->rbuf_handlerRunning = 1;
   rbuf->rbuf_flags = flags;
@@ -684,7 +689,7 @@ void gasnetc_processPacket(gasnetc_cep_t *cep, gasnetc_rbuf_t *rbuf, uint32_t fl
     gasneti_fatalerror("invalid AM category on recv");
   }
 
-  if_pt (cep != NULL) { /* Process any flow control info, unless loopback */
+  if_pt (GASNET_PSHM || (cep != NULL)) { /* Process any flow control info, unless loopback */
     int credits = 0;
 
     if (GASNETC_MSG_FLOW(flags)) {
@@ -717,12 +722,8 @@ void gasnetc_processPacket(gasnetc_cep_t *cep, gasnetc_rbuf_t *rbuf, uint32_t fl
   switch (category) {
     case gasnetc_System:
       {
-        gasnetc_sys_handler_fn_t sys_handler_fn = gasnetc_sys_handler[handler_id];
-        if (GASNETC_MSG_ISREQUEST(flags))
-          GASNETC_TRACE_SYSTEM_REQHANDLER(handler_id, rbuf, user_numargs, args);
-        else
-          GASNETC_TRACE_SYSTEM_REPHANDLER(handler_id, rbuf, user_numargs, args);
-        RUN_HANDLER_SYSTEM(sys_handler_fn,rbuf,args,user_numargs);
+        handler_fn = gasnetc_sys_handler[handler_id];
+        GASNETC_RUN_HANDLER_SYS(GASNETC_MSG_ISREQUEST(flags),handler_id,handler_fn,rbuf,args,user_numargs);
       }
       break;
 
@@ -1416,6 +1417,9 @@ void gasnetc_do_poll(int poll_rcv, int poll_snd) {
     gasnetc_hca_t *hca = &gasnetc_hca[0];
   #endif
     gasnetc_poll_rcv_hca(hca, GASNETC_RCV_REAP_LIMIT);
+  #if GASNET_PSHM
+    gasneti_AMPSHMPoll(0);
+  #endif
   }
 
   if (poll_snd) {
@@ -1876,6 +1880,9 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
 			  void *src_addr, int nbytes, void *dst_addr,
 			  int numargs, gasnetc_counter_t *mem_oust,
 			  gasnetc_counter_t *req_oust, va_list argptr) {
+#if GASNET_PSHM /* PSHM code handles all "local" AMs including the loopback case */
+  gasneti_assert(!gasneti_pshm_in_supernode(dest));
+#else
   if_pt (dest == gasneti_mynode) {
     /* Local Case */
     gasnet_handlerarg_t *args;
@@ -1935,7 +1942,9 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
     #if !GASNETC_LOOPBACK_AMS_ON_STACK
       gasneti_lifo_push(&buf_freelist, buf);
     #endif
-  } else {
+  } else
+#endif /* !GASNET_PSHM */
+  {
     /* Remote Case */
     gasnetc_buffer_t *buf, *buf_alloc = NULL;
     gasnet_handlerarg_t *args;
@@ -3663,6 +3672,15 @@ extern int gasnetc_RequestSystem(gasnet_node_t dest,
   GASNETC_TRACE_SYSTEM_REQUEST(dest,handler,numargs);
 
   va_start(argptr, numargs);
+#if GASNET_PSHM
+  if_pt (gasneti_pshm_in_supernode(dest)) {
+    retval = gasneti_AMPSHM_RequestGeneric(gasnetc_Short, dest,
+                                           handler | GASNETC_SYS_HANDLER_FLAG,
+                                           0, 0, 0,
+                                           numargs, argptr); 
+    /* No need to touch req_oust */
+  } else
+#endif
   retval = gasnetc_ReqRepGeneric(gasnetc_System, NULL, dest, handler,
 				 NULL, 0, NULL, numargs, NULL, req_oust, argptr);
   va_end(argptr);
@@ -3673,23 +3691,30 @@ extern int gasnetc_ReplySystem(gasnet_token_t token,
 			       gasnetc_counter_t *req_oust,
                                gasnet_handler_t handler,
                                int numargs, ...) {
-  gasnetc_rbuf_t *rbuf = (gasnetc_rbuf_t *)token;
   int retval;
   va_list argptr;
   gasnet_node_t dest;
 
-  gasneti_assert(rbuf);
-
-  dest = GASNETC_MSG_SRCIDX(rbuf->rbuf_flags);
-
+  GASNETI_SAFE_PROPAGATE(gasnet_AMGetMsgSource(token, &dest));
   GASNETC_TRACE_SYSTEM_REPLY(dest,handler,numargs);
 
   va_start(argptr, numargs);
-  retval = gasnetc_ReqRepGeneric(gasnetc_System, rbuf, dest, handler,
-				 NULL, 0, NULL, numargs, NULL, req_oust, argptr);
+#if GASNET_PSHM
+  if_pt (gasnetc_token_is_pshm(token)) {
+    retval = gasneti_AMPSHM_ReplyGeneric(gasnetc_Short, token,
+                                         handler | GASNETC_SYS_HANDLER_FLAG,
+                                         0, 0, 0,
+                                         numargs, argptr);
+  } else
+#endif
+  {
+    gasnetc_rbuf_t *rbuf = (gasnetc_rbuf_t *)token;
+    gasneti_assert(rbuf);
+    retval = gasnetc_ReqRepGeneric(gasnetc_System, rbuf, dest, handler,
+				   NULL, 0, NULL, numargs, NULL, req_oust, argptr);
+    rbuf->rbuf_needReply = 0;
+  }
   va_end(argptr);
-
-  rbuf->rbuf_needReply = 0;
   return retval;
 }
 
@@ -3699,19 +3724,23 @@ extern int gasnetc_ReplySystem(gasnet_token_t token,
   ==============================
 */
 extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex) {
-  uint32_t flags;
   gasnet_node_t sourceid;
 
   GASNETI_CHECK_ERRR((!token),BAD_ARG,"bad token");
   GASNETI_CHECK_ERRR((!srcindex),BAD_ARG,"bad src ptr");
 
-  flags = ((gasnetc_rbuf_t *)token)->rbuf_flags;
+#if GASNET_PSHM
+  if (gasneti_AMPSHMGetMsgSource(token, &sourceid) != GASNET_OK)
+#endif
+  {
+    uint32_t flags = ((gasnetc_rbuf_t *)token)->rbuf_flags;
 
-  if (GASNETC_MSG_CATEGORY(flags) != gasnetc_System) {
-    GASNETI_CHECKATTACH();
+    if_pf (GASNETC_MSG_CATEGORY(flags) != gasnetc_System) {
+      GASNETI_CHECKATTACH();
+    }
+
+    sourceid = GASNETC_MSG_SRCIDX(flags);
   }
-
-  sourceid = GASNETC_MSG_SRCIDX(flags);
 
   gasneti_assert(sourceid < gasneti_nodes);
   *srcindex = sourceid;

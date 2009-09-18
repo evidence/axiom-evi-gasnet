@@ -17,4 +17,3 @@ CONDUIT_INCLUDES = -I@TOP_SRCDIR@/other/ammpi          ###NOINSTALL###
 CONDUIT_LIBDIRS =  -L@TOP_BUILDDIR@/other/ammpi        ###NOINSTALL###
 
 CONDUIT_LIBS = -lammpi @MPI_LIBS@
-

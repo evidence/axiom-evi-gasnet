@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet.h,v $
- *     $Date: 2009/09/16 01:13:20 $
- * $Revision: 1.62 $
+ *     $Date: 2009/09/18 23:33:23 $
+ * $Revision: 1.63 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -104,6 +104,15 @@
   #error bad def of GASNETI_STATS_OR_TRACE
 #endif
 
+#if defined(GASNET_PSHM)
+  #undef GASNET_PSHM
+  #define GASNET_PSHM 1
+  #define GASNETI_PSHM_CONFIG pshm
+#else
+  #define GASNET_PSHM 0
+  #define GASNETI_PSHM_CONFIG nopshm
+#endif
+
 /* basic utilities used in the headers */
 #include <gasnet_basic.h>
 
@@ -127,9 +136,10 @@
 #endif
 
 /* additional safety check, in case a very smart linker removes all of the checks at the end of this file */
-#define gasnet_init _CONCAT(_CONCAT(_CONCAT(_CONCAT(_CONCAT(_CONCAT( \
+#define gasnet_init _CONCAT(_CONCAT(_CONCAT(_CONCAT(_CONCAT(_CONCAT(_CONCAT( \
                     gasnet_init_GASNET_,                             \
                     GASNETI_THREAD_MODEL),                           \
+                    GASNETI_PSHM_CONFIG),                            \
                     GASNETI_SEGMENT_CONFIG),                         \
                     GASNETI_DEBUG_CONFIG),                           \
                     GASNETI_TRACE_CONFIG),                           \
@@ -209,6 +219,11 @@
   #define GASNET_ERR_BARRIER_MISMATCH     (_GASNET_ERR_BASE+5)
 #endif
 
+/* Largest Medium supported by AMPSHM */
+#ifndef GASNETI_MAX_MEDIUM_PSHM
+  #define GASNETI_MAX_MEDIUM_PSHM 65000
+#endif
+
 GASNETI_BEGIN_EXTERNC
 extern const char *gasnet_ErrorName(int);
 extern const char *gasnet_ErrorDesc(int);
@@ -259,6 +274,11 @@ GASNETI_END_EXTERNC
   typedef struct gasneti_seginfo_s {
     void *addr;
     uintptr_t size;
+  #if GASNET_PSHM
+    void *remote_addr;
+    uintptr_t remote_size;
+  #endif
+    gasnet_node_t nodeinfo;
   } gasnet_seginfo_t;
 #endif
 
@@ -351,6 +371,7 @@ GASNETI_END_EXTERNC
              "SEGMENT=" _STRINGIFY(GASNETI_SEGMENT_CONFIG) ","            \
              "PTR=" _STRINGIFY(GASNETI_PTR_CONFIG) ","                    \
              _STRINGIFY(GASNETI_ALIGN_CONFIG) ","                         \
+             _STRINGIFY(GASNETI_PSHM_CONFIG) ","                          \
              _STRINGIFY(GASNETI_DEBUG_CONFIG) ","                         \
              _STRINGIFY(GASNETI_TRACE_CONFIG) ","                         \
              _STRINGIFY(GASNETI_STATS_CONFIG) ","                         \
@@ -378,6 +399,7 @@ extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_TRACE_CONFIG);
 extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_STATS_CONFIG);
 extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_SRCLINES_CONFIG);
 extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_ALIGN_CONFIG);
+extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_PSHM_CONFIG);
 extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_PTR_CONFIG);
 extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_TIMER_CONFIG);
 extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_MEMBAR_CONFIG);
@@ -400,6 +422,7 @@ static int *gasneti_linkconfig_idiotcheck(void) {
         + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_STATS_CONFIG)
         + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_SRCLINES_CONFIG)
         + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_ALIGN_CONFIG)
+        + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_PSHM_CONFIG)
         + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_PTR_CONFIG)
         + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_TIMER_CONFIG)
         + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_MEMBAR_CONFIG)

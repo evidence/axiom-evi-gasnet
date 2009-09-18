@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/Makefile.am,v $
-#     $Date: 2009/09/16 01:13:41 $
-# $Revision: 1.23 $
+#     $Date: 2009/09/18 23:33:46 $
+# $Revision: 1.24 $
 # Description: Makefile for GASNet smp conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -23,14 +23,16 @@ CONDUIT_FILELIST =           \
       gasnet_core_help.h     \
       gasnet_core_internal.h \
       gasnet_coll_fwd.h      \
-      gasnet_extended_coll.c
+      gasnet_extended_fwd.h  \
+      gasnet_extended_coll.c \
+      gasnet_extended.c
 
 # list of conduit core and extended .c source files 
 # to be compiled into libgasnet on the compiler command line
 CONDUIT_SOURCELIST =          \
       $(srcdir)/gasnet_core.c \
       $(srcdir)/gasnet_extended_coll.c \
-      $(top_srcdir)/extended-ref/gasnet_extended.c 
+      $(srcdir)/gasnet_extended.c
 
 # additional -I or -D directives needed by this specific conduit
 # other than the standard GASNet includes and flags
@@ -56,7 +58,11 @@ CONDUIT_SPECIAL_OBJS =
 #   %Q = program arguments w/ an extra level of quotes
 #   %D = the current working directory 
 #   %H = hostfile (if any)
+if USE_PSHM
+CONDUIT_RUNCMD = env GASNET_PSHM_NODES=%N %P %A
+else
 CONDUIT_RUNCMD = %P %A
+endif
 
 # conduit-specific tests in ../tests directory
 CONDUIT_TESTS =

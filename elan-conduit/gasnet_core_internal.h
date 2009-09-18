@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2009/03/30 02:40:29 $
- * $Revision: 1.45 $
+ *     $Date: 2009/09/18 23:33:28 $
+ * $Revision: 1.46 $
  * Description: GASNet elan conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -74,6 +74,19 @@
 #define GASNETC_HANDLER_BASE  1 /* reserve 1-63 for the core API */
 #define _hidx_gasnetc_auxseg_reqh             (GASNETC_HANDLER_BASE+0)
 /* add new core API handlers here and to the bottom of gasnet_core.c */
+
+/* ------------------------------------------------------------------------------------ */
+/* handler table (recommended impl) */
+#define GASNETC_MAX_NUMHANDLERS   256
+extern gasneti_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS];
+
+/* ------------------------------------------------------------------------------------ */
+/* AM category (recommended impl if supporting PSHM) */
+typedef enum {
+  gasnetc_Short=0,
+  gasnetc_Medium=1,
+  gasnetc_Long=2
+} gasnetc_category_t;
 
 extern ELAN_BASE  *gasnetc_elan_base;
 extern ELAN_STATE *gasnetc_elan_state;
@@ -349,12 +362,6 @@ void gasnete_evtbin_init(gasnete_evtbin_t *bin, uint16_t sz, ELAN_EVENT **space)
   * 3-7: numargs
   */
 typedef unsigned char gasnetc_flag_t;
-typedef enum {
-  gasnetc_Short=0, 
-  gasnetc_Medium=1, 
-  gasnetc_Long=2,
-  gasnetc_System=3
-  } gasnetc_category_t;
 
 #define GASNETC_MSG_SETFLAGS(pmsg, isreq, cat, numargs) \
   ((pmsg)->flags = (gasnetc_flag_t) (                   \
@@ -413,9 +420,6 @@ typedef struct _gasnetc_bufdesc_t {
   int8_t   handlerRunning; /* received packets only */
   int8_t   replyIssued;    /* received packets only */
 } gasnetc_bufdesc_t;
-
-#define GASNETC_MAX_NUMHANDLERS   256
-gasneti_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS]; /* handler table */
 
 extern int gasnetc_RequestGeneric(gasnetc_category_t category, 
                          int dest, gasnet_handler_t handler, 

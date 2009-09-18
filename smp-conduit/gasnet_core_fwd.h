@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_core_fwd.h,v $
- *     $Date: 2006/08/30 11:46:13 $
- * $Revision: 1.14 $
+ *     $Date: 2009/09/18 23:33:46 $
+ * $Revision: 1.15 $
  * Description: GASNet header for smp conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -19,18 +19,19 @@
 #define GASNET_CORE_NAME_STR     _STRINGIFY(GASNET_CORE_NAME)
 #define GASNET_CONDUIT_NAME      GASNET_CORE_NAME
 #define GASNET_CONDUIT_NAME_STR  _STRINGIFY(GASNET_CONDUIT_NAME)
+
 #define GASNET_CONDUIT_SMP       1
 
   /*  defined to be 1 if gasnet_init guarantees that the remote-access memory segment will be aligned  */
   /*  at the same virtual address on all nodes. defined to 0 otherwise */
 /* segment alignment on smp is moot, as there is only a single node */
-#if GASNETI_DISABLE_ALIGNED_SEGMENTS
-  #define GASNET_ALIGNED_SEGMENTS   0 /* user disabled segment alignment */
+#if GASNETI_DISABLE_ALIGNED_SEGMENTS || GASNET_PSHM
+  #define GASNET_ALIGNED_SEGMENTS   0 /* user or PSHM disabled segment alignment */
 #else
   #define GASNET_ALIGNED_SEGMENTS   1
 #endif
 
-#if !defined(GASNETE_PUTGET_ALWAYSREMOTE) && !defined(GASNETE_PUTGET_ALWAYSLOCAL)
+#if !defined(GASNETE_PUTGET_ALWAYSREMOTE) && !defined(GASNETE_PUTGET_ALWAYSLOCAL) && !GASNET_PSHM
   #define GASNETE_PUTGET_ALWAYSLOCAL 1
 #endif
 
@@ -40,7 +41,11 @@
 #endif
 
 #define GASNETI_GASNETC_AMPOLL
-#define gasnetc_AMPoll()        GASNET_OK  /* nothing to do */
+#if GASNET_PSHM
+  extern int gasnetc_AMPoll(void);
+#else
+  #define gasnetc_AMPoll()        GASNET_OK  /* nothing to do */
+#endif
 
   /* conduits should define GASNETI_CONDUIT_THREADS to 1 if they have one or more 
      "private" threads which may be used to run AM handlers, even under GASNET_SEQ
@@ -52,6 +57,12 @@
      (e.g. with a signal) to run AM handlers (interrupt-based handler dispatch)
    */
 /* #define GASNETC_USE_INTERRUPTS 1 */
+
+  /* define these to 1 if your conduit supports PSHM, but cannot use the
+     default interfaces. (see template-conduit/gasnet_core.c and gasnet_pshm.h)
+   */
+/* #define GASNETC_GET_HANDLER 1 */
+/* #define GASNETC_TOKEN_CREATE 1 */
 
   /* this can be used to add conduit-specific 
      statistical collection values (see gasnet_trace.h) */

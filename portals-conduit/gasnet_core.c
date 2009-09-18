@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2009/08/17 02:47:59 $
- * $Revision: 1.38 $
+ *     $Date: 2009/09/18 23:33:40 $
+ * $Revision: 1.39 $
  * Description: GASNet portals conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *                 Michael Welcome <mlwelcome@lbl.gov>
@@ -22,7 +22,6 @@ GASNETI_IDENT(gasnetc_IdentString_Name,    "$GASNetCoreLibraryName: " GASNET_COR
 gasnet_handlerentry_t const *gasnetc_get_handlertable(void);
 static void gasnetc_atexit(void);
 
-#define GASNETC_MAX_NUMHANDLERS   256
 gasneti_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS]; /* handler table (recommended impl) */
 
 uintptr_t gasnetc_segbase, gasnetc_segend;
@@ -332,6 +331,8 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   gasnetc_init_portals_resources();
 
   gasnete_init(); /* init the extended API */
+
+  gasneti_nodemapFini();
 
   /* ensure extended API is initialized across nodes */
   gasnetc_bootstrapBarrier();
