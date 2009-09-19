@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2009/09/19 06:43:22 $
-# $Revision: 1.557 $
+#     $Date: 2009/09/19 23:33:50 $
+# $Revision: 1.558 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.557 $)
+AC_REVISION($Revision: 1.558 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -264,14 +264,20 @@ case "$gasnet_cv_cc_family" in
 	    # enabling ipa (-O4 or higher) breaks linking to MPI (and thus vapi).
 	    case `/usr/sbin/sysctl hw.cpusubtype | cut '-d ' -f2` in
 		# bug926: on G5 (cpusubtype 100) -qarch={ppc970,auto} causes corruption of 64-bit integer arithmetic
-		100)	CCOPTFLAGS="-O3 -qhot -qarch=g5 -qtune=auto -qsmp=noauto -qmaxmem=-1" ;; 
-		*)	CCOPTFLAGS="-O3 -qhot -qarch=auto -qtune=auto -qsmp=noauto -qmaxmem=-1" ;; 
+		100)	CCOPTFLAGS="-O3 -qhot -qarch=g5 -qtune=auto -qthreaded -qnosmp -qmaxmem=-1" ;; 
+		*)	CCOPTFLAGS="-O3 -qhot -qarch=auto -qtune=auto -qthreaded -qnosmp -qmaxmem=-1" ;; 
 	    esac
 	    ;;
-	linux*) CCOPTFLAGS="-O3 -qhot -qarch=auto -qtune=auto -qsmp=noauto -qmaxmem=-1" ;;
-	*)  #CCOPTFLAGS="-O5 -qsmp=noauto -qmaxmem=-1" ;; # -O5 == -O3 w/ intra-procedural analysis, maxmem=-1 is default for -O3 or higher
-	    CCOPTFLAGS="-O3 -qarch=auto -qtune=auto -qnosmp -qmaxmem=-1" ;; # -O5 causes linker to hang on Titanium 
+	linux*) CCOPTFLAGS="-O3 -qhot -qarch=auto -qtune=auto -qthreaded -qnosmp -qmaxmem=-1";;
+	*)  #CCOPTFLAGS="-O5 -qthreaded -qnosmp -qmaxmem=-1" ;; # -O5 == -O3 w/ intra-procedural analysis, maxmem=-1 is default for -O3 or higher
+	    CCOPTFLAGS="-O3 -qarch=auto -qtune=auto -qthreaded -qnosmp -qmaxmem=-1" ;; # -O5 causes linker to hang on Titanium 
     esac
+    # If $CC sets -q<something>, then remove conflicting options from CCOPTFLAGS
+    for flag in arch tune hot threaded smp; do
+      if echo "$CC" | grep "q\(no\)\?${flag}" >/dev/null; then
+        CCOPTFLAGS=`echo "$CCOPTFLAGS" | sed -e "s/-q\(no\)\?${flag}\(=[[a-z0-9_]]*\)\?//"`
+      fi
+    done
   ;;
   Compaq) CCOPTFLAGS="-fast -noifo -O4 -tune host -inline all" ;;
   Intel) CCOPTFLAGS="-O3" ;;
@@ -2146,7 +2152,7 @@ if test "$enabled_mpi" = yes || test "$enabled_mpi_compat" = yes; then
     	GASNET_ENV_DEFAULT(MPI_CC, mpcc)
 	BASIC_MPI_CFLAGS=""
 	if test "$BUILDCONFIG" = "optimize" ; then
-    	  BASIC_MPI_CFLAGS="-O3 -qstrict -qarch=auto -qtune=auto -qnosmp -qmaxmem=-1 $BASIC_MPI_CFLAGS"
+    	  BASIC_MPI_CFLAGS="-O3 -qstrict -qarch=auto -qtune=auto -qthreaded -qnosmp -qmaxmem=-1 $BASIC_MPI_CFLAGS"
 	else
     	  BASIC_MPI_CFLAGS="-g $BASIC_MPI_CFLAGS"
 	fi

@@ -13,8 +13,8 @@ CXX='/bgsys/drivers/ppcfloor/gnu-linux/bin/powerpc-bgp-linux-g++ -Wno-unused' ; 
 # for dynamic linking add: -dynamic -Wl,-rpath,/bgsys/drivers/V1R1M2_500_2007-071213P/ppc/runtime/SPI
 else
 # XLC-based compilers
-CC='bgxlc_r -qarch=450d -qtune=450' ; export CC  # vanilla target C compiler
-CXX='bgxlC_r -qarch=450d -qtune=450' ; export CXX  # vanilla target C++ compiler
+CC='bgxlc_r -qnohot -qarch=450d -qtune=450' ; export CC  # vanilla target C compiler
+CXX='bgxlC_r -qnohot -qarch=450d -qtune=450' ; export CXX  # vanilla target C++ compiler
 # for dynamic linking add: -qnostaticlink -Wl,-rpath,/bgsys/drivers/V1R1M2_500_2007-071213P/ppc/runtime/SPI
 fi
 
