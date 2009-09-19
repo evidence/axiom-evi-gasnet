@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_team.c,v $
- * $Date: 2009/09/18 04:01:25 $
- * $Revision: 1.4 $
+ * $Date: 2009/09/19 08:02:35 $
+ * $Revision: 1.5 $
  *
  * Description: GASNet generic team implementation for collectives 
  * LBNL 2009
@@ -399,7 +399,7 @@ gasnet_node_t gasnete_coll_team_node2rank(gasnete_coll_team_t team, gasnet_node_
       return i;
    
   gasneti_fatalerror("Cannot find node %u in team %p with id %x!\n", 
-                     node, team, team->team_id);
+                     (unsigned int)node, team, (unsigned int)team->team_id);
   return (gasnet_node_t)(-1); /* NOT REACHED */
 }
 
@@ -412,10 +412,10 @@ void gasnete_print_team(gasnet_team_handle_t team, FILE *fp)
 {
   int i;
   fprintf(fp, "team id %x, total ranks %u, my rank %u\n",
-          team->team_id, team->total_ranks, team->myrank);
+          (unsigned int)team->team_id, (unsigned int)team->total_ranks, (unsigned int)team->myrank);
   fprintf(fp, "rel2act_map:\n");
   for (i=0; i<team->total_ranks; i++) {
-    fprintf(fp, "%u -> %u\n", i, team->rel2act_map[i]);
+    fprintf(fp, "%u -> %u\n", i, (unsigned int)team->rel2act_map[i]);
   }
   fflush(fp);
 }

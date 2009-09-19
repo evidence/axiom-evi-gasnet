@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refcoll.c,v $
- *     $Date: 2009/09/16 23:36:36 $
- * $Revision: 1.80 $
+ *     $Date: 2009/09/19 08:02:35 $
+ * $Revision: 1.81 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -569,7 +569,7 @@ gasnet_coll_handle_t gasnete_coll_threads_get_handle(GASNETE_THREAD_FARG_ALONE) 
       gasneti_assert(op->data != NULL);
       /*make sure the decrement didn't make the number go negative*/
       if((int) gasneti_atomic_read(&GASNETE_COLL_GENERIC_DATA(op)->threads.remaining, 0) <=0) {
-        fprintf(stderr, "threads remaining before dec: %d (has to be > 0!!!) seq: %d\n", (int) gasneti_atomic_read(&GASNETE_COLL_GENERIC_DATA(op)->threads.remaining, 0), op->sequence);
+        fprintf(stderr, "threads remaining before dec: %d (has to be > 0!!!) seq: %d\n", (int) gasneti_atomic_read(&GASNETE_COLL_GENERIC_DATA(op)->threads.remaining, 0), (int)op->sequence);
         gasneti_assert((int) gasneti_atomic_read(&GASNETE_COLL_GENERIC_DATA(op)->threads.remaining, 0) > 0);
       }
       gasneti_atomic_decrement(&GASNETE_COLL_GENERIC_DATA(op)->threads.remaining,GASNETT_ATOMIC_WMB_PRE);

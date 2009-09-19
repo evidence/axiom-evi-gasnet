@@ -563,9 +563,9 @@ static tree_node_t find_node(tree_node_t tree, gasnet_node_t id) {
 
 static void print_tree_node(tree_node_t main_node, int id) {
   int i;
-  printf("%d> %d num_children: %d\n", id, GET_NODE_ID(main_node), GET_NUM_CHILDREN(main_node));
+  printf("%d> %d num_children: %d\n", id, (int)GET_NODE_ID(main_node), GET_NUM_CHILDREN(main_node));
   for(i=0; i<GET_NUM_CHILDREN(main_node); i++) {
-    printf("%d> %d child: %d %d\n", id, GET_NODE_ID(main_node), i, GET_NODE_ID(GET_CHILD_IDX(main_node,i)));
+    printf("%d> %d child: %d %d\n", id, (int)GET_NODE_ID(main_node), i, (int)GET_NODE_ID(GET_CHILD_IDX(main_node,i)));
   }
   for(i=0; i<GET_NUM_CHILDREN(main_node); i++) {
     print_tree_node(GET_CHILD_IDX(main_node, i), id);

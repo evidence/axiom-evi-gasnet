@@ -384,7 +384,7 @@ uint32_t myxml_countAndLabelNodes(myxml_node_t *node, uint32_t label) {
   size_t __ret;                                    \
   __ret = fwrite(PTR, 1, NBYTES, OUTSTREAM);  \
  if(__ret != (NBYTES)) {                              \
-   fprintf(stderr, "write error (expected: %d got: %d)\n", (uint32_t)NBYTES, (uint32_t)__ret); \
+   fprintf(stderr, "write error (expected: %d got: %d)\n", (int)NBYTES, (int)__ret); \
    fclose(OUTSTREAM);                                             \
    exit(1); }} while(0)
 

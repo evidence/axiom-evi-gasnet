@@ -1993,12 +1993,12 @@ static void do_tuning_loop(gasnet_team_handle_t team, gasnet_coll_optype_t op,
       char buf1[100];
       char buf2[100];
       
-      printf("%d> %s alg: %s (%d) syncflags: %s nbytes: %d params:<", td->my_image, print_op_str(buf1, op, flags), team->autotune_info->collective_algorithms[op][alg_idx].name_str, alg_idx,
+      printf("%d> %s alg: %s (%d) syncflags: %s nbytes: %d params:<", (int)td->my_image, print_op_str(buf1, op, flags), team->autotune_info->collective_algorithms[op][alg_idx].name_str, alg_idx,
              print_flag_str(buf2, flags), (int) coll_args.nbytes);
       
       
       for(i=0; i<impl->num_params; i++) {
-        printf(" %d", impl->param_list[i]);
+        printf(" %d", (int)impl->param_list[i]);
       }
       printf(" > time: %g\n", (double)gasnett_ticks_to_us(*best_time)/team->autotune_info->perf_iters); 
     }
@@ -2042,14 +2042,14 @@ static void do_tuning_loop(gasnet_team_handle_t team, gasnet_coll_optype_t op,
             char buf1[100];
             char buf2[100];
             int i;
-            printf("%d> %s alg: %s (%d) syncflags: %s nbytes: %d params:<", td->my_image, print_op_str(buf1, op, flags), team->autotune_info->collective_algorithms[op][alg_idx].name_str, alg_idx,
+            printf("%d> %s alg: %s (%d) syncflags: %s nbytes: %d params:<", (int)td->my_image, print_op_str(buf1, op, flags), team->autotune_info->collective_algorithms[op][alg_idx].name_str, alg_idx,
                    print_flag_str(buf2, flags), (int) coll_args.nbytes);
             for(i=0; i<impl->num_params; i++) {
               if(team->autotune_info->collective_algorithms[op][alg_idx].parameter_list[i].flags & GASNET_COLL_TUNING_TREE_SHAPE){  
                 gasnete_coll_tree_type_to_str((char *) buf1, impl->tree_type);
                 printf(" %s", buf1);
               }else {
-                printf(" %d", impl->param_list[i]);
+                printf(" %d", (int)impl->param_list[i]);
               }       
             }
             printf(" > time: %g\n", (double)gasnett_ticks_to_us(curr_run)/team->autotune_info->perf_iters); 
@@ -2159,10 +2159,10 @@ void gasnete_coll_tune_generic_op(gasnet_team_handle_t team, gasnet_coll_optype_
     int sync_flags_ok = ((sync_flags & team->autotune_info->collective_algorithms[op][algidx].syncflags) == sync_flags);
     int nreq_flags_ok = (!(req_flags & team->autotune_info->collective_algorithms[op][algidx].n_requirements));
 #if GASNET_DEBUG
-    if(!size_ok){if(td->my_image==0 && gasnete_coll_print_autotuner_timers) fprintf(stderr, "%d> skipping alg: %d (reason: size too large)\n", gasneti_mynode, algidx);continue;}
-    if(!req_flags_ok){if(td->my_image==0 && gasnete_coll_print_autotuner_timers) fprintf(stderr, "%d> skipping alg: %d (reason: all req flags are not present)\n", gasneti_mynode, algidx);continue;}
-    if(!nreq_flags_ok){if(td->my_image==0 && gasnete_coll_print_autotuner_timers) fprintf(stderr, "%d> skipping alg: %d (reason: one of the nreq flags is present)\n", gasneti_mynode, algidx);continue;}
-    if(!sync_flags_ok){if(td->my_image==0 && gasnete_coll_print_autotuner_timers) fprintf(stderr, "%d> skipping alg: %d (reason: not valid for this syncflag)\n", gasneti_mynode, algidx);continue;}
+    if(!size_ok){if(td->my_image==0 && gasnete_coll_print_autotuner_timers) fprintf(stderr, "%d> skipping alg: %d (reason: size too large)\n", (int)gasneti_mynode, algidx);continue;}
+    if(!req_flags_ok){if(td->my_image==0 && gasnete_coll_print_autotuner_timers) fprintf(stderr, "%d> skipping alg: %d (reason: all req flags are not present)\n", (int)gasneti_mynode, algidx);continue;}
+    if(!nreq_flags_ok){if(td->my_image==0 && gasnete_coll_print_autotuner_timers) fprintf(stderr, "%d> skipping alg: %d (reason: one of the nreq flags is present)\n", (int)gasneti_mynode, algidx);continue;}
+    if(!sync_flags_ok){if(td->my_image==0 && gasnete_coll_print_autotuner_timers) fprintf(stderr, "%d> skipping alg: %d (reason: not valid for this syncflag)\n", (int)gasneti_mynode, algidx);continue;}
     
 #else
     if(!(size_ok && req_flags_ok && sync_flags_ok &&  nreq_flags_ok/*match!*/)) {
@@ -2235,8 +2235,7 @@ gasnete_coll_autotune_index_entry_t *search_intervals(gasnete_coll_autotune_inde
   return NULL;
 }
 
-/*GASNETI_INLINE(search_index)*/
-static inline
+static
 gasnete_coll_implementation_t search_index(gasnet_coll_optype_t op, gasnete_coll_team_t team, uint32_t flags, size_t nbytes, gasnet_image_t rootimg, int exact_match) {
 
   gasnete_coll_autotune_index_entry_t *temp = team->autotune_info->autotuner_defaults;
@@ -2273,7 +2272,7 @@ gasnete_coll_implementation_t search_index(gasnet_coll_optype_t op, gasnete_coll
   return temp->impl;
 }
 
-static inline 
+static
 gasnete_coll_autotune_index_entry_t* add_interval(gasnete_coll_autotune_index_entry_t *list, uint32_t value, const char *node_type) {
   gasnete_coll_autotune_index_entry_t *current_head = list;
   gasnete_coll_autotune_index_entry_t *temp = list;
@@ -2322,8 +2321,7 @@ gasnete_coll_autotune_index_entry_t* add_interval(gasnete_coll_autotune_index_en
   return NULL;
 }
 
-/*GASNETI_INLINE(add_to_index)*/
-static inline
+static
 gasnete_coll_autotune_index_entry_t *add_to_index(gasnet_coll_optype_t op, gasnete_coll_team_t team, uint32_t flags, 
                                                   size_t nbytes, gasnet_image_t rootimg, int profile_mode) {
   gasnete_coll_autotune_index_entry_t *idx;
@@ -2377,7 +2375,7 @@ void gasnete_coll_safe_broadcast(gasnete_coll_team_t team, void *dst, void *src,
 }
 
 
-static inline
+static
 int verify_algorithm(gasnete_coll_team_t team, gasnet_coll_optype_t op, uint32_t flags, size_t nbytes, gasnete_coll_implementation_t impl) {
   uint32_t sync_flags = (flags &  GASNET_COLL_SYNC_FLAG_MASK); /*strip the sync flags off the flags*/
   uint32_t req_flags = (flags & (~GASNET_COLL_SYNC_FLAG_MASK));
@@ -3177,7 +3175,7 @@ static void dump_tuning_state_helper(myxml_node_t *parent, gasnete_coll_autotune
         char buff_idx[20];
         sprintf(tempbuffer, "%d",  temp->impl->fn_idx);
         sprintf(buff_idx, "param_%d", c);
-        sprintf(buffer, "%d", temp->impl->param_list[c]);
+        sprintf(buffer, "%d", (int)temp->impl->param_list[c]);
         myxml_createNode(temp_xml, buff_idx, NULL, NULL, buffer);
       }
     }
