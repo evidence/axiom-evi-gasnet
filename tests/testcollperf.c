@@ -535,7 +535,7 @@ void run_MULTI_ADDR_test(thread_data_t *td, uint8_t **dst_arr, uint8_t **src_arr
   char output_str[8];
   char flag_str[8];
   gasnet_coll_handle_t *handles;
-  handles = test_malloc(sizeof(gasnet_coll_handle_t)*performance_iters);
+  handles = performance_iters ? test_malloc(sizeof(gasnet_coll_handle_t)*performance_iters) : NULL;
   fill_flag_str(flags, flag_str);
   
   COLL_BARRIER();
