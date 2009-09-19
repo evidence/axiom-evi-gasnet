@@ -90,6 +90,7 @@ libgasnet_dependencies =                  \
         $(libgasnet_tools_dependencies)   \
         $(srcdir)/*.[ch]                  \
         $(top_srcdir)/extended-ref/*.[ch] \
+        $(top_srcdir)/smp-collectives/*.[ch] \
 	$(CONDUIT_SOURCELIST)             \
 	$(CONDUIT_EXTRAHEADERS)           \
 	$(CONDUIT_EXTRADEPS)
