@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2009/03/31 01:06:55 $
-dnl $Revision: 1.135 $
+dnl     $Date: 2009/09/20 23:12:39 $
+dnl $Revision: 1.136 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -1458,8 +1458,8 @@ GASNET_FUN_END([$0($1,$2,...)])
 AC_DEFUN([GASNET_PROG_CPP], [
   GASNET_FUN_BEGIN([$0])
   AC_PROVIDE([$0])
-  AC_PROG_CC
-  AC_PROG_CPP
+  AC_REQUIRE([AC_PROG_CC])
+  AC_REQUIRE([AC_PROG_CPP])
   GASNET_GETFULLPATH(CPP)
   AC_SUBST(CPP)
   AC_SUBST(CPPFLAGS)
@@ -1502,8 +1502,8 @@ AC_DEFUN([GASNET_PROG_CPP], [
 AC_DEFUN([GASNET_PROG_CXXCPP], [
   GASNET_FUN_BEGIN([$0])
   AC_PROVIDE([$0])
-  AC_PROG_CXX
-  AC_PROG_CXXCPP
+  AC_REQUIRE([AC_PROG_CXX])
+  AC_REQUIRE([AC_PROG_CXXCPP])
   GASNET_GETFULLPATH(CXXCPP)
   AC_SUBST(CXXCPP)
   AC_SUBST(CXXCPPFLAGS)
