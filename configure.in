@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2009/09/19 23:33:50 $
-# $Revision: 1.558 $
+#     $Date: 2009/09/20 23:11:46 $
+# $Revision: 1.559 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.558 $)
+AC_REVISION($Revision: 1.559 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1938,16 +1938,17 @@ if test $enabled_udp = yes; then
   if test "$with_cxx" = no; then
     have_cxx=no
     GASNET_MSG_WARN([C++ compiler disabled using --without-cxx. Disabling udp-conduit, which requires C++])
-  elif (
-    # bug 1725: Run GASNET_PROG_CXX with care (in a subshell), in case it drops dead (missing C++)
-    GASNET_PROG_CXX
-    ) ; then
-    have_cxx=yes
-    # now run it again for "real" in this shell
-    GASNET_PROG_CXX
   else
-    have_cxx=no
-    GASNET_MSG_WARN([It appears you have no working C++ compiler. Disabling udp-conduit, which requires C++])
+    # bug 1725: Run GASNET_PROG_CXX with care in case it drops dead (missing C++)
+    # Temporary override of AC_MSG_ERROR is a dirty hack!  However, the previous approach
+    # of probing in a subshell eventually ran afoul of autoconf's AC_REQUIRE() rules.
+    pushdef([AC_MSG_ERROR], [have_cxx=no])
+    have_cxx=yes
+    GASNET_PROG_CXX
+    popdef([AC_MSG_ERROR])
+    if test "$have_cxx" = no; then
+      GASNET_MSG_WARN([It appears you have no working C++ compiler. Disabling udp-conduit, which requires C++])
+    fi
   fi
 
  if test "$have_cxx" = yes; then
