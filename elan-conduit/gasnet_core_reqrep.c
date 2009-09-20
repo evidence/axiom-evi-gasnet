@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core_reqrep.c,v $
- *     $Date: 2009/03/30 02:40:29 $
- * $Revision: 1.35 $
+ *     $Date: 2009/09/20 23:34:19 $
+ * $Revision: 1.36 $
  * Description: GASNet elan conduit - AM request/reply implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -424,6 +424,11 @@ extern int gasnetc_AMPoll(void) {
   int i;
   GASNETI_CHECKATTACH();
 
+#if GASNET_PSHM
+  /* If your conduit will support PSHM, let it make progress here. */
+  gasneti_AMPSHMPoll(0);
+#endif
+
   ASSERT_ELAN_UNLOCKED();
 
   for (i = 0; GASNETC_MAX_RECVMSGS_PER_POLL == 0 || i < GASNETC_MAX_RECVMSGS_PER_POLL; i++) {
@@ -543,6 +548,10 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
     }
   }
 
+#if GASNET_PSHM
+  /* PSHM path includes loopback */
+  gasneti_assert(dest != gasneti_mynode);
+#else
   if (dest == gasneti_mynode) {
     if (category == gasnetc_Long) memcpy(dest_ptr, source_addr, nbytes);
     gasnetc_processPacket(desc);
@@ -550,8 +559,9 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
       gasneti_assert(msgsz > GASNETC_ELAN_MAX_QUEUEMSG);
       gasnetc_tportReleaseTxBuf(desc);
     }
-  }
-  else {
+  } else
+#endif
+  {
     LOCK_ELAN_WEAK();
       if (category == gasnetc_Long && nbytes > 0) {
         /* do put and block for completion */
@@ -630,6 +640,15 @@ extern int gasnetc_RequestGeneric(gasnetc_category_t category,
 
   gasneti_AMPoll(); /* ensure progress */
 
+#if GASNET_PSHM
+  /* If your conduit will support PSHM, let it check the dest first. */
+  if_pt (gasneti_pshm_in_supernode(dest)) {
+    return gasneti_AMPSHM_RequestGeneric(category, dest, handler,
+                                         source_addr, nbytes, dest_ptr,
+                                         numargs, argptr);
+  }
+#endif
+
   return gasnetc_ReqRepGeneric(category, 1, dest, handler, 
                                source_addr, nbytes, dest_ptr, 
                                numargs, argptr); 
@@ -641,6 +660,15 @@ extern int gasnetc_ReplyGeneric(gasnetc_category_t category,
                          int numargs, va_list argptr) {
   gasnetc_bufdesc_t *reqdesc = (gasnetc_bufdesc_t *)token;
   int retval;
+
+#if GASNET_PSHM
+  /* If your conduit will support PSHM, let it check the token first. */
+  if_pt (gasnetc_token_is_pshm(token)) {
+    return gasneti_AMPSHM_ReplyGeneric(category, token, handler,
+                                       source_addr, nbytes, dest_ptr,
+                                       numargs, argptr);
+  }
+#endif
 
   gasneti_assert(reqdesc->handlerRunning);
   gasneti_assert(!reqdesc->replyIssued);

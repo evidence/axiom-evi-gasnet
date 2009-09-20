@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2009/09/18 23:33:28 $
- * $Revision: 1.80 $
+ *     $Date: 2009/09/20 23:34:19 $
+ * $Revision: 1.81 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -322,6 +322,11 @@ static int gasnetc_init(int *argc, char ***argv) {
     gasnetc_bootstrapExchange(&first_local, sizeof(first_local), gasneti_nodemap);
   }
   gasneti_nodemapParse();
+
+  #if GASNET_PSHM
+    /* If your conduit will support PSHM, you should initialize it here. */
+    (void)gasneti_pshm_init(&gasnetc_bootstrapExchange, 0);
+  #endif
 
   #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
     #if GASNETC_USE_STATIC_SEGMENT
@@ -961,6 +966,9 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
   GASNETI_CHECK_ERRR((!srcindex),BAD_ARG,"bad src ptr");
 
   /* add code here to write the source index into sourceid */
+#if GASNET_PSHM
+  if (gasneti_AMPSHMGetMsgSource(token, &sourceid) != GASNET_OK)
+#endif
   { gasnetc_bufdesc_t *desc = (gasnetc_bufdesc_t*)token;
     gasneti_assert(desc->handlerRunning);
     sourceid = desc->buf->m.msg.sourceId;
