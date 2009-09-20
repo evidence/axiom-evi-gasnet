@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core_fwd.h,v $
- *     $Date: 2009/09/18 23:33:32 $
- * $Revision: 1.31 $
+ *     $Date: 2009/09/20 20:55:25 $
+ * $Revision: 1.32 $
  * Description: GASNet header for lapi conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -72,7 +72,7 @@
    #define GASNET_ALIGNED_SEGMENTS   0 
    #undef HAVE_MMAP
 #elif GASNETI_DISABLE_ALIGNED_SEGMENTS || GASNET_PSHM
-  #define GASNET_ALIGNED_SEGMENTS   0 /* user of PSHM disabled segment alignment */
+  #define GASNET_ALIGNED_SEGMENTS   0 /* user or PSHM disabled segment alignment */
 #else
   #define GASNET_ALIGNED_SEGMENTS   1
 #endif
