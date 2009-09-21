@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/gasnet_core.c,v $
- *     $Date: 2009/09/18 23:33:34 $
- * $Revision: 1.80 $
+ *     $Date: 2009/09/21 01:59:10 $
+ * $Revision: 1.81 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -21,8 +21,12 @@ GASNETI_IDENT(gasnetc_IdentString_Version, "$GASNetCoreLibraryVersion: " GASNET_
 GASNETI_IDENT(gasnetc_IdentString_Name,    "$GASNetCoreLibraryName: " GASNET_CORE_NAME_STR " $");
 
 gasnet_handlerentry_t const *gasnetc_get_handlertable(void);
-static void gasnetc_atexit(void);
 static void gasnetc_traceoutput(int);
+#if HAVE_ON_EXIT
+static void gasnetc_on_exit(int, void*);
+#else
+static void gasnetc_atexit(void);
+#endif
 
 eb_t gasnetc_bundle;
 ep_t gasnetc_endpoint;
@@ -362,7 +366,11 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     /* catch fatal signals and convert to SIGQUIT */
     gasneti_registerSignalHandlers(gasneti_defaultSignalHandler);
 
+#if HAVE_ON_EXIT
+    on_exit(gasnetc_on_exit, NULL);
+#else
     atexit(gasnetc_atexit);
+#endif
 
     /* ------------------------------------------------------------------------------------ */
     /*  register segment  */
@@ -426,9 +434,15 @@ done: /*  error return while locked */
   GASNETI_RETURN(retval);
 }
 /* ------------------------------------------------------------------------------------ */
+#if HAVE_ON_EXIT
+static void gasnetc_on_exit(int exitcode, void *arg) {
+  gasnetc_exit(exitcode);
+}
+#else
 static void gasnetc_atexit(void) {
   gasnetc_exit(0);
 }
+#endif
 static int gasnetc_exitcalled = 0;
 static void gasnetc_traceoutput(int exitcode) {
   if (!gasnetc_exitcalled) {

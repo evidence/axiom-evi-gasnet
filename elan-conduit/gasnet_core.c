@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2009/09/20 23:34:19 $
- * $Revision: 1.81 $
+ *     $Date: 2009/09/21 01:59:08 $
+ * $Revision: 1.82 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -40,7 +40,11 @@ GASNETI_IDENT(gasnetc_IdentString_Version, "$GASNetCoreLibraryVersion: " GASNET_
 GASNETI_IDENT(gasnetc_IdentString_Name,    "$GASNetCoreLibraryName: " GASNET_CORE_NAME_STR " $");
 
 gasnet_handlerentry_t const *gasnetc_get_handlertable(void);
+#if HAVE_ON_EXIT
+static void gasnetc_on_exit(int, void*);
+#else
 static void gasnetc_atexit(void);
+#endif
 
 #if !GASNETI_CLIENT_THREADS
   void **_gasnetc_mythread = NULL;
@@ -521,7 +525,11 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     gasneti_registerSignalHandlers(gasneti_defaultSignalHandler);
   #endif
 
+#if HAVE_ON_EXIT
+  on_exit(gasnetc_on_exit, NULL);
+#else
   atexit(gasnetc_atexit);
+#endif
 
   /* ------------------------------------------------------------------------------------ */
   /*  register segment  */
@@ -673,9 +681,15 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   return GASNET_OK;
 }
 /* ------------------------------------------------------------------------------------ */
+#if HAVE_ON_EXIT
+static void gasnetc_on_exit(int exitcode, void *arg) {
+    gasnetc_exit(exitcode);
+}
+#else
 static void gasnetc_atexit(void) {
     gasnetc_exit(0);
 }
+#endif
 
 #if GASNETC_USE_SIGNALING_EXIT
   #ifdef GASNETI_USE_GENERIC_ATOMICOPS
