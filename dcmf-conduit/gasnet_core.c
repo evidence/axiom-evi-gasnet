@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_core.c,v $
- *     $Date: 2009/09/18 23:33:26 $
- * $Revision: 1.11 $
+ *     $Date: 2009/09/21 03:54:22 $
+ * $Revision: 1.12 $
  * Description: GASNet dcmf conduit Implementation
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>, 
                    Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -55,7 +55,11 @@ static double gasnetc_exittimeout = GASNETC_DEFAULT_EXITTIMEOUT_MAX;
 
 
 gasnet_handlerentry_t const *gasnetc_get_handlertable(void);
+#if HAVE_ON_EXIT
+static void gasnetc_on_exit(int, void*);
+#else
 static void gasnetc_atexit(void);
+#endif
 
 gasneti_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS]; /* handler table (recommended impl) */
 
@@ -564,7 +568,11 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
    *        (e.g. to support interrupt-based messaging)
    */
   
+#if HAVE_ON_EXIT
+  on_exit(gasnetc_on_exit, NULL);
+#else
   atexit(gasnetc_atexit);
+#endif
 
   /* ------------------------------------------------------------------------------------ */
   /*  register segment  */
@@ -642,9 +650,15 @@ void gasnetc_myFatalSignalCallback(int sig){
 #endif
 }
 
+#if HAVE_ON_EXIT
+static void gasnetc_on_exit(int exitcode, void *arg) {
+  gasnetc_exit(exitcode);
+}
+#else
 static void gasnetc_atexit(void) {
   gasnetc_exit(0);
 }
+#endif
 
 /*global kill switch that will kill all nodes on this job*/
 static void gasnetc_exit_timeout(int sig) {
