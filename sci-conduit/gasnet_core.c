@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/sci-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2009/09/18 23:33:42 $
- * $Revision: 1.28 $
+ *     $Date: 2009/09/21 04:01:01 $
+ * $Revision: 1.29 $
  * Description: GASNet sci conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *				   Hung-Hsun Su <su@hcs.ufl.edu>
@@ -22,8 +22,12 @@ GASNETI_IDENT(gasnetc_IdentString_Version, "$GASNetCoreLibraryVersion: " GASNET_
 GASNETI_IDENT(gasnetc_IdentString_Name,    "$GASNetCoreLibraryName: " GASNET_CORE_NAME_STR " $");
 
 gasnet_handlerentry_t const *gasnetc_get_handlertable(void);
-
+#if HAVE_ON_EXIT
+static void gasnetc_on_exit(int, void*);
+#else
 static void gasnetc_atexit(void);
+#endif
+
 extern void gasnetc_exit(int exitcode);
 
 /*  New variables for SCI Conduit */
@@ -313,7 +317,11 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
    */
    gasnetc_sci_handler_table[63] = gasnetc_sci_call_exit;
 
-  atexit(gasnetc_atexit);
+  #if HAVE_ON_EXIT
+    on_exit(gasnetc_on_exit, NULL);
+  #else
+    atexit(gasnetc_atexit);
+  #endif
 
   /* ------------------------------------------------------------------------------------ */
   /*  register segment  */
@@ -375,9 +383,15 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   return GASNET_OK;
 }
 /* ------------------------------------------------------------------------------------ */
+#if HAVE_ON_EXIT
+static void gasnetc_on_exit(int exitcode, void *arg) {
+    gasnetc_exit(exitcode);
+}
+#else
 static void gasnetc_atexit(void) {
     gasnetc_exit(0);
 }
+#endif
 
 extern void gasnetc_exit(int exitcode) {
 
