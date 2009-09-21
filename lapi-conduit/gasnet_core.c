@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2009/09/18 23:33:32 $
- * $Revision: 1.131 $
+ *     $Date: 2009/09/21 03:27:47 $
+ * $Revision: 1.132 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -110,7 +110,11 @@ void* gasnetc_amexit_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len,
 void gasnetc_amexit_ch(lapi_handle_t *context, void *uinfo);
 
 static volatile int gasnetc_called_exit = 0;
-void gasnetc_atexit(void);
+#if HAVE_ON_EXIT
+static void gasnetc_on_exit(int, void*);
+#else
+static void gasnetc_atexit(void);
+#endif
 
 gasnetc_lapimode_t gasnetc_lapi_default_mode = gasnetc_Interrupt;
 
@@ -358,7 +362,11 @@ static int gasnetc_init(int *argc, char ***argv) {
      * case where a program returns from main without
      * calling gasnet_exit()
      */
+#if HAVE_ON_EXIT
+    on_exit(gasnetc_on_exit, NULL);
+#else
     atexit(gasnetc_atexit);
+#endif
 
 #if 0
     /* Done earlier to allow tracing */
@@ -960,12 +968,23 @@ void gasnetc_amexit_ch(lapi_handle_t *context, void *uinfo)
     }
 }
 
+#if HAVE_ON_EXIT
+static
+void gasnetc_on_exit(int exitcode, void *arg)
+{
+    if (gasnetc_called_exit)
+	return;
+    gasnetc_exit(exitcode);
+}
+#else
+static
 void gasnetc_atexit(void)
 {
     if (gasnetc_called_exit)
 	return;
     gasnetc_exit(0);
 }
+#endif
     
 extern void gasnetc_exit(int exitcode) {
     double sleep_time;
