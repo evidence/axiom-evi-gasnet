@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2009/09/18 23:33:30 $
- * $Revision: 1.127 $
+ * $Date: 2009/09/21 02:22:32 $
+ * $Revision: 1.128 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -36,7 +36,11 @@ gasnet_handlerentry_t const		*gasnetc_get_handlertable(void);
 extern gasnet_handlerentry_t const	*gasnete_get_handlertable(void);
 extern gasnet_handlerentry_t const	*gasnete_get_extref_handlertable(void);
 
+#if HAVE_ON_EXIT
+static void gasnetc_on_exit(int, void*);
+#else
 static void gasnetc_atexit(void);
+#endif
 
 /* Exit coordination timeouts */
 #define GASNETC_DEFAULT_EXITTIMEOUT_MAX		360.0	/* 6 minutes! */
@@ -171,7 +175,11 @@ gasnetc_init(int *argc, char ***argv)
 	#endif
 
 	/* Handler for non-collective returns from main() */
-	atexit(gasnetc_atexit);
+        #if HAVE_ON_EXIT
+	  on_exit(gasnetc_on_exit, NULL);
+        #else
+	  atexit(gasnetc_atexit);
+        #endif
 
 	gasneti_init_done = 1;
 	gasneti_trace_init(argc, argv);
@@ -1203,15 +1211,15 @@ gasnetc_SysExit_reph(gasnet_token_t token, void *nop, size_t nsz)
   gasneti_atomic_increment(&gasnetc_exit_reps, 0);
 }
   
-/* gasnetc_atexit
+/* gasnetc_atexit OR gasnetc_on_exit
  *
- * This is a simple atexit() handler to achieve a hopefully graceful exit.
+ * This is a simple (at,on_}exit() handler to achieve a hopefully graceful exit.
  * We use the functions gasnetc_exit_{head,body}() to coordinate the shutdown.
  * Note that we don't call gasnetc_exit_tail() since we anticipate the normal
  * exit() procedures to shutdown the multi-threaded process nicely and also
- * because we don't have access to the exit code!
+ * because with atexit() we don't have access to the exit code!
  *
- * Unfortunately, we don't have access to the exit code to send to the other
+ * With atexit(), we don't have access to the exit code to send to the other
  * nodes in the event this is a non-collective exit.  However, experience with at
  * lease one MPI suggests that when using MPI for bootstrap a non-zero return from
  * at least one executable is sufficient to produce that non-zero exit code from
@@ -1219,6 +1227,15 @@ gasnetc_SysExit_reph(gasnet_token_t token, void *nop, size_t nsz)
  * expect to preserve a non-zero exit code for the GASNet job as a whole.  Of course
  * there is no _guarantee_ this will work with all bootstraps.
  */
+#if HAVE_ON_EXIT
+static void gasnetc_on_exit(int exitcode, void *arg) {
+  /* Check return from _head to avoid reentrance */
+  if (gasnetc_exit_head(exitcode)) {
+    gasnetc_exit_body();
+  }
+  return;
+}
+#else
 static void gasnetc_atexit(void) {
   /* Check return from _head to avoid reentrance */
   if (gasnetc_exit_head(0)) { /* real exit code is outside our control */
@@ -1226,6 +1243,7 @@ static void gasnetc_atexit(void) {
   }
   return;
 }
+#endif
 
 /* gasnetc_exit
  *
