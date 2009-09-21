@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2009/09/21 00:16:03 $
-# $Revision: 1.561 $
+#     $Date: 2009/09/21 01:05:36 $
+# $Revision: 1.562 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.561 $)
+AC_REVISION($Revision: 1.562 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1920,7 +1920,6 @@ fi
 # UDP/AMUDP Configuration
 
 CONDUIT_BEGIN(udp,[portable UDP network conduit (udp)])
-CONDUIT_DISALLOW_PSHM()
 if test $enabled_udp = yes; then
 
   # Do C++ configuration

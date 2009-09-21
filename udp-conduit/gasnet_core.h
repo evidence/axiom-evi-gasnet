@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/udp-conduit/gasnet_core.h,v $
- *     $Date: 2009/04/01 23:33:16 $
- * $Revision: 1.15 $
+ *     $Date: 2009/09/21 01:05:38 $
+ * $Revision: 1.16 $
  * Description: GASNet header for UDP conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -130,7 +130,11 @@ typedef struct _gasnet_hsl_t {
 */
 
 #define gasnet_AMMaxArgs()          ((size_t)AM_MaxShort())
-#define gasnet_AMMaxMedium()        ((size_t)AM_MaxMedium())
+#if GASNET_PSHM
+  #define gasnet_AMMaxMedium()      MIN((size_t)AM_MaxMedium(), GASNETI_MAX_MEDIUM_PSHM)
+#else
+  #define gasnet_AMMaxMedium()      ((size_t)AM_MaxMedium())
+#endif
 #define gasnet_AMMaxLongRequest()   ((size_t)AM_MaxLong())
 #define gasnet_AMMaxLongReply()     ((size_t)AM_MaxLong())
 

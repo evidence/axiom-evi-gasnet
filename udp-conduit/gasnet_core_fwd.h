@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/udp-conduit/gasnet_core_fwd.h,v $
- *     $Date: 2009/09/20 20:55:27 $
- * $Revision: 1.21 $
+ *     $Date: 2009/09/21 01:05:38 $
+ * $Revision: 1.22 $
  * Description: GASNet header for UDP conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -35,6 +35,8 @@
 #endif
 
 /* conduit allows internal GASNet fns to issue put/get for remote addrs out of segment */
+/* XXX: This is currently true even for the GASNET_PSHM==1 case, but only because there
+ * is no shared-memory bypass of the put/get code */
 #define GASNETI_SUPPORTS_OUTOFSEGMENT_PUTGET 1
 
 #define GASNET_MAXNODES AMUDP_MAX_NUMTRANSLATIONS
@@ -64,8 +66,7 @@ typedef uint16_t gasnet_node_t;
   /* define these to 1 if your conduit supports PSHM, but cannot use the
      default interfaces. (see template-conduit/gasnet_core.c and gasnet_pshm.h)
    */
-#define GASNETC_GET_HANDLER 1 /* Not currently using default handler table impl */
-/* typedef ### gasnetc_handler_t; */
+/* #define GASNETC_GET_HANDLER 1 */
 /* #define GASNETC_TOKEN_CREATE 1 */
 
   /* this can be used to add conduit-specific 
