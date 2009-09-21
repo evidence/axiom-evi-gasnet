@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2009/09/18 23:33:54 $
- * $Revision: 1.243 $
+ *     $Date: 2009/09/21 01:13:00 $
+ * $Revision: 1.244 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -3635,6 +3635,14 @@ extern int gasnetc_RequestGeneric(gasnetc_category_t category,
   gasnetc_poll_rcv();
   GASNETI_PROGRESSFNS_RUN();
 
+#if GASNET_PSHM
+  if_pt (gasneti_pshm_in_supernode(dest)) {
+    return gasneti_AMPSHM_RequestGeneric(category, dest, handler,
+                                         src_addr, nbytes, dst_addr,
+                                         numargs, argptr);
+  }
+#endif
+
   return gasnetc_ReqRepGeneric(category, NULL, dest, handler,
                                src_addr, nbytes, dst_addr,
                                numargs, mem_oust, NULL, argptr);
@@ -3646,6 +3654,14 @@ extern int gasnetc_ReplyGeneric(gasnetc_category_t category,
 				int numargs, gasnetc_counter_t *mem_oust, va_list argptr) {
   gasnetc_rbuf_t *rbuf = (gasnetc_rbuf_t *)token;
   int retval;
+
+#if GASNET_PSHM
+  if_pt (gasnetc_token_is_pshm(token)) {
+      return gasneti_AMPSHM_ReplyGeneric(category, token, handler,
+                                         src_addr, nbytes, dst_addr,
+                                         numargs, argptr);
+  }
+#endif
 
   gasneti_assert(rbuf);
   gasneti_assert(rbuf->rbuf_handlerRunning);
