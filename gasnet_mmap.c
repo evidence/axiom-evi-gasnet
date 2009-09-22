@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2009/09/18 23:33:23 $
- * $Revision: 1.62 $
+ *     $Date: 2009/09/22 23:01:39 $
+ * $Revision: 1.63 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -884,6 +884,7 @@ void gasneti_segmentInit(uintptr_t localSegmentLimit,
 }
 
 /* ------------------------------------------------------------------------------------ */
+static
 void gasneti_segmentAttachLocal(uintptr_t segsize, uintptr_t minheapoffset,
                            gasnet_seginfo_t *seginfo,
                            gasneti_bootstrapExchangefn_t exchangefn) {
@@ -1025,7 +1026,8 @@ void gasneti_segmentAttachLocal(uintptr_t segsize, uintptr_t minheapoffset,
 }
 
 #if GASNET_PSHM
-void gasneti_AttachRemote(uintptr_t segsize, const gasnet_node_t pshm_node, uintptr_t minheapoffset,
+static
+int gasneti_AttachRemote(uintptr_t segsize, const gasnet_node_t pshm_node, uintptr_t minheapoffset,
                            gasnet_seginfo_t *seginfo, uintptr_t *seginfo_correction,
                            gasneti_bootstrapExchangefn_t exchangefn) {
   void *segbase = NULL;
@@ -1039,7 +1041,7 @@ void gasneti_AttachRemote(uintptr_t segsize, const gasnet_node_t pshm_node, uint
 
     if (node == gasneti_mynode){
       seginfo_correction[pshm_node]=0;
-      return;
+      return 0;
     }
     topofheap = gasneti_myheapend;
     
@@ -1070,8 +1072,10 @@ void gasneti_AttachRemote(uintptr_t segsize, const gasnet_node_t pshm_node, uint
         uintptr_t maxsegsz;
         void *endofseg = (void *)((uintptr_t)gasneti_remote_segments[pshm_node].addr + gasneti_remote_segments[pshm_node].size);
         segbase = (void *)(topofheap + minheapoffset);
-        if (segbase >= endofseg) 
-          gasneti_fatalerror("minheapoffset too large to accomodate a segment");
+        if (segbase >= endofseg) {
+          fprintf(stderr, "ERROR: minheapoffset too large to accomodate a segment\n");
+          return 1; /* Failure */
+        }
         maxsegsz = (uintptr_t)endofseg - (uintptr_t)segbase;
         if (segsize > maxsegsz) {
           GASNETI_TRACE_PRINTF(I, ("WARNING: gasneti_segmentAttach() reducing requested segsize (%lu=>%lu) to accomodate minheapoffset",
@@ -1099,21 +1103,25 @@ void gasneti_AttachRemote(uintptr_t segsize, const gasnet_node_t pshm_node, uint
   
     if (seginfo[node].remote_size < seginfo[node].size){
         seginfo_correction[pshm_node] = seginfo[node].remote_size;
-        gasneti_fatalerror("Not enough memory! Process %d tried mapping %lu bytes, but only %lu bytes available. Try further reducing the shared heap size.\n",
+        fprintf(stderr,"ERROR: Not enough memory! Process %d tried mapping %lu bytes, but only %lu bytes available. Try further reducing the shared heap size.\n",
                            gasneti_mynode, (unsigned long)seginfo[node].size, (unsigned long)seginfo[node].remote_size);
+        return 1; /* Failure */
     }else{
         seginfo_correction[pshm_node] = 0;
     }
+
+    return 0;
 }
 #endif /* GASNET_PSHM */
 
 void gasneti_segmentAttach(uintptr_t segsize, uintptr_t minheapoffset,
                            gasnet_seginfo_t *seginfo,
                            gasneti_bootstrapExchangefn_t exchangefn) {
+#if GASNET_PSHM
     int i;
+    int ar; /* results of gasneti_AttachRemote */
     uintptr_t *seginfo_correction;
 
-#if GASNET_PSHM
     /* Avoid leaking shared memory files in case of non-collective exit between init/attach */
     gasneti_pshmnet_bootstrapBarrier();
 
@@ -1134,7 +1142,8 @@ void gasneti_segmentAttach(uintptr_t segsize, uintptr_t minheapoffset,
     seginfo[gasneti_mynode].remote_size = seginfo[gasneti_mynode].size;
   
     for(i=0; i<gasneti_pshm_nodes; i++){
-      gasneti_AttachRemote(seginfo[i].size, i, minheapoffset, seginfo, seginfo_correction, exchangefn);
+      ar = gasneti_AttachRemote(seginfo[i].size, i, minheapoffset, seginfo, seginfo_correction, exchangefn);
+      if (ar) break;
     }
 
 #if GASNETI_PSHM_CORRECTION
@@ -1189,7 +1198,8 @@ void gasneti_segmentAttach(uintptr_t segsize, uintptr_t minheapoffset,
     /* Re-attach all the remote segments that need to be re-attached */
     for(i=0; i<gasneti_pshm_nodes; i++){
         if (min_corrections[i] < initial_sizes[i]){
-           gasneti_AttachRemote(min_corrections[i], i, minheapoffset, seginfo, seginfo_correction, exchangefn);
+           ar = gasneti_AttachRemote(min_corrections[i], i, minheapoffset, seginfo, seginfo_correction, exchangefn);
+           if (ar) break;
         }
     }
    (*exchangefn)(seginfo_correction, sizeof(uintptr_t)*gasneti_pshm_nodes, gasneti_seginfo_correction);
@@ -1201,6 +1211,9 @@ void gasneti_segmentAttach(uintptr_t segsize, uintptr_t minheapoffset,
 
   gasneti_pshmnet_bootstrapBarrier();
   gasneti_cleanup_shm();
+  if (ar) {
+    gasneti_fatalerror("Failed to attach one or more remote segments");
+  }
 #endif /* GASNET_PSHM */
 } 
 #endif /* !GASNET_SEGMENT_EVERYTHING */
