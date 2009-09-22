@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refcoll.c,v $
- *     $Date: 2009/09/19 08:02:35 $
- * $Revision: 1.81 $
+ *     $Date: 2009/09/22 23:23:26 $
+ * $Revision: 1.82 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -5901,7 +5901,7 @@ gasnete_coll_generic_reduceM_nb(gasnet_team_handle_t team,
       result = gasnete_coll_threads_get_handle_and_data(&data GASNETE_THREAD_PASS);
       if (td->my_image == dstimage) {
         gasneti_assert(dst != NULL);
-        data->args.gatherM.dst = dst;
+        data->args.reduceM.dst = dst;
         gasneti_sync_writes();
       }
     }
