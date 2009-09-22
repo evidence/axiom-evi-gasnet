@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refcoll.c,v $
- *     $Date: 2009/09/22 23:23:26 $
- * $Revision: 1.82 $
+ *     $Date: 2009/09/22 23:37:06 $
+ * $Revision: 1.83 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -639,18 +639,22 @@ int gasnete_coll_threads_addrs_ready(gasnete_coll_team_t team, void * volatile *
 
 int gasnete_coll_threads_ready1(gasnete_coll_op_t *op, void **list GASNETE_THREAD_FARG) {
   if (op->flags & GASNETE_COLL_THREAD_LOCAL) {
-    return gasnete_coll_threads_addrs_ready(op->team, list GASNETE_THREAD_PASS);
+    int result = gasnete_coll_threads_addrs_ready(op->team, list GASNETE_THREAD_PASS);
+    if (result) gasneti_sync_reads();
+    return result;
   } else {
-    return gasnete_coll_generic_all_threads(op->data);
+    return gasnete_coll_generic_all_threads(op->data); /* Includes a sync_reads */
   }
 }
 
 int gasnete_coll_threads_ready2(gasnete_coll_op_t *op, void **list1, void **list2 GASNETE_THREAD_FARG) {
   if (op->flags & GASNETE_COLL_THREAD_LOCAL) {
-    return gasnete_coll_threads_addrs_ready(op->team, list1 GASNETE_THREAD_PASS) &&
-      gasnete_coll_threads_addrs_ready(op->team, list2 GASNETE_THREAD_PASS);
+    int result = gasnete_coll_threads_addrs_ready(op->team, list1 GASNETE_THREAD_PASS) &&
+                 gasnete_coll_threads_addrs_ready(op->team, list2 GASNETE_THREAD_PASS);
+    if (result) gasneti_sync_reads();
+    return result;
   } else {
-    return gasnete_coll_generic_all_threads(op->data);
+    return gasnete_coll_generic_all_threads(op->data); /* Includes a sync_reads */
   }
 }
 #endif
