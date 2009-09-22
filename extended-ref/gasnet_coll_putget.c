@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_putget.c,v $
- *     $Date: 2009/09/16 01:13:28 $
- * $Revision: 1.75 $
+ *     $Date: 2009/09/22 18:01:51 $
+ * $Revision: 1.76 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2004, Rajesh Nishtala <rajeshn@eecs.berkeley.edu> Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -4890,6 +4890,159 @@ gasnete_coll_gallM_DissemNoScratch(gasnet_team_handle_t team,
                                              sequence, coll_params->num_params, coll_params->param_list GASNETE_THREAD_PASS);
 }
 
+static int gasnete_coll_pf_gallM_DissemNoScratchSeg(gasnete_coll_op_t *op GASNETE_THREAD_FARG) {
+  gasnete_coll_generic_data_t *data = op->data;
+  gasnete_coll_dissem_info_t *dissem = data->dissem_info;
+  const gasnete_coll_gather_allM_args_t *args = GASNETE_COLL_GENERIC_ARGS(data, gather_allM);
+  int result = 0;
+  int8_t *myscratch;
+  
+  /* State 0: In barrier (if needed)*/
+  if(data->state == 0) {
+    data->state++;
+  } 
+  
+  if(data->state == 1) {
+    int i;
+    if (!gasnete_coll_threads_ready2(op, args->dstlist, args->srclist GASNETE_THREAD_PASS) || 
+        !gasnete_coll_generic_insync(op->team, data)) {
+      return 0;
+    }
+    
+    gasneti_assert(dissem->dissemination_radix==2); /* this function only works for radix 2*/
+    
+    /*Gather the data into the start of the scratch space*/
+    gasnete_coll_local_gather(op->team->my_images, 
+                              (int8_t*)GASNETE_COLL_MY_1ST_IMAGE(op->team,args->dstlist, op->flags),
+                              &GASNETE_COLL_MY_1ST_IMAGE(op->team,args->srclist, op->flags), args->nbytes);
+    
+    data->state++;
+  }
+  
+  if(data->state >= 2 && data->state <= (dissem->dissemination_phases-1)*3+1 && op->team->total_ranks!=1) {
+    uint32_t phase = (data->state-2)/3;
+    size_t curr_len = op->team->my_images*args->nbytes*(1<<phase); /* length = nbytes * 2^phase*/
+    gasnet_node_t dstnode = (GASNETE_COLL_DISSEM_GET_BEHIND_PEERS_PHASE(dissem, phase))[0];
+    
+    if(((data->state-2) % 3) == 0) {
+      /* send in this phase */
+      gasneti_sync_reads();
+      data->handle = gasnete_put_nb_bulk(GASNETE_COLL_REL2ACT(op->team,dstnode), 
+                                         (int8_t*)GASNETE_COLL_1ST_IMAGE(op->team, args->dstlist, dstnode)+curr_len,
+                                         (int8_t*)GASNETE_COLL_MY_1ST_IMAGE(op->team,args->dstlist, op->flags),
+                                         curr_len GASNETE_THREAD_PASS);
+      gasnete_coll_save_handle(&data->handle GASNETE_THREAD_PASS);
+#if 0
+      gasnete_coll_p2p_signalling_put(op, GASNETE_COLL_REL2ACT(op->team,dstnode), 
+                                      (int8_t*)GASNETE_COLL_1ST_IMAGE(op->team, args->dstlist, dstnode)+curr_len,
+                                      (int8_t*)GASNETE_COLL_MY_1ST_IMAGE(op->team,args->dstlist, op->flags),
+                                      curr_len, phase, 1);
+#endif
+      data->state++;
+    } 
+    if(((data->state-2) % 3) == 1) {
+      if(data->handle!=GASNET_INVALID_HANDLE) return 0;
+      gasnete_coll_p2p_change_states(op, GASNETE_COLL_REL2ACT(op->team,dstnode), 
+                                     1, phase, 1);
+      data->state++;
+    }
+    if(((data->state-2) % 3) == 2) {
+      if(data->p2p->state[phase] == 1) {
+        data->state++;
+      } else {
+        return 0;
+      }
+    }
+  }
+  
+  if(data->state == (dissem->dissemination_phases)*3 - 1) {
+    uint32_t phase = (data->state-2)/3;
+    size_t nblk = op->team->total_ranks - (1<<phase); 
+    size_t curr_len = op->team->my_images*args->nbytes*(nblk);
+    gasnet_node_t dstnode = (GASNETE_COLL_DISSEM_GET_BEHIND_PEERS_PHASE(dissem, phase))[0];
+    gasneti_sync_reads();
+    data->handle = gasnete_put_nb_bulk(GASNETE_COLL_REL2ACT(op->team,dstnode),
+                                       (int8_t*)GASNETE_COLL_1ST_IMAGE(op->team, args->dstlist, dstnode)+
+                                       op->team->my_images*(1<<phase)*args->nbytes,
+                                       (int8_t*)GASNETE_COLL_MY_1ST_IMAGE(op->team,args->dstlist, op->flags),
+                                       curr_len GASNETE_THREAD_PASS);
+    gasnete_coll_save_handle(&data->handle GASNETE_THREAD_PASS);
+
+#if 0
+    gasnete_coll_p2p_signalling_put(op, GASNETE_COLL_REL2ACT(op->team,dstnode), 
+                                    (int8_t*)GASNETE_COLL_1ST_IMAGE(op->team, args->dstlist, dstnode)+
+                                    op->team->my_images*(1<<phase)*args->nbytes,
+                                    (int8_t*)GASNETE_COLL_MY_1ST_IMAGE(op->team,args->dstlist, op->flags),
+                                    curr_len, phase, 1);
+#endif
+    data->state++;
+  }
+  if(data->state == (dissem->dissemination_phases)*3) {
+    /*wait for the previous put to finish*/
+    uint32_t phase = (data->state-2)/3; 
+    gasnet_node_t dstnode = (GASNETE_COLL_DISSEM_GET_BEHIND_PEERS_PHASE(dissem, phase))[0];
+    if(data->handle != GASNET_INVALID_HANDLE) return 0;
+    gasnete_coll_p2p_change_states(op, GASNETE_COLL_REL2ACT(op->team,dstnode), 
+                                   1, phase, 1);
+    
+    data->state++;
+  }
+  if(data->state == (dissem->dissemination_phases)*3+1 || (op->team->total_ranks==1 && data->state==2)) {
+    uint32_t phase = (data->state-2)/3; 
+    int i; 
+    if(op->team->total_ranks > 1 && data->p2p->state[phase] !=1) return 0; /*wait for the last transfer to finish*/
+    
+    
+    if(op->team->my_images == 1) {
+      data->private_data = gasneti_malloc(args->nbytes*op->team->total_images);
+      gasnete_coll_local_rotate_right(data->private_data, GASNETE_COLL_MY_1ST_IMAGE(op->team,args->dstlist, op->flags), op->team->my_images*args->nbytes, op->team->total_ranks, op->team->myrank);
+      GASNETE_FAST_UNALIGNED_MEMCPY_CHECK(GASNETE_COLL_MY_1ST_IMAGE(op->team,args->dstlist, op->flags), data->private_data, op->team->total_images*args->nbytes);
+      gasneti_free(data->private_data);
+    } else {
+      gasnete_coll_local_rotate_right(((int8_t**) &GASNETE_COLL_MY_1ST_IMAGE(op->team,args->dstlist, op->flags))[1], 
+                                      ((int8_t**) &GASNETE_COLL_MY_1ST_IMAGE(op->team,args->dstlist, op->flags))[0],
+                                      op->team->my_images*args->nbytes, op->team->total_ranks, op->team->myrank);
+      gasnete_coll_local_broadcast(op->team->my_images, ((void * const *) &GASNETE_COLL_MY_1ST_IMAGE(op->team,args->dstlist, op->flags)), 
+                                   ((int8_t**) &GASNETE_COLL_MY_1ST_IMAGE(op->team,args->dstlist, op->flags))[1], op->team->total_images*args->nbytes);
+      
+    }
+    data->state++;
+  }
+  
+  if(data->state == (dissem->dissemination_phases)*3+2 || (op->team->total_ranks==1 && data->state==3)) {
+    if (!gasnete_coll_generic_outsync(op->team, data)) {
+      return 0;
+    }
+    gasnete_coll_generic_free(op->team, data GASNETE_THREAD_PASS);
+    result = (GASNETE_COLL_OP_COMPLETE | GASNETE_COLL_OP_INACTIVE);
+    /*free up the scratch space used by this op*/
+  }
+  
+  return result;
+}
+
+
+extern gasnet_coll_handle_t
+gasnete_coll_gallM_DissemNoScratchSeg(gasnet_team_handle_t team,
+                          void * const dstlist[], void * const srclist[],
+                          size_t nbytes, int flags, gasnete_coll_implementation_t coll_params, uint32_t sequence
+                          GASNETE_THREAD_FARG)
+{
+  /*Since the algorithm is naturally in_no / out_no use in-barrier if anything besides IN NOSYNC. 
+   Use out barrier only if out_ALLSYNC since algorithm does not need a full barrier for OUT_MYSYNC*/
+  int options = GASNETE_COLL_GENERIC_OPT_INSYNC_IF (!(flags & GASNET_COLL_IN_NOSYNC)) |
+  GASNETE_COLL_GENERIC_OPT_OUTSYNC_IF((flags & GASNET_COLL_OUT_ALLSYNC)) | 
+  GASNETE_COLL_GENERIC_OPT_P2P;
+  
+  
+  
+  return gasnete_coll_generic_gather_allM_nb(team, dstlist, srclist, nbytes, flags,
+                                             &gasnete_coll_pf_gallM_DissemNoScratchSeg, options,
+                                             NULL, 
+                                             sequence, coll_params->num_params, coll_params->param_list GASNETE_THREAD_PASS);
+}
+
+
 /*---------------------------------------------------------------------------------*/
 /* gasnete_coll_exchange_nb() */
 
@@ -5336,6 +5489,7 @@ static int gasnete_coll_pf_exchgM_Dissem(gasnete_coll_op_t *op GASNETE_THREAD_FA
       if_pf(gasneti_weakatomic_read(&(data->p2p->counter[phase*2]),0)!=h) return 0;
       /*if(data->p2p->state[phase*2] != h) return 0;*/
       
+      
       for(j=0; j<h; j++) {
         destnode = out_nodes[j];
         nblocks = 
@@ -5406,7 +5560,6 @@ static int gasnete_coll_pf_exchgM_Dissem(gasnete_coll_op_t *op GASNETE_THREAD_FA
   
   return result;
 }
-
 extern gasnet_coll_handle_t
 gasnete_coll_exchgM_Dissem2(gasnet_team_handle_t team,
                            void * const dstlist[], void * const srclist[],
@@ -5489,6 +5642,262 @@ gasnete_coll_exchgM_FlatScratch(gasnet_team_handle_t team,
                                            &gasnete_coll_pf_exchgM_Dissem, options,
                                            NULL, gasnete_coll_fetch_dissemination(radix,team), sequence, coll_params->num_params, coll_params->param_list GASNETE_THREAD_PASS);
 }
+
+static int gasnete_coll_pf_exchgM_Dissem_Segmented(gasnete_coll_op_t *op GASNETE_THREAD_FARG) {
+  gasnete_coll_generic_data_t *data = op->data;
+  gasnete_coll_dissem_info_t *dissem = data->dissem_info;
+  const gasnete_coll_exchangeM_args_t *args = GASNETE_COLL_GENERIC_ARGS(data, exchangeM);
+  int result = 0;
+  
+  size_t offset;
+  
+  void *scratch2;
+  void *scratch1;
+  
+  /*this will be a slightly different poll function than the other ones*/
+  /*the state will be used to describe the dissemination phase*/
+  /*reserving state 0 and dissem_phase*2+3 for the in/out barrier stages*/
+  /*state 1 will be used for local memory copies*/
+  /*state dissem_phases*2+2 will represent memory copies on the output side*/
+  /*states 2 through dissem_phases*2+1 represent intermediary steps*/
+  /*each dissem phase will get two steps, one for sending and one for recieiving*/
+  
+  if(data->state == 0) {
+    if(!gasnete_coll_scratch_alloc_nb(op GASNETE_THREAD_PASS)) return 0;
+    data->state = 1;
+  } 
+  
+  scratch1 = (int8_t*)op->team->scratch_segs[op->team->myrank].addr + op->myscratchpos;
+  scratch2 = (int8_t*)scratch1 + ((args->nbytes*op->team->my_images*op->team->my_images)*dissem->max_dissem_blocks)*((2)*(dissem->dissemination_radix-1));
+  
+  if(data->state == 1) {
+    int i,j,k=0;
+    int8_t **out_ptr;
+    if (!gasnete_coll_threads_ready2(op, args->dstlist, args->srclist GASNETE_THREAD_PASS) ||
+        !gasnete_coll_generic_insync(op->team, data)) {
+      return result;
+    }
+    
+    /* perform local rotation and gather*/
+    data->private_data = (void**) gasneti_malloc(sizeof(void*)*op->team->my_images);
+    
+    for(i=0; i<op->team->total_ranks; i++) {
+      int i_node = i;
+      int position = ((i_node < op->team->myrank) ? 
+                      op->team->total_ranks + (i_node - op->team->myrank) : 
+                      i_node-op->team->myrank);
+      for(j=0; j<op->team->my_images; j++) {
+        gasnete_coll_scale_ptrM((void**) data->private_data, 
+                                &GASNETE_COLL_MY_1ST_IMAGE(op->team,args->srclist, op->flags),
+                                (i*op->team->my_images+j)*args->nbytes, 1, op->team->my_images);
+        gasnete_coll_local_gather(op->team->my_images, 
+                                  (int8_t*) scratch2+position*(op->team->my_images*op->team->my_images*args->nbytes)+j*op->team->my_images*args->nbytes,
+                                  (void* const*) data->private_data, args->nbytes);
+      }
+    }
+    data->state = 2; 
+  }
+  
+  if( data->state>=2 && data->state<=dissem->dissemination_phases*4+1) {
+    /*data transfer stages*/
+    /*global phase id */
+    int destnode,nblocks;
+    gasnet_node_t* out_nodes, *in_nodes;
+    int phase = (data->state - 2)/4;
+    int h,j,i;
+    int distance = gasnete_coll_mypow(dissem->dissemination_radix, phase);
+    offset = GASNETE_COLL_DISSEM_MAX_BLOCKS(dissem)*args->nbytes*op->team->my_images*op->team->my_images;
+    h = GASNETE_COLL_DISSEM_GET_PEER_COUNT_PHASE(dissem, phase);
+    out_nodes = GASNETE_COLL_DISSEM_GET_FRONT_PEERS_PHASE(dissem, phase);
+    in_nodes = GASNETE_COLL_DISSEM_GET_BEHIND_PEERS_PHASE(dissem, phase);
+    
+#define IDX_EXPR (((phase%2)*(dissem->dissemination_radix-1) + (j))*offset)
+#define IDXP1_EXPR ((((phase+1)%2)*(dissem->dissemination_radix-1) + (j))*offset)
+    
+    /*send in even sub phases*/ 
+    if((data->state-2) % 4 == 0) {
+      /*send the ok to send signal*/
+      for(j=0; j<h; j++) {
+        /*XXX: switch to counting put for higher radices*/
+        gasnete_coll_p2p_advance(op, GASNETE_COLL_REL2ACT(op->team, in_nodes[j]), phase*2);
+        /*gasnete_coll_p2p_change_states(op,  GASNETE_COLL_REL2ACT(op->team, in_nodes[j]), 1, phase*2, 1);*/
+      }
+      
+      data->state++;
+    }
+    if(((data->state-2) % 4) == 1) {
+      if_pf(gasneti_weakatomic_read(&(data->p2p->counter[phase*2]),0)!=h) return 0;
+      /*if(data->p2p->state[phase*2] != h) return 0;*/
+      
+      gasnete_begin_nbi_accessregion(1 GASNETE_THREAD_PASS);
+      for(j=0; j<h; j++) {
+        destnode = out_nodes[j];
+        nblocks = 
+        gasnete_coll_pack_all_to_all_msg(scratch2, (int8_t*)scratch1+IDX_EXPR,args->nbytes*op->team->my_images*op->team->my_images,
+                                         phase, dissem->dissemination_radix, j+1, op->team->total_ranks);
+        gasnete_put_nbi_bulk(GASNETE_COLL_REL2ACT(op->team,destnode),
+                             (int8_t*)op->team->scratch_segs[destnode].addr+op->scratchpos[0]+IDXP1_EXPR,
+                             (int8_t*)scratch1+IDX_EXPR,
+                             nblocks*args->nbytes*op->team->my_images*op->team->my_images GASNETE_THREAD_PASS);
+        /*gasnete_coll_p2p_counting_put(op, GASNETE_COLL_REL2ACT(op->team,destnode), */
+        /*(int8_t*)op->team->scratch_segs[destnode].addr+op->scratchpos[0]+IDXP1_EXPR, (int8_t*)scratch1+IDX_EXPR,*/
+        /*                                      nblocks*args->nbytes*op->team->my_images*op->team->my_images, phase*2+1);*/
+      }
+      /*once all the change the state and return 0*/
+      /*let the poll function bring us back here*/
+      data->handle = gasnete_end_nbi_accessregion(GASNETE_THREAD_PASS_ALONE);
+      gasnete_coll_save_handle(&data->handle GASNETE_THREAD_PASS);
+      data->state++;
+    }
+    
+    if(((data->state-2) % 4) == 2) {
+      if(data->handle != GASNET_INVALID_HANDLE) return 0;
+      for(j=0; j<h; j++) {
+        gasnete_coll_p2p_advance(op, GASNETE_COLL_REL2ACT(op->team, out_nodes[j]),phase*2+1);
+      }
+      data->state++;
+      /*wait for the put to finish and increment the remote counter*/
+    }
+    if(((data->state-2) % 4) == 3) { /*receive in odd sub phases*/
+      /*wait for all the states to trip*/
+      /*need to change this to an atomic state increment to do this properly for radix>2*/
+      if(gasneti_weakatomic_read(&(data->p2p->counter[phase*2+1]),0) == h) {
+        /*if(data->p2p->state[phase*2+1] == h) {*/
+        gasneti_sync_reads();
+        for(j=0; j<h; j++) {
+          gasnete_coll_unpack_all_to_all_msg((int8_t*)scratch1+IDXP1_EXPR, (int8_t*)scratch2, args->nbytes*op->team->my_images*op->team->my_images, phase,
+                                             dissem->dissemination_radix, j+1, op->team->total_ranks);
+        }			
+        data->state++;
+      } else {
+        return 0;
+      }
+    }
+    
+#undef IDX_EXPR
+#undef IDXP1_EXPR
+    
+  }
+  
+  if(data->state == dissem->dissemination_phases*4+2) {
+    int i;
+    int j;
+    int srcnode;
+    gasneti_sync_reads();
+    for(i=0; i<op->team->total_ranks; i++) {
+      srcnode  = (op->team->myrank - i);
+      if(srcnode < 0) {
+        srcnode = op->team->total_ranks+srcnode;
+      }
+      
+      
+      gasnete_coll_scale_ptrM((void**) data->private_data, &GASNETE_COLL_MY_1ST_IMAGE(op->team,args->dstlist, op->flags), i*op->team->my_images,
+                              args->nbytes, op->team->my_images);
+      gasnete_coll_local_scatter(op->team->my_images,
+                                 (void* const*) data->private_data, 
+                                 (int8_t*) scratch2+srcnode*op->team->my_images*op->team->my_images*args->nbytes, args->nbytes*op->team->my_images);
+    }
+    data->state ++;
+    
+  }
+  if(data->state == dissem->dissemination_phases*4+3) {
+    if (!gasnete_coll_generic_outsync(op->team, data)) {
+      return 0;
+    }
+    
+    gasnete_coll_free_scratch(op);
+    gasneti_free(data->private_data);
+    data->private_data = NULL;    
+    gasnete_coll_generic_free(op->team, data GASNETE_THREAD_PASS);
+    result = (GASNETE_COLL_OP_COMPLETE | GASNETE_COLL_OP_INACTIVE);
+    /*free up the scratch space used by this op*/
+  }
+  
+  return result;
+}
+extern gasnet_coll_handle_t
+gasnete_coll_exchgM_DissemSeg2(gasnet_team_handle_t team,
+                           void * const dstlist[], void * const srclist[],
+                           size_t nbytes, int flags, gasnete_coll_implementation_t coll_params, uint32_t sequence
+                           GASNETE_THREAD_FARG)
+{
+  int options =  GASNETE_COLL_USE_SCRATCH | GASNETE_COLL_GENERIC_OPT_P2P | 
+  GASNETE_COLL_GENERIC_OPT_INSYNC_IF (!(flags & GASNET_COLL_IN_NOSYNC)) |
+  GASNETE_COLL_GENERIC_OPT_OUTSYNC_IF(!(flags & GASNET_COLL_OUT_NOSYNC));
+  int radix;
+  
+  radix = 2;
+  return gasnete_coll_generic_exchangeM_nb(team, dstlist, srclist, nbytes, flags,
+                                           &gasnete_coll_pf_exchgM_Dissem_Segmented, options,
+                                           NULL, gasnete_coll_fetch_dissemination(radix,team), sequence, coll_params->num_params, coll_params->param_list GASNETE_THREAD_PASS);
+}
+
+extern gasnet_coll_handle_t
+gasnete_coll_exchgM_DissemSeg3(gasnet_team_handle_t team,
+                            void * const dstlist[], void * const srclist[],
+                            size_t nbytes, int flags, gasnete_coll_implementation_t coll_params, uint32_t sequence
+                            GASNETE_THREAD_FARG)
+{
+  int options =  GASNETE_COLL_USE_SCRATCH | GASNETE_COLL_GENERIC_OPT_P2P | 
+  GASNETE_COLL_GENERIC_OPT_INSYNC_IF (!(flags & GASNET_COLL_IN_NOSYNC)) |
+  GASNETE_COLL_GENERIC_OPT_OUTSYNC_IF(!(flags & GASNET_COLL_OUT_NOSYNC));
+  int radix;
+  
+  radix = 3;
+  return gasnete_coll_generic_exchangeM_nb(team, dstlist, srclist, nbytes, flags,
+                                           &gasnete_coll_pf_exchgM_Dissem_Segmented, options,
+                                           NULL, gasnete_coll_fetch_dissemination(radix,team), sequence, coll_params->num_params, coll_params->param_list GASNETE_THREAD_PASS);
+}
+
+extern gasnet_coll_handle_t
+gasnete_coll_exchgM_DissemSeg4(gasnet_team_handle_t team,
+                            void * const dstlist[], void * const srclist[],
+                            size_t nbytes, int flags, gasnete_coll_implementation_t coll_params, uint32_t sequence
+                            GASNETE_THREAD_FARG)
+{
+  int options =  GASNETE_COLL_USE_SCRATCH | GASNETE_COLL_GENERIC_OPT_P2P | 
+  GASNETE_COLL_GENERIC_OPT_INSYNC_IF (!(flags & GASNET_COLL_IN_NOSYNC)) |
+  GASNETE_COLL_GENERIC_OPT_OUTSYNC_IF(!(flags & GASNET_COLL_OUT_NOSYNC));
+  int radix;
+  
+  radix = 4;
+  return gasnete_coll_generic_exchangeM_nb(team, dstlist, srclist, nbytes, flags,
+                                           &gasnete_coll_pf_exchgM_Dissem_Segmented, options,
+                                           NULL, gasnete_coll_fetch_dissemination(radix,team), sequence, coll_params->num_params, coll_params->param_list GASNETE_THREAD_PASS);
+}
+extern gasnet_coll_handle_t
+gasnete_coll_exchgM_DissemSeg8(gasnet_team_handle_t team,
+                            void * const dstlist[], void * const srclist[],
+                            size_t nbytes, int flags, gasnete_coll_implementation_t coll_params, uint32_t sequence
+                            GASNETE_THREAD_FARG)
+{
+  int options =  GASNETE_COLL_USE_SCRATCH | GASNETE_COLL_GENERIC_OPT_P2P | 
+  GASNETE_COLL_GENERIC_OPT_INSYNC_IF (!(flags & GASNET_COLL_IN_NOSYNC)) |
+  GASNETE_COLL_GENERIC_OPT_OUTSYNC_IF(!(flags & GASNET_COLL_OUT_NOSYNC));
+  int radix;
+  
+  radix = 8;
+  return gasnete_coll_generic_exchangeM_nb(team, dstlist, srclist, nbytes, flags,
+                                           &gasnete_coll_pf_exchgM_Dissem_Segmented, options,
+                                           NULL, gasnete_coll_fetch_dissemination(radix,team), sequence, coll_params->num_params, coll_params->param_list GASNETE_THREAD_PASS);
+}
+extern gasnet_coll_handle_t
+gasnete_coll_exchgM_FlatScratchSeg(gasnet_team_handle_t team,
+                            void * const dstlist[], void * const srclist[],
+                            size_t nbytes, int flags, gasnete_coll_implementation_t coll_params, uint32_t sequence
+                            GASNETE_THREAD_FARG)
+{
+  int options =  GASNETE_COLL_USE_SCRATCH | GASNETE_COLL_GENERIC_OPT_P2P | 
+  GASNETE_COLL_GENERIC_OPT_INSYNC_IF (!(flags & GASNET_COLL_IN_NOSYNC)) |
+  GASNETE_COLL_GENERIC_OPT_OUTSYNC_IF(!(flags & GASNET_COLL_OUT_NOSYNC));
+  int radix;
+  
+  radix = team->total_ranks;
+  return gasnete_coll_generic_exchangeM_nb(team, dstlist, srclist, nbytes, flags,
+                                           &gasnete_coll_pf_exchgM_Dissem_Segmented, options,
+                                           NULL, gasnete_coll_fetch_dissemination(radix,team), sequence, coll_params->num_params, coll_params->param_list GASNETE_THREAD_PASS);
+}
+
 /*---------------------------------------------------------------------------------*/
 /* Reductions*/
 #define FOLD_REDUCE_BARRIER 1

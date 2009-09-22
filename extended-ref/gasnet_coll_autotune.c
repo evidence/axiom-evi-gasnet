@@ -782,6 +782,13 @@ void gasnete_coll_register_gather_all_collectives(gasnete_coll_autotune_info_t* 
                                            GASNET_COLL_SINGLE | GASNET_COLL_DST_IN_SEGMENT, 0, 
                                            gasnet_AMMaxLongRequest()/info->team->total_images, 0, 0,
                                            0, NULL, (void*) gasnete_coll_gallM_DissemNoScratch, "GATHER_ALLM_DISSEM_NOSCRATCH");
+
+  info->collective_algorithms[GASNET_COLL_GATHER_ALLM_OP][GASNETE_COLL_GATHER_ALLM_DISSEM_NOSCRATCH_SEG] =
+  gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_GATHER_ALLM_OP,
+                                           GASNETE_COLL_EVERY_SYNC_FLAG,
+                                           GASNET_COLL_SINGLE | GASNET_COLL_DST_IN_SEGMENT, 0, 
+                                           0, 0, 0,
+                                           0, NULL, (void*) gasnete_coll_gallM_DissemNoScratchSeg, "GATHER_ALLM_DISSEM_NOSCRATCH_SEG");
   
   info->collective_algorithms[GASNET_COLL_GATHER_ALLM_OP][GASNETE_COLL_GATHER_ALLM_FLAT_PUT] =
   gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_GATHER_ALLM_OP,
@@ -814,6 +821,7 @@ void gasnete_coll_register_exchange_collectives(gasnete_coll_autotune_info_t* in
     dissem = gasnete_coll_fetch_dissemination(radix ,info->team);
     /*max size formula is limit/(tpn*tpn*nodes + 2*tpn*tpn*max_dissem_blocks*(radix-1))*/
     max_size = MIN(gasnet_AMMaxLongRequest(),smallest_scratch)/ (tpn*tpn*nodes + 2*tpn*tpn*(dissem->max_dissem_blocks)*(radix-1));
+    
     info->collective_algorithms[GASNET_COLL_EXCHANGE_OP][GASNETE_COLL_EXCHANGE_DISSEM2] =
     gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_EXCHANGE_OP,
                                              GASNETE_COLL_EVERY_SYNC_FLAG,
@@ -1001,6 +1009,92 @@ void gasnete_coll_register_exchange_collectives(gasnete_coll_autotune_info_t* in
                                              max_size, 0, 0,
                                              0, NULL, (void*) gasnete_coll_exchgM_FlatScratch, "EXCHANGEM_FLAT_SCRATCH");
   }
+  {
+    int radix = 2;
+    size_t max_size;
+    gasnet_image_t tpn = info->team->my_images;
+    gasnet_node_t nodes = info->team->total_ranks;
+    
+    
+    dissem = gasnete_coll_fetch_dissemination(radix ,info->team);
+    /*max size formula is limit/(tpn*tpn*nodes + 2*tpn*tpn*max_dissem_blocks*(radix-1))*/
+    max_size = smallest_scratch/ (tpn*tpn*nodes + 2*tpn*tpn*(dissem->max_dissem_blocks)*(radix-1));
+    info->collective_algorithms[GASNET_COLL_EXCHANGEM_OP][GASNETE_COLL_EXCHANGEM_DISSEMSEG2] =
+    gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_EXCHANGEM_OP,
+                                             GASNETE_COLL_EVERY_SYNC_FLAG,
+                                             0, 0, 
+                                             max_size, 0, 0,
+                                             0, NULL, (void*) gasnete_coll_exchgM_DissemSeg2, "EXCHANGEM_DISSEMSEG2");
+  }
+  {
+    int radix = 3;
+    size_t max_size;
+    gasnet_image_t tpn = info->team->my_images;
+    gasnet_node_t nodes = info->team->total_ranks;
+    
+    
+    dissem = gasnete_coll_fetch_dissemination(radix ,info->team);
+    /*max size formula is limit/(tpn*tpn*nodes + 2*tpn*tpn*max_dissem_blocks*(radix-1))*/
+    max_size = smallest_scratch/ (tpn*tpn*nodes + 2*tpn*tpn*(dissem->max_dissem_blocks)*(radix-1));
+    info->collective_algorithms[GASNET_COLL_EXCHANGEM_OP][GASNETE_COLL_EXCHANGEM_DISSEMSEG3] =
+    gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_EXCHANGEM_OP,
+                                             GASNETE_COLL_EVERY_SYNC_FLAG,
+                                             0, 0, 
+                                             max_size, 0, 0,
+                                             0, NULL, (void*) gasnete_coll_exchgM_DissemSeg3, "EXCHANGEM_DISSEMSEG3");
+  }
+  {
+    int radix = 4;
+    size_t max_size;
+    gasnet_image_t tpn = info->team->my_images;
+    gasnet_node_t nodes = info->team->total_ranks;
+    
+    
+    dissem = gasnete_coll_fetch_dissemination(radix ,info->team);
+    /*max size formula is limit/(tpn*tpn*nodes + 2*tpn*tpn*max_dissem_blocks*(radix-1))*/
+    max_size = smallest_scratch/ (tpn*tpn*nodes + 2*tpn*tpn*(dissem->max_dissem_blocks)*(radix-1));
+    info->collective_algorithms[GASNET_COLL_EXCHANGEM_OP][GASNETE_COLL_EXCHANGEM_DISSEMSEG4] =
+    gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_EXCHANGEM_OP,
+                                             GASNETE_COLL_EVERY_SYNC_FLAG,
+                                             0, 0, 
+                                             max_size, 0, 0,
+                                             0, NULL, (void*) gasnete_coll_exchgM_DissemSeg4, "EXCHANGEM_DISSEMSEG4");
+  }
+  {
+    int radix = 8;
+    size_t max_size;
+    gasnet_image_t tpn = info->team->my_images;
+    gasnet_node_t nodes = info->team->total_ranks;
+    
+    
+    dissem = gasnete_coll_fetch_dissemination(radix ,info->team);
+    /*max size formula is limit/(tpn*tpn*nodes + 2*tpn*tpn*max_dissem_blocks*(radix-1))*/
+    max_size = smallest_scratch/ (tpn*tpn*nodes + 2*tpn*tpn*(dissem->max_dissem_blocks)*(radix-1));
+    info->collective_algorithms[GASNET_COLL_EXCHANGEM_OP][GASNETE_COLL_EXCHANGEM_DISSEMSEG8] =
+    gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_EXCHANGEM_OP,
+                                             GASNETE_COLL_EVERY_SYNC_FLAG,
+                                             0, 0, 
+                                             max_size, 0, 0,
+                                             0, NULL, (void*) gasnete_coll_exchgM_DissemSeg8, "EXCHANGEM_DISSEMSEG8");
+  }
+  {
+    int radix = info->team->total_ranks;
+    size_t max_size;
+    gasnet_image_t tpn = info->team->my_images;
+    gasnet_node_t nodes = info->team->total_ranks;
+    
+    
+    dissem = gasnete_coll_fetch_dissemination(radix ,info->team);
+    /*max size formula is limit/(tpn*tpn*nodes + 2*tpn*tpn*max_dissem_blocks*(radix-1))*/
+    max_size = smallest_scratch/ (tpn*tpn*nodes + 2*tpn*tpn*(dissem->max_dissem_blocks)*(radix-1));
+    info->collective_algorithms[GASNET_COLL_EXCHANGEM_OP][GASNETE_COLL_EXCHANGEM_FLAT_SCRATCH_SEG] =
+    gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_EXCHANGEM_OP,
+                                             GASNETE_COLL_EVERY_SYNC_FLAG,
+                                             0, 0, 
+                                             max_size, 0, 0,
+                                             0, NULL, (void*) gasnete_coll_exchgM_FlatScratchSeg, "EXCHANGEM_FLAT_SCRATCH_SEG");
+  }
+
   {
     info->collective_algorithms[GASNET_COLL_EXCHANGEM_OP][GASNETE_COLL_EXCHANGEM_GATH] =
     gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_EXCHANGE_OP,
@@ -2179,7 +2273,8 @@ void gasnete_coll_tune_generic_op(gasnet_team_handle_t team, gasnet_coll_optype_
     PTHREAD_BARRIER(team, team->my_images);
      if((op == GASNET_COLL_BROADCASTM_OP && algidx == GASNETE_COLL_BROADCASTM_SCATTERALLGATHER) || 
        (op == GASNET_COLL_BROADCAST_OP && algidx == GASNETE_COLL_BROADCAST_SCATTERALLGATHER)) continue;
-
+     if((op == GASNET_COLL_EXCHANGEM_OP && algidx == GASNETE_COLL_EXCHANGEM_GATH) || 
+        (op == GASNET_COLL_GATHER_ALLM_OP && algidx == GASNETE_COLL_GATHER_ALLM_GATH)) continue;
     alg_best_time = curr_best_time;
 //    if(gasnet_coll_get_num_params(team, op, algidx)!=0) continue;
     do_tuning_loop(team, op, coll_args, flags, fnptr, sample_work_arg, 
@@ -2993,19 +3088,11 @@ gasnete_coll_autotune_get_gather_allM_algorithm(gasnet_team_handle_t team, void 
   ret = gasnete_coll_get_implementation();
   ret->need_to_free =1;
 
-  if(!team->fixed_image_count) {
+  if ((flags & GASNET_COLL_SINGLE) && (flags & GASNET_COLL_DST_IN_SEGMENT) && team->fixed_image_count) {
+    ret->fn_ptr = (void*)team->autotune_info->collective_algorithms[GASNET_COLL_GATHER_ALLM_OP][GASNETE_COLL_GATHER_ALLM_DISSEM_NOSCRATCH_SEG].fn_ptr.gather_allM_fn;
+  } else {
     ret->fn_ptr = (void*)team->autotune_info->collective_algorithms[GASNET_COLL_GATHER_ALLM_OP][GASNETE_COLL_GATHER_ALLM_GATH].fn_ptr.gather_allM_fn;
-  } else if (team->my_images*nbytes <=  gasnete_coll_get_dissem_limit(team->autotune_info, GASNET_COLL_GATHER_ALLM_OP, flags) &&
-             max_dissem_msg_size <= MIN(team->smallest_scratch_seg, gasnet_AMMaxLongRequest()) &&
-             team->fixed_image_count) { 
-    ret->fn_ptr = (void*)team->autotune_info->collective_algorithms[GASNET_COLL_GATHER_ALLM_OP][GASNETE_COLL_GATHER_ALLM_DISSEM].fn_ptr.gather_allM_fn;
-  } else  {
-    if((flags & GASNET_COLL_DST_IN_SEGMENT) && (flags & GASNET_COLL_SINGLE) && team->fixed_image_count && team->my_images*nbytes <= gasnet_AMMaxLongRequest()) {
-      ret->fn_ptr = (void*)team->autotune_info->collective_algorithms[GASNET_COLL_GATHER_ALLM_OP][GASNETE_COLL_GATHER_ALLM_FLAT_PUT].fn_ptr.gather_allM_fn;   
-    } else {
-      ret->fn_ptr = (void*)team->autotune_info->collective_algorithms[GASNET_COLL_GATHER_ALLM_OP][GASNETE_COLL_GATHER_ALLM_GATH].fn_ptr.gather_allM_fn;
-    }
-  }
+  } 
   return ret;
 }
 

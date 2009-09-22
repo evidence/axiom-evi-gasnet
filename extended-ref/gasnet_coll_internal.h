@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_internal.h,v $
- *     $Date: 2009/09/16 23:36:36 $
- * $Revision: 1.56 $
+ *     $Date: 2009/09/22 18:01:51 $
+ * $Revision: 1.57 $
  * Description: GASNet Collectives conduit header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -30,6 +30,7 @@
 #define GASNETE_COLL_USE_SCRATCH_DISSSEM (1<<26)
 #define GASNETE_COLL_USE_TREE		 (1<<25)
 #define GASNETE_COLL_NONROOT_SUBORDINATE (1<<24)
+#define GASNETE_COLL_SKIP (1<<23)
 
 #define GASNETE_COLL_IN_MODE(flags) \
 ((flags) & (GASNET_COLL_IN_NOSYNC  | GASNET_COLL_IN_MYSYNC  | GASNET_COLL_IN_ALLSYNC))
@@ -1754,6 +1755,7 @@ gasnete_coll_gallM_##FUNC_EXT(gasnet_team_handle_t team,\
 
 GASNETE_COLL_DECLARE_GATHER_ALLM_ALG(Dissem);
 GASNETE_COLL_DECLARE_GATHER_ALLM_ALG(DissemNoScratch);
+GASNETE_COLL_DECLARE_GATHER_ALLM_ALG(DissemNoScratchSeg);
 GASNETE_COLL_DECLARE_GATHER_ALLM_ALG(EagerDissem);
 GASNETE_COLL_DECLARE_GATHER_ALLM_ALG(FlatEagerPut);
 GASNETE_COLL_DECLARE_GATHER_ALLM_ALG(FlatPut);
@@ -1791,6 +1793,13 @@ GASNETE_COLL_DECLARE_EXCHANGEM_ALG(Dissem3);
 GASNETE_COLL_DECLARE_EXCHANGEM_ALG(Dissem4);
 GASNETE_COLL_DECLARE_EXCHANGEM_ALG(Dissem8);
 GASNETE_COLL_DECLARE_EXCHANGEM_ALG(FlatScratch);
+
+GASNETE_COLL_DECLARE_EXCHANGEM_ALG(DissemSeg2);
+GASNETE_COLL_DECLARE_EXCHANGEM_ALG(DissemSeg3);
+GASNETE_COLL_DECLARE_EXCHANGEM_ALG(DissemSeg4);
+GASNETE_COLL_DECLARE_EXCHANGEM_ALG(DissemSeg8);
+GASNETE_COLL_DECLARE_EXCHANGEM_ALG(FlatScratchSeg);
+
 GASNETE_COLL_DECLARE_EXCHANGEM_ALG(Gath);
 
 /*---------------------------------------------------------------------------------*/
