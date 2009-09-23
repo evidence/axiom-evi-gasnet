@@ -19,22 +19,27 @@ options that is covered testcoll
 #define DEFAULT_PERFORMANCE_ITERS 0
 
 
+#ifndef ALL_COLL_ENABLED
 #define ALL_COLL_ENABLED 1
-#define BROADCAST_ENABLED 1
+
+
+#define BROADCAST_ENABLED 0
 #define SCATTER_ENABLED 0
 #define GATHER_ENABLED 0
 #define GATHER_ALL_ENABLED 0
 #define EXCHANGE_ENABLED 0
 #define REDUCE_ENABLED 0
+#endif
 
-
+#ifndef ALL_ADDR_MODE_ENABLED 
 #define ALL_ADDR_MODE_ENABLED 1
 
-#define SINGLE_SINGLE_MODE_ENABLED 0
-#define SINGLE_LOCAL_MODE_ENABLED 1
-#define MULTI_SINGLE_MODE_ENABLED 0
-#define MULTI_LOCAL_MODE_ENABLED 0
 
+#define SINGLE_SINGLE_MODE_ENABLED 0
+#define SINGLE_LOCAL_MODE_ENABLED 0
+#define MULTI_SINGLE_MODE_ENABLED 1
+#define MULTI_LOCAL_MODE_ENABLED 0
+#endif
 
 
 #define ROOT_THREAD 0
@@ -941,7 +946,7 @@ void *thread_main(void *arg) {
 #if GASNET_PAR
   gasnet_image_t *imagearray = test_malloc(nodes * sizeof(gasnet_image_t));
  #if !GASNETI_ARCH_ALTIX
-  gasnett_set_affinity(td->my_local_thread);
+  //  gasnett_set_affinity(td->my_local_thread);
  #endif
   fntable[0].fnptr = int_reduce_fn;
   fntable[0].flags = 0;
