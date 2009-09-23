@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refcoll.c,v $
- *     $Date: 2009/09/23 03:30:29 $
- * $Revision: 1.85 $
+ *     $Date: 2009/09/23 03:43:17 $
+ * $Revision: 1.86 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -508,12 +508,8 @@ int gasnete_coll_threads_first(GASNETE_THREAD_FARG_ALONE) {
 
     ++td->threads.sequence;
     if (sequence == gasnete_coll_threads_sequence) {
-#if PLATFORM_COMPILER_PATHSCALE
       /* This mess works around bug 2646 (similar to bug 1586) */
-      ++(*(volatile typeof(gasnete_coll_threads_sequence) *)&gasnete_coll_threads_sequence);
-#else
-      ++gasnete_coll_threads_sequence;
-#endif
+      ++(*(volatile uint32_t *)&gasnete_coll_threads_sequence);
       return 1;
     } else {
       return 0;
