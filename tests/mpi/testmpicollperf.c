@@ -225,6 +225,66 @@ void run_gather_test(int elem_per_thread, int iters, int use_barrier) {
    free(src);
 }
 
+
+void run_all_gather_test(int elem_per_thread, int iters) {
+  double *src, *dest;
+ 
+  
+  double start_time;
+  double barrier_time=0;
+  double coll_time;
+  double coll_start_time;
+  double *coll_times;
+  double *barrier_times;
+  int i;
+
+  src = (double*) malloc(sizeof(double)*elem_per_thread);
+
+
+  dest = (double*) malloc(sizeof(double)*elem_per_thread*THREADS);
+  if(MYTHREAD==0) {
+    coll_times = (double*) malloc(sizeof(double)*THREADS);
+    barrier_times = (double*) malloc(sizeof(double)*THREADS);
+  } 
+  for(i=0; i<elem_per_thread; i++) {
+    src[i] = 3.14*(i+1);
+  }
+  
+  for(i=0; i<10; i++) {
+    MPI_Allgather(src, elem_per_thread, MPI_DOUBLE, dest, elem_per_thread, MPI_DOUBLE, MPI_COMM_WORLD);
+  }
+
+  MPI_Barrier(MPI_COMM_WORLD);
+  
+  coll_start_time = MPI_Wtime();
+  for(i=0; i<iters; i++) {
+    MPI_Allgather(src, elem_per_thread, MPI_DOUBLE, dest, elem_per_thread, MPI_DOUBLE, MPI_COMM_WORLD);
+  }
+  
+  start_time = MPI_Wtime();
+  MPI_Barrier(MPI_COMM_WORLD);
+  barrier_time += MPI_Wtime() - start_time;
+  
+  
+  coll_time = MPI_Wtime() - coll_start_time;
+   
+   if(MYTHREAD!=0) {
+
+     MPI_Gather(&barrier_time, 1, MPI_DOUBLE, NULL, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+     MPI_Gather(&coll_time, 1, MPI_DOUBLE, NULL, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+   } else {
+     MPI_Gather(&barrier_time, 1, MPI_DOUBLE, barrier_times, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+     MPI_Gather(&coll_time, 1, MPI_DOUBLE, coll_times, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+     for(i=0; i<THREADS; i++) {
+       fprintf(stdout, "%d> all_gather mpi %d (%d bytes) coll_time: %.3f +-0%% barrier_time: %.3f +-0%%\n",i, 
+               elem_per_thread, elem_per_thread*sizeof(double),
+	       coll_times[i]*1e6 / iters, barrier_times[i]*1e6/iters);
+     }
+   }
+   if(MYTHREAD==0) free(dest);
+   free(src);
+}
+
 void run_reduce_test(int elem_per_thread) {
   double *src, *dest;
  
@@ -504,11 +564,13 @@ int main(int argc, char **argv) {
     run_bcast_test(sz, iters, 0);
     run_int_reduce_test(sz, iters, 1);
     run_int_reduce_test(sz, iters, 0);
-    run_scatter_test(sz, iters,1);
-    run_scatter_test(sz, iters,0);
-    //   run_gather_test(sz, iters, 1);
-    //  run_gather_test(sz, iters, 0);
-    // run_all_to_all_test(sz, iters);
+    // run_scatter_test(sz, iters,1);
+    // run_scatter_test(sz, iters,0);
+    // run_gather_test(sz, iters, 1);
+    // run_gather_test(sz, iters, 0);
+    run_all_gather_test(sz, iters);
+    run_all_to_all_test(sz, iters);
+
   }
   
   MPI_Barrier(MPI_COMM_WORLD);
