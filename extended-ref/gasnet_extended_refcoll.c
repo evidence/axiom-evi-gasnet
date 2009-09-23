@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refcoll.c,v $
- *     $Date: 2009/09/23 03:43:17 $
- * $Revision: 1.86 $
+ *     $Date: 2009/09/23 04:18:35 $
+ * $Revision: 1.87 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -456,7 +456,8 @@ gasnet_node_t gasnete_coll_team_size(gasnete_coll_team_t team) {
 /* XXX - a work in progress */
 #if GASNET_PAR 
 gasneti_mutex_t gasnete_coll_threads_mutex = GASNETI_MUTEX_INITIALIZER;
-uint32_t gasnete_coll_threads_sequence = 0;	/* independent of collective sequence space */ /* XXX: TEAMS */
+/* gasnete_coll_threads_sequence is volatile due to bug 2646 */
+volatile uint32_t gasnete_coll_threads_sequence = 0;	/* independent of collective sequence space */ /* XXX: TEAMS */
 gasnete_coll_op_t *gasnete_coll_threads_head = NULL;
 gasnete_coll_op_t **gasnete_coll_threads_tail_p = &(gasnete_coll_threads_head);
 
@@ -508,8 +509,7 @@ int gasnete_coll_threads_first(GASNETE_THREAD_FARG_ALONE) {
 
     ++td->threads.sequence;
     if (sequence == gasnete_coll_threads_sequence) {
-      /* This mess works around bug 2646 (similar to bug 1586) */
-      ++(*(volatile uint32_t *)&gasnete_coll_threads_sequence);
+      ++gasnete_coll_threads_sequence;
       return 1;
     } else {
       return 0;
