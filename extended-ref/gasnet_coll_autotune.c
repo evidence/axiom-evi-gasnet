@@ -131,11 +131,12 @@ static uint32_t fast_log2_32bit(uint32_t number) {
   num_params is the number of params for the algorithm
  param_list is the paramter list
 */
+
 int gasnete_coll_autotune_get_num_tree_types(gasnet_team_handle_t team) {
   /*for now only search over the FLAT, NARY, KNOMIAL, and RECURSIVE trees power of two fanouts and the FLAT TREE*/
   int log2_threads = fast_log2_32bit(MIN((uint32_t) team->total_ranks,128));
   
-  return 1 + /*flat_tree*/
+  return (team->autotune_info->allow_flat_tree ? 1 : 0) + /*flat_tree*/
     log2_threads * (GASNETE_COLL_NUM_PLATFORM_INDEP_TREE_CLASSES-1); /*num powers of two for each of the three tree types*/
 }
 
@@ -146,11 +147,13 @@ gasnete_coll_tree_type_t gasnete_coll_autotune_get_tree_type_idx(gasnet_team_han
   int tree_class;
   int radix;
   gasneti_assert(idx < gasnete_coll_autotune_get_num_tree_types(team));
-  if(idx == 0) {
-    ret->tree_class = GASNETE_COLL_FLAT_TREE;
-    return ret;
+  if(team->autotune_info->allow_flat_tree) {
+    if(idx == 0) {
+      ret->tree_class = GASNETE_COLL_FLAT_TREE;
+      return ret;
+    }
+    idx -=1;
   }
-  idx -=1;
   
   tree_class = (idx / log2_threads)+1;
   radix = 1 << (1+(idx % log2_threads));
@@ -1212,6 +1215,7 @@ void gasnete_coll_register_collectives(gasnete_coll_autotune_info_t* info, size_
 
 #define GASNETE_COLL_AUTOTUNE_WARM_ITERS_DEFAULT 5
 #define GASNETE_COLL_AUTOTUNE_PERF_ITERS_DEFAULT 10
+#define GASNETE_COLL_FLAT_TREE_LIMIT 64
 
 static gasneti_lifo_head_t gasnete_coll_autotune_tree_node_free_list = GASNETI_LIFO_INITIALIZER;
 
@@ -1247,6 +1251,8 @@ gasnete_coll_autotune_info_t* gasnete_coll_autotune_init(gasnet_team_handle_t te
   gasnet_node_t fanout;
   
   ret = gasneti_calloc(1,sizeof(gasnete_coll_autotune_info_t));
+  team->autotune_info = ret;
+  ret->team = team;
   /* first read the environment variables for tree types*/
   default_tree_type = gasneti_getenv_withdefault("GASNET_COLL_ROOTED_GEOM", GASNETE_COLL_DEFAULT_TREE_TYPE_STR);
    
@@ -1318,9 +1324,9 @@ gasnete_coll_autotune_info_t* gasnete_coll_autotune_init(gasnet_team_handle_t te
   
   ret->warm_iters = gasneti_getenv_int_withdefault("GASNET_COLL_AUTOTUNE_WARM_ITERS", GASNETE_COLL_AUTOTUNE_WARM_ITERS_DEFAULT, 0);
   ret->perf_iters = gasneti_getenv_int_withdefault("GASNET_COLL_AUTOTUNE_PERF_ITERS", GASNETE_COLL_AUTOTUNE_PERF_ITERS_DEFAULT, 0);
-  
-//  ret->decision_tree = gasnete_coll_get_autotune_tree_node();
-  ret->team = team;
+  ret->allow_flat_tree = gasneti_getenv_int_withdefault("GASNET_COLL_AUTOTUNE_ALLOW_FLAT_TREE", 
+                                                        (team->total_ranks <= GASNETE_COLL_FLAT_TREE_LIMIT ? 1 : 0), 0);
+
   gasnete_coll_register_collectives(ret, min_scratch_size);
 #if GASNETE_COLL_CONDUIT_COLLECTIVES
   allow_conduit_collectives = gasneti_getenv_yesno_withdefault("GASNET_COLL_ALLOW_CONDUIT_COLLECTIVES", allow_conduit_collectives);

@@ -452,6 +452,8 @@ struct gasnete_coll_autotune_info_t_ {
   int warm_iters;
   int perf_iters;
 	
+  int allow_flat_tree;
+  
 	/*array index i tells you what the tree fanout should be for 2^(i-1) < nbytes <= 2^(i) bytes*/
 	int bcast_tree_radix_limits[GASNETE_COLL_AUTOTUNE_RADIX_ARR_LEN];
   
