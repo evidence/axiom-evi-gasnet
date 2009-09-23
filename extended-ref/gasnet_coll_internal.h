@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_internal.h,v $
- *     $Date: 2009/09/22 18:01:51 $
- * $Revision: 1.57 $
+ *     $Date: 2009/09/23 02:08:31 $
+ * $Revision: 1.58 $
  * Description: GASNet Collectives conduit header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -776,7 +776,7 @@ typedef struct {
   } threads;
   
   /* XXX: more fields to come */
-  unsigned int num_multi_addr_collectives_started;
+  gasneti_atomic_val_t num_multi_addr_collectives_started;
   smp_coll_t smp_coll_handle;
   
 
