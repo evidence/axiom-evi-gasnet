@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.c,v $
- *     $Date: 2009/09/18 23:33:23 $
- * $Revision: 1.1 $
+ *     $Date: 2009/09/26 04:37:34 $
+ * $Revision: 1.2 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -1112,6 +1112,7 @@ int gasnetc_AMPSHM_ReqRepGeneric(int category, int isReq, gasnet_node_t dest,
       /* If reply, only poll reply network: avoids deadlock  */
       if (isReq) gasnetc_AMPoll(); /* No progress functions */
       else gasneti_AMPSHMPoll(1);
+      GASNETI_WAITHOOK();
     }
     gasneti_mutex_unlock(lock);
   }
@@ -1178,6 +1179,7 @@ int gasnetc_AMPSHM_ReqRepGeneric(int category, int isReq, gasnet_node_t dest,
       /* If reply, only poll reply network: avoids deadlock  */
       if (isReq) gasnetc_AMPoll(); /* No progress functions */
       else gasneti_AMPSHMPoll(1);
+      GASNETI_WAITHOOK();
     }
   }
   return GASNET_OK;
