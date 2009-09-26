@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/Makefile.am,v $
-#     $Date: 2009/09/18 23:33:23 $
-# $Revision: 1.82 $
+#     $Date: 2009/09/26 18:57:10 $
+# $Revision: 1.83 $
 # Description: Makefile for GASNet 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -339,4 +339,12 @@ dist-hook:
         done
 	rm -Rf `find $(distdir) -name CVS -type d -print`
 	rm -f `find $(distdir) -name .#\* -print`
+
+# If we've enabled PSHM, also enabled for 'make distcheck'
+if USE_PSHM
+PSHM_CONFIG_FLAG=--enable-pshm
+else
+PSHM_CONFIG_FLAG=
+endif
+DISTCHECK_CONFIGURE_FLAGS = $(PSHM_CONFIG_FLAG)
 
