@@ -2399,6 +2399,7 @@ extern void gasnetc_bootstrapBroadcast(void *src, size_t len, void *dest, int ro
 
   if (gasneti_mynode != rootnode) {
     /* alloc an event queue for the action */
+    eq_len = 10;
     GASNETC_PTLSAFE(PtlEQAlloc(gasnetc_ni_h, eq_len, NULL, &eq_h));
 
     /* register the dest md with an EQ on a match list */
@@ -2462,8 +2463,7 @@ extern void gasnetc_bootstrapBroadcast(void *src, size_t len, void *dest, int ro
     GASNETC_PTLSAFE(PtlEQFree(eq_h));
 
   } else {
-    eq_len = 10;
-    /* wait the the message that data has arrived */
+    /* wait for the message that data has arrived */
     rc = PtlEQWait(eq_h, &ev);
     switch (rc) {
     case PTL_OK:
