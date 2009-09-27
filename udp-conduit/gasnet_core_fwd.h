@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/udp-conduit/gasnet_core_fwd.h,v $
- *     $Date: 2009/09/21 01:05:38 $
- * $Revision: 1.22 $
+ *     $Date: 2009/09/27 23:28:10 $
+ * $Revision: 1.23 $
  * Description: GASNet header for UDP conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -81,5 +81,9 @@ extern void gasnetc_fatalsignal_callback(int sig);
 
 extern void _gasnetc_set_waitmode(int wait_mode);
 #define gasnetc_set_waitmode(wait_mode) _gasnetc_set_waitmode(wait_mode)
+
+/* udp-conduit's default spawner produces random node placements.
+   could in theory leave at 0 when SPAWNFN='L' */
+#define GASNETC_DEFAULT_NODEMAP_EXACT 1
 
 #endif
