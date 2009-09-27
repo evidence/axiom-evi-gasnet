@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2009/04/20 06:40:08 $
- * $Revision: 1.127 $
+ *     $Date: 2009/09/27 19:02:14 $
+ * $Revision: 1.128 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -356,18 +356,26 @@ GASNETT_IDENT(GASNetT_IdentString_link_GASNetConfig,
  "$GASNetConfig: (<link>) " TEST_CONFIG_STRING " $");
 #ifndef HAVE_PTHREAD_H
   /* for systems lacking pthread support - ensure upcrun never tries to use it */
-  GASNETT_IDENT(GASNetT_IdentString_link_UPCRConfig,
-   "$UPCRConfig: (<link>) " TEST_CONFIG_STRING ",SHMEM=none,SHAREDPTRREP=packed,dynamicthreads $");
+  #if GASNET_PSHM
+    #define TEST_SHMEM_CONFIG "pshm"
+  #else
+    #define TEST_SHMEM_CONFIG "none"
+  #endif
 #else 
   /* unconditionally mimic pthreads, to ensure harness -pthreads=T -threads=N will run us 
      (otherwise upcrun will give an error about no -pthreads support)
      such a setup will only run the gasnet test on N/T nodes (as opposed to N as one might like)
      but the alternative is not to run at all. harness -nopthreads does not have this problem.
    */
-  GASNETT_IDENT(GASNetT_IdentString_link_UPCRConfig,
-   "$UPCRConfig: (<link>) " TEST_CONFIG_STRING ",SHMEM=pthreads,SHAREDPTRREP=packed,dynamicthreads $");
+  #if GASNET_PSHM
+    #define TEST_SHMEM_CONFIG "pthreads/pshm"
+  #else
+    #define TEST_SHMEM_CONFIG "pthreads"
+  #endif
   GASNETT_IDENT(GASNetT_IdentString_PthCnt, "$UPCRDefaultPthreadCount: 1 $");
 #endif
+GASNETT_IDENT(GASNetT_IdentString_link_UPCRConfig,
+   "$UPCRConfig: (<link>) " TEST_CONFIG_STRING ",SHMEM="TEST_SHMEM_CONFIG",SHAREDPTRREP=packed,dynamicthreads $");
 GASNETT_IDENT(GASNetT_IdentString_link_upcver, 
  "$UPCVersion: (<link>) *** GASNet test *** $");
 GASNETT_IDENT(GASNetT_IdentString_link_compileline, 
