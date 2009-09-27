@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_toolhelp.h,v $
- *     $Date: 2009/08/13 02:28:00 $
- * $Revision: 1.48 $
+ *     $Date: 2009/09/27 19:26:11 $
+ * $Revision: 1.49 $
  * Description: misc declarations needed by both gasnet_tools and libgasnet
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -47,13 +47,7 @@ GASNETI_BEGIN_EXTERNC
 #endif
 #define gasneti_sched_yield() gasneti_assert_zeroret(_gasneti_sched_yield())
 
-#if PLATFORM_OS_MTA
-  #define gasneti_filesystem_sync() mta_sync()
-#elif PLATFORM_OS_CATAMOUNT
-  #define gasneti_filesystem_sync() ((void)0)
-#else
-  #define gasneti_filesystem_sync() sync()
-#endif
+extern void gasneti_filesystem_sync(void);
 
 #if PLATFORM_COMPILER_GNU_CXX /* bug 1681 */
   #define GASNETI_CURRENT_FUNCTION __PRETTY_FUNCTION__

@@ -1,6 +1,6 @@
 README file for GASNet
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.122 $
+$Revision: 1.123 $
 
 This is a combination user manual and design document for GASNet. Anyone
 planning on using, modifying or adding to the GASNet code base should read this
@@ -367,6 +367,9 @@ application-specific support.
  optimized communication schedules. If the size is set too low, then the collectives 
  will send a lot more control messages which could adversely affect performance. 
  Defaults to 2MB per node.
+
+* GASNET_FS_SYNC - set to 1 enable a sync() call (or equivalent) at exit time.
+ Default is 0.  Try this setting if you experience truncated output.
 
 * OPTIONAL: GASNET_EXITTIMEOUT, GASNET_EXITTIMEOUT_MAX, GASNET_EXITTIMEOUT_MIN, and
  GASNET_EXITTIMEOUT_FACTOR - control exit-coordination timeout.  Some conduits use a

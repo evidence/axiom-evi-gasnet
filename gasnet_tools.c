@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2009/08/13 04:29:06 $
- * $Revision: 1.239 $
+ *     $Date: 2009/09/27 19:26:11 $
+ * $Revision: 1.240 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -383,6 +383,17 @@ extern void gasneti_killmyprocess(int exitcode) {
   #endif
   _exit(exitcode); /* use _exit to bypass atexit handlers */
   gasneti_fatalerror("gasneti_killmyprocess failed to kill the process!");
+}
+extern void gasneti_filesystem_sync(void) {
+  if ( gasneti_getenv_yesno_withdefault("GASNET_FS_SYNC",0) ) {
+#if PLATFORM_OS_MTA
+    mta_sync();
+#elif PLATFORM_OS_CATAMOUNT
+    /* Empty */
+#else
+    sync();
+#endif
+  }
 }
 extern void gasneti_flush_streams(void) {
   if (fflush(NULL)) /* passing NULL to fflush causes it to flush all open FILE streams */
