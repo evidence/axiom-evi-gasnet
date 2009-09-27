@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2009/09/27 23:16:11 $
- * $Revision: 1.129 $
+ *     $Date: 2009/09/27 23:41:39 $
+ * $Revision: 1.130 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -782,6 +782,22 @@ static void TEST_DEBUGPERFORMANCE_WARNING(void) {
 #endif
 
 #define TEST_MYSEG()          (TEST_SEG(gasnet_mynode()))
+
+static int _test_localprocs(void) { /* First call is not thread safe */
+  static int count = 0;
+  if (!count) {
+    gasnet_node_t my_nodeinfo;
+    int i;
+    assert(_test_seginfo);
+    my_nodeinfo = _test_seginfo[gasnet_mynode()].nodeinfo;
+    for (i=0; i < gasnet_nodes(); i++) {
+      if (_test_seginfo[i].nodeinfo == my_nodeinfo) count++;
+    }
+  }
+  assert(count > 0);
+  return count;
+}
+#define TEST_LOCALPROCS() (_test_localprocs())
 
 #endif /* TEST_GASNET_H */
 /* ------------------------------------------------------------------------------------ */
