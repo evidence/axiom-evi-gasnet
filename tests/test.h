@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2009/09/27 19:02:14 $
- * $Revision: 1.128 $
+ *     $Date: 2009/09/27 23:16:11 $
+ * $Revision: 1.129 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -735,6 +735,8 @@ static void TEST_DEBUGPERFORMANCE_WARNING(void) {
     #ifdef TEST_SEGSZ_EXPR
       _test_hidden_seg = (uint8_t *)test_malloc(TEST_SEGSZ+PAGESZ);
     #endif
+    GASNET_Safe(gasnet_getSegmentInfo(_test_seginfo, gasnet_nodes()));
+    myseg = _test_seginfo[gasnet_mynode()];
     myseg.addr = ((void *)(((uint8_t*)_test_hidden_seg) + 
       (((((uintptr_t)_test_hidden_seg)%PAGESZ) == 0)? 0 : 
        (PAGESZ-(((uintptr_t)_test_hidden_seg)%PAGESZ)))));
