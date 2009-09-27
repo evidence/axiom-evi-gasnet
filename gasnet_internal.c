@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2009/09/18 23:33:23 $
- * $Revision: 1.203 $
+ *     $Date: 2009/09/27 23:23:59 $
+ * $Revision: 1.204 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -905,11 +905,14 @@ static void gasneti_nodemap_helper_qsort(const char *ids, size_t sz, size_t stri
  */
 GASNETI_NEVER_INLINE(gasneti_nodemap_helper,
 static void gasneti_nodemap_helper(const void *ids, size_t sz, size_t stride)) {
+  #ifndef GASNETC_DEFAULT_NODEMAP_EXACT
+    #define GASNETC_DEFAULT_NODEMAP_EXACT 0
+  #endif
   gasneti_assert(ids);
   gasneti_assert(sz > 0);
   gasneti_assert(stride >= sz);
 
-  if (gasneti_getenv_yesno_withdefault("GASNET_NODEMAP_EXACT",0)) {
+  if (gasneti_getenv_yesno_withdefault("GASNET_NODEMAP_EXACT",GASNETC_DEFAULT_NODEMAP_EXACT)) {
     /* "exact" but potentially costly */
     gasneti_nodemap_helper_qsort(ids, sz, stride);
   } else {
