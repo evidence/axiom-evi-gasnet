@@ -1078,11 +1078,6 @@ int main(int argc, char **argv)
     printf("ERROR: Threads must be between 1 and %d\n", TEST_MAXTHREADS);
     exit(EXIT_FAILURE);
   }
-  if (threads_per_node > gasnett_cpu_count()) {
-    MSG0("WARNING: thread count (%i) exceeds physical cpu count (%i) - enabling  \"polite\", low-performance synchronization algorithms",
-          (int) threads_per_node, gasnett_cpu_count());
-    gasnet_set_waitmode(GASNET_WAIT_BLOCK);
-  }
   if (argc > 6) TEST_SECTION_PARSE(argv[6]);
 #else
   threads_per_node = 1;
@@ -1132,6 +1127,7 @@ int main(int argc, char **argv)
  
   GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
   test_init("testcollperf",0,"(max data size) (outer_verification_iters) (inner_verification_iters) (performance_iters) (thread count per node) ");
+  TEST_SET_WAITMODE(threads_per_node);
   A = TEST_MYSEG();
   B = A+(SEG_PER_THREAD*threads_per_node);
   my_srcs =  (uint8_t**) test_malloc(sizeof(uint8_t*)*threads_per_node);

@@ -261,13 +261,8 @@ int main(int argc, char **argv) {
   nodes = gasnet_nodes();
   THREADS = nodes * threads_per_node;
 
-  if (threads_per_node > gasnett_cpu_count()) {
-    MSG0("WARNING: thread count (%i) exceeds physical cpu count (%i) - enabling  \"polite\", low-performance synchronization algorithms",
-         (int) threads_per_node, gasnett_cpu_count());
-    gasnet_set_waitmode(GASNET_WAIT_BLOCK);
-  }
-  
   GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
+  /* ?? test_init("testcolltuner",0,"(-i iters) (-f output_file)"); */
   A = TEST_MYSEG();
   B = A+(SEG_PER_THREAD*threads_per_node);
   my_srcs =  (uint8_t**) test_malloc(sizeof(uint8_t*)*threads_per_node);
@@ -276,6 +271,8 @@ int main(int argc, char **argv) {
   all_dsts = (uint8_t**) test_malloc(sizeof(uint8_t*)*THREADS);
   td_arr = (thread_data_t*) test_malloc(sizeof(thread_data_t)*threads_per_node);
   
+  TEST_SET_WAITMODE(threads_per_node);
+
   for(i=0; i<threads_per_node; i++) {
     my_srcs[i] = A + i*SEG_PER_THREAD;
     my_dsts[i] = B + i*SEG_PER_THREAD;

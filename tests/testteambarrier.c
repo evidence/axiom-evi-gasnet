@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testteambarrier.c,v $
- *     $Date: 2009/09/16 01:13:43 $
- * $Revision: 1.2 $
+ *     $Date: 2009/09/28 00:28:37 $
+ * $Revision: 1.3 $
  * Description: GASNet barrier performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -109,11 +109,6 @@ int main(int argc, char **argv) {
     printf("ERROR: Threads must be between 1 and %d\n", TEST_MAXTHREADS);
     exit(EXIT_FAILURE);
   }
-  if (threads_per_node > gasnett_cpu_count()) {
-    MSG0("WARNING: thread count (%i) exceeds physical cpu count (%i) - enabling  \"polite\", low-performance synchronization algorithms",
-          (int) threads_per_node, gasnett_cpu_count());
-    gasnet_set_waitmode(GASNET_WAIT_BLOCK);
-  }
   if (argc > 3) TEST_SECTION_PARSE(argv[3]);
   if (argc > 4) test_usage();
 #else
@@ -122,6 +117,7 @@ int main(int argc, char **argv) {
   if (argc > 3) test_usage();
   if (argc > 2) TEST_SECTION_PARSE(argv[2]);
 #endif  
+  TEST_SET_WAITMODE(threads_per_node);
 
   td_arr = (thread_data_t*) test_malloc(sizeof(thread_data_t)*threads_per_node);
   for(i=0; i<threads_per_node; i++) {
