@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2009/09/09 19:19:39 $
-# $Revision: 1.77 $
+#     $Date: 2009/09/30 02:04:40 $
+# $Revision: 1.78 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -109,6 +109,7 @@ sub gasnet_encode($) {
     my $is_infinipath = ($mpirun_help =~ m|InfiniPath |);
     my $is_srun    = ($mpirun_help =~ m|srun: invalid option|);
     my $is_prun    = ($mpirun_help =~ m|railmask|);
+    my $is_pam     = ($mpirun_help =~ m|TaskStarter|);
     my $envprog = $ENV{'ENVCMD'};
     if (! -x $envprog) { # SuperUX has broken "which" implementation, so avoid if possible
       $envprog = `which env`;
@@ -277,6 +278,11 @@ sub gasnet_encode($) {
 	@verbose_opt = ("-v");
     } elsif ($is_prun) {
 	$spawner_desc = "Quadrics/RMS prun";
+	# this spawner already propagates the environment for us automatically
+	%envfmt = ( 'noenv' => 1 );
+	@verbose_opt = ("-v");
+    } elsif ($is_pam) {
+	$spawner_desc = "LSF pam";
 	# this spawner already propagates the environment for us automatically
 	%envfmt = ( 'noenv' => 1 );
 	@verbose_opt = ("-v");
