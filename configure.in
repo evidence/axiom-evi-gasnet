@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2009/09/21 01:11:19 $
-# $Revision: 1.563 $
+#     $Date: 2009/09/30 23:44:13 $
+# $Revision: 1.564 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.563 $)
+AC_REVISION($Revision: 1.564 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1575,12 +1575,12 @@ GASNET_IF_ENABLED_WITH_AUTO(smp-safe, Enable build of SMP-safe libraries (defaul
   [ uni_build=yes],
   [ AC_CHECK_HEADERS(/boot/kernel.h)
     AC_MSG_CHECKING(whether to force a uni-processor build)
-    if test "`uname -a | grep -i SMP`" != ""; then
-      uni_build=no;
-    else
-      AC_TRY_COMPILE([
-        /* Note that we try to error on the side of an SMP */
-        #if defined(__linux__)
+    uni_build=no;
+    if test "`uname -a | grep -i SMP`" = ""; then
+      case "$target_os" in
+      linux*)  
+        AC_TRY_COMPILE([
+          /* Note that we try to error on the side of an SMP */
           #include <linux/config.h>
           #if defined(CONFIG_SMP)
             #error Make the AC_TRY_COMPILE fail (SMP)
@@ -1591,14 +1591,14 @@ GASNET_IF_ENABLED_WITH_AUTO(smp-safe, Enable build of SMP-safe libraries (defaul
               #error Make the AC_TRY_COMPILE fail (SMP)
             #endif
           #endif
-        #elif defined(__FreeBSD__)
-          #if defined(SMP)
-            #error Make the AC_TRY_COMPILE fail (SMP)
-          #endif
-        #else
-          #error Make the AC_TRY_COMPILE fail (SMP)
-        #endif
-    ], [], [ uni_build=yes ], [ uni_build=no ])
+          ], [], [ uni_build=yes ])
+        ;;
+      freebsd*)  
+        if test "`/sbin/sysctl -n hw.ncpu 2>/dev/null`" = 1; then
+          uni_build=yes
+        fi
+        ;;
+      esac
     fi
     AC_MSG_RESULT($uni_build)
   ] 
