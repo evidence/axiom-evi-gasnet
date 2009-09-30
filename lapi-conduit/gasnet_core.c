@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2009/09/21 03:27:47 $
- * $Revision: 1.132 $
+ *     $Date: 2009/09/30 06:11:21 $
+ * $Revision: 1.133 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -723,6 +723,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 	 * (Protocol Virtual Offsets) for
 	 * the region. */
 	 {
+	 int *pvo_count;
 	 lapi_user_pvo_t *tmp_pvo_ptr;
 	 int my_num_pvos;
 	 int total_num_pvos;
@@ -765,11 +766,14 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
      */
     gasnetc_num_pvos = my_num_pvos;
     total_num_pvos = 0;
+    pvo_count = gasneti_malloc(gasneti_nodes * sizeof(int));
     for (i=0;i < gasneti_nodes;i++) {
 	int tmp = ( gasneti_seginfo[i].size + (GASNETC_LAPI_PVO_EXTENT-1)) >> GASNETC_LAPI_PVO_EXTENT_BITS;
+	pvo_count[i] = tmp;
 	if (tmp > gasnetc_num_pvos) gasnetc_num_pvos = tmp;
 	total_num_pvos += tmp;
     }
+    gasneti_assert(my_num_pvos == pvo_count[gasneti_mynode]);
 	 
     /*
      * Allocate the pvo table, indexed [node][pvo]
@@ -780,23 +784,29 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     gasnetc_pvo_table = (lapi_user_pvo_t **) gasneti_malloc(gasneti_nodes * sizeof(lapi_user_pvo_t *));
     for(i=0;i < gasneti_nodes;i++) {
       gasnetc_pvo_table[i] = tmp_pvo_ptr;
-      tmp_pvo_ptr += (gasneti_seginfo[i].size + (GASNETC_LAPI_PVO_EXTENT-1)) >> GASNETC_LAPI_PVO_EXTENT_BITS;
+      tmp_pvo_ptr += pvo_count[i];
     }
     
     /* Exchange, and "transpose" to construct the pvo table
      */
 	  
+    gasneti_assert(sizeof(lapi_user_pvo_t) <= sizeof(lapi_long_t));
     tmp_pvo_ptr = gasneti_malloc(gasneti_nodes * sizeof(lapi_user_pvo_t));
     for(i=0;i < gasnetc_num_pvos;i++) {
       int j;
       lapi_long_t tmp_long = (i < my_num_pvos) ? (lapi_long_t) (gasnetc_node_pvo_list[i].usr_pvo) : 0;
       GASNETC_LCHECK(LAPI_Address_init64(gasnetc_lapi_context, tmp_long, tmp_pvo_ptr));
       for (j=0;j < gasneti_nodes;j++) {
-        gasnetc_pvo_table[j][i] = tmp_pvo_ptr[j];
-        GASNETI_TRACE_PRINTF(C,("gasnetc_pvo_table[node=%d][idx=%d] = 0x%lx",j,i,(ulong)gasnetc_pvo_table[j][i]));
+        if (i < pvo_count[j]) {
+          gasnetc_pvo_table[j][i] = tmp_pvo_ptr[j];
+          GASNETI_TRACE_PRINTF(C,("gasnetc_pvo_table[node=%d][idx=%d] = 0x%lx",j,i,(ulong)gasnetc_pvo_table[j][i]));
+        } else {
+          gasneti_assert(!tmp_pvo_ptr[j]);
+        }
       }
     }		
     gasneti_free(tmp_pvo_ptr);
+    gasneti_free(pvo_count);
 
     GASNETC_LCHECK(LAPI_Gfence(gasnetc_lapi_context));
 
