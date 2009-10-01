@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.c,v $
- *     $Date: 2009/09/26 04:37:34 $
- * $Revision: 1.2 $
+ *     $Date: 2009/10/01 02:51:40 $
+ * $Revision: 1.3 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -318,8 +318,9 @@ typedef struct gasneti_pshmnet_queue {
   gasneti_pshmnet_msg_t *send_next;  
   gasneti_pshmnet_msg_t *justpastlast;  
   #if 1
-    /* See above comment about cache alignment: we ensure queue_t's are
-     * cache-aligned, too */
+    /* See above comment about cache alignment.  Not that we might not
+     * get perfect cache line alignment, since internal padding might
+     * cause us to add too much (but never too little) padding here */
     char _pad[GASNETI_CACHE_PAD(sizeof(void *)*4
                                +sizeof(gasneti_mutex_t)*2)];
   #else
@@ -475,7 +476,7 @@ static size_t gasneti_pshmnet_memory_needed_pernode(gasneti_pshm_rank_t nodes)
   }
 
   /* Message infos and queue */
-  size = sizeof(gasneti_pshmnet_queue_t)*(nodes);
+  size = GASNETI_ALIGNUP(sizeof(gasneti_pshmnet_queue_t)*nodes, GASNETI_CACHE_LINE_BYTES);
   size += sizeof(gasneti_pshmnet_msg_t)*gasneti_pshmnet_queue_depth*(nodes-1);
   size = round_up_to_pshmpage(size);
   size += sizeof(gasneti_pshmnet_allocator_t);
@@ -520,7 +521,8 @@ static void gasneti_pshmnet_init_my_pshm(gasneti_pshmnet_t *pvnet, char * myregi
   /* NOTE: other init code relies on queues being at start of region */
   myqueues = (gasneti_pshmnet_queue_t *)myregion;
   mymsgs = (gasneti_pshmnet_msg_t *)(((char*)myqueues) 
-                                      + sizeof(gasneti_pshmnet_queue_t)*nodes);  
+                                      + GASNETI_ALIGNUP(sizeof(gasneti_pshmnet_queue_t)*nodes,
+                                                        GASNETI_CACHE_LINE_BYTES));
   gasneti_assert_align(mymsgs, GASNETI_CACHE_LINE_BYTES);
   alloc_region = ((char*)mymsgs) + 
         sizeof(gasneti_pshmnet_msg_t)*gasneti_pshmnet_queue_depth*(nodes-1);
