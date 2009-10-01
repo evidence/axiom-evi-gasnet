@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2009/09/30 02:04:40 $
-# $Revision: 1.78 $
+#     $Date: 2009/10/01 04:34:34 $
+# $Revision: 1.79 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -283,8 +283,9 @@ sub gasnet_encode($) {
 	@verbose_opt = ("-v");
     } elsif ($is_pam) {
 	$spawner_desc = "LSF pam";
-	# this spawner already propagates the environment for us automatically
-	%envfmt = ( 'noenv' => 1 );
+	%envfmt = ( 'pre' => $envprog, 'val' => '');
+	$encode_args = 1;
+	$encode_env = 1;
 	@verbose_opt = ("-v");
     } else {
 	$spawner_desc = "unknown program (using generic MPI spawner)";
