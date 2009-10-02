@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_toolhelp.h,v $
- *     $Date: 2009/10/02 21:52:01 $
- * $Revision: 1.51 $
+ *     $Date: 2009/10/02 22:11:51 $
+ * $Revision: 1.52 $
  * Description: misc declarations needed by both gasnet_tools and libgasnet
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -85,17 +85,27 @@ extern char *gasneti_build_loc_str(const char *funcname, const char *filename, i
 #if GASNET_DEBUG
   #define gasneti_assert_zeroret(op) do {                   \
     int _retval = (op);                                     \
-    if_pf(_retval)                                          \
+    if_pf(_retval) {                                        \
+      /* can't use strdup() or gasneti_strdup() here. */    \
+      char _tmp[128];                                       \
+      strncpy(_tmp, strerror(_retval), sizeof(_tmp));       \
+      _tmp[sizeof(_tmp)-1] = '\0';                          \
       gasneti_fatalerror(#op": %s(%i), errno=%s(%i) at %s", \
-        strerror(_retval), _retval, strerror(errno), errno, \
+        _tmp, _retval, strerror(errno), errno,              \
         gasneti_current_loc);                               \
+    }                                                       \
   } while (0)
   #define gasneti_assert_nzeroret(op) do {                  \
     int _retval = (op);                                     \
-    if_pf(!_retval)                                         \
+    if_pf(!_retval) {                                       \
+      /* can't use strdup() or gasneti_strdup() here. */    \
+      char _tmp[128];                                       \
+      strncpy(_tmp, strerror(_retval), sizeof(_tmp));       \
+      _tmp[sizeof(_tmp)-1] = '\0';                          \
       gasneti_fatalerror(#op": %s(%i), errno=%s(%i) at %s", \
-        strerror(_retval), _retval, strerror(errno), errno, \
+        _tmp, _retval, strerror(errno), errno,              \
         gasneti_current_loc);                               \
+    }                                                       \
   } while (0)
 #else
   #define gasneti_assert_zeroret(op)  op
