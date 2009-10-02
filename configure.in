@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2009/10/01 03:29:50 $
-# $Revision: 1.565 $
+#     $Date: 2009/10/02 21:10:24 $
+# $Revision: 1.566 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.565 $)
+AC_REVISION($Revision: 1.566 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -299,6 +299,7 @@ AC_DEFUN([GASNET_GET_GNUWARNINGFLAGS],[
         ]GASNET_TRY_[$1]FLAG[([-Wnested-externs],[[$1]FLAGS="$[$1]FLAGS -Wnested-externs"])
         ]GASNET_TRY_[$1]FLAG[([-Wwrite-strings],[[$1]FLAGS="$[$1]FLAGS -Wwrite-strings"])
         ]GASNET_TRY_[$1]FLAG[([-Wdeclaration-after-statement],[[$1]FLAGS="$[$1]FLAGS -Wdeclaration-after-statement"])
+        ]GASNET_TRY_[$1]FLAG[([-Wno-format-security],[[$1]FLAGS="$[$1]FLAGS -Wno-format-security"])
         ]GASNET_TRY_[$1]FLAG[([-Wmissing-format-attribute],[[$1]FLAGS="$[$1]FLAGS -Wmissing-format-attribute"])
 	if test "$use_pthreads" != "no" ; then
         # some crappy pthread mutex implementations generate warnings without -Wno-missing-braces
