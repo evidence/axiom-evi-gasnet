@@ -171,14 +171,6 @@ void smp_coll_tune_barrier(smp_coll_t handle) {
 }
 
 
-
-#define check_zeroret(op) do {                                       \
-int _retval = (op);                                                \
-if(_retval) fprintf(stderr, "FATAL ERROR: %s(%i), (@ %s:%i)",strerror(_retval), _retval, __FILE__, __LINE__); \
-} while (0)
-
-
-
 void smp_coll_barrier_pthread(smp_coll_t handle, int flags) {
 #if HAVE_PTHREAD_BARRIER
   pthread_barrier_wait(handle->pthread_barrier);
@@ -186,37 +178,69 @@ void smp_coll_barrier_pthread(smp_coll_t handle, int flags) {
 }
 
 
-/* write memory barrier before, read memory barrier after*/
 /*condition variable based pthread implementation*/
 /*all threads except last to arrive at barrier grab a lock and then fall asleep on a condition variable*/
 /*last thread grabs the lock and broadcats to all other threads to wake up*/
+#if PLATFORM_ARCH_CRAYX1 || PLATFORM_OS_CYGWIN
+/* pthread_cond is unreliable on some versions of these OS's - use semaphores */
+#include <semaphore.h>
 void smp_coll_barrier_cond_var(smp_coll_t handle, int flags){
-  static gasneti_cond_t barrier_cond[2] = /* must be phased on some OS's (HPUX) */
-  { GASNETI_COND_INITIALIZER, GASNETI_COND_INITIALIZER };
-  static gasneti_mutex_t barrier_mutex[2] = 
-  { GASNETI_MUTEX_INITIALIZER, GASNETI_MUTEX_INITIALIZER };
+  static gasneti_mutex_t barrier_mutex = GASNETT_MUTEX_INITIALIZER;
+  static volatile int phase = 0;
+  static volatile unsigned int barrier_count = 0;
+  static sem_t sem[2];
+  gasneti_mutex_lock(&barrier_mutex);
+  { int myphase = phase;
+    static volatile int firsttime = 1;
+    if (firsttime) {
+      gasneti_assert_zeroret(sem_init(&sem[0], 0, 0));
+      gasneti_assert_zeroret(sem_init(&sem[1], 0, 0));
+      firsttime = 0;
+    }
+    barrier_count++;
+    if (barrier_count < handle->THREADS) {
+      gasneti_mutex_unlock(&barrier_mutex); 
+      gasneti_assert_zeroret(sem_wait(&sem[myphase]));
+    } else {
+      int i;
+      barrier_count = 0;
+      phase = !phase;
+      gasneti_mutex_unlock(&barrier_mutex);
+      for (i=0; i < (handle->THREADS-1); i++) {
+        gasneti_assert_zeroret(sem_post(&sem[myphase]));
+      }
+    }
+  }
+}
+#else
+void smp_coll_barrier_cond_var(smp_coll_t handle, int flags){
+  /* cond variables must be phased on some OS's (HPUX) */
+  static struct {
+    gasnett_cond_t cond;
+    gasnett_mutex_t mutex;
+  } barrier[2] = { { GASNETT_COND_INITIALIZER, GASNETT_MUTEX_INITIALIZER },
+                   { GASNETT_COND_INITIALIZER, GASNETT_MUTEX_INITIALIZER }};
   static volatile unsigned int barrier_count = 0;
   static volatile int phase = 0;
   const int myphase = phase;
-  //  gasnett_local_mb();
-
-  gasneti_mutex_lock(&barrier_mutex[myphase]);
+  gasneti_mutex_lock(&(barrier[myphase].mutex));
   barrier_count++;
-  if (barrier_count < handle->THREADS) {
+  if (barrier_count != handle->THREADS) {
     /* CAUTION: changing the "do-while" to a "while" triggers a bug in the SunStudio 2006-08
      * compiler for x86_64.  See http://upc-bugs.lbl.gov/bugzilla/show_bug.cgi?id=1858
      * which includes a link to Sun's own database entry for this issue.
      */
     do {
-      gasneti_cond_wait(&barrier_cond[myphase], &barrier_mutex[myphase]);
+      gasneti_cond_wait(&(barrier[myphase].cond), &(barrier[myphase].mutex));
     } while (myphase == phase);
   } else {  
     barrier_count = 0;
     phase = !phase;
-    gasneti_cond_broadcast(&barrier_cond[myphase]);
+    gasneti_cond_broadcast(&(barrier[myphase].cond));
   }       
-  gasneti_mutex_unlock(&barrier_mutex[myphase]);
+  gasneti_mutex_unlock(&(barrier[myphase].mutex));
 }
+#endif
 
 /*bruck's dissemination style barrier*/
 /*log_r(n) rounds with O(n) messages per round*/
