@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_coll_barrier_dcmf.c,v $
- * $Date: 2009/09/16 01:13:22 $
- * $Revision: 1.2 $
+ * $Date: 2009/10/03 03:46:36 $
+ * $Revision: 1.3 $
  * Description: GASNet barrier implementation on DCMF
  * LBNL 2009
  */
@@ -34,7 +34,7 @@ static void gasnete_dcmf_coll_cb_done(void *clientdata, DCMF_Error_t *e)
   *p = 0;
 }
 
-void gasnete_coll_barrier_proto_register()
+void gasnete_coll_barrier_proto_register(void)
 {
   DCMF_Result rv;
   DCMF_Barrier_Configuration_t barrier_conf;

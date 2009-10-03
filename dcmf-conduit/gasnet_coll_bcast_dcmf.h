@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_coll_bcast_dcmf.h,v $
- * $Date: 2009/09/16 01:13:22 $
- * $Revision: 1.2 $
+ * $Date: 2009/10/03 03:46:36 $
+ * $Revision: 1.3 $
  * Description: GASNet broadcast implementation on DCMF
  * LBNL 2009
  */
@@ -46,7 +46,7 @@ typedef struct {
  * Register broadcast protocols.  It should be done before calling any
  * gasnet dcmf broacast function.
  */
-void gasnete_coll_bcast_proto_register();
+void gasnete_coll_bcast_proto_register(void);
 
 /**
  * Wrapper of gasnete_coll_bcast_dcmf_nb for the default gasnet

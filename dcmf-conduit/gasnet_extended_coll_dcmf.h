@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_extended_coll_dcmf.h,v $
- * $Date: 2009/09/16 01:13:22 $
- * $Revision: 1.2 $
+ * $Date: 2009/10/03 03:46:36 $
+ * $Revision: 1.3 $
  * Description: GASNet extended collectives implementation on DCMF
  * LBNL 2009
  */
@@ -66,29 +66,14 @@ typedef struct {
 
 extern int gasnete_coll_dcmf_inited;
 
-/**
- * Initialize DCMF collective protocols. This should be called only once
- * when creating the default team GASNET_TEAM_ALL in gasnete_coll_init().
- */
-void gasnete_coll_init_dcmf();
-
-/**
- * Release the resources used by DCMF collective protocols
- */
-void gasnete_coll_fini_dcmf();
+GASNETE_COLL_TEAM_CONDUIT_DECLS;
 
 /**
  * Initialize the dcmf data structures for gasnet team
  */
-void gasnete_coll_team_init_dcmf(gasnet_team_handle_t team);
 void gasnete_dcmf_team_init(gasnet_team_handle_t team,
                             gasnete_dcmf_barrier_proto_t barrier_kind,
                             gasnete_dcmf_barrier_proto_t lbarrier_kind);
-
-/**
- * Finalize the dcmf data structures for gasnet team
- */
-void gasnete_coll_team_fini_dcmf(gasnet_team_handle_t team);
 
 /**
  * Get the DCMF geometry of the team with team_id.

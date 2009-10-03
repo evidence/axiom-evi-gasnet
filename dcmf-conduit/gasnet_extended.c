@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_extended.c,v $
- *     $Date: 2009/09/16 01:13:22 $
- * $Revision: 1.6 $
+ *     $Date: 2009/10/03 03:46:36 $
+ * $Revision: 1.7 $
  * Description: GASNet Extended API Implementation for DCMF
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
  *                 Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -1155,7 +1155,7 @@ extern gasnet_handle_t gasnete_end_nbi_accessregion(GASNETE_THREAD_FARG_ALONE) {
   =========
 */
 
-static void do_nothing(){}
+static void do_nothing(void){}
 static void gasnete_dcmfbarrier_init(gasnete_coll_team_t team);
 static void gasnete_dcmfbarrier_notify(gasnete_coll_team_t team, int id, int flags);
 static int gasnete_dcmfbarrier_wait(gasnete_coll_team_t team, int id, int flags);

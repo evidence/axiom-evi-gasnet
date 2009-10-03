@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_coll_bcast_dcmf.c,v $
- * $Date: 2009/09/16 01:13:22 $
- * $Revision: 1.2 $
+ * $Date: 2009/10/03 03:46:36 $
+ * $Revision: 1.3 $
  * Description: GASNet broadcast implementation on DCMF
  * LBNL 2009
  */
@@ -20,7 +20,7 @@ static DCMF_Protocol_t g_dcmf_globalbcast_proto;
 
 gasnete_dcmf_bcast_kind_t g_dcmf_bcast_kind_default;
 
-void gasnete_coll_bcast_proto_register()
+void gasnete_coll_bcast_proto_register(void)
 {
   DCMF_GlobalBcast_Configuration_t gbcast_conf;
   DCMF_Broadcast_Configuration_t bcast_conf;

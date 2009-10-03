@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_coll_exchange_dcmf.c,v $
- * $Date: 2009/10/03 02:00:10 $
- * $Revision: 1.3 $
+ * $Date: 2009/10/03 03:46:36 $
+ * $Revision: 1.4 $
  * Description: GASNet exchange (alltoall) implementation on DCMF
  * LBNL 2009
  */
@@ -20,7 +20,7 @@ static void gasnete_dcmf_coll_cb_done(void *clientdata, DCMF_Error_t *e)
 }
 
 /* alltoall protocol registration */
-void gasnete_coll_a2a_proto_register()
+void gasnete_coll_a2a_proto_register(void)
 {
   DCMF_Alltoallv_Configuration_t alltoallv_conf;
   

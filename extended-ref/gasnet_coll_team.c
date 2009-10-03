@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_team.c,v $
- * $Date: 2009/09/19 08:02:35 $
- * $Revision: 1.5 $
+ * $Date: 2009/10/03 03:46:38 $
+ * $Revision: 1.6 $
  *
  * Description: GASNet generic team implementation for collectives 
  * LBNL 2009
@@ -15,6 +15,10 @@
 #include <gasnet_coll_autotune_internal.h>
 #include <gasnet_coll_scratch.h>
 #include <gasnet_coll_trees.h>
+
+#ifdef GASNETE_COLL_TEAM_CONDUIT_DECLS
+GASNETE_COLL_TEAM_CONDUIT_DECLS
+#endif
 
 /* #define DEBUG_TEAM */
 

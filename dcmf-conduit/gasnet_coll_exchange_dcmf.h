@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_coll_exchange_dcmf.h,v $
- * $Date: 2009/09/16 01:13:22 $
- * $Revision: 1.2 $
+ * $Date: 2009/10/03 03:46:36 $
+ * $Revision: 1.3 $
  * Description: GASNet exchange (alltoall) implementation for DCMF
  * LBNL 2009
  */
@@ -35,7 +35,7 @@ typedef struct {
 } gasnete_dcmf_a2a_data_t;
 
 /** alltoall protocol registration */
-void gasnete_coll_a2a_proto_register();
+void gasnete_coll_a2a_proto_register(void);
 
 /** initialize the data structure for an alltoall communication */
 void gasnete_coll_dcmf_a2a_init(gasnete_dcmf_a2a_data_t *a2a,

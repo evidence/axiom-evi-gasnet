@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_coll_barrier_dcmf.h,v $
- * $Date: 2009/09/16 01:13:22 $
- * $Revision: 1.2 $
+ * $Date: 2009/10/03 03:46:36 $
+ * $Revision: 1.3 $
  * Description:  GASNet barrier implementation on DCMF
  * LBNL 2009
  */
@@ -43,7 +43,7 @@ extern gasnete_dcmf_barrier_proto_t g_dcmf_barrier_kind_default;
 extern gasnete_dcmf_barrier_proto_t g_dcmf_lbarrier_kind_default;
 
 /** Register DCMF barrier protocols */
-void gasnete_coll_barrier_proto_register();
+void gasnete_coll_barrier_proto_register(void);
 
 void gasnete_coll_teambarrier_dcmf(gasnet_team_handle_t team);
 

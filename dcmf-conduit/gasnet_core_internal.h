@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_core_internal.h,v $
- *     $Date: 2009/09/18 23:33:26 $
- * $Revision: 1.5 $
+ *     $Date: 2009/10/03 03:46:36 $
+ * $Revision: 1.6 $
  * Description: GASNet dcmf conduit header for internal definitions in Core API
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
  *                 Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -106,7 +106,7 @@ typedef struct gasnetc_dcmf_coll_req_t_{
   DCMF_CollectiveRequest_t req;
 } gasnetc_dcmf_coll_req_t;
 
-gasnetc_dcmf_coll_req_t * gasnetc_get_dcmf_coll_req();
+gasnetc_dcmf_coll_req_t * gasnetc_get_dcmf_coll_req(void);
 void gasnetc_free_dcmf_coll_req(gasnetc_dcmf_coll_req_t *req);
 
 typedef struct gasnetc_dcmf_nack_req_t_ {
