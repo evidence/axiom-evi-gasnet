@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_coll_exchange_dcmf.c,v $
- * $Date: 2009/09/16 01:13:22 $
- * $Revision: 1.2 $
+ * $Date: 2009/10/03 02:00:10 $
+ * $Revision: 1.3 $
  * Description: GASNet exchange (alltoall) implementation on DCMF
  * LBNL 2009
  */
@@ -94,8 +94,8 @@ void gasnete_coll_dcmf_a2a_fini(gasnete_dcmf_a2a_data_t *a2a)
 
 static int gasnete_coll_pf_exchg_dcmf(gasnete_coll_op_t *op GASNETE_THREAD_FARG) 
 {
-  gasnete_coll_generic_data_t *data = op->data;; 
-  gasnete_dcmf_a2a_data_t *a2a = (gasnete_dcmf_a2a_data_t *)data->private_data;;
+  gasnete_coll_generic_data_t *data = op->data;
+  gasnete_dcmf_a2a_data_t *a2a = (gasnete_dcmf_a2a_data_t *)data->private_data;
   static unsigned dcmf_busy = 0;  
 
   switch (data->state) {

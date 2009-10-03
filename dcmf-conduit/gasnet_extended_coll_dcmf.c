@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_extended_coll_dcmf.c,v $
- * $Date: 2009/09/16 01:13:22 $
- * $Revision: 1.2 $
+ * $Date: 2009/10/03 02:00:10 $
+ * $Revision: 1.3 $
  * Description: GASNet extended collectives implementation on DCMF
  * LBNL 2009
  */
@@ -17,8 +17,9 @@ int gasnete_coll_dcmf_inited = 0;
 DCMF_Geometry_t * gasnete_dcmf_get_geometry(int team_id)
 {
   gasnet_team_handle_t team = gasnete_coll_team_lookup(team_id);
+  gasnete_coll_team_dcmf_t *dcmf_tp;
   gasneti_assert(team != NULL);
-  gasnete_coll_team_dcmf_t *dcmf_tp = (gasnete_coll_team_dcmf_t *)team->dcmf_tp;
+  dcmf_tp = (gasnete_coll_team_dcmf_t *)team->dcmf_tp;
 #ifdef G_DCMF_TRACE
   fprintf(stderr, "gasnete_dcmf_get_geometry: team_id %u, geometry %p \n", 
           &dcmf_tp->geometry);
