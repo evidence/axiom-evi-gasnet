@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testgasnet.c,v $
- *     $Date: 2009/09/18 03:25:35 $
- * $Revision: 1.64 $
+ *     $Date: 2009/10/04 00:26:00 $
+ * $Revision: 1.65 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -671,12 +671,12 @@ void doit5(int partner, int *partnerseg) {
       if (gasneti_atomic128_compare_and_swap(var128, iters+i+1, i+1, iters+i-2, i-2, 0))
         ERR("gasneti_atomic128_compare_and_swap succeeded at i=%i when it should have failed", i);
       gasneti_atomic128_read(&readhi, &readlo,var128,0);
-      if ((readhi != iters+i) || (readlo != i))
+      if (((int)readhi != iters+i) || ((int)readlo != i))
         ERR("gasneti_atomic128_compare_and_swap altered value when it should not have at i=%i", i);
       if (!gasneti_atomic128_compare_and_swap(var128, iters+i, i, iters+i+1, i+1, 0))
         ERR("gasneti_atomic128_compare_and_swap failed at i=%i when it should have succeeded", i);
       gasneti_atomic128_read(&readhi, &readlo, var128,0);
-      if ((readhi != iters+i+1) || (readlo != i+1))
+      if (((int)readhi != iters+i+1) || ((int)readlo != i+1))
         ERR("gasneti_atomic128_compare_and_swap set wrong updated value at i=%i", i);
     }
   }
