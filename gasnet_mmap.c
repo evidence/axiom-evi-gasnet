@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2009/09/24 01:08:21 $
- * $Revision: 1.64 $
+ *     $Date: 2009/10/04 00:06:50 $
+ * $Revision: 1.65 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -810,7 +810,7 @@ void gasneti_segmentInit(uintptr_t localSegmentLimit,
           "maxheapend = "GASNETI_LADDRFMT"   ",
           (unsigned long)maxsize, (unsigned long)minsize,
           GASNETI_LADDRSTR(maxbase), GASNETI_LADDRSTR(minend), GASNETI_LADDRSTR(maxheapend));
-      GASNETI_TRACE_PRINTF(C, (segstats));
+      GASNETI_TRACE_MSG(C, segstats);
 
       gasneti_maxheapend = maxheapend;
       gasneti_maxbase = maxbase;
@@ -829,7 +829,7 @@ void gasneti_segmentInit(uintptr_t localSegmentLimit,
                                   "but GASNet was configured to optimize for congruent address spaces. "
                                   "You probably need to re-configure with --disable-aligned-segments to avoid "
                                   "errors at job startup (especially for runs with large node count or shared segment size).";
-               GASNETI_TRACE_PRINTF(I, (wmsg));
+               GASNETI_TRACE_MSG(I, wmsg);
                if (!gasneti_getenv_yesno_withdefault("GASNET_QUIET",0)) {
                  fprintf(stderr, "%s\n", wmsg);
                  fflush(stderr);
@@ -842,7 +842,7 @@ void gasneti_segmentInit(uintptr_t localSegmentLimit,
         if (maxbase >= minend) { /* no overlap - maybe should be a fatal error... */
           const char *wmsg = "WARNING: unable to locate overlapping mmap segments in gasneti_segmentInit()"
             ": perhaps you need to re-configure with --disable-aligned-segments";
-          GASNETI_TRACE_PRINTF(I, (wmsg));
+          GASNETI_TRACE_MSG(I, wmsg);
           if (!gasneti_mynode && !gasneti_getenv_yesno_withdefault("GASNET_QUIET",0)) {
             fprintf(stderr, "%s\n%s\n", wmsg, segstats);
             for (i=0;i < gasneti_nodes; i++) {
