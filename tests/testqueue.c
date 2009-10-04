@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testqueue.c,v $
- *     $Date: 2009/08/02 03:03:35 $
- * $Revision: 1.15 $
+ *     $Date: 2009/10/04 00:33:27 $
+ * $Revision: 1.16 $
  * Description: GASNet put/get injection performance test
  *   measures the average non-blocking put/get injection time 
  *   for increasing number of back-to-back operations
@@ -274,7 +274,7 @@ int main(int argc, char **argv) {
         for (depth = 1; depth <= maxdepth; depth *= 2) {                    \
           sprintf(pheader, " %7i", depth); pheader += strlen(pheader);      \
         }                                                                   \
-        MSG0(header);                                                       \
+        PUTS0(header);                                                      \
       }                                                                     \
       last_payload = (((PAYLOAD_LIMIT) <= 0) ? max_payload :                \
                       MIN(max_payload, (PAYLOAD_LIMIT)));                   \

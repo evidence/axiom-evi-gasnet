@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2009/09/27 23:58:44 $
- * $Revision: 1.131 $
+ *     $Date: 2009/10/04 00:33:27 $
+ * $Revision: 1.132 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -100,6 +100,10 @@ static int test_errs = 0;
 #endif
 #define ERR      TERR(0)
 #define FATALERR TERR(1)
+/* The following two help us avoid warnings from a gcc that doesn't like
+   seeing a lone non-literal argument to printf() and family. */
+#define PUTS(_s)  MSG("%s",(_s))
+#define PUTS0(_s) MSG0("%s",(_s))
 
 #define _TEST_MSG_BUFSZ 1024
 static char _test_baseformat[_TEST_MSG_BUFSZ];

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testexit.c,v $
- *     $Date: 2007/03/18 09:20:55 $
- * $Revision: 1.28 $
+ *     $Date: 2009/10/04 00:33:27 $
+ * $Revision: 1.29 $
  * Description: GASNet gasnet_exit correctness test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -250,7 +250,7 @@ int main(int argc, char **argv) {
       crashtestdesc[testid-100-NUMCRASHTEST]);
   }
   if (testid == 6 || testid == 7) {
-    MSG0(testdescstr);
+    PUTS0(testdescstr);
     gasnett_sched_yield();
     sleep(1);
     if (testid == 6) {
@@ -271,7 +271,7 @@ int main(int argc, char **argv) {
   TEST_SEG(mynode);
 
   BARRIER();
-  MSG0(testdescstr);
+  PUTS0(testdescstr);
   BARRIER();
 
   switch (testid) {
