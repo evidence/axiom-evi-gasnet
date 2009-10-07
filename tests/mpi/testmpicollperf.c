@@ -3,7 +3,8 @@
 #include<mpi.h>
 
 
-#define REPS 1000
+#define REPS iters
+int iters;
 int MYTHREAD;
 int THREADS;
 
@@ -15,7 +16,7 @@ void print_usage(char *prog) {
 }
 
 
-void run_bcast_test(int elem_per_thread, int iters, int use_barrier) {
+void run_bcast_test(int elem_per_thread, int use_barrier) {
   double *src;
   double start_time;
   double barrier_time=0;
@@ -82,7 +83,7 @@ void run_bcast_test(int elem_per_thread, int iters, int use_barrier) {
    free(src);
 }
 
-void run_scatter_test(int elem_per_thread, int iters, int use_barrier) {
+void run_scatter_test(int elem_per_thread, int use_barrier) {
   double *src, *dest;
  
   
@@ -153,7 +154,7 @@ void run_scatter_test(int elem_per_thread, int iters, int use_barrier) {
    free(dest);
 }
 
-void run_gather_test(int elem_per_thread, int iters, int use_barrier) {
+void run_gather_test(int elem_per_thread, int use_barrier) {
   double *src, *dest;
  
   
@@ -226,7 +227,7 @@ void run_gather_test(int elem_per_thread, int iters, int use_barrier) {
 }
 
 
-void run_all_gather_test(int elem_per_thread, int iters) {
+void run_all_gather_test(int elem_per_thread) {
   double *src, *dest;
  
   
@@ -287,7 +288,7 @@ void run_all_gather_test(int elem_per_thread, int iters) {
 
 void run_reduce_test(int elem_per_thread) {
   double *src, *dest;
- 
+  
   
   double start_time;
   double barrier_time=0;
@@ -343,7 +344,7 @@ void run_reduce_test(int elem_per_thread) {
   free(src);
 }
 
-void run_int_reduce_test(int elem_per_thread, int iters, int use_barrier) {
+void run_int_reduce_test(int elem_per_thread, int use_barrier) {
   int *src, *dest;
  
   
@@ -386,7 +387,7 @@ void run_int_reduce_test(int elem_per_thread, int iters, int use_barrier) {
       barrier_time += MPI_Wtime() - start_time;
     }
   }
-  
+      
   if(!use_barrier) { 
      start_time = MPI_Wtime();
      MPI_Barrier(MPI_COMM_WORLD);
@@ -418,7 +419,7 @@ void run_int_reduce_test(int elem_per_thread, int iters, int use_barrier) {
   free(src);
 }
 
-void run_all_to_all_test(int elem_per_thread, int iters) {
+void run_all_to_all_test(int elem_per_thread) {
   int *src, *dest;
  
   
@@ -482,7 +483,7 @@ void run_all_to_all_test(int elem_per_thread, int iters) {
    free(dest);
 }
 
-void run_all_reduce_all_test(int elem_per_thread, int iters) {
+void run_all_reduce_all_test(int elem_per_thread) {
   double *src, *dest;
  
   
@@ -536,7 +537,7 @@ int main(int argc, char **argv) {
   double start_time;
   double stop_time;
   int i;
-  int iters;
+
   MPI_Init(&argc, &argv);
   
   MPI_Comm_rank(MPI_COMM_WORLD, &MYTHREAD);
@@ -560,16 +561,16 @@ int main(int argc, char **argv) {
   }  
   
   for(sz = 1; sz<=elem_per_thread; sz*=2) {
-    run_bcast_test(sz, iters, 1);
-    run_bcast_test(sz, iters, 0);
-    run_int_reduce_test(sz, iters, 1);
-    run_int_reduce_test(sz, iters, 0);
-    // run_scatter_test(sz, iters,1);
-    // run_scatter_test(sz, iters,0);
-    // run_gather_test(sz, iters, 1);
-    // run_gather_test(sz, iters, 0);
-    run_all_gather_test(sz, iters);
-    run_all_to_all_test(sz, iters);
+    run_bcast_test(sz, 1);
+    run_bcast_test(sz, 0);
+    run_int_reduce_test(sz, 1);
+    run_int_reduce_test(sz, 0);
+    run_scatter_test(sz,1);
+    run_scatter_test(sz,0);
+    run_gather_test(sz, 1);
+    run_gather_test(sz, 0);
+    run_all_gather_test(sz);
+    run_all_to_all_test(sz);
 
   }
   
