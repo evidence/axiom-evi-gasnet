@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2009/10/04 00:33:27 $
- * $Revision: 1.132 $
+ *     $Date: 2009/10/10 18:08:51 $
+ * $Revision: 1.133 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -937,6 +937,7 @@ static void _test_init(const char *testname, int reports_performance, int early,
 #define TEST_BACKTRACE_DECLS()                              \
   static int test_my_backtrace = 0;                         \
   static volatile int test_my_backtrace_ran = 0;            \
+  GASNETT_BEGIN_EXTERNC                                     \
   static int test_my_backtrace_fn(int fd) {                 \
     if (test_my_backtrace_ran != -1) {                      \
       /* Indicate FAILURE if we were not testing */         \
@@ -946,6 +947,7 @@ static void _test_init(const char *testname, int reports_performance, int early,
     test_my_backtrace_ran = 1;                              \
     return 0;                                               \
   }                                                         \
+  GASNETT_END_EXTERNC                                       \
   gasnett_backtrace_type_t gasnett_backtrace_user = {       \
     "USER", &test_my_backtrace_fn, 1                        \
   }
