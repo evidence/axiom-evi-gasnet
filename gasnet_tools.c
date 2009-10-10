@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2009/09/27 19:26:11 $
- * $Revision: 1.240 $
+ *     $Date: 2009/10/10 07:54:08 $
+ * $Revision: 1.241 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1809,20 +1809,29 @@ extern uint64_t gasneti_getPhysMemSz(int failureIsFatal) {
 /* CPU affinity control */
 #if HAVE_PLPA
   #include "plpa.h"
+#elif PLATFORM_OS_AIX
+  #include <sys/thread.h>
 #endif
-void gasneti_set_affinity_default(int rank) {
-  #if HAVE_PLPA
+static int gasneti_set_affinity_cpus(void) {
     int cpus = gasneti_cpu_count();
-    gasneti_plpa_cpu_set_t mask;
-
     if_pf (cpus == 0) {
       static int once = 1;
       if (once) {
 	once = 0;
-        fprintf(stderr, "WARNING: gasneti_set_affinity called, but cannot determine cpu count.\n");
+        fprintf(stderr, "WARNING: gasnett_set_affinity called, but cannot determine cpu count.\n");
         fflush(stderr);
       }
-      /* becomes a NO-OP */
+    }
+    return cpus;
+}
+void gasneti_set_affinity_default(int rank) {
+  #if HAVE_PLPA
+  {
+    gasneti_plpa_cpu_set_t mask;
+    int cpus = gasneti_set_affinity_cpus();
+
+    if (cpus == 1) {
+      /* NO-OP on single-processor platform */
       return;
     }
     
@@ -1832,14 +1841,20 @@ void gasneti_set_affinity_default(int rank) {
       return;
     }
     
-    if (cpus == 1) {
-      /* NO-OP on single-processor platform */
-    } else {
+    {
       int local_rank = rank % cpus;
       PLPA_CPU_ZERO(&mask);
       PLPA_CPU_SET(local_rank, &mask);
       gasneti_assert_zeroret(gasneti_plpa_sched_setaffinity(0, sizeof(mask), &mask));
     }
+  }
+  #elif PLATFORM_OS_AIX
+  {
+    int cpus = gasneti_set_affinity_cpus();
+    int local_rank = rank % cpus;
+
+    gasneti_assert_zeroret(bindprocessor(BINDTHREAD, thread_self(), local_rank));
+  }
   #else
     /* No implementation -> NO-OP */
     return;
