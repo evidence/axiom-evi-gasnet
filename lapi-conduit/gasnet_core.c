@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2009/09/30 06:11:21 $
- * $Revision: 1.133 $
+ *     $Date: 2009/10/10 03:38:25 $
+ * $Revision: 1.134 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -377,14 +377,14 @@ static int gasnetc_init(int *argc, char ***argv) {
    
     if(gasneti_mynode == 0) {
       char *mp_task_affinity = gasneti_getenv("MP_TASK_AFFINITY");
-      char *mp_mem_affinity = gasneti_getenv("MP_MEMORY_AFFINITY");
+      char *memory_affinity = gasneti_getenv("MEMORY_AFFINITY");
       if((mp_task_affinity != NULL) && (strcmp(mp_task_affinity,"-1") != 0)) {
         fprintf(stderr,"WARNING: The environment variable MP_TASK_AFFINITY is set (value = %s).  This has the potential for serious performance degradation.\n", mp_task_affinity);
         fflush(stderr);
       }
 
-      if(mp_mem_affinity != NULL) {
-        fprintf(stderr,"WARNING: The environment variable MP_MEMORY_AFFINITY is set (value = %s).  This has the potential for serious performance degradation.\n", mp_mem_affinity);
+      if((memory_affinity != NULL) && (strcmp(memory_affinity,"-1") != 0)) {
+        fprintf(stderr,"WARNING: The environment variable MEMORY_AFFINITY is set (value = %s).  This has the potential for serious performance degradation.\n", memory_affinity);
         fflush(stderr);
       }
     }
