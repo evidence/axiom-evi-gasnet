@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2009/10/10 01:44:50 $
-# $Revision: 1.568 $
+#     $Date: 2009/10/10 19:57:46 $
+# $Revision: 1.569 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.568 $)
+AC_REVISION($Revision: 1.569 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -337,9 +337,9 @@ case "$gasnet_cv_cc_family" in
   HP)   CCDEBUGFLAGS="-g +ESdbgasm" ;; # need +ESdbgasm to use -g with _asm()
   MTA)  CCDEBUGFLAGS="-g2" ;; # need +ESdbgasm to use -g with _asm()
   Compaq) CCDEBUGFLAGS="-trapuv -g2" ;;
-  Pathscale) GASNET_PUSHVAR(CFLAGS,"-g -O0") # need to explicitly disable optimization
+  Pathscale) GASNET_PUSHVAR(CFLAGS,"-g3 -O0") # need to explicitly disable optimization
         GASNET_GET_GNUWARNINGFLAGS(C)
-        CCDEBUGFLAGS="$CFLAGS"
+        CCDEBUGFLAGS="$CFLAGS -trapuv"
         GASNET_POPVAR(CFLAGS)
   ;;
   *)    CCDEBUGFLAGS="-g" ;;
@@ -2011,7 +2011,7 @@ if test $enabled_udp = yes; then
       alphaev5) MISC_CXXFLAGS="-hnomessage=236:611:997 -hexceptions -hnew_for_init $LIBCM" ;; # T3E
       *)        MISC_CXXFLAGS="-hnomessage=236:611:997 -hexceptions -hnew_for_init $LIBCM" ;; # X1
      esac ;;
-    Pathscale)  CXXDEBUGFLAGS="-g -O0" ;; # consistent with CCDEBUGFLAGS
+    Pathscale)  CXXDEBUGFLAGS="-g3 -O0" ;; # consistent with CCDEBUGFLAGS
   esac  
   if test "$BUILDCONFIG" = "optimize" ; then
     CXXFLAGS="$CXXOPTFLAGS"
