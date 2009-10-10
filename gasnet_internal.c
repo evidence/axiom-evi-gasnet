@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2009/09/27 23:23:59 $
- * $Revision: 1.204 $
+ *     $Date: 2009/10/10 05:24:10 $
+ * $Revision: 1.205 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -731,14 +731,18 @@ static void gasneti_check_portable_conduit(void) { /* check for portable conduit
         int len = strcspn(p,GASNETI_CONDUITS_DELIM);
         strncpy(name, p, len);
         name[len] = 0;
-        if (strcmp(name,"mpi") && 
-            strcmp(name,"udp") && 
-            strcmp(name,"smp")) { /* not a portable conduit */
-          if (strlen(natives)) strcat(natives,", ");
-          strcat(natives,name);
-        }
         p += len;
         p += strspn(p,GASNETI_CONDUITS_DELIM);
+        /* Ignore the portable conduits */
+        if (!strcmp(name,"mpi")) continue;
+        if (!strcmp(name,"udp")) continue;
+        if (!strcmp(name,"smp")) continue;
+      #if !GASNET_SEQ
+        /* Ignore conduits that lack thread safety */
+        if (!strcmp(name,"shmem")) continue;
+      #endif
+        if (strlen(natives)) strcat(natives,", ");
+        strcat(natives,name);
       }
       #undef GASNETI_CONDUITS_DELIM
     }
@@ -751,7 +755,7 @@ static void gasneti_check_portable_conduit(void) { /* check for portable conduit
         const char *desc;
         int hwid;
       } known_devs[] = {
-        #if PLATFORM_OS_LINUX && PLATFORM_ARCH_IA64
+        #if PLATFORM_OS_LINUX && PLATFORM_ARCH_IA64 && GASNET_SEQ
           { "/dev/hw/cpunum",      S_IFDIR, "SGI Altix", 0 },
           { "/dev/xpmem",          S_IFCHR, "SGI Altix", 0 },
         #endif
@@ -765,8 +769,10 @@ static void gasneti_check_portable_conduit(void) { /* check for portable conduit
         { "/dev/elan3/control0", S_IFCHR, "Quadrics QsNetI", 4 },
         { "/dev/elan4/control0", S_IFCHR, "Quadrics QsNetII", 4 },
         { "/proc/qsnet/version", S_IFREG, "Quadrics QsNet", 4 },
-        { "/dev/ukbridge",         S_IFCHR, "Cray XT", 5 },
-        { "/proc/portals/meminfo", S_IFREG, "Cray Portals", 5 }
+        #if !GASNET_SEGMENT_EVERYTHING
+          { "/dev/ukbridge",         S_IFCHR, "Cray XT", 5 },
+          { "/proc/portals/meminfo", S_IFREG, "Cray Portals", 5 }
+        #endif
       };
       int i, lim = sizeof(known_devs)/sizeof(known_devs[0]);
       for (i = 0; i < lim; i++) {
