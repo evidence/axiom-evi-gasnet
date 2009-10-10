@@ -322,7 +322,6 @@ void run_SINGLE_ADDR_test(thread_data_t *td, uint8_t **dst_arr, uint8_t **src_ar
         int expected = 42+i;
         if(dst[i] != 42+i) {
           MSG("%d> gather verification @ iteration: %d ... expected %d got %d", td->mythread, (int)(i/(THREADS*nelem)), expected, dst[i]);
-          //ERROR_EXIT();
         }
       }
     }
@@ -945,9 +944,6 @@ void *thread_main(void *arg) {
   gasnet_coll_fn_entry_t fntable[1];
 #if GASNET_PAR
   gasnet_image_t *imagearray = test_malloc(nodes * sizeof(gasnet_image_t));
- #if !GASNETI_ARCH_ALTIX
-  //  gasnett_set_affinity(td->my_local_thread);
- #endif
   fntable[0].fnptr = int_reduce_fn;
   fntable[0].flags = 0;
 
