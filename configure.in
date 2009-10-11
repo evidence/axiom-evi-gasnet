@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2009/10/10 19:57:46 $
-# $Revision: 1.569 $
+#     $Date: 2009/10/11 22:45:43 $
+# $Revision: 1.570 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.569 $)
+AC_REVISION($Revision: 1.570 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -339,7 +339,7 @@ case "$gasnet_cv_cc_family" in
   Compaq) CCDEBUGFLAGS="-trapuv -g2" ;;
   Pathscale) GASNET_PUSHVAR(CFLAGS,"-g3 -O0") # need to explicitly disable optimization
         GASNET_GET_GNUWARNINGFLAGS(C)
-        CCDEBUGFLAGS="$CFLAGS -trapuv"
+        CCDEBUGFLAGS="$CFLAGS"
         GASNET_POPVAR(CFLAGS)
   ;;
   *)    CCDEBUGFLAGS="-g" ;;
