@@ -9,8 +9,19 @@
 # NOTE: this relies on module-established PATH setting to automatically 
 # select the GCC or PGI-based MPI compilers, based on which PrgEnv is currently loaded
 # The same PrgEnv *must* be loaded when building and using the GASNet install
-CC='cc -target=linux' ; export CC  # vanilla target C compiler
-CXX='CC -target=linux' ; export CXX  # vanilla target C++ compiler
+CC='cc -target=linux'  # vanilla target C compiler
+CXX='CC -target=linux' # vanilla target C++ compiler
+
+# Default optimization on ICC is an irritation:
+# -wd10120 suppresses "command line warning #10120: overriding '-O0' with '-O3'"
+if test x"$PE_ENV" = xINTEL &&
+    ( $CC -dM -E /dev/null | grep __OPTIMIZE__ ) >& /dev/null; then
+  CC="$CC -O0 -wd10120"
+  CXX="$CXX -O0 -wd10120"
+fi
+
+export CC
+export CXX
 
 XTPE_INFO_MESSAGE_OFF=1 ; export XTPE_INFO_MESSAGE_OFF  # magic variable to disable Cray cc's target INFO warning
 
@@ -29,7 +40,7 @@ HOST_CXXFLAGS='' ; export HOST_CXXFLAGS
 MPI_CC="$CC" ; export MPI_CC     # MPI-enabled C compiler
 #MPI_CFLAGS='' ; export MPI_CFLAGS  # flags for MPI_CC
 MPI_LIBS='' ; export MPI_LIBS      # libs for linking with MPI_CC
-MPIRUN_CMD='aprun -N 1 -n %N %C' ; export MPIRUN_CMD  # launch command for MPI jobs
+MPIRUN_CMD='aprun -n %N %C' ; export MPIRUN_CMD  # launch command for MPI jobs
 if test -f /usr/include/nptl/pthread.h -a -d /usr/lib64/nptl ; then # PE <= 2.0 use a patched version of NPTL
   NPTL_PTHREAD_ARGS='--enable-pthreads --with-pthreads-lib=/usr/lib64/nptl --with-pthreads-include=/usr/include/nptl --with-pthreads-patch=other/contrib/crayxt-nptl-pthread-patch'
 else
