@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2009/10/10 07:54:08 $
- * $Revision: 1.241 $
+ *     $Date: 2009/10/12 09:56:28 $
+ * $Revision: 1.242 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1057,7 +1057,20 @@ extern int gasneti_print_backtrace(int fd) {
     FILE *file;
 
     /* Create a tmpfile to hold the backtrace */
+#if 0 /* tmpfile() doesn't honor TMPDIR (see bug 2671) */
     file = tmpfile();
+#else
+    {
+      char filename[GASNETI_BT_PATHSZ];
+      int tmpfd;
+      if (getenv("TMPDIR")) strcpy(filename,getenv("TMPDIR"));
+      else strcpy(filename,"/tmp");
+      strcat(filename,"/gasnet_XXXXXX");
+      tmpfd = mkstemp(filename);
+      (void)unlink(filename);
+      file = fdopen(tmpfd, "r+");
+    }
+#endif
 
     if (file) {
       int tmpfd = fileno(file);
