@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2009/10/01 04:34:34 $
-# $Revision: 1.79 $
+#     $Date: 2009/10/12 08:42:32 $
+# $Revision: 1.80 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -640,7 +640,7 @@ if ($is_aprun || $is_yod) {
   if (!defined($numnode)) {
         my $pbs_nodes = $ENV{'PBS_NNODES'};
         my $pbs_jobid = $ENV{'PBS_JOBID'};
-        if (defined $pbs_nodes) {
+        if (defined($pbs_nodes) && defined($ENV{'PBS_SIZE'})) {
             $numnode = $pbs_nodes;
         } elsif (defined($pbs_jobid) && open(QSTAT, "qstat -f $pbs_jobid |")) {
             while (<QSTAT>) {
