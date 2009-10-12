@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2009/10/11 22:45:43 $
-# $Revision: 1.570 $
+#     $Date: 2009/10/12 00:43:08 $
+# $Revision: 1.571 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.570 $)
+AC_REVISION($Revision: 1.571 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1577,7 +1577,9 @@ GASNET_IF_ENABLED_WITH_AUTO(smp-safe, Enable build of SMP-safe libraries (defaul
   [ AC_CHECK_HEADERS(/boot/kernel.h)
     AC_MSG_CHECKING(whether to force a uni-processor build)
     uni_build=no;
-    if test "`uname -a | grep -i SMP`" = ""; then
+    if test "$cross_compiling" = "yes" ; then
+      uni_build='no (default for cross-compilation)'
+    elif test "`uname -a | grep -i SMP`" = ""; then
       case "$target_os" in
       linux*)  
         AC_TRY_COMPILE([
@@ -1596,6 +1598,11 @@ GASNET_IF_ENABLED_WITH_AUTO(smp-safe, Enable build of SMP-safe libraries (defaul
         ;;
       freebsd*)  
         if test "`/sbin/sysctl -n hw.ncpu 2>/dev/null`" = 1; then
+          uni_build=yes
+        fi
+        ;;
+      darwin*)
+        if test "`/usr/sbin/sysctl -n hw.ncpu 2>/dev/null`" = 1; then
           uni_build=yes
         fi
         ;;
