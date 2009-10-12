@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2009/10/12 00:43:08 $
-# $Revision: 1.571 $
+#     $Date: 2009/10/12 01:31:53 $
+# $Revision: 1.572 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.571 $)
+AC_REVISION($Revision: 1.572 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -3463,7 +3463,7 @@ AC_MSG_CHECKING([for socklen_t or its equivalent])
 AC_CACHE_VAL(gasnet_cv_socklen_t,[
   # 'float' is to check the compiler is reliable
   gasnet_socklen_t=""
-  for gasnet_socklen_try in float socklen_t size_t int long unsigned "unsigned long"; do
+  for gasnet_socklen_try in socklen_t float size_t int long unsigned "unsigned long"; do
     if test "$gasnet_socklen_t"; then
       break; # break in success block of TRY would leave temp files
     else
