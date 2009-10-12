@@ -1964,7 +1964,7 @@ static void exec_sys_msg(gasnetc_sys_t msg_id, int32_t arg0, int32_t arg1, int32
     {
       gasnet_node_t sender = (gasnet_node_t)arg0;
       int exitcode = arg1;
-      gasneti_assert(sender >=0 && sender < gasneti_nodes);
+      gasneti_assert(sender < gasneti_nodes);
       /* mark that we got a shutdown message from this node */
       gasnetc_conn_state[sender].flags |= GASNETC_SYS_GOT_SHUTDOWN_MSG;
       GASNETI_TRACE_PRINTF(C,("Got SHUTDOWN Request from node %d",sender));
@@ -3877,7 +3877,7 @@ size_t gasnetc_getmsg(void *dest, gasnet_node_t node, void *src, size_t nbytes,
   ptl_size_t remote_offset = GASNETC_PTL_OFFSET(node,src);
   void* bb;
   
-  gasneti_assert(remote_offset >= 0 && remote_offset < gasneti_seginfo[node].size);
+  gasneti_assert(remote_offset < gasneti_seginfo[node].size);
 
   /* stall here if too many puts/gets in progress */
   gasnetc_send_ticket_stall(pollflag);
@@ -3950,7 +3950,7 @@ size_t gasnetc_putmsg(void *dest, gasnet_node_t node, void *src, size_t nbytes,
   int inc_lcc = (lcc != NULL);
   void* bb;
   
-  gasneti_assert(remote_offset >= 0 && remote_offset < gasneti_seginfo[node].size);
+  gasneti_assert(remote_offset < gasneti_seginfo[node].size);
 
   /* stall here if too many puts/gets in progress */
   gasnetc_send_ticket_stall(pollflag);
