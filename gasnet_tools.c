@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2009/10/12 09:56:28 $
- * $Revision: 1.242 $
+ *     $Date: 2009/10/14 00:55:57 $
+ * $Revision: 1.243 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -396,8 +396,13 @@ extern void gasneti_filesystem_sync(void) {
   }
 }
 extern void gasneti_flush_streams(void) {
-  if (fflush(NULL)) /* passing NULL to fflush causes it to flush all open FILE streams */
-    gasneti_fatalerror("failed to fflush(NULL): %s", strerror(errno));
+  if (fflush(NULL)) { /* passing NULL to fflush causes it to flush all open FILE streams */
+    if (errno == EBADF) {
+      /* AIX has been seen to return this rarely, and at least one other libc (one
+       * we don't support) is known to always return this for a NULL argument. */
+    } else
+      gasneti_fatalerror("failed to fflush(NULL): %s", strerror(errno));
+  }
   if (fflush(stdout)) 
     gasneti_fatalerror("failed to flush stdout: %s", strerror(errno));
   if (fflush(stderr)) 
