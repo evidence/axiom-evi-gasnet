@@ -5,7 +5,6 @@
  */
 
 /* This is intended as a stub for the autotuner routines*/
-//#include <gasnet_coll_autotune.h>
 #include <gasnet_coll_autotune_internal.h>
 
 
@@ -65,9 +64,9 @@ static uint32_t fast_log2_64bit(uint64_t number) {
     7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7
   };
 	
-	uint64_t v=number; // 32-bit word to find the log of
-	uint32_t r;     // r will be lg(v)
-	uint64_t t, tt; // temporaries
+	uint64_t v=number; 
+	uint32_t r;    
+	uint64_t t, tt; 
 	
 	if ((tt = v>>48)) {
 		r = ((t = tt>>8) ? 56 + LogTable256[t] : 48 + LogTable256[tt]); 
@@ -106,9 +105,9 @@ static uint32_t fast_log2_32bit(uint32_t number) {
       7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7
     };
   
-  uint32_t v=number; // 32-bit word to find the log of
-  uint32_t r;     // r will be lg(v)
-  uint32_t t, tt; // temporaries
+  uint32_t v=number; 
+  uint32_t r;     
+  uint32_t t, tt; 
   
   
   if ((tt = v >> 16)) {
@@ -2282,7 +2281,7 @@ void gasnete_coll_tune_generic_op(gasnet_team_handle_t team, gasnet_coll_optype_
      if((op == GASNET_COLL_EXCHANGEM_OP && algidx == GASNETE_COLL_EXCHANGEM_GATH) || 
         (op == GASNET_COLL_GATHER_ALLM_OP && algidx == GASNETE_COLL_GATHER_ALLM_GATH)) continue;
     alg_best_time = curr_best_time;
-//    if(gasnet_coll_get_num_params(team, op, algidx)!=0) continue;
+
     do_tuning_loop(team, op, coll_args, flags, fnptr, sample_work_arg, 
                    algidx, &alg_best_time, loc_best_param_list, loc_best_tree, 0, NULL GASNETE_THREAD_PASS);
     
@@ -3272,7 +3271,7 @@ static void dump_tuning_state_helper(myxml_node_t *parent, gasnete_coll_autotune
       sprintf(tempbuffer, "%d",  temp->impl->num_params);
       myxml_createNode(temp_xml, (char*) "Num_Params", NULL, NULL, tempbuffer);
 
-      // free(best_tree);
+
       for(c=0; c<temp->impl->num_params; c++) {
         char buff_idx[20];
         sprintf(tempbuffer, "%d",  temp->impl->fn_idx);

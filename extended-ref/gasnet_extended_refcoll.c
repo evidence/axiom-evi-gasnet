@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refcoll.c,v $
- *     $Date: 2009/09/26 21:48:04 $
- * $Revision: 1.88 $
+ *     $Date: 2009/10/15 19:02:11 $
+ * $Revision: 1.89 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -15,7 +15,7 @@
 
 #include <gasnet_internal.h>
 #include <gasnet_coll.h>
-//#include <gasnet_coll_autotune.h>
+
 #include <gasnet_coll_internal.h>
 #include <gasnet_coll_team.h>
 #include <gasnet_coll_autotune_internal.h>
@@ -980,9 +980,9 @@ void gasnete_coll_poll(GASNETE_THREAD_FARG_ALONE) {
 #endif
     gasnete_coll_op_t *op;
 
-    //    gasneti_mutex_lock(&gasnete_coll_active_lock);
+
     op = gasnete_coll_active_first();
-    // gasneti_mutex_unlock(&gasnete_coll_active_lock);
+
 
     while (op != NULL) {
       gasnete_coll_op_t *next;
@@ -1404,7 +1404,7 @@ gasnete_coll_p2p_t *gasnete_coll_p2p_get(uint32_t team_id, uint32_t sequence) {
   gasnete_coll_team_t team;
   
   gasneti_assert(sequence >= 42);
-//  gasneti_assert(gasnete_coll_team_lookup(team_id) == GASNET_TEAM_ALL);
+
   team = gasnete_coll_team_lookup(team_id);
   gasnet_hsl_lock(&gasnete_coll_p2p_table_lock);
 
@@ -2117,7 +2117,7 @@ gasnete_coll_op_generic_init_with_scratch(gasnete_coll_team_t team, int flags,
   int i;
   gasnete_coll_threaddata_t *td = GASNETE_COLL_MYTHREAD_NOALLOC;
   int first_thread;
-//  gasneti_assert(team == GASNET_TEAM_ALL);
+
   gasneti_assert(data != NULL);
       
 #if !ALL_THREADS_POLL && GASNET_PAR
@@ -2293,7 +2293,7 @@ _gasnet_coll_broadcast_nb(gasnet_team_handle_t team,
 }
 
 #ifdef gasnete_coll_broadcast
-// extern gasnet_coll_handle_t
+
 extern void 
 gasnete_coll_broadcast(gasnet_team_handle_t team,
                        void *dst,
@@ -3502,7 +3502,7 @@ gasnete_coll_generic_broadcastM_nb(gasnet_team_handle_t team,
       data->options = options;
       data->tree_info = tree_info;
       result = gasnete_coll_op_generic_init_with_scratch(team, flags, data, poll_fn, sequence, scratch_req, num_params, param_list, tree_info GASNETE_THREAD_PASS);
-//      gasneti_atomic_set(&data->threads.remaining, (flags & GASNET_COLL_IN_NOSYNC) ? 0 : (team->my_images - 1), 0);
+
       
       gasnete_coll_post_multi_addr_collective(team, flags GASNETE_THREAD_PASS);
     } else {
@@ -4730,7 +4730,7 @@ gasnete_coll_gall_Gath(gasnet_team_handle_t team,
 {
   int options = GASNETE_COLL_GENERIC_OPT_INSYNC_IF (!(flags & GASNET_COLL_IN_NOSYNC)) |
 		GASNETE_COLL_GENERIC_OPT_OUTSYNC_IF(!(flags & GASNET_COLL_OUT_NOSYNC));
-  //  gasneti_assert(!(flags & GASNETE_COLL_SUBORDINATE));
+
   if(flags & GASNETE_COLL_SUBORDINATE) 
     return gasnete_coll_generic_gather_all_nb(team, dst, src, nbytes, flags,
                                               &gasnete_coll_pf_gall_Gath, options,

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_eager.c,v $
- *     $Date: 2009/09/16 01:13:28 $
- * $Revision: 1.67 $
+ *     $Date: 2009/10/15 19:02:10 $
+ * $Revision: 1.68 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -8,7 +8,7 @@
 
 #include <gasnet_internal.h>
 #include <gasnet_coll.h>
-//#include <gasnet_coll_autotune.h>
+
 #include <gasnet_coll_internal.h>
 #include <gasnet_coll_trees.h>
 #include <gasnet_coll_scratch.h>
@@ -1195,7 +1195,7 @@ gasnete_coll_gall_FlatEagerPut(gasnet_team_handle_t team,
   GASNETE_COLL_GENERIC_OPT_P2P;
   
   
-  //  gasneti_assert(!(flags & GASNETE_COLL_SUBORDINATE));
+
   gasneti_assert(nbytes <= gasnete_coll_p2p_eager_scale);
   return gasnete_coll_generic_gather_all_nb(team, dst, src, nbytes, flags,
                                             &gasnete_coll_pf_gall_FlatEagerPut, options,
@@ -1300,7 +1300,7 @@ gasnete_coll_gall_EagerDissem(gasnet_team_handle_t team,
   GASNETE_COLL_GENERIC_OPT_P2P;
   
   
-  // gasneti_assert(!(flags & GASNETE_COLL_SUBORDINATE));
+
   gasneti_assert(nbytes <= gasnete_coll_p2p_eager_scale);
   
   return gasnete_coll_generic_gather_all_nb(team, dst, src, nbytes, flags,
@@ -1396,7 +1396,7 @@ gasnete_coll_gallM_FlatEagerPut(gasnet_team_handle_t team,
   GASNETE_COLL_GENERIC_OPT_P2P;
   
   
-  //  gasneti_assert(!(flags & GASNETE_COLL_SUBORDINATE));
+
   gasneti_assert(nbytes*team->my_images <= gasnete_coll_p2p_eager_scale);
   return gasnete_coll_generic_gather_allM_nb(team, dstlist, srclist, nbytes, flags,
                                             &gasnete_coll_pf_gallM_FlatEagerPut, options,
@@ -1509,7 +1509,7 @@ gasnete_coll_gallM_EagerDissem(gasnet_team_handle_t team,
   GASNETE_COLL_GENERIC_OPT_P2P;
   
   
-  // gasneti_assert(!(flags & GASNETE_COLL_SUBORDINATE));
+
   gasneti_assert(nbytes <= gasnete_coll_p2p_eager_scale);
   
   return gasnete_coll_generic_gather_allM_nb(team, dstlist, srclist, nbytes, flags,

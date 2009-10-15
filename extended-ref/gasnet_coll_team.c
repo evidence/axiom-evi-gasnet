@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_team.c,v $
- * $Date: 2009/10/03 03:46:38 $
- * $Revision: 1.6 $
+ * $Date: 2009/10/15 19:02:11 $
+ * $Revision: 1.7 $
  *
  * Description: GASNet generic team implementation for collectives 
  * LBNL 2009
@@ -49,7 +49,7 @@ static void initialize_team_fields(gasnete_coll_team_t team,
 #if 0
   if(!allocating_team_all) {
     /*the space for team all has already been initialized in gasnete_init()*/
-    //    team = (gasnete_coll_team_t) gasneti_malloc(sizeof(struct gasnete_coll_team_t_));
+
   }
 #if GASNET_DEBUG
   else if(!team_all_made) {
@@ -330,11 +330,11 @@ gasnet_team_handle_t gasnete_coll_team_split(gasnet_team_handle_t team,
                          sizeof(gasnet_seginfo_t), GASNET_COLL_LOCAL|GASNET_COLL_IN_MYSYNC | GASNET_COLL_OUT_MYSYNC);
   /* collect the color information */
   gasnet_coll_gather_all(team, colors, &mycolor, sizeof(gasnet_node_t), GASNET_COLL_LOCAL|GASNET_COLL_IN_MYSYNC | GASNET_COLL_OUT_MYSYNC);
-  //  gasnete_coll_teambarrier(team);
+
   
   /* collect the relrank information */
   gasnet_coll_gather_all(team, relranks, &myrelrank, sizeof(gasnet_node_t), GASNET_COLL_LOCAL|GASNET_COLL_IN_MYSYNC | GASNET_COLL_OUT_MYSYNC);
-  //  gasnete_coll_teambarrier(team);
+
 
   new_total_ranks = 0;
   rel2act_map = (gasnet_node_t *)gasneti_malloc(team->total_ranks*sizeof(gasnet_node_t));
@@ -349,8 +349,6 @@ gasnet_team_handle_t gasnete_coll_team_split(gasnet_team_handle_t team,
   
   /* create a team */
   new_team_id = 0;
-  // gasnet_coll_barrier_notify(team, 0, 0);
-  // gasnet_coll_barrier_wait(team, 0, 0); 
   gasnete_coll_teambarrier(team);
 
 #ifdef DEBUG_TEAM

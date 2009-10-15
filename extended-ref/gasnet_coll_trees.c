@@ -643,8 +643,7 @@ gasnete_coll_local_tree_geom_t *gasnete_coll_tree_geom_create_local(gasnete_coll
   
   rootnode = setparents(rootnode);
   mynode = find_node(rootnode, team->myrank);
-  //  if(team->myrank == 0) 
-  // print_tree_node(mynode, team->myrank);
+
   geom->root = rootrank;
   geom->tree_type = in_type;
   geom->total_size = team->total_ranks;

@@ -447,9 +447,7 @@ int8_t gasnete_coll_scratch_alloc_nb(gasnete_coll_op_t* op GASNETE_THREAD_FARG) 
     /* empty scratch space is misconfigured*/
  
    
-#if GASNETE_COLL_SCRATCH_DEBUG_PRINTS
-    //    fprintf(stderr, "%d,%d> polling scratch --> empty mismatch config\n", op->sequence, gasneti_mynode);
-#endif
+
     if(!op->waiting_for_reconfig_clear) {
       if(stat->num_waiting_ops>0) {
         gasnete_coll_scratch_reconfigure(stat, scratch_req, stat->waiting_config_and_ops_head);

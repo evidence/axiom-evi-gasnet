@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_rvous.c,v $
- *     $Date: 2009/09/16 01:13:28 $
- * $Revision: 1.66 $
+ *     $Date: 2009/10/15 19:02:11 $
+ * $Revision: 1.67 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -8,7 +8,8 @@
 
 #include <gasnet_internal.h>
 #include <gasnet_coll.h>
-//#include <gasnet_coll_autotune.h>
+
+
 #include <gasnet_coll_internal.h>
 #include <gasnet_coll_trees.h>
 #include <gasnet_coll_scratch.h>
