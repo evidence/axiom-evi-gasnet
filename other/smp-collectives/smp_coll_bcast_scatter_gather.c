@@ -225,7 +225,7 @@ void smp_coll_broadcast_tree_leaf_get_flag(smp_coll_t handle, int num_addrs, voi
     int parent = SMP_COLL_MAKE_NUM_POWER2RADIX(handle->MYTHREAD, 0, 0, radix, radixlog2);
     /*wait for the parent to set the flag to 0 indicating the data is ready to go*/
     /*grab the data*/
-    // while(SMP_COLL_GET_BCAST_FLAG(handle, handle->MYTHREAD, 0)==1){a=1.0/a;}
+
     gasnett_local_rmb();
     memcpy(dstlist[handle->MYTHREAD], dstlist[parent], nbytes);
     /*raise a second flag indicating that my data read is done*/

@@ -71,8 +71,7 @@ void smp_coll_set_barrier_routine_with_root(smp_coll_t handle, smp_coll_barrier_
     
     handle->barrier_children = (int*) gasneti_malloc(sizeof(int)*child_count);
     
-    //   handle->barrier_children = (int*) realloc(handle->barrier_children,sizeof(int)*child_count);
-    //free(handle->barrier_children);
+
     
     /*     if(child_count > 0) { */
     
@@ -127,7 +126,7 @@ void smp_coll_tune_barrier(smp_coll_t handle) {
   if(handle->MYTHREAD==0) fprintf(stderr, "starting autotuning of local barrier\n");
 #endif
   for(root=0; root<1; root++) {
-    //for(root = 0; root < handle->THREADS; root=(root==0 ? 2 : root *2)) {
+
     if(handle->MYTHREAD==0 && VERBOSE_TUNING) fprintf(stderr, "ROOT: %d\n", root);
     for(i=0; i<SMP_COLL_NUM_BARR_ROUTINES; i++) {
       if(i==SMP_COLL_BARRIER_COND_VAR) continue;
@@ -381,7 +380,7 @@ void smp_coll_barrier_tree_pull_pull(smp_coll_t handle, int flags) {
   }  
 
   /*parent has now acked my signal so we can clear the up signal*/
-//
+
   /*clear my down flags from previous round*/
   SMP_COLL_SET_BARRIER_FLAG(handle, handle->MYTHREAD, 2+(!flagset), 0);
   
@@ -439,7 +438,7 @@ void smp_coll_barrier_tree_flag(smp_coll_t handle, int flags) {
         int dest = SMP_COLL_MAKE_NUM_POWER2RADIX(handle->MYTHREAD, i, k, radix, radixlog2);
         if(dest<handle->THREADS) {
 	  /*write memory barrier to ensure data is transfered before we set the flag*/
-          //gasnett_local_wmb();
+
           SMP_COLL_SET_BARRIER_FLAG(handle, dest, 0, 0);
         }
       }
@@ -460,7 +459,7 @@ void smp_coll_barrier_flag_tree_up_flat_down(smp_coll_t handle, int flags) {
   static volatile uint32_t barrier_done[2] = {0,0};
   static volatile uint32_t barrier_phase = 0;
   int myphase;
-  //gasnett_local_wmb();
+
   
   myphase = barrier_phase;
   /* reduce data from all the children*/
@@ -488,13 +487,13 @@ void smp_coll_barrier_flag_tree_up_flat_down(smp_coll_t handle, int flags) {
   } else {
     barrier_phase = !barrier_phase;
     barrier_done[!myphase] = 0; /*reset for next time*/
-    //gasnett_local_wmb();
+
     barrier_done[myphase] = 1;
   }
   
   SMP_COLL_SET_BARRIER_FLAG(handle, handle->MYTHREAD, myphase, 0);
 
-  //gasnett_local_rmb();
+
 }
 
 
@@ -505,7 +504,7 @@ void smp_coll_barrier_flag_tree_up_tree_down(smp_coll_t handle, int flags) {
   int radix = handle->barrier_radix;
   int i,j,k;
   double a=2.0;
-  //gasnett_local_wmb();
+
   int flagset = handle->barrier_flag_set;
   int parent = SMP_COLL_MAKE_NUM_POWER2RADIX(handle->MYTHREAD, 0, 0, radix, radixlog2);
   
@@ -544,7 +543,7 @@ void smp_coll_barrier_flag_tree_up_tree_down(smp_coll_t handle, int flags) {
 
   handle->barrier_flag_set = !handle->barrier_flag_set;
 
-  //gasnett_local_rmb();
+
   
 }
 #endif

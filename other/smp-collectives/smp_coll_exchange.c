@@ -131,7 +131,7 @@ void smp_coll_exchange_dissemk_flag(smp_coll_t handle,  int num_addrs,
   if(!(flags & SMP_COLL_NO_SYNC)) smp_coll_barrier(handle, flags); 
   memcpy(handle->aux_space+(handle->THREADS-handle->MYTHREAD)*nbytes, mysrc, handle->MYTHREAD*nbytes);
   memcpy(handle->aux_space, mysrc+(handle->MYTHREAD)*nbytes, (handle->THREADS-handle->MYTHREAD)*nbytes);
-  //print_arr(handle->MYTHREAD, handle->aux_space, nbytes*handle->THREADS, "rotate");
+
   dist = 1; 
   for(i=0; i<w; i++) {
     if(i==(w-1)) {
@@ -253,7 +253,7 @@ void smp_coll_exchange_hierarchical(smp_coll_t handle,  int num_addrs,
       }
     }
     
-//    print_arr(handle->MYTHREAD, src, dst_offset, "before");
+
 
     /*"distributed alltoall"*/
     for(i=1; i<=nodes; i++) {

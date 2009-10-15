@@ -7,7 +7,6 @@
 #if HAVE_PTHREAD_BARRIER
 #ifndef __USE_XOPEN2K
 #include "pthread_barrier.h"
-#warning explicitly defining pthread barrier things
 #endif
 #endif
 

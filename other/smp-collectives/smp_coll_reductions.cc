@@ -1,7 +1,6 @@
 
 #if PREFETCH
 #include "/opt/SUNWspro/prod/include/cc/sun_prefetch.h"
-#warning explicit_prefetch
 #define PREFETCH_READ(address) __sparc_prefetch_read_once_intrinsic((address))
 #define PREFETCH_WRITE(address) __sparc_prefetch_write_once_intrinsic((address))
 #define PREFETCH_DIST 8
