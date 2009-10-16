@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2009/05/18 04:54:11 $
- * $Revision: 1.15 $
+ *     $Date: 2009/10/16 10:37:40 $
+ * $Revision: 1.16 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -902,8 +902,10 @@ extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, siz
   /* Max transfer size is large, this loop will almost always execute exactly once */
   while (nbytes) {
     /* issue the get */
-    size_t toget = gasnetc_getmsg(dest,node,src,nbytes,match_bits,GASNETC_FULL_POLL);
+    size_t toget;
+
     op->initiated_get_cnt++;
+    toget = gasnetc_getmsg(dest,node,src,nbytes,match_bits,GASNETC_FULL_POLL);
 
     gasneti_assert(toget > 0);
     gasneti_assert(toget <= nbytes);
@@ -934,8 +936,10 @@ void gasnete_put_nbi_inner(gasnet_node_t node, void *dest, void *src, size_t nby
   /* Max transfer size is large, this loop will almost always execute exactly once */
   while (nbytes) {
     /* Issue Ptl Put operation */
-    size_t toput = gasnetc_putmsg(dest,node,src,nbytes,match_bits,lcc,GASNETC_FULL_POLL);
+    size_t toput;
+
     op->initiated_put_cnt++;
+    toput = gasnetc_putmsg(dest,node,src,nbytes,match_bits,lcc,GASNETC_FULL_POLL);
 
     gasneti_assert(toput > 0);
     gasneti_assert(toput <= nbytes);
