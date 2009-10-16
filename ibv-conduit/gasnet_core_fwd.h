@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_fwd.h,v $
- *     $Date: 2009/09/18 23:33:54 $
- * $Revision: 1.44 $
+ *     $Date: 2009/10/16 22:00:59 $
+ * $Revision: 1.45 $
  * Description: GASNet header for vapi conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -34,8 +34,8 @@
 #define GASNET_CONDUIT_NAME      GASNET_CORE_NAME
 #define GASNET_CONDUIT_NAME_STR  _STRINGIFY(GASNET_CONDUIT_NAME)
 
-/* This is the limit on the LID space... */
-#define GASNET_MAXNODES	16384
+/* 16K is the limit on the LID space, but we must allow more than 1 proc per node */
+#define GASNET_MAXNODES	65535
 
 /* Explicitly set some types because we depend on their sizes when encoding them */
 #define _GASNET_NODE_T
