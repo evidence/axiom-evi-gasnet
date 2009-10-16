@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2009/10/14 00:55:57 $
- * $Revision: 1.243 $
+ *     $Date: 2009/10/16 07:53:15 $
+ * $Revision: 1.244 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -814,6 +814,26 @@ static int gasneti_system_redirected_coprocess(const char *cmd, int stdout_fd) {
 
 static char gasneti_exename_bt[GASNETI_BT_PATHSZ];
 
+static const char *gasneti_tmpdir_bt = "/tmp";
+static int gasneti_bt_mkstemp(char *filename, int limit) {
+  const char template[] = "/gasnet_XXXXXX";
+  char *p;
+  int len;
+
+  len = strlen(gasneti_tmpdir_bt);
+  len = MIN(len, limit-1);
+  memcpy(filename,gasneti_tmpdir_bt,len);
+  p = filename + len;
+
+  len = MIN(limit - len - 1, sizeof(template));
+  memcpy(p,template,len);
+
+  p[len] = '\0';
+
+  gasneti_assert(strlen(filename) < limit);
+  return mkstemp(filename);
+}
+
 #ifdef GASNETI_BT_LADEBUG
   static int gasneti_bt_ladebug(int fd) {
     #if GASNETI_THREADS
@@ -890,10 +910,7 @@ static char gasneti_exename_bt[GASNETI_BT_PATHSZ];
     {
       int tmpfd, len;
 
-      if (getenv("TMPDIR")) strcpy(filename,getenv("TMPDIR"));
-      else strcpy(filename,"/tmp");
-      strcat(filename,"/gasnet_XXXXXX");
-      tmpfd = mkstemp(filename);
+      tmpfd = gasneti_bt_mkstemp(filename,sizeof(filename));
       if (tmpfd < 0) return -1;
 
       len = sizeof(commands) - 1;
@@ -1005,6 +1022,8 @@ extern void gasneti_backtrace_init(const char *exename) {
 
   gasneti_backtrace_userenabled = gasneti_getenv_yesno_withdefault("GASNET_BACKTRACE",0);
 
+  gasneti_tmpdir_bt = gasneti_getenv_withdefault("TMPDIR", gasneti_tmpdir_bt);
+
   if (!user_is_init && gasnett_backtrace_user.name && gasnett_backtrace_user.fnp) {
     memcpy(&gasneti_backtrace_mechanisms[gasneti_backtrace_mechanism_count++], &gasnett_backtrace_user, sizeof(gasnett_backtrace_user));
     user_is_init = 1;
@@ -1067,11 +1086,7 @@ extern int gasneti_print_backtrace(int fd) {
 #else
     {
       char filename[GASNETI_BT_PATHSZ];
-      int tmpfd;
-      if (getenv("TMPDIR")) strcpy(filename,getenv("TMPDIR"));
-      else strcpy(filename,"/tmp");
-      strcat(filename,"/gasnet_XXXXXX");
-      tmpfd = mkstemp(filename);
+      int tmpfd = gasneti_bt_mkstemp(filename,sizeof(filename));
       (void)unlink(filename);
       file = fdopen(tmpfd, "r+");
     }
