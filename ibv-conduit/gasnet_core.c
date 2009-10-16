@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2009/09/21 02:22:34 $
- * $Revision: 1.222 $
+ *     $Date: 2009/10/16 22:43:34 $
+ * $Revision: 1.223 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -126,6 +126,7 @@ int		gasnetc_num_hcas = 1;
 gasnetc_hca_t	gasnetc_hca[GASNETC_IB_MAX_HCAS];
 gasnetc_cep_t	*gasnetc_cep;
 uintptr_t	gasnetc_max_msg_sz;
+int		gasnetc_qp_rd_atom;
 
 #if GASNETC_PIN_SEGMENT
   int			gasnetc_seg_reg_count;
@@ -456,6 +457,7 @@ static int gasnetc_load_settings(void) {
             "WARNING: GASNET_QP_RETRY_COUNT reduced from the requested value, %d, to the maximum supported value 7.\n", (int)gasnetc_qp_retry_count);
     gasnetc_qp_retry_count = 7;
   }
+  GASNETC_ENVINT(gasnetc_qp_rd_atom, GASNET_QP_RD_ATOM, 0, 0, 0);
   GASNETC_ENVINT(gasnetc_op_oust_pp, GASNET_NETWORKDEPTH_PP, GASNETC_DEFAULT_NETWORKDEPTH_PP, 1, 0);
   GASNETC_ENVINT(gasnetc_op_oust_limit, GASNET_NETWORKDEPTH_TOTAL, GASNETC_DEFAULT_NETWORKDEPTH_TOTAL, 0, 0);
   GASNETC_ENVINT(gasnetc_am_oust_pp, GASNET_AM_CREDITS_PP, GASNETC_DEFAULT_AM_CREDITS_PP, 1, 0);
@@ -625,6 +627,8 @@ static int gasnetc_load_settings(void) {
 #endif
   GASNETI_TRACE_PRINTF(C,  ("  GASNET_QP_TIMEOUT               = %d (%g sec)", gasnetc_qp_timeout, 4.096e-6*(1<<gasnetc_qp_timeout)));
   GASNETI_TRACE_PRINTF(C,  ("  GASNET_QP_RETRY_COUNT           = %d", gasnetc_qp_retry_count));
+  GASNETI_TRACE_PRINTF(C,  ("  GASNET_QP_RD_ATOM               = %d%s", gasnetc_qp_rd_atom,
+				!gasnetc_qp_rd_atom ? " (automatic)" : ""));
   GASNETI_TRACE_PRINTF(C,  ("}"));
 
   gasnetc_exittimeout = gasneti_get_exittimeout(GASNETC_DEFAULT_EXITTIMEOUT_MAX,
@@ -916,7 +920,18 @@ static gasnetc_port_info_t* gasnetc_probe_ports(int *port_count_p) {
         ++found;
         this_port->port_num = curr_port;
         this_port->hca_index = hca_count;
-	this_port->rd_atom   = MIN(hca_cap.max_qp_init_rd_atom, hca_cap.gasnetc_f_max_qp_rd_atom);
+        if (gasnetc_qp_rd_atom) { /* Zero means use HCA/port limit */
+          int limit = MIN(hca_cap.max_qp_init_rd_atom, hca_cap.gasnetc_f_max_qp_rd_atom);
+          if (gasnetc_qp_rd_atom > limit) {
+	    fprintf(stderr,
+		"WARNING: Requested GASNET_QP_RD_ATOM %d reduced to HCA limit %d\n",
+		gasnetc_qp_rd_atom, limit);
+            gasnetc_qp_rd_atom = limit;
+          }
+          this_port->rd_atom = gasnetc_qp_rd_atom;
+        } else {
+          this_port->rd_atom = MIN(hca_cap.max_qp_init_rd_atom, hca_cap.gasnetc_f_max_qp_rd_atom);
+        }
         GASNETI_TRACE_PRINTF(C,("Probe found HCA '%s', port %d", hca_name, curr_port));
         (void)gasnetc_match_port(hca_name, curr_port, 1);
 	if (gasnetc_port_list == NULL) {

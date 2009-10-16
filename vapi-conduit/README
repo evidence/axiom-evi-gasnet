@@ -1,7 +1,7 @@
 README file for vapi-conduit and ibv-conduit
 ============================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.53 $
+$Revision: 1.54 $
 
 @ TOC: @
 @ Section: VAPI vs IBV @
@@ -243,6 +243,19 @@ $Revision: 1.53 $
     This sets the maximum number of retransmissions due to ACK timeout
     before the HCA signals a fatal error.
     The default is currently 7 (the max supported by early Mellanox HCAs)
+
+  + GASNET_QP_RD_ATOM
+    This sets the number of per-connection resources allocated by the HCA
+    for responding to RDMA Reads (and atomics, which GASNet does not use
+    currently).  Lower values use slightly less memory but may reduce the
+    throughput of Get-intensive communications patterns.
+    The default value is '0', which means to use the maximum supported
+    value reported by the HCA.
+    Other valid setting are typically in the range from 1 to 4.
+    It has been observed that some InfiniPath HCAs may be unstable with any
+    value other than '1'.  If you experience failures with a message
+    including the string "snd status=TIMEOUT opcode=2", then you should
+    try setting GASNET_QP_RD_ATOM=1 as a possible work-around.
 
   Software configuration settings:
   There are some optional behaviors in vapi-conduit that can be turned
