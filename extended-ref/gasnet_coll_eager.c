@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_eager.c,v $
- *     $Date: 2009/10/15 19:02:10 $
- * $Revision: 1.68 $
+ *     $Date: 2009/10/16 02:10:40 $
+ * $Revision: 1.69 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -744,7 +744,7 @@ gasnete_coll_scatM_TreeEager(gasnet_team_handle_t team,
   GASNETE_COLL_GENERIC_OPT_OUTSYNC_IF(flags & GASNET_COLL_OUT_ALLSYNC) |
   GASNETE_COLL_GENERIC_OPT_P2P;
   
-  gasneti_assert(gasnete_coll_p2p_eager_scale>= nbytes*team->my_images);
+  gasneti_assert(gasnete_coll_p2p_eager_scale>= nbytes);
   gasneti_assert(dist == nbytes);
   
   return gasnete_coll_generic_scatterM_nb(team, dstlist, srcimage, src, nbytes, dist, flags,

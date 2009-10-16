@@ -228,7 +228,7 @@ gasnete_coll_algorithm_t gasnete_coll_autotune_register_algorithm(gasnet_team_ha
 #define GASNETE_COLL_EVERY_OUT_SYNC_FLAG GASNET_COLL_OUT_NOSYNC | GASNET_COLL_OUT_MYSYNC | GASNET_COLL_OUT_ALLSYNC 
 #define GASNETE_COLL_EVERY_SYNC_FLAG GASNETE_COLL_EVERY_IN_SYNC_FLAG | GASNETE_COLL_EVERY_OUT_SYNC_FLAG
 
-
+#define GASNETE_COLL_MAX_BYTES ((size_t) -1)
 void gasnete_coll_register_broadcast_collectives(gasnete_coll_autotune_info_t* info, size_t smallest_scratch)  {
   
   /*first register all the broadcast algorithms*/
@@ -241,14 +241,14 @@ void gasnete_coll_register_broadcast_collectives(gasnete_coll_autotune_info_t* i
   info->collective_algorithms[GASNET_COLL_BROADCAST_OP][GASNETE_COLL_BROADCAST_PUT] = 
   gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_BROADCAST_OP, GASNETE_COLL_EVERY_SYNC_FLAG,
                                            GASNET_COLL_DST_IN_SEGMENT | GASNET_COLL_SINGLE, 0,
-                                           0, 0, 0,
+                                           GASNETE_COLL_MAX_BYTES, 0, 0,
                                            0,NULL,(void*)gasnete_coll_bcast_Put, "BROADCAST_PUT");
   
   
   info->collective_algorithms[GASNET_COLL_BROADCAST_OP][GASNETE_COLL_BROADCAST_GET] = 
   gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_BROADCAST_OP, GASNETE_COLL_EVERY_SYNC_FLAG,
                                            GASNET_COLL_SRC_IN_SEGMENT | GASNET_COLL_SINGLE, 0,
-                                           0, 0, 0,
+                                           GASNETE_COLL_MAX_BYTES, 0, 0,
                                            0,NULL,(void*)gasnete_coll_bcast_Get, "BROADCAST_GET");
   
   
@@ -273,7 +273,7 @@ void gasnete_coll_register_broadcast_collectives(gasnete_coll_autotune_info_t* i
   gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_BROADCAST_OP,
                                            GASNETE_COLL_EVERY_SYNC_FLAG,
                                            0, /*works for all flags (scatter/allgather will pick their right implementations based on the actual flags)*/ 0,
-                                           0, 0, 0,
+                                           GASNETE_COLL_MAX_BYTES, 0, 0,
                                            0,NULL,(void*)gasnete_coll_bcast_ScatterAllgather, "BROADCAST_SCATTERALLGATHER");
   {
     struct gasnet_coll_tuning_parameter_t tuning_params[1]=
@@ -310,13 +310,13 @@ void gasnete_coll_register_broadcast_collectives(gasnete_coll_autotune_info_t* i
   info->collective_algorithms[GASNET_COLL_BROADCAST_OP][GASNETE_COLL_BROADCAST_RVOUS] = 
   gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_BROADCAST_OP, GASNETE_COLL_EVERY_SYNC_FLAG,
                                            0, /*works for all flags as long as size is small enough*/ 0,
-                                           0, /*works for all sizes*/ 0, 0,
+                                           GASNETE_COLL_MAX_BYTES, /*works for all sizes*/ 0, 0,
                                            0,NULL,(void*)gasnete_coll_bcast_RVous, "BROADCAST_RVOUS");
   
   info->collective_algorithms[GASNET_COLL_BROADCAST_OP][GASNETE_COLL_BROADCAST_RVGET] = 
   gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_BROADCAST_OP, GASNETE_COLL_EVERY_SYNC_FLAG,
                                            GASNET_COLL_SRC_IN_SEGMENT, 0,
-                                           0, /*works for all sizes*/ 0, 0, 
+                                           GASNETE_COLL_MAX_BYTES, /*works for all sizes*/ 0, 0, 
                                            0,NULL,(void*)gasnete_coll_bcast_RVGet, "BROADCAST_RVGET");
   
   
@@ -326,7 +326,7 @@ void gasnete_coll_register_broadcast_collectives(gasnete_coll_autotune_info_t* i
   gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_BROADCAST_OP, 
                                            GASNETE_COLL_EVERY_SYNC_FLAG,
                                            GASNET_COLL_SRC_IN_SEGMENT | GASNET_COLL_DST_IN_SEGMENT, 0,
-                                           0 /*works for all sizes*/, 0, 1,
+                                           GASNETE_COLL_MAX_BYTES /*works for all sizes*/, 0, 1,
                                            0,NULL,(void*)gasnete_coll_bcast_TreeRVGet, "BROADCAST_TREE_RVGET");
   
   
@@ -339,7 +339,7 @@ void gasnete_coll_register_broadcast_collectives(gasnete_coll_autotune_info_t* i
   gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_BROADCASTM_OP, 
                                            GASNETE_COLL_EVERY_SYNC_FLAG,
                                            GASNET_COLL_SINGLE | GASNET_COLL_SRC_IN_SEGMENT, 0,
-                                           0, 0, 0,
+                                           GASNETE_COLL_MAX_BYTES, 0, 0,
                                            0,NULL,(void*)gasnete_coll_bcastM_Get, "BROADCASTM_GET");
   
   
@@ -348,7 +348,7 @@ void gasnete_coll_register_broadcast_collectives(gasnete_coll_autotune_info_t* i
   gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_BROADCASTM_OP, 
                                            GASNETE_COLL_EVERY_SYNC_FLAG,
                                            GASNET_COLL_SINGLE | GASNET_COLL_DST_IN_SEGMENT, 0,
-                                           0, 0, 0,
+                                           GASNETE_COLL_MAX_BYTES, 0, 0,
                                            0,NULL,(void*)gasnete_coll_bcastM_Put, "BROADCASTM_PUT");
   
   
@@ -370,7 +370,7 @@ void gasnete_coll_register_broadcast_collectives(gasnete_coll_autotune_info_t* i
   gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_BROADCASTM_OP,
                                            GASNETE_COLL_EVERY_SYNC_FLAG,
                                            0, /*works for all flags (scatter/allgather will pick their right implementations based on the actual flags)*/0,
-                                           0, 0, 0,
+                                           GASNETE_COLL_MAX_BYTES, 0, 0,
                                            0,NULL,(void*)gasnete_coll_bcastM_ScatterAllgather,"BROADCASTM_SCATTERALLGATHER");
   
   {
@@ -406,13 +406,13 @@ void gasnete_coll_register_broadcast_collectives(gasnete_coll_autotune_info_t* i
   info->collective_algorithms[GASNET_COLL_BROADCASTM_OP][GASNETE_COLL_BROADCASTM_RVOUS] = 
   gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_BROADCASTM_OP, GASNETE_COLL_EVERY_SYNC_FLAG,
                                            0, /*works for all flags as long as size is small enough*/ 0,
-                                           0, /*works for all sizes*/ 0, 0,
+                                           GASNETE_COLL_MAX_BYTES, /*works for all sizes*/ 0, 0,
                                            0,NULL,(void*)gasnete_coll_bcastM_RVous, "BROADCASTM_RVOUS");
   
   info->collective_algorithms[GASNET_COLL_BROADCASTM_OP][GASNETE_COLL_BROADCASTM_RVGET] = 
   gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_BROADCASTM_OP, GASNETE_COLL_EVERY_SYNC_FLAG,
                                            GASNET_COLL_SRC_IN_SEGMENT, 0,
-                                           0, /*works for all sizes*/ 0, 0, 
+                                           GASNETE_COLL_MAX_BYTES, /*works for all sizes*/ 0, 0, 
                                            0,NULL,(void*)gasnete_coll_bcastM_RVGet, "BROADCASTM_RVGET");
   
   
@@ -422,7 +422,7 @@ void gasnete_coll_register_broadcast_collectives(gasnete_coll_autotune_info_t* i
   gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_BROADCASTM_OP, 
                                            GASNETE_COLL_EVERY_SYNC_FLAG,
                                            GASNET_COLL_SRC_IN_SEGMENT | GASNET_COLL_DST_IN_SEGMENT, 0,
-                                           0 /*works for all sizes*/, 0, 1,
+                                            GASNETE_COLL_MAX_BYTES /*works for all sizes*/, 0, 1,
                                            0,NULL,(void*)gasnete_coll_bcastM_TreeRVGet, "BROADCASTM_TREE_RVGET");
   
 }
@@ -433,13 +433,13 @@ void gasnete_coll_register_scatter_collectives(gasnete_coll_autotune_info_t* inf
   info->collective_algorithms[GASNET_COLL_SCATTER_OP][GASNETE_COLL_SCATTER_GET] = 
   gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_SCATTER_OP, GASNETE_COLL_EVERY_SYNC_FLAG,
                                            GASNET_COLL_SRC_IN_SEGMENT | GASNET_COLL_SINGLE,  0, 
-                                           0, 0, 0,
+                                           GASNETE_COLL_MAX_BYTES, 0, 0,
                                            0, NULL, (void*)gasnete_coll_scat_Get, "SCATTER_GET");
   
   info->collective_algorithms[GASNET_COLL_SCATTER_OP][GASNETE_COLL_SCATTER_PUT] = 
   gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_SCATTER_OP, GASNETE_COLL_EVERY_SYNC_FLAG,
                                            GASNET_COLL_DST_IN_SEGMENT| GASNET_COLL_SINGLE, 0, 
-                                           0, 0, 0,
+                                           GASNETE_COLL_MAX_BYTES, 0, 0,
                                            0, NULL, (void*)gasnete_coll_scat_Put, "SCATTER_PUT");
   
   info->collective_algorithms[GASNET_COLL_SCATTER_OP][GASNETE_COLL_SCATTER_TREE_PUT] = 
@@ -485,14 +485,14 @@ void gasnete_coll_register_scatter_collectives(gasnete_coll_autotune_info_t* inf
   gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_SCATTER_OP, 
                                            GASNETE_COLL_EVERY_SYNC_FLAG,
                                            GASNET_COLL_SRC_IN_SEGMENT, 0,
-                                           0, 0, 0,
+                                           GASNETE_COLL_MAX_BYTES, 0, 0,
                                            0,NULL,(void*)gasnete_coll_scat_RVGet, "SCATTER_RVGET");
   
   info->collective_algorithms[GASNET_COLL_SCATTER_OP][GASNETE_COLL_SCATTER_RVOUS] = 
   gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_SCATTER_OP, 
                                            GASNETE_COLL_EVERY_SYNC_FLAG,
                                            0, 0,
-                                           0, 0, 0,
+                                           GASNETE_COLL_MAX_BYTES, 0, 0,
                                            0,NULL,(void*)gasnete_coll_scat_RVous, "SCATTER_RVOUS");
   
   info->collective_algorithms[GASNET_COLL_SCATTERM_OP] = gasneti_malloc(sizeof(gasnete_coll_algorithm_t)*GASNETE_COLL_SCATTERM_NUM_ALGS);
@@ -500,13 +500,13 @@ void gasnete_coll_register_scatter_collectives(gasnete_coll_autotune_info_t* inf
   info->collective_algorithms[GASNET_COLL_SCATTERM_OP][GASNETE_COLL_SCATTERM_GET] = 
   gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_SCATTERM_OP, GASNETE_COLL_EVERY_SYNC_FLAG,
                                            GASNET_COLL_SRC_IN_SEGMENT | GASNET_COLL_SINGLE,  0, 
-                                           0, 0, 0,
+                                           GASNETE_COLL_MAX_BYTES, 0, 0,
                                            0, NULL, (void*)gasnete_coll_scatM_Get, "SCATTERM_GET");
   
   info->collective_algorithms[GASNET_COLL_SCATTERM_OP][GASNETE_COLL_SCATTERM_PUT] = 
   gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_SCATTERM_OP, GASNETE_COLL_EVERY_SYNC_FLAG,
                                            GASNET_COLL_DST_IN_SEGMENT| GASNET_COLL_SINGLE, 0, 
-                                           0, 0, 0,
+                                           GASNETE_COLL_MAX_BYTES, 0, 0,
                                            0, NULL, (void*)gasnete_coll_scatM_Put, "SCATTERM_PUT");
   
   info->collective_algorithms[GASNET_COLL_SCATTERM_OP][GASNETE_COLL_SCATTERM_TREE_PUT] = 
@@ -538,30 +538,30 @@ void gasnete_coll_register_scatter_collectives(gasnete_coll_autotune_info_t* inf
   gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_SCATTERM_OP, 
                                            GASNETE_COLL_EVERY_SYNC_FLAG,
                                            0, 0,
-                                           MIN(gasnete_coll_p2p_eager_scale, gasnet_AMMaxMedium())/info->team->my_images, 0, 0,
+                                           MIN(gasnete_coll_p2p_eager_scale, gasnet_AMMaxMedium()/info->team->my_images), 0, 0,
                                            0,NULL,(void*)gasnete_coll_scatM_Eager, "SCATTERM_EAGER");
   
   info->collective_algorithms[GASNET_COLL_SCATTERM_OP][GASNETE_COLL_SCATTERM_TREE_EAGER] = 
   gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_SCATTERM_OP, 
                                            GASNETE_COLL_EVERY_SYNC_FLAG,
                                            0, 0,
-                                           MIN(gasnete_coll_p2p_eager_scale/info->team->my_images,
+                                           MIN(gasnete_coll_p2p_eager_scale,
                                                gasnet_AMMaxMedium()/info->team->total_images), 
-                                           0, 1,
-                                           0,NULL,(void*)gasnete_coll_scatM_TreeEager, "SCATTERM_TREE_EAGER");
+					   0, 1,
+					   0,NULL,(void*)gasnete_coll_scatM_TreeEager, "SCATTERM_TREE_EAGER");
   
   info->collective_algorithms[GASNET_COLL_SCATTERM_OP][GASNETE_COLL_SCATTERM_RVGET] = 
   gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_SCATTERM_OP, 
                                            GASNETE_COLL_EVERY_SYNC_FLAG,
                                            GASNET_COLL_SRC_IN_SEGMENT, 0,
-                                           0, 0, 0,
+                                           GASNETE_COLL_MAX_BYTES, 0, 0,
                                            0,NULL,(void*)gasnete_coll_scatM_RVGet, "SCATTERM_RVGET");
   
   info->collective_algorithms[GASNET_COLL_SCATTERM_OP][GASNETE_COLL_SCATTERM_RVOUS] = 
   gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_SCATTERM_OP, 
                                            GASNETE_COLL_EVERY_SYNC_FLAG,
                                            0, 0,
-                                           0, 0, 0,
+                                           GASNETE_COLL_MAX_BYTES, 0, 0,
                                            0,NULL,(void*)gasnete_coll_scatM_RVous, "SCATTERM_RVOUS");
   
   
@@ -573,13 +573,13 @@ void gasnete_coll_register_gather_collectives(gasnete_coll_autotune_info_t* info
   info->collective_algorithms[GASNET_COLL_GATHER_OP][GASNETE_COLL_GATHER_GET] = 
   gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_GATHER_OP, GASNETE_COLL_EVERY_SYNC_FLAG,
                                            GASNET_COLL_SRC_IN_SEGMENT | GASNET_COLL_SINGLE,  0, 
-                                           0, 0, 0,
+                                           GASNETE_COLL_MAX_BYTES, 0, 0,
                                            0, NULL, (void*)gasnete_coll_gath_Get, "GATHER_GET");
   
   info->collective_algorithms[GASNET_COLL_GATHER_OP][GASNETE_COLL_GATHER_PUT] = 
   gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_GATHER_OP, GASNETE_COLL_EVERY_SYNC_FLAG,
                                            GASNET_COLL_DST_IN_SEGMENT | GASNET_COLL_SINGLE,  0, 
-                                           0, 0, 0,
+                                           GASNETE_COLL_MAX_BYTES, 0, 0,
                                            0, NULL, (void*)gasnete_coll_gath_Put, "GATHER_PUT");
 
   info->collective_algorithms[GASNET_COLL_GATHER_OP][GASNETE_COLL_GATHER_TREE_PUT] = 
@@ -625,13 +625,13 @@ void gasnete_coll_register_gather_collectives(gasnete_coll_autotune_info_t* info
   gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_GATHER_OP, 
                                            GASNETE_COLL_EVERY_SYNC_FLAG,
                                            GASNET_COLL_DST_IN_SEGMENT, 0,
-                                           0, 0, 0,
+                                           GASNETE_COLL_MAX_BYTES, 0, 0,
                                            0,NULL,(void*)gasnete_coll_gath_RVPut, "GATHER_RVPUT");
   info->collective_algorithms[GASNET_COLL_GATHER_OP][GASNETE_COLL_GATHER_RVOUS]=
   gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_GATHER_OP, 
                                            GASNETE_COLL_EVERY_SYNC_FLAG,
                                            0, 0,
-                                           0, 0, 0,
+                                           GASNETE_COLL_MAX_BYTES, 0, 0,
                                            0,NULL,(void*)gasnete_coll_gath_RVous, "GATHER_RVOUS");
   
   info->collective_algorithms[GASNET_COLL_GATHERM_OP] = gasneti_malloc(sizeof(gasnete_coll_algorithm_t)*GASNETE_COLL_GATHERM_NUM_ALGS);
@@ -645,7 +645,7 @@ void gasnete_coll_register_gather_collectives(gasnete_coll_autotune_info_t* info
   info->collective_algorithms[GASNET_COLL_GATHERM_OP][GASNETE_COLL_GATHERM_PUT] = 
   gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_GATHERM_OP, GASNETE_COLL_EVERY_SYNC_FLAG,
                                            GASNET_COLL_DST_IN_SEGMENT | GASNET_COLL_SINGLE,  0, 
-                                           0, 0, 0,
+                                           GASNETE_COLL_MAX_BYTES, 0, 0,
                                            0, NULL, (void*)gasnete_coll_gathM_Put, "GATHERM_PUT");
   
   info->collective_algorithms[GASNET_COLL_GATHERM_OP][GASNETE_COLL_GATHERM_TREE_PUT] = 
@@ -687,13 +687,13 @@ void gasnete_coll_register_gather_collectives(gasnete_coll_autotune_info_t* info
   gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_GATHERM_OP, 
                                            GASNETE_COLL_EVERY_SYNC_FLAG,
                                            GASNET_COLL_DST_IN_SEGMENT, 0,
-                                           0, 0, 0,
+                                           GASNETE_COLL_MAX_BYTES, 0, 0,
                                            0,NULL,(void*)gasnete_coll_gathM_RVPut, "GATHERM_RVPUT");
   info->collective_algorithms[GASNET_COLL_GATHERM_OP][GASNETE_COLL_GATHERM_RVOUS]=
   gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_GATHERM_OP, 
                                            GASNETE_COLL_EVERY_SYNC_FLAG,
                                            0, 0,
-                                           0, 0, 0,
+                                           GASNETE_COLL_MAX_BYTES, 0, 0,
                                            0,NULL,(void*)gasnete_coll_gathM_RVous, "GATHERM_RVOUS");
   
 }
@@ -705,7 +705,7 @@ void gasnete_coll_register_gather_all_collectives(gasnete_coll_autotune_info_t* 
   gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_GATHER_ALL_OP,
                                            GASNETE_COLL_EVERY_SYNC_FLAG,
                                            0, 0, /*works for every flag (gather will take care of figuiring out right algorithm)*/
-                                           0, 0, 0,
+                                           GASNETE_COLL_MAX_BYTES, 0, 0,
                                            0, NULL, (void*) gasnete_coll_gall_Gath, "GATHER_ALL_GATH");
   
   info->collective_algorithms[GASNET_COLL_GATHER_ALL_OP][GASNETE_COLL_GATHER_ALL_DISSEM_EAGER] =
@@ -749,7 +749,7 @@ void gasnete_coll_register_gather_all_collectives(gasnete_coll_autotune_info_t* 
   gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_GATHER_ALL_OP,
                                            GASNETE_COLL_EVERY_SYNC_FLAG,
                                            GASNET_COLL_SRC_IN_SEGMENT | GASNET_COLL_SINGLE, 0, 
-                                           0, 0, 0,
+                                           GASNETE_COLL_MAX_BYTES, 0, 0,
                                            0, NULL, (void*) gasnete_coll_gall_FlatGet, "GATHER_ALL_FLAT_GET");
 
   
@@ -759,7 +759,7 @@ void gasnete_coll_register_gather_all_collectives(gasnete_coll_autotune_info_t* 
   gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_GATHER_ALLM_OP,
                                            GASNETE_COLL_EVERY_SYNC_FLAG,
                                            0, 0, /*works for every flag (gather will take care of figuiring out right algorithm)*/
-                                           0, 0, 0,
+                                           GASNETE_COLL_MAX_BYTES, 0, 0,
                                            0, NULL, (void*) gasnete_coll_gallM_Gath, "GATHER_ALLM_GATH");
   
   info->collective_algorithms[GASNET_COLL_GATHER_ALLM_OP][GASNETE_COLL_GATHER_ALLM_DISSEM_EAGER] =
@@ -789,7 +789,7 @@ void gasnete_coll_register_gather_all_collectives(gasnete_coll_autotune_info_t* 
   gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_GATHER_ALLM_OP,
                                            GASNETE_COLL_EVERY_SYNC_FLAG,
                                            GASNET_COLL_SINGLE | GASNET_COLL_DST_IN_SEGMENT, 0, 
-                                           0, 0, 0,
+                                           GASNETE_COLL_MAX_BYTES, 0, 0,
                                            0, NULL, (void*) gasnete_coll_gallM_DissemNoScratchSeg, "GATHER_ALLM_DISSEM_NOSCRATCH_SEG");
   
   info->collective_algorithms[GASNET_COLL_GATHER_ALLM_OP][GASNETE_COLL_GATHER_ALLM_FLAT_PUT] =
@@ -904,7 +904,7 @@ void gasnete_coll_register_exchange_collectives(gasnete_coll_autotune_info_t* in
     gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_EXCHANGE_OP,
                                              GASNETE_COLL_EVERY_SYNC_FLAG,
                                              GASNET_COLL_DST_IN_SEGMENT|GASNET_COLL_SINGLE, 0, 
-                                             0, 0, 0,
+                                             GASNETE_COLL_MAX_BYTES, 0, 0,
                                              0, NULL, (void*) gasnete_coll_exchg_Put, "EXCHANGE_PUT");
   }
   {
@@ -912,7 +912,7 @@ void gasnete_coll_register_exchange_collectives(gasnete_coll_autotune_info_t* in
     gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_EXCHANGE_OP,
                                              GASNETE_COLL_EVERY_SYNC_FLAG,
                                              GASNET_COLL_DST_IN_SEGMENT, 0, 
-                                             0, 0, 0,
+                                             GASNETE_COLL_MAX_BYTES, 0, 0,
                                              0, NULL, (void*) gasnete_coll_exchg_RVPut, "EXCHANGE_RVPUT");
   }
   {
@@ -920,7 +920,7 @@ void gasnete_coll_register_exchange_collectives(gasnete_coll_autotune_info_t* in
     gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_EXCHANGE_OP,
                                              GASNETE_COLL_EVERY_SYNC_FLAG,
                                              0, 0, 
-                                             0, 0, 0,
+                                             GASNETE_COLL_MAX_BYTES, 0, 0,
                                              0, NULL, (void*) gasnete_coll_exchg_Gath, "EXCHANGE_GATH");
   }
   
@@ -1102,7 +1102,7 @@ void gasnete_coll_register_exchange_collectives(gasnete_coll_autotune_info_t* in
     gasnete_coll_autotune_register_algorithm(info->team, GASNET_COLL_EXCHANGE_OP,
                                              GASNETE_COLL_EVERY_SYNC_FLAG,
                                              0, 0, 
-                                             0, 0, 0,
+                                             GASNETE_COLL_MAX_BYTES, 0, 0,
                                              0, NULL, (void*) gasnete_coll_exchgM_Gath, "EXCHANGEM_GATH");
   }
 }
@@ -2255,9 +2255,8 @@ void gasnete_coll_tune_generic_op(gasnet_team_handle_t team, gasnet_coll_optype_
   PTHREAD_BARRIER(team, team->my_images);
   for (algidx=0; algidx<num_algs; algidx++) {
     
-    int size_ok = (team->autotune_info->collective_algorithms[op][algidx].max_num_bytes==0 || 
-                   (coll_args.nbytes <= team->autotune_info->collective_algorithms[op][algidx].max_num_bytes && 
-                    coll_args.nbytes >= team->autotune_info->collective_algorithms[op][algidx].min_num_bytes));
+    int size_ok = (coll_args.nbytes <= team->autotune_info->collective_algorithms[op][algidx].max_num_bytes && 
+		   coll_args.nbytes >= team->autotune_info->collective_algorithms[op][algidx].min_num_bytes);
     /*ensure that all the flags required by the algorithm are passed in through the flags*/
     int req_flags_ok = ((req_flags & team->autotune_info->collective_algorithms[op][algidx].requirements) == team->autotune_info->collective_algorithms[op][algidx].requirements);
     /*ensure that the synchronization flags exist in the list of possible synch flags for this algorithm*/
@@ -2280,6 +2279,9 @@ void gasnete_coll_tune_generic_op(gasnet_team_handle_t team, gasnet_coll_optype_
        (op == GASNET_COLL_BROADCAST_OP && algidx == GASNETE_COLL_BROADCAST_SCATTERALLGATHER)) continue;
      if((op == GASNET_COLL_EXCHANGEM_OP && algidx == GASNETE_COLL_EXCHANGEM_GATH) || 
         (op == GASNET_COLL_GATHER_ALLM_OP && algidx == GASNETE_COLL_GATHER_ALLM_GATH)) continue;
+     if((op == GASNET_COLL_SCATTERM_OP && algidx ==   GASNETE_COLL_SCATTERM_TREE_PUT_SEG) ||
+	(op == GASNET_COLL_GATHERM_OP && algidx ==   GASNETE_COLL_GATHERM_TREE_PUT_SEG)) continue;
+	
     alg_best_time = curr_best_time;
 
     do_tuning_loop(team, op, coll_args, flags, fnptr, sample_work_arg, 
