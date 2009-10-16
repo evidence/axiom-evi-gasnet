@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testgasnet.c,v $
- *     $Date: 2009/10/04 00:26:00 $
- * $Revision: 1.65 $
+ *     $Date: 2009/10/16 11:43:06 $
+ * $Revision: 1.66 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -50,8 +50,8 @@ void doit5(int partner, int *partnerseg);
     done = 1;
   }
   #define EVERYTHING_SEG_HANDLERS() \
-    { 250, (void (*)())seg_everything_reqh }, \
-    { 251, (void (*)())seg_everything_reph },
+    { 250, (handler_fn_t)seg_everything_reqh }, \
+    { 251, (handler_fn_t)seg_everything_reph },
 
   char _static_seg[TEST_SEGSZ+PAGESZ] = {1};
   char _common_seg[TEST_SEGSZ+PAGESZ];
