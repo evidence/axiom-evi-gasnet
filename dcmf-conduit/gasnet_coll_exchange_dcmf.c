@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_coll_exchange_dcmf.c,v $
- * $Date: 2009/10/03 03:46:36 $
- * $Revision: 1.4 $
+ * $Date: 2009/10/17 00:01:07 $
+ * $Revision: 1.5 $
  * Description: GASNet exchange (alltoall) implementation on DCMF
  * LBNL 2009
  */
@@ -9,8 +9,10 @@
 
 /* #define G_DCMF_COLL_TRACE */
 
-static DCMF_CollectiveProtocol_t g_dcmf_a2a_protos[G_DCMF_A2A_PROTO_NUM];
-unsigned int g_dcmf_a2a_enabled[G_DCMF_A2A_PROTO_NUM];
+static int gasnete_use_dcmf_a2a;
+
+static DCMF_CollectiveProtocol_t gasnete_dcmf_a2a_protos[G_DCMF_A2A_PROTO_NUM];
+static int gasnete_dcmf_a2a_enabled[G_DCMF_A2A_PROTO_NUM];
 
 /* callback function for DCMF_Alltoallv() */
 static void gasnete_dcmf_coll_cb_done(void *clientdata, DCMF_Error_t *e)
@@ -26,16 +28,53 @@ void gasnete_coll_a2a_proto_register(void)
   
   GASNETC_DCMF_LOCK(); /* for DCMF_SAFE */
 
-  g_dcmf_a2a_enabled[TORUS_ALLTOALLV] =
+  gasnete_use_dcmf_a2a =
+    gasneti_getenv_yesno_withdefault("GASNET_USE_DCMF_EXCHANGE", 1);
+
+  gasnete_dcmf_a2a_enabled[TORUS_ALLTOALLV] =
     gasneti_getenv_yesno_withdefault("GASNET_DCMF_TORUS_ALLTOALLV", 1);
-  if (g_dcmf_a2a_enabled[TORUS_ALLTOALLV])
+  if (gasnete_dcmf_a2a_enabled[TORUS_ALLTOALLV])
     {
       alltoallv_conf.protocol = DCMF_TORUS_ALLTOALLV_PROTOCOL;
-      DCMF_SAFE(DCMF_Alltoallv_register(&g_dcmf_a2a_protos[TORUS_ALLTOALLV], 
+      DCMF_SAFE(DCMF_Alltoallv_register(&gasnete_dcmf_a2a_protos[TORUS_ALLTOALLV], 
                                         &alltoallv_conf));
     }
-
+  
   GASNETC_DCMF_UNLOCK();
+}
+
+int gasnete_coll_a2a_set_proto(gasnet_team_handle_t team,
+                               gasnete_dcmf_a2a_proto_t kind)
+{
+  gasnete_coll_team_dcmf_t *dcmf_tp;
+  
+  gasneti_assert(team != NULL);
+  dcmf_tp = (gasnete_coll_team_dcmf_t *)team->dcmf_tp;
+  gasneti_assert(dcmf_tp != NULL);
+  gasneti_assert(kind < G_DCMF_A2A_PROTO_NUM);
+
+  if (DCMF_Geometry_analyze(&dcmf_tp->geometry, &gasnete_dcmf_a2a_protos[kind])
+      && gasnete_dcmf_a2a_enabled[kind]
+      && (team->total_ranks >= 2))
+    {
+      dcmf_tp->a2a_proto = &gasnete_dcmf_a2a_protos[kind];
+      return 0; /* SUCCESS */
+    }
+  return 1; /* FAILED */
+}
+
+void gasnete_coll_a2a_set_default_proto(gasnet_team_handle_t team)
+{
+  int rv;
+  gasnete_coll_team_dcmf_t *dcmf_tp;
+  
+  gasneti_assert(team != NULL);
+  dcmf_tp = (gasnete_coll_team_dcmf_t *)team->dcmf_tp;
+  gasneti_assert(dcmf_tp != NULL);
+  
+  rv = gasnete_coll_a2a_set_proto(team, TORUS_ALLTOALLV);
+  if (rv)
+    dcmf_tp->a2a_proto = NULL;
 }
 
 void gasnete_coll_dcmf_a2a_init(gasnete_dcmf_a2a_data_t *a2a,
@@ -94,21 +133,26 @@ void gasnete_coll_dcmf_a2a_fini(gasnete_dcmf_a2a_data_t *a2a)
 
 static int gasnete_coll_pf_exchg_dcmf(gasnete_coll_op_t *op GASNETE_THREAD_FARG) 
 {
-  gasnete_coll_generic_data_t *data = op->data;
-  gasnete_dcmf_a2a_data_t *a2a = (gasnete_dcmf_a2a_data_t *)data->private_data;
-  static unsigned dcmf_busy = 0;  
+  gasnete_coll_generic_data_t *data;
+  gasnete_dcmf_a2a_data_t *a2a;
+
+  gasneti_assert(op != NULL);
+  data = op->data;
+  gasneti_assert(data != NULL);
+  a2a = (gasnete_dcmf_a2a_data_t *)data->private_data;
+  gasneti_assert(a2a != NULL);
 
   switch (data->state) {
   case 0:	
 #ifdef G_DCMF_COLL_TRACE
     fprintf(stderr, "gasnete_coll_pf_exchg_dcmf is executed.\n");
 #endif
-    if (dcmf_busy)
+    if (gasnete_dcmf_busy)
       break;
     data->state = 1;
     
   case 1:	/* Initiate data movement */
-    dcmf_busy = 1;
+    gasnete_dcmf_busy = 1;
     /**
      * DCMF_Alltoallv has an explicit barrier at the beginning and an
      * implicit barrier at the end. see class A2AProtocol and class
@@ -132,9 +176,10 @@ static int gasnete_coll_pf_exchg_dcmf(gasnete_coll_op_t *op GASNETE_THREAD_FARG)
     data->state = 2;
     
   case 2:	/* Sync data movement */
+    DCMF_Messager_advance();
     if (a2a->active)
       break;
-    dcmf_busy = 0;
+    gasnete_dcmf_busy = 0;
     data->state = 3;
     
   case 3: 
@@ -162,8 +207,19 @@ gasnet_coll_handle_t gasnete_coll_exchange_nb_dcmf(gasnet_team_handle_t team,
   int i;
   int nprocs =  team->total_ranks;
   gasnete_dcmf_a2a_data_t *a2a;
-  gasnete_coll_team_dcmf_t *dcmf_tp = (gasnete_coll_team_dcmf_t *)team->dcmf_tp;
-
+  gasnete_coll_team_dcmf_t *dcmf_tp;
+  
+  gasneti_assert(team != NULL);
+  dcmf_tp = (gasnete_coll_team_dcmf_t *)team->dcmf_tp;
+  gasneti_assert(dcmf_tp != NULL);
+  
+  if (!gasnete_use_dcmf_coll 
+      || !gasnete_use_dcmf_a2a  
+      || dcmf_tp->a2a_proto == NULL) {
+    return gasnete_coll_exchange_nb_default(team, dst, src, nbytes, flags, 
+                                            sequence GASNETE_THREAD_PASS);
+  }
+  
   gasneti_assert(gasnete_coll_dcmf_inited == 1);
   gasneti_assert(!(flags & GASNETE_COLL_SUBORDINATE));
 
@@ -171,38 +227,16 @@ gasnet_coll_handle_t gasnete_coll_exchange_nb_dcmf(gasnet_team_handle_t team,
   fprintf(stderr, "gasnete_coll_exchange_nb_dcmf is executed!\n");
 #endif
 
-#if GASNET_PAR
-  return gasnete_coll_exchange_nb_default(team, dst, src, nbytes, flags, 
-                                          sequence GASNETE_THREAD_PASS);
-#endif
-  
-  /**
-   * Check the pre-conditions of using the tours alltoallv
-   * collective. If not, use the default exchange (alltoall)
-   * implementation.
-   */
-  if(!g_dcmf_a2a_enabled[TORUS_ALLTOALLV] || nprocs < 2 
-     || !(DCMF_Geometry_analyze(&dcmf_tp->geometry, 
-                                &g_dcmf_a2a_protos[TORUS_ALLTOALLV])))
-    {
-#ifdef G_DCMF_COLL_TRACE
-      fprintf(stderr, "gasnete_coll_exchange_nb_default is called.\n");
-#endif
-      return gasnete_coll_exchange_nb_default(team, dst, src, nbytes, flags, 
-                                              sequence GASNETE_THREAD_PASS);
-    }
-  
   a2a = (gasnete_dcmf_a2a_data_t *)
     gasneti_malloc(sizeof(gasnete_dcmf_a2a_data_t));
-  gasnete_coll_dcmf_a2a_init(a2a, &g_dcmf_a2a_protos[TORUS_ALLTOALLV], 
+  gasnete_coll_dcmf_a2a_init(a2a, dcmf_tp->a2a_proto,
                              &dcmf_tp->geometry, nprocs, src, dst, nbytes);
   
   data = gasnete_coll_generic_alloc(GASNETE_THREAD_PASS_ALONE);
   data->private_data = a2a;
   GASNETE_COLL_GENERIC_SET_TAG(data, exchange);
   data->options = 
-    GASNETE_COLL_GENERIC_OPT_INSYNC_IF((flags & GASNET_COLL_IN_ALLSYNC)) |
-    GASNETE_COLL_GENERIC_OPT_OUTSYNC_IF((flags & GASNET_COLL_OUT_ALLSYNC));
+      GASNETE_COLL_GENERIC_OPT_OUTSYNC_IF((flags & GASNET_COLL_OUT_ALLSYNC));
   
   return gasnete_coll_op_generic_init_with_scratch(team, flags, data, 
                                                    gasnete_coll_pf_exchg_dcmf, 
@@ -213,58 +247,38 @@ gasnet_coll_handle_t gasnete_coll_exchange_nb_dcmf(gasnet_team_handle_t team,
 /** Blocking version of gasnete_coll_exchange */
 void gasnete_coll_exchange_dcmf(gasnet_team_handle_t team, 
                                 void *dst, void *src, 
-                                size_t nbytes, int flags, 
-                                uint32_t sequence
+                                size_t nbytes, int flags
                                 GASNETE_THREAD_FARG)
 {
   int i;
   int  nprocs = team->total_ranks;
   gasnete_dcmf_a2a_data_t * a2a;
-  gasnete_coll_team_dcmf_t *dcmf_tp = 
-    (gasnete_coll_team_dcmf_t *)team->dcmf_tp;
+  gasnete_coll_team_dcmf_t *dcmf_tp; 
+
+#ifdef G_DCMF_COLL_TRACE
+  fprintf(stderr, "gasnete_coll_exchange_dcmf is executed!\n");
+#endif
+
+  gasneti_assert(team != NULL);
+  dcmf_tp = (gasnete_coll_team_dcmf_t *)team->dcmf_tp;
+  gasneti_assert(dcmf_tp != NULL);
+
+  if (!gasnete_use_dcmf_coll 
+      || !gasnete_use_dcmf_a2a  
+      || dcmf_tp->a2a_proto == NULL) 
+  {
+      gasnet_coll_handle_t handle;
+      handle = gasnete_coll_exchange_nb_default(team,dst,src,nbytes,flags,0 GASNETE_THREAD_PASS);
+      gasnete_coll_wait_sync(handle GASNETE_THREAD_PASS);
+      return;
+  }
 
   gasneti_assert(gasnete_coll_dcmf_inited == 1);
   gasneti_assert(!(flags & GASNETE_COLL_SUBORDINATE));
-
-#ifdef G_DCMF_COLL_TRACE
-  fprintf(stderr, "gasnete_coll_exchange_nb_dcmf is executed!\n");
-#endif
-  
-#if GASNET_PAR
-  {
-    gasnet_coll_handle_t handle;
-#if G_DCMF_COLL_TRACE
-    fprintf(stderr, "PAR: gasnete_coll_exchange_nb_default is called.\n");
-#endif
-    handle = gasnete_coll_exchange_nb_default(team, dst, src, nbytes, flags,
-                                              0 GASNETE_THREAD_PASS);
-    gasnete_coll_wait_sync(handle GASNETE_THREAD_PASS);
-    return;
-  }
-#endif
-  
-  /**
-   * Check the pre-conditions of using the tours alltoallv
-   * collective. If not, use the default exchange (alltoall)
-   * implementation.
-   */
-  if(!g_dcmf_a2a_enabled[TORUS_ALLTOALLV] || nprocs < 2 
-     || !(DCMF_Geometry_analyze(&dcmf_tp->geometry, 
-                                &g_dcmf_a2a_protos[TORUS_ALLTOALLV])))
-    {
-      gasnet_coll_handle_t handle;
-#if G_DCMF_COLL_TRACE
-      fprintf(stderr, "Pre-conditions failed.  gasnete_coll_exchange_nb_default is called.\n");
-#endif
-      handle = gasnete_coll_exchange_nb_default(team, dst, src, nbytes, flags,
-                                                0 GASNETE_THREAD_PASS);
-      gasnete_coll_wait_sync(handle GASNETE_THREAD_PASS);
-      return;
-    }
   
   a2a = (gasnete_dcmf_a2a_data_t *)
     gasneti_malloc(sizeof(gasnete_dcmf_a2a_data_t));
-  gasnete_coll_dcmf_a2a_init(a2a, &g_dcmf_a2a_protos[TORUS_ALLTOALLV], 
+  gasnete_coll_dcmf_a2a_init(a2a, dcmf_tp->a2a_proto,
                              &dcmf_tp->geometry, nprocs, src, dst, nbytes);
   
   GASNETC_DCMF_LOCK();
@@ -289,7 +303,7 @@ void gasnete_coll_exchange_dcmf(gasnet_team_handle_t team,
 
   /* optional barrier for the out_allsync mode, should be a team barrier */
   if (flags & GASNET_COLL_OUT_ALLSYNC)
-      gasnetc_dcmf_bootstrapBarrier();   
+    gasnete_coll_teambarrier_dcmf(team);
   
   /* clean up storage space */
   gasnete_coll_dcmf_a2a_fini(a2a);
@@ -300,13 +314,13 @@ void  gasnete_coll_dcmf_a2a_print(FILE *fp, gasnete_dcmf_a2a_data_t * a2a,
                                   int nprocs)
 {
   fprintf(fp, "active flag %d\n", a2a->active);
-  fprintf(fp, "registration %x\n", a2a->registration);
+  fprintf(fp, "registration %p\n", a2a->registration);
   fprintf(fp, "consistency %d\n", a2a->consistency);
-  fprintf(fp, "geometry %x\n", a2a->geometry);
-  fprintf(fp, "sndbuf %x\n", a2a->sndbuf);
+  fprintf(fp, "geometry %p\n", a2a->geometry);
+  fprintf(fp, "sndbuf %p\n", a2a->sndbuf);
   PRINT_ARRAY(fp, a2a->sndlens, nprocs, "%u");
   PRINT_ARRAY(fp, a2a->sdispls, nprocs, "%u");
-  fprintf(fp, "rcvbuf %x\n",a2a->rcvbuf);
+  fprintf(fp, "rcvbuf %p\n",a2a->rcvbuf);
   PRINT_ARRAY(fp, a2a->rcvlens, nprocs, "%u");
   PRINT_ARRAY(fp, a2a->rdispls, nprocs, "%u");
   PRINT_ARRAY(fp, a2a->sndcounters, nprocs, "%u");

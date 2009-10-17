@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_coll_bcast_dcmf.c,v $
- * $Date: 2009/10/03 03:46:36 $
- * $Revision: 1.3 $
+ * $Date: 2009/10/17 00:01:07 $
+ * $Revision: 1.4 $
  * Description: GASNet broadcast implementation on DCMF
  * LBNL 2009
  */
@@ -11,14 +11,15 @@
 
 // #define G_DCMF_COLL_TRACE
 
+int gasnete_dcmf_bcast_num_colors;
+static int gasnete_use_dcmf_bcast;
+
 /* Broadcast protocol registration data */
-static DCMF_CollectiveProtocol_t g_dcmf_bcast_proto[G_DCMF_BCAST_PROTO_NUM];
-unsigned int g_dcmf_bcast_enabled[G_DCMF_BCAST_PROTO_NUM];
+static DCMF_CollectiveProtocol_t gasnete_dcmf_bcast_proto[G_DCMF_BCAST_PROTO_NUM];
+static int gasnete_dcmf_bcast_enabled[G_DCMF_BCAST_PROTO_NUM];
 
 /* Global Broadcast protocol registration data */
-static DCMF_Protocol_t g_dcmf_globalbcast_proto; 
-
-gasnete_dcmf_bcast_kind_t g_dcmf_bcast_kind_default;
+static DCMF_Protocol_t gasnete_dcmf_globalbcast_proto; 
 
 void gasnete_coll_bcast_proto_register(void)
 {
@@ -29,75 +30,109 @@ void gasnete_coll_bcast_proto_register(void)
 
   GASNETC_DCMF_LOCK(); /* for DCMF_SAFE */
   
+  gasnete_use_dcmf_bcast =
+    gasneti_getenv_yesno_withdefault("GASNET_USE_DCMF_BCAST", 1);
+
   /* tree broadcast registration */
-  g_dcmf_bcast_enabled[TREE_BROADCAST] =
+  gasnete_dcmf_bcast_enabled[TREE_BROADCAST] =
     gasneti_getenv_yesno_withdefault("GASNET_DCMF_TREE_BROADCAST", 1);
-  if (g_dcmf_bcast_enabled[TREE_BROADCAST]) 
+  if (gasnete_dcmf_bcast_enabled[TREE_BROADCAST]) 
     {
       gbcast_conf.protocol = DCMF_TREE_GLOBALBCAST_PROTOCOL;
-      DCMF_SAFE(DCMF_GlobalBcast_register(&g_dcmf_globalbcast_proto, 
+      DCMF_SAFE(DCMF_GlobalBcast_register(&gasnete_dcmf_globalbcast_proto, 
                                           &gbcast_conf));
       bcast_conf.protocol = DCMF_TREE_BROADCAST_PROTOCOL;
-      DCMF_SAFE(DCMF_Broadcast_register(&g_dcmf_bcast_proto[TREE_BROADCAST], 
+      DCMF_SAFE(DCMF_Broadcast_register(&gasnete_dcmf_bcast_proto[TREE_BROADCAST], 
                                         &bcast_conf));
     }
   
   /* torus broadcast registration */
-  g_dcmf_bcast_enabled[TORUS_RECTANGLE_BROADCAST] =
+  gasnete_dcmf_bcast_enabled[TORUS_RECTANGLE_BROADCAST] =
     gasneti_getenv_yesno_withdefault("GASNET_DCMF_TORUS_RECTANGLE_BROADCAST", 1);
-  if (g_dcmf_bcast_enabled[TORUS_RECTANGLE_BROADCAST]) 
+  if (gasnete_dcmf_bcast_enabled[TORUS_RECTANGLE_BROADCAST]) 
     {
       bcast_conf.protocol = DCMF_TORUS_RECTANGLE_BROADCAST_PROTOCOL;
-      DCMF_SAFE(DCMF_Broadcast_register(&g_dcmf_bcast_proto[TORUS_RECTANGLE_BROADCAST],
+      DCMF_SAFE(DCMF_Broadcast_register(&gasnete_dcmf_bcast_proto[TORUS_RECTANGLE_BROADCAST],
                                         &bcast_conf));
     }
   
-  g_dcmf_bcast_enabled[TORUS_BINOMIAL_BROADCAST] =
+  gasnete_dcmf_bcast_enabled[TORUS_BINOMIAL_BROADCAST] =
     gasneti_getenv_yesno_withdefault("GASNET_DCMF_TORUS_BINOMIAL_BROADCAST", 1);
-  if (g_dcmf_bcast_enabled[TORUS_BINOMIAL_BROADCAST])
+  if (gasnete_dcmf_bcast_enabled[TORUS_BINOMIAL_BROADCAST])
     {
       bcast_conf.protocol = DCMF_TORUS_BINOMIAL_BROADCAST_PROTOCOL;
-      DCMF_SAFE(DCMF_Broadcast_register(&g_dcmf_bcast_proto[TORUS_BINOMIAL_BROADCAST],
+      DCMF_SAFE(DCMF_Broadcast_register(&gasnete_dcmf_bcast_proto[TORUS_BINOMIAL_BROADCAST],
                                         &bcast_conf));
     }
   
   /* asynchronous broadcast registration */
-  g_dcmf_bcast_enabled[TORUS_ASYNCBROADCAST_RECTANGLE] =
+  gasnete_dcmf_bcast_enabled[TORUS_ASYNCBROADCAST_RECTANGLE] =
     gasneti_getenv_yesno_withdefault("GASNET_DCMF_TORUS_ASYNCBROADCAST_RECTANGLE_BROADCAST", 1);
-  if (g_dcmf_bcast_enabled[TORUS_ASYNCBROADCAST_RECTANGLE])
+  if (gasnete_dcmf_bcast_enabled[TORUS_ASYNCBROADCAST_RECTANGLE])
     {
       a_bcast_conf.protocol = DCMF_TORUS_ASYNCBROADCAST_RECTANGLE_PROTOCOL;
       a_bcast_conf.isBuffered = 1;
       a_bcast_conf.cb_geometry = gasnete_dcmf_get_geometry;
-      DCMF_SAFE(DCMF_AsyncBroadcast_register(&g_dcmf_bcast_proto[TORUS_ASYNCBROADCAST_RECTANGLE],
+      DCMF_SAFE(DCMF_AsyncBroadcast_register(&gasnete_dcmf_bcast_proto[TORUS_ASYNCBROADCAST_RECTANGLE],
                                              &a_bcast_conf));
     }
 
-  g_dcmf_bcast_enabled[TORUS_ASYNCBROADCAST_BINOMIAL] =
+  gasnete_dcmf_bcast_enabled[TORUS_ASYNCBROADCAST_BINOMIAL] =
     gasneti_getenv_yesno_withdefault("GASNET_DCMF_TORUS_ASYNCBROADCAST_BINOMIAL_BROADCAST", 1);
-  if (g_dcmf_bcast_enabled[TORUS_ASYNCBROADCAST_BINOMIAL])
+  if (gasnete_dcmf_bcast_enabled[TORUS_ASYNCBROADCAST_BINOMIAL])
     {
       a_bcast_conf.protocol = DCMF_TORUS_ASYNCBROADCAST_BINOMIAL_PROTOCOL;
       a_bcast_conf.isBuffered = 1;
       a_bcast_conf.cb_geometry = gasnete_dcmf_get_geometry;
-      DCMF_SAFE(DCMF_AsyncBroadcast_register(&g_dcmf_bcast_proto[TORUS_ASYNCBROADCAST_BINOMIAL],
+      DCMF_SAFE(DCMF_AsyncBroadcast_register(&gasnete_dcmf_bcast_proto[TORUS_ASYNCBROADCAST_BINOMIAL],
                                              &a_bcast_conf));
     }
 
-  /* select a default broadcast algorithm */
-  tmp_str = gasneti_getenv("GASNET_DCMF_BCAST_PROTO");
+  /* number of bcast streams used in the torus rectangle bcast */
+  tmp_str = gasneti_getenv("GASNET_DCMF_BCAST_NUM_COLORS");
   if (tmp_str == NULL)
-    g_dcmf_bcast_kind_default = TORUS_BINOMIAL_BROADCAST;
-  else if (!strcmp(tmp_str, "TREE_BROADCAST"))
-    g_dcmf_bcast_kind_default = TREE_BROADCAST; 
-  else if (!strcmp(tmp_str, "TORUS_RECTANGLE_BROADCAST"))
-    g_dcmf_bcast_kind_default = TORUS_RECTANGLE_BROADCAST;
-  else if (!strcmp(tmp_str, "TORUS_BINOMIAL_BROADCAST"))
-    g_dcmf_bcast_kind_default = TORUS_BINOMIAL_BROADCAST;
-  else /* default protocol */
-    g_dcmf_bcast_kind_default = TORUS_BINOMIAL_BROADCAST;
-
+    gasnete_dcmf_bcast_num_colors = 3;
+  else
+    {  
+      gasnete_dcmf_bcast_num_colors = atoi(tmp_str);
+      if (gasnete_dcmf_bcast_num_colors < 1 || gasnete_dcmf_bcast_num_colors > 6)
+        gasnete_dcmf_bcast_num_colors = 3;
+    }
+  
   GASNETC_DCMF_UNLOCK(); 
+}
+
+int gasnete_coll_bcast_set_proto(gasnet_team_handle_t team,
+                                 gasnete_dcmf_bcast_kind_t kind)
+{
+  gasnete_coll_team_dcmf_t *dcmf_tp;
+  
+  gasneti_assert(team != NULL);
+  dcmf_tp = (gasnete_coll_team_dcmf_t *)team->dcmf_tp;
+  gasneti_assert(dcmf_tp != NULL);
+
+  if (DCMF_Geometry_analyze(&dcmf_tp->geometry, 
+                            &gasnete_dcmf_bcast_proto[kind])
+      && kind < G_DCMF_BCAST_PROTO_NUM 
+      && (!gasnete_dcmf_bcast_enabled[kind]))
+    {
+      dcmf_tp->bcast_proto = &gasnete_dcmf_bcast_proto[kind];
+      return 0; /* SUCCESS */
+    }
+  return 1; /* FAILED */
+}
+
+void gasnete_coll_bcast_set_default_proto(gasnet_team_handle_t team)
+{
+  gasnete_coll_team_dcmf_t *dcmf_tp;
+  
+  gasneti_assert(team != NULL);
+  dcmf_tp = (gasnete_coll_team_dcmf_t *)team->dcmf_tp;
+  gasneti_assert(dcmf_tp != NULL);
+
+  if (gasnete_coll_bcast_set_proto(team, TORUS_RECTANGLE_BROADCAST))
+    if (gasnete_coll_bcast_set_proto(team, TORUS_BINOMIAL_BROADCAST))
+      dcmf_tp->bcast_proto = NULL;
 }
 
 static void gasnete_dcmf_bcast_cb_done(void *clientdata, DCMF_Error_t *e)
@@ -108,7 +143,6 @@ static void gasnete_dcmf_bcast_cb_done(void *clientdata, DCMF_Error_t *e)
 
 static void gasnete_coll_dcmf_bcast_init(gasnete_dcmf_bcast_data_t *bcast,
                                          gasnet_team_handle_t team,
-                                         gasnete_dcmf_bcast_kind_t kind,
                                          DCMF_Geometry_t *geometry,
                                          unsigned root,
                                          char *src,
@@ -119,7 +153,6 @@ static void gasnete_coll_dcmf_bcast_init(gasnete_dcmf_bcast_data_t *bcast,
   fprintf(stderr, "gasnete_coll_dcmf_bcast_init is executed.\n");
 #endif
   bcast->team = team;
-  bcast->kind = kind;
   bcast->geometry = geometry;
   bcast->cb_done.function = gasnete_dcmf_bcast_cb_done;
   bcast->cb_done.clientdata = (void *)&bcast->active;
@@ -134,32 +167,39 @@ static void gasnete_coll_dcmf_bcast_init(gasnete_dcmf_bcast_data_t *bcast,
 /* This function should be called by only one thread at a time. */
 static int gasnete_coll_pf_bcast_dcmf(gasnete_coll_op_t *op GASNETE_THREAD_FARG) 
 {
-  gasnete_coll_generic_data_t *data = op->data;
-  gasnet_team_handle_t team = op->team;
-  gasnete_dcmf_bcast_data_t *bcast = (gasnete_dcmf_bcast_data_t *)data->private_data;
-  static unsigned dcmf_busy=0; /* only 1 DCMF collective op can be in flight */
-
+  gasnete_coll_generic_data_t *data;
+  gasnet_team_handle_t team;
+  gasnete_dcmf_bcast_data_t *bcast;
+  gasnete_coll_team_dcmf_t *dcmf_tp;  
+  
 #ifdef G_DCMF_COLL_TRACE
   fprintf(stderr, "gasnete_coll_pf_bcast_dcmf is executed.\n");
 #endif
-
+  
+  gasneti_assert(op != NULL);
+  team = op->team; 
+  gasneti_assert(team != NULL);
+  dcmf_tp = (gasnete_coll_team_dcmf_t *)team->dcmf_tp;
+  data = op->data;
+  gasneti_assert(data != NULL);
+  bcast = (gasnete_dcmf_bcast_data_t *)data->private_data;
+  gasneti_assert(bcast != NULL);
+  
   switch (data->state) {
   case 0:	
     /* DCMF_Broadcast has an explicit barrier for all processes at the
      * beginning.
      */
-    /* if (!gasnete_coll_generic_all_threads(data)) */
-    /*                 break; */
-    if (dcmf_busy)
+    if (gasnete_dcmf_busy)
       break;
     data->state = 1;
     
   case 1:	/* Initiate data movement */
-    dcmf_busy = 1;  
-    if (bcast->kind==TREE_BROADCAST && team==GASNET_TEAM_ALL)
+    gasnete_dcmf_busy = 1;  
+    if (gasnete_dcmf_bcast_enabled[TREE_BROADCAST] && team==GASNET_TEAM_ALL)
       {
         GASNETC_DCMF_LOCK();
-        DCMF_SAFE(DCMF_GlobalBcast(&g_dcmf_globalbcast_proto,
+        DCMF_SAFE(DCMF_GlobalBcast(&gasnete_dcmf_globalbcast_proto,
                                    &bcast->request.global, 
                                    bcast->cb_done,
                                    DCMF_MATCH_CONSISTENCY,
@@ -171,7 +211,7 @@ static int gasnete_coll_pf_bcast_dcmf(gasnete_coll_op_t *op GASNETE_THREAD_FARG)
     else
       {
         GASNETC_DCMF_LOCK();
-        DCMF_SAFE(DCMF_Broadcast(&g_dcmf_bcast_proto[bcast->kind], 
+        DCMF_SAFE(DCMF_Broadcast(dcmf_tp->bcast_proto,
                                  &bcast->request.coll, 
                                  bcast->cb_done,
                                  bcast->consistency,
@@ -184,9 +224,10 @@ static int gasnete_coll_pf_bcast_dcmf(gasnete_coll_op_t *op GASNETE_THREAD_FARG)
     data->state = 2;
     
   case 2:	/* Sync data movement */
+    DCMF_Messager_advance();
     if (bcast->active)
       break;
-    dcmf_busy = 0;
+    gasnete_dcmf_busy = 0;
     data->state = 3;
     
   case 3: 
@@ -209,67 +250,42 @@ static int gasnete_coll_pf_bcast_dcmf(gasnete_coll_op_t *op GASNETE_THREAD_FARG)
   return 0;
 }
 
-gasnet_coll_handle_t gasnete_coll_bcast_nb_dcmf(gasnet_team_handle_t team,
-                                                void * dst,
-                                                gasnet_image_t srcimage, 
-                                                void *src,
-                                                size_t nbytes, 
-                                                int flags,
-                                                uint32_t sequence,
-                                                gasnete_dcmf_bcast_kind_t kind
-                                                GASNETE_THREAD_FARG)
-
+gasnet_coll_handle_t 
+gasnete_coll_broadcast_nb_dcmf(gasnet_team_handle_t team,
+                               void * dst,
+                               gasnet_image_t srcimage, 
+                               void *src,
+                               size_t nbytes, 
+                               int flags,
+                               /* gasnete_coll_implementation_t coll_params, */
+                               uint32_t sequence
+                               GASNETE_THREAD_FARG)
 {
   gasnete_dcmf_bcast_data_t *bcast;
-  gasnete_coll_team_dcmf_t *dcmf_tp = (gasnete_coll_team_dcmf_t *)team->dcmf_tp;
-  const unsigned root  = gasnete_coll_image_node(team, srcimage);
+  gasnete_coll_team_dcmf_t *dcmf_tp;
+  uint32_t root;
   gasnete_coll_generic_data_t *data;
-    
-#ifdef G_DCMF_COLL_TRACE
-  fprintf(stderr, "gasnete_coll_bcast_nb_dcmf is executed. kind: %u\n",
-          kind);
-#endif
 
   gasneti_assert(team != NULL);
+  dcmf_tp = (gasnete_coll_team_dcmf_t *)team->dcmf_tp;
   gasneti_assert(dcmf_tp != NULL);
+  
+  if (!gasnete_use_dcmf_coll 
+      || !gasnete_use_dcmf_bcast
+      || (dcmf_tp->bcast_proto == NULL 
+          && !(team == GASNET_TEAM_ALL && gasnete_dcmf_bcast_enabled[TREE_BROADCAST]))) {
+    return gasnete_coll_broadcast_nb_default(team, dst, srcimage, src, nbytes, 
+                                             flags, sequence GASNETE_THREAD_PASS); 
+  }
+
+#ifdef G_DCMF_COLL_TRACE
+  fprintf(stderr, "gasnete_coll_broadcast_nb_dcmf is executed\n");
+#endif
+
   gasneti_assert(gasnete_coll_dcmf_inited == 1);
   gasneti_assert(!(flags & GASNETE_COLL_SUBORDINATE));
-  switch(kind)
-    {
-    case TREE_BROADCAST:
-      if (team != GASNET_TEAM_ALL)
-        gasneti_fatalerror("Tree broadcast protocol must be used with GASNET_TEAM_ALL!\n");
-    case TORUS_RECTANGLE_BROADCAST:
-    case TORUS_BINOMIAL_BROADCAST:
-      break;
-    default:
-      gasneti_fatalerror("kind (%d) is an invalid broadcast protocol!\n",
-                         kind);
-    }
   
-  /* Check the pre-conditions of using the broadcast collective.  If
-   * not, use the default broadcast implementation when available.
-   */
-  if(!g_dcmf_bcast_enabled[kind])
-    {
-#ifdef G_DCMF_COLL_TRACE
-      fprintf(stderr,"g_dcmf_bcast_enabled[%d] = %u\n", 
-              kind, g_dcmf_bcast_enabled[kind]);
-#endif
-      gasneti_fatalerror("The DCMF broadcast protocol (%d) is not enabled!\n.",
-                         kind);
-    }  
-  
-  if (!DCMF_Geometry_analyze(&dcmf_tp->geometry, &g_dcmf_bcast_proto[kind]))
-    {
-      gasneti_fatalerror("The DCMF broadcast protocol (%d) is not supported on the calling team!\n.",
-                         kind);
-      // gasneti_fatalerror("gasnete_coll_broadcast_nb_default is called but it doesn't work!\n");
-      /*       return gasnete_coll_broadcast_nb_default(team, dst, srcimage, src,  */
-      /*                                                nbytes, flags, sequence */
-      /*                                                GASNETE_THREAD_PASS); */
-    }
-          
+  root = gasnete_coll_image_node(team, srcimage);
   data = gasnete_coll_generic_alloc(GASNETE_THREAD_PASS_ALONE);
   gasneti_assert(data != NULL);
   GASNETE_COLL_GENERIC_SET_TAG(data, broadcast);
@@ -277,8 +293,7 @@ gasnet_coll_handle_t gasnete_coll_bcast_nb_dcmf(gasnet_team_handle_t team,
   
   /* initialize DCMF specific data structures */
   bcast = (gasnete_dcmf_bcast_data_t *)gasneti_malloc(sizeof(gasnete_dcmf_bcast_data_t));
-  gasnete_coll_dcmf_bcast_init(bcast, team, kind, &dcmf_tp->geometry,
-                               root, src, dst, nbytes);
+  gasnete_coll_dcmf_bcast_init(bcast, team, &dcmf_tp->geometry, root, src, dst, nbytes);
   data->private_data = bcast;
   
 #ifdef G_DCMF_COLL_TRACE
@@ -291,90 +306,48 @@ gasnet_coll_handle_t gasnete_coll_bcast_nb_dcmf(gasnet_team_handle_t team,
                                                    GASNETE_THREAD_PASS);
 }
 
-gasnet_coll_handle_t 
-gasnete_coll_broadcast_nb_dcmf(gasnet_team_handle_t team,
-                               void * dst,
-                               gasnet_image_t srcimage, 
-                               void *src,
-                               size_t nbytes, 
-                               int flags,
-                               /* gasnete_coll_implementation_t coll_params, */
-                               uint32_t sequence
-                               GASNETE_THREAD_FARG)
+void gasnete_coll_broadcast_dcmf(gasnet_team_handle_t team, void *dst,
+                                 gasnet_image_t srcimage, void *src,
+                                 size_t nbytes, int flags GASNETE_THREAD_FARG)
 {
-  gasnete_coll_team_dcmf_t *dcmf_tp = (gasnete_coll_team_dcmf_t *)team->dcmf_tp;
-  gasnete_dcmf_bcast_kind_t kind = g_dcmf_bcast_kind_default;
-  
-  /* check if the prefered broadcast protocol is available, 
-     if not then use the default protocol */
-  if (!g_dcmf_bcast_enabled[kind] 
-      || !(DCMF_Geometry_analyze(&dcmf_tp->geometry, 
-                                 &g_dcmf_bcast_proto[kind])))
-    {
-      kind = TORUS_BINOMIAL_BROADCAST;
-      gasneti_assert(g_dcmf_bcast_enabled[kind]);
-      gasneti_assert(DCMF_Geometry_analyze(&dcmf_tp->geometry, 
-                                           &g_dcmf_bcast_proto[kind]));
-    }
-  
-#ifdef G_DCMF_COLL_TRACE
-  fprintf(stderr, "gasnete_coll_bcast_dcmf_default: kind =%d\n", kind);
-#endif
-  
-  return  gasnete_coll_bcast_nb_dcmf(team, dst, srcimage, src, nbytes, flags, 
-                                     sequence, kind GASNETE_THREAD_PASS);
-}
-
-void gasnete_coll_bcast_dcmf(gasnet_team_handle_t team, void *dst,
-                             gasnet_image_t srcimage, void *src,
-                             size_t nbytes, int flags,
-                             gasnete_dcmf_bcast_kind_t kind
-                             GASNETE_THREAD_FARG)
-{
-  gasnete_coll_team_dcmf_t *dcmf_tp = (gasnete_coll_team_dcmf_t *)team->dcmf_tp;
+  gasnete_coll_team_dcmf_t *dcmf_tp;
   const unsigned root = gasnete_coll_image_node(team, srcimage);
   DCMF_Callback_t cb_done;
   volatile unsigned active;
-    
+
   gasneti_assert(team != NULL);
+  dcmf_tp = (gasnete_coll_team_dcmf_t *)team->dcmf_tp;
+  gasneti_assert(dcmf_tp != NULL);
+  
+  if (!gasnete_use_dcmf_coll
+      || !gasnete_use_dcmf_bcast
+      || (dcmf_tp->bcast_proto == NULL 
+          && !(team == GASNET_TEAM_ALL && gasnete_dcmf_bcast_enabled[TREE_BROADCAST]))) {
+      gasnet_coll_handle_t handle;
+      handle=gasnete_coll_broadcast_nb_default(team, dst, srcimage, src, nbytes,
+                                               flags, 0 GASNETE_THREAD_PASS);
+      gasnete_coll_wait_sync(handle GASNETE_THREAD_PASS);
+    return;
+  }
+    
   gasneti_assert(gasnete_coll_dcmf_inited == 1);
   gasneti_assert(!(flags & GASNETE_COLL_SUBORDINATE));
   
 #ifdef G_DCMF_COLL_TRACE
-  fprintf(stderr, "rank %d, gasnete_coll_broadcast_dcmf is executed. kind: %u\n",
-          team->myrank, kind);
+  fprintf(stderr, "rank %d, gasnete_coll_broadcast_dcmf is executed.\n",
+          team->myrank);
 #endif
   
-  switch(kind)
-    {
-    case TREE_BROADCAST:
-      if (team != GASNET_TEAM_ALL)
-        gasneti_fatalerror("Tree broadcast protocol must be used with GASNET_TEAM_ALL!\n");
-
-    case TORUS_RECTANGLE_BROADCAST:
-    case TORUS_BINOMIAL_BROADCAST:
-      break;
-    default:
-      gasneti_fatalerror("kind (%d) is an invalid broadcast protocol!\n",
-                         kind);
-    }
-  
-  if(!g_dcmf_bcast_enabled[kind])
-    gasneti_fatalerror("The broadcast type (%d) is not enabled at startup!\n",
-                       kind);
-  
-
   active = 1;
   cb_done.function = gasnete_dcmf_bcast_cb_done;
   cb_done.clientdata = (void *)&active;
   
-  if (kind==TREE_BROADCAST && team==GASNET_TEAM_ALL)
+  if (gasnete_dcmf_bcast_enabled[TREE_BROADCAST] && team==GASNET_TEAM_ALL)
     {
       DCMF_Request_t  request;
       
-      /* Is is really necessary to lock ? */
       GASNETC_DCMF_LOCK();
-      DCMF_SAFE(DCMF_GlobalBcast(&g_dcmf_globalbcast_proto,
+      DCMF_SAFE(DCMF_GlobalBcast(&gasnete_dcmf_globalbcast_proto,
                                  &request, 
                                  cb_done,
                                  DCMF_MATCH_CONSISTENCY,
@@ -391,13 +364,9 @@ void gasnete_coll_bcast_dcmf(gasnet_team_handle_t team, void *dst,
     {
       DCMF_CollectiveRequest_t   request;
       
-      if (!DCMF_Geometry_analyze(&dcmf_tp->geometry, &g_dcmf_bcast_proto[kind]))
-        gasneti_fatalerror("The current team (geometry) doesn't support the broadcast type %d!\n",
-                           kind);
-      
       /* Is is really necessary to lock ? */
       GASNETC_DCMF_LOCK();
-      DCMF_Broadcast(&g_dcmf_bcast_proto[kind],
+      DCMF_Broadcast(dcmf_tp->bcast_proto,
                      &request,
                      cb_done,
                      DCMF_MATCH_CONSISTENCY,
@@ -417,41 +386,12 @@ void gasnete_coll_bcast_dcmf(gasnet_team_handle_t team, void *dst,
 
   /* optional barrier for the out_allsync mode, should be a team barrier */
   if (flags & GASNET_COLL_OUT_ALLSYNC)
-    gasnetc_dcmf_bootstrapBarrier();
-}
-
-void gasnete_coll_broadcast_dcmf(gasnet_team_handle_t team, void *dst,
-                                 gasnet_image_t srcimage, void *src,
-                                 size_t nbytes, int flags GASNETE_THREAD_FARG)
-{
-  gasnete_coll_team_dcmf_t *dcmf_tp = (gasnete_coll_team_dcmf_t *)team->dcmf_tp;
-  gasnete_dcmf_bcast_kind_t kind = g_dcmf_bcast_kind_default;;
-  
-  /* check if the prefered broadcast protocol is available, 
-     if not then use the default protocol */
-  if (!g_dcmf_bcast_enabled[kind] 
-      || !(DCMF_Geometry_analyze(&dcmf_tp->geometry, 
-                                 &g_dcmf_bcast_proto[kind])))
-    {
-      kind = TORUS_BINOMIAL_BROADCAST;
-      gasneti_assert(g_dcmf_bcast_enabled[kind]);
-      gasneti_assert(DCMF_Geometry_analyze(&dcmf_tp->geometry, 
-                                           &g_dcmf_bcast_proto[kind]));
-    }
-  
-#ifdef G_DCMF_COLL_TRACE
-  fprintf(stderr, "gasnete_coll_broadcast_dcmf: kind =%d\n", kind);
-#endif
-  
-  gasnete_coll_bcast_dcmf(team, dst, srcimage, src, nbytes, flags, kind 
-                          GASNETE_THREAD_PASS);
+    gasnete_coll_teambarrier_dcmf(team);
 }
 
 void gasnete_coll_dcmf_bcast_print(FILE *fp, gasnete_dcmf_bcast_data_t *bcast)
 {
   gasneti_assert(bcast != NULL);
-  fprintf(stderr, "%d, bcast->kind %d\n", 
-          bcast->team->myrank, bcast->kind);
   fprintf(stderr, "%d, bcast->root %u\n", bcast->team->myrank, bcast->root);
   fprintf(stderr, "%d, bcast->src %p\n", bcast->team->myrank, bcast->src);
   fprintf(stderr, "%d, bcast->bytes %d\n", bcast->team->myrank, bcast->bytes);

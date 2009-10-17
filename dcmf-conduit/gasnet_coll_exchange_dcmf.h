@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_coll_exchange_dcmf.h,v $
- * $Date: 2009/10/03 03:46:36 $
- * $Revision: 1.3 $
+ * $Date: 2009/10/17 00:01:07 $
+ * $Revision: 1.4 $
  * Description: GASNet exchange (alltoall) implementation for DCMF
  * LBNL 2009
  */
@@ -57,12 +57,21 @@ gasnet_coll_handle_t gasnete_coll_exchange_nb_dcmf(gasnet_team_handle_t team,
                                                    uint32_t sequence
                                                    GASNETE_THREAD_FARG);
 
-
 /** Blocking version of gasnete_coll_exchange */
 void gasnete_coll_exchange_dcmf(gasnet_team_handle_t team, 
                                 void *dst, void *src, 
-                                size_t nbytes, int flags, 
-                                uint32_t sequence
+                                size_t nbytes, int flags
                                 GASNETE_THREAD_FARG);
+
+/**
+ * Set the DCMF all2all (exchange) protocol used by the team.
+ */
+int gasnete_coll_a2a_set_proto(gasnet_team_handle_t team,
+                               gasnete_dcmf_a2a_proto_t kind);
+
+/**
+ * Set the default DCMF all2all (exchange) protocol used by the team.
+ */
+void gasnete_coll_a2a_set_default_proto(gasnet_team_handle_t team);
 
 #endif /* GASNET_COLL_EXCHANGE_DCMF_H_ */

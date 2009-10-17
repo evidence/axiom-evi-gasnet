@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_coll_bcast_dcmf.h,v $
- * $Date: 2009/10/03 03:46:36 $
- * $Revision: 1.3 $
+ * $Date: 2009/10/17 00:01:07 $
+ * $Revision: 1.4 $
  * Description: GASNet broadcast implementation on DCMF
  * LBNL 2009
  */
@@ -19,6 +19,7 @@ typedef enum {
   TORUS_BINOMIAL_BROADCAST,
   TORUS_ASYNCBROADCAST_RECTANGLE,
   TORUS_ASYNCBROADCAST_BINOMIAL,
+  GASNET_DEFAULT_BROADCAST,
   G_DCMF_BCAST_PROTO_NUM 
 } gasnete_dcmf_bcast_kind_t;
 
@@ -38,19 +39,18 @@ typedef struct {
   char *dst;
   unsigned bytes;
   volatile unsigned active;
-  gasnete_dcmf_bcast_kind_t kind;
   gasnet_team_handle_t team;
 } gasnete_dcmf_bcast_data_t;
 
 /** 
- * Register broadcast protocols.  It should be done before calling any
- * gasnet dcmf broacast function.
+ * Register broadcast protocols.  It should be done before calling any gasnet
+ * dcmf broacast function.
  */
 void gasnete_coll_bcast_proto_register(void);
 
 /**
- * Wrapper of gasnete_coll_bcast_dcmf_nb for the default gasnet
- * broadcast function.
+ * Non-Blocking version of broadcast, which overloads the default gasnet
+ * broadcast_nb function.
  */
 gasnet_coll_handle_t 
 gasnete_coll_broadcast_nb_dcmf(gasnet_team_handle_t team,
@@ -59,25 +59,12 @@ gasnete_coll_broadcast_nb_dcmf(gasnet_team_handle_t team,
                                void *src,
                                size_t nbytes, 
                                int flags,
-                               /* gasnete_coll_implementation_t coll_params, */
                                uint32_t sequence
                                GASNETE_THREAD_FARG);
 
 /**
- * Non-Blocking version of broadcast, which provides better latency.
- */
-gasnet_coll_handle_t 
-gasnete_coll_bcast_nb_dcmf(gasnet_team_handle_t team,
-                           void *dst,
-                           gasnet_image_t srcimage, 
-                           void *src,
-                           size_t nbytes, int flags,
-                           uint32_t sequence,
-                           gasnete_dcmf_bcast_kind_t bcast_proto
-                           GASNETE_THREAD_FARG);
-
-/**
- * Wrapper of gasnete_coll_bcast_dcmf for the default gasnet broadcast function
+ * Blocking version of broadcast, which overloads the default gasnet broadcast
+ * function.
  */
 void gasnete_coll_broadcast_dcmf(gasnet_team_handle_t team,
                                  void *dst,
@@ -85,23 +72,25 @@ void gasnete_coll_broadcast_dcmf(gasnet_team_handle_t team,
                                  size_t nbytes, int flags GASNETE_THREAD_FARG);
 
 /**
- * Blocking version of broadcast, which provides better latency.
+ * Set the DCMF broadcast protocol used by the team.
  */
-void gasnete_coll_bcast_dcmf(gasnet_team_handle_t team, void *dst,
-                             gasnet_image_t srcimage, void *src,
-                             size_t nbytes, int flags,
-                             gasnete_dcmf_bcast_kind_t kind
-                             GASNETE_THREAD_FARG);
-
-
+int gasnete_coll_bcast_set_proto(gasnet_team_handle_t team,
+                                 gasnete_dcmf_bcast_kind_t kind);
 
 /**
- * print out the internal information about the broadcast operation 
+ * Set the default DCMF broadcast protocol used by the team.
+ */
+void gasnete_coll_bcast_set_default_proto(gasnet_team_handle_t team);
+
+/**
+ * print out the internal information about the broadcast operation.
  */
 void gasnete_coll_dcmf_bcast_print(FILE *fp, gasnete_dcmf_bcast_data_t *bcast);
 
-extern enum gasnete_coll_proto_dcmf_t gasnet_dcmf_bcast_proto;
-
-extern unsigned int g_dcmf_bcast_enabled[G_DCMF_BCAST_PROTO_NUM];
+/* 
+ * number of streams used in the torus rectangular broadcast, minimum is 1,
+ * maximum is 3 for mesh and 6 for torus. 
+ */
+extern int gasnete_dcmf_bcast_num_colors;
 
 #endif /* GASNET_COLL_BCAST_DCMF_H_ */

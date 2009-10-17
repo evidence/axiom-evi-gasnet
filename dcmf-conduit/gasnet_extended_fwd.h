@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_extended_fwd.h,v $
- *     $Date: 2009/10/03 03:46:36 $
- * $Revision: 1.4 $
+ *     $Date: 2009/10/17 00:01:07 $
+ * $Revision: 1.5 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
  *                 Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -48,15 +48,20 @@ extern int gasnete_dcmfbarrier_fast;
 
 /* conduit specific collective functions overiding the default
    reference implementation in gasnet/extended-ref */
+#ifndef GASNET_NO_DCMF_COLL
+#if GASNET_SEQ  
 #define gasnete_coll_init_conduit gasnete_coll_init_dcmf
 #define gasnete_coll_team_init_conduit gasnete_coll_team_init_dcmf
 #define gasnete_coll_team_fini_conduit gasnete_coll_team_fini_dcmf
 #define gasnete_coll_exchange_nb gasnete_coll_exchange_nb_dcmf
+#define gasnete_coll_exchange gasnete_coll_exchange_dcmf
 #define gasnete_coll_broadcast_nb gasnete_coll_broadcast_nb_dcmf
 #define gasnete_coll_broadcast gasnete_coll_broadcast_dcmf
 #define gasnete_coll_teambarrier gasnete_coll_teambarrier_dcmf
 #define gasnete_coll_teambarrier_notify gasnete_coll_teambarrier_notify_dcmf
 #define gasnete_coll_teambarrier_wait gasnete_coll_teambarrier_wait_dcmf
+#endif /* #if GASNET_SEQ */
+#endif /* #ifndef GASNET_NO_DCMF_COLL */
 
 extern void gasnete_coll_init_dcmf(void);
 #define GASNETE_COLL_TEAM_CONDUIT_DECLS \
