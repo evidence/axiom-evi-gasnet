@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2009/09/21 01:13:00 $
- * $Revision: 1.244 $
+ *     $Date: 2009/10/19 02:13:05 $
+ * $Revision: 1.245 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -816,6 +816,7 @@ void gasnetc_dump_cqs(gasnetc_wc_t *comp, gasnetc_hca_t *hca, const int is_snd))
   gasnetc_wc_status_t status = GASNETC_WC_SUCCESS;
   int count = 0;
   const char *label;
+  int max_other_cq;
 
   gasnet_hsl_lock(&lock);
 
@@ -829,9 +830,11 @@ void gasnetc_dump_cqs(gasnetc_wc_t *comp, gasnetc_hca_t *hca, const int is_snd))
       fprintf(stderr, "@ %d> snd status=%d opcode=%d dst_node=%d dst_qp=%d\n", gasneti_mynode, comp->status, comp->opcode, (int)node, qpi-1);
     }
     label = "rcv";
+    max_other_cq = hca->qps * 2 * gasnetc_am_oust_pp * (gasneti_nodes - 1);
   } else {
     fprintf(stderr, "@ %d> rcv comp->status=%d\n", gasneti_mynode, comp->status);
     label = "snd";
+    max_other_cq = hca->qps * gasnetc_op_oust_pp;
   }
 
   do { /* Drain the other CQ */
@@ -866,7 +869,10 @@ void gasnetc_dump_cqs(gasnetc_wc_t *comp, gasnetc_hca_t *hca, const int is_snd))
       count = 1;
       status = comp->status;
     }
-  } while (status != -1);
+  } while ((status != -1) && (count <= max_other_cq));
+  if (count > max_other_cq) {
+    fprintf(stderr, "@ %d> - %s CQ contains impossibly large WCE count with status %d\n", gasneti_mynode, label, status);
+  }
   gasnet_hsl_unlock(&lock);
 }
 
