@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_coll_bcast_dcmf.c,v $
- * $Date: 2009/10/17 00:01:07 $
- * $Revision: 1.4 $
+ * $Date: 2009/10/20 23:41:58 $
+ * $Revision: 1.5 $
  * Description: GASNet broadcast implementation on DCMF
  * LBNL 2009
  */
@@ -9,7 +9,7 @@
 
 #include <gasnet_coll_bcast_dcmf.h>
 
-// #define G_DCMF_COLL_TRACE
+/* #define G_DCMF_COLL_TRACE */
 
 int gasnete_dcmf_bcast_num_colors;
 static int gasnete_use_dcmf_bcast;
@@ -91,12 +91,12 @@ void gasnete_coll_bcast_proto_register(void)
   /* number of bcast streams used in the torus rectangle bcast */
   tmp_str = gasneti_getenv("GASNET_DCMF_BCAST_NUM_COLORS");
   if (tmp_str == NULL)
-    gasnete_dcmf_bcast_num_colors = 3;
+    gasnete_dcmf_bcast_num_colors = 1;
   else
     {  
       gasnete_dcmf_bcast_num_colors = atoi(tmp_str);
       if (gasnete_dcmf_bcast_num_colors < 1 || gasnete_dcmf_bcast_num_colors > 6)
-        gasnete_dcmf_bcast_num_colors = 3;
+        gasnete_dcmf_bcast_num_colors = 1;
     }
   
   GASNETC_DCMF_UNLOCK(); 
@@ -111,10 +111,9 @@ int gasnete_coll_bcast_set_proto(gasnet_team_handle_t team,
   dcmf_tp = (gasnete_coll_team_dcmf_t *)team->dcmf_tp;
   gasneti_assert(dcmf_tp != NULL);
 
-  if (DCMF_Geometry_analyze(&dcmf_tp->geometry, 
-                            &gasnete_dcmf_bcast_proto[kind])
-      && kind < G_DCMF_BCAST_PROTO_NUM 
-      && (!gasnete_dcmf_bcast_enabled[kind]))
+  if (kind < G_DCMF_BCAST_PROTO_NUM 
+      && DCMF_Geometry_analyze(&dcmf_tp->geometry, &gasnete_dcmf_bcast_proto[kind])
+      && gasnete_dcmf_bcast_enabled[kind])
     {
       dcmf_tp->bcast_proto = &gasnete_dcmf_bcast_proto[kind];
       return 0; /* SUCCESS */
@@ -193,6 +192,10 @@ static int gasnete_coll_pf_bcast_dcmf(gasnete_coll_op_t *op GASNETE_THREAD_FARG)
     if (gasnete_dcmf_busy)
       break;
     data->state = 1;
+#ifdef G_DCMF_COLL_TRACE
+    fprintf(stderr, "gasnete_coll_pf_bcast_dcmf state 1.\n");
+#endif
+
     
   case 1:	/* Initiate data movement */
     gasnete_dcmf_busy = 1;  
@@ -222,6 +225,9 @@ static int gasnete_coll_pf_bcast_dcmf(gasnete_coll_op_t *op GASNETE_THREAD_FARG)
         GASNETC_DCMF_UNLOCK();
       }
     data->state = 2;
+#ifdef G_DCMF_COLL_TRACE
+    fprintf(stderr, "gasnete_coll_pf_bcast_dcmf state 2.\n");
+#endif
     
   case 2:	/* Sync data movement */
     DCMF_Messager_advance();
@@ -229,6 +235,9 @@ static int gasnete_coll_pf_bcast_dcmf(gasnete_coll_op_t *op GASNETE_THREAD_FARG)
       break;
     gasnete_dcmf_busy = 0;
     data->state = 3;
+#ifdef G_DCMF_COLL_TRACE
+    fprintf(stderr, "gasnete_coll_pf_bcast_dcmf state 3.\n");
+#endif
     
   case 3: 
     if(team->myrank == bcast->root) 
@@ -240,6 +249,10 @@ static int gasnete_coll_pf_bcast_dcmf(gasnete_coll_op_t *op GASNETE_THREAD_FARG)
     /* clean up storage space */
     gasneti_free(bcast);
     gasnete_coll_generic_free(op->team, data GASNETE_THREAD_PASS);
+
+#ifdef G_DCMF_COLL_TRACE
+    fprintf(stderr, "gasnete_coll_pf_bcast_dcmf last state.\n");
+#endif
     
     return (GASNETE_COLL_OP_COMPLETE | GASNETE_COLL_OP_INACTIVE);
 

@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_coll_barrier_dcmf.c,v $
- * $Date: 2009/10/17 00:01:07 $
- * $Revision: 1.4 $
+ * $Date: 2009/10/20 23:41:58 $
+ * $Revision: 1.5 $
  * Description: GASNet barrier implementation on DCMF
  * LBNL 2009
  */
@@ -119,6 +119,8 @@ void gasnete_coll_teambarrier_notify_dcmf(gasnet_team_handle_t team)
   cb_done.clientdata = (void *)&(dcmf_tp->in_barrier);
 
   GASNETC_DCMF_LOCK();
+  gasneti_assert(gasnete_dcmf_busy == 0);
+  gasnete_dcmf_busy = 1;  
   dcmf_tp->in_barrier = 1;
   DCMF_SAFE(DCMF_Barrier(&dcmf_tp->geometry, cb_done, DCMF_MATCH_CONSISTENCY));
   GASNETC_DCMF_UNLOCK();
@@ -135,6 +137,7 @@ void gasnete_coll_teambarrier_wait_dcmf(gasnet_team_handle_t team)
   GASNETC_DCMF_LOCK();
   while (dcmf_tp->in_barrier)
     DCMF_Messager_advance();
+  gasnete_dcmf_busy = 0;  
   GASNETC_DCMF_UNLOCK();
   
   gasneti_sync_writes();
@@ -148,5 +151,8 @@ int gasnete_coll_teambarrier_try_dcmf(gasnet_team_handle_t team)
   DCMF_Messager_advance();
   GASNETC_DCMF_UNLOCK();
   
+  if (!dcmf_tp->in_barrier)
+      gasnete_dcmf_busy = 0;
+
   return (dcmf_tp->in_barrier);
 }

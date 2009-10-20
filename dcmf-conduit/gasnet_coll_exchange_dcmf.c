@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_coll_exchange_dcmf.c,v $
- * $Date: 2009/10/17 00:01:07 $
- * $Revision: 1.5 $
+ * $Date: 2009/10/20 23:41:58 $
+ * $Revision: 1.6 $
  * Description: GASNet exchange (alltoall) implementation on DCMF
  * LBNL 2009
  */
@@ -53,9 +53,10 @@ int gasnete_coll_a2a_set_proto(gasnet_team_handle_t team,
   gasneti_assert(dcmf_tp != NULL);
   gasneti_assert(kind < G_DCMF_A2A_PROTO_NUM);
 
-  if (DCMF_Geometry_analyze(&dcmf_tp->geometry, &gasnete_dcmf_a2a_protos[kind])
+  if (kind < G_DCMF_A2A_PROTO_NUM 
+      && DCMF_Geometry_analyze(&dcmf_tp->geometry, &gasnete_dcmf_a2a_protos[kind])
       && gasnete_dcmf_a2a_enabled[kind]
-      && (team->total_ranks >= 2))
+      && team->total_ranks >= 2)
     {
       dcmf_tp->a2a_proto = &gasnete_dcmf_a2a_protos[kind];
       return 0; /* SUCCESS */
