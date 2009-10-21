@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_coll_bcast_dcmf.c,v $
- * $Date: 2009/10/20 23:41:58 $
- * $Revision: 1.5 $
+ * $Date: 2009/10/21 22:27:03 $
+ * $Revision: 1.6 $
  * Description: GASNet broadcast implementation on DCMF
  * LBNL 2009
  */
@@ -89,15 +89,9 @@ void gasnete_coll_bcast_proto_register(void)
     }
 
   /* number of bcast streams used in the torus rectangle bcast */
-  tmp_str = gasneti_getenv("GASNET_DCMF_BCAST_NUM_COLORS");
-  if (tmp_str == NULL)
-    gasnete_dcmf_bcast_num_colors = 1;
-  else
-    {  
-      gasnete_dcmf_bcast_num_colors = atoi(tmp_str);
-      if (gasnete_dcmf_bcast_num_colors < 1 || gasnete_dcmf_bcast_num_colors > 6)
-        gasnete_dcmf_bcast_num_colors = 1;
-    }
+  gasnete_dcmf_bcast_num_colors = gasneti_getenv_int_withdefault("GASNET_DCMF_BCAST_NUM_COLORS", 1, 0); 
+  if (gasnete_dcmf_bcast_num_colors < 1 || gasnete_dcmf_bcast_num_colors > 6)
+      gasnete_dcmf_bcast_num_colors = 1;
   
   GASNETC_DCMF_UNLOCK(); 
 }
