@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_coll_fwd.h,v $
- *     $Date: 2009/09/16 01:13:41 $
- * $Revision: 1.2 $
+ *     $Date: 2009/10/22 23:28:04 $
+ * $Revision: 1.3 $
  * Description: GASNet Collectives Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -54,7 +54,7 @@
         VAL(W, COLL_SCAN_M_NB, cnt)
 #endif
 
-#define GASNETE_AUXSEG_FNS() gasnete_coll_auxseg_alloc, gasnete_coll_auxseg2_alloc,
+#define GASNETE_AUXSEG_FNS() gasnete_coll_auxseg_alloc,
 
 /*conduit has some collectives*/
 #define GASNETE_COLL_CONDUIT_COLLECTIVES 1
