@@ -1,3 +1,11 @@
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_trees.h,v $
+ *     $Date: 2009/10/22 20:14:56 $
+ * $Revision: 1.5 $
+ * Description: Reference implemetation of GASNet Collectives team
+ * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>, Paul H. Hargrove <PHHargrove@lbl.gov>, Dan Bonachea <bonachea@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
+ */
+
 #ifndef ALREADY_SEEN_GASNET_COLL_TREES_H 
 #define ALREADY_SEEN_GASNET_COLL_TREES_H 1
 

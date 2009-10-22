@@ -1,3 +1,11 @@
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_hashtable.c,v $
+ *     $Date: 2009/10/22 20:14:56 $
+ * $Revision: 1.3 $
+ * Description: Reference implemetation of GASNet Collectives team
+ * Copyright 2009, Yili Zheng <yzheng@lbl.gov>
+ * Terms of use are as specified in license.txt
+ */
+
 /**
  * Implement hash table data structure using vectors (chaining) to
  * solve collisions

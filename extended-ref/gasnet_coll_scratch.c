@@ -1,10 +1,9 @@
-/*
- *  gasnet_coll_scratch.c
- *  gasnet_tree_coll
- *
- *  Created by Rajesh Nishtala on 10/23/06.
- *  Copyright 2006 Berkeley UPC. All rights reserved.
- *
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_scratch.c,v $
+ *     $Date: 2009/10/22 20:14:56 $
+ * $Revision: 1.8 $
+ * Description: Reference implemetation of GASNet Collectives team
+ * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>, Paul H. Hargrove <PHHargrove@lbl.gov>, Dan Bonachea <bonachea@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
  */
 
 

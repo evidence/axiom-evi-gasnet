@@ -1,10 +1,11 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refcoll.c,v $
- *     $Date: 2009/10/15 19:02:11 $
- * $Revision: 1.89 $
+ *     $Date: 2009/10/22 20:14:56 $
+ * $Revision: 1.90 $
  * Description: Reference implemetation of GASNet Collectives team
- * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
+ * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>, Paul H. Hargrove <PHHargrove@lbl.gov>, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  */
+
 
 #define GASNET_COLL_TREE_DEBUG 0
 
@@ -1022,7 +1023,7 @@ void gasnete_coll_poll(GASNETE_THREAD_FARG_ALONE) {
 #endif
 
 static gasnet_seginfo_t *gasnete_coll_auxseg_save = NULL;
-static gasnet_seginfo_t *gasnete_coll_auxseg2_save = NULL;
+
 
 
 /* spawner hint of our auxseg requirements */
@@ -1050,27 +1051,6 @@ gasneti_auxseg_request_t gasnete_coll_auxseg_alloc(gasnet_seginfo_t *auxseg_info
 }
   
 
-/* AuxSeg setup for distributed scratch space*/
-gasneti_auxseg_request_t gasnete_coll_auxseg2_alloc(gasnet_seginfo_t *auxseg_info) {
-  gasneti_auxseg_request_t retval;
-  
-  int i, selftest=0;
-  
-  retval.minsz = 2*gasneti_getenv_int_withdefault("GASNET_COLL_MIN_SCRATCH_SIZE",
-                                                GASNETE_COLL_MIN_SCRATCH_SIZE_DEFAULT,1);
-  retval.optimalsz = 2*gasneti_getenv_int_withdefault("GASNET_COLL_SCRATCH_SIZE",
-                                                    GASNETE_COLL_SCRATCH_SIZE_DEFAULT,1);
-  if (auxseg_info == NULL){
-    return retval; /* initial query */
-  }	
-  else { /* auxseg granted */
-    gasneti_assert(!gasnete_coll_auxseg2_save);
-    gasnete_coll_auxseg2_save = gasneti_malloc(gasneti_nodes*sizeof(gasnet_seginfo_t));
-    memcpy(gasnete_coll_auxseg2_save, auxseg_info, gasneti_nodes*sizeof(gasnet_seginfo_t));
-  }
-  
-  return retval;
-}
 
 
 

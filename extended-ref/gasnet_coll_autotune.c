@@ -1,8 +1,11 @@
-/* 
- * Description: Files for Autotuner
- * Copyright 2007, Rajesh Nishtala <rajeshn@eecs.berkeley.edu> Dan Bonachea <bonachea@cs.berkeley.edu>
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_autotune.c,v $
+ *     $Date: 2009/10/22 20:14:56 $
+ * $Revision: 1.25 $
+ * Description: GASNet Autotuner Implementation
+ * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>, Paul H. Hargrove <PHHargrove@lbl.gov>, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  */
+
 
 /* This is intended as a stub for the autotuner routines*/
 #include <gasnet_coll_autotune_internal.h>
