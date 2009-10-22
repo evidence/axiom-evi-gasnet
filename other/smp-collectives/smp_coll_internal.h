@@ -1,3 +1,11 @@
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/smp-collectives/smp_coll_internal.h,v $
+ *     $Date: 2009/10/22 20:24:55 $
+ * $Revision: 1.4 $
+ * Description: Shared Memory Collectives
+ * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>
+ * Terms of use are as specified in license.txt
+ */
+
 #ifndef __SMP_COLL_INTERNAL_H_INC__
 #define __SMP_COLL_INTERNAL_H_INC__ 1
 #include <smp-collectives/smp_coll.h>

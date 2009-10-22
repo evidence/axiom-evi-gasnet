@@ -1,3 +1,10 @@
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/myxml/myxml.c,v $
+ *     $Date: 2009/10/22 20:24:53 $
+ * $Revision: 1.4 $
+ * Description: code to manage xml data
+ * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>
+ * Terms of use are as specified in license.txt
+ */
 
 
 #define STR_ALLOC_AND_COPY(OUTSTR, INSTR) do {(OUTSTR) = gasneti_malloc(strlen(INSTR)+1); strcpy((OUTSTR), (INSTR));} while(0)

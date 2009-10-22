@@ -1,3 +1,11 @@
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/smp-collectives/smp_coll_bcast_scatter_gather.c,v $
+ *     $Date: 2009/10/22 20:24:55 $
+ * $Revision: 1.4 $
+ * Description: Shared Memory Collectives
+ * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>
+ * Terms of use are as specified in license.txt
+ */
+
 #include <smp-collectives/smp_coll_internal.h>
 #if 0
 void smp_coll_set_broadcast_routine(smp_coll_t handle, smp_coll_broadcast_routine_t routine_id, int in_radix) {

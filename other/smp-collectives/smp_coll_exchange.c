@@ -1,10 +1,9 @@
-/*
- *  smp_coll_exchange.c
- *  shared_mem_collectives
- *
- *  Created by Rajesh Nishtala on 3/31/08.
- *  Copyright 2008 __MyCompanyName__. All rights reserved.
- *
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/smp-collectives/smp_coll_exchange.c,v $
+ *     $Date: 2009/10/22 20:24:55 $
+ * $Revision: 1.4 $
+ * Description: Shared Memory Collectives
+ * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>
+ * Terms of use are as specified in license.txt
  */
 
 #include <smp_coll_internal.h>

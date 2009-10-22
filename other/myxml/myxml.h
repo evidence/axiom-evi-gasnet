@@ -1,3 +1,11 @@
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/myxml/myxml.h,v $
+ *     $Date: 2009/10/22 20:24:53 $
+ * $Revision: 1.3 $
+ * Description: code to manage xml data
+ * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>
+ * Terms of use are as specified in license.txt
+ */
+
 #ifndef __MYXML_H__
 #define __MYXML_H__ 1
 #include <stdio.h>

@@ -1,3 +1,11 @@
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/smp-collectives/smp_coll_dissem.c,v $
+ *     $Date: 2009/10/22 20:24:55 $
+ * $Revision: 1.3 $
+ * Description: Shared Memory Collectives
+ * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>
+ * Terms of use are as specified in license.txt
+ */
+
 #include <smp-collectives/smp_coll_dissem.h>
 
 void smp_coll_print_dissem_order(dissem_info_t *obj, int MYTHREAD) {
