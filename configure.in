@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2009/10/25 00:53:38 $
-# $Revision: 1.575 $
+#     $Date: 2009/10/25 01:18:16 $
+# $Revision: 1.576 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.575 $)
+AC_REVISION($Revision: 1.576 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -3299,9 +3299,6 @@ if test $enabled_dcmf = yes; then
     fi
   fi #end if for dcmf-linux
 
-  force_dcmf_compile="no"
-  GASNET_IF_ENABLED_NOHELP(force-compile-dcmf, [force_dcmf_compile="yes"])  
-  
   # if we can't even find a valid incldue path no point trying to compile even if user requests it
   AC_MSG_CHECKING(for valid DCMF include path)
   if test ! -d "$DCMF_INCLUDE"; then
@@ -3312,11 +3309,11 @@ if test $enabled_dcmf = yes; then
   fi
 
   AC_MSG_CHECKING(for forced dcmf compile)
-  if test $force_dcmf_compile = yes; then
-    AC_MSG_RESULT(yes)
-  else
-    AC_MSG_RESULT(no)
+  force_dcmf_compile="no"
+  GASNET_IF_ENABLED_NOHELP(force-compile-dcmf, [force_dcmf_compile="yes"])  
+  AC_MSG_RESULT($force_dcmf_compile)
 
+  if test $force_dcmf_compile$have_dcmf = noyes; then
     # check to see if we can find the other directories needed for our build 
     AC_MSG_CHECKING(for additional valid DCMF directories)
     have_dcmf=no
