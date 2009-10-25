@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2009/09/18 23:33:23 $ */
-/*  $Revision: 1.143 $ */
+/*      $Date: 2009/10/25 09:59:20 $ */
+/*  $Revision: 1.144 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -40,6 +40,7 @@
 #undef GASNETI_HAVE_GCC_ATTRIBUTE_WARNUNUSEDRESULT
 #undef GASNETI_HAVE_GCC_ATTRIBUTE_USED
 #undef GASNETI_HAVE_GCC_ATTRIBUTE_UNUSED
+#undef GASNETI_HAVE_GCC_ATTRIBUTE_MAYALIAS
 #undef GASNETI_HAVE_GCC_ATTRIBUTE_NORETURN
 #undef GASNETI_HAVE_GCC_ATTRIBUTE_PURE
 #undef GASNETI_HAVE_GCC_ATTRIBUTE_CONST
