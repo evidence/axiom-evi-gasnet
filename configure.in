@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2009/10/16 20:46:08 $
-# $Revision: 1.574 $
+#     $Date: 2009/10/25 00:53:38 $
+# $Revision: 1.575 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.574 $)
+AC_REVISION($Revision: 1.575 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -3276,9 +3276,9 @@ if test $enabled_dcmf = yes; then
     GASNET_ENV_DEFAULT(DCMF_INCLUDE, $DCMF_HOME/comm/sys/include/)
     GASNET_ENV_DEFAULT(DCMF_SYS_INCLUDE, $DCMF_INCLUDE)
   
-    GASNET_ENV_DEFAULT(DCMF_LIB_DIR, $DCMF_HOME/comm/sys/lib)
-    GASNET_ENV_DEFAULT(DCMF_SYS_LIB_DIR, $DCMF_LIB_DIR)
-    GASNET_ENV_DEFAULT(DCMF_LIBS, -ldcmfcoll.zcl -ldcmf.zcl -lSPI.zcl -lzcl -lzoid_cn -lrt -lpthread -lm)
+    GASNET_ENV_DEFAULT(DCMF_LIBDIR, $DCMF_HOME/comm/sys/lib)
+    GASNET_ENV_DEFAULT(DCMF_SYS_LIBDIR, $DCMF_LIB_DIR)
+    GASNET_ENV_DEFAULT(DCMF_LIBS, -ldcmf.zcl -ldcmfcoll.zcl -lSPI.zcl -lzcl -lzoid_cn -lrt -lpthread -lm)
   else
     dcmf_guess=/bgsys/drivers/ppcfloor
     GASNET_ENV_DEFAULT(DCMF_HOME, $dcmf_guess)
@@ -3292,12 +3292,10 @@ if test $enabled_dcmf = yes; then
     
     if test "$BUILDCONFIG" = "debug" ; then  
       #if debug build, link w/ debug version of DCMF
-      GASNET_ENV_DEFAULT(DCMF_LIBS, -ldcmfcoll.cnk -ldcmf.cnk -lpthread -lrt -lSPI.cna)
+      GASNET_ENV_DEFAULT(DCMF_LIBS, -ldcmf.cnk -ldcmfcoll.cnk -lpthread -lrt -lSPI.cna)
     else
       #else link with optimized version of DCMF
-      #for some reason looks like in the fast build has duplicate sybmols when we link in dcmfcoll  
-      #GASNET_ENV_DEFAULT(DCMF_LIBS, -ldcmfcoll-fast.cnk -ldcmf-fast.cnk -lpthread -lrt -lSPI.cna)
-      GASNET_ENV_DEFAULT(DCMF_LIBS, -ldcmfcoll-fast.cnk -ldcmf-fast.cnk -lpthread -lrt -lSPI-fast.cna)
+      GASNET_ENV_DEFAULT(DCMF_LIBS, -ldcmf-fast.cnk -ldcmfcoll-fast.cnk -lpthread -lrt -lSPI-fast.cna)
     fi
   fi #end if for dcmf-linux
 
@@ -3306,7 +3304,7 @@ if test $enabled_dcmf = yes; then
   
   # if we can't even find a valid incldue path no point trying to compile even if user requests it
   AC_MSG_CHECKING(for valid DCMF include path)
-  if test "$DCMF_INCLUDE" = "" || test ! -d "$DCMF_INCLUDE"; then
+  if test ! -d "$DCMF_INCLUDE"; then
       have_dcmf=no
       AC_MSG_RESULT(no)
   else
@@ -3318,21 +3316,27 @@ if test $enabled_dcmf = yes; then
     AC_MSG_RESULT(yes)
   else
     AC_MSG_RESULT(no)
+
     # check to see if we can find the other directories needed for our build 
-    if test "$DCMF_SYS_INCLUDE" = "" || test ! -d "$DCMF_SYS_INCLUDE"; then
-      have_dcmf=no
-    fi
-    if test "$DCMF_LIBDIR" = ""; then
-       have_dcmf=no
-    fi
-    if test "$DCMF_SYS_LIBDIR" = ""; then
-       have_dcmf=no
+    AC_MSG_CHECKING(for additional valid DCMF directories)
+    have_dcmf=no
+    if test -z "$DCMF_SYS_INCLUDE"; then
+      AC_MSG_RESULT([no (DCMF_SYS_INCLUDE setting is empty)])
+    elif test ! -d "$DCMF_SYS_INCLUDE"; then
+      AC_MSG_RESULT([no (DCMF_SYS_INCLUDE=\"$DCMF_SYS_INCLUDE\" is not a directory])
+    elif test -z "$DCMF_LIBDIR"; then
+      AC_MSG_RESULT([no (DCMF_LIBDIR setting is empty)])
+    elif test -z "$DCMF_SYS_LIBDIR"; then
+      AC_MSG_RESULT([no (DCMF_SYS_LIBDIR setting is empty)])
+    else
+      have_dcmf=yes
+      AC_MSG_RESULT(yes)
     fi
 
     GASNET_PUSHVAR(CFLAGS,"$CFLAGS -I$DCMF_INCLUDE -I$DCMF_SYS_INCLUDE -L$DCMF_LIBDIR -L$DCMF_SYS_LIBDIR")
     GASNET_PUSHVAR(LIBS,"$LIBS $DCMF_LIBS")
     if test $have_dcmf = yes; then
-      GASNET_TRY_CACHE_CHECK(DCMF Version, dcmf_version_check, [
+      GASNET_TRY_CACHE_CHECK(for compatible DCMF Version, dcmf_version_check, [
         #include <dcmf.h>
          #include <dcmf_collectives.h>
          #if (DCMF_VERSION_RELEASE == 0)
@@ -3353,19 +3357,28 @@ if test $enabled_dcmf = yes; then
       ])
     fi
     if test $have_dcmf = yes; then
-      GASNET_TRY_CACHE_LINK(for working DCMF configuration, dcmf_link_test, [
-          #include <stdio.h>
-          #include <stdlib.h>
-          #include <dcmf.h>
-          #include <dcmf_collectives.h>
-         ], [
-          DCMF_Messager_initialize();
-          DCMF_Messager_finalize();  
-        ], [ 
-	  dcmf_test_worked=yes 
-	], [ 
-	  GASNET_ERR_SAVE() 
-          have_dcmf=no
+      pushdef([dcmfincludes],[
+        #include <stdio.h>
+        #include <stdlib.h>
+        #include <dcmf.h>
+        #include <dcmf_collectives.h>
+      ])
+      pushdef([dcmfcode],[
+        DCMF_Messager_initialize();
+        DCMF_Messager_finalize();  
+        DCMF_Broadcast_register(NULL,NULL);
+      ])
+      GASNET_TRY_CACHE_LINK(for working DCMF configuration, dcmf_link_test,
+        [dcmfincludes],[dcmfcode],[],[ 
+          # Try again swapping -ldcmf... w/ -ldcmfcoll...
+          DCMF_LIBS=[`echo "$DCMF_LIBS"|sed -e 's/\(-ldcmf[^ 	]*\)[ 	]*\(-ldcmf[^ 	]*\)/\2 \1/'`]
+          GASNET_POPVAR(LIBS)
+          GASNET_PUSHVAR(LIBS,"$LIBS $DCMF_LIBS")
+          GASNET_TRY_CACHE_LINK(for working DCMF configuration (alternate libs), dcmf_alt_link_test,
+            [dcmfincludes],[dcmfcode],[],[ 
+	      GASNET_ERR_SAVE() 
+              have_dcmf=no
+	    ])
 	])
     fi
     GASNET_POPVAR(CFLAGS)
