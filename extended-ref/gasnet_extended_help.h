@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_help.h,v $
- *     $Date: 2009/03/31 22:07:45 $
- * $Revision: 1.51 $
+ *     $Date: 2009/10/25 23:24:44 $
+ * $Revision: 1.52 $
  * Description: GASNet Extended API Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -149,7 +149,7 @@ typedef union {
   #if SIZEOF_SHORT == 1
     short _gasnete_anytype_s;
   #endif
-} gasnete_anytype8_t;
+} GASNETI_MAY_ALIAS gasnete_anytype8_t;
 
 #ifndef INTTYPES_16BIT_MISSING
 typedef union {
@@ -161,7 +161,7 @@ typedef union {
   #if SIZEOF_INT == 2
     int _gasnete_anytype_i;
   #endif
-} gasnete_anytype16_t;
+} GASNETI_MAY_ALIAS gasnete_anytype16_t;
 #endif
 
 typedef union {
@@ -185,7 +185,7 @@ typedef union {
     void *_gasnete_anytype_p;
     intptr_t _gasnete_anytype_ip; /* might be a compiler builtin type */
   #endif
-} gasnete_anytype32_t;
+} GASNETI_MAY_ALIAS gasnete_anytype32_t;
 
 typedef union {
   uint64_t _gasnete_anytype_u64; /* might be a compiler builtin type */
@@ -206,7 +206,7 @@ typedef union {
     void *_gasnete_anytype_p;
     intptr_t _gasnete_anytype_ip; /* might be a compiler builtin type */
   #endif
-} gasnete_anytype64_t;
+} GASNETI_MAY_ALIAS gasnete_anytype64_t;
 
 #if INTTYPES_16BIT_MISSING  /* deal with Cray's annoying lack of 16-bit types on some platforms */
   #define GASNETE_OMIT_WHEN_MISSING_16BIT(code) 
