@@ -1,7 +1,7 @@
 README file for dcmf-conduit
 ============================
 Rajesh Nishtala <rajeshn@cs.berkeley.edu>
-$Revision: 1.7 $
+$Revision: 1.8 $
 
 
 GASNet's DCMF conduit is the native port of GASNet to the BlueGene/P
@@ -99,32 +99,32 @@ Section: Running on the BlueGene/P Systems
   recognizes to adjust parameters that could influence the parameters. 
 
   GASNET_DCMF_PRINT_TORUS_LOCATION (yes/no): 
-		 + Each nodes prints it's X,Y,Z,T location in the 3D Torus (set
-		 to 1 to enable)
+    + Each nodes prints it's X,Y,Z,T location in the 3D Torus (set
+      to 1 to enable)
   GASNET_DCMF_FAST_BARRIER (yes/no):
-	 		+ use BlueGene/P hardware support for barrier.
+    + Use BlueGene/P hardware support for barrier.
       Additionally, assume that all threads agree on whether a given barrier is 
       named or anonymous, to allow higher performance barrier. Set
-			to "no" to strictly comply with GASNet specification. (defaults
-			to yes)
+      to "no" to strictly comply with GASNet specification. (defaults
+      to yes)
   GASNET_DCMF_MAX_SEG_SIZE (in MB or GB):
-		  + Set the largest size for the GASNet segment. Defaults to 3/4
-			physical memory. (i.e. 384 MB in VirtualNode mode, 768MB in Dual
-			mode and 1536MB in SMP mode)
+    + Set the largest size for the GASNet segment. Defaults to 3/4
+      physical memory. (i.e. 384 MB in VirtualNode mode, 768MB in Dual
+      mode and 1536MB in SMP mode)
   GASNET_DCMF_EAGER_LIMIT (in Bytes):
-			+ Set the maximum size at which the DCMF_EAGER protocol is used
-			(defaults to 1024 bytes)
+    + Set the maximum size at which the DCMF_EAGER protocol is used
+      (defaults to 1024 bytes)
   GASNET_DCMF_MAX_REPLAY_BUFFERS (a count):
-      + USE WITH CAUTION.  Sets how many unacknowledged active message 
-			can be in flight. Increase the value to allow more aggressive
-			network injection at the risk of increasing the overall
-			congestion in the network. (defaults to 1024)
+    + USE WITH CAUTION.  Sets how many unacknowledged active message 
+      can be in flight. Increase the value to allow more aggressive
+      network injection at the risk of increasing the overall
+      congestion in the network. (defaults to 1024)
   GASNET_DCMF_MAX_INCOMING_BUFFERS (a count):
-			+ USE WITH CAUTION. Sets how many active messages a node may
-			accept before sending out negative acknowledgment. Increase
-			the value to allow more aggressive network traffic at the risk
-			of swamping the target nodes with active message
-			requests.(defaults to 1024)
+    + USE WITH CAUTION. Sets how many active messages a node may
+      accept before sending out negative acknowledgment. Increase
+      the value to allow more aggressive network traffic at the risk
+      of swamping the target nodes with active message
+      requests.(defaults to 1024)
 
   All the BG_* environment variables documented by IBM
   
@@ -141,6 +141,12 @@ Section: Optimizing Your Code for the BlueGene/P
  Overview of how to run on BG/P from Bob Walkup of IBM Research:
  + https://wiki.alcf.anl.gov/images/f/f3/Bgp.doc   
  
+ IBM RedBooks:
+ + IBM System Blue Gene Solution: Blue Gene/P Application Development
+   http://www.redbooks.ibm.com/abstracts/sg247287.html
+ + IBM System Blue Gene Solution: High Performance Computing Toolkit for Blue Gene/P 
+   http://www.redbooks.ibm.com/abstracts/redp4256.html
+
  IBM Documentation:
  + http://www.nccs.gov/wp-content/training/2008_bluegene/ORNLCompOptimization.pdf
  + http://publib.boulder.ibm.com/infocenter/compbgpl/v9v111/index.jsp?topic=/com.ibm.bg9111.doc/ 
@@ -155,10 +161,6 @@ Section: Optimizing Your Code for the BlueGene/P
 
 
 Section: Known Issues
-+ Except for barrier, the collectives in GASNet have not yet been implemented to use the
-hardware collectives offered by the BlueGene/P. Thus we expect the
-collective performance to be slower than MPIs. This will be addressed
-in the next release of GASNet.
 + The GASNet job spawning scripts only know about the cobalt job control system. This is the current
 default on Surveyor and Intrepid at Argonne.
 
@@ -166,9 +168,9 @@ default on Surveyor and Intrepid at Argonne.
 Section: Torus Information
 Virtual Node Mode (4 processes per node)
 
-Node/Processor Count  Dims:(X,Y,Z,T) isTorus?:(X,Y,Z,T)	
-64/256         		    (4,4,4,4)      (0,0,0,1)
-128/512           	  (4,4,8,4)      (0,0,0,1)
+Node/Processor Count  Dims:(X,Y,Z,T) isTorus?:(X,Y,Z,T)
+64/256                (4,4,4,4)      (0,0,0,1)
+128/512               (4,4,8,4)      (0,0,0,1)
 256/1024              (8,4,8,4)      (0,0,0,1)
 512/2048              (8,8,8,4)      (1,1,1,1)
 1024/4096             (8,8,16,4)     (1,1,1,1)
