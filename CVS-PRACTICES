@@ -118,16 +118,11 @@ GASNet Release Procedure
   with both debug-stats-trace and ndebug configs, and all supported backend
   C compilers:
    IBM SP: mpi, lapi - 32 & 64 bit
-   AlphaServer-Quadrics: mpi, elan
    Linux-Myrinet: mpi, gm
    Linux-Quadrics: mpi, elan
    Linux-Ethernet: mpi
-   Linux-InfiniBand: mpi, vapi
+   Linux-InfiniBand: mpi, vapi, ibv
    Linux-Altix: shmem
-   Linux-Dolphin: sci
-   Origin 2000: mpi - 32 & 64 bit
-   Cray X1: mpi, shmem
-   Cray XT: mpi, portals
 
 * Check out a second source directory for tools-only distribution
   bootstrap with: ./Bootstrap -o
