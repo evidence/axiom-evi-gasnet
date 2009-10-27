@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_coll_bcast_dcmf.c,v $
- * $Date: 2009/10/21 22:27:03 $
- * $Revision: 1.6 $
+ * $Date: 2009/10/27 01:18:04 $
+ * $Revision: 1.7 $
  * Description: GASNet broadcast implementation on DCMF
  * LBNL 2009
  */
@@ -35,7 +35,7 @@ void gasnete_coll_bcast_proto_register(void)
 
   /* tree broadcast registration */
   gasnete_dcmf_bcast_enabled[TREE_BROADCAST] =
-    gasneti_getenv_yesno_withdefault("GASNET_DCMF_TREE_BROADCAST", 1);
+    gasneti_getenv_yesno_withdefault("GASNET_DCMF_TREE_BCAST", 1);
   if (gasnete_dcmf_bcast_enabled[TREE_BROADCAST]) 
     {
       gbcast_conf.protocol = DCMF_TREE_GLOBALBCAST_PROTOCOL;
@@ -48,7 +48,7 @@ void gasnete_coll_bcast_proto_register(void)
   
   /* torus broadcast registration */
   gasnete_dcmf_bcast_enabled[TORUS_RECTANGLE_BROADCAST] =
-    gasneti_getenv_yesno_withdefault("GASNET_DCMF_TORUS_RECTANGLE_BROADCAST", 1);
+    gasneti_getenv_yesno_withdefault("GASNET_DCMF_TORUS_RECTANGLE_BCAST", 1);
   if (gasnete_dcmf_bcast_enabled[TORUS_RECTANGLE_BROADCAST]) 
     {
       bcast_conf.protocol = DCMF_TORUS_RECTANGLE_BROADCAST_PROTOCOL;
@@ -57,7 +57,7 @@ void gasnete_coll_bcast_proto_register(void)
     }
   
   gasnete_dcmf_bcast_enabled[TORUS_BINOMIAL_BROADCAST] =
-    gasneti_getenv_yesno_withdefault("GASNET_DCMF_TORUS_BINOMIAL_BROADCAST", 1);
+    gasneti_getenv_yesno_withdefault("GASNET_DCMF_TORUS_BINOMIAL_BCAST", 1);
   if (gasnete_dcmf_bcast_enabled[TORUS_BINOMIAL_BROADCAST])
     {
       bcast_conf.protocol = DCMF_TORUS_BINOMIAL_BROADCAST_PROTOCOL;
@@ -67,7 +67,7 @@ void gasnete_coll_bcast_proto_register(void)
   
   /* asynchronous broadcast registration */
   gasnete_dcmf_bcast_enabled[TORUS_ASYNCBROADCAST_RECTANGLE] =
-    gasneti_getenv_yesno_withdefault("GASNET_DCMF_TORUS_ASYNCBROADCAST_RECTANGLE_BROADCAST", 1);
+    gasneti_getenv_yesno_withdefault("GASNET_DCMF_TORUS_ASYNCBROADCAST_RECTANGLE_BCAST", 1);
   if (gasnete_dcmf_bcast_enabled[TORUS_ASYNCBROADCAST_RECTANGLE])
     {
       a_bcast_conf.protocol = DCMF_TORUS_ASYNCBROADCAST_RECTANGLE_PROTOCOL;
@@ -78,7 +78,7 @@ void gasnete_coll_bcast_proto_register(void)
     }
 
   gasnete_dcmf_bcast_enabled[TORUS_ASYNCBROADCAST_BINOMIAL] =
-    gasneti_getenv_yesno_withdefault("GASNET_DCMF_TORUS_ASYNCBROADCAST_BINOMIAL_BROADCAST", 1);
+    gasneti_getenv_yesno_withdefault("GASNET_DCMF_TORUS_ASYNCBROADCAST_BINOMIAL_BCAST", 1);
   if (gasnete_dcmf_bcast_enabled[TORUS_ASYNCBROADCAST_BINOMIAL])
     {
       a_bcast_conf.protocol = DCMF_TORUS_ASYNCBROADCAST_BINOMIAL_PROTOCOL;
