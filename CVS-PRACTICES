@@ -102,7 +102,7 @@ GASNet Release Procedure
 
 * cd into other/amudp and gmake amxdist to build the AMUDP release
 
-* Unpack the archive and diff against the source tree to find missing files,
+* Unpack each archive and diff against the source tree to find missing files,
   especially documentation and auxilliary files
 
 * Verify that ./unBootstrap removes all generated files:
@@ -113,6 +113,11 @@ GASNet Release Procedure
 
 * Check the spec documents were generated correctly & clean up if necessary 
   (regenerate the .ps on Linux)
+
+* Test the AMMPI and AMUDP archives:
+     gmake
+     gmake tests
+     gmake run-tests
 
 * Test the release candidate on all directly supported systems and conduits,
   with both debug-stats-trace and ndebug configs, and all supported backend
