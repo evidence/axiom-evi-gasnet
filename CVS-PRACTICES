@@ -98,11 +98,19 @@ GASNet Release Procedure
 * From a separate builddir, do a configure, then gmake all distcheck to build 
   the release candidate archive
 
-* cd into other/ammpi and gmake amxdist to build the AMMPI release
+* cd into $(blddir)/other/ammpi and gmake amxdist to build the AMMPI release
 
-* cd into other/amudp and gmake amxdist to build the AMUDP release
+* cd into $(blddir)/other/amudp and gmake amxdist to build the AMUDP release
 
-* Unpack each archive and diff against the source tree to find missing files,
+* Test the AMMPI and AMUDP archives:
+     gmake
+     gmake tests
+     gmake run-tests
+  Relative to the gasnet sources, expect the archives to be missing the
+  files Makefile.in, Makefile.standalone and *.DSP; and to have added
+  a Makefile, the portable_*.h headers and the contents of amxtests/
+
+* Unpack the archive and diff against the source tree to find missing files,
   especially documentation and auxilliary files
 
 * Verify that ./unBootstrap removes all generated files:
@@ -113,11 +121,6 @@ GASNet Release Procedure
 
 * Check the spec documents were generated correctly & clean up if necessary 
   (regenerate the .ps on Linux)
-
-* Test the AMMPI and AMUDP archives:
-     gmake
-     gmake tests
-     gmake run-tests
 
 * Test the release candidate on all directly supported systems and conduits,
   with both debug-stats-trace and ndebug configs, and all supported backend
