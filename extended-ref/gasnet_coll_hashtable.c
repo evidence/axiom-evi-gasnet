@@ -1,8 +1,8 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_hashtable.c,v $
- *     $Date: 2009/10/22 20:14:56 $
- * $Revision: 1.3 $
+ *     $Date: 2009/10/28 04:17:13 $
+ * $Revision: 1.4 $
  * Description: Reference implemetation of GASNet Collectives team
- * Copyright 2009, Yili Zheng <yzheng@lbl.gov>
+ * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
  */
 

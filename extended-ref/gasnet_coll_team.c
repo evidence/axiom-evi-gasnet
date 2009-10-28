@@ -1,9 +1,10 @@
-/* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_team.c,v $
- * $Date: 2009/10/15 19:02:11 $
- * $Revision: 1.7 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_team.c,v $
+ *     $Date: 2009/10/28 04:17:13 $
+ * $Revision: 1.8 $
  *
  * Description: GASNet generic team implementation for collectives 
- * LBNL 2009
+ * Copyright 2009, E. O. Lawrence Berekely National Laboratory
+ * Terms of use are as specified in license.txt 
  */
 
 #include <gasnet_internal.h>

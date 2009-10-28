@@ -1,8 +1,9 @@
-/* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_team.h,v $ 
- * $Date: 2009/09/16 01:13:28 $ 
- * $Revision: 1.2 $ 
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_team.h,v $ 
+ *     $Date: 2009/10/28 04:17:13 $ 
+ * $Revision: 1.3 $ 
  * Description: GASNet team data structure
- * LBNL 2009
+ * Copyright 2009, E. O. Lawrence Berekely National Laboratory
+ * Terms of use are as specified in license.txt 
  */
 
 #ifndef GASNET_COLL_TEAM_H_
