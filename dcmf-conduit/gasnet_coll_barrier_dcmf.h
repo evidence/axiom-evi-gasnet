@@ -1,8 +1,9 @@
-/* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_coll_barrier_dcmf.h,v $
- * $Date: 2009/10/17 00:01:07 $
- * $Revision: 1.4 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_coll_barrier_dcmf.h,v $
+ *     $Date: 2009/10/28 03:01:34 $
+ * $Revision: 1.5 $
  * Description:  GASNet team barrier implementation on DCMF
- * LBNL 2009
+ * Copyright 2009, E. O. Lawrence Berekely National Laboratory
+ * Terms of use are as specified in license.txt
  */
 
 #ifndef GASNET_COLL_BARRIER_DCMF_H_

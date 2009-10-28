@@ -1,8 +1,9 @@
-/* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_coll_bcast_dcmf.c,v $
- * $Date: 2009/10/27 01:18:04 $
- * $Revision: 1.7 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_coll_bcast_dcmf.c,v $
+ *     $Date: 2009/10/28 03:01:34 $
+ * $Revision: 1.8 $
  * Description: GASNet broadcast implementation on DCMF
- * LBNL 2009
+ * Copyright 2009, E. O. Lawrence Berekely National Laboratory
+ * Terms of use are as specified in license.txt
  */
 
 #include <string.h>

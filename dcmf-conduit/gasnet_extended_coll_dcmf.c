@@ -1,8 +1,9 @@
-/* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_extended_coll_dcmf.c,v $
- * $Date: 2009/10/17 00:01:07 $
- * $Revision: 1.5 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_extended_coll_dcmf.c,v $
+ *     $Date: 2009/10/28 03:01:34 $
+ * $Revision: 1.6 $
  * Description: GASNet extended collectives implementation on DCMF
- * LBNL 2009
+ * Copyright 2009, E. O. Lawrence Berekely National Laboratory
+ * Terms of use are as specified in license.txt
  */
 
 #include <gasnet_extended_coll_dcmf.h>
