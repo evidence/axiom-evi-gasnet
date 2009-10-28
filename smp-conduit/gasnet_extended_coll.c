@@ -1,10 +1,9 @@
-/*
- *  gasnet_extended_coll.c
- *  autotune_xcode
- *
- *  Created by Rajesh Nishtala on 7/27/09.
- *  Copyright 2009 __MyCompanyName__. All rights reserved.
- *
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_extended_coll.c,v $
+ *     $Date: 2009/10/28 02:49:59 $
+ * $Revision: 1.3 $
+ * Description: Shared Memory Collectives
+ * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>
+ * Terms of use are as specified in license.txt
  */
 
 #include <gasnet_extended_internal.h>
