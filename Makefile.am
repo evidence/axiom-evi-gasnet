@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/Makefile.am,v $
-#     $Date: 2009/09/26 22:35:12 $
-# $Revision: 1.84 $
+#     $Date: 2009/10/29 22:24:43 $
+# $Revision: 1.85 $
 # Description: Makefile for GASNet 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -96,6 +96,8 @@ INSTALL_DOCS =			\
 	README			\
 	README-tools		\
 	license.txt		\
+	docs/autotuner.txt	\
+	docs/pshm-design.txt	\
 	docs/gasnet.txt		\
 	docs/gasnet.html	\
 	docs/gasnet.pdf		\
