@@ -10,8 +10,8 @@ Collective Index:
 Modes of Operation
 
 0) No Tuning 
- -- All collectives fall back to their defualt implementations w/ the
-    default trees.  The trees and such can be modifed through the
+ -- All collectives fall back to their default implementations w/ the
+    default trees.  The trees and such can be modified through the
     existing environment variables
 
 1) Read Existing Tuning Data
@@ -39,4 +39,70 @@ Modes of Operation
       gasnet_coll_dumpTuningState(char *filename, gasnet_team_t team);
     (Note that since we don't want to do I/O in the gasnet_exit()
     function, we require the user to explicitly save the file.)
+
+
+
+Typical users will most likely be using a combination of Modes 2 and
+3 through the environment variables.
+
+******************************************************************
+The simplest method for running the automatic tuner is by using the
+yes/no "GASNET_COLL_ENABLE_SEARCH" environment variable. With this
+enabled, every time a collective is invoked the parameters are looked
+up in a pre-cached table. This table is indexed on (synchronization
+flags, number of threads per node, number of nodes, address mode,
+collective size (bytes)). If the user requests a collective and it has
+been run before, the result of the previous search is applied and no
+further tuning happens. However if anyone if the tuple is new to the index
+a search is invoked. Thus if the program has a few collectives (defined
+by the above tuple) that are invoked many times the tuning cost will
+only be incurred once per collective tuple. However, if the collectives are
+constantly changing then this could adversely impact performance by
+unnecessarily tuning. In order to invoke the autotuner in this mode
+one can simply sets the environment variable:
+
+GASNET_COLL_ENABLE_SEARCH=yes
+******************************************************************
+In some cases we wish to save and restore tuning state across multiple
+runs of a program and GASNet allows this mode as well. At the end of a
+program run with the GASNET_COLL_ENABLE_SEARCH environment variable
+set, the program will dump the tuning state to the file specified by
+GASNET_COLL_TUNING_FILE (defaults to
+"./gasnet_coll_tuning_defaults.bin") Thus until this point the
+invocation of the tuner is the same.
+
+For subsequent program invocations in which we would like to reuse the
+tuning information but not rerun a full search one would use the
+combination of:
+GASNET_COLL_ENABLE_SEARCH=no
+GASNET_COLL_TUNING_FILE=<path to tuning file>
+with this combination of environment variables the tuning defaults
+from the previous program are run and when the program invokes a
+collective the closest match to what is already in the index and no
+additional searching is done
+
+For large programs our recommended strategy is to run/create a smaller
+representative version of the program (e.g. few iterations of the main
+loop) with similar collectives and call the tuner on that smaller
+program and save the tuning state and then pass this tuning state to
+the large program. 
+*******************************************************************
+If the user wishes to augment the tuning history with more information
+one can run with the following environment variables:
+
+GASNET_COLL_ENABLE_SEARCH=yes 
+GASNET_COLL_TUNING_FILE=<path to tuning file> 
+
+In this mode the tuning defaults from the file are loaded in however
+if a collective is not found in the index then a search is invoked and
+appended to the index. 
+*********************************************************************
+
+Note that since the tuning file is read and written from the GASNet
+programs themselves, the files must be accessible to the compute nodes
+(or wherever the GASNet programs are actually run)
+
+
+
+
 
