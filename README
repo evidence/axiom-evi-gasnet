@@ -1,15 +1,17 @@
 README file for GASNet
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.128 $
+$Revision: 1.129 $
 
 This is a combination user manual and design document for GASNet. Anyone
 planning on using, modifying or adding to the GASNet code base should read this
 file.
 
 Other documentation:
+ * In this README the "docs directory" means either docs/ in the source
+   directory or ${prefix}/share/doc/gasnet/ in an installation of GASNet.
  * For GASNet licensing and usage terms, see license.txt.
- * For documentation on a particular GASNet conduit, see the README file
-   in the conduit directory.
+ * For documentation on a particular GASNet conduit, see the README file in the
+   conduit directory (also installed as README-<conduit> in the docs directory).
  * For documentation on the communication-independent GASNet-tools library,
    see README-tools.
  * Additional information, including the GASNet specification and our bug
@@ -82,9 +84,7 @@ For example to build 64-bit code when your gcc and g++ default to 32-bit:
       alternatives are multi-threading via a PAR or PARSYNC build; or
       use of the conduit's API to perform the communication).
       Note that not all conduits and operating systems support this feature.
-      For more information, see the file pshm-design.txt (in the docs/
-      directory in the sources, or the share/doc/gasnet directory of an
-      installed GASNet.)
+      For more information, see the file pshm-design.txt in the docs directory.
 
   Configure will detect various interesting features about your system and
 compilers, including which GASNet conduits are supported.
@@ -117,7 +117,7 @@ normal distribution.  If you think you need it, contact us at upc@lbl.gov]
       run specifically-listed tests that are already built in the conduit directories
     make DO_WHAT="<makefile target>"
       build selected makefile target in all supported conduit directories
-  Each conduit also has several useful makefile targets:
+  Each conduit directory also has several useful makefile targets:
     make {seq,par,parsync}
       build the conduit libraries in a given mode
     make tests-{seq,par,parsync}  
@@ -344,16 +344,21 @@ application-specific support.
  Values AMDISSEM and AMCENTRAL are available on all conduits, and many conduits
  have additional network-specific barrier algorithms documented in conduit READMEs.
 
-* GASNET_NODEMAP_EXACT - enables more cautious algorithm for discovery of shared
- memory nodes. Several GASNet conduits use mmap() and/or conduit-specific memory
- registration resources to establish the GASNet segment.  When there are multiple
- GASNet nodes running on the same O/S node, there is a potential for competition
- for these resources. This competition is managed by startup-time discovery of
- which GASNet nodes share memory.  The algorithm used by default runs in time
- linear in the number of GASNet nodes, but may fail to discover some sharing of
- memory in unusual cases. Setting this variable to 1 enables an algorithm that is
+* GASNET_NODEMAP_EXACT - enables exact algorithm for discovery of shared memory nodes.
+ Several GASNet conduits use mmap() and/or conduit-specific memory registration
+ resources to establish the GASNet segment.  When multiple GASNet nodes (processes)
+ run on the same O/S node, there is a potential for competition for resources which
+ can be managed by coordinating among the processes.
+ When PSHM support is enabled, multiple processes on the same O/S node must be
+ identified so they can cross-mmap() their GASNet segments.
+ By default processes sharing the same O/S node are discovered using an algorithm
+ that runs in time linear in the number of GASNet nodes, and which is sufficient
+ for all common process layout patterns.  However, the default may fail to discover
+ sharing in unusual cases.  Setting this variable to 1 enables an algorithm that is
  certain to find all sharing of memory, but has an expected running time
  proportional to N*log(N).
+ The default is currently 0 for all but udp-conduit, which has an unpredictable
+ process layout.
 
 * GASNET_VIS_AMPIPE - set to 1 to enable packing of most non-contiguous
  put/gets into AMMediums, with each packet of size approx MaxMedium (the only
@@ -398,8 +403,7 @@ application-specific support.
 
 * GASNET_COLL_ENABLE_SEARCH - enable autotuning of collectives
 * GASNET_COLL_TUNING_FILE - file to read and/or write collective autotuning data
- For usage information, see the file autotuner.txt in the docs/ directory in the
- sources, or in the share/doc/gasnet directory of an installed GASNet.
+ For usage information, see the file autotuner.txt in the docs directory.
 
 * GASNET_FS_SYNC - set to 1 enable a sync() call (or equivalent) at exit time.
  Default is 0.  Try this setting if you experience truncated output.
@@ -494,9 +498,8 @@ the completeness and stability of the relevant portions of the implementation.
 In GASNet 1.14.0 we introduce a mechanism for auto-tuning of collectives
 in which a variety of algorithms are tried for each collective operation in
 a user's application and the best choice can be recorded in a file for use
-in future runs.  For more information, see the file autotuner.txt (in the
-docs/ directory in the sources, or the share/doc/gasnet directory of an
-installed GASNet.)
+in future runs.  For more information, see the file autotuner.txt in the
+docs directory.
 
 GASNet debug malloc services
 ============================
