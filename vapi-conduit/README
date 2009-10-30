@@ -1,7 +1,7 @@
 README file for vapi-conduit and ibv-conduit
 ============================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.54 $
+$Revision: 1.55 $
 
 @ TOC: @
 @ Section: VAPI vs IBV @
@@ -9,6 +9,7 @@ $Revision: 1.54 $
 @ Section: Multi-rail Support @
 @ Section: Runtime Configuration @
 @ Section: HCA Configuration @
+@ Section: Platform-specifc Notes @
 @ Section: Core API @
 @ Section: Extended API @
 @ Section: Graceful exits @
@@ -252,10 +253,6 @@ $Revision: 1.54 $
     The default value is '0', which means to use the maximum supported
     value reported by the HCA.
     Other valid setting are typically in the range from 1 to 4.
-    It has been observed that some InfiniPath HCAs may be unstable with any
-    value other than '1'.  If you experience failures with a message
-    including the string "snd status=TIMEOUT opcode=2", then you should
-    try setting GASNET_QP_RD_ATOM=1 as a possible work-around.
 
   Software configuration settings:
   There are some optional behaviors in vapi-conduit that can be turned
@@ -635,6 +632,17 @@ $Revision: 1.54 $
     testing on one system with a default value of 8, showed that increasing
     the value to 16 yielded approximately a 30% bandwidth improvement in an
     RDMA-GET benchmark.
+
+@ Section: Platform-specifc Notes @
+
++ Crashes have been seen using QLogic's InfiniPath HCAs with ibv-conduit
+  with default parameters.  If you see crashes with a message containing
+     FATAL ERROR: aborting on reap of failed send
+  then we recommend setting the following two environment variables
+     GASNET_NETWORKDEPTH_PP=8
+     GASNET_QP_RD_ATOM=1
+  In our testing this resulted in about a 2% reduction in peak bandwidth,
+  but eliminated all instances of "aborting on reap of failed send".
 
 @ Section: Core API @
 
