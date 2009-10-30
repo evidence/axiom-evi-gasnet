@@ -1,12 +1,62 @@
 GASNet ChangeLog 
 ----------------
-$Revision: 1.26 $
+$Revision: 1.27 $
 
 ----------------------------------------------------------------------
-??-??-2009 : Release 1.14
+11-02-2009 : Release 1.14
 
-* CrayXT/Portals:
-  - Support extended to PE 2.1.42 and newer
+* IBM BlueGene/P (dcmf-conduit):
+  - Extend support to V1R4M0 driver release
+  - Use native DCMF level collectives for several GASNet collectives
+  - Implement more useful gasnett_gethostname() (previously gave I/O node name)
+  - Minor fix for SEGMENT_EVERYTHING support
+
+* Cray-XT series (portals-conduit):
+  - Extended support to PE 2.1.42 and newer
+  - Extended support to include PrgEnv-Intel
+  - Implement more useful gasnett_gethostname() under Catamount
+  - Spawner defaults to node count given in batch submission when no -N passed
+  - Spawner improvements to deal intelligently with thread/process pinning
+  - Misc. performance and scalability improvements
+  - Several bugs fixed
+    
+* IBM SP (lapi-conduit):
+  - Cleanup tentative definitions to eliminate excessive AIX linker warnings
+  - Implement AIX-specific code for gasnett_set_affinity()
+  - Several bugs fixed
+
+* InfiniBand (vapi- and ibv-conduits):
+  - Correct non-compliant use of offsetof() that broke compilation w/ XLC
+  - Fixes for anomalous performance on ConnectX HCAs (Mellanox MT25418)
+  - Improved performance (and correctness) with segments 2GB and larger
+  - Documented settings to work-around failures seen w/ InfiniPath HCAs
+    see vapi-conduit/README (source) or share/doc/gasnet/README-ibv (installed)
+  - Multiple bugs fixed
+
+* Misc Platform support:
+  - Fix mis-aligned use of x86-64 cmpxchg16b instruction
+  - Atomics work-around for SiCortex ICE9A processor errata
+  - Fixes for aggressive alias analysis in gcc-4.4.x
+  - Improved support for XLC on all platforms
+  - Improved debug info and warning messages with PathScale compilers
+  - Improved gcc TLS support on IA64
+
+* General:
+  - Experimental shared memory support (see README and pshm-design.txt)
+  - Experimental collective autotuner (see README and autotune.txt)
+  - Additional collective algorithms implemented
+  - Fixes to some tests for large message sizes or large iteration counts
+  - Work around sometimes broken UTF-8 support in perl
+  - Improved support for clients with dynamic thread creation
+  - Several minor bug fixes in conduit-independent code
+
+* Build and configure:
+  - Clean up public headers to enable use of -Wstrict-prototypes by clients
+  - More accurate conduit auto-detection (eliminating false-positives)
+  - Allow disabling of conduit auto-detection
+  - Updates to configure for more recent GNU autotools
+  - Better default mpi-conduit configuration on SGI Altix and IRIX
+  - Correction to mechanism for detecting an SMP host under FreeBSD
 
 ----------------------------------------------------------------------
 11-03-2008 : Release 1.12
