@@ -1,6 +1,6 @@
 GASNet ChangeLog 
 ----------------
-$Revision: 1.25 $
+$Revision: 1.26 $
 
 ----------------------------------------------------------------------
 ??-??-2009 : Release 1.14
@@ -82,7 +82,7 @@ $Revision: 1.25 $
     crashes for AM-heavy workloads
 
 * InfiniBand/{VAPI,IBV}:
-  - Expose env vars to manipulate harware-level retransmission parameters.
+  - Expose env vars to manipulate hardware-level retransmission parameters.
 
 * Collectives:
   - Added an initial high-performance implementation of the GASNet 
@@ -91,7 +91,7 @@ $Revision: 1.25 $
 
 * Misc changes:
   - Improved checking for randomized Linux VM spaces, which inhibit
-    the bility to provide GASNET_ALIGNED_SEGMENTS
+    the ability to provide GASNET_ALIGNED_SEGMENTS
   - Numerous bug fixes, see http://upc-bugs.lbl.gov for details
 
 ----------------------------------------------------------------------
@@ -220,7 +220,7 @@ $Revision: 1.25 $
 
 * New conduits added:
   - shmem-conduit: High-performance conduit using the shmem communication
-    interface on Cray X1 and SGI Altix. May support targetting other shmem 
+    interface on Cray X1 and SGI Altix. May support targeting other shmem 
     implementations in the future.
 
 * New platform support:
@@ -350,7 +350,7 @@ $Revision: 1.25 $
 * Add an experimental spin-poll throttling feature to reduce lock contention
   for GASNET_PAR mode, configure --enable-throttle-poll
 
-* Restructure use of local memory barriers to accomodate architectures
+* Restructure use of local memory barriers to accommodate architectures
   requiring read memory barriers
 
 * Fix GASNet headers to be C++ friendly
@@ -360,7 +360,7 @@ $Revision: 1.25 $
 ----------------------------------------------------------------------
 11-10-2003 : Release 1.3
 
-* Added Infiniband support in vapi-conduit - currently only SEGMENT_FAST is supported
+* Added InfiniBand support in vapi-conduit - currently only SEGMENT_FAST is supported
 
 * elan-conduit: 
   - updated for the most recent version of libelan
