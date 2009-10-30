@@ -111,7 +111,8 @@ GASNet Release Procedure
   a Makefile, the portable_*.h headers and the contents of amxtests/
 
 * Unpack the archive and diff against the source tree to find missing files,
-  especially documentation and auxilliary files
+  especially documentation and auxiliary files.  Check that other/contrib
+  contains any cross-configure scripts that are intended for distribution.
 
 * Verify that ./unBootstrap removes all generated files:
   In the srcdir:
@@ -121,6 +122,8 @@ GASNet Release Procedure
 
 * Check the spec documents were generated correctly & clean up if necessary 
   (regenerate the .ps on Linux)
+  If the spec has not changed since the previous release, consider reusing
+  the generated files.
 
 * Test the release candidate on all directly supported systems and conduits,
   with both debug-stats-trace and ndebug configs, and all supported backend
@@ -131,6 +134,10 @@ GASNet Release Procedure
    Linux-Ethernet: mpi
    Linux-InfiniBand: mpi, vapi, ibv
    Linux-Altix: shmem
+
+* Install the release candidate and ensure that share/docs/gasnet contains
+  all the intended documentation, including any files referenced by README.
+  Any missing should be added to INSTALL_DOCS in the top-level Makefile.am
 
 * Check out a second source directory for tools-only distribution
   bootstrap with: ./Bootstrap -o
