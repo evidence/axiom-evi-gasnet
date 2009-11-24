@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/portable_platform.h,v $
- *     $Date: 2009/03/30 02:40:40 $
- * $Revision: 1.25 $
+ *     $Date: 2009/11/24 23:05:59 $
+ * $Revision: 1.26 $
  * Description: Portable platform detection header
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -91,7 +91,7 @@
     #define PLATFORM_COMPILER_PATHSCALE_C  1
   #endif
   #define PLATFORM_COMPILER_VERSION \
-          PLATFORM_COMPILER_VERSION_INT(__PATHCC__,__PATHCC_MINOR__,__PATHCC_PATCHLEVEL__)
+          PLATFORM_COMPILER_VERSION_INT(__PATHCC__,__PATHCC_MINOR__,__PATHCC_PATCHLEVEL__+0)
   #define PLATFORM_COMPILER_VERSION_STR __PATHSCALE__
 
 #elif defined(__PGI)
