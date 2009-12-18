@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2009/10/16 07:53:15 $
- * $Revision: 1.244 $
+ *     $Date: 2009/12/18 23:58:28 $
+ * $Revision: 1.245 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1610,7 +1610,13 @@ int gasnett_maximize_rlimit(int res, const char *lim_desc) {
     /* workaround an annoying glibc header bug, which erroneously declares get/setrlimit to take 
        the enum type __rlimit_resource_t, instead of int as required by POSIX */
     void *_fp;
+   #if PLATFORM_COMPILER_GNU && PLATFORM_COMPILER_VERSION_GE(4,0,0)
+    /* Gcc-4.x gives a sequence-point warning on the (,) form despite the comma operator.
+     * So, we use a GCC-specific statement-expressions construct instead. */
+    #define RLIM_CALL(fnname,structname) ({(_fp=(void *)&fnname); *(int (*)(int,structname *))_fp;})
+   #else
     #define RLIM_CALL(fnname,structname) ( (_fp=(void *)&fnname), *(int (*)(int,structname *))_fp)
+   #endif
   #else
     #define RLIM_CALL(fnname,structname) fnname
   #endif
