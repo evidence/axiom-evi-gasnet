@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/portable_platform.h,v $
- *     $Date: 2009/11/24 23:05:59 $
- * $Revision: 1.26 $
+ *     $Date: 2009/12/21 21:39:17 $
+ * $Revision: 1.27 $
  * Description: Portable platform detection header
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -552,7 +552,7 @@
    PLATFORM_ARCH_32              - 32-bit pointers
    PLATFORM_ARCH_64              - 64-bit pointers
    PLATFORM_ARCH_BIG_ENDIAN      - big-endian word order
-   PLATFORM_ARCH_LITTLE_ENDIAN   - big-endian word order
+   PLATFORM_ARCH_LITTLE_ENDIAN   - little-endian word order
      defined to positive value if CPU is known to have the indicated property, undef otherwise
  */
 
