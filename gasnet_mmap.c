@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2009/12/18 22:55:09 $
- * $Revision: 1.68 $
+ *     $Date: 2009/12/23 22:59:56 $
+ * $Revision: 1.69 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -15,10 +15,10 @@
 #include <fcntl.h>
 
 #ifdef HAVE_MMAP
- #if GASNET_PSHM && !defined(_XOPEN_SOURCE) && PLATFORM_OS_SOLARIS
-  #define _XOPEN_SOURCE 500 /* Required for shm_{open,unlink} decls */
+ #if GASNET_PSHM && !defined(_POSIX_C_SOURCE) && PLATFORM_OS_SOLARIS
+  #define _POSIX_C_SOURCE 200112L /* Required for shm_{open,unlink} decls */
   #include <sys/mman.h>
-  #undef _XOPEN_SOURCE
+  #undef _POSIX_C_SOURCE
  #else
   #include <sys/mman.h>
  #endif
