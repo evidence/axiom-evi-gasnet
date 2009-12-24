@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2009/12/19 00:10:15 $
- * $Revision: 1.246 $
+ *     $Date: 2009/12/24 17:45:39 $
+ * $Revision: 1.247 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -687,6 +687,23 @@ extern void gasneti_freezeForDebuggerErr(void) {
 /* ------------------------------------------------------------------------------------ */
 /* Dynamic backtrace support */
 
+/* Prefix a string with the CWD, unless already fully qualified.
+ * path_out must have size at least PATH_MAX.
+ * Also used by gasnet_trace.c
+ */
+extern void gasneti_qualify_path(char *path_out, const char *path_in) {
+  if (path_in[0] == '/' || path_in[0] == '\\') {
+    path_out[0] = '\0';
+  } else {
+    if (getcwd(path_out, PATH_MAX)) {
+      strcat(path_out,"/");
+    } else {
+      strcpy(path_out,"/GETCWD_FAILED/");
+    }
+  }
+  strcat(path_out, path_in);
+}
+
 /* All configure-detected backtrace mechanisms available */
 #if HAVE_BACKTRACE
   #define GASNETI_BT_EXECINFO	&gasneti_bt_execinfo
@@ -810,7 +827,11 @@ static int gasneti_system_redirected_coprocess(const char *cmd, int stdout_fd) {
 }
 #endif
 
+#if (PATH_MAX < 1024)
 #define GASNETI_BT_PATHSZ 1024 /* OpenBSD warns if this is smaller than 1024 */
+#else
+#define GASNETI_BT_PATHSZ PATH_MAX
+#endif
 
 static char gasneti_exename_bt[GASNETI_BT_PATHSZ];
 
@@ -1014,11 +1035,8 @@ const char *(*gasneti_backtraceid_fn)(void); /* allow client override of backtra
 gasnett_backtrace_type_t gasnett_backtrace_user; /* allow client provided backtrace function */
 extern void gasneti_backtrace_init(const char *exename) {
   static int user_is_init = 0;
-  char tmp[GASNETI_BT_PATHSZ];
-  if (exename[0] == '/' || exename[0] == '\\') tmp[0] = '\0';
-  else { getcwd(tmp, sizeof(tmp)); strcat(tmp,"/"); }
-  strcat(tmp, exename);
-  strcpy(gasneti_exename_bt,tmp);
+
+  gasneti_qualify_path(gasneti_exename_bt, exename);
 
   gasneti_backtrace_userenabled = gasneti_getenv_yesno_withdefault("GASNET_BACKTRACE",0);
 

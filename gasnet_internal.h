@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2009/09/18 23:33:23 $
- * $Revision: 1.118 $
+ *     $Date: 2009/12/24 17:45:39 $
+ * $Revision: 1.119 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -39,7 +39,7 @@ GASNETI_BEGIN_EXTERNC
 extern int gasneti_init_done; /*  true after init */
 extern int gasneti_attach_done; /*  true after attach */
 
-extern char gasneti_exename[1024];
+extern char gasneti_exename[PATH_MAX];
 
 /* conduit-independent sanity checks */
 extern void gasneti_check_config_preinit(void);
