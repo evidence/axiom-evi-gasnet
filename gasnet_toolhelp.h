@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_toolhelp.h,v $
- *     $Date: 2009/10/02 22:11:51 $
- * $Revision: 1.52 $
+ *     $Date: 2009/12/24 17:23:18 $
+ * $Revision: 1.53 $
  * Description: misc declarations needed by both gasnet_tools and libgasnet
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -22,6 +22,11 @@
    struct timespec; /* avoid an annoying warning on Linux */
   #endif
   #include <pthread.h>
+#endif
+
+#include <limits.h>
+#ifndef PATH_MAX
+  #define PATH_MAX 1024
 #endif
 
 #ifndef STDIN_FILENO
