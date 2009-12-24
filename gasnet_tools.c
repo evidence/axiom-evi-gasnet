@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2009/12/24 17:45:39 $
- * $Revision: 1.247 $
+ *     $Date: 2009/12/24 18:13:59 $
+ * $Revision: 1.248 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -727,6 +727,16 @@ extern void gasneti_qualify_path(char *path_out, const char *path_in) {
   #define GASNETI_BT_PGDBG	&gasneti_bt_pgdbg
 #endif
 
+/* Because some glibc headers annotate nearly all system calls
+ * with "__attribute__ ((__warn_unused_result__))", we need to
+ * do "something" with return values to avoid gcc warnings.
+ * Since here in the backtrace code we are dealing with handling
+ * of a (presumed fatal) error case, we can't really deal with
+ * most errors in any intelligent way.
+ * This is a stupid hack to deal with this.
+ */
+static int gasneti_bt_rc_unused;
+
 #if !GASNETI_NO_FORK
 /* Execute system w/ stdout redirected to 'fd' and std{in,err} to /dev/null */
 static int gasneti_system_redirected(const char *cmd, int stdout_fd) {
@@ -734,8 +744,10 @@ static int gasneti_system_redirected(const char *cmd, int stdout_fd) {
   int saved_stdin, saved_stdout, saved_stderr;
   off_t beginpos, endpos;
 
-  write(stdout_fd, cmd, strlen(cmd));
-  write(stdout_fd, "\n", 1);
+
+  /* XXX: what if the following two writes fail? */
+  gasneti_bt_rc_unused = write(stdout_fd, cmd, strlen(cmd));
+  gasneti_bt_rc_unused = write(stdout_fd, "\n", 1);
 
   beginpos = lseek(stdout_fd, 0, SEEK_CUR); /* fetch current position */
 
@@ -787,7 +799,7 @@ static int gasneti_system_redirected_coprocess(const char *cmd, int stdout_fd) {
     if (!fork()) { /* the child - debugger co-process launcher */
       int retval = gasneti_system_redirected(cmd, tmpfd);
       if (retval) { /* system call failed - nuke the output */
-        ftruncate(tmpfd, 0);
+        gasneti_bt_rc_unused = ftruncate(tmpfd, 0);
       } 
       gasneti_filesystem_sync(); /* flush output */
       kill(parentpid, GASNETI_UNFREEZE_SIGNAL); /* signal the parent of completion */
@@ -990,9 +1002,10 @@ static int gasneti_bt_mkstemp(char *filename, int limit) {
         }
       #endif
       sprintf(linebuf, "%i: %s ", i, (fnnames?fnnames[i]:""));
-      write(fd, linebuf, strlen(linebuf));
-      write(fd, xlstr, strlen(xlstr));
-      write(fd, "\n", 1);
+      /* XXX: what if these write()s fail? */
+      gasneti_bt_rc_unused = write(fd, linebuf, strlen(linebuf));
+      gasneti_bt_rc_unused = write(fd, xlstr, strlen(xlstr));
+      gasneti_bt_rc_unused = write(fd, "\n", 1);
     }
     /* if (fnnames) free(fnnames); */
     return 0;
@@ -1150,7 +1163,8 @@ extern int gasneti_print_backtrace(int fd) {
 	  GASNETT_TRACE_PRINTF_FORCE("========== BEGIN BACKTRACE ==========");
 	  rewind(file);
 	  while (fgets(p, len, file)) {
-	    write(fd, linebuf, strlen(linebuf)); /* w/ node prefix */
+            /* XXX: what if this write() fails? */
+            gasneti_bt_rc_unused = write(fd, linebuf, strlen(linebuf)); /* w/ node prefix */
             GASNETT_TRACE_PRINTF_FORCE("%s",p);/* w/o node prefix */
 	  }
 	  GASNETT_TRACE_PRINTF_FORCE("========== END BACKTRACE ==========");
