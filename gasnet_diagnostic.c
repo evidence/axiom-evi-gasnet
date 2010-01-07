@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_diagnostic.c,v $
- *     $Date: 2010/01/07 03:04:07 $
- * $Revision: 1.30 $
+ *     $Date: 2010/01/07 20:13:45 $
+ * $Revision: 1.31 $
  * Description: GASNet internal diagnostics
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -583,22 +583,20 @@ static void lifo_test(int id) {
 
   {
     struct elem { struct elem *next; };
-
     struct elem * head = NULL;
-    struct elem * * tail = &head->next;
 
     for (i=0;i<iters2;i++) {
       struct elem *tmp = gasneti_lifo_pop(&lifo2);
       if (tmp != NULL) {
-	*tail = tmp;
-	tail = &tmp->next;
+	tmp->next = head;
+	head = tmp;
 	gasneti_atomic_decrement(&counter, 0);
       }
     }
 
     PTHREAD_BARRIER(num_threads); /* Barrier before free() for bug 2711 */
     while (head != NULL) {
-      struct elem * next = head->next
+      struct elem * next = head->next;
       test_free(head);
       head = next;
     }
