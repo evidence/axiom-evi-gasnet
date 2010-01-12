@@ -1,6 +1,6 @@
 GASNet inter-Process SHared Memory (PHSM) design
 ---------------------------------------------
-$Revision: 1.3 $
+$Revision: 1.4 $
 
 Document by:
     Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -133,6 +133,9 @@ Open questions:
   
 Known Problems / To do:
 
+* The mechanism we are using to probe for maximum segment size works fine on a
+  system with plenty of memory, but dies on systems with less.  The work
+  around is to set the GASNET_MAX_SEGSIZE small enough for a given system.
 * There are still error cases that will leak shared memory.
 * We have yet to make the extended API (Get, Put, VIS, Collectives, etc)
   aware of supernodes.  They still use the conduit-specific Get/Put code
