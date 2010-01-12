@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2010/01/09 12:01:53 $
- * $Revision: 1.70 $
+ *     $Date: 2010/01/12 00:04:05 $
+ * $Revision: 1.71 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -274,11 +274,29 @@ static void *gasneti_mmap_shared_internal(int pshmnode, void *segbase, uintptr_t
   if (gasneti_mmapfd == -1) {
     gasneti_fatalerror("failed to shm_open(%s): %s\n",filename,strerror(errno));
   }
+#if PLATFORM_OS_DARWIN
+  #error "Must fix resize problem before Darwin support for PSHM will work"
+  /* This shm_unlink() was added here for Darwin (which we don't currently
+     support w/ PSHM due to an apparent kernel memory leak when using PSHM).
+     Read and understand the following before reenabling this code.
+
+     It has been determined that this shm_unlink() causes the mmap()s done
+     at gasnet_init()-time to be NON shared, having undesired effects:
+     + If the client asked for the max available segment size, then Attach is
+       "smart" enough to reuse the mmap()s generated at Init-time.  However,
+       since this was NON shared, the segment was useless.
+     + The NON sharing here also was causing unexpected failures of the
+       ftruncate() on systems that disallow overcommit of swap (e.g. our
+       Solaris testers) since we were actually trying to map a factor of
+       gasneti_nodes more memory than our probe had determined was available.
+  */
   if (do_unlink) {
     /* Darwin requires an shm_unlink/shm_open to resize a shared memory object.
      * However, it is always safe and can help reduce the opportunities for a leak. */
+    /* XXX: NO IT IS *NEVER* SAFE.  See above */
     (void)shm_unlink(filename);
   }
+#endif
 
   if (gasneti_mmap_stretch(gasneti_mmapfd, segsize)) {
     int save_errno = errno;
