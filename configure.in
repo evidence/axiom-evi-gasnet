@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2010/01/14 02:49:31 $
-# $Revision: 1.587 $
+#     $Date: 2010/01/14 07:09:01 $
+# $Revision: 1.588 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.587 $)
+AC_REVISION($Revision: 1.588 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2329,7 +2329,7 @@ _GASNET_EOF
     # Apple's gcc (and thus their mpicc) doesn't provide TLS support, but the
     # FSF gcc does.  The two are link compatible IF we explicitly pass -lgcc_eh
     # XXX: Really only needed for PAR and PARSYNC, but we don't distinguish.
-    if test "$mpi_test_worked$have_tls" = noyes; then
+    if test "$mpi_test_worked$have_tls$gasnet_cv_cc_family" = noyesGNU; then
       LIBS="$LIBS $LIBGCC -lgcc_eh"  # $LIBGCC appears in $GASNET_LIBS eventually
       GASNET_TRY_CACHE_LINK(for working MPI configuration w/ added -lgcc_eh, mpi_works_gcc_eh, [
         #include <mpi.h>
