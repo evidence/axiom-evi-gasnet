@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2009/12/30 21:36:51 $
-# $Revision: 1.585 $
+#     $Date: 2010/01/14 00:46:29 $
+# $Revision: 1.586 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.585 $)
+AC_REVISION($Revision: 1.586 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -515,6 +515,10 @@ case "$gasnet_cv_cc_family" in
     esac
     case "$target_os" in
       hpux*) GASNET_GET_HPUX_FLAGS(C,["-D__STDC_EXT__=1"]);;
+      darwin*) 
+        GASNET_TRY_CFLAG([-Wno-long-double],
+	                 [MISC_CFLAGS="$MISC_CFLAGS -Wno-long-double"])
+      ;; 
     esac
     ;;
   Cray) 
@@ -556,8 +560,6 @@ case "$gasnet_cv_cc_family" in
       darwin*) # add some options which are specific to the Apple Inc version of gcc
         GASNET_TRY_CFLAG([-no-cpp-precomp],
 	                 [MISC_CPPFLAGS="$MISC_CPPFLAGS -no-cpp-precomp"])
-        GASNET_TRY_CFLAG([-Wno-long-double],
-	                 [MISC_CPPFLAGS="$MISC_CPPFLAGS -Wno-long-double"])
       ;; 
     esac ;;
   *)  MISC_CPPFLAGS="" ;;
@@ -2159,6 +2161,19 @@ if test "$enabled_mpi" = yes || test "$enabled_mpi_compat" = yes; then
         GASNET_SET_CHECKED_CFLAGS(MPI_CC, MPI_CFLAGS, $MISC_CFLAGS $CFLAGS, $SAFE_MPI_CFLAGS)
 	GASNET_ENV_DEFAULT(MPIRUN_CMD, mpirun -np %N %C)
         GASNET_ENV_DEFAULT(MPIRUN_CMD_BATCH, "")
+        ;;
+    darwin*) # Need to probe -Wno-long-double independently
+        GASNET_ENV_DEFAULT(MPI_CC, mpicc)
+        GASNET_SET_CHECKED_CFLAGS(MPI_CC, MPI_CFLAGS,
+                                  `echo "$MISC_CFLAGS $CFLAGS" | sed -e 's/-Wno-long-double//'`,
+                                  $SAFE_MPI_CFLAGS)
+        GASNET_PUSHVAR(CC,"$MPI_CC")
+        GASNET_PUSHVAR(CFLAGS,"$MPI_CFLAGS")
+          GASNET_TRY_CFLAG([-Wno-long-double],[MPI_CFLAGS="$MPI_CFLAGS -Wno-long-double"])
+        GASNET_POPVAR(CC)
+        GASNET_POPVAR(CFLAGS)
+        GASNET_ENV_DEFAULT(MPI_LIBS, )
+        GASNET_ENV_DEFAULT(MPIRUN_CMD, mpirun -np %N %C)
         ;;
     irix*)
 	# use SGI native MPI library
