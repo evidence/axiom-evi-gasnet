@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2010/01/21 23:32:38 $
- * $Revision: 1.101 $
+ *     $Date: 2010/01/21 23:45:35 $
+ * $Revision: 1.102 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -171,6 +171,7 @@
       (!defined(__GNUC__) && GASNETI_CONFIGURE_MISMATCH) /* unsafe to use attribs */            
   /* disable all (non-forced) GASNet use of attributes */
   #define GASNETI_ATTRIBUTE(flags)
+  #define GASNETI_ATTRIBUTE_SQUASHED 1
 #else
   #define GASNETI_ATTRIBUTE(flags) __attribute__(flags)
 #endif
@@ -251,13 +252,24 @@
 #if defined(GASNETT_USE_GCC_ATTRIBUTE_MAYALIAS)
   #if GASNETT_USE_GCC_ATTRIBUTE_MAYALIAS
     #define GASNETI_MAY_ALIAS __attribute__((__may_alias__))
+    #define GASNETI_MAY_ALIAS_SQUASHED 0
   #else
     #define GASNETI_MAY_ALIAS 
+    #define GASNETI_MAY_ALIAS_SQUASHED 1
   #endif
 #elif GASNETI_HAVE_GCC_ATTRIBUTE_MAYALIAS
   #define GASNETI_MAY_ALIAS GASNETI_ATTRIBUTE((__may_alias__))
+  #define GASNETI_MAY_ALIAS_SQUASHED GASNETI_ATTRIBUTE_SQUASHED
 #else
   #define GASNETI_MAY_ALIAS 
+  #define GASNETI_MAY_ALIAS_SQUASHED 1
+#endif
+
+/* may_alias attribute is sometimes required for correctness */
+#if GASNETI_MAY_ALIAS_SQUASHED
+  #if PLATFORM_COMPILER_GNU && PLATFORM_COMPILER_VERSION_GE(4,4,0) && !GASNETI_BUG1389_WORKAROUND
+    #error "GCC's __may_alias__ attribute is required for correctness in gcc >= 4.4, but is disabled or unsupported."
+  #endif
 #endif
 
 /* GASNETI_NORETURN: assert that function does not return to caller */
