@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2009/10/25 09:59:20 $
- * $Revision: 1.98 $
+ *     $Date: 2010/01/21 22:33:02 $
+ * $Revision: 1.99 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -169,7 +169,7 @@
 #if ! defined(GASNETI_HAVE_GCC_ATTRIBUTE) /* no attrib support */ || \
       (defined(__GNUC__) && GASNETI_CONFIGURE_MISMATCH_IGNORELANG) /* unsafe to use attribs */ || \
       (!defined(__GNUC__) && GASNETI_CONFIGURE_MISMATCH) /* unsafe to use attribs */            
-  /* disable all GASNet use of attributes */
+  /* disable all (non-forced) GASNet use of attributes */
   #define GASNETI_ATTRIBUTE(flags)
 #else
   #define GASNETI_ATTRIBUTE(flags) __attribute__(flags)
@@ -187,14 +187,19 @@
   #define GASNETI_PRAGMA(x) _Pragma ( #x )
 #endif
 
-#if GASNETI_HAVE_GCC_ATTRIBUTE_WARNUNUSEDRESULT /* Warn if return value is ignored */
+/* GASNETI_WARN_UNUSED_RESULT: warn if function's return value is ignored */
+#if GASNETT_USE_GCC_ATTRIBUTE_WARNUNUSEDRESULT
+  #define GASNETI_WARN_UNUSED_RESULT __attribute__((__warn_unused_result__))
+#elif GASNETI_HAVE_GCC_ATTRIBUTE_WARNUNUSEDRESULT
   #define GASNETI_WARN_UNUSED_RESULT GASNETI_ATTRIBUTE((__warn_unused_result__))
 #else
   #define GASNETI_WARN_UNUSED_RESULT
 #endif
 
-#if GASNETI_HAVE_GCC_ATTRIBUTE_MALLOC 
-  /* assert return value is unaliased, and should not be ignored */
+/* GASNETI_MALLOC: assert return value is unaliased, and should not be ignored */
+#if GASNETT_USE_GCC_ATTRIBUTE_MALLOC 
+  #define GASNETI_MALLOC __attribute__((__malloc__)) GASNETI_WARN_UNUSED_RESULT
+#elif GASNETI_HAVE_GCC_ATTRIBUTE_MALLOC 
   #define GASNETI_MALLOC GASNETI_ATTRIBUTE((__malloc__)) GASNETI_WARN_UNUSED_RESULT
 #else
   #define GASNETI_MALLOC GASNETI_WARN_UNUSED_RESULT
@@ -208,25 +213,37 @@
   #define GASNETI_MALLOCP(fnname)
 #endif
 
-#if GASNETI_HAVE_GCC_ATTRIBUTE_USED
+/* GASNETI_USED: assert that function is used and must not be ommited from object file */
+#if GASNETT_USE_GCC_ATTRIBUTE_USED
+  #define GASNETI_USED __attribute__((__used__))
+#elif GASNETI_HAVE_GCC_ATTRIBUTE_USED
   #define GASNETI_USED GASNETI_ATTRIBUTE((__used__))
 #else
   #define GASNETI_USED 
 #endif
 
-#if GASNETI_HAVE_GCC_ATTRIBUTE_UNUSED
+/* GASNETI_UNUSED: assert that variable is potentially unused to avoid unused variable warnings */
+#if GASNETT_USE_GCC_ATTRIBUTE_UNUSED
+  #define GASNETI_UNUSED __attribute__((__unused__))
+#elif GASNETI_HAVE_GCC_ATTRIBUTE_UNUSED
   #define GASNETI_UNUSED GASNETI_ATTRIBUTE((__unused__))
 #else
   #define GASNETI_UNUSED 
 #endif
 
-#if GASNETI_HAVE_GCC_ATTRIBUTE_MAYALIAS
+/* GASNETI_MAY_ALIAS: annotate type as not subject to ANSI aliasing rules */
+#if GASNETT_USE_GCC_ATTRIBUTE_MAYALIAS
+  #define GASNETI_MAY_ALIAS __atribute__((__may_alias__))
+#elif GASNETI_HAVE_GCC_ATTRIBUTE_MAYALIAS
   #define GASNETI_MAY_ALIAS GASNETI_ATTRIBUTE((__may_alias__))
 #else
   #define GASNETI_MAY_ALIAS 
 #endif
 
-#if GASNETI_HAVE_GCC_ATTRIBUTE_NORETURN
+/* GASNETI_NORETURN: assert that function does not return to caller */
+#if GASNETT_USE_GCC_ATTRIBUTE_NORETURN
+  #define GASNETI_NORETURN __attribute__((__noreturn__))
+#elif GASNETI_HAVE_GCC_ATTRIBUTE_NORETURN
   #define GASNETI_NORETURN GASNETI_ATTRIBUTE((__noreturn__))
 #else
   #define GASNETI_NORETURN 
@@ -245,13 +262,16 @@
   #define GASNETI_NORETURNP(fnname)
 #endif
 
-#if GASNETI_HAVE_GCC_ATTRIBUTE_PURE
+/* GASNETI_PURE: assert that function is "pure" */
   /* pure function: one with no effects except the return value, and 
    * return value depends only on the parameters and/or global variables.
    * prohibited from performing volatile accesses, compiler fences, I/O,
    * changing any global variables (including statically scoped ones), or
    * calling any functions that do so
    */
+#if GASNETT_USE_GCC_ATTRIBUTE_PURE
+  #define GASNETI_PURE __attribute__((__pure__))
+#elif GASNETI_HAVE_GCC_ATTRIBUTE_PURE
   #define GASNETI_PURE GASNETI_ATTRIBUTE((__pure__))
 #else
   #define GASNETI_PURE 
@@ -271,11 +291,14 @@
   #define GASNETI_PUREP(fnname) 
 #endif
 
-#if GASNETI_HAVE_GCC_ATTRIBUTE_CONST
+/* GASNETI_PURE: assert that function is "const" */
   /* const function: a more restricted form of pure function, with all the
    * same restrictions, except additionally the return value must NOT
    * depend on global variables or anything pointed to by the arguments
    */
+#if GASNETT_USE_GCC_ATTRIBUTE_CONST
+  #define GASNETI_CONST __attribute__((__const__))
+#elif GASNETI_HAVE_GCC_ATTRIBUTE_CONST
   #define GASNETI_CONST GASNETI_ATTRIBUTE((__const__))
 #else
   #define GASNETI_CONST GASNETI_PURE
@@ -292,13 +315,12 @@
   #define GASNETI_CONSTP(fnname) GASNETI_PUREP(fnname)
 #endif
 
-#if GASNETI_HAVE_GCC_ATTRIBUTE_ALWAYSINLINE && !PLATFORM_COMPILER_PATHSCALE /* (see bug 1620) */
-  /* bug1525: gcc's __always_inline__ attribute appears to be maximally aggressive */
- #if defined(__GCC_UPC__) /* ensure GCC/UPC sees __attribute__, even with a configure mismatch */
+/* GASNETI_ALWAYS_INLINE: force inlining of function if possible */
+#if GASNETT_USE_GCC_ATTRIBUTE_ALWAYSINLINE
   #define _GASNETI_ALWAYS_INLINE(fnname) __attribute__((__always_inline__))
- #else
+#elif GASNETI_HAVE_GCC_ATTRIBUTE_ALWAYSINLINE && !PLATFORM_COMPILER_PATHSCALE /* (see bug 1620) */
+  /* bug1525: gcc's __always_inline__ attribute appears to be maximally aggressive */
   #define _GASNETI_ALWAYS_INLINE(fnname) GASNETI_ATTRIBUTE((__always_inline__))
- #endif
 #elif PLATFORM_COMPILER_CRAY_C
   /* the only way to request inlining a particular fn in Cray C */
   /* possibly should be using inline_always here */
@@ -348,7 +370,9 @@
 
 /* GASNETI_NEVER_INLINE: Most forceful demand available to disable inlining for function.
  */
-#if GASNETI_HAVE_GCC_ATTRIBUTE_NOINLINE
+#if GASNETT_USE_GCC_ATTRIBUTE_NOINLINE
+  #define GASNETI_NEVER_INLINE(fnname,declarator) __attribute__((__noinline__)) declarator
+#elif GASNETI_HAVE_GCC_ATTRIBUTE_NOINLINE
   #define GASNETI_NEVER_INLINE(fnname,declarator) GASNETI_ATTRIBUTE((__noinline__)) declarator
 #elif PLATFORM_COMPILER_SUN_C
   #define GASNETI_NEVER_INLINE(fnname,declarator) declarator; GASNETI_PRAGMA(no_inline(fnname)) declarator
@@ -365,7 +389,11 @@
   #define GASNETI_NEVER_INLINE(fnname,declarator) declarator
 #endif
 
-#if GASNETI_HAVE_GCC_ATTRIBUTE_FORMAT
+/* GASNETI_FORMAT_PRINTF: enable gcc printf format checking of function args */
+#if GASNETT_USE_GCC_ATTRIBUTE_FORMAT
+  #define GASNETI_FORMAT_PRINTF(fnname,fmtarg,firstvararg,declarator) \
+          __attribute__((__format__ (__printf__, fmtarg, firstvararg))) declarator
+#elif GASNETI_HAVE_GCC_ATTRIBUTE_FORMAT
   #define GASNETI_FORMAT_PRINTF(fnname,fmtarg,firstvararg,declarator) \
           GASNETI_ATTRIBUTE((__format__ (__printf__, fmtarg, firstvararg))) declarator
 #elif PLATFORM_COMPILER_COMPAQ_C /* not Compaq C++ */
@@ -376,7 +404,9 @@
 #else
   #define GASNETI_FORMAT_PRINTF(fnname,fmtarg,firstvararg,declarator) declarator
 #endif
-#if GASNETI_HAVE_GCC_ATTRIBUTE_FORMAT_FUNCPTR
+
+/* GASNETI_FORMAT_PRINTF_FUNCPTR: like GASNETI_FORMAT_PRINTF but applied to a function pointer */
+#if GASNETI_HAVE_GCC_ATTRIBUTE_FORMAT_FUNCPTR || GASNETT_USE_GCC_ATTRIBUTE_FORMAT_FUNCPTR
   /* gcc allows format attribute on a pointer-to-function */
   #define GASNETI_FORMAT_PRINTF_FUNCPTR GASNETI_FORMAT_PRINTF
 #else
