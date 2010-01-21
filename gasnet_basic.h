@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2010/01/21 22:33:02 $
- * $Revision: 1.99 $
+ *     $Date: 2010/01/21 23:10:25 $
+ * $Revision: 1.100 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -233,7 +233,7 @@
 
 /* GASNETI_MAY_ALIAS: annotate type as not subject to ANSI aliasing rules */
 #if GASNETT_USE_GCC_ATTRIBUTE_MAYALIAS
-  #define GASNETI_MAY_ALIAS __atribute__((__may_alias__))
+  #define GASNETI_MAY_ALIAS __attribute__((__may_alias__))
 #elif GASNETI_HAVE_GCC_ATTRIBUTE_MAYALIAS
   #define GASNETI_MAY_ALIAS GASNETI_ATTRIBUTE((__may_alias__))
 #else
