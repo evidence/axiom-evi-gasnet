@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2010/01/23 00:42:03 $
-# $Revision: 1.590 $
+#     $Date: 2010/01/23 01:37:01 $
+# $Revision: 1.591 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.590 $)
+AC_REVISION($Revision: 1.591 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -745,27 +745,28 @@ AC_DEFUN([GASNET_GET_GNU_ATTRIBUTES],[
   popdef([cachevar])
 ])
 
+dnl GASNET_GET_PLATFORM_ID
+dnl probe a compiler for version information
+AC_DEFUN([GASNET_GET_PLATFORM_COMPILER], [
+  GASNET_TRY_CACHE_EXTRACT_$3(PLATFORM_$1_$2, PLATFORM_$1_$2,
+    [ #include "portable_platform.h" ], [ PLATFORM_COMPILER_$2 ], GASNETI_PLATFORM_$1_$2)
+  AC_DEFINE_UNQUOTED(GASNETI_PLATFORM_$1_$2,
+                     ifelse([$3],[STR],["$GASNETI_PLATFORM_$1_$2"],[$GASNETI_PLATFORM_$1_$2]))
+])
+AC_DEFUN([GASNET_GET_PLATFORM_ID], [
+  GASNET_PUSHVAR(CPPFLAGS,"$CPPFLAGS -I$TOP_SRCDIR/other")
+  GASNET_GET_PLATFORM_COMPILER([$1],[IDSTR],[STR])
+  GASNET_GET_PLATFORM_COMPILER([$1],[FAMILYID],[EXPR])
+  GASNET_GET_PLATFORM_COMPILER([$1],[ID],[EXPR])
+  GASNET_GET_PLATFORM_COMPILER([$1],[VERSION],[EXPR])
+  GASNET_POPVAR(CPPFLAGS)
+])
+
 GASNET_LIBGCC
 GASNET_PUSHVAR(CFLAGS,"$CFLAGS $MISC_CPPFLAGS $MISC_CFLAGS")
 GASNET_CHECK_RESTRICT
-GASNET_GET_GNU_ATTRIBUTES(GCC) # Would be "CC" but "GCC" is legacy
-
-GASNET_PUSHVAR(CPPFLAGS,"$CPPFLAGS -I$TOP_SRCDIR/other")
-AC_DEFUN([GASNET_GET_PLATFORM_COMPILER], [
-  GASNET_TRY_CACHE_EXTRACT_$2(PLATFORM_COMPILER_$1, PLATFORM_COMPILER_$1,
-    [ #include "portable_platform.h" ], [ PLATFORM_COMPILER_$1 ], GASNETI_PLATFORM_COMPILER_$1)
-  if test "$2" = "STR" ; then
-    AC_DEFINE_UNQUOTED(GASNETI_PLATFORM_COMPILER_$1,"$GASNETI_PLATFORM_COMPILER_$1")
-  else
-    AC_DEFINE_UNQUOTED(GASNETI_PLATFORM_COMPILER_$1,$GASNETI_PLATFORM_COMPILER_$1)
-  fi
-])
-GASNET_GET_PLATFORM_COMPILER([IDSTR],[STR])
-GASNET_GET_PLATFORM_COMPILER([FAMILYID],[EXPR])
-GASNET_GET_PLATFORM_COMPILER([ID],[EXPR])
-GASNET_GET_PLATFORM_COMPILER([VERSION],[EXPR])
-GASNET_POPVAR(CPPFLAGS)
-
+GASNET_GET_GNU_ATTRIBUTES([GCC]) # Would be "CC" but "GCC" is legacy
+GASNET_GET_PLATFORM_ID([COMPILER])
 GASNET_POPVAR(CFLAGS)
 
 ########################################################################
@@ -2081,7 +2082,8 @@ if test $enabled_udp = yes; then
      }
   ], [ "I can\'t figure out how to build and run a program that uses C++ exceptions" ] )  
 
-  # GASNET_GET_GNU_ATTRIBUTES(CXX) -- not yet
+  # GASNET_GET_GNU_ATTRIBUTES([CXX]) -- not yet
+  # GASNET_GET_PLATFORM_ID([CXX]) -- not yet
 
   GASNET_POPVAR(CXXFLAGS)
   GASNET_POPVAR(LDFLAGS)
@@ -2354,7 +2356,8 @@ _GASNET_EOF
       ], [ mpi_test_worked=no GASNET_ERR_SAVE() ] )
     fi
 
-    # GASNET_GET_GNU_ATTRIBUTES(MPI_CC) -- not yet
+    # GASNET_GET_GNU_ATTRIBUTES([MPI_CC]) -- not yet
+    # GASNET_GET_PLATFORM_ID([MPI_CC]) -- not yet
 
     GASNET_POPVAR(CC)
     GASNET_POPVAR(CFLAGS)
