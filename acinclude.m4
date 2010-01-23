@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2009/12/22 23:44:22 $
-dnl $Revision: 1.139 $
+dnl     $Date: 2010/01/23 00:42:03 $
+dnl $Revision: 1.140 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -1040,6 +1040,11 @@ EOF
   GASNET_FUN_END([$0(...)])
 ])
 
+dnl GASNET_TRY_COMPILE_WITHWARN(type, ...) where type is C or CXX
+dnl Indirection for GASNET_TRY_CCOMPILE_WITHWARN or GASNET_TRY_CXXCOMPILE_WITHWARN
+AC_DEFUN([GASNET_TRY_COMPILE_WITHWARN],
+  GASNET_TRY_[$1]COMPILE_WITHWARN[([$2],[$3],[$4],[$5],[$6])])
+
 dnl GASNET_TRY_CFLAG(flags, action-if-supported, action-if-not-supported)
 AC_DEFUN([GASNET_TRY_CFLAG],[
 GASNET_FUN_BEGIN([$0($1)])
@@ -1199,23 +1204,40 @@ GASNET_FUN_BEGIN([$0])
 GASNET_FUN_END([$0])
 ])
 
+dnl check whether a given gcc/g++ attribute is available
+dnl GASNET_CHECK_GNU_ATTRIBUTE(TYPE, attribute-name, declaration, code)
+dnl Where TYPE is GCC, CXX, or MPI_CC (if CXX, then must be literal)
+dnl Caller is responsible for setting of CC and friends in the MPI_CC case
+AC_DEFUN([GASNET_CHECK_GNU_ATTRIBUTE],[
+  GASNET_FUN_BEGIN([$0($1,$2)])
+  pushdef([uppername],translit(patsubst([$2], [_], []),'a-z','A-Z'))
+  pushdef([cachevar],cv_prefix[]translit([$1]_attr_[]uppername,'A-Z','a-z'))
+  AC_CACHE_CHECK($1 for __attribute__(($2)), cachevar,
+    GASNET_TRY_COMPILE_WITHWARN(ifelse([$1],[CXX],[CXX],[C]), [$3], [$4], [
+          cachevar='yes'
+      ],[ dnl cachevar="no/warning: $gasnet_cmd_stdout$gasnet_cmd_stderr"
+          cachevar='no/warning'
+      ],[ dnl cachevar="no/error: $gasnet_cmd_stdout$gasnet_cmd_stderr"
+          cachevar='no/error'
+    ])
+  )
+  if test "$cachevar" = yes; then
+      AC_DEFINE(GASNETI_HAVE_[$1]_ATTRIBUTE_[]uppername)
+      AC_DEFINE(GASNETI_HAVE_[$1]_ATTRIBUTE)
+  fi
+  GASNET_FUN_END([$0($1,$2)])
+  popdef([cachevar])
+  popdef([uppername])
+]) 
+
 dnl check whether a given gcc attribute is available
 dnl GASNET_CHECK_GCC_ATTRIBUTE(attribute-name, declaration, code)
+dnl Now a wrapper around GASNET_CHECK_GCC_ATTRIBUTE and kept around
+dnl just in case and clients exist (eg Ti or UPCR)
 AC_DEFUN([GASNET_CHECK_GCC_ATTRIBUTE],[
   GASNET_FUN_BEGIN([$0($1)])
-  pushdef([uppername],translit(patsubst([$1], [_], []),'a-z','A-Z'))
-  AC_MSG_CHECKING(for __attribute__(($1)))
-  GASNET_TRY_CCOMPILE_WITHWARN([$2], [$3], [
-      AC_MSG_RESULT(yes)
-      AC_DEFINE(GASNETI_HAVE_GCC_ATTRIBUTE_[]uppername)
-      AC_DEFINE(GASNETI_HAVE_GCC_ATTRIBUTE)
-    ],[ dnl AC_MSG_RESULT([no/warning: $gasnet_cmd_stdout$gasnet_cmd_stderr])
-        AC_MSG_RESULT([no/warning])
-    ],[ dnl AC_MSG_RESULT([no/error: $gasnet_cmd_stdout$gasnet_cmd_stderr]) 
-        AC_MSG_RESULT([no/error]) 
-  ])
+  GASNET_CHECK_GNU_ATTRIBUTE([GCC],$@)
   GASNET_FUN_END([$0($1)])
-  popdef([uppername])
 ]) 
 
 dnl  Check to see if __thread attribute exists and works
