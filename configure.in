@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2010/01/23 02:49:02 $
-# $Revision: 1.592 $
+#     $Date: 2010/01/23 03:04:02 $
+# $Revision: 1.593 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.592 $)
+AC_REVISION($Revision: 1.593 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2041,8 +2041,8 @@ if test $enabled_udp = yes; then
      }
   ], [ "I can\'t figure out how to build and run a program that uses C++ exceptions" ] )  
 
-  # GASNET_GET_GNU_ATTRIBUTES([GASNETI_HAVE_CXX],[C++ compiler]) -- not yet
-  # GASNET_GET_PLATFORM_ID([CXX]) -- not yet
+  GASNET_GET_GNU_ATTRIBUTES([GASNETI_HAVE_CXX],[C++ compiler])
+  GASNET_GET_PLATFORM_ID([CXX])
 
   GASNET_POPVAR(CXXFLAGS)
   GASNET_POPVAR(LDFLAGS)
@@ -2315,8 +2315,8 @@ _GASNET_EOF
       ], [ mpi_test_worked=no GASNET_ERR_SAVE() ] )
     fi
 
-    # GASNET_GET_GNU_ATTRIBUTES([GASNETI_HAVE_MPI_CC],[MPI_CC]) -- not yet
-    # GASNET_GET_PLATFORM_ID([MPI_CC]) -- not yet
+    GASNET_GET_GNU_ATTRIBUTES([GASNETI_HAVE_MPI_CC],[MPI_CC])
+    GASNET_GET_PLATFORM_ID([MPI_CC])
 
     GASNET_POPVAR(CC)
     GASNET_POPVAR(CFLAGS)
