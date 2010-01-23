@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2010/01/23 04:00:35 $
-dnl $Revision: 1.142 $
+dnl     $Date: 2010/01/23 07:39:37 $
+dnl $Revision: 1.143 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -1233,16 +1233,6 @@ AC_DEFUN([GASNET_CHECK_GNU_ATTRIBUTE],[
   GASNET_FUN_END([$0($1,$2,$3)])
   popdef([cachevar])
   popdef([uppername])
-]) 
-
-dnl check whether a given gcc attribute is available
-dnl GASNET_CHECK_GCC_ATTRIBUTE(attribute-name, declaration, code)
-dnl Now a wrapper around GASNET_CHECK_GCC_ATTRIBUTE and kept around
-dnl just in case and clients exist (eg Ti or UPCR)
-AC_DEFUN([GASNET_CHECK_GCC_ATTRIBUTE],[
-  GASNET_FUN_BEGIN([$0($1)])
-  GASNET_CHECK_GNU_ATTRIBUTE([GASNETI_HAVE_GCC],[],$@)
-  GASNET_FUN_END([$0($1)])
 ]) 
 
 dnl GASNET_GET_GNU_ATTRIBUTES(PREFIX, opt compiler-name)

@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2010/01/23 03:04:02 $ */
-/*  $Revision: 1.145 $ */
+/*      $Date: 2010/01/23 07:39:37 $ */
+/*  $Revision: 1.146 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -32,20 +32,20 @@
 /* configure-detected conduits */
 #undef GASNETI_CONDUITS
 
-/* CC attributes support ("GCC" in name is historical) */
-#undef GASNETI_HAVE_GCC_ATTRIBUTE
-#undef GASNETI_HAVE_GCC_ATTRIBUTE_ALWAYSINLINE
-#undef GASNETI_HAVE_GCC_ATTRIBUTE_NOINLINE
-#undef GASNETI_HAVE_GCC_ATTRIBUTE_MALLOC
-#undef GASNETI_HAVE_GCC_ATTRIBUTE_WARNUNUSEDRESULT
-#undef GASNETI_HAVE_GCC_ATTRIBUTE_USED
-#undef GASNETI_HAVE_GCC_ATTRIBUTE_UNUSED
-#undef GASNETI_HAVE_GCC_ATTRIBUTE_MAYALIAS
-#undef GASNETI_HAVE_GCC_ATTRIBUTE_NORETURN
-#undef GASNETI_HAVE_GCC_ATTRIBUTE_PURE
-#undef GASNETI_HAVE_GCC_ATTRIBUTE_CONST
-#undef GASNETI_HAVE_GCC_ATTRIBUTE_FORMAT
-#undef GASNETI_HAVE_GCC_ATTRIBUTE_FORMAT_FUNCPTR
+/* CC attributes support */
+#undef GASNETI_HAVE_CC_ATTRIBUTE
+#undef GASNETI_HAVE_CC_ATTRIBUTE_ALWAYSINLINE
+#undef GASNETI_HAVE_CC_ATTRIBUTE_NOINLINE
+#undef GASNETI_HAVE_CC_ATTRIBUTE_MALLOC
+#undef GASNETI_HAVE_CC_ATTRIBUTE_WARNUNUSEDRESULT
+#undef GASNETI_HAVE_CC_ATTRIBUTE_USED
+#undef GASNETI_HAVE_CC_ATTRIBUTE_UNUSED
+#undef GASNETI_HAVE_CC_ATTRIBUTE_MAYALIAS
+#undef GASNETI_HAVE_CC_ATTRIBUTE_NORETURN
+#undef GASNETI_HAVE_CC_ATTRIBUTE_PURE
+#undef GASNETI_HAVE_CC_ATTRIBUTE_CONST
+#undef GASNETI_HAVE_CC_ATTRIBUTE_FORMAT
+#undef GASNETI_HAVE_CC_ATTRIBUTE_FORMAT_FUNCPTR
 
 /* CXX attributes support */
 #undef GASNETI_HAVE_CXX_ATTRIBUTE

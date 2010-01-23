@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2010/01/23 03:04:02 $
-# $Revision: 1.593 $
+#     $Date: 2010/01/23 07:39:37 $
+# $Revision: 1.594 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.593 $)
+AC_REVISION($Revision: 1.594 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -724,7 +724,7 @@ AC_DEFUN([GASNET_GET_PLATFORM_ID], [
 GASNET_LIBGCC
 GASNET_PUSHVAR(CFLAGS,"$CFLAGS $MISC_CPPFLAGS $MISC_CFLAGS")
 GASNET_CHECK_RESTRICT
-GASNET_GET_GNU_ATTRIBUTES([GASNETI_HAVE_GCC])
+GASNET_GET_GNU_ATTRIBUTES([GASNETI_HAVE_CC])
 GASNET_GET_PLATFORM_ID([COMPILER])
 GASNET_POPVAR(CFLAGS)
 
