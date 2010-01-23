@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2010/01/23 07:39:37 $
-dnl $Revision: 1.143 $
+dnl     $Date: 2010/01/23 08:00:30 $
+dnl $Revision: 1.144 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -1275,7 +1275,7 @@ AC_DEFUN([GASNET_GET_GNU_ATTRIBUTES],[
   if test "$cachevar" = yes; then
       AC_DEFINE([$1]_ATTRIBUTE_FORMAT_FUNCPTR)
   else
-      AC_DEFINE([$1]_ATTRIBUTE_FORMAT_FUNCPTR, 1)
+      AC_DEFINE([$1]_ATTRIBUTE_FORMAT_FUNCPTR, 0)
   fi
   popdef([cachevar])
 ])
