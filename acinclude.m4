@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2010/01/23 00:42:03 $
-dnl $Revision: 1.140 $
+dnl     $Date: 2010/01/23 02:49:02 $
+dnl $Revision: 1.141 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -1204,16 +1204,19 @@ GASNET_FUN_BEGIN([$0])
 GASNET_FUN_END([$0])
 ])
 
+dnl INTERNL USE ONLY
+AC_DEFUN([GASNETI_C_OR_CXX],[ifelse(index([$1],[CXX])[]index([$1],[C++]),[-1-1],[C],[CXX])])
+
 dnl check whether a given gcc/g++ attribute is available
-dnl GASNET_CHECK_GNU_ATTRIBUTE(TYPE, attribute-name, declaration, code)
-dnl Where TYPE is GCC, CXX, or MPI_CC (if CXX, then must be literal)
+dnl GASNET_CHECK_GNU_ATTRIBUTE(PREFIX, compiler-name, attribute-name, declaration, code)
+dnl If compiler-name contains "CXX" or "C++" then test is run as LANG_CPLUSPLUS
 dnl Caller is responsible for setting of CC and friends in the MPI_CC case
 AC_DEFUN([GASNET_CHECK_GNU_ATTRIBUTE],[
-  GASNET_FUN_BEGIN([$0($1,$2)])
-  pushdef([uppername],translit(patsubst([$2], [_], []),'a-z','A-Z'))
+  GASNET_FUN_BEGIN([$0($1,$2,$3)])
+  pushdef([uppername],translit(patsubst([$3], [_], []),'a-z','A-Z'))
   pushdef([cachevar],cv_prefix[]translit([$1]_attr_[]uppername,'A-Z','a-z'))
-  AC_CACHE_CHECK($1 for __attribute__(($2)), cachevar,
-    GASNET_TRY_COMPILE_WITHWARN(ifelse([$1],[CXX],[CXX],[C]), [$3], [$4], [
+  AC_CACHE_CHECK($2 for __attribute__(($3)), cachevar,
+    GASNET_TRY_COMPILE_WITHWARN(GASNETI_C_OR_CXX([$2]), [$4], [$5], [
           cachevar='yes'
       ],[ dnl cachevar="no/warning: $gasnet_cmd_stdout$gasnet_cmd_stderr"
           cachevar='no/warning'
@@ -1222,10 +1225,10 @@ AC_DEFUN([GASNET_CHECK_GNU_ATTRIBUTE],[
     ])
   )
   if test "$cachevar" = yes; then
-      AC_DEFINE(GASNETI_HAVE_[$1]_ATTRIBUTE_[]uppername)
-      AC_DEFINE(GASNETI_HAVE_[$1]_ATTRIBUTE)
+      AC_DEFINE($1_ATTRIBUTE_[]uppername)
+      AC_DEFINE($1_ATTRIBUTE)
   fi
-  GASNET_FUN_END([$0($1,$2)])
+  GASNET_FUN_END([$0($1,$2,$3)])
   popdef([cachevar])
   popdef([uppername])
 ]) 
@@ -1236,9 +1239,52 @@ dnl Now a wrapper around GASNET_CHECK_GCC_ATTRIBUTE and kept around
 dnl just in case and clients exist (eg Ti or UPCR)
 AC_DEFUN([GASNET_CHECK_GCC_ATTRIBUTE],[
   GASNET_FUN_BEGIN([$0($1)])
-  GASNET_CHECK_GNU_ATTRIBUTE([GCC],$@)
+  GASNET_CHECK_GNU_ATTRIBUTE([GASNETI_HAVE_GCC],[],$@)
   GASNET_FUN_END([$0($1)])
 ]) 
+
+dnl GASNET_GET_GNU_ATTRIBUTES(PREFIX, opt compiler-name)
+dnl Check all gcc attributes of interest/importance to GASNet
+dnl If compiler-name contains "CXX" or "C++" then test is run as LANG_CPLUSPLUS
+dnl Caller must setup CC, CFLAGS, etc for MPI_CC case.
+AC_DEFUN([GASNET_GET_GNU_ATTRIBUTES],[
+  GASNET_CHECK_GNU_ATTRIBUTE([$1], [$2], [__always_inline__],
+            [__attribute__((__always_inline__)) int dummy(void) { return 1; }])
+  GASNET_CHECK_GNU_ATTRIBUTE([$1], [$2], [__noinline__],
+            [__attribute__((__noinline__)) int dummy(void) { return 1; }])
+  GASNET_CHECK_GNU_ATTRIBUTE([$1], [$2], [__malloc__],
+            [#include <stdlib.h>
+	     __attribute__((__malloc__)) void * dummy(void) { return malloc(14); }])
+  GASNET_CHECK_GNU_ATTRIBUTE([$1], [$2], [__warn_unused_result__],
+            [__attribute__((__warn_unused_result__)) void * dummy(void) { return 0; }])
+  GASNET_CHECK_GNU_ATTRIBUTE([$1], [$2], [__used__],
+            [#include <stdlib.h>
+	     __attribute__((__used__)) void dummy(void) { abort(); }])
+  GASNET_CHECK_GNU_ATTRIBUTE([$1], [$2], [__unused__],
+            [void dummy(void) { __attribute__((__unused__)) int pointless; return; }])
+  GASNET_CHECK_GNU_ATTRIBUTE([$1], [$2], [__may_alias__],
+            [typedef int __attribute__((__may_alias__)) dummy;])
+  GASNET_CHECK_GNU_ATTRIBUTE([$1], [$2], [__noreturn__],
+            [#include <stdlib.h>
+	     __attribute__((__noreturn__)) void dummy(void) { abort(); }])
+  GASNET_CHECK_GNU_ATTRIBUTE([$1], [$2], [__const__],
+            [__attribute__((__const__)) int dummy(int x) { return x+1; }])
+  GASNET_CHECK_GNU_ATTRIBUTE([$1], [$2], [__pure__],
+            [__attribute__((__pure__)) int dummy(int x) { return x+1; }])
+  GASNET_CHECK_GNU_ATTRIBUTE([$1], [$2], [__format__],
+            [__attribute__((__format__ (__printf__, 1, 2))) void dummy(const char *fmt,...) { }])
+
+  pushdef([cachevar],cv_prefix[]translit([$1],'A-Z','a-z')[]_attr_format_funcptr)
+  AC_CACHE_CHECK($2 for __attribute__((__format__)) on function pointers, cachevar,
+    GASNET_TRY_COMPILE_WITHWARN(GASNETI_C_OR_CXX([$2]), [
+          __attribute__((__format__ (__printf__, 1, 2))) extern void (*dummy)(const char *fmt,...);
+      ], [], [ cachevar='yes' ],[ cachevar='no/warning' ],[ cachevar='no/error' ])
+  )
+  if test "$cachevar" = yes; then
+      AC_DEFINE([$1]_ATTRIBUTE_FORMAT_FUNCPTR)
+  fi
+  popdef([cachevar])
+])
 
 dnl  Check to see if __thread attribute exists and works
 dnl  Caller must setup CFLAGS/LIBS to support pthreaded compilation
