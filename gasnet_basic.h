@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2010/01/23 07:39:37 $
- * $Revision: 1.103 $
+ *     $Date: 2010/01/24 03:21:22 $
+ * $Revision: 1.104 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -51,7 +51,6 @@
      this is permitted in certain VERY limited contexts, and activates conservative assumptions
 
      as of 2010-01-22 used to control use of the following probed from $CC:
-       GASNETI_RESTCIT
        GASNETI_PLEASE_INLINE
        GASNETI_THREADKEY_* (TLS support)
      XXX: could/should provide probes of these items for $CXX and $MPI_CC
@@ -96,12 +95,35 @@
   #define GASNETI_TENTATIVE_EXTERN extern
 #endif
 
-
-#if defined(__cplusplus) || GASNETI_CONFIGURE_MISMATCH
-  /* bug 1206: the restrict keyword is not part of the C++ spec, and many C++
-     compilers lack it -- so define it away to nothing, which should always be safe */
-  #undef GASNETI_RESTRICT
+/* pick up restrict keyword (or empty) appropriate for compiler in use
+    OR
+   client overrides of restict keywords:
+     GASNETT_USE_RESTRICT gives the (possibly empty) keyword to use
+     GASNETT_USE_RESTRICT_ON_TYPEDEFS boolean
+*/
+#ifdef GASNETT_USE_RESTRICT
   #define GASNETI_RESTRICT
+  #if GASNETT_USE_RESTRICT_ON_TYPEDEFS
+    #define GASNETI_RESTRICT_MAY_QUALIFY_TYPEDEFS 1
+  #else
+    #define GASNETI_RESTRICT_MAY_QUALIFY_TYPEDEFS 0
+  #endif
+#elif defined(GASNETT_USE_RESTRICT_ON_TYPEDEFS)
+  #error GASNETT_USE_RESTRICT_ON_TYPEDEFS defined without GASNETT_USE_RESTRICT
+#elif GASNETI_COMPILER_IS_CC
+  #define GASNETI_RESTRICT                      GASNETI_CC_RESTRICT
+  #define GASNETI_RESTRICT_MAY_QUALIFY_TYPEDEFS GASNETI_CC_RESTRICT_MAY_QUALIFY_TYPEDEFS
+#elif GASNETI_COMPILER_IS_MPI_CC
+  #define GASNETI_RESTRICT                      GASNETI_MPI_CC_RESTRICT
+  #define GASNETI_RESTRICT_MAY_QUALIFY_TYPEDEFS GASNETI_MPI_CC_RESTRICT_MAY_QUALIFY_TYPEDEFS
+#elif GASNETI_COMPILER_IS_CXX
+  #define GASNETI_RESTRICT                      GASNETI_CXX_RESTRICT
+  #define GASNETI_RESTRICT_MAY_QUALIFY_TYPEDEFS GASNETI_CXX_RESTRICT_MAY_QUALIFY_TYPEDEFS
+#else
+  /* define away to nothing, which should always be safe */
+  #define GASNETI_RESTRICT
+  /* define to 1 because 0 triggers use of (void*) in place of the typedef */
+  #define GASNETI_RESTRICT_MAY_QUALIFY_TYPEDEFS 1
 #endif
 
 #ifndef _STRINGIFY

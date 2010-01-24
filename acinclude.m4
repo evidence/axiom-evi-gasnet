@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2010/01/23 08:00:30 $
-dnl $Revision: 1.144 $
+dnl     $Date: 2010/01/24 03:21:22 $
+dnl $Revision: 1.145 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -1175,32 +1175,36 @@ GASNET_FUN_BEGIN([$0(...)])
 GASNET_FUN_END([$0(...)])
 ])
 
+dnl GASNET_CHECK_RESTRICT(PREFIX, opt compiler-desc)
 dnl Checks if 'restrict' C99 keyword (or variants) supported
-dnl #defines GASNETI_RESTRICT to correct variant, or to nothing
+dnl #defines [PREFIX]_RESTRICT to correct variant, or to nothing
+dnl #defines [PREFIX]_RESTRICT_MAY_QUALIFY_TYPEDEFS if appropriate
 AC_DEFUN([GASNET_CHECK_RESTRICT],[
 GASNET_FUN_BEGIN([$0])
   dnl Check for restrict keyword
+  pushdef([cvprefix],translit([$1],'A-Z','a-z'))
   restrict_keyword=""
   if test "$restrict_keyword" = ""; then
-    GASNET_TRY_CACHE_CHECK(for restrict keyword, cc_keyrestrict,
+    GASNET_TRY_CACHE_CHECK($2 for restrict keyword, cvprefix[]restrict,
       [int dummy(void * restrict p) { return 1; }], [],
       restrict_keyword="restrict")
   fi
   if test "$restrict_keyword" = ""; then
-    GASNET_TRY_CACHE_CHECK(for __restrict__ keyword, cc_key__restrict__,
+    GASNET_TRY_CACHE_CHECK($2 for __restrict__ keyword, cvprefix[]__restrict__,
       [int dummy(void * __restrict__ p) { return 1; }], [],
       restrict_keyword="__restrict__")
   fi
   if test "$restrict_keyword" = ""; then
-    GASNET_TRY_CACHE_CHECK(for __restrict keyword, cc_key__restrict,
+    GASNET_TRY_CACHE_CHECK($2 for __restrict keyword, cvprefix[]__restrict,
       [int dummy(void * __restrict p) { return 1; }], [],
       restrict_keyword="__restrict")
   fi
-  AC_DEFINE_UNQUOTED(GASNETI_RESTRICT, $restrict_keyword)
-  GASNET_TRY_CACHE_CHECK(whether restrict may qualify typedefs, cc_restrict_typedefs,
+  AC_DEFINE_UNQUOTED([$1]_RESTRICT, $restrict_keyword)
+  GASNET_TRY_CACHE_CHECK($2 for restrict qualifying typedefs, cvprefix[]_restrict_typedefs,
     [typedef void *foo_t;
-     int dummy(foo_t GASNETI_RESTRICT p) { return 1; }], [],
-    AC_DEFINE(GASNETI_RESTRICT_MAY_QUALIFY_TYPEDEFS))
+     int dummy(foo_t [$1]_RESTRICT p) { return 1; }], [],
+    AC_DEFINE([$1]_RESTRICT_MAY_QUALIFY_TYPEDEFS))
+  popdef([cvprefix])
 GASNET_FUN_END([$0])
 ])
 

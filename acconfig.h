@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2010/01/23 07:39:37 $ */
-/*  $Revision: 1.146 $ */
+/*      $Date: 2010/01/24 03:21:22 $ */
+/*  $Revision: 1.147 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -98,11 +98,15 @@
 /* Defined to be the inline function modifier supported by the C compiler (if supported) */
 #undef CC_INLINE_MODIFIER
 
-/* C compilers 'restrict' keyword (or empty) */
-#undef GASNETI_RESTRICT
+/* C, C++ and MPI_CC compilers 'restrict' keywords (or empty) */
+#undef GASNETI_CC_RESTRICT
+#undef GASNETI_CXX_RESTRICT
+#undef GASNETI_MPI_CC_RESTRICT
 
 /* true iff GASNETI_RESTRICT may be applied to types which are not pointer types until after typedef expansion */
-#undef GASNETI_RESTRICT_MAY_QUALIFY_TYPEDEFS
+#undef GASNETI_CC_RESTRICT_MAY_QUALIFY_TYPEDEFS
+#undef GASNETI_CXX_RESTRICT_MAY_QUALIFY_TYPEDEFS
+#undef GASNETI_MPI_CC_RESTRICT_MAY_QUALIFY_TYPEDEFS
 
 /* Functions may be declared "static inline" */
 #undef STATIC_INLINE_WORKS
