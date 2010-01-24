@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2010/01/24 00:57:09 $
-# $Revision: 1.595 $
+#     $Date: 2010/01/24 01:26:34 $
+# $Revision: 1.596 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.595 $)
+AC_REVISION($Revision: 1.596 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -704,20 +704,20 @@ GASNET_WITH(segment-mmap-max,
       *) AC_MSG_ERROR(Illegal value for --with-segment-mmap-max=$withval) ;;
     esac])
 
-dnl GASNET_GET_PLATFORM_ID
+dnl GASNET_GET_PLATFORM_ID(CCVAR, opt compiler-desc)
 dnl probe a compiler for version information
 AC_DEFUN([GASNET_GET_PLATFORM_COMPILER], [
-  GASNET_TRY_CACHE_EXTRACT_$3(PLATFORM_$1_$2, PLATFORM_$1_$2,
-    [ #include "portable_platform.h" ], [ PLATFORM_COMPILER_$2 ], GASNETI_PLATFORM_$1_$2)
-  AC_DEFINE_UNQUOTED(GASNETI_PLATFORM_$1_$2,
-                     ifelse([$3],[STR],["$GASNETI_PLATFORM_$1_$2"],[$GASNETI_PLATFORM_$1_$2]))
+  GASNET_TRY_CACHE_EXTRACT_$4($2 for PLATFORM_COMPILER_$3, PLATFORM_$1_$3,
+    [ #include "portable_platform.h" ], [ PLATFORM_COMPILER_$3 ], GASNETI_PLATFORM_$1_$3)
+  AC_DEFINE_UNQUOTED(GASNETI_PLATFORM_$1_$3,
+                     ifelse([$4],[STR],["$GASNETI_PLATFORM_$1_$3"],[$GASNETI_PLATFORM_$1_$3]))
 ])
 AC_DEFUN([GASNET_GET_PLATFORM_ID], [
   GASNET_PUSHVAR(CPPFLAGS,"$CPPFLAGS -I$TOP_SRCDIR/other")
-  GASNET_GET_PLATFORM_COMPILER([$1],[IDSTR],[STR])
-  GASNET_GET_PLATFORM_COMPILER([$1],[FAMILYID],[EXPR])
-  GASNET_GET_PLATFORM_COMPILER([$1],[ID],[EXPR])
-  GASNET_GET_PLATFORM_COMPILER([$1],[VERSION],[EXPR])
+  GASNET_GET_PLATFORM_COMPILER([$1],[$2],[IDSTR],[STR])
+  GASNET_GET_PLATFORM_COMPILER([$1],[$2],[FAMILYID],[EXPR])
+  GASNET_GET_PLATFORM_COMPILER([$1],[$2],[ID],[EXPR])
+  GASNET_GET_PLATFORM_COMPILER([$1],[$2],[VERSION],[EXPR])
   GASNET_POPVAR(CPPFLAGS)
 ])
 
@@ -2042,7 +2042,7 @@ if test $enabled_udp = yes; then
   ], [ "I can\'t figure out how to build and run a program that uses C++ exceptions" ] )  
 
   GASNET_GET_GNU_ATTRIBUTES([GASNETI_HAVE_CXX],[C++ compiler])
-  GASNET_GET_PLATFORM_ID([CXX])
+  GASNET_GET_PLATFORM_ID([CXX],[C++ compiler])
 
   GASNET_POPVAR(CXXFLAGS)
   GASNET_POPVAR(LDFLAGS)
@@ -2317,7 +2317,7 @@ _GASNET_EOF
 
     if test "$mpi_test_worked" = yes ; then
       GASNET_GET_GNU_ATTRIBUTES([GASNETI_HAVE_MPI_CC],[MPI_CC])
-      GASNET_GET_PLATFORM_ID([MPI_CC])
+      GASNET_GET_PLATFORM_ID([MPI_CC],[MPI_CC])
     fi
 
     GASNET_POPVAR(CC)
