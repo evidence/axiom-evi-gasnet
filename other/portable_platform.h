@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/portable_platform.h,v $
- *     $Date: 2009/12/21 21:39:17 $
- * $Revision: 1.27 $
+ *     $Date: 2010/01/24 23:06:28 $
+ * $Revision: 1.28 $
  * Description: Portable platform detection header
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -308,6 +308,19 @@
   #else
     #define PLATFORM_COMPILER_LCC_C  1
   #endif
+
+#elif defined(__OPENCC__)
+  #define PLATFORM_COMPILER_OPEN64  1
+  #define PLATFORM_COMPILER_FAMILYNAME OPEN64
+  #define PLATFORM_COMPILER_FAMILYID 17
+  #ifdef __cplusplus
+    #define PLATFORM_COMPILER_OPEN64_CXX  1
+  #else
+    #define PLATFORM_COMPILER_OPEN64_C  1
+  #endif
+  #define PLATFORM_COMPILER_VERSION \
+          PLATFORM_COMPILER_VERSION_INT(__OPENCC__,__OPENCC_MINOR__,__OPENCC_PATCHLEVEL__+0)
+  #define PLATFORM_COMPILER_VERSION_STR __OPEN64__
 
 #else /* unknown compiler */
   #define PLATFORM_COMPILER_UNKNOWN  1
