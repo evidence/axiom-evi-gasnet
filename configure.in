@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2010/01/24 08:52:42 $
-# $Revision: 1.598 $
+#     $Date: 2010/01/24 22:46:19 $
+# $Revision: 1.599 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.598 $)
+AC_REVISION($Revision: 1.599 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -286,6 +286,7 @@ case "$gasnet_cv_cc_family" in
   TINY) CCOPTFLAGS="" # optimization not supported
         SEPARATE_CC=1 # force separate compilation - multiple -c compilation not supported
   ;;
+  Open64) CCOPTFLAGS="-O2" ;; # XXX: A few unresolved errors w/ -O3
   *)    CCOPTFLAGS="-O" ;;
 esac
 AC_SUBST(SEPARATE_CC)
@@ -341,6 +342,11 @@ case "$gasnet_cv_cc_family" in
         GASNET_GET_GNUWARNINGFLAGS(C)
         CCDEBUGFLAGS="$CFLAGS"
         GASNET_POPVAR(CFLAGS)
+  ;;
+  Open64) GASNET_PUSHVAR(CFLAGS,"-g3")
+          GASNET_GET_GNUWARNINGFLAGS(C)
+          CCDEBUGFLAGS="$CFLAGS"
+          GASNET_POPVAR(CFLAGS)
   ;;
   *)    CCDEBUGFLAGS="-g" ;;
 esac
@@ -654,6 +660,7 @@ AC_SUBST(MISC_CPPFLAGS)	      # misc preprocessor flags
 case "$gasnet_cv_cc_family" in
   GNU) KEEPTMP_CFLAGS="-save-temps" ;;
   Pathscale) KEEPTMP_CFLAGS="-keep" ;;
+  Open64) KEEPTMP_CFLAGS="-keep" ;;
   XLC) KEEPTMP_CFLAGS="-qlist" ;; # XXX: generates .lst w/ asm.  Can't find a way to preserve .i
   PGI) KEEPTMP_CFLAGS="-Mkeepasm" ;; # XXX: only keeps .s.  Can't find a way to preserve .i
   Intel) KEEPTMP_CFLAGS="-save-temps" ;; # XXX: only keeps .s.  Can't find a way to preserve .i
@@ -1435,7 +1442,9 @@ AC_TRY_RUN([
   int main(void) {
   #if PLATFORM_ARCH_X86_64
     #if PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_INTEL || \
-        PLATFORM_COMPILER_PATHSCALE || GASNETI_PGI_ASM_GNU
+        PLATFORM_COMPILER_PATHSCALE || GASNETI_PGI_ASM_GNU || \
+        PLATFORM_COMPILER_OPEN64__IS_NOT_WORKING_YET
+
 	unsigned long *array[3];
 	volatile unsigned long *p = (void *)(((unsigned long)array + 15) & ~(unsigned long)15);
 
@@ -1461,7 +1470,7 @@ AC_TRY_RUN([
        	return (!oldlo || (p[0] != 1234) || (p[1] != 5678));
     #else
 	/* Don't know, but also don't currently care */
-	return 0;
+	return 1;
     #endif
   #else
     #error wrong CPU architecture
@@ -1808,6 +1817,7 @@ AC_DEFUN([GASNET_FH_CFLAGS],[
   case "$gasnet_cv_cc_family" in
           GNU) fh_cflags_default="-fno-strict-aliasing";;
     Pathscale) fh_cflags_default="-fno-strict-aliasing";;
+       Open64) fh_cflags_default="-fno-strict-aliasing";;
           XLC) fh_cflags_default="-qnoansialias -qalias=addr";;
             *) fh_cflags_default="";;
   esac
@@ -2007,6 +2017,13 @@ if test $enabled_udp = yes; then
       *)        MISC_CXXFLAGS="-hnomessage=236:611:997 -hexceptions -hnew_for_init $LIBCM" ;; # X1
      esac ;;
     Pathscale)  CXXDEBUGFLAGS="-g3 -O0" ;; # consistent with CCDEBUGFLAGS
+    Open64)
+       CXXOPTFLAGS="-O2"
+       GASNET_PUSHVAR(CXXFLAGS,"-g3")
+       GASNET_GET_GNUWARNINGFLAGS(CXX)
+       CXXDEBUGFLAGS="$CXXFLAGS" 
+       GASNET_POPVAR(CXXFLAGS)
+    ;;
   esac  
   if test "$BUILDCONFIG" = "optimize" ; then
     CXXFLAGS="$CXXOPTFLAGS"
@@ -4073,7 +4090,7 @@ AC_SUBST(LDFLAGS)
 GASNET_IF_ENABLED(strict-prototypes, [Use strict prototypes in GASNet headers (at the expense of slight deviation from the specification)], [
   AC_DEFINE(GASNET_USE_STRICT_PROTOTYPES)
   case "$gasnet_cv_cc_family" in
-  GNU|Pathscale)
+  GNU|Pathscale|Open64)
         dnl Consistent w/ other GNU warning flags:
         dnl    CFLAGS and MPI_CFLAGS get the flag only for a debug build
         dnl    MISC_CXXFLAGS gets the flag for any build

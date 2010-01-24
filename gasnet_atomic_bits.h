@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2010/01/24 21:23:43 $
- * $Revision: 1.312 $
+ *     $Date: 2010/01/24 22:46:19 $
+ * $Revision: 1.313 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -56,7 +56,8 @@
      * Bottom line is that we recommend YOUR_PIC_CFLAGS="-fPIC -DGASNETI_FORCE_PIC",
      * replacing "-fPIC" with your compiler-specific flag(s) as needed.
      */
-  #if (PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_PATHSCALE || PLATFORM_COMPILER_PGI) && \
+  #if (PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_PATHSCALE || \
+       PLATFORM_COMPILER_PGI || PLATFORM_COMPILER_OPENCC ) && \
 	(defined(__PIC__) || defined(GASNETI_FORCE_PIC))
       /* Disable use of %ebx when building PIC, but only on affected compilers. */
       #define GASNETI_USE_X86_EBX 0
@@ -294,7 +295,8 @@
    * ------------------------------------------------------------------------------------ */
   #if PLATFORM_ARCH_X86 || PLATFORM_ARCH_X86_64 /* x86 and Athlon64/Opteron */
     #if PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_INTEL || \
-        PLATFORM_COMPILER_PATHSCALE || GASNETI_PGI_ASM_THREADSAFE || PLATFORM_COMPILER_TINY
+        PLATFORM_COMPILER_PATHSCALE || GASNETI_PGI_ASM_THREADSAFE || \
+        PLATFORM_COMPILER_TINY || PLATFORM_COMPILER_OPEN64
      #define GASNETI_HAVE_ATOMIC32_T 1
      typedef struct { volatile uint32_t ctr; } gasneti_atomic32_t;
      #define _gasneti_atomic32_init(v)      { (v) }
@@ -303,7 +305,7 @@
      typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
      #define _gasneti_atomic64_init(v)      { (v) }
 
-      #if PLATFORM_COMPILER_PATHSCALE
+      #if PLATFORM_COMPILER_PATHSCALE || PLATFORM_COMPILER_OPEN64
         /* Pathscale optimizer is buggy and fails to clobber memory output location correctly
            unless we include an extraneous full memory clobber 
          */
