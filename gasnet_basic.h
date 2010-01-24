@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2010/01/24 04:10:20 $
- * $Revision: 1.105 $
+ *     $Date: 2010/01/24 04:25:16 $
+ * $Revision: 1.106 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -55,6 +55,10 @@
        GASNETI_THREADKEY_* (TLS support)
      XXX: could/should provide probes of these items for $CXX and $MPI_CC
      XXX: could/should provide GASNETT_USE_* as we now do for __attribute__
+     
+     2010-01-23:
+       Removed GASNETI_RESTRICT from list above (implemented probes and override)
+       Provide override for GASNETI_PLEASE_INLINE (but no probes of $CXX or $MPI_CC yet)
 
      also exported as GASNETT_CONFIGURE_MISMATCH
    */
@@ -487,10 +491,10 @@
  */
 #if GASNET_DEBUG
   #define GASNETI_PLEASE_INLINE(fnname) static
+#elif defined(GASNETT_USE_PLEASE_INLINE)
+  #define GASNETI_PLEASE_INLINE(fnname) GASNETT_USE_PLEASE_INLINE(fnname)
 #elif defined(__cplusplus)
   #define GASNETI_PLEASE_INLINE(fnname) inline
-#elif defined(__GCC_UPC__) /* ensure GCC/UPC sees inline keyword, even with a configure mismatch */
-  #define GASNETI_PLEASE_INLINE(fnname) static __inline
 #elif defined(STATIC_INLINE_WORKS) && !GASNETI_CONFIGURE_MISMATCH
   #define GASNETI_PLEASE_INLINE(fnname) static CC_INLINE_MODIFIER
 #elif defined(CC_INLINE_MODIFIER) && !GASNETI_CONFIGURE_MISMATCH
