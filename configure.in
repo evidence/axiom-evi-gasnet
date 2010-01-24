@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2010/01/24 03:21:22 $
-# $Revision: 1.597 $
+#     $Date: 2010/01/24 08:52:42 $
+# $Revision: 1.598 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.597 $)
+AC_REVISION($Revision: 1.598 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1568,7 +1568,7 @@ GASNET_IF_ENABLED_WITH_AUTO(smp-safe, Enable build of SMP-safe libraries (defaul
           #endif
           ], [], [ uni_build=yes ])
         ;;
-      freebsd*)  
+      freebsd* | openbsd*)  
         if test "`/sbin/sysctl -n hw.ncpu 2>/dev/null`" = 1; then
           uni_build=yes
         fi
