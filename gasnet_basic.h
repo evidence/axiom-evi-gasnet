@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2010/01/24 03:21:22 $
- * $Revision: 1.104 $
+ *     $Date: 2010/01/24 04:10:20 $
+ * $Revision: 1.105 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -207,6 +207,11 @@
 /* special GCC features */
 #if PLATFORM_COMPILER_PGI && defined(__attribute__)
 #undef __attribute__ /* bug 1766: undo a stupid, gcc-centric definition from Linux sys/cdefs.h */
+#endif
+
+/* work around bug 1620 unless client has explicitly set GASNETT_USE_GCC_ATTRIBUTE_ALWAYSINLINE */
+#if PLATFORM_COMPILER_PATHSCALE && !defined(GASNETT_USE_GCC_ATTRIBUTE_ALWAYSINLINE)
+  #define GASNETT_USE_GCC_ATTRIBUTE_ALWAYSINLINE 0
 #endif
 
 #if PLATFORM_COMPILER_SGI_CXX
@@ -455,7 +460,7 @@
 #endif
 
 /* GASNETI_ALWAYS_INLINE: force inlining of function if possible */
-#if GASNETT_USE_GCC_ATTRIBUTE_ALWAYSINLINE && !PLATFORM_COMPILER_PATHSCALE /* (see bug 1620) */
+#if GASNETT_USE_GCC_ATTRIBUTE_ALWAYSINLINE
   /* bug1525: gcc's __always_inline__ attribute appears to be maximally aggressive */
   #define _GASNETI_ALWAYS_INLINE(fnname) __attribute__((__always_inline__))
 #elif PLATFORM_COMPILER_CRAY_C
