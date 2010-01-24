@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2010/01/23 07:39:37 $
-# $Revision: 1.594 $
+#     $Date: 2010/01/24 00:57:09 $
+# $Revision: 1.595 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.594 $)
+AC_REVISION($Revision: 1.595 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2315,8 +2315,10 @@ _GASNET_EOF
       ], [ mpi_test_worked=no GASNET_ERR_SAVE() ] )
     fi
 
-    GASNET_GET_GNU_ATTRIBUTES([GASNETI_HAVE_MPI_CC],[MPI_CC])
-    GASNET_GET_PLATFORM_ID([MPI_CC])
+    if test "$mpi_test_worked" = yes ; then
+      GASNET_GET_GNU_ATTRIBUTES([GASNETI_HAVE_MPI_CC],[MPI_CC])
+      GASNET_GET_PLATFORM_ID([MPI_CC])
+    fi
 
     GASNET_POPVAR(CC)
     GASNET_POPVAR(CFLAGS)
