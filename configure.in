@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2010/01/24 22:46:19 $
-# $Revision: 1.599 $
+#     $Date: 2010/01/24 23:45:52 $
+# $Revision: 1.600 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.599 $)
+AC_REVISION($Revision: 1.600 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -286,7 +286,7 @@ case "$gasnet_cv_cc_family" in
   TINY) CCOPTFLAGS="" # optimization not supported
         SEPARATE_CC=1 # force separate compilation - multiple -c compilation not supported
   ;;
-  Open64) CCOPTFLAGS="-O2" ;; # XXX: A few unresolved errors w/ -O3
+  Open64) CCOPTFLAGS="-O3" ;;
   *)    CCOPTFLAGS="-O" ;;
 esac
 AC_SUBST(SEPARATE_CC)
@@ -2018,7 +2018,7 @@ if test $enabled_udp = yes; then
      esac ;;
     Pathscale)  CXXDEBUGFLAGS="-g3 -O0" ;; # consistent with CCDEBUGFLAGS
     Open64)
-       CXXOPTFLAGS="-O2"
+       CXXOPTFLAGS="-O3"
        GASNET_PUSHVAR(CXXFLAGS,"-g3")
        GASNET_GET_GNUWARNINGFLAGS(CXX)
        CXXDEBUGFLAGS="$CXXFLAGS" 
