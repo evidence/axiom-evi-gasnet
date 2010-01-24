@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2010/01/24 04:25:16 $
- * $Revision: 1.106 $
+ *     $Date: 2010/01/24 06:22:35 $
+ * $Revision: 1.107 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -214,7 +214,8 @@
 #endif
 
 /* work around bug 1620 unless client has explicitly set GASNETT_USE_GCC_ATTRIBUTE_ALWAYSINLINE */
-#if PLATFORM_COMPILER_PATHSCALE && !defined(GASNETT_USE_GCC_ATTRIBUTE_ALWAYSINLINE)
+#if PLATFORM_COMPILER_PATHSCALE && PLATFORM_COMPILER_VERSION_LT(3,0,0) && \
+    !defined(GASNETT_USE_GCC_ATTRIBUTE_ALWAYSINLINE)
   #define GASNETT_USE_GCC_ATTRIBUTE_ALWAYSINLINE 0
 #endif
 
