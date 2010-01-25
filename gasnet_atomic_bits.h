@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2010/01/24 22:46:19 $
- * $Revision: 1.313 $
+ *     $Date: 2010/01/25 02:17:13 $
+ * $Revision: 1.314 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1337,7 +1337,7 @@
 	/* Using default fences, as our asm includes none */
       #elif PLATFORM_COMPILER_SUN
         #if 0 /* Sun compiler gets an assertion failure upon seeing movrz */
-          #define GASNETI_SPARC_MOVRZ_g1_1_i0		"movrz %g1, 1, $i0"
+          #define GASNETI_SPARC_MOVRZ_g1_1_i0		"movrz %g1, 1, %i0"
         #else
           #define GASNETI_SPARC_MOVRZ_g1_1_i0		".long 0xb1786401"
         #endif
