@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2010/01/25 19:00:41 $
-dnl $Revision: 1.147 $
+dnl     $Date: 2010/01/25 19:31:15 $
+dnl $Revision: 1.148 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -1209,7 +1209,7 @@ GASNET_FUN_END([$0])
 ])
 
 dnl INTERNL USE ONLY
-AC_DEFUN([GASNETI_C_OR_CXX],[ifelse(index([$1],[CXX])),[-1],[C],[CXX])])
+AC_DEFUN([GASNETI_C_OR_CXX],[ifelse(index([$1],[CXX]),[-1],[C],[CXX])])
 
 dnl check whether a given gcc/g++ attribute is available
 dnl GASNET_CHECK_GNU_ATTRIBUTE(PREFIX, compiler-name, attribute-name, declaration, code)
