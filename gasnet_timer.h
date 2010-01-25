@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2010/01/24 22:46:19 $
- * $Revision: 1.92 $
+ *     $Date: 2010/01/25 07:00:45 $
+ * $Revision: 1.93 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -138,8 +138,12 @@ GASNETI_BEGIN_EXTERNC
   typedef uint64_t gasneti_tick_t;
   GASNETI_INLINE(gasneti_ticks_now)
   gasneti_tick_t gasneti_ticks_now(void) {
-    hrtime_t t = gethrtime();
-    return *(gasneti_tick_t *)&t;
+    union {
+      hrtime_t in;
+      gasneti_tick_t out;
+    } t;
+    t.in = gethrtime();
+    return t.out;
   }
   #define gasneti_ticks_to_ns(st)  (st)
 #else
