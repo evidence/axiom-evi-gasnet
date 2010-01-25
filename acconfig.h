@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2010/01/24 03:21:22 $ */
-/*  $Revision: 1.147 $ */
+/*      $Date: 2010/01/25 05:24:12 $ */
+/*  $Revision: 1.148 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -207,6 +207,9 @@
 
 /* gcc/gas support "LDCW,CO" psuedo-op on PA-RISC */
 #undef GASNETI_HAVE_PARISC_LDCW_CO
+
+/* gcc support for "U" and "h" register classes on SPARC32 */
+#undef GASNETI_HAVE_SPARC32_64BIT_ASM
 
 /* has __builtin_expect */
 #undef HAVE_BUILTIN_EXPECT

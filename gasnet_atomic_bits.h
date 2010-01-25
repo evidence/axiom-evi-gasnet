@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2010/01/25 02:17:13 $
- * $Revision: 1.314 $
+ *     $Date: 2010/01/25 05:24:12 $
+ * $Revision: 1.315 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1284,11 +1284,10 @@
           return (int)(newval == oldval);
         }
 
-        #define GASNETI_HAVE_ATOMIC64_T 1
-        typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
-        #define _gasneti_atomic64_init(v)      { (v) }
-
         #if PLATFORM_ARCH_64
+          #define GASNETI_HAVE_ATOMIC64_T 1
+          typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
+          #define _gasneti_atomic64_init(v)      { (v) }
           #define _gasneti_atomic64_read(p)      ((p)->ctr)
           #define _gasneti_atomic64_set(p,v)     do { (p)->ctr = (v); } while(0)
           GASNETI_INLINE(_gasneti_atomic64_compare_and_swap)
@@ -1300,11 +1299,14 @@
               : "r"(oldval), "r"(addr), "m"(v->ctr) );
             return (int)(newval == oldval);
           }
-        #else
+        #elif GASNETI_HAVE_SPARC32_64BIT_ASM /* compiler supports "U" and "h" constraints */
           /* ILP32 on a 64-bit CPU. */
           /* Note that the ldd/std instructions *are* atomic, even though they use 2 registers.
            * We wouldn't need asm here if we could be sure the compiler always used ldd/std.
            */
+          #define GASNETI_HAVE_ATOMIC64_T 1
+          typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
+          #define _gasneti_atomic64_init(v)      { (v) }
           GASNETI_INLINE(_gasneti_atomic64_set)
           void _gasneti_atomic64_set(gasneti_atomic64_t *p, uint64_t v) {
             __asm__ __volatile__ ( "std	%1, %0" : "=m"(p->ctr) : "U"(v) );
@@ -1332,6 +1334,8 @@
 		: "r"(addr), "m"(v->ctr), "r"(newval), "r"(oldval) );
             return retval;
           }
+        #else
+          /* Until fixed-register version is completed, we'll use the generics */
 	#endif
 
 	/* Using default fences, as our asm includes none */

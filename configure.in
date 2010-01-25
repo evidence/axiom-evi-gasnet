@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2010/01/24 23:45:52 $
-# $Revision: 1.600 $
+#     $Date: 2010/01/25 05:24:12 $
+# $Revision: 1.601 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.600 $)
+AC_REVISION($Revision: 1.601 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1504,6 +1504,20 @@ GASNET_TRY_CACHE_CHECK(for x86 EBX register, x86_ebx, [
   #endif
 ], [AC_DEFINE(GASNETI_HAVE_X86_EBX)])
 GASNET_POPVAR(CFLAGS)
+
+## Does 32-bit SPARC compiler understand "U" and "h" register classes?
+if expr "$GASNETI_PTR_BITS$target_cpu" : "32sparc" >/dev/null; then
+  GASNET_PUSHVAR(CFLAGS,"$CFLAGS $MISC_CPPFLAGS $MISC_CFLAGS")
+  GASNET_TRY_CACHE_CHECK([for 64-bit SPARC asm support], have_sparc32_64bit_asm, [] ,[
+      unsigned long long u, v;
+      volatile unsigned long long *p = &u;
+      register int retval;
+      register int tmp = 0;
+      __asm__ __volatile__ ( "std %1, %0" : "=m"(*p) : "U"(v) );
+      __asm__ __volatile__ ( "clr %0 \n\tmovrz %1,1,%0" : "=&h"(retval), "+h"(tmp) );
+  ], [AC_DEFINE(GASNETI_HAVE_SPARC32_64BIT_ASM)])
+  GASNET_POPVAR(CFLAGS)
+fi
 
 ## Spinloop hints
 GASNET_PUSHVAR(CFLAGS,"$CFLAGS $MISC_CPPFLAGS $MISC_CFLAGS -I$TOP_SRCDIR -I$TOP_SRCDIR/other -D_IN_CONFIGURE")
