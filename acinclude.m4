@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2010/01/24 22:46:19 $
-dnl $Revision: 1.146 $
+dnl     $Date: 2010/01/25 19:00:41 $
+dnl $Revision: 1.147 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -1209,18 +1209,18 @@ GASNET_FUN_END([$0])
 ])
 
 dnl INTERNL USE ONLY
-AC_DEFUN([GASNETI_C_OR_CXX],[ifelse(index([$1],[CXX])[]index([$1],[C++]),[-1-1],[C],[CXX])])
+AC_DEFUN([GASNETI_C_OR_CXX],[ifelse(index([$1],[CXX])),[-1],[C],[CXX])])
 
 dnl check whether a given gcc/g++ attribute is available
 dnl GASNET_CHECK_GNU_ATTRIBUTE(PREFIX, compiler-name, attribute-name, declaration, code)
-dnl If compiler-name contains "CXX" or "C++" then test is run as LANG_CPLUSPLUS
+dnl If PREFIX contains "CXX" then test is run as LANG_CPLUSPLUS
 dnl Caller is responsible for setting of CC and friends in the MPI_CC case
 AC_DEFUN([GASNET_CHECK_GNU_ATTRIBUTE],[
   GASNET_FUN_BEGIN([$0($1,$2,$3)])
   pushdef([uppername],translit(patsubst([$3], [_], []),'a-z','A-Z'))
   pushdef([cachevar],cv_prefix[]translit([$1]_attr_[]uppername,'A-Z','a-z'))
   AC_CACHE_CHECK($2 for __attribute__(($3)), cachevar,
-    GASNET_TRY_COMPILE_WITHWARN(GASNETI_C_OR_CXX([$2]), [$4], [$5], [
+    GASNET_TRY_COMPILE_WITHWARN(GASNETI_C_OR_CXX([$1]), [$4], [$5], [
           cachevar='yes'
       ],[ dnl cachevar="no/warning: $gasnet_cmd_stdout$gasnet_cmd_stderr"
           cachevar='no/warning'
@@ -1241,7 +1241,7 @@ AC_DEFUN([GASNET_CHECK_GNU_ATTRIBUTE],[
 
 dnl GASNET_GET_GNU_ATTRIBUTES(PREFIX, opt compiler-name)
 dnl Check all gcc attributes of interest/importance to GASNet
-dnl If compiler-name contains "CXX" or "C++" then test is run as LANG_CPLUSPLUS
+dnl If PREFIX contains "CXX"  then test is run as LANG_CPLUSPLUS
 dnl Caller must setup CC, CFLAGS, etc for MPI_CC case.
 AC_DEFUN([GASNET_GET_GNU_ATTRIBUTES],[
   GASNET_CHECK_GNU_ATTRIBUTE([$1], [$2], [__always_inline__],
@@ -1272,7 +1272,7 @@ AC_DEFUN([GASNET_GET_GNU_ATTRIBUTES],[
 
   pushdef([cachevar],cv_prefix[]translit([$1],'A-Z','a-z')[]_attr_format_funcptr)
   AC_CACHE_CHECK($2 for __attribute__((__format__)) on function pointers, cachevar,
-    GASNET_TRY_COMPILE_WITHWARN(GASNETI_C_OR_CXX([$2]), [
+    GASNET_TRY_COMPILE_WITHWARN(GASNETI_C_OR_CXX([$1]), [
           __attribute__((__format__ (__printf__, 1, 2))) extern void (*dummy)(const char *fmt,...);
       ], [], [ cachevar='yes' ],[ cachevar='no/warning' ],[ cachevar='no/error' ])
   )
