@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_toolhelp.h,v $
- *     $Date: 2009/12/24 17:45:39 $
- * $Revision: 1.54 $
+ *     $Date: 2010/01/25 22:20:37 $
+ * $Revision: 1.55 $
  * Description: misc declarations needed by both gasnet_tools and libgasnet
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -707,18 +707,18 @@ int gasnett_maximize_rlimit(int res, const char *lim_desc);
 
 /* By default GASNet(tools) enforces a spec-compliant ctype interface,
    even when the OS version is buggy / warning-prone.
-   Clients who want the buggy OS version can -DGASNET_USE_CTYPE_WRAPPERS=0
+   Clients who want the buggy OS version can -DGASNETT_USE_CTYPE_WRAPPERS=0
  */
-#ifndef GASNET_USE_CTYPE_WRAPPERS
-   #if PLATFORM_OS_TRU64 || PLATFORM_OS_IRIX
-      #define GASNET_USE_CTYPE_WRAPPERS 1
+#ifndef GASNETT_USE_CTYPE_WRAPPERS
+   #if PLATFORM_OS_TRU64 || PLATFORM_OS_IRIX || PLATFORM_OS_SOLARIS
+      #define GASNETT_USE_CTYPE_WRAPPERS 1
    #else
-      #define GASNET_USE_CTYPE_WRAPPERS 0
+      #define GASNETT_USE_CTYPE_WRAPPERS 0
    #endif
 #endif
 
 #include <ctype.h>
-#if GASNET_USE_CTYPE_WRAPPERS 
+#if GASNETT_USE_CTYPE_WRAPPERS 
   GASNETI_ALWAYS_INLINE(gasnett_toupper) GASNETI_CONST
   int gasnett_toupper(int _c) { return toupper(_c); }
   #undef toupper
