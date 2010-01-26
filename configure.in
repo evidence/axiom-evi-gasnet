@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2010/01/26 00:29:42 $
-# $Revision: 1.602 $
+#     $Date: 2010/01/26 02:50:15 $
+# $Revision: 1.603 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.602 $)
+AC_REVISION($Revision: 1.603 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -3578,8 +3578,6 @@ AC_CHECK_FUNCS(gethostid)
 
 AC_CHECK_FUNCS(setenv unsetenv putenv)
 
-AC_CHECK_FUNCS(isblank isascii toascii)
-
 AC_CHECK_FUNCS([getrlimit setrlimit getrlimit64 setrlimit64], [], [])
 AC_CHECK_HEADERS(sys/resource.h)
 
@@ -3625,9 +3623,28 @@ GASNET_CHECK_SYS_DECL(unsetenv)
 GASNET_CHECK_SYS_DECL(snprintf)
 GASNET_CHECK_SYS_DECL(vsnprintf)
 
+########################################################################
+# ctype.h wrapper support
+
+AC_CHECK_FUNCS(isblank isascii toascii)
+
 GASNET_CHECK_SYS_DECL(isblank)
 GASNET_CHECK_SYS_DECL(isascii)
 GASNET_CHECK_SYS_DECL(toascii)
+
+AC_CACHE_CHECK([for buggy ctype.h], gasnet_cv_buggy_ctype, [
+  gasnet_cv_buggy_ctype=unk
+  GASNET_TRY_CCOMPILE_WITHWARN(
+       [#include <ctype.h>
+        int foo(char c) { return isalpha(c); } ],
+       [int x = foo('c');],
+       [gasnet_cv_buggy_ctype=ok],
+       [gasnet_cv_buggy_ctype=yes/warning],
+       [GASNET_MSG_ERROR(failure building test of ctype.h)])
+])
+if test x$gasnet_cv_buggy_ctype != xok; then
+  AC_DEFINE(GASNETI_NEED_CTYPE_WRAPPERS)
+fi
 
 ########################################################################
 # BACKTRACE support
