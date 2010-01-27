@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2010/01/27 22:41:12 $
-# $Revision: 1.609 $
+#     $Date: 2010/01/27 23:52:11 $
+# $Revision: 1.610 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.609 $)
+AC_REVISION($Revision: 1.610 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2354,7 +2354,6 @@ _GASNET_EOF
     fi
 
     if test "$mpi_test_worked" = yes ; then
-      GASNET_FAMILY_CACHE_CHECK([MPI_CC], [MPI_CC], gasnet_cv_mpi_cc_family)
       GASNET_CHECK_RESTRICT([GASNETI_MPI_CC],[MPI_CC])
       GASNET_GET_GNU_ATTRIBUTES([GASNETI_HAVE_MPI_CC],[MPI_CC])
       GASNET_GET_PLATFORM_ID([MPI_CC],[MPI_CC])
@@ -2378,6 +2377,12 @@ _GASNET_EOF
   else
       GASNET_MSG_WARN([build test failed: I don't know how to build MPI programs on your system -- see $TOP_BUILDDIR/config.log for details: consider using \$MPI_CC \$MPI_CFLAGS and \$MPI_LIBS to configure MPI support for your site if you want the mpi conduit])
       have_mpi=no
+  fi
+  GASNET_FAMILY_CACHE_CHECK([MPI_CC], [MPI_CC], gasnet_cv_mpi_cc_family)
+  if test x"$gasnet_cv_mpi_cc_family" != x"$gasnet_cv_cc_family"; then
+    GASNET_MSG_WARN([The compiler family of \$CC ($gasnet_cv_cc_family) and \$MPI_CC ($gasnet_cv_mpi_cc_family) do not agree.  If this is not what you intended, then set \$MPI_CC to select a different MPI compiler.])
+  elif test x"$gasnet_cv_PLATFORM_MPI_CC_VERSION" != x"$gasnet_cv_PLATFORM_COMPILER_VERSION"; then
+    GASNET_MSG_WARN([The version codes reported by \$CC and \$MPI_CC do not agree.  If this is not what you intended, then set \$MPI_CC to select a different MPI compiler.])
   fi
   if test "$have_mpi" = no ; then
     mpi_reason="was not found"
