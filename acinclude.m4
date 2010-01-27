@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2010/01/26 00:29:42 $
-dnl $Revision: 1.149 $
+dnl     $Date: 2010/01/27 21:41:59 $
+dnl $Revision: 1.150 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -1890,12 +1890,12 @@ fi
 GASNET_FUN_END([$0($1,...,$4)])
 ])
 
-dnl GASNET_FAMILY_CACHE_CHECK(lang-display-name, (CC|CXX), family_output_var)
+dnl GASNET_FAMILY_CACHE_CHECK(lang-display-name, (CC|MPI_CC|CXX), family_output_var)
 AC_DEFUN([GASNET_FAMILY_CACHE_CHECK],[
 GASNET_FUN_BEGIN([$0($1,$2,$3)])
 AC_REQUIRE_CPP
 AC_CACHE_CHECK(for $1 compiler family, $3, [
-  if test "$2" = "CC" ; then
+  if test "$2" != "CXX" ; then
     _GASNET_FAMILY_CACHE_CHECK_PREPROC="$CPP"
   else
     _GASNET_FAMILY_CACHE_CHECK_PREPROC="$CXXCPP"
