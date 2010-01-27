@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2010/01/27 21:41:59 $
-# $Revision: 1.608 $
+#     $Date: 2010/01/27 22:41:12 $
+# $Revision: 1.609 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.608 $)
+AC_REVISION($Revision: 1.609 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -3753,8 +3753,21 @@ fi # use_backtrace
 ########################################################################
 # Try to discover the C compiler's inline modifier
 
+dnl INTERNAL USE BY GASNET_INLINE_MODIFIER ONLY
+AC_DEFUN([GASNET_TRY_INLINE],[
+  if test -z "$inlinemod"; then
+    GASNET_TRY_CACHE_CHECK([$1 for $3 modifier], $2[]mod$3,
+      [$3 int dummy(void) { return 1; }], [], [inlinemod="$3"])
+  fi
+])
+
+dnl GASNET_INLINE_MODIFIER(compiler-display-name, compiler-type)
+dnl Where compiler-type is CC|MPI_CC
+AC_DEFUN([GASNET_INLINE_MODIFIER],[
+pushdef([lowername],translit($2,'A-Z','a-z'))
+pushdef([uppername],translit($2,'a-z','A-Z'))
 inlinemod=""
-case "$gasnet_cv_cc_family" in
+case "$gasnet_cv_[]lowername[]_family" in
   Compaq) # force __inline on Compaq C, because it's the most effective
     inlinemod=__inline
   ;;
@@ -3767,23 +3780,23 @@ case "$gasnet_cv_cc_family" in
     fi
   ;;
 esac
-
-AC_DEFUN([GASNET_TRY_INLINE],[
-  if test -z "$inlinemod"; then
-    GASNET_TRY_CACHE_CHECK([for $1 modifier], [cc_mod$1],
-      [$1 int dummy(void) { return 1; }], [], [inlinemod="$1"])
-  fi
-])
-GASNET_TRY_INLINE([inline])
-GASNET_TRY_INLINE([__inline__])
-GASNET_TRY_INLINE([__inline])
-GASNET_TRY_INLINE([_inline])
-GASNET_TRY_INLINE([_Inline])
-
+GASNET_TRY_INLINE($1,lowername,[inline])
+GASNET_TRY_INLINE($1,lowername,[__inline__])
+GASNET_TRY_INLINE($1,lowername,[__inline])
+GASNET_TRY_INLINE($1,lowername,[_inline])
+GASNET_TRY_INLINE($1,lowername,[_Inline])
 if test -n "$inlinemod"; then
-  GASNET_TRY_CACHE_CHECK(whether 'static $inlinemod' works, cc_static_inline,
+  GASNET_TRY_CACHE_CHECK($1 for working 'static $inlinemod', lowername[_static_inline],
    [static $inlinemod int dummy() { return 1; }], [], [inlinemod="static $inlinemod"])
-  AC_DEFINE_UNQUOTED(GASNET_CC_INLINE_MODIFIER, $inlinemod)
+  AC_DEFINE_UNQUOTED(GASNET_[]uppername[]_INLINE_MODIFIER, $inlinemod)
+fi
+popdef([uppername])
+popdef([lowername])
+])
+
+GASNET_INLINE_MODIFIER([C compiler],[CC])
+if test x"$have_mpi" = xyes ; then
+  GASNET_INLINE_MODIFIER([MPI_CC],[MPI_CC])
 fi
 
 # Runtime Var Arrays

@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2010/01/27 12:52:30 $ */
-/*  $Revision: 1.150 $ */
+/*      $Date: 2010/01/27 22:41:12 $ */
+/*  $Revision: 1.151 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -96,8 +96,9 @@
 #undef GASNETI_PLATFORM_MPI_CC_VERSION
 
 /* Defined to be the inline function modifier supported by the C
-   compiler (if supported), prefixed by 'static' (if permitted) */
+   compilers (if supported), prefixed by 'static' (if permitted) */
 #undef GASNET_CC_INLINE_MODIFIER
+#undef GASNET_MPI_CC_INLINE_MODIFIER
 
 /* C, C++ and MPI_CC compilers 'restrict' keywords (or empty) */
 #undef GASNETI_CC_RESTRICT
