@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2010/01/27 12:52:30 $
-# $Revision: 1.604 $
+#     $Date: 2010/01/27 13:58:42 $
+# $Revision: 1.605 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.604 $)
+AC_REVISION($Revision: 1.605 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -3763,33 +3763,22 @@ case "$gasnet_cv_cc_family" in
     fi
   ;;
 esac
-if test "$inlinemod" = ""; then
-  GASNET_TRY_CACHE_CHECK(for inline modifier, cc_modinline,
-    [inline int dummy() { return 1; }], [],
-    inlinemod=inline)
-fi
-if test "$inlinemod" = ""; then
-  GASNET_TRY_CACHE_CHECK(for __inline__ modifier, cc_mod__inline__,
-    [__inline__ int dummy() { return 1; }], [],
-    inlinemod=__inline__)
-fi
-if test "$inlinemod" = ""; then
-  GASNET_TRY_CACHE_CHECK(for __inline modifier, cc_mod__inline,
-    [__inline int dummy() { return 1; }], [],
-    inlinemod=__inline)
-fi
-if test "$inlinemod" = ""; then
-  GASNET_TRY_CACHE_CHECK(for _inline modifier, cc_mod_inline,
-    [_inline int dummy() { return 1; }], [],
-    inlinemod=_inline)
-fi
-if test "$inlinemod" = ""; then
-  GASNET_TRY_CACHE_CHECK(for _Inline modifier, cc_mod_Inline,
-    [_Inline int dummy() { return 1; }], [],
-    inlinemod=_Inline)
-fi
 
-if test "$inlinemod" != ""; then
+AC_DEFUN([GASNET_TRY_INLINE],[
+  if test -z "$inlinemod"; then
+    GASNET_TRY_CACHE_CHECK([for $0 modifier], [cc_mod$0],
+      [$0 int dummy(void) { return 1; }], [], [inlinemod="$0"])
+  fi
+])
+GASNET_TRY_INLINE([fake])
+GASNET_TRY_INLINE([bogus])
+GASNET_TRY_INLINE([inline])
+GASNET_TRY_INLINE([__inline__])
+GASNET_TRY_INLINE([__inline])
+GASNET_TRY_INLINE([_inline])
+GASNET_TRY_INLINE([_Inline])
+
+if test -n "$inlinemod"; then
   GASNET_TRY_CACHE_CHECK(whether 'static $inlinemod' works, cc_static_inline,
    [static $inlinemod int dummy() { return 1; }], [], [inlinemod="static $inlinemod"])
   AC_DEFINE_UNQUOTED(GASNET_CC_INLINE_MODIFIER, $inlinemod)
