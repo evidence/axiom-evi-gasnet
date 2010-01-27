@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2010/01/24 06:22:35 $
- * $Revision: 1.107 $
+ *     $Date: 2010/01/27 12:52:30 $
+ * $Revision: 1.108 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -496,10 +496,8 @@
   #define GASNETI_PLEASE_INLINE(fnname) GASNETT_USE_PLEASE_INLINE(fnname)
 #elif defined(__cplusplus)
   #define GASNETI_PLEASE_INLINE(fnname) inline
-#elif defined(STATIC_INLINE_WORKS) && !GASNETI_CONFIGURE_MISMATCH
-  #define GASNETI_PLEASE_INLINE(fnname) static CC_INLINE_MODIFIER
-#elif defined(CC_INLINE_MODIFIER) && !GASNETI_CONFIGURE_MISMATCH
-  #define GASNETI_PLEASE_INLINE(fnname) CC_INLINE_MODIFIER
+#elif defined(GASNET_CC_INLINE_MODIFIER) && !GASNETI_CONFIGURE_MISMATCH
+  #define GASNETI_PLEASE_INLINE(fnname) GASNET_CC_INLINE_MODIFIER
 #else
   #define GASNETI_PLEASE_INLINE(fnname) static
 #endif

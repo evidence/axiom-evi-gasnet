@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2010/01/26 02:50:15 $
-# $Revision: 1.603 $
+#     $Date: 2010/01/27 12:52:30 $
+# $Revision: 1.604 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.603 $)
+AC_REVISION($Revision: 1.604 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -3752,16 +3752,13 @@ fi # use_backtrace
 inlinemod=""
 case "$gasnet_cv_cc_family" in
   Compaq) # force __inline on Compaq C, because it's the most effective
-    AC_DEFINE(CC_INLINE_MODIFIER, __inline)
     inlinemod=__inline
   ;;
   XLC) # force __inline on XLC, to avoid warnings
-    AC_DEFINE(CC_INLINE_MODIFIER, __inline)
     inlinemod=__inline
   ;;
   HP) # __inline crashes HP C when optimizations are disabled
     if test "$BUILDCONFIG" = "debug" ; then
-      AC_DEFINE(CC_INLINE_MODIFIER, [ ])
       inlinemod=" "
     fi
   ;;
@@ -3769,37 +3766,33 @@ esac
 if test "$inlinemod" = ""; then
   GASNET_TRY_CACHE_CHECK(for inline modifier, cc_modinline,
     [inline int dummy() { return 1; }], [],
-    AC_DEFINE(CC_INLINE_MODIFIER, inline)
     inlinemod=inline)
 fi
 if test "$inlinemod" = ""; then
   GASNET_TRY_CACHE_CHECK(for __inline__ modifier, cc_mod__inline__,
     [__inline__ int dummy() { return 1; }], [],
-    AC_DEFINE(CC_INLINE_MODIFIER, __inline__)
     inlinemod=__inline__)
 fi
 if test "$inlinemod" = ""; then
   GASNET_TRY_CACHE_CHECK(for __inline modifier, cc_mod__inline,
     [__inline int dummy() { return 1; }], [],
-    AC_DEFINE(CC_INLINE_MODIFIER, __inline)
     inlinemod=__inline)
 fi
 if test "$inlinemod" = ""; then
   GASNET_TRY_CACHE_CHECK(for _inline modifier, cc_mod_inline,
     [_inline int dummy() { return 1; }], [],
-    AC_DEFINE(CC_INLINE_MODIFIER, _inline)
     inlinemod=_inline)
 fi
 if test "$inlinemod" = ""; then
   GASNET_TRY_CACHE_CHECK(for _Inline modifier, cc_mod_Inline,
     [_Inline int dummy() { return 1; }], [],
-    AC_DEFINE(CC_INLINE_MODIFIER, _Inline)
     inlinemod=_Inline)
 fi
 
 if test "$inlinemod" != ""; then
-  GASNET_TRY_CACHE_CHECK(whether static $inlinemod works, cc_static_inline,
-   [static $inlinemod int dummy() { return 1; }], [], [AC_DEFINE(STATIC_INLINE_WORKS)])
+  GASNET_TRY_CACHE_CHECK(whether 'static $inlinemod' works, cc_static_inline,
+   [static $inlinemod int dummy() { return 1; }], [], [inlinemod="static $inlinemod"])
+  AC_DEFINE_UNQUOTED(GASNET_CC_INLINE_MODIFIER, $inlinemod)
 fi
 
 # Runtime Var Arrays
