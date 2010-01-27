@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2010/01/27 13:58:42 $
-# $Revision: 1.605 $
+#     $Date: 2010/01/27 14:03:30 $
+# $Revision: 1.606 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.605 $)
+AC_REVISION($Revision: 1.606 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -289,7 +289,10 @@ case "$gasnet_cv_cc_family" in
   TINY) CCOPTFLAGS="" # optimization not supported
         SEPARATE_CC=1 # force separate compilation - multiple -c compilation not supported
   ;;
-  Open64) CCOPTFLAGS="-O3" ;;
+  Open64)
+        # See bug 2724 for info on "-OPT:wrap_around_unsafe=off"
+        CCOPTFLAGS="-O3 -OPT:wrap_around_unsafe=off"
+  ;;
   *)    CCOPTFLAGS="-O" ;;
 esac
 AC_SUBST(SEPARATE_CC)
@@ -2035,7 +2038,7 @@ if test $enabled_udp = yes; then
      esac ;;
     Pathscale)  CXXDEBUGFLAGS="-g3 -O0" ;; # consistent with CCDEBUGFLAGS
     Open64)
-       CXXOPTFLAGS="-O3"
+       CXXOPTFLAGS="-O3 -OPT:wrap_around_unsafe=off" # consistent with CCOPTFLAGS
        GASNET_PUSHVAR(CXXFLAGS,"-g3")
        GASNET_GET_GNUWARNINGFLAGS(CXX)
        CXXDEBUGFLAGS="$CXXFLAGS" 
