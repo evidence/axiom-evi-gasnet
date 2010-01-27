@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2010/01/27 14:03:30 $
-# $Revision: 1.606 $
+#     $Date: 2010/01/27 20:19:54 $
+# $Revision: 1.607 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.606 $)
+AC_REVISION($Revision: 1.607 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -3769,12 +3769,10 @@ esac
 
 AC_DEFUN([GASNET_TRY_INLINE],[
   if test -z "$inlinemod"; then
-    GASNET_TRY_CACHE_CHECK([for $0 modifier], [cc_mod$0],
-      [$0 int dummy(void) { return 1; }], [], [inlinemod="$0"])
+    GASNET_TRY_CACHE_CHECK([for $1 modifier], [cc_mod$1],
+      [$1 int dummy(void) { return 1; }], [], [inlinemod="$1"])
   fi
 ])
-GASNET_TRY_INLINE([fake])
-GASNET_TRY_INLINE([bogus])
 GASNET_TRY_INLINE([inline])
 GASNET_TRY_INLINE([__inline__])
 GASNET_TRY_INLINE([__inline])
