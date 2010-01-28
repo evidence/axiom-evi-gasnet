@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2010/01/28 00:30:49 $
-dnl $Revision: 1.151 $
+dnl     $Date: 2010/01/28 03:39:17 $
+dnl $Revision: 1.152 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -279,7 +279,7 @@ AC_DEFUN([GASNET_CHECK_INTTYPES],[
   AC_DEFINE([$2]HAVE_[]uppername)
   if test "$cross_compiling" = "yes" ; then
     dnl if cross-compiling, just ensure the header can build the inttypes program and hope for the best
-    GASNET_TRY_CACHE_CHECK([for a complete $1],[[$2]COMPLETE_[]uppername],[
+    GASNET_TRY_CACHE_CHECK([for a complete $1],[$2]COMPLETE_[]uppername,[
       GASNET_CHECK_INTTYPES_HELPERPROG($1)
     ],[ return check(); ], [
       [$2]COMPLETE_[]uppername=1
@@ -288,7 +288,7 @@ AC_DEFUN([GASNET_CHECK_INTTYPES],[
     ])
   else 
     dnl otherwise, build and run the inttypes program to ensure the header values are actually correct
-    GASNET_TRY_CACHE_RUN([for a complete $1],[[$2]COMPLETE_[]uppername],[
+    GASNET_TRY_CACHE_RUN([for a complete $1],[$2]COMPLETE_[]uppername,[
       GASNET_CHECK_INTTYPES_HELPERPROG($1)
       int main(void) { return check(); }
     ],[ 
