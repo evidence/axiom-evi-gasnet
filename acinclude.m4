@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2010/01/28 03:39:17 $
-dnl $Revision: 1.152 $
+dnl     $Date: 2010/01/28 03:54:21 $
+dnl $Revision: 1.153 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -668,6 +668,9 @@ AC_DEFUN([GASNET_START_CONFIGURE],[
   BUILD_ID="`date` $BUILD_USER"
   AC_MSG_RESULT( build id:       $BUILD_ID)
   AC_SUBST(BUILD_ID)
+
+  # ensure exec_list doesn't grow continuously each time we reconfigure
+  unset cv_prefix[]exec_list
 
   GASNET_RESTORE_AUTOCONF_ENV([CC CXX CFLAGS CXXFLAGS CPPFLAGS LIBS MAKE GMAKE AR AS RANLIB PERL SUM LEX YACC $1])
   GASNET_FUN_END([$0($1)])
