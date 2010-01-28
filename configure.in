@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2010/01/28 02:52:11 $
-# $Revision: 1.613 $
+#     $Date: 2010/01/28 03:12:56 $
+# $Revision: 1.614 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.613 $)
+AC_REVISION($Revision: 1.614 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1948,7 +1948,7 @@ AC_DEFUN([GASNET_ID_OTHER_COMPILER],[
     mismatch="version codes"
   fi
   if test -n "$mismatch"; then
-    pushdef([outfmt],[$AWK -F'\|' '{ printf("%s\t%s",[$]2,[$]3); }'])
+    pushdef([outfmt],[$AWK -F'|' '{ printf("%s\t%s",[$]2,[$]3); }'])
     idstr1=`echo "$gasnet_cv_PLATFORM_COMPILER_IDSTR" | outfmt`
     idstr2=`echo "$gasnet_cv_PLATFORM_[$1]_IDSTR" | outfmt`
     popdef([outfmt])
