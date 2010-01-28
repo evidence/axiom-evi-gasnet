@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2010/01/27 21:41:59 $
-dnl $Revision: 1.150 $
+dnl     $Date: 2010/01/28 00:30:49 $
+dnl $Revision: 1.151 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -1132,7 +1132,9 @@ dnl otherwise, if DEFAULT_CFLAGS works, then use it
 dnl otherwise, use SAFE_CFLAGS
 AC_DEFUN([GASNET_SET_CHECKED_CFLAGS],[
 GASNET_FUN_BEGIN([$0(...)])
-if test "$[$2]" != "" ; then
+if test "$[$1]" = "no" ; then
+  : # Skip
+elif test "$[$2]" != "" ; then
   GASNET_ENV_DEFAULT([$2], []) # user-provided flags
 else
   GASNET_ENV_DEFAULT([$2], [$3]) # try DEFAULT_CFLAGS
