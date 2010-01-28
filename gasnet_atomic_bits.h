@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2010/01/27 11:53:21 $
- * $Revision: 1.317 $
+ *     $Date: 2010/01/28 04:54:54 $
+ * $Revision: 1.318 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -57,7 +57,7 @@
      * replacing "-fPIC" with your compiler-specific flag(s) as needed.
      */
   #if (PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_PATHSCALE || \
-       PLATFORM_COMPILER_PGI || PLATFORM_COMPILER_OPENCC ) && \
+       PLATFORM_COMPILER_PGI || PLATFORM_COMPILER_OPEN64 ) && \
 	(defined(__PIC__) || defined(GASNETI_FORCE_PIC))
       /* Disable use of %ebx when building PIC, but only on affected compilers. */
       #define GASNETI_USE_X86_EBX 0
