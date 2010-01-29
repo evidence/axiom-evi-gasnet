@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2010/01/28 03:54:21 $
-dnl $Revision: 1.153 $
+dnl     $Date: 2010/01/29 00:50:53 $
+dnl $Revision: 1.154 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -163,7 +163,7 @@ if test "$ac_cv_header_[]lowername" = "yes"; then
   fi
   if test -z "$header_pathname"; then
     AC_MSG_RESULT(unknown)
-    GASNET_MSG_WARN(Unable to detect pathname of lowername - pretending it doesn't exist)
+    GASNET_MSG_WARN(Unable to detect pathname of $1 - pretending it doesn't exist)
     have=0
   else
     AC_MSG_RESULT($header_pathname)
