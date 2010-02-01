@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2010/01/31 03:37:22 $
-# $Revision: 1.617 $
+#     $Date: 2010/02/01 23:48:37 $
+# $Revision: 1.618 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.617 $)
+AC_REVISION($Revision: 1.618 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -302,11 +302,18 @@ case "$gasnet_cv_cc_family" in
 esac
 AC_SUBST(SEPARATE_CC)
 
+dnl GASNET_TRY_WNO_FLAG(type,flag,action-on-success)  type=C or CXX
+dnl As per bug 2718 gcc might silently ignore -Wno-such-flag, but not -Wsuch-flag
+dnl XXX: Probably sufficient to just probe for -Wsuch-flag (but lie in AC_MSG_CHECKING)
+AC_DEFUN([GASNET_TRY_WNO_FLAG],[
+        ]GASNET_TRY_[$1]FLAG[([$2],
+            ]GASNET_TRY_[$1]FLAG[(patsubst([$2],[Wno-],[W]),[$3]))])
+
 dnl GASNET_GET_GNUWARNINGFLAGS(type)  type=C or CXX
 AC_DEFUN([GASNET_GET_GNUWARNINGFLAGS],[
         ]GASNET_TRY_[$1]FLAG[([-Wall],[[$1]FLAGS="$[$1]FLAGS -Wall"])
-        ]GASNET_TRY_[$1]FLAG[([-Wno-unused],[[$1]FLAGS="$[$1]FLAGS -Wno-unused"])
-        ]GASNET_TRY_[$1]FLAG[([-Wno-address],[[$1]FLAGS="$[$1]FLAGS -Wno-address"])
+         GASNET_TRY_WNO_FLAG([$1],[-Wno-unused],[[$1]FLAGS="$[$1]FLAGS -Wno-unused"])
+         GASNET_TRY_WNO_FLAG([$1],[-Wno-address],[[$1]FLAGS="$[$1]FLAGS -Wno-address"])
         ]GASNET_TRY_[$1]FLAG[([-Wpointer-arith],[[$1]FLAGS="$[$1]FLAGS -Wpointer-arith"])
         ]GASNET_TRY_[$1]FLAG[([-Wnested-externs],[[$1]FLAGS="$[$1]FLAGS -Wnested-externs"])
         ]GASNET_TRY_[$1]FLAG[([-Wwrite-strings],[[$1]FLAGS="$[$1]FLAGS -Wwrite-strings"])
@@ -324,7 +331,7 @@ AC_DEFUN([GASNET_GET_GNUWARNINGFLAGS],[
         ]GASNET_TRY_[$1]COMPILE_WITHWARN[([#include <pthread.h>],
           [pthread_mutex_t fastmutex = PTHREAD_MUTEX_INITIALIZER;],
           [AC_MSG_RESULT(ok)], [AC_MSG_RESULT(buggy)
-          ]GASNET_TRY_[$1]FLAG[([-Wno-missing-braces],[old[$1]FLAGS="$old[$1]FLAGS -Wno-missing-braces"])],
+           GASNET_TRY_WNO_FLAG([$1],[-Wno-missing-braces],[old[$1]FLAGS="$old[$1]FLAGS -Wno-missing-braces"])],
           [#bug611: ignore failures here, which may be due to broken/missing pthreads support
            #AC_MSG_ERROR(failure while checking for buggy pthread.h mutexes)
 	   AC_MSG_RESULT(failure - ignored)
@@ -334,7 +341,7 @@ AC_DEFUN([GASNET_GET_GNUWARNINGFLAGS],[
 	fi
         case "$target_os" in 
           solaris*) # hide pragma warnings in system header files included by absolute path
-            ]GASNET_TRY_[$1]FLAG[([-Wno-unknown-pragmas],[[$1]FLAGS="$[$1]FLAGS -Wno-unknown-pragmas"])
+            GASNET_TRY_WNO_FLAG([$1],[-Wno-unknown-pragmas],[[$1]FLAGS="$[$1]FLAGS -Wno-unknown-pragmas"])
         esac
         #]GASNET_TRY_[$1]FLAG[([-ansi -U__STRICT_ANSI__],[[$1]FLAGS="$[$1]FLAGS -ansi -U__STRICT_ANSI__"])
 ])
@@ -533,8 +540,8 @@ case "$gasnet_cv_cc_family" in
     case "$target_os" in
       hpux*) GASNET_GET_HPUX_FLAGS(C,["-D__STDC_EXT__=1"]);;
       darwin*) 
-        GASNET_TRY_CFLAG([-Wno-long-double],
-	                 [MISC_CFLAGS="$MISC_CFLAGS -Wno-long-double"])
+        GASNET_TRY_WNO_FLAG([C],[-Wno-long-double],
+                            [MISC_CFLAGS="$MISC_CFLAGS -Wno-long-double"])
       ;; 
     esac
     ;;
@@ -576,7 +583,7 @@ case "$gasnet_cv_cc_family" in
     case "$target_os" in
       darwin*) # add some options which are specific to the Apple Inc version of gcc
         GASNET_TRY_CFLAG([-no-cpp-precomp],
-	                 [MISC_CPPFLAGS="$MISC_CPPFLAGS -no-cpp-precomp"])
+                         [MISC_CPPFLAGS="$MISC_CPPFLAGS -no-cpp-precomp"])
       ;; 
     esac ;;
   *)  MISC_CPPFLAGS="" ;;
@@ -2214,7 +2221,8 @@ if test "$enabled_mpi" = yes || test "$enabled_mpi_compat" = yes; then
         GASNET_PUSHVAR(CC,"$MPI_CC")
         GASNET_PUSHVAR(CFLAGS,"$MPI_CFLAGS")
         if test x"$MPI_CC" != xno; then
-          GASNET_TRY_CFLAG([-Wno-long-double],[MPI_CFLAGS="$MPI_CFLAGS -Wno-long-double"])
+          GASNET_TRY_WNO_FLAG([C],[-Wno-long-double],
+	                      [MPI_CFLAGS="$MPI_CFLAGS -Wno-long-double"])
         fi
         GASNET_POPVAR(CC)
         GASNET_POPVAR(CFLAGS)
