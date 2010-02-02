@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2010/02/01 23:48:37 $
-# $Revision: 1.618 $
+#     $Date: 2010/02/02 22:07:26 $
+# $Revision: 1.619 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.618 $)
+AC_REVISION($Revision: 1.619 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -4046,7 +4046,10 @@ case "$target" in
 *-blrts-*) debugmalloc_support=no ;; # debug malloc vars crash BG/L RTS
 *) debugmalloc_support=yes ;; # it's a glibc feature, but appears harmless elsewhere
 esac
-AM_CONDITIONAL(DEBUGMALLOC,test "$debugmalloc_support" = "yes")
+GASNET_IF_ENABLED_WITH_AUTO(debug-malloc,
+  [enable use of system-specific debugging malloc (ignored unless GASNet configured with --enable-debug, default is system dependent)],
+  [use_debugmalloc="yes"], [use_debugmalloc="no"], [use_debugmalloc="$debugmalloc_support"])
+AM_CONDITIONAL(DEBUGMALLOC,test "$use_debugmalloc" = "yes")
 
 AC_SUBST(LIBS)
 
