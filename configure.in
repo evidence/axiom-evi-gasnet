@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2010/02/02 22:18:02 $
-# $Revision: 1.620 $
+#     $Date: 2010/02/03 06:08:29 $
+# $Revision: 1.621 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.620 $)
+AC_REVISION($Revision: 1.621 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -4044,7 +4044,29 @@ esac
 
 case "$target" in
 *-blrts-*) debugmalloc_support=no ;; # debug malloc vars crash BG/L RTS
-*) debugmalloc_support=yes ;; # it's a glibc feature, but appears harmless elsewhere
+*) # it's a glibc feature, but appears harmless elsewhere
+   # However, we need to weed out known buggy versions (see bug 2731)
+   GASNET_TRY_CACHE_EXTRACT_STR([for glibc-2.x],glibc2_minor,[
+      #if HAVE_FEATURES_H
+        #include <features.h>
+      #endif
+      #ifndef _STRINGIFY
+        #define _STRINGIFY_HELPER(x) #x
+        #define _STRINGIFY(x) _STRINGIFY_HELPER(x)
+      #endif
+      #if defined(__GLIBC__) && (__GLIBC__ == 2)
+        #define GLIBC2_MINOR "2." _STRINGIFY(__GLIBC_MINOR__)
+      #else
+        #define GLIBC2_MINOR "no"
+      #endif
+     ],[GLIBC2_MINOR],[GLIBC2_MINOR])
+   case $GLIBC2_MINOR in
+      2.5) debugmalloc_support=no;;  # Known buggy in 2.5-42 which orginated in RHEL5.4 (fine tune?)
+     2.10) debugmalloc_support=no;;  # Known buggy
+     2.11) debugmalloc_support=no;;  # Known buggy, but 2.11.1 is OK  (TODO: identify >= 2.11.1)
+        *) debugmalloc_support=yes;;
+   esac
+   ;;
 esac
 GASNET_IF_ENABLED_WITH_AUTO(debug-malloc,
   [enable use of system-specific debugging malloc (ignored unless GASNet configured with --enable-debug, default is system dependent)],
