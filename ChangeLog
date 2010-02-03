@@ -1,6 +1,14 @@
 GASNet ChangeLog 
 ----------------
-$Revision: 1.27 $
+$Revision: 1.28 $
+
+----------------------------------------------------------------------
+??-??-2010 : Release 1.16
+
+* General:
+  - Much improved support for heterogenous compilers (CC, CXX and MPI_CC)
+  - Work-around for broken MALLOC_CHECK_ support on some glibc versions
+  - Use MALLOC_OPTIONS variable on *BSD as we use MALLOC_CHECK_ on glibc
 
 ----------------------------------------------------------------------
 11-02-2009 : Release 1.14
