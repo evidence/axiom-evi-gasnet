@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2010/02/03 06:08:29 $
-# $Revision: 1.621 $
+#     $Date: 2010/02/03 23:15:53 $
+# $Revision: 1.622 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.621 $)
+AC_REVISION($Revision: 1.622 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -4042,11 +4042,41 @@ GASNET_TRY_CACHE_LINK(for ptmalloc, malloc_is_ptmalloc,
   ],[ AC_DEFINE(HAVE_PTMALLOC) ])
 esac
 
+DEBUGMALLOC_VAR=GASNET_unused
+DEBUGMALLOC_VAL=0
 case "$target" in
-*-blrts-*) debugmalloc_support=no ;; # debug malloc vars crash BG/L RTS
-*) # it's a glibc feature, but appears harmless elsewhere
+*-blrts-*)
+   # Glibc's debug malloc vars crash BG/L RTS
+   debugmalloc_support=no
+   ;;
+*-openbsd*)
+   debugmalloc_support=yes
+   DEBUGMALLOC_VAR=MALLOC_OPTIONS
+   DEBUGMALLOC_VAL=AFJ # (A)bort (F)reeguard (J)unk-fill
+   ;;
+*-freebsd* | *-netbsd*)
+   debugmalloc_support=yes
+   DEBUGMALLOC_VAR=MALLOC_OPTIONS
+   DEBUGMALLOC_VAL=AJ # (A)bort (J)unk-fill
+   ;;
+#*-aix*) I was unable to get even a simple malloc() example to run -PHH
+#   debugmalloc_support=yes
+#   DEBUGMALLOC_VAR=MALLOCTYPE
+#   DEBUGMALLOC_VAL=debug
+#   ;;
+#*-solaris*) Not willing to mess w/ dynamic linker tricks -PHH
+#   debugmalloc_support=yes
+#   DEBUGMALLOC_VAR=LD_PRELOAD
+#   DEBUGMALLOC_VAL=watchmalloc.so.1
+#   ;;
+#*-darwin*) Not willing to mess w/ dynamic linker tricks, plus need up to 9 more vars -PHH
+#   debugmalloc_support=yes
+#   DEBUGMALLOC_VAR=DYLD_INSERT_LIBRARIES
+#   DEBUGMALLOC_VAL=/usr/lib/libgmalloc.dylib
+#   ;;
+*) # MALLOC_CHECK_ is a glibc feature (but appears harmless elsewhere)
    # However, we need to weed out known buggy versions (see bug 2731)
-   GASNET_TRY_CACHE_EXTRACT_STR([for glibc-2.x],glibc2_minor,[
+   GASNET_TRY_CACHE_EXTRACT_STR([for glibc],glibc_version,[
       #if HAVE_FEATURES_H
         #include <features.h>
       #endif
@@ -4054,18 +4084,25 @@ case "$target" in
         #define _STRINGIFY_HELPER(x) #x
         #define _STRINGIFY(x) _STRINGIFY_HELPER(x)
       #endif
-      #if defined(__GLIBC__) && (__GLIBC__ == 2)
-        #define GLIBC2_MINOR "2." _STRINGIFY(__GLIBC_MINOR__)
+      #if defined(__GLIBC__) && defined(__GLIBC_MINOR__)
+        #define GASNETI_GLIBC_VERSION _STRINGIFY(__GLIBC__) "." _STRINGIFY(__GLIBC_MINOR__)
+      #elif defined(__GLIBC__)
+        #define GASNETI_GLIBC_VERSION _STRINGIFY(__GLIBC__)
       #else
-        #define GLIBC2_MINOR "no"
+        #define GASNETI_GLIBC_VERSION "no"
       #endif
-     ],[GLIBC2_MINOR],[GLIBC2_MINOR])
-   case $GLIBC2_MINOR in
+     ],[GASNETI_GLIBC_VERSION],[GASNETI_GLIBC_VERSION])
+   if test x"$GASNETI_GLIBC_VERSION" != xno; then
+     DEBUGMALLOC_VAR=MALLOC_CHECK_
+     DEBUGMALLOC_VAL=2
+     # Look for buggy versions, but keep in mind --enable-debug-malloc will override
+     case $GASNETI_GLIBC_VERSION in
       2.5) debugmalloc_support=no;;  # Known buggy in 2.5-42 which orginated in RHEL5.4 (fine tune?)
      2.10) debugmalloc_support=no;;  # Known buggy
      2.11) debugmalloc_support=no;;  # Known buggy, but 2.11.1 is OK  (TODO: identify >= 2.11.1)
         *) debugmalloc_support=yes;;
-   esac
+     esac
+   fi
    ;;
 esac
 GASNET_IF_ENABLED_WITH_AUTO(debug-malloc,
@@ -4073,6 +4110,8 @@ GASNET_IF_ENABLED_WITH_AUTO(debug-malloc,
   [DEBUGMALLOC="yes"], [DEBUGMALLOC="no"], [DEBUGMALLOC="$debugmalloc_support"])
 AM_CONDITIONAL(DEBUGMALLOC,test "$DEBUGMALLOC" = "yes")
 AC_SUBST(DEBUGMALLOC)
+AC_SUBST(DEBUGMALLOC_VAR)
+AC_SUBST(DEBUGMALLOC_VAL)
 
 AC_SUBST(LIBS)
 
