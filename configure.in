@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2010/02/03 23:15:53 $
-# $Revision: 1.622 $
+#     $Date: 2010/02/18 07:00:21 $
+# $Revision: 1.623 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.622 $)
+AC_REVISION($Revision: 1.623 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2122,6 +2122,72 @@ if test $enabled_udp = yes; then
 
   GASNET_CHECK_RESTRICT([GASNETI_CXX],[C++ compiler])
   GASNET_GET_GNU_ATTRIBUTES([GASNETI_HAVE_CXX],[C++ compiler])
+
+  # we link in an object compiled with CC that uses libc, to ensure that's working
+  # [at least initially this is almost a clone of the MPI helper test]
+  AC_MSG_CHECKING([building C++ helper object])
+  CXXHELPER_BASE=conftest_cfunc
+  CXXHELPER_SRC=$CXXHELPER_BASE.c
+  CXXHELPER_OBJ=$CXXHELPER_BASE.o
+  CXXHELPER_LIBS="$CXXHELPER_OBJ $LIBM"
+  CXXHELPER_DECL='extern "C" int cxxhelper_cint; extern "C" void cxxhelper_cfunc(int val);'
+  CXXHELPER_CODE="cxxhelper_cfunc(cxxhelper_cint);"
+  if test x"$have_tls" = xyes; then
+    CXXHELPER_TLS_DECL='__thread long tlocal;'
+    CXXHELPER_TLS_CODE='tlocal = 4;'
+  fi
+  cat >$CXXHELPER_SRC <<_GASNET_EOF
+    #include <stdio.h>
+    #include <string.h>
+    #include <assert.h>
+    #include <math.h>
+    int cxxhelper_cint = 0xFFFF;
+    $CXXHELPER_TLS_DECL
+    extern void cxxhelper_cfunc(int val) {
+      char s[[255]], s2[[255]];
+      int a[[40]] = {1}; /* trigger Intel C issue */
+      assert(val == cxxhelper_cint);
+      s[[4]] = '\0';
+      s[[5]] = (char)(sin((double)val)+cos((double)val))+sqrt((double)val)+log((double)val);
+      strcpy(s2, s);
+      memcpy(s2, s, strlen(s)); memmove(s2, s, strlen(s));
+      memcpy(s2, s, 4); memmove(s2, s, 4);
+      $CXXHELPER_TLS_CODE
+    }
+_GASNET_EOF
+  compile="$CC $CFLAGS $MISC_CFLAGS $CPPFLAGS -c $CXXHELPER_SRC -o $CXXHELPER_OBJ"
+  eval echo "$compile" >&5
+  if eval $compile 2>&5 && test -s $CXXHELPER_OBJ ; then
+    AC_MSG_RESULT(ok)
+  else
+    GASNET_MSG_ERROR(failed while building CXX helper object)
+  fi
+
+  # Now try to link/run the helper (which was built earlier)
+  LIBS="$CXXHELPER_LIBS $LIBS"
+  GASNET_TRY_CACHE_RUN_WITHCC(for working C++ to C linkage, cxx_works, [
+    $CXXHELPER_DECL
+  ], [
+    $CXXHELPER_CODE
+  ], [ cxx_helper_worked=yes ], [ cxx_helper_worked=no; GASNET_ERR_SAVE() ] )
+  # Apple's gcc/g++ don't provide TLS support, but the FSF gcc/g++ do.
+  # The two are link compatible IF we explicitly pass -lgcc_eh
+  # XXX: Really only needed for PAR and PARSYNC, but we don't distinguish.
+  if test "$cxx_helper_worked$have_tls$gasnet_cv_cc_family" = noyesGNU; then
+    LIBS="$LIBS $LIBGCC -lgcc_eh"  # $LIBGCC appears in $GASNET_LIBS eventually
+    GASNET_TRY_CACHE_RUN_WITHCC(for working C++ to C linkage w/ added -lgcc_eh, cxx_works_gcc_eh, [
+      $CXXHELPER_DECL
+    ], [
+      $CXXHELPER_CODE
+    ], [ cxx_helper_worked=yes
+         GASNET_UDP_LIBS="$GASNET_UDP_LIBS -lgcc_eh"
+    ], [ cxx_helper_worked=no; GASNET_ERR_SAVE() ] )
+  fi
+  if test "$cxx_helper_worked" = no; then
+    have_cxx=no
+    GASNET_MSG_WARN([It appears your C++ and C compilers are not link-compatible. Disabling udp-conduit, which requires C++])
+  fi
+  rm -f $CXXHELPER_OBJ
 
   GASNET_POPVAR(CXXFLAGS)
   GASNET_POPVAR(LDFLAGS)
