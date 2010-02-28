@@ -1,6 +1,6 @@
 GASNet ChangeLog 
 ----------------
-$Revision: 1.29 $
+$Revision: 1.30 $
 
 ----------------------------------------------------------------------
 ??-??-2010 : Release 1.16
@@ -15,8 +15,7 @@ $Revision: 1.29 $
 
 * Misc Platform support:
   - Fix bug 2685: timers broken on variable-frequency x86_64 CPUs
-  - Resolve pthread link problems between Apple's and FSF's ompilers
-  - Resolve build errors seen with Sun Studio compilers
+  - Resolve pthread link problems between Apple's and FSF's compilers
   - Preliminary work to support build with Open64 compilers from AMD
   - Preliminary work to support build with GCCFSS compilers from Sun
 
