@@ -1,6 +1,6 @@
 GASNet ChangeLog 
 ----------------
-$Revision: 1.28 $
+$Revision: 1.29 $
 
 ----------------------------------------------------------------------
 ??-??-2010 : Release 1.16
@@ -9,6 +9,19 @@ $Revision: 1.28 $
   - Much improved support for heterogenous compilers (CC, CXX and MPI_CC)
   - Work-around for broken MALLOC_CHECK_ support on some glibc versions
   - Use MALLOC_OPTIONS variable on *BSD as we use MALLOC_CHECK_ on glibc
+
+* InfiniBand (vapi- and ibv-conduits):
+  - Fix bug 2079: stack overflow errors when vapi/ibv compiled with pgcc
+
+* Misc Platform support:
+  - Fix bug 2685: timers broken on variable-frequency x86_64 CPUs
+  - Resolve pthread link problems between Apple's and FSF's ompilers
+  - Resolve build errors seen with Sun Studio compilers
+  - Preliminary work to support build with Open64 compilers from AMD
+  - Preliminary work to support build with GCCFSS compilers from Sun
+
+* Build and configure:
+  - Allow client to control behavior on compiler-mismatch (eg for UPCR+GCCUPC)
 
 ----------------------------------------------------------------------
 11-02-2009 : Release 1.14
