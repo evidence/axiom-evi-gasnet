@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2009/09/18 23:33:46 $
- * $Revision: 1.2 $
+ *     $Date: 2010/03/06 08:22:04 $
+ * $Revision: 1.3 $
  * Description: GASNet Extended API for smp-conduit
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -61,18 +61,15 @@ static void dummy_fn(void) {}
  * called */
 static int gasnete_pshmbarrier_phase;
 
-/* The "goal" variable - alternates between gasneti_nodes
- * and zero.  Indicates target counter value and avoids
- * the need to "reset" the barrier */
-static int gasnete_pshmbarrier_goal;
-
 static void gasnete_pshmbarrier_init(void) {
     gasnete_pshmbarrier_phase = 0;
-    gasnete_pshmbarrier_goal = gasneti_nodes;
+
+    /* Flags word to poll or spin on until barrier is done */
+    gasneti_atomic_set(&gasneti_pshm_barrier->state, 0, 0);
 
     /* Counter used to detect that all nodes have reached the barrier */
-    gasneti_atomic_set(&gasneti_pshm_barrier->counter[0], 0, GASNETI_ATOMIC_REL);
-    gasneti_atomic_set(&gasneti_pshm_barrier->counter[1], 0, 0);
+    gasneti_atomic_set(&gasneti_pshm_barrier->counter[0], gasneti_nodes, 0);
+    gasneti_atomic_set(&gasneti_pshm_barrier->counter[1], gasneti_nodes, 0);
 }
 
 static void gasnete_pshmbarrier_notify(gasnete_coll_team_t team, int id, int flags) {
@@ -89,13 +86,14 @@ static void gasnete_pshmbarrier_notify(gasnete_coll_team_t team, int id, int fla
   gasneti_pshm_barrier->node[gasneti_mynode].value[phase] = id;
   
   /* Notify others that I have reached the barrier */
-  if (gasnete_pshmbarrier_goal) { /* Counting UP */
-    gasneti_atomic_increment(&gasneti_pshm_barrier->counter[phase], GASNETI_ATOMIC_REL);
-  } else {
-    (void)gasneti_atomic_decrement_and_test(&gasneti_pshm_barrier->counter[phase], GASNETI_ATOMIC_REL);
+  if (gasneti_atomic_decrement_and_test(&gasneti_pshm_barrier->counter[phase], GASNETI_ATOMIC_REL)) {
+    /* signal barrier */
+    gasneti_atomic_set(&gasneti_pshm_barrier->state, (1 << phase), 0);
+    /* reset this phase */
+    gasneti_atomic_set(&gasneti_pshm_barrier->counter[phase], gasneti_nodes, 0);
   }
   
-  /* No sync_writes() needed due to REL, above */
+  /* No sync_writes() needed due to REL in dec-and-test, above */
   team->barrier_info->barrier_splitstate = INSIDE_BARRIER; 
 }
 
@@ -131,7 +129,6 @@ static int finish_barrier(gasnete_coll_team_t team, int id, int flags, int phase
 
   /* Switch the barrier variables.*/
   gasnete_pshmbarrier_phase = 1 ^ phase;
-  if (phase) gasnete_pshmbarrier_goal = gasneti_nodes - gasnete_pshmbarrier_goal;
   team->barrier_info->barrier_splitstate = OUTSIDE_BARRIER;
   gasneti_sync_writes();
 
@@ -139,7 +136,8 @@ static int finish_barrier(gasnete_coll_team_t team, int id, int flags, int phase
 }
 
 static int gasnete_pshmbarrier_wait(gasnete_coll_team_t team, int id, int flags) {
-  gasneti_atomic_t *counter;
+  gasneti_atomic_t * const state = &gasneti_pshm_barrier->state;
+  gasneti_atomic_val_t goal;
   int phase;
 
   gasneti_sync_reads();
@@ -149,21 +147,22 @@ static int gasnete_pshmbarrier_wait(gasnete_coll_team_t team, int id, int flags)
     gasneti_fatalerror("gasnet_barrier_wait() called without a matching notify");
   }
 
-  counter = &gasneti_pshm_barrier->counter[phase];
-  if (gasnete_pshmbarrier_goal == gasneti_atomic_read(counter, 0)) {
+  goal = 1 << phase;
+  if (goal == gasneti_atomic_read(state, 0)) {
     /* completed asynchronously before wait */ 
     GASNETI_TRACE_EVENT_TIME(B,BARRIER_ASYNC_COMPLETION,GASNETI_TICKS_NOW_IFENABLED(B)-gasnete_barrier_notifytime);
     gasneti_local_rmb();
   } else {
     /* Poll until all nodes have reached the barrier (polluntil includes the final RMB) */
-    gasneti_polluntil(gasnete_pshmbarrier_goal == gasneti_atomic_read(counter, 0));
+    gasneti_polluntil(goal == gasneti_atomic_read(state, 0));
   }
 
   return finish_barrier(team, id, flags, phase);
 }
 
 static int gasnete_pshmbarrier_try(gasnete_coll_team_t team, int id, int flags) { 
-  gasneti_atomic_t *counter;
+  gasneti_atomic_t * const state = &gasneti_pshm_barrier->state;
+  gasneti_atomic_val_t goal;
   int phase;
 
   gasneti_sync_reads();
@@ -173,8 +172,8 @@ static int gasnete_pshmbarrier_try(gasnete_coll_team_t team, int id, int flags) 
     gasneti_fatalerror("gasnet_barrier_try() called without a matching notify");
   }
 
-  counter = &gasneti_pshm_barrier->counter[phase];
-  return (gasnete_pshmbarrier_goal == gasneti_atomic_read(counter, GASNETI_ATOMIC_ACQ))
+  goal = 1 << phase;
+  return (goal == gasneti_atomic_read(state, GASNETI_ATOMIC_ACQ))
          ? finish_barrier(team, id, flags, phase) : GASNET_ERR_NOT_READY;
 }
 #endif /* GASNET_PSHM */
