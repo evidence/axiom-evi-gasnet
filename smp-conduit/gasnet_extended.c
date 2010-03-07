@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2010/03/06 08:22:04 $
- * $Revision: 1.3 $
+ *     $Date: 2010/03/07 04:03:18 $
+ * $Revision: 1.4 $
  * Description: GASNet Extended API for smp-conduit
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -68,8 +68,8 @@ static void gasnete_pshmbarrier_init(void) {
     gasneti_atomic_set(&gasneti_pshm_barrier->state, 0, 0);
 
     /* Counter used to detect that all nodes have reached the barrier */
-    gasneti_atomic_set(&gasneti_pshm_barrier->counter[0], gasneti_nodes, 0);
-    gasneti_atomic_set(&gasneti_pshm_barrier->counter[1], gasneti_nodes, 0);
+    gasneti_atomic_set(&gasneti_pshm_barrier->counter[0], gasneti_pshm_nodes, 0);
+    gasneti_atomic_set(&gasneti_pshm_barrier->counter[1], gasneti_pshm_nodes, 0);
 }
 
 static void gasnete_pshmbarrier_notify(gasnete_coll_team_t team, int id, int flags) {
@@ -82,15 +82,15 @@ static void gasnete_pshmbarrier_notify(gasnete_coll_team_t team, int id, int fla
   } 
 
   /* Record the passed flag and value */
-  gasneti_pshm_barrier->node[gasneti_mynode].flags[phase] = flags;
-  gasneti_pshm_barrier->node[gasneti_mynode].value[phase] = id;
+  gasneti_pshm_barrier->node[gasneti_pshm_mynode].flags[phase] = flags;
+  gasneti_pshm_barrier->node[gasneti_pshm_mynode].value[phase] = id;
   
   /* Notify others that I have reached the barrier */
   if (gasneti_atomic_decrement_and_test(&gasneti_pshm_barrier->counter[phase], GASNETI_ATOMIC_REL)) {
     /* signal barrier */
     gasneti_atomic_set(&gasneti_pshm_barrier->state, (1 << phase), 0);
     /* reset this phase */
-    gasneti_atomic_set(&gasneti_pshm_barrier->counter[phase], gasneti_nodes, 0);
+    gasneti_atomic_set(&gasneti_pshm_barrier->counter[phase], gasneti_pshm_nodes, 0);
   }
   
   /* No sync_writes() needed due to REL in dec-and-test, above */
@@ -99,8 +99,8 @@ static void gasnete_pshmbarrier_notify(gasnete_coll_team_t team, int id, int fla
 
 static int finish_barrier(gasnete_coll_team_t team, int id, int flags, int phase) {
   int ret = GASNET_OK; /* assume success */
-  int orig_flags = gasneti_pshm_barrier->node[gasneti_mynode].flags[phase];
-  int orig_value = gasneti_pshm_barrier->node[gasneti_mynode].value[phase];
+  int orig_flags = gasneti_pshm_barrier->node[gasneti_pshm_mynode].flags[phase];
+  int orig_value = gasneti_pshm_barrier->node[gasneti_pshm_mynode].value[phase];
   
   /* Check all the conditions for mismatch */
   if_pf((flags != orig_flags) ||
@@ -110,7 +110,7 @@ static int finish_barrier(gasnete_coll_team_t team, int id, int flags, int phase
     int have_value = 0;
     int value, i;
 
-    for (i = 0; i < gasneti_nodes; ++i) {
+    for (i = 0; i < gasneti_pshm_nodes; ++i) {
       int flag = gasneti_pshm_barrier->node[i].flags[phase];
       if_pt (flag & GASNET_BARRIERFLAG_ANONYMOUS) {
         continue;
