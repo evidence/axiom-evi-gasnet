@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2010/03/07 09:06:04 $
- * $Revision: 1.38 $
+ *     $Date: 2010/03/07 09:53:16 $
+ * $Revision: 1.39 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -51,6 +51,7 @@ gasneti_progressfn_t gasnete_barrier_pf= NULL;
 
 typedef struct {
   gasnet_hsl_t amdbarrier_lock;
+  gasnet_node_t *amdbarrier_peers; /* precomputed list of peers to communicate with */
   int volatile amdbarrier_value; /*  local ambarrier value */
   int volatile amdbarrier_flags; /*  local ambarrier flags */
   int volatile amdbarrier_step;  /*  local ambarrier step */
@@ -163,39 +164,15 @@ void gasnete_amdbarrier_kick(gasnete_coll_team_t team) {
   gasnet_hsl_unlock(&barrier_data->amdbarrier_lock);
 
   for ( ; numsteps; numsteps--) {
-    gasnet_node_t peer;
-
     step++;
     if (step == barrier_data->amdbarrier_size) { /* no send upon reaching last step */
       gasneti_assert(numsteps == 1);
       break;
     }
 
-    /* No need for a full mod because worst case is < 2*team->total_ranks.
-     * However, we must take care for overflow if we try to do the
-     * arithmetic in gasnet_node_t.  An example is gasnet_node_t
-     * of uint8_t and team->total_ranks=250 nodes.  The largest value of
-     * gasnet_mynode is 249 and the largest value of 2^step is 128.
-     * We can't compute (249 + 128) mod 250 in 8-bit arithmetic.
-     * If we are using GASNET_MAXNODES <= INT_MAX then we can
-     * fit the arithmetic into unsigned integers (32-bit example is
-     * 0x7ffffffe + 0x40000000 = 0xbffffffe).  Otherwise we are
-     * confident that 64-bit integers are ALWAYS large enough.
-     */
-    {
-      #if (GASNET_MAXNODES <= INT_MAX)
-	unsigned int tmp;
-      #else
-	uint64_t tmp;
-      #endif
-      tmp = (1 << step) + team->myrank;
-      peer = (tmp >= team->total_ranks) ? (tmp - team->total_ranks)
-                                    : tmp;
-      gasneti_assert(peer < team->total_ranks);
-    }
-
     GASNETI_SAFE(
-      gasnet_AMRequestShort5(GASNETE_COLL_REL2ACT(team, peer), gasneti_handleridx(gasnete_amdbarrier_notify_reqh), 
+      gasnet_AMRequestShort5(barrier_data->amdbarrier_peers[step],
+                             gasneti_handleridx(gasnete_amdbarrier_notify_reqh), 
                              team->team_id, phase, step, value, flags));
   }
 }
@@ -225,9 +202,9 @@ static void gasnete_amdbarrier_notify(gasnete_coll_team_t team, int id, int flag
 
   if (team->total_ranks > 1) {
     /*  send notify msg to peer */
-    gasnet_node_t peer = ((team->myrank + 1) < team->total_ranks) ? (team->myrank + 1) : 0;
     GASNETI_SAFE(
-      gasnet_AMRequestShort5(GASNETE_COLL_REL2ACT(team, peer), gasneti_handleridx(gasnete_amdbarrier_notify_reqh), 
+      gasnet_AMRequestShort5(barrier_data->amdbarrier_peers[0],
+                             gasneti_handleridx(gasnete_amdbarrier_notify_reqh), 
                              team->team_id, phase, 0, id, flags));
     GASNETI_PROGRESSFNS_ENABLE(gasneti_pf_barrier,BOOLEAN);
   } else {
@@ -296,7 +273,7 @@ void gasnete_amdbarrier_kick_team_all(void) {
 
 static void gasnete_amdbarrier_init(gasnete_coll_team_t team) {
   gasnete_coll_amdbarrier_t *barrier_data = gasneti_calloc(1,sizeof(gasnete_coll_amdbarrier_t));
-  int i;
+  int steps;
   int64_t j;
 
   team->barrier_data = barrier_data;
@@ -304,10 +281,42 @@ static void gasnete_amdbarrier_init(gasnete_coll_team_t team) {
   team->barrier_splitstate = OUTSIDE_BARRIER;
 
   /* determine barrier size (number of steps) */
-  for (i=0, j=1; j < team->total_ranks; ++i, j*=2) ;
+  for (steps=0, j=1; j < team->total_ranks; ++steps, j*=2) ;
 
-  barrier_data->amdbarrier_size = i;
+  barrier_data->amdbarrier_size = steps;
   gasneti_assert(barrier_data->amdbarrier_size <= GASNETE_AMDBARRIER_MAXSTEP);
+
+  if (steps) {
+    int step;
+
+    barrier_data->amdbarrier_peers = gasneti_calloc(steps, sizeof(gasnet_node_t));
+  
+    for (step = 0; step < steps; ++step) {
+      /* No need for a full mod because worst case is < 2*team->total_ranks.
+       * However, we must take care for overflow if we try to do the
+       * arithmetic in gasnet_node_t.  An example is gasnet_node_t
+       * of uint8_t and team->total_ranks=250 nodes.  The largest value of
+       * gasnet_mynode is 249 and the largest value of 2^step is 128.
+       * We can't compute (249 + 128) mod 250 in 8-bit arithmetic.
+       * If we are using GASNET_MAXNODES <= INT_MAX then we can
+       * fit the arithmetic into unsigned integers (32-bit example is
+       * 0x7ffffffe + 0x40000000 = 0xbffffffe).  Otherwise we are
+       * confident that 64-bit integers are ALWAYS large enough.
+       */
+    #if (GASNET_MAXNODES <= INT_MAX)
+      unsigned int tmp;
+    #else
+      uint64_t tmp;
+    #endif
+      gasnet_node_t peer;
+
+      tmp = (1 << step) + team->myrank;
+      peer = (tmp >= team->total_ranks) ? (tmp - team->total_ranks) : tmp;
+      gasneti_assert(peer < team->total_ranks);
+
+      barrier_data->amdbarrier_peers[step] = GASNETE_COLL_REL2ACT(team, peer);
+    }
+  }
 
   team->barrier_notify = &gasnete_amdbarrier_notify;
   team->barrier_wait =   &gasnete_amdbarrier_wait;
