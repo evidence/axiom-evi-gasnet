@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2009/09/16 23:36:33 $
- * $Revision: 1.89 $
+ *     $Date: 2010/03/07 09:06:02 $
+ * $Revision: 1.90 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1470,7 +1470,7 @@ static void gasnete_elanbarrier_init(void) {
 static void gasnete_elanbarrier_notify(gasnete_coll_team_t team, int id, int flags) {
   int phase;
   gasneti_sync_reads(); /* ensure we read correct barrier_splitstate */
-  if_pf(team->barrier_info->barrier_splitstate == INSIDE_BARRIER) 
+  if_pf(team->barrier_splitstate == INSIDE_BARRIER) 
     gasneti_fatalerror("gasnet_barrier_notify() called twice in a row");
   phase = barrier_phase;
 
@@ -1563,19 +1563,19 @@ static void gasnete_elanbarrier_notify(gasnete_coll_team_t team, int id, int fla
   } 
 
   /*  update state */
-  team->barrier_info->barrier_splitstate = INSIDE_BARRIER;
+  team->barrier_splitstate = INSIDE_BARRIER;
   gasneti_sync_writes(); /* ensure all state changes committed before return */
 }
 
 static int gasnete_elanbarrier_wait(gasnete_coll_team_t team, int id, int flags) {
   int phase;
   gasneti_sync_reads(); /* ensure we read correct barrier_splitstate */
-  if_pf(team->barrier_info->barrier_splitstate == OUTSIDE_BARRIER) 
+  if_pf(team->barrier_splitstate == OUTSIDE_BARRIER) 
     gasneti_fatalerror("gasnet_barrier_wait() called without a matching notify");
   phase = barrier_phase;
   barrier_phase = !phase;
 
-  team->barrier_info->barrier_splitstate = OUTSIDE_BARRIER;
+  team->barrier_splitstate = OUTSIDE_BARRIER;
   gasneti_sync_writes(); /* ensure all state changes committed before return */
   if_pf((barrier_state[phase+2].barrier_flags & GASNET_BARRIERFLAG_MISMATCH) ||
         flags != barrier_state[phase+2].barrier_flags ||
@@ -1588,7 +1588,7 @@ static int gasnete_elanbarrier_wait(gasnete_coll_team_t team, int id, int flags)
 
 static int gasnete_elanbarrier_try(gasnete_coll_team_t team, int id, int flags) {
   gasneti_sync_reads(); /* ensure we read correct barrier_splitstate */
-  if_pf(team->barrier_info->barrier_splitstate == OUTSIDE_BARRIER) 
+  if_pf(team->barrier_splitstate == OUTSIDE_BARRIER) 
     gasneti_fatalerror("gasnet_barrier_try() called without a matching notify");
 
   return gasnete_elanbarrier_wait(team, id, flags);

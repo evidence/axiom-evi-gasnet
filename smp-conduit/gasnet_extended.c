@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2010/03/07 04:03:18 $
- * $Revision: 1.4 $
+ *     $Date: 2010/03/07 09:06:10 $
+ * $Revision: 1.5 $
  * Description: GASNet Extended API for smp-conduit
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -77,7 +77,7 @@ static void gasnete_pshmbarrier_notify(gasnete_coll_team_t team, int id, int fla
   gasneti_sync_reads();
   phase = gasnete_pshmbarrier_phase;
 
-  if_pf (team->barrier_info->barrier_splitstate == INSIDE_BARRIER) {
+  if_pf (team->barrier_splitstate == INSIDE_BARRIER) {
     gasneti_fatalerror("gasnet_barrier_notify() called twice in a row");
   } 
 
@@ -94,7 +94,7 @@ static void gasnete_pshmbarrier_notify(gasnete_coll_team_t team, int id, int fla
   }
   
   /* No sync_writes() needed due to REL in dec-and-test, above */
-  team->barrier_info->barrier_splitstate = INSIDE_BARRIER; 
+  team->barrier_splitstate = INSIDE_BARRIER; 
 }
 
 static int finish_barrier(gasnete_coll_team_t team, int id, int flags, int phase) {
@@ -129,7 +129,7 @@ static int finish_barrier(gasnete_coll_team_t team, int id, int flags, int phase
 
   /* Switch the barrier variables.*/
   gasnete_pshmbarrier_phase = 1 ^ phase;
-  team->barrier_info->barrier_splitstate = OUTSIDE_BARRIER;
+  team->barrier_splitstate = OUTSIDE_BARRIER;
   gasneti_sync_writes();
 
   return ret;
@@ -143,7 +143,7 @@ static int gasnete_pshmbarrier_wait(gasnete_coll_team_t team, int id, int flags)
   gasneti_sync_reads();
   phase = gasnete_pshmbarrier_phase;
 
-  if_pf (team->barrier_info->barrier_splitstate == OUTSIDE_BARRIER) {
+  if_pf (team->barrier_splitstate == OUTSIDE_BARRIER) {
     gasneti_fatalerror("gasnet_barrier_wait() called without a matching notify");
   }
 
@@ -168,7 +168,7 @@ static int gasnete_pshmbarrier_try(gasnete_coll_team_t team, int id, int flags) 
   gasneti_sync_reads();
   phase = gasnete_pshmbarrier_phase;
 
-  if_pf (team->barrier_info->barrier_splitstate == OUTSIDE_BARRIER) {
+  if_pf (team->barrier_splitstate == OUTSIDE_BARRIER) {
     gasneti_fatalerror("gasnet_barrier_try() called without a matching notify");
   }
 

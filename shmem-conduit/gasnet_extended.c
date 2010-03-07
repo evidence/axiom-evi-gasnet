@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_extended.c,v $
- *     $Date: 2009/09/16 01:13:37 $
- * $Revision: 1.31 $
+ *     $Date: 2010/03/07 09:06:08 $
+ * $Revision: 1.32 $
  * Description: GASNet Extended API SHMEM Implementation
  * Copyright 2003, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -313,7 +313,7 @@ static void gasnete_barrier_broadcastmismatch(void)) {
 static void gasnete_shmembarrier_notify(gasnete_coll_team_t team, int id, int flags) {
     int i;
     uint64_t curval;
-    if_pf (team->barrier_info->barrier_splitstate == INSIDE_BARRIER)
+    if_pf (team->barrier_splitstate == INSIDE_BARRIER)
 	gasneti_fatalerror("gasnet_barrier_notify() called twice in a row");
 
     barrier_phase = !barrier_phase;
@@ -352,7 +352,7 @@ static void gasnete_shmembarrier_notify(gasnete_coll_team_t team, int id, int fl
 	shmem_long_finc((long*)&barrier_notify_ctr[barrier_phase], 0);
     #endif
 
-    team->barrier_info->barrier_splitstate = INSIDE_BARRIER;
+    team->barrier_splitstate = INSIDE_BARRIER;
     gasneti_sync_writes();
 }
 
@@ -362,11 +362,11 @@ static int gasnete_shmembarrier_wait(gasnete_coll_team_t team, int id, int flags
 
     gasneti_sync_reads();
 
-    if_pf(team->barrier_info->barrier_splitstate == OUTSIDE_BARRIER) 
+    if_pf(team->barrier_splitstate == OUTSIDE_BARRIER) 
 	gasneti_fatalerror(
 	    "gasnet_barrier_wait() called without a matching notify");
 
-    team->barrier_info->barrier_splitstate = OUTSIDE_BARRIER;
+    team->barrier_splitstate = OUTSIDE_BARRIER;
     gasneti_sync_writes();
 
     /*
@@ -435,7 +435,7 @@ static int gasnete_shmembarrier_wait(gasnete_coll_team_t team, int id, int flags
 }
 
 static int gasnete_shmembarrier_try(gasnete_coll_team_t team, int id, int flags) {
-    if_pf(team->barrier_info->barrier_splitstate == OUTSIDE_BARRIER)
+    if_pf(team->barrier_splitstate == OUTSIDE_BARRIER)
 	gasneti_fatalerror("gasnet_barrier_try() called without a matching notify");
     return gasnete_shmembarrier_wait(team, id, flags);
 }
