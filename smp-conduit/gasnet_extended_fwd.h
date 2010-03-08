@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_extended_fwd.h,v $
- *     $Date: 2010/03/08 08:12:40 $
- * $Revision: 1.4 $
+ *     $Date: 2010/03/08 17:01:10 $
+ * $Revision: 1.5 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -26,6 +26,7 @@ typedef struct _gasnete_op_t *gasnet_handle_t;
 #define GASNET_INVALID_HANDLE ((gasnet_handle_t)0)
 #define GASNETI_EOP_IS_HANDLE 1
 
+#if GASNET_PSHM
 #define GASNETE_COLL_CONDUIT_BARRIERS GASNETE_COLL_BARRIER_PSHM
 #define GASNETE_BARRIER_DEFAULT "PSHM"
 #define GASNETE_BARRIER_READENV() do { \
@@ -37,6 +38,7 @@ typedef struct _gasnete_op_t *gasnet_handle_t;
       gasnete_pshmbarrier_init(TEAM);                       \
     }                                                       \
   } while (0)
+#endif /* GASNET_PSHM */
 
   /* this can be used to add statistical collection values 
      specific to the extended API implementation (see gasnet_help.h) */
