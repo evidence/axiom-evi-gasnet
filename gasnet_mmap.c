@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2010/03/08 04:27:49 $
- * $Revision: 1.72 $
+ *     $Date: 2010/03/08 06:15:53 $
+ * $Revision: 1.73 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1521,7 +1521,7 @@ void gasneti_auxseg_attach(void) {
     for (i = 0; i < gasneti_nodes; ++i) {
       gasnet_node_t match = gasneti_nodemap[i];
       if (match == 0) { /* Special case avoids needing prev < 0 */
-        gasneti_seginfo_client[j].nodeinfo = 0;
+        gasneti_seginfo_client[i].nodeinfo = 0;
       } else if (match > prev){
         prev = match;
         gasneti_seginfo_client[i].nodeinfo = count;
