@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.h,v $
- *     $Date: 2010/03/08 04:36:55 $
- * $Revision: 1.4 $
+ *     $Date: 2010/03/08 07:38:22 $
+ * $Revision: 1.5 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -336,5 +336,23 @@ int gasneti_AMPSHM_ReplyGeneric(int category, gasnet_token_t token,
                                         nbytes, dest_addr, numargs, argptr); 
   return retval;
 }
+
+/*******************************************************************************
+ * Intra-supernode shared-memory barrier
+ *******************************************************************************/
+
+typedef struct {
+    gasneti_atomic_t state; /* One done bit per phase */
+    char _pad1[GASNETI_CACHE_PAD(sizeof(gasneti_atomic_t))];
+    gasneti_atomic_t counter[2];
+    char _pad2[GASNETI_CACHE_PAD(2*sizeof(gasneti_atomic_t))];
+    struct {
+      int value[2];
+      int flags[2];
+      char _pad[GASNETI_CACHE_PAD(4*sizeof(int))];
+    } node[1]; /* VLA */
+} gasneti_pshm_barrier_t;
+
+extern gasneti_pshm_barrier_t *gasneti_pshm_barrier;
 
 #endif /* _GASNET_SYSV_H */
