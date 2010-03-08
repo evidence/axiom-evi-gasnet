@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.c,v $
- *     $Date: 2010/03/08 02:09:23 $
- * $Revision: 1.4 $
+ *     $Date: 2010/03/08 03:16:55 $
+ * $Revision: 1.5 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -60,7 +60,7 @@ void *gasneti_pshm_init(gasneti_bootstrapExchangefn_t exchangefn, size_t aux_sz)
   int discontig = 0;
   gasnet_node_t i;
 #if !GASNET_CONDUIT_SMP
-  gasnet_node_t j, max_seen;
+  gasnet_node_t j;
 #endif
 
   gasneti_pshm_nodes = gasneti_nodemap_local_count;
@@ -71,25 +71,19 @@ void *gasneti_pshm_init(gasneti_bootstrapExchangefn_t exchangefn, size_t aux_sz)
   gasneti_assert(gasneti_pshm_nodes == gasneti_nodes);
   gasneti_assert(gasneti_pshm_firstnode == 0);
   gasneti_assert(gasneti_pshm_mynode == gasneti_mynode);
-
-  gasneti_pshm_supernodes = 1;
 #else
   /* TODO: Allow env var to limit size of a supernode. */
   gasneti_assert(gasneti_nodemap[0] == 0);
-  gasneti_pshm_supernodes = 1;
-  max_seen = 0;
   for (i=1; i<gasneti_nodes; ++i) {
-    /* Count distinct values to determine how many supernodes */
-    if (gasneti_nodemap[i] > max_seen) {
-      max_seen = gasneti_nodemap[i];
-      ++gasneti_pshm_supernodes;
-    }
     /* Determine if supernode members are numbered contiguously */
     if (gasneti_nodemap[i-1] > gasneti_nodemap[i]) {
       discontig = 1;
+      break;
     }
   }
 #endif
+
+  gasneti_assert(gasneti_pshm_supernodes > 0);
 
   /* setup filenames, unless exchangefn is NULL (indicating caller took care of it) */
   if (exchangefn != NULL) {
@@ -166,17 +160,11 @@ void *gasneti_pshm_init(gasneti_bootstrapExchangefn_t exchangefn, size_t aux_sz)
       GASNETI_ALIGNUP((gasneti_pshm_firsts + gasneti_pshm_supernodes), sizeof(gasneti_pshm_rank_t));
   }
 
-  /* Populate gasneti_pshm_firsts[] and set gasneti_pshm_mysupernode */
-  gasneti_pshm_mysupernode = 0;
+  /* Populate gasneti_pshm_firsts[] */
   if (!gasneti_pshm_mynode) gasneti_pshm_firsts[0] = 0;
 #if !GASNET_CONDUIT_SMP
-  max_seen = 0;
   for (i=j=1; i<gasneti_nodes; ++i) {
-    if (gasneti_nodemap[i] > max_seen) {
-      max_seen = gasneti_nodemap[i];
-      if (max_seen == gasneti_pshm_firstnode) {
-        gasneti_pshm_mysupernode = j;
-      }
+    if (gasneti_nodemap[i] == i) {
       if (!gasneti_pshm_mynode) gasneti_pshm_firsts[j] = i;
       j += 1;
       gasneti_assert(j <= gasneti_pshm_supernodes);
@@ -184,8 +172,6 @@ void *gasneti_pshm_init(gasneti_bootstrapExchangefn_t exchangefn, size_t aux_sz)
   }
 #endif
 #if GASNET_DEBUG
-  /* Check that gasneti_pshm_mysupernode and gasneti_pshm_firstnode are both zero or neither are */
-  gasneti_assert(0 == (!!gasneti_pshm_mysupernode ^ !!gasneti_pshm_firstnode));
   /* Validate gasneti_pshm_firsts[] */
   if (gasneti_pshm_mynode == 0) {
     for (i=0; i<gasneti_pshm_supernodes; ++i) {
@@ -295,10 +281,9 @@ void *gasneti_pshm_init(gasneti_bootstrapExchangefn_t exchangefn, size_t aux_sz)
 gasneti_pshm_rank_t gasneti_pshm_nodes = 0;
 gasnet_node_t gasneti_pshm_firstnode = (gasnet_node_t)(-1);
 gasneti_pshm_rank_t gasneti_pshm_mynode = (gasneti_pshm_rank_t)(-1);
-gasneti_pshm_rank_t *gasneti_pshm_rankmap = NULL; /* lives in shared space */
-gasnet_node_t gasneti_pshm_supernodes = 0;
-gasnet_node_t gasneti_pshm_mysupernode = (gasnet_node_t)(-1);
-gasnet_node_t *gasneti_pshm_firsts = NULL; /* TODO: move to shared space? */
+/* vectors constructed in shared space: */
+gasneti_pshm_rank_t *gasneti_pshm_rankmap = NULL;
+gasnet_node_t *gasneti_pshm_firsts = NULL;
 
 /*******************************************************************************
  * "PSHM Net":  message header formats

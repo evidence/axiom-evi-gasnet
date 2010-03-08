@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.h,v $
- *     $Date: 2010/03/08 02:09:23 $
- * $Revision: 1.2 $
+ *     $Date: 2010/03/08 03:16:55 $
+ * $Revision: 1.3 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -150,11 +150,11 @@ extern gasneti_pshm_rank_t gasneti_pshm_nodes;
 extern gasneti_pshm_rank_t gasneti_pshm_mynode;
 extern gasnet_node_t gasneti_pshm_firstnode;
 
-/* # of supernodes
- * my supernode's 0-based rank among supernodes
- * vector of first node within each supernode */
-extern gasnet_node_t gasneti_pshm_supernodes;
-extern gasnet_node_t gasneti_pshm_mysupernode;
+/* # of supernodes */
+#define gasneti_pshm_supernodes (0+gasneti_nodemap_global_count)
+/* my supernode's 0-based rank among supernodes */
+#define gasneti_pshm_mysupernode (0+gasneti_nodemap_global_rank)
+/* vector of first node within each supernode */
 extern gasnet_node_t *gasneti_pshm_firsts;
 
 /* Non-NULL only when supernode members are non-contiguous */
