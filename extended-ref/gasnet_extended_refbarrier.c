@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2010/03/07 09:53:16 $
- * $Revision: 1.39 $
+ *     $Date: 2010/03/08 05:52:13 $
+ * $Revision: 1.40 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -718,14 +718,15 @@ extern void gasnete_coll_barrier_init(gasnete_coll_team_t team,  int barrier_typ
     /*make sure that wait and try were also defined*/
     gasneti_assert(team->barrier_wait && team->barrier_try);
     return;
-  } else if (barrier_type == GASNETE_COLL_BARRIER_AMDISSEM || !team->barrier_notify) {
-    /*either we want an AM dissem barrier or the conduit couldn't define it's own barrier so fallback*/
-    gasnete_amdbarrier_init(team);
   } else if (barrier_type == GASNETE_COLL_BARRIER_AMCENTRAL) {
     /*we explicitly specify that we want an AM CENTRAL Barrier*/
     gasnete_amcbarrier_init(team);
+  } else if (barrier_type == GASNETE_COLL_BARRIER_AMDISSEM) {
+    /*we explicitly specify that we want an AM DISSEM Barrier*/
+    gasnete_amdbarrier_init(team);
   } else {
-    gasneti_fatalerror("NO BARREIRS SET for this team!!");
+    /* fallback to AM DISSEM */
+    gasnete_amdbarrier_init(team);
   }
 }
 /* ------------------------------------------------------------------------------------ */
