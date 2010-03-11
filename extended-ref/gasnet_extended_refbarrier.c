@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2010/03/08 08:13:23 $
- * $Revision: 1.42 $
+ *     $Date: 2010/03/11 02:44:27 $
+ * $Revision: 1.43 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -63,7 +63,7 @@ static void gasnete_pshmbarrier_notify(gasnete_coll_team_t team, int id, int fla
   team->barrier_splitstate = INSIDE_BARRIER; 
 }
 
-static int finish_barrier(gasnete_coll_team_t team, int id, int flags, int phase) {
+static int finish_pshm_barrier(gasnete_coll_team_t team, int id, int flags, int phase) {
   int ret = GASNET_OK; /* assume success */
   int orig_flags = gasneti_pshm_barrier->node[gasneti_pshm_mynode].flags[phase];
   int orig_value = gasneti_pshm_barrier->node[gasneti_pshm_mynode].value[phase];
@@ -123,7 +123,7 @@ static int gasnete_pshmbarrier_wait(gasnete_coll_team_t team, int id, int flags)
     gasneti_polluntil(goal == gasneti_atomic_read(state, 0));
   }
 
-  return finish_barrier(team, id, flags, phase);
+  return finish_pshm_barrier(team, id, flags, phase);
 }
 
 static int gasnete_pshmbarrier_try(gasnete_coll_team_t team, int id, int flags) { 
@@ -140,7 +140,7 @@ static int gasnete_pshmbarrier_try(gasnete_coll_team_t team, int id, int flags) 
 
   goal = 1 << phase;
   return (goal == gasneti_atomic_read(state, GASNETI_ATOMIC_ACQ))
-         ? finish_barrier(team, id, flags, phase) : GASNET_ERR_NOT_READY;
+         ? finish_pshm_barrier(team, id, flags, phase) : GASNET_ERR_NOT_READY;
 }
 
 static void dummy_fn(void) {}
