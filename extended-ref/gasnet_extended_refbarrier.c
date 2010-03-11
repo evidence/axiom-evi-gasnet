@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2010/03/11 02:44:27 $
- * $Revision: 1.43 $
+ *     $Date: 2010/03/11 04:31:39 $
+ * $Revision: 1.44 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -33,30 +33,66 @@ gasneti_progressfn_t gasnete_barrier_pf= NULL;
 /* ------------------------------------------------------------------------------------ */
 /* the shared memory intra-supernode implementation of barrier */
 
-/* The "phase" variable - alternates between 0 and 1
- * and prevents deadlock if 2 barriers are consecutievly
- * called */
-static int gasnete_pshmbarrier_phase;
+/* This is a shared-memory barrier.  As such the gasneti_pshm_barrier_t must exist
+ * within either the GASNet segments (Aux or Client portions are both possible) or
+ * within the N+1st shared mmap() which contains the AMPSHM data structures.  In the
+ * case of TEAM_ALL this memory comes from that N+1st mmap.  When team support is added
+ * to this barrier implementation, we'll probably need to carve the memory out of the
+ * team's scratch space.  I am not sure if we can hold on to a piece of the scratch
+ * space indefinately (I doubt it) or whether is will need to be recycled back into
+ * to the pool and associate a collective op with each barrier.  This question of
+ * shared-space allocation is the main reason I've not yet added team support here.
+ *      -PHH 2010.03.10
+ */
+
+#if 0
+/* General case for when we support teams with this barrier */
+    typedef struct {
+	int volatile phase; /* Local var alternates 0-1 */
+	gasneti_pshm_barrier_t *shared;
+    } gasnete_coll_pshmbarrier_t;
+
+    #define PSHM_BDATA_DECL(_team) \
+	gasnete_coll_pshmbarrier_t *barrier_data = (_team)->barrier_data /* No semicolon */
+    #define PSHM_BDATA_INIT(_team, _shared) do { \
+	barrier_data = \
+		(_team)->barrier_data = \
+			gasneti_malloc(sizeof(gasnete_coll_pshmbarrier_t));\
+	barrier_data->phase = 0; \
+	barrier_data->shared = (_shared); \
+    } while(0)
+    #define PSHM_BDATA_PHASE	barrier_data->phase
+    #define PSHM_BDATA		(barrier_data->shared)
+#else
+/* Until we support teams, we can skip a level of indirection */
+    static int volatile gasnete_pshmbarrier_phase;
+    #define PSHM_BDATA_DECL(_team)		\
+	GASNETI_UNUSED char _dummy = (gasneti_assert(team == GASNET_TEAM_ALL),0)
+    #define PSHM_BDATA_INIT(_team, _shared)	do { (_team)->barrier_data = NULL; } while(0)
+    #define PSHM_BDATA_PHASE			gasnete_pshmbarrier_phase
+    #define PSHM_BDATA				gasneti_pshm_barrier
+#endif
 
 static void gasnete_pshmbarrier_notify(gasnete_coll_team_t team, int id, int flags) {
+  PSHM_BDATA_DECL(team);
   int phase;
   gasneti_sync_reads();
-  phase = gasnete_pshmbarrier_phase;
+  phase = PSHM_BDATA_PHASE;
 
   if_pf (team->barrier_splitstate == INSIDE_BARRIER) {
     gasneti_fatalerror("gasnet_barrier_notify() called twice in a row");
   } 
 
   /* Record the passed flag and value */
-  gasneti_pshm_barrier->node[gasneti_pshm_mynode].flags[phase] = flags;
-  gasneti_pshm_barrier->node[gasneti_pshm_mynode].value[phase] = id;
+  PSHM_BDATA->node[gasneti_pshm_mynode].flags[phase] = flags;
+  PSHM_BDATA->node[gasneti_pshm_mynode].value[phase] = id;
   
   /* Notify others that I have reached the barrier */
-  if (gasneti_atomic_decrement_and_test(&gasneti_pshm_barrier->counter[phase], GASNETI_ATOMIC_REL)) {
+  if (gasneti_atomic_decrement_and_test(&PSHM_BDATA->counter[phase], GASNETI_ATOMIC_REL)) {
     /* signal barrier */
-    gasneti_atomic_set(&gasneti_pshm_barrier->state, (1 << phase), 0);
+    gasneti_atomic_set(&PSHM_BDATA->state, (1 << phase), 0);
     /* reset this phase */
-    gasneti_atomic_set(&gasneti_pshm_barrier->counter[phase], gasneti_pshm_nodes, 0);
+    gasneti_atomic_set(&PSHM_BDATA->counter[phase], gasneti_pshm_nodes, 0);
   }
   
   /* No sync_writes() needed due to REL in dec-and-test, above */
@@ -64,9 +100,10 @@ static void gasnete_pshmbarrier_notify(gasnete_coll_team_t team, int id, int fla
 }
 
 static int finish_pshm_barrier(gasnete_coll_team_t team, int id, int flags, int phase) {
+  PSHM_BDATA_DECL(team);
   int ret = GASNET_OK; /* assume success */
-  int orig_flags = gasneti_pshm_barrier->node[gasneti_pshm_mynode].flags[phase];
-  int orig_value = gasneti_pshm_barrier->node[gasneti_pshm_mynode].value[phase];
+  int orig_flags = PSHM_BDATA->node[gasneti_pshm_mynode].flags[phase];
+  int orig_value = PSHM_BDATA->node[gasneti_pshm_mynode].value[phase];
   
   /* Check all the conditions for mismatch */
   if_pf((flags != orig_flags) ||
@@ -77,7 +114,7 @@ static int finish_pshm_barrier(gasnete_coll_team_t team, int id, int flags, int 
     int value, i;
 
     for (i = 0; i < gasneti_pshm_nodes; ++i) {
-      int flag = gasneti_pshm_barrier->node[i].flags[phase];
+      int flag = PSHM_BDATA->node[i].flags[phase];
       if_pt (flag & GASNET_BARRIERFLAG_ANONYMOUS) {
         continue;
       } else if_pf (flag & GASNET_BARRIERFLAG_MISMATCH) {
@@ -85,8 +122,8 @@ static int finish_pshm_barrier(gasnete_coll_team_t team, int id, int flags, int 
         break;
       } else if (!have_value) {
         have_value = 1;
-        value = gasneti_pshm_barrier->node[i].value[phase];
-      } else if (value != gasneti_pshm_barrier->node[i].value[phase]) {
+        value = PSHM_BDATA->node[i].value[phase];
+      } else if (value != PSHM_BDATA->node[i].value[phase]) {
         ret = GASNET_ERR_BARRIER_MISMATCH; 
         break;
       }
@@ -94,7 +131,7 @@ static int finish_pshm_barrier(gasnete_coll_team_t team, int id, int flags, int 
   }
 
   /* Switch the barrier variables.*/
-  gasnete_pshmbarrier_phase = 1 ^ phase;
+  PSHM_BDATA_PHASE = 1 ^ phase;
   team->barrier_splitstate = OUTSIDE_BARRIER;
   gasneti_sync_writes();
 
@@ -102,12 +139,13 @@ static int finish_pshm_barrier(gasnete_coll_team_t team, int id, int flags, int 
 }
 
 static int gasnete_pshmbarrier_wait(gasnete_coll_team_t team, int id, int flags) {
-  gasneti_atomic_t * const state = &gasneti_pshm_barrier->state;
+  PSHM_BDATA_DECL(team);
+  gasneti_atomic_t * const state = &PSHM_BDATA->state;
   gasneti_atomic_val_t goal;
   int phase;
 
   gasneti_sync_reads();
-  phase = gasnete_pshmbarrier_phase;
+  phase = PSHM_BDATA_PHASE;
 
   if_pf (team->barrier_splitstate == OUTSIDE_BARRIER) {
     gasneti_fatalerror("gasnet_barrier_wait() called without a matching notify");
@@ -127,12 +165,13 @@ static int gasnete_pshmbarrier_wait(gasnete_coll_team_t team, int id, int flags)
 }
 
 static int gasnete_pshmbarrier_try(gasnete_coll_team_t team, int id, int flags) { 
-  gasneti_atomic_t * const state = &gasneti_pshm_barrier->state;
+  PSHM_BDATA_DECL(team);
+  gasneti_atomic_t * const state = &PSHM_BDATA->state;
   gasneti_atomic_val_t goal;
   int phase;
 
   gasneti_sync_reads();
-  phase = gasnete_pshmbarrier_phase;
+  phase = PSHM_BDATA_PHASE;
 
   if_pf (team->barrier_splitstate == OUTSIDE_BARRIER) {
     gasneti_fatalerror("gasnet_barrier_try() called without a matching notify");
@@ -146,18 +185,20 @@ static int gasnete_pshmbarrier_try(gasnete_coll_team_t team, int id, int flags) 
 static void dummy_fn(void) {}
 
 static void gasnete_pshmbarrier_init(gasnete_coll_team_t team) {
-  gasneti_assert(team == GASNET_TEAM_ALL);
+  PSHM_BDATA_DECL(team);
 
-  gasnete_pshmbarrier_phase = 0;
+  /* XXX: non-TEAM_ALL will need to allocate the 2nd arg from shared space */
+  PSHM_BDATA_INIT(GASNET_TEAM_ALL, gasneti_pshm_barrier);
+
+  PSHM_BDATA_PHASE = 0;
 
   /* Flags word to poll or spin on until barrier is done */
-  gasneti_atomic_set(&gasneti_pshm_barrier->state, 0, 0);
+  gasneti_atomic_set(&PSHM_BDATA->state, 0, 0);
 
   /* Counter used to detect that all nodes have reached the barrier */
-  gasneti_atomic_set(&gasneti_pshm_barrier->counter[0], gasneti_pshm_nodes, 0);
-  gasneti_atomic_set(&gasneti_pshm_barrier->counter[1], gasneti_pshm_nodes, 0);
+  gasneti_atomic_set(&PSHM_BDATA->counter[0], gasneti_pshm_nodes, 0);
+  gasneti_atomic_set(&PSHM_BDATA->counter[1], gasneti_pshm_nodes, 0);
 
-  team->barrier_data = NULL;
   team->barrier_splitstate = OUTSIDE_BARRIER;
 
   team->barrier_notify = &gasnete_pshmbarrier_notify;
