@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2009/10/25 04:50:39 $
- * $Revision: 1.134 $
+ *     $Date: 2010/03/13 23:19:27 $
+ * $Revision: 1.135 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -786,6 +786,29 @@ static void TEST_DEBUGPERFORMANCE_WARNING(void) {
 #endif
 
 #define TEST_MYSEG()          (TEST_SEG(gasnet_mynode()))
+
+/* ------------------------------------------------------------------------------------ */
+/* segment alignment */
+#if defined(GASNET_SEGMENT_EVERYTHING) || !GASNET_ALIGNED_SEGMENTS
+  static int TEST_ALIGNED_SEGMENTS(void) {
+    static volatile int is_aligned = -1;
+    if_pf (is_aligned < 0) {
+      int result = 1; /* Assume aligned until we find otherwise */
+      void *addr0 = _test_seginfo[0].addr;
+      gasnet_node_t i;
+      for (i = 1; i < gasnet_nodes(); i++) {
+        if (_test_seginfo[i].addr != addr0) {
+          result = 0;
+          break;
+        }
+      }
+      is_aligned = result;
+    }
+    return is_aligned;
+  }
+#else
+  #define TEST_ALIGNED_SEGMENTS() 1
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 /* local process and thread count management */
