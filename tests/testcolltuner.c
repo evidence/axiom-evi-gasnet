@@ -120,15 +120,19 @@ void *thread_main(void *arg) {
     /*do single addr tests*/
  
     
-#if GASNET_ALIGNED_SEGMENTS
+#if (GASNET_ALIGNED_SEGMENTS != 1)
+    if(td->my_local_thread == 0 && !skip_msg_printed)
+      MSG0("Skipping SINGLE/SINGLE (unaligned segments)");
+#elif GASNET_SEGMENT_EVERYTHING
+    if(td->my_local_thread == 0 && !skip_msg_printed)
+      MSG0("Skipping SINGLE/SINGLE (segment everything)");
+#else
     if(threads_per_node == 1) {
       /*call the single address (coll single) test routines with testroot*/
       run_SINGLE_tree_tests(td, all_dsts, all_srcs, 0, flags | GASNET_COLL_SINGLE, sync_node);
     } else {
       if(td->mythread == 0 && !skip_msg_printed) MSG0("skipping SINGLE/SINGLE (multiple threads per node)");
     }
-#else
-    if(td->mythread == 0 && !skip_msg_printed) MSG0("skipping SINGLE/SINGLE (unaligned segments)");
 #endif
 
     if(threads_per_node == 1) {
@@ -138,19 +142,25 @@ void *thread_main(void *arg) {
       if(td->mythread == 0 && !skip_msg_printed) MSG0("skipping SINGLE/LOCAL (multiple threads per node) (test unimplemetned for now)");
     }
 
-    skip_msg_printed = 1;
     /*do multi addr tests*/
 
 #if GASNET_ALIGNED_SEGMENTS
     if(threads_per_node > 1)
 #endif
     {
+#if GASNET_SEGMENT_EVERYTHING
+      if(td->my_local_thread == 0 && !skip_msg_printed)
+        MSG0("Skipping SINGLE/MULTIPLE (segment everything)");
+#else
       /*call the multi address test (coll single) routines with testroot*/
       run_MULTI_tree_tests(td, all_dsts, all_srcs, 0, flags | GASNET_COLL_SINGLE, sync_node);
+#endif
       
       /*call the multi address test (coll local) routines with testroot*/
      run_MULTI_tree_tests(td, my_dsts, my_srcs, 0, flags | GASNET_COLL_LOCAL, sync_node);
     }
+
+    skip_msg_printed = 1;
   }
 
 
