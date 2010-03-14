@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2010/03/11 04:31:39 $
- * $Revision: 1.44 $
+ *     $Date: 2010/03/14 04:11:26 $
+ * $Revision: 1.45 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -77,61 +77,74 @@ static void gasnete_pshmbarrier_notify(gasnete_coll_team_t team, int id, int fla
   PSHM_BDATA_DECL(team);
   int phase;
   gasneti_sync_reads();
-  phase = PSHM_BDATA_PHASE;
 
   if_pf (team->barrier_splitstate == INSIDE_BARRIER) {
     gasneti_fatalerror("gasnet_barrier_notify() called twice in a row");
   } 
 
+  /* Start a new phase */
+  phase = (PSHM_BDATA_PHASE ^= 1);
+
   /* Record the passed flag and value */
-  PSHM_BDATA->node[gasneti_pshm_mynode].flags[phase] = flags;
-  PSHM_BDATA->node[gasneti_pshm_mynode].value[phase] = id;
+  PSHM_BDATA->node[gasneti_pshm_mynode].flags = flags;
+  PSHM_BDATA->node[gasneti_pshm_mynode].value = id;
   
-  /* Notify others that I have reached the barrier */
-  if (gasneti_atomic_decrement_and_test(&PSHM_BDATA->counter[phase], GASNETI_ATOMIC_REL)) {
-    /* signal barrier */
-    gasneti_atomic_set(&PSHM_BDATA->state, (1 << phase), 0);
-    /* reset this phase */
-    gasneti_atomic_set(&PSHM_BDATA->counter[phase], gasneti_pshm_nodes, 0);
+  if (gasneti_atomic_decrement_and_test(&PSHM_BDATA->counter, GASNETI_ATOMIC_REL)) {
+    /* I am last arrival */
+    const struct gasneti_pshm_barrier_node *node = PSHM_BDATA->node;
+    int result = GASNET_OK; /* assume success */
+    int have_value = 0;
+    int value;
+    int i;
+  
+    /* Reset counter */
+    gasneti_atomic_set(&PSHM_BDATA->counter, gasneti_pshm_nodes, 0);
+
+    /* Determine and "publish" the result */
+    for (i = 0; i < gasneti_pshm_nodes; ++i, ++node) {
+      const int flag = node->flags;
+      if_pt (flag & GASNET_BARRIERFLAG_ANONYMOUS) {
+        continue;
+      } else if_pf (flag & GASNET_BARRIERFLAG_MISMATCH) {
+        result = GASNET_ERR_BARRIER_MISMATCH; 
+        break;
+      } else {
+        const int val = node->value;
+        if (!have_value) {
+          have_value = 1;
+          value = val;
+        } else if (val != value) {
+          result = GASNET_ERR_BARRIER_MISMATCH; 
+          break;
+        }
+      }
+    }
+
+    /* Signal the barrier w/ phase and result */
+    {
+      const gasneti_atomic_sval_t state = (result << 2) | (1 << phase);
+      gasneti_assert((state >> 2) == result);
+      gasneti_atomic_set(&PSHM_BDATA->state, state, GASNETI_ATOMIC_REL);
+    }
   }
   
   /* No sync_writes() needed due to REL in dec-and-test, above */
   team->barrier_splitstate = INSIDE_BARRIER; 
 }
 
-static int finish_pshm_barrier(gasnete_coll_team_t team, int id, int flags, int phase) {
-  PSHM_BDATA_DECL(team);
-  int ret = GASNET_OK; /* assume success */
-  int orig_flags = PSHM_BDATA->node[gasneti_pshm_mynode].flags[phase];
-  int orig_value = PSHM_BDATA->node[gasneti_pshm_mynode].value[phase];
-  
-  /* Check all the conditions for mismatch */
-  if_pf((flags != orig_flags) ||
-	(!(flags & GASNET_BARRIERFLAG_ANONYMOUS) && (id != orig_value))) {
-    ret = GASNET_ERR_BARRIER_MISMATCH; 
-  } else {
-    int have_value = 0;
-    int value, i;
+static int finish_pshm_barrier(gasnete_coll_team_t team, int id, int flags, gasneti_atomic_sval_t state) {
+  int ret = (state >> 2); /* default unless args mismatch those from notify */
 
-    for (i = 0; i < gasneti_pshm_nodes; ++i) {
-      int flag = PSHM_BDATA->node[i].flags[phase];
-      if_pt (flag & GASNET_BARRIERFLAG_ANONYMOUS) {
-        continue;
-      } else if_pf (flag & GASNET_BARRIERFLAG_MISMATCH) {
-        ret = GASNET_ERR_BARRIER_MISMATCH; 
-        break;
-      } else if (!have_value) {
-        have_value = 1;
-        value = PSHM_BDATA->node[i].value[phase];
-      } else if (value != PSHM_BDATA->node[i].value[phase]) {
-        ret = GASNET_ERR_BARRIER_MISMATCH; 
-        break;
-      }
+  /* Check args for mismatch */
+  {
+    const struct gasneti_pshm_barrier_node *node = &PSHM_BDATA->node[gasneti_pshm_mynode];
+    PSHM_BDATA_DECL(team);
+    if_pf((flags != node->flags) ||
+          (!(flags & GASNET_BARRIERFLAG_ANONYMOUS) && (id != node->value))) {
+      ret = GASNET_ERR_BARRIER_MISMATCH; 
     }
   }
 
-  /* Switch the barrier variables.*/
-  PSHM_BDATA_PHASE = 1 ^ phase;
   team->barrier_splitstate = OUTSIDE_BARRIER;
   gasneti_sync_writes();
 
@@ -139,47 +152,38 @@ static int finish_pshm_barrier(gasnete_coll_team_t team, int id, int flags, int 
 }
 
 static int gasnete_pshmbarrier_wait(gasnete_coll_team_t team, int id, int flags) {
-  PSHM_BDATA_DECL(team);
-  gasneti_atomic_t * const state = &PSHM_BDATA->state;
-  gasneti_atomic_val_t goal;
-  int phase;
-
   gasneti_sync_reads();
-  phase = PSHM_BDATA_PHASE;
-
   if_pf (team->barrier_splitstate == OUTSIDE_BARRIER) {
     gasneti_fatalerror("gasnet_barrier_wait() called without a matching notify");
   }
 
-  goal = 1 << phase;
-  if (goal == gasneti_atomic_read(state, 0)) {
-    /* completed asynchronously before wait */ 
-    GASNETI_TRACE_EVENT_TIME(B,BARRIER_ASYNC_COMPLETION,GASNETI_TICKS_NOW_IFENABLED(B)-gasnete_barrier_notifytime);
-    gasneti_local_rmb();
-  } else {
-    /* Poll until all nodes have reached the barrier (polluntil includes the final RMB) */
-    gasneti_polluntil(goal == gasneti_atomic_read(state, 0));
-  }
+  {
+    PSHM_BDATA_DECL(team);
+    const int phase = PSHM_BDATA_PHASE;
+    const gasneti_atomic_sval_t goal = 1 << phase;
+    gasneti_atomic_t * const state_p = &PSHM_BDATA->state;
+    gasneti_atomic_sval_t state;
 
-  return finish_pshm_barrier(team, id, flags, phase);
+    gasneti_polluntil(goal & (state = gasneti_atomic_read(state_p, 0)));
+    return finish_pshm_barrier(team, id, flags, state);
+  }
 }
 
 static int gasnete_pshmbarrier_try(gasnete_coll_team_t team, int id, int flags) { 
-  PSHM_BDATA_DECL(team);
-  gasneti_atomic_t * const state = &PSHM_BDATA->state;
-  gasneti_atomic_val_t goal;
-  int phase;
-
   gasneti_sync_reads();
-  phase = PSHM_BDATA_PHASE;
-
   if_pf (team->barrier_splitstate == OUTSIDE_BARRIER) {
     gasneti_fatalerror("gasnet_barrier_try() called without a matching notify");
   }
 
-  goal = 1 << phase;
-  return (goal == gasneti_atomic_read(state, GASNETI_ATOMIC_ACQ))
-         ? finish_pshm_barrier(team, id, flags, phase) : GASNET_ERR_NOT_READY;
+  {
+    PSHM_BDATA_DECL(team);
+    const int phase = PSHM_BDATA_PHASE;
+    const gasneti_atomic_sval_t goal = 1 << phase;
+    gasneti_atomic_t * const state_p = &PSHM_BDATA->state;
+    const gasneti_atomic_sval_t state = gasneti_atomic_read(state_p, GASNETI_ATOMIC_ACQ);
+
+    return (goal & state) ? finish_pshm_barrier(team, id, flags, state) : GASNET_ERR_NOT_READY;
+  }
 }
 
 static void dummy_fn(void) {}
@@ -196,8 +200,7 @@ static void gasnete_pshmbarrier_init(gasnete_coll_team_t team) {
   gasneti_atomic_set(&PSHM_BDATA->state, 0, 0);
 
   /* Counter used to detect that all nodes have reached the barrier */
-  gasneti_atomic_set(&PSHM_BDATA->counter[0], gasneti_pshm_nodes, 0);
-  gasneti_atomic_set(&PSHM_BDATA->counter[1], gasneti_pshm_nodes, 0);
+  gasneti_atomic_set(&PSHM_BDATA->counter, gasneti_pshm_nodes, 0);
 
   team->barrier_splitstate = OUTSIDE_BARRIER;
 
