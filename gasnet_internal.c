@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2010/03/08 03:16:55 $
- * $Revision: 1.207 $
+ *     $Date: 2010/03/14 22:41:44 $
+ * $Revision: 1.208 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1107,8 +1107,6 @@ extern void gasneti_nodemapFini(void) {
   /* To help catch any use-afer-Fini: */
   gasneti_nodemap = NULL;
   gasneti_nodemap_local = NULL;
-  gasneti_nodemap_local_count = 0;
-  gasneti_nodemap_local_rank = (gasnet_node_t)-1;
 #endif
 }
 
