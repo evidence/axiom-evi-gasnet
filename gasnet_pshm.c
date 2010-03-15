@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.c,v $
- *     $Date: 2010/03/08 07:38:22 $
- * $Revision: 1.6 $
+ *     $Date: 2010/03/15 03:59:42 $
+ * $Revision: 1.7 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -124,12 +124,10 @@ void *gasneti_pshm_init(gasneti_bootstrapExchangefn_t exchangefn, size_t aux_sz)
       info_sz = GASNETI_ALIGNUP(info_sz, sizeof(gasneti_pshm_rank_t));
       info_sz += gasneti_nodes * sizeof(gasneti_pshm_rank_t);
     }
-#if GASNET_CONDUIT_SMP
     /* space for the PSHM intra-node barrier: */
     info_sz = GASNETI_ALIGNUP(info_sz, GASNETI_CACHE_LINE_BYTES);
     info_sz += sizeof(gasneti_pshm_barrier_t) +
 	       (gasneti_pshm_nodes-1) * sizeof(gasneti_pshm_barrier->node);
-#endif
     /* space for early barrier, sharing space with the items above: */
     info_sz = MAX(info_sz, gasneti_pshm_nodes * sizeof(sig_atomic_t));
     info_sz += offsetof(struct gasneti_pshm_info, u);
@@ -176,13 +174,11 @@ void *gasneti_pshm_init(gasneti_bootstrapExchangefn_t exchangefn, size_t aux_sz)
       gasneti_pshm_rankmap = (gasneti_pshm_rank_t *)addr;
       addr += gasneti_nodes * sizeof(gasneti_pshm_rank_t);
     }
-#if GASNET_CONDUIT_SMP
     /* intra-supernode barrier: */
     addr = GASNETI_ALIGNUP(addr, GASNETI_CACHE_LINE_BYTES);
     gasneti_pshm_barrier = (gasneti_pshm_barrier_t *)addr;
     addr += sizeof(gasneti_pshm_barrier_t) +
 	    (gasneti_pshm_nodes-1) * sizeof(gasneti_pshm_barrier->node);
-#endif
   }
 
   /* Populate gasneti_pshm_firsts[] */
