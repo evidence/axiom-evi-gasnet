@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2010/03/15 07:54:07 $
- * $Revision: 1.51 $
+ *     $Date: 2010/03/15 08:07:23 $
+ * $Revision: 1.52 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -44,7 +44,9 @@ void gasnete_barrier_pf_disable(gasnete_coll_team_t team) {
 }
 
 /* Can we implement a heirachical barrier w/ PSHM+network? */
-#if GASNET_PSHM && !defined(GASNET_CONDUIT_SMP)
+#ifdef GASNETI_PSHM_BARRIER_HIER
+/* Keep existing value */
+#elif GASNET_PSHM && !defined(GASNET_CONDUIT_SMP)
 # define GASNETI_PSHM_BARRIER_HIER 1
 #else
 # define GASNETI_PSHM_BARRIER_HIER 0
