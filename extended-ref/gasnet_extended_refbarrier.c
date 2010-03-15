@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2010/03/15 06:32:37 $
- * $Revision: 1.49 $
+ *     $Date: 2010/03/15 07:09:00 $
+ * $Revision: 1.50 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -309,15 +309,8 @@ static void gasnete_pshmbarrier_init(gasnete_coll_team_t team) {
 typedef struct {
   gasnet_hsl_t amdbarrier_lock;
   gasnet_node_t *amdbarrier_peers; /* precomputed list of peers to communicate with */
-  int volatile amdbarrier_value;   /* supernode-local ambarrier value */
-  int volatile amdbarrier_flags;   /* supernode-local ambarrier flags */
-#if GASNETI_PSHM_BARRIER_HIER
-  int volatile amdbarrier_myvalue; /* node-local ambarrier value */
-  int volatile amdbarrier_myflags; /* node-local ambarrier flags */
-#else
-  #define amdbarrier_myvalue amdbarrier_value
-  #define amdbarrier_myflags amdbarrier_flags
-#endif
+  int volatile amdbarrier_value;   /* (supernode-)local ambarrier value */
+  int volatile amdbarrier_flags;   /* (supernode-)local ambarrier flags */
   int volatile amdbarrier_step;  /*  local ambarrier step */
   int volatile amdbarrier_size;  /*  ceil(lg(nodes)) */
   int volatile amdbarrier_phase; /*  2-phase operation to improve pipelining */
@@ -468,9 +461,6 @@ static void gasnete_amdbarrier_notify(gasnete_coll_team_t team, int id, int flag
     gasneti_fatalerror("gasnet_barrier_notify() called twice in a row");
 
 #if GASNETI_PSHM_BARRIER_HIER
-  barrier_data->amdbarrier_myvalue  = id;
-  barrier_data->amdbarrier_myflags  = flags;
-
   if (team == GASNET_TEAM_ALL) {
     if (gasnete_pshmbarrier_notify_inner(team, id, flags)) {
       /* last arrival - send AM w/ supernode consensus value/flags */
@@ -547,11 +537,19 @@ static int gasnete_amdbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
   }
 
   /* determine return value */
+  if_pf(barrier_data->amdbarrier_mismatch[phase]) {
+    barrier_data->amdbarrier_mismatch[phase] = 0;
+    retval = GASNET_ERR_BARRIER_MISMATCH;
+  } else
+#if GASNETI_PSHM_BARRIER_HIER
+  if (team == GASNET_TEAM_ALL) {
+    /* finish_pshm_barrier() already checks notify-vs-wait mismatch
+     * plus amdbarrier_{value,flags} might not contain this nodes values. */
+  } else
+#endif
   if_pf((!(flags & GASNET_BARRIERFLAG_ANONYMOUS) &&
-         ((gasnet_handlerarg_t)id != barrier_data->amdbarrier_myvalue)) || 
-        flags != barrier_data->amdbarrier_myflags ||
-	barrier_data->amdbarrier_mismatch[phase]) {
-        barrier_data->amdbarrier_mismatch[phase] = 0;
+         ((gasnet_handlerarg_t)id != barrier_data->amdbarrier_value)) || 
+        flags != barrier_data->amdbarrier_flags) {
 	retval = GASNET_ERR_BARRIER_MISMATCH;
   }
 
