@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2010/03/15 05:57:38 $
- * $Revision: 1.48 $
+ *     $Date: 2010/03/15 06:32:37 $
+ * $Revision: 1.49 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -30,16 +30,17 @@ gasneti_progressfn_t gasnete_barrier_pf= NULL;
 
 GASNETI_INLINE(gasnete_barrier_pf_enable)
 void gasnete_barrier_pf_enable(gasnete_coll_team_t team) {
-  if ((team == GASNET_TEAM_ALL) && (gasnete_barrier_pf != NULL)) {
+  if (team->barrier_pf) {
+    gasneti_assert(team == GASNET_TEAM_ALL);
+    gasnete_barrier_pf = team->barrier_pf; /* Will need to QUEUE, not assign */
     GASNETI_PROGRESSFNS_ENABLE(gasneti_pf_barrier,BOOLEAN);
   }
 }
 
 GASNETI_INLINE(gasnete_barrier_pf_disable)
 void gasnete_barrier_pf_disable(gasnete_coll_team_t team) {
-  if ((team == GASNET_TEAM_ALL) && (gasnete_barrier_pf != NULL)) {
-    GASNETI_PROGRESSFNS_DISABLE(gasneti_pf_barrier,BOOLEAN);
-  }
+  gasneti_assert(gasnete_barrier_pf != NULL);
+  GASNETI_PROGRESSFNS_DISABLE(gasneti_pf_barrier,BOOLEAN);
 }
 
 /* Can we implement a heirachical barrier w/ PSHM+network? */
@@ -664,7 +665,7 @@ static void gasnete_amdbarrier_init(gasnete_coll_team_t team) {
   team->barrier_notify = &gasnete_amdbarrier_notify;
   team->barrier_wait =   &gasnete_amdbarrier_wait;
   team->barrier_try =    &gasnete_amdbarrier_try;
-  if(team == GASNET_TEAM_ALL) gasnete_barrier_pf = &gasnete_amdbarrier_kick_team_all;
+  team->barrier_pf =     (team == GASNET_TEAM_ALL) ? &gasnete_amdbarrier_kick_team_all : NULL;
 }
 
 #define GASNETE_AMDBARRIER_HANDLERS()                                 \
@@ -870,7 +871,7 @@ static void gasnete_amcbarrier_init(gasnete_coll_team_t team) {
   team->barrier_notify = &gasnete_amcbarrier_notify;
   team->barrier_wait =   &gasnete_amcbarrier_wait;
   team->barrier_try =    &gasnete_amcbarrier_try;
-  if(team == GASNET_TEAM_ALL) gasnete_barrier_pf = &gasnete_amcbarrier_kick_team_all;
+  team->barrier_pf =     (team == GASNET_TEAM_ALL) ? &gasnete_amcbarrier_kick_team_all : NULL;
 }
 
 #define GASNETE_AMCBARRIER_HANDLERS()                                 \

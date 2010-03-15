@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_extended.c,v $
- *     $Date: 2010/03/15 05:57:42 $
- * $Revision: 1.33 $
+ *     $Date: 2010/03/15 06:32:41 $
+ * $Revision: 1.34 $
  * Description: GASNet Extended API SHMEM Implementation
  * Copyright 2003, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -203,6 +203,7 @@ static int gasnete_shmembarrier_try(gasnete_coll_team_t team, int id, int flags)
       (TEAM)->barrier_notify = &gasnete_shmembarrier_notify; \
       (TEAM)->barrier_wait =   &gasnete_shmembarrier_wait;   \
       (TEAM)->barrier_try =    &gasnete_shmembarrier_try;    \
+      (TEAM)->barrier_pf =     NULL;                         \
       gasnete_shmembarrier_init();                           \
     }                                                        \
   } while (0)

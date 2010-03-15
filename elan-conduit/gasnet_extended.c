@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2010/03/15 05:57:36 $
- * $Revision: 1.91 $
+ *     $Date: 2010/03/15 06:32:35 $
+ * $Revision: 1.92 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1391,11 +1391,13 @@ int gasnete_elanbarrier_fast = 0;
       (TEAM)->barrier_notify = &gasnete_elanbarrier_notify; \
       (TEAM)->barrier_wait =   &gasnete_elanbarrier_wait;   \
       (TEAM)->barrier_try =    &gasnete_elanbarrier_try;    \
+      (TEAM)->barrier_pf =     NULL;                        \
       gasnete_elanbarrier_init();                           \
     } else if ((BARRIER_TYPE) == GASNETE_COLL_BARRIER_ELANSLOW && (TEAM)==GASNET_TEAM_ALL) {             \
       (TEAM)->barrier_notify = &gasnete_elanbarrier_notify; \
       (TEAM)->barrier_wait =   &gasnete_elanbarrier_wait;   \
       (TEAM)->barrier_try =    &gasnete_elanbarrier_try;    \
+      (TEAM)->barrier_pf =     NULL;                        \
       gasnete_elanbarrier_init();                           \
     } \
  } while (0)

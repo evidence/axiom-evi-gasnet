@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2010/03/15 05:57:40 $
- * $Revision: 1.117 $
+ *     $Date: 2010/03/15 06:32:39 $
+ * $Revision: 1.118 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1735,11 +1735,13 @@ static int gasnete_lapibarrier_try(gasnete_coll_team_t team, int id, int flags);
       (TEAM)->barrier_notify = &gasnete_lapibarrier_notify; \
       (TEAM)->barrier_wait =   &gasnete_lapibarrier_wait;   \
       (TEAM)->barrier_try =    &gasnete_lapibarrier_try;    \
+      (TEAM)->barrier_pf =     NULL;                        \
       gasnete_lapibarrier_init(1);                          \
     } else if ((BARRIER_TYPE) == GASNETE_COLL_BARRIER_LAPIAM && (TEAM)==GASNET_TEAM_ALL) { \
       (TEAM)->barrier_notify = &gasnete_lapibarrier_notify; \
       (TEAM)->barrier_wait =   &gasnete_lapibarrier_wait;   \
       (TEAM)->barrier_try =    &gasnete_lapibarrier_try;    \
+      (TEAM)->barrier_pf =     NULL;                        \
       gasnete_lapibarrier_init(0);                          \
     }                                                       \
   } while (0)
