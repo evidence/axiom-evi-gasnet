@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2010/03/07 09:06:02 $
- * $Revision: 1.90 $
+ *     $Date: 2010/03/15 05:57:36 $
+ * $Revision: 1.91 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1374,7 +1374,6 @@ extern gasnet_handle_t gasnete_end_nbi_accessregion(GASNETE_THREAD_FARG_ALONE) {
   =========
 */
 static void gasnete_elanbarrier_init(void);
-static void dummy_fn(void) {}
 static void gasnete_elanbarrier_notify(gasnete_coll_team_t team, int id, int flags);
 static int gasnete_elanbarrier_wait(gasnete_coll_team_t team, int id, int flags);
 static int gasnete_elanbarrier_try(gasnete_coll_team_t team, int id, int flags);
@@ -1392,12 +1391,12 @@ int gasnete_elanbarrier_fast = 0;
       (TEAM)->barrier_notify = &gasnete_elanbarrier_notify; \
       (TEAM)->barrier_wait =   &gasnete_elanbarrier_wait;   \
       (TEAM)->barrier_try =    &gasnete_elanbarrier_try;    \
-      gasnete_elanbarrier_init();  gasnete_barrier_pf = &dummy_fn;\
+      gasnete_elanbarrier_init();                           \
     } else if ((BARRIER_TYPE) == GASNETE_COLL_BARRIER_ELANSLOW && (TEAM)==GASNET_TEAM_ALL) {             \
       (TEAM)->barrier_notify = &gasnete_elanbarrier_notify; \
       (TEAM)->barrier_wait =   &gasnete_elanbarrier_wait;   \
       (TEAM)->barrier_try =    &gasnete_elanbarrier_try;    \
-      gasnete_elanbarrier_init(); gasnete_barrier_pf = &dummy_fn;\
+      gasnete_elanbarrier_init();                           \
     } \
  } while (0)
 

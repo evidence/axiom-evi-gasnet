@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2010/03/15 05:23:20 $
- * $Revision: 1.47 $
+ *     $Date: 2010/03/15 05:57:38 $
+ * $Revision: 1.48 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -30,15 +30,14 @@ gasneti_progressfn_t gasnete_barrier_pf= NULL;
 
 GASNETI_INLINE(gasnete_barrier_pf_enable)
 void gasnete_barrier_pf_enable(gasnete_coll_team_t team) {
-  if (team == GASNET_TEAM_ALL) {
-    gasneti_assert(gasnete_barrier_pf != NULL);
+  if ((team == GASNET_TEAM_ALL) && (gasnete_barrier_pf != NULL)) {
     GASNETI_PROGRESSFNS_ENABLE(gasneti_pf_barrier,BOOLEAN);
   }
 }
 
 GASNETI_INLINE(gasnete_barrier_pf_disable)
 void gasnete_barrier_pf_disable(gasnete_coll_team_t team) {
-  if (team == GASNET_TEAM_ALL) {
+  if ((team == GASNET_TEAM_ALL) && (gasnete_barrier_pf != NULL)) {
     GASNETI_PROGRESSFNS_DISABLE(gasneti_pf_barrier,BOOLEAN);
   }
 }
@@ -260,7 +259,6 @@ static int gasnete_pshmbarrier_try(gasnete_coll_team_t team, int id, int flags) 
   }
 }
 
-static void dummy_fn(void) {}
 #endif /* GASNET_CONDUIT_SMP */
 
 static void gasnete_pshmbarrier_init(gasnete_coll_team_t team) {
@@ -283,7 +281,6 @@ static void gasnete_pshmbarrier_init(gasnete_coll_team_t team) {
   team->barrier_notify = &gasnete_pshmbarrier_notify;
   team->barrier_wait =   &gasnete_pshmbarrier_wait;
   team->barrier_try =    &gasnete_pshmbarrier_try;
-  gasnete_barrier_pf = &dummy_fn;
 #endif
 }
 
