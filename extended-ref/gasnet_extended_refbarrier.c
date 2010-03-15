@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2010/03/15 03:59:44 $
- * $Revision: 1.46 $
+ *     $Date: 2010/03/15 05:23:20 $
+ * $Revision: 1.47 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -28,6 +28,20 @@
 /*XXX: for now only team all registers their pollers*/
 gasneti_progressfn_t gasnete_barrier_pf= NULL;
 
+GASNETI_INLINE(gasnete_barrier_pf_enable)
+void gasnete_barrier_pf_enable(gasnete_coll_team_t team) {
+  if (team == GASNET_TEAM_ALL) {
+    gasneti_assert(gasnete_barrier_pf != NULL);
+    GASNETI_PROGRESSFNS_ENABLE(gasneti_pf_barrier,BOOLEAN);
+  }
+}
+
+GASNETI_INLINE(gasnete_barrier_pf_disable)
+void gasnete_barrier_pf_disable(gasnete_coll_team_t team) {
+  if (team == GASNET_TEAM_ALL) {
+    GASNETI_PROGRESSFNS_DISABLE(gasneti_pf_barrier,BOOLEAN);
+  }
+}
 
 /* Can we implement a heirachical barrier w/ PSHM+network? */
 #if GASNET_PSHM && !defined(GASNET_CONDUIT_SMP)
@@ -405,7 +419,7 @@ void gasnete_amdbarrier_kick(gasnete_coll_team_t team) {
         barrier_data->amdbarrier_mismatch[phase] = 1;
       }
       if (step+numsteps == barrier_data->amdbarrier_size) { /* We got the last recv - barrier locally complete */
-        GASNETI_PROGRESSFNS_DISABLE(gasneti_pf_barrier,BOOLEAN);
+        gasnete_barrier_pf_disable(team);
         gasneti_sync_writes(); /* flush state before the write to ambarrier_step below */
       } 
       if (step + 1 < barrier_data->amdbarrier_size) {
@@ -493,7 +507,8 @@ static void gasnete_amdbarrier_notify(gasnete_coll_team_t team, int id, int flag
       gasnet_AMRequestShort5(barrier_data->amdbarrier_peers[0],
                              gasneti_handleridx(gasnete_amdbarrier_notify_reqh), 
                              team->team_id, phase, 0, id, flags));
-    GASNETI_PROGRESSFNS_ENABLE(gasneti_pf_barrier,BOOLEAN);
+    if (!GASNETI_PSHM_BARRIER_HIER || !gasneti_nodemap_local_rank)
+      gasnete_barrier_pf_enable(team);
   } else {
     barrier_data->amdbarrier_recv_value[phase] = id;	/* to simplify checking in _wait */
   }
@@ -752,7 +767,7 @@ void gasnete_amcbarrier_kick(gasnete_coll_team_t team) {
       int i;
       int mismatch = barrier_data->amcbarrier_consensus_mismatch[phase];
 
-      GASNETI_PROGRESSFNS_DISABLE(gasneti_pf_barrier,BOOLEAN);
+      gasnete_barrier_pf_disable(team);
 
       /*  inform the nodes */
       for (i=0; i < team->total_ranks; i++) {
@@ -790,7 +805,7 @@ static void gasnete_amcbarrier_notify(gasnete_coll_team_t team, int id, int flag
     GASNETI_SAFE(
       gasnet_AMRequestShort4(GASNETE_COLL_REL2ACT(team, GASNETE_AMCBARRIER_MASTER), gasneti_handleridx(gasnete_amcbarrier_notify_reqh), 
                              team->team_id, phase, barrier_data->amcbarrier_value, flags));
-    if (team->myrank == GASNETE_AMCBARRIER_MASTER) GASNETI_PROGRESSFNS_ENABLE(gasneti_pf_barrier,BOOLEAN);
+    if (team->myrank == GASNETE_AMCBARRIER_MASTER) gasnete_barrier_pf_enable(team);
   } else {
     barrier_data->amcbarrier_response_mismatch[phase] = (flags & GASNET_BARRIERFLAG_MISMATCH);
     barrier_data->amcbarrier_response_done[phase] = 1;
