@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2010/03/15 07:09:00 $
- * $Revision: 1.50 $
+ *     $Date: 2010/03/15 07:54:07 $
+ * $Revision: 1.51 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -693,6 +693,9 @@ typedef struct {
   int volatile amcbarrier_response_done[2];     /*  non-zero when ambarrier is complete */
   int volatile amcbarrier_response_mismatch[2]; /*  non-zero if we detected a mismatch */
   
+  int           amcbarrier_max;
+  gasnet_node_t amcbarrier_master; /* ACT, not REL */
+
   /*  global state on master */
   gasnet_hsl_t amcbarrier_lock;
   int volatile amcbarrier_consensus_value[2]; /*  consensus ambarrier value */
@@ -701,16 +704,13 @@ typedef struct {
   int volatile amcbarrier_count[2];/*  count of how many remotes have notified (on master) */
 } gasnete_coll_amcbarrier_t;
 
-#ifndef GASNETE_AMCBARRIER_MASTER
-#define GASNETE_AMCBARRIER_MASTER (team->total_ranks-1)
-#endif
 
 static void gasnete_amcbarrier_notify_reqh(gasnet_token_t token, 
                                            gasnet_handlerarg_t teamid, gasnet_handlerarg_t phase, gasnet_handlerarg_t value, gasnet_handlerarg_t flags) {
   gasnete_coll_team_t team = gasnete_coll_team_lookup((uint32_t)teamid);
   gasnete_coll_amcbarrier_t *barrier_data = team->barrier_data;
 
-  gasneti_assert(team->myrank == GASNETE_AMCBARRIER_MASTER);
+  gasneti_assert(gasneti_mynode == barrier_data->amcbarrier_master);
   
   gasnet_hsl_lock(&barrier_data->amcbarrier_lock);
   { int count = barrier_data->amcbarrier_count[phase];
@@ -724,7 +724,7 @@ static void gasnete_amcbarrier_notify_reqh(gasnet_token_t token,
       barrier_data->amcbarrier_consensus_mismatch[phase] = 1;
     }
     count++;
-    if (count == team->total_ranks) gasneti_sync_writes(); /* about to signal, ensure we flush state */
+    if (count == barrier_data->amcbarrier_max) gasneti_sync_writes(); /* about to signal, ensure we flush state */
     barrier_data->amcbarrier_count[phase] = count;
   }
   gasnet_hsl_unlock(&barrier_data->amcbarrier_lock);
@@ -747,13 +747,13 @@ void gasnete_amcbarrier_kick(gasnete_coll_team_t team) {
   gasnete_coll_amcbarrier_t *barrier_data = team->barrier_data;
   int phase = barrier_data->amcbarrier_phase;
 
-  if (team->myrank != GASNETE_AMCBARRIER_MASTER) return;
+  if (gasneti_mynode != barrier_data->amcbarrier_master) return;
 
   /*  master does all the work */
-  if (barrier_data->amcbarrier_count[phase] == team->total_ranks) {
+  if (barrier_data->amcbarrier_count[phase] == barrier_data->amcbarrier_max) {
     int gotit = 0;
     gasnet_hsl_lock(&barrier_data->amcbarrier_lock);
-      if (barrier_data->amcbarrier_count[phase] == team->total_ranks) {
+      if (barrier_data->amcbarrier_count[phase] == barrier_data->amcbarrier_max) {
         barrier_data->amcbarrier_count[phase] = 0;
         gotit = 1;
       }
@@ -796,12 +796,13 @@ static void gasnete_amcbarrier_notify(gasnete_coll_team_t team, int id, int flag
   phase = !barrier_data->amcbarrier_phase; /*  enter new phase */
   barrier_data->amcbarrier_phase = phase;
 
-  if (team->total_ranks > 1) {
+  if (barrier_data->amcbarrier_max > 1) {
     /*  send notify msg to master */
     GASNETI_SAFE(
-      gasnet_AMRequestShort4(GASNETE_COLL_REL2ACT(team, GASNETE_AMCBARRIER_MASTER), gasneti_handleridx(gasnete_amcbarrier_notify_reqh), 
+      gasnet_AMRequestShort4(barrier_data->amcbarrier_master,
+                             gasneti_handleridx(gasnete_amcbarrier_notify_reqh), 
                              team->team_id, phase, barrier_data->amcbarrier_value, flags));
-    if (team->myrank == GASNETE_AMCBARRIER_MASTER) gasnete_barrier_pf_enable(team);
+    if (team->myrank == barrier_data->amcbarrier_master) gasnete_barrier_pf_enable(team);
   } else {
     barrier_data->amcbarrier_response_mismatch[phase] = (flags & GASNET_BARRIERFLAG_MISMATCH);
     barrier_data->amcbarrier_response_done[phase] = 1;
@@ -863,8 +864,11 @@ static void gasnete_amcbarrier_init(gasnete_coll_team_t team) {
   gasnete_coll_amcbarrier_t *barrier_data = gasneti_calloc(1,sizeof(gasnete_coll_amcbarrier_t));
 
   gasnet_hsl_init(&barrier_data->amcbarrier_lock);
-  team->barrier_splitstate = OUTSIDE_BARRIER;
 
+  barrier_data->amcbarrier_max    = team->total_ranks;
+  barrier_data->amcbarrier_master = GASNETE_COLL_REL2ACT(team, (team->total_ranks - 1)),
+
+  team->barrier_splitstate = OUTSIDE_BARRIER;
   team->barrier_data =   barrier_data;
   team->barrier_notify = &gasnete_amcbarrier_notify;
   team->barrier_wait =   &gasnete_amcbarrier_wait;
