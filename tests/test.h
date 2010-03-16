@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2010/03/13 23:19:27 $
- * $Revision: 1.135 $
+ *     $Date: 2010/03/16 23:42:58 $
+ * $Revision: 1.136 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -393,7 +393,7 @@ GASNETT_IDENT(GASNetT_IdentString_HeapSz,
 #else
   GASNETT_IDENT(GASNetT_IdentString_PtrSz, "$UPCRSizeof: void_ptr=, $");
 #endif
-GASNETT_IDENT(GASNetT_IdentString_ABI, "$UPCRBinaryInterface: " GASNETI_SYSTEM_TUPLE " $");
+GASNETT_IDENT(GASNetT_IdentString_ABI, "$UPCRBinaryInterface: " GASNETT_SYSTEM_TUPLE " $");
 /* Ditto for Titanium tcrun */
 GASNETT_IDENT(GASNetT_TiBackend_IdentString, 
  "$TitaniumBackend: " TEST_TITANIUM_BACKEND " $");
