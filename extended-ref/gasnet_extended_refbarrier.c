@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2010/03/16 22:28:45 $
- * $Revision: 1.53 $
+ *     $Date: 2010/03/16 22:43:36 $
+ * $Revision: 1.54 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -39,8 +39,10 @@ void gasnete_barrier_pf_enable(gasnete_coll_team_t team) {
 
 GASNETI_INLINE(gasnete_barrier_pf_disable)
 void gasnete_barrier_pf_disable(gasnete_coll_team_t team) {
-  gasneti_assert(gasnete_barrier_pf != NULL);
-  GASNETI_PROGRESSFNS_DISABLE(gasneti_pf_barrier,BOOLEAN);
+  if (team->barrier_pf) {
+    gasneti_assert(team == GASNET_TEAM_ALL);
+    GASNETI_PROGRESSFNS_DISABLE(gasneti_pf_barrier,BOOLEAN);
+  }
 }
 
 /* ------------------------------------------------------------------------------------ */
