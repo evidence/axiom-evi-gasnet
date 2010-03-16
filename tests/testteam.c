@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testteam.c,v $
- * $Date: 2010/03/16 23:20:47 $
- * $Revision: 1.3 $
+ * $Date: 2010/03/16 23:23:58 $
+ * $Revision: 1.4 $
  * LBNL 2009
  */
 
@@ -75,7 +75,7 @@ int main(int argc, char **argv)
   } else {
     ncols = nodes / nrows;
   }
-  gasneti_assert(nrows*ncols == nodes);
+  assert_always(nrows*ncols == nodes);
 
   MSG0("Running team test with a %u-by-%u grid and %i iterations...\n",
            nrows, ncols, iters);
