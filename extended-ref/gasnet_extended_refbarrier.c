@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2010/03/15 08:07:23 $
- * $Revision: 1.52 $
+ *     $Date: 2010/03/16 22:28:45 $
+ * $Revision: 1.53 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -43,16 +43,37 @@ void gasnete_barrier_pf_disable(gasnete_coll_team_t team) {
   GASNETI_PROGRESSFNS_DISABLE(gasneti_pf_barrier,BOOLEAN);
 }
 
-/* Can we implement a heirachical barrier w/ PSHM+network? */
-#ifdef GASNETI_PSHM_BARRIER_HIER
-/* Keep existing value */
-#elif GASNET_PSHM && !defined(GASNET_CONDUIT_SMP)
-# define GASNETI_PSHM_BARRIER_HIER 1
+/* ------------------------------------------------------------------------------------ */
+/* 
+ * GASNETI_PSHM_BARRIER: do we build the shared-memory barrier
+ * GASNETI_PSHM_BARRIER_HIER: for use alone (0) or in a heirarchical barrier (1)
+ */
+#if !GASNET_PSHM
+  /* No PSHM support: GASNETI_PSHM_BARRIER == GASNETI_PSHM_BARRIER_HIER == 0 */
+  #if GASNETI_PSHM_BARRIER_HIER
+    #error "GASNETI_PSHM_BARRIER_HIER non-zero but not configured for PHSM support"
+  #endif
+  #undef GASNETI_PSHM_BARRIER_HIER
+  #define GASNETI_PSHM_BARRIER_HIER 0
+  #define GASNETI_PSHM_BARRIER 0
+#elif defined(GASNET_CONDUIT_SMP)
+  /* PSHM+SMP: GASNETI_PSHM_BARRIER == 1, GASNETI_PSHM_BARRIER_HIER == 0
+   * even if user set GASNETI_PSHM_BARRIER_HIER explicitly */
+  #undef GASNETI_PSHM_BARRIER_HIER
+  #define GASNETI_PSHM_BARRIER_HIER 0
+  #define GASNETI_PSHM_BARRIER 1
 #else
-# define GASNETI_PSHM_BARRIER_HIER 0
+  /* PSHM+NET: GASNETI_PSHM_BARRIER_HIER == 1 unless set by user
+   * GASNETI_PSHM_BARRIER always follows GASNETI_PSHM_BARRIER_HIER
+   */
+  #ifndef GASNETI_PSHM_BARRIER_HIER /* Preserve user's setting, if any */
+    #define GASNETI_PSHM_BARRIER_HIER 1
+  #endif
+  #define GASNETI_PSHM_BARRIER GASNETI_PSHM_BARRIER_HIER
 #endif
 
-#if GASNET_PSHM
+
+#if GASNETI_PSHM_BARRIER
 /* ------------------------------------------------------------------------------------ */
 /* the shared memory intra-supernode implementation of barrier */
 
@@ -68,7 +89,7 @@ void gasnete_barrier_pf_disable(gasnete_coll_team_t team) {
  *      -PHH 2010.03.10
  */
 
-#if 0
+#if 0 /* XXX: Currently incompatible w/ heirarchical barrier code */
 /* General case for when we support teams with this barrier */
     typedef struct {
 	int volatile phase; /* Local var alternates 0-1 */
@@ -96,13 +117,19 @@ void gasnete_barrier_pf_disable(gasnete_coll_team_t team) {
     #define PSHM_BDATA				gasneti_pshm_barrier
 #endif
 
-/* The hierarhical case needs space for 4 done bits; pure-SMP only 2.
- * However, the code is simpler always using 4.
+/* We encode the done bits and the result into a single word
+ * The hierarhical case needs space for 4 done bits; pure-SMP needs only 2.
  */
+#if GASNETI_PSHM_BARRIER_HIER
+  #define PSHM_BSTATE_DONE_BITS 4
+#else
+  #define PSHM_BSTATE_DONE_BITS 2
+#endif
+#define PSHM_BSTATE_TO_RESULT(_state) ((_state) >> PSHM_BSTATE_DONE_BITS)
 #define PSHM_BSTATE_SIGNAL(_result, _phase) do {                               \
     const int _tmp_result = (_result);                                         \
-    const gasneti_atomic_sval_t _state = (_tmp_result << 4) | (1 << (_phase)); \
-    gasneti_assert((_state >> 4) == _tmp_result);                              \
+    const gasneti_atomic_sval_t _state = (_tmp_result << PSHM_BSTATE_DONE_BITS) | (1 << (_phase)); \
+    gasneti_assert(PSHM_BSTATE_TO_RESULT(_state) == _tmp_result);              \
     gasneti_atomic_set(&PSHM_BDATA->state, _state, GASNETI_ATOMIC_REL);        \
   } while(0)
 
@@ -137,29 +164,23 @@ int gasnete_pshmbarrier_notify_inner(gasnete_coll_team_t team, int id, int flags
         continue;
       } else if_pf (flag & GASNET_BARRIERFLAG_MISMATCH) {
         result = GASNET_ERR_BARRIER_MISMATCH; 
-#ifndef GASNET_CONDUIT_SMP
         flags = GASNET_BARRIERFLAG_MISMATCH;
-#endif
         break;
       } else {
         const int val = node->value;
         if (!have_value) {
           have_value = 1;
           value = val;
-#ifndef GASNET_CONDUIT_SMP
           flags = 0;
-#endif
         } else if (val != value) {
           result = GASNET_ERR_BARRIER_MISMATCH; 
-#ifndef GASNET_CONDUIT_SMP
           flags = GASNET_BARRIERFLAG_MISMATCH;
-#endif
           break;
         }
       }
     }
 
-#ifndef GASNET_CONDUIT_SMP
+#if GASNETI_PSHM_BARRIER_HIER
     /* Publish the results for use in hierarhical barrier */
     PSHM_BDATA->value = value;
     PSHM_BDATA->flags = flags;
@@ -172,35 +193,17 @@ int gasnete_pshmbarrier_notify_inner(gasnete_coll_team_t team, int id, int flags
   return last;
 }
 
-#ifdef GASNET_CONDUIT_SMP
-static void gasnete_pshmbarrier_notify(gasnete_coll_team_t team, int id, int flags) {
-  gasneti_sync_reads();
-  if_pf (team->barrier_splitstate == INSIDE_BARRIER) {
-    gasneti_fatalerror("gasnet_barrier_notify() called twice in a row");
-  } 
-
-  (void)gasnete_pshmbarrier_notify_inner(team, id, flags);
-  
-  /* No sync_writes() needed due to REL in dec-and-test, above */
-  team->barrier_splitstate = INSIDE_BARRIER; 
-}
-#endif
-
-static int finish_pshm_barrier(gasnete_coll_team_t team, int id, int flags, gasneti_atomic_sval_t state) {
+GASNETI_ALWAYS_INLINE(finish_pshm_barrier)
+int finish_pshm_barrier(gasnete_coll_team_t team, int id, int flags, gasneti_atomic_sval_t state) {
   PSHM_BDATA_DECL(team);
   const struct gasneti_pshm_barrier_node *node = &PSHM_BDATA->node[gasneti_pshm_mynode];
-  int ret = (state >> 4); /* default unless args mismatch those from notify */
+  int ret = PSHM_BSTATE_TO_RESULT(state); /* default unless args mismatch those from notify */
 
   /* Check args for mismatch */
   if_pf((flags != node->flags) ||
         (!(flags & GASNET_BARRIERFLAG_ANONYMOUS) && (id != node->value))) {
     ret = GASNET_ERR_BARRIER_MISMATCH; 
   }
-
-#ifdef GASNET_CONDUIT_SMP
-  team->barrier_splitstate = OUTSIDE_BARRIER;
-  gasneti_sync_writes();
-#endif
 
   return ret;
 }
@@ -230,41 +233,16 @@ gasneti_atomic_sval_t gasnete_pshmbarrier_try_inner(gasnete_coll_team_t team) {
   const int shift = (GASNETI_PSHM_BARRIER_HIER && gasneti_nodemap_local_rank) ? 2 : 0;
   const gasneti_atomic_sval_t goal = 1 << (PSHM_BDATA_PHASE + shift);
   gasneti_atomic_t * const state_p = &PSHM_BDATA->state;
-
-#ifdef GASNET_CONDUIT_SMP
   const gasneti_atomic_sval_t state = gasneti_atomic_read(state_p, GASNETI_ATOMIC_ACQ);
+
+#if !GASNETI_PSHM_BARRIER_HIER
   return (goal & state) ? state : 0;
 #else
-  return (goal & gasneti_atomic_read(state_p, GASNETI_ATOMIC_ACQ));
+  return (goal & state);
 #endif
 }
 
-#ifdef GASNET_CONDUIT_SMP
-static int gasnete_pshmbarrier_wait(gasnete_coll_team_t team, int id, int flags) {
-  gasneti_sync_reads();
-  if_pf (team->barrier_splitstate == OUTSIDE_BARRIER) {
-    gasneti_fatalerror("gasnet_barrier_wait() called without a matching notify");
-  }
-
-  return gasnete_pshmbarrier_wait_inner(team, id, flags);
-}
-
-static int gasnete_pshmbarrier_try(gasnete_coll_team_t team, int id, int flags) { 
-  gasneti_sync_reads();
-  if_pf (team->barrier_splitstate == OUTSIDE_BARRIER) {
-    gasneti_fatalerror("gasnet_barrier_try() called without a matching notify");
-  }
-
-  {
-    const gasneti_atomic_sval_t state = gasnete_pshmbarrier_try_inner(team);
-    return state ? finish_pshm_barrier(team, id, flags, state)
-                 : GASNET_ERR_NOT_READY;
-  }
-}
-
-#endif /* GASNET_CONDUIT_SMP */
-
-static void gasnete_pshmbarrier_init(gasnete_coll_team_t team) {
+static void gasnete_pshmbarrier_init_inner(gasnete_coll_team_t team) {
   PSHM_BDATA_DECL(team);
 
   /* XXX: non-TEAM_ALL will need to allocate the 2nd arg from shared space */
@@ -277,17 +255,73 @@ static void gasnete_pshmbarrier_init(gasnete_coll_team_t team) {
 
   /* Counter used to detect that all nodes have reached the barrier */
   gasneti_atomic_set(&PSHM_BDATA->counter, gasneti_pshm_nodes, 0);
+}
 
-#ifdef GASNET_CONDUIT_SMP
+#if !GASNETI_PSHM_BARRIER_HIER
+/* Entry points for SMP-conduit */
+
+static void gasnete_pshmbarrier_notify(gasnete_coll_team_t team, int id, int flags) {
+  gasneti_sync_reads();
+  if_pf (team->barrier_splitstate == INSIDE_BARRIER) {
+    gasneti_fatalerror("gasnet_barrier_notify() called twice in a row");
+  } 
+
+  (void)gasnete_pshmbarrier_notify_inner(team, id, flags);
+  
+  /* No sync_writes() needed due to REL in dec-and-test inside notify_inner */
+  team->barrier_splitstate = INSIDE_BARRIER; 
+}
+
+static int gasnete_pshmbarrier_wait(gasnete_coll_team_t team, int id, int flags) {
+  gasneti_sync_reads();
+  if_pf (team->barrier_splitstate == OUTSIDE_BARRIER) {
+    gasneti_fatalerror("gasnet_barrier_wait() called without a matching notify");
+  }
+
+  {
+    const int result = gasnete_pshmbarrier_wait_inner(team, id, flags);
+    gasneti_assert(result != GASNET_ERR_NOT_READY);
+
+    team->barrier_splitstate = OUTSIDE_BARRIER;
+    gasneti_sync_writes();
+    return result;
+  }
+}
+
+static int gasnete_pshmbarrier_try(gasnete_coll_team_t team, int id, int flags) { 
+  gasneti_sync_reads();
+  if_pf (team->barrier_splitstate == OUTSIDE_BARRIER) {
+    gasneti_fatalerror("gasnet_barrier_try() called without a matching notify");
+  }
+
+  {
+    const gasneti_atomic_sval_t state = gasnete_pshmbarrier_try_inner(team);
+    int result;
+
+    if (state) {
+      result = finish_pshm_barrier(team, id, flags, state);
+
+      team->barrier_splitstate = OUTSIDE_BARRIER;
+      gasneti_sync_writes();
+    } else {
+      result = GASNET_ERR_NOT_READY;
+    }
+    return result;
+  }
+}
+
+static void gasnete_pshmbarrier_init(gasnete_coll_team_t team) {
+  gasnete_pshmbarrier_init_inner(team);
+
   team->barrier_splitstate = OUTSIDE_BARRIER;
 
   team->barrier_notify = &gasnete_pshmbarrier_notify;
   team->barrier_wait =   &gasnete_pshmbarrier_wait;
   team->barrier_try =    &gasnete_pshmbarrier_try;
-#endif
 }
+#endif /* !GASNETI_PSHM_BARRIER_HIER */
 
-#endif /* GASNET_PSHM */
+#endif /* GASNETI_PSHM_BARRIER */
 
 /* ------------------------------------------------------------------------------------ */
 /* the AM-based Dissemination implementation of barrier */
@@ -545,8 +579,9 @@ static int gasnete_amdbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
   } else
 #if GASNETI_PSHM_BARRIER_HIER
   if (team == GASNET_TEAM_ALL) {
-    /* finish_pshm_barrier() already checks notify-vs-wait mismatch
-     * plus amdbarrier_{value,flags} might not contain this nodes values. */
+    /* amdbarrier_{value,flags} may not contain this node's values
+     * finish_pshm_barrier() checks local notify-vs-wait mismatch instead.
+     */
   } else
 #endif
   if_pf((!(flags & GASNET_BARRIERFLAG_ANONYMOUS) &&
@@ -565,7 +600,7 @@ static int gasnete_amdbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
   if ((team == GASNET_TEAM_ALL) && !gasneti_nodemap_local_rank) {
     /* Signal any supernode peers w/ the final result */
     PSHM_BDATA_DECL(team);
-    PSHM_BSTATE_SIGNAL(retval, PSHM_BDATA_PHASE+2);
+    PSHM_BSTATE_SIGNAL(retval, PSHM_BDATA_PHASE+2); /* includes a WMB */
   } else
 #endif
   gasneti_sync_writes(); /* ensure all state changes committed before return */
@@ -609,7 +644,7 @@ static void gasnete_amdbarrier_init(gasnete_coll_team_t team) {
 
 #if GASNETI_PSHM_BARRIER_HIER
   if (team == GASNET_TEAM_ALL) {
-    gasnete_pshmbarrier_init(team);
+    gasnete_pshmbarrier_init_inner(team);
     myrank = gasneti_nodemap_global_rank;
     total_ranks = gasneti_nodemap_global_count;
   }
