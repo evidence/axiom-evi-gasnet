@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2010/03/16 22:43:36 $
- * $Revision: 1.54 $
+ *     $Date: 2010/03/17 01:07:24 $
+ * $Revision: 1.55 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -144,8 +144,8 @@ int gasnete_pshmbarrier_notify_inner(gasnete_coll_team_t team, int id, int flags
   int phase = (PSHM_BDATA_PHASE ^= 1);
 
   /* Record the passed flag and value */
-  PSHM_BDATA->node[gasneti_pshm_mynode].flags = flags;
-  PSHM_BDATA->node[gasneti_pshm_mynode].value = id;
+  PSHM_BDATA->node[gasneti_nodemap_local_rank].flags = flags;
+  PSHM_BDATA->node[gasneti_nodemap_local_rank].value = id;
   
   last = gasneti_atomic_decrement_and_test(&PSHM_BDATA->counter, GASNETI_ATOMIC_REL);
   if (last) {
@@ -157,10 +157,10 @@ int gasnete_pshmbarrier_notify_inner(gasnete_coll_team_t team, int id, int flags
     int i;
   
     /* Reset counter */
-    gasneti_atomic_set(&PSHM_BDATA->counter, gasneti_pshm_nodes, 0);
+    gasneti_atomic_set(&PSHM_BDATA->counter, gasneti_nodemap_local_count, 0);
 
     /* Determine and "publish" the result */
-    for (i = 0; i < gasneti_pshm_nodes; ++i, ++node) {
+    for (i = 0; i < gasneti_nodemap_local_count; ++i, ++node) {
       const int flag = node->flags;
       if_pt (flag & GASNET_BARRIERFLAG_ANONYMOUS) {
         continue;
@@ -198,7 +198,7 @@ int gasnete_pshmbarrier_notify_inner(gasnete_coll_team_t team, int id, int flags
 GASNETI_ALWAYS_INLINE(finish_pshm_barrier)
 int finish_pshm_barrier(gasnete_coll_team_t team, int id, int flags, gasneti_atomic_sval_t state) {
   PSHM_BDATA_DECL(team);
-  const struct gasneti_pshm_barrier_node *node = &PSHM_BDATA->node[gasneti_pshm_mynode];
+  const struct gasneti_pshm_barrier_node *node = &PSHM_BDATA->node[gasneti_nodemap_local_rank];
   int ret = PSHM_BSTATE_TO_RESULT(state); /* default unless args mismatch those from notify */
 
   /* Check args for mismatch */
@@ -256,7 +256,7 @@ static void gasnete_pshmbarrier_init_inner(gasnete_coll_team_t team) {
   gasneti_atomic_set(&PSHM_BDATA->state, 0, 0);
 
   /* Counter used to detect that all nodes have reached the barrier */
-  gasneti_atomic_set(&PSHM_BDATA->counter, gasneti_pshm_nodes, 0);
+  gasneti_atomic_set(&PSHM_BDATA->counter, gasneti_nodemap_local_count, 0);
 }
 
 #if !GASNETI_PSHM_BARRIER_HIER
