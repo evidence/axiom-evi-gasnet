@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2010/03/17 06:15:16 $
- * $Revision: 1.59 $
+ *     $Date: 2010/03/17 06:50:55 $
+ * $Revision: 1.60 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -82,13 +82,14 @@ void gasnete_barrier_pf_disable(gasnete_coll_team_t team) {
 /* This is a shared-memory barrier.  As such the gasneti_pshm_barrier_t must exist
  * within either the GASNet segments (Aux or Client portions are both possible) or
  * within the N+1st shared mmap() which contains the AMPSHM data structures.  In the
- * case of TEAM_ALL this memory comes from that N+1st mmap.  When team support is added
- * to this barrier implementation, we'll probably need to carve the memory out of the
+ * case of TEAM_ALL this memory comes from that N+1st mmap.  To get full team support
+ * in this barrier implementation, we'll probably need to carve the memory out of the
  * team's scratch space.  I am not sure if we can hold on to a piece of the scratch
  * space indefinately (I doubt it) or whether is will need to be recycled back into
- * to the pool and associate a collective op with each barrier.  This question of
- * shared-space allocation is the main reason I've not yet added team support here.
- *      -PHH 2010.03.10
+ * to the pool and associate a collective op with each barrier.  Another option
+ * would be to allocate some of the space left over at the end of that N+1st mmap.
+ * This question of shared-space allocation is the only thing still blocking team
+ * support (well, other than testing) for the PSHM barrier code.     -PHH 2010.03.16
  */
 
 typedef struct gasnete_coll_pshmbarrier_s {
@@ -241,15 +242,31 @@ gasnete_pshmbarrier_init_inner(gasnete_coll_team_t team) {
   }
 
   if (shared_data) {
-    /* TODO: replace gasneti_nodemap_local_{rank,count} w/ team-specific values:
-     *     gasneti_nodemap_local_count = how many team members are supernode-local
-     *     gasneti_nodemap_local_rank = a unique numbering of the local nodes
-     */
-    gasneti_assert(team == GASNET_TEAM_ALL);
+    int size, rank;
+
+    /* Find size/rank w/i my supernode, but limited to team members */
+    if (team == GASNET_TEAM_ALL) {
+      size = gasneti_nodemap_local_count;
+      rank = gasneti_nodemap_local_rank;
+    } else {
+      int i;
+
+      size = 0; rank = -1;
+      for (i=0; i < team->total_ranks; i++) {
+        gasnet_node_t n = GASNETE_COLL_REL2ACT(team, i);
+        if (gasneti_pshm_in_supernode(n)) {
+          if (n == gasneti_mynode) rank = size;
+          ++size;
+	  if (size == gasneti_nodemap_local_count) break;
+        }
+      }
+      gasneti_assert((size > 0) && (size <= gasneti_nodemap_local_count));
+      gasneti_assert(rank >= 0);
+    }
 
     pshm_bdata = gasneti_malloc(sizeof(gasnete_pshmbarrier_data_t));
     pshm_bdata->private.phase = 0;
-    pshm_bdata->private.rank = gasneti_nodemap_local_rank;
+    pshm_bdata->private.rank = rank;
 
     pshm_bdata->shared = shared_data;
 
@@ -259,7 +276,7 @@ gasnete_pshmbarrier_init_inner(gasnete_coll_team_t team) {
       gasneti_atomic_set(&shared_data->state, 0, 0);
 
       /* Counter used to detect that all nodes have reached the barrier */
-      shared_data->size = gasneti_nodemap_local_count;
+      shared_data->size = size;
       gasneti_atomic_set(&shared_data->counter, shared_data->size, 0);
     }
   }
