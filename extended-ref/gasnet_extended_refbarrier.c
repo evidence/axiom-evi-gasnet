@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2010/03/17 06:50:55 $
- * $Revision: 1.60 $
+ *     $Date: 2010/03/17 09:24:06 $
+ * $Revision: 1.61 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -237,7 +237,7 @@ gasnete_pshmbarrier_init_inner(gasnete_coll_team_t team) {
   if (team == GASNET_TEAM_ALL) {
     shared_data = gasneti_pshm_barrier;
   } else {
-    /* XXX: non-TEAM_ALL will need to allocate storage from shared space */
+    /* TODO: non-TEAM_ALL will need to allocate storage from shared space */
     return NULL;
   }
 
@@ -245,10 +245,13 @@ gasnete_pshmbarrier_init_inner(gasnete_coll_team_t team) {
     int size, rank;
 
     /* Find size/rank w/i my supernode, but limited to team members */
+#if !GASNET_DEBUG
     if (team == GASNET_TEAM_ALL) {
       size = gasneti_nodemap_local_count;
       rank = gasneti_nodemap_local_rank;
-    } else {
+    } else
+#endif
+    {
       int i;
 
       size = 0; rank = -1;
@@ -260,8 +263,8 @@ gasnete_pshmbarrier_init_inner(gasnete_coll_team_t team) {
 	  if (size == gasneti_nodemap_local_count) break;
         }
       }
-      gasneti_assert((size > 0) && (size <= gasneti_nodemap_local_count));
-      gasneti_assert(rank >= 0);
+      gasneti_assert((size >  0) && (size <= gasneti_nodemap_local_count));
+      gasneti_assert((rank >= 0) && (rank <  gasneti_nodemap_local_count));
     }
 
     pshm_bdata = gasneti_malloc(sizeof(gasnete_pshmbarrier_data_t));
@@ -284,21 +287,101 @@ gasnete_pshmbarrier_init_inner(gasnete_coll_team_t team) {
   return pshm_bdata;
 }
 
-#if GASNETI_PSHM_BARRIER_HIER /* Not yet used for SMP-conduit code */
+#if GASNETI_PSHM_BARRIER_HIER
+
+/* Not yet used for SMP-conduit code */
 static void gasnete_pshmbarrier_fini_inner(gasnete_pshmbarrier_data_t *pshm_bdata) {
   gasneti_assert(pshm_bdata);
   gasneti_assert(pshm_bdata->shared);
 
   if (pshm_bdata->shared == gasneti_pshm_barrier) {
     /* TEAM_ALL - shared allocation is "static" */
-    gasneti_assert(team == GASNET_TEAM_ALL);
   } else {
     /* TODO: once we to shared memory allocation in _init, can we also free it? */
   }
 
   gasneti_free(pshm_bdata);
 }
+
+static int gasnete_node_pair_sort_fn(const void *a_p, const void *b_p) {
+  const int a0 = ((const gasnet_node_t *)a_p)[0];
+  const int b0 = ((const gasnet_node_t *)b_p)[0];
+  const int d0 = (a0 - b0); /* sort first by supernode */
+  if (d0) return d0;
+  else {
+    const int a1 = ((const gasnet_node_t *)a_p)[1];
+    const int b1 = ((const gasnet_node_t *)b_p)[1];
+    /* break ties by node - must be increasing order because
+     * we use local rank to determine the active node
+     */
+    return (a1 - b1);
+  }
+}
+
+static gasnete_pshmbarrier_data_t *
+gasnete_pshmbarrier_init_hier(gasnete_coll_team_t team, int *size_p, int *rank_p, gasnet_node_t **reps_p) {
+  gasnete_pshmbarrier_data_t * const pshm_bdata = gasnete_pshmbarrier_init_inner(team);
+
+  if (pshm_bdata) {
+    const int total_ranks = team->total_ranks;
+    int size, rank;
+    gasnet_node_t *reps;
+
+#if !GASNET_DEBUG
+    if (team == GASNET_TEAM_ALL) {
+      size = gasneti_nodemap_global_count;
+      rank = gasneti_nodemap_global_rank;
+      reps = NULL;
+    } else
 #endif
+    {
+      gasnet_node_t *node_vector = gasneti_malloc(2 * total_ranks * sizeof(gasnet_node_t));
+      int i;
+
+      /* Created a sorted vector of (supernode,node) for members of this team */
+      for (i = 0; i < total_ranks; ++i) {
+        gasnet_node_t n = GASNETE_COLL_REL2ACT(team, i);
+        node_vector[2*i+0] = gasneti_pshm_node2supernode(n);
+        node_vector[2*i+1] = n;
+      }
+      qsort(node_vector, total_ranks, 2*sizeof(gasnet_node_t), &gasnete_node_pair_sort_fn);
+
+      /* Count unique entries and find my supernode's rank */
+      size = 1; rank = 0;
+      for (i = 1; i < total_ranks; ++i) {
+        if (node_vector[2*i] != node_vector[2*(i-1)]) {
+          if (node_vector[2*i] == gasneti_pshm_mysupernode) rank = size;
+          ++size;
+          /* dirty (clever?) hack warning:
+           * To avoid a second pass after counting, we overwrite node_vector
+           * with the node numbers of representatives.  Note that initially
+           * node_vector[1] already contains the first representative.
+           */
+          gasneti_assert(size <= 2*i);
+          node_vector[size] = node_vector[2*i+1];
+        }
+      }
+      gasneti_assert((size >  0) && (size <= gasneti_nodemap_global_count));
+      gasneti_assert((rank >= 0) && (rank <  gasneti_nodemap_global_count));
+
+      /* Extract from node_vector a representative for each supernode */
+      {
+        size_t alloc_size = size * sizeof(gasnet_node_t); 
+        reps = gasneti_malloc(alloc_size);
+        memcpy(reps, node_vector+1, alloc_size);
+      }
+
+      gasneti_free(node_vector);
+    }
+
+    *size_p = size;
+    *rank_p = rank;
+    *reps_p = reps;
+  }
+
+  return pshm_bdata;
+}
+#endif /* GASNETI_PSHM_BARRIER_HIER */
 
 #if !GASNETI_PSHM_BARRIER_HIER
 /* Entry points for SMP-conduit */
@@ -692,15 +775,10 @@ static void gasnete_amdbarrier_init(gasnete_coll_team_t team) {
   int64_t j;
 
 #if GASNETI_PSHM_BARRIER_HIER
-  PSHM_BDATA_DECL(pshm_bdata, gasnete_pshmbarrier_init_inner(team));
+  gasnet_node_t *supernode_reps;
+  PSHM_BDATA_DECL(pshm_bdata, gasnete_pshmbarrier_init_hier(team, &total_ranks, &myrank, &supernode_reps));
+
   if (pshm_bdata) {
-    gasneti_assert(team == GASNET_TEAM_ALL);
-    /* TODO: team-relative replacements for gasneti_nodemap_*:
-     *     gasneti_nodemap_global_count = count of supernodes w/i the team
-     *     gasneti_nodemap_global_rank = unique numbering of the supernodes
-     */
-    myrank = gasneti_nodemap_global_rank;
-    total_ranks = gasneti_nodemap_global_count;
     barrier_data->amdbarrier_passive = (pshm_bdata->private.rank != 0);
     barrier_data->amdbarrier_pshm = pshm_bdata;
   }
@@ -717,6 +795,9 @@ static void gasnete_amdbarrier_init(gasnete_coll_team_t team) {
   gasneti_assert(barrier_data->amdbarrier_size <= GASNETE_AMDBARRIER_MAXSTEP);
 
   if (steps) {
+#if GASNETI_PSHM_BARRIER_HIER
+    gasnet_node_t *nodes = supernode_reps ? supernode_reps : gasneti_pshm_firsts;
+#endif
     int step;
 
     barrier_data->amdbarrier_peers = gasneti_calloc(steps, sizeof(gasnet_node_t));
@@ -746,11 +827,7 @@ static void gasnete_amdbarrier_init(gasnete_coll_team_t team) {
 
 #if GASNETI_PSHM_BARRIER_HIER
       if (pshm_bdata) {
-        gasneti_assert(team == GASNET_TEAM_ALL);
-        /* TODO: team-relative replacements for gasneti_pshm_firsts[]:
-	 *     one node from each supernode in the team, ordered by global_rank
-	 */
-        barrier_data->amdbarrier_peers[step] = gasneti_pshm_firsts[peer];
+        barrier_data->amdbarrier_peers[step] = nodes[peer];
       } else
 #endif
       barrier_data->amdbarrier_peers[step] = GASNETE_COLL_REL2ACT(team, peer);
@@ -758,6 +835,8 @@ static void gasnete_amdbarrier_init(gasnete_coll_team_t team) {
   }
 
 #if GASNETI_PSHM_BARRIER_HIER
+  gasneti_free(supernode_reps);
+
   if (pshm_bdata && (pshm_bdata->shared->size == 1)) {
     /* With singlton proc on local supernode we can short-cut the PHSM code.
      * This does not require alteration of the amdbarrier_peers[] contructed above
