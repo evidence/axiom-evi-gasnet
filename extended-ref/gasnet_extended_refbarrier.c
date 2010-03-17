@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2010/03/17 01:07:24 $
- * $Revision: 1.55 $
+ *     $Date: 2010/03/17 03:07:56 $
+ * $Revision: 1.56 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -347,6 +347,10 @@ static void gasnete_pshmbarrier_init(gasnete_coll_team_t team) {
 typedef struct {
   gasnet_hsl_t amdbarrier_lock;
   gasnet_node_t *amdbarrier_peers; /* precomputed list of peers to communicate with */
+#if GASNETI_PSHM_BARRIER_HIER
+  int amdbarrier_is_hier;          /* non-zero if this team is using hierarchical path */
+  int amdbarrier_passive;          /* non-zero if some other node makes progress for me */
+#endif
   int volatile amdbarrier_value;   /* (supernode-)local ambarrier value */
   int volatile amdbarrier_flags;   /* (supernode-)local ambarrier flags */
   int volatile amdbarrier_step;  /*  local ambarrier step */
@@ -422,8 +426,8 @@ void gasnete_amdbarrier_kick(gasnete_coll_team_t team) {
     }
 
 #if GASNETI_PSHM_BARRIER_HIER
-    if (team == GASNET_TEAM_ALL) {
-      gasneti_assert (!gasneti_nodemap_local_rank);
+    gasneti_assert (!barrier_data->amdbarrier_passive);
+    if (barrier_data->amdbarrier_is_hier) {
       if (!step) {
         /* Must use supernode's consensus for value and flags */
         if (gasnete_pshmbarrier_try_inner(team)) {
@@ -499,7 +503,7 @@ static void gasnete_amdbarrier_notify(gasnete_coll_team_t team, int id, int flag
     gasneti_fatalerror("gasnet_barrier_notify() called twice in a row");
 
 #if GASNETI_PSHM_BARRIER_HIER
-  if (team == GASNET_TEAM_ALL) {
+  if (barrier_data->amdbarrier_is_hier) {
     if (gasnete_pshmbarrier_notify_inner(team, id, flags)) {
       /* last arrival - send AM w/ supernode consensus value/flags */
       PSHM_BDATA_DECL(team);
@@ -533,7 +537,9 @@ static void gasnete_amdbarrier_notify(gasnete_coll_team_t team, int id, int flag
       gasnet_AMRequestShort5(barrier_data->amdbarrier_peers[0],
                              gasneti_handleridx(gasnete_amdbarrier_notify_reqh), 
                              team->team_id, phase, 0, id, flags));
-    if (!GASNETI_PSHM_BARRIER_HIER || !gasneti_nodemap_local_rank)
+#if GASNETI_PSHM_BARRIER_HIER
+    if (!barrier_data->amdbarrier_passive)
+#endif
       gasnete_barrier_pf_enable(team);
   } else {
     barrier_data->amdbarrier_recv_value[phase] = id;	/* to simplify checking in _wait */
@@ -557,10 +563,10 @@ static int gasnete_amdbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
     gasneti_fatalerror("gasnet_barrier_wait() called without a matching notify");
 
 #if GASNETI_PSHM_BARRIER_HIER
-  if (team == GASNET_TEAM_ALL) {
+  if (barrier_data->amdbarrier_is_hier) {
     retval = gasnete_pshmbarrier_wait_inner(team, id, flags);
-    if (gasneti_nodemap_local_rank) {
-      /* Once local_rank==0 signals done, we can return */
+    if (barrier_data->amdbarrier_passive) {
+      /* Once the active peer signals done, we can return */
       team->barrier_splitstate = OUTSIDE_BARRIER;
       gasneti_sync_writes(); /* ensure all state changes committed before return */
       return retval;
@@ -580,7 +586,7 @@ static int gasnete_amdbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
     retval = GASNET_ERR_BARRIER_MISMATCH;
   } else
 #if GASNETI_PSHM_BARRIER_HIER
-  if (team == GASNET_TEAM_ALL) {
+  if (barrier_data->amdbarrier_is_hier) {
     /* amdbarrier_{value,flags} may not contain this node's values
      * finish_pshm_barrier() checks local notify-vs-wait mismatch instead.
      */
@@ -599,10 +605,11 @@ static int gasnete_amdbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
   }
   barrier_data->amdbarrier_recv_value_present[phase] = 0;
 #if GASNETI_PSHM_BARRIER_HIER
-  if ((team == GASNET_TEAM_ALL) && !gasneti_nodemap_local_rank) {
-    /* Signal any supernode peers w/ the final result */
+  if (barrier_data->amdbarrier_is_hier) {
+    /* Signal any passive peers w/ the final result */
     PSHM_BDATA_DECL(team);
     PSHM_BSTATE_SIGNAL(retval, PSHM_BDATA_PHASE+2); /* includes a WMB */
+    gasneti_assert(!barrier_data->amdbarrier_passive);
   } else
 #endif
   gasneti_sync_writes(); /* ensure all state changes committed before return */
@@ -621,10 +628,10 @@ static int gasnete_amdbarrier_try(gasnete_coll_team_t team, int id, int flags) {
   gasnete_amdbarrier_kick(team);
 
 #if GASNETI_PSHM_BARRIER_HIER
-  if (team == GASNET_TEAM_ALL) {
+  if (barrier_data->amdbarrier_is_hier) {
     if (!gasnete_pshmbarrier_try_inner(team))
       return GASNET_ERR_NOT_READY;
-    if (gasneti_nodemap_local_rank)
+    if (barrier_data->amdbarrier_passive)
       return gasnete_amdbarrier_wait(team, id, flags);
   }
 #endif
@@ -649,6 +656,8 @@ static void gasnete_amdbarrier_init(gasnete_coll_team_t team) {
     gasnete_pshmbarrier_init_inner(team);
     myrank = gasneti_nodemap_global_rank;
     total_ranks = gasneti_nodemap_global_count;
+    barrier_data->amdbarrier_is_hier = 1;
+    barrier_data->amdbarrier_passive = (gasneti_nodemap_local_rank != 0);
   }
 #endif
 
