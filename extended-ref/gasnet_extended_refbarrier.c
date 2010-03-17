@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2010/03/17 03:35:35 $
- * $Revision: 1.57 $
+ *     $Date: 2010/03/17 03:48:14 $
+ * $Revision: 1.58 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -244,19 +244,28 @@ gasneti_atomic_sval_t gasnete_pshmbarrier_try_inner(gasnete_coll_team_t team) {
 #endif
 }
 
-static void gasnete_pshmbarrier_init_inner(gasnete_coll_team_t team) {
-  PSHM_BDATA_DECL(team);
+/* Returns non-zero on success
+ * Zero return on failure might eventually come from a failed shared memory allocation.
+ */
+static int gasnete_pshmbarrier_init_inner(gasnete_coll_team_t team) {
+  if (team == GASNET_TEAM_ALL) {
+    PSHM_BDATA_DECL(team);
 
-  /* XXX: non-TEAM_ALL will need to allocate the 2nd arg from shared space */
-  PSHM_BDATA_INIT(GASNET_TEAM_ALL, gasneti_pshm_barrier);
+    /* XXX: non-TEAM_ALL will need to allocate the 2nd arg from shared space */
+    PSHM_BDATA_INIT(GASNET_TEAM_ALL, gasneti_pshm_barrier);
 
-  PSHM_BDATA_PHASE = 0;
+    PSHM_BDATA_PHASE = 0;
 
-  /* Flags word to poll or spin on until barrier is done */
-  gasneti_atomic_set(&PSHM_BDATA->state, 0, 0);
+    /* Flags word to poll or spin on until barrier is done */
+    gasneti_atomic_set(&PSHM_BDATA->state, 0, 0);
 
-  /* Counter used to detect that all nodes have reached the barrier */
-  gasneti_atomic_set(&PSHM_BDATA->counter, gasneti_nodemap_local_count, 0);
+    /* Counter used to detect that all nodes have reached the barrier */
+    gasneti_atomic_set(&PSHM_BDATA->counter, gasneti_nodemap_local_count, 0);
+    
+    return 1;
+  } else {
+    return 0;
+  }
 }
 
 #if !GASNETI_PSHM_BARRIER_HIER
@@ -313,7 +322,8 @@ static int gasnete_pshmbarrier_try(gasnete_coll_team_t team, int id, int flags) 
 }
 
 static void gasnete_pshmbarrier_init(gasnete_coll_team_t team) {
-  gasnete_pshmbarrier_init_inner(team);
+  gasneti_assert_nzeroret(
+      gasnete_pshmbarrier_init_inner(team));
 
   team->barrier_splitstate = OUTSIDE_BARRIER;
 
@@ -652,8 +662,9 @@ static void gasnete_amdbarrier_init(gasnete_coll_team_t team) {
   int64_t j;
 
 #if GASNETI_PSHM_BARRIER_HIER
-  if (team == GASNET_TEAM_ALL) {
-    gasnete_pshmbarrier_init_inner(team);
+  if (gasnete_pshmbarrier_init_inner(team)) {
+    gasneti_assert(team == GASNET_TEAM_ALL);
+    /* TODO: team-relative replacements for gasneti_nodemap_* */
     myrank = gasneti_nodemap_global_rank;
     total_ranks = gasneti_nodemap_global_count;
     barrier_data->amdbarrier_is_hier = 1;
@@ -700,7 +711,9 @@ static void gasnete_amdbarrier_init(gasnete_coll_team_t team) {
       gasneti_assert(peer < total_ranks);
 
 #if GASNETI_PSHM_BARRIER_HIER
-      if (team == GASNET_TEAM_ALL) {
+      if (barrier_data->amdbarrier_is_hier) {
+        gasneti_assert(team == GASNET_TEAM_ALL);
+        /* TODO: team-relative replacements for gasneti_pshm_firsts[] */
         barrier_data->amdbarrier_peers[step] = gasneti_pshm_firsts[peer];
       } else
 #endif
