@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2010/03/17 09:24:06 $
- * $Revision: 1.61 $
+ *     $Date: 2010/03/17 21:13:16 $
+ * $Revision: 1.62 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -131,6 +131,7 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
   shared_data->node[pshm_bdata->private.rank].flags = flags;
   shared_data->node[pshm_bdata->private.rank].value = id;
   
+  /* Signal my arrival - includes WMB to commit the value/flags writes */
   last = gasneti_atomic_decrement_and_test(&shared_data->counter, GASNETI_ATOMIC_REL);
   if (last) {
     /* I am last arrival */
@@ -141,8 +142,8 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
     int value = -1;
     int i;
   
-    /* Reset counter */
-    gasneti_atomic_set(&shared_data->counter, size, 0);
+    /* Reset counter - includes the RMB needed to ensure up-to-date reads of value/flags */
+    gasneti_atomic_set(&shared_data->counter, size, GASNETI_ATOMIC_ACQ);
 
     /* Determine and "publish" the result */
     for (i = 0; i < size; ++i, ++node) {
