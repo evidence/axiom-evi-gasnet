@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2010/03/17 03:07:56 $
- * $Revision: 1.56 $
+ *     $Date: 2010/03/17 03:35:35 $
+ * $Revision: 1.57 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -707,6 +707,15 @@ static void gasnete_amdbarrier_init(gasnete_coll_team_t team) {
       barrier_data->amdbarrier_peers[step] = GASNETE_COLL_REL2ACT(team, peer);
     }
   }
+
+#if GASNETI_PSHM_BARRIER_HIER
+  if (barrier_data->amdbarrier_is_hier && (gasneti_nodemap_local_count == 1)) {
+    /* With singlton proc on local supernode we can short-cut the PHSM code.
+     * This does not require alteration of the amdbarrier_peers[] contructed above
+     */
+    barrier_data->amdbarrier_is_hier = 0;
+  }
+#endif
 
   team->barrier_notify = &gasnete_amdbarrier_notify;
   team->barrier_wait =   &gasnete_amdbarrier_wait;
