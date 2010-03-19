@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2010/03/17 21:13:16 $
- * $Revision: 1.62 $
+ *     $Date: 2010/03/19 14:26:47 $
+ * $Revision: 1.63 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -776,7 +776,7 @@ static void gasnete_amdbarrier_init(gasnete_coll_team_t team) {
   int64_t j;
 
 #if GASNETI_PSHM_BARRIER_HIER
-  gasnet_node_t *supernode_reps;
+  gasnet_node_t *supernode_reps = NULL;
   PSHM_BDATA_DECL(pshm_bdata, gasnete_pshmbarrier_init_hier(team, &total_ranks, &myrank, &supernode_reps));
 
   if (pshm_bdata) {
