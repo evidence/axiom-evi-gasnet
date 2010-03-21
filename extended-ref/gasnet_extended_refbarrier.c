@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2010/03/21 05:48:53 $
- * $Revision: 1.64 $
+ *     $Date: 2010/03/21 08:23:19 $
+ * $Revision: 1.65 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -140,14 +140,13 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
     const struct gasneti_pshm_barrier_node *node = shared_data->node;
     const int size = shared_data->size;
     int result = GASNET_OK; /* assume success */
-    int have_value = 0;
-    int value = -1;
     int i;
   
     /* Reset counter - includes the RMB needed to ensure up-to-date reads of value/flags */
     gasneti_atomic_set(&shared_data->counter, size, GASNETI_ATOMIC_ACQ);
 
     /* Determine and "publish" the result */
+    flags = GASNET_BARRIERFLAG_ANONYMOUS;
     for (i = 0; i < size; ++i, ++node) {
       const int flag = node->flags;
       if_pt (flag & GASNET_BARRIERFLAG_ANONYMOUS) {
@@ -158,11 +157,11 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
         break;
       } else {
         const int val = node->value;
-        if (!have_value) {
-          have_value = 1;
-          value = val;
+        if (flags) {
+          gasneti_assert(flags == GASNET_BARRIERFLAG_ANONYMOUS);
+          id = val;
           flags = 0;
-        } else if (val != value) {
+        } else if (val != id) {
           result = GASNET_ERR_BARRIER_MISMATCH; 
           flags = GASNET_BARRIERFLAG_MISMATCH;
           break;
@@ -172,7 +171,7 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
 
 #if GASNETI_PSHM_BARRIER_HIER
     /* Publish the results for use in hierarhical barrier */
-    pshm_bdata->shared->value = value;
+    pshm_bdata->shared->value = id;
     pshm_bdata->shared->flags = flags;
 #endif
 
