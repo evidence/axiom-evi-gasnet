@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testteam.c,v $
- * $Date: 2010/03/16 23:23:58 $
- * $Revision: 1.4 $
+ * $Date: 2010/03/27 19:35:37 $
+ * $Revision: 1.5 $
  * LBNL 2009
  */
 
@@ -34,13 +34,14 @@ int main(int argc, char **argv)
   gasnet_seginfo_t teamB_scratch;
   gasnet_seginfo_t const * test_segs;
   GASNET_Safe(gasnet_init(&argc, &argv));
+
+  GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
+  
 #if !GASNET_SEQ
   MSG0("WARNING: This test does not work for NON-SEQ builds yet.. skipping test\n");
   gasnet_exit(0);
 #endif
 
-  GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
-  
   A = TEST_MYSEG();
   
   gasnet_coll_init(NULL, 0, NULL, 0, 0);
