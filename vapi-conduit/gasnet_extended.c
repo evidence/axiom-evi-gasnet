@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2010/04/05 07:36:48 $
- * $Revision: 1.50 $
+ *     $Date: 2010/04/05 07:56:06 $
+ * $Revision: 1.51 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -233,16 +233,16 @@ int gasnete_op_try_free_clear(gasnet_handle_t *handle_p) {
 }
 
 /* Reply handler to complete an op - might be replaced w/ IB atomics one day */
-GASNETI_INLINE(gasnete_done_reph_inner)
-void gasnete_done_reph_inner(gasnet_token_t token, void *counter) {
+GASNETI_INLINE(gasnete_markdone_reph_inner)
+void gasnete_markdone_reph_inner(gasnet_token_t token, void *counter) {
   gasnetc_counter_dec((gasnetc_counter_t *)counter);
 }
-SHORT_HANDLER(gasnete_done_reph,1,2,
+SHORT_HANDLER(gasnete_markdone_reph,1,2,
               (token, UNPACK(a0)    ),
               (token, UNPACK2(a0, a1)));
 #define GASNETE_DONE(token, counter)                                               \
   GASNETI_SAFE(                                                                    \
-    SHORT_REP(1,2,((token), gasneti_handleridx(gasnete_done_reph), PACK(counter))) \
+    SHORT_REP(1,2,((token), gasneti_handleridx(gasnete_markdone_reph), PACK(counter))) \
   )
 
 /* ------------------------------------------------------------------------------------ */
@@ -715,7 +715,7 @@ static gasnet_handlerentry_t const gasnete_handlers[] = {
   /* ptr-width independent handlers */
 
   /* ptr-width dependent handlers */
-  gasneti_handler_tableentry_with_bits(gasnete_done_reph),
+  gasneti_handler_tableentry_with_bits(gasnete_markdone_reph),
   gasneti_handler_tableentry_with_bits(gasnete_memset_reqh),
 
   { 0, NULL }
