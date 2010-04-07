@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2010/03/21 20:47:36 $
- * $Revision: 1.110 $
+ *     $Date: 2010/04/07 03:14:06 $
+ * $Revision: 1.111 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -103,7 +103,7 @@
      GASNETT_USE_RESTRICT_ON_TYPEDEFS boolean
 */
 #ifdef GASNETT_USE_RESTRICT
-  #define GASNETI_RESTRICT
+  #define GASNETI_RESTRICT GASNETT_USE_RESTRICT
   #if GASNETT_USE_RESTRICT_ON_TYPEDEFS
     #define GASNETI_RESTRICT_MAY_QUALIFY_TYPEDEFS 1
   #else
