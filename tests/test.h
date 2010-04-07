@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2010/04/07 02:02:21 $
- * $Revision: 1.137 $
+ *     $Date: 2010/04/07 23:10:32 $
+ * $Revision: 1.138 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -417,6 +417,16 @@ GASNETT_IDENT(GASNetT_TiCompiler_IdentString,
   #else
     #define TEST_USE_PRIMORDIAL_THREAD 0
   #endif
+#endif
+#ifndef TEST_MAXTHREADS
+  #if defined(GASNETI_MAX_THREADS_CONFIGURE)
+    #define TEST_MAXTHREADS_SYSTEM GASNETI_MAX_THREADS_CONFIGURE
+  #elif defined(GASNETT_MAX_THREADS)
+    #define TEST_MAXTHREADS_SYSTEM GASNETT_MAX_THREADS
+  #else
+    #define TEST_MAXTHREADS_SYSTEM 256
+  #endif
+  #define TEST_MAXTHREADS (TEST_MAXTHREADS_SYSTEM + TEST_USE_PRIMORDIAL_THREAD - 1)
 #endif
 static void test_createandjoin_pthreads(int numthreads, void *(*start_routine)(void *), 
                                       void *threadarg_arr, size_t threadarg_elemsz) {
