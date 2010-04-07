@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcore4.c,v $
- *     $Date: 2010/04/07 05:01:56 $
- * $Revision: 1.5 $
+ *     $Date: 2010/04/07 18:14:03 $
+ * $Revision: 1.6 $
  * Description: GASNet Active Messages conformance/correctness test
  * Copyright (c) 2010, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -10,7 +10,7 @@
 
 uintptr_t maxsz = 0;
 #ifndef TEST_SEGSZ
-  #define TEST_SEGSZ_EXPR ((uintptr_t)maxsz)
+  #define TEST_SEGSZ_EXPR (2*(uintptr_t)maxsz)
 #endif
 #include <test.h>
 
@@ -29,8 +29,8 @@ int iters = 10;
 
 gasnet_node_t mynode = 0;
 gasnet_node_t peer = 0;
-void *myseg = NULL;
-void *peerseg = NULL;
+uint8_t *myseg = NULL;
+uint8_t *peerseg = NULL;
 
 #define hidx_mybase 200
 
@@ -87,7 +87,8 @@ void *peerseg = NULL;
 
 #define SARGS(dest,args) (dest, hidx_Shandler(args), HARGS(args))
 #define MARGS(dest,args) (dest, hidx_Mhandler(args), rand_payload, medsz, HARGS(args))
-#define LARGS(dest,args) (dest, hidx_Lhandler(args), rand_payload, longsz, peerseg, HARGS(args))
+#define LARGS(dest,args,isRep) (dest, hidx_Lhandler(args), rand_payload, \
+                                longsz, peerseg + isRep*longsz, HARGS(args))
 
 enum {
     op_done,
@@ -115,7 +116,7 @@ enum {
         GASNET_Safe(gasnet_AMReplyMedium##args MARGS(token,args)); \
         break;                                                     \
       case op_lrep:                                                \
-        GASNET_Safe(gasnet_AMReplyLong##args   LARGS(token,args)); \
+        GASNET_Safe(gasnet_AMReplyLong##args LARGS(token,args,1)); \
         break;                                                     \
       default:                                                     \
         FATALERR("Invalid operation = %d", operation);             \
@@ -127,7 +128,7 @@ enum {
     void Mhandler##args(gasnet_token_t token, void *buf, size_t nbytes, HARGPROTO(args))\
         { MSGCHECK(medsz); HBODY(args); } \
     void Lhandler##args(gasnet_token_t token, void *buf, size_t nbytes, HARGPROTO(args))\
-        { MSGCHECK(longsz); memset(myseg, 0xa5, longsz); HBODY(args); }
+        { MSGCHECK(longsz); memset(buf, 0xa5, nbytes); HBODY(args); }
 
 #define HTABLE(args)                          \
   { hidx_Shandler(args), Shandler##args },    \
@@ -147,9 +148,9 @@ enum {
       GASNET_Safe(gasnet_AMRequestMedium##args MARGS(peer,args));    \
       GASNET_BLOCKUNTIL(flag == goal); ++goal;                       \
     arg1 = op_lrep;                                                  \
-      GASNET_Safe(gasnet_AMRequestLong##args LARGS(peer,args));      \
+      GASNET_Safe(gasnet_AMRequestLong##args LARGS(peer,args,0));    \
       GASNET_BLOCKUNTIL(flag == goal); ++goal;                       \
-      GASNET_Safe(gasnet_AMRequestLongAsync##args LARGS(peer,args)); \
+      GASNET_Safe(gasnet_AMRequestLongAsync##args LARGS(peer,args,0)); \
       GASNET_BLOCKUNTIL(flag == goal); ++goal;                       \
   }
 
