@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2009/04/06 02:58:54 $
- * $Revision: 1.95 $
+ *     $Date: 2010/04/07 23:11:19 $
+ * $Revision: 1.96 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -16,20 +16,17 @@
 #endif
 
 #ifdef HAVE_PTHREAD_H
-  #ifndef MAX_NUM_THREADS
-    #define MAX_NUM_THREADS 255
-  #endif
   int NUM_THREADS = 0;
-  gasnett_atomic_t thread_flag[MAX_NUM_THREADS];
-  int valX[MAX_NUM_THREADS];
-  int valY[MAX_NUM_THREADS];
-  gasnett_atomic_t atomicX[MAX_NUM_THREADS];
-  int32_t valX32[MAX_NUM_THREADS];
-  int32_t valY32[MAX_NUM_THREADS];
-  gasnett_atomic32_t atomicX32[MAX_NUM_THREADS];
-  int64_t valX64[MAX_NUM_THREADS];
-  int64_t valY64[MAX_NUM_THREADS];
-  gasnett_atomic64_t atomicX64[MAX_NUM_THREADS];
+  gasnett_atomic_t thread_flag[TEST_MAXTHREADS];
+  int valX[TEST_MAXTHREADS];
+  int valY[TEST_MAXTHREADS];
+  gasnett_atomic_t atomicX[TEST_MAXTHREADS];
+  int32_t valX32[TEST_MAXTHREADS];
+  int32_t valY32[TEST_MAXTHREADS];
+  gasnett_atomic32_t atomicX32[TEST_MAXTHREADS];
+  int64_t valX64[TEST_MAXTHREADS];
+  int64_t valY64[TEST_MAXTHREADS];
+  gasnett_atomic64_t atomicX64[TEST_MAXTHREADS];
 #endif
 
 #define DEFAULT_THREADS 10
@@ -106,7 +103,7 @@ int main(int argc, char **argv) {
   #ifdef HAVE_PTHREAD_H
     if (argc > 2) NUM_THREADS = atoi(argv[2]);
     if (NUM_THREADS < 1) NUM_THREADS = DEFAULT_THREADS;
-    if (NUM_THREADS > MAX_NUM_THREADS) NUM_THREADS = MAX_NUM_THREADS;
+    if (NUM_THREADS > TEST_MAXTHREADS) NUM_THREADS = TEST_MAXTHREADS;
   #else
     if (argc > 2 && atoi(argv[2]) != 1) { ERR("no pthreads - only one thread available."); test_usage(); }
   #endif
