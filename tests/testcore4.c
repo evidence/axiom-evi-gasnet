@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcore4.c,v $
- *     $Date: 2010/04/07 04:58:17 $
- * $Revision: 1.4 $
+ *     $Date: 2010/04/07 05:01:56 $
+ * $Revision: 1.5 $
  * Description: GASNet Active Messages conformance/correctness test
  * Copyright (c) 2010, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -127,7 +127,7 @@ enum {
     void Mhandler##args(gasnet_token_t token, void *buf, size_t nbytes, HARGPROTO(args))\
         { MSGCHECK(medsz); HBODY(args); } \
     void Lhandler##args(gasnet_token_t token, void *buf, size_t nbytes, HARGPROTO(args))\
-        { MSGCHECK(longsz); HBODY(args); }
+        { MSGCHECK(longsz); memset(myseg, 0xa5, longsz); HBODY(args); }
 
 #define HTABLE(args)                          \
   { hidx_Shandler(args), Shandler##args },    \
