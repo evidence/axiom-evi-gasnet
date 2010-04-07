@@ -1,7 +1,7 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcore4.c,v $
- *     $Date: 2010/04/07 01:44:12 $
- * $Revision: 1.2 $
- * Description: GASNet Active Messages conformance test
+ *     $Date: 2010/04/07 02:46:14 $
+ * $Revision: 1.3 $
+ * Description: GASNet Active Messages conformance/correctness test
  * Copyright (c) 2010, The Regents of the University of California
  * Terms of use are as specified in license.txt
  */
@@ -11,11 +11,20 @@
 #define TEST_SEGSZ (64ULL*1024)
 #include <test.h>
 
-#define XFER_SZ 8
+#if PLATFORM_ARCH_32
+  #define MAX_ARGS 8
+#else
+  #define MAX_ARGS  16
+#endif
+
+gasnet_handlerarg_t rand_args[MAX_ARGS];
+#define RAND_ARG(idx) (rand_args[(idx)-1])
+
+uint8_t *rand_payload;
+size_t msgsz = 8;
 
 gasnet_node_t mynode = 0;
 gasnet_node_t peer = 0;
-void *myseg = NULL;
 void *peerseg = NULL;
 
 #define hidx_mybase 200
@@ -51,8 +60,8 @@ void *peerseg = NULL;
 #define HITER15(base,macro)    HITER14(base,macro) macro(15)
 #define HITER16(base,macro)    HITER15(base,macro) macro(16)
 
-#define HARG_(val)  , val
-#define HARGS(args) HITER##args(arg1,HARG_)
+#define HARG_(val)  , RAND_ARG(val)
+#define HARGS(args) HITER##args(arg1+RAND_ARG(1),HARG_)
 
 #define HARGPROTO_(val) , gasnet_handlerarg_t arg##val
 #define HARGPROTO(args) HITER##args(gasnet_handlerarg_t arg1,HARGPROTO_)
@@ -71,45 +80,46 @@ void *peerseg = NULL;
 #endif
 
 #define SARGS(dest,args) (dest, hidx_Shandler(args), HARGS(args))
-#define MARGS(dest,args) (dest, hidx_MLhandler(args), myseg, XFER_SZ, HARGS(args))
-#define LARGS(dest,args) (dest, hidx_MLhandler(args), myseg, XFER_SZ, peerseg, HARGS(args))
+#define MARGS(dest,args) (dest, hidx_MLhandler(args), rand_payload, msgsz, HARGS(args))
+#define LARGS(dest,args) (dest, hidx_MLhandler(args), rand_payload, msgsz, peerseg, HARGS(args))
 
-/* non-zero to catch case of zero passed "accidentally" */
-#define DO_DONE 16
-#define DO_SREP 32
-#define DO_MREP 64
-#define DO_LREP 128
+enum {
+    op_done,
+    op_srep,
+    op_mrep,
+    op_lrep
+};
 
-#define HCHECK(val) ; assert_always(arg##val == val)
+#define HCHECK(val) ; assert_always(arg##val == RAND_ARG(val))
 #define HBODY(args) do {                                           \
-    gasnet_handlerarg_t orig_arg1 = arg1;                          \
+    gasnet_handlerarg_t operation = arg1 - RAND_ARG(1);            \
     gasnet_node_t srcid;                                           \
     gasnet_AMGetMsgSource(token, &srcid);                          \
     assert_always(srcid == peer);                                  \
     HITER##args((void)0,HCHECK);                                   \
-    arg1 = DO_DONE;                                                \
-    switch(orig_arg1) {                                            \
-      case DO_DONE:                                                \
+    arg1 = op_done;                                                \
+    switch(operation) {                                            \
+      case op_done:                                                \
         flag++;                                                    \
         break;                                                     \
-      case DO_SREP:                                                \
+      case op_srep:                                                \
         GASNET_Safe(gasnet_AMReplyShort##args  SARGS(token,args)); \
         break;                                                     \
-      case DO_MREP:                                                \
+      case op_mrep:                                                \
         GASNET_Safe(gasnet_AMReplyMedium##args MARGS(token,args)); \
         break;                                                     \
-      case DO_LREP:                                                \
+      case op_lrep:                                                \
         GASNET_Safe(gasnet_AMReplyLong##args   LARGS(token,args)); \
         break;                                                     \
       default:                                                     \
-        FATALERR("Invalid arg1 = %d", arg1);                       \
+        FATALERR("Invalid operation = %d", operation);             \
     }                                                              \
   } while(0);
 #define HDEFN(args) \
     void Shandler##args(gasnet_token_t token, HARGPROTO(args)) \
         { HBODY(args); } \
     void MLhandler##args(gasnet_token_t token, void *buf, size_t nbytes, HARGPROTO(args))\
-        { HBODY(args); }
+        { MSGCHECK(buf,nbytes); HBODY(args); }
 
 #define HTABLE(args)                          \
   { hidx_Shandler(args), Shandler##args },    \
@@ -119,20 +129,26 @@ void *peerseg = NULL;
     gasnet_handlerarg_t arg1;                                        \
     int goal = flag + 1;                                             \
     MSG0("testing %d-argument AM calls", args);                      \
-    arg1 = DO_SREP;                                                  \
+    randomize();                                                     \
+    arg1 = op_srep;                                                  \
       GASNET_Safe(gasnet_AMRequestShort##args SARGS(peer,args));     \
       GASNET_BLOCKUNTIL(flag == goal); ++goal;                       \
-    arg1 = DO_MREP;                                                  \
+    arg1 = op_mrep;                                                  \
       GASNET_Safe(gasnet_AMRequestMedium##args MARGS(peer,args));    \
       GASNET_BLOCKUNTIL(flag == goal); ++goal;                       \
-    arg1 = DO_LREP;                                                  \
+    arg1 = op_lrep;                                                  \
       GASNET_Safe(gasnet_AMRequestLong##args LARGS(peer,args));      \
       GASNET_BLOCKUNTIL(flag == goal); ++goal;                       \
       GASNET_Safe(gasnet_AMRequestLongAsync##args LARGS(peer,args)); \
       GASNET_BLOCKUNTIL(flag == goal); ++goal;                       \
-    BARRIER();                                                       \
   } while(0);
 
+#define MSGCHECK(buf, nbytes) do {                         \
+    assert_always(nbytes == msgsz);                        \
+    if (memcmp(buf, rand_payload, nbytes))                 \
+      FATALERR("Payload verification failed in %s",        \
+               GASNETT_CURRENT_FUNCTION);                  \
+  } while(0)
 
 /* Define all the handlers */
 volatile int flag = 0;
@@ -144,20 +160,36 @@ void pong_shorthandler(gasnet_token_t token) {
 	  flag++;
 }
 void ping_medhandler(gasnet_token_t token, void *buf, size_t nbytes) {
-    GASNET_Safe(gasnet_AMReplyMedium0(token, hidx_pong_medhandler, buf, nbytes));
+    MSGCHECK(buf,nbytes);
+    GASNET_Safe(gasnet_AMReplyMedium0(token, hidx_pong_medhandler, rand_payload, nbytes));
 }
 void pong_medhandler(gasnet_token_t token, void *buf, size_t nbytes) {
+    MSGCHECK(buf,nbytes);
     flag++;
 }
 void ping_longhandler(gasnet_token_t token, void *buf, size_t nbytes) {
-    GASNET_Safe(gasnet_AMReplyLong0(token, hidx_pong_longhandler, buf, nbytes, peerseg));
+    MSGCHECK(buf,nbytes);
+    GASNET_Safe(gasnet_AMReplyLong0(token, hidx_pong_longhandler, rand_payload, nbytes, peerseg));
 }
 void pong_longhandler(gasnet_token_t token, void *buf, size_t nbytes) {
+    MSGCHECK(buf,nbytes);
     flag++;
 }
 
+static void randomize(void) {
+  int i;
+  BARRIER();
+  for (i=0; i<MAX_ARGS; ++i) {
+     rand_args[i] = TEST_RAND(0,RAND_MAX-1);
+  }
+  for (i=0; i<msgsz; ++i) {
+     rand_payload[i] = TEST_RAND(0,255);
+  }
+  BARRIER();
+}
 
 int main(int argc, char **argv) {
+  unsigned int seed;
   gasnet_handlerentry_t htable[] = { 
     HFOREACH(HTABLE)
     { hidx_ping_shorthandler,  ping_shorthandler  },
@@ -172,8 +204,16 @@ int main(int argc, char **argv) {
   GASNET_Safe(gasnet_attach(htable, sizeof(htable)/sizeof(gasnet_handlerentry_t),
                             TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
 
-  test_init("testcore4", 0, "[no argument]");
-  if (argc > 1) test_usage();
+  test_init("testcore4", 0, "(msgsz) (seed)");
+  if (argc > 3) test_usage();
+
+  if (argc > 1) msgsz = atoi(argv[1]);
+  if (msgsz <= 0) msgsz = 8;
+
+  if (argc > 2) seed = atoi(argv[2]);
+  if (!seed) seed = (int)TIME();
+  TEST_BCAST(&seed, 0, &seed, sizeof(seed));
+  TEST_SRAND(seed);
 
   TEST_PRINT_CONDUITINFO();
 
@@ -184,29 +224,43 @@ int main(int argc, char **argv) {
     peer = mynode;
   }
 
-  myseg = TEST_MYSEG();
   peerseg = TEST_SEG(peer);
+  rand_payload = test_malloc(msgsz);
 
-  BARRIER();
-  
+  /* Might print more than one message, but we don't care */
+  if (msgsz > gasnet_AMMaxMedium()) {
+    msgsz = gasnet_AMMaxMedium();
+    MSG0("WARNING:  msgsz reduced to AMMaxMedium %ld", (long)msgsz);
+  }
+  if (msgsz > gasnet_AMMaxLongRequest()) {
+    msgsz = gasnet_AMMaxLongRequest();
+    MSG0("WARNING:  msgsz reduced to AMMaxLongRequest %ld", (long)msgsz);
+  }
+  if (msgsz > gasnet_AMMaxLongReply()) {
+    msgsz = gasnet_AMMaxLongReply();
+    MSG0("WARNING:  msgsz reduced to AMMaxLongReply %ld", (long)msgsz);
+  }
+
+  MSG0("Testing AM conformance with msgsz=%ld seed=%u", (long)msgsz, seed);
+
   MSG0("testing 0-argument AM calls");
+  randomize();
 
   GASNET_Safe(gasnet_AMRequestShort0(peer, hidx_ping_shorthandler));
   GASNET_BLOCKUNTIL(flag == 1);
 
-  GASNET_Safe(gasnet_AMRequestMedium0(peer, hidx_ping_medhandler, myseg, XFER_SZ));
+  GASNET_Safe(gasnet_AMRequestMedium0(peer, hidx_ping_medhandler, rand_payload, msgsz));
   GASNET_BLOCKUNTIL(flag == 2);
 
-  GASNET_Safe(gasnet_AMRequestLong0(peer, hidx_ping_longhandler, myseg, XFER_SZ, peerseg));
+  GASNET_Safe(gasnet_AMRequestLong0(peer, hidx_ping_longhandler, rand_payload, msgsz, peerseg));
   GASNET_BLOCKUNTIL(flag == 3);
  
-  GASNET_Safe(gasnet_AMRequestLongAsync0(peer, hidx_ping_longhandler, myseg, XFER_SZ, peerseg));
+  GASNET_Safe(gasnet_AMRequestLongAsync0(peer, hidx_ping_longhandler, rand_payload, msgsz, peerseg));
   GASNET_BLOCKUNTIL(flag == 4);
-
-  BARRIER();
 
   /* Now 1 ... 8 or 16 */
   HFOREACH(HTEST)
+  BARRIER();
 
   MSG("done.");
 
