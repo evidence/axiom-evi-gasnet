@@ -1,8 +1,8 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcore4.c,v $
- *     $Date: 2010/04/07 01:39:10 $
- * $Revision: 1.1 $
+ *     $Date: 2010/04/07 01:44:12 $
+ * $Revision: 1.2 $
  * Description: GASNet Active Messages conformance test
- * Copyright 2009, Lawrence Berkeley National Laboratory
+ * Copyright (c) 2010, The Regents of the University of California
  * Terms of use are as specified in license.txt
  */
 
