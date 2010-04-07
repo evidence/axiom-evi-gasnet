@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2010/03/16 23:42:58 $
- * $Revision: 1.136 $
+ *     $Date: 2010/04/07 02:02:21 $
+ * $Revision: 1.137 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -170,6 +170,7 @@ static void _test_makeErrMsg(const char *format, ...)) {
 static int _test_rand(int low, int high) {
   int result;
   assert(low <= high);
+  assert(low <= high+1); /* We will overflow otherwise */
   result = low+(int)(((double)(high-low+1))*rand()/(RAND_MAX+1.0));
   assert(result >= low && result <= high);
   return result;
