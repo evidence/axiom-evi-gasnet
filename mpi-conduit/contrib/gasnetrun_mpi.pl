@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2010/04/08 20:19:39 $
-# $Revision: 1.81 $
+#     $Date: 2010/04/08 22:08:57 $
+# $Revision: 1.82 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -249,6 +249,7 @@ sub gasnet_encode($) {
         }   
         $encode_env = 1; # botches spaces in environment values
         $encode_args = 1; # and in arguments
+        @verbose_opt = ("-verbose", "2");
     } elsif ($is_jacquard) {
 	$spawner_desc = "NERSC/Jacquard mpirun";
 	if (`hostname` =~ m/jaccn/) {
