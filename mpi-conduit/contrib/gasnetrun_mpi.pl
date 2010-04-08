@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2010/04/08 22:08:57 $
-# $Revision: 1.82 $
+#     $Date: 2010/04/08 23:02:44 $
+# $Revision: 1.83 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -714,6 +714,25 @@ if ($numproc && $is_bgp) {
     }
   }
   $dashN_ok = 1;
+}
+
+if ($is_bgp && $ENV{'COBALT_JOBID'}) {
+  # Possibly deal with redirection by appending to @numprocargs
+  @numprocargs = ($numproc) unless (@numprocargs); # default
+  my $cwd = `pwd`;
+  chomp $cwd;
+  if (my $file = $ENV{'GASNETRUN_STDIN'}) {
+    $file = "$cwd/$file" unless ($file =~ m,^/,);
+    push @numprocargs, ('--stdin', $file);
+  }
+  if (my $file = $ENV{'GASNETRUN_STDOUT'}) {
+    $file = "$cwd/$file" unless ($file =~ m,^/,);
+    push @numprocargs, ('--stdout', $file);
+  }
+  if (my $file = $ENV{'GASNETRUN_STDERR'}) {
+    $file = "$cwd/$file" unless ($file =~ m,^/,);
+    push @numprocargs, ('--stderr', $file);
+  }
 }
 
 if ($numnode && $is_infinipath) {
