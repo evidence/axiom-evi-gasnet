@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2009/10/12 08:42:32 $
-# $Revision: 1.80 $
+#     $Date: 2010/04/08 20:19:39 $
+# $Revision: 1.81 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -238,7 +238,7 @@ sub gasnet_encode($) {
         $spawner_desc = "IBM BG/P";
         if($ENV{'COBALT_JOBID'}) {
            %envfmt = ( 'pre' => '-env',
-                       'join' => ':',
+                       'inter' => '-env',
                        'val' => ''
                      );
         } else {
