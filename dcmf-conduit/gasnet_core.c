@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_core.c,v $
- *     $Date: 2010/03/24 21:33:20 $
- * $Revision: 1.13 $
+ *     $Date: 2010/04/09 23:38:08 $
+ * $Revision: 1.14 $
  * Description: GASNet dcmf conduit Implementation
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>, 
                    Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -216,6 +216,11 @@ static void gasnetc_dcmf_init(gasnet_node_t* mynode, gasnet_node_t *nodes) {
 #if GASNET_SEQ
   dcmf_config.thread_level = DCMF_THREAD_SINGLE;
 #else
+ #if PLATFORM_OS_BGP
+  if (gasnett_cpu_count() == 1) {
+    gasneti_fatalerror("A multi-threaded build of dcmf-conduit is not supported in VN mode");
+  }
+ #endif
   dcmf_config.thread_level = DCMF_THREAD_MULTIPLE;
 #endif
 
