@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2010/04/09 10:02:06 $
-# $Revision: 1.84 $
+#     $Date: 2010/04/09 23:47:15 $
+# $Revision: 1.85 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -447,7 +447,6 @@ sub expand {
     $ENV{"GASNET_VERBOSEENV"} = "1" if ($verbose);
     my @envvars = ((grep {+exists($ENV{$_})} split(',', $envlist)),
 		   (grep {+m/^GASNET_/} keys(%ENV)));
-    if ($is_bgp) { push @envvars, (grep {+m/^BG_/} keys(%ENV)); }
 
 # Build up the environment-passing arguments in several steps
     my @envargs = @envvars;
