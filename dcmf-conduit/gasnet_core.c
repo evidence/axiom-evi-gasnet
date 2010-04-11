@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_core.c,v $
- *     $Date: 2010/04/09 23:38:08 $
- * $Revision: 1.14 $
+ *     $Date: 2010/04/11 18:22:10 $
+ * $Revision: 1.15 $
  * Description: GASNet dcmf conduit Implementation
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>, 
                    Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -320,6 +320,11 @@ static void gasnetc_check_config(void) {
   
   /* (###) add code to do some sanity checks on the number of nodes, handlers
    * and/or segment sizes */ 
+#if GASNET_PSHM
+  gasneti_assert_always(GASNETC_AMSHORT == gasnetc_Short);
+  gasneti_assert_always(GASNETC_AMMED   == gasnetc_Medium);
+  gasneti_assert_always(GASNETC_AMLONG  == gasnetc_Long);
+#endif
 }
 
 static void gasnetc_bootstrapBarrier(void) {
@@ -362,6 +367,10 @@ static int gasnetc_init(int *argc, char ***argv) {
   /* non-null 1st arg causes use of platform-specific node IDs, which in
    * the case of BG/P won't actually use gasnetc_bootstrapExchange */
   gasneti_nodemapInit(gasnetc_bootstrapExchange, NULL, 0, 0);
+
+  #if GASNET_PSHM
+    gasneti_pshm_init(&gasnetc_bootstrapExchange, 0);
+  #endif
 
 #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
   { 
@@ -1266,6 +1275,9 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
   GASNETI_CHECK_ERRR((!token),BAD_ARG,"bad token");
   GASNETI_CHECK_ERRR((!srcindex),BAD_ARG,"bad src ptr");
     
+#if GASNET_PSHM
+  if (gasneti_AMPSHMGetMsgSource(token, &sourceid) != GASNET_OK)
+#endif
   sourceid = ((gasnetc_token_t*)token)->srcnode; 
     
   gasneti_assert(sourceid < gasneti_nodes);
@@ -1298,6 +1310,11 @@ extern int gasnetc_AMPoll(void) {
 
   
   GASNETI_CHECKATTACH();
+
+#if GASNET_PSHM 
+  /* If your conduit will support PSHM, let it make progress here. */
+  gasneti_AMPSHMPoll(0);
+#endif
 
   /*kick the entire system once*/
   
@@ -1756,6 +1773,15 @@ void gasnetc_send_am_req(gasnetc_dcmf_amcategory_t amcat, gasnet_node_t dest_nod
   unsigned replay_buffer = 0;
 #endif
   
+#if GASNET_PSHM
+  if_pt (gasneti_pshm_in_supernode(dest_node)) {
+    if(amcat == GASNETC_AMLONGASYNC) amcat = GASNETC_AMLONG;
+    (void) gasneti_AMPSHM_RequestGeneric(amcat, dest_node, handler_idx,
+                                         src_addr, nbytes, dst_addr,
+                                         numargs, argptr);
+    return;
+  }
+#endif
   
 #if GASNETC_FLOW_CONTROL_ENABLED
   /*try to clear the NACK list before we inject another AM to avoid starvation*/
@@ -1889,6 +1915,16 @@ void gasnetc_send_am_rep(gasnetc_dcmf_amcategory_t amcat,
   DCQuad quads[GASNETC_MAXQUADS_PER_AM];
   int wait_for_send=1;
   gasnetc_dcmf_req_t *dcmf_req;
+
+#if GASNET_PSHM
+  /* If your conduit will support PSHM, let it check the token first. */
+  if_pt (gasnetc_token_is_pshm(token)) {
+    (void) gasneti_AMPSHM_ReplyGeneric(amcat, token, handler_idx,
+                                       src_addr, nbytes, dst_addr,
+                                       numargs, argptr);
+    return;
+  }
+#endif
   
   dest_node = token->srcnode;
   GASNETC_DCMF_CHECK_PTR(quads);
