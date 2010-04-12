@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_core.c,v $
- *     $Date: 2010/04/12 00:07:39 $
- * $Revision: 1.16 $
+ *     $Date: 2010/04/12 00:15:43 $
+ * $Revision: 1.17 $
  * Description: GASNet dcmf conduit Implementation
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>, 
                    Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -2137,7 +2137,7 @@ extern int gasnetc_AMReplyLongM(
   (and this is one place you'll probably want to use it)
 */
 #if GASNETC_USE_INTERRUPTS
-//#error interrupts not implemented
+/*#error interrupts not implemented*/
 
 /*email communication from IBM DCMF Team (4/15/09)
   
@@ -2197,7 +2197,7 @@ extern void gasnetc_hsl_init   (gasnet_hsl_t *hsl) {
 
 #if GASNETC_USE_INTERRUPTS
   /* add code here to init conduit-specific HSL state */
-  //#error interrupts not implemented
+  /*#error interrupts not implemented*/
 #endif
 }
 
@@ -2207,7 +2207,7 @@ extern void gasnetc_hsl_destroy(gasnet_hsl_t *hsl) {
 
 #if GASNETC_USE_INTERRUPTS
   /* add code here to cleanup conduit-specific HSL state */
-  //#error interrupts not implemented
+  /*#error interrupts not implemented*/
 #endif
 }
 
@@ -2243,7 +2243,7 @@ extern void gasnetc_hsl_lock   (gasnet_hsl_t *hsl) {
      disable handler interrupts on _this_ thread, (if this is the outermost
      HSL lock acquire and we're not inside an enclosing no-interrupt section)
   */
-  //#error interrupts not implemented
+  /*#error interrupts not implemented*/
 #endif
 }
 
@@ -2255,7 +2255,7 @@ extern void gasnetc_hsl_unlock (gasnet_hsl_t *hsl) {
      re-enable handler interrupts on _this_ thread, (if this is the outermost
      HSL lock release and we're not inside an enclosing no-interrupt section)
   */
-  //#error interrupts not implemented
+  /*#error interrupts not implemented*/
 #endif
 
   GASNETI_TRACE_EVENT_TIME(L, HSL_UNLOCK, GASNETI_TICKS_NOW_IFENABLED(L)-hsl->acquiretime);
@@ -2279,7 +2279,7 @@ extern int  gasnetc_hsl_trylock(gasnet_hsl_t *hsl) {
    disable handler interrupts on _this_ thread, (if this is the outermost
    HSL lock acquire and we're not inside an enclosing no-interrupt section)
       */
-      //#error interrupts not implemented
+      /*#error interrupts not implemented*/
 #endif
     }
 
