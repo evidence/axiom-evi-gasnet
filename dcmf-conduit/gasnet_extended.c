@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_extended.c,v $
- *     $Date: 2010/04/12 00:15:43 $
- * $Revision: 1.11 $
+ *     $Date: 2010/04/12 01:00:29 $
+ * $Revision: 1.12 $
  * Description: GASNet Extended API Implementation for DCMF
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
  *                 Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -33,6 +33,13 @@ static void empty_cb(void *arg, DCMF_Error_t *e) {
   return;
 }
 
+/* No loopback check should be required for gasnete_{get,put,memset}*:
+ *  For the external Extended API the wrappers in gasnet_extended.h check for loopback
+ *  For uses in vis, collectives, etc. the burden lies with the caller to check.
+ */
+#ifndef GASNETE_CHECK_LOOPBACK
+#define GASNETE_CHECK_LOOPBACK 0
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -559,10 +566,12 @@ extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void
   gasnete_eop_t *op;
   DCMF_Callback_t done_cb;
 
+#if GASNETE_CHECK_LOOPBACK
   if(node == gasneti_mynode) {
     GASNETE_FAST_UNALIGNED_MEMCPY(dest, src, nbytes);
     return GASNET_INVALID_HANDLE;
   }
+#endif
   
   op = gasnete_eop_new(GASNETE_MYTHREAD);
   
@@ -591,11 +600,12 @@ gasnet_handle_t gasnete_put_nb_inner(gasnet_node_t node, void *dest, void *src, 
   volatile int local_put_done = 0; 
   DCMF_Callback_t local_done_cb, remote_done_cb;
   
-  
+#if GASNETE_CHECK_LOOPBACK
   if(node == gasneti_mynode) {
     GASNETE_FAST_UNALIGNED_MEMCPY(dest, src, nbytes);
     return GASNET_INVALID_HANDLE;
   }
+#endif
   
   op = gasnete_eop_new(GASNETE_MYTHREAD);
 
@@ -840,10 +850,12 @@ void gasnete_put_nbi_inner(gasnet_node_t node, void *dest, void *src, size_t nby
   DCMF_Callback_t local_done_cb, remote_done_cb;
   gasnete_iop_dcmf_req_t *req = NULL;
   
+#if GASNETE_CHECK_LOOPBACK
   if(node == gasneti_mynode) {
     GASNETE_FAST_UNALIGNED_MEMCPY(dest, src, nbytes);
     return;
   }
+#endif
   
   if(isbulk) {
     local_done_cb.function = empty_cb;
@@ -972,10 +984,12 @@ extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, siz
   DCMF_Callback_t done_cb;
   gasnete_iop_dcmf_req_t *req = NULL;
 
+#if GASNETE_CHECK_LOOPBACK
   if(node == gasneti_mynode) {
     GASNETE_FAST_UNALIGNED_MEMCPY(dest, src, nbytes);
     return;
   }
+#endif
   
   req = gasnete_get_iop_dcmf_req(op);
   gasneti_assert(req);
