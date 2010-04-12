@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2010/04/11 02:17:18 $
-# $Revision: 1.626 $
+#     $Date: 2010/04/12 05:56:12 $
+# $Revision: 1.627 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.626 $)
+AC_REVISION($Revision: 1.627 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -3424,7 +3424,6 @@ CONDUIT_END([test "$enabled_shmem$have_shmem" = yesyes])
 #--------------------------------------------------------------------------------------------------------
 # DCMF configuration
 CONDUIT_BEGIN(dcmf,[BlueGene/P network conduit (dcmf)])
-CONDUIT_DISALLOW_PSHM()
 if test $enabled_dcmf = yes; then
   # Assume the best
   have_dcmf=yes
