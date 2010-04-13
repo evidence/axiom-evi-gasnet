@@ -1,6 +1,6 @@
 GASNet ChangeLog 
 ----------------
-$Revision: 1.31 $
+$Revision: 1.32 $
 
 ----------------------------------------------------------------------
 ??-??-2010 : Release 1.16
@@ -13,6 +13,19 @@ $Revision: 1.31 $
 
 * InfiniBand (vapi- and ibv-conduits):
   - Fix bug 2079: stack overflow errors when vapi/ibv compiled with pgcc
+
+* Cray-XT series (portals-conduit):
+  - Improved scalablity of job startup
+  - Fixed a corner-case bug in AM Medium code
+
+* IBM BlueGene/P (dcmf-conduit):
+  - Fix bug 2756: PAR mode crashes with V1R4M0 drivers
+  - Fix bug 2766: performance problem with loopback AM LongAsnyc
+  - Conduit-level support for PSHM (some limitations due to BG/P platform)
+
+* Experimental Process-Shared Memory (PSHM) Support
+  - Shared-memory awarness added to default barrier implementations
+  - Shared-memory awarness added to Extended API and Collectives
 
 * Misc Platform support:
   - Fix bug 2685: timers broken on variable-frequency x86_64 CPUs
