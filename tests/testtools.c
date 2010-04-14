@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2010/04/14 19:37:00 $
- * $Revision: 1.97 $
+ *     $Date: 2010/04/14 19:55:44 $
+ * $Revision: 1.98 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -940,6 +940,10 @@ void * thread_fn(void *arg) {
         lx = valX[partner];
         if (BIGGER(lx,ly)) ERR("mismatch in gasnett_local_wmb/gasnett_local_rmb test: lx=%u ly=%u", lx, ly);
       }
+      THREAD_BARRIER();
+
+      valX[id] = 0;
+      valY[id] = 0;
 
       THREAD_BARRIER();
       for (i=0;i<iters2;i++) {
@@ -952,6 +956,10 @@ void * thread_fn(void *arg) {
         lx = valX[partner];
         if (BIGGER(lx,ly)) ERR("mismatch in gasnett_local_mb/gasnett_local_mb test: lx=%u ly=%u", lx, ly);
       }
+      THREAD_BARRIER();
+
+      valX[id] = 0;
+      valY[id] = 0;
 
       THREAD_BARRIER();
       for (i=0;i<iters2;i++) {
@@ -964,6 +972,10 @@ void * thread_fn(void *arg) {
         lx = valX[partner];
         if (BIGGER(lx,ly)) ERR("mismatch in gasnett_weak_wmb/gasnett_weak_rmb test: lx=%u ly=%u", lx, ly);
       }
+      THREAD_BARRIER();
+
+      valX[id] = 0;
+      valY[id] = 0;
 
       THREAD_BARRIER();
       for (i=0;i<iters2;i++) {
@@ -976,6 +988,7 @@ void * thread_fn(void *arg) {
         lx = valX[partner];
         if (BIGGER(lx,ly)) ERR("mismatch in gasnett_weak_mb/gasnett_weak_mb test: lx=%u ly=%u", lx, ly);
       }
+      THREAD_BARRIER();
     }
   }
 
