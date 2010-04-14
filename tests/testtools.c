@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2010/04/07 23:11:19 $
- * $Revision: 1.96 $
+ *     $Date: 2010/04/14 19:37:00 $
+ * $Revision: 1.97 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -322,27 +322,36 @@ int main(int argc, char **argv) {
       ERR("incorrect return from gasnett_count0s_uint64_t(0)");
   }
 
-  TEST_HEADER("Testing local membar...")
+  TEST_HEADER("Testing local membars...")
   { /* local membar */
     int i;
     for (i=0;i<iters;i++) {
       gasnett_local_mb();
     }
+    for (i=0;i<iters;i++) {
+      gasnett_weak_mb();
+    }
   }
 
-  TEST_HEADER("Testing local write membar...")
+  TEST_HEADER("Testing local write membars...")
   { /* local membar */
     int i;
     for (i=0;i<iters;i++) {
       gasnett_local_wmb();
     }
+    for (i=0;i<iters;i++) {
+      gasnett_weak_wmb();
+    }
   }
 
-  TEST_HEADER("Testing local read membar...")
+  TEST_HEADER("Testing local read membars...")
   { /* local membar */
     int i;
     for (i=0;i<iters;i++) {
       gasnett_local_rmb();
+    }
+    for (i=0;i<iters;i++) {
+      gasnett_weak_rmb();
     }
   }
 
@@ -919,6 +928,7 @@ void * thread_fn(void *arg) {
 
       valX[id] = 0;
       valY[id] = 0;
+
       THREAD_BARRIER();
       for (i=0;i<iters2;i++) {
         valX[id] = i;
@@ -941,6 +951,30 @@ void * thread_fn(void *arg) {
         gasnett_local_mb();
         lx = valX[partner];
         if (BIGGER(lx,ly)) ERR("mismatch in gasnett_local_mb/gasnett_local_mb test: lx=%u ly=%u", lx, ly);
+      }
+
+      THREAD_BARRIER();
+      for (i=0;i<iters2;i++) {
+        valX[id] = i;
+        gasnett_weak_wmb();
+        valY[id] = i;
+
+        ly = valY[partner];
+        gasnett_weak_rmb();
+        lx = valX[partner];
+        if (BIGGER(lx,ly)) ERR("mismatch in gasnett_weak_wmb/gasnett_weak_rmb test: lx=%u ly=%u", lx, ly);
+      }
+
+      THREAD_BARRIER();
+      for (i=0;i<iters2;i++) {
+        valX[id] = i + iters2;
+        gasnett_weak_mb();
+        valY[id] = i + iters2;
+
+        ly = valY[partner];
+        gasnett_weak_mb();
+        lx = valX[partner];
+        if (BIGGER(lx,ly)) ERR("mismatch in gasnett_weak_mb/gasnett_weak_mb test: lx=%u ly=%u", lx, ly);
       }
     }
   }
