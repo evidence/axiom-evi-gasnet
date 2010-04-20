@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_core.c,v $
- *     $Date: 2010/04/12 00:15:43 $
- * $Revision: 1.17 $
+ *     $Date: 2010/04/20 00:52:53 $
+ * $Revision: 1.18 $
  * Description: GASNet dcmf conduit Implementation
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>, 
                    Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -406,7 +406,6 @@ static int gasnetc_init(int *argc, char ***argv) {
   
   /*initialize file scoped global variables*/
 
-  /*XXX: change these to be environment tunable values*/
  {
    int64_t replay_buffer_count = gasneti_getenv_int_withdefault("GASNET_DCMF_MAX_REPLAY_BUFFERS", GASNETC_DEFAULT_MAX_REPLAY_BUFFERS, 0);
    int64_t incoming_buffer_count = gasneti_getenv_int_withdefault("GASNET_DCMF_INCOMING_BUFFERS", GASNETC_DEFAULT_MAX_INCOMING_BUFFERS, 0);
@@ -669,7 +668,7 @@ static void gasnetc_exit_timeout(int sig) {
 
 static void gasnetc_tryCollectiveExit(int exitcode) {
   /* general algorithm
-     Set an alarm timeout of 30 seconds (the timeout shoudl be variable)
+     Set an alarm timeout determined from env vars
      
      initiate a bootstrap barrier to test for collective exit
      if the bootstrap barrier completes, exit with whatever error code got passed in
@@ -695,7 +694,7 @@ static void gasnetc_tryCollectiveExit(int exitcode) {
   inputexit_code |= exitcode;
   
   
-  alarm(1+(int)gasnetc_exittimeout); /*XXX: aquire value from env*/
+  alarm(1+(int)gasnetc_exittimeout); /* acquired from env */
 
 #if GASNET_DEBUG
   fprintf(stderr, "%d> exit initiated... checking for collective exit (exit code: %d) timeout: %d\n", gasneti_mynode, exitcode, 1+(int)gasnetc_exittimeout);
