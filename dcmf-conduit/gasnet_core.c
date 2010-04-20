@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_core.c,v $
- *     $Date: 2010/04/20 00:52:53 $
- * $Revision: 1.18 $
+ *     $Date: 2010/04/20 02:43:05 $
+ * $Revision: 1.19 $
  * Description: GASNet dcmf conduit Implementation
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>, 
                    Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -38,7 +38,7 @@ GASNETI_IDENT(gasnetc_IdentString_Name,    "$GASNetCoreLibraryName: " GASNET_COR
 #endif
 
 #ifndef GASNETC_DEFAULT_EXITTIMEOUT_MIN
-#define GASNETC_DEFAULT_EXITTIMEOUT_MIN   2 /* 2 seconds */
+#define GASNETC_DEFAULT_EXITTIMEOUT_MIN   5 /* 5 seconds */
 #endif
 
 #ifndef GASNETC_DEFAULT_EXITTIMEOUT_FACTOR
@@ -680,7 +680,7 @@ static void gasnetc_tryCollectiveExit(int exitcode) {
   uint32_t outputexit_code;
   DCMF_Request_t req;
   DCMF_Callback_t cb_done;
-  volatile int done=0;
+  volatile uint32_t done=0;
 
 #if REGISTER_EXIT_BARRIER_AT_EXIT
   DCMF_Protocol_t gasnetc_exit_barrier_registration;
@@ -718,6 +718,7 @@ static void gasnetc_tryCollectiveExit(int exitcode) {
                                            -1, (char*) &inputexit_code,
                                            (char*) &outputexit_code, 1, DCMF_UNSIGNED_INT, DCMF_MAX));
    while(!done) DCMF_Messager_advance();
+   alarm(0); /* disarm ASAP */
  }
  DCMF_CriticalSection_exit(0);
     
