@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_core.c,v $
- *     $Date: 2010/04/20 02:43:05 $
- * $Revision: 1.19 $
+ *     $Date: 2010/04/21 22:17:35 $
+ * $Revision: 1.20 $
  * Description: GASNet dcmf conduit Implementation
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>, 
                    Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -1823,7 +1823,7 @@ void gasnetc_send_am_req(gasnetc_category_t amcat, gasnet_node_t dest_node,
   /*if it is an AM w/ no payload or an AMLONGASYNC we don't need to wait for the Send to finish
     so set the callback to free the associated request*/
   
-  wait_for_send = !(amcat == gasnetc_LongAsync || nbytes == 0);
+  /* wait_for_send = !(amcat == gasnetc_LongAsync || nbytes == 0); */
 
   if(wait_for_send) {
     /*will need to wait for send to be locally complete*/
@@ -1947,7 +1947,7 @@ void gasnetc_send_am_rep(gasnetc_category_t amcat,
 #endif
 
   
-  wait_for_send = (nbytes != 0);
+  /* wait_for_send = (nbytes != 0); */
 
   if(wait_for_send) {
     /*will need to wait for send to be locally complete*/
