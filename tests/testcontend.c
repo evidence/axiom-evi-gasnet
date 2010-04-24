@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcontend.c,v $
- *     $Date: 2010/04/24 02:20:50 $
- * $Revision: 1.17 $
+ *     $Date: 2010/04/24 03:25:34 $
+ * $Revision: 1.18 $
  *
  * Description: GASNet threaded contention tester.
  *   The test initializes GASNet and forks off up to 256 threads.  
@@ -319,6 +319,7 @@ int main(int argc, char **argv) {
 	  printf("Threads must be between 1 and %i\n", TEST_MAXTHREADS);
 	  gasnet_exit(-1);
 	}
+	maxthreads = test_thread_limit(maxthreads);
         if (gasnet_nodes() % 2 != 0) {
     	  MSG("WARNING: This test requires an even number of nodes. Test skipped.\n");
     	  gasnet_exit(0); /* exit 0 to prevent false negatives in test harnesses for smp-conduit */

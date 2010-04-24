@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2010/04/14 19:55:44 $
- * $Revision: 1.98 $
+ *     $Date: 2010/04/24 03:25:34 $
+ * $Revision: 1.99 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -103,7 +103,7 @@ int main(int argc, char **argv) {
   #ifdef HAVE_PTHREAD_H
     if (argc > 2) NUM_THREADS = atoi(argv[2]);
     if (NUM_THREADS < 1) NUM_THREADS = DEFAULT_THREADS;
-    if (NUM_THREADS > TEST_MAXTHREADS) NUM_THREADS = TEST_MAXTHREADS;
+    NUM_THREADS = test_thread_limit(NUM_THREADS);
   #else
     if (argc > 2 && atoi(argv[2]) != 1) { ERR("no pthreads - only one thread available."); test_usage(); }
   #endif
