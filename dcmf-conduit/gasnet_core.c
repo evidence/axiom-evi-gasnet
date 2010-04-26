@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_core.c,v $
- *     $Date: 2010/04/21 22:17:35 $
- * $Revision: 1.20 $
+ *     $Date: 2010/04/26 03:12:57 $
+ * $Revision: 1.21 $
  * Description: GASNet dcmf conduit Implementation
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>, 
                    Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -1270,7 +1270,7 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
   GASNETI_CHECK_ERRR((!token),BAD_ARG,"bad token");
   GASNETI_CHECK_ERRR((!srcindex),BAD_ARG,"bad src ptr");
     
-#if GASNET_PSHM
+#if GASNETC_PSHM_CORE_API
   if (gasneti_AMPSHMGetMsgSource(token, &sourceid) != GASNET_OK)
 #endif
   sourceid = ((gasnetc_token_t*)token)->srcnode; 
@@ -1306,7 +1306,7 @@ extern int gasnetc_AMPoll(void) {
   
   GASNETI_CHECKATTACH();
 
-#if GASNET_PSHM 
+#if GASNETC_PSHM_CORE_API 
   /* If your conduit will support PSHM, let it make progress here. */
   gasneti_AMPSHMPoll(0);
 #endif
@@ -1768,7 +1768,7 @@ void gasnetc_send_am_req(gasnetc_category_t amcat, gasnet_node_t dest_node,
   unsigned replay_buffer = 0;
 #endif
   
-#if GASNET_PSHM
+#if GASNETC_PSHM_CORE_API
   if_pt (gasneti_pshm_in_supernode(dest_node)) {
     if(amcat == gasnetc_LongAsync) amcat = gasnetc_Long;
     (void) gasneti_AMPSHM_RequestGeneric(amcat, dest_node, handler_idx,
@@ -1911,7 +1911,7 @@ void gasnetc_send_am_rep(gasnetc_category_t amcat,
   int wait_for_send=1;
   gasnetc_dcmf_req_t *dcmf_req;
 
-#if GASNET_PSHM
+#if GASNETC_PSHM_CORE_API
   /* If your conduit will support PSHM, let it check the token first. */
   if_pt (gasnetc_token_is_pshm(token)) {
     (void) gasneti_AMPSHM_ReplyGeneric(amcat, token, handler_idx,

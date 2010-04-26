@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_core.h,v $
- *     $Date: 2010/04/24 00:54:17 $
- * $Revision: 1.5 $
+ *     $Date: 2010/04/26 03:12:57 $
+ * $Revision: 1.6 $
  * Description: GASNet header for dcmf conduit core
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
  *                 Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -123,11 +123,19 @@ typedef struct _gasnet_hsl_t {
   Active Message Size Limits
   ==========================
 */
+
+#ifndef GASNETC_PSHM_CORE_API
+/* By default use of PSHM-based Core API (AMs) is disabled due to progress problems.
+   See bug 2776 for a discussion of the problem(s).
+ */
+#define GASNETC_PSHM_CORE_API 1
+#endif
+
 /*declare as a pure number for static declarations*/
 #define GASNETC_AMMAXMED 512
 
 #define gasnet_AMMaxArgs()          ((size_t)16)
-#if GASNET_PSHM
+#if GASNETC_PSHM_CORE_API
   #define gasnet_AMMaxMedium()      MIN((size_t)GASNETC_AMMAXMED, GASNETI_MAX_MEDIUM_PSHM)
 #else
   #define gasnet_AMMaxMedium()      ((size_t)GASNETC_AMMAXMED)
