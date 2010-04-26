@@ -2385,7 +2385,7 @@ extern void gasnetc_bootstrapBarrier(void) {
 }
 
 /* ---------------------------------------------------------------------------------
- * Bootstrap exchange function over portals
+ * Bootstrap broadcast function over portals
  * After the network has been initialized, but before all the conduit resources
  * have been allocated, can use this function to perform the equivelent of
  * an MPI_Broadcast.  The root node will broadcast its info to all other nodes.
@@ -2435,7 +2435,7 @@ extern void gasnetc_bootstrapBroadcast(void *src, size_t len, void *dest, int ro
 
     GASNETC_PTLSAFE(PtlEQAlloc(gasnetc_ni_h, eq_len, NULL, &eq_h));
 
-    /* register the src md with no event queue */
+    /* register the src md */
     src_md.start = src;
     src_md.length = len;
     src_md.threshold = PTL_MD_THRESH_INF;
@@ -2459,7 +2459,7 @@ extern void gasnetc_bootstrapBroadcast(void *src, size_t len, void *dest, int ro
 	gasneti_assert_always( ev.type == PTL_EVENT_SEND_END );
 	break;
       default:
-	gasneti_fatalerror("GASNet Portals Error in bootExchange waiting for event: %s (%i)\n at %s\n",
+	gasneti_fatalerror("GASNet Portals Error in bootBroadcast waiting for event: %s (%i)\n at %s\n",
 			   ptl_err_str[rc],rc,gasneti_current_loc);
       };
     }
@@ -2477,7 +2477,7 @@ extern void gasnetc_bootstrapBroadcast(void *src, size_t len, void *dest, int ro
       gasneti_assert_always( ev.type == PTL_EVENT_PUT_END );
       break;
     default:
-      gasneti_fatalerror("GASNet Portals Error in bootExchange waiting for event: %s (%i)\n at %s\n",
+      gasneti_fatalerror("GASNet Portals Error in bootBroadcast waiting for event: %s (%i)\n at %s\n",
 			 ptl_err_str[rc],rc,gasneti_current_loc);
     };
   
