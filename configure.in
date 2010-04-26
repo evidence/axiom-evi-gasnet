@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2010/04/26 05:11:43 $
-# $Revision: 1.629 $
+#     $Date: 2010/04/26 06:19:56 $
+# $Revision: 1.630 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.629 $)
+AC_REVISION($Revision: 1.630 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -172,6 +172,15 @@ case "$gasnet_cv_cc_family" in
   GNU)  GASNET_GCC_VERSION_CHECK(CC) ;;
   MTA)  # override target_os for MTA, which may be wrong if cross-compiling
         target_os="mtx"   ;;
+  Cray) # Min supported version is 7.2 (which reports as 10.2)
+        AC_TRY_COMPILE([
+          #if (defined(__CRAYXT_COMPUTE_LINUX_TARGET) || defined(__LIBCATAMOUNT__)) && \
+              (((_RELEASE == 10) && (_RELEASE_MINOR < 2)) || (_RELEASE < 10))
+          # error
+          #endif
+        ],[ ], [:],
+        [AC_MSG_ERROR([GASNet does not support Cray compilers prior to CCE 7.2 on the CrayXT])])
+        ;;
 esac
 
 if test "$cross_compiling" = "yes" ; then
