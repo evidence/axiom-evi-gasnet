@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_core.h,v $
- *     $Date: 2010/04/26 03:12:57 $
- * $Revision: 1.6 $
+ *     $Date: 2010/04/26 08:10:13 $
+ * $Revision: 1.7 $
  * Description: GASNet header for dcmf conduit core
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
  *                 Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -128,7 +128,7 @@ typedef struct _gasnet_hsl_t {
 /* By default use of PSHM-based Core API (AMs) is disabled due to progress problems.
    See bug 2776 for a discussion of the problem(s).
  */
-#define GASNETC_PSHM_CORE_API 1
+#define GASNETC_PSHM_CORE_API 0
 #endif
 
 /*declare as a pure number for static declarations*/
