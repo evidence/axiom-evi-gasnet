@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_internal.h,v $
- *     $Date: 2010/01/25 22:48:51 $
- * $Revision: 1.36 $
+ *     $Date: 2010/04/26 05:11:48 $
+ * $Revision: 1.37 $
  * Description: AMUDP internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -435,7 +435,7 @@ extern volatile int AMUDP_SPMDIsActiveControlSocket;
   extern char volatile identName[];         \
   char volatile identName[] = identText;    \
   extern char *_##identName##_identfn(void) { return (char*)identName; } 
-#if PLATFORM_COMPILER_CRAY
+#if PLATFORM_COMPILER_CRAY && !PLATFORM_ARCH_X86_64 /* fouls up concatenation in ident string */
   #define AMUDP_IDENT(identName, identText) \
     AMUDP_PRAGMA(_CRI ident identText);     \
     _AMUDP_IDENT(identName, identText)

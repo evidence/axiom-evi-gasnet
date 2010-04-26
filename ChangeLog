@@ -1,6 +1,6 @@
 GASNet ChangeLog 
 ----------------
-$Revision: 1.32 $
+$Revision: 1.33 $
 
 ----------------------------------------------------------------------
 ??-??-2010 : Release 1.16
@@ -32,6 +32,7 @@ $Revision: 1.32 $
   - Resolve pthread link problems between Apple's and FSF's compilers
   - Preliminary work to support build with Open64 compilers from AMD
   - Preliminary work to support build with GCCFSS compilers from Sun
+  - Preliminary work to support build with Cray compilers on Cray XT
 
 * Build and configure:
   - Allow client to control behavior on compiler-mismatch (eg for UPCR+GCCUPC)
