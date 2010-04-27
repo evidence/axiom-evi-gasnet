@@ -129,6 +129,16 @@
 #define GASNETC_BOOTSTRAP_BARRIER_RADIX 8
 #endif
 
+/* Radix of the N-ary tree for bootstrap broadcast */
+#ifndef GASNETC_BOOTSTRAP_BCAST_RADIX
+#define GASNETC_BOOTSTRAP_BCAST_RADIX 8
+#endif
+
+/* Radix of the N-ary tree for bootstrap exchange */
+#ifndef GASNETC_BOOTSTRAP_EXCHG_RADIX
+#define GASNETC_BOOTSTRAP_EXCHG_RADIX 8
+#endif
+
 /* Do we register an EQ handler with a queue or just poll ourselves */
 #if GASNETC_USE_EQ_HANDLER
   #define GASNETC_EQ_HANDLER gasnetc_event_handler
@@ -786,6 +796,7 @@ extern int gasnetc_shutdownInProgress;             /* set upon entry to gasnetc_
 typedef enum{GASNETC_SYS_SHUTDOWN_REQUEST=0,
 	     GASNETC_SYS_BARRIER_UP,
 	     GASNETC_SYS_BARRIER_DOWN,
+	     GASNETC_SYS_EXCHG_UP,
 	     GASNETC_SYS_CREDIT_REVOKE,
 	     GASNETC_SYS_CREDIT_RETURN,
 	     GASNETC_SYS_NUM} gasnetc_sys_t;
