@@ -2238,7 +2238,7 @@ extern void gasnetc_init_portals_network(int *argc, char ***argv)
   int               rc, i, node;
   int               num_interfaces;
   int               pid_offset = 0;
-  uint32_t          maxnodes = (uint32_t)((gasnetc_dll_index_t)-1);
+  uint32_t          maxnodes = (uint32_t)GASNETC_DLL_NULL;
 
 #if HAVE_PMI_CNOS
   if (PMI_SUCCESS != PMI_Init(&rc)) {
@@ -2260,10 +2260,10 @@ extern void gasnetc_init_portals_network(int *argc, char ***argv)
   /* init tracing as early as possible */
   gasneti_trace_init(argc, argv);
 
-  if (gasneti_nodes >= maxnodes) {
+  if (gasneti_nodes > maxnodes) {
     gasneti_fatalerror("GASNet Portals conduit designed to work for up to %d nodes,"
 		       " this job uses %d nodes.  Modify size of gasnetc_dll_index_t "
-		       " and rebuild library",maxnodes-1,gasneti_nodes);
+		       " and rebuild library",maxnodes,gasneti_nodes);
   }
 
   /* Set up buffered IO for STDOUT */

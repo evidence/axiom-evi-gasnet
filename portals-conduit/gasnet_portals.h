@@ -574,8 +574,8 @@ typedef gasneti_mutex_t gasnetc_statelock_t;
   } while(0)
 
 /* compact representation of a doubly linked list by using node ids rather than pointers */
-#define GASNETC_DLL_NULL ((uint16_t)(-1))
-typedef uint16_t gasnetc_dll_index_t;        /* NOTE: this works up to 64K nodes. */
+#define GASNETC_DLL_NULL ((gasnetc_dll_index_t)(-1))
+typedef uint16_t gasnetc_dll_index_t;        /* NOTE: this works up to 65535 nodes. */
 typedef struct _gasnetc_dll_link {
   gasnetc_dll_index_t  prev;
   gasnetc_dll_index_t  next;
