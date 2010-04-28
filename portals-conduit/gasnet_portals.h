@@ -574,12 +574,12 @@ typedef gasneti_mutex_t gasnetc_statelock_t;
   } while(0)
 
 /* compact representation of a doubly linked list by using node ids rather than pointers */
-#define GASNETC_DLL_NULL ((gasnetc_dll_index_t)(-1))
-typedef uint16_t gasnetc_dll_index_t;        /* NOTE: this works up to 65535 nodes. */
+#define GASNETC_DLL_NULL GASNET_MAXNODES
 typedef struct _gasnetc_dll_link {
-  gasnetc_dll_index_t  prev;
-  gasnetc_dll_index_t  next;
+  gasnet_node_t  prev;
+  gasnet_node_t  next;
 } gasnetc_dll_link_t;
+
 typedef struct gconrec {
   gasnetc_statelock_t    lock;              /* spinlock/mutex for atomic update of this record */
   uint16_t               LoanCredits;       /* number of my credits allocated to this remote node */
@@ -622,7 +622,7 @@ extern gasneti_weakatomic_t gasnetc_AMRequest_count;/* counter of number of AMRe
 extern int gasnetc_epoch_duration;                  /* number of AMReq before epoch ends */
 extern int gasnetc_num_scavenge;                    /* number of nodes to hit-up for credits */
 extern gasneti_weakatomic_t gasnetc_scavenge_inflight;  /* number of outstanding scavange requests */
-extern gasnetc_dll_index_t gasnetc_scavenge_list; /* list of nodes to scavenge, those that have
+extern gasnet_node_t gasnetc_scavenge_list;       /* list of nodes to scavenge, those that have
 						   * more than min number of credits allocated */
 extern gasneti_mutex_t   gasnetc_scavenge_lock;   /* lock to control the scavenge list */
 extern int gasnetc_debug_node;                    /* used in debugging */

@@ -148,7 +148,7 @@ int gasnetc_max_cpn = 400;                    /* max number of credits that can 
 gasneti_mutex_t gasnetc_epoch_lock = GASNETI_MUTEX_INITIALIZER;  /* epoch update lock */
 gasneti_weakatomic_t gasnetc_AMRequest_count; /* Count of number of AMRequests we receive */
 int gasnetc_epoch_duration = 1024;            /* Number of AMRequests we receive before end of epoch */
-gasnetc_dll_index_t gasnetc_scavenge_list = GASNETC_DLL_NULL;    /* scavenge list */
+gasnet_node_t gasnetc_scavenge_list = GASNETC_DLL_NULL;    /* scavenge list */
 gasneti_mutex_t gasnetc_scavenge_lock = GASNETI_MUTEX_INITIALIZER;  /* lock for scavenge list */
 int gasnetc_num_scavenge = 6;                 /* Max number of nodes to hit-up each scavenge run */
 gasneti_weakatomic_t gasnetc_scavenge_inflight;  /* number of outstanding revoke requests */
@@ -1724,14 +1724,14 @@ void gasnetc_scavenge_list_add(gasnet_node_t node, int locked)
   gasneti_assert(s->link.next == GASNETC_DLL_NULL);
   gasneti_assert(s->link.prev == GASNETC_DLL_NULL);
   {
-    gasnetc_dll_index_t head = gasnetc_scavenge_list;
+    gasnet_node_t head = gasnetc_scavenge_list;
     if (head == GASNETC_DLL_NULL) {
       /* empty list */
       s->link.next = s->link.prev = node;
       gasnetc_scavenge_list = node;
     } else {
       /* add to the end of the list */
-      gasnetc_dll_index_t prev = gasnetc_conn_state[head].link.prev;
+      gasnet_node_t prev = gasnetc_conn_state[head].link.prev;
       s->link.next = head;
       s->link.prev = prev;
       gasnetc_conn_state[head].link.prev = node;
@@ -1756,8 +1756,8 @@ void gasnetc_scavenge_list_remove(gasnet_node_t node)
   gasneti_assert(s->link.next != GASNETC_DLL_NULL);
   gasneti_assert(s->link.prev != GASNETC_DLL_NULL);
   {
-    gasnetc_dll_index_t next = s->link.next;
-    gasnetc_dll_index_t prev = s->link.prev;
+    gasnet_node_t next = s->link.next;
+    gasnet_node_t prev = s->link.prev;
     gasneti_assert( gasnetc_scavenge_list != GASNETC_DLL_NULL );
     if (next == node) {
       /* this is the only node in the list */
@@ -1786,7 +1786,7 @@ void gasnetc_print_scavenge_list(void)
   gasneti_assert(gasnetc_use_dynamic_credits); 
   gasneti_mutex_lock(&gasnetc_scavenge_lock);
   {
-    gasnetc_dll_index_t node = gasnetc_scavenge_list;
+    gasnet_node_t node = gasnetc_scavenge_list;
     int finished = (node == GASNETC_DLL_NULL);
     printf("SCAVENGE_List[%d]:",gasneti_mynode);
     while (! finished) {
@@ -2238,7 +2238,6 @@ extern void gasnetc_init_portals_network(int *argc, char ***argv)
   int               rc, i, node;
   int               num_interfaces;
   int               pid_offset = 0;
-  uint32_t          maxnodes = (uint32_t)GASNETC_DLL_NULL;
 
 #if HAVE_PMI_CNOS
   if (PMI_SUCCESS != PMI_Init(&rc)) {
@@ -2260,10 +2259,10 @@ extern void gasnetc_init_portals_network(int *argc, char ***argv)
   /* init tracing as early as possible */
   gasneti_trace_init(argc, argv);
 
-  if (gasneti_nodes > maxnodes) {
+  if (gasneti_nodes > GASNET_MAXNODES) {
     gasneti_fatalerror("GASNet Portals conduit designed to work for up to %d nodes,"
-		       " this job uses %d nodes.  Modify size of gasnetc_dll_index_t "
-		       " and rebuild library",maxnodes,gasneti_nodes);
+		       " this job uses %d nodes.  Modify size of gasnet_node_t "
+		       " and rebuild library",GASNET_MAXNODES,gasneti_nodes);
   }
 
   /* Set up buffered IO for STDOUT */
