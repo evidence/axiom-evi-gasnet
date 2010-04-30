@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_core_fwd.h,v $
- *     $Date: 2010/04/28 03:38:27 $
- * $Revision: 1.21 $
+ *     $Date: 2010/04/30 17:25:16 $
+ * $Revision: 1.22 $
  * Description: GASNet header for PORTALS conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -22,10 +22,10 @@
 #define GASNET_CONDUIT_PORTALS 1
 
 #ifndef GASNET_MAXNODES
-  #define GASNET_MAXNODES (0x7FFFu)
+  #define GASNET_MAXNODES (0xFFFFu)
 #endif
 
-#if GASNET_MAXNODES <= 0x7FFFu
+#if GASNET_MAXNODES <= 0xFFFFu
   #define _GASNET_NODE_T
   typedef uint16_t        gasnet_node_t;
 #else
