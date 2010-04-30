@@ -2172,7 +2172,7 @@ extern void gasnetc_sys_SendMsg(gasnet_node_t node, gasnetc_sys_t msg_id,
 extern void gasnetc_sys_barrier(void)
 {
   int barr_cnt;
-  gasnet_node_t left_child = GASNETC_BOOTSTRAP_BARRIER_RADIX * gasneti_mynode + 1;
+  uint32_t left_child = GASNETC_BOOTSTRAP_BARRIER_RADIX * gasneti_mynode + 1;
   int children = (left_child >= gasneti_nodes)
                   ? 0 : GASNETC_MIN(GASNETC_BOOTSTRAP_BARRIER_RADIX, gasneti_nodes - left_child);
 
