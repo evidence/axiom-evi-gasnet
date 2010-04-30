@@ -124,19 +124,9 @@
 #error "GASNETC_PUTGET_BOUNCE_LIMIT_DFLT MUST BE <= GASNETC_CHUNKSIZE"
 #endif
 
-/* Radix of the N-ary tree for bootstrap barrier */
-#ifndef GASNETC_BOOTSTRAP_BARRIER_RADIX
-#define GASNETC_BOOTSTRAP_BARRIER_RADIX 8
-#endif
-
 /* Radix of the N-ary tree for bootstrap broadcast */
 #ifndef GASNETC_BOOTSTRAP_BCAST_RADIX
 #define GASNETC_BOOTSTRAP_BCAST_RADIX 8
-#endif
-
-/* Radix of the N-ary tree for bootstrap exchange */
-#ifndef GASNETC_BOOTSTRAP_EXCHG_RADIX
-#define GASNETC_BOOTSTRAP_EXCHG_RADIX 8
 #endif
 
 /* Do we register an EQ handler with a queue or just poll ourselves */
@@ -794,9 +784,7 @@ extern gasnetc_eq_t *gasnetc_SYS_EQ;               /* out-of-band system Event Q
 extern double gasnetc_shutdown_seconds;            /* number of seconds to poll before forceful shutdown */
 extern int gasnetc_shutdownInProgress;             /* set upon entry to gasnetc_exit */
 typedef enum{GASNETC_SYS_SHUTDOWN_REQUEST=0,
-	     GASNETC_SYS_BARRIER_UP,
-	     GASNETC_SYS_BARRIER_DOWN,
-	     GASNETC_SYS_EXCHG_UP,
+	     GASNETC_SYS_BARRIER,
 	     GASNETC_SYS_CREDIT_REVOKE,
 	     GASNETC_SYS_CREDIT_RETURN,
 	     GASNETC_SYS_NUM} gasnetc_sys_t;
