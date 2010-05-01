@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2010/05/01 05:01:09 $
- * $Revision: 1.44 $
+ *     $Date: 2010/05/01 06:20:29 $
+ * $Revision: 1.45 $
  * Description: GASNet portals conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *                 Michael Welcome <mlwelcome@lbl.gov>
@@ -388,10 +388,6 @@ extern void gasnetc_exit(int exitcode) {
    *
    * NOTE: Spec does say client should include a barrier before gasnet_exit().
    * So, the behavior described above is fine in my opinion. -PHH
-   *
-   * NOTE: Spec also says we should be raising SIGQUIT on any nodes we find are
-   * not calling gasnet_exit() collectively with the others.  In that respect
-   * we appear to currently be non-conforming. -PHH
    */
 #if 0
   /* send a shutdown message to everyone */

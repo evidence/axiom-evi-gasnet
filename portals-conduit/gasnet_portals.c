@@ -1976,7 +1976,20 @@ static void exec_sys_msg(gasnetc_sys_t msg_id, int32_t arg0, int32_t arg1, int32
         exitcode = oldcode;
       }
       sys_exit_rcvd |= distance;
-      if (!gasnetc_shutdownInProgress) gasnetc_exit(exitcode);
+      if (!gasnetc_shutdownInProgress) {
+        gasneti_sighandlerfn_t handler = gasneti_reghandler(SIGQUIT, SIG_IGN);
+        if ((handler != gasneti_defaultSignalHandler) &&
+#ifdef SIG_HOLD
+            (handler != (gasneti_sighandlerfn_t)SIG_HOLD) &&
+#endif
+            (handler != (gasneti_sighandlerfn_t)SIG_ERR) &&
+            (handler != (gasneti_sighandlerfn_t)SIG_IGN) &&
+            (handler != (gasneti_sighandlerfn_t)SIG_DFL)) {
+          (void)gasneti_reghandler(SIGQUIT, handler);
+          raise(SIGQUIT);
+        }
+        gasnetc_exit(exitcode);
+      }
     }
     break;
 
