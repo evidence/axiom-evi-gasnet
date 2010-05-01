@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2010/05/01 00:14:49 $
- * $Revision: 1.42 $
+ *     $Date: 2010/05/01 02:17:14 $
+ * $Revision: 1.43 $
  * Description: GASNet portals conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *                 Michael Welcome <mlwelcome@lbl.gov>
@@ -391,10 +391,13 @@ extern void gasnetc_exit(int exitcode) {
     gasnet_node_t node;
     gasnetc_conn_state[gasneti_mynode].flags |= GASNETC_SYS_GOT_SHUTDOWN_MSG;
     GASNETI_TRACE_PRINTF(C,("Sending SHUTDOWN Messages to all nodes"));
-    for (node = 0; node < gasneti_nodes; node++) {
+    for (node = gasneti_mynode+1; node < gasneti_nodes; node++) {
       gasnetc_sys_poll(GASNETC_EQ_TRYLOCK);
-      if (node != gasneti_mynode) 
-	gasnetc_sys_SendMsg(node,GASNETC_SYS_SHUTDOWN_REQUEST, gasneti_mynode, exitcode, 0);
+      gasnetc_sys_SendMsg(node,GASNETC_SYS_SHUTDOWN_REQUEST, gasneti_mynode, exitcode, 0);
+    }
+    for (node = 0; node < gasneti_mynode; node++) {
+      gasnetc_sys_poll(GASNETC_EQ_TRYLOCK);
+      gasnetc_sys_SendMsg(node,GASNETC_SYS_SHUTDOWN_REQUEST, gasneti_mynode, exitcode, 0);
     }
   }
 
