@@ -106,6 +106,8 @@ gasnetc_eq_t *gasnetc_SYS_EQ = NULL;        /* out-of-band system Event Queue */
 static int portals_sysqueue_initialized = 0;
 double gasnetc_shutdown_seconds = 0.;
 int gasnetc_shutdownInProgress = 0;
+static gasneti_atomic_t gasnetc_exitcode = gasneti_atomic_init(0);
+static uint32_t sys_exit_rcvd = 0;
 static double shutdown_max = 360.;  /* 6 minutes ... just a guess */
 static uint32_t sys_barrier_rcvd[2];
 /* stores signal number when signal occurs */
@@ -1959,12 +1961,21 @@ static void exec_sys_msg(gasnetc_sys_t msg_id, int32_t arg0, int32_t arg1, int32
   switch (msg_id) {
   case GASNETC_SYS_SHUTDOWN_REQUEST:
     {
-      gasnet_node_t sender = (gasnet_node_t)arg0;
+      uint32_t distance = arg0;
       int exitcode = arg1;
-      gasneti_assert(sender < gasneti_nodes);
-      /* mark that we got a shutdown message from this node */
-      gasnetc_conn_state[sender].flags |= GASNETC_SYS_GOT_SHUTDOWN_MSG;
-      GASNETI_TRACE_PRINTF(C,("Got SHUTDOWN Request from node %d",sender));
+      int oldcode;
+    #if GASNET_DEBUG || GASNETI_STATS_OR_TRACE
+      int sender = arg2;
+      gasneti_assert(((uint32_t)sender + distance) % gasneti_nodes == gasneti_mynode);
+      GASNETI_TRACE_PRINTF(C,("Got SHUTDOWN Request from node %d w/ exitcode %d",sender,exitcode));
+    #endif
+      oldcode = gasneti_atomic_read(&gasnetc_exitcode, 0);
+      if (exitcode > oldcode) {
+        gasneti_atomic_set(&gasnetc_exitcode, exitcode, 0);
+      } else {
+        exitcode = oldcode;
+      }
+      sys_exit_rcvd |= distance;
       if (!gasnetc_shutdownInProgress) gasnetc_exit(exitcode);
     }
     break;
@@ -2178,6 +2189,54 @@ extern void gasnetc_sys_barrier(void)
  * This lower portion of the file is where exported functions are located.
  * These are exported to both the Core and Extended API implementations.
  * ================================================================================= */
+
+/* Reduction (op=MAX) over exitcodes using dissemination pattern.
+   Returns 0 on sucess, or non-zero on error (timeout).
+ */
+extern int gasnetc_sys_exit(int *exitcode_p)
+{
+  uint32_t goal = 0;
+  uint32_t distance;
+  int result = 0; /* success */
+  int exitcode = *exitcode_p;
+  int oldcode;
+  gasneti_tick_t timeout_us = 1e6 * gasnetc_shutdown_seconds;
+  gasneti_tick_t starttime = gasneti_ticks_now();
+
+  GASNETI_TRACE_PRINTF(C,("Entering SYS EXIT"));
+
+  gasneti_assert(portals_sysqueue_initialized);
+
+  for (distance = 1; distance < gasneti_nodes; distance *= 2) {
+    gasnet_node_t peer;
+
+    if (distance >= gasneti_nodes - gasneti_mynode) {
+      peer = gasneti_mynode - (gasneti_nodes - distance);
+    } else {
+      peer = gasneti_mynode + distance;
+    }
+
+    oldcode = gasneti_atomic_read(&gasnetc_exitcode, 0);
+    exitcode = MAX(exitcode, oldcode);
+    gasnetc_sys_SendMsg(peer,GASNETC_SYS_SHUTDOWN_REQUEST,distance,exitcode,gasneti_mynode);
+
+    /* wait for completion of the proper receive, which might arrive out of order */
+    goal |= distance;
+    while ((sys_exit_rcvd & goal) != goal) {
+      gasnetc_sys_poll(GASNETC_EQ_LOCK);
+      if (gasneti_ticks_to_us(gasneti_ticks_now() - starttime) > timeout_us) {
+        result = 1; /* failure */
+        goto out;
+      }
+    }
+  }
+
+out:
+  oldcode = gasneti_atomic_read(&gasnetc_exitcode, 0);
+  *exitcode_p = MAX(exitcode, oldcode);
+
+  return result;
+}
 
 /* ---------------------------------------------------------------------------------
  * Setup the portals network so that we can begin communicating

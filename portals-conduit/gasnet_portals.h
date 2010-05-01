@@ -843,6 +843,7 @@ extern size_t gasnetc_putmsg(void *dest, gasnet_node_t node, void *src, size_t n
 extern void gasnetc_sys_SendMsg(gasnet_node_t node, gasnetc_sys_t msg_id,
 				int32_t arg0, int32_t arg1, int32_t arg2);
 extern void gasnetc_sys_barrier(void);
+extern int gasnetc_sys_exit(int *exitcode);
 /* need a special signal handler for Portals */
 extern void gasnetc_portalsSignalHandler(int sig);
 extern int gasnetc_issue_credit_request(gasnet_node_t node, int ncredit);

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2010/05/01 02:17:14 $
- * $Revision: 1.43 $
+ *     $Date: 2010/05/01 05:01:09 $
+ * $Revision: 1.44 $
  * Description: GASNet portals conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *                 Michael Welcome <mlwelcome@lbl.gov>
@@ -384,8 +384,16 @@ extern void gasnetc_exit(int exitcode) {
    * UPC runtime layer has barrier before calling gasnet_exit so this should not
    * be a problem.  However, if all threads call upc_global_exit() without
    * a preceeding barrier, this may cause some program threads to terminate
-   * before they reach their call to upc_global_exit().
+   * before they reach their call to upc_global_exit(). -MLW
+   *
+   * NOTE: Spec does say client should include a barrier before gasnet_exit().
+   * So, the behavior described above is fine in my opinion. -PHH
+   *
+   * NOTE: Spec also says we should be raising SIGQUIT on any nodes we find are
+   * not calling gasnet_exit() collectively with the others.  In that respect
+   * we appear to currently be non-conforming. -PHH
    */
+#if 0
   /* send a shutdown message to everyone */
   {
     gasnet_node_t node;
@@ -427,6 +435,16 @@ extern void gasnetc_exit(int exitcode) {
       raise(SIGINT);
     }
   }
+#else
+  /* dump final credit state (if compiled with GASNETC_CREDIT_TESTING flag) */
+  GASNETC_DUMP_CREDITS(gasneti_weakatomic_read(&gasnetc_AMRequest_count,0));
+
+  if (gasnetc_sys_exit(&exitcode)) {
+    printf("[%d] Failed to coordinate shutdown after %lu milliseconds\n",gasneti_mynode,(unsigned long)(1e3*gasnetc_shutdown_seconds));
+    gasneti_reghandler(SIGINT,SIG_DFL);  /* SIGINT causes launcher to kill job */
+    raise(SIGINT);
+  }
+#endif
 
   /* if we got here, this is a clean shutdown.  Clean up portals resources */
   gasnetc_portals_exit();
