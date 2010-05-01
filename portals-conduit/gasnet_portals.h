@@ -214,6 +214,7 @@ extern unsigned gasnetc_sys_poll_limit;
 #define GASNETC_PTL_CB_BITS      0x03
 #define GASNETC_PTL_REQSB_BITS   0x04
 #define GASNETC_PTL_SYS_BITS     0x05
+#define GASNETC_PTL_BOOT_BITS    0x06
 
 /* Operation type */
 #define GASNETC_PTL_MSG_PUT      0x10

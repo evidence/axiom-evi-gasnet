@@ -2375,8 +2375,6 @@ extern void gasnetc_bootstrapBroadcast(void *src, size_t len, void *dest, int ro
   ptl_handle_md_t src_h, dest_h;
   ptl_handle_eq_t eq_h;
   ptl_event_t ev;
-  ptl_match_bits_t match_bits  = 0x0F0F0F0F0F0F0F0F;
-  ptl_match_bits_t ignore_bits = 0x0000000000000000;
   int eq_len = GASNETC_BOOTSTRAP_BCAST_RADIX + 2;
   int i, rc;
 
@@ -2404,7 +2402,7 @@ extern void gasnetc_bootstrapBroadcast(void *src, size_t len, void *dest, int ro
     dest_md.eq_handle = eq_h;
 
     /* construct the match entry */
-    GASNETC_PTLSAFE(PtlMEAttach(gasnetc_ni_h, GASNETC_PTL_AM_PTE, gasnetc_any_id, match_bits, ignore_bits, PTL_UNLINK, PTL_INS_AFTER, &dest_me_h));
+    GASNETC_PTLSAFE(PtlMEAttach(gasnetc_ni_h, GASNETC_PTL_AM_PTE, gasnetc_any_id, GASNETC_PTL_BOOT_BITS, GASNETC_PTL_IGNORE_BITS, PTL_UNLINK, PTL_INS_AFTER, &dest_me_h));
 
     /* attach the dest memory descriptor */
     GASNETC_PTLSAFE(PtlMDAttach(dest_me_h, dest_md, PTL_RETAIN, &dest_h));
@@ -2446,7 +2444,7 @@ extern void gasnetc_bootstrapBroadcast(void *src, size_t len, void *dest, int ro
     for (i=0; i<children; ++i) {
       gasnet_node_t child = left_child_rank + rootnode + i;
       if (child >= gasneti_nodes) child -= gasneti_nodes; /* child %= gasneti_nodes */
-      GASNETC_PTLSAFE(PtlPut(src_h,PTL_NOACK_REQ, gasnetc_procid_map[child].ptl_id,GASNETC_PTL_AM_PTE,GASNETC_PTL_AC_ID,match_bits,0,0));
+      GASNETC_PTLSAFE(PtlPut(src_h,PTL_NOACK_REQ, gasnetc_procid_map[child].ptl_id,GASNETC_PTL_AM_PTE,GASNETC_PTL_AC_ID,GASNETC_PTL_BOOT_BITS,0,0));
     }
 
     /* wait for completion of puts */
@@ -2467,7 +2465,17 @@ extern void gasnetc_bootstrapBroadcast(void *src, size_t len, void *dest, int ro
   }
 
   /* reclaim the event queue */
-  GASNETC_PTLSAFE(PtlEQFree(eq_h));
+  rc = PtlEQFree(eq_h);
+  if_pf (rc == PTL_EQ_IN_USE) { /* XXX: Not sure what causes this - it is not in Portals Spec */
+    int i;
+    for (i = 0; i < 4; ++i) { /* bounded retry */
+      rc = PtlEQGet(eq_h, &ev);
+      if (rc == PTL_OK) {
+        gasneti_fatalerror("Unexpected event at end of bootBroadcast w/ mbits=%p\n",(void*)ev.match_bits);
+      }
+      if (PtlEQFree(eq_h) == PTL_OK) break;
+    }
+  }
 
   if (!local_rank && (dest != src)) {
     memcpy(dest, src, len);
@@ -2491,8 +2499,6 @@ extern void gasnetc_bootstrapExchange(void *src, size_t len, void *dest)
   ptl_handle_eq_t eq_h;
   ptl_event_t ev;
   const int eq_len = 64; /* 32 PUT_END + 32 SEND_END worst case */
-  const ptl_match_bits_t match_bits  = 0xF0F0F0F0F0F0F0F0;
-  const ptl_match_bits_t ignore_bits = 0x0000000000000000;
   ptl_hdr_data_t rcvd = 0;
   ptl_hdr_data_t goal = 0;
   ptl_hdr_data_t hdr_data = 1;
@@ -2518,7 +2524,7 @@ extern void gasnetc_bootstrapExchange(void *src, size_t len, void *dest)
   temp_md.eq_handle = eq_h;
 
   /* construct the match entry */
-  GASNETC_PTLSAFE(PtlMEAttach(gasnetc_ni_h, GASNETC_PTL_AM_PTE, gasnetc_any_id, match_bits, ignore_bits, PTL_UNLINK, PTL_INS_AFTER, &temp_me_h));
+  GASNETC_PTLSAFE(PtlMEAttach(gasnetc_ni_h, GASNETC_PTL_AM_PTE, gasnetc_any_id, GASNETC_PTL_BOOT_BITS, GASNETC_PTL_IGNORE_BITS, PTL_UNLINK, PTL_INS_AFTER, &temp_me_h));
 
   /* attach the temp memory descriptor */
   GASNETC_PTLSAFE(PtlMDAttach(temp_me_h, temp_md, PTL_RETAIN, &temp_h));
@@ -2538,7 +2544,7 @@ extern void gasnetc_bootstrapExchange(void *src, size_t len, void *dest)
 
     to_xfer = len * MIN(distance, gasneti_nodes - distance);
     GASNETC_PTLSAFE(PtlPutRegion(temp_h, 0, to_xfer, PTL_NOACK_REQ, gasnetc_procid_map[peer].ptl_id,
-                                 GASNETC_PTL_AM_PTE, GASNETC_PTL_AC_ID, match_bits, offset, hdr_data));
+                                 GASNETC_PTL_AM_PTE, GASNETC_PTL_AC_ID, GASNETC_PTL_BOOT_BITS, offset, hdr_data));
     sends += 1;
 
     /* wait for completion of the proper receive, and keep count of uncompleted sends.
@@ -2585,7 +2591,17 @@ extern void gasnetc_bootstrapExchange(void *src, size_t len, void *dest)
   }
 
   /* reclaim the event queue */
-  GASNETC_PTLSAFE(PtlEQFree(eq_h));
+  rc = PtlEQFree(eq_h);
+  if_pf (rc == PTL_EQ_IN_USE) { /* XXX: Not sure what causes this - it is not in Portals Spec */
+    int i;
+    for (i = 0; i < 4; ++i) { /* bounded retry */
+      rc = PtlEQGet(eq_h, &ev);
+      if (rc == PTL_OK) {
+        gasneti_fatalerror("Unexpected event at end of bootExchange w/ mbits=%p\n",(void*)ev.match_bits);
+      }
+      if (PtlEQFree(eq_h) == PTL_OK) break;
+    }
+  }
 
   /* now rotate into final position */
   memcpy(dest, (uint8_t*)temp + len * (gasneti_nodes - gasneti_mynode), len * gasneti_mynode);
