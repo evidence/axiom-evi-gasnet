@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2010/05/01 06:20:29 $
- * $Revision: 1.45 $
+ *     $Date: 2010/05/02 23:04:12 $
+ * $Revision: 1.46 $
  * Description: GASNet portals conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *                 Michael Welcome <mlwelcome@lbl.gov>
@@ -427,8 +427,7 @@ extern void gasnetc_exit(int exitcode) {
     if (cnt < gasneti_nodes) {
       /* have not heard back from some nodes, terminate job */
       printf("[%d] In shutdown, Only %d/%d nodes responded after %lu milliseconds\n",gasneti_mynode,cnt,gasneti_nodes,(stoptime-starttime)/1000000);
-      gasneti_reghandler(SIGINT,SIG_DFL);  /* SIGINT causes launcher to kill job */
-      raise(SIGINT);
+      raise(SIGKILL); /* Fatal signal causes launcher to kill job */
     }
   }
 #else
@@ -437,8 +436,10 @@ extern void gasnetc_exit(int exitcode) {
 
   if (gasnetc_sys_exit(&exitcode)) {
     printf("[%d] Failed to coordinate shutdown after %lu milliseconds\n",gasneti_mynode,(unsigned long)(1e3*gasnetc_shutdown_seconds));
-    gasneti_reghandler(SIGINT,SIG_DFL);  /* SIGINT causes launcher to kill job */
-    raise(SIGINT);
+    /* Death of any process by a fatal signal will cause launcher to kill entire job.
+     * We don't use INT or TERM since one could be blocked if we are in its handler. */
+    raise(SIGKILL);
+    gasneti_killmyprocess(exitcode); /* last chance */
   }
 #endif
 
