@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2010/05/02 23:04:12 $
- * $Revision: 1.46 $
+ *     $Date: 2010/05/02 23:24:00 $
+ * $Revision: 1.47 $
  * Description: GASNet portals conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *                 Michael Welcome <mlwelcome@lbl.gov>
@@ -434,6 +434,11 @@ extern void gasnetc_exit(int exitcode) {
   /* dump final credit state (if compiled with GASNETC_CREDIT_TESTING flag) */
   GASNETC_DUMP_CREDITS(gasneti_weakatomic_read(&gasnetc_AMRequest_count,0));
 
+  #if PLATFORM_OS_CNL /* Never had a chance to test for alarm() on Catamount */
+    gasneti_reghandler(SIGALRM, SIG_DFL);
+    alarm(2 + gasnetc_shutdown_seconds);
+  #endif
+
   if (gasnetc_sys_exit(&exitcode)) {
     printf("[%d] Failed to coordinate shutdown after %lu milliseconds\n",gasneti_mynode,(unsigned long)(1e3*gasnetc_shutdown_seconds));
     /* Death of any process by a fatal signal will cause launcher to kill entire job.
@@ -441,6 +446,11 @@ extern void gasnetc_exit(int exitcode) {
     raise(SIGKILL);
     gasneti_killmyprocess(exitcode); /* last chance */
   }
+
+  #if PLATFORM_OS_CNL
+    alarm(0);
+  #endif
+
 #endif
 
   /* if we got here, this is a clean shutdown.  Clean up portals resources */
