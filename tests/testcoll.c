@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcoll.c,v $
- *     $Date: 2010/05/05 15:24:21 $
- * $Revision: 1.41 $
+ *     $Date: 2010/05/07 02:57:17 $
+ * $Revision: 1.42 $
  * Description: GASNet collectives test
  * Copyright 2002-2004, Jaein Jeong and Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -214,7 +214,7 @@ void PREFIX##_ALLALL(int root, thread_data_t *td) {                          \
 	     FLAGS | GASNET_COLL_IN_ALLSYNC | GASNET_COLL_OUT_ALLSYNC);      \
 	gasnet_get(&tmp, peerproc, REMOTE(A,peerthread), sizeof(int));       \
 	if (tmp != R[j]) {                                                   \
-	    MSG("ERROR: %s broadcast validation failed (my node %d, tmp %d, R[%d]=%d)", name, mythread, tmp, j, R[j]);              \
+	    MSG("ERROR: %s broadcast validation failed", name);              \
 	    gasnet_exit(1);                                                  \
 	}                                                                    \
 	tmp = peerthread;                                                    \
