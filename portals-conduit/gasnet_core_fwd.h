@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_core_fwd.h,v $
- *     $Date: 2010/04/30 17:25:16 $
- * $Revision: 1.22 $
+ *     $Date: 2010/05/13 23:23:57 $
+ * $Revision: 1.23 $
  * Description: GASNet header for PORTALS conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -13,7 +13,7 @@
 #ifndef _GASNET_CORE_FWD_H
 #define _GASNET_CORE_FWD_H
 
-#define GASNET_CORE_VERSION      1.3
+#define GASNET_CORE_VERSION      1.4
 #define GASNET_CORE_VERSION_STR  _STRINGIFY(GASNET_CORE_VERSION)
 #define GASNET_CORE_NAME         PORTALS
 #define GASNET_CORE_NAME_STR     _STRINGIFY(GASNET_CORE_NAME)
