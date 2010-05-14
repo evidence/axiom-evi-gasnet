@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2010/05/14 22:20:10 $
- * $Revision: 1.96 $
+ *     $Date: 2010/05/14 22:23:26 $
+ * $Revision: 1.97 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -303,7 +303,7 @@ GASNETI_BEGIN_EXTERNC
  #endif
 /* ------------------------------------------------------------------------------------ */
 #elif (PLATFORM_OS_LINUX || PLATFORM_OS_CNL || PLATFORM_OS_CATAMOUNT || PLATFORM_OS_OPENBSD || \
-       GASNETI_HAVE_SYSCTL_MACHDEP_TSC_FREQ && \
+       GASNETI_HAVE_SYSCTL_MACHDEP_TSC_FREQ) && \
      (PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_INTEL || PLATFORM_COMPILER_SUN || \
       PLATFORM_COMPILER_PATHSCALE || PLATFORM_COMPILER_PGI || PLATFORM_COMPILER_TINY || \
       PLATFORM_COMPILER_OPEN64 || PLATFORM_COMPILER_CRAY) && \
