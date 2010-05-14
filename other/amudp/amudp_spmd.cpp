@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_spmd.cpp,v $
- *     $Date: 2009/12/09 01:50:45 $
- * $Revision: 1.42 $
+ *     $Date: 2010/05/14 04:09:23 $
+ * $Revision: 1.43 $
  * Description: AMUDP Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -548,6 +548,10 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
       int numset; // helpers for coord socket
       SOCKET *tempSockArr = (SOCKET*)AMUDP_malloc(sizeof(SOCKET)*AMUDP_SPMDNUMPROCS);
       while (1) {
+       #ifdef FD_SETSIZE /* Should always be present, but just in case */
+        if (allList.getMaxFd() >= FD_SETSIZE)
+          AMUDP_FatalErr("Open sockets exceed FD_SETSIZE. Exiting...");
+       #endif
         allList.makeFD_SET(psockset);
 
         if (select(allList.getMaxFd()+1, psockset, NULL, NULL, NULL) == -1) { // block for activity
