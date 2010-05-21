@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcore4.c,v $
- *     $Date: 2010/04/26 15:38:30 $
- * $Revision: 1.7 $
+ *     $Date: 2010/05/21 03:39:32 $
+ * $Revision: 1.8 $
  * Description: GASNet Active Messages conformance/correctness test
  * Copyright (c) 2010, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -122,7 +122,7 @@ enum {
         DO_CALL(gasnet_AMReplyLong##args, LARGS(token,args,1));    \
         break;                                                     \
       default:                                                     \
-        FATALERR("Invalid operation = %d", operation);             \
+        FATALERR("Invalid operation = %d", (int)operation);        \
     }                                                              \
   } while(0);
 #define HDEFN(args) \

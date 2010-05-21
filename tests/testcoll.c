@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcoll.c,v $
- *     $Date: 2010/05/07 02:57:17 $
- * $Revision: 1.42 $
+ *     $Date: 2010/05/21 03:39:32 $
+ * $Revision: 1.43 $
  * Description: GASNet collectives test
  * Copyright 2002-2004, Jaein Jeong and Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -112,7 +112,7 @@ void PREFIX##_NONO(int root, thread_data_t *td) {                            \
 	if (mythread == root) {                                              \
 	    for (i = 0; i < images; ++i) {                                   \
 		if (LOCAL(C)[i] != i) {                                      \
-		    MSG("ERROR: %s gather validation failed %d %d", name, LOCAL(C)[i], i);         \
+		    MSG("ERROR: %s gather validation failed %d %d", name, LOCAL(C)[i], (int)i);\
 		    gasnet_exit(1);                                          \
 		}                                                            \
 	    }                                                                \
