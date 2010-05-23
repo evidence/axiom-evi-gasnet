@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/gasnet_core.c,v $
- *     $Date: 2010/04/23 03:03:51 $
- * $Revision: 1.83 $
+ *     $Date: 2010/05/23 03:42:57 $
+ * $Revision: 1.84 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -71,6 +71,12 @@ static void gasnetc_check_config(void) {
   gasneti_assert(GASNET_ERR_NOT_INIT == AM_ERR_NOT_INIT);
   gasneti_assert(GASNET_ERR_RESOURCE == AM_ERR_RESOURCE);
   gasneti_assert(GASNET_ERR_BAD_ARG  == AM_ERR_BAD_ARG);
+
+#if GASNET_PSHM
+  gasneti_assert(gasnetc_Short  == ammpi_Short);
+  gasneti_assert(gasnetc_Medium == ammpi_Medium);
+  gasneti_assert(gasnetc_Long   == ammpi_Long);
+#endif
 }
 
 void gasnetc_bootstrapBarrier(void) {
@@ -1052,6 +1058,27 @@ extern int  gasnetc_hsl_trylock(gasnet_hsl_t *hsl) {
 }
 #endif
 
+#if GASNETC_HSL_ERRCHECK && !GASNETC_NULL_HSL
+  extern void gasnetc_enteringHandler_hook_hsl(int cat, int isReq, int handlerId, gasnet_token_t token, 
+                                               void *buf, size_t nbytes, int numargs,
+                                               gasnet_handlerarg_t *args) {
+    gasnetc_hsl_errcheckinfo_t *info = gasnetc_get_errcheckinfo();
+    if (info->locksheld)
+        gasneti_fatalerror("HSL USAGE VIOLATION: tried to make a GASNet network call while holding an HSL");
+    if (info->inExplicitNIS)
+        gasneti_fatalerror("HSL USAGE VIOLATION: tried to make a GASNet network call with interrupts disabled");
+    info->inhandler++;
+  }
+  extern void gasnetc_leavingHandler_hook_hsl(int cat, int isReq) {
+    gasnetc_hsl_errcheckinfo_t *info = gasnetc_get_errcheckinfo();
+    gasneti_assert(info->inhandler > 0);
+    gasneti_assert(!info->inExplicitNIS);
+    if (info->locksheld)
+        gasneti_fatalerror("HSL USAGE VIOLATION: tried to exit a handler while holding an HSL");
+    info->inhandler--;
+  }
+#endif /* GASNETC_HSL_ERRCHECK && !GASNETC_NULL_HSL */
+
 #if (!GASNETC_NULL_HSL && GASNETC_HSL_ERRCHECK) || GASNET_TRACE
   /* called when entering/leaving handler - also called when entering/leaving AM_Reply call */
   extern void gasnetc_enteringHandler_hook(ammpi_category_t cat, int isReq, int handlerId, void *token, 
@@ -1072,14 +1099,8 @@ extern int  gasnetc_hsl_trylock(gasnet_hsl_t *hsl) {
       default: gasneti_fatalerror("Unknown handler type in gasnetc_enteringHandler_hook(): %i", cat);
     }
     #if (!GASNETC_NULL_HSL && GASNETC_HSL_ERRCHECK)
-    {
-      gasnetc_hsl_errcheckinfo_t *info = gasnetc_get_errcheckinfo();
-      if (info->locksheld)
-          gasneti_fatalerror("HSL USAGE VIOLATION: tried to make a GASNet network call while holding an HSL");
-      if (info->inExplicitNIS)
-          gasneti_fatalerror("HSL USAGE VIOLATION: tried to make a GASNet network call with interrupts disabled");
-      info->inhandler++;
-    }
+      gasnetc_enteringHandler_hook_hsl(cat, isReq, handlerId, token, buf, nbytes,
+                                       numargs, (gasnet_handlerarg_t *)args);
     #endif
   }
   extern void gasnetc_leavingHandler_hook(ammpi_category_t cat, int isReq) {
@@ -1096,14 +1117,7 @@ extern int  gasnetc_hsl_trylock(gasnet_hsl_t *hsl) {
       default: gasneti_fatalerror("Unknown handler type in gasnetc_leavingHandler_hook(): %i", cat);
     }
     #if (!GASNETC_NULL_HSL && GASNETC_HSL_ERRCHECK)
-    {
-      gasnetc_hsl_errcheckinfo_t *info = gasnetc_get_errcheckinfo();
-      gasneti_assert(info->inhandler > 0);
-      gasneti_assert(!info->inExplicitNIS);
-      if (info->locksheld)
-          gasneti_fatalerror("HSL USAGE VIOLATION: tried to exit a handler while holding an HSL");
-      info->inhandler--;
-    }
+      gasnetc_leavingHandler_hook_hsl(cat, isReq);
     #endif
   }
 #endif
