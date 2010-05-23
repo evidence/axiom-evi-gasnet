@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.c,v $
- *     $Date: 2010/04/04 06:57:36 $
- * $Revision: 1.8 $
+ *     $Date: 2010/05/23 00:19:01 $
+ * $Revision: 1.9 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -1035,6 +1035,18 @@ static void gasneti_pshmnet_free(gasneti_pshmnet_allocator_t *a, void *p)
 
 #define GASNETI_AMPSHM_MAX_RECVMSGS_PER_POLL 10
 
+#ifndef GASNETC_ENTERING_HANDLER_HOOK
+  /* extern void enterHook(int cat, int isReq, int handlerId, gasnet_token_t *token,
+   *                       void *buf, size_t nbytes, int numargs, gasnet_handlerarg_t *args);
+   */
+  #define GASNETC_ENTERING_HANDLER_HOOK(cat,isReq,handlerId,token,buf,nbytes,numargs,args) ((void)0)
+#endif
+#ifndef GASNETC_LEAVING_HANDLER_HOOK
+  /* extern void leaveHook(int cat, int isReq);
+   */
+  #define GASNETC_LEAVING_HANDLER_HOOK(cat,isReq) ((void)0)
+#endif
+
 /* ------------------------------------------------------------------------------------ */
 GASNETI_INLINE(gasneti_AMPSHM_service_incoming_msg)
 int gasneti_AMPSHM_service_incoming_msg(gasneti_pshmnet_t *vnet, int isReq)
@@ -1067,6 +1079,7 @@ int gasneti_AMPSHM_service_incoming_msg(gasneti_pshmnet_t *vnet, int isReq)
   switch (category) {
     case gasnetc_Short:
       { 
+        GASNETC_ENTERING_HANDLER_HOOK(category,isReq,handler_id,token,NULL,0,numargs,args);
         GASNETI_RUN_HANDLER_SHORT(isReq,handler_id,handler_fn,token,args,numargs);
       }
       break;
@@ -1074,6 +1087,7 @@ int gasneti_AMPSHM_service_incoming_msg(gasneti_pshmnet_t *vnet, int isReq)
       {
         void * data = GASNETI_AMPSHM_MSG_MED_DATA(msg);
         size_t nbytes = GASNETI_AMPSHM_MSG_MED_NUMBYTES(msg);
+        GASNETC_ENTERING_HANDLER_HOOK(category,isReq,handler_id,token,data,nbytes,numargs,args);
         GASNETI_RUN_HANDLER_MEDIUM(
           isReq,handler_id,handler_fn,token,args,numargs,data,nbytes);
       }
@@ -1082,11 +1096,13 @@ int gasneti_AMPSHM_service_incoming_msg(gasneti_pshmnet_t *vnet, int isReq)
       { 
         void * data = GASNETI_AMPSHM_MSG_LONG_DATA(msg);
         size_t nbytes = GASNETI_AMPSHM_MSG_LONG_NUMBYTES(msg);
+        GASNETC_ENTERING_HANDLER_HOOK(category,isReq,handler_id,token,data,nbytes,numargs,args);
         GASNETI_RUN_HANDLER_LONG(
             isReq,handler_id,handler_fn,token,args,numargs,data,nbytes);
       }
       break;
   }
+  GASNETC_LEAVING_HANDLER_HOOK(category,isReq);
   gasnetc_token_destroy(token);
   gasneti_pshmnet_recv_release(vnet, msg);
   return 0;
@@ -1221,19 +1237,24 @@ int gasnetc_AMPSHM_ReqRepGeneric(int category, int isReq, gasnet_node_t dest,
     gasnet_handlerarg_t *args = GASNETI_AMPSHM_MSG_ARGS(msg);
     switch (category) {
       case gasnetc_Short:
+        GASNETC_ENTERING_HANDLER_HOOK(category,isReq,handler,token,NULL,0,numargs,args);
         GASNETI_RUN_HANDLER_SHORT(isReq,handler,handler_fn,token,args,numargs);
 
         break;
       case gasnetc_Medium:
+        GASNETC_ENTERING_HANDLER_HOOK(category,isReq,handler,token,
+                                      GASNETI_AMPSHM_MSG_MED_DATA(msg),nbytes,numargs,args);
         GASNETI_RUN_HANDLER_MEDIUM(isReq, handler, handler_fn, token, args, numargs,
                                    GASNETI_AMPSHM_MSG_MED_DATA(msg), nbytes);
         break;
       case gasnetc_Long:
         gasneti_local_wmb(); /* sync memcpy, above */
+        GASNETC_ENTERING_HANDLER_HOOK(category,isReq,handler,token,dest_addr,nbytes,numargs,args);
         GASNETI_RUN_HANDLER_LONG(isReq, handler, handler_fn, token, args, numargs,
                                  dest_addr, nbytes);
         break;
     }
+    GASNETC_LEAVING_HANDLER_HOOK(category,isReq);
     gasneti_lifo_push(&loopback_freepool, msg);
     gasnetc_token_destroy(token);
   } else {
