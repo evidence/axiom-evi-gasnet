@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.c,v $
- *     $Date: 2010/06/04 15:08:19 $
- * $Revision: 1.12 $
+ *     $Date: 2010/06/04 16:11:38 $
+ * $Revision: 1.13 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -483,8 +483,7 @@ static void gasneti_pshmnet_free(gasneti_pshmnet_allocator_t *a, void *p);
  */
 struct gasneti_pshmnet {
   gasneti_pshm_rank_t nodecount;    /* nodes in supernode */ 
-  gasneti_pshm_rank_t nextindex;    /* index of next node to check for msgs */
-  gasneti_mutex_t index_lock;       /* protects updates to nextindex */
+  gasneti_weakatomic_t nextindex;   /* index of next node to check for msgs */
   /* arrays of queue pointers and their locks */
   gasneti_pshmnet_queue_t *in_queues;
   gasneti_pshmnet_queue_t *out_queues;
@@ -590,8 +589,8 @@ static void gasneti_pshmnet_init_my_pshm(gasneti_pshmnet_t *pvnet, void *myregio
   alloc_region = (void*) round_up_to_pshmpage(mymsgs);
   pvnet->my_allocator = 
     gasneti_pshmnet_init_allocator(alloc_region, gasneti_pshmnet_queue_mem);
-  pvnet->nextindex = 0;
-  gasneti_mutex_init(&pvnet->index_lock);
+  gasneti_assert(nodes <= GASNETI_ATOMIC_SIGNED_MAX);
+  gasneti_weakatomic_set(&pvnet->nextindex, 0, 0);
 }
 
 /* Initializes the pshmnet region. Called from each node twice: 
@@ -723,14 +722,20 @@ int gasneti_pshmnet_recv(gasneti_pshmnet_t *vnet, void **pbuf, size_t *psize,
     int tmp, nodeindex;
 
     /* Ensure fairness: next check starts with next node.
-       XXX: Mutex not strictly needed if we allow approximate fairness
+       There is a small multithread race here.  However, it is harmless
+       because the worst that happens is that multiple threads will
+       concurrently poll the same node.  Even then the 'nextindex' will
+       still advance eventually.
      */
-    gasneti_mutex_lock(&vnet->index_lock);
-      nodeindex = vnet->nextindex;
-      tmp = nodeindex + 1;
-      if (tmp == nodecount) tmp = 0;
-      vnet->nextindex = tmp;
-    gasneti_mutex_unlock(&vnet->index_lock);
+    nodeindex = gasneti_weakatomic_read(&vnet->nextindex, 0);
+    tmp = nodeindex + 1;
+    if (tmp == nodecount) tmp = 0;
+#if GASNET_PAR
+    /* CAS ensures we don't move backwards if we are delayed */
+    (void)gasneti_weakatomic_compare_and_swap(&vnet->nextindex, nodeindex, tmp, 0);
+#else
+    gasneti_weakatomic_set(&vnet->nextindex, tmp, 0);
+#endif
  
     if (nodeindex != gasneti_pshm_mynode) {
       gasneti_pshmnet_queue_t *q = &vnet->in_queues[nodeindex];
