@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.c,v $
- *     $Date: 2010/05/24 20:06:17 $
- * $Revision: 1.11 $
+ *     $Date: 2010/06/04 15:08:19 $
+ * $Revision: 1.12 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -374,19 +374,34 @@ enum {
 /* Used in place of NULL, since zero-offset is legal */
 #define GASNETI_PSHMNET_MSG_NULL ((gasneti_pshmnet_msg_t *)(~(uintptr_t)0))
 
+/* Must read and write queue pointers atomically to avoid word-tearing.
+   This matters, for instance, on MacOSX on PPC64 where even the
+   LP64 ABI allows for 8-byte quantities w/ 4-byte alignment.
+   In all "reasonable" cases read/write will be just raw load/store.
+ */
+#if PLATFORM_ARCH_32
+  typedef gasneti_weakatomic32_t              gasneti_pshm_qptr_t;
+  #define gasneti_pshm_qptr_write(_p,_v)      gasneti_weakatomic32_set(_p,(uintptr_t)(_v),0)
+  #define gasneti_pshm_qptr_read(_p)          ((void*)(uintptr_t)gasneti_weakatomic32_read(_p,0))
+#elif PLATFORM_ARCH_64
+  typedef gasneti_weakatomic64_t              gasneti_pshm_qptr_t;
+  #define gasneti_pshm_qptr_write(_p,_v)      gasneti_weakatomic64_set(_p,(uintptr_t)(_v),0)
+  #define gasneti_pshm_qptr_read(_p)          ((void*)(uintptr_t)gasneti_weakatomic64_read(_p,0))
+#else
+  #error "Unknown pointer size"
+#endif
+
 /* Circular queue of info about messages received or sent */
 typedef struct gasneti_pshmnet_queue {
   /* Only need to lock queue ptr if client multithreaded */
-  gasneti_mutex_t lock;
-  gasneti_pshmnet_msg_t *next;
+  gasneti_pshm_qptr_t    next;
   gasneti_pshmnet_msg_t *queue;
   gasneti_pshmnet_msg_t *justpastlast;
   #if 1
     /* See above comment about cache alignment.  Not that we might not
      * get perfect cache line alignment, since internal padding might
      * cause us to add too much (but never too little) padding here */
-    char _pad[GASNETI_CACHE_PAD(sizeof(void *)*3
-                               +sizeof(gasneti_mutex_t))];
+    char _pad[GASNETI_CACHE_PAD(sizeof(void *)*3)];
   #else
     char _pad[GASNETI_CACHE_LINE_BYTES];
   #endif
@@ -627,12 +642,12 @@ gasneti_pshmnet_init(void *start, size_t nbytes, gasneti_pshm_rank_t pshmnodes)
       gasneti_pshmnet_msg_t *in_queue = in_msgs + gasneti_pshmnet_queue_depth * (i - more);
       gasneti_pshmnet_msg_t *out_queue = out_msgs + gasneti_pshmnet_queue_depth * (gasneti_pshm_mynode - !more);
 
-      gasneti_mutex_init(&vnet->in_queues[i].lock);
-      vnet->in_queues[i].next = vnet->in_queues[i].queue = in_queue;
+      vnet->in_queues[i].queue = in_queue;
+      gasneti_pshm_qptr_write(&vnet->in_queues[i].next, in_queue);
       vnet->in_queues[i].justpastlast = in_queue + gasneti_pshmnet_queue_depth;
 
-      gasneti_mutex_init(&vnet->out_queues[i].lock);
-      vnet->out_queues[i].next = vnet->out_queues[i].queue = out_queue;
+      vnet->out_queues[i].queue = out_queue;
+      gasneti_pshm_qptr_write(&vnet->out_queues[i].next, out_queue);
       vnet->out_queues[i].justpastlast = out_queue + gasneti_pshmnet_queue_depth;
     }
   }
@@ -663,22 +678,24 @@ int gasneti_pshmnet_deliver_send_buffer(gasneti_pshmnet_t *vnet, void *buf,
                                         size_t nbytes, gasneti_pshm_rank_t target)
 {
   int retval = -1;
-  gasneti_pshmnet_msg_t *q_send_next;
   gasneti_pshmnet_payload_t *p;
   gasneti_pshmnet_queue_t *q = &vnet->out_queues[target];
-
-  gasneti_mutex_lock(&q->lock);
-  
-  q_send_next = q->next;
+  gasneti_pshmnet_msg_t * const q_send_next = gasneti_pshm_qptr_read(&q->next);
 
    /* This code assumes that if the current 'send_node' isn't free yet, there
    * are no free slots in the recipient's queue.  Since there is only one
    * sender, one receiver, and the receiver consumes messages in order, this
    * should be true, so no scan over the list is needed. */
-  if (gasneti_atomic_read(&q_send_next->state, 0) == GASNETI_PSHMNET_EMPTY) {
-    retval = 0;
+  if (gasneti_atomic_compare_and_swap(&q_send_next->state, GASNETI_PSHMNET_EMPTY,
+                                      GASNETI_PSHMNET_BUSY, GASNETI_ATOMIC_ACQ_IF_TRUE /* ACQ needed? */)) {
+    /* Advance q->next (logic is the same regardless of addr vs. offset) */
+    gasneti_pshmnet_msg_t *tmp = q_send_next + 1;
+    if (tmp == q->justpastlast)
+      tmp = q->queue;
+    gasneti_pshm_qptr_write(&q->next, tmp);
+
     /* fill in message info. Instead of buf we use offset since it
-     * will be read by another node wich does not have identical pshmnet
+     * will be read by another node which does not have identical pshmnet
      * memory mapping */
     q_send_next->addr = gasneti_pshm_offset(buf);
     q_send_next->len = nbytes;
@@ -688,13 +705,10 @@ int gasneti_pshmnet_deliver_send_buffer(gasneti_pshmnet_t *vnet, void *buf,
     p->msg = gasneti_pshm_offset(q_send_next);
     /* Perform write flush before writing ready bit */
     gasneti_atomic_set(&q_send_next->state, GASNETI_PSHMNET_FULL, GASNETI_ATOMIC_REL);
-    /* Advance q->next (logic is the same regardless of addr vs. offset) */
-    if (++q->next == q->justpastlast)
-      q->next = q->queue;
+
+    retval = 0;
   }
  
-  gasneti_mutex_unlock(&q->lock);
-
   return retval;
 }
 
@@ -708,7 +722,9 @@ int gasneti_pshmnet_recv(gasneti_pshmnet_t *vnet, void **pbuf, size_t *psize,
   for (i = 0; i < nodecount; i++) {
     int tmp, nodeindex;
 
-    /* Ensure fairness: next check starts with next node. */
+    /* Ensure fairness: next check starts with next node.
+       XXX: Mutex not strictly needed if we allow approximate fairness
+     */
     gasneti_mutex_lock(&vnet->index_lock);
       nodeindex = vnet->nextindex;
       tmp = nodeindex + 1;
@@ -718,28 +734,23 @@ int gasneti_pshmnet_recv(gasneti_pshmnet_t *vnet, void **pbuf, size_t *psize,
  
     if (nodeindex != gasneti_pshm_mynode) {
       gasneti_pshmnet_queue_t *q = &vnet->in_queues[nodeindex];
-      gasneti_pshmnet_msg_t *q_recv_next;
-      
-      gasneti_mutex_lock(&q->lock);
-
-      q_recv_next = q->next;
+      gasneti_pshmnet_msg_t * const q_recv_next = gasneti_pshm_qptr_read(&q->next);
       
       if (gasneti_atomic_compare_and_swap(&q_recv_next->state, GASNETI_PSHMNET_FULL,
                                           GASNETI_PSHMNET_BUSY, GASNETI_ATOMIC_ACQ_IF_TRUE)) {
+        /* Advance q->next (logic is the same regardless of addr vs. offset) */
+        gasneti_pshmnet_msg_t *tmp = q_recv_next + 1;
+        if (tmp == q->justpastlast)
+           tmp = q->queue;
+        gasneti_pshm_qptr_write(&q->next, tmp);
+
         /* Transform the offset in q_recv_next->addr into a real address */
         *pbuf = gasneti_pshm_addr(q_recv_next->addr);
         *psize = q_recv_next->len;
 
-        /* Advance q->next (logic is the same regardless of addr vs. offset) */
-        if (++q->next == q->justpastlast)
-           q->next = q->queue;
-
-        gasneti_mutex_unlock(&q->lock);
         *from = nodeindex;
         return 0;
       }
-        
-      gasneti_mutex_unlock(&q->lock);
     }
   }
   
