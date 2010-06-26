@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_internal.h,v $
- *     $Date: 2010/04/26 05:11:48 $
- * $Revision: 1.37 $
+ *     $Date: 2010/06/26 02:08:22 $
+ * $Revision: 1.38 $
  * Description: AMUDP internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -148,7 +148,9 @@ extern uint32_t AMUDP_ExpectedBandwidth; /* expected half-duplex bandwidth in KB
     #define PREDICT_TRUE(exp)  (exp)
     #define PREDICT_FALSE(exp) (exp)
   #endif
+#endif
 
+#ifndef if_pf
   /* if with branch prediction */
   #define if_pf(cond) if (PREDICT_FALSE(cond))
   #define if_pt(cond) if (PREDICT_TRUE(cond))
