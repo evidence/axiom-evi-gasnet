@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/template-conduit/Makefile.am,v $
-#     $Date: 2010/06/03 02:25:46 $
-# $Revision: 1.35 $
+#     $Date: 2010/06/26 21:14:00 $
+# $Revision: 1.36 $
 # Description: Makefile for GASNet <conduitname> conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -35,9 +35,6 @@ CONDUIT_EXTRALIBCFLAGS =
 
 # additional conduit header files to install from external, non-standard directories
 CONDUIT_EXTRAHEADERS = 
-
-# headers selected by default rules that should NOT be installed
-CONDUIT_PRIVATEHEADERS =
 
 # headers selected by default rules that should NOT be installed
 CONDUIT_PRIVATEHEADERS =
