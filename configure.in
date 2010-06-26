@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2010/06/23 04:17:52 $
-# $Revision: 1.636 $
+#     $Date: 2010/06/26 21:11:56 $
+# $Revision: 1.637 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.636 $)
+AC_REVISION($Revision: 1.637 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1139,7 +1139,7 @@ if test "$enabled_pshm" = yes; then
       AC_MSG_CHECKING([for working shm_open()])
       # To the best of my knowledge CNL, Catamount, and BG/L all lack
       # working shm_open() support, though at least CNL finds the symbol.
-      # Out support on BG/P is marginal at the moment.
+      # Our support on BG/P is marginal at the moment (see pshm-design.txt).
       # So, we default to NO shm_open() when cross-compiling. -PHH
       # One can set CROSS_HAVE_SHM_OPEN=1 to force building for PSHM.
       if test "x$CROSS_HAVE_SHM_OPEN" = x1; then
