@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/Makefile.am,v $
-#     $Date: 2010/06/03 02:25:30 $
-# $Revision: 1.9 $
+#     $Date: 2010/06/26 21:52:49 $
+# $Revision: 1.10 $
 # Description: Makefile for GASNet ibv conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -82,7 +82,7 @@ CONDUIT_EXTRALIBCFLAGS = -I@IBV_INCLUDE@ -I$(vapi_srcdir) $(fh_extralibcflags) $
 CONDUIT_EXTRAHEADERS = $(vapi_install_hdrs) $(fh_extraheaders)
 
 # headers selected by default rules that should NOT be installed
-CONDUIT_PRIVATEHEADERS =
+CONDUIT_PRIVATEHEADERS = $(fh_privheaders)
 
 # additional file dependencies not mentioned elsewhere 
 # that should force libgasnet rebuild on update

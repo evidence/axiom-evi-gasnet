@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/Makefile.am,v $
-#     $Date: 2010/06/03 02:25:50 $
-# $Revision: 1.48 $
+#     $Date: 2010/06/26 21:52:57 $
+# $Revision: 1.49 $
 # Description: Makefile for GASNet vapi conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -85,7 +85,7 @@ CONDUIT_EXTRALIBCFLAGS = -I@VAPI_INCLUDE@ $(fh_extralibcflags) $(ssh_defines) $(
 CONDUIT_EXTRAHEADERS = $(fh_extraheaders)
 
 # headers selected by default rules that should NOT be installed
-CONDUIT_PRIVATEHEADERS = firehose_fwd.h
+CONDUIT_PRIVATEHEADERS = $(fh_privheaders)
 
 # additional file dependencies not mentioned elsewhere 
 # that should force libgasnet rebuild on update
