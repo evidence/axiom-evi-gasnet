@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_internal.h,v $
- *     $Date: 2010/06/26 02:08:22 $
- * $Revision: 1.38 $
+ *     $Date: 2010/06/26 03:46:40 $
+ * $Revision: 1.39 $
  * Description: AMUDP internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -141,7 +141,10 @@ extern uint32_t AMUDP_ExpectedBandwidth; /* expected half-duplex bandwidth in KB
    in one direction and the branch is a bottleneck
  */
 #ifndef PREDICT_TRUE
-  #if defined(__GNUC__) && __GNUC__ >= 3 && 0
+  #if defined(GASNETT_PREDICT_TRUE)
+   #define PREDICT_TRUE(exp)  GASNETT_PREDICT_TRUE(exp)
+   #define PREDICT_FALSE(exp) GASNETT_PREDICT_FALSE(exp)
+  #elif defined(__GNUC__) && __GNUC__ >= 3 && 0
     #define PREDICT_TRUE(exp)  __builtin_expect( (exp), 1 )
     #define PREDICT_FALSE(exp) __builtin_expect( (exp), 0 )
   #else
