@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.c,v $
- *     $Date: 2010/06/04 23:41:27 $
- * $Revision: 1.15 $
+ *     $Date: 2010/06/26 21:26:21 $
+ * $Revision: 1.16 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -574,7 +574,6 @@ static void gasneti_pshmnet_init_my_pshm(gasneti_pshmnet_t *pvnet, void *myregio
   alloc_region = (void*) round_up_to_pshmpage(mymsgs);
   pvnet->my_allocator = 
     gasneti_pshmnet_init_allocator(alloc_region, gasneti_pshmnet_queue_mem);
-  gasneti_assert(nodes <= GASNETI_ATOMIC_SIGNED_MAX);
   gasneti_weakatomic_set(&pvnet->nextindex, 0, 0);
 }
 
