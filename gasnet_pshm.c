@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.c,v $
- *     $Date: 2010/06/27 03:56:28 $
- * $Revision: 1.17 $
+ *     $Date: 2010/07/19 15:15:15 $
+ * $Revision: 1.18 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -1030,7 +1030,8 @@ static void gasneti_pshmnet_free(gasneti_pshmnet_allocator_t *a, void *p)
 #define GASNETI_AMPSHM_MSG_LONG_NUMBYTES(msg) (((gasneti_AMPSHM_longmsg_t*)msg)->numbytes)
 #define GASNETI_AMPSHM_MSG_LONG_DATA(msg)     (((gasneti_AMPSHM_longmsg_t*)msg)->longdata)
 
-#define GASNETI_AMPSHM_MAX_RECVMSGS_PER_POLL 10
+#define GASNETI_AMPSHM_MAX_REPLY_PER_POLL 10
+#define GASNETI_AMPSHM_MAX_REQUEST_PER_POLL 10
 
 #ifndef GASNETC_ENTERING_HANDLER_HOOK
   /* extern void enterHook(int cat, int isReq, int handlerId, gasnet_token_t *token,
@@ -1115,11 +1116,11 @@ int gasneti_AMPSHMPoll(int repliesOnly)
   GASNETI_CHECKATTACH();
 #endif
 
-  for (; i < GASNETI_AMPSHM_MAX_RECVMSGS_PER_POLL; i++) 
+  for (i = 0; i < GASNETI_AMPSHM_MAX_REPLY_PER_POLL; i++) 
     if (gasneti_AMPSHM_service_incoming_msg(gasneti_reply_pshmnet, 0))
       break;
   if (!repliesOnly)
-    for (; i < GASNETI_AMPSHM_MAX_RECVMSGS_PER_POLL; i++) 
+    for (i = 0; i < GASNETI_AMPSHM_MAX_REQUEST_PER_POLL; i++) 
       if (gasneti_AMPSHM_service_incoming_msg(gasneti_request_pshmnet, 1))
         break;
   return GASNET_OK;
