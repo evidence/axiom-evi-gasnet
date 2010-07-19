@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.c,v $
- *     $Date: 2010/07/19 16:03:07 $
- * $Revision: 1.19 $
+ *     $Date: 2010/07/19 19:25:28 $
+ * $Revision: 1.20 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -343,6 +343,7 @@ typedef union {
 
 /* data about an incoming message */
 typedef struct gasneti_pshmnet_msg {
+  struct gasneti_pshmnet_msg *next;
   void * addr;
   size_t len;
   gasneti_atomic_t state;
@@ -350,7 +351,7 @@ typedef struct gasneti_pshmnet_msg {
    * is sizeof(cache_line), but not that it's aligned on a single cache line.
    * But we enforce cache line alignment, so we're OK */
   #if 1
-    char _pad[GASNETI_CACHE_PAD(sizeof(void *)
+    char _pad[GASNETI_CACHE_PAD(sizeof(void *)*2
                                +sizeof(size_t)
                                +sizeof(gasneti_atomic_t))];
   #else
@@ -376,7 +377,6 @@ typedef struct gasneti_pshmnet_queue {
   gasneti_mutex_t lock;
   gasneti_pshmnet_msg_t *next;
   gasneti_pshmnet_msg_t *queue;
-  gasneti_pshmnet_msg_t *justpastlast;
   #if 1
     /* See above comment about cache alignment.  Not that we might not
      * get perfect cache line alignment, since internal padding might
@@ -562,6 +562,7 @@ static void gasneti_pshmnet_init_my_pshm(gasneti_pshmnet_t *pvnet, void *myregio
     if (i != gasneti_pshm_mynode) {
       for (j = 0; j < gasneti_pshmnet_queue_depth; j++) {
         gasneti_atomic_set(&mymsgs[j].state, GASNETI_PSHMNET_EMPTY, 0);
+        mymsgs[j].next = &mymsgs[(j+1) % gasneti_pshmnet_queue_depth];
       }
       mymsgs += gasneti_pshmnet_queue_depth;
     }
@@ -623,11 +624,9 @@ gasneti_pshmnet_init(void *start, size_t nbytes, gasneti_pshm_rank_t pshmnodes)
 
       gasneti_mutex_init(&vnet->in_queues[i].lock);
       vnet->in_queues[i].next = vnet->in_queues[i].queue = in_queue;
-      vnet->in_queues[i].justpastlast = in_queue + gasneti_pshmnet_queue_depth;
 
       gasneti_mutex_init(&vnet->out_queues[i].lock);
       vnet->out_queues[i].next = vnet->out_queues[i].queue = out_queue;
-      vnet->out_queues[i].justpastlast = out_queue + gasneti_pshmnet_queue_depth;
     }
   }
 
@@ -644,9 +643,7 @@ gasneti_pshmnet_msg_t *gasneti_pshmnet_next_msg(gasneti_pshmnet_queue_t * const 
   gasneti_mutex_lock(&q->lock);
   msg = q->next;
   if (gasneti_atomic_compare_and_swap(&msg->state, state, GASNETI_PSHMNET_BUSY, fence)) {
-    gasneti_pshmnet_msg_t *next_msg = msg + 1;
-    if (next_msg == q->justpastlast) next_msg = q->queue;
-    q->next = next_msg;
+    q->next = msg->next;
   } else {
     msg = NULL;
   }
