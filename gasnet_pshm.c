@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.c,v $
- *     $Date: 2010/07/19 15:15:15 $
- * $Revision: 1.18 $
+ *     $Date: 2010/07/19 16:03:07 $
+ * $Revision: 1.19 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -43,12 +43,9 @@ static void *gasnetc_pshmnet_region = NULL;
 
 static struct gasneti_pshm_info {
     gasneti_atomic_t    bootstrap_barrier;
-    union { /* variable length arrays */
-        /* sig_atomic_t should be wide enough to avoid word-tearing, right? */
-        volatile sig_atomic_t early_barrier[1];
-        gasnet_node_t node[1];
-        gasneti_pshm_rank_t rank[1];
-    } u;
+    /* early_barrier will be overwritten by other vars after its completion */
+    /* sig_atomic_t should be wide enough to avoid word-tearing, right? */
+    volatile sig_atomic_t early_barrier[1]; /* variable length arras */
 } *gasneti_pshm_info = NULL;
 
 #define round_up_to_pshmpage(size_or_addr)               \
@@ -129,7 +126,7 @@ void *gasneti_pshm_init(gasneti_bootstrapExchangefn_t exchangefn, size_t aux_sz)
 	       (gasneti_pshm_nodes-1) * sizeof(gasneti_pshm_barrier->node);
     /* space for early barrier, sharing space with the items above: */
     info_sz = MAX(info_sz, gasneti_pshm_nodes * sizeof(sig_atomic_t));
-    info_sz += offsetof(struct gasneti_pshm_info, u);
+    info_sz += offsetof(struct gasneti_pshm_info, early_barrier);
     /* final space requested: */
     mmapsz += round_up_to_pshmpage(info_sz);
   }
@@ -148,12 +145,12 @@ void *gasneti_pshm_init(gasneti_bootstrapExchangefn_t exchangefn, size_t aux_sz)
      * receive will correspond to an atomic counter of value zero. */
     gasneti_atomic_set(&gasneti_pshm_info->bootstrap_barrier, 0, 0);
   }
-  gasneti_pshm_info->u.early_barrier[gasneti_pshm_mynode] = 1;
+  gasneti_pshm_info->early_barrier[gasneti_pshm_mynode] = 1;
   gasneti_local_wmb();
 
   /* "early" barrier which protects initialization of the real barrier counter. */
   for (i=0; i < gasneti_pshm_nodes; ++i) {
-    gasneti_waituntil(gasneti_pshm_info->u.early_barrier[i] != 0);
+    gasneti_waituntil(gasneti_pshm_info->early_barrier[i] != 0);
   }
 
   /* Unlink the shared memory file to prevent leaks.
@@ -163,7 +160,7 @@ void *gasneti_pshm_init(gasneti_bootstrapExchangefn_t exchangefn, size_t aux_sz)
   /* Carve out various allocations, reusing the "early barrier" space. */
   gasneti_pshmnet_bootstrapBarrier();
   {
-    uintptr_t addr = (uintptr_t)&gasneti_pshm_info->u;
+    uintptr_t addr = (uintptr_t)&gasneti_pshm_info->early_barrier;
     /* gasneti_pshm_firsts, an array of gasneti_pshm_supernodes*sizeof(gasnet_node_t): */
     gasneti_pshm_firsts = (gasnet_node_t *)addr;
     addr += gasneti_pshm_supernodes * sizeof(gasnet_node_t);
