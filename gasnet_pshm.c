@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.c,v $
- *     $Date: 2010/07/20 06:58:08 $
- * $Revision: 1.21 $
+ *     $Date: 2010/07/20 23:08:15 $
+ * $Revision: 1.22 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -33,6 +33,40 @@
 gasneti_pshmnet_t *gasneti_request_pshmnet = NULL;
 gasneti_pshmnet_t *gasneti_reply_pshmnet = NULL;
  
+#define GASNET_PSHM_FULLEMPTY 1
+#define GASNET_PSHM_FULLEMPTY_USE_SUB 1
+#if GASNET_PSHM_FULLEMPTY
+  typedef struct {
+    gasneti_atomic_t value; /* Might be a boolean or counter */
+    char _pad[GASNETI_CACHE_PAD(sizeof(gasneti_atomic_t))];
+  } gasneti_pshmnet_fullempty_t;
+  #define _GASNETI_PSHMNET_FE(vnet,node)	(&((vnet)->fullempty[(node)].value))
+  #define GASNETI_PSHMNET_FE_READ(vnet,node) \
+		gasneti_atomic_read(_GASNETI_PSHMNET_FE((vnet),(node)), 0)
+  #define GASNETI_PSHMNET_FE_CLEAR(vnet,node) \
+		gasneti_atomic_set(_GASNETI_PSHMNET_FE((vnet),(node)), 0, 0)
+  #define GASNETI_PSHMNET_FE_INC(vnet,node) \
+		gasneti_atomic_increment(_GASNETI_PSHMNET_FE((vnet),(node)), 0)
+  #if defined(GASNETI_HAVE_ATOMIC_ADD_SUB) && defined(GASNET_PSHM_FULLEMPTY_USE_SUB)
+    #define GASNETI_PSHMNET_FE_DEC(vnet,node)		((void)0)
+    #define GASNETI_PSHMNET_FE_SUB(vnet,node,val)	\
+	do { \
+		int _val = (val); \
+		if (_val) gasneti_atomic_subtract(_GASNETI_PSHMNET_FE((vnet),(node)), (_val), 0); \
+	} while (0)
+  #else
+    #define GASNETI_PSHMNET_FE_DEC(vnet,node) \
+		gasneti_atomic_decrement(_GASNETI_PSHMNET_FE((vnet),(node)), 0)
+    #define GASNETI_PSHMNET_FE_SUB(vnet,node,val) ((void)0)
+  #endif
+#else
+  #define GASNETI_PSHMNET_FE_READ(vnet,node)	1
+  #define GASNETI_PSHMNET_FE_CLEAR(vnet,node)	((void)0)
+  #define GASNETI_PSHMNET_FE_INC(vnet,node)	((void)0)
+  #define GASNETI_PSHMNET_FE_DEC(vnet,node)	((void)0)
+  #define GASNETI_PSHMNET_FE_SUB(vnet,node,val)	((void)0)
+#endif
+
 /* Structure for PSHM intra-supernode barrier */
 gasneti_pshm_barrier_t *gasneti_pshm_barrier = NULL; /* lives in shared space */
 
@@ -470,6 +504,10 @@ struct gasneti_pshmnet {
   gasneti_pshmnet_queue_t *out_queues;
   /* only need to see one's own allocator */
   gasneti_pshmnet_allocator_t *my_allocator;
+#if GASNET_PSHM_FULLEMPTY
+  /* array of full/empty bits */
+  gasneti_pshmnet_fullempty_t *fullempty;
+#endif
 };
 
 #define gasneti_assert_align(p, align) \
@@ -545,7 +583,12 @@ static size_t gasneti_pshmnet_memory_needed_pernode(gasneti_pshm_rank_t nodes)
 
 size_t gasneti_pshmnet_memory_needed(gasneti_pshm_rank_t nodes)
 {
-  return gasneti_pshmnet_memory_needed_pernode(nodes) * nodes;
+  size_t pernode = gasneti_pshmnet_memory_needed_pernode(nodes);
+  size_t once = 0;
+#if GASNET_PSHM_FULLEMPTY
+  once = round_up_to_pshmpage(nodes * sizeof(gasneti_pshmnet_fullempty_t));
+#endif
+  return once + nodes * pernode;
 }
 
 static void gasneti_pshmnet_init_my_pshm(gasneti_pshmnet_t *pvnet, void *myregion, 
@@ -582,6 +625,7 @@ gasneti_pshmnet_init(void *start, size_t nbytes, gasneti_pshm_rank_t pshmnodes)
   gasneti_pshmnet_t *vnet;
   gasneti_pshm_rank_t i;
   size_t szpernode, regionlen;
+  size_t szonce = 0;
   void *region, *myregion;
 
   /* make sure that our max buffer size fits all possible AMs */
@@ -592,10 +636,13 @@ gasneti_pshmnet_init(void *start, size_t nbytes, gasneti_pshm_rank_t pshmnodes)
 
   regionlen = nbytes - ( ((uintptr_t)region)-((uintptr_t)start));
   szpernode = gasneti_pshmnet_memory_needed_pernode(pshmnodes);
-  if (regionlen < szpernode * pshmnodes) 
+#if GASNET_PSHM_FULLEMPTY
+  szonce = sizeof(gasneti_pshmnet_fullempty_t);
+#endif
+  if (regionlen < (szpernode + szonce) * pshmnodes) 
     gasneti_fatalerror("Internal error: not enough memory for pshmnet: \n"
                        " given %lu effective bytes, but need %lu", 
-                       (unsigned long)regionlen, (unsigned long)(szpernode * pshmnodes));
+                       (unsigned long)regionlen, (unsigned long)((szpernode + szonce) * pshmnodes));
   vnet = gasneti_malloc(sizeof(gasneti_pshmnet_t));
   vnet->nodecount = pshmnodes;
   myregion = (void *)( ((uintptr_t)region) + (szpernode*gasneti_pshm_mynode));
@@ -603,6 +650,12 @@ gasneti_pshmnet_init(void *start, size_t nbytes, gasneti_pshm_rank_t pshmnodes)
    * To allow non-fixed mapping of the pshmnet memory, we initialize
    * each reqion using the offset-addresses */
   gasneti_pshmnet_init_my_pshm(vnet, myregion, pshmnodes);
+
+#if GASNET_PSHM_FULLEMPTY
+  /* initialize the full/empty bits array */
+  vnet->fullempty = (gasneti_pshmnet_fullempty_t *)(((uintptr_t)region) + (szpernode*pshmnodes));
+  GASNETI_PSHMNET_FE_CLEAR(vnet,gasneti_pshm_mynode);
+#endif
 
   /* initialize queue pointers */
   vnet->in_queues = gasneti_malloc(2*sizeof(gasneti_pshmnet_queue_t)*pshmnodes);
@@ -1057,6 +1110,7 @@ int gasneti_AMPSHM_service_incoming_msg(gasneti_pshmnet_t *vnet, int isReq)
 
   if (gasneti_pshmnet_recv(vnet, &msg, &msgsz, &from))
     return -1;
+  GASNETI_PSHMNET_FE_DEC(vnet,gasneti_pshm_mynode);
 
   token = gasnetc_token_create(GASNETI_AMPSHM_MSG_SOURCE(msg), isReq);
   category = GASNETI_AMPSHM_MSG_CATEGORY(msg);
@@ -1110,13 +1164,18 @@ int gasneti_AMPSHMPoll(int repliesOnly)
   GASNETI_CHECKATTACH();
 #endif
 
-  for (i = 0; i < GASNETI_AMPSHM_MAX_REPLY_PER_POLL; i++) 
-    if (gasneti_AMPSHM_service_incoming_msg(gasneti_reply_pshmnet, 0))
-      break;
-  if (!repliesOnly)
+  if (GASNETI_PSHMNET_FE_READ(gasneti_reply_pshmnet,gasneti_pshm_mynode)) {
+    for (i = 0; i < GASNETI_AMPSHM_MAX_REPLY_PER_POLL; i++) 
+      if (gasneti_AMPSHM_service_incoming_msg(gasneti_reply_pshmnet, 0))
+        break;
+    GASNETI_PSHMNET_FE_SUB(gasneti_reply_pshmnet,gasneti_pshm_mynode,i);
+  }
+  if (!repliesOnly && GASNETI_PSHMNET_FE_READ(gasneti_request_pshmnet,gasneti_pshm_mynode)) {
     for (i = 0; i < GASNETI_AMPSHM_MAX_REQUEST_PER_POLL; i++) 
       if (gasneti_AMPSHM_service_incoming_msg(gasneti_request_pshmnet, 1))
         break;
+    GASNETI_PSHMNET_FE_SUB(gasneti_request_pshmnet,gasneti_pshm_mynode,i);
+  }
   return GASNET_OK;
 }
 
@@ -1257,6 +1316,7 @@ int gasnetc_AMPSHM_ReqRepGeneric(int category, int isReq, gasnet_node_t dest,
       else gasneti_AMPSHMPoll(1);
       GASNETI_WAITHOOK();
     }
+    GASNETI_PSHMNET_FE_INC(vnet,target);
   }
   return GASNET_OK;
 }
