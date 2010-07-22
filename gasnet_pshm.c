@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.c,v $
- *     $Date: 2010/07/20 23:08:15 $
- * $Revision: 1.22 $
+ *     $Date: 2010/07/22 18:23:42 $
+ * $Revision: 1.23 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -33,7 +33,9 @@
 gasneti_pshmnet_t *gasneti_request_pshmnet = NULL;
 gasneti_pshmnet_t *gasneti_reply_pshmnet = NULL;
  
-#define GASNET_PSHM_FULLEMPTY 1
+#ifndef GASNET_PSHM_FULLEMPTY
+#define GASNET_PSHM_FULLEMPTY 0
+#endif
 #define GASNET_PSHM_FULLEMPTY_USE_SUB 1
 #if GASNET_PSHM_FULLEMPTY
   typedef struct {
