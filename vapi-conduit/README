@@ -1,7 +1,7 @@
 README file for vapi-conduit and ibv-conduit
 ============================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.56 $
+$Revision: 1.57 $
 
 @ TOC: @
 @ Section: VAPI vs IBV @
@@ -283,13 +283,13 @@ $Revision: 1.56 $
   In normal operation of vapi-conduit it is necessary to know how much memory
   may be registered (aka pinned) with the InfiniBand HCA(s).  This is limited
   by multiple factors and thus cannot be determined by a simple query.
-  Therefore, the default behaviour is to attempt to mmap and register as much
+  Therefore, the default behavior is to attempt to mmap and register as much
   memory as possible at startup, and then release all the memory.  When there
   are multiple GASNet processes on a shared memory node, one representative
   process will perform this probe.  There are at least two well-known reasons
   why one may desire to limit or eliminate this probe.  The first is the time
   spent performing the probe.  The second is the possibility that the O/S or
-  a batch execution environment may terminate a process that exceedes some
+  a batch execution environment may terminate a process that exceeds some
   limit on the virtual memory size of a process and/or may terminate the
   process with the largest size when memory is exhausted.  Use of the
   following parameters allows one to bound, or to eliminate, this probe.
