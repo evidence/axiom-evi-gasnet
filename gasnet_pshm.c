@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.c,v $
- *     $Date: 2010/07/22 18:23:42 $
- * $Revision: 1.23 $
+ *     $Date: 2010/07/27 05:59:17 $
+ * $Revision: 1.24 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -81,7 +81,7 @@ static struct gasneti_pshm_info {
     gasneti_atomic_t    bootstrap_barrier;
     /* early_barrier will be overwritten by other vars after its completion */
     /* sig_atomic_t should be wide enough to avoid word-tearing, right? */
-    volatile sig_atomic_t early_barrier[1]; /* variable length arras */
+    volatile sig_atomic_t early_barrier[1]; /* variable length array */
 } *gasneti_pshm_info = NULL;
 
 #define round_up_to_pshmpage(size_or_addr)               \
@@ -379,16 +379,17 @@ typedef union {
 
 /* data about an incoming message */
 typedef struct gasneti_pshmnet_msg {
-  struct gasneti_pshmnet_msg *next;
   void * addr;
   size_t len;
+  unsigned int next_idx;
   gasneti_atomic_t state;
   /* Paul informs me that padding with GASNETI_CACHE_PAD ensures the struct
    * is sizeof(cache_line), but not that it's aligned on a single cache line.
    * But we enforce cache line alignment, so we're OK */
   #if 1
-    char _pad[GASNETI_CACHE_PAD(sizeof(void *)*2
+    char _pad[GASNETI_CACHE_PAD(sizeof(void *)
                                +sizeof(size_t)
+                               +sizeof(int)
                                +sizeof(gasneti_atomic_t))];
   #else
    /* Alternative: pad out the struct to two cache lines, to ensure we'll have
@@ -607,7 +608,7 @@ static void gasneti_pshmnet_init_my_pshm(gasneti_pshmnet_t *pvnet, void *myregio
     if (i != gasneti_pshm_mynode) {
       for (j = 0; j < gasneti_pshmnet_queue_depth; j++) {
         gasneti_atomic_set(&mymsgs[j].state, GASNETI_PSHMNET_EMPTY, 0);
-        mymsgs[j].next = &mymsgs[(j+1) % gasneti_pshmnet_queue_depth];
+        mymsgs[j].next_idx = (j+1) % gasneti_pshmnet_queue_depth;
       }
       mymsgs += gasneti_pshmnet_queue_depth;
     }
@@ -698,7 +699,7 @@ gasneti_pshmnet_msg_t *gasneti_pshmnet_next_msg(gasneti_pshmnet_queue_t * const 
   gasneti_mutex_lock(&q->lock);
   msg = q->next;
   if (gasneti_atomic_compare_and_swap(&msg->state, state, GASNETI_PSHMNET_BUSY, fence)) {
-    q->next = msg->next;
+    q->next = q->queue + msg->next_idx;
   } else {
     msg = NULL;
   }
