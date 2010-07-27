@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.c,v $
- *     $Date: 2010/07/27 05:59:17 $
- * $Revision: 1.24 $
+ *     $Date: 2010/07/27 06:07:32 $
+ * $Revision: 1.25 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -36,7 +36,9 @@ gasneti_pshmnet_t *gasneti_reply_pshmnet = NULL;
 #ifndef GASNET_PSHM_FULLEMPTY
 #define GASNET_PSHM_FULLEMPTY 0
 #endif
+#ifndef GASNET_PSHM_FULLEMPTY_USE_SUB
 #define GASNET_PSHM_FULLEMPTY_USE_SUB 1
+#endif
 #if GASNET_PSHM_FULLEMPTY
   typedef struct {
     gasneti_atomic_t value; /* Might be a boolean or counter */
@@ -49,7 +51,7 @@ gasneti_pshmnet_t *gasneti_reply_pshmnet = NULL;
 		gasneti_atomic_set(_GASNETI_PSHMNET_FE((vnet),(node)), 0, 0)
   #define GASNETI_PSHMNET_FE_INC(vnet,node) \
 		gasneti_atomic_increment(_GASNETI_PSHMNET_FE((vnet),(node)), 0)
-  #if defined(GASNETI_HAVE_ATOMIC_ADD_SUB) && defined(GASNET_PSHM_FULLEMPTY_USE_SUB)
+  #if defined(GASNETI_HAVE_ATOMIC_ADD_SUB) && GASNET_PSHM_FULLEMPTY_USE_SUB
     #define GASNETI_PSHMNET_FE_DEC(vnet,node)		((void)0)
     #define GASNETI_PSHMNET_FE_SUB(vnet,node,val)	\
 	do { \
