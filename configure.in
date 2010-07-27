@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2010/06/28 04:50:53 $
-# $Revision: 1.639 $
+#     $Date: 2010/07/27 04:22:00 $
+# $Revision: 1.640 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.639 $)
+AC_REVISION($Revision: 1.640 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -369,6 +369,11 @@ AC_DEFUN([GASNET_GET_GNUWARNINGFLAGS],[
 
 case "$gasnet_cv_cc_family" in
   GNU)  GASNET_PUSHVAR(CFLAGS,"-g3")
+        case "$target_os" in
+          darwin*) # Want -gstabs+ instead of -g3, if supported
+            GASNET_TRY_CFLAG([-gstabs+], [CFLAGS='-gstabs+'])
+            ;;
+        esac
         GASNET_GET_GNUWARNINGFLAGS(C)
         CCDEBUGFLAGS="$CFLAGS"
         GASNET_POPVAR(CFLAGS)
@@ -2117,6 +2122,11 @@ if test $enabled_udp = yes; then
          hpux*) GASNET_GET_HPUX_FLAGS(CXX,["-D__STDC_EXT__=1"]);;
        esac
        GASNET_PUSHVAR(CXXFLAGS,"-g3")
+       case "$target_os" in
+         darwin*) # Want -gstabs+ instead of -g3, if supported
+           GASNET_TRY_CXXFLAG([-gstabs+], [CXXFLAGS='-gstabs+'])
+           ;;
+       esac
        GASNET_GET_GNUWARNINGFLAGS(CXX)
        MISC_CXXFLAGS="$MISC_CXXFLAGS $CXXFLAGS" 
        GASNET_POPVAR(CXXFLAGS)
