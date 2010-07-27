@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_toolhelp.h,v $
- *     $Date: 2010/06/26 03:46:36 $
- * $Revision: 1.57 $
+ *     $Date: 2010/07/27 04:46:58 $
+ * $Revision: 1.58 $
  * Description: misc declarations needed by both gasnet_tools and libgasnet
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -147,6 +147,8 @@ extern void gasneti_backtrace_init(const char *exename);
 extern int (*gasneti_print_backtrace_ifenabled)(int fd);
 extern int gasneti_print_backtrace(int fd);
 extern void gasneti_ondemand_init(void);
+
+extern int gasneti_check_node_list(const char *listvar);
 
 extern void gasneti_flush_streams(void); /* flush all open streams */
 extern void gasneti_close_streams(void); /* close standard streams (for shutdown) */
