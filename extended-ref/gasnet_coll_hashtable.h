@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_hashtable.h,v $
- *     $Date: 2010/07/28 05:50:06 $
- * $Revision: 1.5 $
+ *     $Date: 2010/07/28 07:05:03 $
+ * $Revision: 1.6 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -20,8 +20,6 @@
 
 #ifndef GASNET_COLL_HASHTABLE_H_
 #define GASNET_COLL_HASHTABLE_H_
-
-#include "portable_inttypes.h"
 
 /* Part I: Table */
 
