@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_hashtable.h,v $
- *     $Date: 2009/10/28 04:17:13 $
- * $Revision: 1.4 $
+ *     $Date: 2010/07/28 05:50:06 $
+ * $Revision: 1.5 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -65,7 +65,8 @@ typedef struct gasnete_hashtable
 /**
  * Hash function that determines the bucket for the element with a key
  */
-static inline uint32_t gasnete_hashtable_hash(gasnete_hashtable_t * ht, uint32_t key)
+GASNETI_INLINE(gasnete_hashtable_hash)
+uint32_t gasnete_hashtable_hash(gasnete_hashtable_t * ht, uint32_t key)
 {
   return (key % ht->size);
 }
