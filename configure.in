@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2010/07/29 01:19:34 $
-# $Revision: 1.641 $
+#     $Date: 2010/07/29 07:52:46 $
+# $Revision: 1.642 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.641 $)
+AC_REVISION($Revision: 1.642 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -4289,7 +4289,8 @@ case "$target_os" in
     case "$gasnet_cv_cc_family" in
       MIPS) LDFLAGS="$LDFLAGS -LD_MSG:off=84" # don't warn about unused libm
       ;;
-      GNU) LDFLAGS="$LDFLAGS -Wl,-LD_MSG:off=84,47" # don't warn about unused libm or inline branch insn
+      GNU) LDFLAGS="$LDFLAGS -Wl,-LD_MSG:off=84" # don't warn about unused libm
+           LDFLAGS="$LDFLAGS -Wl,-LD_MSG:off=47" # don't warn about inline branch insn
       ;;
     esac
   ;;
