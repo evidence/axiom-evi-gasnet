@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_autotune_internal.h,v $                                                                                                                                                             
- *     $Date: 2010/07/29 00:14:51 $                                                                                                                                                              
- * $Revision: 1.7 $                                                                                                                                                             
+ *     $Date: 2010/08/02 02:34:19 $                                                                                                                                                              
+ * $Revision: 1.8 $                                                                                                                                                             
  * Description: GASNet Autotuner Implementation                                                                                                                             
  * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>, Paul H. Hargrove <PHHargrove@lbl.gov>, Dan Bonachea <bonachea@cs.berkeley.edu>                              
  * Terms of use are as specified in license.txt                                                                                                                             
@@ -377,8 +377,8 @@ struct gasnet_coll_tuning_parameter_t {
   #define GASNETE_COLL_TUNING_PARAMETER(_name,_param,_start,_end,_stride,_flags) \
     struct gasnet_coll_tuning_parameter_t _name[1] = \
        { { _param,0,0,_stride,_flags } };\
-    _name[1].start = _start; \
-    _name[1].end   = _end /* no semicolon */
+    _name[0].start = _start; \
+    _name[0].end   = _end /* no semicolon */
 #endif
 
 /*contains an entry in the function table*/
