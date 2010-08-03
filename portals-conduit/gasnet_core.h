@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_core.h,v $
- *     $Date: 2010/08/02 22:19:21 $
- * $Revision: 1.12 $
+ *     $Date: 2010/08/03 02:16:53 $
+ * $Revision: 1.13 $
  * Description: GASNet header for PORTALS conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -135,7 +135,7 @@ typedef struct _gasnet_hsl_t {
 #if GASNET_PSHM
   #define gasnet_AMMaxMedium()      MIN(GASNETC_MAX_MEDIUM_, GASNETI_MAX_MEDIUM_PSHM)
 #else
-  #define gasnet_AMMaxMedium        GASNETC_MAX_MEDIUM_
+  #define gasnet_AMMaxMedium()      GASNETC_MAX_MEDIUM_
 #endif
 #if PLATFORM_OS_CATAMOUNT
 #define gasnet_AMMaxLongRequest()   ((size_t)1073741824ULL)
