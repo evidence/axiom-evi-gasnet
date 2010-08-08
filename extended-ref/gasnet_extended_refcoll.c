@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refcoll.c,v $
- *     $Date: 2009/10/22 20:14:56 $
- * $Revision: 1.90 $
+ *     $Date: 2010/08/08 03:54:48 $
+ * $Revision: 1.91 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>, Paul H. Hargrove <PHHargrove@lbl.gov>, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1383,8 +1383,6 @@ gasnete_coll_p2p_t *gasnete_coll_p2p_get(uint32_t team_id, uint32_t sequence) {
   int i;
   gasnete_coll_team_t team;
   
-  gasneti_assert(sequence >= 42);
-
   team = gasnete_coll_team_lookup(team_id);
   gasnet_hsl_lock(&gasnete_coll_p2p_table_lock);
 
@@ -1796,9 +1794,6 @@ void gasnete_coll_p2p_counting_put(gasnete_coll_op_t *op, gasnet_node_t dstnode,
   uint32_t seq_num = op->sequence;
   uint32_t team_id = gasnete_coll_team_id(op->team);
 
-/*   seqandteam = team_id << 28; */
-/*   seqandteam += seq_num & 0x0fffffff; */
-  
   gasneti_assert(nbytes <= gasnet_AMMaxLongRequest());
   
   GASNETI_SAFE(
@@ -1812,9 +1807,6 @@ void gasnete_coll_p2p_counting_putAsync(gasnete_coll_op_t *op, gasnet_node_t dst
   
   uint32_t seq_num = op->sequence;
   uint32_t team_id = gasnete_coll_team_id(op->team);
-/*   uint32_t seqandteam = 0; */
-/*   seqandteam = team_id << 28; */
-/*   seqandteam += seq_num & 0x0fffffff; */
   
   gasneti_assert(nbytes <= gasnet_AMMaxLongRequest());
   
@@ -1832,9 +1824,6 @@ void gasnete_coll_p2p_sig_seg_put(gasnete_coll_op_t *op, gasnet_node_t dstnode, 
                                   void *src, size_t nbytes, size_t seg_id) {
   uint32_t seq_num = op->sequence;
   uint32_t team_id = gasnete_coll_team_id(op->team);
-/*   uint32_t seqandteam = 0; */
-/*   seqandteam = team_id << 28; */
-/*   seqandteam += seq_num & 0x0fffffff; */
 
   gasneti_assert(nbytes <= gasnet_AMMaxLongRequest());
       
@@ -1847,9 +1836,6 @@ void gasnete_coll_p2p_sig_seg_putAsync(gasnete_coll_op_t *op, gasnet_node_t dstn
                                        void *src, size_t nbytes, size_t seg_id) {
   uint32_t seq_num = op->sequence;
   uint32_t team_id = gasnete_coll_team_id(op->team);
-/*   uint32_t seqandteam = 0; */
-/*   seqandteam = team_id << 28; */
-/*   seqandteam += seq_num & 0x0fffffff; */
   
   gasneti_assert(nbytes <= gasnet_AMMaxLongRequest());
   
@@ -1894,13 +1880,6 @@ void gasnete_coll_p2p_eager_put_tree(gasnete_coll_op_t *op, gasnet_node_t dstnod
                                      void *src, size_t size) {
   uint32_t seq_num = op->sequence;
   uint32_t team_id = gasnete_coll_team_id(op->team);
-  uint32_t seqandteam = 0;
-      
-  /*gasneti_assert(seq_num >= 42);*/
-/*   /\* lets shift up the team id by more than 16 bits to give mroe room for the sequence number*\/ */
-/*   /\* shift it up by 28 bits leaving 4 bits (or 16 teams for now) for the team id and the rest is sequence number*\/ */
-/*   seqandteam = team_id << 28; */
-/*   seqandteam += seq_num & 0x0fffffff; */
 
   gasneti_assert(size <= gasnet_AMMaxMedium());
   GASNETI_SAFE(MEDIUM_REQ(2,2,(dstnode, gasneti_handleridx(gasnete_coll_p2p_med_tree_reqh),
@@ -1920,13 +1899,11 @@ void gasnete_coll_p2p_change_states(gasnete_coll_op_t *op, gasnet_node_t dstnode
 
 /* Advance state[0] */
 void gasnete_coll_p2p_advance(gasnete_coll_op_t *op, gasnet_node_t dstnode, uint32_t idx) {
-/*   uint32_t team_id = gasnete_coll_team_id(op->team); */
-/*   uint32_t seqandteam = (team_id << 28) | (op->sequence & 0x0fffffff); */
-  gasneti_assert(op->sequence >= 42);
+  uint32_t team_id = gasnete_coll_team_id(op->team);
 
   GASNETI_SAFE(
                SHORT_REQ(3,3,(dstnode, gasneti_handleridx(gasnete_coll_p2p_advance_reqh),
-                              gasnete_coll_team_id(op->team), op->sequence,idx)));
+                              team_id, op->sequence,idx)));
 }
 
 /* Memcpy up to gasnet_AMMaxMedium() bytes, signalling the recipient */
