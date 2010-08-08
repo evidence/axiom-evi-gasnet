@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.c,v $
- *     $Date: 2010/08/08 06:31:05 $
- * $Revision: 1.142 $
+ *     $Date: 2010/08/08 06:58:06 $
+ * $Revision: 1.143 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -42,7 +42,9 @@ char gasneti_stats_maskstr[GASNETI_MAX_MASKBITS+1];
 int gasneti_trace_suppresslocal;
 FILE *gasneti_tracefile = NULL;
 FILE *gasneti_statsfile = NULL;
+#if GASNETI_STATS_OR_TRACE
 static gasneti_tick_t starttime;
+#endif
 
 #if GASNET_STATS
   void (*gasnett_stats_callback)(

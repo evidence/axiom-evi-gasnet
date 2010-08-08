@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/smp-collectives/smp_coll_barrier.c,v $
- *     $Date: 2010/08/08 06:31:11 $
- * $Revision: 1.6 $
+ *     $Date: 2010/08/08 06:58:08 $
+ * $Revision: 1.7 $
  * Description: Shared Memory Collectives
  * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -222,6 +222,7 @@ void smp_coll_barrier_cond_var(smp_coll_t handle, int flags){
 #else
 void smp_coll_barrier_cond_var(smp_coll_t handle, int flags){
   /* cond variables must be phased on some OS's (HPUX) */
+  GASNETI_UNUSED_UNLESS_THREADS
   static struct {
     gasnett_cond_t cond;
     gasnett_mutex_t mutex;
