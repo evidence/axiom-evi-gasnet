@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_team.c,v $
- *     $Date: 2010/05/07 03:09:14 $
- * $Revision: 1.12 $
+ *     $Date: 2010/08/08 06:31:07 $
+ * $Revision: 1.13 $
  *
  * Description: GASNet generic team implementation for collectives 
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
@@ -43,11 +43,12 @@ static void initialize_team_fields(gasnete_coll_team_t team,
   size_t image_size = num_members*sizeof(gasnet_image_t);
   int i;
   static size_t smallest_scratch_seg;
+
+#if 0
 #if GASNET_DEBUG
   static int team_all_made=0;
 #endif
   
-#if 0
   if(!allocating_team_all) {
     /*the space for team all has already been initialized in gasnete_init()*/
 
@@ -367,7 +368,6 @@ gasnet_team_handle_t gasnete_coll_team_split(gasnet_team_handle_t team,
 
 gasnet_team_handle_t gasnete_coll_team_lookup(uint32_t team_id) 
 {
-  uint32_t rv;
   gasnet_team_handle_t team;
   
 #ifdef DEBUG_TEAM
@@ -375,9 +375,9 @@ gasnet_team_handle_t gasnete_coll_team_lookup(uint32_t team_id)
   fflush(stderr);
 #endif
 
-	if (team_id == 0)
+  if (team_id == 0) {
     team = GASNET_TEAM_ALL;
-  else {
+  } else {
     if (gasnete_hashtable_search(team_dir, team_id, (void **)&team))
       team = NULL; /* cannot find team_id the hash table */
   }
