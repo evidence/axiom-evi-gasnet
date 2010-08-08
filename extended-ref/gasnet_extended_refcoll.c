@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refcoll.c,v $
- *     $Date: 2010/08/08 03:54:48 $
- * $Revision: 1.91 $
+ *     $Date: 2010/08/08 04:00:17 $
+ * $Revision: 1.92 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>, Paul H. Hargrove <PHHargrove@lbl.gov>, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1875,7 +1875,6 @@ void gasnete_coll_p2p_eager_putM(gasnete_coll_op_t *op, gasnet_node_t dstnode,
 /* a simplification for eager putM so that we send less bits on the wire*/ 
 /* we hardcode the assumption that we want to send to state 0 and set a value of 1*/
 /* for cases in which we are just sending down the tree (such as a broadcast) this is sufficient*/
-/* we are also going to compress the teamid and the sequence number into one 32 bit int*/
 void gasnete_coll_p2p_eager_put_tree(gasnete_coll_op_t *op, gasnet_node_t dstnode, 
                                      void *src, size_t size) {
   uint32_t seq_num = op->sequence;
