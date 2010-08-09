@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refcoll.c,v $
- *     $Date: 2010/08/08 06:31:07 $
- * $Revision: 1.93 $
+ *     $Date: 2010/08/09 18:26:10 $
+ * $Revision: 1.94 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>, Paul H. Hargrove <PHHargrove@lbl.gov>, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -553,8 +553,9 @@ gasnet_coll_handle_t gasnete_coll_threads_get_handle(GASNETE_THREAD_FARG_ALONE) 
                                             
   gasneti_mutex_lock(&gasnete_coll_active_lock);
   /*can't be the first thread for this op*/
-#if !ALL_THREADS_POLL && GASNET_PAR && GASNET_DEBUG
+#if !ALL_THREADS_POLL && GASNET_PAR
   {
+    GASNETI_UNUSED_UNLESS_DEBUG
     int first_thread=gasnete_coll_threads_first(GASNETE_THREAD_PASS_ALONE);
     gasneti_assert(first_thread==0);
   }
@@ -592,9 +593,12 @@ gasnete_coll_threads_get_handle_and_data(gasnete_coll_generic_data_t **data_p GA
   gasnete_coll_op_t *op;
   gasnet_coll_handle_t result;
 
-#if !ALL_THREADS_POLL && GASNET_PAR && GASNET_DEBUG
-  int first_thread=gasnete_coll_threads_first(GASNETE_THREAD_PASS_ALONE);
-  gasneti_assert(first_thread==0);
+#if !ALL_THREADS_POLL && GASNET_PAR
+  {
+    GASNETI_UNUSED_UNLESS_DEBUG
+    int first_thread=gasnete_coll_threads_first(GASNETE_THREAD_PASS_ALONE);
+    gasneti_assert(first_thread==0);
+  }
 #endif
   
   gasneti_mutex_lock(&gasnete_coll_active_lock);
