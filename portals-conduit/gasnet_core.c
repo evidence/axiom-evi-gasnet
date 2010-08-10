@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2010/07/16 00:38:05 $
- * $Revision: 1.48 $
+ *     $Date: 2010/08/10 03:32:29 $
+ * $Revision: 1.49 $
  * Description: GASNet portals conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *                 Michael Welcome <mlwelcome@lbl.gov>
@@ -380,6 +380,32 @@ extern void gasnetc_exit(int exitcode) {
 
   /* should prevent us from entering again */
   gasnetc_shutdownInProgress = 1;
+
+  { /* Based on code from taken from elan-conduit, the following defeats
+     * the locks that serialize polling of the EQs.  Since these locks are
+     * NOT required for correctness, just for performance, this should not
+     * be at risk of inducing crashes EXCEPT that there is a very minor
+     * race condition in the flow-control.
+     */
+    #define _GASNETC_CLOBBER_MUTEX(pm) do {                     \
+        gasneti_mutex_t dummy_lock = GASNETI_MUTEX_INITIALIZER; \
+        memcpy((pm), &dummy_lock, sizeof(gasneti_mutex_t));     \
+      } while (0)
+    #if GASNET_DEBUG 
+      /* prevent shutdown assertion failures in debug mode
+         if OTHER threads are holding the mutex at exit time */
+      #define GASNETC_CLOBBER_MUTEX(pm) \
+        if ((pm)->owner == GASNETI_THREADIDQUERY()) _GASNETC_CLOBBER_MUTEX(pm)
+    #else
+      /* clobber regardless of owner (which we don't know) */
+      #define GASNETC_CLOBBER_MUTEX(pm) _GASNETC_CLOBBER_MUTEX(pm)
+    #endif
+    GASNETC_CLOBBER_MUTEX(&gasnetc_AM_EQ->lock);
+    GASNETC_CLOBBER_MUTEX(&gasnetc_SAFE_EQ->lock);
+    GASNETC_CLOBBER_MUTEX(&gasnetc_SYS_EQ->lock);
+    #undef GASNETC_CLOBBER_MUTEX
+    #undef _GASNETC_CLOBBER_MUTEX
+  }
 
   /* NOTE: shutdown messages are sent in out-of-band SYS queue, which means they
    * get processed ahead of regular AMs on target nodes.
