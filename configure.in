@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2010/07/29 07:52:46 $
-# $Revision: 1.642 $
+#     $Date: 2010/08/12 08:55:29 $
+# $Revision: 1.643 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.642 $)
+AC_REVISION($Revision: 1.643 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -192,6 +192,16 @@ fi
 GASNET_CHECK_SIZEOF(void *)
 GASNETI_PTR_BITS=`expr $SIZEOF_VOID_P \* 8`
 AC_SUBST(GASNETI_PTR_BITS)
+
+###
+# Allow user forced ARCH and/or ISA settings w/o the corresponding probes
+# XXX: Incomplete...
+
+force_arch_altix=no
+GASNET_IF_ENABLED_NOHELP(arch-altix, [force_arch_altix=yes])
+
+force_arch_sicortex=no
+GASNET_IF_ENABLED_NOHELP(arch-sicortex, [force_arch_sicortex=yes])
 
 ### 
 #
@@ -861,12 +871,14 @@ case "$target_os" in
 	# that /dev/hw is specific (and standard) on their system
 	# DOB: as of 2.6.5-7.252-sn2 (possibly earlier) /dev/hw/cpunum no longer exists
 	# so now we use /dev/xpmem instead, which is not likely to disappear
-	if test -d "/dev/hw/cpunum" -o -c "/dev/xpmem"; then
+	if test $force_arch_altix = yes -o -d "/dev/hw/cpunum" -o -c "/dev/xpmem"; then
    	  GASNETI_ARCH_ALTIX=1
 	  AC_DEFINE(GASNETI_ARCH_ALTIX)
 	fi
 	# Check for SiCortex hardware by device or cpu name
-	if test -c "/dev/scfabric" || expr "`/usr/bin/uname -p 2>&1`" : SiCortex >/dev/null; then
+	if test $force_arch_sicortex = yes -o -c "/dev/scfabric" || 
+           expr "`/usr/bin/uname -p 2>&1`" : SiCortex >/dev/null; then
+	    GASNETI_ARCH_SICORTEX=1
 	    AC_DEFINE(GASNETI_ARCH_SICORTEX)
 	fi
         case "$target" in
