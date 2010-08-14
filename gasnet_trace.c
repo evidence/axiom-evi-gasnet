@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.c,v $
- *     $Date: 2010/08/08 06:58:06 $
- * $Revision: 1.143 $
+ *     $Date: 2010/08/14 20:09:12 $
+ * $Revision: 1.144 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -589,7 +589,7 @@ static FILE *gasneti_open_outputfile(const char *filename, const char *desc) {
 /* check node restriction */
 extern int gasneti_check_node_list(const char *listvar) {
   unsigned long node = (unsigned long)gasnet_mynode();
-  char *p = gasneti_getenv_withdefault(listvar,"");
+  char *p = gasneti_getenv_withdefault(listvar,NULL);
   if (!p || !*p) return 1;
 
   while (p && *p) {
