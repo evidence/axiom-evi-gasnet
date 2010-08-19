@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.c,v $
- *     $Date: 2010/07/27 06:07:32 $
- * $Revision: 1.25 $
+ *     $Date: 2010/08/19 01:01:29 $
+ * $Revision: 1.26 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -34,7 +34,7 @@ gasneti_pshmnet_t *gasneti_request_pshmnet = NULL;
 gasneti_pshmnet_t *gasneti_reply_pshmnet = NULL;
  
 #ifndef GASNET_PSHM_FULLEMPTY
-#define GASNET_PSHM_FULLEMPTY 0
+#define GASNET_PSHM_FULLEMPTY 1
 #endif
 #ifndef GASNET_PSHM_FULLEMPTY_USE_SUB
 #define GASNET_PSHM_FULLEMPTY_USE_SUB 1
