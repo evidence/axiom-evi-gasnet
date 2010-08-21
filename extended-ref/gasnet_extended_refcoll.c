@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refcoll.c,v $
- *     $Date: 2010/08/09 18:26:10 $
- * $Revision: 1.94 $
+ *     $Date: 2010/08/21 02:00:40 $
+ * $Revision: 1.95 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>, Paul H. Hargrove <PHHargrove@lbl.gov>, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1113,7 +1113,6 @@ extern void gasnete_coll_init(const gasnet_image_t images[], gasnet_image_t my_i
                                                                   GASNETE_COLL_P2P_EAGER_SCALE_DEFAULT, 0);
     
     gasnete_coll_active_init();
-    gasnete_coll_p2p_init();
     if(images) {
       gasnete_coll_total_images = 0;
       
@@ -1335,71 +1334,34 @@ extern int gasnete_coll_consensus_wait(gasnete_coll_team_t team GASNETE_THREAD_F
 #endif
 
 #ifndef GASNETE_COLL_P2P_OVERRIDE
-#ifndef GASNETE_COLL_P2P_TABLE_SIZE
-#define GASNETE_COLL_P2P_TABLE_SIZE 16
-#endif
 	
-#if 1
-/* This is one possible implementation when we have teams */
-#define GASNETE_COLL_P2P_TABLE_SLOT(T,S) \
-	 (((uint32_t)(uintptr_t)(T) ^ (uint32_t)(S)) % GASNETE_COLL_P2P_TABLE_SIZE)
-#else
-/* Use this mapping until teams are implemented */
-#define GASNETE_COLL_P2P_TABLE_SLOT(T,S) \
-	 (gasneti_assert(gasnete_coll_team_lookup(T)==NULL), ((uint32_t)(S) % GASNETE_COLL_P2P_TABLE_SIZE))
-#endif
-
-/* XXX free list could/should be per team: */
-static gasnete_coll_p2p_t *gasnete_coll_p2p_freelist = NULL;
-
-static gasnete_coll_p2p_t gasnete_coll_p2p_table[GASNETE_COLL_P2P_TABLE_SIZE];
-static gasnet_hsl_t gasnete_coll_p2p_table_lock = GASNET_HSL_INITIALIZER; 
-	
-void gasnete_coll_p2p_init() {
-  int i;
-
-  for (i = 0; i < GASNETE_COLL_P2P_TABLE_SIZE; ++i) {
-    gasnete_coll_p2p_t *tmp = &(gasnete_coll_p2p_table[i]);
-    tmp->p2p_next = tmp->p2p_prev = tmp;
-  }
-}
-
-
-void gasnete_coll_p2p_fini() {
-#if GASNET_DEBUG
-  int i;
-
-  for (i = 0; i < GASNETE_COLL_P2P_TABLE_SIZE; ++i) {
-    gasnete_coll_p2p_t *tmp = &(gasnete_coll_p2p_table[i]);
-    /* Check that table is actually empty */
-    gasneti_assert(tmp->p2p_next == tmp);
-    gasneti_assert(tmp->p2p_prev == tmp);
-  }
-#endif
-}
+#define GASNETE_COLL_P2P_TABLE_SLOT(S) \
+	 (gasneti_assert(GASNETI_POWEROFTWO(GASNETE_COLL_P2P_TABLE_SIZE)), \
+          ((uint32_t)(S) & (GASNETE_COLL_P2P_TABLE_SIZE-1)))
 
 gasnete_coll_p2p_t *gasnete_coll_p2p_get(uint32_t team_id, uint32_t sequence) {
-  unsigned int slot_nr = GASNETE_COLL_P2P_TABLE_SLOT(team_id, sequence);
-  gasnete_coll_p2p_t *head = &(gasnete_coll_p2p_table[slot_nr]);
-  gasnete_coll_p2p_t *p2p;
+  gasnete_coll_team_t team = gasnete_coll_team_lookup(team_id);
+  unsigned int slot_nr = GASNETE_COLL_P2P_TABLE_SLOT(sequence);
+  gasnete_coll_p2p_t *p2p, **prev_p;
   int i;
-  gasnete_coll_team_t team;
   
-  team = gasnete_coll_team_lookup(team_id);
-  gasnet_hsl_lock(&gasnete_coll_p2p_table_lock);
+  gasnet_hsl_lock(&team->p2p_lock);
 
-  /* Search table */
-  p2p = head->p2p_next;
-  while ((p2p != head) && ((p2p->team_id != team_id) || (p2p->sequence != sequence))) {
+  /* Search table, which is sorted by sequence */
+  prev_p = &(team->p2p_table[slot_nr]);
+  p2p = team->p2p_table[slot_nr];
+  while (p2p && (p2p->sequence < sequence)) {
+    prev_p = &p2p->p2p_next;
     p2p = p2p->p2p_next;
   }
 
   /* If not found, create it with all zeros */
-  if_pf (p2p == head) {
+  if_pf ((p2p == NULL) || (p2p->sequence != sequence)) {
     size_t statesz = GASNETI_ALIGNUP(2*team->total_images * sizeof(uint32_t), 8);
     size_t countersz = GASNETI_ALIGNUP(2*team->total_images * sizeof(gasneti_weakatomic_t), 8);
+    gasnete_coll_p2p_t *next = p2p;
         
-    p2p = gasnete_coll_p2p_freelist;	/* XXX: per-team */
+    p2p = team->p2p_freelist;
         
     if_pf (p2p == NULL) {
       /* Round to 8-byte alignment of entry array */
@@ -1431,47 +1393,62 @@ gasnete_coll_p2p_t *gasnete_coll_p2p_get(uint32_t team_id, uint32_t sequence) {
     /*allocate an empty interval for the free list */
     p2p->seg_intervals = NULL;
         
+#if GASNET_DEBUG
     p2p->team_id = team_id;
+#endif
     p2p->sequence = sequence;
     gasnet_hsl_init(&p2p->lock);
         
-    gasnete_coll_p2p_freelist = p2p->p2p_next;
+    team->p2p_freelist = p2p->p2p_next;
         
-    /* XXX: searches out-number insertions.  So, we should do the work here to
-     * keep the list sorted, and take advantage in the search, above. */
-    p2p->p2p_prev = head;
-    p2p->p2p_next = head->p2p_next;
-    head->p2p_next->p2p_prev = p2p;
-    head->p2p_next = p2p;
+    /* Insert in order before the last location searched */
+    gasneti_assert(prev_p != NULL);
+    gasneti_assert(!next || (next->p2p_prev_p == prev_p));
+    *prev_p = p2p;
+    p2p->p2p_prev_p = prev_p;
+    p2p->p2p_next = next;
+    if (next) {
+      next->p2p_prev_p = &p2p->p2p_next;
+    }
 #ifdef GASNETE_P2P_EXTRA_INIT
     GASNETE_P2P_EXTRA_INIT(p2p)
 #endif
-      }
+  }
       
-  gasnet_hsl_unlock(&gasnete_coll_p2p_table_lock);
+  gasnet_hsl_unlock(&team->p2p_lock);
       
   gasneti_assert(p2p != NULL);
   gasneti_assert(p2p->state != NULL);
   gasneti_assert(p2p->data != NULL);
+  gasneti_assert(p2p->team_id == team->team_id);
       
   return p2p;
 }
 
-void gasnete_coll_p2p_free(gasnete_coll_p2p_t *p2p) {
+void gasnete_coll_p2p_free(gasnete_coll_team_t team, gasnete_coll_p2p_t *p2p) {
   gasneti_assert(p2p != NULL);
+  gasneti_assert(p2p->team_id == team->team_id);
 
-  gasnet_hsl_lock(&gasnete_coll_p2p_table_lock);
+  gasnet_hsl_lock(&team->p2p_lock);
 
-  p2p->p2p_prev->p2p_next = p2p->p2p_next;
-  p2p->p2p_next->p2p_prev = p2p->p2p_prev;
+  *(p2p->p2p_prev_p) = p2p->p2p_next;
+  if (p2p->p2p_next) {
+    p2p->p2p_next->p2p_prev_p = p2p->p2p_prev_p;
+  }
 #ifdef GASNETE_P2P_EXTRA_FREE
   GASNETE_P2P_EXTRA_FREE(p2p)
 #endif
 
-    p2p->p2p_next = gasnete_coll_p2p_freelist;	/* XXX: per-team */
-  gasnete_coll_p2p_freelist = p2p;
+  p2p->p2p_next = team->p2p_freelist;
+  team->p2p_freelist = p2p;
 
-  gasnet_hsl_unlock(&gasnete_coll_p2p_table_lock);
+#if GASNET_DEBUG
+  /* Detect double free using otherwise unused prev pointer */
+  gasneti_assert(p2p->p2p_prev_p != &p2p->p2p_next);
+  p2p->p2p_prev_p = &p2p->p2p_next;
+#endif
+
+  gasnet_hsl_unlock(&team->p2p_lock);
 }
 
 /*Management of the Intervals for Segments*/
@@ -2012,13 +1989,13 @@ extern void gasnete_coll_generic_free(gasnete_coll_team_t team, gasnete_coll_gen
   gasnete_coll_threaddata_t *td = GASNETE_COLL_MYTHREAD_NOALLOC;
   gasneti_assert(data != NULL);
 	
-	if(data->tree_info!=NULL) {
-		gasnete_coll_tree_free(data->tree_info GASNETE_THREAD_PASS);
-		data->tree_info=NULL; 
-	}
+  if(data->tree_info!=NULL) {
+    gasnete_coll_tree_free(data->tree_info GASNETE_THREAD_PASS);
+    data->tree_info=NULL; 
+  }
 
-	if (data->options & GASNETE_COLL_GENERIC_OPT_P2P) {
-    gasnete_coll_p2p_free(data->p2p);
+  if (data->options & GASNETE_COLL_GENERIC_OPT_P2P) {
+    gasnete_coll_p2p_free(team, data->p2p);
   }
   if(data->options & GASNETE_COLL_GENERIC_OPT_INSYNC) {
     gasnete_coll_consensus_free(team, data->in_barrier);
