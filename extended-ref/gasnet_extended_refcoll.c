@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refcoll.c,v $
- *     $Date: 2010/09/15 00:37:51 $
- * $Revision: 1.96 $
+ *     $Date: 2010/09/16 19:43:59 $
+ * $Revision: 1.97 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>, Paul H. Hargrove <PHHargrove@lbl.gov>, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2178,7 +2178,7 @@ extern gasnete_coll_tree_data_t *gasnete_coll_tree_init(gasnete_coll_tree_type_t
 }
 
 extern void gasnete_coll_tree_free(gasnete_coll_tree_data_t *tree GASNETE_THREAD_FARG) {
-  
+ if (tree) {
   gasnete_coll_threaddata_t *td = GASNETE_COLL_MYTHREAD;
   /*  gasnet_hsl_lock(&gasnete_coll_tree_lock);*/
 #if 0
@@ -2189,6 +2189,7 @@ extern void gasnete_coll_tree_free(gasnete_coll_tree_data_t *tree GASNETE_THREAD
   *(gasnete_coll_tree_data_t **)tree = td->tree_data_freelist;
   td->tree_data_freelist = tree;
   /* gasnet_hsl_unlock(&gasnete_coll_tree_lock);*/
+ }
 }
 
 
