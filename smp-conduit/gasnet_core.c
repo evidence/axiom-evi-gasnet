@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_core.c,v $
- *     $Date: 2010/09/16 03:51:37 $
- * $Revision: 1.57 $
+ *     $Date: 2010/09/16 07:31:01 $
+ * $Revision: 1.58 $
  * Description: GASNet smp conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -162,6 +162,11 @@ static void gasnetc_signal_job(int sig) {
       (void)kill(pid, SIGCONT);
     }
   }
+}
+
+extern void gasnetc_fatalsignal_callback(int sig) {
+  gasnetc_exit_barrier_notify(128 + sig);
+  gasnetc_signal_job(GASNETC_REMOTEEXIT_SIGNAL);
 }
 
 static void gasnetc_exit_sighand(int sig_recvd) {
