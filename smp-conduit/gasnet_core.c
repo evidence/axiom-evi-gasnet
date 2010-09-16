@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_core.c,v $
- *     $Date: 2010/09/16 07:31:01 $
- * $Revision: 1.58 $
+ *     $Date: 2010/09/16 07:59:38 $
+ * $Revision: 1.59 $
  * Description: GASNet smp conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -914,20 +914,12 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
   va_list argptr;
   GASNETI_COMMON_AMREQUESTLONG(dest,handler,source_addr,nbytes,dest_addr,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
-#if GASNET_PSHM
-  /*  call the generic requestor */
-  retval = gasnetc_RequestGeneric(gasnetc_Long, 
-                                  dest, handler, 
-                                  source_addr, nbytes, dest_addr,
-                                  numargs, argptr);
-#else
 
     /*  call the generic requestor */
     retval = gasnetc_RequestGeneric(gasnetc_Long, 
                                   dest, handler, 
                                   source_addr, nbytes, dest_addr,
                                   numargs, argptr);
-#endif
   va_end(argptr);
   GASNETI_RETURN(retval);
 }
@@ -942,19 +934,11 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
   GASNETI_COMMON_AMREQUESTLONGASYNC(dest,handler,source_addr,nbytes,dest_addr,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
 
-#if GASNET_PSHM
-  /*  call the generic requestor */
-  retval = gasnetc_RequestGeneric(gasnetc_Long, 
-                                  dest, handler, 
-                                  source_addr, nbytes, dest_addr,
-                                  numargs, argptr);
-#else
     /*  call the generic requestor */
     retval = gasnetc_RequestGeneric(gasnetc_Long, 
                                   dest, handler, 
                                   source_addr, nbytes, dest_addr,
                                   numargs, argptr);
-#endif
   va_end(argptr);
   GASNETI_RETURN(retval);
 }
@@ -1004,23 +988,14 @@ extern int gasnetc_AMReplyLongM(
                             int numargs, ...) {
   int retval;
   va_list argptr;
-
   GASNETI_COMMON_AMREPLYLONG(token,handler,source_addr,nbytes,dest_addr,numargs); 
   va_start(argptr, numargs); /*  pass in last argument */
 
-#if GASNET_PSHM
-  /*  call the generic requestor */
-  retval = gasnetc_ReplyGeneric(gasnetc_Long, 
-                                token, handler, 
-                                source_addr, nbytes, dest_addr,
-                                numargs, argptr);
-#else
     /*  call the generic requestor */
     retval = gasnetc_ReplyGeneric(gasnetc_Long, 
                                   token, handler, 
                                   source_addr, nbytes, dest_addr,
                                   numargs, argptr);
-#endif
   va_end(argptr);
   GASNETI_RETURN(retval);
 }
