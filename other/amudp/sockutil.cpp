@@ -1,6 +1,6 @@
 //   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/sockutil.cpp,v $
-//     $Date: 2010/09/18 02:54:23 $
-// $Revision: 1.18 $
+//     $Date: 2010/09/23 20:04:52 $
+// $Revision: 1.19 $
 // Description: Simple sock utils
 // Copyright 1999, Dan Bonachea
 
@@ -161,9 +161,9 @@ void recvAll(SOCKET s, void* buffer, int numbytes) {
   }
 }
 //-------------------------------------------------------------------------------------
-void sendAll(SOCKET s, const void* buffer, int numbytes) {
+void sendAll(SOCKET s, const void* buffer, int numbytes, int dothrow) {
   // blocks until it can send numbytes on s from buffer
-  // (throws xSocket on close)
+  // (throws xSocket on close by default)
   #if !PLATFORM_OS_MSWINDOWS
     LPSIGHANDLER oldsighandler = reghandler(SIGPIPE, (LPSIGHANDLER)SIG_IGN); 
     // ignore broken pipes, because we get that when we write to a socket after other side reset
@@ -177,7 +177,7 @@ void sendAll(SOCKET s, const void* buffer, int numbytes) {
       #if !PLATFORM_OS_MSWINDOWS
         reghandler(SIGPIPE, oldsighandler); // restore handler
       #endif
-      xsocket(s, "error in sendAll() - connection closed");
+      if (dothrow) xsocket(s, "error in sendAll() - connection closed");
     }
     assert(retval <= numbytes); // can't send more than was in buffer...
 
@@ -189,9 +189,9 @@ void sendAll(SOCKET s, const void* buffer, int numbytes) {
   #endif
 }
 //-------------------------------------------------------------------------------------
-void sendAll(SOCKET s, const char* buffer, int numbytes) {
+void sendAll(SOCKET s, const char* buffer, int numbytes, int dothrow) {
   if (numbytes == -1) numbytes = strlen(buffer);
-  sendAll(s, (void *)buffer, numbytes);
+  sendAll(s, (void *)buffer, numbytes, dothrow);
 }
 //-------------------------------------------------------------------------------------
 void sendEOL(SOCKET s) {
