@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2010/09/24 05:09:48 $
-# $Revision: 1.650 $
+#     $Date: 2010/09/25 23:32:58 $
+# $Revision: 1.651 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.650 $)
+AC_REVISION($Revision: 1.651 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -3455,10 +3455,14 @@ if test $enabled_shmem = yes; then
       if test -n "$GASNETI_ARCH_ALTIX"; then
 	SHMEM_FLAVOUR="SGI_SHMEM"
 	AC_MSG_RESULT(SGI/Altix)
-	GASNET_ENV_DEFAULT(SHMEM_INCLUDE, /usr/include)
+	GASNET_ENV_DEFAULT(MPI_ROOT, "/usr") # At least SGI UV sets this
+	GASNET_ENV_DEFAULT(SHMEM_INCLUDE, "${MPI_ROOT}/include")
+	GASNET_ENV_DEFAULT(SHMEM_LIBDIR, "${MPI_ROOT}/lib")
         # Work around stoopid bug in Intel ecc on Altix: programs won't compile
         # if -L/usr/lib is explicitly passed.
-	GASNET_ENV_DEFAULT(SHMEM_LIBDIR, /anything/but/usr/lib)
+	if test "$SHMEM_LIBDIR" = "/usr/lib"; then
+	  SHMEM_LIBDIR="/anything/but/usr/lib"
+	fi
         GASNET_ENV_DEFAULT(SHMEM_LIBS, [-lsma -lmpi])
       else
         AC_MSG_RESULT(unknown)
