@@ -1,6 +1,6 @@
 //   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/sockutil.cpp,v $
-//     $Date: 2010/09/23 20:04:52 $
-// $Revision: 1.19 $
+//     $Date: 2010/09/25 22:55:25 $
+// $Revision: 1.20 $
 // Description: Simple sock utils
 // Copyright 1999, Dan Bonachea
 
@@ -178,6 +178,7 @@ void sendAll(SOCKET s, const void* buffer, int numbytes, int dothrow) {
         reghandler(SIGPIPE, oldsighandler); // restore handler
       #endif
       if (dothrow) xsocket(s, "error in sendAll() - connection closed");
+      else break;
     }
     assert(retval <= numbytes); // can't send more than was in buffer...
 
