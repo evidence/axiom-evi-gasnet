@@ -1,7 +1,7 @@
 README file for vapi-conduit and ibv-conduit
 ============================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.58 $
+$Revision: 1.59 $
 
 @ TOC: @
 @ Section: VAPI vs IBV @
@@ -405,6 +405,27 @@ $Revision: 1.58 $
     The default value is 3KB (the current maximum value).
     A value of zero disables this optimization.
 
+  + GASNET_USE_SRQ
+    This controls whether IBV Shared Receive Queue (SRQ) support is used.
+    This setting is ignored for VAPI, for which GASNet has no SRQ support,
+    and for IBV if GASNet was configured with --disable-ibv-srq.
+    This setting defaults to -1, which means that SRQ will be used only
+    if doing so would reduce memory usage (as determined from the value
+    of the GASNET_RBUF_COUNT setting, described below).
+    If set to a non-negative value, this setting give the minimum GASNet
+    node count at which SRQ will be used, regardless of whether or not
+    the memory usage would increase or decrease.  A value of zero will
+    disable SRQ.  Examples:
+    - GASNET_USE_SRQ unset or explicitly set to -1:
+        SRQ is used ONLY if GASNET_RBUF_COUNT is less than the number
+        of receive buffers required for the non-SRQ case.
+    - GASNET_USE_SRQ <= gasnet_nodes()  [includes GASNET_USE_SRQ == 1]
+        SRQ is used and GASNET_RBUF_COUNT is enforced as a maximum
+    - GASNET_USE_SRQ > gasnet_nodes()
+        SRQ is NOT used and GASNET_RBUF_COUNT is ignored
+    Note that the interpretation of the values 0 and 1 allow one to use
+    this setting as a simple boolean if desired.
+
   Resource usage parameters:
   The following environment variables control how much memory is
   preallocated at startup time to serve various functions.  Because these
@@ -426,7 +447,7 @@ $Revision: 1.58 $
     (for example, when the remote range of a PUT or GET covers more
     than one pinned region, due to GASNET_PIN_MAXSZ, or because an AM
     Long uses separate ops for the payload and header).
-    The default value is 64.
+    The default value is 24.
     Reducing this parameter may limit small message throughput.  If you
     believe your small message throughput is too low, you may try
     increasing this value.
@@ -438,7 +459,7 @@ $Revision: 1.58 $
     is min(GASNET_NETWORKDEPTH_TOTAL, GASNET_NETWORKDEPTH_PP*(N-1)).
     If set to zero, the value is set to the maximum usable value computed
     from GASNET_NETWORKDEPTH_PP and the HCA's reported capabilities.
-    The default value is 0 (compute automatically).
+    The default value is 255.
     Reducing this parameter may limit small message throughput.  If you
     believe your small message throughput is too low, you may try
     increasing this value (or setting it to zero), at a cost in
@@ -451,9 +472,7 @@ $Revision: 1.58 $
     Reply has not yet been processed for AM flow control (described in
     another section of this README).  This is the number of buffers which
     must be preposted to each receive work queue for AM Requests.
-    This value should be less than or equal to GASNET_NETWORKDEPTH_PP,
-    and will be trimmed to GASNET_NETWORKDEPTH_PP if larger.
-    The default value is 32 (128KB*(N-1) allocated for Request buffers).
+    The default value is 12 (48KB*(N-1) allocated for Request buffers).
     Reducing this parameter may limit Active Message throughput.  If you
     believe your Active Message throughput is too low, you may try
     increasing this value.
@@ -466,9 +485,7 @@ $Revision: 1.58 $
     follows each AM Request.
     If set to zero, the value is set to the maximum usable value computed
     from GASNET_AM_CREDITS_PP and the HCA's reported capabilities.
-    The default value is MAX(1024, nodes).
-    This value should be less than or equal to GASNET_NETWORKDEPTH_TOTAL,
-    and will be trimmed to GASNET_NETWORKDEPTH_TOTAL if larger.
+    The default value is MIN(256, nodes*GASNET_AM_CREDITS_PP).
     Reducing this parameter may limit Active Message throughput.  If you
     believe your Active Message throughput is too low, you may try
     increasing this value (or setting it to zero), at a cost in additional
@@ -484,12 +501,28 @@ $Revision: 1.58 $
     to the requester.
     The default value is 1.
     GASNET_AM_CREDITS_SLACK will be silently reduced if needed to
-    ensure deadlock will not occur.
+    ensure deadlock will not occur, and is ignored when SRQ is used.
     Reducing this parameter to zero or setting it too high may
     increase the latency of Active Message traffic.
 
+  + GASNET_RBUF_COUNT
+    If SRQ support is unavailable or disabled, this parameter is ignored.
+    See GASNET_USE_SRQ documentation for details of when SRQ is enabled.
+    When SRQ is enabled this gives the max number of AM receive buffers
+    allocated on each node.  These buffers are needed for reception of
+    AM headers and the payload of mediums, but are not used for RDMA.
+    The actual number of buffers allocated is the lesser of the value of
+    GASNET_RBUF_COUNT or a value computed from the GASNET_AM_* and
+    GASNET_NETWORKDEPTH_* parameters described above.
+    If set to zero, the value is limited only by the HCA's capabilites.
+    The default value is 1024 (up to 4MB for buffers).
+    Reducing this parameter may limit Active Message throughput.  If you
+    believe your Active Message throughput is too low, you may try
+    increasing this value (or setting it to zero), at a cost in additional
+    pinned memory.
+
   + GASNET_BBUF_COUNT
-    This gives the number of pre-pinned buffers allocated on each node.
+    This gives the max number of pre-pinned buffers allocated on each node.
     These buffers are needed for assembly of AM headers and the payload
     of mediums, and for some PUTs (see GASNET_NONBULKPUT_BOUNCE_LIMIT).
     The actual number of buffers allocated is the lesser of the values of
