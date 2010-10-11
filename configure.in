@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2010/10/08 01:08:35 $
-# $Revision: 1.652 $
+#     $Date: 2010/10/11 05:22:37 $
+# $Revision: 1.653 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.652 $)
+AC_REVISION($Revision: 1.653 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -4062,9 +4062,17 @@ case "$target_os" in
   ;;
 esac
 
+enabled_plpa="no"
 if test "$cross_compiling" = "no" ; then
   case "$target_os" in
-    linux*)  
+    linux*) enabled_plpa="yes";;
+  esac
+else
+  case "$target" in
+    x86_64-cnl-linux*) enabled_plpa="yes";;
+  esac
+fi
+if test "$enabled_plpa" = "yes"; then
       GASNET_IF_ENABLED_WITH_AUTO(plpa, [use PLPA for CPU binding (default is to probe)],
 		[enabled_plpa="yes"; force_plpa="yes"],
 		[enabled_plpa="no - user disabled"],
@@ -4080,8 +4088,6 @@ if test "$cross_compiling" = "no" ; then
       elif test "$force_plpa" = yes; then
         AC_MSG_ERROR(User requested --enable-plpa but PLPA is not supported on your system)
       fi
-      ;;
-  esac
 fi
 AM_CONDITIONAL(USE_PLPA,test "$enabled_plpa" = "yes")
 
