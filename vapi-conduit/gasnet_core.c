@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2010/10/08 01:08:41 $
- * $Revision: 1.224 $
+ *     $Date: 2010/10/11 04:04:35 $
+ * $Revision: 1.225 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1434,6 +1434,16 @@ static int gasnetc_init(int *argc, char ***argv) {
 
   #if GASNET_PSHM
     gasneti_pshm_init(&gasneti_bootstrapExchange, 0);
+
+    /* Prevent allocating QPs that will always be bypassed by PSHM */
+    for (i = 0; i < gasneti_nodes; ++i) {
+      if (gasneti_pshm_in_supernode(i)) {
+        int j;
+        for (j = 0 ; j < gasnetc_alloc_qps; ++j) {
+           gasnetc_cep[i*gasnetc_alloc_qps + j].hca = NULL;
+        }
+      }
+    }
   #endif
 
   /* connect the endpoints */

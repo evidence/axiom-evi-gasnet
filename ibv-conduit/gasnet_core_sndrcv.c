@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2010/10/08 01:08:41 $
- * $Revision: 1.248 $
+ *     $Date: 2010/10/11 04:04:35 $
+ * $Revision: 1.249 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -3525,7 +3525,12 @@ extern void gasnetc_sndrcv_init_peer(gasnet_node_t node) {
   
   cep = gasnetc_node2cep[node] = &(gasnetc_cep[node * gasnetc_alloc_qps]);
 
-  if (node != gasneti_mynode) {
+#if GASNET_PSHM
+  if (!gasneti_pshm_in_supernode(node))
+#else
+  if (node != gasneti_mynode)
+#endif
+  {
     for (i = 0; i < gasnetc_alloc_qps; ++i, ++cep) {
       gasnetc_hca_t *hca = cep->hca;
       cep->epid = gasnetc_epid(node, i);
@@ -3575,7 +3580,7 @@ extern void gasnetc_sndrcv_init_peer(gasnet_node_t node) {
       cep->snd_cq_sema_p = &gasnetc_cq_semas[cep->hca_index];
     }
   } else {
-    /* Should never use these for loopback */
+    /* Should never use these QPs (they are either loopback or PSHM) */
     for (i = 0; i < gasnetc_alloc_qps; ++i, ++cep) {
       cep->epid = gasnetc_epid(node, i);
       gasneti_semaphore_init(&cep->sq_sema, 0, 0);
@@ -3606,8 +3611,13 @@ extern void gasnetc_sndrcv_attach_peer(gasnet_node_t node) {
 
   for (i = 0; i < gasnetc_alloc_qps; ++i, ++cep) {
     gasnetc_hca_t *hca = cep->hca;
-    cep->keys.seg_reg = (node == gasneti_mynode) ? NULL : hca->seg_reg;
-    cep->keys.rkeys   = (node == gasneti_mynode) ? NULL : &hca->rkeys[node * gasnetc_max_regs];
+#if GASNET_PSHM
+    gasneti_assert (!hca || !gasneti_pshm_in_supernode(node));
+#else
+    gasneti_assert (!hca || (node != gasneti_mynode));
+#endif
+    cep->keys.seg_reg = (hca == NULL) ? NULL : hca->seg_reg;
+    cep->keys.rkeys   = (hca == NULL) ? NULL : &hca->rkeys[node * gasnetc_max_regs];
   }
 
   if (node == gasneti_mynode) { /* Needed exactly once */
