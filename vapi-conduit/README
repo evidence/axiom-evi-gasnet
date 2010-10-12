@@ -1,7 +1,7 @@
 README file for vapi-conduit and ibv-conduit
 ============================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.59 $
+$Revision: 1.60 $
 
 @ TOC: @
 @ Section: VAPI vs IBV @
@@ -9,7 +9,7 @@ $Revision: 1.59 $
 @ Section: Multi-rail Support @
 @ Section: Runtime Configuration @
 @ Section: HCA Configuration @
-@ Section: Platform-specifc Notes @
+@ Section: Platform-specific Notes @
 @ Section: Core API @
 @ Section: Extended API @
 @ Section: Graceful exits @
@@ -90,7 +90,7 @@ $Revision: 1.59 $
     - MPICH or MPICH2
       These don't use IB, so no special action is required.
     - MVAPICH or MVAPICH2
-      These don't use TCP/IP unless explictly configured for IP-over-IB.
+      These don't use TCP/IP unless explicitly configured for IP-over-IB.
       So, these are not recommended if one is concerned with memory use.
     In all the setting above, omit the quotes from the value.
 
@@ -240,7 +240,7 @@ $Revision: 1.59 $
     by a ':'.  If a list of ports is given, only those ports may be used.
     Otherwise the first active port on the given HCA may be used.  The
     following example allows the first active port on HCA InfiniHost0,
-    and only port 2 on InifiniHost1:
+    and only port 2 on InfiniHost1:
 	GASNET_VAPI_PORTS="InfiniHost0+InfiniHost1:2".
     Note that this list is a *filter*, which means:
     + Duplicate entries do not cause multiple opens of a port or HCA
@@ -259,7 +259,7 @@ $Revision: 1.59 $
     This sets the timeout value used to configure InfiniBand QueuePairs.
     The IB specification uses (4.096us * 2^qp_timeout) as the length of
     time an HCA waits to receive and ACK from its peer before attempting
-    retransmisson.
+    retransmission.
     The default is currently 18 (roughly 1 second).
 
   + GASNET_QP_RETRY_COUNT
@@ -327,7 +327,7 @@ $Revision: 1.59 $
     Setting to a non-zero value will limit how large the GASNet segment
     can be, and how much memory is available for firehose (see below),
     but may speed startup by bounding the probe.  Note, however that
-    setting only this variable bounds the probe, but does not elimitate it.
+    setting only this variable bounds the probe, but does not eliminate it.
     Also be aware that with multiple processes per shared memory node the
     value given by this variable will be divided by the number of processes
     per shared memory node to determine the memory available.
@@ -514,7 +514,7 @@ $Revision: 1.59 $
     The actual number of buffers allocated is the lesser of the value of
     GASNET_RBUF_COUNT or a value computed from the GASNET_AM_* and
     GASNET_NETWORKDEPTH_* parameters described above.
-    If set to zero, the value is limited only by the HCA's capabilites.
+    If set to zero, the value is limited only by the HCA's capabilities.
     The default value is 1024 (up to 4MB for buffers).
     Reducing this parameter may limit Active Message throughput.  If you
     believe your Active Message throughput is too low, you may try
@@ -627,7 +627,7 @@ $Revision: 1.59 $
     for large PUTs and GETs, with little or no affect on small message
     latency.  It is available only for debugging purposes.
     In a GASNET_SEGMENT_LARGE or GASNET_SEGMENT_EVERYTHING configuration,
-    the GASNet segment is not preregistred and use of firehose is
+    the GASNet segment is not preregistered and use of firehose is
     required.  Thus it is an error to disable firehose in such a
     configuration.
 
@@ -696,7 +696,7 @@ $Revision: 1.59 $
     the value to 16 yielded approximately a 30% bandwidth improvement in an
     RDMA-GET benchmark.
 
-@ Section: Platform-specifc Notes @
+@ Section: Platform-specific Notes @
 
 + Crashes have been seen using QLogic's InfiniPath HCAs with ibv-conduit
   with default parameters.  If you see crashes with a message containing
