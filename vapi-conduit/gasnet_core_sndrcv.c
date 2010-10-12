@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2010/10/11 04:04:35 $
- * $Revision: 1.249 $
+ *     $Date: 2010/10/12 00:11:44 $
+ * $Revision: 1.250 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -2203,7 +2203,9 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
           } while (!gasneti_semaphore_trydown(sema));
           GASNETC_TRACE_WAIT_END(GET_AMREQ_BUFFER_STALL);
         }
+        /* XXX: Bring this back when we can avoid over-allocation of rbufs 
         gasneti_assert(NULL == gasneti_lifo_pop(cep->rbuf_freelist));
+        */
       } else
 #endif
       if (gasneti_semaphore_trydown(&cep->am_loc)) {
@@ -3308,6 +3310,8 @@ extern int gasnetc_sndrcv_init(void) {
 
   /*
    * setup RCV resources
+   * XXX: Note that we don't yet know how many QPs we miht skip due
+   * to PSHM.  So, the CQ sizes and RBUF counts may be over-estimates.
    */
 
   /* create one RCV CQ per HCA */
