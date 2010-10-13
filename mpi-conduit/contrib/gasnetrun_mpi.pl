@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2010/04/11 07:59:43 $
-# $Revision: 1.86 $
+#     $Date: 2010/10/13 07:56:11 $
+# $Revision: 1.87 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -118,7 +118,7 @@ sub gasnet_encode($) {
     my $spawner_desc = undef;
 
     if ($ENV{'MPIRUN_CMD_BATCH'}) {
-      print "WARNING: MPIRUN_CMD_BATCH only has siginificant on the BlueGene/P" unless($is_bgp);
+      print "WARNING: MPIRUN_CMD_BATCH only has significance on the BlueGene/P" unless($is_bgp);
     }
 
     if ($is_lam) {
