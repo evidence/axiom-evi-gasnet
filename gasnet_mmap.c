@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2010/09/16 03:51:35 $
- * $Revision: 1.76 $
+ *     $Date: 2010/10/13 03:39:56 $
+ * $Revision: 1.77 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1328,7 +1328,6 @@ void gasneti_segmentAttach(uintptr_t segsize, uintptr_t minheapoffset,
     gasneti_segment.remote_addr = 0;
     gasneti_segment.remote_size = 0;
 #endif
-
     gasneti_segmentAttachLocal(segsize, minheapoffset, seginfo, exchangefn);
     (*exchangefn)(&gasneti_segment, sizeof(gasnet_seginfo_t), seginfo);
 
@@ -1417,6 +1416,33 @@ void gasneti_segmentAttach(uintptr_t segsize, uintptr_t minheapoffset,
 #endif /* GASNET_PSHM */
 } 
 #endif /* !GASNET_SEGMENT_EVERYTHING */
+
+/* Used to pass the nodemap information to the client
+ * Similar to gasneti_getSegmentInfo(). 
+ * */
+extern int gasneti_getNodeInfo(gasnet_node_t *nodeinfo_table, int numentries) {
+  GASNETI_CHECKINIT();
+
+  if_pf (numentries <= 0) {
+    if (numentries == 0) return GASNET_OK;
+    else GASNETI_RETURN_ERR(BAD_ARG);
+  }
+  gasneti_assert(nodeinfo_table);
+  if_pf (numentries > gasneti_nodes) numentries = gasneti_nodes;
+
+  if (gasneti_nodeinfo) {
+    memcpy(nodeinfo_table, gasneti_nodeinfo, numentries*sizeof(gasnet_node_t));
+  } else {
+    gasnet_node_t i;
+
+    for (i=0; i < numentries; i++) {
+      nodeinfo_table[i] = i;
+    }
+  }
+
+  return GASNET_OK;
+}
+
 /* ------------------------------------------------------------------------------------ */
 /* seginfo initialization and manipulation */
 extern int gasneti_getSegmentInfo(gasnet_seginfo_t *seginfo_table, int numentries) {
@@ -1693,33 +1719,6 @@ void gasneti_auxseg_attach(void) {
 
   gasneti_assert(gasneti_auxsegfns[numfns] == NULL);
   gasneti_seginfo_client = gasneti_malloc(gasneti_nodes*sizeof(gasnet_seginfo_t));
-
-  if (gasneti_nodemap) {
-    /* N^2 computation rather than N^2 network exchange */
-    gasnet_node_t count = 1;
-    gasnet_node_t prev = 0;
-    for (i = 0; i < gasneti_nodes; ++i) {
-      gasnet_node_t match = gasneti_nodemap[i];
-      if (match == 0) { /* Special case avoids needing prev < 0 */
-        gasneti_seginfo_client[i].nodeinfo = 0;
-      } else if (match > prev){
-        prev = match;
-        gasneti_seginfo_client[i].nodeinfo = count;
-        for (j = i+1; j < gasneti_nodes; ++j) {
-          if (gasneti_nodemap[j] == match) {
-            gasneti_seginfo_client[j].nodeinfo = count;
-	  }
-        }
-        ++count;
-        gasneti_assert(count <= gasneti_nodemap_global_count);
-      }
-    }
-    gasneti_assert(gasneti_seginfo_client[gasneti_mynode].nodeinfo == gasneti_nodemap_global_rank);
-  } else {
-    for (i=0; i < gasneti_nodes; i++) {
-      gasneti_seginfo_client[i].nodeinfo = i;
-    }
-  }
 
   /* point si at the auxseg */
   #if GASNET_SEGMENT_EVERYTHING
