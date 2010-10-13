@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2010/10/11 04:04:35 $
- * $Revision: 1.225 $
+ *     $Date: 2010/10/13 07:21:54 $
+ * $Revision: 1.226 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1052,7 +1052,7 @@ static int gasnetc_init(int *argc, char ***argv) {
   gasneti_trace_init(argc, argv);
 
   /* boostrapInit may set gasneti_nodes==0 if would overflow gasnet_node_t */
-  if (!gasneti_nodes || (gasneti_nodes > GASNET_MAXNODES)) {
+  if (!gasneti_nodes /* || (gasneti_nodes > GASNET_MAXNODES) */) {
     GASNETI_RETURN_ERRR(RESOURCE, "gasnet_nodes exceeds " GASNET_CONDUIT_NAME_STR_LC "-conduit capabilities");
   }
 
