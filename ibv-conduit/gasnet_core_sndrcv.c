@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2010/10/12 00:11:44 $
- * $Revision: 1.250 $
+ *     $Date: 2010/10/13 17:04:13 $
+ * $Revision: 1.251 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -2203,9 +2203,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
           } while (!gasneti_semaphore_trydown(sema));
           GASNETC_TRACE_WAIT_END(GET_AMREQ_BUFFER_STALL);
         }
-        /* XXX: Bring this back when we can avoid over-allocation of rbufs 
         gasneti_assert(NULL == gasneti_lifo_pop(cep->rbuf_freelist));
-        */
       } else
 #endif
       if (gasneti_semaphore_trydown(&cep->am_loc)) {
@@ -3310,8 +3308,6 @@ extern int gasnetc_sndrcv_init(void) {
 
   /*
    * setup RCV resources
-   * XXX: Note that we don't yet know how many QPs we miht skip due
-   * to PSHM.  So, the CQ sizes and RBUF counts may be over-estimates.
    */
 
   /* create one RCV CQ per HCA */
@@ -3529,12 +3525,7 @@ extern void gasnetc_sndrcv_init_peer(gasnet_node_t node) {
   
   cep = gasnetc_node2cep[node] = &(gasnetc_cep[node * gasnetc_alloc_qps]);
 
-#if GASNET_PSHM
-  if (!gasneti_pshm_in_supernode(node))
-#else
-  if (node != gasneti_mynode)
-#endif
-  {
+  if (node != gasneti_mynode) {
     for (i = 0; i < gasnetc_alloc_qps; ++i, ++cep) {
       gasnetc_hca_t *hca = cep->hca;
       cep->epid = gasnetc_epid(node, i);
@@ -3584,7 +3575,7 @@ extern void gasnetc_sndrcv_init_peer(gasnet_node_t node) {
       cep->snd_cq_sema_p = &gasnetc_cq_semas[cep->hca_index];
     }
   } else {
-    /* Should never use these QPs (they are either loopback or PSHM) */
+    /* Should never use these for loopback */
     for (i = 0; i < gasnetc_alloc_qps; ++i, ++cep) {
       cep->epid = gasnetc_epid(node, i);
       gasneti_semaphore_init(&cep->sq_sema, 0, 0);
@@ -3615,13 +3606,8 @@ extern void gasnetc_sndrcv_attach_peer(gasnet_node_t node) {
 
   for (i = 0; i < gasnetc_alloc_qps; ++i, ++cep) {
     gasnetc_hca_t *hca = cep->hca;
-#if GASNET_PSHM
-    gasneti_assert (!hca || !gasneti_pshm_in_supernode(node));
-#else
-    gasneti_assert (!hca || (node != gasneti_mynode));
-#endif
-    cep->keys.seg_reg = (hca == NULL) ? NULL : hca->seg_reg;
-    cep->keys.rkeys   = (hca == NULL) ? NULL : &hca->rkeys[node * gasnetc_max_regs];
+    cep->keys.seg_reg = (node == gasneti_mynode) ? NULL : hca->seg_reg;
+    cep->keys.rkeys   = (node == gasneti_mynode) ? NULL : &hca->rkeys[node * gasnetc_max_regs];
   }
 
   if (node == gasneti_mynode) { /* Needed exactly once */
