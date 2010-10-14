@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2010/10/11 20:52:12 $
- * $Revision: 1.253 $
+ *     $Date: 2010/10/14 20:36:50 $
+ * $Revision: 1.254 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1949,32 +1949,37 @@ void gasneti_set_affinity_default(int rank) {
     static processorid_t *avail_cpus = NULL;
     static int num_cpus = 0;
 
-    if_pf (avail_cpus == NULL) {
+    if_pf (!num_cpus) {
       static gasneti_mutex_t lock = GASNETI_MUTEX_INITIALIZER;
 
       gasneti_mutex_lock(&lock);
-      if (avail_cpus == NULL) {
+      if (!num_cpus) {
         processorid_t i;
+        int tmp_cpus;
         int j;
 
         /* Find max possible CPU ID */
         processorid_t cpuid_max = sysconf(_SC_CPUID_MAX);
 
         /* Find the number of online CPUS. */
-        num_cpus = gasneti_set_affinity_cpus();
+        tmp_cpus = gasneti_set_affinity_cpus();
 
-        /* Allocate avail. CPU table. This will never get deallocated ? */
-        avail_cpus = (processorid_t *) malloc(num_cpus * sizeof(processorid_t));
+        /* Allocate avail. CPU table. */
+        avail_cpus = (processorid_t *) malloc(tmp_cpus * sizeof(processorid_t));
 
         /* Init avail. CPU table */
         for (i = j = 0; i <= cpuid_max; i++) {
             if (p_online(i, P_STATUS) != -1)
               avail_cpus[j++] = i;
         }
+
+        /* Ensure avail_cpus written/populated before num_cpus is written */
+        gasneti_sync_writes();
+        num_cpus = tmp_cpus;
       }
       gasneti_mutex_unlock(&lock);
     } else {
-      gasneti_local_rmb();
+      gasneti_sync_reads();
     }
 
     /* From the processor_bind man page:
