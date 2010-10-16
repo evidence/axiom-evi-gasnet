@@ -1,6 +1,45 @@
 GASNet ChangeLog 
 ----------------
-$Revision: 1.41 $
+$Revision: 1.42 $
+
+----------------------------------------------------------------------
+1?-??-2010 : Release 1.16.0
+* General:
+  - Environment vars to limit which nodes generate various outputs:
+    + GASNET_BACKTRACE_NODES - limits GASNET_BACKTRACE output
+    + GASNET_TRACENODES      - limits GASNET_TRACEFILE output
+    + GASNET_STATSNODES      - limits GASNET_STATSFILE output
+    + GASNET_MALLOCNODES     - limits GASNET_MALLOCFILE output
+
+* InfiniBand (ibv-conduit):
+  - This release features a (re)implementation of Active Messages for
+    ibv-conduit via SRQ (Shared Receive Queue) which greatly reduces
+    the memory requirements for large node counts.
+  - Implementation now supports (in theory) as many as 65535 GASNet
+    nodes (processes), up from 16384.
+
+* Cray-XT and Cray-XE series:
+  - Fixed bug 2435: portals-conduit assertion failures if signalled
+  - gasnett_set_affinity() now implemented under CNL
+  - Initial testing on XE series (w/ mpi-conduit, no native support)
+
+* Process-Shared Memory (PSHM) Support
+  - Now enabled by default on Linux
+  - Enabling PSHM no longer disables conduits lacking PSHM support
+  - Optional implementation via SystemV shared memory
+  - Optional implementation via mmap()ed files
+  - AMPoll operation now O(1), rather than O(procs_per_node)
+  - Fix bug 2826: testhsl failures with PSHM + mpi-conduit
+
+* Misc Platform support:
+  - Fix bug 2530: bad addressing for 128-bit atomics on x86-64
+  - Added gasnett_set_affinity() implementation for Solaris
+  - Improved support for SGI Altix models w/ x86-64 CPUs including
+    the ICE and UV family platforms.
+  - Improved debugger support for MacOSX
+
+* Build and configure:
+  - Fix bug 2688: installing extraneous internal headers
 
 ----------------------------------------------------------------------
 06-28-2010 : Release 1.15.4 (ibv-conduit only beta release)
