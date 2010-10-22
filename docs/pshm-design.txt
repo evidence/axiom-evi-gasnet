@@ -1,6 +1,6 @@
 GASNet inter-Process SHared Memory (PSHM) design
 ---------------------------------------------
-$Revision: 1.9 $
+$Revision: 1.10 $
 
 Document by:
     Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -55,17 +55,17 @@ intra-memory AM traffic:
 
   GASNET_PSHMNET_QUEUE_DEPTH
      Number of slots (1 cache line each) in the AM receive queues.
-     For P process per node, there are O(P^2) of these queues. If 
+     For P process per node, there are O(P^2) of these queues.  If 
      GASNET_PSHMNET_QUEUE_DEPTH is not set, the default number of slots
-     in each queue is 8. The PSHM-AM network provides a flow-control
+     in each queue is 8.  The PSHM-AM network provides a flow-control
      mechanism: the sender waits until there is a free slot in the
      receiver's AM queue.  
 
   GASNET_PSHMNET_QUEUE_MEMORY
-     Size of memory pool used to hold AM payloads. For P processes 
-     per node, there are O(P) of these pools. if
+     Size of memory pool used to hold AM payloads.  For P processes 
+     per node, there are O(P) of these pools.  If
      GASNET_PSHMNET_QUEUE_MEMORY is not set, the default size of each
-     memory pool is 1MB. The PSHM-AM network provides a flow-control 
+     memory pool is 1MB.  The PSHM-AM network provides a flow-control 
      mechanism: the sender waits until there is an available chunk of 
      memory for holding the AM's payload. 
      
