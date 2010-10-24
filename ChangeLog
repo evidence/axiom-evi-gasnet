@@ -1,9 +1,10 @@
 GASNet ChangeLog 
 ----------------
-$Revision: 1.43 $
+$Revision: 1.44 $
 
 ----------------------------------------------------------------------
-1?-??-2010 : Release 1.16.0
+11-01-2010 : Release 1.16.0
+ 
 * General:
   - Environment vars to limit which nodes generate various outputs:
     + GASNET_BACKTRACE_NODES - limits GASNET_BACKTRACE output
@@ -41,6 +42,14 @@ $Revision: 1.43 $
 
 * Build and configure:
   - Fix bug 2688: installing extraneous internal headers
+
+----------------------------------------------------------------------
+10-24-2010 : Release 1.15.8
+* A "stable snapshot" - second release candidate for 1.16.0
+
+----------------------------------------------------------------------
+10-17-2010 : Release 1.15.6
+* A "stable snapshot" - first release candidate for 1.16.0
 
 ----------------------------------------------------------------------
 06-28-2010 : Release 1.15.4 (ibv-conduit only beta release)
