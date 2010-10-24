@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_core.c,v $
- *     $Date: 2010/10/24 23:16:05 $
- * $Revision: 1.46 $
+ *     $Date: 2010/10/24 23:27:37 $
+ * $Revision: 1.47 $
  * Description: GASNet shmem conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -129,8 +129,8 @@ static int gasnetc_init(int *argc, char ***argv) {
    */
   #if GASNET_DEBUG_VERBOSE
     gasnetc_verbose_spawn = 1;
-  #elif 0 /* Can't call gasnet_getenv() this early */
-    gasnetc_verbose_spawn = !!gasnet_getenv("GASNET_SHMEM_DEBUGALLOC");
+  #else
+    gasnetc_verbose_spawn = !!gasneti_getenv("GASNET_SHMEM_DEBUGALLOC");
   #endif
 
   #if GASNET_DEBUG_VERBOSE
