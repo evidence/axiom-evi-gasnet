@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_putget.c,v $
- *     $Date: 2010/08/08 06:31:07 $
- * $Revision: 1.79 $
+ *     $Date: 2010/11/04 22:11:41 $
+ * $Revision: 1.80 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>, Paul H. Hargrove <PHHargrove@lbl.gov>, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1839,10 +1839,11 @@ static int gasnete_coll_pf_scat_TreePutNoCopy(gasnete_coll_op_t *op GASNETE_THRE
           gasneti_fatalerror("not yet supported!");
         } else {
           gasneti_assert(tree->geom->num_rotations == 1);
-          
+
+          gasnete_begin_nbi_accessregion(1 GASNETE_THREAD_PASS);
           for(i=0; i<child_count; i++) {
             gasnet_node_t child = children[i];
-            gasnete_begin_nbi_accessregion(1 GASNETE_THREAD_PASS);
+
             if(children[i]+tree->geom->subtree_sizes[i] <= op->team->total_ranks) {
               /*can do one put since data is already contiguous*/
               int8_t *send_arr = gasnete_coll_scale_ptr(args->src,(tree->geom->child_offset[i]+1+op->team->myrank)%op->team->total_ranks,args->nbytes);
@@ -1874,9 +1875,9 @@ static int gasnete_coll_pf_scat_TreePutNoCopy(gasnete_coll_op_t *op GASNETE_THRE
                                                  args->nbytes*second_part,0);
               
             }
-            data->handle = gasnete_end_nbi_accessregion(GASNETE_THREAD_PASS_ALONE);
-            gasnete_coll_save_handle(&data->handle GASNETE_THREAD_PASS);
           }
+          data->handle = gasnete_end_nbi_accessregion(GASNETE_THREAD_PASS_ALONE);
+          gasnete_coll_save_handle(&data->handle GASNETE_THREAD_PASS);
         }
         GASNETE_FAST_UNALIGNED_MEMCPY(args->dst, gasnete_coll_scale_ptr(args->src,args->dist,(op->team->myrank)), args->nbytes);
       } else if(child_count == 0  && direct_put_ok) {
