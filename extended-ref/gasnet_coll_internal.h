@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_internal.h,v $
- *     $Date: 2010/08/21 02:00:39 $
- * $Revision: 1.61 $
+ *     $Date: 2010/11/15 18:51:36 $
+ * $Revision: 1.62 $
  * Description: GASNet Collectives conduit header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -21,14 +21,13 @@
 /* ***  Macros and Constants *** */
 /*---------------------------------------------------------------------------------*/
 
-#if GASNET_PAR
+
+#define GASNETE_COLL_SUBORDINATE	       (1<<30)
 #define GASNETE_COLL_THREAD_LOCAL        (1<<29)
-#endif
-#define GASNETE_COLL_SUBORDINATE	 (1<<30)
 #define GASNETE_COLL_USE_SCRATCH         (1<<28)
 #define GASNETE_COLL_USE_SCRATCH_TREE    (1<<27)
 #define GASNETE_COLL_USE_SCRATCH_DISSSEM (1<<26)
-#define GASNETE_COLL_USE_TREE		 (1<<25)
+#define GASNETE_COLL_USE_TREE		         (1<<25)
 #define GASNETE_COLL_NONROOT_SUBORDINATE (1<<24)
 #define GASNETE_COLL_SKIP (1<<23)
 

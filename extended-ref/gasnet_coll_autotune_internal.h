@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_autotune_internal.h,v $                                                                                                                                                             
- *     $Date: 2010/08/02 02:34:19 $                                                                                                                                                              
- * $Revision: 1.8 $                                                                                                                                                             
+ *     $Date: 2010/11/15 18:51:36 $                                                                                                                                                              
+ * $Revision: 1.9 $                                                                                                                                                             
  * Description: GASNet Autotuner Implementation                                                                                                                             
  * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>, Paul H. Hargrove <PHHargrove@lbl.gov>, Dan Bonachea <bonachea@cs.berkeley.edu>                              
  * Terms of use are as specified in license.txt                                                                                                                             
@@ -29,6 +29,9 @@ struct gasnete_coll_implementation_t_{
   struct gasnete_coll_implementation_t_ *next;
   void* fn_ptr;
   int fn_idx;
+  gasnet_team_handle_t team;
+  gasnet_coll_optype_t optype;
+  uint32_t flags;
   int num_params;
   int need_to_free;
   gasnete_coll_tree_type_t tree_type;
@@ -581,6 +584,6 @@ gasnete_coll_autotune_index_entry_t *gasnete_coll_load_autotuner_defaults(gasnet
 gasnete_coll_implementation_t gasnete_coll_get_implementation(void);
 void gasnete_coll_free_implementation(gasnete_coll_implementation_t in);
 
-
+void gasnete_coll_implementation_print(gasnete_coll_implementation_t impl, FILE *fp);
 
 #endif
