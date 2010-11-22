@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.c,v $
- *     $Date: 2010/09/16 03:51:35 $
- * $Revision: 1.27 $
+ *     $Date: 2010/11/22 22:45:59 $
+ * $Revision: 1.28 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -95,11 +95,25 @@ static struct gasneti_pshm_info {
 void *gasneti_pshm_init(gasneti_bootstrapExchangefn_t exchangefn, size_t aux_sz) {
   size_t vnetsz, mmapsz;
   int discontig = 0;
+  gasneti_pshm_rank_t *pshm_max_nodes;
   gasnet_node_t i;
 #if !GASNET_CONDUIT_SMP
   gasnet_node_t j;
 #endif
 
+  /* Testing if the number of PSHM nodes is always smaller than GASNETI_PSHM_MAX_NODES */
+  pshm_max_nodes = gasneti_calloc(gasneti_nodemap_global_count, sizeof(gasneti_pshm_rank_t));
+  for(i=0; i<gasneti_nodes; i++){
+    if ((pshm_max_nodes[gasneti_nodemap[i]]++) > GASNETI_PSHM_MAX_NODES){
+      if (gasneti_mynode==0){
+        fprintf(stderr, "\nPSHM nodes requested (%d) > maximum (%d)\n", 
+                        gasneti_nodemap_local_count, GASNETI_PSHM_MAX_NODES);
+      }
+      gasnet_exit(1);
+    }
+  }
+  gasneti_free(pshm_max_nodes);
+    
   gasneti_pshm_nodes = gasneti_nodemap_local_count;
   gasneti_pshm_firstnode = gasneti_nodemap[gasneti_mynode];
   gasneti_pshm_mynode = gasneti_nodemap_local_rank;
