@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_putget.c,v $
- *     $Date: 2010/11/08 21:20:22 $
- * $Revision: 1.81 $
+ *     $Date: 2010/11/23 23:20:57 $
+ * $Revision: 1.82 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>, Paul H. Hargrove <PHHargrove@lbl.gov>, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1607,9 +1607,9 @@ static int gasnete_coll_pf_scat_TreePut(gasnete_coll_op_t *op GASNETE_THREAD_FAR
       if (!GASNETE_COLL_MAY_INIT_FOR(op)) break;
       if (op->team->myrank == args->srcnode) {
         if(args->dist!=args->nbytes) {
-          gasnete_begin_nbi_accessregion(1 GASNETE_THREAD_PASS);
           int8_t *myscratchpos = (int8_t*)op->team->scratch_segs[op->team->myrank].addr+op->myscratchpos;
           int8_t *send_arr;
+          gasnete_begin_nbi_accessregion(1 GASNETE_THREAD_PASS);
           /*compress the data and send it*/
           for(i=0,p=0; i<child_count; i++) {
              gasnet_node_t child = children[i];
