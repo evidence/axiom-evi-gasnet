@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_core.c,v $
- *     $Date: 2010/11/24 00:35:29 $
- * $Revision: 1.60 $
+ *     $Date: 2010/11/24 00:40:17 $
+ * $Revision: 1.61 $
  * Description: GASNet smp conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -118,7 +118,8 @@ static void gasnetc_set_exitcode(int exitcode) {
                                           exitcode, GASNETI_ATOMIC_WMB_POST);
 }
 static int gasnetc_get_exitcode(void) {
-  return gasneti_atomic_read(&gasnetc_exit_data->exitcode, 0);
+  /* assumes exit prior to allocation of gasnetc_exit_data is always an error */
+  return gasnetc_exit_data ? gasneti_atomic_read(&gasnetc_exit_data->exitcode, 0) : -1;
 }
 
 static void gasnetc_exit_barrier_notify(int exitcode) {
