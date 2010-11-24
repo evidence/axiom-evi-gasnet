@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_core.c,v $
- *     $Date: 2010/09/16 07:59:38 $
- * $Revision: 1.59 $
+ *     $Date: 2010/11/24 00:35:29 $
+ * $Revision: 1.60 $
  * Description: GASNet smp conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -171,11 +171,15 @@ extern void gasnetc_fatalsignal_callback(int sig) {
 
 static void gasnetc_exit_sighand(int sig_recvd) {
   int sig_to_send = sig_recvd;
+  int fatal = 0;
+
   switch (sig_recvd) {
     case SIGABRT: case SIGILL: case SIGSEGV: case SIGBUS: case SIGFPE:
       /* These signals indicates a bug in the exit handling code. */
+      (void)gasneti_reghandler(sig_recvd, SIG_DFL); /* avoid recursion - do as early as possible */
       fprintf(stderr, "ERROR: exit code received fatal signal %d - Terminating\n", sig_recvd);
       sig_to_send = SIGKILL;
+      fatal = 1;
       break;
 
     case SIGALRM: {
@@ -195,7 +199,9 @@ static void gasnetc_exit_sighand(int sig_recvd) {
   gasnetc_signal_job(sig_to_send);
 
   /* rearm */
-  gasneti_reghandler(sig_recvd, gasnetc_exit_sighand);
+  if (!fatal) {
+    gasneti_reghandler(sig_recvd, gasnetc_exit_sighand);
+  }
 }
 
 static void gasnetc_remote_exit_sighand(int sig) {
