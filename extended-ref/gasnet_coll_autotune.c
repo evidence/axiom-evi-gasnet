@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_autotune.c,v $
- *     $Date: 2010/11/15 18:51:36 $
- * $Revision: 1.29 $
+ *     $Date: 2010/11/29 00:14:49 $
+ * $Revision: 1.30 $
  * Description: GASNet Autotuner Implementation
  * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>, Paul H. Hargrove <PHHargrove@lbl.gov>, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2539,7 +2539,7 @@ static gasnete_coll_implementation_t autotune_op(gasnet_team_handle_t team, gasn
     char buf1[256], buf2[256];
     print_op_str(buf1, op, flags);
     print_flag_str(buf2, flags);
-    fprintf(stderr, "Autotuning %s: flags %s, nbytes %lu, root %u\n", buf1, buf2, args.nbytes, args.rootimg);
+    fprintf(stderr, "Autotuning %s: flags %s, nbytes %lu, root %u\n", buf1, buf2, (unsigned long)args.nbytes, args.rootimg);
   }
 
   /*if a tuning file has been specified for TEAM ALL and hasn't been yet loaded load it now*/
