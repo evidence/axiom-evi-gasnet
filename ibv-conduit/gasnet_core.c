@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2010/10/13 17:04:13 $
- * $Revision: 1.227 $
+ *     $Date: 2010/12/10 01:50:59 $
+ * $Revision: 1.228 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1658,7 +1658,7 @@ static int gasnetc_init(int *argc, char ***argv) {
                             gasneti_nodemap_local_rank, gasneti_nodemap_local_count));
 
     /* Query the pinning limits of the HCA */
-    gasnetc_init_pin_info(gasneti_nodemap[gasneti_mynode], gasneti_nodemap_local_count);
+    gasnetc_init_pin_info(gasneti_nodemap_local[0], gasneti_nodemap_local_count);
 
     gasneti_assert(gasnetc_pin_info.memory != 0);
     gasneti_assert(gasnetc_pin_info.memory != (uintptr_t)(-1));
