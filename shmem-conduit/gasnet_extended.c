@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_extended.c,v $
- *     $Date: 2010/03/27 21:54:07 $
- * $Revision: 1.35 $
+ *     $Date: 2010/12/16 23:44:08 $
+ * $Revision: 1.36 $
  * Description: GASNet Extended API SHMEM Implementation
  * Copyright 2003, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -92,6 +92,7 @@ extern gasnet_handle_t
 gasnete_am_memset_nb(gasnet_node_t node, void *dest, int val, 
 		     size_t nbytes GASNETE_THREAD_FARG) 
 {
+#ifdef GASNETE_GLOBAL_ADDRESS
     int	 *ptr = GASNETE_SHMPTR_AM(dest,node);
     int	 isdone = 0;
     void *pdone = (void*)&isdone;
@@ -103,6 +104,16 @@ gasnete_am_memset_nb(gasnet_node_t node, void *dest, int val,
 
     /* Always blocking, even if an AM */
     GASNET_BLOCKUNTIL(isdone != 0);
+#else
+    /* TODO: keep this dynamic array */
+
+    char *tmp = gasneti_malloc(nbytes);
+    memset(tmp, val, nbytes);
+
+    shmem_putmem(dest, tmp, nbytes, node);
+
+    gasneti_free(tmp);
+#endif
 
     return GASNETE_SYNC_NONE;
 }
@@ -292,7 +303,11 @@ GASNETI_NEVER_INLINE(gasnete_barrier_broadcastmismatch,
 static void gasnete_barrier_broadcastmismatch(void)) {
   int i;
   for (i=0; i < gasneti_nodes; i++) 
+#ifdef GASNETE_GLOBAL_ADDRESS
     *((int *)shmem_ptr(&barrier_mismatch[barrier_phase], i)) = 1;
+#else
+    shmem_int_p(&barrier_mismatch[barrier_phase], 1, i);
+#endif
   shmem_quiet();
   gasneti_local_wmb();
 }
