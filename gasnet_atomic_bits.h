@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2010/08/21 01:24:13 $
- * $Revision: 1.322 $
+ *     $Date: 2010/12/16 19:40:08 $
+ * $Revision: 1.323 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -654,6 +654,7 @@
       #if GASNETI_HAVE_X86_CMPXCHG16B
 	#define GASNETI_HAVE_ATOMIC128_T 16 /* Encodes aligment */
 	typedef struct { volatile uint64_t lo, hi; } gasneti_atomic128_t;
+	#define gasneti_atomic128_init(hi,lo) {(lo),(hi)}
 
 	GASNETI_INLINE(gasneti_atomic128_compare_and_swap)
 	int gasneti_atomic128_compare_and_swap(gasneti_atomic128_t *p, uint64_t oldhi, uint64_t oldlo, uint64_t newhi, uint64_t newlo, int flags) {

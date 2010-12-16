@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/smp-collectives/smp_coll_barrier.c,v $
- *     $Date: 2010/08/08 06:58:08 $
- * $Revision: 1.7 $
+ *     $Date: 2010/12/16 19:40:12 $
+ * $Revision: 1.8 $
  * Description: Shared Memory Collectives
  * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -34,7 +34,7 @@ void smp_coll_set_barrier_routine_with_root(smp_coll_t handle, smp_coll_barrier_
   handle->barrier_log_radix_THREADS = smp_coll_mylogn(handle->THREADS, in_radix);
   
   
-  if(routine_id < SMP_COLL_NUM_BARR_ROUTINES && routine_id >=0) { 
+  if(routine_id < SMP_COLL_NUM_BARR_ROUTINES /* && routine_id >=0 (TYPE IS UNSIGNED) */) { 
     handle->curr_barrier_routine = routine_id;
   } else {
     if(handle->MYTHREAD==0) fprintf(stderr, "bad barrier routine id: %d\n", routine_id);

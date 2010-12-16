@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_autotune.c,v $
- *     $Date: 2010/11/29 00:14:49 $
- * $Revision: 1.30 $
+ *     $Date: 2010/12/16 19:40:10 $
+ * $Revision: 1.31 $
  * Description: GASNet Autotuner Implementation
  * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>, Paul H. Hargrove <PHHargrove@lbl.gov>, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1893,7 +1893,6 @@ static gasnett_tick_t run_collective_bench(gasnet_team_handle_t team, gasnet_col
   int iter, niters;
   gasnett_tick_t start, total;
   gasnet_coll_handle_t handle;
-  gasnete_coll_threaddata_t *td = GASNETE_COLL_MYTHREAD;
 
   niters = team->autotune_info->perf_iters;
   if (coll_args.nbytes <= 1024)
@@ -2666,7 +2665,7 @@ gasnete_coll_implementation_t gasnete_coll_autotune_get_bcast_algorithm(gasnet_t
   /*if not then fall back to our orignal implementation*/
 
   {
-    gasnet_coll_args_t args = {0};
+    gasnet_coll_args_t args = GASNET_COLL_ARGS_INITIALIZER;
     
     args.dst = (uint8_t**)&dst;
     args.src = (uint8_t**)&src;
@@ -2763,7 +2762,7 @@ gasnete_coll_implementation_t gasnete_coll_autotune_get_bcastM_algorithm(gasnet_
   gasnete_coll_threaddata_t *td = GASNETE_COLL_MYTHREAD;
  
   {
-    gasnet_coll_args_t args = {0};
+    gasnet_coll_args_t args = GASNET_COLL_ARGS_INITIALIZER;
     args.dst = (uint8_t**)dstlist;
     args.src = (uint8_t**)&src;
     args.rootimg = srcimage;
@@ -2847,7 +2846,7 @@ gasnete_coll_autotune_get_scatter_algorithm(gasnet_team_handle_t team, void *dst
   gasnete_coll_threaddata_t *td = GASNETE_COLL_MYTHREAD;
 
   {
-    gasnet_coll_args_t args = {0};
+    gasnet_coll_args_t args = GASNET_COLL_ARGS_INITIALIZER;
     
     args.dst = (uint8_t**)&dst;
     args.src = (uint8_t**)&src;
@@ -2930,7 +2929,7 @@ gasnete_coll_autotune_get_scatterM_algorithm(gasnet_team_handle_t team, void * c
   gasnete_coll_threaddata_t *td = GASNETE_COLL_MYTHREAD;
 
   {
-    gasnet_coll_args_t args = {0};
+    gasnet_coll_args_t args = GASNET_COLL_ARGS_INITIALIZER;
     
     args.dst = (uint8_t**) dstlist;
     args.src = (uint8_t**)&src;
@@ -3027,7 +3026,7 @@ gasnete_coll_autotune_get_gather_algorithm(gasnet_team_handle_t team,gasnet_imag
   gasnete_coll_threaddata_t *td = GASNETE_COLL_MYTHREAD;
 
   {
-    gasnet_coll_args_t args = {0};
+    gasnet_coll_args_t args = GASNET_COLL_ARGS_INITIALIZER;
     args.dst = (uint8_t**)&dst;
     args.src = (uint8_t**)&src;
     args.rootimg = dstimage;
@@ -3121,7 +3120,7 @@ gasnete_coll_autotune_get_gatherM_algorithm(gasnet_team_handle_t team,gasnet_ima
   gasnete_coll_threaddata_t *td = GASNETE_COLL_MYTHREAD;
 
   {
-    gasnet_coll_args_t args = {0};
+    gasnet_coll_args_t args = GASNET_COLL_ARGS_INITIALIZER;
     args.dst = (uint8_t**)&dst;
     args.src = (uint8_t**)srclist;
     args.rootimg = dstimage;
@@ -3220,7 +3219,7 @@ gasnete_coll_autotune_get_gather_all_algorithm(gasnet_team_handle_t team, void *
   gasnete_coll_threaddata_t *td = GASNETE_COLL_MYTHREAD;
 
   {
-    gasnet_coll_args_t args = {0};
+    gasnet_coll_args_t args = GASNET_COLL_ARGS_INITIALIZER;
     args.dst = (uint8_t**)&dst;
     args.src = (uint8_t**)&src;
     args.rootimg = 0;
@@ -3269,7 +3268,7 @@ gasnete_coll_autotune_get_gather_allM_algorithm(gasnet_team_handle_t team, void 
   gasnete_coll_threaddata_t *td = GASNETE_COLL_MYTHREAD;
 
   {
-    gasnet_coll_args_t args = {0};
+    gasnet_coll_args_t args = GASNET_COLL_ARGS_INITIALIZER;
     args.dst = (uint8_t**)dstlist;
     args.src = (uint8_t**)srclist;
     args.rootimg = 0;
@@ -3309,7 +3308,7 @@ gasnete_coll_autotune_get_exchange_algorithm(gasnet_team_handle_t team, void *ds
   gasnete_coll_threaddata_t *td = GASNETE_COLL_MYTHREAD;
 
   {
-    gasnet_coll_args_t args = {0};
+    gasnet_coll_args_t args = GASNET_COLL_ARGS_INITIALIZER;
     args.dst = (uint8_t**)&dst;
     args.src = (uint8_t**)&src;
     args.rootimg = 0;
@@ -3361,7 +3360,7 @@ gasnete_coll_autotune_get_exchangeM_algorithm(gasnet_team_handle_t team, void * 
   gasnete_coll_threaddata_t *td = GASNETE_COLL_MYTHREAD;
 
   {
-    gasnet_coll_args_t args = {0};
+    gasnet_coll_args_t args = GASNET_COLL_ARGS_INITIALIZER;
     args.dst = (uint8_t**)dstlist;
     args.src = (uint8_t**)srclist;
     args.rootimg = 0;
@@ -3405,7 +3404,7 @@ gasnete_coll_implementation_t gasnete_coll_autotune_get_reduce_algorithm(gasnet_
   gasnete_coll_threaddata_t *td = GASNETE_COLL_MYTHREAD;
 
   {
-    gasnet_coll_args_t args = {0};
+    gasnet_coll_args_t args = GASNET_COLL_ARGS_INITIALIZER;
     args.dst = (uint8_t**)&dst;
     args.src = (uint8_t**)&src;
     args.rootimg = dstimage;
@@ -3450,7 +3449,7 @@ gasnete_coll_implementation_t gasnete_coll_autotune_get_reduceM_algorithm(gasnet
   gasnete_coll_threaddata_t *td = GASNETE_COLL_MYTHREAD;
 
   {
-    gasnet_coll_args_t args = {0};
+    gasnet_coll_args_t args = GASNET_COLL_ARGS_INITIALIZER;
     args.dst = (uint8_t**)&dst;
     args.src = (uint8_t**)srclist;
     args.rootimg = dstimage;
