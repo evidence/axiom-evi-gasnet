@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2010/12/17 00:09:59 $
-# $Revision: 1.659 $
+#     $Date: 2010/12/17 17:22:39 $
+# $Revision: 1.660 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.659 $)
+AC_REVISION($Revision: 1.660 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -811,11 +811,23 @@ GASNET_SETUP_INTTYPES()
 GASNET_CHECK_SIZEOF(float)
 GASNET_CHECK_SIZEOF(double)
 
+dnl Grumble!  Can't use AC_CHECK_TYPE or AC_CHECK_TYPES in autoconf 2.13
+dnl Additionally, this duplicates a check in recent AC_SIZEOF() just
+dnl for the sake of avoiding the error abort in GASNET_CHECK_SIZEOF.
 AC_DEFUN([GASNET_CHECK_SIZEOF_OPTIONAL], [
-  pushdef([token],[SIZEOF_]translit($1,'a-z ','A-Z_'))
-  dnl AC_CHECK_TYPE in autoconf 2.13 is different than in later versions
-  AC_CHECK_TYPES([$1],[GASNET_CHECK_SIZEOF([$1])],[AC_DEFINE_UNQUOTED(token,0)])
-  popdef([token])
+  pushdef([uppername],translit($1,'a-z ','A-Z_'))
+  pushdef([lowername],translit($1,'A-Z ','a-z_'))
+  GASNET_TRY_CACHE_CHECK([for type $1],[type_]lowername,[],
+    [ if (($1 *) 0) return 0;
+      if (sizeof ($1)) return 0;
+    ],
+    [GASNET_CHECK_SIZEOF($1)],
+    [dnl see GASNET_CHECK_SIZEOF for a desciption of this little gem:
+     ac_cv_SIZEOF_[]uppername[]_indirect=SIZEOF_[]uppername
+     AC_DEFINE_UNQUOTED($ac_cv_SIZEOF_[]uppername[]_indirect,0)
+    ])
+  popdef([lowername])
+  popdef([uppername])
 ])
 GASNET_CHECK_SIZEOF_OPTIONAL(_Bool)
 GASNET_CHECK_SIZEOF_OPTIONAL(long double)
