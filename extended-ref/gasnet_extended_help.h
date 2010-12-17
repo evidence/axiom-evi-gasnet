@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_help.h,v $
- *     $Date: 2010/12/17 00:10:01 $
- * $Revision: 1.53 $
+ *     $Date: 2010/12/17 16:00:42 $
+ * $Revision: 1.54 $
  * Description: GASNet Extended API Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -143,7 +143,7 @@ extern int gasnete_maxthreadidx;
  */
 typedef union {
   uint8_t _gasnete_anytype_u8; /* might be a compiler builtin type */
-  #if SIZEOF__BOOL == 1
+  #if (SIZEOF__BOOL == 1) && defined(GASNETI_COMPILER_IS_CC)
     _Bool _gasnete_anytype_b;
   #endif
   #if SIZEOF_CHAR == 1
@@ -158,7 +158,7 @@ typedef union {
 typedef union {
   uint16_t _gasnete_anytype_u16; /* might be a compiler builtin type */
   gasnete_anytype8_t _gasnete_anytype_at8; /* necessary for structs of two 8-bit types */
-  #if SIZEOF__BOOL == 2
+  #if (SIZEOF__BOOL == 2) && defined(GASNETI_COMPILER_IS_CC)
     _Bool _gasnete_anytype_b;
   #endif
   #if SIZEOF_SHORT == 2
@@ -175,7 +175,7 @@ typedef union {
   #ifndef INTTYPES_16BIT_MISSING
     gasnete_anytype16_t _gasnete_anytype_at16; /* necessary for structs of two 16-bit types */
   #endif
-  #if SIZEOF__BOOL == 4
+  #if (SIZEOF__BOOL == 4) && defined(GASNETI_COMPILER_IS_CC)
     _Bool _gasnete_anytype_b;
   #endif
   #if SIZEOF_SHORT == 4
@@ -199,7 +199,7 @@ typedef union {
 typedef union {
   uint64_t _gasnete_anytype_u64; /* might be a compiler builtin type */
   gasnete_anytype32_t _gasnete_anytype_at32; /* necessary for structs of two 32-bit types */
-  #if SIZEOF__BOOL == 8
+  #if (SIZEOF__BOOL == 8) && defined(GASNETI_COMPILER_IS_CC)
     _Bool _gasnete_anytype_b;
   #endif
   #if SIZEOF_INT == 8
@@ -217,7 +217,7 @@ typedef union {
   #if SIZEOF_LONG_DOUBLE == 8
     long double _gasnete_anytype_ld;
   #endif
-  #if SIZEOF_FLOAT__COMPLEX == 8
+  #if (SIZEOF_FLOAT__COMPLEX == 8) && defined(GASNETI_COMPILER_IS_CC)
     float _Complex _gasnete_anytype_fc;
   #endif
   #if SIZEOF_VOID_P == 8
