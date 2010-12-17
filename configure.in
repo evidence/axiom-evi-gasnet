@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2010/12/04 23:52:51 $
-# $Revision: 1.658 $
+#     $Date: 2010/12/17 00:09:59 $
+# $Revision: 1.659 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.658 $)
+AC_REVISION($Revision: 1.659 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -804,6 +804,24 @@ GASNET_POPVAR(CFLAGS)
 # hunt for 16-, 32-, and 64-bit integer types
 
 GASNET_SETUP_INTTYPES()
+
+########################################################################
+# get sizes of additional types for the "anytype" unions
+
+GASNET_CHECK_SIZEOF(float)
+GASNET_CHECK_SIZEOF(double)
+
+AC_DEFUN([GASNET_CHECK_SIZEOF_OPTIONAL], [
+  pushdef([token],[SIZEOF_]translit($1,'a-z ','A-Z_'))
+  dnl AC_CHECK_TYPE in autoconf 2.13 is different than in later versions
+  AC_CHECK_TYPES([$1],[GASNET_CHECK_SIZEOF([$1])],[AC_DEFINE_UNQUOTED(token,0)])
+  popdef([token])
+])
+GASNET_CHECK_SIZEOF_OPTIONAL(_Bool)
+GASNET_CHECK_SIZEOF_OPTIONAL(long double)
+GASNET_CHECK_SIZEOF_OPTIONAL(float _Complex)
+dnl NOT YET - GASNET_CHECK_SIZEOF_OPTIONAL(double _Complex)
+dnl NOT YET - GASNET_CHECK_SIZEOF_OPTIONAL(long double _Complex)
 
 ########################################################################
 ##
