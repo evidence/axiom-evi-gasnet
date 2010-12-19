@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.c,v $
- *     $Date: 2010/11/24 00:48:18 $
- * $Revision: 1.32 $
+ *     $Date: 2010/12/19 23:43:14 $
+ * $Revision: 1.33 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -302,8 +302,8 @@ void *gasneti_pshm_init(gasneti_bootstrapExchangefn_t exchangefn, size_t aux_sz)
   gasneti_pshmnet_bootstrapBarrier();
 
   /* Return the conduit's portion, if any */
-  return aux_sz ? (void*)((uintptr_t)gasneti_pshm_info +
-                          round_up_to_pshmpage(sizeof(struct gasneti_pshm_info)))
+  return aux_sz ? (void*)((uintptr_t)gasnetc_pshmnet_region +
+                          mmapsz - round_up_to_pshmpage(aux_sz))
                 : NULL;
 }
 
