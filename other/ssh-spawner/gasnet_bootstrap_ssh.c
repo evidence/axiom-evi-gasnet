@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2010/10/08 01:08:39 $
- * $Revision: 1.69 $
+ *     $Date: 2010/12/21 01:01:38 $
+ * $Revision: 1.70 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -50,7 +50,9 @@
    value of "OUT_DEGREE", set below.  Typically we want this value to
    be resonably large, since deep trees would result in multiple steps
    of forwarding for standard I/O (which is performed entirely by the
-   ssh processes at this point).
+   ssh processes at this point).  (IF GASNETI_BOOTSTRAP_FLAT_TREE is
+   non-zero then the tree effectively has inifinite out-degree and
+   the "parent of node 0" is the only non-leaf node").
 
    The process corresponding to gasnet node zero is the root of this
    tree, but it also has a parent: the original process started by the
@@ -75,7 +77,8 @@
    before exiting.
 
    If a child has the same hostname as its parent, it will be started
-   directly, rather than via ssh.
+   directly, rather than via ssh.  (ONLY TRUE IF ENABLED BY
+   GASNETI_BOOTSTRAP_LOCAL_SPAWN - which is now 0 by default)
 
    The tree structure is used to provide scalable implementations of
    the following "service" routines for use during the bootstrap, as
