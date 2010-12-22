@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2010/12/22 02:24:31 $
- * $Revision: 1.164 $
+ *     $Date: 2010/12/22 03:58:38 $
+ * $Revision: 1.165 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -574,14 +574,14 @@ struct gasnetc_cep_t_ {
   } am_flow;
   /* AM-over-RDMA local state */
   gasneti_weakatomic_t	amrdma_eligable;	/* Number of AMs small enough for AMRDMA */
-  gasnetc_amrdma_send_t amrdma_send;
-  gasnetc_amrdma_recv_t amrdma_recv;
+  gasnetc_amrdma_send_t *amrdma_send;
+  gasnetc_amrdma_recv_t *amrdma_recv;
 
 #if GASNETI_THREADS
   char			_pad1[GASNETI_CACHE_LINE_BYTES];
 #endif
 
-  /* Read-only fields */
+  /* Read-only fields - many duplicated from fields in cep->hca */
   struct gasnetc_cep_keys_ keys;
   gasneti_lifo_head_t	*rbuf_freelist;	/* Source of rcv buffers for AMs */
   gasnetc_hca_t		*hca;
@@ -618,6 +618,8 @@ extern void gasnetc_sndrcv_init_peer(gasnet_node_t node);
 extern void gasnetc_sndrcv_init_misc(void);
 extern void gasnetc_sndrcv_attach_peer(gasnet_node_t node);
 extern void gasnetc_sndrcv_fini_peer(gasnet_node_t node);
+extern gasnetc_amrdma_send_t *gasnetc_amrdma_send_alloc(gasnetc_rkey_t rkey, void *addr);
+extern gasnetc_amrdma_recv_t *gasnetc_amrdma_recv_alloc(gasnetc_hca_t *hca);
 extern void gasnetc_sndrcv_poll(void);
 extern int gasnetc_RequestGeneric(gasnetc_category_t category,
 				  int dest, gasnet_handler_t handler,

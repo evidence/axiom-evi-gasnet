@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2010/12/22 02:24:31 $
- * $Revision: 1.230 $
+ *     $Date: 2010/12/22 03:58:38 $
+ * $Revision: 1.231 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -3020,9 +3020,8 @@ void gasnetc_amrdma_grant_reqh_inner(gasnet_token_t token, int qpi, gasnetc_rkey
   GASNETI_SAFE(gasnet_AMGetMsgSource(token, &node));
   index = qpi + node * gasnetc_alloc_qps - 1;
 
-  gasnetc_cep[index].amrdma_send.rkey = rkey;
-  gasneti_sync_writes();
-  gasnetc_cep[index].amrdma_send.addr = (uintptr_t)addr;
+  gasneti_assert(gasnetc_cep[index].amrdma_send == NULL);
+  gasnetc_cep[index].amrdma_send = gasnetc_amrdma_send_alloc(rkey, addr);
 
   GASNETI_TRACE_PRINTF(C,("AMRDMA_GRANT_RCV from node=%d qp=%d\n", (int)node, qpi-1));
 }
