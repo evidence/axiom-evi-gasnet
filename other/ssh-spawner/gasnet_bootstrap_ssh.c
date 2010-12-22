@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2010/12/22 23:14:21 $
- * $Revision: 1.73 $
+ *     $Date: 2010/12/22 23:18:04 $
+ * $Revision: 1.74 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -712,7 +712,7 @@ static void configure_ssh(void) {
   /* Determine the ssh command */
   ssh_argv0 = my_getenv_withdefault(ENV_PREFIX "SSH_CMD", "ssh");
   if (ssh_argv0 == NULL) {
-      BOOTSTRAP_VERBOSE(("Ignoring empty value in environment variable " ENV_PREFIX "SSH_CMD"));
+      BOOTSTRAP_VERBOSE(("Ignoring empty value in environment variable " ENV_PREFIX "SSH_CMD\n"));
       ssh_argv0 = "ssh"; /* Loss of const qualifier is OK - we don't write to it */
   }
 
