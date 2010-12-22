@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2010/12/22 00:55:58 $
-# $Revision: 1.661 $
+#     $Date: 2010/12/22 19:54:43 $
+# $Revision: 1.662 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.661 $)
+AC_REVISION($Revision: 1.662 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -3313,8 +3313,10 @@ if test "$enabled_ibv" = yes; then
         [enabled_ibv_xrc="yes"; force_ibv_xrc="yes"],
         [enabled_ibv_xrc="no"],
         [enabled_ibv_xrc="yes"])
-    if test "x$force_ibv_xrc$enabled_ibv_srq" = xyesno; then
-      GASNET_MSG_ERROR([IBV XRC support was requested with --enable-ibv-xrc but requires SRQ support which has been disabled])
+    if test "x$enabled_ibv_srq" = xno; then
+      if test "x$force_ibv_xrc" = xyes; then
+        GASNET_MSG_ERROR([IBV XRC support was requested with --enable-ibv-xrc but requires SRQ support which has been disabled])
+      fi
     elif test "$enabled_ibv_xrc" = yes; then
       GASNET_PUSHVAR(LIBS,"$LIBS -L$IBV_LIBDIR $IBV_LIBS $GASNET_THREAD_LIBS")
       AC_CHECK_FUNCS([ibv_create_xrc_rcv_qp], [have_ibv_xrc=yes], [have_ibv_xrc=no])

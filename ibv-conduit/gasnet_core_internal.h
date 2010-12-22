@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2010/12/22 05:49:20 $
- * $Revision: 1.169 $
+ *     $Date: 2010/12/22 19:54:45 $
+ * $Revision: 1.170 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -35,9 +35,9 @@
   #include <infiniband/verbs.h>
   #if HAVE_IBV_SRQ
     #define GASNETC_IBV_SRQ 1
-  #endif
-  #if HAVE_IBV_XRC
-    #define GASNETC_IBV_XRC 1
+    #if HAVE_IBV_XRC
+      #define GASNETC_IBV_XRC 1
+    #endif
   #endif
 #endif
 
