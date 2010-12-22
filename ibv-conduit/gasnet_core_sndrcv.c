@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2010/12/22 05:49:20 $
- * $Revision: 1.260 $
+ *     $Date: 2010/12/22 06:22:21 $
+ * $Revision: 1.261 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -492,7 +492,7 @@ void gasnetc_rcv_post(gasnetc_cep_t *cep, gasnetc_rbuf_t *rbuf) {
   gasneti_assert(rbuf);
 
   /* check for attempted loopback traffic */
-  gasneti_assert(!gasnetc_non_ib((cep - gasnetc_cep)/gasnetc_alloc_qps));
+  gasneti_assert(!gasnetc_non_ib(gasnetc_epid2node(cep->epid)));
   
   rbuf->cep = cep;
   rbuf->rr_sg.lkey = GASNETC_RCV_LKEY(cep);
@@ -1633,7 +1633,7 @@ void gasnetc_snd_validate(gasnetc_sreq_t *sreq, gasnetc_snd_wr_t *sr_desc, int c
 
   gasneti_assert(sreq);
   gasneti_assert(sreq->cep);
-  gasneti_assert(!gasnetc_non_ib((sreq->cep - gasnetc_cep)/gasnetc_alloc_qps)); /* detects loopback */
+  gasneti_assert(!gasnetc_non_ib(gasnetc_epid2node(sreq->cep->epid)));
   gasneti_assert(sr_desc);
   gasneti_assert(sr_desc->gasnetc_f_wr_num_sge >= 1);
   gasneti_assert(sr_desc->gasnetc_f_wr_num_sge <= GASNETC_SND_SG);
