@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2010/12/22 04:36:14 $
- * $Revision: 1.258 $
+ *     $Date: 2010/12/22 05:02:04 $
+ * $Revision: 1.259 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -383,14 +383,17 @@ gasnetc_create_cq(gasnetc_hca_hndl_t hca_hndl, gasnetc_cqe_cnt_t req_size,
 #define gasnetc_epid2qpi(E)	((E)>>16)
 #define gasnetc_epid(N,Q)	((N)|(((Q)+1)<<16))
 
-#define GASNETC_SND_LKEY(_cep)		((_cep)->keys.snd_lkey)
-#define GASNETC_RCV_LKEY(_cep)		((_cep)->keys.rcv_lkey)
-#define GASNETC_SEG_LKEY(_cep, _index)	((_cep)->keys.seg_reg[_index].lkey)
-#define GASNETC_SEG_RKEY(_cep, _index)	((_cep)->keys.rkeys[_index])
+#define GASNETC_SEG_RKEY(_cep, _index)	((_cep)->rkeys[_index])
 #if GASNETC_IB_MAX_HCAS > 1
   #define GASNETC_HCA_IDX(_cep)		((_cep)->hca_index)
+  #define GASNETC_SND_LKEY(_cep)	((_cep)->snd_lkey)
+  #define GASNETC_RCV_LKEY(_cep)	((_cep)->rcv_lkey)
+  #define GASNETC_SEG_LKEY(_cep, _index) ((_cep)->seg_reg[_index].lkey)
 #else
   #define GASNETC_HCA_IDX(_cep)		0
+  #define GASNETC_SND_LKEY(_cep)	(gasnetc_hca[0].snd_reg.lkey)
+  #define GASNETC_RCV_LKEY(_cep)	(gasnetc_hca[0].rcv_reg.lkey)
+  #define GASNETC_SEG_LKEY(_cep, _index) (gasnetc_hca[0].seg_reg[_index].lkey)
 #endif
 #define GASNETC_FH_RKEY(_cep, _fhptr)	((_fhptr)->client.rkey[GASNETC_HCA_IDX(_cep)])
 #define GASNETC_FH_LKEY(_cep, _fhptr)	((_fhptr)->client.lkey[GASNETC_HCA_IDX(_cep)])
@@ -3594,9 +3597,11 @@ extern void gasnetc_sndrcv_init_peer(gasnet_node_t node) {
       cep->epid = gasnetc_epid(node, i);
       cep->rbuf_freelist = &hca->rbuf_freelist;
 
+    #if GASNETC_IB_MAX_HCAS > 1
       /* "Cache" the local keys associated w/ this cep */
-      cep->keys.rcv_lkey = hca->rcv_reg.lkey;
-      cep->keys.snd_lkey = hca->snd_reg.lkey;
+      cep->rcv_lkey = hca->rcv_reg.lkey;
+      cep->snd_lkey = hca->snd_reg.lkey;
+    #endif
 
       /* Initialize local AM-over-RDMA info */
       gasneti_weakatomic_set(&cep->amrdma_eligable, 0, 0);
@@ -3673,8 +3678,10 @@ extern void gasnetc_sndrcv_attach_peer(gasnet_node_t node) {
 
   for (i = 0; i < gasnetc_alloc_qps; ++i, ++cep) {
     gasnetc_hca_t *hca = cep->hca;
-    cep->keys.seg_reg = gasnetc_non_ib(node) ? NULL : hca->seg_reg;
-    cep->keys.rkeys   = gasnetc_non_ib(node) ? NULL : &hca->rkeys[node * gasnetc_max_regs];
+  #if GASNETC_IB_MAX_HCAS > 1
+    cep->seg_reg = gasnetc_non_ib(node) ? NULL : hca->seg_reg;
+  #endif
+    cep->rkeys   = gasnetc_non_ib(node) ? NULL : &hca->rkeys[node * gasnetc_max_regs];
   }
 
   if (node == gasneti_mynode) { /* Needed exactly once */

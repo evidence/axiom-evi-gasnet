@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2010/12/22 04:36:14 $
- * $Revision: 1.167 $
+ *     $Date: 2010/12/22 05:02:04 $
+ * $Revision: 1.168 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -295,7 +295,7 @@ typedef union {
 
 /* ------------------------------------------------------------------------------------ */
 
-#if GASNETC_IB_MAX_HCAS > 1
+#if (GASNETC_IB_MAX_HCAS > 1)
   #define GASNETC_FOR_ALL_HCA_INDEX(h)	for (h = 0; h < gasnetc_num_hcas; ++h)
   #define GASNETC_FOR_ALL_HCA(p)	for (p = &gasnetc_hca[0]; p < &gasnetc_hca[gasnetc_num_hcas]; ++p)
 #else
@@ -524,16 +524,6 @@ typedef struct {
   }	  amrdma_balance;
 } gasnetc_hca_t;
 
-/* Keys in a cep, all replicated from other data */
-struct gasnetc_cep_keys_ {
-#if GASNETC_PIN_SEGMENT
-  gasnetc_memreg_t	*seg_reg;
-  gasnetc_rkey_t	*rkeys;	/* RKey(s) registered at attach time (== uint32_t) */
-#endif
-  gasnetc_lkey_t	rcv_lkey;
-  gasnetc_lkey_t	snd_lkey;
-};
-
 /* Structure for AM-over-RDMA sender state */
 typedef struct {
   gasneti_weakatomic_t	head, tail;
@@ -582,14 +572,23 @@ struct gasnetc_cep_t_ {
 #endif
 
   /* Read-only fields - many duplicated from fields in cep->hca */
-  struct gasnetc_cep_keys_ keys;
+#if GASNETC_PIN_SEGMENT
+  gasnetc_rkey_t	*rkeys;	/* RKey(s) registered at attach time (== uint32_t) */
+#endif
+#if GASNETC_PIN_SEGMENT && (GASNETC_IB_MAX_HCAS > 1)
+  gasnetc_memreg_t	*seg_reg;
+#endif
+#if (GASNETC_IB_MAX_HCAS > 1)
+  gasnetc_lkey_t	rcv_lkey;
+  gasnetc_lkey_t	snd_lkey;
+#endif
   gasneti_lifo_head_t	*rbuf_freelist;	/* Source of rcv buffers for AMs */
   gasnetc_hca_t		*hca;
   gasnetc_qp_hndl_t	qp_handle;
 #if GASNET_CONDUIT_VAPI
   gasnetc_hca_hndl_t	hca_handle;
 #endif
-#if GASNETC_IB_MAX_HCAS > 1
+#if (GASNETC_IB_MAX_HCAS > 1)
   int			hca_index;
 #endif
   gasnetc_epid_t	epid;		/* == uint32_t */
