@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2010/12/22 00:50:38 $
- * $Revision: 1.162 $
+ *     $Date: 2010/12/22 01:44:21 $
+ * $Revision: 1.163 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -537,8 +537,6 @@ struct gasnetc_cep_keys_ {
 
 /* Structure for a cep (connection end-point) */
 struct gasnetc_cep_t_ {
-  char			_pad0[GASNETI_CACHE_LINE_BYTES];
-
   /* Read/write fields */
   gasneti_semaphore_t	sq_sema;	/* control in-flight ops (send queue slots) */
   gasneti_semaphore_t	am_rem;		/* control in-flight AM Requests (remote rcv queue slots)*/
@@ -568,7 +566,9 @@ struct gasnetc_cep_t_ {
 	gasneti_weakatomic_t	eligable;	/* Number of AMs small enough for AMRDMA */
   } amrdma;
 
+#if GASNETI_THREADS
   char			_pad1[GASNETI_CACHE_LINE_BYTES];
+#endif
 
   /* Read-only fields */
   struct gasnetc_cep_keys_ keys;
@@ -578,8 +578,8 @@ struct gasnetc_cep_t_ {
   gasnetc_hca_hndl_t	hca_handle;
   int			hca_index;
   gasnetc_epid_t	epid;		/* == uint32_t */
-  gasnetc_amrdma_buf_t	*amrdma_loc;	
-  uintptr_t		amrdma_rem;
+  gasnetc_amrdma_buf_t	*amrdma_loc;	/* write ONCE */
+  uintptr_t		amrdma_rem;	/* write ONCE */
 #if GASNETC_IBV_SRQ
   struct ibv_srq	*srq;
 #endif
@@ -587,7 +587,9 @@ struct gasnetc_cep_t_ {
   uint32_t		xrc_remote_srq_num;
 #endif
 
+#if GASNETI_THREADS
   char			_pad2[GASNETI_CACHE_LINE_BYTES];
+#endif
 };
 
 /* Info used while probing for HCAs/ports */
