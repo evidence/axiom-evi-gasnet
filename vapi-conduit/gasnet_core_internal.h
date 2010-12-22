@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2010/10/08 01:08:41 $
- * $Revision: 1.161 $
+ *     $Date: 2010/12/22 00:50:38 $
+ * $Revision: 1.162 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -36,6 +36,9 @@
   #if HAVE_IBV_SRQ
     #define GASNETC_IBV_SRQ 1
   #endif
+  #if HAVE_IBV_XRC
+    #define GASNETC_IBV_XRC 1
+  #endif
 #endif
 
 #if HAVE_MMAP
@@ -63,6 +66,13 @@
     if_pf ((rc) != 0) \
       { gasneti_fatalerror("Unexpected error %s (rc=%d errno=%d) %s",strerror(errno),(rc), errno,(msg)); }
   #define GASNETC_VAPI_CHECK_PTR(ptr,msg) GASNETC_VAPI_CHECK((ptr)==NULL,(msg))
+#endif
+
+/* Identify nodes we do NOT use IB to communicate with */
+#if GASNET_PSHM
+  #define gasnetc_non_ib(_node) gasneti_pshm_in_supernode(_node)
+#else
+  #define gasnetc_non_ib(_node) ((_node) == gasneti_mynode)
 #endif
 
 /* check for exit in progress */
@@ -461,6 +471,9 @@ typedef struct {
   struct ibv_srq	*rqst_srq;
   struct ibv_srq	*repl_srq;
   gasneti_semaphore_t	am_sema;
+ #if GASNETC_IBV_XRC
+  struct ibv_xrc_domain *xrc_domain;
+ #endif
 #endif
   gasnetc_cq_hndl_t	rcv_cq;
   gasnetc_cq_hndl_t	snd_cq; /* Includes Reply AMs when SRQ in use */
@@ -531,6 +544,9 @@ struct gasnetc_cep_t_ {
   gasneti_semaphore_t	am_rem;		/* control in-flight AM Requests (remote rcv queue slots)*/
   gasneti_semaphore_t	am_loc;		/* control unmatched rcv buffers (local rcv queue slots) */
   gasneti_semaphore_t	*snd_cq_sema_p;	/* control in-flight ops (send completion queue slots) */
+#if GASNETC_IBV_XRC
+  gasneti_semaphore_t	*sq_sema_p;	/* Pointer to a sq_sema */
+#endif
   /* XXX: The atomics in the next 2 structs really should get padded to full cache lines */
   struct {	/* AM flow control coallescing */
   	gasneti_weakatomic_t	credit;
@@ -566,6 +582,9 @@ struct gasnetc_cep_t_ {
   uintptr_t		amrdma_rem;
 #if GASNETC_IBV_SRQ
   struct ibv_srq	*srq;
+#endif
+#if GASNETC_IBV_XRC
+  uint32_t		xrc_remote_srq_num;
 #endif
 
   char			_pad2[GASNETI_CACHE_LINE_BYTES];
@@ -635,9 +654,14 @@ extern gasneti_weakatomic_val_t gasnetc_amrdma_cycle;
   extern int			gasnetc_rbuf_limit;
   extern int			gasnetc_rbuf_set;
   extern int			gasnetc_use_srq;
-  /* If non-zero use normal credit system to throttle AMs */
 #else
   #define gasnetc_use_srq	0
+#endif
+
+#if GASNETC_IBV_XRC
+  extern int			gasnetc_use_xrc;
+#else
+  #define gasnetc_use_xrc	0
 #endif
 
 /* Global variables */
