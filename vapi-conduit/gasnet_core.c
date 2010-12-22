@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2010/12/22 08:47:08 $
- * $Revision: 1.236 $
+ *     $Date: 2010/12/22 08:54:04 $
+ * $Revision: 1.237 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2245,7 +2245,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     uintptr_t firehose_mem = gasnetc_pin_info.memory;
     int firehose_reg = gasnetc_pin_info.regions;
     int reg_count, h;
-    firehose_region_t prereg[2];
+    firehose_region_t prereg[1];
     size_t reg_size, maxsz;
 
     /* Setup prepinned regions list */
@@ -2258,19 +2258,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     }
     reg_size = prereg[0].len;
     reg_count = 1;
-#if 0 /* If firehose is active, then there is no way one can initiate RDMA from a rcv buf */
-    if (gasneti_nodes > 1) {
-	prereg[reg_count].addr             = gasnetc_hca[0].rcv_reg.addr;
-	prereg[reg_count].len              = gasnetc_hca[0].rcv_reg.len;
-        GASNETC_FOR_ALL_HCA_INDEX(h) {
-	  prereg[reg_count].client.handle[h] = GASNETC_INVAL_MR_HNDL;	/* unreg must fail */
-	  prereg[reg_count].client.lkey[h]   = gasnetc_hca[h].rcv_reg.lkey;
-	  prereg[reg_count].client.rkey[h]   = gasnetc_hca[h].rcv_reg.rkey;
-	}
-        reg_size += prereg[reg_count].len;
-	reg_count++;
-    }
-#endif
+
     /* Adjust for prepinned regions (they were pinned before init_pin_info probe) */
     firehose_mem += reg_size;
 
