@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2010/12/22 05:02:04 $
- * $Revision: 1.168 $
+ *     $Date: 2010/12/22 05:49:20 $
+ * $Revision: 1.169 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -494,7 +494,7 @@ typedef struct {
 
   gasnetc_cep_t		**cep; /* array of ptrs to all ceps */
 
-  void			*rbuf_alloc;
+  void			*rbufs;
   gasneti_lifo_head_t	rbuf_freelist;
 
 #if GASNET_CONDUIT_VAPI

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2010/12/22 05:02:04 $
- * $Revision: 1.259 $
+ *     $Date: 2010/12/22 05:49:20 $
+ * $Revision: 1.260 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -3440,11 +3440,11 @@ extern int gasnetc_sndrcv_init(void) {
   
       /* Allocated normal memory for receive descriptors (rbuf's) */
       padded_size = GASNETI_ALIGNUP(sizeof(gasnetc_rbuf_t), GASNETI_CACHE_LINE_BYTES);
-      hca->rbuf_alloc = gasneti_malloc(rcv_count*padded_size + GASNETI_CACHE_LINE_BYTES-1);
+      hca->rbufs = gasneti_malloc_aligned(GASNETI_CACHE_LINE_BYTES, rcv_count*padded_size);
   
       /* Initialize the rbuf's */
       gasneti_lifo_init(&hca->rbuf_freelist);
-      rbuf = (gasnetc_rbuf_t *)GASNETI_ALIGNUP(hca->rbuf_alloc, GASNETI_CACHE_LINE_BYTES);
+      rbuf = hca->rbufs;
       for (i = 0; i < rcv_count; ++i) {
         rbuf->rr_is_rdma         = 0;
         rbuf->rr_desc.gasnetc_f_wr_num_sge = 1;
@@ -3556,7 +3556,7 @@ extern int gasnetc_sndrcv_init(void) {
 	  vstat = EVAPI_clear_comp_eventh(hca->handle, hca->rcv_handler);
         }
 #endif
-        gasneti_free(hca->rbuf_alloc);
+        gasneti_free_aligned(hca->rbufs);
         gasnetc_unpin(hca, &hca->rcv_reg);
         gasnetc_unmap(&hca->rcv_reg);
       }
@@ -3730,7 +3730,7 @@ extern void gasnetc_sndrcv_fini(void) {
       gasnetc_unpin(hca, &hca->snd_reg);
       gasnetc_unmap(&hca->snd_reg);
 
-      gasneti_free(hca->rbuf_alloc);
+      gasneti_free_aligned(hca->rbufs);
     }
 
 #if 0
