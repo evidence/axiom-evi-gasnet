@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2010/12/22 23:07:03 $
- * $Revision: 1.72 $
+ *     $Date: 2010/12/22 23:14:21 $
+ * $Revision: 1.73 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -693,16 +693,16 @@ static char **parse_options(const char *string, int *count_p, const char *where)
 }
 
 /* wrappers that map unset/empty to NULL */
-static char *my_getenv_withdefault(const char *key, const char *defval) {
+static const char *my_getenv_withdefault(const char *key, const char *defval) {
   char *env_string = gasneti_getenv_withdefault(key, defval);
   return ((env_string != NULL) && strlen(env_string)) ? env_string : NULL;
 }
-static char *my_getenv(const char *key) {
+static const char *my_getenv(const char *key) {
   return my_getenv_withdefault(key, NULL);
 }
 
 static void configure_ssh(void) {
-  char *env_string;
+  const char *env_string;
   const char *ssh_argv0;
   char **ssh_options = NULL;
   int is_openssh = 0;
@@ -970,7 +970,7 @@ static void recv_argv(int s, int *argc_p, char ***argv_p) {
 static void pre_spawn(int count) {
   struct sockaddr_in sock_addr;
   GASNET_SOCKLEN_T addr_len;
-  char *env_string;
+  const char *env_string;
 
   /* Get the cwd */
   if ((env_string = my_getenv(ENV_PREFIX "SSH_REMOTE_PATH")) != NULL) {
