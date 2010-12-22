@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2010/12/22 03:58:38 $
- * $Revision: 1.165 $
+ *     $Date: 2010/12/22 04:17:52 $
+ * $Revision: 1.166 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -587,7 +587,9 @@ struct gasnetc_cep_t_ {
   gasnetc_hca_t		*hca;
   gasnetc_qp_hndl_t	qp_handle;
   gasnetc_hca_hndl_t	hca_handle;
+#if GASNETC_IB_MAX_HCAS > 1
   int			hca_index;
+#endif
   gasnetc_epid_t	epid;		/* == uint32_t */
 #if GASNETC_IBV_SRQ
   struct ibv_srq	*srq;

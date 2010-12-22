@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2010/12/22 03:58:38 $
- * $Revision: 1.256 $
+ *     $Date: 2010/12/22 04:17:52 $
+ * $Revision: 1.257 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -388,12 +388,12 @@ gasnetc_create_cq(gasnetc_hca_hndl_t hca_hndl, gasnetc_cqe_cnt_t req_size,
 #define GASNETC_SEG_LKEY(_cep, _index)	((_cep)->keys.seg_reg[_index].lkey)
 #define GASNETC_SEG_RKEY(_cep, _index)	((_cep)->keys.rkeys[_index])
 #if GASNETC_IB_MAX_HCAS > 1
-  #define GASNETC_FH_RKEY(_cep, _fhptr)	((_fhptr)->client.rkey[(_cep)->hca_index])
-  #define GASNETC_FH_LKEY(_cep, _fhptr)	((_fhptr)->client.lkey[(_cep)->hca_index])
+  #define GASNETC_HCA_IDX(_cep)		((_cep)->hca_index)
 #else
-  #define GASNETC_FH_RKEY(_cep, _fhptr)	((_fhptr)->client.rkey[0])
-  #define GASNETC_FH_LKEY(_cep, _fhptr)	((_fhptr)->client.lkey[0])
+  #define GASNETC_HCA_IDX(_cep)		0
 #endif
+#define GASNETC_FH_RKEY(_cep, _fhptr)	((_fhptr)->client.rkey[GASNETC_HCA_IDX(_cep)])
+#define GASNETC_FH_LKEY(_cep, _fhptr)	((_fhptr)->client.lkey[GASNETC_HCA_IDX(_cep)])
 
 /* This limits the amount we ask for in a firehose_{local,remote}_pin() call,
  * to enourage a steady-state layout of firehoses that has start and end addresses
@@ -494,7 +494,7 @@ void gasnetc_rcv_post(gasnetc_cep_t *cep, gasnetc_rbuf_t *rbuf) {
   rbuf->cep = cep;
   rbuf->rr_sg.lkey = GASNETC_RCV_LKEY(cep);
   GASNETI_TRACE_PRINTF(D,("POST_RR rbuf=%p hca=%d lkey=0x%08x", 
-			  rbuf, cep->hca_index,
+			  rbuf, GASNETC_HCA_IDX(cep),
 			  (unsigned int)(rbuf->rr_sg.lkey)));
   if (!gasnetc_use_srq) {
     GASNETI_TRACE_PRINTF(D,("POST_RR rbuf=%p peer=%d qp=%d",
@@ -1640,7 +1640,7 @@ void gasnetc_snd_validate(gasnetc_sreq_t *sreq, gasnetc_snd_wr_t *sr_desc, int c
   GASNETI_TRACE_PRINTF(D,("%s sreq=%p peer=%d qp=%d hca=%d\n", type, sreq,
 			  gasnetc_epid2node(sreq->cep->epid),
 			  gasnetc_epid2qpi(sreq->cep->epid) - 1,
-			  sreq->cep->hca_index));
+			  GASNETC_HCA_IDX(sreq->cep)));
   for (i = 0; i < count; ++i, ++sr_desc) {
     uintptr_t r_addr = sr_desc->gasnetc_f_wr_rem_addr;
 
@@ -3628,7 +3628,7 @@ extern void gasnetc_sndrcv_init_peer(gasnet_node_t node) {
       gasneti_semaphore_init(&cep->am_loc, 0, gasnetc_am_oust_pp);
       gasneti_weakatomic_set(&cep->am_flow.credit, 0, 0);
       gasneti_weakatomic_set(&cep->am_flow.ack, 0, 0);
-      cep->snd_cq_sema_p = &gasnetc_cq_semas[cep->hca_index];
+      cep->snd_cq_sema_p = &gasnetc_cq_semas[GASNETC_HCA_IDX(cep)];
     }
     first = 0;
   } else {

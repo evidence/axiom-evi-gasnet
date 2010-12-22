@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2010/12/22 03:58:38 $
- * $Revision: 1.231 $
+ *     $Date: 2010/12/22 04:17:52 $
+ * $Revision: 1.232 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1494,7 +1494,9 @@ static int gasnetc_init(int *argc, char ***argv) {
       hca = &gasnetc_hca[port_map[i]->hca_index];
       gasnetc_cep[i].hca = hca;
       gasnetc_cep[i].hca_handle = hca->handle;
+    #if GASNETC_IB_MAX_HCAS > 1
       gasnetc_cep[i].hca_index = hca->hca_index;
+    #endif
       lid_map[i] = remote_lid[(node * num_ports) + port];
     }
   }
