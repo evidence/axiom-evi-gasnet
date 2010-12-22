@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2010/12/22 22:27:19 $
- * $Revision: 1.71 $
+ *     $Date: 2010/12/22 23:07:03 $
+ * $Revision: 1.72 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -692,22 +692,29 @@ static char **parse_options(const char *string, int *count_p, const char *where)
   return list;
 }
 
-/* wrapper that maps default/empty to NULL */
-static char *my_getenv(const char *key) {
-  char *env_string = gasneti_getenv_withdefault(key, "");
+/* wrappers that map unset/empty to NULL */
+static char *my_getenv_withdefault(const char *key, const char *defval) {
+  char *env_string = gasneti_getenv_withdefault(key, defval);
   return ((env_string != NULL) && strlen(env_string)) ? env_string : NULL;
+}
+static char *my_getenv(const char *key) {
+  return my_getenv_withdefault(key, NULL);
 }
 
 static void configure_ssh(void) {
   char *env_string;
-  char *ssh_argv0;
+  const char *ssh_argv0;
   char **ssh_options = NULL;
   int is_openssh = 0;
   int optcount = 0;
   int i, argi;
 
   /* Determine the ssh command */
-  ssh_argv0 = gasneti_getenv_withdefault(ENV_PREFIX "SSH_CMD", "ssh");
+  ssh_argv0 = my_getenv_withdefault(ENV_PREFIX "SSH_CMD", "ssh");
+  if (ssh_argv0 == NULL) {
+      BOOTSTRAP_VERBOSE(("Ignoring empty value in environment variable " ENV_PREFIX "SSH_CMD"));
+      ssh_argv0 = "ssh"; /* Loss of const qualifier is OK - we don't write to it */
+  }
 
   /* Check for OpenSSH */
   {
@@ -725,7 +732,7 @@ static void configure_ssh(void) {
   /* Now build the command line */
   ssh_argc = optcount + (is_openssh ? 9 : 1);
   ssh_argv = gasneti_calloc((ssh_argc + 3 /* host + cmd + NULL = 3 */), sizeof(char *));
-  ssh_argv[0] = ssh_argv0;
+  ssh_argv[0] = gasneti_strdup(ssh_argv0);
   argi = 1;
   if (is_openssh) {
     ssh_argv[argi++] = (char *)"-o"; ssh_argv[argi++] = (char *)"StrictHostKeyChecking no";
