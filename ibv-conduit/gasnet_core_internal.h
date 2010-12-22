@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2010/12/22 04:17:52 $
- * $Revision: 1.166 $
+ *     $Date: 2010/12/22 04:36:14 $
+ * $Revision: 1.167 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -317,7 +317,7 @@ typedef union {
   #define gasnetc_peek_snd_cq(_hca,_num)	EVAPI_peek_cq((_hca)->handle,(_hca)->snd_cq,(_num))
   #define gasnetc_peek_rcv_cq(_hca,_num)	EVAPI_peek_cq((_hca)->handle,(_hca)->rcv_cq,(_num))
   #define gasnetc_destroy_cq(_hca,_cq)		VAPI_destroy_cq((_hca),(_cq))
-  #define gasnetc_destroy_qp(_hca,_qp)		VAPI_destroy_qp((_hca),(_qp))
+  #define gasnetc_destroy_qp(_hca,_qp)		VAPI_destroy_qp((_hca)->handle,(_qp))
   #define gasnetc_dereg_mr(_hca,_mr)		VAPI_deregister_mr((_hca),(_mr))
   #define gasnetc_query_port(_hca,_num,_port_p)	VAPI_query_hca_port_prop((_hca),(_num),(_port_p))
 #else
@@ -586,7 +586,9 @@ struct gasnetc_cep_t_ {
   gasneti_lifo_head_t	*rbuf_freelist;	/* Source of rcv buffers for AMs */
   gasnetc_hca_t		*hca;
   gasnetc_qp_hndl_t	qp_handle;
+#if GASNET_CONDUIT_VAPI
   gasnetc_hca_hndl_t	hca_handle;
+#endif
 #if GASNETC_IB_MAX_HCAS > 1
   int			hca_index;
 #endif

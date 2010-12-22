@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2010/12/22 04:17:52 $
- * $Revision: 1.257 $
+ *     $Date: 2010/12/22 04:36:14 $
+ * $Revision: 1.258 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -3748,7 +3748,7 @@ extern void gasnetc_sndrcv_fini_peer(gasnet_node_t node) {
       /* XXX: Is there a smarter wayto ID a "clone"? */
       if (cep->sq_sema_p != &cep->sq_sema) continue;
     #endif
-      vstat = gasnetc_destroy_qp(cep->hca_handle, cep->qp_handle);
+      vstat = gasnetc_destroy_qp(cep->hca, cep->qp_handle);
       GASNETC_VAPI_CHECK(vstat, "from gasnetc_destroy_qp()");
     }
   }
