@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2010/12/22 01:44:21 $
- * $Revision: 1.163 $
+ *     $Date: 2010/12/22 02:24:31 $
+ * $Revision: 1.164 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -532,8 +532,30 @@ struct gasnetc_cep_keys_ {
 #endif
   gasnetc_lkey_t	rcv_lkey;
   gasnetc_lkey_t	snd_lkey;
-  gasnetc_rkey_t	amrdma_rkey;
 };
+
+/* Structure for AM-over-RDMA sender state */
+typedef struct {
+  gasneti_weakatomic_t	head, tail;
+  gasnetc_rkey_t	rkey;
+  uintptr_t		addr;	/* write ONCE */
+} gasnetc_amrdma_send_t;
+
+/* Structure for AM-over-RDMA receiver state */
+typedef struct {
+  gasnetc_amrdma_buf_t	*addr;	/* write ONCE */
+  gasneti_weakatomic_t	head;
+#if GASNETI_THREADS
+  gasneti_weakatomic_val_t tail;
+  gasneti_mutex_t	ack_lock;
+  uint32_t		ack_bits;
+  char			_pad[GASNETI_CACHE_LINE_BYTES];
+  union {
+    gasneti_weakatomic_t    spinlock;
+    char		    _pad[GASNETI_CACHE_LINE_BYTES];
+  }			busy[GASNETC_AMRDMA_DEPTH_MAX]; /* A weak spinlock array */
+#endif
+} gasnetc_amrdma_recv_t;
 
 /* Structure for a cep (connection end-point) */
 struct gasnetc_cep_t_ {
@@ -550,21 +572,10 @@ struct gasnetc_cep_t_ {
   	gasneti_weakatomic_t	credit;
 	gasneti_weakatomic_t	ack;
   } am_flow;
-  struct {	/* AM-over-RDMA local state */
-	gasneti_weakatomic_t	send_head, send_tail;
-	gasneti_weakatomic_t	recv_head;
-#if GASNETI_THREADS
-	gasneti_mutex_t		ack_lock;
-	uint32_t		ack_bits;
-        gasneti_weakatomic_val_t recv_tail;
-	char			_pad[GASNETI_CACHE_LINE_BYTES];
-	union {
-          gasneti_weakatomic_t	    spinlock;
-	  char			    _pad[GASNETI_CACHE_LINE_BYTES];
-        }			recv_busy[GASNETC_AMRDMA_DEPTH_MAX]; /* A weak spinlock */
-#endif
-	gasneti_weakatomic_t	eligable;	/* Number of AMs small enough for AMRDMA */
-  } amrdma;
+  /* AM-over-RDMA local state */
+  gasneti_weakatomic_t	amrdma_eligable;	/* Number of AMs small enough for AMRDMA */
+  gasnetc_amrdma_send_t amrdma_send;
+  gasnetc_amrdma_recv_t amrdma_recv;
 
 #if GASNETI_THREADS
   char			_pad1[GASNETI_CACHE_LINE_BYTES];
@@ -578,8 +589,6 @@ struct gasnetc_cep_t_ {
   gasnetc_hca_hndl_t	hca_handle;
   int			hca_index;
   gasnetc_epid_t	epid;		/* == uint32_t */
-  gasnetc_amrdma_buf_t	*amrdma_loc;	/* write ONCE */
-  uintptr_t		amrdma_rem;	/* write ONCE */
 #if GASNETC_IBV_SRQ
   struct ibv_srq	*srq;
 #endif
