@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2010/12/22 19:54:45 $
- * $Revision: 1.170 $
+ *     $Date: 2010/12/22 19:56:03 $
+ * $Revision: 1.171 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -471,9 +471,9 @@ typedef struct {
   struct ibv_srq	*rqst_srq;
   struct ibv_srq	*repl_srq;
   gasneti_semaphore_t	am_sema;
- #if GASNETC_IBV_XRC
+#endif
+#if GASNETC_IBV_XRC
   struct ibv_xrc_domain *xrc_domain;
- #endif
 #endif
   gasnetc_cq_hndl_t	rcv_cq;
   gasnetc_cq_hndl_t	snd_cq; /* Includes Reply AMs when SRQ in use */
