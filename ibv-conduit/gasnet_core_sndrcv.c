@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2010/12/22 00:50:38 $
- * $Revision: 1.253 $
+ *     $Date: 2010/12/22 01:25:43 $
+ * $Revision: 1.254 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -3537,6 +3537,7 @@ extern int gasnetc_sndrcv_init(void) {
 
   /* Allocated pinned memory for AMs and bounce buffers
    * TODO: Can/should we *USE* any extra allocated due to rounding-up? */
+ if (gasnetc_bbuf_limit) {
   size = GASNETI_PAGE_ALIGNUP(gasnetc_bbuf_limit * sizeof(gasnetc_buffer_t));
   buf = gasneti_mmap(size);
   if_pf (buf == MAP_FAILED) {
