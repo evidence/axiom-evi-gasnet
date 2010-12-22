@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2010/12/22 08:10:11 $
- * $Revision: 1.234 $
+ *     $Date: 2010/12/22 08:33:52 $
+ * $Revision: 1.235 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1713,6 +1713,11 @@ static int gasnetc_init(int *argc, char ***argv) {
       if (gasnetc_use_xrc && !local_qpn[i]) continue;
     #endif
 
+    #if GASNETC_IBV_SRQ
+      qp_attr.qp_access_flags =
+              (qpi >= gasnetc_num_qps) ? IBV_ACCESS_REMOTE_WRITE
+                                       : IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ;
+    #endif
       qp_attr.port_num = port_map[i]->port_num;
 
       rc = ibv_modify_qp(gasnetc_cep[i].qp_handle, &qp_attr, qp_mask);
@@ -1724,6 +1729,9 @@ static int gasnetc_init(int *argc, char ***argv) {
       GASNETC_FOR_EACH_CEP(i, node, qpi) {
         if (!remote_qpn[i]) continue;
 
+        qp_attr.qp_access_flags =
+                (qpi >= gasnetc_num_qps) ? IBV_ACCESS_REMOTE_WRITE
+                                         : IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ;
         qp_attr.port_num = port_map[i]->port_num;
         rc = ibv_modify_xrc_rcv_qp(gasnetc_cep[i].hca->xrc_domain, gasnetc_xrc_rcv_qpn_local[i], &qp_attr, qp_mask);
         GASNETC_VAPI_CHECK(rc, "from ibv_modify_xrc_rcv_qp(INIT)");
@@ -1780,7 +1788,11 @@ static int gasnetc_init(int *argc, char ***argv) {
       if (gasnetc_use_xrc && !local_qpn[i]) continue;
     #endif
 
+    #if GASNETC_IBV_SRQ
+      qp_attr.max_dest_rd_atomic = (qpi >= gasnetc_num_qps) ? 0 : port_map[i]->rd_atom;
+    #else
       qp_attr.max_dest_rd_atomic = port_map[i]->rd_atom;
+    #endif
       qp_attr.path_mtu       = MIN(GASNETC_QP_PATH_MTU, port_map[i]->port.max_mtu);
       qp_attr.rq_psn         = i;
       qp_attr.ah_attr.dlid     = lid_map[i];
@@ -1800,7 +1812,7 @@ static int gasnetc_init(int *argc, char ***argv) {
       GASNETC_FOR_EACH_CEP(i, node, qpi) {
         if (!remote_qpn[i]) continue;
 
-        qp_attr.max_dest_rd_atomic = port_map[i]->rd_atom;
+        qp_attr.max_dest_rd_atomic = (qpi >= gasnetc_num_qps) ? 0 : port_map[i]->rd_atom;
         qp_attr.path_mtu           = MIN(GASNETC_QP_PATH_MTU, port_map[i]->port.max_mtu);
         qp_attr.rq_psn             = i;
         qp_attr.ah_attr.dlid       = lid_map[i];
@@ -1859,7 +1871,11 @@ static int gasnetc_init(int *argc, char ***argv) {
     #endif
 
       qp_attr.sq_psn           = gasneti_mynode*gasnetc_alloc_qps + qpi;
+    #if GASNETC_IBV_SRQ
+      qp_attr.max_rd_atomic  = (qpi >= gasnetc_num_qps) ? 0 : port_map[i]->rd_atom;
+    #else
       qp_attr.max_rd_atomic  = port_map[i]->rd_atom;
+    #endif
       rc = ibv_modify_qp(gasnetc_cep[i].qp_handle, &qp_attr, qp_mask);
       GASNETC_VAPI_CHECK(rc, "from ibv_modify_qp(RTS)");
       {
