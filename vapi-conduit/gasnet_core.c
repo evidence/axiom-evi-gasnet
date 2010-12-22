@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2010/12/22 04:36:14 $
- * $Revision: 1.233 $
+ *     $Date: 2010/12/22 08:10:11 $
+ * $Revision: 1.234 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1606,9 +1606,11 @@ static int gasnetc_init(int *argc, char ***argv) {
         if (qpi >= gasnetc_num_qps) { /* Request */
           qp_init_attr.srq = hca->rqst_srq;
           qp_init_attr.cap.max_send_wr = gasnetc_am_oust_pp;
+          qp_init_attr.cap.max_send_sge = 1; /* only AMs on this QP */
         } else {
           qp_init_attr.srq = hca->repl_srq;
           qp_init_attr.cap.max_send_wr = gasnetc_op_oust_pp;
+          qp_init_attr.cap.max_send_sge = GASNETC_SND_SG;
         }
         gasnetc_cep[i].srq = qp_init_attr.srq;
         max_send_wr = qp_init_attr.cap.max_send_wr;
