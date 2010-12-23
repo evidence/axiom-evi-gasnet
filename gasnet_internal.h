@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2010/10/13 03:39:56 $
- * $Revision: 1.121 $
+ *     $Date: 2010/12/23 23:33:22 $
+ * $Revision: 1.122 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -488,8 +488,10 @@ extern int gasneti_VerboseErrors;
    int retcode = (fncall);                                   \
    if_pf (gasneti_VerboseErrors && retcode != GASNET_OK) {   \
      char msg[1024];                                         \
-     sprintf(msg, "\nGASNet encountered an error: %s(%i)\n", \
+     snprintf(msg, sizeof(msg),                              \
+        "\nGASNet encountered an error: %s(%i)\n",           \
         gasnet_ErrorName(retcode), retcode);                 \
+     msg[sizeof(msg)-2] = '\n'; msg[sizeof(msg)-1] = '\0';   \
      GASNETI_RETURN_ERRFR(RESOURCE, fncall, msg);            \
    }                                                         \
  } while (0)
