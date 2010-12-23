@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2010/11/22 22:47:24 $
- * $Revision: 1.79 $
+ *     $Date: 2010/12/23 23:40:15 $
+ * $Revision: 1.80 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -998,7 +998,8 @@ void gasneti_segmentInit(uintptr_t localSegmentLimit,
         if ((uintptr_t)gasneti_segexch[i].seginfo.addr + gasneti_segexch[i].seginfo.size < minend)
           minend = (uintptr_t)gasneti_segexch[i].seginfo.addr + gasneti_segexch[i].seginfo.size;
       }
-      sprintf(segstats,"Segment stats: "
+      snprintf(segstats, sizeof(segstats),
+          "Segment stats: "
           "maxsize = %lu   "
           "minsize = %lu   "
           "maxbase = "GASNETI_LADDRFMT"   "
@@ -1006,6 +1007,7 @@ void gasneti_segmentInit(uintptr_t localSegmentLimit,
           "maxheapend = "GASNETI_LADDRFMT"   ",
           (unsigned long)maxsize, (unsigned long)minsize,
           GASNETI_LADDRSTR(maxbase), GASNETI_LADDRSTR(minend), GASNETI_LADDRSTR(maxheapend));
+      segstats[sizeof(segstats)-1] = '\0';
       GASNETI_TRACE_MSG(C, segstats);
 
       gasneti_maxheapend = maxheapend;
