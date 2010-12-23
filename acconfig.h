@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2010/12/23 00:43:51 $ */
-/*  $Revision: 1.160 $ */
+/*      $Date: 2010/12/23 01:42:56 $ */
+/*  $Revision: 1.161 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -376,6 +376,11 @@
 #undef GASNETI_DEFAULT_SSH_CMD
 #undef GASNETI_DEFAULT_SSH_OPTIONS
 #undef GASNETI_DEFAULT_SSH_NODEFILE
+
+/* Settings for ssh-spawner */
+#undef GASNETI_SSH_TOPO_FLAT
+#undef GASNETI_SSH_TOPO_NARY
+#undef GASNETI_SSH_NARY_DEGREE
 
 @BOTTOM@
 

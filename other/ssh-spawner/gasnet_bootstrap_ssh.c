@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2010/12/23 00:43:53 $
- * $Revision: 1.75 $
+ *     $Date: 2010/12/23 01:42:58 $
+ * $Revision: 1.76 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -50,7 +50,7 @@
    value of "OUT_DEGREE", set below.  Typically we want this value to
    be resonably large, since deep trees would result in multiple steps
    of forwarding for standard I/O (which is performed entirely by the
-   ssh processes at this point).  (IF GASNETI_BOOTSTRAP_FLAT_TREE is
+   ssh processes at this point).  (IF GASNETI_SSH_TOPO_FLAT is set
    non-zero then the tree effectively has inifinite out-degree and
    the "parent of node 0" is the only non-leaf node").
 
@@ -120,14 +120,17 @@
  */
 
 /* Defaults if conduit has not set these values */
-#ifndef GASNETI_BOOTSTRAP_OUT_DEGREE
-  #define GASNETI_BOOTSTRAP_OUT_DEGREE 32
+#ifndef GASNETI_SSH_NARY_DEGREE
+  #define GASNETI_SSH_NARY_DEGREE 32
 #endif
 #ifndef GASNETI_BOOTSTRAP_LOCAL_SPAWN
   #define GASNETI_BOOTSTRAP_LOCAL_SPAWN 0
 #endif
-#ifndef GASNETI_BOOTSTRAP_FLAT_TREE
-  #define GASNETI_BOOTSTRAP_FLAT_TREE 1
+
+#if !defined(GASNETI_SSH_TOPO_FLAT) && !defined(GASNETI_SSH_TOPO_NARY)
+  #error "ssh-spawner topology setting is missing"
+#elif defined(GASNETI_SSH_TOPO_FLAT) && defined(GASNETI_SSH_TOPO_NARY)
+  #error "ssh-spawner topology setting is invalid"
 #endif
 
 #define WHITESPACE " \t\n\r"
@@ -1287,7 +1290,7 @@ static void do_master(int argc, char **argv) {
   gasneti_reghandler(SIGPIPE, &sigforward);
 
   /* Configure child(ren) */
-  #if GASNETI_BOOTSTRAP_FLAT_TREE
+  #if GASNETI_SSH_TOPO_FLAT
   {
     gasnet_node_t p_quot = nproc / nnodes;
     gasnet_node_t p_rem = nproc % nnodes;
@@ -1306,13 +1309,15 @@ static void do_master(int argc, char **argv) {
       }
     }
   }
-  #else
+  #elif GASNETI_SSH_TOPO_NARY
     children = 1;
     child = gasneti_calloc(children, sizeof(struct child));
     child[0].rank = 0;
     child[0].procs = nproc;
     child[0].nodes = nnodes;
     child[0].nodelist = nodelist;
+  #else
+    #error
   #endif
 
   /* Start the process(es) */
@@ -1323,7 +1328,7 @@ static void do_master(int argc, char **argv) {
   gather_pids();
 
   /* Wait on the child(ren) */
-#if GASNETI_BOOTSTRAP_FLAT_TREE
+#if GASNETI_SSH_TOPO_FLAT
   { int done = 0;
 
     while (!done && !in_abort) {
@@ -1390,7 +1395,7 @@ static void do_master(int argc, char **argv) {
       }
     }
   }
-#else
+#elif GASNETI_SSH_TOPO_NARY
   {
     char cmd;
     ssize_t rc;
@@ -1404,6 +1409,8 @@ static void do_master(int argc, char **argv) {
       }
     } while ((rc < 0) && (errno == EINTR));
   }
+#else
+  #error
 #endif
 
   /* Wait for all children to terminate */
@@ -1448,7 +1455,7 @@ static void do_slave(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet
   /* Start any children */
   if (tree_procs > 1) {
     gasnet_node_t p_quot, p_rem; /* quotient and remainder of nproc/nodes */
-    gasnet_node_t n_quot, n_rem; /* quotient and remainder of nodes/GASNETI_BOOTSTRAP_OUT_DEGREE */
+    gasnet_node_t n_quot, n_rem; /* quotient and remainder of nodes/GASNETI_SSH_NARY_DEGREE */
     gasnet_node_t local_procs; /* the local processes (proc-per-node), excluding self */
     gasnet_node_t rank, j;
     char **sublist;
@@ -1460,7 +1467,7 @@ static void do_slave(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet
     p_rem -= (p_rem?1:0);
 
     /* Children = (local_procs other than self) + (child nodes) */
-    children = local_procs + MIN(GASNETI_BOOTSTRAP_OUT_DEGREE, (tree_nodes - 1));
+    children = local_procs + MIN(GASNETI_SSH_NARY_DEGREE, (tree_nodes - 1));
     child = gasneti_calloc(children, sizeof(struct child));
     rank = myproc + 1;
 
@@ -1473,8 +1480,8 @@ static void do_slave(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet
     }
 
     /* Map out the child nodes */
-    n_quot = (tree_nodes - 1) / GASNETI_BOOTSTRAP_OUT_DEGREE;
-    n_rem = (tree_nodes - 1) % GASNETI_BOOTSTRAP_OUT_DEGREE;
+    n_quot = (tree_nodes - 1) / GASNETI_SSH_NARY_DEGREE;
+    n_rem = (tree_nodes - 1) % GASNETI_SSH_NARY_DEGREE;
     sublist = nodelist + 1;
     for (j = local_procs; rank < (myproc + tree_procs); j++) {
       gasnet_node_t nodes = n_quot + (n_rem?1:0);
@@ -1504,7 +1511,7 @@ static void do_slave(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet
   gasneti_conduit_getenv = &do_getenv;
 }
 
-#if !GASNETI_BOOTSTRAP_FLAT_TREE
+#if GASNETI_SSH_TOPO_NARY
 /* dest is >= len*tree_procs, used as temp space on all but root */
 static void do_gath0(void *src, size_t len, void *dest)
 {
@@ -1554,7 +1561,7 @@ static void do_bcast0(size_t len, void *dest) {
 #endif
 
 static void gather_pids(void) {
-#if GASNETI_BOOTSTRAP_FLAT_TREE
+#if GASNETI_SSH_TOPO_FLAT
   if (is_master) {
     int j;
     for (j = 0; j < children; ++j) {
@@ -1563,7 +1570,7 @@ static void gather_pids(void) {
   } else {
     do_write(parent, &mypid, sizeof(pid_t));
   }
-#else
+#elif GASNETI_SSH_TOPO_NARY
   if (is_master) {
     do_read(child[0].sock, all_pids, sizeof(pid_t) * nproc);
   } else {
@@ -1578,6 +1585,8 @@ static void gather_pids(void) {
 
     gasneti_free(pids);
   }
+#else
+  #error
 #endif
 }
 
@@ -1620,7 +1629,7 @@ void gasneti_bootstrapFini_ssh(void) {
   char cmd;
   int j;
 
-#if GASNETI_BOOTSTRAP_FLAT_TREE
+#if GASNETI_SSH_TOPO_FLAT
   if (is_master) {
     for (j = 0; j < children; ++j) {
       do_read(child[j].sock, &cmd, sizeof(cmd));
@@ -1638,7 +1647,7 @@ void gasneti_bootstrapFini_ssh(void) {
     do_read(parent, &cmd, sizeof(cmd));
     gasneti_assert(cmd == BOOTSTRAP_CMD_FINI1);
   }
-#else
+#elif GASNETI_SSH_TOPO_NARY
   gasneti_assert(!is_master);
   for (j = 0; j < children; ++j) {
     do_read(child[j].sock, &cmd, sizeof(cmd));
@@ -1666,6 +1675,8 @@ void gasneti_bootstrapFini_ssh(void) {
   /* Wait for all children to exit */
   wait_for_all();
 #endif
+#else
+  #error
 #endif
 }
 
@@ -1684,7 +1695,7 @@ void gasneti_bootstrapBarrier_ssh(void) {
   char cmd;
   int j;
 
-#if GASNETI_BOOTSTRAP_FLAT_TREE
+#if GASNETI_SSH_TOPO_FLAT
   if (is_master) {
     for (j = 0; j < children; ++j) {
       do_read(child[j].sock, &cmd, sizeof(cmd));
@@ -1706,7 +1717,7 @@ void gasneti_bootstrapBarrier_ssh(void) {
     do_read(parent, &cmd, sizeof(cmd));
     gasneti_assert(cmd == BOOTSTRAP_CMD_BARR1);
   }
-#else
+#elif GASNETI_SSH_TOPO_NARY
   gasneti_assert(!is_master);
   /* UP */
   for (j = 0; j < children; ++j) {
@@ -1722,13 +1733,15 @@ void gasneti_bootstrapBarrier_ssh(void) {
   cmd = BOOTSTRAP_CMD_BARR1;
   do_bcast0(sizeof(cmd), &cmd);
   gasneti_assert(cmd == BOOTSTRAP_CMD_BARR1);
+#else
+  #error
 #endif
 }
 
 void gasneti_bootstrapExchange_ssh(void *src, size_t len, void *dest) {
   int j;
 
-#if GASNETI_BOOTSTRAP_FLAT_TREE
+#if GASNETI_SSH_TOPO_FLAT
   if (is_master) {
     char cmd, *tmp, *p;
     for (j = 0; j < children; ++j) {
@@ -1757,7 +1770,7 @@ void gasneti_bootstrapExchange_ssh(void *src, size_t len, void *dest) {
     do_write(parent, src, len);
     do_read(parent, dest, len*nproc);
   }
-#else
+#elif GASNETI_SSH_TOPO_NARY
   gasneti_assert(!is_master);
   /* Gather data up the tree, assembling partial results in-place in dest */
   do_gath0(src, len, (void *)((uintptr_t)dest + len*myproc));
@@ -1774,11 +1787,13 @@ void gasneti_bootstrapExchange_ssh(void *src, size_t len, void *dest) {
     do_write(child[j].sock, dest, len*child[j].rank);
     do_write(child[j].sock, (void *)((uintptr_t)dest + len*next), len*(nproc - next));
   }
+#else
+  #error
 #endif
 }
 
 void gasneti_bootstrapAlltoall_ssh(void *src, size_t len, void *dest) {
-#if GASNETI_BOOTSTRAP_FLAT_TREE
+#if GASNETI_SSH_TOPO_FLAT
   if (is_master) {
     char cmd, *tmp, *tmp2, *p, *q;
     gasnet_node_t j;
@@ -1822,7 +1837,7 @@ void gasneti_bootstrapAlltoall_ssh(void *src, size_t len, void *dest) {
     do_write(parent, src, len*nproc);
     do_read(parent, dest, len*nproc);
   }
-#else
+#elif GASNETI_SSH_TOPO_NARY
   size_t row_len = len * nproc;
   char *tmp;
                                                                                                               
@@ -1851,13 +1866,15 @@ void gasneti_bootstrapAlltoall_ssh(void *src, size_t len, void *dest) {
   do_scat0(tmp, row_len, dest);
 
   gasneti_free(tmp);
+#else
+  #error
 #endif
 }
 
 void gasneti_bootstrapBroadcast_ssh(void *src, size_t len, void *dest, int rootnode) {
   int j;
 
-#if GASNETI_BOOTSTRAP_FLAT_TREE
+#if GASNETI_SSH_TOPO_FLAT
   if (is_master) {
     char cmd, *tmp;
     for (j = 0; j < children; ++j) {
@@ -1888,7 +1905,7 @@ void gasneti_bootstrapBroadcast_ssh(void *src, size_t len, void *dest, int rootn
     }
     do_read(parent, dest, len);
   }
-#else
+#elif GASNETI_SSH_TOPO_NARY
   gasneti_assert(!is_master);
   /* Move up the tree to proc 0 */
   if (rootnode != 0) {
@@ -1910,5 +1927,7 @@ void gasneti_bootstrapBroadcast_ssh(void *src, size_t len, void *dest, int rootn
 
   /* Now move it down */
   do_bcast0(len, dest);
+#else
+  #error
 #endif
 }

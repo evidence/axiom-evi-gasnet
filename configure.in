@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2010/12/23 00:43:51 $
-# $Revision: 1.663 $
+#     $Date: 2010/12/23 01:42:56 $
+# $Revision: 1.664 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.663 $)
+AC_REVISION($Revision: 1.664 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -3847,6 +3847,25 @@ GASNET_WITH(ssh-nodefile,
    [gasnet_ssh_nodefile=""])
 AC_DEFINE_UNQUOTED(GASNETI_DEFAULT_SSH_NODEFILE, "$gasnet_ssh_nodefile")
     
+GASNET_WITH(ssh-topology,
+   [connection topology when using ssh-spawner ("flat" or "nary[[:<N>]]", where default is "flat")],
+   [case "$withval" in
+         flat) AC_DEFINE(GASNETI_SSH_TOPO_FLAT) ;;
+         nary) AC_DEFINE(GASNETI_SSH_TOPO_NARY) ;;
+       nary:*) tmpval=`echo $withval | cut -d: -f2-`
+               if expr "${tmpval}" : '[[1-9]][[0-9]]*$' >/dev/null; then
+                 AC_DEFINE(GASNETI_SSH_TOPO_NARY)
+                 AC_DEFINE_UNQUOTED(GASNETI_SSH_NARY_DEGREE, $tmpval)
+               else
+                 AC_MSG_ERROR([--with-ssh-topology nary: suffix "$tmpval" is not a positive integer])
+               fi
+               ;;
+          yes) AC_MSG_ERROR([--with-ssh-topology requires an argument]) ;;
+            *) AC_MSG_ERROR([--with-ssh-topology argument "$withval" is not a valid choice]) ;;
+    esac],
+   [AC_MSG_ERROR([--with-ssh-topology requires an argument])],
+   [AC_DEFINE(GASNETI_SSH_TOPO_FLAT)])
+
 ########################################################################
 
 # Check for alloca in C code
