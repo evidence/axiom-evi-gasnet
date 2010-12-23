@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2010/10/23 22:58:11 $
- * $Revision: 1.255 $
+ *     $Date: 2010/12/23 23:18:52 $
+ * $Revision: 1.256 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1482,9 +1482,14 @@ extern void gasneti_envstr_display(const char *key, const char *val, int is_dflt
     static gasneti_verboseenv_t *displaylist_tail = NULL;
     static int notyet = 1;
     gasneti_verboseenv_t *p;
-    char displaystr[255];
+    char tmpstr[255];
+    char *displaystr = tmpstr;
     int width = MAX(10,55 - strlen(key) - strlen(displayval));
-    sprintf(displaystr, "ENV parameter: %s = %s%*s", key, displayval, width, dflt);
+    int len = snprintf(tmpstr, sizeof(tmpstr), "ENV parameter: %s = %s%*s", key, displayval, width, dflt);
+    if (len >= sizeof(tmpstr)) { /* Too long for the static buffer */
+      displaystr = malloc(len + 1);
+      snprintf(displaystr, len+1, "ENV parameter: %s = %s%*s", key, displayval, width, dflt);
+    }
     gasneti_mutex_lock(&envmutex);
       for (p = displaylist; p; p = p->next) { /* check for previous report */
         if (!strcmp(key,p->key)) break;
@@ -1514,6 +1519,7 @@ extern void gasneti_envstr_display(const char *key, const char *val, int is_dflt
         notyet = 0;
       }
     gasneti_mutex_unlock(&envmutex);
+    if (displaystr != tmpstr) free(displaystr);
   }
 }
 extern void gasneti_envdbl_display(const char *key, double val, int is_dflt) {
