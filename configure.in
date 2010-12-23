@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2010/12/22 19:54:43 $
-# $Revision: 1.662 $
+#     $Date: 2010/12/23 00:43:51 $
+# $Revision: 1.663 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.662 $)
+AC_REVISION($Revision: 1.663 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -3817,6 +3817,36 @@ else
   AC_DEFINE_UNQUOTED(GASNET_SOCKLEN_T, $gasnet_cv_socklen_t)
 fi
 
+GASNET_WITH(ssh-cmd,
+   [default value for GASNET_SSH_CMD environment variable (default "ssh")],
+   [case "$withval" in
+      yes|no) AC_MSG_ERROR([--with-ssh-cmd requires an argument]) ;;
+           *) gasnet_ssh_cmd="$withval" ;;
+    esac],
+   [AC_MSG_ERROR([--with-ssh-cmd requires an argument])],
+   [gasnet_ssh_cmd="ssh"])
+AC_DEFINE_UNQUOTED(GASNETI_DEFAULT_SSH_CMD, "$gasnet_ssh_cmd")
+
+GASNET_WITH(ssh-options,
+   [default value for GASNET_SSH_OPTIONS environment variable (defaults to empty)],
+   [case "$withval" in
+      yes|no) AC_MSG_ERROR([--with-ssh-options requires an argument]) ;;
+           *) gasnet_ssh_options="$withval" ;;
+    esac],
+   [AC_MSG_ERROR([--with-ssh-options requires an argument])],
+   [gasnet_ssh_options=""])
+AC_DEFINE_UNQUOTED(GASNETI_DEFAULT_SSH_OPTIONS, "$gasnet_ssh_options")
+
+GASNET_WITH(ssh-nodefile,
+   [default value for GASNET_SSH_NODEFILE environment variable (defaults to empty - no fixed filename)],
+   [case "$withval" in
+      yes|no) AC_MSG_ERROR([--with-ssh-nodefile requires an argument]) ;;
+           *) gasnet_ssh_nodefile="$withval" ;;
+    esac],
+   [AC_MSG_ERROR([--with-ssh-nodefile requires an argument])],
+   [gasnet_ssh_nodefile=""])
+AC_DEFINE_UNQUOTED(GASNETI_DEFAULT_SSH_NODEFILE, "$gasnet_ssh_nodefile")
+    
 ########################################################################
 
 # Check for alloca in C code

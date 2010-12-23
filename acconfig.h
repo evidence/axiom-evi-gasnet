@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2010/12/22 00:55:58 $ */
-/*  $Revision: 1.159 $ */
+/*      $Date: 2010/12/23 00:43:51 $ */
+/*  $Revision: 1.160 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -371,6 +371,11 @@
 
 /* GASNet bug1389 detection/work-around */
 #undef GASNETI_BUG1389_WORKAROUND
+
+/* Defaults for GASNET_SSH_* env vars */
+#undef GASNETI_DEFAULT_SSH_CMD
+#undef GASNETI_DEFAULT_SSH_OPTIONS
+#undef GASNETI_DEFAULT_SSH_NODEFILE
 
 @BOTTOM@
 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2010/12/22 23:18:04 $
- * $Revision: 1.74 $
+ *     $Date: 2010/12/23 00:43:53 $
+ * $Revision: 1.75 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -710,10 +710,10 @@ static void configure_ssh(void) {
   int i, argi;
 
   /* Determine the ssh command */
-  ssh_argv0 = my_getenv_withdefault(ENV_PREFIX "SSH_CMD", "ssh");
+  ssh_argv0 = my_getenv_withdefault(ENV_PREFIX "SSH_CMD", GASNETI_DEFAULT_SSH_CMD);
   if (ssh_argv0 == NULL) {
       BOOTSTRAP_VERBOSE(("Ignoring empty value in environment variable " ENV_PREFIX "SSH_CMD\n"));
-      ssh_argv0 = "ssh"; /* Loss of const qualifier is OK - we don't write to it */
+      ssh_argv0 = GASNETI_DEFAULT_SSH_CMD;
   }
 
   /* Check for OpenSSH */
@@ -725,7 +725,7 @@ static void configure_ssh(void) {
   }
 
   /* Check for user-supplied options */
-  if ((env_string = my_getenv(ENV_PREFIX "SSH_OPTIONS")) != NULL) {
+  if ((env_string = my_getenv_withdefault(ENV_PREFIX "SSH_OPTIONS", GASNETI_DEFAULT_SSH_OPTIONS)) != NULL) {
     ssh_options = parse_options(env_string, &optcount, "while parsing " ENV_PREFIX "SSH_OPTIONS");
   }
 
@@ -839,7 +839,8 @@ static void build_nodelist(void)
     nnodes = nproc;
   }
 
-  if ((env_string = my_getenv(ENV_PREFIX "SSH_NODEFILE")) != NULL) {
+  if ((env_string = my_getenv_withdefault(ENV_PREFIX "SSH_NODEFILE",
+                                          GASNETI_DEFAULT_SSH_NODEFILE)) != NULL) {
     nodelist = parse_nodefile(env_string);
   } else if ((env_string = my_getenv(ENV_PREFIX "SSH_SERVERS")) != NULL) {
     nodelist = parse_servers(env_string);
