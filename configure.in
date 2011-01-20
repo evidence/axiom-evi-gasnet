@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2010/12/23 01:42:56 $
-# $Revision: 1.664 $
+#     $Date: 2011/01/20 02:40:47 $
+# $Revision: 1.665 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.664 $)
+AC_REVISION($Revision: 1.665 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2676,7 +2676,13 @@ if test $enabled_gm = yes; then
     ;;
     *)	# All unknown for now
         GASNET_ENV_DEFAULT(GM_INCLUDE, $GMHOME/include)
-	GASNET_ENV_DEFAULT(GM_LIB, $GMHOME/lib)
+        # Note 'test -d $foo/.' works even if $foo is a symlink
+        if test x"$ac_cv_sizeof_void_p" = x8 -a -d $GMHOME/lib64/.; then
+          gm_libdir_default=$GMHOME/lib64
+        else
+          gm_libdir_default=$GMHOME/lib
+        fi
+	GASNET_ENV_DEFAULT(GM_LIB, $gm_libdir_default)
 	if test "$GM_INCLUDE" = "" || test ! -d "$GM_INCLUDE"; then
 	  have_gm=no
 	fi
