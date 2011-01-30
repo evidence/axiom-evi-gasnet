@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_region.c,v $
- *     $Date: 2010/12/10 06:52:54 $
- * $Revision: 1.40 $
+ *     $Date: 2011/01/30 00:07:29 $
+ * $Revision: 1.41 $
  * Description: 
  * Copyright 2004, Paul Hargrove <PHHargrove@lbl.gov>
  * Terms of use are as specified in license.txt
@@ -417,7 +417,8 @@ fh_region_to_priv(const firehose_region_t *reg)
 
 /* Given a node and a region_t, create the necessary hash table entries.
  * The FIFO linkage is NOT initialized */
-static firehose_private_t * GASNETI_MALLOC
+static GASNETI_MALLOC
+firehose_private_t *
 fh_create_priv(gasnet_node_t node, const firehose_region_t *reg)
 {
     uintptr_t end_addr, bucket_addr;
