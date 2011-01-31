@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2011/01/31 00:08:34 $
-# $Revision: 1.666 $
+#     $Date: 2011/01/31 00:34:48 $
+# $Revision: 1.667 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.666 $)
+AC_REVISION($Revision: 1.667 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2929,10 +2929,11 @@ if test "$enabled_lapi" = yes; then
   fi
 
   if test x"$ac_cv_sizeof_void_p" = x4; then
-    LAPI_LD="mpcc_r -bbigtoc"
+    lapi_ld_dflt="mpcc_r -bbigtoc"
   else
-    LAPI_LD="mpcc_r -q64 -blpdata -bbigtoc"
+    lapi_ld_dflt="mpcc_r -q64 -blpdata -bbigtoc"
   fi
+  GASNET_ENV_DEFAULT(LAPI_LD, $lapi_ld_dflt)
   AC_SUBST(LAPI_LD)
 
 fi
