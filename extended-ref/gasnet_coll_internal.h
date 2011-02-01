@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_internal.h,v $
- *     $Date: 2010/11/15 18:51:36 $
- * $Revision: 1.62 $
+ *     $Date: 2011/02/01 03:07:42 $
+ * $Revision: 1.63 $
  * Description: GASNet Collectives conduit header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -242,9 +242,9 @@ typedef int (*gasnete_all_barrier_try)(gasnete_coll_team_t team, int id, int fla
 typedef enum {
   GASNETE_COLL_BARRIER_ENVDEFAULT=0,
   GASNETE_COLL_BARRIER_AMDISSEM,
-  GASNETE_COLL_BARRIER_AMCENTRAL,
+  GASNETE_COLL_BARRIER_AMCENTRAL
 #ifdef GASNETE_COLL_CONDUIT_BARRIERS
-  GASNETE_COLL_CONDUIT_BARRIERS
+  , GASNETE_COLL_CONDUIT_BARRIERS
 #endif
 } gasnete_coll_barrier_type_t;
 
