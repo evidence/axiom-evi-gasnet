@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2011/01/25 11:32:20 $
- * $Revision: 1.238 $
+ *     $Date: 2011/02/07 21:25:02 $
+ * $Revision: 1.239 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1828,9 +1828,6 @@ static int gasnetc_init(int *argc, char ***argv) {
   #endif
 #endif
 
-    /* QPs must reach RTR before their peer can advance to RTS */
-    gasneti_bootstrapBarrier();
-
     /* advance RTR -> RTS */
 #if GASNET_CONDUIT_VAPI
     QP_ATTR_MASK_CLR_ALL(qp_mask);
@@ -1919,16 +1916,11 @@ static int gasnetc_init(int *argc, char ***argv) {
       gasneti_mynode, gasneti_nodes); fflush(stderr);
   #endif
   
+  /* All QPs must reach RTS before we may continue */
+  gasneti_bootstrapBarrier();
+
   #if GASNET_DEBUG
   /* Verify that we are actually connected. */
-  if (gasnetc_use_rcv_thread) {
-    /* All QPs must reach RTS before we can test connectivity.
-     * Otherwise the rcv thread (which has already been created) might try to
-     * send a reply while still in RTR.
-     * XXX: Could probably spawn the rcv thread much later to avoid this.
-     */
-    gasneti_bootstrapBarrier();
-  }
   { /* Each node sends an AM to node self-1 and then waits for local completion. */
     gasnetc_counter_t counter = GASNETC_COUNTER_INITIALIZER;
     gasnet_node_t peer;
