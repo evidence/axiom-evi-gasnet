@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2011/02/07 21:25:02 $
- * $Revision: 1.239 $
+ *     $Date: 2011/02/07 22:41:49 $
+ * $Revision: 1.240 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1702,7 +1702,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     qp_attr.remote_atomic_flags = VAPI_EN_REM_WRITE | VAPI_EN_REM_READ;
 
     for (i = 0; i < ceps; ++i) {
-      if (!gasnetc_cep[i].hca) continue;
+      if (!local_qpn[i]) continue;
       
       qp_attr.port = port_map[i]->port_num;
       vstat = VAPI_modify_qp(gasnetc_cep[i].hca_handle, gasnetc_cep[i].qp_handle, &qp_attr, &qp_mask, &qp_cap);
@@ -1715,10 +1715,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     qp_attr.qp_access_flags = IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ;
 
     GASNETC_FOR_EACH_CEP(i, node, qpi) {
-      if (!gasnetc_cep[i].hca) continue;
-    #if GASNETC_IBV_XRC
-      if (gasnetc_use_xrc && !local_qpn[i]) continue;
-    #endif
+      if (!local_qpn[i]) continue;
 
     #if GASNETC_IBV_SRQ
       qp_attr.qp_access_flags = GASNETC_QPI_IS_REQ(qpi)
@@ -1769,7 +1766,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     qp_attr.av.src_path_bits = 0;
     qp_attr.min_rnr_timer    = GASNETC_QP_MIN_RNR_TIMER;
     for (i = 0; i < ceps; ++i) {
-      if (!gasnetc_cep[i].hca) continue;
+      if (!local_qpn[i]) continue;
 
       qp_attr.qp_ous_rd_atom = port_map[i]->rd_atom;
       qp_attr.path_mtu       = MIN(GASNETC_QP_PATH_MTU, port_map[i]->port.max_mtu);
@@ -1790,10 +1787,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     qp_attr.min_rnr_timer    = GASNETC_QP_MIN_RNR_TIMER;
 
     GASNETC_FOR_EACH_CEP(i, node, qpi) {
-      if (!gasnetc_cep[i].hca) continue;
-    #if GASNETC_IBV_XRC
-      if (gasnetc_use_xrc && !local_qpn[i]) continue;
-    #endif
+      if (!local_qpn[i]) continue;
 
       qp_attr.max_dest_rd_atomic = GASNETC_QPI_IS_REQ(qpi) ? 0 : port_map[i]->rd_atom;
       qp_attr.path_mtu       = MIN(GASNETC_QP_PATH_MTU, port_map[i]->port.max_mtu);
@@ -1842,7 +1836,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     qp_attr.retry_count      = gasnetc_qp_retry_count;
     qp_attr.rnr_retry        = GASNETC_QP_RNR_RETRY;
     GASNETC_FOR_EACH_CEP(i, node, qpi) {
-      if (!gasnetc_cep[i].hca) continue;
+      if (!local_qpn[i]) continue;
 
       qp_attr.sq_psn           = gasneti_mynode*gasnetc_alloc_qps + qpi;
       qp_attr.ous_dst_rd_atom  = port_map[i]->rd_atom;
@@ -1865,10 +1859,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     qp_attr.rnr_retry        = GASNETC_QP_RNR_RETRY;
 
     GASNETC_FOR_EACH_CEP(i, node, qpi) {
-      if (!gasnetc_cep[i].hca) continue;
-    #if GASNETC_IBV_XRC
       if (!local_qpn[i]) continue;
-    #endif
 
       qp_attr.sq_psn           = gasneti_mynode*gasnetc_alloc_qps + qpi;
       qp_attr.max_rd_atomic    = GASNETC_QPI_IS_REQ(qpi) ? 0 : port_map[i]->rd_atom;
