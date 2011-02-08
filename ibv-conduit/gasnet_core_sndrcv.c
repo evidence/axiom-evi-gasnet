@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2010/12/22 06:22:21 $
- * $Revision: 1.261 $
+ *     $Date: 2011/02/08 03:53:52 $
+ * $Revision: 1.262 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -1200,7 +1200,7 @@ void gasnetc_rcv_am(const gasnetc_wc_t *comp, gasnetc_rbuf_t **spare_p) {
     if (gasnetc_num_qps > 1) {
       int i;
       for (i=0; i<gasnetc_num_qps; ++i, ++cep) {
-        if ((cep->qp_handle->qp_num == comp->qp_num) && (cep->hca == hca)) break;
+        if ((cep->rcv_qpn == comp->qp_num) && (cep->hca == hca)) break;
       }
       gasneti_assert(i < gasnetc_num_qps);
     }
