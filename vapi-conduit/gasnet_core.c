@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2011/02/08 03:53:52 $
- * $Revision: 1.243 $
+ *     $Date: 2011/02/08 05:03:24 $
+ * $Revision: 1.244 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -115,6 +115,18 @@ static int gasnetc_qp_timeout, gasnetc_qp_retry_count;
 #else
   #define GASNET_VAPI_PORTS_STR "GASNET_IBV_PORTS"
   #define GASNET_CONDUIT_NAME_STR_LC "ibv"
+#endif
+
+/* Convenience iterator */
+#define GASNETC_FOR_EACH_CEP(_i, _node, _qpi)  \
+  for (_i = _node = 0; _node < gasneti_nodes; ++_node) \
+    for (_qpi = 0; _qpi < gasnetc_alloc_qps; ++_qpi, ++_i)
+
+/* Convenience macro */
+#if GASNETC_IBV_SRQ 
+  #define GASNETC_QPI_IS_REQ(_qpi) ((_qpi) >= gasnetc_num_qps)
+#else
+  #define GASNETC_QPI_IS_REQ(_qpi) (0)
 #endif
 
 /* ------------------------------------------------------------------------------------ */
@@ -1204,7 +1216,7 @@ static gasnetc_qpn_t *gasnetc_xrc_rcv_qpn_remote = NULL;
 
 /* Create the XRC RCV Qps (once per supernode for each remote QP) */
 /* TODO: can we use normal ibv_create_qp() and not need to register? */
-static int gasnetc_xrc_create_qps(void) {
+static int gasnetc_create_xrc_rcv_qps(void) {
   int ceps = gasneti_nodes * gasnetc_alloc_qps;
   int i;
 
@@ -1250,9 +1262,14 @@ static int gasnetc_xrc_create_qps(void) {
   {
     uint32_t *local_tmp  = gasneti_malloc(ceps * sizeof(uint32_t));
     uint32_t *remote_tmp = gasneti_malloc(ceps * sizeof(uint32_t));
-    for (i = 0; i < ceps; ++i) {
-      if (gasnetc_cep[i].hca) {
-        local_tmp[i] = gasnetc_cep[i].srq->xrc_srq_num;
+    gasnet_node_t node;
+    int qpi;
+
+    GASNETC_FOR_EACH_CEP(i, node, qpi) {
+      gasnetc_hca_t *hca = gasnetc_cep[i].hca;
+      if (hca) {
+        struct ibv_srq *srq = GASNETC_QPI_IS_REQ(qpi) ? hca->rqst_srq : hca->repl_srq;
+        local_tmp[i] = srq->xrc_srq_num;
       }
     }
     gasneti_bootstrapAlltoall(local_tmp, gasnetc_alloc_qps*sizeof(uint32_t), remote_tmp);
@@ -1305,18 +1322,6 @@ static int gasnetc_init(int *argc, char ***argv) {
   int			ceps;
   int 			num_ports;
   int 			i, qpi;
-
-  /* Convenience iterator */
-  #define GASNETC_FOR_EACH_CEP(_i, _node, _qpi)  \
-    for (_i = _node = 0; _node < gasneti_nodes; ++_node) \
-      for (_qpi = 0; _qpi < gasnetc_alloc_qps; ++_qpi, ++_i)
-
-  /* Convenience macro */
-  #if GASNETC_IBV_SRQ 
-    #define GASNETC_QPI_IS_REQ(_qpi) ((_qpi) >= gasnetc_num_qps)
-  #else
-    #define GASNETC_QPI_IS_REQ(_qpi) (0)
-  #endif
 
   /*  check system sanity */
   gasnetc_check_config();
@@ -1575,6 +1580,14 @@ static int gasnetc_init(int *argc, char ***argv) {
     return i;
   }
 
+#if GASNETC_IBV_XRC
+  /* create RCV side QPs for XRC */
+  if (gasnetc_use_xrc) {
+    vstat = gasnetc_create_xrc_rcv_qps();
+    GASNETC_VAPI_CHECK(vstat, "from gasnetc_xrc_create_qps()");
+  }
+#endif
+
   /* create all the endpoints */
 #if GASNET_CONDUIT_VAPI
   {
@@ -1692,14 +1705,6 @@ static int gasnetc_init(int *argc, char ***argv) {
       gasnetc_cep[i].sq_sema_p = &gasnetc_cep[i].sq_sema;
     #endif
     }
-
-  #if GASNETC_IBV_XRC
-    /* create RCV side QPs for XRC */
-    if (gasnetc_use_xrc) {
-      vstat = gasnetc_xrc_create_qps();
-      GASNETC_VAPI_CHECK(vstat, "from gasnetc_xrc_create_qps()");
-    }
-  #endif
 
   #if GASNETC_IBV_SRQ
     /* Set cep->rcv_qpn if needed */
