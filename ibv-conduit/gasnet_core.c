@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2011/02/08 05:03:24 $
- * $Revision: 1.244 $
+ *     $Date: 2011/02/08 20:52:41 $
+ * $Revision: 1.245 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -158,9 +158,6 @@ int		gasnetc_qp_rd_atom;
   unsigned int		gasnetc_pin_maxsz_shift;
 #endif
 firehose_info_t	gasnetc_firehose_info;
-
-/* Used to exchange addresses at connection time */
-typedef GASNETC_IB_CHOOSE(VAPI_qp_num_t, uint32_t) gasnetc_qpn_t;
 
 gasnet_handlerentry_t const *gasnetc_get_handlertable(void);
 

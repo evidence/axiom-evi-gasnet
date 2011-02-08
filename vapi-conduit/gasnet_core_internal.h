@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2011/02/08 03:53:52 $
- * $Revision: 1.173 $
+ *     $Date: 2011/02/08 20:52:41 $
+ * $Revision: 1.174 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -377,6 +377,7 @@ typedef GASNETC_IB_CHOOSE(VAPI_mrw_acl_t,	enum ibv_access_flags)	gasnetc_acl_t;
 typedef GASNETC_IB_CHOOSE(VAPI_wc_status_t,	enum ibv_wc_status)	gasnetc_wc_status_t;
 typedef GASNETC_IB_CHOOSE(VAPI_wr_opcode_t,	enum ibv_wr_opcode)	gasnetc_wr_opcode_t;
 typedef GASNETC_IB_CHOOSE(VAPI_cqe_num_t,	int)			gasnetc_cqe_cnt_t;
+typedef GASNETC_IB_CHOOSE(VAPI_qp_num_t,	uint32_t)		gasnetc_qpn_t;
 
 /* Handle types */
 typedef GASNETC_IB_CHOOSE(VAPI_hca_hndl_t,	struct ibv_context *)	gasnetc_hca_hndl_t;
@@ -595,7 +596,7 @@ struct gasnetc_cep_t_ {
   gasnetc_epid_t	epid;		/* == uint32_t */
 #if GASNETC_IBV_SRQ
   struct ibv_srq	*srq;
-  uint32_t		rcv_qpn;
+  gasnetc_qpn_t		rcv_qpn;
 #endif
 #if GASNETC_IBV_XRC
   uint32_t		xrc_remote_srq_num;
