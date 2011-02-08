@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2010/12/22 19:56:03 $
- * $Revision: 1.171 $
+ *     $Date: 2011/02/08 01:50:38 $
+ * $Revision: 1.172 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -372,6 +372,7 @@ typedef union {
 typedef GASNETC_IB_CHOOSE(VAPI_lkey_t,		uint32_t)		gasnetc_lkey_t;
 typedef GASNETC_IB_CHOOSE(VAPI_rkey_t,		uint32_t)		gasnetc_rkey_t;
 typedef GASNETC_IB_CHOOSE(IB_port_t,		uint8_t)		gasnetc_port_t;
+typedef GASNETC_IB_CHOOSE(IB_lid_t,		uint16_t)		gasnetc_lid_t;
 typedef GASNETC_IB_CHOOSE(VAPI_mrw_acl_t,	enum ibv_access_flags)	gasnetc_acl_t;
 typedef GASNETC_IB_CHOOSE(VAPI_wc_status_t,	enum ibv_wc_status)	gasnetc_wc_status_t;
 typedef GASNETC_IB_CHOOSE(VAPI_wr_opcode_t,	enum ibv_wr_opcode)	gasnetc_wr_opcode_t;
@@ -610,6 +611,7 @@ typedef struct {
   gasnetc_port_t        port_num;       /* Port number */
   gasnetc_hca_port_t    port;           /* Port info */
   int                   rd_atom;
+  gasnetc_lid_t         *remote_lids;
 } gasnetc_port_info_t;
 
 
