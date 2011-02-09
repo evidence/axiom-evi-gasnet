@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2011/02/09 03:22:32 $
- * $Revision: 1.263 $
+ *     $Date: 2011/02/09 20:11:36 $
+ * $Revision: 1.264 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -3111,7 +3111,7 @@ size_t gasnetc_fh_get_helper(gasnet_node_t node, gasnetc_sreq_t *sreq,
 /*
  * Check/compute limits before allocating anything
  */
-extern int gasnetc_sndrcv_limits(int num_ports, gasnetc_port_info_t *port_tbl) {
+extern int gasnetc_sndrcv_limits(void) {
   gasnetc_hca_t		*hca;
   int 			h;
   const int 		rcv_spare = (gasnetc_use_rcv_thread ? 1 : 0);
@@ -3132,7 +3132,7 @@ extern int gasnetc_sndrcv_limits(int num_ports, gasnetc_port_info_t *port_tbl) {
   } else {
     int i;
     for (i = 0; i < gasnetc_num_qps; ++i) {
-      hca = &gasnetc_hca[port_tbl[i % num_ports].hca_index];
+      hca = &gasnetc_hca[gasnetc_port_tbl[i % gasnetc_num_ports].hca_index];
       hca->qps += 1;
       hca->total_qps += gasnetc_remote_nodes;
     }

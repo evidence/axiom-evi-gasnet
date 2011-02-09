@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2011/02/09 02:45:32 $
- * $Revision: 1.175 $
+ *     $Date: 2011/02/09 20:11:36 $
+ * $Revision: 1.176 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -629,7 +629,7 @@ extern int gasnetc_qp_rtr2rts(gasnet_node_t node,
                               gasnetc_port_info_t **port_map);
 
 /* Routines in gasnet_core_sndrcv.c */
-extern int gasnetc_sndrcv_limits(int num_ports, gasnetc_port_info_t *port_tbl);
+extern int gasnetc_sndrcv_limits(void);
 extern int gasnetc_sndrcv_init(void);
 extern void gasnetc_sndrcv_fini(void);
 extern void gasnetc_sndrcv_init_peer(gasnet_node_t node);
@@ -717,5 +717,7 @@ extern firehose_info_t		gasnetc_firehose_info;
   extern gasnetc_qpn_t          *gasnetc_xrc_rcv_qpn_local;
   extern gasnetc_qpn_t          *gasnetc_xrc_rcv_qpn_remote;
 #endif
+extern gasnetc_port_info_t      *gasnetc_port_tbl;
+extern int                      gasnetc_num_ports;
 
 #endif
