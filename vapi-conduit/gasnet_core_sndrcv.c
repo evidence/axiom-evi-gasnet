@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2011/02/09 20:11:36 $
- * $Revision: 1.264 $
+ *     $Date: 2011/02/09 20:54:35 $
+ * $Revision: 1.265 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -3130,6 +3130,8 @@ extern int gasnetc_sndrcv_limits(void) {
       hca->qps = 1;
     }
   } else {
+    /* XXX: this logic depends on the current gasnetc_select_port() logic;
+     * in particular on the simple node-independent repetition of ports. */
     int i;
     for (i = 0; i < gasnetc_num_qps; ++i) {
       hca = &gasnetc_hca[gasnetc_port_tbl[i % gasnetc_num_ports].hca_index];

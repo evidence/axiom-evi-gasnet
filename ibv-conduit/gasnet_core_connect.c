@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2011/02/09 20:50:48 $
- * $Revision: 1.4 $
+ *     $Date: 2011/02/09 20:54:35 $
+ * $Revision: 1.5 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -112,6 +112,7 @@ gasnetc_select_port(gasnet_node_t node, int qpi) {
      * agreed to was a big mess.  Perhaps we bring that idea back later.
      * However, for now the same sequence of gasnetc_num_qps values is
      * repeated for each node.
+     * XXX: If this changes, gasnetc_sndrcv_limits() must change to match.
      */
     return  &gasnetc_port_tbl[qpi % gasnetc_num_ports];
 }
