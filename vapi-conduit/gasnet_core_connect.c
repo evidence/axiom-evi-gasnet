@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_connect.c,v $
- *     $Date: 2011/02/09 22:52:42 $
- * $Revision: 1.10 $
+ *     $Date: 2011/02/09 23:23:41 $
+ * $Revision: 1.11 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -243,7 +243,7 @@ gasnetc_qp_create(gasnet_node_t node, gasnetc_conn_info_t *conn_info)
 #endif
 
     return GASNET_OK;
-}
+} /* create */
 
 /* Advance QP state from RESET to INIT */
 extern int
@@ -299,7 +299,7 @@ gasnetc_qp_reset2init(gasnet_node_t node, gasnetc_conn_info_t *conn_info)
 #endif
 
     return GASNET_OK;
-}
+} /* reset2init */
 
 /* Advance QP state from INIT to RTR */
 extern int
@@ -359,29 +359,27 @@ gasnetc_qp_init2rtr(gasnet_node_t node, gasnetc_conn_info_t *conn_info)
       qp_attr.rq_psn             = GASNETC_PSN(node, qpi);
       qp_attr.ah_attr.dlid       = port->remote_lids[node];
       qp_attr.ah_attr.port_num   = port->port_num;
+      qp_attr.dest_qp_num        = conn_info->remote_qpn[qpi];
+
     #if GASNETC_IBV_XRC
-      qp_attr.dest_qp_num    = gasnetc_use_xrc ? conn_info->remote_xrc_qpn[qpi] : conn_info->remote_qpn[qpi];
-    #else
-      qp_attr.dest_qp_num    = conn_info->remote_qpn[qpi];
+      if (gasnetc_use_xrc) {
+        rc = gasnetc_xrc_modify_qp(cep->hca->xrc_domain, cep->rcv_qpn, &qp_attr, qp_mask);
+        GASNETC_VAPI_CHECK(rc, "from gasnetc_xrc_modify_qp(RTR)");
+
+        /* The normal QP will connect, below, to the peer's XRC rcv QP */
+        qp_attr.dest_qp_num = conn_info->remote_xrc_qpn[qpi];
+      }
     #endif
 
       if (have_qp) {
         rc = ibv_modify_qp(cep->qp_handle, &qp_attr, qp_mask);
         GASNETC_VAPI_CHECK(rc, "from ibv_modify_qp(RTR)");
       }
-
-    #if GASNETC_IBV_XRC
-      if (gasnetc_use_xrc) {
-        qp_attr.dest_qp_num        = conn_info->remote_qpn[qpi];
-        rc = gasnetc_xrc_modify_qp(cep->hca->xrc_domain, conn_info->local_xrc_qpn[qpi], &qp_attr, qp_mask);
-        GASNETC_VAPI_CHECK(rc, "from gasnetc_xrc_modify_qp(RTR)");
-      }
-    #endif
     }
 #endif
 
     return GASNET_OK;
-}
+} /* init2rtr */
 
 /* Advance QP state from RTR to RTS */
 extern int
@@ -455,4 +453,4 @@ gasnetc_qp_rtr2rts(gasnet_node_t node, gasnetc_conn_info_t *conn_info)
 #endif
 
     return GASNET_OK;
-}
+} /* rtr2rts */
