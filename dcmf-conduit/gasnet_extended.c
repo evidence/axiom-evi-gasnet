@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_extended.c,v $
- *     $Date: 2010/07/28 07:10:40 $
- * $Revision: 1.17 $
+ *     $Date: 2011/02/09 06:40:54 $
+ * $Revision: 1.18 $
  * Description: GASNet Extended API Implementation for DCMF
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
  *                 Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -133,7 +133,6 @@ extern void gasnete_init(void) {
    size_t bytes_in;
    
    DCMF_Hardware_t hw;
-   size_t memsize;
    GASNETC_DCMF_LOCK();
    DCMF_SAFE(DCMF_Hardware(&hw));
    bytes_in = (hw.memSize/hw.tSize)*1024*1024;
@@ -1259,7 +1258,6 @@ static long long named_barrier_source[2];
 static long long named_barrier_result[2];
 static DCMF_Request_t barrier_req;
 static DCMF_Protocol_t anon_barrier_registration;
-static DCMF_Protocol_t named_barrier_registration;
 
 static int gasnete_allow_hw_barrier;
 
@@ -1339,7 +1337,6 @@ static void gasnete_dcmfbarrier_init(gasnete_coll_team_t team) {
 
 static void gasnete_dcmfbarrier_notify(gasnete_coll_team_t team, int id, int flags) 
 {
-  int barrier_id;
   DCMF_Callback_t cb_done;
   
   gasneti_sync_reads();

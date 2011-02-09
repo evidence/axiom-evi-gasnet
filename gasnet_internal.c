@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2010/12/16 19:40:08 $
- * $Revision: 1.214 $
+ *     $Date: 2011/02/09 06:40:52 $
+ * $Revision: 1.215 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -954,7 +954,6 @@ void gasneti_nodemap_trivial(void) {
 static void gasneti_nodemap_dflt(gasneti_bootstrapExchangefn_t exchangefn) {
 #if PLATFORM_OS_BGP && GASNETI_HAVE_BGP_INLINES
     /* Build gasneti_nodemap from <X,Y,Z> coords of all ranks. */
-    gasnet_node_t i;
     _BGP_SprgShMem sprg4;
 
     GASNETI_BGP_SPR(sprg4.shmem, _BGP_SPRGRO_SHMem); /* SPRG4 30:31 = (processes per node) - 1 */
