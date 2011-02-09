@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2011/02/09 21:41:37 $
- * $Revision: 1.7 $
+ *     $Date: 2011/02/09 21:49:42 $
+ * $Revision: 1.8 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -25,9 +25,9 @@
 #define GASNETC_PSN(_sender, _qpi)  ((_sender)*gasnetc_alloc_qps + (_qpi))
 
 /* Convenience iterator */
-#define GASNETC_FOR_EACH_QPI(_node, _qpi, _cep_idx, _cep)  \
-  for((_cep_idx) = (_node) * gasnetc_alloc_qps, (_cep) = &gasnetc_cep[(_cep_idx)], (_qpi) = 0; \
-      (_qpi) < gasnetc_alloc_qps; ++(_cep_idx), ++(_cep), ++(_qpi))
+#define GASNETC_FOR_EACH_QPI(_node, _qpi, _cep)  \
+  for((_cep) = &gasnetc_cep[(_node) * gasnetc_alloc_qps], (_qpi) = 0; \
+      (_qpi) < gasnetc_alloc_qps; ++(_cep), ++(_qpi))
 
 /* Convenience macro */
 #if GASNETC_IBV_SRQ 
@@ -126,7 +126,7 @@ extern int
 gasnetc_qp_create(gasnetc_qpn_t *local_qpn, gasnet_node_t node)
 {
     gasnetc_cep_t *cep;
-    int qpi, cep_idx;
+    int qpi;
 
 #if GASNET_CONDUIT_VAPI
     VAPI_qp_init_attr_t qp_init_attr;
@@ -142,7 +142,7 @@ gasnetc_qp_create(gasnetc_qpn_t *local_qpn, gasnet_node_t node)
     qp_init_attr.sq_sig_type        = VAPI_SIGNAL_REQ_WR;
     qp_init_attr.ts_type            = VAPI_TS_RC;
 
-    GASNETC_FOR_EACH_QPI(node, qpi, cep_idx, cep) {
+    GASNETC_FOR_EACH_QPI(node, qpi, cep) {
       gasnetc_hca_t *hca = cep->hca;
       gasneti_assert(hca);
 
@@ -176,7 +176,10 @@ gasnetc_qp_create(gasnetc_qpn_t *local_qpn, gasnet_node_t node)
     qp_init_attr.sq_sig_all          = 1; /* XXX: Unless we drop 1-to-1 WQE/CQE relationship */
     qp_init_attr.srq                 = NULL;
 
-    GASNETC_FOR_EACH_QPI(node, qpi, cep_idx, cep) {
+    GASNETC_FOR_EACH_QPI(node, qpi, cep) {
+    #if GASNETC_IBV_XRC
+      const int cep_idx = (node * gasnetc_alloc_qps) + qpi;
+    #endif
       gasnetc_qp_hndl_t hndl;
       gasnetc_hca_t *hca = cep->hca;
       gasneti_assert(hca);
@@ -263,7 +266,7 @@ gasnetc_qp_reset2init(gasnet_node_t node)
     gasnetc_qp_attr_t qp_attr;
     gasnetc_qp_mask_t qp_mask;
     gasnetc_cep_t *cep;
-    int qpi, cep_idx;
+    int qpi;
     int rc;
 
 #if GASNET_CONDUIT_VAPI
@@ -278,7 +281,7 @@ gasnetc_qp_reset2init(gasnet_node_t node)
     qp_attr.pkey_ix             = 0;
     qp_attr.remote_atomic_flags = VAPI_EN_REM_WRITE | VAPI_EN_REM_READ;
 
-    GASNETC_FOR_EACH_QPI(node, qpi, cep_idx, cep) {
+    GASNETC_FOR_EACH_QPI(node, qpi, cep) {
       const gasnetc_port_info_t *port = gasnetc_select_port(node, qpi);
       qp_attr.port = port->port_num;
       rc = VAPI_modify_qp(cep->hca_handle, cep->qp_handle, &qp_attr, &qp_mask, &qp_cap);
@@ -292,7 +295,7 @@ gasnetc_qp_reset2init(gasnet_node_t node)
     qp_attr.pkey_index      = 0;
     qp_attr.qp_access_flags = IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ;
 
-    GASNETC_FOR_EACH_QPI(node, qpi, cep_idx, cep) {
+    GASNETC_FOR_EACH_QPI(node, qpi, cep) {
       const gasnetc_port_info_t *port = gasnetc_select_port(node, qpi);
 
     #if GASNETC_IBV_SRQ
@@ -309,6 +312,7 @@ gasnetc_qp_reset2init(gasnet_node_t node)
 
     #if GASNETC_IBV_XRC
       if (gasnetc_use_xrc) {
+        const int cep_idx = (node * gasnetc_alloc_qps) + qpi;
         rc = gasnetc_xrc_modify_qp(cep->hca->xrc_domain, gasnetc_xrc_rcv_qpn_local[cep_idx], &qp_attr, qp_mask);
         GASNETC_VAPI_CHECK(rc, "from gasnetc_xrc_modify_qp(INIT)");
       }
@@ -326,7 +330,7 @@ gasnetc_qp_init2rtr(gasnet_node_t node, gasnetc_qpn_t *remote_qpn)
     gasnetc_qp_attr_t qp_attr;
     gasnetc_qp_mask_t qp_mask;
     gasnetc_cep_t *cep;
-    int qpi, cep_idx;
+    int qpi;
     int rc;
 
 #if GASNET_CONDUIT_VAPI
@@ -347,7 +351,7 @@ gasnetc_qp_init2rtr(gasnet_node_t node, gasnetc_qpn_t *remote_qpn)
     qp_attr.av.src_path_bits = 0;
     qp_attr.min_rnr_timer    = GASNETC_QP_MIN_RNR_TIMER;
 
-    GASNETC_FOR_EACH_QPI(node, qpi, cep_idx, cep) {
+    GASNETC_FOR_EACH_QPI(node, qpi, cep) {
       const gasnetc_port_info_t *port = gasnetc_select_port(node, qpi);
       qp_attr.qp_ous_rd_atom = port->rd_atom;
       qp_attr.path_mtu       = MIN(GASNETC_QP_PATH_MTU, port->port.max_mtu);
@@ -369,7 +373,10 @@ gasnetc_qp_init2rtr(gasnet_node_t node, gasnetc_qpn_t *remote_qpn)
 
     qp_attr.min_rnr_timer    = GASNETC_QP_MIN_RNR_TIMER;
 
-    GASNETC_FOR_EACH_QPI(node, qpi, cep_idx, cep) {
+    GASNETC_FOR_EACH_QPI(node, qpi, cep) {
+    #if GASNETC_IBV_XRC
+      const int cep_idx = (node * gasnetc_alloc_qps) + qpi;
+    #endif
       const gasnetc_port_info_t *port = gasnetc_select_port(node, qpi);
 
       qp_attr.max_dest_rd_atomic = GASNETC_QPI_IS_REQ(qpi) ? 0 : port->rd_atom;
@@ -408,7 +415,7 @@ gasnetc_qp_rtr2rts(gasnet_node_t node)
     gasnetc_qp_attr_t qp_attr;
     gasnetc_qp_mask_t qp_mask;
     gasnetc_cep_t *cep;
-    int qpi, cep_idx;
+    int qpi;
     int rc;
 
 #if GASNET_CONDUIT_VAPI
@@ -426,7 +433,7 @@ gasnetc_qp_rtr2rts(gasnet_node_t node)
     qp_attr.retry_count      = gasnetc_qp_retry_count;
     qp_attr.rnr_retry        = GASNETC_QP_RNR_RETRY;
 
-    GASNETC_FOR_EACH_QPI(node, qpi, cep_idx, cep) {
+    GASNETC_FOR_EACH_QPI(node, qpi, cep) {
       const gasnetc_port_info_t *port = gasnetc_select_port(node, qpi);
       qp_attr.sq_psn           = GASNETC_PSN(gasneti_mynode, qpi);
       qp_attr.ous_dst_rd_atom  = port->rd_atom;
@@ -444,7 +451,7 @@ gasnetc_qp_rtr2rts(gasnet_node_t node)
     qp_attr.retry_cnt        = gasnetc_qp_retry_count;
     qp_attr.rnr_retry        = GASNETC_QP_RNR_RETRY;
 
-    GASNETC_FOR_EACH_QPI(node, qpi, cep_idx, cep) {
+    GASNETC_FOR_EACH_QPI(node, qpi, cep) {
       const gasnetc_port_info_t *port = gasnetc_select_port(node, qpi);
 
       qp_attr.sq_psn           = GASNETC_PSN(gasneti_mynode, qpi);
@@ -465,7 +472,7 @@ gasnetc_qp_rtr2rts(gasnet_node_t node)
     /* Some cep->hca values were non-NULL just to setup XRC.
        We NULL them here to assist debug assert()ions. */
     if (gasnetc_use_xrc && gasnetc_non_ib(node)) {
-      GASNETC_FOR_EACH_QPI(node, qpi, cep_idx, cep) {
+      GASNETC_FOR_EACH_QPI(node, qpi, cep) {
         cep->hca = NULL;
       }
     }
