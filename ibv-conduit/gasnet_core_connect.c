@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2011/02/09 03:22:32 $
- * $Revision: 1.2 $
+ *     $Date: 2011/02/09 06:38:04 $
+ * $Revision: 1.3 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -253,9 +253,6 @@ gasnetc_qp_reset2init(
     qp_attr.remote_atomic_flags = VAPI_EN_REM_WRITE | VAPI_EN_REM_READ;
 
     GASNETC_FOR_EACH_QPI(node, qpi, cep_idx, cep) {
-      gasnetc_hca_t *hca = cep->hca;
-      gasneti_assert(hca);
-      
       qp_attr.port = port_map[qpi]->port_num;
       rc = VAPI_modify_qp(cep->hca_handle, cep->qp_handle, &qp_attr, &qp_mask, &qp_cap);
       GASNETC_VAPI_CHECK(rc, "from VAPI_modify_qp(INIT)");

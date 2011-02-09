@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core_dump.c,v $
- *     $Date: 2011/02/09 03:22:28 $
- * $Revision: 1.21 $
+ *     $Date: 2011/02/09 06:38:02 $
+ * $Revision: 1.22 $
  * Description: GASNet elan conduit - elan informational dumps
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -187,7 +187,7 @@ extern void gasnetc_dump_state(void) {
   }
 
   GASNETI_STATS_PRINTF(C,("}"));
-  #if ELAN_VERSION_GE(1,4,8)
+  #if ELAN_VERSION_GE(1,4,8) && defined(GASNET_STATS)
   { int nrails = elan_nRails(s);
    GASNETI_STATS_PRINTF(C,(" elan_nRails()= %i", (int)nrails));
   }
