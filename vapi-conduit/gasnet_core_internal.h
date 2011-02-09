@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2011/02/08 20:52:41 $
- * $Revision: 1.174 $
+ *     $Date: 2011/02/09 02:45:32 $
+ * $Revision: 1.175 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -617,6 +617,17 @@ typedef struct {
 } gasnetc_port_info_t;
 
 
+/* Routines in gasnet_core_connect.c */
+extern int gasnetc_qp_create(gasnetc_qpn_t *local_qpn,
+                             gasnet_node_t node);
+extern int gasnetc_qp_reset2init(gasnet_node_t node,
+                                 gasnetc_port_info_t **port_map);
+extern int gasnetc_qp_init2rtr(gasnet_node_t node,
+                               gasnetc_port_info_t **port_map,
+                               gasnetc_qpn_t *remote_qpn);
+extern int gasnetc_qp_rtr2rts(gasnet_node_t node,
+                              gasnetc_port_info_t **port_map);
+
 /* Routines in gasnet_core_sndrcv.c */
 extern int gasnetc_sndrcv_limits(int num_ports, gasnetc_port_info_t *port_tbl);
 extern int gasnetc_sndrcv_init(void);
@@ -664,6 +675,8 @@ extern size_t		gasnetc_bounce_limit;
 #else
   #define GASNETC_USE_FIREHOSE	1
 #endif
+extern int              gasnetc_qp_timeout;
+extern int              gasnetc_qp_retry_count;
 extern int		gasnetc_amrdma_max_peers;
 extern size_t		gasnetc_amrdma_limit;
 extern int		gasnetc_amrdma_depth;
@@ -700,5 +713,9 @@ extern uintptr_t	gasnetc_max_msg_sz;
 extern size_t			gasnetc_fh_align;
 extern size_t			gasnetc_fh_align_mask;
 extern firehose_info_t		gasnetc_firehose_info;
+#if GASNETC_IBV_XRC
+  extern gasnetc_qpn_t          *gasnetc_xrc_rcv_qpn_local;
+  extern gasnetc_qpn_t          *gasnetc_xrc_rcv_qpn_remote;
+#endif
 
 #endif
