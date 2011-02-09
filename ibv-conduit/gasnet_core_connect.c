@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2011/02/09 20:54:35 $
- * $Revision: 1.5 $
+ *     $Date: 2011/02/09 20:57:59 $
+ * $Revision: 1.6 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -51,6 +51,7 @@ typedef GASNETC_IB_CHOOSE(VAPI_qp_attr_mask_t,  enum ibv_qp_attr_mask)  gasnetc_
  * to a full array.  Currently the full arrays used include:
  *    gasnetc_cep - used in GASNETC_FOR_EACH_QPI and for "other" cep w/ XRC
  *    gasnetc_xrc_rcv_qpn_local - used with XRC
+ *    gasnetc_xrc_rcv_qpn_remote - used with XRC
  *
  * The XRC related code regarding "other" is also written under the assumption
  * that the "other" QP has been handled already:
