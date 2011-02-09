@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.h,v $
- *     $Date: 2009/04/05 23:29:23 $
- * $Revision: 1.60 $
+ *     $Date: 2011/02/09 06:20:19 $
+ * $Revision: 1.61 $
  * Description: GASNet Tracing Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -215,7 +215,7 @@ GASNETI_BEGIN_EXTERNC
 
 #if GASNETI_STATS_OR_TRACE
 #define GASNETI_TRACE_PUT_NAMED(name,locality,node,dest,src,nbytes) do {                       \
-  void *_src = (src);  /* workaround for CrayC warning */                                      \
+  GASNETI_UNUSED void *_src = (src);  /* workaround for CrayC warning, unused if !TRACE */     \
   GASNETI_TRACE_EVENT_VAL_##locality(P,name,(nbytes));                                         \
   GASNETI_TRACE_PRINTF(D,(#name ": "GASNETI_RADDRFMT" <- "GASNETI_LADDRFMT" (%llu bytes): %s", \
                           GASNETI_RADDRSTR((node),(dest)), GASNETI_LADDRSTR(_src),             \
