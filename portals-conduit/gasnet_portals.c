@@ -2914,7 +2914,14 @@ extern uintptr_t gasnetc_portalsMaxPinMem(void)
   try_pin_free();
 
   if (low < granularity) {
-    gasneti_fatalerror("Unable to alloc and pin minimal memory of size %d bytes",(int)granularity);
+    uintptr_t too_low = granularity;
+    const char *envstr = gasneti_getenv("GASNET_MAX_SEGSIZE");
+    if (envstr) {
+      uintptr_t tmp = gasneti_parse_int(envstr, 1);
+      too_low = MIN(too_low, tmp);
+    }
+    if (low < too_low)
+      gasneti_fatalerror("Unable to alloc and pin minimal memory of size %d bytes",(int)too_low);
   }
   GASNETI_TRACE_PRINTF(C,("MaxPinMem = %lu",(unsigned long)low));
   return (uintptr_t)low;
