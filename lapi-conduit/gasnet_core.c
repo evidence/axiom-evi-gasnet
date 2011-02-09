@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2009/10/10 03:38:25 $
- * $Revision: 1.134 $
+ *     $Date: 2011/02/09 05:51:48 $
+ * $Revision: 1.135 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2281,7 +2281,6 @@ void* gasnetc_lapi_AMreq_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len,
 void gasnetc_lapi_AMch(lapi_handle_t *context, void *uinfo)
 {
     gasnetc_token_t *token = (gasnetc_token_t*)uinfo;
-    gasnetc_token_t *q_token = NULL;
     int do_schedule = (token == NULL ? 1 : 0);
 
 
