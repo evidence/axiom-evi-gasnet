@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_core.c,v $
- *     $Date: 2010/10/25 00:14:40 $
- * $Revision: 1.48 $
+ *     $Date: 2011/02/09 08:00:40 $
+ * $Revision: 1.49 $
  * Description: GASNet shmem conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -119,7 +119,6 @@ static void gasnetc_bootstrapExchange(void *src, size_t len, void *dest) {
 }
 
 static int gasnetc_init(int *argc, char ***argv) {
-  char *qdepth;
   /*  check system sanity */
   gasnetc_check_config();
 
@@ -861,7 +860,9 @@ extern int gasnetc_AMRequestShortM(
   int retval, i;
   va_list argptr;
   gasnetc_am_stub_t   _amstub;
+#if 0 && PLATFORM_ARCH_CRAYX1
   uint32_t  *args;
+#endif
 
   GASNETI_COMMON_AMREQUESTSHORT(dest,handler,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
@@ -982,7 +983,7 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
                             int numargs, ...) {
   int retval, i;
   va_list argptr;
-  uint32_t *args, *pptr;
+  uint32_t *args;
   gasnetc_am_stub_t   _amstub;
 
   GASNETI_COMMON_AMREQUESTLONG(dest,handler,source_addr,nbytes,dest_addr,numargs);
@@ -1152,10 +1153,9 @@ extern int gasnetc_AMReplyLongM(
                             void *source_addr, size_t nbytes,   /* data payload */
                             void *dest_addr,                    /* data destination on destination node */
                             int numargs, ...) {
-  int retval, i, myidx;
+  int retval, i;
   gasnet_node_t dest;
   uint32_t *args;
-  size_t len;
   va_list argptr;
   gasnetc_am_stub_t   _amstub;
   
@@ -1265,7 +1265,7 @@ extern void gasnetc_hsl_destroy(gasnet_hsl_t *hsl) {
 extern void gasnetc_hsl_lock   (gasnet_hsl_t *hsl) {
   GASNETI_CHECKATTACH();
 
-  { int retval; 
+  {
     #if GASNETI_STATS_OR_TRACE
       gasneti_tick_t startlock = GASNETI_TICKS_NOW_IFENABLED(L);
     #endif
@@ -1410,7 +1410,7 @@ static
 uintptr_t
 gasnetc_aligndown_pow2(uintptr_t addr)
 {
-    int	      i, first;
+    int	      i;
     int	      len = sizeof(uintptr_t)*8-1;
     uintptr_t mask;
 
@@ -1436,7 +1436,7 @@ static
 uintptr_t
 gasnetc_alignup_pow2(uintptr_t addr)
 {
-    int	      i, first;
+    int	      i;
     int	      len = sizeof(uintptr_t)*8-1;
     uintptr_t mask;
 
@@ -1465,7 +1465,6 @@ gasnetc_SHMallocSegmentSearch()
 {
 	gasnet_seginfo_t    si;
 	gasneti_tick_t  starttime, endtime;
-	int64_t		    start, end;
 	uintptr_t	    maxsz;
 
 	maxsz = gasnetc_getMaxMem();
@@ -1501,7 +1500,6 @@ gasnetc_SHMallocSegmentSearch()
 	#if GASNETI_ARCH_ALTIX
 	{
 	    uintptr_t alloc_perthread;
-	    double  frac;
  
 	    alloc_perthread = maxsz;
 

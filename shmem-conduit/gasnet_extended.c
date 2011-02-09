@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_extended.c,v $
- *     $Date: 2010/12/16 23:44:08 $
- * $Revision: 1.36 $
+ *     $Date: 2011/02/09 08:00:40 $
+ * $Revision: 1.37 $
  * Description: GASNet Extended API SHMEM Implementation
  * Copyright 2003, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -48,7 +48,6 @@ extern uint64_t gasneti_max_threads(void) { return 1; }
 
 
 extern void gasnete_init(void) {
-  int	    i;
   static int firstcall = 1;
   GASNETI_TRACE_PRINTF(C,("gasnete_init()"));
   gasneti_assert(firstcall); /*  make sure we haven't been called before */
@@ -270,11 +269,11 @@ static int gasnete_shmembarrier_try(gasnete_coll_team_t team, int id, int flags)
 #ifdef SGI_SHMEM
 #define BARRIER_READ_NOTIFYCTR	1
 #define _BARRIER_PAD(name)  \
-	static char __barrier_pad ## name[BARRIER_PAD_CACHELINE_SIZE] = { 0 }
+	GASNETI_UNUSED static char __barrier_pad ## name[BARRIER_PAD_CACHELINE_SIZE] = { 0 }
 #else
 #define BARRIER_READ_NOTIFYCTR	0
 #define _BARRIER_PAD(name)  \
-	static char __barrier_pad ## name[BARRIER_PAD_CACHELINE_SIZE] = { 0 }
+	GASNETI_UNUSED static char __barrier_pad ## name[BARRIER_PAD_CACHELINE_SIZE] = { 0 }
 #endif
 
 typedef struct {
@@ -326,7 +325,6 @@ static void gasnete_barrier_broadcastmismatch(void)) {
 #endif
 
 static void gasnete_shmembarrier_notify(gasnete_coll_team_t team, int id, int flags) {
-    int i;
     uint64_t curval;
     if_pf (team->barrier_splitstate == INSIDE_BARRIER)
 	gasneti_fatalerror("gasnet_barrier_notify() called twice in a row");
@@ -372,7 +370,10 @@ static void gasnete_shmembarrier_notify(gasnete_coll_team_t team, int id, int fl
 }
 
 static int gasnete_shmembarrier_wait(gasnete_coll_team_t team, int id, int flags) {
-    int  i, local_mismatch = 0;
+    #if !BARRIER_READ_NOTIFYCTR
+    int i;
+    #endif
+    int local_mismatch = 0;
     long volatile *done_ctr = &barrier_done[barrier_phase];
 
     gasneti_sync_reads();
