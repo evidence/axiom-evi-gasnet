@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2010/08/10 03:32:29 $
- * $Revision: 1.49 $
+ *     $Date: 2011/02/09 07:04:07 $
+ * $Revision: 1.50 $
  * Description: GASNet portals conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *                 Michael Welcome <mlwelcome@lbl.gov>
@@ -706,7 +706,6 @@ extern int gasnetc_AMRequestMediumM(
   ptl_match_bits_t   mbits;
   ptl_hdr_data_t     hdr_data;
   gasnetc_conn_t    *state = gasnetc_conn_state + dest;
-  int                i;
   int                msg_bytes;
   uint32_t           *data32;
   gasnetc_threaddata_t *th = gasnetc_mythread();

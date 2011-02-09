@@ -346,7 +346,7 @@ static int exec_amshort_handler(gasnetc_ptl_token_t *ptok, uint32_t *data32, int
 {
   gasnet_token_t token;
   int  isReq = ptok->need_reply;
-#if GASNET_DEBUG || GASNETI_STATS_OR_TRACE
+#if GASNET_DEBUG
   gasnetc_threaddata_t *th = gasnetc_mythread();
 #endif
 
@@ -396,9 +396,8 @@ static int exec_ammedium_handler(gasnetc_ptl_token_t *ptok, uint32_t *data32,
                                  int numarg, int ghandler, int nbytes)
 {
   gasnet_token_t token;
-  uint32_t cred_len;
   int      isReq = ptok->need_reply;
-#if GASNET_DEBUG || GASNETI_STATS_OR_TRACE
+#if GASNET_DEBUG
   gasnetc_threaddata_t *th = gasnetc_mythread();
 #endif
 
@@ -460,7 +459,7 @@ static int exec_amlong_header(gasnetc_ptl_token_t *ptok, int isPacked,
   gasnet_token_t token;
   int      ran_handler = 1; /* assume the best */
   int      isReq = ptok->need_reply;
-#if GASNET_DEBUG || GASNETI_STATS_OR_TRACE
+#if GASNET_DEBUG
   gasnetc_threaddata_t *th = gasnetc_mythread();
 #endif
 
@@ -638,7 +637,7 @@ static void exec_amlong_data(int isReq, ptl_event_t *ev)
   uint8_t* dataaddr = (uint8_t*)ev->md.start + ev->offset;
   size_t   datalen = ev->mlength;
   gasnetc_amlongcache_t *p;
-#if GASNET_DEBUG || GASNETI_STATS_OR_TRACE
+#if GASNET_DEBUG
   gasnetc_threaddata_t *th = gasnetc_mythread();
 #endif
 
@@ -1964,7 +1963,7 @@ static void exec_sys_msg(gasnetc_sys_t msg_id, int32_t arg0, int32_t arg1, int32
       uint32_t distance = arg0;
       int exitcode = arg1;
       int oldcode;
-    #if GASNET_DEBUG || GASNETI_STATS_OR_TRACE
+    #if GASNET_DEBUG || GASNET_TRACE
       int sender = arg2;
       gasneti_assert(((uint32_t)sender + distance) % gasneti_nodes == gasneti_mynode);
       GASNETI_TRACE_PRINTF(C,("Got SHUTDOWN Request from node %d w/ exitcode %d",sender,exitcode));
@@ -1998,7 +1997,7 @@ static void exec_sys_msg(gasnetc_sys_t msg_id, int32_t arg0, int32_t arg1, int32
       /* barrier notify message - never multithreaded */
       int phase = arg0;
       uint32_t distance = arg1;
-    #if GASNET_DEBUG || GASNETI_STATS_OR_TRACE
+    #if GASNET_DEBUG || GASNET_TRACE
       int sender = arg2;
       GASNETI_TRACE_PRINTF(C,("Got BARRIER from node %d phase=%d distance=%d",sender,phase,(int)distance));
       gasneti_assert(((uint32_t)sender + distance) % gasneti_nodes == gasneti_mynode);
@@ -3098,8 +3097,10 @@ extern void gasnetc_free_tmpmd(ptl_handle_md_t md_h)
   GASNETC_PTLSAFE(PtlMDUnlink(md_h));
 #if GASNETI_STATS_OR_TRACE
       {
+  #if GASNET_TRACE
 	int inuse = gasnetc_max_tmpmd - (int)gasnetc_num_tickets(&gasnetc_tmpmd_tickets);
 	GASNETI_TRACE_PRINTF(C,("FREE TMPMD, inuse=%d",inuse));
+  #endif
 	GASNETI_TRACE_EVENT(C, TMPMD_FREE);
       }
 #endif
@@ -3832,15 +3833,17 @@ extern void gasnetc_portals_exit(void)
  * 
  */
 
-static const char* poll_name[] = {"NO_POLL","SAFE_POLL","FULL_POLL"};
 extern void gasnetc_portals_poll(gasnetc_pollflag_t poll_type)
 {
+#if defined(GASNET_DEBUG) || defined(GASNET_TRACE)
+  static const char* poll_name[] = {"NO_POLL","SAFE_POLL","FULL_POLL"};
+#endif
   int processed = 0;
   ptl_event_t ev;
   unsigned safe_cnt = 0;
   unsigned am_cnt = 0;
 
-#if defined(GASNET_DEBUG) || defined(GASNETI_STATS_OR_TRACE)
+#if defined(GASNET_DEBUG) || defined(GASNET_TRACE)
   static int poll_level = 0;
   poll_level++;
   GASNETI_TRACE_PRINTF(C,("Enter Poll with %s, level %d",poll_name[poll_type],poll_level));
@@ -3860,7 +3863,7 @@ extern void gasnetc_portals_poll(gasnetc_pollflag_t poll_type)
    */
   while (safe_cnt < gasnetc_safe_poll_limit) {
     if ( gasnetc_get_event(gasnetc_SAFE_EQ, &ev, GASNETC_EQ_TRYLOCK) ) {
-#if GASNETI_STATS_OR_TRACE
+#if GASNET_TRACE
       gasnete_threaddata_t *td = gasnete_mythread();
       GASNETI_TRACE_PRINTF(C,("Got event %s from SAFE_EQ, md=%lu, mbits=0x%lx, th_id=%d",ptl_event_str[ev.type],(ulong)ev.md_handle,(unsigned long)ev.match_bits,td->threadidx));
 #endif
@@ -3928,7 +3931,7 @@ extern void gasnetc_portals_poll(gasnetc_pollflag_t poll_type)
   }
 
   out:
-#if defined(GASNET_DEBUG) || defined(GASNETI_STATS_OR_TRACE)
+#if defined(GASNET_DEBUG) || defined(GASNET_TRACE)
   GASNETI_TRACE_PRINTF(C,("Leave Poll with %s level %d",poll_name[poll_type],poll_level));
   poll_level--;
 #endif
