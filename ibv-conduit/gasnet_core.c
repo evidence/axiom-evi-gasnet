@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2011/02/09 20:11:36 $
- * $Revision: 1.248 $
+ *     $Date: 2011/02/09 20:50:48 $
+ * $Revision: 1.249 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1272,7 +1272,6 @@ static int gasnetc_create_xrc_rcv_qps(void) {
 #endif
 
 static int gasnetc_init(int *argc, char ***argv) {
-  gasnetc_port_info_t	**port_map;
   gasnetc_hca_t		*hca;
   gasnetc_lid_t		*local_lid;
   gasnetc_lid_t		*remote_lid;
@@ -1471,38 +1470,24 @@ static int gasnetc_init(int *argc, char ***argv) {
   memset(gasnetc_cep, 0, ceps*sizeof(gasnetc_cep_t));
   local_qpn = gasneti_calloc(ceps, sizeof(gasnetc_qpn_t));
   remote_qpn = gasneti_calloc(ceps, sizeof(gasnetc_qpn_t));
-  port_map = gasneti_calloc(ceps, sizeof(gasnetc_port_info_t *));
 
   /* Distribute the qps to each peer round-robin over the ports */
-  /* XXX: At some point we lost any attempt at true "round-robin"
-   * that could have balanced port use when (num_qps % num_ports) != 0.
-   * The problem there was that getting a distribution that both ends
-   * agreed to was a big mess.  Perhaps we bring that idea back later.
-   * However, for now the port_map[] has exactly gasnetc_num_qps
-   * distinct entries and just repeates for each node.
-   * XXX: If distribution changes, then update gasnetc_sndrcv_limits() too.
+  /* XXX: If distribution changes, then update gasnetc_sndrcv_limits() too.
    * XXX: Sparse cep table will prevent use of this full enumeration.
    */
   GASNETC_FOR_EACH_CEP(i, node, qpi) {
-  #if !GASNET_PSHM
-    if (gasnetc_use_xrc && (gasneti_nodemap_local_count != 1)) {
-      /* XRC w/o PSHM needs a rcv QP for self too.
-         So, we skip over the gasnetc_non_ib() check. */
-    } else
-  #endif
-    if (gasnetc_non_ib(node)) {
-      gasneti_assert(gasnetc_cep[i].hca == NULL);
-      continue;
-    }
     if (GASNETC_QPI_IS_REQ(qpi)) {
       /* Second half of table (if any) duplicates first half.
          This might NOT be the same as extending the loop */
-      port_map[i]    = port_map[i - gasnetc_num_qps];
       gasnetc_cep[i] = gasnetc_cep[i - gasnetc_num_qps];
     } else {
-      int port = qpi % gasnetc_num_ports;
-      port_map[i] = &gasnetc_port_tbl[port];
-      hca = &gasnetc_hca[port_map[i]->hca_index];
+      const gasnetc_port_info_t *port = gasnetc_select_port(node, qpi);
+      if (!port) {
+        gasneti_assert(gasnetc_cep[i].hca == NULL);
+        continue;
+      }
+
+      hca = &gasnetc_hca[port->hca_index];
       gasnetc_cep[i].hca = hca;
     #if GASNET_CONDUIT_VAPI
       gasnetc_cep[i].hca_handle = hca->handle;
@@ -1571,7 +1556,7 @@ static int gasnetc_init(int *argc, char ***argv) {
   for (node = 0; node < gasneti_nodes; ++node) {
     i = node * gasnetc_alloc_qps;
     if (!gasnetc_cep[i].hca) continue;
-    (void)gasnetc_qp_reset2init(node, &port_map[i]);
+    (void)gasnetc_qp_reset2init(node);
   }
 
   /* post recv buffers and other local initialization */
@@ -1583,14 +1568,14 @@ static int gasnetc_init(int *argc, char ***argv) {
   for (node = 0; node < gasneti_nodes; ++node) {
     i = node * gasnetc_alloc_qps;
     if (!gasnetc_cep[i].hca) continue;
-    (void)gasnetc_qp_init2rtr(node, &port_map[i], &remote_qpn[i]);
+    (void)gasnetc_qp_init2rtr(node, &remote_qpn[i]);
   }
 
   /* advance RTR -> RTS */
   for (node = 0; node < gasneti_nodes; ++node) {
     i = node * gasnetc_alloc_qps;
     if (!gasnetc_cep[i].hca) continue;
-    (void)gasnetc_qp_rtr2rts(node, &port_map[i]);
+    (void)gasnetc_qp_rtr2rts(node);
   }
 
   /* check inline limit */
@@ -1610,7 +1595,6 @@ static int gasnetc_init(int *argc, char ***argv) {
 #endif
   gasneti_free(remote_qpn);
   gasneti_free(local_qpn);
-  gasneti_free(port_map);
 
   #if GASNET_DEBUG_VERBOSE
     fprintf(stderr,"gasnetc_init(): spawn successful - node %i/%i starting...\n", 

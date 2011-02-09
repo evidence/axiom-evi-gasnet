@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2011/02/09 20:11:36 $
- * $Revision: 1.176 $
+ *     $Date: 2011/02/09 20:50:48 $
+ * $Revision: 1.177 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -618,15 +618,11 @@ typedef struct {
 
 
 /* Routines in gasnet_core_connect.c */
-extern int gasnetc_qp_create(gasnetc_qpn_t *local_qpn,
-                             gasnet_node_t node);
-extern int gasnetc_qp_reset2init(gasnet_node_t node,
-                                 gasnetc_port_info_t **port_map);
-extern int gasnetc_qp_init2rtr(gasnet_node_t node,
-                               gasnetc_port_info_t **port_map,
-                               gasnetc_qpn_t *remote_qpn);
-extern int gasnetc_qp_rtr2rts(gasnet_node_t node,
-                              gasnetc_port_info_t **port_map);
+extern const gasnetc_port_info_t *gasnetc_select_port(gasnet_node_t node, int qpi);
+extern int gasnetc_qp_create(gasnetc_qpn_t *local_qpn, gasnet_node_t node);
+extern int gasnetc_qp_reset2init(gasnet_node_t node);
+extern int gasnetc_qp_init2rtr(gasnet_node_t node, gasnetc_qpn_t *remote_qpn);
+extern int gasnetc_qp_rtr2rts(gasnet_node_t node);
 
 /* Routines in gasnet_core_sndrcv.c */
 extern int gasnetc_sndrcv_limits(void);
