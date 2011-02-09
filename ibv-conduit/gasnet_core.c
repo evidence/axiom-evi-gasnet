@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2011/02/09 20:50:48 $
- * $Revision: 1.249 $
+ *     $Date: 2011/02/09 22:26:28 $
+ * $Revision: 1.250 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1544,9 +1544,20 @@ static int gasnetc_init(int *argc, char ***argv) {
 
   /* create all the endpoints */
   for (node = 0; node < gasneti_nodes; ++node) {
+    gasnetc_conn_info_t conn_info;
+
     i = node * gasnetc_alloc_qps;
     if (!gasnetc_cep[i].hca) continue;
-    (void)gasnetc_qp_create(&local_qpn[i], node);
+
+    conn_info.cep          = &gasnetc_cep[i];
+    conn_info.local_qpn    = &local_qpn[i];
+    conn_info.remote_qpn   = &remote_qpn[i];
+  #if GASNETC_IBV_XRC
+    conn_info.local_xrc_qpn  = &gasnetc_xrc_rcv_qpn_local[i];
+    conn_info.remote_xrc_qpn = &gasnetc_xrc_rcv_qpn_remote[i];
+  #endif
+
+    (void)gasnetc_qp_create(node, &conn_info);
   }
 
   /* exchange qpn info for connecting */
@@ -1554,9 +1565,20 @@ static int gasnetc_init(int *argc, char ***argv) {
 
   /* advance RESET -> INIT */
   for (node = 0; node < gasneti_nodes; ++node) {
+    gasnetc_conn_info_t conn_info;
+
     i = node * gasnetc_alloc_qps;
     if (!gasnetc_cep[i].hca) continue;
-    (void)gasnetc_qp_reset2init(node);
+
+    conn_info.cep          = &gasnetc_cep[i];
+    conn_info.local_qpn    = &local_qpn[i];
+    conn_info.remote_qpn   = &remote_qpn[i];
+  #if GASNETC_IBV_XRC
+    conn_info.local_xrc_qpn  = &gasnetc_xrc_rcv_qpn_local[i];
+    conn_info.remote_xrc_qpn = &gasnetc_xrc_rcv_qpn_remote[i];
+  #endif
+
+    (void)gasnetc_qp_reset2init(node, &conn_info);
   }
 
   /* post recv buffers and other local initialization */
@@ -1566,16 +1588,38 @@ static int gasnetc_init(int *argc, char ***argv) {
 
   /* advance INIT -> RTR */
   for (node = 0; node < gasneti_nodes; ++node) {
+    gasnetc_conn_info_t conn_info;
+
     i = node * gasnetc_alloc_qps;
     if (!gasnetc_cep[i].hca) continue;
-    (void)gasnetc_qp_init2rtr(node, &remote_qpn[i]);
+
+    conn_info.cep          = &gasnetc_cep[i];
+    conn_info.local_qpn    = &local_qpn[i];
+    conn_info.remote_qpn   = &remote_qpn[i];
+  #if GASNETC_IBV_XRC
+    conn_info.local_xrc_qpn  = &gasnetc_xrc_rcv_qpn_local[i];
+    conn_info.remote_xrc_qpn = &gasnetc_xrc_rcv_qpn_remote[i];
+  #endif
+
+    (void)gasnetc_qp_init2rtr(node, &conn_info);
   }
 
   /* advance RTR -> RTS */
   for (node = 0; node < gasneti_nodes; ++node) {
+    gasnetc_conn_info_t conn_info;
+
     i = node * gasnetc_alloc_qps;
     if (!gasnetc_cep[i].hca) continue;
-    (void)gasnetc_qp_rtr2rts(node);
+
+    conn_info.cep          = &gasnetc_cep[i];
+    conn_info.local_qpn    = &local_qpn[i];
+    conn_info.remote_qpn   = &remote_qpn[i];
+  #if GASNETC_IBV_XRC
+    conn_info.local_xrc_qpn  = &gasnetc_xrc_rcv_qpn_local[i];
+    conn_info.remote_xrc_qpn = &gasnetc_xrc_rcv_qpn_remote[i];
+  #endif
+
+    (void)gasnetc_qp_rtr2rts(node, &conn_info);
   }
 
   /* check inline limit */
@@ -1589,7 +1633,7 @@ static int gasnetc_init(int *argc, char ***argv) {
   }
   GASNETI_TRACE_PRINTF(I, ("Final/effective GASNET_INLINESEND_LIMIT = %d", (int)gasnetc_inline_limit));
 
-#if GASNETC_USE_XRC
+#if GASNETC_IBV_XRC
   gasneti_free(gasnetc_xrc_rcv_qpn_local);
   gasneti_free(gasnetc_xrc_rcv_qpn_remote);
 #endif
