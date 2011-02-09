@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core_dump.c,v $
- *     $Date: 2009/03/30 02:40:29 $
- * $Revision: 1.20 $
+ *     $Date: 2011/02/09 03:22:28 $
+ * $Revision: 1.21 $
  * Description: GASNet elan conduit - elan informational dumps
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -221,7 +221,6 @@ extern void gasnetc_dump_group(void) {
 }
 /* ------------------------------------------------------------------------------------ */
 extern void gasnetc_dump_envvars(void) {
-  FILE *out = stdout;
   const char *ev[] = {
     "LIBELAN_WAITTYPE",
     "LIBELAN_DATATYPE",

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2011/02/08 03:53:52 $
- * $Revision: 1.262 $
+ *     $Date: 2011/02/09 03:22:32 $
+ * $Revision: 1.263 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -570,7 +570,6 @@ static void gasnetc_do_select(gasnetc_hca_t *hca, int size) {
 static void gasnetc_amrdma_grant(gasnetc_hca_t *hca, gasnetc_cep_t *cep) {
   gasnet_node_t node = gasnetc_epid2node(cep->epid);
   int qpi = gasnetc_epid2qpi(cep->epid);
-  void *addr;
 
   if (gasnetc_use_srq) { /* Cross-over keeping in mind that qpi is 1-based */
     if (qpi > gasnetc_num_qps) {

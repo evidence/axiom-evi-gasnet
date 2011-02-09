@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2011/02/09 02:45:32 $
- * $Revision: 1.246 $
+ *     $Date: 2011/02/09 03:22:32 $
+ * $Revision: 1.247 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1452,7 +1452,6 @@ static int gasnetc_init(int *argc, char ***argv) {
 
   /* record remote lids */
   for (i = 0; i < num_ports; ++i) {
-    int j;
     port_tbl[i].remote_lids = gasneti_malloc(gasneti_nodes * sizeof(gasnetc_lid_t));
     for (node = 0; node < gasneti_nodes; ++node) {
       port_tbl[i].remote_lids[node] = remote_lid[node * num_ports + i];

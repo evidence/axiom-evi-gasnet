@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_connect.c,v $
- *     $Date: 2011/02/09 02:45:32 $
- * $Revision: 1.1 $
+ *     $Date: 2011/02/09 03:22:32 $
+ * $Revision: 1.2 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -99,11 +99,11 @@ gasnetc_qp_create(
 {
     gasnetc_cep_t *cep;
     int qpi, cep_idx;
-    int rc;
 
 #if GASNET_CONDUIT_VAPI
     VAPI_qp_init_attr_t qp_init_attr;
     VAPI_qp_prop_t      qp_prop;
+    int rc;
 
     qp_init_attr.cap.max_oust_wr_rq = gasnetc_am_oust_pp * 2;
     qp_init_attr.cap.max_oust_wr_sq = gasnetc_op_oust_pp;
@@ -330,8 +330,6 @@ gasnetc_qp_init2rtr(
     qp_attr.min_rnr_timer    = GASNETC_QP_MIN_RNR_TIMER;
 
     GASNETC_FOR_EACH_QPI(node, qpi, cep_idx, cep) {
-      gasnetc_hca_t *hca = cep->hca;
-
       qp_attr.qp_ous_rd_atom = port_map[qpi]->rd_atom;
       qp_attr.path_mtu       = MIN(GASNETC_QP_PATH_MTU, port_map[qpi]->port.max_mtu);
       qp_attr.rq_psn         = cep_idx;

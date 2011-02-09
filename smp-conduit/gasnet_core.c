@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_core.c,v $
- *     $Date: 2010/11/24 00:40:17 $
- * $Revision: 1.61 $
+ *     $Date: 2011/02/09 03:22:30 $
+ * $Revision: 1.62 $
  * Description: GASNet smp conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -267,7 +267,6 @@ static void gasnetc_fork_children(void) {
 
 static void gasnetc_join_children(void) {
   int children = gasneti_nodes - 1;
-  int i;
 
 #if HAVE_SIGPROCMASK /* Is this ever NOT the case? */
   { /* In case we run nested in a SIGALRM-induced exit.
