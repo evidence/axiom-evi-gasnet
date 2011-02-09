@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2011/02/09 22:26:28 $
- * $Revision: 1.250 $
+ *     $Date: 2011/02/09 22:52:42 $
+ * $Revision: 1.251 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1199,27 +1199,44 @@ static int gasnetc_alloc_xrc_domain(gasnetc_hca_t *hca, gasnetc_lid_t mylid) {
 gasnetc_qpn_t *gasnetc_xrc_rcv_qpn_local = NULL;
 gasnetc_qpn_t *gasnetc_xrc_rcv_qpn_remote = NULL;
 
-/* Create the XRC RCV Qps (once per supernode for each remote QP) */
-/* TODO: can we use normal ibv_create_qp() and not need to register? */
-static int gasnetc_create_xrc_rcv_qps(void) {
+/* Create the XRC rcv QPs and advance to INIT state.
+ * Work is done just once per supernode for each remote QP. */
+static int gasnetc_init_xrc_rcv_qps(void) {
   int ceps = gasneti_nodes * gasnetc_alloc_qps;
-  int i;
+  gasnet_node_t node;
+  int qpi, i;
 
   gasnetc_xrc_rcv_qpn_local = gasneti_calloc(ceps, sizeof(gasnetc_qpn_t));
   gasnetc_xrc_rcv_qpn_remote = gasneti_malloc(ceps * sizeof(gasnetc_qpn_t));
 
-  /* Create the RCV QPs once per supernode and register in the non-creating nodes */
+  /* Create/INIT the RCV QPs once per supernode and register in the non-creating nodes */
   if (!gasneti_nodemap_local_rank) {
-    for (i = 0; i < ceps; ++i) {
+    GASNETC_FOR_EACH_CEP(i, node, qpi) {
       gasnetc_hca_t *hca = gasnetc_cep[i].hca;
       if (hca) {
-        struct ibv_qp_init_attr attr;
+        const gasnetc_port_info_t *port = gasnetc_select_port(node, qpi);
+        struct ibv_qp_init_attr init_attr;
+        struct ibv_qp_attr attr;
+        enum ibv_qp_attr_mask mask;
         int ret;
 
-        memset(&attr, 0, sizeof(attr));
-        attr.xrc_domain = hca->xrc_domain;
-        ret = ibv_create_xrc_rcv_qp(&attr, &(gasnetc_xrc_rcv_qpn_local[i]));
+        memset(&init_attr, 0, sizeof(init_attr));
+        init_attr.xrc_domain = hca->xrc_domain;
+        ret = ibv_create_xrc_rcv_qp(&init_attr, &(gasnetc_xrc_rcv_qpn_local[i]));
         GASNETC_VAPI_CHECK(ret, "from ibv_create_xrc_rcv_qp()");
+
+        mask = (enum ibv_qp_attr_mask)(IBV_QP_STATE | IBV_QP_PKEY_INDEX |
+                                       IBV_QP_PORT | IBV_QP_ACCESS_FLAGS);
+        memset(&attr, 0, sizeof(attr));
+        attr.qp_state        = IBV_QPS_INIT;
+        attr.pkey_index      = 0;
+        attr.qp_access_flags = GASNETC_QPI_IS_REQ(qpi)
+                                   ? IBV_ACCESS_REMOTE_WRITE
+                                   : IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ;
+        attr.port_num = port->port_num;
+
+        ret = ibv_modify_xrc_rcv_qp(hca->xrc_domain, gasnetc_xrc_rcv_qpn_local[i], &attr, mask);
+        GASNETC_VAPI_CHECK(ret, "from ibv_modify_xrc_rcv_qp(INIT)");
       } else {
         gasneti_assert(gasnetc_xrc_rcv_qpn_local[i] == 0); /* Note: qp0 is reserved */
       }
@@ -1247,8 +1264,6 @@ static int gasnetc_create_xrc_rcv_qps(void) {
   {
     uint32_t *local_tmp  = gasneti_malloc(ceps * sizeof(uint32_t));
     uint32_t *remote_tmp = gasneti_malloc(ceps * sizeof(uint32_t));
-    gasnet_node_t node;
-    int qpi;
 
     GASNETC_FOR_EACH_CEP(i, node, qpi) {
       gasnetc_hca_t *hca = gasnetc_cep[i].hca;
@@ -1537,8 +1552,8 @@ static int gasnetc_init(int *argc, char ***argv) {
 #if GASNETC_IBV_XRC
   /* create RCV side QPs for XRC */
   if (gasnetc_use_xrc) {
-    vstat = gasnetc_create_xrc_rcv_qps();
-    GASNETC_VAPI_CHECK(vstat, "from gasnetc_xrc_create_qps()");
+    vstat = gasnetc_init_xrc_rcv_qps();
+    GASNETC_VAPI_CHECK(vstat, "from gasnetc_init_xrc_rcv_qps()");
   }
 #endif
 

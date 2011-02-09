@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_connect.c,v $
- *     $Date: 2011/02/09 22:26:28 $
- * $Revision: 1.9 $
+ *     $Date: 2011/02/09 22:52:42 $
+ * $Revision: 1.10 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -68,7 +68,7 @@ gasnetc_xrc_modify_qp(
     int rc;
 
     rc = ibv_query_xrc_rcv_qp(xrc_domain, xrc_qp_num, &qp_attr, IBV_QP_STATE, &qp_init_attr);
-    if (!rc && (qp_attr.qp_state >= attr->qp_state)) {
+    if (!rc && (qp_attr.qp_state == attr->qp_state)) {
       /* No actual error, just a race against another process */
       retval = 0;
     }
@@ -274,8 +274,9 @@ gasnetc_qp_reset2init(gasnet_node_t node, gasnetc_conn_info_t *conn_info)
       GASNETC_VAPI_CHECK(rc, "from VAPI_modify_qp(INIT)");
     }
 #else
-    const int have_qp = (!gasnetc_use_xrc || (node == gasneti_nodemap[node]));
+  const int have_qp = (!gasnetc_use_xrc || (node == gasneti_nodemap[node]));
 
+  if (have_qp) {
     qp_mask = (enum ibv_qp_attr_mask)(IBV_QP_STATE | IBV_QP_PKEY_INDEX | IBV_QP_PORT | IBV_QP_ACCESS_FLAGS);
     qp_attr.qp_state        = IBV_QPS_INIT;
     qp_attr.pkey_index      = 0;
@@ -291,18 +292,10 @@ gasnetc_qp_reset2init(gasnet_node_t node, gasnetc_conn_info_t *conn_info)
     #endif
       qp_attr.port_num = port->port_num;
 
-      if (have_qp) {
-        rc = ibv_modify_qp(cep->qp_handle, &qp_attr, qp_mask);
-        GASNETC_VAPI_CHECK(rc, "from ibv_modify_qp(INIT)");
-      }
-
-    #if GASNETC_IBV_XRC
-      if (gasnetc_use_xrc) {
-        rc = gasnetc_xrc_modify_qp(cep->hca->xrc_domain, conn_info->local_xrc_qpn[qpi], &qp_attr, qp_mask);
-        GASNETC_VAPI_CHECK(rc, "from gasnetc_xrc_modify_qp(INIT)");
-      }
-    #endif
+      rc = ibv_modify_qp(cep->qp_handle, &qp_attr, qp_mask);
+      GASNETC_VAPI_CHECK(rc, "from ibv_modify_qp(INIT)");
     }
+  }
 #endif
 
     return GASNET_OK;
