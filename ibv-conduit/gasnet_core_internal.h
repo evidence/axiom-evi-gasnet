@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2011/02/10 01:13:07 $
- * $Revision: 1.179 $
+ *     $Date: 2011/02/10 03:22:33 $
+ * $Revision: 1.180 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -73,6 +73,13 @@
   #define gasnetc_non_ib(_node) gasneti_pshm_in_supernode(_node)
 #else
   #define gasnetc_non_ib(_node) ((_node) == gasneti_mynode)
+#endif
+
+/* When not supporting XRC we can drop one indirection used to reach sq_sema */
+#if GASNETC_IBV_XRC
+  #define GASNETC_CEP_SQ_SEMA(_cep) ((_cep)->sq_sema_p)
+#else
+  #define GASNETC_CEP_SQ_SEMA(_cep) (&(_cep)->sq_sema)
 #endif
 
 /* check for exit in progress */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2011/02/10 01:13:07 $
- * $Revision: 1.266 $
+ *     $Date: 2011/02/10 03:22:33 $
+ * $Revision: 1.267 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -280,13 +280,6 @@ static gasnet_node_t gasnetc_remote_nodes;
   #define GASNETC_PERTHREAD_PASS
   #define GASNETC_MY_PERTHREAD()	(gasnetc_my_perthread())
   #define GASNETC_PERTHREAD_LOOKUP	const char _core_threadinfo_dummy = sizeof(_core_threadinfo_dummy) /* no semicolon */
-#endif
-
-/* When not supporting XRC we can drop one indirection used to reach sq_sema */
-#if GASNETC_IBV_XRC
-  #define GASNETC_CEP_SQ_SEMA(_cep) ((_cep)->sq_sema_p)
-#else
-  #define GASNETC_CEP_SQ_SEMA(_cep) (&(_cep)->sq_sema)
 #endif
 
 static void gasnetc_free_aligned(void *ptr) {
