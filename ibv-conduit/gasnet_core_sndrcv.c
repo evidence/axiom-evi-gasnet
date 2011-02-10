@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2011/02/09 20:54:35 $
- * $Revision: 1.265 $
+ *     $Date: 2011/02/10 01:13:07 $
+ * $Revision: 1.266 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -3662,7 +3662,7 @@ extern void gasnetc_sndrcv_init_peer(gasnet_node_t node) {
   }
 }
 
-extern void gasnetc_sndrcv_init_misc(void) {
+extern void gasnetc_sndrcv_init_inline(void) {
   gasnetc_am_inline_limit_sndrcv = MIN(gasnetc_inline_limit, sizeof(gasnetc_am_tmp_buf_t));
   gasnetc_am_inline_limit_rdma = MAX(GASNETC_AMRDMA_HDRSZ, gasnetc_am_inline_limit_sndrcv) - GASNETC_AMRDMA_HDRSZ;
 #if !GASNETC_PIN_SEGMENT

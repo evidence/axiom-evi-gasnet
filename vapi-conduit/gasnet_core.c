@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2011/02/09 22:52:42 $
- * $Revision: 1.251 $
+ *     $Date: 2011/02/10 01:13:07 $
+ * $Revision: 1.252 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1550,14 +1550,14 @@ static int gasnetc_init(int *argc, char ***argv) {
   }
 
 #if GASNETC_IBV_XRC
-  /* create RCV side QPs for XRC */
+  /* create RCV side QPs for XRC and advance state RESET -> INIT */
   if (gasnetc_use_xrc) {
     vstat = gasnetc_init_xrc_rcv_qps();
     GASNETC_VAPI_CHECK(vstat, "from gasnetc_init_xrc_rcv_qps()");
   }
 #endif
 
-  /* create all the endpoints */
+  /* create QPs and advance state RESET -> INIT */
   for (node = 0; node < gasneti_nodes; ++node) {
     gasnetc_conn_info_t conn_info;
 
@@ -1566,44 +1566,28 @@ static int gasnetc_init(int *argc, char ***argv) {
 
     conn_info.cep          = &gasnetc_cep[i];
     conn_info.local_qpn    = &local_qpn[i];
-    conn_info.remote_qpn   = &remote_qpn[i];
+  #if GASNET_DEBUG
+    conn_info.remote_qpn   = NULL;
+  #endif
   #if GASNETC_IBV_XRC
     conn_info.local_xrc_qpn  = &gasnetc_xrc_rcv_qpn_local[i];
-    conn_info.remote_xrc_qpn = &gasnetc_xrc_rcv_qpn_remote[i];
+  #endif
+  #if GASNETC_IBV_XRC && GASNET_DEBUG
+    conn_info.remote_xrc_qpn = NULL;
   #endif
 
     (void)gasnetc_qp_create(node, &conn_info);
+    (void)gasnetc_qp_reset2init(node, &conn_info);
   }
 
   /* exchange qpn info for connecting */
   gasneti_bootstrapAlltoall(local_qpn, gasnetc_alloc_qps*sizeof(gasnetc_qpn_t), remote_qpn);
 
-  /* advance RESET -> INIT */
+  /* perform local endpoint init and advance state INIT -> RTR -> RTS */
   for (node = 0; node < gasneti_nodes; ++node) {
     gasnetc_conn_info_t conn_info;
 
-    i = node * gasnetc_alloc_qps;
-    if (!gasnetc_cep[i].hca) continue;
-
-    conn_info.cep          = &gasnetc_cep[i];
-    conn_info.local_qpn    = &local_qpn[i];
-    conn_info.remote_qpn   = &remote_qpn[i];
-  #if GASNETC_IBV_XRC
-    conn_info.local_xrc_qpn  = &gasnetc_xrc_rcv_qpn_local[i];
-    conn_info.remote_xrc_qpn = &gasnetc_xrc_rcv_qpn_remote[i];
-  #endif
-
-    (void)gasnetc_qp_reset2init(node, &conn_info);
-  }
-
-  /* post recv buffers and other local initialization */
-  for (node = 0; node < gasneti_nodes; ++node) {
     gasnetc_sndrcv_init_peer(node);
-  }
-
-  /* advance INIT -> RTR */
-  for (node = 0; node < gasneti_nodes; ++node) {
-    gasnetc_conn_info_t conn_info;
 
     i = node * gasnetc_alloc_qps;
     if (!gasnetc_cep[i].hca) continue;
@@ -1617,25 +1601,11 @@ static int gasnetc_init(int *argc, char ***argv) {
   #endif
 
     (void)gasnetc_qp_init2rtr(node, &conn_info);
-  }
-
-  /* advance RTR -> RTS */
-  for (node = 0; node < gasneti_nodes; ++node) {
-    gasnetc_conn_info_t conn_info;
-
-    i = node * gasnetc_alloc_qps;
-    if (!gasnetc_cep[i].hca) continue;
-
-    conn_info.cep          = &gasnetc_cep[i];
-    conn_info.local_qpn    = &local_qpn[i];
-    conn_info.remote_qpn   = &remote_qpn[i];
-  #if GASNETC_IBV_XRC
-    conn_info.local_xrc_qpn  = &gasnetc_xrc_rcv_qpn_local[i];
-    conn_info.remote_xrc_qpn = &gasnetc_xrc_rcv_qpn_remote[i];
-  #endif
-
     (void)gasnetc_qp_rtr2rts(node, &conn_info);
   }
+
+  gasneti_free(remote_qpn);
+  gasneti_free(local_qpn);
 
   /* check inline limit */
   if ((orig_inline_limit != (size_t)-1) && (gasnetc_inline_limit < orig_inline_limit)) {
@@ -1647,13 +1617,7 @@ static int gasnetc_init(int *argc, char ***argv) {
               (int)orig_inline_limit, (int)gasnetc_inline_limit);
   }
   GASNETI_TRACE_PRINTF(I, ("Final/effective GASNET_INLINESEND_LIMIT = %d", (int)gasnetc_inline_limit));
-
-#if GASNETC_IBV_XRC
-  gasneti_free(gasnetc_xrc_rcv_qpn_local);
-  gasneti_free(gasnetc_xrc_rcv_qpn_remote);
-#endif
-  gasneti_free(remote_qpn);
-  gasneti_free(local_qpn);
+  gasnetc_sndrcv_init_inline();
 
   #if GASNET_DEBUG_VERBOSE
     fprintf(stderr,"gasnetc_init(): spawn successful - node %i/%i starting...\n", 
