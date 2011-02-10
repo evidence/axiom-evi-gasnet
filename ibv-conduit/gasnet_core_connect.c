@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2011/02/09 23:23:41 $
- * $Revision: 1.11 $
+ *     $Date: 2011/02/10 04:40:25 $
+ * $Revision: 1.12 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -45,8 +45,8 @@ typedef GASNETC_IB_CHOOSE(VAPI_qp_attr_mask_t,  enum ibv_qp_attr_mask)  gasnetc_
  *
  * The XRC related code regarding "other" is also written under the assumption
  * that the "other" QP has been handled already:
- *    gasnetc_qp_create() directly reuses fields from gasnetc_cep[other]
- *    State transitions all just skip non-first nodes.
+ *    gasnetc_qp_create() has been fixed to create "first" if not yet done.
+ *    However, the state transitions still just skip non-first nodes.
  */
 
 
@@ -166,6 +166,9 @@ gasnetc_qp_create(gasnet_node_t node, gasnetc_conn_info_t *conn_info)
     qp_init_attr.srq                 = NULL;
 
     GASNETC_FOR_EACH_QPI(conn_info, qpi, cep) {
+    #if GASNETC_IBV_XRC
+      gasnetc_cep_t *first_cep = cep;
+    #endif
       gasnetc_qp_hndl_t hndl;
       gasnetc_hca_t *hca = cep->hca;
       gasneti_assert(hca);
@@ -189,18 +192,15 @@ gasnetc_qp_create(gasnet_node_t node, gasnetc_conn_info_t *conn_info)
       }
     #endif
     #if GASNETC_IBV_XRC
+      cep->sq_sema_p = &cep->sq_sema;
       if (gasnetc_use_xrc) {
         const gasnet_node_t first = gasneti_nodemap[node];
+        first_cep = &gasnetc_cep[(first * gasnetc_alloc_qps) + qpi];
   
-        if (node != first) {
-          gasnetc_cep_t *other = &gasnetc_cep[(first * gasnetc_alloc_qps) + qpi];
+        cep->sq_sema_p = &first_cep->sq_sema;
+        hndl = first_cep->qp_handle;
 
-          cep->qp_handle = other->qp_handle;
-          cep->sq_sema_p = other->sq_sema_p;
-          cep->rcv_qpn = conn_info->local_xrc_qpn[qpi];
-          conn_info->local_qpn[qpi] = cep->qp_handle->qp_num;
-          continue;
-        }
+        if (hndl) goto finish; /* was already created, just cloning */
   
         qp_init_attr.xrc_domain = hca->xrc_domain;
         qp_init_attr.srq        = NULL;
@@ -223,22 +223,23 @@ gasnetc_qp_create(gasnet_node_t node, gasnetc_conn_info_t *conn_info)
         gasnetc_inline_limit = MIN(1024, gasnetc_inline_limit - 1);
         /* Try again */
       }
-      cep->qp_handle = hndl;
       gasneti_assert(qp_init_attr.cap.max_recv_wr >= max_recv_wr);
       gasneti_assert(qp_init_attr.cap.max_send_wr >= max_send_wr);
-      conn_info->local_qpn[qpi] = cep->qp_handle->qp_num;
+
       /* XXX: When could/should we use the ENTIRE allocated length? */
-      gasneti_semaphore_init(&cep->sq_sema, max_send_wr, max_send_wr);
-    #if GASNETC_IBV_XRC
-      cep->sq_sema_p = &cep->sq_sema;
-    #endif
+      gasneti_semaphore_init(GASNETC_CEP_SQ_SEMA(cep), max_send_wr, max_send_wr);
   
-      /* Set cep->rcv_qpn */
     #if GASNETC_IBV_XRC
-      cep->rcv_qpn = gasnetc_use_xrc ? conn_info->local_xrc_qpn[qpi] : cep->qp_handle->qp_num;
+      first_cep->qp_handle = hndl; /* harmless duplication if cep == first_cep */
+
+    finish:
+      cep->rcv_qpn = gasnetc_use_xrc ? conn_info->local_xrc_qpn[qpi] : hndl->qp_num;
     #elif GASNETC_IBV_SRQ
-      cep->rcv_qpn = cep->qp_handle->qp_num;
+      cep->rcv_qpn = hndl->qp_num;
     #endif
+
+      cep->qp_handle = hndl;
+      conn_info->local_qpn[qpi] = hndl->qp_num;
     }
 #endif
 
