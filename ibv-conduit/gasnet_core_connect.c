@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2011/02/10 04:40:25 $
- * $Revision: 1.12 $
+ *     $Date: 2011/02/14 23:09:43 $
+ * $Revision: 1.13 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -36,18 +36,12 @@
   #define GASNETC_QPI_IS_REQ(_qpi) (0)
 #endif
 
+/* Flag bit(s) used in conn_info->state */
+#define GASNETC_CONN_STATE_QP_DUP   1
 
 /* Common types */
 typedef GASNETC_IB_CHOOSE(VAPI_qp_attr_t,       struct ibv_qp_attr)     gasnetc_qp_attr_t;
 typedef GASNETC_IB_CHOOSE(VAPI_qp_attr_mask_t,  enum ibv_qp_attr_mask)  gasnetc_qp_mask_t;
-
-/* NOTES regarding work toward on-demand connections:
- *
- * The XRC related code regarding "other" is also written under the assumption
- * that the "other" QP has been handled already:
- *    gasnetc_qp_create() has been fixed to create "first" if not yet done.
- *    However, the state transitions still just skip non-first nodes.
- */
 
 
 #if GASNETC_IBV_XRC
@@ -68,7 +62,7 @@ gasnetc_xrc_modify_qp(
     int rc;
 
     rc = ibv_query_xrc_rcv_qp(xrc_domain, xrc_qp_num, &qp_attr, IBV_QP_STATE, &qp_init_attr);
-    if (!rc && (qp_attr.qp_state == attr->qp_state)) {
+    if (!rc && (qp_attr.qp_state >= attr->qp_state)) {
       /* No actual error, just a race against another process */
       retval = 0;
     }
@@ -167,7 +161,7 @@ gasnetc_qp_create(gasnet_node_t node, gasnetc_conn_info_t *conn_info)
 
     GASNETC_FOR_EACH_QPI(conn_info, qpi, cep) {
     #if GASNETC_IBV_XRC
-      gasnetc_cep_t *first_cep = cep;
+      gasnetc_cep_t *first_cep = NULL;
     #endif
       gasnetc_qp_hndl_t hndl;
       gasnetc_hca_t *hca = cep->hca;
@@ -200,7 +194,11 @@ gasnetc_qp_create(gasnet_node_t node, gasnetc_conn_info_t *conn_info)
         cep->sq_sema_p = &first_cep->sq_sema;
         hndl = first_cep->qp_handle;
 
-        if (hndl) goto finish; /* was already created, just cloning */
+        if (hndl) {
+            /* per-supernode QP was already created - just reference it */
+            conn_info->state |= GASNETC_CONN_STATE_QP_DUP;
+            goto finish;
+        }
   
         qp_init_attr.xrc_domain = hca->xrc_domain;
         qp_init_attr.srq        = NULL;
@@ -230,7 +228,9 @@ gasnetc_qp_create(gasnet_node_t node, gasnetc_conn_info_t *conn_info)
       gasneti_semaphore_init(GASNETC_CEP_SQ_SEMA(cep), max_send_wr, max_send_wr);
   
     #if GASNETC_IBV_XRC
-      first_cep->qp_handle = hndl; /* harmless duplication if cep == first_cep */
+      if (first_cep) {
+        first_cep->qp_handle = hndl; /* harmless duplication if cep == first_cep */
+      }
 
     finish:
       cep->rcv_qpn = gasnetc_use_xrc ? conn_info->local_xrc_qpn[qpi] : hndl->qp_num;
@@ -275,9 +275,8 @@ gasnetc_qp_reset2init(gasnet_node_t node, gasnetc_conn_info_t *conn_info)
       GASNETC_VAPI_CHECK(rc, "from VAPI_modify_qp(INIT)");
     }
 #else
-  const int have_qp = (!gasnetc_use_xrc || (node == gasneti_nodemap[node]));
+    const int have_qp = (!gasnetc_use_xrc || !(GASNETC_CONN_STATE_QP_DUP & conn_info->state));
 
-  if (have_qp) {
     qp_mask = (enum ibv_qp_attr_mask)(IBV_QP_STATE | IBV_QP_PKEY_INDEX | IBV_QP_PORT | IBV_QP_ACCESS_FLAGS);
     qp_attr.qp_state        = IBV_QPS_INIT;
     qp_attr.pkey_index      = 0;
@@ -293,10 +292,18 @@ gasnetc_qp_reset2init(gasnet_node_t node, gasnetc_conn_info_t *conn_info)
     #endif
       qp_attr.port_num = port->port_num;
 
-      rc = ibv_modify_qp(cep->qp_handle, &qp_attr, qp_mask);
-      GASNETC_VAPI_CHECK(rc, "from ibv_modify_qp(INIT)");
+    #if GASNETC_IBV_XRC
+      if (gasnetc_use_xrc) {
+        rc = gasnetc_xrc_modify_qp(cep->hca->xrc_domain, conn_info->local_xrc_qpn[qpi], &qp_attr, qp_mask);
+        GASNETC_VAPI_CHECK(rc, "from gasnetc_xrc_modify_qp(INIT)");
+      }
+    #endif
+
+      if (have_qp) {
+        rc = ibv_modify_qp(cep->qp_handle, &qp_attr, qp_mask);
+        GASNETC_VAPI_CHECK(rc, "from ibv_modify_qp(INIT)");
+      }
     }
-  }
 #endif
 
     return GASNET_OK;
@@ -341,7 +348,7 @@ gasnetc_qp_init2rtr(gasnet_node_t node, gasnetc_conn_info_t *conn_info)
       GASNETC_VAPI_CHECK(rc, "from VAPI_modify_qp(RTR)");
     }
 #else
-    const int have_qp = (!gasnetc_use_xrc || (node == gasneti_nodemap[node]));
+    const int have_qp = (!gasnetc_use_xrc || !(GASNETC_CONN_STATE_QP_DUP & conn_info->state));
 
     qp_mask = (enum ibv_qp_attr_mask)(IBV_QP_STATE | IBV_QP_AV | IBV_QP_PATH_MTU | IBV_QP_RQ_PSN | IBV_QP_MAX_DEST_RD_ATOMIC | IBV_QP_DEST_QPN | IBV_QP_MIN_RNR_TIMER);
     qp_attr.qp_state         = IBV_QPS_RTR;
@@ -416,7 +423,7 @@ gasnetc_qp_rtr2rts(gasnet_node_t node, gasnetc_conn_info_t *conn_info)
       gasnetc_inline_limit = MIN(gasnetc_inline_limit, qp_cap.max_inline_data_sq);
     }
 #else
-  const int have_qp = (!gasnetc_use_xrc || (node == gasneti_nodemap[node]));
+  const int have_qp = (!gasnetc_use_xrc || !(GASNETC_CONN_STATE_QP_DUP & conn_info->state));
 
   if (have_qp) {
     qp_mask = (enum ibv_qp_attr_mask)(IBV_QP_STATE | IBV_QP_SQ_PSN | IBV_QP_TIMEOUT | IBV_QP_RETRY_CNT | IBV_QP_RNR_RETRY | IBV_QP_MAX_QP_RD_ATOMIC);

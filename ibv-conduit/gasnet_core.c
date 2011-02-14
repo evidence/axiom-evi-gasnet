@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2011/02/10 01:13:07 $
- * $Revision: 1.252 $
+ *     $Date: 2011/02/14 23:09:43 $
+ * $Revision: 1.253 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1201,7 +1201,7 @@ gasnetc_qpn_t *gasnetc_xrc_rcv_qpn_remote = NULL;
 
 /* Create the XRC rcv QPs and advance to INIT state.
  * Work is done just once per supernode for each remote QP. */
-static int gasnetc_init_xrc_rcv_qps(void) {
+static int gasnetc_create_xrc_rcv_qps(void) {
   int ceps = gasneti_nodes * gasnetc_alloc_qps;
   gasnet_node_t node;
   int qpi, i;
@@ -1216,29 +1216,12 @@ static int gasnetc_init_xrc_rcv_qps(void) {
       if (hca) {
         const gasnetc_port_info_t *port = gasnetc_select_port(node, qpi);
         struct ibv_qp_init_attr init_attr;
-        struct ibv_qp_attr attr;
-        enum ibv_qp_attr_mask mask;
         int ret;
 
         memset(&init_attr, 0, sizeof(init_attr));
         init_attr.xrc_domain = hca->xrc_domain;
         ret = ibv_create_xrc_rcv_qp(&init_attr, &(gasnetc_xrc_rcv_qpn_local[i]));
         GASNETC_VAPI_CHECK(ret, "from ibv_create_xrc_rcv_qp()");
-
-        mask = (enum ibv_qp_attr_mask)(IBV_QP_STATE | IBV_QP_PKEY_INDEX |
-                                       IBV_QP_PORT | IBV_QP_ACCESS_FLAGS);
-        memset(&attr, 0, sizeof(attr));
-        attr.qp_state        = IBV_QPS_INIT;
-        attr.pkey_index      = 0;
-        attr.qp_access_flags = GASNETC_QPI_IS_REQ(qpi)
-                                   ? IBV_ACCESS_REMOTE_WRITE
-                                   : IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ;
-        attr.port_num = port->port_num;
-
-        ret = ibv_modify_xrc_rcv_qp(hca->xrc_domain, gasnetc_xrc_rcv_qpn_local[i], &attr, mask);
-        GASNETC_VAPI_CHECK(ret, "from ibv_modify_xrc_rcv_qp(INIT)");
-      } else {
-        gasneti_assert(gasnetc_xrc_rcv_qpn_local[i] == 0); /* Note: qp0 is reserved */
       }
     }
   }
@@ -1292,6 +1275,7 @@ static int gasnetc_init(int *argc, char ***argv) {
   gasnetc_lid_t		*remote_lid;
   gasnetc_qpn_t		*local_qpn;
   gasnetc_qpn_t		*remote_qpn;
+  gasnetc_conn_info_t	*conn_info;
   gasnet_node_t		node;
   int			vstat;
   int			ceps;
@@ -1550,62 +1534,70 @@ static int gasnetc_init(int *argc, char ***argv) {
   }
 
 #if GASNETC_IBV_XRC
-  /* create RCV side QPs for XRC and advance state RESET -> INIT */
+  /* create RCV side QPs for XRC */
   if (gasnetc_use_xrc) {
-    vstat = gasnetc_init_xrc_rcv_qps();
-    GASNETC_VAPI_CHECK(vstat, "from gasnetc_init_xrc_rcv_qps()");
+    vstat = gasnetc_create_xrc_rcv_qps();
+    GASNETC_VAPI_CHECK(vstat, "from gasnetc_create_xrc_rcv_qps()");
   }
 #endif
 
-  /* create QPs and advance state RESET -> INIT */
+gasneti_registerSignalHandlers(gasneti_defaultSignalHandler);
+  /* Allocate/initialize connection tracking info */
+  conn_info = gasneti_calloc(gasneti_nodes, sizeof(gasnetc_conn_info_t));
   for (node = 0; node < gasneti_nodes; ++node) {
-    gasnetc_conn_info_t conn_info;
-
     i = node * gasnetc_alloc_qps;
     if (!gasnetc_cep[i].hca) continue;
 
-    conn_info.cep          = &gasnetc_cep[i];
-    conn_info.local_qpn    = &local_qpn[i];
-  #if GASNET_DEBUG
-    conn_info.remote_qpn   = NULL;
-  #endif
+    conn_info[node].cep            = &gasnetc_cep[i];
+    conn_info[node].local_qpn      = &local_qpn[i];
   #if GASNETC_IBV_XRC
-    conn_info.local_xrc_qpn  = &gasnetc_xrc_rcv_qpn_local[i];
+    conn_info[node].local_xrc_qpn  = &gasnetc_xrc_rcv_qpn_local[i];
   #endif
-  #if GASNETC_IBV_XRC && GASNET_DEBUG
-    conn_info.remote_xrc_qpn = NULL;
-  #endif
+  }
 
-    (void)gasnetc_qp_create(node, &conn_info);
-    (void)gasnetc_qp_reset2init(node, &conn_info);
+  /* create QPs and advance state RESET -> INIT */
+#if GASNET_DEBUG
+  /* Loop in reverse order to help ensure connect code is order-independent */
+  for (node = gasneti_nodes-1; node < gasneti_nodes /* unsigned! */; --node)
+#else
+  for (node = 0; node < gasneti_nodes; ++node)
+#endif
+  {
+    i = node * gasnetc_alloc_qps;
+    if (!gasnetc_cep[i].hca) continue;
+
+    (void)gasnetc_qp_create(node, &conn_info[node]);
+    (void)gasnetc_qp_reset2init(node, &conn_info[node]);
   }
 
   /* exchange qpn info for connecting */
   gasneti_bootstrapAlltoall(local_qpn, gasnetc_alloc_qps*sizeof(gasnetc_qpn_t), remote_qpn);
 
   /* perform local endpoint init and advance state INIT -> RTR -> RTS */
-  for (node = 0; node < gasneti_nodes; ++node) {
-    gasnetc_conn_info_t conn_info;
-
+#if GASNET_DEBUG
+  /* Loop order must match that used for the create step */
+  for (node = gasneti_nodes-1; node < gasneti_nodes /* unsigned! */; --node)
+#else
+  for (node = 0; node < gasneti_nodes; ++node)
+#endif
+  {
     gasnetc_sndrcv_init_peer(node);
 
     i = node * gasnetc_alloc_qps;
     if (!gasnetc_cep[i].hca) continue;
 
-    conn_info.cep          = &gasnetc_cep[i];
-    conn_info.local_qpn    = &local_qpn[i];
-    conn_info.remote_qpn   = &remote_qpn[i];
+    conn_info[node].remote_qpn     = &remote_qpn[i];
   #if GASNETC_IBV_XRC
-    conn_info.local_xrc_qpn  = &gasnetc_xrc_rcv_qpn_local[i];
-    conn_info.remote_xrc_qpn = &gasnetc_xrc_rcv_qpn_remote[i];
+    conn_info[node].remote_xrc_qpn = &gasnetc_xrc_rcv_qpn_remote[i];
   #endif
 
-    (void)gasnetc_qp_init2rtr(node, &conn_info);
-    (void)gasnetc_qp_rtr2rts(node, &conn_info);
+    (void)gasnetc_qp_init2rtr(node, &conn_info[node]);
+    (void)gasnetc_qp_rtr2rts(node, &conn_info[node]);
   }
 
   gasneti_free(remote_qpn);
   gasneti_free(local_qpn);
+  gasneti_free(conn_info);
 
   /* check inline limit */
   if ((orig_inline_limit != (size_t)-1) && (gasnetc_inline_limit < orig_inline_limit)) {
