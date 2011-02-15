@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2011/02/15 06:07:25 $
- * $Revision: 1.183 $
+ *     $Date: 2011/02/15 20:41:33 $
+ * $Revision: 1.184 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -667,6 +667,20 @@ extern int gasnetc_ReplyGeneric(gasnetc_category_t category,
 extern int gasnetc_pin(gasnetc_hca_t *hca, void *addr, size_t size, gasnetc_acl_t acl, gasnetc_memreg_t *reg);
 extern void gasnetc_unpin(gasnetc_hca_t *hca, gasnetc_memreg_t *reg);
 #define gasnetc_unmap(reg)	gasneti_munmap((void *)((reg)->addr), (reg)->len)
+
+/* Bootstrap support */
+extern void (*gasneti_bootstrapFini_p)(void);
+extern void (*gasneti_bootstrapAbort_p)(int exitcode);
+extern void (*gasneti_bootstrapBarrier_p)(void);
+extern void (*gasneti_bootstrapExchange_p)(void *src, size_t len, void *dest);
+extern void (*gasneti_bootstrapAlltoall_p)(void *src, size_t len, void *dest);
+extern void (*gasneti_bootstrapBroadcast_p)(void *src, size_t len, void *dest, int rootnode);
+#define gasneti_bootstrapFini           (*gasneti_bootstrapFini_p)
+#define gasneti_bootstrapAbort          (*gasneti_bootstrapAbort_p)
+#define gasneti_bootstrapBarrier        (*gasneti_bootstrapBarrier_p)
+#define gasneti_bootstrapExchange       (*gasneti_bootstrapExchange_p)
+#define gasneti_bootstrapAlltoall       (*gasneti_bootstrapAlltoall_p)
+#define gasneti_bootstrapBroadcast      (*gasneti_bootstrapBroadcast_p)
 
 /* Global configuration variables */
 extern int		gasnetc_op_oust_limit;

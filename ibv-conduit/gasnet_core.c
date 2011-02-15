@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2011/02/15 06:07:25 $
- * $Revision: 1.257 $
+ *     $Date: 2011/02/15 20:41:33 $
+ * $Revision: 1.258 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -130,6 +130,13 @@ static unsigned int gasnetc_fh_maxsize    = 131072;
 
 /* ------------------------------------------------------------------------------------ */
 
+void (*gasneti_bootstrapFini_p)(void) = NULL;
+void (*gasneti_bootstrapAbort_p)(int exitcode) = NULL;
+void (*gasneti_bootstrapBarrier_p)(void) = NULL;
+void (*gasneti_bootstrapExchange_p)(void *src, size_t len, void *dest) = NULL;
+void (*gasneti_bootstrapAlltoall_p)(void *src, size_t len, void *dest) = NULL;
+void (*gasneti_bootstrapBroadcast_p)(void *src, size_t len, void *dest, int rootnode) = NULL;
+
 int		gasnetc_num_hcas = 1;
 gasnetc_hca_t	gasnetc_hca[GASNETC_IB_MAX_HCAS];
 gasnetc_cep_t	*gasnetc_cep;
@@ -177,19 +184,6 @@ static void gasnetc_on_exit(int, void*);
 static void gasnetc_atexit(void);
 #endif
 static void gasnetc_exit_sighandler(int sig);
-
-static void (*gasneti_bootstrapFini_p)(void);
-static void (*gasneti_bootstrapAbort_p)(int exitcode);
-static void (*gasneti_bootstrapBarrier_p)(void);
-static void (*gasneti_bootstrapExchange_p)(void *src, size_t len, void *dest);
-static void (*gasneti_bootstrapAlltoall_p)(void *src, size_t len, void *dest);
-static void (*gasneti_bootstrapBroadcast_p)(void *src, size_t len, void *dest, int rootnode);
-#define gasneti_bootstrapFini		(*gasneti_bootstrapFini_p)	
-#define gasneti_bootstrapAbort		(*gasneti_bootstrapAbort_p)	
-#define gasneti_bootstrapBarrier	(*gasneti_bootstrapBarrier_p)	
-#define gasneti_bootstrapExchange	(*gasneti_bootstrapExchange_p)	
-#define gasneti_bootstrapAlltoall	(*gasneti_bootstrapAlltoall_p)	
-#define gasneti_bootstrapBroadcast	(*gasneti_bootstrapBroadcast_p)	
 
 static char *gasnetc_vapi_ports;
 
