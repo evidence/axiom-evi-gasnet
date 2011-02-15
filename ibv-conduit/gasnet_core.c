@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2011/02/15 22:27:44 $
- * $Revision: 1.262 $
+ *     $Date: 2011/02/15 22:43:17 $
+ * $Revision: 1.263 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1395,7 +1395,7 @@ static int gasnetc_init(int *argc, char ***argv) {
   #endif
   }
 
-  /* create QPs and advance state RESET -> INIT */
+  /* create all QPs */
 #if GASNET_DEBUG
   /* Loop in reverse order to help ensure connect code is order-independent */
   for (node = gasneti_nodes-1; node < gasneti_nodes /* unsigned! */; --node)
@@ -1407,7 +1407,6 @@ static int gasnetc_init(int *argc, char ***argv) {
     if (!gasnetc_cep[i].hca) continue;
 
     (void)gasnetc_qp_create(node, &conn_info[node]);
-    (void)gasnetc_qp_reset2init(node, &conn_info[node]);
   }
 
   /* exchange endpoint info for connecting */
@@ -1446,7 +1445,7 @@ static int gasnetc_init(int *argc, char ***argv) {
 #endif
   gasneti_bootstrapAlltoall(local_qpn, gasnetc_alloc_qps*sizeof(gasnetc_qpn_t), remote_qpn);
 
-  /* perform local endpoint init and advance state INIT -> RTR -> RTS */
+  /* perform local endpoint init and advance state RESET -> INIT -> RTR -> RTS */
 #if GASNET_DEBUG
   /* Loop order must match that used for the create step */
   for (node = gasneti_nodes-1; node < gasneti_nodes /* unsigned! */; --node)
@@ -1465,6 +1464,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     conn_info[node].xrc_remote_srq_num = &xrc_remote_srq_num[i];
   #endif
 
+    (void)gasnetc_qp_reset2init(node, &conn_info[node]);
     (void)gasnetc_qp_init2rtr(node, &conn_info[node]);
     (void)gasnetc_qp_rtr2rts(node, &conn_info[node]);
   }
