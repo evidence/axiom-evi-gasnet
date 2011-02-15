@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2011/02/15 21:08:32 $
- * $Revision: 1.15 $
+ *     $Date: 2011/02/15 21:33:55 $
+ * $Revision: 1.16 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -146,51 +146,54 @@ gasnetc_xrc_tmpname(gasnetc_lid_t mylid, int index) {
   return filename;
 }
 
-/* Create an XRC domain (one per supernode) */
-/* XXX: Requires that at least the first call is collective */
+/* Create an XRC domain per HCA (once per supernode) and a shared memory file */
+/* XXX: Requires that the call is collective */
 extern int
-gasnetc_alloc_xrc_domain(gasnetc_hca_t *hca, gasnetc_lid_t mylid) {
-  char *filename1, *filename2 = NULL;
+gasnetc_xrc_init(void) {
+  const gasnetc_lid_t mylid = gasnetc_port_tbl[0].port.lid;
+  char *filename[GASNETC_IB_MAX_HCAS+1];
   size_t flen;
-  int fd, rc;
+  int index, fd;
 
-  /* Use per-supernode filename to create common XRC domain */
-  filename1 = gasnetc_xrc_tmpname(mylid, hca->hca_index);
-  fd = open(filename1, O_CREAT, S_IWUSR|S_IRUSR);
-  if (fd < 0) {
-    gasneti_fatalerror("failed to create xrc domain file '%s': %d:%s", filename1, errno, strerror(errno));
-  }
-  hca->xrc_domain = ibv_open_xrc_domain(hca->handle, fd, O_CREAT);
-  GASNETC_VAPI_CHECK_PTR(hca->xrc_domain, "from ibv_open_xrc_domain()");
-  (void) close(fd);
-
-  /* Use another per-supernode filename to create common shared memory file */
-  if (!gasnetc_xrc_rcv_qpn) { /* Exactly once when using multiple HCAs */
-    /* TODO: Should PSHM combine this w/ the AM segment? */
-    filename2 = gasnetc_xrc_tmpname(mylid, 0xf);
-    fd = open(filename2, O_CREAT|O_RDWR, S_IWUSR|S_IRUSR);
+  /* Use per-supernode filename to create common XRC domain once per HCA */
+  GASNETC_FOR_ALL_HCA_INDEX(index) {
+    gasnetc_hca_t *hca = &gasnetc_hca[index];
+    filename[index] = gasnetc_xrc_tmpname(mylid, index);
+    fd = open(filename[index], O_CREAT, S_IWUSR|S_IRUSR);
     if (fd < 0) {
-      gasneti_fatalerror("failed to create xrc shared memory file '%s': %d:%s", filename2, errno, strerror(errno));
+      gasneti_fatalerror("failed to create xrc domain file '%s': %d:%s", filename[index], errno, strerror(errno));
     }
-    flen = GASNETI_PAGE_ALIGNUP(sizeof(gasnetc_qpn_t) * gasneti_nodes * gasnetc_alloc_qps);
-    rc = ftruncate(fd, flen);
-    if (rc < 0) {
-      gasneti_fatalerror("failed to resize xrc shared memory file '%s': %d:%s", filename2, errno, strerror(errno));
-    }
-    /* XXX: Is there anything else that can/should be packed into the same shared memory file? */
-    gasnetc_xrc_rcv_qpn = mmap(NULL, flen, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
-    if (gasnetc_xrc_rcv_qpn == MAP_FAILED) {
-      gasneti_fatalerror("failed to mmap xrc shared memory file '%s': %d:%s", filename2, errno, strerror(errno));
-    }
+    hca->xrc_domain = ibv_open_xrc_domain(hca->handle, fd, O_CREAT);
+    GASNETC_VAPI_CHECK_PTR(hca->xrc_domain, "from ibv_open_xrc_domain()");
     (void) close(fd);
   }
 
-  /* Clean up once everyone is done w/ both files */
-  gasnetc_supernode_barrier();
-  (void)unlink(filename1); gasneti_free(filename1);
-  if (filename2) {
-    (void)unlink(filename2); gasneti_free(filename2);
+  /* Use one more per-supernode filename to create common shared memory file */
+  /* TODO: Should PSHM combine this w/ the AM segment? */
+  gasneti_assert(index == gasnetc_num_hcas);
+  filename[index] = gasnetc_xrc_tmpname(mylid, index);
+  fd = open(filename[index], O_CREAT|O_RDWR, S_IWUSR|S_IRUSR);
+  if (fd < 0) {
+    gasneti_fatalerror("failed to create xrc shared memory file '%s': %d:%s", filename[index], errno, strerror(errno));
   }
+  flen = GASNETI_PAGE_ALIGNUP(sizeof(gasnetc_qpn_t) * gasneti_nodes * gasnetc_alloc_qps);
+  if (ftruncate(fd, flen) < 0) {
+    gasneti_fatalerror("failed to resize xrc shared memory file '%s': %d:%s", filename[index], errno, strerror(errno));
+  }
+  /* XXX: Is there anything else that can/should be packed into the same shared memory file? */
+  gasnetc_xrc_rcv_qpn = mmap(NULL, flen, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+  if (gasnetc_xrc_rcv_qpn == MAP_FAILED) {
+    gasneti_fatalerror("failed to mmap xrc shared memory file '%s': %d:%s", filename[index], errno, strerror(errno));
+  }
+  (void) close(fd);
+
+  /* Clean up once everyone is done w/ all files */
+  gasnetc_supernode_barrier();
+  GASNETC_FOR_ALL_HCA_INDEX(index) {
+    (void)unlink(filename[index]); gasneti_free(filename[index]);
+  }
+  gasneti_assert(index == gasnetc_num_hcas);
+  (void)unlink(filename[index]); gasneti_free(filename[index]);
 
   return GASNET_OK;
 }
