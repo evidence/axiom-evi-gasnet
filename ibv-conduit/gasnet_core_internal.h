@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2011/02/15 00:38:08 $
- * $Revision: 1.182 $
+ *     $Date: 2011/02/15 06:07:25 $
+ * $Revision: 1.183 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -728,11 +728,6 @@ extern uintptr_t	gasnetc_max_msg_sz;
 extern size_t			gasnetc_fh_align;
 extern size_t			gasnetc_fh_align_mask;
 extern firehose_info_t		gasnetc_firehose_info;
-#if GASNETC_IBV_XRC
-  extern gasnetc_qpn_t          *gasnetc_xrc_rcv_qpn_local;
-  extern gasnetc_qpn_t          *gasnetc_xrc_rcv_qpn_remote;
-  extern uint32_t               *gasnetc_xrc_remote_srq_num;
-#endif
 extern gasnetc_port_info_t      *gasnetc_port_tbl;
 extern int                      gasnetc_num_ports;
 
