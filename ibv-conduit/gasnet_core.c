@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2011/02/15 20:41:33 $
- * $Revision: 1.258 $
+ *     $Date: 2011/02/15 21:08:32 $
+ * $Revision: 1.259 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -8,12 +8,6 @@
 
 #include <gasnet_internal.h>
 #include <gasnet_core_internal.h>
-
-#if GASNETC_IBV_XRC /* For open(), stat(), O_CREAT, etc. */
-  #include <sys/types.h>
-  #include <sys/stat.h>
-  #include <fcntl.h>
-#endif
 
 #include <errno.h>
 #include <unistd.h>
@@ -1121,160 +1115,6 @@ static int gasnetc_hca_report(void) {
 
   return GASNET_OK;
 }
-
-#if GASNETC_IBV_XRC
-/* Perform a supernode-scoped broadcast from first node of the supernode.
-   Note that 'src' must be a valid address on ALL callers.
- */
-static void gasnetc_supernode_bcast(void *src, size_t len, void *dst) {
-  #if GASNET_PSHM
-    /* Can do w/ just supernode-scoped broadcast */
-    gasneti_assert(gasneti_request_pshmnet != NULL);
-    gasneti_pshmnet_bootstrapBroadcast(gasneti_request_pshmnet, src, len, dst, 0);
-  #else
-    /* Need global Exchange when PSHM is not available */
-    /* TODO: If/when is one Bcast per supernode cheaper than 1 Exchange? */
-    /* TODO: Push this case down to the Bootstrap support? */
-    void *all_data = gasneti_malloc(gasneti_nodes * len);
-    void *my_dst = (void *)((uintptr_t )all_data + (len * gasneti_nodemap_local[0]));
-    gasneti_bootstrapExchange(src, len, all_data);
-    memcpy(dst, my_dst, len);
-    gasneti_free(all_data);
-  #endif
-}
-
-static void gasnetc_supernode_barrier(void) {
-  #if GASNET_PSHM
-    gasneti_pshmnet_bootstrapBarrier();
-  #else
-    gasneti_bootstrapBarrier();
-  #endif
-}
-
-/* XXX: Requires that at least the first call is collective */
-static char* gasnetc_xrc_tmpname(gasnetc_lid_t mylid, int index) {
-  static char *tmpdir = NULL;
-  static int tmpdir_len = -1;
-  static pid_t pid;
-  static const char pattern[] = "/GASNETxrc-%04x%01x-%06x"; /* Max 11 + 5 + 1 + 6 + 1 = 24 */
-  const int filename_len = 24;
-  char *filename;
-
-  gasneti_assert(index >= 0  &&  index <= 16);
-
-  /* Initialize tmpdir and pid only on first call */
-  if (!tmpdir) {
-    struct stat s;
-    tmpdir = gasneti_getenv_withdefault("TMPDIR", "/tmp");
-    if (stat(tmpdir, &s) || !S_ISDIR(s.st_mode)) {
-      gasneti_fatalerror("XRC support requires valid $TMPDIR or /tmp");
-    }
-    tmpdir_len = strlen(tmpdir);
-
-    /* Get PID of first proc per supernode */
-    pid = getpid(); /* Redundant, but harmless on other processes */
-    gasnetc_supernode_bcast(&pid, sizeof(pid), &pid);
-  }
-
-  filename = gasneti_malloc(tmpdir_len + filename_len);
-  strcpy(filename, tmpdir);
-  sprintf(filename + tmpdir_len, pattern,
-          (unsigned int)(mylid & 0xffff),
-          (unsigned int)(index & 0xf),
-          (unsigned int)(pid & 0xffffff));
-  gasneti_assert(strlen(filename) < (tmpdir_len + filename_len));
-
-  return filename;
-}
-
-static gasnetc_qpn_t *gasnetc_xrc_rcv_qpn = NULL;
-
-/* Create an XRC domain (one per supernode) */
-/* XXX: Requires that at least the first call is collective */
-static int gasnetc_alloc_xrc_domain(gasnetc_hca_t *hca, gasnetc_lid_t mylid) {
-  char *filename1, *filename2 = NULL;
-  size_t flen;
-  int fd, rc;
-
-  /* Use per-supernode filename to create common XRC domain */
-  filename1 = gasnetc_xrc_tmpname(mylid, hca->hca_index);
-  fd = open(filename1, O_CREAT, S_IWUSR|S_IRUSR);
-  if (fd < 0) {
-    gasneti_fatalerror("failed to create xrc domain file '%s': %d:%s", filename1, errno, strerror(errno));
-  }
-  hca->xrc_domain = ibv_open_xrc_domain(hca->handle, fd, O_CREAT);
-  GASNETC_VAPI_CHECK_PTR(hca->xrc_domain, "from ibv_open_xrc_domain()");
-  (void) close(fd);
-
-  /* Use another per-supernode filename to create common shared memory file */
-  if (!gasnetc_xrc_rcv_qpn) { /* Exactly once when using multiple HCAs */
-    /* TODO: Should PSHM combine this w/ the AM segment? */
-    filename2 = gasnetc_xrc_tmpname(mylid, 0xf);
-    fd = open(filename2, O_CREAT|O_RDWR, S_IWUSR|S_IRUSR);
-    if (fd < 0) {
-      gasneti_fatalerror("failed to create xrc shared memory file '%s': %d:%s", filename2, errno, strerror(errno));
-    }
-    flen = GASNETI_PAGE_ALIGNUP(sizeof(gasnetc_qpn_t) * gasneti_nodes * gasnetc_alloc_qps);
-    rc = ftruncate(fd, flen);
-    if (rc < 0) {
-      gasneti_fatalerror("failed to resize xrc shared memory file '%s': %d:%s", filename2, errno, strerror(errno));
-    }
-    /* XXX: Is there anything else that can/should be packed into the same shared memory file? */
-    gasnetc_xrc_rcv_qpn = mmap(NULL, flen, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
-    if (gasnetc_xrc_rcv_qpn == MAP_FAILED) {
-      gasneti_fatalerror("failed to mmap xrc shared memory file '%s': %d:%s", filename2, errno, strerror(errno));
-    }
-    (void) close(fd);
-  }
-
-  /* Clean up once everyone is done w/ both files */
-  gasnetc_supernode_barrier();
-  (void)unlink(filename1); gasneti_free(filename1);
-  if (filename2) {
-    (void)unlink(filename2); gasneti_free(filename2);
-  }
-
-  return GASNET_OK;
-}
-
-/* Create the XRC rcv QPs and advance to INIT state.
- * Work is done just once per supernode for each remote QP. */
-static int gasnetc_create_xrc_rcv_qps(void) {
-  int ceps = gasneti_nodes * gasnetc_alloc_qps;
-  gasnet_node_t node;
-  int qpi, i;
-
-  gasneti_assert(gasnetc_xrc_rcv_qpn != NULL);
-
-  /* Create/INIT the RCV QPs once per supernode and register in the non-creating nodes */
-  if (!gasneti_nodemap_local_rank) {
-    GASNETC_FOR_EACH_CEP(i, node, qpi) {
-      gasnetc_hca_t *hca = gasnetc_cep[i].hca;
-      if (hca) {
-        struct ibv_qp_init_attr init_attr;
-        int ret;
-
-        memset(&init_attr, 0, sizeof(init_attr));
-        init_attr.xrc_domain = hca->xrc_domain;
-        ret = ibv_create_xrc_rcv_qp(&init_attr, &(gasnetc_xrc_rcv_qpn[i]));
-        GASNETC_VAPI_CHECK(ret, "from ibv_create_xrc_rcv_qp()");
-      }
-    }
-  }
-  gasnetc_supernode_barrier();
-  if (gasneti_nodemap_local_rank) {
-    for (i = 0; i < ceps; ++i) {
-      gasnetc_hca_t *hca = gasnetc_cep[i].hca;
-      if (hca) {
-        int ret = ibv_reg_xrc_rcv_qp(hca->xrc_domain, gasnetc_xrc_rcv_qpn[i]);
-        GASNETC_VAPI_CHECK(ret, "from ibv_reg_xrc_rcv_qp()");
-      }
-    }
-  }
-
-  return GASNET_OK;
-}
-#endif
 
 static int gasnetc_init(int *argc, char ***argv) {
   gasnetc_hca_t		*hca;

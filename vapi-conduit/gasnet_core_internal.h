@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2011/02/15 20:41:33 $
- * $Revision: 1.184 $
+ *     $Date: 2011/02/15 21:08:32 $
+ * $Revision: 1.185 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -642,6 +642,10 @@ extern int gasnetc_qp_create(gasnet_node_t node, gasnetc_conn_info_t *conn_info)
 extern int gasnetc_qp_reset2init(gasnet_node_t node, gasnetc_conn_info_t *conn_info);
 extern int gasnetc_qp_init2rtr(gasnet_node_t node, gasnetc_conn_info_t *conn_info);
 extern int gasnetc_qp_rtr2rts(gasnet_node_t node, gasnetc_conn_info_t *conn_info);
+#if GASNETC_IBV_XRC
+  extern int gasnetc_alloc_xrc_domain(gasnetc_hca_t *hca, gasnetc_lid_t mylid);
+  extern int gasnetc_create_xrc_rcv_qps(void);
+#endif
 
 /* Routines in gasnet_core_sndrcv.c */
 extern int gasnetc_sndrcv_limits(void);
@@ -722,6 +726,7 @@ extern gasneti_weakatomic_val_t gasnetc_amrdma_cycle;
 
 #if GASNETC_IBV_XRC
   extern int			gasnetc_use_xrc;
+  extern gasnetc_qpn_t		*gasnetc_xrc_rcv_qpn;
 #else
   #define gasnetc_use_xrc	0
 #endif
