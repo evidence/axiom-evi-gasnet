@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2011/02/15 01:51:17 $
- * $Revision: 1.255 $
+ *     $Date: 2011/02/15 02:01:35 $
+ * $Revision: 1.256 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1546,7 +1546,8 @@ gasneti_registerSignalHandlers(gasneti_defaultSignalHandler);
 
   /* exchange endpoint info for connecting */
 #if GASNETC_IBV_XRC
-  { /* Use single larger exchange rather then multiple smaller ones */
+  if (gasnetc_use_xrc) {
+    /* Use single larger exchange rather then multiple smaller ones */
     struct exchange {
       uint32_t srq_num;
       gasnetc_qpn_t xrc_qpn;
@@ -1573,10 +1574,9 @@ gasneti_registerSignalHandlers(gasneti_defaultSignalHandler);
     }
     gasneti_free(remote_tmp);
     gasneti_free(local_tmp);
-  }
-#else
-  gasneti_bootstrapAlltoall(local_qpn, gasnetc_alloc_qps*sizeof(gasnetc_qpn_t), remote_qpn);
+  } else
 #endif
+  gasneti_bootstrapAlltoall(local_qpn, gasnetc_alloc_qps*sizeof(gasnetc_qpn_t), remote_qpn);
 
   /* perform local endpoint init and advance state INIT -> RTR -> RTS */
 #if GASNET_DEBUG
