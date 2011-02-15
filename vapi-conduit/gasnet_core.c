@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2011/02/15 00:38:08 $
- * $Revision: 1.254 $
+ *     $Date: 2011/02/15 01:51:17 $
+ * $Revision: 1.255 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1239,33 +1239,6 @@ static int gasnetc_create_xrc_rcv_qps(void) {
     }
   }
 
-  /* Exchange the xrc_rcv_qpn and srq_num values */
-  {
-    struct exchange {
-      uint32_t srq_num;
-      gasnetc_qpn_t qpn;
-    };
-    struct exchange *local_tmp  = gasneti_calloc(ceps,  sizeof(struct exchange));
-    struct exchange *remote_tmp = gasneti_malloc(ceps * sizeof(struct exchange));
-    GASNETC_FOR_EACH_CEP(i, node, qpi) {
-      gasnetc_hca_t *hca = gasnetc_cep[i].hca;
-      if (hca) {
-        struct ibv_srq *srq = GASNETC_QPI_IS_REQ(qpi) ? hca->rqst_srq : hca->repl_srq;
-        local_tmp[i].srq_num = srq->xrc_srq_num;
-      }
-      local_tmp[i].qpn = gasnetc_xrc_rcv_qpn_local[i];
-    }
-    gasneti_bootstrapAlltoall(local_tmp,
-                              gasnetc_alloc_qps * sizeof(struct exchange),
-                              remote_tmp);
-    GASNETC_FOR_EACH_CEP(i, node, qpi) {
-      gasnetc_xrc_remote_srq_num[i] = remote_tmp[i].srq_num;
-      gasnetc_xrc_rcv_qpn_remote[i] = remote_tmp[i].qpn;
-    }
-    gasneti_free(remote_tmp);
-    gasneti_free(local_tmp);
-  }
-
   return GASNET_OK;
 }
 #endif
@@ -1571,8 +1544,39 @@ gasneti_registerSignalHandlers(gasneti_defaultSignalHandler);
     (void)gasnetc_qp_reset2init(node, &conn_info[node]);
   }
 
-  /* exchange qpn info for connecting */
+  /* exchange endpoint info for connecting */
+#if GASNETC_IBV_XRC
+  { /* Use single larger exchange rather then multiple smaller ones */
+    struct exchange {
+      uint32_t srq_num;
+      gasnetc_qpn_t xrc_qpn;
+      gasnetc_qpn_t qpn;
+    };
+    struct exchange *local_tmp  = gasneti_calloc(ceps,  sizeof(struct exchange));
+    struct exchange *remote_tmp = gasneti_malloc(ceps * sizeof(struct exchange));
+    GASNETC_FOR_EACH_CEP(i, node, qpi) {
+      gasnetc_hca_t *hca = gasnetc_cep[i].hca;
+      if (hca) {
+        struct ibv_srq *srq = GASNETC_QPI_IS_REQ(qpi) ? hca->rqst_srq : hca->repl_srq;
+        local_tmp[i].srq_num = srq->xrc_srq_num;
+      }
+      local_tmp[i].xrc_qpn = gasnetc_xrc_rcv_qpn_local[i];
+      local_tmp[i].qpn     = local_qpn[i];
+    }
+    gasneti_bootstrapAlltoall(local_tmp,
+                              gasnetc_alloc_qps * sizeof(struct exchange),
+                              remote_tmp);
+    GASNETC_FOR_EACH_CEP(i, node, qpi) {
+      gasnetc_xrc_remote_srq_num[i] = remote_tmp[i].srq_num;
+      gasnetc_xrc_rcv_qpn_remote[i] = remote_tmp[i].xrc_qpn;
+      remote_qpn[i]                 = remote_tmp[i].qpn;
+    }
+    gasneti_free(remote_tmp);
+    gasneti_free(local_tmp);
+  }
+#else
   gasneti_bootstrapAlltoall(local_qpn, gasnetc_alloc_qps*sizeof(gasnetc_qpn_t), remote_qpn);
+#endif
 
   /* perform local endpoint init and advance state INIT -> RTR -> RTS */
 #if GASNET_DEBUG
