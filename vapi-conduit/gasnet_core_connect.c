@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_connect.c,v $
- *     $Date: 2011/02/14 23:09:43 $
- * $Revision: 1.13 $
+ *     $Date: 2011/02/15 00:38:08 $
+ * $Revision: 1.14 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -423,9 +423,8 @@ gasnetc_qp_rtr2rts(gasnet_node_t node, gasnetc_conn_info_t *conn_info)
       gasnetc_inline_limit = MIN(gasnetc_inline_limit, qp_cap.max_inline_data_sq);
     }
 #else
-  const int have_qp = (!gasnetc_use_xrc || !(GASNETC_CONN_STATE_QP_DUP & conn_info->state));
+    const int have_qp = (!gasnetc_use_xrc || !(GASNETC_CONN_STATE_QP_DUP & conn_info->state));
 
-  if (have_qp) {
     qp_mask = (enum ibv_qp_attr_mask)(IBV_QP_STATE | IBV_QP_SQ_PSN | IBV_QP_TIMEOUT | IBV_QP_RETRY_CNT | IBV_QP_RNR_RETRY | IBV_QP_MAX_QP_RD_ATOMIC);
     qp_attr.qp_state         = IBV_QPS_RTS;
     qp_attr.timeout          = gasnetc_qp_timeout;
@@ -433,31 +432,36 @@ gasnetc_qp_rtr2rts(gasnet_node_t node, gasnetc_conn_info_t *conn_info)
     qp_attr.rnr_retry        = GASNETC_QP_RNR_RETRY;
 
     GASNETC_FOR_EACH_QPI(conn_info, qpi, cep) {
-      const gasnetc_port_info_t *port = gasnetc_select_port(node, qpi);
+    #if GASNETC_IBV_XRC
+      if (gasnetc_use_xrc) {
+        cep->xrc_remote_srq_num = conn_info->xrc_remote_srq_num[qpi];
 
-      qp_attr.sq_psn           = GASNETC_PSN(gasneti_mynode, qpi);
-      qp_attr.max_rd_atomic    = GASNETC_QPI_IS_REQ(qpi) ? 0 : port->rd_atom;
-      rc = ibv_modify_qp(cep->qp_handle, &qp_attr, qp_mask);
-      GASNETC_VAPI_CHECK(rc, "from ibv_modify_qp(RTS)");
-      {
-        struct ibv_qp_attr qp_attr2;
-        struct ibv_qp_init_attr qp_init_attr;
-        rc = ibv_query_qp(cep->qp_handle, &qp_attr2, IBV_QP_CAP, &qp_init_attr);
-        GASNETC_VAPI_CHECK(rc, "from ibv_query_qp(RTS)");
-        gasnetc_inline_limit = MIN(gasnetc_inline_limit, qp_attr2.cap.max_inline_data);
+      #if !GASNET_PSHM && GASNET_DEBUG
+        /* Some cep->hca values were non-NULL just to setup XRC.
+           We NULL them here to assist debug assert()ions. */
+        if (gasnetc_non_ib(node)) {
+          cep->hca = NULL;
+        }
+      #endif
       }
-    }
-  }
-
-    #if !GASNET_PSHM && GASNET_DEBUG
-    /* Some cep->hca values were non-NULL just to setup XRC.
-       We NULL them here to assist debug assert()ions. */
-    if (gasnetc_use_xrc && gasnetc_non_ib(node)) {
-      GASNETC_FOR_EACH_QPI(conn_info, qpi, cep) {
-        cep->hca = NULL;
-      }
-    }
     #endif
+
+      if (have_qp) {
+        const gasnetc_port_info_t *port = gasnetc_select_port(node, qpi);
+
+        qp_attr.sq_psn           = GASNETC_PSN(gasneti_mynode, qpi);
+        qp_attr.max_rd_atomic    = GASNETC_QPI_IS_REQ(qpi) ? 0 : port->rd_atom;
+        rc = ibv_modify_qp(cep->qp_handle, &qp_attr, qp_mask);
+        GASNETC_VAPI_CHECK(rc, "from ibv_modify_qp(RTS)");
+        {
+          struct ibv_qp_attr qp_attr2;
+          struct ibv_qp_init_attr qp_init_attr;
+          rc = ibv_query_qp(cep->qp_handle, &qp_attr2, IBV_QP_CAP, &qp_init_attr);
+          GASNETC_VAPI_CHECK(rc, "from ibv_query_qp(RTS)");
+          gasnetc_inline_limit = MIN(gasnetc_inline_limit, qp_attr2.cap.max_inline_data);
+        }
+      }
+    }
 #endif
 
     return GASNET_OK;

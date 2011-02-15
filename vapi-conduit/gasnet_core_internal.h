@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2011/02/14 23:09:43 $
- * $Revision: 1.181 $
+ *     $Date: 2011/02/15 00:38:08 $
+ * $Revision: 1.182 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -632,6 +632,7 @@ typedef struct {
 #if GASNETC_IBV_XRC
   gasnetc_qpn_t     *local_xrc_qpn;  /* Local qpns of XRC rcv qps */
   gasnetc_qpn_t     *remote_xrc_qpn; /* Remote qpns of XRC rcv qps */
+  uint32_t          *xrc_remote_srq_num; /* Remote SRQ numbers */
 #endif
 } gasnetc_conn_info_t;
 
@@ -730,6 +731,7 @@ extern firehose_info_t		gasnetc_firehose_info;
 #if GASNETC_IBV_XRC
   extern gasnetc_qpn_t          *gasnetc_xrc_rcv_qpn_local;
   extern gasnetc_qpn_t          *gasnetc_xrc_rcv_qpn_remote;
+  extern uint32_t               *gasnetc_xrc_remote_srq_num;
 #endif
 extern gasnetc_port_info_t      *gasnetc_port_tbl;
 extern int                      gasnetc_num_ports;
