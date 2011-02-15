@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2011/02/15 22:27:44 $
- * $Revision: 1.17 $
+ *     $Date: 2011/02/15 23:44:25 $
+ * $Revision: 1.18 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -34,13 +34,6 @@
 #define GASNETC_FOR_EACH_QPI(_conn_info, _qpi, _cep)  \
   for((_cep) = (_conn_info)->cep, (_qpi) = 0; \
       (_qpi) < gasnetc_alloc_qps; ++(_cep), ++(_qpi))
-
-/* Convenience macro */
-#if GASNETC_IBV_SRQ 
-  #define GASNETC_QPI_IS_REQ(_qpi) ((_qpi) >= gasnetc_num_qps)
-#else
-  #define GASNETC_QPI_IS_REQ(_qpi) (0)
-#endif
 
 /* Flag bit(s) used in conn_info->state */
 #define GASNETC_CONN_STATE_QP_DUP   1
@@ -624,3 +617,153 @@ gasnetc_qp_rtr2rts(gasnet_node_t node, gasnetc_conn_info_t *conn_info)
 
     return GASNET_OK;
 } /* rtr2rts */
+
+
+/* Setup fully-connected communication */
+extern int
+gasnetc_connect_all(void)
+{
+  const int             ceps = gasneti_nodes * gasnetc_alloc_qps;
+  gasnetc_qpn_t         *local_qpn = gasneti_calloc(ceps, sizeof(gasnetc_qpn_t));
+  gasnetc_qpn_t         *remote_qpn = gasneti_calloc(ceps, sizeof(gasnetc_qpn_t));
+  gasnetc_conn_info_t   *conn_info = gasneti_calloc(gasneti_nodes, sizeof(gasnetc_conn_info_t));
+#if GASNETC_IBV_XRC
+  gasnetc_qpn_t         *xrc_remote_rcv_qpn = NULL;
+  uint32_t              *xrc_remote_srq_num = NULL;
+#endif
+  gasnet_node_t         node;
+  int                   i, qpi;
+  size_t                orig_inline_limit = gasnetc_inline_limit;
+
+  /* Initialize connection tracking info */
+  for (node = 0; node < gasneti_nodes; ++node) {
+    i = node * gasnetc_alloc_qps;
+    if (!gasnetc_cep[i].hca) continue;
+
+    conn_info[node].cep            = &gasnetc_cep[i];
+    conn_info[node].local_qpn      = &local_qpn[i];
+  #if GASNETC_IBV_XRC
+    conn_info[node].local_xrc_qpn  = &gasnetc_xrc_rcv_qpn[i];
+  #endif
+  }
+
+  /* create all QPs */
+#if GASNET_DEBUG
+  /* Loop in reverse order to help ensure connect code is order-independent */
+  for (node = gasneti_nodes-1; node < gasneti_nodes /* unsigned! */; --node)
+#else
+  for (node = 0; node < gasneti_nodes; ++node)
+#endif
+  {
+    i = node * gasnetc_alloc_qps;
+    if (!gasnetc_cep[i].hca) continue;
+
+    (void)gasnetc_qp_create(node, &conn_info[node]);
+  }
+
+  /* exchange address info */
+#if GASNETC_IBV_XRC
+  if (gasnetc_use_xrc) {
+    /* Use single larger exchange rather then multiple smaller ones */
+    struct exchange {
+      uint32_t srq_num;
+      gasnetc_qpn_t xrc_qpn;
+      gasnetc_qpn_t qpn;
+    };
+    struct exchange *local_tmp  = gasneti_calloc(ceps,  sizeof(struct exchange));
+    struct exchange *remote_tmp = gasneti_malloc(ceps * sizeof(struct exchange));
+    GASNETC_FOR_EACH_CEP(i, node, qpi) {
+      gasnetc_hca_t *hca = gasnetc_cep[i].hca;
+      if (hca) {
+        struct ibv_srq *srq = GASNETC_QPI_IS_REQ(qpi) ? hca->rqst_srq : hca->repl_srq;
+        local_tmp[i].srq_num = srq->xrc_srq_num;
+      }
+      local_tmp[i].xrc_qpn = gasnetc_xrc_rcv_qpn[i];
+      local_tmp[i].qpn     = local_qpn[i];
+    }
+    gasneti_bootstrapAlltoall(local_tmp,
+                              gasnetc_alloc_qps * sizeof(struct exchange),
+                              remote_tmp);
+    xrc_remote_rcv_qpn = gasneti_malloc(ceps * sizeof(gasnetc_qpn_t));
+    xrc_remote_srq_num = gasneti_malloc(ceps * sizeof(uint32_t));
+    for (i = 0; i < ceps; ++i) {
+      xrc_remote_srq_num[i] = remote_tmp[i].srq_num;
+      xrc_remote_rcv_qpn[i] = remote_tmp[i].xrc_qpn;
+      remote_qpn[i]         = remote_tmp[i].qpn;
+    }
+    gasneti_free(remote_tmp);
+    gasneti_free(local_tmp);
+  } else
+#endif
+  gasneti_bootstrapAlltoall(local_qpn, gasnetc_alloc_qps*sizeof(gasnetc_qpn_t), remote_qpn);
+
+  /* perform local endpoint init and advance state RESET -> INIT -> RTR -> RTS */
+#if GASNET_DEBUG
+  /* Loop order must match that used for the create step */
+  for (node = gasneti_nodes-1; node < gasneti_nodes /* unsigned! */; --node)
+#else
+  for (node = 0; node < gasneti_nodes; ++node)
+#endif
+  {
+    gasnetc_sndrcv_init_peer(node);
+
+    i = node * gasnetc_alloc_qps;
+    if (!gasnetc_cep[i].hca) continue;
+
+    conn_info[node].remote_qpn     = &remote_qpn[i];
+  #if GASNETC_IBV_XRC
+    conn_info[node].remote_xrc_qpn = &xrc_remote_rcv_qpn[i];
+    conn_info[node].xrc_remote_srq_num = &xrc_remote_srq_num[i];
+  #endif
+
+    (void)gasnetc_qp_reset2init(node, &conn_info[node]);
+    (void)gasnetc_qp_init2rtr(node, &conn_info[node]);
+    (void)gasnetc_qp_rtr2rts(node, &conn_info[node]);
+  }
+
+#if GASNETC_IBV_XRC
+  gasneti_free(xrc_remote_srq_num);
+  gasneti_free(xrc_remote_rcv_qpn);
+#endif
+  gasneti_free(conn_info);
+  gasneti_free(remote_qpn);
+  gasneti_free(local_qpn);
+
+  /* check inline limit */
+  if ((orig_inline_limit != (size_t)-1) && (gasnetc_inline_limit < orig_inline_limit)) {
+#if GASNET_CONDUIT_IBV
+    if (gasnet_getenv("GASNET_INLINESEND_LIMIT") != NULL)
+#endif
+      fprintf(stderr,
+              "WARNING: Requested GASNET_INLINESEND_LIMIT %d reduced to HCA limit %d\n",
+              (int)orig_inline_limit, (int)gasnetc_inline_limit);
+  }
+  GASNETI_TRACE_PRINTF(I, ("Final/effective GASNET_INLINESEND_LIMIT = %d", (int)gasnetc_inline_limit));
+  gasnetc_sndrcv_init_inline();
+
+  /* All QPs must reach RTS before we may continue */
+  gasneti_bootstrapBarrier();
+
+  #if GASNET_DEBUG
+  /* Verify that we are actually connected. */
+  { /* Each node sends an AM to node self-1 and then waits for local completion. */
+    gasnetc_counter_t counter = GASNETC_COUNTER_INITIALIZER;
+    gasnet_node_t peer;
+    peer = (gasneti_mynode ? gasneti_mynode : gasneti_nodes) - 1;
+  #if GASNET_PSHM
+    /* Despite a comment to the contrary in earlier versions of this code, it is
+     * "safe" to send over pshmnet despite the non-AM use via pshmnet_bootstrapBroadcast.
+     * One probably needs to drain the recvd ping and ack to ensure this is true.
+     * However, we still skip this for a minor efficiency gain.
+     */
+    if (!gasneti_pshm_in_supernode(peer))
+  #endif
+    {
+      GASNETI_SAFE(gasnetc_RequestSystem(peer, &counter, gasneti_handleridx(gasnetc_SYS_init_ping), 0));
+      gasnetc_counter_wait(&counter, gasnetc_use_rcv_thread); /* BLOCKING AM Send */
+    }
+  }
+  #endif
+
+  return GASNET_OK;
+} /* gasnetc_connect_all */
