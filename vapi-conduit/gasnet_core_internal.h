@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2011/02/15 21:33:55 $
- * $Revision: 1.186 $
+ *     $Date: 2011/02/15 22:27:44 $
+ * $Revision: 1.187 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -644,7 +644,6 @@ extern int gasnetc_qp_init2rtr(gasnet_node_t node, gasnetc_conn_info_t *conn_inf
 extern int gasnetc_qp_rtr2rts(gasnet_node_t node, gasnetc_conn_info_t *conn_info);
 #if GASNETC_IBV_XRC
   extern int gasnetc_xrc_init(void);
-  extern int gasnetc_create_xrc_rcv_qps(void);
 #endif
 
 /* Routines in gasnet_core_sndrcv.c */

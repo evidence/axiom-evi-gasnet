@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2011/02/15 21:38:44 $
- * $Revision: 1.261 $
+ *     $Date: 2011/02/15 22:27:44 $
+ * $Revision: 1.262 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1381,14 +1381,6 @@ static int gasnetc_init(int *argc, char ***argv) {
     }
     return i;
   }
-
-#if GASNETC_IBV_XRC
-  /* create RCV side QPs for XRC */
-  if (gasnetc_use_xrc) {
-    vstat = gasnetc_create_xrc_rcv_qps();
-    GASNETC_VAPI_CHECK(vstat, "from gasnetc_create_xrc_rcv_qps()");
-  }
-#endif
 
   /* Allocate/initialize connection tracking info */
   conn_info = gasneti_calloc(gasneti_nodes, sizeof(gasnetc_conn_info_t));
