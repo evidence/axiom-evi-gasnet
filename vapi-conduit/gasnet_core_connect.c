@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_connect.c,v $
- *     $Date: 2011/02/15 23:44:25 $
- * $Revision: 1.18 $
+ *     $Date: 2011/02/16 19:44:40 $
+ * $Revision: 1.19 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -705,10 +705,11 @@ gasnetc_connect_all(void)
   for (node = 0; node < gasneti_nodes; ++node)
 #endif
   {
-    gasnetc_sndrcv_init_peer(node);
-
     i = node * gasnetc_alloc_qps;
-    if (!gasnetc_cep[i].hca) continue;
+    if (!gasnetc_cep[i].hca) {
+        gasnetc_sndrcv_init_peer(node);
+        continue;
+    }
 
     conn_info[node].remote_qpn     = &remote_qpn[i];
   #if GASNETC_IBV_XRC
@@ -717,6 +718,7 @@ gasnetc_connect_all(void)
   #endif
 
     (void)gasnetc_qp_reset2init(node, &conn_info[node]);
+    gasnetc_sndrcv_init_peer(node);
     (void)gasnetc_qp_init2rtr(node, &conn_info[node]);
     (void)gasnetc_qp_rtr2rts(node, &conn_info[node]);
   }
