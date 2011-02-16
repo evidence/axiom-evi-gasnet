@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2011/02/16 19:44:40 $
- * $Revision: 1.19 $
+ *     $Date: 2011/02/16 20:27:52 $
+ * $Revision: 1.20 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -647,14 +647,17 @@ gasnetc_connect_all(void)
   #endif
   }
 
-  /* create all QPs */
+  /* Debug build loops in reverse order to help ensure connect code is order-independent */
 #if GASNET_DEBUG
-  /* Loop in reverse order to help ensure connect code is order-independent */
-  for (node = gasneti_nodes-1; node < gasneti_nodes /* unsigned! */; --node)
+  #define GASNETC_FOR_EACH_NODE(_node) \
+    for ((_node) = gasneti_nodes-1; (_node) < gasneti_nodes /* unsigned! */; --(_node))
 #else
-  for (node = 0; node < gasneti_nodes; ++node)
+  #define GASNETC_FOR_EACH_NODE(_node) \
+    for ((_node) = 0; (_node) < gasneti_nodes; ++(_node))
 #endif
-  {
+
+  /* create all QPs */
+  GASNETC_FOR_EACH_NODE(node) {
     i = node * gasnetc_alloc_qps;
     if (!gasnetc_cep[i].hca) continue;
 
@@ -697,29 +700,47 @@ gasnetc_connect_all(void)
 #endif
   gasneti_bootstrapAlltoall(local_qpn, gasnetc_alloc_qps*sizeof(gasnetc_qpn_t), remote_qpn);
 
-  /* perform local endpoint init and advance state RESET -> INIT -> RTR -> RTS */
-#if GASNET_DEBUG
-  /* Loop order must match that used for the create step */
-  for (node = gasneti_nodes-1; node < gasneti_nodes /* unsigned! */; --node)
-#else
-  for (node = 0; node < gasneti_nodes; ++node)
-#endif
-  {
+  /* Advance state RESET -> INIT and perform local endpoint init.
+     This could be overlapped with the AlltoAll if it were non-blocking*/
+  GASNETC_FOR_EACH_NODE(node) {
     i = node * gasnetc_alloc_qps;
-    if (!gasnetc_cep[i].hca) {
-        gasnetc_sndrcv_init_peer(node);
-        continue;
+
+    if (gasnetc_cep[i].hca) {
+      (void)gasnetc_qp_reset2init(node, &conn_info[node]);
     }
+    /* XXX: Needed even for non-connected peers - could be a problem for on-demand connection? */
+    gasnetc_sndrcv_init_peer(node);
+  }
+
+  /* Would sync the AlltoAll here if it were non-blocking */
+  GASNETC_FOR_EACH_NODE(node) {
+    i = node * gasnetc_alloc_qps;
+    if (!gasnetc_cep[i].hca) continue;
 
     conn_info[node].remote_qpn     = &remote_qpn[i];
   #if GASNETC_IBV_XRC
     conn_info[node].remote_xrc_qpn = &xrc_remote_rcv_qpn[i];
     conn_info[node].xrc_remote_srq_num = &xrc_remote_srq_num[i];
   #endif
+  }
 
-    (void)gasnetc_qp_reset2init(node, &conn_info[node]);
-    gasnetc_sndrcv_init_peer(node);
+  /* Advance state INIT -> RTR */
+  GASNETC_FOR_EACH_NODE(node) {
+    i = node * gasnetc_alloc_qps;
+    if (!gasnetc_cep[i].hca) continue;
+
     (void)gasnetc_qp_init2rtr(node, &conn_info[node]);
+  }
+
+  /* QPs must reach RTS before we may continue
+     (not strictly necessary in paractice as long as we don't try to send until peers do.) */
+  gasneti_bootstrapBarrier();
+
+  /* Advance state RTR -> RTS */
+  GASNETC_FOR_EACH_NODE(node) {
+    i = node * gasnetc_alloc_qps;
+    if (!gasnetc_cep[i].hca) continue;
+
     (void)gasnetc_qp_rtr2rts(node, &conn_info[node]);
   }
 
@@ -742,9 +763,6 @@ gasnetc_connect_all(void)
   }
   GASNETI_TRACE_PRINTF(I, ("Final/effective GASNET_INLINESEND_LIMIT = %d", (int)gasnetc_inline_limit));
   gasnetc_sndrcv_init_inline();
-
-  /* All QPs must reach RTS before we may continue */
-  gasneti_bootstrapBarrier();
 
   #if GASNET_DEBUG
   /* Verify that we are actually connected. */
