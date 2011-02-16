@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_connect.c,v $
- *     $Date: 2011/02/16 20:27:52 $
- * $Revision: 1.20 $
+ *     $Date: 2011/02/16 22:05:05 $
+ * $Revision: 1.21 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -704,11 +704,9 @@ gasnetc_connect_all(void)
      This could be overlapped with the AlltoAll if it were non-blocking*/
   GASNETC_FOR_EACH_NODE(node) {
     i = node * gasnetc_alloc_qps;
+    if (!gasnetc_cep[i].hca) continue;
 
-    if (gasnetc_cep[i].hca) {
-      (void)gasnetc_qp_reset2init(node, &conn_info[node]);
-    }
-    /* XXX: Needed even for non-connected peers - could be a problem for on-demand connection? */
+    (void)gasnetc_qp_reset2init(node, &conn_info[node]);
     gasnetc_sndrcv_init_peer(node);
   }
 

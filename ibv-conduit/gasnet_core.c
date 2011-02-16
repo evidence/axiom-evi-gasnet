@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2011/02/15 23:44:25 $
- * $Revision: 1.264 $
+ *     $Date: 2011/02/16 22:05:05 $
+ * $Revision: 1.265 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1657,7 +1657,8 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   }
   #endif
 
-  /* Per-endpoint work */
+  /* Global and per-endpoint work */
+  gasnetc_sndrcv_attach_segment();
   for (i = 0; i < gasneti_nodes; i++) {
     gasnetc_sndrcv_attach_peer(i);
   }

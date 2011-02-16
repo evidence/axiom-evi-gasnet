@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2011/02/10 03:22:33 $
- * $Revision: 1.267 $
+ *     $Date: 2011/02/16 22:05:05 $
+ * $Revision: 1.268 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -3565,8 +3565,12 @@ extern int gasnetc_sndrcv_init(void) {
   }
  }
 
+  /* XXX: This static/dense table could/should become dynamic/sparse */
   gasnetc_node2cep = (gasnetc_cep_t **)
 	  gasnett_malloc_aligned(GASNETI_CACHE_LINE_BYTES, gasneti_nodes*sizeof(gasnetc_cep_t *));
+  for (i = 0; i < gasneti_nodes; ++i) {
+    gasnetc_node2cep[i] = &(gasnetc_cep[i * gasnetc_alloc_qps]);
+  }
 
   /* Init thread-local data */
 #if GASNETI_THREADS
@@ -3580,10 +3584,8 @@ extern int gasnetc_sndrcv_init(void) {
 
 extern void gasnetc_sndrcv_init_peer(gasnet_node_t node) {
   static int first = 1;
-  gasnetc_cep_t *cep;
+  gasnetc_cep_t *cep = gasnetc_node2cep[node] ;
   int i, j;
-  
-  cep = gasnetc_node2cep[node] = &(gasnetc_cep[node * gasnetc_alloc_qps]);
 
   if (!gasnetc_non_ib(node)) {
     for (i = 0; i < gasnetc_alloc_qps; ++i, ++cep) {
@@ -3632,6 +3634,7 @@ extern void gasnetc_sndrcv_init_peer(gasnet_node_t node) {
     first = 0;
   } else {
     /* Should never use these for loopback or same supernode */
+    /* XXX: is this now unreachable with new connect code? */
     for (i = 0; i < gasnetc_alloc_qps; ++i, ++cep) {
       cep->epid = gasnetc_epid(node, i);
     #if GASNETC_IBV_XRC
@@ -3677,28 +3680,34 @@ extern void gasnetc_sndrcv_attach_peer(gasnet_node_t node) {
   #endif
     cep->rkeys   = gasnetc_non_ib(node) ? NULL : &hca->rkeys[node * gasnetc_max_regs];
   }
+#else
+  /* Nothing currently needed */
+#endif
+}
 
-  if (node == gasneti_mynode) { /* Needed exactly once */
+extern void gasnetc_sndrcv_attach_segment(void) {
+#if GASNETC_PIN_SEGMENT
+    int i;
+
     gasnetc_seg_ends = gasneti_malloc(gasnetc_max_regs * sizeof(uintptr_t));
     for (i = 0; i < gasnetc_max_regs; ++i) {
-#if GASNET_ALIGNED_SEGMENTS
+  #if GASNET_ALIGNED_SEGMENTS
       /* gasnetc_seg_ends values are absolute */
       gasnetc_seg_ends[i] = (gasnetc_seg_start - 1) + ((uintptr_t)(i+1) << gasnetc_pin_maxsz_shift);
-#else
+  #else
       /* gasnetc_seg_ends values are relative */
       gasnetc_seg_ends[i] = ((uintptr_t)(i+1) << gasnetc_pin_maxsz_shift) - 1;
-#endif
+  #endif
     }
-#if GASNET_ALIGNED_SEGMENTS
+  #if GASNET_ALIGNED_SEGMENTS
     gasneti_assert(i == gasnetc_max_regs);
     if (gasnetc_seg_ends[i-1] < gasnetc_seg_start) {
       /* Fixup any wrap-around */
       gasnetc_seg_ends[i-1] = ~((uintptr_t)0);
     }
-#else
+  #else
     /* Fixup is in gasnetc_get_rkey_index() due to differing lengths */
-#endif
-  }
+  #endif
 #else
   /* Nothing currently needed */
 #endif
