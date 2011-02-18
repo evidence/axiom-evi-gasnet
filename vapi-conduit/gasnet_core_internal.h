@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2011/02/18 04:55:02 $
- * $Revision: 1.192 $
+ *     $Date: 2011/02/18 05:58:43 $
+ * $Revision: 1.193 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -511,7 +511,8 @@ typedef struct {
   /* Part of hca_cap under ibv */
 #endif
   int			qps; /* qps per peer */
-  int			total_qps; /* total over all peers */
+  int			max_qps; /* maximum total over all peers */
+  int			num_qps; /* current total over all peers */
 
   gasnetc_cep_t		**cep; /* array of ptrs to all ceps */
 

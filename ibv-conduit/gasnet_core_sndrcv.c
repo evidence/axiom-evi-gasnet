@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2011/02/18 04:55:02 $
- * $Revision: 1.269 $
+ *     $Date: 2011/02/18 05:58:43 $
+ * $Revision: 1.270 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -578,7 +578,7 @@ static void gasnetc_amrdma_grant(gasnetc_hca_t *hca, gasnetc_cep_t *cep) {
   cep->amrdma_recv = gasnetc_amrdma_recv_alloc(hca);
   if (cep->amrdma_recv != NULL) {
     int count = gasneti_weakatomic_read(&hca->amrdma_rcv.count, 0);
-    gasneti_assert(count < hca->total_qps);
+    gasneti_assert(count < hca->num_qps);
     gasneti_assert(count < hca->amrdma_rcv.max_peers);
     hca->amrdma_rcv.cep[count] = cep;
     gasneti_weakatomic_set(&hca->amrdma_rcv.count, count+1, GASNETI_ATOMIC_REL);
@@ -616,7 +616,7 @@ void gasnetc_amrdma_eligable(gasnetc_cep_t *cep) {
     /* Pass 1: Collect all peers w/ counts >= floor, while also "decaying" the counters.
      * This is the only part that should be O(gasnet_nodes) on average.
      */
-    for (i = 0; i < hca->total_qps; ++i) {
+    for (i = 0; i < hca->num_qps; ++i) {
       gasneti_weakatomic_val_t x, y;
 
       cep = hca->cep[i];
@@ -3119,7 +3119,7 @@ extern int gasnetc_sndrcv_limits(void) {
   if (gasneti_nodes == 1) {
     GASNETC_FOR_ALL_HCA(hca) {
       /* Avoid a later division by zero */
-      hca->total_qps = 1;
+      hca->max_qps = 1;
       hca->qps = 1;
     }
   } else {
@@ -3129,7 +3129,7 @@ extern int gasnetc_sndrcv_limits(void) {
     for (i = 0; i < gasnetc_num_qps; ++i) {
       hca = &gasnetc_hca[gasnetc_port_tbl[i % gasnetc_num_ports].hca_index];
       hca->qps += 1;
-      hca->total_qps += gasnetc_remote_nodes;
+      hca->max_qps += gasnetc_remote_nodes;
     }
   }
 
@@ -3156,9 +3156,9 @@ extern int gasnetc_sndrcv_limits(void) {
 
   /* AM recv buffer allocation.  There are 5 roles a rcv buffer might fill (counts per HCA):
    * (1) Either 0 or 1 for use by the AM rcv thread.
-   * (2) Exactly (gasnetc_am_oust_pp * hca->total_qps) used to catch Requests
+   * (2) Exactly (gasnetc_am_oust_pp * hca->max_qps) used to catch Requests
    * (3) Upto (gasnetc_am_oust_limit * hca->qps) used to catch Replies
-   * (4) Upto (gasnetc_am_credits_slack * hca->total_qps) that are assocaited with coallesced
+   * (4) Upto (gasnetc_am_credits_slack * hca->max_qps) that are assocaited with coallesced
    *     credits and thus with Replies that did not occur.  These get recycled the next time a
    *     Request is sent on the corresponding QP, but are not free to move to any other QP.
    * (5) Free
@@ -3207,7 +3207,7 @@ extern int gasnetc_sndrcv_limits(void) {
     GASNETC_FOR_ALL_HCA(hca) {
       /* Ensure credit coallescing can't deadlock a Request (bug 1418) */
       int limit = hca->qps * gasnetc_am_repl_per_qp - gasnetc_remote_nodes; /* might be negative */
-      while (gasnetc_am_credits_slack && (gasnetc_am_credits_slack * hca->total_qps > limit)) {
+      while (gasnetc_am_credits_slack && (gasnetc_am_credits_slack * hca->max_qps > limit)) {
 	--gasnetc_am_credits_slack; /* easier to loop than get rounded arithmetic right */
       }
     }
@@ -3303,7 +3303,7 @@ extern int gasnetc_sndrcv_limits(void) {
   if (gasnetc_use_srq) {
     gasnetc_alloc_qps = 2 * gasnetc_num_qps;
     GASNETC_FOR_ALL_HCA(hca) {
-      hca->total_qps *= 2;
+      hca->max_qps *= 2;
     }
   }
  #if GASNETC_IBV_XRC
@@ -3320,7 +3320,7 @@ extern int gasnetc_sndrcv_limits(void) {
     const unsigned int max_qp = hca->hca_cap.gasnetc_f_max_qp;
     const unsigned int max_qp_wr = hca->hca_cap.gasnetc_f_max_qp_wr;
 
-    if_pf (hca->total_qps > max_qp) {
+    if_pf (hca->max_qps > max_qp) {
       GASNETC_FOR_ALL_HCA(hca) { (void)gasnetc_close_hca(hca->handle); }
       GASNETI_RETURN_ERRR(RESOURCE, "gasnet_nodes exceeds HCA capabilities");
     }
@@ -3497,7 +3497,7 @@ extern int gasnetc_sndrcv_init(void) {
         gasneti_spinlock_init(&hca->amrdma_balance.lock);
 #endif
         hca->amrdma_balance.floor = 1;
-        hca->amrdma_balance.table = gasneti_calloc(hca->total_qps, sizeof(gasnetc_amrdma_balance_tbl_t));
+        hca->amrdma_balance.table = gasneti_calloc(hca->max_qps, sizeof(gasnetc_amrdma_balance_tbl_t));
       }
     }
   }
