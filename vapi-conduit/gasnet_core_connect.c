@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_connect.c,v $
- *     $Date: 2011/02/16 22:05:05 $
- * $Revision: 1.21 $
+ *     $Date: 2011/02/18 04:55:02 $
+ * $Revision: 1.22 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -48,11 +48,10 @@ gasnetc_qpn_t *gasnetc_xrc_rcv_qpn = NULL;
 
 /* Create one XRC rcv QP */
 static int
-gasnetc_xrc_create_qp(gasnetc_cep_t *cep) {
-  const int cep_idx = (int)(cep - gasnetc_cep);
+gasnetc_xrc_create_qp(struct ibv_xrc_domain *xrc_domain, gasnet_node_t node, int qpi) {
+  const int cep_idx = node * gasnetc_alloc_qps + qpi;
   gasneti_atomic32_t *rcv_qpn_p = (gasneti_atomic32_t *)(&gasnetc_xrc_rcv_qpn[cep_idx]);
   gasnetc_qpn_t rcv_qpn = 0;
-  struct ibv_xrc_domain *xrc_domain = cep->hca->xrc_domain;
   int ret;
 
   gasneti_assert(gasnetc_xrc_rcv_qpn != NULL);
@@ -338,9 +337,9 @@ gasnetc_qp_create(gasnet_node_t node, gasnetc_conn_info_t *conn_info)
       cep->sq_sema_p = &cep->sq_sema;
       if (gasnetc_use_xrc) {
         const gasnet_node_t first = gasneti_nodemap[node];
-        first_cep = &gasnetc_cep[(first * gasnetc_alloc_qps) + qpi];
+        first_cep = GASNETC_NODE2CEP(first) + qpi;
   
-        gasnetc_xrc_create_qp(cep);
+        gasnetc_xrc_create_qp(hca->xrc_domain, node, qpi);
 
         cep->sq_sema_p = &first_cep->sq_sema;
         hndl = first_cep->qp_handle;
@@ -634,13 +633,15 @@ gasnetc_connect_all(void)
   gasnet_node_t         node;
   int                   i, qpi;
   size_t                orig_inline_limit = gasnetc_inline_limit;
+  gasnetc_cep_t          *cep; /* First cep of given node */
 
   /* Initialize connection tracking info */
   for (node = 0; node < gasneti_nodes; ++node) {
-    i = node * gasnetc_alloc_qps;
-    if (!gasnetc_cep[i].hca) continue;
+    cep = GASNETC_NODE2CEP(node);
+    if (!cep->hca) continue;
 
-    conn_info[node].cep            = &gasnetc_cep[i];
+    i = node * gasnetc_alloc_qps;
+    conn_info[node].cep            = cep;
     conn_info[node].local_qpn      = &local_qpn[i];
   #if GASNETC_IBV_XRC
     conn_info[node].local_xrc_qpn  = &gasnetc_xrc_rcv_qpn[i];
@@ -658,8 +659,8 @@ gasnetc_connect_all(void)
 
   /* create all QPs */
   GASNETC_FOR_EACH_NODE(node) {
-    i = node * gasnetc_alloc_qps;
-    if (!gasnetc_cep[i].hca) continue;
+    cep = GASNETC_NODE2CEP(node);
+    if (!cep->hca) continue;
 
     (void)gasnetc_qp_create(node, &conn_info[node]);
   }
@@ -676,7 +677,7 @@ gasnetc_connect_all(void)
     struct exchange *local_tmp  = gasneti_calloc(ceps,  sizeof(struct exchange));
     struct exchange *remote_tmp = gasneti_malloc(ceps * sizeof(struct exchange));
     GASNETC_FOR_EACH_CEP(i, node, qpi) {
-      gasnetc_hca_t *hca = gasnetc_cep[i].hca;
+      gasnetc_hca_t *hca = (GASNETC_NODE2CEP(node) + qpi)->hca;
       if (hca) {
         struct ibv_srq *srq = GASNETC_QPI_IS_REQ(qpi) ? hca->rqst_srq : hca->repl_srq;
         local_tmp[i].srq_num = srq->xrc_srq_num;
@@ -703,8 +704,8 @@ gasnetc_connect_all(void)
   /* Advance state RESET -> INIT and perform local endpoint init.
      This could be overlapped with the AlltoAll if it were non-blocking*/
   GASNETC_FOR_EACH_NODE(node) {
-    i = node * gasnetc_alloc_qps;
-    if (!gasnetc_cep[i].hca) continue;
+    cep = GASNETC_NODE2CEP(node);
+    if (!cep->hca) continue;
 
     (void)gasnetc_qp_reset2init(node, &conn_info[node]);
     gasnetc_sndrcv_init_peer(node);
@@ -712,9 +713,10 @@ gasnetc_connect_all(void)
 
   /* Would sync the AlltoAll here if it were non-blocking */
   GASNETC_FOR_EACH_NODE(node) {
-    i = node * gasnetc_alloc_qps;
-    if (!gasnetc_cep[i].hca) continue;
+    cep = GASNETC_NODE2CEP(node);
+    if (!cep->hca) continue;
 
+    i = node * gasnetc_alloc_qps;
     conn_info[node].remote_qpn     = &remote_qpn[i];
   #if GASNETC_IBV_XRC
     conn_info[node].remote_xrc_qpn = &xrc_remote_rcv_qpn[i];
@@ -724,8 +726,8 @@ gasnetc_connect_all(void)
 
   /* Advance state INIT -> RTR */
   GASNETC_FOR_EACH_NODE(node) {
-    i = node * gasnetc_alloc_qps;
-    if (!gasnetc_cep[i].hca) continue;
+    cep = GASNETC_NODE2CEP(node);
+    if (!cep->hca) continue;
 
     (void)gasnetc_qp_init2rtr(node, &conn_info[node]);
   }
@@ -736,8 +738,8 @@ gasnetc_connect_all(void)
 
   /* Advance state RTR -> RTS */
   GASNETC_FOR_EACH_NODE(node) {
-    i = node * gasnetc_alloc_qps;
-    if (!gasnetc_cep[i].hca) continue;
+    cep = GASNETC_NODE2CEP(node);
+    if (!cep->hca) continue;
 
     (void)gasnetc_qp_rtr2rts(node, &conn_info[node]);
   }

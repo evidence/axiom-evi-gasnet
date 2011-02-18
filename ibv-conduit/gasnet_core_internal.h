@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2011/02/16 22:13:54 $
- * $Revision: 1.191 $
+ *     $Date: 2011/02/18 04:55:02 $
+ * $Revision: 1.192 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -91,6 +91,9 @@
 /* check for exit in progress */
 extern gasneti_atomic_t gasnetc_exit_running;
 #define GASNETC_IS_EXITING() gasneti_atomic_read(&gasnetc_exit_running, GASNETI_ATOMIC_RMB_PRE)
+
+/* May eventually be a hash? */
+#define GASNETC_NODE2CEP(_node) (gasnetc_node2cep[_node])
 
 /* ------------------------------------------------------------------------------------ */
 #define GASNETC_HANDLER_BASE  1 /* reserve 1-63 for the core API */
@@ -744,7 +747,6 @@ extern gasneti_weakatomic_val_t gasnetc_amrdma_cycle;
 /* Global variables */
 extern int		gasnetc_num_hcas;
 extern gasnetc_hca_t	gasnetc_hca[GASNETC_IB_MAX_HCAS];
-extern gasnetc_cep_t	*gasnetc_cep;
 extern uintptr_t	gasnetc_max_msg_sz;
 #if GASNETC_PIN_SEGMENT
   extern int			gasnetc_seg_reg_count;
@@ -759,5 +761,6 @@ extern size_t			gasnetc_fh_align_mask;
 extern firehose_info_t		gasnetc_firehose_info;
 extern gasnetc_port_info_t      *gasnetc_port_tbl;
 extern int                      gasnetc_num_ports;
+extern gasnetc_cep_t            **gasnetc_node2cep;
 
 #endif

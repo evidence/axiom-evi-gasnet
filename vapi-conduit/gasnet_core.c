@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2011/02/16 22:05:05 $
- * $Revision: 1.265 $
+ *     $Date: 2011/02/18 04:55:02 $
+ * $Revision: 1.266 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -121,7 +121,6 @@ void (*gasneti_bootstrapBroadcast_p)(void *src, size_t len, void *dest, int root
 
 int		gasnetc_num_hcas = 1;
 gasnetc_hca_t	gasnetc_hca[GASNETC_IB_MAX_HCAS];
-gasnetc_cep_t	*gasnetc_cep;
 uintptr_t	gasnetc_max_msg_sz;
 int		gasnetc_qp_rd_atom;
 
@@ -1105,6 +1104,7 @@ static int gasnetc_hca_report(void) {
 }
 
 static int gasnetc_init(int *argc, char ***argv) {
+  gasnetc_cep_t         *cep_table;
   gasnetc_hca_t		*hca;
   gasnetc_lid_t		*local_lid;
   gasnetc_lid_t		*remote_lid;
@@ -1293,10 +1293,16 @@ static int gasnetc_init(int *argc, char ***argv) {
   }
   
   /* allocate resources */
+  /* XXX: These static/denses table could/should become dynamic/sparse */
   ceps = gasneti_nodes * gasnetc_alloc_qps;
-  gasnetc_cep = (gasnetc_cep_t *)
+  cep_table = (gasnetc_cep_t *)
       gasnett_malloc_aligned(GASNETI_CACHE_LINE_BYTES, ceps*sizeof(gasnetc_cep_t));
-  memset(gasnetc_cep, 0, ceps*sizeof(gasnetc_cep_t));
+  memset(cep_table, 0, ceps*sizeof(gasnetc_cep_t));
+  gasnetc_node2cep = (gasnetc_cep_t **)
+          gasnett_malloc_aligned(GASNETI_CACHE_LINE_BYTES, gasneti_nodes*sizeof(gasnetc_cep_t *));
+  for (node = 0; node < gasneti_nodes; ++node) {
+    gasnetc_node2cep[node] = &(cep_table[node * gasnetc_alloc_qps]);
+  }
 
   /* Distribute the qps to each peer round-robin over the ports */
   /* XXX: If distribution changes, then update gasnetc_sndrcv_limits() too.
@@ -1306,21 +1312,21 @@ static int gasnetc_init(int *argc, char ***argv) {
     if (GASNETC_QPI_IS_REQ(qpi)) {
       /* Second half of table (if any) duplicates first half.
          This might NOT be the same as extending the loop */
-      gasnetc_cep[i] = gasnetc_cep[i - gasnetc_num_qps];
+      cep_table[i] = cep_table[i - gasnetc_num_qps];
     } else {
       const gasnetc_port_info_t *port = gasnetc_select_port(node, qpi);
       if (!port) {
-        gasneti_assert(gasnetc_cep[i].hca == NULL);
+        gasneti_assert(cep_table[i].hca == NULL);
         continue;
       }
 
       hca = &gasnetc_hca[port->hca_index];
-      gasnetc_cep[i].hca = hca;
+      cep_table[i].hca = hca;
     #if GASNET_CONDUIT_VAPI
-      gasnetc_cep[i].hca_handle = hca->handle;
+      cep_table[i].hca_handle = hca->handle;
     #endif
     #if GASNETC_IB_MAX_HCAS > 1
-      gasnetc_cep[i].hca_index = hca->hca_index;
+      cep_table[i].hca_index = hca->hca_index;
     #endif
     }
   }
@@ -1332,8 +1338,8 @@ static int gasnetc_init(int *argc, char ***argv) {
       #if !GASNET_PSHM
         if (gasnetc_use_xrc && gasnetc_non_ib(node)) continue; /* RCV only - don't count toward total */
       #endif
-        if (gasnetc_cep[i].hca == hca) {
-          hca->cep[j++] = &gasnetc_cep[i];
+        if (cep_table[i].hca == hca) {
+          hca->cep[j++] = &cep_table[i];
         }
       }
       gasneti_assert(j == hca->total_qps);
@@ -2443,14 +2449,14 @@ static void gasnetc_init_ping(gasnet_token_t token) {
 
 GASNETI_INLINE(gasnetc_amrdma_grant_reqh_inner)
 void gasnetc_amrdma_grant_reqh_inner(gasnet_token_t token, int qpi, gasnetc_rkey_t rkey, void *addr) {
-  int index;
+  gasnetc_cep_t *cep;
   gasnet_node_t node;
 
   GASNETI_SAFE(gasnet_AMGetMsgSource(token, &node));
-  index = qpi + node * gasnetc_alloc_qps - 1;
 
-  gasneti_assert(gasnetc_cep[index].amrdma_send == NULL);
-  gasnetc_cep[index].amrdma_send = gasnetc_amrdma_send_alloc(rkey, addr);
+  cep = GASNETC_NODE2CEP(node) + (qpi - 1);
+  gasneti_assert(cep->amrdma_send == NULL);
+  cep->amrdma_send = gasnetc_amrdma_send_alloc(rkey, addr);
 
   GASNETI_TRACE_PRINTF(C,("AMRDMA_GRANT_RCV from node=%d qp=%d\n", (int)node, qpi-1));
 }

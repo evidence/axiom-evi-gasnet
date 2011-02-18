@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2011/02/16 22:05:05 $
- * $Revision: 1.268 $
+ *     $Date: 2011/02/18 04:55:02 $
+ * $Revision: 1.269 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -81,6 +81,7 @@ size_t					gasnetc_amrdma_limit;
 int					gasnetc_amrdma_depth;
 int					gasnetc_amrdma_slot_mask;
 gasneti_weakatomic_val_t		gasnetc_amrdma_cycle;
+gasnetc_cep_t				**gasnetc_node2cep = NULL;
 
 /* ------------------------------------------------------------------------------------ *
  *  File-scoped types                                                                   *
@@ -235,7 +236,6 @@ typedef struct {
 static gasneti_lifo_head_t		gasnetc_bbuf_freelist = GASNETI_LIFO_INITIALIZER;
 
 static gasneti_semaphore_t		*gasnetc_cq_semas;
-static gasnetc_cep_t			**gasnetc_node2cep;
 
 #if GASNETC_PIN_SEGMENT
   static uintptr_t			*gasnetc_seg_ends;
@@ -3564,13 +3564,6 @@ extern int gasnetc_sndrcv_init(void) {
     ++buf;
   }
  }
-
-  /* XXX: This static/dense table could/should become dynamic/sparse */
-  gasnetc_node2cep = (gasnetc_cep_t **)
-	  gasnett_malloc_aligned(GASNETI_CACHE_LINE_BYTES, gasneti_nodes*sizeof(gasnetc_cep_t *));
-  for (i = 0; i < gasneti_nodes; ++i) {
-    gasnetc_node2cep[i] = &(gasnetc_cep[i * gasnetc_alloc_qps]);
-  }
 
   /* Init thread-local data */
 #if GASNETI_THREADS
