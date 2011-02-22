@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2011/02/18 05:58:43 $
- * $Revision: 1.193 $
+ *     $Date: 2011/02/22 03:01:13 $
+ * $Revision: 1.194 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -638,7 +638,6 @@ typedef struct {
 
 /* Info used for connection establishment */
 typedef struct {
-  int               state;       /* Used internally */
   gasnetc_cep_t     *cep;        /* Vector of gasnet endpoints */
   gasnetc_qpn_t     *local_qpn;  /* Local qpns of connections */
   gasnetc_qpn_t     *remote_qpn; /* Remote qpns of connections */
