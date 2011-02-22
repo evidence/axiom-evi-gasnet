@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2011/02/22 03:21:34 $
- * $Revision: 1.268 $
+ *     $Date: 2011/02/22 04:27:54 $
+ * $Revision: 1.269 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1110,8 +1110,7 @@ static int gasnetc_init(int *argc, char ***argv) {
   gasnetc_lid_t		*remote_lid;
   gasnet_node_t		node;
   int			vstat;
-  int			ceps;
-  int 			i, qpi;
+  int 			i;
 
   /*  check system sanity */
   gasnetc_check_config();
@@ -1293,42 +1292,14 @@ static int gasnetc_init(int *argc, char ***argv) {
   }
   
   /* allocate resources */
-  /* XXX: These static/denses table could/should become dynamic/sparse */
-  ceps = gasneti_nodes * gasnetc_alloc_qps;
+  /* XXX: These static/dense tables could/should become dynamic/sparse */
   cep_table = (gasnetc_cep_t *)
-      gasnett_malloc_aligned(GASNETI_CACHE_LINE_BYTES, ceps*sizeof(gasnetc_cep_t));
-  memset(cep_table, 0, ceps*sizeof(gasnetc_cep_t));
+      gasnett_malloc_aligned(GASNETI_CACHE_LINE_BYTES,
+                             gasneti_nodes * gasnetc_alloc_qps * sizeof(gasnetc_cep_t));
   gasnetc_node2cep = (gasnetc_cep_t **)
           gasnett_malloc_aligned(GASNETI_CACHE_LINE_BYTES, gasneti_nodes*sizeof(gasnetc_cep_t *));
   for (node = 0; node < gasneti_nodes; ++node) {
     gasnetc_node2cep[node] = &(cep_table[node * gasnetc_alloc_qps]);
-  }
-
-  /* Distribute the qps to each peer round-robin over the ports */
-  /* XXX: If distribution changes, then update gasnetc_sndrcv_limits() too.
-   * XXX: Sparse cep table will prevent use of this full enumeration.
-   */
-  GASNETC_FOR_EACH_CEP(i, node, qpi) {
-    if (GASNETC_QPI_IS_REQ(qpi)) {
-      /* Second half of table (if any) duplicates first half.
-         This might NOT be the same as extending the loop */
-      cep_table[i] = cep_table[i - gasnetc_num_qps];
-    } else {
-      const gasnetc_port_info_t *port = gasnetc_select_port(node, qpi);
-      if (!port) {
-        gasneti_assert(cep_table[i].hca == NULL);
-        continue;
-      }
-
-      hca = &gasnetc_hca[port->hca_index];
-      cep_table[i].hca = hca;
-    #if GASNET_CONDUIT_VAPI
-      cep_table[i].hca_handle = hca->handle;
-    #endif
-    #if GASNETC_IB_MAX_HCAS > 1
-      cep_table[i].hca_index = hca->hca_index;
-    #endif
-    }
   }
 
 #if GASNETC_IBV_XRC

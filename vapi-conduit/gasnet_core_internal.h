@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2011/02/22 03:01:13 $
- * $Revision: 1.194 $
+ *     $Date: 2011/02/22 04:27:54 $
+ * $Revision: 1.195 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -318,9 +318,6 @@ typedef union {
   #define GASNETC_FOR_ALL_HCA_INDEX(h)	for (h = 0; h < 1; ++h)
   #define GASNETC_FOR_ALL_HCA(p)	for (p = &gasnetc_hca[0]; p < &gasnetc_hca[1]; ++p)
 #endif
-#define GASNETC_FOR_EACH_CEP(_i, _node, _qpi)  \
-  for (_i = _node = 0; _node < gasneti_nodes; ++_node) \
-    for (_qpi = 0; _qpi < gasnetc_alloc_qps; ++_qpi, ++_i)
 
 /* ------------------------------------------------------------------------------------ */
 /* Map VAPI and IBV to a common gasnetc_ prefix */

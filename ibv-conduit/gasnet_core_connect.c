@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2011/02/22 03:01:13 $
- * $Revision: 1.23 $
+ *     $Date: 2011/02/22 04:27:54 $
+ * $Revision: 1.24 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -30,10 +30,13 @@
 
 #define GASNETC_PSN(_sender, _qpi)  ((_sender)*gasnetc_alloc_qps + (_qpi))
 
-/* Convenience iterator */
+/* Convenience iterators */
 #define GASNETC_FOR_EACH_QPI(_conn_info, _qpi, _cep)  \
   for((_cep) = (_conn_info)->cep, (_qpi) = 0; \
       (_qpi) < gasnetc_alloc_qps; ++(_cep), ++(_qpi))
+#define GASNETC_FOR_EACH_CEP(_i, _node, _qpi)  \
+  for (_i = _node = 0; _node < gasneti_nodes; ++_node) \
+    for (_qpi = 0; _qpi < gasnetc_alloc_qps; ++_qpi, ++_i)
 
 /* Common types */
 typedef GASNETC_IB_CHOOSE(VAPI_qp_attr_t,       struct ibv_qp_attr)     gasnetc_qp_attr_t;
@@ -705,11 +708,50 @@ gasnetc_connect_all(void)
     for ((_node) = 0; (_node) < gasneti_nodes; ++(_node))
 #endif
 
-  /* Initialize connection tracking info */
-  for (node = 0; node < gasneti_nodes; ++node) {
+  /* Distribute the qps * round-robin over the ports.
+   * XXX: If distribution changes, then update gasnetc_sndrcv_limits() too.
+   */
+  GASNETC_FOR_EACH_NODE(node) {
     cep = GASNETC_NODE2CEP(node);
-    if (!cep->hca) continue;
+    memset(cep, 0, gasnetc_alloc_qps * sizeof(gasnetc_cep_t));
 
+    for (qpi = 0; qpi < gasnetc_num_qps; ++qpi) {
+      gasnetc_hca_t *hca;
+
+      const gasnetc_port_info_t *port = gasnetc_select_port(node, qpi);
+      if (!port) {
+        gasneti_assert(cep[qpi].hca == NULL);
+        break; /* advances to next node */
+      }
+
+      hca = &gasnetc_hca[port->hca_index];
+      cep[qpi].hca = hca;
+    #if GASNET_CONDUIT_VAPI
+      cep[qpi].hca_handle = hca->handle;
+    #endif
+    #if GASNETC_IB_MAX_HCAS > 1
+      cep[qpi].hca_index = hca->hca_index;
+    #endif
+
+    #if GASNETC_IBV_SRQ
+      if (gasnetc_use_srq) {
+        /* Second half of table (if any) duplicates first half.
+           This might NOT be the same as extending the loop */
+        cep[qpi + gasnetc_num_qps].hca = hca;
+      #if GASNET_CONDUIT_VAPI
+        cep[qpi + gasnetc_num_qps].hca_handle = hca->handle;
+      #endif
+      #if GASNETC_IB_MAX_HCAS > 1
+        cep[qpi + gasnetc_num_qps].hca_index = hca->hca_index;
+      #endif
+      }
+    #endif
+    }
+  }
+
+  /* Initialize connection tracking info */
+  GASNETC_FOR_EACH_NODE(node) {
+    cep = GASNETC_NODE2CEP(node);
     i = node * gasnetc_alloc_qps;
     conn_info[node].cep            = cep;
     conn_info[node].local_qpn      = &local_qpn[i];
