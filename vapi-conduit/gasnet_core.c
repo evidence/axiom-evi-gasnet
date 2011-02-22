@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2011/02/22 08:46:49 $
- * $Revision: 1.272 $
+ *     $Date: 2011/02/22 21:58:59 $
+ * $Revision: 1.273 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1607,8 +1607,9 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   /* Global and per-endpoint work */
   gasnetc_sndrcv_attach_segment();
   for (i = 0; i < gasneti_nodes; i++) {
-    if (gasnetc_non_ib(i)) continue;
-    gasnetc_sndrcv_attach_peer(i);
+    if (GASNETC_NODE2CEP(i)) {
+      gasnetc_sndrcv_attach_peer(i);
+    }
   }
 
   /* Initialize firehose */
