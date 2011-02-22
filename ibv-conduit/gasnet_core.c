@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2011/02/22 04:27:54 $
- * $Revision: 1.269 $
+ *     $Date: 2011/02/22 05:01:03 $
+ * $Revision: 1.270 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1104,7 +1104,6 @@ static int gasnetc_hca_report(void) {
 }
 
 static int gasnetc_init(int *argc, char ***argv) {
-  gasnetc_cep_t         *cep_table;
   gasnetc_hca_t		*hca;
   gasnetc_lid_t		*local_lid;
   gasnetc_lid_t		*remote_lid;
@@ -1291,17 +1290,6 @@ static int gasnetc_init(int *argc, char ***argv) {
     return i;
   }
   
-  /* allocate resources */
-  /* XXX: These static/dense tables could/should become dynamic/sparse */
-  cep_table = (gasnetc_cep_t *)
-      gasnett_malloc_aligned(GASNETI_CACHE_LINE_BYTES,
-                             gasneti_nodes * gasnetc_alloc_qps * sizeof(gasnetc_cep_t));
-  gasnetc_node2cep = (gasnetc_cep_t **)
-          gasnett_malloc_aligned(GASNETI_CACHE_LINE_BYTES, gasneti_nodes*sizeof(gasnetc_cep_t *));
-  for (node = 0; node < gasneti_nodes; ++node) {
-    gasnetc_node2cep[node] = &(cep_table[node * gasnetc_alloc_qps]);
-  }
-
 #if GASNETC_IBV_XRC
   /* allocate/initialize XRC support */
   if (gasnetc_use_xrc) {

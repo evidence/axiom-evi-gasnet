@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2011/02/22 03:21:34 $
- * $Revision: 1.271 $
+ *     $Date: 2011/02/22 05:01:03 $
+ * $Revision: 1.272 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -3572,6 +3572,12 @@ extern int gasnetc_sndrcv_init(void) {
 #else
   gasnetc_per_thread_init(&gasnetc_per_thread);
 #endif
+
+  /* Allocate node->cep lookup table */
+  size = gasneti_nodes*sizeof(gasnetc_cep_t *);
+  gasnetc_node2cep = (gasnetc_cep_t **)
+    gasnett_malloc_aligned(GASNETI_CACHE_LINE_BYTES, size);
+  memset(gasnetc_node2cep, 0, size);
 
   return GASNET_OK;
 }
