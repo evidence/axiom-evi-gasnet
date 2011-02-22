@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2011/02/22 05:01:03 $
- * $Revision: 1.25 $
+ *     $Date: 2011/02/22 05:19:15 $
+ * $Revision: 1.26 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -311,6 +311,8 @@ gasnetc_setup_node(gasnet_node_t node) {
     }
   #endif
   }
+
+  return GASNET_OK;
 }
 
 /* Create endpoint(s) for a given peer
