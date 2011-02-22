@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2011/02/22 05:19:15 $
- * $Revision: 1.26 $
+ *     $Date: 2011/02/22 06:36:47 $
+ * $Revision: 1.27 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -42,6 +42,17 @@
 typedef GASNETC_IB_CHOOSE(VAPI_qp_attr_t,       struct ibv_qp_attr)     gasnetc_qp_attr_t;
 typedef GASNETC_IB_CHOOSE(VAPI_qp_attr_mask_t,  enum ibv_qp_attr_mask)  gasnetc_qp_mask_t;
 
+/* Info used for connection establishment */
+typedef struct {
+  gasnetc_cep_t     *cep;        /* Vector of gasnet endpoints */
+  gasnetc_qpn_t     *local_qpn;  /* Local qpns of connections */
+  gasnetc_qpn_t     *remote_qpn; /* Remote qpns of connections */
+#if GASNETC_IBV_XRC
+  gasnetc_qpn_t     *local_xrc_qpn;  /* Local qpns of XRC rcv qps */
+  gasnetc_qpn_t     *remote_xrc_qpn; /* Remote qpns of XRC rcv qps */
+  uint32_t          *xrc_remote_srq_num; /* Remote SRQ numbers */
+#endif
+} gasnetc_conn_info_t;
 
 #if GASNETC_IBV_XRC
   #define GASNETC_SND_QP_NEEDS_MODIFY(_xrc_snd_qp,_state) \
@@ -62,7 +73,7 @@ static gasnetc_xrc_snd_qp_t *gasnetc_xrc_snd_qp = NULL;
 #define GASNETC_NODE2SND_QP(_node) \
 	(&gasnetc_xrc_snd_qp[gasneti_nodeinfo[(_node)] * gasnetc_alloc_qps])
 
-gasnetc_qpn_t *gasnetc_xrc_rcv_qpn = NULL;
+static gasnetc_qpn_t *gasnetc_xrc_rcv_qpn = NULL;
 
 /* Create one XRC rcv QP */
 static int

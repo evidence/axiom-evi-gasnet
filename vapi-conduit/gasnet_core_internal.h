@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2011/02/22 05:01:03 $
- * $Revision: 1.196 $
+ *     $Date: 2011/02/22 06:36:47 $
+ * $Revision: 1.197 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -633,18 +633,6 @@ typedef struct {
   gasnetc_lid_t         *remote_lids;
 } gasnetc_port_info_t;
 
-/* Info used for connection establishment */
-typedef struct {
-  gasnetc_cep_t     *cep;        /* Vector of gasnet endpoints */
-  gasnetc_qpn_t     *local_qpn;  /* Local qpns of connections */
-  gasnetc_qpn_t     *remote_qpn; /* Remote qpns of connections */
-#if GASNETC_IBV_XRC
-  gasnetc_qpn_t     *local_xrc_qpn;  /* Local qpns of XRC rcv qps */
-  gasnetc_qpn_t     *remote_xrc_qpn; /* Remote qpns of XRC rcv qps */
-  uint32_t          *xrc_remote_srq_num; /* Remote SRQ numbers */
-#endif
-} gasnetc_conn_info_t;
-
 /* Routines in gasnet_core_connect.c */
 extern int gasnetc_connect_all(void);
 #if GASNETC_IBV_XRC
@@ -731,7 +719,6 @@ extern gasneti_weakatomic_val_t gasnetc_amrdma_cycle;
 
 #if GASNETC_IBV_XRC
   extern int			gasnetc_use_xrc;
-  extern gasnetc_qpn_t		*gasnetc_xrc_rcv_qpn;
 #else
   #define gasnetc_use_xrc	0
 #endif
