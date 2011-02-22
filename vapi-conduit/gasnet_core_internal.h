@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2011/02/22 06:50:25 $
- * $Revision: 1.198 $
+ *     $Date: 2011/02/22 08:46:49 $
+ * $Revision: 1.199 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -739,5 +739,6 @@ extern firehose_info_t		gasnetc_firehose_info;
 extern gasnetc_port_info_t      *gasnetc_port_tbl;
 extern int                      gasnetc_num_ports;
 extern gasnetc_cep_t            **gasnetc_node2cep;
+extern gasnet_node_t            gasnetc_remote_nodes;
 
 #endif

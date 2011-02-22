@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2011/02/22 07:17:59 $
- * $Revision: 1.29 $
+ *     $Date: 2011/02/22 08:46:49 $
+ * $Revision: 1.30 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -34,9 +34,6 @@
 #define GASNETC_FOR_EACH_QPI(_conn_info, _qpi, _cep)  \
   for((_cep) = (_conn_info)->cep, (_qpi) = 0; \
       (_qpi) < gasnetc_alloc_qps; ++(_cep), ++(_qpi))
-#define GASNETC_FOR_EACH_CEP(_i, _node, _qpi)  \
-  for (_i = _node = 0; _node < gasneti_nodes; ++_node) \
-    for (_qpi = 0; _qpi < gasnetc_alloc_qps; ++_qpi, ++_i)
 
 /* Common types */
 typedef GASNETC_IB_CHOOSE(VAPI_qp_attr_t,       struct ibv_qp_attr)     gasnetc_qp_attr_t;
@@ -284,16 +281,12 @@ gasnetc_setup_node(gasnet_node_t node) {
    */
   memset(cep, 0, gasnetc_alloc_qps * sizeof(gasnetc_cep_t));
 
+  if (gasnetc_non_ib(node)) return GASNET_OK;
+
   for (qpi = 0; qpi < gasnetc_num_qps; ++qpi) {
-    gasnetc_hca_t *hca;
-
     const gasnetc_port_info_t *port = gasnetc_select_port(node, qpi);
-    if (!port) {
-      gasneti_assert(cep[qpi].hca == NULL);
-      break;
-    }
+    gasnetc_hca_t *hca = &gasnetc_hca[port->hca_index];
 
-    hca = &gasnetc_hca[port->hca_index];
     cep[qpi].hca = hca;
   #if GASNET_CONDUIT_VAPI
     cep[qpi].hca_handle = hca->handle;
@@ -701,24 +694,27 @@ gasnetc_qp_rtr2rts(gasnet_node_t node, gasnetc_conn_info_t *conn_info)
 #if GASNET_DEBUG
 #include <stdlib.h>
 static void
-permute_nodes(gasnet_node_t *node_list)
+permute_remote_nodes(gasnet_node_t *node_list)
 {
   static int done_init = 0;
-  gasnet_node_t i;
+  gasnet_node_t idx,node,swap;
 
   if_pf (!done_init) srand(getpid());
   done_init = 1;
 
-  for (i=0; i<gasneti_nodes; ++i) {
-    int swap = (int)(((double)(i+1))*rand()/(RAND_MAX+1.0));
-    gasneti_assert(swap <= i);
-    if (swap == i) {
-      node_list[i] = i;
+  for (node = idx = 0; node < gasneti_nodes; ++node) {
+    if (gasnetc_non_ib(node)) continue;
+    swap = (gasnet_node_t)(((double)(idx+1))*rand()/(RAND_MAX+1.0));
+    gasneti_assert(swap <= idx);
+    if (swap == idx) {
+      node_list[idx] = node;
     } else {
-      node_list[i] = node_list[swap];
-      node_list[swap] = i;
+      node_list[idx] = node_list[swap];
+      node_list[swap] = node;
     }
+    ++idx;
   }
+  gasneti_assert(idx == gasnetc_remote_nodes);
 }
 #endif
 
@@ -739,35 +735,41 @@ gasnetc_connect_all(void)
   size_t                orig_inline_limit = gasnetc_inline_limit;
   gasnetc_cep_t         *cep; /* First cep of given node */
 
+  if_pf (!gasnetc_remote_nodes) return GASNET_OK;
+
   /* Debug build loops in random order to help ensure connect code is order-independent */
 #if GASNET_DEBUG
-  gasnet_node_t *node_list = gasneti_malloc(gasneti_nodes * sizeof(gasnet_node_t));
+  gasnet_node_t *node_list = gasneti_malloc(gasnetc_remote_nodes * sizeof(gasnet_node_t));
   gasnet_node_t node_idx;
 
-  #define GASNETC_FOR_EACH_NODE(_node) \
-    for (permute_nodes(node_list), node_idx=0, (_node) = node_list[0]; \
-         node_idx < gasneti_nodes; (_node) = node_list[++node_idx])
+  #define GASNETC_FOR_EACH_REMOTE_NODE(_node) \
+    for (permute_remote_nodes(node_list), node_idx=0, (_node) = node_list[0]; \
+         node_idx < gasnetc_remote_nodes; (_node) = node_list[++node_idx])
 #else
-  #define GASNETC_FOR_EACH_NODE(_node) \
-    for ((_node) = 0; (_node) < gasneti_nodes; ++(_node))
+  #define GASNETC_FOR_EACH_REMOTE_NODE(_node) \
+    for ((_node) = 0; (_node) < gasneti_nodes; ++(_node)) \
+      if (!gasnetc_non_ib(_node))
 #endif
 
-  /* Allocate the dense CEP table, populate the node2cep table,
+  /* Allocate the (almost) dense CEP table, populate the node2cep table,
      and distribute the qps * round-robin over the ports. */
-  { gasnetc_cep_t *cep_table = (gasnetc_cep_t *)
+  {
+    gasnetc_cep_t *cep_table = (gasnetc_cep_t *)
       gasnett_malloc_aligned(GASNETI_CACHE_LINE_BYTES,
-                             gasneti_nodes * gasnetc_alloc_qps * sizeof(gasnetc_cep_t));
-    GASNETC_FOR_EACH_NODE(node) {
-      gasnetc_node2cep[node] = &(cep_table[node * gasnetc_alloc_qps]);
+                             gasnetc_remote_nodes * gasnetc_alloc_qps * sizeof(gasnetc_cep_t));
+    for (i = 0, node = 0; node < gasneti_nodes; ++node) { /* NOT randomized */
+      if (gasnetc_non_ib(node)) continue;
+      gasnetc_node2cep[node] = &(cep_table[i]);
       gasnetc_setup_node(node);
+      i +=  gasnetc_alloc_qps;
     }
+    gasneti_assert(i == gasnetc_remote_nodes * gasnetc_alloc_qps);
   }
 
   /* Initialize connection tracking info */
-  GASNETC_FOR_EACH_NODE(node) {
-    cep = GASNETC_NODE2CEP(node);
+  GASNETC_FOR_EACH_REMOTE_NODE(node) {
     i = node * gasnetc_alloc_qps;
-    conn_info[node].cep            = cep;
+    conn_info[node].cep            = GASNETC_NODE2CEP(node);
     conn_info[node].local_qpn      = &local_qpn[i];
   #if GASNETC_IBV_XRC
     conn_info[node].local_xrc_qpn  = &gasnetc_xrc_rcv_qpn[i];
@@ -775,10 +777,7 @@ gasnetc_connect_all(void)
   }
 
   /* create all QPs */
-  GASNETC_FOR_EACH_NODE(node) {
-    cep = GASNETC_NODE2CEP(node);
-    if (!cep->hca) continue;
-
+  GASNETC_FOR_EACH_REMOTE_NODE(node) {
     (void)gasnetc_qp_create(node, &conn_info[node]);
   }
 
@@ -793,14 +792,17 @@ gasnetc_connect_all(void)
     };
     struct exchange *local_tmp  = gasneti_calloc(ceps,  sizeof(struct exchange));
     struct exchange *remote_tmp = gasneti_malloc(ceps * sizeof(struct exchange));
-    GASNETC_FOR_EACH_CEP(i, node, qpi) {
-      gasnetc_hca_t *hca = (GASNETC_NODE2CEP(node) + qpi)->hca;
-      if (hca) {
-        struct ibv_srq *srq = GASNETC_QPI_IS_REQ(qpi) ? hca->rqst_srq : hca->repl_srq;
-        local_tmp[i].srq_num = srq->xrc_srq_num;
+    for (i = node = 0; node < gasneti_nodes; ++node) {
+      cep = GASNETC_NODE2CEP(node);
+      for (qpi = 0; qpi < gasnetc_alloc_qps; ++qpi, ++i) {
+        if (!gasnetc_non_ib(node)) {
+          gasnetc_hca_t *hca = cep[qpi].hca;
+          struct ibv_srq *srq = GASNETC_QPI_IS_REQ(qpi) ? hca->rqst_srq : hca->repl_srq;
+          local_tmp[i].srq_num = srq->xrc_srq_num;
+        }
+        local_tmp[i].xrc_qpn = gasnetc_xrc_rcv_qpn[i];
+        local_tmp[i].qpn     = local_qpn[i];
       }
-      local_tmp[i].xrc_qpn = gasnetc_xrc_rcv_qpn[i];
-      local_tmp[i].qpn     = local_qpn[i];
     }
     gasneti_bootstrapAlltoall(local_tmp,
                               gasnetc_alloc_qps * sizeof(struct exchange),
@@ -820,19 +822,13 @@ gasnetc_connect_all(void)
 
   /* Advance state RESET -> INIT and perform local endpoint init.
      This could be overlapped with the AlltoAll if it were non-blocking*/
-  GASNETC_FOR_EACH_NODE(node) {
-    cep = GASNETC_NODE2CEP(node);
-    if (!cep->hca) continue;
-
+  GASNETC_FOR_EACH_REMOTE_NODE(node) {
     (void)gasnetc_qp_reset2init(node, &conn_info[node]);
     gasnetc_sndrcv_init_peer(node);
   }
 
   /* Would sync the AlltoAll here if it were non-blocking */
-  GASNETC_FOR_EACH_NODE(node) {
-    cep = GASNETC_NODE2CEP(node);
-    if (!cep->hca) continue;
-
+  GASNETC_FOR_EACH_REMOTE_NODE(node) {
     i = node * gasnetc_alloc_qps;
     conn_info[node].remote_qpn     = &remote_qpn[i];
   #if GASNETC_IBV_XRC
@@ -842,22 +838,16 @@ gasnetc_connect_all(void)
   }
 
   /* Advance state INIT -> RTR */
-  GASNETC_FOR_EACH_NODE(node) {
-    cep = GASNETC_NODE2CEP(node);
-    if (!cep->hca) continue;
-
+  GASNETC_FOR_EACH_REMOTE_NODE(node) {
     (void)gasnetc_qp_init2rtr(node, &conn_info[node]);
   }
 
   /* QPs must reach RTS before we may continue
-     (not strictly necessary in paractice as long as we don't try to send until peers do.) */
+     (not strictly necessary in practice as long as we don't try to send until peers do.) */
   gasneti_bootstrapBarrier();
 
   /* Advance state RTR -> RTS */
-  GASNETC_FOR_EACH_NODE(node) {
-    cep = GASNETC_NODE2CEP(node);
-    if (!cep->hca) continue;
-
+  GASNETC_FOR_EACH_REMOTE_NODE(node) {
     (void)gasnetc_qp_rtr2rts(node, &conn_info[node]);
   }
 

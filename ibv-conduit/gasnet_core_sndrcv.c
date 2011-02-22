@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2011/02/22 06:50:25 $
- * $Revision: 1.273 $
+ *     $Date: 2011/02/22 08:46:49 $
+ * $Revision: 1.274 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -82,6 +82,7 @@ int					gasnetc_amrdma_depth;
 int					gasnetc_amrdma_slot_mask;
 gasneti_weakatomic_val_t		gasnetc_amrdma_cycle;
 gasnetc_cep_t				**gasnetc_node2cep = NULL;
+gasnet_node_t                           gasnetc_remote_nodes = 0;
 
 /* ------------------------------------------------------------------------------------ *
  *  File-scoped types                                                                   *
@@ -252,7 +253,6 @@ static int gasnetc_op_oust_per_qp;
 static int gasnetc_am_repl_per_qp;
 static int gasnetc_am_rqst_per_qp;
 static int gasnetc_am_rbufs_per_qp;
-static gasnet_node_t gasnetc_remote_nodes;
 
 /* ------------------------------------------------------------------------------------ *
  *  File-scoped functions and macros                                                    *
@@ -3109,11 +3109,7 @@ extern int gasnetc_sndrcv_limits(void) {
   int 			h;
   const int 		rcv_spare = (gasnetc_use_rcv_thread ? 1 : 0);
 
-#if GASNET_PSHM
-  gasnetc_remote_nodes = gasneti_nodes - gasneti_pshm_nodes;
-#else
-  gasnetc_remote_nodes = gasneti_nodes - 1;
-#endif
+  gasnetc_remote_nodes = gasneti_nodes - (GASNET_PSHM ? gasneti_nodemap_local_count : 1);
 
   /* Count normal qps to be placed on each HCA */
   if (gasneti_nodes == 1) {
@@ -3672,9 +3668,9 @@ extern void gasnetc_sndrcv_attach_peer(gasnet_node_t node) {
   for (i = 0; i < gasnetc_alloc_qps; ++i, ++cep) {
     gasnetc_hca_t *hca = cep->hca;
   #if GASNETC_IB_MAX_HCAS > 1
-    cep->seg_reg = gasnetc_non_ib(node) ? NULL : hca->seg_reg;
+    cep->seg_reg = hca->seg_reg;
   #endif
-    cep->rkeys   = gasnetc_non_ib(node) ? NULL : &hca->rkeys[node * gasnetc_max_regs];
+    cep->rkeys   = &hca->rkeys[node * gasnetc_max_regs];
   }
 #else
   /* Nothing currently needed */
