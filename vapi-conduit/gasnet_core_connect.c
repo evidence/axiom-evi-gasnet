@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_connect.c,v $
- *     $Date: 2011/02/22 06:36:47 $
- * $Revision: 1.27 $
+ *     $Date: 2011/02/22 06:50:25 $
+ * $Revision: 1.28 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -199,7 +199,7 @@ gasnetc_xrc_tmpname(gasnetc_lid_t mylid, int index) {
 
 /* Create an XRC domain per HCA (once per supernode) and a shared memory file */
 /* XXX: Requires that the call is collective */
-extern int
+static int
 gasnetc_xrc_init(void) {
   const gasnetc_lid_t mylid = gasnetc_port_tbl[0].port.lid;
   char *filename[GASNETC_IB_MAX_HCAS+1];
@@ -921,3 +921,25 @@ gasnetc_connect_all(void)
 
   return GASNET_OK;
 } /* gasnetc_connect_all */
+
+/* Early setup for connection resources */
+extern int
+gasnetc_connect_init(void)
+{
+
+  /* Allocate node->cep lookup table */
+  { size_t size = gasneti_nodes*sizeof(gasnetc_cep_t *);
+    gasnetc_node2cep = (gasnetc_cep_t **)
+      gasnett_malloc_aligned(GASNETI_CACHE_LINE_BYTES, size);
+    memset(gasnetc_node2cep, 0, size);
+  }
+
+#if GASNETC_IBV_XRC
+  if (gasnetc_use_xrc) {
+    int ret = gasnetc_xrc_init();
+    if (ret) return ret;
+  }
+#endif
+
+  return GASNET_OK;
+} /* gasnetc_connect_init */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2011/02/22 05:01:03 $
- * $Revision: 1.270 $
+ *     $Date: 2011/02/22 06:50:25 $
+ * $Revision: 1.271 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1290,13 +1290,11 @@ static int gasnetc_init(int *argc, char ***argv) {
     return i;
   }
   
-#if GASNETC_IBV_XRC
-  /* allocate/initialize XRC support */
-  if (gasnetc_use_xrc) {
-    vstat = gasnetc_xrc_init();
-    GASNETC_VAPI_CHECK(vstat, "from gasnetc_xrc_init()");
+  /* allocate/initialize connection resources */
+  i = gasnetc_connect_init();
+  if (i != GASNET_OK) {
+    return i;
   }
-#endif
 
   /* allocate/initialize transport resources */
   i = gasnetc_sndrcv_init();

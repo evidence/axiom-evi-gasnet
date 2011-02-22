@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2011/02/22 05:01:03 $
- * $Revision: 1.272 $
+ *     $Date: 2011/02/22 06:50:25 $
+ * $Revision: 1.273 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -1115,7 +1115,7 @@ gasnetc_epid_t gasnetc_epid_select_qpi(gasnetc_cep_t *ceps, gasnetc_epid_t epid,
 GASNETI_INLINE(gasnetc_bind_cep)
 gasnetc_cep_t *gasnetc_bind_cep(gasnetc_epid_t epid, gasnetc_sreq_t *sreq,
 				gasnetc_wr_opcode_t op, size_t len) {
-  gasnetc_cep_t *ceps = gasnetc_node2cep[gasnetc_epid2node(epid)];
+  gasnetc_cep_t *ceps = GASNETC_NODE2CEP(gasnetc_epid2node(epid));
   gasnetc_cep_t *cep;
   int qpi;
 
@@ -1185,7 +1185,7 @@ void gasnetc_rcv_am(const gasnetc_wc_t *comp, gasnetc_rbuf_t **spare_p) {
 #endif
 
     /* SRQ means rbuf->cep is "inexact", so must reconstruct */
-    cep = gasnetc_node2cep[GASNETC_MSG_SRCIDX(flags)];
+    cep = GASNETC_NODE2CEP(GASNETC_MSG_SRCIDX(flags));
     if (GASNETC_MSG_ISREQUEST(flags)) {
       cep += gasnetc_num_qps; /* Search top half of table */
     }
@@ -2079,7 +2079,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
     } else {
       const int qp_offset = gasnetc_use_srq ? gasnetc_num_qps : 0;
       int qpi;
-      cep = gasnetc_node2cep[dest] + qp_offset;
+      cep = GASNETC_NODE2CEP(dest) + qp_offset;
 #if 0
       /* Bind to a specific queue pair, selecting by largest credits */
       qpi = 0;
@@ -3573,18 +3573,12 @@ extern int gasnetc_sndrcv_init(void) {
   gasnetc_per_thread_init(&gasnetc_per_thread);
 #endif
 
-  /* Allocate node->cep lookup table */
-  size = gasneti_nodes*sizeof(gasnetc_cep_t *);
-  gasnetc_node2cep = (gasnetc_cep_t **)
-    gasnett_malloc_aligned(GASNETI_CACHE_LINE_BYTES, size);
-  memset(gasnetc_node2cep, 0, size);
-
   return GASNET_OK;
 }
 
 extern void gasnetc_sndrcv_init_peer(gasnet_node_t node) {
   static int first = 1;
-  gasnetc_cep_t *cep = gasnetc_node2cep[node] ;
+  gasnetc_cep_t *cep = GASNETC_NODE2CEP(node) ;
   int i, j;
 
   if (!gasnetc_non_ib(node)) {
@@ -3672,7 +3666,7 @@ extern void gasnetc_sndrcv_init_inline(void) {
 
 extern void gasnetc_sndrcv_attach_peer(gasnet_node_t node) {
 #if GASNETC_PIN_SEGMENT
-  gasnetc_cep_t *cep = gasnetc_node2cep[node];
+  gasnetc_cep_t *cep = GASNETC_NODE2CEP(node);
   int i;
 
   for (i = 0; i < gasnetc_alloc_qps; ++i, ++cep) {
@@ -3754,7 +3748,7 @@ extern void gasnetc_sndrcv_fini_peer(gasnet_node_t node) {
   int i;
 
   if (!gasnetc_non_ib(node)) {
-    gasnetc_cep_t *cep = gasnetc_node2cep[node];
+    gasnetc_cep_t *cep = GASNETC_NODE2CEP(node);
     for (i = 0; i < gasnetc_alloc_qps; ++i, ++cep) {
     #if GASNETC_IBV_XRC
       /* XXX: Is there a smarter wayto ID a "clone"? */
