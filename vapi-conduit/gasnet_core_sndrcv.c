@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2011/02/18 05:58:43 $
- * $Revision: 1.270 $
+ *     $Date: 2011/02/22 03:21:34 $
+ * $Revision: 1.271 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -3464,9 +3464,10 @@ extern int gasnetc_sndrcv_init(void) {
 #endif
       
       /* Initialize resources for AM-over-RDMA */
+      hca->cep = gasneti_calloc(hca->max_qps, sizeof(gasnetc_cep_t *));
       gasneti_weakatomic_set(&hca->amrdma_rcv.count, 0, 0);
-      if (hca->amrdma_rcv.max_peers) {
-	const int max_peers = hca->amrdma_rcv.max_peers;
+      if (gasnetc_amrdma_max_peers && hca->max_qps) {
+	const int max_peers = hca->amrdma_rcv.max_peers = MIN(gasnetc_amrdma_max_peers, hca->max_qps);
 	size_t alloc_size = GASNETI_PAGE_ALIGNUP(max_peers * (gasnetc_amrdma_depth << GASNETC_AMRDMA_SZ_LG2) + GASNETC_AMRDMA_PAD);
 	void *buf = gasneti_mmap(alloc_size);
 
@@ -3596,6 +3597,8 @@ extern void gasnetc_sndrcv_init_peer(gasnet_node_t node) {
       gasneti_weakatomic_set(&cep->amrdma_eligable, 0, 0);
       cep->amrdma_send = NULL;
       cep->amrdma_recv = NULL;
+      hca->cep[hca->num_qps++] = cep;
+      gasneti_assert(hca->num_qps <= hca->max_qps);
 
       if (gasnetc_use_srq) {
         /* Prepost to SRQ for exactly one peer */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2011/02/18 05:58:43 $
- * $Revision: 1.267 $
+ *     $Date: 2011/02/22 03:21:34 $
+ * $Revision: 1.268 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1328,23 +1328,6 @@ static int gasnetc_init(int *argc, char ***argv) {
     #if GASNETC_IB_MAX_HCAS > 1
       cep_table[i].hca_index = hca->hca_index;
     #endif
-    }
-  }
-  if (gasneti_nodes != 1) {
-    GASNETC_FOR_ALL_HCA(hca) {
-      int j = 0;
-      hca->cep = gasneti_calloc(hca->max_qps, sizeof(gasnetc_cep_t *));
-      GASNETC_FOR_EACH_CEP(i, node, qpi) {
-      #if !GASNET_PSHM
-        if (gasnetc_use_xrc && gasnetc_non_ib(node)) continue; /* RCV only - don't count toward total */
-      #endif
-        if (cep_table[i].hca == hca) {
-          hca->cep[j++] = &cep_table[i];
-        }
-      }
-      gasneti_assert(j == hca->max_qps);
-      hca->num_qps = j;
-      hca->amrdma_rcv.max_peers = MIN(gasnetc_amrdma_max_peers, hca->max_qps);
     }
   }
 
