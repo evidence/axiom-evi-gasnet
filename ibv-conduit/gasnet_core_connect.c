@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2011/02/22 06:50:25 $
- * $Revision: 1.28 $
+ *     $Date: 2011/02/22 07:17:59 $
+ * $Revision: 1.29 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -254,12 +254,6 @@ gasnetc_xrc_init(void) {
    Returns NULL for cases that should not have any connection */
 static const gasnetc_port_info_t *
 gasnetc_select_port(gasnet_node_t node, int qpi) {
-  #if !GASNET_PSHM
-    if (gasnetc_use_xrc && (gasneti_nodemap_local_count != 1)) {
-      /* XRC w/o PSHM needs a rcv QP for local peers, if any.
-         So, we skip over the gasnetc_non_ib() check. */
-    } else
-  #endif
     if (gasnetc_non_ib(node)) {
       return NULL;
     }
@@ -676,14 +670,6 @@ gasnetc_qp_rtr2rts(gasnet_node_t node, gasnetc_conn_info_t *conn_info)
     #if GASNETC_IBV_XRC
       if (gasnetc_use_xrc) {
         cep->xrc_remote_srq_num = conn_info->xrc_remote_srq_num[qpi];
-
-      #if !GASNET_PSHM && GASNET_DEBUG
-        /* Some cep->hca values were non-NULL just to setup XRC.
-           We NULL them here to assist debug assert()ions. */
-        if (gasnetc_non_ib(node)) {
-          cep->hca = NULL;
-        }
-      #endif
       }
     #endif
 
