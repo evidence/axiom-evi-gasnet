@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2011/02/23 00:45:51 $
- * $Revision: 1.33 $
+ *     $Date: 2011/02/23 09:29:42 $
+ * $Revision: 1.34 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -979,11 +979,12 @@ dump_conn_done(FILE *file)
 extern int
 gasnetc_connect_fini(FILE *file)
 {
-  gasnet_node_t count = 0;
-  for (gasnet_node_t n = 0; n < gasneti_nodes; ++n) {
+  gasnet_node_t n, count = 0;
+  for (n = 0; n < gasneti_nodes; ++n) {
     gasnetc_cep_t *cep = GASNETC_NODE2CEP(n);
+    int qpi;
     if (!cep) continue;
-    for (int qpi=0; qpi<gasnetc_alloc_qps; ++qpi, ++cep) {
+    for (qpi=0; qpi<gasnetc_alloc_qps; ++qpi, ++cep) {
       if (cep->used) {
         dump_conn_next(file, n);
         ++count;
