@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2011/02/23 00:10:11 $
- * $Revision: 1.32 $
+ *     $Date: 2011/02/23 00:45:51 $
+ * $Revision: 1.33 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -918,11 +918,18 @@ gasnetc_connect_init(void)
   return GASNET_OK;
 } /* gasnetc_connect_init */
 
-#if GASNETC_DEBUG_CONNECT
-static char dump_conn_line[128] = "";
+static char dump_conn_line[80] = "";
 static char dump_conn_elem[16] = "";
 static gasnet_node_t dump_conn_first = GASNET_MAXNODES;
 static gasnet_node_t dump_conn_prev;
+
+static void
+dump_conn_outln(FILE *file) {
+#if GASNETC_DEBUG_CONNECT
+  fprintf(file, "%x:%s\n", gasneti_mynode, dump_conn_line);
+#endif
+  GASNETI_TRACE_PRINTF(C, ("Network traffic sent to (hex)%s", dump_conn_line));
+}
 
 static void
 dump_conn_out(FILE *file) {
@@ -940,7 +947,7 @@ dump_conn_out(FILE *file) {
   if (strlen(dump_conn_line) + strlen(dump_conn_elem) < sizeof(dump_conn_line)) {
     strcat(dump_conn_line, dump_conn_elem);
   } else {
-    fprintf(file, "%x:%s\n", gasneti_mynode, dump_conn_line);
+    dump_conn_outln(file);
     strcpy(dump_conn_line, dump_conn_elem);
   }
 }
@@ -965,24 +972,27 @@ dump_conn_done(FILE *file)
 {
   if (dump_conn_first == GASNET_MAXNODES) return;
   dump_conn_out(file);
-  fprintf(file, "%x:%s\n", gasneti_mynode, dump_conn_line);
+  dump_conn_outln(file);
 }
 
+/* Fini currently just dumps connection table. */
 extern int
-gasnetc_connect_dump(FILE *file)
+gasnetc_connect_fini(FILE *file)
 {
+  gasnet_node_t count = 0;
   for (gasnet_node_t n = 0; n < gasneti_nodes; ++n) {
     gasnetc_cep_t *cep = GASNETC_NODE2CEP(n);
     if (!cep) continue;
     for (int qpi=0; qpi<gasnetc_alloc_qps; ++qpi, ++cep) {
       if (cep->used) {
         dump_conn_next(file, n);
+        ++count;
         break;
       }
     }
   }
   dump_conn_done(file);
+  GASNETI_TRACE_PRINTF(C, ("Network traffic sent to %d of %d remote nodes", (int)count, (int)gasnetc_remote_nodes));
 
   return GASNET_OK;
 } /* gasnetc_connect_dump */
-#endif /* GASNETC_DEBUG_CONNECT */
