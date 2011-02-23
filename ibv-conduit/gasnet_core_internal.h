@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2011/02/22 08:46:49 $
- * $Revision: 1.199 $
+ *     $Date: 2011/02/23 00:10:11 $
+ * $Revision: 1.200 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -94,6 +94,8 @@ extern gasneti_atomic_t gasnetc_exit_running;
 
 /* May eventually be a hash? */
 #define GASNETC_NODE2CEP(_node) (gasnetc_node2cep[_node])
+
+#define GASNETC_DEBUG_CONNECT 0
 
 /* ------------------------------------------------------------------------------------ */
 #define GASNETC_HANDLER_BASE  1 /* reserve 1-63 for the core API */
@@ -569,6 +571,7 @@ typedef struct {
 /* Structure for a cep (connection end-point) */
 struct gasnetc_cep_t_ {
   /* Read/write fields */
+  int                   used;           /* boolean - true if cep has sent traffic */
   gasneti_semaphore_t	sq_sema;	/* control in-flight ops (send queue slots) */
   gasneti_semaphore_t	am_rem;		/* control in-flight AM Requests (remote rcv queue slots)*/
   gasneti_semaphore_t	am_loc;		/* control unmatched rcv buffers (local rcv queue slots) */
@@ -636,6 +639,9 @@ typedef struct {
 /* Routines in gasnet_core_connect.c */
 extern int gasnetc_connect_all(void);
 extern int gasnetc_connect_init(void);
+#if GASNETC_DEBUG_CONNECT
+  extern int gasnetc_connect_dump(FILE *file);
+#endif
 
 /* Routines in gasnet_core_sndrcv.c */
 extern int gasnetc_sndrcv_limits(void);

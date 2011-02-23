@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2011/02/22 11:27:45 $
- * $Revision: 1.31 $
+ *     $Date: 2011/02/23 00:10:11 $
+ * $Revision: 1.32 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -689,7 +689,7 @@ gasnetc_qp_rtr2rts(gasnet_node_t node, gasnetc_conn_info_t *conn_info)
     return GASNET_OK;
 } /* rtr2rts */
 
-#if GASNET_DEBUG
+#if GASNETC_DEBUG_CONNECT
 #include <stdlib.h>
 static void
 permute_remote_nodes(gasnet_node_t *node_list)
@@ -714,7 +714,7 @@ permute_remote_nodes(gasnet_node_t *node_list)
   }
   gasneti_assert(idx == gasnetc_remote_nodes);
 }
-#endif
+#endif /* GASNETC_DEBUG_CONNECT */
 
 /* Setup fully-connected communication */
 extern int
@@ -736,7 +736,7 @@ gasnetc_connect_all(void)
   if_pf (!gasnetc_remote_nodes) return GASNET_OK;
 
   /* Debug build loops in random order to help ensure connect code is order-independent */
-#if GASNET_DEBUG
+#if GASNETC_DEBUG_CONNECT
   gasnet_node_t *node_list = gasneti_malloc(gasnetc_remote_nodes * sizeof(gasnet_node_t));
   gasnet_node_t node_idx;
 
@@ -856,7 +856,7 @@ gasnetc_connect_all(void)
   gasneti_free(conn_info);
   gasneti_free(remote_qpn);
   gasneti_free(local_qpn);
-#if GASNET_DEBUG
+#if GASNETC_DEBUG_CONNECT
   gasneti_free(node_list);
 #endif
 
@@ -917,3 +917,72 @@ gasnetc_connect_init(void)
 
   return GASNET_OK;
 } /* gasnetc_connect_init */
+
+#if GASNETC_DEBUG_CONNECT
+static char dump_conn_line[128] = "";
+static char dump_conn_elem[16] = "";
+static gasnet_node_t dump_conn_first = GASNET_MAXNODES;
+static gasnet_node_t dump_conn_prev;
+
+static void
+dump_conn_out(FILE *file) {
+  switch (dump_conn_prev - dump_conn_first) {
+    case 0:
+      snprintf(dump_conn_elem, sizeof(dump_conn_elem), " %x", dump_conn_first);
+      break;
+    case 1:
+      snprintf(dump_conn_elem, sizeof(dump_conn_elem), " %x %x", dump_conn_first, dump_conn_prev);
+      break;
+    default:
+      snprintf(dump_conn_elem, sizeof(dump_conn_elem), " %x-%x", dump_conn_first, dump_conn_prev);
+  }
+
+  if (strlen(dump_conn_line) + strlen(dump_conn_elem) < sizeof(dump_conn_line)) {
+    strcat(dump_conn_line, dump_conn_elem);
+  } else {
+    fprintf(file, "%x:%s\n", gasneti_mynode, dump_conn_line);
+    strcpy(dump_conn_line, dump_conn_elem);
+  }
+}
+
+static void
+dump_conn_next(FILE *file, gasnet_node_t n)
+{
+  if (dump_conn_first == GASNET_MAXNODES) {
+    dump_conn_first = dump_conn_prev = n;
+    return;
+  } else if (n == dump_conn_prev+1) {
+    dump_conn_prev = n;
+    return;
+  }
+
+  dump_conn_out(file);
+  dump_conn_first = dump_conn_prev = n;
+}
+
+static void
+dump_conn_done(FILE *file)
+{
+  if (dump_conn_first == GASNET_MAXNODES) return;
+  dump_conn_out(file);
+  fprintf(file, "%x:%s\n", gasneti_mynode, dump_conn_line);
+}
+
+extern int
+gasnetc_connect_dump(FILE *file)
+{
+  for (gasnet_node_t n = 0; n < gasneti_nodes; ++n) {
+    gasnetc_cep_t *cep = GASNETC_NODE2CEP(n);
+    if (!cep) continue;
+    for (int qpi=0; qpi<gasnetc_alloc_qps; ++qpi, ++cep) {
+      if (cep->used) {
+        dump_conn_next(file, n);
+        break;
+      }
+    }
+  }
+  dump_conn_done(file);
+
+  return GASNET_OK;
+} /* gasnetc_connect_dump */
+#endif /* GASNETC_DEBUG_CONNECT */

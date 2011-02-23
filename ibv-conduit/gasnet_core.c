@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2011/02/22 21:58:59 $
- * $Revision: 1.273 $
+ *     $Date: 2011/02/23 00:10:11 $
+ * $Revision: 1.274 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2139,6 +2139,10 @@ static void gasnetc_exit_body(void) {
     }
   }
  #endif
+#endif
+
+#if GASNETC_DEBUG_CONNECT
+  gasnetc_connect_dump(stderr);
 #endif
 
   /* Try to flush out all the output, allowing upto 30s */

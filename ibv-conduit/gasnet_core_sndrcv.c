@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2011/02/22 08:46:49 $
- * $Revision: 1.274 $
+ *     $Date: 2011/02/23 00:10:11 $
+ * $Revision: 1.275 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -1135,6 +1135,7 @@ gasnetc_cep_t *gasnetc_bind_cep(gasnetc_epid_t epid, gasnetc_sreq_t *sreq,
     } while (!gasneti_semaphore_trydown(GASNETC_CEP_SQ_SEMA(cep)));
     GASNETC_TRACE_WAIT_END(POST_SR_STALL_SQ);
   }
+  cep->used = 1;
 
   sreq->epid = gasnetc_epid(epid, qpi);
   sreq->cep = cep;
