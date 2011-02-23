@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2011/02/23 00:45:51 $
- * $Revision: 1.275 $
+ *     $Date: 2011/02/23 09:44:03 $
+ * $Revision: 1.276 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -77,6 +77,12 @@ GASNETI_IDENT(gasnetc_IdentString_Name,    "$GASNetCoreLibraryName: " GASNET_COR
 #define GASNETC_DEFAULT_EXITTIMEOUT_MIN		2	/* 2 seconds */
 #define GASNETC_DEFAULT_EXITTIMEOUT_FACTOR	0.25	/* 1/4 second */
 static double gasnetc_exittimeout = GASNETC_DEFAULT_EXITTIMEOUT_MAX;
+
+/* Exit coordination */
+#define GASNETC_EXIT_RADIX 2
+static gasnet_node_t *gasnetc_exit_child = NULL;
+static gasnet_node_t gasnetc_exit_children = 0;
+static gasnet_node_t gasnetc_exit_parent = 0;
 
 /* HW level retry knobs */
 int gasnetc_qp_timeout, gasnetc_qp_retry_count;
@@ -1367,6 +1373,50 @@ static int gasnetc_init(int *argc, char ***argv) {
     atexit(gasnetc_atexit);
   #endif
 
+  /* Extract info from nodemap that we'll need at exit */
+  if (gasneti_nodemap_local_rank) {
+    gasnetc_exit_parent = gasneti_nodemap[gasneti_mynode];
+  } else {
+    gasnet_node_t children, child[GASNETC_EXIT_RADIX];
+    gasnet_node_t rank, j;
+
+    /* Enumerate our non-local children */
+    children = 0;
+    for (i = 0; i < GASNETC_EXIT_RADIX; ++i) {
+      rank = i + 1 + GASNETC_EXIT_RADIX * gasneti_nodemap_global_rank;
+
+      /* Check overflow or out-of-range */
+      if ((rank < gasneti_nodemap_global_rank) || (rank >= gasneti_nodemap_global_count)) break;
+
+      /* Convert global rank to node number */
+      for (j = gasneti_mynode+1; j < gasneti_nodes; ++j) {
+        if (gasneti_nodeinfo[j] == rank) break;
+      }
+      gasneti_assert(j < gasneti_nodes);
+      child[i] = j;
+      ++children;
+    }
+
+    /* Concatenate the non-local and local lists of children */
+    { int c1 = children;
+      int c2 = gasneti_nodemap_local_count - 1;
+      gasnetc_exit_children = c1 + c2;
+      gasnetc_exit_child = gasneti_malloc((c1 + c2) * sizeof(gasnet_node_t));
+      memcpy(gasnetc_exit_child, child, c1 * sizeof(gasnet_node_t));
+      memcpy(gasnetc_exit_child + c1, gasneti_nodemap_local+1, c2 * sizeof(gasnet_node_t));
+      gasneti_assert(gasneti_nodemap_local[0] == gasneti_mynode);
+    }
+
+    if (gasneti_mynode) {
+      rank = (gasneti_nodemap_global_rank - 1) / GASNETC_EXIT_RADIX;
+      for (j = 0; j < gasneti_mynode; ++j) {
+        if (gasneti_nodeinfo[j] == rank) break;
+      }
+      gasneti_assert(j < gasneti_mynode);
+      gasnetc_exit_parent = j;
+    }
+  }
+
   #if 0
     /* Done earlier to allow tracing */
     gasneti_init_done = 1;  
@@ -1714,6 +1764,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 gasneti_atomic_t gasnetc_exit_running = gasneti_atomic_init(0);		/* boolean used by GASNETC_IS_EXITING */
 
 static gasneti_atomic_t gasnetc_exit_code = gasneti_atomic_init(0);	/* value to _exit() with */
+static gasneti_atomic_t gasnetc_exit_reds = gasneti_atomic_init(0);	/* count of reduce requests */
 static gasneti_atomic_t gasnetc_exit_reqs = gasneti_atomic_init(0);	/* count of remote exit requests */
 static gasneti_atomic_t gasnetc_exit_reps = gasneti_atomic_init(0);	/* count of remote exit replies */
 static gasneti_atomic_t gasnetc_exit_done = gasneti_atomic_init(0);	/* flag to show exit coordination done */
@@ -1748,6 +1799,65 @@ static void gasnetc_disable_AMs(void) {
   for (i = 0; i < GASNETC_MAX_NUMHANDLERS; ++i) {
     gasnetc_handler[i] = (gasneti_handler_fn_t)&gasnetc_noop;
   }
+}
+
+static int gasnetc_exit_reduce(int exitcode, int64_t timeout_us)
+{
+  gasneti_tick_t start_time = gasneti_ticks_now();
+  int rc, i;
+
+  gasneti_assert(timeout_us > 0); 
+
+  /* If the remote request has arrived then we've already failed */
+  if (gasneti_atomic_read(&gasnetc_exit_reqs, 0)) return -1;
+
+  /* Wait for our children (if any) */
+  while (gasneti_atomic_read(&gasnetc_exit_reds, 0) < gasnetc_exit_children) {
+    if (gasneti_ticks_to_ns(gasneti_ticks_now() - start_time) / 1000 > timeout_us) return -1;
+    gasnetc_sndrcv_poll();
+    if (gasneti_atomic_read(&gasnetc_exit_reqs, 0)) return -1;
+  }
+
+  /* Notify our parent (if any) and wait for response */
+  if (gasneti_mynode) {
+    exitcode = gasneti_atomic_read(&gasnetc_exit_code, GASNETI_ATOMIC_RMB_PRE);
+    rc = gasnetc_RequestSystem(gasnetc_exit_parent, NULL,
+                               gasneti_handleridx(gasnetc_SYS_exit_reduce),
+                               1, exitcode);
+    if (rc != GASNET_OK) return -1;
+    if (gasneti_atomic_read(&gasnetc_exit_reqs, 0)) return -1;
+
+    do {
+      if (gasneti_ticks_to_ns(gasneti_ticks_now() - start_time) / 1000 > timeout_us) return -1;
+      gasnetc_sndrcv_poll();
+      if (gasneti_atomic_read(&gasnetc_exit_reqs, 0)) return -1;
+    } while (gasneti_atomic_read(&gasnetc_exit_reds, 0) == gasnetc_exit_children);
+    exitcode = gasneti_atomic_read(&gasnetc_exit_code, GASNETI_ATOMIC_RMB_PRE);
+  }
+
+  /* Now send to children (if any) sending off-supernode first */
+  for (i = 0; i < gasnetc_exit_children; ++i) {
+    rc = gasnetc_RequestSystem(gasnetc_exit_child[i], NULL,
+                               gasneti_handleridx(gasnetc_SYS_exit_reduce),
+                               1, exitcode);
+    if (rc != GASNET_OK) return -1;
+    gasnetc_sndrcv_poll();
+    if (gasneti_atomic_read(&gasnetc_exit_reqs, 0)) return -1;
+    if (gasneti_ticks_to_ns(gasneti_ticks_now() - start_time) / 1000 > timeout_us) return -1;
+  }
+
+  return 0;
+}
+
+/* gasnetc_exit_reduce_reqh: reduction on exitcode */
+static void gasnetc_exit_reduce_reqh(gasnet_token_t token, gasnet_handlerarg_t arg0) {
+  gasneti_atomic_val_t exitcode = arg0;
+  gasneti_atomic_val_t prevcode;
+  do {
+    prevcode = gasneti_atomic_read(&gasnetc_exit_code, 0);
+  } while ((exitcode > prevcode) &&
+           !gasneti_atomic_compare_and_swap(&gasnetc_exit_code, prevcode, exitcode, 0));
+  gasneti_atomic_increment(&gasnetc_exit_reds, GASNETI_ATOMIC_WMB_PRE);
 }
 
 /*
@@ -2064,9 +2174,9 @@ static int gasnetc_exit_slave(int64_t timeout_us) {
  * XXX: timeouts contained here are entirely arbitrary
  */
 static void gasnetc_exit_body(void) {
-  int i, role, exitcode;
+  int role, exitcode;
   int graceful = 0;
-  int64_t timeout_us;
+  int64_t timeout_us = gasnetc_exittimeout * 1.0e6;
 
   /* once we start a shutdown, ignore all future SIGQUIT signals or we risk reentrancy */
   (void)gasneti_reghandler(SIGQUIT, SIG_IGN);
@@ -2111,6 +2221,14 @@ static void gasnetc_exit_body(void) {
 
   GASNETI_TRACE_PRINTF(C,("gasnet_exit(%i)\n", exitcode));
 
+  /* Timed-barrier to clearly distinguish collective exit */
+  GASNETC_EXIT_STATE("pre-exit barrier");
+  alarm(2 + (int)gasnetc_exittimeout);
+  graceful = (gasnetc_exit_reduce(exitcode, timeout_us) == 0);
+  alarm(0);
+
+  GASNETC_EXIT_STATE("dumping final stats");
+  alarm(30);
 #if GASNET_TRACE
   { gasneti_heapstats_t stats;
     gasneti_getheapstats(&stats);
@@ -2140,7 +2258,6 @@ static void gasnetc_exit_body(void) {
   }
  #endif
 #endif
-
   gasnetc_connect_fini(stderr);
 
   /* Try to flush out all the output, allowing upto 30s */
@@ -2153,14 +2270,16 @@ static void gasnetc_exit_body(void) {
     gasneti_sched_yield();
   }
 
+ if (!graceful) { /* Skip the complex case if the barrier worked */
+  exitcode = gasneti_atomic_read(&gasnetc_exit_code, GASNETI_ATOMIC_RMB_PRE);
+
   /* Determine our role (master or slave) in the coordination of this shutdown */
-  GASNETC_EXIT_STATE("initiating collective exit");
+  GASNETC_EXIT_STATE("performing non-collective exit");
   alarm(10);
   role = gasnetc_get_exit_role();
 
   /* Attempt a coordinated shutdown */
   GASNETC_EXIT_STATE("coordinating shutdown");
-  timeout_us = gasnetc_exittimeout * 1.0e6;
   alarm(1 + (int)gasnetc_exittimeout);
   switch (role) {
   case GASNETC_EXIT_ROLE_MASTER:
@@ -2176,10 +2295,14 @@ static void gasnetc_exit_body(void) {
   default:
       gasneti_fatalerror("invalid exit role");
   }
+ }
 
+/* DISABLED - We've not been careful about dependent resources as we've added SRQ, XRC, etc. */
+#if 0
   /* Clean up transport resources, allowing upto 30s */
   alarm(30);
   { gasnetc_hca_t *hca = NULL;
+    int i;
     GASNETC_EXIT_STATE("in gasnetc_sndrcv_fini_peer()");
     for (i = 0; i < gasneti_nodes; ++i) {
       gasnetc_sndrcv_fini_peer(i);
@@ -2212,6 +2335,7 @@ static void gasnetc_exit_body(void) {
       }
     }
   }
+#endif
 
   /* Try again to flush out any recent output, allowing upto 5s */
   GASNETC_EXIT_STATE("closing output");
@@ -2704,6 +2828,7 @@ const gasneti_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLERS] = {
 #else
   NULL,	/* ACK: NULL -> do nothing */
 #endif
+  gasnetc_exit_reduce_reqh,
   gasnetc_exit_role_reqh,
   gasnetc_exit_role_reph,
   gasnetc_exit_reqh,

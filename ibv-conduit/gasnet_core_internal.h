@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2011/02/23 00:45:51 $
- * $Revision: 1.201 $
+ *     $Date: 2011/02/23 09:44:03 $
+ * $Revision: 1.202 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -107,11 +107,12 @@ extern gasneti_atomic_t gasnetc_exit_running;
  * These form a separate AM handler space and are available even before _attach()
  */
 #define _hidx_gasnetc_SYS_ack             0
-#define _hidx_gasnetc_SYS_exit_role_req   1
-#define _hidx_gasnetc_SYS_exit_role_rep   2
-#define _hidx_gasnetc_SYS_exit_req        3
-#define _hidx_gasnetc_SYS_exit_rep        4
-#define _hidx_gasnetc_SYS_init_ping       5
+#define _hidx_gasnetc_SYS_exit_reduce     1
+#define _hidx_gasnetc_SYS_exit_role_req   2
+#define _hidx_gasnetc_SYS_exit_role_rep   3
+#define _hidx_gasnetc_SYS_exit_req        4
+#define _hidx_gasnetc_SYS_exit_rep        5
+#define _hidx_gasnetc_SYS_init_ping       6
 
 /* ------------------------------------------------------------------------------------ */
 /* handler table (recommended impl) */

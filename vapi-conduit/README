@@ -1,7 +1,7 @@
 README file for vapi-conduit and ibv-conduit
 ============================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.61 $
+$Revision: 1.62 $
 
 @ TOC: @
 @ Section: VAPI vs IBV @
@@ -935,6 +935,12 @@ be certain that the correct exit code is still generated.
 
 Once the signal handlers are established, _body closes down the
 tracing and stats gathering and flushes stdout and stderr.  Then _body
+calls gasnetc_exit_reduce() to try to perform a collective reduce-to-all
+over the exit codes.  If this completes within a given timeout then we
+know the exit is collective and skip over the master/slave logic
+decribed in the next 2 paragraphs.
+
+If the reduction does not complete within the timeout, then _body next
 calls gasnetc_get_exit_role() to "elect" a master node for the exit.
 This is done with an alarm() timer in force.  The use of an "election"
 with a timeout ensures that we will exit, even if node 0 is wedged.
@@ -962,16 +968,14 @@ the exit procedure, as described later.  From _body, the slave nodes all
 call gasnetc_exit_slave(), which simply spins until the remote exit request
 has arrived from the master.
 
-Regardless of whether the sending of exit requests and replies completed
-within the timeout, _body proceeds to shutdown the transport and release
-the conduit's resources.  This is, again, protected by an alarm() in case
-we get wedged.  Once the transport resources are released, _body flushes
+Regardless of whether exit coordination (the reduction, or exit requests
+and replies) completed within their timeouts, _body proceeds to flush
 stdout and stderr one last time and closes stdin, stdout and stderr.
-Finally, _body shuts down its bootstrap support.  If the coordination
+Finally, _body shuts down its bootstrap support.  If either coordination
 was completed within the timeout, then the gasnetc_bootstrapFini()
 routine is called indicating that we'll not be making any more calls
-to the bootstrap code and expect to exit shortly.  However, if the
-coordination did timeout we call gasnetc_bootstrapAbort(exitcode).  This
+to the bootstrap code and expect to exit shortly.  However, if both
+coordinations did fail we call gasnetc_bootstrapAbort(exitcode).  This
 call is meant to request that the bootstrap terminate our job "with
 prejudice" since we failed to coordinate a graceful shutdown on our
 own.  We do this to try to avoid orphans, but risk lots of unsightly
@@ -1028,18 +1032,30 @@ becomes the exit code for the parallel job.  Therefore, using zero
 here gives the specified exit code from the parallel job for both
 collective and non-collective returns from main.
 
-In the best case one node is way ahead of the others and can win the
+If support is detected at configure time for on_exit(), then it is
+used rather than atexit(), and the problem of the missing return code
+vanishes.
+
+In the normal case of a collective exit, each node but 0 will send one
+AM "up" a tree and will receive one coming "down" the tree, for a total
+of 2*(N-1) AMs in 2*ceil(log_2(N)) levels.
+
+For the non-collective exits, there is both a "best case" and a
+"worst case" to consider:
+
+Best case: one node is way ahead of the others and can win the
 master election and send remote exit requests before the others attempt
 the election.  In this case the coordinated shutdown needs 1 round-trip
 for the election, followed by (N-1) round-trips for the remote exit
-request/reply, for a total of 2*N AMs sent.
+request/reply, for a total of 2*N AMs sent (not counting up to 2*N-2
+from the failed reduction).
 
-In the worst case all nodes attempt the election at roughly the same time
+Worst case: all nodes attempt the election at roughly the same time
 and a full N round-trips take place for the election, followed by (N-1)
 round trips for the remote exit request/reply, for a total of 4*N-2 AMs
-sent.
+sent (plus those from the failed reduction).
 
-The average case is somewhere between these two.
+The average case for non-collective exits is somewhere between those two.
 
 @ Section: References @
 
