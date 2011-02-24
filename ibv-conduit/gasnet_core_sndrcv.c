@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2011/02/23 00:10:11 $
- * $Revision: 1.275 $
+ *     $Date: 2011/02/24 02:40:19 $
+ * $Revision: 1.276 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -3318,15 +3318,12 @@ extern int gasnetc_sndrcv_limits(void) {
     const unsigned int max_qp_wr = hca->hca_cap.gasnetc_f_max_qp_wr;
 
     if_pf (hca->max_qps > max_qp) {
-      GASNETC_FOR_ALL_HCA(hca) { (void)gasnetc_close_hca(hca->handle); }
       GASNETI_RETURN_ERRR(RESOURCE, "gasnet_nodes exceeds HCA capabilities");
     }
     if_pf (gasnetc_am_oust_pp * 2 > max_qp_wr) {
-      GASNETC_FOR_ALL_HCA(hca) { (void)gasnetc_close_hca(hca->handle); }
       GASNETI_RETURN_ERRR(RESOURCE, "GASNET_AM_CREDITS_PP exceeds HCA capabilities");
     }
     if_pf (gasnetc_op_oust_pp > max_qp_wr) {
-      GASNETC_FOR_ALL_HCA(hca) { (void)gasnetc_close_hca(hca->handle); }
       GASNETI_RETURN_ERRR(RESOURCE, "GASNET_NETWORKDEPTH_PP exceeds HCA capabilities");
     }
   }
@@ -3384,9 +3381,6 @@ extern int gasnetc_sndrcv_init(void) {
         }
       }
       if_pf (buf == NULL) {
-        (void)gasnetc_destroy_cq(hca->handle, hca->snd_cq);
-        (void)gasnetc_destroy_cq(hca->handle, hca->rcv_cq);
-	/* XXX: also unwind CQ and reg for previous HCAs */
         GASNETI_RETURN_ERRR(RESOURCE, "Unable to allocate pinned memory for AM recv buffers");
       }
 
@@ -3548,12 +3542,7 @@ extern int gasnetc_sndrcv_init(void) {
 	  vstat = EVAPI_clear_comp_eventh(hca->handle, hca->rcv_handler);
         }
 #endif
-        gasneti_free_aligned(hca->rbufs);
-        gasnetc_unpin(hca, &hca->rcv_reg);
-        gasnetc_unmap(&hca->rcv_reg);
       }
-      (void)gasnetc_destroy_cq(hca->handle, hca->snd_cq);
-      (void)gasnetc_destroy_cq(hca->handle, hca->rcv_cq);
       GASNETI_RETURN_ERRR(RESOURCE, "Unable to allocate pinned memory for AM/bounce buffers");
     }
   }
@@ -3704,57 +3693,6 @@ extern void gasnetc_sndrcv_attach_segment(void) {
 #else
   /* Nothing currently needed */
 #endif
-}
-
-extern void gasnetc_sndrcv_fini(void) {
-  gasnetc_hca_t *hca;
-#if 0 /* See below */
-  int vstat;
-#endif
-
-  GASNETC_FOR_ALL_HCA(hca) {
-    if (gasnetc_remote_nodes) {
-#if GASNET_CONDUIT_VAPI
-      if (gasnetc_use_rcv_thread) {
-        int vstat = EVAPI_clear_comp_eventh(hca->handle, hca->rcv_handler);
-        GASNETC_VAPI_CHECK(vstat, "from EVAPI_clear_comp_eventh()");
-      }
-#endif
-
-      gasnetc_unpin(hca, &hca->rcv_reg);
-      gasnetc_unmap(&hca->rcv_reg);
-      gasnetc_unpin(hca, &hca->snd_reg);
-      gasnetc_unmap(&hca->snd_reg);
-
-      gasneti_free_aligned(hca->rbufs);
-    }
-
-#if 0
-    /* SEGVs seen here w/ VAPI on lambda.hcs.ufl.edu (bug 1433) and w/ OpenIB on Jacqaurd-dev.
-     * We probably need to drain the queues completely before destroying them. */
-    vstat = gasnetc_destroy_cq(hca->handle, hca->rcv_cq);
-    GASNETC_VAPI_CHECK(vstat, "from gasnetc_destroy_cq(rcv_cq)");
-    vstat = gasnetc_destroy_cq(hca->handle, hca->snd_cq);
-    GASNETC_VAPI_CHECK(vstat, "from gasnetc_destroy_cq(snd_cq)");
-#endif
-  }
-}
-
-extern void gasnetc_sndrcv_fini_peer(gasnet_node_t node) {
-  int vstat;
-  int i;
-
-  if (!gasnetc_non_ib(node)) {
-    gasnetc_cep_t *cep = GASNETC_NODE2CEP(node);
-    for (i = 0; i < gasnetc_alloc_qps; ++i, ++cep) {
-    #if GASNETC_IBV_XRC
-      /* XXX: Is there a smarter wayto ID a "clone"? */
-      if (cep->sq_sema_p != &cep->sq_sema) continue;
-    #endif
-      vstat = gasnetc_destroy_qp(cep->hca, cep->qp_handle);
-      GASNETC_VAPI_CHECK(vstat, "from gasnetc_destroy_qp()");
-    }
-  }
 }
 
 extern gasnetc_amrdma_send_t *gasnetc_amrdma_send_alloc(gasnetc_rkey_t rkey, void *addr) {

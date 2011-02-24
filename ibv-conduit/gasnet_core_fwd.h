@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_fwd.h,v $
- *     $Date: 2010/10/23 17:09:43 $
- * $Revision: 1.49 $
+ *     $Date: 2011/02/24 02:40:19 $
+ * $Revision: 1.50 $
  * Description: GASNet header for vapi conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -118,9 +118,6 @@ typedef uint16_t gasnetc_handler_t;
 	TIME(C, FIREHOSE_MOVE, processing time)   \
 	VAL(C, FIREHOSE_PIN, pages)               \
 	VAL(C, FIREHOSE_UNPIN, pages)
-
-#define GASNETC_FATALSIGNAL_CALLBACK(sig) gasnetc_fatalsignal_callback(sig)
-extern void gasnetc_fatalsignal_callback(int sig);
 
 #if PLATFORM_OS_DARWIN && !GASNET_SEQ
   #define GASNETC_PTHREAD_CREATE_OVERRIDE(create_fn, thread, attr, start_routine, arg) \

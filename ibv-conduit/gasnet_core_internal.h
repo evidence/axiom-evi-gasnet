@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2011/02/23 09:44:03 $
- * $Revision: 1.202 $
+ *     $Date: 2011/02/24 02:40:19 $
+ * $Revision: 1.203 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -353,12 +353,6 @@ typedef union {
   #define gasnetc_destroy_qp(_hca,_qp)		ibv_destroy_qp(_qp)
   #define gasnetc_dereg_mr(_hca,_mr)		ibv_dereg_mr(_mr)
   #define gasnetc_query_port(_hca,_num,_port_p)	ibv_query_port((_hca),(_num),(_port_p))
-
-  /* Work-around bug 1861: node death on exit: */
-  #undef gasnetc_close_hca
-  #define gasnetc_close_hca(_hca)		((void)0)
-  #undef gasnetc_dealloc_pd
-  #define gasnetc_dealloc_pd(_hca,_pd)		((void)0)
 #endif
 
 /* Constants */
@@ -645,12 +639,10 @@ extern int gasnetc_connect_fini(FILE *file);
 /* Routines in gasnet_core_sndrcv.c */
 extern int gasnetc_sndrcv_limits(void);
 extern int gasnetc_sndrcv_init(void);
-extern void gasnetc_sndrcv_fini(void);
 extern void gasnetc_sndrcv_init_peer(gasnet_node_t node);
 extern void gasnetc_sndrcv_init_inline(void);
 extern void gasnetc_sndrcv_attach_peer(gasnet_node_t node);
 extern void gasnetc_sndrcv_attach_segment(void);
-extern void gasnetc_sndrcv_fini_peer(gasnet_node_t node);
 extern gasnetc_amrdma_send_t *gasnetc_amrdma_send_alloc(gasnetc_rkey_t rkey, void *addr);
 extern gasnetc_amrdma_recv_t *gasnetc_amrdma_recv_alloc(gasnetc_hca_t *hca);
 extern void gasnetc_sndrcv_poll(void);

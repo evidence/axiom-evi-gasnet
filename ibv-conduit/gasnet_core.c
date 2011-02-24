@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2011/02/23 09:44:03 $
- * $Revision: 1.276 $
+ *     $Date: 2011/02/24 02:40:19 $
+ * $Revision: 1.277 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1305,10 +1305,6 @@ static int gasnetc_init(int *argc, char ***argv) {
   /* allocate/initialize transport resources */
   i = gasnetc_sndrcv_init();
   if (i != GASNET_OK) {
-    GASNETC_FOR_ALL_HCA(hca) {
-      (void)gasnetc_dealloc_pd(hca->handle, hca->pd);
-      (void)gasnetc_close_hca(hca->handle);
-    }
     return i;
   }
 
@@ -1769,7 +1765,6 @@ static gasneti_atomic_t gasnetc_exit_reqs = gasneti_atomic_init(0);	/* count of 
 static gasneti_atomic_t gasnetc_exit_reps = gasneti_atomic_init(0);	/* count of remote exit replies */
 static gasneti_atomic_t gasnetc_exit_done = gasneti_atomic_init(0);	/* flag to show exit coordination done */
 static gasnetc_counter_t gasnetc_exit_repl_oust = GASNETC_COUNTER_INITIALIZER; /* track send of our AM reply */
-static int gasnetc_exit_in_signal = 0;	/* to avoid certain things in signal context */
 
 #define GASNETC_ROOT_NODE 0
 
@@ -1780,10 +1775,6 @@ enum {
 };
 
 static gasneti_atomic_t gasnetc_exit_role = gasneti_atomic_init(GASNETC_EXIT_ROLE_UNKNOWN);
-
-extern void gasnetc_fatalsignal_callback(int sig) {
-  gasnetc_exit_in_signal = 1;
-}
 
 /*
  * Code to disable user's AM handlers when exiting.  We need this because we must call
@@ -2296,46 +2287,6 @@ static void gasnetc_exit_body(void) {
       gasneti_fatalerror("invalid exit role");
   }
  }
-
-/* DISABLED - We've not been careful about dependent resources as we've added SRQ, XRC, etc. */
-#if 0
-  /* Clean up transport resources, allowing upto 30s */
-  alarm(30);
-  { gasnetc_hca_t *hca = NULL;
-    int i;
-    GASNETC_EXIT_STATE("in gasnetc_sndrcv_fini_peer()");
-    for (i = 0; i < gasneti_nodes; ++i) {
-      gasnetc_sndrcv_fini_peer(i);
-    }
-    GASNETC_EXIT_STATE("in gasnetc_sndrcv_fini()");
-    gasnetc_sndrcv_fini();
-    if (gasneti_attach_done) {
-      if (GASNETC_USE_FIREHOSE && !gasnetc_exit_in_signal) {
-	/* Note we skip firehose_fini() on exit via a signal */
-        GASNETC_EXIT_STATE("in firehose_fini()");
-        firehose_fini();
-      }
-#if GASNETC_PIN_SEGMENT
-      GASNETC_FOR_ALL_HCA(hca) {
-        GASNETC_EXIT_STATE("in gasnetc_unpin()");
-        for (i=0; i<gasnetc_seg_reg_count; ++i) {
-      	  gasnetc_unpin(hca, &hca->seg_reg[i]);
-        }
-        gasneti_free(hca->seg_reg);
-      }
-#endif
-    }
-    GASNETC_FOR_ALL_HCA(hca) {
-      GASNETC_EXIT_STATE("in gasnetc_dealloc_pd()");
-      (void)gasnetc_dealloc_pd(hca->handle, hca->pd);
-      if (!gasnetc_use_rcv_thread)	{
-        /* can't release if we could possibly be inside the RCV thread */
-        GASNETC_EXIT_STATE("in gasnetc_close_hca()");
-        (void)gasnetc_close_hca(hca->handle);
-      }
-    }
-  }
-#endif
 
   /* Try again to flush out any recent output, allowing upto 5s */
   GASNETC_EXIT_STATE("closing output");
