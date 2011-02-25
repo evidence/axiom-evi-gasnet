@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2011/02/25 20:47:39 $
- * $Revision: 1.257 $
+ *     $Date: 2011/02/25 20:48:40 $
+ * $Revision: 1.258 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1007,7 +1007,7 @@ static int gasneti_bt_mkstemp(char *filename, int limit) {
             pclose(xlate);
           }
         }
-        #undef XLBUF 80 
+        #undef XLBUF
       #endif
 
       gasneti_bt_rc_unused = write(fd, "\n", 1);
