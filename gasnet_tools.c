@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2010/12/23 23:18:52 $
- * $Revision: 1.256 $
+ *     $Date: 2011/02/25 20:47:39 $
+ * $Revision: 1.257 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -978,34 +978,38 @@ static int gasneti_bt_mkstemp(char *filename, int limit) {
       fnnames = backtrace_symbols(btaddrs, entries);
     #endif
     for (i=0; i < entries; i++) {
-      FILE *xlate;
-      #define XLBUF 1024
-      static char xlstr[XLBUF];
-      static char linebuf[XLBUF];
-      xlstr[0] = '\0';
+      /* XXX: what if the write()s fail? */
+      static char linebuf[16];
+      snprintf(linebuf, sizeof(linebuf), "%i: ", i);
+      gasneti_bt_rc_unused = write(fd, linebuf, strlen(linebuf));
+
+      if (fnnames) {
+        gasneti_bt_rc_unused = write(fd, fnnames[i], strlen(fnnames[i]));
+        gasneti_bt_rc_unused = write(fd, " ", 1);
+      }
+
       #if defined(ADDR2LINE_PATH) && !GASNETI_NO_FORK
         /* use addr2line when available to retrieve symbolic info */
+        #define XLBUF 64 /* even as short as 2 bytes is still safe */
         { const char fmt[] = "%s -f -e '%s' %p";
-          static char cmd[sizeof(fmt) + 2*GASNETI_BT_PATHSZ];
+          static char cmd[sizeof(fmt) + 2*GASNETI_BT_PATHSZ + 10];
+          static char xlstr[XLBUF];
+          FILE *xlate;
+          xlstr[0] = '\0';
           sprintf(cmd, fmt, ADDR2LINE_PATH, gasneti_exename_bt, btaddrs[i]);
           xlate = popen(cmd, "r");
           if (xlate) {
-            char *p = xlstr;
-            int sz = XLBUF;
-            while (fgets(p, sz, xlate)) {
-              p += strlen(p) - 1;
-              if (*p != '\n') p++;
-              strcpy(p, " ");
-              p += strlen(p);
+            while (fgets(xlstr, sizeof(xlstr), xlate)) {
+              size_t len = strlen(xlstr);
+              if (xlstr[len-1] == '\n') xlstr[len-1] = ' ';
+              gasneti_bt_rc_unused = write(fd, xlstr, len);
             }
             pclose(xlate);
           }
         }
+        #undef XLBUF 80 
       #endif
-      sprintf(linebuf, "%i: %s ", i, (fnnames?fnnames[i]:""));
-      /* XXX: what if these write()s fail? */
-      gasneti_bt_rc_unused = write(fd, linebuf, strlen(linebuf));
-      gasneti_bt_rc_unused = write(fd, xlstr, strlen(xlstr));
+
       gasneti_bt_rc_unused = write(fd, "\n", 1);
     }
     /* if (fnnames) free(fnnames); */
