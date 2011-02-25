@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2011/02/09 06:40:52 $
- * $Revision: 1.215 $
+ *     $Date: 2011/02/25 19:55:27 $
+ * $Revision: 1.216 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1152,6 +1152,51 @@ extern void gasneti_nodemapFini(void) {
   gasneti_nodemap_local = NULL;
 #endif
 }
+
+/* ------------------------------------------------------------------------------------ */
+/* Get a line up to '\n' or EOF using dynamicly grown buffer
+ *  If buffer is too small (or NULL) then it is gasneti_realloc()ed.
+ *  Buffer and length written to *buf_p and *n_p, even on error.
+ *  Subsequent calls may reuse the buffer and length.
+ *  Caller is responsible for eventual gasneti_free().
+ *  Buffer is always terminated by '\0', even on error.
+ *  If a '\n' was read, it is perserved.
+ *  A '\n' is NOT added if EOF was reached first.
+ *  Returns bytes read on success; -1 on EOF or other error.
+ */
+#ifdef gasneti_getline
+/* Using glibc version */
+#else
+ssize_t gasneti_getline(char **buf_p, size_t *n_p, FILE *fp) {
+    char   *buf = *buf_p;
+    char   *p   = buf;
+    size_t  n   = buf ? *n_p : 0;
+    ssize_t len = 0;
+
+    gasneti_assert((ssize_t)n >= 0);
+
+    do {
+        size_t space = n - len;
+        if_pf (space < 2) {
+            n += MAX(2, n);
+            buf = gasneti_realloc(buf, n);
+            p = buf + len;
+            space = n - len;
+        }
+        if (fgets(p, space, fp) == NULL) {
+            *p = '\0';
+            len = -1;
+            break; /* error before full line read */
+        }
+        len += strlen(p);
+        p = buf + len;
+    } while (!feof(fp) && (p[-1] != '\n'));
+
+    *buf_p = buf;
+    *n_p = n;
+    return len;
+}
+#endif /* gasneti_getline */
 
 /* ------------------------------------------------------------------------------------ */
 /* Debug memory management

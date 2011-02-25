@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2010/12/23 23:33:22 $
- * $Revision: 1.122 $
+ *     $Date: 2011/02/25 19:55:27 $
+ * $Revision: 1.123 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -229,6 +229,12 @@ char *_gasneti_strndup(const char *s, size_t n GASNETI_CURLOCFARG) {
 }
 GASNETI_MALLOCP(_gasneti_strndup)
 
+/* Version of glibc's getline compatible w/ gasneti_free() */
+#if defined(__GLIBC__) && GASNET_NDEBUG
+  #define gasneti_getline getline
+#else
+  extern ssize_t gasneti_getline(char **buf_p, size_t *n_p, FILE *fp);
+#endif
 /* ------------------------------------------------------------------------------------ */
 
 extern void gasneti_freezeForDebugger(void);
