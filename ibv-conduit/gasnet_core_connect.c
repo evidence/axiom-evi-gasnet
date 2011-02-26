@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2011/02/26 05:46:20 $
- * $Revision: 1.39 $
+ *     $Date: 2011/02/26 18:42:08 $
+ * $Revision: 1.40 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -9,11 +9,10 @@
 #include <gasnet_internal.h>
 #include <gasnet_core_internal.h>
 
-#if GASNETC_IBV_XRC /* For open(), stat(), O_CREAT, etc. */
-  #include <sys/types.h>
-  #include <sys/stat.h>
-  #include <fcntl.h>
-#endif
+/* For open(), stat(), O_CREAT, etc.: */
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 /*
   The following configuration cannot yet be overridden by environment variables.
