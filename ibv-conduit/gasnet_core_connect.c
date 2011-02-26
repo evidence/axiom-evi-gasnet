@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2011/02/26 02:47:34 $
- * $Revision: 1.35 $
+ *     $Date: 2011/02/26 03:57:08 $
+ * $Revision: 1.36 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -743,11 +743,52 @@ permute_remote_nodes(gasnet_node_t *node_list)
 /* ------------------------------------------------------------------------------------ */
 /* Support code for gasneti_connect_all() */
 
+/* Convert positive integer to string in base 2 to 36.
+ * Returns count of digits actually written, or 0 on overflow.
+ * Buffer is '\0' terminated except on overflow.
+ * This is the "inverse" to strtol
+ */
+static int
+ltostr(char *buf, int buflen, long val, int base) {
+  const char digits[] = "0123456789abcdefghijklmnopqrstuvwxyz";
+  int i = 0;
+  
+  gasneti_assert((base > 1) && (base <= strlen(digits)));
+
+  buflen--; /* reserve space for '\0' */
+  if_pt (buflen >= 1) {
+    /* Work right-aligned in buf */
+    char *p = buf + buflen - 1;
+
+    do {
+      ldiv_t ld = ldiv(val, base);
+      *(p--) = digits[ld.rem];
+      val = ld.quot;
+    } while ((++i < buflen) && val);
+    if_pf (val) return 0; /* Ran out of space */
+  
+    /* Move to be left-aligned in buf */
+    memmove(buf, p+1, i);
+    buf[i] = '\0';
+  }
+
+  return i;
+}
+
+static void
+gen_tag(char *tag, int taglen, gasnet_node_t val, int base) {
+  int len = ltostr(tag, taglen-1, val, base);
+  gasneti_assert(len != 0);
+  gasneti_assert(len < taglen-1);
+  tag[len+0] = ':';
+  tag[len+1] = '\0';
+}
+
 static long int
 my_strtol(const char *ptr, char **endptr, int base) {
   long int result = strtol(ptr,endptr,base);
   if_pf ((*endptr == ptr) || !*endptr) {
-    gasneti_fatalerror("Empty token reading connection table file");
+    gasneti_fatalerror("Invalid token reading connection table file");
   }
   return result;
 }
@@ -759,24 +800,39 @@ get_next_conn(FILE *fp)
   static gasnet_node_t range_hi = 0;
 
   if (range_lo > range_hi) {
+    static int base = 16;
     static char *tok = NULL;
 
     /* If there is no current token, find the next line with our tag */
     while (!tok || (*tok == '\0')) {
-      static char tag[16];
+      static char tag[18]; /* even base-2 will fit */
       static size_t taglen = 0;
       if_pf (!taglen) { /* One-time initialization */
         taglen = snprintf(tag, sizeof(tag), "%x:", gasneti_mynode);
       }
 
       do {
+      #if GASNET_DEBUG
+        static int is_first_line = 1;
+      #endif
         static char *buf = NULL;
         static size_t buflen = 0;
         if (gasneti_getline(&buf, &buflen, fp) == -1) {
           gasneti_free(buf);
           return GASNET_MAXNODES;
         }
+        if_pf (!strncmp(buf, "base:", 5)) {
+          char *p;
+          int d;
+          gasneti_assert(is_first_line); /* base: is only valid as first line */
+          base = my_strtol(buf+5, &p, 10);
+          /* regenerate the tag */
+          gen_tag(tag, sizeof(tag), gasneti_mynode, base);
+        }
         tok = buf;
+      #if GASNET_DEBUG
+        is_first_line = 0;
+      #endif
       } while (strncmp(tok, tag, taglen));
       tok += taglen;
       while (*tok && isspace(*tok)) ++tok;
@@ -785,8 +841,8 @@ get_next_conn(FILE *fp)
    
     /* Parse the current token */
     { char *p, *q;
-      range_lo = range_hi = my_strtol(tok, &p, 16);
-      range_hi = (*p == '-') ? my_strtol(p+1, &q, 16) : range_lo;
+      range_lo = range_hi = my_strtol(tok, &p, base);
+      range_hi = (*p == '-') ? my_strtol(p+1, &q, base) : range_lo;
     }
 
     /* Advance to next token or end ot line */
