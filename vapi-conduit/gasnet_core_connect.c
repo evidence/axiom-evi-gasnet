@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_connect.c,v $
- *     $Date: 2011/02/26 05:39:45 $
- * $Revision: 1.38 $
+ *     $Date: 2011/02/26 05:46:20 $
+ * $Revision: 1.39 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -1230,4 +1230,4 @@ gasnetc_connect_fini(void)
   GASNETI_TRACE_PRINTF(C, ("Network traffic sent to %d of %d remote nodes", (int)count, (int)gasnetc_remote_nodes));
 
   return GASNET_OK;
-} /* gasnetc_connect_dump */
+} /* gasnetc_connect_fini */
