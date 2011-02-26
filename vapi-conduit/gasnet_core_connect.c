@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_connect.c,v $
- *     $Date: 2011/02/26 03:57:08 $
- * $Revision: 1.36 $
+ *     $Date: 2011/02/26 04:36:23 $
+ * $Revision: 1.37 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -775,13 +775,14 @@ ltostr(char *buf, int buflen, long val, int base) {
   return i;
 }
 
-static void
+static int
 gen_tag(char *tag, int taglen, gasnet_node_t val, int base) {
   int len = ltostr(tag, taglen-1, val, base);
   gasneti_assert(len != 0);
   gasneti_assert(len < taglen-1);
   tag[len+0] = ':';
   tag[len+1] = '\0';
+  return len + 1;
 }
 
 static long int
@@ -827,7 +828,7 @@ get_next_conn(FILE *fp)
           gasneti_assert(is_first_line); /* base: is only valid as first line */
           base = my_strtol(buf+5, &p, 10);
           /* regenerate the tag */
-          gen_tag(tag, sizeof(tag), gasneti_mynode, base);
+          taglen = gen_tag(tag, sizeof(tag), gasneti_mynode, base);
         }
         tok = buf;
       #if GASNET_DEBUG
