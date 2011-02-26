@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2011/02/26 18:42:08 $
- * $Revision: 1.40 $
+ *     $Date: 2011/02/26 20:39:20 $
+ * $Revision: 1.41 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -1218,7 +1218,7 @@ gasnetc_connect_fini(void)
     int qpi;
     if (!cep) continue;
     for (qpi=0; qpi<gasnetc_alloc_qps; ++qpi, ++cep) {
-      if (cep->used) {
+      if (cep[cep].used) {
         if (fd >= 0) dump_conn_next(fd, n);
         ++count;
         break;
