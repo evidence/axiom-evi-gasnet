@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2011/02/26 02:47:34 $
- * $Revision: 1.204 $
+ *     $Date: 2011/02/26 21:25:13 $
+ * $Revision: 1.205 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -632,7 +632,7 @@ typedef struct {
 } gasnetc_port_info_t;
 
 /* Routines in gasnet_core_connect.c */
-extern int gasnetc_connect_all(void);
+extern int gasnetc_connect_static(void);
 extern int gasnetc_connect_init(void);
 extern int gasnetc_connect_fini(void);
 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2011/02/26 02:47:34 $
- * $Revision: 1.278 $
+ *     $Date: 2011/02/26 21:25:13 $
+ * $Revision: 1.279 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1308,8 +1308,8 @@ static int gasnetc_init(int *argc, char ***argv) {
     return i;
   }
 
-  /* Establish all-to-all connections */
-  gasnetc_connect_all();
+  /* Establish static connections */
+  gasnetc_connect_static();
 
   #if GASNET_DEBUG_VERBOSE
     fprintf(stderr,"gasnetc_init(): spawn successful - node %i/%i starting...\n", 

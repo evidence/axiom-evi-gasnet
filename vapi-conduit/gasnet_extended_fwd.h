@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_extended_fwd.h,v $
- *     $Date: 2010/04/04 06:57:46 $
- * $Revision: 1.23 $
+ *     $Date: 2011/02/26 21:25:13 $
+ * $Revision: 1.24 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -33,6 +33,9 @@ struct _gasnete_op_t;
 typedef struct _gasnete_op_t *gasnet_handle_t;
 #define GASNET_INVALID_HANDLE ((gasnet_handle_t)0)
 #define GASNETI_EOP_IS_HANDLE 1
+
+/* Must XXX: disable (for now) ifone is using static partially-connected mode */
+/* #define GASNETI_PSHM_BARRIER_HIER 0 */
 
   /* this can be used to add statistical collection values 
      specific to the extended API implementation (see gasnet_help.h) */
