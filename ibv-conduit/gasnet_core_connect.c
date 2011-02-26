@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2011/02/26 04:36:23 $
- * $Revision: 1.37 $
+ *     $Date: 2011/02/26 05:39:45 $
+ * $Revision: 1.38 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -61,8 +61,10 @@ typedef struct {
   #define GASNETC_SND_QP_NEEDS_MODIFY(_xrc_snd_qp,_state) 1
 #endif
 
-/* ------------------------------------------------------------------------------------ */
+static int gasnetc_connectfile_in_base  = 10; /* Defaults to human readable/writable */
+static int gasnetc_connectfile_out_base = 36; /* Defaults to most compact */
 
+/* ------------------------------------------------------------------------------------ */
 static const char *
 gasnetc_parse_filename(const char *filename)
 {
@@ -801,7 +803,6 @@ get_next_conn(FILE *fp)
   static gasnet_node_t range_hi = 0;
 
   if (range_lo > range_hi) {
-    static int base = 16;
     static char *tok = NULL;
 
     /* If there is no current token, find the next line with our tag */
@@ -813,27 +814,29 @@ get_next_conn(FILE *fp)
       }
 
       do {
-      #if GASNET_DEBUG
-        static int is_first_line = 1;
-      #endif
+        static int is_header = 1;
         static char *buf = NULL;
         static size_t buflen = 0;
         if (gasneti_getline(&buf, &buflen, fp) == -1) {
           gasneti_free(buf);
           return GASNET_MAXNODES;
         }
-        if_pf (!strncmp(buf, "base:", 5)) {
-          char *p;
-          int d;
-          gasneti_assert(is_first_line); /* base: is only valid as first line */
-          base = my_strtol(buf+5, &p, 10);
-          /* regenerate the tag */
-          taglen = gen_tag(tag, sizeof(tag), gasneti_mynode, base);
+        if_pf (is_header) {
+          if (!strncmp(buf, "size:", 5)) {
+            gasnet_node_t size = my_strtol(buf+5, &tok, 10);
+            if (size != gasneti_nodes) {
+              gasneti_fatalerror("Connection table input file is for %d nodes rather than %d",
+                                 (int)size, (int)gasneti_nodes);
+            }
+            continue;
+          } else if (!strncmp(buf, "base:", 5)) {
+            gasnetc_connectfile_in_base = my_strtol(buf+5, &tok, 10);
+            taglen = gen_tag(tag, sizeof(tag), gasneti_mynode, gasnetc_connectfile_in_base);
+            continue;
+          }
+          is_header = 0;
         }
         tok = buf;
-      #if GASNET_DEBUG
-        is_first_line = 0;
-      #endif
       } while (strncmp(tok, tag, taglen));
       tok += taglen;
       while (*tok && isspace(*tok)) ++tok;
@@ -842,8 +845,8 @@ get_next_conn(FILE *fp)
    
     /* Parse the current token */
     { char *p, *q;
-      range_lo = range_hi = my_strtol(tok, &p, base);
-      range_hi = (*p == '-') ? my_strtol(p+1, &q, base) : range_lo;
+      range_lo = range_hi = my_strtol(tok, &p, gasnetc_connectfile_in_base);
+      range_hi = (*p == '-') ? my_strtol(p+1, &q, gasnetc_connectfile_in_base) : range_lo;
     }
 
     /* Advance to next token or end ot line */
@@ -1081,6 +1084,10 @@ gasnetc_connect_init(void)
   }
 #endif
 
+  gasnetc_connectfile_out_base =
+        gasneti_getenv_int_withdefault("GASNET_CONNECTFILE_BASE",
+                                       gasnetc_connectfile_out_base, 0);
+
   return GASNET_OK;
 } /* gasnetc_connect_init */
 
@@ -1094,33 +1101,57 @@ static gasnet_node_t dump_conn_prev;
 static void
 dump_conn_outln(int fd)
 {
-  if (fd >= 0) {
-    static char fullline[96];
-    size_t len = snprintf(fullline, sizeof(fullline), "%x:%s\n", gasneti_mynode, dump_conn_line+1);
-    write(fd, fullline, len);
+  static char fullline[96];
+  static size_t taglen = 0;
+  size_t len;
+
+  if_pf (!taglen) {
+    taglen = gen_tag(fullline, sizeof(fullline), gasneti_mynode, gasnetc_connectfile_out_base);
   }
-  GASNETI_TRACE_PRINTF(C, ("Network traffic sent to (hex)%s", dump_conn_line));
+
+  len = strlen(dump_conn_line+1);
+  memcpy(fullline+taglen, dump_conn_line+1, len);
+
+  len += taglen;
+  fullline[len] = '\n';
+
+  write(fd, fullline, len+1);
 }
 
 static void
 dump_conn_out(int fd) {
-  char dump_conn_elem[16];
-  switch (dump_conn_prev - dump_conn_first) {
-    case 0:
-      snprintf(dump_conn_elem, sizeof(dump_conn_elem), " %x", dump_conn_first);
-      break;
-    case 1:
-      snprintf(dump_conn_elem, sizeof(dump_conn_elem), " %x %x", dump_conn_first, dump_conn_prev);
-      break;
-    default:
-      snprintf(dump_conn_elem, sizeof(dump_conn_elem), " %x-%x", dump_conn_first, dump_conn_prev);
+  char elem[35];
+  size_t len, tmp;
+
+  /* Leading space */
+  elem[0] = ' ';
+  len = 1;
+
+  /* dump_conn_first foramtted with desired base */
+  tmp = ltostr(elem+len, sizeof(elem)-len, dump_conn_first, gasnetc_connectfile_out_base);
+  gasneti_assert(tmp != 0);
+  len += tmp;
+
+  if (dump_conn_prev != dump_conn_first) {
+    /* Choose ' ' or '-' as separator */
+    elem[len++] = ((dump_conn_prev - dump_conn_first) > 1) ? '-' : ' ';
+  
+    /* dump_conn_prev foramtted with desired base */
+    tmp = ltostr(elem+len, sizeof(elem)-len, dump_conn_prev, gasnetc_connectfile_out_base);
+    gasneti_assert(tmp != 0);
+    len += tmp;
+
+    elem[len] = '\0';
   }
 
-  if (strlen(dump_conn_line) + strlen(dump_conn_elem) < sizeof(dump_conn_line)) {
-    strcat(dump_conn_line, dump_conn_elem);
+  gasneti_assert(len == strlen(elem));
+  gasneti_assert(len < sizeof(elem));
+
+  if (strlen(dump_conn_line) + len < sizeof(dump_conn_line)) {
+    strcat(dump_conn_line, elem);
   } else {
     dump_conn_outln(fd);
-    strcpy(dump_conn_line, dump_conn_elem);
+    strcpy(dump_conn_line, elem);
   }
 }
 
@@ -1145,6 +1176,7 @@ dump_conn_done(int fd)
   if (dump_conn_first == GASNET_MAXNODES) return;
   dump_conn_out(fd);
   dump_conn_outln(fd);
+  close(fd);
 }
 
 /* ------------------------------------------------------------------------------------ */
@@ -1160,7 +1192,7 @@ gasnetc_connect_fini(void)
   { const char *envstr = gasnet_getenv("GASNET_CONNECTFILE_OUT");
     if (envstr) {
       const char *filename = gasnetc_parse_filename(envstr);
-      int flags = O_APPEND | O_CREAT | O_TRUNC | O_WRONLY;
+      int flags = O_APPEND | O_CREAT | O_WRONLY;
     #ifdef O_LARGEFILE
       flags |= O_LARGEFILE;
     #endif
@@ -1169,7 +1201,16 @@ gasnetc_connect_fini(void)
         fprintf(stderr, "ERROR: unable to open connection table output file '%s'\n", filename);
       }
       if (filename != envstr) gasneti_free((/* not const */ char *)filename);
-      gasneti_bootstrapBarrier(); /* Or else the O_TRUNCs can race */
+      if (!gasneti_mynode || strchr(envstr, '%')) {
+        char buf[16];
+        size_t len;
+        gasneti_assert_zeroret(ftruncate(fd,0));
+        len = snprintf(buf, sizeof(buf), "size:%d\n", gasneti_nodes);
+        write(fd, buf, len);
+        len = snprintf(buf, sizeof(buf), "base:%d\n", gasnetc_connectfile_out_base);
+        write(fd, buf, len);
+      }
+      gasneti_bootstrapBarrier();
     }
   }
  
@@ -1179,16 +1220,14 @@ gasnetc_connect_fini(void)
     if (!cep) continue;
     for (qpi=0; qpi<gasnetc_alloc_qps; ++qpi, ++cep) {
       if (cep->used) {
-        dump_conn_next(fd, n);
+        if (fd >= 0) dump_conn_next(fd, n);
         ++count;
         break;
       }
     }
   }
-  dump_conn_done(fd);
+  if (fd >= 0) dump_conn_done(fd);
   GASNETI_TRACE_PRINTF(C, ("Network traffic sent to %d of %d remote nodes", (int)count, (int)gasnetc_remote_nodes));
-
-  if (fd >= 0) (void)close(fd);
 
   return GASNET_OK;
 } /* gasnetc_connect_dump */
