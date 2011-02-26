@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2011/02/24 02:40:19 $
- * $Revision: 1.203 $
+ *     $Date: 2011/02/26 02:47:34 $
+ * $Revision: 1.204 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -634,7 +634,7 @@ typedef struct {
 /* Routines in gasnet_core_connect.c */
 extern int gasnetc_connect_all(void);
 extern int gasnetc_connect_init(void);
-extern int gasnetc_connect_fini(FILE *file);
+extern int gasnetc_connect_fini(void);
 
 /* Routines in gasnet_core_sndrcv.c */
 extern int gasnetc_sndrcv_limits(void);

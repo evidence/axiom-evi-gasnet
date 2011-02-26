@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_connect.c,v $
- *     $Date: 2011/02/23 09:29:42 $
- * $Revision: 1.34 $
+ *     $Date: 2011/02/26 02:47:34 $
+ * $Revision: 1.35 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -35,6 +35,8 @@
   for((_cep) = (_conn_info)->cep, (_qpi) = 0; \
       (_qpi) < gasnetc_alloc_qps; ++(_cep), ++(_qpi))
 
+/* ------------------------------------------------------------------------------------ */
+
 /* Common types */
 typedef GASNETC_IB_CHOOSE(VAPI_qp_attr_t,       struct ibv_qp_attr)     gasnetc_qp_attr_t;
 typedef GASNETC_IB_CHOOSE(VAPI_qp_attr_mask_t,  enum ibv_qp_attr_mask)  gasnetc_qp_mask_t;
@@ -59,6 +61,28 @@ typedef struct {
   #define GASNETC_SND_QP_NEEDS_MODIFY(_xrc_snd_qp,_state) 1
 #endif
 
+/* ------------------------------------------------------------------------------------ */
+
+static const char *
+gasnetc_parse_filename(const char *filename)
+{
+  /* replace any '%' with node num */
+  if (strchr(filename,'%')) {
+    char *tmpname = gasneti_strdup(filename); /* must not modify callers string */
+    char *p = strchr(tmpname,'%');
+    do {
+      size_t len = strlen(tmpname) + 16;
+      char *buf = gasneti_malloc(len);
+      *p = '\0';
+      snprintf(buf,len,"%s%i%s",tmpname,(int)gasnet_mynode(),p+1);
+      gasneti_free(tmpname);
+      tmpname = buf;
+    } while (NULL != (p = strchr(tmpname,'%')));
+    filename = tmpname;
+  }
+  return filename;
+}
+/* ------------------------------------------------------------------------------------ */
 
 #if GASNETC_IBV_XRC
 typedef struct gasnetc_xrc_snd_qp_s {
@@ -716,6 +740,64 @@ permute_remote_nodes(gasnet_node_t *node_list)
 }
 #endif /* GASNETC_DEBUG_CONNECT */
 
+/* ------------------------------------------------------------------------------------ */
+/* Support code for gasneti_connect_all() */
+
+static long int
+my_strtol(const char *ptr, char **endptr, int base) {
+  long int result = strtol(ptr,endptr,base);
+  if_pf ((*endptr == ptr) || !*endptr) {
+    gasneti_fatalerror("Empty token reading connection table file");
+  }
+  return result;
+}
+
+static gasnet_node_t
+get_next_conn(FILE *fp)
+{
+  static gasnet_node_t range_lo = GASNET_MAXNODES;
+  static gasnet_node_t range_hi = 0;
+
+  if (range_lo > range_hi) {
+    static char *tok = NULL;
+
+    /* If there is no current token, find the next line with our tag */
+    while (!tok || (*tok == '\0')) {
+      static char tag[16];
+      static size_t taglen = 0;
+      if_pf (!taglen) { /* One-time initialization */
+        taglen = snprintf(tag, sizeof(tag), "%x:", gasneti_mynode);
+      }
+
+      do {
+        static char *buf = NULL;
+        static size_t buflen = 0;
+        if (gasneti_getline(&buf, &buflen, fp) == -1) {
+          gasneti_free(buf);
+          return GASNET_MAXNODES;
+        }
+        tok = buf;
+      } while (strncmp(tok, tag, taglen));
+      tok += taglen;
+      while (*tok && isspace(*tok)) ++tok;
+    }
+    
+   
+    /* Parse the current token */
+    { char *p, *q;
+      range_lo = range_hi = my_strtol(tok, &p, 16);
+      range_hi = (*p == '-') ? my_strtol(p+1, &q, 16) : range_lo;
+    }
+
+    /* Advance to next token or end ot line */
+    while (*tok && !isspace(*tok)) ++tok;
+    while (*tok && isspace(*tok)) ++tok;
+  }
+   
+  return range_lo++;
+}
+/* ------------------------------------------------------------------------------------ */
+
 /* Setup fully-connected communication */
 extern int
 gasnetc_connect_all(void)
@@ -732,14 +814,15 @@ gasnetc_connect_all(void)
   int                   i, qpi;
   size_t                orig_inline_limit = gasnetc_inline_limit;
   gasnetc_cep_t         *cep; /* First cep of given node */
+#if GASNETC_DEBUG_CONNECT
+  gasnet_node_t *node_list = gasneti_malloc(gasnetc_remote_nodes * sizeof(gasnet_node_t));
+  gasnet_node_t node_idx;
+#endif
 
   if_pf (!gasnetc_remote_nodes) return GASNET_OK;
 
   /* Debug build loops in random order to help ensure connect code is order-independent */
 #if GASNETC_DEBUG_CONNECT
-  gasnet_node_t *node_list = gasneti_malloc(gasnetc_remote_nodes * sizeof(gasnet_node_t));
-  gasnet_node_t node_idx;
-
   #define GASNETC_FOR_EACH_REMOTE_NODE(_node) \
     for (permute_remote_nodes(node_list), node_idx=0, (_node) = node_list[0]; \
          node_idx < gasnetc_remote_nodes; (_node) = node_list[++node_idx])
@@ -747,6 +830,30 @@ gasnetc_connect_all(void)
   #define GASNETC_FOR_EACH_REMOTE_NODE(_node) \
     for ((_node) = 0; (_node) < gasneti_nodes; ++(_node)) \
       if (!gasnetc_non_ib(_node))
+#endif
+
+#if GASNETC_DEBUG_CONNECT
+  /* XXX: We can't do anything but print this yet */
+  { const char *envstr = gasnet_getenv("GASNET_CONNECTFILE_IN");
+    if (envstr) {
+      const char *filename = gasnetc_parse_filename(envstr);
+      FILE *fp;
+    #ifdef HAVE_FOPEN64
+      fp = fopen64(filename, "r");
+    #else
+      fp = fopen(filename, "r");
+    #endif
+      if (!fp) {
+        fprintf(stderr, "ERROR: unable to open connection table inout file '%s'\n", filename);
+      }
+      if (filename != envstr) gasneti_free((/* not const */ char *)filename);
+
+      while (GASNET_MAXNODES != (node = get_next_conn(fp))) {
+        fprintf(stderr, "@%d -> %d\n", (int)gasneti_mynode, (int)node);
+      }
+      fclose(fp);
+    }
+  }
 #endif
 
   /* Allocate the dense CEP table and populate the node2cep table. */
@@ -896,6 +1003,8 @@ gasnetc_connect_all(void)
   return GASNET_OK;
 } /* gasnetc_connect_all */
 
+/* ------------------------------------------------------------------------------------ */
+
 /* Early setup for connection resources */
 extern int
 gasnetc_connect_init(void)
@@ -918,21 +1027,27 @@ gasnetc_connect_init(void)
   return GASNET_OK;
 } /* gasnetc_connect_init */
 
-static char dump_conn_line[80] = "";
-static char dump_conn_elem[16] = "";
+/* ------------------------------------------------------------------------------------ */
+/* Support code for gasneti_conn_fini */
+
+static char dump_conn_line[512] = "";
 static gasnet_node_t dump_conn_first = GASNET_MAXNODES;
 static gasnet_node_t dump_conn_prev;
 
 static void
-dump_conn_outln(FILE *file) {
-#if GASNETC_DEBUG_CONNECT
-  fprintf(file, "%x:%s\n", gasneti_mynode, dump_conn_line);
-#endif
+dump_conn_outln(int fd)
+{
+  if (fd >= 0) {
+    static char fullline[96];
+    size_t len = snprintf(fullline, sizeof(fullline), "%x:%s\n", gasneti_mynode, dump_conn_line+1);
+    write(fd, fullline, len);
+  }
   GASNETI_TRACE_PRINTF(C, ("Network traffic sent to (hex)%s", dump_conn_line));
 }
 
 static void
-dump_conn_out(FILE *file) {
+dump_conn_out(int fd) {
+  char dump_conn_elem[16];
   switch (dump_conn_prev - dump_conn_first) {
     case 0:
       snprintf(dump_conn_elem, sizeof(dump_conn_elem), " %x", dump_conn_first);
@@ -947,13 +1062,13 @@ dump_conn_out(FILE *file) {
   if (strlen(dump_conn_line) + strlen(dump_conn_elem) < sizeof(dump_conn_line)) {
     strcat(dump_conn_line, dump_conn_elem);
   } else {
-    dump_conn_outln(file);
+    dump_conn_outln(fd);
     strcpy(dump_conn_line, dump_conn_elem);
   }
 }
 
 static void
-dump_conn_next(FILE *file, gasnet_node_t n)
+dump_conn_next(int fd, gasnet_node_t n)
 {
   if (dump_conn_first == GASNET_MAXNODES) {
     dump_conn_first = dump_conn_prev = n;
@@ -963,37 +1078,60 @@ dump_conn_next(FILE *file, gasnet_node_t n)
     return;
   }
 
-  dump_conn_out(file);
+  dump_conn_out(fd);
   dump_conn_first = dump_conn_prev = n;
 }
 
 static void
-dump_conn_done(FILE *file)
+dump_conn_done(int fd)
 {
   if (dump_conn_first == GASNET_MAXNODES) return;
-  dump_conn_out(file);
-  dump_conn_outln(file);
+  dump_conn_out(fd);
+  dump_conn_outln(fd);
 }
+
+/* ------------------------------------------------------------------------------------ */
 
 /* Fini currently just dumps connection table. */
 extern int
-gasnetc_connect_fini(FILE *file)
+gasnetc_connect_fini(void)
 {
   gasnet_node_t n, count = 0;
+  int fd = -1;
+
+  /* Open file replacing any '%' in filename with node number */
+  { const char *envstr = gasnet_getenv("GASNET_CONNECTFILE_OUT");
+    if (envstr) {
+      const char *filename = gasnetc_parse_filename(envstr);
+      int flags = O_APPEND | O_CREAT | O_TRUNC | O_WRONLY;
+    #ifdef O_LARGEFILE
+      flags |= O_LARGEFILE;
+    #endif
+      fd = open(filename, flags, S_IRUSR | S_IWUSR);
+      if (fd < 0) {
+        fprintf(stderr, "ERROR: unable to open connection table output file '%s'\n", filename);
+      }
+      if (filename != envstr) gasneti_free((/* not const */ char *)filename);
+      gasneti_bootstrapBarrier(); /* Or else the O_TRUNCs can race */
+    }
+  }
+ 
   for (n = 0; n < gasneti_nodes; ++n) {
     gasnetc_cep_t *cep = GASNETC_NODE2CEP(n);
     int qpi;
     if (!cep) continue;
     for (qpi=0; qpi<gasnetc_alloc_qps; ++qpi, ++cep) {
       if (cep->used) {
-        dump_conn_next(file, n);
+        dump_conn_next(fd, n);
         ++count;
         break;
       }
     }
   }
-  dump_conn_done(file);
+  dump_conn_done(fd);
   GASNETI_TRACE_PRINTF(C, ("Network traffic sent to %d of %d remote nodes", (int)count, (int)gasnetc_remote_nodes));
+
+  if (fd >= 0) (void)close(fd);
 
   return GASNET_OK;
 } /* gasnetc_connect_dump */
