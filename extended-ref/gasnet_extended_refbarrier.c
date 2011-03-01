@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2011/03/01 08:01:17 $
- * $Revision: 1.73 $
+ *     $Date: 2011/03/01 20:40:02 $
+ * $Revision: 1.74 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -711,6 +711,9 @@ static void gasnete_amdbarrier_notify(gasnete_coll_team_t team, int id, int flag
       gasnete_barrier_pf_enable(team);
   } else {
     barrier_data->amdbarrier_recv_value[phase] = id;	/* to simplify checking in _wait */
+  #if GASNETI_PSHM_BARRIER_HIER_FIXED
+    barrier_data->amdbarrier_notify_sent = 1;
+  #endif
   }
 
   /*  update state */
@@ -1124,6 +1127,9 @@ static void gasnete_amcbarrier_notify(gasnete_coll_team_t team, int id, int flag
   } else {
     barrier_data->amcbarrier_response_mismatch[phase] = (flags & GASNET_BARRIERFLAG_MISMATCH);
     barrier_data->amcbarrier_response_done[phase] = 1;
+  #if GASNETI_PSHM_BARRIER_HIER_FIXED
+    barrier_data->amcbarrier_notify_sent = 1;
+  #endif
   }
 
   /*  update state */
