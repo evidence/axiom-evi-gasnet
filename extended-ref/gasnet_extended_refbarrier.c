@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2011/03/01 23:23:17 $
- * $Revision: 1.75 $
+ *     $Date: 2011/03/01 23:42:21 $
+ * $Revision: 1.76 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -735,17 +735,18 @@ static int gasnete_amdbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
   }
 #endif
 
-  if (barrier_data->amdbarrier_step == barrier_data->amdbarrier_size) { /* completed asynchronously before wait (via progressfns or try) */
+  if (
 #if GASNETI_PSHM_BARRIER_HIER
-    if (!barrier_data->amdbarrier_notify_sent) { /* Still must send that notify out! */
-      gasnete_amdbarrier_kick(team);
-      gasneti_assert(barrier_data->amdbarrier_notify_sent);
-    }
+      barrier_data->amdbarrier_notify_sent &&
 #endif
+      barrier_data->amdbarrier_step == barrier_data->amdbarrier_size) { /* completed asynchronously before wait (via progressfns or try) */
     GASNETI_TRACE_EVENT_TIME(B,BARRIER_ASYNC_COMPLETION,GASNETI_TICKS_NOW_IFENABLED(B)-gasnete_barrier_notifytime);
   } else { /*  wait for response */
     GASNET_BLOCKUNTIL((gasnete_amdbarrier_kick(team), barrier_data->amdbarrier_step == barrier_data->amdbarrier_size));
   }
+#if GASNETI_PSHM_BARRIER_HIER
+  gasneti_assert(barrier_data->amdbarrier_notify_sent);
+#endif
 
   /* determine return value */
   if_pf(barrier_data->amdbarrier_mismatch[phase]) {
@@ -1149,17 +1150,18 @@ static int gasnete_amcbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
   }
 #endif
 
-  if (barrier_data->amcbarrier_response_done[phase]) { /* completed asynchronously before wait (via progressfns or try) */
+  if (
 #if GASNETI_PSHM_BARRIER_HIER
-    if (!barrier_data->amcbarrier_notify_sent) { /* Still must send that notify out! */
-      gasnete_amcbarrier_kick(team);
-      gasneti_assert(barrier_data->amcbarrier_notify_sent);
-    }
+      barrier_data->amcbarrier_notify_sent &&
 #endif
+      barrier_data->amcbarrier_response_done[phase]) { /* completed asynchronously before wait (via progressfns or try) */
     GASNETI_TRACE_EVENT_TIME(B,BARRIER_ASYNC_COMPLETION,GASNETI_TICKS_NOW_IFENABLED(B)-gasnete_barrier_notifytime);
   } else { /*  wait for response */
     GASNET_BLOCKUNTIL((gasnete_amcbarrier_kick(team), barrier_data->amcbarrier_response_done[phase]));
   }
+#if GASNETI_PSHM_BARRIER_HIER
+  gasneti_assert(barrier_data->amcbarrier_notify_sent);
+#endif
 
   /* determine result */
   if_pf(barrier_data->amcbarrier_response_mismatch[phase]) {
