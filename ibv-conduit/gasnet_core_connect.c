@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2011/02/26 21:25:13 $
- * $Revision: 1.43 $
+ *     $Date: 2011/03/01 23:23:19 $
+ * $Revision: 1.44 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -1083,6 +1083,11 @@ gasnetc_connect_init(void)
   gasnetc_connectfile_out_base =
         gasneti_getenv_int_withdefault("GASNET_CONNECTFILE_BASE",
                                        gasnetc_connectfile_out_base, 0);
+
+  /* Must we disable barrier AMs from all but the supernode representative? */
+  if (gasnet_getenv("GASNET_CONNECTFILE_IN") || gasnet_getenv("GASNET_CONNECTFILE_OUT")) {
+    gasnete_barrier_fixed = 1;
+  }
 
   return GASNET_OK;
 } /* gasnetc_connect_init */

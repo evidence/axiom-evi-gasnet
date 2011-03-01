@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_extended_fwd.h,v $
- *     $Date: 2011/03/01 08:01:19 $
- * $Revision: 1.26 $
+ *     $Date: 2011/03/01 23:23:19 $
+ * $Revision: 1.27 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -33,10 +33,6 @@ struct _gasnete_op_t;
 typedef struct _gasnete_op_t *gasnet_handle_t;
 #define GASNET_INVALID_HANDLE ((gasnet_handle_t)0)
 #define GASNETI_EOP_IS_HANDLE 1
-
-/* Must disable AMs from all but the supernode representative */
-/* XXX: Could this become a RUNTIME option rather then COMPILE time? */
-#define GASNETI_PSHM_BARRIER_HIER_FIXED 1
 
   /* this can be used to add statistical collection values 
      specific to the extended API implementation (see gasnet_help.h) */
