@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2011/03/01 05:32:53 $
- * $Revision: 1.71 $
+ *     $Date: 2011/03/01 06:17:57 $
+ * $Revision: 1.72 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -670,7 +670,7 @@ static void gasnete_amdbarrier_notify(gasnete_coll_team_t team, int id, int flag
     PSHM_BDATA_DECL(pshm_bdata, barrier_data->amdbarrier_pshm);
     int pshm_notify_done = gasnete_pshmbarrier_notify_inner(pshm_bdata, id, flags);
   #if GASNETI_PSHM_BARRIER_HIER_FIXED
-    /* Passive nodes can't send any nitifies */
+    /* Passive nodes can't send any notifies */
     do_send = pshm_notify_done && !barrier_data->amdbarrier_passive;
     barrier_data->amdbarrier_notify_sent = do_send;
   #else
@@ -896,11 +896,11 @@ static void gasnete_amdbarrier_init(gasnete_coll_team_t team) {
      */
     gasnete_pshmbarrier_fini_inner(pshm_bdata);
     barrier_data->amdbarrier_pshm = NULL;
-
-  #if GASNETI_PSHM_BARRIER_HIER_FIXED
-    barrier_data->amdbarrier_notify_sent = 1; /* N/A - Set to 1 to avoid extra branches */
-  #endif
   }
+#endif
+#if GASNETI_PSHM_BARRIER_HIER_FIXED
+  /* N/A - Set to 1 to avoid extra branches */
+  barrier_data->amdbarrier_notify_sent = !barrier_data->amdbarrier_pshm;
 #endif
 
   team->barrier_notify = &gasnete_amdbarrier_notify;
