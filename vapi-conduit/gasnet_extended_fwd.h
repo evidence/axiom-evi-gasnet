@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_extended_fwd.h,v $
- *     $Date: 2011/02/26 21:25:13 $
- * $Revision: 1.24 $
+ *     $Date: 2011/03/01 05:32:55 $
+ * $Revision: 1.25 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -34,8 +34,10 @@ typedef struct _gasnete_op_t *gasnet_handle_t;
 #define GASNET_INVALID_HANDLE ((gasnet_handle_t)0)
 #define GASNETI_EOP_IS_HANDLE 1
 
-/* Must XXX: disable (for now) ifone is using static partially-connected mode */
-/* #define GASNETI_PSHM_BARRIER_HIER 0 */
+/* Must disable AMs from all but the supernode representative */
+/* XXX: Could this become a RUNTIME option rather then COMPILE time? */
+/* XXX: Only AMDISSEM honors this so far, but not AMCENTRAL */
+#define GASNETI_PSHM_BARRIER_HIER_FIXED 1
 
   /* this can be used to add statistical collection values 
      specific to the extended API implementation (see gasnet_help.h) */

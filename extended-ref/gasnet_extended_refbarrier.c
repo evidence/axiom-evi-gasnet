@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2010/08/08 04:54:28 $
- * $Revision: 1.70 $
+ *     $Date: 2011/03/01 05:32:53 $
+ * $Revision: 1.71 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -49,6 +49,7 @@ void gasnete_barrier_pf_disable(gasnete_coll_team_t team) {
 /* 
  * GASNETI_PSHM_BARRIER: do we build the shared-memory barrier
  * GASNETI_PSHM_BARRIER_HIER: for use alone (0) or in a heirarchical barrier (1)
+ * GASNETI_PSHM_BARRIER_HIER_FIXED: force fixed communication paths (not last arrival)
  */
 #if !GASNET_PSHM
   /* No PSHM support: GASNETI_PSHM_BARRIER == GASNETI_PSHM_BARRIER_HIER == 0 */
@@ -72,6 +73,9 @@ void gasnete_barrier_pf_disable(gasnete_coll_team_t team) {
     #define GASNETI_PSHM_BARRIER_HIER 1
   #endif
   #define GASNETI_PSHM_BARRIER GASNETI_PSHM_BARRIER_HIER
+#endif
+#if !GASNETI_PSHM_BARRIER_HIER
+  #undef GASNETI_PSHM_BARRIER_HIER_FIXED
 #endif
 
 
@@ -476,6 +480,9 @@ typedef struct {
   gasnete_pshmbarrier_data_t *amdbarrier_pshm; /* non-NULL if using hierarchical code */
   int amdbarrier_passive;          /* 2 if some other node makes progress for me, 0 otherwise */
 #endif
+#if GASNETI_PSHM_BARRIER_HIER_FIXED
+  int amdbarrier_notify_sent;      /* non-zero if step==0 AM has been sent */
+#endif
   int volatile amdbarrier_value;   /* (supernode-)local ambarrier value */
   int volatile amdbarrier_flags;   /* (supernode-)local ambarrier flags */
   int volatile amdbarrier_step;  /*  local ambarrier step */
@@ -536,12 +543,44 @@ void gasnete_amdbarrier_kick(gasnete_coll_team_t team) {
   int numsteps = 0;
   gasnet_handlerarg_t flags, value;
 
+#if GASNETI_PSHM_BARRIER_HIER_FIXED
+  if_pf (barrier_data->amdbarrier_passive)
+    return; /* not permitted to do anything */
+
+  if (!barrier_data->amdbarrier_notify_sent) {
+    const PSHM_BDATA_DECL(pshm_bdata, barrier_data->amdbarrier_pshm);
+    int do_send = 0;
+    if (!gasnete_pshmbarrier_try_inner(pshm_bdata, 0))
+      return;
+    gasnet_hsl_lock(&barrier_data->amdbarrier_lock);
+      if (!barrier_data->amdbarrier_notify_sent) {
+        gasneti_assert(barrier_data->amdbarrier_step == 0);
+        barrier_data->amdbarrier_notify_sent = 1;
+        barrier_data->amdbarrier_value = value = pshm_bdata->shared->value;
+        barrier_data->amdbarrier_flags = flags = pshm_bdata->shared->flags;
+        phase = barrier_data->amdbarrier_phase;
+        do_send = 1;
+      }
+    gasnet_hsl_unlock(&barrier_data->amdbarrier_lock);
+    if (do_send)  {
+      GASNETI_SAFE(
+        gasnet_AMRequestShort5(barrier_data->amdbarrier_peers[0],
+                               gasneti_handleridx(gasnete_amdbarrier_notify_reqh), 
+                               team->team_id, phase, 0, value, flags));
+    }
+  }
+#endif
+
   if (step == barrier_data->amdbarrier_size || !barrier_data->amdbarrier_step_done[phase][step]) 
     return; /* nothing to do */
 
   gasneti_assert(team->total_ranks > 1);
 
   gasnet_hsl_lock(&barrier_data->amdbarrier_lock);
+  #if GASNETI_PSHM_BARRIER_HIER_FIXED
+    gasneti_assert(barrier_data->amdbarrier_notify_sent);
+  #endif
+
     phase = barrier_data->amdbarrier_phase;
     step = barrier_data->amdbarrier_step;
     /* count steps we can take while holding the lock - must release before send,
@@ -555,8 +594,7 @@ void gasnete_amdbarrier_kick(gasnete_coll_team_t team) {
       const PSHM_BDATA_DECL(pshm_bdata, barrier_data->amdbarrier_pshm);
       if (!step) {
         /* Must use supernode's consensus for value and flags */
-        const int passive_shift = barrier_data->amdbarrier_passive;
-        if (gasnete_pshmbarrier_try_inner(pshm_bdata, passive_shift)) {
+        if (gasnete_pshmbarrier_try_inner(pshm_bdata, 0)) {
           barrier_data->amdbarrier_value = pshm_bdata->shared->value;
           barrier_data->amdbarrier_flags = pshm_bdata->shared->flags;
         } else {
@@ -630,13 +668,18 @@ static void gasnete_amdbarrier_notify(gasnete_coll_team_t team, int id, int flag
 #if GASNETI_PSHM_BARRIER_HIER
   if (barrier_data->amdbarrier_pshm) {
     PSHM_BDATA_DECL(pshm_bdata, barrier_data->amdbarrier_pshm);
-    if (gasnete_pshmbarrier_notify_inner(pshm_bdata, id, flags)) {
+    int pshm_notify_done = gasnete_pshmbarrier_notify_inner(pshm_bdata, id, flags);
+  #if GASNETI_PSHM_BARRIER_HIER_FIXED
+    /* Passive nodes can't send any nitifies */
+    do_send = pshm_notify_done && !barrier_data->amdbarrier_passive;
+    barrier_data->amdbarrier_notify_sent = do_send;
+  #else
+    do_send = pshm_notify_done;
+  #endif
+    if (do_send) {
       /* last arrival - send AM w/ supernode consensus value/flags */
       id = pshm_bdata->shared->value;
       flags = pshm_bdata->shared->flags;
-    } else {
-      /* Not the last arrival - don't send an AM */
-      do_send = 0;
     }
   }
 #endif
@@ -701,6 +744,12 @@ static int gasnete_amdbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
 #endif
 
   if (barrier_data->amdbarrier_step == barrier_data->amdbarrier_size) { /* completed asynchronously before wait (via progressfns or try) */
+  #if GASNETI_PSHM_BARRIER_HIER_FIXED
+    if (!barrier_data->amdbarrier_notify_sent) { /* Still must send that notify out! */
+      gasnete_amdbarrier_kick(team);
+      gasneti_assert(barrier_data->amdbarrier_notify_sent);
+    }
+  #endif
     GASNETI_TRACE_EVENT_TIME(B,BARRIER_ASYNC_COMPLETION,GASNETI_TICKS_NOW_IFENABLED(B)-gasnete_barrier_notifytime);
   } else { /*  wait for response */
     GASNET_BLOCKUNTIL((gasnete_amdbarrier_kick(team), barrier_data->amdbarrier_step == barrier_data->amdbarrier_size));
@@ -847,6 +896,10 @@ static void gasnete_amdbarrier_init(gasnete_coll_team_t team) {
      */
     gasnete_pshmbarrier_fini_inner(pshm_bdata);
     barrier_data->amdbarrier_pshm = NULL;
+
+  #if GASNETI_PSHM_BARRIER_HIER_FIXED
+    barrier_data->amdbarrier_notify_sent = 1; /* N/A - Set to 1 to avoid extra branches */
+  #endif
   }
 #endif
 
