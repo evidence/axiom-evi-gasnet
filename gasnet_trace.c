@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.c,v $
- *     $Date: 2011/02/25 21:18:46 $
- * $Revision: 1.146 $
+ *     $Date: 2011/03/02 19:49:52 $
+ * $Revision: 1.147 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -678,7 +678,7 @@ extern void gasneti_trace_updatemask(const char *newmask, char *maskstr, char *t
 }
 
 char gasneti_exename[PATH_MAX];
-#if GASNETI_STATS_OR_TRACE
+#if GASNET_DEBUG
 static const char *gasneti_mallocreport_filename = NULL;
 #endif
 
@@ -784,10 +784,6 @@ extern void gasneti_trace_init(int *pargc, char ***pargv) {
     gasneti_trace_printf("GASNET_TRACELOCAL: %i", !gasneti_trace_suppresslocal);
   #endif
 
-  gasneti_mallocreport_filename = gasneti_getenv_withdefault("GASNET_MALLOCFILE","");
-  if (gasneti_mallocreport_filename && !strcmp(gasneti_mallocreport_filename, "")) gasneti_mallocreport_filename = NULL;
-  if (gasneti_mallocreport_filename && !gasneti_check_node_list("GASNET_MALLOCNODES")) gasneti_mallocreport_filename = NULL;
-
   #if GASNET_NDEBUG
   { char *NDEBUG_warning =
      "WARNING: tracing/statistical collection may adversely affect application performance.";
@@ -808,6 +804,12 @@ extern void gasneti_trace_init(int *pargc, char ***pargv) {
    gasneti_tick_granularity(), gasneti_tick_overhead());
 
   fflush(NULL);
+ #endif
+
+ #if GASNET_DEBUG
+  gasneti_mallocreport_filename = gasneti_getenv_withdefault("GASNET_MALLOCFILE","");
+  if (gasneti_mallocreport_filename && !strcmp(gasneti_mallocreport_filename, "")) gasneti_mallocreport_filename = NULL;
+  if (gasneti_mallocreport_filename && !gasneti_check_node_list("GASNET_MALLOCNODES")) gasneti_mallocreport_filename = NULL;
  #endif
 }
 
