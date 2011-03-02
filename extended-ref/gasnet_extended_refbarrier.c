@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2011/03/02 01:58:39 $
- * $Revision: 1.77 $
+ *     $Date: 2011/03/02 04:34:07 $
+ * $Revision: 1.78 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -996,7 +996,6 @@ void gasnete_amcbarrier_kick(gasnete_coll_team_t team) {
         barrier_data->amcbarrier_notify_sent[phase] = 1;
         barrier_data->amcbarrier_value = value = pshm_bdata->shared->value;
         barrier_data->amcbarrier_flags = flags = pshm_bdata->shared->flags;
-        phase = barrier_data->amcbarrier_phase;
         do_send = 1;
       }
     gasnet_hsl_unlock(&barrier_data->amcbarrier_lock);
@@ -1008,10 +1007,11 @@ void gasnete_amcbarrier_kick(gasnete_coll_team_t team) {
     }
   }
 
-  if (barrier_data->amcbarrier_notify_sent[phase] &&
-      (gasneti_mynode != barrier_data->amcbarrier_master)) {
-    /* The only work for non-master is when !amcbarrier_notify_sent */
-    gasnete_barrier_pf_disable(team);
+  if (gasneti_mynode != barrier_data->amcbarrier_master) {
+    if (barrier_data->amcbarrier_notify_sent[phase]) {
+      /* The only work for non-master is when !amcbarrier_notify_sent */
+      gasnete_barrier_pf_disable(team);
+    }
     return;
   }
  }
