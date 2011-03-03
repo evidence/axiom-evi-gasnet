@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2011/03/02 04:34:07 $
- * $Revision: 1.78 $
+ *     $Date: 2011/03/03 05:22:08 $
+ * $Revision: 1.79 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1020,16 +1020,20 @@ void gasnete_amcbarrier_kick(gasnete_coll_team_t team) {
   /*  master does all the work */
   if (barrier_data->amcbarrier_count[phase] == barrier_data->amcbarrier_max) {
     int gotit = 0;
+    int mismatch = 0;
     gasnet_hsl_lock(&barrier_data->amcbarrier_lock);
       if (barrier_data->amcbarrier_count[phase] == barrier_data->amcbarrier_max) {
-        barrier_data->amcbarrier_count[phase] = 0;
+        mismatch = barrier_data->amcbarrier_consensus_mismatch[phase];
         gotit = 1;
+        /*  reset state before sending AMs - unlock is the WMB */
+        barrier_data->amcbarrier_count[phase] = 0;
+        barrier_data->amcbarrier_consensus_mismatch[phase] = 0;
+        barrier_data->amcbarrier_consensus_value_present[phase] = 0;
       }
     gasnet_hsl_unlock(&barrier_data->amcbarrier_lock);
 
     if (gotit) { /*  ambarrier is complete */
       int i;
-      int mismatch = barrier_data->amcbarrier_consensus_mismatch[phase];
 
       gasnete_barrier_pf_disable(team);
 
@@ -1049,10 +1053,6 @@ void gasnete_amcbarrier_kick(gasnete_coll_team_t team) {
           gasnet_AMRequestShort3(GASNETE_COLL_REL2ACT(team, i), gasneti_handleridx(gasnete_amcbarrier_done_reqh), 
                                  team->team_id, phase, mismatch));
       }
-
-      /*  reset state */
-      barrier_data->amcbarrier_consensus_mismatch[phase] = 0;
-      barrier_data->amcbarrier_consensus_value_present[phase] = 0;
     }
   }
 }
@@ -1142,8 +1142,10 @@ static int gasnete_amcbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
 #endif
       barrier_data->amcbarrier_response_done[phase]) { /* completed asynchronously before wait (via progressfns or try) */
     GASNETI_TRACE_EVENT_TIME(B,BARRIER_ASYNC_COMPLETION,GASNETI_TICKS_NOW_IFENABLED(B)-gasnete_barrier_notifytime);
+    gasneti_sync_reads(); /* ensure we read correct amcbarrier_response_mismatch[] */
   } else { /*  wait for response */
     GASNET_BLOCKUNTIL((gasnete_amcbarrier_kick(team), barrier_data->amcbarrier_response_done[phase]));
+    /* GASNET_BLOCKUNTIL contains RMB needed for read of amcbarrier_response_mismatch[] */
   }
 #if GASNETI_PSHM_BARRIER_HIER
   gasneti_assert(barrier_data->amcbarrier_notify_sent[phase]);
