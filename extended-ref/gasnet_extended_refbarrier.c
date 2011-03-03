@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2011/03/03 05:22:08 $
- * $Revision: 1.79 $
+ *     $Date: 2011/03/03 17:27:21 $
+ * $Revision: 1.80 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1067,6 +1067,7 @@ static void gasnete_amcbarrier_notify(gasnete_coll_team_t team, int id, int flag
     gasneti_fatalerror("gasnet_barrier_notify() called twice in a row");
 
   phase = !barrier_data->amcbarrier_phase; /*  enter new phase */
+  barrier_data->amcbarrier_phase = phase;
 
 #if GASNETI_PSHM_BARRIER_HIER
   if (barrier_data->amcbarrier_pshm) {
@@ -1090,7 +1091,6 @@ static void gasnete_amcbarrier_notify(gasnete_coll_team_t team, int id, int flag
   barrier_data->amcbarrier_value = (gasnet_handlerarg_t)id;
 
   barrier_data->amcbarrier_flags = flags;
-  barrier_data->amcbarrier_phase = phase;
 
   if (barrier_data->amcbarrier_max > 1) {
     /*  send notify msg to master */
