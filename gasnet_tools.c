@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2011/02/25 20:48:40 $
- * $Revision: 1.258 $
+ *     $Date: 2011/03/23 21:33:09 $
+ * $Revision: 1.259 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2436,11 +2436,14 @@ gasneti_count0s(const void * src, size_t bytes) {
 #if (PLATFORM_ARCH_X86 || PLATFORM_ARCH_X86_64) && \
     (PLATFORM_OS_LINUX || PLATFORM_OS_CNL)
 extern double gasneti_calibrate_tsc(void) {
-  double Tick = 0.0; /* Inverse GHz */
-  FILE *fp = fopen("/proc/cpuinfo","r");
+  static int firstTime = 1;
+  static double Tick = 0.0; /* Inverse GHz */
+  FILE *fp = NULL;
   char input[512]; /* 256 is too small for "flags" line in /proc/cpuino */
   double MHz = 0.0;
 
+ if_pf (firstTime) {
+  fp = fopen("/proc/cpuinfo","r");
   if (!fp) gasneti_fatalerror("*** ERROR: Failure in fopen('/proc/cpuinfo','r')=%s",strerror(errno));
 
   /* First pass gets speed from /proc/cpuinfo */
@@ -2494,6 +2497,10 @@ extern double gasneti_calibrate_tsc(void) {
   }
 
   fclose(fp);
+
+  gasneti_sync_writes();
+  firstTime = 0;
+ } gasneti_sync_reads();
 
   return Tick;
 }
