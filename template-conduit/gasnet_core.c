@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/template-conduit/gasnet_core.c,v $
- *     $Date: 2009/09/21 02:58:21 $
- * $Revision: 1.63 $
+ *     $Date: 2011/03/23 18:25:01 $
+ * $Revision: 1.64 $
  * Description: GASNet <conduitname> conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -75,15 +75,23 @@ static int gasnetc_init(int *argc, char ***argv) {
   #endif
 
   /* (###) Add code here to determine which GASNet nodes may share memory.
+     The collection of nodes sharing memory are known as a "supernode".
+     The (first) data structure to describe this is gasneti_nodemap[]:
+        For all i: gasneti_nodemap[i] is the lowest node number collocated w/ node i
+     where nodes are considered collocated if they have the same node "ID".
+     Or in English:
+       "gasneti_nodemap[] maps from node to first node on the same supernode."
+
      If the conduit has already communicated endpoint address information or
      a similar identifier that is unique per shared-memory compute node, then
      that info can be passed via arguments 2 through 4.
      Otherwise the conduit should pass a non-null gasnetc_bootstrapExchange
      as argument 1 to use platform-specific IDs, such as gethostid().
+     See gasneti_nodemapInit() in gasnet_internal.c for more usage documentation.
      See below for info on gasnetc_bootstrapExchange()
 
      If the conduit can build gasneti_nodemap[] w/o assistance, it should
-     call gasneti_nodemapParse() after constructing it.
+     call gasneti_nodemapParse() after constructing it (instead of nodemapInit()).
   */
   gasneti_nodemapInit(###);
 
