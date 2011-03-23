@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2011/03/23 21:33:09 $
- * $Revision: 1.259 $
+ *     $Date: 2011/03/23 21:40:25 $
+ * $Revision: 1.260 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2500,7 +2500,7 @@ extern double gasneti_calibrate_tsc(void) {
 
   gasneti_sync_writes();
   firstTime = 0;
- } gasneti_sync_reads();
+ } else gasneti_sync_reads();
 
   return Tick;
 }
