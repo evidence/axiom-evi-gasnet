@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2011/02/26 21:25:13 $
- * $Revision: 1.279 $
+ *     $Date: 2011/03/24 03:41:28 $
+ * $Revision: 1.280 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1138,7 +1138,7 @@ static int gasnetc_init(int *argc, char ***argv) {
   /* Now enable tracing of all the following steps */
   gasneti_trace_init(argc, argv);
 
-  /* boostrapInit may set gasneti_nodes==0 if would overflow gasnet_node_t */
+  /* bootstrapInit may set gasneti_nodes==0 if would overflow gasnet_node_t */
   if (!gasneti_nodes /* || (gasneti_nodes > GASNET_MAXNODES) */) {
     GASNETI_RETURN_ERRR(RESOURCE, "gasnet_nodes exceeds " GASNET_CONDUIT_NAME_STR_LC "-conduit capabilities");
   }
@@ -1296,11 +1296,15 @@ static int gasnetc_init(int *argc, char ***argv) {
     return i;
   }
   
-  /* allocate/initialize connection resources */
-  i = gasnetc_connect_init();
-  if (i != GASNET_OK) {
-    return i;
+#if GASNETC_IBV_XRC
+  /* allocate/initialize XRC resources, if any */
+  if (gasnetc_use_xrc) {
+    i = gasnetc_xrc_init();
+    if (i != GASNET_OK) {
+      return i;
+    }
   }
+#endif
 
   /* allocate/initialize transport resources */
   i = gasnetc_sndrcv_init();
@@ -1308,8 +1312,11 @@ static int gasnetc_init(int *argc, char ***argv) {
     return i;
   }
 
-  /* Establish static connections */
-  gasnetc_connect_static();
+  /* Establish static connections and prepare for dynamic ones */
+  i = gasnetc_connect_init();
+  if (i != GASNET_OK) {
+    return i;
+  }
 
   #if GASNET_DEBUG_VERBOSE
     fprintf(stderr,"gasnetc_init(): spawn successful - node %i/%i starting...\n", 
@@ -1318,7 +1325,7 @@ static int gasnetc_init(int *argc, char ***argv) {
 
   /* XXX: From this point forward gasneti_bootstrap*() could safely be implemented
    * via AMs or "raw" IB if desired for efficiency (but no segment for RDMA).
-   * Note that only Exchange (aka AllGather) and Barrier are currently used.
+   * Currently only Exchange (aka AllGather) and Barrier are used beyond this point.
    */
 
   /* Find max pinnable size before we start carving up memory w/ mmap()s.
@@ -1635,6 +1642,10 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
           gasneti_assert(j <= gasnetc_max_regs);
         }
 
+        /* XXX: hca->rkeys is one of the O(N) storage requirements we might reduce/eliminate.
+         * + When using PSHM we could store rkeys just once per supernode
+         * + When not fully connected, we could utilize sparse storage
+         */
         gasneti_bootstrapExchange(my_rkeys, gasnetc_max_regs*sizeof(gasnetc_rkey_t), hca->rkeys);
       }
       gasnetc_seg_reg_count = j;
@@ -1653,8 +1664,9 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   /* Global and per-endpoint work */
   gasnetc_sndrcv_attach_segment();
   for (i = 0; i < gasneti_nodes; i++) {
-    if (GASNETC_NODE2CEP(i)) {
-      gasnetc_sndrcv_attach_peer(i);
+    gasnetc_cep_t *cep = GASNETC_NODE2CEP(i);
+    if (cep) {
+      gasnetc_sndrcv_attach_peer(i, cep);
     }
   }
 
@@ -1805,7 +1817,7 @@ static int gasnetc_exit_reduce(int exitcode, int64_t timeout_us)
   /* Wait for our children (if any) */
   while (gasneti_atomic_read(&gasnetc_exit_reds, 0) < gasnetc_exit_children) {
     if (gasneti_ticks_to_ns(gasneti_ticks_now() - start_time) / 1000 > timeout_us) return -1;
-    gasnetc_sndrcv_poll();
+    gasnetc_sndrcv_poll(0);
     if (gasneti_atomic_read(&gasnetc_exit_reqs, 0)) return -1;
   }
 
@@ -1820,7 +1832,7 @@ static int gasnetc_exit_reduce(int exitcode, int64_t timeout_us)
 
     do {
       if (gasneti_ticks_to_ns(gasneti_ticks_now() - start_time) / 1000 > timeout_us) return -1;
-      gasnetc_sndrcv_poll();
+      gasnetc_sndrcv_poll(0);
       if (gasneti_atomic_read(&gasnetc_exit_reqs, 0)) return -1;
     } while (gasneti_atomic_read(&gasnetc_exit_reds, 0) == gasnetc_exit_children);
     exitcode = gasneti_atomic_read(&gasnetc_exit_code, GASNETI_ATOMIC_RMB_PRE);
@@ -1832,7 +1844,7 @@ static int gasnetc_exit_reduce(int exitcode, int64_t timeout_us)
                                gasneti_handleridx(gasnetc_SYS_exit_reduce),
                                1, exitcode);
     if (rc != GASNET_OK) return -1;
-    gasnetc_sndrcv_poll();
+    gasnetc_sndrcv_poll(0);
     if (gasneti_atomic_read(&gasnetc_exit_reqs, 0)) return -1;
     if (gasneti_ticks_to_ns(gasneti_ticks_now() - start_time) / 1000 > timeout_us) return -1;
   }
@@ -1930,7 +1942,7 @@ static int gasnetc_get_exit_role(void)
 
     /* Now spin until somebody tells us what our role is */
     do {
-      gasnetc_sndrcv_poll(); /* works even before _attach */
+      gasnetc_sndrcv_poll(0); /* works even before _attach */
       role = gasneti_atomic_read(&gasnetc_exit_role, 0);
     } while (role == GASNETC_EXIT_ROLE_UNKNOWN);
   }
@@ -2116,7 +2128,7 @@ static int gasnetc_exit_master(int exitcode, int64_t timeout_us) {
   while (gasneti_atomic_read(&gasnetc_exit_reps, 0) < (gasneti_nodes - 1)) {
     if (gasneti_ticks_to_ns(gasneti_ticks_now() - start_time) / 1000 > timeout_us) return -1;
 
-    gasnetc_sndrcv_poll(); /* works even before _attach */
+    gasnetc_sndrcv_poll(0); /* works even before _attach */
   }
 
   return 0;
@@ -2141,7 +2153,7 @@ static int gasnetc_exit_slave(int64_t timeout_us) {
   while (gasneti_atomic_read(&gasnetc_exit_reqs, 0) == 0) {
     if (gasneti_ticks_to_ns(gasneti_ticks_now() - start_time) / 1000 > timeout_us) return -1;
 
-    gasnetc_sndrcv_poll(); /* works even before _attach */
+    gasnetc_sndrcv_poll(0); /* works even before _attach */
   }
 
   /* wait until out reply has been placed on the wire */

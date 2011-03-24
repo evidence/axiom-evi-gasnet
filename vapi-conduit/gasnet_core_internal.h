@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2011/02/26 21:25:13 $
- * $Revision: 1.205 $
+ *     $Date: 2011/03/24 03:41:28 $
+ * $Revision: 1.206 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -75,12 +75,7 @@
   #define gasnetc_non_ib(_node) ((_node) == gasneti_mynode)
 #endif
 
-/* When not supporting XRC we can drop one indirection used to reach sq_sema */
-#if GASNETC_IBV_XRC
-  #define GASNETC_CEP_SQ_SEMA(_cep) ((_cep)->sq_sema_p)
-#else
-  #define GASNETC_CEP_SQ_SEMA(_cep) (&(_cep)->sq_sema)
-#endif
+#define GASNETC_CEP_SQ_SEMA(_cep) ((_cep)->sq_sema_p)
 
 #if GASNETC_IBV_SRQ 
   #define GASNETC_QPI_IS_REQ(_qpi) ((_qpi) >= gasnetc_num_qps)
@@ -95,7 +90,12 @@ extern gasneti_atomic_t gasnetc_exit_running;
 /* May eventually be a hash? */
 #define GASNETC_NODE2CEP(_node) (gasnetc_node2cep[_node])
 
+/* Control via autoconf or runtime probe if/when we can determine which systems need this */
+#define GASNETC_ALLOW_0BYTE_MSG 0
+
+#ifndef GASNETC_DEBUG_CONNECT
 #define GASNETC_DEBUG_CONNECT 0
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 #define GASNETC_HANDLER_BASE  1 /* reserve 1-63 for the core API */
@@ -427,6 +427,7 @@ typedef GASNETC_IB_CHOOSE(VAPI_sg_lst_entry_t,	struct ibv_sge)		gasnetc_sge_t;
 #define gasnetc_f_wr_rem_addr	GASNETC_IB_CHOOSE(remote_addr,		wr.rdma.remote_addr)
 #define gasnetc_f_wr_rkey	GASNETC_IB_CHOOSE(r_key,		wr.rdma.rkey)
 #define gasnetc_f_sg_len	GASNETC_IB_CHOOSE(len,			length)
+#define gasnetc_f_wc_qpn	GASNETC_IB_CHOOSE(local_qp_num,		qp_num)
 
 /* ------------------------------------------------------------------------------------ */
 
@@ -487,6 +488,7 @@ typedef struct {
   struct ibv_srq	*repl_srq;
   gasneti_semaphore_t	am_sema;
 #endif
+  gasneti_semaphore_t	*snd_cq_sema_p;
 #if GASNETC_IBV_XRC
   struct ibv_xrc_domain *xrc_domain;
 #endif
@@ -567,13 +569,10 @@ typedef struct {
 struct gasnetc_cep_t_ {
   /* Read/write fields */
   int                   used;           /* boolean - true if cep has sent traffic */
-  gasneti_semaphore_t	sq_sema;	/* control in-flight ops (send queue slots) */
   gasneti_semaphore_t	am_rem;		/* control in-flight AM Requests (remote rcv queue slots)*/
   gasneti_semaphore_t	am_loc;		/* control unmatched rcv buffers (local rcv queue slots) */
   gasneti_semaphore_t	*snd_cq_sema_p;	/* control in-flight ops (send completion queue slots) */
-#if GASNETC_IBV_XRC
   gasneti_semaphore_t	*sq_sema_p;	/* Pointer to a sq_sema */
-#endif
   /* XXX: The atomics in the next 2 structs really should get padded to full cache lines */
   struct {	/* AM flow control coallescing */
   	gasneti_weakatomic_t	credit;
@@ -632,20 +631,26 @@ typedef struct {
 } gasnetc_port_info_t;
 
 /* Routines in gasnet_core_connect.c */
-extern int gasnetc_connect_static(void);
+#if GASNETC_IBV_XRC
+extern int gasnetc_xrc_init(void);
+#endif
 extern int gasnetc_connect_init(void);
 extern int gasnetc_connect_fini(void);
+extern gasnetc_cep_t *gasnetc_connect_to(gasnet_node_t node);
+extern void gasnetc_conn_implied_ack(gasnet_node_t node);
+extern void gasnetc_conn_rcv_wc(gasnetc_wc_t *comp);
+extern void gasnetc_conn_snd_wc(gasnetc_wc_t *comp);
 
 /* Routines in gasnet_core_sndrcv.c */
 extern int gasnetc_sndrcv_limits(void);
 extern int gasnetc_sndrcv_init(void);
-extern void gasnetc_sndrcv_init_peer(gasnet_node_t node);
+extern void gasnetc_sndrcv_init_peer(gasnet_node_t node, gasnetc_cep_t *cep);
 extern void gasnetc_sndrcv_init_inline(void);
-extern void gasnetc_sndrcv_attach_peer(gasnet_node_t node);
+extern void gasnetc_sndrcv_attach_peer(gasnet_node_t node, gasnetc_cep_t *cep);
 extern void gasnetc_sndrcv_attach_segment(void);
 extern gasnetc_amrdma_send_t *gasnetc_amrdma_send_alloc(gasnetc_rkey_t rkey, void *addr);
 extern gasnetc_amrdma_recv_t *gasnetc_amrdma_recv_alloc(gasnetc_hca_t *hca);
-extern void gasnetc_sndrcv_poll(void);
+extern void gasnetc_sndrcv_poll(int handler_context);
 extern int gasnetc_RequestGeneric(gasnetc_category_t category,
 				  int dest, gasnet_handler_t handler,
 				  void *src_addr, int nbytes, void *dst_addr,
@@ -680,6 +685,8 @@ extern int		gasnetc_op_oust_pp;
 extern int		gasnetc_am_oust_limit;
 extern int		gasnetc_am_oust_pp;
 extern int		gasnetc_bbuf_limit;
+extern int		gasnetc_ud_rcvs;
+extern int		gasnetc_ud_snds;
 extern int		gasnetc_use_rcv_thread;
 extern int		gasnetc_am_credits_slack;
 extern int		gasnetc_alloc_qps;    /* Number of QPs per node in gasnetc_ceps[] */
@@ -737,5 +744,7 @@ extern gasnetc_port_info_t      *gasnetc_port_tbl;
 extern int                      gasnetc_num_ports;
 extern gasnetc_cep_t            **gasnetc_node2cep;
 extern gasnet_node_t            gasnetc_remote_nodes;
+extern gasnetc_qpn_t            gasnetc_conn_qpn;
+extern gasneti_semaphore_t      gasnetc_zero_sema;
 
 #endif

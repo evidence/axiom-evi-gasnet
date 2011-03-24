@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_fwd.h,v $
- *     $Date: 2011/02/24 02:40:19 $
- * $Revision: 1.50 $
+ *     $Date: 2011/03/24 03:41:28 $
+ * $Revision: 1.51 $
  * Description: GASNet header for vapi conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -111,10 +111,27 @@ typedef uint16_t gasnetc_handler_t;
 	CNT(C, POST_INLINE_SR, cnt)               \
 	TIME(C, POST_SR_STALL_CQ, stalled time)   \
 	TIME(C, POST_SR_STALL_SQ, stalled time)   \
-	VAL(C, SND_POST_LIST, requests)           \
 	VAL(C, POST_SR_LIST, requests)            \
 	VAL(C, SND_REAP, reaped)                  \
 	VAL(C, RCV_REAP, reaped)                  \
+	CNT(C, CONN_STATIC, peers)                \
+	CNT(C, CONN_DYNAMIC, peers)               \
+	TIME(C, CONN_TIME_ACTV, active connect time) \
+	TIME(C, CONN_TIME_PASV, passive connect time) \
+	TIME(C, CONN_TIME_A2P, active-became-passive connect time) \
+	TIME(C, CONN_REQ2REP, REQ-to-REP delay)   \
+	TIME(C, CONN_RTU2ACK, RTU-to-ACK delay)   \
+	VAL(C, CONN_REQ, resends)                 \
+	VAL(C, CONN_RTU, resends)                 \
+	CNT(C, CONN_REP, sent)                    \
+	CNT(C, CONN_NOREP, not sent)              \
+	CNT(C, CONN_ACK, sent)                    \
+	CNT(C, CONN_NOACK, not sent)              \
+	CNT(C, CONN_AAA, remained Active)         \
+	CNT(C, CONN_AAP, became Passive)          \
+	CNT(C, CONN_IMPLIED_ACK, cnt)             \
+	TIME(C, CONN_STALL_CQ, stalled time)      \
+	TIME(C, CONN_STALL_DESC, stalled time)    \
 	TIME(C, FIREHOSE_MOVE, processing time)   \
 	VAL(C, FIREHOSE_PIN, pages)               \
 	VAL(C, FIREHOSE_UNPIN, pages)
