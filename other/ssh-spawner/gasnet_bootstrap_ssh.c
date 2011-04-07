@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2011/04/07 23:53:21 $
- * $Revision: 1.77 $
+ *     $Date: 2011/04/07 23:55:43 $
+ * $Revision: 1.78 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -30,8 +30,8 @@
    * gracefully).  Not safe on some Linux kernels.
    */
   #include <sys/prctl.h>
-  #include <signal.h>
 #endif
+#include <signal.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <netdb.h>
