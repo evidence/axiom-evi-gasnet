@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2011/03/24 03:41:28 $
- * $Revision: 1.46 $
+ *     $Date: 2011/04/07 03:28:50 $
+ * $Revision: 1.47 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -1800,7 +1800,7 @@ extern void
 gasnetc_conn_rcv_wc(gasnetc_wc_t *comp)
 {
   gasnetc_ud_rcv_desc_t *desc = (gasnetc_ud_rcv_desc_t *)(uintptr_t)comp->gasnetc_f_wr_id;
-  gasnetc_conn_cmd_t cmd = comp->imm_data & 0xff;
+  gasnetc_conn_cmd_t cmd = (gasnetc_conn_cmd_t)(comp->imm_data & 0xff);
   gasnet_node_t node = comp->imm_data >> 16;
   gasneti_tick_t now = gasneti_ticks_now();
 
