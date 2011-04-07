@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2010/12/23 01:42:58 $
- * $Revision: 1.76 $
+ *     $Date: 2011/04/07 23:53:21 $
+ * $Revision: 1.77 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -304,11 +304,11 @@ static void kill_one(const char *rem_host, pid_t rem_pid) {
 #endif
     ssh_argv[ssh_argc] = (/* noconst */ char *)rem_host;
     ssh_argv[ssh_argc+1] = sappendf(NULL, "cd %s; exec %s -GASNET-SPAWN-kill %d",
-				      quote_arg(cwd), quote_arg(argv0), rem_pid);
+				      quote_arg(cwd), quote_arg(argv0), (int)rem_pid);
     execvp(ssh_argv[0], ssh_argv);
     gasneti_fatalerror("execvp(ssh kill) failed");
   }
-  BOOTSTRAP_VERBOSE(("[-1] Pid %d killing %s:%d\n", pid, rem_host, (int)rem_pid));
+  BOOTSTRAP_VERBOSE(("[-1] Pid %d killing %s:%d\n", (int)pid, rem_host, (int)rem_pid));
   gasneti_atomic_increment(&live, 0);
 }
 
@@ -356,7 +356,7 @@ static void signal_one(const char *rem_host, pid_t rem_pid, int sig) {
     (void)dup2(STDERR_FILENO, devnull);
 #endif
     ssh_argv[ssh_argc] = (/* noconst */ char *)rem_host;
-    ssh_argv[ssh_argc+1] = sappendf(NULL, "sh -c 'kill -s %d %d 2>/dev/null'", sig, rem_pid);
+    ssh_argv[ssh_argc+1] = sappendf(NULL, "sh -c 'kill -s %d %d 2>/dev/null'", sig, (int)rem_pid);
     execvp(ssh_argv[0], ssh_argv);
     gasneti_fatalerror("execvp(ssh kill) failed");
   }
