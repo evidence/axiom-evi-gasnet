@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_connect.c,v $
- *     $Date: 2011/04/07 03:28:50 $
- * $Revision: 1.47 $
+ *     $Date: 2011/04/07 23:50:42 $
+ * $Revision: 1.48 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -344,7 +344,7 @@ gasnetc_xrc_init(void) {
     gasneti_fatalerror("failed to resize xrc shared memory file '%s': %d:%s", filename[index], errno, strerror(errno));
   }
   /* XXX: Is there anything else that can/should be packed into the same shared memory file? */
-  gasnetc_xrc_rcv_qpn = mmap(NULL, flen, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+  gasnetc_xrc_rcv_qpn = (gasnetc_qpn_t *)mmap(NULL, flen, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
   if (gasnetc_xrc_rcv_qpn == MAP_FAILED) {
     gasneti_fatalerror("failed to mmap xrc shared memory file '%s': %d:%s", filename[index], errno, strerror(errno));
   }
