@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_connect.c,v $
- *     $Date: 2011/04/07 23:50:42 $
- * $Revision: 1.48 $
+ *     $Date: 2011/04/08 19:47:05 $
+ * $Revision: 1.49 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -2385,6 +2385,17 @@ static gasnet_node_t dump_conn_first = GASNET_MAXNODES;
 static gasnet_node_t dump_conn_prev;
 
 static void
+dump_conn_write(int fd, const char *buf, size_t len)
+{
+  /* TODO: loop w/ retry on whort writes? */
+  ssize_t rc = write(fd, buf, len);
+  if_pf (rc != len) {
+    gasneti_fatalerror("Write to connection file failed or truncated: rc=%ld errno=%s(%i)",
+                       (long int)rc, strerror(errno), errno);
+  }
+}
+
+static void
 dump_conn_outln(int fd)
 {
   static char fullline[96];
@@ -2401,7 +2412,7 @@ dump_conn_outln(int fd)
   len += taglen;
   fullline[len] = '\n';
 
-  write(fd, fullline, len+1);
+  dump_conn_write(fd, fullline, len+1);
 }
 
 static void
@@ -2490,11 +2501,15 @@ gasnetc_connect_fini(void)
       if (!gasneti_mynode || strchr(envstr, '%')) {
         char buf[16];
         size_t len;
-        gasneti_assert_zeroret(ftruncate(fd,0));
+        int rc = ftruncate(fd,0);
+        if_pf (rc < 0) {
+            gasneti_fatalerror("Failed to truncate connection file: rc=%d errno=%s(%i)",
+                               rc, strerror(errno), errno);
+        }
         len = snprintf(buf, sizeof(buf), "size:%d\n", gasneti_nodes);
-        write(fd, buf, len);
+        dump_conn_write(fd, buf, len);
         len = snprintf(buf, sizeof(buf), "base:%d\n", gasnetc_connectfile_out_base);
-        write(fd, buf, len);
+        dump_conn_write(fd, buf, len);
       }
       gasneti_bootstrapBarrier();
     }
