@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2011/02/03 01:51:22 $
-# $Revision: 1.668 $
+#     $Date: 2011/04/08 20:56:41 $
+# $Revision: 1.669 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.668 $)
+AC_REVISION($Revision: 1.669 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -3233,7 +3233,7 @@ AC_SUBST(VAPI_LIBDIR)
 AC_SUBST(VAPI_LIBS)
 AC_SUBST(VAPI_LIBCFLAGS)
 AM_CONDITIONAL(USE_VAPI_CONDUIT, test "$have_vapi" = yes)
-AM_CONDITIONAL(VAPI_BOOTSTRAP_SSH, test "$have_fork" = yes)
+AM_CONDITIONAL(VAPI_BOOTSTRAP_SSH, test "$have_fork" = yes -a "x$have_ssh_libs" != xno)
 AM_CONDITIONAL(VAPI_BOOTSTRAP_MPI, test "$have_mpi_compat" = yes)	# Option to omit MPI support?
 AM_CONDITIONAL(VAPI_RCV_THREAD,test "$enabled_vapi_rcv_thread" = yes)
 CONDUIT_END([test "$have_vapi" = yes])
@@ -3342,6 +3342,7 @@ AC_SUBST(IBV_LIBS)
 AC_SUBST(IBV_LIBCFLAGS)
 AM_CONDITIONAL(USE_IBV_CONDUIT, test "$have_ibv" = yes)
 AM_CONDITIONAL(IBV_BOOTSTRAP_SSH, test "$have_fork" = yes)
+AM_CONDITIONAL(IBV_BOOTSTRAP_SSH, test "$have_fork" = yes -a "x$have_ssh_libs" != xno)
 AM_CONDITIONAL(IBV_BOOTSTRAP_MPI, test "$have_mpi_compat" = yes)	# Option to omit MPI support?
 AM_CONDITIONAL(IBV_RCV_THREAD,test "$enabled_ibv_rcv_thread" = yes)
 CONDUIT_END([test "$have_ibv" = yes])
@@ -3782,6 +3783,7 @@ AC_DEFINE_UNQUOTED(GASNETI_CONDUITS,"$CONDUITS")
 # Configure conduit-independent spawners
 
 # Things needed by ssh spawner
+SSH_SPAWNER_LIBS=""
 AC_CHECK_HEADERS(sys/socket.h netinet/tcp.h)
 case "$target_os" in
   linux*)
@@ -3793,7 +3795,20 @@ case "$target_os" in
         ], [ AC_DEFINE(HAVE_PR_SET_PDEATHSIG) ])
       ])
   ;;
+  solaris*)
+    GASNET_PUSHVAR(LIBS,"")
+      AC_SEARCH_LIBS(socket, socket, have_ssh_libs=yes, have_ssh_libs=no)
+      AC_SEARCH_LIBS(gethostbyname, nsl, , no)
+
+      if test "x$have_ssh_libs" = xno ; then
+        GASNET_MSG_WARN([Cannot find socket libs - disabling ssh-spawner support])
+      else
+        SSH_SPAWNER_LIBS="$LIBS"
+      fi
+    GASNET_POPVAR(LIBS)
+  ;;
 esac
+AC_SUBST(SSH_SPAWNER_LIBS)
 
 AC_MSG_CHECKING([for socklen_t or its equivalent])
 AC_CACHE_VAL(gasnet_cv_socklen_t,[
