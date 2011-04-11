@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2011/04/11 22:46:06 $
- * $Revision: 1.207 $
+ *     $Date: 2011/04/11 23:27:00 $
+ * $Revision: 1.208 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -31,6 +31,10 @@
   #include <vapi.h>
   #include <evapi.h>
   #include <vapi_common.h>
+  #if !HAVE_VAPI_WC_LOCAL_QP_NUM
+    #undef GASNETC_DYNAMIC_CONNECT
+    #define GASNETC_DYNAMIC_CONNECT 0
+  #endif
 #else
   #include <infiniband/verbs.h>
   #if HAVE_IBV_SRQ

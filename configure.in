@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2011/04/08 21:28:52 $
-# $Revision: 1.670 $
+#     $Date: 2011/04/11 23:26:58 $
+# $Revision: 1.671 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.670 $)
+AC_REVISION($Revision: 1.671 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -3202,11 +3202,12 @@ if test "$enabled_vapi" = yes; then
   GASNET_POPVAR(LIBS)
 
   if test "$have_vapi" = yes; then
+    GASNET_PUSHVAR(CFLAGS,"$CFLAGS -I$VAPI_INCLUDE $GASNET_THREAD_DEFINES $VAPI_LIBCFLAGS")
+    GASNET_PUSHVAR(LIBS,"$LIBS -L$VAPI_LIBDIR $VAPI_LIBS $GASNET_THREAD_LIBS")
+
     GASNET_IF_ENABLED_WITH_AUTO(vapi-fmr, support/use VAPI Fast Memory Regions (default is to probe),
                  [enabled_vapi_fmr="yes"], [enabled_vapi_fmr="no"], [enabled_vapi_fmr="try"])
     if test "$enabled_vapi_fmr" != no; then
-      GASNET_PUSHVAR(CFLAGS,"$CFLAGS -I$VAPI_INCLUDE $GASNET_THREAD_DEFINES $VAPI_LIBCFLAGS")
-      GASNET_PUSHVAR(LIBS,"$LIBS -L$VAPI_LIBDIR $VAPI_LIBS $GASNET_THREAD_LIBS")
       GASNET_TRY_CACHE_LINK(for VAPI FMR support, vapi_fmr, [
         #include <vapi.h>
         #include <evapi.h>
@@ -3215,14 +3216,28 @@ if test "$enabled_vapi" = yes; then
         EVAPI_fmr_hndl_t handles[1];
         EVAPI_unmap_fmr(my_hca, 1, handles);
       }], [ have_vapi_fmr="yes" ], [ have_vapi_fmr="no" ])
-      GASNET_POPVAR(CFLAGS)
-      GASNET_POPVAR(LIBS)
       if test "$have_vapi_fmr" = yes; then
         AC_DEFINE(HAVE_VAPI_FMR)
       elif test "$enabled_vapi_fmr" = yes; then
         AC_MSG_ERROR(User requested --enable-vapi-fmr but support was not found.)
       fi
     fi
+
+    # No user-level disable (yet?)
+    GASNET_TRY_CACHE_LINK(for local_qp_num in work completion, vapi_wc_local_qp_num, [
+        #include <vapi.h>
+      ], [{
+        VAPI_wc_desc_t x;
+        x.local_qp_num = 0;
+      }], [ have_vapi_wc_local_qp_num="yes" ], [ have_vapi_wc_local_qp_num="no" ])
+    if test "$have_vapi_wc_local_qp_num" = yes; then
+      AC_DEFINE(HAVE_VAPI_WC_LOCAL_QP_NUM)
+    else
+      GASNET_MSG_WARN([dynamic connections in vapi-conduit require a more recent VAPI version - disabling dynamic connection support])
+    fi
+
+    GASNET_POPVAR(CFLAGS)
+    GASNET_POPVAR(LIBS)
 
     # Collect IB-specifc configure options
     GASNET_IB_OPTIONS(VAPI)
