@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2011/04/11 22:58:20 $
- * $Revision: 1.51 $
+ *     $Date: 2011/04/11 23:02:08 $
+ * $Revision: 1.52 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -2272,7 +2272,9 @@ extern int
 gasnetc_connect_init(void)
 {
   int do_static = 1;
+#if GASNETC_DYNAMIC_CONNECT
   int do_dynamic = 0;
+#endif
   int fully_connected = 0;
 
   /* Allocate node->cep lookup table */
