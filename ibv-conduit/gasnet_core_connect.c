@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2011/04/08 19:47:05 $
- * $Revision: 1.49 $
+ *     $Date: 2011/04/11 22:46:06 $
+ * $Revision: 1.50 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -97,7 +97,7 @@ static int gasnetc_connectfile_out_base = 36; /* Defaults to most compact */
 
 /* ------------------------------------------------------------------------------------ */
 
-#if GASNET_DEBUG
+#if GASNET_DEBUG && GASNETC_DYNAMIC_CONNECT
 /* Drop some UD packets randomly to aid debugging */
 static unsigned int gasnetc_conn_drop_denom = 0;
 
@@ -901,8 +901,10 @@ gasnetc_set_sq_sema(gasnetc_conn_info_t *conn_info)
     return GASNET_OK;
 } /* set_qp_sema */
 
+#if GASNETC_DYNAMIC_CONNECT
+
 /* ------------------------------------------------------------------------------------ */
-/* Support for UD endpoint used for dynamic connenction setup */
+/* Support for UD endpoint used for dynamic connection setup */
 
 /* UD recv */
 typedef struct {
@@ -1960,6 +1962,8 @@ gasnetc_conn_snd_wc(gasnetc_wc_t *comp)
   gasneti_lifo_push(&conn_snd_freelist, desc);
 }
 
+#endif /* GASNETC_DYNAMIC_CONNECT */
+
 /* ------------------------------------------------------------------------------------ */
 /* Support code for gasnetc_connect() */
 
@@ -2266,7 +2270,7 @@ done:
 extern int
 gasnetc_connect_init(void)
 {
-  int do_static = 0;
+  int do_static = 1;
   int do_dynamic = 0;
   int fully_connected = 0;
 
@@ -2282,11 +2286,12 @@ gasnetc_connect_init(void)
     return GASNET_OK;
   }
 
+#if GASNETC_DYNAMIC_CONNECT
   /* Parse connection related env vars */
-#if GASNET_DEBUG
+ #if GASNET_DEBUG
   gasnetc_conn_drop_denom =
         gasneti_getenv_int_withdefault("GASNET_CONNECT_DROP_DENOM", 0, 0);
-#endif
+ #endif
   gasnetc_connectfile_in  = gasnet_getenv("GASNET_CONNECTFILE_IN");
   if (gasnetc_connectfile_in && !gasnetc_connectfile_in[0]) { /* empty string */
     gasnetc_connectfile_in = NULL;
@@ -2326,6 +2331,7 @@ gasnetc_connect_init(void)
       gasnetc_conn_retransmit_max_ns = tmp_max * 1000;
     }
   }
+#endif
 
   /* Determine the inline data limit given the QP parameters we will use. */
   {
@@ -2365,6 +2371,7 @@ gasnetc_connect_init(void)
     GASNETI_TRACE_PRINTF(I, ("Static connection at startup has been disabled at user request"));
   }
 
+#if GASNETC_DYNAMIC_CONNECT
   if (!do_dynamic) {
     GASNETI_TRACE_PRINTF(I, ("Dynamic connection has been disabled at user request"));
   } else if (do_static && !gasnetc_connectfile_in) {
@@ -2373,6 +2380,9 @@ gasnetc_connect_init(void)
     /* TODO: allow env var to select specific port for UD */
     gasnetc_qp_setup_ud(&gasnetc_port_tbl[0], fully_connected);
   }
+#else
+  GASNETI_TRACE_PRINTF(I, ("Dynamic connection was disabled at library build time"));
+#endif
 
   return GASNET_OK;
 } /* gasnetc_connect_init */

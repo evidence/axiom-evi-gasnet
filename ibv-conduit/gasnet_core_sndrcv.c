@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2011/03/24 03:41:28 $
- * $Revision: 1.277 $
+ *     $Date: 2011/04/11 22:46:06 $
+ * $Revision: 1.278 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -833,7 +833,11 @@ void gasnetc_dump_cqs(gasnetc_wc_t *comp, gasnetc_hca_t *hca, const int is_snd))
   gasnet_hsl_lock(&lock);
 
   if (is_snd) {
-    int is_ud = (comp->gasnetc_f_wc_qpn == gasnetc_conn_qpn);
+  #if GASNETC_DYNAMIC_CONNECT
+    const int is_ud = (comp->gasnetc_f_wc_qpn == gasnetc_conn_qpn);
+  #else
+    const int is_ud = 0;
+  #endif
     gasnetc_sreq_t *sreq = (gasnetc_sreq_t *)(uintptr_t)comp->gasnetc_f_wr_id;
     int node = is_ud ? -1 : gasnetc_epid2node(sreq->cep->epid);
     int qpi = is_ud ? 1 : gasnetc_epid2qpi(sreq->cep->epid);
@@ -924,9 +928,11 @@ static int gasnetc_snd_reap(int limit) {
     } else if_pt (rc == GASNETC_POLL_CQ_OK) {
       if_pt (comp.status == GASNETC_WC_SUCCESS) {
         gasnetc_sreq_t *sreq = (gasnetc_sreq_t *)(uintptr_t)comp.gasnetc_f_wr_id;
+      #if GASNETC_DYNAMIC_CONNECT
         if_pf (comp.gasnetc_f_wc_qpn == gasnetc_conn_qpn) {
           gasnetc_conn_snd_wc(&comp);
         } else
+      #endif
         if_pt (sreq) {
 	  gasneti_assert(sreq->opcode != GASNETC_OP_INVALID);
 	  gasneti_semaphore_up(GASNETC_CEP_SQ_SEMA(sreq->cep));
@@ -1117,6 +1123,7 @@ gasnetc_cep_t *gasnetc_bind_cep_inner(gasnetc_epid_t epid, gasnetc_sreq_t *sreq,
   if_pf (!gasneti_semaphore_trydown(GASNETC_CEP_SQ_SEMA(cep))) {
     GASNETC_TRACE_WAIT_BEGIN();
 
+  #if GASNETC_DYNAMIC_CONNECT
     /* Close the one dynamic connection race condition. */
     if ((GASNETC_CEP_SQ_SEMA(cep) == &gasnetc_zero_sema) && is_reply) {
       /* We are in the "gap" between RTR and RTS and waiting for the ACK.
@@ -1127,6 +1134,7 @@ gasnetc_cep_t *gasnetc_bind_cep_inner(gasnetc_epid_t epid, gasnetc_sreq_t *sreq,
        */
       gasnetc_conn_implied_ack(gasnetc_epid2node(epid));
     }
+  #endif
 
     do {
       if (!gasnetc_snd_reap(1)) {
@@ -1297,10 +1305,12 @@ static int gasnetc_rcv_reap(gasnetc_hca_t *hca, int limit, gasnetc_rbuf_t **spar
       break;
     } else if_pt (vstat == GASNETC_POLL_CQ_OK) {
       if_pt (comp.status == GASNETC_WC_SUCCESS) {
+      #if GASNETC_DYNAMIC_CONNECT
         if_pf (comp.gasnetc_f_wc_qpn == gasnetc_conn_qpn) {
           gasnetc_conn_rcv_wc(&comp);
           break; /* lower latency (and fewer implied ACKS) if we cease polling */
         }
+      #endif
         gasnetc_rcv_am(&comp, spare_p);
       } else if (GASNETC_IS_EXITING()) {
         /* disconnected */

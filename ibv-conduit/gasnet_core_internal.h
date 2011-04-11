@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2011/03/24 03:41:28 $
- * $Revision: 1.206 $
+ *     $Date: 2011/04/11 22:46:06 $
+ * $Revision: 1.207 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -95,6 +95,10 @@ extern gasneti_atomic_t gasnetc_exit_running;
 
 #ifndef GASNETC_DEBUG_CONNECT
 #define GASNETC_DEBUG_CONNECT 0
+#endif
+
+#ifndef GASNETC_DYNAMIC_CONNECT
+#define GASNETC_DYNAMIC_CONNECT 1
 #endif
 
 /* ------------------------------------------------------------------------------------ */
@@ -744,7 +748,9 @@ extern gasnetc_port_info_t      *gasnetc_port_tbl;
 extern int                      gasnetc_num_ports;
 extern gasnetc_cep_t            **gasnetc_node2cep;
 extern gasnet_node_t            gasnetc_remote_nodes;
-extern gasnetc_qpn_t            gasnetc_conn_qpn;
-extern gasneti_semaphore_t      gasnetc_zero_sema;
+#if GASNETC_DYNAMIC_CONNECT
+  extern gasnetc_qpn_t          gasnetc_conn_qpn;
+  extern gasneti_semaphore_t    gasnetc_zero_sema;
+#endif
 
 #endif
