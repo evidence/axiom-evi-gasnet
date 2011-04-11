@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_connect.c,v $
- *     $Date: 2011/04/11 22:46:06 $
- * $Revision: 1.50 $
+ *     $Date: 2011/04/11 22:58:20 $
+ * $Revision: 1.51 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -498,7 +498,6 @@ gasnetc_check_inline_limit(int port_num, int send_wr, int send_sge)
 static int
 gasnetc_qp_create(gasnetc_conn_info_t *conn_info)
 {
-    const gasnet_node_t node = conn_info->node;
     gasnetc_cep_t *cep;
     int qpi;
 
@@ -543,6 +542,7 @@ gasnetc_qp_create(gasnetc_conn_info_t *conn_info)
     const int                   max_recv_wr = gasnetc_use_srq ? 0 : gasnetc_am_oust_pp * 2;
     int                         max_send_wr = gasnetc_op_oust_pp;
   #if GASNETC_IBV_XRC
+    const gasnet_node_t         node = conn_info->node;
     gasnetc_xrc_snd_qp_t       *xrc_snd_qp = GASNETC_NODE2SND_QP(node);
   #endif
 
@@ -793,7 +793,6 @@ gasnetc_qp_init2rtr(gasnetc_conn_info_t *conn_info)
 static int
 gasnetc_qp_rtr2rts(gasnetc_conn_info_t *conn_info)
 {
-    const gasnet_node_t node = conn_info->node;
     gasnetc_qp_attr_t qp_attr;
     gasnetc_qp_mask_t qp_mask;
     gasnetc_cep_t *cep;
@@ -825,6 +824,7 @@ gasnetc_qp_rtr2rts(gasnetc_conn_info_t *conn_info)
     }
 #else
   #if GASNETC_IBV_XRC
+    const gasnet_node_t node = conn_info->node;
     gasnetc_xrc_snd_qp_t *xrc_snd_qp = GASNETC_NODE2SND_QP(node);
   #endif
 
@@ -862,10 +862,10 @@ gasnetc_qp_rtr2rts(gasnetc_conn_info_t *conn_info)
 static int
 gasnetc_set_sq_sema(gasnetc_conn_info_t *conn_info)
 {
-    const gasnet_node_t node = conn_info->node;
     gasnetc_cep_t *cep;
     int qpi;
   #if GASNETC_IBV_XRC
+    const gasnet_node_t node = conn_info->node;
     gasnetc_xrc_snd_qp_t *xrc_snd_qp = GASNETC_NODE2SND_QP(node);
   #endif
 
@@ -2097,7 +2097,7 @@ gasnetc_connect_static(void)
 #if GASNETC_IBV_XRC
   gasnet_node_t         static_supernodes = gasneti_nodemap_global_count - 1;
 #endif
-  int                   i, qpi;
+  int                   i;
   gasnetc_cep_t         *cep; /* First cep of given node */
   uint8_t               *peer_mask = NULL;
 
@@ -2201,6 +2201,7 @@ gasnetc_connect_static(void)
     gasnetc_xrc_conn_data_t *local_tmp  = gasneti_calloc(ceps,  sizeof(gasnetc_xrc_conn_data_t));
     gasnetc_xrc_conn_data_t *remote_tmp = gasneti_malloc(ceps * sizeof(gasnetc_xrc_conn_data_t));
     for (i = node = 0; node < gasneti_nodes; ++node) {
+      int qpi;
       cep = GASNETC_NODE2CEP(node);
       for (qpi = 0; qpi < gasnetc_alloc_qps; ++qpi, ++i) {
         if (GASNETC_IS_REMOTE_NODE(node)) {
