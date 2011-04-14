@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2011/03/24 03:41:28 $
- * $Revision: 1.280 $
+ *     $Date: 2011/04/14 21:28:19 $
+ * $Revision: 1.281 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2274,6 +2274,10 @@ static void gasnetc_exit_body(void) {
   }
 
  if (!graceful) { /* Skip the complex case if the barrier worked */
+#if GASNET_DEBUG_VERBOSE
+  fprintf(stderr, "Pre-exit barrier timed-out on node %d\n", (int)gasneti_mynode);
+#endif
+
   exitcode = gasneti_atomic_read(&gasnetc_exit_code, GASNETI_ATOMIC_RMB_PRE);
 
   /* Determine our role (master or slave) in the coordination of this shutdown */
