@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_connect.c,v $
- *     $Date: 2011/04/11 23:02:08 $
- * $Revision: 1.52 $
+ *     $Date: 2011/04/14 20:45:56 $
+ * $Revision: 1.53 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -36,8 +36,6 @@
 
 /* ------------------------------------------------------------------------------------ */
 /* Global data */
-
-gasnetc_qpn_t gasnetc_conn_qpn = 0;
 
 gasneti_semaphore_t gasnetc_zero_sema = GASNETI_SEMAPHORE_INITIALIZER(0, 0);
 
@@ -1233,6 +1231,7 @@ gasnetc_qp_setup_ud(gasnetc_port_info_t *port, int fully_connected)
   #if GASNET_CONDUIT_VAPI
     VAPI_qp_cap_t qp_cap;
   #endif
+    gasnetc_qpn_t gasnetc_conn_qpn = 0;
     gasnetc_qp_attr_t qp_attr;
     gasnetc_qp_mask_t qp_mask;
     gasnetc_memreg_t mem_reg;
@@ -1375,7 +1374,7 @@ gasnetc_qp_setup_ud(gasnetc_port_info_t *port, int fully_connected)
       for (i = 0; i < max_recv_wr; ++i, ++desc, addr += recv_sz) {
         desc->wr.gasnetc_f_wr_num_sge = 1;
         desc->wr.gasnetc_f_wr_sg_list = &desc->sg;
-        desc->wr.gasnetc_f_wr_id      = (uintptr_t)desc;   /* CQE will point back to this request */
+        desc->wr.gasnetc_f_wr_id      = 1 | (uintptr_t)desc;   /* CQE will point back to this request */
       #if GASNET_CONDUIT_VAPI
         desc->wr.opcode               = VAPI_RECEIVE;
         desc->wr.comp_type            = VAPI_SIGNALED;
@@ -1428,7 +1427,7 @@ gasnetc_qp_setup_ud(gasnetc_port_info_t *port, int fully_connected)
       for (i = 0; i < max_send_wr; ++i, ++desc, addr += send_sz) {
         desc->wr.gasnetc_f_wr_num_sge = 1;
         desc->wr.gasnetc_f_wr_sg_list = &desc->sg;
-        desc->wr.gasnetc_f_wr_id      = (uintptr_t)desc;   /* CQE will point back to this request */
+        desc->wr.gasnetc_f_wr_id      = 1 | (uintptr_t)desc;   /* CQE will point back to this request */
         desc->wr.opcode               = GASNETC_WR_SEND_WITH_IMM;
       #if GASNET_CONDUIT_VAPI
         desc->wr.comp_type            = VAPI_SIGNALED;
@@ -1801,7 +1800,7 @@ gasnetc_conn_implied_ack(gasnet_node_t node)
 extern void
 gasnetc_conn_rcv_wc(gasnetc_wc_t *comp)
 {
-  gasnetc_ud_rcv_desc_t *desc = (gasnetc_ud_rcv_desc_t *)(uintptr_t)comp->gasnetc_f_wr_id;
+  gasnetc_ud_rcv_desc_t *desc = (gasnetc_ud_rcv_desc_t *)(1 ^ (uintptr_t)comp->gasnetc_f_wr_id);
   gasnetc_conn_cmd_t cmd = (gasnetc_conn_cmd_t)(comp->imm_data & 0xff);
   gasnet_node_t node = comp->imm_data >> 16;
   gasneti_tick_t now = gasneti_ticks_now();
@@ -1955,7 +1954,7 @@ gasnetc_conn_rcv_wc(gasnetc_wc_t *comp)
 extern void
 gasnetc_conn_snd_wc(gasnetc_wc_t *comp)
 {
-  gasnetc_ud_snd_desc_t *desc = (void *)(uintptr_t)comp->gasnetc_f_wr_id;
+  gasnetc_ud_snd_desc_t *desc = (void *)(uintptr_t)(1 ^ comp->gasnetc_f_wr_id);
 
   gasneti_semaphore_up(conn_ud_hca->snd_cq_sema_p);
   gasnetc_put_ah(desc->ah);

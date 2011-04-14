@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2011/04/11 22:46:06 $
- * $Revision: 1.278 $
+ *     $Date: 2011/04/14 20:45:56 $
+ * $Revision: 1.279 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -834,7 +834,7 @@ void gasnetc_dump_cqs(gasnetc_wc_t *comp, gasnetc_hca_t *hca, const int is_snd))
 
   if (is_snd) {
   #if GASNETC_DYNAMIC_CONNECT
-    const int is_ud = (comp->gasnetc_f_wc_qpn == gasnetc_conn_qpn);
+    const int is_ud = (comp->gasnetc_f_wr_id & 1);
   #else
     const int is_ud = 0;
   #endif
@@ -929,7 +929,7 @@ static int gasnetc_snd_reap(int limit) {
       if_pt (comp.status == GASNETC_WC_SUCCESS) {
         gasnetc_sreq_t *sreq = (gasnetc_sreq_t *)(uintptr_t)comp.gasnetc_f_wr_id;
       #if GASNETC_DYNAMIC_CONNECT
-        if_pf (comp.gasnetc_f_wc_qpn == gasnetc_conn_qpn) {
+        if_pf (comp.gasnetc_f_wr_id & 1) {
           gasnetc_conn_snd_wc(&comp);
         } else
       #endif
@@ -1206,7 +1206,7 @@ void gasnetc_rcv_am(const gasnetc_wc_t *comp, gasnetc_rbuf_t **spare_p) {
     if (gasnetc_num_qps > 1) {
       int i;
       for (i=0; i<gasnetc_num_qps; ++i, ++cep) {
-        if ((cep->rcv_qpn == comp->gasnetc_f_wc_qpn) && (cep->hca == hca)) break;
+        if ((cep->rcv_qpn == comp->qp_num) && (cep->hca == hca)) break;
       }
       gasneti_assert(i < gasnetc_num_qps);
     }
@@ -1306,7 +1306,7 @@ static int gasnetc_rcv_reap(gasnetc_hca_t *hca, int limit, gasnetc_rbuf_t **spar
     } else if_pt (vstat == GASNETC_POLL_CQ_OK) {
       if_pt (comp.status == GASNETC_WC_SUCCESS) {
       #if GASNETC_DYNAMIC_CONNECT
-        if_pf (comp.gasnetc_f_wc_qpn == gasnetc_conn_qpn) {
+        if_pf (comp.gasnetc_f_wr_id & 1) {
           gasnetc_conn_rcv_wc(&comp);
           break; /* lower latency (and fewer implied ACKS) if we cease polling */
         }
