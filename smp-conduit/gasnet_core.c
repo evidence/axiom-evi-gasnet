@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_core.c,v $
- *     $Date: 2011/02/09 03:22:30 $
- * $Revision: 1.62 $
+ *     $Date: 2011/04/14 21:46:30 $
+ * $Revision: 1.63 $
  * Description: GASNet smp conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -311,7 +311,7 @@ static void gasnetc_join_children(void) {
 static int gasnetc_get_pshm_nodecount(void)
 {
   gasnet_node_t nodes = gasneti_getenv_int_withdefault("GASNET_PSHM_NODES", 0, 0);
-  int polite_wait, politedefault;
+  int politedefault;
 
   if (nodes > GASNETI_PSHM_MAX_NODES) { 
     gasneti_fatalerror("Nodes requested (%d) > maximum (%d)", nodes,
@@ -321,31 +321,10 @@ static int gasnetc_get_pshm_nodecount(void)
     nodes = 1;
   }
 
-  /* Set up 'polite' synchronization if nodes > CPU's and/or user specifies
-   * setting */
+  /* Set default to 'polite' synchronization if nodes > CPU's */
   politedefault = gasnett_cpu_count() > 0 && nodes > gasnett_cpu_count();
-  polite_wait = gasnett_getenv_yesno_withdefault("GASNET_POLITE_SYNC",politedefault);
-  if (politedefault) {
-    fprintf(stderr,
-      "WARNING: Running more processes (%i) than there are physical CPU's (%i)\n",
-       nodes, gasnett_cpu_count());
-    if (polite_wait) {
-      fprintf(stderr,
-        "         enabling \"polite\" synchronization algorithms\n");
-    } else {
-      fprintf(stderr,
-        "         but setting GASNET_POLITE_SYNC=\"%s\" in your environment has\n"
-        "         disabled \"polite\" synchronization algorithms\n"
-        "         Results of this run are not suitable for benchmarking\n",
-        gasnet_getenv("GASNET_POLITE_SYNC"));
-    }
-  } else if (polite_wait) {
-    fprintf(stderr,"WARNING: GASNET_POLITE_SYNC=\"%s\" is set in your environment\n"
-        "         enabling \"polite\", low-performance synchronization algorithms\n",
-        gasnet_getenv("GASNET_POLITE_SYNC"));
-  }
-  fflush(stderr);
-  gasnet_set_waitmode(polite_wait ? GASNET_WAIT_BLOCK : GASNET_WAIT_SPIN);
+  gasnet_set_waitmode(politedefault ? GASNET_WAIT_BLOCK : GASNET_WAIT_SPIN);
+
   return nodes;
 }
 
