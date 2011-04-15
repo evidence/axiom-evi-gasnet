@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2011/04/14 21:28:19 $
- * $Revision: 1.281 $
+ *     $Date: 2011/04/15 18:07:47 $
+ * $Revision: 1.282 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -303,6 +303,7 @@ static uintptr_t gasnetc_trypin(uintptr_t limit, uintptr_t step) {
   return size;
 }
 
+#if GASNET_ALIGNED_SEGMENTS  /* Unused otherwise */
 /* Reproduce the mmap()/munmap() steps to keep compatible VM spaces */
 static void gasnetc_fakepin(uintptr_t limit, uintptr_t step) {
   if (limit != 0) {
@@ -315,6 +316,7 @@ static void gasnetc_fakepin(uintptr_t limit, uintptr_t step) {
     }
   }
 }
+#endif
 
 /* Search for the total amount of memory we can pin per process.
  */

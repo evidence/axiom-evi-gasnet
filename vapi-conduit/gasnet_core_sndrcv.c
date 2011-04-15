@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2011/04/14 20:45:56 $
- * $Revision: 1.279 $
+ *     $Date: 2011/04/15 18:07:47 $
+ * $Revision: 1.280 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -1804,6 +1804,7 @@ void gasnetc_snd_post_common(gasnetc_sreq_t *sreq, gasnetc_snd_wr_t *sr_desc, in
 #define gasnetc_snd_post(x,y)		gasnetc_snd_post_common(x,y,0)
 #define gasnetc_snd_post_inline(x,y)	gasnetc_snd_post_common(x,y,1)
 
+#if GASNET_CONDUIT_VAPI /* Unused otherwise */
 static void gasnetc_rcv_thread(gasnetc_hca_hndl_t	hca_hndl,
 			       gasnetc_cq_hndl_t	cq_hndl,
 			       void			*context) {
@@ -1834,6 +1835,7 @@ static void gasnetc_rcv_thread(gasnetc_hca_hndl_t	hca_hndl,
   gasneti_fatalerror("unexpected call to gasnetc_rcv_thread");
 #endif
 }
+#endif /* GASNET_CONDUIT_VAPI */
 
 /* Try to claim the next slot */
 GASNETI_INLINE(gasnetc_get_amrdma_slot)
