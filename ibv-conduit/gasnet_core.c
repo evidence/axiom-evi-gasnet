@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2011/04/15 18:07:47 $
- * $Revision: 1.282 $
+ *     $Date: 2011/04/15 18:59:19 $
+ * $Revision: 1.283 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -78,11 +78,8 @@ GASNETI_IDENT(gasnetc_IdentString_Name,    "$GASNetCoreLibraryName: " GASNET_COR
 #define GASNETC_DEFAULT_EXITTIMEOUT_FACTOR	0.25	/* 1/4 second */
 static double gasnetc_exittimeout = GASNETC_DEFAULT_EXITTIMEOUT_MAX;
 
-/* Exit coordination */
-#define GASNETC_EXIT_RADIX 2
-static gasnet_node_t *gasnetc_exit_child = NULL;
-static gasnet_node_t gasnetc_exit_children = 0;
-static gasnet_node_t gasnetc_exit_parent = 0;
+/* Exit coordination setup */
+static void gasnetc_exit_init(void);
 
 /* HW level retry knobs */
 int gasnetc_qp_timeout, gasnetc_qp_retry_count;
@@ -164,13 +161,6 @@ typedef struct gasnetc_pin_info_t_ {
 static gasnetc_pin_info_t gasnetc_pin_info;
 
 gasneti_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS]; /* handler table */
-
-#if HAVE_ON_EXIT
-static void gasnetc_on_exit(int, void*);
-#else
-static void gasnetc_atexit(void);
-#endif
-static void gasnetc_exit_sighandler(int sig);
 
 static char *gasnetc_vapi_ports;
 
@@ -1371,56 +1361,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     /* segment is everything - nothing to do */
   #endif
 
-  /* Handler for non-collective returns from main() */
-  #if HAVE_ON_EXIT
-    on_exit(gasnetc_on_exit, NULL);
-  #else
-    atexit(gasnetc_atexit);
-  #endif
-
-  /* Extract info from nodemap that we'll need at exit */
-  if (gasneti_nodemap_local_rank) {
-    gasnetc_exit_parent = gasneti_nodemap[gasneti_mynode];
-  } else {
-    gasnet_node_t children, child[GASNETC_EXIT_RADIX];
-    gasnet_node_t rank, j;
-
-    /* Enumerate our non-local children */
-    children = 0;
-    for (i = 0; i < GASNETC_EXIT_RADIX; ++i) {
-      rank = i + 1 + GASNETC_EXIT_RADIX * gasneti_nodemap_global_rank;
-
-      /* Check overflow or out-of-range */
-      if ((rank < gasneti_nodemap_global_rank) || (rank >= gasneti_nodemap_global_count)) break;
-
-      /* Convert global rank to node number */
-      for (j = gasneti_mynode+1; j < gasneti_nodes; ++j) {
-        if (gasneti_nodeinfo[j] == rank) break;
-      }
-      gasneti_assert(j < gasneti_nodes);
-      child[i] = j;
-      ++children;
-    }
-
-    /* Concatenate the non-local and local lists of children */
-    { int c1 = children;
-      int c2 = gasneti_nodemap_local_count - 1;
-      gasnetc_exit_children = c1 + c2;
-      gasnetc_exit_child = gasneti_malloc((c1 + c2) * sizeof(gasnet_node_t));
-      memcpy(gasnetc_exit_child, child, c1 * sizeof(gasnet_node_t));
-      memcpy(gasnetc_exit_child + c1, gasneti_nodemap_local+1, c2 * sizeof(gasnet_node_t));
-      gasneti_assert(gasneti_nodemap_local[0] == gasneti_mynode);
-    }
-
-    if (gasneti_mynode) {
-      rank = (gasneti_nodemap_global_rank - 1) / GASNETC_EXIT_RADIX;
-      for (j = 0; j < gasneti_mynode; ++j) {
-        if (gasneti_nodeinfo[j] == rank) break;
-      }
-      gasneti_assert(j < gasneti_mynode);
-      gasnetc_exit_parent = j;
-    }
-  }
+  gasnetc_exit_init();
 
   #if 0
     /* Done earlier to allow tracing */
@@ -1805,6 +1746,10 @@ static void gasnetc_disable_AMs(void) {
     gasnetc_handler[i] = (gasneti_handler_fn_t)&gasnetc_noop;
   }
 }
+
+static gasnet_node_t *gasnetc_exit_child = NULL;
+static gasnet_node_t gasnetc_exit_children = 0;
+static gasnet_node_t gasnetc_exit_parent = 0;
 
 static int gasnetc_exit_reduce(int exitcode, int64_t timeout_us)
 {
@@ -2457,6 +2402,70 @@ static void gasnetc_atexit(void) {
   return;
 }
 #endif
+
+static void gasnetc_exit_init(void) {
+  const int exit_radix  = 2;
+
+  /* Handler for non-collective returns from main() */
+  #if HAVE_ON_EXIT
+    on_exit(gasnetc_on_exit, NULL);
+  #else
+    atexit(gasnetc_atexit);
+  #endif
+
+  /* Extract info from nodemap that we'll need at exit */
+  if (gasneti_nodemap_local_rank) {
+    gasnetc_exit_parent = gasneti_nodemap[gasneti_mynode];
+  } else {
+    gasnet_node_t children, child[exit_radix];
+    gasnet_node_t rank, i, j;
+
+    /* Enumerate our non-local children */
+    children = 0;
+    for (i = 0; i < exit_radix; ++i) {
+      rank = i + 1 + exit_radix * gasneti_nodemap_global_rank;
+
+      /* Check overflow or out-of-range */
+      if ((rank < gasneti_nodemap_global_rank) || (rank >= gasneti_nodemap_global_count)) break;
+
+      /* Convert global rank to node number */
+      for (j = gasneti_mynode+1; j < gasneti_nodes; ++j) {
+        if (gasneti_nodeinfo[j] == rank) break;
+      }
+      gasneti_assert(j < gasneti_nodes);
+      child[i] = j;
+      ++children;
+    }
+
+    /* Concatenate the non-local and local lists of children */
+    { int c1 = children;
+      int c2 = gasneti_nodemap_local_count - 1;
+      gasnetc_exit_children = c1 + c2;
+      gasnetc_exit_child = gasneti_malloc((c1 + c2) * sizeof(gasnet_node_t));
+      memcpy(gasnetc_exit_child, child, c1 * sizeof(gasnet_node_t));
+      memcpy(gasnetc_exit_child + c1, gasneti_nodemap_local+1, c2 * sizeof(gasnet_node_t));
+      gasneti_assert(gasneti_nodemap_local[0] == gasneti_mynode);
+    }
+
+    if (gasneti_mynode) {
+      rank = (gasneti_nodemap_global_rank - 1) / exit_radix;
+      for (j = 0; j < gasneti_mynode; ++j) {
+        if (gasneti_nodeinfo[j] == rank) break;
+      }
+      gasneti_assert(j < gasneti_mynode);
+      gasnetc_exit_parent = j;
+    }
+  }
+
+  /* Warm-up (for dynamic connections in particular) and then reset */
+  /* XXX: Could do warm-up more cheaply than the full reduction:
+   *  1) AM to parent 
+   *  2) Poll until AM rcvd from all children
+   * However, the plan is to change the topology soon anyway.
+   */
+  (void)gasnetc_exit_reduce(0, MAX(60., gasnetc_exittimeout) * 1.0e6);
+  gasneti_atomic_set(&gasnetc_exit_reds, 0, 0);
+}
 
 /* gasnetc_exit
  *
