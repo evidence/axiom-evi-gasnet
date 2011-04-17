@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2011/04/15 18:59:19 $
- * $Revision: 1.283 $
+ *     $Date: 2011/04/17 20:46:37 $
+ * $Revision: 1.284 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2178,7 +2178,7 @@ static void gasnetc_exit_body(void) {
   alarm(0);
 
   GASNETC_EXIT_STATE("dumping final stats");
-  alarm(30);
+  alarm(60);
 #if GASNET_TRACE
   { gasneti_heapstats_t stats;
     gasneti_getheapstats(&stats);
@@ -2209,10 +2209,11 @@ static void gasnetc_exit_body(void) {
  #endif
 #endif
   gasnetc_connect_fini();
+  alarm(0);
 
-  /* Try to flush out all the output, allowing upto 30s */
+  /* Try to flush out all the output, allowing upto 60s */
   GASNETC_EXIT_STATE("flushing output");
-  alarm(30);
+  alarm(60);
   {
     gasneti_flush_streams();
     gasneti_trace_finish();
@@ -2251,9 +2252,9 @@ static void gasnetc_exit_body(void) {
   }
  }
 
-  /* Try again to flush out any recent output, allowing upto 5s */
+  /* Try again to flush out any recent output, allowing upto 30s */
   GASNETC_EXIT_STATE("closing output");
-  alarm(5);
+  alarm(30);
   {
     gasneti_flush_streams();
     #if !GASNET_DEBUG_VERBOSE
@@ -2262,7 +2263,7 @@ static void gasnetc_exit_body(void) {
   }
 
   /* XXX potential problems here if exiting from the "Wrong" thread, or from a signal handler */
-  alarm(10);
+  alarm(60);
   {
     if (graceful) {
       #if GASNET_DEBUG_VERBOSE
