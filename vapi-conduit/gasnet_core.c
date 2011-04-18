@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2011/04/17 20:46:37 $
- * $Revision: 1.284 $
+ *     $Date: 2011/04/18 02:21:42 $
+ * $Revision: 1.285 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1756,12 +1756,15 @@ static int gasnetc_exit_reduce(int exitcode, int64_t timeout_us)
   gasneti_tick_t start_time = gasneti_ticks_now();
   int rc, i;
 
+  if (GASNETC_IS_EXITING()) GASNETC_EXIT_STATE("exitcode reduction");
+
   gasneti_assert(timeout_us > 0); 
 
   /* If the remote request has arrived then we've already failed */
   if (gasneti_atomic_read(&gasnetc_exit_reqs, 0)) return -1;
 
   /* Wait for our children (if any) */
+  if (GASNETC_IS_EXITING()) GASNETC_EXIT_STATE("exitcode reduction: wait for children");
   while (gasneti_atomic_read(&gasnetc_exit_reds, 0) < gasnetc_exit_children) {
     if (gasneti_ticks_to_ns(gasneti_ticks_now() - start_time) / 1000 > timeout_us) return -1;
     gasnetc_sndrcv_poll(0);
@@ -1770,6 +1773,7 @@ static int gasnetc_exit_reduce(int exitcode, int64_t timeout_us)
 
   /* Notify our parent (if any) and wait for response */
   if (gasneti_mynode) {
+    if (GASNETC_IS_EXITING()) GASNETC_EXIT_STATE("exitcode reduction: send to parent");
     exitcode = gasneti_atomic_read(&gasnetc_exit_code, GASNETI_ATOMIC_RMB_PRE);
     rc = gasnetc_RequestSystem(gasnetc_exit_parent, NULL,
                                gasneti_handleridx(gasnetc_SYS_exit_reduce),
@@ -1777,6 +1781,7 @@ static int gasnetc_exit_reduce(int exitcode, int64_t timeout_us)
     if (rc != GASNET_OK) return -1;
     if (gasneti_atomic_read(&gasnetc_exit_reqs, 0)) return -1;
 
+    if (GASNETC_IS_EXITING()) GASNETC_EXIT_STATE("exitcode reduction: wait for parent");
     do {
       if (gasneti_ticks_to_ns(gasneti_ticks_now() - start_time) / 1000 > timeout_us) return -1;
       gasnetc_sndrcv_poll(0);
@@ -1787,6 +1792,8 @@ static int gasnetc_exit_reduce(int exitcode, int64_t timeout_us)
 
   /* Now send to children (if any) sending off-supernode first */
   for (i = 0; i < gasnetc_exit_children; ++i) {
+    if (GASNETC_IS_EXITING()) GASNETC_EXIT_STATE("exitcode reduction: send to children");
+
     rc = gasnetc_RequestSystem(gasnetc_exit_child[i], NULL,
                                gasneti_handleridx(gasnetc_SYS_exit_reduce),
                                1, exitcode);
@@ -2171,8 +2178,7 @@ static void gasnetc_exit_body(void) {
 
   GASNETI_TRACE_PRINTF(C,("gasnet_exit(%i)\n", exitcode));
 
-  /* Timed-barrier to clearly distinguish collective exit */
-  GASNETC_EXIT_STATE("pre-exit barrier");
+  /* Timed MIN(exitcode) reduction to clearly distinguish collective exit */
   alarm(2 + (int)gasnetc_exittimeout);
   graceful = (gasnetc_exit_reduce(exitcode, timeout_us) == 0);
   alarm(0);
@@ -2221,9 +2227,9 @@ static void gasnetc_exit_body(void) {
     gasneti_sched_yield();
   }
 
- if (!graceful) { /* Skip the complex case if the barrier worked */
+ if (!graceful) { /* Skip the complex case unless the reduction timed-out */
 #if GASNET_DEBUG_VERBOSE
-  fprintf(stderr, "Pre-exit barrier timed-out on node %d\n", (int)gasneti_mynode);
+  fprintf(stderr, "Exitcode reduction timed-out on node %d\n", (int)gasneti_mynode);
 #endif
 
   exitcode = gasneti_atomic_read(&gasnetc_exit_code, GASNETI_ATOMIC_RMB_PRE);
