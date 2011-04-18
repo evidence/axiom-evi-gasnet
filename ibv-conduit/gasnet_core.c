@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2011/04/18 02:21:42 $
- * $Revision: 1.285 $
+ *     $Date: 2011/04/18 02:34:43 $
+ * $Revision: 1.286 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1731,6 +1731,20 @@ enum {
 
 static gasneti_atomic_t gasnetc_exit_role = gasneti_atomic_init(GASNETC_EXIT_ROLE_UNKNOWN);
 
+#if GASNET_DEBUG_VERBOSE
+  static const char * volatile gasnetc_exit_state = "UNKNOWN STATE";
+  #define GASNETC_EXIT_STATE(st) do {                                    \
+	gasnetc_exit_state = st;                                         \
+	fprintf(stderr, "%d> EXIT STATE %s\n", (int)gasneti_mynode, st); \
+        fflush(NULL);                                                    \
+  } while (0)
+#elif GASNET_DEBUG
+  static const char * volatile gasnetc_exit_state = "UNKNOWN STATE";
+  #define GASNETC_EXIT_STATE(st) gasnetc_exit_state = st
+#else
+  #define GASNETC_EXIT_STATE(st) do {} while (0)
+#endif
+
 /*
  * Code to disable user's AM handlers when exiting.  We need this because we must call
  * AMPoll to run system-level handlers, including ACKs for flow control.
@@ -1972,20 +1986,6 @@ static void gasnetc_exit_tail(void) {
   gasnetc_exit_now((int)gasneti_atomic_read(&gasnetc_exit_code, GASNETI_ATOMIC_RMB_PRE));
   /* NOT REACHED */
 }
-
-#if GASNET_DEBUG_VERBOSE
-  static const char * volatile gasnetc_exit_state = "UNKNOWN STATE";
-  #define GASNETC_EXIT_STATE(st) do {                                    \
-	gasnetc_exit_state = st;                                         \
-	fprintf(stderr, "%d> EXIT STATE %s\n", (int)gasneti_mynode, st); \
-        fflush(NULL);                                                    \
-  } while (0)
-#elif GASNET_DEBUG
-  static const char * volatile gasnetc_exit_state = "UNKNOWN STATE";
-  #define GASNETC_EXIT_STATE(st) gasnetc_exit_state = st
-#else
-  #define GASNETC_EXIT_STATE(st) do {} while (0)
-#endif
 
 /* gasnetc_exit_sighandler
  *
