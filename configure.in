@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2011/04/14 20:45:54 $
-# $Revision: 1.672 $
+#     $Date: 2011/04/22 10:35:31 $
+# $Revision: 1.673 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.672 $)
+AC_REVISION($Revision: 1.673 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -3780,6 +3780,7 @@ fi
 dnl GASNET_TOOLSONLY_FALSE_END
 AC_DEFINE_UNQUOTED(GASNETI_CONDUITS,"$CONDUITS")
 
+dnl GASNET_TOOLSONLY_FALSE_BEGIN
 ########################################################################
 # Configure conduit-independent spawners
 
@@ -3889,6 +3890,7 @@ GASNET_WITH(ssh-topology,
    [AC_MSG_ERROR([--with-ssh-topology requires an argument])],
    [AC_DEFINE(GASNETI_SSH_TOPO_FLAT)])
 
+dnl GASNET_TOOLSONLY_FALSE_END
 ########################################################################
 
 # Check for alloca in C code
