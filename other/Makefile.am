@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/Makefile.am,v $
-#     $Date: 2010/12/22 23:45:44 $
-# $Revision: 1.36 $
+#     $Date: 2011/04/22 10:31:28 $
+# $Revision: 1.37 $
 # Description: Makefile for GASNet other 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -65,7 +65,7 @@ dist-hook:
 all-local: $(CONDUITMODE_TARGETS) perlstart
 
 # GASNET_TOOLSONLY_FALSE_BEGIN
-# Docs to install from any subdirs
+## Docs to install from any subdirs
 docdir = $(datadir)/doc/gasnet
 install-data-local:
 	$(INSTALL_DATA) $(srcdir)/ssh-spawner/README $(DESTDIR)$(docdir)/README-ssh-spawner
