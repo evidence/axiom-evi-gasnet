@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_toolhelp.h,v $
- *     $Date: 2010/08/08 07:55:26 $
- * $Revision: 1.59 $
+ *     $Date: 2011/04/29 22:05:34 $
+ * $Revision: 1.60 $
  * Description: misc declarations needed by both gasnet_tools and libgasnet
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -363,8 +363,28 @@ int gasneti_count0s_uint32_t(uint32_t x) {
               (pl)->owner = GASNETI_MUTEX_NOOWNER;                            \
               _GASNETI_MUTEX_CAUTIOUS_INIT_INIT(pl);                          \
             } while (0)
-    #define gasneti_mutex_destroy_ignoreerr(pl) \
+    #if PLATFORM_OS_NETBSD
+      /* bug 1476: destroying a locked mutex has undefined effects by POSIX, and some
+       * systems whine about it. So instead use the following sequence which
+       * accomplishes the same effect, but leaks the mutex if it's held by another
+       * thread (unlocking another thread's held lock also has undefined effects).
+       */
+      GASNETI_INLINE(gasneti_mutex_destroy_ignoreerr)
+      int gasneti_mutex_destroy_ignoreerr(gasneti_mutex_t *pl) {
+        if (((pl)->owner == GASNETI_THREADIDQUERY()) || !gasneti_mutex_trylock(pl)) {
+          /* held by us */
+          gasneti_mutex_unlock(pl);
+          return pthread_mutex_destroy(&((pl)->lock));
+        } else {
+          /* held by someone else */
+          memset(pl,0,sizeof(*pl)); /* clobber */
+          return 0;
+        }
+      }
+    #else
+      #define gasneti_mutex_destroy_ignoreerr(pl) \
               pthread_mutex_destroy(&((pl)->lock))
+    #endif
     #define gasneti_mutex_destroy(pl) \
               gasneti_assert_zeroret(gasneti_mutex_destroy_ignoreerr(pl))
   #else /* GASNET_DEBUG non-pthread (error-check-only) mutexes */
@@ -411,7 +431,28 @@ int gasneti_count0s_uint32_t(uint32_t x) {
     #define gasneti_mutex_unlock(pl)    pthread_mutex_unlock(pl)
     #define gasneti_mutex_init(pl)      (GASNETI_MUTEX_INITCLEAR(pl),  \
                                          pthread_mutex_init((pl),NULL))
-    #define gasneti_mutex_destroy_ignoreerr(pl)   pthread_mutex_destroy(pl)
+    #if PLATFORM_OS_NETBSD
+      /* bug 1476: destroying a locked mutex has undefined effects by POSIX, and some
+       * systems whine about it. So instead use the following sequence which
+       * accomplishes the same effect, but leaks the mutex if it's held by another
+       * thread (unlocking another thread's held lock also has undefined effects),
+       * or if held by the caller and gasneti_mutex_trylock() is non-recursive.
+       */
+      GASNETI_INLINE(gasneti_mutex_destroy_ignoreerr)
+      int gasneti_mutex_destroy_ignoreerr(gasneti_mutex_t *pl) {
+        if (!gasneti_mutex_trylock(pl)) {
+          /* held by us */
+          gasneti_mutex_unlock(pl);
+          return pthread_mutex_destroy(pl);
+        } else {
+          /* held by someone, possibly us */
+          memset(pl,0,sizeof(*pl)); /* clobber */
+          return 0;
+        }
+      }
+    #else
+      #define gasneti_mutex_destroy_ignoreerr(pl)   pthread_mutex_destroy(pl)
+    #endif
     #define gasneti_mutex_destroy(pl)   gasneti_mutex_destroy_ignoreerr(pl)
   #else
     typedef char           gasneti_mutex_t GASNETI_THREAD_TYPEDEF;
