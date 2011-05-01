@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2011/04/14 20:45:56 $
- * $Revision: 1.53 $
+ *     $Date: 2011/05/01 00:22:44 $
+ * $Revision: 1.54 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -484,6 +484,10 @@ gasnetc_check_inline_limit(int port_num, int send_wr, int send_sge)
       }
       gasnetc_inline_limit = MIN(1024, gasnetc_inline_limit - 1);
       /* Try again */
+    }
+    if (qp_init_attr.cap.max_inline_data < gasnetc_inline_limit) {
+      /* Use returned value, which might be zero */
+      gasnetc_inline_limit = qp_init_attr.cap.max_inline_data;
     }
     (void) ibv_destroy_qp(qp_handle);
   }
