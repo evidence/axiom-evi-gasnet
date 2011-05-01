@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2011/04/22 10:35:31 $
-# $Revision: 1.673 $
+#     $Date: 2011/05/01 19:30:56 $
+# $Revision: 1.674 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.673 $)
+AC_REVISION($Revision: 1.674 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -952,11 +952,11 @@ case "$target_os" in
         fi
 	;;
   netbsd*) 
-	GASNET_THREAD_DEFINES="-D_REENTRANT"
+	GASNET_THREAD_DEFINES="-pthread -D_REENTRANT" # _REENTRANT probably redundant
         GASNET_THREAD_LIBS="-pthread" # bug 1205: do not explicitly select threading lib
 	;;
   openbsd*) 
-	GASNET_THREAD_DEFINES="-D_REENTRANT"
+	GASNET_THREAD_DEFINES="-pthread -D_REENTRANT" # _REENTRANT probably redundant
         GASNET_THREAD_LIBS="-pthread" # bug 1205: do not explicitly select threading lib
 	;;
   cygwin*) 
