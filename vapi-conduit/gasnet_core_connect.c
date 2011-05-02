@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_connect.c,v $
- *     $Date: 2011/05/02 19:26:53 $
- * $Revision: 1.56 $
+ *     $Date: 2011/05/02 19:40:49 $
+ * $Revision: 1.57 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -943,7 +943,7 @@ gasnetc_create_ah(gasnet_node_t node)
   gasnetc_ah_attr_t ah_attr;
   gasnetc_ah_t *result;
 	 
-  result = gasneti_malloc(sizeof(gasnetc_ah_t));
+  result = gasneti_calloc(1, sizeof(gasnetc_ah_t));
   gasneti_weakatomic_set(&result->ref_count, 1, 0);
 
 #if GASNET_CONDUIT_VAPI
