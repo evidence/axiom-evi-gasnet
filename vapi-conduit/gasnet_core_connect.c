@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_connect.c,v $
- *     $Date: 2011/05/01 00:22:44 $
- * $Revision: 1.54 $
+ *     $Date: 2011/05/02 19:11:17 $
+ * $Revision: 1.55 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -1374,7 +1374,7 @@ gasnetc_qp_setup_ud(gasnetc_port_info_t *port, int fully_connected)
     { gasnetc_ud_rcv_desc_t *desc;
       int i;
 
-      desc = gasneti_malloc(max_recv_wr * sizeof(gasnetc_ud_rcv_desc_t));
+      desc = gasneti_calloc(max_recv_wr, sizeof(gasnetc_ud_rcv_desc_t));
       for (i = 0; i < max_recv_wr; ++i, ++desc, addr += recv_sz) {
         desc->wr.gasnetc_f_wr_num_sge = 1;
         desc->wr.gasnetc_f_wr_sg_list = &desc->sg;
