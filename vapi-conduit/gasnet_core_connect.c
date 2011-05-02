@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_connect.c,v $
- *     $Date: 2011/05/02 19:40:49 $
- * $Revision: 1.57 $
+ *     $Date: 2011/05/02 22:27:46 $
+ * $Revision: 1.58 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -1253,7 +1253,13 @@ gasnetc_qp_setup_ud(gasnetc_port_info_t *port, int fully_connected)
   #else
     const int send_sz = gasnetc_alloc_qps * sizeof(gasnetc_qpn_t);
   #endif
+  #if 0
+    /* XXX: This is the correct value. */
     const int recv_sz = send_sz + GASNETC_GRH_SIZE; /* recv size sees 40-byte GRH */
+  #else
+    /* XXX: For unknown reason InfiniPath may need 4 EXTRA bytes or rcvr will drop. */
+    const int recv_sz = 4 + send_sz + GASNETC_GRH_SIZE; /* recv size sees 40-byte GRH */
+  #endif
 
     /* If this node is fully connected, just participate in the qpn Exchange,
      * but don't allocate any resources for the UD communications.
