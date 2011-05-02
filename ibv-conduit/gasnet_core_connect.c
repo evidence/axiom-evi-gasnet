@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2011/05/02 19:11:17 $
- * $Revision: 1.55 $
+ *     $Date: 2011/05/02 19:26:53 $
+ * $Revision: 1.56 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -1427,7 +1427,7 @@ gasnetc_qp_setup_ud(gasnetc_port_info_t *port, int fully_connected)
     { gasnetc_ud_snd_desc_t *desc;
       int i;
 
-      desc = gasneti_malloc(max_send_wr * sizeof(gasnetc_ud_snd_desc_t));
+      desc = gasneti_calloc(max_send_wr, sizeof(gasnetc_ud_snd_desc_t));
       for (i = 0; i < max_send_wr; ++i, ++desc, addr += send_sz) {
         desc->wr.gasnetc_f_wr_num_sge = 1;
         desc->wr.gasnetc_f_wr_sg_list = &desc->sg;
