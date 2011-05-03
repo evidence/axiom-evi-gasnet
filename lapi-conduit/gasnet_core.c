@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2011/02/09 05:51:48 $
- * $Revision: 1.135 $
+ *     $Date: 2011/05/03 21:03:24 $
+ * $Revision: 1.136 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -22,7 +22,9 @@
 #include <unistd.h>
 #include <string.h>
 #include <signal.h>
+#if PLATFORM_OS_AIX
 #include <sys/processor.h>
+#endif
 
 #ifndef GASNETC_VERBOSE_EXIT
 #define GASNETC_VERBOSE_EXIT 0
@@ -729,6 +731,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 	 int total_num_pvos;
          int i=0;
          uintptr_t tmp_offset = 0;
+  #if PLATFORM_OS_AIX
          if (segbase) { /* bug 2176: warn if segment is not large page */
            size_t large_pagesz = sysconf(_SC_LARGE_PAGESIZE);
            size_t segment_pagesz = gasnetc_get_pagesize(segbase);
@@ -741,6 +744,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
              fflush(stderr);
            }
          }
+  #endif
 	 /* Break up the segment */
 	 my_num_pvos = (segsize + (GASNETC_LAPI_PVO_EXTENT-1)) >> GASNETC_LAPI_PVO_EXTENT_BITS;
          GASNETI_TRACE_PRINTF(C,("num_pvos = %d pvo_extent = %ld",my_num_pvos,GASNETC_LAPI_PVO_EXTENT));
@@ -2487,6 +2491,7 @@ int gasnetc_uhdr_more(int want)
     return want;
 }
 
+#if PLATFORM_OS_AIX
 #include <sys/vminfo.h>
 /* return the AIX page size for a given memory address */
 size_t gasnetc_get_pagesize(void *addr) {
@@ -2495,4 +2500,5 @@ size_t gasnetc_get_pagesize(void *addr) {
     vmgetinfo(&vi,VM_PAGE_INFO,sizeof(struct vm_page_info));
     return (size_t)vi.pagesize;
 }
+#endif
 
