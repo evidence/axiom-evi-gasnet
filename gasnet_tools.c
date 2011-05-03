@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2011/03/23 21:40:25 $
- * $Revision: 1.260 $
+ *     $Date: 2011/05/03 20:48:15 $
+ * $Revision: 1.261 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -396,6 +396,12 @@ extern void gasneti_filesystem_sync(void) {
   }
 }
 extern void gasneti_flush_streams(void) {
+  if (fflush(stdout)) 
+    gasneti_fatalerror("failed to flush stdout: %s", strerror(errno));
+  if (fflush(stderr)) 
+    gasneti_fatalerror("failed to flush stderr: %s", strerror(errno));
+  fsync(STDOUT_FILENO); /* ignore errors for output is a console */
+  fsync(STDERR_FILENO); /* ignore errors for output is a console */
   if (fflush(NULL)) { /* passing NULL to fflush causes it to flush all open FILE streams */
     if (errno == EBADF) {
       /* AIX has been seen to return this rarely, and at least one other libc (one
@@ -403,12 +409,6 @@ extern void gasneti_flush_streams(void) {
     } else
       gasneti_fatalerror("failed to fflush(NULL): %s", strerror(errno));
   }
-  if (fflush(stdout)) 
-    gasneti_fatalerror("failed to flush stdout: %s", strerror(errno));
-  if (fflush(stderr)) 
-    gasneti_fatalerror("failed to flush stderr: %s", strerror(errno));
-  fsync(STDOUT_FILENO); /* ignore errors for output is a console */
-  fsync(STDERR_FILENO); /* ignore errors for output is a console */
   gasneti_filesystem_sync();
   gasneti_sched_yield();
 }
