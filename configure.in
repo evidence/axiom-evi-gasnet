@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2011/05/03 04:45:21 $
-# $Revision: 1.676 $
+#     $Date: 2011/05/03 22:45:03 $
+# $Revision: 1.677 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.676 $)
+AC_REVISION($Revision: 1.677 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2779,9 +2779,15 @@ if test "$enabled_lapi$have_pthread" = yesno; then
   GASNET_MSG_WARN([lapi-conduit requires pthread support but pthreads $pthread_reason - disabling lapi])
 fi
 if test "$enabled_lapi" = yes; then
+  # try to find proper LAPI lib
+  lapi_orig_LIBS="$LIBS"
+  GASNET_PUSHVAR(LIBS,"-lpthread")
+  AC_SEARCH_LIBS([LAPI_Init], [lapi_r lapi], [:], [:], [$lapi_orig_LIBS])
+  LAPI_LIBS="$LIBS"
+  GASNET_POPVAR(LIBS)
 
   # try to compile and link a simple LAPI program
-  GASNET_PUSHVAR(LIBS,"$LIBS -llapi_r -lpthread")
+  GASNET_PUSHVAR(LIBS,"$LIBS $LAPI_LIBS")
   GASNET_TRY_CACHE_LINK(for working LAPI configuration, lapi_works, [
     #include <lapi.h>
     #include <string.h>
@@ -2889,7 +2895,7 @@ if test "$enabled_lapi" = yes; then
       fi
     fi
     if test "$enable_lapi_rdma" != no; then
-      GASNET_PUSHVAR(LIBS,"$LIBS -llapi_r -lpthread")
+      GASNET_PUSHVAR(LIBS,"$LIBS $LAPI_LIBS")
       GASNET_TRY_CACHE_LINK([for LAPI RDMA support], lapi_rdma, [
         #include <lapi.h>
         #include <string.h>
