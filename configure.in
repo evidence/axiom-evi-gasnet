@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2011/05/02 23:47:18 $
-# $Revision: 1.675 $
+#     $Date: 2011/05/03 04:45:21 $
+# $Revision: 1.676 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.675 $)
+AC_REVISION($Revision: 1.676 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -3544,7 +3544,12 @@ if test $enabled_shmem = yes; then
 
 
   if test $have_shmem = yes; then
-    GASNET_PUSHVAR(CFLAGS,"$CFLAGS -I${SHMEM_INCLUDE} -I${SHMEM_INCLUDE}/mpp")
+    if test "$SHMEM_INCLUDE" = "/anything/but/usr/include"; then
+      SHMEM_INC2="/usr/include/mpp"
+    else
+      SHMEM_INC2="${SHMEM_INCLUDE}/mpp"
+    fi
+    GASNET_PUSHVAR(CFLAGS,"$CFLAGS -I${SHMEM_INCLUDE} -I${SHMEM_INC2}")
     GASNET_PUSHVAR(LIBS,"$LIBS -L${SHMEM_LIBDIR} ${SHMEM_LIBS}")
 
     # only include shmem.h even if some prescribe <mpp/shmem.h> and rely on the
