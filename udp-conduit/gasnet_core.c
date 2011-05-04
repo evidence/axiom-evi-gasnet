@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/udp-conduit/gasnet_core.c,v $
- *     $Date: 2010/04/06 22:36:01 $
- * $Revision: 1.42 $
+ *     $Date: 2011/05/04 06:58:26 $
+ * $Revision: 1.43 $
  * Description: GASNet UDP conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -157,6 +157,11 @@ static int gasnetc_init(int *argc, char ***argv) {
       char spawnstr[255];
       sprintf(spawnstr,"%c",toupper(spawnfn));
       gasneti_setenv("GASNET_SPAWNFN",spawnstr);
+    }
+
+    /* ensure reliable localhost operation */
+    if (('L' == toupper(spawnfn)) && !gasneti_getenv("GASNET_MASTERIP")) {
+      gasneti_setenv("GASNET_MASTERIP","127.0.0.1");
     }
 
     for (i=0; AMUDP_Spawnfn_Desc[i].abbrev; i++) {
