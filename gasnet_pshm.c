@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.c,v $
- *     $Date: 2011/05/08 16:54:21 $
- * $Revision: 1.34 $
+ *     $Date: 2011/05/08 18:08:22 $
+ * $Revision: 1.35 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -868,6 +868,7 @@ void gasneti_pshmnet_recv_release(gasneti_pshmnet_t *vnet, void *buf)
   msg = gasneti_pshm_addr(p->msg);
 #if GASNET_DEBUG
   p->msg = GASNETI_PSHMNET_MSG_NULL;
+  gasneti_local_wmb();
 #endif
   gasneti_assert(gasneti_atomic_read(&msg->state,0) == GASNETI_PSHMNET_BUSY);
   gasneti_atomic_set(&msg->state, GASNETI_PSHMNET_EMPTY, 0);
