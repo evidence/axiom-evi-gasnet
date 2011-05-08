@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.c,v $
- *     $Date: 2010/12/19 23:43:14 $
- * $Revision: 1.33 $
+ *     $Date: 2011/05/08 16:54:21 $
+ * $Revision: 1.34 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -866,12 +866,12 @@ void gasneti_pshmnet_recv_release(gasneti_pshmnet_t *vnet, void *buf)
   gasneti_assert(p && (p->msg != GASNETI_PSHMNET_MSG_NULL) && p->allocator);
   /* mark msg as free */
   msg = gasneti_pshm_addr(p->msg);
-  gasneti_assert(gasneti_atomic_read(&msg->state,0) == GASNETI_PSHMNET_BUSY);
-  gasneti_atomic_set(&msg->state, GASNETI_PSHMNET_EMPTY, 0);
-  gasneti_pshmnet_free(p->allocator, p);
 #if GASNET_DEBUG
   p->msg = GASNETI_PSHMNET_MSG_NULL;
 #endif
+  gasneti_assert(gasneti_atomic_read(&msg->state,0) == GASNETI_PSHMNET_BUSY);
+  gasneti_atomic_set(&msg->state, GASNETI_PSHMNET_EMPTY, 0);
+  gasneti_pshmnet_free(p->allocator, p);
 }
 
 
