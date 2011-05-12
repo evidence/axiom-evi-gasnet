@@ -1,6 +1,38 @@
 GASNet ChangeLog 
 ----------------
-$Revision: 1.45 $
+$Revision: 1.46 $
+
+----------------------------------------------------------------------
+05-1X-2011 : Release 1.16.2 (feature and bug fix release)
+
+* General:
+  - Fixed bug 2951: exitcode=1 from smp-conduit under unusual conditions
+  - Fixed an infrequent race in PHSM debugging code that caused rare crashes
+  - Fixed minor bugs in the non-default AMCENTRAL barrier
+  - Fixed many additional minor bug fixes and performance improvements
+
+* InfiniBand (ibv- and vapi-conduits):
+  - Fixed bug 2950: ibv-conduit page alignment problem on ia64
+  - Improved InfiniBand scalability
+    + This release adds support for the XRC extension to the InfiniBand
+      specification which can greatly reduce the memory and HCA resource
+      requirements for large node counts, when used together with SRQ.
+      For more details on SRQ and XRC see vapi-conduit/README (source)
+      or share/doc/gasnet/README-ibv (installed).
+    + This release adds support for operating ibv- and vapi-conduits
+      without connecting all pairs of nodes at startup (avoiding the
+      associated costs in time, memory and HCA resources).
+      For more information see vapi-conduit/README (source) or
+      share/doc/gasnet/README-{ibv,vapi} (installed) for documentation
+      on the GASNET_CONNECT_* family of environment variables.
+    + Several additional reductions in memory use
+
+* IBM SP (lapi-conduit):
+  - Enable partial PSHM support when not using lapi-rdma
+  - Link w/ "big TOC" by default
+
+* Build and configure:
+  - Improved configure support for AIX 6.x
 
 ----------------------------------------------------------------------
 12-08-2010 : Release 1.16.1 (minor bug fix release)
