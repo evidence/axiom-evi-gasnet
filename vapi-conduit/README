@@ -1,7 +1,7 @@
 README file for vapi-conduit and ibv-conduit
 ============================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.63 $
+$Revision: 1.64 $
 
 @ TOC: @
 @ Section: VAPI vs IBV @
@@ -232,7 +232,7 @@ $Revision: 1.63 $
     Setting GASNET_VAPI_PORTS will specify a filter for which ports will
     be used.  This can be used for instance to cause multiple physical
     ports to be used per HCA, or to specify specific ports and/or HCAs
-    to be considered (up to GASNETC_NUM_QPS if it is non-zero).
+    to be considered (up to GASNET_NUM_QPS if it is non-zero).
     This variable is a string of one or more HCA/port specifications,
     separated by '+' characters.  Each such specification gives an HCA
     identifier and an optional comma-separated list of port numbers.
@@ -398,7 +398,7 @@ $Revision: 1.63 $
     These two settings control the minimum and maximum intervals
     between retransmission of messages used in establishing dynamic
     connections, and are ignored if GASNET_CONNECT_DYNAMIC is FALSE,
-    or on  any node that is already fully connected at startup.
+    or on any node that is already fully connected at startup.
     Values are in units of microseconds (10^-6 sec).
     The value of GASNET_CONNECT_RETRANS_MIN is the interval between
     sending an initial request and the first retransmission.  Each
