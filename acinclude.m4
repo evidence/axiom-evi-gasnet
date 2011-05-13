@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2010/08/08 07:55:26 $
-dnl $Revision: 1.156 $
+dnl     $Date: 2011/05/13 01:51:22 $
+dnl $Revision: 1.157 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -44,6 +44,7 @@ GASNET_FUN_BEGIN([$0])
     program_suffix=NONE
   fi
   # canonicalize transforms caused by empty prefix/suffix
+  program_transform_name=`echo "$program_transform_name" | sed -e 's/; *$//;'`
   if expr "$program_transform_name" : 's.^..$' >/dev/null || \
      expr "$program_transform_name" : 's.$$..$' >/dev/null || \
      expr "$program_transform_name" : 's.$$..;s.^..$' >/dev/null ; then
