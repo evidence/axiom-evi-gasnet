@@ -1,9 +1,9 @@
 GASNet ChangeLog 
 ----------------
-$Revision: 1.46 $
+$Revision: 1.47 $
 
 ----------------------------------------------------------------------
-05-1X-2011 : Release 1.16.2 (feature and bug fix release)
+05-18-2011 : Release 1.16.2 (feature and bug fix release)
 
 * General:
   - Fixed bug 2951: exitcode=1 from smp-conduit under unusual conditions
