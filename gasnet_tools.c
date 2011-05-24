@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2011/05/03 20:48:15 $
- * $Revision: 1.261 $
+ *     $Date: 2011/05/24 20:20:46 $
+ * $Revision: 1.262 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1066,7 +1066,12 @@ extern void gasneti_backtrace_init(const char *exename) {
   }
 #endif
 
-  gasneti_tmpdir_bt = gasneti_getenv_withdefault("TMPDIR", gasneti_tmpdir_bt);
+  gasneti_tmpdir_bt = gasneti_tmpdir();
+  if (!gasneti_tmpdir_bt) {
+    fprintf(stderr,"WARNING: Failed to init backtrace support because neither $TMPDR nor /tmp is usable\n");
+    fflush(stderr);
+    return;
+  }
 
   if (!user_is_init && gasnett_backtrace_user.name && gasnett_backtrace_user.fnp) {
     memcpy(&gasneti_backtrace_mechanisms[gasneti_backtrace_mechanism_count++], &gasnett_backtrace_user, sizeof(gasnett_backtrace_user));
@@ -1630,6 +1635,33 @@ extern double gasneti_getenv_dbl_withdefault(const char *keyname, double default
 
   gasneti_envdbl_display(keyname, retval, is_dflt);
   return retval;
+}
+
+static int _gasneti_tmpdir_valid(const char *dir) {
+  struct stat s;
+  /* non-empty */
+  if (!dir || !strlen(dir)) return 0;
+  /* an existing directory (stat follows symlinks) */
+  if (stat(dir, &s) || !S_ISDIR(s.st_mode)) return 0;
+  /* allow us to search and write */
+  if (access(dir, (X_OK | W_OK))) return 0;
+  return 1;
+}
+extern const char *gasneti_tmpdir(void) {
+  static const char slash_tmp[] = "/tmp";
+  static const char *result = NULL;
+  const char *tmpdir;
+
+  if_pt (result) return result;
+
+  tmpdir = gasneti_getenv_withdefault("TMPDIR", "");
+  if (_gasneti_tmpdir_valid(tmpdir)) {
+    result = tmpdir;
+  } else if (_gasneti_tmpdir_valid(slash_tmp)) {
+    result = slash_tmp;
+  }
+
+  return result;
 }
 
 /* ------------------------------------------------------------------------------------ */
