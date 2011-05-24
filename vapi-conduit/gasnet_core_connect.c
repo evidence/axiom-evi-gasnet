@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_connect.c,v $
- *     $Date: 2011/05/02 22:27:46 $
- * $Revision: 1.58 $
+ *     $Date: 2011/05/24 20:29:39 $
+ * $Revision: 1.59 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -273,7 +273,7 @@ gasnetc_supernode_barrier(void) {
 /* XXX: Requires that at least the first call is collective */
 static char*
 gasnetc_xrc_tmpname(gasnetc_lid_t mylid, int index) {
-  static char *tmpdir = NULL;
+  static const char *tmpdir = NULL;
   static int tmpdir_len = -1;
   static pid_t pid;
   static const char pattern[] = "/GASNETxrc-%04x%01x-%06x"; /* Max 11 + 5 + 1 + 6 + 1 = 24 */
@@ -284,9 +284,8 @@ gasnetc_xrc_tmpname(gasnetc_lid_t mylid, int index) {
 
   /* Initialize tmpdir and pid only on first call */
   if (!tmpdir) {
-    struct stat s;
-    tmpdir = gasneti_getenv_withdefault("TMPDIR", "/tmp");
-    if (stat(tmpdir, &s) || !S_ISDIR(s.st_mode)) {
+    tmpdir = gasneti_tmpdir();
+    if (!tmpdir) {
       gasneti_fatalerror("XRC support requires valid $TMPDIR or /tmp");
     }
     tmpdir_len = strlen(tmpdir);
