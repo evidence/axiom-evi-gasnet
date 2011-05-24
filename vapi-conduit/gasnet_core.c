@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2011/04/18 02:34:43 $
- * $Revision: 1.286 $
+ *     $Date: 2011/05/24 19:24:10 $
+ * $Revision: 1.287 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -924,6 +924,11 @@ static void gasnetc_probe_ports(int max_ports) {
       }
 
       (void)gasnetc_query_port(hca_handle, curr_port, &this_port->port);
+
+      if (!this_port->port.lid) {
+        GASNETI_TRACE_PRINTF(C,("Probe skipping HCA '%s', port %d - LID is zero", hca_name, curr_port));
+	continue;
+      }
 
       if (this_port->port.state == GASNETC_PORT_ACTIVE) {
         ++port_count;
