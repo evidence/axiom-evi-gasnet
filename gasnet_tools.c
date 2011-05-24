@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2011/05/24 21:48:08 $
- * $Revision: 1.263 $
+ *     $Date: 2011/05/24 21:49:59 $
+ * $Revision: 1.264 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1068,7 +1068,7 @@ extern void gasneti_backtrace_init(const char *exename) {
 
   gasneti_tmpdir_bt = gasneti_tmpdir();
   if (!gasneti_tmpdir_bt) {
-    fprintf(stderr,"WARNING: Failed to init backtrace support because neither $TMPDR nor /tmp is usable\n");
+    fprintf(stderr,"WARNING: Failed to init backtrace support because none of $GASNET_TMPDIR, $TMPDIR or /tmp is usable\n");
     fflush(stderr);
     return;
   }

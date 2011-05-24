@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_connect.c,v $
- *     $Date: 2011/05/24 20:29:39 $
- * $Revision: 1.59 $
+ *     $Date: 2011/05/24 21:50:01 $
+ * $Revision: 1.60 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -286,7 +286,7 @@ gasnetc_xrc_tmpname(gasnetc_lid_t mylid, int index) {
   if (!tmpdir) {
     tmpdir = gasneti_tmpdir();
     if (!tmpdir) {
-      gasneti_fatalerror("XRC support requires valid $TMPDIR or /tmp");
+      gasneti_fatalerror("XRC support requires valid $GASNET_TMPDIR, $TMPDIR or /tmp");
     }
     tmpdir_len = strlen(tmpdir);
 
