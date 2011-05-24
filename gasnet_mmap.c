@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2011/05/01 19:39:54 $
- * $Revision: 1.81 $
+ *     $Date: 2011/05/24 20:23:44 $
+ * $Revision: 1.82 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -217,7 +217,7 @@ unsigned int gasneti_pshm_makekey(int pshm_rank) {
 extern const char *gasneti_pshm_makenames(const char *unique) {
   static char prefix[] = "/GASNTXXXXXX";
 #ifdef GASNETI_PSHM_FILE
-  const char *tmpdir = gasneti_getenv_withdefault("TMPDIR", "/tmp");
+  const char *tmpdir = gasneti_tmpdir();
   const size_t tmpdir_len = strlen(tmpdir);
 #else
   const size_t tmpdir_len = 0;
