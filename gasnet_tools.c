@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2011/05/24 20:20:46 $
- * $Revision: 1.262 $
+ *     $Date: 2011/05/24 21:48:08 $
+ * $Revision: 1.263 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1641,6 +1641,8 @@ static int _gasneti_tmpdir_valid(const char *dir) {
   struct stat s;
   /* non-empty */
   if (!dir || !strlen(dir)) return 0;
+  /* an absolute path */
+  if (dir[0] != '/') return 0;
   /* an existing directory (stat follows symlinks) */
   if (stat(dir, &s) || !S_ISDIR(s.st_mode)) return 0;
   /* allow us to search and write */
@@ -1654,8 +1656,9 @@ extern const char *gasneti_tmpdir(void) {
 
   if_pt (result) return result;
 
-  tmpdir = gasneti_getenv_withdefault("TMPDIR", "");
-  if (_gasneti_tmpdir_valid(tmpdir)) {
+  if (_gasneti_tmpdir_valid(tmpdir = gasneti_getenv_withdefault("GASNET_TMPDIR", NULL))) {
+    result = tmpdir;
+  } else if (_gasneti_tmpdir_valid(tmpdir = gasneti_getenv_withdefault("TMPDIR", NULL))) {
     result = tmpdir;
   } else if (_gasneti_tmpdir_valid(slash_tmp)) {
     result = slash_tmp;
