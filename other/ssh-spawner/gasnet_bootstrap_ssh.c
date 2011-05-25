@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2011/04/07 23:55:43 $
- * $Revision: 1.78 $
+ *     $Date: 2011/05/25 19:34:06 $
+ * $Revision: 1.79 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -52,7 +52,7 @@
    of forwarding for standard I/O (which is performed entirely by the
    ssh processes at this point).  (IF GASNETI_SSH_TOPO_FLAT is set
    non-zero then the tree effectively has inifinite out-degree and
-   the "parent of node 0" is the only non-leaf node").
+   the "parent of node 0" is the only non-leaf node).
 
    The process corresponding to gasnet node zero is the root of this
    tree, but it also has a parent: the original process started by the
@@ -79,6 +79,7 @@
    If a child has the same hostname as its parent, it will be started
    directly, rather than via ssh.  (ONLY TRUE IF ENABLED BY
    GASNETI_BOOTSTRAP_LOCAL_SPAWN - which is now 0 by default)
+   XXX: Must implement wrapper support if this is to be reenabled.
 
    The tree structure is used to provide scalable implementations of
    the following "service" routines for use during the bootstrap, as
@@ -189,6 +190,7 @@ enum {
 /* Master only */
   static volatile int exit_status = 0;
   static gasnet_node_t nnodes = 0;	/* nodes, as distinct from procs */
+  static int nnodes_set = 0;		/* non-zero if nnodes set explicitly */
   static pid_t *all_pids;
 
 static void gather_pids(void);
@@ -757,6 +759,20 @@ static void configure_ssh(void) {
   BOOTSTRAP_VERBOSE(("\tHOST\n\tCMD\n"));
 }
 
+/* Reduce nnodes when presented with a short nodelist */
+static char ** short_nodelist(char **nodelist, gasnet_node_t count) {
+  if (nnodes_set) {
+    fprintf(stderr, "WARNING: Request for %d nodes ignored because only %d nodes are available.\n", nnodes, count);
+    fflush(stderr);
+  }
+
+  nnodes = count;
+  nodelist = gasneti_realloc(nodelist, nnodes * sizeof(char *));
+  BOOTSTRAP_VERBOSE(("Node count set to available: %d\n", (int)nnodes));
+
+  return nodelist;
+}
+
 /* Build an array of hostnames from a file */
 static char ** parse_nodefile(const char *filename) {
   char **result = NULL;
@@ -776,7 +792,8 @@ static char ** parse_nodefile(const char *filename) {
 
     if (!fgets(buf, sizeof(buf), fp)) {
       /* ran out of lines */
-      die(1, "Out of lines in nodefile '%s'", filename);
+      result = short_nodelist(result, i);
+      break;
     }
  
     p = buf;
@@ -784,18 +801,17 @@ static char ** parse_nodefile(const char *filename) {
     if (*p != '#') {
       p[strcspn(p, WHITESPACE)] = '\0';
       result[i] = gasneti_strdup(p);
-#if 0
-      /* XXX: Eat consecutive duplicates ?
+
+      /* Discard consecutive duplicates unless nnodes was given explicitly.
        * When running w/ PBS and nodes=2:ppn=2 we see NODE0,NODE0,NODE1,NODE1
        * while running the same config w/ LSF gives just NODE0,NODE1.
-       * We'd get consistent results by squeezing out the PBS style dups,
-       * but the upcrun handling currently doesn't do this so we don't either.
+       * We get consistent results by squeezing out the PBS style dups.
+       * TODO: O(N^2) work to remove ALL duplicates?
        */
-      if ((i > 0) && !strcmp(result[i], result[i-1])) {
+      if (!nnodes_set && (i > 0) && !strcmp(result[i], result[i-1])) {
         gasneti_free(result[i]);
 	continue;
       }
-#endif
       ++i;
       BOOTSTRAP_VERBOSE(("\t%s\n", p));
     }
@@ -820,7 +836,9 @@ static char ** parse_servers(const char *list) {
     char *p;
     while (*string && strchr(delims,*string)) ++string; /* eat leading delimiters */
     if (!*string) {
-      die(1, "Too few hosts in " ENV_PREFIX "SSH_SERVERS");
+      /* ran out of words */
+      result = short_nodelist(result, i);
+      break;
     }
     p = string;
     string += strcspn(string, delims);
@@ -836,11 +854,6 @@ static char ** parse_servers(const char *list) {
 static void build_nodelist(void)
 {
   const char *env_string;
-
-  if (nproc < nnodes) {
-    fprintf(stderr, "Warning: %d nodes is larger than %d processes, nodes reduced to %d\n", nnodes, nproc, nproc);
-    nnodes = nproc;
-  }
 
   if ((env_string = my_getenv_withdefault(ENV_PREFIX "SSH_NODEFILE",
                                           GASNETI_DEFAULT_SSH_NODEFILE)) != NULL) {
@@ -1256,11 +1269,18 @@ static void do_master(int argc, char **argv) {
   p = strchr(argv[argi], ':');
   if (p) {
     nnodes = atoi(p+1);
+    nnodes_set = 1;
     if (nnodes < 1) usage(argv[0]); /* bad argument */
+    if (nproc < nnodes) {
+      fprintf(stderr, "WARNING: requested node count reduced from %d to process count of %d\n", (int)nnodes, (int)nproc);
+      fflush(stderr);
+      nnodes = nproc;
+    }
+    BOOTSTRAP_VERBOSE(("Spawning '%s': %d processes on %d nodes\n", argv[0], (int)nproc, (int)nnodes));
   } else {
     nnodes = nproc;
+    BOOTSTRAP_VERBOSE(("Spawning '%s': %d processes\n", argv[0], (int)nproc));
   }
-  BOOTSTRAP_VERBOSE(("Spawning '%s': %d processes on %d nodes\n", argv[0], (int)nproc, (int)nnodes));
   argi++;
 
   if ((argi < argc) && (strcmp(argv[argi], "--") == 0)) {
@@ -1279,7 +1299,7 @@ static void do_master(int argc, char **argv) {
   gasneti_verboseenv_fn = NULL;
 
   configure_ssh();
-  build_nodelist();
+  build_nodelist(); /* May reduce nnodes */
   all_pids = gasneti_calloc(nproc, sizeof(pid_t));
 
   /* Arrange to forward termination signals */
