@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2011/05/25 19:34:06 $
- * $Revision: 1.79 $
+ *     $Date: 2011/05/25 21:11:19 $
+ * $Revision: 1.80 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -77,9 +77,8 @@
    before exiting.
 
    If a child has the same hostname as its parent, it will be started
-   directly, rather than via ssh.  (ONLY TRUE IF ENABLED BY
-   GASNETI_BOOTSTRAP_LOCAL_SPAWN - which is now 0 by default)
-   XXX: Must implement wrapper support if this is to be reenabled.
+   directly, rather than via ssh IFF GASNETI_BOOTSTRAP_LOCAL_SPAWN is 1.
+   By default this is enabled if aligned segments are disabled.
 
    The tree structure is used to provide scalable implementations of
    the following "service" routines for use during the bootstrap, as
@@ -125,7 +124,11 @@
   #define GASNETI_SSH_NARY_DEGREE 32
 #endif
 #ifndef GASNETI_BOOTSTRAP_LOCAL_SPAWN
+ #if GASNET_ALIGNED_SEGMENTS
   #define GASNETI_BOOTSTRAP_LOCAL_SPAWN 0
+ #else
+  #define GASNETI_BOOTSTRAP_LOCAL_SPAWN 1
+ #endif
 #endif
 
 #if !defined(GASNETI_SSH_TOPO_FLAT) && !defined(GASNETI_SSH_TOPO_NARY)
@@ -188,6 +191,7 @@ enum {
   static int parent = -1; /* socket */
   static int mypid;
 /* Master only */
+  static char master_host[1024];
   static volatile int exit_status = 0;
   static gasnet_node_t nnodes = 0;	/* nodes, as distinct from procs */
   static int nnodes_set = 0;		/* non-zero if nnodes set explicitly */
@@ -288,6 +292,7 @@ static char *do_getenv(const char *var) {
 }
 
 static void kill_one(const char *rem_host, pid_t rem_pid) {
+  int is_local = (GASNETI_BOOTSTRAP_LOCAL_SPAWN && !strcmp(rem_host, master_host));
   pid_t pid;
  
   gasneti_assert(is_master);
@@ -304,14 +309,21 @@ static void kill_one(const char *rem_host, pid_t rem_pid) {
     (void)dup2(STDOUT_FILENO, devnull);
     (void)dup2(STDERR_FILENO, devnull);
 #endif
-    ssh_argv[ssh_argc] = (/* noconst */ char *)rem_host;
-    ssh_argv[ssh_argc+1] = sappendf(NULL, "cd %s; exec %s -GASNET-SPAWN-kill %d",
+
+    if (is_local) {
+      execlp(argv0, argv0, "-GASNET-SPAWN-kill",
+             sappendf(NULL, "%d", (int)rem_pid), NULL);
+      gasneti_fatalerror("execlp(kill) failed");
+    } else {
+      ssh_argv[ssh_argc] = (/* noconst */ char *)rem_host;
+      ssh_argv[ssh_argc+1] = sappendf(NULL, "cd %s; exec %s -GASNET-SPAWN-kill %d",
 				      quote_arg(cwd), quote_arg(argv0), (int)rem_pid);
-    execvp(ssh_argv[0], ssh_argv);
-    gasneti_fatalerror("execvp(ssh kill) failed");
+      execvp(ssh_argv[0], ssh_argv);
+      gasneti_fatalerror("execvp(ssh kill) failed");
+    }
   }
   BOOTSTRAP_VERBOSE(("[-1] Pid %d killing %s:%d\n", (int)pid, rem_host, (int)rem_pid));
-  gasneti_atomic_increment(&live, 0);
+  if (!is_local) gasneti_atomic_increment(&live, 0);
 }
 
 static void clean_up(void)
@@ -339,13 +351,17 @@ static void clean_up(void)
 
 /* Note that these are fired off asynchronously */
 static void signal_one(const char *rem_host, pid_t rem_pid, int sig) {
-  /* XXX: could avoid ssh for local case */
   pid_t pid;
  
   gasneti_assert(is_master);
   gasneti_assert(rem_host != NULL);
 
   if (rem_pid == 0) return;
+
+  if (GASNETI_BOOTSTRAP_LOCAL_SPAWN && !strcmp(rem_host, master_host)) {
+    (void) kill(rem_pid, sig);
+    return;
+  }
 
   pid = fork();
   if (pid < 0) {
@@ -1143,23 +1159,26 @@ static void spawn_one(gasnet_node_t child_id, const char *myhost) {
   if (pid < 0) {
     gasneti_fatalerror("fork() failed");
   } else if (pid == 0) {
+    char *cmd;
     /* For all children except the root do </dev/null */
     if (child[child_id].rank != 0) {
       if (dup2(STDIN_FILENO, devnull) < 0) {
         gasneti_fatalerror("dup2(STDIN_FILENO, /dev/null) failed");
       }
     }
-    if (is_local && !wrapper) {
+    cmd = sappendf(NULL, "cd %s; exec %s %s -GASNET-SPAWN-slave %s %d %d%s",
+                                      quote_arg(cwd),
+                                      (wrapper ? wrapper : ""),
+                                      quote_arg(argv0),
+                                      (is_local ? "localhost" : myhost),
+                                      listen_port, (int)child_id,
+                                      (is_verbose ? " -v" : ""));
+    if (is_local) {
       /* XXX: if we are clever enough, we might be able to "unwind" w/o the exec() */
-      /* XXX: Should add wrapper support? */
       BOOTSTRAP_VERBOSE(("[%d] spawning process %d on %s via fork()\n",
 			 (is_master ? -1 : (int)myproc),
 			 (int)child[child_id].rank, myhost));
-      execlp(argv0, argv0, "-GASNET-SPAWN-slave", "localhost",
-	     sappendf(NULL, "%d", listen_port),
-	     sappendf(NULL, "%d", (int)child_id),
-	     is_verbose ? "-v" : NULL,
-	     NULL);
+      execlp("sh", "sh", "-c", cmd, NULL);
       gasneti_fatalerror("execlp(sh) failed");
     } else {
       #if HAVE_PR_SET_PDEATHSIG
@@ -1170,12 +1189,7 @@ static void spawn_one(gasnet_node_t child_id, const char *myhost) {
 			 (is_master ? -1 : (int)myproc),
 			 (int)child[child_id].rank, host, ssh_argv[0]));
       ssh_argv[ssh_argc] = (/* noconst */ char *)host;
-      ssh_argv[ssh_argc+1] = sappendf(NULL, "cd %s; exec %s %s -GASNET-SPAWN-slave %s %d %d%s",
-				      quote_arg(cwd),
-				      (wrapper ? wrapper : ""),
-				      quote_arg(argv0),
-				      myhost, listen_port, (int)child_id,
-				      (is_verbose ? " -v" : ""));
+      ssh_argv[ssh_argc+1] = cmd;
       execvp(ssh_argv[0], ssh_argv);
       gasneti_fatalerror("execvp(ssh) failed");
     }
@@ -1228,19 +1242,8 @@ extern int (*gasneti_verboseenv_fn)(void);
 
 static void do_master(int argc, char **argv) GASNETI_NORETURN;
 static void do_master(int argc, char **argv) {
-  char myhost[1024];
   char *p;
   int argi=1;
-
-  #if PLATFORM_OS_LINUX
-  { /* Work around for bug 2136 by setting O_APPEND on stdout and stderr */
-    int tmp;
-    tmp = fcntl(STDOUT_FILENO, F_GETFL, 0);
-    if (tmp >= 0) (void)fcntl(STDOUT_FILENO, F_SETFL, tmp | O_APPEND);
-    tmp = fcntl(STDERR_FILENO, F_GETFL, 0);
-    if (tmp >= 0) (void)fcntl(STDERR_FILENO, F_SETFL, tmp | O_APPEND);
-  }
-  #endif
 
   is_master = 1;
   gasneti_reghandler(SIGURG, &sigurg_handler);
@@ -1291,7 +1294,7 @@ static void do_master(int argc, char **argv) {
   argc -= argi-1;
   argv += argi-1;
 
-  if (gethostname(myhost, sizeof(myhost)) < 0) {
+  if (gethostname(master_host, sizeof(master_host)) < 0) {
     die(1, "gethostname() failed");
   }
 
@@ -1342,7 +1345,7 @@ static void do_master(int argc, char **argv) {
 
   /* Start the process(es) */
   mypid = getpid();
-  do_spawn(argc, argv, myhost);
+  do_spawn(argc, argv, master_host);
 
   /* Locate all procs */
   gather_pids();
@@ -1633,6 +1636,16 @@ void gasneti_bootstrapInit_ssh(int *argc_p, char ***argv_p, gasnet_node_t *nodes
   }
 
   argv0 = argv[0];
+
+  #if PLATFORM_OS_LINUX
+  { /* Work around for bug 2136 by setting O_APPEND on stdout and stderr */
+    int tmp;
+    tmp = fcntl(STDOUT_FILENO, F_GETFL, 0);
+    if (tmp >= 0) (void)fcntl(STDOUT_FILENO, F_SETFL, tmp | O_APPEND);
+    tmp = fcntl(STDERR_FILENO, F_GETFL, 0);
+    if (tmp >= 0) (void)fcntl(STDERR_FILENO, F_SETFL, tmp | O_APPEND);
+  }
+  #endif
 
   if (strcmp(argv[1], "-GASNET-SPAWN-slave") == 0) {
     do_slave(argc_p, argv_p, nodes_p, mynode_p);
