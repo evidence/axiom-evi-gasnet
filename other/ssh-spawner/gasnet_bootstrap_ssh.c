@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2011/05/25 21:11:19 $
- * $Revision: 1.80 $
+ *     $Date: 2011/05/25 22:27:04 $
+ * $Revision: 1.81 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -175,9 +175,11 @@ enum {
     int			sock;
     pid_t		pid;	/* pid of ssh (or locally exec()ed app) */
     gasnet_node_t	rank;
+    char **		nodelist;
+#if GASNETI_SSH_TOPO_NARY
     gasnet_node_t	procs;	/* size in procs of subtree rooted at this child */
     gasnet_node_t	nodes;	/* size in nodes of subtree rooted at this child */
-    char **		nodelist;
+#endif
   } *child = NULL;
   static int children = 0;
   static volatile int accepted = 0;
@@ -186,8 +188,10 @@ enum {
   static volatile int in_abort = 0;
 /* Slaves only */
   static gasnet_node_t myproc = (gasnet_node_t)(-1L);
+#if GASNETI_SSH_TOPO_NARY
   static gasnet_node_t tree_procs = (gasnet_node_t)(-1L);
   static gasnet_node_t tree_nodes = (gasnet_node_t)(-1L);
+#endif
   static int parent = -1; /* socket */
   static int mypid;
 /* Master only */
@@ -1064,14 +1068,16 @@ static void post_spawn(int count, int argc, char * const *argv) {
     ch = &(child[child_id]);
     child[child_id].sock = s;
     gasneti_assert(ch->rank < nproc);
-    gasneti_assert(ch->procs > 0);
-    gasneti_assert(ch->procs <= nproc);
     do_write(s, &ch->rank, sizeof(gasnet_node_t));
     do_write(s, &nproc, sizeof(gasnet_node_t));
+#if GASNETI_SSH_TOPO_NARY
+    gasneti_assert(ch->procs > 0);
+    gasneti_assert(ch->procs <= nproc);
     do_write(s, &ch->procs, sizeof(gasnet_node_t));
     do_write(s, &ch->nodes, sizeof(gasnet_node_t));
-    send_env(s);
     send_nodelist(s, ch->nodes, ch->nodelist);
+#endif
+    send_env(s);
     send_ssh_argv(s);
     do_write_string(s, wrapper);
     send_argv(s, argc, argv);
@@ -1081,6 +1087,7 @@ static void post_spawn(int count, int argc, char * const *argv) {
   /* Close listener */
   close(listener);
 
+#if GASNETI_SSH_TOPO_NARY
   if (!is_master) {
     close(devnull);
 
@@ -1100,6 +1107,7 @@ static void post_spawn(int count, int argc, char * const *argv) {
       gasneti_free(ssh_argv);
     }
   }
+#endif
 }
 
 static void do_connect(gasnet_node_t child_id, const char *parent_name, int parent_port, int *argc_p, char ***argv_p) {
@@ -1135,14 +1143,16 @@ static void do_connect(gasnet_node_t child_id, const char *parent_name, int pare
   do_write(parent, &child_id, sizeof(gasnet_node_t));
   do_read(parent, &myproc, sizeof(gasnet_node_t));
   do_read(parent, &nproc, sizeof(gasnet_node_t));
+#if GASNETI_SSH_TOPO_NARY
   do_read(parent, &tree_procs, sizeof(gasnet_node_t));
   do_read(parent, &tree_nodes, sizeof(gasnet_node_t));
-  gasneti_assert(nproc > 0);
-  gasneti_assert(myproc < nproc);
   gasneti_assert(tree_procs > 0);
   gasneti_assert(tree_procs <= nproc);
-  recv_env(parent);
   recv_nodelist(parent, tree_nodes);
+#endif
+  gasneti_assert(nproc > 0);
+  gasneti_assert(myproc < nproc);
+  recv_env(parent);
   recv_ssh_argv(parent);
   wrapper = do_read_string(parent);
   recv_argv(parent, argc_p, argv_p);
@@ -1326,8 +1336,6 @@ static void do_master(int argc, char **argv) {
       gasnet_node_t i;
       for (i = p_quot + ((j<p_rem)?1:0); i != 0; --i, ++rank) {
         child[rank].rank = rank;
-        child[rank].procs = 1;
-        child[rank].nodes = 1;
         child[rank].nodelist = nodelist+j;
       }
     }
@@ -1475,6 +1483,7 @@ static void do_slave(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet
   /* Connect w/ parent to find out who we are */
   do_connect(child_id, parent_name, parent_port, argc_p, argv_p);
 
+#if GASNETI_SSH_TOPO_NARY
   /* Start any children */
   if (tree_procs > 1) {
     gasnet_node_t p_quot, p_rem; /* quotient and remainder of nproc/nodes */
@@ -1526,6 +1535,7 @@ static void do_slave(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet
     /* Spawn them */
     do_spawn(*argc_p, *argv_p, nodelist[0]);
   }
+#endif
 
   gather_pids();
 
