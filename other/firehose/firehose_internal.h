@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_internal.h,v $
- *     $Date: 2011/05/25 04:25:33 $
- * $Revision: 1.41 $
+ *     $Date: 2011/05/25 07:32:17 $
+ * $Revision: 1.42 $
  * Description: Internal Header file
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -162,6 +162,7 @@ extern int	*fhc_RemoteVictimFifoBuckets;
 #if !defined(GASNET_MAXNODES)
   #error "GASNET_MAXNODES undefined"
 #elif GASNET_MAXNODES <= GASNET_PAGESIZE
+  #define FH_KEY_PACKED 1
   typedef uintptr_t              fh_key_t;
   #define FH_KEYMAKE(addr,node)  ((addr) | (node))
   #define FH_KEY_EQ(x,y)         ((x) == (y))
@@ -170,9 +171,10 @@ extern int	*fhc_RemoteVictimFifoBuckets;
   #define FH_NODE(priv)    ((*(fh_key_t*)(priv)) & FH_PAGE_MASK)
   #define FH_BADDR(priv)   ((*(fh_key_t*)(priv)) & ~FH_PAGE_MASK)
 #else
+  #define FH_KEY_STRUCT 1
   typedef struct {
     uintptr_t     addr;
-    gasnet_node_t node;
+    uintptr_t     node; /* Might instead hold len in region case */
   }	  fh_key_t;
   #if defined(PLATFORM_COMPILER_GNU) || (__STDC_VERSION__+0 >= 199901L)
     #define FH_KEYMAKE(addr,node) ((fh_key_t){(addr),(node)})

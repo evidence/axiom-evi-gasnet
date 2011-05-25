@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_region.c,v $
- *     $Date: 2011/05/25 07:06:45 $
- * $Revision: 1.43 $
+ *     $Date: 2011/05/25 07:32:17 $
+ * $Revision: 1.44 $
  * Description: 
  * Copyright 2004, Paul Hargrove <PHHargrove@lbl.gov>
  * Terms of use are as specified in license.txt
@@ -407,9 +407,15 @@ fh_hash_t *fh_PrivTable;
  * However, that currently creates lifetime problems when creating
  * and destroying private_t's.
  */
-#ifndef FIREHOSE_HASH_PRIV
+#if defined(FIREHOSE_HASH_PRIV)
+  /* Keep it */
+#elif defined(FH_KEY_PACKED)
+  /* max_LocalPinSize MUST be limited to GASNET_PAGESIZE^2 for this to work */
   #define FIREHOSE_HASH_PRIV(addr, len) \
 	FH_KEYMAKE((addr), ((len) >> FH_BUCKET_SHIFT))
+#else
+  #define FIREHOSE_HASH_PRIV(addr, len) \
+	FH_KEYMAKE((addr), (len))
 #endif
 
 GASNETI_INLINE(fh_region_to_priv)
@@ -1354,6 +1360,10 @@ fh_init_plugin(uintptr_t max_pinnable_memory,
 	}
 	/* Round down to multiple of FH_BUCKET_SIZE for sanity */
 	param_RS &= ~FH_PAGE_MASK;
+	#ifdef FH_KEY_PACKED
+	/* Ensure max size fits in available bits of fh_key_t */
+	param_RS = MIN(param_RS, ((FH_BUCKET_SIZE - 1) << FH_BUCKET_SHIFT));
+	#endif
 
 
 	/* Try to work it all out with the given RS
