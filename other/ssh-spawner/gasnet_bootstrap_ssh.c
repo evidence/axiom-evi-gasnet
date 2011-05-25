@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2011/05/25 22:27:04 $
- * $Revision: 1.81 $
+ *     $Date: 2011/05/25 23:30:58 $
+ * $Revision: 1.82 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -46,8 +46,8 @@
    intended to be conduit-neutral.
   
    In the interest of scalability the ssh processes are started up in
-   a balanced N-ary tree, where N is determined at compile-time (the
-   value of "OUT_DEGREE", set below.  Typically we want this value to
+   a balanced N-ary tree, where N can be controlled at run time (via
+   env var GASNET_SSH_OUT_DEGREE).  Typically we want this value to
    be resonably large, since deep trees would result in multiple steps
    of forwarding for standard I/O (which is performed entirely by the
    ssh processes at this point).  (IF GASNETI_SSH_TOPO_FLAT is set
@@ -112,7 +112,6 @@
 
    XXX: still to do
    + Make flat-tree a runtime switch rather than compile time.
-   + Consider making OUT_DEGREE a runtime variable.
    + Implement "custom" spawner in the spirit of udp-conduit.
    + Look at udp-conduit for things missing from this list. :-)
    + We probably leak small strings in a few places.
@@ -121,6 +120,7 @@
 
 /* Defaults if conduit has not set these values */
 #ifndef GASNETI_SSH_NARY_DEGREE
+  /* Default only, env var can override */
   #define GASNETI_SSH_NARY_DEGREE 32
 #endif
 #ifndef GASNETI_BOOTSTRAP_LOCAL_SPAWN
@@ -186,6 +186,9 @@ enum {
   static int finalized = 0;
   static gasneti_atomic_t live = gasneti_atomic_init(0);
   static volatile int in_abort = 0;
+#if GASNETI_SSH_TOPO_NARY
+  static gasnet_node_t out_degree = GASNETI_SSH_NARY_DEGREE;
+#endif
 /* Slaves only */
   static gasnet_node_t myproc = (gasnet_node_t)(-1L);
 #if GASNETI_SSH_TOPO_NARY
@@ -1075,6 +1078,7 @@ static void post_spawn(int count, int argc, char * const *argv) {
     gasneti_assert(ch->procs <= nproc);
     do_write(s, &ch->procs, sizeof(gasnet_node_t));
     do_write(s, &ch->nodes, sizeof(gasnet_node_t));
+    do_write(s, &out_degree, sizeof(gasnet_node_t));
     send_nodelist(s, ch->nodes, ch->nodelist);
 #endif
     send_env(s);
@@ -1146,6 +1150,7 @@ static void do_connect(gasnet_node_t child_id, const char *parent_name, int pare
 #if GASNETI_SSH_TOPO_NARY
   do_read(parent, &tree_procs, sizeof(gasnet_node_t));
   do_read(parent, &tree_nodes, sizeof(gasnet_node_t));
+  do_read(parent, &out_degree, sizeof(gasnet_node_t));
   gasneti_assert(tree_procs > 0);
   gasneti_assert(tree_procs <= nproc);
   recv_nodelist(parent, tree_nodes);
@@ -1347,6 +1352,17 @@ static void do_master(int argc, char **argv) {
     child[0].procs = nproc;
     child[0].nodes = nnodes;
     child[0].nodelist = nodelist;
+    { const char *env_string = my_getenv_withdefault(ENV_PREFIX "SSH_OUT_DEGREE",
+                                                     _STRINGIFY(GASNETI_SSH_NARY_DEGREE));
+      if (env_string) {
+        int ltmp = atoi(env_string);
+        out_degree = ltmp;
+        if (!out_degree || (out_degree > nproc) ||
+           ((int)out_degree != ltmp /* Overflow or negative */)) {
+          out_degree = nproc;
+        }
+      }
+    }
   #else
     #error
   #endif
@@ -1487,7 +1503,7 @@ static void do_slave(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet
   /* Start any children */
   if (tree_procs > 1) {
     gasnet_node_t p_quot, p_rem; /* quotient and remainder of nproc/nodes */
-    gasnet_node_t n_quot, n_rem; /* quotient and remainder of nodes/GASNETI_SSH_NARY_DEGREE */
+    gasnet_node_t n_quot, n_rem; /* quotient and remainder of nodes/out_degree */
     gasnet_node_t local_procs; /* the local processes (proc-per-node), excluding self */
     gasnet_node_t rank, j;
     char **sublist;
@@ -1499,7 +1515,7 @@ static void do_slave(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet
     p_rem -= (p_rem?1:0);
 
     /* Children = (local_procs other than self) + (child nodes) */
-    children = local_procs + MIN(GASNETI_SSH_NARY_DEGREE, (tree_nodes - 1));
+    children = local_procs + MIN(out_degree, (tree_nodes - 1));
     child = gasneti_calloc(children, sizeof(struct child));
     rank = myproc + 1;
 
@@ -1512,8 +1528,8 @@ static void do_slave(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet
     }
 
     /* Map out the child nodes */
-    n_quot = (tree_nodes - 1) / GASNETI_SSH_NARY_DEGREE;
-    n_rem = (tree_nodes - 1) % GASNETI_SSH_NARY_DEGREE;
+    n_quot = (tree_nodes - 1) / out_degree;
+    n_rem = (tree_nodes - 1) % out_degree;
     sublist = nodelist + 1;
     for (j = local_procs; rank < (myproc + tree_procs); j++) {
       gasnet_node_t nodes = n_quot + (n_rem?1:0);

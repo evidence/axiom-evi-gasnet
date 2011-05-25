@@ -1,7 +1,7 @@
 README file for ssh-spawner
 ================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.6 $
+$Revision: 1.7 $
 
 See vapi-conduit for an example of how to use this code in a conduit.
 
@@ -31,8 +31,8 @@ Configure Options:
     compute nodes is not possible.
 
     The value "nary" uses a tree with GASNet node 0 as the root
-    and an out-degree set by the optional suffix.  For instance
-    a value of "nary:2" uses a binary tree.  This implementation
+    and a default out-degree set by the optional suffix.  For
+    instance "nary:2" uses a binary tree.  This implementation
     is more scalable (in both time and sockets) than the "flat"
     one, but requires that ssh among compute nodes is permitted.
     There is still a "master" process that is the parent of
@@ -82,6 +82,13 @@ Environment Variables: (may be controlled by a wrapper script)
   OpenSSH to disable them and speed the connection process (except
   where the agent forwarding is needed for authorization).
 
++ If the "nary" topology was selected at configure time, then the
+  environment variable GASNET_SSH_OUT_DEGREE can be used to set
+  the degree of the N-ary tree.  A value of 0 is equivalent to an
+  unlimited value (but is NOT the same as the "flat" topology
+  since process 0, rather then the master process, is the parent
+  of the other processes).
+  
 
 Command-line Usage:
 
