@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_region.c,v $
- *     $Date: 2011/05/25 07:32:17 $
- * $Revision: 1.44 $
+ *     $Date: 2011/05/25 07:55:44 $
+ * $Revision: 1.45 $
  * Description: 
  * Copyright 2004, Paul Hargrove <PHHargrove@lbl.gov>
  * Terms of use are as specified in license.txt
@@ -332,16 +332,13 @@ fh_bucket_t *fh_bucket_new(void)
         /* Allocate a full page of buckets to amortize overheads */
         const int count = GASNET_PAGESIZE / sizeof(fh_bucket_t);
         int i;
-        fhi_bucket_freelist = gasneti_malloc(count * sizeof(fh_bucket_t));
-        gasneti_assert(count > 1);
-        bucket = fhi_bucket_freelist;
-        for (i = 0; i < count - 2; ++i) {
-            fh_bucket_t *next = bucket + 1;
-            bucket->fh_next = next;
-            bucket = next;
+        bucket = gasneti_malloc(count * sizeof(fh_bucket_t));
+        for (i = 0; i < count - 1; ++i) {
+            bucket[i].fh_next = &bucket[i+1];
         }
-        bucket->fh_next = NULL;
-        bucket += 1;
+        gasneti_assert(count > 1);
+        bucket[count-1].fh_next = NULL;
+        fhi_bucket_freelist = bucket + 1;
     }
     memset(bucket, 0, sizeof(fh_bucket_t));
 
@@ -453,16 +450,13 @@ fh_create_priv(gasnet_node_t node, const firehose_region_t *reg)
         /* Allocate a full page of private_t's to amortize overheads */
         const int count = GASNET_PAGESIZE / sizeof(firehose_private_t);
         int i;
-        fhi_priv_freelist = gasneti_malloc(count * sizeof(firehose_private_t));
-        gasneti_assert(count > 1);
-        priv = fhi_priv_freelist;
-        for (i = 0; i < count - 2; ++i) {
-            firehose_private_t *next = priv + 1;
-            priv->fh_next = next;
-            priv = next;
+        priv = gasneti_malloc(count * sizeof(firehose_private_t));
+        for (i = 0; i < count - 1; ++i) {
+            priv[i].fh_next = &priv[i+1];
         }
-        priv->fh_next = NULL;
-        priv += 1;
+        gasneti_assert(count > 1);
+        priv[count-1].fh_next = NULL;
+        fhi_priv_freelist = priv + 1;
     }
     memset(priv, 0, sizeof(firehose_private_t));
 
