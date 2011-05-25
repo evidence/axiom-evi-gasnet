@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_region.c,v $
- *     $Date: 2011/05/25 04:25:33 $
- * $Revision: 1.42 $
+ *     $Date: 2011/05/25 07:06:45 $
+ * $Revision: 1.43 $
  * Description: 
  * Copyright 2004, Paul Hargrove <PHHargrove@lbl.gov>
  * Terms of use are as specified in license.txt
@@ -329,7 +329,19 @@ fh_bucket_t *fh_bucket_new(void)
 	fhi_bucket_freelist = bucket->fh_next;
     }
     else {
-        bucket = gasneti_malloc(sizeof(fh_bucket_t));
+        /* Allocate a full page of buckets to amortize overheads */
+        const int count = GASNET_PAGESIZE / sizeof(fh_bucket_t);
+        int i;
+        fhi_bucket_freelist = gasneti_malloc(count * sizeof(fh_bucket_t));
+        gasneti_assert(count > 1);
+        bucket = fhi_bucket_freelist;
+        for (i = 0; i < count - 2; ++i) {
+            fh_bucket_t *next = bucket + 1;
+            bucket->fh_next = next;
+            bucket = next;
+        }
+        bucket->fh_next = NULL;
+        bucket += 1;
     }
     memset(bucket, 0, sizeof(fh_bucket_t));
 
@@ -432,7 +444,19 @@ fh_create_priv(gasnet_node_t node, const firehose_region_t *reg)
 	fhi_priv_freelist = priv->fh_next;
     }
     else {
-        priv = gasneti_malloc(sizeof(firehose_private_t));
+        /* Allocate a full page of private_t's to amortize overheads */
+        const int count = GASNET_PAGESIZE / sizeof(firehose_private_t);
+        int i;
+        fhi_priv_freelist = gasneti_malloc(count * sizeof(firehose_private_t));
+        gasneti_assert(count > 1);
+        priv = fhi_priv_freelist;
+        for (i = 0; i < count - 2; ++i) {
+            firehose_private_t *next = priv + 1;
+            priv->fh_next = next;
+            priv = next;
+        }
+        priv->fh_next = NULL;
+        priv += 1;
     }
     memset(priv, 0, sizeof(firehose_private_t));
 
