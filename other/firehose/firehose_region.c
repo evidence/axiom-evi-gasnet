@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_region.c,v $
- *     $Date: 2011/01/30 00:07:29 $
- * $Revision: 1.41 $
+ *     $Date: 2011/05/25 04:25:33 $
+ * $Revision: 1.42 $
  * Description: 
  * Copyright 2004, Paul Hargrove <PHHargrove@lbl.gov>
  * Terms of use are as specified in license.txt
@@ -16,7 +16,7 @@
 
 typedef
 struct _fh_bucket_t {
-        fh_int_t         fh_key;	/* cached key for hash table */
+        fh_key_t         fh_key;	/* cached key for hash table */
         void            *fh_next;	/* linked list in hash table */
 					/* _must_ be in this order */
 
@@ -141,7 +141,7 @@ int fh_bucket_is_better(const fh_bucket_t *a, const fh_bucket_t *b)
   gasneti_assert(a->priv != NULL);
   gasneti_assert(b != NULL);
   gasneti_assert(b->priv != NULL);
-  gasneti_assert(a->fh_key == b->fh_key);
+  gasneti_assert(FH_KEY_EQ(a->fh_key, b->fh_key));
 
   end_a = fh_bucket_end(a);
   end_b = fh_bucket_end(b);
@@ -222,7 +222,7 @@ static fh_bucket_t
 }
 
 static void
-fh_bucket_hash(fh_bucket_t *bucket, fh_int_t key)
+fh_bucket_hash(fh_bucket_t *bucket, fh_key_t key)
 {
 	fh_bucket_t *other;
 	fh_hash_t *hash;
@@ -256,7 +256,7 @@ fh_bucket_hash(fh_bucket_t *bucket, fh_int_t key)
 static void
 fh_bucket_unhash(fh_bucket_t *bucket)
 {
-    fh_int_t key;
+    fh_key_t key;
 
     FH_TABLE_ASSERT_LOCKED;
     gasneti_assert(bucket != NULL);
@@ -297,7 +297,7 @@ static void
 fh_bucket_rehash(fh_bucket_t *bucket)
 {
     fh_bucket_t *other;
-    fh_int_t key;
+    fh_key_t key;
 
     FH_TABLE_ASSERT_LOCKED;
     gasneti_assert(bucket != NULL);
@@ -405,7 +405,7 @@ firehose_private_t *
 fh_region_to_priv(const firehose_region_t *reg)
 {
 	firehose_private_t *priv;
-        fh_int_t key;
+        fh_key_t key;
 
         FH_TABLE_ASSERT_LOCKED;
 
