@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2010/09/16 17:56:32 $
- * $Revision: 1.98 $
+ *     $Date: 2011/05/26 00:05:18 $
+ * $Revision: 1.99 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -163,7 +163,7 @@ GASNETI_BEGIN_EXTERNC
   #define gasneti_ticks_to_ns(st)  (st)
   #define gasneti_ticks_now()      ((gasneti_tick_t)(dclock()*1E9))
 /* ------------------------------------------------------------------------------------ */
-#elif (PLATFORM_ARCH_IA64 && GASNETI_ARCH_ALTIX)
+#elif GASNETI_USE_MMTIMER
   /* use IA-PC HPET (High Precision Event Timers) */
   #define GASNETI_HPET_MMAP 1
   #include <sys/ioctl.h>
