@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2011/06/01 20:53:12 $
- * $Revision: 1.217 $
+ *     $Date: 2011/06/01 22:28:36 $
+ * $Revision: 1.218 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -993,11 +993,11 @@ static void gasneti_nodemap_dflt(gasneti_bootstrapExchangefn_t exchangefn) {
     /* Fall back to hashing the hostname if the hostid is obviously invalid */
     if (!myid || !(~myid)        /* 0.0.0.0 or 255.255.255.255 */
 #if PLATFORM_ARCH_BIG_ENDIAN
-        || (my_id == 0x7f000001) /* 127.0.0.1 */
-        || (my_id == 0x00017f00) /* 127.0.0.1 w/ 16-bit words swapped - glibc does this */
+        || (myid == 0x7f000001) /* 127.0.0.1 */
+        || (myid == 0x00017f00) /* 127.0.0.1 w/ 16-bit words swapped - glibc does this */
 #else /* LITTLE ENDIAN */
-        || (my_id == 0x0100007f) /* 127.0.0.1 */
-        || (my_id == 0x007f0100) /* 127.0.0.1 w/ 16-bit words swapped - glibc does this */
+        || (myid == 0x0100007f) /* 127.0.0.1 */
+        || (myid == 0x007f0100) /* 127.0.0.1 w/ 16-bit words swapped - glibc does this */
 #endif
        ) {
       const char *myname = gasneti_gethostname();
