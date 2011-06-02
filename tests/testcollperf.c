@@ -1122,7 +1122,7 @@ int main(int argc, char **argv)
   
  
   GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
-  test_init("testcollperf",0,"(max data size) (outer_verification_iters) (inner_verification_iters) (performance_iters) (thread count per node) ");
+  test_init("testcollperf",0,"(max data size) (outer_verification_iters) (inner_verification_iters) (performance_iters) (thread count per node) (test sections)");
   TEST_SET_WAITMODE(threads_per_node);
   A = TEST_MYSEG();
   B = A+(SEG_PER_THREAD*threads_per_node);
