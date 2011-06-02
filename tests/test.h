@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2010/10/13 03:39:58 $
- * $Revision: 1.140 $
+ *     $Date: 2011/06/02 19:42:17 $
+ * $Revision: 1.141 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -861,6 +861,15 @@ static int _test_localprocs(void) { /* First call is not thread safe */
 static void _test_set_waitmode(int threads) {
   if (gasnett_getenv_yesno_withdefault("GASNET_TEST_POLITE_SYNC",0)) return;
   threads *= TEST_LOCALPROCS();
+#if PLATFORM_OS_OPENBSD /* userland pthreads impl. runs on a single cpu core */
+  if (threads > 1) {
+    if (_test_nodeinfo[gasnet_mynode()] == gasnet_mynode())
+      MSG("WARNING: per-node thread count (%i) exceeds platform's concurrency "
+          "- enabling  \"polite\", low-performance synchronization algorithms",
+          (int) threads);
+    gasnet_set_waitmode(GASNET_WAIT_BLOCK);
+  }
+#else
   if (threads > gasnett_cpu_count()) {
     if (_test_nodeinfo[gasnet_mynode()] == gasnet_mynode())
       MSG("WARNING: per-node thread count (%i) exceeds physical cpu count (%i) "
@@ -868,6 +877,7 @@ static void _test_set_waitmode(int threads) {
           (int) threads, gasnett_cpu_count());
     gasnet_set_waitmode(GASNET_WAIT_BLOCK);
   }
+#endif
 }
 #define TEST_SET_WAITMODE _test_set_waitmode
 
