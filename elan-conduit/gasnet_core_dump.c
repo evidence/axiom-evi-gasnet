@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core_dump.c,v $
- *     $Date: 2011/02/09 06:38:02 $
- * $Revision: 1.22 $
+ *     $Date: 2011/06/03 22:57:09 $
+ * $Revision: 1.23 $
  * Description: GASNet elan conduit - elan informational dumps
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -56,7 +56,7 @@ extern void gasnetc_dump_base(void) {
     switch(b->waitType) {
       case ELAN_POLL_EVENT: strcpy(waitType,"ELAN_POLL_EVENT"); break;
       case ELAN_WAIT_EVENT: strcpy(waitType,"ELAN_WAIT_EVENT"); break;
-      default: sprintf(waitType,"spin-poll iterations: %i",(int)b->waitType);
+      default: snprintf(waitType,sizeof(waitType),"spin-poll iterations: %i",(int)b->waitType);
     }
     GASNETI_STATS_PRINTF(C,(" waitType= %s",waitType));
   }
@@ -180,7 +180,7 @@ extern void gasnetc_dump_state(void) {
     idstr[0] = '\0';
     for (i=0; i < s->nLocalIds; i++) {
       char tmp[10];
-      sprintf(tmp," %i ", s->localIds[i]);
+      snprintf(tmp, sizeof(tmp), " %i ", s->localIds[i]);
       strcat(idstr,tmp);
     }
     GASNETI_STATS_PRINTF(C,("local_ids= (%s)",idstr));
@@ -206,7 +206,7 @@ extern void gasnetc_dump_group(void) {
     vpstr[0] = '\0';
     for (i=0; i < g->size; i++) {
       char tmp[10];
-      sprintf(tmp," %i ", g->lookupFn(g->handle, i));
+      snprintf(tmp, sizeof(tmp), " %i ", g->lookupFn(g->handle, i));
       strcat(vpstr,tmp);
     }
     GASNETI_STATS_PRINTF(C,("VPs= (%s)",vpstr));
@@ -358,7 +358,7 @@ void gasnetc_dump_tportstats(void) {
       for (i=0;i<64;i++) {
         if (stats.ts_txBin[i]) {
           char msg[80];
-          sprintf(msg,"Tx msg count(sz=%i)",(1<<i));
+          snprintf(msg,sizeof(msg),"Tx msg count(sz=%i)",(1<<i));
           DUMP_STAT(txBin[i], msg);
         }
       }

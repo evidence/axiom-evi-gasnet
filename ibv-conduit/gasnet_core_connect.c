@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2011/05/24 21:50:01 $
- * $Revision: 1.60 $
+ *     $Date: 2011/06/03 22:57:29 $
+ * $Revision: 1.61 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -296,8 +296,9 @@ gasnetc_xrc_tmpname(gasnetc_lid_t mylid, int index) {
   }
 
   filename = gasneti_malloc(tmpdir_len + filename_len);
-  strcpy(filename, tmpdir);
-  sprintf(filename + tmpdir_len, pattern,
+  strncpy(filename, tmpdir, tmpdir_len);
+  snprintf(filename + tmpdir_len, filename_len,
+          pattern,
           (unsigned int)(mylid & 0xffff),
           (unsigned int)(index & 0xf),
           (unsigned int)(pid & 0xffffff));

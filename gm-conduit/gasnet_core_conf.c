@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core_conf.c,v $
- * $Date: 2011/02/09 04:10:19 $
- * $Revision: 1.25 $
+ * $Date: 2011/06/03 22:57:11 $
+ * $Revision: 1.26 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -391,7 +391,7 @@ gasnetc_getconf_mpiexec()
 		 */
 
 		count = 0;
-		sprintf (buffer, 
+		snprintf (buffer, sizeof(buffer),
 			"<<<%d:%d:%d:%d:%u:%d:%d::%d>>>\n", 
 			magic_number, gasneti_mynode, port_id, board_id, 
 			(unsigned) _gmc.my_id, 0, (int) getpid(), slave_port);

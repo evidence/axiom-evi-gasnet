@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2010/04/04 06:57:38 $
- * $Revision: 1.94 $
+ *     $Date: 2011/06/03 22:57:09 $
+ * $Revision: 1.95 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -501,7 +501,8 @@ static int gasnete_warned_nbp_AM = 0;
   if_pf (!gasnete_warned_##varname) {                                   \
     char msg[255];                                                      \
     gasnete_warned_##varname = 1;                                       \
-    sprintf(msg, "PERFORMANCE WARNING: %s, compensating with %s.",      \
+    snprintf(msg, sizeof(msg),                                          \
+            "PERFORMANCE WARNING: %s, compensating with %s.",           \
             problem, alternative);                                      \
     GASNETI_TRACE_PRINTF(I, ("%s", msg));                               \
     if (!gasneti_getenv_yesno_withdefault("GASNET_QUIET",0)) {          \

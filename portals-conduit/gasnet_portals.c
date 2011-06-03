@@ -1509,7 +1509,7 @@ static void ReqRB_init(void)
     gasnetc_PtlBuffer_t *p;
     size_t skip = GASNETI_ALIGNUP(sizeof(gasnetc_PtlBuffer_t),GASNETI_MEDBUF_ALIGNMENT);
 
-    sprintf(&name[0],"ReqRB_%02d",i);
+    snprintf(name,sizeof(name),"ReqRB_%02d",i);
 
     p = gasnetc_ReqRB[i] = gasnetc_malloc_aligned(GASNETI_MEDBUF_ALIGNMENT,nbytes + skip);
     gasnetc_buf_init(p,name,nbytes,(void *)((uintptr_t)p + skip));
@@ -1603,7 +1603,7 @@ void gasnetc_dump_credits(int epoch_count)
   int i;
   /* if opening the first time, over-write old file, otherwise append */
   const char *mode = (first_dump_credits ? "w" : "a");
-  sprintf(&filename[0],"credits.%03d",gasneti_mynode);
+  snprintf(filename,sizeof(filename),"credits.%03d",gasneti_mynode);
   if ( (fh = fopen(filename,mode)) == NULL) {
     gasneti_fatalerror("Failed to create or append file named %s",filename);
   }

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2011/05/03 21:03:24 $
- * $Revision: 1.136 $
+ *     $Date: 2011/06/03 22:57:13 $
+ * $Revision: 1.137 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -425,7 +425,7 @@ static int gasnetc_reghandlers(gasnet_handlerentry_t *table, int numentries,
 	    }
 	    if (newindex > highlimit) {
 		char s[255];
-		sprintf(s,"Too many handlers. (limit=%i)", highlimit - lowlimit + 1);
+		snprintf(s, sizeof(s), "Too many handlers. (limit=%i)", highlimit - lowlimit + 1);
 		GASNETI_RETURN_ERRR(BAD_ARG, s);
 	    }
 	}
@@ -433,7 +433,7 @@ static int gasnetc_reghandlers(gasnet_handlerentry_t *table, int numentries,
 	/*  ensure handlers fall into the proper range of pre-assigned values */
 	if (newindex < lowlimit || newindex > highlimit) {
 	    char s[255];
-	    sprintf(s, "handler index (%i) out of range [%i..%i]", newindex, lowlimit, highlimit);
+	    snprintf(s, sizeof(s), "handler index (%i) out of range [%i..%i]", newindex, lowlimit, highlimit);
 	    GASNETI_RETURN_ERRR(BAD_ARG, s);
 	}
 
