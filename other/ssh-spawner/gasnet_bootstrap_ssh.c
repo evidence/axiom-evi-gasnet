@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2011/05/25 23:30:58 $
- * $Revision: 1.82 $
+ *     $Date: 2011/06/05 22:08:23 $
+ * $Revision: 1.83 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -1663,15 +1663,13 @@ void gasneti_bootstrapInit_ssh(int *argc_p, char ***argv_p, gasnet_node_t *nodes
 
   argv0 = argv[0];
 
-  #if PLATFORM_OS_LINUX
-  { /* Work around for bug 2136 by setting O_APPEND on stdout and stderr */
+  { /* set O_APPEND on stdout and stderr (see bug 2136) */
     int tmp;
     tmp = fcntl(STDOUT_FILENO, F_GETFL, 0);
     if (tmp >= 0) (void)fcntl(STDOUT_FILENO, F_SETFL, tmp | O_APPEND);
     tmp = fcntl(STDERR_FILENO, F_GETFL, 0);
     if (tmp >= 0) (void)fcntl(STDERR_FILENO, F_SETFL, tmp | O_APPEND);
   }
-  #endif
 
   if (strcmp(argv[1], "-GASNET-SPAWN-slave") == 0) {
     do_slave(argc_p, argv_p, nodes_p, mynode_p);
