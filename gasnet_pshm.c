@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.c,v $
- *     $Date: 2011/06/05 06:25:43 $
- * $Revision: 1.37 $
+ *     $Date: 2011/06/05 06:47:11 $
+ * $Revision: 1.38 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -893,9 +893,13 @@ void gasneti_pshmnet_bootstrapBarrier(void)
   target = gasneti_pshm_nodes + curr - (curr % gasneti_pshm_nodes);
   gasneti_assert_always(target > curr); /* Die if we were ever to wrap */
 
-  gasneti_atomic_increment(&gasneti_pshm_info->bootstrap_barrier, GASNETI_ATOMIC_REL);
-  gasneti_waitwhile((curr = gasneti_atomic_read(&gasneti_pshm_info->bootstrap_barrier, 0)) < target);
+  do { /* atomic increment w/ a ceiling */
+    curr = gasneti_atomic_read(&gasneti_pshm_info->bootstrap_barrier, 0);
+    if_pf (curr == GASNETI_ATOMIC_MAX) gasnet_exit(1);
+  } while (!gasneti_atomic_compare_and_swap(&gasneti_pshm_info->bootstrap_barrier,
+                                            curr, curr+1, GASNETI_ATOMIC_REL));
 
+  gasneti_waitwhile((curr = gasneti_atomic_read(&gasneti_pshm_info->bootstrap_barrier, 0)) < target);
   if_pf (curr == GASNETI_ATOMIC_MAX) gasnet_exit(1);
 }
 
