@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.c,v $
- *     $Date: 2011/05/08 18:08:22 $
- * $Revision: 1.35 $
+ *     $Date: 2011/06/05 01:46:58 $
+ * $Revision: 1.36 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -892,7 +892,40 @@ void gasneti_pshmnet_bootstrapBarrier(void)
   gasneti_assert_always(target > curr); /* Die if we were ever to wrap */
 
   gasneti_atomic_increment(&gasneti_pshm_info->bootstrap_barrier, GASNETI_ATOMIC_REL);
-  gasneti_waitwhile(gasneti_atomic_read(&gasneti_pshm_info->bootstrap_barrier, 0) < target);
+  gasneti_waitwhile((curr = gasneti_atomic_read(&gasneti_pshm_info->bootstrap_barrier, 0)) < target);
+
+  if_pf (curr == GASNETI_ATOMIC_MAX) gasnet_exit(1);
+}
+
+/******************************************************************************
+ * "critical sections" in which we notify peers if we abort() while
+ * they are potentially blocked in gasneti_pshmnet_bootstrapBarrier().
+ * These DO NOT nest (but there is no checking to ensure that).
+ ******************************************************************************/
+static gasneti_sighandlerfn_t gasneti_prev_abort_handler = NULL;
+
+static void gasneti_pshm_abort_handler(int sig) {
+  gasneti_atomic_set(&gasneti_pshm_info->bootstrap_barrier, GASNETI_ATOMIC_MAX, 0);
+
+  gasneti_reghandler(SIGABRT, gasneti_prev_abort_handler);
+#if HAVE_SIGPROCMASK /* Is this ever NOT the case? */
+  { sigset_t new_set, old_set;
+    sigemptyset(&new_set);
+    sigaddset(&new_set, SIGABRT);
+    sigprocmask(SIG_UNBLOCK, &new_set, &old_set);
+  }
+#endif
+  raise(SIGABRT);
+}
+
+void gasneti_pshm_cs_enter(void)
+{
+  gasneti_prev_abort_handler = gasneti_reghandler(SIGABRT, &gasneti_pshm_abort_handler);
+}
+
+void gasneti_pshm_cs_leave(void)
+{
+  gasneti_reghandler(SIGABRT, gasneti_prev_abort_handler);
 }
 
 /******************************************************************************

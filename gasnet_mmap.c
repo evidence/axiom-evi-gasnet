@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2011/05/24 20:23:44 $
- * $Revision: 1.82 $
+ *     $Date: 2011/06/05 01:46:58 $
+ * $Revision: 1.83 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -807,6 +807,10 @@ uintptr_t gasneti_mmapLimit(uintptr_t localLimit, uint64_t sharedLimit,
   int i, need_exchg = 0;
   uintptr_t maxsz;
 
+#if GASNET_PSHM
+  gasneti_pshm_cs_enter();
+#endif
+
   gasneti_assert(exchangefn);
   gasneti_assert(gasneti_nodemap);
 
@@ -916,6 +920,9 @@ uintptr_t gasneti_mmapLimit(uintptr_t localLimit, uint64_t sharedLimit,
     if (barrierfn) (*barrierfn)(); /* Ensures munmap()s complete on-node before return */
   }
 
+#if GASNET_PSHM
+  gasneti_pshm_cs_leave();
+#endif
   return maxsz;
 }
 #endif /* HAVE_MMAP */
@@ -932,6 +939,10 @@ uintptr_t gasneti_mmapLimit(uintptr_t localLimit, uint64_t sharedLimit,
  */
 void gasneti_segmentInit(uintptr_t localSegmentLimit,
                          gasneti_bootstrapExchangefn_t exchangefn) {
+#if GASNET_PSHM
+  gasneti_pshm_cs_enter();
+#endif
+
   gasneti_assert(gasneti_MaxLocalSegmentSize == 0);
   gasneti_assert(gasneti_MaxGlobalSegmentSize == 0);
   gasneti_assert(exchangefn);
@@ -1083,6 +1094,10 @@ void gasneti_segmentInit(uintptr_t localSegmentLimit,
   gasneti_assert(gasneti_MaxGlobalSegmentSize % GASNET_PAGESIZE == 0);
   gasneti_assert(gasneti_MaxGlobalSegmentSize <= gasneti_MaxLocalSegmentSize);
   gasneti_assert(gasneti_MaxLocalSegmentSize <= localSegmentLimit);
+
+#if GASNET_PSHM
+  gasneti_pshm_cs_leave();
+#endif
 }
 
 /* ------------------------------------------------------------------------------------ */
@@ -1315,6 +1330,8 @@ void gasneti_segmentAttach(uintptr_t segsize, uintptr_t minheapoffset,
     uintptr_t *seginfo_correction = (uintptr_t *)gasneti_calloc(gasneti_pshm_nodes, sizeof(uintptr_t));
   #endif
 
+    gasneti_pshm_cs_enter();
+
     /* Avoid leaking shared memory files in case of non-collective exit between init/attach */
     gasneti_pshmnet_bootstrapBarrier();
 
@@ -1411,6 +1428,8 @@ void gasneti_segmentAttach(uintptr_t segsize, uintptr_t minheapoffset,
   if (ar) {
     gasneti_fatalerror("Failed to attach one or more remote segments");
   }
+
+  gasneti_pshm_cs_leave();
 #endif /* GASNET_PSHM */
 } 
 #endif /* !GASNET_SEGMENT_EVERYTHING */
