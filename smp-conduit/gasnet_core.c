@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_core.c,v $
- *     $Date: 2011/06/03 22:57:23 $
- * $Revision: 1.64 $
+ *     $Date: 2011/06/06 03:04:47 $
+ * $Revision: 1.65 $
  * Description: GASNet smp conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -240,6 +240,14 @@ static void gasnetc_fork_children(void) {
   gasnetc_exit_data->pid_tbl[0] = getpid();
 
   gasneti_assert(gasneti_mynode == 0);
+
+  { /* set O_APPEND on stdout and stderr (same reasons as in bug 2136) */
+    int tmp;
+    tmp = fcntl(STDOUT_FILENO, F_GETFL, 0);
+    if (tmp >= 0) (void)fcntl(STDOUT_FILENO, F_SETFL, tmp | O_APPEND);
+    tmp = fcntl(STDERR_FILENO, F_GETFL, 0);
+    if (tmp >= 0) (void)fcntl(STDERR_FILENO, F_SETFL, tmp | O_APPEND);
+  }
 
   gasneti_reghandler(GASNETC_REMOTEEXIT_SIGNAL, gasnetc_remote_exit_sighand);
 
