@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refcoll.c,v $
- *     $Date: 2010/09/16 19:43:59 $
- * $Revision: 1.97 $
+ *     $Date: 2011/06/11 11:35:13 $
+ * $Revision: 1.98 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>, Paul H. Hargrove <PHHargrove@lbl.gov>, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -4842,10 +4842,10 @@ static int gasnete_coll_pf_gallM_Gath(gasnete_coll_op_t *op GASNETE_THREAD_FARG)
 #endif
 
         for (i = 0; i < op->team->total_images; ++i, ++h) {
-          *h = gasnete_coll_gatherM_nb(team, i, *p, srclist, nbytes,
+          void *dst = gasnete_coll_image_is_local(team, i) ? *(p++) : NULL;
+          *h = gasnete_coll_gatherM_nb(team, i, dst, srclist, nbytes,
                                        flags|GASNETE_COLL_NONROOT_SUBORDINATE|GASNET_COLL_DISABLE_AUTOTUNE, op->sequence+i+1 GASNETE_THREAD_PASS);
           gasnete_coll_save_coll_handle(h GASNETE_THREAD_PASS);
-          if (gasnete_coll_image_is_local(team, i)) ++p;
         }
       }
     }
@@ -5384,10 +5384,10 @@ static int gasnete_coll_pf_exchgM_Gath(gasnete_coll_op_t *op GASNETE_THREAD_FARG
         p = srclist;
         q = args->dstlist;
         for (i = 0; i < op->team->total_images; ++i, ++h, p += team->my_images) {
-          *h = gasnete_coll_gatherM_nb(team, i, *q, p, nbytes,
+          void *dst = gasnete_coll_image_is_local(team, i) ? *(q++) : NULL;
+          *h = gasnete_coll_gatherM_nb(team, i, dst, p, nbytes,
                                        flags|GASNETE_COLL_NONROOT_SUBORDINATE|GASNET_COLL_DISABLE_AUTOTUNE, op->sequence+i+1 GASNETE_THREAD_PASS);
           gasnete_coll_save_coll_handle(h GASNETE_THREAD_PASS);
-          if (gasnete_coll_image_is_local(team, i)) ++q;
         }
       }
     }
