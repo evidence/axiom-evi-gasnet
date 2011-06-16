@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2010/10/24 23:59:42 $
-# $Revision: 1.88 $
+#     $Date: 2011/06/16 22:14:46 $
+# $Revision: 1.89 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -759,6 +759,17 @@ if ($numnode && $is_infinipath) {
     if (defined($numnode) && !(($spawncmd =~ m/%M/) || $dashN_ok)) {
 	warn "WARNING: Don't know how to control process->node layout with your mpirun\n";
 	warn "WARNING: PROCESS LAYOUT MIGHT NOT MATCH YOUR REQUEST\n";
+    }
+
+# Fix output
+    if (!$dryrun) {
+	# Try to set O_APPEND to avoid badly intermixed output
+	use Fcntl;
+	my $flags;
+	$flags = fcntl(STDOUT, F_GETFL, 0)
+	     and fcntl(STDOUT, F_SETFL, $flags | O_APPEND);
+	$flags = fcntl(STDERR, F_GETFL, 0)
+	     and fcntl(STDERR, F_SETFL, $flags | O_APPEND);
     }
 
 # Exec it
