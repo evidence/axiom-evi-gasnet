@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2010/10/13 03:39:56 $
- * $Revision: 1.106 $
+ *     $Date: 2011/06/21 18:40:05 $
+ * $Revision: 1.107 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -316,7 +316,7 @@ extern uint64_t gasnet_max_segsize; /* client-overrideable max segment size */
       and discard the unused variables
      We need 2 separate variables to ensure correct name-binding semantics for GASNET_POST_THREADINFO(GASNET_GET_THREADINFO())
    */
-  static uint8_t gasnete_threadinfo_cache = 0;
+  static gasnet_threadinfo_t gasnete_threadinfo_cache = 0;
   static uint8_t gasnete_threadinfo_available = 
     sizeof(gasnete_threadinfo_cache) + sizeof(gasnete_threadinfo_available);
     /* silly little trick to prevent unused variable warning on gcc -Wall */
@@ -333,9 +333,9 @@ extern uint64_t gasnet_max_segsize; /* client-overrideable max segment size */
       ( (sizeof(gasnete_threadinfo_available) == 1) ?            \
         (gasnet_threadinfo_t)gasnete_mythread() :                \
         ( (uintptr_t)gasnete_threadinfo_cache == 0 ?             \
-          ((*(gasnet_threadinfo_t *)&gasnete_threadinfo_cache) = \
+          (gasnete_threadinfo_cache =                            \
             (gasnet_threadinfo_t)gasnete_mythread()) :           \
-          (gasnet_threadinfo_t)(uintptr_t)gasnete_threadinfo_cache) )
+          gasnete_threadinfo_cache) )
   #else
     #define GASNET_GET_THREADINFO()                   \
       ( (sizeof(gasnete_threadinfo_available) == 1) ? \
