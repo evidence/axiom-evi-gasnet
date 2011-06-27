@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2011/05/24 21:49:59 $
- * $Revision: 1.264 $
+ *     $Date: 2011/06/27 21:06:47 $
+ * $Revision: 1.265 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -251,54 +251,45 @@ static gasneti_atomic_t gasneti_backtrace_enabled = gasneti_atomic_init(1);
 
 
 extern const char *gasnett_performance_warning_str(void) {
-  static char *result = NULL;
-  GASNETI_UNUSED_UNLESS_THREADS
-  static gasneti_mutex_t gasnett_performance_warning_lock = GASNETI_MUTEX_INITIALIZER;
-  gasnett_mutex_lock(&gasnett_performance_warning_lock);
-    if (result) return result;
-    else result = malloc(1024);
-    result[0] = '\0';
-    #ifdef GASNET_DEBUG
-      strcat(result,"debugging ");
+  static char *result =
+    #if defined(GASNET_DEBUG) || defined(GASNETI_STATS_OR_TRACE)
+      "        "  /* Leading white space: */
+      #ifdef GASNET_DEBUG
+        "debugging "
+      #endif
+      #ifdef GASNET_TRACE
+        "tracing "
+      #endif
+      #ifdef GASNET_STATS
+        "statistical collection "
+      #endif
+      "\n" /* Trailing white space: */
     #endif
-    #ifdef GASNET_TRACE
-      strcat(result,"tracing ");
-    #endif
-    #ifdef GASNET_STATS
-      strcat(result,"statistical collection ");
-    #endif
-    if (result[0]) {
-        char tmp[80];
-        strcpy(tmp,"        ");  /* Leading white space: */
-        strcat(tmp,result);
-        strcat(tmp,"\n"); /* Trailing white space: */
-        strcpy(result,tmp);
-    }
     #if defined(GASNETI_FORCE_GENERIC_ATOMICOPS)
-      strcat(result,"        FORCED mutex-based atomicops\n");
+      "        FORCED mutex-based atomicops\n"
     #elif defined(GASNETI_FORCE_OS_ATOMICOPS)
-      strcat(result,"        FORCED os-provided atomicops\n");
+      "        FORCED os-provided atomicops\n"
     #endif
     #if defined(GASNETI_FORCE_TRUE_WEAKATOMICS) && GASNETI_THREAD_SINGLE
-      strcat(result,"        FORCED atomics in sequential code\n");
+      "        FORCED atomics in sequential code\n"
     #endif
     #if defined(GASNETI_FORCE_GENERIC_SEMAPHORES) && GASNETT_THREAD_SAFE
-      strcat(result,"        FORCED mutex-based semaphores\n");
+      "        FORCED mutex-based semaphores\n"
     #endif
     #if defined(GASNETI_FORCE_YIELD_MEMBARS)
-      strcat(result,"        FORCED sched_yield() in memory barriers\n");
+      "        FORCED sched_yield() in memory barriers\n"
     #elif defined(GASNETI_FORCE_SLOW_MEMBARS)
-      strcat(result,"        FORCED non-inlined memory barriers\n");
+      "        FORCED non-inlined memory barriers\n"
     #endif
     #if defined(GASNETI_FORCE_GETTIMEOFDAY)
-      strcat(result,"        FORCED timers using gettimeofday()\n");
+      "        FORCED timers using gettimeofday()\n"
     #elif defined(GASNETI_FORCE_POSIX_REALTIME)
-      strcat(result,"        FORCED timers using clock_gettime()\n");
+      "        FORCED timers using clock_gettime()\n"
     #endif
     #if defined(GASNETI_BUG1389_WORKAROUND)
-      strcat(result,"        FORCED conservative byte-wise local access\n");
+      "        FORCED conservative byte-wise local access\n"
     #endif
-  gasnett_mutex_unlock(&gasnett_performance_warning_lock);
+      ""; 
   return result;
 }
 
