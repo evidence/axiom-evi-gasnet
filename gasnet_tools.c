@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2011/06/27 21:12:29 $
- * $Revision: 1.266 $
+ *     $Date: 2011/06/27 21:31:34 $
+ * $Revision: 1.267 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -627,8 +627,8 @@ static int gasneti_backtracesignal = 0;
 static void gasneti_ondemandHandler(int sig) {
   gasnett_siginfo_t const *siginfo = gasnett_siginfo_fromval(sig);
   char sigstr[80];
-  if (siginfo) sprintf(sigstr, "%s(%i)", siginfo->name, sig);
-  else  sprintf(sigstr, "(%i)", sig);
+  if (siginfo) snprintf(sigstr, sizeof(sigstr), "%s(%i)", siginfo->name, sig);
+  else  snprintf(sigstr, sizeof(sigstr), "(%i)", sig);
   if (sig == gasneti_freezesignal) {
     fprintf(stderr,"Caught GASNET_FREEZE_SIGNAL: signal %s\n", sigstr);
     gasneti_freezeForDebuggerNow(&gasnet_frozen,"gasnet_frozen");
@@ -869,8 +869,8 @@ static int gasneti_bt_mkstemp(char *filename, int limit) {
     static char cmd[sizeof(fmt) + 2*GASNETI_BT_PATHSZ];
     /* Try to be smart if not in same place as at configure time */
     const char *ladebug = (access(LADEBUG_PATH, X_OK) ? "ladebug" : LADEBUG_PATH);
-    int rc = sprintf(cmd, fmt, (int)getpid(), ladebug, gasneti_exename_bt);
-    if (rc < 0) return -1;
+    int rc = snprintf(cmd, sizeof(cmd), fmt, (int)getpid(), ladebug, gasneti_exename_bt);
+    if ((rc < 0) || (rc >= sizeof(cmd))) return -1;
     return gasneti_system_redirected(cmd, fd);
   }
 #endif
@@ -881,8 +881,8 @@ static int gasneti_bt_mkstemp(char *filename, int limit) {
     const char fmt[] = "echo 'attach %d; where; quit' | %s '%s'";  
     static char cmd[sizeof(fmt) + 2*GASNETI_BT_PATHSZ];
     const char *dbx = (access(DBX_PATH, X_OK) ? "dbx" : DBX_PATH);
-    int rc = sprintf(cmd, fmt, (int)getpid(), dbx, gasneti_exename_bt);
-    if (rc < 0) return -1;
+    int rc = snprintf(cmd, sizeof(cmd), fmt, (int)getpid(), dbx, gasneti_exename_bt);
+    if ((rc < 0) || (rc >= sizeof(cmd))) return -1;
     return gasneti_system_redirected(cmd, fd);
   }
 #endif
@@ -896,8 +896,8 @@ static int gasneti_bt_mkstemp(char *filename, int limit) {
     #endif
     static char cmd[sizeof(fmt) + 2*GASNETI_BT_PATHSZ];
     const char *idb = (access(IDB_PATH, X_OK) ? "idb" : IDB_PATH);
-    int rc = sprintf(cmd, fmt, (int)getpid(), idb, gasneti_exename_bt);
-    if (rc < 0) return -1;
+    int rc = snprintf(cmd, sizeof(cmd), fmt, (int)getpid(), idb, gasneti_exename_bt);
+    if ((rc < 0) || (rc >= sizeof(cmd))) return -1;
     return gasneti_system_redirected_coprocess(cmd, fd);
   }
 #endif
@@ -911,8 +911,8 @@ static int gasneti_bt_mkstemp(char *filename, int limit) {
     #endif
     static char cmd[sizeof(fmt) + 2*GASNETI_BT_PATHSZ];
     const char *pgdbg = (access(PGDBG_PATH, X_OK) ? "pgdbg" : PGDBG_PATH);
-    int rc = sprintf(cmd, fmt, pgdbg, (int)getpid(), gasneti_exename_bt);
-    if (rc < 0) return -1;
+    int rc = snprintf(cmd, sizeof(cmd), fmt, pgdbg, (int)getpid(), gasneti_exename_bt);
+    if ((rc < 0) || (rc >= sizeof(cmd))) return -1;
     return gasneti_system_redirected_coprocess(cmd, fd);
   }
 #endif
@@ -946,8 +946,8 @@ static int gasneti_bt_mkstemp(char *filename, int limit) {
       if (rc < 0) return -1;
     }
 
-    rc = sprintf(cmd, fmt, gdb, filename, gasneti_exename_bt, (int)getpid());
-    if (rc < 0) return -1;
+    rc = snprintf(cmd, sizeof(cmd), fmt, gdb, filename, gasneti_exename_bt, (int)getpid());
+    if ((rc < 0) || (rc >= sizeof(cmd))) return -1;
 
     rc = gasneti_system_redirected(cmd, fd);
 
@@ -987,7 +987,11 @@ static int gasneti_bt_mkstemp(char *filename, int limit) {
           static char xlstr[XLBUF];
           FILE *xlate;
           xlstr[0] = '\0';
-          sprintf(cmd, fmt, ADDR2LINE_PATH, gasneti_exename_bt, btaddrs[i]);
+          snprintf(cmd, sizeof(cmd), fmt, ADDR2LINE_PATH, gasneti_exename_bt, btaddrs[i]);
+          if ((rc < 0) || (rc >= sizeof(cmd))) {
+            pclose(xlate);
+            return -1;
+          }
           xlate = popen(cmd, "r");
           if (xlate) {
             while (fgets(xlstr, sizeof(xlstr), xlate)) {
@@ -1254,12 +1258,12 @@ extern char *gasneti_build_loc_str(const char *funcname, const char *filename, i
   sz = fnlen + strlen(filename) + 20;
   loc = malloc(sz);
   if (*funcname)
-    sprintf(loc,"%s%s at %s:%i",
+    snprintf(loc,sz,"%s%s at %s:%i",
            funcname,
            (fnlen && funcname[fnlen-1] != ')'?"()":""),
            filename, linenum);
   else
-    sprintf(loc,"%s:%i", filename, linenum);
+    snprintf(loc,sz,"%s:%i", filename, linenum);
   return loc;
 }
 /* ------------------------------------------------------------------------------------ */
@@ -1714,11 +1718,11 @@ int gasnett_maximize_rlimit(int res, const char *lim_desc) {
       if (newval.rlim_cur == RLIM_INFINITY ||                                                   \
         newval.rlim_max == RLIM_INFINITY) {                                                     \
         newval.rlim_cur = RLIM_INFINITY;                                                        \
-        strcpy(newvalstr, "RLIM_INFINITY");                                                     \
+        strncpy(newvalstr, sizeof(newvalstr), "RLIM_INFINITY");                                 \
       } else {                                                                                  \
         gasneti_assert(newval.rlim_cur <= newval.rlim_max);                                     \
         newval.rlim_cur = newval.rlim_max;                                                      \
-        sprintf(newvalstr, "%llu", (unsigned long long)newval.rlim_cur);                        \
+        snprintf(newvalstr, sizeof(newvalstr), "%llu", (unsigned long long)newval.rlim_cur);    \
       }                                                                                         \
       if (newval.rlim_cur != oldval.rlim_cur) {                                                 \
         if (RLIM_CALL(setrlimit,structname)(res, &newval)) {                                    \
