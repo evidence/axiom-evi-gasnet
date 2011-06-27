@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2011/06/27 21:31:34 $
- * $Revision: 1.267 $
+ *     $Date: 2011/06/27 21:35:13 $
+ * $Revision: 1.268 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1718,7 +1718,7 @@ int gasnett_maximize_rlimit(int res, const char *lim_desc) {
       if (newval.rlim_cur == RLIM_INFINITY ||                                                   \
         newval.rlim_max == RLIM_INFINITY) {                                                     \
         newval.rlim_cur = RLIM_INFINITY;                                                        \
-        strncpy(newvalstr, sizeof(newvalstr), "RLIM_INFINITY");                                 \
+        strncpy(newvalstr, "RLIM_INFINITY", sizeof(newvalstr));                                 \
       } else {                                                                                  \
         gasneti_assert(newval.rlim_cur <= newval.rlim_max);                                     \
         newval.rlim_cur = newval.rlim_max;                                                      \
