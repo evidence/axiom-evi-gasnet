@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_autotune.c,v $
- *     $Date: 2011/05/16 23:10:12 $
- * $Revision: 1.32 $
+ *     $Date: 2011/06/27 21:45:39 $
+ * $Revision: 1.33 $
  * Description: GASNet Autotuner Implementation
  * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>, Paul H. Hargrove <PHHargrove@lbl.gov>, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1495,62 +1495,62 @@ static char* print_op_str(char *buf, gasnet_coll_optype_t op, int flags) {
   
   switch(op) {
   case GASNET_COLL_BROADCAST_OP:
-    sprintf(buf, "broadcast SINGLE/");
+    strcpy(buf, "broadcast SINGLE/");
     break;
   case GASNET_COLL_BROADCASTM_OP:
     if (flags & GASNETE_COLL_THREAD_LOCAL)
-      sprintf(buf, "broadcastM SINGLE/");
+      strcpy(buf, "broadcastM SINGLE/");
     else
-      sprintf(buf, "broadcastM MULTI/");
+      strcpy(buf, "broadcastM MULTI/");
     break;
   case GASNET_COLL_SCATTER_OP:
-    sprintf(buf, "scatter SINGLE/");
+    strcpy(buf, "scatter SINGLE/");
     break;
   case GASNET_COLL_SCATTERM_OP:
     if (flags & GASNETE_COLL_THREAD_LOCAL)
-      sprintf(buf, "scatterM SINGLE/");
+      strcpy(buf, "scatterM SINGLE/");
    else
-      sprintf(buf, "scatterM MULTI/");
+      strcpy(buf, "scatterM MULTI/");
     break;
   case GASNET_COLL_GATHER_OP:
-    sprintf(buf, "gather SINGLE/");
+    strcpy(buf, "gather SINGLE/");
     break;
   case GASNET_COLL_GATHERM_OP:
     if (flags & GASNETE_COLL_THREAD_LOCAL)
-      sprintf(buf, "gatherM SINGLE/");
+      strcpy(buf, "gatherM SINGLE/");
     else
-      sprintf(buf, "gatherM MULTI/");
+      strcpy(buf, "gatherM MULTI/");
     break;
   case GASNET_COLL_GATHER_ALL_OP:
-    sprintf(buf, "gather_all SINGLE/");
+    strcpy(buf, "gather_all SINGLE/");
     break;
   case GASNET_COLL_GATHER_ALLM_OP:
     if (flags & GASNETE_COLL_THREAD_LOCAL)
-      sprintf(buf, "gather_allM SINGLE/");
+      strcpy(buf, "gather_allM SINGLE/");
     else
-      sprintf(buf, "gather_allM MULTI/");
+      strcpy(buf, "gather_allM MULTI/");
     break;
   case GASNET_COLL_EXCHANGE_OP:
-    sprintf(buf, "exchange SINGLE/");
+    strcpy(buf, "exchange SINGLE/");
     break;
   case GASNET_COLL_EXCHANGEM_OP:
     if (flags & GASNETE_COLL_THREAD_LOCAL)
-      sprintf(buf, "exchangeM SINGLE/");
+      strcpy(buf, "exchangeM SINGLE/");
     else
-      sprintf(buf, "exchangeM MULTI/");
+      strcpy(buf, "exchangeM MULTI/");
     break;
   case GASNET_COLL_REDUCE_OP:
-    sprintf(buf, "reduce SINGLE/");
+    strcpy(buf, "reduce SINGLE/");
     break;
   case GASNET_COLL_REDUCEM_OP:
     if (flags & GASNETE_COLL_THREAD_LOCAL)
-      sprintf(buf, "reduceM SINGLE/");
+      strcpy(buf, "reduceM SINGLE/");
     else
-      sprintf(buf, "reduceM MULTI/");
+      strcpy(buf, "reduceM MULTI/");
     break;
     
   default:
-    sprintf(buf, "FILLIN");
+    strcpy(buf, "FILLIN");
     
   }
 
@@ -1565,23 +1565,23 @@ static char* print_op_str(char *buf, gasnet_coll_optype_t op, int flags) {
 static char* print_flag_str(char *outstr, int flags) {
   
   if(flags & GASNET_COLL_IN_NOSYNC && flags & GASNET_COLL_OUT_NOSYNC) {
-    sprintf(outstr, "no/no");
+    strcpy(outstr, "no/no");
   } else if(flags & GASNET_COLL_IN_NOSYNC && flags & GASNET_COLL_OUT_MYSYNC) {
-    sprintf(outstr, "no/my");
+    strcpy(outstr, "no/my");
   } else if(flags & GASNET_COLL_IN_NOSYNC && flags & GASNET_COLL_OUT_ALLSYNC) {
-    sprintf(outstr, "no/all");
+    strcpy(outstr, "no/all");
   } else if(flags & GASNET_COLL_IN_MYSYNC && flags & GASNET_COLL_OUT_NOSYNC) {
-    sprintf(outstr, "my/no");
+    strcpy(outstr, "my/no");
   } else if(flags & GASNET_COLL_IN_MYSYNC && flags & GASNET_COLL_OUT_MYSYNC) {
-    sprintf(outstr, "my/my");
+    strcpy(outstr, "my/my");
   } else if(flags & GASNET_COLL_IN_MYSYNC && flags & GASNET_COLL_OUT_ALLSYNC) {
-    sprintf(outstr, "my/all");
+    strcpy(outstr, "my/all");
   } else if(flags & GASNET_COLL_IN_ALLSYNC && flags & GASNET_COLL_OUT_NOSYNC) {
-    sprintf(outstr, "all/no");
+    strcpy(outstr, "all/no");
   } else if(flags & GASNET_COLL_IN_ALLSYNC && flags & GASNET_COLL_OUT_MYSYNC) {
-    sprintf(outstr, "all/my");
+    strcpy(outstr, "all/my");
   } else if(flags & GASNET_COLL_IN_ALLSYNC && flags & GASNET_COLL_OUT_ALLSYNC) {
-    sprintf(outstr, "all/all");
+    strcpy(outstr, "all/all");
   }
   return outstr;
 }
@@ -1630,31 +1630,31 @@ static gasnete_coll_syncmode_t get_syncmode_from_str(char *str) {
 static char* syncmode_to_str(char *buffer, gasnete_coll_syncmode_t mode) {
   switch (mode) {
     case GASNETE_COLL_NONO:
-      sprintf(buffer, "no/no");
+      strcpy(buffer, "no/no");
       break;
     case GASNETE_COLL_NOMY:
-      sprintf(buffer, "no/my");
+      strcpy(buffer, "no/my");
       break;
     case GASNETE_COLL_NOALL:
-      sprintf(buffer, "no/all");
+      strcpy(buffer, "no/all");
       break;
     case GASNETE_COLL_MYNO:
-      sprintf(buffer, "my/no");
+      strcpy(buffer, "my/no");
       break;
     case GASNETE_COLL_MYMY:
-      sprintf(buffer, "my/my");
+      strcpy(buffer, "my/my");
       break;
     case GASNETE_COLL_MYALL:
-      sprintf(buffer, "my/all");
+      strcpy(buffer, "my/all");
       break;
     case GASNETE_COLL_ALLNO:
-      sprintf(buffer, "all/no");
+      strcpy(buffer, "all/no");
       break;
     case GASNETE_COLL_ALLMY:
-      sprintf(buffer, "all/my");
+      strcpy(buffer, "all/my");
       break;
     case GASNETE_COLL_ALLALL:
-      sprintf(buffer, "all/all");
+      strcpy(buffer, "all/all");
       break;
     default:
       gasneti_fatalerror("unknown syncmode");
@@ -1677,13 +1677,13 @@ static gasnete_coll_addr_mode_t get_addrmode_from_str(char *str) {
 static char * addrmode_to_str(char *buffer, gasnete_coll_addr_mode_t mode) {
   switch(mode){
     case GASNETE_COLL_SINGLE_MODE:
-      sprintf(buffer, "single");
+      strcpy(buffer, "single");
       break;
     case GASNETE_COLL_LOCAL_MODE:
-      sprintf(buffer, "local");
+      strcpy(buffer, "local");
       break;
     case GASNETE_COLL_THREAD_LOCAL_MODE:
-      sprintf(buffer, "thread_local");
+      strcpy(buffer, "thread_local");
       break;
     default:
       gasneti_fatalerror("unknown address mode");
@@ -1748,41 +1748,41 @@ static gasnet_coll_optype_t get_optype_from_str(char *str) {
 static char * optype_to_str(char *buffer, gasnet_coll_optype_t op) {
   switch (op) {
     case GASNET_COLL_BROADCAST_OP:
-      sprintf(buffer, "broadcast");
+      strcpy(buffer, "broadcast");
       break;
     case GASNET_COLL_BROADCASTM_OP:
-      sprintf(buffer, "broadcastM");
+      strcpy(buffer, "broadcastM");
       break;  
     case GASNET_COLL_SCATTER_OP:
-      sprintf(buffer, "scatter");
+      strcpy(buffer, "scatter");
       break;
     case GASNET_COLL_SCATTERM_OP:
-      sprintf(buffer, "scatterM");
+      strcpy(buffer, "scatterM");
       break;
     case GASNET_COLL_GATHER_OP:
-      sprintf(buffer, "gather");
+      strcpy(buffer, "gather");
       break;
     case GASNET_COLL_GATHERM_OP:
-      sprintf(buffer, "gatherM");
+      strcpy(buffer, "gatherM");
       break;
     case GASNET_COLL_GATHER_ALL_OP:
-      sprintf(buffer, "gather_all");
+      strcpy(buffer, "gather_all");
       break;
     case GASNET_COLL_GATHER_ALLM_OP:
-      sprintf(buffer, "gather_allM");
+      strcpy(buffer, "gather_allM");
       break;
     case GASNET_COLL_EXCHANGE_OP:
-      sprintf(buffer, "gather_all");
+      strcpy(buffer, "gather_all");
       break;
     case GASNET_COLL_EXCHANGEM_OP:
-      sprintf(buffer, "gather_allM");
+      strcpy(buffer, "gather_allM");
       break;
     case GASNET_COLL_REDUCE_OP:
-      sprintf(buffer, "reduce");
+      strcpy(buffer, "reduce");
       break;
       
     case GASNET_COLL_REDUCEM_OP:
-      sprintf(buffer, "reduceM");
+      strcpy(buffer, "reduceM");
       break;
     default:
       gasneti_fatalerror("unknown op type");

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_trees.c,v $
- *     $Date: 2010/09/15 00:37:51 $
- * $Revision: 1.15 $
+ *     $Date: 2011/06/27 21:45:39 $
+ * $Revision: 1.16 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>, Paul H. Hargrove <PHHargrove@lbl.gov>, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -143,19 +143,19 @@ char* gasnete_coll_tree_type_to_str(char *buffer, gasnete_coll_tree_type_t tree_
   if(!tree_type) {memset(buffer, 0, 10); return buffer;}
   switch (tree_type->tree_class) {
     case GASNETE_COLL_NARY_TREE:
-      sprintf(buffer, "%s", "NARY_TREE");
+      strcpy(buffer, "NARY_TREE");
       break;
     case GASNETE_COLL_KNOMIAL_TREE:
-      sprintf(buffer, "%s", "KNOMIAL_TREE");
+      strcpy(buffer, "KNOMIAL_TREE");
       break;
     case GASNETE_COLL_RECURSIVE_TREE:
-      sprintf(buffer, "%s", "RECURSIVE_TREE");
+      strcpy(buffer, "RECURSIVE_TREE");
       break;
     case GASNETE_COLL_FORK_TREE:
-      sprintf(buffer, "%s", "FORK_TREE");
+      strcpy(buffer, "FORK_TREE");
       break;
     case GASNETE_COLL_FLAT_TREE:
-      sprintf(buffer, "%s", "FLAT_TREE");
+      strcpy(buffer, "FLAT_TREE");
       break;
     default:
       gasneti_fatalerror("Unknown tree class: %d", tree_type->tree_class);
@@ -745,7 +745,7 @@ void gasnete_coll_tree_type_to_str(char *outbuf, gasnete_coll_tree_type_t in) {
       sprintf(outbuf, "NARY_TREE,%d", in->params[0]);
       break;
   case GASNETE_COLL_FLAT_TREE:
-    sprintf(outbuf, "FLAT_TREE");
+    strcpy(outbuf, "FLAT_TREE");
     break;
   case GASNETE_COLL_KNOMIAL_TREE:
     sprintf(outbuf, "KNOMIAL_TREE,%d", in->params[0]);
