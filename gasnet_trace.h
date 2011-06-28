@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.h,v $
- *     $Date: 2011/06/27 20:48:22 $
- * $Revision: 1.62 $
+ *     $Date: 2011/06/28 07:39:28 $
+ * $Revision: 1.63 $
  * Description: GASNet Tracing Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -280,14 +280,14 @@ GASNETI_BEGIN_EXTERNC
   char argstr[256];                                                 \
   do {                                                              \
     int i;                                                          \
-    char *p = argstr; int pspace = sizeof(argstr);                  \
+    char *aptr = argstr; int aspace = sizeof(argstr);               \
     va_list _argptr;                                                \
-    *p = '\0';                                                      \
+    *aptr = '\0';                                                   \
     va_start(_argptr, numargs); /*  assumes last arg was numargs */ \
       for (i=0;i<numargs;i++) {                                     \
         /* must be int due to default argument promotion */         \
-        int len = snprintf(p,pspace," 0x%08x",(int)(uint32_t)va_arg(_argptr,int)); \
-        p += len; pspace -= len;                                    \
+        int len = snprintf(aptr,aspace," 0x%08x",(int)(uint32_t)va_arg(_argptr,int)); \
+        aptr += len; aspace -= len;                                 \
       }                                                             \
     va_end(_argptr);                                                \
   } while(0)
@@ -384,13 +384,13 @@ GASNETI_BEGIN_EXTERNC
     char argstr[256];                                                       \
     do {                                                                    \
       int i;                                                                \
-      char *p = argstr; int pspace = sizeof(argstr);                        \
-      *p = '\0';                                                            \
+      char *aptr = argstr; int aspace = sizeof(argstr);                     \
+      *aptr = '\0';                                                         \
       for (i=0;i<numargs;i++) {                                             \
         char temp[20];                                                      \
         /* here we assume args are stored in an array named by arghandle */ \
-        int len = snprintf(p,pspace," 0x%08x",(int)((uint32_t*)arghandle)[i]); \
-        p += len; pspace -= len;                                            \
+        int len = snprintf(aptr,aspace," 0x%08x",(int)((uint32_t*)arghandle)[i]); \
+        aptr += len; aspace -= len;                                         \
       }                                                                     \
     } while(0)
 
