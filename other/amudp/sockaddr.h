@@ -1,6 +1,6 @@
 //   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/sockaddr.h,v $
-//     $Date: 2011/06/30 21:49:19 $
-// $Revision: 1.11 $
+//     $Date: 2011/06/30 22:22:15 $
+// $Revision: 1.12 $
 // Description: Objects for encapsulating and hashing SockAddr's
 // Copyright 1998, Dan Bonachea
 
@@ -12,13 +12,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-
-#ifdef HAVE_GASNET_TOOLS  
-#define GASNETT_LITE_MODE // preserves AMUDP's threading neutrality
-#include <gasnet_tools.h> // for ctype.h wrappers
-#else
 #include <ctype.h>
-#endif
 
 #define LOCALHOST (u_long)0x7F000001
 
