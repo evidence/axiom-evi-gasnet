@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2011/06/27 23:28:36 $
- * $Revision: 1.269 $
+ *     $Date: 2011/07/06 22:45:21 $
+ * $Revision: 1.270 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -990,7 +990,6 @@ static int gasneti_bt_mkstemp(char *filename, int limit) {
           xlstr[0] = '\0';
           rc = snprintf(cmd, sizeof(cmd), fmt, ADDR2LINE_PATH, gasneti_exename_bt, btaddrs[i]);
           if ((rc < 0) || (rc >= sizeof(cmd))) {
-            pclose(xlate);
             return -1;
           }
           xlate = popen(cmd, "r");
