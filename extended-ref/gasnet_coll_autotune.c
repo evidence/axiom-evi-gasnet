@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_autotune.c,v $
- *     $Date: 2011/06/27 21:45:39 $
- * $Revision: 1.33 $
+ *     $Date: 2011/07/07 01:35:14 $
+ * $Revision: 1.34 $
  * Description: GASNet Autotuner Implementation
  * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>, Paul H. Hargrove <PHHargrove@lbl.gov>, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1610,7 +1610,7 @@ gasnete_coll_syncmode_t get_syncmode_from_flags(int flags) {
   } else if(flags & GASNET_COLL_IN_ALLSYNC && flags & GASNET_COLL_OUT_ALLSYNC) {
     return GASNETE_COLL_ALLALL;
   }
-  return -1;
+  return (gasnete_coll_syncmode_t)(-1); /* NOT REACHED */
 }
 
 static gasnete_coll_syncmode_t get_syncmode_from_str(char *str) {
@@ -1627,8 +1627,8 @@ static gasnete_coll_syncmode_t get_syncmode_from_str(char *str) {
   return (gasnete_coll_syncmode_t)(-1); /* NOT REACHED */
 }
 
-static char* syncmode_to_str(char *buffer, gasnete_coll_syncmode_t mode) {
-  switch (mode) {
+static char* syncmode_to_str(char *buffer, int mode) {
+  switch ((gasnete_coll_syncmode_t)mode) {
     case GASNETE_COLL_NONO:
       strcpy(buffer, "no/no");
       break;
@@ -1671,11 +1671,11 @@ static gasnete_coll_addr_mode_t get_addrmode_from_str(char *str) {
   else if(STRINGS_MATCH(str, "thread_local")) {
     return GASNETE_COLL_THREAD_LOCAL_MODE;
   }
-  return -1;
+  return (gasnete_coll_addr_mode_t)(-1); /* NOT REACHED */
 }
 
-static char * addrmode_to_str(char *buffer, gasnete_coll_addr_mode_t mode) {
-  switch(mode){
+static char * addrmode_to_str(char *buffer, int mode) {
+  switch((gasnete_coll_addr_mode_t)mode){
     case GASNETE_COLL_SINGLE_MODE:
       strcpy(buffer, "single");
       break;
@@ -1706,7 +1706,7 @@ gasnete_coll_addr_mode_t get_addrmode_from_flags(int flags) {
     }
   }
   
-  return -1;
+  return (gasnete_coll_addr_mode_t)(-1);
 }
 
 static gasnet_coll_optype_t get_optype_from_str(char *str) { 
@@ -1745,8 +1745,8 @@ static gasnet_coll_optype_t get_optype_from_str(char *str) {
   return (gasnet_coll_optype_t)(-1); /* NOT REACHED */
 }
 
-static char * optype_to_str(char *buffer, gasnet_coll_optype_t op) {
-  switch (op) {
+static char * optype_to_str(char *buffer, int op) {
+  switch ((gasnet_coll_optype_t)op) {
     case GASNET_COLL_BROADCAST_OP:
       strcpy(buffer, "broadcast");
       break;
@@ -1809,7 +1809,7 @@ static gasnete_coll_autotune_index_entry_t *load_autotuner_defaults_helper(gasne
     } else if(STRINGS_MATCH(tag_strings[level], "address_mode")) {
       temp->start = get_addrmode_from_str(MYXML_ATTRIBUTES(child_node)[0].attribute_value);
     } else if(STRINGS_MATCH(tag_strings[level], "collective")) {
-      optype = temp->start = get_optype_from_str(MYXML_ATTRIBUTES(child_node)[0].attribute_value);
+      temp->start = optype = get_optype_from_str(MYXML_ATTRIBUTES(child_node)[0].attribute_value);
     } else if(STRINGS_MATCH(tag_strings[level], "size")) {
       temp->start = atoi(MYXML_ATTRIBUTES(child_node)[0].attribute_value);
     } else if(STRINGS_MATCH(tag_strings[level], "threads_per_node")) {
@@ -1864,7 +1864,7 @@ gasnete_coll_autotune_index_entry_t *gasnete_coll_load_autotuner_defaults(gasnet
     if(!STRINGS_MATCH(MYXML_ATTRIBUTES(tuning_data)[0].attribute_value, GASNET_CONFIG_STRING)) {
       printf("warning! tuning data's config string: %s does not match current gasnet config string: %s\n", MYXML_ATTRIBUTES(tuning_data)[0].attribute_value, GASNET_CONFIG_STRING);
     } 
-    root= load_autotuner_defaults_helper(autotune_info, tuning_data, tree_levels, 1, 8, -1);
+    root= load_autotuner_defaults_helper(autotune_info, tuning_data, tree_levels, 1, 8, (gasnet_coll_optype_t)(-1));
   } else gasneti_fatalerror("exepected machine as the root of the tree");
   return root;
 }

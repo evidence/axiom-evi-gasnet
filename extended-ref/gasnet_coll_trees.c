@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_trees.c,v $
- *     $Date: 2011/06/27 21:45:39 $
- * $Revision: 1.16 $
+ *     $Date: 2011/07/07 01:35:14 $
+ * $Revision: 1.17 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>, Paul H. Hargrove <PHHargrove@lbl.gov>, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -175,7 +175,7 @@ gasnete_coll_tree_type_t gasnete_coll_make_tree_type(int tree_class,  int *param
     gasneti_fatalerror("Unknown Tree Class: %d\n", tree_class);
   }
 #endif  
-  ret->tree_class = (int) tree_class;
+  ret->tree_class = (gasnete_coll_tree_class_t) tree_class;
   ret->params = (int*) gasneti_malloc(sizeof(int)*num_params);
   GASNETE_FAST_UNALIGNED_MEMCPY_CHECK(ret->params, params, num_params*sizeof(int));
   ret->num_params = num_params;

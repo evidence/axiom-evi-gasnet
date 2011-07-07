@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/smp-collectives/smp_coll_barrier.c,v $
- *     $Date: 2010/12/16 19:40:12 $
- * $Revision: 1.8 $
+ *     $Date: 2011/07/07 01:35:16 $
+ * $Revision: 1.9 $
  * Description: Shared Memory Collectives
  * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -127,7 +127,7 @@ void smp_coll_tune_barrier(smp_coll_t handle) {
   int barrier_iters=gasneti_getenv_int_withdefault("GASNET_COLL_TUNE_SMP_BARRIER_ITER", 1000, 0);
   int root;
   static int best_barrier_radix = 2;
-  static int best_barrier_routine =1;
+  static int best_barrier_routine = SMP_COLL_BARRIER_DISSEM_ATOMIC;
   static int best_root = 0;
 
 #if VERBOSE_TUNING
@@ -138,7 +138,7 @@ void smp_coll_tune_barrier(smp_coll_t handle) {
     if(handle->MYTHREAD==0 && VERBOSE_TUNING) fprintf(stderr, "ROOT: %d\n", root);
     for(i=0; i<SMP_COLL_NUM_BARR_ROUTINES; i++) {
       if(i==SMP_COLL_BARRIER_COND_VAR) continue;
-      if(handle->MYTHREAD==0 && VERBOSE_TUNING) fprintf(stderr, "\t routine: %d\n",i);
+      if(handle->MYTHREAD==0 && VERBOSE_TUNING) fprintf(stderr, "\t routine: %d\n",(int)i);
       for(radix=2; radix<=handle->THREADS; radix*=2) {
         
         
@@ -146,7 +146,7 @@ void smp_coll_tune_barrier(smp_coll_t handle) {
         if(i==SMP_COLL_BARRIER_COND_VAR && radix>2) continue;
         if(i==SMP_COLL_BARRIER_PTHREAD && radix>2) continue;
         if(handle->MYTHREAD==0 && VERBOSE_TUNING) fprintf(stderr, "\t\t radix: %d\n",radix);
-        smp_coll_set_barrier_routine_with_root(handle, i, radix, root);
+        smp_coll_set_barrier_routine_with_root(handle, (smp_coll_barrier_routine_t)i, radix, root);
         
         start = gasnett_ticks_now();
         for(iter = 0; iter<barrier_iters; iter++) {
@@ -172,7 +172,7 @@ void smp_coll_tune_barrier(smp_coll_t handle) {
 #if VERBOSE_TUNING
   if(handle->MYTHREAD==0) fprintf(stderr, "setting best barrier: routine: %d radix: %d root: %d time: %g ns\n", best_barrier_routine, best_barrier_radix, best_root, best_time);
 #endif
-  smp_coll_set_barrier_routine_with_root(handle, best_barrier_routine, best_barrier_radix, best_root);
+  smp_coll_set_barrier_routine_with_root(handle, (smp_coll_barrier_routine_t)best_barrier_routine, best_barrier_radix, best_root);
   
   
 }

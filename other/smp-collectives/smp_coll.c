@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/smp-collectives/smp_coll.c,v $
- *     $Date: 2010/08/08 06:31:11 $
- * $Revision: 1.4 $
+ *     $Date: 2011/07/07 01:35:16 $
+ * $Revision: 1.5 $
  * Description: Shared Memory Collectives
  * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -129,7 +129,7 @@ smp_coll_t smp_coll_init(size_t aux_space_per_thread, int flags, int THREADS, in
   if(!(flags & SMP_COLL_SKIP_TUNE_BARRIERS)) {
     smp_coll_tune_barrier(ret);
   } else {
-    smp_coll_set_barrier_routine(ret, 3, 4);
+    smp_coll_set_barrier_routine(ret, SMP_COLL_BARRIER_TREE_PUSH_PULL, 4);
   }
 #if 0
   smp_coll_set_broadcast_routine(ret, SMP_COLL_BROADCAST_TREE_FLAG, 2);
