@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2011/07/07 00:00:13 $
-dnl $Revision: 1.158 $
+dnl     $Date: 2011/07/07 00:12:18 $
+dnl $Revision: 1.159 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -1960,6 +1960,7 @@ AC_CACHE_CHECK(for $1 compiler family, $3, [
     GASNET_IFDEF(__PGI, $3=PGI, [], $_force_compile)
     GASNET_IFDEF(__INTEL_COMPILER, $3=Intel, [], $_force_compile)
     GASNET_IFDEF(__OPENCC__, $3=Open64, [], $_force_compile)
+    GASNET_IFDEF(__PCC__, $3=PCC, [], $_force_compile)
   fi
   dnl other vendor compilers
   if test "$$3" = "unknown"; then
