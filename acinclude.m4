@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2011/05/13 01:51:22 $
-dnl $Revision: 1.157 $
+dnl     $Date: 2011/07/07 00:00:13 $
+dnl $Revision: 1.158 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -1288,6 +1288,20 @@ AC_DEFUN([GASNET_GET_GNU_ATTRIBUTES],[
       AC_DEFINE([$1]_ATTRIBUTE_FORMAT_FUNCPTR)
   else
       AC_DEFINE([$1]_ATTRIBUTE_FORMAT_FUNCPTR, 0)
+  fi
+  popdef([cachevar])
+
+  pushdef([cachevar],cv_prefix[]translit([$1],'A-Z','a-z')[]_attr_format_funcptr_arg)
+  AC_CACHE_CHECK($2 for __attribute__((__format__)) on function pointers as arguments, cachevar,
+    GASNET_TRY_COMPILE_WITHWARN(GASNETI_C_OR_CXX([$1]), [
+         extern void dummy(__attribute__((__format__ (__printf__, 1, 2)))
+                              void (*dummy2)(const char *fmt,...));
+      ], [], [ cachevar='yes' ],[ cachevar='no/warning' ],[ cachevar='no/error' ])
+  )
+  if test "$cachevar" = yes; then
+      AC_DEFINE([$1]_ATTRIBUTE_FORMAT_FUNCPTR_ARG)
+  else
+      AC_DEFINE([$1]_ATTRIBUTE_FORMAT_FUNCPTR_ARG, 0)
   fi
   popdef([cachevar])
 

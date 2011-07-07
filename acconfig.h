@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2011/05/26 00:05:18 $ */
-/*  $Revision: 1.164 $ */
+/*      $Date: 2011/07/07 00:00:13 $ */
+/*  $Revision: 1.165 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -47,6 +47,7 @@
 #undef GASNETI_HAVE_CC_ATTRIBUTE_CONST
 #undef GASNETI_HAVE_CC_ATTRIBUTE_FORMAT
 #undef GASNETI_HAVE_CC_ATTRIBUTE_FORMAT_FUNCPTR
+#undef GASNETI_HAVE_CC_ATTRIBUTE_FORMAT_FUNCPTR_ARG
 
 /* CXX attributes support */
 #undef GASNETI_HAVE_CXX_ATTRIBUTE
@@ -63,6 +64,7 @@
 #undef GASNETI_HAVE_CXX_ATTRIBUTE_CONST
 #undef GASNETI_HAVE_CXX_ATTRIBUTE_FORMAT
 #undef GASNETI_HAVE_CXX_ATTRIBUTE_FORMAT_FUNCPTR
+#undef GASNETI_HAVE_CXX_ATTRIBUTE_FORMAT_FUNCPTR_ARG
 
 /* MPI_CC attributes support */
 #undef GASNETI_HAVE_MPI_CC_ATTRIBUTE
@@ -79,6 +81,7 @@
 #undef GASNETI_HAVE_MPI_CC_ATTRIBUTE_CONST
 #undef GASNETI_HAVE_MPI_CC_ATTRIBUTE_FORMAT
 #undef GASNETI_HAVE_MPI_CC_ATTRIBUTE_FORMAT_FUNCPTR
+#undef GASNETI_HAVE_MPI_CC_ATTRIBUTE_FORMAT_FUNCPTR_ARG
 
 /* identification of the C compiler used at configure time */
 #undef GASNETI_PLATFORM_COMPILER_IDSTR
