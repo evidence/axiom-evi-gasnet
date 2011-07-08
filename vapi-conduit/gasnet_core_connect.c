@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_connect.c,v $
- *     $Date: 2011/06/03 22:57:29 $
- * $Revision: 1.61 $
+ *     $Date: 2011/07/08 04:55:26 $
+ * $Revision: 1.62 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -1724,6 +1724,11 @@ gasnetc_connect_to(gasnet_node_t node)
   #if GASNETI_STATS_OR_TRACE
     conn->start_active = 1;
   #endif
+
+    if_pf (node >= gasneti_nodes) {
+      gasneti_fatalerror("Connection requested to invalid node %d", (int)node);
+      break;
+    }
 
     (void) gasnetc_qp_create(&conn->info);
     conn->state = GASNETC_CONN_STATE_REQ_SENT;
