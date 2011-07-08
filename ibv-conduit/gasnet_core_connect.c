@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2011/07/08 04:55:26 $
- * $Revision: 1.62 $
+ *     $Date: 2011/07/08 04:59:59 $
+ * $Revision: 1.63 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -1725,7 +1725,7 @@ gasnetc_connect_to(gasnet_node_t node)
     conn->start_active = 1;
   #endif
 
-    if_pf (node >= gasneti_nodes) {
+    if_pf (node >= gasneti_nodes || gasnetc_non_ib(node)) {
       gasneti_fatalerror("Connection requested to invalid node %d", (int)node);
       break;
     }
