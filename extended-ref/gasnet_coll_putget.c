@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_putget.c,v $
- *     $Date: 2011/07/12 06:58:47 $
- * $Revision: 1.83 $
+ *     $Date: 2011/07/12 20:13:50 $
+ * $Revision: 1.84 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>, Paul H. Hargrove <PHHargrove@lbl.gov>, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1633,7 +1633,7 @@ static int gasnete_coll_pf_scat_TreePut(gasnete_coll_op_t *op GASNETE_THREAD_FAR
                                      send_arr,
                                      args->nbytes*tree->geom->subtree_sizes[i] GASNETE_THREAD_PASS);                              
               } else {
-                /* else if i am sending to internal node async long into scratch space*/
+                /* else if i am sending to internal node AM long into scratch space*/
                 gasnete_coll_p2p_signalling_put(op, GASNETE_COLL_REL2ACT(op->team, children[i]), 
                                                 (int8_t*)op->team->scratch_segs[child].addr+op->scratchpos[i], 
                                                 send_arr, 
@@ -1680,7 +1680,7 @@ static int gasnete_coll_pf_scat_TreePut(gasnete_coll_op_t *op GASNETE_THREAD_FAR
                                      send_arr,
                                      args->nbytes*tree->geom->subtree_sizes[i] GASNETE_THREAD_PASS);                              
               } else {
-                /* else if i am sending to internal node async long into scratch space*/
+                /* else if i am sending to internal node AM long into scratch space*/
                   gasnete_coll_p2p_signalling_put(op, GASNETE_COLL_REL2ACT(op->team, children[i]), 
                                                   (int8_t*)op->team->scratch_segs[child].addr+op->scratchpos[i], 
                                                   send_arr, 
@@ -2301,7 +2301,7 @@ static int gasnete_coll_pf_scatM_TreePut(gasnete_coll_op_t *op GASNETE_THREAD_FA
                 GASNETE_FAST_UNALIGNED_MEMCPY(myscratchpos+(p*op->team->my_images+t)*args->nbytes, gasnete_coll_scale_ptr(args->src, args->dist, src_pos*op->team->my_images+t), args->nbytes);
               }
             }
-            /* else if i am sending to internal node async long into scratch space*/
+            /* else if i am sending to internal node AM long into scratch space*/
               gasnete_coll_p2p_signalling_put(op, GASNETE_COLL_REL2ACT(op->team, children[i]), 
                                               (int8_t*)op->team->scratch_segs[child].addr+op->scratchpos[i], 
                                               send_arr, 
