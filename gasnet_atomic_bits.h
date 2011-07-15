@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2010/12/16 19:40:08 $
- * $Revision: 1.323 $
+ *     $Date: 2011/07/15 04:07:28 $
+ * $Revision: 1.324 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1847,8 +1847,8 @@
          atomic64_t works on 64-bit types without any extra alignment, we may need
          to use mutex-based atomics when not aligned.  See bug 1595 for more info.
        */
-      #if (PLATFORM_OS_DARWIN || PLATFORM_OS_AIX)
-        /* + Apple's ABI only guarantees 4-byte minimum aligment for 64-bit integers and doubles.
+      #if ((PLATFORM_OS_DARWIN && PLATFORM_ARCH_32) || PLATFORM_OS_AIX)
+        /* + Apple's 32-bit ABI only guarantees 4-byte minimum aligment for 64-bit integers and doubles.
          * + AIX's ABI only guarantees 4-byte minimum aligment for doubles.
          */
         #define GASNETI_HYBRID_ATOMIC64	1
