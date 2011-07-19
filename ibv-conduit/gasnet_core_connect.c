@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2011/07/19 02:48:29 $
- * $Revision: 1.64 $
+ *     $Date: 2011/07/19 02:51:08 $
+ * $Revision: 1.65 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -2321,11 +2321,11 @@ gasnetc_connect_init(void)
         gasneti_getenv_int_withdefault("GASNET_CONNECTFILE_BASE",
                                        gasnetc_connectfile_out_base, 0);
 
-  do_static = gasneti_getenv_yesno_withdefault("GASNET_CONNECT_STATIC", 1, 0);
-  do_dynamic = gasneti_getenv_yesno_withdefault("GASNET_CONNECT_DYNAMIC", 1, 0);
+  do_static = gasneti_getenv_yesno_withdefault("GASNET_CONNECT_STATIC", 1);
+  do_dynamic = gasneti_getenv_yesno_withdefault("GASNET_CONNECT_DYNAMIC", 1);
   if (!do_static && !do_dynamic) {
     if (!gasneti_mynode) {
-      fprintf(stderr, "WARNING: Both GASNET_CONNECT_STATIC and GASNET_CONNECT_DYNAMIC are non-zero.\n"
+      fprintf(stderr, "WARNING: Both GASNET_CONNECT_STATIC and GASNET_CONNECT_DYNAMIC are FALSE.\n"
                       "         Enabling dynamic connection support.\n");
     }
     do_dynamic = 1;
