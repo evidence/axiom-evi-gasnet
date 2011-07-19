@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2011/06/05 22:08:23 $
- * $Revision: 1.83 $
+ *     $Date: 2011/07/19 19:34:24 $
+ * $Revision: 1.84 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -1164,7 +1164,7 @@ static void do_connect(gasnet_node_t child_id, const char *parent_name, int pare
   BOOTSTRAP_VERBOSE(("[%d] connected\n", myproc));
 }
 
-static void spawn_one(gasnet_node_t child_id, const char *myhost) {
+static void spawn_one(gasnet_node_t child_id, char *myhost) {
   const char *host = child[child_id].nodelist ? child[child_id].nodelist[0] : nodelist[0];
   pid_t pid;
   int is_local = (GASNETI_BOOTSTRAP_LOCAL_SPAWN && (!host || !strcmp(host, myhost)));
