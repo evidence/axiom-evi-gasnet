@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_syncops.h,v $
- *     $Date: 2010/12/16 19:40:08 $
- * $Revision: 1.57 $
+ *     $Date: 2011/07/21 07:04:06 $
+ * $Revision: 1.58 $
  * Description: GASNet header for synchronization operations used in GASNet implementation
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -18,7 +18,8 @@ GASNETI_BEGIN_EXTERNC
 /* ------------------------------------------------------------------------------------ */
 
 /* 
- * The gasnet mutex and spinlock code are in gasnet_help.h.
+ * The gasnet mutex code is in gasnet_toolhelp.h
+ * The gasnet spinlock code is in gasnet_help.h
  */
 
 /* ------------------------------------------------------------------------------------ */
