@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testnbr.c,v $
- *     $Date: 2010/03/17 00:07:09 $
- * $Revision: 1.21 $
+ *     $Date: 2011/07/21 06:52:02 $
+ * $Revision: 1.22 $
  * Description: MG-like Neighbor exchange
  * Copyright 2005, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1020,6 +1020,9 @@ ghostExchGASNetNonBlock(nbr_t *nb, int iters, int axis_in, int pairwise_sync)
 		    sfaces++;
 		    sent++;
 		}
+
+		/* Try to progress handles in sput[] */
+	        gasnet_try_syncnb_all(sput, sent);
 	    }
 	    /* When the loop ends, we've received face updates from both
 	     * nbrs */
