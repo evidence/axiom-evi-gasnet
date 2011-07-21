@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_core.c,v $
- *     $Date: 2011/06/06 04:45:17 $
- * $Revision: 1.66 $
+ *     $Date: 2011/07/21 03:15:37 $
+ * $Revision: 1.67 $
  * Description: GASNet smp conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -112,11 +112,21 @@ static struct gasnetc_exit_data {
   #endif
 #endif
 
-/* Retain the first non-zero exit code */
+/* Retain a non-zero exit code (first one if possible) */
 static void gasnetc_set_exitcode(int exitcode) {
-  if (exitcode && gasnetc_exit_data)
+  if (exitcode && gasnetc_exit_data) {
+  #ifdef GASNETI_HAVE_ATOMIC_CAS
+    /* Retain the first non-zero exit code */
     (void)gasneti_atomic_compare_and_swap(&gasnetc_exit_data->exitcode, 0,
                                           exitcode, GASNETI_ATOMIC_WMB_POST);
+  #else
+    /* Race is OK, since keeping first exit code is only desired, not required */
+    if (!gasneti_atomic_read(&gasnetc_exit_data->exitcode, 0)) {
+      gasneti_atomic_set(&gasnetc_exit_data->exitcode,
+                         exitcode, GASNETI_ATOMIC_WMB_POST);
+    }
+  #endif
+  }
 }
 static int gasnetc_get_exitcode(void) {
   /* assumes exit prior to allocation of gasnetc_exit_data is always an error */
@@ -146,7 +156,7 @@ static int gasnetc_exit_barrier_timed_wait(void) {
         ( expire = (gasneti_ticks_to_ns(gasneti_ticks_now() - start_time) > timeout) ));
       if (expire) {
         /* Elect exactly one master */
-        return gasneti_atomic_compare_and_swap(&gasnetc_exit_data->master, 0, getpid(), 0);
+        return gasneti_atomic_decrement_and_test(&gasnetc_exit_data->master, 0);
       }
     }
   }
@@ -409,7 +419,7 @@ static int gasnetc_init(int *argc, char ***argv) {
       /* Relocate the pid table to shared space */
       memcpy(tmp, gasnetc_exit_data, GASNETC_EXIT_DATA_SZ);
       gasneti_free(gasnetc_exit_data);
-      gasneti_atomic_set(&tmp->master, 0, 0);
+      gasneti_atomic_set(&tmp->master, 1, 0);
       gasneti_atomic_set(&tmp->exitcode, 0, 0);
     }
     gasnetc_exit_data = tmp;
