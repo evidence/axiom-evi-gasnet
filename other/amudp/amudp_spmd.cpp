@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_spmd.cpp,v $
- *     $Date: 2010/10/23 06:14:57 $
- * $Revision: 1.46 $
+ *     $Date: 2011/07/25 20:28:46 $
+ * $Revision: 1.47 $
  * Description: AMUDP Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -540,6 +540,16 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
       bootstrapinfo.stdoutMaster = hton16(0);
       bootstrapinfo.stderrMaster = hton16(0);
     }
+#if !PLATFORM_OS_MSWINDOWS
+    else {
+      // Insurance against strangely intermixed stdout/stderr
+      int rc;
+      rc = fcntl(STDOUT_FILENO, F_GETFL, 0);
+      if (rc >= 0) (void)fcntl(STDOUT_FILENO, F_SETFL, rc | O_APPEND);
+      rc = fcntl(STDERR_FILENO, F_GETFL, 0);
+      if (rc >= 0) (void)fcntl(STDERR_FILENO, F_SETFL, rc | O_APPEND);
+    }
+#endif 
 
     // main communication loop for master
     try {
