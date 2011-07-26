@@ -16,7 +16,7 @@ int gc_poll_burst = 10;
 gc_queue_t smsg_work_queue;
 
 typedef struct peer_struct {
-  gc_queue_item_t qi;;
+  gc_queue_item_t qi;
   uint32_t rank;
   uint32_t nic_address;
   void *heap_base;
