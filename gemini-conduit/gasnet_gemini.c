@@ -691,9 +691,9 @@ void gc_poll_local_queue()
 	gc_free_bounce_buffer(gpd->bounce_buffer);
       }
       if (gpd->flags & GC_POST_SEND) {
-	status = GNI_SmsgSend(bound_ep_handles[gpd->dest], &gpd->galp, 
+	status = GNI_SmsgSend(bound_ep_handles[gpd->dest], &gpd->u.galp, 
 			      sizeof(gc_am_long_packet_t) + 
-			      (gpd->galp.header.numargs * sizeof(uint32_t)),
+			      (gpd->u.galp.header.numargs * sizeof(uint32_t)),
 			      NULL, 0, 0);
 	gasneti_assert_always (status == GNI_RC_SUCCESS);
       }
@@ -846,8 +846,8 @@ void gc_rdma_put(gasnet_node_t dest,
     pd->length = nbytes;
     if (nbytes <= gasnetc_fma_rdma_cutover) {
       pd->type = GNI_POST_FMA_PUT;
-      memcpy(gpd->immediate, source_addr, nbytes);
-      pd->local_addr = (uint64_t) gpd->immediate;
+      memcpy(gpd->u.immediate, source_addr, nbytes);
+      pd->local_addr = (uint64_t) gpd->u.immediate;
       pd->local_mem_hndl = mypeersegmentdata.segment_mem_handle;
       GASNETC_LOCK_GNI();
       status = myPostFma(bound_ep_handles[dest], pd);

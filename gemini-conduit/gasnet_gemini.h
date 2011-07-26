@@ -316,7 +316,7 @@ typedef struct gc_post_descriptor {
   union {
     gc_am_long_packet_max_t galp;
     char immediate[GASNETC_GNI_FMA_RDMA_CUTOVER_MAX];
-  };
+  } u;
 } gc_post_descriptor_t;
 
 gc_post_descriptor_t *gc_alloc_post_descriptor();

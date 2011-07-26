@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2011/06/29 18:49:23 $
- * $Revision: 1.1 $
+ *     $Date: 2011/07/26 23:46:33 $
+ * $Revision: 1.2 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -870,16 +870,16 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
       gasneti_assert(gpd);
       gpd->flags = GC_POST_SEND;
       gpd->dest = dest;
-      gpd->galp.header.command = GC_CMD_AM_LONG;
-      gpd->galp.header.from = gasneti_mynode;
-      gpd->galp.header.to = dest;
-      gpd->galp.header.handler = handler;
-      gpd->galp.header.numargs = numargs;
-      gpd->galp.data_length = nbytes;
-      gpd->galp.data = dest_addr;
-      gpd->galp.sequence = gc_sequence++;
+      gpd->u.galp.header.command = GC_CMD_AM_LONG;
+      gpd->u.galp.header.from = gasneti_mynode;
+      gpd->u.galp.header.to = dest;
+      gpd->u.galp.header.handler = handler;
+      gpd->u.galp.header.numargs = numargs;
+      gpd->u.galp.data_length = nbytes;
+      gpd->u.galp.data = dest_addr;
+      gpd->u.galp.sequence = gc_sequence++;
       for (i = 0; i < numargs; i += 1) {
-	gpd->galp.args[i] = va_arg(argptr, uint32_t);
+	gpd->u.galp.args[i] = va_arg(argptr, uint32_t);
       }
       /* get credit now, for use when the smsg gets sent on rdma completion */
       gc_get_am_credit(dest);
