@@ -1033,18 +1033,19 @@ void gc_rdma_get(gasnet_node_t dest,
 }
 
 
-/* returns value - 1 even if it didn't change.  copied from kernel atomic.h */
+/* returns (value - 1) even if it didn't change.  based on gasneti_semaphore_trydown() */
 static inline int32_t gc_atomic_dec_if_positive(gasneti_atomic_t *p)
 {
-  int32_t old, dec;
-  for (;;) {
-    old = gasneti_atomic_signed(gasneti_atomic_read(p, GASNETI_ATOMIC_NONE));
-    dec = old - 1;
-    if_pf(dec < 0) break;
-    if (gasneti_atomic_compare_and_swap((p), old, dec, GASNETI_ATOMIC_NONE))
-      break;
-  }
-  return (dec);
+  int swapped;
+  gasneti_atomic_val_t old;
+  do {
+    old = gasneti_weakatomic_read(p, 0);
+    if_pf (old == 0) {
+      return -1;       /* Note: "break" here generates infinite loop w/ pathcc 2.4 (bug 1620) */
+    }
+    swapped = gasneti_weakatomic_compare_and_swap(p, old, old - 1, GASNETI_ATOMIC_ACQ_IF_TRUE);
+  } while (GASNETT_PREDICT_(!swapped));
+  return old - 1;
 }
 void gc_get_am_credit(uint32_t pe)
 {
