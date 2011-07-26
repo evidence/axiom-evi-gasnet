@@ -1034,7 +1034,8 @@ void gc_rdma_get(gasnet_node_t dest,
 
 
 /* returns (value - 1) even if it didn't change.  based on gasneti_semaphore_trydown() */
-static inline int32_t gc_atomic_dec_if_positive(gasneti_atomic_t *p)
+GASNETI_INLINE(gc_atomic_dec_if_positive)
+int32_t gc_atomic_dec_if_positive(gasneti_atomic_t *p)
 {
   int swapped;
   gasneti_atomic_val_t old;
