@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/Makefile.am,v $
-#     $Date: 2011/06/18 15:35:49 $
-# $Revision: 1.1 $
+#     $Date: 2011/07/26 07:15:36 $
+# $Revision: 1.2 $
 # Description: Makefile for GASNet gemini conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -22,6 +22,7 @@ CONDUIT_FILELIST =           \
       gasnet_core_fwd.h      \
       gasnet_core_help.h     \
       gasnet_core_internal.h \
+      gasnet_extended.c      \
       gc.h                   \
       gc.c                   \
       gc_utils.c
