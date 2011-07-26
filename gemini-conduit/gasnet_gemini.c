@@ -676,7 +676,7 @@ void gc_poll_local_queue()
       if (status != GNI_RC_SUCCESS)
 	GNIT_Abort("GetCompleted(%p) failed %s\n",
 		   (void *) event_data, gni_return_string(status));
-      gpd = container_of(pd, gc_post_descriptor_t, pd);
+      gpd = gasnetc_get_struct_addr_from_field_addr(gc_post_descriptor_t, pd, pd);
       
 
       /* handle remaining work */

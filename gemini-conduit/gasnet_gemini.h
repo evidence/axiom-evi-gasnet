@@ -97,9 +97,8 @@ typedef gasneti_mutex_t gasnetc_queuelock_t;
 #define GC_DECODE_TOKEN(x) ((gasnet_node_t)( ((uint64_t) (x) >> 1) - 1))
 
 /* convert from a pointer to a field of a struct to the struct */
-#define container_of(ptr, type, member) ({ \
-  const typeof( ((type *) 0)->member ) *__mptr = (ptr); \
-  (type *)( (uintptr_t)__mptr - offsetof(type, member) ); })
+#define gasnetc_get_struct_addr_from_field_addr(structname, fieldname, fieldaddr) \
+        ((structname*)(((uintptr_t)fieldaddr) - offsetof(structname,fieldname)))
 
 
 enum GC_CMD {
