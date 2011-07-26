@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2011/07/26 19:41:30 $
-# $Revision: 1.689 $
+#     $Date: 2011/07/26 19:44:12 $
+# $Revision: 1.690 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.689 $)
+AC_REVISION($Revision: 1.690 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1215,14 +1215,14 @@ if test "$enabled_pshm" != no; then
       # So, we default to NO shm_open() when cross-compiling. -PHH
       # Update: CNL on Cray XE *does* have working shm_open(). -PHH
       # One can set CROSS_HAVE_SHM_OPEN=1 to force building PSHM for POSIX.
-      AC_CACHE_CHECK([for working shm_open()], cv_prefix[]have_shm_open, [
+      AC_CACHE_CHECK([for working shm_open()], gasnet_cv_have_shm_open, [
         if test "x$CROSS_HAVE_SHM_OPEN" = x1; then
-          cv_prefix[]have_shm_open='yes (from CROSS_HAVE_SHM_OPEN)'
+          gasnet_cv_have_shm_open='yes (from CROSS_HAVE_SHM_OPEN)'
         else
-          cv_prefix[]have_shm_open='no (default when cross compiling)'
+          gasnet_cv_have_shm_open='no (default when cross compiling)'
         fi
       ])
-      if expr "$cv_prefix[]have_shm_open" : "yes" >/dev/null; then
+      if expr "$gasnet_cv_have_shm_open" : "yes" >/dev/null; then
        have_shm_open=yes
       else
        have_shm_open=no
