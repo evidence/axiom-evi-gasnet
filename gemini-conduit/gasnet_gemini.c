@@ -186,7 +186,7 @@ void gc_init_messaging()
   mypeerdata.smsg_attr.mbox_maxcredit = MB_MAXCREDIT;
   mypeerdata.smsg_attr.msg_maxsize = MSG_MAXSIZE;
 #if GASNETC_DEBUG
-  fprintf(stderr,"r %d maxcredit %d msg_maxsize %d\n", gc_rank, MB_MAXCREDIT, MSG_MAXSIZE);
+  fprintf(stderr,"r %d maxcredit %d msg_maxsize %d\n", gc_rank, MB_MAXCREDIT, (int)MSG_MAXSIZE);
 #endif
 
   status = GNI_SmsgBufferSizeNeeded(&mypeerdata.smsg_attr,&bytes_per_mbox);
@@ -204,8 +204,8 @@ void gc_init_messaging()
   
 #if GASNETC_DEBUG
   fprintf(stderr,"Allocating %d bytes for each mailbox\n",bytes_per_mbox);
-  fprintf(stderr,"max medium %d, sizeof medium %d\n",gasnet_AMMaxMedium(),
-	  sizeof(gc_am_medium_packet_max_t));
+  fprintf(stderr,"max medium %d, sizeof medium %d\n",(int)gasnet_AMMaxMedium(),
+	  (int)sizeof(gc_am_medium_packet_max_t));
 #endif
   smsg_fd = open("/dev/zero", O_RDWR, 0);
   if (smsg_fd == -1) {
