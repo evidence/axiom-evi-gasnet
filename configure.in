@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2011/07/01 06:15:44 $
-# $Revision: 1.684 $
+#     $Date: 2011/07/26 00:34:58 $
+# $Revision: 1.685 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.684 $)
+AC_REVISION($Revision: 1.685 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -3487,6 +3487,56 @@ AM_CONDITIONAL(USE_PORTALS_CONDUIT, test "$have_portals" = yes)
 CONDUIT_END([test "$have_portals" = yes])
 
 #--------------------------------------------------------------------------------------------------------
+# Gemini Conduit
+
+CONDUIT_BEGIN(gemini,[Gemini network conduit (gemini)])
+# gni only supported on compute node linux for now (cnl)
+case "$target" in
+  *-cnl-*) ;;
+  *) if test "$force_gemini" != "yes"; then
+       enabled_gemini=no 
+     fi
+  ;;
+esac
+# for now don't support everything
+CONDUIT_DISALLOW_SEGMENT(everything)
+
+# set up include path for gni headers and pmi
+if test "$enabled_gemini" = yes; then
+  have_gemini=yes # start by assuming we have it
+  GASNET_ENV_DEFAULT(PE_DIR, /opt/cray)
+  GASNET_ENV_DEFAULT(PMI_INCLUDE, $PE_DIR/pmi/default/include)
+  GASNET_ENV_DEFAULT(GEMINI_INCLUDE, $PE_DIR/gni-headers/default/include)
+  GEMINI_INCLUDES="-I${GEMINI_INCLUDE} -I${PMI_INCLUDE} "
+  GASNET_ENV_DEFAULT(GEMINI_LIBS, )
+
+  if test "$gasnet_cv_cc_family" != GNU; then
+      GASNET_MSG_WARN([gemini-conduit requires GCC (PrgEnv-gnu) ])
+      have_gemini=no
+  fi
+  if test $have_gemini = yes; then
+    # Since we are using firehose we need to disable certain optimizations.
+    GASNET_FH_CFLAGS
+
+    GASNET_PUSHVAR(CPPFLAGS,"$CPPFLAGS ${GEMINI_INCLUDES}")
+  
+
+    AC_CHECK_HEADERS(pmi_cray.h)
+    # XXX need to translate lack of header into have_gemini = no
+    AC_CHECK_HEADERS(gni_pub.h)
+
+
+    GASNET_POPVAR(CPPFLAGS)
+  
+  fi
+  AC_SUBST(GEMINI_LIBS)
+  AC_SUBST(GEMINI_INCLUDES)
+fi
+
+AM_CONDITIONAL(USE_GEMINI_CONDUIT, test "$have_gemini" = yes)
+CONDUIT_END([test "$have_gemini" = yes])
+
+#--------------------------------------------------------------------------------------------------------
 # SHMEM configuration
 
 CONDUIT_BEGIN(shmem,[Shmem network conduit (shmem)])
@@ -4669,6 +4719,9 @@ shmem-conduit/conduit.mak
 
 portals-conduit/Makefile
 portals-conduit/conduit.mak
+
+gemini-conduit/Makefile
+gemini-conduit/conduit.mak
 
 other/Makefile-conduit.mak
 other/fragment-head.mak
