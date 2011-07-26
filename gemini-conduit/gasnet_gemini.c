@@ -22,8 +22,8 @@ typedef struct peer_struct {
   void *heap_base;
   gni_mem_handle_t heap_mem_handle;
   gni_smsg_attr_t smsg_attr;
-  gasneti_atomic_t am_credit;
-  gasneti_atomic_t fma_credit;
+  gasneti_weakatomic_t am_credit;
+  gasneti_weakatomic_t fma_credit;
   gasneti_mutex_t lock;
 } peer_struct_t;
 
@@ -262,8 +262,8 @@ void gc_init_messaging()
      * requests travelling each way
      */
     gasneti_mutex_init(&peer_data[i].lock);
-    gasneti_atomic_set(&peer_data[i].am_credit, MB_MAXCREDIT / 4, 0);
-    gasneti_atomic_set(&peer_data[i].fma_credit, 1, 0);
+    gasneti_weakatomic_set(&peer_data[i].am_credit, MB_MAXCREDIT / 4, 0);
+    gasneti_weakatomic_set(&peer_data[i].fma_credit, 1, 0);
     gc_queue_item_init(&peer_data[i].qi);
     peer_data[i].smsg_attr.mbox_offset = bytes_per_mbox * gc_rank;
     mypeerdata.smsg_attr.mbox_offset = bytes_per_mbox * i;
@@ -1033,49 +1033,48 @@ void gc_rdma_get(gasnet_node_t dest,
 }
 
 
-/* returns (value - 1) even if it didn't change.  based on gasneti_semaphore_trydown() */
+/* returns 1 if-and-only-if value was decremented.  based on gasneti_semaphore_trydown() */
 GASNETI_INLINE(gc_atomic_dec_if_positive)
-int32_t gc_atomic_dec_if_positive(gasneti_atomic_t *p)
+int gc_atomic_dec_if_positive(gasneti_weakatomic_t *p)
 {
   int swapped;
-  gasneti_atomic_val_t old;
   do {
-    old = gasneti_weakatomic_read(p, 0);
+    const gasneti_weakatomic_val_t old = gasneti_weakatomic_read(p, 0);
     if_pf (old == 0) {
-      return -1;       /* Note: "break" here generates infinite loop w/ pathcc 2.4 (bug 1620) */
+      return 0;       /* Note: "break" here generates infinite loop w/ pathcc 2.4 (bug 1620) */
     }
     swapped = gasneti_weakatomic_compare_and_swap(p, old, old - 1, GASNETI_ATOMIC_ACQ_IF_TRUE);
-  } while (GASNETT_PREDICT_(!swapped));
-  return old - 1;
+  } while (GASNETT_PREDICT_FALSE(!swapped));
+  return 1;
 }
 void gc_get_am_credit(uint32_t pe)
 {
-  gasneti_atomic_t *p = (gasneti_atomic_t *) &peer_data[pe].am_credit;
+  gasneti_weakatomic_t *p = &peer_data[pe].am_credit;
 #if GASNETC_DEBUG
   fprintf(stderr, "r %d get am credit for %d, before is %d\n",
-	 gc_rank, pe, peer_data[pe].am_credit);
+	 gc_rank, pe, (int)gasneti_weakatomic_read(&peer_data[pe].am_credit, 0));
 #endif
-  while (gc_atomic_dec_if_positive(p) < 0) gc_poll();
+  while (gc_atomic_dec_if_positive(p) == 0) gc_poll();
 }
 
 void gc_return_am_credit(uint32_t pe)
 {
-  gasneti_atomic_increment(&peer_data[pe].am_credit, GASNETI_ATOMIC_NONE);
+  gasneti_weakatomic_increment(&peer_data[pe].am_credit, GASNETI_ATOMIC_NONE);
 #if GASNETC_DEBUG
   fprintf(stderr, "r %d return am credit for %d, after is %d\n",
-	 gc_rank, pe, peer_data[pe].am_credit);
+	 gc_rank, pe, (int)gasneti_weakatomic_read(&peer_data[pe].am_credit, 0));
 #endif
 }
 
 void gc_get_fma_credit(uint32_t pe)
 {
-  gasneti_atomic_t *p = (gasneti_atomic_t *) &peer_data[pe].fma_credit;
-  while (gc_atomic_dec_if_positive(p) < 0) gc_poll_local_queue();
+  gasneti_weakatomic_t *p = &peer_data[pe].fma_credit;
+  while (gc_atomic_dec_if_positive(p) == 0) gc_poll_local_queue();
 }
 
 void gc_return_fma_credit(uint32_t pe)
 {
-  gasneti_atomic_increment(&peer_data[pe].fma_credit, GASNETI_ATOMIC_NONE);
+  gasneti_weakatomic_increment(&peer_data[pe].fma_credit, GASNETI_ATOMIC_NONE);
 }
 
 
