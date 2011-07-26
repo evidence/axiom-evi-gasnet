@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2011/07/26 00:34:58 $
-# $Revision: 1.685 $
+#     $Date: 2011/07/26 00:43:14 $
+# $Revision: 1.686 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.685 $)
+AC_REVISION($Revision: 1.686 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -3510,24 +3510,20 @@ if test "$enabled_gemini" = yes; then
   GEMINI_INCLUDES="-I${GEMINI_INCLUDE} -I${PMI_INCLUDE} "
   GASNET_ENV_DEFAULT(GEMINI_LIBS, )
 
+  # TODO: Verify and/or fix this limitation
   if test "$gasnet_cv_cc_family" != GNU; then
       GASNET_MSG_WARN([gemini-conduit requires GCC (PrgEnv-gnu) ])
       have_gemini=no
   fi
   if test $have_gemini = yes; then
-    # Since we are using firehose we need to disable certain optimizations.
-    GASNET_FH_CFLAGS
+    # If/when we use firehose we need to disable certain optimizations.
+    #GASNET_FH_CFLAGS
 
     GASNET_PUSHVAR(CPPFLAGS,"$CPPFLAGS ${GEMINI_INCLUDES}")
-  
 
-    AC_CHECK_HEADERS(pmi_cray.h)
-    # XXX need to translate lack of header into have_gemini = no
-    AC_CHECK_HEADERS(gni_pub.h)
-
+    AC_CHECK_HEADERS(pmi_cray.h gni_pub.h, [:], [have_gemini=no])
 
     GASNET_POPVAR(CPPFLAGS)
-  
   fi
   AC_SUBST(GEMINI_LIBS)
   AC_SUBST(GEMINI_INCLUDES)
