@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2011/07/26 19:44:12 $
-# $Revision: 1.690 $
+#     $Date: 2011/07/27 02:42:48 $
+# $Revision: 1.691 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.690 $)
+AC_REVISION($Revision: 1.691 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -3515,11 +3515,6 @@ if test "$enabled_gemini" = yes; then
   GEMINI_INCLUDES="-I${GEMINI_INCLUDE} -I${PMI_INCLUDE} "
   GASNET_ENV_DEFAULT(GEMINI_LIBS, )
 
-  # TODO: Verify and/or fix this limitation
-  if test "$gasnet_cv_cc_family" != GNU; then
-      GASNET_MSG_WARN([gemini-conduit requires GCC (PrgEnv-gnu) ])
-      have_gemini=no
-  fi
   if test $have_gemini = yes; then
     # If/when we use firehose we need to disable certain optimizations.
     #GASNET_FH_CFLAGS
