@@ -376,7 +376,6 @@ void gc_handle_am_short_packet(int req, uint32_t source,
 			    token,
 			    pargs,
 			    numargs);
-  __sync_synchronize();
 }
 
 void gc_handle_am_medium_packet(int req, uint32_t source, 
@@ -396,7 +395,6 @@ void gc_handle_am_medium_packet(int req, uint32_t source,
 			     data,
 			     am->data_length);
 
-  __sync_synchronize();
 }
 void gc_handle_am_long_packet(int req, uint32_t source, 
 			      gc_am_long_packet_t *am)
@@ -414,7 +412,6 @@ void gc_handle_am_long_packet(int req, uint32_t source,
 			   numargs,
 			   am->data,
 			   am->data_length);
-  __sync_synchronize();
 }
 
 
