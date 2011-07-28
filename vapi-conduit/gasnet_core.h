@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.h,v $
- *     $Date: 2010/08/08 07:55:50 $
- * $Revision: 1.59 $
+ *     $Date: 2011/07/28 07:35:51 $
+ * $Revision: 1.60 $
  * Description: GASNet header for vapi conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -215,24 +215,6 @@ extern int gasnetc_AMPoll(void);
 #define gasnet_AMGetMsgSource  gasnetc_AMGetMsgSource
 
 #define GASNET_BLOCKUNTIL(cond) gasneti_polluntil(cond)
-
-/* ------------------------------------------------------------------------------------ */
-/*
-  System AM Request/Reply Functions
-  =================================
-*/
-
-extern int gasnetc_RequestSystem( 
-                            gasnet_node_t dest,       /* destination node */
-			    gasnetc_counter_t *req_oust, /* counter to wait for send */
-                            gasnet_handler_t handler, /* index into destination endpoint's handler table */ 
-                            int numargs, ...);
-
-extern int gasnetc_ReplySystem( 
-                            gasnet_token_t token,     /* token provided on handler entry */
-			    gasnetc_counter_t *req_oust, /* counter to wait for send */
-                            gasnet_handler_t handler, /* index into destination endpoint's handler table */ 
-                            int numargs, ...);
 
 /* ------------------------------------------------------------------------------------ */
 /*

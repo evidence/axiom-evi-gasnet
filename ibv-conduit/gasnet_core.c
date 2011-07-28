@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2011/06/03 22:57:29 $
- * $Revision: 1.288 $
+ *     $Date: 2011/07/28 07:35:51 $
+ * $Revision: 1.289 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -161,6 +161,9 @@ typedef struct gasnetc_pin_info_t_ {
 static gasnetc_pin_info_t gasnetc_pin_info;
 
 gasneti_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS]; /* handler table */
+static int gasnetc_reghandlers(gasnet_handlerentry_t *table, int numentries,
+                               int lowlimit, int highlimit,
+                               int dontcare, int *numregistered);
 
 static char *gasnetc_vapi_ports;
 
@@ -1278,6 +1281,21 @@ static int gasnetc_init(int *argc, char ***argv) {
     gasneti_pshm_init(&gasneti_bootstrapExchange, 0);
   #endif
 
+  /* early registration of core API handlers */
+  for (i = 0; i < GASNETC_MAX_NUMHANDLERS; i++) {
+      gasnetc_handler[i] = (gasneti_handler_fn_t)&gasneti_defaultAMHandler;
+  }
+  {
+    gasnet_handlerentry_t *ctable = (gasnet_handlerentry_t *)gasnetc_get_handlertable();
+    int len = 0;
+    int numreg = 0;
+    gasneti_assert(ctable);
+    while (ctable[len].fnptr) len++; /* calc len */
+    if (gasnetc_reghandlers(ctable, len, 1, 63, 0, &numreg) != GASNET_OK)
+      GASNETI_RETURN_ERRR(RESOURCE,"Error registering core API handlers");
+    gasneti_assert(numreg == len);
+  }
+
   /* record remote lids */
   for (i = 0; i < gasnetc_num_ports; ++i) {
     gasnetc_port_tbl[i].remote_lids = gasneti_malloc(gasneti_nodes * sizeof(gasnetc_lid_t));
@@ -1471,6 +1489,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 
   /* ------------------------------------------------------------------------------------ */
   /*  register handlers */
+#if 0 /* Was done early in gasnetc_init() */
   { int i;
     for (i = 0; i < GASNETC_MAX_NUMHANDLERS; i++) 
       gasnetc_handler[i] = (gasneti_handler_fn_t)&gasneti_defaultAMHandler;
@@ -1480,17 +1499,18 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     int len = 0;
     gasneti_assert(ctable);
     while (ctable[len].fnptr) len++; /* calc len */
-    if (gasnetc_reghandlers(ctable, len, 1, 63, 0, &numreg) != GASNET_OK)
+    if (gasnetc_reghandlers(ctable, len, 1, GASNETE_HANDLER_BASE-1, 0, &numreg) != GASNET_OK)
       GASNETI_RETURN_ERRR(RESOURCE,"Error registering core API handlers");
     gasneti_assert(numreg == len);
   }
+#endif
 
   { /*  extended API handlers */
     gasnet_handlerentry_t *etable = (gasnet_handlerentry_t *)gasnete_get_handlertable();
     int len = 0;
     gasneti_assert(etable);
     while (etable[len].fnptr) len++; /* calc len */
-    if (gasnetc_reghandlers(etable, len, 64, 127, 0, &numreg) != GASNET_OK)
+    if (gasnetc_reghandlers(etable, len, GASNETE_HANDLER_BASE, 127, 0, &numreg) != GASNET_OK)
       GASNETI_RETURN_ERRR(RESOURCE,"Error registering extended API handlers");
     gasneti_assert(numreg == len);
   }
@@ -1501,7 +1521,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   { /* firehose handlers */
     gasnet_handlerentry_t *ftable = (gasnet_handlerentry_t *)firehose_get_handlertable();
     int len = 0;
-    int base = 64 + numreg;	/* start right after etable */
+    int base = GASNETE_HANDLER_BASE + numreg;	/* start right after etable */
     gasneti_assert(ftable);
     while (ftable[len].fnptr) len++; /* calc len */
     gasneti_assert(base + len <= 128);	/* enough space remaining after etable? */
@@ -1752,7 +1772,7 @@ static gasneti_atomic_t gasnetc_exit_role = gasneti_atomic_init(GASNETC_EXIT_ROL
 
 /*
  * Code to disable user's AM handlers when exiting.  We need this because we must call
- * AMPoll to run system-level handlers, including ACKs for flow control.
+ * AMPoll to run core handlers, including ACKs for flow control.
  *
  * We do it this way because it adds absolutely nothing the normal execution path.
  * Thanks to Dan for the suggestion.
@@ -1761,7 +1781,7 @@ static void gasnetc_noop(void) { return; }
 static void gasnetc_disable_AMs(void) {
   int i;
 
-  for (i = 0; i < GASNETC_MAX_NUMHANDLERS; ++i) {
+  for (i = GASNETE_HANDLER_BASE; i < GASNETC_MAX_NUMHANDLERS; ++i) {
     gasnetc_handler[i] = (gasneti_handler_fn_t)&gasnetc_noop;
   }
 }
@@ -1794,8 +1814,8 @@ static int gasnetc_exit_reduce(int exitcode, int64_t timeout_us)
   if (gasneti_mynode) {
     if (GASNETC_IS_EXITING()) GASNETC_EXIT_STATE("exitcode reduction: send to parent");
     exitcode = gasneti_atomic_read(&gasnetc_exit_code, GASNETI_ATOMIC_RMB_PRE);
-    rc = gasnetc_RequestSystem(gasnetc_exit_parent, NULL,
-                               gasneti_handleridx(gasnetc_SYS_exit_reduce),
+    rc = gasnetc_RequestSysShort(gasnetc_exit_parent, NULL,
+                               gasneti_handleridx(gasnetc_exit_reduce_reqh),
                                1, exitcode);
     if (rc != GASNET_OK) return -1;
     if (gasneti_atomic_read(&gasnetc_exit_reqs, 0)) return -1;
@@ -1813,8 +1833,8 @@ static int gasnetc_exit_reduce(int exitcode, int64_t timeout_us)
   for (i = 0; i < gasnetc_exit_children; ++i) {
     if (GASNETC_IS_EXITING()) GASNETC_EXIT_STATE("exitcode reduction: send to children");
 
-    rc = gasnetc_RequestSystem(gasnetc_exit_child[i], NULL,
-                               gasneti_handleridx(gasnetc_SYS_exit_reduce),
+    rc = gasnetc_RequestSysShort(gasnetc_exit_child[i], NULL,
+                               gasneti_handleridx(gasnetc_exit_reduce_reqh),
                                1, exitcode);
     if (rc != GASNET_OK) return -1;
     gasnetc_sndrcv_poll(0);
@@ -1858,7 +1878,7 @@ static void gasnetc_exit_role_reqh(gasnet_token_t token) {
                 ? GASNETC_EXIT_ROLE_MASTER : GASNETC_EXIT_ROLE_SLAVE;
 
   /* Inform the requester of the outcome. */
-  GASNETI_SAFE(gasnetc_ReplySystem(token, NULL, gasneti_handleridx(gasnetc_SYS_exit_role_rep),
+  GASNETI_SAFE(gasnetc_ReplySysShort(token, NULL, gasneti_handleridx(gasnetc_exit_role_reph),
 				   1, (gasnet_handlerarg_t)result));
 }
 
@@ -1909,9 +1929,9 @@ static int gasnetc_get_exit_role(void)
 
   role = gasneti_atomic_read(&gasnetc_exit_role, 0);
   if (role == GASNETC_EXIT_ROLE_UNKNOWN) {
-    /* Don't know our role yet.  So, send a system-category AM Request to determine our role */
-    GASNETI_SAFE(gasnetc_RequestSystem(GASNETC_ROOT_NODE, NULL,
-			    	       gasneti_handleridx(gasnetc_SYS_exit_role_req), 0));
+    /* Don't know our role yet.  So, send an AM Request to determine our role */
+    GASNETI_SAFE(gasnetc_RequestSysShort(GASNETC_ROOT_NODE, NULL,
+			    	       gasneti_handleridx(gasnetc_exit_role_reqh), 0));
 
     /* Now spin until somebody tells us what our role is */
     do {
@@ -2053,7 +2073,7 @@ static void gasnetc_exit_sighandler(int sig) {
  * We say a polite goodbye to our peers and then listen for their replies.
  * This forms the root node's portion of a barrier for graceful shutdown.
  *
- * The "goodbyes" are just a system-category AM containing the desired exit code.
+ * The "goodbyes" are just an AM containing the desired exit code.
  * The AM helps ensure that on non-collective exits the "other" nodes know to exit.
  * If we see a "goodbye" from all of our peers we know we've managed to coordinate
  * an orderly shutdown.  If not, then in gasnetc_exit_body() we can ask the bootstrap
@@ -2077,8 +2097,8 @@ static int gasnetc_exit_master(int exitcode, int64_t timeout_us) {
 
     if (gasneti_ticks_to_ns(gasneti_ticks_now() - start_time) / 1000 > timeout_us) return -1;
 
-    rc = gasnetc_RequestSystem(i, NULL,
-		    	       gasneti_handleridx(gasnetc_SYS_exit_req),
+    rc = gasnetc_RequestSysShort(i, NULL,
+		    	       gasneti_handleridx(gasnetc_exit_reqh),
 			       1, (gasnet_handlerarg_t)exitcode);
     if (rc != GASNET_OK) return -1;
   }
@@ -2178,7 +2198,7 @@ static void gasnetc_exit_body(void) {
   gasneti_reghandler(SIGFPE,  gasnetc_exit_sighandler);
   gasneti_reghandler(SIGBUS,  gasnetc_exit_sighandler);
 
-  /* Disable processing of AMs, except system-level ones */
+  /* Disable processing of AMs, except core-specific ones */
   gasnetc_disable_AMs();
 
   GASNETI_TRACE_PRINTF(C,("gasnet_exit(%i)\n", exitcode));
@@ -2298,7 +2318,7 @@ static void gasnetc_exit_body(void) {
 
 /* gasnetc_exit_reqh
  *
- * This is a system-category AM handler and is therefore available as soon as gasnet_init()
+ * This is a core AM handler and is therefore available as soon as gasnet_init()
  * returns, even before gasnet_attach().  This handler is responsible for receiving the
  * remote exit requests from the master node and replying.  We call gasnetc_exit_head()
  * with the exitcode seen in the remote exit request.  If this remote request is seen before
@@ -2317,8 +2337,8 @@ static void gasnetc_exit_reqh(gasnet_token_t token, gasnet_handlerarg_t arg0) {
   (void)gasneti_atomic_compare_and_swap(&gasnetc_exit_role, GASNETC_EXIT_ROLE_UNKNOWN, GASNETC_EXIT_ROLE_SLAVE, 0);
 
   /* Send a reply so the master knows we are reachable */
-  GASNETI_SAFE(gasnetc_ReplySystem(token, &gasnetc_exit_repl_oust,
-				   gasneti_handleridx(gasnetc_SYS_exit_rep), /* no args */ 0));
+  GASNETI_SAFE(gasnetc_ReplySysShort(token, &gasnetc_exit_repl_oust,
+				   gasneti_handleridx(gasnetc_exit_reph), /* no args */ 0));
   gasneti_sync_writes(); /* For non-atomic portion of gasnetc_exit_repl_oust */
 
   /* Count the exit requests, so gasnetc_exit_slave() knows when to return */
@@ -2494,18 +2514,6 @@ extern void gasnetc_exit(int exitcode) {
 
 /* ------------------------------------------------------------------------------------ */
 
-static void gasnetc_init_ping(gasnet_token_t token) {
-  #if GASNET_DEBUG_VERBOSE
-  {
-    gasnet_node_t src;
-    GASNETI_SAFE(gasnet_AMGetMsgSource(token, &src));
-    fprintf(stderr, "%d> init_ping from %d\n", (int)gasneti_mynode, (int)src);
-  }
-  #endif
-  GASNETI_SAFE(gasnetc_ReplySystem(token, NULL, gasneti_handleridx(gasnetc_SYS_ack), 0 /* no args */));
-}
-
-
 GASNETI_INLINE(gasnetc_amrdma_grant_reqh_inner)
 void gasnetc_amrdma_grant_reqh_inner(gasnet_token_t token, int qpi, gasnetc_rkey_t rkey, void *addr) {
   gasnetc_cep_t *cep;
@@ -2539,7 +2547,7 @@ extern int gasnetc_AMRequestShortM(
   va_start(argptr, numargs); /*  pass in last argument */
   retval = gasnetc_RequestGeneric(gasnetc_Short, dest, handler,
 		  		  NULL, 0, NULL,
-				  numargs, NULL, argptr);
+				  numargs, NULL, NULL, argptr);
   va_end(argptr);
   GASNETI_RETURN(retval);
 }
@@ -2555,7 +2563,7 @@ extern int gasnetc_AMRequestMediumM(
   va_start(argptr, numargs); /*  pass in last argument */
   retval = gasnetc_RequestGeneric(gasnetc_Medium, dest, handler,
 		  		  source_addr, nbytes, NULL,
-				  numargs, NULL, argptr);
+				  numargs, NULL, NULL, argptr);
   va_end(argptr);
   GASNETI_RETURN(retval);
 }
@@ -2572,7 +2580,7 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
   va_start(argptr, numargs); /*  pass in last argument */
     retval = gasnetc_RequestGeneric(gasnetc_Long, dest, handler,
 		  		  source_addr, nbytes, dest_addr,
-				  numargs, &mem_oust, argptr);
+				  numargs, &mem_oust, NULL, argptr);
 
     /* block for completion of RDMA transfer */
     gasnetc_counter_wait(&mem_oust, 0);
@@ -2591,7 +2599,7 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
   va_start(argptr, numargs); /*  pass in last argument */
   retval = gasnetc_RequestGeneric(gasnetc_Long, dest, handler,
 		  		  source_addr, nbytes, dest_addr,
-				  numargs, NULL, argptr);
+				  numargs, NULL, NULL, argptr);
   va_end(argptr);
   GASNETI_RETURN(retval);
 }
@@ -2606,7 +2614,7 @@ extern int gasnetc_AMReplyShortM(
   va_start(argptr, numargs); /*  pass in last argument */
   retval = gasnetc_ReplyGeneric(gasnetc_Short, token, handler,
 		  		NULL, 0, NULL,
-				numargs, NULL, argptr);
+				numargs, NULL, NULL, argptr);
   va_end(argptr);
   GASNETI_RETURN(retval);
 }
@@ -2622,7 +2630,7 @@ extern int gasnetc_AMReplyMediumM(
   va_start(argptr, numargs); /*  pass in last argument */
   retval = gasnetc_ReplyGeneric(gasnetc_Medium, token, handler,
 		  		source_addr, nbytes, NULL,
-				numargs, NULL, argptr);
+				numargs, NULL, NULL, argptr);
   va_end(argptr);
   GASNETI_RETURN(retval);
 }
@@ -2643,7 +2651,7 @@ extern int gasnetc_AMReplyLongM(
 
     retval = gasnetc_ReplyGeneric(gasnetc_Long, token, handler,
 		  		  source_addr, nbytes, dest_addr,
-				  numargs, &mem_oust, argptr);
+				  numargs, &mem_oust, NULL, argptr);
 
     /* block for completion of RDMA transfer */
     gasnetc_counter_wait(&mem_oust, 1 /* calling from a request handler */);
@@ -2651,7 +2659,7 @@ extern int gasnetc_AMReplyLongM(
   #else
   retval = gasnetc_ReplyGeneric(gasnetc_Long, token, handler,
 		  		source_addr, nbytes, dest_addr,
-				numargs, NULL, argptr);
+				numargs, NULL, NULL, argptr);
 
   #endif
   va_end(argptr);
@@ -2795,7 +2803,16 @@ static gasnet_handlerentry_t const gasnetc_handlers[] = {
   #ifdef GASNETC_AUXSEG_HANDLERS
     GASNETC_AUXSEG_HANDLERS(),
   #endif
+
   /* ptr-width independent handlers */
+  gasneti_handler_tableentry_no_bits(gasnetc_exit_reduce_reqh),
+  gasneti_handler_tableentry_no_bits(gasnetc_exit_role_reqh),
+  gasneti_handler_tableentry_no_bits(gasnetc_exit_role_reph),
+  gasneti_handler_tableentry_no_bits(gasnetc_exit_reqh),
+  gasneti_handler_tableentry_no_bits(gasnetc_exit_reph),
+#if 0 /* Currently unused */
+  gasneti_handler_tableentry_no_bits(gasnetc_init_ping),
+#endif
 
   /* ptr-width dependent handlers */
   gasneti_handler_tableentry_with_bits(gasnetc_amrdma_grant_reqh),
@@ -2807,26 +2824,6 @@ gasnet_handlerentry_t const *gasnetc_get_handlertable(void) {
   return gasnetc_handlers;
 }
 
-/*
-  System handlers, available even between _init and _attach
-*/
-
-const gasneti_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLERS] = {
-#if GASNET_PSHM
-  /* AMPSHM doesn't like NULL handlers */
-  (gasneti_handler_fn_t)&gasnetc_noop,
-#else
-  NULL,	/* ACK: NULL -> do nothing */
-#endif
-  gasnetc_exit_reduce_reqh,
-  gasnetc_exit_role_reqh,
-  gasnetc_exit_role_reph,
-  gasnetc_exit_reqh,
-  gasnetc_exit_reph,
-  gasnetc_init_ping,
-  NULL
-};
-  
 /* ------------------------------------------------------------------------------------ */
 
 /* 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2011/04/14 20:45:56 $
- * $Revision: 1.209 $
+ *     $Date: 2011/07/28 07:35:51 $
+ * $Revision: 1.210 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -102,42 +102,37 @@ extern gasneti_atomic_t gasnetc_exit_running;
 #endif
 
 /* ------------------------------------------------------------------------------------ */
+/* Core handlers.
+ * These are registered early and are available even before _attach()
+ */
 #define GASNETC_HANDLER_BASE  1 /* reserve 1-63 for the core API */
+#define _hidx_gasnetc_ack                     0 /* Special case */
 #define _hidx_gasnetc_auxseg_reqh             (GASNETC_HANDLER_BASE+0)
 #define _hidx_gasnetc_amrdma_grant_reqh       (GASNETC_HANDLER_BASE+1)
+#define _hidx_gasnetc_exit_reduce_reqh        (GASNETC_HANDLER_BASE+2)
+#define _hidx_gasnetc_exit_role_reqh          (GASNETC_HANDLER_BASE+3)
+#define _hidx_gasnetc_exit_role_reph          (GASNETC_HANDLER_BASE+4)
+#define _hidx_gasnetc_exit_reqh               (GASNETC_HANDLER_BASE+5)
+#define _hidx_gasnetc_exit_reph               (GASNETC_HANDLER_BASE+6)
 /* add new core API handlers here and to the bottom of gasnet_core.c */
 
-/* System-category handlers.
- * These form a separate AM handler space and are available even before _attach()
- */
-#define _hidx_gasnetc_SYS_ack             0
-#define _hidx_gasnetc_SYS_exit_reduce     1
-#define _hidx_gasnetc_SYS_exit_role_req   2
-#define _hidx_gasnetc_SYS_exit_role_rep   3
-#define _hidx_gasnetc_SYS_exit_req        4
-#define _hidx_gasnetc_SYS_exit_rep        5
-#define _hidx_gasnetc_SYS_init_ping       6
+#ifndef GASNETE_HANDLER_BASE
+  #define GASNETE_HANDLER_BASE  64 /* reserve 64-127 for the extended API */
+#elif GASNETE_HANDLER_BASE != 64
+  #error "GASNETE_HANDLER_BASE mismatch between core and extended"
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 /* handler table (recommended impl) */
 #define GASNETC_MAX_NUMHANDLERS   256
 extern gasneti_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS];
-extern const gasneti_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLERS];
-
-#if GASNET_PSHM
-  #define GASNETC_SYS_HANDLER_FLAG (GASNETC_MAX_NUMHANDLERS << 1)
-  #define gasnetc_get_handler(_idx) (((_idx)&GASNETC_SYS_HANDLER_FLAG) \
-                                     ? gasnetc_sys_handler[(_idx)^GASNETC_SYS_HANDLER_FLAG] \
-                                     : gasnetc_handler[(_idx)])
-#endif
 
 /* ------------------------------------------------------------------------------------ */
 /* AM category (recommended impl if supporting PSHM) */
 typedef enum {
   gasnetc_Short=0,
   gasnetc_Medium=1,
-  gasnetc_Long=2,
-  gasnetc_System=3 /* Conduit-specific addition */
+  gasnetc_Long=2
 } gasnetc_category_t;
 
 /* ------------------------------------------------------------------------------------ */
@@ -187,57 +182,22 @@ typedef union {
 } gasnetc_buffer_t;
 
 /* ------------------------------------------------------------------------------------ */
+/* System AM Request/Reply Functions
+ * These can be called between init and attach.
+ * They have an optional counter allowing one to test/block for local completion.
+ */
 
-#define GASNETC_RUN_HANDLER_SYS(isReq, hid, phandlerfn, token, pArgs, numargs) do {       \
-    if (isReq) GASNETC_TRACE_SYSTEM_REQHANDLER(hid, token, numargs, pArgs);               \
-    else       GASNETC_TRACE_SYSTEM_REPHANDLER(hid, token, numargs, pArgs);               \
-    if (GASNET_PSHM || phandlerfn) { /* NULL handler only possible when !GASNET_PSHM */   \
-      if (numargs == 0) (*(gasneti_HandlerShort)phandlerfn)((gasnet_token_t)token);       \
-      else {                                                                              \
-        gasnet_handlerarg_t *_args = (gasnet_handlerarg_t *)(pArgs); /* eval only once */ \
-        switch (numargs) {                                                                \
-          case 1:  (*(gasneti_HandlerShort)phandlerfn)((gasnet_token_t)token, _args[0]); break; \
-          case 2:  (*(gasneti_HandlerShort)phandlerfn)((gasnet_token_t)token, _args[0], _args[1]); break;\
-          default: gasneti_fatalerror("Illegal numargs=%i in GASNETC_RUN_HANDLER_SYS", (int)numargs); \
-        }                                                                                 \
-      }                                                                                   \
-    }                                                                                     \
-    GASNETI_TRACE_PRINTF(C,("AM%s_SYS_HANDLER: handler execution complete", (isReq?"REQUEST":"REPLY"))); \
-  } while (0)  
+extern int gasnetc_RequestSysShort(gasnet_node_t dest,
+                                   gasnetc_counter_t *req_oust, /* counter for local completion */
+                                   gasnet_handler_t handler,
+                                   int numargs, ...);
 
+extern int gasnetc_ReplySysShort(gasnet_token_t token,
+                                 gasnetc_counter_t *req_oust, /* counter for local completion */
+                                 gasnet_handler_t handler,
+                                 int numargs, ...);
 
-#if GASNET_TRACE
-  #define _GASNETC_TRACE_SYSTEM(name,dest,handler,numargs) do {                        \
-    _GASNETI_TRACE_GATHERARGS(numargs);                                                \
-    _GASNETI_STAT_EVENT(C,name);                                                       \
-    GASNETI_TRACE_PRINTF(C,(#name": dest=%i handler=%i args:%s",dest,handler,argstr)); \
-  } while(0)
-  #define GASNETC_TRACE_SYSTEM_REQUEST(dest,handler,numargs) \
-          _GASNETC_TRACE_SYSTEM(AMREQUEST_SYS,dest,handler,numargs)
-  #define GASNETC_TRACE_SYSTEM_REPLY(dest,handler,numargs) \
-          _GASNETC_TRACE_SYSTEM(AMREPLY_SYS,dest,handler,numargs)
-
-  #define _GASNETC_TRACE_SYSTEM_HANDLER(name, handlerid, token, numargs, arghandle) do { \
-    gasnet_node_t src;                                                                    \
-    _GASNETI_TRACE_GATHERHANDLERARGS(numargs, arghandle);                                 \
-    _GASNETI_STAT_EVENT(C,name);                                                          \
-    if (gasnet_AMGetMsgSource(token,&src) != GASNET_OK)                                   \
-	gasneti_fatalerror("gasnet_AMGetMsgSource() failed");                               \
-    GASNETI_TRACE_PRINTF(C,(#name": src=%i handler=%i args:%s",                           \
-      (int)src,(int)(handlerid),argstr));                                                 \
-    GASNETI_TRACE_PRINTF(C,(#name": token: %s",                                           \
-                      gasneti_formatdata(&token, sizeof(token))));                        \
-    } while(0)
-  #define GASNETC_TRACE_SYSTEM_REQHANDLER(handlerid, token, numargs, arghandle) \
-         _GASNETC_TRACE_SYSTEM_HANDLER(AMREQUEST_SYS_HANDLER, handlerid, token, numargs, arghandle)
-  #define GASNETC_TRACE_SYSTEM_REPHANDLER(handlerid, token, numargs, arghandle) \
-         _GASNETC_TRACE_SYSTEM_HANDLER(AMREPLY_SYS_HANDLER, handlerid, token, numargs, arghandle)
-#else
-  #define GASNETC_TRACE_SYSTEM_REQUEST(dest,handler,numargs)
-  #define GASNETC_TRACE_SYSTEM_REPLY(dest,handler,numargs)
-  #define GASNETC_TRACE_SYSTEM_REQHANDLER(handlerid, token, numargs, arghandle) 
-  #define GASNETC_TRACE_SYSTEM_REPHANDLER(handlerid, token, numargs, arghandle) 
-#endif
+/* ------------------------------------------------------------------------------------ */
 
 #if GASNETI_STATS_OR_TRACE
   #define GASNETC_TRACE_WAIT_BEGIN() \
@@ -657,11 +617,13 @@ extern void gasnetc_sndrcv_poll(int handler_context);
 extern int gasnetc_RequestGeneric(gasnetc_category_t category,
 				  int dest, gasnet_handler_t handler,
 				  void *src_addr, int nbytes, void *dst_addr,
-				  int numargs, gasnetc_counter_t *mem_oust, va_list argptr);
+				  int numargs, gasnetc_counter_t *mem_oust,
+				  gasnetc_counter_t *req_oust, va_list argptr);
 extern int gasnetc_ReplyGeneric(gasnetc_category_t category,
 				gasnet_token_t token, gasnet_handler_t handler,
 				void *src_addr, int nbytes, void *dst_addr,
-				int numargs, gasnetc_counter_t *mem_oust, va_list argptr);
+				int numargs, gasnetc_counter_t *mem_oust,
+				gasnetc_counter_t *req_oust, va_list argptr);
 
 /* General routines in gasnet_core.c */
 extern int gasnetc_pin(gasnetc_hca_t *hca, void *addr, size_t size, gasnetc_acl_t acl, gasnetc_memreg_t *reg);
