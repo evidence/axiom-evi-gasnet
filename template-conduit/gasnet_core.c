@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/template-conduit/gasnet_core.c,v $
- *     $Date: 2011/06/03 22:57:25 $
- * $Revision: 1.65 $
+ *     $Date: 2011/07/28 05:48:19 $
+ * $Revision: 1.66 $
  * Description: GASNet <conduitname> conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -390,7 +390,7 @@ extern void gasnetc_exit(int exitcode) {
  *   If your conduit will support PSHM, then there needs to be a way
  *   for PSHM to see your handler table.  If you use the recommended
  *   implementation (gasnetc_handler[]) then you don't need to do
- *   anything special.  Othwerwise, #define GASNETC_GET_TOKEN in
+ *   anything special.  Othwerwise, #define GASNETC_GET_HANDLER in
  *   gasnet_core_fwd.h and implement gasnetc_get_handler() here, or
  *   as a macro or inline in gasnet_core_internal.h
  *
