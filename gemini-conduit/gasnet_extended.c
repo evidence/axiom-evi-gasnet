@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2011/08/01 20:11:52 $
- * $Revision: 1.2 $
+ *     $Date: 2011/08/01 21:22:04 $
+ * $Revision: 1.3 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -567,6 +567,16 @@ extern gasnet_handle_t gasnete_put_nb (gasnet_node_t node, void *dest, void *src
   size_t thiscount;
   GASNETI_CHECKPSHM_PUT(ALIGNED,H);
   //  if (gasnetc_am_put_nb) return(gasnete_put_nb_inner(node, dest, src, nbytes, 0 GASNETE_THREAD_PASS));
+  if (nbytes <= GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE) {
+    op = gasnete_eop_new(GASNETE_MYTHREAD);
+    gpd = gc_alloc_post_descriptor();
+    gpd->completion = (gasnete_op_t *) op;
+    gpd->flags = GC_POST_COMPLETION_EOP;
+    memcpy(gpd->u.immediate, src, nbytes);
+    gc_rdma_put(node, dest, gpd->u.immediate, nbytes, gpd);
+    return (gasnet_handle_t) op;
+  }
+
   while (nbytes > 0) {
     thiscount = nbytes;
     if (thiscount > GC_MAXRDMA) thiscount = GC_MAXRDMA;
@@ -865,6 +875,14 @@ extern void gasnete_put_nbi      (gasnet_node_t node, void *dest, void *src, siz
   //  if (gasnetc_am_put_nbi) return  gasnete_put_nbi_inner(node, dest, src, nbytes, 0 GASNETE_THREAD_PASS);
   op = mythread->current_iop;
   op->initiated_put_cnt++;
+  if (nbytes <= GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE) {
+    gpd = gc_alloc_post_descriptor();
+    gpd->completion = (gasnete_op_t *) op;
+    gpd->flags = GC_POST_COMPLETION_EOP;
+    memcpy(gpd->u.immediate, src, nbytes);
+    gc_rdma_put(node, dest, gpd->u.immediate, nbytes, gpd);
+    return;
+  }
   while (nbytes > 0) {
     gasneti_atomic_set(&done, 0, 0);
     thiscount = nbytes;
