@@ -1,5 +1,5 @@
-#ifndef GC_H
-#define GC_H
+#ifndef GASNET_GEMINI_H
+#define GASNET_GEMINI_H
 
 #include <stdint.h>
 #include <stdio.h>
@@ -10,7 +10,6 @@
 #include <pmi_cray.h>
 #include <assert.h>
 #include <gni_pub.h>
-#include <mpi.h>
 #include "gasnet_internal.h"
 #include "gasnet_core_internal.h"
 #include <gasnet_extended_internal.h>
@@ -89,7 +88,15 @@ typedef gasneti_mutex_t gasnetc_queuelock_t;
   gasneti_mutex_unlock(&gasnetc_conn_queue[srcnode].lock)
 #endif
 
-#define GASNETC_SMSGRELEASE(status, eph)   status = GNI_SmsgRelease(eph); \
+/* Used in SEQ mode only */
+#define GASNETC_SMSGRELEASE(status, eph)  \
+  GASNETC_LOCK_GNI();					\
+  status = GNI_SmsgRelease(eph);			\
+  GASNETC_UNLOCK_GNI()
+
+/* Used in PAR and PARYSNC modes */
+#define GASNETC_SMSGRELEASEUNLOCK(status, eph) \
+  status = GNI_SmsgRelease(eph);	       \
   GASNETC_UNLOCK_GNI()
 
 /* create pshm compatible active message token from from address */
@@ -107,7 +114,6 @@ enum GC_CMD {
     GC_CMD_AM_SHORT,
     GC_CMD_AM_LONG,
     GC_CMD_AM_MEDIUM,
-    GC_CMD_AM_MEDIUM_LAST,
     GC_CMD_AM_SHORT_REPLY,
     GC_CMD_AM_LONG_REPLY,
     GC_CMD_AM_MEDIUM_REPLY,
@@ -121,37 +127,29 @@ typedef struct GC_Header {
   uint8_t command;	  	/* GC_CMD */
   uint8_t numargs;	       /* number of GASNet arguments */
   uint8_t handler;	        /* index of GASNet handler */
-  uint32_t from;		/* rank of packet origin */
 } GC_Header_t;
 
 
 /* This type is used to return credits */
 typedef struct gc_am_nop_packet {
   GC_Header_t header;
-  int sequence;
 } gc_am_nop_packet_t;
 
 /* This type is used by an AMShort message or reply */
 typedef struct gc_am_short_packet {
   GC_Header_t header;
-  int sequence;
   uint32_t args[];
 } gc_am_short_packet_t;
 
 typedef struct gc_am_short_packet_max {
   GC_Header_t header;
-  int sequence;
   uint32_t args[gasnet_AMMaxArgs()];
 } gc_am_short_packet_max_t;
 
 
-/* The last AMMedium of a sequence has valid handler, and numargs */
-#define GC_AM_LAST 1
-
 /* This type is used by an AMMedium message or reply */
 typedef struct gc_am_medium_packet {
   GC_Header_t header;
-  int sequence;
   size_t data_length;
   uint32_t args[];
 } gc_am_medium_packet_t;
@@ -159,7 +157,6 @@ typedef struct gc_am_medium_packet {
 
 typedef struct gc_am_medium_packet_max {
   GC_Header_t header;
-  int sequence;
   size_t data_length;
   uint32_t args[gasnet_AMMaxArgs()];
 } gc_am_medium_packet_max_t;
@@ -167,7 +164,6 @@ typedef struct gc_am_medium_packet_max {
 /* This type is used by an AMLong message or reply */
 typedef struct gc_am_long_packet {
   GC_Header_t header;
-  int sequence;
   void *data;
   size_t data_length;
   uint32_t args[];
@@ -175,7 +171,6 @@ typedef struct gc_am_long_packet {
 
 typedef struct gc_am_long_packet_max {
   GC_Header_t header;
-  int sequence;
   void *data;
   size_t data_length;
   uint32_t args[gasnet_AMMaxArgs()];
@@ -184,7 +179,6 @@ typedef struct gc_am_long_packet_max {
 
 typedef struct gc_sys_shutdown_packet {
   GC_Header_t header;
-  int sequence;
   uint32_t distance;
   uint32_t exitcode;
 } gc_sys_shutdown_packet_t;
@@ -281,9 +275,9 @@ void gc_init_post_descriptor_pool(void);
 #define GASNETC_GNI_BOUNCE_REGISTER_CUTOVER_DEFAULT 8192
 #define GASNETC_GNI_BOUNCE_REGISTER_CUTOVER_MAX 32768
 /* a particular message up to this size goes via fma */
-#define GASNETC_GNI_FMA_RDMA_CUTOVER_DEFAULT 128
-#define GASNETC_GNI_FMA_RDMA_CUTOVER_MAX 128 /* bloats descriptor storage */
-
+#define GASNETC_GNI_FMA_RDMA_CUTOVER_DEFAULT 4096
+#define GASNETC_GNI_FMA_RDMA_CUTOVER_MAX 4096
+#define GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE 128
 gasnet_seginfo_t gc_bounce_buffers;   /* fields addr and size */
 gasnet_seginfo_t gc_pd_buffers;   /* fields addr and size */
 
@@ -316,7 +310,7 @@ typedef struct gc_post_descriptor {
   gni_post_descriptor_t pd;
   union {
     gc_am_long_packet_max_t galp;
-    char immediate[GASNETC_GNI_FMA_RDMA_CUTOVER_MAX];
+    char immediate[GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE];
   };
 } gc_post_descriptor_t;
 
