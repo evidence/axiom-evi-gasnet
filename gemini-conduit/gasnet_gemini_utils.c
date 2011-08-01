@@ -1,6 +1,6 @@
 #include <stdint.h>
 #include <assert.h>
-#include <gc.h>
+#include <gasnet_gemini.h>
 #include <pmi_cray.h>
 #include <string.h>
 #include <stdio.h>

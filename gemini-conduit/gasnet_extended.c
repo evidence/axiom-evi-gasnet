@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2011/06/29 18:51:00 $
- * $Revision: 1.1 $
+ *     $Date: 2011/08/01 20:11:52 $
+ * $Revision: 1.2 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -9,7 +9,7 @@
 #include <gasnet_internal.h>
 #include <gasnet_extended_internal.h>
 #include <gasnet_handler.h>
-#include <gc.h>
+#include <gasnet_gemini.h>
 
 static const gasnete_eopaddr_t EOPADDR_NIL = { { 0xFF, 0xFF } };
 extern void _gasnete_iop_check(gasnete_iop_t *iop) { gasnete_iop_check(iop); }

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2011/07/28 05:48:17 $
- * $Revision: 1.3 $
+ *     $Date: 2011/08/01 20:11:52 $
+ * $Revision: 1.4 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -10,7 +10,7 @@
 #include <gasnet_internal.h>
 #include <gasnet_handler.h>
 #include <gasnet_core_internal.h>
-#include <gc.h>
+#include <gasnet_gemini.h>
 #include <alps/libalpslli.h>
 
 #include <errno.h>
