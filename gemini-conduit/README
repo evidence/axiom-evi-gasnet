@@ -1,6 +1,6 @@
 GASNet gemini-conduit documentation
 Your Name <stewart@serissa.com> ###
-$Revision: 1.1 $
+$Revision: 1.2 $
 
 User Information:
 -----------------
@@ -76,7 +76,7 @@ Optional compile-time settings:
 
 * All the compile-time settings from extended-ref (see the extended-ref README)
 
-in gemini-conduit/gc.h
+in gemini-conduit/gasnet_gemini.h
 
 GASNETC_USE_SPINLOCK	- 0 user gasneti_mutex_t (default)
 			  1 use gasneti_spinlock_t
@@ -100,7 +100,7 @@ The desired number of Post Descriptors
 #define GASNETC_GNI_FMA_RDMA_CUTOVER_MAX 128 /* bloats descriptor storage */
 
 
-in gemini-conduit/gc.c
+in gemini-conduit/gasnet_gemini.c
 
 /* Set to 4 time the number of outstanding AMs you want */
 #define MB_MAXCREDIT 64  
