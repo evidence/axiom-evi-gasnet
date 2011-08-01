@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2011/07/28 07:35:51 $
- * $Revision: 1.281 $
+ *     $Date: 2011/08/01 21:34:02 $
+ * $Revision: 1.282 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -89,8 +89,10 @@ typedef struct {
     void 			*linkage;
     struct {
       /* Fields intialized at recv time: */
-      int                   	needReply;
+    #if GASNET_DEBUG
       int                   	handlerRunning;
+    #endif
+      int                   	needReply;
       uint32_t              	flags;
     }				am;
   } u;
@@ -103,8 +105,10 @@ typedef struct {
   gasnetc_rcv_wr_t        	rr_desc;        /* recv request descriptor */
   gasnetc_sge_t			rr_sg;          /* single-entry scatter list */
 } gasnetc_rbuf_t;
-#define rbuf_needReply		u.am.needReply
+#if GASNET_DEBUG
 #define rbuf_handlerRunning	u.am.handlerRunning
+#endif
+#define rbuf_needReply		u.am.needReply
 #define rbuf_flags		u.am.flags
 
 typedef enum {
@@ -674,7 +678,9 @@ void gasnetc_processPacket(gasnetc_cep_t *cep, gasnetc_rbuf_t *rbuf, uint32_t fl
   #endif
 
   rbuf->rbuf_needReply = GASNETC_MSG_ISREQUEST(flags);
+#if GASNET_DEBUG
   rbuf->rbuf_handlerRunning = 1;
+#endif
   rbuf->rbuf_flags = flags;
 
   /* Locate arguments */
@@ -764,7 +770,9 @@ void gasnetc_processPacket(gasnetc_cep_t *cep, gasnetc_rbuf_t *rbuf, uint32_t fl
       break;
   }
   
+#if GASNET_DEBUG
   rbuf->rbuf_handlerRunning = 0;
+#endif
 }
 
 #if GASNETC_SND_REAP_COLLECT
@@ -1151,8 +1159,14 @@ gasnetc_cep_t *gasnetc_bind_cep_inner(gasnetc_epid_t epid, gasnetc_sreq_t *sreq,
 
 #define gasnetc_bind_cep(e,s,o,l) gasnetc_bind_cep_inner((e),(s),(o),(l),0)
 
-#define gasnetc_ack(_token) \
-      GASNETI_SAFE(gasnetc_ReplySysShort((_token), NULL, gasneti_handleridx(gasnetc_ack), 0))
+GASNETI_INLINE (gasnetc_ack)
+void gasnetc_ack(gasnetc_rbuf_t *rbuf) {
+  #if GASNET_DEBUG
+    rbuf->rbuf_handlerRunning = 1; /* To satisfy assertion on Reply path */
+  #endif
+    GASNETI_SAFE(gasnetc_ReplySysShort((gasnet_token_t)rbuf, NULL,
+                                       gasneti_handleridx(gasnetc_ack), 0));
+}
 
 GASNETI_INLINE (gasnetc_hidden_ack)
 void gasnetc_hidden_ack(gasnetc_rbuf_t *rbuf, gasnetc_cep_t *cep) {
@@ -1166,10 +1180,7 @@ void gasnetc_hidden_ack(gasnetc_rbuf_t *rbuf, gasnetc_cep_t *cep) {
     old = gasneti_weakatomic_read(&cep->am_flow.credit, 0);
     if (old >= gasnetc_am_credits_slack) {
       /* MUST send back a reply */
-   #if GASNET_DEBUG
-      rbuf->rbuf_handlerRunning = 1; /* To satisfy assertion on Reply path */
-   #endif
-      gasnetc_ack((gasnet_token_t)rbuf);
+      gasnetc_ack(rbuf);
       break;
     }
     gasneti_assert(!gasnetc_use_srq); /* No coalescing when using SRQ */
@@ -1223,7 +1234,7 @@ void gasnetc_rcv_am(const gasnetc_wc_t *comp, gasnetc_rbuf_t **spare_p) {
     gasnetc_processPacket(cep, rbuf, flags);
     if_pf (rbuf->rbuf_needReply) {
       /* MUST send back a reply - no coallescing */
-      gasnetc_ack((gasnet_token_t)rbuf);
+      gasnetc_ack(rbuf);
     }
 
     gasnetc_rcv_post(orig_cep, rbuf);
