@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2011/07/28 07:35:51 $
- * $Revision: 1.289 $
+ *     $Date: 2011/08/02 02:33:39 $
+ * $Revision: 1.290 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1226,11 +1226,6 @@ static int gasnetc_init(int *argc, char ***argv) {
               "         GASNET_USE_XRC=0 or reconfigure with --disble-ibv-xrc.\n"
              );
     }
-
-    if (gasneti_nodes == 1) {
-      /* No warning - this just simplifies code that would SEGV otherwise */
-      gasnetc_use_xrc = 0;
-    }
   }
 #endif /* GASNETC_IBV_XRC */
 
@@ -1313,6 +1308,11 @@ static int gasnetc_init(int *argc, char ***argv) {
   
 #if GASNETC_IBV_XRC
   /* allocate/initialize XRC resources, if any */
+  if ((gasneti_nodemap_global_count == 1) ||
+      (gasneti_nodemap_global_count == gasneti_nodes)) {
+    /* No warning.  Includs case(s) that would SEGV otherwise */
+    gasnetc_use_xrc = 0;
+  } else
   if (gasnetc_use_xrc) {
     i = gasnetc_xrc_init();
     if (i != GASNET_OK) {
