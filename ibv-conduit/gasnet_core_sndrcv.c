@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2011/08/01 21:34:02 $
- * $Revision: 1.282 $
+ *     $Date: 2011/08/03 01:20:27 $
+ * $Revision: 1.283 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -2042,7 +2042,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
     case gasnetc_Short:
       msg_len = GASNETC_MSG_SHORT_ARGSEND(numargs);
 #if !GASNETC_ALLOW_0BYTE_MSG
-      if (!msg_len) msg_len = 1; /* Mellanox bug (zero-length sends) work-around */
+      if (!msg_len) msg_len = 4; /* Mellanox bug (zero-length sends) work-around */
 #endif
       break;
   
