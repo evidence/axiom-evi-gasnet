@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2011/08/20 01:11:15 $
- * $Revision: 1.84 $
+ *     $Date: 2011/08/20 01:53:34 $
+ * $Revision: 1.85 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1308,7 +1308,7 @@ gasneti_AttachRemote(uintptr_t segsize, const gasnet_node_t pshm_node,
     GASNETI_TRACE_PRINTF(C, ("Final segment: segbase="GASNETI_LADDRFMT"  segsize=%lu",
     GASNETI_LADDRSTR(segbase), (unsigned long)segsize));
 
-    seginfo[node].remote_addr = segbase;
+    seginfo[node].pshm_offset = (uintptr_t)segbase - (uintptr_t)seginfo[node].addr;
   
     if (segsize < seginfo[node].size){
         fprintf(stderr,"ERROR: Not enough memory! Process %d tried mapping %lu bytes, but only %lu bytes available.\n",
@@ -1335,14 +1335,14 @@ void gasneti_segmentAttach(uintptr_t segsize, uintptr_t minheapoffset,
     /* Avoid leaking shared memory files in case of non-collective exit between init/attach */
     gasneti_pshmnet_bootstrapBarrier();
 
-    gasneti_segment.remote_addr = 0;
+    gasneti_segment.pshm_offset = ~(uintptr_t)0;
 #endif
 
     gasneti_segmentAttachLocal(segsize, minheapoffset, seginfo, exchangefn);
     (*exchangefn)(&gasneti_segment, sizeof(gasnet_seginfo_t), seginfo);
 
 #if GASNET_PSHM
-    seginfo[gasneti_mynode].remote_addr = seginfo[gasneti_mynode].addr;
+    seginfo[gasneti_mynode].pshm_offset = 0;
     for(i=0; i<gasneti_pshm_nodes; i++){
       if (i == gasneti_pshm_mynode) continue;
       ar = gasneti_AttachRemote(seginfo[i].size, i, minheapoffset, seginfo);
@@ -1355,7 +1355,6 @@ void gasneti_segmentAttach(uintptr_t segsize, uintptr_t minheapoffset,
   #if GASNETI_PSHM_CORRECTION
   { /* XXX:  C99 VLA used here!! */
     uintptr_t min_corrections[gasneti_pshm_nodes], initial_sizes[gasneti_pshm_nodes], abs_min;
-    void * remote_addr[gasneti_pshm_nodes];
     uintptr_t *all_seginfo_corrections = NULL;
 
     all_seginfo_corrections = (uintptr_t *)gasneti_malloc(gasneti_nodes*gasneti_pshm_nodes*sizeof(uintptr_t));
@@ -1385,7 +1384,7 @@ void gasneti_segmentAttach(uintptr_t segsize, uintptr_t minheapoffset,
     /* Save remote info */
     for(i=0; i<gasneti_pshm_nodes; i++){
         gasnet_node_t node = gasneti_nodemap_local[i];
-        remote_addr[i] = seginfo[node].remote_addr;
+        pshm_offset[i] = seginfo[node].pshm_offset;
     }
 
     /* First re-attach the local segment! */
@@ -1397,10 +1396,8 @@ void gasneti_segmentAttach(uintptr_t segsize, uintptr_t minheapoffset,
     /* Restore remote info */
     for(i=0; i<gasneti_pshm_nodes; i++){
         gasnet_node_t node = gasneti_nodemap_local[i];
-        seginfo[node].remote_addr = remote_addr[i];
+        seginfo[node].pshm_offset = pshm_offset[i];
     }
-
-    seginfo[gasneti_mynode].remote_addr = seginfo[gasneti_mynode].addr;
 
     /* Re-attach all the remote segments that need to be re-attached */
     for(i=0; i<gasneti_pshm_nodes; i++){
@@ -1763,17 +1760,11 @@ void gasneti_auxseg_attach(void) {
     /* break up fullseg into client seg and auxseg */
     for (j=0; j < gasneti_nodes; j++) {
       #if GASNETI_FORCE_CLIENTSEG_TO_BASE
-        #if GASNET_PSHM
-        gasneti_seginfo_client[j].remote_addr = gasneti_seginfo[j].remote_addr;
-        #endif
         gasneti_seginfo_client[j].addr = gasneti_seginfo[j].addr;
         gasneti_seginfo_client[j].size = gasneti_seginfo[j].size - gasneti_auxseg_sz;
         si[j].addr = (void *)(((uintptr_t)gasneti_seginfo_client[j].addr) + gasneti_seginfo_client[j].size);
         si[j].size = gasneti_auxseg_sz;
       #else /* place auxseg at bottom of fullseg by default, to reduce chance of client overflow damage */
-        #if GASNET_PSHM
-        gasneti_seginfo_client[j].remote_addr = (void *)(((uintptr_t)gasneti_seginfo[j].remote_addr) + gasneti_auxseg_sz);
-        #endif
         gasneti_seginfo_client[j].addr = (void *)(((uintptr_t)gasneti_seginfo[j].addr) + gasneti_auxseg_sz);
         gasneti_seginfo_client[j].size = gasneti_seginfo[j].size - gasneti_auxseg_sz;
         si[j].addr = gasneti_seginfo[j].addr;

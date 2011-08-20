@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet.h,v $
- *     $Date: 2010/10/13 05:41:52 $
- * $Revision: 1.66 $
+ *     $Date: 2011/08/20 01:53:34 $
+ * $Revision: 1.67 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -286,7 +286,8 @@ GASNETI_END_EXTERNC
     void *addr;
     uintptr_t size;
   #if GASNET_PSHM
-    void *remote_addr;
+    /* Value one must add to find locally mapped address, if any. */
+    uintptr_t pshm_offset;
   #endif
   } gasnet_seginfo_t;
 #endif
