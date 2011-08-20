@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.c,v $
- *     $Date: 2011/07/21 03:15:35 $
- * $Revision: 1.39 $
+ *     $Date: 2011/08/20 03:34:43 $
+ * $Revision: 1.40 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -140,6 +140,30 @@ void *gasneti_pshm_init(gasneti_bootstrapExchangefn_t exchangefn, size_t aux_sz)
 
   gasneti_assert(gasneti_pshm_supernodes > 0);
 
+  /* compute size of vnet shared memory region */
+  vnetsz = gasneti_pshmnet_memory_needed(gasneti_pshm_nodes); 
+  mmapsz = (2*vnetsz);
+  { /* gasneti_pshm_info contains multiple variable-length arrays in the same space */
+    size_t info_sz;
+    /* space for gasneti_pshm_firsts: */
+    info_sz = gasneti_pshm_supernodes * sizeof(gasnet_node_t);
+    /* optional space for gasneti_pshm_rankmap: */
+    if (discontig) {
+      info_sz = GASNETI_ALIGNUP(info_sz, sizeof(gasneti_pshm_rank_t));
+      info_sz += gasneti_nodes * sizeof(gasneti_pshm_rank_t);
+    }
+    /* space for the PSHM intra-node barrier: */
+    info_sz = GASNETI_ALIGNUP(info_sz, GASNETI_CACHE_LINE_BYTES);
+    info_sz += sizeof(gasneti_pshm_barrier_t) +
+	       (gasneti_pshm_nodes-1) * sizeof(gasneti_pshm_barrier->node);
+    /* space for early barrier, sharing space with the items above: */
+    info_sz = MAX(info_sz, gasneti_pshm_nodes * sizeof(sig_atomic_t));
+    info_sz += offsetof(struct gasneti_pshm_info, early_barrier);
+    /* final space requested: */
+    mmapsz += round_up_to_pshmpage(info_sz);
+  }
+  mmapsz += round_up_to_pshmpage(aux_sz);
+
   /* setup filenames, unless exchangefn is NULL (indicating caller took care of it) */
   if (exchangefn != NULL) {
 #ifdef GASNETI_PSHM_SYSV
@@ -192,28 +216,6 @@ void *gasneti_pshm_init(gasneti_bootstrapExchangefn_t exchangefn, size_t aux_sz)
     
   /* setup vnet shared memory region for AM infrastructure and supernode barrier.
    */
-  vnetsz = gasneti_pshmnet_memory_needed(gasneti_pshm_nodes); 
-  mmapsz = (2*vnetsz);
-  { /* gasneti_pshm_info contains multiple variable-length arrays in the same space */
-    size_t info_sz;
-    /* space for gasneti_pshm_firsts: */
-    info_sz = gasneti_pshm_supernodes * sizeof(gasnet_node_t);
-    /* optional space for gasneti_pshm_rankmap: */
-    if (discontig) {
-      info_sz = GASNETI_ALIGNUP(info_sz, sizeof(gasneti_pshm_rank_t));
-      info_sz += gasneti_nodes * sizeof(gasneti_pshm_rank_t);
-    }
-    /* space for the PSHM intra-node barrier: */
-    info_sz = GASNETI_ALIGNUP(info_sz, GASNETI_CACHE_LINE_BYTES);
-    info_sz += sizeof(gasneti_pshm_barrier_t) +
-	       (gasneti_pshm_nodes-1) * sizeof(gasneti_pshm_barrier->node);
-    /* space for early barrier, sharing space with the items above: */
-    info_sz = MAX(info_sz, gasneti_pshm_nodes * sizeof(sig_atomic_t));
-    info_sz += offsetof(struct gasneti_pshm_info, early_barrier);
-    /* final space requested: */
-    mmapsz += round_up_to_pshmpage(info_sz);
-  }
-  mmapsz += round_up_to_pshmpage(aux_sz);
   gasnetc_pshmnet_region = gasneti_mmap_vnet(mmapsz);
   if (gasnetc_pshmnet_region == NULL) {
     gasneti_unlink_vnet();
