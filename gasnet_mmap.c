@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2011/06/05 01:46:58 $
- * $Revision: 1.83 $
+ *     $Date: 2011/08/20 01:11:15 $
+ * $Revision: 1.84 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1762,15 +1762,18 @@ void gasneti_auxseg_attach(void) {
     si = gasneti_malloc(gasneti_nodes*sizeof(gasnet_seginfo_t));
     /* break up fullseg into client seg and auxseg */
     for (j=0; j < gasneti_nodes; j++) {
-      #if GASNET_PSHM
-        gasneti_seginfo_client[j].remote_addr = (void *)(((uintptr_t)gasneti_seginfo[j].remote_addr) + gasneti_auxseg_sz);
-      #endif
       #if GASNETI_FORCE_CLIENTSEG_TO_BASE
+        #if GASNET_PSHM
+        gasneti_seginfo_client[j].remote_addr = gasneti_seginfo[j].remote_addr;
+        #endif
         gasneti_seginfo_client[j].addr = gasneti_seginfo[j].addr;
         gasneti_seginfo_client[j].size = gasneti_seginfo[j].size - gasneti_auxseg_sz;
         si[j].addr = (void *)(((uintptr_t)gasneti_seginfo_client[j].addr) + gasneti_seginfo_client[j].size);
         si[j].size = gasneti_auxseg_sz;
       #else /* place auxseg at bottom of fullseg by default, to reduce chance of client overflow damage */
+        #if GASNET_PSHM
+        gasneti_seginfo_client[j].remote_addr = (void *)(((uintptr_t)gasneti_seginfo[j].remote_addr) + gasneti_auxseg_sz);
+        #endif
         gasneti_seginfo_client[j].addr = (void *)(((uintptr_t)gasneti_seginfo[j].addr) + gasneti_auxseg_sz);
         gasneti_seginfo_client[j].size = gasneti_seginfo[j].size - gasneti_auxseg_sz;
         si[j].addr = gasneti_seginfo[j].addr;
