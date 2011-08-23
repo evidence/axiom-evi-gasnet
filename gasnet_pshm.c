@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.c,v $
- *     $Date: 2011/08/20 03:34:43 $
- * $Revision: 1.40 $
+ *     $Date: 2011/08/23 02:24:32 $
+ * $Revision: 1.41 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -179,7 +179,7 @@ void *gasneti_pshm_init(gasneti_bootstrapExchangefn_t exchangefn, size_t aux_sz)
 
     /* gasneti_pshm_sysvkeys was allocated by first call to pshm_makekey() */
     for(i=0; i<gasneti_pshm_nodes; i++){
-        gasneti_pshm_sysvkeys[i] = exchg[gasneti_pshm_firstnode+i];
+        gasneti_pshm_sysvkeys[i] = exchg[gasneti_nodemap_local[i]];
     }
     
     /* PSHM rank 0 gets the key for vnet region */
