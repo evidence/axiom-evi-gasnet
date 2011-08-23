@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.c,v $
- *     $Date: 2011/08/23 02:24:32 $
- * $Revision: 1.41 $
+ *     $Date: 2011/08/23 04:44:03 $
+ * $Revision: 1.42 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -169,24 +169,16 @@ void *gasneti_pshm_init(gasneti_bootstrapExchangefn_t exchangefn, size_t aux_sz)
 #ifdef GASNETI_PSHM_SYSV
     unsigned int *exchg;
     unsigned int tmp_sysvkey;
-    
-    /* Each node gets the key for it's own memory region */
-    tmp_sysvkey = gasneti_pshm_makekey(gasneti_pshm_mynode);
 
-    /* The keys are exchanged */
+    gasneti_pshm_sysvkeys = (unsigned int *)gasneti_malloc((gasneti_pshm_nodes+1)*sizeof(unsigned int));
     exchg = gasneti_malloc((gasneti_nodes)*sizeof(unsigned int));
-    (*exchangefn)(&tmp_sysvkey, sizeof(unsigned int), exchg);
 
-    /* gasneti_pshm_sysvkeys was allocated by first call to pshm_makekey() */
-    for(i=0; i<gasneti_pshm_nodes; i++){
-        gasneti_pshm_sysvkeys[i] = exchg[gasneti_nodemap_local[i]];
-    }
-    
     /* PSHM rank 0 gets the key for vnet region */
     if (gasneti_pshm_mynode==0) {
         tmp_sysvkey = gasneti_pshm_makekey(gasneti_pshm_nodes);
     }
-    /* vnet key is broadcasted */
+
+    /* vnet key is supernode-broadcast using global exchange */
     (*exchangefn)(&tmp_sysvkey, sizeof(unsigned int), exchg);
     gasneti_pshm_sysvkeys[gasneti_pshm_nodes] = exchg[gasneti_pshm_firstnode];
     
@@ -303,6 +295,18 @@ void *gasneti_pshm_init(gasneti_bootstrapExchangefn_t exchangefn, size_t aux_sz)
 
   /* Ensure all peers are initialized before return */
   gasneti_pshmnet_bootstrapBarrier();
+
+#ifdef GASNETI_PSHM_SYSV
+  if (exchangefn != NULL) {
+    /* Each node gets the key for it's own memory region */
+    unsigned int tmp_sysvkey = gasneti_pshm_makekey(gasneti_pshm_mynode);
+
+    /* The segment keys are exchanged */
+    gasneti_pshmnet_bootstrapExchange(gasneti_request_pshmnet,
+                                      &tmp_sysvkey, sizeof(tmp_sysvkey),
+                                      gasneti_pshm_sysvkeys);
+  }
+#endif
 
   /* Return the conduit's portion, if any */
   return aux_sz ? (void*)((uintptr_t)gasnetc_pshmnet_region +

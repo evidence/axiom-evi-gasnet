@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2011/08/20 22:38:58 $
- * $Revision: 1.86 $
+ *     $Date: 2011/08/23 04:44:03 $
+ * $Revision: 1.87 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -198,10 +198,6 @@ unsigned int gasneti_pshm_makekey(int pshm_rank) {
         gasneti_fatalerror("mkstemp() failed to find a unique prefix: %s", strerror(errno));
     }
     /* Don't unlink() it until we no longer require uniqueness */
-
-    /* Also, since this si the first call: */
-    gasneti_assert(gasneti_pshm_sysvkeys == NULL);
-    gasneti_pshm_sysvkeys = (unsigned int *)gasneti_malloc((gasneti_pshm_nodes+1)*sizeof(unsigned int));
   }
 
   /* ftok() is documented (on at least some systems) as using only low 8 bits */
