@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.c,v $
- *     $Date: 2011/08/23 04:44:03 $
- * $Revision: 1.42 $
+ *     $Date: 2011/08/23 05:42:29 $
+ * $Revision: 1.43 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -102,6 +102,8 @@ void *gasneti_pshm_init(gasneti_bootstrapExchangefn_t exchangefn, size_t aux_sz)
   gasnet_node_t j;
 #endif
 
+  gasneti_assert(exchangefn != NULL);  /* NULL exchangefn no longer supported */
+
   /* Testing if the number of PSHM nodes is always smaller than GASNETI_PSHM_MAX_NODES */
   pshm_max_nodes = gasneti_calloc(gasneti_nodes, sizeof(gasneti_pshm_rank_t));
   for(i=0; i<gasneti_nodes; i++){
@@ -165,7 +167,7 @@ void *gasneti_pshm_init(gasneti_bootstrapExchangefn_t exchangefn, size_t aux_sz)
   mmapsz += round_up_to_pshmpage(aux_sz);
 
   /* setup filenames, unless exchangefn is NULL (indicating caller took care of it) */
-  if (exchangefn != NULL) {
+  {
 #ifdef GASNETI_PSHM_SYSV
     unsigned int *exchg;
     unsigned int tmp_sysvkey;
@@ -297,7 +299,7 @@ void *gasneti_pshm_init(gasneti_bootstrapExchangefn_t exchangefn, size_t aux_sz)
   gasneti_pshmnet_bootstrapBarrier();
 
 #ifdef GASNETI_PSHM_SYSV
-  if (exchangefn != NULL) {
+  {
     /* Each node gets the key for it's own memory region */
     unsigned int tmp_sysvkey = gasneti_pshm_makekey(gasneti_pshm_mynode);
 
