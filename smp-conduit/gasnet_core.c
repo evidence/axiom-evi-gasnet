@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_core.c,v $
- *     $Date: 2011/07/21 03:15:37 $
- * $Revision: 1.67 $
+ *     $Date: 2011/08/23 05:41:54 $
+ * $Revision: 1.68 $
  * Description: GASNet smp conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -89,6 +89,8 @@ static void gasnetc_bootstrapBarrier(void) {
 #if GASNET_PSHM
 #include <sys/types.h>
 #include <sys/wait.h>
+
+static int *gasnetc_fds = NULL;
 
 #define GASNETC_DEFAULT_EXITTIMEOUT_MAX       20.
 #define GASNETC_DEFAULT_EXITTIMEOUT_MIN       10.
@@ -327,6 +329,33 @@ static void gasnetc_join_children(void) {
   alarm(0);
 }
 
+/* Broadcast from node0 to peers
+   This is a sufficient substitute for full Exchange in gasneti_pshm_init() */
+static void gasnet_bootstrap_bcast0(void *src, size_t len, void *dest)
+{
+  ssize_t rc;
+  int i;
+
+  gasneti_assert(gasnetc_fds != NULL);
+
+  if (gasneti_mynode == 0) {
+    for (i = 1; i < gasneti_nodes; ++i) {
+      do {
+        rc = write(gasnetc_fds[2 * i + 1], src, len);
+        /* retry on interruption */
+      } while ((rc == -1) && (errno == EINTR));
+      gasneti_assert(rc == len);
+    }
+    memmove(dest, src, len);
+  } else {
+    do {
+      rc = read(gasnetc_fds[2 * gasneti_mynode], dest, len);
+      /* retry on interruption */
+    } while ((rc == -1) && (errno == EINTR));
+    gasneti_assert(rc == len);
+  }
+}
+
 static int gasnetc_get_pshm_nodecount(void)
 {
   gasnet_node_t nodes = gasneti_getenv_int_withdefault("GASNET_PSHM_NODES", 0, 0);
@@ -351,6 +380,9 @@ static int gasnetc_get_pshm_nodecount(void)
 /* ------------------------------------------------------------------------------------ */
 
 static int gasnetc_init(int *argc, char ***argv) {
+#if GASNET_PSHM
+  int i;
+#endif
   /*  check system sanity */
   gasnetc_check_config();
 
@@ -373,23 +405,11 @@ static int gasnetc_init(int *argc, char ***argv) {
 #if GASNET_PSHM
   gasneti_nodes = gasnetc_get_pshm_nodecount();
 
-  /* Create unique names for shmem files or keys for sysv segments.
-   * We do this here, since we get a chicken-and-egg problem if we
-   * were to call gasneti_pshm_init() with our bootstrapExchange.
-   * PLUS its just plain simpler to do this pre-fork().
-   */
-  gasneti_pshm_nodes = gasneti_nodes;
-#ifdef GASNETI_PSHM_SYSV
-  { int i;
-    for(i=0; i<gasneti_pshm_nodes+1; i++){
-      unsigned int key = gasneti_pshm_makekey(i);
-      /* gasneti_pshm_sysvkeys allocated on first call to makekey */
-      gasneti_pshm_sysvkeys[i] = key;
-    }
+  /* pipes for intra-process bootstrap comms */
+  gasnetc_fds = gasneti_malloc(2 * gasneti_nodes * sizeof(int));
+  for (i = 0; i < gasneti_nodes; ++i) {
+    gasneti_assert_zeroret( pipe(&gasnetc_fds[2 * i]) );
   }
-#else
-  (void)gasneti_pshm_makenames(NULL);
-#endif
 
   /* A fork in the road! */
   gasnetc_fork_children();
@@ -414,7 +434,9 @@ static int gasnetc_init(int *argc, char ***argv) {
 
   #if GASNET_PSHM
   {
-    struct gasnetc_exit_data *tmp = gasneti_pshm_init(NULL, GASNETC_EXIT_DATA_SZ);
+    struct gasnetc_exit_data *tmp;
+
+    tmp = gasneti_pshm_init(&gasnet_bootstrap_bcast0, GASNETC_EXIT_DATA_SZ);
     if (!gasneti_mynode) {
       /* Relocate the pid table to shared space */
       memcpy(tmp, gasnetc_exit_data, GASNETC_EXIT_DATA_SZ);
@@ -423,6 +445,12 @@ static int gasnetc_init(int *argc, char ***argv) {
       gasneti_atomic_set(&tmp->exitcode, 0, 0);
     }
     gasnetc_exit_data = tmp;
+
+    /* Done w/ bootstrap comms (move later if it becomes necessary) */
+    for (i = 0; i < gasneti_nodes; ++i) {
+      gasneti_assert_zeroret( close(gasnetc_fds[2 * i    ]) );
+      gasneti_assert_zeroret( close(gasnetc_fds[2 * i + 1]) );
+    }
   }
   #endif
 
