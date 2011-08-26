@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2011/07/07 00:12:18 $
-dnl $Revision: 1.159 $
+dnl     $Date: 2011/08/26 06:14:04 $
+dnl $Revision: 1.160 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -1561,6 +1561,8 @@ GASNET_FUN_END([$0($1,$2,...)])
 AC_DEFUN([GASNET_PROG_CPP], [
   GASNET_FUN_BEGIN([$0])
   AC_PROVIDE([$0])
+  AC_REQUIRE([AC_PROG_CC]) dnl bug 2648, 2748 
+  AC_REQUIRE([AC_PROG_CPP])
   AC_PROG_CC
   AC_PROG_CPP
   GASNET_GETFULLPATH(CPP)
@@ -1605,6 +1607,8 @@ AC_DEFUN([GASNET_PROG_CPP], [
 AC_DEFUN([GASNET_PROG_CXXCPP], [
   GASNET_FUN_BEGIN([$0])
   AC_PROVIDE([$0])
+  AC_REQUIRE([AC_PROG_CXX]) dnl bug 2648, 2748 
+  AC_REQUIRE([AC_PROG_CXXCPP])
   AC_PROG_CXX
   AC_PROG_CXXCPP
   GASNET_GETFULLPATH(CXXCPP)
@@ -1754,6 +1758,7 @@ AC_DEFUN([GASNET_HOSTCC_BEGIN], [
   GASNET_PUSHVAR_UNSET(ac_cv_c_compiler_gnu)
   GASNET_PUSHVAR_UNSET(ac_cv_prog_cc_g)
   GASNET_PUSHVAR_UNSET(ac_cv_prog_cc_stdc)
+  GASNET_PUSHVAR_UNSET(ac_cv_objext)
   GASNET_PUSHVAR(cross_compiling,"no")
 
   GASNET_FUN_END([$0])
@@ -1776,6 +1781,7 @@ AC_DEFUN([GASNET_HOSTCC_END], [
   GASNET_POPVAR(ac_cv_c_compiler_gnu)
   GASNET_POPVAR(ac_cv_prog_cc_g)
   GASNET_POPVAR(ac_cv_prog_cc_stdc)
+  GASNET_POPVAR(ac_cv_objext)
   GASNET_POPVAR(cross_compiling)
 
   GASNET_FUN_END([$0])
