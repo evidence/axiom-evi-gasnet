@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2011/07/27 02:42:48 $
-# $Revision: 1.691 $
+#     $Date: 2011/09/04 00:13:18 $
+# $Revision: 1.692 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.691 $)
+AC_REVISION($Revision: 1.692 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -4030,20 +4030,18 @@ fi
 # BACKTRACE support
 
 GASNET_IF_ENABLED_WITH_AUTO(backtrace, [support backtrace, via any mechanism (auto-detected)],
-                 [use_backtrace="yes"], [use_backtrace="no"], [
+                 [use_backtrace="try"], [use_backtrace="no"], [
 		 if test "$cross_compiling" = "yes" ; then
 		   # disable backtrace support by default when cross-compiling, 
 		   # because the debuggers on the host system running configure are usually not what we want for the target
 		   use_backtrace="no"
 		 else
-		   use_backtrace="yes"
+		   use_backtrace="try"
 		 fi
 		 ])
 
-if test "$use_backtrace" = "yes" ; then
-
 GASNET_IF_ENABLED_WITH_AUTO(backtrace-execinfo, support backtrace via execinfo.h (auto-detected),
-                 [use_execinfo="yes"], [use_execinfo="no"], [use_execinfo="try"])
+                 [use_execinfo="yes"], [use_execinfo="no"], [use_execinfo="$use_backtrace"])
 if test "$use_execinfo" != no; then
   AC_CHECK_HEADERS(execinfo.h)
   if test "$ac_cv_header_execinfo_h" = "yes" ; then
@@ -4059,7 +4057,7 @@ if test "$use_execinfo" != no; then
 fi
 
 GASNET_IF_ENABLED_WITH_AUTO(backtrace-gdb, support backtrace via gdb (auto-detected),
-                 [use_gdb="yes"], [use_gdb="no"], [use_gdb="try"])
+                 [use_gdb="yes"], [use_gdb="no"], [use_gdb="$use_backtrace"])
 if test "$use_gdb" != no; then
   AC_PATH_PROGS(GDB_PATH, $GDB gdb, , /usr/bin:${PATH})
   if test -n "$GDB_PATH"; then
@@ -4070,7 +4068,7 @@ if test "$use_gdb" != no; then
 fi
 
 GASNET_IF_ENABLED_WITH_AUTO(backtrace-pgdbg, support backtrace via pgdbg (auto-detected),
-                 [use_pgdbg="yes"], [use_pgdbg="no"], [use_pgdbg="try"])
+                 [use_pgdbg="yes"], [use_pgdbg="no"], [use_pgdbg="$use_backtrace"])
 if test "$use_pgdbg" != no; then
   AC_PATH_PROGS(PGDBG_PATH, $PGDBG pgdbg, , /usr/bin:${PATH})
   if test -n "$PGDBG_PATH"; then
@@ -4081,7 +4079,7 @@ if test "$use_pgdbg" != no; then
 fi
 
 GASNET_IF_ENABLED_WITH_AUTO(backtrace-idb, support backtrace via idb (auto-detected),
-                 [use_idb="yes"], [use_idb="no"], [use_idb="try"])
+                 [use_idb="yes"], [use_idb="no"], [use_idb="$use_backtrace"])
 if test "$use_idb" != no; then
   AC_PATH_PROGS(IDB_PATH, $IDB idb idb-e, , /usr/bin:${PATH})
   if test -n "$IDB_PATH"; then
@@ -4093,7 +4091,7 @@ fi
 
 
 GASNET_IF_ENABLED_WITH_AUTO(backtrace-ladebug, support backtrace via ladebug (auto-detected),
-                 [use_ladebug="yes"], [use_ladebug="no"], [use_ladebug="try"])
+                 [use_ladebug="yes"], [use_ladebug="no"], [use_ladebug="$use_backtrace"])
 if test "$use_ladebug" != no; then
   AC_PATH_PROGS(LADEBUG_PATH, $LADEBUG ladebug, , /usr/bin:${PATH})
   if test -n "$LADEBUG_PATH"; then
@@ -4104,7 +4102,7 @@ if test "$use_ladebug" != no; then
 fi
 
 GASNET_IF_ENABLED_WITH_AUTO(backtrace-dbx, support backtrace via dbx (auto-detected),
-                 [use_dbx="yes"], [use_dbx="no"], [use_dbx="try"])
+                 [use_dbx="yes"], [use_dbx="no"], [use_dbx="$use_backtrace"])
 if test "$use_dbx" != no; then
   AC_PATH_PROGS(DBX_PATH, $DBX dbx, , /usr/bin:${PATH})
   if test -n "$DBX_PATH"; then
@@ -4115,7 +4113,7 @@ if test "$use_dbx" != no; then
 fi
 
 GASNET_IF_ENABLED_WITH_AUTO(backtrace-printstack, support backtrace via printstack (auto-detected),
-                 [use_printstack="yes"], [use_printstack="no"], [use_printstack="try"])
+                 [use_printstack="yes"], [use_printstack="no"], [use_printstack="$use_backtrace"])
 if test "$use_printstack" != no; then
   have_printstack=no
   AC_CHECK_HEADERS(ucontext.h, [AC_CHECK_FUNC(printstack, [have_printstack=yes; AC_DEFINE(HAVE_PRINTSTACK)])])
@@ -4123,8 +4121,6 @@ if test "$use_printstack" != no; then
     AC_MSG_ERROR(User requested --enable-backtrace-printstack but printstack support was not found.)
   fi
 fi
-
-fi # use_backtrace
 
 ########################################################################
 # Try to discover the C compiler's inline modifier

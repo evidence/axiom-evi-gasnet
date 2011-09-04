@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2011/07/06 22:45:21 $
- * $Revision: 1.270 $
+ *     $Date: 2011/09/04 00:13:18 $
+ * $Revision: 1.271 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -964,9 +964,19 @@ static int gasneti_bt_mkstemp(char *filename, int limit) {
     int entries;
     char **fnnames = NULL;
     int i;
+    int have_addr2line = 0;
     entries = backtrace(btaddrs, MAXBT);
     #if HAVE_BACKTRACE_SYMBOLS
       fnnames = backtrace_symbols(btaddrs, entries);
+    #endif
+    #if defined(ADDR2LINE_PATH) && !GASNETI_NO_FORK
+      { FILE *fp = fopen(ADDR2LINE_PATH,"r"); /* make sure the executable is actually there */
+        if (fp) { have_addr2line = 1; fclose(fp); }
+        else {
+          const char *msg = "*** Warning: "ADDR2LINE_PATH" is unavailable to translate symbols\n";
+          gasneti_bt_rc_unused = write(fd, msg, strlen(msg));
+        }
+      }
     #endif
     for (i=0; i < entries; i++) {
       /* XXX: what if the write()s fail? */
@@ -980,6 +990,7 @@ static int gasneti_bt_mkstemp(char *filename, int limit) {
       }
 
       #if defined(ADDR2LINE_PATH) && !GASNETI_NO_FORK
+        if (have_addr2line)
         /* use addr2line when available to retrieve symbolic info */
         #define XLBUF 64 /* even as short as 2 bytes is still safe */
         { const char fmt[] = "%s -f -e '%s' %p";
