@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/Makefile.am,v $
-#     $Date: 2011/08/29 20:27:30 $
-# $Revision: 1.4 $
+#     $Date: 2011/09/04 00:23:33 $
+# $Revision: 1.5 $
 # Description: Makefile for GASNet gemini conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -38,8 +38,7 @@ CONDUIT_SOURCELIST =          \
 
 # additional -I or -D directives needed by this specific conduit
 # other than the standard GASNet includes and flags
-CONDUIT_EXTRALIBCFLAGS = -I/opt/cray/gni-headers/default/include \
-			-I/opt/cray/pmi/default/include
+CONDUIT_EXTRALIBCFLAGS = @GEMINI_INCLUDES@ 
 
 # additional conduit header files to install from external, non-standard directories
 CONDUIT_EXTRAHEADERS = 
