@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2011/06/05 20:32:16 $
- * $Revision: 1.142 $
+ *     $Date: 2011/09/05 08:03:46 $
+ * $Revision: 1.143 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -836,20 +836,24 @@ static void TEST_DEBUGPERFORMANCE_WARNING(void) {
 
 /* ------------------------------------------------------------------------------------ */
 /* local process and thread count management */
-static gasnet_node_t *_test_nodeinfo = NULL;
+static gasnet_nodeinfo_t *_test_nodeinfo = NULL;
+static gasnet_node_t _test_firstnode;
 static int _test_localprocs(void) { /* First call is not thread safe */
   static int count = 0;
   if (!count) {
-    gasnet_node_t my_nodeinfo;
+    gasnet_node_t my_supernode;
     gasnet_node_t i;
 
     assert(_test_nodeinfo == NULL);
-    _test_nodeinfo = (gasnet_node_t *)test_malloc(gasnet_nodes()*sizeof(gasnet_node_t));
+    _test_nodeinfo = (gasnet_nodeinfo_t *)test_malloc(gasnet_nodes()*sizeof(gasnet_nodeinfo_t));
     GASNET_Safe(gasnet_getNodeInfo(_test_nodeinfo, gasnet_nodes()));
 
-    my_nodeinfo = _test_nodeinfo[gasnet_mynode()];
+    my_supernode = _test_nodeinfo[gasnet_mynode()].supernode;
     for (i=0; i < gasnet_nodes(); i++) {
-      if (_test_nodeinfo[i] == my_nodeinfo) count++;
+      if (_test_nodeinfo[i].supernode == my_supernode) {
+        if (!count) _test_firstnode = i;
+        count++;
+      }
     }
   }
   assert(_test_nodeinfo);
@@ -863,7 +867,7 @@ static void _test_set_waitmode(int threads) {
   if (gasnett_getenv_yesno_withdefault("GASNET_TEST_POLITE_SYNC",0)) return;
 #if PLATFORM_OS_OPENBSD /* userland pthreads impl. runs on a single cpu core */
   if (threads > 1) {
-    if (_test_nodeinfo[gasnet_mynode()] == gasnet_mynode())
+    if (_test_firstnode == gasnet_mynode())
       MSG("WARNING: per-proc thread count (%i) exceeds platform's concurrency "
           "- enabling  \"polite\", low-performance synchronization algorithms",
           threads);
@@ -872,7 +876,7 @@ static void _test_set_waitmode(int threads) {
 #endif
   threads *= local_procs;
   if (threads > gasnett_cpu_count()) {
-    if (_test_nodeinfo[gasnet_mynode()] == gasnet_mynode())
+    if (_test_firstnode == gasnet_mynode())
       MSG("WARNING: per-node thread count (%i) exceeds physical cpu count (%i) "
           "- enabling  \"polite\", low-performance synchronization algorithms",
           threads, gasnett_cpu_count());

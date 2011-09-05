@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet.h,v $
- *     $Date: 2011/08/20 01:53:34 $
- * $Revision: 1.67 $
+ *     $Date: 2011/09/05 08:03:42 $
+ * $Revision: 1.68 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -285,11 +285,18 @@ GASNETI_END_EXTERNC
   typedef struct gasneti_seginfo_s {
     void *addr;
     uintptr_t size;
+  } gasnet_seginfo_t;
+#endif
+
+#ifndef _GASNET_NODEINFO_T
+#define _GASNET_NODEINFO_T
+  typedef struct gasneti_nodeinfo_s {
+    gasnet_node_t supernode;
   #if GASNET_PSHM
     /* Value one must add to find locally mapped address, if any. */
-    uintptr_t pshm_offset;
+    uintptr_t offset;
   #endif
-  } gasnet_seginfo_t;
+  } gasnet_nodeinfo_t;
 #endif
 
 #ifndef _GASNET_THREADINFO_T

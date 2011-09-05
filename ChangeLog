@@ -1,14 +1,14 @@
 GASNet ChangeLog 
 ----------------
-$Revision: 1.49 $
+$Revision: 1.50 $
 
 ----------------------------------------------------------------------
 10-xx-2011 : Release 1.18.0
 
 * General
-  - Field remote_addr in gasnet_seginfo_t replaced by pshm_offset.
-    If your GASNet client was using this undocumented field, then it
-    will need to be updated.  See gasnet.h for definition of pshm_offset.
+  - Field remote_addr in gasnet_seginfo_t has been removed and the signature
+    of gasnet_getNodeInfo() has changed.  If your GASNet client was using
+    these undocumented interfaces, then it will need to be updated.
 
 * PLACE HOLDER
 

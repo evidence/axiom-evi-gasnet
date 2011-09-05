@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2011/03/24 03:41:26 $
- * $Revision: 1.82 $
+ *     $Date: 2011/09/05 08:03:44 $
+ * $Revision: 1.83 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -342,7 +342,7 @@ gasnete_pshmbarrier_init_hier(gasnete_coll_team_t team, int *size_p, int *rank_p
       /* Created a sorted vector of (supernode,node) for members of this team */
       for (i = 0; i < total_ranks; ++i) {
         gasnet_node_t n = GASNETE_COLL_REL2ACT(team, i);
-        node_vector[2*i+0] = gasneti_pshm_node2supernode(n);
+        node_vector[2*i+0] = gasneti_node2supernode(n);
         node_vector[2*i+1] = n;
       }
       qsort(node_vector, total_ranks, 2*sizeof(gasnet_node_t), &gasnete_node_pair_sort_fn);

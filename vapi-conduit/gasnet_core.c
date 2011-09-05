@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2011/08/02 02:33:39 $
- * $Revision: 1.290 $
+ *     $Date: 2011/09/05 08:03:48 $
+ * $Revision: 1.291 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2462,7 +2462,7 @@ static void gasnetc_exit_init(void) {
 
       /* Convert global rank to node number */
       for (j = gasneti_mynode+1; j < gasneti_nodes; ++j) {
-        if (gasneti_nodeinfo[j] == rank) break;
+        if (gasneti_node2supernode(j) == rank) break;
       }
       gasneti_assert(j < gasneti_nodes);
       child[i] = j;
@@ -2482,7 +2482,7 @@ static void gasnetc_exit_init(void) {
     if (gasneti_mynode) {
       rank = (gasneti_nodemap_global_rank - 1) / exit_radix;
       for (j = 0; j < gasneti_mynode; ++j) {
-        if (gasneti_nodeinfo[j] == rank) break;
+        if (gasneti_node2supernode(j) == rank) break;
       }
       gasneti_assert(j < gasneti_mynode);
       gasnetc_exit_parent = j;

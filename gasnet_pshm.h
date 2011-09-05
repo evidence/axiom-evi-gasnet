@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.h,v $
- *     $Date: 2011/08/20 01:53:34 $
- * $Revision: 1.14 $
+ *     $Date: 2011/09/05 08:03:42 $
+ * $Revision: 1.15 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -177,14 +177,6 @@ extern gasnet_node_t gasneti_pshm_firstnode;
 #define gasneti_pshm_mysupernode (0+gasneti_nodemap_global_rank)
 /* vector of first node within each supernode */
 extern gasnet_node_t *gasneti_pshm_firsts;
-/* supernode number for an arbitrary node 
- * only available after gasnet_init() */
-#if GASNET_CONDUIT_SMP
-#define gasneti_pshm_node2supernode(n) 0
-#else
-#define gasneti_pshm_node2supernode(n) \
-  (gasneti_assert(gasneti_nodeinfo), gasneti_nodeinfo[(n)])
-#endif
 
 /* Non-NULL only when supernode members are non-contiguous */
 extern gasneti_pshm_rank_t *gasneti_pshm_rankmap;
@@ -230,7 +222,7 @@ int gasneti_pshm_in_supernode(gasnet_node_t node) {
 GASNETI_INLINE(gasneti_pshm_addr2local)
 void *gasneti_pshm_addr2local(gasnet_node_t node, void *addr) {
   return  (void*)((uintptr_t)addr
-                   + (uintptr_t)gasneti_seginfo[node].pshm_offset);
+                   + (uintptr_t)gasneti_nodeinfo[node].offset);
 } 
 
 /* Returns amount of memory needed (rounded up to a multiple of the system
