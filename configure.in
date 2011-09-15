@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2011/09/15 17:47:45 $
-# $Revision: 1.695 $
+#     $Date: 2011/09/15 19:27:42 $
+# $Revision: 1.696 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.695 $)
+AC_REVISION($Revision: 1.696 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -3529,24 +3529,50 @@ CONDUIT_DISALLOW_SEGMENT(everything)
 # set up include path for gni headers and pmi
 if test "$enabled_gemini" = yes; then
   have_gemini=yes # start by assuming we have it
+
   GASNET_ENV_DEFAULT(PE_DIR, /opt/cray)
-  GASNET_ENV_DEFAULT(PMI_INCLUDE, $PE_DIR/pmi/default/include)
-  GASNET_ENV_DEFAULT(GEMINI_INCLUDE, $PE_DIR/gni-headers/default/include)
-  GEMINI_INCLUDES="-I${GEMINI_INCLUDE} -I${PMI_INCLUDE} "
+  cray_pmi_guess=`pkg-config cray-pmi --cflags 2>/dev/null`
+  if test -z "$cray_pmi_guess"; then
+    cray_pmi_guess="$PE_DIR/pmi/default/include"
+  fi
+  GASNET_ENV_DEFAULT(PMI_CFLAGS, "$cray_pmi_guess")
+  cray_gni_guess=`pkg-config cray-gni-headers --cflags 2>/dev/null`
+  if test -z "$cray_gni_guess"; then
+    cray_gni_guess="$PE_DIR/gni-headers/default/include"
+  fi
+  GASNET_ENV_DEFAULT(GNI_CFLAGS, "$cray_gni_guess")
+
+  GEMINI_INCLUDES="${GNI_CFLAGS} ${PMI_CFLAGS}"
   GASNET_ENV_DEFAULT(GEMINI_LIBS,)
+
+  GASNET_PUSHVAR(CPPFLAGS,"$CPPFLAGS ${GEMINI_INCLUDES}")
+  GASNET_PUSHVAR(LIBS,"$LIBS ${GEMINI_LIBS}")
+
+  # These duplicate part of the "working Gemini configuration" probe.
+  # However, failing on these can help distinguish which module is missing/broken.
+  AC_CHECK_HEADERS(pmi_cray.h, [:], [have_gemini=no])
+  AC_CHECK_HEADERS(gni_pub.h, [:], [have_gemini=no])
 
   if test $have_gemini = yes; then
     # If/when we use firehose we need to disable certain optimizations.
     #GASNET_FH_CFLAGS
 
-    GASNET_PUSHVAR(CPPFLAGS,"$CPPFLAGS ${GEMINI_INCLUDES}")
-    GASNET_PUSHVAR(LIBS,"$LIBS ${GEMINI_LIBS}")
+    GASNET_TRY_CACHE_LINK(for working Gemini configuration, gemini_works, [
+      #include <stddef.h>
+      #include <stdint.h>
+      #include <gni_pub.h>
+      #include <pmi_cray.h>
+    ], [
+      gni_cdm_handle_t cdm_hndl;
+      gni_return_t rc = GNI_CdmDestroy(cdm_hndl);
 
-    AC_CHECK_HEADERS(pmi_cray.h, [:], [have_gemini=no])
-
-    GASNET_POPVAR(LIBS)
-    GASNET_POPVAR(CPPFLAGS)
+      int localranks;
+      int ret = PMI_Get_numpes_on_smp(&localranks); /* Cray extension */
+    ], [ : ], [ have_gemini=no; GASNET_ERR_SAVE() ] )
   fi
+
+  GASNET_POPVAR(LIBS)
+  GASNET_POPVAR(CPPFLAGS)
 
   AC_SUBST(GEMINI_LIBS)
   AC_SUBST(GEMINI_INCLUDES)
