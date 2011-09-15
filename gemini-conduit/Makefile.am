@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/Makefile.am,v $
-#     $Date: 2011/09/04 00:23:33 $
-# $Revision: 1.5 $
+#     $Date: 2011/09/15 19:35:56 $
+# $Revision: 1.6 $
 # Description: Makefile for GASNet gemini conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -63,7 +63,8 @@ CONDUIT_SPECIAL_OBJS =
 #   %Q = program arguments w/ an extra level of quotes
 #   %D = the current working directory
 #   %H = hostfile (if any)
-CONDUIT_RUNCMD = aprun -N 1 -n %N %P %A
+#CONDUIT_RUNCMD = aprun -N 1 -n %N %P %A
+CONDUIT_RUNCMD = @TOP_BUILDDIR@/mpi-conduit/contrib/gasnetrun_mpi -np %N -c 0 %P %A
 
 # conduit-specific tests in ../tests directory
 CONDUIT_TESTS =
