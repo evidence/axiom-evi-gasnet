@@ -10,4 +10,5 @@
 # None needed for apps
 #CONDUIT_INCLUDES = -I@GEMINI_INCLUDE@
 
-CONDUIT_LIBS = @GEMINI_LIBS@
+# None needed for apps
+#CONDUIT_LIBS = @GEMINI_LIBS@
