@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2011/09/15 04:09:50 $
- * $Revision: 1.90 $
+ *     $Date: 2011/09/15 05:24:51 $
+ * $Revision: 1.91 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -304,8 +304,8 @@ static const char *gasneti_pshm_makeunique(const char *unique) {
 }
 #endif
 
-/* TODO: support for XPMEM and hugetlbfs should be independent */
-#if defined(GASNETI_PSHM_XPMEM)
+/* XXX: support for XPMEM, hugetlbfs and gemini-conduit should be independent */
+#if defined(GASNETI_PSHM_XPMEM) && defined(GASNET_CONDUIT_GEMINI)
 #include <hugetlbfs.h>
 
 #if defined(HAVE_HUGETLBFS_UNLINKED_FD_FOR_SIZE)
