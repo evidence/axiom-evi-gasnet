@@ -7,8 +7,3 @@
 #INSTRUCTIONS# See the conduit-writer instructions in the generated fragments
 #INSTRUCTIONS# or $(top_srcdir)/other/fragment-head.mak.in for usage info.
 
-# None needed for apps
-#CONDUIT_INCLUDES = -I@GEMINI_INCLUDE@
-
-# None needed for apps
-#CONDUIT_LIBS = @GEMINI_LIBS@
