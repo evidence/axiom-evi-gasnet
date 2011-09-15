@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.h,v $
- *     $Date: 2011/09/05 08:03:42 $
- * $Revision: 1.15 $
+ *     $Date: 2011/09/15 04:09:50 $
+ * $Revision: 1.16 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -15,17 +15,20 @@
 
 /* Must defined EXACTLY one */
 /* TO DO: add to GASNet's config string */
-#if defined(GASNETI_PSHM_POSIX) && !defined(GASNETI_PSHM_SYSV) && !defined(GASNETI_PSHM_FILE)
+#if defined(GASNETI_PSHM_POSIX) && !defined(GASNETI_PSHM_SYSV) && !defined(GASNETI_PSHM_FILE) && !defined(GASNETI_PSHM_XPMEM)
   #undef GASNETI_PSHM_POSIX
   #define GASNETI_PSHM_POSIX 1
-#elif !defined(GASNETI_PSHM_POSIX) && defined(GASNETI_PSHM_SYSV) && !defined(GASNETI_PSHM_FILE)
+#elif !defined(GASNETI_PSHM_POSIX) && defined(GASNETI_PSHM_SYSV) && !defined(GASNETI_PSHM_FILE) && !defined(GASNETI_PSHM_XPMEM)
   #undef GASNETI_PSHM_SYSV
   #define GASNETI_PSHM_SYSV 1
-#elif !defined(GASNETI_PSHM_POSIX) && !defined(GASNETI_PSHM_SYSV) && defined(GASNETI_PSHM_FILE)
+#elif !defined(GASNETI_PSHM_POSIX) && !defined(GASNETI_PSHM_SYSV) && defined(GASNETI_PSHM_FILE) && !defined(GASNETI_PSHM_XPMEM)
   #undef GASNETI_PSHM_FILE
   #define GASNETI_PSHM_FILE 1
+#elif !defined(GASNETI_PSHM_POSIX) && !defined(GASNETI_PSHM_SYSV) && !defined(GASNETI_PSHM_FILE) && defined(GASNETI_PSHM_XPMEM)
+  #undef GASNETI_PSHM_XPMEM
+  #define GASNETI_PSHM_XPMEM 1
 #else
-  #error PSHM configuration must be exactly one of (GASNETI_PSHM_POSIX, GASNETI_PSHM_SYSV, GASNETI_PSHM_FILE)
+  #error PSHM configuration must be exactly one of (GASNETI_PSHM_POSIX, GASNETI_PSHM_SYSV, GASNETI_PSHM_FILE,GASNETI_PSHM_XPMEM)
 #endif
 #include <gasnet_handler.h> /* Need gasneti_handler_fn_t */
 
@@ -45,14 +48,7 @@
 /* In gasnet_mmap.c */
 #define GASNETI_PSHM_UNIQUE_LEN 6
 
-#ifdef GASNETI_PSHM_SYSV
-extern unsigned int * gasneti_pshm_sysvkeys;
-extern unsigned int gasneti_pshm_makekey(int pshm_rank);
-#else
-extern const char *gasneti_pshm_makenames(const char *unique);
-#endif
-
-extern void *gasneti_mmap_vnet(uintptr_t segsize);
+extern void *gasneti_mmap_vnet(uintptr_t segsize, gasneti_bootstrapExchangefn_t exchangefn);
 extern void gasneti_unlink_vnet(void);
 
 /* Virtual network between processes within a shared
