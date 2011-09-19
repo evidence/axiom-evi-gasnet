@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2011/09/15 05:41:57 $
- * $Revision: 1.92 $
+ *     $Date: 2011/09/19 22:45:42 $
+ * $Revision: 1.93 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -25,6 +25,7 @@
 
  #if GASNET_PSHM && defined(GASNETI_PSHM_XPMEM)
   #include <xpmem.h>
+  extern int xpmem_init(void); /* Why is this not prototyped in xpmem.h? */
  #endif
 
 #if PLATFORM_OS_IRIX
