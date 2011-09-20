@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2011/09/19 22:45:42 $
- * $Revision: 1.93 $
+ *     $Date: 2011/09/20 00:39:42 $
+ * $Revision: 1.94 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -25,7 +25,6 @@
 
  #if GASNET_PSHM && defined(GASNETI_PSHM_XPMEM)
   #include <xpmem.h>
-  extern int xpmem_init(void); /* Why is this not prototyped in xpmem.h? */
  #endif
 
 #if PLATFORM_OS_IRIX
@@ -703,15 +702,10 @@ extern void *gasneti_mmap_vnet(uintptr_t size, gasneti_bootstrapExchangefn_t exc
   }
   #elif defined(GASNETI_PSHM_XPMEM)
   {
-    int rc;
     xpmem_segid_t  *exchg;
     xpmem_segid_t segid = (xpmem_segid_t)(-1);
 
     /* Initialization */
-    rc = xpmem_init();
-    if_pf (rc) {
-      gasneti_fatalerror("xpmem_init() failed: %s", strerror(errno));
-    }
     gasneti_pshm_segids = gasneti_malloc(sizeof(segid) * (gasneti_pshm_nodes + 1));
     gasneti_pshm_apids = gasneti_malloc(sizeof(xpmem_apid_t) * (gasneti_pshm_nodes + 1));
 
