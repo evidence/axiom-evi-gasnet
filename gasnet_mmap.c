@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2011/09/20 00:39:42 $
- * $Revision: 1.94 $
+ *     $Date: 2011/09/24 00:47:35 $
+ * $Revision: 1.95 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -395,6 +395,8 @@ static void gasneti_huge_munmap(void *addr, uintptr_t size) {
 }
 #endif
 
+static void gasneti_pshm_unlink(int pshm_rank);
+
 /* create the object/region/segment and return its address */
 static void * gasneti_pshm_mmap(int pshm_rank, void *segbase, size_t segsize) {
   const int create = (pshm_rank == gasneti_pshm_mynode) ||
@@ -467,6 +469,11 @@ static void * gasneti_pshm_mmap(int pshm_rank, void *segbase, size_t segsize) {
   #error
 #endif
 
+  if_pf (create && (ptr == MAP_FAILED)) {
+    const int save_errno = errno;
+    gasneti_pshm_unlink(pshm_rank);
+    errno = save_errno;
+  }
   return ptr;
 }
 
@@ -485,6 +492,7 @@ static void gasneti_pshm_munmap(void *segbase, uintptr_t segsize) {
 #else
   #error
 #endif
+  gasneti_pshm_unlink(gasneti_pshm_mynode);
 }
 
 static void gasneti_munmap_remote(gasnet_node_t pshm_rank, void *segbase, uintptr_t segsize) {
@@ -547,7 +555,7 @@ static void gasneti_pshm_unlink(int pshm_rank){
 #endif
 }
 
-/* shm_unlink() so the shared memory will disappear upon exit.
+/* gasneti_pshm_unlink() so the shared memory will disappear upon exit.
  * This must be called collectively, because barriers are
  * used to prevent races against shm_open() before or after.
  */
