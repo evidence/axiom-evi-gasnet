@@ -311,11 +311,10 @@ void gasnetc_init_messaging()
 #if GASNETC_DEBUG
   gasnetc_GNIT_Log("finishing");
 #endif
-  /* set the number of seconds we poll until forceful shutdown.  May be over-ridden
-   * by env-var when they are processed as part of gasnetc_attach
+  /* set the number of seconds we poll until forceful shutdown.
+   * May be over-ridden by env-vars.
    */
-  gasnetc_shutdown_seconds = 3. + gasneti_nodes/8.;
-  gasnetc_shutdown_seconds = (gasnetc_shutdown_seconds > shutdown_max ? shutdown_max : gasnetc_shutdown_seconds);
+  gasnetc_shutdown_seconds = gasneti_get_exittimeout(shutdown_max, 3., 0.125, 0.);
 
   gasnetc_fma_rdma_cutover = 
     gasneti_getenv_int_withdefault("GASNETC_GNI_FMA_RDMA_CUTOVER",
@@ -1434,7 +1433,7 @@ void gasnetc_free_post_descriptor(gasnetc_post_descriptor_t *gpd)
 /* exit related */
 volatile int gasnetc_shutdownInProgress = 0;
 double gasnetc_shutdown_seconds = 0.0;
-static double shutdown_max = 10.;  /*  .05 seconds * ln(1000000) */
+static double shutdown_max = 120.;  /* 2 minutes */
 static uint32_t sys_exit_rcvd = 0;
 
 

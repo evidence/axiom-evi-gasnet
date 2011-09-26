@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2011/09/22 10:26:57 $
- * $Revision: 1.6 $
+ *     $Date: 2011/09/26 22:48:19 $
+ * $Revision: 1.7 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -557,17 +557,12 @@ extern void gasnetc_exit(int exitcode) {
   /* should prevent us from entering again */
   gasnetc_shutdownInProgress = 1;
 
-    #if PLATFORM_OS_CNL /* Never had a chance to test for alarm() on Catamount */
     gasneti_reghandler(SIGALRM, SIG_DFL);
     alarm(2 + gasnetc_shutdown_seconds);
-  #endif
 
   if (gasnetc_sys_exit(&exitcode)) {
-    int i;
-    for (i = 0; i < 10; i += 1) {
     fprintf(stderr, "node %i Failed to coordinate shutdown after %lu milliseconds\n",gasneti_mynode,(unsigned long)(1e3*gasnetc_shutdown_seconds));
     fflush(stderr);
-    }
     /* Death of any process by a fatal signal will cause launcher to kill entire job.
      * We don't use INT or TERM since one could be blocked if we are in its handler. */
     
