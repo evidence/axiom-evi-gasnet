@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2011/09/24 00:47:35 $
- * $Revision: 1.95 $
+ *     $Date: 2011/09/27 06:51:33 $
+ * $Revision: 1.96 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -430,7 +430,7 @@ static void * gasneti_pshm_mmap(int pshm_rank, void *segbase, size_t segsize) {
         int retries_remain = 32;
         do {
           gasneti_sched_yield();
-          fd = shm_open(filename, flags, S_IRUSR | S_IWUSR)
+          fd = shm_open(filename, flags, S_IRUSR | S_IWUSR);
         } while ((fd == -1) && (errno == EEXIST) && retries_remain--);
       }
     #endif
