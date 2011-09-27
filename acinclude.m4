@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2011/08/26 06:14:04 $
-dnl $Revision: 1.160 $
+dnl     $Date: 2011/09/27 02:01:11 $
+dnl $Revision: 1.161 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -2175,13 +2175,14 @@ GASNET_FUN_END([$0($1)])
 ])
 
 dnl fetch a cross-compilation variable, if we are cross compiling
-dnl GASNET_CROSS_VAR(variable-to-set, basicname)
+dnl if a default is not provided (or is empty) then var must be set
+dnl GASNET_CROSS_VAR(variable-to-set, basicname, default-value)
 AC_DEFUN([GASNET_CROSS_VAR],[
-  GASNET_FUN_BEGIN([$0($1,$2)])
+  GASNET_FUN_BEGIN([$0($1,$2,$3)])
   pushdef([cross_varname],CROSS_$2)
   if test "$cross_compiling" = "yes" ; then
     pushdef([GASNET_ENV_DEFAULT_SUPPRESSHELP],1)
-    GASNET_ENV_DEFAULT(cross_varname,)
+    GASNET_ENV_DEFAULT(cross_varname,$3)
     popdef([GASNET_ENV_DEFAULT_SUPPRESSHELP])
     if test "$cross_varname" = "" ; then
       AC_MSG_ERROR([This configure script requires \$cross_varname be set for cross-compilation])
@@ -2190,7 +2191,7 @@ AC_DEFUN([GASNET_CROSS_VAR],[
     fi
   fi
   popdef([cross_varname])
-  GASNET_FUN_END([$0($1,$2)])
+  GASNET_FUN_END([$0($1,$2,$3)])
 ])
 
 dnl query the numerical value of a system signal and AC_SUBST it
