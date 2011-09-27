@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2011/09/19 21:18:21 $
-# $Revision: 1.697 $
+#     $Date: 2011/09/27 02:09:28 $
+# $Revision: 1.698 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.697 $)
+AC_REVISION($Revision: 1.698 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1206,7 +1206,7 @@ if test "$enabled_pshm" != no; then
  if test "$enabled_pshm_posix$with_pshm" = yesno; then
   # shm_open() might be in libc (e.g. AIX, Darwin) or librt (e.g. Linux, Solaris)
   GASNET_PUSHVAR(LIBS,"$LIBS")
-  have_shm_open=no
+  have_shm_open=probe
   AC_SEARCH_LIBS(shm_open, [rt posix4], [
     if test "$cross_compiling" = "yes" ; then
       # To the best of my knowledge CNL, Catamount, and BG/L all lack
@@ -1215,20 +1215,13 @@ if test "$enabled_pshm" != no; then
       # So, we default to NO shm_open() when cross-compiling. -PHH
       # Update: CNL on Cray XE *does* have working shm_open(). -PHH
       # One can set CROSS_HAVE_SHM_OPEN=1 to force building PSHM for POSIX.
-      AC_CACHE_CHECK([for working shm_open()], gasnet_cv_have_shm_open, [
-        if test "x$CROSS_HAVE_SHM_OPEN" = x1; then
-          gasnet_cv_have_shm_open='yes (from CROSS_HAVE_SHM_OPEN)'
-        else
-          gasnet_cv_have_shm_open='no (default when cross compiling)'
-        fi
-      ])
-      if expr "$gasnet_cv_have_shm_open" : "yes" >/dev/null; then
-       have_shm_open=yes
-      else
-       have_shm_open=no
+      GASNET_CROSS_VAR(GASNETI_HAVE_SHM_OPEN, HAVE_SHM_OPEN, 0)
+      if test "$CROSS_HAVE_SHM_OPEN" != 1; then
+        have_shm_open=no
       fi
-    else
-      GASNET_TRY_CACHE_RUN([for working shm_open()], have_shm_open, [
+    fi
+    if test "$have_shm_open" = probe; then
+      GASNET_TRY_CACHE_RUN_WITHCC([for working shm_open()], have_shm_open, [
         #include <sys/types.h>
         #include <sys/stat.h>
         #include <sys/mman.h>
@@ -1236,7 +1229,7 @@ if test "$enabled_pshm" != no; then
         #include <fcntl.h>
         #include <stdlib.h>
         #define SHM_NAME "/GASNETconftst"
-        int main(void) {
+      ],[
           int size = GASNETI_PAGESIZE;
           int fd;
           void * addr;
@@ -1250,15 +1243,14 @@ if test "$enabled_pshm" != no; then
           if (!addr || (addr == MAP_FAILED)) return 1;
           (void)munmap(addr, size);
           return 0;
-        }
-      ],[ have_shm_open=yes ])
+      ],[ have_shm_open=yes ], [ have_shm_open=no ])
     fi
     if test "$have_shm_open" = yes; then
       AC_DEFINE(GASNETI_PSHM_POSIX)
       GASNET_PSHM_LIBS="$LIBS"
       with_pshm=posix
     fi
-  ])
+  ], [ have_shm_open=no ])
   GASNET_POPVAR(LIBS)
  fi
 
