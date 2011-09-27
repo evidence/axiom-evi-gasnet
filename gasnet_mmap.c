@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2011/09/27 06:51:33 $
- * $Revision: 1.96 $
+ *     $Date: 2011/09/27 23:35:42 $
+ * $Revision: 1.97 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1170,9 +1170,14 @@ void gasneti_segmentInit(uintptr_t localSegmentLimit,
       GASNETI_LADDRSTR(gasneti_segment.addr), (unsigned long)gasneti_segment.size));
 
     se.seginfo = gasneti_segment;
+  #if PLATFORM_OS_DARWIN
+    /* sbrk() is "emulated", making the heap-separation test invalid. */
+    gasneti_myheapend = GASNETI_PAGE_ALIGNDOWN((uintptr_t)-1);
+  #else
     gasneti_myheapend = (uintptr_t)sbrk(0);
     if (gasneti_myheapend == (uintptr_t)-1) gasneti_fatalerror("Failed to sbrk(0):%s",strerror(errno));
     gasneti_myheapend = GASNETI_PAGE_ALIGNUP(gasneti_myheapend);
+  #endif
     se.heapend = gasneti_myheapend;
     se.segsize_request = 0;
 
