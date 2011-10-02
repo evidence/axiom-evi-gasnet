@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2011/07/15 04:07:28 $
- * $Revision: 1.324 $
+ *     $Date: 2011/10/02 23:58:00 $
+ * $Revision: 1.325 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -505,12 +505,10 @@
 	  uint64_t retval = p->ctr;
 	  uint64_t tmp;
           __asm__ __volatile__ (
-		    "0:				\n\t"
 		    "movl	%%eax, %%ebx	\n\t"
 		    "movl	%%edx, %%ecx	\n\t"
 		    "lock;			"
-		    "cmpxchg8b	%0		\n\t"
-		    "jnz	0b		"
+		    "cmpxchg8b	%0		"
 		    : "=m" (p->ctr), "+&A" (retval), "=&q" (tmp) /* tmp allocates ebx and ecx */
 		    : "m" (p->ctr)
 		    : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
@@ -571,12 +569,10 @@
 	  GASNETI_ASM_REGISTER_KEYWORD uint32_t save_ebx, ecx;
           __asm__ __volatile__ (
 		    "movl	%%ebx, %2	\n\t"
-		    "0:				\n\t"
 		    "movl	%%eax, %%ebx	\n\t"
 		    "movl	%%edx, %%ecx	\n\t"
 		    "lock;			"
 		    "cmpxchg8b	(%3)		\n\t"
-		    "jnz	0b		\n\t"
 		    "movl	%2, %%ebx	"
 		    : "+&A" (retval), "=&c" (ecx), "=&r" (save_ebx)
 		    : "r" (&p->ctr)
@@ -633,12 +629,10 @@
 	  GASNETI_ASM_REGISTER_KEYWORD uint32_t rethi = GASNETI_HIWORD(retval);
 	  GASNETI_ASM_REGISTER_KEYWORD uint32_t tmplo, tmphi;
           __asm__ __volatile__ (
-		    "0:				\n\t"
 		    "movl	%%eax, %%ebx	\n\t"
 		    "movl	%%edx, %%ecx	\n\t"
 		    "lock;			"
-		    "cmpxchg8b	%0		\n\t"
-		    "jnz	0b		"
+		    "cmpxchg8b	%0		"
 		    : "+m" (p->ctr), "+&a" (retlo),  "+&d" (rethi), "=&b" (tmplo), "=&c" (tmphi)
 		    : /* no inputs */
 		    : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
@@ -839,12 +833,10 @@
 		       "pushl     %ebx					\n" \
 		       "movl      0(%edi), %eax				\n\t" \
 		       "movl      4(%edi), %edx				\n\t" \
-		       "1:						\n\t" \
 		       "movl      %eax, %ebx				\n\t" \
 		       "movl      %edx, %ecx				\n\t" \
 		       GASNETI_X86_LOCK_PREFIX				\
 		       "cmpxchg8b (%edi)				\n\t" \
-		       "jnz       1b					\n\t" \
 		       "popl      %ebx					\n\t" \
 		       "popl      %edi" )
 
