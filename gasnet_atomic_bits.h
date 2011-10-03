@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2011/10/03 18:18:15 $
- * $Revision: 1.328 $
+ *     $Date: 2011/10/03 18:48:55 $
+ * $Revision: 1.329 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -502,14 +502,14 @@
 	#define gasneti_atomic64_set gasneti_atomic64_set
         GASNETI_INLINE(gasneti_atomic64_read)
         uint64_t gasneti_atomic64_read(gasneti_atomic64_t *p, int flags) {
-	  uint64_t retval = p->ctr; /* fetch the cache line */
+	  GASNETI_ASM_REGISTER_KEYWORD uint64_t retval;
           __asm__ __volatile__ (
 		    /* Set [a:d] = [b:c], thus preserving b and c */
 		    "movl	%%ebx, %%eax	\n\t"
 		    "movl	%%ecx, %%edx	\n\t"
 		    "lock;			"
 		    "cmpxchg8b	%0		"
-		    : "=m" (p->ctr), "+&A" (retval)
+		    : "=m" (p->ctr), "=&A" (retval)
 		    : "m" (p->ctr)
 		    : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
 	  return retval;
@@ -565,14 +565,14 @@
 	#define gasneti_atomic64_set gasneti_atomic64_set
         GASNETI_INLINE(gasneti_atomic64_read)
         uint64_t gasneti_atomic64_read(gasneti_atomic64_t *p, int flags) {
-	  GASNETI_ASM_REGISTER_KEYWORD uint64_t retval = p->ctr; /* fetch the cache line */
+	  GASNETI_ASM_REGISTER_KEYWORD uint64_t retval;
           __asm__ __volatile__ (
 		    /* Set [a:d] = [b:c], thus preserving b and c */
 		    "movl	%%ebx, %%eax	\n\t"
 		    "movl	%%ecx, %%edx	\n\t"
 		    "lock;			"
-		    "cmpxchg8b	(%2)		\n\t"
-		    : "=m" (p->ctr), "+&A" (retval)
+		    "cmpxchg8b	(%2)		"
+		    : "=m" (p->ctr), "=&A" (retval)
 		    : "r" (&p->ctr)
 		    : "cc");
 	  return retval;
