@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2011/10/03 07:05:26 $
- * $Revision: 1.326 $
+ *     $Date: 2011/10/03 17:09:48 $
+ * $Revision: 1.327 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -826,14 +826,10 @@
 	  GASNETI_ASM_SPECIAL(                                          \
 		       "pushl     %edi					\n\t" \
 		       "movl      8(%ebp), %edi				\n\t" \
-		       "pushl     %ebx					\n" \
-		       "movl      0(%edi), %eax				\n\t" \
-		       "movl      4(%edi), %edx				\n\t" \
-		       "movl      %eax, %ebx				\n\t" \
-		       "movl      %edx, %ecx				\n\t" \
+		       "movl      %ebx, %eax				\n\t" \
+		       "movl      %ecx, %edx				\n\t" \
 		       GASNETI_X86_LOCK_PREFIX				\
 		       "cmpxchg8b (%edi)				\n\t" \
-		       "popl      %ebx					\n\t" \
 		       "popl      %edi" )
 
         #define GASNETI_ATOMIC64_SET_BODY     				\
