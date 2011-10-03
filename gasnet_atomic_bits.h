@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2011/10/03 20:19:36 $
- * $Revision: 1.331 $
+ *     $Date: 2011/10/03 21:05:13 $
+ * $Revision: 1.332 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -471,12 +471,11 @@
           __asm__ __volatile__ (
 		    "lock;			"
 		    "cmpxchg8b	%0		\n\t"
-		    "sete	%b1		\n\t"
-		    "andl	$255, %k1"
+		    "sete	%b1		"
 		    : "=m" (p->ctr), "+&A" (oldval)
 		    : "m" (p->ctr), "b" (newlo), "c" (newhi)
 		    : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
-          return oldval;
+          return (uint8_t)oldval;
         }
         GASNETI_INLINE(gasneti_atomic64_set)
         void gasneti_atomic64_set(gasneti_atomic64_t *p, uint64_t v, int flags) {
@@ -532,12 +531,11 @@
 		    "lock;			"
 		    "cmpxchg8b	(%3)		\n\t"
 		    "sete	%b0		\n\t"
-		    "andl	$255, %k0	\n\t"
 		    "movl	%1, %%ebx	"
 		    : "+&A" (oldval), "+&r" (newlo)
 		    : "c" (newhi), "r" (&p->ctr)
 		    : "cc", "memory");
-          return oldval;
+          return (uint8_t)oldval;
         }
         GASNETI_INLINE(gasneti_atomic64_set)
         void gasneti_atomic64_set(gasneti_atomic64_t *p, uint64_t v, int flags) {
@@ -589,12 +587,11 @@
           __asm__ __volatile__ (
 		    "lock;			"
 		    "cmpxchg8b	%0		\n\t"
-		    "sete	%b1		\n\t"
-		    "andl	$255, %1"
+		    "sete	%b1		"
                     : "+m" (p->ctr), "+&a" (oldlo), "+&d" (oldhi)
                     : "b" (newlo), "c" (newhi)
 		    : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
-          return oldlo;
+          return (uint8_t)oldlo;
         }
         GASNETI_INLINE(gasneti_atomic64_set)
         void gasneti_atomic64_set(gasneti_atomic64_t *p, uint64_t v, int flags) {
