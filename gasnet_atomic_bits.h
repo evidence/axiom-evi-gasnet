@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2011/10/03 18:59:56 $
- * $Revision: 1.330 $
+ *     $Date: 2011/10/03 20:19:36 $
+ * $Revision: 1.331 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -461,42 +461,35 @@
 	 * 64-bit types, we define the fully-fenced (non _-prefixed) versions
 	 * of read and set here, to avoid having them double fenced.
 	 *
-	 * Note that we have no way to tell the compiler exactly where to place a second
-	 * uint64_t.  However, with the eax and edx already allocated, the only possibilities
-	 * left in class 'q' are (ecx,ebx) and (ebx,ecx).  The use of an 'xchgl' instruction
-	 * ensures we always end up with the second 64-bit value in (ebx,ecx).
-	 * [ So far gcc has been observed to always use (ecx,ebx) and icc has been
-	 *   observed to always use (ebx,ecx).  Nothing documents either behavior, so we
-	 *   must use the 'xchgl' unconditionally. ]
-	 *
 	 * See the following #elif/#else clauses for slight variants.
 	 */
         #define gasneti_atomic64_align 4 /* only need 4-byte alignment, not the default 8 */
         GASNETI_INLINE(_gasneti_atomic64_compare_and_swap)
         int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval) {
-	  GASNETI_ASM_REGISTER_KEYWORD uint64_t retval = newval;
+	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newlo = GASNETI_LOWORD(newval);
+	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newhi = GASNETI_HIWORD(newval);
           __asm__ __volatile__ (
-		    "xchgl	%2, %%ebx	\n\t"
 		    "lock;			"
 		    "cmpxchg8b	%0		\n\t"
-		    "sete	%b2		\n\t"
-		    "andl	$255, %k2"
-		    : "=m" (p->ctr), "+&A" (oldval), "+&q" (retval)
-		    : "m" (p->ctr)
+		    "sete	%b1		\n\t"
+		    "andl	$255, %k1"
+		    : "=m" (p->ctr), "+&A" (oldval)
+		    : "m" (p->ctr), "b" (newlo), "c" (newhi)
 		    : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
-          return retval;
+          return oldval;
         }
         GASNETI_INLINE(gasneti_atomic64_set)
         void gasneti_atomic64_set(gasneti_atomic64_t *p, uint64_t v, int flags) {
-	  uint64_t oldval = p->ctr;
+	  GASNETI_ASM_REGISTER_KEYWORD uint64_t oldval = p->ctr;
+	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newlo = GASNETI_LOWORD(v);
+	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newhi = GASNETI_HIWORD(v);
           __asm__ __volatile__ (
-		    "xchgl	%2,%%ebx	\n\t"
 		    "0:				\n\t"
 		    "lock;			"
 		    "cmpxchg8b	%0		\n\t"
-		    "jnz	0b		"
-		    : "=m" (p->ctr), "+&A" (oldval), "+&q" (v)
-		    : "m" (p->ctr)
+		    "jnz	0b		\n\t"
+		    : "=m" (p->ctr), "+&A" (oldval)
+		    : "m" (p->ctr), "b" (newlo), "c" (newhi)
 		    : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
 	}
 	#define gasneti_atomic64_set gasneti_atomic64_set
@@ -535,16 +528,16 @@
 	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newlo = GASNETI_LOWORD(newval);
 	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newhi = GASNETI_HIWORD(newval);
           __asm__ __volatile__ (
-		    "xchgl	%2, %%ebx	\n\t"
+		    "xchgl	%1, %%ebx	\n\t"
 		    "lock;			"
 		    "cmpxchg8b	(%3)		\n\t"
-		    "sete	%b1		\n\t"
-		    "andl	$255, %k1	\n\t"
-		    "movl	%2, %%ebx	"
-		    : "+&A" (oldval), "+&c" (newhi), "+&r" (newlo)
-		    : "r" (&p->ctr)
+		    "sete	%b0		\n\t"
+		    "andl	$255, %k0	\n\t"
+		    "movl	%1, %%ebx	"
+		    : "+&A" (oldval), "+&r" (newlo)
+		    : "c" (newhi), "r" (&p->ctr)
 		    : "cc", "memory");
-          return newhi;
+          return oldval;
         }
         GASNETI_INLINE(gasneti_atomic64_set)
         void gasneti_atomic64_set(gasneti_atomic64_t *p, uint64_t v, int flags) {
