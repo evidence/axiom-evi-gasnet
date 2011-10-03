@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2011/10/03 18:48:55 $
- * $Revision: 1.329 $
+ *     $Date: 2011/10/03 18:59:56 $
+ * $Revision: 1.330 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -532,8 +532,8 @@
         #define gasneti_atomic64_align 4 /* only need 4-byte alignment, not the default 8 */
         GASNETI_INLINE(_gasneti_atomic64_compare_and_swap)
         int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval) {
-	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newlo = (uint32_t)newval;
-	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newhi = (uint32_t)(newval >> 32);
+	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newlo = GASNETI_LOWORD(newval);
+	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newhi = GASNETI_HIWORD(newval);
           __asm__ __volatile__ (
 		    "xchgl	%2, %%ebx	\n\t"
 		    "lock;			"
@@ -549,8 +549,8 @@
         GASNETI_INLINE(gasneti_atomic64_set)
         void gasneti_atomic64_set(gasneti_atomic64_t *p, uint64_t v, int flags) {
 	  GASNETI_ASM_REGISTER_KEYWORD uint64_t oldval = p->ctr;
-	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newlo = (uint32_t)v;
-	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newhi = (uint32_t)(v >> 32);
+	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newlo = GASNETI_LOWORD(v);
+	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newhi = GASNETI_HIWORD(v);
           __asm__ __volatile__ (
 		    "xchgl	%1, %%ebx	\n\t"
 		    "0:				\n\t"
