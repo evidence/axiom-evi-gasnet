@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2011/10/03 17:09:48 $
- * $Revision: 1.327 $
+ *     $Date: 2011/10/03 18:18:15 $
+ * $Revision: 1.328 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -683,18 +683,14 @@
 
 	GASNETI_INLINE(gasneti_atomic128_read)
 	void gasneti_atomic128_read(uint64_t *outhi, uint64_t *outlo, gasneti_atomic128_t *p, int flags) {
-	  GASNETI_ASM_REGISTER_KEYWORD uint64_t retlo = p->lo;
-	  GASNETI_ASM_REGISTER_KEYWORD uint64_t rethi = p->hi;
-	  GASNETI_ASM_REGISTER_KEYWORD uint64_t tmphi, tmplo;
+	  GASNETI_ASM_REGISTER_KEYWORD uint64_t retlo, rethi;
           gasneti_assert(!(((uintptr_t)p) & 0xF)); /* cmpxchg16b requires 16-byte alignment */
 	  __asm__ __volatile__ (
-		"0:                 \n\t"
-		"movq        %1, %3 \n\t"
-		"movq        %2, %4 \n\t"
+		"movq        %%rbx, %1 \n\t"
+		"movq        %%rcx, %2 \n\t"
 		"lock; "
-		"cmpxchg16b  %0     \n\t"
-		"jnz         0b          "
-		: "+m" (*p), "+&a" (retlo),  "+&d" (rethi), "=&b" (tmplo), "=&c" (tmphi)
+		"cmpxchg16b  %0        "
+		: "+m" (*p), "=&a" (retlo),  "=&d" (rethi)
 		: /* no inputs */
 		: "cc", "memory");
 	  *outlo = retlo;
