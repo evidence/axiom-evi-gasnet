@@ -312,18 +312,11 @@ int main(void) {
 #endif
 
 #if defined(__arm__)
-  #if defined(__ARM_ARCH_2__) || defined(__ARM_ARCH_3__)
-    /* "ARM versions earlier than ARMv4 not supported" */
-  #elif defined(__ARM_ARCH_4T__) && defined(__thumb__)
-    /* "ARMv4 Thumb mode not (yet?) supported"
-       TODO: test the following:
-    #define GASNETI_ARM_ASMCALL(_tmp, _offset) \
-	"	mov	" #_tmp ", #0xffff0fff              @ _tmp = base addr    \n" \
-	"	sub	" #_tmp ", " #_tmp ", #" #_offset " @ _tmp -= _offset     \n" \
-	"	mov	lr, pc                              @ lr = return addr    \n" \
-	"	bx	" #_tmp "                           @ call _tmp           \n"
-     */
-  #elif defined(__ARM_ARCH_4__) || defined(__ARM_ARCH_4T__)
+  #if defined(__thumb__)
+    /* "GASNet does not support ARM Thumb mode" */
+  #elif defined(__ARM_ARCH_2__)
+    /* "GASNet does not support ARM versions earlier than ARMv3" */
+  #elif defined(__ARM_ARCH_3__) || defined(__ARM_ARCH_4__) || defined(__ARM_ARCH_4T__)
     #define GASNETI_ARM_ASMCALL(_tmp, _offset) \
 	"	mov	" #_tmp ", #0xffff0fff              @ _tmp = base addr    \n" \
 	"       mov	lr, pc                              @ lr = return addr    \n" \
