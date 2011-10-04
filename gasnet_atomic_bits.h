@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2011/10/04 02:10:28 $
- * $Revision: 1.333 $
+ *     $Date: 2011/10/04 22:06:38 $
+ * $Revision: 1.334 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -619,7 +619,7 @@
 		    "movl	%%ecx, %%edx	\n\t"
 		    "lock;			"
 		    "cmpxchg8b	%0		"
-		    : "+m" (p->ctr), "+&a" (retlo),  "+&d" (rethi)
+		    : "+m" (p->ctr), "=&a" (retlo),  "=&d" (rethi)
 		    : /* no inputs */
 		    : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
 	  return GASNETI_MAKEWORD(rethi, retlo);
