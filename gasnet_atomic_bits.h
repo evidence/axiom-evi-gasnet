@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2011/10/03 21:05:13 $
- * $Revision: 1.332 $
+ *     $Date: 2011/10/04 02:10:28 $
+ * $Revision: 1.333 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2352,11 +2352,9 @@ GASNETI_MIPS_LL(_ll "   %0,0(%4)         \n\t")/* _retval = *p (starts ll/sc res
 	register unsigned long __ptr asm("r2") = (unsigned long)(p);            \
 	__asm__ __volatile__ (                                                  \
 		"0:	ldr	r0, [r2]	@ r0 = *p		\n"     \
-		"	mov	r3, #0xffff0fff @ r3 = base addr        \n"     \
-		"	adr	lr, 1f		@ lr = return to '1:'	\n"     \
 		"	add	r1, r0, %2	@ r1 = r0 + op		\n"     \
-		"	sub	pc, r3, #0x3f   @ call 0xfff0fc0        \n"     \
-		"1:	bcc     0b		@ retry on Carry Clear"         \
+		GASNETI_ARM_ASMCALL(r3, 0x3f)                                   \
+		"	bcc     0b		@ retry on Carry Clear"         \
 		: "=&r" (__sum)                                                 \
 		: "r" (__ptr), "IL" (op)                                        \
 		: "r0", "r3", "ip", "lr", "cc", "memory" );                     \
@@ -2393,11 +2391,9 @@ GASNETI_MIPS_LL(_ll "   %0,0(%4)         \n\t")/* _retval = *p (starts ll/sc res
 
 	__asm__ __volatile__ (
 		"0:	ldr	r0, [r2]	@ r0 = *p		\n"
-		"	mov	r3, #0xffff0fff @ r3 = base addr        \n"
-		"	adr	lr, 1f		@ lr = return to '1:'	\n"
 		"	add	r1, r0, %2	@ r1 = r0 + op		\n"
-		"	sub	pc, r3, #0x3f   @ call 0xfff0fc0        \n"
-		"1:	bcc     0b		@ retry on Carry Clear  "
+		GASNETI_ARM_ASMCALL(r3, 0x3f)
+		"	bcc     0b		@ retry on Carry Clear  "
 		: "=&r" (__sum)
 		: "r" (__ptr), "r" (__op)
 		: "r0", "r3", "ip", "lr", "cc", "memory" );
@@ -2422,9 +2418,7 @@ GASNETI_MIPS_LL(_ll "   %0,0(%4)         \n\t")/* _retval = *p (starts ll/sc res
 	 */
 	__asm__ __volatile__ (
 		"0:	mov	r0, r4          @ r0 = oldval              \n"
-		"	mov	r3, #0xffff0fff @ r3 = base addr           \n"
-		"	mov	lr, pc		@ lr = return addr         \n"
-		"	sub	pc, r3, #0x3f   @ call 0xffff0fc0          \n"
+		GASNETI_ARM_ASMCALL(r3, 0x3f)
 		"	ldrcc	ip, [r2]	@ if (!swapped) ip=v->ctr  \n"
 		"	eorcs	ip, r4, #1	@ else ip=oldval^1         \n"
 		"	teq	r4, ip		@ if (ip == oldval)        \n"
