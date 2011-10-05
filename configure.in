@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2011/10/05 08:06:07 $
-# $Revision: 1.703 $
+#     $Date: 2011/10/05 18:08:05 $
+# $Revision: 1.704 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.703 $)
+AC_REVISION($Revision: 1.704 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1119,11 +1119,6 @@ else
        val = detect_cachesz(79.0, 0); if (val<=0) exit(1); ], GASNETI_CACHE_LINE_BYTES)
       ;;
   esac
- else
-  GASNET_CROSS_VAR(GASNETI_CACHE_LINE_BYTES, CACHE_LINE_BYTES, unset)
-  if test "$GASNETI_CACHE_LINE_BYTES" = unset; then
-    GASNETI_CACHE_LINE_BYTES='';
-  fi
  fi
 
   case "$target_os" in
@@ -1134,6 +1129,12 @@ else
   esac
   GASNET_POPVAR(CPPFLAGS)
   GASNET_POPVAR(LIBS)
+fi
+if test "$cross_compiling" = "no"; then
+  GASNET_CROSS_VAR(GASNETI_CACHE_LINE_BYTES, CACHE_LINE_BYTES, unset)
+  if test "$GASNETI_CACHE_LINE_BYTES" = unset; then
+    GASNETI_CACHE_LINE_BYTES='';
+  fi
 fi
 if test "$GASNETI_CACHE_LINE_BYTES" = "" ; then
   GASNETI_CACHE_LINE_BYTES=128
