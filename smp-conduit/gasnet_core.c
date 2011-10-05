@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_core.c,v $
- *     $Date: 2011/10/05 05:57:42 $
- * $Revision: 1.70 $
+ *     $Date: 2011/10/05 06:42:25 $
+ * $Revision: 1.71 $
  * Description: GASNet smp conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -532,6 +532,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     const int fd = gasnetc_fds[2 * gasneti_mynode];
     #if GASNETC_USE_SOCKETPAIR
     if (gasnetc_using_socketpair) {
+      /* Arm for SIGIO when parent (node0) closes the socket */
       int flags = fcntl(fd, F_GETFL);
       if (flags >= 0) {
         const pid_t mypid = getpid();
@@ -804,6 +805,12 @@ extern void gasnetc_exit(int exitcode) {
   if (gasneti_mynode && gasnetc_use_pdeathsig) {
     /* Disable generation of SIGTERM when parent exits*/
     prctl(PR_SET_PDEATHSIG, 0);
+  }
+  #endif
+  #if GASNETC_USE_SOCKETPAIR
+  if (gasnetc_using_socketpair) {
+    /* Disable generation of SIGIO when parent exits */
+    close(gasnetc_fds[2 * gasneti_mynode]);
   }
   #endif
 
