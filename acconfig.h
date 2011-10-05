@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2011/09/15 04:09:50 $ */
-/*  $Revision: 1.166 $ */
+/*      $Date: 2011/10/05 07:29:23 $ */
+/*  $Revision: 1.167 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -324,6 +324,9 @@
 
 /* GASNet ref-extended settings */
 #undef GASNETE_USE_AMDISSEMINATION_REFBARRIER
+
+/* GASNet smp-conduit */
+#undef GASNETC_USE_SOCKETPAIR
 
 /* GASNet gm-conduit broken 2.x versions */
 #undef GASNETC_GM_ENABLE_BROKEN_VERSIONS

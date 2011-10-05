@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2011/10/05 00:11:21 $
-# $Revision: 1.701 $
+#     $Date: 2011/10/05 07:29:23 $
+# $Revision: 1.702 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.701 $)
+AC_REVISION($Revision: 1.702 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2680,7 +2680,64 @@ AM_CONDITIONAL(USE_MPI, test "$have_mpi" = yes)
 # SMP configuration
 
 CONDUIT_BEGIN(smp,[portable SMP-loopback network conduit (smp)])
-# nothing to test...
+if test $enabled_smp = yes; then
+  if test x"$with_pshm" != xno; then
+    dnl TODO: factor socket related probes
+    AC_CHECK_HEADERS(sys/socket.h)
+    case "$target_os" in
+      solaris*)
+        GASNET_PUSHVAR(LIBS,"")
+          AC_SEARCH_LIBS(socket, socket, have_smp_libs=yes, have_smp_libs=no)
+          if test "x$have_ssh_libs" = xyes ; then
+            SMP_LIBS="$LIBS"
+          fi
+        GASNET_POPVAR(LIBS)
+      ;;
+    esac
+
+    GASNET_PUSHVAR(LIBS,"$LIBS $SMP_LIBS")
+    GASNET_TRY_CACHE_RUN_WITHCC([for socketpair() support], socketpair_works, [
+      #include <unistd.h>
+      #include <fcntl.h>
+      #include <sys/types.h>
+      #include <sys/socket.h>
+    ], [[
+      int rc, sv[2];
+
+    #if defined(PF_LOCAL)
+      rc = socketpair(PF_LOCAL, SOCK_STREAM, 0, sv);
+    #elif defined(PF_UNIX)
+      rc = socketpair(PF_UNIX, SOCK_STREAM, 0, sv);
+    #else
+      #error
+    #endif
+      if (rc < 0) return 1;
+
+      rc = shutdown(sv[0], SHUT_RD);
+      if (rc < 0) return 1;
+
+      rc = shutdown(sv[1], SHUT_WR);
+      if (rc < 0) return 1;
+
+      rc = fcntl(sv[0], F_GETFL);
+      if (rc < 0) return 1;
+
+      rc = fcntl(sv[0], F_SETFL, rc | O_ASYNC);
+      if (rc < 0) return 1;
+
+      rc = fcntl(sv[0], F_SETOWN, getpid());
+      if (rc < 0) return 1;
+    ]], [ socketpair_test_worked=yes ], [ socketpair_test_worked=no ])
+    GASNET_POPVAR(LIBS)
+
+    if test "$socketpair_test_worked" = yes; then
+      AC_DEFINE(GASNETC_USE_SOCKETPAIR)
+    else
+      SMP_LIBS=""
+    fi
+  fi
+fi
+AC_SUBST(SMP_LIBS)
 AM_CONDITIONAL(USE_SMP_CONDUIT, test "$enabled_smp" = yes)
 CONDUIT_END([test "$enabled_smp" = yes])
 
