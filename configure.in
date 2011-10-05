@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2011/10/05 07:29:23 $
-# $Revision: 1.702 $
+#     $Date: 2011/10/05 08:06:07 $
+# $Revision: 1.703 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.702 $)
+AC_REVISION($Revision: 1.703 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2701,6 +2701,7 @@ if test $enabled_smp = yes; then
       #include <fcntl.h>
       #include <sys/types.h>
       #include <sys/socket.h>
+      #include <signal.h>
     ], [[
       int rc, sv[2];
 
@@ -2724,6 +2725,8 @@ if test $enabled_smp = yes; then
 
       rc = fcntl(sv[0], F_SETFL, rc | O_ASYNC);
       if (rc < 0) return 1;
+
+      if (SIGIO == 0) return 1;
 
       rc = fcntl(sv[0], F_SETOWN, getpid());
       if (rc < 0) return 1;
