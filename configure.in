@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2011/10/04 02:10:28 $
-# $Revision: 1.700 $
+#     $Date: 2011/10/05 00:11:21 $
+# $Revision: 1.701 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.700 $)
+AC_REVISION($Revision: 1.701 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1708,6 +1708,26 @@ GASNET_TRY_CACHE_RUN_WITHCC(for x86 pause instruction,x86_pause_instruction, [
 #    AC_MSG_RESULT(yes)
 #], [AC_MSG_RESULT(no)])
 GASNET_POPVAR(CFLAGS)
+
+#---------------------------------------------------------------------------------------------------------------
+# Linux's PR_SET_PDEATHSIG of interest to both smp-conduit and ssh-spawer
+if expr "$target_os" : "linux" >/dev/null; then
+  GASNET_IF_DISABLED(pdeathsig,
+    [Support use of Linux-specific prctl(PR_SET_PDEATHSIG) (default is to probe)],
+    [:],
+    [
+      GASNET_TRY_CACHE_LINK([for PR_SET_PDEATHSIG], pr_set_pdeathsig, [
+        #include <sys/utsname.h> /* to look for unsafe 2.4.x kernels */
+        #include <sys/prctl.h>
+      ],[
+        struct utsname u;
+        int rc1 = uname(&u);
+        int rc2 = prctl(PR_SET_PDEATHSIG, 0);
+      ],[
+        AC_DEFINE(HAVE_PR_SET_PDEATHSIG)
+      ])
+    ])
+fi
 
 #---------------------------------------------------------------------------------------------------------------
 
@@ -3890,15 +3910,6 @@ dnl GASNET_TOOLSONLY_FALSE_BEGIN
 SSH_SPAWNER_LIBS=""
 AC_CHECK_HEADERS(sys/socket.h netinet/tcp.h)
 case "$target_os" in
-  linux*)
-    GASNET_IF_ENABLED(ssh-prctl, Enable use of prctl() in the ssh-based spawner (see other/ssh-spawner/README) (disabled by default), [
-      GASNET_TRY_CACHE_LINK([for PR_SET_PDEATHSIG], ssh_prctl_works, [
-          #include <sys/prctl.h>
-        ],[
-          int rc = prctl(PR_SET_PDEATHSIG, 0);
-        ], [ AC_DEFINE(HAVE_PR_SET_PDEATHSIG) ])
-      ])
-  ;;
   solaris*)
     GASNET_PUSHVAR(LIBS,"")
       AC_SEARCH_LIBS(socket, socket, have_ssh_libs=yes, have_ssh_libs=no)

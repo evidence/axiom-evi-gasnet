@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_core.c,v $
- *     $Date: 2011/08/23 05:41:54 $
- * $Revision: 1.68 $
+ *     $Date: 2011/10/05 00:11:25 $
+ * $Revision: 1.69 $
  * Description: GASNet smp conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -14,6 +14,10 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <signal.h>
+#ifdef HAVE_PR_SET_PDEATHSIG
+  #include <sys/utsname.h>
+  #include <sys/prctl.h>
+#endif
 
 GASNETI_IDENT(gasnetc_IdentString_Version, "$GASNetCoreLibraryVersion: " GASNET_CORE_VERSION_STR " $");
 GASNETI_IDENT(gasnetc_IdentString_Name,    "$GASNetCoreLibraryName: " GASNET_CORE_NAME_STR " $");
@@ -245,8 +249,26 @@ static void gasnetc_remote_exit_sighand(int sig) {
   gasnetc_exit(0);
 }
 
+#ifdef HAVE_PR_SET_PDEATHSIG
+int gasnetc_use_pdeathsig = 0;
+#endif 
+
 static void gasnetc_fork_children(void) {
   gasnet_node_t i;
+
+  #ifdef HAVE_PR_SET_PDEATHSIG
+  { /* check safety of prctl(PR_SET_PDEATHSIG, ...) */
+    struct utsname name;
+    if (0 == uname(&name)) {
+      const char *dot = strchr(name.release,'.');
+      if (NULL != dot) {
+        int major = atoi(name.release);
+        int minor = atoi(dot + 1);
+        gasnetc_use_pdeathsig = ((100 * major + minor) >= 206); /* 2.6.0 kernel or newer */
+      }
+    }
+  }
+  #endif
 
   /* An initial pid table is kept in private memory */
   gasnetc_exit_data = gasneti_calloc(1, GASNETC_EXIT_DATA_SZ);
@@ -281,6 +303,12 @@ static void gasnetc_fork_children(void) {
       }
       gasneti_free(gasnetc_exit_data);
       gasnetc_exit_data = NULL;
+      #ifdef HAVE_PR_SET_PDEATHSIG
+      if (gasnetc_use_pdeathsig) {
+        /* Request generation of SIGTERM when parent exits*/
+        prctl(PR_SET_PDEATHSIG, SIGTERM);
+      }
+      #endif
       return;
     }
   }
@@ -709,6 +737,12 @@ extern void gasnetc_exit(int exitcode) {
 #if GASNET_PSHM
   /* same goes for the remote exit signal */
   gasneti_reghandler(GASNETC_REMOTEEXIT_SIGNAL, SIG_IGN);
+  #ifdef HAVE_PR_SET_PDEATHSIG
+  if (gasneti_mynode && gasnetc_use_pdeathsig) {
+    /* Disable generation of SIGTERM when parent exits*/
+    prctl(PR_SET_PDEATHSIG, 0);
+  }
+  #endif
 
   gasnetc_exit_barrier_notify(exitcode);
 #endif
