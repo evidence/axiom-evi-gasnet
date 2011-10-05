@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_core.c,v $
- *     $Date: 2011/10/05 00:11:25 $
- * $Revision: 1.69 $
+ *     $Date: 2011/10/05 05:57:42 $
+ * $Revision: 1.70 $
  * Description: GASNet smp conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -110,8 +110,15 @@ static struct gasnetc_exit_data {
     (offsetof(struct gasnetc_exit_data, pid_tbl[0]) + \
      gasneti_nodes * sizeof(gasnetc_exit_data->pid_tbl[0]))
 
+#if GASNETC_USE_SOCKETPAIR
+  #include <sys/socket.h>
+  static int gasnetc_using_socketpair = 1;
+#endif
+
 #ifndef GASNETC_REMOTEEXIT_SIGNAL
-  #ifdef SIGURG
+  #if  GASNETC_USE_SOCKETPAIR
+    #define GASNETC_REMOTEEXIT_SIGNAL  SIGIO
+  #elif defined(SIGURG)
     #define GASNETC_REMOTEEXIT_SIGNAL  SIGURG
   #else
     #define GASNETC_REMOTEEXIT_SIGNAL  SIGUSR1
@@ -433,19 +440,55 @@ static int gasnetc_init(int *argc, char ***argv) {
 #if GASNET_PSHM
   gasneti_nodes = gasnetc_get_pshm_nodecount();
 
-  /* pipes for intra-process bootstrap comms */
+  gasnetc_exittimeout =  gasneti_get_exittimeout(GASNETC_DEFAULT_EXITTIMEOUT_MAX,
+                                                 GASNETC_DEFAULT_EXITTIMEOUT_MIN,
+                                                 GASNETC_DEFAULT_EXITTIMEOUT_FACTOR,
+                                                 GASNETC_DEFAULT_EXITTIMEOUT_MIN);
+
+  /* pipes or sockets for intra-process bootstrap comms */
   gasnetc_fds = gasneti_malloc(2 * gasneti_nodes * sizeof(int));
-  for (i = 0; i < gasneti_nodes; ++i) {
+  for (i = 1; i < gasneti_nodes; ++i) {
+  #if GASNETC_USE_SOCKETPAIR
+    #if defined(PF_LOCAL)
+    if (0 == socketpair(PF_LOCAL, SOCK_STREAM, 0, &gasnetc_fds[2 * i])) continue;
+    #elif defined(PF_UNIX)
+    if (0 == socketpair(PF_UNIX, SOCK_STREAM, 0, &gasnetc_fds[2 * i])) continue;
+    #endif
+    /* Fall-back to pipe() if socketpair() failed */
     gasneti_assert_zeroret( pipe(&gasnetc_fds[2 * i]) );
+    gasnetc_using_socketpair = 0;
+  #else
+    gasneti_assert_zeroret( pipe(&gasnetc_fds[2 * i]) );
+  #endif
   }
 
   /* A fork in the road! */
   gasnetc_fork_children();
 
-  gasnetc_exittimeout =  gasneti_get_exittimeout(GASNETC_DEFAULT_EXITTIMEOUT_MAX,
-                                                 GASNETC_DEFAULT_EXITTIMEOUT_MIN,
-                                                 GASNETC_DEFAULT_EXITTIMEOUT_FACTOR,
-                                                 GASNETC_DEFAULT_EXITTIMEOUT_MIN);
+  /* close/shutdown unused portion of pipe/socket resources */
+  if (0 == gasneti_mynode) {
+    for (i = 1; i < gasneti_nodes; ++i) {
+      gasneti_assert_zeroret( close(gasnetc_fds[2 * i]) );
+      #if GASNETC_USE_SOCKETPAIR
+      if (gasnetc_using_socketpair) {
+        (void) shutdown(gasnetc_fds[2 * i + 1], SHUT_RD);
+      }
+      #endif
+    }
+  } else {
+    for (i = 1; i < gasneti_nodes; ++i) {
+      gasneti_assert_zeroret( close(gasnetc_fds[2 * i + 1]) );
+      if (i == gasneti_mynode) {
+        #if GASNETC_USE_SOCKETPAIR
+        if (gasnetc_using_socketpair) {
+          (void) shutdown(gasnetc_fds[2 * i], SHUT_WR);
+        }
+        #endif
+      } else {
+        gasneti_assert_zeroret( close(gasnetc_fds[2 * i]) );
+      }
+    }
+  }
 #endif
 
   /* enable tracing */
@@ -473,12 +516,32 @@ static int gasnetc_init(int *argc, char ***argv) {
       gasneti_atomic_set(&tmp->exitcode, 0, 0);
     }
     gasnetc_exit_data = tmp;
+  }
 
-    /* Done w/ bootstrap comms (move later if it becomes necessary) */
-    for (i = 0; i < gasneti_nodes; ++i) {
-      gasneti_assert_zeroret( close(gasnetc_fds[2 * i    ]) );
+  /* Done w/ bootstrap comms (move later if it becomes necessary) */
+  if (0 == gasneti_mynode) {
+    #if GASNETC_USE_SOCKETPAIR
+    if (gasnetc_using_socketpair) {
+      /* Nothing to do here */
+    } else
+    #endif
+    for (i = 1; i < gasneti_nodes; ++i) {
       gasneti_assert_zeroret( close(gasnetc_fds[2 * i + 1]) );
     }
+  } else {
+    const int fd = gasnetc_fds[2 * gasneti_mynode];
+    #if GASNETC_USE_SOCKETPAIR
+    if (gasnetc_using_socketpair) {
+      int flags = fcntl(fd, F_GETFL);
+      if (flags >= 0) {
+        const pid_t mypid = getpid();
+        gasneti_assert_zeroret( fcntl(fd, F_SETFL, flags|O_ASYNC) );
+        gasneti_assert_zeroret( fcntl(fd, F_SETOWN, getpid()) );
+      }
+    } else
+    #endif
+    /* Done w/ bootstrap comms */
+    gasneti_assert_zeroret( close(fd) );
   }
   #endif
 
