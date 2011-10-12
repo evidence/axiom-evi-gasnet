@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2011/09/05 08:03:48 $
- * $Revision: 1.291 $
+ *     $Date: 2011/10/12 06:18:39 $
+ * $Revision: 1.292 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2449,7 +2449,8 @@ static void gasnetc_exit_init(void) {
   if (gasneti_nodemap_local_rank) {
     gasnetc_exit_parent = gasneti_nodemap[gasneti_mynode];
   } else {
-    gasnet_node_t children, child[exit_radix];
+    gasnet_node_t child = gasneti_malloc(exit_radix * sizeof(gasnet_node_t));
+    gasnet_node_t children;
     gasnet_node_t rank, i, j;
 
     /* Enumerate our non-local children */
@@ -2487,6 +2488,8 @@ static void gasnetc_exit_init(void) {
       gasneti_assert(j < gasneti_mynode);
       gasnetc_exit_parent = j;
     }
+
+    gasneti_free(child);
   }
 
   /* Warm-up (for dynamic connections in particular) and then reset */
