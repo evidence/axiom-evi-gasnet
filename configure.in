@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2011/10/12 05:28:24 $
-# $Revision: 1.706 $
+#     $Date: 2011/10/12 05:44:00 $
+# $Revision: 1.707 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.706 $)
+AC_REVISION($Revision: 1.707 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -795,7 +795,7 @@ GASNET_POPVAR(CFLAGS)
 GASNET_TRY_CACHE_CHECK(for non-constant struct initializers, nonconst_struct_init,
   [
     #include <stdio.h>
-    struct S { int a; const int b; }; /* 'const' is here to trigger a bug in suncc */
+    struct S { int a; const int b; }; /* 'const' is here to trigger suncc bug 6913992 */
     struct S foo(int a, int b) {
       struct S tmp = {a, b};
       return tmp;
