@@ -1,6 +1,6 @@
 GASNet inter-Process SHared Memory (PSHM) design
 ---------------------------------------------
-$Revision: 1.13 $
+$Revision: 1.14 $
 
 Document by:
     Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -298,15 +298,12 @@ Status:
     + Shared segment size must be limited to a lower-than-default value
     + BG_SHAREDMEMPOOLSIZE env var must be set to fit the shared segment plus
       extra for Active Message buffers
-    + upcrun must be told to propagate BG_ environment vars to the job
   - Example environment variable settings for 200MB shared heap in VN mode
     when using Berkeley UPC's upcrun command:
-      UPC_ENVPREFIX=BG_
       UPC_SHARED_HEAP_SIZE=200M
       BG_SHAREDMEMPOOLSIZE=820
   - Example environment variable settings for 400MB shared heap in DUAL mode
     when using Berkeley UPC's upcrun command:
-      UPC_ENVPREFIX=BG_
       UPC_SHARED_HEAP_SIZE=400M
       BG_SHAREDMEMPOOLSIZE=810
 * Cray XT and XE platform-specific notes:
