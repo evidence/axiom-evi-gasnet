@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2011/10/12 06:22:40 $
- * $Revision: 1.293 $
+ *     $Date: 2011/10/13 00:31:05 $
+ * $Revision: 1.294 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2487,8 +2487,6 @@ static void gasnetc_exit_init(void) {
       gasneti_assert(j < gasneti_mynode);
       gasnetc_exit_parent = j;
     }
-
-    gasneti_free(child);
   }
 
   /* Warm-up (for dynamic connections in particular) and then reset */
