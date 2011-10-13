@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2011/09/27 23:39:24 $
- * $Revision: 1.98 $
+ *     $Date: 2011/10/13 00:19:50 $
+ * $Revision: 1.99 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -399,8 +399,12 @@ static void gasneti_pshm_unlink(int pshm_rank);
 
 /* create the object/region/segment and return its address */
 static void * gasneti_pshm_mmap(int pshm_rank, void *segbase, size_t segsize) {
+#if defined(PLATFORM_OS_BGP) /* pshm_unlink() is apparently a no-op on BG/P */
+  const int create = ((pshm_rank == gasneti_pshm_nodes) && !gasneti_pshm_mynode);
+#else
   const int create = (pshm_rank == gasneti_pshm_mynode) ||
                      ((pshm_rank == gasneti_pshm_nodes) && !gasneti_pshm_mynode);
+#endif
   void * ptr = MAP_FAILED;
 
 #if defined(GASNETI_PSHM_SYSV)
