@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2011/10/14 02:48:31 $
-# $Revision: 1.709 $
+#     $Date: 2011/10/15 18:29:58 $
+# $Revision: 1.710 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.709 $)
+AC_REVISION($Revision: 1.710 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -4863,6 +4863,7 @@ dnl GASNET_TOOLSONLY_FALSE_END
 
 other/Makefile
 other/Makefile-libgasnet.mak
+other/gasnet_tools-fragment.mak
 tests/Makefile
 config-aux/Makefile
 , 
