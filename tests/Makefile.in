@@ -1,6 +1,6 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v $
-#     $Date: 2011/10/15 18:30:02 $
-# $Revision: 1.116 $
+#     $Date: 2011/10/15 18:53:52 $
+# $Revision: 1.117 $
 # Description: Makefile for GASNet tests
 # @configure_input@
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -339,9 +339,10 @@ KEEPTMP_CFLAGS = $(patsubst %,@KEEPTMP_CFLAGS@,$(KEEPTMPS))
 
 # testtools is a special minimal case for an app that just uses GASNet tools
 # it uses the variables provided by the gasnet_tools-{seq,par}.mak
+@USE_MPI_CONDUIT_TRUE@@CROSS_COMPILING_TRUE@FAKE_DEFS = -DGASNETI_TOOLS_CONDUIT=MPI
 testtools: force
 	@cd @TOP_BUILDDIR@ && $(MAKE) lib$(GASNETTOOLS_TOOLLIB_NAME).a
-	$(GASNETTOOLS_CC) $(GASNETTOOLS_CPPFLAGS) $(GASNETTOOLS_CFLAGS) -c -o $@.o $(srcdir)/$@.c
+	$(GASNETTOOLS_CC) $(GASNETTOOLS_CPPFLAGS) $(GASNETTOOLS_CFLAGS) $(FAKE_DEFS) -c -o $@.o $(srcdir)/$@.c
 	$(GASNETTOOLS_LD) $(GASNETTOOLS_LDFLAGS) -o $@ $@.o $(GASNETTOOLS_LIBS)
 	@test -n '$(KEEPTMPS)' || ( cmd="rm -f $@.o"; echo "$$cmd"; eval "$$cmd" )
 
@@ -352,7 +353,7 @@ testtoolscxx: force
 		exit 1; \
 	 fi
 	@cd @TOP_BUILDDIR@ && $(MAKE) lib$(GASNETTOOLS_TOOLLIB_NAME).a
-	$(GASNETTOOLS_CXX) $(GASNETTOOLS_CPPFLAGS) $(GASNETTOOLS_CXXFLAGS) -c -o $@.o $(srcdir)/$@.cc
+	$(GASNETTOOLS_CXX) $(GASNETTOOLS_CPPFLAGS) $(GASNETTOOLS_CXXFLAGS) $(FAKE_DEFS) -c -o $@.o $(srcdir)/$@.cc
 	$(GASNETTOOLS_CXX) $(GASNETTOOLS_CXXFLAGS) $(GASNETTOOLS_LDFLAGS) -o $@ $@.o $(GASNETTOOLS_LIBS)
 	@test -n '$(KEEPTMPS)' || ( cmd="rm -f $@.o"; echo "$$cmd"; eval "$$cmd" )
 
