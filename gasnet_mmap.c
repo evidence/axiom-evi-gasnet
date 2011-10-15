@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2011/10/13 00:19:50 $
- * $Revision: 1.99 $
+ *     $Date: 2011/10/15 01:05:50 $
+ * $Revision: 1.100 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -308,7 +308,11 @@ static const char *gasneti_pshm_makeunique(const char *unique) {
 #if defined(GASNETI_PSHM_XPMEM)
 #include <hugetlbfs.h>
 
-#if defined(HAVE_HUGETLBFS_UNLINKED_FD_FOR_SIZE)
+#if defined(HAVE_HUGETLBFS_UNLINKED_FD_FOR_SIZE) && 0 /* Disabled pending further study */
+#define GASNETI_USE_HUGETLBFS_SIZES 1
+#endif
+
+#if defined(GASNETI_USE_HUGETLBFS_SIZES)
 static int compare_long(const void *a_p, const void *b_p) {
   long a = *(long *)a_p;
   long b = *(long *)b_p;
@@ -323,7 +327,7 @@ static int compare_long(const void *a_p, const void *b_p) {
 static long pick_pagesz(void **addr_p, uintptr_t *size_p) {
   uintptr_t size = *size_p;
 
-#if defined(HAVE_HUGETLBFS_UNLINKED_FD_FOR_SIZE)
+#if defined(GASNETI_USE_HUGETLBFS_SIZES)
   /* Currently pick largest size less than the rounded request.
    * Other possibilities exists, of course.
    */
