@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_core.c,v $
- *     $Date: 2011/10/05 07:23:58 $
- * $Revision: 1.72 $
+ *     $Date: 2011/10/15 07:10:05 $
+ * $Revision: 1.73 $
  * Description: GASNet smp conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -440,12 +440,17 @@ static int gasnetc_init(int *argc, char ***argv) {
       }
     }
     #ifdef GASNETC_USE_SOCKETPAIR
+    /* Disable socketpair if we are able to use PDEATHSIG */
     gasnetc_using_socketpair = !gasnetc_use_pdeathsig;
     #endif
   }
   #endif
 
-  /* pipes or sockets for intra-process bootstrap comms */
+  /* pipes or sockets for intra-process bootstrap comms.
+   * Sockets are used on systems where they can trigger a signal on disconnect,
+   * and the linux-specific prctl(PDEATHSIG) is unavailable.
+   * Otherwise, we use pipes (which we assume are cheaper than PF_LOCAL sockets).
+   */
   gasnetc_fds = gasneti_malloc(2 * gasneti_nodes * sizeof(int));
   for (i = 1; i < gasneti_nodes; ++i) {
   #ifdef GASNETC_USE_SOCKETPAIR
