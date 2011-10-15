@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2011/10/15 01:05:50 $
- * $Revision: 1.100 $
+ *     $Date: 2011/10/15 01:38:47 $
+ * $Revision: 1.101 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1000,12 +1000,8 @@ static gasneti_segexch_t *gasneti_segexch = NULL; /* exchanged segment informati
     per shared memory node
    localLimit is an optional conduit-specific upper limit per GASNet node
    sharedLimit is an optional upper limit per shared memory node
-   requires an exchange callback function that can be used to exchange data
-   barrierfn is an optional callback function, to perform a barrier
-    If non-NULL will be called after any gasneti_munmap() to ensure all
-    on-node unmap operations are completed.
-    A caller may pass NULL if it can guarantee no race against following
-    mmap() calls.
+   requires an exchangefn callback function that can be used to exchange data
+   and a barrierfn callback to perform a barrier
    returns a value suitable for use as localSegmentLimit in a call
     to gasneti_segmentInit()
    
@@ -1017,7 +1013,7 @@ static gasneti_segexch_t *gasneti_segexch = NULL; /* exchanged segment informati
 uintptr_t gasneti_mmapLimit(uintptr_t localLimit, uint64_t sharedLimit,
                             gasneti_bootstrapExchangefn_t exchangefn,
                             gasneti_bootstrapBarrierfn_t barrierfn) {
-  int i, need_exchg = 0;
+  int i;
   uintptr_t maxsz;
 
 #if GASNET_PSHM
@@ -1025,6 +1021,7 @@ uintptr_t gasneti_mmapLimit(uintptr_t localLimit, uint64_t sharedLimit,
 #endif
 
   gasneti_assert(exchangefn);
+  gasneti_assert(barrierfn); /* No longer optional */
   gasneti_assert(gasneti_nodemap);
 
   /* Apply intial limits, even if not sharing nodes */
@@ -1033,13 +1030,7 @@ uintptr_t gasneti_mmapLimit(uintptr_t localLimit, uint64_t sharedLimit,
   maxsz = MIN(maxsz, localLimit);
 
   /* Coordinate the search IFF there are any shared nodes. */
-  for (i = 0; i < gasneti_nodes; ++i) {
-    if (gasneti_nodemap[i] != i) {
-      need_exchg = 1;
-      break;
-    }
-  }
-  if (need_exchg) {
+  if (gasneti_nodemap_global_count != gasneti_nodes) {
     uintptr_t *sz_exchg = gasneti_malloc(gasneti_nodes * sizeof(uintptr_t));
     gasnet_seginfo_t se = {0,0};
 
@@ -1054,12 +1045,44 @@ uintptr_t gasneti_mmapLimit(uintptr_t localLimit, uint64_t sharedLimit,
        }
     }
 
-    /* Allow each node to probe and collect the results */
+    /* Allow each node to probe SEQUENTIALLY, and then collect the results */
     maxsz = GASNETI_PAGE_ALIGNDOWN(maxsz);
-    if (maxsz) se = _gasneti_mmap_segment_search_inner(maxsz);
-    (*exchangefn)(&se.size, sizeof(uintptr_t), sz_exchg);
+#if GASNET_PSHM
+    if (maxsz) {
+      for (i = 0; i < gasneti_nodemap_local_count; ++i) {
+        if (i == gasneti_nodemap_local_rank) {
+          se = _gasneti_mmap_segment_search_inner(maxsz);
+          maxsz = se.size;
+        }
+        /* Bcast because we can use "declining expectations" to potentially speed later probes */
+        gasneti_pshmnet_bootstrapBroadcast(gasneti_request_pshmnet, &maxsz, sizeof(uintptr_t), &maxsz, i);
+        sz_exchg[gasneti_nodemap_local[i]] = maxsz;
+      }
+    }
+#else
+    if (maxsz) {
+      /* Find widest supernode */
+      gasnet_node_t rounds = 0;
+      {
+        gasnet_node_t *tmp = gasneti_calloc(gasneti_nodemap_global_count, sizeof(gasnet_node_t));
+        for (i = 0; i < gasneti_nodes; ++i) {
+          tmp[gasneti_nodemap[i]] += 1;
+          rounds = MAX(rounds, tmp[gasneti_nodemap[i]]);
+        }
+        gasneti_free(tmp);
+      }
 
-    /* Compute the local mean */
+      for (i = 0; i < rounds; ++i) {
+        if (i == gasneti_nodemap_local_rank) {
+          se = _gasneti_mmap_segment_search_inner(maxsz);
+        }
+        (*barrierfn)();
+      }
+    }
+    (*exchangefn)(&se.size, sizeof(uintptr_t), sz_exchg);
+#endif
+
+    /* Compute the supernode-local mean */
     { uint64_t sum;
       gasnet_node_t first, j;
 
@@ -1073,7 +1096,7 @@ uintptr_t gasneti_mmapLimit(uintptr_t localLimit, uint64_t sharedLimit,
           j += 1;
         }
       }
-      maxsz = MIN(maxsz, sum / gasneti_nodemap_local_count);
+      maxsz = sum / gasneti_nodemap_local_count;
       maxsz = GASNETI_PAGE_ALIGNDOWN(maxsz);
 
 #if GASNET_PSHM
@@ -1114,7 +1137,7 @@ uintptr_t gasneti_mmapLimit(uintptr_t localLimit, uint64_t sharedLimit,
             if (tmp_se[i].size) gasneti_do_munmap(tmp_se[i].addr, tmp_se[i].size);
             tmp_se[i].size = 0;
           }
-          maxsz = GASNETI_PAGE_ALIGNDOWN(sum / gasneti_pshm_nodes);
+          maxsz = GASNETI_ALIGNDOWN(sum / gasneti_pshm_nodes, GASNETI_MMAP_GRANULARITY);
         } while (!done);
         gasneti_free(tmp_se);
       }
@@ -1123,6 +1146,7 @@ uintptr_t gasneti_mmapLimit(uintptr_t localLimit, uint64_t sharedLimit,
       gasneti_pshmnet_bootstrapBroadcast(gasneti_request_pshmnet, &maxsz, sizeof(uintptr_t), &maxsz, 0);
 
       /* Unlink the shared segments to prevent leaks (they are recreated in segmentInit) */
+      /* XXX: redundant? */
       gasneti_unlink_segments();
 #endif
     }
@@ -1130,7 +1154,7 @@ uintptr_t gasneti_mmapLimit(uintptr_t localLimit, uint64_t sharedLimit,
     /* Free held resources */
     gasneti_free(sz_exchg);
     if (se.size) gasneti_do_munmap(se.addr, se.size);
-    if (barrierfn) (*barrierfn)(); /* Ensures munmap()s complete on-node before return */
+    (*barrierfn)(); /* Ensures munmap()s complete on-node before return */
   }
 
 #if GASNET_PSHM
