@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2011/10/15 01:38:47 $
- * $Revision: 1.101 $
+ *     $Date: 2011/10/16 20:52:32 $
+ * $Revision: 1.102 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1066,8 +1066,9 @@ uintptr_t gasneti_mmapLimit(uintptr_t localLimit, uint64_t sharedLimit,
       {
         gasnet_node_t *tmp = gasneti_calloc(gasneti_nodemap_global_count, sizeof(gasnet_node_t));
         for (i = 0; i < gasneti_nodes; ++i) {
-          tmp[gasneti_nodemap[i]] += 1;
-          rounds = MAX(rounds, tmp[gasneti_nodemap[i]]);
+          const gasnet_node_t supernode = gasneti_nodeinfo[i].supernode;
+          tmp[supernode] += 1;
+          rounds = MAX(rounds, tmp[supernode]);
         }
         gasneti_free(tmp);
       }
