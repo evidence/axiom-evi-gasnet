@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2011/10/15 18:53:52 $
- * $Revision: 1.144 $
+ *     $Date: 2011/10/17 01:00:12 $
+ * $Revision: 1.145 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -347,11 +347,11 @@ static int64_t test_calibrate_delay(int iters, int pollcnt, int64_t *time_p)
   #define TEST_TITANIUM_BACKEND "gasnet-" GASNET_CONDUIT_NAME_STR "-uni"
 #else
   #ifndef GASNETI_TOOLS_CONDUIT
-  #define GASNETI_TOOLS_CONDUIT "SMP"
+  #define GASNETI_TOOLS_CONDUIT SMP
   #endif
   #define TEST_TITANIUM_BACKEND "sequential"
   #define TEST_CONFIG_STRING \
-    "RELEASE=x,SPEC=x,CONDUIT="GASNETI_TOOLS_CONDUIT"("GASNETI_TOOLS_CONDUIT"-x/REFERENCE-x),THREADMODEL=PAR,SEGMENT=FAST,PTR=x,align,nodebug,notrace,nostats"
+    "RELEASE=x,SPEC=x,CONDUIT="_STRINGIFY(GASNETI_TOOLS_CONDUIT)"("_STRINGIFY(GASNETI_TOOLS_CONDUIT)"-x/REFERENCE-x),THREADMODEL=PAR,SEGMENT=FAST,PTR=x,align,nodebug,notrace,nostats"
 #endif
 /* mimic Berkeley UPC build config strings, to allow running GASNet tests using upcrun */
 GASNETT_IDENT(GASNetT_IdentString_link_GASNetConfig, 
