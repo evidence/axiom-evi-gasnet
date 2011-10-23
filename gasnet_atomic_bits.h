@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2011/10/23 22:54:39 $
- * $Revision: 1.335 $
+ *     $Date: 2011/10/23 23:02:47 $
+ * $Revision: 1.336 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -138,7 +138,7 @@
         }
       #endif
 
-      #if defined(_MIPS_SIM) && (_MIPS_SIM >= 2) /* N32 or N64-bit ABI */
+      #if defined(_MIPS_SIM) && (_MIPS_SIM >= 2) /* N32 or 64-bit ABI */
         #if PLATFORM_COMPILER_SGI
           #define GASNETI_HAVE_ATOMIC64_T 1
           typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
@@ -2287,7 +2287,7 @@ GASNETI_MIPS_LL(_ll "   %0,0(%4)         \n\t")/* _retval = *p (starts ll/sc res
       GASNETI_INLINE(_gasneti_atomic32_compare_and_swap)
       int _gasneti_atomic32_compare_and_swap(gasneti_atomic32_t *p, uint32_t oldval, uint32_t newval) {
         int retval;
-        #if defined(_MIPS_SIM) && (_MIPS_SIM >= 2) /* N32 or N64-bit ABI */
+        #if defined(_MIPS_SIM) && (_MIPS_SIM >= 2) /* N32 or 64-bit ABI */
         if (!__builtin_constant_p(oldval)) {
           /* Ensure oldval is properly sign-extended for comparison to read value */
           __asm__ __volatile__("sll %0,%0,0" : "+r" (oldval));
@@ -2297,7 +2297,7 @@ GASNETI_MIPS_LL(_ll "   %0,0(%4)         \n\t")/* _retval = *p (starts ll/sc res
         return retval;
       }
 
-      #if defined(_MIPS_SIM) && (_MIPS_SIM >= 2) /* N32 or N64-bit ABI */
+      #if defined(_MIPS_SIM) && (_MIPS_SIM >= 2) /* N32 or 64-bit ABI */
         #define GASNETI_HAVE_ATOMIC64_T 1
         typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
         #define _gasneti_atomic64_read(p)      ((p)->ctr)
