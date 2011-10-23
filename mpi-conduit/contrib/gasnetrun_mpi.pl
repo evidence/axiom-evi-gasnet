@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2011/10/13 00:24:56 $
-# $Revision: 1.90 $
+#     $Date: 2011/10/23 00:19:50 $
+# $Revision: 1.91 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -752,6 +752,56 @@ if ($is_bgp && $ENV{'COBALT_JOBID'}) {
   }
 }
 
+
+if ($is_bgl_cqsub) {
+  if ($numproc) {
+    if(!defined($numnode)) {
+      $numnode = $numproc
+    }
+    my $ppn = int( ( $numproc + $numnode - 1 ) / $numnode );
+    if ($ppn * $numnode != $numproc) {
+      warn "WARNING: non-uniform process distribution not supported\n";
+      warn "WARNING: PROCESS LAYOUT MIGHT NOT MATCH YOUR REQUEST\n";
+    }
+    my $mode = $ENV{'GASNETRUN_MODE'};
+    if (defined $mode) {
+      # fall through
+    } elsif ($ppn == 1) {
+      $mode = 'co';
+    } elsif ($ppn == 2) {
+      $mode = 'vn';
+    } else {
+      die "BG/L only supports 1 or 2 ppn";
+    }
+    if ($mode eq 'co') {
+      @numprocargs = ($numproc, '-m', 'co');
+    } elsif ($mode eq 'vn') {
+      @numprocargs = (int((1+$numproc)/2), '-m', 'vn', '-c', $numproc);
+    } else {
+      die "Invalid GASNETRUN_MODE=$mode";
+    }
+    $dashN_ok = 1;
+  } else {
+    @numprocargs = ($numproc); # default
+  }
+
+  # Possibly deal with redirection by appending to @numprocargs
+  my $cwd = `pwd`;
+  chomp $cwd;
+  if (my $file = $ENV{'GASNETRUN_STDIN'}) {
+    $file = "$cwd/$file" unless ($file =~ m,^/,);
+    push @numprocargs, ('-i', $file);
+  }
+  if (my $file = $ENV{'GASNETRUN_STDOUT'}) {
+    $file = "$cwd/$file" unless ($file =~ m,^/,);
+    push @numprocargs, ('-o', $file);
+  }
+  if (my $file = $ENV{'GASNETRUN_STDERR'}) {
+    $file = "$cwd/$file" unless ($file =~ m,^/,);
+    push @numprocargs, ('-E', $file);
+  }
+}
+
 if ($numnode && $is_infinipath) {
   my $ppn = int( ( $numproc + $numnode - 1 ) / $numnode );
   @numprocargs = ($numproc, '-ppn', $ppn);
@@ -821,20 +871,51 @@ if ($numnode && $is_infinipath) {
 
     if ($dryrun) {
 	# Do nothing
+    } elsif ($is_bgl_cqsub) { # cqsub as mpirun needs some help
+        my $jobid;
+
+        # Implement equivalent of backticks, but w/o shell eval of arguments:
+        my $pid = open(PIPE, "-|");
+        die "cannot fork: $!" unless (defined $pid); 
+        if ($pid) {
+            local $/; $jobid .= <PIPE>; # slurp!
+            close(PIPE) or $pid = 0;
+        } else {
+	    exec(@spawncmd);
+	    die "gasnetrun: exec(@spawncmd) failed: $!\n";
+        }
+        chomp $jobid;
+        die "gasnetrun: exec(@spawncmd) failed:\n$jobid\n"
+           unless ($pid && ($jobid == int($jobid)));
+
+        # Implement blocking "inline"
+        {
+            sub terminate() { system("cqdel $jobid"); }
+            local $SIG{'HUP'} = 'terminate';
+            local $SIG{'INT'} = 'terminate';
+            local $SIG{'QUIT'} = 'terminate';
+            local $SIG{'TERM'} = 'terminate';
+
+            # Don't use system() so we can retain control over signals
+            $pid = open(PIPE, "/bgl/software/bin/cqwait $jobid |");
+            die "cannot fork: $!" unless (defined $pid); 
+            { local $/; my $wait_for_it = <PIPE>; } # slurp!
+            close(PIPE); # XXX: error handling?
+        }
     } elsif (@tmpfiles || defined($tmpdir)) {
 	system(@spawncmd);
-	if (!$keep) {
-          foreach (@tmpfiles) {
-	    print("gasnetrun: unlinking ", join(' ', @tmpfiles), "\n") if ($verbose);
-	    unlink "$_" or die "gasnetrun: failed to unlink \'$_\'";
-	  }
-	  if (defined($tmpdir)) {
-	    rmdir $tmpdir or die "gasnetrun: failed to rmdir \'$tmpdir\'";
-	  }
- 	}
     } else {
 	exec(@spawncmd);
 	die "gasnetrun: exec(@spawncmd) failed: $!\n";
+    }
+    if (!$keep) {
+      foreach (@tmpfiles) {
+        print("gasnetrun: unlinking ", join(' ', @tmpfiles), "\n") if ($verbose);
+        unlink "$_" or die "gasnetrun: failed to unlink \'$_\'";
+      }
+      if (defined($tmpdir)) {
+        rmdir $tmpdir or die "gasnetrun: failed to rmdir \'$tmpdir\'";
+      }
     }
     exit(0);
 __END__
