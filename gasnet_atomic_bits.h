@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2011/10/30 07:15:39 $
- * $Revision: 1.337 $
+ *     $Date: 2011/10/30 08:27:59 $
+ * $Revision: 1.338 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -443,8 +443,8 @@
 	  #endif
           }
         #endif
-      #elif PLATFORM_COMPILER_OPEN64
-        /* No known working 64-bit atomics for this compiler on ILP32.  See bug 2725 */
+      #elif PLATFORM_COMPILER_OPEN64 || defined(__llvm__)
+        /* No known working 64-bit atomics for this compiler on ILP32.  See bugs 2725 and 3071. */
         #undef GASNETI_HAVE_ATOMIC64_T
         #undef _gasneti_atomic64_init
         /* left-over typedef of gasneti_atomic64_t will get hidden by a #define */
@@ -517,13 +517,10 @@
 	 * at the time it is executed.  This is done by loading the address into
 	 * a register rather than giving it as an "m".
 	 *
-	 * Require explicit "SD" for p->ctr or %ebx might get used (bug 3071)
-	 *
 	 * Alas, if we try to add an "m" output for the target location, gcc thinks
 	 * it needs to allocate another register for it.  Having none left, it gives
 	 * up at this point.  So, we need to list "memory" in the clobbers instead.
 	 */
-
         #define gasneti_atomic64_align 4 /* only need 4-byte alignment, not the default 8 */
         GASNETI_INLINE(_gasneti_atomic64_compare_and_swap)
         int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval) {
@@ -536,7 +533,7 @@
 		    "sete	%b0		\n\t"
 		    "movl	%1, %%ebx	"
 		    : "+&A" (oldval), "+&r" (newlo)
-		    : "c" (newhi), "SD" (&p->ctr)
+		    : "c" (newhi), "r" (&p->ctr)
 		    : "cc", "memory");
           return (uint8_t)oldval;
         }
@@ -553,7 +550,7 @@
 		    "jnz	0b		\n\t"
 		    "movl	%1, %%ebx	"
 		    : "+&A" (oldval), "+&r" (newlo)
-		    : "c" (newhi), "SD" (&p->ctr)
+		    : "c" (newhi), "r" (&p->ctr)
 		    : "cc", "memory");
 	}
 	#define gasneti_atomic64_set gasneti_atomic64_set
