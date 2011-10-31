@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2011/10/26 00:29:46 $
- * $Revision: 1.8 $
+ *     $Date: 2011/10/31 20:56:18 $
+ * $Revision: 1.9 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -210,7 +210,7 @@ static int gasnetc_init(int *argc, char ***argv) {
               "\n"
               " GASNet's gemini-conduit is currently in BETA status.\n"
               " You should NOT trust any performance numbers from this run as\n"
-              " predictive of the performace of the conduit when completed.\n"
+              " predictive of the performance of the conduit when completed.\n"
               "\n"
               " WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING\n"
               "-----------------------------------------------------------------------\n");
