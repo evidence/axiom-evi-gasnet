@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2011/10/24 02:56:48 $
-# $Revision: 1.714 $
+#     $Date: 2011/11/22 00:09:11 $
+# $Revision: 1.715 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.714 $)
+AC_REVISION($Revision: 1.715 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1634,14 +1634,14 @@ AC_TRY_RUN([
 	register unsigned long newhi = 5678;
 	register unsigned char result;
 
-	p[0] = 0;
-	p[1] = 0x1234llu << 32;
+	p[0] = oldlo;
+	p[1] = oldhi;
 
 	__asm__ __volatile__ (
 		"lock;			"
 		"cmpxchg16b	%1	\n\t"
 		"sete		%0	"
-		: "=q" (result), "+m" (*p), "+&a" (oldlo), "+&d" (oldhi)
+		: "=q" (result), "=m" (*p), "+&a" (oldlo), "+&d" (oldhi)
 		: "b" (newlo), "c" (newhi)
 		: "cc", "memory");
 
