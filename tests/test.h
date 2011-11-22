@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2011/10/17 01:00:12 $
- * $Revision: 1.145 $
+ *     $Date: 2011/11/22 01:41:05 $
+ * $Revision: 1.146 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -841,10 +841,7 @@ static int _test_localprocs(void) { /* First call is not thread safe */
     gasnet_node_t my_supernode;
     gasnet_node_t i;
 
-    assert(_test_nodeinfo == NULL);
-    _test_nodeinfo = (gasnet_nodeinfo_t *)test_malloc(gasnet_nodes()*sizeof(gasnet_nodeinfo_t));
-    GASNET_Safe(gasnet_getNodeInfo(_test_nodeinfo, gasnet_nodes()));
-
+    assert(_test_nodeinfo);
     my_supernode = _test_nodeinfo[gasnet_mynode()].supernode;
     for (i=0; i < gasnet_nodes(); i++) {
       if (_test_nodeinfo[i].supernode == my_supernode) {
@@ -853,7 +850,6 @@ static int _test_localprocs(void) { /* First call is not thread safe */
       }
     }
   }
-  assert(_test_nodeinfo);
   assert(count > 0);
   return count;
 }
@@ -976,10 +972,17 @@ static void _test_init(const char *testname, int reports_performance, int early,
         testname, (int)gasnet_nodes(), GASNET_CONFIG_STRING,
         _STRINGIFY(PLATFORM_COMPILER_FAMILYNAME), PLATFORM_COMPILER_VERSION_STR,
         GASNETT_SYSTEM_TUPLE);
+    assert(_test_nodeinfo == NULL);
+    _test_nodeinfo = (gasnet_nodeinfo_t *)test_malloc(gasnet_nodes()*sizeof(gasnet_nodeinfo_t));
+    GASNET_Safe(gasnet_getNodeInfo(_test_nodeinfo, gasnet_nodes()));
     if (!early) {
       TEST_SEG(gasnet_mynode()); /* ensure we got the segment requested */
       BARRIER();
+    #if GASNET_PSHM
+      MSG("hostname is: %s (supernode=%i pid=%i)", gasnett_gethostname(), (int)_test_nodeinfo[gasnet_mynode()].supernode, (int)getpid());
+    #else
       MSG("hostname is: %s (pid=%i)", gasnett_gethostname(), (int)getpid());
+    #endif
       fflush(NULL);
       BARRIER();
     }
