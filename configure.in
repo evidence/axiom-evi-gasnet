@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2011/11/22 00:09:11 $
-# $Revision: 1.715 $
+#     $Date: 2011/11/26 20:17:36 $
+# $Revision: 1.716 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.715 $)
+AC_REVISION($Revision: 1.716 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -3288,10 +3288,8 @@ if test "$enabled_vapi" = yes; then
 
   # Assemble any extra flags needed at library build time
   VAPI_LIBCFLAGS=''
-  if test "$gasnet_cv_cc_family" = "GNU"; then
-    AC_MSG_CHECKING(if $CC supports GNU variadic preprocessor macros)
-    AC_MSG_RESULT([yes (gcc)])
-  else
+
+    # Once assumed always true for GCC, but that is not always the case.
     GASNET_TRY_CACHE_CHECK(if $CC supports GNU variadic preprocessor macros, cc_gnu_variadic_macros, [
 	extern void bar1(int a);
 	extern void bar3(int a, int b, int c);
@@ -3304,7 +3302,6 @@ if test "$enabled_vapi" = yes; then
       # Work aroung bug #522 by omitting mtl_log.h
       VAPI_LIBCFLAGS="$VAPI_LIBCFLAGS -DH_MTL_LOG_H"
     ])
-  fi
 
   # Try to compile and link a basic VAPI program
   GASNET_PUSHVAR(CFLAGS,"$CFLAGS -I$VAPI_INCLUDE $GASNET_THREAD_DEFINES $VAPI_LIBCFLAGS")
