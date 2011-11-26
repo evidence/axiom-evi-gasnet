@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2011/11/26 20:17:36 $
-# $Revision: 1.716 $
+#     $Date: 2011/11/26 23:08:22 $
+# $Revision: 1.717 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.716 $)
+AC_REVISION($Revision: 1.717 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -791,7 +791,7 @@ GASNET_GET_GNU_ATTRIBUTES([GASNETI_HAVE_CC])
 GASNET_GET_PLATFORM_ID([COMPILER])
 GASNET_POPVAR(CFLAGS)
 
-# Check for a usefull C99 feature common in many pre-C99 compilers
+# Check for a usefull C99 features common in many pre-C99 compilers
 GASNET_TRY_CACHE_CHECK(for non-constant struct initializers, nonconst_struct_init,
   [
     #include <stdio.h>
@@ -804,6 +804,12 @@ GASNET_TRY_CACHE_CHECK(for non-constant struct initializers, nonconst_struct_ini
     /* printf() call ensures an int not known at compile/link time */
     struct S s = foo(1, printf("boo\n"));
   ], [ AC_DEFINE(HAVE_NONCONST_STRUCT_INIT) ])
+GASNET_TRY_CACHE_CHECK(for struct initializer expressions, struct_init_expr,
+  [
+    struct S { int a; int b; };
+  ], [
+    struct S s = ((struct S){(1,2)});
+  ], [ AC_DEFINE(HAVE_STRUCT_INIT_EXPR) ])
 
 ########################################################################
 # hunt for 16-, 32-, and 64-bit integer types
