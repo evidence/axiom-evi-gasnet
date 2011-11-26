@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2011/09/05 08:03:48 $
- * $Revision: 1.66 $
+ *     $Date: 2011/11/26 21:22:55 $
+ * $Revision: 1.67 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -1167,7 +1167,7 @@ typedef enum {
   GASNETC_CONN_CMD_REQ = 1,
   GASNETC_CONN_CMD_REP,
   GASNETC_CONN_CMD_RTU,
-  GASNETC_CONN_CMD_ACK,
+  GASNETC_CONN_CMD_ACK
 } gasnetc_conn_cmd_t;
 
 static gasnetc_ud_snd_desc_t *
