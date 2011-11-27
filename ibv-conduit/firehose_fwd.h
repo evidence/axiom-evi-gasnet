@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/firehose_fwd.h,v $
- *     $Date: 2011/11/27 04:10:23 $
- * $Revision: 1.17 $
+ *     $Date: 2011/11/27 04:26:26 $
+ * $Revision: 1.18 $
  * Description: Configuration of firehose code to fit vapi-conduit
  * Copyright 2003, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -24,7 +24,7 @@
     /* Supress warnings about out-of-range constants in an enum (an explict 0xFFFFFFFF) */
     #pragma error_messages(off, E_ENUM_VAL_OVERFLOWS_INT_MAX)
   #endif
-  #if PLATFORM_COMPILER_GNU && !defined(inline)
+  #if defined(__GNUC__) && !defined(inline)
     /* ANSI-ify the vapi headers */
     #define inline __inline__
     #include <vapi_types.h>
@@ -57,7 +57,7 @@
     #define GASNETC_IB_MAX_HCAS 1
   #endif
 #elif GASNET_CONDUIT_IBV
-  #if PLATFORM_COMPILER_GNU && !defined(inline)
+  #if defined(__GNUC__) && !defined(inline)
     /* ANSI-ify the IB Verbs headers */
     #define inline __inline__
     #include <infiniband/verbs.h>
