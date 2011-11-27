@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2011/11/26 23:21:36 $ */
-/*  $Revision: 1.169 $ */
+/*      $Date: 2011/11/27 00:22:58 $ */
+/*  $Revision: 1.170 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -113,8 +113,8 @@
 
 /* Does CC support C99-type non-constant initializers for structs? */
 #undef HAVE_NONCONST_STRUCT_INIT
-/* Does CC support C99-type initializer expressions for structs? */
-#undef HAVE_STRUCT_INIT_EXPR
+/* Does CC support C99-type constructor expressions? */
+#undef HAVE_CONSTRUCTOR_EXPR
 
 /* true iff GASNETI_RESTRICT may be applied to types which are not pointer types until after typedef expansion */
 #undef GASNETI_CC_RESTRICT_MAY_QUALIFY_TYPEDEFS

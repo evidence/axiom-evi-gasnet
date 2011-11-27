@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_internal.h,v $
- *     $Date: 2011/11/26 23:08:27 $
- * $Revision: 1.43 $
+ *     $Date: 2011/11/27 00:23:09 $
+ * $Revision: 1.44 $
  * Description: Internal Header file
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -176,7 +176,7 @@ extern int	*fhc_RemoteVictimFifoBuckets;
     uintptr_t     addr;
     uintptr_t     node; /* Might instead hold len in region case */
   }	  fh_key_t;
-  #if defined(HAVE_STRUCT_INIT_EXPR)
+  #if defined(HAVE_CONSTRUCTOR_EXPR)
     #define FH_KEYMAKE(addr,node) ((fh_key_t){(addr),(node)})
   #else
     GASNETI_ALWAYS_INLINE(fh_keymake)
