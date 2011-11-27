@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2011/11/27 02:07:45 $
-# $Revision: 1.720 $
+#     $Date: 2011/11/27 02:47:01 $
+# $Revision: 1.721 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.720 $)
+AC_REVISION($Revision: 1.721 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -3315,7 +3315,14 @@ if test "$enabled_vapi" = yes; then
   GASNET_PUSHVAR(CFLAGS,"$CFLAGS -I$VAPI_INCLUDE $GASNET_THREAD_DEFINES $VAPI_LIBCFLAGS")
   GASNET_PUSHVAR(LIBS,"$LIBS -L$VAPI_LIBDIR $VAPI_LIBS $GASNET_THREAD_LIBS")
   GASNET_TRY_CACHE_LINK(for working VAPI configuration, vapi_works, [
-    #include <evapi.h>
+    #if defined(__GNUC__) && !defined(inline)
+      /* ANSI-ify the vapi headers */
+      #define inline __inline__
+      #include <evapi.h>
+      #undef inline
+    #else
+      #include <evapi.h>
+    #endif
   ], [{
     int rc;
     u_int32_t num_of_hcas;
