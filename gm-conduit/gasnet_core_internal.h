@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core_internal.h,v $
- * $Date: 2011/11/27 01:50:36 $
- * $Revision: 1.81 $
+ * $Date: 2011/11/27 02:23:43 $
+ * $Revision: 1.82 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -19,10 +19,10 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <errno.h>
-#if defined(__i386__) && !defined(i386)	/* fix gm. cpu detection */
+#if PLATFORM_ARCH_X86 && !defined(i386)	/* fix gm. cpu detection */
 #define i386
 #endif
-#if defined(__GNUC__) && !defined(inline)
+#if PLATFORM_COMPILER_GNU && !defined(inline)
   /* ANSI-ify */
   #define inline __inline__
   #include <gm.h>
