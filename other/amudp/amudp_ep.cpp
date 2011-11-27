@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_ep.cpp,v $
- *     $Date: 2010/11/29 01:01:17 $
- * $Revision: 1.30 $
+ *     $Date: 2011/11/27 22:32:18 $
+ * $Revision: 1.31 $
  * Description: AMUDP Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -26,7 +26,7 @@ uint32_t AMUDP_MaxRequestTimeout_us = AMUDP_MAX_REQUESTTIMEOUT_MICROSEC;
 uint32_t AMUDP_InitialRequestTimeout_us = AMUDP_INITIAL_REQUESTTIMEOUT_MICROSEC;
 
 int AMUDP_SilentMode = 0; 
-AMUDP_IDENT(AMUDP_IdentString_Version, "$AMUDPLibraryVersion: " AMUDP_LIBRARY_VERSION_STR " $");
+AMUDP_IDENT(AMUDP_IdentString_Version, "$AMUDPLibraryVersion: " AMUDP_LIBRARY_VERSION_STR " $")
 #ifdef UETH
   ep_t AMUDP_UETH_endpoint = NULL; /* the one-and-only UETH endpoint */
 #endif
