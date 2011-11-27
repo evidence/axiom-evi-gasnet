@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core_fwd.h,v $
- *     $Date: 2011/09/15 04:09:52 $
- * $Revision: 1.3 $
+ *     $Date: 2011/11/27 19:33:44 $
+ * $Revision: 1.4 $
  * Description: GASNet header for <conduitname> conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -26,6 +26,9 @@
 #define GASNET_PSHM 1
 #ifndef GASNETI_PSHM_XPMEM
   #error "Gemini-conduit only suports PSHM via XPMEM"
+#endif
+#ifndef HAVE_HUGETLBFS
+  #error "Gemini-conduit requires hugetlbfs"
 #endif
 #endif
 
