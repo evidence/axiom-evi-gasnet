@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2011/11/27 04:10:21 $
-# $Revision: 1.722 $
+#     $Date: 2011/11/27 04:30:46 $
+# $Revision: 1.723 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.722 $)
+AC_REVISION($Revision: 1.723 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1301,6 +1301,25 @@ if test "$enabled_pshm" != no; then
  if test "$enabled_pshm_xpmem$with_pshm" = yesno; then
   GASNET_PUSHVAR(LIBS,"")
   AC_SEARCH_LIBS(xpmem_get, xpmem, [
+    AC_CHECK_HEADERS([xpmem.h sn/xpmem.h])
+    GASNET_TRY_CACHE_CHECK(for type xpmem_segid_t, xpmem_segid_t, [
+         #include <sys/mman.h>
+         #if defined(HAVE_XPMEM_H)
+           #include <xpmem.h>
+         #elif defined(HAVE_SN_XPMEM_H)
+           #include <sn/xpmem.h>
+         #endif
+    ], [ xpmem_segid_t x = (xpmem_segid_t)0; ],
+       [ AC_DEFINE(HAVE_XPMEM_SEGID_T) ])
+    GASNET_TRY_CACHE_CHECK(for type xpmem_apid_t, xpmem_apid_t, [
+         #include <sys/mman.h>
+         #if defined(HAVE_XPMEM_H)
+           #include <xpmem.h>
+         #elif defined(HAVE_SN_XPMEM_H)
+           #include <sn/xpmem.h>
+         #endif
+    ], [ xpmem_apid_t x = (xpmem_apid_t)0; ],
+       [ AC_DEFINE(HAVE_XPMEM_APID_T) ])
     have_hugetlbfs=no
     GASNET_PUSHVAR(LIBS,"$LIBS -lhugetlbfs")
     AC_CHECK_FUNCS([hugetlbfs_unlinked_fd_for_size hugetlbfs_unlinked_fd],

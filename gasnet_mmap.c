@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2011/10/16 20:52:32 $
- * $Revision: 1.102 $
+ *     $Date: 2011/11/27 04:30:46 $
+ * $Revision: 1.103 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -24,7 +24,17 @@
  #endif
 
  #if GASNET_PSHM && defined(GASNETI_PSHM_XPMEM)
-  #include <xpmem.h>
+  #if defined(HAVE_XPMEM_H)
+   #include <xpmem.h>
+  #elif defined(HAVE_SN_XPMEM_H)
+   #include <sn/xpmem.h>
+  #endif
+  #ifndef HAVE_XPMEM_SEGID_T
+   typedef int64_t xpmem_segid_t;
+  #endif
+  #ifndef HAVE_XPMEM_APID_T
+   typedef int64_t xpmem_apid_t;
+  #endif
  #endif
 
 #if PLATFORM_OS_IRIX
