@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2011/11/27 02:47:01 $
-# $Revision: 1.721 $
+#     $Date: 2011/11/27 04:10:21 $
+# $Revision: 1.722 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.721 $)
+AC_REVISION($Revision: 1.722 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -3427,7 +3427,14 @@ if test "$enabled_ibv" = yes; then
   GASNET_PUSHVAR(CFLAGS,"$CFLAGS -I$IBV_INCLUDE $GASNET_THREAD_DEFINES $IBV_LIBCFLAGS")
   GASNET_PUSHVAR(LIBS,"$LIBS -L$IBV_LIBDIR $IBV_LIBS $GASNET_THREAD_LIBS")
   GASNET_TRY_CACHE_LINK(for working IB Verbs configuration, ibv_works, [
-    #include <infiniband/verbs.h>
+    #if defined(__GNUC__) && !defined(inline)
+      /* ANSI-ify the verbs headers */
+      #define inline __inline__
+      #include <infiniband/verbs.h>
+      #undef inline
+    #else
+      #include <infiniband/verbs.h>
+    #endif
   ], [{
     struct ibv_device device;
     char *s = ibv_get_device_name(&device);
