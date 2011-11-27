@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2011/11/27 04:30:46 $
- * $Revision: 1.103 $
+ *     $Date: 2011/11/27 19:30:12 $
+ * $Revision: 1.104 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -25,15 +25,19 @@
 
  #if GASNET_PSHM && defined(GASNETI_PSHM_XPMEM)
   #if defined(HAVE_XPMEM_H)
+   /* Cray XPMEM */
    #include <xpmem.h>
+   typedef struct xpmem_addr gasneti_xpmem_addr_t;
+   typedef xpmem_segid_t gasneti_xpmem_segid_t;
+   typedef xpmem_apid_t gasneti_xpmem_apid_t;
+   #define gasneti_xpmem_apid apid
   #elif defined(HAVE_SN_XPMEM_H)
+   /* SGI XPMEM */
    #include <sn/xpmem.h>
-  #endif
-  #ifndef HAVE_XPMEM_SEGID_T
-   typedef int64_t xpmem_segid_t;
-  #endif
-  #ifndef HAVE_XPMEM_APID_T
-   typedef int64_t xpmem_apid_t;
+   typedef xpmem_addr_t gasneti_xpmem_addr_t;
+   typedef int64_t gasneti_xpmem_segid_t;
+   typedef int64_t gasneti_xpmem_apid_t;
+   #define gasneti_xpmem_apid id
   #endif
  #endif
 
@@ -163,8 +167,8 @@ extern void *gasneti_mmap(uintptr_t segsize) {
 #elif defined(GASNETI_PSHM_FILE) || defined(GASNETI_PSHM_POSIX)
   static char **gasneti_pshmname = NULL;
 #elif defined(GASNETI_PSHM_XPMEM)
-  static xpmem_segid_t *gasneti_pshm_segids = NULL;
-  static xpmem_apid_t *gasneti_pshm_apids = NULL;
+  static gasneti_xpmem_segid_t *gasneti_pshm_segids = NULL;
+  static gasneti_xpmem_apid_t *gasneti_pshm_apids = NULL;
 #endif
 
 static char *gasneti_pshm_tmpfile = NULL;
@@ -314,8 +318,8 @@ static const char *gasneti_pshm_makeunique(const char *unique) {
 }
 #endif
 
-/* XXX: support for XPMEM & hugetlbfs should be independent */
-#if defined(GASNETI_PSHM_XPMEM)
+/* XXX: hugetlbfs should be usable independent of XPMEM */
+#if defined(GASNETI_PSHM_XPMEM) && HAVE_HUGETLBFS
 #include <hugetlbfs.h>
 
 #if defined(HAVE_HUGETLBFS_UNLINKED_FD_FOR_SIZE) && 0 /* Disabled pending further study */
@@ -473,13 +477,20 @@ static void * gasneti_pshm_mmap(int pshm_rank, void *segbase, size_t segsize) {
   }
 #elif defined(GASNETI_PSHM_XPMEM)
   if (create) {
+  #if HAVE_HUGETLBFS
     ptr = gasneti_huge_mmap(segbase, segsize);
+  #else
+    const int mmap_flags = GASNETI_MAP_ANONYMOUS | MAP_SHARED | \
+                           (segbase ? GASNETI_MMAP_FIXED_FLAG : GASNETI_MMAP_NOTFIXED_FLAG);
+    ptr = mmap(segbase, segsize, (PROT_READ|PROT_WRITE), mmap_flags, 0, 0);
+  #endif
   } else {
-    struct xpmem_addr xa;
+    gasneti_xpmem_addr_t xa;
     xa.offset = 0;
-    xa.apid = gasneti_pshm_apids[pshm_rank] = 
+    xa.gasneti_xpmem_apid =
+          gasneti_pshm_apids[pshm_rank] = 
               xpmem_get(gasneti_pshm_segids[pshm_rank], XPMEM_RDWR, XPMEM_PERMIT_MODE, NULL);
-    if (xa.apid != (xpmem_apid_t)(-1)) {
+    if (xa.gasneti_xpmem_apid != (gasneti_xpmem_apid_t)-1) {
       ptr = xpmem_attach(xa, segsize, segbase);
     }
   }
@@ -506,7 +517,11 @@ static void gasneti_pshm_munmap(void *segbase, uintptr_t segsize) {
 #elif defined(GASNETI_PSHM_FILE) || defined(GASNETI_PSHM_POSIX)
   gasneti_munmap(segbase, segsize);
 #elif defined(GASNETI_PSHM_XPMEM)
+ #if HAVE_HUGETLBFS
   gasneti_huge_munmap(segbase, segsize);
+ #else
+  gasneti_munmap(segbase, segsize);
+ #endif
 #else
   #error
 #endif
@@ -536,8 +551,8 @@ GASNETI_INLINE(gasneti_export_segment)
 void gasneti_export_segment(void *segbase, uintptr_t segsize) {
 #if defined(GASNETI_PSHM_XPMEM)
   /* Create and supernode-exchange xpmem segment ids */
-  xpmem_segid_t segid = xpmem_make(segbase, segsize, XPMEM_PERMIT_MODE, (void *)(uintptr_t)0600);
-  if_pf (segid == (xpmem_segid_t)(-1)) {
+  gasneti_xpmem_segid_t segid = xpmem_make(segbase, segsize, XPMEM_PERMIT_MODE, (void *)(uintptr_t)0600);
+  if_pf (segid == (gasneti_xpmem_segid_t)(-1)) {
     fprintf(stderr, "xpmem_make() failed:%s\n", strerror(errno));
   }
   gasneti_pshmnet_bootstrapExchange(gasneti_request_pshmnet, &segid, sizeof(segid), gasneti_pshm_segids);
@@ -728,19 +743,19 @@ extern void *gasneti_mmap_vnet(uintptr_t size, gasneti_bootstrapExchangefn_t exc
   }
   #elif defined(GASNETI_PSHM_XPMEM)
   {
-    xpmem_segid_t  *exchg;
-    xpmem_segid_t segid = (xpmem_segid_t)(-1);
+    gasneti_xpmem_segid_t *exchg;
+    gasneti_xpmem_segid_t segid = (gasneti_xpmem_segid_t)(-1);
 
     /* Initialization */
-    gasneti_pshm_segids = gasneti_malloc(sizeof(segid) * (gasneti_pshm_nodes + 1));
-    gasneti_pshm_apids = gasneti_malloc(sizeof(xpmem_apid_t) * (gasneti_pshm_nodes + 1));
+    gasneti_pshm_segids = gasneti_malloc(sizeof(gasneti_xpmem_segid_t) * (gasneti_pshm_nodes + 1));
+    gasneti_pshm_apids = gasneti_malloc(sizeof(gasneti_xpmem_apid_t) * (gasneti_pshm_nodes + 1));
 
     /* First in each supernode creates the segment */
     if (gasneti_pshm_mynode == 0) {
       ptr = gasneti_mmap_shared_internal(gasneti_pshm_nodes, NULL, size, 1);
       if (ptr != MAP_FAILED) {
         segid = xpmem_make(ptr, size, XPMEM_PERMIT_MODE, (void *)(uintptr_t)0600);
-        if_pf (segid == (xpmem_segid_t)(-1)) {
+        if_pf (segid == (gasneti_xpmem_segid_t)(-1)) {
           fprintf(stderr, "xpmem_make() failed:%s\n", strerror(errno));
         }
       }

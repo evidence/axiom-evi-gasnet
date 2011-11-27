@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2011/11/27 04:30:46 $
-# $Revision: 1.723 $
+#     $Date: 2011/11/27 19:30:12 $
+# $Revision: 1.724 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.723 $)
+AC_REVISION($Revision: 1.724 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1193,6 +1193,14 @@ AC_CHECK_LIB(thread, thr_create, have_solthread=yes, have_solthread=no)
 ## Process-shared memory (pshm)
 
 dnl GASNET_TOOLSONLY_FALSE_BEGIN
+have_hugetlbfs=no
+AC_CHECK_HEADERS(hugetlbfs.h, [
+  GASNET_PUSHVAR(LIBS,"$LIBS -lhugetlbfs")
+  AC_CHECK_FUNCS([hugetlbfs_unlinked_fd_for_size hugetlbfs_unlinked_fd],
+                 [have_hugetlbfs=yes
+                  AC_DEFINE(HAVE_HUGETLBFS)])
+  GASNET_POPVAR(LIBS)
+])
 with_pshm=no
 GASNET_PSHM_LIBS=""
 GASNET_PSHM_ENABLED=no
@@ -1302,34 +1310,12 @@ if test "$enabled_pshm" != no; then
   GASNET_PUSHVAR(LIBS,"")
   AC_SEARCH_LIBS(xpmem_get, xpmem, [
     AC_CHECK_HEADERS([xpmem.h sn/xpmem.h])
-    GASNET_TRY_CACHE_CHECK(for type xpmem_segid_t, xpmem_segid_t, [
-         #include <sys/mman.h>
-         #if defined(HAVE_XPMEM_H)
-           #include <xpmem.h>
-         #elif defined(HAVE_SN_XPMEM_H)
-           #include <sn/xpmem.h>
-         #endif
-    ], [ xpmem_segid_t x = (xpmem_segid_t)0; ],
-       [ AC_DEFINE(HAVE_XPMEM_SEGID_T) ])
-    GASNET_TRY_CACHE_CHECK(for type xpmem_apid_t, xpmem_apid_t, [
-         #include <sys/mman.h>
-         #if defined(HAVE_XPMEM_H)
-           #include <xpmem.h>
-         #elif defined(HAVE_SN_XPMEM_H)
-           #include <sn/xpmem.h>
-         #endif
-    ], [ xpmem_apid_t x = (xpmem_apid_t)0; ],
-       [ AC_DEFINE(HAVE_XPMEM_APID_T) ])
-    have_hugetlbfs=no
-    GASNET_PUSHVAR(LIBS,"$LIBS -lhugetlbfs")
-    AC_CHECK_FUNCS([hugetlbfs_unlinked_fd_for_size hugetlbfs_unlinked_fd],
-                   [have_hugetlbfs=yes])
-    if test "$have_hugetlbfs" = yes; then
-      AC_DEFINE(GASNETI_PSHM_XPMEM)
-      GASNET_PSHM_LIBS=$LIBS
-      with_pshm=xpmem
+    if test $have_hugetlbfs = yes; then
+      LIBS="$LIBS -lhugetlbfs"
     fi
-    GASNET_POPVAR(LIBS)
+    GASNET_PSHM_LIBS=$LIBS
+    AC_DEFINE(GASNETI_PSHM_XPMEM)
+    with_pshm=xpmem
   ])
   GASNET_POPVAR(LIBS)
  fi
