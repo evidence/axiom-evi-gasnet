@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core_internal.h,v $
- * $Date: 2011/02/09 04:10:19 $
- * $Revision: 1.80 $
+ * $Date: 2011/11/27 01:50:36 $
+ * $Revision: 1.81 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -22,7 +22,8 @@
 #if defined(__i386__) && !defined(i386)	/* fix gm. cpu detection */
 #define i386
 #endif
-#ifdef __GNUC__
+#if defined(__GNUC__) && !defined(inline)
+  /* ANSI-ify */
   #define inline __inline__
   #include <gm.h>
   #undef inline
