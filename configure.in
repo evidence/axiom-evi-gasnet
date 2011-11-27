@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2011/11/27 01:53:29 $
-# $Revision: 1.719 $
+#     $Date: 2011/11/27 02:07:45 $
+# $Revision: 1.720 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.719 $)
+AC_REVISION($Revision: 1.720 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1299,9 +1299,10 @@ if test "$enabled_pshm" != no; then
    [Enable use of XPMEM for inter-process shared memory support (default disabled)],
    [enabled_pshm_xpmem=yes])
  if test "$enabled_pshm_xpmem$with_pshm" = yesno; then
-  AC_CHECK_FUNC(xpmem_get, [
+  GASNET_PUSHVAR(LIBS,"")
+  AC_SEARCH_LIBS(xpmem_get, xpmem, [
     have_hugetlbfs=no
-    GASNET_PUSHVAR(LIBS,"-lhugetlbfs")
+    GASNET_PUSHVAR(LIBS,"$LIBS -lhugetlbfs")
     AC_CHECK_FUNCS([hugetlbfs_unlinked_fd_for_size hugetlbfs_unlinked_fd],
                    [have_hugetlbfs=yes])
     if test "$have_hugetlbfs" = yes; then
@@ -1311,6 +1312,7 @@ if test "$enabled_pshm" != no; then
     fi
     GASNET_POPVAR(LIBS)
   ])
+  GASNET_POPVAR(LIBS)
  fi
 
  # Final check is for mmap()ed file support
