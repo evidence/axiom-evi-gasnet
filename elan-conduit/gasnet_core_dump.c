@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core_dump.c,v $
- *     $Date: 2011/06/03 22:57:09 $
- * $Revision: 1.23 $
+ *     $Date: 2011/11/27 05:03:06 $
+ * $Revision: 1.24 $
  * Description: GASNet elan conduit - elan informational dumps
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -8,7 +8,13 @@
 
 #include <gasnet_internal.h>
 #include <gasnet_core_internal.h>
+#if defined(__GNUC__) && !defined(inline)
+#define inline __inline__
 #include <elan3/elan3.h> /* for DMA_BYTE */
+#undef inline
+#else
+#include <elan3/elan3.h> /* for DMA_BYTE */
+#endif
 
 #ifdef GASNETC_ELAN4
  extern int gasnetc_ispatchfree_driver(void);

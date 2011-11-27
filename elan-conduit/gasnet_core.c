@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2011/06/03 22:57:09 $
- * $Revision: 1.83 $
+ *     $Date: 2011/11/27 05:03:06 $
+ * $Revision: 1.84 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -10,7 +10,13 @@
 #include <gasnet_core_internal.h>
 
 #if GASNETC_ALLOW_ELAN_PERM_REMAP
+#if defined(__GNUC__) && !defined(inline)
+#define inline __inline__
 #include <elan3/elan3.h> /* for elan3_setperm */
+#undef inline
+#else
+#include <elan3/elan3.h> /* for elan3_setperm */
+#endif
 #endif
 
 #include <errno.h>
@@ -91,7 +97,13 @@ extern uint64_t gasnetc_clock(void) {
 gasneti_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS]; /* handler table */
 
 #ifdef GASNETC_ELAN4
+#if defined(__GNUC__) && !defined(inline)
+#define inline __inline__
 #include <elan4/library.h>
+#undef inline
+#else
+#include <elan4/library.h>
+#endif
 extern int gasnetc_ispatchfree_driver(void) {
   int patchfree_flag = -1;
   int patchfree;
