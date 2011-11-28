@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2011/06/03 22:57:11 $
- * $Revision: 1.130 $
+ * $Date: 2011/11/28 00:54:48 $
+ * $Revision: 1.131 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -224,7 +224,7 @@ gasnetc_AM_SetHandlerAny(gasnet_handler_t *handler, gasneti_handler_fn_t func)
 		GASNETI_RETURN_ERRR(BAD_ARG, "Invalid handler paramaters set");
 
 	for (i = 1; i < GASNETC_AM_MAX_HANDLERS; i++) {
-		if (_gmc.handlers[i] == gasneti_defaultAMHandler) {
+		if (_gmc.handlers[i] == (gasneti_handler_fn_t) gasneti_defaultAMHandler) {
 			_gmc.handlers[i] = func;
 			*handler = i;
 			return GASNET_OK;
