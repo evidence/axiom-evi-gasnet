@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_ep.cpp,v $
- *     $Date: 2011/11/27 22:32:18 $
- * $Revision: 1.31 $
+ *     $Date: 2011/11/28 04:22:42 $
+ * $Revision: 1.32 $
  * Description: AMUDP Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -807,7 +807,7 @@ extern int AM_SetExpectedResources(ep_t ea, int n_endpoints, int n_outstanding_r
         long val;                                         \
         char defval[80];                                  \
         const char *valstr;                               \
-        sprintf(defval, "%u", (unsigned int)var);         \
+        snprintf(defval, sizeof(defval), "%u", (unsigned int)var); \
         valstr = AMUDP_getenv_prefixed_withdefault(name,defval); \
         if (valstr) {                                     \
            val = atol(valstr);                            \
@@ -1026,7 +1026,7 @@ extern const char *AMUDP_DumpStatistics(void *_fp, amudp_stats_t *stats, int glo
   getCPUTicks(); /* ensure this has been called at least once, even if stats are empty */
 
   #if !AMUDP_COLLECT_STATS
-    sprintf(msg, "(AMUDP_COLLECT_STATS disabled)\n");
+    snprintf(msg, sizeof(msg), "(AMUDP_COLLECT_STATS disabled)\n");
     if (fp != NULL) fprintf(fp, "%s", msg);
     return msg;
   #endif
@@ -1094,7 +1094,7 @@ extern const char *AMUDP_DumpStatistics(void *_fp, amudp_stats_t *stats, int glo
   #endif
 
   /* batch lines together to improve chance of output together */
-  sprintf(msg, 
+  snprintf(msg, sizeof(msg),
     " Requests: %8lu sent, %4lu retransmitted, %8lu received\n"
     " Replies:  %8lu sent, %4lu retransmitted, %8lu received\n"
     " Returned messages:  %8lu\n"
