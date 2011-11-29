@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2011/11/29 07:07:44 $
-# $Revision: 1.727 $
+#     $Date: 2011/11/29 12:33:33 $
+# $Revision: 1.728 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.727 $)
+AC_REVISION($Revision: 1.728 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -213,6 +213,13 @@ GASNET_IF_ENABLED_NOHELP(arch-sicortex, [force_arch_sicortex=yes])
 # to avoid picking up bad default flags from AC_PROG_CC or the default user environment
 # Users who want to insert a specific compiler flag for all builds should append it to $CC
 
+dnl GASNET_TRY_WNO_FLAG(type,flag,action-on-success)  type=C or CXX
+dnl As per bug 2718 gcc might silently ignore -Wno-such-flag, but not -Wsuch-flag
+dnl XXX: Probably sufficient to just probe for -Wsuch-flag (but lie in AC_MSG_CHECKING)
+AC_DEFUN([GASNET_TRY_WNO_FLAG],[
+        ]GASNET_TRY_[$1]FLAG[([$2],
+            ]GASNET_TRY_[$1]FLAG[(patsubst([$2],[Wno-],[W]),[$3]))])
+
 case "$gasnet_cv_cc_family" in
   GNU)  GASNET_PUSHVAR(CFLAGS,"-O3")
 	# prefer the --param inliner option(s), which give us finer control
@@ -332,16 +339,15 @@ case "$gasnet_cv_cc_family" in
         CCOPTFLAGS="-O3 -OPT:wrap_around_unsafe=off"
     fi
   ;;
+  Clang) GASNET_PUSHVAR(CFLAGS,"-O3")
+         GASNET_TRY_WNO_FLAG([C],[-Wno-empty-body],[CFLAGS="$CFLAGS -Wno-empty-body"])
+         GASNET_TRY_WNO_FLAG([C],[-Wno-unused-value],[CFLAGS="$CFLAGS -Wno-unused-value"])
+         CCOPTFLAGS="$CFLAGS"
+         GASNET_POPVAR(CFLAGS)
+  ;;
   *)    CCOPTFLAGS="-O" ;;
 esac
 AC_SUBST(SEPARATE_CC)
-
-dnl GASNET_TRY_WNO_FLAG(type,flag,action-on-success)  type=C or CXX
-dnl As per bug 2718 gcc might silently ignore -Wno-such-flag, but not -Wsuch-flag
-dnl XXX: Probably sufficient to just probe for -Wsuch-flag (but lie in AC_MSG_CHECKING)
-AC_DEFUN([GASNET_TRY_WNO_FLAG],[
-        ]GASNET_TRY_[$1]FLAG[([$2],
-            ]GASNET_TRY_[$1]FLAG[(patsubst([$2],[Wno-],[W]),[$3]))])
 
 dnl GASNET_GET_GNUWARNINGFLAGS(type)  type=C or CXX
 AC_DEFUN([GASNET_GET_GNUWARNINGFLAGS],[
@@ -402,6 +408,12 @@ case "$gasnet_cv_cc_family" in
   ;;
   Open64) GASNET_PUSHVAR(CFLAGS,"-g3")
           GASNET_GET_GNUWARNINGFLAGS(C)
+          CCDEBUGFLAGS="$CFLAGS"
+          GASNET_POPVAR(CFLAGS)
+  ;;
+  Clang)  GASNET_PUSHVAR(CFLAGS,"-g -O0")
+          GASNET_GET_GNUWARNINGFLAGS(C)
+          GASNET_TRY_WNO_FLAG([C],[-Wno-empty-body],[CFLAGS="$CFLAGS -Wno-empty-body"])
           CCDEBUGFLAGS="$CFLAGS"
           GASNET_POPVAR(CFLAGS)
   ;;
