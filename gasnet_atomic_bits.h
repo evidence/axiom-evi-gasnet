@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2011/11/29 07:07:44 $
- * $Revision: 1.339 $
+ *     $Date: 2011/11/29 07:31:13 $
+ * $Revision: 1.340 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -444,7 +444,7 @@
 	  #endif
           }
         #endif
-      #elif PLATFORM_COMPILER_OPEN64 || defined(__llvm__)
+      #elif PLATFORM_COMPILER_OPEN64 || (GASNETI_GCC_APPLE && defined(__llvm__))
         /* No known working 64-bit atomics for this compiler on ILP32.  See bugs 2725 and 3071. */
         #undef GASNETI_HAVE_ATOMIC64_T
         #undef _gasneti_atomic64_init
