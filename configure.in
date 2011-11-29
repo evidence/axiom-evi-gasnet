@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2011/11/29 12:33:33 $
-# $Revision: 1.728 $
+#     $Date: 2011/11/29 13:30:41 $
+# $Revision: 1.729 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.728 $)
+AC_REVISION($Revision: 1.729 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2363,6 +2363,17 @@ if test $enabled_udp = yes; then
          CXXOPTFLAGS="-O3 -OPT:wrap_around_unsafe=off"
        fi
        GASNET_PUSHVAR(CXXFLAGS,"-g3")
+       GASNET_GET_GNUWARNINGFLAGS(CXX)
+       CXXDEBUGFLAGS="$CXXFLAGS" 
+       GASNET_POPVAR(CXXFLAGS)
+    ;;
+    Clang)
+       GASNET_TRY_WNO_FLAG([CXX],[-Wno-empty-body],[MISC_CXXFLAGS="$MISC_CXXFLAGS -Wno-empty-body"])
+       GASNET_PUSHVAR(CXXFLAGS,"-O3")
+       GASNET_TRY_WNO_FLAG([CXX],[-Wno-unused-value],[CXXFLAGS="$CXXFLAGS -Wno-unused-value"])
+       CXXOPTFLAGS="$CXXFLAGS"
+       GASNET_POPVAR(CXXFLAGS)
+       GASNET_PUSHVAR(CXXFLAGS,"-g")
        GASNET_GET_GNUWARNINGFLAGS(CXX)
        CXXDEBUGFLAGS="$CXXFLAGS" 
        GASNET_POPVAR(CXXFLAGS)
