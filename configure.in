@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2011/11/29 15:46:44 $
-# $Revision: 1.730 $
+#     $Date: 2011/11/30 05:47:57 $
+# $Revision: 1.731 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.730 $)
+AC_REVISION($Revision: 1.731 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1657,7 +1657,7 @@ AC_TRY_RUN([
   #if PLATFORM_ARCH_X86_64
     #if PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_INTEL || \
         PLATFORM_COMPILER_PATHSCALE || GASNETI_PGI_ASM_GNU || \
-        PLATFORM_COMPILER_OPEN64
+        PLATFORM_COMPILER_OPEN64 || PLATFORM_COMPILER_CLANG
 
 	unsigned long *array[3];
 	volatile unsigned long *p = (void *)(((unsigned long)array + 15) & ~(unsigned long)15);
