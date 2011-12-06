@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2011/12/06 01:41:03 $
- * $Revision: 1.341 $
+ *     $Date: 2011/12/06 09:43:45 $
+ * $Revision: 1.342 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -446,13 +446,14 @@
 	  #endif
           }
         #endif
-      #elif PLATFORM_COMPILER_OPEN64 || (GASNETI_GCC_APPLE && defined(__llvm__))
-        /* No known working 64-bit atomics for this compiler on ILP32.  See bugs 2725 and 3071. */
+      #elif PLATFORM_COMPILER_OPEN64
+        /* No known working 64-bit atomics for this compiler on ILP32.  See bug 2725. */
         #undef GASNETI_HAVE_ATOMIC64_T
         #undef _gasneti_atomic64_init
         /* left-over typedef of gasneti_atomic64_t will get hidden by a #define */
       #elif GASNETI_USE_X86_EBX && \
             !PLATFORM_COMPILER_TINY && !PLATFORM_COMPILER_PGI && \
+            !(GASNETI_GCC_APPLE && defined(__llvm__)) /* bug 3071 */ && \
             !(PLATFORM_COMPILER_GNU && PLATFORM_COMPILER_VERSION_LT(3,0,0)) /* bug 1790 */
 	/* "Normal" ILP32 case:
 	 *
@@ -493,6 +494,56 @@
 		    : "=m" (p->ctr), "+&A" (oldval)
 		    : "m" (p->ctr), "b" (newlo), "c" (newhi)
 		    : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
+	}
+	#define gasneti_atomic64_set gasneti_atomic64_set
+        GASNETI_INLINE(gasneti_atomic64_read)
+        uint64_t gasneti_atomic64_read(gasneti_atomic64_t *p, int flags) {
+	  GASNETI_ASM_REGISTER_KEYWORD uint64_t retval;
+          __asm__ __volatile__ (
+		    /* Set [a:d] = [b:c], thus preserving b and c */
+		    "movl	%%ebx, %%eax	\n\t"
+		    "movl	%%ecx, %%edx	\n\t"
+		    "lock;			"
+		    "cmpxchg8b	%0		"
+		    : "=m" (p->ctr), "=&A" (retval)
+		    : "m" (p->ctr)
+		    : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
+	  return retval;
+	}
+	#define gasneti_atomic64_read gasneti_atomic64_read
+      #elif (GASNETI_GCC_APPLE && defined(__llvm__)) /* bug 3071 */
+        /* "Normal" ILP32 case except w/o "m" inputs or outputs to CAS and Set.
+         * Such operands lead to "Ran out of registers during register allocation!"
+         * Instead a "memory" clobber is used.
+         * Read is identical to the Normal case.
+         */
+        #define gasneti_atomic64_align 4 /* only need 4-byte alignment, not the default 8 */
+        GASNETI_INLINE(_gasneti_atomic64_compare_and_swap)
+        int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval) {
+	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newlo = GASNETI_LOWORD(newval);
+	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newhi = GASNETI_HIWORD(newval);
+          __asm__ __volatile__ (
+		    "lock;			"
+		    "cmpxchg8b	(%1)		\n\t"
+		    "sete	%b0		"
+		    : "+&A" (oldval)
+		    : "r" (&p->ctr), "b" (newlo), "c" (newhi)
+		    : "cc", "memory");
+          return (uint8_t)oldval;
+        }
+        GASNETI_INLINE(gasneti_atomic64_set)
+        void gasneti_atomic64_set(gasneti_atomic64_t *p, uint64_t v, int flags) {
+	  GASNETI_ASM_REGISTER_KEYWORD uint64_t oldval = p->ctr;
+	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newlo = GASNETI_LOWORD(v);
+	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newhi = GASNETI_HIWORD(v);
+          __asm__ __volatile__ (
+		    "0:				\n\t"
+		    "lock;			"
+		    "cmpxchg8b	(%1)		\n\t"
+		    "jnz	0b		"
+		    : "+&A" (oldval)
+		    : "r" (&p->ctr), "b" (newlo), "c" (newhi)
+		    : "cc", "memory");
 	}
 	#define gasneti_atomic64_set gasneti_atomic64_set
         GASNETI_INLINE(gasneti_atomic64_read)
