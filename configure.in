@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2011/11/30 05:53:06 $
-# $Revision: 1.732 $
+#     $Date: 2011/12/06 00:52:28 $
+# $Revision: 1.733 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.732 $)
+AC_REVISION($Revision: 1.733 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -4576,6 +4576,9 @@ case "$target" in
    debugmalloc_support=yes
    DEBUGMALLOC_VAR=MALLOC_OPTIONS
    DEBUGMALLOC_VAL=AFJ # (A)bort (F)reeguard (J)unk-fill
+   if test `expr \`uname -r\` : '\([[1-9]]*\).'` -ge 5; then
+     DEBUGMALLOC_VAL="${DEBUGMALLOC_VAL}S" # (S)ecurity auditing
+   fi
    ;;
 *-freebsd* | *-netbsd*)
    debugmalloc_support=yes
