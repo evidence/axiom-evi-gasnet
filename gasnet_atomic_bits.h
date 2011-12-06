@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2011/12/06 09:43:45 $
- * $Revision: 1.342 $
+ *     $Date: 2011/12/06 09:54:11 $
+ * $Revision: 1.343 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -49,6 +49,7 @@
      * + pgcc: no distinguishing macro when passed -fPIC, so no automatic work-around available
      * JUST WORKS:
      * + icc: mimics gcc, but is able to schedule %ebx so no work-around is needed
+     * + open64: mimics gcc, but is able to schedule %ebx so no work-around is needed
      * + llvm-gcc: mimics gcc, but is able to schedule %ebx so no work-around is needed
      * + Sun cc: use of specials doesn't encounter the problem
      * + tcc: N/A since no PIC support
@@ -58,8 +59,7 @@
      * replacing "-fPIC" with your compiler-specific flag(s) as needed.
      */
   #if ((PLATFORM_COMPILER_GNU && !defined(__llvm__)) || \
-       PLATFORM_COMPILER_PATHSCALE || \
-       PLATFORM_COMPILER_PGI || PLATFORM_COMPILER_OPEN64 ) && \
+       PLATFORM_COMPILER_PATHSCALE || PLATFORM_COMPILER_PGI) && \
 	(defined(__PIC__) || defined(GASNETI_FORCE_PIC))
       /* Disable use of %ebx when building PIC, but only on affected compilers. */
       #define GASNETI_USE_X86_EBX 0
