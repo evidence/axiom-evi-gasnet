@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_core_fwd.h,v $
- *     $Date: 2011/10/24 01:33:59 $
- * $Revision: 1.20 $
+ *     $Date: 2011/12/10 00:05:28 $
+ * $Revision: 1.21 $
  * Description: GASNet header for smp conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -30,8 +30,8 @@
   /*  defined to be 1 if gasnet_init guarantees that the remote-access memory segment will be aligned  */
   /*  at the same virtual address on all nodes. defined to 0 otherwise */
 /* segment alignment on smp is moot, as there is only a single node */
-#if GASNETI_DISABLE_ALIGNED_SEGMENTS || GASNET_PSHM
-  #define GASNET_ALIGNED_SEGMENTS   0 /* user or PSHM disabled segment alignment */
+#if GASNET_PSHM_ENABLED
+  #define GASNET_ALIGNED_SEGMENTS   0 /* use of PSHM prevents segment alignment */
 #else
   #define GASNET_ALIGNED_SEGMENTS   1
 #endif
