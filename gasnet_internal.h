@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2011/09/05 08:03:42 $
- * $Revision: 1.124 $
+ *     $Date: 2011/12/12 22:20:12 $
+ * $Revision: 1.125 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -252,11 +252,14 @@ extern void gasneti_freezeForDebugger(void);
 void gasneti_registerSignalHandlers(gasneti_sighandlerfn_t handler);
 void gasneti_defaultSignalHandler(int sig);
 
-#ifdef HAVE_MMAP
+#if defined(HAVE_MMAP) || (GASNET_PSHM && defined(GASNETI_PSHM_SYSV))
+  #define GASNETI_MMAP_OR_SYSV 1
   extern gasnet_seginfo_t gasneti_mmap_segment_search(uintptr_t maxsz);
+ #if defined(HAVE_MMAP)
   extern void gasneti_mmap_fixed(void *segbase, uintptr_t segsize);
   extern void *gasneti_mmap(uintptr_t segsize);
   extern void gasneti_munmap(void *segbase, uintptr_t segsize);
+ #endif
   #ifndef GASNETI_MMAP_MAX_SIZE
     /* GASNETI_MMAP_MAX_SIZE controls the maz size segment attempted by the mmap binary search
        can't use a full 2 GB due to sign bit problems 

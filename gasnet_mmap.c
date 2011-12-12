@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2011/11/27 19:30:12 $
- * $Revision: 1.104 $
+ *     $Date: 2011/12/12 22:20:12 $
+ * $Revision: 1.105 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -14,13 +14,21 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-#ifdef HAVE_MMAP
+#if defined(GASNETI_MMAP_OR_SYSV) && !defined(HAVE_MMAP)
+  /* Ensure PSHM-over-SYSV support never actually calls mmap() */
+  #define mmap %%%ERROR__GASNet_does_not_support_mmap_in_this_configuration%%%
+  #define munmap %%%ERROR__GASNet_does_not_support_munmap_in_this_configuration%%%
+#endif
+
+#ifdef GASNETI_MMAP_OR_SYSV
  #if GASNET_PSHM && !defined(_POSIX_C_SOURCE) && PLATFORM_OS_SOLARIS
   #define _POSIX_C_SOURCE 200112L /* Required for shm_{open,unlink} decls */
   #include <sys/mman.h>
   #undef _POSIX_C_SOURCE
- #else
+ #elif HAVE_MMAP
   #include <sys/mman.h>
+ #elif !defined(MAP_FAILED)
+  #define MAP_FAILED ((void*)(uintptr_t)(-1LL))
  #endif
 
  #if GASNET_PSHM && defined(GASNETI_PSHM_XPMEM)
@@ -41,7 +49,9 @@
   #endif
  #endif
 
-#if PLATFORM_OS_IRIX
+#if !HAVE_MMAP
+  /* Skip the following platform checks */
+#elif PLATFORM_OS_IRIX
   #ifdef MAP_SGI_ANYADDR /* allow mmap to use 'reserved' 256MB region on O2k */
     #define GASNETI_MMAP_FLAGS (MAP_PRIVATE | MAP_SGI_ANYADDR | MAP_AUTORESRV)
   #else
@@ -95,6 +105,7 @@
   #define GASNETI_PSHM_MAP_FIXED_IGNORED 1
 #endif
 
+#if HAVE_MMAP
 /* ------------------------------------------------------------------------------------ */
 static void *gasneti_mmap_internal(void *segbase, uintptr_t segsize) {
   static int gasneti_mmapfd = -1;
@@ -157,6 +168,7 @@ extern void gasneti_mmap_fixed(void *segbase, uintptr_t segsize) {
 extern void *gasneti_mmap(uintptr_t segsize) {
   return gasneti_mmap_internal(NULL, segsize);
 }
+#endif /* HAVE_MMAP */
 
 #if GASNET_PSHM
 
@@ -785,6 +797,7 @@ extern void gasneti_unlink_vnet(void) {
 #endif /* GASNET_PSHM */
 
 /* ------------------------------------------------------------------------------------ */
+#if HAVE_MMAP
 extern void gasneti_munmap(void *segbase, uintptr_t segsize) {
   gasneti_tick_t t1, t2;
   gasneti_assert(segsize > 0);
@@ -807,6 +820,7 @@ extern void gasneti_munmap(void *segbase, uintptr_t segsize) {
      GASNETI_LADDRSTR(segbase), (unsigned long)segsize,
      gasneti_ticks_to_ns(t2-t1)/1000.0) );
 }
+#endif
 /* ------------------------------------------------------------------------------------ */
 
 #if GASNET_PSHM
@@ -962,7 +976,7 @@ extern gasnet_seginfo_t gasneti_mmap_segment_search(uintptr_t maxsz) {
 }
 
 /* ------------------------------------------------------------------------------------ */
-#endif /* HAVE_MMAP */
+#endif /* GASNETI_MMAP_OR_SYSV */
 
 #if defined(GASNETI_MMAP_MAX_SIZE)
   GASNETI_IDENT(gasneti_IdentString_DefaultMaxSegsize, 
@@ -1003,14 +1017,14 @@ uintptr_t _gasneti_max_segsize(uint64_t configure_val) {
 #if !GASNET_SEGMENT_EVERYTHING
 /* mmap-based segment init/attach */
 static gasnet_seginfo_t gasneti_segment = {0,0}; /* local segment info */
-#ifdef HAVE_MMAP
+#ifdef GASNETI_MMAP_OR_SYSV
 static uintptr_t gasneti_myheapend = 0; /* top of my malloc heap */
 static uintptr_t gasneti_maxheapend = 0; /* top of max malloc heap */
 static uintptr_t gasneti_maxbase = 0; /* start of segment overlap region */
 #if GASNET_PSHM
 static gasnet_seginfo_t *gasneti_remote_segments;
 #endif /* GASNET_PSHM */
-#endif /* HAVE_MMAP */
+#endif /* GASNETI_MMAP_OR_SYSV */
 
 typedef struct {
   gasnet_seginfo_t seginfo;
@@ -1019,7 +1033,7 @@ typedef struct {
 } gasneti_segexch_t;
 static gasneti_segexch_t *gasneti_segexch = NULL; /* exchanged segment information */
 
-#ifdef HAVE_MMAP
+#ifdef GASNETI_MMAP_OR_SYSV
 /* perform a coordinated mmap probe to determine the max memory
     that can be mmap()ed while considering multiple GASNet nodes
     per shared memory node
@@ -1188,7 +1202,7 @@ uintptr_t gasneti_mmapLimit(uintptr_t localLimit, uint64_t sharedLimit,
 #endif
   return maxsz;
 }
-#endif /* HAVE_MMAP */
+#endif /* GASNETI_MMAP_OR_SYSV */
 
 /* do the work necessary for initing a standard segment map in arbitrary memory 
      uses mmap if available, or malloc otherwise
@@ -1217,7 +1231,7 @@ void gasneti_segmentInit(uintptr_t localSegmentLimit,
   if (localSegmentLimit != (uintptr_t)-1) 
     localSegmentLimit = GASNETI_PAGE_ALIGNDOWN(localSegmentLimit);
 
-  #ifdef HAVE_MMAP
+  #ifdef GASNETI_MMAP_OR_SYSV
   { gasneti_segexch_t se;
     int i;
 
@@ -1346,7 +1360,7 @@ void gasneti_segmentInit(uintptr_t localSegmentLimit,
       #endif
     }
   }
-  #else /* !HAVE_MMAP */
+  #else /* !GASNETI_MMAP_OR_SYSV */
     #if GASNET_ALIGNED_SEGMENTS && !GASNET_CONDUIT_SMP
       #error bad config: dont know how to provide GASNET_ALIGNED_SEGMENTS when !HAVE_MMAP
     #endif
@@ -1393,7 +1407,7 @@ void gasneti_segmentAttachLocal(uintptr_t segsize, uintptr_t minheapoffset,
 
   bias = GASNETI_SEGMENT_DISALIGN_BIAS * (gasneti_mynode%2);
 
-  #ifdef HAVE_MMAP
+  #ifdef GASNETI_MMAP_OR_SYSV
   { /* TODO: this assumes heap grows up */
     uintptr_t topofheap;
     #if GASNET_ALIGNED_SEGMENTS
@@ -1484,7 +1498,7 @@ void gasneti_segmentAttachLocal(uintptr_t segsize, uintptr_t minheapoffset,
       }
     }
   }
-  #else /* !HAVE_MMAP */
+  #else /* !GASNETI_MMAP_OR_SYSV */
     /* for the T3E, and other platforms which don't support mmap */
     segbase = gasneti_malloc_allowfail(segsize + GASNET_PAGESIZE + bias);
     while (!segbase) {
@@ -1496,7 +1510,7 @@ void gasneti_segmentAttachLocal(uintptr_t segsize, uintptr_t minheapoffset,
       segbase = (void *)GASNETI_PAGE_ALIGNUP(segbase);
       segbase = (void *)(((uintptr_t)segbase)+bias);
     }
-  #endif /* HAVE_MMAP */
+  #endif /* GASNETI_MMAP_OR_SYSV */
   gasneti_assert(((uintptr_t)segbase) % GASNET_PAGESIZE == 0);
   gasneti_assert(segsize % GASNET_PAGESIZE == 0);
   GASNETI_TRACE_PRINTF(C, ("Final segment: segbase="GASNETI_LADDRFMT"  segsize=%lu",
