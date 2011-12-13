@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2011/12/13 23:19:09 $
-dnl $Revision: 1.163 $
+dnl     $Date: 2011/12/13 23:30:54 $
+dnl $Revision: 1.164 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -1287,7 +1287,13 @@ AC_DEFUN([GASNET_GET_GNU_ATTRIBUTES],[
   GASNET_CHECK_GNU_ATTRIBUTE([$1], [$2], [__pure__],
             [__attribute__((__pure__)) int dummy(int x) { return x+1; }])
   GASNET_CHECK_GNU_ATTRIBUTE([$1], [$2], [__format__],
-            [__attribute__((__format__ (__printf__, 1, 2))) void dummy(const char *fmt,...) { }])
+            [#include <stdarg.h>
+             __attribute__((__format__ (__printf__, 1, 2)))
+             void dummy(const char *fmt,...) {
+               va_list argptr;
+               va_start(argptr, fmt);
+               va_end(argptr);
+             }])
 
   pushdef([cachevar],cv_prefix[]translit([$1],'A-Z','a-z')[]_attr_format_funcptr)
   AC_CACHE_CHECK($2 for __attribute__((__format__)) on function pointers, cachevar,
