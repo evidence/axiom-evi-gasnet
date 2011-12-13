@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2011/11/29 04:25:21 $
-dnl $Revision: 1.162 $
+dnl     $Date: 2011/12/13 23:19:09 $
+dnl $Revision: 1.163 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -1251,9 +1251,20 @@ dnl GASNET_GET_GNU_ATTRIBUTES(PREFIX, opt compiler-name)
 dnl Check all gcc attributes of interest/importance to GASNet
 dnl If PREFIX contains "CXX"  then test is run as LANG_CPLUSPLUS
 dnl Caller must setup CC, CFLAGS, etc for MPI_CC case.
+dnl XXX: treatment of inline modifier is not generic
 AC_DEFUN([GASNET_GET_GNU_ATTRIBUTES],[
+  pushdef([inline_modifier],ifelse(index([$1],[MPI_CC]),
+                                   [-1],[GASNET_CC_INLINE_MODIFIER],
+                                        [GASNET_MPICC_INLINE_MODIFIER]))
   GASNET_CHECK_GNU_ATTRIBUTE([$1], [$2], [__always_inline__],
-            [__attribute__((__always_inline__)) int dummy(void) { return 1; }])
+            [__attribute__((__always_inline__))
+             #if defined __cplusplus
+                inline
+             #elif defined ]inline_modifier[
+                ]inline_modifier[
+             #endif
+             int dummy(void) { return 1; }])
+  popdef([inline_modifier])
   GASNET_CHECK_GNU_ATTRIBUTE([$1], [$2], [__noinline__],
             [__attribute__((__noinline__)) int dummy(void) { return 1; }])
   GASNET_CHECK_GNU_ATTRIBUTE([$1], [$2], [__malloc__],
