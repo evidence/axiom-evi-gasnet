@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2011/12/12 22:20:12 $
-# $Revision: 1.734 $
+#     $Date: 2011/12/13 01:46:35 $
+# $Revision: 1.735 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.734 $)
+AC_REVISION($Revision: 1.735 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1356,6 +1356,13 @@ fi
 if test "$with_pshm" != no; then
   AC_DEFINE(GASNETI_PSHM_ENABLED)
   GASNET_PSHM_ENABLED=yes
+  case "$target_os" in
+    netbsd*)
+        # XXX: We know this is required for decent performance, but WHY?!?
+        #      What magic does libpthread perform at library init time?
+        GASNET_PSHM_LIBS="$GASNET_PSHM_LIBS $GASNET_THREAD_LIBS"
+        ;;
+  esac
 elif test "$enabled_pshm" = yes; then
   GASNET_MSG_ERROR([User requested --enable-pshm but no supported implementation was found])
 fi
