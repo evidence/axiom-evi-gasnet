@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.c,v $
- *     $Date: 2011/09/15 04:09:50 $
- * $Revision: 1.44 $
+ *     $Date: 2011/12/13 00:18:08 $
+ * $Revision: 1.45 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -824,7 +824,7 @@ int gasneti_pshmnet_recv(gasneti_pshmnet_t *vnet, void **pbuf, size_t *psize,
    
   for (i = 0; i < nodecount; i++) {
     /* Ensure fairness: next check starts with next node: */
-#if !defined(GASNET_PAR)
+#if !defined(GASNETI_THREADS)
     int nodeindex = gasneti_weakatomic_read(&vnet->nextindex, 0);
     int tmp = nodeindex + 1;
     if (tmp == nodecount) tmp = 0;
