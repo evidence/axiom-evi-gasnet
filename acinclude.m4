@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2011/12/13 23:30:54 $
-dnl $Revision: 1.164 $
+dnl     $Date: 2011/12/14 02:10:19 $
+dnl $Revision: 1.165 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -1283,7 +1283,9 @@ AC_DEFUN([GASNET_GET_GNU_ATTRIBUTES],[
             [#include <stdlib.h>
 	     __attribute__((__noreturn__)) void dummy(void) { abort(); }])
   GASNET_CHECK_GNU_ATTRIBUTE([$1], [$2], [__const__],
-            [__attribute__((__const__)) int dummy(int x) { return x+1; }])
+            [__attribute__((__const__))
+             char *dummy(char *x) { return x+1; }],
+            [char c; char *x = dummy(&c);])
   GASNET_CHECK_GNU_ATTRIBUTE([$1], [$2], [__pure__],
             [__attribute__((__pure__)) int dummy(int x) { return x+1; }])
   GASNET_CHECK_GNU_ATTRIBUTE([$1], [$2], [__format__],
