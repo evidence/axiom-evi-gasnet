@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_core.c,v $
- *     $Date: 2011/12/20 04:50:28 $
- * $Revision: 1.75 $
+ *     $Date: 2011/12/20 05:54:42 $
+ * $Revision: 1.76 $
  * Description: GASNet smp conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -370,8 +370,11 @@ static void gasnet_bootstrap_bcast0(void *src, size_t len, void *dest)
       rc = read(gasnetc_fds[2 * gasneti_mynode], dest, len);
       /* retry on interruption */
     } while ((rc == -1) && (errno == EINTR));
-    /* rc==0 occurs if node0 exited prematurely */
-    gasneti_assert(!rc || rc == len);
+    if (!rc) {
+      /* rc==0 occurs only if node0 exited prematurely */
+      gasneti_fatalerror("Node0 died unexpectedly");
+    }
+    gasneti_assert(rc == len);
   }
 }
 
