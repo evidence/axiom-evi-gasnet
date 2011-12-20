@@ -1,6 +1,6 @@
 GASNet inter-Process SHared Memory (PSHM) design
 ---------------------------------------------
-$Revision: 1.15 $
+$Revision: 1.16 $
 
 Document by:
     Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -114,6 +114,9 @@ administrator privileges.
    - Solaris:
         Depends on version.  Please see the Sun/Oracle documentation.
 
+   - Cygwin:
+        See Cygwin under "change parameters permanently", below.
+
 * To change parameters permanently:
 
    - Linux:
@@ -143,6 +146,21 @@ administrator privileges.
    - Solaris:
         Depends on version.  Please see the Sun/Oracle documentation.
 
+   - Cygwin:
+        If you have not done so yet, please Read the Cygwin documentation
+        on "cygserver-config" to create an initial /etc/cygsever.conf
+        and start the server as a Windows service (optional).
+        You may then edit /etc/cygserver to edit
+          kern.ipc.shmmaxpgs
+          kern.ipc.shmmni
+          kern.ipc.shmseg
+        Except for shmmaxpgs, the defaults are often large enough.
+        These configuration values are only read when cygserver starts.
+        So, read the Cygwin documentation to determine if/how to restart
+        the cygserver service.
+        Under Cygwin-1.5 you may also need to add "server" to the value
+        of the CYGWIN environment variable.  Again, you should see the
+        Cygwin documentation for more information on this subject.
 
 IMPORTANT, SYSTEM CLEANING:
 --------------------------
@@ -159,8 +177,8 @@ segments can be listed via the "ipcs" command, and can be removed via the
 
 In the mmap()ed file case, the allocated but not released shared memory files
 can be found in the directory pointed by the TMPDIR environment variable
-(default: /tmp). These files are named with the prefix GASNT, and can be
-deleted using the "rm" command.
+(default: /tmp). These files are named with the prefix GASNT (the lack of an
+'E' is not a typo), and can be deleted using the "rm" command.
 
 In the case of POSIX shared memory, the implementation is system-specific.
 In the case of Linux and Solaris, POSIX shared memory objects are visible
