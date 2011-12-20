@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2011/12/20 02:55:35 $
- * $Revision: 1.106 $
+ *     $Date: 2011/12/20 05:50:47 $
+ * $Revision: 1.107 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -727,6 +727,18 @@ extern void *gasneti_mmap_shared(uintptr_t segsize) {
 
 extern void *gasneti_mmap_vnet(uintptr_t size, gasneti_bootstrapExchangefn_t exchangefn) {
   void *ptr = MAP_FAILED;
+
+  #if defined(GASNETI_PSHM_SYSV) && PLATFORM_OS_CYGWIN
+  { /* Cygwin may raise SIGSYS when SysV support is absent - this is more informative. */
+    gasneti_sighandlerfn_t prev_handler = gasneti_reghandler(SIGSYS, SIG_IGN);
+    int rc = shmdt(NULL);
+    int saved_errno = errno;
+    gasneti_reghandler(SIGSYS, prev_handler);
+    if ((rc == -1) && (saved_errno == ENOSYS)) {
+      gasneti_fatalerror("Cygwin's SystemV shared memory support is not enabled.");
+    }
+  }
+  #endif
 
   #if defined(GASNETI_PSHM_FILE) || defined(GASNETI_PSHM_SYSV) || defined(GASNETI_PSHM_POSIX)
   {
