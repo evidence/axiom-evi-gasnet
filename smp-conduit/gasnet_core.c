@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_core.c,v $
- *     $Date: 2011/10/15 07:10:05 $
- * $Revision: 1.73 $
+ *     $Date: 2011/12/20 02:55:37 $
+ * $Revision: 1.74 $
  * Description: GASNet smp conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -289,7 +289,7 @@ static void gasnetc_fork_children(void) {
       /* I am child */
       gasneti_mynode = i; 
       if (freopen("/dev/null", "r", stdin) != stdin) {
-        gasneti_fatalerror("GASNet node %d failed to redirect STDIN", i);
+        gasneti_fatalerror("GASNet node %d failed to redirect STDIN", (int)i);
       }
       gasneti_free(gasnetc_exit_data);
       gasnetc_exit_data = NULL;
@@ -380,7 +380,7 @@ static int gasnetc_get_pshm_nodecount(void)
   int politedefault;
 
   if (nodes > GASNETI_PSHM_MAX_NODES) { 
-    gasneti_fatalerror("Nodes requested (%d) > maximum (%d)", nodes,
+    gasneti_fatalerror("Nodes requested (%d) > maximum (%d)", (int)nodes,
                        GASNETI_PSHM_MAX_NODES);
   } else if (nodes == 0) {
     fprintf(stderr, "Warning: GASNET_PSHM_NODES not specified: running with 1 node\n");

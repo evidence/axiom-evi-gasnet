@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2011/12/12 22:20:12 $
- * $Revision: 1.105 $
+ *     $Date: 2011/12/20 02:55:35 $
+ * $Revision: 1.106 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1606,7 +1606,7 @@ gasneti_AttachRemote(uintptr_t segsize, const gasnet_node_t pshm_node,
   
     if (segsize < seginfo[node].size){
         fprintf(stderr,"ERROR: Not enough memory! Process %d tried mapping %lu bytes, but only %lu bytes available.\n",
-                           gasneti_mynode, (unsigned long)seginfo[node].size, (unsigned long)segsize);
+                           (int)gasneti_mynode, (unsigned long)seginfo[node].size, (unsigned long)segsize);
         return segsize; /* Failure */
     }
 
