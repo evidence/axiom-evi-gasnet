@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2011/12/20 05:50:47 $
- * $Revision: 1.107 $
+ *     $Date: 2011/12/22 05:34:18 $
+ * $Revision: 1.108 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -100,8 +100,9 @@
   #define GASNETI_MMAP_NOTFIXED_FLAG 0
 #endif
 
-#if GASNET_PSHM && PLATFORM_OS_BGP
-  /* MAP_FIXED is ignored for fd obtained from pshm_open() */
+#if GASNET_PSHM && (PLATFORM_OS_BGP || PLATFORM_OS_CYGWIN)
+  /* BG/P: MAP_FIXED is ignored for fd obtained from pshm_open() */
+  /* CYGWIN: may not honor the address passed to shmat() */
   #define GASNETI_PSHM_MAP_FIXED_IGNORED 1
 #endif
 
@@ -442,7 +443,14 @@ static void * gasneti_pshm_mmap(int pshm_rank, void *segbase, size_t segsize) {
 
   /* Create and size in 1 step */
   int id = shmget(gasneti_pshm_sysvkeys[pshm_rank], segsize, flags);
-  if (id == -1) return MAP_FAILED;
+  if (id == -1) {
+    #if PLATFORM_OS_CYGWIN
+    if (errno == ENOSYS) {
+      gasneti_fatalerror("Cygwin's SystemV shared memory support is not enabled.");
+    }
+    #endif
+    return MAP_FAILED;
+  }
 
   /* map */
   ptr = shmat(id, segbase, 0);
@@ -729,15 +737,9 @@ extern void *gasneti_mmap_vnet(uintptr_t size, gasneti_bootstrapExchangefn_t exc
   void *ptr = MAP_FAILED;
 
   #if defined(GASNETI_PSHM_SYSV) && PLATFORM_OS_CYGWIN
-  { /* Cygwin may raise SIGSYS when SysV support is absent - this is more informative. */
-    gasneti_sighandlerfn_t prev_handler = gasneti_reghandler(SIGSYS, SIG_IGN);
-    int rc = shmdt(NULL);
-    int saved_errno = errno;
-    gasneti_reghandler(SIGSYS, prev_handler);
-    if ((rc == -1) && (saved_errno == ENOSYS)) {
-      gasneti_fatalerror("Cygwin's SystemV shared memory support is not enabled.");
-    }
-  }
+  /* Cygwin may raise SIGSYS when SysV support is absent.
+     This will yield more informative error messages. */
+  gasneti_sighandlerfn_t prev_handler = gasneti_reghandler(SIGSYS, SIG_IGN);
   #endif
 
   #if defined(GASNETI_PSHM_FILE) || defined(GASNETI_PSHM_SYSV) || defined(GASNETI_PSHM_POSIX)
@@ -799,6 +801,10 @@ extern void *gasneti_mmap_vnet(uintptr_t size, gasneti_bootstrapExchangefn_t exc
   }
   #else
     #error
+  #endif
+
+  #if defined(GASNETI_PSHM_SYSV) && PLATFORM_OS_CYGWIN
+  gasneti_reghandler(SIGSYS, prev_handler);
   #endif
 
   return (ptr == MAP_FAILED) ? NULL : ptr;
