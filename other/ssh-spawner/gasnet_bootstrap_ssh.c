@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2012/01/05 03:57:34 $
- * $Revision: 1.86 $
+ *     $Date: 2012/01/05 17:27:54 $
+ * $Revision: 1.87 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -190,6 +190,7 @@ enum {
   static volatile int in_abort = 0;
 #if GASNETI_SSH_TOPO_NARY
   static gasnet_node_t out_degree = GASNETI_SSH_NARY_DEGREE;
+  static gasnet_node_t *by_weight = NULL;
 #endif
 /* Slaves only */
   static gasnet_node_t myproc = (gasnet_node_t)(-1L);
@@ -1068,7 +1069,6 @@ static void post_spawn(int count, int argc, char * const *argv) {
 
     (void)fcntl(s, F_SETFD, FD_CLOEXEC);
     (void)ioctl(s, SIOCSPGRP, &mypid); /* Enable SIGURG delivery on OOB data */
-    (void)setsockopt(s, IPPROTO_TCP, TCP_NODELAY, (char *) &one, sizeof(one));
     do_read(s, &child_id, sizeof(gasnet_node_t));
     gasneti_assert(child_id < children);
     ch = &(child[child_id]);
@@ -1088,6 +1088,7 @@ static void post_spawn(int count, int argc, char * const *argv) {
     send_ssh_argv(s);
     do_write_string(s, wrapper);
     send_argv(s, argc, argv);
+    (void)setsockopt(s, IPPROTO_TCP, TCP_NODELAY, (char *) &one, sizeof(one));
     ++accepted;
   }
 
@@ -1472,6 +1473,16 @@ static void do_master(int argc, char **argv) {
   exit (exit_status);
 }
 
+#if GASNETI_SSH_TOPO_NARY
+static int cmp_by_dec_weight(const void *a, const void *b)
+{
+  /* Weight could be defined as .procs or .nodes */
+  gasnet_node_t wa = child[*(const gasnet_node_t *)a].procs;
+  gasnet_node_t wb = child[*(const gasnet_node_t *)b].procs;
+  return (wa < wb) - (wa > wb);
+}
+#endif
+
 static void do_slave(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet_node_t *mynode_p)
 {
   int argc = *argc_p;
@@ -1552,6 +1563,13 @@ static void do_slave(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet
       rank += procs;
     }
   
+    /* Sort children by DEcreasing "weight" */
+    by_weight = gasneti_malloc(children * sizeof(gasnet_node_t));
+    for (j = 0; j < children; ++j) {
+      by_weight[j] = j;
+    }
+    qsort(by_weight, children, sizeof(gasnet_node_t), &cmp_by_dec_weight);
+
     /* Prepare to reap children */
     gasneti_reghandler(SIGCHLD, &reaper);
 
@@ -1572,14 +1590,14 @@ static void do_slave(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet
 static void do_gath0(void *src, size_t len, void *dest)
 {
   int j;
-  void *tmp;
 
   memcpy(dest, src, len);
-  tmp = (void *)((uintptr_t)dest + len);
+  /* TODO: use select() to order the reads */
   for (j = 0; j < children; ++j) {
     gasnet_node_t procs = child[j].procs;
+    gasnet_node_t delta = child[j].rank - myproc;
+    void *tmp = (void *)((uintptr_t)dest + len*delta);
     do_read(child[j].sock, tmp, len*procs);
-    tmp = (void *)((uintptr_t)tmp + len*procs);
   }
   if (myproc) {
     do_write(parent, dest, len * tree_procs);
@@ -1590,17 +1608,17 @@ static void do_gath0(void *src, size_t len, void *dest)
 static void do_scat0(void *src, size_t len, void *dest)
 {
   int j;
-  void *tmp;
 
   if (myproc) {
     do_read(parent, src, len * tree_procs);
   }
   memcpy(dest, src, len);
-  tmp = (void *)((uintptr_t)src + len);
   for (j = 0; j < children; ++j) {
-    gasnet_node_t procs = child[j].procs;
-    do_write(child[j].sock, tmp, len*procs);
-    tmp = (void *)((uintptr_t)tmp + len*procs);
+    gasnet_node_t k = by_weight[j]; /* send to deepest subtrees first */
+    gasnet_node_t procs = child[k].procs;
+    gasnet_node_t delta = child[k].rank - myproc;
+    void *tmp = (void *)((uintptr_t)src + len*delta);
+    do_write(child[k].sock, tmp, len*procs);
   }
 }
 
@@ -1611,7 +1629,8 @@ static void do_bcast0(size_t len, void *dest) {
     do_read(parent, dest, len);
   }
   for (j = 0; j < children; ++j) {
-    do_write(child[j].sock, dest, len);
+    gasnet_node_t k = by_weight[j]; /* send to deepest subtrees first */
+    do_write(child[k].sock, dest, len);
   }
 }
 #endif
@@ -1861,9 +1880,11 @@ void gasneti_bootstrapExchange_ssh(void *src, size_t len, void *dest) {
     do_read(parent, (void *)((uintptr_t)dest + len*next), len*(nproc - next));
   }
   for (j = 0; j < children; ++j) {
-    gasnet_node_t next = child[j].rank + child[j].procs;
-    do_write(child[j].sock, dest, len*child[j].rank);
-    do_write(child[j].sock, (void *)((uintptr_t)dest + len*next), len*(nproc - next));
+    gasnet_node_t k = by_weight[j]; /* send to deepest subtrees first */
+    gasnet_node_t next = child[k].rank + child[k].procs;
+    /* TODO: disable TCP_NODELAY here? */
+    do_write(child[k].sock, dest, len*child[k].rank);
+    do_write(child[k].sock, (void *)((uintptr_t)dest + len*next), len*(nproc - next));
   }
 #else
   #error
