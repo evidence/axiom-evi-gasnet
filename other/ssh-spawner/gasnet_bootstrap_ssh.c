@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2012/01/05 17:27:54 $
- * $Revision: 1.87 $
+ *     $Date: 2012/01/05 18:28:11 $
+ * $Revision: 1.88 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -1589,15 +1589,35 @@ static void do_slave(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet
 /* dest is >= len*tree_procs, used as temp space on all but root */
 static void do_gath0(void *src, size_t len, void *dest)
 {
-  int j;
+  int j, maxfd, remain;
+  fd_set child_fds;
 
   memcpy(dest, src, len);
-  /* TODO: use select() to order the reads */
+
+  FD_ZERO(&child_fds);
+  maxfd = 0;
   for (j = 0; j < children; ++j) {
-    gasnet_node_t procs = child[j].procs;
-    gasnet_node_t delta = child[j].rank - myproc;
-    void *tmp = (void *)((uintptr_t)dest + len*delta);
-    do_read(child[j].sock, tmp, len*procs);
+    FD_SET(child[j].sock, &child_fds);
+    maxfd = MAX(maxfd, child[j].sock);
+  }
+
+  /* use select() to avoid unnecessary blocking on slow children */
+  remain = children;
+  while (remain) {
+    fd_set read_fds = child_fds;
+    int rc = select(maxfd+1, &read_fds, NULL, NULL, NULL);
+    gasneti_assert(rc != 0);
+
+    for (j = 0; j < children; ++j) {
+      if (FD_ISSET(child[j].sock, &read_fds)) {
+        gasnet_node_t procs = child[j].procs;
+        gasnet_node_t delta = child[j].rank - myproc;
+        void *tmp = (void *)((uintptr_t)dest + len*delta);
+        do_read(child[j].sock, tmp, len*procs);
+        FD_CLR(child[j].sock, &child_fds);
+        --remain;
+      }
+    }
   }
   if (myproc) {
     do_write(parent, dest, len * tree_procs);
