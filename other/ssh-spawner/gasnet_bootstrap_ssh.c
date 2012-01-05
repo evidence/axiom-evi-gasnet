@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2012/01/05 18:28:11 $
- * $Revision: 1.88 $
+ *     $Date: 2012/01/05 18:54:47 $
+ * $Revision: 1.89 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -192,6 +192,8 @@ enum {
   static gasnet_node_t out_degree = GASNETI_SSH_NARY_DEGREE;
   static gasnet_node_t *by_weight = NULL;
 #endif
+  static const fd_set child_fds;
+  static int maxfd;
 /* Slaves only */
   static gasnet_node_t myproc = (gasnet_node_t)(-1L);
 #if GASNETI_SSH_TOPO_NARY
@@ -1218,6 +1220,19 @@ static void spawn_one(gasnet_node_t child_id, char *myhost) {
   gasneti_atomic_increment(&live, 0);
 }
 
+static void init_child_fds(void) {
+  fd_set *tmp = (/*non-const*/ fd_set *)&child_fds;
+  int i;
+
+  FD_ZERO(tmp);
+  maxfd = 0;
+
+  for (i = 0; i < children; ++i) {
+    FD_SET(child[i].sock, tmp);
+    maxfd = MAX(maxfd, child[i].sock);
+  }
+}
+
 static void do_spawn(int argc, char **argv, char *myhost) {
   int j;
 
@@ -1226,6 +1241,7 @@ static void do_spawn(int argc, char **argv, char *myhost) {
     spawn_one(j, myhost);
   }
   post_spawn(children, argc, argv);
+  init_child_fds();
 }
 
 static void usage(const char *argv0) {
@@ -1385,17 +1401,11 @@ static void do_master(int argc, char **argv) {
   { int done = 0;
 
     while (!done && !in_abort) {
-      fd_set fds;
+      fd_set fds = child_fds;
       char cmd;
-      int i, rc, maxfd;
+      int i, rc;
 
       /* Use select to find a fd w/ available work or EOF */
-      FD_ZERO(&fds);
-      maxfd = 0;
-      for (i = 0; i < children; ++i) {
-        FD_SET(child[i].sock, &fds);
-	maxfd = MAX(maxfd, child[i].sock);
-      }
       rc = select(maxfd+1, &fds, NULL, NULL, NULL);
       gasneti_assert(rc != 0);
       if (rc < 0) {
@@ -1589,22 +1599,15 @@ static void do_slave(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet
 /* dest is >= len*tree_procs, used as temp space on all but root */
 static void do_gath0(void *src, size_t len, void *dest)
 {
-  int j, maxfd, remain;
-  fd_set child_fds;
+  int j, remain;
+  fd_set pending_fds = child_fds;
 
   memcpy(dest, src, len);
-
-  FD_ZERO(&child_fds);
-  maxfd = 0;
-  for (j = 0; j < children; ++j) {
-    FD_SET(child[j].sock, &child_fds);
-    maxfd = MAX(maxfd, child[j].sock);
-  }
 
   /* use select() to avoid unnecessary blocking on slow children */
   remain = children;
   while (remain) {
-    fd_set read_fds = child_fds;
+    fd_set read_fds = pending_fds;
     int rc = select(maxfd+1, &read_fds, NULL, NULL, NULL);
     gasneti_assert(rc != 0);
 
@@ -1614,7 +1617,7 @@ static void do_gath0(void *src, size_t len, void *dest)
         gasnet_node_t delta = child[j].rank - myproc;
         void *tmp = (void *)((uintptr_t)dest + len*delta);
         do_read(child[j].sock, tmp, len*procs);
-        FD_CLR(child[j].sock, &child_fds);
+        FD_CLR(child[j].sock, &pending_fds);
         --remain;
       }
     }
