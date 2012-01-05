@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2012/01/05 18:54:47 $
- * $Revision: 1.89 $
+ *     $Date: 2012/01/05 19:37:08 $
+ * $Revision: 1.90 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -192,7 +192,7 @@ enum {
   static gasnet_node_t out_degree = GASNETI_SSH_NARY_DEGREE;
   static gasnet_node_t *by_weight = NULL;
 #endif
-  static const fd_set child_fds;
+  static fd_set child_fds;
   static int maxfd;
 /* Slaves only */
   static gasnet_node_t myproc = (gasnet_node_t)(-1L);
@@ -1221,14 +1221,13 @@ static void spawn_one(gasnet_node_t child_id, char *myhost) {
 }
 
 static void init_child_fds(void) {
-  fd_set *tmp = (/*non-const*/ fd_set *)&child_fds;
   int i;
 
-  FD_ZERO(tmp);
+  FD_ZERO(&child_fds);
   maxfd = 0;
 
   for (i = 0; i < children; ++i) {
-    FD_SET(child[i].sock, tmp);
+    FD_SET(child[i].sock, &child_fds);
     maxfd = MAX(maxfd, child[i].sock);
   }
 }
@@ -1273,6 +1272,31 @@ static void do_kill(int argc, char **argv) {
   }
 
   _exit(0);
+}
+
+static int readable_child(const fd_set *fds)
+{
+  int j, rc;
+  fd_set read_fds;
+
+  do {
+    read_fds = *fds;
+    rc = select(maxfd+1, &read_fds, NULL, NULL, NULL);
+    gasneti_assert(rc != 0);
+    if (rc < 0 && errno != EINTR) {
+      do_abort(-1);
+      return -1;
+    }
+  } while (rc <= 0);
+
+  for (j = 0; j < children; ++j) {
+    if (FD_ISSET(child[j].sock, &read_fds)) {
+      return j;
+    }
+  }
+
+  /* NOT REACHED */
+  return -1; 
 }
 
 extern int (*gasneti_verboseenv_fn)(void);
@@ -1401,29 +1425,15 @@ static void do_master(int argc, char **argv) {
   { int done = 0;
 
     while (!done && !in_abort) {
-      fd_set fds = child_fds;
       char cmd;
       int i, rc;
 
       /* Use select to find a fd w/ available work or EOF */
-      rc = select(maxfd+1, &fds, NULL, NULL, NULL);
-      gasneti_assert(rc != 0);
-      if (rc < 0) {
-	if (errno == EINTR) {
-	  continue;
-	} else {
-	  do_abort(-1);
-	  break;
-	}
-      }
+      i = readable_child(&child_fds);
+      if (i < 0) break;
+      gasneti_assert(i < children);
 
       /* Peek 1 command byte */
-      for (i = 0; i < children; ++i) {
-	if (FD_ISSET(child[i].sock, &fds)) {
-	  break;
-	}
-      }
-      gasneti_assert(i < children);
       rc = recv(child[i].sock, &cmd, sizeof(cmd), MSG_PEEK);
       if (rc != sizeof(cmd)) {
 	/* do_read() hit EOF because a child has died */
@@ -1600,27 +1610,17 @@ static void do_slave(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet
 static void do_gath0(void *src, size_t len, void *dest)
 {
   int j, remain;
-  fd_set pending_fds = child_fds;
+  fd_set fds = child_fds;
 
   memcpy(dest, src, len);
 
-  /* use select() to avoid unnecessary blocking on slow children */
-  remain = children;
-  while (remain) {
-    fd_set read_fds = pending_fds;
-    int rc = select(maxfd+1, &read_fds, NULL, NULL, NULL);
-    gasneti_assert(rc != 0);
-
-    for (j = 0; j < children; ++j) {
-      if (FD_ISSET(child[j].sock, &read_fds)) {
-        gasnet_node_t procs = child[j].procs;
-        gasnet_node_t delta = child[j].rank - myproc;
-        void *tmp = (void *)((uintptr_t)dest + len*delta);
-        do_read(child[j].sock, tmp, len*procs);
-        FD_CLR(child[j].sock, &pending_fds);
-        --remain;
-      }
-    }
+  for (j = 0; j < children; ++j) {
+    int k = readable_child(&fds);
+    gasnet_node_t procs = child[k].procs;
+    gasnet_node_t delta = child[k].rank - myproc;
+    void *tmp = (void *)((uintptr_t)dest + len*delta);
+    do_read(child[k].sock, tmp, len*procs);
+    FD_CLR(child[k].sock, &fds);
   }
   if (myproc) {
     do_write(parent, dest, len * tree_procs);
