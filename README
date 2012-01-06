@@ -1,6 +1,6 @@
 README file for GASNet
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.142 $
+$Revision: 1.143 $
 
 This is a combination user manual and design document for GASNet. Anyone
 planning on using, modifying or adding to the GASNet code base should read this
@@ -64,6 +64,7 @@ For example to build 64-bit code when your gcc and g++ default to 32-bit:
       GASNet clients (but should not be used for performance testing). 
     --enable-trace - turn on GASNet tracing (see usage info below)
     --enable-stats - turn on GASNet statistical collection (see usage info below)
+    --enable-debug-malloc - use GASNet debugging malloc (see usage info below)
     --enable-segment-{fast,large,everything} - select a GASNet segment 
       configuration (see the GASNet spec for more info)
     --enable-strict-prototypes - Use strict prototypes in GASNet headers
@@ -530,7 +531,8 @@ GASNet debug malloc services
 
 GASNet includes a debug malloc implementation that can be used to find local
 heap corruption bugs in GASNet itself and also in GASNet client applications
-(notably Berkeley UPC). To use, configure with --enable-debug, and run your
+(notably Berkeley UPC). To use, configure GASNet with --enable-debug-malloc
+(or --enable-debug which implies --enable-debug-malloc), and run your
 program as usual.  GASNet will regularly scan the heap for corruption at malloc
 events and AMPoll's and report any detected problems.  If you're a GASNet
 client writer, you should see the gasnett_debug_malloc functions in
@@ -539,11 +541,12 @@ gasnet_tools.h to tie your applications into the GASNet debug malloc services.
 Note the debug malloc implementation imposes some CPU and memory consumption
 overhead relative to the system malloc implementation (it's implemented as a
 thin wrapper around the system malloc).  This means heap behavior is likely to
-be somewhat perturbed relative to GASNET_NDEBUG mode operation, however the
+be somewhat perturbed relative to the normal mode of operation, however the
 overhead is probably less than it would be with third-party heap corruption
 tools such as efence or purify (at some cost in lost precision).
 
-Optional environment variable settings (recognized only in GASNET_DEBUG mode):
+Optional environment variable settings (recognized only when debugging
+malloc is enabled):
 
 GASNET_MALLOC_INIT: When set to 1, every byte of allocated memory is
  initialized to the value specified by GASNET_MALLOC_INITVAL. This can be useful
