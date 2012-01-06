@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2011/11/27 19:30:12 $ */
-/*  $Revision: 1.172 $ */
+/*      $Date: 2012/01/06 23:19:12 $ */
+/*  $Revision: 1.173 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -318,6 +318,7 @@
 #undef GASNET_NDEBUG
 #undef GASNET_TRACE
 #undef GASNET_STATS
+#undef GASNET_DEBUGMALLOC
 #undef GASNET_SRCLINES
 #undef GASNET_DEBUG_VERBOSE
 #undef GASNET_USE_STRICT_PROTOTYPES

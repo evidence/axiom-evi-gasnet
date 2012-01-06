@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2011/12/13 23:19:09 $
-# $Revision: 1.736 $
+#     $Date: 2012/01/06 23:19:12 $
+# $Revision: 1.737 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.736 $)
+AC_REVISION($Revision: 1.737 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -714,6 +714,13 @@ GASNET_IF_ENABLED(srclines, Build GASNet with srclines support (enabled by defau
     AC_DEFINE(GASNET_SRCLINES)
   fi
 AM_CONDITIONAL(BUILDCONFIG_SRCLINES, test "$enabled_srclines" = yes)
+
+GASNET_IF_ENABLED_WITH_AUTO(debug-malloc, Build GASNet with debugging malloc implementation enabled (enabled by default with --enable-debug), 
+  enabled_debug_malloc=yes, enabled_debug_malloc=no, enabled_debug_malloc=$enabled_debug)
+  if test "$enabled_debug_malloc" = yes; then
+    AC_DEFINE(GASNET_DEBUGMALLOC)
+  fi
+AM_CONDITIONAL(BUILDCONFIG_DEBUGMALLOC, test "$enabled_debug_malloc" = yes)
 
 case "$target" in
   *-uclinux-*) # uclinux requires -Os
