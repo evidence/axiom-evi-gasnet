@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2012/01/06 06:30:26 $
- * $Revision: 1.96 $
+ *     $Date: 2012/01/06 06:39:27 $
+ * $Revision: 1.97 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -623,6 +623,7 @@ static void do_writev(int fd, struct iovec *iov, int iovcnt)
     rc = writev(fd, iov, MIN(iovcnt, iov_max));
     if_pf ((rc < 0) && (errno == EINVAL) && (iov_max > 32)) {
       iov_max /= 2;
+      continue;
     }
     if_pf (rc <= 0) {
       do_abort(-1);
@@ -691,6 +692,7 @@ static void do_readv(int fd, struct iovec *iov, int iovcnt)
     rc = readv(fd, iov, MIN(iovcnt, iov_max));
     if_pf ((rc < 0) && (errno == EINVAL) && (iov_max > 32)) {
       iov_max /= 2;
+      continue;
     }
     if_pf (rc <= 0) {
       do_abort(-1);
