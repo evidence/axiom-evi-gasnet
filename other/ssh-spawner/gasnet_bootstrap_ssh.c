@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2012/01/06 08:14:15 $
- * $Revision: 1.99 $
+ *     $Date: 2012/01/06 08:33:44 $
+ * $Revision: 1.100 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -1782,18 +1782,18 @@ static void build_all2all_iov(struct iovec *iov, char *buf, size_t len, int rank
 
 /* In-place square matrix transpose
  * TODO: there are better algorithms than this */
-static void transpose(char *buf, char *tmp, size_t len, size_t rows)
+static void transpose(char *buf, char *tmp, size_t len, size_t n)
 {
-  size_t row_len = len * nproc;
+  const size_t row_len = len * nproc;
   gasnet_node_t j, k;
+  char *p0, *q0;
+  char *p1, *q1;
 
-  for (j = 0; j < rows; ++j) {
-    for (k = 0; k < j; ++k) {
-      char *p = buf + (j*row_len + k*len);
-      char *q = buf + (k*row_len + j*len);
-      memcpy(tmp, p, len);
-      memcpy(p,   q, len);
-      memcpy(q, tmp, len);
+  for (  j = 0, p0 = q0 = buf;     j < n;  ++j, q0 += len, p0 += row_len) {
+    for (k = 0, p1 = p0, q1 = q0;  k < j;  ++k, p1 += len, q1 += row_len) {
+      memcpy(tmp, p1, len);
+      memcpy(p1,  q1, len);
+      memcpy(q1, tmp, len);
     }
   }
 }
