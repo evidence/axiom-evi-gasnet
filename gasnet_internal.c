@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2011/09/05 08:03:42 $
- * $Revision: 1.219 $
+ *     $Date: 2012/01/06 20:24:18 $
+ * $Revision: 1.220 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1397,7 +1397,7 @@ ssize_t gasneti_getline(char **buf_p, size_t *n_p, FILE *fp) {
         if (gasneti_memalloc_pos) {
           _gasneti_memcheck(gasneti_memalloc_pos+1, curloc, 2);
           gasneti_memalloc_pos = gasneti_memalloc_pos->nextdesc;
-        } else gasneti_assert(gasneti_memalloc_ringobjects == 0 && gasneti_memalloc_ringbytes == 0);
+        } else gasneti_assert_always(gasneti_memalloc_ringobjects == 0 && gasneti_memalloc_ringbytes == 0);
       gasneti_mutex_unlock(&gasneti_memalloc_lock);
       if_pt (gasneti_attach_done) { gasnet_resume_interrupts(); }
     }
@@ -1420,7 +1420,7 @@ ssize_t gasneti_getline(char **buf_p, size_t *n_p, FILE *fp) {
                              "in the memory ring linkage, most likely as a result of memory corruption.", 
                              curloc);
         }
-      } else gasneti_assert(gasneti_memalloc_ringobjects == 0 && gasneti_memalloc_ringbytes == 0);
+      } else gasneti_assert_always(gasneti_memalloc_ringobjects == 0 && gasneti_memalloc_ringbytes == 0);
     gasneti_mutex_unlock(&gasneti_memalloc_lock);
     if_pt (gasneti_attach_done) { gasnet_resume_interrupts(); }
   }
@@ -1439,7 +1439,7 @@ ssize_t gasneti_getline(char **buf_p, size_t *n_p, FILE *fp) {
     uint64_t beginpost = 0;
     uint64_t endpost = 0;
     int doscan = 0;
-    gasneti_assert(checktype >= 0 && checktype <= 2);
+    gasneti_assert_always(checktype >= 0 && checktype <= 2);
     if (gasneti_looksaligned(ptr)) {
       gasneti_memalloc_desc_t *desc = ((gasneti_memalloc_desc_t *)ptr) - 1;
       beginpost = desc->beginpost;
@@ -1544,7 +1544,7 @@ ssize_t gasneti_getline(char **buf_p, size_t *n_p, FILE *fp) {
       return NULL;
     }
     ret = malloc(nbytes+GASNETI_MEM_EXTRASZ);
-    gasneti_assert((((uintptr_t)ret) & 0x3) == 0); /* should have at least 4-byte alignment */
+    gasneti_assert_always((((uintptr_t)ret) & 0x3) == 0); /* should have at least 4-byte alignment */
     if_pf (ret == NULL) {
       char curlocstr[GASNETI_MAX_LOCSZ];
       if (allowfail) {
@@ -1633,7 +1633,7 @@ ssize_t gasneti_getline(char **buf_p, size_t *n_p, FILE *fp) {
         gasneti_memalloc_ringobjects--;
         gasneti_memalloc_ringbytes -= nbytes;
         if (desc->nextdesc == desc) { /* last item in list */
-          gasneti_assert(desc->prevdesc == desc && gasneti_memalloc_ringobjects == 0);
+          gasneti_assert_always(desc->prevdesc == desc && gasneti_memalloc_ringobjects == 0);
           gasneti_memalloc_pos = NULL;
         } else {
           if (gasneti_memalloc_pos == desc) gasneti_memalloc_pos = desc->nextdesc;
