@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2012/01/06 06:43:11 $
- * $Revision: 1.98 $
+ *     $Date: 2012/01/06 08:14:15 $
+ * $Revision: 1.99 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -1780,6 +1780,8 @@ static void build_all2all_iov(struct iovec *iov, char *buf, size_t len, int rank
 }
 #endif
 
+/* In-place square matrix transpose
+ * TODO: there are better algorithms than this */
 static void transpose(char *buf, char *tmp, size_t len, size_t rows)
 {
   size_t row_len = len * nproc;
@@ -2074,12 +2076,13 @@ void gasneti_bootstrapExchange_ssh(void *src, size_t len, void *dest) {
 }
 
 void gasneti_bootstrapAlltoall_ssh(void *src, size_t len, void *dest) {
+  fd_set fds;
+  gasnet_node_t j;
+  int k;
+
 #if GASNETI_SSH_TOPO_FLAT
   if (is_master) {
-    fd_set fds;
     char cmd, *tmp, *tmp2;
-    gasnet_node_t j;
-    int k;
     size_t row_len;
     READ_EACH_CHILD(j,k,fds) {
       if (k < 0) break;
@@ -2119,41 +2122,44 @@ void gasneti_bootstrapAlltoall_ssh(void *src, size_t len, void *dest) {
     do_read(parent, dest, len*nproc);
   }
 #elif GASNETI_SSH_TOPO_NARY
-  size_t row_len = len * nproc;
-  struct iovec *iov;
-  char *tmp, *local;
-  int j;
+  struct iovec *iov = gasneti_malloc(sizeof(struct iovec) * (tree_procs + 1));
+  const size_t row_len = len * nproc;
+  char *tmp = gasneti_malloc(row_len * tree_procs);
                                                                                                               
   gasneti_assert(!is_master);
-  tmp = gasneti_malloc(row_len * tree_procs);
 
-  /* Collect rows from our subtree (gather) */
-  /* TODO: don't move "diagonal" data to the parent */
-  do_gath0(src, row_len, tmp);
+  /* Collect rows from our subtree, skipping "diagonal" blocks */
+  READ_EACH_CHILD(j,k,fds) {
+    const gasnet_node_t procs = child[k].procs;
+    const gasnet_node_t rank  = child[k].rank;
+    build_all2all_iov(iov, tmp, len, rank, procs);
+    do_readv(child[k].sock, iov, procs + 1);
+  }
+  memcpy(tmp, src, row_len);
+  if (myproc) {
+    build_all2all_iov(iov, tmp, len, myproc, tree_procs);
+    do_writev(parent, iov, tree_procs + 1);
+  }
 
-  /* Transpose locally, using dest for free temporary space */
-  local = tmp + myproc * len;
-  transpose(local, dest, len, tree_procs);
+  /* Transpose received portions locally, using dest for free temporary space */
+  transpose(tmp + myproc * len, dest, len, tree_procs);
 
   /* Move back down, NOT sending back "diagonal" blocks */
-  iov = gasneti_malloc(sizeof(struct iovec) * (tree_procs + 1));
   if (myproc) {
     build_all2all_iov(iov, tmp, len, myproc, tree_procs);
     do_readv(parent, iov, tree_procs + 1);
   }
-  for (j = 0; j < children; ++j) {
-    gasnet_node_t k = by_weight[j]; /* send to deepest subtrees first */
-    gasnet_node_t procs = child[k].procs;
-    gasnet_node_t rank  = child[k].rank;
-    build_all2all_iov(iov, tmp, len, rank, procs);
-    do_writev(child[k].sock, iov, procs + 1);
-  }
-  gasneti_free(iov);
-
-  /* Grab my piece */
   memcpy(dest, tmp, row_len);
+  for (j = 0; j < children; ++j) {
+    const gasnet_node_t n = by_weight[j]; /* send to deepest subtrees first */
+    const gasnet_node_t procs = child[n].procs;
+    const gasnet_node_t rank  = child[n].rank;
+    build_all2all_iov(iov, tmp, len, rank, procs);
+    do_writev(child[n].sock, iov, procs + 1);
+  }
 
   gasneti_free(tmp);
+  gasneti_free(iov);
 #else
   #error
 #endif
