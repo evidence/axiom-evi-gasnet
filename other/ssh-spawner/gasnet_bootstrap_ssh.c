@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2012/01/06 06:39:27 $
- * $Revision: 1.97 $
+ *     $Date: 2012/01/06 06:43:11 $
+ * $Revision: 1.98 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -37,6 +37,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <netdb.h>
+#include <limits.h>
 
 #ifndef GASNET_SOCKLEN_T
   #error "Don't know socklen_t or equivalent"
