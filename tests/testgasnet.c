@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testgasnet.c,v $
- *     $Date: 2010/03/17 01:02:53 $
- * $Revision: 1.67 $
+ *     $Date: 2012/01/06 21:54:00 $
+ * $Revision: 1.68 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -156,7 +156,7 @@ void test_libgasnet_tools(void) {
     assert_always(((uintptr_t)p)%GASNETT_PAGESIZE == 0);
   #endif
   test_threadinfo(0, 1);
-  #if GASNET_DEBUG
+  #if GASNET_DEBUGMALLOC
   { char *ptr = (char *)gasnett_debug_malloc(10); 
     char *ptr2;
     gasnett_heapstats_t hs;

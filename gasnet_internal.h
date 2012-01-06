@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2011/12/12 22:20:12 $
- * $Revision: 1.125 $
+ *     $Date: 2012/01/06 21:53:58 $
+ * $Revision: 1.126 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -65,7 +65,7 @@ extern double gasneti_get_exittimeout(double dflt_max, double dflt_min, double d
 #define gasneti_strndup(ptr,sz)      _gasneti_strndup((ptr),(sz) GASNETI_CURLOCAARG)
 /* corresponding gasneti_memcheck fns are in gasnet_help.h */
 
-#if GASNET_DEBUG
+#if GASNET_DEBUGMALLOC
   extern void *_gasneti_malloc(size_t nbytes, const char *curloc) GASNETI_MALLOC;
   extern void *_gasneti_malloc_allowfail(size_t nbytes, const char *curloc) GASNETI_MALLOC;
   extern void _gasneti_free(void *ptr, const char *curloc);

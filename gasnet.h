@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet.h,v $
- *     $Date: 2011/09/05 08:03:42 $
- * $Revision: 1.68 $
+ *     $Date: 2012/01/06 21:53:58 $
+ * $Revision: 1.69 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -85,6 +85,11 @@
   #define GASNETI_STATS_CONFIG stats
 #else
   #define GASNETI_STATS_CONFIG nostats
+#endif
+
+/* DEBUGMALLOC is pending separation from DEBUG (see bug 3089) */
+#ifdef GASNET_DEBUG
+  #define GASNET_DEBUGMALLOC 1
 #endif
 
 #if defined(GASNET_SRCLINES) || defined(GASNET_DEBUG)

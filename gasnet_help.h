@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2011/09/05 08:03:42 $
- * $Revision: 1.109 $
+ *     $Date: 2012/01/06 21:53:58 $
+ * $Revision: 1.110 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -27,7 +27,7 @@ typedef struct {
   uint64_t overhead_bytes;    /* num bytes consumed by allocator overhead (lower bound) */
 } gasneti_heapstats_t;
 
-#if GASNET_DEBUG
+#if GASNET_DEBUGMALLOC
   /* curloc is passed to debug mallocator as "file:line",
      or the special constant "SRCPOS" to retrieve the info from gasnet_srclines 
      To enable use of srcpos for a compilation unit, client should: 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.c,v $
- *     $Date: 2011/07/07 00:00:13 $
- * $Revision: 1.148 $
+ *     $Date: 2012/01/06 21:53:58 $
+ * $Revision: 1.149 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -671,7 +671,7 @@ extern void gasneti_trace_updatemask(const char *newmask, char *maskstr, char *t
 }
 
 char gasneti_exename[PATH_MAX];
-#if GASNET_DEBUG
+#if GASNET_DEBUGMALLOC
 static const char *gasneti_mallocreport_filename = NULL;
 #endif
 
@@ -799,7 +799,7 @@ extern void gasneti_trace_init(int *pargc, char ***pargv) {
   fflush(NULL);
  #endif
 
- #if GASNET_DEBUG
+ #if GASNET_DEBUGMALLOC
   gasneti_mallocreport_filename = gasneti_getenv_withdefault("GASNET_MALLOCFILE","");
   if (gasneti_mallocreport_filename && !strcmp(gasneti_mallocreport_filename, "")) gasneti_mallocreport_filename = NULL;
   if (gasneti_mallocreport_filename && !gasneti_check_node_list("GASNET_MALLOCNODES")) gasneti_mallocreport_filename = NULL;
@@ -986,7 +986,7 @@ extern void gasneti_trace_finish(void) {
     sleep(1); /* pause to ensure everyone has written trace if this is a collective exit */
   }
 #endif
-#if GASNET_DEBUG
+#if GASNET_DEBUGMALLOC
   if (gasneti_mallocreport_filename) {
     static gasneti_mutex_t gasneti_debugmalloclock = GASNETI_MUTEX_INITIALIZER;
     FILE *fp;

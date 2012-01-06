@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2012/01/06 20:24:18 $
- * $Revision: 1.220 $
+ *     $Date: 2012/01/06 21:53:58 $
+ * $Revision: 1.221 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1212,7 +1212,7 @@ ssize_t gasneti_getline(char **buf_p, size_t *n_p, FILE *fp) {
   | prev | next | allocdesc (2*sizeof(void*)) | datasz | BEGINPOST | <user data> | ENDPOST |
                                              ptr returned by malloc ^
  */
-#if GASNET_DEBUG
+#if GASNET_DEBUGMALLOC
   /* READ BEFORE MODIFYING gasneti_memalloc_desc_t:
    *
    * malloc() is specified as returning memory "suitably aligned for any kind of variable".
@@ -1727,7 +1727,7 @@ extern char *_gasneti_extern_strndup(const char *s, size_t n GASNETI_CURLOCFARG)
   return _gasneti_strndup(s,n GASNETI_CURLOCPARG);
 }
 
-#if GASNET_DEBUG
+#if GASNET_DEBUGMALLOC
   extern void *(*gasnett_debug_malloc_fn)(size_t sz GASNETI_CURLOCFARG);
   extern void *(*gasnett_debug_calloc_fn)(size_t N, size_t S GASNETI_CURLOCFARG);
   extern void (*gasnett_debug_free_fn)(void *ptr GASNETI_CURLOCFARG);
