@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2012/01/06 03:42:28 $
- * $Revision: 1.94 $
+ *     $Date: 2012/01/06 03:58:51 $
+ * $Revision: 1.95 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -655,6 +655,39 @@ static void do_read(int fd, void *buf, size_t len)
     }
     p += rc;
     len -= rc;
+  }
+}
+
+/* NOTE that unlike readv() we clobber the iovec */
+static void do_readv(int fd, struct iovec *iov, int iovcnt)
+{
+  while (iovcnt) {
+    ssize_t rc;
+
+    while (0 == iov->iov_len) {
+      ++iov;
+      if (0 == --iovcnt) return;
+    }
+
+    rc = readv(fd, iov, iovcnt);
+    if_pf (rc <= 0) {
+      do_abort(-1);
+      break;
+    }
+
+    gasneti_assert(rc > 0);
+    do {
+      size_t len = iov->iov_len;
+      if (rc >= len) {
+        ++iov;
+        --iovcnt;
+        rc -= len;
+      } else {
+        iov->iov_base = (void*)((uintptr_t)iov->iov_base + rc);
+        iov->iov_len -= rc;
+        break;
+      }
+    } while (rc);
   }
 }
 
@@ -1961,6 +1994,8 @@ void gasneti_bootstrapExchange_ssh(void *src, size_t len, void *dest) {
     do_read(parent, dest, len*nproc);
   }
 #elif GASNETI_SSH_TOPO_NARY
+  struct iovec iov[2];
+
   gasneti_assert(!is_master);
   /* Gather data up the tree, assembling partial results in-place in dest */
   do_gath0(src, len, (void *)((uintptr_t)dest + len*myproc));
@@ -1969,13 +2004,15 @@ void gasneti_bootstrapExchange_ssh(void *src, size_t len, void *dest) {
      only parts that a given node did not send to us */
   if (myproc) {
     gasnet_node_t next = myproc + tree_procs;
-    do_read(parent, dest, len*myproc);
-    do_read(parent, (void *)((uintptr_t)dest + len*next), len*(nproc - next));
+    iov[0].iov_base = dest;
+    iov[0].iov_len  = len*myproc;
+    iov[1].iov_base = (void *)((uintptr_t)dest + len*next);
+    iov[1].iov_len  = len*(nproc - next);
+    do_readv(parent, iov, 2);
   }
   for (j = 0; j < children; ++j) {
     gasnet_node_t k = by_weight[j]; /* send to deepest subtrees first */
     gasnet_node_t next = child[k].rank + child[k].procs;
-    struct iovec iov[2];
     iov[0].iov_base = dest;
     iov[0].iov_len  = len*child[k].rank;
     iov[1].iov_base = (void *)((uintptr_t)dest + len*next);
