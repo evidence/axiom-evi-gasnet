@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet.h,v $
- *     $Date: 2012/01/06 21:53:58 $
- * $Revision: 1.69 $
+ *     $Date: 2012/01/06 22:26:10 $
+ * $Revision: 1.70 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -87,9 +87,16 @@
   #define GASNETI_STATS_CONFIG nostats
 #endif
 
-/* DEBUGMALLOC is pending separation from DEBUG (see bug 3089) */
 #ifdef GASNET_DEBUG
+  /* DEBUGMALLOC is pending separation from DEBUG (see bug 3089) */
+  #define GASNET_DEBUGMALLOC yes
+#endif
+#ifdef GASNET_DEBUGMALLOC
+  #undef GASNET_DEBUGMALLOC
   #define GASNET_DEBUGMALLOC 1
+  #define GASNETI_MALLOC_CONFIG malloc
+#else
+  #define GASNETI_MALLOC_CONFIG nomalloc
 #endif
 
 #if defined(GASNET_SRCLINES) || defined(GASNET_DEBUG)
@@ -139,7 +146,7 @@
 #endif
 
 /* additional safety check, in case a very smart linker removes all of the checks at the end of this file */
-#define gasnet_init _CONCAT(_CONCAT(_CONCAT(_CONCAT(_CONCAT(_CONCAT(_CONCAT( \
+#define gasnet_init _CONCAT(_CONCAT(_CONCAT(_CONCAT(_CONCAT(_CONCAT(_CONCAT(_CONCAT( \
                     gasnet_init_GASNET_,                             \
                     GASNETI_THREAD_MODEL),                           \
                     GASNETI_PSHM_CONFIG_ENABLED),                    \
@@ -147,6 +154,7 @@
                     GASNETI_DEBUG_CONFIG),                           \
                     GASNETI_TRACE_CONFIG),                           \
                     GASNETI_STATS_CONFIG),                           \
+                    GASNETI_MALLOC_CONFIG),                          \
                     GASNETI_SRCLINES_CONFIG)
 
 /* ------------------------------------------------------------------------------------ */
@@ -397,6 +405,7 @@ GASNETI_END_EXTERNC
              _STRINGIFY(GASNETI_DEBUG_CONFIG) ","                         \
              _STRINGIFY(GASNETI_TRACE_CONFIG) ","                         \
              _STRINGIFY(GASNETI_STATS_CONFIG) ","                         \
+             _STRINGIFY(GASNETI_MALLOC_CONFIG) ","                        \
              _STRINGIFY(GASNETI_SRCLINES_CONFIG) ","                      \
              _STRINGIFY(GASNETI_TIMER_CONFIG) ","                         \
              _STRINGIFY(GASNETI_MEMBAR_CONFIG) ","                        \
@@ -419,6 +428,7 @@ extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_SEGMENT_CONFIG);
 extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_DEBUG_CONFIG);
 extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_TRACE_CONFIG);
 extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_STATS_CONFIG);
+extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_MALLOC_CONFIG);
 extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_SRCLINES_CONFIG);
 extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_ALIGN_CONFIG);
 extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_PSHM_CONFIG);
@@ -442,6 +452,7 @@ static int *gasneti_linkconfig_idiotcheck(void) {
         + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_DEBUG_CONFIG)
         + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_TRACE_CONFIG)
         + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_STATS_CONFIG)
+        + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_MALLOC_CONFIG)
         + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_SRCLINES_CONFIG)
         + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_ALIGN_CONFIG)
         + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_PSHM_CONFIG)
