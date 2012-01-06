@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2012/01/06 03:58:51 $
- * $Revision: 1.95 $
+ *     $Date: 2012/01/06 06:30:26 $
+ * $Revision: 1.96 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -604,6 +604,14 @@ static void do_write(int fd, const void *buf, size_t len)
 /* NOTE that unlike writev() we clobber the iovec */
 static void do_writev(int fd, struct iovec *iov, int iovcnt)
 {
+#if defined(IOV_MAX)
+  static int iov_max = IOV_MAX;
+#elif defined(MAXIOV)
+  static int iov_max = MAXIOV;
+#else
+  static int iov_max = 1024;
+#endif
+
   while (iovcnt) {
     ssize_t rc;
 
@@ -612,7 +620,10 @@ static void do_writev(int fd, struct iovec *iov, int iovcnt)
       if (0 == --iovcnt) return;
     }
 
-    rc = writev(fd, iov, iovcnt);
+    rc = writev(fd, iov, MIN(iovcnt, iov_max));
+    if_pf ((rc < 0) && (errno == EINVAL) && (iov_max > 32)) {
+      iov_max /= 2;
+    }
     if_pf (rc <= 0) {
       do_abort(-1);
       break;
@@ -661,6 +672,14 @@ static void do_read(int fd, void *buf, size_t len)
 /* NOTE that unlike readv() we clobber the iovec */
 static void do_readv(int fd, struct iovec *iov, int iovcnt)
 {
+#if defined(IOV_MAX)
+  static int iov_max = IOV_MAX;
+#elif defined(MAXIOV)
+  static int iov_max = MAXIOV;
+#else
+  static int iov_max = 1024;
+#endif
+
   while (iovcnt) {
     ssize_t rc;
 
@@ -669,7 +688,10 @@ static void do_readv(int fd, struct iovec *iov, int iovcnt)
       if (0 == --iovcnt) return;
     }
 
-    rc = readv(fd, iov, iovcnt);
+    rc = readv(fd, iov, MIN(iovcnt, iov_max));
+    if_pf ((rc < 0) && (errno == EINVAL) && (iov_max > 32)) {
+      iov_max /= 2;
+    }
     if_pf (rc <= 0) {
       do_abort(-1);
       break;
@@ -1716,24 +1738,6 @@ static void do_gath0(void *src, size_t len, void *dest)
   }
 }
 
-/* src is >= len*tree_procs, used as temp space on all but root */
-static void do_scat0(void *src, size_t len, void *dest)
-{
-  int j;
-
-  if (myproc) {
-    do_read(parent, src, len * tree_procs);
-  }
-  memcpy(dest, src, len);
-  for (j = 0; j < children; ++j) {
-    gasnet_node_t k = by_weight[j]; /* send to deepest subtrees first */
-    gasnet_node_t procs = child[k].procs;
-    gasnet_node_t delta = child[k].rank - myproc;
-    void *tmp = (void *)((uintptr_t)src + len*delta);
-    do_write(child[k].sock, tmp, len*procs);
-  }
-}
-
 static void do_bcast0(size_t len, void *dest) {
   int j;
 
@@ -1745,7 +1749,49 @@ static void do_bcast0(size_t len, void *dest) {
     do_write(child[k].sock, dest, len);
   }
 }
+
+static void build_all2all_iov(struct iovec *iov, char *buf, size_t len, int rank, int size)
+{
+  size_t row_len = len * nproc;
+  size_t run_len = row_len - len * size;
+  char *p = buf + row_len * (rank - myproc);
+  int i;
+
+  /* First partial */
+  iov[0].iov_base = p;
+  iov[0].iov_len  = len * rank;
+
+  /* Skip that partial and the "local" piece */
+  p += len * (rank + size);
+
+  /* Contiguous "wrap around" runs */
+  for (i = 1; i < size; ++i) {
+    iov[i].iov_base = p;
+    iov[i].iov_len  = run_len;
+    p += row_len;
+  }
+
+  /* Final partial */
+  iov[size].iov_base = p;
+  iov[size].iov_len  = run_len - len * rank;
+}
 #endif
+
+static void transpose(char *buf, char *tmp, size_t len, size_t rows)
+{
+  size_t row_len = len * nproc;
+  gasnet_node_t j, k;
+
+  for (j = 0; j < rows; ++j) {
+    for (k = 0; k < j; ++k) {
+      char *p = buf + (j*row_len + k*len);
+      char *q = buf + (k*row_len + j*len);
+      memcpy(tmp, p, len);
+      memcpy(p,   q, len);
+      memcpy(q, tmp, len);
+    }
+  }
+}
 
 static void gather_pids(void) {
 #if GASNETI_SSH_TOPO_FLAT
@@ -2028,7 +2074,7 @@ void gasneti_bootstrapAlltoall_ssh(void *src, size_t len, void *dest) {
 #if GASNETI_SSH_TOPO_FLAT
   if (is_master) {
     fd_set fds;
-    char cmd, *tmp, *tmp2, *p, *q;
+    char cmd, *tmp, *tmp2;
     gasnet_node_t j;
     int k;
     size_t row_len;
@@ -2051,19 +2097,10 @@ void gasneti_bootstrapAlltoall_ssh(void *src, size_t len, void *dest) {
       do_read(child[k].sock, tmp + (k * row_len), row_len);
     }
     tmp2 = gasneti_malloc(row_len);
-    for (j = 0; j < nproc; ++j) {
-      gasnet_node_t k;
-      for (k = 0; k < j; ++k) {
-	p = tmp + (j*row_len + k*len);
-	q = tmp + (k*row_len + j*len);
-        memcpy(tmp2, p, len);
-        memcpy(p, q, len);
-        memcpy(q, tmp2, len);
-      }
-    }
+    transpose(tmp, tmp2, len, nproc);
     gasneti_free(tmp2);
-    for (j = 0, p = tmp; j < children; ++j, p += row_len) {
-      do_write(child[j].sock, p, row_len);
+    for (j = 0, tmp2 = tmp; j < children; ++j, tmp2 += row_len) {
+      do_write(child[j].sock, tmp2, row_len);
     }
     gasneti_free(tmp);
   } else {
@@ -2080,31 +2117,38 @@ void gasneti_bootstrapAlltoall_ssh(void *src, size_t len, void *dest) {
   }
 #elif GASNETI_SSH_TOPO_NARY
   size_t row_len = len * nproc;
-  char *tmp;
+  struct iovec *iov;
+  char *tmp, *local;
+  int j;
                                                                                                               
   gasneti_assert(!is_master);
   tmp = gasneti_malloc(row_len * tree_procs);
 
   /* Collect rows from our subtree (gather) */
+  /* TODO: don't move "diagonal" data to the parent */
   do_gath0(src, row_len, tmp);
 
-  /* Transpose at root, using dest for free temporary space */
-  if (!myproc) {
-    gasnet_node_t i;
-    for (i = 0; i < nproc; ++i) {
-      gasnet_node_t k;
-      for (k = 0; k < i; ++k) {
-	void *p = tmp + (i*row_len + k*len);
-	void *q = tmp + (k*row_len + i*len);
-        memcpy(dest, p, len);
-        memcpy(p, q, len);
-        memcpy(q, dest, len);
-      }
-    }
-  }
+  /* Transpose locally, using dest for free temporary space */
+  local = tmp + myproc * len;
+  transpose(local, dest, len, tree_procs);
 
-  /* Move data back down (scatter) */
-  do_scat0(tmp, row_len, dest);
+  /* Move back down, NOT sending back "diagonal" blocks */
+  iov = gasneti_malloc(sizeof(struct iovec) * (tree_procs + 1));
+  if (myproc) {
+    build_all2all_iov(iov, tmp, len, myproc, tree_procs);
+    do_readv(parent, iov, tree_procs + 1);
+  }
+  for (j = 0; j < children; ++j) {
+    gasnet_node_t k = by_weight[j]; /* send to deepest subtrees first */
+    gasnet_node_t procs = child[k].procs;
+    gasnet_node_t rank  = child[k].rank;
+    build_all2all_iov(iov, tmp, len, rank, procs);
+    do_writev(child[k].sock, iov, procs + 1);
+  }
+  gasneti_free(iov);
+
+  /* Grab my piece */
+  memcpy(dest, tmp, row_len);
 
   gasneti_free(tmp);
 #else
