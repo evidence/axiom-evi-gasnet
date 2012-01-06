@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.c,v $
- *     $Date: 2012/01/06 21:53:58 $
- * $Revision: 1.149 $
+ *     $Date: 2012/01/06 23:30:57 $
+ * $Revision: 1.150 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -778,13 +778,13 @@ extern void gasneti_trace_init(int *pargc, char ***pargv) {
   #endif
 
   #if GASNET_NDEBUG
-  { char *NDEBUG_warning =
+  { const char *NDEBUG_warning =
      "WARNING: tracing/statistical collection may adversely affect application performance.";
     gasneti_tracestats_printf(NDEBUG_warning);
     if (gasneti_tracefile != stdout && gasneti_tracefile != stderr &&
         gasneti_statsfile != stdout && gasneti_statsfile != stderr) {
-      fprintf(stderr,NDEBUG_warning);
-      fprintf(stderr,"\n");
+      fputs(NDEBUG_warning,stderr);
+      fputs("\n",stderr);
     }
   }
   #endif
@@ -797,9 +797,23 @@ extern void gasneti_trace_init(int *pargc, char ***pargv) {
    gasneti_tick_granularity(), gasneti_tick_overhead());
 
   fflush(NULL);
- #endif
+ #endif /* GASNETI_STATS_OR_TRACE */
 
  #if GASNET_DEBUGMALLOC
+  #if GASNET_NDEBUG
+  { const char *NDEBUG_warning =
+     "WARNING: debugging malloc may adversely affect application performance.";
+   #if GASNETI_STATS_OR_TRACE
+    gasneti_tracestats_printf(NDEBUG_warning);
+    if (gasneti_tracefile != stdout && gasneti_tracefile != stderr &&
+        gasneti_statsfile != stdout && gasneti_statsfile != stderr)
+   #endif
+    {
+      fputs(NDEBUG_warning,stderr);
+      fputs("\n",stderr);
+    }
+  }
+  #endif
   gasneti_mallocreport_filename = gasneti_getenv_withdefault("GASNET_MALLOCFILE","");
   if (gasneti_mallocreport_filename && !strcmp(gasneti_mallocreport_filename, "")) gasneti_mallocreport_filename = NULL;
   if (gasneti_mallocreport_filename && !gasneti_check_node_list("GASNET_MALLOCNODES")) gasneti_mallocreport_filename = NULL;

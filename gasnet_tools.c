@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2011/09/04 00:13:18 $
- * $Revision: 1.271 $
+ *     $Date: 2012/01/06 23:30:57 $
+ * $Revision: 1.272 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -252,16 +252,19 @@ static gasneti_atomic_t gasneti_backtrace_enabled = gasneti_atomic_init(1);
 
 extern const char *gasnett_performance_warning_str(void) {
   static const char *result =
-    #if defined(GASNET_DEBUG) || defined(GASNETI_STATS_OR_TRACE)
+    #if defined(GASNET_DEBUG) || defined(GASNETI_STATS_OR_TRACE) || defined(GASNET_DEBUGMALLOC)
       "        "  /* Leading white space: */
       #ifdef GASNET_DEBUG
-        "debugging "
+        "debugging  "
       #endif
       #ifdef GASNET_TRACE
-        "tracing "
+        "tracing  "
       #endif
       #ifdef GASNET_STATS
-        "statistical collection "
+        "statistical collection  "
+      #endif
+      #ifdef GASNET_DEBUGMALLOC
+        "debugging malloc  "
       #endif
       "\n" /* Trailing white space: */
     #endif
