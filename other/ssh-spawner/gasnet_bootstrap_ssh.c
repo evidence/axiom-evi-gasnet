@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2012/01/06 03:26:07 $
- * $Revision: 1.93 $
+ *     $Date: 2012/01/06 03:42:28 $
+ * $Revision: 1.94 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -157,6 +157,10 @@ enum {
   BOOTSTRAP_CMD_EXCHG,
   BOOTSTRAP_CMD_TRANS
 };
+
+/* Misc. */
+static const int c_one  = 1;
+static const int c_zero = 0;
 
 /* Master & slaves */
   static int is_master = 0;
@@ -1095,7 +1099,6 @@ static void post_spawn(int count, int argc, char * const *argv) {
   while (count--) {
     struct sockaddr_in sock_addr;
     GASNET_SOCKLEN_T addr_len = sizeof(sock_addr);
-    static const int one = 1;
     gasnet_node_t child_id;
     struct child *ch = NULL;
     int s;
@@ -1108,6 +1111,9 @@ static void post_spawn(int count, int argc, char * const *argv) {
 
     (void)fcntl(s, F_SETFD, FD_CLOEXEC);
     (void)ioctl(s, SIOCSPGRP, &mypid); /* Enable SIGURG delivery on OOB data */
+#ifdef TCP_CORK
+    (void)setsockopt(s, IPPROTO_TCP, TCP_CORK, (char *) &c_one, sizeof(c_one));
+#endif
     do_read(s, &child_id, sizeof(gasnet_node_t));
     gasneti_assert(child_id < children);
     ch = &(child[child_id]);
@@ -1127,7 +1133,12 @@ static void post_spawn(int count, int argc, char * const *argv) {
     send_ssh_argv(s);
     do_write_string(s, wrapper);
     send_argv(s, argc, argv);
-    (void)setsockopt(s, IPPROTO_TCP, TCP_NODELAY, (char *) &one, sizeof(one));
+#ifdef TCP_CORK
+    (void)setsockopt(s, IPPROTO_TCP, TCP_CORK, (char *) &c_zero, sizeof(c_zero));
+#endif
+#ifdef TCP_NODELAY
+    (void)setsockopt(s, IPPROTO_TCP, TCP_NODELAY, (char *) &c_one, sizeof(c_one));
+#endif
     ++accepted;
   }
 
@@ -1160,7 +1171,6 @@ static void post_spawn(int count, int argc, char * const *argv) {
 static void do_connect(gasnet_node_t child_id, const char *parent_name, int parent_port, int *argc_p, char ***argv_p) {
   struct sockaddr_in sock_addr;
   GASNET_SOCKLEN_T addr_len;
-  static const int one = 1;
   struct hostent *h = gethostbyname(parent_name);
   int rc, retry = 4;
 
@@ -1186,7 +1196,9 @@ static void do_connect(gasnet_node_t child_id, const char *parent_name, int pare
   }
   (void)fcntl(parent, F_SETFD, FD_CLOEXEC);
   (void)ioctl(parent, SIOCSPGRP, &mypid); /* Enable SIGURG delivery on OOB data */
-  (void)setsockopt(parent, IPPROTO_TCP, TCP_NODELAY, (char *) &one, sizeof(one));
+#ifdef TCP_NODELAY
+  (void)setsockopt(parent, IPPROTO_TCP, TCP_NODELAY, (char *) &c_one, sizeof(c_one));
+#endif
   do_write(parent, &child_id, sizeof(gasnet_node_t));
   do_read(parent, &myproc, sizeof(gasnet_node_t));
   do_read(parent, &nproc, sizeof(gasnet_node_t));
