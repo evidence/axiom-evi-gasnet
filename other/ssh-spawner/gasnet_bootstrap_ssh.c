@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2012/01/05 23:15:23 $
- * $Revision: 1.92 $
+ *     $Date: 2012/01/06 03:26:07 $
+ * $Revision: 1.93 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -597,10 +597,47 @@ static void do_write(int fd, const void *buf, size_t len)
   }
 }
 
+/* NOTE that unlike writev() we clobber the iovec */
+static void do_writev(int fd, struct iovec *iov, int iovcnt)
+{
+  while (iovcnt) {
+    ssize_t rc;
+
+    while (0 == iov->iov_len) {
+      ++iov;
+      if (0 == --iovcnt) return;
+    }
+
+    rc = writev(fd, iov, iovcnt);
+    if_pf (rc <= 0) {
+      do_abort(-1);
+      break;
+    }
+
+    gasneti_assert(rc > 0);
+    do {
+      size_t len = iov->iov_len;
+      if (rc >= len) {
+        ++iov;
+        --iovcnt;
+        rc -= len;
+      } else {
+        iov->iov_base = (void*)((uintptr_t)iov->iov_base + rc);
+        iov->iov_len -= rc;
+        break;
+      }
+    } while (rc);
+  }
+}
+
 static void do_write_string(int fd, const char *string) {
   size_t len = string ? strlen(string) : 0;
-  do_write(fd, &len, sizeof(len));
-  do_write(fd, string, len);
+  struct iovec iov[2];
+  iov[0].iov_base = &len;
+  iov[0].iov_len  = sizeof(len);
+  iov[1].iov_base = (void *)string;
+  iov[1].iov_len  = len;
+  do_writev(fd, iov, 2);
 }
 
 static void do_read(int fd, void *buf, size_t len)
@@ -1901,9 +1938,14 @@ void gasneti_bootstrapExchange_ssh(void *src, size_t len, void *dest) {
     gasneti_free(tmp);
   } else {
     char cmd = BOOTSTRAP_CMD_EXCHG;
-    do_write(parent, &cmd, sizeof(cmd));
-    do_write(parent, &len, sizeof(len));
-    do_write(parent, src, len);
+    struct iovec iov[3];
+    iov[0].iov_base = &cmd;
+    iov[0].iov_len  = sizeof(cmd);
+    iov[1].iov_base = &len;
+    iov[1].iov_len  = sizeof(len);
+    iov[2].iov_base = src;
+    iov[2].iov_len  = len;
+    do_writev(parent, iov, 3);
     do_read(parent, dest, len*nproc);
   }
 #elif GASNETI_SSH_TOPO_NARY
@@ -1921,9 +1963,12 @@ void gasneti_bootstrapExchange_ssh(void *src, size_t len, void *dest) {
   for (j = 0; j < children; ++j) {
     gasnet_node_t k = by_weight[j]; /* send to deepest subtrees first */
     gasnet_node_t next = child[k].rank + child[k].procs;
-    /* TODO: disable TCP_NODELAY here? */
-    do_write(child[k].sock, dest, len*child[k].rank);
-    do_write(child[k].sock, (void *)((uintptr_t)dest + len*next), len*(nproc - next));
+    struct iovec iov[2];
+    iov[0].iov_base = dest;
+    iov[0].iov_len  = len*child[k].rank;
+    iov[1].iov_base = (void *)((uintptr_t)dest + len*next);
+    iov[1].iov_len  = len*(nproc - next);
+    do_writev(child[k].sock, iov, 2);
   }
 #else
   #error
@@ -1974,9 +2019,14 @@ void gasneti_bootstrapAlltoall_ssh(void *src, size_t len, void *dest) {
     gasneti_free(tmp);
   } else {
     char cmd = BOOTSTRAP_CMD_TRANS;
-    do_write(parent, &cmd, sizeof(cmd));
-    do_write(parent, &len, sizeof(len));
-    do_write(parent, src, len*nproc);
+    struct iovec iov[3];
+    iov[0].iov_base = &cmd;
+    iov[0].iov_len  = sizeof(cmd);
+    iov[1].iov_base = &len;
+    iov[1].iov_len  = sizeof(len);
+    iov[2].iov_base = src;
+    iov[2].iov_len  = len*nproc;
+    do_writev(parent, iov, 3);
     do_read(parent, dest, len*nproc);
   }
 #elif GASNETI_SSH_TOPO_NARY
@@ -2042,12 +2092,16 @@ void gasneti_bootstrapBroadcast_ssh(void *src, size_t len, void *dest, int rootn
     gasneti_free(tmp);
   } else {
     char cmd = BOOTSTRAP_CMD_BCAST;
-    do_write(parent, &cmd, sizeof(cmd));
-    do_write(parent, &len, sizeof(len));
-    do_write(parent, &rootnode, sizeof(rootnode));
-    if (myproc == rootnode) {
-      do_write(parent, src, len);
-    }
+    struct iovec iov[4];
+    iov[0].iov_base = &cmd;
+    iov[0].iov_len  = sizeof(cmd);
+    iov[1].iov_base = &len;
+    iov[1].iov_len  = sizeof(len);
+    iov[2].iov_base = &rootnode;
+    iov[2].iov_len  = sizeof(rootnode);
+    iov[3].iov_base = src;
+    iov[3].iov_len  = len;
+    do_writev(parent, iov, (myproc == rootnode) ? 4 : 3);
     do_read(parent, dest, len);
   }
 #elif GASNETI_SSH_TOPO_NARY
