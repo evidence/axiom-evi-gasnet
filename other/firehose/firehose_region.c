@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_region.c,v $
- *     $Date: 2011/05/27 02:53:27 $
- * $Revision: 1.46 $
+ *     $Date: 2012/01/07 05:52:28 $
+ * $Revision: 1.47 $
  * Description: 
  * Copyright 2004, Paul Hargrove <PHHargrove@lbl.gov>
  * Terms of use are as specified in license.txt
@@ -1675,12 +1675,14 @@ fh_fini_plugin(void)
         fh_hash_destroy(fh_BucketTable1);
         fh_hash_destroy(fh_PrivTable);
 
+#if 0 /* No - fhi_priv_freelist is allocated in chunks, not individually */
 	priv = fhi_priv_freelist;
 	while (priv != NULL) {
 		firehose_private_t *next = priv->fh_next;
 		gasneti_free(priv);
 		priv = next;
 	}
+#endif
 }
 
 /* ##################################################################### */
