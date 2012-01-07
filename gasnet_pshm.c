@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.c,v $
- *     $Date: 2011/12/13 00:18:08 $
- * $Revision: 1.45 $
+ *     $Date: 2012/01/07 02:40:49 $
+ * $Revision: 1.46 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -743,6 +743,9 @@ gasneti_pshmnet_init(void *start, size_t nbytes, gasneti_pshm_rank_t pshmnodes)
     }
   }
 
+  gasneti_leak(vnet);
+  gasneti_leak(vnet->in_queues);
+
   return vnet;
 }
 
@@ -1065,6 +1068,7 @@ static gasneti_pshmnet_allocator_t *gasneti_pshmnet_init_allocator(void *region,
    */
   gasneti_pshmnet_allocator_t *a = gasneti_malloc(sizeof(gasneti_pshmnet_allocator_t) +
                                                   (count-1) * sizeof(unsigned int));
+  gasneti_leak(a);
 
   /* make sure we've arranged for page alignment */
   gasneti_assert_align(GASNETI_PSHMNET_ALLOC_MAXSZ, GASNETI_PSHMNET_PAGESIZE);

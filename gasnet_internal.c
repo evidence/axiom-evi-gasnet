@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2012/01/07 02:06:57 $
- * $Revision: 1.223 $
+ *     $Date: 2012/01/07 02:40:49 $
+ * $Revision: 1.224 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1077,6 +1077,7 @@ extern void gasneti_nodemapParse(void) {
   /* Construct nodeinfo using N^2 computation rather than N^2 network exchange */
   gasneti_assert(!gasneti_nodeinfo);
   gasneti_nodeinfo = gasneti_calloc(gasneti_nodes, sizeof(gasnet_nodeinfo_t));
+  gasneti_leak(gasneti_nodeinfo);
   {
     gasnet_node_t count = 1;
     gasnet_node_t prev = 0;

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2011/12/22 05:34:18 $
- * $Revision: 1.108 $
+ *     $Date: 2012/01/07 02:40:49 $
+ * $Revision: 1.109 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1670,6 +1670,8 @@ void gasneti_segmentAttach(uintptr_t segsize, uintptr_t minheapoffset,
 
   gasneti_pshm_cs_leave();
 #endif /* GASNET_PSHM */
+  gasneti_free(gasneti_segexch);
+  gasneti_segexch = NULL;
 } 
 #endif /* !GASNET_SEGMENT_EVERYTHING */
 
@@ -1978,6 +1980,7 @@ void gasneti_auxseg_attach(void) {
 
   gasneti_assert(gasneti_auxsegfns[numfns] == NULL);
   gasneti_seginfo_client = gasneti_malloc(gasneti_nodes*sizeof(gasnet_seginfo_t));
+  gasneti_leak(gasneti_seginfo_client);
 
   /* point si at the auxseg */
   #if GASNET_SEGMENT_EVERYTHING
@@ -2025,7 +2028,9 @@ void gasneti_auxseg_attach(void) {
   #endif
 
   gasneti_seginfo_ub = gasneti_malloc(gasneti_nodes*sizeof(void *));
+  gasneti_leak(gasneti_seginfo_ub);
   gasneti_seginfo_client_ub = gasneti_malloc(gasneti_nodes*sizeof(void *));
+  gasneti_leak(gasneti_seginfo_client_ub);
 
   for (i=0; i < gasneti_nodes; i++) {
     #if GASNET_SEGMENT_EVERYTHING

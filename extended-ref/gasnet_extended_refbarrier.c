@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2011/09/05 08:03:44 $
- * $Revision: 1.83 $
+ *     $Date: 2012/01/07 02:40:51 $
+ * $Revision: 1.84 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -268,6 +268,7 @@ gasnete_pshmbarrier_init_inner(gasnete_coll_team_t team) {
     }
 
     pshm_bdata = gasneti_malloc(sizeof(gasnete_pshmbarrier_data_t));
+    gasneti_leak(pshm_bdata);
     pshm_bdata->private.two_to_phase = 1; /* 2^0 */
     pshm_bdata->private.rank = rank;
     pshm_bdata->private.mynode = &shared_data->node[rank];
@@ -1332,6 +1333,7 @@ extern void gasnete_coll_barrier_init(gasnete_coll_team_t team,  int barrier_typ
   }
   if(team==NULL) { /*global barrier hasn't been initialized yet so take care of it*/
     team = GASNET_TEAM_ALL = (gasnete_coll_team_t) gasneti_calloc(1,sizeof(struct gasnete_coll_team_t_));
+    gasneti_leak(team);
     team->team_id=0;
     team->myrank = gasneti_mynode;
     team->total_ranks = gasneti_nodes;

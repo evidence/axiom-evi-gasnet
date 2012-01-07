@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.c,v $
- *     $Date: 2012/01/06 23:30:57 $
- * $Revision: 1.150 $
+ *     $Date: 2012/01/07 02:40:49 $
+ * $Revision: 1.151 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -351,6 +351,7 @@ extern size_t gasneti_format_putsgets(char *buf, void *_pstats,
       gasneti_threadkey_set(gasneti_printbuf_key, printbuf);
       printbuf->bufidx = 0;
       gasnete_register_threadcleanup(gasneti_printbuf_cleanup_threaddata, printbuf);
+      gasneti_leak(printbuf);
     }
     gasneti_memcheck(printbuf);
     printbuf->bufidx = (printbuf->bufidx+1) % NUMBUFS;
