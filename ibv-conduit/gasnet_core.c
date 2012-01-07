@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2012/01/07 04:45:44 $
- * $Revision: 1.295 $
+ *     $Date: 2012/01/07 06:18:22 $
+ * $Revision: 1.296 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1747,6 +1747,11 @@ static gasneti_atomic_t gasnetc_exit_reps = gasneti_atomic_init(0);	/* count of 
 static gasneti_atomic_t gasnetc_exit_done = gasneti_atomic_init(0);	/* flag to show exit coordination done */
 static gasnetc_counter_t gasnetc_exit_repl_oust = GASNETC_COUNTER_INITIALIZER; /* track send of our AM reply */
 
+static int gasnetc_exit_in_signal = 0;  /* to avoid certain things in signal context */
+extern void gasnetc_fatalsignal_callback(int sig) {
+  gasnetc_exit_in_signal = 1;
+}
+
 #define GASNETC_ROOT_NODE 0
 
 enum {
@@ -2241,6 +2246,11 @@ static void gasnetc_exit_body(void) {
  #endif
 #endif
   gasnetc_connect_fini();
+  if (GASNETC_USE_FIREHOSE && gasneti_attach_done && !gasnetc_exit_in_signal) {
+    /* Note we skip firehose_fini() on exit via a signal */
+    GASNETC_EXIT_STATE("in firehose_fini()");
+    firehose_fini();
+  }
   alarm(0);
 
   /* Try to flush out all the output, allowing upto 60s */
