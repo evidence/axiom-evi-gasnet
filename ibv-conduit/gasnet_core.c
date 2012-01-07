@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2012/01/07 06:18:22 $
- * $Revision: 1.296 $
+ *     $Date: 2012/01/07 06:53:20 $
+ * $Revision: 1.297 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -842,6 +842,7 @@ static void gasnetc_probe_ports(int max_ports) {
     return;
   }
   hca_ids = gasneti_calloc(num_hcas, sizeof(VAPI_hca_id_t));
+  gasneti_leak(hca_ids);
   rc = EVAPI_list_hcas(num_hcas, &num_hcas, hca_ids);
   GASNETC_VAPI_CHECK(rc, "while enumerating HCAs");
 #else
@@ -988,6 +989,7 @@ static void gasnetc_probe_ports(int max_ports) {
 #if GASNET_CONDUIT_VAPI
       hca->hca_vendor	= hca_vendor;
 #endif
+      gasneti_leak((/*non-const*/ void *)hca->hca_id);
 
       hca_count++;
     } else {
@@ -1003,6 +1005,7 @@ static void gasnetc_probe_ports(int max_ports) {
   gasnetc_num_hcas = hca_count;
   gasnetc_num_ports = port_count;
   gasnetc_port_tbl  = gasneti_realloc(port_tbl, port_count * sizeof(gasnetc_port_info_t));
+  gasneti_leak(gasnetc_port_tbl);
 }
 
 static int gasnetc_hca_report(void) {
@@ -1294,6 +1297,7 @@ static int gasnetc_init(int *argc, char ***argv) {
   /* record remote lids */
   for (i = 0; i < gasnetc_num_ports; ++i) {
     gasnetc_port_tbl[i].remote_lids = gasneti_malloc(gasneti_nodes * sizeof(gasnetc_lid_t));
+    gasneti_leak(gasnetc_port_tbl[i].remote_lids);
     for (node = 0; node < gasneti_nodes; ++node) {
       gasnetc_port_tbl[i].remote_lids[node] = remote_lid[node * gasnetc_num_ports + i];
     }
@@ -1597,7 +1601,9 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
         size_t		remain;
         uintptr_t		addr;
         hca->rkeys = gasneti_calloc(gasneti_nodes*gasnetc_max_regs, sizeof(gasnetc_rkey_t));
+        gasneti_leak(hca->rkeys);
         hca->seg_reg = gasneti_calloc(gasnetc_max_regs, sizeof(gasnetc_memreg_t));
+        gasneti_leak(hca->seg_reg);
 
         for (j = 0, addr = gasnetc_seg_start, remain = segsize; remain != 0; ++j) {
 	  size_t len = MIN(remain, gasnetc_pin_maxsz);
@@ -2485,6 +2491,7 @@ static void gasnetc_exit_init(void) {
       int c2 = gasneti_nodemap_local_count - 1;
       gasnetc_exit_children = c1 + c2;
       gasnetc_exit_child = gasneti_malloc((c1 + c2) * sizeof(gasnet_node_t));
+      gasneti_leak(gasnetc_exit_child);
       memcpy(gasnetc_exit_child, child, c1 * sizeof(gasnet_node_t));
       memcpy(gasnetc_exit_child + c1, gasneti_nodemap_local+1, c2 * sizeof(gasnet_node_t));
       gasneti_assert(gasneti_nodemap_local[0] == gasneti_mynode);

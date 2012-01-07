@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_extended.c,v $
- *     $Date: 2010/04/05 07:56:06 $
- * $Revision: 1.51 $
+ *     $Date: 2012/01/07 06:53:20 $
+ * $Revision: 1.52 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -38,6 +38,7 @@ gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread) {
     if (bufidx == 256) gasneti_fatalerror("GASNet Extended API: Ran out of explicit handles (limit=65535)");
     thread->eop_num_bufs++;
     buf = (gasnete_eop_t *)gasneti_calloc(256,sizeof(gasnete_eop_t));
+    gasneti_leak(buf);
     for (i=0; i < 256; i++) {
       gasnete_eopaddr_t addr;
       addr.bufferidx = bufidx;
@@ -122,6 +123,7 @@ gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t * const thread) {
     gasneti_assert(gasnetc_counter_done(&(iop->put_req_oust)));
   } else {
     iop = (gasnete_iop_t *)gasneti_malloc(sizeof(gasnete_iop_t));
+    gasneti_leak(iop);
     iop->type = gasnete_opImplicit;
     iop->threadidx = thread->threadidx;
     gasnetc_counter_reset(&(iop->get_req_oust));
