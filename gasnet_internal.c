@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2012/01/07 02:40:49 $
- * $Revision: 1.224 $
+ *     $Date: 2012/01/07 04:45:16 $
+ * $Revision: 1.225 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -517,6 +517,7 @@ extern void gasneti_setupGlobalEnvironment(gasnet_node_t numnodes, gasnet_node_t
     } else {
       int envsize = rootdesc.sz;
       gasneti_globalEnv = gasneti_malloc(envsize);
+      gasneti_leak(gasneti_globalEnv);
       if (broadcastfn) {
         (*broadcastfn)(myenv, envsize, gasneti_globalEnv, rootid);
       } else {

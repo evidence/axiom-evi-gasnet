@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/01/07 02:40:51 $
- * $Revision: 1.84 $
+ *     $Date: 2012/01/07 04:45:22 $
+ * $Revision: 1.85 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -788,6 +788,7 @@ static void gasnete_amdbarrier_init(gasnete_coll_team_t team) {
   }
 #endif
 
+  gasneti_leak(barrier_data);
   team->barrier_data = barrier_data;
   gasnet_hsl_init(&barrier_data->amdbarrier_lock);
   team->barrier_splitstate = OUTSIDE_BARRIER;
@@ -1144,6 +1145,7 @@ static void gasnete_amcbarrier_init(gasnete_coll_team_t team) {
   }
 #endif
 
+  gasneti_leak(barrier_data);
   gasnet_hsl_init(&barrier_data->amcbarrier_lock);
 
   barrier_data->amcbarrier_max = total_ranks;

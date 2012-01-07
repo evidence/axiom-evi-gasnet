@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/gasnet_core.c,v $
- *     $Date: 2011/06/03 22:57:15 $
- * $Revision: 1.86 $
+ *     $Date: 2012/01/07 04:45:30 $
+ * $Revision: 1.87 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -383,6 +383,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     /*  register segment  */
 
     gasneti_seginfo = (gasnet_seginfo_t *)gasneti_malloc(gasneti_nodes*sizeof(gasnet_seginfo_t));
+    gasneti_leak(gasneti_seginfo);
 
     #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
       gasneti_segmentAttach(segsize, minheapoffset, gasneti_seginfo, &gasnetc_bootstrapExchange);
@@ -813,8 +814,10 @@ extern int gasnetc_AMReplyLongM(
         int maxthreads = gasneti_max_threads();
         int idx;
         gasneti_mutex_lock(&hsl_errcheck_tablelock);
-          if (!hsl_errcheck_table) 
+          if (!hsl_errcheck_table)  {
             hsl_errcheck_table = gasneti_calloc(maxthreads,sizeof(gasnetc_hsl_errcheckinfo_t));        
+            gasneti_leak(hsl_errcheck_table);
+          }
           for (idx = 0; idx < maxthreads; idx++) {
             if (!hsl_errcheck_table[idx].inuse) break;
           }

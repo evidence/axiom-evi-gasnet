@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/udp-conduit/gasnet_core.c,v $
- *     $Date: 2011/06/03 22:57:27 $
- * $Revision: 1.45 $
+ *     $Date: 2012/01/07 04:45:42 $
+ * $Revision: 1.46 $
  * Description: GASNet UDP conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -434,6 +434,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     /*  register segment  */
 
     gasneti_seginfo = (gasnet_seginfo_t *)gasneti_malloc(gasneti_nodes*sizeof(gasnet_seginfo_t));
+    gasneti_leak(gasneti_seginfo);
 
     #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
       gasneti_segmentAttach(segsize, minheapoffset, gasneti_seginfo, &gasnetc_bootstrapExchange);

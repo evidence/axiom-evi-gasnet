@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2011/11/28 00:54:48 $
- * $Revision: 1.131 $
+ * $Date: 2012/01/07 04:45:26 $
+ * $Revision: 1.132 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -425,6 +425,7 @@ gasnetc_attach(gasnet_handlerentry_t *table, int numentries, uintptr_t segsize,
 
 	gasneti_seginfo = (gasnet_seginfo_t *)
 	    gasneti_calloc(gasneti_nodes, sizeof(gasnet_seginfo_t));
+	gasneti_leak(gasneti_seginfo);
 
 	#if GASNET_DEBUG_VERBOSE
 	printf("%d> before firehose init\n", gasneti_mynode);

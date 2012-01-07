@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.c,v $
- *     $Date: 2012/01/07 02:40:49 $
- * $Revision: 1.151 $
+ *     $Date: 2012/01/07 04:45:16 $
+ * $Revision: 1.152 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -286,6 +286,7 @@ extern size_t gasneti_format_putsgets(char *buf, void *_pstats,
         gasneti_srclineinfo_t *srclineinfo = gasneti_calloc(1,sizeof(gasneti_srclineinfo_t));
         gasneti_threadkey_set(gasneti_srclineinfo_key, srclineinfo);
         gasnete_register_threadcleanup(gasneti_srclineinfo_cleanup_threaddata, srclineinfo);
+        gasneti_leak(srclineinfo);
         return srclineinfo;
       }
     }
