@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2011/11/27 05:03:06 $
- * $Revision: 1.96 $
+ *     $Date: 2012/01/07 07:00:23 $
+ * $Revision: 1.97 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -251,6 +251,7 @@ gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread, uint8_t cons
     if (bufidx == 256) gasneti_fatalerror("GASNet Extended API: Ran out of explicit handles (limit=65535)");
     thread->eop_num_bufs++;
     buf = (gasnete_eop_t *)gasneti_calloc(256,sizeof(gasnete_eop_t));
+    gasneti_leak(buf);
     GASNETE_ASSERT_ALIGNED(buf);
     for (i=0; i < 256; i++) {
       gasnete_eopaddr_t addr;
@@ -340,6 +341,7 @@ gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t * const thread) {
     gasneti_assert(sizeof(gasnete_iop_t) % sizeof(void*) == 0);
     sz += 2*gasnete_nbi_throttle*sizeof(ELAN_EVENT*);
     iop = (gasnete_iop_t *)gasneti_malloc(sz);
+    gasneti_leak(iop);
     SET_OPTYPE((gasnete_op_t *)iop, OPTYPE_IMPLICIT);
     iop->threadidx = thread->threadidx;
   }

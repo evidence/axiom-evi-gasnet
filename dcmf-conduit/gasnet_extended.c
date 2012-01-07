@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_extended.c,v $
- *     $Date: 2011/02/09 06:40:54 $
- * $Revision: 1.18 $
+ *     $Date: 2012/01/07 07:00:21 $
+ * $Revision: 1.19 $
  * Description: GASNet Extended API Implementation for DCMF
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
  *                 Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -223,6 +223,7 @@ gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread) {
     if (bufidx == 256) gasneti_fatalerror("GASNet Extended API: Ran out of explicit handles (limit=65535)");
     thread->eop_num_bufs++;
     buf = (gasnete_eop_t *)gasneti_calloc(256,sizeof(gasnete_eop_t));
+    gasneti_leak(buf);
     /* buf = (gasnete_eop_t *)gasneti_malloc_aligned(16,256*sizeof(gasnete_eop_t));
        bzero(buf, sizeof(gasnete_eop_t)*256); */
     for (i=0; i < 256; i++) {
@@ -307,6 +308,7 @@ gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t * const thread) {
     gasneti_assert(iop->threadidx == thread->threadidx);
   } else {
     iop = (gasnete_iop_t *)gasneti_malloc(sizeof(gasnete_iop_t));
+    gasneti_leak(iop);
     #if GASNET_DEBUG
       memset(iop, 0, sizeof(gasnete_iop_t)); /* set pad to known value */
     #endif

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2010/03/27 21:54:05 $
- * $Revision: 1.17 $
+ *     $Date: 2012/01/07 07:00:29 $
+ * $Revision: 1.18 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -112,6 +112,7 @@ gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread) {
     if (bufidx == 256) gasneti_fatalerror("GASNet Extended API: Ran out of explicit handles (limit=65535)");
     thread->eop_num_bufs++;
     buf = (gasnete_eop_t *)gasneti_calloc(256,sizeof(gasnete_eop_t));
+    gasneti_leak(buf);
     GASNETI_TRACE_EVENT(C, EOP_BUCKETS);
     for (i=0; i < 256; i++) {
       gasnete_opaddr_t addr;
@@ -207,6 +208,7 @@ gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t * const thread) {
     if (bufidx == 256) gasneti_fatalerror("GASNet Extended API: Ran out of implicit handles (limit=65535)");
     thread->iop_num_bufs++;
     buf = (gasnete_iop_t *)gasneti_calloc(256,sizeof(gasnete_iop_t));
+    gasneti_leak(buf);
     thread->iop_bufs[bufidx] = buf;
     for (i=0; i < 256; i++) {
       gasnete_opaddr_t addr;
