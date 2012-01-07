@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2012/01/07 06:13:11 $
- * $Revision: 1.133 $
+ * $Date: 2012/01/07 06:41:29 $
+ * $Revision: 1.134 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -1079,6 +1079,12 @@ static void gasnetc_exit_body(void) {
 
 	if (gasneti_init_done) {
   		gm_close(_gmc.port);
+		gasneti_free(_gmc.gm_nodes);
+		gasneti_free(_gmc.gm_nodes_rev);
+	      #if !GASNET_SEQ
+		gasneti_free(_gmc.reqs_pool);
+		gasneti_free(_gmc.bd_ptr);
+	      #endif
 		if (gasneti_attach_done)
 			firehose_fini();
 	}
