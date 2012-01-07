@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_hash.c,v $
- *     $Date: 2011/05/25 04:25:33 $
- * $Revision: 1.14 $
+ *     $Date: 2012/01/07 05:11:36 $
+ * $Revision: 1.15 $
  * Description: 
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -125,10 +125,7 @@ fh_hash_create(size_t entries)
 	if (!IS_POWER_OF_2(entries))
 		gasneti_fatalerror("fh_hash_create requires a power of 2!");
 
-	hash = (fh_hash_t *) gasneti_malloc(sizeof(fh_hash_t));
-	if (hash == NULL)
-		gasneti_fatalerror("Can't allocate memory for hash structure");
-	memset(hash, 0, sizeof(fh_hash_t));
+	hash = (fh_hash_t *) gasneti_calloc(1,sizeof(fh_hash_t));
 
 	hash->fh_table   = (void **) gasneti_calloc(entries, sizeof(void *));
 	hash->fh_mask    = entries-1;

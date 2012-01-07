@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_page.c,v $
- *     $Date: 2010/12/10 06:54:10 $
- * $Revision: 1.58 $
+ *     $Date: 2012/01/07 05:11:36 $
+ * $Revision: 1.59 $
  * Description: 
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -220,13 +220,8 @@ fh_bucket_add(gasnet_node_t node, uintptr_t bucket_addr)
 				FH_BUCKETS_BUFS*fh_buckets_per_alloc);
 
 		buf = (fh_bucket_t *) 
-			gasneti_malloc(fh_buckets_per_alloc*
+			gasneti_calloc(fh_buckets_per_alloc,
 				       sizeof(fh_bucket_t));
-		if (buf == NULL)
-			gasneti_fatalerror("Couldn't allocate buffer "
-			    "of buckets");
-
-		memset(buf, 0, fh_buckets_per_alloc*sizeof(fh_bucket_t));
 
 		fh_buckets_bufs[fh_buckets_bufidx] = buf;
 		fh_buckets_bufidx++;
@@ -761,8 +756,7 @@ fh_init_plugin(uintptr_t max_pinnable_memory,
     	gasneti_malloc(sizeof(fh_bucket_t *) * fh_max_regions);
 
     #if FIREHOSE_SMP
-    fh_da = (int *) gasneti_malloc(sizeof(int) * gasneti_nodes);
-    memset(fh_da, 0, sizeof(int)*gasneti_nodes);
+    fh_da = (int *) gasneti_calloc(gasneti_nodes,sizeof(int));
     #endif
 
     return;
