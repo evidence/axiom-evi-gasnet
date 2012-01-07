@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2012/01/06 22:26:10 $
- * $Revision: 1.222 $
+ *     $Date: 2012/01/07 02:06:57 $
+ * $Revision: 1.223 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1263,6 +1263,7 @@ ssize_t gasneti_getline(char **buf_p, size_t *n_p, FILE *fp) {
   static gasneti_mutex_t gasneti_memalloc_lock = GASNETI_MUTEX_INITIALIZER;
   static gasneti_memalloc_desc_t *gasneti_memalloc_pos = NULL;
   #define GASNETI_MEM_BEGINPOST   ((uint64_t)0xDEADBABEDEADBABEllu)
+  #define GASNETI_MEM_LEAKMARK    ((uint64_t)0xBABEDEADCAFEBEEFllu)
   #define GASNETI_MEM_ENDPOST     ((uint64_t)0xCAFEDEEDCAFEDEEDllu)
   #define GASNETI_MEM_FREEMARK    ((uint64_t)0xBEEFEFADBEEFEFADllu)
   #define GASNETI_MEM_HEADERSZ    (sizeof(gasneti_memalloc_desc_t))
@@ -1443,7 +1444,8 @@ ssize_t gasneti_getline(char **buf_p, size_t *n_p, FILE *fp) {
     gasneti_assert_always(checktype >= 0 && checktype <= 2);
     if (gasneti_looksaligned(ptr)) {
       gasneti_memalloc_desc_t *desc = ((gasneti_memalloc_desc_t *)ptr) - 1;
-      beginpost = desc->beginpost;
+      beginpost = (desc->beginpost == GASNETI_MEM_LEAKMARK)
+                     ? GASNETI_MEM_BEGINPOST : desc->beginpost;
       nbytes = (size_t)desc->datasz;
       if (nbytes == 0 || nbytes > gasneti_memalloc_maxobjectsize || 
           ((uintptr_t)ptr)+nbytes > gasneti_memalloc_maxobjectloc ||
@@ -1667,6 +1669,18 @@ ssize_t gasneti_getline(char **buf_p, size_t *n_p, FILE *fp) {
     _gasneti_memcheck(ret,curloc,0);
     return ret;
   }
+  extern void _gasneti_leak(void *ptr, const char *curloc) {
+    gasneti_memalloc_desc_t *desc;
+    if_pf (ptr == NULL) return;
+    if_pt (gasneti_attach_done) { gasnet_hold_interrupts(); }
+    _gasneti_memcheck(ptr, curloc, 0);
+    desc = ((gasneti_memalloc_desc_t *)ptr) - 1;
+    gasneti_mutex_lock(&gasneti_memalloc_lock);
+      desc->beginpost = GASNETI_MEM_LEAKMARK;
+    gasneti_mutex_unlock(&gasneti_memalloc_lock);
+    if_pt (gasneti_attach_done) { gasnet_resume_interrupts(); }
+  }
+
   extern int gasneti_getheapstats(gasneti_heapstats_t *pstat) {
     pstat->allocated_bytes = gasneti_memalloc_allocatedbytes;
     pstat->freed_bytes = gasneti_memalloc_freedbytes;
@@ -1699,7 +1713,10 @@ ssize_t gasneti_getline(char **buf_p, size_t *n_p, FILE *fp) {
           } else {
             allocptr = pos->allocdesc_str;
           }
-          fprintf(fp, "   %10lu     %s\n", (unsigned long)datasz, (allocptr?allocptr:"<unknown>"));
+          fprintf(fp, "   %10lu %c   %s\n",
+                  (unsigned long)datasz,
+                  (pos->beginpost == GASNETI_MEM_LEAKMARK ? '*' : ' '),
+                  (allocptr?allocptr:"<unknown>"));
           pos = pos->nextdesc;
         } 
       } 
@@ -1720,6 +1737,9 @@ extern void *_gasneti_extern_calloc(size_t N, size_t S GASNETI_CURLOCFARG) {
 }
 extern void _gasneti_extern_free(void *ptr GASNETI_CURLOCFARG) {
   _gasneti_free(ptr GASNETI_CURLOCPARG);
+}
+extern void _gasneti_extern_leak(void *ptr GASNETI_CURLOCFARG) {
+  _gasneti_leak(ptr GASNETI_CURLOCPARG);
 }
 extern char *_gasneti_extern_strdup(const char *s GASNETI_CURLOCFARG) {
   return _gasneti_strdup(s GASNETI_CURLOCPARG);

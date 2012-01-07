@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2012/01/07 01:16:55 $
- * $Revision: 1.127 $
+ *     $Date: 2012/01/07 02:06:57 $
+ * $Revision: 1.128 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -61,6 +61,7 @@ extern double gasneti_get_exittimeout(double dflt_max, double dflt_min, double d
 #define gasneti_calloc(N,S)          _gasneti_calloc(N,S GASNETI_CURLOCAARG)
 #define gasneti_realloc(ptr,sz)      _gasneti_realloc((ptr),(sz) GASNETI_CURLOCAARG)
 #define gasneti_free(ptr)	     _gasneti_free((ptr) GASNETI_CURLOCAARG)
+#define gasneti_leak(ptr)	     _gasneti_leak((ptr) GASNETI_CURLOCAARG)
 #define gasneti_strdup(ptr)	     _gasneti_strdup((ptr) GASNETI_CURLOCAARG)
 #define gasneti_strndup(ptr,sz)      _gasneti_strndup((ptr),(sz) GASNETI_CURLOCAARG)
 /* corresponding gasneti_memcheck fns are in gasnet_help.h */
@@ -69,6 +70,7 @@ extern double gasneti_get_exittimeout(double dflt_max, double dflt_min, double d
   extern void *_gasneti_malloc(size_t nbytes, const char *curloc) GASNETI_MALLOC;
   extern void *_gasneti_malloc_allowfail(size_t nbytes, const char *curloc) GASNETI_MALLOC;
   extern void _gasneti_free(void *ptr, const char *curloc);
+  extern void _gasneti_leak(void *ptr, const char *curloc);
   extern void *_gasneti_realloc(void *ptr, size_t sz, const char *curloc);
   extern void *_gasneti_calloc(size_t N, size_t S, const char *curloc) GASNETI_MALLOC;
   extern size_t _gasneti_memcheck(void *ptr, const char *curloc, int checktype);
@@ -126,6 +128,8 @@ extern double gasneti_get_exittimeout(double dflt_max, double dflt_min, double d
     free(ptr);
     if_pt (gasneti_attach_done) gasnet_resume_interrupts();
   }
+  /* the following allows "gasneti_leak(p = gasneti_malloc(sz));" */
+  #define _gasneti_leak(_expr) ((void)(_expr))
 #endif
 GASNETI_MALLOCP(_gasneti_malloc)
 GASNETI_MALLOCP(_gasneti_malloc_allowfail)

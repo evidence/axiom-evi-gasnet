@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2012/01/06 21:53:58 $
- * $Revision: 1.110 $
+ *     $Date: 2012/01/07 02:06:57 $
+ * $Revision: 1.111 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -67,6 +67,7 @@ extern void *_gasneti_extern_realloc(void *ptr, size_t sz GASNETI_CURLOCFARG);
 extern void *_gasneti_extern_calloc(size_t N, size_t S GASNETI_CURLOCFARG) GASNETI_MALLOC;
 GASNETI_MALLOCP(_gasneti_extern_calloc)
 extern void _gasneti_extern_free(void *ptr GASNETI_CURLOCFARG);
+extern void _gasneti_extern_leak(void *ptr GASNETI_CURLOCFARG);
 extern char *_gasneti_extern_strdup(const char *s GASNETI_CURLOCFARG) GASNETI_MALLOC;
 GASNETI_MALLOCP(_gasneti_extern_strdup)
 extern char *_gasneti_extern_strndup(const char *s, size_t n GASNETI_CURLOCFARG) GASNETI_MALLOC;
@@ -76,6 +77,7 @@ GASNETI_MALLOCP(_gasneti_extern_strndup)
 #define gasneti_extern_realloc(ptr,sz) _gasneti_extern_realloc((ptr), (sz) GASNETI_CURLOCAARG)
 #define gasneti_extern_calloc(N,S)     _gasneti_extern_calloc((N),(S) GASNETI_CURLOCAARG)
 #define gasneti_extern_free(ptr)       _gasneti_extern_free((ptr) GASNETI_CURLOCAARG)
+#define gasneti_extern_leak(ptr)       _gasneti_extern_leak((ptr) GASNETI_CURLOCAARG)
 #define gasneti_extern_strdup(s)       _gasneti_extern_strdup((s) GASNETI_CURLOCAARG)
 #define gasneti_extern_strndup(s,n)    _gasneti_extern_strndup((s),(n) GASNETI_CURLOCAARG)
 
@@ -105,6 +107,16 @@ void _gasneti_free_aligned(void *ptr GASNETI_CURLOCFARG) {
   _gasneti_extern_free(base GASNETI_CURLOCPARG);
 }
 #define gasneti_free_aligned(ptr) _gasneti_free_aligned((ptr) GASNETI_CURLOCAARG)
+
+GASNETI_INLINE(_gasneti_leak_aligned)
+void _gasneti_leak_aligned(void *ptr GASNETI_CURLOCFARG) {
+  void *base;
+  gasneti_assert(ptr);
+  base = *((void **)ptr - 1);
+  gasneti_assert(base);
+  _gasneti_extern_leak(base GASNETI_CURLOCPARG);
+}
+#define gasneti_leak_aligned(ptr) _gasneti_leak_aligned((ptr) GASNETI_CURLOCAARG)
 
 extern uint64_t gasnet_max_segsize; /* client-overrideable max segment size */
 #if GASNET_SEGMENT_EVERYTHING

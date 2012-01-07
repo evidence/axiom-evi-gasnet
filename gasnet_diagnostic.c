@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_diagnostic.c,v $
- *     $Date: 2010/08/08 06:31:05 $
- * $Revision: 1.35 $
+ *     $Date: 2012/01/07 02:06:57 $
+ * $Revision: 1.36 $
  * Description: GASNet internal diagnostics
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -253,6 +253,9 @@ static void malloc_test(int id) {
       } else {
         p = gasneti_calloc(1,TEST_RAND(1,1024));
       }
+      if (TEST_RAND_ONEIN(4)) {
+        gasneti_leak(p);
+      }
       gasneti_memcheck(p);
       assert_always(p);
       assert_always(ptrs[cnt] == NULL);
@@ -277,6 +280,9 @@ static void malloc_test(int id) {
       assert_always(p);
       assert_always((((uintptr_t)p) & (alignsz-1)) == 0);
       p[0] = 'x'; p[sz - 1] = 'y';
+      if (TEST_RAND_ONEIN(4)) {
+        gasneti_leak_aligned(p);
+      }
       gasnett_free_aligned(p);
     }
   }
