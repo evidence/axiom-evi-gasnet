@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_region.c,v $
- *     $Date: 2012/01/07 05:52:28 $
- * $Revision: 1.47 $
+ *     $Date: 2012/01/07 06:00:29 $
+ * $Revision: 1.48 $
  * Description: 
  * Copyright 2004, Paul Hargrove <PHHargrove@lbl.gov>
  * Terms of use are as specified in license.txt
@@ -333,6 +333,7 @@ fh_bucket_t *fh_bucket_new(void)
         const int count = GASNET_PAGESIZE / sizeof(fh_bucket_t);
         int i;
         bucket = gasneti_malloc(count * sizeof(fh_bucket_t));
+        gasneti_leak(bucket);
         for (i = 0; i < count - 1; ++i) {
             bucket[i].fh_next = &bucket[i+1];
         }
@@ -447,6 +448,7 @@ fh_create_priv(gasnet_node_t node, const firehose_region_t *reg)
         const int count = GASNET_PAGESIZE / sizeof(firehose_private_t);
         int i;
         priv = gasneti_malloc(count * sizeof(firehose_private_t));
+        gasneti_leak(priv);
         for (i = 0; i < count - 1; ++i) {
             priv[i].fh_next = &priv[i+1];
         }
