@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2012/01/07 04:45:26 $
- * $Revision: 1.132 $
+ * $Date: 2012/01/07 06:13:11 $
+ * $Revision: 1.133 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -999,7 +999,6 @@ static void gasnetc_exit_body(void) {
   alarm(30);
   {
     gasneti_flush_streams();
-    gasneti_trace_finish();
     alarm(0);
     gasneti_sched_yield();
   }
@@ -1086,10 +1085,11 @@ static void gasnetc_exit_body(void) {
 	gm_finalize();
   }
 
-  /* Try again to flush out any recent output, allowing upto 5s */
-  alarm(5);
+  /* Try again to flush out any recent output, allowing upto 10s */
+  alarm(10);
   {
     gasneti_flush_streams();
+    gasneti_trace_finish();
     #if !GASNET_DEBUG_VERBOSE
       gasneti_close_streams();
     #endif
