@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose.c,v $
- *     $Date: 2012/01/07 05:11:36 $
- * $Revision: 1.40 $
+ *     $Date: 2012/01/07 06:25:36 $
+ * $Revision: 1.41 $
  * Description: 
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -191,6 +191,7 @@ firehose_fini()
 		fhi_RegionPool_t *rpool;
 		rpool = FH_STAILQ_FIRST(&fhi_regpool_list);
 		FH_STAILQ_REMOVE_HEAD(&fhi_regpool_list);
+		gasneti_free(rpool->regions);
 		gasneti_free(rpool);
 	}
 
