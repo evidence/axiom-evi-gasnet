@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_page.c,v $
- *     $Date: 2012/01/07 05:11:36 $
- * $Revision: 1.59 $
+ *     $Date: 2012/01/07 06:24:48 $
+ * $Revision: 1.60 $
  * Description: 
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -800,6 +800,9 @@ fh_fini_plugin(void)
         }
 
 	fh_hash_destroy(fh_BucketTable);
+
+	gasneti_free(fh_temp_buckets);
+	gasneti_free(fh_temp_bucket_ptrs);
 
 	return;
 }
