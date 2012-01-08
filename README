@@ -1,6 +1,6 @@
 README file for GASNet
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.145 $
+$Revision: 1.146 $
 
 This is a combination user manual and design document for GASNet. Anyone
 planning on using, modifying or adding to the GASNet code base should read this
@@ -915,11 +915,17 @@ All GASNet conduit code is required to meet the following coding standards:
   or gasneti_leak_aligned() to preserve the value of GASNET_MALLOCFILE for the
   identification of unintended leaks.
 
+* The calls gasneti_malloc(), _calloc and _realloc all return NULL for zero-byte
+  allocations.  Correspondingly, gasneti_free() and gasneti_realloc() accept NULL
+  for the pointer argument, and GASNet code should therefore NOT make an
+  unnecessary check for NULL before calling these functions.
+
 * The calls gasneti_malloc(), _calloc, _realloc and str(n)dup all check for
   NULL return, and GASNet code should therefore NOT make a redundant check.
   The call gasneti_malloc_allowfail() exists for the rare occasion when the
   caller is prepared to respond to a NULL return with something better than
   a fatal error.
+  However, as noted above, a NULL return is expected for a zero-byte allocation.
 
 * Use gasneti_fatalerror() to signal fatal errors - the arguments work
   just like printf. NEVER use "gasneti_assert(0)" (it will be compiled away), 
