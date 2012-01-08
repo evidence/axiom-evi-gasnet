@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_team.c,v $
- *     $Date: 2010/08/21 02:00:40 $
- * $Revision: 1.14 $
+ *     $Date: 2012/01/08 23:20:13 $
+ * $Revision: 1.15 $
  *
  * Description: GASNet generic team implementation for collectives 
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
@@ -336,9 +336,7 @@ gasnet_team_handle_t gasnete_coll_team_split(gasnet_team_handle_t team,
 #endif
 
   colors = (gasnet_node_t *)gasneti_malloc(sizeof(mycolor)*team->total_ranks);
-  gasneti_assert(colors != NULL);
   relranks = (gasnet_node_t *)gasneti_malloc(sizeof(myrelrank)*team->total_ranks);
-  gasneti_assert(relranks != NULL);
   allsegs = (gasnet_seginfo_t*) gasneti_malloc(sizeof(gasnet_seginfo_t)*team->total_ranks);
  
   

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_hashtable.c,v $
- *     $Date: 2010/07/28 07:05:03 $
- * $Revision: 1.5 $
+ *     $Date: 2012/01/08 23:20:13 $
+ * $Revision: 1.6 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -32,10 +32,8 @@ gasnete_table_t * gasnete_table_create(uint32_t size)
 
   gasneti_assert(size > 0);
   table = (gasnete_table_t *)gasneti_malloc(sizeof(gasnete_table_t));
-  gasneti_assert(table != NULL);
 
   table->slots = (gasnete_table_item_t *)gasneti_malloc(sizeof(gasnete_table_item_t)*size);
-  gasneti_assert(table->slots != NULL);
 
   table->size = size;
   table->num = 0;
@@ -134,9 +132,7 @@ gasnete_hashtable_t * gasnete_hashtable_create(uint32_t size)
 
   gasneti_assert(size > 0);
   ht = (gasnete_hashtable_t *)gasneti_malloc(sizeof(gasnete_hashtable_t));
-  gasneti_assert(ht != NULL);
   ht->buckets = (gasnete_table_t **)gasneti_malloc(sizeof(gasnete_table_t *)*size);
-  gasneti_assert(ht->buckets != NULL);
   ht->size = size;
   ht->num = 0;
 
