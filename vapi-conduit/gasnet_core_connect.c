@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_connect.c,v $
- *     $Date: 2011/11/26 21:22:55 $
- * $Revision: 1.67 $
+ *     $Date: 2012/01/08 22:51:58 $
+ * $Revision: 1.68 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -130,6 +130,7 @@ sq_sema_alloc(int count)
           gasnett_malloc_aligned(GASNETI_CACHE_LINE_BYTES, count * sizeof(gasneti_semaphore_t));
   int i;
 
+  gasneti_leak_aligned(p);
   for (i=0; i<count; ++i, ++p) {
     gasneti_lifo_push(&sq_sema_freelist,p);
   }
@@ -397,6 +398,7 @@ gasnetc_setup_ports(gasnetc_conn_info_t *conn_info)
     /* Distribute the qps over the ports, same for each node. */
     int qpi;
     ports = gasneti_malloc(gasnetc_alloc_qps * sizeof(gasnetc_port_info_t *));
+    gasneti_leak(ports);
     for (qpi = 0; qpi < gasnetc_num_qps; ++qpi) {
       ports[qpi] = gasnetc_select_port(conn_info->node, qpi);
     #if GASNETC_IBV_SRQ
@@ -2176,6 +2178,7 @@ gasnetc_connect_static(void)
     gasnetc_cep_t *cep_table = (gasnetc_cep_t *)
       gasnett_malloc_aligned(GASNETI_CACHE_LINE_BYTES,
                              static_nodes * gasnetc_alloc_qps * sizeof(gasnetc_cep_t));
+    gasneti_leak_aligned(cep_table);
     for (node = 0, cep = cep_table; node < gasneti_nodes; ++node) { /* NOT randomized */
       if (!GASNETC_IS_REMOTE_NODE(node)) continue;
       gasnetc_node2cep[node] = cep;
@@ -2296,6 +2299,7 @@ gasnetc_connect_init(void)
     gasnetc_node2cep = (gasnetc_cep_t **)
       gasnett_malloc_aligned(GASNETI_CACHE_LINE_BYTES, size);
     memset(gasnetc_node2cep, 0, size);
+    gasneti_leak_aligned(gasnetc_node2cep);
   }
 
   if_pf (!gasnetc_remote_nodes) {

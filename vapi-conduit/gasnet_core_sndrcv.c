@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2011/08/03 01:20:27 $
- * $Revision: 1.283 $
+ *     $Date: 2012/01/08 22:51:58 $
+ * $Revision: 1.284 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -307,6 +307,7 @@ void gasnetc_alloc_sreqs(gasnetc_sreq_t **head_p, gasnetc_sreq_t **tail_p)
   size_t bytes = GASNETI_ALIGNUP(sizeof(gasnetc_sreq_t), GASNETI_CACHE_LINE_BYTES);
   gasnetc_sreq_t *ptr = gasneti_malloc_aligned(GASNETI_CACHE_LINE_BYTES, count * bytes);
   int i;
+  gasneti_leak_aligned(ptr);
   gasnete_register_threadcleanup(gasnetc_free_sreqs, ptr);
   *head_p = ptr;
   for (i = 1; i < count; ++i, ptr = ptr->next) {
@@ -332,6 +333,7 @@ void gasnetc_per_thread_init(gasnetc_per_thread_t *td)
     if_pf (retval == NULL) {
       retval = gasneti_malloc_aligned(GASNETI_CACHE_LINE_BYTES,
 				  GASNETI_ALIGNUP(sizeof(gasnetc_per_thread_t), GASNETI_CACHE_LINE_BYTES));
+      gasneti_leak_aligned(retval);
       gasnete_register_threadcleanup(gasnetc_free_aligned, retval);
       gasneti_threadkey_set_noinit(gasnetc_per_thread_key, retval);
       gasnetc_per_thread_init(retval);
@@ -3353,6 +3355,7 @@ extern int gasnetc_sndrcv_init(void) {
       /* Allocated normal memory for receive descriptors (rbuf's) */
       padded_size = GASNETI_ALIGNUP(sizeof(gasnetc_rbuf_t), GASNETI_CACHE_LINE_BYTES);
       hca->rbufs = gasneti_malloc_aligned(GASNETI_CACHE_LINE_BYTES, rcv_count*padded_size);
+      gasneti_leak_aligned(hca->rbufs);
   
       /* Initialize the rbuf's */
       gasneti_lifo_init(&hca->rbuf_freelist);
@@ -3383,6 +3386,7 @@ extern int gasnetc_sndrcv_init(void) {
       
       /* Initialize resources for AM-over-RDMA */
       hca->cep = gasneti_calloc(hca->max_qps, sizeof(gasnetc_cep_t *));
+      gasneti_leak(hca->cep);
       gasneti_weakatomic_set(&hca->amrdma_rcv.count, 0, 0);
       if (gasnetc_amrdma_max_peers && hca->max_qps) {
 	const int max_peers = hca->amrdma_rcv.max_peers = MIN(gasnetc_amrdma_max_peers, hca->max_qps);
@@ -3409,6 +3413,7 @@ extern int gasnetc_sndrcv_init(void) {
 	}
 
         hca->amrdma_rcv.cep = gasneti_calloc(max_peers, sizeof(gasnetc_cep_t *));
+        gasneti_leak(hca->amrdma_rcv.cep);
 
         gasneti_weakatomic_set(&hca->amrdma_balance.count, 0, 0);
         hca->amrdma_balance.mask = gasnetc_amrdma_cycle ? (gasnetc_amrdma_cycle - 1) : 0;
@@ -3417,6 +3422,7 @@ extern int gasnetc_sndrcv_init(void) {
 #endif
         hca->amrdma_balance.floor = 1;
         hca->amrdma_balance.table = gasneti_calloc(hca->max_qps, sizeof(gasnetc_amrdma_balance_tbl_t));
+        gasneti_leak(hca->amrdma_balance.table);
       }
     }
   }
@@ -3428,6 +3434,7 @@ extern int gasnetc_sndrcv_init(void) {
   /* create the SND CQ and associated semaphores */
   gasnetc_cq_semas = (gasneti_semaphore_t *)
 	  gasnett_malloc_aligned(GASNETI_CACHE_LINE_BYTES, gasnetc_num_hcas*sizeof(gasneti_semaphore_t));
+  gasneti_leak_aligned(gasnetc_cq_semas);
   gasnetc_op_oust_per_qp = MAX(1, gasnetc_op_oust_per_qp); /* Avoid error in single-node case */
   GASNETC_FOR_ALL_HCA(hca) {
     const gasnetc_cqe_cnt_t rqst_count = gasnetc_use_srq ? gasnetc_am_repl_per_qp : 0;
@@ -3598,6 +3605,7 @@ extern void gasnetc_sndrcv_attach_segment(void) {
     int i;
 
     gasnetc_seg_ends = gasneti_malloc(gasnetc_max_regs * sizeof(uintptr_t));
+    gasneti_leak(gasnetc_seg_ends);
     for (i = 0; i < gasnetc_max_regs; ++i) {
   #if GASNET_ALIGNED_SEGMENTS
       /* gasnetc_seg_ends values are absolute */
@@ -3623,6 +3631,7 @@ extern void gasnetc_sndrcv_attach_segment(void) {
 
 extern gasnetc_amrdma_send_t *gasnetc_amrdma_send_alloc(gasnetc_rkey_t rkey, void *addr) {
   gasnetc_amrdma_send_t *result = gasneti_malloc(sizeof(gasnetc_amrdma_send_t));
+  gasneti_leak(result);
 
   gasneti_weakatomic_set(&result->head, gasnetc_amrdma_depth, 0);
   gasneti_weakatomic_set(&result->tail, 0, 0);
@@ -3641,6 +3650,7 @@ extern gasnetc_amrdma_recv_t *gasnetc_amrdma_recv_alloc(gasnetc_hca_t *hca) {
     int i;
 
     result = gasneti_malloc(sizeof(gasnetc_amrdma_recv_t));
+    gasneti_leak(result);
     gasneti_weakatomic_set(&result->head, 0, 0);
     result->addr = addr;
   #if GASNETI_THREADS
