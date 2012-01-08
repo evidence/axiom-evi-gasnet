@@ -2753,7 +2753,6 @@ static uintptr_t try_pin_size = 0;
 #else
   static void *try_pin_alloc_inner(const uintptr_t size) {
     void *addr = gasneti_malloc_allowfail(size);
-    if (addr == NULL) addr = NULL;
     return addr;
   }
   static void try_pin_free_inner(void *addr, const uintptr_t size) {

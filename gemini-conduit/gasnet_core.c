@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2012/01/07 04:45:24 $
- * $Revision: 1.10 $
+ *     $Date: 2012/01/08 23:25:05 $
+ * $Revision: 1.11 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -73,7 +73,6 @@ static uintptr_t try_pin_size = 0;
 #else
   static void *try_pin_alloc_inner(const uintptr_t size) {
     void *addr = gasneti_malloc_allowfail(size);
-    if (addr == NULL) addr = NULL;
     return addr;
   }
   static void try_pin_free_inner(void *addr, const uintptr_t size) {
