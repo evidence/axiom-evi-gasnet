@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2012/01/07 02:40:49 $
- * $Revision: 1.109 $
+ *     $Date: 2012/01/08 22:17:26 $
+ * $Revision: 1.110 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1834,6 +1834,7 @@ static uintptr_t gasneti_auxseg_client_request_sz = 0;
       gasneti_assert(!auxseg_save);
       auxseg_save = gasneti_malloc(gasneti_nodes*sizeof(gasnet_seginfo_t));
       memcpy(auxseg_save, auxseg_info, gasneti_nodes*sizeof(gasnet_seginfo_t));
+      gasneti_leak(auxseg_save); /* Needed by self test, if any */
     }
     for (i=0; i < gasneti_nodes; i++) {
       gasneti_assert(auxseg_save[i].addr);
@@ -2082,6 +2083,6 @@ void gasneti_auxseg_attach(void) {
     }
   }
   gasneti_free(si);
-  
+  gasneti_leak(gasneti_auxseg_alignedsz);
 }
 /* ------------------------------------------------------------------------------------ */
