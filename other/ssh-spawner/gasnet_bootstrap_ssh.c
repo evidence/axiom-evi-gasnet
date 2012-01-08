@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2012/01/06 08:33:44 $
- * $Revision: 1.100 $
+ *     $Date: 2012/01/08 22:52:16 $
+ * $Revision: 1.101 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -1016,8 +1016,10 @@ static void recv_nodelist(int s, int count) {
   count = MAX(count, 1);
 
   nodelist = gasneti_malloc(count * sizeof(char *));
+  gasneti_leak(nodelist);
   for (i = 0; i < count; ++i) {
     nodelist[i] = do_read_string(s);
+    gasneti_leak(nodelist[i]);
   }
 }
 
@@ -1066,6 +1068,7 @@ static void send_env(int s) {
 static void recv_env(int s) {
   do_read(s, &master_env_len, sizeof(master_env_len));
   master_env = gasneti_malloc(master_env_len);
+  gasneti_leak(master_env);
   do_read(s, master_env, master_env_len);
 }
 
@@ -1083,8 +1086,10 @@ static void recv_ssh_argv(int s) {
 
   do_read(s, &ssh_argc, sizeof(int));
   ssh_argv = gasneti_calloc(ssh_argc+3, sizeof(char *));
+  gasneti_leak(ssh_argv);
   for (i = 0; i < ssh_argc; ++i) {
     ssh_argv[i] = do_read_string(s);
+    gasneti_leak(ssh_argv[i]);
   }
 }
 
@@ -1103,8 +1108,10 @@ static void recv_argv(int s, int *argc_p, char ***argv_p) {
 
   do_read(s, &argc, sizeof(int));
   argv = gasneti_calloc(argc+1, sizeof(char **));
+  gasneti_leak(argv);
   for (i = 0; i < argc; ++i) {
     argv[i] = do_read_string(s);
+    gasneti_leak(argv[i]);
   }
   argv[argc] = NULL;
 
@@ -1273,6 +1280,7 @@ static void do_connect(gasnet_node_t child_id, const char *parent_name, int pare
   recv_env(parent);
   recv_ssh_argv(parent);
   wrapper = do_read_string(parent);
+  gasneti_leak((/*non-const*/ void *)wrapper);
   recv_argv(parent, argc_p, argv_p);
   BOOTSTRAP_VERBOSE(("[%d] connected\n", myproc));
 }
@@ -1671,6 +1679,7 @@ static void do_slave(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet
     /* Children = (local_procs other than self) + (child nodes) */
     children = local_procs + MIN(out_degree, (tree_nodes - 1));
     child = gasneti_calloc(children, sizeof(struct child));
+    gasneti_leak(child);
     rank = myproc + 1;
 
     /* Map out the local processes */
@@ -1701,6 +1710,7 @@ static void do_slave(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet
   
     /* Sort children by DEcreasing "weight" */
     by_weight = gasneti_malloc(children * sizeof(gasnet_node_t));
+    gasneti_leak(by_weight);
     for (j = 0; j < children; ++j) {
       by_weight[j] = j;
     }
