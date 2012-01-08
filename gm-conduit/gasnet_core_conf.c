@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core_conf.c,v $
- * $Date: 2011/06/03 22:57:11 $
- * $Revision: 1.26 $
+ * $Date: 2012/01/08 23:24:18 $
+ * $Revision: 1.27 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -526,9 +526,7 @@ gasnetc_getconf_bootmpi(int *argc, char ***argv)
     /* allocate space for node mapping */
     if (!gasnetc_alloc_nodemap(gasneti_nodes)) GASNETC_SPAWNERR("Can't allocate node mapping");
 
-    if ((global_idport = 
-       gasneti_malloc(sizeof(unsigned int)*2*gasneti_nodes)) == NULL)
-	GASNETC_SPAWNERR("Can't allocate node mapping");
+    global_idport = gasneti_malloc(sizeof(unsigned int)*2*gasneti_nodes);
 
     /* exchange port, id information */
     my_idport[0] = _gmc.my_id;
