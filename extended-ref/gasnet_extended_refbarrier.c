@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/01/07 04:45:22 $
- * $Revision: 1.85 $
+ *     $Date: 2012/01/08 22:17:48 $
+ * $Revision: 1.86 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -806,6 +806,7 @@ static void gasnete_amdbarrier_init(gasnete_coll_team_t team) {
     int step;
 
     barrier_data->amdbarrier_peers = gasneti_calloc(steps, sizeof(gasnet_node_t));
+    gasneti_leak(barrier_data->amdbarrier_peers);
   
     for (step = 0; step < steps; ++step) {
       /* No need for a full mod because worst case is < 2*team->total_ranks.
