@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2012/01/07 06:41:29 $
- * $Revision: 1.134 $
+ * $Date: 2012/01/08 23:56:36 $
+ * $Revision: 1.135 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -2366,10 +2366,8 @@ gasnetc_DestroyPinnedBufs(void)
 	if (_gmc.dma_bufs != NULL)
 		gm_free_pages(_gmc.dma_bufs, 
 		    _gmc.bd_list_num << GASNETC_AM_SIZE);
-	if (_gmc.bd_ptr != NULL)
-		gasneti_free(_gmc.bd_ptr);
-	if (_gmc.reqs_pool != NULL)
-		gasneti_free(_gmc.reqs_pool);
+	gasneti_free(_gmc.bd_ptr);
+	gasneti_free(_gmc.reqs_pool);
 }
 
 int	
@@ -2569,13 +2567,11 @@ gasnetc_AllocGatherBufs(void)
 void
 gasnetc_DestroyGatherBufs(void)
 {
-    if (gasnetc_bootstrapGather_buf[0] != NULL)
-	    gasneti_free(gasnetc_bootstrapGather_buf[0]);
-    gasnetc_bootstrapGather_bufsz[0] = 0;
+    gasneti_free(gasnetc_bootstrapGather_buf[0]);
+    gasnetc_bootstrapGather_bufsz[0] = NULL;
 
-    if (gasnetc_bootstrapGather_buf[1] != NULL)
-	    gasneti_free(gasnetc_bootstrapGather_buf[1]);
-    gasnetc_bootstrapGather_bufsz[1] = 0;
+    gasneti_free(gasnetc_bootstrapGather_buf[1]);
+    gasnetc_bootstrapGather_bufsz[1] = NULL;
 }
 
 
@@ -2664,8 +2660,7 @@ gasnetc_SysBroadcastAlloc_reqh(gasnet_token_t token, gasnet_handlerarg_t phase,
     gasneti_assert(gasnetc_bootstrapGather_bufsz[phase] < exchsz);
     gasneti_assert(gasnetc_bootstrapGather_bufalloc[phase] == 0);
 
-    if (gasnetc_bootstrapGather_buf[phase] != NULL)
-	gasneti_free(gasnetc_bootstrapGather_buf[phase]);
+    gasneti_free(gasnetc_bootstrapGather_buf[phase]);
 
     gasnetc_bootstrapGather_buf[phase] = gasneti_malloc(exchsz);
     gasnetc_bootstrapGather_bufsz[phase] = exchsz;
