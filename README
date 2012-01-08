@@ -1,6 +1,6 @@
 README file for GASNet
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.144 $
+$Revision: 1.145 $
 
 This is a combination user manual and design document for GASNet. Anyone
 planning on using, modifying or adding to the GASNet code base should read this
@@ -910,7 +910,7 @@ All GASNet conduit code is required to meet the following coding standards:
   Instead, you should use the gasneti_* wrapper functions of the same name.
 
 * GASNet code may leak "permanent" data structures with a lifetime that extends
-  through gasnet_exit(), such as frequently re-used structures kept on feelists.
+  through gasnet_exit(), such as frequently re-used structures kept on freelists.
   Any such dynamic allocation should be annotated with calls to gasneti_leak()
   or gasneti_leak_aligned() to preserve the value of GASNET_MALLOCFILE for the
   identification of unintended leaks.
