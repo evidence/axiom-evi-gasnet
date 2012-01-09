@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2012/01/07 06:53:20 $
- * $Revision: 1.297 $
+ *     $Date: 2012/01/09 02:12:24 $
+ * $Revision: 1.298 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -115,13 +115,6 @@ static unsigned int gasnetc_fh_maxsize    = 131072;
 
 /* ------------------------------------------------------------------------------------ */
 
-void (*gasneti_bootstrapFini_p)(void) = NULL;
-void (*gasneti_bootstrapAbort_p)(int exitcode) = NULL;
-void (*gasneti_bootstrapBarrier_p)(void) = NULL;
-void (*gasneti_bootstrapExchange_p)(void *src, size_t len, void *dest) = NULL;
-void (*gasneti_bootstrapAlltoall_p)(void *src, size_t len, void *dest) = NULL;
-void (*gasneti_bootstrapBroadcast_p)(void *src, size_t len, void *dest, int rootnode) = NULL;
-
 int		gasnetc_num_hcas = 1;
 gasnetc_hca_t	gasnetc_hca[GASNETC_IB_MAX_HCAS];
 uintptr_t	gasnetc_max_msg_sz;
@@ -171,6 +164,269 @@ static char *gasnetc_vapi_ports;
   static unsigned int	gasnetc_pinned_blocks = 0;
   static size_t		gasnetc_pinned_bytes = 0;
 #endif
+
+/* ------------------------------------------------------------------------------------ */
+/*
+  Bootstrap collectives
+*/
+
+static void (*gasneti_bootstrapBarrier_p)(void) = NULL;
+static void (*gasneti_bootstrapExchange_p)(void *src, size_t len, void *dest) = NULL;
+void (*gasneti_bootstrapFini_p)(void) = NULL;
+void (*gasneti_bootstrapAbort_p)(int exitcode) = NULL;
+void (*gasneti_bootstrapAlltoall_p)(void *src, size_t len, void *dest) = NULL;
+void (*gasneti_bootstrapBroadcast_p)(void *src, size_t len, void *dest, int rootnode) = NULL;
+
+static int gasneti_bootstrap_native_coll = 0;
+static gasnet_node_t gasnetc_dissem_peers = 0;
+static gasnet_node_t *gasnetc_dissem_peer = NULL;
+
+static void gasnetc_sys_coll_init(void)
+{
+  int i;
+
+#if GASNET_PSHM
+  const gasnet_node_t size = gasneti_nodemap_global_count;
+  const gasnet_node_t rank = gasneti_nodemap_global_rank;
+
+  if (gasneti_nodemap_local_rank) {
+    /* No network comms */
+    goto done;
+  }
+#else
+  const gasnet_node_t size = gasneti_nodes;
+  const gasnet_node_t rank = gasneti_mynode;
+#endif
+
+  if (size == 1) {
+    /* No network comms */
+    goto done;
+  }
+
+  /* Construct vector of the dissemination peers */
+  for (i = 1; i < size; i *= 2) {
+    ++gasnetc_dissem_peers;
+  }
+  gasnetc_dissem_peer = gasneti_malloc(gasnetc_dissem_peers * sizeof(gasnet_node_t));
+  for (i = 0; i < gasnetc_dissem_peers; ++i) {
+    const gasnet_node_t distance = 1 << i;
+    const gasnet_node_t peer = (distance >= size - rank)
+                                ? (rank - (size - distance))
+                                : (rank + distance);
+  #if GASNET_PSHM
+    /* Convert supernode numbers to node numbers */
+    gasnetc_dissem_peer[i] = gasneti_pshm_firsts[peer];
+  #else
+    gasnetc_dissem_peer[i] = peer;
+  #endif
+  }
+
+done:
+  gasneti_bootstrap_native_coll = 1;
+}
+
+#if GASNETC_IB_RCV_THREAD
+  static gasneti_atomic_t gasnetc_sys_barrier_rcvd[2] =
+                            {gasneti_atomic_init(0), gasneti_atomic_init(0)};
+  #define gasnetc_sys_barrier_read(_phase) \
+    gasneti_atomic_read(&gasnetc_sys_barrier_rcvd[_phase], 0)
+  #define gasnetc_sys_barrier_reset(_phase) \
+    gasneti_atomic_set(&gasnetc_sys_barrier_rcvd[_phase], 0, GASNETI_ATOMIC_WMB_POST)
+#else
+  static uint32_t gasnetc_sys_barrier_rcvd[2] = {0, 0};
+  #define gasnetc_sys_barrier_read(_phase) \
+    (gasnetc_sys_barrier_rcvd[_phase])
+  #define gasnetc_sys_barrier_reset(_phase) \
+    ((void)(gasnetc_sys_barrier_rcvd[_phase] = 0))
+#endif
+
+static void gasnetc_sys_barrier_reqh(gasnet_token_t token, uint32_t arg)
+{
+    const int phase = arg & 1;
+#if GASNETC_IB_RCV_THREAD
+    gasneti_atomic_t *p = &gasnetc_sys_barrier_rcvd[phase];
+  #if defined(GASNETI_HAVE_ATOMIC_ADD_SUB)
+    /* atomic OR via ADD since no bit will be set more than once */
+    const int flag = arg & ~1;
+    gasneti_assert(GASNETI_POWEROFTWO(flag));
+    gasneti_atomic_add(p, flag, 0);
+  #elif defined(GASNETI_HAVE_ATOMIC_CAS)
+    /* atomic OR via C-A-S */
+    uint32_t old_val;
+    do {
+      old_val = gasneti_atomic32_read(p, 0);
+    } while (!gasneti_atomic_compare_and_swap(p, old_val, old_val|arg, 0));
+  #else
+    #error "required atomic compare-and-swap is not yet implemented for your CPU/OS/compiler"
+  #endif
+#else
+    gasnetc_sys_barrier_rcvd[phase] |= arg;
+#endif
+}
+
+extern void gasneti_bootstrapBarrier(void)
+{
+  if (gasneti_bootstrap_native_coll) {
+    static int phase = 0;
+    int i;
+
+#if GASNET_PSHM
+    gasneti_pshmnet_bootstrapBarrier();
+#endif
+    for (i = 0; i < gasnetc_dissem_peers; ++i) {
+      const uint32_t mask = 2 << i; /* (distance << 1) */
+
+      (void) gasnetc_RequestSysShort(gasnetc_dissem_peer[i], NULL,
+                                     gasneti_handleridx(gasnetc_sys_barrier_reqh),
+                                     1, phase | mask);
+
+      /* wait for completion of the proper receive, which might arrive out of order */
+      while (!(gasnetc_sys_barrier_read(phase) & mask)) {
+         gasnetc_sndrcv_poll(0);
+      }
+    }
+#if GASNET_PSHM
+    gasneti_pshmnet_bootstrapBarrier();
+#endif
+
+    /* reset for next barrier */
+    gasnetc_sys_barrier_reset(phase);
+    phase ^= 1;
+  } else {
+    (*gasneti_bootstrapBarrier_p)();
+  }
+}
+
+#if GASNET_MAXNODES > 65535
+#error "Update gasneti_bootstrapExchange for > 16-bit node count"
+#endif
+
+#if GASNETC_IB_RCV_THREAD
+  static gasneti_atomic_t gasnetc_sys_exchange_rcvd[2][16] =
+  { { gasneti_atomic_init(0), gasneti_atomic_init(0),
+      gasneti_atomic_init(0), gasneti_atomic_init(0),
+      gasneti_atomic_init(0), gasneti_atomic_init(0),
+      gasneti_atomic_init(0), gasneti_atomic_init(0),
+      gasneti_atomic_init(0), gasneti_atomic_init(0),
+      gasneti_atomic_init(0), gasneti_atomic_init(0),
+      gasneti_atomic_init(0), gasneti_atomic_init(0),
+      gasneti_atomic_init(0), gasneti_atomic_init(0) },
+    { gasneti_atomic_init(0), gasneti_atomic_init(0),
+      gasneti_atomic_init(0), gasneti_atomic_init(0),
+      gasneti_atomic_init(0), gasneti_atomic_init(0),
+      gasneti_atomic_init(0), gasneti_atomic_init(0),
+      gasneti_atomic_init(0), gasneti_atomic_init(0),
+      gasneti_atomic_init(0), gasneti_atomic_init(0),
+      gasneti_atomic_init(0), gasneti_atomic_init(0),
+      gasneti_atomic_init(0), gasneti_atomic_init(0) } };
+  #define gasnetc_sys_exchange_inc(_phase, _step) \
+    gasneti_atomic_increment(&gasnetc_sys_exchange_rcvd[_phase][_step], GASNETI_ATOMIC_REL)
+  #define gasnetc_sys_exchange_read(_phase, _step) \
+    gasneti_atomic_read(&gasnetc_sys_exchange_rcvd[_phase][_step], GASNETI_ATOMIC_NONE)
+  #define gasnetc_sys_exchange_reset(_phase, _step) \
+    gasneti_atomic_set(&gasnetc_sys_exchange_rcvd[_phase][_step], 0, GASNETI_ATOMIC_ACQ)
+#else
+  static gasneti_atomic_val_t gasnetc_sys_exchange_rcvd[2][16] =
+  { { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+    { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+  #define gasnetc_sys_exchange_inc(_phase, _step) \
+    ((void)(++gasnetc_sys_exchange_rcvd[_phase][_step]))
+  #define gasnetc_sys_exchange_read(_phase, _step) \
+    (gasnetc_sys_exchange_rcvd[_phase][_step])
+  #define gasnetc_sys_exchange_reset(_phase, _step) \
+    ((void)(gasnetc_sys_exchange_rcvd[_phase][_step] = 0))
+#endif
+
+static uint8_t *gasnetc_sys_exchange_buf[2] = { NULL, NULL };
+
+static uint8_t *gasnetc_sys_exchange_addr(int phase, size_t elemsz)
+{
+  if (gasnetc_sys_exchange_buf[phase] == NULL) {
+  #if GASNETC_IB_RCV_THREAD
+    static gasneti_mutex_t lock = GASNETI_MUTEX_INITIALIZER;
+    gasneti_mutex_lock(&lock);
+  #endif
+    gasnetc_sys_exchange_buf[phase] = gasneti_malloc(elemsz * gasneti_nodes);
+  #if GASNETC_IB_RCV_THREAD
+    gasneti_mutex_unlock(&lock);
+  #endif
+  }
+  return gasnetc_sys_exchange_buf[phase];
+}
+
+#define GASNETC_SYS_EXCHANGE_MAX GASNETC_MAX_MEDIUM
+
+static void gasnetc_sys_exchange_reqh(gasnet_token_t token, void *buf,
+                                 size_t nbytes, uint32_t arg0,
+                                 uint32_t elemsz)
+{
+  const int phase = arg0 & 1;
+  const int step = (arg0 >> 1) & 0x0f;
+  const int seq = (arg0 >> 5);
+  uint8_t *dest = gasnetc_sys_exchange_addr(phase, elemsz)
+                  + (elemsz << step) + (seq * GASNETC_SYS_EXCHANGE_MAX);
+
+  memcpy(dest, buf, nbytes);
+  gasnetc_sys_exchange_inc(phase, step);
+}
+
+extern void gasneti_bootstrapExchange(void *src, size_t len, void *dest)
+{
+  if (gasneti_bootstrap_native_coll) {
+    static int phase = 0;
+
+    uint8_t *temp = gasnetc_sys_exchange_addr(phase, len);
+    int step, distance;
+
+    /* Copy in local contribution */
+    memcpy(temp, src, len);
+
+    /* Bruck's concatenation algorithm: */
+    for (step = 0, distance = 1; distance < gasneti_nodes; ++step, distance *= 2) {
+      const gasnet_node_t peer = (gasneti_mynode >= distance)
+                                  ? (gasneti_mynode - distance)
+                                  : (gasneti_mynode + (gasneti_nodes - distance));
+      size_t nbytes = len * MIN(distance, gasneti_nodes - distance);
+      size_t offset = 0;
+      uint32_t seq = 0;
+
+      gasneti_assert(step < 16);
+
+      /* Send payload using AMMedium(s) */
+      do {
+        const size_t to_xfer = MIN(nbytes, GASNETC_SYS_EXCHANGE_MAX);
+
+        (void) gasnetc_RequestSysMedium(peer, NULL,
+                                        gasneti_handleridx(gasnetc_sys_exchange_reqh),
+                                        temp + offset, to_xfer,
+                                        2, phase | (step << 1) | (seq << 5), len);
+
+        ++seq;
+        offset += to_xfer;
+        nbytes -= to_xfer;
+        gasneti_assert(seq < (1<<(32-5)));
+      } while (nbytes);
+
+      /* poll until number of messages received matches number sent */
+      while (gasnetc_sys_exchange_read(phase, step) != seq) {
+        gasnetc_sndrcv_poll(0);
+      }
+      gasnetc_sys_exchange_reset(phase, step); /* Includes the RMB, if any, for the data */
+    }
+
+    /* Copy to destination while performing the "rotation" */
+    memcpy(dest, temp + len * (gasneti_nodes - gasneti_mynode), len * gasneti_mynode);
+    memcpy((uint8_t*)dest + len * gasneti_mynode, temp, len * (gasneti_nodes - gasneti_mynode));
+
+    /* Prepare for next */
+    gasneti_free(temp);
+    gasnetc_sys_exchange_buf[phase] = NULL;
+    gasneti_sync_writes();
+    phase ^= 1;
+  } else {
+    (*gasneti_bootstrapExchange_p)(src, len, dest);
+  }
+}
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -1342,10 +1598,11 @@ static int gasnetc_init(int *argc, char ***argv) {
       gasneti_mynode, gasneti_nodes); fflush(stderr);
   #endif
 
-  /* XXX: From this point forward gasneti_bootstrap*() could safely be implemented
+  /* From this point forward gasneti_bootstrap*() can safely be implemented
    * via AMs or "raw" IB if desired for efficiency (but no segment for RDMA).
-   * Currently only Exchange (aka AllGather) and Barrier are used beyond this point.
+   * Currently only Exchange (aka GatherAll) and Barrier are used beyond this point.
    */
+  gasnetc_sys_coll_init();
 
   /* Find max pinnable size before we start carving up memory w/ mmap()s.
    *
@@ -1748,6 +2005,7 @@ gasneti_atomic_t gasnetc_exit_running = gasneti_atomic_init(0);		/* boolean used
 
 static gasneti_atomic_t gasnetc_exit_code = gasneti_atomic_init(0);	/* value to _exit() with */
 static gasneti_atomic_t gasnetc_exit_reds = gasneti_atomic_init(0);	/* count of reduce requests */
+static gasneti_atomic_t gasnetc_exit_dist = gasneti_atomic_init(0);	/* OR of reduce distances */
 static gasneti_atomic_t gasnetc_exit_reqs = gasneti_atomic_init(0);	/* count of remote exit requests */
 static gasneti_atomic_t gasnetc_exit_reps = gasneti_atomic_init(0);	/* count of remote exit replies */
 static gasneti_atomic_t gasnetc_exit_done = gasneti_atomic_init(0);	/* flag to show exit coordination done */
@@ -1798,74 +2056,112 @@ static void gasnetc_disable_AMs(void) {
   }
 }
 
+#if GASNET_PSHM
 static gasnet_node_t *gasnetc_exit_child = NULL;
 static gasnet_node_t gasnetc_exit_children = 0;
 static gasnet_node_t gasnetc_exit_parent = 0;
+#endif
 
 static int gasnetc_exit_reduce(int exitcode, int64_t timeout_us)
 {
   gasneti_tick_t start_time = gasneti_ticks_now();
   int rc, i;
 
-  if (GASNETC_IS_EXITING()) GASNETC_EXIT_STATE("exitcode reduction");
+  GASNETC_EXIT_STATE("exitcode reduction");
 
   gasneti_assert(timeout_us > 0); 
 
   /* If the remote request has arrived then we've already failed */
   if (gasneti_atomic_read(&gasnetc_exit_reqs, 0)) return -1;
 
-  /* Wait for our children (if any) */
-  if (GASNETC_IS_EXITING()) GASNETC_EXIT_STATE("exitcode reduction: wait for children");
-  while (gasneti_atomic_read(&gasnetc_exit_reds, 0) < gasnetc_exit_children) {
-    if (gasneti_ticks_to_ns(gasneti_ticks_now() - start_time) / 1000 > timeout_us) return -1;
-    gasnetc_sndrcv_poll(0);
-    if (gasneti_atomic_read(&gasnetc_exit_reqs, 0)) return -1;
-  }
-
-  /* Notify our parent (if any) and wait for response */
-  if (gasneti_mynode) {
-    if (GASNETC_IS_EXITING()) GASNETC_EXIT_STATE("exitcode reduction: send to parent");
-    exitcode = gasneti_atomic_read(&gasnetc_exit_code, GASNETI_ATOMIC_RMB_PRE);
+#if GASNET_PSHM
+  if (gasnetc_exit_children == gasneti_nodes) { /* Non-lead node */
+    GASNETC_EXIT_STATE("exitcode reduction: send to parent");
     rc = gasnetc_RequestSysShort(gasnetc_exit_parent, NULL,
-                               gasneti_handleridx(gasnetc_exit_reduce_reqh),
-                               1, exitcode);
+                                 gasneti_handleridx(gasnetc_exit_reduce_reqh),
+                                 2, exitcode, 0);
     if (rc != GASNET_OK) return -1;
     if (gasneti_atomic_read(&gasnetc_exit_reqs, 0)) return -1;
 
-    if (GASNETC_IS_EXITING()) GASNETC_EXIT_STATE("exitcode reduction: wait for parent");
+    GASNETC_EXIT_STATE("exitcode reduction: wait for parent");
     do {
       if (gasneti_ticks_to_ns(gasneti_ticks_now() - start_time) / 1000 > timeout_us) return -1;
       gasnetc_sndrcv_poll(0);
       if (gasneti_atomic_read(&gasnetc_exit_reqs, 0)) return -1;
-    } while (gasneti_atomic_read(&gasnetc_exit_reds, 0) == gasnetc_exit_children);
+    } while (gasneti_atomic_read(&gasnetc_exit_reds, 0) == 0);
+    return 0;
+  } else { /* Lead node */
+    GASNETC_EXIT_STATE("exitcode reduction: wait for children");
+    while (gasneti_atomic_read(&gasnetc_exit_reds, 0) < gasnetc_exit_children) {
+      if (gasneti_ticks_to_ns(gasneti_ticks_now() - start_time) / 1000 > timeout_us) return -1;
+      gasnetc_sndrcv_poll(0);
+      if (gasneti_atomic_read(&gasnetc_exit_reqs, 0)) return -1;
+    }
+    exitcode = gasneti_atomic_read(&gasnetc_exit_code, GASNETI_ATOMIC_RMB_PRE);
+  }
+#endif
+
+  GASNETC_EXIT_STATE("exitcode reduction: dissemination");
+  for (i = 0; i < gasnetc_dissem_peers; ++i) {
+    const uint32_t distance = 1 << i;
+    rc = gasnetc_RequestSysShort(gasnetc_dissem_peer[i], NULL,
+                                 gasneti_handleridx(gasnetc_exit_reduce_reqh),
+                                 2, exitcode, distance);
+    if (rc != GASNET_OK) return -1;
+    do { /* wait for completion of the proper receive, which might arrive out of order */
+      if (gasneti_ticks_to_ns(gasneti_ticks_now() - start_time) / 1000 > timeout_us) return -1;
+      gasnetc_sndrcv_poll(0); 
+      if (gasneti_atomic_read(&gasnetc_exit_reqs, 0)) return -1;
+    } while (!(distance & gasneti_atomic_read(&gasnetc_exit_dist, 0)));
     exitcode = gasneti_atomic_read(&gasnetc_exit_code, GASNETI_ATOMIC_RMB_PRE);
   }
 
-  /* Now send to children (if any) sending off-supernode first */
+#if GASNET_PSHM
+  GASNETC_EXIT_STATE("exitcode reduction: send to children");
   for (i = 0; i < gasnetc_exit_children; ++i) {
-    if (GASNETC_IS_EXITING()) GASNETC_EXIT_STATE("exitcode reduction: send to children");
-
     rc = gasnetc_RequestSysShort(gasnetc_exit_child[i], NULL,
-                               gasneti_handleridx(gasnetc_exit_reduce_reqh),
-                               1, exitcode);
+                                 gasneti_handleridx(gasnetc_exit_reduce_reqh),
+                                 2, exitcode, 0);
     if (rc != GASNET_OK) return -1;
     gasnetc_sndrcv_poll(0);
     if (gasneti_atomic_read(&gasnetc_exit_reqs, 0)) return -1;
     if (gasneti_ticks_to_ns(gasneti_ticks_now() - start_time) / 1000 > timeout_us) return -1;
   }
+#endif
 
   return 0;
 }
 
 /* gasnetc_exit_reduce_reqh: reduction on exitcode */
-static void gasnetc_exit_reduce_reqh(gasnet_token_t token, gasnet_handlerarg_t arg0) {
+static void gasnetc_exit_reduce_reqh(gasnet_token_t token,
+                                     gasnet_handlerarg_t arg0,
+                                     gasnet_handlerarg_t arg1) {
   gasneti_atomic_val_t exitcode = arg0;
+  gasneti_atomic_val_t distance = arg1;
   gasneti_atomic_val_t prevcode;
   do {
     prevcode = gasneti_atomic_read(&gasnetc_exit_code, 0);
   } while ((exitcode > prevcode) &&
            !gasneti_atomic_compare_and_swap(&gasnetc_exit_code, prevcode, exitcode, 0));
-  gasneti_atomic_increment(&gasnetc_exit_reds, GASNETI_ATOMIC_WMB_PRE);
+  if (distance) {
+  #if defined(GASNETI_HAVE_ATOMIC_ADD_SUB)
+    /* atomic OR via ADD since no bit will be set more than once */
+    gasneti_assert(GASNETI_POWEROFTWO(distance));
+    gasneti_atomic_add(&gasnetc_exit_dist, distance, GASNETI_ATOMIC_REL);
+  #elif defined(GASNETI_HAVE_ATOMIC_CAS)
+    /* atomic OR via C-A-S */
+    uint32_t old_val;
+    do {
+      old_val = gasneti_atomic32_read(&gasnetc_exit_dist, 0);
+    } while (!gasneti_atomic_compare_and_swap(&gasnetc_exit_dist,
+                                               old_val, old_val|distance,
+                                               GASNETI_ATOMIC_REL));
+  #else
+    #error "required atomic compare-and-swap is not yet implemented for your CPU/OS/compiler"
+  #endif
+  } else {
+    gasneti_atomic_increment(&gasnetc_exit_reds, GASNETI_ATOMIC_REL);
+  }
 }
 
 /*
@@ -2453,8 +2749,6 @@ static void gasnetc_atexit(void) {
 #endif
 
 static void gasnetc_exit_init(void) {
-  #define GASNETC_EXIT_RADIX 2
-
   /* Handler for non-collective returns from main() */
   #if HAVE_ON_EXIT
     on_exit(gasnetc_on_exit, NULL);
@@ -2462,59 +2756,24 @@ static void gasnetc_exit_init(void) {
     atexit(gasnetc_atexit);
   #endif
 
+#if GASNET_PSHM
   /* Extract info from nodemap that we'll need at exit */
   if (gasneti_nodemap_local_rank) {
     gasnetc_exit_parent = gasneti_nodemap[gasneti_mynode];
+    gasnetc_exit_children = gasneti_nodes;
   } else {
-    gasnet_node_t children, child[GASNETC_EXIT_RADIX];
-    gasnet_node_t rank, i, j;
+    const gasnet_node_t children = gasneti_nodemap_local_count - 1;
 
-    /* Enumerate our non-local children */
-    children = 0;
-    for (i = 0; i < GASNETC_EXIT_RADIX; ++i) {
-      rank = i + 1 + GASNETC_EXIT_RADIX * gasneti_nodemap_global_rank;
-
-      /* Check overflow or out-of-range */
-      if ((rank < gasneti_nodemap_global_rank) || (rank >= gasneti_nodemap_global_count)) break;
-
-      /* Convert global rank to node number */
-      for (j = gasneti_mynode+1; j < gasneti_nodes; ++j) {
-        if (gasneti_node2supernode(j) == rank) break;
-      }
-      gasneti_assert(j < gasneti_nodes);
-      child[i] = j;
-      ++children;
-    }
-
-    /* Concatenate the non-local and local lists of children */
-    { int c1 = children;
-      int c2 = gasneti_nodemap_local_count - 1;
-      gasnetc_exit_children = c1 + c2;
-      gasnetc_exit_child = gasneti_malloc((c1 + c2) * sizeof(gasnet_node_t));
-      gasneti_leak(gasnetc_exit_child);
-      memcpy(gasnetc_exit_child, child, c1 * sizeof(gasnet_node_t));
-      memcpy(gasnetc_exit_child + c1, gasneti_nodemap_local+1, c2 * sizeof(gasnet_node_t));
-      gasneti_assert(gasneti_nodemap_local[0] == gasneti_mynode);
-    }
-
-    if (gasneti_mynode) {
-      rank = (gasneti_nodemap_global_rank - 1) / GASNETC_EXIT_RADIX;
-      for (j = 0; j < gasneti_mynode; ++j) {
-        if (gasneti_node2supernode(j) == rank) break;
-      }
-      gasneti_assert(j < gasneti_mynode);
-      gasnetc_exit_parent = j;
+    if (children) {
+      const size_t len = children * sizeof(gasnet_node_t);
+      gasnetc_exit_children = children;
+      gasnetc_exit_child = gasneti_malloc(len);
+      memcpy(gasnetc_exit_child, gasneti_nodemap_local+1, len);
     }
   }
+#endif
 
-  /* Warm-up (for dynamic connections in particular) and then reset */
-  /* XXX: Could do warm-up more cheaply than the full reduction:
-   *  1) AM to parent 
-   *  2) Poll until AM rcvd from all children
-   * However, the plan is to change the topology soon anyway.
-   */
-  (void)gasnetc_exit_reduce(0, MAX(60., gasnetc_exittimeout) * 1.0e6);
-  gasneti_atomic_set(&gasnetc_exit_reds, 0, 0);
+  /* No warm-up needed because bootstrapBarrier uses same connections */
 }
 
 /* gasnetc_exit
@@ -2828,9 +3087,8 @@ static gasnet_handlerentry_t const gasnetc_handlers[] = {
   gasneti_handler_tableentry_no_bits(gasnetc_exit_role_reph),
   gasneti_handler_tableentry_no_bits(gasnetc_exit_reqh),
   gasneti_handler_tableentry_no_bits(gasnetc_exit_reph),
-#if 0 /* Currently unused */
-  gasneti_handler_tableentry_no_bits(gasnetc_init_ping),
-#endif
+  gasneti_handler_tableentry_no_bits(gasnetc_sys_barrier_reqh),
+  gasneti_handler_tableentry_no_bits(gasnetc_sys_exchange_reqh),
 
   /* ptr-width dependent handlers */
   gasneti_handler_tableentry_with_bits(gasnetc_amrdma_grant_reqh),

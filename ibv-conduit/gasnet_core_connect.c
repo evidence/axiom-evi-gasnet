@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2012/01/08 22:51:58 $
- * $Revision: 1.68 $
+ *     $Date: 2012/01/09 02:12:24 $
+ * $Revision: 1.69 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -2418,7 +2418,7 @@ static gasnet_node_t dump_conn_prev;
 static void
 dump_conn_write(int fd, const char *buf, size_t len)
 {
-  /* TODO: loop w/ retry on whort writes? */
+  /* TODO: loop w/ retry on short writes? */
   ssize_t rc = write(fd, buf, len);
   if_pf (rc != len) {
     gasneti_fatalerror("Write to connection file failed or truncated: rc=%ld errno=%s(%i)",
