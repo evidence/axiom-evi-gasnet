@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.c,v $
- *     $Date: 2012/01/07 02:40:49 $
- * $Revision: 1.46 $
+ *     $Date: 2012/01/09 22:00:57 $
+ * $Revision: 1.47 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -39,6 +39,9 @@ gasneti_pshmnet_t *gasneti_reply_pshmnet = NULL;
 #ifndef GASNET_PSHM_FULLEMPTY_USE_SUB
 #define GASNET_PSHM_FULLEMPTY_USE_SUB 1
 #endif
+#ifndef GASNET_PSHM_FULLEMPTY_USE_DEC
+#define GASNET_PSHM_FULLEMPTY_USE_DEC 1
+#endif
 #if GASNET_PSHM_FULLEMPTY
   typedef struct {
     gasneti_atomic_t value; /* Might be a boolean or counter */
@@ -47,28 +50,43 @@ gasneti_pshmnet_t *gasneti_reply_pshmnet = NULL;
   #define _GASNETI_PSHMNET_FE(vnet,node)	(&((vnet)->fullempty[(node)].value))
   #define GASNETI_PSHMNET_FE_READ(vnet,node) \
 		gasneti_atomic_read(_GASNETI_PSHMNET_FE((vnet),(node)), 0)
-  #define GASNETI_PSHMNET_FE_CLEAR(vnet,node) \
+  #define GASNETI_PSHMNET_FE_INIT(vnet,node) \
 		gasneti_atomic_set(_GASNETI_PSHMNET_FE((vnet),(node)), 0, 0)
-  #define GASNETI_PSHMNET_FE_INC(vnet,node) \
-		gasneti_atomic_increment(_GASNETI_PSHMNET_FE((vnet),(node)), 0)
   #if defined(GASNETI_HAVE_ATOMIC_ADD_SUB) && GASNET_PSHM_FULLEMPTY_USE_SUB
+    /* inc/sub of counter 'value' */
+    #define GASNETI_PSHMNET_FE_INC(vnet,node) \
+		gasneti_atomic_increment(_GASNETI_PSHMNET_FE((vnet),(node)), 0)
     #define GASNETI_PSHMNET_FE_DEC(vnet,node)		((void)0)
     #define GASNETI_PSHMNET_FE_SUB(vnet,node,val)	\
 	do { \
 		int _val = (val); \
 		if (_val) gasneti_atomic_subtract(_GASNETI_PSHMNET_FE((vnet),(node)), (_val), 0); \
 	} while (0)
-  #else
+    #define GASNETI_PSHMNET_FE_ACK(vnet,node)		((void)0)
+  #elif GASNET_PSHM_FULLEMPTY_USE_DEC
+    /* inc/dec of counter 'value' */
+    #define GASNETI_PSHMNET_FE_INC(vnet,node) \
+		gasneti_atomic_increment(_GASNETI_PSHMNET_FE((vnet),(node)), 0)
     #define GASNETI_PSHMNET_FE_DEC(vnet,node) \
 		gasneti_atomic_decrement(_GASNETI_PSHMNET_FE((vnet),(node)), 0)
-    #define GASNETI_PSHMNET_FE_SUB(vnet,node,val) ((void)0)
+    #define GASNETI_PSHMNET_FE_SUB(vnet,node,val)	((void)0)
+    #define GASNETI_PSHMNET_FE_ACK(vnet,node)		((void)0)
+  #else
+    /* set/clear of boolean 'value' */
+    #define GASNETI_PSHMNET_FE_INC(vnet,node) \
+		gasneti_atomic_set(_GASNETI_PSHMNET_FE((vnet),(node)), 1, 0)
+    #define GASNETI_PSHMNET_FE_DEC(vnet,node)		((void)0)
+    #define GASNETI_PSHMNET_FE_SUB(vnet,node,val)	((void)0)
+    #define GASNETI_PSHMNET_FE_ACK(vnet,node) \
+		gasneti_atomic_set(_GASNETI_PSHMNET_FE((vnet),(node)), 0, 0)
   #endif
 #else
   #define GASNETI_PSHMNET_FE_READ(vnet,node)	1
-  #define GASNETI_PSHMNET_FE_CLEAR(vnet,node)	((void)0)
+  #define GASNETI_PSHMNET_FE_INIT(vnet,node)	((void)0)
   #define GASNETI_PSHMNET_FE_INC(vnet,node)	((void)0)
   #define GASNETI_PSHMNET_FE_DEC(vnet,node)	((void)0)
   #define GASNETI_PSHMNET_FE_SUB(vnet,node,val)	((void)0)
+  #define GASNETI_PSHMNET_FE_ACK(vnet,node)	((void)0)
 #endif
 
 /* Structure for PSHM intra-supernode barrier */
@@ -714,7 +732,7 @@ gasneti_pshmnet_init(void *start, size_t nbytes, gasneti_pshm_rank_t pshmnodes)
 #if GASNET_PSHM_FULLEMPTY
   /* initialize the full/empty bits array */
   vnet->fullempty = (gasneti_pshmnet_fullempty_t *)(((uintptr_t)region) + (szpernode*pshmnodes));
-  GASNETI_PSHMNET_FE_CLEAR(vnet,gasneti_pshm_mynode);
+  GASNETI_PSHMNET_FE_INIT(vnet,gasneti_pshm_mynode);
 #endif
 
   /* initialize queue pointers */
@@ -1275,12 +1293,14 @@ int gasneti_AMPSHMPoll(int repliesOnly)
 #endif
 
   if (GASNETI_PSHMNET_FE_READ(gasneti_reply_pshmnet,gasneti_pshm_mynode)) {
+    GASNETI_PSHMNET_FE_ACK(gasneti_reply_pshmnet,gasneti_pshm_mynode);
     for (i = 0; i < GASNETI_AMPSHM_MAX_REPLY_PER_POLL; i++) 
       if (gasneti_AMPSHM_service_incoming_msg(gasneti_reply_pshmnet, 0))
         break;
     GASNETI_PSHMNET_FE_SUB(gasneti_reply_pshmnet,gasneti_pshm_mynode,i);
   }
   if (!repliesOnly && GASNETI_PSHMNET_FE_READ(gasneti_request_pshmnet,gasneti_pshm_mynode)) {
+    GASNETI_PSHMNET_FE_ACK(gasneti_request_pshmnet,gasneti_pshm_mynode);
     for (i = 0; i < GASNETI_AMPSHM_MAX_REQUEST_PER_POLL; i++) 
       if (gasneti_AMPSHM_service_incoming_msg(gasneti_request_pshmnet, 1))
         break;
