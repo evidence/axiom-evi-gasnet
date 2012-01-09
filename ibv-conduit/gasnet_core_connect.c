@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2012/01/09 02:12:24 $
- * $Revision: 1.69 $
+ *     $Date: 2012/01/09 02:41:55 $
+ * $Revision: 1.70 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -1774,7 +1774,13 @@ gasnetc_connect_to(gasnet_node_t node)
   } while (0);
   gasneti_mutex_unlock(&gasnetc_conn_tbl_lock);
 
-  gasneti_polluntil(NULL != (result = GASNETC_NODE2CEP(node)));
+  result = GASNETC_NODE2CEP(node);
+  while (NULL == result) {
+    GASNETI_WAITHOOK();
+    gasnetc_sndrcv_poll(0);
+    result = GASNETC_NODE2CEP(node);
+  }
+  gasneti_local_rmb(); 
 
   return result;
 }
