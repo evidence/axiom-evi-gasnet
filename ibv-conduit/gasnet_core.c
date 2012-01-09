@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2012/01/09 02:12:24 $
- * $Revision: 1.298 $
+ *     $Date: 2012/01/09 02:16:28 $
+ * $Revision: 1.299 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -208,6 +208,7 @@ static void gasnetc_sys_coll_init(void)
     ++gasnetc_dissem_peers;
   }
   gasnetc_dissem_peer = gasneti_malloc(gasnetc_dissem_peers * sizeof(gasnet_node_t));
+  gasneti_leak(gasnetc_dissem_peer);
   for (i = 0; i < gasnetc_dissem_peers; ++i) {
     const gasnet_node_t distance = 1 << i;
     const gasnet_node_t peer = (distance >= size - rank)
@@ -2768,6 +2769,7 @@ static void gasnetc_exit_init(void) {
       const size_t len = children * sizeof(gasnet_node_t);
       gasnetc_exit_children = children;
       gasnetc_exit_child = gasneti_malloc(len);
+      gasneti_leak(gasnetc_exit_child);
       memcpy(gasnetc_exit_child, gasneti_nodemap_local+1, len);
     }
   }
