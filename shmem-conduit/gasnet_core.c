@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_core.c,v $
- *     $Date: 2012/01/07 04:45:36 $
- * $Revision: 1.51 $
+ *     $Date: 2012/01/09 00:08:56 $
+ * $Revision: 1.52 $
  * Description: GASNet shmem conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -168,6 +168,7 @@ static int gasnetc_init(int *argc, char ***argv) {
   #endif
 
   gasnetc_pid = gasneti_malloc(gasneti_nodes*sizeof(pid_t));
+  gasneti_leak(gasnetc_pid);
   gasnetc_pid[gasneti_mynode] = getpid();
   gasnetc_bootstrapExchange(&(gasnetc_pid[gasneti_mynode]), sizeof(pid_t), gasnetc_pid);
 
