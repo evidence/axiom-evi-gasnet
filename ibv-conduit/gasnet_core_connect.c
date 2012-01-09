@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2012/01/09 02:41:55 $
- * $Revision: 1.70 $
+ *     $Date: 2012/01/09 03:05:52 $
+ * $Revision: 1.71 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -360,6 +360,7 @@ gasnetc_xrc_init(void) {
   /* Allocate SND QP table */
   gasnetc_xrc_snd_qp = gasneti_calloc(gasneti_nodemap_global_count * gasnetc_alloc_qps,
                                       sizeof(gasnetc_xrc_snd_qp_t));
+  gasneti_leak(gasnetc_xrc_snd_qp);
 
   return GASNET_OK;
 }
@@ -1325,6 +1326,7 @@ gasnetc_qp_setup_ud(gasnetc_port_info_t *port, int fully_connected)
 
     /* Exchange the qpns */
     conn_remote_ud_qpn = gasneti_malloc(gasneti_nodes * sizeof(gasnetc_qpn_t));
+    gasneti_leak(conn_remote_ud_qpn);
     gasneti_bootstrapExchange(&gasnetc_conn_qpn, sizeof(gasnetc_conn_qpn), conn_remote_ud_qpn);
 
     /* Generate a per-job QKey from the qpns.
@@ -1383,6 +1385,7 @@ gasnetc_qp_setup_ud(gasnetc_port_info_t *port, int fully_connected)
       int i;
 
       desc = gasneti_calloc(max_recv_wr, sizeof(gasnetc_ud_rcv_desc_t));
+      gasneti_leak(desc);
       for (i = 0; i < max_recv_wr; ++i, ++desc, addr += recv_sz) {
         desc->wr.gasnetc_f_wr_num_sge = 1;
         desc->wr.gasnetc_f_wr_sg_list = &desc->sg;
@@ -1436,6 +1439,7 @@ gasnetc_qp_setup_ud(gasnetc_port_info_t *port, int fully_connected)
       int i;
 
       desc = gasneti_calloc(max_send_wr, sizeof(gasnetc_ud_snd_desc_t));
+      gasneti_leak(desc);
       for (i = 0; i < max_send_wr; ++i, ++desc, addr += send_sz) {
         desc->wr.gasnetc_f_wr_num_sge = 1;
         desc->wr.gasnetc_f_wr_sg_list = &desc->sg;
@@ -1505,6 +1509,7 @@ gasnetc_get_conn(gasnet_node_t node)
     conn->info.cep = (gasnetc_cep_t *)
                        gasnett_malloc_aligned(GASNETI_CACHE_LINE_BYTES,
                                               gasnetc_alloc_qps * sizeof(gasnetc_cep_t));
+    gasneti_leak_aligned(conn->info.cep);
     memset(conn->info.cep, 0, gasnetc_alloc_qps * sizeof(gasnetc_cep_t));
     conn->info.local_qpn = gasneti_malloc(2 * gasnetc_alloc_qps * sizeof(gasnetc_qpn_t));
     conn->info.remote_qpn = conn->info.local_qpn + gasnetc_alloc_qps;
