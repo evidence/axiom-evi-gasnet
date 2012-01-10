@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2012/01/08 22:52:16 $
- * $Revision: 1.101 $
+ *     $Date: 2012/01/10 23:34:42 $
+ * $Revision: 1.102 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -117,7 +117,9 @@
    + Make flat-tree a runtime switch rather than compile time.
    + Implement "custom" spawner in the spirit of udp-conduit.
    + Look at udp-conduit for things missing from this list. :-)
-   + We probably leak small strings in a few places.
+   + We leak small strings in a few places.  Some might be avoidable.
+   + Use select() with write() and writev() and O_NONBLOCK to write
+     portions to each socket w/o blocking.
 
  */
 
