@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2012/01/10 23:34:42 $
- * $Revision: 1.102 $
+ *     $Date: 2012/01/16 20:17:47 $
+ * $Revision: 1.103 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -257,8 +257,12 @@ static char *sappendf(char *s, const char *fmt, ...)) {
 
 /* Add single quotes around a string, taking care of any existing quotes */
 static char *quote_arg(const char *arg) {
-  char *result = gasneti_strdup("'");
   char *p, *q, *tmp;
+  char *result;
+
+  result = gasneti_malloc(3 + strlen(arg)); /* Minumum required length */
+  result[0] = '\'';
+  result[1] = '\0';
 
   p = tmp = gasneti_strdup(arg);
   while ((q = strchr(p, '\'')) != NULL) {
