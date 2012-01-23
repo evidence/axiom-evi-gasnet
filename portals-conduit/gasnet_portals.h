@@ -191,10 +191,16 @@ extern unsigned gasnetc_sys_poll_limit;
 #define GASNETC_PTLCHECK(_retcode, _message) do {			\
     if_pf (_retcode != (int)PTL_OK) {					\
       const char *_err_msg = GASNETC_PTL_VALIDERRNO(_retcode)		\
-		 	? ptl_err_str[_retcode] : "unknown";		\
-      gasneti_fatalerror("\nGASNet Portals encountered an error: %s (%i)\n" \
+			? ptl_err_str[_retcode] : "invalid error code";	\
+      const char *_alt_msg = GASNETC_PTL_VALIDERRNO(-(_retcode))	\
+			? ptl_err_str[-(_retcode)] : NULL;		\
+      gasneti_fatalerror("\nGASNet Portals encountered an error: %s (%i)%s%s%s\n" \
 			 "  %s\n  at %s",				\
-			 _err_msg, _retcode, _message, gasneti_current_loc); \
+			 _err_msg, _retcode,				\
+			 _alt_msg ? "\n  perhaps negative of "	: "",	\
+			 _alt_msg ? _alt_msg			: "",	\
+			 _alt_msg ? "?"				: "",	\
+			 _message, gasneti_current_loc);		\
     }									\
  } while (0)
 
