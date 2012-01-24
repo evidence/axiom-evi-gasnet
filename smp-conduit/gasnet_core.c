@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_core.c,v $
- *     $Date: 2012/01/24 00:18:20 $
- * $Revision: 1.78 $
+ *     $Date: 2012/01/24 01:13:20 $
+ * $Revision: 1.79 $
  * Description: GASNet smp conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -486,7 +486,7 @@ static int gasnetc_init(int *argc, char ***argv) {
   gasnetc_fds = gasneti_malloc(2 * gasneti_nodes * sizeof(int));
   gasneti_leak(gasnetc_fds);
   for (i = 1; i < gasneti_nodes; ++i) {
-  #ifdef GASNETC_USE_SOCKETPAIR
+  #if defined(GASNETC_USE_SOCKETPAIR) && defined(GASNETC_HAVE_O_ASYNC)
     #if defined(PF_LOCAL)
       gasneti_assert_zeroret( socketpair(PF_LOCAL, SOCK_STREAM, 0, &gasnetc_fds[2 * i]) );
     #elif defined(PF_UNIX)
