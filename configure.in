@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2012/01/12 23:23:12 $
-# $Revision: 1.739 $
+#     $Date: 2012/01/24 00:18:18 $
+# $Revision: 1.740 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.739 $)
+AC_REVISION($Revision: 1.740 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2818,10 +2818,12 @@ if test $enabled_smp = yes; then
     GASNET_PUSHVAR(LIBS,"$LIBS $SMP_LIBS")
     GASNET_TRY_CACHE_RUN_WITHCC([for socketpair() support], socketpair_works, [
       #include <unistd.h>
-      #include <fcntl.h>
-      #include <sys/types.h>
-      #include <sys/socket.h>
-      #include <signal.h>
+      #if defined(HAVE_SYS_TYPES_H)
+        #include <sys/types.h>
+      #endif
+      #if defined(HAVE_SYS_SOCKET_H)
+        #include <sys/socket.h>
+      #endif
     ], [[
       int rc, sv[2];
 
@@ -2833,11 +2835,36 @@ if test $enabled_smp = yes; then
       #error
     #endif
       if (rc < 0) return 1;
+    ]], [ socketpair_test_worked=yes ], [ socketpair_test_worked=no ])
 
-      rc = shutdown(sv[0], SHUT_RD);
-      if (rc < 0) return 1;
+    if test "$socketpair_test_worked" = yes; then
+      AC_DEFINE(GASNETC_USE_SOCKETPAIR)
+    else
+      SMP_LIBS=""
+    fi
 
-      rc = shutdown(sv[1], SHUT_WR);
+    GASNET_TRY_CACHE_RUN_WITHCC([for O_ASYNC support], o_async_works, [
+      #include <unistd.h>
+      #include <fcntl.h>
+      #if defined(HAVE_SYS_TYPES_H)
+        #include <sys/types.h>
+      #endif
+      #if defined(HAVE_SYS_SOCKET_H)
+        #include <sys/socket.h>
+      #endif
+      #include <signal.h>
+    ], [[
+      int rc, sv[2];
+
+    #if !defined(GASNETC_USE_SOCKETPAIR)
+      rc = pipe(sv);
+    #elif defined(PF_LOCAL)
+      rc = socketpair(PF_LOCAL, SOCK_STREAM, 0, sv);
+    #elif defined(PF_UNIX)
+      rc = socketpair(PF_UNIX, SOCK_STREAM, 0, sv);
+    #else
+      #error
+    #endif
       if (rc < 0) return 1;
 
       rc = fcntl(sv[0], F_GETFL);
@@ -2850,14 +2877,13 @@ if test $enabled_smp = yes; then
 
       rc = fcntl(sv[0], F_SETOWN, getpid());
       if (rc < 0) return 1;
-    ]], [ socketpair_test_worked=yes ], [ socketpair_test_worked=no ])
-    GASNET_POPVAR(LIBS)
+    ]], [ o_async_test_worked=yes ], [ o_async_test_worked=no ])
 
-    if test "$socketpair_test_worked" = yes; then
-      AC_DEFINE(GASNETC_USE_SOCKETPAIR)
-    else
-      SMP_LIBS=""
+    if test "$o_async_test_worked" = yes; then
+      AC_DEFINE(GASNETC_HAVE_O_ASYNC)
     fi
+
+    GASNET_POPVAR(LIBS)
   fi
 fi
 AC_SUBST(SMP_LIBS)

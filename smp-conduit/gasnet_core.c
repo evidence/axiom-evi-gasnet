@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_core.c,v $
- *     $Date: 2012/01/07 04:45:38 $
- * $Revision: 1.77 $
+ *     $Date: 2012/01/24 00:18:20 $
+ * $Revision: 1.78 $
  * Description: GASNet smp conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -108,7 +108,6 @@ static struct gasnetc_exit_data {
 
 #ifdef GASNETC_USE_SOCKETPAIR
   #include <sys/socket.h>
-  static int gasnetc_using_socketpair = 1;
 #endif
 #ifdef HAVE_PR_SET_PDEATHSIG
   #include <sys/utsname.h>
@@ -117,7 +116,7 @@ static struct gasnetc_exit_data {
 #endif 
 
 #ifndef GASNETC_REMOTEEXIT_SIGNAL
-  #ifdef GASNETC_USE_SOCKETPAIR
+  #ifdef GASNETC_HAVE_O_ASYNC
     #define GASNETC_REMOTEEXIT_SIGNAL  SIGIO
   #elif defined(SIGURG)
     #define GASNETC_REMOTEEXIT_SIGNAL  SIGURG
@@ -257,6 +256,38 @@ static void gasnetc_remote_exit_sighand(int sig) {
   gasnetc_exit(0);
 }
 
+static int gasnetc_set_fl(int fd, unsigned int bits) {
+  int flags = fcntl(fd, F_GETFL, 0);
+  if (flags >= 0) {
+    flags |= bits;
+    if (fcntl(fd, F_SETFL, flags) < 0)
+      return -1;
+  }
+  return flags;
+}
+
+static int gasnetc_clr_fl(int fd, unsigned int bits) {
+  int flags = fcntl(fd, F_GETFL, 0);
+  if (flags >= 0) {
+    flags &= ~bits;
+    if (fcntl(fd, F_SETFL, flags) < 0)
+      return -1;
+  }
+  return flags;
+}
+
+#ifdef GASNETC_HAVE_O_ASYNC
+static void gasnetc_arm_sigio(int fd) {
+  if (gasnetc_set_fl(fd, O_ASYNC) > 0) {
+    (void) fcntl(fd, F_SETOWN, getpid());
+  }
+}
+static void gasnetc_disarm_sigio(int fd) {
+  gasnetc_clr_fl(fd, O_ASYNC);
+}
+#endif
+
+
 static void gasnetc_fork_children(void) {
   gasnet_node_t i;
 
@@ -267,11 +298,11 @@ static void gasnetc_fork_children(void) {
   gasneti_assert(gasneti_mynode == 0);
 
   { /* set O_APPEND on stdout and stderr (same reasons as in bug 2136) */
-    int tmp;
-    tmp = fcntl(STDOUT_FILENO, F_GETFL, 0);
-    if (tmp >= 0) (void)fcntl(STDOUT_FILENO, F_SETFL, tmp | O_APPEND);
-    tmp = fcntl(STDERR_FILENO, F_GETFL, 0);
-    if (tmp >= 0) (void)fcntl(STDERR_FILENO, F_SETFL, tmp | O_APPEND);
+    int rc;
+    rc = gasnetc_set_fl(STDOUT_FILENO, O_APPEND);
+    gasneti_assert( rc >= 0 );
+    rc = gasnetc_set_fl(STDERR_FILENO, O_APPEND);
+    gasneti_assert( rc >= 0 );
   }
 
   gasneti_reghandler(GASNETC_REMOTEEXIT_SIGNAL, gasnetc_remote_exit_sighand);
@@ -432,8 +463,9 @@ static int gasnetc_init(int *argc, char ***argv) {
                                                  GASNETC_DEFAULT_EXITTIMEOUT_FACTOR,
                                                  GASNETC_DEFAULT_EXITTIMEOUT_MIN);
 
-  #ifdef HAVE_PR_SET_PDEATHSIG
-  { /* check safety of prctl(PR_SET_PDEATHSIG, ...) */
+  #if defined(HAVE_PR_SET_PDEATHSIG) && !defined(GASNETC_USE_SOCKETPAIR)
+  {
+    /* check safety of prctl(PR_SET_PDEATHSIG, ...) */
     struct utsname name;
     if (0 == uname(&name)) {
       const char *dot = strchr(name.release,'.');
@@ -443,56 +475,40 @@ static int gasnetc_init(int *argc, char ***argv) {
         gasnetc_use_pdeathsig = ((100 * major + minor) >= 206); /* 2.6.0 kernel or newer */
       }
     }
-    #ifdef GASNETC_USE_SOCKETPAIR
-    /* Disable socketpair if we are able to use PDEATHSIG */
-    gasnetc_using_socketpair = !gasnetc_use_pdeathsig;
-    #endif
   }
   #endif
 
   /* pipes or sockets for intra-process bootstrap comms.
-   * Sockets are used on systems where they can trigger a signal on disconnect,
-   * and the linux-specific prctl(PDEATHSIG) is unavailable.
+   * Sockets are used on systems where they can trigger a signal on disconnect.
    * Otherwise, we use pipes (which we assume are cheaper than PF_LOCAL sockets).
+   * Note that we still try to arm pipes for SIGIO, but the behavior is less portable.
    */
   gasnetc_fds = gasneti_malloc(2 * gasneti_nodes * sizeof(int));
   gasneti_leak(gasnetc_fds);
   for (i = 1; i < gasneti_nodes; ++i) {
   #ifdef GASNETC_USE_SOCKETPAIR
-    if (gasnetc_using_socketpair) {
-      #if defined(PF_LOCAL)
+    #if defined(PF_LOCAL)
       gasneti_assert_zeroret( socketpair(PF_LOCAL, SOCK_STREAM, 0, &gasnetc_fds[2 * i]) );
-      #elif defined(PF_UNIX)
+    #elif defined(PF_UNIX)
       gasneti_assert_zeroret( socketpair(PF_UNIX, SOCK_STREAM, 0, &gasnetc_fds[2 * i]) );
-      #endif
-    } else
-  #endif
+    #endif
+  #else
     gasneti_assert_zeroret( pipe(&gasnetc_fds[2 * i]) );
+  #endif
   }
 
   /* A fork in the road! */
   gasnetc_fork_children();
 
-  /* close/shutdown unused portion of pipe/socket resources */
+  /* close unused portion of pipe/socket resources */
   if (0 == gasneti_mynode) {
     for (i = 1; i < gasneti_nodes; ++i) {
       gasneti_assert_zeroret( close(gasnetc_fds[2 * i]) );
-      #ifdef GASNETC_USE_SOCKETPAIR
-      if (gasnetc_using_socketpair) {
-        (void) shutdown(gasnetc_fds[2 * i + 1], SHUT_RD);
-      }
-      #endif
     }
   } else {
     for (i = 1; i < gasneti_nodes; ++i) {
       gasneti_assert_zeroret( close(gasnetc_fds[2 * i + 1]) );
-      if (i == gasneti_mynode) {
-        #ifdef GASNETC_USE_SOCKETPAIR
-        if (gasnetc_using_socketpair) {
-          (void) shutdown(gasnetc_fds[2 * i], SHUT_WR);
-        }
-        #endif
-      } else {
+      if (i != gasneti_mynode) {
         gasneti_assert_zeroret( close(gasnetc_fds[2 * i]) );
       }
     }
@@ -518,9 +534,7 @@ static int gasnetc_init(int *argc, char ***argv) {
   }
   #endif
   #ifdef GASNETC_USE_SOCKETPAIR
-  if (gasnetc_using_socketpair) {
-    GASNETI_TRACE_PRINTF(C,("using socketpair/SIGIO for process control"));
-  }
+  GASNETI_TRACE_PRINTF(C,("using SIGIO for process control"));
   #endif
 
   {
@@ -539,29 +553,23 @@ static int gasnetc_init(int *argc, char ***argv) {
 
   /* Done w/ bootstrap comms (move later if it becomes necessary) */
   if (0 == gasneti_mynode) {
-    #ifdef GASNETC_USE_SOCKETPAIR
-    if (gasnetc_using_socketpair) {
-      /* Nothing to do here */
-    } else
-    #endif
     for (i = 1; i < gasneti_nodes; ++i) {
-      gasneti_assert_zeroret( close(gasnetc_fds[2 * i + 1]) );
+      const int fd = gasnetc_fds[2 * i + 1];
+      #ifdef GASNETC_HAVE_O_ASYNC
+        /* Arm for SIGIO when any child closes the socket/pipe */
+        gasnetc_arm_sigio(fd);
+      #else
+        gasneti_assert_zeroret( close(fd) );
+      #endif
     }
   } else {
     const int fd = gasnetc_fds[2 * gasneti_mynode];
-    #ifdef GASNETC_USE_SOCKETPAIR
-    if (gasnetc_using_socketpair) {
-      /* Arm for SIGIO when parent (node0) closes the socket */
-      int flags = fcntl(fd, F_GETFL);
-      if (flags >= 0) {
-        const pid_t mypid = getpid();
-        gasneti_assert_zeroret( fcntl(fd, F_SETFL, flags|O_ASYNC) );
-        gasneti_assert_zeroret( fcntl(fd, F_SETOWN, getpid()) );
-      }
-    } else
+    /* Arm for SIGIO when parent (node0) closes the socket/pipe */
+    #ifdef GASNETC_HAVE_O_ASYNC
+      gasnetc_arm_sigio(fd);
+    #else
+      gasneti_assert_zeroret( close(fd) );
     #endif
-    /* Done w/ bootstrap comms */
-    gasneti_assert_zeroret( close(fd) );
   }
 #endif
 
@@ -827,10 +835,17 @@ extern void gasnetc_exit(int exitcode) {
     prctl(PR_SET_PDEATHSIG, 0);
   }
   #endif
-  #ifdef GASNETC_USE_SOCKETPAIR
-  if (gasneti_mynode && gasnetc_using_socketpair) {
-    /* Disable generation of SIGIO when parent exits */
-    close(gasnetc_fds[2 * gasneti_mynode]);
+  #ifdef GASNETC_HAVE_O_ASYNC
+  {
+    /* Disable generation of SIGIO when parent or children exits */
+    if (0 == gasneti_mynode) {
+      int i;
+      for (i = 1; i < gasneti_nodes; ++i) {
+        gasnetc_disarm_sigio(gasnetc_fds[2 * i + 1]);
+      }
+    } else {
+      gasnetc_disarm_sigio(gasnetc_fds[2 * gasneti_mynode]);
+    }
   }
   #endif
 
