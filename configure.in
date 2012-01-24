@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2012/01/24 00:18:18 $
-# $Revision: 1.740 $
+#     $Date: 2012/01/24 02:56:31 $
+# $Revision: 1.741 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.740 $)
+AC_REVISION($Revision: 1.741 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2808,7 +2808,7 @@ if test $enabled_smp = yes; then
       solaris*)
         GASNET_PUSHVAR(LIBS,"")
           AC_SEARCH_LIBS(socket, socket, have_smp_libs=yes, have_smp_libs=no)
-          if test "x$have_ssh_libs" = xyes ; then
+          if test "x$have_smp_libs" = xyes ; then
             SMP_LIBS="$LIBS"
           fi
         GASNET_POPVAR(LIBS)
