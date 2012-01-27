@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2012/01/16 20:17:47 $
- * $Revision: 1.103 $
+ *     $Date: 2012/01/27 00:05:08 $
+ * $Revision: 1.104 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -656,7 +656,7 @@ static void do_writev(int fd, struct iovec *iov, int iovcnt)
 static void do_write_string(int fd, const char *string) {
   size_t len = string ? strlen(string) : 0;
   struct iovec iov[2];
-  iov[0].iov_base = &len;
+  iov[0].iov_base = (void *)&len;
   iov[0].iov_len  = sizeof(len);
   iov[1].iov_base = (void *)string;
   iov[1].iov_len  = len;
@@ -2211,13 +2211,13 @@ void gasneti_bootstrapBroadcast_ssh(void *src, size_t len, void *dest, int rootn
   } else {
     char cmd = BOOTSTRAP_CMD_BCAST;
     struct iovec iov[4];
-    iov[0].iov_base = &cmd;
+    iov[0].iov_base = (void *)&cmd;
     iov[0].iov_len  = sizeof(cmd);
-    iov[1].iov_base = &len;
+    iov[1].iov_base = (void *)&len;
     iov[1].iov_len  = sizeof(len);
-    iov[2].iov_base = &rootnode;
+    iov[2].iov_base = (void *)&rootnode;
     iov[2].iov_len  = sizeof(rootnode);
-    iov[3].iov_base = src;
+    iov[3].iov_base = (void *)src;
     iov[3].iov_len  = len;
     do_writev(parent, iov, (myproc == rootnode) ? 4 : 3);
     do_read(parent, dest, len);
