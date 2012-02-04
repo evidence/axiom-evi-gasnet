@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2012/01/07 04:45:16 $
- * $Revision: 1.225 $
+ *     $Date: 2012/02/04 22:33:10 $
+ * $Revision: 1.226 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -990,7 +990,11 @@ static void gasneti_nodemap_dflt(gasneti_bootstrapExchangefn_t exchangefn) {
      * AIX and others have int.
      */
     uint32_t *allids = gasneti_malloc(gasneti_nodes * sizeof(uint32_t));
+  #if PLATFORM_OS_CYGWIN
+    uint32_t myid = 0; /* gethostid() is known to be unreliable - we'll hash the hostname */
+  #else
     uint32_t myid = (uint32_t)gethostid();
+  #endif
 
     /* Fall back to hashing the hostname if the hostid is obviously invalid */
     if (!myid || !(~myid)        /* 0.0.0.0 or 255.255.255.255 */
