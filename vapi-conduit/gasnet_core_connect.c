@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_connect.c,v $
- *     $Date: 2012/01/09 03:05:52 $
- * $Revision: 1.71 $
+ *     $Date: 2012/02/16 07:39:00 $
+ * $Revision: 1.72 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -199,15 +199,17 @@ gasnetc_xrc_create_qp(struct ibv_xrc_domain *xrc_domain, gasnet_node_t node, int
 
   /* Create the RCV QPs once per supernode and register in the non-creating node(s) */
   /* QPN==1 is reserved, so we can use it as a "lock" value */
+  retry:
   if (gasneti_atomic32_compare_and_swap(rcv_qpn_p, 0, 1, 0)) {
     struct ibv_qp_init_attr init_attr;
     init_attr.xrc_domain = xrc_domain;
     ret = ibv_create_xrc_rcv_qp(&init_attr, &rcv_qpn);
     GASNETC_VAPI_CHECK(ret, "from ibv_create_xrc_rcv_qp()");
 
-    gasneti_atomic32_set(rcv_qpn_p, rcv_qpn, 0);
+    gasneti_atomic32_set(rcv_qpn_p, rcv_qpn, GASNETI_ATOMIC_REL);
   } else {
-    gasneti_waituntil(1 != (rcv_qpn = gasneti_atomic32_read(rcv_qpn_p, 0)));
+    gasneti_waituntil(1 != (rcv_qpn = gasneti_atomic32_read(rcv_qpn_p, 0))); /* includes rmb() */
+    if_pf (rcv_qpn == 0) got retry; /* Should not happen */
     ret = ibv_reg_xrc_rcv_qp(xrc_domain, rcv_qpn);
     GASNETC_VAPI_CHECK(ret, "from ibv_reg_xrc_rcv_qp()");
   }
