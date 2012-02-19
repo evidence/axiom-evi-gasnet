@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2011/10/23 23:16:03 $
- * $Revision: 1.116 $
+ *     $Date: 2012/02/19 07:31:04 $
+ * $Revision: 1.117 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -445,7 +445,7 @@
   #define GASNETI_PUREP(fnname) 
 #endif
 
-/* GASNETI_PURE: assert that function is "const" */
+/* GASNETI_CONST: assert that function is "const" */
   /* const function: a more restricted form of pure function, with all the
    * same restrictions, except additionally the return value must NOT
    * depend on global variables or anything pointed to by the arguments
