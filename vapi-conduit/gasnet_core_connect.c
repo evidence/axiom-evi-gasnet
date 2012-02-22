@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_connect.c,v $
- *     $Date: 2012/02/16 07:39:00 $
- * $Revision: 1.72 $
+ *     $Date: 2012/02/22 22:02:48 $
+ * $Revision: 1.73 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -209,7 +209,7 @@ gasnetc_xrc_create_qp(struct ibv_xrc_domain *xrc_domain, gasnet_node_t node, int
     gasneti_atomic32_set(rcv_qpn_p, rcv_qpn, GASNETI_ATOMIC_REL);
   } else {
     gasneti_waituntil(1 != (rcv_qpn = gasneti_atomic32_read(rcv_qpn_p, 0))); /* includes rmb() */
-    if_pf (rcv_qpn == 0) got retry; /* Should not happen */
+    if_pf (rcv_qpn == 0) goto retry; /* Should not happen */
     ret = ibv_reg_xrc_rcv_qp(xrc_domain, rcv_qpn);
     GASNETC_VAPI_CHECK(ret, "from ibv_reg_xrc_rcv_qp()");
   }
