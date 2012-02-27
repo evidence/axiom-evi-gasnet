@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_fwd.h,v $
- *     $Date: 2012/01/07 06:18:22 $
- * $Revision: 1.55 $
+ *     $Date: 2012/02/27 05:11:10 $
+ * $Revision: 1.56 $
  * Description: GASNet header for vapi conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -61,12 +61,19 @@ typedef uint8_t gasnet_handler_t;
      "private" threads which may be used to run AM handlers, even under GASNET_SEQ
      this ensures locking is still done correctly, etc
    */
-/*
- * The VAPI conduit may have a network progress thread, even for GASNET_SEQ
- * XXX: no progress thread for IBV yet
- */
-#if GASNET_CONDUIT_VAPI && GASNETC_VAPI_RCV_THREAD
-  #define GASNETI_CONDUIT_THREADS 1
+#if GASNET_CONDUIT_VAPI 
+  #if GASNETC_VAPI_RCV_THREAD
+    /* VAPI conduit may have a network progress thread, even for GASNET_SEQ */
+    #define GASNETI_CONDUIT_THREADS 1
+  #elif GASNETC_VAPI_CONN_THREAD
+    /* XXX: no connection thread yet */
+  #endif
+#elif GASNET_CONDUIT_IBV
+  #if GASNETC_IBV_RCV_THREAD
+    /* XXX: no AM progress thread yet */
+  #elif GASNETC_IBV_CONN_THREAD
+    /* XXX: no connection thread yet */
+  #endif
 #endif
   
   /* define to 1 if your conduit may interrupt an application thread 

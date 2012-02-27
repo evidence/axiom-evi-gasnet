@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2012/01/09 02:12:24 $
- * $Revision: 1.285 $
+ *     $Date: 2012/02/27 05:11:10 $
+ * $Revision: 1.286 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -838,7 +838,7 @@ void gasnetc_dump_cqs(gasnetc_wc_t *comp, gasnetc_hca_t *hca, const int is_snd))
   gasnet_hsl_lock(&lock);
 
   if (is_snd) {
-  #if GASNETC_DYNAMIC_CONNECT
+  #if GASNETC_DYNAMIC_CONNECT && !GASNETC_IB_CONN_THREAD
     const int is_ud = (comp->gasnetc_f_wr_id & 1);
   #else
     const int is_ud = 0;
@@ -933,7 +933,7 @@ static int gasnetc_snd_reap(int limit) {
     } else if_pt (rc == GASNETC_POLL_CQ_OK) {
       if_pt (comp.status == GASNETC_WC_SUCCESS) {
         gasnetc_sreq_t *sreq = (gasnetc_sreq_t *)(uintptr_t)comp.gasnetc_f_wr_id;
-      #if GASNETC_DYNAMIC_CONNECT
+      #if GASNETC_DYNAMIC_CONNECT && !GASNETC_IB_CONN_THREAD
         if_pf (comp.gasnetc_f_wr_id & 1) {
           gasnetc_conn_snd_wc(&comp);
         } else
@@ -1067,9 +1067,11 @@ static int gasnetc_snd_reap(int limit) {
 GASNETI_INLINE(gasnetc_get_cep)
 gasnetc_cep_t *gasnetc_get_cep(gasnet_node_t node) {
   gasnetc_cep_t *result = GASNETC_NODE2CEP(node);
+#if GASNETC_DYNAMIC_CONNECT
   if_pf (!result) {
     result = gasnetc_connect_to(node);
   }
+#endif
   return result;
 }
 
@@ -1317,7 +1319,7 @@ static int gasnetc_rcv_reap(gasnetc_hca_t *hca, int limit, gasnetc_rbuf_t **spar
       break;
     } else if_pt (vstat == GASNETC_POLL_CQ_OK) {
       if_pt (comp.status == GASNETC_WC_SUCCESS) {
-      #if GASNETC_DYNAMIC_CONNECT
+      #if GASNETC_DYNAMIC_CONNECT && !GASNETC_IB_CONN_THREAD
         if_pf (comp.gasnetc_f_wr_id & 1) {
           gasnetc_conn_rcv_wc(&comp);
           break; /* lower latency (and fewer implied ACKS) if we cease polling */
@@ -3256,7 +3258,9 @@ extern int gasnetc_sndrcv_init(void) {
   gasnetc_rbuf_t	*rbuf;
   int 			padded_size, h, i;
   size_t		size;
+  int			ud_rcvs = 0;
 
+#if GASNETC_DYNAMIC_CONNECT
   /* Default to handling 2*lg(remote_nodes) incomming UD requests and 4 outgoing */
   gasnetc_ud_rcvs = 1;
   while ((1 << gasnetc_ud_rcvs) < (int)gasnetc_remote_nodes) {
@@ -3268,6 +3272,10 @@ extern int gasnetc_sndrcv_init(void) {
   gasnetc_ud_snds = gasneti_getenv_int_withdefault("GASNET_CONNECT_SNDS", gasnetc_ud_snds, 0);
   GASNETI_TRACE_PRINTF(I, ("Buffers for dynamic connections: rcv=%d snd=%d",
                             gasnetc_ud_rcvs, gasnetc_ud_snds));
+  #if !GASNETC_IB_CONN_THREAD
+  ud_rcvs = gasnetc_ud_rcvs;
+  #endif
+#endif
 
   /*
    * setup RCV resources
@@ -3276,7 +3284,7 @@ extern int gasnetc_sndrcv_init(void) {
   /* create one RCV CQ per HCA */
   GASNETC_FOR_ALL_HCA(hca) {
     const int rcv_count = hca->qps * gasnetc_am_rbufs_per_qp;
-    const gasnetc_cqe_cnt_t cqe_count = rcv_count + (!hca->hca_index ? gasnetc_ud_rcvs : 0);
+    const gasnetc_cqe_cnt_t cqe_count = rcv_count + (!hca->hca_index ? ud_rcvs : 0);
     vstat = gasnetc_create_cq(hca->handle, cqe_count, &hca->rcv_cq, &act_size);
     GASNETC_VAPI_CHECK(vstat, "from gasnetc_create_cq(rcv_cq)");
     GASNETI_TRACE_PRINTF(I, ("Recv CQ length: requested=%d actual=%d", (int)cqe_count, (int)act_size));

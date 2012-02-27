@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_connect.c,v $
- *     $Date: 2012/02/22 22:02:48 $
- * $Revision: 1.73 $
+ *     $Date: 2012/02/27 05:11:10 $
+ * $Revision: 1.74 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -39,8 +39,10 @@
 
 gasneti_semaphore_t gasnetc_zero_sema = GASNETI_SEMAPHORE_INITIALIZER(0, 0);
 
+#if GASNETC_DYNAMIC_CONNECT
 int gasnetc_ud_rcvs = 0;
 int gasnetc_ud_snds = 0;
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 

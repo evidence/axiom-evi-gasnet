@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2012/01/09 02:12:24 $
- * $Revision: 1.211 $
+ *     $Date: 2012/02/27 05:11:10 $
+ * $Revision: 1.212 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -243,6 +243,18 @@ extern int gasnetc_ReplySysMedium(gasnet_token_t token,
 #else
   /* XXX: rcv thread not yet implemented for IBV */
   #define GASNETC_IB_RCV_THREAD 0
+#endif
+
+/* Defined non-zero in gasnet_config.h to enable a thread for dynammic connections */
+#if !GASNETC_DYNAMIC_CONNECT
+  /* conn thread useless if dynammic connect is disabled */
+  #define GASNETC_IB_CONN_THREAD 0
+#elif GASNET_CONDUIT_VAPI
+  /* XXX: conn thread not yet implemented for VAPI */
+  #define GASNETC_IB_CONN_THREAD 0
+#else
+  /* XXX: conn thread not yet implemented for IBV */
+  #define GASNETC_IB_CONN_THREAD 0
 #endif
 
 /* maximum number of ops reaped from the send CQ per poll */
@@ -611,10 +623,12 @@ extern int gasnetc_xrc_init(void);
 #endif
 extern int gasnetc_connect_init(void);
 extern int gasnetc_connect_fini(void);
+#if GASNETC_DYNAMIC_CONNECT
 extern gasnetc_cep_t *gasnetc_connect_to(gasnet_node_t node);
 extern void gasnetc_conn_implied_ack(gasnet_node_t node);
 extern void gasnetc_conn_rcv_wc(gasnetc_wc_t *comp);
 extern void gasnetc_conn_snd_wc(gasnetc_wc_t *comp);
+#endif
 
 /* Routines in gasnet_core_sndrcv.c */
 extern int gasnetc_sndrcv_limits(void);
@@ -660,8 +674,13 @@ extern int		gasnetc_op_oust_pp;
 extern int		gasnetc_am_oust_limit;
 extern int		gasnetc_am_oust_pp;
 extern int		gasnetc_bbuf_limit;
-extern int		gasnetc_ud_rcvs;
-extern int		gasnetc_ud_snds;
+#if GASNETC_DYNAMIC_CONNECT
+  extern int		gasnetc_ud_rcvs;
+  extern int		gasnetc_ud_snds;
+#else
+  #define		gasnetc_ud_rcvs 0
+  #define		gasnetc_ud_snds 0
+#endif
 extern int		gasnetc_use_rcv_thread;
 extern int		gasnetc_am_credits_slack;
 extern int		gasnetc_alloc_qps;    /* Number of QPs per node in gasnetc_ceps[] */
