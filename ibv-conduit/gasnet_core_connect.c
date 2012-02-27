@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2012/02/27 20:52:57 $
- * $Revision: 1.78 $
+ *     $Date: 2012/02/27 21:31:15 $
+ * $Revision: 1.79 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -1252,20 +1252,6 @@ conn_send_empty(gasnetc_ah_t *ah, gasnet_node_t node, gasnetc_conn_cmd_t cmd)
 }
 
 #if GASNETC_IB_CONN_THREAD
-GASNETI_INLINE(conn_do_wc)
-void conn_do_wc(gasnetc_wc_t *comp_p, const int is_snd)
-{
-  if (comp_p->status != GASNETC_WC_SUCCESS) {
-    gasneti_fatalerror("failed dynamic connection work request");
-  } else if (is_snd && comp_p->opcode == GASNETC_WC_SEND) {
-    gasnetc_conn_snd_wc(comp_p);
-  } else if (!is_snd && comp_p->opcode == GASNETC_WC_RECV) {
-    gasnetc_conn_rcv_wc(comp_p);
-  } else {
-    gasneti_fatalerror("invalid dynamic connection work completion");
-  }
-}
-
 static int conn_snd_poll(void)
 {
   gasnetc_wc_t comp;
@@ -1279,10 +1265,18 @@ static int conn_snd_poll(void)
   if (GASNETC_IS_EXITING()) {
     /* shutdown in another thread */
   } else if (rc == GASNETC_POLL_CQ_OK) {
-    conn_do_wc(&comp, 1);
+    if_pf (comp.status != GASNETC_WC_SUCCESS) {
+      gasneti_fatalerror("failed dynamic connection send work request");
+    } else if_pf(comp.opcode != GASNETC_WC_SEND) {
+      gasneti_fatalerror("invalid dynamic connection send work completion");
+    }
+    gasnetc_conn_snd_wc(&comp);
+    return 1;
   } else if (rc != GASNETC_POLL_CQ_EMPTY) {
-    gasneti_fatalerror("failed dynamic connection cq poll");
+    gasneti_fatalerror("failed dynamic connection send cq poll");
   }
+
+  return 0;
 }
 
 static void *gasnetc_conn_thread(void *arg)
@@ -1301,7 +1295,12 @@ static void *gasnetc_conn_thread(void *arg)
       /* shutdown in another thread */
       break;
     } else if (rc == GASNETC_POLL_CQ_OK) {
-      conn_do_wc(&comp, 0);
+      if_pf (comp.status != GASNETC_WC_SUCCESS) {
+        gasneti_fatalerror("failed dynamic connection recv work request");
+      } else if_pf(comp.opcode != GASNETC_WC_RECV) {
+        gasneti_fatalerror("invalid dynamic connection recv work completion");
+      }
+      gasnetc_conn_rcv_wc(&comp);
     } else if (rc == GASNETC_POLL_CQ_EMPTY) {
     #if GASNET_CONDUIT_VAPI
       /* false wake up - nothing needed here */
