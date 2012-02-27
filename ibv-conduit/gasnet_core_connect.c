@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2012/02/27 05:11:10 $
- * $Revision: 1.74 $
+ *     $Date: 2012/02/27 08:09:47 $
+ * $Revision: 1.75 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -931,11 +931,24 @@ typedef struct {
 static gasnetc_qpn_t *conn_remote_ud_qpn = NULL;
 static gasneti_lifo_head_t conn_snd_freelist = GASNETI_LIFO_INITIALIZER;
 
+#if GASNETC_IB_CONN_THREAD
+static gasneti_semaphore_t conn_ud_sema;
+static gasneti_semaphore_t *conn_ud_sema_p = &conn_ud_sema;
+#else
+static gasneti_semaphore_t *conn_ud_sema_p = NULL;
+#endif
+
 /* TODO: group the following into a UD-endpoint struct */
 static gasnetc_qp_hndl_t conn_ud_qp = GASNETC_IB_CHOOSE(VAPI_INVAL_HNDL, NULL);
 static gasnetc_port_info_t *conn_ud_port = NULL;
 static gasnetc_hca_t *conn_ud_hca = NULL;
 static int conn_ud_msg_sz = -1;
+
+#if GASNETC_IB_CONN_THREAD
+static pthread_t conn_thread_id;
+static gasnetc_cq_hndl_t conn_ud_cq = NULL;
+static GASNETC_IB_CHOOSE(void*, struct ibv_comp_channel *) conn_ud_cc = NULL;
+#endif
 
 #define GASNETC_GRH_SIZE 40 /* Global Route Header is always 40 bytes */
 
@@ -1021,7 +1034,6 @@ gasnetc_rcv_post_ud(gasnetc_ud_rcv_desc_t *desc)
 static void
 gasnetc_snd_post_ud(gasnetc_ud_snd_desc_t *desc, gasnetc_ah_t *ah, gasnet_node_t node)
 {
-  gasneti_semaphore_t *snd_cq_sema_p = conn_ud_hca->snd_cq_sema_p;
   gasnetc_snd_wr_t *wr = &desc->wr;
   int vstat;
 
@@ -1033,12 +1045,12 @@ gasnetc_snd_post_ud(gasnetc_ud_snd_desc_t *desc, gasnetc_ah_t *ah, gasnet_node_t
   desc->ah = ah;
 
   /* Loop until space is available for 1 new entry on the CQ. */
-  if_pf (!gasneti_semaphore_trydown(snd_cq_sema_p)) {
+  if_pf (!gasneti_semaphore_trydown(conn_ud_sema_p)) {
     GASNETC_TRACE_WAIT_BEGIN();
     do {
       GASNETI_WAITHOOK();
       gasnetc_sndrcv_poll(1);
-    } while (!gasneti_semaphore_trydown(snd_cq_sema_p));
+    } while (!gasneti_semaphore_trydown(conn_ud_sema_p));
     GASNETC_TRACE_WAIT_END(CONN_STALL_CQ);
   }
 
@@ -1233,6 +1245,59 @@ conn_send_empty(gasnetc_ah_t *ah, gasnet_node_t node, gasnetc_conn_cmd_t cmd)
   gasnetc_snd_post_ud(desc, ah, node);
 }
 
+#if GASNETC_IB_CONN_THREAD
+static void *gasnetc_conn_thread(void *arg)
+{
+#if GASNET_CONDUIT_VAPI
+  /* not yet implemnted */
+  #error
+#else
+  while (1) {
+    gasnetc_cq_hndl_t the_cq;
+    void *the_ctx;
+    int rc;
+
+    /* block for event */
+    rc = ibv_get_cq_event(conn_ud_cc, &the_cq, &the_ctx);
+    pthread_testcancel();
+    GASNETC_VAPI_CHECK(rc, "while awaiting dynamic connection event");
+    gasneti_assert(the_cq == conn_ud_cq);
+
+    /* ack the event and rearm */
+    ibv_ack_cq_events(the_cq, 1);
+    rc = ibv_req_notify_cq(the_cq, 0);
+    GASNETC_VAPI_CHECK(rc, "while requesting dynamic connection events");
+
+    /* drain the cq */
+    while (1) {
+      gasnetc_wc_t comp;
+
+      rc = ibv_poll_cq(the_cq, 1, &comp);
+      if (rc == GASNETC_POLL_CQ_EMPTY) {
+        break;
+      } else if (GASNETC_IS_EXITING()) {
+        /* shutdown in another thread */
+        return NULL;
+      } else if (rc != GASNETC_POLL_CQ_OK) {
+        gasneti_fatalerror("failed dynamic connection cq poll");
+      }
+
+      if (comp.status != GASNETC_WC_SUCCESS) {
+        gasneti_fatalerror("failed dynamic connection work request");
+      } else if (comp.opcode == IBV_WC_SEND) {
+        gasnetc_conn_snd_wc(&comp);
+      } else if (comp.opcode && IBV_WC_RECV) {
+        gasnetc_conn_rcv_wc(&comp);
+      } else {
+        gasneti_fatalerror("invalid dynamic connection work completion");
+      }
+    }
+  }
+#endif
+
+  return NULL;
+}
+#endif
 /* ------------------------------------------------------------------------------------ */
 
 /* Create UD QP and advance all the way to RTS */
@@ -1246,6 +1311,7 @@ gasnetc_qp_setup_ud(gasnetc_port_info_t *port, int fully_connected)
     gasnetc_qp_attr_t qp_attr;
     gasnetc_qp_mask_t qp_mask;
     gasnetc_memreg_t mem_reg;
+    gasnetc_cq_hndl_t send_cq, recv_cq;
     uint32_t my_qkey = 0;
     uintptr_t addr;
     int rc;
@@ -1284,6 +1350,44 @@ gasnetc_qp_setup_ud(gasnetc_port_info_t *port, int fully_connected)
     conn_ud_hca = &gasnetc_hca[port->hca_index];
     conn_ud_msg_sz = send_sz;
 
+    /* SETUP CONN THREAD */
+#if !GASNETC_IB_CONN_THREAD
+    /* nothing special to do here */
+    send_cq = conn_ud_hca->snd_cq;
+    recv_cq = conn_ud_hca->rcv_cq;
+    conn_ud_sema_p = conn_ud_hca->snd_cq_sema_p;
+#else
+  #if GASNET_CONDUIT_VAPI
+    /* not yet implemnted */
+    #error
+  #else
+    conn_ud_cc = ibv_create_comp_channel(conn_ud_hca->handle);
+    if (conn_ud_cc == NULL) return GASNET_ERR_RESOURCE;
+
+    conn_ud_cq = ibv_create_cq(conn_ud_hca->handle,
+                               gasnetc_ud_snds + gasnetc_ud_rcvs,
+                               NULL, conn_ud_cc, 0);
+    if (conn_ud_cq == NULL) return GASNET_ERR_RESOURCE;
+
+    rc = ibv_req_notify_cq(conn_ud_cq, 0);
+    if (rc != 0) return GASNET_ERR_RESOURCE;
+  #endif
+
+    { pthread_attr_t attr;
+
+      pthread_attr_init(&attr);
+      (void)pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM); /* ignore failures */
+
+      gasneti_assert_zeroret(pthread_create(&conn_thread_id, &attr,
+                                            gasnetc_conn_thread, NULL));
+      gasneti_assert_zeroret(pthread_attr_destroy(&attr));
+    }
+
+    send_cq = conn_ud_cq;
+    recv_cq = conn_ud_cq;
+    gasneti_semaphore_init(conn_ud_sema_p, gasnetc_ud_snds, gasnetc_ud_snds);
+#endif
+
     /* CREATE */
 #if GASNET_CONDUIT_VAPI
   {
@@ -1299,8 +1403,8 @@ gasnetc_qp_setup_ud(gasnetc_port_info_t *port, int fully_connected)
     qp_init_attr.sq_sig_type        = VAPI_SIGNAL_REQ_WR;
     qp_init_attr.ts_type            = VAPI_TS_UD;
     qp_init_attr.pd_hndl            = conn_ud_hca->pd;
-    qp_init_attr.rq_cq_hndl         = conn_ud_hca->rcv_cq;
-    qp_init_attr.sq_cq_hndl         = conn_ud_hca->snd_cq;
+    qp_init_attr.rq_cq_hndl         = recv_cq;
+    qp_init_attr.sq_cq_hndl         = send_cq;
 
     rc = VAPI_create_qp(conn_ud_hca->handle, &qp_init_attr, &conn_ud_qp, &qp_prop);
     if (rc != 0) return GASNET_ERR_RESOURCE;
@@ -1318,8 +1422,8 @@ gasnetc_qp_setup_ud(gasnetc_port_info_t *port, int fully_connected)
     qp_init_attr.qp_type             = IBV_QPT_UD;
     qp_init_attr.sq_sig_all          = 1;
     qp_init_attr.srq                 = NULL;
-    qp_init_attr.send_cq             = conn_ud_hca->snd_cq;
-    qp_init_attr.recv_cq             = conn_ud_hca->rcv_cq;
+    qp_init_attr.send_cq             = send_cq;
+    qp_init_attr.recv_cq             = recv_cq;
     qp_init_attr.cap.max_inline_data = 0;
 
     conn_ud_qp = ibv_create_qp(conn_ud_hca->pd, &qp_init_attr);
@@ -1988,7 +2092,7 @@ gasnetc_conn_snd_wc(gasnetc_wc_t *comp)
 {
   gasnetc_ud_snd_desc_t *desc = (void *)(uintptr_t)(1 ^ comp->gasnetc_f_wr_id);
 
-  gasneti_semaphore_up(conn_ud_hca->snd_cq_sema_p);
+  gasneti_semaphore_up(conn_ud_sema_p);
   gasnetc_put_ah(desc->ah);
   gasneti_lifo_push(&conn_snd_freelist, desc);
 }
@@ -2530,6 +2634,10 @@ gasnetc_connect_fini(void)
 {
   gasnet_node_t n, count = 0;
   int fd = -1;
+
+#if GASNETC_DYNAMIC_CONNECT && GASNETC_IB_CONN_THREAD
+  (void) pthread_cancel(conn_thread_id);
+#endif
 
   /* Open file replacing any '%' in filename with node number */
   { const char *envstr = gasnetc_connectfile_out;

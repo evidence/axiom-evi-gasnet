@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2012/02/27 05:11:10 $
- * $Revision: 1.212 $
+ *     $Date: 2012/02/27 08:09:47 $
+ * $Revision: 1.213 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -253,8 +253,11 @@ extern int gasnetc_ReplySysMedium(gasnet_token_t token,
   /* XXX: conn thread not yet implemented for VAPI */
   #define GASNETC_IB_CONN_THREAD 0
 #else
-  /* XXX: conn thread not yet implemented for IBV */
-  #define GASNETC_IB_CONN_THREAD 0
+  #ifndef GASNETC_IBV_CONN_THREAD
+    #define GASNETC_IB_CONN_THREAD	0
+  #else
+    #define GASNETC_IB_CONN_THREAD	1
+  #endif
 #endif
 
 /* maximum number of ops reaped from the send CQ per poll */

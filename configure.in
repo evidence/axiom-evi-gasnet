@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2012/01/27 05:49:06 $
-# $Revision: 1.742 $
+#     $Date: 2012/02/27 08:09:45 $
+# $Revision: 1.743 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.742 $)
+AC_REVISION($Revision: 1.743 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2135,6 +2135,7 @@ AC_DEFUN([GASNET_IB_OPTIONS],[
   pushdef([gasnet_ib_spawner_conf],gasnet_[]lowername[]_spawner_conf)
   pushdef([GASNETC_IB_POLL_LOCK],GASNETC_[]uppername[]_POLL_LOCK)
   pushdef([GASNETC_IB_RCV_THREAD],GASNETC_[]uppername[]_RCV_THREAD)
+  pushdef([GASNETC_IB_CONN_THREAD],GASNETC_[]uppername[]_CONN_THREAD)
   pushdef([GASNETC_IB_MAX_HCAS],GASNETC_[]uppername[]_MAX_HCAS)
   pushdef([GASNET_IB_SPAWNER_CONF],GASNET_[]uppername[]_SPAWNER_CONF)
 
@@ -2159,6 +2160,17 @@ AC_DEFUN([GASNET_IB_OPTIONS],[
     [enabled_ib_rcv_thread=$have_pthread])
     if test "$enabled_ib_rcv_thread" = yes; then
       AC_DEFINE(GASNETC_IB_RCV_THREAD)
+    fi
+
+  GASNET_IF_ENABLED_WITH_AUTO(lowername[]-conn-thread, [See vapi-conduit/README (enabled by default if pthreads available)], 
+    [enabled_ib_conn_thread=yes
+     if test "$have_pthread" = no; then
+       AC_MSG_ERROR([--enable-[]lowername[]-conn-thread requires pthread support but pthreads $pthread_reason])
+     fi],
+    [enabled_ib_conn_thread=no],
+    [enabled_ib_conn_thread=$have_pthread])
+    if test "$enabled_ib_conn_thread" = yes; then
+      AC_DEFINE(GASNETC_IB_CONN_THREAD)
     fi
 
   GASNET_WITH(lowername[]-spawner,
