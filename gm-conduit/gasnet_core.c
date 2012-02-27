@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2012/01/08 23:56:36 $
- * $Revision: 1.135 $
+ * $Date: 2012/02/27 18:06:52 $
+ * $Revision: 1.136 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -2568,10 +2568,12 @@ void
 gasnetc_DestroyGatherBufs(void)
 {
     gasneti_free(gasnetc_bootstrapGather_buf[0]);
-    gasnetc_bootstrapGather_bufsz[0] = NULL;
+    gasnetc_bootstrapGather_buf[0] = NULL;
+    gasnetc_bootstrapGather_bufsz[0] = 0;
 
     gasneti_free(gasnetc_bootstrapGather_buf[1]);
-    gasnetc_bootstrapGather_bufsz[1] = NULL;
+    gasnetc_bootstrapGather_buf[1] = NULL;
+    gasnetc_bootstrapGather_bufsz[1] = 0;
 }
 
 
