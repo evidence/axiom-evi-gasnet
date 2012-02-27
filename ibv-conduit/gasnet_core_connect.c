@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2012/02/27 21:31:15 $
- * $Revision: 1.79 $
+ *     $Date: 2012/02/27 23:51:06 $
+ * $Revision: 1.80 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -2688,7 +2688,7 @@ gasnetc_connect_fini(void)
   gasnet_node_t n, count = 0;
   int fd = -1;
 
-#if GASNETC_DYNAMIC_CONNECT && GASNETC_IB_CONN_THREAD
+#if GASNETC_DYNAMIC_CONNECT && GASNETC_IB_CONN_THREAD && 0 /* Disabled - can SEGV */
 # if GASNET_CONDUIT_VAPI
   (void) EVAPI_poll_cq_unblock(conn_ud_hca->handle, conn_ud_rcv_cq);
 # endif
