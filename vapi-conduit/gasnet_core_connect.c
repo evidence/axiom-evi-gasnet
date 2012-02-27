@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_connect.c,v $
- *     $Date: 2012/02/27 08:09:47 $
- * $Revision: 1.75 $
+ *     $Date: 2012/02/27 09:56:35 $
+ * $Revision: 1.76 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -946,8 +946,10 @@ static int conn_ud_msg_sz = -1;
 
 #if GASNETC_IB_CONN_THREAD
 static pthread_t conn_thread_id;
-static gasnetc_cq_hndl_t conn_ud_cq = NULL;
-static GASNETC_IB_CHOOSE(void*, struct ibv_comp_channel *) conn_ud_cc = NULL;
+static gasnetc_cq_hndl_t conn_ud_cq = GASNETC_IB_CHOOSE(VAPI_INVAL_HNDL, NULL);;
+# if GASNET_CONDUIT_IBV
+  static struct ibv_comp_channel *conn_ud_cc = NULL;
+# endif
 #endif
 
 #define GASNETC_GRH_SIZE 40 /* Global Route Header is always 40 bytes */
@@ -1246,11 +1248,41 @@ conn_send_empty(gasnetc_ah_t *ah, gasnet_node_t node, gasnetc_conn_cmd_t cmd)
 }
 
 #if GASNETC_IB_CONN_THREAD
+GASNETI_INLINE(gasnetc_conn_thread_inner)
+void gasnetc_conn_thread_inner(gasnetc_wc_t *comp_p)
+{
+  if (comp_p->status != GASNETC_WC_SUCCESS) {
+    gasneti_fatalerror("failed dynamic connection work request");
+  } else if (comp_p->opcode == GASNETC_WC_SEND) {
+    gasnetc_conn_snd_wc(comp_p);
+  } else if (comp_p->opcode == GASNETC_WC_RECV) {
+    gasnetc_conn_rcv_wc(comp_p);
+  } else {
+    gasneti_fatalerror("invalid dynamic connection work completion");
+  }
+}
+
 static void *gasnetc_conn_thread(void *arg)
 {
 #if GASNET_CONDUIT_VAPI
-  /* not yet implemnted */
-  #error
+  while (1) {
+    gasnetc_wc_t comp;
+    int rc;
+
+    /* block for one cqe */
+    rc = EVAPI_poll_cq_block(conn_ud_hca->handle, conn_ud_cq, 0, &comp);
+    pthread_testcancel();
+    if (GASNETC_IS_EXITING()) {
+      /* shutdown in another thread */
+      return NULL;
+    } else if (rc == VAPI_CQ_EMPTY) {
+      continue;
+    }
+    GASNETC_VAPI_CHECK(rc, "while awaiting dynamic connection event");
+
+    /* process the cqe */
+    gasnetc_conn_thread_inner(&comp);
+  }
 #else
   while (1) {
     gasnetc_cq_hndl_t the_cq;
@@ -1273,24 +1305,16 @@ static void *gasnetc_conn_thread(void *arg)
       gasnetc_wc_t comp;
 
       rc = ibv_poll_cq(the_cq, 1, &comp);
-      if (rc == GASNETC_POLL_CQ_EMPTY) {
-        break;
-      } else if (GASNETC_IS_EXITING()) {
+      if (GASNETC_IS_EXITING()) {
         /* shutdown in another thread */
         return NULL;
+      } else if (rc == GASNETC_POLL_CQ_EMPTY) {
+        break;
       } else if (rc != GASNETC_POLL_CQ_OK) {
         gasneti_fatalerror("failed dynamic connection cq poll");
       }
 
-      if (comp.status != GASNETC_WC_SUCCESS) {
-        gasneti_fatalerror("failed dynamic connection work request");
-      } else if (comp.opcode == IBV_WC_SEND) {
-        gasnetc_conn_snd_wc(&comp);
-      } else if (comp.opcode && IBV_WC_RECV) {
-        gasnetc_conn_rcv_wc(&comp);
-      } else {
-        gasneti_fatalerror("invalid dynamic connection work completion");
-      }
+      gasnetc_conn_thread_inner(&comp);
     }
   }
 #endif
@@ -1358,8 +1382,19 @@ gasnetc_qp_setup_ud(gasnetc_port_info_t *port, int fully_connected)
     conn_ud_sema_p = conn_ud_hca->snd_cq_sema_p;
 #else
   #if GASNET_CONDUIT_VAPI
-    /* not yet implemnted */
-    #error
+  { gasnetc_cqe_cnt_t cq_sz;
+    EVAPI_compl_handler_hndl_t compl_hndl;
+
+    rc = VAPI_create_cq(conn_ud_hca->handle,
+                        gasnetc_ud_snds + gasnetc_ud_rcvs,
+                        &conn_ud_cq, &cq_sz);
+    GASNETC_VAPI_CHECK(rc, "from VAPI_create_cq(conn)");
+
+    rc = EVAPI_set_comp_eventh(conn_ud_hca->handle, conn_ud_cq,
+                               EVAPI_POLL_CQ_UNBLOCK_HANDLER, NULL,
+                               &compl_hndl);
+    GASNETC_VAPI_CHECK(rc, "from EVAPI_set_comp_eventh(conn)");
+  }
   #else
     conn_ud_cc = ibv_create_comp_channel(conn_ud_hca->handle);
     if (conn_ud_cc == NULL) return GASNET_ERR_RESOURCE;
@@ -2636,6 +2671,9 @@ gasnetc_connect_fini(void)
   int fd = -1;
 
 #if GASNETC_DYNAMIC_CONNECT && GASNETC_IB_CONN_THREAD
+# if GASNET_CONDUIT_VAPI
+  (void) EVAPI_poll_cq_unblock(conn_ud_hca->handle, conn_ud_cq);
+# endif
   (void) pthread_cancel(conn_thread_id);
 #endif
 

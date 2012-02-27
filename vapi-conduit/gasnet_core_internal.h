@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2012/02/27 08:09:47 $
- * $Revision: 1.213 $
+ *     $Date: 2012/02/27 09:56:35 $
+ * $Revision: 1.214 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -249,15 +249,12 @@ extern int gasnetc_ReplySysMedium(gasnet_token_t token,
 #if !GASNETC_DYNAMIC_CONNECT
   /* conn thread useless if dynammic connect is disabled */
   #define GASNETC_IB_CONN_THREAD 0
-#elif GASNET_CONDUIT_VAPI
-  /* XXX: conn thread not yet implemented for VAPI */
-  #define GASNETC_IB_CONN_THREAD 0
+#elif GASNET_CONDUIT_VAPI && defined(GASNETC_VAPI_CONN_THREAD)
+  #define GASNETC_IB_CONN_THREAD 1
+#elif GASNET_CONDUIT_IBV && defined(GASNETC_IBV_CONN_THREAD)
+  #define GASNETC_IB_CONN_THREAD 1
 #else
-  #ifndef GASNETC_IBV_CONN_THREAD
-    #define GASNETC_IB_CONN_THREAD	0
-  #else
-    #define GASNETC_IB_CONN_THREAD	1
-  #endif
+  #define GASNETC_IB_CONN_THREAD 0
 #endif
 
 /* maximum number of ops reaped from the send CQ per poll */
@@ -363,6 +360,7 @@ extern int gasnetc_ReplySysMedium(gasnet_token_t token,
 #define GASNETC_WC_RDMA_READ	GASNETC_IB_CHOOSE(VAPI_CQE_SQ_RDMA_READ,IBV_WC_RDMA_READ)
 #define GASNETC_WC_RDMA_WRITE	GASNETC_IB_CHOOSE(VAPI_CQE_SQ_RDMA_WRITE,IBV_WC_RDMA_WRITE)
 #define GASNETC_WC_SEND		GASNETC_IB_CHOOSE(VAPI_CQE_SQ_SEND_DATA, IBV_WC_SEND)
+#define GASNETC_WC_RECV		GASNETC_IB_CHOOSE(VAPI_CQE_RQ_SEND_DATA, IBV_WC_RECV)
 #define GASNETC_WC_RETRY_EXC_ERR GASNETC_IB_CHOOSE(VAPI_RETRY_EXC_ERR, IBV_WC_RETRY_EXC_ERR)
 
 #define GASNETC_WR_RDMA_READ	GASNETC_IB_CHOOSE(VAPI_RDMA_READ,	IBV_WR_RDMA_READ)
