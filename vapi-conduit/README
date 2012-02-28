@@ -1,7 +1,7 @@
 README file for vapi-conduit and ibv-conduit
 ============================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.65 $
+$Revision: 1.66 $
 
 @ TOC: @
 @ Section: VAPI vs IBV @
@@ -185,6 +185,10 @@ $Revision: 1.65 $
   performance improvement by disabling multi-rail support with
   '--disable-vapi-multirail' at configure time.
   
+  When using dynamic connections (see GASNET_CONNECT_DYNAMIC env var,
+  below) there is an extra thread spawned to block for the arrival of
+  connection requests.  If needed, this can be disabled at configure
+  time using '--disable-vapi-conn-thread'.
 
 @ Section: Runtime Configuration @
 
