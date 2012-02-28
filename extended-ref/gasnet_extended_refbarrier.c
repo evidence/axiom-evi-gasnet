@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/02/28 02:48:49 $
- * $Revision: 1.87 $
+ *     $Date: 2012/02/28 03:42:46 $
+ * $Revision: 1.88 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -275,14 +275,20 @@ gasnete_pshmbarrier_init_inner(gasnete_coll_team_t team) {
 
     pshm_bdata->shared = shared_data;
 
-    /* One node initializes shared data */
+    /* One node initializes shared data, while others wait */
     if (!rank) {
       /* Flags word to poll or spin on until barrier is done */
       gasneti_atomic_set(&shared_data->state, 0, 0);
 
       /* Counter used to detect that all nodes have reached the barrier */
       shared_data->size = size;
-      gasneti_atomic_set(&shared_data->counter, shared_data->size, 0);
+      gasneti_atomic_set(&shared_data->counter, shared_data->size, GASNETI_ATOMIC_REL);
+    }
+    if (team == GASNET_TEAM_ALL) {
+       gasneti_pshmnet_bootstrapBarrier();
+    } else if (rank) {
+      /* XXX: What if this value is present by chance? */
+      gasneti_waituntil(gasneti_atomic_read(&shared_data->counter, 0) == size);
     }
   }
 
@@ -843,15 +849,12 @@ static void gasnete_amdbarrier_init(gasnete_coll_team_t team) {
 #if GASNETI_PSHM_BARRIER_HIER
   gasneti_free(supernode_reps);
 
-  if (pshm_bdata) {
+  if (pshm_bdata && (pshm_bdata->shared->size == 1)) {
     /* With singleton proc on local supernode we can short-cut the PHSM code.
      * This does not require alteration of the amdbarrier_peers[] contructed above
      */
-    gasneti_pshmnet_bootstrapBarrier();
-    if (pshm_bdata->shared->size == 1) {
-      gasnete_pshmbarrier_fini_inner(pshm_bdata);
-      barrier_data->amdbarrier_pshm = NULL;
-    }
+    gasnete_pshmbarrier_fini_inner(pshm_bdata);
+    barrier_data->amdbarrier_pshm = NULL;
   }
 #endif
 
@@ -1163,15 +1166,12 @@ static void gasnete_amcbarrier_init(gasnete_coll_team_t team) {
   barrier_data->amcbarrier_master = GASNETE_COLL_REL2ACT(team, (total_ranks - 1));
 
 #if GASNETI_PSHM_BARRIER_HIER
-  if (pshm_bdata) {
+  if (pshm_bdata && (pshm_bdata->shared->size == 1)) {
     /* With singleton proc on local supernode we can short-cut the PHSM code.
      * This does not require changing the amcbarrier_master selected above.
      */
-    gasneti_pshmnet_bootstrapBarrier();
-    if (pshm_bdata->shared->size == 1) {
-      gasnete_pshmbarrier_fini_inner(pshm_bdata);
-      barrier_data->amcbarrier_pshm = NULL;
-    }
+    gasnete_pshmbarrier_fini_inner(pshm_bdata);
+    barrier_data->amcbarrier_pshm = NULL;
   }
 #endif
 
