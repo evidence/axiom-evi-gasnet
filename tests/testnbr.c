@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testnbr.c,v $
- *     $Date: 2011/07/21 06:52:02 $
- * $Revision: 1.22 $
+ *     $Date: 2012/02/28 07:15:45 $
+ * $Revision: 1.23 $
  * Description: MG-like Neighbor exchange
  * Copyright 2005, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -399,6 +399,7 @@ main(int argc, char **argv)
       "   level=3 dims=<32,64,96,128, .. 928,960,992,1024>\n\n"
     );
     if (help) test_usage();
+    TEST_SET_WAITMODE(1);
 
     initNbr(&Nbr);
 
