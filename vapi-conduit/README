@@ -1,7 +1,7 @@
 README file for vapi-conduit and ibv-conduit
 ============================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.66 $
+$Revision: 1.67 $
 
 @ TOC: @
 @ Section: VAPI vs IBV @
@@ -282,12 +282,13 @@ $Revision: 1.66 $
 
   + GASNET_CONNECT_DYNAMIC
     This boolean setting determines if connections can be established
-    on demand.
+    on demand.  The default value is TRUE.
     When GASNET_CONNECT_DYNAMIC is enabled, a node will connect on
-    demand to any peer that was not connected at startup.  If a node
-    is already fully connected to all peers at startup, then dynamic
-    connection is automatically disabled on that node.  Otherwise
-    the default is TRUE.
+    demand to any peer not previously connected at startup.  However,
+    if a node is fully connected to all peers at startup, then dynamic
+    connections are automatically disabled on that node.  Therefore,
+    unless GASNET_CONNECT_STATIC or GASNET_CONNECTFILE_IN is set to a
+    non-default value this variable has no effect.
 
   + GASNET_CONNECT_STATIC
     This setting determines if connections are established at startup.
