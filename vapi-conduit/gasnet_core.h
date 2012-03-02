@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.h,v $
- *     $Date: 2011/07/28 07:35:51 $
- * $Revision: 1.60 $
+ *     $Date: 2012/03/02 19:22:20 $
+ * $Revision: 1.61 $
  * Description: GASNet header for vapi conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -117,35 +117,101 @@ typedef struct _gasnet_hsl_t {
   #define gasnet_hsl_unlock  gasnetc_hsl_unlock
   #define gasnet_hsl_trylock gasnetc_hsl_trylock
 #endif
+
+/* ------------------------------------------------------------------------------------ */
+/* Internal threads */
+
+/* GASNETC_*_RCV_THREAD enables a progress thread for receiving AMs. */
+#if GASNET_CONDUIT_VAPI && defined(GASNETC_VAPI_RCV_THREAD)
+  #define GASNETC_IB_RCV_THREAD 1
+#elif GASNET_CONDUIT_IBV && defined(GASNETC_IBV_RCV_THREAD)
+  /* XXX: rcv thread not yet implemented for IBV */
+  #define GASNETC_IB_RCV_THREAD 0
+#else
+  #define GASNETC_IB_RCV_THREAD 0
+#endif
+
+/* GASNETC_*_CONN_THREAD enables a progress thread for establishing dynamic connections. */
+#if !GASNETC_DYNAMIC_CONNECT
+  /* conn thread useless if dynammic connect is disabled */
+  #define GASNETC_IB_CONN_THREAD 0
+#elif GASNET_CONDUIT_VAPI && defined(GASNETC_VAPI_CONN_THREAD)
+  #define GASNETC_IB_CONN_THREAD 1
+#elif GASNET_CONDUIT_IBV && defined(GASNETC_IBV_CONN_THREAD)
+  #define GASNETC_IB_CONN_THREAD 1
+#else
+  #define GASNETC_IB_CONN_THREAD 0
+#endif
+
+/* ------------------------------------------------------------------------------------ */
+/* Measures of concurency
+ *
+ * GASNETC_ANY_PAR      Non-zero if multiple threads can be executing in GASNet.
+ *                      This is inclusive of the AM receive thread.
+ * GASNETC_CLI_PAR      Non-zero if multiple _client_ threads can be executing in GASNet.
+ *                      This excludes the AM receive thread.
+ * These differ from GASNETI_THREADS and GASNETI_CLIENT_THREADS in that they don't count
+ * GASNET_PARSYNC, since it has threads which do not enter GASNet concurrently.
+ */
+
+#if GASNET_PAR
+  #define GASNETC_CLI_PAR 1
+#else
+  #define GASNETC_CLI_PAR 0
+#endif
+
+#define GASNETC_ANY_PAR         (GASNETC_CLI_PAR || GASNETC_IB_RCV_THREAD)
+
 /* ------------------------------------------------------------------------------------ */
 /* Type and ops for rdma counters */
+/* XXX: only typedef and gasnetc_counter_wait() actually need to be public */
 #include <gasnet_atomicops.h> /* must come after hsl defs */
-typedef struct {
-	gasneti_weakatomic_t	 completed;
-	gasneti_weakatomic_val_t initiated;
-} gasnetc_counter_t;
-#define GASNETC_COUNTER_INITIALIZER	{gasneti_weakatomic_init(0), 0}
-#define gasnetc_counter_reset(P)	do { gasneti_weakatomic_set(&(P)->completed, 0, 0); \
-					     (P)->initiated = 0;                         \
-					} while (0)
-#define gasnetc_counter_done(P)		((P)->initiated == gasneti_weakatomic_read(&(P)->completed, 0))
+
+#if GASNETC_ANY_PAR
+  /* Concurrent version */
+  typedef struct {
+      gasneti_atomic_t     completed;
+      gasneti_atomic_val_t initiated;
+  } gasnetc_counter_t;
+  #define GASNETC_COUNTER_INITIALIZER   {gasneti_atomic_init(0), 0}
+  #define gasnetc_counter_reset(P)      do { gasneti_atomic_set(&(P)->completed, 0, 0); \
+                                             (P)->initiated = 0;                         \
+                                        } while (0)
+  #define gasnetc_counter_done(P)       ((P)->initiated == gasneti_atomic_read(&(P)->completed, 0))
+  #define gasnetc_counter_dec(P)        do { gasneti_assert(!gasnetc_counter_done(P));      \
+                                             gasneti_atomic_increment(&(P)->completed, 0); \
+                                        } while (0)
+  #if defined(GASNETI_HAVE_ATOMIC_ADD_SUB)
+    #define gasnetc_counter_dec_by(P,v)   \
+        gasneti_atomic_add(&(P)->completed,(v),0)
+  #else /* yuk */
+    #define gasnetc_counter_dec_by(P,v)   do {       \
+        int _i = (v);                                \
+        while (_i) { gasnetc_counter_dec(P); _i--; } \
+    } while (0)
+  #endif
+#else
+  /* Sequential version */
+  typedef struct {
+      gasneti_atomic_val_t completed;
+      gasneti_atomic_val_t initiated;
+  } gasnetc_counter_t;
+  #define GASNETC_COUNTER_INITIALIZER   {0, 0}
+  #define gasnetc_counter_reset(P)      do { (P)->completed = (P)->initiated = 0; } while (0)
+  #define gasnetc_counter_done(P)       ((P)->initiated == (P)->completed)
+  #define gasnetc_counter_dec_by(P,v)   do { gasneti_assert((v) <= \
+                                                 ((P)->initiated - (P)->completed)); \
+                                             (P)->completed += (v); \
+                                        } while (0)
+  #define gasnetc_counter_dec(P)        gasnetc_counter_dec_by((P),1)
+#endif
+
+/* Same version concurrent/sequential */
 #define gasnetc_counter_inc(P)		do { (P)->initiated++; } while (0)
 #define gasnetc_counter_inc_by(P,v)	do { (P)->initiated += (v); } while (0)
 #define gasnetc_counter_inc_if(P)	do { if(P) gasnetc_counter_inc(P); } while (0)
 #define gasnetc_counter_inc_if_pf(P)	do { if_pf(P) gasnetc_counter_inc(P); } while (0)
 #define gasnetc_counter_inc_if_pt(P)	do { if_pt(P) gasnetc_counter_inc(P); } while (0)
-#define gasnetc_counter_dec(P)		do { gasneti_assert(!gasnetc_counter_done(P));      \
-					     gasneti_weakatomic_increment(&(P)->completed, 0); \
-					} while (0)
-#if defined(GASNETI_HAVE_WEAKATOMIC_ADD_SUB)
-  #define gasnetc_counter_dec_by(P,v)   \
-      gasneti_weakatomic_add(&(P)->completed,(v),0)
-#else /* yuk */
-  #define gasnetc_counter_dec_by(P,v)   do {       \
-      int _i = (v);                                \
-      while (_i) { gasnetc_counter_dec(P); _i--; } \
-    } while (0)
-#endif
 #define gasnetc_counter_dec_if(P)	do { if(P) gasnetc_counter_dec(P); } while (0)
 #define gasnetc_counter_dec_if_pf(P)	do { if_pf(P) gasnetc_counter_dec(P); } while (0)
 #define gasnetc_counter_dec_if_pt(P)	do { if_pt(P) gasnetc_counter_dec(P); } while (0)

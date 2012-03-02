@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2012/02/27 23:51:06 $
- * $Revision: 1.80 $
+ *     $Date: 2012/03/02 19:22:20 $
+ * $Revision: 1.81 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -37,7 +37,7 @@
 /* ------------------------------------------------------------------------------------ */
 /* Global data */
 
-gasneti_semaphore_t gasnetc_zero_sema = GASNETI_SEMAPHORE_INITIALIZER(0, 0);
+gasnetc_sema_t gasnetc_zero_sema = GASNETC_SEMA_INITIALIZER(0, 0);
 
 #if GASNETC_DYNAMIC_CONNECT
 int gasnetc_ud_rcvs = 0;
@@ -53,7 +53,7 @@ typedef GASNETC_IB_CHOOSE(VAPI_ud_av_t,         struct ibv_ah_attr)     gasnetc_
 typedef GASNETC_IB_CHOOSE(VAPI_ud_av_hndl_t,    struct ibv_ah *)        gasnetc_ib_ah_t;
 
 typedef struct {
-  gasneti_weakatomic_t ref_count;
+  gasnetc_atomic_t ref_count;
   gasnetc_ib_ah_t ib_ah;
 } gasnetc_ah_t;
 
@@ -128,8 +128,8 @@ static gasneti_lifo_head_t sq_sema_freelist = GASNETI_LIFO_INITIALIZER;
 static void
 sq_sema_alloc(int count)
 {
-  gasneti_semaphore_t *p = (gasneti_semaphore_t *)
-          gasnett_malloc_aligned(GASNETI_CACHE_LINE_BYTES, count * sizeof(gasneti_semaphore_t));
+  gasnetc_sema_t *p = (gasnetc_sema_t *)
+          gasnett_malloc_aligned(GASNETI_CACHE_LINE_BYTES, count * sizeof(gasnetc_sema_t));
   int i;
 
   gasneti_leak_aligned(p);
@@ -138,10 +138,10 @@ sq_sema_alloc(int count)
   }
 }
 
-static gasneti_semaphore_t * 
+static gasnetc_sema_t * 
 sq_sema_get(void)
 {
-  gasneti_semaphore_t *result;
+  gasnetc_sema_t *result;
  
   result = gasneti_lifo_pop(&sq_sema_freelist);
   if_pf (NULL == result) {
@@ -179,7 +179,7 @@ gasnetc_parse_filename(const char *filename)
 typedef struct gasnetc_xrc_snd_qp_s {
   gasnetc_qp_hndl_t handle;
   enum ibv_qp_state state;
-  gasneti_semaphore_t *sq_sema_p;
+  gasnetc_sema_t *sq_sema_p;
 } gasnetc_xrc_snd_qp_t;
 
 static gasnetc_xrc_snd_qp_t *gasnetc_xrc_snd_qp = NULL;
@@ -879,7 +879,7 @@ gasnetc_set_sq_sema(gasnetc_conn_info_t *conn_info)
   #endif
 
     GASNETC_FOR_EACH_QPI(conn_info, qpi, cep) {
-      gasneti_semaphore_t *sq_sema_p;
+      gasnetc_sema_t *sq_sema_p;
       int max_send_wr = (gasnetc_use_srq && GASNETC_QPI_IS_REQ(qpi))
                           ? gasnetc_am_oust_pp : gasnetc_op_oust_pp;
 
@@ -898,7 +898,7 @@ gasnetc_set_sq_sema(gasnetc_conn_info_t *conn_info)
 
 
       /* XXX: When could/should we use the *allocated* length? */
-      gasneti_semaphore_init(sq_sema_p, max_send_wr, max_send_wr);
+      gasnetc_sema_init(sq_sema_p, max_send_wr, max_send_wr);
 
     #if GASNETC_IBV_XRC
     skip_init:
@@ -932,10 +932,15 @@ static gasnetc_qpn_t *conn_remote_ud_qpn = NULL;
 static gasneti_lifo_head_t conn_snd_freelist = GASNETI_LIFO_INITIALIZER;
 
 #if GASNETC_IB_CONN_THREAD
+/* NOT gasnetc_sema_t, since this is always subject to concurrent access */
 static gasneti_semaphore_t conn_ud_sema;
 static gasneti_semaphore_t *conn_ud_sema_p = &conn_ud_sema;
+#define conn_sema_up      gasneti_semaphore_up
+#define conn_sema_trydown gasneti_semaphore_trydown
 #else
-static gasneti_semaphore_t *conn_ud_sema_p = NULL;
+static gasnetc_sema_t *conn_ud_sema_p = NULL;
+#define conn_sema_up      gasnetc_sema_up
+#define conn_sema_trydown gasnetc_sema_trydown
 #endif
 
 /* TODO: group the following into a UD-endpoint struct */
@@ -970,7 +975,7 @@ gasnetc_create_ah(gasnet_node_t node)
   gasnetc_ah_t *result;
 	 
   result = gasneti_calloc(1, sizeof(gasnetc_ah_t));
-  gasneti_weakatomic_set(&result->ref_count, 1, 0);
+  gasnetc_atomic_set(&result->ref_count, 1, 0);
 
 #if GASNET_CONDUIT_VAPI
   {
@@ -1004,7 +1009,7 @@ gasnetc_create_ah(gasnet_node_t node)
 static void
 gasnetc_put_ah(gasnetc_ah_t *ah)
 {
-  if (gasneti_weakatomic_decrement_and_test(&ah->ref_count, 0)) {
+  if (gasnetc_atomic_decrement_and_test(&ah->ref_count, 0)) {
 #if GASNET_CONDUIT_VAPI
     int vstat = VAPI_destroy_addr_hndl(conn_ud_hca->handle, ah->ib_ah);
     GASNETC_VAPI_CHECK(vstat, "from VAPI_destroy_addr_hndl()");
@@ -1046,17 +1051,17 @@ gasnetc_snd_post_ud(gasnetc_ud_snd_desc_t *desc, gasnetc_ah_t *ah, gasnet_node_t
   if (NULL == ah) {
     ah = gasnetc_create_ah(node);
   } else {
-    gasneti_weakatomic_increment(&ah->ref_count, 0);
+    gasnetc_atomic_increment(&ah->ref_count, 0);
   }
   desc->ah = ah;
 
   /* Loop until space is available for 1 new entry on the CQ. */
-  if_pf (!gasneti_semaphore_trydown(conn_ud_sema_p)) {
+  if_pf (!conn_sema_trydown(conn_ud_sema_p)) {
     GASNETC_TRACE_WAIT_BEGIN();
     do {
       GASNETI_WAITHOOK();
       conn_snd_poll();
-    } while (!gasneti_semaphore_trydown(conn_ud_sema_p));
+    } while (!conn_sema_trydown(conn_ud_sema_p));
     GASNETC_TRACE_WAIT_END(CONN_STALL_CQ);
   }
 
@@ -2145,7 +2150,7 @@ gasnetc_conn_snd_wc(gasnetc_wc_t *comp)
 {
   gasnetc_ud_snd_desc_t *desc = (void *)(uintptr_t)(1 ^ comp->gasnetc_f_wr_id);
 
-  gasneti_semaphore_up(conn_ud_sema_p);
+  conn_sema_up(conn_ud_sema_p);
   gasnetc_put_ah(desc->ah);
   gasneti_lifo_push(&conn_snd_freelist, desc);
 }

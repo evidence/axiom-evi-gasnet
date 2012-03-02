@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2012/02/27 09:56:35 $
- * $Revision: 1.214 $
+ *     $Date: 2012/03/02 19:22:20 $
+ * $Revision: 1.215 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -233,30 +233,6 @@ extern int gasnetc_ReplySysMedium(gasnet_token_t token,
 /* Maximum number of segments to gather on send */
 #define GASNETC_SND_SG	4
 
-/* Defined non-zero in gasnet_config.h to enable a progress thread for receiving AMs . */
-#if GASNET_CONDUIT_VAPI
-  #ifndef GASNETC_VAPI_RCV_THREAD
-    #define GASNETC_IB_RCV_THREAD	0
-  #else
-    #define GASNETC_IB_RCV_THREAD	1
-  #endif
-#else
-  /* XXX: rcv thread not yet implemented for IBV */
-  #define GASNETC_IB_RCV_THREAD 0
-#endif
-
-/* Defined non-zero in gasnet_config.h to enable a thread for dynammic connections */
-#if !GASNETC_DYNAMIC_CONNECT
-  /* conn thread useless if dynammic connect is disabled */
-  #define GASNETC_IB_CONN_THREAD 0
-#elif GASNET_CONDUIT_VAPI && defined(GASNETC_VAPI_CONN_THREAD)
-  #define GASNETC_IB_CONN_THREAD 1
-#elif GASNET_CONDUIT_IBV && defined(GASNETC_IBV_CONN_THREAD)
-  #define GASNETC_IB_CONN_THREAD 1
-#else
-  #define GASNETC_IB_CONN_THREAD 0
-#endif
-
 /* maximum number of ops reaped from the send CQ per poll */
 #ifndef GASNETC_SND_REAP_LIMIT
   #define GASNETC_SND_REAP_LIMIT	32
@@ -282,23 +258,127 @@ extern int gasnetc_ReplySysMedium(gasnet_token_t token,
 
 /* ------------------------------------------------------------------------------------ */
 
-/* Measures of concurency
+/* Semaphore and atomics wrappers
  *
- * GASNETC_ANY_PAR	Non-zero if multiple threads can be executing in GASNet.
- * 			This is inclusive of the AM receive thread.
- * GASNETC_CLI_PAR	Non-zero if multiple _client_ threads can be executing in GASNet.
- * 			This excludes the AM receive thread.
- * These differ from GASNETI_THREADS and GASNETI_CLIENT_THREADS in that they don't count
- * GASNET_PARSYNC, since it has threads which do not enter GASNet concurrently.
+ * Only for GASNETC_ANY_PAR do we need true atomics.
+ * In particular neither PARSYNC nor CONN_THREAD introduce concurrency,
+ * but use of "weak" atomics would pay the unnecessary costs for those.
  */
+#if GASNETC_ANY_PAR
+  typedef gasneti_semaphore_t gasnetc_sema_t;
+  #define GASNETC_SEMA_INITIALIZER GASNETI_SEMAPHORE_INITIALIZER
+  #define gasnetc_sema_init    gasneti_semaphore_init
+  #define gasnetc_sema_read    gasneti_semaphore_read
+  #define gasnetc_sema_up      gasneti_semaphore_up
+  #define gasnetc_sema_up_n    gasneti_semaphore_up_n
+  #define gasnetc_sema_trydown gasneti_semaphore_trydown
 
-#if GASNET_PAR
-  #define GASNETC_CLI_PAR	1
+  typedef gasneti_atomic_t     gasnetc_atomic_t;
+  typedef gasneti_atomic_val_t gasnetc_atomic_val_t;
+  #define gasnetc_atomic_read      gasneti_atomic_read
+  #define gasnetc_atomic_set       gasneti_atomic_set
+  #define gasnetc_atomic_increment gasneti_atomic_increment
+  #define gasnetc_atomic_decrement_and_test \
+                                   gasneti_atomic_decrement_and_test
+  #define gasnetc_atomic_compare_and_swap \
+                                   gasneti_atomic_compare_and_swap
+  #define gasnetc_atomic_add       gasneti_atomic_add
+  #define gasnetc_atomic_subtract  gasneti_atomic_subtract
 #else
-  #define GASNETC_CLI_PAR	0
-#endif
+  #define GASNETC_SEMA_MAX GASNETI_ATOMIC_MAX
+  #if GASNET_DEBUG
+    typedef struct {
+      gasneti_atomic_val_t count;
+      gasneti_atomic_val_t limit;
+    } gasnetc_sema_t;
+    #define GASNETC_SEMA_INITIALIZER(count,limit) { (count), (limit) }
+    #define GASNETC_SEMA_CHECK(_s)        do {                      \
+      gasneti_assert((_s)->count <= GASNETC_SEMA_MAX);              \
+      gasneti_assert(((_s)->count <= (_s)->limit) || !(_s)->limit); \
+    } while (0)
 
-#define GASNETC_ANY_PAR		(GASNETC_CLI_PAR || GASNETC_IB_RCV_THREAD)
+  #else
+    typedef struct {
+      gasneti_atomic_val_t count;
+    } gasnetc_sema_t;
+    #define GASNETC_SEMA_INITIALIZER(count,limit) { (count) }
+    #define GASNETC_SEMA_CHECK(_s) do { } while (0)
+  #endif
+
+  GASNETI_INLINE(gasnetc_sema_init)
+  void gasnetc_sema_init(gasnetc_sema_t *s,
+                         gasneti_atomic_val_t value,
+                         gasneti_atomic_val_t limit) {
+    s->count = value;
+  #if GASNET_DEBUG
+    s->limit = limit;
+  #endif
+    GASNETC_SEMA_CHECK(s);
+  }
+  GASNETI_INLINE(gasnetc_sema_read)
+  gasneti_atomic_val_t gasnetc_sema_read(gasnetc_sema_t *s) {
+    GASNETC_SEMA_CHECK(s);
+    return s->count;
+  }
+  GASNETI_INLINE(gasnetc_sema_up)
+  void gasnetc_sema_up(gasnetc_sema_t *s) {
+    GASNETC_SEMA_CHECK(s);
+    s->count += 1;
+    GASNETC_SEMA_CHECK(s);
+  }
+  GASNETI_INLINE(gasnetc_sema_up_n)
+  void gasnetc_sema_up_n(gasnetc_sema_t *s, gasneti_atomic_val_t n) {
+    GASNETC_SEMA_CHECK(s);
+    s->count += n;
+    GASNETC_SEMA_CHECK(s);
+  }
+  GASNETI_INLINE(gasnetc_sema_trydown)
+  int gasnetc_sema_trydown(gasnetc_sema_t *s) {
+    int retval;
+    GASNETC_SEMA_CHECK(s);
+    retval = s->count;
+    if_pt (retval != 0)
+      s->count -= 1;
+    GASNETC_SEMA_CHECK(s);
+    return retval;
+  }
+
+  typedef gasneti_atomic_val_t gasnetc_atomic_t;
+  typedef gasneti_atomic_val_t gasnetc_atomic_val_t;
+  GASNETI_INLINE(gasnetc_atomic_read)
+  gasnetc_atomic_val_t gasnetc_atomic_read(gasnetc_atomic_t *p, int flags) {
+    return *p;
+  }
+  GASNETI_INLINE(gasnetc_atomic_set)
+  void gasnetc_atomic_set(gasnetc_atomic_t *p, gasnetc_atomic_val_t val, int flags) {
+    *p = val;
+  }
+  GASNETI_INLINE(gasnetc_atomic_increment)
+  void gasnetc_atomic_increment(gasnetc_atomic_t *p, int flags) {
+    ++(*p);
+  }
+  GASNETI_INLINE(gasnetc_atomic_decrement_and_test)
+  int gasnetc_atomic_decrement_and_test(gasnetc_atomic_t *p, int flags) {
+    return (0 == --(*p));
+  }
+  GASNETI_INLINE(gasnetc_atomic_compare_and_swap)
+  int gasnetc_atomic_compare_and_swap(gasnetc_atomic_t *p, gasnetc_atomic_val_t oldval, gasnetc_atomic_val_t newval, int flags) {
+    if (*p == oldval) {
+      *p = newval;
+      return 1;
+    } else {
+      return 0;
+    }
+  }
+  GASNETI_INLINE(gasnetc_atomic_add)
+  gasnetc_atomic_val_t gasnetc_atomic_add(gasnetc_atomic_t *p, gasnetc_atomic_val_t op, int flags) {
+    return ((*p) += op);
+  }
+  GASNETI_INLINE(gasnetc_atomic_subtract)
+  gasnetc_atomic_val_t gasnetc_atomic_subtract(gasnetc_atomic_t *p, gasnetc_atomic_val_t op, int flags) {
+    return ((*p) -= op);
+  }
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 
@@ -458,8 +538,8 @@ typedef struct gasnetc_cep_t_ gasnetc_cep_t;
 
 /* Struct for assignment of AMRDMA peers */
 typedef struct gasnetc_amrdma_balance_tbl_t_ {
-  gasneti_weakatomic_val_t	count;
-  gasnetc_cep_t			*cep;
+  gasnetc_atomic_val_t	count;
+  gasnetc_cep_t		*cep;
 } gasnetc_amrdma_balance_tbl_t;
 
 /* Structure for an HCA */
@@ -474,9 +554,9 @@ typedef struct {
 #if GASNETC_IBV_SRQ
   struct ibv_srq	*rqst_srq;
   struct ibv_srq	*repl_srq;
-  gasneti_semaphore_t	am_sema;
+  gasnetc_sema_t	am_sema;
 #endif
-  gasneti_semaphore_t	*snd_cq_sema_p;
+  gasnetc_sema_t	*snd_cq_sema_p;
 #if GASNETC_IBV_XRC
   struct ibv_xrc_domain *xrc_domain;
 #endif
@@ -515,24 +595,24 @@ typedef struct {
   gasnetc_memreg_t	amrdma_reg;
   gasneti_lifo_head_t	amrdma_freelist;
   struct {
-    gasneti_weakatomic_val_t max_peers;
-    gasneti_weakatomic_t count;
+    gasnetc_atomic_val_t max_peers;
+    gasnetc_atomic_t	count;
     gasnetc_cep_t	**cep;
   }	  amrdma_rcv;
   struct {
-    gasneti_weakatomic_t	count;
-    gasneti_weakatomic_val_t	mask;
-#if GASNETI_THREADS
+    gasnetc_atomic_t		count;
+    gasnetc_atomic_val_t	mask;
+#if GASNETC_ANY_PAR
     gasneti_atomic_t		lock;
 #endif
-    gasneti_weakatomic_val_t	floor;
+    gasnetc_atomic_val_t	floor;
     gasnetc_amrdma_balance_tbl_t *table;
   }	  amrdma_balance;
 } gasnetc_hca_t;
 
 /* Structure for AM-over-RDMA sender state */
 typedef struct {
-  gasneti_weakatomic_t	head, tail;
+  gasnetc_atomic_t	head, tail;
   gasnetc_rkey_t	rkey;
   uintptr_t		addr;	/* write ONCE */
 } gasnetc_amrdma_send_t;
@@ -540,14 +620,14 @@ typedef struct {
 /* Structure for AM-over-RDMA receiver state */
 typedef struct {
   gasnetc_amrdma_buf_t	*addr;	/* write ONCE */
-  gasneti_weakatomic_t	head;
-#if GASNETI_THREADS
-  gasneti_weakatomic_val_t tail;
+  gasnetc_atomic_t	head;
+#if GASNETC_ANY_PAR
+  gasnetc_atomic_val_t tail;
   gasneti_mutex_t	ack_lock;
   uint32_t		ack_bits;
   char			_pad[GASNETI_CACHE_LINE_BYTES];
   union {
-    gasneti_weakatomic_t    spinlock;
+    gasnetc_atomic_t        spinlock;
     char		    _pad[GASNETI_CACHE_LINE_BYTES];
   }			busy[GASNETC_AMRDMA_DEPTH_MAX]; /* A weak spinlock array */
 #endif
@@ -557,17 +637,17 @@ typedef struct {
 struct gasnetc_cep_t_ {
   /* Read/write fields */
   int                   used;           /* boolean - true if cep has sent traffic */
-  gasneti_semaphore_t	am_rem;		/* control in-flight AM Requests (remote rcv queue slots)*/
-  gasneti_semaphore_t	am_loc;		/* control unmatched rcv buffers (local rcv queue slots) */
-  gasneti_semaphore_t	*snd_cq_sema_p;	/* control in-flight ops (send completion queue slots) */
-  gasneti_semaphore_t	*sq_sema_p;	/* Pointer to a sq_sema */
+  gasnetc_sema_t	am_rem;		/* control in-flight AM Requests (remote rcv queue slots)*/
+  gasnetc_sema_t	am_loc;		/* control unmatched rcv buffers (local rcv queue slots) */
+  gasnetc_sema_t	*snd_cq_sema_p;	/* control in-flight ops (send completion queue slots) */
+  gasnetc_sema_t	*sq_sema_p;	/* Pointer to a sq_sema */
   /* XXX: The atomics in the next 2 structs really should get padded to full cache lines */
   struct {	/* AM flow control coallescing */
-  	gasneti_weakatomic_t	credit;
-	gasneti_weakatomic_t	ack;
+  	gasnetc_atomic_t    credit;
+	gasnetc_atomic_t    ack;
   } am_flow;
   /* AM-over-RDMA local state */
-  gasneti_weakatomic_t	amrdma_eligable;	/* Number of AMs small enough for AMRDMA */
+  gasnetc_atomic_t	amrdma_eligable;	/* Number of AMs small enough for AMRDMA */
   gasnetc_amrdma_send_t *amrdma_send;
   gasnetc_amrdma_recv_t *amrdma_recv;
 
@@ -704,7 +784,7 @@ extern int		gasnetc_amrdma_max_peers;
 extern size_t		gasnetc_amrdma_limit;
 extern int		gasnetc_amrdma_depth;
 extern int		gasnetc_amrdma_slot_mask;
-extern gasneti_weakatomic_val_t gasnetc_amrdma_cycle;
+extern gasnetc_atomic_val_t gasnetc_amrdma_cycle;
 
 #if GASNETC_IBV_SRQ
   extern int			gasnetc_rbuf_limit;
@@ -740,7 +820,7 @@ extern int                      gasnetc_num_ports;
 extern gasnetc_cep_t            **gasnetc_node2cep;
 extern gasnet_node_t            gasnetc_remote_nodes;
 #if GASNETC_DYNAMIC_CONNECT
-  extern gasneti_semaphore_t    gasnetc_zero_sema;
+  extern gasnetc_sema_t         gasnetc_zero_sema;
 #endif
 
 #endif
