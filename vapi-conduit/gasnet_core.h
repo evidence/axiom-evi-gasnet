@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.h,v $
- *     $Date: 2012/03/02 19:22:20 $
- * $Revision: 1.61 $
+ *     $Date: 2012/03/03 20:13:28 $
+ * $Revision: 1.62 $
  * Description: GASNet header for vapi conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -120,6 +120,10 @@ typedef struct _gasnet_hsl_t {
 
 /* ------------------------------------------------------------------------------------ */
 /* Internal threads */
+
+#ifndef GASNETC_DYNAMIC_CONNECT
+#define GASNETC_DYNAMIC_CONNECT 1
+#endif
 
 /* GASNETC_*_RCV_THREAD enables a progress thread for receiving AMs. */
 #if GASNET_CONDUIT_VAPI && defined(GASNETC_VAPI_RCV_THREAD)
