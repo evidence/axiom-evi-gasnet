@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2012/03/03 19:02:14 $
- * $Revision: 1.82 $
+ *     $Date: 2012/03/03 19:16:32 $
+ * $Revision: 1.83 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -953,9 +953,7 @@ static int conn_ud_msg_sz = -1;
 static pthread_t conn_thread_id;
 static gasnetc_cq_hndl_t conn_ud_snd_cq = GASNETC_INVAL_HNDL;
 static gasnetc_cq_hndl_t conn_ud_rcv_cq = GASNETC_INVAL_HNDL;
-# if GASNET_CONDUIT_IBV
-  static struct ibv_comp_channel *conn_ud_rcv_cc = NULL;
-# endif
+static gasnetc_comp_handler_t conn_ud_rcv_comp = GASNETC_INVAL_HNDL;
 static int conn_snd_poll(void);
 #else /* GASNETC_IB_CONN_THREAD */
 # define conn_snd_poll() gasnetc_sndrcv_poll(1)
@@ -1314,7 +1312,7 @@ static void *gasnetc_conn_thread(void *arg)
       void *the_ctx;
 
       /* block for event on the empty CQ */
-      rc = ibv_get_cq_event(conn_ud_rcv_cc, &the_cq, &the_ctx);
+      rc = ibv_get_cq_event(conn_ud_rcv_comp, &the_cq, &the_ctx);
       pthread_testcancel();
       GASNETC_VAPI_CHECK(rc, "while awaiting dynamic connection event");
       gasneti_assert(the_cq == conn_ud_rcv_cq);
@@ -1393,46 +1391,20 @@ gasnetc_qp_setup_ud(gasnetc_port_info_t *port, int fully_connected)
     recv_cq = conn_ud_hca->rcv_cq;
     conn_ud_sema_p = conn_ud_hca->snd_cq_sema_p;
 #else
-  #if GASNET_CONDUIT_VAPI
-  { gasnetc_cqe_cnt_t cq_sz;
-    EVAPI_compl_handler_hndl_t compl_hndl;
+    { gasnetc_cqe_cnt_t cq_sz;
+      pthread_attr_t attr;
 
-    /* Create CQ for UD recvs, configured for blocking completions */
-    rc = VAPI_create_cq(conn_ud_hca->handle,
-                        gasnetc_ud_rcvs,
-                        &conn_ud_rcv_cq, &cq_sz);
-    GASNETC_VAPI_CHECK(rc, "from VAPI_create_cq(conn_rcv)");
-    rc = EVAPI_set_comp_eventh(conn_ud_hca->handle, conn_ud_rcv_cq,
-                               EVAPI_POLL_CQ_UNBLOCK_HANDLER, NULL,
-                               &compl_hndl);
-    GASNETC_VAPI_CHECK(rc, "from EVAPI_set_comp_eventh(conn_rcv)");
+      /* Create CQ for UD recvs, configured for blocking completions */
+      rc = gasnetc_create_cq(conn_ud_hca->handle, gasnetc_ud_rcvs,
+                             &conn_ud_rcv_cq, &cq_sz, &conn_ud_rcv_comp);
+      GASNETC_VAPI_CHECK(rc, "from gasnetc_create_cq(conn_rcv)");
 
-    /* Create CQ for UD sends */
-    rc = VAPI_create_cq(conn_ud_hca->handle,
-                        gasnetc_ud_snds,
-                        &conn_ud_snd_cq, &cq_sz);
-    GASNETC_VAPI_CHECK(rc, "from VAPI_create_cq(conn_snd)");
-  }
-  #else
-    /* Create CQ for UD recvs, configured for blocking completions */
-    conn_ud_rcv_cc = ibv_create_comp_channel(conn_ud_hca->handle);
-    if (conn_ud_rcv_cc == NULL) return GASNET_ERR_RESOURCE;
-    conn_ud_rcv_cq = ibv_create_cq(conn_ud_hca->handle,
-                                   gasnetc_ud_rcvs,
-                                   NULL, conn_ud_rcv_cc, 0);
-    if (conn_ud_rcv_cq == NULL) return GASNET_ERR_RESOURCE;
-    rc = ibv_req_notify_cq(conn_ud_rcv_cq, 0);
-    if (rc != 0) return GASNET_ERR_RESOURCE;
+      /* Create CQ for UD sends */
+      rc = gasnetc_create_cq(conn_ud_hca->handle, gasnetc_ud_snds,
+                             &conn_ud_snd_cq, &cq_sz, NULL);
+      GASNETC_VAPI_CHECK(rc, "from gasnetc_create_cq(conn_snd)");
 
-    /* Create CQ for UD sends */
-    conn_ud_snd_cq = ibv_create_cq(conn_ud_hca->handle,
-                                   gasnetc_ud_snds,
-                                   NULL, NULL, 0);
-    if (conn_ud_snd_cq == NULL) return GASNET_ERR_RESOURCE;
-  #endif
-
-    { pthread_attr_t attr;
-
+      /* Spawn the thread */
       pthread_attr_init(&attr);
       (void)pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM); /* ignore failures */
 

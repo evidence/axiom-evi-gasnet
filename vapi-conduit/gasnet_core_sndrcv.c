@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2012/03/02 19:22:20 $
- * $Revision: 1.287 $
+ *     $Date: 2012/03/03 19:16:32 $
+ * $Revision: 1.288 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -346,14 +346,31 @@ void gasnetc_per_thread_init(gasnetc_per_thread_t *td)
   #define gasnetc_my_perthread() (&gasnetc_per_thread)
 #endif
 
-static int
+extern int
 gasnetc_create_cq(gasnetc_hca_hndl_t hca_hndl, gasnetc_cqe_cnt_t req_size,
-		  gasnetc_cq_hndl_t *cq_p, gasnetc_cqe_cnt_t *act_size)
+		  gasnetc_cq_hndl_t *cq_p, gasnetc_cqe_cnt_t *act_size,
+		  gasnetc_comp_handler_t *async_handle)
 {
 #if GASNET_CONDUIT_VAPI
-  return VAPI_create_cq(hca_hndl, req_size, cq_p, act_size);
+  int rc = VAPI_create_cq(hca_hndl, req_size, cq_p, act_size);
+  if (rc != VAPI_OK) {
+    /* fall through to return */
+  } else if (async_handle != NULL) {
+    rc = EVAPI_set_comp_eventh(hca_hndl, *cq_p,
+                               EVAPI_POLL_CQ_UNBLOCK_HANDLER, NULL,
+                               async_handle);
+  }
+  return rc;
 #else
-  gasnetc_cq_hndl_t result = ibv_create_cq(hca_hndl, req_size, NULL, NULL, 0);
+  gasnetc_cq_hndl_t result;
+  if (async_handle != NULL) {
+    *async_handle = ibv_create_comp_channel(hca_hndl);
+    if (*async_handle == NULL) {
+      return 1;
+    }
+  }
+  result = ibv_create_cq(hca_hndl, req_size, NULL,
+                         async_handle ? *async_handle : NULL, 0);
   if_pt (result != NULL) {
     *cq_p = result;
     *act_size = result->cqe;
@@ -3285,7 +3302,7 @@ extern int gasnetc_sndrcv_init(void) {
   GASNETC_FOR_ALL_HCA(hca) {
     const int rcv_count = hca->qps * gasnetc_am_rbufs_per_qp;
     const gasnetc_cqe_cnt_t cqe_count = rcv_count + (!hca->hca_index ? ud_rcvs : 0);
-    vstat = gasnetc_create_cq(hca->handle, cqe_count, &hca->rcv_cq, &act_size);
+    vstat = gasnetc_create_cq(hca->handle, cqe_count, &hca->rcv_cq, &act_size, NULL);
     GASNETC_VAPI_CHECK(vstat, "from gasnetc_create_cq(rcv_cq)");
     GASNETI_TRACE_PRINTF(I, ("Recv CQ length: requested=%d actual=%d", (int)cqe_count, (int)act_size));
     gasneti_assert(act_size >= cqe_count);
@@ -3447,7 +3464,7 @@ extern int gasnetc_sndrcv_init(void) {
   GASNETC_FOR_ALL_HCA(hca) {
     const gasnetc_cqe_cnt_t rqst_count = gasnetc_use_srq ? gasnetc_am_repl_per_qp : 0;
     const gasnetc_cqe_cnt_t cqe_count = hca->qps * (gasnetc_op_oust_per_qp + rqst_count);
-    vstat = gasnetc_create_cq(hca->handle, cqe_count, &hca->snd_cq, &act_size);
+    vstat = gasnetc_create_cq(hca->handle, cqe_count, &hca->snd_cq, &act_size, NULL);
     GASNETC_VAPI_CHECK(vstat, "from gasnetc_create_cq(snd_cq)");
     GASNETI_TRACE_PRINTF(I, ("Send CQ length: requested=%d actual=%d", (int)cqe_count, (int)act_size));
     gasneti_assert(act_size >= cqe_count);

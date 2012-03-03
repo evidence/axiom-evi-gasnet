@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2012/03/03 19:02:14 $
- * $Revision: 1.216 $
+ *     $Date: 2012/03/03 19:16:32 $
+ * $Revision: 1.217 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -467,6 +467,9 @@ typedef GASNETC_IB_CHOOSE(VAPI_pd_hndl_t,	struct ibv_pd *)	gasnetc_pd_hndl_t;
 typedef GASNETC_IB_CHOOSE(VAPI_mr_hndl_t,	struct ibv_mr *)	gasnetc_mr_hndl_t;
 typedef GASNETC_IB_CHOOSE(VAPI_cq_hndl_t,	struct ibv_cq *)	gasnetc_cq_hndl_t;
 typedef GASNETC_IB_CHOOSE(VAPI_qp_hndl_t,	struct ibv_qp *)	gasnetc_qp_hndl_t;
+
+/* Misc */
+typedef GASNETC_IB_CHOOSE(EVAPI_compl_handler_hndl_t, struct ibv_comp_channel *) gasnetc_comp_handler_t;
   
 /* Attribute/capability structs */
 typedef GASNETC_IB_CHOOSE(VAPI_hca_cap_t,	struct ibv_device_attr)	gasnetc_hca_cap_t;
@@ -712,6 +715,9 @@ extern void gasnetc_conn_snd_wc(gasnetc_wc_t *comp);
 #endif
 
 /* Routines in gasnet_core_sndrcv.c */
+extern int gasnetc_create_cq(gasnetc_hca_hndl_t, gasnetc_cqe_cnt_t,
+                             gasnetc_cq_hndl_t *, gasnetc_cqe_cnt_t *,
+                             gasnetc_comp_handler_t *);
 extern int gasnetc_sndrcv_limits(void);
 extern int gasnetc_sndrcv_init(void);
 extern void gasnetc_sndrcv_init_peer(gasnet_node_t node, gasnetc_cep_t *cep);
