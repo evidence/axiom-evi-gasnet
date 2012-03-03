@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2012/01/09 02:16:28 $
- * $Revision: 1.299 $
+ *     $Date: 2012/03/03 19:02:14 $
+ * $Revision: 1.300 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1915,7 +1915,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     prereg[0].addr             = gasnetc_hca[0].snd_reg.addr;
     prereg[0].len              = gasnetc_hca[0].snd_reg.len;
     GASNETC_FOR_ALL_HCA_INDEX(h) {
-      prereg[0].client.handle[h] = GASNETC_INVAL_MR_HNDL;	/* unreg must fail */
+      prereg[0].client.handle[h] = GASNETC_INVAL_HNDL;	/* unreg must fail */
       prereg[0].client.lkey[h]   = gasnetc_hca[h].snd_reg.lkey;
       prereg[0].client.rkey[h]   = gasnetc_hca[h].snd_reg.rkey;
     }

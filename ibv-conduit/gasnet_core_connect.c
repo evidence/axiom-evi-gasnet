@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2012/03/02 19:22:20 $
- * $Revision: 1.81 $
+ *     $Date: 2012/03/03 19:02:14 $
+ * $Revision: 1.82 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -944,15 +944,15 @@ static gasnetc_sema_t *conn_ud_sema_p = NULL;
 #endif
 
 /* TODO: group the following into a UD-endpoint struct */
-static gasnetc_qp_hndl_t conn_ud_qp = GASNETC_IB_CHOOSE(VAPI_INVAL_HNDL, NULL);
+static gasnetc_qp_hndl_t conn_ud_qp = GASNETC_INVAL_HNDL;
 static gasnetc_port_info_t *conn_ud_port = NULL;
 static gasnetc_hca_t *conn_ud_hca = NULL;
 static int conn_ud_msg_sz = -1;
 
 #if GASNETC_IB_CONN_THREAD
 static pthread_t conn_thread_id;
-static gasnetc_cq_hndl_t conn_ud_snd_cq = GASNETC_IB_CHOOSE(VAPI_INVAL_HNDL, NULL);;
-static gasnetc_cq_hndl_t conn_ud_rcv_cq = GASNETC_IB_CHOOSE(VAPI_INVAL_HNDL, NULL);;
+static gasnetc_cq_hndl_t conn_ud_snd_cq = GASNETC_INVAL_HNDL;
+static gasnetc_cq_hndl_t conn_ud_rcv_cq = GASNETC_INVAL_HNDL;
 # if GASNET_CONDUIT_IBV
   static struct ibv_comp_channel *conn_ud_rcv_cc = NULL;
 # endif

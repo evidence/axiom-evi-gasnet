@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2012/03/02 19:22:20 $
- * $Revision: 1.215 $
+ *     $Date: 2012/03/03 19:02:14 $
+ * $Revision: 1.216 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -433,7 +433,7 @@ extern int gasnetc_ReplySysMedium(gasnet_token_t token,
 #define GASNETC_ACL_REM_WR	GASNETC_IB_CHOOSE(VAPI_EN_REMOTE_WRITE,	IBV_ACCESS_REMOTE_WRITE)
 #define GASNETC_ACL_REM_RD	GASNETC_IB_CHOOSE(VAPI_EN_REMOTE_READ,	IBV_ACCESS_REMOTE_READ)
 
-#define GASNETC_INVAL_MR_HNDL	GASNETC_IB_CHOOSE(VAPI_INVAL_HNDL,	NULL)
+#define GASNETC_INVAL_HNDL	GASNETC_IB_CHOOSE(VAPI_INVAL_HNDL,	NULL)
 
 #define GASNETC_WC_SUCCESS	GASNETC_IB_CHOOSE(IB_COMP_SUCCESS,	IBV_WC_SUCCESS)
 #define GASNETC_WC_FLUSH_ERR	GASNETC_IB_CHOOSE(IB_COMP_WR_FLUSH_ERR,	IBV_WC_WR_FLUSH_ERR)
