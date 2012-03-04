@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2012/03/03 19:16:32 $
- * $Revision: 1.288 $
+ *     $Date: 2012/03/04 20:22:47 $
+ * $Revision: 1.289 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -353,24 +353,23 @@ gasnetc_create_cq(gasnetc_hca_hndl_t hca_hndl, gasnetc_cqe_cnt_t req_size,
 {
 #if GASNET_CONDUIT_VAPI
   int rc = VAPI_create_cq(hca_hndl, req_size, cq_p, act_size);
-  if (rc != VAPI_OK) {
-    /* fall through to return */
-  } else if (async_handle != NULL) {
+  GASNETC_VAPI_CHECK(rc, "from VAPI_create_cq()");
+  if (async_handle != NULL) {
     rc = EVAPI_set_comp_eventh(hca_hndl, *cq_p,
                                EVAPI_POLL_CQ_UNBLOCK_HANDLER, NULL,
                                async_handle);
+    GASNETC_VAPI_CHECK(rc, "from EVAPI_set_comp_eventh()");
   }
   return rc;
 #else
   gasnetc_cq_hndl_t result;
   if (async_handle != NULL) {
     *async_handle = ibv_create_comp_channel(hca_hndl);
-    if (*async_handle == NULL) {
-      return 1;
-    }
+    GASNETC_VAPI_CHECK_PTR(*async_handle, "from ibv_create_comp_channel");
   }
   result = ibv_create_cq(hca_hndl, req_size, NULL,
                          async_handle ? *async_handle : NULL, 0);
+  GASNETC_VAPI_CHECK_PTR(result, "from ibv_create_cq()");
   if_pt (result != NULL) {
     *cq_p = result;
     *act_size = result->cqe;
