@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2012/03/03 19:16:32 $
- * $Revision: 1.83 $
+ *     $Date: 2012/03/04 23:35:38 $
+ * $Revision: 1.84 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -1695,31 +1695,32 @@ gasnetc_put_conn(gasnetc_conn_t *conn)
  *   Max is (1 << 24) us, which, doubling from an inital min=1ms, means 16.384s.
  * Sum is upto 32s spent retrying EACH of the two round-trip message exchanges.
  *
- * TODO: It *might* be helpful to "learn" retransmit intervals dynamically.
- * Here are some notes based on initial experiments run on Carver.
+ * We try to "learn" retransmit intervals dynamically, as follows.
  * + The number of "packets" sent to an given peer is just 2, making tuning per
  *   peer nearly pointless.
  * + If pooling the RTT data across all connections then the number of packets may
  *   often be too small to gain statistically meaningful RTT information, given the
  *   high variance that will result from pooling info from multiple nodes.
- * + If pooling info per-supernode the data may still be high-variance because the
- *   remote attentiveness is a factor in the RTT.
+ * + If pooling info per-supernode the data may still be high-variance when not
+ *   using a connection thread because the remote attentiveness influences the RTT.
  * + Summary of previous 3 items: not clear that smoothed-RTT estimators are useful.
- * + IF using SRTT estimators, then we should follow advice given in RFC 1122:
+ * + Despite the above, we attempt to estimate RTT pooling data across ALL peers.
+ * + So we use SRTT estimation following advice given in RFC 1122:
  *   - Use Karn's algorithm (but see below) to 1) use only unambiguous RTT values in
  *     updating the SRTT, and 2) carry-over backed-off RTO to next packet when no
  *     updated SRTT is available to compute a "fresh" RTO.
- *   - Use Van Jacobson's variance-aware RTO computation.  However, we should probably
- *     use the original (a+2v) version, not the (a+4v) version that was updated based
+ *   - Use Van Jacobson's variance-aware RTO computation.  However, we are using
+ *     the original (a+2v) version, not the (a+4v) version that was updated based
  *     on behavior of TCP slow-start over SLIP.  The reasoning is 2-fold: we are NOT
  *     dealing with bandwidth-dominated links; and our variance is already going to
- *     be artificially high if pooled over multiple peers.
+ *     be artificially high due to pooling over multiple peers.
+ * TODO:
  * + Karn's algorithm says to discard any RTT measurement for a packet that has been
  *   retransmitted, because we cannot know if the response is to the original or one
  *   of the resends.  However, unlike TCP we have the option to put info in the header
  *   that would allow us to keep Karn's rule about using only "unambiguous" RTT
  *   measurements while admitting a larger set of measurements.  Some options:
- *   - A single header bit would distinguish the original packet and replies to it.  This
+ *   - A single header bit would distinguish the original packet and it's reply.  This
  *     allows us to use RTT for any replies to the original, even if there were some
  *     resends.  This could help to more quickly raise a SRTT estimate that is too low.
  *   - A counter in the header could give the sequence for each resend, and be echoed
@@ -1744,6 +1745,13 @@ gasnetc_put_conn(gasnetc_conn_t *conn)
  * All of this may be more important if/when we want to to AM-over-UD or multicast.
  */
 
+#ifndef GASNETC_CONN_USE_SRTT
+#define GASNETC_CONN_USE_SRTT 1
+#endif
+
+/* No matter what the rto value, don't give up before this many resends */
+#define GASNETC_CONN_RETEANSMIT_MIN 8
+
 /* While env vars are in us, these store ns */
 static uint64_t gasnetc_conn_retransmit_min_ns = 1000 * 1000;
 static uint64_t gasnetc_conn_retransmit_max_ns = ((uint64_t)1 << 24) * 1000;
@@ -1753,17 +1761,32 @@ static void
 gasnetc_timed_conn_wait(gasnetc_conn_t *conn, gasnetc_conn_state_t state, 
                         void (*fn)(gasnetc_conn_t *))
 {
-  uint64_t timeout_ns = gasnetc_conn_retransmit_min_ns;
   gasneti_tick_t prev_time = conn->xmit_time;
-#if GASNETI_STATS_OR_TRACE
-  gasneti_tick_t end_time;
   int resends = 0;
+  uint64_t timeout;
+  int64_t m = 0;
+#if GASNETI_STATS_OR_TRACE
+  gasneti_tick_t end_time = GASNETI_TICKS_NOW_IFENABLED(C);
+#endif
+
+#if GASNETC_CONN_USE_SRTT
+  /* m, sa, sv and rto as defined by Van Jacobson */
+  static int64_t sa, sv, rto = 0;
+  if_pf (!rto) { /* Init needed */
+    rto = gasnetc_conn_retransmit_min_ns;
+    sa = rto >> 1;
+    sv = rto >> 2; /* or ">> 3" for a+4v version */
+  }
+  timeout = rto;
+  m = gasneti_ticks_to_ns(gasneti_ticks_now() - prev_time);
+#else
+  timeout = gasnetc_conn_retransmit_min_ns;
 #endif
 
   gasneti_mutex_unlock(&gasnetc_conn_tbl_lock);
   while (1) {
     while ((conn->state == state) &&
-           (gasneti_ticks_to_ns(gasneti_ticks_now() - prev_time) < timeout_ns)) {
+           ((m = gasneti_ticks_to_ns(gasneti_ticks_now() - prev_time)) < timeout)) {
       GASNETI_WAITHOOK();
       gasnetc_sndrcv_poll(0); /* works even before _attach */
     }
@@ -1773,17 +1796,35 @@ gasnetc_timed_conn_wait(gasnetc_conn_t *conn, gasnetc_conn_state_t state,
 
     if (conn->state != state) break; /* Done */
 
-    timeout_ns *= 2;
-    if (timeout_ns > gasnetc_conn_retransmit_max_ns) break; /* limit reached */
+    timeout *= 2;
+    if (timeout > gasnetc_conn_retransmit_max_ns) {
+      if (resends >= GASNETC_CONN_RETEANSMIT_MIN) break; /* limit reached */
+      timeout = gasnetc_conn_retransmit_max_ns;
+    }
 
     /* retransmit */
     (*fn)(conn);
-    prev_time = gasneti_ticks_now();
-  #if GASNETI_STATS_OR_TRACE
     ++resends;
-  #endif
+    prev_time = gasneti_ticks_now();
   }
   gasneti_mutex_lock(&gasnetc_conn_tbl_lock);
+
+#if GASNETC_CONN_USE_SRTT
+  if_pf (resends) {
+    /* Not using an ambiguous rtt value.
+     * Instead carry over current RTO.
+     * TODO: additional header info could disambiguate
+     */
+    rto = timeout;
+  } else {
+    m -= (sa >> 3);
+    sa += m;
+    if (m < 0) m = -m;
+    m -= (sv >> 2);
+    sv += m;
+    rto = (sa >> 3) + (sv >> 1); /* or "+sv" for a+4v version */
+  }
+#endif
 
   if (conn->state == state) {
     gasneti_fatalerror("Node %d timed out attempting dynamic connection to node %d (state = %d)",
