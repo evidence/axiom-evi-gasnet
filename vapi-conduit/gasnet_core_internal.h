@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2012/03/03 20:13:28 $
- * $Revision: 1.218 $
+ *     $Date: 2012/03/04 20:28:19 $
+ * $Revision: 1.219 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -582,12 +582,10 @@ typedef struct {
   void			*rbufs;
   gasneti_lifo_head_t	rbuf_freelist;
 
-#if GASNET_CONDUIT_VAPI
+#if GASNETC_IB_RCV_THREAD
   /* Rcv thread */
-  EVAPI_compl_handler_hndl_t rcv_handler;
+  gasnetc_comp_handler_t rcv_handler;
   void			*rcv_thread_priv;
-#else
-  /* No progress thread under ibv */
 #endif
 
   /* AM-over-RMDA */
