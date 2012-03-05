@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2012/03/05 08:58:48 $
-# $Revision: 1.746 $
+#     $Date: 2012/03/05 16:42:25 $
+# $Revision: 1.747 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.746 $)
+AC_REVISION($Revision: 1.747 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1419,7 +1419,7 @@ AC_SUBST(GASNET_PSHM_LIBS)
 
 # Note that --enable-pshm disables aligned segments ONLY for conduits that USE it
 GASNET_IF_DISABLED([aligned-segments],
-                   [Disable requirement to achieve aligned VM segments, for heterogeneous clusters and platforms with address randomization]],
+                   [Disable requirement to achieve aligned VM segments, for heterogeneous clusters and platforms with address randomization],
 		   [GASNETI_DISABLE_ALIGNED_SEGMENTS=1
 		    AC_DEFINE(GASNETI_DISABLE_ALIGNED_SEGMENTS)],
 		   [RVMFILE="/proc/sys/kernel/randomize_va_space"
