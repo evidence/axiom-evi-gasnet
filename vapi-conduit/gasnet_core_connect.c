@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_connect.c,v $
- *     $Date: 2012/03/05 07:41:12 $
- * $Revision: 1.90 $
+ *     $Date: 2012/03/05 19:39:03 $
+ * $Revision: 1.91 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -1302,7 +1302,7 @@ static void *gasnetc_conn_thread(void *arg)
   #else
     rc = ibv_poll_cq(conn_ud_rcv_cq, 1, &comp);
   #endif
-    pthread_testcancel();
+    { const int save_errno = errno; pthread_testcancel(); errno = save_errno; }
     if (GASNETC_IS_EXITING()) {
       /* shutdown in another thread */
       break;
@@ -1322,7 +1322,7 @@ static void *gasnetc_conn_thread(void *arg)
 
       /* block for event on the empty CQ */
       rc = ibv_get_cq_event(conn_ud_rcv_comp, &the_cq, &the_ctx);
-      pthread_testcancel();
+      { const int save_errno = errno; pthread_testcancel(); errno = save_errno; }
       GASNETC_VAPI_CHECK(rc, "while awaiting dynamic connection event");
       gasneti_assert(the_cq == conn_ud_rcv_cq);
 
