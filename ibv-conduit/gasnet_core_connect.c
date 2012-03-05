@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2012/03/05 06:02:03 $
- * $Revision: 1.88 $
+ *     $Date: 2012/03/05 07:40:20 $
+ * $Revision: 1.89 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -1481,11 +1481,8 @@ gasnetc_qp_setup_ud(gasnetc_port_info_t *port, int fully_connected)
      * consecutive runs on the same nodes can produce the same value.
      * TODO: Is there some info already available to make this more unique?
      */
-    { gasnet_node_t node;
-      gasneti_assert(my_qkey == 0);
-      for (node = 0; node < gasneti_nodes; ++node) {
-        my_qkey ^= conn_remote_ud_qpn[node];
-      }
+    { uint64_t csum = gasneti_checksum(conn_remote_ud_qpn, gasneti_nodes * sizeof(gasnetc_qpn_t));
+      my_qkey = ((GASNETI_LOWORD(csum) << 1) | (GASNETI_LOWORD(csum) >> 27)) ^ GASNETI_HIWORD(csum);
     }
 
     /* Allocate pinned memory */
