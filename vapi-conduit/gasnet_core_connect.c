@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_connect.c,v $
- *     $Date: 2012/03/05 03:40:16 $
- * $Revision: 1.87 $
+ *     $Date: 2012/03/05 06:02:03 $
+ * $Revision: 1.88 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -128,8 +128,11 @@ static gasneti_lifo_head_t sq_sema_freelist = GASNETI_LIFO_INITIALIZER;
 static void
 sq_sema_alloc(int count)
 {
-  gasnetc_sema_t *p = (gasnetc_sema_t *)
-          gasnett_malloc_aligned(GASNETI_CACHE_LINE_BYTES, count * sizeof(gasnetc_sema_t));
+  union dummy {
+    gasnetc_sema_t sema;
+    void *link; /* Ensure anough space for the lifo links */
+  } *p = (union dummy *)
+          gasnett_malloc_aligned(GASNETI_CACHE_LINE_BYTES, count * sizeof(union dummy));
   int i;
 
   gasneti_leak_aligned(p);
