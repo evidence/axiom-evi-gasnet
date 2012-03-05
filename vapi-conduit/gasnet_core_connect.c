@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_connect.c,v $
- *     $Date: 2012/03/05 19:39:03 $
- * $Revision: 1.91 $
+ *     $Date: 2012/03/05 21:09:42 $
+ * $Revision: 1.92 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -1302,11 +1302,8 @@ static void *gasnetc_conn_thread(void *arg)
   #else
     rc = ibv_poll_cq(conn_ud_rcv_cq, 1, &comp);
   #endif
-    { const int save_errno = errno; pthread_testcancel(); errno = save_errno; }
-    if (GASNETC_IS_EXITING()) {
-      /* shutdown in another thread */
-      break;
-    } else if (rc == GASNETC_POLL_CQ_OK) {
+    gasnetc_testcancel();
+    if (rc == GASNETC_POLL_CQ_OK) {
       if_pf (comp.status != GASNETC_WC_SUCCESS) {
         gasneti_fatalerror("failed dynamic connection recv work request");
       } else if_pf(comp.opcode != GASNETC_WC_RECV) {
@@ -1322,7 +1319,7 @@ static void *gasnetc_conn_thread(void *arg)
 
       /* block for event on the empty CQ */
       rc = ibv_get_cq_event(conn_ud_rcv_comp, &the_cq, &the_ctx);
-      { const int save_errno = errno; pthread_testcancel(); errno = save_errno; }
+      gasnetc_testcancel();
       GASNETC_VAPI_CHECK(rc, "while awaiting dynamic connection event");
       gasneti_assert(the_cq == conn_ud_rcv_cq);
 

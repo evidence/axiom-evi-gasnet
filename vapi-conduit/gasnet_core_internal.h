@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2012/03/05 06:02:03 $
- * $Revision: 1.222 $
+ *     $Date: 2012/03/05 21:09:42 $
+ * $Revision: 1.223 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -376,6 +376,20 @@ extern int gasnetc_ReplySysMedium(gasnet_token_t token,
   gasnetc_atomic_val_t gasnetc_atomic_subtract(gasnetc_atomic_t *p, gasnetc_atomic_val_t op, int flags) {
     return ((*p) -= op);
   }
+#endif
+
+/* ------------------------------------------------------------------------------------ */
+
+#if GASNETI_THREADS
+GASNETI_INLINE(gasnetc_testcancel)
+void gasnetc_testcancel(void) {
+  const int save_errno = errno;
+  pthread_testcancel();
+  if_pf (GASNETC_IS_EXITING()) {
+    pthread_exit(NULL);
+  }
+  errno = save_errno;
+}
 #endif
 
 /* ------------------------------------------------------------------------------------ */

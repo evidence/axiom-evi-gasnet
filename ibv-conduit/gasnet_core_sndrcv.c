@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2012/03/05 20:57:44 $
- * $Revision: 1.293 $
+ *     $Date: 2012/03/05 21:09:42 $
+ * $Revision: 1.294 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -1855,11 +1855,8 @@ static void *gasnetc_rcv_thread(void *arg)
   #else
     rc = ibv_poll_cq(hca->rcv_cq, 1, &comp);
   #endif
-    { const int save_errno = errno; pthread_testcancel(); errno = save_errno; }
-    if_pf (GASNETC_IS_EXITING()) {
-      /* shutdown in another thread */
-      break;
-    } else if (rc == GASNETC_POLL_CQ_OK) {
+    gasnetc_testcancel();
+    if (rc == GASNETC_POLL_CQ_OK) {
       if_pf (comp.status != GASNETC_WC_SUCCESS) {
       #if 1
         gasnetc_dump_cqs(&comp, hca, 0);
@@ -1890,14 +1887,14 @@ static void *gasnetc_rcv_thread(void *arg)
 
       /* block for event on the empty CQ */
       rc = ibv_get_cq_event(hca->rcv_handler, &the_cq, &the_ctx);
-      { const int save_errno = errno; pthread_testcancel(); errno = save_errno; }
-      GASNETC_VAPI_CHECK(rc, "while awaiting dynamic connection event");
+      gasnetc_testcancel();
+      GASNETC_VAPI_CHECK(rc, "while awaiting AM arrival event");
       gasneti_assert(the_cq == hca->rcv_cq);
 
       /* ack the event and rearm */
       ibv_ack_cq_events(hca->rcv_cq, 1);
       rc = ibv_req_notify_cq(hca->rcv_cq, 0);
-      GASNETC_VAPI_CHECK(rc, "while requesting dynamic connection events");
+      GASNETC_VAPI_CHECK(rc, "while requesting AM arrival events");
 
       /* loop to poll for the new completion */
     #endif
