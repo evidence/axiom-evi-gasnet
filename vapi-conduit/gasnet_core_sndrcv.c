@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2012/03/05 06:36:21 $
- * $Revision: 1.291 $
+ *     $Date: 2012/03/05 20:50:27 $
+ * $Revision: 1.292 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -1325,7 +1325,7 @@ void gasnetc_rcv_am(const gasnetc_wc_t *comp, gasnetc_rbuf_t **spare_p) {
   }
 }
 
-static int gasnetc_rcv_reap(gasnetc_hca_t *hca, int limit, gasnetc_rbuf_t **spare_p) {
+static int gasnetc_rcv_reap(gasnetc_hca_t *hca, const int limit, gasnetc_rbuf_t **spare_p) {
   int vstat;
   gasnetc_wc_t comp;
   int count;
@@ -1839,38 +1839,75 @@ void gasnetc_snd_post_common(gasnetc_sreq_t *sreq, gasnetc_snd_wr_t *sr_desc, in
 #define gasnetc_snd_post(x,y)		gasnetc_snd_post_common(x,y,0)
 #define gasnetc_snd_post_inline(x,y)	gasnetc_snd_post_common(x,y,1)
 
-#if GASNET_CONDUIT_VAPI /* Unused otherwise */
-static void gasnetc_rcv_thread(gasnetc_hca_hndl_t	hca_hndl,
-			       gasnetc_cq_hndl_t	cq_hndl,
-			       void			*context) {
 #if GASNETC_IB_RCV_THREAD
-  GASNETC_TRACE_WAIT_BEGIN();
-  gasnetc_hca_t *hca = context;
-  int vstat;
+static pthread_t gasnetc_rcv_thread_id;
+static void *gasnetc_rcv_thread(void *arg)
+{
+  gasnetc_hca_t * const hca = (gasnetc_hca_t *)arg;
+  gasnetc_rbuf_t ** const spare_p = (gasnetc_rbuf_t **)&hca->rcv_thread_priv;
 
-  gasneti_assert(hca_hndl == hca->handle);
-  gasneti_assert(cq_hndl == hca->rcv_cq);
+  while (1) {
+    gasnetc_wc_t comp;
+    int rc;
 
-  (void)gasnetc_rcv_reap(hca, (int)(((unsigned int)-1)>>1), (gasnetc_rbuf_t **)&hca->rcv_thread_priv);
+  #if GASNET_CONDUIT_VAPI
+    rc = EVAPI_poll_cq_block(hca->handle, hca->rcv_cq, 0, &comp);
+  #else
+    rc = ibv_poll_cq(hca->rcv_cq, 1, &comp);
+  #endif
+    { const int save_errno = errno; pthread_testcancel(); errno = save_errno; }
+    if_pf (GASNETC_IS_EXITING()) {
+      /* shutdown in another thread */
+      break;
+    } else if (rc == GASNETC_POLL_CQ_OK) {
+      if_pf (comp.status != GASNETC_WC_SUCCESS) {
+      #if 1
+        gasnetc_dump_cqs(&comp, hca, 0);
+      #endif  
+        gasneti_fatalerror("aborting on reap of failed recv");
+        break; /* not reached */
+      }
+      gasneti_assert(comp.opcode == GASNETC_WC_RECV);
+    #if GASNETC_DYNAMIC_CONNECT && !GASNETC_IB_CONN_THREAD
+      if_pf (comp.gasnetc_f_wr_id & 1) {
+        gasnetc_conn_rcv_wc(&comp);
+        continue;
+      }
+    #endif
+      gasnetc_rcv_am(&comp, spare_p);
+      GASNETC_STAT_EVENT_VAL(RCV_REAP, 1);
+    #if !GASNETC_PIN_SEGMENT
+      /* Handler might have queued work for firehose */
+      firehose_poll();
+    #endif 
+    } else if (rc == GASNETC_POLL_CQ_EMPTY) {
+    #if GASNET_CONDUIT_VAPI
+      /* false wake up - nothing needed here */
+    #else
+      gasnetc_cq_hndl_t the_cq;
+      void *the_ctx;
 
-  vstat = VAPI_req_comp_notif(hca_hndl, cq_hndl, VAPI_NEXT_COMP);
+      /* block for event on the empty CQ */
+      rc = ibv_get_cq_event(hca->rcv_handler, &the_cq, &the_ctx);
+      { const int save_errno = errno; pthread_testcancel(); errno = save_errno; }
+      GASNETC_VAPI_CHECK(rc, "while awaiting dynamic connection event");
+      gasneti_assert(the_cq == hca->rcv_cq);
 
-  if_pf (vstat != VAPI_OK) {
-    if (GASNETC_IS_EXITING()) {
-      /* disconnected by another thread */
-      gasnetc_exit(0);
+      /* ack the event and rearm */
+      ibv_ack_cq_events(hca->rcv_cq, 1);
+      rc = ibv_req_notify_cq(hca->rcv_cq, 0);
+      GASNETC_VAPI_CHECK(rc, "while requesting dynamic connection events");
+
+      /* loop to poll for the new completion */
+    #endif
     } else {
-      GASNETC_VAPI_CHECK(vstat, "from VAPI_req_comp_notif()");
+      gasneti_fatalerror("failed cq poll in rcv thread");
     }
   }
 
-  (void)gasnetc_rcv_reap(hca, (int)(((unsigned int)-1)>>1), (gasnetc_rbuf_t **)&hca->rcv_thread_priv);
-  GASNETC_TRACE_WAIT_END(RCV_THREAD_WAKE);
-#else
-  gasneti_fatalerror("unexpected call to gasnetc_rcv_thread");
-#endif
+  return NULL;
 }
-#endif /* GASNET_CONDUIT_VAPI */
+#endif /* GASNETC_IB_RCV_THREAD */
 
 /* Try to claim the next slot */
 GASNETI_INLINE(gasnetc_get_amrdma_slot)
@@ -3306,7 +3343,11 @@ extern int gasnetc_sndrcv_init(void) {
   GASNETC_FOR_ALL_HCA(hca) {
     const int rcv_count = hca->qps * gasnetc_am_rbufs_per_qp;
     const gasnetc_cqe_cnt_t cqe_count = rcv_count + (!hca->hca_index ? ud_rcvs : 0);
-    vstat = gasnetc_create_cq(hca->handle, cqe_count, &hca->rcv_cq, &act_size, NULL);
+    gasnetc_comp_handler_t *comp_p = NULL;
+  #if GASNETC_IB_RCV_THREAD
+    if (gasnetc_use_rcv_thread) comp_p = &hca->rcv_handler;
+  #endif
+    vstat = gasnetc_create_cq(hca->handle, cqe_count, &hca->rcv_cq, &act_size, comp_p);
     GASNETC_VAPI_CHECK(vstat, "from gasnetc_create_cq(rcv_cq)");
     GASNETI_TRACE_PRINTF(I, ("Recv CQ length: requested=%d actual=%d", (int)cqe_count, (int)act_size));
     gasneti_assert(act_size >= cqe_count);
@@ -3315,14 +3356,15 @@ extern int gasnetc_sndrcv_init(void) {
     gasneti_lifo_init(&hca->amrdma_freelist);
 
     if (gasneti_nodes > 1) {
-#if GASNET_CONDUIT_VAPI
+#if GASNETC_IB_RCV_THREAD
       if (gasnetc_use_rcv_thread) {
-        /* create the RCV thread */
-        vstat = EVAPI_set_comp_eventh(hca->handle, hca->rcv_cq, &gasnetc_rcv_thread,
-				      hca, &hca->rcv_handler);
-        GASNETC_VAPI_CHECK(vstat, "from EVAPI_set_comp_eventh()");
-        vstat = VAPI_req_comp_notif(hca->handle, hca->rcv_cq, VAPI_NEXT_COMP);
-        GASNETC_VAPI_CHECK(vstat, "from VAPI_req_comp_notif()");
+        /* spawn the RCV thread */
+        pthread_attr_t attr;
+        pthread_attr_init(&attr);
+        (void)pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM); /* ignore failures */
+        gasneti_assert_zeroret(pthread_create(&gasnetc_rcv_thread_id, &attr,
+				              gasnetc_rcv_thread, hca));
+        gasneti_assert_zeroret(pthread_attr_destroy(&attr));
       }
 #endif
 
@@ -3406,7 +3448,7 @@ extern int gasnetc_sndrcv_init(void) {
   
         rbuf = (gasnetc_rbuf_t *)((uintptr_t)rbuf + padded_size);
       }
-#if GASNET_CONDUIT_VAPI
+#if GASNETC_IB_RCV_THREAD
       if (gasnetc_use_rcv_thread) {
         hca->rcv_thread_priv = gasneti_lifo_pop(&hca->rbuf_freelist);
         gasneti_assert(hca->rcv_thread_priv != NULL);
@@ -3501,11 +3543,6 @@ extern int gasnetc_sndrcv_init(void) {
   if_pf (buf == NULL) {
     GASNETC_FOR_ALL_HCA(hca) {
       if (gasneti_nodes > 1) {
-#if GASNET_CONDUIT_VAPI
-        if (gasnetc_use_rcv_thread) {
-	  vstat = EVAPI_clear_comp_eventh(hca->handle, hca->rcv_handler);
-        }
-#endif
       }
       GASNETI_RETURN_ERRR(RESOURCE, "Unable to allocate pinned memory for AM/bounce buffers");
     }

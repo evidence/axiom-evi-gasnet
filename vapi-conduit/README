@@ -1,7 +1,7 @@
 README file for vapi-conduit and ibv-conduit
 ============================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.68 $
+$Revision: 1.69 $
 
 @ TOC: @
 @ Section: VAPI vs IBV @
@@ -421,24 +421,24 @@ $Revision: 1.68 $
   node, but doing so may not be useful.
 
   + GASNET_RCV_THREAD
-    This gives a boolean: "0" to disable or "1" to enable the use
-    of an extra thread that blocks waiting for vapi to wake it when an
-    Active Message request arrives.  This allows vapi-conduit to be
-    more attentive to incoming AMs even while the application may not
-    be making any calls to GASNet.  The down side is that each time
-    this thread wakes it must contend for CPU resources.  Thus for an
+    This gives a boolean: "0" to disable, or "1" to enable, the use of
+    an extra thread that blocks waiting for an Active Message Request
+    or Reply to arrive.  This allows vapi-conduit to remain attentive
+    to incoming AM traffic even while the application is not making any
+    calls to GASNet.  The down side is that when this thread wakes it
+    must contend for CPU resources and for locks.  Therefore, for an
     application that is calling GASNet sufficiently often, use of this
     thread may significantly INCREASE running time.  However, on an SMP
     where an otherwise idle processor is available the use of this
     thread can REDUCE running time by relieving the application thread
-    of the burden of servicing incoming AM requests and replies.
+    of the burden of servicing incoming AM Requests and Replies.
     Note that if '--disable-vapi-rcv-thread' was specified at build time
     then the extra thread is unavailable and this environment variable
     is ignored.
-    Currently the default is disabled (0), but this is subject to change
-    in a future version.
-    In ibv-conduit only, this option is currently ignored and the thread
-    is never used.
+    Currently the default is disabled (0), but this is subject to change.
+    NOTE: In releases prior to GASNet 1.18.2 the AM receive thread was
+    unavailable for ibv-conduit, but that is no longer the case.
+    Both VAPI and IBV now support the AM receive thread.
 
   Pinnable memory probe configuration:
   In normal operation of vapi-conduit it is necessary to know how much memory

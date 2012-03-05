@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.h,v $
- *     $Date: 2012/03/03 20:13:28 $
- * $Revision: 1.62 $
+ *     $Date: 2012/03/05 20:50:27 $
+ * $Revision: 1.63 $
  * Description: GASNet header for vapi conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -126,22 +126,17 @@ typedef struct _gasnet_hsl_t {
 #endif
 
 /* GASNETC_*_RCV_THREAD enables a progress thread for receiving AMs. */
-#if GASNET_CONDUIT_VAPI && defined(GASNETC_VAPI_RCV_THREAD)
+#if (GASNET_CONDUIT_VAPI && GASNETC_VAPI_RCV_THREAD) || \
+    (GASNET_CONDUIT_IBV  && GASNETC_IBV_RCV_THREAD)
   #define GASNETC_IB_RCV_THREAD 1
-#elif GASNET_CONDUIT_IBV && defined(GASNETC_IBV_RCV_THREAD)
-  /* XXX: rcv thread not yet implemented for IBV */
-  #define GASNETC_IB_RCV_THREAD 0
 #else
   #define GASNETC_IB_RCV_THREAD 0
 #endif
 
 /* GASNETC_*_CONN_THREAD enables a progress thread for establishing dynamic connections. */
-#if !GASNETC_DYNAMIC_CONNECT
-  /* conn thread useless if dynammic connect is disabled */
-  #define GASNETC_IB_CONN_THREAD 0
-#elif GASNET_CONDUIT_VAPI && defined(GASNETC_VAPI_CONN_THREAD)
-  #define GASNETC_IB_CONN_THREAD 1
-#elif GASNET_CONDUIT_IBV && defined(GASNETC_IBV_CONN_THREAD)
+#if GASNETC_DYNAMIC_CONNECT && \
+    ((GASNET_CONDUIT_VAPI && GASNETC_VAPI_CONN_THREAD) || \
+     (GASNET_CONDUIT_IBV  && GASNETC_IBV_CONN_THREAD))
   #define GASNETC_IB_CONN_THREAD 1
 #else
   #define GASNETC_IB_CONN_THREAD 0

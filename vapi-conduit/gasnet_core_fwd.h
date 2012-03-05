@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_fwd.h,v $
- *     $Date: 2012/03/02 15:54:40 $
- * $Revision: 1.58 $
+ *     $Date: 2012/03/05 20:50:27 $
+ * $Revision: 1.59 $
  * Description: GASNet header for vapi conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -61,15 +61,9 @@ typedef uint8_t gasnet_handler_t;
      "private" threads which may be used to run AM handlers, even under GASNET_SEQ
      this ensures locking is still done correctly, etc
    */
-#if GASNET_CONDUIT_VAPI 
-  #if defined(GASNETC_VAPI_RCV_THREAD) || defined(GASNETC_VAPI_CONN_THREAD)
-    #define GASNETI_CONDUIT_THREADS 1
-  #endif
-#elif GASNET_CONDUIT_IBV
-  /* XXX: no AM progress thread yet */
-  #if defined(GASNETC_IBV_CONN_THREAD)
-    #define GASNETI_CONDUIT_THREADS 1
-  #endif
+#if (GASNET_CONDUIT_VAPI && (GASNETC_VAPI_RCV_THREAD || GASNETC_VAPI_CONN_THREAD)) || \
+    (GASNET_CONDUIT_IBV  && (GASNETC_IBV_RCV_THREAD  || GASNETC_IBV_CONN_THREAD))
+  #define GASNETI_CONDUIT_THREADS 1
 #endif
   
   /* define to 1 if your conduit may interrupt an application thread 
@@ -101,7 +95,6 @@ typedef uint8_t gasnet_handler_t;
 	TIME(C, GET_AMREQ_CREDIT_STALL, stalled time) \
 	TIME(C, GET_AMREQ_BUFFER_STALL, stalled time) \
 	TIME(C, AM_ROUNDTRIP_TIME, time) \
-	TIME(C, RCV_THREAD_WAKE, time awake)      \
 	CNT(C, GET_BBUF, cnt)                     \
 	TIME(C, GET_BBUF_STALL, stalled time)     \
 	VAL(C, ALLOC_SREQ, sreqs)                 \
