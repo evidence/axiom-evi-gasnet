@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2012/02/28 00:02:44 $
-# $Revision: 1.745 $
+#     $Date: 2012/03/05 08:58:48 $
+# $Revision: 1.746 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.745 $)
+AC_REVISION($Revision: 1.746 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1419,7 +1419,7 @@ AC_SUBST(GASNET_PSHM_LIBS)
 
 # Note that --enable-pshm disables aligned segments ONLY for conduits that USE it
 GASNET_IF_DISABLED([aligned-segments],
-                   [Disable requirement to achieve aligned VM segments, for heterogeneous clusters],
+                   [Disable requirement to achieve aligned VM segments, for heterogeneous clusters and platforms with address randomization]],
 		   [GASNETI_DISABLE_ALIGNED_SEGMENTS=1
 		    AC_DEFINE(GASNETI_DISABLE_ALIGNED_SEGMENTS)],
 		   [RVMFILE="/proc/sys/kernel/randomize_va_space"
@@ -4808,6 +4808,12 @@ case "$target_os" in
     # This is a minor annoyance in some cases, however it becomes a fatal error
     # when linking with the mpich libs.
     LDFLAGS="$LDFLAGS -Wl,-multiply_defined,suppress"
+
+    # Darwin 11 (MacOSX Lion) and newer use address-space randomization by default
+    tmp_ver=`expr "$target_os" : "darwin\([[0-9]]*\)" 2>/dev/null`
+    if expr $tmp_ver \>= 11 >/dev/null; then
+      LDFLAGS="$LDFLAGS -Wl,-no_pie"
+    fi
   ;;
 
   irix*)
