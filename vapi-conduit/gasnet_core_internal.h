@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2012/03/05 02:07:55 $
- * $Revision: 1.220 $
+ *     $Date: 2012/03/05 05:39:12 $
+ * $Revision: 1.221 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -295,10 +295,10 @@ extern int gasnetc_ReplySysMedium(gasnet_token_t token,
       gasneti_assert((_s)->count <= GASNETC_SEMA_MAX);              \
       gasneti_assert(((_s)->count <= (_s)->limit) || !(_s)->limit); \
     } while (0)
-
   #else
-    typedef struct {
+    typedef union {
       gasneti_atomic_val_t count;
+      void *link; /* allows for inclusion in a lifo */
     } gasnetc_sema_t;
     #define GASNETC_SEMA_INITIALIZER(count,limit) { (count) }
     #define GASNETC_SEMA_CHECK(_s) do { } while (0)
