@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_connect.c,v $
- *     $Date: 2012/03/04 23:35:38 $
- * $Revision: 1.84 $
+ *     $Date: 2012/03/05 01:46:50 $
+ * $Revision: 1.85 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -1774,8 +1774,8 @@ gasnetc_timed_conn_wait(gasnetc_conn_t *conn, gasnetc_conn_state_t state,
   static int64_t sa, sv, rto = 0;
   if_pf (!rto) { /* Init needed */
     rto = gasnetc_conn_retransmit_min_ns;
-    sa = rto >> 1;
-    sv = rto >> 2; /* or ">> 3" for a+4v version */
+    sa = (rto >> 1) << 3;
+    sv = (rto >> 2) << 2; /* or ">> 3" for a+4v version */
   }
   timeout = rto;
   m = gasneti_ticks_to_ns(gasneti_ticks_now() - prev_time);
