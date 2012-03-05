@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_connect.c,v $
- *     $Date: 2012/03/05 02:07:55 $
- * $Revision: 1.86 $
+ *     $Date: 2012/03/05 03:40:16 $
+ * $Revision: 1.87 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -1698,8 +1698,9 @@ gasnetc_put_conn(gasnetc_conn_t *conn)
 
 /* Defaults:
  *   Min is 1ms which at least 25% more than the ENTIRE connect should take.
- *   Max is (1 << 24) us, which, doubling from an inital min=1ms, means 16.384s.
- * Sum is upto 32s spent retrying EACH of the two round-trip message exchanges.
+ *   Max is (1 << 26) us, which, doubling from an inital min=1ms, means 65.536s.
+ * Sum is upto 128s spent retrying EACH of the two round-trip message exchanges.
+ * Of course, SRTT estimation means we don't follow a strict doubling path.
  *
  * We try to "learn" retransmit intervals dynamically, as follows.
  * + The number of "packets" sent to an given peer is just 2, making tuning per
@@ -1763,7 +1764,7 @@ gasnetc_put_conn(gasnetc_conn_t *conn)
 
 /* While env vars are in us, these store ns */
 static uint64_t gasnetc_conn_retransmit_min_ns = 1000 * 1000;
-static uint64_t gasnetc_conn_retransmit_max_ns = ((uint64_t)1 << 24) * 1000;
+static uint64_t gasnetc_conn_retransmit_max_ns = ((uint64_t)1 << 26) * 1000;
 
 /* NOTE: releases and reacquires the lock */
 static void
@@ -1833,8 +1834,9 @@ gasnetc_timed_conn_wait(gasnetc_conn_t *conn, gasnetc_conn_state_t state,
 #endif
 
   if (conn->state == state) {
-    gasneti_fatalerror("Node %d timed out attempting dynamic connection to node %d (state = %d)",
-                       (int)gasneti_mynode, (int)conn->info.node, state);
+    gasneti_fatalerror("Node %d timed out attempting dynamic connection to node %d (state = %d, %d resends over %gs)\n",
+                       (int)gasneti_mynode, (int)conn->info.node, state,
+                       resends, 1e-9 * gasneti_ticks_to_ns(now - conn->xmit_time));
   }
 
 #if GASNETI_STATS_OR_TRACE
