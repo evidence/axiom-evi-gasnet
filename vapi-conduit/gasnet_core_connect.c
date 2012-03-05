@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_connect.c,v $
- *     $Date: 2012/03/05 07:40:20 $
- * $Revision: 1.89 $
+ *     $Date: 2012/03/05 07:41:12 $
+ * $Revision: 1.90 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -1482,7 +1482,7 @@ gasnetc_qp_setup_ud(gasnetc_port_info_t *port, int fully_connected)
      * TODO: Is there some info already available to make this more unique?
      */
     { uint64_t csum = gasneti_checksum(conn_remote_ud_qpn, gasneti_nodes * sizeof(gasnetc_qpn_t));
-      my_qkey = ((GASNETI_LOWORD(csum) << 1) | (GASNETI_LOWORD(csum) >> 27)) ^ GASNETI_HIWORD(csum);
+      my_qkey = ((GASNETI_LOWORD(csum) << 5) | (GASNETI_LOWORD(csum) >> 27)) ^ GASNETI_HIWORD(csum);
     }
 
     /* Allocate pinned memory */
