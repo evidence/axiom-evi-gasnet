@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2012/03/04 20:28:19 $
- * $Revision: 1.219 $
+ *     $Date: 2012/03/05 02:07:55 $
+ * $Revision: 1.220 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -89,13 +89,6 @@ extern gasneti_atomic_t gasnetc_exit_running;
 
 /* May eventually be a hash? */
 #define GASNETC_NODE2CEP(_node) (gasnetc_node2cep[_node])
-
-/* Control via autoconf or runtime probe if/when we can determine which systems need this */
-#define GASNETC_ALLOW_0BYTE_MSG 0
-
-#ifndef GASNETC_DEBUG_CONNECT
-#define GASNETC_DEBUG_CONNECT 0
-#endif
 
 /* ------------------------------------------------------------------------------------ */
 /* Core handlers.
@@ -250,6 +243,16 @@ extern int gasnetc_ReplySysMedium(gasnet_token_t token,
   /* Keep defn */
 #elif !PLATFORM_COMPILER_PGI
   #define GASNETI_USE_ALLOCA 1
+#endif
+
+/* Can one send a 0-byte payload?
+ * TODO: autoconf or runtime probe if/when we can determine which systems need this
+ */
+#define GASNETC_ALLOW_0BYTE_MSG 0
+
+/* Should dynamic connections use TCP-style rtt estimation? */
+#ifndef GASNETC_CONN_USE_SRTT
+  #define GASNETC_CONN_USE_SRTT 1
 #endif
 
 /* ------------------------------------------------------------------------------------ */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_connect.c,v $
- *     $Date: 2012/03/05 01:46:50 $
- * $Revision: 1.85 $
+ *     $Date: 2012/03/05 02:07:55 $
+ * $Revision: 1.86 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -1184,6 +1184,9 @@ typedef struct gasnetc_conn_s {
   gasnetc_ah_t          *ah;
   gasneti_tick_t        xmit_time;
   gasneti_tick_t        reply_time;
+#if GASNETC_CONN_USE_SRTT
+  int                   valid_rtt;
+#endif
 #if GASNETI_STATS_OR_TRACE
   gasneti_tick_t         start_time;
   int                    start_active;
@@ -1198,8 +1201,11 @@ typedef enum {
   GASNETC_CONN_CMD_ACK
 } gasnetc_conn_cmd_t;
 
+#define GASNETC_CONN_CMD_MASK  0x0f
+#define GASNETC_CONN_IS_ORIG   0x10
+
 static gasnetc_ud_snd_desc_t *
-conn_get_snd_desc(gasnetc_conn_cmd_t cmd)
+conn_get_snd_desc(uint32_t flags)
 {
   gasnetc_ud_snd_desc_t *desc =  gasneti_lifo_pop(&conn_snd_freelist);
   GASNETC_TRACE_WAIT_BEGIN();
@@ -1212,15 +1218,15 @@ conn_get_snd_desc(gasnetc_conn_cmd_t cmd)
     } while (NULL == desc);
     GASNETC_TRACE_WAIT_END(CONN_STALL_DESC);
   }
-  desc->wr.imm_data = cmd | (gasneti_mynode << 16);
+  desc->wr.imm_data = flags | (gasneti_mynode << 16);
   return desc;
 }
 
 static void
-conn_send_data(gasnetc_conn_t *conn, gasnetc_conn_cmd_t cmd)
+conn_send_data(gasnetc_conn_t *conn, uint32_t flags)
 {
   gasnetc_conn_info_t *conn_info = &conn->info;
-  gasnetc_ud_snd_desc_t *desc = conn_get_snd_desc(cmd);
+  gasnetc_ud_snd_desc_t *desc = conn_get_snd_desc(flags);
   void *buf = (void *)(uintptr_t)desc->sg.addr;
 
 #if GASNETC_IBV_XRC
@@ -1246,9 +1252,9 @@ conn_send_data(gasnetc_conn_t *conn, gasnetc_conn_cmd_t cmd)
 }
 
 static void
-conn_send_empty(gasnetc_ah_t *ah, gasnet_node_t node, gasnetc_conn_cmd_t cmd)
+conn_send_empty(gasnetc_ah_t *ah, gasnet_node_t node, uint32_t flags)
 {
-  gasnetc_ud_snd_desc_t *desc = conn_get_snd_desc(cmd);
+  gasnetc_ud_snd_desc_t *desc = conn_get_snd_desc(flags);
 
   desc->sg.gasnetc_f_sg_len = GASNETC_ALLOW_0BYTE_MSG ? 0 : 1;
   gasnetc_snd_post_ud(desc, ah, node);
@@ -1706,23 +1712,28 @@ gasnetc_put_conn(gasnetc_conn_t *conn)
  * + Summary of previous 3 items: not clear that smoothed-RTT estimators are useful.
  * + Despite the above, we attempt to estimate RTT pooling data across ALL peers.
  * + So we use SRTT estimation following advice given in RFC 1122:
- *   - Use Karn's algorithm (but see below) to 1) use only unambiguous RTT values in
- *     updating the SRTT, and 2) carry-over backed-off RTO to next packet when no
+ *   - Use Karn's algorithm (but see below) to 1) use only unambiguous RTT values
+ *     to update the SRTT, and 2) carry-over backed-off RTO to next packet when no
  *     updated SRTT is available to compute a "fresh" RTO.
  *   - Use Van Jacobson's variance-aware RTO computation.  However, we are using
  *     the original (a+2v) version, not the (a+4v) version that was updated based
  *     on behavior of TCP slow-start over SLIP.  The reasoning is 2-fold: we are NOT
- *     dealing with bandwidth-dominated links; and our variance is already going to
- *     be artificially high due to pooling over multiple peers.
- * TODO:
+ *     dealing with bandwidth-dominated links (and have constant a message length
+ *     besides); and our variance is already going to be artificially high due to
+ *     pooling over multiple peers.
  * + Karn's algorithm says to discard any RTT measurement for a packet that has been
  *   retransmitted, because we cannot know if the response is to the original or one
- *   of the resends.  However, unlike TCP we have the option to put info in the header
- *   that would allow us to keep Karn's rule about using only "unambiguous" RTT
- *   measurements while admitting a larger set of measurements.  Some options:
- *   - A single header bit would distinguish the original packet and it's reply.  This
- *     allows us to use RTT for any replies to the original, even if there were some
- *     resends.  This could help to more quickly raise a SRTT estimate that is too low.
+ *   of the resends.  However, unlike TCP we can (and do) put info in the header
+ *   to keep Karn's rule about using only "unambiguous" RTT measurements while
+ *   admitting a larger set of measurements:
+ *   - A single header bit distinguishes the original packet and its reply.  This
+ *     lets us use RTT measurements for replies to the original, even if there were
+ *     resends.  This helps to more quickly raise a SRTT estimate that is too low,
+ *     while not allowing the carry-over of a backed-off RTO to excessively delay
+ *     any resends that are appropriate.
+ * TODO:
+ * + More replies could pass Karn's "unambiguous" test if we try harder.  Though it
+ *   is unclear that there is a *need* to keep more samples, here are some ideas:
  *   - A counter in the header could give the sequence for each resend, and be echoed
  *     back in the reply.  This could easily be used to distinguish not only replies
  *     to the first send (as with the 1-bit modification), but also replies to the
@@ -1745,12 +1756,10 @@ gasnetc_put_conn(gasnetc_conn_t *conn)
  * All of this may be more important if/when we want to to AM-over-UD or multicast.
  */
 
-#ifndef GASNETC_CONN_USE_SRTT
-#define GASNETC_CONN_USE_SRTT 1
-#endif
-
 /* No matter what the rto value, don't give up before this many resends */
-#define GASNETC_CONN_RETEANSMIT_MIN 8
+#ifndef GASNETC_CONN_RETEANSMIT_MIN
+  #define GASNETC_CONN_RETEANSMIT_MIN 8
+#endif
 
 /* While env vars are in us, these store ns */
 static uint64_t gasnetc_conn_retransmit_min_ns = 1000 * 1000;
@@ -1759,18 +1768,14 @@ static uint64_t gasnetc_conn_retransmit_max_ns = ((uint64_t)1 << 24) * 1000;
 /* NOTE: releases and reacquires the lock */
 static void
 gasnetc_timed_conn_wait(gasnetc_conn_t *conn, gasnetc_conn_state_t state, 
-                        void (*fn)(gasnetc_conn_t *))
+                        void (*fn)(gasnetc_conn_t *, int))
 {
   gasneti_tick_t prev_time = conn->xmit_time;
   int resends = 0;
-  uint64_t timeout;
-  int64_t m = 0;
-#if GASNETI_STATS_OR_TRACE
-  gasneti_tick_t end_time = GASNETI_TICKS_NOW_IFENABLED(C);
-#endif
+  uint64_t now, timeout;
 
 #if GASNETC_CONN_USE_SRTT
-  /* m, sa, sv and rto as defined by Van Jacobson */
+  /* Variables for Van Jacobson's SRTT estimator */
   static int64_t sa, sv, rto = 0;
   if_pf (!rto) { /* Init needed */
     rto = gasnetc_conn_retransmit_min_ns;
@@ -1778,21 +1783,18 @@ gasnetc_timed_conn_wait(gasnetc_conn_t *conn, gasnetc_conn_state_t state,
     sv = (rto >> 2) << 2; /* or ">> 3" for a+4v version */
   }
   timeout = rto;
-  m = gasneti_ticks_to_ns(gasneti_ticks_now() - prev_time);
 #else
   timeout = gasnetc_conn_retransmit_min_ns;
 #endif
 
   gasneti_mutex_unlock(&gasnetc_conn_tbl_lock);
   while (1) {
-    while ((conn->state == state) &&
-           ((m = gasneti_ticks_to_ns(gasneti_ticks_now() - prev_time)) < timeout)) {
+    while (((now = gasneti_ticks_now()), 1) &&
+           (conn->state == state) &&
+           (gasneti_ticks_to_ns(now - prev_time) < timeout)) {
       GASNETI_WAITHOOK();
       gasnetc_sndrcv_poll(0); /* works even before _attach */
     }
-  #if GASNETI_STATS_OR_TRACE
-    end_time = GASNETI_TICKS_NOW_IFENABLED(C);
-  #endif
 
     if (conn->state != state) break; /* Done */
 
@@ -1803,26 +1805,30 @@ gasnetc_timed_conn_wait(gasnetc_conn_t *conn, gasnetc_conn_state_t state,
     }
 
     /* retransmit */
-    (*fn)(conn);
+    (*fn)(conn, 0);
     ++resends;
+
+    /* Don't use 'now' here because it might include a stall in the resend: */
     prev_time = gasneti_ticks_now();
   }
   gasneti_mutex_lock(&gasnetc_conn_tbl_lock);
 
 #if GASNETC_CONN_USE_SRTT
-  if_pf (resends) {
-    /* Not using an ambiguous rtt value.
-     * Instead carry over current RTO.
-     * TODO: additional header info could disambiguate
-     */
-    rto = timeout;
-  } else {
+  if_pt (conn->valid_rtt) {
+    /* m, sa, sv and rto are as defined by Van Jacobson */
+    int64_t m = gasneti_ticks_to_ns(now - conn->xmit_time);
     m -= (sa >> 3);
     sa += m;
     if (m < 0) m = -m;
     m -= (sv >> 2);
     sv += m;
     rto = (sa >> 3) + (sv >> 1); /* or "+sv" for a+4v version */
+  } else {
+    /* Don't use an ambiguous rtt value to update estimates.
+     * Instead we carry over the current (possibly backed-off) RTO.
+     * TODO: header sequence number could further disambiguate
+     */
+    rto = timeout;
   }
 #endif
 
@@ -1834,11 +1840,11 @@ gasnetc_timed_conn_wait(gasnetc_conn_t *conn, gasnetc_conn_state_t state,
 #if GASNETI_STATS_OR_TRACE
   switch(state) {
   case GASNETC_CONN_STATE_REQ_SENT:
-    GASNETI_TRACE_EVENT_TIME(C, CONN_REQ2REP, (end_time - conn->xmit_time));
+    GASNETI_TRACE_EVENT_TIME(C, CONN_REQ2REP, (now - conn->xmit_time));
     GASNETC_STAT_EVENT_VAL(CONN_REQ, resends);
     break;
   case GASNETC_CONN_STATE_RTU_SENT:
-    GASNETI_TRACE_EVENT_TIME(C, CONN_RTU2ACK, (end_time - conn->xmit_time));
+    GASNETI_TRACE_EVENT_TIME(C, CONN_RTU2ACK, (now - conn->xmit_time));
     GASNETC_STAT_EVENT_VAL(CONN_RTU, resends);
     break;
   default:
@@ -1848,28 +1854,40 @@ gasnetc_timed_conn_wait(gasnetc_conn_t *conn, gasnetc_conn_state_t state,
 }
 
 static void
-conn_send_req(gasnetc_conn_t *conn)
+conn_send_req(gasnetc_conn_t *conn, int flags)
 {
-  conn_send_data(conn, GASNETC_CONN_CMD_REQ);
+  conn_send_data(conn, GASNETC_CONN_CMD_REQ | flags);
+  if (flags & GASNETC_CONN_IS_ORIG) {
+    conn->xmit_time = gasneti_ticks_now();
+  #if GASNETC_CONN_USE_SRTT
+    conn->valid_rtt = 0;
+  #endif
+  }
 }
 
 static void
-conn_send_rtu(gasnetc_conn_t *conn)
+conn_send_rtu(gasnetc_conn_t *conn, int flags)
 {
-  conn_send_empty(conn->ah, conn->info.node, GASNETC_CONN_CMD_RTU);
+  conn_send_empty(conn->ah, conn->info.node, GASNETC_CONN_CMD_RTU | flags);
+  if (flags & GASNETC_CONN_IS_ORIG) {
+    conn->xmit_time = gasneti_ticks_now();
+  #if GASNETC_CONN_USE_SRTT
+    conn->valid_rtt = 0;
+  #endif
+  }
 }
 
 static void
-conn_send_rep(gasnetc_conn_t *conn)
+conn_send_rep(gasnetc_conn_t *conn, int flags)
 {
-  conn_send_data(conn, GASNETC_CONN_CMD_REP);
+  conn_send_data(conn, GASNETC_CONN_CMD_REP | flags);
   GASNETC_STAT_EVENT(CONN_REP);
 }
 
 static void
-conn_send_ack(gasnetc_conn_t *conn, gasnet_node_t node)
+conn_send_ack(gasnetc_conn_t *conn, gasnet_node_t node, int flags)
 {
-  conn_send_empty(conn ? conn->ah : NULL, node, GASNETC_CONN_CMD_ACK);
+  conn_send_empty(conn ? conn->ah : NULL, node, GASNETC_CONN_CMD_ACK | flags);
   GASNETC_STAT_EVENT(CONN_ACK);
 }
 
@@ -1919,8 +1937,7 @@ gasnetc_connect_to(gasnet_node_t node)
     (void) gasnetc_qp_create(&conn->info);
     conn->state = GASNETC_CONN_STATE_REQ_SENT;
 
-    conn_send_req(conn);
-    conn->xmit_time = gasneti_ticks_now();
+    conn_send_req(conn, GASNETC_CONN_IS_ORIG);
 
     (void) gasnetc_qp_reset2init(&conn->info);
     gasnetc_timed_conn_wait(conn, GASNETC_CONN_STATE_REQ_SENT, &conn_send_req);
@@ -1938,8 +1955,7 @@ gasnetc_connect_to(gasnet_node_t node)
     GASNETC_NODE2CEP(node) = conn->info.cep;
     conn->state = GASNETC_CONN_STATE_RTU_SENT;
 
-    conn_send_rtu(conn);
-    conn->xmit_time = gasneti_ticks_now();
+    conn_send_rtu(conn, GASNETC_CONN_IS_ORIG);
 
     gasnetc_sndrcv_attach_peer(node, conn->info.cep);
     (void) gasnetc_qp_rtr2rts(&conn->info);
@@ -2008,7 +2024,8 @@ extern void
 gasnetc_conn_rcv_wc(gasnetc_wc_t *comp)
 {
   gasnetc_ud_rcv_desc_t *desc = (gasnetc_ud_rcv_desc_t *)(1 ^ (uintptr_t)comp->gasnetc_f_wr_id);
-  gasnetc_conn_cmd_t cmd = (gasnetc_conn_cmd_t)(comp->imm_data & 0xff);
+  gasnetc_conn_cmd_t cmd = (gasnetc_conn_cmd_t)(comp->imm_data & GASNETC_CONN_CMD_MASK);
+  uint32_t is_orig = comp->imm_data & GASNETC_CONN_IS_ORIG;
   gasnet_node_t node = comp->imm_data >> 16;
   gasneti_tick_t now = gasneti_ticks_now();
 
@@ -2055,7 +2072,7 @@ gasnetc_conn_rcv_wc(gasnetc_wc_t *comp)
         /* Normal case */
         (void) gasnetc_qp_create(&conn->info);
         state = GASNETC_CONN_STATE_REP_SENT;
-        conn_send_rep(conn);
+        conn_send_rep(conn, is_orig);
         conn->reply_time = now;
       } else
       if (state == GASNETC_CONN_STATE_REP_SENT) {
@@ -2064,7 +2081,7 @@ gasnetc_conn_rcv_wc(gasnetc_wc_t *comp)
           /* Recvd impossibly fast, indicating we were inattentive - don't resend yet. */
           GASNETC_STAT_EVENT(CONN_NOREP);
         } else {
-          conn_send_rep(conn);
+          conn_send_rep(conn, is_orig);
         }
         break; /* Do not advance QP state on resend */
       } else if (state == GASNETC_CONN_STATE_REQ_SENT) {
@@ -2084,7 +2101,7 @@ gasnetc_conn_rcv_wc(gasnetc_wc_t *comp)
         }
       } else if (state == GASNETC_CONN_STATE_RTU_SENT) {
         /* We must have "won" the active-active race while peer must have missed our REQ */
-        conn_send_req(conn);
+        conn_send_req(conn, 0);
         break; /* Do not advance QP state */
       } else {
         break; /* Do not advance QP state */
@@ -2104,6 +2121,9 @@ gasnetc_conn_rcv_wc(gasnetc_wc_t *comp)
       if (state == GASNETC_CONN_STATE_REQ_SENT) {
         /* Normal case */
         state = GASNETC_CONN_STATE_REP_RCVD;
+      #if GASNETC_CONN_USE_SRTT
+        conn->valid_rtt = is_orig;
+      #endif
       }
       break;
 
@@ -2123,7 +2143,7 @@ gasnetc_conn_rcv_wc(gasnetc_wc_t *comp)
         GASNETC_NODE2CEP(node) = conn->info.cep;
         state = GASNETC_CONN_STATE_DONE;
         gasnetc_dynamic_done(conn, 0);
-        conn_send_ack(conn, node);
+        conn_send_ack(conn, node, is_orig);
         prev_ack_time[slot] = now;
         prev_ack_node[slot] = node;
       } else
@@ -2134,7 +2154,7 @@ gasnetc_conn_rcv_wc(gasnetc_wc_t *comp)
           /* Recvd impossibly fast, indicating we were inattentive - don't resend yet. */
           GASNETC_STAT_EVENT(CONN_NOACK);
         } else {
-          conn_send_ack(NULL, node);
+          conn_send_ack(NULL, node, is_orig);
         }
       }
       break;
@@ -2144,6 +2164,9 @@ gasnetc_conn_rcv_wc(gasnetc_wc_t *comp)
       if (state == GASNETC_CONN_STATE_RTU_SENT) {
         /* Normal case */
         state = GASNETC_CONN_STATE_ACK_RCVD;
+      #if GASNETC_CONN_USE_SRTT
+        conn->valid_rtt = is_orig;
+      #endif
       }
       break;
     }
