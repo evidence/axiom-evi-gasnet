@@ -1,7 +1,7 @@
 README file for vapi-conduit and ibv-conduit
 ============================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.67 $
+$Revision: 1.68 $
 
 @ TOC: @
 @ Section: VAPI vs IBV @
@@ -393,7 +393,7 @@ $Revision: 1.67 $
       requests may be reduced by increasing GASNET_CONNECT_RCVS.
     The default value of GASNET_CONNECT_SNDS is 4.
     The default value of GASNET_CONNECT_RCVS is
-            2*ceil(log_2(N_remote))
+            MAX(6, 4 + 2*ceil(log_2(N_remote)))
     where "ceil()" denotes rounding up to an integer, "log_2()" is
     the base-2 logarithm and "N_remote" is the number of GASNet nodes
     minus "self" and any nodes reachable through shared memory (PSHM).

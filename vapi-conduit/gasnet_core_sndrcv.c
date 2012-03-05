@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2012/03/04 21:50:36 $
- * $Revision: 1.290 $
+ *     $Date: 2012/03/05 06:36:21 $
+ * $Revision: 1.291 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -3282,12 +3282,12 @@ extern int gasnetc_sndrcv_init(void) {
   int			ud_rcvs = 0;
 
 #if GASNETC_DYNAMIC_CONNECT
-  /* Default to handling 2*lg(remote_nodes) incomming UD requests and 4 outgoing */
+  /* Default to handling 4 + 2*lg(remote_nodes) incomming UD requests and 4 outgoing */
   gasnetc_ud_rcvs = 1;
   while ((1 << gasnetc_ud_rcvs) < (int)gasnetc_remote_nodes) {
     ++gasnetc_ud_rcvs;
   }
-  gasnetc_ud_rcvs *= 2;
+  gasnetc_ud_rcvs = 4 + 2 * gasnetc_ud_rcvs;
   gasnetc_ud_snds = 4;
   gasnetc_ud_rcvs = gasneti_getenv_int_withdefault("GASNET_CONNECT_RCVS", gasnetc_ud_rcvs, 0);
   gasnetc_ud_snds = gasneti_getenv_int_withdefault("GASNET_CONNECT_SNDS", gasnetc_ud_snds, 0);
