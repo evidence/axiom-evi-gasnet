@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2012/03/05 20:50:27 $
- * $Revision: 1.292 $
+ *     $Date: 2012/03/05 20:57:44 $
+ * $Revision: 1.293 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -1880,6 +1880,7 @@ static void *gasnetc_rcv_thread(void *arg)
       /* Handler might have queued work for firehose */
       firehose_poll();
     #endif 
+      GASNETI_PROGRESSFNS_RUN();
     } else if (rc == GASNETC_POLL_CQ_EMPTY) {
     #if GASNET_CONDUIT_VAPI
       /* false wake up - nothing needed here */
