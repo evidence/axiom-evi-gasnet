@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_page.c,v $
- *     $Date: 2012/01/07 06:24:48 $
- * $Revision: 1.60 $
+ *     $Date: 2012/03/06 22:21:41 $
+ * $Revision: 1.61 $
  * Description: 
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -784,11 +784,11 @@ fh_fini_plugin(void)
 {
 	int			i;
 
+	FH_TABLE_ASSERT_LOCKED;
+
 #ifdef DEBUG_BUCKETS
 	if (fh_verbose) {
-	    FH_TABLE_LOCK;
 	    fh_hash_apply(fh_BucketTable, &fh_priv_check_fn, NULL);
-	    FH_TABLE_UNLOCK;
 	}
 #endif
 

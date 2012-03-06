@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose.c,v $
- *     $Date: 2012/01/07 06:25:36 $
- * $Revision: 1.41 $
+ *     $Date: 2012/03/06 22:21:41 $
+ * $Revision: 1.42 $
  * Description: 
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -176,6 +176,12 @@ void
 firehose_fini()
 {
 	int	i;
+
+	/* Acquire the lock(s) and DO NOT release */
+	FH_TABLE_LOCK;
+#ifndef FH_POLL_NOOP
+	FH_POLLQ_LOCK;
+#endif
 
 	fh_fini_plugin();
 
