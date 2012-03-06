@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2012/03/06 07:23:07 $
- * $Revision: 1.227 $
+ *     $Date: 2012/03/06 18:58:34 $
+ * $Revision: 1.228 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -257,7 +257,7 @@ extern int gasnetc_ReplySysMedium(gasnet_token_t token,
 
 /* ------------------------------------------------------------------------------------ */
 
-/* Semaphore and atomics wrappers
+/* Semaphore, lifo and atomics wrappers
  *
  * Only for GASNETC_ANY_PAR do we need true atomics.
  * In particular neither PARSYNC nor CONN_THREAD introduce concurrency,
@@ -271,6 +271,15 @@ extern int gasnetc_ReplySysMedium(gasnet_token_t token,
   #define gasnetc_sema_up      gasneti_semaphore_up
   #define gasnetc_sema_up_n    gasneti_semaphore_up_n
   #define gasnetc_sema_trydown gasneti_semaphore_trydown
+
+  typedef gasneti_lifo_head_t gasnetc_lifo_head_t;
+  #define GASNETC_LIFO_INITIALIZER GASNETI_LIFO_INITIALIZER
+  #define gasnetc_lifo_init      gasneti_lifo_init
+  #define gasnetc_lifo_link      gasneti_lifo_link
+  #define gasnetc_lifo_next      gasneti_lifo_next
+  #define gasnetc_lifo_push      gasneti_lifo_push
+  #define gasnetc_lifo_push_many gasneti_lifo_push_many
+  #define gasnetc_lifo_pop       gasneti_lifo_pop
 
   typedef gasneti_atomic_t     gasnetc_atomic_t;
   typedef gasneti_atomic_val_t gasnetc_atomic_val_t;
@@ -339,6 +348,56 @@ extern int gasnetc_ReplySysMedium(gasnet_token_t token,
       s->count -= 1;
     GASNETC_SEMA_CHECK(s);
     return retval;
+  }
+
+  typedef struct {
+    void **head;
+  } gasnetc_lifo_head_t;
+  #define GASNETC_LIFO_INITIALIZER  { NULL }
+
+  GASNETI_INLINE(gasnetc_lifo_init)
+  void gasnetc_lifo_init(gasnetc_lifo_head_t *lifo) {
+    gasneti_assert(lifo != NULL);
+    lifo->head = NULL;
+  }
+  GASNETI_INLINE(_gasnetc_lifo_push)
+  void _gasnetc_lifo_push(gasnetc_lifo_head_t *lifo, void **head, void **tail) {
+    *tail = lifo->head;
+    lifo->head = head;
+  }
+  GASNETI_INLINE(gasnetc_lifo_push)
+  void gasnetc_lifo_push(gasnetc_lifo_head_t *lifo, void *elem) {
+    gasneti_assert(lifo != NULL);
+    gasneti_assert(elem != NULL);
+    _gasnetc_lifo_push(lifo, elem, elem);
+  }
+  GASNETI_INLINE(gasnetc_lifo_push_many)
+  void gasnetc_lifo_push_many(gasnetc_lifo_head_t *lifo, void *head, void *tail) {
+    gasneti_assert(lifo != NULL);
+    gasneti_assert(head != NULL);
+    gasneti_assert(tail != NULL);
+    _gasnetc_lifo_push(lifo, head, tail);
+  }
+  GASNETI_INLINE(gasnetc_lifo_pop) GASNETI_MALLOC
+  void *gasnetc_lifo_pop(gasnetc_lifo_head_t *lifo) {
+    void **elem;
+    gasneti_assert(lifo != NULL);
+    elem = lifo->head;
+    if_pt (elem != NULL) {
+      lifo->head = *elem;
+    }
+    return (void *)elem;
+  }
+  GASNETI_INLINE(gasnetc_lifo_link)
+  void gasnetc_lifo_link(void *p, void *q) {
+    gasneti_assert(p != NULL);
+    gasneti_assert(q != NULL);
+    *((void **)p) = q;
+  }
+  GASNETI_INLINE(gasnetc_lifo_next)
+  void *gasnetc_lifo_next(void *elem) {
+    gasneti_assert(elem != NULL);
+    return *((void **)elem);
   }
 
   typedef gasneti_atomic_val_t gasnetc_atomic_t;
@@ -597,7 +656,7 @@ typedef struct {
   gasnetc_cep_t		**cep; /* array of ptrs to all ceps */
 
   void			*rbufs;
-  gasneti_lifo_head_t	rbuf_freelist;
+  gasnetc_lifo_head_t	rbuf_freelist;
 
 #if GASNETC_IB_RCV_THREAD
   /* Rcv thread */
@@ -607,7 +666,7 @@ typedef struct {
 
   /* AM-over-RMDA */
   gasnetc_memreg_t	amrdma_reg;
-  gasneti_lifo_head_t	amrdma_freelist;
+  gasnetc_lifo_head_t	amrdma_freelist;
   struct {
     gasnetc_atomic_val_t max_peers;
     gasnetc_atomic_t	count;
@@ -680,7 +739,7 @@ struct gasnetc_cep_t_ {
   gasnetc_lkey_t	rcv_lkey;
   gasnetc_lkey_t	snd_lkey;
 #endif
-  gasneti_lifo_head_t	*rbuf_freelist;	/* Source of rcv buffers for AMs */
+  gasnetc_lifo_head_t	*rbuf_freelist;	/* Source of rcv buffers for AMs */
   gasnetc_hca_t		*hca;
   gasnetc_qp_hndl_t	qp_handle;
 #if GASNET_CONDUIT_VAPI

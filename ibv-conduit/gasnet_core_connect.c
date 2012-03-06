@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2012/03/06 07:23:07 $
- * $Revision: 1.94 $
+ *     $Date: 2012/03/06 18:58:34 $
+ * $Revision: 1.95 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -123,6 +123,7 @@ gasnetc_conn_rand_int(unsigned int max_val)
 
 /* ------------------------------------------------------------------------------------ */
 
+/* Not gasnetc_lifo_ because accessed by both client and conn threads */
 static gasneti_lifo_head_t sq_sema_freelist = GASNETI_LIFO_INITIALIZER;
 
 static void
@@ -932,6 +933,7 @@ typedef struct {
 } gasnetc_ud_snd_desc_t;
 
 static gasnetc_qpn_t *conn_remote_ud_qpn = NULL;
+/* NOT gasnetc_lifo_t, since this is always subject to concurrent access */
 static gasneti_lifo_head_t conn_snd_freelist = GASNETI_LIFO_INITIALIZER;
 
 #if GASNETC_IB_CONN_THREAD

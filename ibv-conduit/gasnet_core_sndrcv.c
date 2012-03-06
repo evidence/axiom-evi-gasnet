@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2012/03/06 18:17:38 $
- * $Revision: 1.302 $
+ *     $Date: 2012/03/06 18:58:34 $
+ * $Revision: 1.303 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -28,7 +28,7 @@
 #endif
 
 /* If running w/ threads (locks) we want to coalesce calls to
-     gasneti_lifo_push(&gasnetc_bbuf_freelist,*)
+     gasnetc_lifo_push(&gasnetc_bbuf_freelist,*)
    and
      firehose_release().
    However, when no threads (no locks) are present, we don't
@@ -230,7 +230,7 @@ static size_t                           gasnetc_am_inline_limit_rdma = 0;
   static size_t                         gasnetc_putinmove_limit_adjusted = 0;
 #endif
 
-static gasneti_lifo_head_t		gasnetc_bbuf_freelist = GASNETI_LIFO_INITIALIZER;
+static gasnetc_lifo_head_t		gasnetc_bbuf_freelist = GASNETC_LIFO_INITIALIZER;
 
 static gasnetc_sema_t			*gasnetc_cq_semas;
 
@@ -814,13 +814,13 @@ void gasnetc_processPacket(gasnetc_cep_t *cep, gasnetc_rbuf_t *rbuf, uint32_t fl
   #define _GASNETC_COLLECT_BBUF(_test,_bbuf) do { \
       void *_tmp = (void*)(_bbuf);                \
       _test((_tmp != NULL)) {                     \
-        gasneti_lifo_link(bbuf_tail, _tmp);   \
+        gasnetc_lifo_link(bbuf_tail, _tmp);   \
         bbuf_tail = _tmp;                         \
       }                                           \
     } while(0)
   #define GASNETC_FREE_BBUFS() do {    \
       if (bbuf_tail != &bbuf_dummy) {  \
-        gasneti_lifo_push_many(&gasnetc_bbuf_freelist, gasneti_lifo_next(&bbuf_dummy), bbuf_tail); \
+        gasnetc_lifo_push_many(&gasnetc_bbuf_freelist, gasnetc_lifo_next(&bbuf_dummy), bbuf_tail); \
       }                                \
     } while(0)
   #define GASNETC_COLLECT_FHS() do {                    \
@@ -840,7 +840,7 @@ void gasnetc_processPacket(gasnetc_cep_t *cep, gasnetc_rbuf_t *rbuf, uint32_t fl
   #define _GASNETC_COLLECT_BBUF(_test,_bbuf) do {          \
       void *_tmp = (void*)(_bbuf);                         \
       _test((_tmp != NULL)) {                              \
-        gasneti_lifo_push(&gasnetc_bbuf_freelist,_tmp); \
+        gasnetc_lifo_push(&gasnetc_bbuf_freelist,_tmp); \
       }                                                    \
     } while(0)
   #define GASNETC_FREE_BBUFS()	do {} while (0)
@@ -1290,12 +1290,12 @@ void gasnetc_rcv_am(const gasnetc_wc_t *comp, gasnetc_rbuf_t **spare_p) {
     gasnetc_processPacket(cep, rbuf, flags);
 
     /* Return the rcv buffer to the free list */
-    gasneti_lifo_push(cep->rbuf_freelist, rbuf);
+    gasnetc_lifo_push(cep->rbuf_freelist, rbuf);
   } else {
     /* Post a replacement buffer before processing the request.
      * This ensures that the credit sent with the reply will
      * have a corresponding buffer available at this end. */
-    spare = (*spare_p) ? (*spare_p) : gasneti_lifo_pop(cep->rbuf_freelist);
+    spare = (*spare_p) ? (*spare_p) : gasnetc_lifo_pop(cep->rbuf_freelist);
     if_pt (spare) {
       /* This is the normal case */
       gasnetc_rcv_post(cep, spare);
@@ -1572,7 +1572,7 @@ void gasnetc_poll_rcv_hca(gasnetc_hca_t *hca, int limit) {
       gasnetc_rbuf_t *spare = NULL;
       (void)gasnetc_rcv_reap(hca, limit, &spare);
       if (spare) {
-        gasneti_lifo_push(&hca->rbuf_freelist, spare);
+        gasnetc_lifo_push(&hca->rbuf_freelist, spare);
       }
     }
   }
@@ -1667,15 +1667,15 @@ gasnetc_buffer_t *gasnetc_get_bbuf(int block) {
   GASNETC_TRACE_WAIT_BEGIN();
   GASNETC_STAT_EVENT(GET_BBUF);
 
-  bbuf = gasneti_lifo_pop(&gasnetc_bbuf_freelist);
+  bbuf = gasnetc_lifo_pop(&gasnetc_bbuf_freelist);
   if_pf (!bbuf) {
     gasnetc_poll_snd();
-    bbuf = gasneti_lifo_pop(&gasnetc_bbuf_freelist);
+    bbuf = gasnetc_lifo_pop(&gasnetc_bbuf_freelist);
     if (block) {
       while (!bbuf) {
         GASNETI_WAITHOOK();
         gasnetc_poll_snd();
-        bbuf = gasneti_lifo_pop(&gasnetc_bbuf_freelist);
+        bbuf = gasnetc_lifo_pop(&gasnetc_bbuf_freelist);
       }
     }
     GASNETC_TRACE_WAIT_END(GET_BBUF_STALL);
@@ -1955,8 +1955,8 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
       char tmp_buf[GASNETC_BUFSZ+8];
       gasnetc_buffer_t * const buf = (gasnetc_buffer_t *)GASNETI_ALIGNUP(tmp_buf, 8);
     #else
-      static gasneti_lifo_head_t buf_freelist = GASNETI_LIFO_INITIALIZER;
-      gasnetc_buffer_t *buf = gasneti_lifo_pop(&buf_freelist);
+      static gasnetc_lifo_head_t buf_freelist = GASNETC_LIFO_INITIALIZER;
+      gasnetc_buffer_t *buf = gasnetc_lifo_pop(&buf_freelist);
       if_pf (buf == NULL) {
 	buf = gasneti_malloc(GASNETC_BUFSZ);
       }
@@ -2003,7 +2003,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
     }
 
     #if !GASNETC_LOOPBACK_AMS_ON_STACK
-      gasneti_lifo_push(&buf_freelist, buf);
+      gasnetc_lifo_push(&buf_freelist, buf);
     #endif
   } else
 #endif /* !GASNET_PSHM */
@@ -2151,13 +2151,13 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
           } while (!gasnetc_sema_trydown(sema));
           GASNETC_TRACE_WAIT_END(GET_AMREQ_BUFFER_STALL);
         }
-        gasneti_assert(NULL == gasneti_lifo_pop(cep->rbuf_freelist));
+        gasneti_assert(NULL == gasnetc_lifo_pop(cep->rbuf_freelist));
       } else
 #endif
       if (gasnetc_sema_trydown(&cep->am_loc)) {
         /* We'll use one that was left over due to ACK coalescing or reply via rdma */
       } else {
-        gasnetc_rbuf_t *rbuf = gasneti_lifo_pop(cep->rbuf_freelist);
+        gasnetc_rbuf_t *rbuf = gasnetc_lifo_pop(cep->rbuf_freelist);
         if_pf (rbuf == NULL) {
           GASNETC_TRACE_WAIT_BEGIN();
           do {
@@ -2166,7 +2166,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
 	    if (gasnetc_sema_trydown(&cep->am_loc)) {
 	      break;
 	    }
-	    rbuf = gasneti_lifo_pop(cep->rbuf_freelist);
+	    rbuf = gasnetc_lifo_pop(cep->rbuf_freelist);
           } while (rbuf == NULL);
           GASNETC_TRACE_WAIT_END(GET_AMREQ_BUFFER_STALL);
         }
@@ -3324,7 +3324,7 @@ extern int gasnetc_sndrcv_init(void) {
     gasneti_assert(act_size >= cqe_count);
     /* We don't set rcv_count = act_size here, as that could nearly double the memory allocated below */
 
-    gasneti_lifo_init(&hca->amrdma_freelist);
+    gasnetc_lifo_init(&hca->amrdma_freelist);
 
     if (gasnetc_remote_nodes) {
       /* Allocated pinned memory for receive buffers */
@@ -3388,7 +3388,7 @@ extern int gasnetc_sndrcv_init(void) {
       gasneti_leak_aligned(hca->rbufs);
   
       /* Initialize the rbuf's */
-      gasneti_lifo_init(&hca->rbuf_freelist);
+      gasnetc_lifo_init(&hca->rbuf_freelist);
       rbuf = hca->rbufs;
       for (i = 0; i < rcv_count; ++i) {
         rbuf->rr_is_rdma         = 0;
@@ -3403,13 +3403,13 @@ extern int gasnetc_sndrcv_init(void) {
 #endif
         rbuf->rr_sg.gasnetc_f_sg_len = GASNETC_BUFSZ;
         rbuf->rr_sg.addr             = (uintptr_t)&buf[i];
-        gasneti_lifo_push(&hca->rbuf_freelist, rbuf);
+        gasnetc_lifo_push(&hca->rbuf_freelist, rbuf);
   
         rbuf = (gasnetc_rbuf_t *)((uintptr_t)rbuf + padded_size);
       }
 #if GASNETC_IB_RCV_THREAD
       if (gasnetc_use_rcv_thread) {
-        hca->rcv_thread_priv = gasneti_lifo_pop(&hca->rbuf_freelist);
+        hca->rcv_thread_priv = gasnetc_lifo_pop(&hca->rbuf_freelist);
         gasneti_assert(hca->rcv_thread_priv != NULL);
       }
 #endif
@@ -3438,7 +3438,7 @@ extern int gasnetc_sndrcv_init(void) {
         }
 	buf = (void *)((uintptr_t)buf + GASNETC_AMRDMA_PAD);
 	for (i = 0; i < max_peers; ++i) {
-	  gasneti_lifo_push(&hca->amrdma_freelist, buf);
+	  gasnetc_lifo_push(&hca->amrdma_freelist, buf);
 	  buf = (void *)((uintptr_t)buf + (gasnetc_amrdma_depth << GASNETC_AMRDMA_SZ_LG2));
 	}
 
@@ -3503,7 +3503,7 @@ extern int gasnetc_sndrcv_init(void) {
       GASNETI_RETURN_ERRR(RESOURCE, "Unable to allocate pinned memory for AM/bounce buffers");
   }
   for (i = 0; i < gasnetc_bbuf_limit; ++i) {
-    gasneti_lifo_push(&gasnetc_bbuf_freelist, buf);
+    gasnetc_lifo_push(&gasnetc_bbuf_freelist, buf);
     ++buf;
   }
  }
@@ -3546,18 +3546,18 @@ extern void gasnetc_sndrcv_init_peer(gasnet_node_t node, gasnetc_cep_t *cep) {
         if (first) {
           if (i < gasnetc_num_qps) {
             for (j = 0; j < gasnetc_am_repl_per_qp; ++j) {
-              gasnetc_rcv_post(cep, gasneti_lifo_pop(cep->rbuf_freelist));
+              gasnetc_rcv_post(cep, gasnetc_lifo_pop(cep->rbuf_freelist));
             }
           } else {
             for (j = 0; j < gasnetc_am_rqst_per_qp; ++j) {
-              gasnetc_rcv_post(cep, gasneti_lifo_pop(cep->rbuf_freelist));
+              gasnetc_rcv_post(cep, gasnetc_lifo_pop(cep->rbuf_freelist));
             }
           }
         }
       } else
       for (j = 0; j < gasnetc_am_oust_pp; ++j) {
         /* Prepost one rcv buffer for each possible incomming request */
-        gasnetc_rcv_post(cep, gasneti_lifo_pop(cep->rbuf_freelist));
+        gasnetc_rcv_post(cep, gasnetc_lifo_pop(cep->rbuf_freelist));
       }
 
       /* Setup semaphores/counters */
@@ -3683,7 +3683,7 @@ extern gasnetc_amrdma_send_t *gasnetc_amrdma_send_alloc(gasnetc_rkey_t rkey, voi
 }
 
 extern gasnetc_amrdma_recv_t *gasnetc_amrdma_recv_alloc(gasnetc_hca_t *hca) {
-  gasnetc_amrdma_buf_t *addr = gasneti_lifo_pop(&hca->amrdma_freelist);
+  gasnetc_amrdma_buf_t *addr = gasnetc_lifo_pop(&hca->amrdma_freelist);
   gasnetc_amrdma_recv_t *result = NULL;
 
   if (addr != NULL) {
