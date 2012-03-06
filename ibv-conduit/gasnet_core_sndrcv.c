@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2012/03/06 06:07:26 $
- * $Revision: 1.298 $
+ *     $Date: 2012/03/06 07:23:07 $
+ * $Revision: 1.299 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -349,31 +349,37 @@ void gasnetc_per_thread_init(gasnetc_per_thread_t *td)
 extern int
 gasnetc_create_cq(gasnetc_hca_hndl_t hca_hndl, gasnetc_cqe_cnt_t req_size,
 		  gasnetc_cq_hndl_t *cq_p, gasnetc_cqe_cnt_t *act_size,
-		  gasnetc_comp_handler_t *comp_p)
+		  gasnetc_progress_thread_t *pthr_p)
 {
 #if GASNET_CONDUIT_VAPI
   int rc = VAPI_create_cq(hca_hndl, req_size, cq_p, act_size);
   GASNETC_VAPI_CHECK(rc, "from VAPI_create_cq()");
-  if (comp_p) {
+  if (pthr_p) {
+    memset(pthr_p, 0, sizeof(*pthr_p));
     rc = EVAPI_set_comp_eventh(hca_hndl, *cq_p,
                                EVAPI_POLL_CQ_UNBLOCK_HANDLER, NULL,
-                               comp_p);
+                               &pthr_p->compl);
     GASNETC_VAPI_CHECK(rc, "from EVAPI_set_comp_eventh()");
+    pthr_p->hca = hca_hndl;
+    pthr_p->cq = *cq_p;
   }
   return rc;
 #else
-  gasnetc_comp_handler_t comp = NULL;
+  gasnetc_comp_handler_t compl = NULL;
   gasnetc_cq_hndl_t result;
-  if (comp_p) {
-    comp = ibv_create_comp_channel(hca_hndl);
-    GASNETC_VAPI_CHECK_PTR(comp, "from ibv_create_comp_channel");
-    *comp_p = comp;
+  if (pthr_p) {
+    compl = ibv_create_comp_channel(hca_hndl);
+    GASNETC_VAPI_CHECK_PTR(compl, "from ibv_create_comp_channel");
   }
-  result = ibv_create_cq(hca_hndl, req_size, NULL, comp, 0);
+  result = ibv_create_cq(hca_hndl, req_size, NULL, compl, 0);
   GASNETC_VAPI_CHECK_PTR(result, "from ibv_create_cq()");
-  if (comp_p) {
+  if (pthr_p) {
     int rc = ibv_req_notify_cq(result, 0);
     GASNETC_VAPI_CHECK(rc, "while requesting cq events");
+    memset(pthr_p, 0, sizeof(*pthr_p));
+    pthr_p->hca = hca_hndl;
+    pthr_p->compl = compl;
+    pthr_p->cq = result;
   }
   if_pt (result != NULL) {
     *cq_p = result;
@@ -1866,35 +1872,6 @@ static void gasnetc_rcv_thread(gasnetc_wc_t *comp_p, void *arg)
   #endif 
     GASNETI_PROGRESSFNS_RUN();
   }
-
-  /* Throttle thread's rate */
-  if_pf (gasnetc_rcv_thread_min_us) {
-    uint64_t prev = hca->rcv_prev_time;
-    if_pt (prev) {
-      uint64_t elapsed = gasneti_ticks_to_us(gasneti_ticks_now() - prev);
-
-      if (elapsed < gasnetc_rcv_thread_min_us) {
-      #if HAVE_USLEEP
-        uint64_t us_delay = (gasnetc_rcv_thread_min_us - elapsed);
-        usleep(us_delay);
-      #elif HAVE_NANOSLEEP
-        uint64_t ns_delay = 1000 * (gasnetc_rcv_thread_min_us - elapsed);
-        struct timespec ts = { ns_delay / 1000000000L, us_delay % 1000000000L };
-        nanosleep(&ts, NULL);
-      #elif HAVE_NSLEEP
-        uint64_t ns_delay = 1000 * (gasnetc_rcv_thread_min_us - elapsed);
-        struct timespec ts = { ns_delay / 1000000000L, us_delay % 1000000000L };
-        nsleep(&ts, NULL);
-      #else
-        do {
-          gasneti_yield();
-          elapsed = gasneti_ticks_to_us(gasneti_ticks_now() - prev);
-        } while (elapsed < gasnetc_rcv_thread_min_us);
-      #endif
-      }
-    }
-    hca->rcv_prev_time = gasneti_ticks_now();
-  }
 }
 #endif /* GASNETC_IB_RCV_THREAD */
 
@@ -3332,11 +3309,11 @@ extern int gasnetc_sndrcv_init(void) {
   GASNETC_FOR_ALL_HCA(hca) {
     const int rcv_count = hca->qps * gasnetc_am_rbufs_per_qp;
     const gasnetc_cqe_cnt_t cqe_count = rcv_count + (!hca->hca_index ? ud_rcvs : 0);
-    gasnetc_comp_handler_t *comp_p = NULL;
+    gasnetc_progress_thread_t *rcv_thread = NULL;
   #if GASNETC_IB_RCV_THREAD
-    if (gasnetc_use_rcv_thread) comp_p = &hca->rcv_handler;
+    if (gasnetc_use_rcv_thread) rcv_thread = &hca->rcv_thread;
   #endif
-    vstat = gasnetc_create_cq(hca->handle, cqe_count, &hca->rcv_cq, &act_size, comp_p);
+    vstat = gasnetc_create_cq(hca->handle, cqe_count, &hca->rcv_cq, &act_size, rcv_thread);
     GASNETC_VAPI_CHECK(vstat, "from gasnetc_create_cq(rcv_cq)");
     GASNETI_TRACE_PRINTF(I, ("Recv CQ length: requested=%d actual=%d", (int)cqe_count, (int)act_size));
     gasneti_assert(act_size >= cqe_count);
@@ -3671,19 +3648,17 @@ extern void gasnetc_sndrcv_attach_segment(void) {
 #if GASNETC_IB_RCV_THREAD
 extern void gasnetc_sndrcv_start_thread(void) {
   if (gasnetc_remote_nodes && gasnetc_use_rcv_thread) {
-    pthread_t thread_id; /* TODO: keep in hca if we ever plan to cancel? */
-    gasnetc_hca_t *hca;
-
     int rcv_max_rate = gasneti_getenv_int_withdefault("GASNET_RCV_THREAD_RATE", 0, 1);
-    if (rcv_max_rate > 0) {
-      gasnetc_rcv_thread_min_us = ((uint64_t)1000000) / rcv_max_rate;
-    }
+    gasnetc_hca_t *hca;
 
     GASNETC_FOR_ALL_HCA(hca) {
       /* spawn the RCV thread */
-      gasnetc_create_progress_thread(&thread_id, hca->handle,
-                                     hca->rcv_cq, hca->rcv_handler,
-                                     gasnetc_rcv_thread, hca);
+      hca->rcv_thread.fn = gasnetc_rcv_thread;
+      hca->rcv_thread.fn_arg = hca;
+      if (rcv_max_rate > 0) {
+        hca->rcv_thread.min_us = ((uint64_t)1000000) / rcv_max_rate;
+      }
+      gasnetc_spawn_progress_thread(&hca->rcv_thread);
     }
   }
 }

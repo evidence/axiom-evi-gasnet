@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2012/03/06 02:20:33 $
- * $Revision: 1.93 $
+ *     $Date: 2012/03/06 07:23:07 $
+ * $Revision: 1.94 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -953,10 +953,9 @@ static gasnetc_hca_t *conn_ud_hca = NULL;
 static int conn_ud_msg_sz = -1;
 
 #if GASNETC_IB_CONN_THREAD
-static pthread_t conn_thread_id;
+static gasnetc_progress_thread_t conn_thread;
 static gasnetc_cq_hndl_t conn_ud_snd_cq = GASNETC_INVAL_HNDL;
 static gasnetc_cq_hndl_t conn_ud_rcv_cq = GASNETC_INVAL_HNDL;
-static gasnetc_comp_handler_t conn_ud_rcv_comp = GASNETC_INVAL_HNDL;
 static int conn_snd_poll(void);
 #else /* GASNETC_IB_CONN_THREAD */
 # define conn_snd_poll() gasnetc_sndrcv_poll(1)
@@ -1359,11 +1358,10 @@ gasnetc_qp_setup_ud(gasnetc_port_info_t *port, int fully_connected)
     conn_ud_sema_p = conn_ud_hca->snd_cq_sema_p;
 #else
     { gasnetc_cqe_cnt_t cq_sz;
-      pthread_attr_t attr;
 
       /* Create CQ for UD recvs, configured for blocking completions */
       rc = gasnetc_create_cq(conn_ud_hca->handle, gasnetc_ud_rcvs,
-                             &conn_ud_rcv_cq, &cq_sz, &conn_ud_rcv_comp);
+                             &conn_ud_rcv_cq, &cq_sz, &conn_thread);
       GASNETC_VAPI_CHECK(rc, "from gasnetc_create_cq(conn_rcv)");
 
       /* Create CQ for UD sends */
@@ -1372,9 +1370,9 @@ gasnetc_qp_setup_ud(gasnetc_port_info_t *port, int fully_connected)
       GASNETC_VAPI_CHECK(rc, "from gasnetc_create_cq(conn_snd)");
 
       /* Spawn the thread */
-      gasnetc_create_progress_thread(&conn_thread_id, conn_ud_hca->handle,
-                                     conn_ud_rcv_cq, conn_ud_rcv_comp,
-                                     gasnetc_conn_thread, NULL);
+      conn_thread.fn = gasnetc_conn_thread;
+      conn_thread.fn_arg = NULL;
+      gasnetc_spawn_progress_thread(&conn_thread);
     }
 
     send_cq = conn_ud_snd_cq;
@@ -2690,7 +2688,7 @@ gasnetc_connect_fini(void)
 # if GASNET_CONDUIT_VAPI
   (void) EVAPI_poll_cq_unblock(conn_ud_hca->handle, conn_ud_rcv_cq);
 # endif
-  (void) pthread_cancel(conn_thread_id);
+  (void) pthread_cancel(conn_thread.id);
 #endif
 
   /* Open file replacing any '%' in filename with node number */

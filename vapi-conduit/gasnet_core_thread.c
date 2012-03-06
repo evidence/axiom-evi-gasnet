@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_thread.c,v $
- *     $Date: 2012/03/06 02:20:33 $
- * $Revision: 1.1 $
+ *     $Date: 2012/03/06 07:23:07 $
+ * $Revision: 1.2 $
  * Description: GASNet vapi/ibv conduit implementation, progress thread logic
  * Copyright 2012, LBNL
  * Terms of use are as specified in license.txt
@@ -26,22 +26,15 @@ void gasnetc_testcancel(void) {
   errno = save_errno;
 }
 
-typedef struct {
-  gasnetc_hca_hndl_t hca_hndl;
-  gasnetc_cq_hndl_t cq_hndl;
-  gasnetc_comp_handler_t compl_hndl;
-  void (*fn)(gasnetc_wc_t *, void *);
-  void *fn_arg;
-} gasnetc_thread_closure_t;
-
 static void * gasnetc_progress_thread(void *arg)
 {
-  gasnetc_thread_closure_t *args = (gasnetc_thread_closure_t *)arg;
-  const gasnetc_hca_hndl_t hca_hndl         = args->hca_hndl;
-  const gasnetc_cq_hndl_t cq_hndl           = args->cq_hndl;
-  const gasnetc_comp_handler_t compl_hndl   = args->compl_hndl;
-  void (* const fn)(gasnetc_wc_t *, void *) = args->fn;
-  void * const fn_arg                       = args->fn_arg;
+  gasnetc_progress_thread_t *pthr_p = arg;
+  const gasnetc_hca_hndl_t hca_hndl         = pthr_p->hca;
+  const gasnetc_cq_hndl_t cq_hndl           = pthr_p->cq;
+  const gasnetc_comp_handler_t compl_hndl   = pthr_p->compl;
+  void (* const fn)(gasnetc_wc_t *, void *) = pthr_p->fn;
+  void * const fn_arg                       = pthr_p->fn_arg;
+  const uint64_t min_us                     = pthr_p->min_us;
 
   while (1) {
     gasnetc_wc_t comp;
@@ -57,6 +50,35 @@ static void * gasnetc_progress_thread(void *arg)
       gasneti_assert((comp.opcode == GASNETC_WC_RECV) ||
 		     (comp.status != GASNETC_WC_SUCCESS));
       (fn)(&comp, fn_arg);
+
+      /* Throttle thread's rate */
+      if_pf (min_us) {
+        uint64_t prev = pthr_p->prev_time;
+        if_pt (prev) {
+          uint64_t elapsed = gasneti_ticks_to_us(gasneti_ticks_now() - prev);
+    
+          if (elapsed < min_us) {
+          #if HAVE_USLEEP
+            uint64_t us_delay = (min_us - elapsed);
+            usleep(us_delay);
+          #elif HAVE_NANOSLEEP
+            uint64_t ns_delay = 1000 * (min_us - elapsed);
+            struct timespec ts = { ns_delay / 1000000000L, us_delay % 1000000000L };
+            nanosleep(&ts, NULL);
+          #elif HAVE_NSLEEP
+            uint64_t ns_delay = 1000 * (min_us - elapsed);
+            struct timespec ts = { ns_delay / 1000000000L, us_delay % 1000000000L };
+            nsleep(&ts, NULL);
+          #else
+            do {
+              gasneti_yield();
+              elapsed = gasneti_ticks_to_us(gasneti_ticks_now() - prev);
+            } while (elapsed < min_us);
+          #endif
+          }
+        }
+        pthr_p->prev_time = gasneti_ticks_now();
+      }
     } else if (rc == GASNETC_POLL_CQ_EMPTY) {
     #if GASNET_CONDUIT_VAPI
       continue; /* false wake up - loop again */
@@ -84,26 +106,12 @@ static void * gasnetc_progress_thread(void *arg)
 }
 
 extern void
-gasnetc_create_progress_thread(pthread_t *id_p,
-                               gasnetc_hca_hndl_t hca_hndl,
-                               gasnetc_cq_hndl_t cq_hndl,
-                               gasnetc_comp_handler_t compl_hndl,
-		               void (*fn)(gasnetc_wc_t *, void *),
-                               void *fn_arg)
+gasnetc_spawn_progress_thread(gasnetc_progress_thread_t *pthr_p)
 {
-  gasnetc_thread_closure_t *args = gasneti_malloc(sizeof(gasnetc_thread_closure_t));
   pthread_attr_t attr;
-
-  args->hca_hndl   = hca_hndl;
-  args->cq_hndl    = cq_hndl;
-  args->compl_hndl = compl_hndl;
-  args->fn         = fn;
-  args->fn_arg     = fn_arg;
-
   pthread_attr_init(&attr);
   (void)pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM); /* ignore failures */
-  gasneti_assert_zeroret(pthread_create(id_p, &attr, gasnetc_progress_thread, args));
+  gasneti_assert_zeroret(pthread_create(&pthr_p->thread_id, &attr, gasnetc_progress_thread, pthr_p));
   gasneti_assert_zeroret(pthread_attr_destroy(&attr));
-  gasneti_leak(args);
 }
 #endif
