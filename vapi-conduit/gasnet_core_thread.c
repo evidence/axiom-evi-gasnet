@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_thread.c,v $
- *     $Date: 2012/03/06 19:56:11 $
- * $Revision: 1.4 $
+ *     $Date: 2012/03/06 20:48:43 $
+ * $Revision: 1.5 $
  * Description: GASNet vapi/ibv conduit implementation, progress thread logic
  * Copyright 2012, LBNL
  * Terms of use are as specified in license.txt
@@ -17,6 +17,18 @@
 int gasnetc_thread_dummy = 1;
 
 #else
+
+#if GASNETC_DEBUG_PTHR || 1
+  static void my_cleanup(void *pthr_p) {
+    gasnetc_progress_thread_t * const pthr_p = arg;
+    fprintf(stderr, "@%d> thread w/ fn_arg=%p terminated\n", gasneti_mynode, arg->fn_arg);
+  }
+  #define my_cleanup_push pthread_cleanup_push
+  #define my_cleanup_pop  pthread_cleanup_pop
+#else
+  #define my_cleanup_push(f,a)  ((void)0)
+  #define my_cleanup_pop(e)     ((void)0)
+#endif
 
 GASNETI_INLINE(gasnetc_testcancel)
 void gasnetc_testcancel(gasnetc_progress_thread_t * const pthr_p) {
@@ -36,6 +48,8 @@ static void * gasnetc_progress_thread(void *arg)
   void (* const fn)(gasnetc_wc_t *, void *) = pthr_p->fn;
   void * const fn_arg                       = pthr_p->fn_arg;
   const uint64_t min_us                     = pthr_p->min_us;
+
+  my_cleanup_push(my_cleanup, fn_arg);
 
 #ifdef PTHREAD_CANCEL_ENABLE
   (void)pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
@@ -112,6 +126,7 @@ static void * gasnetc_progress_thread(void *arg)
     }
   }
 
+  my_cleanup_pop(1);
   return NULL;
 }
 
@@ -134,6 +149,9 @@ gasnetc_stop_progress_thread(gasnetc_progress_thread_t *pthr_p)
   if (pthr_p->done) return; /* no "over kill" */
   pthr_p->done = 1;
   gasneti_sync_writes();
+#if GASNET_CONDUIT_VAPI
+  (void) EVAPI_poll_cq_unblock(pthr_p->hca, pthr_p->cq);
+#endif
   (void)pthread_cancel(pthr_p->thread_id); /* ignore failure */
   GASNETI_TRACE_PRINTF(I, ("Requested termination of progress thread with id 0x%lx",
                            (unsigned long)(uintptr_t)(pthr_p->thread_id)));
