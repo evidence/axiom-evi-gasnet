@@ -1,7 +1,7 @@
 README file for vapi-conduit and ibv-conduit
 ============================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.69 $
+$Revision: 1.70 $
 
 @ TOC: @
 @ Section: VAPI vs IBV @
@@ -123,7 +123,7 @@ $Revision: 1.69 $
     password or accepting new host keys).
   + Any firewall or port filtering must allow the ssh/rsh connections
     described above, plus TCP connections on untrusted port (those
-    with numbers over 1024) from a compute node to the master node and
+    with numbers over 1024) from a compute node to the master node
     and among compute nodes.
   + Resolution for all given hostnames must be possible from both the
     master node and the compute nodes.
