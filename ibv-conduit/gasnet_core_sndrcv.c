@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2012/03/06 07:23:07 $
- * $Revision: 1.299 $
+ *     $Date: 2012/03/06 07:24:55 $
+ * $Revision: 1.300 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -1846,7 +1846,6 @@ void gasnetc_snd_post_common(gasnetc_sreq_t *sreq, gasnetc_snd_wr_t *sr_desc, in
 #define gasnetc_snd_post_inline(x,y)	gasnetc_snd_post_common(x,y,1)
 
 #if GASNETC_IB_RCV_THREAD
-static uint64_t gasnetc_rcv_thread_min_us = 0;
 static void gasnetc_rcv_thread(gasnetc_wc_t *comp_p, void *arg)
 {
   gasnetc_hca_t * const hca = (gasnetc_hca_t *)arg;
