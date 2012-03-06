@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_thread.c,v $
- *     $Date: 2012/03/06 21:08:24 $
- * $Revision: 1.8 $
+ *     $Date: 2012/03/06 21:35:09 $
+ * $Revision: 1.9 $
  * Description: GASNet vapi/ibv conduit implementation, progress thread logic
  * Copyright 2012, LBNL
  * Terms of use are as specified in license.txt
@@ -10,6 +10,11 @@
 #include <gasnet_core_internal.h>
 
 #include <errno.h>
+
+/* Too many problems to enable by default */
+#ifndef GASNETC_THREAD_CANCEL
+#define GASNETC_THREAD_CANCEL 0
+#endif
 
 #if !GASNETI_CONDUIT_THREADS
 
@@ -30,7 +35,7 @@ int gasnetc_thread_dummy = 1;
   #define my_cleanup_pop(e)     ((void)0)
 #endif
 
-#ifdef PTHREAD_CANCEL_ENABLE
+#if GASNETC_THREAD_CANCEL && defined(PTHREAD_CANCEL_ENABLE)
   #define my_cancel_enable()  (void)pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL)
   #define my_cancel_disable() (void)pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL)
 #else
@@ -38,10 +43,16 @@ int gasnetc_thread_dummy = 1;
   #define my_cancel_disable() ((void)0)
 #endif
 
+#if GASNETC_THREAD_CANCEL && defined(PTHREAD_CANCEL_DEFERRED)
+  #define my_cancel_deferred() (void)pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL)
+#else
+  #define my_cancel_deferred() ((void)0)
+#endif
+
 GASNETI_INLINE(gasnetc_testcancel)
 void gasnetc_testcancel(gasnetc_progress_thread_t * const pthr_p) {
   const int save_errno = errno;
-  pthread_testcancel();
+  pthread_testcancel(); /* yes, we check even if we won't call cancel ourselves */
   errno = save_errno;
   gasneti_sync_reads();
   if_pf (pthr_p->done || GASNETC_IS_EXITING()) pthread_exit(NULL);
@@ -58,10 +69,7 @@ static void * gasnetc_progress_thread(void *arg)
   const uint64_t min_us                     = pthr_p->min_us;
 
   my_cleanup_push(my_cleanup, fn_arg);
-
-#ifdef PTHREAD_CANCEL_DEFERRED
-  (void)pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
-#endif
+  my_cancel_deferred();
   my_cancel_enable();
 
   while (!pthr_p->done) {
@@ -160,7 +168,9 @@ gasnetc_stop_progress_thread(gasnetc_progress_thread_t *pthr_p)
 #if GASNET_CONDUIT_VAPI
   (void) EVAPI_poll_cq_unblock(pthr_p->hca, pthr_p->cq);
 #endif
+#if GASNETC_THREAD_CANCEL
   (void)pthread_cancel(pthr_p->thread_id); /* ignore failure */
+#endif
   GASNETI_TRACE_PRINTF(I, ("Requested termination of progress thread with id 0x%lx",
                            (unsigned long)(uintptr_t)(pthr_p->thread_id)));
 }
