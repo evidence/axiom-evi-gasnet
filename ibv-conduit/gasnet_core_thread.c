@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_thread.c,v $
- *     $Date: 2012/03/06 20:57:09 $
- * $Revision: 1.7 $
+ *     $Date: 2012/03/06 21:08:24 $
+ * $Revision: 1.8 $
  * Description: GASNet vapi/ibv conduit implementation, progress thread logic
  * Copyright 2012, LBNL
  * Terms of use are as specified in license.txt
@@ -30,6 +30,14 @@ int gasnetc_thread_dummy = 1;
   #define my_cleanup_pop(e)     ((void)0)
 #endif
 
+#ifdef PTHREAD_CANCEL_ENABLE
+  #define my_cancel_enable()  (void)pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL)
+  #define my_cancel_disable() (void)pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL)
+#else
+  #define my_cancel_enable()  ((void)0)
+  #define my_cancel_disable() ((void)0)
+#endif
+
 GASNETI_INLINE(gasnetc_testcancel)
 void gasnetc_testcancel(gasnetc_progress_thread_t * const pthr_p) {
   const int save_errno = errno;
@@ -51,12 +59,10 @@ static void * gasnetc_progress_thread(void *arg)
 
   my_cleanup_push(my_cleanup, fn_arg);
 
-#ifdef PTHREAD_CANCEL_ENABLE
-  (void)pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
-#endif
 #ifdef PTHREAD_CANCEL_DEFERRED
   (void)pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
 #endif
+  my_cancel_enable();
 
   while (!pthr_p->done) {
     gasnetc_wc_t comp;
@@ -71,7 +77,9 @@ static void * gasnetc_progress_thread(void *arg)
     if (rc == GASNETC_POLL_CQ_OK) {
       gasneti_assert((comp.opcode == GASNETC_WC_RECV) ||
 		     (comp.status != GASNETC_WC_SUCCESS));
+      my_cancel_disable();
       (fn)(&comp, fn_arg);
+      my_cancel_enable();
 
       /* Throttle thread's rate */
       if_pf (min_us) {
