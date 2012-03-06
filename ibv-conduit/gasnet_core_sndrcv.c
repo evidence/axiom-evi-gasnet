@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2012/03/05 21:09:42 $
- * $Revision: 1.294 $
+ *     $Date: 2012/03/06 01:21:09 $
+ * $Revision: 1.295 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -3539,11 +3539,7 @@ extern int gasnetc_sndrcv_init(void) {
     }
   }
   if_pf (buf == NULL) {
-    GASNETC_FOR_ALL_HCA(hca) {
-      if (gasneti_nodes > 1) {
-      }
       GASNETI_RETURN_ERRR(RESOURCE, "Unable to allocate pinned memory for AM/bounce buffers");
-    }
   }
   for (i = 0; i < gasnetc_bbuf_limit; ++i) {
     gasneti_lifo_push(&gasnetc_bbuf_freelist, buf);
