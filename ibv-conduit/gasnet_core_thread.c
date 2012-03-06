@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_thread.c,v $
- *     $Date: 2012/03/06 07:23:07 $
- * $Revision: 1.2 $
+ *     $Date: 2012/03/06 07:29:17 $
+ * $Revision: 1.3 $
  * Description: GASNet vapi/ibv conduit implementation, progress thread logic
  * Copyright 2012, LBNL
  * Terms of use are as specified in license.txt
@@ -14,7 +14,7 @@
 #if !GASNETI_CONDUIT_THREADS
 
 /* Protect against compiler warnings about "empty compilation unit" */
-extern int gasnetc_thread_dummy = 1;
+int gasnetc_thread_dummy = 1;
 
 #else
 
