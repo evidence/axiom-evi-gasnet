@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2012/03/06 01:21:09 $
- * $Revision: 1.295 $
+ *     $Date: 2012/03/06 01:24:56 $
+ * $Revision: 1.296 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -3353,19 +3353,7 @@ extern int gasnetc_sndrcv_init(void) {
 
     gasneti_lifo_init(&hca->amrdma_freelist);
 
-    if (gasneti_nodes > 1) {
-#if GASNETC_IB_RCV_THREAD
-      if (gasnetc_use_rcv_thread) {
-        /* spawn the RCV thread */
-        pthread_attr_t attr;
-        pthread_attr_init(&attr);
-        (void)pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM); /* ignore failures */
-        gasneti_assert_zeroret(pthread_create(&gasnetc_rcv_thread_id, &attr,
-				              gasnetc_rcv_thread, hca));
-        gasneti_assert_zeroret(pthread_attr_destroy(&attr));
-      }
-#endif
-
+    if (gasnetc_remote_nodes) {
       /* Allocated pinned memory for receive buffers */
       size = rcv_count * sizeof(gasnetc_buffer_t);
       buf = gasneti_mmap(size);
@@ -3688,6 +3676,24 @@ extern void gasnetc_sndrcv_attach_segment(void) {
   /* Nothing currently needed */
 #endif
 }
+
+#if GASNETC_IB_RCV_THREAD
+extern void gasnetc_sndrcv_start_thread(void) {
+  if (gasnetc_remote_nodes && gasnetc_use_rcv_thread) {
+    gasnetc_hca_t *hca;
+
+    GASNETC_FOR_ALL_HCA(hca) {
+      /* spawn the RCV thread */
+      pthread_attr_t attr;
+      pthread_attr_init(&attr);
+      (void)pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM); /* ignore failures */
+      gasneti_assert_zeroret(pthread_create(&gasnetc_rcv_thread_id, &attr,
+                             gasnetc_rcv_thread, hca));
+      gasneti_assert_zeroret(pthread_attr_destroy(&attr));
+    }
+  }
+}
+#endif
 
 extern gasnetc_amrdma_send_t *gasnetc_amrdma_send_alloc(gasnetc_rkey_t rkey, void *addr) {
   gasnetc_amrdma_send_t *result = gasneti_malloc(sizeof(gasnetc_amrdma_send_t));
