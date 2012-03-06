@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2012/03/06 02:20:33 $
- * $Revision: 1.297 $
+ *     $Date: 2012/03/06 06:07:26 $
+ * $Revision: 1.298 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -1840,6 +1840,7 @@ void gasnetc_snd_post_common(gasnetc_sreq_t *sreq, gasnetc_snd_wr_t *sr_desc, in
 #define gasnetc_snd_post_inline(x,y)	gasnetc_snd_post_common(x,y,1)
 
 #if GASNETC_IB_RCV_THREAD
+static uint64_t gasnetc_rcv_thread_min_us = 0;
 static void gasnetc_rcv_thread(gasnetc_wc_t *comp_p, void *arg)
 {
   gasnetc_hca_t * const hca = (gasnetc_hca_t *)arg;
@@ -1864,6 +1865,35 @@ static void gasnetc_rcv_thread(gasnetc_wc_t *comp_p, void *arg)
     firehose_poll();
   #endif 
     GASNETI_PROGRESSFNS_RUN();
+  }
+
+  /* Throttle thread's rate */
+  if_pf (gasnetc_rcv_thread_min_us) {
+    uint64_t prev = hca->rcv_prev_time;
+    if_pt (prev) {
+      uint64_t elapsed = gasneti_ticks_to_us(gasneti_ticks_now() - prev);
+
+      if (elapsed < gasnetc_rcv_thread_min_us) {
+      #if HAVE_USLEEP
+        uint64_t us_delay = (gasnetc_rcv_thread_min_us - elapsed);
+        usleep(us_delay);
+      #elif HAVE_NANOSLEEP
+        uint64_t ns_delay = 1000 * (gasnetc_rcv_thread_min_us - elapsed);
+        struct timespec ts = { ns_delay / 1000000000L, us_delay % 1000000000L };
+        nanosleep(&ts, NULL);
+      #elif HAVE_NSLEEP
+        uint64_t ns_delay = 1000 * (gasnetc_rcv_thread_min_us - elapsed);
+        struct timespec ts = { ns_delay / 1000000000L, us_delay % 1000000000L };
+        nsleep(&ts, NULL);
+      #else
+        do {
+          gasneti_yield();
+          elapsed = gasneti_ticks_to_us(gasneti_ticks_now() - prev);
+        } while (elapsed < gasnetc_rcv_thread_min_us);
+      #endif
+      }
+    }
+    hca->rcv_prev_time = gasneti_ticks_now();
   }
 }
 #endif /* GASNETC_IB_RCV_THREAD */
@@ -3643,6 +3673,11 @@ extern void gasnetc_sndrcv_start_thread(void) {
   if (gasnetc_remote_nodes && gasnetc_use_rcv_thread) {
     pthread_t thread_id; /* TODO: keep in hca if we ever plan to cancel? */
     gasnetc_hca_t *hca;
+
+    int rcv_max_rate = gasneti_getenv_int_withdefault("GASNET_RCV_THREAD_RATE", 0, 1);
+    if (rcv_max_rate > 0) {
+      gasnetc_rcv_thread_min_us = ((uint64_t)1000000) / rcv_max_rate;
+    }
 
     GASNETC_FOR_ALL_HCA(hca) {
       /* spawn the RCV thread */

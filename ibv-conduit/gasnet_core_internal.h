@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2012/03/06 02:20:33 $
- * $Revision: 1.225 $
+ *     $Date: 2012/03/06 06:07:26 $
+ * $Revision: 1.226 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -588,6 +588,7 @@ typedef struct {
   /* Rcv thread */
   gasnetc_comp_handler_t rcv_handler;
   void			*rcv_thread_priv;
+  uint64_t               rcv_prev_time;
 #endif
 
   /* AM-over-RMDA */

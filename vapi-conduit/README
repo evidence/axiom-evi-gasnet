@@ -1,7 +1,7 @@
 README file for vapi-conduit and ibv-conduit
 ============================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.70 $
+$Revision: 1.71 $
 
 @ TOC: @
 @ Section: VAPI vs IBV @
@@ -439,6 +439,15 @@ $Revision: 1.70 $
     NOTE: In releases prior to GASNet 1.18.2 the AM receive thread was
     unavailable for ibv-conduit, but that is no longer the case.
     Both VAPI and IBV now support the AM receive thread.
+
+  + GASNET_RCV_THREAD_RATE
+    If GASNET_RCV_THREAD is enabled, then this setting can be used to
+    impose a limit on how frequently the AM receive thread may wake.
+    This may be used to limit interference between the AM receive thread
+    and the main application thread(s), while providing some network
+    attentiveness when the application is not making GASNet calls.
+    A non-zero value gives the maximum rate in wake-ups per second.
+    The default value is 0, which means no limit is imposed.
 
   Pinnable memory probe configuration:
   In normal operation of vapi-conduit it is necessary to know how much memory
