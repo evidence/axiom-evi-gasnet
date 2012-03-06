@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2012/03/06 18:58:34 $
- * $Revision: 1.303 $
+ *     $Date: 2012/03/06 19:56:11 $
+ * $Revision: 1.304 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -3664,6 +3664,19 @@ extern void gasnetc_sndrcv_start_thread(void) {
         hca->rcv_thread.min_us = ((uint64_t)1000000) / rcv_max_rate;
       }
       gasnetc_spawn_progress_thread(&hca->rcv_thread);
+    }
+  }
+}
+
+extern void gasnetc_sndrcv_stop_thread(void) {
+  if (gasnetc_remote_nodes && gasnetc_use_rcv_thread) {
+    gasnetc_hca_t *hca;
+
+    GASNETC_FOR_ALL_HCA(hca) {
+      /* stop the RCV thread if we have started it */
+      if (hca->rcv_thread.fn == gasnetc_rcv_thread) {
+        gasnetc_stop_progress_thread(&hca->rcv_thread);
+      }
     }
   }
 }

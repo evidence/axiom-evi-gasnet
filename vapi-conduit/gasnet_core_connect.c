@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_connect.c,v $
- *     $Date: 2012/03/06 18:58:34 $
- * $Revision: 1.95 $
+ *     $Date: 2012/03/06 19:56:11 $
+ * $Revision: 1.96 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -2679,18 +2679,18 @@ dump_conn_done(int fd)
 
 /* ------------------------------------------------------------------------------------ */
 
-/* Fini currently just dumps connection table. */
+/* Fini currently stops the progress thread
+   and optionally dumps the connection table. */
 extern int
 gasnetc_connect_fini(void)
 {
   gasnet_node_t n, count = 0;
   int fd = -1;
 
-#if GASNETC_DYNAMIC_CONNECT && GASNETC_IB_CONN_THREAD && 0 /* Disabled - can SEGV */
-# if GASNET_CONDUIT_VAPI
-  (void) EVAPI_poll_cq_unblock(conn_ud_hca->handle, conn_ud_rcv_cq);
-# endif
-  (void) pthread_cancel(conn_thread.id);
+#if GASNETC_IB_CONN_THREAD
+  if (conn_thread.fn == gasnetc_conn_thread) {
+    gasnetc_stop_progress_thread(&conn_thread);
+  }
 #endif
 
   /* Open file replacing any '%' in filename with node number */

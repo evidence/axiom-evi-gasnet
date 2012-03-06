@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_thread.c,v $
- *     $Date: 2012/03/06 07:29:17 $
- * $Revision: 1.3 $
+ *     $Date: 2012/03/06 19:56:11 $
+ * $Revision: 1.4 $
  * Description: GASNet vapi/ibv conduit implementation, progress thread logic
  * Copyright 2012, LBNL
  * Terms of use are as specified in license.txt
@@ -19,16 +19,17 @@ int gasnetc_thread_dummy = 1;
 #else
 
 GASNETI_INLINE(gasnetc_testcancel)
-void gasnetc_testcancel(void) {
+void gasnetc_testcancel(gasnetc_progress_thread_t * const pthr_p) {
   const int save_errno = errno;
   pthread_testcancel();
-  if_pf (GASNETC_IS_EXITING()) pthread_exit(NULL);
   errno = save_errno;
+  gasneti_sync_reads();
+  if_pf (pthr_p->done || GASNETC_IS_EXITING()) pthread_exit(NULL);
 }
 
 static void * gasnetc_progress_thread(void *arg)
 {
-  gasnetc_progress_thread_t *pthr_p = arg;
+  gasnetc_progress_thread_t * const pthr_p  = arg;
   const gasnetc_hca_hndl_t hca_hndl         = pthr_p->hca;
   const gasnetc_cq_hndl_t cq_hndl           = pthr_p->cq;
   const gasnetc_comp_handler_t compl_hndl   = pthr_p->compl;
@@ -36,7 +37,14 @@ static void * gasnetc_progress_thread(void *arg)
   void * const fn_arg                       = pthr_p->fn_arg;
   const uint64_t min_us                     = pthr_p->min_us;
 
-  while (1) {
+#ifdef PTHREAD_CANCEL_ENABLE
+  (void)pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+#endif
+#ifdef PTHREAD_CANCEL_DEFERRED
+  (void)pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
+#endif
+
+  while (!pthr_p->done) {
     gasnetc_wc_t comp;
     int rc;
 
@@ -45,7 +53,7 @@ static void * gasnetc_progress_thread(void *arg)
   #else
     rc = ibv_poll_cq(cq_hndl, 1, &comp);
   #endif
-    gasnetc_testcancel();
+    gasnetc_testcancel(pthr_p);
     if (rc == GASNETC_POLL_CQ_OK) {
       gasneti_assert((comp.opcode == GASNETC_WC_RECV) ||
 		     (comp.status != GASNETC_WC_SUCCESS));
@@ -88,7 +96,7 @@ static void * gasnetc_progress_thread(void *arg)
 
       /* block for event on the empty CQ */
       rc = ibv_get_cq_event(compl_hndl, &the_cq, &the_ctx);
-      gasnetc_testcancel();
+      gasnetc_testcancel(pthr_p);
       GASNETC_VAPI_CHECK(rc, "while blocked for CQ event");
       gasneti_assert(the_cq == cq_hndl);
 
@@ -103,6 +111,8 @@ static void * gasnetc_progress_thread(void *arg)
       gasneti_fatalerror("failed CQ poll an async thread");
     }
   }
+
+  return NULL;
 }
 
 extern void
@@ -113,5 +123,19 @@ gasnetc_spawn_progress_thread(gasnetc_progress_thread_t *pthr_p)
   (void)pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM); /* ignore failures */
   gasneti_assert_zeroret(pthread_create(&pthr_p->thread_id, &attr, gasnetc_progress_thread, pthr_p));
   gasneti_assert_zeroret(pthread_attr_destroy(&attr));
+  GASNETI_TRACE_PRINTF(I, ("Spawned progress thread with id 0x%lx",
+                           (unsigned long)(uintptr_t)(pthr_p->thread_id)));
+}
+
+extern void
+gasnetc_stop_progress_thread(gasnetc_progress_thread_t *pthr_p)
+{
+  if (pthread_self() == pthr_p->thread_id) return; /* no suicides */
+  if (pthr_p->done) return; /* no "over kill" */
+  pthr_p->done = 1;
+  gasneti_sync_writes();
+  (void)pthread_cancel(pthr_p->thread_id); /* ignore failure */
+  GASNETI_TRACE_PRINTF(I, ("Requested termination of progress thread with id 0x%lx",
+                           (unsigned long)(uintptr_t)(pthr_p->thread_id)));
 }
 #endif

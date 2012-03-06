@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2012/03/06 18:58:34 $
- * $Revision: 1.228 $
+ *     $Date: 2012/03/06 19:56:11 $
+ * $Revision: 1.229 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -594,12 +594,15 @@ typedef char gasnetc_amrdma_buf_t[GASNETC_AMRDMA_SZ];
 
 #if GASNETI_CONDUIT_THREADS
   typedef struct {
+    /* Initialized by create_cq or spawn_progress_thread: */
     pthread_t               thread_id;
     uint64_t                prev_time;
     uint64_t                min_us;
     gasnetc_hca_hndl_t      hca;
     gasnetc_cq_hndl_t       cq;
     gasnetc_comp_handler_t  compl;
+    volatile int            done;
+    /* Initialized by client: */
     void                    (*fn)(gasnetc_wc_t *, void *);
     void                    *fn_arg;
   } gasnetc_progress_thread_t;
@@ -795,6 +798,7 @@ extern void gasnetc_sndrcv_init_inline(void);
 extern void gasnetc_sndrcv_attach_peer(gasnet_node_t node, gasnetc_cep_t *cep);
 extern void gasnetc_sndrcv_attach_segment(void);
 extern void gasnetc_sndrcv_start_thread(void);
+extern void gasnetc_sndrcv_stop_thread(void);
 extern gasnetc_amrdma_send_t *gasnetc_amrdma_send_alloc(gasnetc_rkey_t rkey, void *addr);
 extern gasnetc_amrdma_recv_t *gasnetc_amrdma_recv_alloc(gasnetc_hca_t *hca);
 extern void gasnetc_sndrcv_poll(int handler_context);
@@ -812,6 +816,7 @@ extern int gasnetc_ReplyGeneric(gasnetc_category_t category,
 /* Routines in gasnet_core_thread.c */
 #if GASNETI_CONDUIT_THREADS
 extern void gasnetc_spawn_progress_thread(gasnetc_progress_thread_t *pthr);
+extern void gasnetc_stop_progress_thread(gasnetc_progress_thread_t *pthr);
 #endif
 
 /* General routines in gasnet_core.c */

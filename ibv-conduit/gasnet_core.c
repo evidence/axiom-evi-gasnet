@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2012/03/06 01:24:56 $
- * $Revision: 1.301 $
+ *     $Date: 2012/03/06 19:56:11 $
+ * $Revision: 1.302 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2495,6 +2495,11 @@ static void gasnetc_exit_body(void) {
       /* NOT REACHED */
     }
   }
+
+#if GASNETC_IB_RCV_THREAD
+  /* Stop AM receive thread, if applicable (won't kill self) */
+  gasnetc_sndrcv_stop_thread();
+#endif
 
   /* read exit code, stored by first caller to gasnetc_exit_head() */
   exitcode = gasneti_atomic_read(&gasnetc_exit_code, GASNETI_ATOMIC_RMB_PRE);
