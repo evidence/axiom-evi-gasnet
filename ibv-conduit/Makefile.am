@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/Makefile.am,v $
-#     $Date: 2011/02/09 02:45:55 $
-# $Revision: 1.11 $
+#     $Date: 2012/03/06 02:20:31 $
+# $Revision: 1.12 $
 # Description: Makefile for GASNet ibv conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -70,6 +70,7 @@ CONDUIT_SOURCELIST =                 \
       $(vapi_srcdir)/gasnet_core.c        \
       $(vapi_srcdir)/gasnet_core_connect.c \
       $(vapi_srcdir)/gasnet_core_sndrcv.c \
+      $(vapi_srcdir)/gasnet_core_thread.c \
       $(vapi_srcdir)/gasnet_extended.c    \
       $(vapi_srcdir)/gasnet_firehose.c    \
       $(fh_sourcelist) $(ssh_sources)

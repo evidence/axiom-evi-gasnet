@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/Makefile.am,v $
-#     $Date: 2011/02/09 02:45:32 $
-# $Revision: 1.50 $
+#     $Date: 2012/03/06 02:20:33 $
+# $Revision: 1.51 $
 # Description: Makefile for GASNet vapi conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -57,6 +57,7 @@ CONDUIT_FILELIST =               \
       gasnet_core.c              \
       gasnet_core_connect.c      \
       gasnet_core_sndrcv.c       \
+      gasnet_core_thread.c       \
       gasnet_core.h              \
       gasnet_core_fwd.h          \
       gasnet_core_help.h         \
@@ -74,6 +75,7 @@ CONDUIT_SOURCELIST =                 \
       $(srcdir)/gasnet_core.c        \
       $(srcdir)/gasnet_core_connect.c \
       $(srcdir)/gasnet_core_sndrcv.c \
+      $(srcdir)/gasnet_core_thread.c \
       $(srcdir)/gasnet_extended.c    \
       $(srcdir)/gasnet_firehose.c    \
       $(fh_sourcelist) $(ssh_sources)

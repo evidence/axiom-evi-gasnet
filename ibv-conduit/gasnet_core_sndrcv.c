@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2012/03/06 01:24:56 $
- * $Revision: 1.296 $
+ *     $Date: 2012/03/06 02:20:33 $
+ * $Revision: 1.297 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -1840,70 +1840,31 @@ void gasnetc_snd_post_common(gasnetc_sreq_t *sreq, gasnetc_snd_wr_t *sr_desc, in
 #define gasnetc_snd_post_inline(x,y)	gasnetc_snd_post_common(x,y,1)
 
 #if GASNETC_IB_RCV_THREAD
-static pthread_t gasnetc_rcv_thread_id;
-static void *gasnetc_rcv_thread(void *arg)
+static void gasnetc_rcv_thread(gasnetc_wc_t *comp_p, void *arg)
 {
   gasnetc_hca_t * const hca = (gasnetc_hca_t *)arg;
   gasnetc_rbuf_t ** const spare_p = (gasnetc_rbuf_t **)&hca->rcv_thread_priv;
 
-  while (1) {
-    gasnetc_wc_t comp;
-    int rc;
+  gasneti_assert(gasnetc_use_rcv_thread);
 
-  #if GASNET_CONDUIT_VAPI
-    rc = EVAPI_poll_cq_block(hca->handle, hca->rcv_cq, 0, &comp);
-  #else
-    rc = ibv_poll_cq(hca->rcv_cq, 1, &comp);
-  #endif
-    gasnetc_testcancel();
-    if (rc == GASNETC_POLL_CQ_OK) {
-      if_pf (comp.status != GASNETC_WC_SUCCESS) {
-      #if 1
-        gasnetc_dump_cqs(&comp, hca, 0);
-      #endif  
-        gasneti_fatalerror("aborting on reap of failed recv");
-        break; /* not reached */
-      }
-      gasneti_assert(comp.opcode == GASNETC_WC_RECV);
-    #if GASNETC_DYNAMIC_CONNECT && !GASNETC_IB_CONN_THREAD
-      if_pf (comp.gasnetc_f_wr_id & 1) {
-        gasnetc_conn_rcv_wc(&comp);
-        continue;
-      }
-    #endif
-      gasnetc_rcv_am(&comp, spare_p);
-      GASNETC_STAT_EVENT_VAL(RCV_REAP, 1);
-    #if !GASNETC_PIN_SEGMENT
-      /* Handler might have queued work for firehose */
-      firehose_poll();
-    #endif 
-      GASNETI_PROGRESSFNS_RUN();
-    } else if (rc == GASNETC_POLL_CQ_EMPTY) {
-    #if GASNET_CONDUIT_VAPI
-      /* false wake up - nothing needed here */
-    #else
-      gasnetc_cq_hndl_t the_cq;
-      void *the_ctx;
-
-      /* block for event on the empty CQ */
-      rc = ibv_get_cq_event(hca->rcv_handler, &the_cq, &the_ctx);
-      gasnetc_testcancel();
-      GASNETC_VAPI_CHECK(rc, "while awaiting AM arrival event");
-      gasneti_assert(the_cq == hca->rcv_cq);
-
-      /* ack the event and rearm */
-      ibv_ack_cq_events(hca->rcv_cq, 1);
-      rc = ibv_req_notify_cq(hca->rcv_cq, 0);
-      GASNETC_VAPI_CHECK(rc, "while requesting AM arrival events");
-
-      /* loop to poll for the new completion */
-    #endif
-    } else {
-      gasneti_fatalerror("failed cq poll in rcv thread");
-    }
+  if_pf (comp_p->status != GASNETC_WC_SUCCESS) {
+    gasnetc_dump_cqs(comp_p, hca, 0);
+    gasneti_fatalerror("aborting on reap of failed AM recv");
   }
-
-  return NULL;
+  #if GASNETC_DYNAMIC_CONNECT && !GASNETC_IB_CONN_THREAD
+  else if_pf (comp_p->gasnetc_f_wr_id & 1) {
+    gasnetc_conn_rcv_wc(comp_p);
+  }
+  #endif
+  else {
+    gasnetc_rcv_am(comp_p, spare_p);
+    GASNETC_STAT_EVENT_VAL(RCV_REAP, 1);
+  #if !GASNETC_PIN_SEGMENT
+    /* Handler might have queued work for firehose */
+    firehose_poll();
+  #endif 
+    GASNETI_PROGRESSFNS_RUN();
+  }
 }
 #endif /* GASNETC_IB_RCV_THREAD */
 
@@ -3680,16 +3641,14 @@ extern void gasnetc_sndrcv_attach_segment(void) {
 #if GASNETC_IB_RCV_THREAD
 extern void gasnetc_sndrcv_start_thread(void) {
   if (gasnetc_remote_nodes && gasnetc_use_rcv_thread) {
+    pthread_t thread_id; /* TODO: keep in hca if we ever plan to cancel? */
     gasnetc_hca_t *hca;
 
     GASNETC_FOR_ALL_HCA(hca) {
       /* spawn the RCV thread */
-      pthread_attr_t attr;
-      pthread_attr_init(&attr);
-      (void)pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM); /* ignore failures */
-      gasneti_assert_zeroret(pthread_create(&gasnetc_rcv_thread_id, &attr,
-                             gasnetc_rcv_thread, hca));
-      gasneti_assert_zeroret(pthread_attr_destroy(&attr));
+      gasnetc_create_progress_thread(&thread_id, hca->handle,
+                                     hca->rcv_cq, hca->rcv_handler,
+                                     gasnetc_rcv_thread, hca);
     }
   }
 }

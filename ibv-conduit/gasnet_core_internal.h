@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2012/03/06 01:24:56 $
- * $Revision: 1.224 $
+ *     $Date: 2012/03/06 02:20:33 $
+ * $Revision: 1.225 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -380,20 +380,6 @@ extern int gasnetc_ReplySysMedium(gasnet_token_t token,
 
 /* ------------------------------------------------------------------------------------ */
 
-#if GASNETI_THREADS
-GASNETI_INLINE(gasnetc_testcancel)
-void gasnetc_testcancel(void) {
-  const int save_errno = errno;
-  pthread_testcancel();
-  if_pf (GASNETC_IS_EXITING()) {
-    pthread_exit(NULL);
-  }
-  errno = save_errno;
-}
-#endif
-
-/* ------------------------------------------------------------------------------------ */
-
 #if (GASNETC_IB_MAX_HCAS > 1)
   #define GASNETC_FOR_ALL_HCA_INDEX(h)	for (h = 0; h < gasnetc_num_hcas; ++h)
   #define GASNETC_FOR_ALL_HCA(p)	for (p = &gasnetc_hca[0]; p < &gasnetc_hca[gasnetc_num_hcas]; ++p)
@@ -748,6 +734,16 @@ extern int gasnetc_ReplyGeneric(gasnetc_category_t category,
 				void *src_addr, int nbytes, void *dst_addr,
 				int numargs, gasnetc_counter_t *mem_oust,
 				gasnetc_counter_t *req_oust, va_list argptr);
+
+/* Routines in gasnet_core_thread.c */
+#if GASNETI_CONDUIT_THREADS
+extern void gasnetc_create_progress_thread(pthread_t *id_p,
+                                           gasnetc_hca_hndl_t hca_hndl,
+                                           gasnetc_cq_hndl_t cq_hndl,
+                                           gasnetc_comp_handler_t compl_hndl,
+                                           void (*fn)(gasnetc_wc_t *, void *),
+                                           void *fn_arg);
+#endif
 
 /* General routines in gasnet_core.c */
 extern int gasnetc_pin(gasnetc_hca_t *hca, void *addr, size_t size, gasnetc_acl_t acl, gasnetc_memreg_t *reg);

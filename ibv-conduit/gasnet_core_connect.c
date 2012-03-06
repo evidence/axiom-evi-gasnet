@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2012/03/05 21:09:42 $
- * $Revision: 1.92 $
+ *     $Date: 2012/03/06 02:20:33 $
+ * $Revision: 1.93 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -1291,51 +1291,12 @@ static int conn_snd_poll(void)
   return 0;
 }
 
-static void *gasnetc_conn_thread(void *arg)
+static void gasnetc_conn_thread(gasnetc_wc_t *comp_p, void *arg /* unused */)
 {
-  while (1) {
-    gasnetc_wc_t comp;
-    int rc;
-
-  #if GASNET_CONDUIT_VAPI
-    rc = EVAPI_poll_cq_block(conn_ud_hca->handle, conn_ud_rcv_cq, 0, &comp);
-  #else
-    rc = ibv_poll_cq(conn_ud_rcv_cq, 1, &comp);
-  #endif
-    gasnetc_testcancel();
-    if (rc == GASNETC_POLL_CQ_OK) {
-      if_pf (comp.status != GASNETC_WC_SUCCESS) {
-        gasneti_fatalerror("failed dynamic connection recv work request");
-      } else if_pf(comp.opcode != GASNETC_WC_RECV) {
-        gasneti_fatalerror("invalid dynamic connection recv work completion");
-      }
-      gasnetc_conn_rcv_wc(&comp);
-    } else if (rc == GASNETC_POLL_CQ_EMPTY) {
-    #if GASNET_CONDUIT_VAPI
-      /* false wake up - nothing needed here */
-    #else
-      gasnetc_cq_hndl_t the_cq;
-      void *the_ctx;
-
-      /* block for event on the empty CQ */
-      rc = ibv_get_cq_event(conn_ud_rcv_comp, &the_cq, &the_ctx);
-      gasnetc_testcancel();
-      GASNETC_VAPI_CHECK(rc, "while awaiting dynamic connection event");
-      gasneti_assert(the_cq == conn_ud_rcv_cq);
-
-      /* ack the event and rearm */
-      ibv_ack_cq_events(conn_ud_rcv_cq, 1);
-      rc = ibv_req_notify_cq(conn_ud_rcv_cq, 0);
-      GASNETC_VAPI_CHECK(rc, "while requesting dynamic connection events");
-
-      /* loop to poll for the new completion */
-    #endif
-    } else {
-      gasneti_fatalerror("failed dynamic connection cq poll");
-    }
+  if_pf (comp_p->status != GASNETC_WC_SUCCESS) {
+    gasneti_fatalerror("aborting on reap of failed UD recv");
   }
-
-  return NULL;
+  gasnetc_conn_rcv_wc(comp_p);
 }
 #endif /* GASNETC_IB_CONN_THREAD */
 /* ------------------------------------------------------------------------------------ */
@@ -1411,12 +1372,9 @@ gasnetc_qp_setup_ud(gasnetc_port_info_t *port, int fully_connected)
       GASNETC_VAPI_CHECK(rc, "from gasnetc_create_cq(conn_snd)");
 
       /* Spawn the thread */
-      pthread_attr_init(&attr);
-      (void)pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM); /* ignore failures */
-
-      gasneti_assert_zeroret(pthread_create(&conn_thread_id, &attr,
-                                            gasnetc_conn_thread, NULL));
-      gasneti_assert_zeroret(pthread_attr_destroy(&attr));
+      gasnetc_create_progress_thread(&conn_thread_id, conn_ud_hca->handle,
+                                     conn_ud_rcv_cq, conn_ud_rcv_comp,
+                                     gasnetc_conn_thread, NULL);
     }
 
     send_cq = conn_ud_snd_cq;
