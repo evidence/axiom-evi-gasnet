@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_thread.c,v $
- *     $Date: 2012/03/06 20:50:49 $
- * $Revision: 1.6 $
+ *     $Date: 2012/03/06 20:57:09 $
+ * $Revision: 1.7 $
  * Description: GASNet vapi/ibv conduit implementation, progress thread logic
  * Copyright 2012, LBNL
  * Terms of use are as specified in license.txt
@@ -18,7 +18,7 @@ int gasnetc_thread_dummy = 1;
 
 #else
 
-#if GASNETC_DEBUG_PTHR || 1
+#if GASNETC_DEBUG_PTHR
   static void my_cleanup(void *arg) {
     gasnetc_progress_thread_t * const pthr_p = arg;
     fprintf(stderr, "@%d> thread w/ fn_arg=%p terminated\n", gasneti_mynode, pthr_p->fn_arg);
