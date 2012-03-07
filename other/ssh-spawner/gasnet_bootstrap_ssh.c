@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2012/01/27 00:05:08 $
- * $Revision: 1.104 $
+ *     $Date: 2012/03/07 00:43:02 $
+ * $Revision: 1.105 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -2053,7 +2053,7 @@ void gasneti_bootstrapExchange_ssh(void *src, size_t len, void *dest) {
     struct iovec iov[3];
     iov[0].iov_base = &cmd;
     iov[0].iov_len  = sizeof(cmd);
-    iov[1].iov_base = &len;
+    iov[1].iov_base = (void *)&len;
     iov[1].iov_len  = sizeof(len);
     iov[2].iov_base = src;
     iov[2].iov_len  = len;
@@ -2130,7 +2130,7 @@ void gasneti_bootstrapAlltoall_ssh(void *src, size_t len, void *dest) {
     struct iovec iov[3];
     iov[0].iov_base = &cmd;
     iov[0].iov_len  = sizeof(cmd);
-    iov[1].iov_base = &len;
+    iov[1].iov_base = (void *)&len;
     iov[1].iov_len  = sizeof(len);
     iov[2].iov_base = src;
     iov[2].iov_len  = len*nproc;
