@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_thread.c,v $
- *     $Date: 2012/03/06 21:35:09 $
- * $Revision: 1.9 $
+ *     $Date: 2012/03/07 03:10:19 $
+ * $Revision: 1.10 $
  * Description: GASNet vapi/ibv conduit implementation, progress thread logic
  * Copyright 2012, LBNL
  * Terms of use are as specified in license.txt
@@ -11,9 +11,9 @@
 
 #include <errno.h>
 
-/* Too many problems to enable by default */
+/* If too many problems, one can disable here. */
 #ifndef GASNETC_THREAD_CANCEL
-#define GASNETC_THREAD_CANCEL 0
+#define GASNETC_THREAD_CANCEL 1
 #endif
 
 #if !GASNETI_CONDUIT_THREADS
