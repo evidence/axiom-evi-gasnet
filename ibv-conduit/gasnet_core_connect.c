@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2012/03/06 19:56:11 $
- * $Revision: 1.96 $
+ *     $Date: 2012/03/07 02:38:21 $
+ * $Revision: 1.97 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -1773,12 +1773,19 @@ gasnetc_timed_conn_wait(gasnetc_conn_t *conn, gasnetc_conn_state_t state,
   if_pt (conn->valid_rtt) {
     /* m, sa, sv and rto are as defined by Van Jacobson */
     int64_t m = gasneti_ticks_to_ns(now - conn->xmit_time);
+  #if GASNETI_STATS_OR_TRACE
+    int64_t om = m;
+  #endif
     m -= (sa >> 3);
     sa += m;
     if (m < 0) m = -m;
     m -= (sv >> 2);
     sv += m;
     rto = (sa >> 3) + (sv >> 1); /* or "+sv" for a+4v version */
+    GASNETI_TRACE_PRINTF(D, ("UD connection SRTT: m=%llu, ns avg=%llu ns, var=%llu ns",
+                             (long long)om,
+                             (unsigned long long)(sa >> 3),
+                             (unsigned long long)(sv >> 2)));
   } else {
     /* Don't use an ambiguous rtt value to update estimates.
      * Instead we carry over the current (possibly backed-off) RTO.
