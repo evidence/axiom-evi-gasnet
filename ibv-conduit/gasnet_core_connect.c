@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2012/03/07 02:38:21 $
- * $Revision: 1.97 $
+ *     $Date: 2012/03/08 01:39:56 $
+ * $Revision: 1.98 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -53,7 +53,7 @@ typedef GASNETC_IB_CHOOSE(VAPI_ud_av_t,         struct ibv_ah_attr)     gasnetc_
 typedef GASNETC_IB_CHOOSE(VAPI_ud_av_hndl_t,    struct ibv_ah *)        gasnetc_ib_ah_t;
 
 typedef struct {
-  gasnetc_atomic_t ref_count;
+  gasneti_atomic_t ref_count;
   gasnetc_ib_ah_t ib_ah;
 } gasnetc_ah_t;
 
@@ -977,7 +977,7 @@ gasnetc_create_ah(gasnet_node_t node)
   gasnetc_ah_t *result;
 	 
   result = gasneti_calloc(1, sizeof(gasnetc_ah_t));
-  gasnetc_atomic_set(&result->ref_count, 1, 0);
+  gasneti_atomic_set(&result->ref_count, 1, 0);
 
 #if GASNET_CONDUIT_VAPI
   {
@@ -1011,7 +1011,7 @@ gasnetc_create_ah(gasnet_node_t node)
 static void
 gasnetc_put_ah(gasnetc_ah_t *ah)
 {
-  if (gasnetc_atomic_decrement_and_test(&ah->ref_count, 0)) {
+  if (gasneti_atomic_decrement_and_test(&ah->ref_count, 0)) {
 #if GASNET_CONDUIT_VAPI
     int vstat = VAPI_destroy_addr_hndl(conn_ud_hca->handle, ah->ib_ah);
     GASNETC_VAPI_CHECK(vstat, "from VAPI_destroy_addr_hndl()");
@@ -1053,7 +1053,7 @@ gasnetc_snd_post_ud(gasnetc_ud_snd_desc_t *desc, gasnetc_ah_t *ah, gasnet_node_t
   if (NULL == ah) {
     ah = gasnetc_create_ah(node);
   } else {
-    gasnetc_atomic_increment(&ah->ref_count, 0);
+    gasneti_atomic_increment(&ah->ref_count, 0);
   }
   desc->ah = ah;
 
