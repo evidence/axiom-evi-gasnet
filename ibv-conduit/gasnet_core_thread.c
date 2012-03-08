@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_thread.c,v $
- *     $Date: 2012/03/08 07:19:56 $
- * $Revision: 1.11 $
+ *     $Date: 2012/03/08 07:25:23 $
+ * $Revision: 1.12 $
  * Description: GASNet vapi/ibv conduit implementation, progress thread logic
  * Copyright 2012, LBNL
  * Terms of use are as specified in license.txt
@@ -94,7 +94,7 @@ static void * gasnetc_progress_thread(void *arg)
         if_pt (prev) {
           uint64_t elapsed = gasneti_ticks_to_us(gasneti_ticks_now() - prev);
     
-          if (elapsed < min_us) {
+          while (elapsed < min_us) {
           #if HAVE_USLEEP
             uint64_t us_delay = (min_us - elapsed);
             usleep(us_delay);
@@ -107,11 +107,11 @@ static void * gasnetc_progress_thread(void *arg)
             struct timespec ts = { ns_delay / 1000000000L, us_delay % 1000000000L };
             nsleep(&ts, NULL);
           #else
-            do {
-              gasneti_yield();
-              elapsed = gasneti_ticks_to_us(gasneti_ticks_now() - prev);
-            } while (elapsed < min_us);
+            gasneti_yield();
           #endif
+            /* {u,n,nano}sleep could have been interrupted */
+            gasnetc_testcancel(pthr_p);
+            elapsed = gasneti_ticks_to_us(gasneti_ticks_now() - prev);
           }
         }
         pthr_p->prev_time = gasneti_ticks_now();
