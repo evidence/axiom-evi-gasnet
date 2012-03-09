@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_thread.c,v $
- *     $Date: 2012/03/08 07:25:23 $
- * $Revision: 1.12 $
+ *     $Date: 2012/03/09 00:25:37 $
+ * $Revision: 1.13 $
  * Description: GASNet vapi/ibv conduit implementation, progress thread logic
  * Copyright 2012, LBNL
  * Terms of use are as specified in license.txt
@@ -125,21 +125,32 @@ static void * gasnetc_progress_thread(void *arg)
 
       /* block for event on the empty CQ */
       rc = ibv_get_cq_event(compl_hndl, &the_cq, &the_ctx);
-      if (0 != rc) gasnetc_testcancel(pthr_p);
-      GASNETC_VAPI_CHECK(rc, "while blocked for CQ event");
+      if_pf (0 != rc) {
+        gasnetc_testcancel(pthr_p);
+        GASNETC_VAPI_CHECK(rc, "while blocked for CQ event");
+        /* Not reached */
+      }
       gasneti_assert(the_cq == cq_hndl);
 
       /* ack the event and rearm */
       ibv_ack_cq_events(cq_hndl, 1);
       rc = ibv_req_notify_cq(cq_hndl, 0);
-      if (0 != rc) gasnetc_testcancel(pthr_p);
-      GASNETC_VAPI_CHECK(rc, "while requesting CQ events");
+      if_pf (0 != rc) {
+        gasnetc_testcancel(pthr_p);
+        GASNETC_VAPI_CHECK(rc, "while requesting CQ events");
+        /* Not reached */
+      }
 
       /* loop to poll for the new completion */
     #endif
     } else {
       gasnetc_testcancel(pthr_p);
-      gasneti_fatalerror("failed CQ poll an async thread");
+    #if GASNET_CONDUIT_VAPI
+      GASNETC_VAPI_CHECK(rc, "from EVAPI_poll_cq_block");
+    #else
+      GASNETC_VAPI_CHECK(rc, "from ibv_poll_cq in async thread");
+    #endif
+      /* Not reached */
     }
   }
 
