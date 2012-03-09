@@ -1,7 +1,7 @@
 README file for vapi-conduit and ibv-conduit
 ============================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.71 $
+$Revision: 1.72 $
 
 @ TOC: @
 @ Section: VAPI vs IBV @
@@ -448,6 +448,21 @@ $Revision: 1.71 $
     attentiveness when the application is not making GASNet calls.
     A non-zero value gives the maximum rate in wake-ups per second.
     The default value is 0, which means no limit is imposed.
+
+  + GASNET_THREAD_STACK_MIN
+    GASNET_THREAD_STACK_PAD
+    These settings allow one to control the stack size of internal threads
+    within the conduit implementation.  Currently this includes the AM
+    receive thread and a progress thread for dynamic connection traffic.
+    The requested stack size will be computed as
+       stack_size = MAX(GASNET_THREAD_STACK_MIN,
+                        GASNET_THREAD_STACK_PAD + default)
+    where "default" denotes the system's default thread stack size.
+    Both settings are rounded-up to a multiple of the page size.
+    The actual stack size may be smaller (to satisfy rlimits) or larger
+    (for instance, the next power of two in some implementations).
+    The default for both settings is zero, which results in using the
+    system default size for thread stacks.
 
   Pinnable memory probe configuration:
   In normal operation of vapi-conduit it is necessary to know how much memory
