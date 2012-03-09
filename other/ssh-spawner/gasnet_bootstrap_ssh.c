@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2012/03/07 21:49:25 $
- * $Revision: 1.107 $
+ *     $Date: 2012/03/09 00:20:15 $
+ * $Revision: 1.108 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -24,6 +24,9 @@
 #endif
 #if HAVE_SYS_UIO_H
   #include <sys/uio.h>
+#endif
+#if HAVE_SYS_SOCKIO_H
+  #include <sys/sockio.h>
 #endif
 #ifdef HAVE_PR_SET_PDEATHSIG
   /* Under Linux we can ask to be sent a given signal when our parent exits.

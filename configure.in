@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2012/03/07 19:34:05 $
-# $Revision: 1.748 $
+#     $Date: 2012/03/09 00:20:13 $
+# $Revision: 1.749 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.748 $)
+AC_REVISION($Revision: 1.749 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -4143,7 +4143,7 @@ dnl GASNET_TOOLSONLY_FALSE_BEGIN
 
 # Things needed by ssh spawner
 SSH_SPAWNER_LIBS=""
-AC_CHECK_HEADERS(sys/socket.h sys/uio.h netinet/tcp.h)
+AC_CHECK_HEADERS(sys/socket.h sys/sockio.h sys/uio.h netinet/tcp.h)
 case "$target_os" in
   solaris*)
     GASNET_PUSHVAR(LIBS,"")
