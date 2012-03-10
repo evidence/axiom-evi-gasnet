@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2011/10/23 00:19:50 $
-# $Revision: 1.91 $
+#     $Date: 2012/03/10 02:19:06 $
+# $Revision: 1.92 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -50,6 +50,8 @@ my $encode_env = 0;  # encode environment variables to workaround buggy spawners
 my $group_join_argv = 0; # join all the args into one for %A?
 my $force_nonempty_argv = 0; # if args are empty, still pass empty arg for %A
 my $dashN_ok = 0; # does spawner support -N?
+my $ppn_opt = undef; # spawner implements a procs-per-node option
+my $nodes_opt = undef; # spawner implements a number-of-nodes option
 my $tmpdir = undef;
 my $nodefile = $ENV{'GASNET_NODEFILE'} || $ENV{'PBS_NODEFILE'} ||
 	($ENV{'PE_HOSTFILE'} && $ENV{'TMPDIR'} && -f "$ENV{'TMPDIR'}/machines" && "$ENV{'TMPDIR'}/machines") ||
@@ -134,15 +136,16 @@ sub gasnet_encode($) {
 	%envfmt = ( 'pre' => '-x',
 		    'inter' => '-x'
 		  );
-    } elsif ($is_mpiexec) {
+    } elsif ($is_mpiexec_nt) {
 	$spawner_desc = "mpiexec/NT";
 	# handles env for us
 	%envfmt = ( 'noenv' => 1 );
     } elsif ($is_mpiexec) {
 	$spawner_desc = "mpiexec";
 	# handles env for us
-	%envfmt = ( 'noenv' => 1 
+	%envfmt = ( 'noenv' => 1
 		  );
+        $ppn_opt = '-ppn' if ($mpirun_help =~ m/\bppn\b/);
 	# mpiexec seems to brokenly insist on splitting argv on spaces, regardless of quoting
         # not much we can do about it...
     } elsif ($is_mpich_nt) {
@@ -272,16 +275,19 @@ sub gasnet_encode($) {
         $encode_args = 1;
         $encode_env = 1;
 	@verbose_opt = ("-V");
+	$ppn_opt = '-ppn';
     } elsif ($is_srun) {
 	$spawner_desc = "SLURM srun";
 	# this spawner already propagates the environment for us automatically
 	%envfmt = ( 'noenv' => 1 );
 	@verbose_opt = ("-v");
+        $nodes_opt = '-N';
     } elsif ($is_prun) {
 	$spawner_desc = "Quadrics/RMS prun";
 	# this spawner already propagates the environment for us automatically
 	%envfmt = ( 'noenv' => 1 );
 	@verbose_opt = ("-v");
+        $nodes_opt = '-N';
     } elsif ($is_pam) {
 	$spawner_desc = "LSF pam";
 	%envfmt = ( 'pre' => $envprog, 'val' => '');
@@ -631,12 +637,6 @@ if ($is_lam && $numnode) {
   @numprocargs = ($numproc, 'n' . join(',', @tmp));
 }
     
-if (($is_srun || $is_prun) && $numnode) {
-  @numprocargs = ($numproc, '-N', $numnode);
-  $dashN_ok = 1;
-}
-    
-
 if ($is_aprun || $is_yod) {
   @numprocargs = ($numproc);
 
@@ -802,9 +802,15 @@ if ($is_bgl_cqsub) {
   }
 }
 
-if ($numnode && $is_infinipath) {
+# Generic support for -N and -ppn
+if (!$numnode) {
+  # Nothing
+} elsif (defined($nodes_opt)) {
+  @numprocargs = ($numproc, $nodes_opt, $numnode);
+  $dashN_ok = 1;
+} elsif (defined($ppn_opt)) {
   my $ppn = int( ( $numproc + $numnode - 1 ) / $numnode );
-  @numprocargs = ($numproc, '-ppn', $ppn);
+  @numprocargs = ($numproc, $ppn_opt, $ppn);
   $dashN_ok = 1;
 }
 
