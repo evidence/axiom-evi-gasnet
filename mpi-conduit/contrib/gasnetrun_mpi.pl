@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2012/03/10 02:49:19 $
-# $Revision: 1.94 $
+#     $Date: 2012/03/10 02:59:12 $
+# $Revision: 1.95 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -136,7 +136,8 @@ sub gasnet_encode($) {
 	%envfmt = ( 'pre' => '-x',
 		    'inter' => '-x'
 		  );
-        $ppn_opt = '-npernode' if ($mpirun_help =~ m/\bnpernode\b/);
+        # Seen to crash 1.4.2
+        #$ppn_opt = '-npernode' if ($mpirun_help =~ m/\bnpernode\b/);
     } elsif ($is_mpich2) {
 	$spawner_desc = "MPICH2/mpiexec";
 	# pass env as "-envlist A,B,C"
