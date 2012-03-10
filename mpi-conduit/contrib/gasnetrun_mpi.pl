@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2012/03/10 02:19:06 $
-# $Revision: 1.92 $
+#     $Date: 2012/03/10 02:37:12 $
+# $Revision: 1.93 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -129,13 +129,13 @@ sub gasnet_encode($) {
 	%envfmt = ( 'pre' => '-x',
 		    'join' => ','
 		  );
-	$dashN_ok = 1;
     } elsif ($is_ompi) {
 	$spawner_desc = "OpenMPI";
 	# pass env as "-x A -x B -x C"
 	%envfmt = ( 'pre' => '-x',
 		    'inter' => '-x'
 		  );
+        $ppn_opt = '-npernode' if ($mpirun_help =~ m/\bnpernode\b/);
     } elsif ($is_mpiexec_nt) {
 	$spawner_desc = "mpiexec/NT";
 	# handles env for us
@@ -635,6 +635,7 @@ if ($is_lam && $numnode) {
   my @tmp = (0..($numnode-1));
   expand \@tmp;
   @numprocargs = ($numproc, 'n' . join(',', @tmp));
+  $dashN_ok = 1;
 }
     
 if ($is_aprun || $is_yod) {
