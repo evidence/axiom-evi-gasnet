@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2012/02/27 08:09:45 $ */
-/*  $Revision: 1.175 $ */
+/*      $Date: 2012/03/13 23:48:53 $ */
+/*  $Revision: 1.176 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -292,6 +292,9 @@
 
 /* platform is an IBM BlueGene/P multiprocessor */
 #undef GASNETI_ARCH_BGP
+
+/* platform is an IBM BlueGene/Q multiprocessor */
+#undef GASNETI_ARCH_BGQ
 
 /* platform is a SiCortex multiprocessor */
 #undef GASNETI_ARCH_SICORTEX

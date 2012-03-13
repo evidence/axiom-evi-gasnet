@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/portable_platform.h,v $
- *     $Date: 2011/11/29 04:06:13 $
- * $Revision: 1.31 $
+ *     $Date: 2012/03/13 23:48:55 $
+ * $Revision: 1.32 $
  * Description: Portable platform detection header
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -504,6 +504,10 @@
 #elif defined(GASNETI_ARCH_BGP) || defined(__bgp__)
   #define PLATFORM_OS_BGP 1
   #define PLATFORM_OS_FAMILYNAME BGP
+
+#elif defined(GASNETI_ARCH_BGQ) || defined(__bgq__)
+  #define PLATFORM_OS_BGQ 1
+  #define PLATFORM_OS_FAMILYNAME BGQ
 
 #elif defined(__K42)
   #define PLATFORM_OS_K42 1

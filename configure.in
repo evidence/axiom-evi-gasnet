@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2012/03/09 00:20:13 $
-# $Revision: 1.749 $
+#     $Date: 2012/03/13 23:48:53 $
+# $Revision: 1.750 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.749 $)
+AC_REVISION($Revision: 1.750 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1005,6 +1005,9 @@ case "$target_os" in
           ;;
           powerpc-bgp-linux*) # apparently lacks any identifying preprocessor macro
 	    AC_DEFINE(GASNETI_ARCH_BGP)
+	    ;;
+          powerpc64-bgq-linux*) # apparently lacks any identifying preprocessor macro
+	    AC_DEFINE(GASNETI_ARCH_BGQ)
 	    ;;
         esac
         # Defining _GNU_SOURCE gives us accesss to the "adaptive"
