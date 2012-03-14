@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2012/03/05 23:17:16 $
- * $Revision: 1.111 $
+ *     $Date: 2012/03/14 02:02:46 $
+ * $Revision: 1.112 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1326,7 +1326,8 @@ void gasneti_segmentInit(uintptr_t localSegmentLimit,
       gasneti_maxheapend = maxheapend;
       gasneti_maxbase = maxbase;
       #if GASNET_ALIGNED_SEGMENTS
-       #if !defined(PLATFORM_OS_BGP) /* BG/P would incorrectly probe the I/O node */
+       /* BG/[PQ] would incorrectly probe the I/O node */
+       #if !defined(PLATFORM_OS_BGP) && !defined(PLATFORM_OS_BGQ)
         if (gasneti_nodes > 1) { 
           /* bug 2067 - detect if the compute nodes are using Linux's 'intentional VM space randomization'
            * security feature, which is known to break GASNET_ALIGNED_SEGMENTS, esp at large scale
