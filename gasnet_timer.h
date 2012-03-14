@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2011/11/29 07:07:44 $
- * $Revision: 1.100 $
+ *     $Date: 2012/03/14 00:50:16 $
+ * $Revision: 1.101 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -429,7 +429,7 @@ GASNETI_BEGIN_EXTERNC
 /* ------------------------------------------------------------------------------------ */
 #elif PLATFORM_ARCH_POWERPC && \
       ( PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_XLC ) && \
-      ( PLATFORM_OS_LINUX || PLATFORM_OS_BLRTS || PLATFORM_OS_BGP )
+      ( PLATFORM_OS_LINUX || PLATFORM_OS_BLRTS || PLATFORM_OS_BGP || PLATFORM_OS_BGQ)
   /* Use the 64-bit "timebase" register on both 32- and 64-bit PowerPC CPUs */
   #include <sys/types.h>
   #include <dirent.h>
@@ -505,6 +505,9 @@ GASNETI_BEGIN_EXTERNC
      #elif PLATFORM_OS_BGP
       /* don't know how to query this, so hard-code it for now */
       freq = 850000000;
+     #elif PLATFORM_OS_BGQ
+      /* don't know how to query this, so hard-code it for now */
+      freq = 1600000000;
      #else 
       DIR *dp = opendir("/proc/device-tree/cpus");
       struct dirent *de = NULL;
@@ -542,7 +545,7 @@ GASNETI_BEGIN_EXTERNC
         fclose(fp);
       }
      #endif
-      gasneti_assert(freq > 1000000 && freq < 1000000000); /* ensure it looks reasonable (1MHz to 1Ghz) */
+      gasneti_assert(freq > 1000000 && freq < 2000000000); /* ensure it looks reasonable (1MHz to 2Ghz) */
       Tick = 1.0e9 / freq;
       gasneti_sync_writes();
       firstTime = 0;
