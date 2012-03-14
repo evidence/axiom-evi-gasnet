@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2012/03/14 04:18:54 $
-# $Revision: 1.96 $
+#     $Date: 2012/03/14 04:26:18 $
+# $Revision: 1.97 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -783,6 +783,8 @@ if (($is_bgp || $is_bgq) && $ENV{'COBALT_JOBID'}) {
 }
 
 if ($is_bgq_cqsub) {
+  @numprocargs = ($numproc) unless (@numprocargs); # default
+
   my $cwd = `pwd`;
   chomp $cwd;
   if (my $file = $ENV{'GASNETRUN_STDIN'}) {
