@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2012/03/10 02:59:12 $
-# $Revision: 1.95 $
+#     $Date: 2012/03/14 04:18:54 $
+# $Revision: 1.96 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -106,6 +106,8 @@ sub gasnet_encode($) {
     my $is_bgl_cqsub = ($mpirun_help =~ m| cqsub .*?co/vn|s);
 #   my $is_bgp_mpi  = ($mpirun_help =~ m|fake-mpirun| && $mpirun_help =~ m|-partition|);
     my $is_bgp = ($mpirun_help =~ m|--mode <mode co/vn>|s);
+    my $is_bgq_cqsub = ($mpirun_help =~ m| <cobaltlog file path>|);
+    my $is_bgq = 0;  # Not yet available to test
     my $is_hp_mpi  = ($mpirun_help =~ m|-universe_size|);
     my $is_elan_mpi  = ($mpirun_help =~ m|MPIRUN_ELANIDMAP_FILE|);
     my $is_jacquard = ($mpirun_help =~ m| \[-noenv\] |) && !$is_elan_mpi;
@@ -121,7 +123,8 @@ sub gasnet_encode($) {
     my $spawner_desc = undef;
 
     if ($ENV{'MPIRUN_CMD_BATCH'}) {
-      print "WARNING: MPIRUN_CMD_BATCH only has significance on the BlueGene/P" unless($is_bgp);
+      print "WARNING: MPIRUN_CMD_BATCH only has significance on the BlueGene/P or /Q"
+           unless($is_bgp || $is_bgq || $is_bgq_cqsub);
     }
 
     if ($is_lam) {
@@ -245,6 +248,24 @@ sub gasnet_encode($) {
 		  );
         $encode_env = 1; # botches spaces in environment values
         $encode_args = 1; # and in arguments
+    } elsif ($is_bgq_cqsub) {
+        $spawner_desc = "IBM BG/Q Cobalt qsub";
+        %envfmt = ( 'pre' => '--env',
+                    'join' => ':',
+                    'val' => ''
+                  );
+        $encode_env = 1; # botches spaces in environment values
+        $encode_args = 1; # and in arguments
+        @verbose_opt = ("-v");
+    } elsif ($is_bgq) {
+        $spawner_desc = "IBM BG/Q";
+        %envfmt = ( 'pre' => '-env',
+                    'inter' => '-env',
+                    'val' => ''
+                  );
+        $encode_env = 1; # botches spaces in environment values
+        $encode_args = 1; # and in arguments
+        @verbose_opt = ("-v");
     } elsif ($is_bgp) {
         $spawner_desc = "IBM BG/P";
         if($ENV{'COBALT_JOBID'}) {
@@ -742,7 +763,7 @@ if ($numproc && $is_bgp) {
   $dashN_ok = 1;
 }
 
-if ($is_bgp && $ENV{'COBALT_JOBID'}) {
+if (($is_bgp || $is_bgq) && $ENV{'COBALT_JOBID'}) {
   # Possibly deal with redirection by appending to @numprocargs
   @numprocargs = ($numproc) unless (@numprocargs); # default
   my $cwd = `pwd`;
@@ -761,6 +782,22 @@ if ($is_bgp && $ENV{'COBALT_JOBID'}) {
   }
 }
 
+if ($is_bgq_cqsub) {
+  my $cwd = `pwd`;
+  chomp $cwd;
+  if (my $file = $ENV{'GASNETRUN_STDIN'}) {
+    $file = "$cwd/$file" unless ($file =~ m,^/,);
+    push @numprocargs, ('-i', $file);
+  }
+  if (my $file = $ENV{'GASNETRUN_STDOUT'}) {
+    $file = "$cwd/$file" unless ($file =~ m,^/,);
+    push @numprocargs, ('-o', $file);
+  }
+  if (my $file = $ENV{'GASNETRUN_STDERR'}) {
+    $file = "$cwd/$file" unless ($file =~ m,^/,);
+    push @numprocargs, ('-e', $file);
+  }
+}
 
 if ($is_bgl_cqsub) {
   if ($numproc) {
@@ -815,11 +852,11 @@ if ($is_bgl_cqsub) {
 if (!$numnode) {
   # Nothing
 } elsif (defined($nodes_opt)) {
-  @numprocargs = ($numproc, $nodes_opt, $numnode);
+  push @numprocargs, ($numproc, $nodes_opt, $numnode);
   $dashN_ok = 1;
 } elsif (defined($ppn_opt)) {
   my $ppn = int( ( $numproc + $numnode - 1 ) / $numnode );
-  @numprocargs = ($numproc, $ppn_opt, $ppn);
+  push @numprocargs, ($numproc, $ppn_opt, $ppn);
   $dashN_ok = 1;
 }
 
@@ -886,7 +923,7 @@ if (!$numnode) {
 
     if ($dryrun) {
 	# Do nothing
-    } elsif ($is_bgl_cqsub) { # cqsub as mpirun needs some help
+    } elsif ($is_bgl_cqsub || $is_bgq_cqsub) { # cqsub as mpirun needs some help
         my $jobid;
 
         # Implement equivalent of backticks, but w/o shell eval of arguments:
@@ -912,8 +949,10 @@ if (!$numnode) {
             local $SIG{'TERM'} = 'terminate';
 
             # Don't use system() so we can retain control over signals
-            $pid = open(PIPE, "/bgl/software/bin/cqwait $jobid |");
+            my $cobalt_home = ($is_bgl_cqsub) ? '/bgl/software' : '/usr';
+            $pid = open(PIPE, "${cobalt_home}/bin/cqwait $jobid |");
             die "cannot fork: $!" unless (defined $pid); 
+            print "gasnetrun: blocking for completion of job $jobid\n" if ($verbose);
             { local $/; my $wait_for_it = <PIPE>; } # slurp!
             close(PIPE); # XXX: error handling?
         }
