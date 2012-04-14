@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_core_fwd.h,v $
- *     $Date: 2012/04/14 00:37:49 $
- * $Revision: 1.2 $
+ *     $Date: 2012/04/14 01:57:16 $
+ * $Revision: 1.3 $
  * Description: GASNet header for PAMI conduit core (forward definitions)
  * Copyright 2012, Lawrence Berkeley National Laboratory
  * Terms of use are as specified in license.txt
@@ -20,6 +20,9 @@
 #define GASNET_CONDUIT_NAME      GASNET_CORE_NAME
 #define GASNET_CONDUIT_NAME_STR  _STRINGIFY(GASNET_CONDUIT_NAME)
 #define GASNET_CONDUIT_PAMI      1
+
+/* conduit allows internal GASNet fns to issue put/get for remote addrs out of segment */
+#define GASNETI_SUPPORTS_OUTOFSEGMENT_PUTGET 1
 
   /* GASNET_PSHM defined 1 if this conduit supports PSHM. leave undefined otherwise. */
 #if GASNETI_PSHM_ENABLED
