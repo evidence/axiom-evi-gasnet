@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_core.c,v $
- *     $Date: 2012/04/14 03:54:08 $
- * $Revision: 1.4 $
+ *     $Date: 2012/04/14 22:49:38 $
+ * $Revision: 1.5 $
  * Description: GASNet PAMI conduit Implementation
  * Copyright 2012, Lawrence Berkeley National Laboratory
  * Terms of use are as specified in license.txt
@@ -33,6 +33,8 @@ pami_context_t     gasnetc_context; /* XXX: More than one */
 pami_geometry_t    gasnetc_world_geom;
 pami_endpoint_t    *gasnetc_endpoint_tbl;
 size_t             gasnetc_num_contexts;            
+pami_memregion_t   gasnetc_mymemreg;
+pami_memregion_t   *gasnetc_memreg;
 
 /* ------------------------------------------------------------------------------------ */
 /* Static Data */
@@ -233,7 +235,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     (void) gasneti_pshm_init(&gasnetc_bootstrapExchange, 0);
   #endif
 
-  /* TODO: when PSHM support is in place, consider moving table to shared mem */
+  /* TODO: when PSHM support is enabled, consider moving table to shared mem */
   { int i;
     gasnetc_endpoint_tbl = gasneti_malloc(gasneti_nodes * sizeof(pami_endpoint_t));
     for (i = 0; i < gasneti_nodes; ++i) {
@@ -243,6 +245,7 @@ static int gasnetc_init(int *argc, char ***argv) {
 
   #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
     { 
+      /* TODO: probe max memory registration */
       uintptr_t limit = gasneti_mmapLimit((uintptr_t)-1, (uint64_t)-1,
                                           &gasnetc_bootstrapExchange,
                                           &gasnetc_bootstrapBarrier);
@@ -439,6 +442,26 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 
       gasneti_assert(((uintptr_t)segbase) % GASNET_PAGESIZE == 0);
       gasneti_assert(segsize % GASNET_PAGESIZE == 0);
+
+#if 0 /* TODO: enable once the corresponding Rget/Rput code is implemented */
+      /* Register w/ PAMI and exchange the "keys" */
+      { size_t regsize;
+        pami_result_t rc;
+
+        rc = PAMI_Memregion_create(gasnetc_context, segbase, segsize,
+                                   &regsize, &gasnetc_mymemreg);
+        GASNETC_PAMI_CHECK(rc, "registering the segment");
+        if (regsize < segsize) {
+          /* TODO: probe max at init time instead of failing here. */
+          /* TODO: If we still fail here, it is legal to return less than requested.
+                   However, that will require some additional work. */
+          gasneti_fatalerror("Unable to pin an adequate GASNet segment");
+        }
+
+        gasnetc_memreg = gasneti_malloc(gasneti_nodes * sizeof(pami_memregion_t));
+        gasnetc_bootstrapExchange(&gasnetc_mymemreg, sizeof(pami_memregion_t), gasnetc_memreg);
+      }
+#endif
     }
   #else
   { /* GASNET_SEGMENT_EVERYTHING */
