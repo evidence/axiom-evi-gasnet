@@ -1,9 +1,16 @@
 GASNet pami-conduit documentation
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.2 $
+$Revision: 1.3 $
 
 User Information:
 -----------------
+
+This is a prelinary BETA release of support for IBM PAMI.
+The implementation is "complete" (in terms of functionality) and is
+beleieved to be stable.  However, it has not yet been tuned to take
+advantage of many PAMI features which could provide faster
+implemenations of the Extended (RDMA) interfaces, Barriers, and the
+GASNet collectives.
 
 Recognized environment variables:
 ---------------------------------
@@ -30,7 +37,15 @@ Recognized environment variables:
 Optional compile-time settings:
 ------------------------------
 
-* All the compile-time settings from extended-ref (see the extended-ref README)
+* The following compile-time settings from extended-ref
+  (see the extended-ref README)
+
+ + GASNETI_THREADINFO_OPT - optimize thread discovery using hidden local variable
+
+ + GASNETI_LAZY_BEGINFUNCTION - postpone thread discovery to first use
+
+ + GASNETE_SCATTER_EOPS_ACROSS_CACHELINES(1/0) - scatter newly allocated eops
+    across cache lines to reduce false sharing
 
 Known problems:
 ---------------
@@ -40,10 +55,69 @@ Known problems:
 Future work:
 ------------
 
+The following are planned work items for pami-conduit:
+
+* Register the GASNet segment and use PAMI_Rput() and PAMI_Rget().
+
+* Register bounce buffers used for AM headers and payloads and apply
+  the appropriate "use_rdma" hints.
+
+* Use multiple PAMI contexts/endpoints.  At a minimum it would be desirable
+  to separate the AM and RDMA for independent progress.  Use of multiple
+  endpoints when using pthreads is also worth some implementation effort.
+  A separate context used for the exit coordination would prevent deadlock
+  when exiting from an AM handler.
+
+* Explore use of PAMI's "remote_async_progress" hint.
+
+* Explore use of bounce buffers to avoid blocking for local completion
+  of non-blocking/non-bulk Puts.
+
+* Explore use of conduit-level flow control for AMs, though it is not yet
+  certain that this is needed as it was with dcmf-conduit.
+
+* Implement GASNet's named split-phase barrier in terms of PAMI's
+  ALLREDUCE collective.
+
+* Implement GASNet's collectives in terms of PAMI's collectives.
+
+* Improve exit handling to raise SIGQUIT for non-collective exits.
+
+* For sufficiently small payloads, AMRequestLong could use a bounce buffer
+  to avoid stalling for local completion.
+
 ==============================================================================
 
 Design Overview:
 ----------------
 
-### Provide overview of the design for your conduit
+* Core API:
+  + GASNet's AMs are implemented in terms of PAMI's AMs, and execute
+    handlers directly from the PAMI callbacks.
+    - Short AMs use PAMI_Send_immediate() due to their length.
+    - Medium and Long AMs use PAMI_Send().
+    - Medium AMs their payload to a bounce buffer to avoid stalling
+      for local completion.
+    - Long Request AMs DO block for local completion.
+    - s LongAsync Request AMs DO NOE block for local completion.
+    - Long Replies AMs copying their payload to a bounce buffer, like
+      a Medium AM, since our running of AM handlers from PAMI's
+      callbacks precludes blocking for local completion.
+  + GASNet's default AM-based barrier implementations are used.
+  + GASNet's exit handling is done using an PAMI "all reduce" operation
+    and a timeout to determine the MAX() of the exit codes, and whether
+    the exit is collective.  For non-collective exits, the conduit is
+    currently calling exit(1) and using the fact that IBM's software
+    will take care of aborting the job.  However this does NOT get the
+    desired behavior of raising SIGQUIT on the non-exiting nodes.
+  + PSHM is supported through the default mechanisms
 
+* Extended API:
+  + The segment is allocated using mmap() via the default mechanisms.
+  + The segment is NOT YET pinned/registered.
+  + All Extended API operations are performed using PAMI_Put and _Get,
+    with the advantage that GASNET_SEGMENT_EVERYTHING "just works".
+  + The blocking operations block for remote completion, of course.
+  + The non-blocking NON-BULK Put operations will stall for the required
+    local completion, but don't need to stall for remote completion.
+    There is not currently any use of bounce buffers for these Puts.
