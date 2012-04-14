@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2012/03/21 05:09:31 $
-# $Revision: 1.98 $
+#     $Date: 2012/04/14 00:37:41 $
+# $Revision: 1.99 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -88,6 +88,8 @@ sub gasnet_encode($) {
     #print "probing: $mpirun_cmd\n";
     my $mpirun_help = `$mpirun_cmd 2>&1`;
     #print "probe result: $mpirun_help\n";
+    my $platform    = $ENV{'GASNET_PLATFORM'};
+    #print "using platform hint: $platform\n";
     my $is_lam      = ($mpirun_help =~ m|LAM/MPI|);
     my $is_ompi     = ($mpirun_help =~ m|OpenRTE|);
     my $is_mpich2   = ($mpirun_help =~ m|MPICH1 compatibility|);
@@ -102,12 +104,13 @@ sub gasnet_encode($) {
     my $is_poe      = ($mpirun_help =~ m|Parallel Operating Environment|);
     my $is_aprun    = ($mpirun_help =~ m|aprunwrapper\|rchitecture type.*?xt|);
     my $is_yod      = ($mpirun_help =~ m| yod |);
-    my $is_bgl_mpi  = ($mpirun_help =~ m|COprocessor or VirtualNode mode|);
-    my $is_bgl_cqsub = ($mpirun_help =~ m| cqsub .*?co/vn|s);
-#   my $is_bgp_mpi  = ($mpirun_help =~ m|fake-mpirun| && $mpirun_help =~ m|-partition|);
-    my $is_bgp = ($mpirun_help =~ m|--mode <mode co/vn>|s);
-    my $is_bgq_cqsub = 0;  # NOT YET # ($mpirun_help =~ m| <cobaltlog file path>|);
-    my $is_bgq = 0;  # Not yet available to test
+    my $is_bgl_mpi   = ($platform eq 'bgl' && $mpirun_help =~ m|COprocessor or VirtualNode mode|);
+    my $is_bgl_cqsub = ($platform eq 'bgl' && $mpirun_help =~ m| cqsub .*?co/vn|s);
+#   my $is_bgp_mpi   = ($platform eq 'bgp' && $mpirun_help =~ m|fake-mpirun| && $mpirun_help =~ m|-partition|);
+    my $is_bgp       = ($platform eq 'bgp' && $mpirun_help =~ m|--mode <mode co/vn>|s);
+    my $is_bgq_cqsub = ($platform eq 'bgq' && $mpirun_help =~ m| <cobaltlog file path>|);
+    my $is_bgq       = ($platform eq 'bgq' && $mpirun_help =~ m|--mode <mode co/vn>|s);
+    my $is_bgq_runjob= ($platform eq 'bgq' && $mpirun_help =~ m|five dimensional sub-block|s);
     my $is_hp_mpi  = ($mpirun_help =~ m|-universe_size|);
     my $is_elan_mpi  = ($mpirun_help =~ m|MPIRUN_ELANIDMAP_FILE|);
     my $is_jacquard = ($mpirun_help =~ m| \[-noenv\] |) && !$is_elan_mpi;
@@ -123,8 +126,8 @@ sub gasnet_encode($) {
     my $spawner_desc = undef;
 
     if ($ENV{'MPIRUN_CMD_BATCH'}) {
-      print "WARNING: MPIRUN_CMD_BATCH only has significance on the BlueGene/P or /Q"
-           unless($is_bgp || $is_bgq || $is_bgq_cqsub);
+      print "WARNING: MPIRUN_CMD_BATCH only has significance on the BlueGene/P or /Q\n"
+           unless($is_bgp || $is_bgq || $is_bgq_cqsub || $is_bgq_runjob);
     }
 
     if ($is_lam) {
@@ -212,10 +215,12 @@ sub gasnet_encode($) {
 	# Use MPIRUN_CMD='mpirun -np %N %P %Q' if still a problem
     } elsif ($is_poe) {
 	$spawner_desc = "IBM POE";
-	# the OS already propagates the environment for us automatically
-	%envfmt = ( 'noenv' => 1
-                  );
-        $extra_quote_argv = 1;
+	# POE already propagates the environment for us automatically
+	%envfmt = ( 'noenv' => 1);
+	# Used to need extra quoting but either recent versions of the
+	# transition of our testing from AIX to Linux has eliminated it.
+	# $extra_quote_argv = 1;
+	# If still a problem: uncomment above or change '%A' to '%Q' in your MPIRUN_CMD
     } elsif ($is_aprun) {
 	$spawner_desc = "Cray aprun";
 	# the OS already propagates the environment for us automatically
@@ -248,15 +253,40 @@ sub gasnet_encode($) {
 		  );
         $encode_env = 1; # botches spaces in environment values
         $encode_args = 1; # and in arguments
+    } elsif ($is_bgq_runjob) {
+        $spawner_desc = "IBM BG/Q runjob";
+	# pass as: --exp-env A --exp-env B
+	%envfmt = ( 'pre' => '--exp-env',
+		    'inter' => '--exp-env'
+		  );
+        $encode_env = 1; # just in case
+        $encode_args = 1; # just in case
+        @verbose_opt = ("-verbose", "2");
     } elsif ($is_bgq_cqsub) {
         $spawner_desc = "IBM BG/Q Cobalt qsub";
-        %envfmt = ( 'pre' => '--env',
-                    'join' => ':',
-                    'val' => ''
-                  );
-        $encode_env = 1; # botches spaces in environment values
+        if($ENV{'COBALT_JOBID'}) { # Automatic personality change
+           print "inside cobalt job spawner\n" if ($verbose);
+           $spawner_desc = "IBM BG/Q runjob";
+           $spawncmd = $ENV{'MPIRUN_CMD_BATCH'} || 'runjob -n %N : %P %A';
+           $spawncmd = stripouterquotes($spawncmd);
+           $spawncmd =~ s/%C/%P %A/;  # deal with common alias
+           $extra_quote_argv++ if ($spawncmd =~ s/%Q/%A/);
+	   # pass as: --exp-env A --exp-env B
+	   %envfmt = ( 'pre' => '--exp-env',
+		       'inter' => '--exp-env'
+		     );
+           @verbose_opt = ("-verbose", "2");
+           $is_bgq_runjob = 1;
+           $is_bgq_cqsub = 0;
+        } else {
+           %envfmt = ( 'pre' => '--env',
+                       'join' => ':',
+                       'val' => ''
+                     );
+           @verbose_opt = ("-v");
+        }   
+        $encode_env = 1; # may? botch spaces in environment values
         $encode_args = 1; # and in arguments
-        @verbose_opt = ("-v");
     } elsif ($is_bgq) {
         $spawner_desc = "IBM BG/Q";
         %envfmt = ( 'pre' => '-env',
@@ -782,23 +812,47 @@ if (($is_bgp || $is_bgq) && $ENV{'COBALT_JOBID'}) {
   }
 }
 
-if ($is_bgq_cqsub) {
-  @numprocargs = ($numproc) unless (@numprocargs); # default
+if ($is_bgq_runjob) {
+  my $partition = $ENV{'COBALT_PARTNAME'};
+  die "ERROR: runjob used outside cobalt job spawner\n" unless ($partition);
 
-  my $cwd = `pwd`;
-  chomp $cwd;
-  if (my $file = $ENV{'GASNETRUN_STDIN'}) {
-    $file = "$cwd/$file" unless ($file =~ m,^/,);
-    push @numprocargs, ('-i', $file);
+  if(!defined($numproc)) {
+    $numproc = $ENV{'COBALT_JOBSIZE'};
   }
-  if (my $file = $ENV{'GASNETRUN_STDOUT'}) {
-    $file = "$cwd/$file" unless ($file =~ m,^/,);
-    push @numprocargs, ('-o', $file);
+  if(!defined($numnode)) {
+    $numnode = $numproc;
   }
-  if (my $file = $ENV{'GASNETRUN_STDERR'}) {
-    $file = "$cwd/$file" unless ($file =~ m,^/,);
-    push @numprocargs, ('-e', $file);
+
+  my $ppn;
+  if (my $mode = $ENV{'GASNETRUN_MODE'}) {
+    # Assume the user's value is valid
+    $ppn = $mode;
+    $ppn =~ s/^c//; # Treat "c16" and "16" as equivalent
+  } else {
+    my $orig = int( ( $numproc + $numnode - 1 ) / $numnode );
+    # Round ppn up to next power of 2 by "filling" lower bits
+    $ppn = $orig - 1;
+    $ppn |= $ppn >> 1;
+    $ppn |= $ppn >> 2;
+    $ppn |= $ppn >> 4;
+    $ppn++;
+    if ($ppn > 64) {
+      die "ERROR: required ppn value ($ppn) exceeds the maximum (64)\n";
+    } elsif ($ppn != $orig) {
+      warn "WARNING: requested ppn value ($orig) is not a power-of-two.\n";
+      warn "WARNING: PROCESS LAYOUT MIGHT NOT MATCH YOUR REQUEST\n";
+    }
   }
+  @numprocargs = ($numproc, '-p', $ppn, '--block', $partition);
+  push @numprocargs, ('--corner', $ENV{'COBALT_CORNER'}) if exists $ENV{'COBALT_CORNER'};
+  push @numprocargs, ('--shape', $ENV{'COBALT_SHAPE'}) if exists $ENV{'COBALT_SHAPE'};
+  $dashN_ok = 1;
+
+  # Need envargs to appear before the ":" which introduces %P
+  push @numprocargs, @envargs;
+  @envargs = ();
+
+  # No GASNETRUN_STD{IN,OUT,ERR} goop is required.
 }
 
 if ($is_bgl_cqsub) {
@@ -831,22 +885,6 @@ if ($is_bgl_cqsub) {
     $dashN_ok = 1;
   } else {
     @numprocargs = ($numproc); # default
-  }
-
-  # Possibly deal with redirection by appending to @numprocargs
-  my $cwd = `pwd`;
-  chomp $cwd;
-  if (my $file = $ENV{'GASNETRUN_STDIN'}) {
-    $file = "$cwd/$file" unless ($file =~ m,^/,);
-    push @numprocargs, ('-i', $file);
-  }
-  if (my $file = $ENV{'GASNETRUN_STDOUT'}) {
-    $file = "$cwd/$file" unless ($file =~ m,^/,);
-    push @numprocargs, ('-o', $file);
-  }
-  if (my $file = $ENV{'GASNETRUN_STDERR'}) {
-    $file = "$cwd/$file" unless ($file =~ m,^/,);
-    push @numprocargs, ('-E', $file);
   }
 }
 
@@ -957,6 +995,32 @@ if (!$numnode) {
             print "gasnetrun: blocking for completion of job $jobid\n" if ($verbose);
             { local $/; my $wait_for_it = <PIPE>; } # slurp!
             close(PIPE); # XXX: error handling?
+        }
+
+        # Collect stderr and stdout
+        my $poll_limit = 15;
+        my ($have_stderr, $have_stdout);
+        while (!($have_stderr = open(ERRFILE, "<$jobid.error")) && $poll_limit) {
+            sleep 5;
+            $poll_limit--;
+        }
+        while (!($have_stdout = open(OUTFILE, "<$jobid.output")) && $poll_limit) {
+            sleep 5;
+            $poll_limit--;
+        }
+        if ($have_stderr) {
+            while (<ERRFILE>) { print STDERR $_; }
+            close(ERRFILE);
+            #unlink("$jobid.error") unless ($keep);
+        } else {
+            warn "gasnetrun: Missing $jobid.error\n";
+        }
+        if ($have_stdout) {
+            while (<OUTFILE>) { print STDOUT $_; }
+            close(OUTFILE);
+            #unlink("$jobid.ouput") unless ($keep);
+        } else {
+            warn "gasnetrun: Missing $jobid.output\n";
         }
     } elsif (@tmpfiles || defined($tmpdir)) {
 	system(@spawncmd);

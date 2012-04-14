@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2012/02/04 22:44:57 $
- * $Revision: 1.227 $
+ *     $Date: 2012/04/14 00:37:34 $
+ * $Revision: 1.228 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -766,6 +766,9 @@ static void gasneti_check_portable_conduit(void) { /* check for portable conduit
         const char *desc;
         int hwid;
       } known_devs[] = {
+      #if PLATFORM_OS_BLRTS || PLATFORM_OS_BGP || PLATFORM_OS_BGQ
+        { "/dont_probe_an_io_node", S_IFDIR, "", 0 }
+      #else
         #if PLATFORM_OS_LINUX && PLATFORM_ARCH_IA64 && GASNET_SEQ
           { "/dev/hw/cpunum",      S_IFDIR, "SGI Altix", 0 },
           { "/dev/xpmem",          S_IFCHR, "SGI Altix", 0 },
@@ -784,6 +787,7 @@ static void gasneti_check_portable_conduit(void) { /* check for portable conduit
           { "/dev/ukbridge",         S_IFCHR, "Cray XT", 5 },
           { "/proc/portals/meminfo", S_IFREG, "Cray Portals", 5 }
         #endif
+      #endif
       };
       int i, lim = sizeof(known_devs)/sizeof(known_devs[0]);
       for (i = 0; i < lim; i++) {
@@ -805,6 +809,9 @@ static void gasneti_check_portable_conduit(void) { /* check for portable conduit
       #elif PLATFORM_OS_BGP
         if (strlen(natives)) strcat(natives,", ");
         strcat(natives,"IBM BG/P");
+      #elif PLATFORM_OS_BGQ
+        if (strlen(natives)) strcat(natives,", ");
+        strcat(natives,"IBM BG/Q");
       #endif
       if (natives[0]) {
         sprintf(reason, "WARNING: This system appears to contain recognized network hardware: %s\n"
@@ -979,7 +986,39 @@ static void gasneti_nodemap_dflt(gasneti_bootstrapExchangefn_t exchangefn) {
 
       gasneti_free(allids);
     }
-#elif PLATFORM_OS_BGP || PLATFORM_OS_BLRTS  || PLATFORM_OS_CATAMOUNT || !HAVE_GETHOSTID
+#elif PLATFORM_OS_BGQ && GASNETI_HAVE_BGQ_INLINES
+  #if 0 /* "Clean" but not usable in general due to (non)inlined implementation */
+    uint64_t count, size = gasneti_nodes * sizeof(BG_CoordinateMapping_t);
+    BG_CoordinateMapping_t *allids = gasneti_malloc(size);
+    int i;
+
+    gasneti_assert_zeroret(Kernel_RanksToCoords(size, allids, &count));
+    gasneti_assert(count == gasneti_nodes);
+
+    /* Zero out the fields we don't want to have significance and then comparison */
+    for (i = 0; i < gasneti_nodes; ++i) {
+      allids[i].reserved = allids[i].t = 0;
+    }
+    gasneti_nodemap_helper(allids, sizeof(BG_CoordinateMapping_t), sizeof(BG_CoordinateMapping_t));
+
+    gasneti_free(allids);
+  #else /* Same as above but w/o the candy-coating provided by location.h */
+    uint64_t count, size = gasneti_nodes * sizeof(uint32_t);
+    uint32_t *allids = gasneti_malloc(size);
+    int i;
+
+    gasneti_assert_zeroret(CNK_SPI_SYSCALL_3(RANKS2COORDS, size, allids, &count));
+    gasneti_assert(count == gasneti_nodes);
+
+    /* Zero out the fields we don't want to have significance and then comparison */
+    for (i = 0; i < gasneti_nodes; ++i) {
+      allids[i] &= 0xbfffffc0;
+    }
+    gasneti_nodemap_helper(allids, sizeof(uint32_t), sizeof(uint32_t));
+
+    gasneti_free(allids);
+  #endif
+#elif PLATFORM_OS_BGQ || PLATFORM_OS_BGP || PLATFORM_OS_BLRTS || PLATFORM_OS_CATAMOUNT || !HAVE_GETHOSTID
     /* Nodes are either (at least effectively) single process,
      * or we don't have a usable gethostid().  So, build a trivial nodemap. */
     gasneti_nodemap_trivial();

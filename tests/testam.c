@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testam.c,v $
- *     $Date: 2011/06/03 22:24:22 $
- * $Revision: 1.33 $
+ *     $Date: 2012/04/14 00:37:55 $
+ * $Revision: 1.34 $
  * Description: GASNet Active Messages performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -453,8 +453,8 @@ void doAMShort(void) {
     if (TEST_SECTION_BEGIN_ENABLED()) {                                          \
       uintptr_t sz; int64_t start;                                               \
       char msg[255];                                                             \
-      for (sz = 0; sz <= MAXREQREP; ) {                                          \
-        snprintf(msg, sizeof(msg), "%7llu "DESC_STR" flood     roundtrip ReqReq",\
+      for (sz = 0; sz <= MAXREQ; ) {                                             \
+        snprintf(msg, sizeof(msg), "%7llu "DESC_STR" flood     two-way   Req",   \
                      (unsigned long long)sz);                                    \
         flag = 0;                                                                \
         BARRIER();                                                               \
@@ -463,10 +463,10 @@ void doAMShort(void) {
           GASNET_Safe(AMREQUEST(peer, PONG_HIDX##_flood, myseg, sz DEST));       \
         }                                                                        \
         GASNET_BLOCKUNTIL(flag == iters);                                        \
-        report(msg,TIME() - start, iters, sz, 1);                                \
+        report(msg,TIME() - start, iters, sz, 0);                                \
                                                                                  \
         BARRIER();                                                               \
-        ADVANCESZ(sz, MAXREQREP);                                                \
+        ADVANCESZ(sz, MAXREQ);                                                   \
       }                                                                          \
       if (mynode == 0) { printf("\n"); fflush(stdout); }                         \
     }                                                                            \

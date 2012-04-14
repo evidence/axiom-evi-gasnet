@@ -1,8 +1,9 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_fwd.h,v $
- *     $Date: 2012/04/14 00:37:37 $
- * $Revision: 1.27 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended_fwd.h,v $
+ *     $Date: 2012/04/14 00:37:49 $
+ * $Revision: 1.2 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
+ * Copyright 2012, Lawrence Berkeley National Laboratory
  * Terms of use are as specified in license.txt
  */
 
@@ -13,9 +14,9 @@
 #ifndef _GASNET_EXTENDED_FWD_H
 #define _GASNET_EXTENDED_FWD_H
 
-#define GASNET_EXTENDED_VERSION      GASNET_RELEASE_VERSION_MAJOR.GASNET_RELEASE_VERSION_MINOR
+#define GASNET_EXTENDED_VERSION      0.1
 #define GASNET_EXTENDED_VERSION_STR  _STRINGIFY(GASNET_EXTENDED_VERSION)
-#define GASNET_EXTENDED_NAME         REFERENCE
+#define GASNET_EXTENDED_NAME         PAMI
 #define GASNET_EXTENDED_NAME_STR     _STRINGIFY(GASNET_EXTENDED_NAME)
 
 
@@ -107,6 +108,10 @@ typedef struct _gasnete_op_t *gasnet_handle_t;
  *   unset: extern gasnete_get_val() in gasnet_extended.c (or a macro)
  *   set: conduit provides own gasnete_get_val() as an inline
  */
+
+/* The following using an ON-STACK eop to avoid alloc/free overheads: */
+#define GASNETI_DIRECT_GET_BULK 1
+#define GASNETI_DIRECT_PUT_BULK 1
 
 #endif
 

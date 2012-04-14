@@ -10,6 +10,10 @@ if test -n "$USE_GCC" ; then
     # GCC-based compilers
     CC='/bgsys/drivers/ppcfloor/gnu-linux/bin/powerpc64-bgq-linux-gcc -Wno-unused'
     CXX='/bgsys/drivers/ppcfloor/gnu-linux/bin/powerpc64-bgq-linux-g++ -Wno-unused'
+elif test -n "$USE_CLANG" ; then
+    # CLANG-based compilers
+    CC='bgclang -Wno-unused -U__GNUC__'
+    CXX='bgclang++ -Wno-unused -U__GNUC__'
 else
     # XLC-based compilers
     CC='bgxlc_r -qarch=qp -qtune=qp'
@@ -33,6 +37,9 @@ HOST_CXXFLAGS='' ; export HOST_CXXFLAGS
 if test -n "$USE_GCC" ; then
     # GCC-based compilers
     MPI_CC='mpicc'
+elif test -n "$USE_CLANG" ; then
+    # CLANG-based compilers
+    MPI_CC='mpiclang' # a one-liner: MPICC=clang exec mpicc "$@"
 else
     # XLC-based compilers
     MPI_CC='mpixlc -qarch=qp -qtune=qp'
@@ -46,11 +53,13 @@ export MPI_CC     # MPI-enabled C compiler
 # The following MPIRUN_CMD is specific to the BG/Q system at Argonne 
 # Leadership Computing Facility (ALCF).
 MPIRUN_CMD='qsub -q default -t 1:00:00 -n %N %C' ; export MPIRUN_CMD  # launch command for MPI jobs
-#NOT YET MPIRUN_CMD_BATCH='cobalt-mpirun %N %C' ; export MPIRUN_CMD_BATCH  # launch command for MPI inside the batch script
+MPIRUN_CMD_BATCH='runjob -n %N : %C' ; export MPIRUN_CMD_BATCH  # launch command for MPI inside the batch script
 
-EXTRA_CONFIGURE_ARGS='-with-max-pthreads-per-node=64 --disable-udp --disable-amudp'
+EXTRA_CONFIGURE_ARGS='--with-max-pthreads-per-node=64 --disable-udp --disable-amudp'
+EXTRA_CONFIGURE_ARGS="$EXTRA_CONFIGURE_ARGS --disable-aligned-segments"
+EXTRA_CONFIGURE_ARGS="$EXTRA_CONFIGURE_ARGS --with-segment-mmap-max=12G"
 EXTRA_CONFIGURE_ARGS="$EXTRA_CONFIGURE_ARGS --with-feature-list=os_bgq"
-if test -z "$USE_GCC" ; then
+if test -z "$USE_GCC$USE_CLANG" ; then
 EXTRA_CONFIGURE_ARGS="$EXTRA_CONFIGURE_ARGS --disable-tls"
 fi
 export EXTRA_CONFIGURE_ARGS  # misc configure args to pass
@@ -60,6 +69,8 @@ export EXTRA_CONFIGURE_ARGS  # misc configure args to pass
 TARGET_ID='powerpc64-bgq-linux'
 
 # 3. Review the automatically-detected settings below and make corrections as necessary.
+
+CROSS_CACHE_LINE_BYTES=128; export CROSS_CACHE_LINE_BYTES
 
 # 4. Place this output script in your top-level source directory and run it,
 #   passing it any additional configure arguments as usual (see configure --help).

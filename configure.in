@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2012/04/12 02:47:55 $
-# $Revision: 1.752 $
+#     $Date: 2012/04/14 00:37:34 $
+# $Revision: 1.753 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.752 $)
+AC_REVISION($Revision: 1.753 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -200,11 +200,9 @@ AC_SUBST(GASNETI_PTR_BITS)
 # Allow user forced ARCH and/or ISA settings w/o the corresponding probes
 # XXX: Incomplete...
 
-force_arch_altix=no
 GASNET_IF_ENABLED_NOHELP(arch-altix, [force_arch_altix=yes])
-
-force_arch_sicortex=no
 GASNET_IF_ENABLED_NOHELP(arch-sicortex, [force_arch_sicortex=yes])
+GASNET_IF_ENABLED_NOHELP(arch-ibmpe, [force_arch_ibmpe=yes])
 
 ### 
 #
@@ -662,6 +660,23 @@ if expr "$target" : powerpc-bgp-linux >/dev/null; then
   AC_SUBST(SYS_HEADER_INST) dnl "Hook" shared with GASNET_CHECK_OVERRIDE_PTHREADS
 fi
 
+# Locate system directories for BG/Q
+if expr "$target" : powerpc64-bgq-linux >/dev/null; then
+  # TODO: Something like bgpmaster to search on?
+  bgsys_guess=/bgsys/drivers/ppcfloor
+
+  GASNET_ENV_DEFAULT(BGQ_SYS_HOME, $bgsys_guess)
+  GASNET_ENV_DEFAULT(BGQ_SYS_INCLUDE, $BGQ_SYS_HOME)
+  if test -e "$BGQ_SYS_INCLUDE/cnk/include"; then
+    tmp_flag="-isystem $BGQ_SYS_INCLUDE"
+    GASNET_TRY_CFLAG([$tmp_flag], [:], [tmp_flag="-I$BGQ_SYS_INCLUDE"])
+    SYS_HEADER_BLD="$SYS_HEADER_BLD $tmp_flag"
+    SYS_HEADER_INST="$SYS_HEADER_INST $tmp_flag"
+  fi
+  AC_SUBST(SYS_HEADER_BLD) dnl "Hook" shared with GASNET_CHECK_OVERRIDE_PTHREADS
+  AC_SUBST(SYS_HEADER_INST) dnl "Hook" shared with GASNET_CHECK_OVERRIDE_PTHREADS
+fi
+
 GASNET_IF_ENABLED(debug, Build GASNet in a debugging mode, 
   [ 
     if test -z "$GASNET_SUPPRESS_DEBUG_WARNING" ; then
@@ -970,6 +985,7 @@ GASNET_LIBM()
 #---------------------------------------------------------------------------------------------------------------
 # Machine defs
 
+GASNET_PLATFORM=generic
 GASNET_THREAD_DEFINES=""
 GASNET_THREAD_LIBS=""
 case "$target_os" in
@@ -984,18 +1000,27 @@ case "$target_os" in
 	# that /dev/hw is specific (and standard) on their system
 	# DOB: as of 2.6.5-7.252-sn2 (possibly earlier) /dev/hw/cpunum no longer exists
 	# so now we use /dev/xpmem instead, which is not likely to disappear
-	if test $force_arch_altix = yes -o -d "/dev/hw/cpunum" -o -c "/dev/xpmem"; then
+	if test x$force_arch_altix = xyes -o -d "/dev/hw/cpunum" -o -c "/dev/xpmem"; then
    	  GASNETI_ARCH_ALTIX=1
 	  AC_DEFINE(GASNETI_ARCH_ALTIX)
+	  GASNET_PLATFORM=altix
 	  if test $target_cpu = ia64 -o -c "/dev/mmtimer"; then
 	    AC_DEFINE(GASNETI_USE_MMTIMER)
 	  fi
 	fi
 	# Check for SiCortex hardware by device or cpu name
-	if test $force_arch_sicortex = yes -o -c "/dev/scfabric" || 
+	if test x$force_arch_sicortex = xyes -o -c "/dev/scfabric" || 
            expr "`/usr/bin/uname -p 2>&1`" : SiCortex >/dev/null; then
 	    GASNETI_ARCH_SICORTEX=1
+	    GASNET_PLATFORM=sicortex
 	    AC_DEFINE(GASNETI_ARCH_SICORTEX)
+	fi
+	# Check for IBM PE by presence of POE
+	if test x$force_arch_imbpe = xyes || 
+           ( env PAGER=cat poe -h | grep 'Parallel Operating Environment' ) >/dev/null 2>&1; then
+	    GASNETI_ARCH_IBMPE=1
+	    GASNET_PLATFORM=ibmpe
+	    AC_DEFINE(GASNETI_ARCH_IBMPE)
 	fi
         case "$target" in
           *-catamount-*) 
@@ -1003,13 +1028,18 @@ case "$target_os" in
 	      GASNET_MSG_ERROR([Compiling for a catamount target, but __LIBCATAMOUNT__ is not predefined! Are you using the right compiler? (perhaps try mpicc)])
 	    ])
           ;;
+          powerpc-blrts-linux*)
+	    GASNET_PLATFORM=bgl
+	    ;;
           powerpc-bgp-linux*) # apparently lacks any identifying preprocessor macro
 	    GASNETI_ARCH_BGP=1
 	    AC_DEFINE(GASNETI_ARCH_BGP)
+	    GASNET_PLATFORM=bgp
 	    ;;
           powerpc64-bgq-linux*) # apparently lacks any identifying preprocessor macro
 	    GASNETI_ARCH_BGQ=1
 	    AC_DEFINE(GASNETI_ARCH_BGQ)
+	    GASNET_PLATFORM=bgq
 	    ;;
         esac
         # Defining _GNU_SOURCE gives us accesss to the "adaptive"
@@ -1106,6 +1136,7 @@ esac
 AC_SUBST(GASNET_MACHINE_DEFINES)
 AC_SUBST(GASNET_THREAD_DEFINES)
 AC_SUBST(GASNET_THREAD_LIBS)
+AC_SUBST(GASNET_PLATFORM)
 
 # Find the appropriate OS suffix for executables
 case "$target_os" in
@@ -2603,12 +2634,21 @@ if test "$enabled_mpi" = yes || test "$enabled_mpi_compat" = yes; then
         if test -n "$GASNETI_ARCH_ALTIX"; then
           GASNET_ENV_DEFAULT(MPI_CC, "$CC")
     	  GASNET_ENV_DEFAULT(MPI_LIBS, -lmpi)
+	  GASNET_ENV_DEFAULT(MPIRUN_CMD, mpirun -np %N %C)
+        elif test -n "$GASNETI_ARCH_IBMPE"; then
+          if test "$GASNETI_PTR_BITS" = 32; then
+            GASNET_ENV_DEFAULT(MPI_CC, mpcc -m32)
+          else
+            GASNET_ENV_DEFAULT(MPI_CC, mpcc -m64)
+          fi
+    	  GASNET_ENV_DEFAULT(MPI_LIBS, )
+	  GASNET_ENV_DEFAULT(MPIRUN_CMD, env PAGER=cat MP_FENCE=-- poe %P -nodes %M -procs %N -- %A)
         else
     	  GASNET_ENV_DEFAULT(MPI_CC, mpicc)
     	  GASNET_ENV_DEFAULT(MPI_LIBS, )
+	  GASNET_ENV_DEFAULT(MPIRUN_CMD, mpirun -np %N %C)
         fi
         GASNET_SET_CHECKED_CFLAGS(MPI_CC, MPI_CFLAGS, $MISC_CFLAGS $CFLAGS, $SAFE_MPI_CFLAGS)
-	GASNET_ENV_DEFAULT(MPIRUN_CMD, mpirun -np %N %C)
         GASNET_ENV_DEFAULT(MPIRUN_CMD_BATCH, "")
         ;;
     darwin*) # Need to probe -Wno-long-double independently
@@ -4069,6 +4109,74 @@ AC_SUBST(DCMF_LIBS)
 AM_CONDITIONAL(USE_DCMF_CONDUIT, test "$enabled_dcmf$have_dcmf" = yesyes)
 CONDUIT_END([test "$enabled_dcmf$have_dcmf" = yesyes])
 
+#--------------------------------------------------------------------------------------------------------
+# PAMI configuration
+CONDUIT_BEGIN(pami,[IBM PAMI network conduit (pami)])
+if test $enabled_pami = yes; then
+  have_pami=yes
+
+  if test -n "$GASNETI_ARCH_BGQ"; then
+    GASNET_ENV_DEFAULT(PAMI_HOME, [/bgsys/drivers/ppcfloor])
+    if test "$BUILDCONFIG" = "debug" ; then
+      GASNET_ENV_DEFAULT(PAMI_INCLUDE, [-I$PAMI_HOME/comm/sys/include]) 
+      GASNET_ENV_DEFAULT(PAMI_LIBDIR, [-L$PAMI_HOME/comm/sys/lib])
+    else
+      GASNET_ENV_DEFAULT(PAMI_INCLUDE, [-I$PAMI_HOME/comm/sys-fast/include]) 
+      GASNET_ENV_DEFAULT(PAMI_LIBDIR, [-L$PAMI_HOME/comm/sys-fast/lib])
+    fi
+    GASNET_ENV_DEFAULT(PAMI_LIBS, [-lpami])
+    GASNET_ENV_DEFAULT(PAMI_SYS_LIBDIR, [-L$PAMI_HOME/spi/lib])
+    GASNET_ENV_DEFAULT(PAMI_SYS_LIBS, [-lSPI_cnk -lpthread -lrt -lstdc++])
+  elif test -n "$GASNETI_ARCH_IBMPE"; then
+    # XXX: Couldn't we just be using "mpcc" instead?
+    #      Doing so would link MPI and POE libs we don't
+    #      need, but is there any harm in that?
+    GASNET_ENV_DEFAULT(PAMI_HOME, [/opt/ibmhpc/pecurrent/ppe.pami])
+    GASNET_ENV_DEFAULT(PAMI_INCLUDE, [-I$PAMI_HOME/include]) 
+    if test "$GASNETI_PTR_BITS" = 64; then
+      GASNET_ENV_DEFAULT(PAMI_LIBDIR, [-L$PAMI_HOME/lib/pami64])
+    else
+      GASNET_ENV_DEFAULT(PAMI_LIBDIR, [-L$PAMI_HOME/lib/pami32])
+    fi
+    GASNET_ENV_DEFAULT(PAMI_LIBS, [-lpami])
+    GASNET_ENV_DEFAULT(PAMI_SYS_LIBDIR, [])
+    GASNET_ENV_DEFAULT(PAMI_SYS_LIBS, [])
+  else
+    # We'll just make a reasonable guess:
+    GASNET_ENV_DEFAULT(PAMI_HOME, [/usr])
+    GASNET_ENV_DEFAULT(PAMI_INCLUDE, [-I$PAMI_HOME/include]) 
+    if test "$GASNETI_PTR_BITS" = 64 -a -e "$PAMI_HOME/lib64"; then
+      GASNET_ENV_DEFAULT(PAMI_LIBDIR, [-L$PAMI_HOME/lib64])
+    elif test "$GASNETI_PTR_BITS" = 32 -a -e "$PAMI_HOME/lib32"; then
+      GASNET_ENV_DEFAULT(PAMI_LIBDIR, [-L$PAMI_HOME/lib32])
+    else
+      GASNET_ENV_DEFAULT(PAMI_LIBDIR, [-L$PAMI_HOME/lib])
+    fi
+    GASNET_ENV_DEFAULT(PAMI_LIBS, [-lpami])
+    GASNET_ENV_DEFAULT(PAMI_SYS_LIBDIR, [])
+    GASNET_ENV_DEFAULT(PAMI_SYS_LIBS, [])
+  fi
+
+  GASNET_PUSHVAR(CFLAGS,"$CFLAGS $PAMI_INCLUDE")
+  GASNET_PUSHVAR(LIBS,"$LIBS $PAMI_LIBDIR $PAMI_LIBS $PAMI_SYS_LIBDIR $PAMI_SYS_LIBS")
+  # try to compile and link a simple PAMI program
+  GASNET_TRY_CACHE_LINK(for working PAMI configuration, pami_works, [
+     #include <pami.h>
+  ], [{ pami_result_t rc = PAMI_ERROR;
+        pami_client_t client;
+        rc = PAMI_Client_create("conftest", &client, NULL, 0);
+      }], [:], [ have_pami=no GASNET_ERR_SAVE() ] )
+  GASNET_POPVAR(CFLAGS)
+  GASNET_POPVAR(LIBS)
+fi #END ENABLE PAMI
+
+AC_SUBST(PAMI_INCLUDE)
+AC_SUBST(PAMI_LIBDIR)
+AC_SUBST(PAMI_LIBS)
+AC_SUBST(PAMI_SYS_LIBDIR)
+AC_SUBST(PAMI_SYS_LIBS)
+AM_CONDITIONAL(USE_PAMI_CONDUIT, test "$enabled_pami$have_pami" = yesyes)
+CONDUIT_END([test "$enabled_pami$have_pami" = yesyes])
 
 #--------------------------------------------------------------------------------------------------------
 # SCI configuration
@@ -4889,6 +4997,7 @@ GASNET_FIX_EXEC(sci-conduit/contrib/gasnetrun_sci)
 GASNET_FIX_EXEC(vapi-conduit/contrib/gasnetrun_vapi)
 GASNET_FIX_EXEC(ibv-conduit/contrib/gasnetrun_ibv)
 GASNET_FIX_EXEC(dcmf-conduit/contrib/gasnetrun_dcmf)
+GASNET_FIX_EXEC(pami-conduit/contrib/gasnetrun_pami)
 GASNET_FIX_EXEC(other/contrib/gasnet_trace)
 
 if test "$gasnet_toolsonly_mode" = "no" ; then
@@ -4955,6 +5064,11 @@ dcmf-conduit/Makefile
 dcmf-conduit/conduit.mak
 dcmf-conduit/contrib/Makefile
 dcmf-conduit/contrib/gasnetrun_dcmf
+
+pami-conduit/Makefile
+pami-conduit/conduit.mak
+pami-conduit/contrib/Makefile
+pami-conduit/contrib/gasnetrun_pami
 
 vapi-conduit/Makefile
 vapi-conduit/conduit.mak

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/template-conduit/gasnet_core.c,v $
- *     $Date: 2012/01/07 04:45:40 $
- * $Revision: 1.67 $
+ *     $Date: 2012/04/14 00:37:53 $
+ * $Revision: 1.68 $
  * Description: GASNet <conduitname> conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -98,7 +98,7 @@ static int gasnetc_init(int *argc, char ***argv) {
   #if GASNET_PSHM
     /* (###) If your conduit will support PSHM, you should initialize it here.
      * The 1st argument is normally "&gasnetc_bootstrapExchange" (described below).
-     * The 2nd argument is the amout of shared memory space needed for any
+     * The 2nd argument is the amount of shared memory space needed for any
      * conduit-specific uses.  The return value is a pointer to the space
      * requested by the 2nd argument.
      */
@@ -314,10 +314,16 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
       gasneti_assert(segsize % GASNET_PAGESIZE == 0);
     }
   #else
-    /* GASNET_SEGMENT_EVERYTHING */
+  { /* GASNET_SEGMENT_EVERYTHING */
+    gasnet_node_t i;
+    for (i=0; i<gasneti_nodes; i++) {
+      gasneti_seginfo[i].addr = (void *)0;
+      gasneti_seginfo[i].size = (uintptr_t)-1;
+    }
     segbase = (void *)0;
     segsize = (uintptr_t)-1;
     /* (###) add any code here needed to setup GASNET_SEGMENT_EVERYTHING support */
+  }
   #endif
 
   /* ------------------------------------------------------------------------------------ */
