@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_core_internal.h,v $
- *     $Date: 2012/04/14 00:37:49 $
- * $Revision: 1.2 $
+ *     $Date: 2012/04/14 00:51:41 $
+ * $Revision: 1.3 $
  * Description: GASNet PAMI conduit header for internal definitions in Core API
  * Copyright 2012, Lawrence Berkeley National Laboratory
  * Terms of use are as specified in license.txt
@@ -14,7 +14,7 @@
 
 #include <pami.h>
 
-#if GASNETI_ARCH_IBMPE // XXX: work-around hidden symbol on PERCS - fixed in later rev
+#if GASNETI_ARCH_IBMPE /* XXX: work-around hidden symbol on PERCS - fixed in later rev */
   #undef PAMI_ENDPOINT_NULL
   #define PAMI_ENDPOINT_NULL ((pami_endpoint_t)(~0))
 #endif
@@ -116,7 +116,7 @@ extern size_t             gasnetc_num_contexts;
 /* ------------------------------------------------------------------------------------ */
 /* Thread safety */
 
-// TODO: debug checks?
+/* TODO: debug checks for recursion, etc? */
 #if GASNET_PAR
   #define GASNETC_PAMI_LOCK(context)   PAMI_Context_lock(context)
   #define GASNETC_PAMI_UNLOCK(context) PAMI_Context_unlock(context)
@@ -128,7 +128,7 @@ extern size_t             gasnetc_num_contexts;
 /* ------------------------------------------------------------------------------------ */
 /* Endpoints */
 
-// TODO: multiple contexts?
+/* TODO: how must this change for multiple contexts? */
 GASNETI_INLINE(gasnetc_endpoint)
 pami_endpoint_t gasnetc_endpoint(gasnet_node_t node) {
   pami_endpoint_t result = gasnetc_endpoint_tbl[node];

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2012/04/14 00:37:49 $
- * $Revision: 1.2 $
+ *     $Date: 2012/04/14 00:51:41 $
+ * $Revision: 1.3 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -368,7 +368,7 @@ void gasneti_iop_markdone(gasneti_iop_t *iop, unsigned int noperations, int isge
   ==========================================================
 */
 
-// TODO: use Rput when both src and dest are in-segment
+/* TODO: use Rput when both src and dest are in-segment */
 GASNETI_INLINE(gasnete_put_common)
 void gasnete_put_common(gasnet_node_t node, void *dest, void *src, size_t nbytes,
                         gasnete_op_t *op, int need_lc, int is_eop) {
@@ -399,7 +399,7 @@ void gasnete_put_common(gasnet_node_t node, void *dest, void *src, size_t nbytes
   PAMI_Context_unlock(gasnetc_context);
 }
 
-// TODO: use Rget when both src and dest are in-segment
+/* TODO: use Rget when both src and dest are in-segment */
 GASNETI_INLINE(gasnete_get_common)
 void gasnete_get_common(void *dest, gasnet_node_t node, void *src, size_t nbytes,
                         gasnete_op_t *op, int is_eop) {

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_core.c,v $
- *     $Date: 2012/04/14 00:37:49 $
- * $Revision: 1.2 $
+ *     $Date: 2012/04/14 00:51:41 $
+ * $Revision: 1.3 $
  * Description: GASNet PAMI conduit Implementation
  * Copyright 2012, Lawrence Berkeley National Laboratory
  * Terms of use are as specified in license.txt
@@ -587,7 +587,7 @@ extern void gasnetc_exit(int exitcode) {
   gasnetc_exitcode = exitcode;
   if (0 != gasnetc_exit_reduce()) {
     /* Failed to coordinate shutdown */
-    // XXX: can we raise SIGQUIT remotely, etc.
+    /* XXX: can we raise SIGQUIT remotely, etc. (see bug 2785) */
     gasnetc_exitcode = 1; /* on both BG/Q and IBM PE this forces global termination */
   }
   gasneti_killmyprocess(gasnetc_exitcode);
@@ -629,26 +629,11 @@ static size_t      gasnetc_send_imm_max;
 static size_t      gasnetc_recv_imm_max;
 static size_t      gasnetc_ampoll_max;
 
-// debugging aide - to be removed
 static void noop_dispatch(pami_context_t context, void *cookie,
                           const void *head_addr, size_t head_size,
                           const void *pipe_addr, size_t pipe_size,
                           pami_endpoint_t origin, pami_recv_t *recv)
-{
-  if (recv) {
-    recv->local_fn = NULL;
-    recv->cookie   = NULL;
-    recv->type     = PAMI_TYPE_BYTE;
-    recv->addr     = NULL;
-    recv->offset   = 0;
-    recv->data_fn  = PAMI_DATA_NOOP;
-    fprintf(stderr, "@%d> recv of %d+%d bytes\n",
-                    gasneti_mynode, (int)head_size, (int)pipe_size);
-  } else {
-    fprintf(stderr, "@%d> IMM recv of %d+%d bytes\n",
-                    gasneti_mynode, (int)head_size, (int)pipe_size);
-  }
-}
+{ gasneti_fatalerror("in un-reachable NOOP dispatcher"); }
 
 /* Bound the number of AM requests we have outstanding */
 
@@ -680,7 +665,7 @@ typedef union {
 } gasnetc_token_t;
 
 
-// Does serialization of handlers reduce sync requirements here?
+/* XXX: Does serialization of handlers loosen the sync requirements here? */
 static gasneti_lifo_head_t gasnetc_token_pool = GASNETI_LIFO_INITIALIZER;
 
 GASNETI_INLINE(gasnetc_get_token)
@@ -709,7 +694,7 @@ extern void gasnetc_cb_token(pami_context_t context, void *cookie, pami_result_t
 
 #define GASNETC_TOKEN_PAYLOAD(_token) ((char *)(_token) + GASNETC_MAX_MED_RESRV)
 
-// Does serialization of handlers reduce sync requirements here?
+/* XXX: Does serialization of handlers loosen the sync requirements here? */
 static gasneti_lifo_head_t gasnetc_big_token_pool = GASNETI_LIFO_INITIALIZER;
 
 GASNETI_INLINE(gasnetc_get_big_token)
@@ -784,7 +769,7 @@ void run_long(gasnetc_token_t *token) {
 
 /* AM event functions, run when payload has been written */
 
-// No Short event functions - only "immediate" is implemented
+/* No Short event functions, since only "immediate" is implemented for Short */
 
 static void am_Med_event(pami_context_t context, void *cookie, pami_result_t status)
 {
@@ -915,7 +900,7 @@ static int gasnetc_am_init(void) {
   memset(&hints, 0, sizeof(hints));
   memset(&fn, 0, sizeof(fn));
 
-  // TODO: Others hints?
+  /* TODO: Others hints? */
   hints.multicontext = PAMI_HINT_DISABLE;
   hints.recv_contiguous = PAMI_HINT_ENABLE;
   hints.recv_copy = PAMI_HINT_ENABLE;
@@ -931,7 +916,7 @@ static int gasnetc_am_init(void) {
   /* Query immediate limits */
   conf[0].name = PAMI_DISPATCH_SEND_IMMEDIATE_MAX;
   conf[1].name = PAMI_DISPATCH_RECV_IMMEDIATE_MAX;
-#if GASNETI_ARCH_IBMPE // PERCS only implements num_configs=1
+#if GASNETI_ARCH_IBMPE /* XXX: work-around PERCS bug: only implements num_configs=1 */
   rc = PAMI_Dispatch_query(gasnetc_context, GASNETC_DISP_NOOP, &conf[0], 1);
   GASNETC_PAMI_CHECK(rc, "querying DISPATCH send immediate limit");
   rc = PAMI_Dispatch_query(gasnetc_context, GASNETC_DISP_NOOP, &conf[1], 1);
@@ -1016,7 +1001,7 @@ extern int gasnetc_AMPoll(void) {
 
   /* (###) add code here to run your AM progress engine */
 #if GASNET_PAR
- #if GASNETI_ARCH_IBMPE // Work-around hidden symbol on PERCS - fixed in later rev
+ #if GASNETI_ARCH_IBMPE /* XXX: Work-around hidden symbol on PERCS - fixed in later rev */
   if (PAMI_SUCCESS == PAMI_Context_trylock(gasnetc_context)) {
     PAMI_Context_advance(gasnetc_context, gasnetc_ampoll_max);
     PAMI_Context_unlock(gasnetc_context);
@@ -1152,7 +1137,8 @@ extern int gasnetc_AMRequestMediumM(
     /* (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
              and send the active message 
      */
-// TODO: send in-place if fits w/i immediate limit
+    /* TODO: send in-place if fits w/i immediate limit */
+
     pami_send_t cmd;
     pami_result_t rc;
     gasnetc_medmsg_t *msg_p = &(gasnetc_get_big_token()->medmsg);
@@ -1162,7 +1148,7 @@ extern int gasnetc_AMRequestMediumM(
     msg_p->nbytes = nbytes;
     memcpy(payload, source_addr, nbytes);
 
-// Register bounce buffers and apply appropriate hint(s) here
+    /* TODO: If register bounce buffers, then apply appropriate hint (here or at Dispatch_set?) */
     cmd.send.header.iov_base = (char *)msg_p;
     cmd.send.header.iov_len = GASNETC_ARGSEND(med, numargs);
     cmd.send.data.iov_base = payload;
@@ -1224,7 +1210,7 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
     msg.addr = (uintptr_t)dest_addr;
     msg.nbytes = nbytes;
 
-// Register segment and apply appropriate hint(s) here
+    /* TODO: Register segment and apply appropriate hint(s) here or at Dispatch_set */
     cmd.send.header.iov_base = (char *)&msg;
     cmd.send.header.iov_len = GASNETC_ARGSEND(long, numargs);
     cmd.send.data.iov_base = (char *)source_addr;
@@ -1290,7 +1276,7 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
     msg_p->addr = (uintptr_t)dest_addr;
     msg_p->nbytes = nbytes;
 
-// Register segment and apply appropriate hint(s) here
+    /* TODO: Register segment and apply appropriate hint(s) here or at Dispatch_set */
     cmd.send.header.iov_base = (char *)msg_p;
     cmd.send.header.iov_len = GASNETC_ARGSEND(long, numargs);
     cmd.send.data.iov_base = (char *)source_addr;
@@ -1397,7 +1383,8 @@ extern int gasnetc_AMReplyMediumM(
     /* (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
              and send the active message 
      */
-// TODO: send in-place if fits w/i immediate limit
+    /* TODO: send in-place if fits w/i immediate limit */
+
     pami_send_t cmd;
     pami_result_t rc;
     gasnetc_medmsg_t *msg_p = &(gasnetc_get_big_token()->medmsg);
@@ -1411,7 +1398,7 @@ extern int gasnetc_AMReplyMediumM(
     msg_p->nbytes = nbytes;
     memcpy(payload, source_addr, nbytes);
 
-// Register bounce buffers and apply appropriate hint(s) here
+    /* TODO: If register bounce buffers, then apply appropriate hint (here or at Dispatch_set?) */
     cmd.send.header.iov_base = (char *)msg_p;
     cmd.send.header.iov_len = GASNETC_ARGSEND(med, numargs);
     cmd.send.data.iov_base = payload;
@@ -1461,7 +1448,8 @@ extern int gasnetc_AMReplyLongM(
     /* (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
              and send the active message 
      */
-// TODO: send in-place if fits w/i immediate limit
+    /* TODO: send in-place if fits w/i immediate limit */
+
     pami_send_t cmd;
     pami_result_t rc;
     gasnetc_longmsg_t *msg_p = &(gasnetc_get_big_token()->longmsg);
@@ -1476,7 +1464,7 @@ extern int gasnetc_AMReplyLongM(
     msg_p->addr = (uintptr_t)dest_addr;
     memcpy(payload, source_addr, nbytes);
 
-// Register bounce buffers and apply appropriate hint(s) here
+    /* TODO: If register bounce buffers, then apply appropriate hint (here or at Dispatch_set?) */
     cmd.send.header.iov_base = (char *)msg_p;
     cmd.send.header.iov_len = GASNETC_ARGSEND(long, numargs);
     cmd.send.data.iov_base = payload;
