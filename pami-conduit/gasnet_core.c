@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_core.c,v $
- *     $Date: 2012/04/14 00:51:41 $
- * $Revision: 1.3 $
+ *     $Date: 2012/04/14 03:54:08 $
+ * $Revision: 1.4 $
  * Description: GASNet PAMI conduit Implementation
  * Copyright 2012, Lawrence Berkeley National Laboratory
  * Terms of use are as specified in license.txt
@@ -57,7 +57,7 @@ static void gasnetc_check_config(void) {
 }
 
 /* Get the first "always works" algorithm for a given collective operation */
-static void default_coll_alg(pami_xfer_type_t op, pami_algorithm_t *alg_p) {
+extern void gasnetc_dflt_coll_alg(pami_xfer_type_t op, pami_algorithm_t *alg_p) {
   pami_result_t rc;
   size_t counts[2];
   pami_algorithm_t *algorithms;
@@ -99,7 +99,7 @@ static void gasnetc_bootstrapBarrier(void) {
 
   if_pf (!is_init) {
     memset(&op, 0, sizeof(op)); /* Shouldn't need for static, but let's be safe */
-    default_coll_alg(PAMI_XFER_BARRIER, &op.algorithm);
+    gasnetc_dflt_coll_alg(PAMI_XFER_BARRIER, &op.algorithm);
     is_init = 1;
   }
 
@@ -112,7 +112,7 @@ static void gasnetc_bootstrapExchange(void *src, size_t len, void *dst) {
 
   if_pf (!is_init) {
     memset(&op, 0, sizeof(op)); /* Shouldn't need for static, but let's be safe */
-    default_coll_alg(PAMI_XFER_ALLGATHER, &op.algorithm);
+    gasnetc_dflt_coll_alg(PAMI_XFER_ALLGATHER, &op.algorithm);
     is_init = 1;
   }
 
@@ -509,7 +509,7 @@ static int gasnetc_exit_init(void) {
                                                 GASNETC_DEFAULT_EXITTIMEOUT_MIN);
 
   memset(&gasnetc_exit_reduce_op, 0, sizeof(gasnetc_exit_reduce_op));
-  default_coll_alg(PAMI_XFER_ALLREDUCE, &gasnetc_exit_reduce_op.algorithm);
+  gasnetc_dflt_coll_alg(PAMI_XFER_ALLREDUCE, &gasnetc_exit_reduce_op.algorithm);
 
 #if HAVE_ON_EXIT
   on_exit(gasnetc_on_exit, NULL);

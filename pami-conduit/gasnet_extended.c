@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2012/04/14 00:51:41 $
- * $Revision: 1.3 $
+ *     $Date: 2012/04/14 03:54:08 $
+ * $Revision: 1.4 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -750,12 +750,166 @@ extern void gasnete_put_bulk (gasnet_node_t node, void* dest, void *src,
 /*
   Barriers:
   =========
+  "par" = PAMI All Reduce
 */
+
+/* NOT the default because AMDISSEM benchmarks twice as fast on PERCS */
+/* TODO: would this be a good default on BG/Q? */
+/* #define GASNETE_BARRIER_DEFAULT "PAMIALLREDUCE" */
+
+static void gasnete_parbarrier_init(gasnete_coll_team_t team);
+static void gasnete_parbarrier_notify(gasnete_coll_team_t team, int id, int flags);
+static int gasnete_parbarrier_wait(gasnete_coll_team_t team, int id, int flags);
+static int gasnete_parbarrier_try(gasnete_coll_team_t team, int id, int flags);
+
+#define GASNETE_BARRIER_READENV() do {                                      \
+  if (GASNETE_ISBARRIER("PAMIALLREDUCE"))                                   \
+    gasnete_coll_default_barrier_type = GASNETE_COLL_BARRIER_PAMIALLREDUCE; \
+} while (0)
+
+#define GASNETE_BARRIER_INIT(TEAM, BARRIER_TYPE) do {            \
+    if ((BARRIER_TYPE) == GASNETE_COLL_BARRIER_PAMIALLREDUCE &&  \
+        (TEAM)==GASNET_TEAM_ALL) {                               \
+      (TEAM)->barrier_notify = &gasnete_parbarrier_notify;       \
+      (TEAM)->barrier_wait =   &gasnete_parbarrier_wait;         \
+      (TEAM)->barrier_try =    &gasnete_parbarrier_try;          \
+      (TEAM)->barrier_pf =     NULL; /* AMPoll is sufficient */  \
+      gasnete_parbarrier_init(TEAM);                             \
+    }                                                            \
+  } while (0)
 
 /* use reference implementation of barrier */
 #define GASNETI_GASNET_EXTENDED_REFBARRIER_C 1
 #include "gasnet_extended_refbarrier.c"
 #undef GASNETI_GASNET_EXTENDED_REFBARRIER_C
+
+/* barrier via all-reduce of two 64-bit unsigned integers */
+
+typedef struct {
+  /* PAMI portions */
+  pami_xfer_t reduce_op;
+  uint64_t sndbuf[2];
+  uint64_t rcvbuf[2];
+  volatile unsigned int done;    /* counter incremented by PAMI callback */
+  /* GASNet portions */
+  unsigned int count;            /* how many times we've notify()ed */
+  int flags, value;              /* notify-time values, compared at try/wait */
+} gasnete_parbarrier_t;
+
+static gasnete_parbarrier_t gasnete_parbarrier_all;
+
+/* TODO: use an optimized algorithm instead of the safe default */
+/* TODO: generalize to team != ALL? */
+static void gasnete_parbarrier_init(gasnete_coll_team_t team) {
+  gasnete_parbarrier_t *barr = &gasnete_parbarrier_all;
+
+  barr->count = barr->done = 0;
+
+  memset(&barr->reduce_op, 0, sizeof(pami_xfer_t));
+  gasnetc_dflt_coll_alg(PAMI_XFER_ALLREDUCE, &barr->reduce_op.algorithm);
+  barr->reduce_op.cookie = (void *)&barr->done;
+  barr->reduce_op.cb_done = &gasnetc_cb_inc_release;
+  barr->reduce_op.options.multicontext = PAMI_HINT_DISABLE;
+
+#if SIZEOF_LONG == 8
+  barr->reduce_op.cmd.xfer_allreduce.stype = PAMI_TYPE_UNSIGNED_LONG;
+  barr->reduce_op.cmd.xfer_allreduce.rtype = PAMI_TYPE_UNSIGNED_LONG;
+#elif SIZEOF_LONG_LONG == 8
+  barr->reduce_op.cmd.xfer_allreduce.stype = PAMI_TYPE_UNSIGNED_LONG_LONG;
+  barr->reduce_op.cmd.xfer_allreduce.rtype = PAMI_TYPE_UNSIGNED_LONG_LONG;
+#else
+  #error "No 8-bytes type?"
+#endif
+  barr->reduce_op.cmd.xfer_allreduce.sndbuf = (void*)&barr->sndbuf;
+  barr->reduce_op.cmd.xfer_allreduce.rcvbuf = (void*)&barr->rcvbuf;
+  barr->reduce_op.cmd.xfer_allreduce.stypecount = 2;
+  barr->reduce_op.cmd.xfer_allreduce.rtypecount = 2;
+  barr->reduce_op.cmd.xfer_allreduce.op = PAMI_DATA_MAX;
+  barr->reduce_op.cmd.xfer_allreduce.data_cookie = NULL;
+  barr->reduce_op.cmd.xfer_allreduce.commutative = 1;
+
+  team->barrier_splitstate = OUTSIDE_BARRIER;
+  team->barrier_data = barr;
+}
+
+static void gasnete_parbarrier_notify(gasnete_coll_team_t team, int id, int flags) {
+  gasnete_parbarrier_t *barr = team->barrier_data;
+  
+  gasneti_sync_reads();
+  if_pf (team->barrier_splitstate == INSIDE_BARRIER) {
+    gasneti_fatalerror("gasnet_barrier_notify() called twice in a row");
+  }
+
+  barr->flags = flags;
+  barr->value = (uint32_t)id;
+  ++barr->count;
+
+  if (flags & GASNET_BARRIERFLAG_MISMATCH) {
+    /* Larger than any possible "id" AND fails low-word test */
+    barr->sndbuf[0] = GASNETI_MAKEWORD(2,0);
+    barr->sndbuf[1] = GASNETI_MAKEWORD(2,0);
+  } else if (flags & GASNET_BARRIERFLAG_ANONYMOUS) {
+    /* Smaller than any possible "id" AND passes low-word test */
+    barr->sndbuf[0] = 0;
+    barr->sndbuf[1] = 0xFFFFFFFF;
+  } else {
+    barr->sndbuf[0] = GASNETI_MAKEWORD(1, (uint32_t)id);
+    barr->sndbuf[1] = GASNETI_MAKEWORD(1,~(uint32_t)id);
+  }
+
+  GASNETC_PAMI_LOCK(gasnetc_context);
+  {
+    pami_result_t rc = PAMI_Collective(gasnetc_context, &barr->reduce_op);
+    GASNETC_PAMI_CHECK(rc, "initiating all-reduce for barrier");
+  }
+  GASNETC_PAMI_UNLOCK(gasnetc_context);
+  
+  team->barrier_splitstate = INSIDE_BARRIER;
+  gasneti_sync_writes();
+}
+
+GASNETI_INLINE(gasnete_parbarrier_finish)
+int gasnete_parbarrier_finish(gasnete_coll_team_t team, int id, int flags) {
+  gasnete_parbarrier_t *barr = team->barrier_data;
+
+  int retval = (GASNETI_LOWORD(barr->rcvbuf[0]) == ~GASNETI_LOWORD(barr->rcvbuf[1]))
+               ? GASNET_OK : GASNET_ERR_BARRIER_MISMATCH;
+
+  if_pf ((flags != barr->flags) ||
+         (!(barr->flags & GASNET_BARRIERFLAG_ANONYMOUS) && (id != barr->value))) {
+    retval = GASNET_ERR_BARRIER_MISMATCH;
+  }
+
+  team->barrier_splitstate = OUTSIDE_BARRIER;
+  gasneti_sync_writes();
+  return retval;
+}
+
+static int gasnete_parbarrier_wait(gasnete_coll_team_t team, int id, int flags) {
+  gasnete_parbarrier_t *barr = team->barrier_data;
+
+  gasneti_sync_reads();
+  if_pf (team->barrier_splitstate == OUTSIDE_BARRIER) {
+    gasneti_fatalerror("gasnet_barrier_wait() called without a matching notify");
+  }
+
+  gasneti_polluntil(barr->done == barr->count);
+
+  return gasnete_parbarrier_finish(team, id, flags);
+}
+
+static int gasnete_parbarrier_try(gasnete_coll_team_t team, int id, int flags) {
+  gasnete_parbarrier_t *barr = team->barrier_data;
+
+  gasneti_sync_reads();
+  if_pf (team->barrier_splitstate == OUTSIDE_BARRIER) {
+    gasneti_fatalerror("gasnet_barrier_notify() called without a matching notify");
+  }
+
+  GASNETI_SAFE(gasneti_AMPoll());
+
+  return (barr->done == barr->count) ? gasnete_parbarrier_finish(team, id, flags) : GASNET_ERR_NOT_READY;
+}
 
 /* ------------------------------------------------------------------------------------ */
 /*
