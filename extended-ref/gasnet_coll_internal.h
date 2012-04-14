@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_internal.h,v $
- *     $Date: 2011/02/01 03:07:42 $
- * $Revision: 1.63 $
+ *     $Date: 2012/04/14 01:50:55 $
+ * $Revision: 1.64 $
  * Description: GASNet Collectives conduit header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -926,7 +926,7 @@ gasneti_in_fullsegment(_node, _addr, _len)
 
 /* The flags GASNET_COLL_SRC_IN_SEGMENT and GASNET_COLL_DST_IN_SEGMENT are just
 * assertions from the caller.  If they are NOT set, we will try to determine (when
-                                                                              * possible) if the addresses are in-segment to allow a one-sided implementation
+* possible) if the addresses are in-segment to allow a one-sided implementation
 * to be used.
 * gasnete_coll_segment_check and gasnete_coll_segment_checkM return a new set of flags.
 */
