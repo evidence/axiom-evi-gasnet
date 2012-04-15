@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2012/04/15 06:24:25 $
- * $Revision: 1.7 $
+ *     $Date: 2012/04/15 06:48:35 $
+ * $Revision: 1.8 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -88,9 +88,7 @@ extern void gasnete_init(void) {
  #if GASNET_PSHM
   gasnete_rdma_send_hint.use_shmem = PAMI_HINT_DISABLE;
  #endif
- #if 0 /* TODO: Would this help anything?  Currently we let PAMI decide. */
   gasnete_rdma_send_hint.use_rdma = PAMI_HINT_ENABLE;
- #endif
 
   gasnete_mysegbase = (uintptr_t)gasneti_seginfo[gasneti_mynode].addr;
   gasnete_mysegsize = gasneti_seginfo[gasneti_mynode].size;
