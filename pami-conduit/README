@@ -1,6 +1,6 @@
 GASNet pami-conduit documentation
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.4 $
+$Revision: 1.5 $
 
 User Information:
 -----------------
@@ -57,8 +57,6 @@ Future work:
 
 The following are planned work items for pami-conduit:
 
-* Explore hints applicable to PAMI_Rput() and PAMI_Rget().
-
 * Use dynamic registration (firehose) when local addres is out-of-segment?
   Initial benchmarks seem to show PAMI getting RDMA speeds for xfers of
   sufficient size even when using PAMI_Put/Get, suggesting that some
@@ -101,21 +99,21 @@ Design Overview:
     handlers directly from the PAMI callbacks.
     - Short AMs use PAMI_Send_immediate() due to their length.
     - Medium and Long AMs use PAMI_Send().
-    - Medium AMs their payload to a bounce buffer to avoid stalling
-      for local completion.
-    - Long Request AMs DO block for local completion.
-    - LongAsync Request AMs DO NOE block for local completion.
-    - Long Replies AMs copying their payload to a bounce buffer, like
+    - Medium AMs copy their payloads to bounce buffers to avoid
+      stalling for local completion.
+    - Long Request AMs block for local completion.
+    - LongAsync Request AMs do NOT block for local completion.
+    - Long Replies AMs copy their payloads to bounce buffers, like
       a Medium AM, since our running of AM handlers from PAMI's
       callbacks precludes blocking for local completion.
   + GASNet's default AM-based barrier implementations are used.
   + GASNet's exit handling is done using an PAMI "all reduce" operation
-    and a timeout to determine the MAX() of the exit codes, and whether
+    (w/ a timeout) to determine the MAX() of the exit codes, and whether
     the exit is collective.  For non-collective exits, the conduit is
     currently calling exit(1) and using the fact that IBM's software
     will take care of aborting the job.  However this does NOT get the
     desired behavior of raising SIGQUIT on the non-exiting nodes.
-  + PSHM is supported through the default mechanisms
+  + PSHM is supported through the default mechanisms.
 
 * Extended API:
   + GASNET_SEGMENT_FAST and GASNET_SEGMENT_LARGE are identical:
