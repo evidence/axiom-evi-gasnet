@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2012/04/15 06:17:40 $
- * $Revision: 1.6 $
+ *     $Date: 2012/04/15 06:24:25 $
+ * $Revision: 1.7 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -398,7 +398,7 @@ void gasnete_put_common(gasnet_node_t node, void *dest, void *src, size_t nbytes
   uintptr_t loc_offset = (uintptr_t)src - gasnete_mysegbase;
   uintptr_t rem_offset = (uintptr_t)dest - (uintptr_t)gasneti_seginfo[node].addr;
 
-  if ((loc_offset < gasnete_mysegsize) && (rem_offset < gasneti_seginfo[node].size)) {
+  if ((loc_offset < gasnete_mysegsize) && GASNETT_PREDICT_TRUE(rem_offset < gasneti_seginfo[node].size)) {
     pami_rput_simple_t cmd;
 
     cmd.rma.dest = gasnetc_endpoint(node);
@@ -465,7 +465,7 @@ void gasnete_get_common(void *dest, gasnet_node_t node, void *src, size_t nbytes
   uintptr_t loc_offset = (uintptr_t)dest - gasnete_mysegbase;
   uintptr_t rem_offset = (uintptr_t)src - (uintptr_t)gasneti_seginfo[node].addr;
 
-  if ((loc_offset < gasnete_mysegsize) && (rem_offset < gasneti_seginfo[node].size)) {
+  if ((loc_offset < gasnete_mysegsize) && GASNETT_PREDICT_TRUE(rem_offset < gasneti_seginfo[node].size)) {
     pami_rget_simple_t cmd;
 
     cmd.rma.dest = gasnetc_endpoint(node);
