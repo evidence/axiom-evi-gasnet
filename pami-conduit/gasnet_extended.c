@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2012/04/15 05:07:54 $
- * $Revision: 1.5 $
+ *     $Date: 2012/04/15 06:17:40 $
+ * $Revision: 1.6 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -359,21 +359,21 @@ void gasneti_iop_markdone(gasneti_iop_t *iop, unsigned int noperations, int isge
  * Design/Approach for gets/puts in Extended API in terms of PAMI
  * ========================================================================
  *
- * gasnet_put(_bulk) is translated to PAMI_Put()
- *   and blocks on an on-stack eop
+ * gasnet_put(_bulk) is translated to PAMI_Put() or PAMI_Rput()
+ *   and blocks on an on-stack eop (avoiding alloc/free overheads)
  *
- * gasnet_get(_bulk) is translated to PAMI_Get()
- *   and blocks on an on-stack eop
+ * gasnet_get(_bulk) is translated to PAMI_Get() or PAMI_Rget()
+ *   and blocks on an on-stack eop (avoiding alloc/free overheads)
  *
- * gasnete_put_nb(_bulk) translates to PAMI_Put()
+ * gasnete_put_nb(_bulk) translates to PAMI_Put() or PAMI_Rput()
  *   non-bulk spin-polls for local-completion flag in the eop
  *
- * gasnete_get_nb(_bulk) translates to PAMI_Get()
+ * gasnete_get_nb(_bulk) translates to PAMI_Get() or PAMI_Rget()
  *
- * gasnete_put_nbi(_bulk) translates to PAMI_Put();
+ * gasnete_put_nbi(_bulk) translates to PAMI_Put() or PAMI_Rput()
  *   non-bulk spin-polls for local-completion flag in the eop
  *
- * gasnete_get_nbi(_bulk) translates to PAMI_Get()
+ * gasnete_get_nbi(_bulk) translates to PAMI_Get() or PAMI_Rget()
  *
  * For the local-completion, the design is slightly complicated by the fact
  * that while PAMI has distinct Local and Remote completion callbacks, they
