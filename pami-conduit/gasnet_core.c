@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_core.c,v $
- *     $Date: 2012/04/15 05:07:54 $
- * $Revision: 1.6 $
+ *     $Date: 2012/04/15 08:06:17 $
+ * $Revision: 1.7 $
  * Description: GASNet PAMI conduit Implementation
  * Copyright 2012, Lawrence Berkeley National Laboratory
  * Terms of use are as specified in license.txt
@@ -1118,6 +1118,8 @@ extern int gasnetc_AMRequestShortM(
     GASNETC_PAMI_LOCK(gasnetc_context);
     rc = PAMI_Send_immediate(gasnetc_context, &cmd);
     GASNETC_PAMI_CHECK(rc, "from PAMI_Send_immediate(AMRequestShort)");
+    rc = PAMI_Context_advance(gasnetc_context, 1);
+    GASNETC_PAMI_CHECK_ADVANCE(rc, "advancing an AMRequestShort");
     GASNETC_PAMI_UNLOCK(gasnetc_context);
 
     gasnetc_put_request_credit();
@@ -1186,6 +1188,8 @@ extern int gasnetc_AMRequestMediumM(
     GASNETC_PAMI_LOCK(gasnetc_context);
     rc = PAMI_Send(gasnetc_context, &cmd);
     GASNETC_PAMI_CHECK(rc, "from PAMI_Send(AMRequestMedium)");
+    rc = PAMI_Context_advance(gasnetc_context, 1);
+    GASNETC_PAMI_CHECK_ADVANCE(rc, "advancing an AMRequestMedium");
     GASNETC_PAMI_UNLOCK(gasnetc_context);
   }
   va_end(argptr);
@@ -1248,11 +1252,11 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
     GASNETC_PAMI_LOCK(gasnetc_context);
     rc = PAMI_Send(gasnetc_context, &cmd);
     GASNETC_PAMI_CHECK(rc, "from PAMI_Send(AMRequestLong)");
-
-    rc = gasnetc_wait_uint(gasnetc_context, &counter, 1);
-    GASNETC_PAMI_CHECK(rc, "progressing an AMRequestLong");
+    rc = PAMI_Context_advance(gasnetc_context, 1);
+    GASNETC_PAMI_CHECK_ADVANCE(rc, "advancing an AMRequestLong");
     GASNETC_PAMI_UNLOCK(gasnetc_context);
 
+    gasneti_polluntil(counter == 1); /* stall for local completion */
     gasnetc_put_request_credit();
   }
   va_end(argptr);
@@ -1314,6 +1318,8 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
     GASNETC_PAMI_LOCK(gasnetc_context);
     rc = PAMI_Send(gasnetc_context, &cmd);
     GASNETC_PAMI_CHECK(rc, "from PAMI_Send(AMRequestLongAsync)");
+    rc = PAMI_Context_advance(gasnetc_context, 1);
+    GASNETC_PAMI_CHECK_ADVANCE(rc, "advancing an AMRequestLongAsync");
     GASNETC_PAMI_UNLOCK(gasnetc_context);
   }
   va_end(argptr);
