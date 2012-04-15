@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2012/04/15 06:48:35 $
- * $Revision: 1.8 $
+ *     $Date: 2012/04/15 07:43:46 $
+ * $Revision: 1.9 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -410,20 +410,22 @@ void gasnete_put_common(gasnet_node_t node, void *dest, void *src, size_t nbytes
     cmd.rdma.remote.offset = rem_offset;
     cmd.put.rdone_fn = is_eop ? gasnete_cb_eop_done : gasnete_cb_iput_done;
 
-    PAMI_Context_lock(gasnetc_context);
+    GASNETC_PAMI_LOCK(gasnetc_context);
     {
       pami_result_t rc;
 
       rc = PAMI_Rput(gasnetc_context, &cmd);
       GASNETC_PAMI_CHECK(rc, "calling PAMI_Rput");
 
-     /* Always advance at least once */
-     do {
-       rc = PAMI_Context_advance(gasnetc_context, 1);
-       GASNETC_PAMI_CHECK_ADVANCE(rc, "advancing PAMI_Rput");
-     } while (need_lc && !gasnete_op_read_lc((gasnete_op_t *)op));
-   }
-   PAMI_Context_unlock(gasnetc_context);
+      /* Always advance at least once */
+      rc = PAMI_Context_advance(gasnetc_context, 1);
+      GASNETC_PAMI_CHECK_ADVANCE(rc, "advancing PAMI_Rput");
+    }
+    GASNETC_PAMI_UNLOCK(gasnetc_context);
+
+    if (need_lc) {
+      gasneti_polluntil(GASNETT_PREDICT_TRUE(gasnete_op_read_lc((gasnete_op_t *)op)));
+    }
   } else
 #endif
   {
@@ -438,7 +440,7 @@ void gasnete_put_common(gasnet_node_t node, void *dest, void *src, size_t nbytes
     cmd.addr.remote = dest;
     cmd.put.rdone_fn = is_eop ? gasnete_cb_eop_done : gasnete_cb_iput_done;
 
-    PAMI_Context_lock(gasnetc_context);
+    GASNETC_PAMI_LOCK(gasnetc_context);
     {
       pami_result_t rc;
 
@@ -446,12 +448,14 @@ void gasnete_put_common(gasnet_node_t node, void *dest, void *src, size_t nbytes
       GASNETC_PAMI_CHECK(rc, "calling PAMI_Put");
 
       /* Always advance at least once */
-      do {
-        rc = PAMI_Context_advance(gasnetc_context, 1);
-        GASNETC_PAMI_CHECK_ADVANCE(rc, "advancing PAMI_Put");
-      } while (need_lc && !gasnete_op_read_lc((gasnete_op_t *)op));
+      rc = PAMI_Context_advance(gasnetc_context, 1);
+      GASNETC_PAMI_CHECK_ADVANCE(rc, "advancing PAMI_Rput");
     }
-    PAMI_Context_unlock(gasnetc_context);
+    GASNETC_PAMI_UNLOCK(gasnetc_context);
+
+    if (need_lc) {
+      gasneti_polluntil(GASNETT_PREDICT_TRUE(gasnete_op_read_lc((gasnete_op_t *)op)));
+    }
   }
 }
 
@@ -476,16 +480,17 @@ void gasnete_get_common(void *dest, gasnet_node_t node, void *src, size_t nbytes
     cmd.rdma.remote.mr = &gasnetc_memreg[node];
     cmd.rdma.remote.offset = rem_offset;
 
-    PAMI_Context_lock(gasnetc_context);
+    GASNETC_PAMI_LOCK(gasnetc_context);
     { pami_result_t rc;
 
       rc = PAMI_Rget(gasnetc_context, &cmd);
       GASNETC_PAMI_CHECK(rc, "calling PAMI_Rget");
 
+      /* Always advance at least once */
       rc = PAMI_Context_advance(gasnetc_context, 1);
       GASNETC_PAMI_CHECK_ADVANCE(rc, "advancing PAMI_Rget");
     }
-    PAMI_Context_unlock(gasnetc_context);
+    GASNETC_PAMI_UNLOCK(gasnetc_context);
   } else
 #endif
   {
@@ -499,16 +504,17 @@ void gasnete_get_common(void *dest, gasnet_node_t node, void *src, size_t nbytes
     cmd.addr.local = dest;
     cmd.addr.remote = src;
 
-    PAMI_Context_lock(gasnetc_context);
+    GASNETC_PAMI_LOCK(gasnetc_context);
     { pami_result_t rc;
 
       rc = PAMI_Get(gasnetc_context, &cmd);
       GASNETC_PAMI_CHECK(rc, "calling PAMI_Get");
 
+      /* Always advance at least once */
       rc = PAMI_Context_advance(gasnetc_context, 1);
       GASNETC_PAMI_CHECK_ADVANCE(rc, "advancing PAMI_Get");
     }
-    PAMI_Context_unlock(gasnetc_context);
+    GASNETC_PAMI_UNLOCK(gasnetc_context);
   }
 }
 
