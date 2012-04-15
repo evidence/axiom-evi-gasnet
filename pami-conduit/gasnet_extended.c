@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2012/04/14 03:54:08 $
- * $Revision: 1.4 $
+ *     $Date: 2012/04/15 05:07:54 $
+ * $Revision: 1.5 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -15,6 +15,12 @@
 static pami_send_hint_t gasnete_null_send_hint;
 static const gasnete_eopaddr_t EOPADDR_NIL = { { 0xFF, 0xFF } };
 extern void _gasnete_iop_check(gasnete_iop_t *iop) { gasnete_iop_check(iop); }
+
+#if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
+static pami_send_hint_t gasnete_rdma_send_hint;
+static uintptr_t gasnete_mysegbase;
+static uintptr_t gasnete_mysegsize;
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -45,11 +51,6 @@ extern void gasnete_init(void) {
 
   gasnete_check_config(); /*  check for sanity */
 
-  memset(&gasnete_null_send_hint, 0, sizeof(gasnete_null_send_hint));
-#if GASNET_PSHM
-  gasnete_null_send_hint.use_shmem = PAMI_HINT_DISABLE;
-#endif
-
   gasneti_assert(gasneti_nodes >= 1 && gasneti_mynode < gasneti_nodes);
 
   { gasnete_threaddata_t *threaddata = NULL;
@@ -73,6 +74,27 @@ extern void gasnete_init(void) {
 
   /* Initialize VIS subsystem */
   gasnete_vis_init();
+
+  /* Initialize conduit-specific resources */
+
+  memset(&gasnete_null_send_hint, 0, sizeof(gasnete_null_send_hint));
+#if GASNET_PSHM
+  gasnete_null_send_hint.use_shmem = PAMI_HINT_DISABLE;
+#endif
+
+#if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
+  memset(&gasnete_rdma_send_hint, 0, sizeof(gasnete_rdma_send_hint));
+  gasnete_rdma_send_hint.buffer_registered = PAMI_HINT_ENABLE; /* Kind of obvious */
+ #if GASNET_PSHM
+  gasnete_rdma_send_hint.use_shmem = PAMI_HINT_DISABLE;
+ #endif
+ #if 0 /* TODO: Would this help anything?  Currently we let PAMI decide. */
+  gasnete_rdma_send_hint.use_rdma = PAMI_HINT_ENABLE;
+ #endif
+
+  gasnete_mysegbase = (uintptr_t)gasneti_seginfo[gasneti_mynode].addr;
+  gasnete_mysegsize = gasneti_seginfo[gasneti_mynode].size;
+#endif
 }
 
 /* ------------------------------------------------------------------------------------ */
@@ -368,61 +390,128 @@ void gasneti_iop_markdone(gasneti_iop_t *iop, unsigned int noperations, int isge
   ==========================================================
 */
 
-/* TODO: use Rput when both src and dest are in-segment */
+/* TODO: use Rput w/ firehose or bounce buffers when only dest is in-segment */
 GASNETI_INLINE(gasnete_put_common)
 void gasnete_put_common(gasnet_node_t node, void *dest, void *src, size_t nbytes,
                         gasnete_op_t *op, int need_lc, int is_eop) {
-  pami_put_simple_t cmd;
+#if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
+  uintptr_t loc_offset = (uintptr_t)src - gasnete_mysegbase;
+  uintptr_t rem_offset = (uintptr_t)dest - (uintptr_t)gasneti_seginfo[node].addr;
 
-  cmd.rma.dest = gasnetc_endpoint(node);
-  cmd.rma.hints = gasnete_null_send_hint;
-  cmd.rma.bytes = nbytes;
-  cmd.rma.cookie = op;
-  cmd.rma.done_fn = need_lc ? gasnete_cb_op_lc : NULL;
-  cmd.addr.local = src;
-  cmd.addr.remote = dest;
-  cmd.put.rdone_fn = is_eop ? gasnete_cb_eop_done : gasnete_cb_iput_done;
+  if ((loc_offset < gasnete_mysegsize) && (rem_offset < gasneti_seginfo[node].size)) {
+    pami_rput_simple_t cmd;
 
-  PAMI_Context_lock(gasnetc_context);
+    cmd.rma.dest = gasnetc_endpoint(node);
+    cmd.rma.hints = gasnete_rdma_send_hint;
+    cmd.rma.bytes = nbytes;
+    cmd.rma.cookie = op;
+    cmd.rma.done_fn = need_lc ? gasnete_cb_op_lc : NULL;
+    cmd.rdma.local.mr = &gasnetc_mymemreg;
+    cmd.rdma.local.offset = loc_offset;
+    cmd.rdma.remote.mr = &gasnetc_memreg[node];
+    cmd.rdma.remote.offset = rem_offset;
+    cmd.put.rdone_fn = is_eop ? gasnete_cb_eop_done : gasnete_cb_iput_done;
+
+    PAMI_Context_lock(gasnetc_context);
+    {
+      pami_result_t rc;
+
+      rc = PAMI_Rput(gasnetc_context, &cmd);
+      GASNETC_PAMI_CHECK(rc, "calling PAMI_Rput");
+
+     /* Always advance at least once */
+     do {
+       rc = PAMI_Context_advance(gasnetc_context, 1);
+       GASNETC_PAMI_CHECK_ADVANCE(rc, "advancing PAMI_Rput");
+     } while (need_lc && !gasnete_op_read_lc((gasnete_op_t *)op));
+   }
+   PAMI_Context_unlock(gasnetc_context);
+  } else
+#endif
   {
-    pami_result_t rc;
+    pami_put_simple_t cmd;
 
-    rc = PAMI_Put(gasnetc_context, &cmd);
-    GASNETC_PAMI_CHECK(rc, "calling PAMI_Put");
+    cmd.rma.dest = gasnetc_endpoint(node);
+    cmd.rma.hints = gasnete_null_send_hint;
+    cmd.rma.bytes = nbytes;
+    cmd.rma.cookie = op;
+    cmd.rma.done_fn = need_lc ? gasnete_cb_op_lc : NULL;
+    cmd.addr.local = src;
+    cmd.addr.remote = dest;
+    cmd.put.rdone_fn = is_eop ? gasnete_cb_eop_done : gasnete_cb_iput_done;
 
-    /* Always advance at least once */
-    do {
-      rc = PAMI_Context_advance(gasnetc_context, 1);
-      GASNETC_PAMI_CHECK_ADVANCE(rc, "advancing PAMI_Put");
-    } while (need_lc && !gasnete_op_read_lc((gasnete_op_t *)op));
+    PAMI_Context_lock(gasnetc_context);
+    {
+      pami_result_t rc;
+
+      rc = PAMI_Put(gasnetc_context, &cmd);
+      GASNETC_PAMI_CHECK(rc, "calling PAMI_Put");
+
+      /* Always advance at least once */
+      do {
+        rc = PAMI_Context_advance(gasnetc_context, 1);
+        GASNETC_PAMI_CHECK_ADVANCE(rc, "advancing PAMI_Put");
+      } while (need_lc && !gasnete_op_read_lc((gasnete_op_t *)op));
+    }
+    PAMI_Context_unlock(gasnetc_context);
   }
-  PAMI_Context_unlock(gasnetc_context);
 }
 
-/* TODO: use Rget when both src and dest are in-segment */
+/* TODO: use Rget w/ firehose or bounce buffers when only src is in-segment */
 GASNETI_INLINE(gasnete_get_common)
 void gasnete_get_common(void *dest, gasnet_node_t node, void *src, size_t nbytes,
                         gasnete_op_t *op, int is_eop) {
-  pami_get_simple_t cmd;
+#if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
+  uintptr_t loc_offset = (uintptr_t)dest - gasnete_mysegbase;
+  uintptr_t rem_offset = (uintptr_t)src - (uintptr_t)gasneti_seginfo[node].addr;
 
-  cmd.rma.dest = gasnetc_endpoint(node);
-  cmd.rma.hints = gasnete_null_send_hint;
-  cmd.rma.bytes = nbytes;
-  cmd.rma.cookie = op;
-  cmd.rma.done_fn = is_eop ? gasnete_cb_eop_done : gasnete_cb_iget_done;
-  cmd.addr.local = dest;
-  cmd.addr.remote = src;
+  if ((loc_offset < gasnete_mysegsize) && (rem_offset < gasneti_seginfo[node].size)) {
+    pami_rget_simple_t cmd;
 
-  PAMI_Context_lock(gasnetc_context);
-  { pami_result_t rc;
+    cmd.rma.dest = gasnetc_endpoint(node);
+    cmd.rma.hints = gasnete_rdma_send_hint;
+    cmd.rma.bytes = nbytes;
+    cmd.rma.cookie = op;
+    cmd.rma.done_fn = is_eop ? gasnete_cb_eop_done : gasnete_cb_iget_done;
+    cmd.rdma.local.mr = &gasnetc_mymemreg;
+    cmd.rdma.local.offset = loc_offset;
+    cmd.rdma.remote.mr = &gasnetc_memreg[node];
+    cmd.rdma.remote.offset = rem_offset;
 
-    rc = PAMI_Get(gasnetc_context, &cmd);
-    GASNETC_PAMI_CHECK(rc, "calling PAMI_Get");
+    PAMI_Context_lock(gasnetc_context);
+    { pami_result_t rc;
 
-    rc = PAMI_Context_advance(gasnetc_context, 1);
-    GASNETC_PAMI_CHECK_ADVANCE(rc, "advancing PAMI_Get");
+      rc = PAMI_Rget(gasnetc_context, &cmd);
+      GASNETC_PAMI_CHECK(rc, "calling PAMI_Rget");
+
+      rc = PAMI_Context_advance(gasnetc_context, 1);
+      GASNETC_PAMI_CHECK_ADVANCE(rc, "advancing PAMI_Rget");
+    }
+    PAMI_Context_unlock(gasnetc_context);
+  } else
+#endif
+  {
+    pami_get_simple_t cmd;
+
+    cmd.rma.dest = gasnetc_endpoint(node);
+    cmd.rma.hints = gasnete_null_send_hint;
+    cmd.rma.bytes = nbytes;
+    cmd.rma.cookie = op;
+    cmd.rma.done_fn = is_eop ? gasnete_cb_eop_done : gasnete_cb_iget_done;
+    cmd.addr.local = dest;
+    cmd.addr.remote = src;
+
+    PAMI_Context_lock(gasnetc_context);
+    { pami_result_t rc;
+
+      rc = PAMI_Get(gasnetc_context, &cmd);
+      GASNETC_PAMI_CHECK(rc, "calling PAMI_Get");
+
+      rc = PAMI_Context_advance(gasnetc_context, 1);
+      GASNETC_PAMI_CHECK_ADVANCE(rc, "advancing PAMI_Get");
+    }
+    PAMI_Context_unlock(gasnetc_context);
   }
-  PAMI_Context_unlock(gasnetc_context);
 }
 
 GASNETI_INLINE(gasnete_memset_common)

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_core.c,v $
- *     $Date: 2012/04/14 22:49:38 $
- * $Revision: 1.5 $
+ *     $Date: 2012/04/15 05:07:54 $
+ * $Revision: 1.6 $
  * Description: GASNet PAMI conduit Implementation
  * Copyright 2012, Lawrence Berkeley National Laboratory
  * Terms of use are as specified in license.txt
@@ -443,8 +443,8 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
       gasneti_assert(((uintptr_t)segbase) % GASNET_PAGESIZE == 0);
       gasneti_assert(segsize % GASNET_PAGESIZE == 0);
 
-#if 0 /* TODO: enable once the corresponding Rget/Rput code is implemented */
       /* Register w/ PAMI and exchange the "keys" */
+      /* TODO: should this move to gasnete_init()? */
       { size_t regsize;
         pami_result_t rc;
 
@@ -453,15 +453,13 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
         GASNETC_PAMI_CHECK(rc, "registering the segment");
         if (regsize < segsize) {
           /* TODO: probe max at init time instead of failing here. */
-          /* TODO: If we still fail here, it is legal to return less than requested.
-                   However, that will require some additional work. */
+          /* TODO: If we still fail here, Put/Get will still work.  So, only warn? */
           gasneti_fatalerror("Unable to pin an adequate GASNet segment");
         }
 
         gasnetc_memreg = gasneti_malloc(gasneti_nodes * sizeof(pami_memregion_t));
         gasnetc_bootstrapExchange(&gasnetc_mymemreg, sizeof(pami_memregion_t), gasnetc_memreg);
       }
-#endif
     }
   #else
   { /* GASNET_SEGMENT_EVERYTHING */
