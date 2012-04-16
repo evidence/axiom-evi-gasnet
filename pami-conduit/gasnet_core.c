@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_core.c,v $
- *     $Date: 2012/04/15 08:06:17 $
- * $Revision: 1.7 $
+ *     $Date: 2012/04/16 00:12:10 $
+ * $Revision: 1.8 $
  * Description: GASNet PAMI conduit Implementation
  * Copyright 2012, Lawrence Berkeley National Laboratory
  * Terms of use are as specified in license.txt
@@ -749,8 +749,12 @@ void run_short(gasnetc_token_t *token) {
   const int                     numargs = header->numargs;
 
 #if GASNET_DEBUG
-  header->rep_sent = 0;
+  /* We copy generic portion to allow writes to rep_sent */
+  gasnetc_genmsg_t local_token = token->generic;
+  local_token.rep_sent = 0;
+  token = (gasnetc_token_t *)(&local_token);
 #endif
+
   GASNETI_RUN_HANDLER_SHORT(is_req,handler_id,handler_fn,token,args,numargs);
 }
 
@@ -821,17 +825,7 @@ static void am_Short_dispatch(
   gasneti_assert(head_size == GASNETC_ARGSEND(short, shortmsg->numargs));
   gasneti_assert(!recv); /* Never use payload */
 
-  /* Entire message (only a header) has arrived - run now */
-#if GASNET_DEBUG
-  { /* Must copy because debugging code will write to header */
-    gasnetc_token_t token;
-    memcpy(&token, head_addr, head_size);
-    run_short(&token);
-  }
-#else
-  /* We can run in-place */
   run_short((gasnetc_token_t *)head_addr);
-#endif
 }
 
 static void am_Med_dispatch(
