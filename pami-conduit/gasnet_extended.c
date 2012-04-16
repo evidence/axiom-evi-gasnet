@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2012/04/16 19:58:34 $
- * $Revision: 1.10 $
+ *     $Date: 2012/04/16 20:57:51 $
+ * $Revision: 1.11 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -851,6 +851,10 @@ extern void gasnete_put_bulk (gasnet_node_t node, void* dest, void *src,
 /* TODO: would this be a good default on BG/Q? */
 /* #define GASNETE_BARRIER_DEFAULT "PAMIALLREDUCE" */
 
+/* NOT the default because AMDISSEM benchmarks faster w/ PSHM */
+/* TODO: would this be a good default w/o PSHM */
+/* #define GASNETE_BARRIER_DEFAULT "PAMIDISSEM" */
+
 /* Forward decls for init functions: */
 static void gasnete_parbarrier_init(gasnete_coll_team_t team);
 static void gasnete_pdbarrier_init(gasnete_coll_team_t team);
@@ -1018,7 +1022,9 @@ static void gasnete_parbarrier_init(gasnete_coll_team_t team) {
 /* PAMI Dissemination ("pd") Barrier:
  * Barrier via PAMI-level implementation of Dissemination
  * Differs from AMDISSEM mainly in ability to do sends from handlers.
- * Also uses the "reduction"
+ * Also uses the "reduction" formulation of name matching.
+ *
+ * TODO: GASNETI_PSHM_BARRIER_HIER integration.
  */
 
 typedef struct {
