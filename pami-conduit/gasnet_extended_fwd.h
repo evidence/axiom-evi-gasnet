@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended_fwd.h,v $
- *     $Date: 2012/04/14 03:54:08 $
- * $Revision: 1.3 $
+ *     $Date: 2012/04/16 19:58:34 $
+ * $Revision: 1.4 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -19,7 +19,10 @@
 #define GASNET_EXTENDED_NAME         PAMI
 #define GASNET_EXTENDED_NAME_STR     _STRINGIFY(GASNET_EXTENDED_NAME)
 
-#define GASNETE_COLL_CONDUIT_BARRIERS GASNETE_COLL_BARRIER_PAMIALLREDUCE
+/* Addition(s) to barrier-types enum: */
+#define GASNETE_COLL_CONDUIT_BARRIERS \
+	GASNETE_COLL_BARRIER_PAMIALLREDUCE, \
+	GASNETE_COLL_BARRIER_PAMIDISSEM
 
 #define _GASNET_HANDLE_T
 /*  an opaque type representing a non-blocking operation in-progress initiated using the extended API */

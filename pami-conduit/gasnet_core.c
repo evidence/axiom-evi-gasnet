@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_core.c,v $
- *     $Date: 2012/04/16 00:12:10 $
- * $Revision: 1.8 $
+ *     $Date: 2012/04/16 19:58:34 $
+ * $Revision: 1.9 $
  * Description: GASNet PAMI conduit Implementation
  * Copyright 2012, Lawrence Berkeley National Laboratory
  * Terms of use are as specified in license.txt
@@ -35,6 +35,8 @@ pami_endpoint_t    *gasnetc_endpoint_tbl;
 size_t             gasnetc_num_contexts;            
 pami_memregion_t   gasnetc_mymemreg;
 pami_memregion_t   *gasnetc_memreg;
+size_t             gasnetc_send_imm_max;
+size_t             gasnetc_recv_imm_max;
 
 /* ------------------------------------------------------------------------------------ */
 /* Static Data */
@@ -646,8 +648,6 @@ extern void gasnetc_exit(int exitcode) {
 
 static pami_send_hint_t gasnetc_null_send_hint;
 static gasnet_node_t *gasnetc_loopback_token = &gasneti_mynode;
-static size_t      gasnetc_send_imm_max;
-static size_t      gasnetc_recv_imm_max;
 static size_t      gasnetc_ampoll_max;
 
 static void noop_dispatch(pami_context_t context, void *cookie,

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2012/04/15 07:43:46 $
- * $Revision: 1.9 $
+ *     $Date: 2012/04/16 19:58:34 $
+ * $Revision: 1.10 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -844,30 +844,30 @@ extern void gasnete_put_bulk (gasnet_node_t node, void* dest, void *src,
   Barriers:
   =========
   "par" = PAMI All Reduce
+  "pd" = PAMI Dissemination
 */
 
 /* NOT the default because AMDISSEM benchmarks twice as fast on PERCS */
 /* TODO: would this be a good default on BG/Q? */
 /* #define GASNETE_BARRIER_DEFAULT "PAMIALLREDUCE" */
 
+/* Forward decls for init functions: */
 static void gasnete_parbarrier_init(gasnete_coll_team_t team);
-static void gasnete_parbarrier_notify(gasnete_coll_team_t team, int id, int flags);
-static int gasnete_parbarrier_wait(gasnete_coll_team_t team, int id, int flags);
-static int gasnete_parbarrier_try(gasnete_coll_team_t team, int id, int flags);
+static void gasnete_pdbarrier_init(gasnete_coll_team_t team);
 
 #define GASNETE_BARRIER_READENV() do {                                      \
   if (GASNETE_ISBARRIER("PAMIALLREDUCE"))                                   \
     gasnete_coll_default_barrier_type = GASNETE_COLL_BARRIER_PAMIALLREDUCE; \
+  else if (GASNETE_ISBARRIER("PAMIDISSEM"))                                 \
+    gasnete_coll_default_barrier_type = GASNETE_COLL_BARRIER_PAMIDISSEM;    \
 } while (0)
 
 #define GASNETE_BARRIER_INIT(TEAM, BARRIER_TYPE) do {            \
-    if ((BARRIER_TYPE) == GASNETE_COLL_BARRIER_PAMIALLREDUCE &&  \
-        (TEAM)==GASNET_TEAM_ALL) {                               \
-      (TEAM)->barrier_notify = &gasnete_parbarrier_notify;       \
-      (TEAM)->barrier_wait =   &gasnete_parbarrier_wait;         \
-      (TEAM)->barrier_try =    &gasnete_parbarrier_try;          \
-      (TEAM)->barrier_pf =     NULL; /* AMPoll is sufficient */  \
+    if ((BARRIER_TYPE) == GASNETE_COLL_BARRIER_PAMIALLREDUCE) {  \
       gasnete_parbarrier_init(TEAM);                             \
+    } else                                                       \
+    if ((BARRIER_TYPE) == GASNETE_COLL_BARRIER_PAMIDISSEM) {     \
+      gasnete_pdbarrier_init(TEAM);                              \
     }                                                            \
   } while (0)
 
@@ -876,7 +876,11 @@ static int gasnete_parbarrier_try(gasnete_coll_team_t team, int id, int flags);
 #include "gasnet_extended_refbarrier.c"
 #undef GASNETI_GASNET_EXTENDED_REFBARRIER_C
 
-/* barrier via all-reduce of two 64-bit unsigned integers */
+/* PAMI All Reduce ("par") Barrier:
+ * Barrier via PAMI-level all-reduce of two 64-bit unsigned integers.
+ *
+ * TODO: Choose an optimized algorithm instead of the safe default.
+ */
 
 typedef struct {
   /* PAMI portions */
@@ -890,40 +894,6 @@ typedef struct {
 } gasnete_parbarrier_t;
 
 static gasnete_parbarrier_t gasnete_parbarrier_all;
-
-/* TODO: use an optimized algorithm instead of the safe default */
-/* TODO: generalize to team != ALL? */
-static void gasnete_parbarrier_init(gasnete_coll_team_t team) {
-  gasnete_parbarrier_t *barr = &gasnete_parbarrier_all;
-
-  barr->count = barr->done = 0;
-
-  memset(&barr->reduce_op, 0, sizeof(pami_xfer_t));
-  gasnetc_dflt_coll_alg(PAMI_XFER_ALLREDUCE, &barr->reduce_op.algorithm);
-  barr->reduce_op.cookie = (void *)&barr->done;
-  barr->reduce_op.cb_done = &gasnetc_cb_inc_release;
-  barr->reduce_op.options.multicontext = PAMI_HINT_DISABLE;
-
-#if SIZEOF_LONG == 8
-  barr->reduce_op.cmd.xfer_allreduce.stype = PAMI_TYPE_UNSIGNED_LONG;
-  barr->reduce_op.cmd.xfer_allreduce.rtype = PAMI_TYPE_UNSIGNED_LONG;
-#elif SIZEOF_LONG_LONG == 8
-  barr->reduce_op.cmd.xfer_allreduce.stype = PAMI_TYPE_UNSIGNED_LONG_LONG;
-  barr->reduce_op.cmd.xfer_allreduce.rtype = PAMI_TYPE_UNSIGNED_LONG_LONG;
-#else
-  #error "No 8-bytes type?"
-#endif
-  barr->reduce_op.cmd.xfer_allreduce.sndbuf = (void*)&barr->sndbuf;
-  barr->reduce_op.cmd.xfer_allreduce.rcvbuf = (void*)&barr->rcvbuf;
-  barr->reduce_op.cmd.xfer_allreduce.stypecount = 2;
-  barr->reduce_op.cmd.xfer_allreduce.rtypecount = 2;
-  barr->reduce_op.cmd.xfer_allreduce.op = PAMI_DATA_MAX;
-  barr->reduce_op.cmd.xfer_allreduce.data_cookie = NULL;
-  barr->reduce_op.cmd.xfer_allreduce.commutative = 1;
-
-  team->barrier_splitstate = OUTSIDE_BARRIER;
-  team->barrier_data = barr;
-}
 
 static void gasnete_parbarrier_notify(gasnete_coll_team_t team, int id, int flags) {
   gasnete_parbarrier_t *barr = team->barrier_data;
@@ -1002,6 +972,287 @@ static int gasnete_parbarrier_try(gasnete_coll_team_t team, int id, int flags) {
   GASNETI_SAFE(gasneti_AMPoll());
 
   return (barr->done == barr->count) ? gasnete_parbarrier_finish(team, id, flags) : GASNET_ERR_NOT_READY;
+}
+
+static void gasnete_parbarrier_init(gasnete_coll_team_t team) {
+  gasnete_parbarrier_t *barr = &gasnete_parbarrier_all;
+
+  /* TODO: generalize to team != ALL? */
+  if (team != GASNET_TEAM_ALL) return;
+
+  barr->count = barr->done = 0;
+
+  memset(&barr->reduce_op, 0, sizeof(pami_xfer_t));
+  gasnetc_dflt_coll_alg(PAMI_XFER_ALLREDUCE, &barr->reduce_op.algorithm);
+  barr->reduce_op.cookie = (void *)&barr->done;
+  barr->reduce_op.cb_done = &gasnetc_cb_inc_release;
+  barr->reduce_op.options.multicontext = PAMI_HINT_DISABLE;
+
+#if SIZEOF_LONG == 8
+  barr->reduce_op.cmd.xfer_allreduce.stype = PAMI_TYPE_UNSIGNED_LONG;
+  barr->reduce_op.cmd.xfer_allreduce.rtype = PAMI_TYPE_UNSIGNED_LONG;
+#elif SIZEOF_LONG_LONG == 8
+  barr->reduce_op.cmd.xfer_allreduce.stype = PAMI_TYPE_UNSIGNED_LONG_LONG;
+  barr->reduce_op.cmd.xfer_allreduce.rtype = PAMI_TYPE_UNSIGNED_LONG_LONG;
+#else
+  #error "No 8-bytes type?"
+#endif
+  barr->reduce_op.cmd.xfer_allreduce.sndbuf = (void*)&barr->sndbuf;
+  barr->reduce_op.cmd.xfer_allreduce.rcvbuf = (void*)&barr->rcvbuf;
+  barr->reduce_op.cmd.xfer_allreduce.stypecount = 2;
+  barr->reduce_op.cmd.xfer_allreduce.rtypecount = 2;
+  barr->reduce_op.cmd.xfer_allreduce.op = PAMI_DATA_MAX;
+  barr->reduce_op.cmd.xfer_allreduce.data_cookie = NULL;
+  barr->reduce_op.cmd.xfer_allreduce.commutative = 1;
+
+  team->barrier_notify = &gasnete_parbarrier_notify;
+  team->barrier_wait =   &gasnete_parbarrier_wait;
+  team->barrier_try =    &gasnete_parbarrier_try;
+  team->barrier_pf =     NULL; /* AMPoll is sufficient */
+
+  team->barrier_splitstate = OUTSIDE_BARRIER;
+  team->barrier_data = barr;
+}
+
+
+/* PAMI Dissemination ("pd") Barrier:
+ * Barrier via PAMI-level implementation of Dissemination
+ * Differs from AMDISSEM mainly in ability to do sends from handlers.
+ * Also uses the "reduction"
+ */
+
+typedef struct {
+  volatile int phase;
+  int flags, value;          /* Args to notify() */
+  struct gasnete_pdbarrier_state {
+    uint64_t word0;          /* First field of MAX() reduction */
+    uint64_t word1;          /* Second field */
+    uint64_t arrived;        /* Which messages have arrived (bit map) need 33 bits */
+    volatile int next;       /* Which message index are we waiting for */
+  } state[2]; /* per-phase */
+} gasnete_pdbarrier_t;
+
+/* TODO: could fit in as few as 10 bytes (rather than 16) */
+typedef struct {
+  uint64_t word0 : 34;
+  uint64_t word1 : 34;
+  uint64_t phase : 1;
+  uint64_t index : 6; /* 1 .. 33 */
+} gasnete_pdbarrier_msg_t;
+
+static gasnete_pdbarrier_t gasnete_pdbarrier_all;
+static pami_send_hint_t gasnete_pdbarrier_send_hint;
+
+/* Called only w/ context lock held */
+static void gasnete_pdbarr_advance(
+        struct gasnete_pdbarrier_state *state,
+        uint64_t word0, uint64_t word1,
+        int phase, int index)
+{
+  /* Merge w/ any previous arrivals (order doesn't matter here).
+   * Keep in mind that the context lock is held.
+   */
+  state->word0 = MAX(state->word0, word0);
+  state->word1 = MAX(state->word1, word1);
+  state->arrived |= (1 << index);
+
+  /* Send any messages */
+  { uint64_t next = state->next;
+    uint64_t arrived = state->arrived;
+    uint64_t distance = 1 << next;
+
+    while (arrived & distance) {
+      if (distance >= gasneti_nodes) {
+        gasneti_sync_writes();
+        next = -1; /* DONE! */
+        break;
+      }
+
+      next += 1; /* advance next for use in message */
+
+      /* Send one message: */
+      { gasnete_pdbarrier_msg_t msg = { state->word0, state->word1, phase, next };
+        gasnet_node_t peer = (gasneti_mynode < distance)
+                           ? (gasneti_mynode + (gasneti_nodes - distance))
+                           : (gasneti_mynode - distance);
+        pami_send_immediate_t cmd;
+        pami_result_t rc;
+
+        cmd.header.iov_base = (char *)&msg;
+        cmd.header.iov_len = sizeof(msg);
+        cmd.data.iov_base = NULL;
+        cmd.data.iov_len = 0;
+        cmd.dest = gasnetc_endpoint(peer);
+        cmd.dispatch = GASNETC_DISP_DISSEM_BARR;
+        cmd.hints = gasnete_pdbarrier_send_hint;
+
+        rc = PAMI_Send_immediate(gasnetc_context, &cmd);
+        GASNETC_PAMI_CHECK(rc, "calling PAMI_Send_immediate for barrier");
+      }
+
+      distance <<= 1; /* advance distance */
+    }
+    state->next = next;
+  }
+}
+
+static void gasnete_pdbarr_dispatch(
+        pami_context_t context, void *cookie,
+        const void *head_addr, size_t head_size,
+        const void *pipe_addr, size_t pipe_size,
+        pami_endpoint_t origin, pami_recv_t *recv)
+{
+  gasnete_pdbarrier_t *barr = (gasnete_pdbarrier_t *)cookie;
+  const gasnete_pdbarrier_msg_t *msg = (gasnete_pdbarrier_msg_t *)head_addr;
+  const int phase = msg->phase;
+  const int index = msg->index;
+  const uint64_t word0 = msg->word0;
+  const uint64_t word1 = msg->word1;
+
+  gasnete_pdbarr_advance(&barr->state[phase], word0, word1, phase, index);
+}
+
+static void gasnete_pdbarrier_notify(gasnete_coll_team_t team, int id, int flags) {
+  gasnete_pdbarrier_t *barr = team->barrier_data;
+  uint64_t word0, word1;
+  int phase;
+  
+  gasneti_sync_reads();
+  phase = barr->phase ^ 1;
+  if_pf (team->barrier_splitstate == INSIDE_BARRIER) {
+    gasneti_fatalerror("gasnet_barrier_notify() called twice in a row");
+  }
+
+  barr->flags = flags;
+  barr->value = id;
+  /* XXX: mwb needed here/ */
+  barr->phase = phase;
+
+  if (flags & GASNET_BARRIERFLAG_MISMATCH) {
+    /* Larger than any possible "id" AND fails low-word test */
+    word0 = GASNETI_MAKEWORD(2,0);
+    word1 = GASNETI_MAKEWORD(2,0);
+  } else if (flags & GASNET_BARRIERFLAG_ANONYMOUS) {
+    /* Smaller than any possible "id" AND passes low-word test */
+    word0 = 0;
+    word1 = 0xFFFFFFFF;
+  } else {
+    word0 = GASNETI_MAKEWORD(1, (uint32_t)id);
+    word1 = GASNETI_MAKEWORD(1,~(uint32_t)id);
+  }
+
+  GASNETC_PAMI_LOCK(gasnetc_context);
+    /* Merge w/ any earlier arrivals and send the notify: */
+    gasnete_pdbarr_advance(&barr->state[phase], word0, word1, phase, 0);
+  GASNETC_PAMI_UNLOCK(gasnetc_context);
+  
+  team->barrier_splitstate = INSIDE_BARRIER;
+  gasneti_sync_writes();
+}
+
+GASNETI_INLINE(gasnete_pdbarrier_finish)
+int gasnete_pdbarrier_finish(
+      gasnete_coll_team_t team, 
+      gasnete_pdbarrier_t *barr,
+      struct gasnete_pdbarrier_state *state,
+      int id, int flags)
+{
+
+  int retval = (GASNETI_LOWORD(state->word0) == ~GASNETI_LOWORD(state->word1))
+               ? GASNET_OK : GASNET_ERR_BARRIER_MISMATCH;
+
+  if_pf ((flags != barr->flags) ||
+         (!(barr->flags & GASNET_BARRIERFLAG_ANONYMOUS) && (id != barr->value))) {
+    retval = GASNET_ERR_BARRIER_MISMATCH;
+  }
+  
+  /* Reset: */
+  state->word0   = 0;
+  state->word1   = 0;
+  state->arrived = 0;
+  state->next    = 1;
+  team->barrier_splitstate = OUTSIDE_BARRIER;
+
+  gasneti_sync_writes();
+  return retval;
+}
+
+static int gasnete_pdbarrier_wait(gasnete_coll_team_t team, int id, int flags) {
+  struct gasnete_pdbarrier_state *state;
+  gasnete_pdbarrier_t *barr = team->barrier_data;
+
+  gasneti_sync_reads();
+  if_pf (team->barrier_splitstate == OUTSIDE_BARRIER) {
+    gasneti_fatalerror("gasnet_barrier_wait() called without a matching notify");
+  }
+
+  state = &barr->state[barr->phase];
+  gasneti_polluntil(state->next < 0);
+
+  return gasnete_pdbarrier_finish(team, barr, state, id, flags);
+}
+
+static int gasnete_pdbarrier_try(gasnete_coll_team_t team, int id, int flags) {
+  struct gasnete_pdbarrier_state *state;
+  gasnete_pdbarrier_t *barr = team->barrier_data;
+
+  gasneti_sync_reads();
+  if_pf (team->barrier_splitstate == OUTSIDE_BARRIER) {
+    gasneti_fatalerror("gasnet_barrier_notify() called without a matching notify");
+  }
+
+  GASNETI_SAFE(gasneti_AMPoll());
+
+  state = &barr->state[barr->phase];
+  return (state->next < 0) ? gasnete_pdbarrier_finish(team, barr, state, id, flags)
+                           : GASNET_ERR_NOT_READY;
+}
+
+static void gasnete_pdbarrier_init(gasnete_coll_team_t team) {
+  gasnete_pdbarrier_t *barr = &gasnete_pdbarrier_all;
+
+  /* TODO: generalize to team != ALL? */
+  if (team != GASNET_TEAM_ALL) return;
+
+  /* TODO: Anything we should hint here? */
+  memset(&gasnete_pdbarrier_send_hint, 0, sizeof(pami_send_hint_t));
+
+  /* Register the dispatch that does the "real work": */
+  { pami_dispatch_hint_t hints;
+    pami_dispatch_callback_function fn;
+    pami_result_t rc;
+
+    memset(&hints, 0, sizeof(hints));
+    memset(&fn, 0, sizeof(fn));
+  
+    hints.multicontext = PAMI_HINT_DISABLE;
+    hints.recv_contiguous = PAMI_HINT_ENABLE;
+    hints.recv_copy = PAMI_HINT_ENABLE;
+  
+    /* TODO: do we need to support "too big"? */
+    hints.long_header = (gasnetc_recv_imm_max >= sizeof(gasnete_pdbarrier_msg_t))
+                        ? PAMI_HINT_DISABLE : PAMI_HINT_ENABLE;
+    hints.recv_immediate = (gasnetc_recv_imm_max >= sizeof(gasnete_pdbarrier_msg_t))
+                         ? PAMI_HINT_ENABLE : PAMI_HINT_DEFAULT;
+    fn.p2p = &gasnete_pdbarr_dispatch;
+    rc = PAMI_Dispatch_set(gasnetc_context, GASNETC_DISP_DISSEM_BARR, fn, NULL, hints);
+    GASNETC_PAMI_CHECK(rc, "registering GASNETC_DISP_DISSEM_BARR");
+  }
+
+  barr->phase = 1;
+
+  barr->state[0].word0   = 0;
+  barr->state[0].word1   = 0;
+  barr->state[0].arrived = 0;
+  barr->state[0].next    = 1;
+
+  barr->state[1].word0   = 0;
+  barr->state[1].word1   = 0;
+  barr->state[1].arrived = 0;
+  barr->state[1].next    = 1;
+
+  team->barrier_splitstate = OUTSIDE_BARRIER;
+  team->barrier_data = barr;
 }
 
 /* ------------------------------------------------------------------------------------ */
