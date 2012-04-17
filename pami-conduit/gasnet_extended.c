@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2012/04/17 16:10:05 $
- * $Revision: 1.12 $
+ *     $Date: 2012/04/17 19:56:32 $
+ * $Revision: 1.13 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -1028,6 +1028,7 @@ static void gasnete_parbarrier_init(gasnete_coll_team_t team) {
  */
 
 typedef struct {
+  gasnet_node_t *peer_list;
   volatile int phase;
   int flags, value;          /* Args to notify() */
   struct gasnete_pdbarrier_state {
@@ -1046,7 +1047,6 @@ typedef struct {
   uint64_t index : 6; /* 1 .. 33 */
 } gasnete_pdbarrier_msg_t;
 
-static gasnete_pdbarrier_t gasnete_pdbarrier_all;
 static pami_send_hint_t gasnete_pdbarrier_send_hint;
 
 /* Called only w/ context lock held */
@@ -1073,10 +1073,12 @@ static void gasnete_pdbarr_send(
 
 /* Called only w/ context lock held */
 static void gasnete_pdbarr_advance(
-        struct gasnete_pdbarrier_state *state,
+        gasnete_pdbarrier_t *barr,
         uint64_t word0, uint64_t word1,
         int phase, int index)
 {
+  struct gasnete_pdbarrier_state *state = &barr->state[phase];
+
   /* Merge w/ any previous arrivals (order doesn't matter here).
    * Keep in mind that the context lock is held.
    */
@@ -1085,30 +1087,26 @@ static void gasnete_pdbarr_advance(
   state->arrived |= (1 << index);
 
   /* Send any messages */
-  { uint64_t next = state->next;
-    uint64_t arrived = state->arrived;
-    uint64_t distance = 1 << next;
+  { int index = state->next;
+    uint64_t distance = 1 << index;
+    const uint64_t arrived = state->arrived;
 
     while (arrived & distance) {
-      gasnet_node_t peer;
+      const gasnet_node_t peer = barr->peer_list[index];
 
-      if (distance >= gasneti_nodes) {
+      if (peer == gasneti_nodes) {
         gasneti_sync_writes();
-        next = -1; /* DONE! */
+        index = -1; /* DONE! */
         break;
       }
 
-      /* Send one message: */
-      peer = (gasneti_mynode < distance)
-                           ? (gasneti_mynode + (gasneti_nodes - distance))
-                           : (gasneti_mynode - distance);
-      gasnete_pdbarr_send(peer, state->word0, state->word1, phase, next+1);
+      gasnete_pdbarr_send(peer, state->word0, state->word1, phase, index+1);
 
-      next += 1;
+      index += 1;
       distance <<= 1;
     }
 
-    state->next = next;
+    state->next = index;
   }
 }
 
@@ -1120,12 +1118,7 @@ static void gasnete_pdbarr_dispatch(
 {
   gasnete_pdbarrier_t *barr = (gasnete_pdbarrier_t *)cookie;
   const gasnete_pdbarrier_msg_t *msg = (gasnete_pdbarrier_msg_t *)head_addr;
-  const int phase = msg->phase;
-  const int index = msg->index;
-  const uint64_t word0 = msg->word0;
-  const uint64_t word1 = msg->word1;
-
-  gasnete_pdbarr_advance(&barr->state[phase], word0, word1, phase, index);
+  gasnete_pdbarr_advance(barr, msg->word0, msg->word1, msg->phase, msg->index);
 }
 
 static void gasnete_pdbarrier_notify(gasnete_coll_team_t team, int id, int flags) {
@@ -1159,7 +1152,7 @@ static void gasnete_pdbarrier_notify(gasnete_coll_team_t team, int id, int flags
 
   GASNETC_PAMI_LOCK(gasnetc_context);
     /* Merge w/ any earlier arrivals and send the notify: */
-    gasnete_pdbarr_advance(&barr->state[phase], word0, word1, phase, 0);
+    gasnete_pdbarr_advance(barr, word0, word1, phase, 0);
   GASNETC_PAMI_UNLOCK(gasnetc_context);
   
   team->barrier_splitstate = INSIDE_BARRIER;
@@ -1225,10 +1218,30 @@ static int gasnete_pdbarrier_try(gasnete_coll_team_t team, int id, int flags) {
 }
 
 static void gasnete_pdbarrier_init(gasnete_coll_team_t team) {
-  gasnete_pdbarrier_t *barr = &gasnete_pdbarrier_all;
+  gasnet_node_t total_ranks = team->total_ranks;
+  gasnet_node_t myrank = team->myrank;
 
-  /* TODO: generalize to team != ALL? */
-  if (team != GASNET_TEAM_ALL) return;
+  /* Allocate memory */
+  gasnete_pdbarrier_t *barr = gasneti_malloc(sizeof(gasnete_pdbarrier_t));
+  gasneti_leak(barr);
+
+  /* Build the peer list */
+  { int step, steps;
+    uint64_t distance;
+
+    for (steps=0, distance=1; distance < total_ranks; ++steps, distance*=2) { /* empty */ }
+
+    barr->peer_list = gasneti_calloc(steps+1, sizeof(gasnet_node_t));
+    gasneti_leak(barr->peer_list);
+
+    for (step=0, distance=1; step < steps; ++step, distance*=2) {
+      gasnet_node_t peer = (myrank < distance)
+                              ? (myrank + (total_ranks - distance))
+                              : (myrank - distance);
+      barr->peer_list[step] = GASNETE_COLL_REL2ACT(team, peer);
+    }
+    barr->peer_list[steps] = gasneti_nodes; /* sentinel */
+  }
 
   /* TODO: Anything we should hint here? */
   memset(&gasnete_pdbarrier_send_hint, 0, sizeof(pami_send_hint_t));
