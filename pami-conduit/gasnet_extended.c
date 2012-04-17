@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2012/04/16 20:57:51 $
- * $Revision: 1.11 $
+ *     $Date: 2012/04/17 16:10:05 $
+ * $Revision: 1.12 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -1050,6 +1050,28 @@ static gasnete_pdbarrier_t gasnete_pdbarrier_all;
 static pami_send_hint_t gasnete_pdbarrier_send_hint;
 
 /* Called only w/ context lock held */
+static void gasnete_pdbarr_send(
+        gasnet_node_t peer,
+        uint64_t word0, uint64_t word1,
+        int phase, int index)
+{
+  const gasnete_pdbarrier_msg_t msg = { word0, word1, phase, index };
+  pami_send_immediate_t cmd;
+  pami_result_t rc;
+
+  cmd.header.iov_base = (char *)&msg;
+  cmd.header.iov_len = sizeof(msg);
+  cmd.data.iov_base = NULL;
+  cmd.data.iov_len = 0;
+  cmd.dest = gasnetc_endpoint(peer);
+  cmd.dispatch = GASNETC_DISP_DISSEM_BARR;
+  cmd.hints = gasnete_pdbarrier_send_hint;
+
+  rc = PAMI_Send_immediate(gasnetc_context, &cmd);
+  GASNETC_PAMI_CHECK(rc, "calling PAMI_Send_immediate for barrier");
+}
+
+/* Called only w/ context lock held */
 static void gasnete_pdbarr_advance(
         struct gasnete_pdbarrier_state *state,
         uint64_t word0, uint64_t word1,
@@ -1068,36 +1090,24 @@ static void gasnete_pdbarr_advance(
     uint64_t distance = 1 << next;
 
     while (arrived & distance) {
+      gasnet_node_t peer;
+
       if (distance >= gasneti_nodes) {
         gasneti_sync_writes();
         next = -1; /* DONE! */
         break;
       }
 
-      next += 1; /* advance next for use in message */
-
       /* Send one message: */
-      { gasnete_pdbarrier_msg_t msg = { state->word0, state->word1, phase, next };
-        gasnet_node_t peer = (gasneti_mynode < distance)
+      peer = (gasneti_mynode < distance)
                            ? (gasneti_mynode + (gasneti_nodes - distance))
                            : (gasneti_mynode - distance);
-        pami_send_immediate_t cmd;
-        pami_result_t rc;
+      gasnete_pdbarr_send(peer, state->word0, state->word1, phase, next+1);
 
-        cmd.header.iov_base = (char *)&msg;
-        cmd.header.iov_len = sizeof(msg);
-        cmd.data.iov_base = NULL;
-        cmd.data.iov_len = 0;
-        cmd.dest = gasnetc_endpoint(peer);
-        cmd.dispatch = GASNETC_DISP_DISSEM_BARR;
-        cmd.hints = gasnete_pdbarrier_send_hint;
-
-        rc = PAMI_Send_immediate(gasnetc_context, &cmd);
-        GASNETC_PAMI_CHECK(rc, "calling PAMI_Send_immediate for barrier");
-      }
-
-      distance <<= 1; /* advance distance */
+      next += 1;
+      distance <<= 1;
     }
+
     state->next = next;
   }
 }
