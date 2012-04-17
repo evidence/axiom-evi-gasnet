@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2012/04/17 19:56:32 $
- * $Revision: 1.13 $
+ *     $Date: 2012/04/17 22:14:44 $
+ * $Revision: 1.14 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -90,8 +90,13 @@ extern void gasnete_init(void) {
  #endif
   gasnete_rdma_send_hint.use_rdma = PAMI_HINT_ENABLE;
 
-  gasnete_mysegbase = (uintptr_t)gasneti_seginfo[gasneti_mynode].addr;
-  gasnete_mysegsize = gasneti_seginfo[gasneti_mynode].size;
+  if (gasnetc_memreg != NULL) {
+    gasnete_mysegbase = (uintptr_t)gasneti_seginfo[gasneti_mynode].addr;
+    gasnete_mysegsize = gasneti_seginfo[gasneti_mynode].size;
+  } else {
+    gasnete_mysegbase = 0;
+    gasnete_mysegsize = 0;
+  }
 #endif
 }
 

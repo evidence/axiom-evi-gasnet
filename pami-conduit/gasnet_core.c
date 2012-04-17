@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_core.c,v $
- *     $Date: 2012/04/16 19:58:34 $
- * $Revision: 1.9 $
+ *     $Date: 2012/04/17 22:14:44 $
+ * $Revision: 1.10 $
  * Description: GASNet PAMI conduit Implementation
  * Copyright 2012, Lawrence Berkeley National Laboratory
  * Terms of use are as specified in license.txt
@@ -34,7 +34,7 @@ pami_geometry_t    gasnetc_world_geom;
 pami_endpoint_t    *gasnetc_endpoint_tbl;
 size_t             gasnetc_num_contexts;            
 pami_memregion_t   gasnetc_mymemreg;
-pami_memregion_t   *gasnetc_memreg;
+pami_memregion_t   *gasnetc_memreg = NULL;
 size_t             gasnetc_send_imm_max;
 size_t             gasnetc_recv_imm_max;
 
@@ -447,7 +447,8 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 
       /* Register w/ PAMI and exchange the "keys" */
       /* TODO: should this move to gasnete_init()? */
-      { size_t regsize;
+      if (gasneti_getenv_yesno_withdefault("GASNET_REGISTER_SEGMENT", 1)) {
+        size_t regsize;
         pami_result_t rc;
 
         rc = PAMI_Memregion_create(gasnetc_context, segbase, segsize,
