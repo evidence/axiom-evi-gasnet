@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2012/04/17 22:14:44 $
- * $Revision: 1.14 $
+ *     $Date: 2012/04/19 21:39:04 $
+ * $Revision: 1.15 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -454,7 +454,7 @@ void gasnete_put_common(gasnet_node_t node, void *dest, void *src, size_t nbytes
 
       /* Always advance at least once */
       rc = PAMI_Context_advance(gasnetc_context, 1);
-      GASNETC_PAMI_CHECK_ADVANCE(rc, "advancing PAMI_Rput");
+      GASNETC_PAMI_CHECK_ADVANCE(rc, "advancing PAMI_Put");
     }
     GASNETC_PAMI_UNLOCK(gasnetc_context);
 
