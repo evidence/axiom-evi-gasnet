@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2012/04/14 00:37:34 $
- * $Revision: 1.113 $
+ *     $Date: 2012/04/22 22:44:31 $
+ * $Revision: 1.114 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -400,7 +400,7 @@ static long pick_pagesz(void **addr_p, uintptr_t *size_p) {
   return pagesz;
 }
 
-static void *gasneti_huge_mmap(void *addr, uintptr_t size) {
+extern void *gasneti_huge_mmap(void *addr, uintptr_t size) {
   void *real_addr = addr;
   GASNETI_UNUSED long pagesz = pick_pagesz(&real_addr, &size);
   int fd = gasneti_unlinked_huge_fd(pagesz);
@@ -418,7 +418,7 @@ static void *gasneti_huge_mmap(void *addr, uintptr_t size) {
   return ptr;
 }
 
-static void gasneti_huge_munmap(void *addr, uintptr_t size) {
+extern void gasneti_huge_munmap(void *addr, uintptr_t size) {
   (void)pick_pagesz(&addr, &size);
   if (munmap(addr, size) != 0) 
     gasneti_fatalerror("munmap("GASNETI_LADDRFMT",%lu) failed: %s\n",
