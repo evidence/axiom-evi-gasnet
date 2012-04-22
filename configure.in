@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2012/04/14 00:37:34 $
-# $Revision: 1.753 $
+#     $Date: 2012/04/22 22:42:23 $
+# $Revision: 1.754 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.753 $)
+AC_REVISION($Revision: 1.754 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -4133,10 +4133,20 @@ if test $enabled_pami = yes; then
     #      need, but is there any harm in that?
     GASNET_ENV_DEFAULT(PAMI_HOME, [/opt/ibmhpc/pecurrent/ppe.pami])
     GASNET_ENV_DEFAULT(PAMI_INCLUDE, [-I$PAMI_HOME/include]) 
+    # XXX: There should be a better way to find these libs.
+    #      Could/should we literally "find"?
     if test "$GASNETI_PTR_BITS" = 64; then
-      GASNET_ENV_DEFAULT(PAMI_LIBDIR, [-L$PAMI_HOME/lib/pami64])
+      if test -e "$PAMI_HOME/lib/pami64"; then
+        GASNET_ENV_DEFAULT(PAMI_LIBDIR, [-L$PAMI_HOME/lib/pami64])
+      elif test -e "$PAMI_HOME/gnu/lib64/pami64"; then
+        GASNET_ENV_DEFAULT(PAMI_LIBDIR, [-L$PAMI_HOME/gnu/lib64/pami64])
+      fi
     else
-      GASNET_ENV_DEFAULT(PAMI_LIBDIR, [-L$PAMI_HOME/lib/pami32])
+      if test -e "$PAMI_HOME/lib/pami32"; then
+        GASNET_ENV_DEFAULT(PAMI_LIBDIR, [-L$PAMI_HOME/lib/pami32])
+      elif test -e "$PAMI_HOME/gnu/lib/pami32"; then
+        GASNET_ENV_DEFAULT(PAMI_LIBDIR, [-L$PAMI_HOME/gnu/lib/pami32])
+      fi
     fi
     GASNET_ENV_DEFAULT(PAMI_LIBS, [-lpami])
     GASNET_ENV_DEFAULT(PAMI_SYS_LIBDIR, [])
