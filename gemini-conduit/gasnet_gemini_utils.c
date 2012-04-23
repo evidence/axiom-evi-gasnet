@@ -148,7 +148,7 @@ void gasnetc_GNIT_Allgather(void *local, long length, void *global)
   }
   for (i = 0; i < gasnetc_num_ranks; i += 1) {
     peer = unsorted[i * itemsize];
-    if ((peer < 0) || (peer >= gasnetc_num_ranks)) {
+    if (peer >= gasnetc_num_ranks) {
       fprintf(stderr, "rank %d PMI_Allgather failed, item %d is %d\n", 
 	      gasnetc_rank, i, peer);
       gasnetc_GNIT_Abort();
