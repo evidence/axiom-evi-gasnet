@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2012/04/14 00:37:34 $
- * $Revision: 1.228 $
+ *     $Date: 2012/04/23 21:32:13 $
+ * $Revision: 1.229 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -784,9 +784,12 @@ static void gasneti_check_portable_conduit(void) { /* check for portable conduit
         { "/dev/elan4/control0", S_IFCHR, "Quadrics QsNetII", 4 },
         { "/proc/qsnet/version", S_IFREG, "Quadrics QsNet", 4 },
         #if !GASNET_SEGMENT_EVERYTHING
-          { "/dev/ukbridge",         S_IFCHR, "Cray XT", 5 },
-          { "/proc/portals/meminfo", S_IFREG, "Cray Portals", 5 }
+          { "/dev/ukbridge",         S_IFCHR, "Cray Portals", 5 },
+          { "/proc/portals/meminfo", S_IFREG, "Cray Portals", 5 },
+          { "/dev/kgni0",            S_IFCHR, "Cray Gemini", 6 },
+          { "/proc/kgnilnd",         S_IFDIR, "Cray Gemini", 6 },
         #endif
+        { "/list_terminator", S_IFDIR, "", 9999 }
       #endif
       };
       int i, lim = sizeof(known_devs)/sizeof(known_devs[0]);
@@ -802,16 +805,16 @@ static void gasneti_check_portable_conduit(void) { /* check for portable conduit
       }
       #if PLATFORM_ARCH_CRAYX1
         if (strlen(natives)) strcat(natives,", ");
-        strcat(natives,"Cray X1");
+        strcat(natives,"Cray SHMEM (X1)");
       #elif PLATFORM_OS_CATAMOUNT || PLATFORM_OS_CNL
         if (strlen(natives)) strcat(natives,", ");
-        strcat(natives,"Cray XT");
+        strcat(natives,"Cray Portals (XT) or Gemini (XE and XK)");
       #elif PLATFORM_OS_BGP
         if (strlen(natives)) strcat(natives,", ");
-        strcat(natives,"IBM BG/P");
+        strcat(natives,"IBM DCMF (BG/P)");
       #elif PLATFORM_OS_BGQ
         if (strlen(natives)) strcat(natives,", ");
-        strcat(natives,"IBM BG/Q");
+        strcat(natives,"IBM PAMI (BG/Q)");
       #endif
       if (natives[0]) {
         sprintf(reason, "WARNING: This system appears to contain recognized network hardware: %s\n"
