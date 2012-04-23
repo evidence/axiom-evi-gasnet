@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2012/04/22 22:50:59 $
- * $Revision: 1.16 $
+ *     $Date: 2012/04/23 03:58:11 $
+ * $Revision: 1.17 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -272,16 +272,19 @@ static void gasnete_cb_eop_done(pami_context_t context, void *cookie, pami_resul
   gasneti_assert(OPSTATE(eop) == OPSTATE_INFLIGHT);
   /* gasnete_eop_check(eop);  XXX: conflicts w/ on-stack EOP used for blocking ops */
   SET_OPSTATE(eop, OPSTATE_COMPLETE);
+  gasneti_assert(status == PAMI_SUCCESS);
 }
 static void gasnete_cb_iput_done(pami_context_t context, void *cookie, pami_result_t status) {
   gasnete_iop_t *iop = (gasnete_iop_t *)cookie;
   gasnete_iop_check(iop);
   gasneti_weakatomic_increment(&(iop->completed_put_cnt), 0);
+  gasneti_assert(status == PAMI_SUCCESS);
 }
 static void gasnete_cb_iget_done(pami_context_t context, void *cookie, pami_result_t status) {
   gasnete_iop_t *iop = (gasnete_iop_t *)cookie;
   gasnete_iop_check(iop);
   gasneti_weakatomic_increment(&(iop->completed_get_cnt), 0);
+  gasneti_assert(status == PAMI_SUCCESS);
 }
 
 /* callback for local completion of a non-bulk put */
@@ -300,6 +303,7 @@ static void gasnete_cb_op_lc(pami_context_t context, void *cookie, pami_result_t
   }
   gasneti_assert(! gasnete_op_read_lc(op));
   gasnete_op_set_lc(op);
+  gasneti_assert(status == PAMI_SUCCESS);
 }
 
 /*  free an op */
@@ -401,6 +405,8 @@ void gasnete_put_common(gasnet_node_t node, void *dest, void *src, size_t nbytes
   uintptr_t loc_offset = (uintptr_t)src - gasnete_mysegbase;
   uintptr_t rem_offset = (uintptr_t)dest - (uintptr_t)gasneti_seginfo[node].addr;
 
+  gasneti_assert(nbytes != 0);
+
   if ((loc_offset < gasnete_mysegsize) && GASNETT_PREDICT_TRUE(rem_offset < gasneti_seginfo[node].size)) {
     pami_rput_simple_t cmd;
 
@@ -471,6 +477,8 @@ void gasnete_get_common(void *dest, gasnet_node_t node, void *src, size_t nbytes
 #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
   uintptr_t loc_offset = (uintptr_t)dest - gasnete_mysegbase;
   uintptr_t rem_offset = (uintptr_t)src - (uintptr_t)gasneti_seginfo[node].addr;
+
+  gasneti_assert(nbytes != 0);
 
   if ((loc_offset < gasnete_mysegsize) && GASNETT_PREDICT_TRUE(rem_offset < gasneti_seginfo[node].size)) {
     pami_rget_simple_t cmd;
