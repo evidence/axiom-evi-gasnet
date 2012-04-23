@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2012/04/14 00:37:39 $
- * $Revision: 1.12 $
+ *     $Date: 2012/04/23 23:24:21 $
+ * $Revision: 1.13 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -254,7 +254,7 @@ static int gasnetc_init(int *argc, char ***argv) {
 #endif
   gasnetc_GNIT_Allgather(&minlocalrank, sizeof(uint32_t), gasneti_nodemap);
   for (i = 0; i < gasneti_nodes; i += 1) {
-    gasneti_assert(gasneti_nodemap[i] >= 0);  /* it is unsigned, so this is moot */
+    /* gasneti_assert(gasneti_nodemap[i] >= 0);  type is unsigned, so this is moot */
     gasneti_assert(gasneti_nodemap[i] < gasneti_nodes);
   }
 
