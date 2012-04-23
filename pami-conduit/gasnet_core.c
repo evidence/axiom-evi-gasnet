@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_core.c,v $
- *     $Date: 2012/04/23 02:34:52 $
- * $Revision: 1.11 $
+ *     $Date: 2012/04/23 06:40:42 $
+ * $Revision: 1.12 $
  * Description: GASNet PAMI conduit Implementation
  * Copyright 2012, Lawrence Berkeley National Laboratory
  * Terms of use are as specified in license.txt
@@ -1017,7 +1017,14 @@ extern int gasnetc_AMPoll(void) {
 
   /* (###) add code here to run your AM progress engine */
 #if GASNET_PAR
+ #if GASNETI_ARCH_IBMPE /* XXX: Work-around hidden symbol on PERCS - fixed in later rev */
+  if (PAMI_SUCCESS == PAMI_Context_trylock(gasnetc_context)) {
+    PAMI_Context_advance(gasnetc_context, gasnetc_ampoll_max);
+    PAMI_Context_unlock(gasnetc_context);
+  }
+ #else
   PAMI_Context_trylock_advancev(&gasnetc_context, 1, gasnetc_ampoll_max);
+ #endif
 #else
   PAMI_Context_advance(gasnetc_context, gasnetc_ampoll_max);
 #endif
