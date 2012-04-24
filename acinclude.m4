@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2012/04/24 18:19:32 $
-dnl $Revision: 1.166 $
+dnl     $Date: 2012/04/24 18:52:50 $
+dnl $Revision: 1.167 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -1172,15 +1172,16 @@ GASNET_FUN_BEGIN([$0(...)])
     #if defined(__OPTIMIZE__) || defined(NDEBUG)
 	choke me
     #endif
-  ], [ ], [ AC_MSG_RESULT(no) ], [
-    AC_MSG_RESULT([yes])
-    ifelse([$5],[],[ dnl m4_ifval not present in older autotools
-    GASNET_MSG_ERROR([User requested --enable-debug but $1 or $2 has enabled optimization (-O) or disabled assertions (-DNDEBUG). Try setting $1='$[$1] -O0 -UNDEBUG' or changing $2])
-    ],[$5])
-  ])
+  ], [ ], [ gasnet_result=no ], [ gasnet_result=yes ])
+  AC_MSG_RESULT([$gasnet_result])
   GASNET_POPVAR(CC)
   GASNET_POPVAR(CFLAGS)
   AC_LANG_RESTORE
+  if test "$gasnet_result" = yes; then
+    ifelse([$5],[],[ dnl m4_ifval not present in older autotools
+    GASNET_MSG_ERROR([User requested --enable-debug but $1 or $2 has enabled optimization (-O) or disabled assertions (-DNDEBUG). Try setting $1='$[$1] -O0 -UNDEBUG' or changing $2])
+    ],[$5])
+  fi
  fi
 GASNET_FUN_END([$0(...)])
 ])
