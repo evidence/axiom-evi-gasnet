@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2012/04/14 00:37:34 $
- * $Revision: 1.273 $
+ *     $Date: 2012/04/24 06:27:21 $
+ * $Revision: 1.274 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2078,8 +2078,14 @@ void gasneti_set_affinity(int rank) {
  #undef MAXHOSTNAMELEN
  #define MAXHOSTNAMELEN 18
 #elif defined(GASNETI_HAVE_BGQ_INLINES)
+ #ifdef GASNETI_DEFINE__INLINE__
+   #define __INLINE__ GASNETI_DEFINE__INLINE__
+ #endif
  #include <hwi/include/common/uci.h>
  #include <firmware/include/personality.h>
+ #ifdef GASNETI_DEFINE__INLINE__
+   #undef __INLINE__
+ #endif
  #undef MAXHOSTNAMELEN
  #define MAXHOSTNAMELEN 19
 #elif PLATFORM_OS_CATAMOUNT

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_asm.h,v $
- *     $Date: 2012/04/14 00:37:34 $
- * $Revision: 1.135 $
+ *     $Date: 2012/04/24 06:27:21 $
+ * $Revision: 1.136 $
  * Description: GASNet header for semi-portable inline asm support
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -218,8 +218,25 @@
    * The use of 'extern inline' means we can't get what we need at all in
    * a debug build.  At least on BG/P there was a lib we could have linked.
    */
+  #ifndef __INLINE__
+    #if GASNET_DEBUG
+      #define GASNETI_DEFINE__INLINE__ static
+    #elif defined(__cplusplus)
+      #define GASNETI_DEFINE__INLINE__ inline
+    #elif GASNETI_COMPILER_IS_CC && defined(GASNET_CC_INLINE_MODIFIER)
+      #define GASNETI_DEFINE__INLINE__ GASNET_CC_INLINE_MODIFIER
+    #elif GASNETI_COMPILER_IS_MPI_CC && defined(GASNET_MPI_CC_INLINE_MODIFIER)
+      #define GASNETI_DEFINE__INLINE__ GASNET_MPI_CC_INLINE_MODIFIER
+    #else
+      #define GASNETI_DEFINE__INLINE__ static
+    #endif
+    #define __INLINE__ GASNETI_DEFINE__INLINE__
+  #endif
   #include "cnk/include/SPI_syscalls.h"
   #include "hwi/include/bqc/A2_inlines.h"
+  #ifdef GASNETI_DEFINE__INLINE__
+    #undef __INLINE__
+  #endif
   #define GASNETI_HAVE_BGQ_INLINES 1
 #endif
 
