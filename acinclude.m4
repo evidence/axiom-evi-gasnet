@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2011/12/14 02:10:19 $
-dnl $Revision: 1.165 $
+dnl     $Date: 2012/04/24 18:19:32 $
+dnl $Revision: 1.166 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -1154,9 +1154,11 @@ fi
 GASNET_FUN_END([$0(...)])
 ])
 
-dnl GASNET_CHECK_OPTIMIZEDDEBUG CCVAR CFLAGSVAR EXTRAARGS INCLUDES 
+dnl GASNET_CHECK_OPTIMIZEDDEBUG CCVAR CFLAGSVAR EXTRAARGS INCLUDES [ACTION]
 dnl Ensure the compiler CC doesn't create a conflict between
 dnl optimization and debugging.
+dnl If no ACTION is given, the default is an error message suggesting
+dnl changes to the CCVAR and/or CFLAGSVAR.
 AC_DEFUN([GASNET_CHECK_OPTIMIZEDDEBUG],[
 GASNET_FUN_BEGIN([$0(...)])
  if test "$enable_debug" = "yes" ; then
@@ -1172,7 +1174,9 @@ GASNET_FUN_BEGIN([$0(...)])
     #endif
   ], [ ], [ AC_MSG_RESULT(no) ], [
     AC_MSG_RESULT([yes])
+    ifelse([$5],[],[ dnl m4_ifval not present in older autotools
     GASNET_MSG_ERROR([User requested --enable-debug but $1 or $2 has enabled optimization (-O) or disabled assertions (-DNDEBUG). Try setting $1='$[$1] -O0 -UNDEBUG' or changing $2])
+    ],[$5])
   ])
   GASNET_POPVAR(CC)
   GASNET_POPVAR(CFLAGS)
