@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_internal.h,v $
- *     $Date: 2012/04/24 03:35:17 $
- * $Revision: 1.45 $
+ *     $Date: 2012/04/24 04:02:31 $
+ * $Revision: 1.46 $
  * Description: Internal Header file
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -60,11 +60,13 @@ extern int fh_verbose;
 extern gasneti_mutex_t		fh_table_lock;
 
 #define FH_TABLE_LOCK		do { gasneti_mutex_lock(&fh_table_lock);               \
+				     gasneti_compiler_fence();                         \
 				     gasneti_assert(FHC_MAXVICTIM_BUCKETS_AVAIL >= 0); \
 				     fhi_debug_local_table();                          \
 				} while (0)
 #define FH_TABLE_UNLOCK		do { gasneti_assert(FHC_MAXVICTIM_BUCKETS_AVAIL >= 0); \
 				     fhi_debug_local_table();                          \
+				     gasneti_compiler_fence();                         \
 				     gasneti_mutex_unlock(&fh_table_lock);             \
 				} while (0)
 #define FH_TABLE_ASSERT_LOCKED	gasneti_mutex_assertlocked(&fh_table_lock)
