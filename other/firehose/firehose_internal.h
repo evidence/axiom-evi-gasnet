@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_internal.h,v $
- *     $Date: 2011/11/27 00:23:09 $
- * $Revision: 1.44 $
+ *     $Date: 2012/04/24 03:35:17 $
+ * $Revision: 1.45 $
  * Description: Internal Header file
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -210,7 +210,7 @@ typedef uint16_t	fh_refc_uint_t;
 typedef uint32_t	fh_refc_uint_t;
 #endif
 
-/* The 'refcount' type is stored as a logical union with the fh_tqe_prev field
+/* The 'refcount' type is stored as a union with the fh_tqe_prev field
  * and must therefore be the same size as a pointer */
 typedef struct _fh_refc_t {
 	fh_refc_uint_t	refc_l;
@@ -246,8 +246,11 @@ struct _firehose_private_t {
 	firehose_private_t *fh_tqe_next;	/* -1 when not in FIFO, 
 						   NULL when end of list,
 						   else next pointer in FIFO */
+    union {
 	firehose_private_t **fh_tqe_prev;	/* refcount when not in FIFO,
 						   prev pointer otherwise    */
+	fh_refc_t fh_refc;
+    } u;
 
 	#ifdef DEBUG_BUCKETS
 	fh_bstate_t	fh_state;
@@ -266,7 +269,7 @@ struct _firehose_private_t {
 	#endif /* REGION */
 };
 
-#define FH_BUCKET_REFC(priv) ((fh_refc_t *) (&(priv)->fh_tqe_prev))
+#define FH_BUCKET_REFC(priv) (&(priv)->u.fh_refc)
 
 /* Local and Remote buckets can be in various states.
  *
@@ -464,7 +467,7 @@ struct name {				\
 #define FH_TAILQ_LAST(head)	((head)->fh_tqh_last)
 #define FH_TAILQ_EMPTY(head)	((head)->fh_tqh_first == NULL)
 #define FH_TAILQ_NEXT(elem)	((elem)->fh_tqe_next)
-#define FH_TAILQ_PREV(elem)	((elem)->fh_tqe_prev)
+#define FH_TAILQ_PREV(elem)	((elem)->u.fh_tqe_prev)
 
 #define FH_STAILQ_FIRST(head)	((head)->fh_tqh_first)
 #define FH_STAILQ_LAST(head)	((head)->fh_tqh_last)
@@ -590,7 +593,10 @@ typedef
 struct _fh_remote_callback_t {
 	uint32_t		flags;
 	struct _fh_remote_callback_t	*fh_tqe_next;
+    union {
 	struct _fh_remote_callback_t	**fh_tqe_prev; /* used in locpendq */
+	uintptr_t                       unused;
+    } u;
 
 	gasnet_node_t			node;
 	firehose_remotecallback_args_t	args;
