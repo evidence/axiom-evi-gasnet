@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2012/04/24 18:56:08 $
-# $Revision: 1.755 $
+#     $Date: 2012/04/24 19:03:12 $
+# $Revision: 1.756 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.755 $)
+AC_REVISION($Revision: 1.756 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2827,7 +2827,7 @@ if test "$enabled_mpi" = yes || test "$enabled_mpi_compat" = yes; then
         GASNET_CHECK_OPTIMIZEDDEBUG(MPI_CC,MPI_CFLAGS,[], [ 
           #include <mpi.h>
         ],[
-          GASNET_MSG_ERROR([User requested --enable-debug but \$MPI_CC or \$MPI_CFLAGS has enabled optimization (-O) or disabled assertions (-DNDEBUG).  Appending '-O0 -UNDEBUG' to \$MPI_CFLAGS did not resolve this conflict.  Please consider changing \$MPI_CC or \$MPI_CFLAGS, or passing --without-mpi-cc if an MP compiler is not required.])
+          GASNET_MSG_ERROR([User requested --enable-debug but \$MPI_CC or \$MPI_CFLAGS has enabled optimization (-O) or disabled assertions (-DNDEBUG).  Appending '-O0 -UNDEBUG' to \$MPI_CFLAGS did not resolve this conflict.  Please consider changing \$MPI_CC or \$MPI_CFLAGS, or passing --without-mpi-cc if an MPI compiler is not required.])
         ])
       ])
   elif test "$mpi_reason" = ""; then
