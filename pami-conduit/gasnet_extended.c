@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2012/04/23 03:58:11 $
- * $Revision: 1.17 $
+ *     $Date: 2012/04/24 17:39:52 $
+ * $Revision: 1.18 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -405,8 +405,6 @@ void gasnete_put_common(gasnet_node_t node, void *dest, void *src, size_t nbytes
   uintptr_t loc_offset = (uintptr_t)src - gasnete_mysegbase;
   uintptr_t rem_offset = (uintptr_t)dest - (uintptr_t)gasneti_seginfo[node].addr;
 
-  gasneti_assert(nbytes != 0);
-
   if ((loc_offset < gasnete_mysegsize) && GASNETT_PREDICT_TRUE(rem_offset < gasneti_seginfo[node].size)) {
     pami_rput_simple_t cmd;
 
@@ -474,11 +472,9 @@ void gasnete_put_common(gasnet_node_t node, void *dest, void *src, size_t nbytes
 GASNETI_INLINE(gasnete_get_common)
 void gasnete_get_common(void *dest, gasnet_node_t node, void *src, size_t nbytes,
                         gasnete_op_t *op, int is_eop) {
-#if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
+#if (GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE) && !GASNETI_ARCH_BGQ /* work-around a BG/Q bug */
   uintptr_t loc_offset = (uintptr_t)dest - gasnete_mysegbase;
   uintptr_t rem_offset = (uintptr_t)src - (uintptr_t)gasneti_seginfo[node].addr;
-
-  gasneti_assert(nbytes != 0);
 
   if ((loc_offset < gasnete_mysegsize) && GASNETT_PREDICT_TRUE(rem_offset < gasneti_seginfo[node].size)) {
     pami_rget_simple_t cmd;
