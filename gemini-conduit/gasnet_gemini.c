@@ -225,17 +225,10 @@ void gasnetc_init_messaging()
   fprintf(stderr,"max medium %d, sizeof medium %d\n",(int)gasnet_AMMaxMedium(),
 	  (int)sizeof(gasnetc_am_medium_packet_max_t));
 #endif
-  smsg_fd = open("/dev/zero", O_RDWR, 0);
-  if (smsg_fd == -1) {
-    gasnetc_GNIT_Abort("open of /dev/zero failed: ");
-  }
-  
-  /* do a shared mapping just to test if things can go wrong */
-  
-  smsg_mmap_ptr = mmap(NULL, bytes_needed, PROT_READ | PROT_WRITE, MAP_PRIVATE, smsg_fd, 0);
+  smsg_mmap_ptr = gasneti_huge_mmap(NULL, bytes_needed);
   smsg_mmap_bytes = bytes_needed;
   if (smsg_mmap_ptr == (char *)MAP_FAILED) {
-    gasnetc_GNIT_Abort("mmap of /dev/zero failed: ");
+    gasnetc_GNIT_Abort("hugepage mmap failed: ");
   }
   
 #if GASNETC_DEBUG
@@ -371,8 +364,7 @@ void gasnetc_shutdown(void)
 			     &mypeersegmentdata.segment_mem_handle);
   gasneti_assert_always (status == GNI_RC_SUCCESS);
 
-  i = munmap(smsg_mmap_ptr, smsg_mmap_bytes);
-  gasneti_assert_always (i == 0);
+  gasneti_huge_munmap(smsg_mmap_ptr, smsg_mmap_bytes);
 
   status = GNI_MemDeregister(nic_handle,
 			     &mypeerdata.smsg_attr.mem_hndl);
