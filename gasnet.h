@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet.h,v $
- *     $Date: 2012/01/06 23:43:46 $
- * $Revision: 1.72 $
+ *     $Date: 2012/04/28 00:08:22 $
+ * $Revision: 1.73 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -90,9 +90,9 @@
 #ifdef GASNET_DEBUGMALLOC
   #undef GASNET_DEBUGMALLOC
   #define GASNET_DEBUGMALLOC 1
-  #define GASNETI_MALLOC_CONFIG debug_malloc
+  #define GASNETI_MALLOC_CONFIG debugmalloc
 #else
-  #define GASNETI_MALLOC_CONFIG nodebug_malloc
+  #define GASNETI_MALLOC_CONFIG nodebugmalloc
 #endif
 
 #if defined(GASNET_SRCLINES) || defined(GASNET_DEBUG)
