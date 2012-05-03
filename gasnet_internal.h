@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2012/04/22 22:44:31 $
- * $Revision: 1.129 $
+ *     $Date: 2012/05/03 20:52:14 $
+ * $Revision: 1.130 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -264,7 +264,7 @@ void gasneti_defaultSignalHandler(int sig);
   extern void *gasneti_mmap(uintptr_t segsize);
   extern void gasneti_munmap(void *segbase, uintptr_t segsize);
  #endif
- #if defined(GASNETI_PSHM_XPMEM) && HAVE_HUGETLBFS /* TODO: huge page support w/o XPMEM */
+ #if defined(GASNETI_USE_HUGETLBFS)
   extern void *gasneti_huge_mmap(void *addr, uintptr_t size);
   extern void gasneti_huge_munmap(void *addr, uintptr_t size);
  #endif

@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2012/04/24 19:03:12 $
-# $Revision: 1.756 $
+#     $Date: 2012/05/03 20:52:14 $
+# $Revision: 1.757 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.756 $)
+AC_REVISION($Revision: 1.757 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1420,6 +1420,7 @@ if test "$enabled_pshm" != no; then
       fi
       GASNET_PSHM_LIBS=$LIBS
       AC_DEFINE(GASNETI_PSHM_XPMEM)
+      AC_DEFINE(GASNETI_USE_HUGETLBFS)
       with_pshm=xpmem
     ])
   ])

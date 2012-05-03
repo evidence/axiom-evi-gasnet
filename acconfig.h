@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2012/04/14 00:37:34 $ */
-/*  $Revision: 1.177 $ */
+/*      $Date: 2012/05/03 20:52:14 $ */
+/*  $Revision: 1.178 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -178,8 +178,11 @@
 #undef GASNETI_PSHM_FILE
 #undef GASNETI_PSHM_XPMEM
 
-/* hugetlbfs support (sufficient for xpmem) */
+/* hugetlbfs support available */
 #undef HAVE_HUGETLBFS
+
+/* hugetlbfs support enabled */
+#undef GASNETI_USE_HUGETLBFS
 
 /* support for backtracing */
 #undef HAVE_EXECINFO_H
