@@ -1260,10 +1260,10 @@ void gasnetc_get_am_credit(uint32_t pe)
   fprintf(stderr, "r %d get am credit for %d, before is %d\n",
 	 gasneti_mynode, pe, (int)gasneti_weakatomic_read(&peer_data[pe].am_credit, 0));
 #endif
-  /* poll at least once, to assure forward progress */
-  do {
-    gasnetc_poll();
-  }  while (gasnetc_atomic_dec_if_positive(p) == 0);
+  while (gasnetc_atomic_dec_if_positive(p) == 0) {
+    gasneti_AMPoll();
+    gasneti_spinloop_hint();
+  }
 }
 
 void gasnetc_return_am_credit(uint32_t pe)

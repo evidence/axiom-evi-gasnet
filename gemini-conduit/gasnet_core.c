@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2012/05/04 05:13:32 $
- * $Revision: 1.15 $
+ *     $Date: 2012/05/04 07:17:40 $
+ * $Revision: 1.16 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -684,6 +684,7 @@ extern int gasnetc_AMRequestShortM(
   int i;
   va_list argptr;
   GASNETI_COMMON_AMREQUESTSHORT(dest,handler,numargs);
+  gasneti_AMPoll(); /* poll at least once, to assure forward progress */
   va_start(argptr, numargs); /*  pass in last argument */
 #if GASNET_PSHM
   /* (###) If your conduit will support PSHM, let it check the dest first. */
@@ -712,7 +713,6 @@ extern int gasnetc_AMRequestShortM(
 		     NULL, 0);
   }
   va_end(argptr);
-  //  gasnetc_poll();
   GASNETI_RETURN(retval);
 }
 
@@ -725,6 +725,7 @@ extern int gasnetc_AMRequestMediumM(
   int i;
   va_list argptr;
   GASNETI_COMMON_AMREQUESTMEDIUM(dest,handler,source_addr,nbytes,numargs);
+  gasneti_AMPoll(); /* poll at least once, to assure forward progress */
   va_start(argptr, numargs); /*  pass in last argument */
 #if GASNET_PSHM
   /* (###) If your conduit will support PSHM, let it check the dest first. */
@@ -757,7 +758,6 @@ extern int gasnetc_AMRequestMediumM(
 		     source_addr, nbytes);
   }
   va_end(argptr);
-  //  gasnetc_poll();
   GASNETI_RETURN(retval);
 }
 
@@ -770,6 +770,7 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
   int i;
   va_list argptr;
   GASNETI_COMMON_AMREQUESTLONG(dest,handler,source_addr,nbytes,dest_addr,numargs);
+  gasneti_AMPoll(); /* poll at least once, to assure forward progress */
   va_start(argptr, numargs); /*  pass in last argument */
 #if GASNET_PSHM
   /* (###) If your conduit will support PSHM, let it check the dest first. */
@@ -839,7 +840,6 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
 
   }
   va_end(argptr);
-  //  gasnetc_poll();
   GASNETI_RETURN(retval);
 }
 
@@ -852,6 +852,7 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
   int i;
   va_list argptr;
   GASNETI_COMMON_AMREQUESTLONGASYNC(dest,handler,source_addr,nbytes,dest_addr,numargs);
+  gasneti_AMPoll(); /* poll at least once, to assure forward progress */
   va_start(argptr, numargs); /*  pass in last argument */
 #if GASNET_PSHM
   /* (###) If your conduit will support PSHM, let it check the dest first. */
@@ -898,7 +899,6 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
     }
   }
   va_end(argptr);
-  //  gasnetc_poll();
   GASNETI_RETURN(retval);
 }
 
