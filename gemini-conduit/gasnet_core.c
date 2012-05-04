@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2012/05/04 07:17:40 $
- * $Revision: 1.16 $
+ *     $Date: 2012/05/04 11:22:24 $
+ * $Revision: 1.17 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -797,7 +797,6 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
       m.header.command = GC_CMD_AM_LONG;
       m.header.handler = handler;
       m.header.numargs = numargs;
-      m.header.to = (nbytes == 8);
       m.data_length = nbytes;
       m.data = dest_addr;
       for (i = 0; i < numargs; i += 1) {

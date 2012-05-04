@@ -466,11 +466,6 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
       if (numargs > gasnet_AMMaxArgs()) {
 	gasnetc_GNIT_Abort("numargs %d, max is %ld\n", numargs, gasnet_AMMaxArgs());
       }
-      /* this only works for fewer than 256 ranks
-      if (gasneti_mynode != recv_header->to) {
-	gasnetc_GNIT_Abort("rank %d but from %d\n", gasneti_mynode, recv_header->to);
-      }
-      */
       GASNETI_TRACE_PRINTF(A, ("smsg r from %d to %d type %s\n", pe, gasneti_mynode, gasnetc_type_string(recv_header->command)));
       switch (recv_header->command) {
       case GC_CMD_AM_NOP_REPLY: {

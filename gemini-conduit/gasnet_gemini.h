@@ -122,7 +122,6 @@ enum GC_CMD {
 
 
 typedef struct GC_Header {
-  uint8_t to;	   	/* debug check  */
   uint8_t command;	  	/* GC_CMD */
   uint8_t numargs;	       /* number of GASNet arguments */
   uint8_t handler;	        /* index of GASNet handler */
