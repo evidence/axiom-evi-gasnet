@@ -452,9 +452,11 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
 {
   gni_return_t status;
   GC_Header_t *recv_header;
+  gasnetc_packet_t packet;
+  uint64_t buffer[gasnet_AMMaxMedium() / sizeof(uint64_t)];
   void *im_data;
   uint32_t head_length;
-  uint32_t length;
+  size_t length;
   uint32_t numargs;
   for (;;) {
     GASNETC_LOCK_GNI();
@@ -475,80 +477,78 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
 	break;
       }
       case GC_CMD_AM_SHORT: {
-	gasnetc_handle_am_short_packet(1, pe, (gasnetc_am_short_packet_max_t *) recv_header);
+	head_length = GASNETC_HEADLEN(short, numargs);
+	memcpy(&packet, recv_header, head_length);
 	GASNETC_SMSGRELEASE(status, bound_ep_handles[pe]);
+	gasnetc_handle_am_short_packet(1, pe, &packet.gasp);
 	gasnetc_send_am_nop(pe);
 	break;
       }
       case GC_CMD_AM_MEDIUM: {
 	head_length = GASNETC_HEADLEN(medium, numargs);
-	im_data = (void *) ((uintptr_t) recv_header + head_length);
-	length = ((gasnetc_am_medium_packet_t *) recv_header)->header.misc;
+	memcpy(&packet, recv_header, head_length);
+	length = packet.gamp.header.misc;
 	if (length > gasnet_AMMaxMedium()) {
 	  gasnetc_GNIT_Abort("medium data_length %d, max is %ld\n", 
-		     length, gasnet_AMMaxMedium());
+		     (int)length, gasnet_AMMaxMedium());
 	}
-	gasnetc_handle_am_medium_packet(1, 
-				   pe, 
-				   (gasnetc_am_medium_packet_max_t *) recv_header, 
-				   im_data);
+	im_data = (void *) ((uintptr_t) recv_header + head_length);
+	memcpy(buffer, im_data, length);
 	GASNETC_SMSGRELEASE(status, bound_ep_handles[pe]);
+	gasnetc_handle_am_medium_packet(1, pe, &packet.gamp, im_data);
 	gasnetc_send_am_nop(pe);
 	break;
       }
       case GC_CMD_AM_LONG: {
-	length = ((gasnetc_am_long_packet_t *) recv_header)->data_length;
+	head_length = GASNETC_HEADLEN(long, numargs);
+	memcpy(&packet, recv_header, head_length);
+	length = packet.galp.data_length;
 	if (length <= gasnet_AMMaxMedium()) {
-	  head_length = GASNETC_HEADLEN(long, numargs);
 	  im_data = (void *) (((uintptr_t) recv_header) + head_length);
-	  memcpy(((gasnetc_am_long_packet_t *) recv_header)->data, 
-		 im_data,
-		 length);
+	  memcpy(packet.galp.data, im_data, length);
 	}
-	gasnetc_handle_am_long_packet(1, pe, (gasnetc_am_long_packet_max_t *) recv_header);
 	GASNETC_SMSGRELEASE(status, bound_ep_handles[pe]);
+	gasnetc_handle_am_long_packet(1, pe, &packet.galp);
 	gasnetc_send_am_nop(pe);
 	break;
       }
       case GC_CMD_AM_SHORT_REPLY: {
-	gasnetc_handle_am_short_packet(0, pe, (gasnetc_am_short_packet_max_t *) recv_header);
+	head_length = GASNETC_HEADLEN(short, numargs);
+	memcpy(&packet, recv_header, head_length);
 	GASNETC_SMSGRELEASE(status, bound_ep_handles[pe]);
+	gasnetc_handle_am_short_packet(0, pe, &packet.gasp);
 	break;
       }
       case GC_CMD_AM_MEDIUM_REPLY: {
 	head_length = GASNETC_HEADLEN(medium, numargs);
-	im_data = (void *) ((uintptr_t) recv_header + head_length);
-	length = ((gasnetc_am_medium_packet_t *) recv_header)->header.misc;
+	memcpy(&packet, recv_header, head_length);
+	length = packet.gamp.header.misc;
 	if (length > gasnet_AMMaxMedium()) {
 	  gasnetc_GNIT_Abort("medium data_length %d, max is %ld\n", 
-		     length, gasnet_AMMaxMedium());
+		     (int)length, gasnet_AMMaxMedium());
 	}
-	gasnetc_handle_am_medium_packet(0, 
-				   pe, 
-				   (gasnetc_am_medium_packet_max_t *) recv_header, 
-				   im_data);
+	im_data = (void *) ((uintptr_t) recv_header + head_length);
+	memcpy(buffer, im_data, length);
 	GASNETC_SMSGRELEASE(status, bound_ep_handles[pe]);
+	gasnetc_handle_am_medium_packet(0, pe, &packet.gamp, buffer);
 	break;
       }
       case GC_CMD_AM_LONG_REPLY: {
-	length = ((gasnetc_am_long_packet_t *) recv_header)->data_length;
+	head_length = GASNETC_HEADLEN(long, numargs);
+	memcpy(&packet, recv_header, head_length);
+	length = packet.galp.data_length;
 	if (length <= gasnet_AMMaxMedium()) {
-	  head_length = GASNETC_HEADLEN(long, numargs);
 	  im_data = (void *) (((uintptr_t) recv_header) + head_length);
-	  /* The data is in the packet, so copy it out */
-	  memcpy(((gasnetc_am_long_packet_t *) recv_header)->data, 
-		 im_data,
-		 length);
+	  memcpy(packet.galp.data, im_data, length);
 	}
-	gasnetc_handle_am_long_packet(0, pe, (gasnetc_am_long_packet_max_t *) recv_header);
 	GASNETC_SMSGRELEASE(status, bound_ep_handles[pe]);
+	gasnetc_handle_am_long_packet(0, pe, &packet.galp);
 	break;
       }
       case GC_CMD_SYS_SHUTDOWN_REQUEST: {
-	gasnetc_sys_shutdown_packet_t packet;
 	memcpy(&packet, recv_header, sizeof(gasnetc_sys_shutdown_packet_t));
 	GASNETC_SMSGRELEASE(status, bound_ep_handles[pe]);
-	gasnetc_handle_sys_shutdown_packet(pe, &packet);
+	gasnetc_handle_sys_shutdown_packet(pe, &packet.gssp);
 	break;
       }
       default: {
@@ -586,6 +586,7 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
   void *im_data;
   uint32_t head_length;
   uint32_t numargs;
+  size_t length;
   for (;;) {
     GASNETC_LOCK_GNI();
     status = GNI_SmsgGetNext(bound_ep_handles[pe], 
@@ -612,13 +613,14 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
       }
       case GC_CMD_AM_MEDIUM: {
 	head_length = GASNETC_HEADLEN(medium, numargs);
-	im_data = (void *) ((uintptr_t) recv_header + head_length);
 	memcpy(&packet, recv_header, head_length);
-	if (packet.gamp.header.misc > gasnet_AMMaxMedium()) {
-	  gasnetc_GNIT_Abort("medium data_length %ld, max is %ld\n", 
-		     (long)packet.gamp.header.misc, gasnet_AMMaxMedium());
+	length = packet.gamp.header.misc;
+	if (length > gasnet_AMMaxMedium()) {
+	  gasnetc_GNIT_Abort("medium data_length %d, max is %ld\n", 
+		     (int)length, gasnet_AMMaxMedium());
 	}
-	memcpy(buffer, im_data, packet.gamp.header.misc);
+	im_data = (void *) ((uintptr_t) recv_header + head_length);
+	memcpy(buffer, im_data, length);
 	GASNETC_SMSGRELEASEUNLOCK(status, bound_ep_handles[pe]);
 	gasnetc_handle_am_medium_packet(1, pe, &packet.gamp, buffer);
 	gasnetc_send_am_nop(pe);
@@ -627,9 +629,10 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
       case GC_CMD_AM_LONG: {
 	head_length = GASNETC_HEADLEN(long, numargs);
 	memcpy(&packet, recv_header, head_length);
-	if (packet.galp.data_length <= gasnet_AMMaxMedium()) {
+	length = packet.galp.data_length;
+	if (length <= gasnet_AMMaxMedium()) {
 	  im_data = (void *) (((uintptr_t) recv_header) + head_length);
-	  memcpy(packet.galp.data, im_data, packet.galp.data_length);
+	  memcpy(packet.galp.data, im_data, length);
 	}
 	GASNETC_SMSGRELEASEUNLOCK(status, bound_ep_handles[pe]);
 	gasnetc_handle_am_long_packet(1, pe, &packet.galp);
@@ -646,12 +649,13 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
       case GC_CMD_AM_MEDIUM_REPLY: {
 	head_length = GASNETC_HEADLEN(medium, numargs);
 	memcpy(&packet, recv_header, head_length);
-	if (packet.gamp.header.misc > gasnet_AMMaxMedium()) {
-	  gasnetc_GNIT_Abort("medium data_length %ld, max is %ld\n", 
-		     (long)packet.gamp.header.misc, gasnet_AMMaxMedium());
+	length = packet.gamp.header.misc;
+	if (length > gasnet_AMMaxMedium()) {
+	  gasnetc_GNIT_Abort("medium data_length %d, max is %ld\n", 
+		     (int)length, gasnet_AMMaxMedium());
 	}
 	im_data = (void *) ((uintptr_t) recv_header + head_length);
-	memcpy(buffer, im_data, packet.gamp.header.misc);
+	memcpy(buffer, im_data, length);
 	GASNETC_SMSGRELEASEUNLOCK(status, bound_ep_handles[pe]);
 	gasnetc_handle_am_medium_packet(0, pe, &packet.gamp, buffer);
 	break;
@@ -659,10 +663,10 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
       case GC_CMD_AM_LONG_REPLY: {
 	head_length = GASNETC_HEADLEN(long, numargs);
 	memcpy(&packet, recv_header, head_length);
-	if (packet.galp.data_length <= gasnet_AMMaxMedium()) {
+	length = packet.galp.data_length;
+	if (length <= gasnet_AMMaxMedium()) {
 	  im_data = (void *) (((uintptr_t) recv_header) + head_length);
-	  /* The data is in the packet, so copy it cout */
-	  memcpy(packet.galp.data, im_data, packet.galp.data_length);
+	  memcpy(packet.galp.data, im_data, length);
 	}
 	GASNETC_SMSGRELEASEUNLOCK(status, bound_ep_handles[pe]);
 	gasnetc_handle_am_long_packet(0, pe, &packet.galp);
