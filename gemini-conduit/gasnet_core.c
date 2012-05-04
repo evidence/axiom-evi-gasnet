@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2012/04/23 23:24:21 $
- * $Revision: 1.13 $
+ *     $Date: 2012/05/04 01:30:55 $
+ * $Revision: 1.14 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -197,7 +197,7 @@ static int gasnetc_init(int *argc, char ***argv) {
 
     /* LCS Gemini init */
 
-    if ((ret = gasnetc_gem_init(&gasneti_nodes, &gasneti_mynode, &errstring)) != GASNET_OK) {
+    if ((ret = gasnetc_gem_init(&errstring)) != GASNET_OK) {
       GASNETI_RETURN_ERRR(NOT_INIT, errstring);
     }
 

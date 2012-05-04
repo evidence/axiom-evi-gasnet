@@ -24,14 +24,14 @@ extern int gasnetc_debug;
 
 /* debug support */
 #define gasnetc_GNIT_Abort(msg, args...) do {			  \
-    fprintf(stderr, "node %d error %s: " msg "\n", gasnetc_rank,	  \
+    fprintf(stderr, "node %d error %s: " msg "\n", gasneti_mynode,	  \
 	    gasnett_current_loc, ##args);		  \
     gasnett_print_backtrace(2);				  \
     gasnett_fatalerror("fatalerror");			  \
   } while(0)
 
 #define gasnetc_GNIT_Log(msg, args...) do {			  \
-    fprintf(stderr, "node %d log %s: " msg "\n", gasnetc_rank,	  \
+    fprintf(stderr, "node %d log %s: " msg "\n", gasneti_mynode,	  \
 	    gasnett_current_loc, ##args);		  \
   } while(0)
 
@@ -215,10 +215,6 @@ typedef union gasnetc_eq_packet {
 
 /* Routines in gc_utils.c */
 
-extern uint32_t gasnetc_num_ranks;
-extern uint32_t gasnetc_rank;
-
-
 uint32_t *gasnetc_UGNI_AllAddr;
 
 void *gasnetc_gather_nic_addresses(void);
@@ -332,7 +328,7 @@ int gasnetc_sys_exit(int *exitcode);
 
 
 
-int gasnetc_gem_init(gasnet_node_t *sizep, gasnet_node_t *rankp, char **errstringp);
+int gasnetc_gem_init(char **errstringp);
 void gasnetc_init_segment(void *segment_start, size_t segment_size);
 void gasnetc_init_messaging(void);
 void gasnetc_shutdown(void); /* clean up all gni state */

@@ -7,9 +7,6 @@
 #include <stdlib.h>
 #include <gni_pub.h>
 
-uint32_t gasnetc_num_ranks;
-uint32_t gasnetc_rank;
-
 #ifndef MPI_SUCCESS
 #define MPI_SUCCESS 0
 #endif
@@ -34,7 +31,7 @@ void *gasnetc_gather_nic_addresses(void)
   uint32_t cpu_id;
   uint32_t device_id = gasnetc_GNIT_Device_Id();
   int i;
-  gasnetc_UGNI_AllAddr = gasneti_malloc(gasnetc_num_ranks * sizeof(uint32_t));
+  gasnetc_UGNI_AllAddr = gasneti_malloc(gasneti_nodes * sizeof(uint32_t));
   gasneti_assert(gasnetc_UGNI_AllAddr);
   status = GNI_CdmGetNicAddress(device_id, &myaddress, &cpu_id);
   if (status != GNI_RC_SUCCESS) {
@@ -45,7 +42,7 @@ void *gasnetc_gather_nic_addresses(void)
   pmiaddress = mygetenv("PMI_GNI_LOC_ADDR");
   if (pmiaddress != myaddress) {
 #if GASNETC_DEBUG
-    fprintf(stderr, "rank %d PMI_GNI_LOC_ADDR is %d, using it\n", gasnetc_rank, pmiaddress);
+    fprintf(stderr, "rank %d PMI_GNI_LOC_ADDR is %d, using it\n", gasneti_mynode, pmiaddress);
 #endif
     myaddress = pmiaddress;
   } else {
@@ -53,14 +50,14 @@ void *gasnetc_gather_nic_addresses(void)
   }
 
   gasnetc_GNIT_Allgather(&myaddress, sizeof(uint32_t), gasnetc_UGNI_AllAddr);
-  if (gasnetc_UGNI_AllAddr[gasnetc_rank] != myaddress) {
-    fprintf(stderr, "rank %d gathernic got %x should be %x\n", gasnetc_rank,
-	    gasnetc_UGNI_AllAddr[gasnetc_rank], myaddress);
+  if (gasnetc_UGNI_AllAddr[gasneti_mynode] != myaddress) {
+    fprintf(stderr, "rank %d gathernic got %x should be %x\n", gasneti_mynode,
+	    gasnetc_UGNI_AllAddr[gasneti_mynode], myaddress);
     gasnetc_GNIT_Abort();
   }
   /*
   fprintf(stderr, "rank %d addresses ", rank);
-  for (i = 0; i < gasnetc_num_ranks; i += 1) {
+  for (i = 0; i < gasneti_nodes; i += 1) {
     fprintf(stderr, " %x", gasnetc_UGNI_AllAddr[i]);
   }
   fprintf(stderr, "\n");
@@ -69,21 +66,19 @@ void *gasnetc_gather_nic_addresses(void)
 }
 
 
-int gasnetc_gem_init(gasnet_node_t *sizep, gasnet_node_t *rankp, char **errorstringp)
+int gasnetc_gem_init(char **errorstringp)
 {
-
+   int size, rank;
    int spawned;
    int appnum;
    int ret;
 
-   /* rank and gasnetc_num_ranks are unsigned, but PMI wants signed, go figure */
-   if ((ret = PMI2_Init (&spawned, (int *) &gasnetc_num_ranks, (int *) &gasnetc_rank, &appnum)) 
-       != MPI_SUCCESS) {
+   if ((ret = PMI2_Init (&spawned, &size, &rank, &appnum)) != MPI_SUCCESS) {
      *errorstringp = (char *) "Failure in PMI2_Init\n";
      return(GASNET_ERR_NOT_INIT);
    }
-   *sizep = gasnetc_num_ranks;
-   *rankp = gasnetc_rank;
+   gasneti_nodes = size;
+   gasneti_mynode = rank;
    return(GASNET_OK);
 }
 
@@ -101,12 +96,12 @@ int gasnetc_gem_init(gasnet_node_t *sizep, gasnet_node_t *rankp, char **errorstr
 
 void gasnetc_GNIT_Job_size(int *nranks)
 {
-  *nranks = gasnetc_num_ranks;
+  *nranks = gasneti_nodes;
 }
 
 void gasnetc_GNIT_Rank(int *inst_id)
 {
-  *inst_id = gasnetc_rank;
+  *inst_id = gasneti_mynode;
 }
 
 char gasnetc_GNIT_Ptag(void)
@@ -127,46 +122,46 @@ int gasnetc_GNIT_Device_Id(void)
 void gasnetc_GNIT_Allgather(void *local, long length, void *global)
 {
   long itemsize = 1 + 1 + (length / sizeof(long)); // length in longs
-  long *unsorted = gasneti_malloc(itemsize * sizeof(long) * gasnetc_num_ranks);
-  long *sorted = gasneti_malloc(itemsize * sizeof(long) * gasnetc_num_ranks);
+  long *unsorted = gasneti_malloc(itemsize * sizeof(long) * gasneti_nodes);
+  long *sorted = gasneti_malloc(itemsize * sizeof(long) * gasneti_nodes);
   uint32_t peer;
   uint32_t i;
   int status;
   gasneti_assert(unsorted);
   gasneti_assert(sorted);
   /* use beginning of sorted for the local data */
-  sorted[0] = gasnetc_rank;
+  sorted[0] = gasneti_mynode;
   memcpy(&sorted[1], local, length);  
   /* initialize the unsorted array */
-  for (i = 0; i < itemsize * gasnetc_num_ranks; i += 1) {
+  for (i = 0; i < itemsize * gasneti_nodes; i += 1) {
     unsorted[i] = -1;
   }
   status = PMI_Allgather(sorted, unsorted, itemsize * sizeof(long));
   if (status != PMI_SUCCESS) {
-    fprintf(stderr, "rank %d: PMI_Allgather failed\n", gasnetc_rank);
+    fprintf(stderr, "rank %d: PMI_Allgather failed\n", gasneti_mynode);
     gasnetc_GNIT_Abort();
   }
-  for (i = 0; i < gasnetc_num_ranks; i += 1) {
+  for (i = 0; i < gasneti_nodes; i += 1) {
     peer = unsorted[i * itemsize];
-    if (peer >= gasnetc_num_ranks) {
+    if (peer >= gasneti_nodes) {
       fprintf(stderr, "rank %d PMI_Allgather failed, item %d is %d\n", 
-	      gasnetc_rank, i, peer);
+	      gasneti_mynode, i, peer);
       gasnetc_GNIT_Abort();
     }
     memcpy(&sorted[peer * itemsize], 
 	   &unsorted[i * itemsize],
 	   itemsize * sizeof(long));
   }
-  for (i = 0; i < gasnetc_num_ranks; i += 1) {
+  for (i = 0; i < gasneti_nodes; i += 1) {
     if (sorted[i * itemsize] != i) {
-      fprintf(stderr, "rank %d Allgather rank %d missing\n", gasnetc_rank, i);
+      fprintf(stderr, "rank %d Allgather rank %d missing\n", gasneti_mynode, i);
       gasnetc_GNIT_Abort();
     }
     memcpy((void *) ((uintptr_t) global + (i * length)), &sorted[(i * itemsize) + 1], length);
   }
   /* check own data */
-  if (memcmp(local, (void *) ((uintptr_t ) global + (gasnetc_rank * length)), length) != 0) {
-    fprintf(stderr, "rank %d, allgather error\n", gasnetc_rank);
+  if (memcmp(local, (void *) ((uintptr_t ) global + (gasneti_mynode * length)), length) != 0) {
+    fprintf(stderr, "rank %d, allgather error\n", gasneti_mynode);
     gasnetc_GNIT_Abort();
   }
   gasneti_free(unsorted);

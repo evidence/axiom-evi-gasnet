@@ -122,7 +122,7 @@ void gasnetc_init_segment(void *segment_start, size_t segment_size)
 #if GASNETC_DEBUG
   gasnetc_GNIT_Log("segment mapped %p, %p", segment_start, (void *) segment_size);
 #endif
-  peer_segment_data = gasneti_malloc(gasnetc_num_ranks * sizeof(peer_segment_struct_t));
+  peer_segment_data = gasneti_malloc(gasneti_nodes * sizeof(peer_segment_struct_t));
   assert(peer_segment_data);
   
   gasnetc_GNIT_Allgather(&mypeersegmentdata, sizeof(peer_segment_struct_t), peer_segment_data);
@@ -146,7 +146,7 @@ void gasnetc_init_messaging()
 
   gasnetc_queue_init(&smsg_work_queue);
 
-  status = GNI_CdmCreate(gasnetc_rank, gasnetc_GNIT_Ptag(), gasnetc_GNIT_Cookie(), 
+  status = GNI_CdmCreate(gasneti_mynode, gasnetc_GNIT_Ptag(), gasnetc_GNIT_Cookie(), 
 			 modes,
 			 &cdm_handle);
   gasneti_assert_always (status == GNI_RC_SUCCESS);
@@ -166,11 +166,11 @@ void gasnetc_init_messaging()
   gasneti_assert_always (status == GNI_RC_SUCCESS);
 
 
-  bound_ep_handles = (gni_ep_handle_t *)gasneti_malloc(gasnetc_num_ranks * sizeof(gni_ep_handle_t));
+  bound_ep_handles = (gni_ep_handle_t *)gasneti_malloc(gasneti_nodes * sizeof(gni_ep_handle_t));
   gasneti_assert_always(bound_ep_handles != NULL);
   gasnetc_UGNI_AllAddr = (uint32_t *)gasnetc_gather_nic_addresses();
 
-  for (i=0; i<gasnetc_num_ranks; i++) {
+  for (i=0; i<gasneti_nodes; i++) {
     status = GNI_EpCreate(nic_handle, bound_cq_handle, &bound_ep_handles[i]);
     gasneti_assert_always (status == GNI_RC_SUCCESS);
     remote_addr = gasnetc_UGNI_AllAddr[i];
@@ -188,7 +188,7 @@ void gasnetc_init_messaging()
    * allocate a CQ in which to receive message notifications
    */
 
-  status = GNI_CqCreate(nic_handle,gasnetc_num_ranks * MB_MAXCREDIT * 2,0,GNI_CQ_NOBLOCK,NULL,NULL,&smsg_cq_handle);
+  status = GNI_CqCreate(nic_handle,gasneti_nodes * MB_MAXCREDIT * 2,0,GNI_CQ_NOBLOCK,NULL,NULL,&smsg_cq_handle);
   if (status != GNI_RC_SUCCESS) {
     gasnetc_GNIT_Abort("GNI_CqCreate returned error %s\n", gni_return_string(status));
   }
@@ -203,7 +203,7 @@ void gasnetc_init_messaging()
   mypeerdata.smsg_attr.mbox_maxcredit = MB_MAXCREDIT;
   mypeerdata.smsg_attr.msg_maxsize = MSG_MAXSIZE;
 #if GASNETC_DEBUG
-  fprintf(stderr,"r %d maxcredit %d msg_maxsize %d\n", gasnetc_rank, MB_MAXCREDIT, (int)MSG_MAXSIZE);
+  fprintf(stderr,"r %d maxcredit %d msg_maxsize %d\n", gasneti_mynode, MB_MAXCREDIT, (int)MSG_MAXSIZE);
 #endif
 
   status = GNI_SmsgBufferSizeNeeded(&mypeerdata.smsg_attr,&bytes_per_mbox);
@@ -211,13 +211,13 @@ void gasnetc_init_messaging()
     gasnetc_GNIT_Abort("GNI_GetSmsgBufferSize returned error %s\n",gni_return_string(status));
   }
 #if GASNETC_DEBUG
-  fprintf(stderr,"r %d GetSmsgBufferSize says %d bytes for each mailbox\n", gasnetc_rank, bytes_per_mbox);
+  fprintf(stderr,"r %d GetSmsgBufferSize says %d bytes for each mailbox\n", gasneti_mynode, bytes_per_mbox);
 #endif
   bytes_per_mbox = GASNETI_ALIGNUP(bytes_per_mbox, CACHELINE_SIZE);
   /* test */
   bytes_per_mbox += mypeerdata.smsg_attr.mbox_maxcredit 
     * mypeerdata.smsg_attr.msg_maxsize;
-  bytes_needed = gasnetc_num_ranks * bytes_per_mbox;
+  bytes_needed = gasneti_nodes * bytes_per_mbox;
   
 #if GASNETC_DEBUG
   fprintf(stderr,"Allocating %d bytes for each mailbox\n",bytes_per_mbox);
@@ -271,17 +271,17 @@ void gasnetc_init_messaging()
 #endif
 
     /* exchange peer data */
-  mypeerdata.rank = gasnetc_rank;
-  mypeerdata.nic_address = gasnetc_UGNI_AllAddr[gasnetc_rank];
+  mypeerdata.rank = gasneti_mynode;
+  mypeerdata.nic_address = gasnetc_UGNI_AllAddr[gasneti_mynode];
   
-  peer_data = gasneti_malloc(gasnetc_num_ranks * sizeof(peer_struct_t));
+  peer_data = gasneti_malloc(gasneti_nodes * sizeof(peer_struct_t));
   gasneti_assert_always(peer_data);
   
   gasnetc_GNIT_Allgather(&mypeerdata, sizeof(peer_struct_t), peer_data);
   
   /* At this point, peer_data has information for everyone */
   /* We need to patch up the smsg data, fixing the remote start addresses */
-  for (i = 0; i < gasnetc_num_ranks; i += 1) {
+  for (i = 0; i < gasneti_nodes; i += 1) {
     /* each am takes 2 credits (req and reply) and the pool is split between
      * requests travelling each way
      */
@@ -289,7 +289,7 @@ void gasnetc_init_messaging()
     gasneti_weakatomic_set(&peer_data[i].am_credit, MB_MAXCREDIT / 4, 0);
     gasneti_weakatomic_set(&peer_data[i].fma_credit, 1, 0);
     gasnetc_queue_item_init(&peer_data[i].qi);
-    peer_data[i].smsg_attr.mbox_offset = bytes_per_mbox * gasnetc_rank;
+    peer_data[i].smsg_attr.mbox_offset = bytes_per_mbox * gasneti_mynode;
     mypeerdata.smsg_attr.mbox_offset = bytes_per_mbox * i;
     status = GNI_SmsgInit(bound_ep_handles[i],
 			  &mypeerdata.smsg_attr,
@@ -333,20 +333,20 @@ void gasnetc_shutdown(void)
 
   // for each rank
   tries = 0;
-  left = gasnetc_num_ranks;
+  left = gasneti_nodes;
   while (left > 0) {
     tries += 1;
-    for (i = 0; i < gasnetc_num_ranks; i += 1) {
+    for (i = 0; i < gasneti_nodes; i += 1) {
       if (bound_ep_handles[i] != NULL) {
 	status = GNI_EpUnbind(bound_ep_handles[i]);
 	if (status != GNI_RC_SUCCESS) {
 	  fprintf(stderr, "node %d shutdown epunbind %d try %d  got %s\n",
-		  gasnetc_rank, i, tries, gni_return_string(status));
+		  gasneti_mynode, i, tries, gni_return_string(status));
 	} 
 	status = GNI_EpDestroy(bound_ep_handles[i]);
 	if (status != GNI_RC_SUCCESS) {
 	  fprintf(stderr, "node %d shutdown epdestroy %d try %d  got %s\n",
-		  gasnetc_rank, i, tries, gni_return_string(status));
+		  gasneti_mynode, i, tries, gni_return_string(status));
 	} else {
 	  bound_ep_handles[i] = NULL;
 	  left -= 1;
@@ -357,7 +357,7 @@ void gasnetc_shutdown(void)
   }
   if (left > 0) {
     fprintf(stderr, "node %d %d endpoints left after 10 tries\n", 
-	    gasnetc_rank, left);
+	    gasneti_mynode, left);
   }
   status = GNI_MemDeregister(nic_handle,
 			     &mypeersegmentdata.segment_mem_handle);
@@ -379,7 +379,7 @@ void gasnetc_shutdown(void)
 
   status = GNI_CdmDestroy(cdm_handle);
   gasneti_assert_always (status == GNI_RC_SUCCESS);
-  //  fprintf(stderr, "node %d gasnetc_shutdown done\n", gasnetc_rank);
+  //  fprintf(stderr, "node %d gasnetc_shutdown done\n", gasneti_mynode);
 }
 
 
@@ -462,11 +462,11 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
 	gasnetc_GNIT_Abort("numargs %d, max is %ld\n", numargs, gasnet_AMMaxArgs());
       }
       /* this only works for fewer than 256 ranks
-      if (gasnetc_rank != recv_header->to) {
-	gasnetc_GNIT_Abort("rank %d but from %d\n", gasnetc_rank, recv_header->to);
+      if (gasneti_mynode != recv_header->to) {
+	gasnetc_GNIT_Abort("rank %d but from %d\n", gasneti_mynode, recv_header->to);
       }
       */
-      GASNETI_TRACE_PRINTF(A, ("smsg r from %d to %d type %s\n", pe, gasnetc_rank, gasnetc_type_string(recv_header->command)));
+      GASNETI_TRACE_PRINTF(A, ("smsg r from %d to %d type %s\n", pe, gasneti_mynode, gasnetc_type_string(recv_header->command)));
       switch (recv_header->command) {
       case GC_CMD_AM_NOP_REPLY: {
 	GASNETC_SMSGRELEASE(status, bound_ep_handles[pe]);
@@ -598,7 +598,7 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
       if (numargs > gasnet_AMMaxArgs()) {
 	gasnetc_GNIT_Abort("numargs %d, max is %ld\n", numargs, gasnet_AMMaxArgs());
       }
-      GASNETI_TRACE_PRINTF(A, ("smsg r from %d to %d type %s\n", pe, gasnetc_rank, gasnetc_type_string(recv_header->command)));
+      GASNETI_TRACE_PRINTF(A, ("smsg r from %d to %d type %s\n", pe, gasneti_mynode, gasnetc_type_string(recv_header->command)));
       switch (recv_header->command) {
       case GC_CMD_AM_NOP_REPLY: {
 	GASNETC_SMSGRELEASEUNLOCK(status, bound_ep_handles[pe]);
@@ -760,7 +760,7 @@ void gasnetc_poll_smsg_completion_queue()
     GASNETC_LOCK_QUEUE(&smsg_work_queue);
     for (i = 0; i < messages; i += 1) {
       source = gni_cq_get_inst_id(event_data[i]);
-      gasneti_assert(source < gasnetc_num_ranks);
+      gasneti_assert(source < gasneti_nodes);
       /* atomically enqueue the peer on the smsg queue if it isn't
 	 already there.  */
       if (peer_data[source].qi.queue == NULL)
@@ -790,7 +790,7 @@ void gasnetc_poll_smsg_completion_queue()
     GASNETC_UNLOCK_GNI();
     /* and enqueue everyone on the work queue, who isn't already */
     GASNETC_LOCK_QUEUE(&smsg_work_queue);
-    for (source = 0; source < gasnetc_num_ranks; source += 1) {
+    for (source = 0; source < gasneti_nodes; source += 1) {
       if (peer_data[source].qi.queue == NULL)
 	gasnetc_queue_enqueue_no_lock(&smsg_work_queue, 
 				 (gasnetc_queue_item_t *) &peer_data[source]);
@@ -895,7 +895,7 @@ int gasnetc_send(gasnet_node_t dest,
 	    void *data, int data_length)
 {
   gni_return_t status;
-  GASNETI_TRACE_PRINTF(A, ("smsg s from %d to %d type %s\n", gasnetc_rank, dest, gasnetc_type_string(((GC_Header_t *) header)->command)));
+  GASNETI_TRACE_PRINTF(A, ("smsg s from %d to %d type %s\n", gasneti_mynode, dest, gasnetc_type_string(((GC_Header_t *) header)->command)));
   for (;;) {
     GASNETC_LOCK_GNI();
 
@@ -911,23 +911,23 @@ int gasnetc_send(gasnet_node_t dest,
 
 
 static void print_post_desc(char *title, gni_post_descriptor_t *cmd) {
-  printf("r %d %s, desc addr %p\n", gasnetc_rank, title, cmd);
-  printf("r %d status: %ld\n", gasnetc_rank, cmd->status);
-  printf("r %d cq_mode_complete: 0x%x\n", gasnetc_rank, cmd->cq_mode_complete);
-  printf("r %d cq_mode_type: %d\n", gasnetc_rank, cmd->type);
-  printf("r %d cq_mode: 0x%x\n", gasnetc_rank, cmd->cq_mode);
-  printf("r %d dlvr_mode: 0x%x\n", gasnetc_rank, cmd->dlvr_mode);
-  printf("r %d local_address: %p(0x%lx, 0x%lx)\n", gasnetc_rank, (void *) cmd->local_addr, 
+  printf("r %d %s, desc addr %p\n", gasneti_mynode, title, cmd);
+  printf("r %d status: %ld\n", gasneti_mynode, cmd->status);
+  printf("r %d cq_mode_complete: 0x%x\n", gasneti_mynode, cmd->cq_mode_complete);
+  printf("r %d cq_mode_type: %d\n", gasneti_mynode, cmd->type);
+  printf("r %d cq_mode: 0x%x\n", gasneti_mynode, cmd->cq_mode);
+  printf("r %d dlvr_mode: 0x%x\n", gasneti_mynode, cmd->dlvr_mode);
+  printf("r %d local_address: %p(0x%lx, 0x%lx)\n", gasneti_mynode, (void *) cmd->local_addr, 
 	 cmd->local_mem_hndl.qword1, cmd->local_mem_hndl.qword2);
-  printf("r %d remote_address: %p(0x%lx, 0x%lx)\n", gasnetc_rank, (void *) cmd->remote_addr, 
+  printf("r %d remote_address: %p(0x%lx, 0x%lx)\n", gasneti_mynode, (void *) cmd->remote_addr, 
 	 cmd->remote_mem_hndl.qword1, cmd->remote_mem_hndl.qword2);
-  printf("r %d length: 0x%lx\n", gasnetc_rank, cmd->length);
-  printf("r %d rdma_mode: 0x%x\n", gasnetc_rank, cmd->rdma_mode);
-  printf("r %d src_cq_hndl: %p\n", gasnetc_rank, cmd->src_cq_hndl);
-  printf("r %d sync: (0x%lx,0x%lx)\n", gasnetc_rank, cmd->sync_flag_value, cmd->sync_flag_addr);
-  printf("r %d amo_cmd: %d\n", gasnetc_rank, cmd->amo_cmd);
-  printf("r %d amo: 0x%lx, 0x%lx\n", gasnetc_rank, cmd->first_operand, cmd->second_operand);
-  printf("r %d cqwrite_value: 0x%lx\n", gasnetc_rank, cmd->cqwrite_value);
+  printf("r %d length: 0x%lx\n", gasneti_mynode, cmd->length);
+  printf("r %d rdma_mode: 0x%x\n", gasneti_mynode, cmd->rdma_mode);
+  printf("r %d src_cq_hndl: %p\n", gasneti_mynode, cmd->src_cq_hndl);
+  printf("r %d sync: (0x%lx,0x%lx)\n", gasneti_mynode, cmd->sync_flag_value, cmd->sync_flag_addr);
+  printf("r %d amo_cmd: %d\n", gasneti_mynode, cmd->amo_cmd);
+  printf("r %d amo: 0x%lx, 0x%lx\n", gasneti_mynode, cmd->first_operand, cmd->second_operand);
+  printf("r %d cqwrite_value: 0x%lx\n", gasneti_mynode, cmd->cqwrite_value);
 }
 
 /* These are here due to transient resource problems in PostRdma
@@ -988,7 +988,7 @@ void gasnetc_rdma_put(gasnet_node_t dest,
   /*  bzero(&pd, sizeof(gni_post_descriptor_t)); */
   /* confirm that the destination is in-segment on the far end */
   gasneti_boundscheck(dest, dest_addr, nbytes);
-  if (!gasneti_in_segment(gasnetc_rank, source_addr, nbytes)) {
+  if (!gasneti_in_segment(gasneti_mynode, source_addr, nbytes)) {
     /* source not (entirely) in segment */
     /* if (nbytes < gasnetc_bounce_register_cutover)  then use bounce buffer
      * else mem-register
@@ -1132,7 +1132,7 @@ void gasnetc_rdma_get(gasnet_node_t dest,
   /* confirm that the destination is in-segment on the far end */
   gasneti_boundscheck(dest, source_addr, nbytes);
   /* check where the local addr is */
-  if (!gasneti_in_segment(gasnetc_rank, dest_addr, nbytes)) {
+  if (!gasneti_in_segment(gasneti_mynode, dest_addr, nbytes)) {
     /* dest not (entirely) in segment */
     /* if (nbytes < gasnetc_bounce_register_cutover)  then use bounce buffer
      * else mem-register
@@ -1253,7 +1253,7 @@ void gasnetc_get_am_credit(uint32_t pe)
   gasneti_weakatomic_t *p = &peer_data[pe].am_credit;
 #if GASNETC_DEBUG
   fprintf(stderr, "r %d get am credit for %d, before is %d\n",
-	 gasnetc_rank, pe, (int)gasneti_weakatomic_read(&peer_data[pe].am_credit, 0));
+	 gasneti_mynode, pe, (int)gasneti_weakatomic_read(&peer_data[pe].am_credit, 0));
 #endif
   /* poll at least once, to assure forward progress */
   do {
@@ -1266,7 +1266,7 @@ void gasnetc_return_am_credit(uint32_t pe)
   gasneti_weakatomic_increment(&peer_data[pe].am_credit, GASNETI_ATOMIC_NONE);
 #if GASNETC_DEBUG
   fprintf(stderr, "r %d return am credit for %d, after is %d\n",
-	 gasnetc_rank, pe, (int)gasneti_weakatomic_read(&peer_data[pe].am_credit, 0));
+	 gasneti_mynode, pe, (int)gasneti_weakatomic_read(&peer_data[pe].am_credit, 0));
 #endif
 }
 
@@ -1547,7 +1547,7 @@ gasneti_auxseg_request_t gasnetc_bounce_auxseg_alloc(gasnet_seginfo_t *auxseg_in
   }	
   else { /* auxseg granted */
     /* The only one we care about is our own node */
-    gasnetc_bounce_buffers = auxseg_info[gasnetc_rank];
+    gasnetc_bounce_buffers = auxseg_info[gasneti_mynode];
 #if GASNET_DEBUG_VERBOSE
     fprintf(stderr, "got auxseg %p size %ld\n", gasnetc_bounce_buffers.addr,
 	    gasnetc_bounce_buffers.size);
@@ -1577,7 +1577,7 @@ gasneti_auxseg_request_t gasnetc_pd_auxseg_alloc(gasnet_seginfo_t *auxseg_info) 
   }	
   else { /* auxseg granted */
     /* The only one we care about is our own node */
-    gasnetc_pd_buffers = auxseg_info[gasnetc_rank];
+    gasnetc_pd_buffers = auxseg_info[gasneti_mynode];
 #if GASNET_DEBUG_VERBOSE
     fprintf(stderr, "got pd auxseg %p size %ld\n", gasnetc_pd_buffers.addr,
 	    gasnetc_pd_buffers.size);
