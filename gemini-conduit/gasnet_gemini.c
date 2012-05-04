@@ -493,7 +493,7 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
 	im_data = (void *) ((uintptr_t) recv_header + head_length);
 	memcpy(buffer, im_data, length);
 	GASNETC_SMSGRELEASE(status, bound_ep_handles[pe]);
-	gasnetc_handle_am_medium_packet(1, pe, &packet.gamp, im_data);
+	gasnetc_handle_am_medium_packet(1, pe, &packet.gamp, buffer);
 	gasnetc_send_am_nop(pe);
 	break;
       }
@@ -658,10 +658,9 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
       case GC_CMD_AM_LONG_REPLY: {
 	head_length = GASNETC_HEADLEN(long, numargs);
 	memcpy(&packet, recv_header, head_length);
-	length = packet.galp.data_length;
 	if (packet.galp.header.misc) { /* payload follows header - copy it into place */
 	  im_data = (void *) (((uintptr_t) recv_header) + head_length);
-	  memcpy(packet.galp.data, im_data, length);
+	  memcpy(packet.galp.data, im_data, packet.galp.data_length);
 	}
 	GASNETC_SMSGRELEASEUNLOCK(status, bound_ep_handles[pe]);
 	gasnetc_handle_am_long_packet(0, pe, &packet.galp);
