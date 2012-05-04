@@ -842,8 +842,7 @@ void gasnetc_poll_local_queue()
       }
       if (gpd->flags & GC_POST_SEND) {
 	status = GNI_SmsgSend(bound_ep_handles[gpd->dest], &gpd->u.galp, 
-			      sizeof(gasnetc_am_long_packet_t) + 
-			      (gpd->u.galp.header.numargs * sizeof(uint32_t)),
+			      GASNETC_HEADLEN(long, gpd->u.galp.header.numargs),
 			      NULL, 0, 0);
 	gasneti_assert_always (status == GNI_RC_SUCCESS);
       }
