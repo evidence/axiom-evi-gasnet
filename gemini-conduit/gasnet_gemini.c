@@ -6,11 +6,9 @@
 #include <sys/mman.h>
 #include <signal.h>
 
-/* LCS MSG_MAXSIZE should be AM medium sized */
+/* TODO: env var */
 #define MB_MAXCREDIT 48 /* = 16 * 3 */
-#define CACHELINE_SIZE 64
-#define MSG_MAXSIZE GASNETI_ALIGNUP((sizeof(gasnetc_am_medium_packet_max_t)\
-                                    + gasnet_AMMaxMedium()), CACHELINE_SIZE)
+
 int gasnetc_poll_burst = 10;
 static gasnetc_queue_t smsg_work_queue;
 
@@ -201,9 +199,9 @@ uintptr_t gasnetc_init_messaging()
 
   mypeerdata.smsg_attr.msg_type = GNI_SMSG_TYPE_MBOX;
   mypeerdata.smsg_attr.mbox_maxcredit = MB_MAXCREDIT;
-  mypeerdata.smsg_attr.msg_maxsize = MSG_MAXSIZE;
+  mypeerdata.smsg_attr.msg_maxsize = GASNETC_MSG_MAXSIZE;
 #if GASNETC_DEBUG
-  fprintf(stderr,"r %d maxcredit %d msg_maxsize %d\n", gasneti_mynode, MB_MAXCREDIT, (int)MSG_MAXSIZE);
+  fprintf(stderr,"r %d maxcredit %d msg_maxsize %d\n", gasneti_mynode, MB_MAXCREDIT, (int)GASNETC_MSG_MAXSIZE);
 #endif
 
   status = GNI_SmsgBufferSizeNeeded(&mypeerdata.smsg_attr,&bytes_per_mbox);
@@ -213,7 +211,7 @@ uintptr_t gasnetc_init_messaging()
 #if GASNETC_DEBUG
   fprintf(stderr,"r %d GetSmsgBufferSize says %d bytes for each mailbox\n", gasneti_mynode, bytes_per_mbox);
 #endif
-  bytes_per_mbox = GASNETI_ALIGNUP(bytes_per_mbox, CACHELINE_SIZE);
+  bytes_per_mbox = GASNETI_ALIGNUP(bytes_per_mbox, GASNETC_CACHELINE_SIZE);
   /* test */
   bytes_per_mbox += mypeerdata.smsg_attr.mbox_maxcredit 
     * mypeerdata.smsg_attr.msg_maxsize;
@@ -263,7 +261,7 @@ uintptr_t gasnetc_init_messaging()
   mypeerdata.smsg_attr.msg_buffer = smsg_mmap_ptr;
   mypeerdata.smsg_attr.buff_size = bytes_per_mbox;
   mypeerdata.smsg_attr.mbox_maxcredit = MB_MAXCREDIT;
-  mypeerdata.smsg_attr.msg_maxsize = MSG_MAXSIZE;
+  mypeerdata.smsg_attr.msg_maxsize = GASNETC_MSG_MAXSIZE;
   
 
 #if GASNETC_DEBUG
@@ -502,10 +500,9 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
       case GC_CMD_AM_LONG: {
 	head_length = GASNETC_HEADLEN(long, numargs);
 	memcpy(&packet, recv_header, head_length);
-	length = packet.galp.data_length;
-	if (length <= gasnet_AMMaxMedium()) {
+	if (packet.galp.header.misc) { /* payload follows header - copy it into place */
 	  im_data = (void *) (((uintptr_t) recv_header) + head_length);
-	  memcpy(packet.galp.data, im_data, length);
+	  memcpy(packet.galp.data, im_data, packet.galp.data_length);
 	}
 	GASNETC_SMSGRELEASE(status, bound_ep_handles[pe]);
 	gasnetc_handle_am_long_packet(1, pe, &packet.galp);
@@ -536,10 +533,9 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
       case GC_CMD_AM_LONG_REPLY: {
 	head_length = GASNETC_HEADLEN(long, numargs);
 	memcpy(&packet, recv_header, head_length);
-	length = packet.galp.data_length;
-	if (length <= gasnet_AMMaxMedium()) {
+	if (packet.galp.header.misc) { /* payload follows header - copy it into place */
 	  im_data = (void *) (((uintptr_t) recv_header) + head_length);
-	  memcpy(packet.galp.data, im_data, length);
+	  memcpy(packet.galp.data, im_data, packet.galp.data_length);
 	}
 	GASNETC_SMSGRELEASE(status, bound_ep_handles[pe]);
 	gasnetc_handle_am_long_packet(0, pe, &packet.galp);
@@ -629,10 +625,9 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
       case GC_CMD_AM_LONG: {
 	head_length = GASNETC_HEADLEN(long, numargs);
 	memcpy(&packet, recv_header, head_length);
-	length = packet.galp.data_length;
-	if (length <= gasnet_AMMaxMedium()) {
+	if (packet.galp.header.misc) { /* payload follows header - copy it into place */
 	  im_data = (void *) (((uintptr_t) recv_header) + head_length);
-	  memcpy(packet.galp.data, im_data, length);
+	  memcpy(packet.galp.data, im_data, packet.galp.data_length);
 	}
 	GASNETC_SMSGRELEASEUNLOCK(status, bound_ep_handles[pe]);
 	gasnetc_handle_am_long_packet(1, pe, &packet.galp);
@@ -664,7 +659,7 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
 	head_length = GASNETC_HEADLEN(long, numargs);
 	memcpy(&packet, recv_header, head_length);
 	length = packet.galp.data_length;
-	if (length <= gasnet_AMMaxMedium()) {
+	if (packet.galp.header.misc) { /* payload follows header - copy it into place */
 	  im_data = (void *) (((uintptr_t) recv_header) + head_length);
 	  memcpy(packet.galp.data, im_data, length);
 	}

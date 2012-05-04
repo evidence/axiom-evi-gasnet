@@ -204,6 +204,18 @@ typedef union gasnetc_eq_packet {
 #define GASNETC_HEADLEN(cat,nargs) \
         GASNETC_HEADLEN_AUX(gasnetc_am_##cat##_packet_t,(nargs))
 
+/* maximum SMSG size: */
+#define GASNETC_CACHELINE_SIZE 64
+#define GASNETC_MSG_MAXSIZE \
+        GASNETI_ALIGNUP((GASNETC_HEADLEN(medium, gasnet_AMMaxArgs()) \
+                          + gasnet_AMMaxMedium()), GASNETC_CACHELINE_SIZE)
+
+/* max data one can pack into SMSG with a long header: */
+/* XXX: note 8-byte "fudge" because Larry K. has indicated some overhead exists */
+/* TODO: runtime control of cut-off via an env var */
+#define GASNETC_MAX_PACKED_LONG(nargs) \
+        (GASNETC_MSG_MAXSIZE - GASNETC_HEADLEN(long, (nargs)) - 8)
+
 /* Routines in gc_utils.c */
 
 uint32_t *gasnetc_UGNI_AllAddr;

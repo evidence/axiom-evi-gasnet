@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2012/05/04 20:08:09 $
- * $Revision: 1.19 $
+ *     $Date: 2012/05/04 22:41:27 $
+ * $Revision: 1.20 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -779,7 +779,7 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
     /* (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
              and send the active message 
      */
-    /* LCS if size fits in medium, just send message, and copy will be done
+    /* LCS if size fits in packet, just send message, and copy will be done
        at destination
      * if size is large, use RDMA plus SMSG
      * for blocking, wait for completion of the rdma, then smsg
@@ -787,10 +787,10 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
     struct gasnetc_am_long_packet_max m;
     gasnetc_get_am_credit(dest);
     /* fma credit needed here? LCS XXX */
-    if (nbytes <= gasnet_AMMaxMedium()) {
+    if (nbytes <= GASNETC_MAX_PACKED_LONG(numargs)) {
       /* send data in packet payload */
       m.header.command = GC_CMD_AM_LONG;
-      m.header.misc    = 0;
+      m.header.misc    = 1; /* indicates packed format */
       m.header.numargs = numargs;
       m.header.handler = handler;
       m.data_length = nbytes;
@@ -853,11 +853,11 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
 #endif
   {
     gasnetc_get_am_credit(dest);
-    if (nbytes <= gasnet_AMMaxMedium()) {
+    if (nbytes <= GASNETC_MAX_PACKED_LONG(numargs)) {
       struct gasnetc_am_long_packet_max m;
       /* send data in packet payload */
       m.header.command = GC_CMD_AM_LONG;
-      m.header.misc    = 0;
+      m.header.misc    = 1; /* indicates packed format */
       m.header.numargs = numargs;
       m.header.handler = handler;
       m.data_length = nbytes;
@@ -995,9 +995,9 @@ extern int gasnetc_AMReplyLongM(
      */
     struct gasnetc_am_long_packet_max m;
     GASNETI_SAFE(gasnetc_AMGetMsgSource(token, &dest));
-    if (nbytes <= gasnet_AMMaxMedium()) {
+    if (nbytes <= GASNETC_MAX_PACKED_LONG(numargs)) {
       m.header.command = GC_CMD_AM_LONG_REPLY;
-      m.header.misc    = 0;
+      m.header.misc    = 1; /* indicates packed format */
       m.header.numargs = numargs;
       m.header.handler = handler;
       m.data_length = nbytes;
