@@ -622,7 +622,7 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
 
 	if (packet.gamp.data_length > gasnet_AMMaxMedium()) {
 	  gasnetc_GNIT_Abort("medium data_length %ld, max is %ld\n", 
-		     packet.gamp.data_length, gasnet_AMMaxMedium());
+		     (long)packet.gamp.data_length, gasnet_AMMaxMedium());
 	}
 	memcpy(buffer, im_data, packet.gamp.data_length);
 	GASNETC_SMSGRELEASEUNLOCK(status, bound_ep_handles[pe]);
@@ -657,7 +657,7 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
 
 	if (packet.gamp.data_length > gasnet_AMMaxMedium()) {
 	  gasnetc_GNIT_Abort("medium data_length %ld, max is %ld\n", 
-		     packet.gamp.data_length, gasnet_AMMaxMedium());
+		     (long)packet.gamp.data_length, gasnet_AMMaxMedium());
 	}
 	head_length = GASNETI_ALIGNUP(sizeof(gasnetc_am_medium_packet_t) +
 				      (numargs * sizeof(uint32_t)), 8);
