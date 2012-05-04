@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2012/05/04 01:30:55 $
- * $Revision: 1.14 $
+ *     $Date: 2012/05/04 05:13:32 $
+ * $Revision: 1.15 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -122,13 +122,13 @@ static void try_pin_free(void) {
 /* ---------------------------------------------------------------------------------
  * Determine the largest amount of memory that can be pinned on the node.
  * --------------------------------------------------------------------------------- */
-extern uintptr_t gasnetc_portalsMaxPinMem(void)
+extern uintptr_t gasnetc_portalsMaxPinMem(uintptr_t msgspace)
 {
 #define MBYTE 1048576ULL
-  uint64_t granularity = 16ULL * MBYTE;
-  uint64_t low;
-  uint64_t high;
-  uint64_t limit = 16ULL * 1024ULL * MBYTE;
+  uintptr_t granularity = 16ULL * MBYTE;
+  uintptr_t low;
+  uintptr_t high;
+  uintptr_t limit = 16ULL * 1024ULL * MBYTE;
 #undef MBYTE
 
   /* On CNL, if we try to pin beyond what the OS will allow, the job is killed.
@@ -138,12 +138,18 @@ extern uintptr_t gasnetc_portalsMaxPinMem(void)
    * memory.  If that is too big, then the job will be killed at startup.
    * The gasneti_mmapLimit() ensures limit is per compute node, not per process.
    */
-  uint64_t pm_limit = gasneti_getPhysMemSz(1) *
+  uintptr_t pm_limit = gasneti_getPhysMemSz(1) *
                       gasneti_getenv_dbl_withdefault(
                         "GASNET_PHYSMEM_PINNABLE_RATIO", 
                         GASNETC_DEFAULT_PHYSMEM_PINNABLE_RATIO);
 
   pm_limit = gasneti_getenv_int_withdefault("GASNET_PHYSMEM_MAX", pm_limit, 1);
+
+  msgspace *= gasneti_nodemap_local_count;
+  if (pm_limit < msgspace || (pm_limit - msgspace) < (granularity * gasneti_nodemap_local_count)) {
+    gasneti_fatalerror("Insufficient physical memory left for a GASNet segment");
+  }
+  pm_limit -= msgspace;
 
   limit = gasneti_mmapLimit(limit, pm_limit,
                             &gasnetc_bootstrapExchange,
@@ -171,6 +177,7 @@ extern uintptr_t gasnetc_portalsMaxPinMem(void)
 
 
 static int gasnetc_init(int *argc, char ***argv) {
+  uintptr_t msgspace;
   char *errstring;
   int ret;
   int localranks;
@@ -264,7 +271,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     fprintf(stderr,"gasnetc_init(): node %i/%i calling gasnetc_init_messaging.\n", 
       gasneti_mynode, gasneti_nodes); fflush(stderr);
   #endif
-  gasnetc_init_messaging();
+  msgspace = gasnetc_init_messaging();
   #if GASNET_DEBUG_VERBOSE
     fprintf(stderr,"gasnetc_init(): node %i/%i finished gasnetc_init_messaging.\n", 
       gasneti_mynode, gasneti_nodes); fflush(stderr);
@@ -285,7 +292,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     /* LCS  Use segment size strategy from portals-conduit (CNL only) */
   #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
     { 
-      uintptr_t max_pin = gasnetc_portalsMaxPinMem();
+      uintptr_t max_pin = gasnetc_portalsMaxPinMem(msgspace);
 
 
 #if GASNET_DEBUG_VERBOSE

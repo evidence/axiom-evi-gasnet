@@ -330,7 +330,7 @@ int gasnetc_sys_exit(int *exitcode);
 
 int gasnetc_gem_init(char **errstringp);
 void gasnetc_init_segment(void *segment_start, size_t segment_size);
-void gasnetc_init_messaging(void);
+uintptr_t gasnetc_init_messaging(void);
 void gasnetc_shutdown(void); /* clean up all gni state */
 
 

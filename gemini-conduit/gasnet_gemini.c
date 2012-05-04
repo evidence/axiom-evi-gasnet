@@ -128,7 +128,7 @@ void gasnetc_init_segment(void *segment_start, size_t segment_size)
   gasnetc_GNIT_Allgather(&mypeersegmentdata, sizeof(peer_segment_struct_t), peer_segment_data);
 }
 
-void gasnetc_init_messaging()
+uintptr_t gasnetc_init_messaging()
 {
   gni_return_t status;
   uint32_t peer;
@@ -317,6 +317,8 @@ void gasnetc_init_messaging()
     gasnetc_fma_rdma_cutover = GASNETC_GNI_FMA_RDMA_CUTOVER_MAX;
 
   gasnetc_GNIT_Barrier();
+
+  return bytes_needed;
 }
 
 void gasnetc_shutdown(void)
