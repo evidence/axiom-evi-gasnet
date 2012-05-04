@@ -88,16 +88,13 @@ typedef gasneti_mutex_t gasnetc_queuelock_t;
   gasneti_mutex_unlock(&gasnetc_conn_queue[srcnode].lock)
 #endif
 
-/* Used in SEQ mode only */
-#define GASNETC_SMSGRELEASE(status, eph)  \
-  GASNETC_LOCK_GNI();					\
-  status = GNI_SmsgRelease(eph);			\
-  GASNETC_UNLOCK_GNI()
-
-/* Used in PAR and PARYSNC modes */
-#define GASNETC_SMSGRELEASEUNLOCK(status, eph) \
-  status = GNI_SmsgRelease(eph);	       \
-  GASNETC_UNLOCK_GNI()
+#if GASNET_SEQ
+  #define GASNETC_UNLOCK_GNI_IF_SEQ() GASNETC_UNLOCK_GNI()
+  #define GASNETC_UNLOCK_GNI_IF_PAR() ((void)0)
+#else
+  #define GASNETC_UNLOCK_GNI_IF_SEQ() ((void)0)
+  #define GASNETC_UNLOCK_GNI_IF_PAR() GASNETC_UNLOCK_GNI()
+#endif
 
 /* create pshm compatible active message token from from address */
 #define GC_CREATE_TOKEN(x) ((void *)( ((uint64_t) (x) + 1) << 1))
