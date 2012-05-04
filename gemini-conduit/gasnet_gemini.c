@@ -385,7 +385,7 @@ void gasnetc_shutdown(void)
 
 
 static
-void gasnetc_handle_am_short_packet(int req, uint32_t source, 
+void gasnetc_handle_am_short_packet(int req, gasnet_node_t source, 
 			       gasnetc_am_short_packet_max_t *am)
 {
   int handlerindex = am->header.handler;
@@ -399,10 +399,12 @@ void gasnetc_handle_am_short_packet(int req, uint32_t source,
 			    token,
 			    pargs,
 			    numargs);
+  if (req)
+    gasnetc_send_am_nop(source);
 }
 
 static
-void gasnetc_handle_am_medium_packet(int req, uint32_t source, 
+void gasnetc_handle_am_medium_packet(int req, gasnet_node_t source, 
 				gasnetc_am_medium_packet_max_t *am, void* data)
 {
   int handlerindex = am->header.handler;
@@ -418,11 +420,12 @@ void gasnetc_handle_am_medium_packet(int req, uint32_t source,
 			     numargs,
 			     data,
 			     am->header.misc);
-
+  if (req)
+    gasnetc_send_am_nop(source);
 }
 
 static
-void gasnetc_handle_am_long_packet(int req, uint32_t source, 
+void gasnetc_handle_am_long_packet(int req, gasnet_node_t source, 
 			      gasnetc_am_long_packet_max_t *am)
 {
   int handlerindex = am->header.handler;
@@ -438,6 +441,8 @@ void gasnetc_handle_am_long_packet(int req, uint32_t source,
 			   numargs,
 			   am->data,
 			   am->data_length);
+  if (req)
+    gasnetc_send_am_nop(source);
 }
 
 
@@ -454,6 +459,7 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
   uint32_t head_length;
   size_t length;
   uint32_t numargs;
+  int is_req;
   for (;;) {
     GASNETC_LOCK_GNI();
     status = GNI_SmsgGetNext(bound_ep_handles[pe], 
@@ -466,6 +472,7 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
 	gasnetc_GNIT_Abort("numargs %d, max is %ld\n", numargs, gasnet_AMMaxArgs());
       }
       GASNETI_TRACE_PRINTF(A, ("smsg r from %d to %d type %s\n", pe, gasneti_mynode, gasnetc_type_string(recv_header->command)));
+      is_req = (1 & recv_header->command); /* Requests have ODD values */
       switch (recv_header->command) {
       case GC_CMD_AM_NOP_REPLY: {
 	status = GNI_SmsgRelease(bound_ep_handles[pe]);
@@ -473,57 +480,21 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
 	gasnetc_return_am_credit(pe);
 	break;
       }
-      case GC_CMD_AM_SHORT: {
-	head_length = GASNETC_HEADLEN(short, numargs);
-	memcpy(&packet, recv_header, head_length);
-	status = GNI_SmsgRelease(bound_ep_handles[pe]);
-	GASNETC_UNLOCK_GNI_IF_PAR();
-	gasnetc_handle_am_short_packet(1, pe, &packet.gasp);
-	gasnetc_send_am_nop(pe);
-	break;
-      }
-      case GC_CMD_AM_MEDIUM: {
-	head_length = GASNETC_HEADLEN(medium, numargs);
-	memcpy(&packet, recv_header, head_length);
-	length = packet.gamp.header.misc;
-	if (length > gasnet_AMMaxMedium()) {
-	  gasnetc_GNIT_Abort("medium data_length %d, max is %ld\n", 
-		     (int)length, gasnet_AMMaxMedium());
-	}
-	im_data = (void *) ((uintptr_t) recv_header + head_length);
-	memcpy(buffer, im_data, length);
-	status = GNI_SmsgRelease(bound_ep_handles[pe]);
-	GASNETC_UNLOCK_GNI_IF_PAR();
-	gasnetc_handle_am_medium_packet(1, pe, &packet.gamp, buffer);
-	gasnetc_send_am_nop(pe);
-	break;
-      }
-      case GC_CMD_AM_LONG: {
-	head_length = GASNETC_HEADLEN(long, numargs);
-	memcpy(&packet, recv_header, head_length);
-	if (packet.galp.header.misc) { /* payload follows header - copy it into place */
-	  im_data = (void *) (((uintptr_t) recv_header) + head_length);
-	  memcpy(packet.galp.data, im_data, packet.galp.data_length);
-	}
-	status = GNI_SmsgRelease(bound_ep_handles[pe]);
-	GASNETC_UNLOCK_GNI_IF_PAR();
-	gasnetc_handle_am_long_packet(1, pe, &packet.galp);
-	gasnetc_send_am_nop(pe);
-	break;
-      }
+      case GC_CMD_AM_SHORT:
       case GC_CMD_AM_SHORT_REPLY: {
 	head_length = GASNETC_HEADLEN(short, numargs);
 	memcpy(&packet, recv_header, head_length);
 	status = GNI_SmsgRelease(bound_ep_handles[pe]);
 	GASNETC_UNLOCK_GNI_IF_PAR();
-	gasnetc_handle_am_short_packet(0, pe, &packet.gasp);
+	gasnetc_handle_am_short_packet(is_req, pe, &packet.gasp);
 	break;
       }
+      case GC_CMD_AM_MEDIUM:
       case GC_CMD_AM_MEDIUM_REPLY: {
 	head_length = GASNETC_HEADLEN(medium, numargs);
 	memcpy(&packet, recv_header, head_length);
 	length = packet.gamp.header.misc;
-	if (length > gasnet_AMMaxMedium()) {
+	if_pf (length > gasnet_AMMaxMedium()) {
 	  gasnetc_GNIT_Abort("medium data_length %d, max is %ld\n", 
 		     (int)length, gasnet_AMMaxMedium());
 	}
@@ -531,9 +502,10 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
 	memcpy(buffer, im_data, length);
 	status = GNI_SmsgRelease(bound_ep_handles[pe]);
 	GASNETC_UNLOCK_GNI_IF_PAR();
-	gasnetc_handle_am_medium_packet(0, pe, &packet.gamp, buffer);
+	gasnetc_handle_am_medium_packet(is_req, pe, &packet.gamp, buffer);
 	break;
       }
+      case GC_CMD_AM_LONG:
       case GC_CMD_AM_LONG_REPLY: {
 	head_length = GASNETC_HEADLEN(long, numargs);
 	memcpy(&packet, recv_header, head_length);
@@ -543,7 +515,7 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
 	}
 	status = GNI_SmsgRelease(bound_ep_handles[pe]);
 	GASNETC_UNLOCK_GNI_IF_PAR();
-	gasnetc_handle_am_long_packet(0, pe, &packet.galp);
+	gasnetc_handle_am_long_packet(is_req, pe, &packet.galp);
 	break;
       }
       case GC_CMD_SYS_SHUTDOWN_REQUEST: {

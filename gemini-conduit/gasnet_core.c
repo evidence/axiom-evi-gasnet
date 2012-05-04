@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2012/05/04 22:41:27 $
- * $Revision: 1.20 $
+ *     $Date: 2012/05/04 23:58:35 $
+ * $Revision: 1.21 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -42,6 +42,14 @@ static void gasnetc_check_config(void) {
 
   /* (###) add code to do some sanity checks on the number of nodes, handlers
    * and/or segment sizes */ 
+
+  /* Request and Reply must be distinguishable by least-significant bit: */
+  gasneti_assert(1 == (1 & GC_CMD_AM_SHORT));
+  gasneti_assert(1 == (1 & GC_CMD_AM_MEDIUM));
+  gasneti_assert(1 == (1 & GC_CMD_AM_LONG));
+  gasneti_assert(0 == (1 & GC_CMD_AM_SHORT_REPLY));
+  gasneti_assert(0 == (1 & GC_CMD_AM_MEDIUM_REPLY));
+  gasneti_assert(0 == (1 & GC_CMD_AM_LONG_REPLY));
 }
 
 static void gasnetc_bootstrapBarrier(void) {

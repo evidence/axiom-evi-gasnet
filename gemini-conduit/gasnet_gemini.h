@@ -105,14 +105,14 @@ typedef gasneti_mutex_t gasnetc_queuelock_t;
         ((structname*)(((uintptr_t)fieldaddr) - offsetof(structname,fieldname)))
 
 
-enum GC_CMD {
-    GC_CMD_NULL = 1,
-    GC_CMD_AM_SHORT,
-    GC_CMD_AM_LONG,
-    GC_CMD_AM_MEDIUM,
+enum GC_CMD { /* AM Request types must have ODD values */
+    GC_CMD_NULL = 0,
+    GC_CMD_AM_SHORT = 1,
     GC_CMD_AM_SHORT_REPLY,
-    GC_CMD_AM_LONG_REPLY,
+    GC_CMD_AM_MEDIUM,
     GC_CMD_AM_MEDIUM_REPLY,
+    GC_CMD_AM_LONG,
+    GC_CMD_AM_LONG_REPLY,
     GC_CMD_AM_NOP_REPLY,
     GC_CMD_SYS_SHUTDOWN_REQUEST   /* from portals-conduit */
 };
