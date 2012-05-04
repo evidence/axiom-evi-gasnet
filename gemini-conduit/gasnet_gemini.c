@@ -386,9 +386,9 @@ void gasnetc_shutdown(void)
 }
 
 
-
+static
 void gasnetc_handle_am_short_packet(int req, uint32_t source, 
-			       gasnetc_am_short_packet_t *am)
+			       gasnetc_am_short_packet_max_t *am)
 {
   int handlerindex = am->header.handler;
   gasneti_handler_fn_t handler = gasnetc_handler[handlerindex];
@@ -403,8 +403,9 @@ void gasnetc_handle_am_short_packet(int req, uint32_t source,
 			    numargs);
 }
 
+static
 void gasnetc_handle_am_medium_packet(int req, uint32_t source, 
-				gasnetc_am_medium_packet_t *am, void* data)
+				gasnetc_am_medium_packet_max_t *am, void* data)
 {
   int handlerindex = am->header.handler;
   gasneti_handler_fn_t handler = gasnetc_handler[handlerindex];
@@ -421,8 +422,10 @@ void gasnetc_handle_am_medium_packet(int req, uint32_t source,
 			     am->header.misc);
 
 }
+
+static
 void gasnetc_handle_am_long_packet(int req, uint32_t source, 
-			      gasnetc_am_long_packet_t *am)
+			      gasnetc_am_long_packet_max_t *am)
 {
   int handlerindex = am->header.handler;
   gasneti_handler_fn_t handler = gasnetc_handler[handlerindex];
@@ -472,14 +475,13 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
 	break;
       }
       case GC_CMD_AM_SHORT: {
-	gasnetc_handle_am_short_packet(1, pe, (gasnetc_am_short_packet_t *) recv_header);
+	gasnetc_handle_am_short_packet(1, pe, (gasnetc_am_short_packet_max_t *) recv_header);
 	GASNETC_SMSGRELEASE(status, bound_ep_handles[pe]);
 	gasnetc_send_am_nop(pe);
 	break;
       }
       case GC_CMD_AM_MEDIUM: {
-	head_length = GASNETI_ALIGNUP(sizeof(gasnetc_am_medium_packet_t) 
-				      + (numargs * sizeof(uint32_t)), 8);
+	head_length = GASNETC_HEADLEN(medium, numargs);
 	im_data = (void *) ((uintptr_t) recv_header + head_length);
 	length = ((gasnetc_am_medium_packet_t *) recv_header)->header.misc;
 	if (length > gasnet_AMMaxMedium()) {
@@ -488,7 +490,7 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
 	}
 	gasnetc_handle_am_medium_packet(1, 
 				   pe, 
-				   (gasnetc_am_medium_packet_t *) recv_header, 
+				   (gasnetc_am_medium_packet_max_t *) recv_header, 
 				   im_data);
 	GASNETC_SMSGRELEASE(status, bound_ep_handles[pe]);
 	gasnetc_send_am_nop(pe);
@@ -497,26 +499,24 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
       case GC_CMD_AM_LONG: {
 	length = ((gasnetc_am_long_packet_t *) recv_header)->data_length;
 	if (length <= gasnet_AMMaxMedium()) {
-	  head_length = GASNETI_ALIGNUP(sizeof(gasnetc_am_long_packet_t) 
-					+ (numargs * sizeof(uint32_t)), 8);
+	  head_length = GASNETC_HEADLEN(long, numargs);
 	  im_data = (void *) (((uintptr_t) recv_header) + head_length);
 	  memcpy(((gasnetc_am_long_packet_t *) recv_header)->data, 
 		 im_data,
 		 length);
 	}
-	gasnetc_handle_am_long_packet(1, pe, (gasnetc_am_long_packet_t *) recv_header);
+	gasnetc_handle_am_long_packet(1, pe, (gasnetc_am_long_packet_max_t *) recv_header);
 	GASNETC_SMSGRELEASE(status, bound_ep_handles[pe]);
 	gasnetc_send_am_nop(pe);
 	break;
       }
       case GC_CMD_AM_SHORT_REPLY: {
-	gasnetc_handle_am_short_packet(0, pe, (gasnetc_am_short_packet_t *) recv_header);
+	gasnetc_handle_am_short_packet(0, pe, (gasnetc_am_short_packet_max_t *) recv_header);
 	GASNETC_SMSGRELEASE(status, bound_ep_handles[pe]);
 	break;
       }
       case GC_CMD_AM_MEDIUM_REPLY: {
-	head_length = GASNETI_ALIGNUP(sizeof(gasnetc_am_medium_packet_t) +
-				      (numargs * sizeof(uint32_t)), 8);
+	head_length = GASNETC_HEADLEN(medium, numargs);
 	im_data = (void *) ((uintptr_t) recv_header + head_length);
 	length = ((gasnetc_am_medium_packet_t *) recv_header)->header.misc;
 	if (length > gasnet_AMMaxMedium()) {
@@ -525,7 +525,7 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
 	}
 	gasnetc_handle_am_medium_packet(0, 
 				   pe, 
-				   (gasnetc_am_medium_packet_t *) recv_header, 
+				   (gasnetc_am_medium_packet_max_t *) recv_header, 
 				   im_data);
 	GASNETC_SMSGRELEASE(status, bound_ep_handles[pe]);
 	break;
@@ -533,15 +533,14 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
       case GC_CMD_AM_LONG_REPLY: {
 	length = ((gasnetc_am_long_packet_t *) recv_header)->data_length;
 	if (length <= gasnet_AMMaxMedium()) {
-	  head_length = GASNETI_ALIGNUP(sizeof(gasnetc_am_long_packet_t) 
-					+ (numargs * sizeof(uint32_t)), 8);
+	  head_length = GASNETC_HEADLEN(long, numargs);
 	  im_data = (void *) (((uintptr_t) recv_header) + head_length);
-	  /* The data is in the packet, so copy it cout */
+	  /* The data is in the packet, so copy it out */
 	  memcpy(((gasnetc_am_long_packet_t *) recv_header)->data, 
 		 im_data,
 		 length);
 	}
-	gasnetc_handle_am_long_packet(0, pe, (gasnetc_am_long_packet_t *) recv_header);
+	gasnetc_handle_am_long_packet(0, pe, (gasnetc_am_long_packet_max_t *) recv_header);
 	GASNETC_SMSGRELEASE(status, bound_ep_handles[pe]);
 	break;
       }
@@ -549,7 +548,7 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
 	gasnetc_sys_shutdown_packet_t packet;
 	memcpy(&packet, recv_header, sizeof(gasnetc_sys_shutdown_packet_t));
 	GASNETC_SMSGRELEASE(status, bound_ep_handles[pe]);
-	gasnetc_handle_sys_shutdown_packet(pe, (gasnetc_sys_shutdown_packet_t *)& packet);
+	gasnetc_handle_sys_shutdown_packet(pe, &packet);
 	break;
       }
       default: {
@@ -604,85 +603,75 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
 	break;
       }
       case GC_CMD_AM_SHORT: {
-	memcpy(&packet, recv_header, sizeof(gasnetc_am_short_packet_t) +
-	       numargs * sizeof(uint32_t));
+	head_length = GASNETC_HEADLEN(short, numargs);
+	memcpy(&packet, recv_header, head_length);
 	GASNETC_SMSGRELEASEUNLOCK(status, bound_ep_handles[pe]);
-	gasnetc_handle_am_short_packet(1, pe, (gasnetc_am_short_packet_t *) &packet);
+	gasnetc_handle_am_short_packet(1, pe, &packet.gasp);
 	gasnetc_send_am_nop(pe);
 	break;
       }
       case GC_CMD_AM_MEDIUM: {
-	head_length = GASNETI_ALIGNUP(sizeof(gasnetc_am_medium_packet_t) 
-				      + (numargs * sizeof(uint32_t)), 8);
+	head_length = GASNETC_HEADLEN(medium, numargs);
 	im_data = (void *) ((uintptr_t) recv_header + head_length);
-	memcpy(&packet, recv_header, sizeof(gasnetc_am_medium_packet_t) +
-	       numargs * sizeof(uint32_t));
-
+	memcpy(&packet, recv_header, head_length);
 	if (packet.gamp.header.misc > gasnet_AMMaxMedium()) {
 	  gasnetc_GNIT_Abort("medium data_length %ld, max is %ld\n", 
 		     (long)packet.gamp.header.misc, gasnet_AMMaxMedium());
 	}
 	memcpy(buffer, im_data, packet.gamp.header.misc);
 	GASNETC_SMSGRELEASEUNLOCK(status, bound_ep_handles[pe]);
-	gasnetc_handle_am_medium_packet(1, pe, (gasnetc_am_medium_packet_t *) &packet, buffer);
+	gasnetc_handle_am_medium_packet(1, pe, &packet.gamp, buffer);
 	gasnetc_send_am_nop(pe);
 	break;
       }
       case GC_CMD_AM_LONG: {
-	memcpy(&packet, recv_header, sizeof(gasnetc_am_long_packet_t) +
-	       numargs * sizeof(uint32_t));
+	head_length = GASNETC_HEADLEN(long, numargs);
+	memcpy(&packet, recv_header, head_length);
 	if (packet.galp.data_length <= gasnet_AMMaxMedium()) {
-	  head_length = GASNETI_ALIGNUP(sizeof(gasnetc_am_long_packet_t) 
-					+ (numargs * sizeof(uint32_t)), 8);
 	  im_data = (void *) (((uintptr_t) recv_header) + head_length);
 	  memcpy(packet.galp.data, im_data, packet.galp.data_length);
 	}
 	GASNETC_SMSGRELEASEUNLOCK(status, bound_ep_handles[pe]);
-	gasnetc_handle_am_long_packet(1, pe, (gasnetc_am_long_packet_t *) &packet);
+	gasnetc_handle_am_long_packet(1, pe, &packet.galp);
 	gasnetc_send_am_nop(pe);
 	break;
       }
       case GC_CMD_AM_SHORT_REPLY: {
-	memcpy(&packet, recv_header, sizeof(gasnetc_am_short_packet_t) +
-	       numargs * sizeof(uint32_t));
+	head_length = GASNETC_HEADLEN(short, numargs);
+	memcpy(&packet, recv_header, head_length);
 	GASNETC_SMSGRELEASEUNLOCK(status, bound_ep_handles[pe]);
-	gasnetc_handle_am_short_packet(0, pe, (gasnetc_am_short_packet_t *) &packet);
+	gasnetc_handle_am_short_packet(0, pe, &packet.gasp);
 	break;
       }
       case GC_CMD_AM_MEDIUM_REPLY: {
-	memcpy(&packet, recv_header, sizeof(gasnetc_am_medium_packet_t) +
-	       numargs * sizeof(uint32_t));
-
+	head_length = GASNETC_HEADLEN(medium, numargs);
+	memcpy(&packet, recv_header, head_length);
 	if (packet.gamp.header.misc > gasnet_AMMaxMedium()) {
 	  gasnetc_GNIT_Abort("medium data_length %ld, max is %ld\n", 
 		     (long)packet.gamp.header.misc, gasnet_AMMaxMedium());
 	}
-	head_length = GASNETI_ALIGNUP(sizeof(gasnetc_am_medium_packet_t) +
-				      (numargs * sizeof(uint32_t)), 8);
 	im_data = (void *) ((uintptr_t) recv_header + head_length);
 	memcpy(buffer, im_data, packet.gamp.header.misc);
 	GASNETC_SMSGRELEASEUNLOCK(status, bound_ep_handles[pe]);
-	gasnetc_handle_am_medium_packet(0, pe, (gasnetc_am_medium_packet_t *) &packet, buffer);
+	gasnetc_handle_am_medium_packet(0, pe, &packet.gamp, buffer);
 	break;
       }
       case GC_CMD_AM_LONG_REPLY: {
-	memcpy(&packet, recv_header, sizeof(gasnetc_am_long_packet_t) +
-	       numargs * sizeof(uint32_t));
+	head_length = GASNETC_HEADLEN(long, numargs);
+	memcpy(&packet, recv_header, head_length);
 	if (packet.galp.data_length <= gasnet_AMMaxMedium()) {
-	  head_length = GASNETI_ALIGNUP(sizeof(gasnetc_am_long_packet_t) 
-					+ (numargs * sizeof(uint32_t)), 8);
 	  im_data = (void *) (((uintptr_t) recv_header) + head_length);
 	  /* The data is in the packet, so copy it cout */
 	  memcpy(packet.galp.data, im_data, packet.galp.data_length);
 	}
 	GASNETC_SMSGRELEASEUNLOCK(status, bound_ep_handles[pe]);
-	gasnetc_handle_am_long_packet(0, pe, (gasnetc_am_long_packet_t *) &packet);
+	gasnetc_handle_am_long_packet(0, pe, &packet.galp);
 	break;
       }
       case GC_CMD_SYS_SHUTDOWN_REQUEST: {
 	memcpy(&packet, recv_header, sizeof(gasnetc_sys_shutdown_packet_t));
 	GASNETC_SMSGRELEASEUNLOCK(status, bound_ep_handles[pe]);
-	gasnetc_handle_sys_shutdown_packet(pe, (gasnetc_sys_shutdown_packet_t *)& packet);
+	gasnetc_handle_sys_shutdown_packet(pe, &packet.gssp);
 	break;
       }
       default: {

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2012/05/04 12:26:30 $
- * $Revision: 1.18 $
+ *     $Date: 2012/05/04 20:08:09 $
+ * $Revision: 1.19 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -709,9 +709,7 @@ extern int gasnetc_AMRequestShortM(
     for (i = 0; i < numargs; i += 1) {
       m.args[i] = va_arg(argptr, uint32_t);
     }
-    retval = gasnetc_send(dest, &m, sizeof(struct gasnetc_am_short_packet) 
-		     + (numargs * sizeof(uint32_t)), 
-		     NULL, 0);
+    retval = gasnetc_send(dest, &m, GASNETC_HEADLEN(short, numargs), NULL, 0);
   }
   va_end(argptr);
   GASNETI_RETURN(retval);
@@ -751,12 +749,8 @@ extern int gasnetc_AMRequestMediumM(
     for (i = 0; i < numargs; i += 1) {
       m.args[i] = va_arg(argptr, uint32_t);
     }
-    /* align up the length of data to avoid rmw at receiving nic */
-    retval = gasnetc_send(dest, &m, 
-		     GASNETI_ALIGNUP(
-				     sizeof(struct gasnetc_am_medium_packet) 
-				     + (numargs * sizeof(uint32_t)), 8),
-		     source_addr, nbytes);
+    /* TODO: round up nbytes to multiple of 8 to avoid rmw at dest nic */
+    retval = gasnetc_send(dest, &m, GASNETC_HEADLEN(medium, numargs), source_addr, nbytes);
   }
   va_end(argptr);
   GASNETI_RETURN(retval);
@@ -804,17 +798,11 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
       for (i = 0; i < numargs; i += 1) {
 	m.args[i] = va_arg(argptr, uint32_t);
       }
-      //     if (nbytes > 0) printf("long send %p %lx [%lx]\n", dest, nbytes, ((uint64_t *) source_addr)[0]);
       /* In this call to gasnetc_send, the argument list length is rounded up
        * to an 8 byte boundary so that the immediate data can be aligned.
-       * The imm data length is rounded up to avoid rmw at destination
        */
-      {
-	uint32_t hlen = GASNETI_ALIGNUP(sizeof(gasnetc_am_long_packet_t) 
-					+ (numargs * sizeof(uint32_t)), 8);
-	uint32_t dlen = nbytes;
-	retval = gasnetc_send(dest, &m, hlen, source_addr, dlen);
-      }
+      /* TODO: round up nbytes to multiple of 8 to avoid rmw at dest nic */
+      retval = gasnetc_send(dest, &m, GASNETC_HEADLEN(long, numargs), source_addr, nbytes);
       
     } else {
       gasnetc_post_descriptor_t *gpd = gasnetc_alloc_post_descriptor();
@@ -836,8 +824,7 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
 	m.args[i] = va_arg(argptr, uint32_t);
       }
       while(!gasneti_atomic_read(&done, 0)) gasnetc_poll_local_queue();
-      retval = gasnetc_send(dest, &m, sizeof(gasnetc_am_long_packet_t) 
-		       + (numargs * sizeof(uint32_t)), NULL, 0);
+      retval = gasnetc_send(dest, &m, GASNETC_HEADLEN(long, numargs), NULL, 0);
     }
 
   }
@@ -878,10 +865,8 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
       for (i = 0; i < numargs; i += 1) {
 	m.args[i] = va_arg(argptr, uint32_t);
       }
-      retval = gasnetc_send(dest, &m, 
-		       GASNETI_ALIGNUP(sizeof(gasnetc_am_long_packet_t) 
-				       + (numargs * sizeof(uint32_t)), 8),
-		       source_addr, nbytes);
+      /* TODO: round up nbytes to multiple of 8 to avoid rmw at dest nic */
+      retval = gasnetc_send(dest, &m, GASNETC_HEADLEN(long, numargs), source_addr, nbytes);
     } else {
       gasnetc_post_descriptor_t *gpd;
       gpd = gasnetc_alloc_post_descriptor();
@@ -939,8 +924,7 @@ extern int gasnetc_AMReplyShortM(
     for (i = 0; i < numargs; i += 1) {
       m.args[i] = va_arg(argptr, uint32_t);
     }
-    retval = gasnetc_send(dest, &m, sizeof(struct gasnetc_am_short_packet) 
-		     + (numargs * sizeof(uint32_t)), NULL, 0);
+    retval = gasnetc_send(dest, &m, GASNETC_HEADLEN(short, numargs), NULL, 0);
   }
   va_end(argptr);
   GASNETI_RETURN(retval);
@@ -978,10 +962,8 @@ extern int gasnetc_AMReplyMediumM(
     for (i = 0; i < numargs; i += 1) {
       m.args[i] = va_arg(argptr, uint32_t);
     }
-    retval = gasnetc_send(dest, &m,
-		     GASNETI_ALIGNUP(sizeof(struct gasnetc_am_medium_packet) 
-				     + (numargs * sizeof(uint32_t)), 8),
-		     source_addr, nbytes);
+    /* TODO: round up nbytes to multiple of 8 to avoid rmw at dest nic */
+    retval = gasnetc_send(dest, &m, GASNETC_HEADLEN(medium, numargs), source_addr, nbytes);
   }
   va_end(argptr);
   GASNETI_RETURN(retval);
@@ -1024,11 +1006,8 @@ extern int gasnetc_AMReplyLongM(
 	m.args[i] = va_arg(argptr, uint32_t);
       }
       /* send data in packet payload */
-      //   if (nbytes > 0) printf("long repl %p %lx [%lx]\n", dest, nbytes, ((uint64_t *) source_addr)[0]);
-      retval = gasnetc_send(dest, &m, 
-		       GASNETI_ALIGNUP(sizeof(gasnetc_am_long_packet_t) 
-				       + (numargs * sizeof(uint32_t)), 8),
-		       source_addr, nbytes);
+      /* TODO: round up payload to 8-byte boundary to avoid rmw at dest */
+      retval = gasnetc_send(dest, &m, GASNETC_HEADLEN(long, numargs), source_addr, nbytes);
     } else {
       gasnetc_post_descriptor_t *gpd = gasnetc_alloc_post_descriptor();
       gasneti_atomic_t done = gasneti_atomic_init(0);
@@ -1050,8 +1029,7 @@ extern int gasnetc_AMReplyLongM(
       /* cannot process more ams here! */
       while(!gasneti_atomic_read(&done, 0)) gasnetc_poll_local_queue();
 
-      retval = gasnetc_send(dest, &m, sizeof(gasnetc_am_long_packet_t) 
-		       + (numargs * sizeof(uint32_t)), NULL, 0);
+      retval = gasnetc_send(dest, &m, GASNETC_HEADLEN(long, numargs), NULL, 0);
     }
   }
   va_end(argptr);
