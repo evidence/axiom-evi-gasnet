@@ -7,7 +7,7 @@
 #include <signal.h>
 
 /* LCS MSG_MAXSIZE should be AM medium sized */
-#define MB_MAXCREDIT 64
+#define MB_MAXCREDIT 48 /* = 16 * 3 */
 #define CACHELINE_SIZE 64
 #define MSG_MAXSIZE GASNETI_ALIGNUP((sizeof(gasnetc_am_medium_packet_max_t)\
                                     + gasnet_AMMaxMedium()), CACHELINE_SIZE)
@@ -187,7 +187,7 @@ uintptr_t gasnetc_init_messaging()
   /*
    * allocate a CQ in which to receive message notifications
    */
-
+  /* TODO: is "* 2" correct given MB_MAXCREDIT/3 AMs outstanding? */
   status = GNI_CqCreate(nic_handle,gasneti_nodes * MB_MAXCREDIT * 2,0,GNI_CQ_NOBLOCK,NULL,NULL,&smsg_cq_handle);
   if (status != GNI_RC_SUCCESS) {
     gasnetc_GNIT_Abort("GNI_CqCreate returned error %s\n", gni_return_string(status));
@@ -282,11 +282,9 @@ uintptr_t gasnetc_init_messaging()
   /* At this point, peer_data has information for everyone */
   /* We need to patch up the smsg data, fixing the remote start addresses */
   for (i = 0; i < gasneti_nodes; i += 1) {
-    /* each am takes 2 credits (req and reply) and the pool is split between
-     * requests travelling each way
-     */
+    /* each am takes 3 credits (req + reply + credit-return) */
     gasneti_mutex_init(&peer_data[i].lock);
-    gasneti_weakatomic_set(&peer_data[i].am_credit, MB_MAXCREDIT / 4, 0);
+    gasneti_weakatomic_set(&peer_data[i].am_credit, MB_MAXCREDIT / 3, 0);
     gasneti_weakatomic_set(&peer_data[i].fma_credit, 1, 0);
     gasnetc_queue_item_init(&peer_data[i].qi);
     peer_data[i].smsg_attr.mbox_offset = bytes_per_mbox * gasneti_mynode;

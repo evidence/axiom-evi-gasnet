@@ -1,6 +1,6 @@
 GASNet gemini-conduit documentation
 Larry Stewart <stewart@serissa.com> 
-$Revision: 1.3 $
+$Revision: 1.4 $
 
 User Information:
 -----------------
@@ -102,8 +102,8 @@ The desired number of Post Descriptors
 
 in gemini-conduit/gasnet_gemini.c
 
-/* Set to 4 time the number of outstanding AMs you want */
-#define MB_MAXCREDIT 64  
+/* Set to 3 times the number of outstanding AMs you want */
+#define MB_MAXCREDIT 48
 
 
 
@@ -246,13 +246,12 @@ always have the low bit clear.  The token value is (rank + 1) << 1.
 Flow control and deadlock avoidance is done by a fixed credit
 system. The compile time variable MB_MAXCREDIT (could be made an
 environment variable) is used to specify the number of short message
-buffers for each peer.  The default value is 64.  The available buffer
-space is split between active messages originating from each end, and
-split again between active messages and active message replies. (Note:
-this is based on the impression that SMSG buffers are used for both
-sending and receving) For MB_MAXCREDIT == 64, each rank can have 16
+buffers for each peer.  The default value is 48.  The available buffer
+space is split between active messages requests and replies, with a
+third portion used for credit return messages.
+With the default value of MB_MAXCREDIT == 48, each rank can have 16
 AMs outstanding to each peer. Each peer has an am_credit variable
-initialized to MB_MAXCREDIT / 4.  When a rank wishes to send an active
+initialized to MB_MAXCREDIT / 3.  When a rank wishes to send an active
 message, it atomic decrements the peer's credit counter and calls the
 gemini conduit's Poll routine until it succeeds.  At the receiver,
 every active message generates a separate credit return message. This
