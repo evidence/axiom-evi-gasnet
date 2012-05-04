@@ -149,14 +149,22 @@ typedef struct gasnetc_am_short_packet_max {
 /* This type is used by an AMMedium message or reply */
 typedef struct gasnetc_am_medium_packet {
   GC_Header_t header;
+#if GASNETC_MAX_MEDIUM <= 0xFFFFFFFFU
+  uint32_t data_length;
+#else
   size_t data_length;
+#endif
   uint32_t args[];
 } gasnetc_am_medium_packet_t;
 
 
 typedef struct gasnetc_am_medium_packet_max {
   GC_Header_t header;
+#if GASNETC_MAX_MEDIUM <= 0xFFFFFFFFU
+  uint32_t data_length;
+#else
   size_t data_length;
+#endif
   uint32_t args[gasnet_AMMaxArgs()];
 } gasnetc_am_medium_packet_max_t;
 
@@ -164,14 +172,22 @@ typedef struct gasnetc_am_medium_packet_max {
 typedef struct gasnetc_am_long_packet {
   GC_Header_t header;
   void *data;
+#if GASNETC_MAX_LONG <= 0xFFFFFFFFU
+  uint32_t data_length;
+#else
   size_t data_length;
+#endif
   uint32_t args[];
 } gasnetc_am_long_packet_t;
 
 typedef struct gasnetc_am_long_packet_max {
   GC_Header_t header;
   void *data;
+#if GASNETC_MAX_LONG <= 0xFFFFFFFFU
+  uint32_t data_length;
+#else
   size_t data_length;
+#endif
   uint32_t args[gasnet_AMMaxArgs()];
 } gasnetc_am_long_packet_max_t;
 
