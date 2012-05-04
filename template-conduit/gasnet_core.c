@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/template-conduit/gasnet_core.c,v $
- *     $Date: 2012/04/14 00:37:53 $
- * $Revision: 1.68 $
+ *     $Date: 2012/05/04 07:21:37 $
+ * $Revision: 1.69 $
  * Description: GASNet <conduitname> conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -463,6 +463,7 @@ extern int gasnetc_AMRequestShortM(
   int retval;
   va_list argptr;
   GASNETI_COMMON_AMREQUESTSHORT(dest,handler,numargs);
+  gasneti_AMPoll(); /* (###) poll at least once, to assure forward progress */
   va_start(argptr, numargs); /*  pass in last argument */
 #if GASNET_PSHM
   /* (###) If your conduit will support PSHM, let it check the dest first. */
@@ -491,6 +492,7 @@ extern int gasnetc_AMRequestMediumM(
   int retval;
   va_list argptr;
   GASNETI_COMMON_AMREQUESTMEDIUM(dest,handler,source_addr,nbytes,numargs);
+  gasneti_AMPoll(); /* (###) poll at least once, to assure forward progress */
   va_start(argptr, numargs); /*  pass in last argument */
 #if GASNET_PSHM
   /* (###) If your conduit will support PSHM, let it check the dest first. */
@@ -519,6 +521,7 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
   int retval;
   va_list argptr;
   GASNETI_COMMON_AMREQUESTLONG(dest,handler,source_addr,nbytes,dest_addr,numargs);
+  gasneti_AMPoll(); /* (###) poll at least once, to assure forward progress */
   va_start(argptr, numargs); /*  pass in last argument */
 #if GASNET_PSHM
   /* (###) If your conduit will support PSHM, let it check the dest first. */
@@ -547,6 +550,7 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
   int retval;
   va_list argptr;
   GASNETI_COMMON_AMREQUESTLONGASYNC(dest,handler,source_addr,nbytes,dest_addr,numargs);
+  gasneti_AMPoll(); /* (###) poll at least once, to assure forward progress */
   va_start(argptr, numargs); /*  pass in last argument */
 #if GASNET_PSHM
   /* (###) If your conduit will support PSHM, let it check the dest first. */
