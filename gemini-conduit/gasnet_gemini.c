@@ -9,9 +9,8 @@
 /* LCS MSG_MAXSIZE should be AM medium sized */
 #define MB_MAXCREDIT 64
 #define CACHELINE_SIZE 64
-#define MSG_MAXSIZE (((sizeof(gasnetc_am_medium_packet_max_t) + \
-		       gasnet_AMMaxMedium() + CACHELINE_SIZE - 1) \
-		     / CACHELINE_SIZE) * CACHELINE_SIZE)
+#define MSG_MAXSIZE GASNETI_ALIGNUP((sizeof(gasnetc_am_medium_packet_max_t)\
+                                    + gasnet_AMMaxMedium()), CACHELINE_SIZE)
 int gasnetc_poll_burst = 10;
 static gasnetc_queue_t smsg_work_queue;
 
@@ -196,7 +195,7 @@ void gasnetc_init_messaging()
   
   /*
    * Set up an mmap region to contain all of my mailboxes.
-   * The GNI_SmsgBufferSizeNeeded is used to determine who
+   * The GNI_SmsgBufferSizeNeeded is used to determine how
    * much memory is needed for each mailbox.
    */
 
@@ -214,7 +213,7 @@ void gasnetc_init_messaging()
 #if GASNETC_DEBUG
   fprintf(stderr,"r %d GetSmsgBufferSize says %d bytes for each mailbox\n", gasnetc_rank, bytes_per_mbox);
 #endif
-  bytes_per_mbox = ((bytes_per_mbox + CACHELINE_SIZE - 1)/CACHELINE_SIZE) * CACHELINE_SIZE;
+  bytes_per_mbox = GASNETI_ALIGNUP(bytes_per_mbox, CACHELINE_SIZE);
   /* test */
   bytes_per_mbox += mypeerdata.smsg_attr.mbox_maxcredit 
     * mypeerdata.smsg_attr.msg_maxsize;
@@ -283,7 +282,7 @@ void gasnetc_init_messaging()
   /* At this point, peer_data has information for everyone */
   /* We need to patch up the smsg data, fixing the remote start addresses */
   for (i = 0; i < gasnetc_num_ranks; i += 1) {
-    /* each am takes 2 credits (req and reply) and he pool is split between
+    /* each am takes 2 credits (req and reply) and the pool is split between
      * requests travelling each way
      */
     gasneti_mutex_init(&peer_data[i].lock);
