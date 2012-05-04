@@ -361,9 +361,12 @@ void gasnetc_shutdown(void)
     fprintf(stderr, "node %d %d endpoints left after 10 tries\n", 
 	    gasneti_mynode, left);
   }
-  status = GNI_MemDeregister(nic_handle,
+
+  if (gasneti_attach_done) {
+    status = GNI_MemDeregister(nic_handle,
 			     &mypeersegmentdata.segment_mem_handle);
-  gasneti_assert_always (status == GNI_RC_SUCCESS);
+    gasneti_assert_always (status == GNI_RC_SUCCESS);
+  }
 
   gasneti_huge_munmap(smsg_mmap_ptr, smsg_mmap_bytes);
 
