@@ -109,7 +109,7 @@ typedef gasneti_mutex_t gasnetc_queuelock_t;
 
 
 enum GC_CMD {
-    GC_CMD_NULL = 12,
+    GC_CMD_NULL = 1,
     GC_CMD_AM_SHORT,
     GC_CMD_AM_LONG,
     GC_CMD_AM_MEDIUM,
@@ -122,9 +122,10 @@ enum GC_CMD {
 
 
 typedef struct GC_Header {
-  uint8_t command;	  	/* GC_CMD */
-  uint8_t numargs;	       /* number of GASNet arguments */
-  uint8_t handler;	        /* index of GASNet handler */
+  uint32_t command : 4;        /* GC_CMD */
+  uint32_t misc    : 15;       /* msg-dependent field (e.g. nbytes in a Medium) */
+  uint32_t numargs : 5;        /* number of GASNet arguments */
+  uint32_t handler : 8;        /* index of GASNet handler */
 } GC_Header_t;
 
 
@@ -148,53 +149,41 @@ typedef struct gasnetc_am_short_packet_max {
 /* This type is used by an AMMedium message or reply */
 typedef struct gasnetc_am_medium_packet {
   GC_Header_t header;
-#if GASNETC_MAX_MEDIUM <= 0xFFFFFFFFU
-  uint32_t data_length;
-#else
-  size_t data_length;
-#endif
   uint32_t args[];
 } gasnetc_am_medium_packet_t;
 
 
 typedef struct gasnetc_am_medium_packet_max {
   GC_Header_t header;
-#if GASNETC_MAX_MEDIUM <= 0xFFFFFFFFU
-  uint32_t data_length;
-#else
-  size_t data_length;
-#endif
   uint32_t args[gasnet_AMMaxArgs()];
 } gasnetc_am_medium_packet_max_t;
 
 /* This type is used by an AMLong message or reply */
 typedef struct gasnetc_am_long_packet {
   GC_Header_t header;
-  void *data;
 #if GASNETC_MAX_LONG <= 0xFFFFFFFFU
   uint32_t data_length;
 #else
   size_t data_length;
 #endif
+  void *data;
   uint32_t args[];
 } gasnetc_am_long_packet_t;
 
 typedef struct gasnetc_am_long_packet_max {
   GC_Header_t header;
-  void *data;
 #if GASNETC_MAX_LONG <= 0xFFFFFFFFU
   uint32_t data_length;
 #else
   size_t data_length;
 #endif
+  void *data;
   uint32_t args[gasnet_AMMaxArgs()];
 } gasnetc_am_long_packet_max_t;
 
 
 typedef struct gasnetc_sys_shutdown_packet {
   GC_Header_t header;
-  uint32_t distance;
-  uint32_t exitcode;
 } gasnetc_sys_shutdown_packet_t;
 
 /* The various ways to interpret an arriving message

@@ -420,7 +420,7 @@ void gasnetc_handle_am_medium_packet(int req, uint32_t source,
 			     pargs,
 			     numargs,
 			     data,
-			     am->data_length);
+			     am->header.misc);
 
 }
 void gasnetc_handle_am_long_packet(int req, uint32_t source, 
@@ -483,7 +483,7 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
 	head_length = GASNETI_ALIGNUP(sizeof(gasnetc_am_medium_packet_t) 
 				      + (numargs * sizeof(uint32_t)), 8);
 	im_data = (void *) ((uintptr_t) recv_header + head_length);
-	length = ((gasnetc_am_medium_packet_t *) recv_header)->data_length;
+	length = ((gasnetc_am_medium_packet_t *) recv_header)->header.misc;
 	if (length > gasnet_AMMaxMedium()) {
 	  gasnetc_GNIT_Abort("medium data_length %d, max is %ld\n", 
 		     length, gasnet_AMMaxMedium());
@@ -520,7 +520,7 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
 	head_length = GASNETI_ALIGNUP(sizeof(gasnetc_am_medium_packet_t) +
 				      (numargs * sizeof(uint32_t)), 8);
 	im_data = (void *) ((uintptr_t) recv_header + head_length);
-	length = ((gasnetc_am_medium_packet_t *) recv_header)->data_length;
+	length = ((gasnetc_am_medium_packet_t *) recv_header)->header.misc;
 	if (length > gasnet_AMMaxMedium()) {
 	  gasnetc_GNIT_Abort("medium data_length %d, max is %ld\n", 
 		     length, gasnet_AMMaxMedium());
@@ -620,11 +620,11 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
 	memcpy(&packet, recv_header, sizeof(gasnetc_am_medium_packet_t) +
 	       numargs * sizeof(uint32_t));
 
-	if (packet.gamp.data_length > gasnet_AMMaxMedium()) {
+	if (packet.gamp.header.misc > gasnet_AMMaxMedium()) {
 	  gasnetc_GNIT_Abort("medium data_length %ld, max is %ld\n", 
-		     (long)packet.gamp.data_length, gasnet_AMMaxMedium());
+		     (long)packet.gamp.header.misc, gasnet_AMMaxMedium());
 	}
-	memcpy(buffer, im_data, packet.gamp.data_length);
+	memcpy(buffer, im_data, packet.gamp.header.misc);
 	GASNETC_SMSGRELEASEUNLOCK(status, bound_ep_handles[pe]);
 	gasnetc_handle_am_medium_packet(1, pe, (gasnetc_am_medium_packet_t *) &packet, buffer);
 	gasnetc_send_am_nop(pe);
@@ -655,14 +655,14 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
 	memcpy(&packet, recv_header, sizeof(gasnetc_am_medium_packet_t) +
 	       numargs * sizeof(uint32_t));
 
-	if (packet.gamp.data_length > gasnet_AMMaxMedium()) {
+	if (packet.gamp.header.misc > gasnet_AMMaxMedium()) {
 	  gasnetc_GNIT_Abort("medium data_length %ld, max is %ld\n", 
-		     (long)packet.gamp.data_length, gasnet_AMMaxMedium());
+		     (long)packet.gamp.header.misc, gasnet_AMMaxMedium());
 	}
 	head_length = GASNETI_ALIGNUP(sizeof(gasnetc_am_medium_packet_t) +
 				      (numargs * sizeof(uint32_t)), 8);
 	im_data = (void *) ((uintptr_t) recv_header + head_length);
-	memcpy(buffer, im_data, packet.gamp.data_length);
+	memcpy(buffer, im_data, packet.gamp.header.misc);
 	GASNETC_SMSGRELEASEUNLOCK(status, bound_ep_handles[pe]);
 	gasnetc_handle_am_medium_packet(0, pe, (gasnetc_am_medium_packet_t *) &packet, buffer);
 	break;
@@ -885,7 +885,9 @@ void gasnetc_send_am_nop(uint32_t pe)
 {
   gasnetc_am_nop_packet_t m;
   m.header.command = GC_CMD_AM_NOP_REPLY;
+  m.header.misc    = 0;
   m.header.numargs = 0;
+  m.header.handler = 0;
   gasnetc_send(pe, &m, sizeof(gasnetc_am_nop_packet_t), NULL, 0);
 }
 
@@ -1428,14 +1430,14 @@ static double shutdown_max = 120.;  /* 2 minutes */
 static uint32_t sys_exit_rcvd = 0;
 
 
-extern void gasnetc_sys_SendShutdownMsg(gasnet_node_t node, uint32_t distance, int exitcode)
+extern void gasnetc_sys_SendShutdownMsg(gasnet_node_t node, int shift, int exitcode)
 {
   gasnetc_sys_shutdown_packet_t shutdown;
-  GASNETI_TRACE_PRINTF(C,("Send SHUTDOWN Request to node %d w/ distance %d, exitcode %d",node, distance, exitcode));
+  GASNETI_TRACE_PRINTF(C,("Send SHUTDOWN Request to node %d w/ shift %d, exitcode %d",node,shift,exitcode));
   shutdown.header.command = GC_CMD_SYS_SHUTDOWN_REQUEST;
+  shutdown.header.misc    = exitcode; /* only 15 bits, but exit() only preserves low 8-bits anyway */
   shutdown.header.numargs = 0;
-  shutdown.distance = distance;
-  shutdown.exitcode = exitcode;
+  shutdown.header.handler = shift; /* log(distance) */
   gasnetc_send(node, &shutdown, sizeof(gasnetc_sys_shutdown_packet_t), NULL, 0);
 }
 
@@ -1443,9 +1445,9 @@ extern void gasnetc_sys_SendShutdownMsg(gasnet_node_t node, uint32_t distance, i
 /* this is called from poll when a shutdown packet arrives */
 void gasnetc_handle_sys_shutdown_packet(uint32_t source, gasnetc_sys_shutdown_packet_t *sys)
 {
-  uint32_t distance = sys->distance;
-  int32_t exitcode = sys->exitcode;
-  int oldcode;
+  uint32_t distance = 1 << sys->header.handler;
+  uint8_t exitcode = sys->header.misc;
+  uint8_t oldcode;
 #if GASNET_DEBUG || GASNETI_STATS_OR_TRACE
   int sender = source;
   gasneti_assert_always(((uint32_t)sender + distance) % gasneti_nodes == gasneti_mynode);
@@ -1485,6 +1487,7 @@ extern int gasnetc_sys_exit(int *exitcode_p)
   int result = 0; /* success */
   int exitcode = *exitcode_p;
   int oldcode;
+  int shift;
   gasneti_tick_t timeout_us = 1e6 * gasnetc_shutdown_seconds;
   gasneti_tick_t starttime = gasneti_ticks_now();
 
@@ -1492,7 +1495,7 @@ extern int gasnetc_sys_exit(int *exitcode_p)
 
   /*  gasneti_assert(portals_sysqueue_initialized); */
 
-  for (distance = 1; distance < gasneti_nodes; distance *= 2) {
+  for (distance = 1, shift = 0; distance < gasneti_nodes; distance *= 2, ++shift) {
     gasnet_node_t peer;
 
     if (distance >= gasneti_nodes - gasneti_mynode) {
@@ -1504,7 +1507,7 @@ extern int gasnetc_sys_exit(int *exitcode_p)
     oldcode = gasneti_atomic_read((gasneti_atomic_t *) &gasnetc_exitcode, 0);
     exitcode = MAX(exitcode, oldcode);
 
-    gasnetc_sys_SendShutdownMsg(peer,distance,exitcode);
+    gasnetc_sys_SendShutdownMsg(peer, shift, exitcode);
 
     /* wait for completion of the proper receive, which might arrive out of order */
     goal |= distance;

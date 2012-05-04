@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2012/05/04 11:22:24 $
- * $Revision: 1.17 $
+ *     $Date: 2012/05/04 12:26:30 $
+ * $Revision: 1.18 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -703,8 +703,9 @@ extern int gasnetc_AMRequestShortM(
     gasnetc_am_short_packet_max_t m;
     gasnetc_get_am_credit(dest);
     m.header.command = GC_CMD_AM_SHORT;
-    m.header.handler = handler;
+    m.header.misc    = 0;
     m.header.numargs = numargs;
+    m.header.handler = handler;
     for (i = 0; i < numargs; i += 1) {
       m.args[i] = va_arg(argptr, uint32_t);
     }
@@ -744,9 +745,9 @@ extern int gasnetc_AMRequestMediumM(
     struct gasnetc_am_medium_packet_max m;
     gasnetc_get_am_credit(dest);
     m.header.command = GC_CMD_AM_MEDIUM;
-    m.header.handler = handler;
+    m.header.misc    = nbytes;
     m.header.numargs = numargs;
-    m.data_length = nbytes;
+    m.header.handler = handler;
     for (i = 0; i < numargs; i += 1) {
       m.args[i] = va_arg(argptr, uint32_t);
     }
@@ -795,8 +796,9 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
     if (nbytes <= gasnet_AMMaxMedium()) {
       /* send data in packet payload */
       m.header.command = GC_CMD_AM_LONG;
-      m.header.handler = handler;
+      m.header.misc    = 0;
       m.header.numargs = numargs;
+      m.header.handler = handler;
       m.data_length = nbytes;
       m.data = dest_addr;
       for (i = 0; i < numargs; i += 1) {
@@ -825,8 +827,9 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
       gasnetc_rdma_put(dest, dest_addr, source_addr, nbytes, gpd);
 
       m.header.command = GC_CMD_AM_LONG;
-      m.header.handler = handler;
+      m.header.misc    = 0;
       m.header.numargs = numargs;
+      m.header.handler = handler;
       m.data_length = nbytes;
       m.data = dest_addr;
       for (i = 0; i < numargs; i += 1) {
@@ -867,8 +870,9 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
       struct gasnetc_am_long_packet_max m;
       /* send data in packet payload */
       m.header.command = GC_CMD_AM_LONG;
-      m.header.handler = handler;
+      m.header.misc    = 0;
       m.header.numargs = numargs;
+      m.header.handler = handler;
       m.data_length = nbytes;
       m.data = dest_addr;
       for (i = 0; i < numargs; i += 1) {
@@ -885,8 +889,9 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
       gpd->flags = GC_POST_SEND;
       gpd->dest = dest;
       gpd->u.galp.header.command = GC_CMD_AM_LONG;
-      gpd->u.galp.header.handler = handler;
+      gpd->u.galp.header.misc    = 0;
       gpd->u.galp.header.numargs = numargs;
+      gpd->u.galp.header.handler = handler;
       gpd->u.galp.data_length = nbytes;
       gpd->u.galp.data = dest_addr;
       for (i = 0; i < numargs; i += 1) {
@@ -928,8 +933,9 @@ extern int gasnetc_AMReplyShortM(
     struct gasnetc_am_short_packet_max m;
     GASNETI_SAFE(gasnetc_AMGetMsgSource(token, &dest));
     m.header.command = GC_CMD_AM_SHORT_REPLY;
-    m.header.handler = handler;
+    m.header.misc    = 0;
     m.header.numargs = numargs;
+    m.header.handler = handler;
     for (i = 0; i < numargs; i += 1) {
       m.args[i] = va_arg(argptr, uint32_t);
     }
@@ -966,9 +972,9 @@ extern int gasnetc_AMReplyMediumM(
     struct gasnetc_am_medium_packet_max m;
     GASNETI_SAFE(gasnetc_AMGetMsgSource(token, &dest));
     m.header.command = GC_CMD_AM_MEDIUM_REPLY;
-    m.header.handler = handler;
+    m.header.misc    = nbytes;
     m.header.numargs = numargs;
-    m.data_length = nbytes;
+    m.header.handler = handler;
     for (i = 0; i < numargs; i += 1) {
       m.args[i] = va_arg(argptr, uint32_t);
     }
@@ -1009,8 +1015,9 @@ extern int gasnetc_AMReplyLongM(
     GASNETI_SAFE(gasnetc_AMGetMsgSource(token, &dest));
     if (nbytes <= gasnet_AMMaxMedium()) {
       m.header.command = GC_CMD_AM_LONG_REPLY;
-      m.header.handler = handler;
+      m.header.misc    = 0;
       m.header.numargs = numargs;
+      m.header.handler = handler;
       m.data_length = nbytes;
       m.data = dest_addr;
       for (i = 0; i < numargs; i += 1) {
@@ -1032,8 +1039,9 @@ extern int gasnetc_AMReplyLongM(
       gasnetc_rdma_put(dest, dest_addr, source_addr, nbytes, gpd);
 
       m.header.command = GC_CMD_AM_LONG_REPLY;
-      m.header.handler = handler;
+      m.header.misc    = 0;
       m.header.numargs = numargs;
+      m.header.handler = handler;
       m.data_length = nbytes;
       m.data = dest_addr;
       for (i = 0; i < numargs; i += 1) {
