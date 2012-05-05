@@ -1,6 +1,6 @@
 GASNet gemini-conduit documentation
 Larry Stewart <stewart@serissa.com> 
-$Revision: 1.4 $
+$Revision: 1.5 $
 
 User Information:
 -----------------
@@ -102,8 +102,8 @@ The desired number of Post Descriptors
 
 in gemini-conduit/gasnet_gemini.c
 
-/* Set to 3 times the number of outstanding AMs you want */
-#define MB_MAXCREDIT 48
+/* Set to 2 times the number of outstanding AMs you want */
+#define MB_MAXCREDIT 32
 
 
 
@@ -240,25 +240,18 @@ isn't strictly necessary when using the Cray Short Message System, but
 it would be necessary when using the Cray Shared Message Queue system
 because MSGQ cannot send to the same node.
 
-The Gemini conduit token design is compatible with PSHM. Gemini tokens
-always have the low bit clear.  The token value is (rank + 1) << 1.
-
 Flow control and deadlock avoidance is done by a fixed credit
 system. The compile time variable MB_MAXCREDIT (could be made an
 environment variable) is used to specify the number of short message
-buffers for each peer.  The default value is 48.  The available buffer
-space is split between active messages requests and replies, with a
-third portion used for credit return messages.
-With the default value of MB_MAXCREDIT == 48, each rank can have 16
+buffers for each peer.  The default value is 32.  The available buffer
+space is split between active messages requests and replies.
+With the default value of MB_MAXCREDIT == 32, each rank can have 16
 AMs outstanding to each peer. Each peer has an am_credit variable
-initialized to MB_MAXCREDIT / 3.  When a rank wishes to send an active
+initialized to MB_MAXCREDIT / 2.  When a rank wishes to send an active
 message, it atomic decrements the peer's credit counter and calls the
 gemini conduit's Poll routine until it succeeds.  At the receiver,
-every active message generates a separate credit return message. This
-could be improved by piggybacking credit return on other messages.
-
-Active message replies do not request credit, because the necessary
-worst case credit was already obtained by the original active message.
+every AM Request generates a "hidden" credit return message if and
+only if the handler did not send a Reply.
 
 NOTE: The Gemini short message system has some sort of internal credit
 accounting, but we don't rely on it because of lack of features
@@ -271,9 +264,9 @@ Short and Medium active messages take one message each, so there is no
 need for a reassembly queue for arriving fragments.
 
 Long active messages are more complex.  If the data of a long AM will
-fit in an AM Medium sized message, then it is sent as immediate data
-and copied at the destination.  If the data is larger than an AM
-Medium, then it is sent by RDMA, and when the RDMA completion event
+fit in a maximum sized message, then it is sent as immediate data
+and copied at the destination.  If the data is too large for the AM
+packet, then it is sent by RDMA, and when the RDMA completion event
 occurs, the Active message is sent.  For blocking AMs, the originator
 polls for completion of the RDMA by calling gc_poll_local_queue, which
 checks for RDMA completions but does NOT check for arriving active

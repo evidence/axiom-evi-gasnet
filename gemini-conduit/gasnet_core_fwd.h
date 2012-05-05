@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core_fwd.h,v $
- *     $Date: 2011/11/27 19:33:44 $
- * $Revision: 1.4 $
+ *     $Date: 2012/05/05 00:50:09 $
+ * $Revision: 1.5 $
  * Description: GASNet header for <conduitname> conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -63,7 +63,6 @@
 #define GASNETC_GET_HANDLER 1
 typedef ### gasnetc_handler_t;
 #endif
-/* LCS check this */
 #if 0
 #define GASNETC_TOKEN_CREATE 1
 #endif

@@ -96,9 +96,10 @@ typedef gasneti_mutex_t gasnetc_queuelock_t;
   #define GASNETC_UNLOCK_GNI_IF_PAR() GASNETC_UNLOCK_GNI()
 #endif
 
-/* create pshm compatible active message token from from address */
-#define GC_CREATE_TOKEN(x) ((void *)( ((uint64_t) (x) + 1) << 1))
-#define GC_DECODE_TOKEN(x) ((gasnet_node_t)( ((uint64_t) (x) >> 1) - 1))
+typedef struct {
+  gasnet_node_t source;
+  int need_reply;
+} gasnetc_token_t;
 
 /* convert from a pointer to a field of a struct to the struct */
 #define gasnetc_get_struct_addr_from_field_addr(structname, fieldname, fieldaddr) \

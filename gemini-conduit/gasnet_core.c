@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2012/05/04 23:58:35 $
- * $Revision: 1.21 $
+ *     $Date: 2012/05/05 00:50:09 $
+ * $Revision: 1.22 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -652,10 +652,7 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
 #endif
   {
     /* (###) add code here to write the source index into sourceid. */
-    /* XXX LCS maybe just sourceid = token >> 1  ?? */
-    sourceid = GC_DECODE_TOKEN(token);
-    // was sourceid = (((uint64_t) token) >> 1)-1;
-    gasneti_assert(GC_CREATE_TOKEN(sourceid) == token);
+    sourceid = ((gasnetc_token_t *)token)->source;
 
   }
   gasneti_assert(sourceid < gasneti_nodes);
@@ -925,6 +922,8 @@ extern int gasnetc_AMReplyShortM(
 
     struct gasnetc_am_short_packet_max m;
     GASNETI_SAFE(gasnetc_AMGetMsgSource(token, &dest));
+    gasneti_assert(((gasnetc_token_t *)token)->need_reply);
+    ((gasnetc_token_t *)token)->need_reply = 0;
     m.header.command = GC_CMD_AM_SHORT_REPLY;
     m.header.misc    = 0;
     m.header.numargs = numargs;
@@ -963,6 +962,8 @@ extern int gasnetc_AMReplyMediumM(
      */
     struct gasnetc_am_medium_packet_max m;
     GASNETI_SAFE(gasnetc_AMGetMsgSource(token, &dest));
+    gasneti_assert(((gasnetc_token_t *)token)->need_reply);
+    ((gasnetc_token_t *)token)->need_reply = 0;
     m.header.command = GC_CMD_AM_MEDIUM_REPLY;
     m.header.misc    = nbytes;
     m.header.numargs = numargs;
@@ -1003,6 +1004,8 @@ extern int gasnetc_AMReplyLongM(
      */
     struct gasnetc_am_long_packet_max m;
     GASNETI_SAFE(gasnetc_AMGetMsgSource(token, &dest));
+    gasneti_assert(((gasnetc_token_t *)token)->need_reply);
+    ((gasnetc_token_t *)token)->need_reply = 0;
     if (nbytes <= GASNETC_MAX_PACKED_LONG(numargs)) {
       m.header.command = GC_CMD_AM_LONG_REPLY;
       m.header.misc    = 1; /* indicates packed format */

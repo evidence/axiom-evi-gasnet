@@ -7,7 +7,7 @@
 #include <signal.h>
 
 /* TODO: env var */
-#define MB_MAXCREDIT 48 /* = 16 * 3 */
+#define MB_MAXCREDIT 32 /* = 16 * 2 */
 
 int gasnetc_poll_burst = 10;
 static gasnetc_queue_t smsg_work_queue;
@@ -185,7 +185,7 @@ uintptr_t gasnetc_init_messaging()
   /*
    * allocate a CQ in which to receive message notifications
    */
-  /* TODO: is "* 2" correct given MB_MAXCREDIT/3 AMs outstanding? */
+  /* TODO: is "* 2" still correct given MB_MAXCREDIT has been halved since the original code? */
   status = GNI_CqCreate(nic_handle,gasneti_nodes * MB_MAXCREDIT * 2,0,GNI_CQ_NOBLOCK,NULL,NULL,&smsg_cq_handle);
   if (status != GNI_RC_SUCCESS) {
     gasnetc_GNIT_Abort("GNI_CqCreate returned error %s\n", gni_return_string(status));
@@ -280,9 +280,9 @@ uintptr_t gasnetc_init_messaging()
   /* At this point, peer_data has information for everyone */
   /* We need to patch up the smsg data, fixing the remote start addresses */
   for (i = 0; i < gasneti_nodes; i += 1) {
-    /* each am takes 3 credits (req + reply + credit-return) */
+    /* each am takes 2 credits (req + reply) */
     gasneti_mutex_init(&peer_data[i].lock);
-    gasneti_weakatomic_set(&peer_data[i].am_credit, MB_MAXCREDIT / 3, 0);
+    gasneti_weakatomic_set(&peer_data[i].am_credit, MB_MAXCREDIT / 2, 0);
     gasneti_weakatomic_set(&peer_data[i].fma_credit, 1, 0);
     gasnetc_queue_item_init(&peer_data[i].qi);
     peer_data[i].smsg_attr.mbox_offset = bytes_per_mbox * gasneti_mynode;
@@ -384,13 +384,14 @@ void gasnetc_shutdown(void)
 }
 
 
-static
+GASNETI_INLINE(gasnetc_handle_am_short_packet)
 void gasnetc_handle_am_short_packet(int req, gasnet_node_t source, 
 			       gasnetc_am_short_packet_max_t *am)
 {
   int handlerindex = am->header.handler;
   gasneti_handler_fn_t handler = gasnetc_handler[handlerindex];
-  gasnet_token_t token = GC_CREATE_TOKEN(source);
+  gasnetc_token_t the_token = { source, req };
+  gasnet_token_t token = (gasnet_token_t)&the_token; /* RUN macro needs al lvalue */
   gasnet_handlerarg_t *pargs = (gasnet_handlerarg_t *) am->args;
   int numargs = am->header.numargs;
   GASNETI_RUN_HANDLER_SHORT(req, 
@@ -399,17 +400,22 @@ void gasnetc_handle_am_short_packet(int req, gasnet_node_t source,
 			    token,
 			    pargs,
 			    numargs);
-  if (req)
+  if (!req) {
+    /* TODO: would returning credit before running handler help or hurt? */
+    gasnetc_return_am_credit(source);
+  } else if (the_token.need_reply) {
     gasnetc_send_am_nop(source);
+  }
 }
 
-static
+GASNETI_INLINE(gasnetc_handle_am_medium_packet)
 void gasnetc_handle_am_medium_packet(int req, gasnet_node_t source, 
 				gasnetc_am_medium_packet_max_t *am, void* data)
 {
   int handlerindex = am->header.handler;
   gasneti_handler_fn_t handler = gasnetc_handler[handlerindex];
-  gasnet_token_t token = GC_CREATE_TOKEN(source);
+  gasnetc_token_t the_token = { source, req };
+  gasnet_token_t token = (gasnet_token_t)&the_token; /* RUN macro needs al lvalue */
   gasnet_handlerarg_t *pargs = (gasnet_handlerarg_t *) am->args;
   int numargs = am->header.numargs;
   GASNETI_RUN_HANDLER_MEDIUM(req, 
@@ -420,17 +426,22 @@ void gasnetc_handle_am_medium_packet(int req, gasnet_node_t source,
 			     numargs,
 			     data,
 			     am->header.misc);
-  if (req)
+  if (!req) {
+    /* TODO: would returning credit before running handler help or hurt? */
+    gasnetc_return_am_credit(source);
+  } else if (the_token.need_reply) {
     gasnetc_send_am_nop(source);
+  }
 }
 
-static
+GASNETI_INLINE(gasnetc_handle_am_long_packet)
 void gasnetc_handle_am_long_packet(int req, gasnet_node_t source, 
 			      gasnetc_am_long_packet_max_t *am)
 {
   int handlerindex = am->header.handler;
   gasneti_handler_fn_t handler = gasnetc_handler[handlerindex];
-  gasnet_token_t token = GC_CREATE_TOKEN(source);
+  gasnetc_token_t the_token = { source, req };
+  gasnet_token_t token = (gasnet_token_t)&the_token; /* RUN macro needs al lvalue */
   gasnet_handlerarg_t *pargs = (gasnet_handlerarg_t *) am->args;
   int numargs = am->header.numargs;
   GASNETI_RUN_HANDLER_LONG(req, 
@@ -441,8 +452,12 @@ void gasnetc_handle_am_long_packet(int req, gasnet_node_t source,
 			   numargs,
 			   am->data,
 			   am->data_length);
-  if (req)
+  if (!req) {
+    /* TODO: would returning credit before running handler help or hurt? */
+    gasnetc_return_am_credit(source);
+  } else if (the_token.need_reply) {
     gasnetc_send_am_nop(source);
+  }
 }
 
 
