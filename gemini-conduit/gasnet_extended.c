@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2012/03/22 05:50:56 $
- * $Revision: 1.6 $
+ *     $Date: 2012/05/05 02:52:08 $
+ * $Revision: 1.7 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -492,7 +492,8 @@ extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void
   gasnetc_post_descriptor_t *gpd;
   size_t thiscount;
   GASNETI_CHECKPSHM_GET(UNALIGNED,H);
-  if (((uintptr_t) dest & 3) || ((uintptr_t) src & 3) || (nbytes & 3)) {
+  if (3 & (nbytes | (uintptr_t)dest | (uintptr_t)src)) { /* unaligned */
+    /* TODO: may be possible to decompose into unaligned + aligned xfers */
     return(gasnete_get_nb_bulk_am(dest, node, src, nbytes GASNETE_THREAD_PASS));
   }
   while (nbytes > 0) {
@@ -768,7 +769,8 @@ extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, siz
   gasneti_atomic_t done;
 
   GASNETI_CHECKPSHM_GET(UNALIGNED,V);
-  if (((uintptr_t) dest & 3) || ((uintptr_t) src & 3) || (nbytes & 3)) {
+  if (3 & (nbytes | (uintptr_t)dest | (uintptr_t)src)) { /* unaligned */
+    /* TODO: may be possible to decompose into unaligned + aligned xfers */
     gasnete_get_nbi_bulk_am(dest, node, src, nbytes GASNETE_THREAD_PASS);
     return;
   }
