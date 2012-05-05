@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.h,v $
- *     $Date: 2011/07/07 00:00:13 $
- * $Revision: 1.64 $
+ *     $Date: 2012/05/05 01:05:14 $
+ * $Revision: 1.65 $
  * Description: GASNet Tracing Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -387,7 +387,6 @@ GASNETI_BEGIN_EXTERNC
       char *aptr = argstr; int aspace = sizeof(argstr);                     \
       *aptr = '\0';                                                         \
       for (i=0;i<numargs;i++) {                                             \
-        char temp[20];                                                      \
         /* here we assume args are stored in an array named by arghandle */ \
         int len = snprintf(aptr,aspace," 0x%08x",(int)((uint32_t*)arghandle)[i]); \
         aptr += len; aspace -= len;                                         \

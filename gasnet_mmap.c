@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2012/05/03 20:52:14 $
- * $Revision: 1.115 $
+ *     $Date: 2012/05/05 01:05:14 $
+ * $Revision: 1.116 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -621,10 +621,9 @@ static void gasneti_unlink_segments(void) {
 
 /* Try to unlink everything we can, ignoring errors */
 static void gasneti_cleanup_shm(void) {
-  int i;
-
 #ifdef GASNETI_PSHM_SYSV
   /* Unlink the segments and vnet */
+  int i;
   for (i=0; i<gasneti_pshm_nodes+1; ++i) {
     gasneti_pshm_unlink(i);
   }
@@ -634,6 +633,7 @@ static void gasneti_cleanup_shm(void) {
 #elif defined(GASNETI_PSHM_FILE) || defined(GASNETI_PSHM_POSIX)
   if (gasneti_pshmname) {
     /* Unlink the segments and vnet, and free the filenames */
+    int i;
     for (i=0; i<gasneti_pshm_nodes+1; ++i) {
       gasneti_pshm_unlink(i);
       gasneti_free(gasneti_pshmname[i]);
@@ -660,7 +660,6 @@ static void gasneti_cleanup_shm(void) {
 
 static void *gasneti_mmap_shared_internal(int pshmnode, void *segbase, uintptr_t segsize,
                                           int may_fail) {
-  int handle;
   int mmap_errno;
   gasneti_tick_t t1, t2;
   void	*ptr;
