@@ -1,5 +1,5 @@
 Gemini-conduit design notes, from code review 8/2010
-$Revision: 1.4 $
+$Revision: 1.5 $
 
 number of bounce buffers, make clear the effects of, in the readme
 
@@ -38,9 +38,9 @@ LCS DONE insert padding in front of am medium payload if necessary to assure 64 
 
 
 
-if you want to piggyback credit return on amreply, AND use the smsg buffer to pass directly to the handler, then be sure to save at least one credit per currently executing handler
+PHH DONE-or-N/A if you want to piggyback credit return on amreply, AND use the smsg buffer to pass directly to the handler, then be sure to save at least one credit per currently executing handler
 
-DONE in medium dispatch, there are two memcpy's one for data and one for header,
+DONE-or-N/A in medium dispatch, there are two memcpy's one for data and one for header,
 you could use just one, if the data was 64 aligned.  Now there are no memcpys
 
 
@@ -49,22 +49,19 @@ could memcpy the varargs arg list in amrequest, then revers the args in the call
 LCS NOT DONE replace gc_atomic_dec_if_positive with gasneti_semaphore_trydown
 Paul suggests semaphore is bigger, so it is fine the way it is
 
-is a poll needed in the amrequest routines?  (yes! see other conduits)
+PHH DONE is a poll needed in the amrequest routines?  (yes! see other conduits)
 put it up front
-
 but NOT in the reply fns
 
 
-typeof is not portable, so change gc_post_descriptor_t to put the gni_post_descriptor first, and then cast to a gc_post_descriptor
+DONE typeof is not portable, so change gc_post_descriptor_t to put the gni_post_descriptor first, and then cast to a gc_post_descriptor
 
 
-to piggyback credit return, use pointer to struct as token, then the handler can set a flag if it sends a reply
-
+PHH  DONE to piggyback credit return, use pointer to struct as token, then the handler can set a flag if it sends a reply
 struct tokenstruct {
   gasnet_node_t source;
   int reply_sent;
 }
-
 then token is pointer to
 
 gc_debug is not used
@@ -141,9 +138,9 @@ If I call handlers from the smsg buffer must assure that a handler cannot intern
 
 ook for unused fields (initialized only)
 
-close smsg_fd 
+PHH GONE close smsg_fd 
 
-remembery why /dev/zero instead of anon
+PHH GONE remembery why /dev/zero instead of anon
 
 either the sync synchronize in handle_am_X isn;t needed, or it doesn't work anyway
 
