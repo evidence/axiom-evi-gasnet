@@ -15,7 +15,6 @@ static long int mygetenv(const char *name)
 {
   char *valuestring = getenv(name);
   long int value;
-  char recast[20];
   if (valuestring == NULL) return (-1);
   value = atol(valuestring);
   //fprintf(stderr, "rank %d, get(%s) -> %s, %ld\n", rank, name, valuestring, value);
@@ -30,7 +29,6 @@ void *gasnetc_gather_nic_addresses(void)
   uint32_t myaddress, pmiaddress;
   uint32_t cpu_id;
   uint32_t device_id = gasnetc_GNIT_Device_Id();
-  int i;
   gasnetc_UGNI_AllAddr = gasneti_malloc(gasneti_nodes * sizeof(uint32_t));
   gasneti_assert(gasnetc_UGNI_AllAddr);
   status = GNI_CdmGetNicAddress(device_id, &myaddress, &cpu_id);
@@ -56,11 +54,14 @@ void *gasnetc_gather_nic_addresses(void)
     gasnetc_GNIT_Abort();
   }
   /*
+  {
+  int i;
   fprintf(stderr, "rank %d addresses ", rank);
   for (i = 0; i < gasneti_nodes; i += 1) {
     fprintf(stderr, " %x", gasnetc_UGNI_AllAddr[i]);
   }
   fprintf(stderr, "\n");
+  }
   */
   return(gasnetc_UGNI_AllAddr);
 }

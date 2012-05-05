@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2012/05/05 00:50:09 $
- * $Revision: 1.22 $
+ *     $Date: 2012/05/05 01:09:22 $
+ * $Revision: 1.23 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -661,7 +661,6 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
 }
 
 extern int gasnetc_AMPoll(void) {
-  int retval;
   GASNETI_CHECKATTACH();
 
 #if GASNET_PSHM

@@ -50,7 +50,6 @@ static gni_cq_handle_t smsg_cq_handle;
 static void *smsg_mmap_ptr;
 static size_t smsg_mmap_bytes;
 
-static int smsg_fd;
 static const char *gni_return_string(gni_return_t status)
 {
   if (status == GNI_RC_SUCCESS) return ("GNI_RC_SUCCESS");
@@ -129,7 +128,6 @@ void gasnetc_init_segment(void *segment_start, size_t segment_size)
 uintptr_t gasnetc_init_messaging()
 {
   gni_return_t status;
-  uint32_t peer;
   uint32_t remote_addr;
   uint32_t i;
   unsigned int bytes_per_mbox;
@@ -832,7 +830,6 @@ void gasnetc_rdma_put(gasnet_node_t dest,
 {
   gni_post_descriptor_t *pd;
   gni_return_t status;
-  //  gni_mem_handle_t mem_handle;
 
   /*   if (nbytes == 0) return;  shouldn't happen */
   pd = &gpd->pd;
@@ -975,7 +972,6 @@ void gasnetc_rdma_get(gasnet_node_t dest,
 {
   gni_post_descriptor_t *pd;
   gni_return_t status;
-  gni_mem_handle_t mem_handle;
 
   //  if (nbytes == 0) return;
   gasneti_assert(gpd);
