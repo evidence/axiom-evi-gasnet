@@ -6,8 +6,8 @@
 #include <sys/mman.h>
 #include <signal.h>
 
-/* TODO: env var */
-#define MB_MAXCREDIT 32 /* = 16 * 2 */
+#define GASNETC_NETWORKDEPTH_DEFAULT 12
+static unsigned int gasnetc_mb_maxcredit;
 
 int gasnetc_poll_burst = 10;
 static gasnetc_queue_t smsg_work_queue;
@@ -180,11 +180,14 @@ uintptr_t gasnetc_init_messaging()
 
   /* Initialize the short message system */
 
+  gasnetc_mb_maxcredit = 2 * gasneti_getenv_int_withdefault("GASNET_NETWORKDEPTH",
+                                                            GASNETC_NETWORKDEPTH_DEFAULT, 0);
+
   /*
    * allocate a CQ in which to receive message notifications
    */
-  /* TODO: is "* 2" still correct given MB_MAXCREDIT has been halved since the original code? */
-  status = GNI_CqCreate(nic_handle,gasneti_nodes * MB_MAXCREDIT * 2,0,GNI_CQ_NOBLOCK,NULL,NULL,&smsg_cq_handle);
+  /* TODO: is "* 2" still correct given gasnetc_mb_maxcredit has been halved since the original code? */
+  status = GNI_CqCreate(nic_handle,gasneti_nodes * gasnetc_mb_maxcredit * 2,0,GNI_CQ_NOBLOCK,NULL,NULL,&smsg_cq_handle);
   if (status != GNI_RC_SUCCESS) {
     gasnetc_GNIT_Abort("GNI_CqCreate returned error %s\n", gni_return_string(status));
   }
@@ -196,10 +199,10 @@ uintptr_t gasnetc_init_messaging()
    */
 
   mypeerdata.smsg_attr.msg_type = GNI_SMSG_TYPE_MBOX;
-  mypeerdata.smsg_attr.mbox_maxcredit = MB_MAXCREDIT;
+  mypeerdata.smsg_attr.mbox_maxcredit = gasnetc_mb_maxcredit;
   mypeerdata.smsg_attr.msg_maxsize = GASNETC_MSG_MAXSIZE;
 #if GASNETC_DEBUG
-  fprintf(stderr,"r %d maxcredit %d msg_maxsize %d\n", gasneti_mynode, MB_MAXCREDIT, (int)GASNETC_MSG_MAXSIZE);
+  fprintf(stderr,"r %d maxcredit %d msg_maxsize %d\n", gasneti_mynode, gasnetc_mb_maxcredit, (int)GASNETC_MSG_MAXSIZE);
 #endif
 
   status = GNI_SmsgBufferSizeNeeded(&mypeerdata.smsg_attr,&bytes_per_mbox);
@@ -258,7 +261,7 @@ uintptr_t gasnetc_init_messaging()
   mypeerdata.smsg_attr.msg_type = GNI_SMSG_TYPE_MBOX;
   mypeerdata.smsg_attr.msg_buffer = smsg_mmap_ptr;
   mypeerdata.smsg_attr.buff_size = bytes_per_mbox;
-  mypeerdata.smsg_attr.mbox_maxcredit = MB_MAXCREDIT;
+  mypeerdata.smsg_attr.mbox_maxcredit = gasnetc_mb_maxcredit;
   mypeerdata.smsg_attr.msg_maxsize = GASNETC_MSG_MAXSIZE;
   
 
@@ -280,7 +283,7 @@ uintptr_t gasnetc_init_messaging()
   for (i = 0; i < gasneti_nodes; i += 1) {
     /* each am takes 2 credits (req + reply) */
     gasneti_mutex_init(&peer_data[i].lock);
-    gasneti_weakatomic_set(&peer_data[i].am_credit, MB_MAXCREDIT / 2, 0);
+    gasneti_weakatomic_set(&peer_data[i].am_credit, gasnetc_mb_maxcredit / 2, 0);
     gasneti_weakatomic_set(&peer_data[i].fma_credit, 1, 0);
     gasnetc_queue_item_init(&peer_data[i].qi);
     peer_data[i].smsg_attr.mbox_offset = bytes_per_mbox * gasneti_mynode;

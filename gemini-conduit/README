@@ -1,6 +1,6 @@
 GASNet gemini-conduit documentation
 Larry Stewart <stewart@serissa.com> 
-$Revision: 1.5 $
+$Revision: 1.6 $
 
 User Information:
 -----------------
@@ -9,6 +9,8 @@ Recognized environment variables:
 ---------------------------------
 
 * All the standard GASNet environment variables (see top-level README)
+
+GASNET_NETWORKDEPTH - depth of per-peer AM queues - default 12
 
 Long Active messages whose destination is not in the segment are first
 copied to a bounce buffer that is in the auxiliary segment.  There is
@@ -101,10 +103,6 @@ The desired number of Post Descriptors
 
 
 in gemini-conduit/gasnet_gemini.c
-
-/* Set to 2 times the number of outstanding AMs you want */
-#define MB_MAXCREDIT 32
-
 
 
 int gc_poll_burst = 10;   /* number of rdma completions to get at once */
@@ -241,13 +239,9 @@ it would be necessary when using the Cray Shared Message Queue system
 because MSGQ cannot send to the same node.
 
 Flow control and deadlock avoidance is done by a fixed credit
-system. The compile time variable MB_MAXCREDIT (could be made an
-environment variable) is used to specify the number of short message
-buffers for each peer.  The default value is 32.  The available buffer
-space is split between active messages requests and replies.
-With the default value of MB_MAXCREDIT == 32, each rank can have 16
-AMs outstanding to each peer. Each peer has an am_credit variable
-initialized to MB_MAXCREDIT / 2.  When a rank wishes to send an active
+system. The environment variable GASNET_NETWORKDEPTH is the number
+of AM buffers for each peer.  The default value is 12.  Each peer
+has an am_credit variable. When a rank wishes to send an active
 message, it atomic decrements the peer's credit counter and calls the
 gemini conduit's Poll routine until it succeeds.  At the receiver,
 every AM Request generates a "hidden" credit return message if and
