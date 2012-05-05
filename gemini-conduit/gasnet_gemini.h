@@ -132,32 +132,20 @@ typedef struct gasnetc_am_nop_packet {
   GC_Header_t header;
 } gasnetc_am_nop_packet_t;
 
-/* This type is used by an AMShort message or reply */
-typedef struct gasnetc_am_short_packet {
+/* This type is used by an AMShort request or reply */
+typedef struct {
   GC_Header_t header;
-  uint32_t args[];
+  uint32_t args[gasnet_AMMaxArgs()];
 } gasnetc_am_short_packet_t;
 
-typedef struct gasnetc_am_short_packet_max {
+/* This type is used by an AMMedium request or reply */
+typedef struct {
   GC_Header_t header;
   uint32_t args[gasnet_AMMaxArgs()];
-} gasnetc_am_short_packet_max_t;
-
-
-/* This type is used by an AMMedium message or reply */
-typedef struct gasnetc_am_medium_packet {
-  GC_Header_t header;
-  uint32_t args[];
 } gasnetc_am_medium_packet_t;
 
-
-typedef struct gasnetc_am_medium_packet_max {
-  GC_Header_t header;
-  uint32_t args[gasnet_AMMaxArgs()];
-} gasnetc_am_medium_packet_max_t;
-
-/* This type is used by an AMLong message or reply */
-typedef struct gasnetc_am_long_packet {
+/* This type is used by an AMLong request or reply */
+typedef struct {
   GC_Header_t header;
 #if GASNETC_MAX_LONG <= 0xFFFFFFFFU
   uint32_t data_length;
@@ -165,21 +153,10 @@ typedef struct gasnetc_am_long_packet {
   size_t data_length;
 #endif
   void *data;
-  uint32_t args[];
+  uint32_t args[gasnet_AMMaxArgs()];
 } gasnetc_am_long_packet_t;
 
-typedef struct gasnetc_am_long_packet_max {
-  GC_Header_t header;
-#if GASNETC_MAX_LONG <= 0xFFFFFFFFU
-  uint32_t data_length;
-#else
-  size_t data_length;
-#endif
-  void *data;
-  uint32_t args[gasnet_AMMaxArgs()];
-} gasnetc_am_long_packet_max_t;
-
-
+/* This type is used for the exitcode reduction */
 typedef struct gasnetc_sys_shutdown_packet {
   GC_Header_t header;
 } gasnetc_sys_shutdown_packet_t;
@@ -190,9 +167,9 @@ typedef struct gasnetc_sys_shutdown_packet {
  */
 typedef union gasnetc_eq_packet {
   gasnetc_am_nop_packet_t ganp;
-  gasnetc_am_short_packet_max_t gasp;
-  gasnetc_am_medium_packet_max_t gamp;
-  gasnetc_am_long_packet_max_t galp;
+  gasnetc_am_short_packet_t gasp;
+  gasnetc_am_medium_packet_t gamp;
+  gasnetc_am_long_packet_t galp;
   gasnetc_sys_shutdown_packet_t gssp;
 } gasnetc_packet_t;
   
@@ -308,7 +285,7 @@ typedef struct gasnetc_post_descriptor {
   gasnete_op_t *completion;
   gni_post_descriptor_t pd;
   union {
-    gasnetc_am_long_packet_max_t galp;
+    gasnetc_am_long_packet_t galp;
     char immediate[GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE];
   } u;
 } gasnetc_post_descriptor_t;

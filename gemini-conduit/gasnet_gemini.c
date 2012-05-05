@@ -218,7 +218,7 @@ uintptr_t gasnetc_init_messaging()
 #if GASNETC_DEBUG
   fprintf(stderr,"Allocating %d bytes for each mailbox\n",bytes_per_mbox);
   fprintf(stderr,"max medium %d, sizeof medium %d\n",(int)gasnet_AMMaxMedium(),
-	  (int)sizeof(gasnetc_am_medium_packet_max_t));
+	  (int)sizeof(gasnetc_am_medium_packet_t));
 #endif
   smsg_mmap_ptr = gasneti_huge_mmap(NULL, bytes_needed);
   smsg_mmap_bytes = bytes_needed;
@@ -384,7 +384,7 @@ void gasnetc_shutdown(void)
 
 GASNETI_INLINE(gasnetc_handle_am_short_packet)
 void gasnetc_handle_am_short_packet(int req, gasnet_node_t source, 
-			       gasnetc_am_short_packet_max_t *am)
+			       gasnetc_am_short_packet_t *am)
 {
   int handlerindex = am->header.handler;
   gasneti_handler_fn_t handler = gasnetc_handler[handlerindex];
@@ -408,7 +408,7 @@ void gasnetc_handle_am_short_packet(int req, gasnet_node_t source,
 
 GASNETI_INLINE(gasnetc_handle_am_medium_packet)
 void gasnetc_handle_am_medium_packet(int req, gasnet_node_t source, 
-				gasnetc_am_medium_packet_max_t *am, void* data)
+				gasnetc_am_medium_packet_t *am, void* data)
 {
   int handlerindex = am->header.handler;
   gasneti_handler_fn_t handler = gasnetc_handler[handlerindex];
@@ -434,7 +434,7 @@ void gasnetc_handle_am_medium_packet(int req, gasnet_node_t source,
 
 GASNETI_INLINE(gasnetc_handle_am_long_packet)
 void gasnetc_handle_am_long_packet(int req, gasnet_node_t source, 
-			      gasnetc_am_long_packet_max_t *am)
+			      gasnetc_am_long_packet_t *am)
 {
   int handlerindex = am->header.handler;
   gasneti_handler_fn_t handler = gasnetc_handler[handlerindex];

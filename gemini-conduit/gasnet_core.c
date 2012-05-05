@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2012/05/05 01:09:22 $
- * $Revision: 1.23 $
+ *     $Date: 2012/05/05 01:39:00 $
+ * $Revision: 1.24 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -704,7 +704,7 @@ extern int gasnetc_AMRequestShortM(
      */
     /* LCS send a short gni message (all header) */
 
-    gasnetc_am_short_packet_max_t m;
+    gasnetc_am_short_packet_t m;
     gasnetc_get_am_credit(dest);
     m.header.command = GC_CMD_AM_SHORT;
     m.header.misc    = 0;
@@ -744,7 +744,7 @@ extern int gasnetc_AMRequestMediumM(
      */
     /* LCS send short message, using header for args and body for nbytes data */
 
-    struct gasnetc_am_medium_packet_max m;
+    gasnetc_am_medium_packet_t m;
     gasnetc_get_am_credit(dest);
     m.header.command = GC_CMD_AM_MEDIUM;
     m.header.misc    = nbytes;
@@ -788,7 +788,7 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
      * if size is large, use RDMA plus SMSG
      * for blocking, wait for completion of the rdma, then smsg
      */
-    struct gasnetc_am_long_packet_max m;
+    gasnetc_am_long_packet_t m;
     gasnetc_get_am_credit(dest);
     /* fma credit needed here? LCS XXX */
     if (nbytes <= GASNETC_MAX_PACKED_LONG(numargs)) {
@@ -858,7 +858,7 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
   {
     gasnetc_get_am_credit(dest);
     if (nbytes <= GASNETC_MAX_PACKED_LONG(numargs)) {
-      struct gasnetc_am_long_packet_max m;
+      gasnetc_am_long_packet_t m;
       /* send data in packet payload */
       m.header.command = GC_CMD_AM_LONG;
       m.header.misc    = 1; /* indicates packed format */
@@ -919,7 +919,7 @@ extern int gasnetc_AMReplyShortM(
      */
 
 
-    struct gasnetc_am_short_packet_max m;
+    gasnetc_am_short_packet_t m;
     GASNETI_SAFE(gasnetc_AMGetMsgSource(token, &dest));
     gasneti_assert(((gasnetc_token_t *)token)->need_reply);
     ((gasnetc_token_t *)token)->need_reply = 0;
@@ -959,7 +959,7 @@ extern int gasnetc_AMReplyMediumM(
     /* (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
              and send the active message 
      */
-    struct gasnetc_am_medium_packet_max m;
+    gasnetc_am_medium_packet_t m;
     GASNETI_SAFE(gasnetc_AMGetMsgSource(token, &dest));
     gasneti_assert(((gasnetc_token_t *)token)->need_reply);
     ((gasnetc_token_t *)token)->need_reply = 0;
@@ -1001,7 +1001,7 @@ extern int gasnetc_AMReplyLongM(
     /* (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
              and send the active message 
      */
-    struct gasnetc_am_long_packet_max m;
+    gasnetc_am_long_packet_t m;
     GASNETI_SAFE(gasnetc_AMGetMsgSource(token, &dest));
     gasneti_assert(((gasnetc_token_t *)token)->need_reply);
     ((gasnetc_token_t *)token)->need_reply = 0;
