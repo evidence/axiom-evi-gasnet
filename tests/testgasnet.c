@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testgasnet.c,v $
- *     $Date: 2012/01/06 21:54:00 $
- * $Revision: 1.68 $
+ *     $Date: 2012/05/05 21:43:05 $
+ * $Revision: 1.69 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -140,7 +140,11 @@ void test_threadinfo(int threadid, int numthreads) {
     PTHREAD_LOCALBARRIER(NUM_THREADS);
     test_threadinfo(idx, NUM_THREADS);
     PTHREAD_LOCALBARRIER(NUM_THREADS);
-  #if !GASNETI_ARCH_ALTIX
+  #if GASNETI_ARCH_ALTIX
+    /* Don't pin threads because system is either shared or using cgroups */
+  #elif GASNETI_ARCH_IBMPE
+    /* Don't pin threads because system s/w will have already done so */
+  #else
     gasnett_set_affinity(idx);
   #endif
     PTHREAD_LOCALBARRIER(NUM_THREADS);
