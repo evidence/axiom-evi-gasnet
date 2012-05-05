@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_core.c,v $
- *     $Date: 2012/04/23 06:40:42 $
- * $Revision: 1.12 $
+ *     $Date: 2012/05/05 04:44:50 $
+ * $Revision: 1.13 $
  * Description: GASNet PAMI conduit Implementation
  * Copyright 2012, Lawrence Berkeley National Laboratory
  * Terms of use are as specified in license.txt
@@ -24,7 +24,7 @@ gasneti_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS]; /* handler table 
 /* ------------------------------------------------------------------------------------ */
 /* Defaults for environment variables */
 #define GASNETC_AMPOLL_MAX_DEFAULT 16
-#define GASNETC_NETWORK_DEPTH_DEFAULT 1024
+#define GASNETC_NETWORKDEPTH_DEFAULT 1024
 
 /* ------------------------------------------------------------------------------------ */
 /* Global Data */
@@ -977,7 +977,7 @@ static int gasnetc_am_init(void) {
 
   { 
     unsigned int depth =
-        gasneti_getenv_int_withdefault("GASNET_NETWORK_DEPTH", GASNETC_NETWORK_DEPTH_DEFAULT, 0);
+        gasneti_getenv_int_withdefault("GASNET_NETWORKDEPTH", GASNETC_NETWORKDEPTH_DEFAULT, 0);
     depth = MAX(depth, 4); /* Min value is 4 */
     gasneti_semaphore_init(&gasnetc_requests_oust, depth, depth);
   }
