@@ -175,7 +175,7 @@ typedef union gasnetc_eq_packet {
   
 /* compute header len, padded to multiple of 8-bytes */
 #define GASNETC_HEADLEN_AUX(type,nargs) \
-        GASNETI_ALIGNUP(sizeof(type)+(nargs * sizeof(uint32_t)),8)
+        GASNETI_ALIGNUP(offsetof(type,args)+(nargs * sizeof(uint32_t)),8)
 #define GASNETC_HEADLEN(cat,nargs) \
         GASNETC_HEADLEN_AUX(gasnetc_am_##cat##_packet_t,(nargs))
 
