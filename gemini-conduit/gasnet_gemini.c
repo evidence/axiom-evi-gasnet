@@ -466,10 +466,12 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
 {
   gni_return_t status;
   GC_Header_t *recv_header;
-  gasnetc_packet_t packet;
-  uint64_t buffer[gasnet_AMMaxMedium() / sizeof(uint64_t)];
-  void *im_data;
-  uint32_t head_length;
+  union {
+    gasnetc_packet_t packet;
+    uint8_t raw[GASNETC_HEADLEN(medium, gasnet_AMMaxArgs()) + gasnet_AMMaxMedium()];
+    uint64_t dummy_for_alignment;
+  } buffer;
+  size_t head_length;
   size_t length;
   uint32_t numargs;
   int is_req;
@@ -496,46 +498,41 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
       case GC_CMD_AM_SHORT:
       case GC_CMD_AM_SHORT_REPLY: {
 	head_length = GASNETC_HEADLEN(short, numargs);
-	memcpy(&packet, recv_header, head_length);
+	memcpy(&buffer, recv_header, head_length);
 	status = GNI_SmsgRelease(bound_ep_handles[pe]);
 	GASNETC_UNLOCK_GNI_IF_PAR();
-	gasnetc_handle_am_short_packet(is_req, pe, &packet.gasp);
+	gasnetc_handle_am_short_packet(is_req, pe, &buffer.packet.gasp);
 	break;
       }
       case GC_CMD_AM_MEDIUM:
       case GC_CMD_AM_MEDIUM_REPLY: {
 	head_length = GASNETC_HEADLEN(medium, numargs);
-	memcpy(&packet, recv_header, head_length);
-	length = packet.gamp.header.misc;
-	if_pf (length > gasnet_AMMaxMedium()) {
-	  gasnetc_GNIT_Abort("medium data_length %d, max is %ld\n", 
-		     (int)length, gasnet_AMMaxMedium());
-	}
-	im_data = (void *) ((uintptr_t) recv_header + head_length);
-	memcpy(buffer, im_data, length);
+	length = head_length + recv_header->misc;
+	memcpy(&buffer, recv_header, length);
+	gasneti_assert(recv_header->misc <= gasnet_AMMaxMedium());
 	status = GNI_SmsgRelease(bound_ep_handles[pe]);
 	GASNETC_UNLOCK_GNI_IF_PAR();
-	gasnetc_handle_am_medium_packet(is_req, pe, &packet.gamp, buffer);
+	gasnetc_handle_am_medium_packet(is_req, pe, &buffer.packet.gamp, &buffer.raw[head_length]);
 	break;
       }
       case GC_CMD_AM_LONG:
       case GC_CMD_AM_LONG_REPLY: {
 	head_length = GASNETC_HEADLEN(long, numargs);
-	memcpy(&packet, recv_header, head_length);
-	if (packet.galp.header.misc) { /* payload follows header - copy it into place */
-	  im_data = (void *) (((uintptr_t) recv_header) + head_length);
-	  memcpy(packet.galp.data, im_data, packet.galp.data_length);
+	memcpy(&buffer, recv_header, head_length);
+	if (buffer.packet.galp.header.misc) { /* payload follows header - copy it into place */
+	  void *im_data = (void *) (((uintptr_t) recv_header) + head_length);
+	  memcpy(buffer.packet.galp.data, im_data, buffer.packet.galp.data_length);
 	}
 	status = GNI_SmsgRelease(bound_ep_handles[pe]);
 	GASNETC_UNLOCK_GNI_IF_PAR();
-	gasnetc_handle_am_long_packet(is_req, pe, &packet.galp);
+	gasnetc_handle_am_long_packet(is_req, pe, &buffer.packet.galp);
 	break;
       }
       case GC_CMD_SYS_SHUTDOWN_REQUEST: {
-	memcpy(&packet, recv_header, sizeof(gasnetc_sys_shutdown_packet_t));
+	memcpy(&buffer, recv_header, sizeof(buffer.packet.gssp));
 	status = GNI_SmsgRelease(bound_ep_handles[pe]);
 	GASNETC_UNLOCK_GNI_IF_PAR();
-	gasnetc_handle_sys_shutdown_packet(pe, &packet.gssp);
+	gasnetc_handle_sys_shutdown_packet(pe, &buffer.packet.gssp);
 	break;
       }
       default: {
