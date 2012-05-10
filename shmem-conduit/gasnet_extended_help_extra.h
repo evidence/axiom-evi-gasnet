@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_extended_help_extra.h,v $
- *     $Date: 2012/05/10 00:54:38 $
- * $Revision: 1.12 $
+ *     $Date: 2012/05/10 01:44:29 $
+ * $Revision: 1.13 $
  * Description: GASNet Extended Shmem-specific Header 
  * Copyright 2005, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -445,7 +445,6 @@ _gasnete_try_syncnb(gasnet_handle_t handle)
 
     return GASNETE_OK;
 }
-#define gasnete_try_syncnb(handle)	_gasnete_try_syncnb(handle)
 #define gasnete_try_syncnb_nopoll(handle)	_gasnete_try_syncnb(handle)
 
 GASNETI_INLINE(_gasnete_try_syncnb_some)

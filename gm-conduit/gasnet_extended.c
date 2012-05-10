@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2012/05/10 00:15:52 $
- * $Revision: 1.48 $
+ *     $Date: 2012/05/10 01:44:21 $
+ * $Revision: 1.49 $
  * Description: GASNet Extended API GM Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -100,17 +100,6 @@ extern void gasnete_init(void) {
 */
 
 extern int  gasnete_try_syncnb_nopoll(gasnet_handle_t handle) {
-	if (gasnete_op_isdone(handle)) {
-		gasneti_sync_reads();
-		gasnete_op_free(handle);
-		return GASNET_OK;
-	}
-	else return GASNET_ERR_NOT_READY;
-}
-
-extern int  gasnete_try_syncnb(gasnet_handle_t handle) {
-	GASNETI_SAFE(gasneti_AMPoll());
-
 	if (gasnete_op_isdone(handle)) {
 		gasneti_sync_reads();
 		gasnete_op_free(handle);

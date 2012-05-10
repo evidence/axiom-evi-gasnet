@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2012/05/10 00:15:56 $
- * $Revision: 1.54 $
+ *     $Date: 2012/05/10 01:44:31 $
+ * $Revision: 1.55 $
  * Description: GASNet Extended API over VAPI/IB Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -431,12 +431,6 @@ extern void gasnete_wait_syncnb(gasnet_handle_t op) {
 }
 
 extern int  gasnete_try_syncnb_nopoll(gasnet_handle_t handle) {
-  return gasnete_op_try_free(handle) ? GASNET_OK : GASNET_ERR_NOT_READY;
-}
-
-extern int  gasnete_try_syncnb(gasnet_handle_t handle) {
-  GASNETI_SAFE(gasneti_AMPoll());
-
   return gasnete_op_try_free(handle) ? GASNET_OK : GASNET_ERR_NOT_READY;
 }
 

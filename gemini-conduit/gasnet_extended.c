@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2012/05/10 00:39:17 $
- * $Revision: 1.9 $
+ *     $Date: 2012/05/10 01:44:19 $
+ * $Revision: 1.10 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -530,17 +530,6 @@ extern gasnet_handle_t gasnete_memset_nb   (gasnet_node_t node, void *dest, int 
 */
 
 extern int  gasnete_try_syncnb_nopoll(gasnet_handle_t handle) {
-  if (gasnete_op_isdone(handle)) {
-    gasneti_sync_reads();
-    gasnete_op_free(handle);
-    return GASNET_OK;
-  }
-  else return GASNET_ERR_NOT_READY;
-}
-
-extern int  gasnete_try_syncnb(gasnet_handle_t handle) {
-  GASNETI_SAFE(gasneti_AMPoll());
-
   if (gasnete_op_isdone(handle)) {
     gasneti_sync_reads();
     gasnete_op_free(handle);
