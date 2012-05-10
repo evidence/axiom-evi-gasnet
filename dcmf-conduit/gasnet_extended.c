@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_extended.c,v $
- *     $Date: 2012/01/07 07:00:21 $
- * $Revision: 1.19 $
+ *     $Date: 2012/05/10 01:03:28 $
+ * $Revision: 1.20 $
  * Description: GASNet Extended API Implementation for DCMF
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
  *                 Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -750,6 +750,15 @@ extern gasnet_handle_t gasnete_memset_nb   (gasnet_node_t node, void *dest, int 
   Synchronization for explicit-handle non-blocking operations:
   ===========================================================
 */
+
+extern int  gasnete_try_syncnb_nopoll(gasnet_handle_t handle) {
+  if (gasnete_op_isdone(handle)) {
+    gasneti_sync_reads();
+    gasnete_op_free(handle);
+    return GASNET_OK;
+  }
+  else return GASNET_ERR_NOT_READY;
+}
 
 extern int  gasnete_try_syncnb(gasnet_handle_t handle) {
   GASNETI_SAFE(gasneti_AMPoll());
