@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2012/05/10 01:44:17 $
- * $Revision: 1.99 $
+ *     $Date: 2012/05/10 01:54:51 $
+ * $Revision: 1.100 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -850,7 +850,7 @@ int gasnete_try_syncnb_inner(gasnet_handle_t handle) {
   }
 }
 
-extern int  gasnete_try_syncnb_nopoll(gasnet_handle_t handle) {
+extern int  gasnete_try_syncnb(gasnet_handle_t handle) {
 #if 0 && GASNETC_ELAN4
   /* HACK: AMPoll on elan4's buggy pre-1.8.7 drivers is far more expensive than it should be
            so avoid it when not strictly necessary  */
@@ -864,6 +864,11 @@ extern int  gasnete_try_syncnb_nopoll(gasnet_handle_t handle) {
   return GASNET_ERR_NOT_READY;
  #endif
 #else
+#if 0
+  /* polling now takes place in callers which needed and NOT in those which don't */
+  GASNETI_SAFE(gasneti_AMPoll());
+#endif
+
   return gasnete_try_syncnb_inner(handle);
 #endif
 }

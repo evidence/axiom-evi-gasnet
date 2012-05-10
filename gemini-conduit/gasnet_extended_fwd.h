@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended_fwd.h,v $
- *     $Date: 2012/04/24 00:31:31 $
- * $Revision: 1.1 $
+ *     $Date: 2012/05/10 01:54:55 $
+ * $Revision: 1.2 $
  * Description: GASNet Extended API Header for Gemin Conduit (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -48,7 +48,7 @@ typedef struct _gasnete_op_t *gasnet_handle_t;
  *   set: conduit provides it own gasnete_get_nbi()
  *
  * GASNETI_DIRECT_WAIT_SYNCNB 
- *   unset: gasnete_wait_syncnb(h) via gasneti_waitwhile(gasnete_try_syncnb(h))
+ *   unset: gasnete_wait_syncnb(h) via gasneti_pollwhile(gasnete_try_syncnb(h))
  *   set: conduit provides it own gasnete_wait_syncnb()
  *
  * GASNETI_DIRECT_WAIT_SYNCNB_SOME

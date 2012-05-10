@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_fwd.h,v $
- *     $Date: 2012/04/14 00:37:37 $
- * $Revision: 1.27 $
+ *     $Date: 2012/05/10 01:54:53 $
+ * $Revision: 1.28 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -48,7 +48,7 @@ typedef struct _gasnete_op_t *gasnet_handle_t;
  *   set: conduit provides it own gasnete_get_nbi()
  *
  * GASNETI_DIRECT_WAIT_SYNCNB 
- *   unset: gasnete_wait_syncnb(h) via gasneti_waitwhile(gasnete_try_syncnb(h))
+ *   unset: gasnete_wait_syncnb(h) via gasneti_pollwhile(gasnete_try_syncnb(h))
  *   set: conduit provides it own gasnete_wait_syncnb()
  *
  * GASNETI_DIRECT_WAIT_SYNCNB_SOME

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2012/05/10 01:44:23 $
- * $Revision: 1.122 $
+ *     $Date: 2012/05/10 01:54:59 $
+ * $Revision: 1.123 $
  * Description: GASNet Extended API over LAPI Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1286,7 +1286,12 @@ extern gasnet_handle_t gasnete_memset_nb   (gasnet_node_t node, void *dest, int 
   ===========================================================
 */
 
-extern int  gasnete_try_syncnb_nopoll(gasnet_handle_t handle) {
+extern int  gasnete_try_syncnb(gasnet_handle_t handle) {
+#if 0
+    /* polling now takes place in callers which needed and NOT in those which don't */
+    GASNETI_SAFE(gasneti_AMPoll());
+#endif
+
     if (handle == GASNET_INVALID_HANDLE)
 	return GASNET_OK; /* Redundant? */
 

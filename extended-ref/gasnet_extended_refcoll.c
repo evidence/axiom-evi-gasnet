@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refcoll.c,v $
- *     $Date: 2012/05/10 01:42:14 $
- * $Revision: 1.100 $
+ *     $Date: 2012/05/10 01:54:53 $
+ * $Revision: 1.101 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>, Paul H. Hargrove <PHHargrove@lbl.gov>, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -372,7 +372,7 @@ void gasnete_coll_sync_saved_handles(GASNETE_THREAD_FARG_ALONE) {
           *((gasnet_coll_handle_t *)addr) = GASNET_COLL_INVALID_HANDLE;
         }
       } else {
-        synced = (gasnete_try_syncnb_nopoll(curr->u.handle) == GASNET_OK);
+        synced = (gasnete_try_syncnb(curr->u.handle) == GASNET_OK);
         if (synced) {
           gasneti_sync_writes();
           *((gasnet_handle_t *)addr) = GASNET_INVALID_HANDLE;
