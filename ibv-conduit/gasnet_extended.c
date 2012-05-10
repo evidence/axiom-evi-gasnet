@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_extended.c,v $
- *     $Date: 2012/03/22 05:51:00 $
- * $Revision: 1.53 $
+ *     $Date: 2012/05/10 00:15:56 $
+ * $Revision: 1.54 $
  * Description: GASNet Extended API over VAPI/IB Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -428,6 +428,10 @@ extern void gasnete_wait_syncnb(gasnet_handle_t op) {
       gasnete_iop_free(iop);
     }
   }
+}
+
+extern int  gasnete_try_syncnb_nopoll(gasnet_handle_t handle) {
+  return gasnete_op_try_free(handle) ? GASNET_OK : GASNET_ERR_NOT_READY;
 }
 
 extern int  gasnete_try_syncnb(gasnet_handle_t handle) {

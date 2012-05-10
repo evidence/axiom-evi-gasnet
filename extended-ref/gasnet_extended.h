@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended.h,v $
- *     $Date: 2011/03/24 03:41:26 $
- * $Revision: 1.48 $
+ *     $Date: 2012/05/10 00:15:50 $
+ * $Revision: 1.49 $
  * Description: GASNet Extended API Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -218,6 +218,7 @@ gasnet_handle_t   _gasnet_memset_nb   (gasnet_node_t node, void *dest, int val, 
 
 extern int gasnete_try_syncnb(gasnet_handle_t handle);
 extern int gasnete_try_syncnb_some(gasnet_handle_t *phandle, size_t numhandles);
+extern int gasnete_try_syncnb_nopoll(gasnet_handle_t handle); /* Not yet public */
 
 #if !defined(gasnete_try_syncnb_all)
 extern int gasnete_try_syncnb_all (gasnet_handle_t *phandle, size_t numhandles);
