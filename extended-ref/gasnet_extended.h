@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended.h,v $
- *     $Date: 2012/05/10 01:54:53 $
- * $Revision: 1.51 $
+ *     $Date: 2012/05/10 02:27:53 $
+ * $Revision: 1.52 $
  * Description: GASNet Extended API Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -222,6 +222,16 @@ extern int gasnete_try_syncnb_some(gasnet_handle_t *phandle, size_t numhandles);
 #if !defined(gasnete_try_syncnb_all)
 extern int gasnete_try_syncnb_all (gasnet_handle_t *phandle, size_t numhandles);
 #endif
+
+/* TODO: document the following "new" entry point: */
+GASNETI_INLINE(gasnet_try_syncnb_nopoll) GASNETI_WARN_UNUSED_RESULT
+int  gasnet_try_syncnb_nopoll(gasnet_handle_t handle) {
+  int result = GASNET_OK;
+  if_pt (handle != GASNET_INVALID_HANDLE)
+    result = gasnete_try_syncnb(handle);
+  GASNETI_TRACE_TRYSYNC(TRY_SYNCNB_NOPOLL,result);
+  return result;
+}
 
 GASNETI_INLINE(gasnet_try_syncnb) GASNETI_WARN_UNUSED_RESULT
 int  gasnet_try_syncnb(gasnet_handle_t handle) {
