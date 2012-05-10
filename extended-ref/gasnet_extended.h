@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended.h,v $
- *     $Date: 2012/05/10 00:15:50 $
- * $Revision: 1.49 $
+ *     $Date: 2012/05/10 01:43:32 $
+ * $Revision: 1.50 $
  * Description: GASNet Extended API Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -216,9 +216,8 @@ gasnet_handle_t   _gasnet_memset_nb   (gasnet_node_t node, void *dest, int val, 
   ===========================================================
 */
 
-extern int gasnete_try_syncnb(gasnet_handle_t handle);
+extern int gasnete_try_syncnb_nopoll(gasnet_handle_t handle);
 extern int gasnete_try_syncnb_some(gasnet_handle_t *phandle, size_t numhandles);
-extern int gasnete_try_syncnb_nopoll(gasnet_handle_t handle); /* Not yet public */
 
 #if !defined(gasnete_try_syncnb_all)
 extern int gasnete_try_syncnb_all (gasnet_handle_t *phandle, size_t numhandles);
@@ -227,8 +226,10 @@ extern int gasnete_try_syncnb_all (gasnet_handle_t *phandle, size_t numhandles);
 GASNETI_INLINE(gasnet_try_syncnb) GASNETI_WARN_UNUSED_RESULT
 int  gasnet_try_syncnb(gasnet_handle_t handle) {
   int result = GASNET_OK;
-  if_pt (handle != GASNET_INVALID_HANDLE) 
-    result = gasnete_try_syncnb(handle);
+  if_pt (handle != GASNET_INVALID_HANDLE)  {
+    gasneti_AMPoll();
+    result = gasnete_try_syncnb_nopoll(handle);
+  }
   GASNETI_TRACE_TRYSYNC(TRY_SYNCNB,result);
   return result;
 }
@@ -252,8 +253,10 @@ int gasnet_try_syncnb_all(gasnet_handle_t *phandle, size_t numhandles) {
 #elif !defined(gasnete_wait_syncnb)
   #define gasnete_wait_syncnb(handle) do {                                      \
       gasnet_handle_t _handle = (handle);                                       \
-      if_pt (_handle != GASNET_INVALID_HANDLE)                                  \
-        gasneti_waitwhile(gasnete_try_syncnb(_handle) == GASNET_ERR_NOT_READY); \
+      if_pt (_handle != GASNET_INVALID_HANDLE) {                                \
+        gasneti_AMPoll(); /* Ensure at least one poll - TODO: remove? */        \
+        gasneti_pollwhile(gasnete_try_syncnb_nopoll(_handle) == GASNET_ERR_NOT_READY); \
+      }                                                                         \
     } while(0)
 #endif
 
