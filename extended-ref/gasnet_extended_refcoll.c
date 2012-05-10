@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refcoll.c,v $
- *     $Date: 2012/01/07 02:40:51 $
- * $Revision: 1.99 $
+ *     $Date: 2012/05/10 01:42:14 $
+ * $Revision: 1.100 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>, Paul H. Hargrove <PHHargrove@lbl.gov>, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -350,6 +350,7 @@ void gasnete_coll_save_coll_handle(gasnet_coll_handle_t *handle_p GASNETE_THREAD
   }
 }
 
+/* Assumes caller calls AMPoll */
 void gasnete_coll_sync_saved_handles(GASNETE_THREAD_FARG_ALONE) {
   gasnete_coll_threaddata_t *td = GASNETE_COLL_MYTHREAD;
   int used = td->handles.used;
@@ -362,7 +363,7 @@ void gasnete_coll_sync_saved_handles(GASNETE_THREAD_FARG_ALONE) {
     for (i = 0; i < used; ++i) {
 	    uintptr_t addr = curr->addr;
 	    int synced = 0;
-	    if (addr & 1) {
+      if (addr & 1) {
         /* Coll handle - take care not to re-enter coll_poll()!! */
         addr &= ~1;
         synced = gasnete_coll_handle_done(curr->u.coll_handle GASNETE_THREAD_PASS);
@@ -370,19 +371,19 @@ void gasnete_coll_sync_saved_handles(GASNETE_THREAD_FARG_ALONE) {
           gasneti_sync_writes();
           *((gasnet_coll_handle_t *)addr) = GASNET_COLL_INVALID_HANDLE;
         }
-	    } else {
-        synced = (gasnete_try_syncnb(curr->u.handle) == GASNET_OK);
+      } else {
+        synced = (gasnete_try_syncnb_nopoll(curr->u.handle) == GASNET_OK);
         if (synced) {
           gasneti_sync_writes();
           *((gasnet_handle_t *)addr) = GASNET_INVALID_HANDLE;
         }
-	    }
-	    if (synced) {
+      }
+      if (synced) {
         *curr = *(last--);
         --td->handles.used;
 	    } else {
         ++curr;
-	    }
+      }
     }
   }
 }
