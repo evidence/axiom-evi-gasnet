@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_core.c,v $
- *     $Date: 2012/01/07 04:45:18 $
- * $Revision: 1.25 $
+ *     $Date: 2012/05/10 03:44:57 $
+ * $Revision: 1.26 $
  * Description: GASNet dcmf conduit Implementation
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>, 
                    Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -695,7 +695,7 @@ static void gasnetc_tryCollectiveExit(int exitcode) {
   
   alarm(1+(int)gasnetc_exittimeout); /* acquired from env */
 
-#if GASNET_DEBUG
+#if GASNET_DEBUG_VERBOSE
   fprintf(stderr, "%d> exit initiated... checking for collective exit (exit code: %d) timeout: %d\n", gasneti_mynode, exitcode, 1+(int)gasnetc_exittimeout);
 #endif
   
@@ -721,7 +721,7 @@ static void gasnetc_tryCollectiveExit(int exitcode) {
  }
  DCMF_CriticalSection_exit(0);
     
-#if GASNET_DEBUG
+#if GASNET_DEBUG_VERBOSE
   fprintf(stderr, "%d> collective exit succeeded. Exiting with code %d\n", gasneti_mynode,
           outputexit_code & 0x000000ff);
 #endif
