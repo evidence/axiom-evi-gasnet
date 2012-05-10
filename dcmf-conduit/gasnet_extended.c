@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_extended.c,v $
- *     $Date: 2012/05/10 01:54:49 $
- * $Revision: 1.22 $
+ *     $Date: 2012/05/10 04:22:35 $
+ * $Revision: 1.23 $
  * Description: GASNet Extended API Implementation for DCMF
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
  *                 Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -1125,7 +1125,7 @@ extern void gasnete_memset_nbi   (gasnet_node_t node, void *dest, int val, size_
 */
 
 extern int  gasnete_try_syncnbi_gets(GASNETE_THREAD_FARG_ALONE) {
-  #if 1
+  #if 0
     /* polling for syncnbi now happens in header file to avoid duplication */
     GASNETI_SAFE(gasneti_AMPoll());
   #endif
