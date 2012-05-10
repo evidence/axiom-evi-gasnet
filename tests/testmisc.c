@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testmisc.c,v $
- *     $Date: 2012/05/10 00:15:54 $
- * $Revision: 1.49 $
+ *     $Date: 2012/05/10 00:16:51 $
+ * $Revision: 1.50 $
  * Description: GASNet misc performance test
  *   Measures the overhead associated with a number of purely local 
  *   operations that involve no communication. 
@@ -414,9 +414,6 @@ void doit7(void) { GASNET_BEGIN_FUNCTION();
 
     TIME_OPERATION("do-nothing gasnet_try_syncnb()",
       { GASNETI_UNUSED int junk = gasnet_try_syncnb(GASNET_INVALID_HANDLE); });
-
-    TIME_OPERATION("do-nothing gasnete_try_syncnb_nopoll()",
-      { GASNETI_UNUSED int junk = gasnete_try_syncnb_nopoll(GASNET_INVALID_HANDLE); });
 
     TIME_OPERATION("do-nothing gasnet_wait_syncnb_all() (8 handles)",
       { gasnet_wait_syncnb_all(handles, 8); });
