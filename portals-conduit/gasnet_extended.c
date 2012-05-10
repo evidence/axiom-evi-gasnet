@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2012/05/10 01:55:03 $
- * $Revision: 1.21 $
+ *     $Date: 2012/05/10 04:31:04 $
+ * $Revision: 1.22 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -728,7 +728,10 @@ extern int  gasnete_try_syncnb(gasnet_handle_t handle) {
 extern int  gasnete_try_syncnb_some (gasnet_handle_t *phandle, size_t numhandles) {
   int success = 0;
   int empty = 1;
+#if 0
+  /* polling for syncnb now happens in header file to avoid duplication */
   GASNETI_SAFE(gasneti_AMPoll());
+#endif
 
   gasneti_assert(phandle);
 
@@ -753,7 +756,10 @@ extern int  gasnete_try_syncnb_some (gasnet_handle_t *phandle, size_t numhandles
 
 extern int  gasnete_try_syncnb_all (gasnet_handle_t *phandle, size_t numhandles) {
   int success = 1;
+#if 0
+  /* polling for syncnb now happens in header file to avoid duplication */
   GASNETI_SAFE(gasneti_AMPoll());
+#endif
 
   gasneti_assert(phandle);
 

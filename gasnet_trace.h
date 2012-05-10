@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.h,v $
- *     $Date: 2012/05/10 02:27:51 $
- * $Revision: 1.66 $
+ *     $Date: 2012/05/10 04:30:47 $
+ * $Revision: 1.67 $
  * Description: GASNet Tracing Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -756,7 +756,9 @@ extern void gasneti_trace_finish(void);
         VAL(S, TRY_SYNCNB, success)                       \
         VAL(S, TRY_SYNCNB_ALL, success)                   \
         VAL(S, TRY_SYNCNB_SOME, success)                  \
-        VAL(S, TRY_SYNCNB_NOPOLL, success)                \
+        VAL(S, TRY_SYNCNB_NP, success)                    \
+        VAL(S, TRY_SYNCNB_ALL_NP, success)                \
+        VAL(S, TRY_SYNCNB_SOME_NP, success)               \
         TIME(S, WAIT_SYNCNB, waittime)                    \
         TIME(S, WAIT_SYNCNB_ALL, waittime)                \
         TIME(S, WAIT_SYNCNB_SOME, waittime)               \

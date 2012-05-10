@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended_fwd.h,v $
- *     $Date: 2012/05/10 01:55:01 $
- * $Revision: 1.5 $
+ *     $Date: 2012/05/10 04:31:02 $
+ * $Revision: 1.6 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -57,11 +57,11 @@ typedef struct _gasnete_op_t *gasnet_handle_t;
  *   set: conduit provides it own gasnete_wait_syncnb()
  *
  * GASNETI_DIRECT_WAIT_SYNCNB_SOME
- *   unset: gasnete_wait_syncnb_some(...) via gasneti_waitwhile(gasnete_try_syncnb_some(...))
+ *   unset: gasnete_wait_syncnb_some(...) via gasneti_pollwhile(gasnete_try_syncnb_some(...))
  *   set: conduit provides it own gasnete_wait_syncnb_some()
  *
  * GASNETI_DIRECT_WAIT_SYNCNB_ALL
- *   unset: gasnete_wait_syncnb_all(...) via gasneti_waitwhile(gasnete_try_syncnb_all(...))
+ *   unset: gasnete_wait_syncnb_all(...) via gasneti_pollwhile(gasnete_try_syncnb_all(...))
  *   set: conduit provides it own gasnete_wait_syncnb_all()
  *
  * GASNETI_DIRECT_TRY_SYNCNBI_ALL

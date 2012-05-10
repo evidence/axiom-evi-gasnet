@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_extended.c,v $
- *     $Date: 2012/05/10 04:22:35 $
- * $Revision: 1.23 $
+ *     $Date: 2012/05/10 04:30:49 $
+ * $Revision: 1.24 $
  * Description: GASNet Extended API Implementation for DCMF
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
  *                 Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -768,7 +768,10 @@ extern int  gasnete_try_syncnb(gasnet_handle_t handle) {
 extern int  gasnete_try_syncnb_some (gasnet_handle_t *phandle, size_t numhandles) {
   int success = 0;
   int empty = 1;
+#if 0
+  /* polling for syncnb now happens in header file to avoid duplication */
   GASNETI_SAFE(gasneti_AMPoll());
+#endif
 
   gasneti_assert(phandle);
 
@@ -793,7 +796,10 @@ extern int  gasnete_try_syncnb_some (gasnet_handle_t *phandle, size_t numhandles
 
 extern int  gasnete_try_syncnb_all (gasnet_handle_t *phandle, size_t numhandles) {
   int success = 1;
+#if 0
+  /* polling for syncnb now happens in header file to avoid duplication */
   GASNETI_SAFE(gasneti_AMPoll());
+#endif
 
   gasneti_assert(phandle);
 
