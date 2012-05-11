@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.c,v $
- *     $Date: 2012/01/07 04:45:16 $
- * $Revision: 1.152 $
+ *     $Date: 2012/05/11 22:01:58 $
+ * $Revision: 1.153 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1040,7 +1040,8 @@ extern void gasneti_trace_finish(void) {
       fprintf(fp, "#\n");
       fprintf(fp, "# Table below shows objects allocated, but not freed by job exit.\n");
       fprintf(fp, "# Note that GASNet does not free most of its internal permanent data structures,\n");
-      fprintf(fp, "# in order to streamline job shutdown.\n");
+      fprintf(fp, "# in order to streamline job shutdown.  An asterisk (*) following the size\n");
+      fprintf(fp, "# identifies objects known to correspond to these permanent allocations.\n");
       fprintf(fp, "#\n");
       fprintf(fp, "# Object size     Location Allocated\n");
       fprintf(fp, "# ==================================\n");
