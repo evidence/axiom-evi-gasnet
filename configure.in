@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2012/05/03 20:52:14 $
-# $Revision: 1.757 $
+#     $Date: 2012/05/11 21:26:12 $
+# $Revision: 1.758 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.757 $)
+AC_REVISION($Revision: 1.758 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -4944,6 +4944,7 @@ case "$target_os" in
     LDFLAGS="$LDFLAGS -Wl,-multiply_defined,suppress"
 
     # Darwin 11 (MacOSX Lion) and newer use address-space randomization by default
+    # TODO: should this be ommitted if aligned segments have been disabled?
     tmp_ver=`expr "$target_os" : "darwin\([[0-9]]*\)" 2>/dev/null`
     if expr $tmp_ver \>= 11 >/dev/null; then
       LDFLAGS="$LDFLAGS -Wl,-no_pie"
