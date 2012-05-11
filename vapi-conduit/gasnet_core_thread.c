@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_thread.c,v $
- *     $Date: 2012/03/09 03:08:46 $
- * $Revision: 1.14 $
+ *     $Date: 2012/05/11 21:19:14 $
+ * $Revision: 1.15 $
  * Description: GASNet vapi/ibv conduit implementation, progress thread logic
  * Copyright 2012, LBNL
  * Terms of use are as specified in license.txt
@@ -169,6 +169,7 @@ gasnetc_spawn_progress_thread(gasnetc_progress_thread_t *pthr_p)
   gasneti_mutex_lock(&init_lock);
   if (!stack_sz) {
     /* Code to determine proper stack size */
+    /* TODO: move this logic to gasnet_internal.c for use in other conduits */
     const size_t stack_min = gasneti_getenv_int_withdefault("GASNET_THREAD_STACK_MIN", 0, 1);
     const size_t stack_pad = gasneti_getenv_int_withdefault("GASNET_THREAD_STACK_PAD", 0, 1);
     size_t stack_dflt;
