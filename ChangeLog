@@ -1,12 +1,105 @@
 GASNet ChangeLog 
 ----------------
-$Revision: 1.54 $
+$Revision: 1.55 $
 
 ----------------------------------------------------------------------
-??-??-2012 : Release 1.18.2
-PLACE HOLDER
-  - Extend PSHM-via-XPMEM support to SGI Altix series
-  - Beta version of pami-conduit (BG/Q and IBM PE)
+05-14-2012 : Release 1.18.2
+
+* IBM PAMI (pami-conduit)
+  - This release includes a BETA of native support for the IBM PAMI
+    (Parallel Active Message Interface) network API, found on the IBM BG/Q
+    and on systems running IBM's Parallel Environment (IBM PE) software
+    for Linux (both x86-64 and PowerPC architectures).
+  - Testing on an IBM Power 775 system (a.k.a. PERCS or Blue Waters) with
+    its HFI network passed all GASNet and Berkeley UPC tests.
+  - Testing on an IBM BlueGene/Q shows there are still some unexplained
+    failures at the time of this release.
+  - This code has not yet been tested on IBM PE clusters running PAMI over
+    InfiniBand or Ethernet.  Reports of such testing would be appreciated.
+    Access to such systems for testing would be GREATLY appreciated.
+  - The performance of pami-conduit has not been fully tuned, however we
+    believe that the implementation is correct (with only minor bugs
+    remaining on BlueGene/Q).
+  - This is still only a BETA-quality implementation, and performance
+    improvements are anticipated in future releases.
+
+* Cray XE & XK series (gemini-conduit)
+  - Added Cray XK series as a supported/tested platform.
+  - Reduced by more than 60% the memory used for receiving AMs (bug 3067).
+  - Made several code cleanups on the road to production-quality.
+  - This conduit is still "BETA" due to known room for improvements.
+
+* InfiniBand (ibv- and vapi-conduits)
+  - Improved scalability (time and memory) of startup/shutdown code
+    + Switch to native InfiniBand communication earlier in startup.
+    + Use more scalable communication pattern for exit coordination.
+    + Made communications performance improvements to sockets code in the
+      ssh-spawner used for startup when spawning via MPI is unavailable
+      or has been disabled.
+  - Made improvements to dynamic connection support
+    + The dynamic connection code has been more robust in the face of lost
+      packets through use of TCP-inspired adaptive timeouts.
+    + The dynamic connection code has been made insensitive to the problem
+      of inattentive peers (ones not making frequent enough calls to GASNet)
+      through the use of an internal thread which wakes up only on arrival
+      of network traffic related to dynamic connection setup.
+  - Made improvements in the Active Message progress thread
+    + The AM progress thread is finally available in ibv-conduit.
+    + The maximum wake-up rate of the progress thread can now be limited.
+    + See the conduit README file for documentation on GASNET_RCV_THREAD
+      and GASNET_RCV_THREAD_RATE environment variables for more info.
+
+* PSHM (intra-node shared memory)
+  - Extended PSHM-via-XPMEM support to SGI Altix series, where it is
+    available at configure time, but not currently used by default.
+  - Support for PSHM over SystemV shared memory no longer requires a
+    working implementation of mmap() (bug 3066).
+    + This is the first PSHM support for Cygwin.
+  - Expanded PSHM docs, including notes for configuration on Cygwin.
+    See docs/pshm-design.txt in the GASNet sources.
+
+* Platform support/portability
+  - Ported network-independent code to the IBM BlueGene/Q.
+    This provides fully-functioning GASNet-Tools and smp- and mpi-conduits.
+  - Implemented native 64-bit atomics for ILP32 builds with Apple XCode-4.x,
+    resolving bug 3071 which required disabling them in the 1.18.0 release.
+  - Made several changes to ssh-spawner sockets code for better portability.
+  - Disabled ASLR (address-space layout randomization) in MacOS Lion (and
+    newer) via the GASNET_LDFLAGS.
+  - No longer trust Cygwin's gethostid(), which has known problem.
+  - Added initial support for Clang
+    + Not yet listed in README as officially supported for any target
+    + x86 and x86-64 targets have been well tested on Linux and *BSD
+    + x86 and x86-64 targets have been lightly tested on MacOS Lion
+    + ppc64 target has been lightly tested on BG/Q platforms
+  - Made fixes for __attribute__ configure probes
+    + The __always_inline__ probe failed incorrectly with gcc-4.7.x.
+    + The __format__ probe failed incorrectly with PGI compilers.
+  - Improved support for "old" C compilers by removing or reducing
+    unnecessary C99 dependencies.
+
+* General
+  - Fixed an error in README's instructions for use of the Makefile
+    fragments, which was missing "$(GASNET_CPPFLAGS)" in the ".c.o" rule.
+  - Continued improvement to signal handling for smp-conduit for fewer
+    "orphans" when an application is terminated by a signal or abort().
+  - Implemented/documented GASNET_THREAD_STACK_{MIN,PAD} environment vars.
+  - Annotated many (but not yet all) known-benign memory leaks in the
+    report generated when GASNET_MALLOCFILE is set (for bug 3088).
+  - Improved documentation (in code comments) for conduit implementers.
+
+* Build and configure
+  - Most instances of "debug vs. optimize compilation conflict" in the
+    MPI compiler are now resolved without user intervention.
+  - Support for GASNet's error-checking implementation of malloc and its
+    associates can now be controlled independent of the --enable-debug
+    configure option (but is still enabled by default when configured
+    with --enable-debug).
+    + "--enable-debug-malloc" enables error-checking malloc while not
+      enabling other runtime assertions associated with "--enable-debug".
+    + "--enable-debug --disable-debug-malloc" yields a debug build without
+      GASNet's error-checking wrappers for malloc and related calls.  This
+      is useful when an external debugging malloc library is to be used.
 
 ----------------------------------------------------------------------
 10-30-2011 : Release 1.18.0
