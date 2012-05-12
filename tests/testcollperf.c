@@ -1063,12 +1063,23 @@ int main(int argc, char **argv)
     performance_iters = DEFAULT_PERFORMANCE_ITERS;
   }
   
+  /* Need to test_init before gasnet_attach to use TEST_LOCALPROCS() */
+  test_init_early("testcollperf",(performance_iters != 0),"(max data size) (outer_verification_iters) (inner_verification_iters) (performance_iters) (thread count per node) (test sections)");
+  MSG("hostname is: %s (pid=%i)", gasnett_gethostname(), (int)getpid());
+
 #if GASNET_PAR
   if (argc > 5) {
     threads_per_node = atoi(argv[5]);
   } else {
-    threads_per_node = gasnett_cpu_count(); 
+    if (gasnett_getenv_yesno_withdefault("GASNET_TEST_POLITE_SYNC",0)) {
+      /* May overcommit only if somebody already expected it */
+      threads_per_node = gasnett_cpu_count();
+    } else {
+      threads_per_node = gasnett_cpu_count() / TEST_LOCALPROCS(); 
+    }
     threads_per_node = MIN(threads_per_node, 8);
+    threads_per_node = MIN(threads_per_node, TEST_MAXTHREADS);
+    threads_per_node = MAX(threads_per_node, 1);
   }
   if (threads_per_node > TEST_MAXTHREADS || threads_per_node < 1) {
     printf("ERROR: Threads must be between 1 and %d\n", TEST_MAXTHREADS);
@@ -1119,10 +1130,9 @@ int main(int argc, char **argv)
            outer_verification_iters, inner_verification_iters, performance_iters, (int) threads_per_node);
     } 
   }
-  
+
  
   GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
-  test_init("testcollperf",0,"(max data size) (outer_verification_iters) (inner_verification_iters) (performance_iters) (thread count per node) (test sections)");
   TEST_SET_WAITMODE(threads_per_node);
   A = TEST_MYSEG();
   B = A+(SEG_PER_THREAD*threads_per_node);
