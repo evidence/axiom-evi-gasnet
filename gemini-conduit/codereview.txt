@@ -1,5 +1,5 @@
 Gemini-conduit design notes, from code review 8/2010
-$Revision: 1.6 $
+$Revision: 1.7 $
 
 number of bounce buffers, make clear the effects of, in the readme
 
@@ -152,3 +152,6 @@ get rid of loop around printf failed to coordinate shutdown
 what does PMI_Finalize really mean? Is there a timer that is started?  Otherwise, bould move it above the flush_streams and trace_finish
 
 
++ Document and enforce a minimum value of GASNET_NETWORKDEPTH
+
++ Does shutdown msg need an am_credit to avoid GNI_SmsgSend() failing w/ NOT_DONE?

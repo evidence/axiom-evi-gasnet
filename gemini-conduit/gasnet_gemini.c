@@ -1276,6 +1276,8 @@ static double shutdown_max = 120.;  /* 2 minutes */
 static uint32_t sys_exit_rcvd = 0;
 
 
+/* XXX: probably need to obtain am_credit or otherwise guard against
+   the possibility of GNI_SmsgSend() returning GNI_RC_NOT_DONE. */
 extern void gasnetc_sys_SendShutdownMsg(gasnet_node_t node, int shift, int exitcode)
 {
   gasnetc_sys_shutdown_packet_t shutdown;
