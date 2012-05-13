@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core_fwd.h,v $
- *     $Date: 2012/05/05 00:50:09 $
- * $Revision: 1.5 $
+ *     $Date: 2012/05/13 04:45:52 $
+ * $Revision: 1.6 $
  * Description: GASNet header for <conduitname> conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -13,7 +13,7 @@
 #ifndef _GASNET_CORE_FWD_H
 #define _GASNET_CORE_FWD_H
 
-#define GASNET_CORE_VERSION      0.2
+#define GASNET_CORE_VERSION      0.3
 #define GASNET_CORE_VERSION_STR  _STRINGIFY(GASNET_CORE_VERSION)
 #define GASNET_CORE_NAME         GEMINI
 #define GASNET_CORE_NAME_STR     _STRINGIFY(GASNET_CORE_NAME)
