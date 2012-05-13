@@ -216,9 +216,9 @@ void gasnetc_send_am_nop(uint32_t pe);
 
 
 typedef struct gasnetc_queue_item {
-  struct gasnetc_queue_item *next;    // pointer to next item on q, or NULL if last
-  //  struct gasnetc_queue_item *prev;
-  struct gasnetc_queue *queue;        // pointer to queue we are on, or NULL if not
+  struct gasnetc_queue_item *next;    /* pointer to next item on q, or NULL if last */
+  /*  struct gasnetc_queue_item *prev; */
+  struct gasnetc_queue *queue;        /* pointer to queue we are on, or NULL if not */
 } gasnetc_queue_item_t;
 
 

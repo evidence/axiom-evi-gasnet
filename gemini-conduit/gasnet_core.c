@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2012/05/05 01:39:00 $
- * $Revision: 1.24 $
+ *     $Date: 2012/05/13 21:08:50 $
+ * $Revision: 1.25 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -606,7 +606,7 @@ extern void gasnetc_exit(int exitcode) {
   gasneti_sched_yield();
   gasnetc_shutdown();
 
-  gasnetc_GNIT_Finalize();  // normal exit via PMI
+  gasnetc_GNIT_Finalize();  /* normal exit via PMI */
   gasneti_killmyprocess(exitcode); /* last chance */
   gasnetc_GNIT_Abort("gasnetc_exit failed!");
 }

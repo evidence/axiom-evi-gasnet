@@ -17,7 +17,7 @@ static long int mygetenv(const char *name)
   long int value;
   if (valuestring == NULL) return (-1);
   value = atol(valuestring);
-  //fprintf(stderr, "rank %d, get(%s) -> %s, %ld\n", rank, name, valuestring, value);
+  /*fprintf(stderr, "rank %d, get(%s) -> %s, %ld\n", rank, name, valuestring, value);*/
   return(value);
 }
 
@@ -35,7 +35,7 @@ void *gasnetc_gather_nic_addresses(void)
   if (status != GNI_RC_SUCCESS) {
     gasnetc_GNIT_Abort();
   } else {
-    //fprintf(stderr, "rank %d Cdm_GetNicAddress %x\n", rank, myaddress);
+    /*fprintf(stderr, "rank %d Cdm_GetNicAddress %x\n", rank, myaddress); */
   }
   pmiaddress = mygetenv("PMI_GNI_LOC_ADDR");
   if (pmiaddress != myaddress) {
@@ -44,7 +44,7 @@ void *gasnetc_gather_nic_addresses(void)
 #endif
     myaddress = pmiaddress;
   } else {
-    //fprintf(stderr, "rank %d PMI_GNI_LOC_ADDR is %d, same\n", rank, pmiaddress);
+    /*fprintf(stderr, "rank %d PMI_GNI_LOC_ADDR is %d, same\n", rank, pmiaddress);*/
   }
 
   gasnetc_GNIT_Allgather(&myaddress, sizeof(uint32_t), gasnetc_UGNI_AllAddr);
@@ -122,7 +122,7 @@ int gasnetc_GNIT_Device_Id(void)
 
 void gasnetc_GNIT_Allgather(void *local, long length, void *global)
 {
-  long itemsize = 1 + 1 + (length / sizeof(long)); // length in longs
+  long itemsize = 1 + 1 + (length / sizeof(long)); /* length in longs */
   long *unsorted = gasneti_malloc(itemsize * sizeof(long) * gasneti_nodes);
   long *sorted = gasneti_malloc(itemsize * sizeof(long) * gasneti_nodes);
   uint32_t peer;
@@ -170,18 +170,18 @@ void gasnetc_GNIT_Allgather(void *local, long length, void *global)
 }
 
 
-void gasnetc_GNIT_TEST_SUCCESS()
+void gasnetc_GNIT_TEST_SUCCESS(void)
 {
   fprintf(stderr, "gasnetc_GNIT_TEST_SUCCESS called\n");
 }
 
-void gasnetc_GNIT_Finalize()
+void gasnetc_GNIT_Finalize(void)
 {
   PMI2_Finalize();
 }
 
 
-void gasnetc_GNIT_Barrier()
+void gasnetc_GNIT_Barrier(void)
 {
   PMI_Barrier();
 }

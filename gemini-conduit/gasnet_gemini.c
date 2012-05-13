@@ -125,7 +125,7 @@ void gasnetc_init_segment(void *segment_start, size_t segment_size)
   gasnetc_GNIT_Allgather(&mypeersegmentdata, sizeof(peer_segment_struct_t), peer_segment_data);
 }
 
-uintptr_t gasnetc_init_messaging()
+uintptr_t gasnetc_init_messaging(void)
 {
   gni_return_t status;
   uint32_t remote_addr;
@@ -325,13 +325,13 @@ void gasnetc_shutdown(void)
   int tries;
   int left;
   gni_return_t status;
-  // seize gni lock and hold it 
+  /* seize gni lock and hold it  */
   GASNETC_LOCK_GNI();
-  // Do other threads need to be killed off here?
-  // release resources in the reverse order of acquisition
+  /* Do other threads need to be killed off here?
+     release resources in the reverse order of acquisition
+   */
 
-
-  // for each rank
+  /* for each rank */
   tries = 0;
   left = gasneti_nodes;
   while (left > 0) {
@@ -382,7 +382,7 @@ void gasnetc_shutdown(void)
 
   status = GNI_CdmDestroy(cdm_handle);
   gasneti_assert_always (status == GNI_RC_SUCCESS);
-  //  fprintf(stderr, "node %d gasnetc_shutdown done\n", gasneti_mynode);
+  /*  fprintf(stderr, "node %d gasnetc_shutdown done\n", gasneti_mynode); */
 }
 
 
@@ -584,7 +584,7 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
  *  try to dequeue a peer and process messages from them
  */
 
-void gasnetc_poll_smsg_completion_queue()
+void gasnetc_poll_smsg_completion_queue(void)
 {
   gni_return_t status;
   gasnet_node_t source;
@@ -653,7 +653,7 @@ void gasnetc_poll_smsg_completion_queue()
   }
 }
 
-void gasnetc_poll_smsg_queue()
+void gasnetc_poll_smsg_queue(void)
 {
   int i;
   gasnet_node_t source;
@@ -668,7 +668,7 @@ void gasnetc_poll_smsg_queue()
 }
 
 
-void gasnetc_poll_local_queue()
+void gasnetc_poll_local_queue(void)
 {
   gni_return_t status;
   gni_cq_entry_t event_data;
@@ -724,7 +724,7 @@ void gasnetc_poll_local_queue()
   GASNETC_UNLOCK_GNI();
 }
   
-void gasnetc_poll()
+void gasnetc_poll(void)
 {
   gasnetc_poll_smsg_queue();
   gasnetc_poll_local_queue();
@@ -986,7 +986,7 @@ void gasnetc_rdma_get(gasnet_node_t dest,
   gni_post_descriptor_t *pd;
   gni_return_t status;
 
-  //  if (nbytes == 0) return;
+  /*  if (nbytes == 0) return; */
   gasneti_assert(gpd);
   pd = &gpd->pd;
   gpd->flags |= GC_POST_GET;
@@ -1231,7 +1231,7 @@ void gasnetc_queue_enqueue_no_lock(gasnetc_queue_t *q, gasnetc_queue_item_t *qi)
   gasneti_assert(q != NULL);
   gasneti_assert(qi != NULL);
   gasneti_assert(qi->queue == NULL);
-  //GASNETC_LOCK_QUEUE(q);
+  /* GASNETC_LOCK_QUEUE(q); */
   if (q->head == NULL) {
     q->head = qi;
   } else {
@@ -1241,7 +1241,7 @@ void gasnetc_queue_enqueue_no_lock(gasnetc_queue_t *q, gasnetc_queue_item_t *qi)
   q->tail = qi;
   qi->next = NULL;
   qi->queue = q;
-  // GASNETC_UNLOCK_QUEUE(q);
+  /* GASNETC_UNLOCK_QUEUE(q); */
 }
 
 int gasnetc_queue_on_queue(gasnetc_queue_item_t *qi)
@@ -1264,7 +1264,7 @@ void gasnetc_init_post_descriptor_pool(void)
 }
 
 /* This needs no lock because there is an internal lock in the queue */
-gasnetc_post_descriptor_t *gasnetc_alloc_post_descriptor()
+gasnetc_post_descriptor_t *gasnetc_alloc_post_descriptor(void)
 {
   gasnetc_post_descriptor_t *gpd;
   while ((gpd = (gasnetc_post_descriptor_t *) 
@@ -1473,7 +1473,7 @@ void gasnetc_init_bounce_buffer_pool(void)
   }
 }
 
-void *gasnetc_alloc_bounce_buffer()
+void *gasnetc_alloc_bounce_buffer(void)
 {
   void *buf;
   while ((buf = gasneti_lifo_pop(&gasnetc_bounce_buffer_pool)) == NULL) 
