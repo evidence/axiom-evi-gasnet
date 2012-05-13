@@ -180,8 +180,9 @@ uintptr_t gasnetc_init_messaging()
 
   /* Initialize the short message system */
 
-  gasnetc_mb_maxcredit = 2 * gasneti_getenv_int_withdefault("GASNET_NETWORKDEPTH",
-                                                            GASNETC_NETWORKDEPTH_DEFAULT, 0);
+  { int tmp = gasneti_getenv_int_withdefault("GASNET_NETWORKDEPTH", GASNETC_NETWORKDEPTH_DEFAULT, 0);
+    gasnetc_mb_maxcredit = 2 * MAX(1,tmp); /* silently "fix" zero or negative values */
+  }
 
   /*
    * allocate a CQ in which to receive message notifications

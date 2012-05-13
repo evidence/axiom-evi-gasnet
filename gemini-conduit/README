@@ -1,6 +1,6 @@
 GASNet gemini-conduit documentation
 Larry Stewart <stewart@serissa.com> 
-$Revision: 1.6 $
+$Revision: 1.7 $
 
 User Information:
 -----------------
@@ -10,7 +10,7 @@ Recognized environment variables:
 
 * All the standard GASNet environment variables (see top-level README)
 
-GASNET_NETWORKDEPTH - depth of per-peer AM queues - default 12
+GASNET_NETWORKDEPTH - depth of per-peer AM queues - default 12, min 1
 
 Long Active messages whose destination is not in the segment are first
 copied to a bounce buffer that is in the auxiliary segment.  There is
