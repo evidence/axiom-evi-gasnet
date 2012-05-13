@@ -745,16 +745,28 @@ int gasnetc_send(gasnet_node_t dest,
 	    void *data, int data_length)
 {
   gni_return_t status;
+  const int max_trial = 4;
+  int trial;
   GASNETI_TRACE_PRINTF(A, ("smsg s from %d to %d type %s\n", gasneti_mynode, dest, gasnetc_type_string(((GC_Header_t *) header)->command)));
-  for (;;) {
+  for (trial = 0; trial < max_trial; ++trial) {
     GASNETC_LOCK_GNI();
 
     status = GNI_SmsgSend(bound_ep_handles[dest], header, 
 			  header_length, data, data_length, 0);
     GASNETC_UNLOCK_GNI();
-    if (status == GNI_RC_SUCCESS) break;
-    /*if (status == GNI_RC_NOT_DONE) continue; */
-    gasnetc_GNIT_Abort("GNI_SmsgSend returned error %s\n", gni_return_string(status));
+    if_pt (status == GNI_RC_SUCCESS) break;
+    if (status != GNI_RC_NOT_DONE) {
+      gasnetc_GNIT_Abort("GNI_SmsgSend returned error %s\n", gni_return_string(status));
+    }
+
+    /* XXX: GNI_RC_NOT_DONE should NOT happen due to our flow control.
+       However, it DOES rarely happen, expecially when using all the cores.
+       Of course the fewer credits we allocate the mote likely it is.
+       So, we retry a finite number of times.  -PHH 2012.05.12
+       TODO: Determine why/how we see NOT_DONE.
+       TODO: trace/stats for this unfortunate event.
+     */
+    usleep(1 << trial); /* exponential back-off: 1us, 2us, 4us... */
   }
   return(GASNET_OK);
 }
