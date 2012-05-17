@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2012/04/14 00:37:34 $
- * $Revision: 1.344 $
+ *     $Date: 2012/05/17 04:21:05 $
+ * $Revision: 1.345 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2171,10 +2171,10 @@
 		"ld	%0,%2		\n\t"	/* 64-bit load into "hi" reg of pair */
 		"clrldi	%L0,%0,32	\n\t"	/* "lo" reg of pair gets 32 low bits */
 		"srdi	%0,%0,32	\n\t"	/* "hi" reg of pair gets 32 high bits */
-		"srdi	%1,%1,32	\n\t"	/* Check thar upper half of canary... */
+		"srdi	%1,%1,32	\n\t"	/* Check that upper half of canary... */
 		"cmpdi	%1,0x7fff	\n\t"	/*  ... is still 0x00007FFF */
 		"bne-	Lga.0.%=	"	/* retry on canary changed */
-		: "=r"(retval), "=r"(tmp)
+		: "=&r"(retval), "=&r"(tmp)
 		: "m"(p->ctr)
 		: "cr0" );
           return retval;
