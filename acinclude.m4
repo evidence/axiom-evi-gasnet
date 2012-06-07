@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2012/04/24 18:52:50 $
-dnl $Revision: 1.167 $
+dnl     $Date: 2012/06/07 20:51:32 $
+dnl $Revision: 1.168 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -843,6 +843,7 @@ GASNET_FUN_END([$0($1,$2,$3)])
 dnl GASNET_GETFULLPATH(var)
 dnl var contains a program name, optionally followed by arguments
 dnl expand the program name to a fully qualified pathname if not already done
+dnl will special case "env var1=val1 var2-val2 prog args" ("env" must be exact)
 AC_DEFUN([GASNET_GETFULLPATH_CHECK],[
 GASNET_IF_DISABLED(full-path-expansion, [Disable expansion of program names to full pathnames], 
                    [cv_prefix[]_gfp_disable=1])
@@ -852,8 +853,16 @@ GASNET_FUN_BEGIN([$0($1)])
 AC_REQUIRE([AC_PROG_AWK])
 AC_REQUIRE([GASNET_GETFULLPATH_CHECK])
 if test "$cv_prefix[]_gfp_disable" = ""; then
-  gasnet_gfp_progname=`echo "$$1" | $AWK -F' ' '{ print [$]1 }'`
-  gasnet_gfp_progargs=`echo "$$1" | $AWK -F' ' 'BEGIN { ORS=" "; } { for (i=2;i<=NF;i++) print $i; }'`
+  if expr "$$1" : 'env ' >/dev/null; then
+    AC_PATH_PROGS(ENVCMD, $ENVCMD env, , /usr/bin:${PATH})
+    gasnet_gfp_progenv="$ENVCMD "`echo "$$1" | $AWK -F' ' 'BEGIN { ORS=" "; } { for (i=2;i<=NF;i++) { if ($i ~ /=/) print $i; else break; } }'`
+    gasnet_gfp_progname=`echo "$$1" | $AWK -F' ' 'BEGIN { ORS=" "; } { for (i=2;i<=NF;i++) { if ($i !~ /=/) { print $i; break; } } }'`
+    gasnet_gfp_progargs=`echo "$$1" | $AWK -F' ' 'BEGIN { ORS=" "; } { for (i=2;i<NF;i++) { if ($i !~ /=/) { for (j=i+1;j<=NF;j++) { print $j; } break; } } }'`
+  else
+    gasnet_gfp_progenv=""
+    gasnet_gfp_progname=`echo "$$1" | $AWK -F' ' '{ print [$]1 }'`
+    gasnet_gfp_progargs=`echo "$$1" | $AWK -F' ' 'BEGIN { ORS=" "; } { for (i=2;i<=NF;i++) print $i; }'`
+  fi
   gasnet_gfp_progname0=`echo "$gasnet_gfp_progname" | $AWK '{ print sub[]str([$]0,1,1) }'`
   if test "$gasnet_gfp_progname0" != "/" ; then
     if test "`echo $gasnet_gfp_progname | grep '/'`" != "" ; then
@@ -866,7 +875,7 @@ if test "$cv_prefix[]_gfp_disable" = ""; then
     AC_PATH_PROG(cv_prefix[]_gfp_fullprogname_$1, $gasnet_gfp_progname,[])
     AC_MSG_CHECKING(for full path expansion of $1)
     if test "$cv_prefix[]_gfp_fullprogname_$1" != "" ; then
-      $1="$cv_prefix[]_gfp_fullprogname_$1 $gasnet_gfp_progargs"
+      $1="$gasnet_gfp_progenv$cv_prefix[]_gfp_fullprogname_$1 $gasnet_gfp_progargs"
     fi
     AC_MSG_RESULT($$1)
   fi
