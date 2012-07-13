@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_syncops.h,v $
- *     $Date: 2011/07/21 07:04:06 $
- * $Revision: 1.58 $
+ *     $Date: 2012/07/13 23:33:03 $
+ * $Revision: 1.59 $
  * Description: GASNet header for synchronization operations used in GASNet implementation
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -205,7 +205,7 @@ GASNETI_BEGIN_EXTERNC
     return n;
   }
 #elif defined(GASNETI_HAVE_ATOMIC_ADD_SUB)
-  /* Semi-generic implementation for and-add-fetch capable systems */
+  /* Semi-generic implementation for add-and-fetch capable systems */
   typedef gasneti_weakatomic_t _gasneti_semaphore_t;
   #define _GASNETI_SEMAPHORE_INITIALIZER gasneti_weakatomic_init
   #define GASNETI_SEMAPHORE_MAX GASNETI_ATOMIC_SIGNED_MAX
