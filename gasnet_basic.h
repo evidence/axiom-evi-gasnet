@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2012/02/19 07:31:04 $
- * $Revision: 1.117 $
+ *     $Date: 2012/07/13 23:51:00 $
+ * $Revision: 1.118 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -394,7 +394,11 @@
   #define GASNETI_MAY_ALIAS 
   /* may_alias attribute is sometimes required for correctness */
   #if PLATFORM_COMPILER_GNU && PLATFORM_COMPILER_VERSION_GE(4,4,0) && !GASNETI_BUG1389_WORKAROUND
+   #if GASNETI_CONFIGURE_MISMATCH
+    #error "GCC's __may_alias__ attribute is required for correctness in gcc >= 4.4, but because you are NOT compiling with the same compiler used to configure GASNet we do not know if __may_alias__ support is present."
+   #else
     #error "GCC's __may_alias__ attribute is required for correctness in gcc >= 4.4, but is disabled or unsupported."
+   #endif
   #endif
 #endif
 
