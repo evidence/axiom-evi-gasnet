@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2012/01/07 02:06:57 $
- * $Revision: 1.111 $
+ *     $Date: 2012/07/14 05:32:13 $
+ * $Revision: 1.112 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -306,10 +306,10 @@ extern uint64_t gasnet_max_segsize; /* client-overrideable max segment size */
       }
   }
   #define GASNETI_HAVE_SPINLOCK 1
-#elif defined(GASNETI_HAVE_ATOMIC_ADD_SUB)
-  /* Here we use a binary semaphore algorithm implemented "upside-down": 0=free, 1=held */
-  #define GASNETI_SPINLOCK_UNLOCKED	0
-  #define GASNETI_SPINLOCK_DESTROYED	GASNETI_ATOMIC_MAX
+#else
+  /* Here we use a binary semaphore */
+  #define GASNETI_SPINLOCK_UNLOCKED	1
+  #define GASNETI_SPINLOCK_DESTROYED	2
   #if GASNET_DEBUG
     GASNETI_INLINE(gasneti_spinlock_is_valid)
     int gasneti_spinlock_is_valid(gasneti_atomic_t *plock) {
@@ -336,36 +336,25 @@ extern uint64_t gasnet_max_segsize; /* client-overrideable max segment size */
   GASNETI_INLINE(_gasneti_spinlock_try) GASNETI_WARN_UNUSED_RESULT
   int _gasneti_spinlock_try(gasneti_atomic_t *plock) {
     gasneti_assert(gasneti_spinlock_is_valid(plock));
-    if_pt (gasneti_atomic_read(plock, 0) == 0) {
-      if_pt (gasneti_atomic_add(plock, 1, 0) == 1) {
-        return 1;
-      } else {
-        gasneti_atomic_decrement(plock, 0);
-      }
-    }
-    return 0;
+    return (gasneti_atomic_read(plock, 0) == GASNETI_SPINLOCK_UNLOCKED) &&
+           gasneti_atomic_decrement_and_test(plock, GASNETI_ATOMIC_ACQ_IF_TRUE);
   }
-  #define gasneti_spinlock_lock(plock) do {              \
-      gasneti_waituntil(                                 \
-        _gasneti_spinlock_try(plock)                     \
-      );                                                 \
-      gasneti_assert(gasneti_spinlock_is_locked(plock)); \
+  /* Ick: forward reference to GASNETI_WAITHOOK only works because this is a macro */
+  #define gasneti_spinlock_lock(plock) do { \
+    while (!_gasneti_spinlock_try(plock)) { \
+      GASNETI_WAITHOOK();                   \
+    }                                       \
   } while (0)
   GASNETI_INLINE(gasneti_spinlock_unlock)
   int gasneti_spinlock_unlock(gasneti_atomic_t *plock) {
     gasneti_assert(gasneti_spinlock_is_locked(plock));
-    gasneti_atomic_decrement(plock, GASNETI_ATOMIC_REL);
+    gasneti_atomic_set(plock, GASNETI_SPINLOCK_UNLOCKED, GASNETI_ATOMIC_REL);
     return 0;
   }
   /* return 0/EBUSY on success/failure to match pthreads */
   GASNETI_INLINE(gasneti_spinlock_trylock) GASNETI_WARN_UNUSED_RESULT
   int gasneti_spinlock_trylock(gasneti_atomic_t *plock) {
-    int retval = EBUSY;
-    if_pt (_gasneti_spinlock_try(plock)) {
-      gasneti_local_rmb(); /* Acquire */
-      retval = 0;
-    }
-    return retval;
+    return _gasneti_spinlock_try(plock) ? 0 : EBUSY;
   }
   #define GASNETI_HAVE_SPINLOCK 1
 #endif
