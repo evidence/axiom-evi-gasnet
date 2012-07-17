@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2012/07/17 02:23:17 $
- * $Revision: 1.23 $
+ *     $Date: 2012/07/17 22:53:34 $
+ * $Revision: 1.24 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -865,9 +865,11 @@ extern void gasnete_put_bulk (gasnet_node_t node, void* dest, void *src,
   "pd" = PAMI Dissemination
 */
 
-/* NOT the default because AMDISSEM benchmarks twice as fast on PERCS */
-/* TODO: would this be a good default on BG/Q? */
-/* #define GASNETE_BARRIER_DEFAULT "PAMIALLREDUCE" */
+/* NOT the default on IBMPE because AMDISSEM benchmarks twice as fast on HFI */
+#if GASNETI_ARCH_BGQ
+  /* TODO: revisit this if/when PSHM is used on BG/Q */
+  #define GASNETE_BARRIER_DEFAULT "PAMIALLREDUCE" 
+#endif
 
 /* NOT the default because AMDISSEM benchmarks faster w/ PSHM */
 /* TODO: would this be a good default w/o PSHM */
