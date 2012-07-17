@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_core.c,v $
- *     $Date: 2012/07/17 04:04:26 $
- * $Revision: 1.15 $
+ *     $Date: 2012/07/17 23:49:07 $
+ * $Revision: 1.16 $
  * Description: GASNet PAMI conduit Implementation
  * Copyright 2012, Lawrence Berkeley National Laboratory
  * Terms of use are as specified in license.txt
@@ -63,27 +63,84 @@ static void gasnetc_check_config(void) {
    * and/or segment sizes */ 
 }
 
-/* Get the first "always works" algorithm for a given collective operation */
+/* Get the default algorithm for a given (geometery, collective) pair.
+   This will be the first "always works" algorithm unless user provides an override.
+*/
 extern void
 gasnetc_dflt_coll_alg(pami_geometry_t geom, pami_xfer_type_t op, pami_algorithm_t *alg_p) {
   pami_result_t rc;
   size_t counts[2];
   pami_algorithm_t *algorithms;
+  pami_metadata_t *metadata;
+  const char *envvar, *envval;
+  int alg, fullcount;
+
+  gasneti_assert(op >= 0);
+  gasneti_assert(op < PAMI_XFER_COUNT);
 
   rc = PAMI_Geometry_algorithms_num(geom, op, counts);
   GASNETC_PAMI_CHECK(rc, "calling PAMI_Geometry_algorithms_num()");
   gasneti_assert_always(counts[0] != 0);
+  fullcount = counts[0] + counts[1];
 
-  /* Space for required ("always works") alogorithms */
-  algorithms = alloca(counts[0] * sizeof(pami_algorithm_t));
+  /* Space for algorithms and metadata */
+  algorithms = alloca(fullcount * sizeof(pami_algorithm_t));
+  metadata   = alloca(fullcount * sizeof(pami_metadata_t));
 
-  /* pass NULL or zero count for data we don't need */
   rc = PAMI_Geometry_algorithms_query(geom, op,
-                                      algorithms, NULL, counts[0],
-                                      NULL, NULL, 0);
+                                      algorithms, metadata, counts[0],
+                                      algorithms+counts[0], metadata+counts[0], counts[1]);
   GASNETC_PAMI_CHECK(rc, "calling PAMI_Geometry_algorithms_query()");
 
-  *alg_p = algorithms[0];
+  /* Process environment: */
+  switch(op) { /* XXX: add cases here as GASNet adds use/support */
+  case PAMI_XFER_BROADCAST:
+    envvar = "GASNET_PAMI_BROADCAST_ALG";
+    break;
+  case PAMI_XFER_ALLREDUCE:
+    envvar = "GASNET_PAMI_ALLREDUCE_ALG";
+    break;
+  case PAMI_XFER_ALLGATHER:
+    envvar = "GASNET_PAMI_ALLGATHER_ALG";
+    break;
+  default:
+    envvar = NULL;
+  }
+  envval = envvar ? gasneti_getenv_withdefault(envvar, NULL) : NULL;
+  alg = 0; /* default */
+  if (NULL != envval) {
+    while (envval[0] && isspace(envval[0])) ++envval; /* leading whitespace */
+    if (!envval[0]) {
+      /* empty - keep the default */
+    } else if (isdigit(envval[0])) {
+      /* integer is used just as given */
+      alg = atoi(envval);
+      if (alg < 0 || alg >= fullcount) {
+        if (!gasneti_mynode)
+          fprintf(stderr, "WARNING: Ignoring value '%d' for environment variable %s, "
+                          "because it is outside the range of available algorithms.\n",
+                           alg, envvar);
+        alg = 0;
+      }
+    } else {
+      /* string is used for PREFIX match */
+      size_t len = strlen(envval);
+      for (alg=0; alg<fullcount; ++alg) {
+        if (0 == strncmp(envval, metadata[alg].name, len)) {
+          break;
+        }
+      }
+      if (alg == fullcount) {
+        if (!gasneti_mynode)
+          fprintf(stderr, "WARNING: Ignoring value '%s' for environment variable %s, "
+                          "because it does not match any available algorithm.\n",
+                           envval, envvar);
+        alg = 0;
+      }
+    }
+  }
+
+  *alg_p = algorithms[alg];
 }
 
 static void bootstrap_collective(pami_xfer_t *op_p) {
