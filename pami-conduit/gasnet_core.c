@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_core.c,v $
- *     $Date: 2012/05/05 04:44:50 $
- * $Revision: 1.13 $
+ *     $Date: 2012/07/17 02:23:17 $
+ * $Revision: 1.14 $
  * Description: GASNet PAMI conduit Implementation
  * Copyright 2012, Lawrence Berkeley National Laboratory
  * Terms of use are as specified in license.txt
@@ -38,13 +38,16 @@ pami_memregion_t   *gasnetc_memreg = NULL;
 size_t             gasnetc_send_imm_max;
 size_t             gasnetc_recv_imm_max;
 
+/* exit-time coordination on a distinct context: */
+static pami_context_t gasnetc_exit_context;
+
 /* ------------------------------------------------------------------------------------ */
 /* Static Data */
 
 /* ------------------------------------------------------------------------------------ */
 /* Forward Decls */
 
-static int gasnetc_exit_init(void);
+static int gasnetc_exit_init(int use_exit_geom);
 static int gasnetc_am_init(void);
 
 /* ------------------------------------------------------------------------------------ */
@@ -61,12 +64,13 @@ static void gasnetc_check_config(void) {
 }
 
 /* Get the first "always works" algorithm for a given collective operation */
-extern void gasnetc_dflt_coll_alg(pami_xfer_type_t op, pami_algorithm_t *alg_p) {
+extern void
+gasnetc_dflt_coll_alg(pami_geometry_t geom, pami_xfer_type_t op, pami_algorithm_t *alg_p) {
   pami_result_t rc;
   size_t counts[2];
   pami_algorithm_t *algorithms;
 
-  rc = PAMI_Geometry_algorithms_num(gasnetc_world_geom, op, counts);
+  rc = PAMI_Geometry_algorithms_num(geom, op, counts);
   GASNETC_PAMI_CHECK(rc, "calling PAMI_Geometry_algorithms_num()");
   gasneti_assert_always(counts[0] != 0);
 
@@ -74,7 +78,7 @@ extern void gasnetc_dflt_coll_alg(pami_xfer_type_t op, pami_algorithm_t *alg_p) 
   algorithms = alloca(counts[0] * sizeof(pami_algorithm_t));
 
   /* pass NULL or zero count for data we don't need */
-  rc = PAMI_Geometry_algorithms_query(gasnetc_world_geom, op,
+  rc = PAMI_Geometry_algorithms_query(geom, op,
                                       algorithms, NULL, counts[0],
                                       NULL, NULL, 0);
   GASNETC_PAMI_CHECK(rc, "calling PAMI_Geometry_algorithms_query()");
@@ -103,7 +107,7 @@ static void gasnetc_bootstrapBarrier(void) {
 
   if_pf (!is_init) {
     memset(&op, 0, sizeof(op)); /* Shouldn't need for static, but let's be safe */
-    gasnetc_dflt_coll_alg(PAMI_XFER_BARRIER, &op.algorithm);
+    gasnetc_dflt_coll_alg(gasnetc_world_geom, PAMI_XFER_BARRIER, &op.algorithm);
     is_init = 1;
   }
 
@@ -116,7 +120,7 @@ static void gasnetc_bootstrapExchange(void *src, size_t len, void *dst) {
 
   if_pf (!is_init) {
     memset(&op, 0, sizeof(op)); /* Shouldn't need for static, but let's be safe */
-    gasnetc_dflt_coll_alg(PAMI_XFER_ALLGATHER, &op.algorithm);
+    gasnetc_dflt_coll_alg(gasnetc_world_geom, PAMI_XFER_ALLGATHER, &op.algorithm);
     is_init = 1;
   }
 
@@ -132,6 +136,7 @@ static void gasnetc_bootstrapExchange(void *src, size_t len, void *dst) {
 
 static int gasnetc_init(int *argc, char ***argv) {
   pami_result_t rc;
+  int use_exit_geom;
 
   /*  check system sanity */
   gasnetc_check_config();
@@ -172,18 +177,22 @@ static int gasnetc_init(int *argc, char ***argv) {
   gasneti_init_done = 1; /* required to allow tracing */
   gasneti_trace_init(argc, argv);
 
-  { pami_context_t contexts[1];
+  /* Should we dedicate a context to exit coordination? */
+  use_exit_geom = gasneti_getenv_yesno_withdefault("GASNET_PAMI_EXIT_CONTEXT", 0);
+
+  { pami_context_t contexts[2];
     pami_configuration_t conf[1];
     conf[0].name = PAMI_CLIENT_CONST_CONTEXTS; /* promise equal num context across nodes */
-    rc = PAMI_Context_createv(gasnetc_pami_client, conf, 1, contexts, 1);
+    rc = PAMI_Context_createv(gasnetc_pami_client, conf, 1, contexts, (use_exit_geom ? 2 : 1));
     GASNETC_PAMI_CHECK(rc, "calling PAMI_Context_createv");
     gasnetc_context = contexts[0];
+    gasnetc_exit_context = contexts[1];
   }
 
   rc = PAMI_Geometry_world(gasnetc_pami_client, &gasnetc_world_geom);
   GASNETC_PAMI_CHECK(rc, "calling PAMI_Geometry_world()");
 
-  gasneti_assert_zeroret(gasnetc_exit_init());
+  gasneti_assert_zeroret(gasnetc_exit_init(use_exit_geom));
   gasneti_assert_zeroret(gasnetc_am_init());
 
   if (!gasneti_mynode) {
@@ -526,14 +535,46 @@ static double gasnetc_exittimeout = GASNETC_DEFAULT_EXITTIMEOUT_MAX;
 static uint8_t gasnetc_exitcode = 0;
 static pami_xfer_t gasnetc_exit_reduce_op;
 
-static int gasnetc_exit_init(void) {
+static pami_geometry_t gasnetc_exit_geom;
+
+static int gasnetc_exit_init(int use_exit_geom) {
   gasnetc_exittimeout = gasneti_get_exittimeout(GASNETC_DEFAULT_EXITTIMEOUT_MAX,
                                                 GASNETC_DEFAULT_EXITTIMEOUT_MIN,
                                                 GASNETC_DEFAULT_EXITTIMEOUT_FACTOR,
                                                 GASNETC_DEFAULT_EXITTIMEOUT_MIN);
 
+  if (use_exit_geom) {
+    static pami_geometry_range_t slices[1]; /* static is required here! */
+    pami_configuration_t conf[1];
+    volatile unsigned int done;
+    pami_result_t rc;
+
+    /* Create a geometry from the contexts we've dedicated to the exit processing */
+    conf[0].name = PAMI_GEOMETRY_OPTIMIZE;
+    conf[0].value.intval = 0;
+    slices[0].lo = 0;
+    slices[0].hi = gasneti_nodes - 1;
+    done = 0;
+    rc = PAMI_Geometry_create_taskrange(gasnetc_pami_client, /* context_offset: */ 1,
+                                        conf, 1,
+                                        &gasnetc_exit_geom, gasnetc_world_geom,
+                                        /* id: */ 2, slices, 1,
+                                        gasnetc_context,
+                                        &gasnetc_cb_inc_uint, (void*)&done);
+    GASNETC_PAMI_CHECK(rc, "from PAMI_Geometry_create_taskrange()");
+    while (!done) {
+      GASNETC_PAMI_LOCK(gasnetc_context);
+      rc = PAMI_Context_advance(gasnetc_context, 1);
+      GASNETC_PAMI_CHECK_ADVANCE(rc, "advancing PAMI_Geometry_create_taskrange()");
+      GASNETC_PAMI_UNLOCK(gasnetc_context);
+    }
+  } else {
+     gasnetc_exit_context = gasnetc_context;
+     gasnetc_exit_geom    = gasnetc_world_geom;
+  }
+
   memset(&gasnetc_exit_reduce_op, 0, sizeof(gasnetc_exit_reduce_op));
-  gasnetc_dflt_coll_alg(PAMI_XFER_ALLREDUCE, &gasnetc_exit_reduce_op.algorithm);
+  gasnetc_dflt_coll_alg(gasnetc_exit_geom, PAMI_XFER_ALLREDUCE, &gasnetc_exit_reduce_op.algorithm);
 
 #if HAVE_ON_EXIT
   on_exit(gasnetc_on_exit, NULL);
@@ -565,15 +606,16 @@ static int gasnetc_exit_reduce(void) {
   gasnetc_exit_reduce_op.cmd.xfer_allreduce.data_cookie = NULL;
   gasnetc_exit_reduce_op.cmd.xfer_allreduce.commutative = 1;
 
-  GASNETC_PAMI_LOCK(gasnetc_context);
-  rc = PAMI_Collective(gasnetc_context, &gasnetc_exit_reduce_op);
+
+  GASNETC_PAMI_LOCK(gasnetc_exit_context);
+  rc = PAMI_Collective(gasnetc_exit_context, &gasnetc_exit_reduce_op);
+  GASNETC_PAMI_UNLOCK(gasnetc_exit_context);
   if (rc != PAMI_SUCCESS) return 1;
-  GASNETC_PAMI_UNLOCK(gasnetc_context);
 
   while (! gasneti_weakatomic_read(&counter, 0)) { /* TODO: Factor poll-with-timeout? */
-    GASNETC_PAMI_LOCK(gasnetc_context);
-    rc = PAMI_Context_advance(gasnetc_context, 1);
-    GASNETC_PAMI_UNLOCK(gasnetc_context);
+    GASNETC_PAMI_LOCK(gasnetc_exit_context);
+    rc = PAMI_Context_advance(gasnetc_exit_context, 1);
+    GASNETC_PAMI_UNLOCK(gasnetc_exit_context);
     if ((rc != PAMI_SUCCESS && rc != PAMI_EAGAIN) ||
         (timeout_ns < gasneti_ticks_to_ns(gasneti_ticks_now() - start_time))) {
       return 1;

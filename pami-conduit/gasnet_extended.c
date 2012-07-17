@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2012/05/10 04:31:02 $
- * $Revision: 1.22 $
+ *     $Date: 2012/07/17 02:23:17 $
+ * $Revision: 1.23 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -1005,7 +1005,7 @@ static void gasnete_parbarrier_init(gasnete_coll_team_t team) {
   barr->count = barr->done = 0;
 
   memset(&barr->reduce_op, 0, sizeof(pami_xfer_t));
-  gasnetc_dflt_coll_alg(PAMI_XFER_ALLREDUCE, &barr->reduce_op.algorithm);
+  gasnetc_dflt_coll_alg(gasnetc_world_geom, PAMI_XFER_ALLREDUCE, &barr->reduce_op.algorithm);
   barr->reduce_op.cookie = (void *)&barr->done;
   barr->reduce_op.cb_done = &gasnetc_cb_inc_release;
   barr->reduce_op.options.multicontext = PAMI_HINT_DISABLE;

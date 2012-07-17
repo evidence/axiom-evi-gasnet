@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_core_internal.h,v $
- *     $Date: 2012/04/23 06:40:42 $
- * $Revision: 1.10 $
+ *     $Date: 2012/07/17 02:23:17 $
+ * $Revision: 1.11 $
  * Description: GASNet PAMI conduit header for internal definitions in Core API
  * Copyright 2012, Lawrence Berkeley National Laboratory
  * Terms of use are as specified in license.txt
@@ -183,6 +183,6 @@ pami_result_t gasnetc_wait_atomic(pami_context_t context,
 /* Misc. */
 
 /* Get the first "always works" algorithm for a given collective operation */
-extern void gasnetc_dflt_coll_alg(pami_xfer_type_t op, pami_algorithm_t *alg_p);
+extern void gasnetc_dflt_coll_alg(pami_geometry_t geom, pami_xfer_type_t op, pami_algorithm_t *alg_p);
 
 #endif
