@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_core.c,v $
- *     $Date: 2012/07/17 02:23:17 $
- * $Revision: 1.14 $
+ *     $Date: 2012/07/17 04:04:26 $
+ * $Revision: 1.15 $
  * Description: GASNet PAMI conduit Implementation
  * Copyright 2012, Lawrence Berkeley National Laboratory
  * Terms of use are as specified in license.txt
@@ -974,15 +974,8 @@ static int gasnetc_am_init(void) {
   /* Query immediate limits */
   conf[0].name = PAMI_DISPATCH_SEND_IMMEDIATE_MAX;
   conf[1].name = PAMI_DISPATCH_RECV_IMMEDIATE_MAX;
-#if GASNETI_ARCH_IBMPE /* XXX: work-around PERCS bug: only implements num_configs=1 */
-  rc = PAMI_Dispatch_query(gasnetc_context, GASNETC_DISP_NOOP, &conf[0], 1);
-  GASNETC_PAMI_CHECK(rc, "querying DISPATCH send immediate limit");
-  rc = PAMI_Dispatch_query(gasnetc_context, GASNETC_DISP_NOOP, &conf[1], 1);
-  GASNETC_PAMI_CHECK(rc, "querying DISPATCH recv immediate limit");
-#else
   rc = PAMI_Dispatch_query(gasnetc_context, GASNETC_DISP_NOOP, conf, 2);
   GASNETC_PAMI_CHECK(rc, "querying DISPATCH immediate limits");
-#endif
   gasnetc_send_imm_max = conf[0].value.intval;
   GASNETI_TRACE_PRINTF(C,("PAMI_DISPATCH_SEND_IMMEDIATE_MAX = %ld",
                           (long)gasnetc_send_imm_max));
@@ -1059,14 +1052,7 @@ extern int gasnetc_AMPoll(void) {
 
   /* (###) add code here to run your AM progress engine */
 #if GASNET_PAR
- #if GASNETI_ARCH_IBMPE /* XXX: Work-around hidden symbol on PERCS - fixed in later rev */
-  if (PAMI_SUCCESS == PAMI_Context_trylock(gasnetc_context)) {
-    PAMI_Context_advance(gasnetc_context, gasnetc_ampoll_max);
-    PAMI_Context_unlock(gasnetc_context);
-  }
- #else
   PAMI_Context_trylock_advancev(&gasnetc_context, 1, gasnetc_ampoll_max);
- #endif
 #else
   PAMI_Context_advance(gasnetc_context, gasnetc_ampoll_max);
 #endif
