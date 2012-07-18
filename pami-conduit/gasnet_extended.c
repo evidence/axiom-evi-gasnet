@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2012/07/18 02:37:07 $
- * $Revision: 1.26 $
+ *     $Date: 2012/07/18 03:29:56 $
+ * $Revision: 1.27 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -865,16 +865,15 @@ extern void gasnete_put_bulk (gasnet_node_t node, void* dest, void *src,
   "pd" = PAMI Dissemination
 */
 
-#if GASNETI_ARCH_BGQ
-  /* NOT the default on IBMPE because AMDISSEM benchmarks twice as fast on HFI
-     using the default ALLREDUCE algorithm.  At small node counts we tie the
-     best PAMI_ALLREDUCE algorithm , but we lose for large node counts. */
-  /* TODO: revisit this if/when we pick a non-default PAMI_ALLREDUCE algorithm. */
-  /* TODO: revisit this if/when PSHM is used on BG/Q */
-  #define GASNETE_BARRIER_DEFAULT "PAMIALLREDUCE" 
-#else
+#if 0
   /* Benchmarks marginally better than AMDISSEM and uses fewer resources */
   #define GASNETE_BARRIER_DEFAULT "PAMIDISSEM"
+#else
+  /* Both BG/Q and PERCS show uniformly "good" (not always best, but never worst)
+     performance over a wide range of test conditions (nodes and ppn), when using
+     the "I0:Binomial:" algorithms which are the current defaults for PAMI_ALLREDUCE.
+   */
+  #define GASNETE_BARRIER_DEFAULT "PAMIALLREDUCE" 
 #endif
 
 /* Forward decls for init functions: */
@@ -904,8 +903,6 @@ static void gasnete_pdbarrier_init(gasnete_coll_team_t team);
 
 /* PAMI All Reduce ("par") Barrier:
  * Barrier via PAMI-level all-reduce of two 64-bit unsigned integers.
- *
- * TODO: Choose an optimized algorithm instead of the safe default.
  */
 
 typedef struct {

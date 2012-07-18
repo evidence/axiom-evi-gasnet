@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_core.c,v $
- *     $Date: 2012/07/18 01:31:27 $
- * $Revision: 1.19 $
+ *     $Date: 2012/07/18 03:29:56 $
+ * $Revision: 1.20 $
  * Description: GASNet PAMI conduit Implementation
  * Copyright 2012, Lawrence Berkeley National Laboratory
  * Terms of use are as specified in license.txt
@@ -73,7 +73,7 @@ gasnetc_dflt_coll_alg(pami_geometry_t geom, pami_xfer_type_t op, pami_algorithm_
   size_t counts[2];
   pami_algorithm_t *algorithms;
   pami_metadata_t *metadata;
-  const char *envvar, *envval;
+  const char *envvar, *envval, *dfltval;
   int alg, fullcount;
 
   gasneti_assert(op >= 0);
@@ -93,27 +93,30 @@ gasnetc_dflt_coll_alg(pami_geometry_t geom, pami_xfer_type_t op, pami_algorithm_
                                       algorithms+counts[0], metadata+counts[0], counts[1]);
   GASNETC_PAMI_CHECK(rc, "calling PAMI_Geometry_algorithms_query()");
 
-  /* Process environment: */
-  switch(op) { /* XXX: add cases here as GASNet adds use/support */
-  case PAMI_XFER_BARRIER:
+  /* Process environment and defaults: */
+  switch(op) {
+  case PAMI_XFER_BARRIER: /* Used only for gasnetc_bootstrapBarrier() */
     envvar = "GASNET_PAMI_BARRIER_ALG";
+    dfltval = NULL; /* TODO: tune a better default than alg[0]? */
     break;
-  case PAMI_XFER_ALLREDUCE:
+  case PAMI_XFER_ALLREDUCE: /* Used for exitcode reduction and "PAMIALLREDUCE" barrier */
     envvar = "GASNET_PAMI_ALLREDUCE_ALG";
+    dfltval = "I0:Binomial:"; /* uniformly "good" on BG/Q and PERCS */
     break;
-  case PAMI_XFER_ALLGATHER:
+  case PAMI_XFER_ALLGATHER: /* Used only for gasnetc_bootstrapExchange() */
     envvar = "GASNET_PAMI_ALLGATHER_ALG";
+    dfltval = NULL; /* TODO: tune a better default than alg[0]? */
     break;
   default:
     gasneti_fatalerror("Unknown 'op' value %d in %s", (int)op, __FUNCTION__);
-    envvar = NULL;
+    envvar = dfltval = NULL; /* for warning suppression only */
   }
-  envval = envvar ? gasneti_getenv_withdefault(envvar, NULL) : NULL;
-  alg = 0; /* default */
+  envval = gasneti_getenv_withdefault(envvar, dfltval);
+  alg = 0; /* failsafe */
   if (NULL != envval) {
     while (envval[0] && isspace(envval[0])) ++envval; /* leading whitespace */
     if (!envval[0]) {
-      /* empty - keep the default */
+      /* empty - treat as zero */
     } else if (0 == strcmp("LIST", envval)) {
       if (!gasneti_mynode && !print_once[(int)op]) {
         int i;

@@ -1,6 +1,6 @@
 GASNet pami-conduit documentation
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.6 $
+$Revision: 1.7 $
 
 User Information:
 -----------------
@@ -17,6 +17,14 @@ Recognized environment variables:
 
 * All the standard GASNet environment variables (see top-level README)
 
+* GASNET_BARRIER - barrier algorithm selection
+  In addition to the algorithms in the top-level README, there are two
+  PAMI-specific values supported:
+    PAMIDISSEM - like AMDISSEM, but implemented using PAMI-level AMs.
+    PAMIALLREDUCE - barrier matching is implemented in terms of a
+                    PAMI-level ALLREDUCE collective operation.
+  Currently PAMIALLREDUCE is the default on all PAMI platforms.
+
 * GASNET_NETWORKDEPTH - depth of AM Request queues (default 1024)
   This integer parameter sets the limit on the number of outstanding
   Active Message Requests, where outstanding is defined in terms of
@@ -27,8 +35,6 @@ Recognized environment variables:
   result in excessive memory use.
   Applications not sending "floods" of AMs will be be insensitve to
   the value of this parameter.
-  [BUT, keep in mind that current reference implementation of the
-   extended API implements all Put and Get operations over AMs.]
 
 * GASNET_AMPOLL_MAX - limit on work done in AMPoll (default 16)
   This integer parameter sets the maxumum number of PAMI operations
@@ -61,6 +67,9 @@ The following are planned work items for pami-conduit:
   Initial benchmarks seem to show PAMI getting RDMA speeds for xfers of
   sufficient size even when using PAMI_Put/Get, suggesting that some
   dynamic registration is already used internally.
+  However, the gap between Put and Rput bandwidth between 2KB and 64KB as
+  measured with 1 proc-per-node on PERCS shows that there is currently a
+  *possibility* that dynamic registration (firehose) could be beneficial.
 
 * Register bounce buffers used for AM headers and payloads and apply
   the appropriate "use_rdma" hints.
@@ -78,9 +87,6 @@ The following are planned work items for pami-conduit:
 
 * Explore use of conduit-level flow control for AMs, though it is not yet
   certain that this is needed as it was with dcmf-conduit.
-
-* Implement GASNet's named split-phase barrier in terms of PAMI's
-  ALLREDUCE collective. [initial naive attempt yielded LOWERED performance]
 
 * Implement GASNet's collectives in terms of PAMI's collectives.
 
@@ -106,7 +112,8 @@ Design Overview:
     - Long Replies AMs copy their payloads to bounce buffers, like
       a Medium AM, since our running of AM handlers from PAMI's
       callbacks precludes blocking for local completion.
-  + GASNet's default AM-based barrier implementations are used.
+  + A PAMI-specifc barrier based on the ALLREDUCE collective is the
+    current default.
   + GASNet's exit handling is done using an PAMI "all reduce" operation
     (w/ a timeout) to determine the MAX() of the exit codes, and whether
     the exit is collective.  For non-collective exits, the conduit is
