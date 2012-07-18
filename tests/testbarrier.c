@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testbarrier.c,v $
- *     $Date: 2010/03/16 21:02:59 $
- * $Revision: 1.20 $
+ *     $Date: 2012/07/18 09:15:26 $
+ * $Revision: 1.21 $
  * Description: GASNet barrier performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -9,6 +9,12 @@
 #include <gasnet.h>
 
 #include <test.h>
+
+#if defined(GASNETE_USING_ELANFAST_BARRIER) 
+  #define PERFORM_MIXED_NAMED_ANON_TESTS (!GASNETE_USING_ELANFAST_BARRIER())
+#else
+  #define PERFORM_MIXED_NAMED_ANON_TESTS 1
+#endif
 
 int mynode, nodes, iters = 0;
 
@@ -114,6 +120,34 @@ static void * doTest(void *arg) {
         ((float)total)/1000000, ((float)total)/iters);
       fflush(stdout);
   }
+  BARRIER();
+
+  if (!PERFORM_MIXED_NAMED_ANON_TESTS) {
+    if (mynode == 0) {
+      MSG("WARNING: skipping tests which mix named and anonymous barriers, "
+          "which are known to fail in this configuration");
+    }
+  } else {
+    int parity = (mynode & 1);
+
+    start = TIME();
+    for (i=0; i < iters; i++, parity ^= 1) {
+      int value = parity ? iters : 0;
+      int flags = parity ? 0 : GASNET_BARRIERFLAG_ANONYMOUS;
+      gasnet_barrier_notify(value, flags);
+      GASNET_Safe(gasnet_barrier_wait(value, flags)); 
+    }
+    total = TIME() - start;
+
+    BARRIER();
+
+    if (mynode == 0) {
+        printf("Total time: %8.3f sec  Avg Mixed Barrier latency: %8.3f us\n",
+          ((float)total)/1000000, ((float)total)/iters);
+        fflush(stdout);
+    }
+  }
+  BARRIER();
 
   GASNET_Safe(gasnet_AMRequestShort0(mynode, hidx_done_shorthandler));
   return NULL;
