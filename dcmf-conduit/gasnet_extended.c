@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_extended.c,v $
- *     $Date: 2012/05/10 04:30:49 $
- * $Revision: 1.24 $
+ *     $Date: 2012/07/18 08:45:59 $
+ * $Revision: 1.25 $
  * Description: GASNet Extended API Implementation for DCMF
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
  *                 Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -1253,13 +1253,10 @@ int gasnete_dcmfbarrier_fast = 0;
 
 /********************************
  * DCMF Barrier Implementation 
- * Anonymous Barriers:
- *     + use DCMF_GlobalBarrier for anonymous barriers
- * Named Barriers:
- *     + Use DCMF_Allreduce with barrier id as argument 
- *     + Use MIN as reduction operator. When reduced value and my id don't 
- *       declare a barrier mismatch
- *     + Use -1 to denote a barrier mismatch
+ *     + Use DCMF_Allreduce with barrier id and flags encoded as argument 
+ *     + Use upper half of 64-bit argument to encode ANON and MISMATCH
+ *     + Use MIN as reduction operator
+ *     + Mismatch when reduced values don't have corresponding lower halves
  **********************************/
 
 static int current_barrier_flags;
@@ -1270,23 +1267,15 @@ static long long named_barrier_result[2];
 static DCMF_Request_t barrier_req;
 static DCMF_Protocol_t anon_barrier_registration;
 
-static int gasnete_allow_hw_barrier;
-
 
 static void gasnete_dcmfbarrier_init(gasnete_coll_team_t team) {
+  int allow_hw_barrier;
 
   team->barrier_splitstate = OUTSIDE_BARRIER;
   
-  /* by default assume that if the user provides the anonymous flag on
-     one node it is done so on all the nodes and thus we can use the built-in
-     *fast* hardware barrier. IBM advertises O(1us) for 72k nodes so we def want to use it
-     with this disabled we revert to the spec-compliant Gasnet barrier
-
-  */
-  
-  gasnete_allow_hw_barrier = gasneti_getenv_yesno_withdefault("GASNET_DCMF_FAST_BARRIER", 1);
-  /*initialize anonymous barrier*/
-  if(gasnete_allow_hw_barrier) {
+  allow_hw_barrier = gasneti_getenv_yesno_withdefault("GASNET_DCMF_FAST_BARRIER", 1);
+  /*initialize hw barrier*/
+  if(allow_hw_barrier) {
     DCMF_GlobalBarrier_Configuration_t config;
     
     /*for now just sticked w/ a single barrier protocol that we pick*/
@@ -1319,7 +1308,7 @@ static void gasnete_dcmfbarrier_init(gasnete_coll_team_t team) {
     return;
   }
 
-  /*initialize named barrier*/
+  /*initialize reductions for named barrier*/
 
   /* Bug 2781. Because DCMF_GlobalAllreduce(), which only uses the
      BG/P collectives network, would block and not return from the
@@ -1333,18 +1322,11 @@ static void gasnete_dcmfbarrier_init(gasnete_coll_team_t team) {
      conduit-specific team initialization module. See
      gasnet_extended_coll_dcmf.c and gasnet_coll_allreduce_dcmf.c for
      more details. */
-  named_barrier_source[0] = -1; named_barrier_source[1]=0;
-  named_barrier_result[0] = -1; named_barrier_result[1]=1;
+  named_barrier_source[0] = named_barrier_source[1] = 0;
+  named_barrier_result[0] = named_barrier_result[1] = 1;
 
   barrier_done= 0;
 }
-
-#define BUILD_BARRIER_TAG(FLAGS, ID) GASNETI_MAKEWORD(FLAGS, ID)
-#define EXTRACT_BARRIER_FLAGS(TAG) GASNETI_HIWORD(TAG)
-#define EXTRACT_BARRIER_ID(TAG) GASNETI_LOWORD(TAG)
-#define MISMATCH_FLAG 0x00
-#define ANON_FLAG 0x01
-#define NAMED_FLAG 0x02
 
 static void gasnete_dcmfbarrier_notify(gasnete_coll_team_t team, int id, int flags) 
 {
@@ -1357,29 +1339,28 @@ static void gasnete_dcmfbarrier_notify(gasnete_coll_team_t team, int id, int fla
 
   /*gasneti_assert(id >= 0);*/
   GASNETI_TRACE_PRINTF(B, ("running barrier notify (%d,%d)", id, flags));
-  named_barrier_result[0] = named_barrier_source[0] = 0;
-  named_barrier_result[0] = named_barrier_source[1] = 0;
   
-  if (flags == GASNET_BARRIERFLAG_MISMATCH) 
+  if (flags & GASNET_BARRIERFLAG_MISMATCH) 
     {
-      /*signal mismatch*/
-      named_barrier_source[0] = BUILD_BARRIER_TAG(MISMATCH_FLAG, id);
+      /* Smaller than any possible "id" AND fails low-word test */
+      named_barrier_source[0] = 0;
+      named_barrier_source[1] = 0;
       GASNETI_TRACE_PRINTF(B, ("mismatch barrier tag: %llx", named_barrier_source[0]));
     } 
-  else if (flags == GASNET_BARRIERFLAG_ANONYMOUS) 
+  else if (flags & GASNET_BARRIERFLAG_ANONYMOUS) 
     {
-      /*for an anonymous barrier propagate the id as 0 so there isn't any confusion amongst
-	the nodes*/
-      named_barrier_source[0] = BUILD_BARRIER_TAG(ANON_FLAG, 0);
+      /* Larger than any possible "id" AND passes low-word test */
+      named_barrier_source[0] = GASNETI_MAKEWORD(2, 0);
+      named_barrier_source[1] = GASNETI_MAKEWORD(2, 0xFFFFFFFF);
       GASNETI_TRACE_PRINTF(B, ("anon barrier tag: %llx", named_barrier_source[0]));
     } 
   else 
     {
-      named_barrier_source[0] = BUILD_BARRIER_TAG(NAMED_FLAG, id);
+      /* Normal values fall between the MISMATCH and ANON values */
+      named_barrier_source[0] = GASNETI_MAKEWORD(1, (uint32_t)id);
+      named_barrier_source[1] = GASNETI_MAKEWORD(1,~(uint32_t)id);
       GASNETI_TRACE_PRINTF(B, ("named barrier tag: %llx", named_barrier_source[0]));
     }
-  
-  named_barrier_source[1] = -named_barrier_source[0];
   
   barrier_done = 0;
   cb_done.function = increment_value;
@@ -1417,14 +1398,14 @@ int finish_barrier(gasnete_coll_team_t team, int id, int flags)
     will pick it up*/
   
   DCMF_Callback_t cb_done;
-  volatile int barrier_rerun_done;
+  volatile int barrier_done;
   gasnete_coll_team_dcmf_t *dcmf_tp;
   
   dcmf_tp = team->dcmf_tp;  
   gasneti_assert(dcmf_tp != NULL);
 
   cb_done.function = increment_value;
-  cb_done.clientdata = (void*)&barrier_rerun_done;
+  cb_done.clientdata = (void*)&barrier_done;
 
   /* Bug 2781 workaround. We need to rerun a global hardware barrier
      here to make sure everyone has arrived in finish_barrier(). This
@@ -1432,23 +1413,22 @@ int finish_barrier(gasnete_coll_team_t team, int id, int flags)
      cannot enter it if they are waiting for AM replies. The barrier
      in barrier_notify() is to make sure everyone has arrived in
      barrier_notify(). */
-  barrier_rerun_done = 0;
+  barrier_done = 0;
   GASNETC_DCMF_LOCK();
   GASNETC_DCMF_CHECK_PTR(&barrier_req);
   DCMF_SAFE(DCMF_GlobalBarrier(&anon_barrier_registration, &barrier_req, cb_done));
   GASNETC_DCMF_UNLOCK();
-  gasneti_polluntil(barrier_rerun_done != 0);
+  gasneti_polluntil(barrier_done != 0);
 
-  barrier_rerun_done = 0;
+  barrier_done = 0;
   GASNETI_TRACE_PRINTF(B, ("starting dcmf allreduce with <%llx, %llx>", 
 			   named_barrier_source[0], named_barrier_source[1]));
   
   GASNETC_DCMF_LOCK();
-  /*since we pass in two arguments, one which is the negation of the
-    other, the first field will contain a min the second a negative of
-    the max of the lfags passed in: on a normal barrier where
-    everything matches these two values should be equal to each ohter
-    more details on how this is handled in finish barrier*/
+  /*since we pass in two arguments, one of which is the complement of the
+    other, the two reduced fields will contain the complements of each
+    other for a normal match AND in the presence of one or more ANON flags.
+    more details on how this is handled appear in notify*/
 
   if (team->total_ranks == 1)
     {
@@ -1459,7 +1439,7 @@ int finish_barrier(gasnete_coll_team_t team, int id, int flags)
          workaround. */
       named_barrier_result[0] = named_barrier_source[0];
       named_barrier_result[1] = named_barrier_source[1];
-      barrier_rerun_done = 1;
+      barrier_done = 1;
     }
   else 
     {
@@ -1476,82 +1456,23 @@ int finish_barrier(gasnete_coll_team_t team, int id, int flags)
     }
   GASNETC_DCMF_UNLOCK();
   
-  gasneti_polluntil(barrier_rerun_done != 0);
+  gasneti_polluntil(barrier_done != 0);
   
   GASNETI_TRACE_PRINTF(B, ("finish barrier wait named barrier res:(0x%llx,0x%llx) (%d,%d)", 
                            named_barrier_source[1], named_barrier_result[1], id, flags));
 
-  if(EXTRACT_BARRIER_FLAGS(named_barrier_result[0])==MISMATCH_FLAG) 
+  if(GASNETI_LOWORD(named_barrier_result[0]) != ~GASNETI_LOWORD(named_barrier_result[1]))
     {
-      /*someone has signalled a mismatch so return mismatch on everyone*/
+      /*someone has signalled, or the reduce has discovered, a mismatch*/
       
       GASNETI_TRACE_PRINTF(B, ("mismatch caught: 0x%llx",named_barrier_result[0]));
       ret = GASNET_ERR_BARRIER_MISMATCH;
     } 
-  else if(named_barrier_result[0] == -named_barrier_result[1]) 
+  else
     {
-      /*everyone passed same id and flags so the barrier result is good... should be the 
-	normal path (could be the anonymous tag but everyone was consistent)*/
+      /*everyone passed the same id and/or the anonymous flag value*/
       GASNETI_TRACE_PRINTF(B, ("barriers match: 0x%llx",named_barrier_result[0]));
       ret = GASNET_OK;
-    }
-  else if(EXTRACT_BARRIER_FLAGS(named_barrier_result[0]) == ANON_FLAG) 
-    {
-      barrier_rerun_done = 0;
-      /*min does not equal the max that means there is a potential mismatch*/
-      /*first check that someone isn't trying to just pass in anonymous barriers 
-	and named on others*/
-      /*replace all threads passing anonymous with the named barrier and the max of the IDs
-	and rerun the barrier (this should be an uncommon case)*/
-      GASNETI_TRACE_PRINTF(B, ("caught anon rerunning: 0x%llx",named_barrier_result[0]));
-      if(current_barrier_flags == GASNET_BARRIERFLAG_ANONYMOUS) {
-	named_barrier_source[0] = -named_barrier_result[1];
-	named_barrier_source[1] = named_barrier_result[1];
-      } else {
-	/*this thread didn't pass anonymous so passin what we sent in before*/
-      }
-      
-      GASNETC_DCMF_LOCK();
-      if (team->total_ranks == 1)
-        {
-          named_barrier_result[0] = named_barrier_source[0];
-          named_barrier_result[1] = named_barrier_source[1];
-          barrier_rerun_done = 1;
-        }
-      else 
-        {
-          DCMF_SAFE(DCMF_Allreduce(dcmf_tp->named_barrier_proto,
-                                   &dcmf_tp->named_barrier_req, 
-                                   cb_done, 
-                                   DCMF_MATCH_CONSISTENCY,
-                                   &dcmf_tp->geometry,
-                                   (char*)&named_barrier_source, 
-                                   (char*)&named_barrier_result, 
-                                   2, 
-                                   DCMF_SIGNED_LONG_LONG, 
-                                   DCMF_MIN));
-        }
-      GASNETC_DCMF_UNLOCK();
-      
-      /* need to use gasneti_AMPoll() instead of DCMF_MESSAGER_POLL()
-         so that the gasnet AM queues can make progress while
-         waiting. */
-      gasneti_polluntil(barrier_rerun_done != 0);
-      
-      /*if the reran barrier has min = max then we have a sucessful barrier*/
-      /*otherwise there's a mismatch*/
-      if(named_barrier_result[0] == -named_barrier_result[1]) 
-        ret = GASNET_OK;
-      else
-        ret = GASNET_ERR_BARRIER_MISMATCH;
-      
-    } 
-  else 
-    {
-      /*min does not equal max and no one tried to pass in anonymous so there
-        is a mismatch*/
-      GASNETI_TRACE_PRINTF(B, ("min!=max: 0x%llx 0x%llx",named_barrier_result[0], -named_barrier_result[1]));
-      ret = GASNET_ERR_BARRIER_MISMATCH;
     }
   
   team->barrier_splitstate = OUTSIDE_BARRIER;
