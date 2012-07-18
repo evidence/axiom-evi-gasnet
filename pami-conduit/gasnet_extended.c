@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2012/07/18 02:24:33 $
- * $Revision: 1.25 $
+ *     $Date: 2012/07/18 02:37:07 $
+ * $Revision: 1.26 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -870,6 +870,7 @@ extern void gasnete_put_bulk (gasnet_node_t node, void* dest, void *src,
      using the default ALLREDUCE algorithm.  At small node counts we tie the
      best PAMI_ALLREDUCE algorithm , but we lose for large node counts. */
   /* TODO: revisit this if/when we pick a non-default PAMI_ALLREDUCE algorithm. */
+  /* TODO: revisit this if/when PSHM is used on BG/Q */
   #define GASNETE_BARRIER_DEFAULT "PAMIALLREDUCE" 
 #else
   /* Benchmarks marginally better than AMDISSEM and uses fewer resources */
