@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_extended_fwd.h,v $
- *     $Date: 2010/10/15 18:16:27 $
- * $Revision: 1.9 $
+ *     $Date: 2012/07/18 08:50:59 $
+ * $Revision: 1.10 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
  *                 Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -26,13 +26,6 @@ struct _gasnete_op_t;
 typedef struct _gasnete_op_t *gasnet_handle_t;
 #define GASNET_INVALID_HANDLE ((gasnet_handle_t)0)
 #define GASNETI_EOP_IS_HANDLE 1
-
-
-/* predicate is true if we "bend" the rules of barrier to improve performance
-   (may deadlock if threads disagree on named/anon barrier flags) */
-extern int gasnete_dcmfbarrier_fast;
-#define GASNETE_USING_DCMFFAST_BARRIER() ((int)gasnete_dcmfbarrier_fast)
-
 
   /* this can be used to add statistical collection values 
      specific to the extended API implementation (see gasnet_help.h) */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testbarrierconf.c,v $
- *     $Date: 2008/10/28 05:43:47 $
- * $Revision: 1.14 $
+ *     $Date: 2012/07/18 08:51:01 $
+ * $Revision: 1.15 $
  * Description: GASNet barrier performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -12,8 +12,6 @@
 
 #if defined(GASNETE_USING_ELANFAST_BARRIER) 
   #define PERFORM_MIXED_NAMED_ANON_TESTS (!GASNETE_USING_ELANFAST_BARRIER())
-#elif defined(GASNETE_USING_DCMFFAST_BARRIER)
-  #define PERFORM_MIXED_NAMED_ANON_TESTS (!GASNETE_USING_DCMFFAST_BARRIER())
 #else
   #define PERFORM_MIXED_NAMED_ANON_TESTS 1
 #endif
