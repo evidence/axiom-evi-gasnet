@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_extended.c,v $
- *     $Date: 2012/07/18 08:45:59 $
- * $Revision: 1.25 $
+ *     $Date: 2012/07/18 09:27:05 $
+ * $Revision: 1.26 $
  * Description: GASNet Extended API Implementation for DCMF
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
  *                 Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -1398,14 +1398,14 @@ int finish_barrier(gasnete_coll_team_t team, int id, int flags)
     will pick it up*/
   
   DCMF_Callback_t cb_done;
-  volatile int barrier_done;
+  volatile int second_barrier_done;
   gasnete_coll_team_dcmf_t *dcmf_tp;
   
   dcmf_tp = team->dcmf_tp;  
   gasneti_assert(dcmf_tp != NULL);
 
   cb_done.function = increment_value;
-  cb_done.clientdata = (void*)&barrier_done;
+  cb_done.clientdata = (void*)&second_barrier_done;
 
   /* Bug 2781 workaround. We need to rerun a global hardware barrier
      here to make sure everyone has arrived in finish_barrier(). This
@@ -1413,14 +1413,14 @@ int finish_barrier(gasnete_coll_team_t team, int id, int flags)
      cannot enter it if they are waiting for AM replies. The barrier
      in barrier_notify() is to make sure everyone has arrived in
      barrier_notify(). */
-  barrier_done = 0;
+  second_barrier_done = 0;
   GASNETC_DCMF_LOCK();
   GASNETC_DCMF_CHECK_PTR(&barrier_req);
   DCMF_SAFE(DCMF_GlobalBarrier(&anon_barrier_registration, &barrier_req, cb_done));
   GASNETC_DCMF_UNLOCK();
-  gasneti_polluntil(barrier_done != 0);
+  gasneti_polluntil(second_barrier_done != 0);
 
-  barrier_done = 0;
+  second_barrier_done = 0;
   GASNETI_TRACE_PRINTF(B, ("starting dcmf allreduce with <%llx, %llx>", 
 			   named_barrier_source[0], named_barrier_source[1]));
   
@@ -1439,7 +1439,7 @@ int finish_barrier(gasnete_coll_team_t team, int id, int flags)
          workaround. */
       named_barrier_result[0] = named_barrier_source[0];
       named_barrier_result[1] = named_barrier_source[1];
-      barrier_done = 1;
+      second_barrier_done = 1;
     }
   else 
     {
@@ -1456,7 +1456,7 @@ int finish_barrier(gasnete_coll_team_t team, int id, int flags)
     }
   GASNETC_DCMF_UNLOCK();
   
-  gasneti_polluntil(barrier_done != 0);
+  gasneti_polluntil(second_barrier_done != 0);
   
   GASNETI_TRACE_PRINTF(B, ("finish barrier wait named barrier res:(0x%llx,0x%llx) (%d,%d)", 
                            named_barrier_source[1], named_barrier_result[1], id, flags));
