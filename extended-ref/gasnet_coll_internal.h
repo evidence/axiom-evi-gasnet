@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_internal.h,v $
- *     $Date: 2012/04/14 01:50:55 $
- * $Revision: 1.64 $
+ *     $Date: 2012/07/18 05:56:19 $
+ * $Revision: 1.65 $
  * Description: GASNet Collectives conduit header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1316,6 +1316,16 @@ extern gasnet_coll_handle_t gasnete_coll_op_generic_init(gasnete_coll_team_t tea
 							 uint32_t sequence
 							 GASNETE_THREAD_FARG);
 #endif
+extern gasnet_coll_handle_t
+gasnete_coll_op_generic_init_with_scratch(gasnete_coll_team_t team, int flags,
+                                          gasnete_coll_generic_data_t *data,
+                                          gasnete_coll_poll_fn poll_fn,
+                                          uint32_t sequence,
+                                          gasnete_coll_scratch_req_t *scratch_req,
+                                          int num_params,
+                                          uint32_t *param_list,
+                                          gasnete_coll_tree_data_t *tree_info
+                                          GASNETE_THREAD_FARG);
 
 extern int gasnete_coll_generic_syncnb(gasnete_coll_generic_data_t *data);
 

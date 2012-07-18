@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_extended_coll_dcmf.h,v $
- *     $Date: 2010/05/05 15:24:17 $
- * $Revision: 1.6 $
+ *     $Date: 2012/07/18 05:56:17 $
+ * $Revision: 1.7 $
  * Description: GASNet extended collectives implementation on DCMF
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -16,36 +16,6 @@
 #include <gasnet_coll_autotune_internal.h>
 
 #include <gasnet_coll_barrier_dcmf.h>
-
-/* The following function prototypes should be declared in
- * gasnet_extended_refcoll.h, however they only appear in
- * gasnet_extended_refcoll.c.  Therefore, they are included here for
- * referencing them in the dcmf collective code correctly. */
-extern gasnet_coll_handle_t
-gasnete_coll_exchange_nb_default(gasnet_team_handle_t team,
-                                 void *dst, void *src,
-                                 size_t nbytes, int flags, uint32_t sequence
-                                 GASNETE_THREAD_FARG);
-
-
-extern gasnet_coll_handle_t
-gasnete_coll_broadcast_nb_default(gasnet_team_handle_t team,
-                                  void *dst,
-                                  gasnet_image_t srcimage, void *src,
-                                  size_t nbytes, int flags, uint32_t sequence
-                                  GASNETE_THREAD_FARG);
-
-extern gasnet_coll_handle_t
-gasnete_coll_op_generic_init_with_scratch(gasnete_coll_team_t team, int flags,
-                                          gasnete_coll_generic_data_t *data, 
-                                          gasnete_coll_poll_fn poll_fn,
-                                          uint32_t sequence, 
-                                          gasnete_coll_scratch_req_t *scratch_req, 
-                                          int num_params, 
-                                          uint32_t *param_list, 
-                                          gasnete_coll_tree_data_t *tree_info 
-                                          GASNETE_THREAD_FARG);
-/* end of adhoc function prototype declarations */
 
 /**
  * data structure for storing dcmf team information  
