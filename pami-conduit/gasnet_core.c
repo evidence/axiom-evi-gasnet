@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_core.c,v $
- *     $Date: 2012/07/18 00:12:00 $
- * $Revision: 1.17 $
+ *     $Date: 2012/07/18 00:49:19 $
+ * $Revision: 1.18 $
  * Description: GASNet PAMI conduit Implementation
  * Copyright 2012, Lawrence Berkeley National Laboratory
  * Terms of use are as specified in license.txt
@@ -104,6 +104,7 @@ gasnetc_dflt_coll_alg(pami_geometry_t geom, pami_xfer_type_t op, pami_algorithm_
     envvar = "GASNET_PAMI_ALLGATHER_ALG";
     break;
   default:
+    gasneti_fatalerror("Unknown 'op' value %d in %s", (int)op, __FUNCTION__);
     envvar = NULL;
   }
   envval = envvar ? gasneti_getenv_withdefault(envvar, NULL) : NULL;
