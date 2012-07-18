@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_core.c,v $
- *     $Date: 2012/07/17 23:49:07 $
- * $Revision: 1.16 $
+ *     $Date: 2012/07/18 00:12:00 $
+ * $Revision: 1.17 $
  * Description: GASNet PAMI conduit Implementation
  * Copyright 2012, Lawrence Berkeley National Laboratory
  * Terms of use are as specified in license.txt
@@ -112,13 +112,30 @@ gasnetc_dflt_coll_alg(pami_geometry_t geom, pami_xfer_type_t op, pami_algorithm_
     while (envval[0] && isspace(envval[0])) ++envval; /* leading whitespace */
     if (!envval[0]) {
       /* empty - keep the default */
+    } else if (0 == strcmp("LIST", envval)) {
+      static int list_once[PAMI_XFER_COUNT]; /* static var must initially be all zeros */
+      if (!gasneti_mynode && !list_once[(int)op]) {
+        int i;
+        fprintf(stderr, "Listing available values for environment variable %s:\n", envvar);
+        for (i=0; i<fullcount; ++i) {
+          fprintf(stderr, " %c %3d %s\n", ((i<counts[0])?' ':'*'), i, metadata[i].name);
+        }
+        if (counts[1]) {
+          fprintf(stderr,
+                  "Note: Lines marked with '*' may not be valid for all inputs and/or job layouts.\n"
+                  "      The user is responsible for ensuring only valid algorithms are requested.\n"
+                 );
+        }
+        list_once[(int)op] = 1;
+      }
     } else if (isdigit(envval[0])) {
       /* integer is used just as given */
       alg = atoi(envval);
       if (alg < 0 || alg >= fullcount) {
         if (!gasneti_mynode)
-          fprintf(stderr, "WARNING: Ignoring value '%d' for environment variable %s, "
-                          "because it is outside the range of available algorithms.\n",
+          fprintf(stderr, "WARNING: Ignoring value '%d' for environment variable %s,\n"
+                          "         because it is outside the range of available algorithms.\n"
+                          "         Set this variable to LIST for a list of all algorithms.\n",
                            alg, envvar);
         alg = 0;
       }
@@ -132,8 +149,9 @@ gasnetc_dflt_coll_alg(pami_geometry_t geom, pami_xfer_type_t op, pami_algorithm_
       }
       if (alg == fullcount) {
         if (!gasneti_mynode)
-          fprintf(stderr, "WARNING: Ignoring value '%s' for environment variable %s, "
-                          "because it does not match any available algorithm.\n",
+          fprintf(stderr, "WARNING: Ignoring value '%s' for environment variable %s,\n"
+                          "         because it does not match any available algorithm.\n"
+                          "         Set this variable to LIST for a list of all algorithms.\n",
                            envval, envvar);
         alg = 0;
       }
