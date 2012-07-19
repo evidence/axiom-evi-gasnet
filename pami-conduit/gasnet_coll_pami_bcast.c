@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami_bcast.c,v $
- *     $Date: 2012/07/19 03:55:00 $
- * $Revision: 1.1 $
+ *     $Date: 2012/07/19 04:18:22 $
+ * $Revision: 1.2 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -25,8 +25,6 @@ gasnete_coll_pami_bcast(const gasnet_team_handle_t team, void *dst,
     op.cmd.xfer_broadcast.buf  = (srcimage == team->myrank) ? (/*not-const*/ void *)src : dst;
     op.cmd.xfer_broadcast.typecount = nbytes;
 
-    if (flags & GASNET_COLL_IN_ALLSYNC) gasnetc_fast_barrier();
-
     GASNETC_PAMI_LOCK(gasnetc_context);
     rc = PAMI_Collective(gasnetc_context, &op);
     GASNETC_PAMI_UNLOCK(gasnetc_context);
@@ -38,8 +36,6 @@ gasnete_coll_pami_bcast(const gasnet_team_handle_t team, void *dst,
 
     rc = gasnetc_wait_uint(gasnetc_context, &done, 1);
     GASNETC_PAMI_CHECK(rc, "advancing blocking broadcast");
-
-    if (flags & GASNET_COLL_OUT_ALLSYNC) gasnetc_fast_barrier();
 }
 extern void
 gasnete_coll_broadcast_pami(gasnet_team_handle_t team, void *dst,
@@ -53,7 +49,9 @@ gasnete_coll_broadcast_pami(gasnet_team_handle_t team, void *dst,
     gasnete_coll_wait_sync(handle GASNETE_THREAD_PASS);
   } else {
     /* Use PAMI-specific implementation */
+    if (flags & GASNET_COLL_IN_ALLSYNC) gasnetc_fast_barrier();
     gasnete_coll_pami_bcast(team,dst,srcimage,src,nbytes,flags GASNETE_THREAD_PASS);
+    if (flags & GASNET_COLL_OUT_ALLSYNC) gasnetc_fast_barrier();
   }
 }
 extern void
@@ -69,8 +67,10 @@ gasnete_coll_broadcastM_pami(gasnet_team_handle_t team,
     gasnete_coll_wait_sync(handle GASNETE_THREAD_PASS);
   } else {
     /* Use PAMI-specific implementation */
-    void * const dst = (flags & GASNET_COLL_LOCAL) ? dstlist[0] : dstlist[team->myrank]; /* SEQ-specific */
+    void * const dst = GASNETE_COLL_MY_1ST_IMAGE(team, dstlist, flags);
+    if (flags & GASNET_COLL_IN_ALLSYNC) gasnetc_fast_barrier();
     gasnete_coll_pami_bcast(team,dst,srcimage,src,nbytes,flags GASNETE_THREAD_PASS);
+    if (flags & GASNET_COLL_OUT_ALLSYNC) gasnetc_fast_barrier();
   }
 }
 
