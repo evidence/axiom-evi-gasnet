@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_extended_fwd.h,v $
- *     $Date: 2012/07/18 08:50:59 $
- * $Revision: 1.10 $
+ *     $Date: 2012/07/19 03:27:29 $
+ * $Revision: 1.11 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
  *                 Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -56,7 +56,6 @@ typedef struct _gasnete_op_t *gasnet_handle_t;
 #endif /* #if GASNET_SEQ */
 #endif /* #ifndef GASNET_NO_DCMF_COLL */
 
-extern void gasnete_coll_init_dcmf(void);
 #define GASNETE_COLL_TEAM_CONDUIT_DECLS \
     extern void gasnete_coll_team_init_dcmf(gasnet_team_handle_t team); \
     extern void gasnete_coll_team_fini_dcmf(gasnet_team_handle_t team); \

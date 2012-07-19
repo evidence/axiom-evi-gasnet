@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refcoll.c,v $
- *     $Date: 2012/05/10 01:54:53 $
- * $Revision: 1.101 $
+ *     $Date: 2012/07/19 03:27:31 $
+ * $Revision: 1.102 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>, Paul H. Hargrove <PHHargrove@lbl.gov>, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1056,7 +1056,10 @@ gasneti_auxseg_request_t gasnete_coll_auxseg_alloc(gasnet_seginfo_t *auxseg_info
   
 
 
-
+#ifdef gasnete_coll_init_conduit
+    /* initialization of conduit specific collectives */
+    extern void gasnete_coll_init_conduit(void);
+#endif
 
 extern void gasnete_coll_init(const gasnet_image_t images[], gasnet_image_t my_image,
                               gasnet_coll_fn_entry_t fn_tbl[], size_t fn_count,
