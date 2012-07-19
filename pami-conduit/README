@@ -1,6 +1,6 @@
 GASNet pami-conduit documentation
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.7 $
+$Revision: 1.8 $
 
 User Information:
 -----------------
@@ -24,6 +24,17 @@ Recognized environment variables:
     PAMIALLREDUCE - barrier matching is implemented in terms of a
                     PAMI-level ALLREDUCE collective operation.
   Currently PAMIALLREDUCE is the default on all PAMI platforms.
+
+* GASNET_USE_PAMI_COLL - enable use of native-PAMI collectives
+  Not all collectives are supported for all input conditions, but when
+  support is available this setting controls if it will be used.
+  [NOTE: currently only blocking collectives are implemented over PAMI]
+  Additionally, the following allow finer-grained control over which
+  collective operations use PAMI_Collective() when GASNET_USE_PAMI_COLL
+  is enabled:
+    GASNET_USE_PAMI_BCAST - broadcast
+    [more to come...]
+  Default value for variables in this family is YES
 
 * GASNET_NETWORKDEPTH - depth of AM Request queues (default 1024)
   This integer parameter sets the limit on the number of outstanding
