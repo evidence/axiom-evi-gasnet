@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_core.c,v $
- *     $Date: 2012/07/18 03:29:56 $
- * $Revision: 1.20 $
+ *     $Date: 2012/07/19 03:41:06 $
+ * $Revision: 1.21 $
  * Description: GASNet PAMI conduit Implementation
  * Copyright 2012, Lawrence Berkeley National Laboratory
  * Terms of use are as specified in license.txt
@@ -94,18 +94,22 @@ gasnetc_dflt_coll_alg(pami_geometry_t geom, pami_xfer_type_t op, pami_algorithm_
   GASNETC_PAMI_CHECK(rc, "calling PAMI_Geometry_algorithms_query()");
 
   /* Process environment and defaults: */
-  switch(op) {
-  case PAMI_XFER_BARRIER: /* Used only for gasnetc_bootstrapBarrier() */
-    envvar = "GASNET_PAMI_BARRIER_ALG";
+  switch(op) { /* please keep alphabetical */
+  case PAMI_XFER_ALLGATHER: /* Used only for gasnetc_bootstrapExchange() */
+    envvar = "GASNET_PAMI_ALLGATHER_ALG";
     dfltval = NULL; /* TODO: tune a better default than alg[0]? */
     break;
   case PAMI_XFER_ALLREDUCE: /* Used for exitcode reduction and "PAMIALLREDUCE" barrier */
     envvar = "GASNET_PAMI_ALLREDUCE_ALG";
     dfltval = "I0:Binomial:"; /* uniformly "good" on BG/Q and PERCS */
     break;
-  case PAMI_XFER_ALLGATHER: /* Used only for gasnetc_bootstrapExchange() */
-    envvar = "GASNET_PAMI_ALLGATHER_ALG";
+  case PAMI_XFER_BARRIER: /* Used for gasnetc_fast_barrier() */
+    envvar = "GASNET_PAMI_BARRIER_ALG";
     dfltval = NULL; /* TODO: tune a better default than alg[0]? */
+    break;
+  case PAMI_XFER_BROADCAST: /* So far used only for blocking gasnet bcastM */
+    envvar = "GASNET_PAMI_BROADCAST_ALG";
+    dfltval = "I0:Binomial:"; /* uniformly "good" on PERCS (no BG/Q testing yet) */
     break;
   default:
     gasneti_fatalerror("Unknown 'op' value %d in %s", (int)op, __FUNCTION__);
@@ -184,7 +188,7 @@ static void bootstrap_collective(pami_xfer_t *op_p) {
   GASNETC_PAMI_CHECK(rc, "polling a bootstrap collective");
 }
 
-static void gasnetc_bootstrapBarrier(void) {
+extern void gasnetc_fast_barrier(void) {
   static pami_xfer_t op;
   static int is_init = 0;
 
@@ -196,6 +200,7 @@ static void gasnetc_bootstrapBarrier(void) {
 
   bootstrap_collective(&op);
 }
+#define gasnetc_bootstrapBarrier gasnetc_fast_barrier
 
 static void gasnetc_bootstrapExchange(void *src, size_t len, void *dst) {
   static pami_xfer_t op;

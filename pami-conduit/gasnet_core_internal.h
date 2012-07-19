@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_core_internal.h,v $
- *     $Date: 2012/07/17 04:04:26 $
- * $Revision: 1.12 $
+ *     $Date: 2012/07/19 03:41:06 $
+ * $Revision: 1.13 $
  * Description: GASNet PAMI conduit header for internal definitions in Core API
  * Copyright 2012, Lawrence Berkeley National Laboratory
  * Terms of use are as specified in license.txt
@@ -132,7 +132,6 @@ extern size_t             gasnetc_recv_imm_max;
 GASNETI_INLINE(gasnetc_endpoint)
 pami_endpoint_t gasnetc_endpoint(gasnet_node_t node) {
   pami_endpoint_t result = gasnetc_endpoint_tbl[node];
-  gasneti_assert(node != gasneti_mynode);
   gasneti_assert(node < gasneti_nodes);
   if_pf (result == PAMI_ENDPOINT_NULL) {
     /* NOTE: thread-safety based on fact that type is single word */
@@ -179,5 +178,8 @@ pami_result_t gasnetc_wait_atomic(pami_context_t context,
 
 /* Get the first "always works" algorithm for a given collective operation */
 extern void gasnetc_dflt_coll_alg(pami_geometry_t geom, pami_xfer_type_t op, pami_algorithm_t *alg_p);
+
+/* Used for gasnetc_bootstrapBarrier() and ALLSYNC barrier in blocking collectives: */
+extern void gasnetc_fast_barrier(void);
 
 #endif
