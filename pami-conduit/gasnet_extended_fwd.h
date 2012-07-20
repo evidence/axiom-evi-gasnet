@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended_fwd.h,v $
- *     $Date: 2012/07/19 03:55:00 $
- * $Revision: 1.7 $
+ *     $Date: 2012/07/20 22:42:09 $
+ * $Revision: 1.8 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -24,13 +24,23 @@
 	GASNETE_COLL_BARRIER_PAMIALLREDUCE, \
 	GASNETE_COLL_BARRIER_PAMIDISSEM
 
-/* Hooks for conduit-specific collectives (SEQ only at the moment) */
-#if !defined(GASNET_NO_PAMI_COLL) && GASNET_SEQ
+/* Hooks for conduit-specific collectives */
+#if !defined(GASNET_NO_PAMI_COLL)
   /* NOTE: Focus is on blocking collectives because they are simpler, and are all that UPCR uses */
   #define GASNET_PAMI_NATIVE_COLL 1
   #define gasnete_coll_init_conduit gasnete_coll_init_pami
+  #define gasnete_coll_team_init_conduit gasnete_coll_team_init_pami
+
   #define gasnete_coll_broadcast  gasnete_coll_broadcast_pami
   #define gasnete_coll_broadcastM gasnete_coll_broadcastM_pami
+
+  #if GASNET_PAR
+    #define GASNETE_COLL_TEAM_EXTRA struct {  \
+        volatile int barrier_phase;           \
+        char _pad[GASNETI_CACHE_LINE_BYTES];  \
+        gasneti_atomic_t barrier_counter[2];  \
+    } pami;
+  #endif
 #endif
 
 #define _GASNET_HANDLE_T

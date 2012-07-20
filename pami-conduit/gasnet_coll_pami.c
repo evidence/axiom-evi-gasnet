@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami.c,v $
- *     $Date: 2012/07/19 03:55:00 $
- * $Revision: 1.1 $
+ *     $Date: 2012/07/20 22:42:09 $
+ * $Revision: 1.2 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -30,6 +30,14 @@ gasnete_coll_init_pami(void)
 
     /* etc. */
   }
+}
+
+extern void gasnete_coll_team_init_pami(gasnet_team_handle_t team) {
+  #if GASNET_PAR
+    team->pami.barrier_phase = 0;
+    gasneti_atomic_set(&team->pami.barrier_counter[0], team->my_images, 0);
+    gasneti_atomic_set(&team->pami.barrier_counter[1], team->my_images, 0);
+  #endif
 }
 
 #endif /* GASNET_PAMI_NATIVE_COLL */
