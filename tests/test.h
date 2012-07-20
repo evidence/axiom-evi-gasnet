@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2012/05/14 22:27:41 $
- * $Revision: 1.148 $
+ *     $Date: 2012/07/20 21:35:10 $
+ * $Revision: 1.149 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -408,7 +408,7 @@ GASNETT_IDENT(GASNetT_TiCompiler_IdentString,
    TEST_USE_PRIMORDIAL_THREAD can be defined to spawn only numthreads-1 new pthreads and run the last on this thread
  */
 #ifndef TEST_USE_PRIMORDIAL_THREAD
-  #if PLATFORM_OS_BGP 
+  #if PLATFORM_OS_BGP || PLATFORM_OS_BGQ
     /* some systems have strict limits on how many threads can exist */
     #define TEST_USE_PRIMORDIAL_THREAD 1
   #else
