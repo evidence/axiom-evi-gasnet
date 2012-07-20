@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_internal.h,v $
- *     $Date: 2012/07/18 05:56:19 $
- * $Revision: 1.65 $
+ *     $Date: 2012/07/20 20:04:31 $
+ * $Revision: 1.66 $
  * Description: GASNet Collectives conduit header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1817,4 +1817,13 @@ GASNETE_COLL_DECLARE_REDUCEM_ALG(TreeEager);
 GASNETE_COLL_DECLARE_REDUCEM_ALG(TreePut);
 GASNETE_COLL_DECLARE_REDUCEM_ALG(TreePutSeg);
 GASNETE_COLL_DECLARE_REDUCEM_ALG(TreeGet);
+
+/*---------------------------------------------------------------------------------*/
+/* Conduit specific extension hooks: */
+/* These may be unused, but there is no harm in prototyping them. */
+
+extern void gasnete_coll_init_conduit(void);
+extern void gasnete_coll_team_init_conduit(gasnet_team_handle_t team);
+extern void gasnete_coll_team_fini_conduit(gasnet_team_handle_t team);
+
 #endif

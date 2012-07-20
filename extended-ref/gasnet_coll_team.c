@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_team.c,v $
- *     $Date: 2012/07/20 19:30:32 $
- * $Revision: 1.16 $
+ *     $Date: 2012/07/20 20:04:31 $
+ * $Revision: 1.17 $
  *
  * Description: GASNet generic team implementation for collectives 
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
@@ -17,12 +17,6 @@
 #include <gasnet_coll_scratch.h>
 #include <gasnet_coll_trees.h>
 
-#ifdef gasnete_coll_team_init_conduit
-  extern void gasnete_coll_team_init_conduit(gasnet_team_handle_t team);
-#endif
-#ifdef gasnete_coll_team_fini_conduit
-  extern void gasnete_coll_team_fini_conduit(gasnet_team_handle_t team);
-#endif
 #ifdef GASNETE_COLL_TEAM_CONDUIT_DECLS
 GASNETE_COLL_TEAM_CONDUIT_DECLS
 #endif

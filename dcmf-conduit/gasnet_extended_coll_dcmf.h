@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_extended_coll_dcmf.h,v $
- *     $Date: 2012/07/18 05:56:17 $
- * $Revision: 1.7 $
+ *     $Date: 2012/07/20 20:04:29 $
+ * $Revision: 1.8 $
  * Description: GASNet extended collectives implementation on DCMF
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -56,5 +56,9 @@ void gasnete_dcmf_team_init(gasnet_team_handle_t team,
  * Get the DCMF geometry of the team with team_id
  */
 DCMF_Geometry_t * gasnete_dcmf_get_geometry(int team_id);
+
+/* we need these prototypes even when gasnet_coll_internal.h is lacking them: */
+extern void gasnete_coll_init_dcmf(void);
+extern void gasnete_coll_team_init_dcmf(gasnet_team_handle_t team);
 
 #endif /* GASNET_EXTENDED_COLL_DCMF_H_ */
