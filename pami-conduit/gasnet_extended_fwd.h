@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended_fwd.h,v $
- *     $Date: 2012/07/20 22:42:09 $
- * $Revision: 1.8 $
+ *     $Date: 2012/07/20 23:48:02 $
+ * $Revision: 1.9 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -36,6 +36,7 @@
 
   #if GASNET_PAR
     #define GASNETE_COLL_TEAM_EXTRA struct {  \
+        const void * volatile local_dst;       \
         volatile int barrier_phase;           \
         char _pad[GASNETI_CACHE_LINE_BYTES];  \
         gasneti_atomic_t barrier_counter[2];  \
