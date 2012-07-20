@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_autotune.c,v $
- *     $Date: 2011/07/07 01:35:14 $
- * $Revision: 1.34 $
+ *     $Date: 2012/07/20 20:16:41 $
+ * $Revision: 1.35 $
  * Description: GASNet Autotuner Implementation
  * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>, Paul H. Hargrove <PHHargrove@lbl.gov>, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1343,7 +1343,7 @@ gasnete_coll_autotune_info_t* gasnete_coll_autotune_init(gasnet_team_handle_t te
 gasnete_coll_tree_type_t gasnete_coll_autotune_get_bcast_tree_type(gasnete_coll_autotune_info_t* autotune_info, 
                                                                    gasnet_coll_optype_t op_type, 
                                                                    gasnet_node_t root, size_t nbytes, int flags) {
-	gasnete_coll_tree_type_t ret;
+	gasnete_coll_tree_type_t ret = NULL;
 	/*first check if we've seen this size*/
 	/*find the log of the transfer size we are interested in*/
 	uint32_t log2_nbytes;
@@ -1865,7 +1865,10 @@ gasnete_coll_autotune_index_entry_t *gasnete_coll_load_autotuner_defaults(gasnet
       printf("warning! tuning data's config string: %s does not match current gasnet config string: %s\n", MYXML_ATTRIBUTES(tuning_data)[0].attribute_value, GASNET_CONFIG_STRING);
     } 
     root= load_autotuner_defaults_helper(autotune_info, tuning_data, tree_levels, 1, 8, (gasnet_coll_optype_t)(-1));
-  } else gasneti_fatalerror("exepected machine as the root of the tree");
+  } else {
+    root = NULL; /* warning suppression */
+    gasneti_fatalerror("exepected machine as the root of the tree");
+  }
   return root;
 }
 
@@ -2267,6 +2270,7 @@ void gasnete_coll_tune_generic_op(gasnet_team_handle_t team, gasnet_coll_optype_
       num_algs = GASNETE_COLL_REDUCEM_NUM_ALGS;
       break;
     default:
+      num_algs = 0; /* warning suppression */
       gasneti_fatalerror("not yet supported");
       break;
   }

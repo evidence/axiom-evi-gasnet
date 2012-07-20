@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_trees.c,v $
- *     $Date: 2011/07/07 01:35:14 $
- * $Revision: 1.17 $
+ *     $Date: 2012/07/20 20:16:41 $
+ * $Revision: 1.18 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>, Paul H. Hargrove <PHHargrove@lbl.gov>, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -475,6 +475,7 @@ static tree_node_t make_hiearchical_tree_helper(gasnete_coll_tree_type_t tree_ty
         rootnode = make_fork_tree(allnodes, num_nodes, tree_type->params, tree_type->num_params);
         break;
       default:
+        rootnode = NULL; /* warning suppression */
         gasneti_fatalerror("unknown tree type");
     }
   
@@ -634,10 +635,12 @@ gasnete_coll_local_tree_geom_t *gasnete_coll_tree_geom_create_local(gasnete_coll
        /* XXX ADD CODE TO GET ROTATION POINTS*/
       break;
 #else
+       rootnode = NULL; /* warning suppression */
        gasneti_fatalerror("HIERARCHICAL_TREE not yet fully supported");
 #endif
 #endif
     default:
+       rootnode = NULL; /* warning suppression */
        gasneti_fatalerror("unknown tree type");
       break;
   }
