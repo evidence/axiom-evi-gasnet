@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami_bcast.c,v $
- *     $Date: 2012/07/20 23:58:29 $
- * $Revision: 1.6 $
+ *     $Date: 2012/07/21 00:00:52 $
+ * $Revision: 1.7 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -54,17 +54,17 @@ gasnete_coll_broadcast_pami(gasnet_team_handle_t team, void *dst,
     gasnete_coll_wait_sync(handle GASNETE_THREAD_PASS);
   } else {
     /* Use PAMI-specific implementation */
-    int i_am_leader = gasnete_coll_pami_images_barrier(team, 0); /* XXX: over-synced ??? */
+    int i_am_leader = gasnete_coll_pami_images_barrier(team); /* XXX: over-synced ??? */
 
     if (i_am_leader) {
       if (flags & GASNET_COLL_IN_ALLSYNC) gasnetc_fast_barrier();
       gasnete_coll_pami_bcast(team,dst,srcimage,src,nbytes,flags GASNETE_THREAD_PASS);
     }
-    (void) gasnete_coll_pami_images_barrier(team, 0); /* XXX: over-synced on OUT_NO? */
+    (void) gasnete_coll_pami_images_barrier(team); /* XXX: over-synced on OUT_NO? */
       
     if (flags & GASNET_COLL_OUT_ALLSYNC) {
        if (i_am_leader) gasnetc_fast_barrier();
-       (void) gasnete_coll_pami_images_barrier(team, 0);
+       (void) gasnete_coll_pami_images_barrier(team);
     }
   }
 }
@@ -84,7 +84,7 @@ gasnete_coll_broadcastM_pami(gasnet_team_handle_t team,
     /* Use PAMI-specific implementation */
   #if GASNET_PAR
     const gasnete_coll_threaddata_t * const td = GASNETE_COLL_MYTHREAD_NOALLOC;
-    int i_am_leader = gasnete_coll_pami_images_barrier(team, 0); /* XXX: over-synced for IN_NO and IN_MY */
+    int i_am_leader = gasnete_coll_pami_images_barrier(team); /* XXX: over-synced for IN_NO and IN_MY */
     void * dst;
 
     if (flags & GASNET_COLL_SINGLE) {
@@ -102,15 +102,15 @@ gasnete_coll_broadcastM_pami(gasnet_team_handle_t team,
       gasnete_coll_pami_bcast(team,dst,srcimage,src,nbytes,flags GASNETE_THREAD_PASS);
       team->pami.local_dst = dst;
     }
-    (void) gasnete_coll_pami_images_barrier(team, 0);
+    (void) gasnete_coll_pami_images_barrier(team);
     if (!i_am_leader) {
       GASNETE_FAST_UNALIGNED_MEMCPY(dst, team->pami.local_dst, nbytes);
     }
-    (void) gasnete_coll_pami_images_barrier(team, 0); /* XXX: over-synced for OUT_NO? */
+    (void) gasnete_coll_pami_images_barrier(team); /* XXX: over-synced for OUT_NO? */
       
     if (flags & GASNET_COLL_OUT_ALLSYNC) {
        if (i_am_leader) gasnetc_fast_barrier();
-       (void) gasnete_coll_pami_images_barrier(team, 0);
+       (void) gasnete_coll_pami_images_barrier(team);
     }
   #else
     void * const dst = GASNETE_COLL_MY_1ST_IMAGE(team, dstlist, flags);
