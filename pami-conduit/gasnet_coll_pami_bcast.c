@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami_bcast.c,v $
- *     $Date: 2012/07/21 00:00:52 $
- * $Revision: 1.7 $
+ *     $Date: 2012/07/21 00:23:05 $
+ * $Revision: 1.8 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -98,15 +98,20 @@ gasnete_coll_broadcastM_pami(gasnet_team_handle_t team,
     }
 
     if (i_am_leader) {
+      gasneti_assert(! team->pami.done );
       if (flags & GASNET_COLL_IN_ALLSYNC) gasnetc_fast_barrier();
       gasnete_coll_pami_bcast(team,dst,srcimage,src,nbytes,flags GASNETE_THREAD_PASS);
       team->pami.local_dst = dst;
-    }
-    (void) gasnete_coll_pami_images_barrier(team);
-    if (!i_am_leader) {
+      gasneti_sync_writes();
+      team->pami.done = 1;
+      (void) gasnete_coll_pami_images_barrier(team); /* matches instance below vvvv */
+      team->pami.done = 0;
+    } else {
+      while (! team->pami.done) GASNETI_WAITHOOK();
+      gasneti_sync_reads();
       GASNETE_FAST_UNALIGNED_MEMCPY(dst, team->pami.local_dst, nbytes);
+      (void) gasnete_coll_pami_images_barrier(team); /* matches instance above ^^^^ */
     }
-    (void) gasnete_coll_pami_images_barrier(team); /* XXX: over-synced for OUT_NO? */
       
     if (flags & GASNET_COLL_OUT_ALLSYNC) {
        if (i_am_leader) gasnetc_fast_barrier();
