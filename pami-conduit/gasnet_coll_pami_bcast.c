@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami_bcast.c,v $
- *     $Date: 2012/07/21 00:23:05 $
- * $Revision: 1.8 $
+ *     $Date: 2012/07/21 01:06:35 $
+ * $Revision: 1.9 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -43,29 +43,47 @@ gasnete_coll_broadcast_pami(gasnet_team_handle_t team, void *dst,
                             gasnet_image_t srcimage, void *src,
                             size_t nbytes, int flags GASNETE_THREAD_FARG)
 {
-  if ((team != GASNET_TEAM_ALL) || !gasnete_use_pami_bcast
-#if GASNET_PAR
-      || (flags & GASNET_COLL_LOCAL)
-#endif
-     ) {
+  if ((team != GASNET_TEAM_ALL) || !gasnete_use_pami_bcast) {
     /* Use generic implementation for cases we don't (yet) handle, or when disabled */
     gasnet_coll_handle_t handle;
     handle = gasnete_coll_broadcast_nb_default(team,dst,srcimage,src,nbytes,flags,0 GASNETE_THREAD_PASS);
     gasnete_coll_wait_sync(handle GASNETE_THREAD_PASS);
   } else {
     /* Use PAMI-specific implementation */
-    int i_am_leader = gasnete_coll_pami_images_barrier(team); /* XXX: over-synced ??? */
+  #if GASNET_PAR
+    int i_am_leader = gasnete_coll_pami_images_barrier(team); /* XXX: over-synced for IN_NO and IN_MY */
+
+    if ((flags & GASNET_COLL_LOCAL) && gasnete_coll_image_is_local(team, srcimage)) {
+      /* root thread must be leader for its node */
+      const gasnete_coll_threaddata_t * const td = GASNETE_COLL_MYTHREAD_NOALLOC;
+      i_am_leader = (srcimage == td->my_image);
+    }
 
     if (i_am_leader) {
+      gasneti_assert(! team->pami.done );
       if (flags & GASNET_COLL_IN_ALLSYNC) gasnetc_fast_barrier();
       gasnete_coll_pami_bcast(team,dst,srcimage,src,nbytes,flags GASNETE_THREAD_PASS);
+      team->pami.local_dst = dst;
+      gasneti_sync_writes();
+      team->pami.done = 1;
+      (void) gasnete_coll_pami_images_barrier(team); /* matches instance below vvvv */
+      team->pami.done = 0;
+    } else {
+      while (! team->pami.done) GASNETI_WAITHOOK();
+      gasneti_sync_reads();
+      GASNETE_FAST_UNALIGNED_MEMCPY(dst, team->pami.local_dst, nbytes);
+      (void) gasnete_coll_pami_images_barrier(team); /* matches instance above ^^^^ */
     }
-    (void) gasnete_coll_pami_images_barrier(team); /* XXX: over-synced on OUT_NO? */
       
     if (flags & GASNET_COLL_OUT_ALLSYNC) {
        if (i_am_leader) gasnetc_fast_barrier();
        (void) gasnete_coll_pami_images_barrier(team);
     }
+  #else
+    if (flags & GASNET_COLL_IN_ALLSYNC) gasnetc_fast_barrier();
+    gasnete_coll_pami_bcast(team,dst,srcimage,src,nbytes,flags GASNETE_THREAD_PASS);
+    if (flags & GASNET_COLL_OUT_ALLSYNC) gasnetc_fast_barrier();
+  #endif
   }
 }
 
