@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami.c,v $
- *     $Date: 2012/07/25 01:48:19 $
- * $Revision: 1.5 $
+ *     $Date: 2012/07/25 03:10:24 $
+ * $Revision: 1.6 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -55,9 +55,13 @@ gasnetc_dflt_coll_alg(pami_geometry_t geom, pami_xfer_type_t op, pami_algorithm_
     envvar = "GASNET_PAMI_BARRIER_ALG";
     dfltval = NULL; /* TODO: tune a better default than alg[0]? */
     break;
-  case PAMI_XFER_BROADCAST: /* So far used only for blocking gasnet bcastM */
+  case PAMI_XFER_BROADCAST: /* Used for blocking gasnet broadcast */
     envvar = "GASNET_PAMI_BROADCAST_ALG";
     dfltval = "I0:Binomial:"; /* uniformly "good" on PERCS (no BG/Q testing yet) */
+    break;
+  case PAMI_XFER_SCATTER: /* Used for blocking gasnet scatter */
+    envvar = "GASNET_PAMI_SCATTER_ALG";
+    dfltval = "I0:Binomial:"; /* This *is* 0 on PERCS, but best to be explicit */
     break;
   default:
     gasneti_fatalerror("Unknown 'op' value %d in %s", (int)op, __FUNCTION__);
@@ -179,7 +183,9 @@ gasnetc_bootstrapExchange(void *src, size_t len, void *dst) {
 
 /* These live here, not in per-op files, to avoid unwanted link dependencies */
 int gasnete_use_pami_bcast = 0;
+int gasnete_use_pami_scatt = 0;
 pami_xfer_t gasnete_op_template_bcast;
+pami_xfer_t gasnete_op_template_scatt;
 
 extern void
 gasnete_coll_init_pami(void)
@@ -193,6 +199,16 @@ gasnete_coll_init_pami(void)
       gasnete_op_template_bcast.options.multicontext = PAMI_HINT_DISABLE;
       gasnete_op_template_bcast.cmd.xfer_broadcast.type = PAMI_TYPE_BYTE;
       gasnete_use_pami_bcast = 1;
+    }
+
+    if (gasneti_getenv_yesno_withdefault("GASNET_USE_PAMI_SCATT", 1)) {
+      memset(&gasnete_op_template_scatt, 0, sizeof(pami_xfer_t));
+      gasnetc_dflt_coll_alg(gasnetc_world_geom, PAMI_XFER_SCATTER, &gasnete_op_template_scatt.algorithm);
+      gasnete_op_template_scatt.cb_done = &gasnetc_cb_inc_uint; /* XXX: do we need release semantics? */
+      gasnete_op_template_scatt.options.multicontext = PAMI_HINT_DISABLE;
+      gasnete_op_template_scatt.cmd.xfer_scatter.stype = PAMI_TYPE_BYTE;
+      gasnete_op_template_scatt.cmd.xfer_scatter.rtype = PAMI_TYPE_BYTE;
+      gasnete_use_pami_scatt = 1;
     }
 
     /* etc. */

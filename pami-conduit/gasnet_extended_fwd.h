@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended_fwd.h,v $
- *     $Date: 2012/07/21 01:44:39 $
- * $Revision: 1.11 $
+ *     $Date: 2012/07/25 03:10:24 $
+ * $Revision: 1.12 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -33,6 +33,9 @@
 
   #define gasnete_coll_broadcast  gasnete_coll_broadcast_pami
   #define gasnete_coll_broadcastM gasnete_coll_broadcastM_pami
+
+  #define gasnete_coll_scatter    gasnete_coll_scatter_pami
+  #define gasnete_coll_scatterM   gasnete_coll_scatterM_pami
 
   #if GASNET_PAR
     #define GASNETE_COLL_TEAM_EXTRA struct {  \
