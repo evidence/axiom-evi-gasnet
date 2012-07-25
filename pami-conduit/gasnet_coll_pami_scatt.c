@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami_scatt.c,v $
- *     $Date: 2012/07/25 09:39:50 $
- * $Revision: 1.2 $
+ *     $Date: 2012/07/25 21:48:38 $
+ * $Revision: 1.3 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -29,23 +29,25 @@ gasnete_coll_pami_scattvi(const gasnet_team_handle_t team, void *dst,
         volatile unsigned int done = 0;
         pami_result_t rc;
         pami_xfer_t op;
-        int i;
 
         if (flags & GASNET_COLL_IN_ALLSYNC) gasnetc_fast_barrier();
 
         op = gasnete_op_template_scattvi; /* scatterv_int */
         op.cookie = (void *)&done;
         op.cmd.xfer_scatterv_int.root = gasnetc_endpoint(gasnete_coll_image_node(team, srcimage));
-        op.cmd.xfer_scatterv_int.sndbuf = (/*not-const*/ void *)src;
         op.cmd.xfer_scatterv_int.rcvbuf = team->pami.scratch_addr;
         op.cmd.xfer_scatterv_int.rtypecount = nbytes * team->my_images;
 
-        /* TODO: allocate space for these in the team struct? */
-        op.cmd.xfer_scatterv_int.stypecounts = alloca(sizeof(int) * team->total_ranks);
-        op.cmd.xfer_scatterv_int.sdispls = alloca(sizeof(int) * team->total_ranks);
-        for (i = 0; i < team->total_ranks; ++i) {
-            op.cmd.xfer_scatterv_int.stypecounts[i] = nbytes * team->all_images[i];
-            op.cmd.xfer_scatterv_int.sdispls[i] = nbytes * team->all_offset[i];
+        if (i_am_root) {
+            int i;
+            op.cmd.xfer_scatterv_int.sndbuf = (/*not-const*/ void *)src;
+            /* TODO: allocate space for these in the team struct? */
+            op.cmd.xfer_scatterv_int.stypecounts = alloca(sizeof(int) * team->total_ranks);
+            op.cmd.xfer_scatterv_int.sdispls = alloca(sizeof(int) * team->total_ranks);
+            for (i = 0; i < team->total_ranks; ++i) {
+                op.cmd.xfer_scatterv_int.stypecounts[i] = nbytes * team->all_images[i];
+                op.cmd.xfer_scatterv_int.sdispls[i] = nbytes * team->all_offset[i];
+            }
         }
 
         GASNETC_PAMI_LOCK(gasnetc_context);
@@ -142,16 +144,16 @@ gasnete_coll_scatter_pami(gasnet_team_handle_t team, void *dst,
     gasnet_coll_handle_t handle;
     handle = gasnete_coll_scatter_nb_default(team,dst,srcimage,src,nbytes,flags,0 GASNETE_THREAD_PASS);
     gasnete_coll_wait_sync(handle GASNETE_THREAD_PASS);
-  } else
-#if GASNET_PAR
-  if (team->multi_images_any) {
-    /* Use PAMI-specific implementation */
-    gasnete_coll_pami_scattvi(team,dst,srcimage,src,nbytes,flags GASNETE_THREAD_PASS);
-  } else
-#endif
-  {
-    /* Use PAMI-specific implementation */
+  } else { /* Use PAMI-specific implementation: */
+  #if GASNET_PAR
+    if (team->multi_images_any) {
+      gasnete_coll_pami_scattvi(team,dst,srcimage,src,nbytes,flags GASNETE_THREAD_PASS);
+    } else {
+      gasnete_coll_pami_scatt(team,dst,srcimage,src,nbytes,flags GASNETE_THREAD_PASS);
+    }
+  #else
     gasnete_coll_pami_scatt(team,dst,srcimage,src,nbytes,flags GASNETE_THREAD_PASS);
+  #endif
   }
 }
 
@@ -170,25 +172,19 @@ gasnete_coll_scatterM_pami(gasnet_team_handle_t team,
     gasnet_coll_handle_t handle;
     handle = gasnete_coll_scatterM_nb_default(team,dstlist,srcimage,src,nbytes,flags,0 GASNETE_THREAD_PASS);
     gasnete_coll_wait_sync(handle GASNETE_THREAD_PASS);
-  } else
-#if GASNET_PAR
-  if (team->multi_images_any) {
-    /* Use PAMI-specific implementation */
-    const gasnete_coll_threaddata_t * const td = GASNETE_COLL_MYTHREAD_NOALLOC;
-    void * const dst = dstlist[((flags & GASNET_COLL_LOCAL) ? td->my_local_image : td->my_image)];
-    gasnete_coll_pami_scattvi(team,dst,srcimage,src,nbytes,flags GASNETE_THREAD_PASS);
-  } else
-#endif
-  {
-    /* Use PAMI-specific implementation */
+  } else { /* Use PAMI-specific implementation: */
   #if GASNET_PAR
     const gasnete_coll_threaddata_t * const td = GASNETE_COLL_MYTHREAD_NOALLOC;
     void * const dst = dstlist[((flags & GASNET_COLL_LOCAL) ? td->my_local_image : td->my_image)];
+    if (team->multi_images_any) {
+      gasnete_coll_pami_scattvi(team,dst,srcimage,src,nbytes,flags GASNETE_THREAD_PASS);
+    } else {
+      gasnete_coll_pami_scatt(team,dst,srcimage,src,nbytes,flags GASNETE_THREAD_PASS);
+    }
   #else
     void * const dst = GASNETE_COLL_MY_1ST_IMAGE(team, dstlist, flags);
-  #endif
-
     gasnete_coll_pami_scatt(team,dst,srcimage,src,nbytes,flags GASNETE_THREAD_PASS);
+  #endif
   }
 }
 
