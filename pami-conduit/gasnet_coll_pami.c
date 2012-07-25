@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami.c,v $
- *     $Date: 2012/07/25 04:07:27 $
- * $Revision: 1.7 $
+ *     $Date: 2012/07/25 06:29:42 $
+ * $Revision: 1.8 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -58,6 +58,10 @@ gasnetc_dflt_coll_alg(pami_geometry_t geom, pami_xfer_type_t op, pami_algorithm_
   case PAMI_XFER_BROADCAST: /* Used for blocking gasnet broadcast */
     envvar = "GASNET_PAMI_BROADCAST_ALG";
     dfltval = "I0:Binomial:"; /* uniformly "good" on BG/Q and PERSC */
+    break;
+  case PAMI_XFER_GATHER: /* Used for blocking gasnet scatter gather */
+    envvar = "GASNET_PAMI_GATHER_ALG";
+    dfltval = NULL; /* TODO: tune for better default */
     break;
   case PAMI_XFER_SCATTER: /* Used for blocking gasnet scatter */
     envvar = "GASNET_PAMI_SCATTER_ALG";
@@ -183,8 +187,10 @@ gasnetc_bootstrapExchange(void *src, size_t len, void *dst) {
 
 /* These live here, not in per-op files, to avoid unwanted link dependencies */
 int gasnete_use_pami_bcast = 0;
+int gasnete_use_pami_gathr = 0;
 int gasnete_use_pami_scatt = 0;
 pami_xfer_t gasnete_op_template_bcast;
+pami_xfer_t gasnete_op_template_gathr;
 pami_xfer_t gasnete_op_template_scatt;
 
 extern void
@@ -199,6 +205,16 @@ gasnete_coll_init_pami(void)
       gasnete_op_template_bcast.options.multicontext = PAMI_HINT_DISABLE;
       gasnete_op_template_bcast.cmd.xfer_broadcast.type = PAMI_TYPE_BYTE;
       gasnete_use_pami_bcast = 1;
+    }
+
+    if (gasneti_getenv_yesno_withdefault("GASNET_USE_PAMI_GATHR", 1)) {
+      memset(&gasnete_op_template_gathr, 0, sizeof(pami_xfer_t));
+      gasnetc_dflt_coll_alg(gasnetc_world_geom, PAMI_XFER_GATHER, &gasnete_op_template_gathr.algorithm);
+      gasnete_op_template_gathr.cb_done = &gasnetc_cb_inc_uint; /* XXX: do we need release semantics? */
+      gasnete_op_template_gathr.options.multicontext = PAMI_HINT_DISABLE;
+      gasnete_op_template_gathr.cmd.xfer_gather.stype = PAMI_TYPE_BYTE;
+      gasnete_op_template_gathr.cmd.xfer_gather.rtype = PAMI_TYPE_BYTE;
+      gasnete_use_pami_gathr = 1;
     }
 
     if (gasneti_getenv_yesno_withdefault("GASNET_USE_PAMI_SCATT", 1)) {

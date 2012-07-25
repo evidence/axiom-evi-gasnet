@@ -1,6 +1,6 @@
 GASNet pami-conduit documentation
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.8 $
+$Revision: 1.9 $
 
 User Information:
 -----------------
@@ -33,6 +33,8 @@ Recognized environment variables:
   collective operations use PAMI_Collective() when GASNET_USE_PAMI_COLL
   is enabled:
     GASNET_USE_PAMI_BCAST - broadcast
+    GASNET_USE_PAMI_SCATT - scatter
+    GASNET_USE_PAMI_GATHR - gather
     [more to come...]
   Default value for variables in this family is YES
 

@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/Makefile.am,v $
-#     $Date: 2012/07/25 03:10:24 $
-# $Revision: 1.4 $
+#     $Date: 2012/07/25 06:29:42 $
+# $Revision: 1.5 $
 # Description: Makefile for GASNet PAMI conduit
 # Copyright 2012, Lawrence Berkeley National Laboratory
 # Terms of use are as specified in license.txt
@@ -28,6 +28,7 @@ CONDUIT_FILELIST =           \
       gasnet_coll_pami.h \
       gasnet_coll_pami.c \
       gasnet_coll_pami_bcast.c \
+      gasnet_coll_pami_gathr.c \
       gasnet_coll_pami_scatt.c \
       license.txt
 
@@ -37,6 +38,7 @@ CONDUIT_SOURCELIST =          \
       $(srcdir)/gasnet_core.c \
       $(srcdir)/gasnet_coll_pami.c \
       $(srcdir)/gasnet_coll_pami_bcast.c \
+      $(srcdir)/gasnet_coll_pami_gathr.c \
       $(srcdir)/gasnet_coll_pami_scatt.c \
       $(srcdir)/gasnet_extended.c 
 
