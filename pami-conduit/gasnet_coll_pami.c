@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami.c,v $
- *     $Date: 2012/07/25 07:55:15 $
- * $Revision: 1.10 $
+ *     $Date: 2012/07/25 08:02:05 $
+ * $Revision: 1.11 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -206,7 +206,7 @@ gasnete_coll_init_pami(void)
 {
   if (gasneti_getenv_yesno_withdefault("GASNET_USE_PAMI_COLL", 1)) {
 
-    if (gasneti_getenv_yesno_withdefault("GASNET_USE_PAMI_ALLGA", 1)) {
+    if (gasneti_getenv_yesno_withdefault("GASNET_USE_PAMI_GATHERALL", 1)) {
       memset(&gasnete_op_template_allga, 0, sizeof(pami_xfer_t));
       gasnetc_dflt_coll_alg(gasnetc_world_geom, PAMI_XFER_ALLGATHER, &gasnete_op_template_allga.algorithm);
       gasnete_op_template_allga.cb_done = &gasnetc_cb_inc_uint; /* XXX: do we need release semantics? */
@@ -216,7 +216,7 @@ gasnete_coll_init_pami(void)
       gasnete_use_pami_allga = 1;
     }
 
-    if (gasneti_getenv_yesno_withdefault("GASNET_USE_PAMI_ALLTO", 1)) {
+    if (gasneti_getenv_yesno_withdefault("GASNET_USE_PAMI_EXCHANGE", 1)) {
       memset(&gasnete_op_template_allto, 0, sizeof(pami_xfer_t));
       gasnetc_dflt_coll_alg(gasnetc_world_geom, PAMI_XFER_ALLTOALL, &gasnete_op_template_allto.algorithm);
       gasnete_op_template_allto.cb_done = &gasnetc_cb_inc_uint; /* XXX: do we need release semantics? */
@@ -226,7 +226,7 @@ gasnete_coll_init_pami(void)
       gasnete_use_pami_allto = 1;
     }
 
-    if (gasneti_getenv_yesno_withdefault("GASNET_USE_PAMI_BCAST", 1)) {
+    if (gasneti_getenv_yesno_withdefault("GASNET_USE_PAMI_BROADCAST", 1)) {
       memset(&gasnete_op_template_bcast, 0, sizeof(pami_xfer_t));
       gasnetc_dflt_coll_alg(gasnetc_world_geom, PAMI_XFER_BROADCAST, &gasnete_op_template_bcast.algorithm);
       gasnete_op_template_bcast.cb_done = &gasnetc_cb_inc_uint; /* XXX: do we need release semantics? */
@@ -236,9 +236,9 @@ gasnete_coll_init_pami(void)
     }
 
   #if GASNETI_ARCH_IBMPE /* Bug in PE1207 has been reported to IBM */
-    if (gasneti_getenv_yesno_withdefault("GASNET_USE_PAMI_GATHR", 0)) {
+    if (gasneti_getenv_yesno_withdefault("GASNET_USE_PAMI_GATHER", 0)) {
   #else
-    if (gasneti_getenv_yesno_withdefault("GASNET_USE_PAMI_GATHR", 1)) {
+    if (gasneti_getenv_yesno_withdefault("GASNET_USE_PAMI_GATHER", 1)) {
   #endif
       memset(&gasnete_op_template_gathr, 0, sizeof(pami_xfer_t));
       gasnetc_dflt_coll_alg(gasnetc_world_geom, PAMI_XFER_GATHER, &gasnete_op_template_gathr.algorithm);
@@ -249,7 +249,7 @@ gasnete_coll_init_pami(void)
       gasnete_use_pami_gathr = 1;
     }
 
-    if (gasneti_getenv_yesno_withdefault("GASNET_USE_PAMI_SCATT", 1)) {
+    if (gasneti_getenv_yesno_withdefault("GASNET_USE_PAMI_SCATTER", 1)) {
       memset(&gasnete_op_template_scatt, 0, sizeof(pami_xfer_t));
       gasnetc_dflt_coll_alg(gasnetc_world_geom, PAMI_XFER_SCATTER, &gasnete_op_template_scatt.algorithm);
       gasnete_op_template_scatt.cb_done = &gasnetc_cb_inc_uint; /* XXX: do we need release semantics? */

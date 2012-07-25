@@ -1,6 +1,6 @@
 GASNet pami-conduit documentation
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.10 $
+$Revision: 1.11 $
 
 User Information:
 -----------------
@@ -32,12 +32,11 @@ Recognized environment variables:
   Additionally, the following allow finer-grained control over which
   collective operations use PAMI_Collective() when GASNET_USE_PAMI_COLL
   is enabled:
-    GASNET_USE_PAMI_ALLTO - gasnet_coll_exchange functions
-    GASNET_USE_PAMI_ALLGA - gasnet_coll_gather_all functions
-    GASNET_USE_PAMI_BCAST - gasnet_coll_broadcast functions
-    GASNET_USE_PAMI_SCATT - gasnet_coll_scatter functions
-    GASNET_USE_PAMI_GATHR - gasnet_coll_gather functions
-    [more to come...]
+    GASNET_USE_PAMI_BROADCAST - gasnet_coll_broadcast functions
+    GASNET_USE_PAMI_EXCHANGE  - gasnet_coll_exchange functions
+    GASNET_USE_PAMI_GATHER    - gasnet_coll_gather functions
+    GASNET_USE_PAMI_GATHERALL - gasnet_coll_gather_all functions
+    GASNET_USE_PAMI_SCATTER   - gasnet_coll_scatter functions
   Default value for variables in this family is YES
 
 * GASNET_NETWORKDEPTH - depth of AM Request queues (default 1024)
