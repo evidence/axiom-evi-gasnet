@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami.c,v $
- *     $Date: 2012/07/25 03:10:24 $
- * $Revision: 1.6 $
+ *     $Date: 2012/07/25 04:07:27 $
+ * $Revision: 1.7 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -57,11 +57,11 @@ gasnetc_dflt_coll_alg(pami_geometry_t geom, pami_xfer_type_t op, pami_algorithm_
     break;
   case PAMI_XFER_BROADCAST: /* Used for blocking gasnet broadcast */
     envvar = "GASNET_PAMI_BROADCAST_ALG";
-    dfltval = "I0:Binomial:"; /* uniformly "good" on PERCS (no BG/Q testing yet) */
+    dfltval = "I0:Binomial:"; /* uniformly "good" on BG/Q and PERSC */
     break;
   case PAMI_XFER_SCATTER: /* Used for blocking gasnet scatter */
     envvar = "GASNET_PAMI_SCATTER_ALG";
-    dfltval = "I0:Binomial:"; /* This *is* 0 on PERCS, but best to be explicit */
+    dfltval = "I0:Binomial:"; /* uniformly "good" on BG/Q and PERSC */
     break;
   default:
     gasneti_fatalerror("Unknown 'op' value %d in %s", (int)op, __FUNCTION__);
