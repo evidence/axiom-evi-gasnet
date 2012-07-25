@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami_gathr.c,v $
- *     $Date: 2012/07/25 06:29:42 $
- * $Revision: 1.1 $
+ *     $Date: 2012/07/25 09:39:50 $
+ * $Revision: 1.2 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -67,7 +67,7 @@ gasnete_coll_gather_pami(gasnet_team_handle_t team,
 {
   if ((team != GASNET_TEAM_ALL) || !gasnete_use_pami_gathr
   #if GASNET_PAR
-      || ((flags & GASNET_COLL_LOCAL) && team->multi_images_any)
+      || team->multi_images_any
   #endif
      ) {
     /* Use generic implementation for cases we don't (yet) handle, or when disabled */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami.c,v $
- *     $Date: 2012/07/25 08:02:05 $
- * $Revision: 1.11 $
+ *     $Date: 2012/07/25 09:39:50 $
+ * $Revision: 1.12 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -70,6 +70,10 @@ gasnetc_dflt_coll_alg(pami_geometry_t geom, pami_xfer_type_t op, pami_algorithm_
   case PAMI_XFER_SCATTER: /* Used for blocking gasnet scatter */
     envvar = "GASNET_PAMI_SCATTER_ALG";
     dfltval = "I0:Binomial:"; /* uniformly "good" on BG/Q and PERSC */
+    break;
+  case PAMI_XFER_SCATTERV_INT: /* Used for blocking gasnet scatter w/ multiple images */
+    envvar = "GASNET_PAMI_SCATTERV_INT_ALG";
+    dfltval = NULL; /* TODO: tune for better default */
     break;
   default:
     gasneti_fatalerror("Unknown 'op' value %d in %s", (int)op, __FUNCTION__);
@@ -200,11 +204,17 @@ pami_xfer_t gasnete_op_template_allto;
 pami_xfer_t gasnete_op_template_bcast;
 pami_xfer_t gasnete_op_template_gathr;
 pami_xfer_t gasnete_op_template_scatt;
+#if GASNET_PAR
+pami_xfer_t gasnete_op_template_scattvi;
+#endif
+
+static size_t scratch_size;
 
 extern void
 gasnete_coll_init_pami(void)
 {
   if (gasneti_getenv_yesno_withdefault("GASNET_USE_PAMI_COLL", 1)) {
+    scratch_size = gasneti_getenv_int_withdefault("GASNET_PAMI_COLL_SCRATCH", 4096, 1);
 
     if (gasneti_getenv_yesno_withdefault("GASNET_USE_PAMI_GATHERALL", 1)) {
       memset(&gasnete_op_template_allga, 0, sizeof(pami_xfer_t));
@@ -256,6 +266,14 @@ gasnete_coll_init_pami(void)
       gasnete_op_template_scatt.options.multicontext = PAMI_HINT_DISABLE;
       gasnete_op_template_scatt.cmd.xfer_scatter.stype = PAMI_TYPE_BYTE;
       gasnete_op_template_scatt.cmd.xfer_scatter.rtype = PAMI_TYPE_BYTE;
+    #if GASNET_PAR
+      memset(&gasnete_op_template_scattvi, 0, sizeof(pami_xfer_t));
+      gasnetc_dflt_coll_alg(gasnetc_world_geom, PAMI_XFER_SCATTERV_INT, &gasnete_op_template_scattvi.algorithm);
+      gasnete_op_template_scattvi.cb_done = &gasnetc_cb_inc_uint; /* XXX: do we need release semantics? */
+      gasnete_op_template_scattvi.options.multicontext = PAMI_HINT_DISABLE;
+      gasnete_op_template_scattvi.cmd.xfer_scatterv_int.stype = PAMI_TYPE_BYTE;
+      gasnete_op_template_scattvi.cmd.xfer_scatterv_int.rtype = PAMI_TYPE_BYTE;
+    #endif
       gasnete_use_pami_scatt = 1;
     }
 
@@ -265,7 +283,9 @@ gasnete_coll_init_pami(void)
 
 extern void gasnete_coll_team_init_pami(gasnet_team_handle_t team) {
   #if GASNET_PAR
-    team->pami.local_dst = NULL;
+    team->pami.scratch_size = scratch_size;
+    team->pami.scratch_addr = gasneti_malloc(scratch_size);
+    team->pami.tmp_addr = NULL;
     team->pami.barrier_phase = 0;
     gasneti_atomic_set(&team->pami.barrier_counter[0], team->my_images, 0);
     gasneti_atomic_set(&team->pami.barrier_counter[1], team->my_images, 0);

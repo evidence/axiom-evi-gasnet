@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami_bcast.c,v $
- *     $Date: 2012/07/25 04:04:01 $
- * $Revision: 1.11 $
+ *     $Date: 2012/07/25 09:39:50 $
+ * $Revision: 1.12 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -56,15 +56,15 @@ gasnete_coll_pami_bcast(const gasnet_team_handle_t team, void *dst,
 
   #if GASNET_PAR
     if (i_am_leader) {
-        gasneti_assert(NULL == team->pami.local_dst);
+        gasneti_assert(NULL == team->pami.tmp_addr);
         gasneti_sync_writes();
-        team->pami.local_dst = dst; /* wakes pollers, below */
+        team->pami.tmp_addr = dst; /* wakes pollers, below */
         (void) gasnete_coll_pami_images_barrier(team); /* matches instance below vvvv */
-        team->pami.local_dst = NULL;
+        team->pami.tmp_addr = NULL;
     } else {
-        gasneti_waitwhile(NULL == team->pami.local_dst);
-        if_pt (dst != team->pami.local_dst) {
-          GASNETE_FAST_UNALIGNED_MEMCPY(dst, team->pami.local_dst, nbytes);
+        gasneti_waitwhile(NULL == team->pami.tmp_addr);
+        if_pt (dst != team->pami.tmp_addr) {
+          GASNETE_FAST_UNALIGNED_MEMCPY(dst, team->pami.tmp_addr, nbytes);
         }
         (void) gasnete_coll_pami_images_barrier(team); /* matches instance above ^^^^ */
     }

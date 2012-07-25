@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami.h,v $
- *     $Date: 2012/07/25 07:55:15 $
- * $Revision: 1.8 $
+ *     $Date: 2012/07/25 09:39:50 $
+ * $Revision: 1.9 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -31,6 +31,9 @@ extern pami_xfer_t gasnete_op_template_allto;
 extern pami_xfer_t gasnete_op_template_bcast;
 extern pami_xfer_t gasnete_op_template_gathr;
 extern pami_xfer_t gasnete_op_template_scatt;
+#if GASNET_PAR
+extern pami_xfer_t gasnete_op_template_scattvi;
+#endif
 
 #if GASNET_PAR
   /* thread (image) barrier returning non-zero to exactly one caller */
