@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami.c,v $
- *     $Date: 2012/07/25 09:39:50 $
- * $Revision: 1.12 $
+ *     $Date: 2012/07/25 22:01:36 $
+ * $Revision: 1.13 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -65,6 +65,10 @@ gasnetc_dflt_coll_alg(pami_geometry_t geom, pami_xfer_type_t op, pami_algorithm_
     break;
   case PAMI_XFER_GATHER: /* Used for blocking gasnet scatter gather */
     envvar = "GASNET_PAMI_GATHER_ALG";
+    dfltval = NULL; /* TODO: tune for better default */
+    break;
+  case PAMI_XFER_GATHERV_INT: /* Used for blocking gasnet gather w/ multiple images */
+    envvar = "GASNET_PAMI_GATHERV_INT_ALG";
     dfltval = NULL; /* TODO: tune for better default */
     break;
   case PAMI_XFER_SCATTER: /* Used for blocking gasnet scatter */
@@ -205,6 +209,7 @@ pami_xfer_t gasnete_op_template_bcast;
 pami_xfer_t gasnete_op_template_gathr;
 pami_xfer_t gasnete_op_template_scatt;
 #if GASNET_PAR
+pami_xfer_t gasnete_op_template_gathrvi;
 pami_xfer_t gasnete_op_template_scattvi;
 #endif
 
@@ -256,6 +261,14 @@ gasnete_coll_init_pami(void)
       gasnete_op_template_gathr.options.multicontext = PAMI_HINT_DISABLE;
       gasnete_op_template_gathr.cmd.xfer_gather.stype = PAMI_TYPE_BYTE;
       gasnete_op_template_gathr.cmd.xfer_gather.rtype = PAMI_TYPE_BYTE;
+    #if GASNET_PAR
+      memset(&gasnete_op_template_gathrvi, 0, sizeof(pami_xfer_t));
+      gasnetc_dflt_coll_alg(gasnetc_world_geom, PAMI_XFER_GATHERV_INT, &gasnete_op_template_gathrvi.algorithm);
+      gasnete_op_template_gathrvi.cb_done = &gasnetc_cb_inc_uint; /* XXX: do we need release semantics? */
+      gasnete_op_template_gathrvi.options.multicontext = PAMI_HINT_DISABLE;
+      gasnete_op_template_gathrvi.cmd.xfer_gatherv_int.stype = PAMI_TYPE_BYTE;
+      gasnete_op_template_gathrvi.cmd.xfer_gatherv_int.rtype = PAMI_TYPE_BYTE;
+    #endif
       gasnete_use_pami_gathr = 1;
     }
 
