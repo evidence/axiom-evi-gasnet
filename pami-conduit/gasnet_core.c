@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_core.c,v $
- *     $Date: 2012/07/25 01:48:19 $
- * $Revision: 1.22 $
+ *     $Date: 2012/07/25 07:32:37 $
+ * $Revision: 1.23 $
  * Description: GASNet PAMI conduit Implementation
  * Copyright 2012, Lawrence Berkeley National Laboratory
  * Terms of use are as specified in license.txt
@@ -112,6 +112,7 @@ static int gasnetc_init(int *argc, char ***argv) {
   { pami_context_t contexts[2];
     pami_configuration_t conf[1];
     conf[0].name = PAMI_CLIENT_CONST_CONTEXTS; /* promise equal num context across nodes */
+    conf[0].value.intval = 1;
     rc = PAMI_Context_createv(gasnetc_pami_client, conf, 1, contexts, (use_exit_geom ? 2 : 1));
     GASNETC_PAMI_CHECK(rc, "calling PAMI_Context_createv");
     gasnetc_context = contexts[0];
