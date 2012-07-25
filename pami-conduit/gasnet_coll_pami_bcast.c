@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami_bcast.c,v $
- *     $Date: 2012/07/21 01:44:39 $
- * $Revision: 1.10 $
+ *     $Date: 2012/07/25 04:04:01 $
+ * $Revision: 1.11 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -62,9 +62,10 @@ gasnete_coll_pami_bcast(const gasnet_team_handle_t team, void *dst,
         (void) gasnete_coll_pami_images_barrier(team); /* matches instance below vvvv */
         team->pami.local_dst = NULL;
     } else {
-        while (NULL == team->pami.local_dst) GASNETI_WAITHOOK();
-        gasneti_sync_reads();
-        GASNETE_FAST_UNALIGNED_MEMCPY(dst, team->pami.local_dst, nbytes);
+        gasneti_waitwhile(NULL == team->pami.local_dst);
+        if_pt (dst != team->pami.local_dst) {
+          GASNETE_FAST_UNALIGNED_MEMCPY(dst, team->pami.local_dst, nbytes);
+        }
         (void) gasnete_coll_pami_images_barrier(team); /* matches instance above ^^^^ */
     }
       
