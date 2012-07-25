@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2012/05/11 21:26:12 $
-# $Revision: 1.758 $
+#     $Date: 2012/07/25 23:41:19 $
+# $Revision: 1.759 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.758 $)
+AC_REVISION($Revision: 1.759 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2637,13 +2637,17 @@ if test "$enabled_mpi" = yes || test "$enabled_mpi_compat" = yes; then
     	  GASNET_ENV_DEFAULT(MPI_LIBS, -lmpi)
 	  GASNET_ENV_DEFAULT(MPIRUN_CMD, mpirun -np %N %C)
         elif test -n "$GASNETI_ARCH_IBMPE"; then
-          if test "$GASNETI_PTR_BITS" = 32; then
-            GASNET_ENV_DEFAULT(MPI_CC, mpcc -m32)
-          else
-            GASNET_ENV_DEFAULT(MPI_CC, mpcc -m64)
-          fi
+          gasnet_mpcc="mpcc -m$GASNETI_PTR_BITS"
+          case "$gasnet_cv_cc_family" in
+                  GNU) gasnet_mpcc="$gasnet_mpcc -compiler gnu";;
+                  XLC) gasnet_mpcc="$gasnet_mpcc -compiler xl";;
+                Intel) gasnet_mpcc="$gasnet_mpcc -compiler intel";;
+                  PGI) gasnet_mpcc="$gasnet_mpcc -compiler pgi";;
+            Pathscale) gasnet_mpcc="$gasnet_mpcc -compiler ekopath";;
+          esac
+          GASNET_ENV_DEFAULT(MPI_CC, $gasnet_mpcc)
     	  GASNET_ENV_DEFAULT(MPI_LIBS, )
-	  GASNET_ENV_DEFAULT(MPIRUN_CMD, env PAGER=cat MP_FENCE=-- poe %P -nodes %M -procs %N -- %A)
+	  GASNET_ENV_DEFAULT(MPIRUN_CMD, env PAGER=cat MP_FENCE=-- poe %P -nodes %M -procs %N -use_bulk_xfer yes -- %A)
         else
     	  GASNET_ENV_DEFAULT(MPI_CC, mpicc)
     	  GASNET_ENV_DEFAULT(MPI_LIBS, )
