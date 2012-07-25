@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami.c,v $
- *     $Date: 2012/07/25 06:40:23 $
- * $Revision: 1.9 $
+ *     $Date: 2012/07/25 07:55:15 $
+ * $Revision: 1.10 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -43,7 +43,11 @@ gasnetc_dflt_coll_alg(pami_geometry_t geom, pami_xfer_type_t op, pami_algorithm_
 
   /* Process environment and defaults: */
   switch(op) { /* please keep alphabetical */
-  case PAMI_XFER_ALLGATHER: /* Used only for gasnetc_bootstrapExchange() */
+  case PAMI_XFER_ALLTOALL: /* Used for blocking gasnet exchange */
+    envvar = "GASNET_PAMI_ALLTOALL_ALG";
+    dfltval = NULL; /* TODO: tune a better default than alg[0]? */
+    break;
+  case PAMI_XFER_ALLGATHER: /* Used for blocking gasnet gatherall and gasnetc_bootstrapExchange() */
     envvar = "GASNET_PAMI_ALLGATHER_ALG";
     dfltval = NULL; /* TODO: tune a better default than alg[0]? */
     break;
@@ -186,9 +190,13 @@ gasnetc_bootstrapExchange(void *src, size_t len, void *dst) {
 #if GASNET_PAMI_NATIVE_COLL
 
 /* These live here, not in per-op files, to avoid unwanted link dependencies */
+int gasnete_use_pami_allga = 0;
+int gasnete_use_pami_allto = 0;
 int gasnete_use_pami_bcast = 0;
 int gasnete_use_pami_gathr = 0;
 int gasnete_use_pami_scatt = 0;
+pami_xfer_t gasnete_op_template_allga;
+pami_xfer_t gasnete_op_template_allto;
 pami_xfer_t gasnete_op_template_bcast;
 pami_xfer_t gasnete_op_template_gathr;
 pami_xfer_t gasnete_op_template_scatt;
@@ -197,6 +205,26 @@ extern void
 gasnete_coll_init_pami(void)
 {
   if (gasneti_getenv_yesno_withdefault("GASNET_USE_PAMI_COLL", 1)) {
+
+    if (gasneti_getenv_yesno_withdefault("GASNET_USE_PAMI_ALLGA", 1)) {
+      memset(&gasnete_op_template_allga, 0, sizeof(pami_xfer_t));
+      gasnetc_dflt_coll_alg(gasnetc_world_geom, PAMI_XFER_ALLGATHER, &gasnete_op_template_allga.algorithm);
+      gasnete_op_template_allga.cb_done = &gasnetc_cb_inc_uint; /* XXX: do we need release semantics? */
+      gasnete_op_template_allga.options.multicontext = PAMI_HINT_DISABLE;
+      gasnete_op_template_allga.cmd.xfer_allgather.stype = PAMI_TYPE_BYTE;
+      gasnete_op_template_allga.cmd.xfer_allgather.rtype = PAMI_TYPE_BYTE;
+      gasnete_use_pami_allga = 1;
+    }
+
+    if (gasneti_getenv_yesno_withdefault("GASNET_USE_PAMI_ALLTO", 1)) {
+      memset(&gasnete_op_template_allto, 0, sizeof(pami_xfer_t));
+      gasnetc_dflt_coll_alg(gasnetc_world_geom, PAMI_XFER_ALLTOALL, &gasnete_op_template_allto.algorithm);
+      gasnete_op_template_allto.cb_done = &gasnetc_cb_inc_uint; /* XXX: do we need release semantics? */
+      gasnete_op_template_allto.options.multicontext = PAMI_HINT_DISABLE;
+      gasnete_op_template_allto.cmd.xfer_alltoall.stype = PAMI_TYPE_BYTE;
+      gasnete_op_template_allto.cmd.xfer_alltoall.rtype = PAMI_TYPE_BYTE;
+      gasnete_use_pami_allto = 1;
+    }
 
     if (gasneti_getenv_yesno_withdefault("GASNET_USE_PAMI_BCAST", 1)) {
       memset(&gasnete_op_template_bcast, 0, sizeof(pami_xfer_t));
