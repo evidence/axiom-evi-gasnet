@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami.c,v $
- *     $Date: 2012/07/25 22:01:36 $
- * $Revision: 1.13 $
+ *     $Date: 2012/07/26 00:45:25 $
+ * $Revision: 1.14 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -126,7 +126,7 @@ gasnetc_dflt_coll_alg(pami_geometry_t geom, pami_xfer_type_t op, pami_algorithm_
         }
       }
       if (alg == fullcount) {
-        if (!gasneti_mynode && !print_once[(int)op]) {
+        if (!gasneti_mynode && !print_once[(int)op] && (envval != dfltval)) {
           fprintf(stderr, "WARNING: Ignoring value '%s' for environment variable %s,\n"
                           "         because it does not match any available algorithm.\n"
                           "         Set this variable to LIST for a list of all algorithms.\n",
