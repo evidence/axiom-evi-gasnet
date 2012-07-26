@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami_gathr.c,v $
- *     $Date: 2012/07/26 02:47:12 $
- * $Revision: 1.5 $
+ *     $Date: 2012/07/26 07:47:44 $
+ * $Revision: 1.6 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -31,7 +31,7 @@ gasnete_coll_pami_gathrvi(const gasnet_team_handle_t team,
         (void) gasnete_coll_pami_images_barrier(team);
     }
 
-    GASNETE_FAST_UNALIGNED_MEMCPY(gasnete_coll_scale_ptr(team->pami.scratch_addr,
+    GASNETE_FAST_UNALIGNED_MEMCPY(gasnete_coll_scale_ptr(team->pami.scratch_sndbuf,
                                                          td->my_local_image,
                                                          nbytes),
                                   src, nbytes);
@@ -45,20 +45,20 @@ gasnete_coll_pami_gathrvi(const gasnet_team_handle_t team,
         op = gasnete_op_template_gathrvi; /* gatherv_int */
         op.cookie = (void *)&done;
         op.cmd.xfer_gatherv_int.root = gasnetc_endpoint(gasnete_coll_image_node(team, dstimage));
-        op.cmd.xfer_gatherv_int.sndbuf = team->pami.scratch_addr;
+        op.cmd.xfer_gatherv_int.sndbuf = team->pami.scratch_sndbuf;
         op.cmd.xfer_gatherv_int.stypecount = nbytes * team->my_images;
 
         if (i_am_root) {
             op.cmd.xfer_gatherv_int.rcvbuf = dst;
-            op.cmd.xfer_gatherv_int.rtypecounts = team->pami.counts;
-            op.cmd.xfer_gatherv_int.rdispls = team->pami.displs;
-            if (team->pami.prev_nbytes != nbytes) {
+            op.cmd.xfer_gatherv_int.rtypecounts = team->pami.rcounts;
+            op.cmd.xfer_gatherv_int.rdispls = team->pami.rdispls;
+            if (team->pami.prev_rcvsz != nbytes) {
                 int i;
                 for (i = 0; i < team->total_ranks; ++i) {
                     op.cmd.xfer_gatherv_int.rtypecounts[i] = nbytes * team->all_images[i];
                     op.cmd.xfer_gatherv_int.rdispls[i] = nbytes * team->all_offset[i];
                 }
-                team->pami.prev_nbytes = nbytes;
+                team->pami.prev_rcvsz = nbytes;
             }
         }
 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami_scatt.c,v $
- *     $Date: 2012/07/26 02:47:12 $
- * $Revision: 1.5 $
+ *     $Date: 2012/07/26 07:47:44 $
+ * $Revision: 1.6 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -35,20 +35,20 @@ gasnete_coll_pami_scattvi(const gasnet_team_handle_t team, void *dst,
         op = gasnete_op_template_scattvi; /* scatterv_int */
         op.cookie = (void *)&done;
         op.cmd.xfer_scatterv_int.root = gasnetc_endpoint(gasnete_coll_image_node(team, srcimage));
-        op.cmd.xfer_scatterv_int.rcvbuf = team->pami.scratch_addr;
+        op.cmd.xfer_scatterv_int.rcvbuf = team->pami.scratch_rcvbuf;
         op.cmd.xfer_scatterv_int.rtypecount = nbytes * team->my_images;
 
         if (i_am_root) {
             op.cmd.xfer_scatterv_int.sndbuf = (/*not-const*/ void *)src;
-            op.cmd.xfer_scatterv_int.stypecounts = team->pami.counts;
-            op.cmd.xfer_scatterv_int.sdispls = team->pami.displs;
-            if (team->pami.prev_nbytes != nbytes) {
+            op.cmd.xfer_scatterv_int.stypecounts = team->pami.scounts;
+            op.cmd.xfer_scatterv_int.sdispls = team->pami.sdispls;
+            if (team->pami.prev_sndsz != nbytes) {
                 int i;
                 for (i = 0; i < team->total_ranks; ++i) {
                     op.cmd.xfer_scatterv_int.stypecounts[i] = nbytes * team->all_images[i];
                     op.cmd.xfer_scatterv_int.sdispls[i] = nbytes * team->all_offset[i];
                 }
-                team->pami.prev_nbytes = nbytes;
+                team->pami.prev_sndsz = nbytes;
             }
         }
 
@@ -61,7 +61,7 @@ gasnete_coll_pami_scattvi(const gasnet_team_handle_t team, void *dst,
 
         gasneti_assert(NULL == team->pami.tmp_addr);
         gasneti_sync_writes();
-        team->pami.tmp_addr = team->pami.scratch_addr; /* wakes pollers, below */
+        team->pami.tmp_addr = team->pami.scratch_rcvbuf; /* wakes pollers, below */
     } else {
         gasneti_waitwhile(NULL == team->pami.tmp_addr);
     }
