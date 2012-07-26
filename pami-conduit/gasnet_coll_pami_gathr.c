@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami_gathr.c,v $
- *     $Date: 2012/07/25 22:24:14 $
- * $Revision: 1.4 $
+ *     $Date: 2012/07/26 02:47:12 $
+ * $Revision: 1.5 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -49,14 +49,16 @@ gasnete_coll_pami_gathrvi(const gasnet_team_handle_t team,
         op.cmd.xfer_gatherv_int.stypecount = nbytes * team->my_images;
 
         if (i_am_root) {
-            int i;
             op.cmd.xfer_gatherv_int.rcvbuf = dst;
-            /* TODO: allocate space for these in the team struct? */
-            op.cmd.xfer_gatherv_int.rtypecounts = alloca(sizeof(int) * team->total_ranks);
-            op.cmd.xfer_gatherv_int.rdispls = alloca(sizeof(int) * team->total_ranks);
-            for (i = 0; i < team->total_ranks; ++i) {
-                op.cmd.xfer_gatherv_int.rtypecounts[i] = nbytes * team->all_images[i];
-                op.cmd.xfer_gatherv_int.rdispls[i] = nbytes * team->all_offset[i];
+            op.cmd.xfer_gatherv_int.rtypecounts = team->pami.counts;
+            op.cmd.xfer_gatherv_int.rdispls = team->pami.displs;
+            if (team->pami.prev_nbytes != nbytes) {
+                int i;
+                for (i = 0; i < team->total_ranks; ++i) {
+                    op.cmd.xfer_gatherv_int.rtypecounts[i] = nbytes * team->all_images[i];
+                    op.cmd.xfer_gatherv_int.rdispls[i] = nbytes * team->all_offset[i];
+                }
+                team->pami.prev_nbytes = nbytes;
             }
         }
 

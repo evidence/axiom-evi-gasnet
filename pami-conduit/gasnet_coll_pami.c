@@ -1,12 +1,13 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami.c,v $
- *     $Date: 2012/07/26 00:45:25 $
- * $Revision: 1.14 $
+ *     $Date: 2012/07/26 02:47:12 $
+ * $Revision: 1.15 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
  */
 
 #include <gasnet_coll_pami.h>
+#include <limits.h> /* For INT_MAX */
 
 /* ------------------------------------------------------------------------------------ */
 /* Bootstrap collectives and dependencies */
@@ -220,6 +221,8 @@ gasnete_coll_init_pami(void)
 {
   if (gasneti_getenv_yesno_withdefault("GASNET_USE_PAMI_COLL", 1)) {
     scratch_size = gasneti_getenv_int_withdefault("GASNET_PAMI_COLL_SCRATCH", 4096, 1);
+    /* We use the int-type scatterv and gatherv on the assumption of reasonable sizes. */
+    if (scratch_size > (size_t)INT_MAX) scratch_size = INT_MAX;
 
     if (gasneti_getenv_yesno_withdefault("GASNET_USE_PAMI_GATHERALL", 1)) {
       memset(&gasnete_op_template_allga, 0, sizeof(pami_xfer_t));
@@ -298,6 +301,9 @@ extern void gasnete_coll_team_init_pami(gasnet_team_handle_t team) {
   #if GASNET_PAR
     team->pami.scratch_size = scratch_size;
     team->pami.scratch_addr = gasneti_malloc(scratch_size);
+    team->pami.counts = gasneti_malloc(2 * sizeof(int) * team->total_ranks);
+    team->pami.displs = team->pami.counts + team->total_ranks;
+    team->pami.prev_nbytes = 0;
     team->pami.tmp_addr = NULL;
     team->pami.barrier_phase = 0;
     gasneti_atomic_set(&team->pami.barrier_counter[0], team->my_images, 0);

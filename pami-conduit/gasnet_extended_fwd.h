@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended_fwd.h,v $
- *     $Date: 2012/07/25 09:39:50 $
- * $Revision: 1.15 $
+ *     $Date: 2012/07/26 02:47:12 $
+ * $Revision: 1.16 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -50,6 +50,9 @@
     #define GASNETE_COLL_TEAM_EXTRA struct {  \
         size_t scratch_size;                  \
         void * scratch_addr;                  \
+        size_t prev_nbytes;                   \
+        int * counts;                         \
+        int * displs;                         \
         void * volatile tmp_addr;             \
         volatile int barrier_phase;           \
         char _pad[GASNETI_CACHE_LINE_BYTES];  \
