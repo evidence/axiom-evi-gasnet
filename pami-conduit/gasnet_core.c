@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_core.c,v $
- *     $Date: 2012/07/25 07:32:37 $
- * $Revision: 1.23 $
+ *     $Date: 2012/07/26 00:37:43 $
+ * $Revision: 1.24 $
  * Description: GASNet PAMI conduit Implementation
  * Copyright 2012, Lawrence Berkeley National Laboratory
  * Terms of use are as specified in license.txt
@@ -392,6 +392,11 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 
         rc = PAMI_Memregion_create(gasnetc_context, segbase, segsize,
                                    &regsize, &gasnetc_mymemreg);
+      #if GASNETI_ARCH_IBMPE
+        if (rc == PAMI_ERROR) {
+          gasneti_fatalerror("Failed to pin the GASNet segment.  This may mean you have not enabled bulk xfers in your LoadLeveler script or poe command line.");
+        }
+      #endif
         GASNETC_PAMI_CHECK(rc, "registering the segment");
         if (regsize < segsize) {
           /* TODO: probe max at init time instead of failing here. */
