@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2012/07/20 21:35:10 $
- * $Revision: 1.149 $
+ *     $Date: 2012/07/27 01:18:20 $
+ * $Revision: 1.150 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -430,7 +430,7 @@ GASNETT_IDENT(GASNetT_TiCompiler_IdentString,
 static int test_thread_limit(int numthreads) {
     int limit = gasnett_getenv_int_withdefault("GASNET_TEST_THREAD_LIMIT", TEST_MAXTHREADS, 0);
     limit = MIN(limit, TEST_MAXTHREADS); /* Ignore attempt to raise above TEST_MAXTHREADS */
-  #if PLATFORM_OS_BGP 
+  #if PLATFORM_OS_BGP || PLATFORM_OS_BGQ
     { int cores = gasnett_cpu_count();
       int depth = gasnett_getenv_int_withdefault("BG_APPTHREADDEPTH", 1, 0); /* V1R4M0 and later */
       limit = MIN(limit, cores*depth);
@@ -865,16 +865,21 @@ static void _test_set_waitmode(int threads) {
           "- enabling  \"polite\", low-performance synchronization algorithms",
           threads);
     gasnet_set_waitmode(GASNET_WAIT_BLOCK);
+    return;
   }
 #endif
+#if PLATFORM_OS_BGP || PLATFORM_OS_BGQ
+  /* assume no overcommit, since gasnett_cpu_count() reports cores per proc, NOT per node */
+#else
   threads *= local_procs;
   if (threads > gasnett_cpu_count()) {
     if (_test_firstnode == gasnet_mynode())
-      MSG("WARNING: per-node thread count (%i) exceeds physical cpu count (%i) "
+      MSG("WARNING: per-node thread count (%i) exceeds actual cpu count (%i) "
           "- enabling  \"polite\", low-performance synchronization algorithms",
           threads, gasnett_cpu_count());
     gasnet_set_waitmode(GASNET_WAIT_BLOCK);
   }
+#endif
 }
 #define TEST_SET_WAITMODE _test_set_waitmode
 
