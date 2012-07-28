@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended_fwd.h,v $
- *     $Date: 2012/07/28 20:27:18 $
- * $Revision: 1.19 $
+ *     $Date: 2012/07/28 22:07:21 $
+ * $Revision: 1.20 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -49,7 +49,7 @@
   #if GASNET_PAR
     #define GASNETE_COLL_TEAM_EXTRA struct {  \
         /* for multi-image intermediates: */  \
-        uint8_t * scratch_space;              \
+        void * scratch_space;                 \
         size_t scratch_size;                  \
         int * counts;                         \
         int * displs;                         \

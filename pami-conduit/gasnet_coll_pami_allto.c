@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami_allto.c,v $
- *     $Date: 2012/07/28 20:27:18 $
- * $Revision: 1.5 $
+ *     $Date: 2012/07/28 22:07:21 $
+ * $Revision: 1.6 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -20,7 +20,7 @@ gasnete_coll_pami_alltovi(const gasnet_team_handle_t team,
     const gasnete_coll_threaddata_t * const td = GASNETE_COLL_MYTHREAD_NOALLOC;
     const size_t local_len = nbytes * team->my_images;
     void * const sndbuf = team->pami.scratch_space;
-    void * const rcvbuf = team->pami.scratch_space + local_len * team->total_images;
+    void * const rcvbuf = (void*)((uintptr_t)team->pami.scratch_space + local_len * team->total_images);
     int i;
 
     if (flags & GASNET_COLL_IN_ALLSYNC) {
