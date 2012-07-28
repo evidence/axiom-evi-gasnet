@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami_allto.c,v $
- *     $Date: 2012/07/25 09:39:50 $
- * $Revision: 1.2 $
+ *     $Date: 2012/07/28 03:32:22 $
+ * $Revision: 1.3 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -9,6 +9,91 @@
 #include <gasnet_coll_pami.h>
 
 #if GASNET_PAMI_NATIVE_COLL
+
+#if GASNET_PAR
+static void
+gasnete_coll_pami_alltovi(const gasnet_team_handle_t team,
+                          void *dst, const void *src,
+                          size_t nbytes, int flags GASNETE_THREAD_FARG)
+{
+    int i_am_leader = gasnete_coll_pami_images_barrier(team); /* XXX: over-synced for IN_NO and IN_MY */
+    const gasnete_coll_threaddata_t * const td = GASNETE_COLL_MYTHREAD_NOALLOC;
+    const size_t local_len = nbytes * team->my_images;
+    int i;
+
+    if (flags & GASNET_COLL_IN_ALLSYNC) {
+        if (i_am_leader) gasnetc_fast_barrier();
+        (void) gasnete_coll_pami_images_barrier(team);
+    }
+
+    {
+        const uint8_t *stmp = src;
+        uint8_t *dtmp = (uint8_t*) team->pami.scratch_sndbuf
+                                 + nbytes * td->my_local_image;
+        for (i = 0; i < team->total_images; ++i) {
+            GASNETE_FAST_UNALIGNED_MEMCPY(dtmp, stmp, nbytes);
+            stmp += nbytes;
+            dtmp += local_len;
+        }
+    }
+    (void) gasnete_coll_pami_images_barrier(team);
+
+    if (i_am_leader) {
+        volatile unsigned int done = 0;
+        pami_result_t rc;
+        pami_xfer_t op;
+
+        op = gasnete_op_template_alltovi; /* alltoallv_int */
+        op.cookie = (void *)&done;
+        op.cmd.xfer_alltoallv_int.sndbuf = team->pami.scratch_sndbuf;
+        op.cmd.xfer_alltoallv_int.stypecounts = team->pami.scounts;
+        op.cmd.xfer_alltoallv_int.sdispls = team->pami.sdispls;
+        op.cmd.xfer_alltoallv_int.rcvbuf = team->pami.scratch_rcvbuf;
+        op.cmd.xfer_alltoallv_int.rtypecounts = team->pami.scounts;
+        op.cmd.xfer_alltoallv_int.rdispls = team->pami.sdispls;
+        if (team->pami.prev_sndsz != local_len) {
+            for (i = 0; i < team->total_ranks; ++i) {
+                op.cmd.xfer_alltoallv_int.stypecounts[i] = local_len * team->all_images[i];
+                op.cmd.xfer_alltoallv_int.sdispls[i] = local_len * team->all_offset[i];
+            }
+            team->pami.prev_sndsz = local_len;
+        }
+
+        GASNETC_PAMI_LOCK(gasnetc_context);
+        rc = PAMI_Collective(gasnetc_context, &op);
+        GASNETC_PAMI_UNLOCK(gasnetc_context);
+        GASNETC_PAMI_CHECK(rc, "initiating blocking alltoallv_int");
+
+        gasneti_polluntil(done);
+
+        gasneti_assert(NULL == team->pami.tmp_addr);
+        gasneti_sync_writes(); /* XXX: is this necessary? */
+        team->pami.tmp_addr = team->pami.scratch_rcvbuf; /* wakes pollers, below */
+    } else {
+        gasneti_waitwhile(NULL == team->pami.tmp_addr);
+    }
+
+    {
+        uint8_t *dtmp = dst;
+        for (i = 0; i < team->total_ranks; ++i) {
+            const size_t len = nbytes * team->all_images[i];
+            const uint8_t *stmp = (uint8_t*) team->pami.scratch_rcvbuf
+                                           + td->my_local_image * len
+                                           + team->pami.sdispls[i];
+            GASNETE_FAST_UNALIGNED_MEMCPY(dtmp, stmp, len);
+            dtmp += len;
+        }
+    }
+    (void) gasnete_coll_pami_images_barrier(team);
+    
+    if (i_am_leader) team->pami.tmp_addr = NULL;
+      
+    if (flags & GASNET_COLL_OUT_ALLSYNC) {
+        if (i_am_leader) gasnetc_fast_barrier();
+        (void) gasnete_coll_pami_images_barrier(team);
+    }
+}
+#endif
 
 static void
 gasnete_coll_pami_allto(const gasnet_team_handle_t team,
@@ -49,7 +134,6 @@ gasnete_coll_pami_allto(const gasnet_team_handle_t team,
     }
 }
 
-/* TODO: With use of temp space, can support "multi_images_any" via PAMI's alltoallv */
 extern void
 gasnete_coll_exchange_pami(gasnet_team_handle_t team,
                            void *dst, void *src, size_t nbytes,
@@ -57,20 +141,26 @@ gasnete_coll_exchange_pami(gasnet_team_handle_t team,
 {
   if ((team != GASNET_TEAM_ALL) || !gasnete_use_pami_allto
   #if GASNET_PAR
-      || team->multi_images_any
+      || (team->multi_images_any && (nbytes*team->total_images*team->max_images > team->pami.scratch_size))
   #endif
      ) {
     /* Use generic implementation for cases we don't (yet) handle, or when disabled */
     gasnet_coll_handle_t handle;
     handle = gasnete_coll_exchange_nb_default(team,dst,src,nbytes,flags,0 GASNETE_THREAD_PASS);
     gasnete_coll_wait_sync(handle GASNETE_THREAD_PASS);
-  } else {
-    /* Use PAMI-specific implementation */
+  } else { /* Use PAMI-specific implementation: */
+  #if GASNET_PAR
+    if (team->multi_images_any) {
+      gasnete_coll_pami_alltovi(team,dst,src,nbytes,flags GASNETE_THREAD_PASS);
+    } else {
+      gasnete_coll_pami_allto(team,dst,src,nbytes,flags GASNETE_THREAD_PASS);
+    }
+  #else
     gasnete_coll_pami_allto(team,dst,src,nbytes,flags GASNETE_THREAD_PASS);
+  #endif
   }
 }
 
-/* TODO: With use of temp space, can support "multi_images_any" via PAMI's alltoallv */
 extern void
 gasnete_coll_exchangeM_pami(gasnet_team_handle_t team,
                             void * const dstlist[],
@@ -79,25 +169,28 @@ gasnete_coll_exchangeM_pami(gasnet_team_handle_t team,
 {
   if ((team != GASNET_TEAM_ALL) || !gasnete_use_pami_allto
   #if GASNET_PAR
-      || team->multi_images_any
+      || (team->multi_images_any && (nbytes*team->total_images*team->max_images > team->pami.scratch_size))
   #endif
      ) {
     /* Use generic implementation for cases we don't (yet) handle, or when disabled */
     gasnet_coll_handle_t handle;
     handle = gasnete_coll_exchangeM_nb_default(team,dstlist,srclist,nbytes,flags,0 GASNETE_THREAD_PASS);
     gasnete_coll_wait_sync(handle GASNETE_THREAD_PASS);
-  } else {
-    /* Use PAMI-specific implementation */
+  } else { /* Use PAMI-specific implementation: */
   #if GASNET_PAR
     const gasnete_coll_threaddata_t * const td = GASNETE_COLL_MYTHREAD_NOALLOC;
     void * const dst = dstlist[((flags & GASNET_COLL_LOCAL) ? td->my_local_image : td->my_image)];
     void * const src = srclist[((flags & GASNET_COLL_LOCAL) ? td->my_local_image : td->my_image)];
+    if (team->multi_images_any) {
+      gasnete_coll_pami_alltovi(team,dst,src,nbytes,flags GASNETE_THREAD_PASS);
+    } else {
+      gasnete_coll_pami_allto(team,dst,src,nbytes,flags GASNETE_THREAD_PASS);
+    }
   #else
     void * const dst = GASNETE_COLL_MY_1ST_IMAGE(team, dstlist, flags);
     void * const src = GASNETE_COLL_MY_1ST_IMAGE(team, srclist, flags);
-  #endif
-
     gasnete_coll_pami_allto(team,dst,src,nbytes,flags GASNETE_THREAD_PASS);
+  #endif
   }
 }
 

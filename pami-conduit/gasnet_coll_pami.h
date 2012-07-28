@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami.h,v $
- *     $Date: 2012/07/27 01:20:54 $
- * $Revision: 1.11 $
+ *     $Date: 2012/07/28 03:32:22 $
+ * $Revision: 1.12 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -33,6 +33,7 @@ extern pami_xfer_t gasnete_op_template_gathr;
 extern pami_xfer_t gasnete_op_template_scatt;
 #if GASNET_PAR
 extern pami_xfer_t gasnete_op_template_allgavi;
+extern pami_xfer_t gasnete_op_template_alltovi;
 extern pami_xfer_t gasnete_op_template_gathrvi;
 extern pami_xfer_t gasnete_op_template_scattvi;
 #endif

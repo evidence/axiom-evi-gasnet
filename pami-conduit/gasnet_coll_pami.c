@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami.c,v $
- *     $Date: 2012/07/28 00:02:47 $
- * $Revision: 1.18 $
+ *     $Date: 2012/07/28 03:32:22 $
+ * $Revision: 1.19 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -46,6 +46,10 @@ gasnetc_dflt_coll_alg(pami_geometry_t geom, pami_xfer_type_t op, pami_algorithm_
   switch(op) { /* please keep alphabetical */
   case PAMI_XFER_ALLTOALL: /* Used for blocking gasnet exchange */
     envvar = "GASNET_PAMI_ALLTOALL_ALG";
+    dfltval = NULL; /* TODO: tune a better default than alg[0]? */
+    break;
+  case PAMI_XFER_ALLTOALLV_INT: /* Used for blocking gasnet exchange w/ multiple images */
+    envvar = "GASNET_PAMI_ALLTOALLV_INT_ALG";
     dfltval = NULL; /* TODO: tune a better default than alg[0]? */
     break;
   case PAMI_XFER_ALLGATHER: /* Used for blocking gasnet gatherall and gasnetc_bootstrapExchange() */
@@ -215,6 +219,7 @@ pami_xfer_t gasnete_op_template_gathr;
 pami_xfer_t gasnete_op_template_scatt;
 #if GASNET_PAR
 pami_xfer_t gasnete_op_template_allgavi;
+pami_xfer_t gasnete_op_template_alltovi;
 pami_xfer_t gasnete_op_template_gathrvi;
 pami_xfer_t gasnete_op_template_scattvi;
 #endif
@@ -254,6 +259,14 @@ gasnete_coll_init_pami(void)
       gasnete_op_template_allto.options.multicontext = PAMI_HINT_DISABLE;
       gasnete_op_template_allto.cmd.xfer_alltoall.stype = PAMI_TYPE_BYTE;
       gasnete_op_template_allto.cmd.xfer_alltoall.rtype = PAMI_TYPE_BYTE;
+    #if GASNET_PAR
+      memset(&gasnete_op_template_alltovi, 0, sizeof(pami_xfer_t));
+      gasnetc_dflt_coll_alg(gasnetc_world_geom, PAMI_XFER_ALLTOALLV_INT, &gasnete_op_template_alltovi.algorithm);
+      gasnete_op_template_alltovi.cb_done = &gasnetc_cb_inc_uint; /* XXX: do we need release semantics? */
+      gasnete_op_template_alltovi.options.multicontext = PAMI_HINT_DISABLE;
+      gasnete_op_template_alltovi.cmd.xfer_alltoallv_int.stype = PAMI_TYPE_BYTE;
+      gasnete_op_template_alltovi.cmd.xfer_alltoallv_int.rtype = PAMI_TYPE_BYTE;
+    #endif
       gasnete_use_pami_allto = 1;
     }
 
