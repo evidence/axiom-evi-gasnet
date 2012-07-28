@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami_allga.c,v $
- *     $Date: 2012/07/27 01:20:54 $
- * $Revision: 1.3 $
+ *     $Date: 2012/07/28 03:47:10 $
+ * $Revision: 1.4 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -41,15 +41,15 @@ gasnete_coll_pami_allgavi(const gasnet_team_handle_t team,
         op.cmd.xfer_allgatherv_int.stypecount = nbytes * team->my_images;
 
         op.cmd.xfer_allgatherv_int.rcvbuf = dst;
-        op.cmd.xfer_allgatherv_int.rtypecounts = team->pami.rcounts;
-        op.cmd.xfer_allgatherv_int.rdispls = team->pami.rdispls;
-        if (team->pami.prev_rcvsz != nbytes) {
+        op.cmd.xfer_allgatherv_int.rtypecounts = team->pami.counts;
+        op.cmd.xfer_allgatherv_int.rdispls = team->pami.displs;
+        if (team->pami.prev_nbytes != nbytes) {
             int i;
             for (i = 0; i < team->total_ranks; ++i) {
                 op.cmd.xfer_allgatherv_int.rtypecounts[i] = nbytes * team->all_images[i];
                 op.cmd.xfer_allgatherv_int.rdispls[i] = nbytes * team->all_offset[i];
             }
-            team->pami.prev_rcvsz = nbytes;
+            team->pami.prev_nbytes = nbytes;
         }
 
         GASNETC_PAMI_LOCK(gasnetc_context);

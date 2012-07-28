@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended_fwd.h,v $
- *     $Date: 2012/07/26 07:47:44 $
- * $Revision: 1.17 $
+ *     $Date: 2012/07/28 03:47:10 $
+ * $Revision: 1.18 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -48,18 +48,13 @@
 
   #if GASNET_PAR
     #define GASNETE_COLL_TEAM_EXTRA struct {  \
-        /* temporaries for scatterv: */       \
+        /* for multi-image intermediates: */  \
         void * scratch_rcvbuf;                \
-        int * scounts;                        \
-        int * sdispls;                        \
-        size_t prev_sndsz;                    \
-        /* temporaries for gatherv: */        \
         void * scratch_sndbuf;                \
-        int * rcounts;                        \
-        int * rdispls;                        \
-        size_t prev_rcvsz;                    \
-        /* misc: */                           \
         size_t scratch_size;                  \
+        int * counts;                         \
+        int * displs;                         \
+        size_t prev_nbytes;                   \
         /* for syncronization: */             \
         void * volatile tmp_addr;             \
         volatile int barrier_phase;           \

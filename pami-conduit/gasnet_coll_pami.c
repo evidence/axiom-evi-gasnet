@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami.c,v $
- *     $Date: 2012/07/28 03:32:22 $
- * $Revision: 1.19 $
+ *     $Date: 2012/07/28 03:47:10 $
+ * $Revision: 1.20 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -325,17 +325,12 @@ gasnete_coll_init_pami(void)
 
 extern void gasnete_coll_team_init_pami(gasnet_team_handle_t team) {
   #if GASNET_PAR
-    team->pami.scratch_rcvbuf = gasneti_malloc(scratch_size);
-    team->pami.scounts = gasneti_malloc(4 * sizeof(int) * team->total_ranks);
-    team->pami.sdispls = team->pami.scounts + team->total_ranks;
-    team->pami.prev_sndsz = 0;
-
-    team->pami.scratch_sndbuf = gasneti_malloc(scratch_size);
-    team->pami.rcounts = team->pami.sdispls + team->total_ranks;
-    team->pami.rdispls = team->pami.rcounts + team->total_ranks;
-    team->pami.prev_rcvsz = 0;
-
     team->pami.scratch_size = scratch_size;
+    team->pami.scratch_sndbuf = gasneti_malloc(scratch_size);
+    team->pami.scratch_rcvbuf = gasneti_malloc(scratch_size);
+    team->pami.counts = gasneti_malloc(2 * sizeof(int) * team->total_ranks);
+    team->pami.displs = team->pami.counts + team->total_ranks;
+    team->pami.prev_nbytes = 0;
     team->pami.tmp_addr = NULL;
     team->pami.barrier_phase = 0;
     gasneti_atomic_set(&team->pami.barrier_counter[0], team->my_images, 0);

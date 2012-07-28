@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami_gathr.c,v $
- *     $Date: 2012/07/26 07:47:44 $
- * $Revision: 1.6 $
+ *     $Date: 2012/07/28 03:47:10 $
+ * $Revision: 1.7 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -50,15 +50,15 @@ gasnete_coll_pami_gathrvi(const gasnet_team_handle_t team,
 
         if (i_am_root) {
             op.cmd.xfer_gatherv_int.rcvbuf = dst;
-            op.cmd.xfer_gatherv_int.rtypecounts = team->pami.rcounts;
-            op.cmd.xfer_gatherv_int.rdispls = team->pami.rdispls;
-            if (team->pami.prev_rcvsz != nbytes) {
+            op.cmd.xfer_gatherv_int.rtypecounts = team->pami.counts;
+            op.cmd.xfer_gatherv_int.rdispls = team->pami.displs;
+            if (team->pami.prev_nbytes != nbytes) {
                 int i;
                 for (i = 0; i < team->total_ranks; ++i) {
                     op.cmd.xfer_gatherv_int.rtypecounts[i] = nbytes * team->all_images[i];
                     op.cmd.xfer_gatherv_int.rdispls[i] = nbytes * team->all_offset[i];
                 }
-                team->pami.prev_rcvsz = nbytes;
+                team->pami.prev_nbytes = nbytes;
             }
         }
 

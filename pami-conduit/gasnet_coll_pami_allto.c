@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami_allto.c,v $
- *     $Date: 2012/07/28 03:32:22 $
- * $Revision: 1.3 $
+ *     $Date: 2012/07/28 03:47:10 $
+ * $Revision: 1.4 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -46,17 +46,17 @@ gasnete_coll_pami_alltovi(const gasnet_team_handle_t team,
         op = gasnete_op_template_alltovi; /* alltoallv_int */
         op.cookie = (void *)&done;
         op.cmd.xfer_alltoallv_int.sndbuf = team->pami.scratch_sndbuf;
-        op.cmd.xfer_alltoallv_int.stypecounts = team->pami.scounts;
-        op.cmd.xfer_alltoallv_int.sdispls = team->pami.sdispls;
+        op.cmd.xfer_alltoallv_int.stypecounts = team->pami.counts;
+        op.cmd.xfer_alltoallv_int.sdispls = team->pami.displs;
         op.cmd.xfer_alltoallv_int.rcvbuf = team->pami.scratch_rcvbuf;
-        op.cmd.xfer_alltoallv_int.rtypecounts = team->pami.scounts;
-        op.cmd.xfer_alltoallv_int.rdispls = team->pami.sdispls;
-        if (team->pami.prev_sndsz != local_len) {
+        op.cmd.xfer_alltoallv_int.rtypecounts = team->pami.counts;
+        op.cmd.xfer_alltoallv_int.rdispls = team->pami.displs;
+        if (team->pami.prev_nbytes != local_len) {
             for (i = 0; i < team->total_ranks; ++i) {
                 op.cmd.xfer_alltoallv_int.stypecounts[i] = local_len * team->all_images[i];
                 op.cmd.xfer_alltoallv_int.sdispls[i] = local_len * team->all_offset[i];
             }
-            team->pami.prev_sndsz = local_len;
+            team->pami.prev_nbytes = local_len;
         }
 
         GASNETC_PAMI_LOCK(gasnetc_context);
@@ -79,7 +79,7 @@ gasnete_coll_pami_alltovi(const gasnet_team_handle_t team,
             const size_t len = nbytes * team->all_images[i];
             const uint8_t *stmp = (uint8_t*) team->pami.scratch_rcvbuf
                                            + td->my_local_image * len
-                                           + team->pami.sdispls[i];
+                                           + team->pami.displs[i];
             GASNETE_FAST_UNALIGNED_MEMCPY(dtmp, stmp, len);
             dtmp += len;
         }

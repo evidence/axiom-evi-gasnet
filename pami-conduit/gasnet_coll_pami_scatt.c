@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami_scatt.c,v $
- *     $Date: 2012/07/26 07:47:44 $
- * $Revision: 1.6 $
+ *     $Date: 2012/07/28 03:47:10 $
+ * $Revision: 1.7 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -40,15 +40,15 @@ gasnete_coll_pami_scattvi(const gasnet_team_handle_t team, void *dst,
 
         if (i_am_root) {
             op.cmd.xfer_scatterv_int.sndbuf = (/*not-const*/ void *)src;
-            op.cmd.xfer_scatterv_int.stypecounts = team->pami.scounts;
-            op.cmd.xfer_scatterv_int.sdispls = team->pami.sdispls;
-            if (team->pami.prev_sndsz != nbytes) {
+            op.cmd.xfer_scatterv_int.stypecounts = team->pami.counts;
+            op.cmd.xfer_scatterv_int.sdispls = team->pami.displs;
+            if (team->pami.prev_nbytes != nbytes) {
                 int i;
                 for (i = 0; i < team->total_ranks; ++i) {
                     op.cmd.xfer_scatterv_int.stypecounts[i] = nbytes * team->all_images[i];
                     op.cmd.xfer_scatterv_int.sdispls[i] = nbytes * team->all_offset[i];
                 }
-                team->pami.prev_sndsz = nbytes;
+                team->pami.prev_nbytes = nbytes;
             }
         }
 
