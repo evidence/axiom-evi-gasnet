@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami_gathr.c,v $
- *     $Date: 2012/07/28 03:47:10 $
- * $Revision: 1.7 $
+ *     $Date: 2012/07/28 20:27:18 $
+ * $Revision: 1.8 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -31,7 +31,7 @@ gasnete_coll_pami_gathrvi(const gasnet_team_handle_t team,
         (void) gasnete_coll_pami_images_barrier(team);
     }
 
-    GASNETE_FAST_UNALIGNED_MEMCPY(gasnete_coll_scale_ptr(team->pami.scratch_sndbuf,
+    GASNETE_FAST_UNALIGNED_MEMCPY(gasnete_coll_scale_ptr(team->pami.scratch_space,
                                                          td->my_local_image,
                                                          nbytes),
                                   src, nbytes);
@@ -45,7 +45,7 @@ gasnete_coll_pami_gathrvi(const gasnet_team_handle_t team,
         op = gasnete_op_template_gathrvi; /* gatherv_int */
         op.cookie = (void *)&done;
         op.cmd.xfer_gatherv_int.root = gasnetc_endpoint(gasnete_coll_image_node(team, dstimage));
-        op.cmd.xfer_gatherv_int.sndbuf = team->pami.scratch_sndbuf;
+        op.cmd.xfer_gatherv_int.sndbuf = team->pami.scratch_space;
         op.cmd.xfer_gatherv_int.stypecount = nbytes * team->my_images;
 
         if (i_am_root) {

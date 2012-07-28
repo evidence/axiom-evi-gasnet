@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami_allto.c,v $
- *     $Date: 2012/07/28 03:47:10 $
- * $Revision: 1.4 $
+ *     $Date: 2012/07/28 20:27:18 $
+ * $Revision: 1.5 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -19,6 +19,8 @@ gasnete_coll_pami_alltovi(const gasnet_team_handle_t team,
     int i_am_leader = gasnete_coll_pami_images_barrier(team); /* XXX: over-synced for IN_NO and IN_MY */
     const gasnete_coll_threaddata_t * const td = GASNETE_COLL_MYTHREAD_NOALLOC;
     const size_t local_len = nbytes * team->my_images;
+    void * const sndbuf = team->pami.scratch_space;
+    void * const rcvbuf = team->pami.scratch_space + local_len * team->total_images;
     int i;
 
     if (flags & GASNET_COLL_IN_ALLSYNC) {
@@ -28,8 +30,7 @@ gasnete_coll_pami_alltovi(const gasnet_team_handle_t team,
 
     {
         const uint8_t *stmp = src;
-        uint8_t *dtmp = (uint8_t*) team->pami.scratch_sndbuf
-                                 + nbytes * td->my_local_image;
+        uint8_t *dtmp = (uint8_t*) sndbuf + nbytes * td->my_local_image;
         for (i = 0; i < team->total_images; ++i) {
             GASNETE_FAST_UNALIGNED_MEMCPY(dtmp, stmp, nbytes);
             stmp += nbytes;
@@ -45,10 +46,10 @@ gasnete_coll_pami_alltovi(const gasnet_team_handle_t team,
 
         op = gasnete_op_template_alltovi; /* alltoallv_int */
         op.cookie = (void *)&done;
-        op.cmd.xfer_alltoallv_int.sndbuf = team->pami.scratch_sndbuf;
+        op.cmd.xfer_alltoallv_int.sndbuf = sndbuf;
         op.cmd.xfer_alltoallv_int.stypecounts = team->pami.counts;
         op.cmd.xfer_alltoallv_int.sdispls = team->pami.displs;
-        op.cmd.xfer_alltoallv_int.rcvbuf = team->pami.scratch_rcvbuf;
+        op.cmd.xfer_alltoallv_int.rcvbuf = rcvbuf;
         op.cmd.xfer_alltoallv_int.rtypecounts = team->pami.counts;
         op.cmd.xfer_alltoallv_int.rdispls = team->pami.displs;
         if (team->pami.prev_nbytes != local_len) {
@@ -68,7 +69,7 @@ gasnete_coll_pami_alltovi(const gasnet_team_handle_t team,
 
         gasneti_assert(NULL == team->pami.tmp_addr);
         gasneti_sync_writes(); /* XXX: is this necessary? */
-        team->pami.tmp_addr = team->pami.scratch_rcvbuf; /* wakes pollers, below */
+        team->pami.tmp_addr = rcvbuf; /* wakes pollers, below */
     } else {
         gasneti_waitwhile(NULL == team->pami.tmp_addr);
     }
@@ -77,7 +78,7 @@ gasnete_coll_pami_alltovi(const gasnet_team_handle_t team,
         uint8_t *dtmp = dst;
         for (i = 0; i < team->total_ranks; ++i) {
             const size_t len = nbytes * team->all_images[i];
-            const uint8_t *stmp = (uint8_t*) team->pami.scratch_rcvbuf
+            const uint8_t *stmp = (uint8_t*) rcvbuf
                                            + td->my_local_image * len
                                            + team->pami.displs[i];
             GASNETE_FAST_UNALIGNED_MEMCPY(dtmp, stmp, len);
@@ -141,7 +142,7 @@ gasnete_coll_exchange_pami(gasnet_team_handle_t team,
 {
   if ((team != GASNET_TEAM_ALL) || !gasnete_use_pami_allto
   #if GASNET_PAR
-      || (team->multi_images_any && (nbytes*team->total_images*team->max_images > team->pami.scratch_size))
+      || (team->multi_images_any && (2*nbytes*team->total_images*team->max_images > team->pami.scratch_size))
   #endif
      ) {
     /* Use generic implementation for cases we don't (yet) handle, or when disabled */
@@ -169,7 +170,7 @@ gasnete_coll_exchangeM_pami(gasnet_team_handle_t team,
 {
   if ((team != GASNET_TEAM_ALL) || !gasnete_use_pami_allto
   #if GASNET_PAR
-      || (team->multi_images_any && (nbytes*team->total_images*team->max_images > team->pami.scratch_size))
+      || (team->multi_images_any && (2*nbytes*team->total_images*team->max_images > team->pami.scratch_size))
   #endif
      ) {
     /* Use generic implementation for cases we don't (yet) handle, or when disabled */

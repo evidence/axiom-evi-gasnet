@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami_scatt.c,v $
- *     $Date: 2012/07/28 03:47:10 $
- * $Revision: 1.7 $
+ *     $Date: 2012/07/28 20:27:18 $
+ * $Revision: 1.8 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -35,7 +35,7 @@ gasnete_coll_pami_scattvi(const gasnet_team_handle_t team, void *dst,
         op = gasnete_op_template_scattvi; /* scatterv_int */
         op.cookie = (void *)&done;
         op.cmd.xfer_scatterv_int.root = gasnetc_endpoint(gasnete_coll_image_node(team, srcimage));
-        op.cmd.xfer_scatterv_int.rcvbuf = team->pami.scratch_rcvbuf;
+        op.cmd.xfer_scatterv_int.rcvbuf = team->pami.scratch_space;
         op.cmd.xfer_scatterv_int.rtypecount = nbytes * team->my_images;
 
         if (i_am_root) {
@@ -61,7 +61,7 @@ gasnete_coll_pami_scattvi(const gasnet_team_handle_t team, void *dst,
 
         gasneti_assert(NULL == team->pami.tmp_addr);
         gasneti_sync_writes();
-        team->pami.tmp_addr = team->pami.scratch_rcvbuf; /* wakes pollers, below */
+        team->pami.tmp_addr = team->pami.scratch_space; /* wakes pollers, below */
     } else {
         gasneti_waitwhile(NULL == team->pami.tmp_addr);
     }
