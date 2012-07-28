@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami_gathr.c,v $
- *     $Date: 2012/07/28 20:27:18 $
- * $Revision: 1.8 $
+ *     $Date: 2012/07/28 22:16:21 $
+ * $Revision: 1.9 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -136,7 +136,7 @@ gasnete_coll_gather_pami(gasnet_team_handle_t team,
   if ((team != GASNET_TEAM_ALL) || !gasnete_use_pami_gathr
   #if GASNET_PAR
       /* TODO: could remove size restriction by segmenting/pipelining */
-      || (team->multi_images_any && (nbytes*team->max_images > team->pami.scratch_size))
+      || (team->multi_images_any && (nbytes > team->pami.scratch_max_nbytes))
   #endif
      ) {
     /* Use generic implementation for cases we don't (yet) handle, or when disabled */
@@ -165,7 +165,7 @@ gasnete_coll_gatherM_pami(gasnet_team_handle_t team,
   if ((team != GASNET_TEAM_ALL) || !gasnete_use_pami_gathr
   #if GASNET_PAR
       /* TODO: could remove size restriction by segmenting/pipelining */
-      || (team->multi_images_any && (nbytes*team->max_images > team->pami.scratch_size))
+      || (team->multi_images_any && (nbytes > team->pami.scratch_max_nbytes))
   #endif
      ) {
     /* Use generic implementation for cases we don't (yet) handle, or when disabled */
