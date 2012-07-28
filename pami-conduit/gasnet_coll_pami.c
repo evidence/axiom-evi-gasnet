@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami.c,v $
- *     $Date: 2012/07/27 01:20:54 $
- * $Revision: 1.17 $
+ *     $Date: 2012/07/28 00:02:47 $
+ * $Revision: 1.18 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -241,8 +241,8 @@ gasnete_coll_init_pami(void)
       gasnetc_dflt_coll_alg(gasnetc_world_geom, PAMI_XFER_ALLGATHERV_INT, &gasnete_op_template_allgavi.algorithm);
       gasnete_op_template_allgavi.cb_done = &gasnetc_cb_inc_uint; /* XXX: do we need release semantics? */
       gasnete_op_template_allgavi.options.multicontext = PAMI_HINT_DISABLE;
-      gasnete_op_template_allgavi.cmd.xfer_allgather.stype = PAMI_TYPE_BYTE;
-      gasnete_op_template_allgavi.cmd.xfer_allgather.rtype = PAMI_TYPE_BYTE;
+      gasnete_op_template_allgavi.cmd.xfer_allgatherv_int.stype = PAMI_TYPE_BYTE;
+      gasnete_op_template_allgavi.cmd.xfer_allgatherv_int.rtype = PAMI_TYPE_BYTE;
     #endif
       gasnete_use_pami_allga = 1;
     }
