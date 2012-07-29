@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami.c,v $
- *     $Date: 2012/07/28 22:16:21 $
- * $Revision: 1.22 $
+ *     $Date: 2012/07/29 04:13:41 $
+ * $Revision: 1.23 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -279,11 +279,8 @@ gasnete_coll_init_pami(void)
       gasnete_use_pami_bcast = 1;
     }
 
-  #if GASNETI_ARCH_IBMPE /* Bug in PE1207 has been reported to IBM */
+    /* DISABLED by default: bug(s) in PE1207 and V1R1M1 have been reported to IBM */
     if (gasneti_getenv_yesno_withdefault("GASNET_USE_PAMI_GATHER", 0)) {
-  #else
-    if (gasneti_getenv_yesno_withdefault("GASNET_USE_PAMI_GATHER", 1)) {
-  #endif
       memset(&gasnete_op_template_gathr, 0, sizeof(pami_xfer_t));
       gasnetc_dflt_coll_alg(gasnetc_world_geom, PAMI_XFER_GATHER, &gasnete_op_template_gathr.algorithm);
       gasnete_op_template_gathr.cb_done = &gasnetc_cb_inc_uint; /* XXX: do we need release semantics? */
