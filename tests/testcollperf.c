@@ -42,7 +42,7 @@ options that is covered testcoll
 #endif
 
 #ifndef NB_TESTS_ENABLED 
-#define NB_TESTS_ENABLED 0
+#define NB_TESTS_ENABLED 1
 #endif
 
 #define ROOT_THREAD 0
