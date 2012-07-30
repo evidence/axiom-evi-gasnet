@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami.c,v $
- *     $Date: 2012/07/30 07:05:38 $
- * $Revision: 1.26 $
+ *     $Date: 2012/07/30 07:30:03 $
+ * $Revision: 1.27 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -161,6 +161,14 @@ gasnetc_dflt_coll_alg(pami_geometry_t geom, pami_xfer_type_t op, pami_algorithm_
     gasneti_fatalerror("Unknown 'op' value %d in %s", (int)op, __FUNCTION__);
     envvar = dfltval = NULL; /* for warning suppression only */
   }
+  /* Override the defaults above for the single-task case: */
+  if (gasneti_nodes == 1) {
+    const char onetask = "I0:OneTask";
+    if (gasnetc_find_alg(onetask, metadata, count[0]) < count[0]) {
+      dfltval = onetask;
+    }
+  }
+  /* Now the user's environment value if any: */
   envval = gasneti_getenv_withdefault(envvar, dfltval);
   alg = 0; /* failsafe */
   if (NULL != envval) {
