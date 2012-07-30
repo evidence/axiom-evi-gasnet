@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami.c,v $
- *     $Date: 2012/07/30 07:30:03 $
- * $Revision: 1.27 $
+ *     $Date: 2012/07/30 20:20:03 $
+ * $Revision: 1.28 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -163,8 +163,8 @@ gasnetc_dflt_coll_alg(pami_geometry_t geom, pami_xfer_type_t op, pami_algorithm_
   }
   /* Override the defaults above for the single-task case: */
   if (gasneti_nodes == 1) {
-    const char onetask = "I0:OneTask";
-    if (gasnetc_find_alg(onetask, metadata, count[0]) < count[0]) {
+    const char *onetask = "I0:OneTask";
+    if (gasnetc_find_alg(onetask, metadata, counts[0]) < counts[0]) {
       dfltval = onetask;
     }
   }
