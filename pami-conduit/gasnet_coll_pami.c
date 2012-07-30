@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami.c,v $
- *     $Date: 2012/07/29 04:13:41 $
- * $Revision: 1.23 $
+ *     $Date: 2012/07/30 00:54:52 $
+ * $Revision: 1.24 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -44,50 +44,104 @@ gasnetc_dflt_coll_alg(pami_geometry_t geom, pami_xfer_type_t op, pami_algorithm_
 
   /* Process environment and defaults: */
   switch(op) { /* please keep alphabetical */
-  case PAMI_XFER_ALLTOALL: /* Used for blocking gasnet exchange */
+  /* Used for blocking gasnet exchange: */
+  case PAMI_XFER_ALLTOALL:
     envvar = "GASNET_PAMI_ALLTOALL_ALG";
-    dfltval = NULL; /* TODO: tune a better default than alg[0]? */
+  #if GASNETI_ARCH_BGQ
+    dfltval = "I0:M2MComposite:MU:MU"; /* Best on BG/Q by a large margin */
+  #else
+    dfltval = "I0:Ring:"; /* Uniformly 2nd place (out of 3) on PERCS */
+  #endif
     break;
-  case PAMI_XFER_ALLTOALLV_INT: /* Used for blocking gasnet exchange w/ multiple images */
+
+  /* Used for blocking gasnet exchange w/ multiple images: */
+  case PAMI_XFER_ALLTOALLV_INT:
     envvar = "GASNET_PAMI_ALLTOALLV_INT_ALG";
-    dfltval = NULL; /* TODO: tune a better default than alg[0]? */
+  #if GASNETI_ARCH_BGQ
+    dfltval = "I0:M2MComposite:MU:MU"; /* Best on BG/Q by a large margin */
+  #else
+    dfltval = "I0:M2MComposite:"; /* Best on PERCS for all but smallest len (where it is close) */
+  #endif
     break;
-  case PAMI_XFER_ALLGATHER: /* Used for blocking gasnet gatherall and gasnetc_bootstrapExchange() */
+
+  /* Used for blocking gasnet gatherall and gasnetc_bootstrapExchange(): */
+  case PAMI_XFER_ALLGATHER:
     envvar = "GASNET_PAMI_ALLGATHER_ALG";
-    dfltval = NULL; /* TODO: tune a better default than alg[0]? */
+  #if GASNETI_ARCH_BGQ && 0 /* TODO: split choice based on size */
+    dfltval = "I0:RectangleDput:"; /* Uniformly best (or very near) for LARGE case only... */
+    { /* .. but only available for "rectangular" jobs. */
+      size_t len = strlen(dfltval);
+      for (alg=0; alg<counts[0]; ++alg) {
+        if (! strncmp(dfltval, metadata[alg].name, len)) break;
+      }
+      if (alg < counts[0]) break; /* Otherwise fall through */
+    }
+  #endif
+    dfltval = "I0:Binomial:"; /* Uniformly 2nd place (out of 3) on PERCS, uniformly "OK" on BG/Q */
     break;
-  case PAMI_XFER_ALLGATHERV_INT: /* Used for blocking gasnet gatherall w/ multiple images */
+
+  /* Used for blocking gasnet gatherall w/ multiple images: */
+  case PAMI_XFER_ALLGATHERV_INT:
     envvar = "GASNET_PAMI_ALLGATHERV_INT_ALG";
-    dfltval = NULL; /* TODO: tune a better default than alg[0]? */
+  #if GASNETI_ARCH_BGQ && 0 /* TODO: split choice based on size */
+    dfltval = "I0:RectangleDput:"; /* Uniformly best (or very near) for LARGE case only ... */
+    { /* .. but only available for "rectangular" jobs. */
+      size_t len = strlen(dfltval);
+      for (alg=0; alg<counts[0]; ++alg) {
+        if (! strncmp(dfltval, metadata[alg].name, len)) break;
+      }
+      if (alg < counts[0]) break; /* Otherwise fall through */
+    }
+  #endif
+    dfltval = NULL; /* Only one other option available on systems I've tested -PHH */
     break;
-  case PAMI_XFER_ALLREDUCE: /* Used for exitcode reduction and "PAMIALLREDUCE" barrier */
+
+  /* Used for exitcode reduction and "PAMIALLREDUCE" barrier: */
+  case PAMI_XFER_ALLREDUCE:
     envvar = "GASNET_PAMI_ALLREDUCE_ALG";
     dfltval = "I0:Binomial:"; /* uniformly "good" on BG/Q and PERCS */
     break;
-  case PAMI_XFER_BARRIER: /* Used for gasnetc_fast_barrier() */
+
+  /* Used for gasnetc_fast_barrier(): */
+  case PAMI_XFER_BARRIER:
     envvar = "GASNET_PAMI_BARRIER_ALG";
     dfltval = NULL; /* TODO: tune a better default than alg[0]? */
     break;
-  case PAMI_XFER_BROADCAST: /* Used for blocking gasnet broadcast */
+
+  /* Used for blocking gasnet broadcast: */
+  case PAMI_XFER_BROADCAST:
     envvar = "GASNET_PAMI_BROADCAST_ALG";
-    dfltval = "I0:Binomial:"; /* uniformly "good" on BG/Q and PERSC */
+  #if GASNETI_ARCH_BGQ
+    dfltval = "I0:2-nary:"; /* uniformly "near-best" on BG/Q */
+  #else
+    dfltval = "I0:4-nary:"; /* uniformly "near-best" on PERSC */
+  #endif
     break;
-  case PAMI_XFER_GATHER: /* Used for blocking gasnet scatter gather */
+
+  /* Used for blocking gasnet gather: */
+  case PAMI_XFER_GATHER:
     envvar = "GASNET_PAMI_GATHER_ALG";
     dfltval = NULL; /* TODO: tune for better default */
     break;
-  case PAMI_XFER_GATHERV_INT: /* Used for blocking gasnet gather w/ multiple images */
+
+  /* Used for blocking gasnet gather w/ multiple images: */
+  case PAMI_XFER_GATHERV_INT:
     envvar = "GASNET_PAMI_GATHERV_INT_ALG";
     dfltval = NULL; /* TODO: tune for better default */
     break;
-  case PAMI_XFER_SCATTER: /* Used for blocking gasnet scatter */
+
+  /* Used for blocking gasnet scatter: */
+  case PAMI_XFER_SCATTER:
     envvar = "GASNET_PAMI_SCATTER_ALG";
     dfltval = "I0:Binomial:"; /* uniformly "good" on BG/Q and PERSC */
     break;
-  case PAMI_XFER_SCATTERV_INT: /* Used for blocking gasnet scatter w/ multiple images */
+
+  /* Used for blocking gasnet scatter w/ multiple images: */
+  case PAMI_XFER_SCATTERV_INT:
     envvar = "GASNET_PAMI_SCATTERV_INT_ALG";
     dfltval = NULL; /* TODO: tune for better default */
     break;
+
   default:
     gasneti_fatalerror("Unknown 'op' value %d in %s", (int)op, __FUNCTION__);
     envvar = dfltval = NULL; /* for warning suppression only */
