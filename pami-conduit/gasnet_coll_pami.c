@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami.c,v $
- *     $Date: 2012/07/30 00:54:52 $
- * $Revision: 1.24 $
+ *     $Date: 2012/07/30 02:18:48 $
+ * $Revision: 1.25 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -84,7 +84,7 @@ gasnetc_dflt_coll_alg(pami_geometry_t geom, pami_xfer_type_t op, pami_algorithm_
   case PAMI_XFER_ALLGATHERV_INT:
     envvar = "GASNET_PAMI_ALLGATHERV_INT_ALG";
   #if GASNETI_ARCH_BGQ && 0 /* TODO: split choice based on size */
-    dfltval = "I0:RectangleDput:"; /* Uniformly best (or very near) for LARGE case only ... */
+    dfltval = "I0:RectangleDput:"; /* Uniformly best for small to moderate cases only ... */
     { /* .. but only available for "rectangular" jobs. */
       size_t len = strlen(dfltval);
       for (alg=0; alg<counts[0]; ++alg) {
@@ -105,7 +105,17 @@ gasnetc_dflt_coll_alg(pami_geometry_t geom, pami_xfer_type_t op, pami_algorithm_
   /* Used for gasnetc_fast_barrier(): */
   case PAMI_XFER_BARRIER:
     envvar = "GASNET_PAMI_BARRIER_ALG";
+  #if GASNETI_ARCH_BGQ
+    /* Note: this could be any of
+     *     "I0:MultiSync2Device:SHMEM:GI"
+     *     "I0:MultiSync:SHMEM:-",
+     *     "I0:MultiSync:-:GI",
+     * depending on node and process counts.
+     */
+    dfltval = "I0:MultiSync";
+  #else
     dfltval = NULL; /* TODO: tune a better default than alg[0]? */
+  #endif
     break;
 
   /* Used for blocking gasnet broadcast: */
