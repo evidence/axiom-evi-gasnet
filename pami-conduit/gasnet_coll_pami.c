@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami.c,v $
- *     $Date: 2012/07/30 20:20:03 $
- * $Revision: 1.28 $
+ *     $Date: 2012/07/30 23:00:54 $
+ * $Revision: 1.29 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -115,12 +115,13 @@ gasnetc_dflt_coll_alg(pami_geometry_t geom, pami_xfer_type_t op, pami_algorithm_
      *     "I0:MultiSync2Device:SHMEM:GI"
      *     "I0:MultiSync:SHMEM:-",
      *     "I0:MultiSync:-:GI",
-     * depending on node and process counts.
+     * depending on job layout, and may not be available on team != ALL.
      */
     dfltval = "I0:MultiSync";
-  #else
-    dfltval = NULL; /* TODO: tune a better default than alg[0]? */
+    alg = gasnetc_find_alg(dfltval, metadata, counts[0]);
+    if (alg < counts[0]) break; /* Otherwise fall through */
   #endif
+    dfltval = NULL; /* TODO: tune a better default than alg[0]? */
     break;
 
   /* Used for blocking gasnet broadcast: */
