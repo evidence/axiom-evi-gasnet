@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami.c,v $
- *     $Date: 2012/07/30 02:18:48 $
- * $Revision: 1.25 $
+ *     $Date: 2012/07/30 07:05:38 $
+ * $Revision: 1.26 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -11,6 +11,19 @@
 
 /* ------------------------------------------------------------------------------------ */
 /* Bootstrap collectives and dependencies */
+
+static int
+gasnetc_find_alg(const char *name, pami_metadata_t *md, size_t count)
+{
+  size_t len = strlen(name); /* string is used for PREFIX match */
+  int alg;
+
+  for (alg = 0; alg < count; ++alg) {
+    if (0 == strncmp(name, md[alg].name, len)) break;
+  }
+
+  return alg;
+}
 
 /* Get the default algorithm for a given (geometery, collective) pair.
    This will be the first "always works" algorithm unless user provides an override.
@@ -69,13 +82,9 @@ gasnetc_dflt_coll_alg(pami_geometry_t geom, pami_xfer_type_t op, pami_algorithm_
     envvar = "GASNET_PAMI_ALLGATHER_ALG";
   #if GASNETI_ARCH_BGQ && 0 /* TODO: split choice based on size */
     dfltval = "I0:RectangleDput:"; /* Uniformly best (or very near) for LARGE case only... */
-    { /* .. but only available for "rectangular" jobs. */
-      size_t len = strlen(dfltval);
-      for (alg=0; alg<counts[0]; ++alg) {
-        if (! strncmp(dfltval, metadata[alg].name, len)) break;
-      }
-      if (alg < counts[0]) break; /* Otherwise fall through */
-    }
+    /* .. but only available for "rectangular" jobs. */
+    alg = gasnetc_find_alg(dfltval, metadata, counts[0]);
+    if (alg < counts[0]) break; /* Otherwise fall through */
   #endif
     dfltval = "I0:Binomial:"; /* Uniformly 2nd place (out of 3) on PERCS, uniformly "OK" on BG/Q */
     break;
@@ -85,13 +94,9 @@ gasnetc_dflt_coll_alg(pami_geometry_t geom, pami_xfer_type_t op, pami_algorithm_
     envvar = "GASNET_PAMI_ALLGATHERV_INT_ALG";
   #if GASNETI_ARCH_BGQ && 0 /* TODO: split choice based on size */
     dfltval = "I0:RectangleDput:"; /* Uniformly best for small to moderate cases only ... */
-    { /* .. but only available for "rectangular" jobs. */
-      size_t len = strlen(dfltval);
-      for (alg=0; alg<counts[0]; ++alg) {
-        if (! strncmp(dfltval, metadata[alg].name, len)) break;
-      }
-      if (alg < counts[0]) break; /* Otherwise fall through */
-    }
+    /* .. but only available for "rectangular" jobs. */
+    alg = gasnetc_find_alg(dfltval, metadata, counts[0]);
+    if (alg < counts[0]) break; /* Otherwise fall through */
   #endif
     dfltval = NULL; /* Only one other option available on systems I've tested -PHH */
     break;
@@ -192,12 +197,7 @@ gasnetc_dflt_coll_alg(pami_geometry_t geom, pami_xfer_type_t op, pami_algorithm_
       }
     } else {
       /* string is used for PREFIX match */
-      size_t len = strlen(envval);
-      for (alg=0; alg<fullcount; ++alg) {
-        if (0 == strncmp(envval, metadata[alg].name, len)) {
-          break;
-        }
-      }
+      alg = gasnetc_find_alg(envval, metadata, fullcount);
       if (alg == fullcount) {
         if (!gasneti_mynode && !print_once[(int)op] && (envval != dfltval)) {
           fprintf(stderr, "WARNING: Ignoring value '%s' for environment variable %s,\n"
