@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2012/07/31 03:08:26 $
- * $Revision: 1.28 $
+ *     $Date: 2012/07/31 03:23:05 $
+ * $Revision: 1.29 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -1306,6 +1306,7 @@ static int gasnete_pdbarrier_try(gasnete_coll_team_t team, int id, int flags) {
 }
 
 static void gasnete_pdbarrier_init(gasnete_coll_team_t team) {
+  static int is_init = 0;
   int total_ranks = team->total_ranks;
   int myrank = team->myrank;
 
@@ -1356,8 +1357,9 @@ static void gasnete_pdbarrier_init(gasnete_coll_team_t team) {
   /* TODO: Anything we should hint here? */
   memset(&gasnete_pdbarrier_send_hint, 0, sizeof(pami_send_hint_t));
 
-  /* Register the dispatch that does the "real work": */
-  { pami_dispatch_hint_t hints;
+  /* Register (only once!) the dispatch that does the "real work": */
+  if (!is_init) {
+    pami_dispatch_hint_t hints;
     pami_dispatch_callback_function fn;
     pami_result_t rc;
 
@@ -1376,6 +1378,7 @@ static void gasnete_pdbarrier_init(gasnete_coll_team_t team) {
     fn.p2p = &gasnete_pdbarr_dispatch;
     rc = PAMI_Dispatch_set(gasnetc_context, GASNETC_DISP_DISSEM_BARR, fn, NULL, hints);
     GASNETC_PAMI_CHECK(rc, "registering GASNETC_DISP_DISSEM_BARR");
+    is_init = 1;
   }
 
   barr->phase = 1;
