@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2012/05/03 20:52:14 $
- * $Revision: 1.130 $
+ *     $Date: 2012/07/31 00:30:46 $
+ * $Revision: 1.131 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -535,7 +535,7 @@ extern int gasneti_VerboseErrors;
     GASNETI_TRACE_AMREQUESTLONG(dest,handler,source_addr,nbytes,dest_addr,numargs);          \
     GASNETI_CHECK_ERRR((dest >= gasneti_nodes),BAD_ARG,"node index too high");               \
     GASNETI_CHECK_ERRR((nbytes > gasnet_AMMaxLongRequest()),BAD_ARG,"nbytes too large");     \
-    GASNETI_CHECK_ERRR((!gasneti_in_segment(dest, dest_addr, nbytes)),                       \
+    GASNETI_CHECK_ERRR((!gasneti_in_segment_allowoutseg(dest, dest_addr, nbytes)),           \
             BAD_ARG,"destination address out of segment range");                             \
   } while (0)
 #define GASNETI_COMMON_AMREQUESTLONGASYNC(dest,handler,source_addr,nbytes,dest_addr,numargs) do { \
@@ -544,7 +544,7 @@ extern int gasneti_VerboseErrors;
     GASNETI_TRACE_AMREQUESTLONGASYNC(dest,handler,source_addr,nbytes,dest_addr,numargs);          \
     GASNETI_CHECK_ERRR((dest >= gasneti_nodes),BAD_ARG,"node index too high");                    \
     GASNETI_CHECK_ERRR((nbytes > gasnet_AMMaxLongRequest()),BAD_ARG,"nbytes too large");          \
-    GASNETI_CHECK_ERRR((!gasneti_in_segment(dest, dest_addr, nbytes)),                            \
+    GASNETI_CHECK_ERRR((!gasneti_in_segment_allowoutseg(dest, dest_addr, nbytes)),                \
             BAD_ARG,"destination address out of segment range");                                  \
   } while (0)
 #define GASNETI_COMMON_AMREPLYSHORT(token,handler,numargs) do {    \
@@ -562,7 +562,7 @@ extern int gasneti_VerboseErrors;
       GASNETI_SAFE_PROPAGATE(gasnet_AMGetMsgSource(token, &dest));                                    \
       GASNETI_CHECK_ERRR((dest >= gasneti_nodes),BAD_ARG,"node index too high");                      \
       GASNETI_CHECK_ERRR((nbytes > gasnet_AMMaxLongReply()),BAD_ARG,"nbytes too large");              \
-      GASNETI_CHECK_ERRR((!gasneti_in_segment(dest, dest_addr, nbytes)),                              \
+      GASNETI_CHECK_ERRR((!gasneti_in_segment_allowoutseg(dest, dest_addr, nbytes)),                  \
               BAD_ARG,"destination address out of segment range");                                    \
     } while (0)
 #else
