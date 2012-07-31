@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/udp-conduit/gasnet_core_fwd.h,v $
- *     $Date: 2010/06/27 03:56:50 $
- * $Revision: 1.24 $
+ *     $Date: 2012/07/31 01:54:32 $
+ * $Revision: 1.25 $
  * Description: GASNet header for UDP conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -40,9 +40,9 @@
 #endif
 
 /* conduit allows internal GASNet fns to issue put/get for remote addrs out of segment */
-/* XXX: This is currently true even for the GASNET_PSHM==1 case, but only because there
- * is no shared-memory bypass of the put/get code */
+#if !GASNET_PSHM
 #define GASNETI_SUPPORTS_OUTOFSEGMENT_PUTGET 1
+#endif
 
 #define GASNET_MAXNODES AMUDP_MAX_NUMTRANSLATIONS
 #define _GASNET_NODE_T

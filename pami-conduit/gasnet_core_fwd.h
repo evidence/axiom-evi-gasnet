@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_core_fwd.h,v $
- *     $Date: 2012/07/31 01:46:55 $
- * $Revision: 1.4 $
+ *     $Date: 2012/07/31 01:54:30 $
+ * $Revision: 1.5 $
  * Description: GASNet header for PAMI conduit core (forward definitions)
  * Copyright 2012, Lawrence Berkeley National Laboratory
  * Terms of use are as specified in license.txt
@@ -23,9 +23,6 @@
 #define GASNET_CONDUIT_NAME_STR  _STRINGIFY(GASNET_CONDUIT_NAME)
 #define GASNET_CONDUIT_PAMI      1
 
-/* conduit allows internal GASNet fns to issue put/get for remote addrs out of segment */
-#define GASNETI_SUPPORTS_OUTOFSEGMENT_PUTGET 1
-
   /* GASNET_PSHM defined 1 if this conduit supports PSHM. leave undefined otherwise. */
 #if GASNETI_PSHM_ENABLED
  #define GASNET_PSHM 1
@@ -41,6 +38,11 @@
 
 #define _GASNET_NODE_T
 typedef pami_task_t gasnet_node_t;
+
+/* conduit allows internal GASNet fns to issue put/get for remote addrs out of segment */
+#if !GASNET_PSHM
+#define GASNETI_SUPPORTS_OUTOFSEGMENT_PUTGET 1
+#endif
 
   /* conduits should define GASNETI_CONDUIT_THREADS to 1 if they have one or more 
      "private" threads which may be used to run AM handlers, even under GASNET_SEQ

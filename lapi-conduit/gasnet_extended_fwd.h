@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended_fwd.h,v $
- *     $Date: 2009/10/28 00:39:39 $
- * $Revision: 1.31 $
+ *     $Date: 2012/07/31 01:54:26 $
+ * $Revision: 1.32 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -30,7 +30,7 @@
 #define GASNETI_DIRECT_MEMSET   1
 
 /* conduit allows internal GASNet fns to issue put/get for remote addrs out of segment */
-#if GASNETC_LAPI_RDMA
+#if GASNETC_LAPI_RDMA && !GASNET_PSHM
 #undef GASNETI_SUPPORTS_OUTOFSEGMENT_PUTGET
 #else
 #define GASNETI_SUPPORTS_OUTOFSEGMENT_PUTGET 1

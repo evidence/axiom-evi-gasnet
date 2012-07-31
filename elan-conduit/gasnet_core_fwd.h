@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core_fwd.h,v $
- *     $Date: 2010/06/27 03:56:32 $
- * $Revision: 1.34 $
+ *     $Date: 2012/07/31 01:54:24 $
+ * $Revision: 1.35 $
  * Description: GASNet header for elan conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -80,7 +80,7 @@ extern void gasnetc_fatalsignal_callback(int sig);
    */
 /* #define GASNETC_USE_INTERRUPTS 1 */
 
-#if defined(GASNETC_ELAN4) || PLATFORM_ARCH_32
+#if (defined(GASNETC_ELAN4) || PLATFORM_ARCH_32) && !GASNET_PSHM
   #define GASNETI_SUPPORTS_OUTOFSEGMENT_PUTGET 1
 #endif
 

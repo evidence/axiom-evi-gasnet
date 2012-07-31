@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_core_fwd.h,v $
- *     $Date: 2010/06/27 03:56:30 $
- * $Revision: 1.6 $
+ *     $Date: 2012/07/31 01:54:22 $
+ * $Revision: 1.7 $
  * Description: GASNet header for dcmf conduit core (forward definitions)
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
  *                 Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -36,7 +36,9 @@
 #endif
 
 /* conduit allows internal GASNet fns to issue put/get for remote addrs out of segment */
+#if !GASNET_PSHM
 #define GASNETI_SUPPORTS_OUTOFSEGMENT_PUTGET 1
+#endif
 
 
   /* conduits should define GASNETI_CONDUIT_THREADS to 1 if they have one or more 
