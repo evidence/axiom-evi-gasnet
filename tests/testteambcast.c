@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testteambcast.c,v $
- * $Date: 2010/03/16 23:23:58 $
- * $Revision: 1.2 $
+ * $Date: 2012/07/31 00:35:18 $
+ * $Revision: 1.3 $
  * See license.txt for terms
  * Rajesh Nishtala and Yili Zheng
  */
@@ -46,7 +46,7 @@ int main(int argc, char **argv)
   GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
   
   A = TEST_MYSEG();
-  B = TEST_MYSEG() + SCRATCH_SIZE;
+  B = A + SCRATCH_SIZE;
   C = B + SCRATCH_SIZE;
   B_int = (int*) B;
   C_int = (int*) C;
@@ -171,8 +171,8 @@ int main(int argc, char **argv)
     total = TIME() - start;
     
     if(mynode == 0){
-      printf("%d> %d byte broadcast team all time: %8.3f usec\n",mynode,sz*sizeof(int),
-           mynode,  ((float)total)/(iters));
+      printf("%d> %ld byte broadcast team all time: %8.3f usec\n",mynode,(long)sz*sizeof(int),
+           ((float)total)/(iters));
       fflush(stdout);
     }
   }
@@ -205,7 +205,7 @@ int main(int argc, char **argv)
     total = TIME() - start;
     
     if(my_col == 0){
-      printf("%d> %d byte broadcast row team %u time: %8.3f usec\n",mynode,sz*sizeof(int),
+      printf("%d> %ld byte broadcast row team %u time: %8.3f usec\n",mynode,(long)sz*sizeof(int),
            my_row,  ((float)total)/(iters));
       fflush(stdout);
     }
@@ -238,7 +238,7 @@ int main(int argc, char **argv)
     total = TIME() - start;
     
     if(my_row == 0){
-      printf("%d> %d byte broadcast col team %u time: %8.3f usec\n",mynode,sz*sizeof(int),
+      printf("%d> %ld byte broadcast col team %u time: %8.3f usec\n",mynode,(long)sz*sizeof(int),
            my_col,  ((float)total)/(iters));
       fflush(stdout);
     }
