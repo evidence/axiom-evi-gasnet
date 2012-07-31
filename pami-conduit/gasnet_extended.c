@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2012/07/31 03:23:05 $
- * $Revision: 1.29 $
+ *     $Date: 2012/07/31 06:52:01 $
+ * $Revision: 1.30 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -1002,7 +1002,7 @@ static void gasnete_parbarrier_init(gasnete_coll_team_t team) {
   if (team == GASNET_TEAM_ALL)  {
     geom = gasnetc_world_geom; /* team init not completed yet, sigh */
   } else {
-  #if GASNET_PAMI_NATIVE_COLL && 0 /* XXX: Disabled pending some tuning work */
+  #if GASNET_PAMI_NATIVE_COLL
     geom = team->pami.geom;
   #endif
   }

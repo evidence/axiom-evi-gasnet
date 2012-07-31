@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami.c,v $
- *     $Date: 2012/07/31 02:12:11 $
- * $Revision: 1.30 $
+ *     $Date: 2012/07/31 06:52:01 $
+ * $Revision: 1.31 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -104,6 +104,32 @@ gasnetc_dflt_coll_alg(pami_geometry_t geom, pami_xfer_type_t op, pami_algorithm_
   /* Used for exitcode reduction and "PAMIALLREDUCE" barrier: */
   case PAMI_XFER_ALLREDUCE:
     envvar = "GASNET_PAMI_ALLREDUCE_ALG";
+  #if GASNETI_ARCH_BGQ
+    dfltval = "I0:Binomial:-:ShortMU"; /* great when available */
+    alg = gasnetc_find_alg(dfltval, metadata, fullcount);
+    if (alg < fullcount) {
+      /* make sure PAMI-allreduce barrier and exitcode reduction will "fit" */
+      pami_metadata_t *md = &metadata[alg];
+      if ((!md->check_correct.values.rangeminmax  || md->range_lo <= sizeof(int)) &&
+          (!md->check_correct.values.rangeminmax  || md->range_hi >= 2*sizeof(uint64_t)) &&
+          (!md->check_correct.values.sendminalign || md->send_min_align >= sizeof(char)) &&
+          (!md->check_correct.values.recvminalign || md->recv_min_align >= sizeof(char))) {
+        break; /* Otherwise fall through */
+      }
+    }
+    dfltval = "I1:ShortAllreduce:"; /* excellent second choice on BG/Q */
+    alg = gasnetc_find_alg(dfltval, metadata, fullcount);
+    if (alg < fullcount) {
+      /* make sure PAMI-allreduce barrier and exitcode reduction will "fit" */
+      pami_metadata_t *md = &metadata[alg];
+      if ((!md->check_correct.values.rangeminmax  || md->range_lo <= sizeof(int)) &&
+          (!md->check_correct.values.rangeminmax  || md->range_hi >= 2*sizeof(uint64_t)) &&
+          (!md->check_correct.values.sendminalign || md->send_min_align >= sizeof(char)) &&
+          (!md->check_correct.values.recvminalign || md->recv_min_align >= sizeof(char))) {
+        break; /* Otherwise fall through */
+      }
+    }
+  #endif
     dfltval = "I0:Binomial:"; /* uniformly "good" on BG/Q and PERCS */
     break;
 
