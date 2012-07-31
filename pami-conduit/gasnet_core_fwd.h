@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_core_fwd.h,v $
- *     $Date: 2012/04/14 01:57:16 $
- * $Revision: 1.3 $
+ *     $Date: 2012/07/31 01:46:55 $
+ * $Revision: 1.4 $
  * Description: GASNet header for PAMI conduit core (forward definitions)
  * Copyright 2012, Lawrence Berkeley National Laboratory
  * Terms of use are as specified in license.txt
@@ -12,6 +12,8 @@
 
 #ifndef _GASNET_CORE_FWD_H
 #define _GASNET_CORE_FWD_H
+
+#include <pami.h>
 
 #define GASNET_CORE_VERSION      0.1
 #define GASNET_CORE_VERSION_STR  _STRINGIFY(GASNET_CORE_VERSION)
@@ -36,6 +38,9 @@
 #else
   #define GASNET_ALIGNED_SEGMENTS   1
 #endif
+
+#define _GASNET_NODE_T
+typedef pami_task_t gasnet_node_t;
 
   /* conduits should define GASNETI_CONDUIT_THREADS to 1 if they have one or more 
      "private" threads which may be used to run AM handlers, even under GASNET_SEQ
