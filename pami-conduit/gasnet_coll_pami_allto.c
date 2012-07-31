@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami_allto.c,v $
- *     $Date: 2012/07/28 22:16:21 $
- * $Revision: 1.7 $
+ *     $Date: 2012/07/31 02:12:11 $
+ * $Revision: 1.8 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -46,6 +46,7 @@ gasnete_coll_pami_alltovi(const gasnet_team_handle_t team,
 
         op = gasnete_op_template_alltovi; /* alltoallv_int */
         op.cookie = (void *)&done;
+        op.algorithm = team->pami.alltovi_alg;
         op.cmd.xfer_alltoallv_int.sndbuf = sndbuf;
         op.cmd.xfer_alltoallv_int.stypecounts = team->pami.counts;
         op.cmd.xfer_alltoallv_int.sdispls = team->pami.displs;
@@ -116,6 +117,7 @@ gasnete_coll_pami_allto(const gasnet_team_handle_t team,
 
         op = gasnete_op_template_allto;
         op.cookie = (void *)&done;
+        op.algorithm = team->pami.allto_alg;
         op.cmd.xfer_alltoall.sndbuf = (/*not-const*/ void *)src;
         op.cmd.xfer_alltoall.stypecount = nbytes;
         op.cmd.xfer_alltoall.rcvbuf = dst;
@@ -140,7 +142,7 @@ gasnete_coll_exchange_pami(gasnet_team_handle_t team,
                            void *dst, void *src, size_t nbytes,
                            int flags GASNETE_THREAD_FARG)
 {
-  if ((team != GASNET_TEAM_ALL) || !gasnete_use_pami_allto
+  if ((team->pami.geom == PAMI_GEOMETRY_NULL) || !gasnete_use_pami_allto
   #if GASNET_PAR
       || (team->multi_images_any && (nbytes > team->pami.scratch_max_nbytes_allto))
   #endif
@@ -168,7 +170,7 @@ gasnete_coll_exchangeM_pami(gasnet_team_handle_t team,
                             void * const srclist[],
                             size_t nbytes, int flags GASNETE_THREAD_FARG)
 {
-  if ((team != GASNET_TEAM_ALL) || !gasnete_use_pami_allto
+  if ((team->pami.geom == PAMI_GEOMETRY_NULL) || !gasnete_use_pami_allto
   #if GASNET_PAR
       || (team->multi_images_any && (nbytes > team->pami.scratch_max_nbytes_allto))
   #endif

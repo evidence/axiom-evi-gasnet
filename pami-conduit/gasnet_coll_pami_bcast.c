@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami_bcast.c,v $
- *     $Date: 2012/07/28 19:07:09 $
- * $Revision: 1.13 $
+ *     $Date: 2012/07/31 02:12:11 $
+ * $Revision: 1.14 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -38,7 +38,8 @@ gasnete_coll_pami_bcast(const gasnet_team_handle_t team, void *dst,
 
         op = gasnete_op_template_bcast;
         op.cookie = (void *)&done;
-        op.cmd.xfer_broadcast.root = gasnetc_endpoint(gasnete_coll_image_node(team, srcimage));
+        op.algorithm = team->pami.bcast_alg;
+        op.cmd.xfer_broadcast.root = gasnetc_endpoint(GASNETE_COLL_REL2ACT(team,gasnete_coll_image_node(team, srcimage)));
         op.cmd.xfer_broadcast.buf  = i_am_root ? (/*not-const*/ void *)src : dst;
         op.cmd.xfer_broadcast.typecount = nbytes;
 
@@ -81,7 +82,7 @@ gasnete_coll_broadcast_pami(gasnet_team_handle_t team, void *dst,
                             gasnet_image_t srcimage, void *src,
                             size_t nbytes, int flags GASNETE_THREAD_FARG)
 {
-  if ((team != GASNET_TEAM_ALL) || !gasnete_use_pami_bcast) {
+  if ((team->pami.geom == PAMI_GEOMETRY_NULL) || !gasnete_use_pami_bcast) {
     /* Use generic implementation for cases we don't (yet) handle, or when disabled */
     gasnet_coll_handle_t handle;
     handle = gasnete_coll_broadcast_nb_default(team,dst,srcimage,src,nbytes,flags,0 GASNETE_THREAD_PASS);
@@ -98,7 +99,7 @@ gasnete_coll_broadcastM_pami(gasnet_team_handle_t team,
                              gasnet_image_t srcimage, void *src,
                              size_t nbytes, int flags GASNETE_THREAD_FARG)
 {
-  if ((team != GASNET_TEAM_ALL) || !gasnete_use_pami_bcast) {
+  if ((team->pami.geom == PAMI_GEOMETRY_NULL) || !gasnete_use_pami_bcast) {
     /* Use generic implementation for cases we don't (yet) handle, or when disabled */
     gasnet_coll_handle_t handle;
     handle = gasnete_coll_broadcastM_nb_default(team,dstlist,srcimage,src,nbytes,flags,0 GASNETE_THREAD_PASS);

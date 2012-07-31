@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended_fwd.h,v $
- *     $Date: 2012/07/28 22:16:21 $
- * $Revision: 1.21 $
+ *     $Date: 2012/07/31 02:12:11 $
+ * $Revision: 1.22 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -48,6 +48,17 @@
 
   #if GASNET_PAR
     #define GASNETE_COLL_TEAM_EXTRA struct {  \
+        /* collective geom & algorithms: */   \
+        pami_geometry_t geom;                 \
+        pami_algorithm_t allga_alg;           \
+        pami_algorithm_t allto_alg;           \
+        pami_algorithm_t bcast_alg;           \
+        pami_algorithm_t gathr_alg;           \
+        pami_algorithm_t scatt_alg;           \
+        pami_algorithm_t allgavi_alg;         \
+        pami_algorithm_t alltovi_alg;         \
+        pami_algorithm_t gathrvi_alg;         \
+        pami_algorithm_t scattvi_alg;         \
         /* for multi-image intermediates: */  \
         size_t scratch_max_nbytes;            \
         size_t scratch_max_nbytes_allto;      \
@@ -60,6 +71,15 @@
         volatile int barrier_phase;           \
         char _pad[GASNETI_CACHE_LINE_BYTES];  \
         gasneti_atomic_t barrier_counter[2];  \
+    } pami;
+  #else
+    #define GASNETE_COLL_TEAM_EXTRA struct {  \
+        pami_geometry_t geom;                 \
+        pami_algorithm_t allga_alg;           \
+        pami_algorithm_t allto_alg;           \
+        pami_algorithm_t bcast_alg;           \
+        pami_algorithm_t gathr_alg;           \
+        pami_algorithm_t scatt_alg;           \
     } pami;
   #endif
 #endif

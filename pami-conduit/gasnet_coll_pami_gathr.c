@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami_gathr.c,v $
- *     $Date: 2012/07/28 22:16:21 $
- * $Revision: 1.9 $
+ *     $Date: 2012/07/31 02:12:11 $
+ * $Revision: 1.10 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -44,7 +44,8 @@ gasnete_coll_pami_gathrvi(const gasnet_team_handle_t team,
 
         op = gasnete_op_template_gathrvi; /* gatherv_int */
         op.cookie = (void *)&done;
-        op.cmd.xfer_gatherv_int.root = gasnetc_endpoint(gasnete_coll_image_node(team, dstimage));
+        op.algorithm = team->pami.gathrvi_alg;
+        op.cmd.xfer_gatherv_int.root = gasnetc_endpoint(GASNETE_COLL_REL2ACT(team,gasnete_coll_image_node(team, dstimage)));
         op.cmd.xfer_gatherv_int.sndbuf = team->pami.scratch_space;
         op.cmd.xfer_gatherv_int.stypecount = nbytes * team->my_images;
 
@@ -107,7 +108,8 @@ gasnete_coll_pami_gathr(const gasnet_team_handle_t team,
 
         op = gasnete_op_template_gathr;
         op.cookie = (void *)&done;
-        op.cmd.xfer_gather.root = gasnetc_endpoint(gasnete_coll_image_node(team, dstimage));
+        op.algorithm = team->pami.gathr_alg;
+        op.cmd.xfer_gather.root = gasnetc_endpoint(GASNETE_COLL_REL2ACT(team,gasnete_coll_image_node(team, dstimage)));
         op.cmd.xfer_gather.sndbuf = (/*not-const*/ void *)src;
         op.cmd.xfer_gather.stypecount = nbytes;
         op.cmd.xfer_gather.rcvbuf = dst;
@@ -133,7 +135,7 @@ gasnete_coll_gather_pami(gasnet_team_handle_t team,
                          void *src, size_t nbytes,
                          int flags GASNETE_THREAD_FARG)
 {
-  if ((team != GASNET_TEAM_ALL) || !gasnete_use_pami_gathr
+  if ((team->pami.geom == PAMI_GEOMETRY_NULL) || !gasnete_use_pami_gathr
   #if GASNET_PAR
       /* TODO: could remove size restriction by segmenting/pipelining */
       || (team->multi_images_any && (nbytes > team->pami.scratch_max_nbytes))
@@ -162,7 +164,7 @@ gasnete_coll_gatherM_pami(gasnet_team_handle_t team,
                           void * const srclist[], size_t nbytes,
                           int flags GASNETE_THREAD_FARG)
 {
-  if ((team != GASNET_TEAM_ALL) || !gasnete_use_pami_gathr
+  if ((team->pami.geom == PAMI_GEOMETRY_NULL) || !gasnete_use_pami_gathr
   #if GASNET_PAR
       /* TODO: could remove size restriction by segmenting/pipelining */
       || (team->multi_images_any && (nbytes > team->pami.scratch_max_nbytes))
