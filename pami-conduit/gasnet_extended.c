@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2012/07/18 03:29:56 $
- * $Revision: 1.27 $
+ *     $Date: 2012/07/31 03:08:26 $
+ * $Revision: 1.28 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -916,8 +916,6 @@ typedef struct {
   int flags, value;              /* notify-time values, compared at try/wait */
 } gasnete_parbarrier_t;
 
-static gasnete_parbarrier_t gasnete_parbarrier_all;
-
 static void gasnete_parbarrier_notify(gasnete_coll_team_t team, int id, int flags) {
   gasnete_parbarrier_t *barr = team->barrier_data;
   
@@ -998,15 +996,28 @@ static int gasnete_parbarrier_try(gasnete_coll_team_t team, int id, int flags) {
 }
 
 static void gasnete_parbarrier_init(gasnete_coll_team_t team) {
-  gasnete_parbarrier_t *barr = &gasnete_parbarrier_all;
+  gasnete_parbarrier_t *barr;
+  pami_geometry_t geom = PAMI_GEOMETRY_NULL;
 
-  /* TODO: generalize to team != ALL? */
-  if (team != GASNET_TEAM_ALL) return;
+  if (team == GASNET_TEAM_ALL)  {
+    geom = gasnetc_world_geom; /* team init not completed yet, sigh */
+  } else {
+  #if GASNET_PAMI_NATIVE_COLL && 0 /* XXX: Disabled pending some tuning work */
+    geom = team->pami.geom;
+  #endif
+  }
+
+  if (geom == PAMI_GEOMETRY_NULL) {
+    /* Not using native collectives for this team (or not at all) */
+    return;
+  }
+
+  barr = gasneti_malloc(sizeof(gasnete_parbarrier_t));
 
   barr->count = barr->done = 0;
 
   memset(&barr->reduce_op, 0, sizeof(pami_xfer_t));
-  gasnetc_dflt_coll_alg(gasnetc_world_geom, PAMI_XFER_ALLREDUCE, &barr->reduce_op.algorithm);
+  gasnetc_dflt_coll_alg(geom, PAMI_XFER_ALLREDUCE, &barr->reduce_op.algorithm);
   barr->reduce_op.cookie = (void *)&barr->done;
   barr->reduce_op.cb_done = &gasnetc_cb_inc_release;
   barr->reduce_op.options.multicontext = PAMI_HINT_DISABLE;
