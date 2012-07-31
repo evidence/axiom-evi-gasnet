@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_team.c,v $
- *     $Date: 2012/07/31 01:33:11 $
- * $Revision: 1.18 $
+ *     $Date: 2012/07/31 02:45:46 $
+ * $Revision: 1.19 $
  *
  * Description: GASNet generic team implementation for collectives 
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
@@ -184,11 +184,6 @@ void gasnete_coll_team_init(gasnet_team_handle_t team,
 
   for (i=0; i<total_ranks; i++) 
     team->rel2act_map[i] = rel2act_map[i];
-
-  if(team!=GASNET_TEAM_ALL) {
-    /*GASNET TEAM ALL already has a barrier attached to it*/
-    gasnete_coll_barrier_init(team, GASNETE_COLL_BARRIER_ENVDEFAULT);
-  }
   
   /* lock the team directory (team_dir) */
   /* add the new team to the directory */
@@ -207,6 +202,11 @@ void gasnete_coll_team_init(gasnet_team_handle_t team,
   gasnete_coll_team_init_conduit(team);
 #endif
   /* unlock */
+
+  if(team!=GASNET_TEAM_ALL) {
+    /*GASNET TEAM ALL already has a barrier attached to it*/
+    gasnete_coll_barrier_init(team, GASNETE_COLL_BARRIER_ENVDEFAULT);
+  }
 }
 
 void gasnete_coll_team_fini(gasnet_team_handle_t team)
