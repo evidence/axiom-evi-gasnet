@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami.c,v $
- *     $Date: 2012/07/31 06:52:01 $
- * $Revision: 1.31 $
+ *     $Date: 2012/08/01 23:58:33 $
+ * $Revision: 1.32 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -265,7 +265,7 @@ static void bootstrap_collective(pami_xfer_t *op_p) {
 }
 
 extern void
-gasnetc_fast_barrier(void) {
+gasnetc_fast_barrier_nothr(void) {
   static pami_xfer_t op;
   static int is_init = 0;
 
@@ -277,7 +277,13 @@ gasnetc_fast_barrier(void) {
 
   bootstrap_collective(&op);
 }
-#define gasnetc_bootstrapBarrier gasnetc_fast_barrier
+
+extern void
+gasnetc_fast_barrier(void) {
+  GASNETC_PAMI_LOCK(gasnetc_context);
+  gasnetc_fast_barrier_nothr();
+  GASNETC_PAMI_UNLOCK(gasnetc_context);
+}
 
 extern void
 gasnetc_bootstrapExchange(void *src, size_t len, void *dst) {
