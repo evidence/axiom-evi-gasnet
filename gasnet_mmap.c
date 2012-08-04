@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2012/05/05 01:05:14 $
- * $Revision: 1.116 $
+ *     $Date: 2012/08/04 23:24:29 $
+ * $Revision: 1.117 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -248,7 +248,9 @@ static const char *gasneti_pshm_makeunique(const char *unique) {
 #else
   const size_t tmpdir_len = 0;
 #endif
+#if !defined(GASNETI_PSHM_SYSV)
   const size_t base_len = tmpdir_len + GASNETI_PSHM_PREFIX_LEN;
+#endif
   int i;
 
   gasneti_assert(strlen(prefix) == GASNETI_PSHM_PREFIX_LEN);
