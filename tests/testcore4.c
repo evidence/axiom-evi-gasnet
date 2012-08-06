@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcore4.c,v $
- *     $Date: 2010/09/16 09:08:38 $
- * $Revision: 1.9 $
+ *     $Date: 2012/08/06 05:12:00 $
+ * $Revision: 1.10 $
  * Description: GASNet Active Messages conformance/correctness test
  * Copyright (c) 2010, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -203,7 +203,7 @@ static void randomize(void) {
 }
 
 int main(int argc, char **argv) {
-  unsigned int seed;
+  unsigned int seed = 0;
   int i;
   gasnet_handlerentry_t htable[] = { 
     HFOREACH(HTABLE)
