@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_core.c,v $
- *     $Date: 2012/07/26 00:37:43 $
- * $Revision: 1.24 $
+ *     $Date: 2012/08/06 06:18:06 $
+ * $Revision: 1.25 $
  * Description: GASNet PAMI conduit Implementation
  * Copyright 2012, Lawrence Berkeley National Laboratory
  * Terms of use are as specified in license.txt
@@ -850,7 +850,21 @@ static void am_Long_dispatch(
   void * const data = (void*)longmsg->addr;
 
   gasneti_assert(head_size == GASNETC_ARGSEND(long, longmsg->numargs));
+
+#if PLATFORM_COMPILER_CLANG
+  if_pf (!recv) { /* PAMI or Clang bug: we've disabled this explicitly! */
+    /* Entire message has arrived - copy data and run now */
+    gasnetc_token_t *token = gasnetc_get_token();
+    memcpy(token, head_addr, head_size);
+    gasneti_assert(pipe_size == longmsg->nbytes);
+    memcpy((void*)longmsg->addr, pipe_addr, pipe_size);
+    run_long(token);
+    gasnetc_put_token(token);
+    return;
+  }
+#else
   gasneti_assert(recv != NULL); /* Due to recv_immediate = PAMI_HINT_DISABLE */
+#endif
 
   { /* Only our header has arrived - setup copy data and async run */
     gasnetc_token_t *token = gasnetc_get_token();
