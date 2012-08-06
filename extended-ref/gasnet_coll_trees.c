@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_trees.c,v $
- *     $Date: 2012/07/20 20:16:41 $
- * $Revision: 1.18 $
+ *     $Date: 2012/08/06 03:46:54 $
+ * $Revision: 1.19 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>, Paul H. Hargrove <PHHargrove@lbl.gov>, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -507,6 +507,7 @@ static tree_node_t make_hiearchical_tree_helper(gasnete_coll_tree_type_t tree_ty
         rootnode = make_fork_tree(temp, j, tree_type->params, tree_type->num_params);
         break;
       default:
+        rootnode = NULL; /* warning suppression */
         gasneti_fatalerror("unknown tree type");
     }
     gasneti_free(temp);
