@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2012/08/07 07:09:51 $
- * $Revision: 1.346 $
+ *     $Date: 2012/08/07 08:01:25 $
+ * $Revision: 1.347 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1917,6 +1917,19 @@
       #define _gasneti_atomic32_read(p)      ((p)->ctr)
       #define _gasneti_atomic32_set(p,v)     ((p)->ctr = (v))
       #define _gasneti_atomic32_init(v)      { (v) }
+
+      static int _gasneti_atomic32_swap(gasneti_atomic32_t *v, uint32_t newval);
+      #pragma mc_func _gasneti_atomic32_swap {\
+	/* ARGS: r3 = v, r4=newval   LOCAL: r0 = tmp */ \
+	"7c001828"	/* 0: lwarx   r0,0,r3	*/ \
+	"7c80192d"	/*    stwcx.  r4,0,r3	*/ \
+	"40a2fff8"	/*    bne-    0b	*/ \
+	"7c030378"	/*    mr      r3,r0	*/ \
+	/* RETURN in r3 = value before swap */ \
+      }
+      #pragma reg_killed_by _gasneti_atomic32_swap cr0, gr0
+      #define _gasneti_atomic_swap _gasneti_atomic32_swap
+      #define GASNETI_HAVE_ATOMIC_SWAP 1
 
       /* XLC machine code functions are very rigid, thus we produce all
        * three read-modify-write ops as distinct functions in order to
