@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2012/05/17 04:21:05 $
- * $Revision: 1.345 $
+ *     $Date: 2012/08/07 07:09:51 $
+ * $Revision: 1.346 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -324,6 +324,20 @@
       #else
 	#define GASNETI_ASM_REGISTER_KEYWORD register
       #endif
+
+      GASNETI_INLINE(_gasneti_atomic32_swap)
+      uint32_t _gasneti_atomic32_swap(gasneti_atomic32_t *v, uint32_t value) {
+        register uint32_t x = value;
+        __asm__ __volatile__(
+                GASNETI_X86_LOCK_PREFIX  /* 'lock' is implied, but is the fence? */
+		"xchgl %0, %1"
+                : "=r" (x)
+                : "m" (v->ctr), "0" (x)
+                : "cc", "memory" /* instead of listing (v->ctr) as an output */ );
+        return x;
+      }
+      #define _gasneti_atomic_swap _gasneti_atomic32_swap
+      #define GASNETI_HAVE_ATOMIC_SWAP 1
 
       #define _gasneti_atomic32_read(p)      ((p)->ctr)
       #define _gasneti_atomic32_set(p,v)     ((p)->ctr = (v))
@@ -1306,6 +1320,18 @@
         #define _gasneti_atomic32_set(p,v)     ((p)->ctr = (v))
         #define _gasneti_atomic32_init(v)      { (v) }
 
+        GASNETI_INLINE(_gasneti_atomic32_swap)
+        uint32_t _gasneti_atomic32_swap(gasneti_atomic32_t *v, uint32_t newval) {
+          register uint32_t volatile * addr = (uint32_t volatile *)(&v->ctr);
+          register uint32_t val = newval;
+          __asm__ __volatile__ ( 
+            "swap %1, %0"   
+            : "+r" (val), "=m" (*addr) );
+          return val;
+        }
+        #define _gasneti_atomic_swap _gasneti_atomic32_swap
+        #define GASNETI_HAVE_ATOMIC_SWAP 1
+
         /* Default impls of inc, dec, dec-and-test, add and sub */
         GASNETI_INLINE(_gasneti_atomic32_fetchadd)
         uint32_t _gasneti_atomic32_fetchadd(gasneti_atomic32_t *v, int32_t op) {
@@ -2092,6 +2118,22 @@
       #define _gasneti_atomic32_addfetch gasneti_atomic32_addandfetch
 
       /* Default impls of inc, dec, dec-and-test, add and sub */
+
+      GASNETI_INLINE(_gasneti_atomic32_swap)
+      uint32_t _gasneti_atomic32_swap(gasneti_atomic32_t *v, uint32_t newval) {
+        register uint32_t oldval;
+        __asm__ __volatile__ ( 
+          "Lga.0.%=:\t"                 /* AIX assembler doesn't grok "0:"-type local labels */
+          "lwarx    %0,0,%2 \n\t" 
+          "stwcx.   %3,0,%2 \n\t"
+          "bne-     Lga.0.%= \n\t" 
+          : "=&r"(oldval), "=m" (v->ctr)
+          : "r" (v), "r"(newval) , "m"(v->ctr)
+          : "cr0");
+        return oldval;
+      }
+      #define _gasneti_atomic_swap _gasneti_atomic32_swap
+      #define GASNETI_HAVE_ATOMIC_SWAP 1
 
       GASNETI_INLINE(_gasneti_atomic32_compare_and_swap)
       int _gasneti_atomic32_compare_and_swap(gasneti_atomic32_t *p, uint32_t oldval, uint32_t newval) {
