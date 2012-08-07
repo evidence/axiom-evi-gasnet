@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2012/08/07 08:01:25 $
- * $Revision: 1.347 $
+ *     $Date: 2012/08/07 09:05:05 $
+ * $Revision: 1.348 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -993,6 +993,10 @@
                     (__fetchadd4_acq((unsigned int *)&((p)->ctr),-1) == 1)
       #define _gasneti_atomic32_compare_and_swap(p,oval,nval) \
                     (_InterlockedCompareExchange_acq((volatile unsigned int *)&((p)->ctr),nval,oval) == (oval))
+      /* xchg documented as ALWAYS _acq: */
+      #define _gasneti_atomic_swap(p,nval) \
+                    _InterlockedExchange((volatile unsigned int *)&((p)->ctr),nval)
+      #define GASNETI_HAVE_ATOMIC_SWAP 1
 
       #define GASNETI_HAVE_ATOMIC64_T 1
       typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
@@ -1008,6 +1012,18 @@
 
       /* See fence treatment after #endif */
     #elif PLATFORM_COMPILER_GNU
+      GASNETI_INLINE(gasneti_atomic32_xchg)
+      uint32_t gasneti_atomic32_xchg(uint32_t volatile *ptr, uint32_t newval) {
+        uint64_t tmp;
+        __asm__ __volatile__ 
+        #if PLATFORM_ARCH_64
+            ("xchg4 %0=[%1],%2" : "=r"(tmp) : "r"(ptr), "r"(newval) );
+        #else
+            ("addp4 %1=0,%1;;\n\t"
+             "xchg4 %0=[%1],%2" : "=r"(tmp), "+r"(ptr) :  "r"(newval) );
+        #endif
+        return (uint32_t) tmp;
+      }
       GASNETI_INLINE(gasneti_atomic32_cmpxchg)
       uint32_t gasneti_atomic32_cmpxchg(uint32_t volatile *ptr, uint32_t oldval, uint32_t newval) {
         uint64_t tmp = oldval;
@@ -1094,6 +1110,8 @@
       #define _gasneti_atomic32_decrement_and_test(p) (gasneti_atomic32_fetchanddec(&((p)->ctr)) == 1)
       #define _gasneti_atomic32_compare_and_swap(p,oval,nval) \
         (gasneti_atomic32_cmpxchg(&((p)->ctr),oval,nval) == (oval))
+      #define _gasneti_atomic_swap(p,nval)   (gasneti_atomic32_xchg(&((p)->ctr),nval))
+      #define GASNETI_HAVE_ATOMIC_SWAP 1
 
       #define GASNETI_HAVE_ATOMIC64_T 1
       typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
