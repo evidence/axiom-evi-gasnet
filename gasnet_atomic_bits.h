@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2012/08/07 09:05:05 $
- * $Revision: 1.348 $
+ *     $Date: 2012/08/07 09:42:26 $
+ * $Revision: 1.349 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1656,6 +1656,17 @@
 
         /* Default impls of inc, dec, dec-and-test, add and sub */
         #define _gasneti_atomic_fetchadd gasneti_atomic_fetchandadd_32
+
+        GASNETI_INLINE(_gasneti_atomic_swap)
+        uint32_t _gasneti_atomic_swap(gasneti_atomic_t *p, uint32_t newval) {
+          uint32_t tmp = gasneti_checkout_32(p);
+          const uint32_t oldval = (tmp & ~GASNETI_ATOMIC_PRESENT);
+          gasneti_assert(tmp & GASNETI_ATOMIC_PRESENT);
+          p->ctr = (GASNETI_ATOMIC_PRESENT | newval);
+          return oldval;
+        }
+        #define _gasneti_atomic_swap _gasneti_atomic_swap
+        #define GASNETI_HAVE_ATOMIC_SWAP 1
 
         GASNETI_INLINE(_gasneti_atomic_compare_and_swap)
         int _gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, uint32_t oldval, uint32_t newval) {
