@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testnbr.c,v $
- *     $Date: 2012/02/28 07:15:45 $
- * $Revision: 1.23 $
+ *     $Date: 2012/08/07 22:37:13 $
+ * $Revision: 1.24 $
  * Description: MG-like Neighbor exchange
  * Copyright 2005, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -907,10 +907,10 @@ ghostExchUPCMG(nbr_t *nb, int iters, int axis_in, int pairwise_sync)
 	    }
 
 	    if (hput1 != GASNET_INVALID_HANDLE) 
-		ge_wait(nb, GHOST_DIR_UPPER, axis);
+		ge_wait(nb, GHOST_DIR_LOWER, axis);
 
 	    if (hput2 != GASNET_INVALID_HANDLE) 
-		ge_wait(nb, GHOST_DIR_LOWER, axis);
+		ge_wait(nb, GHOST_DIR_UPPER, axis);
 	}
 	end = TIME();
 	BARRIER(); /* don't include the barrier time */
@@ -993,7 +993,7 @@ ghostExchGASNetNonBlock(nbr_t *nb, int iters, int axis_in, int pairwise_sync)
 		for (face=0; face<2; face++) {
 		    if (rfacedone[face])
 			continue;
-		    syncflag = NBR_SYNCADDR(nb->DirSync[myproc], axis, face, 0);
+		    syncflag = NBR_SYNCADDR(nb->DirSync[myproc], axis, !face, 0);
 		    if (*syncflag != 0) {
 			/* Unless the axis is contiguous, unpack data */
 			if (axis != AZ) {
