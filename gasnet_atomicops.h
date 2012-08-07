@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2012/08/07 07:09:51 $
- * $Revision: 1.210 $
+ *     $Date: 2012/08/07 07:16:28 $
+ * $Revision: 1.211 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -415,19 +415,12 @@
 
 /* ------------------------------------------------------------------------------------ */
 /* Default atomic swap in terms of compare-and-swap.
- *
- * NOTE: The arch-specific x86/x86-64 version has beem written and tested using the
- *       "AM Ping-pong vs. spin-AMPoll" case from testcontend-par.  The finding is
- *       that using "xchgl" vs. the loop on "cmpxcgl" shows NO positive benefit,
- *       and might even hurt (though variance is too high to say that for certain).
- * NOTE: The PPC-specific "lwarx/stwcx" version *does* show measurable improvement
- *       in both uncontended (testam-seq) and contended (testcontend-par) cases.
- * NOTE: The SPARCv9 "swap" version does shows mixed results.  The AMShort latency
+ * XXX: DISABLED - this is NOT a uniformly supported atomic and algorithms that
+ *      might productively use SWAP should be aware if they are using CAS instead.
  *       (testam-seq) is HALVED, but contended (testcontend-par) performance drops.
  *
  * TODO: SWAP not defined yet for GENERIC or WEAK because the need for a temporary
- *       doesn't fit the established _gasneti_scalar_atomic_FOO pattern.  However,
- *       until I am conviced of the benefit, I am not yet doing the extra work.
+ *       doesn't fit the established _gasneti_scalar_atomic_FOO pattern.
  */
 
 #if defined(GASNETI_HAVE_ATOMIC_SWAP)
@@ -436,8 +429,10 @@
   /* No default swap built when using "slow" atomics. */
 #elif defined(GASNETI_USE_GENERIC_ATOMICOPS)
   /* No default swap built when using "generic" atomics (at least not yet). */
-#elif defined (GASNETI_HAVE_ATOMIC_CAS) \
+#elif 0 /* DISABLED */
+/*    defined (GASNETI_HAVE_ATOMIC_CAS) \
    || defined(gasneti_atomic_compare_and_swap) || defined(_gasneti_atomic_compare_and_swap)
+*/
     /* If needed, build swap from compare-and-swap. */
     GASNETI_INLINE(_gasneti_atomic_swap)
     gasneti_atomic_val_t _gasneti_atomic_swap(gasneti_atomic_t *p, gasneti_atomic_val_t val) {
