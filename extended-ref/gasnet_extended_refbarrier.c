@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/02/28 03:42:46 $
- * $Revision: 1.88 $
+ *     $Date: 2012/08/08 20:08:03 $
+ * $Revision: 1.89 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -815,26 +815,11 @@ static void gasnete_amdbarrier_init(gasnete_coll_team_t team) {
     gasneti_leak(barrier_data->amdbarrier_peers);
   
     for (step = 0; step < steps; ++step) {
-      /* No need for a full mod because worst case is < 2*team->total_ranks.
-       * However, we must take care for overflow if we try to do the
-       * arithmetic in gasnet_node_t.  An example is gasnet_node_t
-       * of uint8_t and team->total_ranks=250 nodes.  The largest value of
-       * gasnet_mynode is 249 and the largest value of 2^step is 128.
-       * We can't compute (249 + 128) mod 250 in 8-bit arithmetic.
-       * If we are using GASNET_MAXNODES <= INT_MAX then we can
-       * fit the arithmetic into unsigned integers (32-bit example is
-       * 0x7ffffffe + 0x40000000 = 0xbffffffe).  Otherwise we are
-       * confident that 64-bit integers are ALWAYS large enough.
-       */
-    #if (GASNET_MAXNODES <= INT_MAX)
-      unsigned int tmp;
-    #else
-      uint64_t tmp;
-    #endif
-      gasnet_node_t peer;
+      gasnet_node_t distance, tmp, peer;
 
-      tmp = (1 << step) + myrank;
-      peer = (tmp >= total_ranks) ? (tmp - total_ranks) : tmp;
+      distance = (1 << step);
+      tmp = total_ranks - myrank;
+      peer = (distance < tmp) ? (distance + myrank) : (distance - tmp); /* mod N w/o overflow */
       gasneti_assert(peer < total_ranks);
 
 #if GASNETI_PSHM_BARRIER_HIER
