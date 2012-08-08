@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2012/08/07 10:46:27 $
- * $Revision: 1.350 $
+ *     $Date: 2012/08/08 11:32:26 $
+ * $Revision: 1.351 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2363,15 +2363,16 @@
 
       GASNETI_INLINE(_gasneti_atomic32_swap)
       uint32_t _gasneti_atomic32_swap(gasneti_atomic32_t *p, uint32_t newval) {
-        uint32_t retval;
+        uint32_t retval, tmp;
 	__asm__ __volatile__(
 		".set	mips2		\n\t"
 		"1:			\n\t"
-GASNETI_MIPS_LL("ll	%0,0(%3)	\n\t")
-		"sc	%2,0(%3)	\n\t"
+		"move	%1,%3		\n\t"
+GASNETI_MIPS_LL("ll	%0,0(%4)	\n\t")
+		"sc	%1,0(%4)	\n\t"
 		GASNETI_MIPS_RETRY("%1,1b")
 		".set	mips0		\n\t"
-		: "=&r" (retval), "=m" (p->ctr)
+		: "=&r" (retval), "=&r" (tmp), "=m" (p->ctr)
 		: "r" (newval), "r" (p), "m" (p->ctr) );
 	return retval;
       }
