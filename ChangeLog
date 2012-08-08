@@ -1,6 +1,20 @@
 GASNet ChangeLog 
 ----------------
-$Revision: 1.56 $
+$Revision: 1.57 $
+
+----------------------------------------------------------------------
+??-??-2012 : Release 1.20.0
+
+* PLACEHOLDER
+
+* IBM PAMI (pami-conduit)
+  - This release now implements GASNet's collectives via the PAMI
+    collectives, yielding much-improved performance in many cases.
+
+* PSHM (intra-node shared memory)
+  - Active Messages over shared-memory have been reimplemented using
+    Nemesis lock-free queues, yielding improved performance and lowering
+    the memory required from quadratic to linear in cores-per-node.
 
 ----------------------------------------------------------------------
 05-14-2012 : Release 1.18.2
