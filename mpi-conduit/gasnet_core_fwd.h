@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/gasnet_core_fwd.h,v $
- *     $Date: 2012/07/31 01:54:28 $
- * $Revision: 1.31 $
+ *     $Date: 2012/08/10 23:04:08 $
+ * $Revision: 1.32 $
  * Description: GASNet header for MPI conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -39,7 +39,8 @@
   #endif
 #endif
 
-/* conduit allows internal GASNet fns to issue put/get for remote addrs out of segment */
+  /* define to 1 if conduit allows internal GASNet fns to issue put/get for remote
+     addrs out of segment - not true when PSHM is used */
 #if !GASNET_PSHM
 #define GASNETI_SUPPORTS_OUTOFSEGMENT_PUTGET 1
 #endif

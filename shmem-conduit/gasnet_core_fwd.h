@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_core_fwd.h,v $
- *     $Date: 2010/06/27 03:56:44 $
- * $Revision: 1.18 $
+ *     $Date: 2012/08/10 23:04:16 $
+ * $Revision: 1.19 $
  * Description: GASNet header for shmem conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -30,6 +30,12 @@
   /*  at the same virtual address on all nodes. defined to 0 otherwise */
 /* GASNETI_DISABLE_ALIGNED_SEGMENTS is trivially satisfied */
 #define GASNET_ALIGNED_SEGMENTS   0 
+
+  /* define to 1 if conduit allows internal GASNet fns to issue put/get for remote
+     addrs out of segment - not true when PSHM is used */
+#if 0
+#define GASNETI_SUPPORTS_OUTOFSEGMENT_PUTGET 1
+#endif
 
   /* conduits should define GASNETI_CONDUIT_THREADS to 1 if they have one or more 
      "private" threads which may be used to run AM handlers, even under GASNET_SEQ

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core_fwd.h,v $
- *     $Date: 2012/07/31 01:54:24 $
- * $Revision: 1.35 $
+ *     $Date: 2012/08/10 23:04:00 $
+ * $Revision: 1.36 $
  * Description: GASNet header for elan conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -34,6 +34,12 @@ GASNETI_BEGIN_EXTERNC
   #define GASNET_ALIGNED_SEGMENTS   0 /* user or PSHM disabled segment alignment */
 #else
   #define GASNET_ALIGNED_SEGMENTS   1
+#endif
+
+  /* define to 1 if conduit allows internal GASNet fns to issue put/get for remote
+     addrs out of segment - not true when PSHM is used */
+#if (defined(GASNETC_ELAN4) || PLATFORM_ARCH_32) && !GASNET_PSHM
+#define GASNETI_SUPPORTS_OUTOFSEGMENT_PUTGET 1
 #endif
 
   /* define these to 1 if your conduit supports PSHM, but cannot use the
@@ -79,10 +85,6 @@ extern void gasnetc_fatalsignal_callback(int sig);
      (e.g. with a signal) to run AM handlers (interrupt-based handler dispatch)
    */
 /* #define GASNETC_USE_INTERRUPTS 1 */
-
-#if (defined(GASNETC_ELAN4) || PLATFORM_ARCH_32) && !GASNET_PSHM
-  #define GASNETI_SUPPORTS_OUTOFSEGMENT_PUTGET 1
-#endif
 
 GASNETI_END_EXTERNC
 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core_fwd.h,v $
- *     $Date: 2012/05/13 04:45:52 $
- * $Revision: 1.6 $
+ *     $Date: 2012/08/10 23:04:02 $
+ * $Revision: 1.7 $
  * Description: GASNet header for <conduitname> conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -38,6 +38,12 @@
   #define GASNET_ALIGNED_SEGMENTS   0 /* user or PSHM disabled segment alignment */
 #else
   #define GASNET_ALIGNED_SEGMENTS   ###
+#endif
+
+  /* define to 1 if conduit allows internal GASNet fns to issue put/get for remote
+     addrs out of segment - not true when PSHM is used */
+#if 0
+#define GASNETI_SUPPORTS_OUTOFSEGMENT_PUTGET 1
 #endif
 
   /* conduits should define GASNETI_CONDUIT_THREADS to 1 if they have one or more 

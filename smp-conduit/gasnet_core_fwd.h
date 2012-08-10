@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_core_fwd.h,v $
- *     $Date: 2011/12/10 05:32:17 $
- * $Revision: 1.22 $
+ *     $Date: 2012/08/10 23:04:18 $
+ * $Revision: 1.23 $
  * Description: GASNet header for smp conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -50,6 +50,12 @@
   GASNETI_EXTERNC int gasnetc_AMPoll(void);
 #else
   #define gasnetc_AMPoll()        GASNET_OK  /* nothing to do */
+#endif
+
+  /* define to 1 if conduit allows internal GASNet fns to issue put/get for remote
+     addrs out of segment - not true when PSHM is used */
+#if 0
+#define GASNETI_SUPPORTS_OUTOFSEGMENT_PUTGET 1
 #endif
 
   /* conduits should define GASNETI_CONDUIT_THREADS to 1 if they have one or more 
