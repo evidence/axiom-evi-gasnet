@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_fwd.h,v $
- *     $Date: 2012/05/10 04:30:53 $
- * $Revision: 1.29 $
+ *     $Date: 2012/08/13 03:51:05 $
+ * $Revision: 1.30 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -32,6 +32,10 @@ typedef struct _gasnete_op_t *gasnet_handle_t;
         GASNETI_VIS_STATS(CNT,VAL,TIME)      \
         GASNETI_COLL_STATS(CNT,VAL,TIME)     \
         CNT(C, DYNAMIC_THREADLOOKUP, cnt)    
+
+#define GASNETE_AUXSEG_DECLS \
+    extern gasneti_auxseg_request_t gasnete_barr_auxseg_alloc(gasnet_seginfo_t *auxseg_info);
+#define GASNETE_AUXSEG_FNS() gasnete_barr_auxseg_alloc, 
 
 /*
  * When implementing a conduit-specific implementation of the Extended API, one
