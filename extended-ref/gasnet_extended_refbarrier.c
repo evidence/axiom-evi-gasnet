@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/08/13 03:51:05 $
- * $Revision: 1.90 $
+ *     $Date: 2012/08/13 19:59:37 $
+ * $Revision: 1.91 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -534,7 +534,7 @@ void gasnete_amdbarrier_kick(gasnete_coll_team_t team) {
   if (step == barrier_data->amdbarrier_size || !barrier_data->amdbarrier_step_done[phase][step]) 
     return; /* nothing to do */
 
-  gasneti_assert(team->total_ranks > 1);
+  gasneti_assert(team->total_ranks > 1); /* singleton should have matched step==size, above */
 
   gasnet_hsl_lock(&barrier_data->amdbarrier_lock);
     phase = barrier_data->amdbarrier_phase;
@@ -945,8 +945,6 @@ void gasnete_rmdbarrier_kick(gasnete_coll_team_t team) {
   int cursor, numsteps = 0;
   int flags, value;
 
-  gasneti_assert(team->total_ranks > 1);
-
   /* early unlocked reads: */
   phase = barrier_data->barrier_phase;
   step = barrier_data->barrier_step;
@@ -954,6 +952,8 @@ void gasnete_rmdbarrier_kick(gasnete_coll_team_t team) {
   if (step == barrier_data->barrier_size ||
       !gasnete_rmdbarrier_poll(GASNETE_RDMABARRIER_INBOX(barrier_data,phase,step)))
     return; /* nothing to do */
+
+  gasneti_assert(team->total_ranks > 1); /* singleton should have matched step==size, above */
 
   if (gasneti_mutex_trylock(&barrier_data->barrier_lock))
     return; /* another thread is currently in kick or notify */
