@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2012/03/09 00:20:15 $
- * $Revision: 1.108 $
+ *     $Date: 2012/08/14 20:58:25 $
+ * $Revision: 1.109 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -353,7 +353,7 @@ static void kill_one(const char *rem_host, pid_t rem_pid) {
     }
   }
   BOOTSTRAP_VERBOSE(("[-1] Pid %d killing %s:%d\n", (int)pid, rem_host, (int)rem_pid));
-  if (!is_local) gasneti_atomic_increment(&live, 0);
+  gasneti_atomic_increment(&live, 0);
 }
 
 static void clean_up(void)
