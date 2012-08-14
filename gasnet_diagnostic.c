@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_diagnostic.c,v $
- *     $Date: 2012/08/14 04:01:16 $
- * $Revision: 1.37 $
+ *     $Date: 2012/08/14 22:11:37 $
+ * $Revision: 1.38 $
  * Description: GASNet internal diagnostics
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -637,24 +637,33 @@ static void atomicswap_test(int id) {
     for (j = id; j < limit; j += num_threads) {
       gasneti_atomic_val_t idx = gasneti_atomic_swap(&var, j, 0);
       if_pt (idx != GASNETI_ATOMIC_MAX) {
-        ++array[idx];
+        if (array[idx] != 0)
+          ERR("gasneti_atomic_swap produced a duplicate value %d", idx);
+        array[idx] = 1;
       }
     }
-  }
 
-  PTHREAD_BARRIER(num_threads);
+    PTHREAD_BARRIER(num_threads);
 
-  if (0 == id) {
-    /* One final swap to simplify the validation */
-    gasneti_atomic_val_t idx = gasneti_atomic_swap(&var, GASNETI_ATOMIC_MAX, 0);
-    ++array[idx];
+    if (0 == id) {
+      /* One final swap to simplify the validation */
+      gasneti_atomic_val_t idx = gasneti_atomic_swap(&var, GASNETI_ATOMIC_MAX, 0);
+      if (array[idx] != 0)
+        ERR("gasneti_atomic_swap produced a duplicate value %d", i);
+      array[idx] = 1;
     
-    /* Now scan the array to ensure no values were missed */
-    for (i = 0; i < limit; ++i) {
-      if (array[i] != iters0)
-        ERR("gasneti_atomic_swap missed an update at %d", i);
+      /* Now scan the array to ensure no values were missed */
+      for (idx = 0; idx < limit; ++idx) {
+        if (array[idx] != 1)
+          ERR("gasneti_atomic_swap missed an update at %d", idx);
+        array[idx] = 0; /* reset for next iteration */
+      }
     }
 
+    PTHREAD_BARRIER(num_threads);
+  }
+
+  if (0 == id) {
     gasneti_free(array);
   }
     
