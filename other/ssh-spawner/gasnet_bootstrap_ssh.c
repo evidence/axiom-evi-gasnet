@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2012/08/14 20:58:25 $
- * $Revision: 1.109 $
+ *     $Date: 2012/08/15 01:30:00 $
+ * $Revision: 1.110 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -202,6 +202,7 @@ static const int c_zero = 0;
   static int finalized = 0;
   static gasneti_atomic_t live = gasneti_atomic_init(0);
   static volatile int in_abort = 0;
+  static unsigned int conn_delay = 0;
 #if GASNETI_SSH_TOPO_NARY
   static gasnet_node_t out_degree = GASNETI_SSH_NARY_DEGREE;
   static gasnet_node_t *by_weight = NULL;
@@ -854,6 +855,13 @@ static void configure_ssh(void) {
   int optcount = 0;
   int i, argi;
 
+  env_string = my_getenv_withdefault(ENV_PREFIX "SSH_RATE", GASNETI_DEFAULT_SSH_RATE);
+  if (env_string && env_string[0]) {
+    i = atoi(env_string);
+    if (i > 0) conn_delay = 1000000 / i; /* usec between connections to same host */
+    else conn_delay = 0;
+  }
+
   /* Determine the ssh command */
   ssh_argv0 = my_getenv_withdefault(ENV_PREFIX "SSH_CMD", GASNETI_DEFAULT_SSH_CMD);
   if (ssh_argv0 == NULL) {
@@ -1304,6 +1312,27 @@ static void spawn_one(gasnet_node_t child_id, char *myhost) {
   int is_local = (GASNETI_BOOTSTRAP_LOCAL_SPAWN && (!host || !strcmp(host, myhost)));
 
   child[child_id].pid = pid = fork();
+
+  if (conn_delay && (child_id > 0) && !is_local) { /* Rate-limit connections made to the same host */
+    gasnet_node_t prev_id = child_id - 1;
+    const char *prev_host = child[prev_id].nodelist ? child[prev_id].nodelist[0] : nodelist[0];
+    if (0 == strcmp(host, prev_host)) {
+      /* TODO: Factor - this logic also used in vapi-conduit/gasnet_core_thread.c */
+#if HAVE_USLEEP
+      usleep(conn_delay);
+#elif HAVE_NANOSLEEP
+      uint64_t ns_delay = 1000 * conn_delay;
+      struct timespec ts = { ns_delay / 1000000000L, conn_delay % 1000000000L };
+      nanosleep(&ts, NULL);
+#elif HAVE_NSLEEP
+      uint64_t ns_delay = 1000 * conn_delay;
+      struct timespec ts = { ns_delay / 1000000000L, conn_delay % 1000000000L };
+      nsleep(&ts, NULL);
+#else
+      gasneti_yield();
+#endif
+    }
+  }
 
   if (pid < 0) {
     gasneti_fatalerror("fork() failed");
