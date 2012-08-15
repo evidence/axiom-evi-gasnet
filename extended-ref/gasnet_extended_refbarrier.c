@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/08/14 04:06:34 $
- * $Revision: 1.92 $
+ *     $Date: 2012/08/15 02:16:50 $
+ * $Revision: 1.93 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1286,6 +1286,13 @@ static void gasnete_rmdbarrier_init(gasnete_coll_team_t team) {
       barrier_data->barrier_peers[step].addr = (uintptr_t)gasnete_rmdbarrier_auxseg[node].addr;
     }
   }
+#if !GASNETI_THREADS
+  else {
+    /* simplifies the sync path(s) */
+    barrier_data->barrier_handles = gasneti_calloc(1, sizeof(gasnet_handle_t));
+  }
+#endif
+
   gasneti_free(gasnete_rmdbarrier_auxseg);
 
 #if GASNETI_PSHM_BARRIER_HIER
