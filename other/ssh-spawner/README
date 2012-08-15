@@ -1,7 +1,7 @@
 README file for ssh-spawner
 ================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.9 $
+$Revision: 1.10 $
 
 See vapi-conduit for an example of how to use this code in a conduit.
 
@@ -137,6 +137,14 @@ compute nodes, but this is not required.
   In all cases the compute nodes must be capable of resolving the
   hostname of the master.
 
++ If you see errors starting a large number of processes per node,
+  but have no trouble with a lesser number, then you may need to
+  raise one or both of the following in your sshd's configuration:
+    MaxSessions 
+    MaxStartups
+  If you do not have the ability to change these, a lower value
+  of the GASNET_SSH_RATE environment variable may allow you to
+  work-around a too small value of MaxStartups.
 
 GASNet Developers:
 
