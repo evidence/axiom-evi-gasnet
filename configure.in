@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2012/08/15 01:29:58 $
-# $Revision: 1.760 $
+#     $Date: 2012/08/15 21:45:15 $
+# $Revision: 1.761 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.760 $)
+AC_REVISION($Revision: 1.761 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -4358,7 +4358,7 @@ GASNET_WITH(ssh-nodefile,
 AC_DEFINE_UNQUOTED(GASNETI_DEFAULT_SSH_NODEFILE, "$gasnet_ssh_nodefile")
 
 GASNET_WITH(ssh-rate,
-   [default value for GASNET_SSH_RATE environment variable (defaults to 20)],
+   [default value for GASNET_SSH_RATE environment variable (defaults to 0 - no rate limit)],
    [case "$withval" in
       yes|no) AC_MSG_ERROR([--with-ssh-rate requires an argument]) ;;
            *) if expr "$withval" : '[[0-9]]*$' >/dev/null; then
@@ -4369,7 +4369,7 @@ GASNET_WITH(ssh-rate,
               ;;
     esac],
    [AC_MSG_ERROR([--with-ssh-rate requires an argument])],
-   [gasnet_ssh_rate="20"])
+   [gasnet_ssh_rate="0"])
 AC_DEFINE_UNQUOTED(GASNETI_DEFAULT_SSH_RATE, "$gasnet_ssh_rate")
     
 GASNET_WITH(ssh-topology,
