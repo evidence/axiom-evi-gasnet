@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testbarrier.c,v $
- *     $Date: 2012/07/18 09:15:26 $
- * $Revision: 1.21 $
+ *     $Date: 2012/08/16 22:11:04 $
+ * $Revision: 1.22 $
  * Description: GASNet barrier performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -17,6 +17,18 @@
 #endif
 
 int mynode, nodes, iters = 0;
+
+static int do_try = 0;
+GASNETT_INLINE(my_barrier_wait)
+int my_barrier_wait(int value, int flags) {
+  int rc;
+  if (do_try) {
+    do { rc = gasnet_barrier_try(value, flags); } while (rc == GASNET_ERR_NOT_READY);
+  } else {
+    rc = gasnet_barrier_wait(value, flags); 
+  }
+  return rc;
+}
 
 #define hidx_done_shorthandler   200
 volatile int done = 0;
@@ -35,14 +47,15 @@ int main(int argc, char **argv) {
   GASNET_Safe(gasnet_attach(htable, 1, TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
 
 #if GASNET_PAR
-  test_init("testbarrier", 1, "[-p polling_threads] (iters)");
+  test_init("testbarrier", 1, "[-t] [-p polling_threads] (iters)");
 #else
-  test_init("testbarrier", 1, "(iters)");
+  test_init("testbarrier", 1, "[-t] (iters)");
 #endif
   mynode = gasnet_mynode();
   nodes = gasnet_nodes();
 
-  if ((argc-arg >= 2) && !strcmp(argv[arg], "-p")) {
+  while (argc-arg >= 2) {
+   if (!strcmp(argv[arg], "-p")) {
 #if GASNET_PAR
     pollers = atoi(argv[arg+1]);
     arg += 2;
@@ -55,6 +68,10 @@ int main(int argc, char **argv) {
     sleep(1);
     gasnet_exit(1);
 #endif
+   } else if (!strcmp(argv[arg], "-t")) {
+    do_try = 1;
+    arg += 1;
+   }
   }
   if (argc-arg >= 1) iters = atoi(argv[arg]);
   if (!iters) iters = 10000;
@@ -93,7 +110,7 @@ static void * doTest(void *arg) {
   start = TIME();
   for (i=0; i < iters; i++) {
     gasnet_barrier_notify(i, 0);            
-    GASNET_Safe(gasnet_barrier_wait(i, 0)); 
+    GASNET_Safe(my_barrier_wait(i, 0)); 
   }
   total = TIME() - start;
 
@@ -109,7 +126,7 @@ static void * doTest(void *arg) {
   start = TIME();
   for (i=0; i < iters; i++) {
     gasnet_barrier_notify(0, GASNET_BARRIERFLAG_ANONYMOUS);            
-    GASNET_Safe(gasnet_barrier_wait(0, GASNET_BARRIERFLAG_ANONYMOUS)); 
+    GASNET_Safe(my_barrier_wait(0, GASNET_BARRIERFLAG_ANONYMOUS)); 
   }
   total = TIME() - start;
 
@@ -135,7 +152,7 @@ static void * doTest(void *arg) {
       int value = parity ? iters : 0;
       int flags = parity ? 0 : GASNET_BARRIERFLAG_ANONYMOUS;
       gasnet_barrier_notify(value, flags);
-      GASNET_Safe(gasnet_barrier_wait(value, flags)); 
+      GASNET_Safe(my_barrier_wait(value, flags)); 
     }
     total = TIME() - start;
 
