@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_extended.c,v $
- *     $Date: 2011/02/09 08:00:40 $
- * $Revision: 1.37 $
+ *     $Date: 2012/08/16 18:47:06 $
+ * $Revision: 1.38 $
  * Description: GASNet Extended API SHMEM Implementation
  * Copyright 2003, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -204,7 +204,9 @@ static void gasnete_shmembarrier_notify(gasnete_coll_team_t team, int id, int fl
 static int gasnete_shmembarrier_wait(gasnete_coll_team_t team, int id, int flags);
 static int gasnete_shmembarrier_try(gasnete_coll_team_t team, int id, int flags);
 
-#define GASNETE_BARRIER_DEFAULT "SHMEM"
+/* RDMADISSEM is faster and more scalable than the current shmem-specific barrier */
+#define GASNETE_BARRIER_DEFAULT "RDMADISSEM"
+
 #define GASNETE_BARRIER_READENV() do { \
   if(GASNETE_ISBARRIER("SHMEM")) gasnete_coll_default_barrier_type = GASNETE_COLL_BARRIER_SHMEM; \
 } while (0)
