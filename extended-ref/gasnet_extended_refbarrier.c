@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/08/15 02:16:50 $
- * $Revision: 1.93 $
+ *     $Date: 2012/08/16 22:32:08 $
+ * $Revision: 1.94 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -742,7 +742,6 @@ static int gasnete_amdbarrier_try(gasnete_coll_team_t team, int id, int flags) {
     gasneti_fatalerror("gasnet_barrier_try() called without a matching notify");
 
   GASNETI_SAFE(gasneti_AMPoll());
-  gasnete_amdbarrier_kick(team);
 
 #if GASNETI_PSHM_BARRIER_HIER
   if (barrier_data->amdbarrier_pshm) {
@@ -752,7 +751,9 @@ static int gasnete_amdbarrier_try(gasnete_coll_team_t team, int id, int flags) {
     if (passive_shift)
       return gasnete_amdbarrier_wait(team, id, flags);
   }
+  if (!barrier_data->amdbarrier_passive)
 #endif
+    gasnete_amdbarrier_kick(team);
 
   if (barrier_data->amdbarrier_step == barrier_data->amdbarrier_size) return gasnete_amdbarrier_wait(team, id, flags);
   else return GASNET_ERR_NOT_READY;
@@ -1197,7 +1198,6 @@ static int gasnete_rmdbarrier_try(gasnete_coll_team_t team, int id, int flags) {
     gasneti_fatalerror("gasnet_barrier_try() called without a matching notify");
 
   GASNETI_SAFE(gasneti_AMPoll());
-  gasnete_rmdbarrier_kick(team);
 
 #if GASNETI_PSHM_BARRIER_HIER
   if (barrier_data->barrier_pshm) {
@@ -1207,7 +1207,9 @@ static int gasnete_rmdbarrier_try(gasnete_coll_team_t team, int id, int flags) {
     if (passive_shift)
       return gasnete_rmdbarrier_wait(team, id, flags);
   }
+  if (!barrier_data->barrier_passive)
 #endif
+    gasnete_rmdbarrier_kick(team);
 
   if (barrier_data->barrier_step == barrier_data->barrier_size) return gasnete_rmdbarrier_wait(team, id, flags);
   else return GASNET_ERR_NOT_READY;
@@ -1564,7 +1566,6 @@ static int gasnete_amcbarrier_try(gasnete_coll_team_t team, int id, int flags) {
     gasneti_fatalerror("gasnet_barrier_try() called without a matching notify");
 
   GASNETI_SAFE(gasneti_AMPoll());
-  gasnete_amcbarrier_kick(team);
 
 #if GASNETI_PSHM_BARRIER_HIER
   if (barrier_data->amcbarrier_pshm) {
@@ -1574,7 +1575,9 @@ static int gasnete_amcbarrier_try(gasnete_coll_team_t team, int id, int flags) {
     if (passive_shift)
       return gasnete_amcbarrier_wait(team, id, flags);
   }
+  if (!barrier_data->amcbarrier_passive)
 #endif
+    gasnete_amcbarrier_kick(team);
 
   if (barrier_data->amcbarrier_response_done[barrier_data->amcbarrier_phase]) return gasnete_amcbarrier_wait(team, id, flags);
   else return GASNET_ERR_NOT_READY;
