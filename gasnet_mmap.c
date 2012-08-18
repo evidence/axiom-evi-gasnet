@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2012/08/09 01:54:25 $
- * $Revision: 1.118 $
+ *     $Date: 2012/08/18 06:52:02 $
+ * $Revision: 1.119 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -332,6 +332,7 @@ static const char *gasneti_pshm_makeunique(const char *unique) {
   return unique;
 }
 #endif
+#endif // GASNET_PSHM
 
 #if defined(GASNETI_USE_HUGETLBFS)
 #include <hugetlbfs.h>
@@ -427,6 +428,7 @@ extern void gasneti_huge_munmap(void *addr, uintptr_t size) {
 }
 #endif
 
+#if GASNET_PSHM
 static void gasneti_pshm_unlink(int pshm_rank);
 
 /* create the object/region/segment and return its address */
