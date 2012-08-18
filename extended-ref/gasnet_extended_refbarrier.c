@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/08/16 22:32:08 $
- * $Revision: 1.94 $
+ *     $Date: 2012/08/18 19:37:14 $
+ * $Revision: 1.95 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -897,18 +897,18 @@ typedef struct gasnete_coll_rmdbarrier_inbox_s {
 #define GASNETE_RDMABARRIER_INBOX(_bd,_phase,_step)     \
             ((gasnete_coll_rmdbarrier_inbox_t *)        \
              ((uintptr_t)((_bd)->barrier_inbox)         \
-                       + ((_phase) + 2*(_step)) * GASNETE_RDMABARRIER_INBOX_SZ))
+                       + ((unsigned)(_phase) + 2U * (unsigned)(_step)) * GASNETE_RDMABARRIER_INBOX_SZ))
 #define GASNETE_RDMABARRIER_INBOX_REMOTE(_bd,_phase,_step)  \
             ((gasnete_coll_rmdbarrier_inbox_t *)            \
-             ((_bd)->barrier_peers[(_step)].addr    \
-                       + ((_phase) + 2*(_step)) * GASNETE_RDMABARRIER_INBOX_SZ))
+             ((_bd)->barrier_peers[(unsigned)(_step)].addr    \
+                       + ((unsigned)(_phase) + 2U * (unsigned)(_step)) * GASNETE_RDMABARRIER_INBOX_SZ))
 #define GASNETE_RDMABARRIER_INBOX_NEXT(_addr)    \
             ((gasnete_coll_rmdbarrier_inbox_t *) \
-             ((uintptr_t)(_addr) + 2 * GASNETE_RDMABARRIER_INBOX_SZ))
+             ((uintptr_t)(_addr) + 2U * GASNETE_RDMABARRIER_INBOX_SZ))
 
 GASNETI_INLINE(gasnete_rmdbarrier_send)
-void gasnete_rmdbarrier_send(gasnete_coll_rmdbarrier_t *barrier_data, int numsteps,
-                             gasnet_handlerarg_t phase, gasnet_handlerarg_t step,
+void gasnete_rmdbarrier_send(gasnete_coll_rmdbarrier_t *barrier_data,
+                             int numsteps, unsigned int phase, unsigned int step,
                              gasnet_handlerarg_t value, gasnet_handlerarg_t flags) {
   GASNETE_THREAD_LOOKUP /* XXX: can we remove/avoid this lookup? */
 #if GASNETI_THREADS
@@ -958,7 +958,7 @@ int gasnete_rmdbarrier_poll(gasnete_coll_rmdbarrier_inbox_t *inbox) {
 void gasnete_rmdbarrier_kick(gasnete_coll_team_t team) {
   gasnete_coll_rmdbarrier_t *barrier_data = team->barrier_data;
   gasnete_coll_rmdbarrier_inbox_t *inbox;
-  int phase, step;
+  unsigned int phase, step;
   int cursor, numsteps = 0;
   int flags, value;
 
