@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testbarrierconf.c,v $
- *     $Date: 2012/07/18 08:51:01 $
- * $Revision: 1.15 $
+ *     $Date: 2012/08/20 06:09:26 $
+ * $Revision: 1.16 $
  * Description: GASNet barrier performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -16,30 +16,100 @@
   #define PERFORM_MIXED_NAMED_ANON_TESTS 1
 #endif
 
+
+static int do_try = 0;
+GASNETT_INLINE(my_barrier_wait)
+int my_barrier_wait(int value, int flags) {
+  int rc;
+  if (do_try) {
+    do { rc = gasnet_barrier_try(value, flags); } while (rc == GASNET_ERR_NOT_READY);
+  } else {
+    rc = gasnet_barrier_wait(value, flags);
+  }
+  return rc;
+}
+
+#define hidx_done_shorthandler   200
+volatile int done = 0;
+void done_shorthandler(gasnet_token_t token) { done = 1; }
+gasnet_handlerentry_t htable[] = { { hidx_done_shorthandler,  done_shorthandler  } };
+
+static void * doTest(void *arg);
+
+static int mynode, nodes, iters;
+
 int main(int argc, char **argv) {
-  int mynode, nodes;
-  int result;
-  int iters = -1;
-  int i = 0;
+  int pollers = 0;
+  int arg;
 
   GASNET_Safe(gasnet_init(&argc, &argv));
-  GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
-  test_init("testbarrierconf", 0, "(iters)");
+  GASNET_Safe(gasnet_attach(htable, 1, TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
+#if GASNERT_PAR
+  test_init("testbarrierconf", 0, "[-t] [-p pollers] (iters)");
+#else
+  test_init("testbarrierconf", 0, "[-t] (iters)");
+#endif
+
+  arg = 1;
+  while (argc-arg >= 2) {
+   if (!strcmp(argv[arg], "-p")) {
+#ifdef GASNET_PAR
+    pollers = atoi(argv[arg+1]);
+    arg += 2;
+#else
+    if (gasnet_mynode() == 0) {
+      fprintf(stderr, "testbarrierconf %s\n", GASNET_CONFIG_STRING);
+      fprintf(stderr, "ERROR: The -p option is only available in the PAR configuration.\n");
+      fflush(NULL);
+    }
+    sleep(1);
+    gasnet_exit(1);
+#endif
+   } else if (!strcmp(argv[arg], "-t")) {
+    do_try = 1;
+    arg += 1;
+   }
+  }
+  if (argc-arg >= 1) iters = atoi(argv[arg]);
+  if (iters < 0) iters = 1000;
+  if (argc-arg >= 2) test_usage();
 
   mynode = gasnet_mynode();
   nodes = gasnet_nodes();
-  if (argc > 1) {
-    iters = atoi(argv[1]);
-  }
-  if (iters < 0) {
-    iters = 1000;
-  }
-  if (argc > 2) test_usage();
 
   if (mynode == 0) {
+#ifdef GASNET_PAR
+      printf("Running barrier conformance test with %d iterations and %i extra polling theads...\n", iters,pollers);
+#else
       printf("Running barrier conformance test with %d iterations...\n", iters);
+#endif
       fflush(stdout);
   }
+  BARRIER();
+
+#ifdef GASNET_PAR
+  if (pollers)
+      test_createandjoin_pthreads(pollers+1,doTest,NULL,0);
+  else
+#endif
+      doTest(NULL);
+
+  MSG("done.");
+
+  gasnet_exit(0);
+  return 0;
+}
+
+static void * doTest(void *arg) {
+  int i = 0;
+  int result;
+
+  if (arg) {
+    /* I am a polling thread */
+    GASNET_BLOCKUNTIL(done);
+    return NULL;
+  }
+
   BARRIER();
 
   if (!PERFORM_MIXED_NAMED_ANON_TESTS) {
@@ -54,7 +124,7 @@ int main(int argc, char **argv) {
   for (i = 0; i < iters; ++i) {
     /* node 0 indicates mismatch on entry: */
     gasnet_barrier_notify(0, !mynode ? GASNET_BARRIERFLAG_MISMATCH : 0);
-    result = gasnet_barrier_wait(0, !mynode ? GASNET_BARRIERFLAG_MISMATCH : 0);
+    result = my_barrier_wait(0, !mynode ? GASNET_BARRIERFLAG_MISMATCH : 0);
     if (result != GASNET_ERR_BARRIER_MISMATCH) {
       MSG("ERROR: Failed to detect barrier mismatch indicated on notify.");
       gasnet_exit(1);
@@ -62,7 +132,7 @@ int main(int argc, char **argv) {
 
     /* ids differ between notify and wait */
     gasnet_barrier_notify(0, 0);
-    result = gasnet_barrier_wait(1, 0);
+    result = my_barrier_wait(1, 0);
     if (result != GASNET_ERR_BARRIER_MISMATCH) {
       MSG("ERROR: Failed to detect mismatch between id at notify and wait.");
       gasnet_exit(1);
@@ -70,13 +140,13 @@ int main(int argc, char **argv) {
 
     /* Flags differ between notify and wait: */
     gasnet_barrier_notify(0, GASNET_BARRIERFLAG_ANONYMOUS);
-    result = gasnet_barrier_wait(0, 0);
+    result = my_barrier_wait(0, 0);
     if (result != GASNET_ERR_BARRIER_MISMATCH) {
       MSG("ERROR: Failed to detect anonymous notify with named wait.");
       gasnet_exit(1);
     }
     gasnet_barrier_notify(0, 0);
-    result = gasnet_barrier_wait(0, GASNET_BARRIERFLAG_ANONYMOUS);
+    result = my_barrier_wait(0, GASNET_BARRIERFLAG_ANONYMOUS);
     if (result != GASNET_ERR_BARRIER_MISMATCH) {
       MSG("ERROR: Failed to detect named notify with anonymous wait.");
       gasnet_exit(1);
@@ -90,10 +160,10 @@ int main(int argc, char **argv) {
         /* Mix many named with one anonymous: */
         if (mynode == j) {
           gasnet_barrier_notify(12345, GASNET_BARRIERFLAG_ANONYMOUS);
-          result = gasnet_barrier_wait(12345, GASNET_BARRIERFLAG_ANONYMOUS);
+          result = my_barrier_wait(12345, GASNET_BARRIERFLAG_ANONYMOUS);
         } else {
           gasnet_barrier_notify(5551212, 0);
-          result = gasnet_barrier_wait(5551212, 0);
+          result = my_barrier_wait(5551212, 0);
         }
         if (result != GASNET_OK) {
           MSG("ERROR: Failed to match anon notify on node %d with named notify elsewhere.", j);
@@ -103,10 +173,10 @@ int main(int argc, char **argv) {
         /* Mix one named with many anonymous: */
         if (mynode == j) {
           gasnet_barrier_notify(0xcafef00d, 0);
-          result = gasnet_barrier_wait(0xcafef00d, 0);
+          result = my_barrier_wait(0xcafef00d, 0);
         } else {
           gasnet_barrier_notify(911, GASNET_BARRIERFLAG_ANONYMOUS);
-          result = gasnet_barrier_wait(911, GASNET_BARRIERFLAG_ANONYMOUS);
+          result = my_barrier_wait(911, GASNET_BARRIERFLAG_ANONYMOUS);
         }
         if (result != GASNET_OK) {
           MSG("ERROR: Failed to match named notify on node %d with anon notify elsewhere.", j);
@@ -115,7 +185,7 @@ int main(int argc, char **argv) {
       }
         /* Mismatched id: */
         gasnet_barrier_notify(mynode == j, 0);
-        result = gasnet_barrier_wait(mynode == j, 0);
+        result = my_barrier_wait(mynode == j, 0);
         if (result != GASNET_ERR_BARRIER_MISMATCH) {
           MSG("ERROR: Failed to detect different id on node %d.", j);
           gasnet_exit(1);
@@ -136,13 +206,13 @@ int main(int argc, char **argv) {
           /* Mix two names and anonymous: */
           if (mynode == j) {
             gasnet_barrier_notify(1592, 0);
-            result = gasnet_barrier_wait(1592, 0);
+            result = my_barrier_wait(1592, 0);
           } else if (mynode == k) {
             gasnet_barrier_notify(1776, 0);
-            result = gasnet_barrier_wait(1776, 0);
+            result = my_barrier_wait(1776, 0);
           } else {
             gasnet_barrier_notify(12345, GASNET_BARRIERFLAG_ANONYMOUS);
-            result = gasnet_barrier_wait(12345, GASNET_BARRIERFLAG_ANONYMOUS);
+            result = my_barrier_wait(12345, GASNET_BARRIERFLAG_ANONYMOUS);
           }
           if (result != GASNET_ERR_BARRIER_MISMATCH) {
             MSG("ERROR: Failed to detect mismatched names intermixed with anon.");
@@ -158,8 +228,6 @@ int main(int argc, char **argv) {
     BARRIER();
   }
 
-  MSG("done.");
-
-  gasnet_exit(0);
-  return 0;
+  GASNET_Safe(gasnet_AMRequestShort0(mynode, hidx_done_shorthandler));
+  return NULL;
 }
