@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/08/20 07:53:03 $
- * $Revision: 1.97 $
+ *     $Date: 2012/08/20 09:50:16 $
+ * $Revision: 1.98 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1141,13 +1141,14 @@ static int gasnete_rmdbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
     /* completed asynchronously before wait (via progressfns or try) */
     GASNETI_TRACE_EVENT_TIME(B,BARRIER_ASYNC_COMPLETION,GASNETI_TICKS_NOW_IFENABLED(B)-gasnete_barrier_notifytime);
   } else {
-    /* wait for response */
+    /* kick once, and if still necessary, wait for a response */
+    gasnete_rmdbarrier_kick(team);
     /* cannot BLOCKUNTIL since progess may occur on non-AM events */
-    do {
+    while (barrier_data->barrier_slot < barrier_data->barrier_goal) {
       GASNETI_WAITHOOK();
       GASNETI_SAFE(gasneti_AMPoll());
       gasnete_rmdbarrier_kick(team);
-    } while (barrier_data->barrier_slot < barrier_data->barrier_goal);
+    }
   }
   gasneti_sync_reads(); /* ensure correct barrier_flags will be read */
 
