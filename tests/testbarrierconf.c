@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testbarrierconf.c,v $
- *     $Date: 2012/08/20 06:09:26 $
- * $Revision: 1.16 $
+ *     $Date: 2012/08/20 06:16:21 $
+ * $Revision: 1.17 $
  * Description: GASNet barrier performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -44,10 +44,14 @@ int main(int argc, char **argv) {
 
   GASNET_Safe(gasnet_init(&argc, &argv));
   GASNET_Safe(gasnet_attach(htable, 1, TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
-#if GASNERT_PAR
-  test_init("testbarrierconf", 0, "[-t] [-p pollers] (iters)");
+
+#if GASNET_PAR
+  test_init("testbarrierconf", 0, "[-t] [-p polling_threads] (iters)\n"
+            "  The -p option gives a number of polling threads to spawn (default is 0).\n"
+            "  The -t option replaces barrier_wait calls with looping on barrier_try");
 #else
-  test_init("testbarrierconf", 0, "[-t] (iters)");
+  test_init("testbarrierconf", 0, "[-t] (iters)\n"
+            "  The -t option replaces barrier_wait calls with looping on barrier_try");
 #endif
 
   arg = 1;
