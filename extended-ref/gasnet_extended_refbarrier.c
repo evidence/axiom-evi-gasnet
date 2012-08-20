@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/08/18 19:37:14 $
- * $Revision: 1.95 $
+ *     $Date: 2012/08/20 04:26:40 $
+ * $Revision: 1.96 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -925,8 +925,6 @@ void gasnete_rmdbarrier_send(gasnete_coll_rmdbarrier_t *barrier_data,
    * Use of opposite phase prevents cacheline contention with arrivals.
    */
   const unsigned int stride = GASNETE_RDMABARRIER_INBOX_SZ / sizeof(gasnete_coll_rmdbarrier_inbox_t);
-  gasneti_assert(stride >= 2);
-
   payload = (stride/2) + GASNETE_RDMABARRIER_INBOX(barrier_data, (phase^1), step);
   payload->value  = value;
   payload->flags  = flags;
@@ -1117,10 +1115,8 @@ static void gasnete_rmdbarrier_notify(gasnete_coll_team_t team, int id, int flag
 static int gasnete_rmdbarrier_wait(gasnete_coll_team_t team, int id, int flags) {
   gasnete_coll_rmdbarrier_t *barrier_data = team->barrier_data;
   int retval = GASNET_OK;
-  int phase;
 
   gasneti_sync_reads(); /* ensure we read correct barrier_splitstate */
-  phase = barrier_data->barrier_phase;
   if_pf(team->barrier_splitstate == OUTSIDE_BARRIER) 
     gasneti_fatalerror("gasnet_barrier_wait() called without a matching notify");
 
