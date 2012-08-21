@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/08/21 01:24:00 $
- * $Revision: 1.99 $
+ *     $Date: 2012/08/21 06:06:20 $
+ * $Revision: 1.100 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1225,16 +1225,22 @@ void gasnete_rmdbarrier_kick_team_all(void) {
 static gasnet_seginfo_t *gasnete_rmdbarrier_auxseg = NULL;
 
 static void gasnete_rmdbarrier_init(gasnete_coll_team_t team) {
-  gasnete_coll_rmdbarrier_t *barrier_data = gasneti_calloc(1,sizeof(gasnete_coll_rmdbarrier_t));
+  gasnete_coll_rmdbarrier_t *barrier_data;
   int steps;
   int total_ranks = team->total_ranks;
   int myrank = team->myrank;
-  int64_t j;
-
 #if GASNETI_PSHM_BARRIER_HIER
   gasnet_node_t *supernode_reps = NULL;
   PSHM_BDATA_DECL(pshm_bdata, gasnete_pshmbarrier_init_hier(team, &total_ranks, &myrank, &supernode_reps));
+#endif
+  int64_t j;
 
+  barrier_data = gasneti_malloc_aligned(GASNETI_CACHE_LINE_BYTES, sizeof(gasnete_coll_rmdbarrier_t));
+  gasneti_leak_aligned(barrier_data);
+  memset(barrier_data, 0, sizeof(gasnete_coll_rmdbarrier_t));
+  team->barrier_data = barrier_data;
+
+#if GASNETI_PSHM_BARRIER_HIER
   if (pshm_bdata) {
     barrier_data->barrier_passive = (pshm_bdata->private.rank != 0) ? 2 : 0; /* precompute shift */
     barrier_data->barrier_pshm = pshm_bdata;
@@ -1243,8 +1249,6 @@ static void gasnete_rmdbarrier_init(gasnete_coll_team_t team) {
 
   gasneti_assert(team == GASNET_TEAM_ALL); /* TODO: deal w/ in-segment allocation */
 
-  gasneti_leak(barrier_data);
-  team->barrier_data = barrier_data;
 #if GASNETI_THREADS
   gasneti_spinlock_init(&barrier_data->barrier_lock);
 #endif
