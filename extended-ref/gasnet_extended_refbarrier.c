@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/08/21 16:52:39 $
- * $Revision: 1.101 $
+ *     $Date: 2012/08/21 17:51:00 $
+ * $Revision: 1.102 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -976,7 +976,7 @@ void gasnete_rmdbarrier_kick(gasnete_coll_team_t team) {
   gasnete_coll_rmdbarrier_inbox_t *inbox;
   unsigned int slot;
   int cursor, numsteps = 0;
-  int step, flags, value;
+  int flags, value;
 
   /* early unlocked read: */
   slot = barrier_data->barrier_slot;
@@ -995,9 +995,8 @@ void gasnete_rmdbarrier_kick(gasnete_coll_team_t team) {
   slot = barrier_data->barrier_slot;
 #endif
 
-  step = slot >> 1;
 #if GASNETI_PSHM_BARRIER_HIER
-  if (barrier_data->barrier_pshm && !step) {
+  if (barrier_data->barrier_pshm && (slot < 2)) {
     const PSHM_BDATA_DECL(pshm_bdata, barrier_data->barrier_pshm);
     if (!gasnete_pshmbarrier_try_inner(pshm_bdata, 0)) {
       /* not yet safe to make progress */
@@ -1010,7 +1009,7 @@ void gasnete_rmdbarrier_kick(gasnete_coll_team_t team) {
   } else
 #endif
   {
-    if (!step) gasneti_sync_reads(); /* value/flags were written by the non-locked notify */
+    if (slot < 2) gasneti_sync_reads(); /* value/flags were written by the non-locked notify */
     value = barrier_data->barrier_value;
     flags = barrier_data->barrier_flags;
   }
