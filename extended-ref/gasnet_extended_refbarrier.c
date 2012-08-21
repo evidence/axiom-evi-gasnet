@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/08/21 06:06:20 $
- * $Revision: 1.100 $
+ *     $Date: 2012/08/21 16:52:39 $
+ * $Revision: 1.101 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -851,10 +851,25 @@ static void gasnete_amdbarrier_init(gasnete_coll_team_t team) {
      notify has run.
  */
 
-typedef struct {
-#if GASNETI_THREADS
-  gasneti_atomic_t barrier_lock;
+#if !GASNETI_THREADS
+  #define GASNETE_RMDBARRIER_LOCK(_var)		/* empty */
+  #define gasnete_rmdbarrier_lock_init(_var)	((void)0)
+  #define gasnete_rmdbarrier_trylock(_var)	(0/*success*/)
+  #define gasnete_rmdbarrier_unlock(_var)	((void)0)
+#elif GASNETI_HAVE_SPINLOCK
+  #define GASNETE_RMDBARRIER_LOCK(_var)		gasneti_atomic_t _var;
+  #define gasnete_rmdbarrier_lock_init(_var)	gasneti_spinlock_init(_var)
+  #define gasnete_rmdbarrier_trylock(_var)	gasneti_spinlock_trylock(_var)
+  #define gasnete_rmdbarrier_unlock(_var)	gasneti_spinlock_unlock(_var)
+#else
+  #define GASNETE_RMDBARRIER_LOCK(_var)		gasneti_mutex_t _var;
+  #define gasnete_rmdbarrier_lock_init(_var)	gasneti_mutex_init(_var)
+  #define gasnete_rmdbarrier_trylock(_var)	gasneti_mutex_trylock(_var)
+  #define gasnete_rmdbarrier_unlock(_var)	gasneti_mutex_unlock(_var)
 #endif
+
+typedef struct {
+  GASNETE_RMDBARRIER_LOCK(barrier_lock) /* no semicolon */
   struct {
     gasnet_node_t node;
     uintptr_t     addr;
@@ -973,7 +988,7 @@ void gasnete_rmdbarrier_kick(gasnete_coll_team_t team) {
   gasneti_assert(team->total_ranks > 1); /* singleton should have matched (slot >= goal), above */
 
 #if GASNETI_THREADS
-  if (gasneti_spinlock_trylock(&barrier_data->barrier_lock))
+  if (gasnete_rmdbarrier_trylock(&barrier_data->barrier_lock))
     return; /* another thread is currently in kick */
 
   /* reread w/ lock held: */
@@ -986,9 +1001,7 @@ void gasnete_rmdbarrier_kick(gasnete_coll_team_t team) {
     const PSHM_BDATA_DECL(pshm_bdata, barrier_data->barrier_pshm);
     if (!gasnete_pshmbarrier_try_inner(pshm_bdata, 0)) {
       /* not yet safe to make progress */
-    #if GASNETI_THREADS
-      gasneti_spinlock_unlock(&barrier_data->barrier_lock);
-    #endif
+      gasnete_rmdbarrier_unlock(&barrier_data->barrier_lock);
       return;
     }
     /* Must use supernode's consensus for value and flags */
@@ -1059,9 +1072,7 @@ void gasnete_rmdbarrier_kick(gasnete_coll_team_t team) {
     barrier_data->barrier_slot = cursor;
   } 
 
-#if GASNETI_THREADS
-  gasneti_spinlock_unlock(&barrier_data->barrier_lock);
-#endif
+  gasnete_rmdbarrier_unlock(&barrier_data->barrier_lock);
 
   if (numsteps) { /* need to issue one or more Puts */
     gasnete_rmdbarrier_send(barrier_data, numsteps, slot+2, value, flags);
@@ -1249,9 +1260,7 @@ static void gasnete_rmdbarrier_init(gasnete_coll_team_t team) {
 
   gasneti_assert(team == GASNET_TEAM_ALL); /* TODO: deal w/ in-segment allocation */
 
-#if GASNETI_THREADS
-  gasneti_spinlock_init(&barrier_data->barrier_lock);
-#endif
+  gasnete_rmdbarrier_lock_init(&barrier_data->barrier_lock);
   team->barrier_splitstate = OUTSIDE_BARRIER;
 
   /* determine barrier size (number of steps) */
