@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2012/07/14 05:32:13 $
- * $Revision: 1.112 $
+ *     $Date: 2012/08/21 14:35:30 $
+ * $Revision: 1.113 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -298,7 +298,8 @@ extern uint64_t gasnet_max_segsize; /* client-overrideable max segment size */
   GASNETI_INLINE(gasneti_spinlock_trylock) GASNETI_WARN_UNUSED_RESULT
   int gasneti_spinlock_trylock(gasneti_atomic_t *plock) {
       gasneti_assert(gasneti_spinlock_is_valid(plock));
-      if (gasneti_atomic_compare_and_swap(plock, GASNETI_SPINLOCK_UNLOCKED, GASNETI_SPINLOCK_LOCKED, GASNETI_ATOMIC_ACQ_IF_TRUE)) {
+      if ((GASNETI_SPINLOCK_UNLOCKED == gasneti_atomic_read(plock, 0)) &&
+          gasneti_atomic_compare_and_swap(plock, GASNETI_SPINLOCK_UNLOCKED, GASNETI_SPINLOCK_LOCKED, GASNETI_ATOMIC_ACQ_IF_TRUE)) {
 	  gasneti_assert(gasneti_spinlock_is_locked(plock));
 	  return 0;
       } else {
