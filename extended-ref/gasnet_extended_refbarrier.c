@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/08/21 17:51:00 $
- * $Revision: 1.102 $
+ *     $Date: 2012/08/22 20:58:06 $
+ * $Revision: 1.103 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -995,24 +995,25 @@ void gasnete_rmdbarrier_kick(gasnete_coll_team_t team) {
   slot = barrier_data->barrier_slot;
 #endif
 
+  if_pf (slot < 2) {/* need to pick up value/flags from notify */
 #if GASNETI_PSHM_BARRIER_HIER
-  if (barrier_data->barrier_pshm && (slot < 2)) {
-    const PSHM_BDATA_DECL(pshm_bdata, barrier_data->barrier_pshm);
-    if (!gasnete_pshmbarrier_try_inner(pshm_bdata, 0)) {
-      /* not yet safe to make progress */
-      gasnete_rmdbarrier_unlock(&barrier_data->barrier_lock);
-      return;
-    }
-    /* Must use supernode's consensus for value and flags */
-    value = barrier_data->barrier_value = pshm_bdata->shared->value;
-    flags = barrier_data->barrier_flags = pshm_bdata->shared->flags;
-  } else
+    if (barrier_data->barrier_pshm) {
+      const PSHM_BDATA_DECL(pshm_bdata, barrier_data->barrier_pshm);
+      if (!gasnete_pshmbarrier_try_inner(pshm_bdata, 0)) {
+        /* not yet safe to make progress */
+        gasnete_rmdbarrier_unlock(&barrier_data->barrier_lock);
+        return;
+      }
+      /* Must use supernode's consensus for value and flags */
+      barrier_data->barrier_value = pshm_bdata->shared->value;
+      barrier_data->barrier_flags = pshm_bdata->shared->flags;
+    } else
 #endif
-  {
-    if (slot < 2) gasneti_sync_reads(); /* value/flags were written by the non-locked notify */
-    value = barrier_data->barrier_value;
-    flags = barrier_data->barrier_flags;
+    gasneti_sync_reads(); /* value/flags were written by the non-locked notify */
   }
+
+  value = barrier_data->barrier_value;
+  flags = barrier_data->barrier_flags;
 
   /* process all consecutive steps which have arrived since we last ran */
   inbox = GASNETE_RDMABARRIER_INBOX(barrier_data, slot);
