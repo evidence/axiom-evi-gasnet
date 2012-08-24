@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2012/02/27 18:06:52 $
- * $Revision: 1.136 $
+ * $Date: 2012/08/24 23:20:00 $
+ * $Revision: 1.137 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -440,6 +440,10 @@ gasnetc_attach(gasnet_handlerentry_t *table, int numentries, uintptr_t segsize,
 			gasneti_segmentAttach(segsize, minheapoffset,
 					gasneti_seginfo,
 					&gasnetc_bootstrapExchange);
+			if (gasnet_client_attach_hook) {
+				gasnet_client_attach_hook(gasneti_seginfo[gasneti_mynode].addr,
+							gasneti_seginfo[gasneti_mynode].size);
+			}
 
 			prereg.addr = (uintptr_t) 
 				gasneti_seginfo[gasneti_mynode].addr;
@@ -471,6 +475,10 @@ gasnetc_attach(gasnet_handlerentry_t *table, int numentries, uintptr_t segsize,
 			gasneti_seginfo[i].size = (uintptr_t)-1;
 		    }
 		#endif
+		if (gasnet_client_attach_hook) {
+			gasnet_client_attach_hook(gasneti_seginfo[gasneti_mynode].addr,
+						gasneti_seginfo[gasneti_mynode].size);
+		}
 
 		firehose_init(gasnetc_MaxPinnableMemory, 0, 0, NULL, 0,
 			0, &gasnetc_firehose_info);

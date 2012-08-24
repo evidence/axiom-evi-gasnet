@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/sci-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2012/01/07 04:45:34 $
- * $Revision: 1.32 $
+ *     $Date: 2012/08/24 23:20:10 $
+ * $Revision: 1.33 $
  * Description: GASNet sci conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *				   Hung-Hsun Su <su@hcs.ufl.edu>
@@ -347,6 +347,13 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     /* (###) add any code here needed to setup GASNET_SEGMENT_EVERYTHING support */
         /*  SCI Conduit does not support GASNET_SEGMENT_EVERYTHING nor LARGE at this time due to SISCI API limitations */
   #endif
+
+  /* After local segment is attached, call optional client-provided hook
+     (###) should call BEFORE any conduit-specific pinning/registration of the segment
+   */
+  if (gasnet_client_attach_hook) {
+    gasnet_client_attach_hook(segbase, segsize);
+  }
 
   /* ------------------------------------------------------------------------------------ */
   /*  gather segment information */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet.h,v $
- *     $Date: 2012/04/28 00:08:22 $
- * $Revision: 1.73 $
+ *     $Date: 2012/08/24 23:19:52 $
+ * $Revision: 1.74 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -338,6 +338,10 @@ GASNETI_END_EXTERNC
     size_t len;
   } gasnet_memvec_t;
 #endif
+
+/* ------------------------------------------------------------------------------------ */
+
+extern void (*gasnet_client_attach_hook)(void *, uintptr_t);
 
 /* ------------------------------------------------------------------------------------ */
 

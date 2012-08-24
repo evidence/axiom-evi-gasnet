@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/gasnet_core.c,v $
- *     $Date: 2012/01/07 04:45:30 $
- * $Revision: 1.87 $
+ *     $Date: 2012/08/24 23:20:04 $
+ * $Revision: 1.88 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -397,6 +397,13 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     #endif
     segbase = gasneti_seginfo[gasneti_mynode].addr;
     segsize = gasneti_seginfo[gasneti_mynode].size;
+
+    /* After local segment is attached, call optional client-provided hook
+       (###) should call BEFORE any conduit-specific pinning/registration of the segment
+     */
+    if (gasnet_client_attach_hook) {
+      gasnet_client_attach_hook(segbase, segsize);
+    }
 
     /*  AMMPI allows arbitrary registration with no further action  */
     if (segsize) {

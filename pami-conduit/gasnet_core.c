@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_core.c,v $
- *     $Date: 2012/08/06 06:18:06 $
- * $Revision: 1.25 $
+ *     $Date: 2012/08/24 23:20:06 $
+ * $Revision: 1.26 $
  * Description: GASNet PAMI conduit Implementation
  * Copyright 2012, Lawrence Berkeley National Laboratory
  * Terms of use are as specified in license.txt
@@ -384,6 +384,13 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
       gasneti_assert(((uintptr_t)segbase) % GASNET_PAGESIZE == 0);
       gasneti_assert(segsize % GASNET_PAGESIZE == 0);
 
+      /* After local segment is attached, call optional client-provided hook
+         (###) should call BEFORE any conduit-specific pinning/registration of the segment
+       */
+      if (gasnet_client_attach_hook) {
+        gasnet_client_attach_hook(segbase, segsize);
+      }
+
       /* Register w/ PAMI and exchange the "keys" */
       /* TODO: should this move to gasnete_init()? */
       if (gasneti_getenv_yesno_withdefault("GASNET_REGISTER_SEGMENT", 1)) {
@@ -418,6 +425,13 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     segbase = (void *)0;
     segsize = (uintptr_t)-1;
     /* (###) add any code here needed to setup GASNET_SEGMENT_EVERYTHING support */
+
+    /* After local segment is attached, call optional client-provided hook
+       (###) should call BEFORE any conduit-specific pinning/registration of the segment
+     */
+    if (gasnet_client_attach_hook) {
+      gasnet_client_attach_hook(segbase, segsize);
+    }
   }
   #endif
 

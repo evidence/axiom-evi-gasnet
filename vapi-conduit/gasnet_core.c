@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2012/03/06 19:56:11 $
- * $Revision: 1.302 $
+ *     $Date: 2012/08/24 23:20:20 $
+ * $Revision: 1.303 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1832,6 +1832,12 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     }
     segbase = (void *)0;
     segsize = (uintptr_t)-1;
+    /* After local segment is attached, call optional client-provided hook
+       (###) should call BEFORE any conduit-specific pinning/registration of the segment
+     */
+    if (gasnet_client_attach_hook) {
+      gasnet_client_attach_hook(segbase, segsize);
+    }
   }
   #elif GASNETC_PIN_SEGMENT
   {
@@ -1839,6 +1845,13 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     gasneti_segmentAttach(segsize, minheapoffset, gasneti_seginfo, &gasneti_bootstrapExchange);
     segbase = gasneti_seginfo[gasneti_mynode].addr;
     segsize = gasneti_seginfo[gasneti_mynode].size;
+
+    /* After local segment is attached, call optional client-provided hook
+       (###) should call BEFORE any conduit-specific pinning/registration of the segment
+     */
+    if (gasnet_client_attach_hook) {
+      gasnet_client_attach_hook(segbase, segsize);
+    }
 
     gasnetc_seg_start = (uintptr_t)segbase;
     gasnetc_seg_end   = (uintptr_t)segbase + (segsize - 1);

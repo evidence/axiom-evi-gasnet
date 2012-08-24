@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/udp-conduit/gasnet_core.c,v $
- *     $Date: 2012/01/07 04:45:42 $
- * $Revision: 1.46 $
+ *     $Date: 2012/08/24 23:20:18 $
+ * $Revision: 1.47 $
  * Description: GASNet UDP conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -448,6 +448,13 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     #endif
     segbase = gasneti_seginfo[gasneti_mynode].addr;
     segsize = gasneti_seginfo[gasneti_mynode].size;
+  
+    /* After local segment is attached, call optional client-provided hook
+       (###) should call BEFORE any conduit-specific pinning/registration of the segment
+     */
+    if (gasnet_client_attach_hook) {
+      gasnet_client_attach_hook(segbase, segsize);
+    }
 
     /*  AMUDP allows arbitrary registration with no further action  */
     if (segsize) {
