@@ -203,8 +203,8 @@ char gasnetc_GNIT_Ptag(void);
 int gasnetc_GNIT_Cookie(void);
 int gasnetc_GNIT_Device_Id(void);
 void gasnetc_GNIT_Allgather(void *local, long length, void *global);
-void gasnetc_GNIT_Finalize();
-void gasnetc_GNIT_Barrier();
+void gasnetc_GNIT_Finalize(void);
+void gasnetc_GNIT_Barrier(void);
 
 
 void gasnetc_get_am_credit(uint32_t pe);
@@ -257,7 +257,7 @@ void gasnetc_init_post_descriptor_pool(void);
 gasnet_seginfo_t gasnetc_bounce_buffers;   /* fields addr and size */
 gasnet_seginfo_t gasnetc_pd_buffers;   /* fields addr and size */
 
-void  *gasnetc_alloc_bounce_buffer();
+void  *gasnetc_alloc_bounce_buffer(void);
 void gasnetc_free_bounce_buffer(void *buf);
 
 
@@ -290,7 +290,7 @@ typedef struct gasnetc_post_descriptor {
   } u;
 } gasnetc_post_descriptor_t;
 
-gasnetc_post_descriptor_t *gasnetc_alloc_post_descriptor();
+gasnetc_post_descriptor_t *gasnetc_alloc_post_descriptor(void);
 void gasnetc_free_post_descriptor(gasnetc_post_descriptor_t *pd);
 
 /* default fraction of phys mem to assume is pinnable under CNL */
