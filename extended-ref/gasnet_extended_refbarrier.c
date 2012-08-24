@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/08/22 20:58:06 $
- * $Revision: 1.103 $
+ *     $Date: 2012/08/24 09:10:35 $
+ * $Revision: 1.104 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -851,6 +851,20 @@ static void gasnete_amdbarrier_init(gasnete_coll_team_t team) {
      notify has run.
  */
 
+/* GASNETE_RMDBARRIER_SINGLE_SENDER
+     If defined non-zero then only the one designated representative per
+     supernode will perform Puts, potentially delaying the first Put until
+     the first "kick" by that designated process.  Otherwise, the last
+     process to arrive at the Notify will issue the first Put, and the
+     designated representative will issue the rest from the kick function.
+     When PSHM-heirarchical is disabled the single sender code allows the
+     notify step to potentially issue MORE than one Put.
+     This is disabled by default, but a conduit can enable as desired.
+ */
+#ifndef GASNETE_RMDBARRIER_SINGLE_SENDER
+  #define GASNETE_RMDBARRIER_SINGLE_SENDER 0
+#endif
+
 #if !GASNETI_THREADS
   #define GASNETE_RMDBARRIER_LOCK(_var)		/* empty */
   #define gasnete_rmdbarrier_lock_init(_var)	((void)0)
@@ -974,14 +988,16 @@ int gasnete_rmdbarrier_poll(gasnete_coll_rmdbarrier_inbox_t *inbox) {
 void gasnete_rmdbarrier_kick(gasnete_coll_team_t team) {
   gasnete_coll_rmdbarrier_t *barrier_data = team->barrier_data;
   gasnete_coll_rmdbarrier_inbox_t *inbox;
-  unsigned int slot;
-  int cursor, numsteps = 0;
+  int slot, cursor, numsteps;
   int flags, value;
 
   /* early unlocked read: */
   slot = barrier_data->barrier_slot;
 
   if (slot >= barrier_data->barrier_goal ||
+#if GASNETE_RMDBARRIER_SINGLE_SENDER
+      (slot >= 0) &&
+#endif
       !gasnete_rmdbarrier_poll(GASNETE_RDMABARRIER_INBOX(barrier_data, slot)))
     return; /* nothing to do */
 
@@ -1012,12 +1028,23 @@ void gasnete_rmdbarrier_kick(gasnete_coll_team_t team) {
     gasneti_sync_reads(); /* value/flags were written by the non-locked notify */
   }
 
+#if GASNETE_RMDBARRIER_SINGLE_SENDER
+  if (slot < 0) {
+    cursor = slot + 2;
+    numsteps = 1;
+  } else
+#endif
+  {
+    cursor = slot;
+    numsteps = 0;
+  }
+
   value = barrier_data->barrier_value;
   flags = barrier_data->barrier_flags;
 
   /* process all consecutive steps which have arrived since we last ran */
-  inbox = GASNETE_RDMABARRIER_INBOX(barrier_data, slot);
-  for (cursor = slot; cursor < barrier_data->barrier_goal && gasnete_rmdbarrier_poll(inbox); cursor+=2) {
+  inbox = GASNETE_RDMABARRIER_INBOX(barrier_data, cursor);
+  for (/*empty*/; cursor < barrier_data->barrier_goal && gasnete_rmdbarrier_poll(inbox); cursor+=2) {
     const int step_value = inbox->value;
     const int step_flags = inbox->flags;
 
@@ -1081,7 +1108,6 @@ void gasnete_rmdbarrier_kick(gasnete_coll_team_t team) {
 
 static void gasnete_rmdbarrier_notify(gasnete_coll_team_t team, int id, int flags) {
   gasnete_coll_rmdbarrier_t *barrier_data = team->barrier_data;
-  unsigned int slot;
   int do_send = 1;
 
   if_pf(team->barrier_splitstate == INSIDE_BARRIER) 
@@ -1108,19 +1134,28 @@ static void gasnete_rmdbarrier_notify(gasnete_coll_team_t team, int id, int flag
   barrier_data->barrier_value = id;
   barrier_data->barrier_flags = flags;
 
-  slot = (barrier_data->barrier_slot & 1) ^ 1; /* enter new phase */
-  gasneti_sync_writes();
-  barrier_data->barrier_slot = slot;
-
   if (barrier_data->barrier_size) {
-    /*  (possibly) send notify msg to peer */
-    if (do_send) {
-      gasnete_rmdbarrier_send(barrier_data, 1, slot, id, flags);
-    }
-#if GASNETI_PSHM_BARRIER_HIER
+#if GASNETE_RMDBARRIER_SINGLE_SENDER
+    int slot = ((barrier_data->barrier_slot & 1) ^ 1) - 2; /* enter new phase */
+    gasneti_sync_writes();
+    barrier_data->barrier_slot = slot;
+  #if GASNETI_PSHM_BARRIER_HIER
     if (!barrier_data->barrier_passive)
-#endif
+  #endif
+    {
+      if (do_send) gasnete_rmdbarrier_kick(team);
       gasnete_barrier_pf_enable(team);
+    }
+#else
+    int slot = ((barrier_data->barrier_slot & 1) ^ 1); /* enter new phase */
+    gasneti_sync_writes();
+    barrier_data->barrier_slot = slot;
+    if (do_send) gasnete_rmdbarrier_send(barrier_data, 1, slot, id, flags);
+  #if GASNETI_PSHM_BARRIER_HIER
+    if (!barrier_data->barrier_passive)
+  #endif
+      gasnete_barrier_pf_enable(team);
+#endif
   }
 
   /*  update state */
@@ -1306,13 +1341,13 @@ static void gasnete_rmdbarrier_init(gasnete_coll_team_t team) {
       barrier_data->barrier_peers[step].node = node;
       barrier_data->barrier_peers[step].addr = (uintptr_t)gasnete_rmdbarrier_auxseg[node].addr;
     }
-  }
+  } else {
+    barrier_data->barrier_slot = barrier_data->barrier_goal;
 #if !GASNETI_THREADS
-  else {
     /* simplifies the sync path(s) */
     barrier_data->barrier_handles = gasneti_calloc(1, sizeof(gasnet_handle_t));
-  }
 #endif
+  }
 
   gasneti_free(gasnete_rmdbarrier_auxseg);
 
