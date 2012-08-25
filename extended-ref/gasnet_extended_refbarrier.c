@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/08/24 09:10:35 $
- * $Revision: 1.104 $
+ *     $Date: 2012/08/25 07:25:44 $
+ * $Revision: 1.105 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -646,7 +646,7 @@ static void gasnete_amdbarrier_notify(gasnete_coll_team_t team, int id, int flag
   gasneti_sync_writes(); 
   barrier_data->amdbarrier_phase = phase;
 
-  if (barrier_data->amdbarrier_size) {
+  {
     /*  (possibly) send notify msg to peer */
     if (do_send) GASNETI_SAFE(
       gasnet_AMRequestShort5(barrier_data->amdbarrier_peers[0],
@@ -656,9 +656,48 @@ static void gasnete_amdbarrier_notify(gasnete_coll_team_t team, int id, int flag
     if (!barrier_data->amdbarrier_passive)
 #endif
       gasnete_barrier_pf_enable(team);
-  } else {
-    barrier_data->amdbarrier_recv_value[phase] = id;	/* to simplify checking in _wait */
   }
+
+  /*  update state */
+  team->barrier_splitstate = INSIDE_BARRIER;
+  gasneti_sync_writes(); /* ensure all state changes committed before return */
+}
+
+static void gasnete_amdbarrier_notify_singleton(gasnete_coll_team_t team, int id, int flags) {
+  gasnete_coll_amdbarrier_t *barrier_data = team->barrier_data;
+  int phase;
+  
+  gasneti_sync_reads(); /* ensure we read correct barrier_splitstate */
+  if_pf(team->barrier_splitstate == INSIDE_BARRIER) 
+    gasneti_fatalerror("gasnet_barrier_notify() called twice in a row");
+
+#if GASNETI_PSHM_BARRIER_HIER
+  if (barrier_data->amdbarrier_pshm) {
+    PSHM_BDATA_DECL(pshm_bdata, barrier_data->amdbarrier_pshm);
+    if (gasnete_pshmbarrier_notify_inner(pshm_bdata, id, flags)) {
+      /* last arrival - send AM w/ supernode consensus value/flags */
+      id = pshm_bdata->shared->value;
+      flags = pshm_bdata->shared->flags;
+    }
+  }
+#endif
+
+  /* If we are on an ILP64 platform, this cast will ensure we truncate the same
+   * bits locally as we do when passing over the network.
+   */
+  barrier_data->amdbarrier_value = (gasnet_handlerarg_t)id;
+
+  phase = !barrier_data->amdbarrier_phase; /*  enter new phase */
+  if_pf (flags & GASNET_BARRIERFLAG_MISMATCH) {
+    barrier_data->amdbarrier_mismatch[phase] = 1;
+    flags = GASNET_BARRIERFLAG_MISMATCH;
+  }
+  barrier_data->amdbarrier_flags = flags;
+  barrier_data->amdbarrier_step = 0;
+  gasneti_sync_writes(); 
+  barrier_data->amdbarrier_phase = phase;
+
+  barrier_data->amdbarrier_recv_value[phase] = id;	/* to simplify checking in _wait */
 
   /*  update state */
   team->barrier_splitstate = INSIDE_BARRIER;
@@ -829,7 +868,7 @@ static void gasnete_amdbarrier_init(gasnete_coll_team_t team) {
   }
 #endif
 
-  team->barrier_notify = &gasnete_amdbarrier_notify;
+  team->barrier_notify = steps ? &gasnete_amdbarrier_notify : &gasnete_amdbarrier_notify_singleton;
   team->barrier_wait =   &gasnete_amdbarrier_wait;
   team->barrier_try =    &gasnete_amdbarrier_try;
   team->barrier_pf =     (team == GASNET_TEAM_ALL) ? &gasnete_amdbarrier_kick_team_all : NULL;
@@ -1109,6 +1148,7 @@ void gasnete_rmdbarrier_kick(gasnete_coll_team_t team) {
 static void gasnete_rmdbarrier_notify(gasnete_coll_team_t team, int id, int flags) {
   gasnete_coll_rmdbarrier_t *barrier_data = team->barrier_data;
   int do_send = 1;
+  int slot;
 
   if_pf(team->barrier_splitstate == INSIDE_BARRIER) 
     gasneti_fatalerror("gasnet_barrier_notify() called twice in a row");
@@ -1134,35 +1174,61 @@ static void gasnete_rmdbarrier_notify(gasnete_coll_team_t team, int id, int flag
   barrier_data->barrier_value = id;
   barrier_data->barrier_flags = flags;
 
-  if (barrier_data->barrier_size) {
+  slot = ((barrier_data->barrier_slot & 1) ^ 1); /* enter new phase */
+  gasneti_sync_writes();
+
 #if GASNETE_RMDBARRIER_SINGLE_SENDER
-    int slot = ((barrier_data->barrier_slot & 1) ^ 1) - 2; /* enter new phase */
-    gasneti_sync_writes();
-    barrier_data->barrier_slot = slot;
-  #if GASNETI_PSHM_BARRIER_HIER
-    if (!barrier_data->barrier_passive)
-  #endif
-    {
-      if (do_send) gasnete_rmdbarrier_kick(team);
-      gasnete_barrier_pf_enable(team);
-    }
-#else
-    int slot = ((barrier_data->barrier_slot & 1) ^ 1); /* enter new phase */
-    gasneti_sync_writes();
-    barrier_data->barrier_slot = slot;
-    if (do_send) gasnete_rmdbarrier_send(barrier_data, 1, slot, id, flags);
-  #if GASNETI_PSHM_BARRIER_HIER
-    if (!barrier_data->barrier_passive)
-  #endif
-      gasnete_barrier_pf_enable(team);
-#endif
+  barrier_data->barrier_slot = slot - 2;
+ #if GASNETI_PSHM_BARRIER_HIER
+  if (!barrier_data->barrier_passive)
+ #endif
+  {
+    if (do_send) gasnete_rmdbarrier_kick(team);
+    gasnete_barrier_pf_enable(team);
   }
+#else
+  barrier_data->barrier_slot = slot;
+  if (do_send) gasnete_rmdbarrier_send(barrier_data, 1, slot, id, flags);
+ #if GASNETI_PSHM_BARRIER_HIER
+  if (!barrier_data->barrier_passive)
+ #endif
+    gasnete_barrier_pf_enable(team);
+#endif
 
   /*  update state */
   team->barrier_splitstate = INSIDE_BARRIER;
   gasneti_sync_writes(); /* ensure all state changes committed before return */
 }
 
+/* Notify specialized to one (super)node case (reduced branches in BOTH variants) */
+static void gasnete_rmdbarrier_notify_singleton(gasnete_coll_team_t team, int id, int flags) {
+  gasnete_coll_rmdbarrier_t *barrier_data = team->barrier_data;
+
+  if_pf(team->barrier_splitstate == INSIDE_BARRIER) 
+    gasneti_fatalerror("gasnet_barrier_notify() called twice in a row");
+
+#if GASNETI_PSHM_BARRIER_HIER
+  if (barrier_data->barrier_pshm) {
+    PSHM_BDATA_DECL(pshm_bdata, barrier_data->barrier_pshm);
+    if (gasnete_pshmbarrier_notify_inner(pshm_bdata, id, flags)) {
+      /* last arrival - must use supernode consensus value/flags */
+      id = pshm_bdata->shared->value;
+      flags = pshm_bdata->shared->flags;
+    }
+  } else
+#endif
+  {
+    barrier_data->barrier_notify_value = id;
+    barrier_data->barrier_notify_flags = flags;
+  }
+
+  barrier_data->barrier_value = id;
+  barrier_data->barrier_flags = flags;
+
+  /*  update state */
+  team->barrier_splitstate = INSIDE_BARRIER;
+  gasneti_sync_writes(); /* ensure all state changes committed before return */
+}
 
 static int gasnete_rmdbarrier_wait(gasnete_coll_team_t team, int id, int flags) {
   gasnete_coll_rmdbarrier_t *barrier_data = team->barrier_data;
@@ -1363,7 +1429,7 @@ static void gasnete_rmdbarrier_init(gasnete_coll_team_t team) {
   }
 #endif
 
-  team->barrier_notify = &gasnete_rmdbarrier_notify;
+  team->barrier_notify = steps ? &gasnete_rmdbarrier_notify : &gasnete_rmdbarrier_notify_singleton;
   team->barrier_wait =   &gasnete_rmdbarrier_wait;
   team->barrier_try =    &gasnete_rmdbarrier_try;
   team->barrier_pf =     (team == GASNET_TEAM_ALL) ? &gasnete_rmdbarrier_kick_team_all : NULL;
