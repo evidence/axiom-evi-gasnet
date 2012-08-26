@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/08/25 07:25:44 $
- * $Revision: 1.105 $
+ *     $Date: 2012/08/26 09:02:52 $
+ * $Revision: 1.106 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1243,9 +1243,12 @@ static int gasnete_rmdbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
     const int passive_shift = barrier_data->barrier_passive;
     retval = gasnete_pshmbarrier_wait_inner(barrier_data->barrier_pshm, id, flags, passive_shift);
     if (passive_shift) {
-    #if !GASNETI_THREADS
+    #if !GASNETI_THREADS && !GASNETE_RMDBARRIER_SINGLE_SENDER
       /* "drain" at most one put_nb handle (we could have sent step 0) */
-      gasnete_wait_syncnb_all(barrier_data->barrier_handles, 1);
+      if (barrier_data->barrier_handles[0] != GASNET_INVALID_HANDLE) {
+        gasnete_wait_syncnb(barrier_data->barrier_handles[0]);
+        barrier_data->barrier_handles[0] = GASNET_INVALID_HANDLE;
+      }
     #endif
       /* Once the active peer signals done, we can return */
       team->barrier_splitstate = OUTSIDE_BARRIER;
