@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/08/28 06:30:30 $
- * $Revision: 1.108 $
+ *     $Date: 2012/08/28 07:13:42 $
+ * $Revision: 1.109 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -134,8 +134,8 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
   curr->flags = flags;
   
   /* Prepare to traverse tree */
-  prev = pshm_bdata->private.rank_plus_size;
-  index = prev >> 1;
+  prev = pshm_bdata->private.rank_plus_size ^ 1;
+  index = pshm_bdata->private.rank_plus_size >> 1;
   curr = &nodes[index];
 
   /* Signal my arrival - includes WMB to commit own value/flags writes and RMB to read others' */
@@ -146,7 +146,7 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
     gasneti_atomic_set(&curr->counter, 2, 0);
 
     { /* Merge flags/value with those of the first arrival */
-      const struct gasneti_pshm_barrier_node * const other = &nodes[prev ^ 1];
+      const struct gasneti_pshm_barrier_node * const other = &nodes[prev];
       const int other_flags = other->flags;
       const int other_value = other->value;
 
@@ -164,7 +164,7 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
     }
 
     /* Up we go... */
-    prev = index;
+    prev = index ^ 1;
     index = index >> 1;
     curr = &nodes[index];
   }
