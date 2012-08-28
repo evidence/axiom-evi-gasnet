@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testbarrier.c,v $
- *     $Date: 2012/08/20 06:16:21 $
- * $Revision: 1.23 $
+ *     $Date: 2012/08/28 03:14:50 $
+ * $Revision: 1.24 $
  * Description: GASNet barrier performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -100,6 +100,7 @@ int main(int argc, char **argv) {
 }
 
 static void * doTest(void *arg) {
+  int warmups = MIN(100, iters/100);
   int64_t start,total;
   int i = 0;
 
@@ -107,6 +108,12 @@ static void * doTest(void *arg) {
     /* I am a polling thread */
     GASNET_BLOCKUNTIL(done);
     return NULL;
+  }
+
+  /* Warmup Named */
+  for (i=0; i < warmups; i++) {
+    gasnet_barrier_notify(i, 0);            
+    GASNET_Safe(my_barrier_wait(i, 0)); 
   }
 
   BARRIER();
@@ -126,6 +133,13 @@ static void * doTest(void *arg) {
   }
   BARRIER();
 
+  /* Warmup Anonymous */
+  for (i=0; i < warmups; i++) {
+    gasnet_barrier_notify(0, GASNET_BARRIERFLAG_ANONYMOUS);            
+    GASNET_Safe(my_barrier_wait(0, GASNET_BARRIERFLAG_ANONYMOUS)); 
+  }
+
+  BARRIER();
   start = TIME();
   for (i=0; i < iters; i++) {
     gasnet_barrier_notify(0, GASNET_BARRIERFLAG_ANONYMOUS);            
@@ -150,6 +164,15 @@ static void * doTest(void *arg) {
   } else {
     int parity = (mynode & 1);
 
+    /* Warmup Mixed */
+    for (i=0; i < warmups; i++, parity ^= 1) {
+      int value = parity ? iters : 0;
+      int flags = parity ? 0 : GASNET_BARRIERFLAG_ANONYMOUS;
+      gasnet_barrier_notify(value, flags);
+      GASNET_Safe(my_barrier_wait(value, flags)); 
+    }
+
+    BARRIER();
     start = TIME();
     for (i=0; i < iters; i++, parity ^= 1) {
       int value = parity ? iters : 0;
