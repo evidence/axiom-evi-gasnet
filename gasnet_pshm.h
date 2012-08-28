@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.h,v $
- *     $Date: 2012/08/28 04:37:01 $
- * $Revision: 1.18 $
+ *     $Date: 2012/08/28 06:52:26 $
+ * $Revision: 1.19 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -377,14 +377,14 @@ typedef struct {
     gasneti_atomic_t state; /* One done bit per phase and result in remaining bits */
     gasneti_atomic_t ready; /* Initialization indicator */
     int size;
-    gasnet_handlerarg_t flags, value; /* supernode consensus for hierarchical barrier */
+    gasnet_handlerarg_t volatile flags, value; /* supernode consensus for hierarchical barrier */
     char _pad1[GASNETI_CACHE_PAD(  2*sizeof(gasneti_atomic_t)
                                  + sizeof(int)
                                  + 2*sizeof(gasnet_handlerarg_t))];
     /*---------------*/
     struct gasneti_pshm_barrier_node {
       gasneti_atomic_t counter;
-      int value, flags;
+      int volatile value, flags;
       char _pad[GASNETI_CACHE_PAD(sizeof(gasneti_atomic_t) + 2*sizeof(int))];
     } node[1]; /* VLA */
 } gasneti_pshm_barrier_t;
