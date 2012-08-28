@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/08/26 09:02:52 $
- * $Revision: 1.106 $
+ *     $Date: 2012/08/28 04:37:03 $
+ * $Revision: 1.107 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -94,7 +94,7 @@ typedef struct gasnete_coll_pshmbarrier_s {
   struct {
     int volatile two_to_phase; /* Local var alternates between 2^0 and 2^1 */
     struct gasneti_pshm_barrier_node *mynode;
-    int rank;
+    int rank, rank_plus_size;
   } private;
   gasneti_pshm_barrier_t *shared;
 } gasnete_pshmbarrier_data_t;
@@ -119,65 +119,73 @@ typedef struct gasnete_coll_pshmbarrier_s {
   } while(0)
 
 GASNETI_ALWAYS_INLINE(gasnete_pshmbarrier_notify_inner)
-int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bdata, int id, int flags) {
+int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bdata, int value, int flags) {
   gasneti_pshm_barrier_t * const shared_data = pshm_bdata->shared;
-  struct gasneti_pshm_barrier_node * const mynode = pshm_bdata->private.mynode;
-  int last;
+  struct gasneti_pshm_barrier_node * const nodes = shared_data->node;
+  struct gasneti_pshm_barrier_node * curr;
+  unsigned int prev, index;
 
   /* Start a new phase */
   int two_to_phase = (pshm_bdata->private.two_to_phase ^= 3); /* alternates between 01 and 10 base-2 */
 
-  /* Record the passed flag and value */
-  mynode->flags = flags;
-  mynode->value = id;
+  /* Record the passed barrier value and flags */
+  curr = pshm_bdata->private.mynode;
+  curr->value = value;
+  curr->flags = flags;
   
-  /* Signal my arrival - includes WMB to commit the value/flags writes */
-  last = gasneti_atomic_decrement_and_test(&shared_data->counter, GASNETI_ATOMIC_REL);
-  if (last) {
-    /* I am last arrival */
-    const struct gasneti_pshm_barrier_node *node = shared_data->node;
-    const int size = shared_data->size;
-    int result = GASNET_OK; /* assume success */
-    int i;
-  
-    /* Reset counter - includes the RMB needed to ensure up-to-date reads of value/flags */
-    gasneti_atomic_set(&shared_data->counter, size, GASNETI_ATOMIC_ACQ);
+  /* Prepare to traverse tree */
+  prev = pshm_bdata->private.rank_plus_size;
+  index = prev >> 1;
+  curr = &nodes[index];
 
-    /* Determine and "publish" the result */
-    flags = GASNET_BARRIERFLAG_ANONYMOUS;
-    for (i = 0; i < size; ++i, ++node) {
-      const int flag = node->flags;
-      if_pt (flag & GASNET_BARRIERFLAG_ANONYMOUS) {
-        continue;
-      } else if_pf (flag & GASNET_BARRIERFLAG_MISMATCH) {
-        result = GASNET_ERR_BARRIER_MISMATCH; 
+  /* Signal my arrival - includes WMB to commit own value/flags writes and RMB to read others' */
+  gasneti_assert(index || (shared_data->size == 1));
+  while (index && gasneti_atomic_decrement_and_test(&curr->counter,
+                                                    GASNETI_ATOMIC_REL | GASNETI_ATOMIC_ACQ)) {
+    /* Reset now, since we have this line cached exclusive */
+    gasneti_atomic_set(&curr->counter, 2, 0);
+
+    { /* Merge flags/value with those of the first arrival */
+      const struct gasneti_pshm_barrier_node * const other = &nodes[prev ^ 1];
+      const int other_flags = other->flags;
+      const int other_value = other->value;
+
+      if ((flags | other_flags) & GASNET_BARRIERFLAG_MISMATCH) {
         flags = GASNET_BARRIERFLAG_MISMATCH;
-        break;
-      } else {
-        const int val = node->value;
-        if (flags) {
-          gasneti_assert(flags == GASNET_BARRIERFLAG_ANONYMOUS);
-          id = val;
-          flags = 0;
-        } else if (val != id) {
-          result = GASNET_ERR_BARRIER_MISMATCH; 
-          flags = GASNET_BARRIERFLAG_MISMATCH;
-          break;
-        }
+      } else if (flags & GASNET_BARRIERFLAG_ANONYMOUS) {
+        flags = other_flags;
+        value = other_value;
+      } else if (!(other_flags & GASNET_BARRIERFLAG_ANONYMOUS) && (other_value != value)) {
+        flags = GASNET_BARRIERFLAG_MISMATCH;
       }
+
+      curr->value = value;
+      curr->flags = flags;
+
+      prev = index;
     }
+
+    /* Up we go... */
+    index = index >> 1;
+    curr = &nodes[index];
+  }
+
+  if (!index) {
+    /* We reached the root of the tree */
 
 #if GASNETI_PSHM_BARRIER_HIER
     /* Publish the results for use in hierarhical barrier */
-    pshm_bdata->shared->value = id;
+    pshm_bdata->shared->value = value;
     pshm_bdata->shared->flags = flags;
 #endif
 
     /* Signal the barrier w/ phase and result */
-    PSHM_BSTATE_SIGNAL(pshm_bdata, result, two_to_phase);
+    PSHM_BSTATE_SIGNAL(pshm_bdata,
+                       ((flags & GASNET_BARRIERFLAG_MISMATCH) ? GASNET_ERR_BARRIER_MISMATCH : GASNET_OK),
+                       two_to_phase);
   }
 
-  return last;
+  return !index;
 }
 
 GASNETI_ALWAYS_INLINE(finish_pshm_barrier)
@@ -269,24 +277,33 @@ gasnete_pshmbarrier_init_inner(gasnete_coll_team_t team) {
     gasneti_leak(pshm_bdata);
     pshm_bdata->private.two_to_phase = 1; /* 2^0 */
     pshm_bdata->private.rank = rank;
-    pshm_bdata->private.mynode = &shared_data->node[rank];
+    pshm_bdata->private.rank_plus_size = rank + size;
+    pshm_bdata->private.mynode = &shared_data->node[rank + size]; /* a leaf node */
 
     pshm_bdata->shared = shared_data;
 
     /* One node initializes shared data, while others wait */
     if (!rank) {
+      int i;
+
+      /* Counters used to detect arrivals at interior tree nodes */
+      for (i=0; i < size; i++) {
+        gasneti_atomic_set(&shared_data->node[i].counter, 2, 0);
+      }
+
       /* Flags word to poll or spin on until barrier is done */
       gasneti_atomic_set(&shared_data->state, 0, 0);
 
-      /* Counter used to detect that all nodes have reached the barrier */
       shared_data->size = size;
-      gasneti_atomic_set(&shared_data->counter, shared_data->size, GASNETI_ATOMIC_REL);
+
+      /* Counter used to detect completion of this initialization */
+      gasneti_atomic_set(&shared_data->ready, shared_data->size, GASNETI_ATOMIC_REL);
     }
     if (team == GASNET_TEAM_ALL) {
        gasneti_pshmnet_bootstrapBarrier();
     } else if (rank) {
       /* XXX: What if this value is present by chance? */
-      gasneti_waituntil(gasneti_atomic_read(&shared_data->counter, 0) == size);
+      gasneti_waituntil(gasneti_atomic_read(&shared_data->ready, 0) == size);
     }
   }
 
