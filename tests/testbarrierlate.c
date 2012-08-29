@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testbarrierlate.c,v $
- *     $Date: 2012/08/29 04:43:21 $
- * $Revision: 1.11 $
+ *     $Date: 2012/08/29 04:49:03 $
+ * $Revision: 1.12 $
  * Description: GASNet barrier performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -132,9 +132,9 @@ int main(int argc, char **argv) {
   avg_time /= nodes;
 
   if (mynode == 0) {
-    printf("Total difference: %8.3f sec  Late notify() Anon. Barrier net latency, minimum: %8.3f us (%6.2f%%)\n", ((float)min_time)/1000000, ((float)min_time)/iters, ((float)min_time * 100.)/delay_us);
-    printf("Total difference: %8.3f sec  Late notify() Anon. Barrier net latency, maximum: %8.3f us (%6.2f%%)\n", ((float)max_time)/1000000, ((float)max_time)/iters, ((float)max_time * 100.)/delay_us);
-    printf("Total difference: %8.3f sec  Late notify() Anon. Barrier net latency, average: %8.3f us (%6.2f%%)\n", ((float)avg_time)/1000000, ((float)avg_time)/iters, ((float)avg_time * 100.)/delay_us);
+    printf("Total difference: %8.3f sec  Late notify() Anon. Barrier net latency, minimum: %8.3f us (%6.2f%%)\n", ((float)min_time)/1000000, ((float)min_time)/iters, ((float)min_time * 100.)/baseline_us);
+    printf("Total difference: %8.3f sec  Late notify() Anon. Barrier net latency, maximum: %8.3f us (%6.2f%%)\n", ((float)max_time)/1000000, ((float)max_time)/iters, ((float)max_time * 100.)/baseline_us);
+    printf("Total difference: %8.3f sec  Late notify() Anon. Barrier net latency, average: %8.3f us (%6.2f%%)\n", ((float)avg_time)/1000000, ((float)avg_time)/iters, ((float)avg_time * 100.)/baseline_us);
     fflush(stdout);
   }
 
@@ -174,9 +174,9 @@ int main(int argc, char **argv) {
   avg_time /= nodes;
 
   if (mynode == 0) {
-    printf("Total difference: %8.3f sec  Late notify() Anon. Barrier net latency, minimum: %8.3f us (%6.2f%%)\n", ((float)min_time)/1000000, ((float)min_time)/iters, ((float)min_time * 100.)/delay_us);
-    printf("Total difference: %8.3f sec  Late notify() Anon. Barrier net latency, maximum: %8.3f us (%6.2f%%)\n", ((float)max_time)/1000000, ((float)max_time)/iters, ((float)max_time * 100.)/delay_us);
-    printf("Total difference: %8.3f sec  Late notify() Anon. Barrier net latency, average: %8.3f us (%6.2f%%)\n", ((float)avg_time)/1000000, ((float)avg_time)/iters, ((float)avg_time * 100.)/delay_us);
+    printf("Total difference: %8.3f sec  Late notify() Anon. Barrier net latency, minimum: %8.3f us (%6.2f%%)\n", ((float)min_time)/1000000, ((float)min_time)/iters, ((float)min_time * 100.)/baseline_us);
+    printf("Total difference: %8.3f sec  Late notify() Anon. Barrier net latency, maximum: %8.3f us (%6.2f%%)\n", ((float)max_time)/1000000, ((float)max_time)/iters, ((float)max_time * 100.)/baseline_us);
+    printf("Total difference: %8.3f sec  Late notify() Anon. Barrier net latency, average: %8.3f us (%6.2f%%)\n", ((float)avg_time)/1000000, ((float)avg_time)/iters, ((float)avg_time * 100.)/baseline_us);
     fflush(stdout);
   }
 
