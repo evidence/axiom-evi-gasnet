@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.h,v $
- *     $Date: 2012/08/28 06:52:26 $
- * $Revision: 1.19 $
+ *     $Date: 2012/08/29 23:33:55 $
+ * $Revision: 1.20 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -375,10 +375,9 @@ int gasneti_AMPSHM_ReplyGeneric(int category, gasnet_token_t token,
 
 typedef struct {
     gasneti_atomic_t state; /* One done bit per phase and result in remaining bits */
-    gasneti_atomic_t ready; /* Initialization indicator */
     int size;
     gasnet_handlerarg_t volatile flags, value; /* supernode consensus for hierarchical barrier */
-    char _pad1[GASNETI_CACHE_PAD(  2*sizeof(gasneti_atomic_t)
+    char _pad1[GASNETI_CACHE_PAD(  sizeof(gasneti_atomic_t)
                                  + sizeof(int)
                                  + 2*sizeof(gasnet_handlerarg_t))];
     /*---------------*/

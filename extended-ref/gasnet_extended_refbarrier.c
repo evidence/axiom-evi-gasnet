@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/08/28 07:13:42 $
- * $Revision: 1.109 $
+ *     $Date: 2012/08/29 23:33:57 $
+ * $Revision: 1.110 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -92,9 +92,9 @@ void gasnete_barrier_pf_disable(gasnete_coll_team_t team) {
 
 typedef struct gasnete_coll_pshmbarrier_s {
   struct {
-    int volatile two_to_phase; /* Local var alternates between 2^0 and 2^1 */
     struct gasneti_pshm_barrier_node *mynode;
-    int rank, rank_plus_size;
+    int volatile two_to_phase; /* Local var alternates between 2^0 and 2^1 */
+    int size, rank, rank_plus_size, linear;
   } private;
   gasneti_pshm_barrier_t *shared;
 } gasnete_pshmbarrier_data_t;
@@ -122,69 +122,142 @@ GASNETI_ALWAYS_INLINE(gasnete_pshmbarrier_notify_inner)
 int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bdata, int value, int flags) {
   gasneti_pshm_barrier_t * const shared_data = pshm_bdata->shared;
   struct gasneti_pshm_barrier_node * const nodes = shared_data->node;
-  struct gasneti_pshm_barrier_node * curr;
-  unsigned int prev, index;
 
   /* Start a new phase */
-  int two_to_phase = (pshm_bdata->private.two_to_phase ^= 3); /* alternates between 01 and 10 base-2 */
+  const int two_to_phase = (pshm_bdata->private.two_to_phase ^= 3); /* alternates between 01 and 10 base-2 */
 
   /* Record the passed barrier value and flags */
-  curr = pshm_bdata->private.mynode;
-  curr->value = value;
-  curr->flags = flags;
+  pshm_bdata->private.mynode->value = value;
+  pshm_bdata->private.mynode->flags = flags;
   
-  /* Prepare to traverse tree */
-  prev = pshm_bdata->private.rank_plus_size ^ 1;
-  index = pshm_bdata->private.rank_plus_size >> 1;
-  curr = &nodes[index];
+  if (pshm_bdata->private.linear) {
+    /* "Linear" algorithm:
+     *
+     * 0) Each node has stored its value/flags in the leaves of a tree-in-array.
+     * 1) Dec-and-test of a single shared counter identifies the last Notify.
+     * 2) The last Notify scans the array of value/flags pairs to perform matching.
+     * The counter is in the "zeroth" node, which is unused by the Logarithmic code.
+     *
+     * There are two main bottlenecks, both in the critical path:
+     * + EVERY processes must dec-and-test a single variable resulting in lots of
+     *   cache-coherence traffic.
+     * + The last Notify must perform a reduction over all value/flags pairs, which
+     *   is very likely to result in (size-1) cache misses (all pairs except the one
+     *   written locally was recently written by its respective owner).
+     */
 
-  /* Signal my arrival - includes WMB to commit own value/flags writes and RMB to read others' */
-  gasneti_assert(index || (shared_data->size == 1));
-  while (index && gasneti_atomic_decrement_and_test(&curr->counter,
-                                                    GASNETI_ATOMIC_REL | GASNETI_ATOMIC_ACQ)) {
-    /* Reset now, since we have this line cached exclusive */
-    gasneti_atomic_set(&curr->counter, 2, 0);
+    /* Signal my arrival - includes WMB to commit own value/flags writes */
+    if_pf (!gasneti_atomic_decrement_and_test(&nodes[0].counter, GASNETI_ATOMIC_REL)) {
+      return 0;
+    } else {
+      /* I am last arrival */
+      const int size = pshm_bdata->private.size;
+      const struct gasneti_pshm_barrier_node *leaf = &nodes[size];
+      int i;
+  
+      /* Reset counter - includes the RMB needed to ensure up-to-date reads of value/flags */
+      gasneti_atomic_set(&nodes[0].counter, size, GASNETI_ATOMIC_ACQ);
 
-    { /* Merge flags/value with those of the first arrival */
-      const struct gasneti_pshm_barrier_node * const other = &nodes[prev];
-      const int other_flags = other->flags;
-      const int other_value = other->value;
+      /* Reduction to determine the result */
+      flags = GASNET_BARRIERFLAG_ANONYMOUS;
+      for (i = 0; i < size; ++i, ++leaf) {
+        const int other_flags = leaf->flags;
+        if_pt (other_flags & GASNET_BARRIERFLAG_ANONYMOUS) {
+          continue;
+        } else if_pf (other_flags & GASNET_BARRIERFLAG_MISMATCH) {
+          flags = GASNET_BARRIERFLAG_MISMATCH;
+          break;
+        } else {
+          const int other_value = leaf->value;
+          if (flags) {
+            gasneti_assert(flags == GASNET_BARRIERFLAG_ANONYMOUS);
+            value = other_value;
+            flags = 0;
+          } else if (other_value != value) {
+            flags = GASNET_BARRIERFLAG_MISMATCH;
+            break;
+          }
+        }
+      }
+    }
+  } else {
+    /* "Logarithmic" algorithm:
+     *
+     * 0) Each process has stored its value/flags in the leaves of a tree-in-array.
+     * 1) Start cursor at tree node which is parent of mynode.
+     * 2) Dec-and-test cursor->counter to identify the second arrival, exiting if
+     *    the dec-and-test indicates we are the first arrival.
+     * 3) Second arrival does matching logic on the value/flags pairs from the two
+     *    children of the current tree node, storing the result in the current node.
+     *    This partial reduction result will be read by whichever process is second
+     *    to arrive at the parent of this tree node.
+     * 4) Move cursor "up" the tree and repeat 2,3,4 until either step 2 exits or
+     *    we have written value/flags to the root of the tree (which is node 1).
+     *
+     * There are a total of two atomic dec-and-test operations on (size-1) distinct
+     * locations, each on a cacheline separate from all others.  The total is
+     * asymptotically twice the number in the Linear algorithm.  However, the
+     * folding of the reduction for barrier matching into the tree traversal is
+     * effective at reducing the "critical path" from the last Notify to the
+     * production of a final result and waking of the other processes. Each of
+     * steps up the tree misses on at most 2 cache lines: the current node (to
+     * which we write) and one of its children (which we only read).  The values
+     * from the other child are carried-over from the previous iteration, if any,
+     * in automatic variables.
+     */
 
-      if ((flags | other_flags) & GASNET_BARRIERFLAG_MISMATCH) {
-        flags = GASNET_BARRIERFLAG_MISMATCH;
-      } else if (flags & GASNET_BARRIERFLAG_ANONYMOUS) {
-        flags = other_flags;
-        value = other_value;
-      } else if (!(other_flags & GASNET_BARRIERFLAG_ANONYMOUS) && (other_value != value)) {
-        flags = GASNET_BARRIERFLAG_MISMATCH;
+    /* Prepare to traverse tree */
+    unsigned int prev = pshm_bdata->private.rank_plus_size ^ 1;
+    unsigned int index = pshm_bdata->private.rank_plus_size >> 1;
+    struct gasneti_pshm_barrier_node * curr = &nodes[index];
+
+    /* Signal my arrival - includes WMB to commit own value/flags writes and RMB to read others' */
+    gasneti_assert(index || (shared_data->size == 1));
+    while (index && gasneti_atomic_decrement_and_test(&curr->counter,
+                                                      GASNETI_ATOMIC_REL|GASNETI_ATOMIC_ACQ)) {
+      /* Reset now, since we have this line cached exclusive */
+      gasneti_atomic_set(&curr->counter, 2, 0);
+
+      { /* Merge flags/value with those of the first arrival */
+        const struct gasneti_pshm_barrier_node * const other = &nodes[prev];
+        const int other_flags = other->flags;
+        const int other_value = other->value;
+
+        if ((flags | other_flags) & GASNET_BARRIERFLAG_MISMATCH) {
+          flags = GASNET_BARRIERFLAG_MISMATCH;
+        } else if (flags & GASNET_BARRIERFLAG_ANONYMOUS) {
+          flags = other_flags;
+          value = other_value;
+        } else if (!(other_flags & GASNET_BARRIERFLAG_ANONYMOUS) && (other_value != value)) {
+          flags = GASNET_BARRIERFLAG_MISMATCH;
+        }
+        curr->value = value;
+        curr->flags = flags;
       }
 
-      curr->value = value;
-      curr->flags = flags;
+      /* Up we go... */
+      prev = index ^ 1;
+      index = index >> 1;
+      curr = &nodes[index];
     }
 
-    /* Up we go... */
-    prev = index ^ 1;
-    index = index >> 1;
-    curr = &nodes[index];
+    if_pf (index) return 1;
+    /* else we reached the root of the tree */
   }
-
-  if (!index) {
-    /* We reached the root of the tree */
 
 #if GASNETI_PSHM_BARRIER_HIER
-    /* Publish the results for use in hierarhical barrier */
-    pshm_bdata->shared->value = value;
-    pshm_bdata->shared->flags = flags;
+  /* Publish the results for use in hierarhical barrier */
+  shared_data->value = value;
+  shared_data->flags = flags;
 #endif
 
-    /* Signal the barrier w/ phase and result */
-    PSHM_BSTATE_SIGNAL(pshm_bdata,
-                       ((flags & GASNET_BARRIERFLAG_MISMATCH) ? GASNET_ERR_BARRIER_MISMATCH : GASNET_OK),
-                       two_to_phase);
+  /* Signal the barrier w/ phase and result */
+  {
+    int result = (flags & GASNET_BARRIERFLAG_MISMATCH) ? GASNET_ERR_BARRIER_MISMATCH : GASNET_OK;
+    PSHM_BSTATE_SIGNAL(pshm_bdata, result, two_to_phase);
   }
 
-  return !index;
+  return 1;
 }
 
 GASNETI_ALWAYS_INLINE(finish_pshm_barrier)
@@ -275,9 +348,22 @@ gasnete_pshmbarrier_init_inner(gasnete_coll_team_t team) {
     pshm_bdata = gasneti_malloc(sizeof(gasnete_pshmbarrier_data_t));
     gasneti_leak(pshm_bdata);
     pshm_bdata->private.two_to_phase = 1; /* 2^0 */
+    pshm_bdata->private.size = size;
     pshm_bdata->private.rank = rank;
     pshm_bdata->private.rank_plus_size = rank + size;
     pshm_bdata->private.mynode = &shared_data->node[rank + size]; /* a leaf node */
+
+    { /* GASNET_PSHM_LINEAR_BARRIER_LIMIT:
+       *  Cut-off for transition from Linear to Logarithmic shared-memory barrier.
+       *  If negative (the default) then Linear is used unconditionally.
+       *  If zero then Logarithmic is used unconditionally.
+       *  If positive then Linear is used for Size <= Limit.
+       */
+      int limit = gasneti_getenv_int_withdefault("GASNET_PSHM_LINEAR_BARRIER_LIMIT", -1, 0);
+      pshm_bdata->private.linear = ((limit < 0) || (size <= limit));
+      GASNETI_TRACE_PRINTF(B, ("Intranode shared-memory barrier is using the %s algorithm",
+                               pshm_bdata->private.linear ? "Linear" : "Logarithmic"));
+    }
 
     pshm_bdata->shared = shared_data;
 
@@ -285,8 +371,8 @@ gasnete_pshmbarrier_init_inner(gasnete_coll_team_t team) {
     if (!rank) {
       int i;
 
-      /* Counters used to detect arrivals at interior tree nodes */
-      for (i=0; i < size; i++) {
+      /* Counters used to detect arrivals at interior tree nodes (Logarithmic) */
+      for (i=1; i < size; i++) {
         gasneti_atomic_set(&shared_data->node[i].counter, 2, 0);
       }
 
@@ -295,14 +381,14 @@ gasnete_pshmbarrier_init_inner(gasnete_coll_team_t team) {
 
       shared_data->size = size;
 
-      /* Counter used to detect completion of this initialization */
-      gasneti_atomic_set(&shared_data->ready, shared_data->size, GASNETI_ATOMIC_REL);
+      /* Counter used to detect arrivals (Linear) AND competion of this initialization */
+      gasneti_atomic_set(&shared_data->node[0].counter, size, GASNETI_ATOMIC_REL);
     }
     if (team == GASNET_TEAM_ALL) {
        gasneti_pshmnet_bootstrapBarrier();
     } else if (rank) {
       /* XXX: What if this value is present by chance? */
-      gasneti_waituntil(gasneti_atomic_read(&shared_data->ready, 0) == size);
+      gasneti_waituntil(gasneti_atomic_read(&shared_data->node[0].counter, 0) == size);
     }
   }
 
