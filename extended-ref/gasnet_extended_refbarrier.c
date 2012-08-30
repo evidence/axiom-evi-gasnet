@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/08/30 01:10:10 $
- * $Revision: 1.113 $
+ *     $Date: 2012/08/30 10:59:41 $
+ * $Revision: 1.114 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -246,7 +246,7 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
       curr = &nodes[index];
     }
 
-    if_pf (index) return 1;
+    if_pf (index) return 0;
     /* else we reached the root of the tree */
   }
 
