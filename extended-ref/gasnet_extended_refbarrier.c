@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/08/30 00:19:05 $
- * $Revision: 1.112 $
+ *     $Date: 2012/08/30 01:10:10 $
+ * $Revision: 1.113 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -213,10 +213,15 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
 
     /* Signal my arrival - includes WMB to commit own value/flags writes and RMB to read others' */
     gasneti_assert(index || (shared_data->size == 1));
+  #if GASNETI_HAVE_ATOMIC_SWAP && 0 /* XXX: needs more study */
+    while (index && (two_to_phase == gasneti_atomic_swap(&curr->counter, two_to_phase,
+                                                         GASNETI_ATOMIC_REL|GASNETI_ATOMIC_ACQ))) {
+  #else
     while (index && gasneti_atomic_decrement_and_test(&curr->counter,
                                                       GASNETI_ATOMIC_REL|GASNETI_ATOMIC_ACQ)) {
       /* Reset now, since we have this line cached exclusive */
       gasneti_atomic_set(&curr->counter, 2, 0);
+  #endif
 
       { /* Merge flags/value with those of the first arrival */
         const struct gasneti_pshm_barrier_node * const other = &nodes[child];
@@ -347,7 +352,7 @@ gasnete_pshmbarrier_init_inner(gasnete_coll_team_t team) {
 
     pshm_bdata = gasneti_malloc(sizeof(gasnete_pshmbarrier_data_t));
     gasneti_leak(pshm_bdata);
-    pshm_bdata->private.two_to_phase = 1; /* 2^0 */
+    pshm_bdata->private.two_to_phase = 2; /* 2^1  --  cannot start at 1 if using swap-based Log barrier */
     pshm_bdata->private.size = size;
     pshm_bdata->private.rank = rank;
     pshm_bdata->private.rank_plus_size = rank + size;
