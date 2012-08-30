@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/08/29 23:33:57 $
- * $Revision: 1.110 $
+ *     $Date: 2012/08/30 00:05:07 $
+ * $Revision: 1.111 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -152,7 +152,7 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
     } else {
       /* I am last arrival */
       const int size = pshm_bdata->private.size;
-      const struct gasneti_pshm_barrier_node *leaf = &nodes[size];
+      const struct gasneti_pshm_barrier_node * const leaf = &nodes[size];
       int i;
   
       /* Reset counter - includes the RMB needed to ensure up-to-date reads of value/flags */
@@ -160,15 +160,15 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
 
       /* Reduction to determine the result */
       flags = GASNET_BARRIERFLAG_ANONYMOUS;
-      for (i = 0; i < size; ++i, ++leaf) {
-        const int other_flags = leaf->flags;
+      for (i = 0; i < size; ++i) {
+        const int other_flags = leaf[i].flags;
         if_pt (other_flags & GASNET_BARRIERFLAG_ANONYMOUS) {
           continue;
         } else if_pf (other_flags & GASNET_BARRIERFLAG_MISMATCH) {
           flags = GASNET_BARRIERFLAG_MISMATCH;
           break;
         } else {
-          const int other_value = leaf->value;
+          const int other_value = leaf[i].value;
           if (flags) {
             gasneti_assert(flags == GASNET_BARRIERFLAG_ANONYMOUS);
             value = other_value;
