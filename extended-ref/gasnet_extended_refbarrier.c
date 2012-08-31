@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/08/30 10:59:41 $
- * $Revision: 1.114 $
+ *     $Date: 2012/08/31 01:25:59 $
+ * $Revision: 1.115 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -92,6 +92,9 @@ void gasnete_barrier_pf_disable(gasnete_coll_team_t team) {
 
 typedef struct gasnete_coll_pshmbarrier_s {
   struct {
+    struct gasnete_pshmbarrier_outstanding {
+        int rank, phase;
+    } *outstanding; /* Master only: tracks Notify arrivals */
     struct gasneti_pshm_barrier_node *mynode;
     int volatile two_to_phase; /* Local var alternates between 2^0 and 2^1 */
     int size, rank, rank_plus_size, linear;
@@ -132,51 +135,84 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
   
   if (pshm_bdata->private.linear) {
     /* "Linear" algorithm:
-     *
+     * 
      * 0) Each node has stored its value/flags in the leaves of a tree-in-array.
-     * 1) Dec-and-test of a single shared counter identifies the last Notify.
-     * 2) The last Notify scans the array of value/flags pairs to perform matching.
-     * The counter is in the "zeroth" node, which is unused by the Logarithmic code.
-     *
-     * There are two main bottlenecks, both in the critical path:
-     * + EVERY processes must dec-and-test a single variable resulting in lots of
-     *   cache-coherence traffic.
-     * + The last Notify must perform a reduction over all value/flags pairs, which
-     *   is very likely to result in (size-1) cache misses (all pairs except the one
-     *   written locally was recently written by its respective owner).
+     * 1) Each rank!=0 node issues a WMB before writing the phase field of its leaf.
+     * 2) The rank==0 node (carefully) polls for all the phase fields while
+     *    applying the name-matching logic to values as they becomes available.
+     * 
+     * The "careful" polling is derived from the barrier Dan Bonachea developed
+     * for the Titanium runtime (in which the barrier was neither split-phase
+     * nor named).
+     * 
+     * TODO: For large enough core count our prefetch of all the data at once
+     *       could potentially lead to conflict misses in cache.  Some sort of
+     *       segmenting of our fetches could help if we reach that point.
      */
 
-    /* Signal my arrival - includes WMB to commit own value/flags writes */
-    if_pf (!gasneti_atomic_decrement_and_test(&nodes[0].counter, GASNETI_ATOMIC_REL)) {
+    if (pshm_bdata->private.rank) {
+      gasneti_local_wmb();
+      pshm_bdata->private.mynode->phase = two_to_phase;
       return 0;
     } else {
-      /* I am last arrival */
       const int size = pshm_bdata->private.size;
       const struct gasneti_pshm_barrier_node * const leaf = &nodes[size];
-      int i;
-  
-      /* Reset counter - includes the RMB needed to ensure up-to-date reads of value/flags */
-      gasneti_atomic_set(&nodes[0].counter, size, GASNETI_ATOMIC_ACQ);
+      struct gasnete_pshmbarrier_outstanding * const outstanding = pshm_bdata->private.outstanding;
+      int i, n;
 
-      /* Reduction to determine the result */
-      flags = GASNET_BARRIERFLAG_ANONYMOUS;
-      for (i = 0; i < size; ++i) {
-        const int other_flags = leaf[i].flags;
-        if_pt (other_flags & GASNET_BARRIERFLAG_ANONYMOUS) {
-          continue;
-        } else if_pf (other_flags & GASNET_BARRIERFLAG_MISMATCH) {
-          flags = GASNET_BARRIERFLAG_MISMATCH;
-          break;
-        } else {
-          const int other_value = leaf[i].value;
-          if (flags) {
-            gasneti_assert(flags == GASNET_BARRIERFLAG_ANONYMOUS);
-            value = other_value;
-            flags = 0;
-          } else if (other_value != value) {
-            flags = GASNET_BARRIERFLAG_MISMATCH;
-            break;
+      /* Initial pipelined reads of all the phase values */
+      for (i = 1; i < size; ++i) {
+        outstanding[i-1].rank = i;
+        outstanding[i-1].phase = leaf[i].phase;
+      }
+
+      /* Poll until the phase fields indicate arrival, processing in batches */
+      n = size - 1;
+      for (;;) {
+        /* 1. Scan the phases, collecting completed entries at the end of the list */
+        int arrivals = 0;
+        for (i = 0; i < n; /*empty*/) {
+          if (outstanding[i].phase == two_to_phase) {
+            struct gasnete_pshmbarrier_outstanding tmp = outstanding[--n];
+            outstanding[n] = outstanding[i];
+            outstanding[i] = tmp;
+            ++arrivals;
+          } else {
+            /* We don't reread here due to the RMB required before name-matching */
+            ++i;
           }
+        }
+
+        /* 2. Apply name-matching logic to recent arrivals, if any */
+        if (arrivals) {
+          gasneti_local_rmb();
+          for (i = 0; i < arrivals; ++i) {
+            const int rank = outstanding[n+i].rank;
+            const int other_flags = leaf[rank].flags;
+            const int other_value = leaf[rank].value;
+            gasneti_assert(leaf[rank].phase == two_to_phase);
+
+            if ((flags | other_flags) & GASNET_BARRIERFLAG_MISMATCH) {
+              flags = GASNET_BARRIERFLAG_MISMATCH;
+            } else if (flags & GASNET_BARRIERFLAG_ANONYMOUS) {
+              flags = other_flags;
+              value = other_value;
+            } else if (!(other_flags & GASNET_BARRIERFLAG_ANONYMOUS) && (other_value != value)) {
+              flags = GASNET_BARRIERFLAG_MISMATCH;
+            }
+          }
+        }
+
+        if (!n) break; /* Quit now if all nodes have Notified */
+
+        /* 3. Take our compulsory delay(s) before issuing next batch of reads */
+        GASNETI_WAITHOOK();
+        GASNETI_SAFE(gasneti_AMPoll());
+
+        /* 4. Refetch any phases still outstanding */
+        for (i = 0; i < n; ++i) {
+          const int rank = outstanding[i].rank;
+          outstanding[i].phase = leaf[rank].phase;
         }
       }
     }
@@ -370,15 +406,21 @@ gasnete_pshmbarrier_init_inner(gasnete_coll_team_t team) {
                                pshm_bdata->private.linear ? "Linear" : "Logarithmic"));
     }
 
+    pshm_bdata->private.outstanding =
+        (!rank && pshm_bdata->private.linear) 
+        ? gasneti_malloc((size-1) * sizeof(struct gasnete_pshmbarrier_outstanding))
+        : NULL;
+
     pshm_bdata->shared = shared_data;
 
     /* One node initializes shared data, while others wait */
     if (!rank) {
       int i;
 
-      /* Counters used to detect arrivals at interior tree nodes (Logarithmic) */
+      /* Counters used to detect arrivals at Notify */
       for (i=1; i < size; i++) {
         gasneti_atomic_set(&shared_data->node[i].counter, 2, 0);
+        shared_data->node[size+i].phase = 2;
       }
 
       /* Flags word to poll or spin on until barrier is done */
@@ -386,7 +428,7 @@ gasnete_pshmbarrier_init_inner(gasnete_coll_team_t team) {
 
       shared_data->size = size;
 
-      /* Counter used to detect arrivals (Linear) AND competion of this initialization */
+      /* Counter used to detect completion of this initialization */
       gasneti_atomic_set(&shared_data->node[0].counter, size, GASNETI_ATOMIC_REL);
     }
     if (team == GASNET_TEAM_ALL) {
