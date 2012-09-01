@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/09/01 00:43:15 $
- * $Revision: 1.116 $
+ *     $Date: 2012/09/01 03:18:02 $
+ * $Revision: 1.117 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -131,9 +131,10 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
   const int two_to_phase = (pshm_bdata->private.two_to_phase ^= 3); /* alternates between 01 and 10 base-2 */
 
   /* Record the passed barrier value and flags */
-  pshm_bdata->private.mynode->value = value;
-  pshm_bdata->private.mynode->flags = flags;
-  
+  /* Note that value and flags fields align beween the lin and log union variants */
+  pshm_bdata->private.mynode->u.lin.value = value;
+  pshm_bdata->private.mynode->u.lin.flags = flags;
+
   if (pshm_bdata->private.linear) {
     /* "Linear" algorithm:
      * 
@@ -169,7 +170,7 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
 
     if (pshm_bdata->private.rank) {
       gasneti_local_wmb();
-      pshm_bdata->private.mynode->phase = two_to_phase;
+      pshm_bdata->private.mynode->u.lin.phase = two_to_phase;
       return 0;
     } else {
       struct gasnete_pshmbarrier_outstanding * const outstanding = pshm_bdata->private.outstanding;
@@ -182,7 +183,7 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
 
         /* 1. Fetch any phases still outstanding */
         for (i = 0; i < n; ++i) {
-          outstanding[i].phase = outstanding[i].node->phase;
+          outstanding[i].phase = outstanding[i].node->u.lin.phase;
         }
 
         /* 2. Scan the phases, collecting completed entries at the end of the list */
@@ -203,9 +204,9 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
           gasneti_local_rmb();
           for (i = 0; i < arrivals; ++i) {
             const struct gasneti_pshm_barrier_node * node = outstanding[n+i].node;
-            const int other_flags = node->flags;
-            const int other_value = node->value;
-            gasneti_assert(node->phase == two_to_phase);
+            const int other_value = node->u.lin.value;
+            const int other_flags = node->u.lin.flags;
+            gasneti_assert(node->u.lin.phase == two_to_phase);
 
             if ((flags | other_flags) & GASNET_BARRIERFLAG_MISMATCH) {
               flags = GASNET_BARRIERFLAG_MISMATCH;
@@ -259,19 +260,19 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
     /* Signal my arrival - includes WMB to commit own value/flags writes and RMB to read others' */
     gasneti_assert(index || (shared_data->size == 1));
   #if GASNETI_HAVE_ATOMIC_SWAP && 0 /* XXX: needs more study */
-    while (index && (two_to_phase == gasneti_atomic_swap(&curr->counter, two_to_phase,
+    while (index && (two_to_phase == gasneti_atomic_swap(&curr->u.log.counter, two_to_phase,
                                                          GASNETI_ATOMIC_REL|GASNETI_ATOMIC_ACQ))) {
   #else
-    while (index && gasneti_atomic_decrement_and_test(&curr->counter,
+    while (index && gasneti_atomic_decrement_and_test(&curr->u.log.counter,
                                                       GASNETI_ATOMIC_REL|GASNETI_ATOMIC_ACQ)) {
       /* Reset now, since we have this line cached exclusive */
-      gasneti_atomic_set(&curr->counter, 2, 0);
+      gasneti_atomic_set(&curr->u.log.counter, 2, 0);
   #endif
 
       { /* Merge flags/value with those of the first arrival */
         const struct gasneti_pshm_barrier_node * const other = &nodes[child];
-        const int other_flags = other->flags;
-        const int other_value = other->value;
+        const int other_value = other->u.log.value;
+        const int other_flags = other->u.log.flags;
 
         if ((flags | other_flags) & GASNET_BARRIERFLAG_MISMATCH) {
           flags = GASNET_BARRIERFLAG_MISMATCH;
@@ -281,8 +282,8 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
         } else if (!(other_flags & GASNET_BARRIERFLAG_ANONYMOUS) && (other_value != value)) {
           flags = GASNET_BARRIERFLAG_MISMATCH;
         }
-        curr->value = value;
-        curr->flags = flags;
+        curr->u.log.value = value;
+        curr->u.log.flags = flags;
       }
 
       /* Up we go... */
@@ -316,8 +317,9 @@ int finish_pshm_barrier(const gasnete_pshmbarrier_data_t * const pshm_bdata, int
   int ret = PSHM_BSTATE_TO_RESULT(state); /* default unless args mismatch those from notify */
 
   /* Check args for mismatch */
-  if_pf((flags != mynode->flags) ||
-        (!(flags & GASNET_BARRIERFLAG_ANONYMOUS) && (id != mynode->value))) {
+  /* Note that value and flags fields align beween the lin and log union variants */
+  if_pf((flags != mynode->u.log.flags) ||
+        (!(flags & GASNET_BARRIERFLAG_ANONYMOUS) && (id != mynode->u.log.value))) {
     ret = GASNET_ERR_BARRIER_MISMATCH; 
   }
 
@@ -361,6 +363,7 @@ static gasnete_pshmbarrier_data_t *
 gasnete_pshmbarrier_init_inner(gasnete_coll_team_t team) {
   gasnete_pshmbarrier_data_t *pshm_bdata;
   gasneti_pshm_barrier_t *shared_data = NULL;
+  int linear;
 
   if (team == GASNET_TEAM_ALL) {
     shared_data = gasneti_pshm_barrier;
@@ -410,10 +413,12 @@ gasnete_pshmbarrier_init_inner(gasnete_coll_team_t team) {
        *  If positive then Linear is used for Size <= Limit.
        */
       int limit = gasneti_getenv_int_withdefault("GASNET_PSHM_LINEAR_BARRIER_LIMIT", -1, 0);
-      pshm_bdata->private.linear = ((limit < 0) || (size <= limit));
+      linear = ((limit < 0) || (size <= limit));
       GASNETI_TRACE_PRINTF(B, ("Intranode shared-memory barrier is using the %s algorithm",
-                               pshm_bdata->private.linear ? "Linear" : "Logarithmic"));
+                               linear ? "Linear" : "Logarithmic"));
     }
+
+    pshm_bdata->private.linear = linear;
 
     if (!rank && pshm_bdata->private.linear) {
       int i;
@@ -433,9 +438,14 @@ gasnete_pshmbarrier_init_inner(gasnete_coll_team_t team) {
       int i;
 
       /* Counters used to detect arrivals at Notify */
-      for (i=1; i < size; i++) {
-        gasneti_atomic_set(&shared_data->node[i].counter, 2, 0);
-        shared_data->node[size+i].phase = 2;
+      if (linear) {
+        for (i=1; i < size; i++) {
+          shared_data->node[size+i].u.lin.phase = 2;;
+        }
+      } else {
+        for (i=1; i < size; i++) {
+          gasneti_atomic_set(&shared_data->node[i].u.log.counter, 2, 0);
+        }
       }
 
       /* Flags word to poll or spin on until barrier is done */
@@ -443,14 +453,14 @@ gasnete_pshmbarrier_init_inner(gasnete_coll_team_t team) {
 
       shared_data->size = size;
 
-      /* Counter used to detect completion of this initialization */
-      gasneti_atomic_set(&shared_data->node[0].counter, size, GASNETI_ATOMIC_REL);
+      /* Otherwise unused counter used to detect completion of this initialization */
+      gasneti_atomic_set(&shared_data->node[0].u.log.counter, size, GASNETI_ATOMIC_REL);
     }
     if (team == GASNET_TEAM_ALL) {
        gasneti_pshmnet_bootstrapBarrier();
     } else if (rank) {
       /* XXX: What if this value is present by chance? */
-      gasneti_waituntil(gasneti_atomic_read(&shared_data->node[0].counter, 0) == size);
+      gasneti_waituntil(gasneti_atomic_read(&shared_data->node[0].u.log.counter, 0) == size);
     }
   }
 
