@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/09/01 07:12:58 $
- * $Revision: 1.119 $
+ *     $Date: 2012/09/01 07:18:12 $
+ * $Revision: 1.120 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -104,13 +104,11 @@ void gasnete_barrier_pf_disable(gasnete_coll_team_t team) {
                 GASNETI_MAKEWORD((_flags | (_phase << GASNETE_PSHM_LINBARR_PHASE_SHIFT)), _value)
     #define GASNETE_PSHM_LINBARR_FLAGS(_u64)    GASNETI_HIWORD(_u64) /* and phase too */
     #define GASNETE_PSHM_LINBARR_VALUE(_u64)    GASNETI_LOWORD(_u64)
-    #define GASNETE_PSHM_LINBARR_PHASE_MASK     ((uint64_t)3 << (32 + GASNETE_PSHM_LINBARR_PHASE_SHIFT))
   #else
     #define GASNETE_PSHM_LINBARR_PACK(_value, _flags, _phase) \
                 GASNETI_MAKEWORD(_value, (_flags | (_phase << GASNETE_PSHM_LINBARR_PHASE_SHIFT)))
     #define GASNETE_PSHM_LINBARR_FLAGS(_u64)    GASNETI_LOWORD(_u64) /* and phase too */
     #define GASNETE_PSHM_LINBARR_VALUE(_u64)    GASNETI_HIWORD(_u64)
-    #define GASNETE_PSHM_LINBARR_PHASE_MASK     ((uint64_t)3 << GASNETE_PSHM_LINBARR_PHASE_SHIFT)
   #endif
 #else
   #define GASNETE_PSHM_LINBARR_U64 0
@@ -235,7 +233,7 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
         /* 2. Scan the phases, collecting completed entries at the end of the list */
         for (i = 0; i < n; /*empty*/) {
         #if GASNETE_PSHM_LINBARR_U64
-          const int ready = goal == (outstanding[i].lin64 & GASNETE_PSHM_LINBARR_PHASE_MASK);
+          const int ready = (goal & outstanding[i].lin64) != 0; /* goal is a single bit */
         #else
           const int ready = two_to_phase == outstanding[i].phase;
         #endif
@@ -426,6 +424,7 @@ static gasnete_pshmbarrier_data_t *
 gasnete_pshmbarrier_init_inner(gasnete_coll_team_t team) {
   gasnete_pshmbarrier_data_t *pshm_bdata;
   gasneti_pshm_barrier_t *shared_data = NULL;
+  const int two_to_phase = 1; /* 2^0 */
   int linear;
 
   if (team == GASNET_TEAM_ALL) {
@@ -463,7 +462,7 @@ gasnete_pshmbarrier_init_inner(gasnete_coll_team_t team) {
 
     pshm_bdata = gasneti_malloc(sizeof(gasnete_pshmbarrier_data_t));
     gasneti_leak(pshm_bdata);
-    pshm_bdata->private.two_to_phase = 2; /* 2^1  --  cannot start at 1 if using swap-based Log barrier */
+    pshm_bdata->private.two_to_phase = two_to_phase;
     pshm_bdata->private.size = size;
     pshm_bdata->private.rank = rank;
     pshm_bdata->private.rank_plus_size = rank + size;
@@ -504,9 +503,9 @@ gasnete_pshmbarrier_init_inner(gasnete_coll_team_t team) {
       if (linear) {
         for (i=1; i < size; i++) {
         #if GASNETE_PSHM_LINBARR_U64
-          shared_data->node[size+i].u.lin64 = (2 << GASNETE_PSHM_LINBARR_PHASE_SHIFT);
+          shared_data->node[size+i].u.lin64 = GASNETE_PSHM_LINBARR_PACK(0, 0, two_to_phase);
         #else
-          shared_data->node[size+i].u.lin.phase = 2;
+          shared_data->node[size+i].u.lin.phase = two_to_phase;
         #endif
         }
       } else {
