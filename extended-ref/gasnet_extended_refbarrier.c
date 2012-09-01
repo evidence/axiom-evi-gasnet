@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/09/01 06:17:30 $
- * $Revision: 1.118 $
+ *     $Date: 2012/09/01 07:12:58 $
+ * $Revision: 1.119 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -315,6 +315,10 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
     unsigned int child = pshm_bdata->private.rank_plus_size ^ 1;
     unsigned int index = pshm_bdata->private.rank_plus_size >> 1;
     struct gasneti_pshm_barrier_node * curr = &nodes[index];
+
+    /* Record the passed barrier value and flags */
+    pshm_bdata->private.mynode->u.log.value = value;
+    pshm_bdata->private.mynode->u.log.flags = flags;
 
     /* Signal my arrival - includes WMB to commit own value/flags writes and RMB to read others' */
     gasneti_assert(index || (shared_data->size == 1));
