@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2012/08/07 19:41:40 $
- * $Revision: 1.212 $
+ *     $Date: 2012/09/01 03:36:06 $
+ * $Revision: 1.213 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -87,7 +87,6 @@
 
 #ifdef GASNETI_USE_GENERIC_ATOMIC32
   /* Define 32-bit fixed-width atomics in terms of full-fenced generics */
-  #define GASNETI_ATOMIC32_NOT_SIGNALSAFE 1
   #define gasneti_atomic32_t                   gasneti_genatomic32_t
   #define _gasneti_atomic32_init               _gasneti_genatomic32_init
   #define gasneti_atomic32_set                 gasneti_genatomic32_set
@@ -101,7 +100,6 @@
 
 #ifdef GASNETI_USE_GENERIC_ATOMIC64
   /* Define 64-bit fixed-width atomics in terms of full-fenced generics */
-  #define GASNETI_ATOMIC64_NOT_SIGNALSAFE 1
   #define gasneti_atomic64_t                   gasneti_genatomic64_t
   #define _gasneti_atomic64_init               _gasneti_genatomic64_init
   #define gasneti_atomic64_set                 gasneti_genatomic64_set

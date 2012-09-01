@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2012/08/08 11:32:26 $
- * $Revision: 1.351 $
+ *     $Date: 2012/09/01 03:36:06 $
+ * $Revision: 1.352 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2622,10 +2622,12 @@ GASNETI_MIPS_LL(_ll "   %0,0(%4)         \n\t")/* _retval = *p (starts ll/sc res
 #undef GASNETI_HAVE_ATOMIC64_T
 
 #if defined(GASNETI_USE_GENERIC_ATOMIC32)
+  #define GASNETI_ATOMIC32_NOT_SIGNALSAFE	1
   #define GASNETI_BUILD_GENERIC_ATOMIC32	1	/* Build the 32-bit generics */
   #define gasneti_weakatomic32_align		gasneti_genatomic32_align
 #endif
 #if defined(GASNETI_USE_GENERIC_ATOMIC64) || defined(GASNETI_HYBRID_ATOMIC64)
+  #define GASNETI_ATOMIC64_NOT_SIGNALSAFE	1
   #define GASNETI_BUILD_GENERIC_ATOMIC64	1	/* Build the 64-bit generics */
   #define gasneti_weakatomic64_align		gasneti_genatomic64_align
 #endif
