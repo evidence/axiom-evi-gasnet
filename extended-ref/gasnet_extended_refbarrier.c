@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/08/31 01:25:59 $
- * $Revision: 1.115 $
+ *     $Date: 2012/09/01 00:43:15 $
+ * $Revision: 1.116 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -93,7 +93,8 @@ void gasnete_barrier_pf_disable(gasnete_coll_team_t team) {
 typedef struct gasnete_coll_pshmbarrier_s {
   struct {
     struct gasnete_pshmbarrier_outstanding {
-        int rank, phase;
+        struct gasneti_pshm_barrier_node *node;
+        int phase;
     } *outstanding; /* Master only: tracks Notify arrivals */
     struct gasneti_pshm_barrier_node *mynode;
     int volatile two_to_phase; /* Local var alternates between 2^0 and 2^1 */
@@ -148,6 +149,22 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
      * TODO: For large enough core count our prefetch of all the data at once
      *       could potentially lead to conflict misses in cache.  Some sort of
      *       segmenting of our fetches could help if we reach that point.
+     *
+     * TODO: Current data layout places the nodes together on a page which is
+     *       allocated and first touched by the master (reader).  The results
+     *       of trials with the data distributed to have affinity of each node
+     *       correspond to its writer were mixed.  On PPC and SPARC platforms
+     *       one sees a 50% (POWER7) to 400% (SPARC T4) slow-down when the
+     *       data has affinity to the writter.  That is enough to avoid making
+     *       any change to writer-affinity at the present time.
+     *       However, on AMD and Intel CPUs the results need more study:
+     *       + On an SGI UV 1000 platform the use of writer-affinity eliminated
+     *         an anomalous performance characteristic seen on runs which use
+     *         3 or 4 blades, but otherwise slows the performance slightly.
+     *       + On a dual-socket Intel Sandy Bridge node, writer-affinity gave a
+     *         40% to 50% speed-up when using both sockets - no change otherwise.
+     *       + On a dual-socket AMD Magny-Cours node, writer-affinity gave a 10%
+     *         to 20% slow-down.
      */
 
     if (pshm_bdata->private.rank) {
@@ -155,22 +172,20 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
       pshm_bdata->private.mynode->phase = two_to_phase;
       return 0;
     } else {
-      const int size = pshm_bdata->private.size;
-      const struct gasneti_pshm_barrier_node * const leaf = &nodes[size];
       struct gasnete_pshmbarrier_outstanding * const outstanding = pshm_bdata->private.outstanding;
-      int i, n;
-
-      /* Initial pipelined reads of all the phase values */
-      for (i = 1; i < size; ++i) {
-        outstanding[i-1].rank = i;
-        outstanding[i-1].phase = leaf[i].phase;
-      }
+      int n = pshm_bdata->private.size - 1;
 
       /* Poll until the phase fields indicate arrival, processing in batches */
-      n = size - 1;
-      for (;;) {
-        /* 1. Scan the phases, collecting completed entries at the end of the list */
+      if_pt (n /* skip for singleton */) for (;;) {
         int arrivals = 0;
+        int i;
+
+        /* 1. Fetch any phases still outstanding */
+        for (i = 0; i < n; ++i) {
+          outstanding[i].phase = outstanding[i].node->phase;
+        }
+
+        /* 2. Scan the phases, collecting completed entries at the end of the list */
         for (i = 0; i < n; /*empty*/) {
           if (outstanding[i].phase == two_to_phase) {
             struct gasnete_pshmbarrier_outstanding tmp = outstanding[--n];
@@ -183,14 +198,14 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
           }
         }
 
-        /* 2. Apply name-matching logic to recent arrivals, if any */
+        /* 3. Apply name-matching logic to recent arrivals, if any */
         if (arrivals) {
           gasneti_local_rmb();
           for (i = 0; i < arrivals; ++i) {
-            const int rank = outstanding[n+i].rank;
-            const int other_flags = leaf[rank].flags;
-            const int other_value = leaf[rank].value;
-            gasneti_assert(leaf[rank].phase == two_to_phase);
+            const struct gasneti_pshm_barrier_node * node = outstanding[n+i].node;
+            const int other_flags = node->flags;
+            const int other_value = node->value;
+            gasneti_assert(node->phase == two_to_phase);
 
             if ((flags | other_flags) & GASNET_BARRIERFLAG_MISMATCH) {
               flags = GASNET_BARRIERFLAG_MISMATCH;
@@ -201,19 +216,13 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
               flags = GASNET_BARRIERFLAG_MISMATCH;
             }
           }
+
+          if (!n) break; /* Quit now if all nodes have Notified */
         }
 
-        if (!n) break; /* Quit now if all nodes have Notified */
-
-        /* 3. Take our compulsory delay(s) before issuing next batch of reads */
+        /* 4. Take our compulsory delay(s) before issuing next batch of reads */
         GASNETI_WAITHOOK();
         GASNETI_SAFE(gasneti_AMPoll());
-
-        /* 4. Refetch any phases still outstanding */
-        for (i = 0; i < n; ++i) {
-          const int rank = outstanding[i].rank;
-          outstanding[i].phase = leaf[rank].phase;
-        }
       }
     }
   } else {
@@ -406,10 +415,16 @@ gasnete_pshmbarrier_init_inner(gasnete_coll_team_t team) {
                                pshm_bdata->private.linear ? "Linear" : "Logarithmic"));
     }
 
-    pshm_bdata->private.outstanding =
-        (!rank && pshm_bdata->private.linear) 
-        ? gasneti_malloc((size-1) * sizeof(struct gasnete_pshmbarrier_outstanding))
-        : NULL;
+    if (!rank && pshm_bdata->private.linear) {
+      int i;
+      pshm_bdata->private.outstanding =
+              gasneti_malloc((size-1) * sizeof(struct gasnete_pshmbarrier_outstanding));
+      for (i = 1; i < size; ++i) {
+        pshm_bdata->private.outstanding[i-1].node = &shared_data->node[size + i];
+      }
+    } else {
+      pshm_bdata->private.outstanding = NULL;
+    }
 
     pshm_bdata->shared = shared_data;
 
