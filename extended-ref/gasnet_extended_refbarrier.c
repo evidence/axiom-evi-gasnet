@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/09/01 07:18:12 $
- * $Revision: 1.120 $
+ *     $Date: 2012/09/02 05:56:49 $
+ * $Revision: 1.121 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -98,7 +98,6 @@ void gasnete_barrier_pf_disable(gasnete_coll_team_t team) {
   /* We can fit everything in a 64-bit read/write w/o fear of word-tearing. */
   #define GASNETE_PSHM_LINBARR_U64 1
   #define GASNETE_PSHM_LINBARR_PHASE_SHIFT 16
-  #define GASNETE_PSHM_LINBARR_FLAGS_BITS(_f) ((_f) & ((1<<GASNETE_PSHM_LINBARR_PHASE_SHIFT) - 1))
   #if PLATFORM_ARCH_LITTLE_ENDIAN
     #define GASNETE_PSHM_LINBARR_PACK(_value, _flags, _phase) \
                 GASNETI_MAKEWORD((_flags | (_phase << GASNETE_PSHM_LINBARR_PHASE_SHIFT)), _value)
@@ -112,9 +111,6 @@ void gasnete_barrier_pf_disable(gasnete_coll_team_t team) {
   #endif
 #else
   #define GASNETE_PSHM_LINBARR_U64 0
-#endif
-#if !GASNETE_PSHM_LINBARR_U64
-  #define GASNETE_PSHM_LINBARR_FLAGS_BITS(_f) (_f)
 #endif
 
 typedef struct gasnete_coll_pshmbarrier_s {
@@ -131,6 +127,8 @@ typedef struct gasnete_coll_pshmbarrier_s {
     int volatile two_to_phase; /* Local var alternates between 2^0 and 2^1 */
     int size, rank, rank_plus_size, linear;
   } private;
+  int notify_value;
+  int notify_flags;
   gasneti_pshm_barrier_t *shared;
 } gasnete_pshmbarrier_data_t;
 
@@ -160,6 +158,10 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
 
   /* Start a new phase */
   const int two_to_phase = (pshm_bdata->private.two_to_phase ^= 3); /* alternates between 01 and 10 base-2 */
+
+  /* Record the passed barrier value and flags for checking at Wait */
+  pshm_bdata->notify_value = value;
+  pshm_bdata->notify_flags = flags;
 
   if (pshm_bdata->private.linear) {
     /* "Linear" algorithm:
@@ -195,7 +197,6 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
      */
 
     if (pshm_bdata->private.rank) {
-      /* Note that value and flags fields align beween the union variants */
     #if GASNETE_PSHM_LINBARR_U64
       pshm_bdata->private.mynode->u.lin64 = GASNETE_PSHM_LINBARR_PACK(value, flags, two_to_phase);
     #else
@@ -211,10 +212,6 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
     #endif
       struct gasnete_pshmbarrier_outstanding * const outstanding = pshm_bdata->private.outstanding;
       int n = pshm_bdata->private.size - 1;
-
-      /* Record the passed barrier value and flags for checking at Wait */
-      pshm_bdata->private.mynode->u.lin.value = value;
-      pshm_bdata->private.mynode->u.lin.flags = flags;
 
       /* Poll until the phase fields indicate arrival, processing in batches */
       if_pt (n /* skip for singleton */) for (;;) {
@@ -378,9 +375,8 @@ int finish_pshm_barrier(const gasnete_pshmbarrier_data_t * const pshm_bdata, int
   int ret = PSHM_BSTATE_TO_RESULT(state); /* default unless args mismatch those from notify */
 
   /* Check args for mismatch */
-  /* Note that value and flags fields align beween all of the union variants */
-  if_pf((flags != GASNETE_PSHM_LINBARR_FLAGS_BITS(mynode->u.log.flags)) ||
-        (!(flags & GASNET_BARRIERFLAG_ANONYMOUS) && (id != mynode->u.log.value))) {
+  if_pf((flags != pshm_bdata->notify_flags) ||
+        (!(flags & GASNET_BARRIERFLAG_ANONYMOUS) && (id != pshm_bdata->notify_value))) {
     ret = GASNET_ERR_BARRIER_MISMATCH; 
   }
 
