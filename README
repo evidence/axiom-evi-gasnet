@@ -1,6 +1,6 @@
 README file for GASNet
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.152 $
+$Revision: 1.153 $
 
 This is a combination user manual and design document for GASNet. Anyone
 planning on using, modifying or adding to the GASNet code base should read this
@@ -379,18 +379,13 @@ application-specific support.
  barrier algorithms documented in the corresponding conduit READMEs.
  The default is DISSEM, unless the conduit README documents another default.
 
-* GASNET_PSHM_LINEAR_BARRIER_LIMIT - select intra-node barrier algorithm
+* GASNET_PSHM_BARRIER_RADIX - set radix for intra-node barrier algorithm
  For configurations using PSHM (a function of OS and conduit) the GASNet barrier
  is performed in intra-node and inter-node stages.  This environment variable
- is the cut-off for transition from a Linear to a Logarithmic algorithm for the
- intra-node (shared-memory) barrier.
-   If negative (the default) then Linear is used unconditionally.
-   If zero then Logarithmic is used unconditionally.
-   If positive then Linear is used for Size <= Limit (where Size is procs/node).
- Note that depending on the system's memory architecture Linear-vs-Logarithmic
- is not always an indication of how the performance will scale.  Most notably
- the x86/x86-64 architecture displays linear behavior for both algorithms
- (at least for the systems on which we've done detailed measurements).
+ is the radix of the tree-based intra-node (shared-memory) barrier.
+   If zero then radix = (size-1) and the algorithm is effectively linear.
+   If positive then the vaule is the out-degree of nodes in the tree.
+ The default is 0 (linear) on most platforms.
 
 * GASNET_NODEMAP_EXACT - enables exact algorithm for discovery of shared memory nodes.
  Several GASNet conduits use mmap() and/or conduit-specific memory registration

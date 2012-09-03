@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.c,v $
- *     $Date: 2012/08/28 04:37:01 $
- * $Revision: 1.51 $
+ *     $Date: 2012/09/03 05:22:34 $
+ * $Revision: 1.52 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -113,7 +113,7 @@ void *gasneti_pshm_init(gasneti_bootstrapExchangefn_t exchangefn, size_t aux_sz)
     /* space for the PSHM intra-node barrier */
     info_sz = GASNETI_ALIGNUP(info_sz, GASNETI_CACHE_LINE_BYTES);
     info_sz += sizeof(gasneti_pshm_barrier_t) +
-	       (2*gasneti_pshm_nodes - 1) * sizeof(gasneti_pshm_barrier->node);
+	       (gasneti_pshm_nodes - 1) * sizeof(gasneti_pshm_barrier->node);
     /* space for early barrier, sharing space with the items above: */
     info_sz = MAX(info_sz, gasneti_pshm_nodes * sizeof(sig_atomic_t));
     info_sz += offsetof(struct gasneti_pshm_info, early_barrier);
