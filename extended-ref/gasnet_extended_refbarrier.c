@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/09/03 09:05:48 $
- * $Revision: 1.124 $
+ *     $Date: 2012/09/03 20:10:18 $
+ * $Revision: 1.125 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -424,7 +424,7 @@ gasnete_pshmbarrier_init_inner(gasnete_coll_team_t team) {
         for (i = radix; i < size; i += radix) {
           pshm_bdata->private.children[j++].node = &shared_data->node[i];
         }
-        gasneti_assert_always(j == count);
+        gasneti_assert(j == count);
       } else if ((rank % radix) == 0) {
         int last  = MIN(size, rank + radix) - 1;
         int count = MAX(0, last - rank);
