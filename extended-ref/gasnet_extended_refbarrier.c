@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/09/03 05:22:36 $
- * $Revision: 1.122 $
+ *     $Date: 2012/09/03 06:19:03 $
+ * $Revision: 1.123 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -420,12 +420,12 @@ gasnete_pshmbarrier_init_inner(gasnete_coll_team_t team) {
 
     /* One node initializes shared data, while others wait */
     if (!rank) {
-      /* Counters used to detect arrivals at Notify */
-      for (i=1; i < size; i++) {
+      /* Values used to detect arrivals at Notify */
+      for (i=0; i < size; i++) {
       #if GASNETE_PSHM_LINBARR_U64
-        shared_data->node[size+i].u.u64 = GASNETE_PSHM_LINBARR_PACK(0, 0, two_to_phase);
+        shared_data->node[i].u.u64 = GASNETE_PSHM_LINBARR_PACK(0, 0, two_to_phase);
       #else
-        shared_data->node[size+i].u.wmb.phase = two_to_phase;
+        shared_data->node[i].u.wmb.phase = two_to_phase;
       #endif
       }
 
