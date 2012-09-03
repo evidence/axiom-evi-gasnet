@@ -1,6 +1,6 @@
 README file for GASNet
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.153 $
+$Revision: 1.154 $
 
 This is a combination user manual and design document for GASNet. Anyone
 planning on using, modifying or adding to the GASNet code base should read this
@@ -383,8 +383,12 @@ application-specific support.
  For configurations using PSHM (a function of OS and conduit) the GASNet barrier
  is performed in intra-node and inter-node stages.  This environment variable
  is the radix of the tree-based intra-node (shared-memory) barrier.
-   If zero then radix = (size-1) and the algorithm is effectively linear.
-   If positive then the vaule is the out-degree of nodes in the tree.
+   If zero (default) then radix = size - 1, resulting in a "flat tree" (linear time)
+   If positive, then the given value is the out-degree of an N-ary tree.
+   If negative, then a tree is build with the processes in groups of size = -radix.
+     The first process in each group is the parent of the others in that group.
+     The rank==0 process is the parent of the other group-representatives (in
+     addition to being the parent of the others in its own group).
  The default is 0 (linear) on most platforms.
 
 * GASNET_NODEMAP_EXACT - enables exact algorithm for discovery of shared memory nodes.

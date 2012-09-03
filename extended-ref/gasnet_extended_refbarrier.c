@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/09/03 06:19:03 $
- * $Revision: 1.123 $
+ *     $Date: 2012/09/03 09:05:48 $
+ * $Revision: 1.124 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -394,25 +394,60 @@ gasnete_pshmbarrier_init_inner(gasnete_coll_team_t team) {
     pshm_bdata->private.mynode = &shared_data->node[rank];
 
     /* GASNET_PSHM_BARRIER_RADIX
-     *  If zero (default) then radix = size - 1, resulting in a "flat tree" (linear time)
      *  If positive then the given value is the out-degree of the tree.
+     *  If zero (default) then radix = size - 1, resulting in a "flat tree" (linear time)
+     *  If negative then a tree is build with the processes in groups of size = -radix,
+     *    and the first process per group is the parent of the others.  The rank==0
+     *    process is the parent of the other group-representatives (in addition to
+     *    being the parent of the others in its own group).
      */
     radix = gasneti_getenv_int_withdefault("GASNET_PSHM_BARRIER_RADIX", 0, 0);
-    if (radix < 1) radix = size - 1;
+    if (radix == 0) radix = size - 1;
 
-    {
+    pshm_bdata->private.children = NULL;
+    pshm_bdata->private.num_children = 0;
+
+    if (size == 1) {
+      /* Nothing to do */
+    } else if (radix < 0) { /* Break into "cells" of size = -radix (e.g. cores/socket) */
+      radix = -radix;
+      if (rank == 0) {
+        int last  = MIN(size, radix) - 1;
+        int count = last + (size - 1) / radix;
+        int j = 0;
+
+        pshm_bdata->private.num_children = count;
+        pshm_bdata->private.children = gasneti_malloc(count * sizeof(struct gasnete_pshmbarrier_children));
+        for (i = 1; i <= last; ++i) {
+          pshm_bdata->private.children[j++].node = &shared_data->node[i];
+        }
+        for (i = radix; i < size; i += radix) {
+          pshm_bdata->private.children[j++].node = &shared_data->node[i];
+        }
+        gasneti_assert_always(j == count);
+      } else if ((rank % radix) == 0) {
+        int last  = MIN(size, rank + radix) - 1;
+        int count = MAX(0, last - rank);
+
+        if (count) {
+          pshm_bdata->private.num_children = count;
+          pshm_bdata->private.children = gasneti_malloc(count * sizeof(struct gasnete_pshmbarrier_children));
+          for (i = 0; i < count; ++i) {
+            pshm_bdata->private.children[i].node = &shared_data->node[rank+1+i];
+          }
+        }
+      }
+    } else { /* Build an N-ary tree */
       int first = radix * rank + 1;
       int last  = MIN(size, first + radix) - 1;
       int count = MAX(0, 1 + last - first);
 
-      pshm_bdata->private.num_children = count;
       if (count) {
+        pshm_bdata->private.num_children = count;
         pshm_bdata->private.children = gasneti_malloc(count * sizeof(struct gasnete_pshmbarrier_children));
         for (i = 0; i < count; ++i) {
           pshm_bdata->private.children[i].node = &shared_data->node[first + i];
         }
-      } else {
-        pshm_bdata->private.children = NULL;
       }
     }
 
