@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/09/03 20:10:18 $
- * $Revision: 1.125 $
+ *     $Date: 2012/09/03 22:41:57 $
+ * $Revision: 1.126 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -810,14 +810,10 @@ static void gasnete_amdbarrier_notify(gasnete_coll_team_t team, int id, int flag
 #if GASNETI_PSHM_BARRIER_HIER
   if (barrier_data->amdbarrier_pshm) {
     PSHM_BDATA_DECL(pshm_bdata, barrier_data->amdbarrier_pshm);
-    if (gasnete_pshmbarrier_notify_inner(pshm_bdata, id, flags)) {
-      /* last arrival - send AM w/ supernode consensus value/flags */
-      id = pshm_bdata->shared->value;
-      flags = pshm_bdata->shared->flags;
-    } else {
-      /* Not the last arrival - don't send an AM */
-      do_send = 0;
-    }
+    (void)gasnete_pshmbarrier_notify_inner(pshm_bdata, id, flags);
+    do_send = !barrier_data->amdbarrier_passive;
+    id = pshm_bdata->shared->value;
+    flags = pshm_bdata->shared->flags;
   }
 #endif
 
@@ -836,15 +832,12 @@ static void gasnete_amdbarrier_notify(gasnete_coll_team_t team, int id, int flag
   gasneti_sync_writes(); 
   barrier_data->amdbarrier_phase = phase;
 
-  {
-    /*  (possibly) send notify msg to peer */
-    if (do_send) GASNETI_SAFE(
+  /*  (possibly) send notify msg to peer */
+  if (do_send) {
+      GASNETI_SAFE(
       gasnet_AMRequestShort5(barrier_data->amdbarrier_peers[0],
                              gasneti_handleridx(gasnete_amdbarrier_notify_reqh), 
                              team->team_id, phase, 0, id, flags));
-#if GASNETI_PSHM_BARRIER_HIER
-    if (!barrier_data->amdbarrier_passive)
-#endif
       gasnete_barrier_pf_enable(team);
   }
 
@@ -864,11 +857,9 @@ static void gasnete_amdbarrier_notify_singleton(gasnete_coll_team_t team, int id
 #if GASNETI_PSHM_BARRIER_HIER
   if (barrier_data->amdbarrier_pshm) {
     PSHM_BDATA_DECL(pshm_bdata, barrier_data->amdbarrier_pshm);
-    if (gasnete_pshmbarrier_notify_inner(pshm_bdata, id, flags)) {
-      /* last arrival - send AM w/ supernode consensus value/flags */
-      id = pshm_bdata->shared->value;
-      flags = pshm_bdata->shared->flags;
-    }
+    (void)gasnete_pshmbarrier_notify_inner(pshm_bdata, id, flags);
+    id = pshm_bdata->shared->value;
+    flags = pshm_bdata->shared->flags;
   }
 #endif
 
@@ -1346,14 +1337,10 @@ static void gasnete_rmdbarrier_notify(gasnete_coll_team_t team, int id, int flag
 #if GASNETI_PSHM_BARRIER_HIER
   if (barrier_data->barrier_pshm) {
     PSHM_BDATA_DECL(pshm_bdata, barrier_data->barrier_pshm);
-    if (gasnete_pshmbarrier_notify_inner(pshm_bdata, id, flags)) {
-      /* last arrival - will send supernode consensus value/flags */
-      id = pshm_bdata->shared->value;
-      flags = pshm_bdata->shared->flags;
-    } else {
-      /* Not the last arrival - don't send anything */
-      do_send = 0;
-    }
+    (void)gasnete_pshmbarrier_notify_inner(pshm_bdata, id, flags);
+    do_send = !barrier_data->barrier_passive;
+    id = pshm_bdata->shared->value;
+    flags = pshm_bdata->shared->flags;
   } else
 #endif
   {
@@ -1369,20 +1356,16 @@ static void gasnete_rmdbarrier_notify(gasnete_coll_team_t team, int id, int flag
 
 #if GASNETE_RMDBARRIER_SINGLE_SENDER
   barrier_data->barrier_slot = slot - 2;
- #if GASNETI_PSHM_BARRIER_HIER
-  if (!barrier_data->barrier_passive)
- #endif
-  {
-    if (do_send) gasnete_rmdbarrier_kick(team);
+  if (do_send) {
+    gasnete_rmdbarrier_kick(team);
     gasnete_barrier_pf_enable(team);
   }
 #else
   barrier_data->barrier_slot = slot;
-  if (do_send) gasnete_rmdbarrier_send(barrier_data, 1, slot, id, flags);
- #if GASNETI_PSHM_BARRIER_HIER
-  if (!barrier_data->barrier_passive)
- #endif
+  if (do_send) {
+    gasnete_rmdbarrier_send(barrier_data, 1, slot, id, flags);
     gasnete_barrier_pf_enable(team);
+  }
 #endif
 
   /*  update state */
@@ -1400,11 +1383,9 @@ static void gasnete_rmdbarrier_notify_singleton(gasnete_coll_team_t team, int id
 #if GASNETI_PSHM_BARRIER_HIER
   if (barrier_data->barrier_pshm) {
     PSHM_BDATA_DECL(pshm_bdata, barrier_data->barrier_pshm);
-    if (gasnete_pshmbarrier_notify_inner(pshm_bdata, id, flags)) {
-      /* last arrival - must use supernode consensus value/flags */
-      id = pshm_bdata->shared->value;
-      flags = pshm_bdata->shared->flags;
-    }
+    (void)gasnete_pshmbarrier_notify_inner(pshm_bdata, id, flags);
+    id = pshm_bdata->shared->value;
+    flags = pshm_bdata->shared->flags;
   } else
 #endif
   {
@@ -1771,14 +1752,10 @@ static void gasnete_amcbarrier_notify(gasnete_coll_team_t team, int id, int flag
 #if GASNETI_PSHM_BARRIER_HIER
   if (barrier_data->amcbarrier_pshm) {
     PSHM_BDATA_DECL(pshm_bdata, barrier_data->amcbarrier_pshm);
-    if (gasnete_pshmbarrier_notify_inner(pshm_bdata, id, flags)) {
-      /* last arrival - send AM w/ supernode consensus value/flags */
-      id = pshm_bdata->shared->value;
-      flags = pshm_bdata->shared->flags;
-    } else {
-      /* Not the last arrival - don't send an AM */
-      do_send = 0;
-    }
+    (void)gasnete_pshmbarrier_notify_inner(pshm_bdata, id, flags);
+    do_send = !barrier_data->amcbarrier_passive;
+    id = pshm_bdata->shared->value;
+    flags = pshm_bdata->shared->flags;
   }
 #endif
 
