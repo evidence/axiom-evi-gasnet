@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.c,v $
- *     $Date: 2012/09/04 08:13:43 $
- * $Revision: 1.53 $
+ *     $Date: 2012/09/04 21:18:52 $
+ * $Revision: 1.54 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -19,10 +19,10 @@
   #error "GASNet PSHM support requires Native atomics"
 #endif
 
-/* payload memory available for outstanding requests, per node
- * default will be silently raised as needed for large node count */
-#define GASNETI_PSHMNET_DEFAULT_QUEUE_MEMORY (1<<20)
-#define GASNETI_PSHMNET_MAX_QUEUE_MEMORY MIN((1<<28),GASNETI_ATOMIC_MAX)
+/* payload memory available for outstanding requests in units of max message size */
+#define GASNETI_PSHM_NETWORK_DEPTH_DEFAULT (32UL)
+#define GASNETI_PSHM_NETWORK_DEPTH_MIN     (4UL)
+#define GASNETI_PSHM_NETWORK_DEPTH_MAX     ((unsigned long)GASNETI_ATOMIC_MAX/GASNETI_PSHMNET_ALLOC_MAXSZ)
 
 /* Global vars */
 gasneti_pshmnet_t *gasneti_request_pshmnet = NULL;
@@ -31,6 +31,7 @@ gasneti_pshmnet_t *gasneti_reply_pshmnet = NULL;
 /* Structure for PSHM intra-supernode barrier */
 gasneti_pshm_barrier_t *gasneti_pshm_barrier = NULL; /* lives in shared space */
 
+static unsigned long gasneti_pshmnet_network_depth = GASNETI_PSHM_NETWORK_DEPTH_DEFAULT;
 static uintptr_t gasneti_pshmnet_queue_mem = 0;
 
 static void *gasnetc_pshmnet_region = NULL;
@@ -531,23 +532,24 @@ void * gasneti_pshm_addr(uintptr_t offset) {
 
 static uintptr_t get_queue_mem(int nodes) 
 {
-  /* theoretical limit = 1 max-sized send buffer per peer?
-   *   We're requiring 2 per peer right now to be safe.
-   * - future implementations may also need some space for allocator's metadata */
-  uintptr_t minsize = GASNETI_PSHMNET_ALLOC_MAXSZ*nodes*2;
-  uintptr_t megabyte = 1<<20;
-  uintptr_t defval = GASNETI_ALIGNUP(MAX(minsize, GASNETI_PSHMNET_DEFAULT_QUEUE_MEMORY), megabyte);
-  uintptr_t pernode = gasneti_getenv_int_withdefault("GASNET_PSHMNET_QUEUE_MEMORY", 
-                                                     defval, megabyte);
-  if (pernode > GASNETI_PSHMNET_MAX_QUEUE_MEMORY) {
-    fprintf(stderr, "GASNET_PSHMNET_QUEUE_MEMORY (%ld) larger than max: using %ld\n",
-            (long)pernode, (long)GASNETI_PSHMNET_MAX_QUEUE_MEMORY);
-    pernode = GASNETI_PSHMNET_MAX_QUEUE_MEMORY;
-  } else if (pernode < minsize) {
-    fprintf(stderr, "GASNET_PSHMNET_QUEUE_MEMORY (%ld) smaller than min: using %ld\n",
-            (long)pernode, (long)minsize);
-    pernode = minsize;
+  /* Need enough to send the full queue depth at max size each */
+  size_t pernode;
+
+  gasneti_pshmnet_network_depth =
+          gasneti_getenv_int_withdefault("GASNET_PSHM_NETWORK_DEPTH", 
+                                         GASNETI_PSHM_NETWORK_DEPTH_DEFAULT, 0);
+  
+  if (gasneti_pshmnet_network_depth < GASNETI_PSHM_NETWORK_DEPTH_MIN) {
+    fprintf(stderr, "WARNING: GASNET_PSHM_NETWORK_DEPTH (%lu) less than min: using %lu\n",
+            gasneti_pshmnet_network_depth, GASNETI_PSHM_NETWORK_DEPTH_MIN);
+    gasneti_pshmnet_network_depth = GASNETI_PSHM_NETWORK_DEPTH_MIN;
+  } else if (gasneti_pshmnet_network_depth > GASNETI_PSHM_NETWORK_DEPTH_MAX) {
+    fprintf(stderr, "WARNING: GASNET_PSHM_NETWORK_DEPTH (%lu) greater than max: using %lu\n",
+            gasneti_pshmnet_network_depth, GASNETI_PSHM_NETWORK_DEPTH_MAX);
+    gasneti_pshmnet_network_depth = GASNETI_PSHM_NETWORK_DEPTH_MAX;
   }
+
+  pernode = GASNETI_PSHMNET_ALLOC_MAXSZ * gasneti_pshmnet_network_depth;
   gasneti_assert(pernode > 0);
 
   /* round up to multiple of allocator page size */

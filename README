@@ -1,6 +1,6 @@
 README file for GASNet
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.154 $
+$Revision: 1.155 $
 
 This is a combination user manual and design document for GASNet. Anyone
 planning on using, modifying or adding to the GASNet code base should read this
@@ -390,6 +390,13 @@ application-specific support.
      The rank==0 process is the parent of the other group-representatives (in
      addition to being the parent of the others in its own group).
  The default is 0 (linear) on most platforms.
+
+* GASNET_PSHM_NETWORK_DEPTH - set depth of the intra-node AM network
+ For configurations using PSHM (a function of OS and conduit) GASNet implements
+ intra-node Active Messages using a shared-memory queue.  This variable sets the
+ "network depth" of this implementation: the minimum number of outgoing AMs it
+ must be capable of buffering before possibly stalling.
+ The default is 32 and the minimum is 4.
 
 * GASNET_NODEMAP_EXACT - enables exact algorithm for discovery of shared memory nodes.
  Several GASNet conduits use mmap() and/or conduit-specific memory registration
