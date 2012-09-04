@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.h,v $
- *     $Date: 2012/09/03 05:22:34 $
- * $Revision: 1.24 $
+ *     $Date: 2012/09/04 22:15:34 $
+ * $Revision: 1.25 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -42,7 +42,11 @@
 
 /* Max number of processes supported per node */
 #ifndef GASNETI_PSHM_MAX_NODES
-#define GASNETI_PSHM_MAX_NODES 255
+  #ifdef GASNETI_CONFIG_PSHM_MAX_NODES
+    #define GASNETI_PSHM_MAX_NODES GASNETI_CONFIG_PSHM_MAX_NODES
+  #else
+    #define GASNETI_PSHM_MAX_NODES 255
+  #endif
 #endif
 
 /* In gasnet_mmap.c */

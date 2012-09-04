@@ -1,6 +1,6 @@
 GASNet ChangeLog 
 ----------------
-$Revision: 1.59 $
+$Revision: 1.60 $
 
 ----------------------------------------------------------------------
 ??-??-2012 : Release 1.20.0
@@ -16,6 +16,8 @@ $Revision: 1.59 $
     Nemesis lock-free queues, yielding improved performance and lowering
     the memory required from quadratic to linear in cores-per-node.
   - Intra-node barrier has been reimplemented for higher performance.
+  - Support for up to 1295 cores/node (vs. default of 255) now available
+    as a configure option: --enable-large-pshm
 
 * General
   - A new barrier implementation (an RDMA-based dissemination algorithm)

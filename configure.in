@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2012/08/15 21:45:15 $
-# $Revision: 1.761 $
+#     $Date: 2012/09/04 22:15:34 $
+# $Revision: 1.762 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.761 $)
+AC_REVISION($Revision: 1.762 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1448,6 +1448,12 @@ if test "$with_pshm" != no; then
         GASNET_PSHM_LIBS="$GASNET_PSHM_LIBS $GASNET_THREAD_LIBS"
         ;;
   esac
+
+  GASNET_IF_ENABLED([large-pshm],
+                    [Enable PSHM support for upto 1295 cores per node (default is 255 cores)],
+                    [gasnet_pshm_max_nodes=1295],
+                    [gasnet_pshm_max_nodes=255])
+  AC_DEFINE_UNQUOTED(GASNETI_CONFIG_PSHM_MAX_NODES, $gasnet_pshm_max_nodes)
 elif test "$enabled_pshm" = yes; then
   GASNET_MSG_ERROR([User requested --enable-pshm but no supported implementation was found])
 fi
