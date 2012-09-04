@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_core.c,v $
- *     $Date: 2012/08/24 23:20:14 $
- * $Revision: 1.80 $
+ *     $Date: 2012/09/04 22:39:35 $
+ * $Revision: 1.81 $
  * Description: GASNet smp conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -486,15 +486,20 @@ static int gasnetc_init(int *argc, char ***argv) {
   gasnetc_fds = gasneti_malloc(2 * gasneti_nodes * sizeof(int));
   gasneti_leak(gasnetc_fds);
   for (i = 1; i < gasneti_nodes; ++i) {
+    int rc;
   #if defined(GASNETC_USE_SOCKETPAIR) && defined(GASNETC_HAVE_O_ASYNC)
     #if defined(PF_LOCAL)
-      gasneti_assert_zeroret( socketpair(PF_LOCAL, SOCK_STREAM, 0, &gasnetc_fds[2 * i]) );
+      rc = socketpair(PF_LOCAL, SOCK_STREAM, 0, &gasnetc_fds[2 * i]);
     #elif defined(PF_UNIX)
-      gasneti_assert_zeroret( socketpair(PF_UNIX, SOCK_STREAM, 0, &gasnetc_fds[2 * i]) );
+      rc = socketpair(PF_UNIX, SOCK_STREAM, 0, &gasnetc_fds[2 * i]);
     #endif
   #else
-    gasneti_assert_zeroret( pipe(&gasnetc_fds[2 * i]) );
+    rc = pipe(&gasnetc_fds[2 * i]);
   #endif
+    if (rc < 0) {
+      gasneti_fatalerror("Failed to create control pipe/socket for process %i: (%d) %s",
+                         i, errno, strerror(errno));
+    }
   }
 
   /* A fork in the road! */
