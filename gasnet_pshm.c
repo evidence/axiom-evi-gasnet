@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.c,v $
- *     $Date: 2012/09/03 05:22:34 $
- * $Revision: 1.52 $
+ *     $Date: 2012/09/04 08:13:43 $
+ * $Revision: 1.53 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -534,9 +534,11 @@ static uintptr_t get_queue_mem(int nodes)
   /* theoretical limit = 1 max-sized send buffer per peer?
    *   We're requiring 2 per peer right now to be safe.
    * - future implementations may also need some space for allocator's metadata */
-  size_t minsize = GASNETI_PSHMNET_ALLOC_MAXSZ*nodes*2;
+  uintptr_t minsize = GASNETI_PSHMNET_ALLOC_MAXSZ*nodes*2;
+  uintptr_t megabyte = 1<<20;
+  uintptr_t defval = GASNETI_ALIGNUP(MAX(minsize, GASNETI_PSHMNET_DEFAULT_QUEUE_MEMORY), megabyte);
   uintptr_t pernode = gasneti_getenv_int_withdefault("GASNET_PSHMNET_QUEUE_MEMORY", 
-                    MAX(minsize, GASNETI_PSHMNET_DEFAULT_QUEUE_MEMORY), 1<<20);
+                                                     defval, megabyte);
   if (pernode > GASNETI_PSHMNET_MAX_QUEUE_MEMORY) {
     fprintf(stderr, "GASNET_PSHMNET_QUEUE_MEMORY (%ld) larger than max: using %ld\n",
             (long)pernode, (long)GASNETI_PSHMNET_MAX_QUEUE_MEMORY);
