@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/09/04 05:48:44 $
- * $Revision: 1.128 $
+ *     $Date: 2012/09/04 06:39:16 $
+ * $Revision: 1.129 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -197,6 +197,14 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
      *       + On a dual-socket AMD Magny-Cours node, writer-affinity gave a 10%
      *         to 20% slow-down.
      *       NOTE: These results were taken ONLY with the linear case.
+     *
+     * TODO: Measurements above suggest that for some systems (PPC and SPARC
+     *       in particular, but also some x86-64) that there is a benefit to
+     *       spinning on memory local to the reader (as opposed to the writer).
+     *       This is automatically the case when radix==0, but for the case of
+     *       a tree with more than the trivial 2 levels the inititialization
+     *       code could (and therefore perhaps should) layout the nodes such
+     *       that every parent reads only from memory with local affinity.
      */
 
   if (pshm_bdata->private.children) {
