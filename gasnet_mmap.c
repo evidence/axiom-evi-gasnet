@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2012/08/18 06:52:02 $
- * $Revision: 1.119 $
+ *     $Date: 2012/09/04 19:11:32 $
+ * $Revision: 1.120 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -332,7 +332,7 @@ static const char *gasneti_pshm_makeunique(const char *unique) {
   return unique;
 }
 #endif
-#endif // GASNET_PSHM
+#endif /* GASNET_PSHM */
 
 #if defined(GASNETI_USE_HUGETLBFS)
 #include <hugetlbfs.h>
