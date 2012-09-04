@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/09/03 22:41:57 $
- * $Revision: 1.126 $
+ *     $Date: 2012/09/04 00:18:37 $
+ * $Revision: 1.127 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1071,20 +1071,6 @@ static void gasnete_amdbarrier_init(gasnete_coll_team_t team) {
      notify has run.
  */
 
-/* GASNETE_RMDBARRIER_SINGLE_SENDER
-     If defined non-zero then only the one designated representative per
-     supernode will perform Puts, potentially delaying the first Put until
-     the first "kick" by that designated process.  Otherwise, the last
-     process to arrive at the Notify will issue the first Put, and the
-     designated representative will issue the rest from the kick function.
-     When PSHM-heirarchical is disabled the single sender code allows the
-     notify step to potentially issue MORE than one Put.
-     This is disabled by default, but a conduit can enable as desired.
- */
-#ifndef GASNETE_RMDBARRIER_SINGLE_SENDER
-  #define GASNETE_RMDBARRIER_SINGLE_SENDER 0
-#endif
-
 #if !GASNETI_THREADS
   #define GASNETE_RMDBARRIER_LOCK(_var)		/* empty */
   #define gasnete_rmdbarrier_lock_init(_var)	((void)0)
@@ -1208,16 +1194,14 @@ int gasnete_rmdbarrier_poll(gasnete_coll_rmdbarrier_inbox_t *inbox) {
 void gasnete_rmdbarrier_kick(gasnete_coll_team_t team) {
   gasnete_coll_rmdbarrier_t *barrier_data = team->barrier_data;
   gasnete_coll_rmdbarrier_inbox_t *inbox;
-  int slot, cursor, numsteps;
+  int numsteps = 0;
+  int slot, cursor;
   int flags, value;
 
   /* early unlocked read: */
   slot = barrier_data->barrier_slot;
 
   if (slot >= barrier_data->barrier_goal ||
-#if GASNETE_RMDBARRIER_SINGLE_SENDER
-      (slot >= 0) &&
-#endif
       !gasnete_rmdbarrier_poll(GASNETE_RDMABARRIER_INBOX(barrier_data, slot)))
     return; /* nothing to do */
 
@@ -1248,23 +1232,12 @@ void gasnete_rmdbarrier_kick(gasnete_coll_team_t team) {
     gasneti_sync_reads(); /* value/flags were written by the non-locked notify */
   }
 
-#if GASNETE_RMDBARRIER_SINGLE_SENDER
-  if (slot < 0) {
-    cursor = slot + 2;
-    numsteps = 1;
-  } else
-#endif
-  {
-    cursor = slot;
-    numsteps = 0;
-  }
-
   value = barrier_data->barrier_value;
   flags = barrier_data->barrier_flags;
 
   /* process all consecutive steps which have arrived since we last ran */
-  inbox = GASNETE_RDMABARRIER_INBOX(barrier_data, cursor);
-  for (/*empty*/; cursor < barrier_data->barrier_goal && gasnete_rmdbarrier_poll(inbox); cursor+=2) {
+  inbox = GASNETE_RDMABARRIER_INBOX(barrier_data, slot);
+  for (cursor = slot; cursor < barrier_data->barrier_goal && gasnete_rmdbarrier_poll(inbox); cursor+=2) {
     const int step_value = inbox->value;
     const int step_flags = inbox->flags;
 
@@ -1353,20 +1326,12 @@ static void gasnete_rmdbarrier_notify(gasnete_coll_team_t team, int id, int flag
 
   slot = ((barrier_data->barrier_slot & 1) ^ 1); /* enter new phase */
   gasneti_sync_writes();
-
-#if GASNETE_RMDBARRIER_SINGLE_SENDER
-  barrier_data->barrier_slot = slot - 2;
-  if (do_send) {
-    gasnete_rmdbarrier_kick(team);
-    gasnete_barrier_pf_enable(team);
-  }
-#else
   barrier_data->barrier_slot = slot;
+
   if (do_send) {
     gasnete_rmdbarrier_send(barrier_data, 1, slot, id, flags);
     gasnete_barrier_pf_enable(team);
   }
-#endif
 
   /*  update state */
   team->barrier_splitstate = INSIDE_BARRIER;
@@ -1414,13 +1379,6 @@ static int gasnete_rmdbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
     const int passive_shift = barrier_data->barrier_passive;
     retval = gasnete_pshmbarrier_wait_inner(barrier_data->barrier_pshm, id, flags, passive_shift);
     if (passive_shift) {
-    #if !GASNETI_THREADS && !GASNETE_RMDBARRIER_SINGLE_SENDER
-      /* "drain" at most one put_nb handle (we could have sent step 0) */
-      if (barrier_data->barrier_handles[0] != GASNET_INVALID_HANDLE) {
-        gasnete_wait_syncnb(barrier_data->barrier_handles[0]);
-        barrier_data->barrier_handles[0] = GASNET_INVALID_HANDLE;
-      }
-    #endif
       /* Once the active peer signals done, we can return */
       team->barrier_splitstate = OUTSIDE_BARRIER;
       gasneti_sync_writes(); /* ensure all state changes committed before return */
@@ -1461,6 +1419,9 @@ static int gasnete_rmdbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
 
 #if !GASNETI_THREADS
   /*  "drain" the put_nb handles, if any */
+ #if GASNETI_PSHM_BARRIER_HIER
+  if (!barrier_data->barrier_passive)
+ #endif
   gasnete_wait_syncnb_all(barrier_data->barrier_handles, barrier_data->barrier_size);
 #endif
 
