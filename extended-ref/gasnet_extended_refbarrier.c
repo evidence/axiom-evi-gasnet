@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/09/04 00:18:37 $
- * $Revision: 1.127 $
+ *     $Date: 2012/09/04 05:48:44 $
+ * $Revision: 1.128 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -590,7 +590,11 @@ static void gasnete_pshmbarrier_notify(gasnete_coll_team_t team, int id, int fla
 
   (void)gasnete_pshmbarrier_notify_inner(team->barrier_data, id, flags);
   
-  /* No sync_writes() needed due to REL in dec-and-test inside notify_inner */
+#if GASNETE_PSHM_LINBARR_U64
+  gasneti_sync_writes();
+#else
+  /* No sync_writes() needed due to WMB inside notify_inner */
+#endif
   team->barrier_splitstate = INSIDE_BARRIER; 
 }
 
