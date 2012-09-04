@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_core.c,v $
- *     $Date: 2012/09/04 22:39:35 $
- * $Revision: 1.81 $
+ *     $Date: 2012/09/04 23:05:42 $
+ * $Revision: 1.82 $
  * Description: GASNet smp conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -295,6 +295,10 @@ static void gasnetc_fork_children(void) {
   gasnetc_exit_data = gasneti_calloc(1, GASNETC_EXIT_DATA_SZ);
   gasnetc_exit_data->pid_tbl[0] = getpid();
 
+  /* Space for pipes/sockets connecting node 0 to others */
+  gasnetc_fds = gasneti_malloc(2 * gasneti_nodes * sizeof(int));
+  gasneti_leak(gasnetc_fds);
+
   gasneti_assert(gasneti_mynode == 0);
 
   { /* set O_APPEND on stdout and stderr (same reasons as in bug 2136) */
@@ -308,14 +312,37 @@ static void gasnetc_fork_children(void) {
   gasneti_reghandler(GASNETC_REMOTEEXIT_SIGNAL, gasnetc_remote_exit_sighand);
 
   for (i = 1; i < gasneti_nodes; i++) {
-    int fork_return = fork();
+    int rc, fork_return;
+
+    /* pipe or socket for intra-process bootstrap comms.
+     * Sockets are used on systems where they can trigger a signal on disconnect.
+     * Otherwise, we use pipes (which we assume are cheaper than PF_LOCAL sockets).
+     * Note that we still try to arm pipes for SIGIO, but the behavior is less portable.
+     */
+#if defined(GASNETC_USE_SOCKETPAIR) && defined(GASNETC_HAVE_O_ASYNC)
+  #if defined(PF_LOCAL)
+    rc = socketpair(PF_LOCAL, SOCK_STREAM, 0, &gasnetc_fds[2 * i]);
+  #elif defined(PF_UNIX)
+    rc = socketpair(PF_UNIX, SOCK_STREAM, 0, &gasnetc_fds[2 * i]);
+  #endif
+#else
+    rc = pipe(&gasnetc_fds[2 * i]);
+#endif
+    if (rc < 0) {
+      gasneti_fatalerror("Failed to create control pipe/socket for process %i: (%d) %s",
+                         i, errno, strerror(errno));
+    }
+
+    fork_return = fork();
     if (fork_return < 0) {
       gasnetc_signal_job(SIGTERM);
-      gasneti_fatalerror("Fork failed!");
+      gasneti_fatalerror("Failed to fork process %i: (%d) %s",
+                         i, errno, strerror(errno));
     }
     if (fork_return) {
       /* I am parent */
       gasnetc_exit_data->pid_tbl[i] = fork_return;
+      gasneti_assert_zeroret( close(gasnetc_fds[2 * i]) ); /* unused end of pipe/socket */
     } else {
       /* I am child */
       gasneti_mynode = i; 
@@ -330,6 +357,10 @@ static void gasnetc_fork_children(void) {
         prctl(PR_SET_PDEATHSIG, GASNETC_REMOTEEXIT_SIGNAL);
       }
       #endif
+      /* close unused end of pipes/sockets */
+      for (i = 1; i <= gasneti_mynode; ++i) {
+        gasneti_assert_zeroret( close(gasnetc_fds[2 * i + 1]) );
+      }
       return;
     }
   }
@@ -478,46 +509,8 @@ static int gasnetc_init(int *argc, char ***argv) {
   }
   #endif
 
-  /* pipes or sockets for intra-process bootstrap comms.
-   * Sockets are used on systems where they can trigger a signal on disconnect.
-   * Otherwise, we use pipes (which we assume are cheaper than PF_LOCAL sockets).
-   * Note that we still try to arm pipes for SIGIO, but the behavior is less portable.
-   */
-  gasnetc_fds = gasneti_malloc(2 * gasneti_nodes * sizeof(int));
-  gasneti_leak(gasnetc_fds);
-  for (i = 1; i < gasneti_nodes; ++i) {
-    int rc;
-  #if defined(GASNETC_USE_SOCKETPAIR) && defined(GASNETC_HAVE_O_ASYNC)
-    #if defined(PF_LOCAL)
-      rc = socketpair(PF_LOCAL, SOCK_STREAM, 0, &gasnetc_fds[2 * i]);
-    #elif defined(PF_UNIX)
-      rc = socketpair(PF_UNIX, SOCK_STREAM, 0, &gasnetc_fds[2 * i]);
-    #endif
-  #else
-    rc = pipe(&gasnetc_fds[2 * i]);
-  #endif
-    if (rc < 0) {
-      gasneti_fatalerror("Failed to create control pipe/socket for process %i: (%d) %s",
-                         i, errno, strerror(errno));
-    }
-  }
-
   /* A fork in the road! */
   gasnetc_fork_children();
-
-  /* close unused portion of pipe/socket resources */
-  if (0 == gasneti_mynode) {
-    for (i = 1; i < gasneti_nodes; ++i) {
-      gasneti_assert_zeroret( close(gasnetc_fds[2 * i]) );
-    }
-  } else {
-    for (i = 1; i < gasneti_nodes; ++i) {
-      gasneti_assert_zeroret( close(gasnetc_fds[2 * i + 1]) );
-      if (i != gasneti_mynode) {
-        gasneti_assert_zeroret( close(gasnetc_fds[2 * i]) );
-      }
-    }
-  }
 #endif
 
   /* enable tracing */
