@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/09/04 06:39:16 $
- * $Revision: 1.129 $
+ *     $Date: 2012/09/04 20:23:53 $
+ * $Revision: 1.130 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -177,6 +177,12 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
      * for the Titanium runtime (in which the barrier was neither split-phase
      * nor named).
      * 
+     * TODO: For CPU overcommit we may want a different algorithm rather than
+     *       just use of GASNETI_WAITHOOK() which is dependent on the setting
+     *       of the waitmode.  Even if we stick with this same algortihm, we
+     *       could consider yielding in the overcommit case independent of
+     *       the waitmode setting.
+     *
      * TODO: For large enough core count our prefetch of all the data at once
      *       could potentially lead to conflict misses in cache.  Some sort of
      *       segmenting of our fetches could help if we reach that point.
