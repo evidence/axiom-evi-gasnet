@@ -1,6 +1,6 @@
 GASNet ChangeLog 
 ----------------
-$Revision: 1.58 $
+$Revision: 1.59 $
 
 ----------------------------------------------------------------------
 ??-??-2012 : Release 1.20.0
@@ -15,6 +15,7 @@ $Revision: 1.58 $
   - Active Messages over shared-memory have been reimplemented using
     Nemesis lock-free queues, yielding improved performance and lowering
     the memory required from quadratic to linear in cores-per-node.
+  - Intra-node barrier has been reimplemented for higher performance.
 
 * General
   - A new barrier implementation (an RDMA-based dissemination algorithm)
