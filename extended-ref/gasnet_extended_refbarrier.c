@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/09/04 20:23:53 $
- * $Revision: 1.130 $
+ *     $Date: 2012/09/05 05:44:04 $
+ * $Revision: 1.131 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2128,30 +2128,23 @@ extern void gasnete_coll_barrier_init(gasnete_coll_team_t team,  int barrier_typ
 /* Should modify to allocate for other barriers as required */
 
 /* worst case assumption is lg(2^32 peers) * (2 phases) */
-#if GASNETE_RDMABARRIER_INBOX_SZ == 32
-  #define GASNETE_BARR_AUXSEGSZ 2048
-#elif GASNETE_RDMABARRIER_INBOX_SZ == 64
-  #define GASNETE_BARR_AUXSEGSZ 4096
-#else
-  #error "Please update GASNETE_BARR_AUXSEGSZ to match GASNETE_RDMABARRIER_INBOX_SZ"
-#endif
-
 /* spawner hint of our auxseg requirements: */
 GASNETI_IDENT(gasnete_barr_auxseg_IdentString,
-              "$GASNetAuxSeg_barr: " _STRINGIFY(GASNETE_BARR_AUXSEGSZ) " $");
+              "$GASNetAuxSeg_barr: 64*" _STRINGIFY(GASNETE_RDMABARRIER_INBOX_SZ) " $");
 
 gasneti_auxseg_request_t gasnete_barr_auxseg_alloc(gasnet_seginfo_t *auxseg_info) {
   const char *barrier = gasneti_getenv_withdefault("GASNET_BARRIER",GASNETE_BARRIER_DEFAULT);
+  const size_t rmdbarrier_request = 64 * GASNETE_RDMABARRIER_INBOX_SZ;
   gasneti_auxseg_request_t retval;
 
   if (!strcmp(barrier, "RDMADISSEM")) {
-    retval.minsz = GASNETE_BARR_AUXSEGSZ;
-    retval.optimalsz = GASNETE_BARR_AUXSEGSZ;
+    retval.minsz = rmdbarrier_request;
+    retval.optimalsz = rmdbarrier_request;
   } else
 #if !GASNETE_USING_REF_EXTENDED
   if (!strcmp(barrier, "DISSEM")) {
-    retval.minsz = GASNETE_BARR_AUXSEGSZ;
-    retval.optimalsz = GASNETE_BARR_AUXSEGSZ;
+    retval.minsz = rmdbarrier_request;
+    retval.optimalsz = rmdbarrier_request;
   } else
 #endif
   {
