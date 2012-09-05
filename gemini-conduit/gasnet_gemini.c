@@ -1394,13 +1394,14 @@ out:
 
 
 /* AuxSeg setup for registered bounce buffer space*/
+GASNETI_IDENT(gasneti_bounce_auxseg_IdentString,
+              "$GASNetAuxSeg_bounce: GASNETC_GNI_BOUNCE_SIZE:" _STRINGIFY(GASNETC_GNI_BOUNCE_SIZE_DEFAULT)" $");
 gasneti_auxseg_request_t gasnetc_bounce_auxseg_alloc(gasnet_seginfo_t *auxseg_info) {
   gasneti_auxseg_request_t retval;
   
   retval.minsz = gasneti_getenv_int_withdefault("GASNETC_GNI_MIN_BOUNCE_SIZE",
                                                 GASNETC_GNI_MIN_BOUNCE_SIZE_DEFAULT,1);
   retval.optimalsz = gasneti_getenv_int_withdefault("GASNETC_GNI_BOUNCE_SIZE",
-
                                                     GASNETC_GNI_BOUNCE_SIZE_DEFAULT,1);
   if (retval.optimalsz < retval.minsz) retval.optimalsz = retval.minsz;
 #if GASNET_DEBUG_VERBOSE
@@ -1422,6 +1423,8 @@ gasneti_auxseg_request_t gasnetc_bounce_auxseg_alloc(gasnet_seginfo_t *auxseg_in
 }
 
 /* AuxSeg setup for registered post descriptors*/
+GASNETI_IDENT(gasneti_pd_auxseg_IdentString, /* XXX: update if gasnetc_post_descriptor_t changes */
+              "$GASNetAuxSeg_pd: 368*(GASNETC_GNI_NUM_PD:" _STRINGIFY(GASNETC_GNI_NUM_PD_DEFAULT)") $");
 gasneti_auxseg_request_t gasnetc_pd_auxseg_alloc(gasnet_seginfo_t *auxseg_info) {
   gasneti_auxseg_request_t retval;
   
@@ -1429,7 +1432,6 @@ gasneti_auxseg_request_t gasnetc_pd_auxseg_alloc(gasnet_seginfo_t *auxseg_info) 
                                                 GASNETC_GNI_MIN_NUM_PD_DEFAULT,1)
     * sizeof(gasnetc_post_descriptor_t);
   retval.optimalsz = gasneti_getenv_int_withdefault("GASNETC_GNI_NUM_PD",
-
                                                     GASNETC_GNI_NUM_PD_DEFAULT,1) 
     * sizeof(gasnetc_post_descriptor_t);
   if (retval.optimalsz < retval.minsz) retval.optimalsz = retval.minsz;
