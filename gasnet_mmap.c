@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2012/09/04 19:11:32 $
- * $Revision: 1.120 $
+ *     $Date: 2012/09/05 02:18:51 $
+ * $Revision: 1.121 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -250,6 +250,7 @@ static const char *gasneti_pshm_makeunique(const char *unique) {
 #endif
 #if !defined(GASNETI_PSHM_SYSV)
   const size_t base_len = tmpdir_len + GASNETI_PSHM_PREFIX_LEN;
+  char *allnames;
 #endif
   int i;
 
@@ -286,44 +287,56 @@ static const char *gasneti_pshm_makeunique(const char *unique) {
   }
 
 #if defined(GASNETI_PSHM_SYSV)
- #if GASNETI_PSHM_MAX_NODES > 255
-  /* ftok() is documented (on at least some systems) as using only low 8 bits */
-  gasneti_assert_always(gasneti_pshm_nodes + 1 < 256);
- #endif
-
   gasneti_pshm_settemp(unique, prefix, tmpdir);
   gasneti_pshm_sysvkeys = (key_t *)gasneti_malloc((gasneti_pshm_nodes+1)*sizeof(key_t));
   for (i = 0; i <= gasneti_pshm_nodes; ++i) {
     key_t key = ftok(gasneti_pshm_tmpfile, i + 1);
     if (key == (key_t)-1){
-        gasneti_fatalerror("failed to provide the unique SYSV key value for %s and rank %d, for ftok: %s",
+        gasneti_fatalerror("failed to produce a unique SYSV key value for %s and rank %d, from ftok: %s",
                            gasneti_pshm_tmpfile, i, strerror(errno));
     }
+  #if GASNETI_PSHM_MAX_NODES > 255
+    else { /* ftok() is documented (on many systems) as using only low 8 bits - so verify */
+      int j;
+      for (j = 0; j < i; ++j) {
+        if_pf (key == gasneti_pshm_sysvkeys[j]) {
+          key = (key_t)-1;
+          gasneti_fatalerror("failed to produce a unique SYSV key value for %s and rank %d, dup of %d",
+                             gasneti_pshm_tmpfile, i, j);
+        }
+      }
+    }
+  #endif
     gasneti_pshm_sysvkeys[i] = key;
   }
 #else
-  /* Two base-36 "digits" provide 1296 unique names, even if case-insensitive. */
+  /* Three base-36 "digits" provide 46,656 unique names, even if case-insensitive. */
  #if GASNETI_PSHM_MAX_NODES > 255
-  gasneti_assert_always(gasneti_pshm_nodes < (36*36));
+  gasneti_assert_always(gasneti_pshm_nodes < (36*36*36));
  #endif
 
   /* Note: 'unique' might not be NUL terminated */
   memcpy(prefix + GASNETI_PSHM_PREFIX_LEN1, unique, GASNETI_PSHM_UNIQUE_LEN);
 
   gasneti_pshmname = (char **)gasneti_malloc((gasneti_pshm_nodes+1)*sizeof(char*));
+  allnames = (char *)gasneti_malloc((gasneti_pshm_nodes+1)*(base_len + 4));
 
   for (i = 0; i <= gasneti_pshm_nodes; ++i) {
     const char tbl[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    char *filename = (char *)gasneti_malloc(base_len + 3);
+    const unsigned int namelen = (base_len + 4);
+    char *filename = allnames + (i * namelen);
+    const int base = 36;
+    int digit = i;
 
  #ifdef GASNETI_PSHM_FILE
     memcpy(filename, tmpdir, tmpdir_len);
  #endif
     memcpy(filename + tmpdir_len, prefix, GASNETI_PSHM_PREFIX_LEN);
 
-    filename[base_len + 0] = tbl[i / 36];
-    filename[base_len + 1] = tbl[i % 36];
-    filename[base_len + 2] = '\0';
+    filename[base_len + 2] = tbl[digit % base]; digit /= base;
+    filename[base_len + 1] = tbl[digit % base]; digit /= base;
+    filename[base_len + 0] = tbl[digit];
+    filename[base_len + 3] = '\0';
 
     gasneti_pshmname[i] = filename;
   }
@@ -640,8 +653,8 @@ static void gasneti_cleanup_shm(void) {
     int i;
     for (i=0; i<gasneti_pshm_nodes+1; ++i) {
       gasneti_pshm_unlink(i);
-      gasneti_free(gasneti_pshmname[i]);
     }
+    gasneti_free(gasneti_pshmname[0]);
     gasneti_free(gasneti_pshmname);
     gasneti_pshmname = NULL;
   }

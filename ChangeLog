@@ -1,6 +1,6 @@
 GASNet ChangeLog 
 ----------------
-$Revision: 1.60 $
+$Revision: 1.61 $
 
 ----------------------------------------------------------------------
 ??-??-2012 : Release 1.20.0
@@ -16,8 +16,10 @@ $Revision: 1.60 $
     Nemesis lock-free queues, yielding improved performance and lowering
     the memory required from quadratic to linear in cores-per-node.
   - Intra-node barrier has been reimplemented for higher performance.
-  - Support for up to 1295 cores/node (vs. default of 255) now available
-    as a configure option: --enable-large-pshm
+  - Support for up to about 45K processes/node (vs. default of 255) is
+    now available as a configure option: --enable-large-pshm.  This has
+    been tested to 4096 proc/node.  However, memory and other resources,
+    such as file descriptors, will typically impose a much lower limit.
 
 * General
   - A new barrier implementation (an RDMA-based dissemination algorithm)
