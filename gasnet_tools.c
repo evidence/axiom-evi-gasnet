@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2012/04/24 06:27:21 $
- * $Revision: 1.274 $
+ *     $Date: 2012/09/07 08:15:28 $
+ * $Revision: 1.275 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -390,30 +390,27 @@ extern void gasneti_filesystem_sync(void) {
   }
 }
 extern void gasneti_flush_streams(void) {
-  if (fflush(stdout)) 
-    gasneti_fatalerror("failed to flush stdout: %s", strerror(errno));
-  if (fflush(stderr)) 
-    gasneti_fatalerror("failed to flush stderr: %s", strerror(errno));
+  /* XXX: When should we consider failures to be errors?  When should we warn?
+   *      For a long time failures here were fatal, but that choice precludes
+   *      clients or systems which close the standard fds.
+   */
+  fflush(stdout); 
+  fflush(stderr);
   fsync(STDOUT_FILENO); /* ignore errors for output is a console */
   fsync(STDERR_FILENO); /* ignore errors for output is a console */
-  if (fflush(NULL)) { /* passing NULL to fflush causes it to flush all open FILE streams */
-    if (errno == EBADF) {
-      /* AIX has been seen to return this rarely, and at least one other libc (one
-       * we don't support) is known to always return this for a NULL argument. */
-    } else
-      gasneti_fatalerror("failed to fflush(NULL): %s", strerror(errno));
-  }
+  fflush(NULL); /* passing NULL to fflush SHOULD cause it to flush all open FILE streams */
   gasneti_filesystem_sync();
   gasneti_sched_yield();
 }
 extern void gasneti_close_streams(void) {
+  /* XXX: When should we consider failures to be errors?  When should we warn?
+   *      For a long time failures here were fatal, but that choice precludes
+   *      clients or systems which close the standard fds.
+   */
   gasneti_reghandler(SIGPIPE, SIG_IGN); /* In case we still try to generate output */
-  if (fclose(stdin)) 
-    gasneti_fatalerror("failed to fclose(stdin) in gasnetc_exit: %s", strerror(errno));
-  if (fclose(stdout)) 
-    gasneti_fatalerror("failed to fclose(stdout) in gasnetc_exit: %s", strerror(errno));
-  if (fclose(stderr)) 
-    gasneti_fatalerror("failed to fclose(stderr) in gasnetc_exit: %s", strerror(errno));
+  fclose(stdin);
+  fclose(stdout);
+  fclose(stderr);
   gasneti_sched_yield();
 }
 /* ------------------------------------------------------------------------------------ */
