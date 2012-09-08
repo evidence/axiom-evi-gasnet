@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.c,v $
- *     $Date: 2012/09/04 21:18:52 $
- * $Revision: 1.54 $
+ *     $Date: 2012/09/08 02:20:37 $
+ * $Revision: 1.55 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -37,12 +37,18 @@ static uintptr_t gasneti_pshmnet_queue_mem = 0;
 static void *gasnetc_pshmnet_region = NULL;
 
 static struct gasneti_pshm_info {
-    gasneti_atomic_t    bootstrap_barrier;
+    gasneti_atomic_t    bootstrap_barrier_cnt;
+    char _pad1[GASNETI_CACHE_PAD(sizeof(gasneti_atomic_t))];
+    gasneti_atomic_t    bootstrap_barrier_gen;
+    char _pad2[GASNETI_CACHE_PAD(sizeof(gasneti_atomic_t))];
     /* early_barrier will be overwritten by other vars after its completion */
     /* sig_atomic_t should be wide enough to avoid word-tearing, right? */
-    volatile sig_atomic_t early_barrier[1]; /* variable length array */
+    union {
+      volatile sig_atomic_t val;
+      char _pad[GASNETI_CACHE_LINE_BYTES];
+   }                    early_barrier[1]; /* variable length array */
 } *gasneti_pshm_info = NULL;
-#define GASNETI_PSHM_BSB_LIMIT (GASNETI_ATOMIC_MAX - gasneti_pshm_nodes)
+#define GASNETI_PSHM_BSB_LIMIT (GASNETI_ATOMIC_MAX - 2)
 
 #define round_up_to_pshmpage(size_or_addr)               \
         GASNETI_ALIGNUP(size_or_addr, GASNETI_PSHMNET_PAGESIZE)
@@ -116,7 +122,7 @@ void *gasneti_pshm_init(gasneti_bootstrapExchangefn_t exchangefn, size_t aux_sz)
     info_sz += sizeof(gasneti_pshm_barrier_t) +
 	       (gasneti_pshm_nodes - 1) * sizeof(gasneti_pshm_barrier->node);
     /* space for early barrier, sharing space with the items above: */
-    info_sz = MAX(info_sz, gasneti_pshm_nodes * sizeof(sig_atomic_t));
+    info_sz = MAX(info_sz, gasneti_pshm_nodes * sizeof(gasneti_pshm_info->early_barrier[0]));
     info_sz += offsetof(struct gasneti_pshm_info, early_barrier);
     /* final space requested: */
     mmapsz += round_up_to_pshmpage(info_sz);
@@ -134,17 +140,21 @@ void *gasneti_pshm_init(gasneti_bootstrapExchangefn_t exchangefn, size_t aux_sz)
   
   /* Prepare the shared info struct (including bootstrap barrier) */
   gasneti_pshm_info = (struct gasneti_pshm_info *)((uintptr_t)gasnetc_pshmnet_region + 2*vnetsz);
-  if (gasneti_pshm_mynode != 0) {
-    /* For a few architectures we cannot assume that the pre-zeroed memory we
-     * receive will correspond to an atomic counter of value zero. */
-    gasneti_atomic_set(&gasneti_pshm_info->bootstrap_barrier, 0, 0);
+  if (gasneti_pshm_mynode == 0) {
+    gasneti_atomic_set(&gasneti_pshm_info->bootstrap_barrier_cnt, gasneti_pshm_nodes, 0);
+    gasneti_atomic_set(&gasneti_pshm_info->bootstrap_barrier_gen, 0, 0);
   }
-  gasneti_pshm_info->early_barrier[gasneti_pshm_mynode] = 1;
-  gasneti_local_wmb();
 
   /* "early" barrier which protects initialization of the real barrier counter. */
-  for (i=0; i < gasneti_pshm_nodes; ++i) {
-    gasneti_waituntil(gasneti_pshm_info->early_barrier[i] != 0);
+  gasneti_local_wmb();
+  if (gasneti_pshm_mynode) {
+    gasneti_pshm_info->early_barrier[gasneti_pshm_mynode].val = 1;
+    gasneti_waituntil(gasneti_pshm_info->early_barrier[0].val != 0);
+  } else {
+    for (i = 1; i < gasneti_pshm_nodes; ++i) {
+      gasneti_waituntil(gasneti_pshm_info->early_barrier[i].val != 0);
+    }
+    gasneti_pshm_info->early_barrier[0].val = 1;
   }
 
   /* Unlink the shared memory file to prevent leaks.
@@ -737,21 +747,29 @@ void gasneti_pshmnet_recv_release(gasneti_pshmnet_t *vnet, void *buf)
  ******************************************************************************/
 void gasneti_pshmnet_bootstrapBarrier(void)
 {
+  static gasneti_atomic_val_t generation = 0;
   gasneti_atomic_val_t curr, target;
 
   gasneti_assert(gasneti_pshm_info != NULL);
   gasneti_assert(gasneti_pshm_nodes > 0);
 
-  curr = gasneti_atomic_read(&gasneti_pshm_info->bootstrap_barrier, 0);
-  if_pf (curr >= GASNETI_PSHM_BSB_LIMIT) gasnet_exit(1);
+#if GASNET_DEBUG
+  curr = gasneti_atomic_read(&gasneti_pshm_info->bootstrap_barrier_gen, 0);
+  gasneti_assert((curr == generation) || (curr >= GASNETI_PSHM_BSB_LIMIT));
+#endif
 
-  target = gasneti_pshm_nodes + curr - (curr % gasneti_pshm_nodes);
+  if (gasneti_atomic_decrement_and_test(&gasneti_pshm_info->bootstrap_barrier_cnt, 0)) {
+    gasneti_atomic_set(&gasneti_pshm_info->bootstrap_barrier_cnt, gasneti_pshm_nodes, 0);
+    gasneti_atomic_increment(&gasneti_pshm_info->bootstrap_barrier_gen, GASNETI_ATOMIC_REL);
+  }
+
+  target = generation + 1;
   gasneti_assert_always(target < GASNETI_PSHM_BSB_LIMIT); /* Die if we were ever to reach the limit */
 
-  gasneti_atomic_increment(&gasneti_pshm_info->bootstrap_barrier, 0);
-
-  gasneti_waitwhile((curr = gasneti_atomic_read(&gasneti_pshm_info->bootstrap_barrier, 0)) < target);
+  gasneti_waitwhile((curr = gasneti_atomic_read(&gasneti_pshm_info->bootstrap_barrier_gen, 0)) < target);
   if_pf (curr >= GASNETI_PSHM_BSB_LIMIT) gasnet_exit(1);
+
+  generation = target;
 }
 
 /******************************************************************************
@@ -762,7 +780,7 @@ void gasneti_pshmnet_bootstrapBarrier(void)
 static gasneti_sighandlerfn_t gasneti_prev_abort_handler = NULL;
 
 static void gasneti_pshm_abort_handler(int sig) {
-  gasneti_atomic_set(&gasneti_pshm_info->bootstrap_barrier, GASNETI_PSHM_BSB_LIMIT, 0);
+  gasneti_atomic_set(&gasneti_pshm_info->bootstrap_barrier_gen, GASNETI_PSHM_BSB_LIMIT, 0);
 
   gasneti_reghandler(SIGABRT, gasneti_prev_abort_handler);
 #if HAVE_SIGPROCMASK /* Is this ever NOT the case? */
