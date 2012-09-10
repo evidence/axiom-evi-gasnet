@@ -2,7 +2,7 @@
 README file for GASNet tools
 ============================
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.30 $
+$Revision: 1.31 $
 GASNet tools specification version: 1.7
 
 The GASNet tools are a set of communication-independent utilities that are used
@@ -928,10 +928,14 @@ GASNETT_IDENT(identName, identText);
 
 void gasnett_set_affinity(int rank);
 
-  Attempt to "pin" the calling thread to the physical processor indicated by rank, so that
+  Attempt to "pin" the calling thread to the processor indicated by rank, so that
   this thread will run only on the named processor (does not guarantee exclusive use of the
   processor, only trys to ensure the thread will not migrate to other processors).
-  Rank is interpreted mod the number of physical processors in the system.
+  The definition and numbering of "processors" follow those of the system-specific
+  underlying API, but typically treat each thread of an HT/SMT/HMT CPU as a distinct
+  processor.
+  On systems where no cpu-binding support is avaialable, this function is a NO-OP.
+  Rank is interpreted mod the number of processors in the system.
 
 void gasnett_sched_yield();
 
@@ -939,11 +943,13 @@ void gasnett_sched_yield();
 
 void gasnett_flush_streams();
 
-  Make the best effort possible to flush the stdout/stderr streams back to the console.
+  Make the best effort possible to flush the stdout/stderr streams to their destinations.
+  Errors are ignored, for instance if one or both streams have been closed.
 
 void gasnett_close_streams();
 
   Close the stdin/stdout/stderr streams, usually in preparation for shutdown.
+  Errors are ignored, for instance if any of the streams have been previously closed.
 
 void gasnett_fatalerror(const char *msg, ...);
 
