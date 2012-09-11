@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testexit.c,v $
- *     $Date: 2011/06/03 22:24:22 $
- * $Revision: 1.30 $
+ *     $Date: 2012/09/11 01:18:42 $
+ * $Revision: 1.31 $
  * Description: GASNet gasnet_exit correctness test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -194,10 +194,11 @@ int main(int argc, char **argv) {
   GASNET_Safe(gasnet_init(&argc, &argv));
   { int i;
     snprintf(usagestr,sizeof(usagestr),
-             "(exittestnum:1..%i | crashtestnum:100..%i)", (int)NUMTEST, (int)(100+NUMCRASHTEST_WITH_PAR-1));
+             "[-r] (exittestnum:1..%i | crashtestnum:100..%i)", (int)NUMTEST, (int)(100+NUMCRASHTEST_WITH_PAR-1));
     #ifdef GASNET_PAR
       strcat(usagestr, " (num_pthreads)");
     #endif
+    strcat(usagestr, "\n  -r: reverse the node numbering");
     strcat(usagestr, "\n\n Exit tests:\n");
     for (i = 0; i < NUMTEST; i++) {
       char tmp[MAXLINE];
@@ -225,13 +226,8 @@ int main(int argc, char **argv) {
   mynode = gasnet_mynode();
   nodes = gasnet_nodes();
 
-  peer = mynode ^ 1;
-  if (peer == nodes) {
-    /* w/ odd # of nodes, last one talks to self */
-    peer = mynode;
-  }
-
   argv++; argc--;
+  if (argc > 0 && !strcmp(*argv, "-r")) { mynode = nodes-(mynode+1); argv++; argc--; }
   if (argc > 0) { testid = atoi(*argv); argv++; argc--; }
   #ifdef GASNET_PAR
     if (argc > 0) { numpthreads = atoi(*argv); argv++; argc--; }
@@ -240,6 +236,12 @@ int main(int argc, char **argv) {
       (testid > NUMTEST && testid < 100) || 
       (testid >= 100+NUMCRASHTEST_WITH_PAR) || 
       numpthreads <= 1) test_usage_early();
+
+  peer = mynode ^ 1;
+  if (peer == nodes) {
+    /* w/ odd # of nodes, last one talks to self */
+    peer = mynode;
+  }
 
   if (testid < 100) {
     snprintf(testdescstr, sizeof(testdescstr), "Running exit test %i: %s",testid, testdesc[testid-1]);
