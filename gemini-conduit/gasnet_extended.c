@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2012/09/11 07:07:02 $
- * $Revision: 1.13 $
+ *     $Date: 2012/09/12 14:19:30 $
+ * $Revision: 1.14 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -73,7 +73,7 @@ extern void gasnete_init(void) {
 
   { gasnete_threaddata_t *threaddata = NULL;
     gasnete_eop_t *eop = NULL;
-    #if GASNETI_THREADS
+    #if GASNETI_CLIENT_THREADS
       /* register first thread (optimization) */
       threaddata = gasnete_mythread(); 
     #else

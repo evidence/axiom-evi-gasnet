@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2012/09/11 07:07:15 $
- * $Revision: 1.23 $
+ *     $Date: 2012/09/12 14:19:38 $
+ * $Revision: 1.24 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -370,7 +370,7 @@ extern void gasnete_init(void) {
   { gasnete_threaddata_t *threaddata = NULL;
     gasnete_eop_t *eop = NULL;
     gasnete_iop_t *iop = NULL;
-    #if GASNETI_THREADS
+    #if GASNETI_CLIENT_THREADS
       /* register first thread (optimization) */
       threaddata = gasnete_mythread(); 
     #else
