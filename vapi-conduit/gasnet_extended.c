@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2012/09/12 14:19:40 $
- * $Revision: 1.59 $
+ *     $Date: 2012/09/12 19:24:35 $
+ * $Revision: 1.60 $
  * Description: GASNet Extended API over VAPI/IB Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -312,7 +312,7 @@ extern void gasnete_init(void) {
   gasneti_assert(gasneti_nodes >= 1 && gasneti_mynode < gasneti_nodes);
 
   { gasnete_threaddata_t *threaddata = NULL;
-    #if GASNETI_CLIENT_THREADS
+    #if GASNETI_THREADS
       /* register first thread (optimization) */
       threaddata = gasnete_mythread(); 
     #else

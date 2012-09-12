@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2012/09/12 14:19:34 $
- * $Revision: 1.126 $
+ *     $Date: 2012/09/12 19:24:29 $
+ * $Revision: 1.127 $
  * Description: GASNet Extended API over LAPI Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -94,7 +94,7 @@ extern void gasnete_init(void) {
     {
 	gasnete_threaddata_t *threaddata = NULL;
 	gasnete_eop_t *eop = NULL;
-#if GASNETI_CLIENT_THREADS
+#if GASNETI_THREADS
 	/* register first thread (optimization) */
 	threaddata = gasnete_mythread(); 
 #else

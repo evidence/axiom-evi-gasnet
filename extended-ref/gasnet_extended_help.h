@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_help.h,v $
- *     $Date: 2010/12/17 16:00:42 $
- * $Revision: 1.54 $
+ *     $Date: 2012/09/12 19:24:37 $
+ * $Revision: 1.55 $
  * Description: GASNet Extended API Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -64,7 +64,7 @@ extern void gasneti_fatal_threadoverflow(const char *subsystem);
   #else
     extern struct _gasnete_threaddata_t **gasnete_threadtable;
   #endif
-  #if GASNETI_CLIENT_THREADS
+  #if GASNETI_THREADS
     extern struct _gasnete_threaddata_t *gasnete_mythread(void) GASNETI_CONST;
     GASNETI_CONSTP(gasnete_mythread)
   #else

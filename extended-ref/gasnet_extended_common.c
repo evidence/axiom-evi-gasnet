@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_common.c,v $
- *     $Date: 2012/09/12 14:19:42 $
- * $Revision: 1.7 $
+ *     $Date: 2012/09/12 19:24:37 $
+ * $Revision: 1.8 $
  * Description: GASNet Extended API Common code
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -26,7 +26,7 @@ GASNETI_IDENT(gasnete_IdentString_ExtendedName, "$GASNetExtendedLibraryName: " G
 static int gasnete_numthreads = 0; /* current thread count */
 int gasnete_maxthreadidx = 0; /* high-water mark of thread indexes issued */
 static gasneti_mutex_t threadtable_lock = GASNETI_MUTEX_INITIALIZER;
-#if GASNETI_CLIENT_THREADS
+#if GASNETI_THREADS
   /* pthread thread-specific ptr to our threaddata (or NULL for a thread never-seen before) */
   GASNETI_THREADKEY_DEFINE(gasnete_threaddata);
 #endif
@@ -162,7 +162,7 @@ static void gasnete_free_threaddata(gasnete_threaddata_t *thread) {
 #define GASNETE_THREAD_CLEANUP_DELAY 1 /* number of times to postpone pthread_setspecific callback */
 #endif
 
-#if GASNETI_CLIENT_THREADS
+#if GASNETI_THREADS
   /* pthread_key_t are used explicitly to get callback on thread termination */
   static pthread_key_t gasnete_threaddata_cleanup;
   static pthread_key_t gasnete_threadless_cleanup;
@@ -189,14 +189,14 @@ extern void gasnete_register_threadcleanup(void (*cleanupfn)(void *), void *cont
   newcleanup->cleanupfn = cleanupfn;
   newcleanup->context = context;
 
-  #if GASNETI_CLIENT_THREADS
+  #if GASNETI_THREADS
     thread = gasneti_threadkey_get(gasnete_threaddata);
   #endif
   if (thread) { /* usual case - extended API thread init before register */
     newcleanup->next = thread->thread_cleanup;
     thread->thread_cleanup = newcleanup;
   } else { /* save away the cleanups for now */
-    #if GASNETI_CLIENT_THREADS
+    #if GASNETI_THREADS
       gasnete_threadkey_init();
       newcleanup->next = pthread_getspecific(gasnete_threadless_cleanup);
       pthread_setspecific(gasnete_threadless_cleanup, newcleanup);
@@ -208,7 +208,7 @@ extern void gasnete_register_threadcleanup(void (*cleanupfn)(void *), void *cont
 }
 
 static void gasnete_threadless_cleanup_fn(void *_lifo) {
-  #if GASNETI_CLIENT_THREADS
+  #if GASNETI_THREADS
     if (pthread_getspecific(gasnete_threaddata_cleanup)) { /* thread exists - delay for thread cleanup */
       pthread_setspecific(gasnete_threadless_cleanup, _lifo);
       return;
@@ -229,7 +229,7 @@ static void gasnete_threaddata_cleanup_fn(void *_thread) {
   gasnete_threaddata_t *thread = _thread;
   int idx = thread->threadidx;
 
-  #if GASNETI_CLIENT_THREADS
+  #if GASNETI_THREADS
     /* ensure gasnete_threaddata remains valid for this thread while we run destructors */
     if (!gasneti_threadkey_get(gasnete_threaddata))
       gasneti_threadkey_set(gasnete_threaddata, thread);
@@ -250,7 +250,7 @@ static void gasnete_threaddata_cleanup_fn(void *_thread) {
     while (1) {
       if ((cleanuplist = thread->thread_cleanup) != NULL) 
           thread->thread_cleanup = NULL;
-      #if GASNETI_CLIENT_THREADS
+      #if GASNETI_THREADS
       else if ((cleanuplist = pthread_getspecific(gasnete_threadless_cleanup)) != NULL) 
           pthread_setspecific(gasnete_threadless_cleanup, NULL);
       #else
@@ -305,7 +305,7 @@ static gasnete_threaddata_t * gasnete_new_threaddata(void) {
     threaddata->threadidx = idx;
   gasneti_mutex_unlock(&threadtable_lock);
 
-  #if GASNETI_CLIENT_THREADS
+  #if GASNETI_THREADS
     /* setup TLS identification */
     gasneti_assert(gasneti_threadkey_get(gasnete_threaddata) == NULL);
     gasneti_threadkey_set(gasnete_threaddata, threaddata);
@@ -321,7 +321,7 @@ static gasnete_threaddata_t * gasnete_new_threaddata(void) {
 }
 /* PURE function (returns same value for a given thread every time) 
 */
-#if GASNETI_CLIENT_THREADS && !defined(gasnete_mythread)
+#if GASNETI_THREADS && !defined(gasnete_mythread)
   extern gasnete_threaddata_t *gasnete_mythread(void) {
     gasnete_threaddata_t *threaddata = gasneti_threadkey_get(gasnete_threaddata);
     GASNETI_STAT_EVENT(C, DYNAMIC_THREADLOOKUP); /* tracing here can cause inf recursion */
