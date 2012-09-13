@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_fwd.h,v $
- *     $Date: 2012/08/10 23:04:24 $
- * $Revision: 1.61 $
+ *     $Date: 2012/09/13 08:49:51 $
+ * $Revision: 1.62 $
  * Description: GASNet header for vapi conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -70,6 +70,11 @@ typedef uint8_t gasnet_handler_t;
 #if (GASNET_CONDUIT_VAPI && (GASNETC_VAPI_RCV_THREAD || GASNETC_VAPI_CONN_THREAD)) || \
     (GASNET_CONDUIT_IBV  && (GASNETC_IBV_RCV_THREAD  || GASNETC_IBV_CONN_THREAD))
   #define GASNETI_CONDUIT_THREADS 1
+#endif
+/* The RCV thread, if any, needs a slot in the threadtable.  The CONN thread doesn't. */
+#if GASNET_SEQ && ((GASNET_CONDUIT_VAPI && GASNETC_VAPI_RCV_THREAD) || \
+                   (GASNET_CONDUIT_IBV  && GASNETC_IBV_RCV_THREAD ))
+  #define GASNETI_MAX_THREADS 2
 #endif
   
   /* define to 1 if your conduit may interrupt an application thread 

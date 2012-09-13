@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_help.h,v $
- *     $Date: 2012/09/12 19:24:37 $
- * $Revision: 1.55 $
+ *     $Date: 2012/09/13 08:49:53 $
+ * $Revision: 1.56 $
  * Description: GASNet Extended API Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -20,7 +20,7 @@ GASNETI_BEGIN_EXTERNC
 /* ------------------------------------------------------------------------------------ */
 /* GASNETI_MAX_THREADS: cannot exceed the size representable in gasnete_threadidx_t, 
    but some conduits or configures may set it to less */
-#if GASNET_SEQ
+#if GASNET_SEQ && !GASNETI_CONDUIT_THREADS
   #undef GASNETI_MAX_THREADS /* only one thread by definition */
   #define GASNETI_MAX_THREADS 1
   #define GASNETI_MAX_THREADS_REASON "GASNET_SEQ mode only supports single-threaded operation."
