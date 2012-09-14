@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_help.h,v $
- *     $Date: 2012/09/14 00:29:12 $
- * $Revision: 1.57 $
+ *     $Date: 2012/09/14 00:57:55 $
+ * $Revision: 1.58 $
  * Description: GASNet Extended API Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -22,8 +22,8 @@ GASNETI_BEGIN_EXTERNC
    but some conduits or configures may set it to less */
 #if GASNET_SEQ /* only one client thread by definition */
   #undef GASNETI_MAX_THREADS
-  #ifdef GASNETI_CONDUIT_THREADS_USING_TD
-    #define GASNETI_MAX_THREADS (1 + GASNETI_CONDUIT_THREADS_USING_TD)
+  #ifdef GASNETE_CONDUIT_THREADS_USING_TD
+    #define GASNETI_MAX_THREADS (1 + GASNETE_CONDUIT_THREADS_USING_TD)
   #else
     #define GASNETI_MAX_THREADS 1
   #endif
