@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/09/14 04:25:42 $
- * $Revision: 1.132 $
+ *     $Date: 2012/09/14 08:08:12 $
+ * $Revision: 1.133 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -127,8 +127,6 @@ typedef struct gasnete_coll_pshmbarrier_s {
     int rank, num_children;
     int volatile two_to_phase; /* Local var alternates between 2^0 and 2^1 */
   } private;
-  int notify_value;
-  int notify_flags;
   gasneti_pshm_barrier_t *shared;
 } gasnete_pshmbarrier_data_t;
 
@@ -158,10 +156,6 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
 
   /* Start a new phase */
   const int two_to_phase = (pshm_bdata->private.two_to_phase ^= 3); /* alternates between 01 and 10 base-2 */
-
-  /* Record the passed barrier value and flags for checking at Wait */
-  pshm_bdata->notify_value = value;
-  pshm_bdata->notify_flags = flags;
 
     /* The algorithm:
      * 
@@ -1109,8 +1103,6 @@ typedef struct {
   gasnete_pshmbarrier_data_t *barrier_pshm; /* non-NULL if using hierarchical code */
   int barrier_passive;        /*  2 if some other node makes progress for me, 0 otherwise */
 #endif
-  int barrier_notify_value;   /*  local value at notify */
-  int barrier_notify_flags;   /*  local flags at notify */
   int barrier_size;           /*  ceil(lg(nodes)) */
   int barrier_goal;           /*  (ceil(lg(nodes)) << 1) */
   int volatile barrier_slot;  /*  (step << 1) | phase */
@@ -1325,12 +1317,8 @@ static void gasnete_rmdbarrier_notify(gasnete_coll_team_t team, int id, int flag
     do_send = !barrier_data->barrier_passive;
     id = pshm_bdata->shared->value;
     flags = pshm_bdata->shared->flags;
-  } else
-#endif
-  {
-    barrier_data->barrier_notify_value = id;
-    barrier_data->barrier_notify_flags = flags;
   }
+#endif
 
   barrier_data->barrier_value = id;
   barrier_data->barrier_flags = flags;
@@ -1362,12 +1350,8 @@ static void gasnete_rmdbarrier_notify_singleton(gasnete_coll_team_t team, int id
     (void)gasnete_pshmbarrier_notify_inner(pshm_bdata, id, flags);
     id = pshm_bdata->shared->value;
     flags = pshm_bdata->shared->flags;
-  } else
-#endif
-  {
-    barrier_data->barrier_notify_value = id;
-    barrier_data->barrier_notify_flags = flags;
   }
+#endif
 
   barrier_data->barrier_value = id;
   barrier_data->barrier_flags = flags;
@@ -1594,8 +1578,6 @@ static void gasnete_rmdbarrier_init(gasnete_coll_team_t team) {
  */
 
 typedef struct {
-  int volatile amcbarrier_value; /*  local ambarrier value */
-  int volatile amcbarrier_flags; /*  local ambarrier flags */
   int volatile amcbarrier_phase; /*  2-phase operation to improve pipelining */
   int volatile amcbarrier_response_done[2];     /*  non-zero when ambarrier is complete */
   int volatile amcbarrier_response_flags[2];    /*  consensus ambarrier flags */
@@ -1732,22 +1714,15 @@ static void gasnete_amcbarrier_notify(gasnete_coll_team_t team, int id, int flag
   }
 #endif
 
-  /* If we are on an ILP64 platform, this cast will ensure we truncate the same
-   * bits locally as we do when passing over the network.
-   */
-  barrier_data->amcbarrier_value = (gasnet_handlerarg_t)id;
-
-  barrier_data->amcbarrier_flags = flags;
-
   if (barrier_data->amcbarrier_max > 1) {
     /*  send notify msg to master */
     if (do_send) GASNETI_SAFE(
       gasnet_AMRequestShort4(barrier_data->amcbarrier_master,
                              gasneti_handleridx(gasnete_amcbarrier_notify_reqh), 
-                             team->team_id, phase, barrier_data->amcbarrier_value, flags));
+                             team->team_id, phase, id, flags));
     if (gasneti_mynode == barrier_data->amcbarrier_master) gasnete_barrier_pf_enable(team);
   } else {
-    barrier_data->amcbarrier_response_value[phase] = barrier_data->amcbarrier_value;
+    barrier_data->amcbarrier_response_value[phase] = (gasnet_handlerarg_t)id;
     barrier_data->amcbarrier_response_flags[phase] = flags;
     barrier_data->amcbarrier_response_done[phase] = 1;
   }
