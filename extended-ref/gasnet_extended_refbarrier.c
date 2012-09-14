@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/09/05 05:44:04 $
- * $Revision: 1.131 $
+ *     $Date: 2012/09/14 04:25:42 $
+ * $Revision: 1.132 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -301,11 +301,9 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
   /* Only the root (rank == 0) node continues past this point */
   if_pf (pshm_bdata->private.rank) return 0;
 
-#if GASNETI_PSHM_BARRIER_HIER
-  /* Publish the results for use in hierarhical barrier */
+  /* Publish the results */
   shared_data->value = value;
   shared_data->flags = flags;
-#endif
 
   /* Signal the barrier w/ phase and result */
   {
@@ -319,11 +317,13 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
 GASNETI_ALWAYS_INLINE(finish_pshm_barrier)
 int finish_pshm_barrier(const gasnete_pshmbarrier_data_t * const pshm_bdata, int id, int flags, gasneti_atomic_sval_t state) {
   const struct gasneti_pshm_barrier_node * const mynode = pshm_bdata->private.mynode;
+  const gasneti_pshm_barrier_t * const shared_data = pshm_bdata->shared;
   int ret = PSHM_BSTATE_TO_RESULT(state); /* default unless args mismatch those from notify */
 
   /* Check args for mismatch */
-  if_pf((flags != pshm_bdata->notify_flags) ||
-        (!(flags & GASNET_BARRIERFLAG_ANONYMOUS) && (id != pshm_bdata->notify_value))) {
+  if_pf(/* try/wait value must match consensus value, if both are present */
+        !((flags|shared_data->flags) & GASNET_BARRIERFLAG_ANONYMOUS) &&
+         (id != shared_data->value)) {
     ret = GASNET_ERR_BARRIER_MISMATCH; 
   }
 
@@ -940,17 +940,10 @@ static int gasnete_amdbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
     barrier_data->amdbarrier_mismatch[phase] = 0;
     retval = GASNET_ERR_BARRIER_MISMATCH;
   } else
-#if GASNETI_PSHM_BARRIER_HIER
-  if (barrier_data->amdbarrier_pshm) {
-    /* amdbarrier_{value,flags} may not contain this node's values
-     * finish_pshm_barrier() checks local notify-vs-wait mismatch instead.
-     */
-  } else
-#endif
-  if_pf((!(flags & GASNET_BARRIERFLAG_ANONYMOUS) &&
-         ((gasnet_handlerarg_t)id != barrier_data->amdbarrier_value)) || 
-        flags != barrier_data->amdbarrier_flags) {
-	retval = GASNET_ERR_BARRIER_MISMATCH;
+  if_pf(/* try/wait value must match consensus value, if both are present */
+        (!(flags & GASNET_BARRIERFLAG_ANONYMOUS) && barrier_data->amdbarrier_recv_value_present[phase])
+	 && ((gasnet_handlerarg_t)id != barrier_data->amdbarrier_recv_value[phase])) {
+    retval = GASNET_ERR_BARRIER_MISMATCH;
   }
 
   /*  update state */
@@ -1424,14 +1417,9 @@ static int gasnete_rmdbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
   if_pf (barrier_data->barrier_flags & GASNET_BARRIERFLAG_MISMATCH) {
     retval = GASNET_ERR_BARRIER_MISMATCH;
   } else
-#if GASNETI_PSHM_BARRIER_HIER
-  if (barrier_data->barrier_pshm) {
-    /* finish_pshm_barrier() checks local notify-vs-wait mismatch.  */
-  } else
-#endif
-  if_pf ((!(flags & GASNET_BARRIERFLAG_ANONYMOUS) &&
-           (id != barrier_data->barrier_notify_value))
-         || (flags != barrier_data->barrier_notify_flags)) {
+  if_pf(/* try/wait value must match consensus value, if both are present */
+        !((flags|barrier_data->barrier_flags) & GASNET_BARRIERFLAG_ANONYMOUS) &&
+	 ((gasnet_handlerarg_t)id != barrier_data->barrier_value)) {
     retval = GASNET_ERR_BARRIER_MISMATCH;
   }
 
@@ -1610,7 +1598,8 @@ typedef struct {
   int volatile amcbarrier_flags; /*  local ambarrier flags */
   int volatile amcbarrier_phase; /*  2-phase operation to improve pipelining */
   int volatile amcbarrier_response_done[2];     /*  non-zero when ambarrier is complete */
-  int volatile amcbarrier_response_mismatch[2]; /*  non-zero if we detected a mismatch */
+  int volatile amcbarrier_response_flags[2];    /*  consensus ambarrier flags */
+  int volatile amcbarrier_response_value[2];    /*  consensus ambarrier value */
   
   int           amcbarrier_max;
   gasnet_node_t amcbarrier_master; /* ACT, not REL */
@@ -1623,8 +1612,7 @@ typedef struct {
   /*  global state on master */
   gasnet_hsl_t amcbarrier_lock;
   int volatile amcbarrier_consensus_value[2]; /*  consensus ambarrier value */
-  int volatile amcbarrier_consensus_value_present[2]; /*  consensus ambarrier value found */
-  int volatile amcbarrier_consensus_mismatch[2]; /*  non-zero if we detected a mismatch */
+  int volatile amcbarrier_consensus_flags[2]; /*  consensus ambarrier flags */
   int volatile amcbarrier_count[2];/*  count of how many remotes have notified (on master) */
 } gasnete_coll_amcbarrier_t;
 
@@ -1638,15 +1626,18 @@ static void gasnete_amcbarrier_notify_reqh(gasnet_token_t token,
   
   gasnet_hsl_lock(&barrier_data->amcbarrier_lock);
   { int count = barrier_data->amcbarrier_count[phase];
-    if (!(flags & (GASNET_BARRIERFLAG_ANONYMOUS|GASNET_BARRIERFLAG_MISMATCH)) && 
-        !barrier_data->amcbarrier_consensus_value_present[phase]) {
-      barrier_data->amcbarrier_consensus_value[phase] = (int)value;
-      barrier_data->amcbarrier_consensus_value_present[phase] = 1;
-    } else if ((flags & GASNET_BARRIERFLAG_MISMATCH) ||
-               (!(flags & GASNET_BARRIERFLAG_ANONYMOUS) && 
-                barrier_data->amcbarrier_consensus_value[phase] != (int)value)) {
-      barrier_data->amcbarrier_consensus_mismatch[phase] = 1;
+    const int consensus_flags = barrier_data->amcbarrier_consensus_flags[phase];
+    const int consensus_value = barrier_data->amcbarrier_consensus_value[phase];
+
+    if ((flags|consensus_flags) & GASNET_BARRIERFLAG_MISMATCH) {
+      barrier_data->amcbarrier_consensus_flags[phase] = GASNET_BARRIERFLAG_MISMATCH;
+    } else if (consensus_flags & GASNET_BARRIERFLAG_ANONYMOUS) {
+      barrier_data->amcbarrier_consensus_flags[phase] = flags;
+      barrier_data->amcbarrier_consensus_value[phase] = value;
+    } else if (!(flags & GASNET_BARRIERFLAG_ANONYMOUS) && (value != consensus_value)) {
+      barrier_data->amcbarrier_consensus_flags[phase] = GASNET_BARRIERFLAG_MISMATCH;
     }
+
     count++;
     if (count == barrier_data->amcbarrier_max) gasneti_sync_writes(); /* about to signal, ensure we flush state */
     barrier_data->amcbarrier_count[phase] = count;
@@ -1655,7 +1646,8 @@ static void gasnete_amcbarrier_notify_reqh(gasnet_token_t token,
 }
 
 static void gasnete_amcbarrier_done_reqh(gasnet_token_t token, 
-  gasnet_handlerarg_t teamid, gasnet_handlerarg_t phase,  gasnet_handlerarg_t mismatch) {
+  gasnet_handlerarg_t teamid, gasnet_handlerarg_t phase,
+  gasnet_handlerarg_t flags, gasnet_handlerarg_t value) {
   gasnete_coll_team_t team = gasnete_coll_team_lookup((uint32_t)teamid);
   gasnete_coll_amcbarrier_t *barrier_data = team->barrier_data;
 
@@ -1664,7 +1656,8 @@ static void gasnete_amcbarrier_done_reqh(gasnet_token_t token,
 #endif
   gasneti_assert(phase == barrier_data->amcbarrier_phase);
 
-  barrier_data->amcbarrier_response_mismatch[phase] = mismatch;
+  barrier_data->amcbarrier_response_flags[phase] = flags;
+  barrier_data->amcbarrier_response_value[phase] = value;
   gasneti_sync_writes();
   barrier_data->amcbarrier_response_done[phase] = 1;
 }
@@ -1679,15 +1672,16 @@ void gasnete_amcbarrier_kick(gasnete_coll_team_t team) {
   /*  master does all the work */
   if (barrier_data->amcbarrier_count[phase] == barrier_data->amcbarrier_max) {
     int gotit = 0;
-    int mismatch = 0;
+    int flags = 0;
+    int value = 0;
     gasnet_hsl_lock(&barrier_data->amcbarrier_lock);
       if (barrier_data->amcbarrier_count[phase] == barrier_data->amcbarrier_max) {
-        mismatch = barrier_data->amcbarrier_consensus_mismatch[phase];
+        flags = barrier_data->amcbarrier_consensus_flags[phase];
+        value = barrier_data->amcbarrier_consensus_value[phase];
         gotit = 1;
         /*  reset state before sending AMs - unlock is the WMB */
         barrier_data->amcbarrier_count[phase] = 0;
-        barrier_data->amcbarrier_consensus_mismatch[phase] = 0;
-        barrier_data->amcbarrier_consensus_value_present[phase] = 0;
+        barrier_data->amcbarrier_consensus_flags[phase] = GASNET_BARRIERFLAG_ANONYMOUS;
       }
     gasnet_hsl_unlock(&barrier_data->amcbarrier_lock);
 
@@ -1701,16 +1695,16 @@ void gasnete_amcbarrier_kick(gasnete_coll_team_t team) {
       if (barrier_data->amcbarrier_active) {
         for (i=0; i < barrier_data->amcbarrier_max; i++) {
           GASNETI_SAFE(
-            gasnet_AMRequestShort3(barrier_data->amcbarrier_active[i],
+            gasnet_AMRequestShort4(barrier_data->amcbarrier_active[i],
                                    gasneti_handleridx(gasnete_amcbarrier_done_reqh), 
-                                   team->team_id, phase, mismatch));
+                                   team->team_id, phase, flags, value));
         }
       } else
 #endif
       for (i=0; i < team->total_ranks; i++) {
         GASNETI_SAFE(
-          gasnet_AMRequestShort3(GASNETE_COLL_REL2ACT(team, i), gasneti_handleridx(gasnete_amcbarrier_done_reqh), 
-                                 team->team_id, phase, mismatch));
+          gasnet_AMRequestShort4(GASNETE_COLL_REL2ACT(team, i), gasneti_handleridx(gasnete_amcbarrier_done_reqh), 
+                                 team->team_id, phase, flags, value));
       }
     }
   }
@@ -1753,7 +1747,8 @@ static void gasnete_amcbarrier_notify(gasnete_coll_team_t team, int id, int flag
                              team->team_id, phase, barrier_data->amcbarrier_value, flags));
     if (gasneti_mynode == barrier_data->amcbarrier_master) gasnete_barrier_pf_enable(team);
   } else {
-    barrier_data->amcbarrier_response_mismatch[phase] = (flags & GASNET_BARRIERFLAG_MISMATCH);
+    barrier_data->amcbarrier_response_value[phase] = barrier_data->amcbarrier_value;
+    barrier_data->amcbarrier_response_flags[phase] = flags;
     barrier_data->amcbarrier_response_done[phase] = 1;
   }
 
@@ -1787,28 +1782,21 @@ static int gasnete_amcbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
 
   if (barrier_data->amcbarrier_response_done[phase]) { /* completed asynchronously before wait (via progressfns or try) */
     GASNETI_TRACE_EVENT_TIME(B,BARRIER_ASYNC_COMPLETION,GASNETI_TICKS_NOW_IFENABLED(B)-gasnete_barrier_notifytime);
-    gasneti_sync_reads(); /* ensure we read correct amcbarrier_response_mismatch[] */
+    gasneti_sync_reads(); /* ensure we read correct amcbarrier_response_*[] */
   } else { /*  wait for response */
     gasnete_barrier_pf_disable(team);
     GASNET_BLOCKUNTIL((gasnete_amcbarrier_kick(team), barrier_data->amcbarrier_response_done[phase]));
-    /* GASNET_BLOCKUNTIL contains RMB needed for read of amcbarrier_response_mismatch[] */
+    /* GASNET_BLOCKUNTIL contains RMB needed for read of amcbarrier_response_*[] */
   }
 
   /* determine result */
-  if_pf(barrier_data->amcbarrier_response_mismatch[phase]) {
-    barrier_data->amcbarrier_response_mismatch[phase] = 0;
+  if_pf(barrier_data->amcbarrier_response_flags[phase] & GASNET_BARRIERFLAG_MISMATCH) {
     retval = GASNET_ERR_BARRIER_MISMATCH;
   } else
-#if GASNETI_PSHM_BARRIER_HIER
-  if (barrier_data->amcbarrier_pshm) {
-    /* amcbarrier_{value,flags} may not contain this node's values
-     * finish_pshm_barrier() checks local notify-vs-wait mismatch instead.
-     */
-  } else
-#endif
-  if_pf((!(flags & GASNET_BARRIERFLAG_ANONYMOUS) && (gasnet_handlerarg_t)id != barrier_data->amcbarrier_value) || 
-        flags != barrier_data->amcbarrier_flags) {
-        retval = GASNET_ERR_BARRIER_MISMATCH;
+  if_pf(/* try/wait value must match consensus value, if both are present */
+        !((flags|barrier_data->amcbarrier_response_flags[phase]) & GASNET_BARRIERFLAG_ANONYMOUS) &&
+         (id != barrier_data->amcbarrier_response_value[phase])) {
+    retval = GASNET_ERR_BARRIER_MISMATCH;
   }
 
   /*  update state */
@@ -1873,6 +1861,9 @@ static void gasnete_amcbarrier_init(gasnete_coll_team_t team) {
 
   gasneti_leak(barrier_data);
   gasnet_hsl_init(&barrier_data->amcbarrier_lock);
+
+  barrier_data->amcbarrier_consensus_flags[0] = GASNET_BARRIERFLAG_ANONYMOUS;
+  barrier_data->amcbarrier_consensus_flags[1] = GASNET_BARRIERFLAG_ANONYMOUS;
 
   barrier_data->amcbarrier_max = total_ranks;
 #if GASNETI_PSHM_BARRIER_HIER
