@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_extended.c,v $
- *     $Date: 2012/09/14 20:00:29 $
- * $Revision: 1.39 $
+ *     $Date: 2012/09/14 23:19:42 $
+ * $Revision: 1.40 $
  * Description: GASNet Extended API SHMEM Implementation
  * Copyright 2003, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -284,6 +284,7 @@ typedef struct {
 } gasnete_barrier_state_t;
 
 #define BARRIER_INITVAL 0x1234567800000000LL
+#define BARRIER_ANONVAL 0x9abcdef000000000LL
 
 static uint64_t barrier_value[2] = { BARRIER_INITVAL, BARRIER_INITVAL };
 static int  barrier_mismatch[2] = { 0, 0 };
@@ -291,7 +292,7 @@ static int  barrier_phase = 0;
 
 /* On Altix, ensure value, done and notify_ctr live on different cache lines */
 _BARRIER_PAD(n0);
-static long volatile		    barrier_done[2] = { 0, 0 };
+static uint64_t volatile            barrier_final[2] = { BARRIER_INITVAL, BARRIER_INITVAL };
 _BARRIER_PAD(n1);
 static long volatile		    barrier_notify_ctr[2] = { 0, 0 };
 static gasnete_barrier_state_t	    barrier_state[2];
@@ -313,7 +314,7 @@ static void gasnete_barrier_broadcastmismatch(void)) {
   gasneti_local_wmb();
 }
 
-#if PLATFORM_OS_IRIX
+#if !PLATFORM_ARCH_CRAYX1
   /* These are sometimes missing from shmem.h */
   #if HAVE_SHMEM_LONG_FINC
     extern long shmem_long_finc(long *addr, int pe);
@@ -375,8 +376,8 @@ static int gasnete_shmembarrier_wait(gasnete_coll_team_t team, int id, int flags
     #if !BARRIER_READ_NOTIFYCTR
     int i;
     #endif
-    int local_mismatch = 0;
-    long volatile *done_ctr = &barrier_done[barrier_phase];
+    uint64_t volatile *final_val = &barrier_final[barrier_phase];
+    uint64_t consensus;
 
     gasneti_sync_reads();
 
@@ -387,16 +388,6 @@ static int gasnete_shmembarrier_wait(gasnete_coll_team_t team, int id, int flags
     team->barrier_splitstate = OUTSIDE_BARRIER;
     gasneti_sync_writes();
 
-    /*
-     * First check for local (non-collective) mismatches
-     */
-    if_pf (flags & GASNET_BARRIERFLAG_MISMATCH ||
-	   flags != barrier_state[barrier_phase].barrier_flags ||
-	   (!(flags & GASNET_BARRIERFLAG_ANONYMOUS) &&
-	     id != barrier_state[barrier_phase].barrier_value)) {
-	local_mismatch = 1;
-    }
-
     if (gasneti_mynode == 0) {
 	long volatile *not_ctr = &barrier_notify_ctr[barrier_phase];
 
@@ -404,21 +395,27 @@ static int gasnete_shmembarrier_wait(gasnete_coll_team_t team, int id, int flags
 	GASNET_BLOCKUNTIL(*not_ctr == gasneti_nodes);
 	*not_ctr = 0;
 
+        /* Determine what to publish as final value */
+        consensus = barrier_value[barrier_phase];
+        if_pf (consensus == BARRIER_INITVAL) consensus = BARRIER_ANONVAL;
+
 	/*
 	 * Broadcast the return value for global mismatches
 	 */
 	#if BARRIER_READ_NOTIFYCTR
 	    /* This is the only safe point to reset the barrier done flag of
 	     * the barrier on "the other" phase. */
-	    barrier_done[!barrier_phase] = 0;
-	    *done_ctr = 1;
+	    barrier_final[!barrier_phase] = BARRIER_INITVAL;
+	    *final_val = consensus;
 	#else
 	    /*GASNETC_VECTORIZE*/
 	    for (i=0; i < gasneti_nodes; i++) 
 		#if PLATFORM_ARCH_CRAYX1
-		    *((long *) GASNETE_TRANSLATE_X1(done_ctr, i)) = 1;
-		#else
-		    shmem_long_p((long *)done_ctr, 1, i);
+		    *((uint64_t *) GASNETE_TRANSLATE_X1(final_val, i)) = consensus;
+		#elif (SIZEOF_LONG == 8)
+		    shmem_long_p((long *)final_val, consensus, i);
+		#elif (SIZEOF_LONG_LONG == 8)
+		    shmem_longlong_p((long *)final_val, consensus, i);
 		#endif
 	#endif
 
@@ -427,25 +424,30 @@ static int gasnete_shmembarrier_wait(gasnete_coll_team_t team, int id, int flags
     else {
 	#if BARRIER_READ_NOTIFYCTR
 	    #if PLATFORM_ARCH_CRAYX1
-		done_ctr = GASNETE_TRANSLATE_X1((void *)done_ctr, 0);
+		final_val = GASNETE_TRANSLATE_X1((void *)final_val, 0);
 	    #else
-		done_ctr = shmem_ptr((void *)done_ctr, 0);
+		final_val = shmem_ptr((void *)final_val, 0);
 	    #endif
 	    /* Wait for notification from node 0 */
-	    GASNET_BLOCKUNTIL(*done_ctr != 0);
+	    GASNET_BLOCKUNTIL(BARRIER_INITVAL != (consensus = *final_val));
 	    /* Don't reset counter, it lives on zero! */
 	#else
 	    /* Spin on a local counter and reset it is set by node 0 */
-	    GASNET_BLOCKUNTIL(*done_ctr != 0);
-	    *done_ctr = 0;
+	    GASNET_BLOCKUNTIL(BARRIER_INITVAL != (consensus = *final_val));
+	    *final_val = BARRIER_INITVAL;
 	#endif
 
     }
 
     gasneti_sync_writes();
 
-    if (local_mismatch || barrier_mismatch[barrier_phase]) {
+    if (barrier_mismatch[barrier_phase]) {
 	barrier_mismatch[barrier_phase] = 0;
+	return GASNET_ERR_BARRIER_MISMATCH;
+    }
+    else if_pf(!(flags & GASNET_BARRIERFLAG_ANONYMOUS) &&
+               (consensus != BARRIER_ANONVAL) &&
+               (id != GASNETI_LOWORD(consensus))) {
 	return GASNET_ERR_BARRIER_MISMATCH;
     }
     else
