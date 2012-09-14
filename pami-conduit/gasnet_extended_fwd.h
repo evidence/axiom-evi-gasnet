@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended_fwd.h,v $
- *     $Date: 2012/08/13 03:51:13 $
- * $Revision: 1.23 $
+ *     $Date: 2012/09/14 01:06:59 $
+ * $Revision: 1.24 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -90,6 +90,14 @@ struct _gasnete_op_t;
 typedef struct _gasnete_op_t *gasnet_handle_t;
 #define GASNET_INVALID_HANDLE ((gasnet_handle_t)0)
 #define GASNETI_EOP_IS_HANDLE 1
+
+  /* if conduit-internal threads may call the Extended API and/or they may run
+     progress functions, then define GASNETE_CONDUIT_THREADS_USING_TD to the
+     maximum COUNT of such threads to allocate space for their threaddata
+   */
+#if 0
+  #define GASNETE_CONDUIT_THREADS_USING_TD ###
+#endif
 
   /* this can be used to add statistical collection values 
      specific to the extended API implementation (see gasnet_help.h) */
