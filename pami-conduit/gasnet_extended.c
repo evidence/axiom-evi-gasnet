@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2012/09/12 19:24:31 $
- * $Revision: 1.33 $
+ *     $Date: 2012/09/14 00:29:24 $
+ * $Revision: 1.34 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -55,7 +55,7 @@ extern void gasnete_init(void) {
 
   { gasnete_threaddata_t *threaddata = NULL;
     gasnete_eop_t *eop = NULL;
-    #if GASNETI_THREADS
+    #if GASNETI_MAX_THREADS > 1
       /* register first thread (optimization) */
       threaddata = gasnete_mythread(); 
     #else
