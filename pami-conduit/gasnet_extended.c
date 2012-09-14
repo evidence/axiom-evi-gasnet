@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2012/09/14 06:17:49 $
- * $Revision: 1.35 $
+ *     $Date: 2012/09/14 06:55:07 $
+ * $Revision: 1.36 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -887,13 +887,13 @@ static void gasnete_pdbarrier_init(gasnete_coll_team_t team);
     gasnete_coll_default_barrier_type = GASNETE_COLL_BARRIER_PAMIDISSEM;    \
 } while (0)
 
-/* NOTE: PAMIDISSEM doesn't currently work! */
 #define GASNETE_BARRIER_INIT(TEAM, BARRIER_TYPE) do {            \
     if ((BARRIER_TYPE) == GASNETE_COLL_BARRIER_PAMIALLREDUCE) {  \
       gasnete_parbarrier_init(TEAM);                             \
     } else                                                       \
-    if ((BARRIER_TYPE) == GASNETE_COLL_BARRIER_PAMIDISSEM) {     \
-      /*gasnete_pdbarrier_init(TEAM); DISABLED */                \
+    if ((BARRIER_TYPE) == GASNETE_COLL_BARRIER_PAMIDISSEM &&     \
+        TEAM == GASNET_TEAM_ALL) {                               \
+      gasnete_pdbarrier_init(TEAM);                              \
     }                                                            \
   } while (0)
 
@@ -1238,7 +1238,7 @@ int gasnete_pdbarrier_finish(
   state->word0   = 0;
   state->word1   = 0;
   state->arrived = 0;
-  state->next    = 1;
+  state->next    = 0;
   team->barrier_splitstate = OUTSIDE_BARRIER;
 
   gasneti_sync_writes();
@@ -1365,7 +1365,8 @@ static void gasnete_pdbarrier_init(gasnete_coll_team_t team) {
     hints.recv_immediate = (gasnetc_recv_imm_max >= sizeof(gasnete_pdbarrier_msg_t))
                          ? PAMI_HINT_ENABLE : PAMI_HINT_DEFAULT;
     fn.p2p = &gasnete_pdbarr_dispatch;
-    rc = PAMI_Dispatch_set(gasnetc_context, GASNETC_DISP_DISSEM_BARR, fn, NULL, hints);
+    /* TODO: how to support team != ALL when only single cookie is avail */
+    rc = PAMI_Dispatch_set(gasnetc_context, GASNETC_DISP_DISSEM_BARR, fn, barr, hints);
     GASNETC_PAMI_CHECK(rc, "registering GASNETC_DISP_DISSEM_BARR");
     is_init = 1;
   }
@@ -1375,12 +1376,12 @@ static void gasnete_pdbarrier_init(gasnete_coll_team_t team) {
   barr->state[0].word0   = 0;
   barr->state[0].word1   = 0;
   barr->state[0].arrived = 0;
-  barr->state[0].next    = 1;
+  barr->state[0].next    = 0;
 
   barr->state[1].word0   = 0;
   barr->state[1].word1   = 0;
   barr->state[1].arrived = 0;
-  barr->state[1].next    = 1;
+  barr->state[1].next    = 0;
 
   team->barrier_notify = &gasnete_pdbarrier_notify;
   team->barrier_wait =   &gasnete_pdbarrier_wait;
