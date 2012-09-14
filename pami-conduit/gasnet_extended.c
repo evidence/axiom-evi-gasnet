@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2012/09/14 08:11:46 $
- * $Revision: 1.38 $
+ *     $Date: 2012/09/14 19:45:59 $
+ * $Revision: 1.39 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -865,8 +865,8 @@ extern void gasnete_put_bulk (gasnet_node_t node, void* dest, void *src,
   "pd" = PAMI Dissemination
 */
 
-#if 0
-  /* Benchmarks marginally better than AMDISSEM and uses fewer resources */
+#if GASNETI_ARCH_BGQ
+  /* Benchmarks upto 50% better than PAMIALLREDUCE */
   #define GASNETE_BARRIER_DEFAULT "PAMIDISSEM"
 #else
   /* Both BG/Q and PERCS show uniformly "good" (not always best, but never worst)
@@ -1062,21 +1062,25 @@ typedef struct {
   int pshm_shift;                        /* "shift" if this node is not the representative */
 #endif
   struct gasnete_pdbarrier_state {
-    uint64_t word0;          /* First field of MAX() reduction */
-    uint64_t word1;          /* Second field */
-    uint64_t arrived;        /* Which messages have arrived (bit map) need 33 bits */
-    volatile int next;       /* Which message index are we waiting for */
+    int value, flags;
+    uint64_t arrived;   /* Which messages have arrived (bit map) need 33 bits */
+    volatile int next;  /* Which message index are we waiting for */
   } state[2]; /* per-phase */
 } gasnete_pdbarrier_t;
 
-/* TODO: could fit in as few as 14 bytes (rather than 20) */
 typedef struct {
-  uint64_t word0 : 34;
-  uint64_t word1 : 34;
-  uint64_t phase : 1;
-  uint64_t index : 6; /* 1 .. 33 */
   uint32_t teamid;
-  uint32_t end;
+  uint32_t value;
+#if ((GASNET_BARRIERFLAG_MISMATCH|GASNET_BARRIERFLAG_ANONYMOUS|0xff) == 0xff)
+  uint8_t  flags;
+#elif ((GASNET_BARRIERFLAG_MISMATCH|GASNET_BARRIERFLAG_ANONYMOUS|0xffff) == 0xffff)
+  uint16_t flags;
+#else
+  uint32_t flags;
+#endif
+  uint8_t  phase : 1;
+  uint8_t  index : 6; /* 0 .. 32 */
+  uint8_t  end;
 } gasnete_pdbarrier_msg_t;
 #define GASNETE_PDBARRIER_MSG_T offsetof(gasnete_pdbarrier_msg_t, end)
 
@@ -1084,12 +1088,12 @@ static pami_send_hint_t gasnete_pdbarrier_send_hint;
 
 /* Called only w/ context lock held */
 static void gasnete_pdbarr_send(
-        uint32_t teamid,
         gasnet_node_t peer,
-        uint64_t word0, uint64_t word1,
+        uint32_t teamid,
+        int value, int flags,
         int phase, int index)
 {
-  const gasnete_pdbarrier_msg_t msg = { word0, word1, phase, index, teamid };
+  const gasnete_pdbarrier_msg_t msg = { teamid, value, flags, phase, index };
   pami_send_immediate_t cmd;
   pami_result_t rc;
 
@@ -1107,19 +1111,29 @@ static void gasnete_pdbarr_send(
 
 /* Called only w/ context lock held */
 static void gasnete_pdbarr_advance(
-        uint32_t teamid,
         gasnete_pdbarrier_t *barr,
-        uint64_t word0, uint64_t word1,
-        int phase, int index)
+        uint32_t teamid,
+        int msg_value, int msg_flags,
+        int msg_phase, int msg_index)
 {
-  struct gasnete_pdbarrier_state *state = &barr->state[phase];
+  struct gasnete_pdbarrier_state *state = &barr->state[msg_phase];
 
   /* Merge w/ any previous arrivals (order doesn't matter here).
    * Keep in mind that the context lock is held.
    */
-  state->word0 = MAX(state->word0, word0);
-  state->word1 = MAX(state->word1, word1);
-  state->arrived |= (1 << index);
+  register int value = state->value;
+  register int flags = state->flags;
+  if ((flags | msg_flags) & GASNET_BARRIERFLAG_MISMATCH) {
+    flags = GASNET_BARRIERFLAG_MISMATCH;
+  } else if (flags & GASNET_BARRIERFLAG_ANONYMOUS) {
+    flags = msg_flags;
+    value = msg_value;
+  } else if (!(msg_flags & GASNET_BARRIERFLAG_ANONYMOUS) && (msg_value != value)) {
+    flags = GASNET_BARRIERFLAG_MISMATCH;
+  }
+  state->value = value;
+  state->flags = flags;
+  state->arrived |= (1 << msg_index);
 
   /* Send any messages */
   { int index = state->next;
@@ -1135,12 +1149,12 @@ static void gasnete_pdbarr_advance(
         break;
       }
 
-      gasnete_pdbarr_send(teamid, peer, state->word0, state->word1, phase, index+1);
+      gasnete_pdbarr_send(peer, teamid, value, flags, msg_phase, ++index);
 
-      index += 1;
       distance <<= 1;
     }
 
+    gasneti_sync_writes(); /* to commit value/flags */
     state->next = index;
   }
 }
@@ -1154,12 +1168,11 @@ static void gasnete_pdbarr_dispatch(
   const gasnete_pdbarrier_msg_t *msg = (gasnete_pdbarrier_msg_t *)head_addr;
   const gasnete_coll_team_t team = gasnete_coll_team_lookup(msg->teamid);
   gasnete_pdbarrier_t *barr = team->barrier_data;
-  gasnete_pdbarr_advance(msg->teamid, barr, msg->word0, msg->word1, msg->phase, msg->index);
+  gasnete_pdbarr_advance(barr, msg->teamid, msg->value, msg->flags, msg->phase, msg->index);
 }
 
 static void gasnete_pdbarrier_notify(gasnete_coll_team_t team, int id, int flags) {
   gasnete_pdbarrier_t *barr = team->barrier_data;
-  uint64_t word0, word1;
   int do_send = 1;
   int phase;
   
@@ -1183,34 +1196,20 @@ static void gasnete_pdbarrier_notify(gasnete_coll_team_t team, int id, int flags
   }
 #endif
 
-  barr->phase = phase;
-
   if (do_send) {
-    if (flags & GASNET_BARRIERFLAG_MISMATCH) {
-      /* Larger than any possible "id" AND fails low-word test */
-      word0 = GASNETI_MAKEWORD(2,0);
-      word1 = GASNETI_MAKEWORD(2,0);
-    } else if (flags & GASNET_BARRIERFLAG_ANONYMOUS) {
-      /* Smaller than any possible "id" AND passes low-word test */
-      word0 = 0;
-      word1 = 0xFFFFFFFF;
-    } else {
-      word0 = GASNETI_MAKEWORD(1, (uint32_t)id);
-      word1 = GASNETI_MAKEWORD(1,~(uint32_t)id);
-    }
-
     GASNETC_PAMI_LOCK(gasnetc_context);
     #if GASNETI_PSHM_BARRIER_HIER
       if (barr->pshm_data && barr->pshm_shift) {
         /* Forward the notify to the representative node */
-        gasnete_pdbarr_send(team->team_id, barr->pshm_rep, word0, word1, phase, 0);
+        gasnete_pdbarr_send(barr->pshm_rep, team->team_id, id, flags, phase, 0);
       } else
     #endif
       /* Merge w/ any earlier arrivals and send the notify: */
-      gasnete_pdbarr_advance(team->team_id, barr, word0, word1, phase, 0);
+      gasnete_pdbarr_advance(barr, team->team_id, id, flags, phase, 0);
     GASNETC_PAMI_UNLOCK(gasnetc_context);
   }
   
+  barr->phase = phase;
   team->barrier_splitstate = INSIDE_BARRIER;
   gasneti_sync_writes();
 }
@@ -1222,19 +1221,15 @@ int gasnete_pdbarrier_finish(
       struct gasnete_pdbarrier_state *state,
       int id, int flags)
 {
+  int retval = (state->flags & GASNET_BARRIERFLAG_MISMATCH)
+               ? GASNET_ERR_BARRIER_MISMATCH : GASNET_OK;
 
-  int retval = (GASNETI_LOWORD(state->word0) == ~GASNETI_LOWORD(state->word1))
-               ? GASNET_OK : GASNET_ERR_BARRIER_MISMATCH;
-
-  if_pf (!(flags & GASNET_BARRIERFLAG_ANONYMOUS) && 
-         (1  == GASNETI_HIWORD(state->word0)) &&
-         (id != GASNETI_LOWORD(state->word0))) {
+  if_pf(!((flags|state->flags) & GASNET_BARRIERFLAG_ANONYMOUS) && (id != state->value)) {
     retval = GASNET_ERR_BARRIER_MISMATCH;
   }
   
   /* Reset: */
-  state->word0   = 0;
-  state->word1   = 0;
+  state->flags   = GASNET_BARRIERFLAG_ANONYMOUS;
   state->arrived = 0;
   state->next    = 0;
   team->barrier_splitstate = OUTSIDE_BARRIER;
@@ -1287,6 +1282,7 @@ static int gasnete_pdbarrier_try(gasnete_coll_team_t team, int id, int flags) {
   state = &barr->state[barr->phase];
 
   if (state->next < 0) {
+    gasneti_sync_reads();
     retval = gasnete_pdbarrier_finish(team, barr, state, id, flags);
   }
   return retval;
@@ -1370,13 +1366,13 @@ static void gasnete_pdbarrier_init(gasnete_coll_team_t team) {
 
   barr->phase = 1;
 
-  barr->state[0].word0   = 0;
-  barr->state[0].word1   = 0;
+  barr->state[0].value   = 0; /* not strictly required */
+  barr->state[0].flags   = GASNET_BARRIERFLAG_ANONYMOUS;
   barr->state[0].arrived = 0;
   barr->state[0].next    = 0;
 
-  barr->state[1].word0   = 0;
-  barr->state[1].word1   = 0;
+  barr->state[1].value   = 0; /* not strictly required */
+  barr->state[1].flags   = GASNET_BARRIERFLAG_ANONYMOUS;
   barr->state[1].arrived = 0;
   barr->state[1].next    = 0;
 
