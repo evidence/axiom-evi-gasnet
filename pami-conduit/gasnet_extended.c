@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2012/09/14 00:29:24 $
- * $Revision: 1.34 $
+ *     $Date: 2012/09/14 06:17:49 $
+ * $Revision: 1.35 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -887,12 +887,13 @@ static void gasnete_pdbarrier_init(gasnete_coll_team_t team);
     gasnete_coll_default_barrier_type = GASNETE_COLL_BARRIER_PAMIDISSEM;    \
 } while (0)
 
+/* NOTE: PAMIDISSEM doesn't currently work! */
 #define GASNETE_BARRIER_INIT(TEAM, BARRIER_TYPE) do {            \
     if ((BARRIER_TYPE) == GASNETE_COLL_BARRIER_PAMIALLREDUCE) {  \
       gasnete_parbarrier_init(TEAM);                             \
     } else                                                       \
     if ((BARRIER_TYPE) == GASNETE_COLL_BARRIER_PAMIDISSEM) {     \
-      gasnete_pdbarrier_init(TEAM);                              \
+      /*gasnete_pdbarrier_init(TEAM); DISABLED */                \
     }                                                            \
   } while (0)
 
@@ -959,8 +960,9 @@ int gasnete_parbarrier_finish(gasnete_coll_team_t team, int id, int flags) {
   int retval = (GASNETI_LOWORD(barr->rcvbuf[0]) == ~GASNETI_LOWORD(barr->rcvbuf[1]))
                ? GASNET_OK : GASNET_ERR_BARRIER_MISMATCH;
 
-  if_pf ((flags != barr->flags) ||
-         (!(barr->flags & GASNET_BARRIERFLAG_ANONYMOUS) && (id != barr->value))) {
+  if_pf (!(flags & GASNET_BARRIERFLAG_ANONYMOUS) && 
+         (1  == GASNETI_HIWORD(barr->rcvbuf[0])) &&
+         (id != GASNETI_LOWORD(barr->rcvbuf[0]))) {
     retval = GASNET_ERR_BARRIER_MISMATCH;
   }
 
@@ -1225,6 +1227,12 @@ int gasnete_pdbarrier_finish(
 
   int retval = (GASNETI_LOWORD(state->word0) == ~GASNETI_LOWORD(state->word1))
                ? GASNET_OK : GASNET_ERR_BARRIER_MISMATCH;
+
+  if_pf (!(flags & GASNET_BARRIERFLAG_ANONYMOUS) && 
+         (1  == GASNETI_HIWORD(state->word0)) &&
+         (id != GASNETI_LOWORD(state->word0))) {
+    retval = GASNET_ERR_BARRIER_MISMATCH;
+  }
   
   /* Reset: */
   state->word0   = 0;
@@ -1263,17 +1271,7 @@ static int gasnete_pdbarrier_wait(gasnete_coll_team_t team, int id, int flags) {
   state = &barr->state[barr->phase];
   gasneti_polluntil(state->next < 0);
 
-  retval = gasnete_pdbarrier_finish(team, barr, state, id, flags);
-#if GASNETI_PSHM_BARRIER_HIER
-  if (barr->pshm_data) {
-    /* notify-to-wait mismatch was checked by finish_pshm_barrier() */
-  } else
-#endif
-  if_pf ((flags != barr->flags) ||
-         (!(barr->flags & GASNET_BARRIERFLAG_ANONYMOUS) && (id != barr->value))) {
-    retval = GASNET_ERR_BARRIER_MISMATCH;
-  }
-  return retval;
+  return gasnete_pdbarrier_finish(team, barr, state, id, flags);
 }
 
 static int gasnete_pdbarrier_try(gasnete_coll_team_t team, int id, int flags) {
@@ -1290,17 +1288,8 @@ static int gasnete_pdbarrier_try(gasnete_coll_team_t team, int id, int flags) {
 
   state = &barr->state[barr->phase];
 
-  if (state < 0) {
+  if (state->next < 0) {
     retval = gasnete_pdbarrier_finish(team, barr, state, id, flags);
-  #if GASNETI_PSHM_BARRIER_HIER
-    if (barr->pshm_data) {
-      /* notify-to-wait mismatch was checked by finish_pshm_barrier() */
-    } else
-  #endif
-    if_pf ((flags != barr->flags) ||
-           (!(barr->flags & GASNET_BARRIERFLAG_ANONYMOUS) && (id != barr->value))) {
-      retval = GASNET_ERR_BARRIER_MISMATCH;
-    }
   }
   return retval;
 }
@@ -1392,6 +1381,11 @@ static void gasnete_pdbarrier_init(gasnete_coll_team_t team) {
   barr->state[1].word1   = 0;
   barr->state[1].arrived = 0;
   barr->state[1].next    = 1;
+
+  team->barrier_notify = &gasnete_pdbarrier_notify;
+  team->barrier_wait =   &gasnete_pdbarrier_wait;
+  team->barrier_try =    &gasnete_pdbarrier_try;
+  team->barrier_pf =     NULL; /* AMPoll is sufficient */
 
   team->barrier_splitstate = OUTSIDE_BARRIER;
   team->barrier_data = barr;
