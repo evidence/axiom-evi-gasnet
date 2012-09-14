@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2012/09/14 06:55:07 $
- * $Revision: 1.36 $
+ *     $Date: 2012/09/14 07:33:27 $
+ * $Revision: 1.37 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -891,8 +891,7 @@ static void gasnete_pdbarrier_init(gasnete_coll_team_t team);
     if ((BARRIER_TYPE) == GASNETE_COLL_BARRIER_PAMIALLREDUCE) {  \
       gasnete_parbarrier_init(TEAM);                             \
     } else                                                       \
-    if ((BARRIER_TYPE) == GASNETE_COLL_BARRIER_PAMIDISSEM &&     \
-        TEAM == GASNET_TEAM_ALL) {                               \
+    if ((BARRIER_TYPE) == GASNETE_COLL_BARRIER_PAMIDISSEM) {     \
       gasnete_pdbarrier_init(TEAM);                              \
     }                                                            \
   } while (0)
@@ -1074,28 +1073,32 @@ typedef struct {
   } state[2]; /* per-phase */
 } gasnete_pdbarrier_t;
 
-/* TODO: could fit in as few as 10 bytes (rather than 16) */
+/* TODO: could fit in as few as 14 bytes (rather than 20) */
 typedef struct {
   uint64_t word0 : 34;
   uint64_t word1 : 34;
   uint64_t phase : 1;
   uint64_t index : 6; /* 1 .. 33 */
+  uint32_t teamid;
+  uint32_t end;
 } gasnete_pdbarrier_msg_t;
+#define GASNETE_PDBARRIER_MSG_T offsetof(gasnete_pdbarrier_msg_t, end)
 
 static pami_send_hint_t gasnete_pdbarrier_send_hint;
 
 /* Called only w/ context lock held */
 static void gasnete_pdbarr_send(
+        uint32_t teamid,
         gasnet_node_t peer,
         uint64_t word0, uint64_t word1,
         int phase, int index)
 {
-  const gasnete_pdbarrier_msg_t msg = { word0, word1, phase, index };
+  const gasnete_pdbarrier_msg_t msg = { word0, word1, phase, index, teamid };
   pami_send_immediate_t cmd;
   pami_result_t rc;
 
   cmd.header.iov_base = (char *)&msg;
-  cmd.header.iov_len = sizeof(msg);
+  cmd.header.iov_len = GASNETE_PDBARRIER_MSG_T;
   cmd.data.iov_base = NULL;
   cmd.data.iov_len = 0;
   cmd.dest = gasnetc_endpoint(peer);
@@ -1108,6 +1111,7 @@ static void gasnete_pdbarr_send(
 
 /* Called only w/ context lock held */
 static void gasnete_pdbarr_advance(
+        uint32_t teamid,
         gasnete_pdbarrier_t *barr,
         uint64_t word0, uint64_t word1,
         int phase, int index)
@@ -1135,7 +1139,7 @@ static void gasnete_pdbarr_advance(
         break;
       }
 
-      gasnete_pdbarr_send(peer, state->word0, state->word1, phase, index+1);
+      gasnete_pdbarr_send(teamid, peer, state->word0, state->word1, phase, index+1);
 
       index += 1;
       distance <<= 1;
@@ -1151,9 +1155,10 @@ static void gasnete_pdbarr_dispatch(
         const void *pipe_addr, size_t pipe_size,
         pami_endpoint_t origin, pami_recv_t *recv)
 {
-  gasnete_pdbarrier_t *barr = (gasnete_pdbarrier_t *)cookie;
   const gasnete_pdbarrier_msg_t *msg = (gasnete_pdbarrier_msg_t *)head_addr;
-  gasnete_pdbarr_advance(barr, msg->word0, msg->word1, msg->phase, msg->index);
+  const gasnete_coll_team_t team = gasnete_coll_team_lookup(msg->teamid);
+  gasnete_pdbarrier_t *barr = team->barrier_data;
+  gasnete_pdbarr_advance(msg->teamid, barr, msg->word0, msg->word1, msg->phase, msg->index);
 }
 
 static void gasnete_pdbarrier_notify(gasnete_coll_team_t team, int id, int flags) {
@@ -1205,11 +1210,11 @@ static void gasnete_pdbarrier_notify(gasnete_coll_team_t team, int id, int flags
     #if GASNETI_PSHM_BARRIER_HIER
       if (barr->pshm_data && barr->pshm_shift) {
         /* Forward the notify to the representative node */
-        gasnete_pdbarr_send(barr->pshm_rep, word0, word1, phase, 0);
+        gasnete_pdbarr_send(team->team_id, barr->pshm_rep, word0, word1, phase, 0);
       } else
     #endif
       /* Merge w/ any earlier arrivals and send the notify: */
-      gasnete_pdbarr_advance(barr, word0, word1, phase, 0);
+      gasnete_pdbarr_advance(team->team_id, barr, word0, word1, phase, 0);
     GASNETC_PAMI_UNLOCK(gasnetc_context);
   }
   
@@ -1360,13 +1365,12 @@ static void gasnete_pdbarrier_init(gasnete_coll_team_t team) {
     hints.recv_copy = PAMI_HINT_ENABLE;
   
     /* TODO: do we need to support "too big"? */
-    hints.long_header = (gasnetc_recv_imm_max >= sizeof(gasnete_pdbarrier_msg_t))
+    hints.long_header = (gasnetc_recv_imm_max >= GASNETE_PDBARRIER_MSG_T)
                         ? PAMI_HINT_DISABLE : PAMI_HINT_ENABLE;
-    hints.recv_immediate = (gasnetc_recv_imm_max >= sizeof(gasnete_pdbarrier_msg_t))
+    hints.recv_immediate = (gasnetc_recv_imm_max >= GASNETE_PDBARRIER_MSG_T)
                          ? PAMI_HINT_ENABLE : PAMI_HINT_DEFAULT;
     fn.p2p = &gasnete_pdbarr_dispatch;
-    /* TODO: how to support team != ALL when only single cookie is avail */
-    rc = PAMI_Dispatch_set(gasnetc_context, GASNETC_DISP_DISSEM_BARR, fn, barr, hints);
+    rc = PAMI_Dispatch_set(gasnetc_context, GASNETC_DISP_DISSEM_BARR, fn, NULL, hints);
     GASNETC_PAMI_CHECK(rc, "registering GASNETC_DISP_DISSEM_BARR");
     is_init = 1;
   }
