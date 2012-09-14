@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2012/09/14 07:33:27 $
- * $Revision: 1.37 $
+ *     $Date: 2012/09/14 08:11:46 $
+ * $Revision: 1.38 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -913,7 +913,6 @@ typedef struct {
   volatile unsigned int done;    /* counter incremented by PAMI callback */
   /* GASNet portions */
   unsigned int count;            /* how many times we've notify()ed */
-  int flags, value;              /* notify-time values, compared at try/wait */
 } gasnete_parbarrier_t;
 
 static void gasnete_parbarrier_notify(gasnete_coll_team_t team, int id, int flags) {
@@ -924,8 +923,6 @@ static void gasnete_parbarrier_notify(gasnete_coll_team_t team, int id, int flag
     gasneti_fatalerror("gasnet_barrier_notify() called twice in a row");
   }
 
-  barr->flags = flags;
-  barr->value = (uint32_t)id;
   ++barr->count;
 
   if (flags & GASNET_BARRIERFLAG_MISMATCH) {
@@ -1059,7 +1056,6 @@ static void gasnete_parbarrier_init(gasnete_coll_team_t team) {
 typedef struct {
   gasnet_node_t *peer_list;
   volatile int phase;
-  int flags, value;          /* Args to notify() */
 #if GASNETI_PSHM_BARRIER_HIER
   gasnete_pshmbarrier_data_t *pshm_data; /* non-NULL if using hierarchical code */
   gasnet_node_t pshm_rep;                /* the "representative" member of my supernode */
@@ -1187,9 +1183,6 @@ static void gasnete_pdbarrier_notify(gasnete_coll_team_t team, int id, int flags
   }
 #endif
 
-  barr->flags = flags;
-  barr->value = id;
-  /* XXX: mwb needed here? */
   barr->phase = phase;
 
   if (do_send) {
