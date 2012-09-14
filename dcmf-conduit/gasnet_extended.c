@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_extended.c,v $
- *     $Date: 2012/09/14 00:29:14 $
- * $Revision: 1.30 $
+ *     $Date: 2012/09/14 05:43:40 $
+ * $Revision: 1.31 $
  * Description: GASNet Extended API Implementation for DCMF
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
  *                 Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -1478,12 +1478,12 @@ int finish_barrier(gasnete_coll_team_t team, int id, int flags)
   team->barrier_splitstate = OUTSIDE_BARRIER;
   gasneti_sync_writes();
   
-  /*at this point the barrier is complete so check the flags 
-    that we get and make sure they are the same as the ones
-    we pass in*/
-  if ((flags != current_barrier_flags)  || (id != current_barrier_id))
+  /*the barrier is complete so check for mismatch of value from wait/try  */
+  if_pf (!(flags & GASNET_BARRIERFLAG_ANONYMOUS) &&
+         (1  == GASNETI_HIWORD(named_barrier_result[0])) &&
+         (id != GASNETI_LOWORD(named_barrier_result[0])))
     ret = GASNET_ERR_BARRIER_MISMATCH; 
-  
+
   return ret;
 }
 
