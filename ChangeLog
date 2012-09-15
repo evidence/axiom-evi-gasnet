@@ -1,6 +1,6 @@
 GASNet ChangeLog 
 ----------------
-$Revision: 1.62 $
+$Revision: 1.63 $
 
 ----------------------------------------------------------------------
 ??-??-2012 : Release 1.20.0
@@ -27,7 +27,9 @@ $Revision: 1.62 $
     replaces the previous default (AM-based dissemination) for most
     network conduits.
   - Barrier matching rules in "corner-cases" have been revised to match
-    the semantics expected to appear in the UPC 1.3 specification.
+    the semantics expected to appear in the UPC 1.3 specification.  The
+    changes legalize certain calling cases were previously erroneous.
+    No cases which were legal before have become illegal.
 
 ----------------------------------------------------------------------
 05-14-2012 : Release 1.18.2
