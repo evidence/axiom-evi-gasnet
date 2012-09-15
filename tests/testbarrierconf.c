@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testbarrierconf.c,v $
- *     $Date: 2012/09/15 03:12:24 $
- * $Revision: 1.20 $
+ *     $Date: 2012/09/15 03:17:31 $
+ * $Revision: 1.21 $
  * Description: GASNet barrier performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -151,21 +151,19 @@ static void * doTest(void *arg) {
       gasnet_exit(1);
     }
 
-#if 0 /* Legal as of GASNet 1.20 release to match UPC 1.3 draft spec */
-    /* Flags differ between notify and wait: */
+    /* Flags can (as of GASNet 1.20) differ between notify and wait: */
     gasnet_barrier_notify(0, GASNET_BARRIERFLAG_ANONYMOUS);
     result = my_barrier_wait(0, 0);
-    if (result != GASNET_ERR_BARRIER_MISMATCH) {
-      MSG("ERROR: Failed to detect anonymous notify with named wait.");
+    if (result != GASNET_OK) {
+      MSG("ERROR: Failed to allow anonymous notify with named wait.");
       gasnet_exit(1);
     }
     gasnet_barrier_notify(0, 0);
     result = my_barrier_wait(0, GASNET_BARRIERFLAG_ANONYMOUS);
-    if (result != GASNET_ERR_BARRIER_MISMATCH) {
-      MSG("ERROR: Failed to detect named notify with anonymous wait.");
+    if (result != GASNET_OK) {
+      MSG("ERROR: Failed to allow named notify with anonymous wait.");
       gasnet_exit(1);
     }
-#endif
 
     if (nodes > 1) {
       int j;
