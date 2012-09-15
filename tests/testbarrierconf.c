@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testbarrierconf.c,v $
- *     $Date: 2012/09/15 03:06:27 $
- * $Revision: 1.19 $
+ *     $Date: 2012/09/15 03:12:24 $
+ * $Revision: 1.20 $
  * Description: GASNet barrier performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -84,7 +84,7 @@ int main(int argc, char **argv) {
    } else break;
   }
   if (argc-arg >= 1) iters = atoi(argv[arg]);
-  if (iters < 0) iters = 1000;
+  if (iters <= 0) iters = 1000;
   if (argc-arg >= 2) test_usage();
 
   mynode = gasnet_mynode();
