@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2012/09/14 19:45:59 $
- * $Revision: 1.39 $
+ *     $Date: 2012/09/15 01:56:49 $
+ * $Revision: 1.40 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -1065,6 +1065,7 @@ typedef struct {
     int value, flags;
     uint64_t arrived;   /* Which messages have arrived (bit map) need 33 bits */
     volatile int next;  /* Which message index are we waiting for */
+    int busy;           /* Prevent recursion */
   } state[2]; /* per-phase */
 } gasnete_pdbarrier_t;
 
@@ -1135,12 +1136,16 @@ static void gasnete_pdbarr_advance(
   state->flags = flags;
   state->arrived |= (1 << msg_index);
 
+  /* Avoid recursion if run from below gasnete_pdbarr_send() */
+  if (state->busy) return;
+  else state->busy = 1;
+
   /* Send any messages */
   { int index = state->next;
     uint64_t distance = 1 << index;
-    const uint64_t arrived = state->arrived;
 
-    while (arrived & distance) {
+    /* Note: state->{arrived,value,flags} may change within each send */
+    while (state->arrived & distance) {
       const gasnet_node_t peer = barr->peer_list[index];
 
       if (peer == gasneti_nodes) {
@@ -1149,14 +1154,15 @@ static void gasnete_pdbarr_advance(
         break;
       }
 
-      gasnete_pdbarr_send(peer, teamid, value, flags, msg_phase, ++index);
+      gasnete_pdbarr_send(peer, teamid, state->value, state->flags, msg_phase, ++index);
 
       distance <<= 1;
     }
 
-    gasneti_sync_writes(); /* to commit value/flags */
     state->next = index;
   }
+
+  state->busy = 0;
 }
 
 static void gasnete_pdbarr_dispatch(
@@ -1370,11 +1376,13 @@ static void gasnete_pdbarrier_init(gasnete_coll_team_t team) {
   barr->state[0].flags   = GASNET_BARRIERFLAG_ANONYMOUS;
   barr->state[0].arrived = 0;
   barr->state[0].next    = 0;
+  barr->state[0].busy    = 0;
 
   barr->state[1].value   = 0; /* not strictly required */
   barr->state[1].flags   = GASNET_BARRIERFLAG_ANONYMOUS;
   barr->state[1].arrived = 0;
   barr->state[1].next    = 0;
+  barr->state[1].busy    = 0;
 
   team->barrier_notify = &gasnete_pdbarrier_notify;
   team->barrier_wait =   &gasnete_pdbarrier_wait;
