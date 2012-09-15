@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2012/09/15 01:56:49 $
- * $Revision: 1.40 $
+ *     $Date: 2012/09/15 02:16:03 $
+ * $Revision: 1.41 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -1088,7 +1088,8 @@ typedef struct {
 static pami_send_hint_t gasnete_pdbarrier_send_hint;
 
 /* Called only w/ context lock held */
-static void gasnete_pdbarr_send(
+GASNETI_ALWAYS_INLINE(gasnete_pdbarr_send)
+void gasnete_pdbarr_send(
         gasnet_node_t peer,
         uint32_t teamid,
         int value, int flags,
@@ -1191,25 +1192,15 @@ static void gasnete_pdbarrier_notify(gasnete_coll_team_t team, int id, int flags
 #if GASNETI_PSHM_BARRIER_HIER
   if (barr->pshm_data) {
     PSHM_BDATA_DECL(pshm_bdata, barr->pshm_data);
-    if (gasnete_pshmbarrier_notify_inner(pshm_bdata, id, flags)) {
-      /* last arrival - will notify using supernode's consensus value/flags */
-      id = pshm_bdata->shared->value;
-      flags = pshm_bdata->shared->flags;
-    } else {
-      /* Not the last arrival - won't send an AM */
-      do_send = 0;
-    }
+    (void)gasnete_pshmbarrier_notify_inner(pshm_bdata, id, flags);
+    do_send = !barr->pshm_shift;
+    id = pshm_bdata->shared->value;
+    flags = pshm_bdata->shared->flags;
   }
 #endif
 
   if (do_send) {
     GASNETC_PAMI_LOCK(gasnetc_context);
-    #if GASNETI_PSHM_BARRIER_HIER
-      if (barr->pshm_data && barr->pshm_shift) {
-        /* Forward the notify to the representative node */
-        gasnete_pdbarr_send(barr->pshm_rep, team->team_id, id, flags, phase, 0);
-      } else
-    #endif
       /* Merge w/ any earlier arrivals and send the notify: */
       gasnete_pdbarr_advance(barr, team->team_id, id, flags, phase, 0);
     GASNETC_PAMI_UNLOCK(gasnetc_context);
@@ -1240,7 +1231,16 @@ int gasnete_pdbarrier_finish(
   state->next    = 0;
   team->barrier_splitstate = OUTSIDE_BARRIER;
 
+#if GASNETI_PSHM_BARRIER_HIER
+  if (barr->pshm_data) {
+    /* Signal any passive peers w/ the final result */
+    const PSHM_BDATA_DECL(pshm_bdata, barr->pshm_data);
+    PSHM_BSTATE_SIGNAL(pshm_bdata, retval, pshm_bdata->private.two_to_phase << 2); /* includes a WMB */
+    gasneti_assert(!barr->pshm_shift);
+  } else
+#endif
   gasneti_sync_writes();
+
   return retval;
 }
 
