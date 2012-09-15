@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testbarrierconf.c,v $
- *     $Date: 2012/09/15 03:17:31 $
- * $Revision: 1.21 $
+ *     $Date: 2012/09/15 05:10:08 $
+ * $Revision: 1.22 $
  * Description: GASNet barrier performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -59,7 +59,7 @@ int main(int argc, char **argv) {
    if (!strcmp(argv[arg], "-p")) {
 #ifdef GASNET_PAR
     if (argc-arg < 2) {
-      if (gasnet_mynode() == 0)) {
+      if (gasnet_mynode() == 0) {
         fprintf(stderr, "testbarrierconf %s\n", GASNET_CONFIG_STRING);
         fprintf(stderr, "ERROR: The -p option requires an argument.\n");
         fflush(NULL);
