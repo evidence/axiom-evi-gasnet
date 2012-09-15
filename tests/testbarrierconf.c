@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testbarrierconf.c,v $
- *     $Date: 2012/09/15 05:10:08 $
- * $Revision: 1.22 $
+ *     $Date: 2012/09/15 06:55:28 $
+ * $Revision: 1.23 $
  * Description: GASNet barrier performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -181,6 +181,33 @@ static void * doTest(void *arg) {
         if (result != GASNET_OK) {
           MSG("ERROR: Failed to match anon notify on node %d with named notify elsewhere.", j);
           gasnet_exit(1);
+        }
+
+        /* Mix many named with one anonymous notify plus named wait: */
+        if (mynode == j) {
+          gasnet_barrier_notify(12345, GASNET_BARRIERFLAG_ANONYMOUS);
+          result = my_barrier_wait(5551212, 0);
+        } else {
+          gasnet_barrier_notify(5551212, 0);
+          result = my_barrier_wait(5551212, 0);
+        }
+        if (result != GASNET_OK) {
+          MSG("ERROR: Failed to match anon notify and named wait on node %d with named notify elsewhere.", j);
+          gasnet_exit(1);
+        }
+
+        /* Mix many named with one anonymous notify plus MISnamed wait: */
+        if (mynode == j) {
+          gasnet_barrier_notify(12345, GASNET_BARRIERFLAG_ANONYMOUS);
+          result = my_barrier_wait(12345, 0);
+          if (result != GASNET_ERR_BARRIER_MISMATCH) {
+            MSG("ERROR: Failed to detect anon notify and mis-named wait on node %d with named notify elsewhere.", j);
+            gasnet_exit(1);
+          }
+        } else {
+          gasnet_barrier_notify(5551212, 0);
+          result = my_barrier_wait(5551212, 0);
+          /* neither required not prohibited from signalling an error here. */
         }
 
         /* Mix one named with many anonymous: */
