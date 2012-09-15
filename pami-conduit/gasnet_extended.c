@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2012/09/15 02:16:03 $
- * $Revision: 1.41 $
+ *     $Date: 2012/09/15 02:44:09 $
+ * $Revision: 1.42 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -865,8 +865,8 @@ extern void gasnete_put_bulk (gasnet_node_t node, void* dest, void *src,
   "pd" = PAMI Dissemination
 */
 
-#if GASNETI_ARCH_BGQ
-  /* Benchmarks upto 50% better than PAMIALLREDUCE */
+#if 1
+  /* Benchmarks upto 50% better than PAMIALLREDUCE on both BG/Q and PERCS */
   #define GASNETE_BARRIER_DEFAULT "PAMIDISSEM"
 #else
   /* Both BG/Q and PERCS show uniformly "good" (not always best, but never worst)
@@ -1284,6 +1284,16 @@ static int gasnete_pdbarrier_try(gasnete_coll_team_t team, int id, int flags) {
   }
 
   GASNETI_SAFE(gasneti_AMPoll());
+
+#if GASNETI_PSHM_BARRIER_HIER
+  if (barr->pshm_data) {
+    const int pshm_shift = barr->pshm_shift;
+    if (!gasnete_pshmbarrier_try_inner(barr->pshm_data, pshm_shift))
+      return GASNET_ERR_NOT_READY;
+    if (pshm_shift)
+      return gasnete_pdbarrier_wait(team, id, flags);
+  }
+#endif
 
   state = &barr->state[barr->phase];
 
