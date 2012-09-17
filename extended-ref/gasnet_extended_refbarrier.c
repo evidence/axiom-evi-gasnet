@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/09/14 08:08:12 $
- * $Revision: 1.133 $
+ *     $Date: 2012/09/17 01:58:43 $
+ * $Revision: 1.134 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -891,6 +891,7 @@ static void gasnete_amdbarrier_notify_singleton(gasnete_coll_team_t team, int id
   barrier_data->amdbarrier_phase = phase;
 
   barrier_data->amdbarrier_recv_value[phase] = id;	/* to simplify checking in _wait */
+  barrier_data->amdbarrier_recv_value_present[phase] = 1;
 
   /*  update state */
   team->barrier_splitstate = INSIDE_BARRIER;
