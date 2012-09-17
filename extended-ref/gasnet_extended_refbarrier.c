@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/09/17 05:05:01 $
- * $Revision: 1.137 $
+ *     $Date: 2012/09/17 05:15:17 $
+ * $Revision: 1.138 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -901,6 +901,9 @@ static void gasnete_amdbarrier_notify_singleton(gasnete_coll_team_t team, int id
 
 static int gasnete_amdbarrier_wait(gasnete_coll_team_t team, int id, int flags) {
   gasnete_coll_amdbarrier_t *barrier_data = team->barrier_data;
+#if GASNETI_PSHM_BARRIER_HIER
+  const PSHM_BDATA_DECL(pshm_bdata, barrier_data->amdbarrier_pshm);
+#endif
   int retval = GASNET_OK;
   int i;
 
@@ -911,9 +914,9 @@ static int gasnete_amdbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
     gasneti_fatalerror("gasnet_barrier_wait() called without a matching notify");
 
 #if GASNETI_PSHM_BARRIER_HIER
-  if (barrier_data->amdbarrier_pshm) {
+  if (pshm_bdata) {
     const int passive_shift = barrier_data->amdbarrier_passive;
-    retval = gasnete_pshmbarrier_wait_inner(barrier_data->amdbarrier_pshm, id, flags, passive_shift);
+    retval = gasnete_pshmbarrier_wait_inner(pshm_bdata, id, flags, passive_shift);
     if (passive_shift) {
       /* Once the active peer signals done, we can return */
       team->barrier_splitstate = OUTSIDE_BARRIER;
@@ -946,11 +949,9 @@ static int gasnete_amdbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
       retval = GASNET_ERR_BARRIER_MISMATCH;
     }
 #if GASNETI_PSHM_BARRIER_HIER
-    else if (barrier_data->amdbarrier_pshm) {
-      const PSHM_BDATA_DECL(pshm_bdata, barrier_data->amdbarrier_pshm);
-      gasneti_pshm_barrier_t * const shared_data = pshm_bdata->shared;
-      shared_data->value = value;
-      shared_data->flags = 0;
+    else if (pshm_bdata) {
+      pshm_bdata->shared->value = value;
+      pshm_bdata->shared->flags = 0;
     }
 #endif
   }
@@ -962,9 +963,8 @@ static int gasnete_amdbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
   }
   barrier_data->amdbarrier_recv_value_present[phase] = 0;
 #if GASNETI_PSHM_BARRIER_HIER
-  if (barrier_data->amdbarrier_pshm) {
+  if (pshm_bdata) {
     /* Signal any passive peers w/ the final result */
-    const PSHM_BDATA_DECL(pshm_bdata, barrier_data->amdbarrier_pshm);
     PSHM_BSTATE_SIGNAL(pshm_bdata, retval, pshm_bdata->private.two_to_phase << 2); /* includes a WMB */
     gasneti_assert(!barrier_data->amdbarrier_passive);
   } else
@@ -1378,6 +1378,9 @@ static void gasnete_rmdbarrier_notify_singleton(gasnete_coll_team_t team, int id
 
 static int gasnete_rmdbarrier_wait(gasnete_coll_team_t team, int id, int flags) {
   gasnete_coll_rmdbarrier_t *barrier_data = team->barrier_data;
+#if GASNETI_PSHM_BARRIER_HIER
+  const PSHM_BDATA_DECL(pshm_bdata, barrier_data->barrier_pshm);
+#endif
   int retval = GASNET_OK;
 
   gasneti_sync_reads(); /* ensure we read correct barrier_splitstate */
@@ -1385,9 +1388,9 @@ static int gasnete_rmdbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
     gasneti_fatalerror("gasnet_barrier_wait() called without a matching notify");
 
 #if GASNETI_PSHM_BARRIER_HIER
-  if (barrier_data->barrier_pshm) {
+  if (pshm_bdata) {
     const int passive_shift = barrier_data->barrier_passive;
-    retval = gasnete_pshmbarrier_wait_inner(barrier_data->barrier_pshm, id, flags, passive_shift);
+    retval = gasnete_pshmbarrier_wait_inner(pshm_bdata, id, flags, passive_shift);
     if (passive_shift) {
       /* Once the active peer signals done, we can return */
       team->barrier_splitstate = OUTSIDE_BARRIER;
@@ -1433,12 +1436,10 @@ static int gasnete_rmdbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
   /*  update state */
   team->barrier_splitstate = OUTSIDE_BARRIER;
 #if GASNETI_PSHM_BARRIER_HIER
-  if (barrier_data->barrier_pshm) {
+  if (pshm_bdata) {
     /* Signal any passive peers w/ the final result */
-    const PSHM_BDATA_DECL(pshm_bdata, barrier_data->barrier_pshm);
-    gasneti_pshm_barrier_t * const shared_data = pshm_bdata->shared;
-    shared_data->value = barrier_data->barrier_value;
-    shared_data->flags = barrier_data->barrier_flags;
+    pshm_bdata->shared->value = barrier_data->barrier_value;
+    pshm_bdata->shared->flags = barrier_data->barrier_flags;
     PSHM_BSTATE_SIGNAL(pshm_bdata, retval, pshm_bdata->private.two_to_phase << 2); /* includes a WMB */
     gasneti_assert(!barrier_data->barrier_passive);
   } else
@@ -1752,6 +1753,9 @@ static void gasnete_amcbarrier_notify(gasnete_coll_team_t team, int id, int flag
 
 static int gasnete_amcbarrier_wait(gasnete_coll_team_t team, int id, int flags) {
   gasnete_coll_amcbarrier_t *barrier_data = team->barrier_data;
+#if GASNETI_PSHM_BARRIER_HIER
+ const PSHM_BDATA_DECL(pshm_bdata, barrier_data->amcbarrier_pshm);
+#endif
   int retval = GASNET_OK;
   int phase;
 
@@ -1761,9 +1765,9 @@ static int gasnete_amcbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
     gasneti_fatalerror("gasnet_barrier_wait() called without a matching notify");
 
 #if GASNETI_PSHM_BARRIER_HIER
-  if (barrier_data->amcbarrier_pshm) {
+  if (pshm_bdata) {
     const int passive_shift = barrier_data->amcbarrier_passive;
-    retval = gasnete_pshmbarrier_wait_inner(barrier_data->amcbarrier_pshm, id, flags, passive_shift);
+    retval = gasnete_pshmbarrier_wait_inner(pshm_bdata, id, flags, passive_shift);
     if (passive_shift) {
       /* Once the active peer signals done, we can return */
       team->barrier_splitstate = OUTSIDE_BARRIER;
@@ -1796,12 +1800,10 @@ static int gasnete_amcbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
   team->barrier_splitstate = OUTSIDE_BARRIER;
   barrier_data->amcbarrier_response_done[phase] = 0;
 #if GASNETI_PSHM_BARRIER_HIER
-  if (barrier_data->amcbarrier_pshm) {
+  if (pshm_bdata) {
     /* Signal any passive peers w/ the final result */
-    const PSHM_BDATA_DECL(pshm_bdata, barrier_data->amcbarrier_pshm);
-    gasneti_pshm_barrier_t * const shared_data = pshm_bdata->shared;
-    shared_data->value = barrier_data->amcbarrier_response_value[phase];
-    shared_data->flags = barrier_data->amcbarrier_response_flags[phase];
+    pshm_bdata->shared->value = barrier_data->amcbarrier_response_value[phase];
+    pshm_bdata->shared->flags = barrier_data->amcbarrier_response_flags[phase];
     PSHM_BSTATE_SIGNAL(pshm_bdata, retval, pshm_bdata->private.two_to_phase << 2); /* includes a WMB */
     gasneti_assert(!barrier_data->amcbarrier_passive);
   } else
