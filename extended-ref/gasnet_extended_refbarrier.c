@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/09/17 01:58:43 $
- * $Revision: 1.134 $
+ *     $Date: 2012/09/17 02:05:07 $
+ * $Revision: 1.135 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -90,27 +90,27 @@ void gasnete_barrier_pf_disable(gasnete_coll_team_t team) {
  * support (well, other than testing) for the PSHM barrier code.     -PHH 2010.03.16
  */
 
-#ifdef GASNETE_PSHM_LINBARR_U64
+#ifdef GASNETE_PSHM_BARR_U64
   /* Keep the existing defn */
 #elif PLATFORM_ARCH_64 && !GASNETI_ATOMIC64_NOT_SIGNALSAFE && (SIZEOF_INT == 4) && \
     (((GASNET_BARRIERFLAG_MISMATCH|GASNET_BARRIERFLAG_ANONYMOUS) & 0xffff) == \
                    (GASNET_BARRIERFLAG_MISMATCH|GASNET_BARRIERFLAG_ANONYMOUS))
   /* We can fit everything in a 64-bit read/write w/o fear of word-tearing. */
-  #define GASNETE_PSHM_LINBARR_U64 1
-  #define GASNETE_PSHM_LINBARR_PHASE_SHIFT 16
+  #define GASNETE_PSHM_BARR_U64 1
+  #define GASNETE_PSHM_BARR_PHASE_SHIFT 16
   #if PLATFORM_ARCH_LITTLE_ENDIAN
-    #define GASNETE_PSHM_LINBARR_PACK(_value, _flags, _phase) \
-                GASNETI_MAKEWORD((_flags | (_phase << GASNETE_PSHM_LINBARR_PHASE_SHIFT)), _value)
-    #define GASNETE_PSHM_LINBARR_FLAGS(_u64)    GASNETI_HIWORD(_u64) /* and phase too */
-    #define GASNETE_PSHM_LINBARR_VALUE(_u64)    GASNETI_LOWORD(_u64)
+    #define GASNETE_PSHM_BARR_PACK(_value, _flags, _phase) \
+                GASNETI_MAKEWORD((_flags | (_phase << GASNETE_PSHM_BARR_PHASE_SHIFT)), _value)
+    #define GASNETE_PSHM_BARR_FLAGS(_u64)    GASNETI_HIWORD(_u64) /* and phase too */
+    #define GASNETE_PSHM_BARR_VALUE(_u64)    GASNETI_LOWORD(_u64)
   #else
-    #define GASNETE_PSHM_LINBARR_PACK(_value, _flags, _phase) \
-                GASNETI_MAKEWORD(_value, (_flags | (_phase << GASNETE_PSHM_LINBARR_PHASE_SHIFT)))
-    #define GASNETE_PSHM_LINBARR_FLAGS(_u64)    GASNETI_LOWORD(_u64) /* and phase too */
-    #define GASNETE_PSHM_LINBARR_VALUE(_u64)    GASNETI_HIWORD(_u64)
+    #define GASNETE_PSHM_BARR_PACK(_value, _flags, _phase) \
+                GASNETI_MAKEWORD(_value, (_flags | (_phase << GASNETE_PSHM_BARR_PHASE_SHIFT)))
+    #define GASNETE_PSHM_BARR_FLAGS(_u64)    GASNETI_LOWORD(_u64) /* and phase too */
+    #define GASNETE_PSHM_BARR_VALUE(_u64)    GASNETI_HIWORD(_u64)
   #endif
 #else
-  #define GASNETE_PSHM_LINBARR_U64 0
+  #define GASNETE_PSHM_BARR_U64 0
 #endif
 
 typedef struct gasnete_coll_pshmbarrier_s {
@@ -118,7 +118,7 @@ typedef struct gasnete_coll_pshmbarrier_s {
     struct gasneti_pshm_barrier_node *mynode;
     struct gasnete_pshmbarrier_children {
         struct gasneti_pshm_barrier_node *node;
-      #if GASNETE_PSHM_LINBARR_U64
+      #if GASNETE_PSHM_BARR_U64
         uint64_t u64;
       #else
         int phase;
@@ -208,8 +208,8 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
      */
 
   if (pshm_bdata->private.children) {
-    #if GASNETE_PSHM_LINBARR_U64
-      const uint64_t goal = GASNETE_PSHM_LINBARR_PACK(0, 0, two_to_phase);
+    #if GASNETE_PSHM_BARR_U64
+      const uint64_t goal = GASNETE_PSHM_BARR_PACK(0, 0, two_to_phase);
     #endif
       struct gasnete_pshmbarrier_children * const children = pshm_bdata->private.children;
       int n = pshm_bdata->private.num_children;
@@ -221,7 +221,7 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
 
         /* 1. Fetch any nodes which are still outstanding */
         for (i = 0; i < n; ++i) {
-        #if GASNETE_PSHM_LINBARR_U64
+        #if GASNETE_PSHM_BARR_U64
           children[i].u64 = children[i].node->u.u64;
         #else
           children[i].phase = children[i].node->u.wmb.phase;
@@ -230,7 +230,7 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
 
         /* 2. Scan the phases, collecting completed entries at the end of the list */
         for (i = 0; i < n; /*empty*/) {
-        #if GASNETE_PSHM_LINBARR_U64
+        #if GASNETE_PSHM_BARR_U64
           const int ready = (goal & children[i].u64) != 0; /* goal is a single bit */
         #else
           const int ready = two_to_phase == children[i].phase;
@@ -248,14 +248,14 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
 
         /* 3. Apply name-matching logic to recent arrivals, if any */
         if (arrivals) {
-        #if !GASNETE_PSHM_LINBARR_U64
+        #if !GASNETE_PSHM_BARR_U64
           gasneti_local_rmb();
         #endif
           for (i = 0; i < arrivals; ++i) {
-          #if GASNETE_PSHM_LINBARR_U64
+          #if GASNETE_PSHM_BARR_U64
             const uint64_t u64 = children[n+i].u64;
-            const int other_value = GASNETE_PSHM_LINBARR_VALUE(u64);
-            const int other_flags = GASNETE_PSHM_LINBARR_FLAGS(u64); /* No need to mask */
+            const int other_value = GASNETE_PSHM_BARR_VALUE(u64);
+            const int other_flags = GASNETE_PSHM_BARR_FLAGS(u64); /* No need to mask */
           #else
             const struct gasneti_pshm_barrier_node * node = children[n+i].node;
             const int other_value = node->u.wmb.value;
@@ -283,8 +283,8 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
     }
 
   /* Signal my own arrival */
-#if GASNETE_PSHM_LINBARR_U64
-  pshm_bdata->private.mynode->u.u64 = GASNETE_PSHM_LINBARR_PACK(value, flags, two_to_phase);
+#if GASNETE_PSHM_BARR_U64
+  pshm_bdata->private.mynode->u.u64 = GASNETE_PSHM_BARR_PACK(value, flags, two_to_phase);
 #else
   pshm_bdata->private.mynode->u.wmb.value = value;
   pshm_bdata->private.mynode->u.wmb.flags = flags;
@@ -465,8 +465,8 @@ gasnete_pshmbarrier_init_inner(gasnete_coll_team_t team) {
     if (!rank) {
       /* Values used to detect arrivals at Notify */
       for (i=0; i < size; i++) {
-      #if GASNETE_PSHM_LINBARR_U64
-        shared_data->node[i].u.u64 = GASNETE_PSHM_LINBARR_PACK(0, 0, two_to_phase);
+      #if GASNETE_PSHM_BARR_U64
+        shared_data->node[i].u.u64 = GASNETE_PSHM_BARR_PACK(0, 0, two_to_phase);
       #else
         shared_data->node[i].u.wmb.phase = two_to_phase;
       #endif
@@ -598,7 +598,7 @@ static void gasnete_pshmbarrier_notify(gasnete_coll_team_t team, int id, int fla
 
   (void)gasnete_pshmbarrier_notify_inner(team->barrier_data, id, flags);
   
-#if GASNETE_PSHM_LINBARR_U64
+#if GASNETE_PSHM_BARR_U64
   gasneti_sync_writes();
 #else
   /* No sync_writes() needed due to WMB inside notify_inner */
