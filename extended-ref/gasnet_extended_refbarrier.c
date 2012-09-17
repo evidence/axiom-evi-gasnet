@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/09/17 05:15:17 $
- * $Revision: 1.138 $
+ *     $Date: 2012/09/17 09:05:41 $
+ * $Revision: 1.139 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -689,9 +689,8 @@ typedef struct {
   int volatile amdbarrier_size;  /*  ceil(lg(nodes)) */
   int volatile amdbarrier_phase; /*  2-phase operation to improve pipelining */
   int volatile amdbarrier_step_done[2][GASNETE_AMDBARRIER_MAXSTEP]; /* non-zero when a step is complete */
-  int volatile amdbarrier_mismatch[2];   /*  non-zero if we detected a mismatch */
   int volatile amdbarrier_recv_value[2]; /*  consensus ambarrier value */
-  int volatile amdbarrier_recv_value_present[2]; /*  consensus ambarrier value is present */
+  int volatile amdbarrier_recv_flags[2]; /*  consensus ambarrier flags */
 } gasnete_coll_amdbarrier_t;
   
 static void gasnete_amdbarrier_notify_reqh(gasnet_token_t token, 
@@ -706,19 +705,20 @@ static void gasnete_amdbarrier_notify_reqh(gasnet_token_t token,
      * In subsequent steps we check for mismatch of received values.
      * The local value is compared in the kick function.
      */
-    if (flags & GASNET_BARRIERFLAG_MISMATCH) {
-      /* explicit mismatch */
-      barrier_data->amdbarrier_mismatch[phase] = 1;
-    } else if (!barrier_data->amdbarrier_recv_value_present[phase]) {
-      /* could be the first named value we've seen */
-      /* we write even if anonymous to avoid more branches */
-      barrier_data->amdbarrier_recv_value[phase] = (int)value;
-      barrier_data->amdbarrier_recv_value_present[phase] = !(flags & GASNET_BARRIERFLAG_ANONYMOUS);
-    } else if (!(flags & GASNET_BARRIERFLAG_ANONYMOUS) &&
-               (barrier_data->amdbarrier_recv_value[phase] != (int)value)) {
-      /* 2nd+ named value and mismatch */
-      barrier_data->amdbarrier_mismatch[phase] = 1;
+    register int recv_flags = barrier_data->amdbarrier_recv_flags[phase];
+    register int recv_value = barrier_data->amdbarrier_recv_value[phase];
+
+    if ((recv_flags | flags) & GASNET_BARRIERFLAG_MISMATCH) {
+      recv_flags = GASNET_BARRIERFLAG_MISMATCH; 
+    } else if (recv_flags & GASNET_BARRIERFLAG_ANONYMOUS) {
+      recv_flags = flags; 
+      recv_value = value; 
+    } else if (!(flags & GASNET_BARRIERFLAG_ANONYMOUS) && (value != recv_value)) {
+      recv_flags = GASNET_BARRIERFLAG_MISMATCH; 
     }
+
+    barrier_data->amdbarrier_recv_flags[phase] = recv_flags;
+    barrier_data->amdbarrier_recv_value[phase] = recv_value;
   }
   gasnet_hsl_unlock(&barrier_data->amdbarrier_lock);
 
@@ -745,6 +745,7 @@ void gasnete_amdbarrier_kick(gasnete_coll_team_t team) {
        so coalesce as many as possible in one acquisition */
     for (cursor = step; cursor < barrier_data->amdbarrier_size &&
                         barrier_data->amdbarrier_step_done[phase][cursor]; ++cursor) {
+      barrier_data->amdbarrier_step_done[phase][cursor] = 0;
       numsteps++;
     }
 
@@ -765,33 +766,32 @@ void gasnete_amdbarrier_kick(gasnete_coll_team_t team) {
 #endif
 
     if (numsteps) { /* completed one or more steps */
-      if_pf (barrier_data->amdbarrier_mismatch[phase] ||
-	     ((barrier_data->amdbarrier_flags == 0) && 
-	      barrier_data->amdbarrier_recv_value_present[phase] &&
-	      (barrier_data->amdbarrier_recv_value[phase] != barrier_data->amdbarrier_value))) {
-        barrier_data->amdbarrier_flags = GASNET_BARRIERFLAG_MISMATCH;
-        barrier_data->amdbarrier_mismatch[phase] = 1;
+      /* we might send at least one message - so fetch args while lock is held */
+      flags = barrier_data->amdbarrier_recv_flags[phase];
+      value = barrier_data->amdbarrier_recv_value[phase];
+
+      if (!step) { /* merge local notify */
+        const int local_flags = barrier_data->amdbarrier_flags;
+        const int local_value = barrier_data->amdbarrier_value;
+
+        if ((flags | local_flags) & GASNET_BARRIERFLAG_MISMATCH) {
+          flags = GASNET_BARRIERFLAG_MISMATCH; 
+        } else if (flags & GASNET_BARRIERFLAG_ANONYMOUS) {
+          flags = local_flags; 
+          value = local_value; 
+        } else if (!(local_flags & GASNET_BARRIERFLAG_ANONYMOUS) && (local_value != value)) {
+          flags = GASNET_BARRIERFLAG_MISMATCH; 
+        }
+
+        barrier_data->amdbarrier_recv_flags[phase] = flags;
+        barrier_data->amdbarrier_recv_value[phase] = value;
       }
+
       if (cursor == barrier_data->amdbarrier_size) { /* We got the last recv - barrier locally complete */
         gasnete_barrier_pf_disable(team);
         gasneti_sync_writes(); /* flush state before the write to ambarrier_step below */
         numsteps -= 1; /* no send at last step */
       } 
-      if (step + 1 < barrier_data->amdbarrier_size) {
-        /* we will send at least one message - so calculate args */
-        if ((barrier_data->amdbarrier_flags & GASNET_BARRIERFLAG_ANONYMOUS) &&
-	    barrier_data->amdbarrier_recv_value_present[phase]) {
-	  /* If we are on an node with an anonymous barrier invocation we
-	   * may have received a barrier name from another node.  If so we
-	   * must forward it to allow for matching tests.
-	   */
-	  flags = 0;
-	  value = barrier_data->amdbarrier_recv_value[phase];
-        } else {
-	  value = barrier_data->amdbarrier_value;
-	  flags = barrier_data->amdbarrier_flags;
-        }
-      }
       /* notify all threads of the step increase - 
          this may allow other local threads to proceed on the barrier and even indicate
          barrier completion while we overlap outgoing notifications to other nodes
@@ -835,10 +835,6 @@ static void gasnete_amdbarrier_notify(gasnete_coll_team_t team, int id, int flag
   barrier_data->amdbarrier_value = (gasnet_handlerarg_t)id;
 
   phase = !barrier_data->amdbarrier_phase; /*  enter new phase */
-  if_pf (flags & GASNET_BARRIERFLAG_MISMATCH) {
-    barrier_data->amdbarrier_mismatch[phase] = 1;
-    flags = GASNET_BARRIERFLAG_MISMATCH;
-  }
   barrier_data->amdbarrier_flags = flags;
   barrier_data->amdbarrier_step = 0;
   gasneti_sync_writes(); 
@@ -881,17 +877,13 @@ static void gasnete_amdbarrier_notify_singleton(gasnete_coll_team_t team, int id
   barrier_data->amdbarrier_value = (gasnet_handlerarg_t)id;
 
   phase = !barrier_data->amdbarrier_phase; /*  enter new phase */
-  if_pf (flags & GASNET_BARRIERFLAG_MISMATCH) {
-    barrier_data->amdbarrier_mismatch[phase] = 1;
-    flags = GASNET_BARRIERFLAG_MISMATCH;
-  }
   barrier_data->amdbarrier_flags = flags;
   barrier_data->amdbarrier_step = 0;
   gasneti_sync_writes(); 
   barrier_data->amdbarrier_phase = phase;
 
   barrier_data->amdbarrier_recv_value[phase] = id;	/* to simplify checking in _wait */
-  barrier_data->amdbarrier_recv_value_present[phase] = 1;
+  barrier_data->amdbarrier_recv_flags[phase] = flags;
 
   /*  update state */
   team->barrier_splitstate = INSIDE_BARRIER;
@@ -928,43 +920,36 @@ static int gasnete_amdbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
 
   if (barrier_data->amdbarrier_step == barrier_data->amdbarrier_size) { /* completed asynchronously before wait (via progressfns or try) */
     GASNETI_TRACE_EVENT_TIME(B,BARRIER_ASYNC_COMPLETION,GASNETI_TICKS_NOW_IFENABLED(B)-gasnete_barrier_notifytime);
+    gasneti_sync_reads(); /* ensure correct amdbarrier_recv_* will be read */
   } else { /*  wait for response */
     gasnete_barrier_pf_disable(team);
     GASNET_BLOCKUNTIL((gasnete_amdbarrier_kick(team), barrier_data->amdbarrier_step == barrier_data->amdbarrier_size));
   }
 
   /* determine return value */
-  if_pf(barrier_data->amdbarrier_mismatch[phase]) {
-    barrier_data->amdbarrier_mismatch[phase] = 0;
+  if_pf (barrier_data->amdbarrier_recv_flags[phase] & GASNET_BARRIERFLAG_MISMATCH) {
     retval = GASNET_ERR_BARRIER_MISMATCH;
   } else
-  if (barrier_data->amdbarrier_recv_value_present[phase]) {
-    const int value = barrier_data->amdbarrier_recv_value[phase];
-    if_pf(/* notify value must match consensus value, if both are present */
-          (!(barrier_data->amdbarrier_flags & GASNET_BARRIERFLAG_ANONYMOUS) &&
-	   (barrier_data->amdbarrier_value != value)) ||
-          /* try/wait value must match consensus value, if both are present */
-          (!(flags & GASNET_BARRIERFLAG_ANONYMOUS) &&
-	    ((gasnet_handlerarg_t)id != value))) {
-      retval = GASNET_ERR_BARRIER_MISMATCH;
-    }
-#if GASNETI_PSHM_BARRIER_HIER
-    else if (pshm_bdata) {
-      pshm_bdata->shared->value = value;
-      pshm_bdata->shared->flags = 0;
-    }
-#endif
+  if_pf(/* try/wait value must match consensus value, if both are present */
+        !((flags|barrier_data->amdbarrier_recv_flags[phase]) & GASNET_BARRIERFLAG_ANONYMOUS) &&
+	 ((gasnet_handlerarg_t)id != barrier_data->amdbarrier_recv_value[phase])) {
+    retval = GASNET_ERR_BARRIER_MISMATCH;
   }
+#if GASNETI_PSHM_BARRIER_HIER
+  else {
+    id    = barrier_data->amdbarrier_recv_value[phase];
+    flags = barrier_data->amdbarrier_recv_flags[phase];
+  }
+#endif
 
   /*  update state */
   team->barrier_splitstate = OUTSIDE_BARRIER;
-  for (i=0; i < barrier_data->amdbarrier_size; ++i) {
-    barrier_data->amdbarrier_step_done[phase][i] = 0;
-  }
-  barrier_data->amdbarrier_recv_value_present[phase] = 0;
+  barrier_data->amdbarrier_recv_flags[phase] = GASNET_BARRIERFLAG_ANONYMOUS;
 #if GASNETI_PSHM_BARRIER_HIER
   if (pshm_bdata) {
     /* Signal any passive peers w/ the final result */
+    pshm_bdata->shared->value = id;
+    pshm_bdata->shared->flags = flags;
     PSHM_BSTATE_SIGNAL(pshm_bdata, retval, pshm_bdata->private.two_to_phase << 2); /* includes a WMB */
     gasneti_assert(!barrier_data->amdbarrier_passive);
   } else
@@ -1024,6 +1009,9 @@ static void gasnete_amdbarrier_init(gasnete_coll_team_t team) {
   team->barrier_data = barrier_data;
   gasnet_hsl_init(&barrier_data->amdbarrier_lock);
   team->barrier_splitstate = OUTSIDE_BARRIER;
+
+  barrier_data->amdbarrier_recv_flags[0] = GASNET_BARRIERFLAG_ANONYMOUS;
+  barrier_data->amdbarrier_recv_flags[1] = GASNET_BARRIERFLAG_ANONYMOUS;
 
   /* determine barrier size (number of steps) */
   for (steps=0, j=1; j < total_ranks; ++steps, j*=2) ;
