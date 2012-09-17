@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2012/09/15 02:44:09 $
- * $Revision: 1.42 $
+ *     $Date: 2012/09/17 05:46:35 $
+ * $Revision: 1.43 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -1218,10 +1218,12 @@ int gasnete_pdbarrier_finish(
       struct gasnete_pdbarrier_state *state,
       int id, int flags)
 {
-  int retval = (state->flags & GASNET_BARRIERFLAG_MISMATCH)
+  const int final_value = state->value;
+  const int final_flags = state->flags;
+  int retval = (final_flags & GASNET_BARRIERFLAG_MISMATCH)
                ? GASNET_ERR_BARRIER_MISMATCH : GASNET_OK;
 
-  if_pf(!((flags|state->flags) & GASNET_BARRIERFLAG_ANONYMOUS) && (id != state->value)) {
+  if_pf(!((flags|final_flags) & GASNET_BARRIERFLAG_ANONYMOUS) && (id != final_value)) {
     retval = GASNET_ERR_BARRIER_MISMATCH;
   }
   
@@ -1235,6 +1237,8 @@ int gasnete_pdbarrier_finish(
   if (barr->pshm_data) {
     /* Signal any passive peers w/ the final result */
     const PSHM_BDATA_DECL(pshm_bdata, barr->pshm_data);
+    pshm_bdata->shared->value = final_value;
+    pshm_bdata->shared->flags = final_flags;
     PSHM_BSTATE_SIGNAL(pshm_bdata, retval, pshm_bdata->private.two_to_phase << 2); /* includes a WMB */
     gasneti_assert(!barr->pshm_shift);
   } else
