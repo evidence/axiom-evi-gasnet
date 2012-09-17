@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testbarrierconf.c,v $
- *     $Date: 2012/09/17 02:28:54 $
- * $Revision: 1.24 $
+ *     $Date: 2012/09/17 04:20:32 $
+ * $Revision: 1.25 $
  * Description: GASNet barrier performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -255,7 +255,7 @@ static void * doTest(void *arg) {
             result = my_barrier_wait(12345, GASNET_BARRIERFLAG_ANONYMOUS);
           }
           if (result != GASNET_ERR_BARRIER_MISMATCH) {
-            MSG("ERROR: Failed to detect mismatched names intermixed with anon.");
+            MSG("ERROR: Failed to detect mismatched names (on %d and %d) intermixed with anon.", j, k);
             gasnet_exit(1);
           }
 
