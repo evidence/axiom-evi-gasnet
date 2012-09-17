@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/09/17 02:05:07 $
- * $Revision: 1.135 $
+ *     $Date: 2012/09/17 04:27:11 $
+ * $Revision: 1.136 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -935,10 +935,15 @@ static int gasnete_amdbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
     barrier_data->amdbarrier_mismatch[phase] = 0;
     retval = GASNET_ERR_BARRIER_MISMATCH;
   } else
-  if_pf(/* try/wait value must match consensus value, if both are present */
-        (!(flags & GASNET_BARRIERFLAG_ANONYMOUS) && barrier_data->amdbarrier_recv_value_present[phase])
-	 && ((gasnet_handlerarg_t)id != barrier_data->amdbarrier_recv_value[phase])) {
-    retval = GASNET_ERR_BARRIER_MISMATCH;
+  if (barrier_data->amdbarrier_recv_value_present[phase]) {
+    if_pf(/* notify value must match consensus value, if both are present */
+          (!(barrier_data->amdbarrier_flags & GASNET_BARRIERFLAG_ANONYMOUS) &&
+	   (barrier_data->amdbarrier_value != barrier_data->amdbarrier_recv_value[phase])) ||
+          /* try/wait value must match consensus value, if both are present */
+          (!(flags & GASNET_BARRIERFLAG_ANONYMOUS) &&
+	    ((gasnet_handlerarg_t)id != barrier_data->amdbarrier_recv_value[phase]))) {
+      retval = GASNET_ERR_BARRIER_MISMATCH;
+    }
   }
 
   /*  update state */
