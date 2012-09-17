@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testbarrierconf.c,v $
- *     $Date: 2012/09/17 04:20:32 $
- * $Revision: 1.25 $
+ *     $Date: 2012/09/17 06:05:43 $
+ * $Revision: 1.26 $
  * Description: GASNet barrier performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -91,10 +91,11 @@ int main(int argc, char **argv) {
   nodes = gasnet_nodes();
 
   if (mynode == 0) {
+      const char * mode = do_try ? "try" : "wait";
 #ifdef GASNET_PAR
-      printf("Running barrier conformance test with %d iterations and %i extra polling theads...\n", iters,pollers);
+      printf("Running barrier_%s conformance test with %d iterations and %i extra polling theads...\n", mode, iters,pollers);
 #else
-      printf("Running barrier conformance test with %d iterations...\n", iters);
+      printf("Running barrier_%s conformance test with %d iterations...\n", mode, iters);
 #endif
       fflush(stdout);
   }
@@ -230,6 +231,26 @@ static void * doTest(void *arg) {
           MSG("ERROR: Failed to detect different id on node %d.", j);
           gasnet_exit(1);
         }
+
+        /* Node j indicates mismatch on entry: */
+        gasnet_barrier_notify(0, (j == mynode) ? GASNET_BARRIERFLAG_MISMATCH : 0);
+        result = my_barrier_wait(0, (j == mynode) ? GASNET_BARRIERFLAG_MISMATCH : 0);
+        if (result != GASNET_ERR_BARRIER_MISMATCH) {
+          MSG("ERROR: Failed to detect barrier mismatch indicated on notify by node %d.", j);
+          gasnet_exit(1);
+        }
+
+#if 0 /* TBD: is this case clearly defined by the spec? */
+        /* Node j indicates anon+mismatch on entry: */
+        gasnet_barrier_notify(0, GASNET_BARRIERFLAG_ANONYMOUS |
+                              ((j == mynode) ? GASNET_BARRIERFLAG_MISMATCH : 0));
+        result = my_barrier_wait(0, GASNET_BARRIERFLAG_ANONYMOUS |
+                                 ((j == mynode) ? GASNET_BARRIERFLAG_MISMATCH : 0));
+        if (result != GASNET_ERR_BARRIER_MISMATCH) {
+          MSG("ERROR: Failed to detect anonymous barrier mismatch indicated on notify by node %d.");
+          gasnet_exit(1);
+        }
+#endif
       }
     } else if (i == 0) { /* DOB: only warn once per run */
       MSG("WARNING: pair mismatch tests skipped (only 1 node)");
