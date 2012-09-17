@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testbarrierconf.c,v $
- *     $Date: 2012/09/15 06:55:28 $
- * $Revision: 1.23 $
+ *     $Date: 2012/09/17 02:28:54 $
+ * $Revision: 1.24 $
  * Description: GASNet barrier performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -257,6 +257,20 @@ static void * doTest(void *arg) {
           if (result != GASNET_ERR_BARRIER_MISMATCH) {
             MSG("ERROR: Failed to detect mismatched names intermixed with anon.");
             gasnet_exit(1);
+          }
+
+          /* Mix one named with many anonymous, of which one gives MISnamed wait: */
+          if (mynode == j) {
+            gasnet_barrier_notify(511, GASNET_BARRIERFLAG_ANONYMOUS);
+            result = my_barrier_wait(511, 0);
+            if (result != GASNET_ERR_BARRIER_MISMATCH) {
+              MSG("ERROR: Failed to detect anon notify and mis-named wait on node %d with one named notify elsewhere.", k);
+              gasnet_exit(1);
+            }
+          } else {
+            gasnet_barrier_notify(42, (mynode == k) ? 0: GASNET_BARRIERFLAG_ANONYMOUS);
+            result = my_barrier_wait(42, (mynode == k) ? 0: GASNET_BARRIERFLAG_ANONYMOUS);
+            /* neither required not prohibited from signalling an error here. */
           }
          } 
         }
