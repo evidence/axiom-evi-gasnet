@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2012/09/14 00:29:22 $
- * $Revision: 1.128 $
+ *     $Date: 2012/09/19 02:37:09 $
+ * $Revision: 1.129 $
  * Description: GASNet Extended API over LAPI Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1910,7 +1910,9 @@ void* gasnete_lapi_barrier_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len
                   { {0, GASNETE_WIREFLAGS_SET(0, 0, 0)} , {0, GASNETE_WIREFLAGS_SET(0, 1, 0)} }; 
 		gasnete_barrier_uhdr_t * const uch = (gasnete_barrier_uhdr_t*)&barrier_uhdr[phase];
                 const int mismatch = barrier_consensus_mismatch[phase];
-                const int wireflags = GASNETE_WIREFLAGS_SET(mismatch, phase, 0);
+                const int anonymous = barrier_consensus_value_present[phase]
+                                          ? 0 : GASNET_BARRIERFLAG_ANONYMOUS;
+                const int wireflags = GASNETE_WIREFLAGS_SET(mismatch|anonymous, phase, 0);
 
                 if (!barrier_gfence) gasneti_assert(phase == barrier_phase);
 
@@ -1921,11 +1923,13 @@ void* gasnete_lapi_barrier_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len
 		/* Perform local state update to get the effects of a local done handler  
                  * Note that the completion handler will not send an AM to this node
 		 */
-	        barrier_response_done[phase] = 1 | mismatch;
+		barrier_value = barrier_consensus_value[phase];
+		gasneti_sync_writes();
+	        barrier_response_done[phase] = 4 | GASNETE_WIREFLAGS_FLAGS(wireflags);
 
 		GASNETI_TRACE_PRINTF(B,("BARRIER_HH: REACHED %d, mismatch %d, SCHEDULING CH",
 					gasneti_nodes, 
-                                        GASNETE_WIREFLAGS_FLAGS(uch->wireflags)&GASNET_BARRIERFLAG_MISMATCH));
+                                        GASNETE_WIREFLAGS_FLAGS(wireflags)&GASNET_BARRIERFLAG_MISMATCH));
 	    }
 	}
       #if GASNETE_BARRIER_BYPASS_LOOPBACK_AMSEND
@@ -1935,9 +1939,10 @@ void* gasnete_lapi_barrier_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len
 	/* this is a done header handler call... update local state */
         if (!barrier_gfence) gasneti_assert(phase == barrier_phase);
 
-        /* local mismatch and done signals are folded into the same variable write,
-           to avoid the need for a local write barrier here between the two writes */
-	barrier_response_done[phase] = 1 | (GASNETE_WIREFLAGS_FLAGS(u->wireflags)&GASNET_BARRIERFLAG_MISMATCH);
+        barrier_value = value;
+        gasneti_sync_writes();
+        /* flags and done signals are folded into the same variable */
+	barrier_response_done[phase] = 4 | GASNETE_WIREFLAGS_FLAGS(u->wireflags);
     }
     return NULL;
 }
@@ -2017,11 +2022,11 @@ static void gasnete_lapibarrier_notify(gasnete_coll_team_t team, int id, int fla
 
      if (barrier_gfence) { 
        LAPI_Gfence(gasnetc_lapi_context);
-       barrier_response_done[phase] = 1 | barrier_response_done[phase];
+       barrier_response_done[phase] = 4 | barrier_response_done[phase];
      }
 
     } else {
-	barrier_response_done[phase] = 1 | (flags & GASNET_BARRIERFLAG_MISMATCH);
+	barrier_response_done[phase] = 4 | (flags & (GASNET_BARRIERFLAG_MISMATCH|GASNET_BARRIERFLAG_ANONYMOUS));
     }
 
     /*  update state */
@@ -2055,12 +2060,13 @@ static int gasnete_lapibarrier_wait(gasnete_coll_team_t team, int id, int flags)
     }
     
     { const int global_mismatch = barrier_response_done[phase] & GASNET_BARRIERFLAG_MISMATCH;
+      const int global_anonymous = barrier_response_done[phase] & GASNET_BARRIERFLAG_ANONYMOUS;
       /*  update local state */
       team->barrier_splitstate = OUTSIDE_BARRIER;
       barrier_response_done[phase] = 0;
       gasneti_sync_writes(); /* ensure all state changes committed before return */
-      if_pf((!(flags & GASNET_BARRIERFLAG_ANONYMOUS) && id != barrier_value) || /* local mismatch */
-	    flags != barrier_flags || 
+
+      if_pf((!(flags & GASNET_BARRIERFLAG_ANONYMOUS) && !global_anonymous && id != barrier_value) || /* local mismatch */
             global_mismatch) { /* global mismatch */
           return GASNET_ERR_BARRIER_MISMATCH;
       }
