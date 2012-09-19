@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/Makefile.am,v $
-#     $Date: 2010/06/26 21:52:51 $
-# $Revision: 1.42 $
+#     $Date: 2012/09/19 01:23:15 $
+# $Revision: 1.43 $
 # Description: Makefile for GASNet lapi conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -74,7 +74,10 @@ CONDUIT_SPECIAL_OBJS = $(fh_special_objs)
 #   %Q = program arguments w/ an extra level of quotes (Bug1039 - poe requires overquoting)
 #   %D = the current working directory 
 #   %H = hostfile (if any)
+# For AIX:
 CONDUIT_RUNCMD = @ENVCMD@ MP_FENCE=-- MP_TASK_AFFINITY=-1 MEMORY_AFFINITY=-1 poe %P -nodes %N -tasks_per_node 1 -rmpool 1 -msg_api LAPI -euilib us -retry 1 -retrycount 10000 @POE_RDMA_ARGS@ -- %Q
+# For Linux PE:
+#CONDUIT_RUNCMD = @ENVCMD@ MP_FENCE=-- MP_TASK_AFFINITY=-1 MEMORY_AFFINITY=-1 poe %P -nodes %N -tasks_per_node 1 -rmpool 1 -msg_api LAPI -euilib us -retry 1 @POE_RDMA_ARGS@ -- %A
 
 # conduit-specific tests in ../tests directory
 CONDUIT_TESTS =
