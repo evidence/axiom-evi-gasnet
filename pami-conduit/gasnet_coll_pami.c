@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami.c,v $
- *     $Date: 2012/08/01 23:58:33 $
- * $Revision: 1.32 $
+ *     $Date: 2012/09/19 20:06:08 $
+ * $Revision: 1.33 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -156,7 +156,11 @@ gasnetc_dflt_coll_alg(pami_geometry_t geom, pami_xfer_type_t op, pami_algorithm_
   #if GASNETI_ARCH_BGQ
     dfltval = "I0:2-nary:"; /* uniformly "near-best" on BG/Q */
   #else
+   #if 0 /* Seen to deadlock when using multiple procs/node */
     dfltval = "I0:4-nary:"; /* uniformly "near-best" on PERSC */
+   #else
+    dfltval = NULL; /* TODO: tune for better default or wait for bug fix */
+   #endif
   #endif
     break;
 
