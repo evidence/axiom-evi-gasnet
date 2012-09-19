@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2012/09/19 01:23:13 $ */
-/*  $Revision: 1.182 $ */
+/*      $Date: 2012/09/19 21:32:06 $ */
+/*  $Revision: 1.183 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -369,7 +369,7 @@
 /* GASNet lapi-conduit specific */
 #undef GASNETC_LAPI_FEDERATION
 #undef GASNETC_LAPI_COLONY
-#undef GASNETC_LAPI_UDP
+#undef GASNETC_LAPI_GENERIC
 #undef GASNETC_LAPI_VERSION_A
 #undef GASNETC_LAPI_VERSION_B
 #undef GASNETC_LAPI_VERSION_C

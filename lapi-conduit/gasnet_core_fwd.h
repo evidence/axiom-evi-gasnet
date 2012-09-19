@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core_fwd.h,v $
- *     $Date: 2012/09/19 01:23:15 $
- * $Revision: 1.37 $
+ *     $Date: 2012/09/19 21:32:08 $
+ * $Revision: 1.38 $
  * Description: GASNet header for lapi conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -26,8 +26,6 @@
   #define GASNETC_LAPI_TYPE_STR "Federation"
 #elif GASNETC_LAPI_COLONY
   #define GASNETC_LAPI_TYPE_STR "Colony"
-#elif GASNETC_LAPI_UDP
-  #define GASNETC_LAPI_TYPE_STR "Ethernet"
 #else
   #define GASNETC_LAPI_TYPE_STR "UNKNOWN"
 #endif
