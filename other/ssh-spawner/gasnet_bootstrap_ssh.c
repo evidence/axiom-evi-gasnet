@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2012/08/15 01:30:00 $
- * $Revision: 1.110 $
+ *     $Date: 2012/09/22 02:39:27 $
+ * $Revision: 1.111 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -922,17 +922,10 @@ static char ** short_nodelist(char **nodelist, gasnet_node_t count) {
   return nodelist;
 }
 
-/* Build an array of hostnames from a file */
-static char ** parse_nodefile(const char *filename) {
+/* Build an array of hostnames from a stdio stream */
+static char ** parse_nodestream(FILE *fp) {
   char **result = NULL;
   gasnet_node_t i;
-  FILE *fp;
-
-  BOOTSTRAP_VERBOSE(("Parsing nodefile '%s'\n", filename));
-  fp = fopen(filename, "r");
-  if (!fp) {
-    die(1, "failed to open nodefile '%s'", filename);
-  }
 
   result = gasneti_malloc(nnodes * sizeof(char *));
   for (i = 0; i < nnodes;) {
@@ -966,7 +959,41 @@ static char ** parse_nodefile(const char *filename) {
     }
   }
 
+  return result;
+}
+
+/* Build an array of hostnames from a file */
+static char ** parse_nodefile(const char *filename) {
+  char **result = NULL;
+  FILE *fp;
+
+  BOOTSTRAP_VERBOSE(("Parsing nodefile '%s'\n", filename));
+  fp = fopen(filename, "r");
+  if (!fp) {
+    die(1, "failed to open nodefile '%s'", filename);
+  }
+
+  result = parse_nodestream(fp);
+
   (void)fclose(fp);
+
+  return result;
+}
+
+/* Build an array of hostnames from a pipe */
+static char ** parse_nodepipe(const char *cmd) {
+  char **result = NULL;
+  FILE *fp;
+
+  BOOTSTRAP_VERBOSE(("Parsing nodes from command '%s'\n", cmd));
+  fp = popen(cmd, "r");
+  if (!fp) {
+    die(1, "failed to spawn command '%s'", cmd);
+  }
+
+  result = parse_nodestream(fp);
+
+  (void)pclose(fp);
 
   return result;
 }
@@ -1017,6 +1044,8 @@ static void build_nodelist(void)
     nodelist = parse_servers(env_string);
   } else if ((env_string = my_getenv("LSB_HOSTS")) != NULL) {
     nodelist = parse_servers(env_string);
+  } else if (my_getenv("SLURM_JOB_ID") != NULL) {
+    nodelist = parse_nodepipe("scontrol show hostname");
   } else {
     die(1, "No " ENV_PREFIX "SSH_NODEFILE or " ENV_PREFIX "SSH_SERVERS in environment");
   }
