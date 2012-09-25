@@ -1,16 +1,12 @@
 GASNet pami-conduit documentation
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.11 $
+$Revision: 1.12 $
 
 User Information:
 -----------------
 
-This is a prelinary BETA release of support for IBM PAMI.
-The implementation is "complete" (in terms of functionality) and is
-beleieved to be stable.  However, it has not yet been tuned to take
-advantage of many PAMI features which could provide faster
-implemenations of the Extended (RDMA) interfaces, Barriers, and the
-GASNet collectives.
+This is an implementation of the GASNet CORE and EXTENDED
+API using the IBM PAMI communication protocol.
 
 Recognized environment variables:
 ---------------------------------
@@ -23,7 +19,7 @@ Recognized environment variables:
     PAMIDISSEM - like AMDISSEM, but implemented using PAMI-level AMs.
     PAMIALLREDUCE - barrier matching is implemented in terms of a
                     PAMI-level ALLREDUCE collective operation.
-  Currently PAMIALLREDUCE is the default on all PAMI platforms.
+  Currently PAMIDISSEM is the default on all PAMI platforms.
 
 * GASNET_USE_PAMI_COLL - enable use of native-PAMI collectives
   Not all collectives are supported for all input conditions, but when
@@ -102,12 +98,12 @@ The following are planned work items for pami-conduit:
 * Explore use of conduit-level flow control for AMs, though it is not yet
   certain that this is needed as it was with dcmf-conduit.
 
-* Implement GASNet's collectives in terms of PAMI's collectives.
-
 * Improve exit handling to raise SIGQUIT for non-collective exits.
 
 * For sufficiently small payloads, AMRequestLong could use a bounce buffer
   to avoid stalling for local completion.
+
+* Explore use of PAMI_Send_immediate() for small enough Medium and/or Long AMs.
 
 ==============================================================================
 
@@ -126,8 +122,8 @@ Design Overview:
     - Long Replies AMs copy their payloads to bounce buffers, like
       a Medium AM, since our running of AM handlers from PAMI's
       callbacks precludes blocking for local completion.
-  + A PAMI-specifc barrier based on the ALLREDUCE collective is the
-    current default.
+  + The current default barrier is a PAMI-specifc implementation of the
+    dissemination barrier in terms of PAMI_Send_immediate().
   + GASNet's exit handling is done using an PAMI "all reduce" operation
     (w/ a timeout) to determine the MAX() of the exit codes, and whether
     the exit is collective.  For non-collective exits, the conduit is
