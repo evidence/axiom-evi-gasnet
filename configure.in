@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2012/09/19 21:32:06 $
-# $Revision: 1.766 $
+#     $Date: 2012/09/25 20:13:16 $
+# $Revision: 1.767 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.766 $)
+AC_REVISION($Revision: 1.767 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -3281,16 +3281,26 @@ if expr "$target_os" : "aix" 2>/dev/null; then
   else
     lapi_ld_dflt="mpcc_r -q64 -blpdata -bbigtoc"
   fi
+  lapi_poe_env_dflt="MP_FENCE=-- MP_TASK_AFFINITY=-1 MEMORY_AFFINITY=-1"
+  lapi_poe_cmd_dflt="poe %P -nodes %N -tasks_per_node 1 -rmpool 1 -msg_api LAPI -euilib us -retry 1 -retrycount 10000 $POE_RDMA_ARGS -- %Q"
 elif test -n "$GASNETI_ARCH_IBMPE"; then
-  lapi_ld_dflt="$CC"
+  if expr "$CC" : '.*mpcc' >/dev/null; then  # XXX: stronger detection?
+    lapi_ld_dflt="$CC"
+  else
+    lapi_ld_dflt="mpcc -q$GASNETI_PTR_BITS -compiler $CC"
+  fi
+  lapi_poe_env_dflt="PAGER=cat MP_FENCE=--"
+  lapi_poe_cmd_dflt="poe %P -nodes %M -procs %N $POE_RDMA_ARGS -- %A"
 fi
 
   GASNET_ENV_DEFAULT(LAPI_LD, $lapi_ld_dflt)
   AC_SUBST(LAPI_LD)
-
+  GASNET_ENV_DEFAULT(LAPI_POE_ENV, $lapi_poe_env_dflt)
+  AC_SUBST(LAPI_POE_ENV)
+  GASNET_ENV_DEFAULT(LAPI_POE_CMD, $lapi_poe_cmd_dflt)
+  AC_SUBST(LAPI_POE_CMD)
 fi
 
-AC_SUBST(POE_RDMA_ARGS)
 AM_CONDITIONAL(USE_LAPI_CONDUIT, test "$have_lapi" = yes)
 AM_CONDITIONAL(HAVE_LAPI_RDMA, test "$have_lapi_rdma" = yes)
 CONDUIT_END([test "$have_lapi" = yes])
