@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/09/17 09:46:14 $
- * $Revision: 1.140 $
+ *     $Date: 2012/10/12 23:46:45 $
+ * $Revision: 1.141 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1927,6 +1927,24 @@ int gasnete_coll_barrier_wait(gasnete_coll_team_t team, int id, int flags GASNET
   return gasnete_coll_barrier_wait_internal(team, id, flags GASNETE_THREAD_PASS);
 }
 
+#ifndef GASNETE_CONDUIT_PRE_BARRIER
+#define GASNETE_CONDUIT_PRE_BARRIER
+#endif
+#ifndef GASNETE_CONDUIT_POST_BARRIER
+#define GASNETE_CONDUIT_POST_BARRIER
+#endif
+
+void gasnete_coll_barrier_single_phase(gasnete_coll_team_t team) {
+    GASNETE_CONDUIT_PRE_BARRIER(team);
+#ifdef GASNET_FCA_ENABLED
+    if (!gasnet_team_fca_is_active(team,_FCA_BARRIER) ||
+        (gasnet_fca_barrier(team) < 0))
+#endif
+      gasnete_coll_teambarrier(team);
+    GASNETE_CONDUIT_POST_BARRIER(team);
+}
+
+
 /*the default gasnet_barrier_* as defined by the spec must only be called amongst the nodes by ONE representative image
    client is responsible for synchronizing images
  */
@@ -2067,6 +2085,12 @@ extern void gasnete_coll_barrier_init(gasnete_coll_team_t team,  int barrier_typ
     gasnete_amdbarrier_init(team);
   }
 }
+
+void gasnet_barrier_single_phase()
+{
+    gasnete_coll_barrier_single_phase(GASNET_TEAM_ALL);
+}
+
 /* ------------------------------------------------------------------------------------ */
 #define GASNETE_REFBARRIER_HANDLERS() \
         GASNETE_AMDBARRIER_HANDLERS(), \
