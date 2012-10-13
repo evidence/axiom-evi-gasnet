@@ -1,6 +1,6 @@
 GASNet ChangeLog 
 ----------------
-$Revision: 1.65 $
+$Revision: 1.66 $
 
 ----------------------------------------------------------------------
 ??-??-2012 : Release 1.20.0
@@ -12,6 +12,16 @@ $Revision: 1.65 $
   - This release now implements GASNet's collectives via the PAMI
     collectives, yielding much-improved performance in many cases.
   - A faster default barrier implementation (PAMIDISSEM).
+
+* Mellanox ConnectX series HCAs (mxm-conduit)
+  - This is the first official release of GASNet support for the "MXM" API
+    for recent Mellanox's InfiniBand HCAs.  This is based on the code which
+    Mellanox has been distributing for about one year.
+
+* Mellanox Fabric Collective Accelerator (FCA)
+  - Optional collectives acceleration using Mellanox's FCA which works with
+    both ibv-conduit and mxm-conduit on recent Mellanox HCAs.
+  - See other/fca/README-fca.txt for details
 
 * PSHM (intra-node shared memory)
   - Active Messages over shared-memory have been reimplemented using
