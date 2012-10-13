@@ -74,7 +74,7 @@ static inline int gasnet_fca_comm_init(gasnet_fca_ops_t *fca_ops,
     return fca_ops->comm_init(fca_context, local_proc_idx, num_local_procs,
             comm_size, comm_desc, fca_comm);
 }
-#elif GASNET_FCA_VERSION == 20 || GASNET_FCA_VERSION == 21 || GASNET_FCA_VERSION == 22
+#elif GASNET_FCA_VERSION == 20 || GASNET_FCA_VERSION == 21 || GASNET_FCA_VERSION == 22 || GASNET_FCA_VERSION == 25
 
 #define GASNET_FCA_ALLGATHER          1
 #define GASNET_FCA_PROGRESS           1
