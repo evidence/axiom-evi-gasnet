@@ -26,5 +26,4 @@ EXTRA_DIST =        		\
 	gasnet_fca_ops.c	\
 	gasnet_fca.h 		\
 	gasnet_fca_api.h 	\
-	README-fca.txt          \
-	$(docs)
+	README-fca.txt
