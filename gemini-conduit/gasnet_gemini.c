@@ -178,18 +178,18 @@ uintptr_t gasnetc_init_messaging(void)
 #endif
 #if OPTIMIZE_LIMIT_CQ
   {
-	  int depth, cpu_count,cq_entries,multiplier;
-	 depth = gasneti_getenv_int_withdefault("GASNET_NETWORKDEPTH", GASNETC_NETWORKDEPTH_DEFAULT, 0);
-  	gasnetc_mb_maxcredit = 2 * MAX(1,depth); 
+    int depth, cpu_count,cq_entries,multiplier;
+    depth = gasneti_getenv_int_withdefault("GASNET_NETWORKDEPTH", GASNETC_NETWORKDEPTH_DEFAULT, 0);
+    gasnetc_mb_maxcredit = 2 * MAX(1,depth); 
     numpes_on_smp = gasnetc_GNIT_numpes_on_smp();
-	cpu_count = gasneti_cpu_count();
-	multiplier = MAX(1,cpu_count/numpes_on_smp);  max_outstanding_req = multiplier*depth;
-	outstanding_req = 0;  
-	cq_entries = max_outstanding_req+2;
-	status = GNI_CqCreate(nic_handle, cq_entries, 0, GNI_CQ_NOBLOCK, NULL, NULL, &bound_cq_handle);
+    cpu_count = gasneti_cpu_count();
+    multiplier = MAX(1,cpu_count/numpes_on_smp);  max_outstanding_req = multiplier*depth;
+    outstanding_req = 0;  
+    cq_entries = max_outstanding_req+2;
+    status = GNI_CqCreate(nic_handle, cq_entries, 0, GNI_CQ_NOBLOCK, NULL, NULL, &bound_cq_handle);
   }
 #else
-	status = GNI_CqCreate(nic_handle, 1024, 0, GNI_CQ_NOBLOCK, NULL, NULL, &bound_cq_handle);
+  status = GNI_CqCreate(nic_handle, 1024, 0, GNI_CQ_NOBLOCK, NULL, NULL, &bound_cq_handle);
 #endif
 
   gasneti_assert_always (status == GNI_RC_SUCCESS);
@@ -726,7 +726,7 @@ void gasnetc_poll_local_queue(void)
 		   (void *) event_data, gni_return_string(status));
       gpd = gasnetc_get_struct_addr_from_field_addr(gasnetc_post_descriptor_t, pd, pd);
 #if OPTIMIZE_LIMIT_CQ
-		outstanding_req--;  /* already lock protected */
+      outstanding_req--;  /* already lock protected */
 #endif
 
 
@@ -845,11 +845,11 @@ static gni_return_t myPostRdma(gni_ep_handle_t ep, gni_post_descriptor_t *pd)
   int i;
   i = 0;
 #if OPTIMIZE_LIMIT_CQ
-    while(outstanding_req >= max_outstanding_req) {
-		GASNETC_UNLOCK_GNI();
-		gasnetc_poll_local_queue();
-		GASNETC_LOCK_GNI();
-	}
+  while (outstanding_req >= max_outstanding_req) {
+    GASNETC_UNLOCK_GNI();
+    gasnetc_poll_local_queue();
+    GASNETC_LOCK_GNI();
+  }
 #endif
 
 #if (MEM_CONSISTENCY == RELAXED_MEM_CONSISTENCY)
@@ -859,11 +859,11 @@ static gni_return_t myPostRdma(gni_ep_handle_t ep, gni_post_descriptor_t *pd)
   for (;;) {
       status = GNI_PostRdma(ep, pd);
 #if OPTIMIZE_LIMIT_CQ
-	   i++; /*BUGFIX*/
-	   if (status == GNI_RC_SUCCESS) {
-			outstanding_req++; /* already lock protected */
-			break;
-		}
+      i++; /*BUGFIX*/
+      if (status == GNI_RC_SUCCESS) {
+        outstanding_req++; /* already lock protected */
+        break;
+      }
 #else
       if (status == GNI_RC_SUCCESS) break;
 #endif
@@ -888,11 +888,11 @@ static gni_return_t myPostFma(gni_ep_handle_t ep, gni_post_descriptor_t *pd)
   for (;;) {
       status = GNI_PostFma(ep, pd);
 #if OPTIMIZE_LIMIT_CQ
-	  i++; /*BUGFIX*/
-	  if (status == GNI_RC_SUCCESS) {
-			outstanding_req++;  /* already lock protected */
-			break;
-		}
+      i++; /*BUGFIX*/
+      if (status == GNI_RC_SUCCESS) {
+        outstanding_req++;  /* already lock protected */
+        break;
+      }
 #else
       if (status == GNI_RC_SUCCESS) break;
 #endif
