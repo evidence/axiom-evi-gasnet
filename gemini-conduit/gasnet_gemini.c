@@ -115,7 +115,7 @@ void gasnetc_init_segment(void *segment_start, size_t segment_size)
 				GNI_MEM_STRICT_PI_ORDERING | GNI_MEM_PI_FLUSH |
 #elif (MEM_CONSISTENCY == RELAXED_MEM_CONSISTENCY) 
 				GNI_MEM_RELAXED_PI_ORDERING | 
-#else // DEFAULT_MEM_CONSISTENCY
+#else /* DEFAULT_MEM_CONSISTENCY */
 #endif
 			      GNI_MEM_READWRITE, -1, 
 			       &mypeersegmentdata.segment_mem_handle);
@@ -278,7 +278,7 @@ uintptr_t gasnetc_init_messaging(void)
 				GNI_MEM_STRICT_PI_ORDERING | GNI_MEM_PI_FLUSH |
 #elif (AM_MEM_CONSISTENCY == RELAXED_MEM_CONSISTENCY) 
 				GNI_MEM_RELAXED_PI_ORDERING | 
-#else // DEFAULT_MEM_CONSISTENCY
+#else /* DEFAULT_MEM_CONSISTENCY */
 #endif
 			       GNI_MEM_READWRITE,
 			       -1,
@@ -726,7 +726,7 @@ void gasnetc_poll_local_queue(void)
 		   (void *) event_data, gni_return_string(status));
       gpd = gasnetc_get_struct_addr_from_field_addr(gasnetc_post_descriptor_t, pd, pd);
 #if OPTIMIZE_LIMIT_CQ
-		outstanding_req--;  // already lock protected
+		outstanding_req--;  /* already lock protected */
 #endif
 
 
@@ -859,9 +859,9 @@ static gni_return_t myPostRdma(gni_ep_handle_t ep, gni_post_descriptor_t *pd)
   for (;;) {
       status = GNI_PostRdma(ep, pd);
 #if OPTIMIZE_LIMIT_CQ
-	   i++; //BUGFIX
+	   i++; /*BUGFIX*/
 	   if (status == GNI_RC_SUCCESS) {
-			outstanding_req++; // already lock protected
+			outstanding_req++; /* already lock protected */
 			break;
 		}
 #else
@@ -888,9 +888,9 @@ static gni_return_t myPostFma(gni_ep_handle_t ep, gni_post_descriptor_t *pd)
   for (;;) {
       status = GNI_PostFma(ep, pd);
 #if OPTIMIZE_LIMIT_CQ
-	  i++; //BUGFIX
+	  i++; /*BUGFIX*/
 	  if (status == GNI_RC_SUCCESS) {
-			outstanding_req++;  // already lock protected
+			outstanding_req++;  /* already lock protected */
 			break;
 		}
 #else
@@ -956,7 +956,7 @@ void gasnetc_rdma_put(gasnet_node_t dest,
 				GNI_MEM_STRICT_PI_ORDERING | GNI_MEM_PI_FLUSH |
 #elif (MEM_CONSISTENCY == RELAXED_MEM_CONSISTENCY) 
 				GNI_MEM_RELAXED_PI_ORDERING | 
-#else // DEFAULT_MEM_CONSISTENCY
+#else /* DEFAULT_MEM_CONSISTENCY */
 #endif
 				GNI_MEM_READWRITE, -1, &gpd->mem_handle);
 	  if (status == GNI_RC_SUCCESS) break;
@@ -1107,7 +1107,7 @@ void gasnetc_rdma_get(gasnet_node_t dest,
 				GNI_MEM_STRICT_PI_ORDERING | GNI_MEM_PI_FLUSH |
 #elif (MEM_CONSISTENCY == RELAXED_MEM_CONSISTENCY) 
 				GNI_MEM_RELAXED_PI_ORDERING | 
-#else // DEFAULT_MEM_CONSISTENCY
+#else /* DEFAULT_MEM_CONSISTENCY */
 #endif
 				   GNI_MEM_READWRITE, -1, &gpd->mem_handle);
 	  if (status == GNI_RC_SUCCESS) break;
