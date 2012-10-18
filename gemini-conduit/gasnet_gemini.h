@@ -14,7 +14,20 @@
 #include "gasnet_core_internal.h"
 #include <gasnet_extended_internal.h>
 
-#define GASNETC_DEBUG 0
+#define GASNETC_DEBUG 		0
+
+#define OPTIMIZE_LIMIT_CQ 	1
+#define STRICT_MEM_CONSISTENCY		1
+#define RELAXED_MEM_CONSISTENCY		2
+#define DEFAULT_MEM_CONSISTENCY		3
+
+#define MEM_CONSISTENCY RELAXED_MEM_CONSISTENCY	
+#define AM_MEM_CONSISTENCY  DEFAULT_MEM_CONSISTENCY	
+/* #define MEM_CONSISTENCY DEFAULT_MEM_CONSISTENCY	
+#define AM_MEM_CONSISTENCY  STRICT_MEM_CONSISTENCY	*/
+
+
+
 
 #ifdef GASNETC_DEBUG
 #define GC_DEBUG(x) x
@@ -205,7 +218,9 @@ int gasnetc_GNIT_Device_Id(void);
 void gasnetc_GNIT_Allgather(void *local, long length, void *global);
 void gasnetc_GNIT_Finalize(void);
 void gasnetc_GNIT_Barrier(void);
-
+#if OPTIMIZE_LIMIT_CQ
+int gasnetc_GNIT_numpes_on_smp(void);
+#endif
 
 void gasnetc_get_am_credit(uint32_t pe);
 void gasnetc_return_am_credit(uint32_t pe);
@@ -252,7 +267,7 @@ void gasnetc_init_post_descriptor_pool(void);
 #define GASNETC_GNI_BOUNCE_REGISTER_CUTOVER_MAX 32768
 /* a particular message up to this size goes via fma */
 #define GASNETC_GNI_FMA_RDMA_CUTOVER_DEFAULT 4096
-#define GASNETC_GNI_FMA_RDMA_CUTOVER_MAX 4096
+#define GASNETC_GNI_FMA_RDMA_CUTOVER_MAX (4096*4)
 #define GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE 128
 gasnet_seginfo_t gasnetc_bounce_buffers;   /* fields addr and size */
 gasnet_seginfo_t gasnetc_pd_buffers;   /* fields addr and size */
