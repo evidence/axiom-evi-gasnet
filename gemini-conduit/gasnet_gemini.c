@@ -853,13 +853,13 @@ static gni_return_t myPostRdma(gni_ep_handle_t ep, gni_post_descriptor_t *pd)
 #endif
 
 #if (MEM_CONSISTENCY == RELAXED_MEM_CONSISTENCY)
-	if(pd->type ==  GNI_POST_RDMA_PUT)
-		pd->rdma_mode |= GNI_RDMAMODE_FENCE;
+  if(pd->type ==  GNI_POST_RDMA_PUT)
+    pd->rdma_mode |= GNI_RDMAMODE_FENCE;
 #endif
   for (;;) {
       status = GNI_PostRdma(ep, pd);
+      i++;
 #if OPTIMIZE_LIMIT_CQ
-      i++; /*BUGFIX*/
       if (status == GNI_RC_SUCCESS) {
         outstanding_req++; /* already lock protected */
         break;
@@ -887,8 +887,8 @@ static gni_return_t myPostFma(gni_ep_handle_t ep, gni_post_descriptor_t *pd)
 
   for (;;) {
       status = GNI_PostFma(ep, pd);
+      i++;
 #if OPTIMIZE_LIMIT_CQ
-      i++; /*BUGFIX*/
       if (status == GNI_RC_SUCCESS) {
         outstanding_req++;  /* already lock protected */
         break;
