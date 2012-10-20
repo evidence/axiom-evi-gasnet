@@ -109,7 +109,7 @@ void gasnetc_init_segment(void *segment_start, size_t segment_size)
   /* Map the shared segment */
 
   gasnetc_mem_consistency = GASNETC_DEFAULT_RDMA_MEM_CONSISTENCY;
-  { char * envval = gasneti_getenv("GASNET_GEMINI_MEM_CONSISTENCY");
+  { char * envval = gasneti_getenv("GASNETC_GNI_MEM_CONSISTENCY");
     if (!envval || !envval[0]) {
       /* No value given - keep default */
     } else if (!strcmp(envval, "strict") || !strcmp(envval, "STRICT")) {
@@ -121,7 +121,7 @@ void gasnetc_init_segment(void *segment_start, size_t segment_size)
     } else if (!gasneti_mynode) {
       fflush(NULL);
       fprintf(stderr, "WARNING: ignoring unknown value '%s' for environment "
-                      "variable GASNET_GEMINI_MEM_CONSISTENCY\n", envval);
+                      "variable GASNETC_GNI_MEM_CONSISTENCY\n", envval);
       fflush(NULL);
     }
   }
@@ -180,7 +180,7 @@ uintptr_t gasnetc_init_messaging(void)
   int modes = 0;
 
   gasnetc_am_mem_consistency = GASNETC_DEFAULT_AM_MEM_CONSISTENCY;
-  { char * envval = gasneti_getenv("GASNET_GEMINI_AM_MEM_CONSISTENCY");
+  { char * envval = gasneti_getenv("GASNETC_GNI_AM_MEM_CONSISTENCY");
     if (!envval || !envval[0]) {
       /* No value given - keep default */
     } else if (!strcmp(envval, "strict") || !strcmp(envval, "STRICT")) {
@@ -192,7 +192,7 @@ uintptr_t gasnetc_init_messaging(void)
     } else if (!gasneti_mynode) {
       fflush(NULL);
       fprintf(stderr, "WARNING: ignoring unknown value '%s' for environment "
-                      "variable GASNET_GEMINI_AM_MEM_CONSISTENCY\n", envval);
+                      "variable GASNETC_GNI_AM_MEM_CONSISTENCY\n", envval);
       fflush(NULL);
     }
   }
