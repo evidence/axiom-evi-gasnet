@@ -15,6 +15,7 @@
 #include <alloca.h>
 
 #define GASNET_DEBUG_AM 0
+#define GASNET_USE_MXM_SELF_PTL 0
 
 #define GASNET_USE_ZCOPY 1
 #define GASNET_USE_ZCOPY_RCV 0
@@ -323,7 +324,7 @@ int gasnetc_AM_Generic(gasnetc_category_t category,
     mxm_tag_t tag = (mxm_tag_t) gasnet_mynode();
 
     if_pf (GASNETC_LONG_ASYNC_REQ(category, is_request, is_sync_request))
-    p_sreq = gasnetc_alloc_send_req();
+        p_sreq = gasnetc_alloc_send_req();
     else
         p_sreq = &sreq;
 
@@ -468,7 +469,7 @@ int gasnetc_AM_Generic(gasnetc_category_t category,
         if_pt (nbytes && src_addr && dst_addr) {
 
             if_pf (GASNETC_LONG_ASYNC_REQ(category, is_request, is_sync_request))
-            p_put_sreq = gasnetc_alloc_send_req();
+                p_put_sreq = gasnetc_alloc_send_req();
 
             put_mxm_sreq = &p_put_sreq->mxm_sreq;
 
@@ -591,6 +592,123 @@ int gasnetc_AM_Generic(gasnetc_category_t category,
 
 /* -------------------------------------------------------------------------- */
 
+#if !GASNET_USE_MXM_SELF_PTL
+void gasnetc_ProcessRecvSelf(gasnetc_category_t category,
+                             gasnet_handler_t handler_id,
+                             void *src_addr,
+                             int nbytes,
+                             void *dst_addr,
+                             uint8_t is_request,
+                             uint8_t is_sync_request,
+                             uint8_t msg_num,
+                             int numargs, gasnet_handlerarg_t *args)
+{
+    gasnetc_am_token_t token;
+    gasnetc_am_token_t * p_token = &token;
+    uint8_t sys_msg_type;
+
+    gasneti_handler_fn_t handler_fn = gasnetc_handler[handler_id];;
+
+    token.src_node        = gasneti_mynode;
+    token.is_request      = is_request;
+    token.is_sync_request = is_sync_request;
+    token.msg_num         = msg_num;
+    numargs               = numargs;
+    sys_msg_type          = SYSTEM_MSG_NA;
+
+    switch (category) {
+    case gasnetc_Short: {
+        GASNETI_RUN_HANDLER_SHORT(token.is_request,
+                                  handler_id, handler_fn,
+                                  p_token,
+                                  args, numargs);
+    }
+    break;
+
+    case gasnetc_Medium: {
+        GASNETI_RUN_HANDLER_MEDIUM(token.is_request,
+                                   handler_id, handler_fn,
+                                   p_token,
+                                   args, numargs,
+                                   src_addr, nbytes);
+    }
+    break;
+
+    case gasnetc_Long: {
+        if_pt(src_addr && dst_addr && nbytes)
+            memcpy(dst_addr, src_addr, nbytes);
+
+        GASNETI_RUN_HANDLER_LONG(token.is_request,
+                                 handler_id, handler_fn,
+                                 p_token,
+                                 args, numargs,
+                                 dst_addr, nbytes);
+    }
+    break;
+
+    case gasnetc_System:
+        /* falling through - system messages should go through MXM */
+    default:
+        gasneti_fatalerror("invalid message category");
+    }
+
+}
+#endif
+
+/* -------------------------------------------------------------------------- */
+
+#if !GASNET_USE_MXM_SELF_PTL
+int gasnetc_AM_Generic_Self(gasnetc_category_t category,
+                            gasnet_handler_t handler_id,
+                            void *src_addr,
+                            int nbytes,
+                            void *dst_addr,
+                            uint8_t is_request,
+                            uint8_t is_sync_request,
+                            uint8_t msg_num,
+                            int numargs, va_list argptr)
+{
+    gasnet_handlerarg_t args_buf[GASNETC_MAX_ARGS];
+
+#if GASNET_DEBUG_AM
+    MXM_LOG("[msg 0x%02x%02x] [pid %d] %s %s%s%s%s, %d --> %d, nbytes = %d, numargs = %d\n",
+            (uint8_t)gasneti_mynode,
+            msg_num, getpid(), am_category_str[category],
+            (is_request && is_sync_request) ? "sync request" : "",
+            (is_request && !is_sync_request) ? "ASYNC request" : "",
+            (!is_request && is_sync_request) ? "response to sync request" : "",
+            (!is_request && !is_sync_request) ? "response to ASYNC request" : "",
+            (uint32_t)gasnet_mynode(), (uint32_t)gasnet_mynode(), nbytes, numargs);
+#endif
+
+    gasneti_assert((category & ~3) == 0);
+    gasneti_assert(numargs <= GASNETC_MAX_ARGS);
+
+    /*
+     * Create a contiguous buffer of parameters for the handler function
+     */
+    if (numargs) {
+        int i;
+        for (i = 0; i < numargs; i++) {
+            args_buf[i] =
+                (gasnet_handlerarg_t) va_arg(argptr, gasnet_handlerarg_t);
+        }
+    }
+
+    gasnetc_ProcessRecvSelf(category, handler_id,
+                            nbytes ? src_addr : NULL,
+                            nbytes,
+                            nbytes ? dst_addr : NULL,
+                            is_request, is_sync_request, msg_num,
+                            numargs,
+                            numargs ? args_buf : NULL);
+
+    GASNETI_RETURN(GASNET_OK);
+}
+#endif
+
+/* -------------------------------------------------------------------------- */
+
 int gasnetc_RequestGeneric(gasnetc_category_t category,
                            int dest,
                            gasnet_handler_t handler,
@@ -611,15 +729,33 @@ int gasnetc_RequestGeneric(gasnetc_category_t category,
      * of long async messages.
      */
 
-    return gasnetc_AM_Generic(category, dest, handler,
-                              src_addr, nbytes,
-                              dst_addr,
-                              1,       /* 1 for request, 0 for reply */
-                              is_sync, /* is it a syncronous request */
-                              msg_num,
-                              numargs, argptr);
+#if !GASNET_PSHM
+#if !GASNET_USE_MXM_SELF_PTL
+    /*
+     * PSHM already checked if the source and destination
+     * are in the same supernode - do it now for cases where
+     * PSHM is disabled.
+     * Note: system messages will go the usual way.
+     */
+    if_pf(gasneti_mynode == dest && category != gasnetc_System)
+        return gasnetc_AM_Generic_Self(category, handler,
+                                       src_addr, nbytes,
+                                       dst_addr,
+                                       1, /* 1 for request, 0 for reply */
+                                       is_sync, /* is it a syncronous request */
+                                       msg_num,
+                                       numargs, argptr);
+    else
+#endif
+#endif
+        return gasnetc_AM_Generic(category, dest, handler,
+                                  src_addr, nbytes,
+                                  dst_addr,
+                                  1,       /* 1 for request, 0 for reply */
+                                  is_sync, /* is it a syncronous request */
+                                  msg_num,
+                                  numargs, argptr);
 }
-
 
 /* -------------------------------------------------------------------------- */
 
@@ -634,13 +770,32 @@ int gasnetc_ReplyGeneric(gasnetc_category_t category,
 
     gasnetc_am_token_t * token = (gasnetc_am_token_t *)gasnet_token;
 
-    return gasnetc_AM_Generic(category, token->src_node, handler,
-                              src_addr, nbytes,
-                              dst_addr,
-                              0, /* 1 for request, 0 for reply */
-                              token->is_sync_request, /* return same flag as received */
-                              token->msg_num,
-                              numargs, argptr);
+#if !GASNET_PSHM
+#if !GASNET_USE_MXM_SELF_PTL
+    /*
+     * PSHM already checked if the source and destination
+     * are in the same supernode - do it now for cases where
+     * PSHM is disabled.
+     * Note: system messages will go the usual way.
+     */
+    if_pf(gasneti_mynode == token->src_node && category != gasnetc_System)
+        return gasnetc_AM_Generic_Self(category, handler,
+                                       src_addr, nbytes,
+                                       dst_addr,
+                                       0, /* 1 for request, 0 for reply */
+                                       token->is_sync_request, /* return same flag as received */
+                                       token->msg_num,
+                                       numargs, argptr);
+    else
+#endif
+#endif
+        return gasnetc_AM_Generic(category, token->src_node, handler,
+                                  src_addr, nbytes,
+                                  dst_addr,
+                                  0, /* 1 for request, 0 for reply */
+                                  token->is_sync_request, /* return same flag as received */
+                                  token->msg_num,
+                                  numargs, argptr);
 }
 
 /* -------------------------------------------------------------------------- */
