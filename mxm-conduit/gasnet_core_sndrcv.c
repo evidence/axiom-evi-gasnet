@@ -697,8 +697,7 @@ int gasnetc_AM_Generic_Self(gasnetc_category_t category,
 
     gasnetc_ProcessRecvSelf(category, handler_id,
                             nbytes ? src_addr : NULL,
-                            nbytes,
-                            nbytes ? dst_addr : NULL,
+                            nbytes, dst_addr,
                             is_request, is_sync_request, msg_num,
                             numargs,
                             numargs ? args_buf : NULL);
