@@ -626,11 +626,30 @@ void gasnetc_ProcessRecvSelf(gasnetc_category_t category,
     break;
 
     case gasnetc_Medium: {
+        void *med_buf = NULL;
+        void *al_buf = NULL;
+        if (src_addr && nbytes) {
+#if GASNETI_USE_ALLOCA
+            med_buf = alloca(nbytes + GASNETI_MEDBUF_ALIGNMENT);
+#else
+            med_buf = gasneti_malloc(nbytes + GASNETI_MEDBUF_ALIGNMENT);
+#endif
+            al_buf = (void*)GASNETI_ALIGNUP(med_buf, GASNETI_MEDBUF_ALIGNMENT);
+
+	    if ((uintptr_t)src_addr == (uintptr_t)GASNETI_ALIGNUP(src_addr, GASNETI_MEDBUF_ALIGNMENT))
+                GASNETE_FAST_ALIGNED_MEMCPY(al_buf, src_addr, nbytes);
+	    else
+                GASNETE_FAST_UNALIGNED_MEMCPY(al_buf, src_addr, nbytes);
+        }
         GASNETI_RUN_HANDLER_MEDIUM(token.is_request,
                                    handler_id, handler_fn,
                                    p_token,
                                    args, numargs,
-                                   src_addr, nbytes);
+                                   al_buf, nbytes);
+#if !GASNETI_USE_ALLOCA
+        if (med_buf)
+            gasneti_free(med_buf);
+#endif
     }
     break;
 
