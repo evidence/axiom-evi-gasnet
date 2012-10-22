@@ -636,10 +636,7 @@ void gasnetc_ProcessRecvSelf(gasnetc_category_t category,
 #endif
             al_buf = (void*)GASNETI_ALIGNUP(med_buf, GASNETI_MEDBUF_ALIGNMENT);
 
-	    if ((uintptr_t)src_addr == (uintptr_t)GASNETI_ALIGNUP(src_addr, GASNETI_MEDBUF_ALIGNMENT))
-                GASNETE_FAST_ALIGNED_MEMCPY(al_buf, src_addr, nbytes);
-	    else
-                GASNETE_FAST_UNALIGNED_MEMCPY(al_buf, src_addr, nbytes);
+            GASNETE_FAST_UNALIGNED_MEMCPY(al_buf, src_addr, nbytes);
         }
         GASNETI_RUN_HANDLER_MEDIUM(token.is_request,
                                    handler_id, handler_fn,
