@@ -6,11 +6,7 @@
 #include <sys/mman.h>
 #include <signal.h>
 
-#if OPTIMIZE_CQ_LIMIT
-#define GASNETC_NETWORKDEPTH_DEFAULT 16
-#else
 #define GASNETC_NETWORKDEPTH_DEFAULT 12
-#endif
 
 static uint32_t gasnetc_memreg_flags;
 static int gasnetc_mem_consistency;
@@ -59,7 +55,7 @@ static gni_cq_handle_t smsg_cq_handle;
 static void *smsg_mmap_ptr;
 static size_t smsg_mmap_bytes;
 
-#if OPTIMIZE_LIMIT_CQ
+#if GASNETC_OPTIMIZE_LIMIT_CQ
 static int  numpes_on_smp;
 static int  max_outstanding_req;
 static int  outstanding_req;
@@ -234,7 +230,7 @@ uintptr_t gasnetc_init_messaging(void)
 #if GASNETC_DEBUG
   gasnetc_GNIT_Log("cdmattach");
 #endif
-#if OPTIMIZE_LIMIT_CQ
+#if GASNETC_OPTIMIZE_LIMIT_CQ
   {
     int depth, cpu_count,cq_entries,multiplier;
     depth = gasneti_getenv_int_withdefault("GASNET_NETWORKDEPTH", GASNETC_NETWORKDEPTH_DEFAULT, 0);
@@ -270,7 +266,7 @@ uintptr_t gasnetc_init_messaging(void)
 
 
   /* Initialize the short message system */
-#if !OPTIMIZE_LIMIT_CQ
+#if !GASNETC_OPTIMIZE_LIMIT_CQ
   { int tmp = gasneti_getenv_int_withdefault("GASNET_NETWORKDEPTH", GASNETC_NETWORKDEPTH_DEFAULT, 0);
     gasnetc_mb_maxcredit = 2 * MAX(1,tmp); /* silently "fix" zero or negative values */
   }
@@ -777,7 +773,7 @@ void gasnetc_poll_local_queue(void)
 	gasnetc_GNIT_Abort("GetCompleted(%p) failed %s\n",
 		   (void *) event_data, gni_return_string(status));
       gpd = gasnetc_get_struct_addr_from_field_addr(gasnetc_post_descriptor_t, pd, pd);
-#if OPTIMIZE_LIMIT_CQ
+#if GASNETC_OPTIMIZE_LIMIT_CQ
       outstanding_req--;  /* already lock protected */
 #endif
 
@@ -896,7 +892,7 @@ static gni_return_t myPostRdma(gni_ep_handle_t ep, gni_post_descriptor_t *pd)
   gni_return_t status;
   int i;
   i = 0;
-#if OPTIMIZE_LIMIT_CQ
+#if GASNETC_OPTIMIZE_LIMIT_CQ
   while (outstanding_req >= max_outstanding_req) {
     GASNETC_UNLOCK_GNI();
     gasnetc_poll_local_queue();
@@ -909,7 +905,7 @@ static gni_return_t myPostRdma(gni_ep_handle_t ep, gni_post_descriptor_t *pd)
   for (;;) {
       status = GNI_PostRdma(ep, pd);
       i++;
-#if OPTIMIZE_LIMIT_CQ
+#if GASNETC_OPTIMIZE_LIMIT_CQ
       if (status == GNI_RC_SUCCESS) {
         outstanding_req++; /* already lock protected */
         break;
@@ -938,7 +934,7 @@ static gni_return_t myPostFma(gni_ep_handle_t ep, gni_post_descriptor_t *pd)
   for (;;) {
       status = GNI_PostFma(ep, pd);
       i++;
-#if OPTIMIZE_LIMIT_CQ
+#if GASNETC_OPTIMIZE_LIMIT_CQ
       if (status == GNI_RC_SUCCESS) {
         outstanding_req++;  /* already lock protected */
         break;

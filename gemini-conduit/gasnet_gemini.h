@@ -16,7 +16,7 @@
 
 #define GASNETC_DEBUG 0
 
-#define OPTIMIZE_LIMIT_CQ	1
+#define GASNETC_OPTIMIZE_LIMIT_CQ	1
 
 #define GASNETC_STRICT_MEM_CONSISTENCY  1 /* use GNI_MEM_STRICT_PI_ORDERING */
 #define GASNETC_RELAXED_MEM_CONSISTENCY 2 /* use GNI_MEM_RELAXED_PI_ORDERING */
@@ -219,7 +219,7 @@ int gasnetc_GNIT_Device_Id(void);
 void gasnetc_GNIT_Allgather(void *local, long length, void *global);
 void gasnetc_GNIT_Finalize(void);
 void gasnetc_GNIT_Barrier(void);
-#if OPTIMIZE_LIMIT_CQ
+#if GASNETC_OPTIMIZE_LIMIT_CQ
 int gasnetc_GNIT_numpes_on_smp(void);
 #endif
 
