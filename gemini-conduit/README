@@ -1,6 +1,6 @@
 GASNet gemini-conduit documentation
 Larry Stewart <stewart@serissa.com> 
-$Revision: 1.10 $
+$Revision: 1.11 $
 
 User Information:
 -----------------
@@ -67,8 +67,8 @@ GASNETC_GNI_AM_MEM_CONSISTENCY
   results in at least one high-level usage pattern (reduction via
   lock-protected accumulator).
 
-GASNETC_DEFAULT_PHYSMEM_PINNBLE_RATIO - default 0.75
-GASNETC_PHYSMEM_MAX - default <size of physmem> * <pinnable ratio>
+GASNET_DEFAULT_PHYSMEM_PINNBLE_RATIO - default 0.75
+GASNET_PHYSMEM_MAX - default <size of physmem> * <pinnable ratio>
 GASNET_PHYSMEM_NOPROBE - default 0
   The logic for setting the maximum size of the segment is copied from
   portals-conduit, which uses the following setting to control the
