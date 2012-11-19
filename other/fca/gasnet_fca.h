@@ -17,9 +17,6 @@ typedef struct gasnet_fca_component_ {
    /** Path to fca spec file */
    char* fca_spec_file;
 
-   /** Path to libfca.so */
-   char* fca_lib_path;
-
    /** FCA device */
    char* fca_dev;
 
@@ -44,9 +41,7 @@ typedef struct gasnet_fca_component_ {
    /** FCA NP */
    int   fca_np;
 
-   gasnet_fca_ops_t fca_ops;                         /* FCA operations */
    /* FCA global stuff */
-   void *fca_lib_handle;                               /* FCA dynamic library */
    fca_t *fca_context;                                 /* FCA context handle */
    uint64_t *node_map;
 } gasnet_fca_component_t;

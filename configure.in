@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2012/10/27 01:30:17 $
-# $Revision: 1.771 $
+#     $Date: 2012/11/19 22:00:09 $
+# $Revision: 1.772 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.771 $)
+AC_REVISION($Revision: 1.772 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -5277,8 +5277,8 @@ dnl        elif test "$fca_in_opt" = yes; then
 dnl            echo "Using FCA from $fca_home"
 dnl        fi
 
-    FCA_INCLUDES="-I$fca_home/include/fca -I$fca_home/include/fca_core"
-    FCA_LIBDIR=$fca_lib_path
+    FCA_INCLUDES="-I$fca_home/include -I$fca_home/include/fca -I$fca_home/include/fca_core"
+    FCA_LIBDIR="-L$fca_lib_path"
     FCA_LIBS="-lfca"
 
     AC_SUBST([FCA_INCLUDES])

@@ -11,7 +11,7 @@ int gasnet_fca_barrier(gasnet_team_handle_t team)
     fca_comm_data_t *fca_comm_data = &team->fca_comm_data;
 
     FCA_VERBOSE(5,"Using FCA Barrier");
-    return gasnet_fca_component.fca_ops.do_barrier(fca_comm_data->fca_comm);
+    return fca_do_barrier(fca_comm_data->fca_comm);
 }
 
 int gasnet_fca_broadcast(void *src, void *dst, int root, size_t size,
@@ -40,7 +40,7 @@ int gasnet_fca_broadcast(void *src, void *dst, int root, size_t size,
                 spec.size);
         return GASNET_FCA_ERROR;
     }
-    ret = gasnet_fca_component.fca_ops.do_bcast(fca_comm_data->fca_comm, &spec);
+    ret = fca_do_bcast(fca_comm_data->fca_comm, &spec);
     if (fca_comm_data->my_rank == spec.root){
         if (src !=  dst)
         {
@@ -73,7 +73,7 @@ int gasnet_fca_all_gather_all(void *dst,
     spec.rbuf = dst;
     spec.sbuf = src;
 
-    ret = gasnet_fca_component.fca_ops.do_allgather(fca_comm_data->fca_comm, &spec);
+    ret = fca_do_allgather(fca_comm_data->fca_comm, &spec);
 
     if (GASNET_COLL_OUT_ALLSYNC & flags){
         gasnet_fca_barrier(team);
@@ -102,7 +102,7 @@ int gasnet_fca_reduce(int root,  void *target, const void *source,
     spec.op = (enum fca_reduce_op_t)fca_op;
     spec.root = root;
     spec.length = length;
-    ret = gasnet_fca_component.fca_ops.do_reduce(fca_comm_data->fca_comm, &spec);
+    ret = fca_do_reduce(fca_comm_data->fca_comm, &spec);
     if (GASNET_COLL_OUT_ALLSYNC & flags){
         FCA_VERBOSE(5,"FCA REDUCE: performing GASNET_COLL_OUT_ALLSYNC barrier");
         gasnet_fca_barrier(team);
@@ -127,7 +127,7 @@ int gasnet_fca_reduce_all( void *target, const void *source, int fca_op,
     spec.dtype = (enum fca_reduce_dtype_t)fca_dtype;
     spec.op = (enum fca_reduce_op_t)fca_op;
     spec.length = length;
-    ret = gasnet_fca_component.fca_ops.do_all_reduce(fca_comm_data->fca_comm, &spec);
+    ret = fca_do_all_reduce(fca_comm_data->fca_comm, &spec);
     if (GASNET_COLL_OUT_ALLSYNC & flags){
         FCA_VERBOSE(5,"FCA ALL REDUCE: performing GASNET_COLL_OUT_ALLSYNC barrier");
         gasnet_fca_barrier(team);

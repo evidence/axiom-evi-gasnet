@@ -24,20 +24,6 @@ gasnet_fca_component_t gasnet_fca_component={0};
 #define FCA_API_CLEAR_MICRO(__x) ((__x>>FCA_MINOR_BIT)<<FCA_MINOR_BIT)
 #define FCA_API_VER(__major,__minor) (__major<<FCA_MAJOR_BIT | __minor<<FCA_MINOR_BIT)
 
-#define GET_FCA_SYM(__name) \
-{ \
-    dlsym_quiet((void **)&gasnet_fca_component.fca_ops.__name, "fca_" #__name);\
-    if (!gasnet_fca_component.fca_ops.__name) { \
-        FCA_ERROR("Symbol %s not found", "fca_" #__name); \
-        return GASNET_FCA_ERROR; \
-    } \
-}
-
-static void dlsym_quiet(void **p, const char *name)
-{
-    *p = dlsym(gasnet_fca_component.fca_lib_handle, name);
-}
-
 static void gasnet_fca_progress_fn(void *arg)
 {
     gasneti_AMPoll();
@@ -48,21 +34,8 @@ int gasnet_fca_get_fca_lib(int my_rank)
     int ret;
     unsigned long fca_ver, major, minor, detected_ver;
     char x[3];
-    if (gasnet_fca_component.fca_lib_handle)
-        return GASNET_FCA_SUCCESS;
 
-    gasnet_fca_component.fca_lib_handle = dlopen(gasnet_fca_component.fca_lib_path, RTLD_LAZY);
-    if (!gasnet_fca_component.fca_lib_handle) {
-        FCA_ERROR("Failed to load FCA from %s: %s", gasnet_fca_component.fca_lib_path, strerror(errno));
-        return GASNET_FCA_ERROR;
-    }
-
-    memset(&gasnet_fca_component.fca_ops, 0, sizeof(gasnet_fca_component.fca_ops));
-
-    FCA_VERBOSE(30, "FCA Loaded from: %s", gasnet_fca_component.fca_lib_path);
-    GET_FCA_SYM(get_version);
-    GET_FCA_SYM(get_version_string);
-    fca_ver = FCA_API_CLEAR_MICRO(gasnet_fca_component.fca_ops.get_version());
+    fca_ver = FCA_API_CLEAR_MICRO(fca_get_version());
     major = (fca_ver>>FCA_MAJOR_BIT);
     minor = (fca_ver>>FCA_MINOR_BIT) & 0xf;
     sprintf(x, "%ld%ld", major, minor);
@@ -71,31 +44,11 @@ int gasnet_fca_get_fca_lib(int my_rank)
 
     if (detected_ver != GASNET_FCA_VERSION) {
         FCA_ERROR("Unsupported FCA version: %s, please update FCA to v%d, now v%ld",
-                gasnet_fca_component.fca_ops.get_version_string(),
+                fca_get_version_string(),
                 GASNET_FCA_VERSION, fca_ver);
         return GASNET_FCA_ERROR;
     }
-    GET_FCA_SYM(init);
-    GET_FCA_SYM(cleanup);
-    GET_FCA_SYM(comm_new);
-    GET_FCA_SYM(comm_end);
-    GET_FCA_SYM(get_rank_info);
-    GET_FCA_SYM(free_rank_info);
-    GET_FCA_SYM(comm_init);
-    GET_FCA_SYM(comm_destroy);
-    GET_FCA_SYM(comm_get_caps);
-    GET_FCA_SYM(do_all_reduce);
-    GET_FCA_SYM(do_reduce);
-    GET_FCA_SYM(do_bcast);
-    GET_FCA_SYM(do_barrier);
-#if GASNET_FCA_ALLGATHER == 1
-    GET_FCA_SYM(do_allgather);
-    GET_FCA_SYM(do_allgatherv);
-#endif
-    GET_FCA_SYM(parse_spec_file);
-    GET_FCA_SYM(free_init_spec);
-    GET_FCA_SYM(strerror);
-    spec = gasnet_fca_component.fca_ops.parse_spec_file(gasnet_fca_component.fca_spec_file);
+    spec = fca_parse_spec_file(gasnet_fca_component.fca_spec_file);
     if (!spec) {
         FCA_ERROR("Failed to parse FCA spec file `%s'", gasnet_fca_component.fca_spec_file);
         return GASNET_FCA_ERROR;
@@ -105,7 +58,7 @@ int gasnet_fca_get_fca_lib(int my_rank)
     spec->progress.func = gasnet_fca_progress_fn;
     spec->progress.arg = NULL;
 
-    ret = gasnet_fca_component.fca_ops.init(spec, &gasnet_fca_component.fca_context);
+    ret = fca_init(spec, &gasnet_fca_component.fca_context);
     /* FCA library uses random numbers internally and specifies rand seed with it's 
      * specific value. As a result the seed is different for different processes.
      * Howevere, if GASNet client relies on the default value of seed, that implies all
@@ -114,10 +67,10 @@ int gasnet_fca_get_fca_lib(int my_rank)
      */
     srand(1);
     if (ret < 0) {
-        FCA_ERROR("Failed to initialize FCA: %s", gasnet_fca_component.fca_ops.strerror(ret));
+        FCA_ERROR("Failed to initialize FCA: %s", fca_strerror(ret));
         return GASNET_FCA_ERROR;
     }
-    gasnet_fca_component.fca_ops.free_init_spec(spec);
+    fca_free_init_spec(spec);
 
     return GASNET_FCA_SUCCESS;
 }
@@ -146,10 +99,8 @@ int gasnet_team_fca_is_active(gasnet_team_handle_t team, gasnet_fca_coll_t coll)
 
 static void gasnet_fca_close_fca_lib(void)
 {
-    gasnet_fca_component.fca_ops.cleanup(gasnet_fca_component.fca_context);
+    fca_cleanup(gasnet_fca_component.fca_context);
     gasnet_fca_component.fca_context = NULL;
-    dlclose(gasnet_fca_component.fca_lib_handle);
-    gasnet_fca_component.fca_lib_handle = NULL;
 }
 
 static int is_appropriate_value(char *var)
@@ -265,9 +216,7 @@ static int register_gasnet_fca_params(void){
 }
 int gasnet_fca_open(int my_rank)
 {
-    gasnet_fca_component.fca_lib_handle = NULL;
     gasnet_fca_component.fca_context = NULL;
-    gasnet_fca_component.fca_lib_path = (char *)GASNET_FCA_HOME "/lib/libfca.so";
     gasnet_fca_component.fca_spec_file = (char *)GASNET_FCA_HOME "/etc/fca_mpi_spec.ini";
 
     if (GASNET_FCA_SUCCESS != register_gasnet_fca_params()){
@@ -290,7 +239,7 @@ int gasnet_fca_open(int my_rank)
 int gasnet_fca_close(void)
 {
 
-    if (!gasnet_fca_component.fca_lib_handle || !gasnet_fca_component.fca_context)
+    if (!gasnet_fca_component.fca_context)
         return GASNET_FCA_SUCCESS;
 
     gasnet_fca_close_fca_lib();
@@ -313,7 +262,7 @@ static int __fca_comm_new(gasnet_team_handle_t team)
      /* call fca_get_rank_info() on node managers only*/
      if (fca_comm_data->local_proc_idx == 0)
      {
-         my_info = gasnet_fca_component.fca_ops.get_rank_info(gasnet_fca_component.fca_context,
+         my_info = fca_get_rank_info(gasnet_fca_component.fca_context,
                  &info_size);
          if (!my_info) {
              FCA_ERROR("fca_get_rank_info returned NULL");
@@ -393,7 +342,7 @@ static int __fca_comm_new(gasnet_team_handle_t team)
             FCA_VERBOSE(5, "starting fca_comm_new(), rank_count: %d",
                     spec.rank_count);
      
-            ret = gasnet_fca_component.fca_ops.comm_new(gasnet_fca_component.fca_context,
+            ret = fca_comm_new(gasnet_fca_component.fca_context,
                     &spec, &fca_comm_data->fca_comm_desc);
             gasneti_free(all_info);
             gasneti_free(rcounts);
@@ -407,13 +356,13 @@ static int __fca_comm_new(gasnet_team_handle_t team)
         /* Examine comm_new return value */
         if (ret < 0)
         {
-           FCA_ERROR("rank %i: COMM_NEW failed: %s", fca_comm_data->my_rank, gasnet_fca_component.fca_ops.strerror(ret));
+           FCA_ERROR("rank %i: COMM_NEW failed: %s", fca_comm_data->my_rank, fca_strerror(ret));
            return GASNET_FCA_ERROR;
         }
      
         /* Release allocate rank_info on node managers */
         if (fca_comm_data->local_proc_idx == 0) {
-            gasnet_fca_component.fca_ops.free_rank_info(my_info);
+            fca_free_rank_info(my_info);
         }
      
         
@@ -440,20 +389,19 @@ static int __create_fca_comm(gasnet_team_handle_t team)
              fca_comm_data->num_local_procs);
  
      comm_size = fca_comm_data->proc_count;
-     ret = gasnet_fca_comm_init(&gasnet_fca_component.fca_ops,
-                     gasnet_fca_component.fca_context,
+     ret = gasnet_fca_comm_init(gasnet_fca_component.fca_context,
                      /*this is a global id of the process in job*/fca_comm_data->my_rank, comm_size,
                      fca_comm_data->local_proc_idx, fca_comm_data->num_local_procs,
                      &fca_comm_data->fca_comm_desc, &fca_comm_data->fca_comm);
      if (ret < 0) {
-         FCA_ERROR("COMM_INIT failed: %s", gasnet_fca_component.fca_ops.strerror(ret));
+         FCA_ERROR("COMM_INIT failed: %s", fca_strerror(ret));
          return GASNET_FCA_ERROR;
      }
      /* get communicator capabilities */
-     ret = gasnet_fca_component.fca_ops.comm_get_caps(fca_comm_data->fca_comm,
+     ret = fca_comm_get_caps(fca_comm_data->fca_comm,
              &fca_comm_data->fca_comm_caps);
      if (ret < 0) {
-         FCA_ERROR("GET_COMM_CAPS failed: %s", gasnet_fca_component.fca_ops.strerror(ret));
+         FCA_ERROR("GET_COMM_CAPS failed: %s", fca_strerror(ret));
          return GASNET_FCA_ERROR;
      }
 
