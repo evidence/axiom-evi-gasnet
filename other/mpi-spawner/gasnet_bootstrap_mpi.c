@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/mpi-spawner/gasnet_bootstrap_mpi.c,v $
- *     $Date: 2012/03/07 21:49:23 $
- * $Revision: 1.19 $
+ *     $Date: 2012/11/19 21:55:07 $
+ * $Revision: 1.20 $
  * Description: GASNet conduit-independent mpi-based spawner
  * Copyright 2003, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -86,14 +86,14 @@ void gasneti_bootstrapBarrier_mpi(void) {
 void gasneti_bootstrapExchange_mpi(void *src, size_t len, void *dest) {
   int err;
 
-  err = MPI_Allgather(src, len, MPI_CHAR, dest, len, MPI_CHAR, gasnetc_mpi_comm);
+  err = MPI_Allgather(src, len, MPI_BYTE, dest, len, MPI_BYTE, gasnetc_mpi_comm);
   gasneti_assert(err == MPI_SUCCESS);
 }
 
 void gasneti_bootstrapAlltoall_mpi(void *src, size_t len, void *dest) {
   int err;
 
-  err = MPI_Alltoall(src, len, MPI_CHAR, dest, len, MPI_CHAR, gasnetc_mpi_comm);
+  err = MPI_Alltoall(src, len, MPI_BYTE, dest, len, MPI_BYTE, gasnetc_mpi_comm);
   gasneti_assert(err == MPI_SUCCESS);
 }
 
@@ -103,7 +103,7 @@ void gasneti_bootstrapBroadcast_mpi(void *src, size_t len, void *dest, int rootn
   if (gasneti_mynode == rootnode) {
     memcpy(dest, src, len);
   }
-  err = MPI_Bcast(dest, len, MPI_CHAR, rootnode, gasnetc_mpi_comm);
+  err = MPI_Bcast(dest, len, MPI_BYTE, rootnode, gasnetc_mpi_comm);
 }
 
 
