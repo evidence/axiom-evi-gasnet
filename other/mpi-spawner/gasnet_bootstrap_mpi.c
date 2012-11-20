@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/mpi-spawner/gasnet_bootstrap_mpi.c,v $
- *     $Date: 2012/11/19 21:55:07 $
- * $Revision: 1.20 $
+ *     $Date: 2012/11/20 05:16:10 $
+ * $Revision: 1.21 $
  * Description: GASNet conduit-independent mpi-based spawner
  * Copyright 2003, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -13,13 +13,25 @@
 #include <signal.h>
 #include <mpi.h>
 
+#if (MPI_VERSION > 2) || (MPI_VERSION == 2 && MPI_SUBVERSION > 1)
+#  define GASNETC_MPI_ALLGATHER_IN_PLACE 1
+#  define GASNETC_MPI_ALLTOALL_IN_PLACE  1
+#elif MPI_VERSION == 2
+#  define GASNETC_MPI_ALLGATHER_IN_PLACE 1
+#  define GASNETC_MPI_ALLTOALL_IN_PLACE  0
+#else
+#  define GASNETC_MPI_ALLGATHER_IN_PLACE 0
+#  define GASNETC_MPI_ALLTOALL_IN_PLACE  0
+#endif
+
 static MPI_Comm gasnetc_mpi_comm;
 static int gasnetc_mpi_preinitialized = 0;
+static int gasnetc_mpi_size = -1;
+static int gasnetc_mpi_rank = -1;
 
 void gasneti_bootstrapInit_mpi(int *argc, char ***argv, gasnet_node_t *nodes, gasnet_node_t *mynode) {
   MPI_Group world;
   int err;
-  int tmp;
 
   /* Call MPI_Init exactly once */
   err = MPI_Initialized(&gasnetc_mpi_preinitialized);
@@ -38,14 +50,14 @@ void gasneti_bootstrapInit_mpi(int *argc, char ***argv, gasnet_node_t *nodes, ga
   gasneti_assert(err == MPI_SUCCESS);
 
   /* Get size and rank */
-  err = MPI_Comm_size(gasnetc_mpi_comm, &tmp);
+  err = MPI_Comm_size(gasnetc_mpi_comm, &gasnetc_mpi_size);
   gasneti_assert(err == MPI_SUCCESS);
-  *nodes = tmp;
-  if ((int)(*nodes) != tmp) *nodes = 0; /* Overflow! */
+  *nodes = gasnetc_mpi_size;
+  if ((int)(*nodes) != gasnetc_mpi_size) *nodes = 0; /* Overflow! */
 
-  err = MPI_Comm_rank(gasnetc_mpi_comm, &tmp);
+  err = MPI_Comm_rank(gasnetc_mpi_comm, &gasnetc_mpi_rank);
   gasneti_assert(err == MPI_SUCCESS);
-  *mynode = tmp;
+  *mynode = gasnetc_mpi_rank;
 
   gasneti_setupGlobalEnvironment(*nodes, *mynode,
 				 &gasneti_bootstrapExchange_mpi,
@@ -84,24 +96,51 @@ void gasneti_bootstrapBarrier_mpi(void) {
 }
 
 void gasneti_bootstrapExchange_mpi(void *src, size_t len, void *dest) {
+  const int inplace = ((uint8_t *)src == (uint8_t *)dest + len * gasnetc_mpi_rank);
   int err;
+
+  if (inplace) {
+#if GASNETC_MPI_ALLGATHER_IN_PLACE
+    src = MPI_IN_PLACE;
+#else
+    src = memcpy(gasneti_malloc(len), src, len);
+#endif
+  }
 
   err = MPI_Allgather(src, len, MPI_BYTE, dest, len, MPI_BYTE, gasnetc_mpi_comm);
   gasneti_assert(err == MPI_SUCCESS);
+
+#if !GASNETC_MPI_ALLGATHER_IN_PLACE
+  if (inplace) gasneti_free(src);
+#endif
 }
 
 void gasneti_bootstrapAlltoall_mpi(void *src, size_t len, void *dest) {
+  const int inplace = (src == dest);
   int err;
+
+  if (inplace) {
+#if GASNETC_MPI_ALLTOALL_IN_PLACE
+    src = MPI_IN_PLACE;
+#else
+    const size_t total_len = len * gasnetc_mpi_size;
+    src = memcpy(gasneti_malloc(total_len), src, total_len);
+#endif
+  }
 
   err = MPI_Alltoall(src, len, MPI_BYTE, dest, len, MPI_BYTE, gasnetc_mpi_comm);
   gasneti_assert(err == MPI_SUCCESS);
+
+#if !GASNETC_MPI_ALLTOALL_IN_PLACE
+  if (inplace) gasneti_free(src);
+#endif
 }
 
 void gasneti_bootstrapBroadcast_mpi(void *src, size_t len, void *dest, int rootnode) {
   int err;
   
-  if (gasneti_mynode == rootnode) {
-    memcpy(dest, src, len);
+  if (gasnetc_mpi_rank == rootnode) {
+    memmove(dest, src, len);
   }
   err = MPI_Bcast(dest, len, MPI_BYTE, rootnode, gasnetc_mpi_comm);
 }
