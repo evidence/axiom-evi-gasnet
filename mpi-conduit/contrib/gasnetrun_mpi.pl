@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2012/04/14 00:37:41 $
-# $Revision: 1.99 $
+#     $Date: 2012/11/21 04:36:44 $
+# $Revision: 1.100 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -107,9 +107,9 @@ sub gasnet_encode($) {
     my $is_bgl_mpi   = ($platform eq 'bgl' && $mpirun_help =~ m|COprocessor or VirtualNode mode|);
     my $is_bgl_cqsub = ($platform eq 'bgl' && $mpirun_help =~ m| cqsub .*?co/vn|s);
 #   my $is_bgp_mpi   = ($platform eq 'bgp' && $mpirun_help =~ m|fake-mpirun| && $mpirun_help =~ m|-partition|);
-    my $is_bgp       = ($platform eq 'bgp' && $mpirun_help =~ m|--mode <mode co/vn>|s);
+    my $is_bgp       = ($platform eq 'bgp' && $mpirun_help =~ m|--mode <mode|s);
     my $is_bgq_cqsub = ($platform eq 'bgq' && $mpirun_help =~ m| <cobaltlog file path>|);
-    my $is_bgq       = ($platform eq 'bgq' && $mpirun_help =~ m|--mode <mode co/vn>|s);
+    my $is_bgq       = ($platform eq 'bgq' && $mpirun_help =~ m|--mode <mode|s);
     my $is_bgq_runjob= ($platform eq 'bgq' && $mpirun_help =~ m|five dimensional sub-block|s);
     my $is_hp_mpi  = ($mpirun_help =~ m|-universe_size|);
     my $is_elan_mpi  = ($mpirun_help =~ m|MPIRUN_ELANIDMAP_FILE|);
