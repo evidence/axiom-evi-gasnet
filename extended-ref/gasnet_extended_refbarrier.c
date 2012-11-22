@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/10/12 23:46:45 $
- * $Revision: 1.141 $
+ *     $Date: 2012/11/22 04:52:00 $
+ * $Revision: 1.142 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -638,6 +638,7 @@ static int gasnete_pshmbarrier_try(gasnete_coll_team_t team, int id, int flags) 
       team->barrier_splitstate = OUTSIDE_BARRIER;
       gasneti_sync_writes();
     } else {
+      GASNETI_WAITHOOK();
       result = GASNET_ERR_NOT_READY;
     }
     return result;
