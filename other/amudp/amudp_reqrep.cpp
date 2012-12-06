@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_reqrep.cpp,v $
- *     $Date: 2007/03/18 01:10:42 $
- * $Revision: 1.45 $
+ *     $Date: 2012/12/06 06:19:27 $
+ * $Revision: 1.46 $
  * Description: AMUDP Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -185,7 +185,8 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
 } while (0)
 #define RUN_HANDLER_MEDIUM(phandlerfn, token, pArgs, numargs, pData, datalen) do {      \
     AMUDP_assert(((int)(uintptr_t)pData) % 8 == 0);  /* we guarantee double-word alignment for data payload of medium xfers */ \
-    _RUN_HANDLER_MEDLONG((AMUDP_HandlerMedium)phandlerfn, (void *)token, pArgs, numargs, (void *)pData, (int)datalen); \
+    AMUDP_HandlerMedium pfn = (AMUDP_HandlerMedium)phandlerfn; /* temp var to work-around a Clang bug */ \
+    _RUN_HANDLER_MEDLONG(pfn, (void *)token, pArgs, numargs, (void *)pData, (int)datalen); \
     } while(0)
 #define RUN_HANDLER_LONG(phandlerfn, token, pArgs, numargs, pData, datalen)             \
   _RUN_HANDLER_MEDLONG((AMUDP_HandlerLong)phandlerfn, (void *)token, pArgs, numargs, (void *)pData, (int)datalen)
