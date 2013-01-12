@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2012/10/12 23:46:43 $ */
-/*  $Revision: 1.184 $ */
+/*      $Date: 2013/01/12 03:01:49 $ */
+/*  $Revision: 1.185 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -204,6 +204,9 @@
 
 /* have pthread_setconcurrency */
 #undef HAVE_PTHREAD_SETCONCURRENCY
+
+/* has pthread_kill() */
+#undef HAVE_PTHREAD_KILL
 
 /* has pthread_kill_other_threads_np() */
 #undef HAVE_PTHREAD_KILL_OTHER_THREADS_NP

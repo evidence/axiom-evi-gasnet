@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2012/11/19 22:00:09 $
-# $Revision: 1.772 $
+#     $Date: 2013/01/12 03:01:49 $
+# $Revision: 1.773 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.772 $)
+AC_REVISION($Revision: 1.773 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1211,6 +1211,7 @@ else
 
   # look for optional pthreads entry points and features
   AC_SEARCH_LIBS(pthread_setconcurrency, pthread pthreads c_r, AC_DEFINE(HAVE_PTHREAD_SETCONCURRENCY))
+  AC_SEARCH_LIBS(pthread_kill, pthread pthreads, AC_DEFINE(HAVE_PTHREAD_KILL))
   AC_SEARCH_LIBS(pthread_kill_other_threads_np, pthread pthreads, AC_DEFINE(HAVE_PTHREAD_KILL_OTHER_THREADS_NP))
 
   GASNET_IF_ENABLED_WITH_AUTO(tls, Enable/disable use of thread-local storage extensions (ie __thread) (auto-detected),

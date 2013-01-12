@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2012/08/24 23:19:52 $
- * $Revision: 1.230 $
+ *     $Date: 2013/01/12 03:01:49 $
+ * $Revision: 1.231 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -320,6 +320,14 @@ static struct {
 #define GASNETC_FATALSIGNAL_CALLBACK(sig)
 #endif
 
+static void do_raise(int sig) {
+#if defined(PTHREAD_MUTEX_INITIALIZER) && !GASNET_SEQ && HAVE_PTHREAD_KILL
+  /* Might fail if unimplemented OR since pthread_self() isn't required to be signal safe */
+  if (0 == pthread_kill(pthread_self(),sig)) return;
+#endif
+  raise(sig);
+}
+
 void gasneti_defaultSignalHandler(int sig) {
   gasneti_sighandlerfn_t oldhandler = NULL;
   gasneti_sighandlerfn_t oldsigpipe = NULL;
@@ -357,13 +365,7 @@ void gasneti_defaultSignalHandler(int sig) {
       (void) gasneti_reghandler(SIGPIPE, oldsigpipe);
 
       signal(sig, SIG_DFL); /* restore default core-dumping handler and re-raise */
-      #if 1
-        raise(sig);
-      #elif 0
-        kill(getpid(),sig);
-      #else
-        oldhandler(sig);
-      #endif
+      do_raise(sig);
       break;
     default: 
       /* translate signal to SIGQUIT */
@@ -380,14 +382,7 @@ void gasneti_defaultSignalHandler(int sig) {
       fflush(stderr);
       (void) gasneti_reghandler(SIGPIPE, oldsigpipe);
 
-      #if 1
-        raise(SIGQUIT);
-      #elif 0
-        kill(getpid(),SIGQUIT);
-      #else
-        oldhandler(SIGQUIT);
-      #endif
-      break;
+      do_raise(SIGQUIT);
   }
 }
 
