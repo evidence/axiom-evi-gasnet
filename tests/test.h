@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2012/07/27 01:18:20 $
- * $Revision: 1.150 $
+ *     $Date: 2013/01/12 00:36:01 $
+ * $Revision: 1.151 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -858,14 +858,23 @@ static int _test_localprocs(void) { /* First call is not thread safe */
 static void _test_set_waitmode(int threads) {
   const int local_procs = TEST_LOCALPROCS();
   if (gasnett_getenv_yesno_withdefault("GASNET_TEST_POLITE_SYNC",0)) return;
-#if PLATFORM_OS_OPENBSD /* userland pthreads impl. runs on a single cpu core */
+#if defined(HAVE_PTHREAD_H) && !defined(GASNET_SEQ)
   if (threads > 1) {
-    if (_test_firstnode == gasnet_mynode())
-      MSG("WARNING: per-proc thread count (%i) exceeds platform's concurrency "
-          "- enabling  \"polite\", low-performance synchronization algorithms",
-          threads);
-    gasnet_set_waitmode(GASNET_WAIT_BLOCK);
-    return;
+    int threads_serialized = 0;
+  #if PLATFORM_OS_OPENBSD
+    /* check for userland "uthreads" running on a single core */
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    threads_serialized = (0 != pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM));
+  #endif
+    if (threads_serialized) {
+      if (_test_firstnode == gasnet_mynode())
+        MSG("WARNING: per-proc thread count (%i) exceeds platform's concurrency "
+            "- enabling  \"polite\", low-performance synchronization algorithms",
+            threads);
+      gasnet_set_waitmode(GASNET_WAIT_BLOCK);
+      return;
+    }
   }
 #endif
 #if PLATFORM_OS_BGP || PLATFORM_OS_BGQ
