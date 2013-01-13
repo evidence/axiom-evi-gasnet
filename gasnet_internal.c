@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2013/01/12 03:01:49 $
- * $Revision: 1.231 $
+ *     $Date: 2013/01/13 07:48:30 $
+ * $Revision: 1.232 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -321,7 +321,8 @@ static struct {
 #endif
 
 static void do_raise(int sig) {
-#if defined(PTHREAD_MUTEX_INITIALIZER) && !GASNET_SEQ && HAVE_PTHREAD_KILL
+#if defined(PTHREAD_MUTEX_INITIALIZER) && !GASNET_SEQ && HAVE_PTHREAD_KILL && 0 
+  /* XXX: This works-around a bug in OpenBSD-5.2 kernel, fixed in OpenBSD-current in Nov 2012 */
   /* Might fail if unimplemented OR since pthread_self() isn't required to be signal safe */
   if (0 == pthread_kill(pthread_self(),sig)) return;
 #endif
