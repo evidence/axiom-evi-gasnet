@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2012/09/07 08:15:28 $
- * $Revision: 1.275 $
+ *     $Date: 2013/01/15 03:42:02 $
+ * $Revision: 1.276 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -921,10 +921,11 @@ static int gasneti_bt_mkstemp(char *filename, int limit) {
   static int gasneti_bt_gdb(int fd) {
     /* Change "backtrace" to "backtrace full" to also see local vars from each frame */
     #if GASNETI_THREADS
-      const char commands[] = "info threads\nthread apply all backtrace 50\ndetach\nquit\n";
+      const char commands[] = "\ninfo threads\nthread apply all backtrace 50\ndetach\nquit\n";
     #else
-      const char commands[] = "backtrace 50\ndetach\nquit\n";
+      const char commands[] = "\nbacktrace 50\ndetach\nquit\n";
     #endif
+    const char shell_rm[]  = "shell rm ";
     const char fmt[] = "%s -nx -batch -x %s '%s' %d";
     static char cmd[sizeof(fmt) + 3*GASNETI_BT_PATHSZ];
     char filename[GASNETI_BT_PATHSZ];
@@ -937,6 +938,14 @@ static int gasneti_bt_mkstemp(char *filename, int limit) {
 
       tmpfd = gasneti_bt_mkstemp(filename,sizeof(filename));
       if (tmpfd < 0) return -1;
+
+      len = sizeof(shell_rm) - 1;
+      rc = write(tmpfd, shell_rm, len);
+      if (rc != len) return -1;
+
+      len = strlen(filename);
+      rc = write(tmpfd, filename, len);
+      if (rc != len) return -1;
 
       len = sizeof(commands) - 1;
       rc = write(tmpfd, commands, len);
@@ -951,7 +960,7 @@ static int gasneti_bt_mkstemp(char *filename, int limit) {
 
     rc = gasneti_system_redirected(cmd, fd);
 
-    (void)unlink(filename);
+    (void)unlink(filename); /* just in case */
 
     return rc;
   }
