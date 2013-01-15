@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2013/01/15 03:42:02 $
- * $Revision: 1.276 $
+ *     $Date: 2013/01/15 04:28:22 $
+ * $Revision: 1.277 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -956,10 +956,14 @@ static int gasneti_bt_mkstemp(char *filename, int limit) {
     }
 
     rc = snprintf(cmd, sizeof(cmd), fmt, gdb, filename, gasneti_exename_bt, (int)getpid());
-    if ((rc < 0) || (rc >= sizeof(cmd))) return -1;
+    if ((rc < 0) || (rc >= sizeof(cmd))) {
+      rc = -1;
+      goto out;
+    }
 
     rc = gasneti_system_redirected(cmd, fd);
 
+out:
     (void)unlink(filename); /* just in case */
 
     return rc;
