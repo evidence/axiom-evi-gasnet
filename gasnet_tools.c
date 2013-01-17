@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2013/01/15 04:28:22 $
- * $Revision: 1.277 $
+ *     $Date: 2013/01/17 04:34:45 $
+ * $Revision: 1.278 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -939,20 +939,18 @@ static int gasneti_bt_mkstemp(char *filename, int limit) {
       tmpfd = gasneti_bt_mkstemp(filename,sizeof(filename));
       if (tmpfd < 0) return -1;
 
+      rc = -1;
+
       len = sizeof(shell_rm) - 1;
-      rc = write(tmpfd, shell_rm, len);
-      if (rc != len) return -1;
+      if (len != write(tmpfd, shell_rm, len)) goto out;
 
       len = strlen(filename);
-      rc = write(tmpfd, filename, len);
-      if (rc != len) return -1;
+      if (len != write(tmpfd, filename, len)) goto out;
 
       len = sizeof(commands) - 1;
-      rc = write(tmpfd, commands, len);
-      if (rc != len) return -1;
+      if (len != write(tmpfd, commands, len)) goto out;
 
-      rc = close(tmpfd);
-      if (rc < 0) return -1;
+      if (0 != close(tmpfd)) goto out;
     }
 
     rc = snprintf(cmd, sizeof(cmd), fmt, gdb, filename, gasneti_exename_bt, (int)getpid());
