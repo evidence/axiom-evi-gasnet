@@ -781,7 +781,7 @@ void gasnetc_poll_local_queue(void)
 	memcpy(gpd->get_target, gpd->bounce_buffer, gpd->get_nbytes);
       }
       if (gpd->flags & GC_POST_UNREGISTER) {
-	status = GNI_MemDeregister(nic_handle, &gpd->mem_handle);
+	status = GNI_MemDeregister(nic_handle, &gpd->pd.local_mem_hndl);
 	gasneti_assert_always (status == GNI_RC_SUCCESS);
       }
       if (gpd->flags & GC_POST_UNBOUNCE) {
@@ -1019,7 +1019,6 @@ void gasnetc_rdma_put(gasnet_node_t dest,
       pd->local_addr = (uint64_t) source_addr;
       status = myRegisterPd(pd);
       gasneti_assert_always (status == GNI_RC_SUCCESS);
-      gpd->mem_handle = pd->local_mem_hndl;
     }
   } else {
     pd->local_addr = (uint64_t) source_addr;
@@ -1120,7 +1119,6 @@ void gasnetc_rdma_get(gasnet_node_t dest,
       pd->local_addr = (uint64_t) dest_addr;
       status = myRegisterPd(pd);
       gasneti_assert_always (status == GNI_RC_SUCCESS);
-      gpd->mem_handle = pd->local_mem_hndl;
     }
   } else {
     pd->local_addr = (uint64_t) dest_addr;
@@ -1481,7 +1479,7 @@ gasneti_auxseg_request_t gasnetc_bounce_auxseg_alloc(gasnet_seginfo_t *auxseg_in
 
 /* AuxSeg setup for registered post descriptors*/
 GASNETI_IDENT(gasneti_pd_auxseg_IdentString, /* XXX: update if gasnetc_post_descriptor_t changes */
-              "$GASNetAuxSeg_pd: 368*(GASNETC_GNI_NUM_PD:" _STRINGIFY(GASNETC_GNI_NUM_PD_DEFAULT)") $");
+              "$GASNetAuxSeg_pd: 336*(GASNETC_GNI_NUM_PD:" _STRINGIFY(GASNETC_GNI_NUM_PD_DEFAULT)") $");
 gasneti_auxseg_request_t gasnetc_pd_auxseg_alloc(gasnet_seginfo_t *auxseg_info) {
   gasneti_auxseg_request_t retval;
   
