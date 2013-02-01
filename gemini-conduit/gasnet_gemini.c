@@ -899,7 +899,7 @@ static gni_return_t myPostRdma(gni_ep_handle_t ep, gni_post_descriptor_t *pd)
 #endif
 
   if (gasnetc_mem_consistency == GASNETC_RELAXED_MEM_CONSISTENCY && pd->type == GNI_POST_RDMA_PUT)
-    pd->rdma_mode |= GNI_RDMAMODE_FENCE;
+    pd->rdma_mode = GNI_RDMAMODE_FENCE;
   for (;;) {
       status = GNI_PostRdma(ep, pd);
       i++;
@@ -968,6 +968,7 @@ void gasnetc_rdma_put(gasnet_node_t dest,
   pd->remote_addr = (uint64_t) dest_addr;
   pd->remote_mem_hndl = peer_segment_data[dest].segment_mem_handle;
   pd->length = nbytes;
+  pd->rdma_mode = 0; /* relaxed mode might have set to GNI_RDMAMODE_FENCE */
 
   /* confirm that the destination is in-segment on the far end */
   gasneti_boundscheck(dest, dest_addr, nbytes);
@@ -1083,6 +1084,7 @@ void gasnetc_rdma_get(gasnet_node_t dest,
   pd->remote_addr = (uint64_t) source_addr;
   pd->remote_mem_hndl = peer_segment_data[dest].segment_mem_handle;
   pd->length = nbytes;
+  pd->rdma_mode = 0; /* relaxed mode might have set to GNI_RDMAMODE_FENCE */
 
   /* confirm that the destination is in-segment on the far end */
   gasneti_boundscheck(dest, source_addr, nbytes);
@@ -1327,6 +1329,7 @@ void gasnetc_init_post_descriptor_pool(void)
   int i;
   gasnetc_post_descriptor_t *data = gasnetc_pd_buffers.addr;
   gasneti_assert_always(data);
+  memset(data, 0, gasnetc_pd_buffers.size); /* Just in case */
   for (i = 0; i < (gasnetc_pd_buffers.size / sizeof(gasnetc_post_descriptor_t)); i += 1) {
     gasneti_lifo_push(&post_descriptor_pool, &data[i]);
   }
