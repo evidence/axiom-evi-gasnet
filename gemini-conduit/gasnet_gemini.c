@@ -1022,6 +1022,8 @@ void gasnetc_rdma_put(gasnet_node_t dest,
   /*  TODO: distnict Put and Get cut-overs */
   if (nbytes <= gasnetc_fma_rdma_cutover) {
       pd->type = GNI_POST_FMA_PUT;
+      if (gasnetc_mem_consistency == GASNETC_RELAXED_MEM_CONSISTENCY)
+        pd->rdma_mode = GNI_RDMAMODE_FENCE;
       GASNETC_LOCK_GNI();
       status = myPostFma(bound_ep_handles[dest], pd);
       GASNETC_UNLOCK_GNI();
@@ -1032,8 +1034,6 @@ void gasnetc_rdma_put(gasnet_node_t dest,
       }
   } else {
       pd->type = GNI_POST_RDMA_PUT;
-      if (gasnetc_mem_consistency == GASNETC_RELAXED_MEM_CONSISTENCY)
-        pd->rdma_mode = GNI_RDMAMODE_FENCE;
       GASNETC_LOCK_GNI();
       status =myPostRdma(bound_ep_handles[dest], pd);
       GASNETC_UNLOCK_GNI();
