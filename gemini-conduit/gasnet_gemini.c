@@ -861,8 +861,10 @@ int gasnetc_send(gasnet_node_t dest,
 }
 
 
-static void print_post_desc(const char *title, gni_post_descriptor_t *cmd) {
-  printf("r %d %s, desc addr %p\n", gasneti_mynode, title, cmd);
+GASNETI_NEVER_INLINE(print_post_desc,
+static void print_post_desc(const char *title, gni_post_descriptor_t *cmd)) {
+  const int in_seg = gasneti_in_segment(gasneti_mynode, (void *) cmd->local_addr, cmd->length);
+  printf("r %d %s-segment %s, desc addr %p\n", gasneti_mynode, (in_seg?"in":"non"), title, cmd);
   printf("r %d status: %ld\n", gasneti_mynode, cmd->status);
   printf("r %d cq_mode_complete: 0x%x\n", gasneti_mynode, cmd->cq_mode_complete);
   printf("r %d cq_mode_type: %d\n", gasneti_mynode, cmd->type);
@@ -950,6 +952,30 @@ static gni_return_t myPostFma(gni_ep_handle_t ep, gni_post_descriptor_t *pd)
   return (status);
 }
 
+/* Register local side of a pd, with bounded retry */
+static gni_return_t myRegisterPd(gni_post_descriptor_t *pd)
+{
+  const uint64_t addr = pd->local_addr;
+  const size_t nbytes = pd->length;
+  const int limit = 10;
+  int count = 0;
+  gni_return_t status;
+
+  GASNETC_LOCK_GNI();
+  do {
+    status = GNI_MemRegister(nic_handle, addr, nbytes, NULL,
+                             gasnetc_memreg_flags, -1, &pd->local_mem_hndl);
+    if_pt (status == GNI_RC_SUCCESS) break;
+    fprintf(stderr, "MemRegister fault %d at %p %lx, code %s\n",
+            count, (void*)addr, (unsigned long)nbytes, gni_return_string(status));
+    if (status != GNI_RC_ERROR_RESOURCE) break; /* Fatal */
+    /* XXX: unlock/poll/lock in hopes of recovering resources? */
+  } while (++count < limit);
+  GASNETC_UNLOCK_GNI();
+
+  return status;
+}
+
 void gasnetc_rdma_put(gasnet_node_t dest,
 		 void *dest_addr, void *source_addr,
 		 size_t nbytes, gasnetc_post_descriptor_t *gpd)
@@ -991,27 +1017,9 @@ void gasnetc_rdma_put(gasnet_node_t dest,
     } else {
       gpd->flags |= GC_POST_UNREGISTER;
       pd->local_addr = (uint64_t) source_addr;
-      GASNETC_LOCK_GNI();
-      {
-	int count = 0;
-	for (;;) {
-	  status = GNI_MemRegister(nic_handle, (uint64_t) source_addr, 
-				   (uint64_t) nbytes, NULL,
-				gasnetc_memreg_flags, -1, &gpd->mem_handle);
-	  if (status == GNI_RC_SUCCESS) break;
-	  if (status == GNI_RC_ERROR_RESOURCE) {
-	    fprintf(stderr, "MemRegister fault %d at  %p %lx, code %s\n", count, source_addr, nbytes,
-		    gni_return_string(status));
-	    count += 1;
-	    if (count >= 10) break;
-	  } else {
-	    break;
-	  }
-	}
-      }
-      GASNETC_UNLOCK_GNI();
+      status = myRegisterPd(pd);
       gasneti_assert_always (status == GNI_RC_SUCCESS);
-      pd->local_mem_hndl = gpd->mem_handle;
+      gpd->mem_handle = pd->local_mem_hndl;
     }
   } else {
     pd->local_addr = (uint64_t) source_addr;
@@ -1028,8 +1036,7 @@ void gasnetc_rdma_put(gasnet_node_t dest,
       status = myPostFma(bound_ep_handles[dest], pd);
       GASNETC_UNLOCK_GNI();
       if_pf (status != GNI_RC_SUCCESS) {
-        const int in_seg = gasneti_in_segment(gasneti_mynode, source_addr, nbytes);
-	print_post_desc((in_seg ? "in-segment-postfma" : "non-segment-postfma"), pd);
+	print_post_desc("postfma", pd);
 	gasnetc_GNIT_Abort("PostFma(Put) failed with %s\n", gni_return_string(status));
       }
   } else {
@@ -1038,8 +1045,7 @@ void gasnetc_rdma_put(gasnet_node_t dest,
       status =myPostRdma(bound_ep_handles[dest], pd);
       GASNETC_UNLOCK_GNI();
       if_pf (status != GNI_RC_SUCCESS) {
-        const int in_seg = gasneti_in_segment(gasneti_mynode, source_addr, nbytes);
-	print_post_desc((in_seg ? "in-segment-postrdma" : "non-segment-postrdma"), pd);
+	print_post_desc("postrdma", pd);
 	gasnetc_GNIT_Abort("PostRdma(Put) failed with %s\n", gni_return_string(status));
       }
   }
@@ -1112,28 +1118,9 @@ void gasnetc_rdma_get(gasnet_node_t dest,
     } else {
       gpd->flags |= GC_POST_UNREGISTER;
       pd->local_addr = (uint64_t) dest_addr;
-      GASNETC_LOCK_GNI();
-      {
-	int count = 0;
-	for (;;) {
-	  status = GNI_MemRegister(nic_handle, (uint64_t) dest_addr, 
-				   (uint64_t) nbytes, NULL,
-				   gasnetc_memreg_flags, -1, &gpd->mem_handle);
-	  if (status == GNI_RC_SUCCESS) break;
-	  if (status == GNI_RC_ERROR_RESOURCE) {
-	    fprintf(stderr, "MemRegister fault %d at  %p %lx, code %s\n",
-		    count, dest_addr, nbytes,
-		    gni_return_string(status));
-	    count += 1;
-	    if (count >= 10) break;
-	  } else {
-	    break;
-	  }
-	}
-      }
-      GASNETC_UNLOCK_GNI();
+      status = myRegisterPd(pd);
       gasneti_assert_always (status == GNI_RC_SUCCESS);
-      pd->local_mem_hndl = gpd->mem_handle;
+      gpd->mem_handle = pd->local_mem_hndl;
     }
   } else {
     pd->local_addr = (uint64_t) dest_addr;
@@ -1148,8 +1135,7 @@ void gasnetc_rdma_get(gasnet_node_t dest,
       status = myPostFma(bound_ep_handles[dest], pd);
       GASNETC_UNLOCK_GNI();
       if_pf (status != GNI_RC_SUCCESS) {
-        const int in_seg = gasneti_in_segment(gasneti_mynode, dest_addr, nbytes);
-	print_post_desc((in_seg ? "in-segment-postfma" : "non-segment-postfma"), pd);
+	print_post_desc("postfma", pd);
 	gasnetc_GNIT_Abort("PostFma(Get) failed with %s\n", gni_return_string(status));
       }
   } else {
@@ -1158,8 +1144,7 @@ void gasnetc_rdma_get(gasnet_node_t dest,
       status =myPostRdma(bound_ep_handles[dest], pd);
       GASNETC_UNLOCK_GNI();
       if_pf (status != GNI_RC_SUCCESS) {
-        const int in_seg = gasneti_in_segment(gasneti_mynode, dest_addr, nbytes);
-	print_post_desc((in_seg ? "in-segment-postrdma" : "non-segment-postrdma"), pd);
+	print_post_desc("postrdma", pd);
 	gasnetc_GNIT_Abort("PostRdma(Get) failed with %s\n", gni_return_string(status));
       }
   }
