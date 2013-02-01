@@ -898,8 +898,6 @@ static gni_return_t myPostRdma(gni_ep_handle_t ep, gni_post_descriptor_t *pd)
   }
 #endif
 
-  if (gasnetc_mem_consistency == GASNETC_RELAXED_MEM_CONSISTENCY && pd->type == GNI_POST_RDMA_PUT)
-    pd->rdma_mode = GNI_RDMAMODE_FENCE;
   for (;;) {
       status = GNI_PostRdma(ep, pd);
       i++;
@@ -1034,6 +1032,8 @@ void gasnetc_rdma_put(gasnet_node_t dest,
       }
   } else {
       pd->type = GNI_POST_RDMA_PUT;
+      if (gasnetc_mem_consistency == GASNETC_RELAXED_MEM_CONSISTENCY)
+        pd->rdma_mode = GNI_RDMAMODE_FENCE;
       GASNETC_LOCK_GNI();
       status =myPostRdma(bound_ep_handles[dest], pd);
       GASNETC_UNLOCK_GNI();
