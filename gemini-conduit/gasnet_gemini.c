@@ -14,8 +14,6 @@ static int gasnetc_am_mem_consistency;
 
 static unsigned int gasnetc_mb_maxcredit;
 
-int gasnetc_smsg_retransmit = 0;
-
 int gasnetc_poll_burst = 10;
 static gasnetc_queue_t smsg_work_queue;
 
@@ -170,7 +168,6 @@ void gasnetc_init_segment(void *segment_start, size_t segment_size)
 uintptr_t gasnetc_init_messaging(void)
 {
   gni_return_t status;
-  gni_nic_device_t device_type;
   gni_smsg_type_t smsg_type;
   uint32_t remote_addr;
   uint32_t i;
@@ -235,17 +232,13 @@ uintptr_t gasnetc_init_messaging(void)
   gasnetc_GNIT_Log("cdmattach");
 #endif
 
-  status = GNI_GetDeviceType(&device_type);
+#if GASNETC_SMSG_RETRANSMIT
+  smsg_type = GNI_SMSG_TYPE_MBOX_AUTO_RETRANSMIT;
+  status = GNI_SmsgSetMaxRetrans(nic_handle, 1);
   gasneti_assert_always (status == GNI_RC_SUCCESS);
-  gasnetc_smsg_retransmit = (device_type != GNI_DEVICE_GEMINI);
-
-  if (gasnetc_smsg_retransmit) {
-    smsg_type = GNI_SMSG_TYPE_MBOX_AUTO_RETRANSMIT;
-    status = GNI_SmsgSetMaxRetrans(nic_handle, 1);
-    gasneti_assert_always (status == GNI_RC_SUCCESS);
-  } else {
-    smsg_type = GNI_SMSG_TYPE_MBOX;
-  }
+#else
+  smsg_type = GNI_SMSG_TYPE_MBOX;
+#endif
  
 #if GASNETC_OPTIMIZE_LIMIT_CQ
   {
@@ -769,6 +762,8 @@ void gasnetc_poll_smsg_queue(void)
   }
 }
 
+#if GASNETC_SMSG_RETRANSMIT
+
 static gasneti_lifo_head_t gasnetc_smsg_pool = GASNETI_LIFO_INITIALIZER;
 static gasneti_lifo_head_t gasnetc_smsg_buffers = GASNETI_LIFO_INITIALIZER;
 static gasnetc_smsg_t **gasnetc_smsg_table = NULL;
@@ -845,6 +840,9 @@ gasnetc_smsg_t *gasnetc_alloc_smsg(void)
   return result;
 }
 
+#endif /* GASNETC_SMSG_RETRANSMIT*/
+
+
 int
 gasnetc_send_smsg(gasnet_node_t dest, 
                   gasnetc_smsg_t *smsg, int header_length, 
@@ -855,16 +853,21 @@ gasnetc_send_smsg(gasnet_node_t dest,
   const int max_trial = 4;
   int trial = 0;
 
-  GASNETI_TRACE_PRINTF(A, ("smsg s from %d to %d type %s\n", gasneti_mynode, dest, gasnetc_type_string(((GC_Header_t *) header)->command)));
-
-  smsg->buffer = !(do_copy && gasnetc_smsg_retransmit) ? NULL :
+#if GASNETC_SMSG_RETRANSMIT
+  const uint32_t msgid = smsg->msgid;
+  smsg->buffer = !do_copy ? NULL :
     (data = data_length ? memcpy(gasnetc_smsg_buffer(data_length), data, data_length) : NULL);
+#else
+  const uint32_t msgid = 0;
+#endif
+
+  GASNETI_TRACE_PRINTF(A, ("smsg s from %d to %d type %s\n", gasneti_mynode, dest, gasnetc_type_string(((GC_Header_t *) header)->command)));
 
   for (;;) {
     GASNETC_LOCK_GNI();
     status = GNI_SmsgSend(bound_ep_handles[dest],
                           header, header_length,
-                          data, data_length, smsg->msgid);
+                          data, data_length, msgid);
     GASNETC_UNLOCK_GNI();
 
     if_pt (status == GNI_RC_SUCCESS) break;
@@ -903,10 +906,12 @@ void gasnetc_poll_local_queue(void)
     if_pt (status == GNI_RC_SUCCESS) {
       gasneti_assert(!GNI_CQ_OVERRUN(event_data));
 
+#if GASNETC_SMSG_RETRANSMIT
       if (GNI_CQ_GET_TYPE(event_data) == GNI_CQ_EVENT_TYPE_SMSG) {
         gasnetc_free_smsg(GNI_CQ_GET_MSG_ID(event_data));
 	continue;
       }
+#endif
 
       status = GNI_GetCompleted(bound_cq_handle, event_data, &pd);
       if (status != GNI_RC_SUCCESS)
@@ -930,12 +935,18 @@ void gasnetc_poll_local_queue(void)
 	gasnetc_free_bounce_buffer(gpd->bounce_buffer);
       }
       if (gpd->flags & GC_POST_SEND) {
-        gasnetc_smsg_t *smsg = gasnetc_smsg_retransmit ? gpd->u.smsg_p : &gpd->u.smsg;
+#if GASNETC_SMSG_RETRANSMIT
+        gasnetc_smsg_t *smsg = gpd->u.smsg_p;
+        const uint32_t msgid = smsg->msgid;
+#else
+        gasnetc_smsg_t *smsg = &gpd->u.smsg;
+        const uint32_t msgid = 0;
+#endif
         gasnetc_am_long_packet_t *galp = &smsg->smsg_header.galp;
         const size_t header_length = GASNETC_HEADLEN(long, galp->header.numargs);
         status = GNI_SmsgSend(bound_ep_handles[gpd->dest],
                               &smsg->smsg_header, header_length,
-                              NULL, 0,  smsg->msgid);
+                              NULL, 0,  msgid);
         gasneti_assert_always (status == GNI_RC_SUCCESS);
       }
 
@@ -963,7 +974,11 @@ void gasnetc_poll(void)
 
 void gasnetc_send_am_nop(uint32_t pe)
 {
+#if GASNETC_SMSG_RETRANSMIT
   static gasnetc_smsg_t m = { { { {GC_CMD_AM_NOP_REPLY, } } }, NULL, GC_SMGS_NOP };
+#else
+  static gasnetc_smsg_t m = { { { {GC_CMD_AM_NOP_REPLY, } } } };
+#endif
   gasneti_assert_zeroret(gasnetc_send_smsg(pe, &m, sizeof(gasnetc_am_nop_packet_t), NULL, 0, 0));
 }
 
@@ -1455,17 +1470,24 @@ static uint32_t sys_exit_rcvd = 0;
    the possibility of GNI_SmsgSend() returning GNI_RC_NOT_DONE. */
 extern void gasnetc_sys_SendShutdownMsg(gasnet_node_t node, int shift, int exitcode)
 {
+#if GASNETC_SMSG_RETRANSMIT
   static gasnetc_smsg_t shutdown_smsg[32];
+  gasnetc_smsg_t *smsg = &shutdown_smsg[shift];
+#else
+  static gasnetc_smsg_t shutdown_smsg;
+  gasnetc_smsg_t *smsg = &shutdown_smsg;
+#endif
   int result;
 
-  gasnetc_smsg_t *smsg = &shutdown_smsg[shift];
   gasnetc_sys_shutdown_packet_t *gssp = &smsg->smsg_header.gssp;
   GASNETI_TRACE_PRINTF(C,("Send SHUTDOWN Request to node %d w/ shift %d, exitcode %d",node,shift,exitcode));
   gssp->header.command = GC_CMD_SYS_SHUTDOWN_REQUEST;
   gssp->header.misc    = exitcode; /* only 15 bits, but exit() only preserves low 8-bits anyway */
   gssp->header.numargs = 0;
   gssp->header.handler = shift; /* log(distance) */
+#if GASNETC_SMSG_RETRANSMIT
   smsg->msgid = GC_SMGS_SHUTDOWN;
+#endif
   gasneti_assert_zeroret(gasnetc_send_smsg(node, smsg, sizeof(gasnetc_sys_shutdown_packet_t), NULL, 0, 0));
 }
 
@@ -1548,8 +1570,8 @@ extern int gasnetc_sys_exit(int *exitcode_p)
     }
   }
 
+  #if GASNETC_SMSG_RETRANSMIT
   /* drain send completion events to avoid NOT_DONE at unbind: */
-  if (gasnetc_smsg_retransmit) {
     while (gasneti_weakatomic_read(&shutdown_smsg_counter, GASNETI_ATOMIC_NONE) != shift) {
       gasnetc_poll_local_queue();
       if (gasneti_ticks_to_us(gasneti_ticks_now() - starttime) > timeout_us) {
@@ -1557,7 +1579,7 @@ extern int gasnetc_sys_exit(int *exitcode_p)
         goto out;
       }
     }
-  }
+  #endif
     
 out:
   oldcode = gasneti_atomic_read((gasneti_atomic_t *) &gasnetc_exitcode, 0);

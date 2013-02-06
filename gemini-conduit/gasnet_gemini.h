@@ -30,6 +30,12 @@
   #define GASNETC_DEFAULT_AM_MEM_CONSISTENCY    GASNETC_STRICT_MEM_CONSISTENCY
 #endif
 
+#if GASNET_CONDUIT_GEMINI
+  #define GASNETC_SMSG_RETRANSMIT 0
+#else
+  #define GASNETC_SMSG_RETRANSMIT 1
+#endif
+
 #ifdef GASNETC_DEBUG
 #define GC_DEBUG(x) x
 #define STATS(x) x
@@ -208,11 +214,11 @@ typedef union gasnetc_eq_packet {
 /* XXX: warning if this changes then also edit gasnet_gemini.c:gasnetc_send_am_nop() */
 typedef struct {
   gasnetc_packet_t smsg_header;
+#if GASNETC_SMSG_RETRANSMIT
   void *buffer;
   uint32_t msgid;
+#endif
 } gasnetc_smsg_t;
-
-extern int gasnetc_smsg_retransmit;
 
 
 /* Routines in gc_utils.c */
@@ -311,8 +317,11 @@ typedef struct gasnetc_post_descriptor {
   gasnete_op_t *completion;
   gni_post_descriptor_t pd;
   union {
-    gasnetc_smsg_t smsg;
+  #if GASNETC_SMSG_RETRANSMIT
     gasnetc_smsg_t *smsg_p;
+  #else
+    gasnetc_smsg_t smsg;
+  #endif
     char immediate[GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE];
   } u;
 } gasnetc_post_descriptor_t;
@@ -342,7 +351,9 @@ void gasnetc_shutdown(void); /* clean up all gni state */
 void gasnetc_poll_local_queue(void);
 void gasnetc_poll(void);
 
+#if GASNETC_SMSG_RETRANSMIT
 gasnetc_smsg_t *gasnetc_alloc_smsg(void);
+#endif
 
 int gasnetc_send_smsg(gasnet_node_t dest,
             gasnetc_smsg_t *smsg, int header_length,
