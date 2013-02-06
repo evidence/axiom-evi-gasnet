@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami.c,v $
- *     $Date: 2012/09/19 20:06:08 $
- * $Revision: 1.33 $
+ *     $Date: 2013/02/06 18:52:20 $
+ * $Revision: 1.34 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -43,7 +43,6 @@ gasnetc_dflt_coll_alg(pami_geometry_t geom, pami_xfer_type_t op, pami_algorithm_
 
   rc = PAMI_Geometry_algorithms_num(geom, op, counts);
   GASNETC_PAMI_CHECK(rc, "calling PAMI_Geometry_algorithms_num()");
-  gasneti_assert_always(counts[0] != 0);
   fullcount = counts[0] + counts[1];
 
   /* Space for algorithms and metadata */
