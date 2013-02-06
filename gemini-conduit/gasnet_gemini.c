@@ -8,6 +8,14 @@
 
 #define GASNETC_NETWORKDEPTH_DEFAULT 12
 
+#ifdef GASNET_CONDUIT_GEMINI
+  /* Use dual-events + PI_FLUSH to get "proper" ordering w/ relaxed and default PI ordering */
+  #define FIX_HT_ORDERING 1
+  static uint16_t gasnetc_fma_put_cq_mode = GNI_CQMODE_GLOBAL_EVENT;
+#else
+  #define FIX_HT_ORDERING 0
+#endif
+
 static uint32_t gasnetc_memreg_flags;
 static int gasnetc_mem_consistency;
 static int gasnetc_am_mem_consistency;
@@ -51,6 +59,7 @@ static gni_nic_handle_t nic_handle;
 static gni_ep_handle_t *bound_ep_handles;
 static gni_cq_handle_t bound_cq_handle;
 static gni_cq_handle_t smsg_cq_handle;
+static gni_cq_handle_t destination_cq_handle;
 
 static void *smsg_mmap_ptr;
 static size_t smsg_mmap_bytes;
@@ -123,7 +132,7 @@ void gasnetc_init_segment(void *segment_start, size_t segment_size)
   }
   switch (gasnetc_mem_consistency) {
     case GASNETC_STRICT_MEM_CONSISTENCY:
-      gasnetc_memreg_flags = GNI_MEM_STRICT_PI_ORDERING | GNI_MEM_PI_FLUSH;
+      gasnetc_memreg_flags = GNI_MEM_STRICT_PI_ORDERING;
       break;
     case GASNETC_RELAXED_MEM_CONSISTENCY:
       gasnetc_memreg_flags = GNI_MEM_RELAXED_PI_ORDERING;
@@ -134,13 +143,24 @@ void gasnetc_init_segment(void *segment_start, size_t segment_size)
   }
   gasnetc_memreg_flags |= GNI_MEM_READWRITE;
 
+#if FIX_HT_ORDERING
+  if (gasnetc_mem_consistency != GASNETC_STRICT_MEM_CONSISTENCY) {
+    gasnetc_memreg_flags |= GNI_MEM_PI_FLUSH; 
+    gasnetc_fma_put_cq_mode |= GNI_CQMODE_REMOTE_EVENT;
+
+    /* With 1 completion entry this queue is INTENDED to always overflow */
+    status = GNI_CqCreate(nic_handle, 1, 0, GNI_CQ_NOBLOCK, NULL, NULL, &destination_cq_handle);
+    gasneti_assert_always (status == GNI_RC_SUCCESS);
+  }
+#endif
+
   mypeersegmentdata.segment_base = segment_start;
   mypeersegmentdata.segment_size = segment_size;
   {
     int count = 0;
     for (;;) {
       status = GNI_MemRegister(nic_handle, (uint64_t) segment_start, 
-			       (uint64_t) segment_size, NULL,
+			       (uint64_t) segment_size, destination_cq_handle,
 			       gasnetc_memreg_flags, -1, 
 			       &mypeersegmentdata.segment_mem_handle);
       if (status == GNI_RC_SUCCESS) break;
@@ -195,7 +215,7 @@ uintptr_t gasnetc_init_messaging(void)
   }
   switch (gasnetc_am_mem_consistency) {
     case GASNETC_STRICT_MEM_CONSISTENCY:
-      am_memreg_flags = GNI_MEM_STRICT_PI_ORDERING | GNI_MEM_PI_FLUSH;
+      am_memreg_flags = GNI_MEM_STRICT_PI_ORDERING;
       break;
     case GASNETC_RELAXED_MEM_CONSISTENCY:
       am_memreg_flags = GNI_MEM_RELAXED_PI_ORDERING;
@@ -205,8 +225,11 @@ uintptr_t gasnetc_init_messaging(void)
       break;
   }
 
-  if (gasnetc_mem_consistency == GASNETC_RELAXED_MEM_CONSISTENCY)
-    modes |= GNI_CDM_MODE_BTE_SINGLE_CHANNEL;
+#if FIX_HT_ORDERING
+  if (gasnetc_mem_consistency != GASNETC_STRICT_MEM_CONSISTENCY) {
+    modes |= GNI_CDM_MODE_DUAL_EVENTS;
+  }
+#endif
 
 #if GASNETC_DEBUG
   gasnetc_GNIT_Log("entering");
@@ -467,6 +490,10 @@ void gasnetc_shutdown(void)
 			     &mypeerdata.smsg_attr.mem_hndl);
   gasneti_assert_always (status == GNI_RC_SUCCESS);
 
+  if (destination_cq_handle) {
+    status = GNI_CqDestroy(destination_cq_handle);
+    gasneti_assert_always (status == GNI_RC_SUCCESS);
+  }
 
   status = GNI_CqDestroy(smsg_cq_handle);
   gasneti_assert_always (status == GNI_RC_SUCCESS);
@@ -1114,7 +1141,6 @@ void gasnetc_rdma_put(gasnet_node_t dest,
   pd->remote_addr = (uint64_t) dest_addr;
   pd->remote_mem_hndl = peer_segment_data[dest].segment_mem_handle;
   pd->length = nbytes;
-  pd->rdma_mode = 0; /* relaxed mode might have set to GNI_RDMAMODE_FENCE */
 
   /* confirm that the destination is in-segment on the far end */
   gasneti_boundscheck(dest, dest_addr, nbytes);
@@ -1151,8 +1177,9 @@ void gasnetc_rdma_put(gasnet_node_t dest,
   /*  TODO: distnict Put and Get cut-overs */
   if (nbytes <= gasnetc_fma_rdma_cutover) {
       pd->type = GNI_POST_FMA_PUT;
-      if (gasnetc_mem_consistency == GASNETC_RELAXED_MEM_CONSISTENCY)
-        pd->rdma_mode = GNI_RDMAMODE_FENCE;
+#if FIX_HT_ORDERING
+      pd->cq_mode = gasnetc_fma_put_cq_mode;
+#endif
       GASNETC_LOCK_GNI();
       status = myPostFma(bound_ep_handles[dest], pd);
       GASNETC_UNLOCK_GNI();
@@ -1211,7 +1238,6 @@ void gasnetc_rdma_get(gasnet_node_t dest,
   pd->remote_addr = (uint64_t) source_addr;
   pd->remote_mem_hndl = peer_segment_data[dest].segment_mem_handle;
   pd->length = nbytes;
-  pd->rdma_mode = 0; /* relaxed mode might have set to GNI_RDMAMODE_FENCE */
 
   /* confirm that the destination is in-segment on the far end */
   gasneti_boundscheck(dest, source_addr, nbytes);
