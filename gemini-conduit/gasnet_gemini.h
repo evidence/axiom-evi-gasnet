@@ -205,6 +205,16 @@ typedef union gasnetc_eq_packet {
 #define GASNETC_MAX_PACKED_LONG(nargs) \
         (GASNETC_MSG_MAXSIZE - GASNETC_HEADLEN(long, (nargs)) - 8)
 
+/* XXX: warning if this changes then also edit gasnet_gemini.c:gasnetc_send_am_nop() */
+typedef struct {
+  gasnetc_packet_t smsg_header;
+  void *buffer;
+  uint32_t msgid;
+} gasnetc_smsg_t;
+
+extern int gasnetc_smsg_retransmit;
+
+
 /* Routines in gc_utils.c */
 
 uint32_t *gasnetc_UGNI_AllAddr;
@@ -301,7 +311,8 @@ typedef struct gasnetc_post_descriptor {
   gasnete_op_t *completion;
   gni_post_descriptor_t pd;
   union {
-    gasnetc_am_long_packet_t galp;
+    gasnetc_smsg_t smsg;
+    gasnetc_smsg_t *smsg_p;
     char immediate[GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE];
   } u;
 } gasnetc_post_descriptor_t;
@@ -331,9 +342,11 @@ void gasnetc_shutdown(void); /* clean up all gni state */
 void gasnetc_poll_local_queue(void);
 void gasnetc_poll(void);
 
-int gasnetc_send(gasnet_node_t dest, 
-	     void *header, int header_length, 
-	    void *data, int data_length);
+gasnetc_smsg_t *gasnetc_alloc_smsg(void);
+
+int gasnetc_send_smsg(gasnet_node_t dest,
+            gasnetc_smsg_t *smsg, int header_length,
+            void *data, int data_length, int do_copy);
 
 void gasnetc_rdma_put(gasnet_node_t dest,
 		 void *dest_addr, void *source_addr,
