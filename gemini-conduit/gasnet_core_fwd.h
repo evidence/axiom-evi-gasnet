@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core_fwd.h,v $
- *     $Date: 2012/08/10 23:04:02 $
- * $Revision: 1.7 $
+ *     $Date: 2013/02/06 07:51:12 $
+ * $Revision: 1.8 $
  * Description: GASNet header for <conduitname> conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -15,11 +15,16 @@
 
 #define GASNET_CORE_VERSION      0.3
 #define GASNET_CORE_VERSION_STR  _STRINGIFY(GASNET_CORE_VERSION)
-#define GASNET_CORE_NAME         GEMINI
+#if defined GASNET_CONDUIT_GEMINI
+  #define GASNET_CORE_NAME       GEMINI
+#elif defined GASNET_CONDUIT_ARIES
+  #define GASNET_CORE_NAME       ARIES
+#else
+  #error "Exactly one of GASNET_CONDUIT_GEMINI or GASNET_CONDUIT_ARIES must be defined"
+#endif
 #define GASNET_CORE_NAME_STR     _STRINGIFY(GASNET_CORE_NAME)
 #define GASNET_CONDUIT_NAME      GASNET_CORE_NAME
 #define GASNET_CONDUIT_NAME_STR  _STRINGIFY(GASNET_CONDUIT_NAME)
-#define GASNET_CONDUIT_GEMINI 1
 
   /* GASNET_PSHM defined 1 if this conduit supports PSHM. leave undefined otherwise. */
 #if GASNETI_PSHM_ENABLED
