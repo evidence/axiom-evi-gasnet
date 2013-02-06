@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2013/01/12 03:01:49 $
-# $Revision: 1.773 $
+#     $Date: 2013/02/06 07:24:22 $
+# $Revision: 1.774 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.773 $)
+AC_REVISION($Revision: 1.774 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -3988,23 +3988,22 @@ AM_CONDITIONAL(USE_PORTALS_CONDUIT, test "$have_portals" = yes)
 CONDUIT_END([test "$have_portals" = yes])
 
 #--------------------------------------------------------------------------------------------------------
-# Gemini Conduit
+# Gemini and Aries Conduits
 
-CONDUIT_BEGIN(gemini,[Gemini network conduit (gemini)])
+# set up include path for gni headers and pmi
+AC_DEFUN([GASNET_CHECK_GNI],[
+pushdef([lowername],translit($1,'A-Z','a-z'))
+
 # gni only supported on compute node linux for now (cnl)
 case "$target" in
   *-cnl-*) ;;
-  *) if test "$force_gemini" != "yes"; then
-       enabled_gemini=no 
+  *) if test "$force_[]lowername" != "yes"; then
+       enabled_[]lowername=no 
      fi
   ;;
 esac
-# for now don't support everything
-CONDUIT_DISALLOW_SEGMENT(everything)
-
-# set up include path for gni headers and pmi
-if test "$enabled_gemini" = yes; then
-  have_gemini=yes # start by assuming we have it
+if test ${gni_network}:${enabled_[]lowername} = lowername[]:yes; then
+  have_[]lowername=yes # start by assuming we have it
 
   GASNET_ENV_DEFAULT(PE_DIR, /opt/cray)
   cray_pmi_guess=`pkg-config cray-pmi --cflags 2>/dev/null`
@@ -4018,22 +4017,22 @@ if test "$enabled_gemini" = yes; then
   fi
   GASNET_ENV_DEFAULT(GNI_CFLAGS, "$cray_gni_guess")
 
-  GEMINI_INCLUDES="${GNI_CFLAGS} ${PMI_CFLAGS}"
-  GASNET_ENV_DEFAULT(GEMINI_LIBS,)
+  GNI_INCLUDES="${GNI_CFLAGS} ${PMI_CFLAGS}"
+  GASNET_ENV_DEFAULT(GNI_LIBS,)
 
-  GASNET_PUSHVAR(CPPFLAGS,"$CPPFLAGS ${GEMINI_INCLUDES}")
-  GASNET_PUSHVAR(LIBS,"$LIBS ${GEMINI_LIBS}")
+  GASNET_PUSHVAR(CPPFLAGS,"$CPPFLAGS ${GNI_INCLUDES}")
+  GASNET_PUSHVAR(LIBS,"$LIBS ${GNI_LIBS}")
 
-  # These duplicate part of the "working Gemini configuration" probe.
+  # These duplicate part of the "working Gemini/Aries configuration" probe.
   # However, failing on these can help distinguish which module is missing/broken.
-  AC_CHECK_HEADERS(pmi_cray.h, [:], [have_gemini=no])
-  AC_CHECK_HEADERS(gni_pub.h, [:], [have_gemini=no])
+  AC_CHECK_HEADERS(pmi_cray.h, [:], [have_[]lowername=no])
+  AC_CHECK_HEADERS(gni_pub.h, [:], [have_[]lowername=no])
 
-  if test $have_gemini = yes; then
+  if test $have_[]lowername = yes; then
     # If/when we use firehose we need to disable certain optimizations.
     #GASNET_FH_CFLAGS
 
-    GASNET_TRY_CACHE_LINK(for working Gemini configuration, gemini_works, [
+    GASNET_TRY_CACHE_LINK(for working $1 configuration, lowername[]_works, [
       #include <stddef.h>
       #include <stdint.h>
       #include <gni_pub.h>
@@ -4050,12 +4049,37 @@ if test "$enabled_gemini" = yes; then
   GASNET_POPVAR(LIBS)
   GASNET_POPVAR(CPPFLAGS)
 
-  AC_SUBST(GEMINI_LIBS)
-  AC_SUBST(GEMINI_INCLUDES)
+  AC_SUBST(GNI_LIBS)
+  AC_SUBST(GNI_INCLUDES)
 fi
+popdef([lowername])
+])
 
+AC_MSG_CHECKING(for GNI network type)
+if test ${CRAYPE_NETWORK_TARGET:+set} = set ; then
+  gni_network=${CRAYPE_NETWORK_TARGET}
+elif test ${XTPE_NETWORK_TARGET:+set} = set ; then
+  gni_network=${XTPE_NETWORK_TARGET}
+else
+  gni_network="unknown"
+fi
+AC_MSG_RESULT($gni_network)
+
+CONDUIT_BEGIN(gemini,[Gemini network conduit (gemini)])
+CONDUIT_DISALLOW_SEGMENT(everything)
+if test "$enabled_gemini" = yes; then
+  GASNET_CHECK_GNI(Gemini)
+fi
 AM_CONDITIONAL(USE_GEMINI_CONDUIT, test "$have_gemini" = yes)
 CONDUIT_END([test "$have_gemini" = yes])
+
+CONDUIT_BEGIN(aries,[Aries network conduit (aries)])
+CONDUIT_DISALLOW_SEGMENT(everything)
+if test "$enabled_aries" = yes; then
+  GASNET_CHECK_GNI(Aries)
+fi
+AM_CONDITIONAL(USE_ARIES_CONDUIT, test "$have_aries" = yes)
+CONDUIT_END([test "$have_aries" = yes])
 
 #--------------------------------------------------------------------------------------------------------
 # SHMEM configuration
@@ -5407,6 +5431,9 @@ portals-conduit/conduit.mak
 
 gemini-conduit/Makefile
 gemini-conduit/conduit.mak
+
+aries-conduit/Makefile
+aries-conduit/conduit.mak
 
 other/Makefile-conduit.mak
 other/fragment-head.mak

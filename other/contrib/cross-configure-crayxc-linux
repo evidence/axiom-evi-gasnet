@@ -9,8 +9,8 @@
 # NOTE: this relies on module-established PATH setting to automatically 
 # select the GCC or PGI-based MPI compilers, based on which PrgEnv is currently loaded
 # The same PrgEnv *must* be loaded when building and using the GASNet install
-CC='cc -target=linux'  # vanilla target C compiler
-CXX='CC -target=linux' # vanilla target C++ compiler
+CC='cc'  # vanilla target C compiler
+CXX='CC' # vanilla target C++ compiler
 
 # Default optimization on ICC is an irritation:
 # -wd10120 suppresses "command line warning #10120: overriding '-O0' with '-O3'"
@@ -22,8 +22,6 @@ fi
 
 export CC
 export CXX
-
-XTPE_INFO_MESSAGE_OFF=1 ; export XTPE_INFO_MESSAGE_OFF  # magic variable to disable Cray cc's target INFO warning
 
 # Host C compiler
 # NOTE: you may need to set GCC_EXEC_PREFIX=/usr/bin/
@@ -41,12 +39,7 @@ MPI_CC="$CC" ; export MPI_CC     # MPI-enabled C compiler
 #MPI_CFLAGS='' ; export MPI_CFLAGS  # flags for MPI_CC
 MPI_LIBS='' ; export MPI_LIBS      # libs for linking with MPI_CC
 MPIRUN_CMD="${APRUN:-aprun} -n %N %C" ; export MPIRUN_CMD  # launch command for MPI jobs
-if test -f /usr/include/nptl/pthread.h -a -d /usr/lib64/nptl ; then # PE <= 2.0 use a patched version of NPTL
-  NPTL_PTHREAD_ARGS='--enable-pthreads --with-pthreads-lib=/usr/lib64/nptl --with-pthreads-include=/usr/include/nptl --with-pthreads-patch=other/contrib/crayxt-nptl-pthread-patch'
-else
-  NPTL_PTHREAD_ARGS='--enable-pthreads'
-fi
-EXTRA_CONFIGURE_ARGS="--enable-mpi --disable-gemini --disable-aries --disable-udp --disable-amudp --disable-aligned-segments $NPTL_PTHREAD_ARGS"
+EXTRA_CONFIGURE_ARGS="--enable-mpi --disable-udp --disable-amudp --disable-portals --disable-aligned-segments --enable-aries --enable-pshm --disable-pshm-posix --enable-pshm-xpmem"
 # OS string for test harness purposes
 EXTRA_CONFIGURE_ARGS="$EXTRA_CONFIGURE_ARGS --with-feature-list=os_cnl"
 # minimal backtracing support

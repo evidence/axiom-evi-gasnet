@@ -1,9 +1,14 @@
-GASNet gemini-conduit documentation
+GASNet gemini-conduit and aries-conduit documentation
 Larry Stewart <stewart@serissa.com> 
-$Revision: 1.11 $
+$Revision: 1.12 $
 
 User Information:
 -----------------
+
+This documentation covers both gemini-conduit (for the Cray XE and XK
+series) and aries-conduit (for the Cray XC).  The terms "Gemini" and
+"gemini-conduit" are used throughout this document when both gemini
+and aries are meant.
 
 Recognized environment variables:
 ---------------------------------
