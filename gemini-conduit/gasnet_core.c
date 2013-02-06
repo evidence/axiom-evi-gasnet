@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/02/06 05:32:35 $
- * $Revision: 1.27 $
+ *     $Date: 2013/02/06 07:57:04 $
+ * $Revision: 1.28 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -51,6 +51,17 @@ static void gasnetc_check_config(void) {
   gasneti_assert(0 == (1 & GC_CMD_AM_SHORT_REPLY));
   gasneti_assert(0 == (1 & GC_CMD_AM_MEDIUM_REPLY));
   gasneti_assert(0 == (1 & GC_CMD_AM_LONG_REPLY));
+
+  { gni_nic_device_t device_type;
+    gni_return_t status = GNI_GetDeviceType(&device_type);
+    gasneti_assert_always (status == GNI_RC_SUCCESS);
+#ifdef GASNET_CONDUIT_GEMINI
+    gasneti_assert_always (device_type == GNI_DEVICE_GEMINI);
+#endif
+#ifdef GASNET_CONDUIT_ARIES
+    gasneti_assert_always (device_type == GNI_DEVICE_ARIES);
+#endif
+  }
 }
 
 static void gasnetc_bootstrapBarrier(void) {
