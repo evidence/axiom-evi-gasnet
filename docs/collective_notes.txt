@@ -1,6 +1,6 @@
 GASNet collectives design notes
 ===============================
-* $Revision: 1.37 $
+* $Revision: 1.38 $
 * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu> and Paul Hargrove <PHHargrove@lbl.gov>
 * Terms of use are as specified in license.txt
 
@@ -1190,7 +1190,7 @@ gasnet_coll_init(const gasnet_image_t images[], gasnet_image_t my_image,
  *  + Broadcast:
  *    The source block may legally be identical to any one of the
  *    destination blocks.
- *  + Scatter, Gather, Gather_all and Exchange:
+ *  + Scatter, Gather, and Gather_all:
  *    The i'th block of the source may legally be identical to the
  *    i'th block of the destination.
  *  + Exchange
