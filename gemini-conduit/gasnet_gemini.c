@@ -1011,21 +1011,13 @@ static gni_return_t myPostRdma(gni_ep_handle_t ep, gni_post_descriptor_t *pd)
     gasnetc_poll_local_queue();
     GASNETC_LOCK_GNI();
   }
+  outstanding_req++;
 #endif
-
   for (;;) {
       status = GNI_PostRdma(ep, pd);
-      i++;
-#if GASNETC_OPTIMIZE_LIMIT_CQ
-      if (status == GNI_RC_SUCCESS) {
-        outstanding_req++; /* already lock protected */
-        break;
-      }
-#else
-      if (status == GNI_RC_SUCCESS) break;
-#endif
+      if (status == GNI_RC_SUCCESS) return status;
       if (status != GNI_RC_ERROR_RESOURCE) break;
-      if (i >= 1000) {
+      if (++i >= 1000) {
 	fprintf(stderr, "postrdma retry failed\n");
 	break;
       }
@@ -1033,6 +1025,10 @@ static gni_return_t myPostRdma(gni_ep_handle_t ep, gni_post_descriptor_t *pd)
       gasnetc_poll_local_queue();
       GASNETC_LOCK_GNI();
   }
+#if GASNETC_OPTIMIZE_LIMIT_CQ
+  gasneti_assert(status != GNI_RC_SUCCESS);
+  outstanding_req--;  /* failed */
+#endif
   return (status);
 }
 
@@ -1041,27 +1037,30 @@ static gni_return_t myPostFma(gni_ep_handle_t ep, gni_post_descriptor_t *pd)
   gni_return_t status;
   int i;
   i = 0;
-
+#if GASNETC_OPTIMIZE_LIMIT_CQ
+  while (outstanding_req >= max_outstanding_req) {
+    GASNETC_UNLOCK_GNI();
+    gasnetc_poll_local_queue();
+    GASNETC_LOCK_GNI();
+  }
+  outstanding_req++;
+#endif
   for (;;) {
       status = GNI_PostFma(ep, pd);
-      i++;
-#if GASNETC_OPTIMIZE_LIMIT_CQ
-      if (status == GNI_RC_SUCCESS) {
-        outstanding_req++;  /* already lock protected */
-        break;
-      }
-#else
-      if (status == GNI_RC_SUCCESS) break;
-#endif
+      if (status == GNI_RC_SUCCESS) return status;
       if (status != GNI_RC_ERROR_RESOURCE) break;
-      if (i >= 1000) {
-	fprintf(stderr, "postrdma retry failed\n");
+      if (++i >= 1000) {
+	fprintf(stderr, "postfma retry failed\n");
 	break;
       }
       GASNETC_UNLOCK_GNI();
       gasnetc_poll_local_queue();
       GASNETC_LOCK_GNI();
   }
+#if GASNETC_OPTIMIZE_LIMIT_CQ
+  gasneti_assert(status != GNI_RC_SUCCESS);
+  outstanding_req--;  /* failed */
+#endif
   return (status);
 }
 
