@@ -1,5 +1,5 @@
 Gemini-conduit design notes, from code review 8/2010
-$Revision: 1.8 $
+$Revision: 1.9 $
 
 number of bounce buffers, make clear the effects of, in the readme
 
@@ -114,9 +114,9 @@ read -h output for the tests
 testlarge and testsmall have -in to have source be in-segment
 
 
-gc_rdma_get doesn't use immediate bounce buffer!
+DONE gc_rdma_get doesn't use immediate bounce buffer!
 
-gc_rdma_get doesn't retry memregister the way gc_rdma_put does
+DONE gc_rdma_get doesn't retry memregister the way gc_rdma_put does
 
 
 Separate concept of size of immediate bounce buffer from the concept of when to switch from FMA to RDMA  (fma->rdma at 1 K for MPI 4K for libpgas)
