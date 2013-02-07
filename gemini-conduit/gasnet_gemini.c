@@ -216,7 +216,7 @@ uintptr_t gasnetc_init_messaging(void)
   }
   switch (gasnetc_am_mem_consistency) {
     case GASNETC_STRICT_MEM_CONSISTENCY:
-      am_memreg_flags = GNI_MEM_STRICT_PI_ORDERING;
+      am_memreg_flags = GNI_MEM_STRICT_PI_ORDERING | GNI_MEM_PI_FLUSH;
       break;
     case GASNETC_RELAXED_MEM_CONSISTENCY:
       am_memreg_flags = GNI_MEM_RELAXED_PI_ORDERING;
