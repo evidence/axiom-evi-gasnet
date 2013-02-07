@@ -1,6 +1,6 @@
 GASNet gemini-conduit and aries-conduit documentation
 Larry Stewart <stewart@serissa.com> 
-$Revision: 1.13 $
+$Revision: 1.14 $
 
 User Information:
 -----------------
@@ -56,18 +56,7 @@ GASNETC_GNI_MEM_CONSISTENCY
   GNI_MEM_RELAXED_PI_ORDERING, or neither when registering memory
   for RDMA.
   The legal values are the strings "strict", "relaxed" or "default".
-
-  In this release the default is "strict", which was the only option
-  available prior to GASNET 1.20.0.
-
-  NOTICE: Experiments with "relaxed" ordering for RDMA have shown a
-  measurable improvement in speed of certain benchmarks, but is also
-  known to produce subtle violations of the GASNet memory consistency
-  model.  Specifically remote Puts are considered complete "too early",
-  resulting in the possible return of out-of-date results from remote
-  Gets of the same location.  In testing, this leads to incorrect
-  results in at least one high-level usage pattern (reduction via
-  lock-protected accumulator).
+  In this release the default is "relaxed".
 
 GASNET_DEFAULT_PHYSMEM_PINNBLE_RATIO - default 0.75
 GASNET_PHYSMEM_MAX - default <size of physmem> * <pinnable ratio>
