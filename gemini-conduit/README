@@ -1,6 +1,6 @@
 GASNet gemini-conduit and aries-conduit documentation
 Larry Stewart <stewart@serissa.com> 
-$Revision: 1.12 $
+$Revision: 1.13 $
 
 User Information:
 -----------------
@@ -52,16 +52,13 @@ GASNETC_GNI_BOUNCE_SIZE      - default 262144
   it will poll the rdma completion queue until one is returned.
 
 GASNETC_GNI_MEM_CONSISTENCY
-GASNETC_GNI_AM_MEM_CONSISTENCY
-  These control the use of the flag GNI_MEM_STRICT_PI_ORDERING,
-  GNI_MEM_RELAXED_PI_ORDERING, or neither when registering memory.  The
-  legal values are the strings "strict", "relaxed" or "default".  The
-  value of GASNETC_GNI_MEM_CONSISTENCY controls memory registration for
-  RDMA, while GASNETC_GNI_AM_MEM_CONSISTENCY is for registration of
-  memory used to receive Active Messages.
+  This control the use of the flag GNI_MEM_STRICT_PI_ORDERING,
+  GNI_MEM_RELAXED_PI_ORDERING, or neither when registering memory
+  for RDMA.
+  The legal values are the strings "strict", "relaxed" or "default".
 
-  In this release both settings default to "strict", which was the only
-  option available prior to GASNET 1.20.0.
+  In this release the default is "strict", which was the only option
+  available prior to GASNET 1.20.0.
 
   NOTICE: Experiments with "relaxed" ordering for RDMA have shown a
   measurable improvement in speed of certain benchmarks, but is also

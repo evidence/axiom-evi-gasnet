@@ -18,7 +18,6 @@
 
 static uint32_t gasnetc_memreg_flags;
 static int gasnetc_mem_consistency;
-static int gasnetc_am_mem_consistency;
 
 static unsigned int gasnetc_mb_maxcredit;
 
@@ -194,37 +193,7 @@ uintptr_t gasnetc_init_messaging(void)
   uint32_t i;
   unsigned int bytes_per_mbox;
   unsigned int bytes_needed;
-  uint32_t am_memreg_flags = 0;
   int modes = 0;
-
-  gasnetc_am_mem_consistency = GASNETC_DEFAULT_AM_MEM_CONSISTENCY;
-  { char * envval = gasneti_getenv("GASNETC_GNI_AM_MEM_CONSISTENCY");
-    if (!envval || !envval[0]) {
-      /* No value given - keep default */
-    } else if (!strcmp(envval, "strict") || !strcmp(envval, "STRICT")) {
-      gasnetc_am_mem_consistency = GASNETC_STRICT_MEM_CONSISTENCY;
-    } else if (!strcmp(envval, "relaxed") || !strcmp(envval, "RELAXED")) {
-      gasnetc_am_mem_consistency = GASNETC_RELAXED_MEM_CONSISTENCY;
-    } else if (!strcmp(envval, "default") || !strcmp(envval, "DEFAULT")) {
-      gasnetc_am_mem_consistency = GASNETC_DEFAULT_MEM_CONSISTENCY;
-    } else if (!gasneti_mynode) {
-      fflush(NULL);
-      fprintf(stderr, "WARNING: ignoring unknown value '%s' for environment "
-                      "variable GASNETC_GNI_AM_MEM_CONSISTENCY\n", envval);
-      fflush(NULL);
-    }
-  }
-  switch (gasnetc_am_mem_consistency) {
-    case GASNETC_STRICT_MEM_CONSISTENCY:
-      am_memreg_flags = GNI_MEM_STRICT_PI_ORDERING | GNI_MEM_PI_FLUSH;
-      break;
-    case GASNETC_RELAXED_MEM_CONSISTENCY:
-      am_memreg_flags = GNI_MEM_RELAXED_PI_ORDERING;
-      break;
-    case GASNETC_DEFAULT_MEM_CONSISTENCY:
-      am_memreg_flags = 0;
-      break;
-  }
 
 #if GASNETC_DEBUG
   gasnetc_GNIT_Log("entering");
@@ -356,7 +325,7 @@ uintptr_t gasnetc_init_messaging(void)
 			       (unsigned long)smsg_mmap_ptr, 
 			       bytes_needed,
 			       smsg_cq_handle,
-			       am_memreg_flags | GNI_MEM_READWRITE,
+			       GNI_MEM_STRICT_PI_ORDERING | GNI_MEM_PI_FLUSH | GNI_MEM_READWRITE,
 			       -1,
 			       &mypeerdata.smsg_attr.mem_hndl);
       if (status == GNI_RC_SUCCESS) break;
