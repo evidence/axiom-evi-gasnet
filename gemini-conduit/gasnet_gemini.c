@@ -113,6 +113,24 @@ void gasnetc_init_segment(void *segment_start, size_t segment_size)
   gni_return_t status;
   /* Map the shared segment */
 
+  gasnetc_mem_consistency = GASNETC_DEFAULT_RDMA_MEM_CONSISTENCY;
+  { char * envval = gasneti_getenv("GASNETC_GNI_MEM_CONSISTENCY");
+    if (!envval || !envval[0]) {
+      /* No value given - keep default */
+    } else if (!strcmp(envval, "strict") || !strcmp(envval, "STRICT")) {
+      gasnetc_mem_consistency = GASNETC_STRICT_MEM_CONSISTENCY;
+    } else if (!strcmp(envval, "relaxed") || !strcmp(envval, "RELAXED")) {
+      gasnetc_mem_consistency = GASNETC_RELAXED_MEM_CONSISTENCY;
+    } else if (!strcmp(envval, "default") || !strcmp(envval, "DEFAULT")) {
+      gasnetc_mem_consistency = GASNETC_DEFAULT_MEM_CONSISTENCY;
+    } else if (!gasneti_mynode) {
+      fflush(NULL);
+      fprintf(stderr, "WARNING: ignoring unknown value '%s' for environment "
+                      "variable GASNETC_GNI_MEM_CONSISTENCY\n", envval);
+      fflush(NULL);
+    }
+  }
+
   switch (gasnetc_mem_consistency) {
     case GASNETC_STRICT_MEM_CONSISTENCY:
       gasnetc_memreg_flags = GNI_MEM_STRICT_PI_ORDERING;
@@ -179,24 +197,6 @@ uintptr_t gasnetc_init_messaging(void)
   uint32_t am_memreg_flags = 0;
   int modes = 0;
 
-  gasnetc_mem_consistency = GASNETC_DEFAULT_RDMA_MEM_CONSISTENCY;
-  { char * envval = gasneti_getenv("GASNETC_GNI_MEM_CONSISTENCY");
-    if (!envval || !envval[0]) {
-      /* No value given - keep default */
-    } else if (!strcmp(envval, "strict") || !strcmp(envval, "STRICT")) {
-      gasnetc_mem_consistency = GASNETC_STRICT_MEM_CONSISTENCY;
-    } else if (!strcmp(envval, "relaxed") || !strcmp(envval, "RELAXED")) {
-      gasnetc_mem_consistency = GASNETC_RELAXED_MEM_CONSISTENCY;
-    } else if (!strcmp(envval, "default") || !strcmp(envval, "DEFAULT")) {
-      gasnetc_mem_consistency = GASNETC_DEFAULT_MEM_CONSISTENCY;
-    } else if (!gasneti_mynode) {
-      fflush(NULL);
-      fprintf(stderr, "WARNING: ignoring unknown value '%s' for environment "
-                      "variable GASNETC_GNI_MEM_CONSISTENCY\n", envval);
-      fflush(NULL);
-    }
-  }
-
   gasnetc_am_mem_consistency = GASNETC_DEFAULT_AM_MEM_CONSISTENCY;
   { char * envval = gasneti_getenv("GASNETC_GNI_AM_MEM_CONSISTENCY");
     if (!envval || !envval[0]) {
@@ -225,12 +225,6 @@ uintptr_t gasnetc_init_messaging(void)
       am_memreg_flags = 0;
       break;
   }
-
-#if FIX_HT_ORDERING
-  if (gasnetc_mem_consistency != GASNETC_STRICT_MEM_CONSISTENCY) {
-    modes |= GNI_CDM_MODE_DUAL_EVENTS;
-  }
-#endif
 
 #if GASNETC_DEBUG
   gasnetc_GNIT_Log("entering");
