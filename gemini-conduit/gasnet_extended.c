@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2012/09/14 00:29:18 $
- * $Revision: 1.16 $
+ *     $Date: 2013/02/07 20:37:39 $
+ * $Revision: 1.17 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -430,6 +430,9 @@ extern gasnet_handle_t gasnete_get_nb_bulk_am (void *dest, gasnet_node_t node, v
   }
 }
 
+/* TODO: in-segment DEST doesn't need to be "chunked" by GC_MAXRDMA - just 1 GET */
+/* TODO: out-of-segment should try to align registrations to (at least) page bounaries */
+/* TODO: use NBI access region instead of blocking for all-but-last sub-op */
 extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG) {
   gasnete_eop_t *op;
   gasnetc_post_descriptor_t *gpd;
@@ -456,6 +459,8 @@ extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void
 }
 
 
+/* TODO: may return earlier if locally complete due to bounce buffer */
+/* TODO: see also any put_nb_bulk TODOs */
 extern gasnet_handle_t gasnete_put_nb (gasnet_node_t node, void *dest, void *src, size_t nbytes GASNETE_THREAD_FARG) {
   gasnete_eop_t *op;
   gasnetc_post_descriptor_t *gpd;
@@ -487,6 +492,9 @@ extern gasnet_handle_t gasnete_put_nb (gasnet_node_t node, void *dest, void *src
   return (gasnet_handle_t)GASNET_INVALID_HANDLE;
 }
 
+/* TODO: in-segment SRC doesn't need to be "chunked" by GC_MAXRDMA - just 1 PUT */
+/* TODO: out-of-segment should try to align registrations to (at least) page bounaries */
+/* TODO: use NBI access region instead of blocking for all-but-last sub-op */
 extern gasnet_handle_t gasnete_put_nb_bulk (gasnet_node_t node, void *dest, void *src, size_t nbytes GASNETE_THREAD_FARG) {
   gasnete_eop_t *op = (gasnete_eop_t *)GASNET_INVALID_HANDLE;
   gasnetc_post_descriptor_t *gpd;
@@ -693,6 +701,7 @@ extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, siz
   gasnetc_rdma_get(node, dest, src, nbytes, gpd);
 }
 
+/* TODO: see put_nbi_bulk */
 extern void gasnete_put_nbi      (gasnet_node_t node, void *dest, void *src, size_t nbytes GASNETE_THREAD_FARG) {
   gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
   gasnete_iop_t *op;
@@ -726,6 +735,8 @@ extern void gasnete_put_nbi      (gasnet_node_t node, void *dest, void *src, siz
   gasnete_op_markdone((gasnet_handle_t) op, 0);
 }
 
+/* TODO: see put_nb_bulk */
+/* TODO: why are we waiting for all-but-last sub operation? */
 extern void gasnete_put_nbi_bulk (gasnet_node_t node, void *dest, void *src, size_t nbytes GASNETE_THREAD_FARG) {
   gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
   gasnete_iop_t *op;
