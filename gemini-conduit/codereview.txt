@@ -1,5 +1,5 @@
 Gemini-conduit design notes, from code review 8/2010
-$Revision: 1.11 $
+$Revision: 1.12 $
 
 number of bounce buffers, make clear the effects of, in the readme
 
@@ -89,7 +89,7 @@ but before the rdma is finished
 PHH N/A bounce for medium in-segmgnet puts, just block
 - used bounce buffer instead just as for medium sized out-of-seg
 
-put_nbi needs the same treatment for medium size as now done in put_nb
+PHH DONE put_nbi needs the same treatment for medium size as now done in put_nb
 
 be careful to get 1M plus 17 bytes correct
 
