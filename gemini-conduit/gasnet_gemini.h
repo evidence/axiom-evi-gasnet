@@ -352,7 +352,11 @@ int gasnetc_send_smsg(gasnet_node_t dest,
             gasnetc_smsg_t *smsg, int header_length,
             void *data, int data_length, int do_copy);
 
-void gasnetc_rdma_put(gasnet_node_t dest,
+void gasnetc_rdma_put_bulk(gasnet_node_t dest,
+		 void *dest_addr, void *source_addr,
+		 size_t nbytes, gasnetc_post_descriptor_t *gpd);
+
+int gasnetc_rdma_put(gasnet_node_t dest,
 		 void *dest_addr, void *source_addr,
 		 size_t nbytes, gasnetc_post_descriptor_t *gpd);
 

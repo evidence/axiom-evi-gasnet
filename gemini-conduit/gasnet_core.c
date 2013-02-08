@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/02/06 08:50:57 $
- * $Revision: 1.29 $
+ *     $Date: 2013/02/08 03:27:20 $
+ * $Revision: 1.30 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -838,7 +838,7 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
       gpd->flags = GC_POST_COMPLETION_FLAG;
 
       /* Rdma data, block, then fall through to send header only */
-      gasnetc_rdma_put(dest, dest_addr, source_addr, nbytes, gpd);
+      gasnetc_rdma_put_bulk(dest, dest_addr, source_addr, nbytes, gpd);
       while(!gasneti_atomic_read(&done, 0)) gasnetc_poll_local_queue();
 
       nbytes = 0;
@@ -903,7 +903,7 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
       retval = gasnetc_send_smsg(dest, smsg, GASNETC_HEADLEN(long, numargs), source_addr, nbytes, 0);
     } else {
       /* Rdma data, then send header as part of completion*/
-      gasnetc_rdma_put(dest, dest_addr, source_addr, nbytes, gpd);
+      gasnetc_rdma_put_bulk(dest, dest_addr, source_addr, nbytes, gpd);
       retval = GASNET_OK;
     }
   }
@@ -1039,7 +1039,7 @@ extern int gasnetc_AMReplyLongM(
       gpd->flags = GC_POST_COMPLETION_FLAG;
 
       /* Rdma data, block, then fall through to send header only */
-      gasnetc_rdma_put(dest, dest_addr, source_addr, nbytes, gpd);
+      gasnetc_rdma_put_bulk(dest, dest_addr, source_addr, nbytes, gpd);
       while(!gasneti_atomic_read(&done, 0)) gasnetc_poll_local_queue();
 
       nbytes = 0;

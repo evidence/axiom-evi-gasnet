@@ -1088,7 +1088,8 @@ static gni_return_t myRegisterPd(gni_post_descriptor_t *pd)
   return status;
 }
 
-void gasnetc_rdma_put(gasnet_node_t dest,
+/* Perform an rdma/fma Put with no concern for local completion */
+void gasnetc_rdma_put_bulk(gasnet_node_t dest,
 		 void *dest_addr, void *source_addr,
 		 size_t nbytes, gasnetc_post_descriptor_t *gpd)
 {
@@ -1160,6 +1161,37 @@ void gasnetc_rdma_put(gasnet_node_t dest,
 	gasnetc_GNIT_Abort("PostRdma(Put) failed with %s\n", gni_return_string(status));
       }
   }
+}
+
+/* Perform an rdma/fma Put which favors rapid local completion
+ * The return value is boolean, where 1 means locally complete.
+ */
+int gasnetc_rdma_put(gasnet_node_t dest,
+		 void *dest_addr, void *source_addr,
+		 size_t nbytes, gasnetc_post_descriptor_t *gpd)
+{
+  int result;
+  /* TODO: this call should make choices that favor quick local completion,
+     such as use of bounce buffers (incl. immed) even for in-segment sources.
+     TODO: beyond just favoring LC, one could imagine using local completion
+     events in some way.
+   */
+
+  /* For now, we just call gasnetc_rdma_put_bulk() and "know" what it does */
+  gasnetc_rdma_put_bulk(dest, dest_addr, source_addr, nbytes, gpd);
+  if_pf (!gasneti_in_segment(gasneti_mynode, source_addr, nbytes)) {
+    result = (nbytes < gasnetc_bounce_register_cutover);
+  } else {
+#if GASNET_CONDUIT_GEMINI
+    /* On Gemini (only) return from PostFma follows local completion */
+    result = (nbytes <= gasnetc_fma_rdma_cutover);
+#else
+    result = 0;
+#endif
+  }
+
+  gasneti_assert((result == 0) || (result == 1)); /* ensures caller can use "&=" or "+=" */
+  return result;
 }
 
 /* Algorithm

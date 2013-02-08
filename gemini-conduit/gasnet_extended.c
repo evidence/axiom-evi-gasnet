@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2013/02/08 02:01:04 $
- * $Revision: 1.18 $
+ *     $Date: 2013/02/08 03:27:20 $
+ * $Revision: 1.19 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -460,9 +460,7 @@ extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void
 }
 
 
-/* TODO: may return earlier if locally complete due to bounce buffer (not just IMMED) */
-/* TODO: could pass hint "want_lc" to gasnetc_rdma_put to encourage buffer even for in-segment and have boolean return indicating if it has been acheived - OR gasnetc_rdma_put_lc() */
-/* TODO: docs say FMA == locally complete for Gemini but NOT on Aries */
+/* TODO: use return(s) from gasnetc_rdma_put() to track local completion */
 /* TODO: see also the rewrite of put_nb_bulk  */
 extern gasnet_handle_t gasnete_put_nb (gasnet_node_t node, void *dest, void *src, size_t nbytes GASNETE_THREAD_FARG) {
   gasnete_eop_t *op;
@@ -510,7 +508,7 @@ gasnete_put_bulk_chunked(gasnet_node_t node, void *dest, void *src, size_t nbyte
     gpd = gasnetc_alloc_post_descriptor();
     gpd->completion = (gasnete_op_t *) iop;
     gpd->flags = GC_POST_COMPLETION_EOP;
-    gasnetc_rdma_put(node, dest, src, chunk_len, gpd);
+    gasnetc_rdma_put_bulk(node, dest, src, chunk_len, gpd);
     dest = (char *) dest + chunk_len;
     src  = (char *) src  + chunk_len;
     nbytes -= chunk_len;
@@ -524,7 +522,7 @@ gasnete_put_bulk_chunked(gasnet_node_t node, void *dest, void *src, size_t nbyte
     gpd = gasnetc_alloc_post_descriptor();
     gpd->completion = (gasnete_op_t *) iop;
     gpd->flags = GC_POST_COMPLETION_EOP;
-    gasnetc_rdma_put(node, dest, src, GC_MAXRDMA, gpd);
+    gasnetc_rdma_put_bulk(node, dest, src, GC_MAXRDMA, gpd);
     dest = (char *) dest + GC_MAXRDMA;
     src  = (char *) src  + GC_MAXRDMA;
     nbytes -= GC_MAXRDMA;
@@ -536,7 +534,7 @@ gasnete_put_bulk_chunked(gasnet_node_t node, void *dest, void *src, size_t nbyte
   gpd = gasnetc_alloc_post_descriptor();
   gpd->completion = (gasnete_op_t *) iop;
   gpd->flags = GC_POST_COMPLETION_EOP;
-  gasnetc_rdma_put(node, dest, src, nbytes, gpd);
+  gasnetc_rdma_put_bulk(node, dest, src, nbytes, gpd);
 
   iop->initiated_put_cnt += count;
 }
@@ -550,7 +548,7 @@ extern gasnet_handle_t gasnete_put_nb_bulk (gasnet_node_t node, void *dest, void
     gasnete_eop_t *eop = gasnete_eop_new(GASNETE_MYTHREAD);
     gpd->completion = (gasnete_op_t *) eop;
     gpd->flags = GC_POST_COMPLETION_EOP;
-    gasnetc_rdma_put(node, dest, src, nbytes, gpd);
+    gasnetc_rdma_put_bulk(node, dest, src, nbytes, gpd);
     return((gasnet_handle_t) eop);
   } else {
     /* "too-large" xfer from unpinned source is chunked into pieces no larger than GC_MAXRDMA */
@@ -745,6 +743,7 @@ extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, siz
   gasnetc_rdma_get(node, dest, src, nbytes, gpd);
 }
 
+/* TODO: use return(s) from gasnetc_rdma_put() to track local completion */
 /* TODO: see put_nbi_bulk */
 extern void gasnete_put_nbi      (gasnet_node_t node, void *dest, void *src, size_t nbytes GASNETE_THREAD_FARG) {
   gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
@@ -791,7 +790,7 @@ extern void gasnete_put_nbi_bulk (gasnet_node_t node, void *dest, void *src, siz
     gpd->completion = (gasnete_op_t *) iop;
     gpd->flags = GC_POST_COMPLETION_EOP;
     iop->initiated_put_cnt++;
-    gasnetc_rdma_put(node, dest, src, nbytes, gpd);
+    gasnetc_rdma_put_bulk(node, dest, src, nbytes, gpd);
   } else {
     /* "too-large" xfer from unpinned source is chunked into pieces no larger than GC_MAXRDMA */
     gasnete_put_bulk_chunked(node, dest, src, nbytes, iop);
