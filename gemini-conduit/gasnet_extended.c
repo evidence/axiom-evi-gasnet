@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2013/02/08 09:51:43 $
- * $Revision: 1.23 $
+ *     $Date: 2013/02/08 23:43:34 $
+ * $Revision: 1.24 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -62,7 +62,7 @@ static void gasnete_check_config(void) {
 }
 
 extern void gasnete_init(void) {
-  static int firstcall = 1;
+  GASNETI_UNUSED_UNLESS_DEBUG static int firstcall = 1;
   GASNETI_TRACE_PRINTF(C,("gasnete_init()"));
   gasneti_assert(firstcall); /*  make sure we haven't been called before */
   firstcall = 0;
@@ -484,7 +484,7 @@ extern gasnet_handle_t gasnete_put_nb (gasnet_node_t node, void *dest, void *src
   gasnet_handle_t head_op = GASNET_INVALID_HANDLE;
   gasnete_eop_t *tail_op;
   const size_t max_tail = gasnetc_bounce_register_cutover; /* XXX: this approach is fragile */
-  int lc;
+  GASNETI_UNUSED_UNLESS_DEBUG int lc;
 
   GASNETI_CHECKPSHM_PUT(ALIGNED,H);
 
@@ -725,7 +725,6 @@ static void gasnete_get_nbi_bulk_am (void *dest, gasnet_node_t node, void *src, 
 extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG) {
   gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
   gasnete_iop_t * const iop = mythread->current_iop;
-  gasnetc_post_descriptor_t *gpd;
 
   GASNETI_CHECKPSHM_GET(UNALIGNED,V);
 
@@ -754,7 +753,7 @@ extern void gasnete_put_nbi      (gasnet_node_t node, void *dest, void *src, siz
   gasnetc_post_descriptor_t *gpd;
   gasnet_handle_t head_op = GASNET_INVALID_HANDLE;
   const size_t max_tail = gasnetc_bounce_register_cutover; /* XXX: this approach is fragile */
-  int lc;
+  GASNETI_UNUSED_UNLESS_DEBUG int lc;
 
   GASNETI_CHECKPSHM_PUT(ALIGNED,V);
 
