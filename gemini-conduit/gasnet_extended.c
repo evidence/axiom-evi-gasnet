@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2013/02/08 05:14:24 $
- * $Revision: 1.20 $
+ *     $Date: 2013/02/08 06:15:25 $
+ * $Revision: 1.21 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -465,8 +465,7 @@ extern gasnet_handle_t gasnete_put_nb (gasnet_node_t node, void *dest, void *src
   gasnetc_post_descriptor_t *gpd;
   gasnet_handle_t head_op = GASNET_INVALID_HANDLE;
   gasnete_eop_t *tail_op;
-  int index = 0;
-  size_t max_tail = gasnetc_bounce_register_cutover; /* XXX: this approach is fragile */
+  const size_t max_tail = gasnetc_bounce_register_cutover; /* XXX: this approach is fragile */
   int lc;
 
   GASNETI_CHECKPSHM_PUT(ALIGNED,H);
@@ -486,12 +485,13 @@ extern gasnet_handle_t gasnete_put_nb (gasnet_node_t node, void *dest, void *src
   gpd->completion = (gasnete_op_t *) tail_op;
   gpd->flags = GC_POST_COMPLETION_EOP;
   lc = gasnetc_rdma_put(node, dest, src, nbytes, gpd);
+  /* !lc should NOT happen if we are in-sync w/ the logic in gasnetc_rdma_put() */
 
   /* Block for completion(s) */
   gasnet_wait_syncnb(head_op);
-  if (!lc) gasnet_wait_syncnb((gasnet_handle_t) tail_op);
+  if_pf (!lc) gasnet_wait_syncnb((gasnet_handle_t) tail_op);
 
-  /* return the tail_op if we did NOT call wait_syncnb() */
+  /* return the tail_op only if we did NOT already call wait_syncnb() */
   return(lc ? (gasnet_handle_t)tail_op : GASNET_INVALID_HANDLE);
 }
 
