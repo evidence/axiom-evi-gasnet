@@ -281,6 +281,8 @@ void gasnetc_init_post_descriptor_pool(void);
 #define GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE 128
 gasnet_seginfo_t gasnetc_bounce_buffers;   /* fields addr and size */
 gasnet_seginfo_t gasnetc_pd_buffers;   /* fields addr and size */
+/* how many concurrent dynamic memory registrations to allow */
+#define GASNETC_GNI_MEMREG_DEFAULT 16 /* XXX: tune or auto-detect this! */
 
 void  *gasnetc_alloc_bounce_buffer(void);
 void gasnetc_free_bounce_buffer(void *buf);
@@ -365,3 +367,18 @@ void gasnetc_rdma_get(gasnet_node_t dest,
 		 size_t nbytes, gasnetc_post_descriptor_t *gpd);
 
 #endif
+
+/* returns 1 if-and-only-if value was decremented.  based on gasneti_semaphore_trydown() */
+GASNETI_INLINE(gasnetc_atomic_dec_if_positive)
+int gasnetc_atomic_dec_if_positive(gasneti_weakatomic_t *p)
+{
+  int swapped;
+  do {
+    const gasneti_weakatomic_val_t old = gasneti_weakatomic_read(p, 0);
+    if_pf (old == 0) {
+      return 0;       /* Note: "break" here generates infinite loop w/ pathcc 2.4 (bug 1620) */
+    }
+    swapped = gasneti_weakatomic_compare_and_swap(p, old, old - 1, GASNETI_ATOMIC_ACQ_IF_TRUE);
+  } while (GASNETT_PREDICT_FALSE(!swapped));
+  return 1;
+}

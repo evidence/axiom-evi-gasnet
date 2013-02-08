@@ -69,6 +69,9 @@ static int  max_outstanding_req;
 static int  outstanding_req;
 #endif
 
+/* Limit the number of active dynamic memory registrations */
+static gasneti_weakatomic_t reg_credit;
+
 static const char *gni_return_string(gni_return_t status)
 {
   if (status == GNI_RC_SUCCESS) return ("GNI_RC_SUCCESS");
@@ -111,6 +114,11 @@ void gasnetc_init_segment(void *segment_start, size_t segment_size)
 {
   gni_return_t status;
   /* Map the shared segment */
+
+  { int envval = gasneti_getenv_int_withdefault("GASNETC_GNI_MEMREG", GASNETC_GNI_MEMREG_DEFAULT, 0);
+    if (envval < 1) envval = 1;
+    gasneti_weakatomic_set(&reg_credit, envval, GASNETI_ATOMIC_NONE);
+  }
 
   gasnetc_mem_consistency = GASNETC_DEFAULT_RDMA_MEM_CONSISTENCY;
   { char * envval = gasneti_getenv("GASNETC_GNI_MEM_CONSISTENCY");
@@ -921,6 +929,7 @@ void gasnetc_poll_local_queue(void)
       if (gpd->flags & GC_POST_UNREGISTER) {
 	status = GNI_MemDeregister(nic_handle, &gpd->pd.local_mem_hndl);
 	gasneti_assert_always (status == GNI_RC_SUCCESS);
+	gasneti_weakatomic_increment(&reg_credit, GASNETI_ATOMIC_NONE);
       }
       if (gpd->flags & GC_POST_UNBOUNCE) {
 	gasnetc_free_bounce_buffer(gpd->bounce_buffer);
@@ -1076,6 +1085,8 @@ static gni_return_t myRegisterPd(gni_post_descriptor_t *pd)
   int count = 0;
   gni_return_t status;
 
+  while (gasnetc_atomic_dec_if_positive(&reg_credit) == 0) gasnetc_poll_local_queue();
+
   GASNETC_LOCK_GNI();
   do {
     status = GNI_MemRegister(nic_handle, addr, nbytes, NULL,
@@ -1084,7 +1095,6 @@ static gni_return_t myRegisterPd(gni_post_descriptor_t *pd)
     fprintf(stderr, "MemRegister fault %d at %p %lx, code %s\n",
             count, (void*)addr, (unsigned long)nbytes, gni_return_string(status));
     if (status != GNI_RC_ERROR_RESOURCE) break; /* Fatal */
-    /* XXX: unlock/poll/lock in hopes of recovering resources? */
   } while (++count < limit);
   GASNETC_UNLOCK_GNI();
 
@@ -1346,20 +1356,6 @@ void gasnetc_rdma_get(gasnet_node_t dest,
 }
 
 
-/* returns 1 if-and-only-if value was decremented.  based on gasneti_semaphore_trydown() */
-GASNETI_INLINE(gasnetc_atomic_dec_if_positive)
-int gasnetc_atomic_dec_if_positive(gasneti_weakatomic_t *p)
-{
-  int swapped;
-  do {
-    const gasneti_weakatomic_val_t old = gasneti_weakatomic_read(p, 0);
-    if_pf (old == 0) {
-      return 0;       /* Note: "break" here generates infinite loop w/ pathcc 2.4 (bug 1620) */
-    }
-    swapped = gasneti_weakatomic_compare_and_swap(p, old, old - 1, GASNETI_ATOMIC_ACQ_IF_TRUE);
-  } while (GASNETT_PREDICT_FALSE(!swapped));
-  return 1;
-}
 void gasnetc_get_am_credit(uint32_t pe)
 {
   gasneti_weakatomic_t *p = &peer_data[pe].am_credit;

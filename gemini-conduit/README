@@ -1,6 +1,6 @@
 GASNet gemini-conduit and aries-conduit documentation
 Larry Stewart <stewart@serissa.com> 
-$Revision: 1.14 $
+$Revision: 1.15 $
 
 User Information:
 -----------------
@@ -57,6 +57,12 @@ GASNETC_GNI_MEM_CONSISTENCY
   for RDMA.
   The legal values are the strings "strict", "relaxed" or "default".
   In this release the default is "relaxed".
+
+GASNETC_GNI_MEMREG
+  This controls the maximum number of concurrent temporary memory
+  registrations, used for RDMA transfers to and from addresses
+  outside of the GASNet segment.
+  The default value is 16.
 
 GASNET_DEFAULT_PHYSMEM_PINNBLE_RATIO - default 0.75
 GASNET_PHYSMEM_MAX - default <size of physmem> * <pinnable ratio>
