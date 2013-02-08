@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2013/02/07 20:37:39 $
- * $Revision: 1.17 $
+ *     $Date: 2013/02/08 02:01:04 $
+ * $Revision: 1.18 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -433,6 +433,7 @@ extern gasnet_handle_t gasnete_get_nb_bulk_am (void *dest, gasnet_node_t node, v
 /* TODO: in-segment DEST doesn't need to be "chunked" by GC_MAXRDMA - just 1 GET */
 /* TODO: out-of-segment should try to align registrations to (at least) page bounaries */
 /* TODO: use NBI access region instead of blocking for all-but-last sub-op */
+/* TODO: use nbytes!=0 to xform while{} into do{}while */
 extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG) {
   gasnete_eop_t *op;
   gasnetc_post_descriptor_t *gpd;
@@ -459,8 +460,10 @@ extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void
 }
 
 
-/* TODO: may return earlier if locally complete due to bounce buffer */
-/* TODO: see also any put_nb_bulk TODOs */
+/* TODO: may return earlier if locally complete due to bounce buffer (not just IMMED) */
+/* TODO: could pass hint "want_lc" to gasnetc_rdma_put to encourage buffer even for in-segment and have boolean return indicating if it has been acheived - OR gasnetc_rdma_put_lc() */
+/* TODO: docs say FMA == locally complete for Gemini but NOT on Aries */
+/* TODO: see also the rewrite of put_nb_bulk  */
 extern gasnet_handle_t gasnete_put_nb (gasnet_node_t node, void *dest, void *src, size_t nbytes GASNETE_THREAD_FARG) {
   gasnete_eop_t *op;
   gasnetc_post_descriptor_t *gpd;
@@ -492,29 +495,70 @@ extern gasnet_handle_t gasnete_put_nb (gasnet_node_t node, void *dest, void *src
   return (gasnet_handle_t)GASNET_INVALID_HANDLE;
 }
 
-/* TODO: in-segment SRC doesn't need to be "chunked" by GC_MAXRDMA - just 1 PUT */
-/* TODO: out-of-segment should try to align registrations to (at least) page bounaries */
-/* TODO: use NBI access region instead of blocking for all-but-last sub-op */
-extern gasnet_handle_t gasnete_put_nb_bulk (gasnet_node_t node, void *dest, void *src, size_t nbytes GASNETE_THREAD_FARG) {
-  gasnete_eop_t *op = (gasnete_eop_t *)GASNET_INVALID_HANDLE;
+static void /* XXX: Inlining left to compiler's discression */
+gasnete_put_bulk_chunked(gasnet_node_t node, void *dest, void *src, size_t nbytes, gasnete_iop_t * const iop) {
   gasnetc_post_descriptor_t *gpd;
-  size_t thiscount;
+  int count = 1; /* Start at 1 in lieu of incr for final chunk */
+
+  gasneti_assert(nbytes > GC_MAXRDMA); /* always 2 or more chunks */
+
+#if 0 /* TODO: current testing doesn't show a benefit, but more study is needed */
+  /* If need more than 2 chunks, then size first one to achieve alignment of subsequent chunks */
+  if (nbytes > 2*GC_MAXRDMA) {
+    size_t chunk_len = GC_MAXRDMA - ((uintptr_t)src & (GC_MAXRDMA-1));
+    gasneti_assert(chunk_len != 0);
+    gpd = gasnetc_alloc_post_descriptor();
+    gpd->completion = (gasnete_op_t *) iop;
+    gpd->flags = GC_POST_COMPLETION_EOP;
+    gasnetc_rdma_put(node, dest, src, chunk_len, gpd);
+    dest = (char *) dest + chunk_len;
+    src  = (char *) src  + chunk_len;
+    nbytes -= chunk_len;
+    count = 2; /* in lieu of increment, since we know the result */
+  }
+#endif
+
+  /* 1 or more full chunks */
+  gasneti_assert (nbytes > GC_MAXRDMA);
+  do {
+    gpd = gasnetc_alloc_post_descriptor();
+    gpd->completion = (gasnete_op_t *) iop;
+    gpd->flags = GC_POST_COMPLETION_EOP;
+    gasnetc_rdma_put(node, dest, src, GC_MAXRDMA, gpd);
+    dest = (char *) dest + GC_MAXRDMA;
+    src  = (char *) src  + GC_MAXRDMA;
+    nbytes -= GC_MAXRDMA;
+    count += 1;
+  } while (nbytes > GC_MAXRDMA);
+
+  /* final chunk (could be either full or partial) */
+  gasneti_assert(nbytes != 0);
+  gpd = gasnetc_alloc_post_descriptor();
+  gpd->completion = (gasnete_op_t *) iop;
+  gpd->flags = GC_POST_COMPLETION_EOP;
+  gasnetc_rdma_put(node, dest, src, nbytes, gpd);
+
+  iop->initiated_put_cnt += count;
+}
+
+extern gasnet_handle_t gasnete_put_nb_bulk (gasnet_node_t node, void *dest, void *src, size_t nbytes GASNETE_THREAD_FARG) {
   GASNETI_CHECKPSHM_PUT(UNALIGNED,H);
 
-  while (nbytes > 0) {
-    thiscount = nbytes;
-    if (thiscount > GC_MAXRDMA) thiscount = GC_MAXRDMA;
-    op = gasnete_eop_new(GASNETE_MYTHREAD);
-    gpd = gasnetc_alloc_post_descriptor();
-    gpd->completion = (gasnete_op_t *) op;
+  if (gasneti_in_segment(gasneti_mynode, src, nbytes) || (nbytes <= GC_MAXRDMA)) {
+    /* xfer is in-segment or "small-enough" out-of-segment: use a single op */
+    gasnetc_post_descriptor_t *gpd = gasnetc_alloc_post_descriptor();
+    gasnete_eop_t *eop = gasnete_eop_new(GASNETE_MYTHREAD);
+    gpd->completion = (gasnete_op_t *) eop;
     gpd->flags = GC_POST_COMPLETION_EOP;
-    gasnetc_rdma_put(node, dest, src, thiscount, gpd);
-    dest = (char *) dest + thiscount;
-    src = (char *) src + thiscount;
-    nbytes -= thiscount;
-    if (nbytes != 0) gasnet_wait_syncnb((gasnet_handle_t) op);
+    gasnetc_rdma_put(node, dest, src, nbytes, gpd);
+    return((gasnet_handle_t) eop);
+  } else {
+    /* "too-large" xfer from unpinned source is chunked into pieces no larger than GC_MAXRDMA */
+    gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
+    gasnete_begin_nbi_accessregion(1 GASNETE_THREAD_PASS);
+    gasnete_put_bulk_chunked(node, dest, src, nbytes, mythread->current_iop);
+    return gasnete_end_nbi_accessregion(GASNETE_THREAD_PASS_ALONE);
   }
- return((gasnet_handle_t) op);
 }
 
 extern gasnet_handle_t gasnete_memset_nb   (gasnet_node_t node, void *dest, int val, size_t nbytes GASNETE_THREAD_FARG) {
@@ -735,33 +779,23 @@ extern void gasnete_put_nbi      (gasnet_node_t node, void *dest, void *src, siz
   gasnete_op_markdone((gasnet_handle_t) op, 0);
 }
 
-/* TODO: see put_nb_bulk */
-/* TODO: why are we waiting for all-but-last sub operation? */
 extern void gasnete_put_nbi_bulk (gasnet_node_t node, void *dest, void *src, size_t nbytes GASNETE_THREAD_FARG) {
   gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
-  gasnete_iop_t *op;
-  gasnetc_post_descriptor_t *gpd;
-  size_t thiscount;
-  gasneti_atomic_t done;
+  gasnete_iop_t * const iop = mythread->current_iop;
+
   GASNETI_CHECKPSHM_PUT(UNALIGNED,V);
-  while (nbytes > GC_MAXRDMA) {
-    gasneti_atomic_set(&done, 0, 0);
-    thiscount = GC_MAXRDMA;
-    gpd = gasnetc_alloc_post_descriptor();
-    gpd->completion = (gasnete_op_t *) &done;
-    gpd->flags = GC_POST_COMPLETION_FLAG;
-    gasnetc_rdma_put(node, dest, src, thiscount, gpd);
-    dest = (char *) dest + thiscount;
-    src = (char *) src + thiscount;
-    nbytes -= thiscount;
-    while(!gasneti_atomic_read(&done, 0)) gasnetc_poll();
+
+  if (gasneti_in_segment(gasneti_mynode, src, nbytes) || (nbytes <= GC_MAXRDMA)) {
+    /* xfer is in-segment or "small-enough" out-of-segment: use a single op */
+    gasnetc_post_descriptor_t *gpd = gasnetc_alloc_post_descriptor();
+    gpd->completion = (gasnete_op_t *) iop;
+    gpd->flags = GC_POST_COMPLETION_EOP;
+    iop->initiated_put_cnt++;
+    gasnetc_rdma_put(node, dest, src, nbytes, gpd);
+  } else {
+    /* "too-large" xfer from unpinned source is chunked into pieces no larger than GC_MAXRDMA */
+    gasnete_put_bulk_chunked(node, dest, src, nbytes, iop);
   }
-  op = mythread->current_iop;
-  op->initiated_put_cnt++;
-  gpd = gasnetc_alloc_post_descriptor();
-  gpd->completion = (gasnete_op_t *) op;
-  gpd->flags = GC_POST_COMPLETION_EOP;
-  gasnetc_rdma_put(node, dest, src, nbytes, gpd);
 }
 
 extern void gasnete_memset_nbi   (gasnet_node_t node, void *dest, int val, size_t nbytes GASNETE_THREAD_FARG) {
