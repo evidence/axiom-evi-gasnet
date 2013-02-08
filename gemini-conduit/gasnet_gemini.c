@@ -1170,24 +1170,75 @@ int gasnetc_rdma_put(gasnet_node_t dest,
 		 void *dest_addr, void *source_addr,
 		 size_t nbytes, gasnetc_post_descriptor_t *gpd)
 {
-  int result;
-  /* TODO: this call should make choices that favor quick local completion,
-     such as use of bounce buffers (incl. immed) even for in-segment sources.
-     TODO: beyond just favoring LC, one could imagine using local completion
-     events in some way.
-   */
+  gni_post_descriptor_t *pd;
+  gni_return_t status;
+  int result = 1; /* assume local completion */
 
-  /* For now, we just call gasnetc_rdma_put_bulk() and "know" what it does */
-  gasnetc_rdma_put_bulk(dest, dest_addr, source_addr, nbytes, gpd);
-  if_pf (!gasneti_in_segment(gasneti_mynode, source_addr, nbytes)) {
-    result = (nbytes <= gasnetc_bounce_register_cutover);
+  /*   if (nbytes == 0) return;  shouldn't happen */
+  pd = &gpd->pd;
+
+  /*  bzero(&pd, sizeof(gni_post_descriptor_t)); */
+  pd->cq_mode = GNI_CQMODE_GLOBAL_EVENT;
+  pd->dlvr_mode = GNI_DLVMODE_PERFORMANCE;
+  pd->remote_addr = (uint64_t) dest_addr;
+  pd->remote_mem_hndl = peer_segment_data[dest].segment_mem_handle;
+  pd->length = nbytes;
+
+  /* confirm that the destination is in-segment on the far end */
+  gasneti_boundscheck(dest, dest_addr, nbytes);
+
+  /* first deal with the memory copy and bounce buffer assignment */
+  if (nbytes <= GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE) {
+    gpd->bounce_buffer = gpd->u.immediate;
+    memcpy(gpd->bounce_buffer, source_addr, nbytes);
+    pd->local_addr = (uint64_t) gpd->bounce_buffer;
+    pd->local_mem_hndl = mypeersegmentdata.segment_mem_handle;
+  } else if (nbytes <= gasnetc_bounce_register_cutover) {
+    gpd->flags |= GC_POST_UNBOUNCE;
+    gpd->bounce_buffer = gasnetc_alloc_bounce_buffer();
+    memcpy(gpd->bounce_buffer, source_addr, nbytes);
+    pd->local_addr = (uint64_t) gpd->bounce_buffer;
+    pd->local_mem_hndl = mypeersegmentdata.segment_mem_handle;
+  } else if_pf (!gasneti_in_segment(gasneti_mynode, source_addr, nbytes)) {
+    /* source not in segment */
+    gpd->flags |= GC_POST_UNREGISTER;
+    pd->local_addr = (uint64_t) source_addr;
+    status = myRegisterPd(pd);
+    gasneti_assert_always (status == GNI_RC_SUCCESS);
+    result = 0; /* FMA may override */
   } else {
+    pd->local_addr = (uint64_t) source_addr;
+    pd->local_mem_hndl = mypeersegmentdata.segment_mem_handle;
+    result = 0; /* FMA may override */
+  }
+
+  /* now initiate the transfer according to fma/rdma cutover */
+  /*  TODO: distnict Put and Get cut-overs */
+  if (nbytes <= gasnetc_fma_rdma_cutover) {
+      pd->type = GNI_POST_FMA_PUT;
+#if FIX_HT_ORDERING
+      pd->cq_mode = gasnetc_fma_put_cq_mode;
+#endif
+      GASNETC_LOCK_GNI();
+      status = myPostFma(bound_ep_handles[dest], pd);
+      GASNETC_UNLOCK_GNI();
+      if_pf (status != GNI_RC_SUCCESS) {
+	print_post_desc("postfma", pd);
+	gasnetc_GNIT_Abort("PostFma(Put) failed with %s\n", gni_return_string(status));
+      }
 #if GASNET_CONDUIT_GEMINI
     /* On Gemini (only) return from PostFma follows local completion */
-    result = (nbytes <= gasnetc_fma_rdma_cutover);
-#else
-    result = 0;
+    result = 1; /* even if was zeroed by choice of zero-copy */
 #endif
+  } else {
+      pd->type = GNI_POST_RDMA_PUT;
+      GASNETC_LOCK_GNI();
+      status =myPostRdma(bound_ep_handles[dest], pd);
+      GASNETC_UNLOCK_GNI();
+      if_pf (status != GNI_RC_SUCCESS) {
+	print_post_desc("postrdma", pd);
+	gasnetc_GNIT_Abort("PostRdma(Put) failed with %s\n", gni_return_string(status));
+      }
   }
 
   gasneti_assert((result == 0) || (result == 1)); /* ensures caller can use "&=" or "+=" */
