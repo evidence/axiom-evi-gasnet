@@ -1,5 +1,5 @@
 Gemini-conduit design notes, from code review 8/2010
-$Revision: 1.12 $
+$Revision: 1.13 $
 
 number of bounce buffers, make clear the effects of, in the readme
 
@@ -64,11 +64,10 @@ struct tokenstruct {
 }
 then token is pointer to
 
-gc_debug is not used
+PHH DONE gc_debug is not used
 
-gasnete_put_nb always blocks, but it doesn't have to if the data is shorter than the bounce-register cutover (if source is outside segme)
-if source is inside segment, then if source length is less than 128, then could copy to the immediate bounce buffer and return before the put is complete
-
+PHH DONE gasnete_put_nb always blocks, but it doesn't have to if the data is shorter than the bounce-register cutover (if source is outside segme)
+PHH DONE if source is inside segment, then if source length is less than 128, then could copy to the immediate bounce buffer and return before the put is complete
 
 when there are multiple 1 MB transfrer for GET, make the first one shorter, to end on an aligned boundary so that <all> the transfers are not misaligned
 
@@ -76,7 +75,7 @@ first could be MAX - misalignment, pr perhaps very small, try both ways
 
 see testalign
 
-if add quota for registrations, could ifre off all the 1 MB blocks and synchronize all of them at once,
+PHH DONE if add quota for registrations, could ifre off all the 1 MB blocks and synchronize all of them at once,
 for nbi, just increment the counters
 
 PHH DONE for put_nbi_bulk , create a recursive nbi access region and return the handle for it as the handle for the put_nb_bulk
