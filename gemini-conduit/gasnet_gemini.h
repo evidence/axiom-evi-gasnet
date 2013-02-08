@@ -292,14 +292,14 @@ void gasnetc_init_bounce_buffer_pool(void);
 uint32_t gasnetc_bounce_register_cutover;
 uint32_t gasnetc_fma_rdma_cutover;
 
+/* send/copy, unbounce/unregister, flag/eop are each mutually exclusive pairs */
 #define GC_POST_SEND 1
-#define GC_POST_UNBOUNCE 2
-#define GC_POST_UNREGISTER 4
-#define GC_POST_COPY 8
-#define GC_POST_INC 16
-#define GC_POST_GET 32
-#define GC_POST_COMPLETION_EOP 64
-#define GC_POST_COMPLETION_FLAG 128
+#define GC_POST_COPY 2
+#define GC_POST_UNBOUNCE 4
+#define GC_POST_UNREGISTER 8
+#define GC_POST_COMPLETION_FLAG 16
+#define GC_POST_COMPLETION_EOP 32
+#define GC_POST_GET 64
 
 /* WARNING: if sizeof(gasnetc_post_descriptor_t) changes, then
  * you must update the value in gasneti_pd_auxseg_IdentString */

@@ -925,16 +925,7 @@ void gasnetc_poll_local_queue(void)
       /* handle remaining work */
       if (gpd->flags & GC_POST_COPY) {
 	memcpy(gpd->get_target, gpd->bounce_buffer, gpd->get_nbytes);
-      }
-      if (gpd->flags & GC_POST_UNREGISTER) {
-	status = GNI_MemDeregister(nic_handle, &gpd->pd.local_mem_hndl);
-	gasneti_assert_always (status == GNI_RC_SUCCESS);
-	gasneti_weakatomic_increment(&reg_credit, GASNETI_ATOMIC_NONE);
-      }
-      if (gpd->flags & GC_POST_UNBOUNCE) {
-	gasnetc_free_bounce_buffer(gpd->bounce_buffer);
-      }
-      if (gpd->flags & GC_POST_SEND) {
+      } else if (gpd->flags & GC_POST_SEND) {
 #if GASNETC_SMSG_RETRANSMIT
         gasnetc_smsg_t *smsg = gpd->u.smsg_p;
         const uint32_t msgid = smsg->msgid;
@@ -950,11 +941,20 @@ void gasnetc_poll_local_queue(void)
         gasneti_assert_always (status == GNI_RC_SUCCESS);
       }
 
+      /* indicate completion */
       if (gpd->flags & GC_POST_COMPLETION_FLAG) {
 	gasneti_atomic_set((gasneti_atomic_t *) gpd->completion, 1, 0);
-      }
-      if (gpd->flags & GC_POST_COMPLETION_EOP) {
+      } else if(gpd->flags & GC_POST_COMPLETION_EOP) {
 	gasnete_op_markdone(gpd->completion, (gpd->flags & GC_POST_GET) != 0);
+      }
+
+      /* release resources */
+      if (gpd->flags & GC_POST_UNREGISTER) {
+	status = GNI_MemDeregister(nic_handle, &gpd->pd.local_mem_hndl);
+	gasneti_assert_always (status == GNI_RC_SUCCESS);
+	gasneti_weakatomic_increment(&reg_credit, GASNETI_ATOMIC_NONE);
+      } else if (gpd->flags & GC_POST_UNBOUNCE) {
+	gasnetc_free_bounce_buffer(gpd->bounce_buffer);
       }
       gasnetc_free_post_descriptor(gpd);
     } else if (status == GNI_RC_NOT_DONE) {
