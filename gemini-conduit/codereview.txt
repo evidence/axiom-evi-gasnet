@@ -1,5 +1,5 @@
 Gemini-conduit design notes, from code review 8/2010
-$Revision: 1.9 $
+$Revision: 1.10 $
 
 number of bounce buffers, make clear the effects of, in the readme
 
@@ -79,7 +79,7 @@ see testalign
 if add quota for registrations, could ifre off all the 1 MB blocks and synchronize all of them at once,
 for nbi, just increment the counters
 
-for put_bni_bulk , create a recursive nbi access region and return the handle for it as the handle for the put_nb_bulk
+PHH DONE for put_nbi_bulk , create a recursive nbi access region and return the handle for it as the handle for the put_nb_bulk
 
 for put_nb, for small puts, copy the data to the immediate bounce buffer just so you can return faster
 
