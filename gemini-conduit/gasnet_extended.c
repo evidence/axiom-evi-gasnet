@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2013/02/08 03:27:20 $
- * $Revision: 1.19 $
+ *     $Date: 2013/02/08 05:14:24 $
+ * $Revision: 1.20 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -460,37 +460,39 @@ extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void
 }
 
 
-/* TODO: use return(s) from gasnetc_rdma_put() to track local completion */
-/* TODO: see also the rewrite of put_nb_bulk  */
+/* TODO: could still be improved if we can separate sub-ops based on the lc status */
 extern gasnet_handle_t gasnete_put_nb (gasnet_node_t node, void *dest, void *src, size_t nbytes GASNETE_THREAD_FARG) {
-  gasnete_eop_t *op;
   gasnetc_post_descriptor_t *gpd;
-  size_t thiscount;
+  gasnet_handle_t head_op = GASNET_INVALID_HANDLE;
+  gasnete_eop_t *tail_op;
+  int index = 0;
+  size_t max_tail = gasnetc_bounce_register_cutover; /* XXX: this approach is fragile */
+  int lc;
+
   GASNETI_CHECKPSHM_PUT(ALIGNED,H);
-  if (nbytes <= GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE) {
-    op = gasnete_eop_new(GASNETE_MYTHREAD);
-    gpd = gasnetc_alloc_post_descriptor();
-    gpd->completion = (gasnete_op_t *) op;
-    gpd->flags = GC_POST_COMPLETION_EOP;
-    memcpy(gpd->u.immediate, src, nbytes);
-    gasnetc_rdma_put(node, dest, gpd->u.immediate, nbytes, gpd);
-    return (gasnet_handle_t) op;
+
+  /* Non-blocking bulk put of "head" portion */
+  if (nbytes > max_tail) {
+    const size_t head_len = nbytes - max_tail;
+    head_op = gasnete_put_nb_bulk(node, dest, src, head_len GASNETE_THREAD_PASS);
+    dest = (char *) dest + head_len;
+    src  = (char *) src  + head_len;
+    nbytes = max_tail;
   }
 
-  while (nbytes > 0) {
-    thiscount = nbytes;
-    if (thiscount > GC_MAXRDMA) thiscount = GC_MAXRDMA;
-    op = gasnete_eop_new(GASNETE_MYTHREAD);
-    gpd = gasnetc_alloc_post_descriptor();
-    gpd->completion = (gasnete_op_t *) op;
-    gpd->flags = GC_POST_COMPLETION_EOP;
-    gasnetc_rdma_put(node, dest, src, thiscount, gpd);
-    dest = (char *) dest + thiscount;
-    src = (char *) src + thiscount;
-    nbytes -= thiscount;
-    gasnet_wait_syncnb((gasnet_handle_t) op);
-  }
-  return (gasnet_handle_t)GASNET_INVALID_HANDLE;
+  /* Non-blocking non-bulk put of "tail" portion */
+  gpd = gasnetc_alloc_post_descriptor();
+  tail_op = gasnete_eop_new(GASNETE_MYTHREAD);
+  gpd->completion = (gasnete_op_t *) tail_op;
+  gpd->flags = GC_POST_COMPLETION_EOP;
+  lc = gasnetc_rdma_put(node, dest, src, nbytes, gpd);
+
+  /* Block for completion(s) */
+  gasnet_wait_syncnb(head_op);
+  if (!lc) gasnet_wait_syncnb((gasnet_handle_t) tail_op);
+
+  /* return the tail_op if we did NOT call wait_syncnb() */
+  return(lc ? (gasnet_handle_t)tail_op : GASNET_INVALID_HANDLE);
 }
 
 static void /* XXX: Inlining left to compiler's discression */
@@ -744,7 +746,7 @@ extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, siz
 }
 
 /* TODO: use return(s) from gasnetc_rdma_put() to track local completion */
-/* TODO: see put_nbi_bulk */
+/* TODO: cannot use the same approach as put_nb since cannot optionally sync the tail_op */
 extern void gasnete_put_nbi      (gasnet_node_t node, void *dest, void *src, size_t nbytes GASNETE_THREAD_FARG) {
   gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
   gasnete_iop_t *op;
