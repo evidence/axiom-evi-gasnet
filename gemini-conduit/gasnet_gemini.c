@@ -970,7 +970,10 @@ void gasnetc_send_am_nop(uint32_t pe)
 #else
   static gasnetc_smsg_t m = { { { {GC_CMD_AM_NOP_REPLY, } } } };
 #endif
-  gasneti_assert_zeroret(gasnetc_send_smsg(pe, &m, sizeof(gasnetc_am_nop_packet_t), NULL, 0, 0));
+  int rc = gasnetc_send_smsg(pe, &m, sizeof(gasnetc_am_nop_packet_t), NULL, 0, 0);
+  if_pf (rc) {
+    gasnetc_GNIT_Abort("Failed to return AM credit\n");
+  }
 }
 
 
@@ -1560,7 +1563,12 @@ extern void gasnetc_sys_SendShutdownMsg(gasnet_node_t node, int shift, int exitc
 #if GASNETC_SMSG_RETRANSMIT
   smsg->msgid = GC_SMGS_SHUTDOWN;
 #endif
-  gasneti_assert_zeroret(gasnetc_send_smsg(node, smsg, sizeof(gasnetc_sys_shutdown_packet_t), NULL, 0, 0));
+  result = gasnetc_send_smsg(node, smsg, sizeof(gasnetc_sys_shutdown_packet_t), NULL, 0, 0);
+#if GASNET_DEBUG
+  if_pf (result) {
+    fprintf(stderr, "WARNING: gasnetc_send_smsg() call at Shutdown failed on node %i\n", (int)gasneti_mynode);
+  }
+#endif
 }
 
 
