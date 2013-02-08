@@ -1111,7 +1111,7 @@ void gasnetc_rdma_put_bulk(gasnet_node_t dest,
 
   if_pf (!gasneti_in_segment(gasneti_mynode, source_addr, nbytes)) {
     /* source not (entirely) in segment */
-    /* if (nbytes < gasnetc_bounce_register_cutover)  then use bounce buffer
+    /* if (nbytes <= gasnetc_bounce_register_cutover)  then use bounce buffer
      * else mem-register
      */
     /* first deal with the memory copy and bounce buffer assignment */
@@ -1120,7 +1120,7 @@ void gasnetc_rdma_put_bulk(gasnet_node_t dest,
       memcpy(gpd->bounce_buffer, source_addr, nbytes);
       pd->local_addr = (uint64_t) gpd->bounce_buffer;
       pd->local_mem_hndl = mypeersegmentdata.segment_mem_handle;
-    } else if (nbytes <  gasnetc_bounce_register_cutover) {
+    } else if (nbytes <= gasnetc_bounce_register_cutover) {
       gpd->flags |= GC_POST_UNBOUNCE;
       gpd->bounce_buffer = gasnetc_alloc_bounce_buffer();
       memcpy(gpd->bounce_buffer, source_addr, nbytes);
@@ -1180,7 +1180,7 @@ int gasnetc_rdma_put(gasnet_node_t dest,
   /* For now, we just call gasnetc_rdma_put_bulk() and "know" what it does */
   gasnetc_rdma_put_bulk(dest, dest_addr, source_addr, nbytes, gpd);
   if_pf (!gasneti_in_segment(gasneti_mynode, source_addr, nbytes)) {
-    result = (nbytes < gasnetc_bounce_register_cutover);
+    result = (nbytes <= gasnetc_bounce_register_cutover);
   } else {
 #if GASNET_CONDUIT_GEMINI
     /* On Gemini (only) return from PostFma follows local completion */
@@ -1240,7 +1240,7 @@ void gasnetc_rdma_get(gasnet_node_t dest,
   /* check where the local addr is */
   if_pf (!gasneti_in_segment(gasneti_mynode, dest_addr, nbytes)) {
     /* dest not (entirely) in segment */
-    /* if (nbytes < gasnetc_bounce_register_cutover)  then use bounce buffer
+    /* if (nbytes <= gasnetc_bounce_register_cutover)  then use bounce buffer
      * else mem-register
      */
     if (nbytes < GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE) {
@@ -1250,7 +1250,7 @@ void gasnetc_rdma_get(gasnet_node_t dest,
       gpd->get_nbytes = nbytes;
       pd->local_addr = (uint64_t) gpd->bounce_buffer;
       pd->local_mem_hndl = mypeersegmentdata.segment_mem_handle;
-    } else if (nbytes < gasnetc_bounce_register_cutover) {
+    } else if (nbytes <= gasnetc_bounce_register_cutover) {
       gpd->flags |= GC_POST_UNBOUNCE | GC_POST_COPY;
       gpd->bounce_buffer = gasnetc_alloc_bounce_buffer();
       gpd->get_target = dest_addr;
