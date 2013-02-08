@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testalign.c,v $
- *     $Date: 2010/04/24 02:20:50 $
- * $Revision: 1.20 $
+ *     $Date: 2013/02/08 02:40:53 $
+ * $Revision: 1.21 $
  * Description: GASNet get/put alignment-sensitivity test
  *   measures flood throughput of GASNet gets and puts
  *   over varying payload alignments and fixed payload size
@@ -8,6 +8,10 @@
  * Terms of use are as specified in license.txt
  */
 
+int size = 0;
+#ifndef TEST_SEGSZ
+  #define TEST_SEGSZ_EXPR (size + PAGESZ)
+#endif
 #include "test.h"
 
 #define DEFAULT_SZ	(32*1024)
@@ -23,6 +27,8 @@ typedef struct {
 } stat_struct_t;
 
 int insegment = 0;
+int dogets = 1;
+int doputs = 1;
 
 int myproc;
 int numprocs;
@@ -87,6 +93,7 @@ void oneway_test(int iters, int nbytes, int alignment)
     stat_struct_t st;
     int pad = (alignment % PAGESZ);
 
+    if (doputs) {
 	/* initialize statistics */
 	init_stat(&st, nbytes, alignment);
 	
@@ -109,7 +116,9 @@ void oneway_test(int iters, int nbytes, int alignment)
 	if (iamsender) {
 		print_stat(myproc, &st, "put_bulk throughput", PRINT_THROUGHPUT);
 	}	
+    }
 
+    if (dogets) {
 	/* initialize statistics */
 	init_stat(&st, nbytes, alignment);
 
@@ -128,6 +137,7 @@ void oneway_test(int iters, int nbytes, int alignment)
 	if (iamsender) {
 		print_stat(myproc, &st, "get_bulk throughput", PRINT_THROUGHPUT);
 	}	
+    }
 }
 
 void oneway_nbi_test(int iters, int nbytes, int alignment)
@@ -137,6 +147,7 @@ void oneway_nbi_test(int iters, int nbytes, int alignment)
     stat_struct_t st;
     int pad = (alignment % PAGESZ);
 
+    if (doputs) {
 	/* initialize statistics */
 	init_stat(&st, nbytes, alignment);
 	
@@ -160,7 +171,9 @@ void oneway_nbi_test(int iters, int nbytes, int alignment)
 	if (iamsender) {
 		print_stat(myproc, &st, "put_nbi_bulk throughput", PRINT_THROUGHPUT);
 	}	
+    }
 
+    if (dogets) {
 	/* initialize statistics */
 	init_stat(&st, nbytes, alignment);
 
@@ -180,6 +193,7 @@ void oneway_nbi_test(int iters, int nbytes, int alignment)
 	if (iamsender) {
 		print_stat(myproc, &st, "get_nbi_bulk throughput", PRINT_THROUGHPUT);
 	}	
+    }
 }
 
 void oneway_nb_test(int iters, int nbytes, int alignment)
@@ -190,6 +204,7 @@ void oneway_nb_test(int iters, int nbytes, int alignment)
     gasnet_handle_t *handles;
     int pad = (alignment % PAGESZ);
 
+    if (doputs) {
 	/* initialize statistics */
 	init_stat(&st, nbytes, alignment);
 	
@@ -215,7 +230,9 @@ void oneway_nb_test(int iters, int nbytes, int alignment)
 	if (iamsender) {
 		print_stat(myproc, &st, "put_nb_bulk throughput", PRINT_THROUGHPUT);
 	}	
+    }
 	
+    if (dogets) {
 	/* initialize statistics */
 	init_stat(&st, nbytes, alignment);
 
@@ -235,26 +252,20 @@ void oneway_nb_test(int iters, int nbytes, int alignment)
 	if (iamsender) {
 		print_stat(myproc, &st, "get_nb_bulk throughput", PRINT_THROUGHPUT);
 	}	
+    }
 	
-	test_free(handles);
+    test_free(handles);
 }
 
 int main(int argc, char **argv)
 {
     int arg;
     int iters = 0;
-    int size = 0;
     int j;
     int help = 0;   
 
     /* call startup */
     GASNET_Safe(gasnet_init(&argc, &argv));
-    GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
-    test_init("testalign", 1,
-               "[-in|-out] (iters) (size)\n"
-               "  The 'in' or 'out' option selects whether the initiator-side\n"
-               "  memory is in the GASNet segment or not (default is not).\n"
-               "  The -m option enables MB/sec units for bandwidth output (MB=2^20 bytes).");
     
     /* parse arguments */
     arg = 1;
@@ -264,6 +275,12 @@ int main(int argc, char **argv)
         ++arg;
       } else if (!strcmp(argv[arg], "-out")) {
         insegment = 0;
+        ++arg;
+      } else if (!strcmp(argv[arg], "-g")) {
+        dogets = 1; doputs = 0;
+        ++arg;
+      } else if (!strcmp(argv[arg], "-p")) {
+        doputs = 1; dogets = 0;
         ++arg;
       } else if (!strcmp(argv[arg], "-m")) {
         unitsMB = 1;
@@ -281,6 +298,14 @@ int main(int argc, char **argv)
     if (argc > arg) size = atoi(argv[arg++]);
     if (!size) size = DEFAULT_SZ;
 
+    GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
+    test_init("testalign", 1,
+               "[options] (iters) (size)\n"
+               "  The '-in' or '-out' option selects whether the initiator-side\n"
+               "   memory is in the GASNet segment or not (default is not).\n"
+               "  The -p/-g option selects puts only or gets only (default is both).\n"
+               "  The -m option enables MB/sec units for bandwidth output (MB=2^20 bytes).");
+
     /* get SPMD info */
     myproc = gasnet_mynode();
     numprocs = gasnet_nodes();
@@ -297,6 +322,13 @@ int main(int argc, char **argv)
     
     rembuf = (void *) TEST_SEG(peerproc);
 
+    MSG0("Running %i iterations of bulk %s%s%s with local addresses %sside the segment for size %i\n",
+          iters,
+          (doputs             ? "put" : ""),
+          ((doputs && dogets) ? "/"   : ""),
+          (dogets             ? "get ": ""),
+          insegment ? "in" : "out",
+          size);
 
     /* initialize global data in my thread */
     if (insegment) {
