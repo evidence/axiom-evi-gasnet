@@ -1,5 +1,5 @@
 Gemini-conduit design notes, from code review 8/2010
-$Revision: 1.13 $
+$Revision: 1.14 $
 
 number of bounce buffers, make clear the effects of, in the readme
 
@@ -129,16 +129,16 @@ consider changing queue for smsg work queue into a circular buffer, becvause it 
 
 enqueus and dequeues do not need to share a lock, but they need an atomic coiunter for space available.
 
-gc_queue push not used
+PHH DONE gc_queue push not used
 
-on-queue indication could be a flag, rather than a pointer to which queue you are on, since there is only the smsg_work_queue
+PHH DONE on-queue indication could be a flag, rather than a pointer to which queue you are on, since there is only the smsg_work_queue
 
-note, queue item and gni_post cannot both be first in the gc_post_descriptor
+PHH GONE (qi no longer in gpd) note, queue item and gni_post cannot both be first in the gc_post_descriptor
 
 
 If I call handlers from the smsg buffer must assure that a handler cannot internally call poll_smsng_q
 
-ook for unused fields (initialized only)
+PHH DONE (but should do again) look for unused fields (initialized only)
 
 PHH GONE close smsg_fd 
 
