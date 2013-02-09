@@ -1610,7 +1610,7 @@ gasneti_auxseg_request_t gasnetc_bounce_auxseg_alloc(gasnet_seginfo_t *auxseg_in
 
 /* AuxSeg setup for registered post descriptors*/
 GASNETI_IDENT(gasneti_pd_auxseg_IdentString, /* XXX: update if gasnetc_post_descriptor_t changes */
-              "$GASNetAuxSeg_pd: 336*(GASNETC_GNI_NUM_PD:" _STRINGIFY(GASNETC_GNI_NUM_PD_DEFAULT)") $");
+              "$GASNetAuxSeg_pd: 352*(GASNETC_GNI_NUM_PD:" _STRINGIFY(GASNETC_GNI_NUM_PD_DEFAULT)") $");
 gasneti_auxseg_request_t gasnetc_pd_auxseg_alloc(gasnet_seginfo_t *auxseg_info) {
   gasneti_auxseg_request_t retval;
   
