@@ -21,7 +21,7 @@ static long int mygetenv(const char *name)
   return(value);
 }
 
-void *gasnetc_gather_nic_addresses(void)
+uint32_t *gasnetc_gather_nic_addresses(void)
 {
   gni_return_t status;
   uint32_t myaddress, pmiaddress;

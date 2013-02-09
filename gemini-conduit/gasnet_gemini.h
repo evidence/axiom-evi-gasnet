@@ -216,9 +216,7 @@ typedef struct {
 
 /* Routines in gc_utils.c */
 
-uint32_t *gasnetc_UGNI_AllAddr;
-
-void *gasnetc_gather_nic_addresses(void);
+uint32_t *gasnetc_gather_nic_addresses(void);
 
 void gasnetc_GNIT_Job_size(int *nranks);
 void gasnetc_GNIT_Rank(int *inst_id);
