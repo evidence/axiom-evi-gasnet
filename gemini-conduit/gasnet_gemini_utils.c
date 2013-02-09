@@ -21,21 +21,17 @@ static long int mygetenv(const char *name)
   return(value);
 }
 
-unsigned int *gasnetc_UGNI_AllAddr;
-
 void *gasnetc_gather_nic_addresses(void)
 {
   gni_return_t status;
   uint32_t myaddress, pmiaddress;
   uint32_t cpu_id;
   uint32_t device_id = gasnetc_GNIT_Device_Id();
-  gasnetc_UGNI_AllAddr = gasneti_malloc(gasneti_nodes * sizeof(uint32_t));
-  gasneti_assert(gasnetc_UGNI_AllAddr);
+  uint32_t *result = gasneti_malloc(gasneti_nodes * sizeof(uint32_t));
+
   status = GNI_CdmGetNicAddress(device_id, &myaddress, &cpu_id);
   if (status != GNI_RC_SUCCESS) {
     gasnetc_GNIT_Abort();
-  } else {
-    /*fprintf(stderr, "rank %d Cdm_GetNicAddress %x\n", rank, myaddress); */
   }
   pmiaddress = mygetenv("PMI_GNI_LOC_ADDR");
   if (pmiaddress != myaddress) {
@@ -43,27 +39,16 @@ void *gasnetc_gather_nic_addresses(void)
     fprintf(stderr, "rank %d PMI_GNI_LOC_ADDR is %d, using it\n", gasneti_mynode, pmiaddress);
 #endif
     myaddress = pmiaddress;
-  } else {
-    /*fprintf(stderr, "rank %d PMI_GNI_LOC_ADDR is %d, same\n", rank, pmiaddress);*/
   }
 
-  gasnetc_GNIT_Allgather(&myaddress, sizeof(uint32_t), gasnetc_UGNI_AllAddr);
-  if (gasnetc_UGNI_AllAddr[gasneti_mynode] != myaddress) {
+  gasnetc_GNIT_Allgather(&myaddress, sizeof(uint32_t), result);
+  if (result[gasneti_mynode] != myaddress) {
     fprintf(stderr, "rank %d gathernic got %x should be %x\n", gasneti_mynode,
-	    gasnetc_UGNI_AllAddr[gasneti_mynode], myaddress);
+	    result[gasneti_mynode], myaddress);
     gasnetc_GNIT_Abort();
   }
-  /*
-  {
-  int i;
-  fprintf(stderr, "rank %d addresses ", rank);
-  for (i = 0; i < gasneti_nodes; i += 1) {
-    fprintf(stderr, " %x", gasnetc_UGNI_AllAddr[i]);
-  }
-  fprintf(stderr, "\n");
-  }
-  */
-  return(gasnetc_UGNI_AllAddr);
+
+  return(result);
 }
 
 
