@@ -235,27 +235,6 @@ void gasnetc_return_am_credit(uint32_t pe);
 
 void gasnetc_send_am_nop(uint32_t pe);
 
-
-typedef struct gasnetc_queue_item {
-  struct gasnetc_queue_item *next;    /* pointer to next item on q, or NULL if last */
-  struct gasnetc_queue *queue;        /* pointer to queue we are on, or NULL if not */
-} gasnetc_queue_item_t;
-
-
-typedef struct gasnetc_queue {
-  gasnetc_queue_item_t *head;
-  gasnetc_queue_item_t *tail;
-  gasnetc_queuelock_t lock;
-} gasnetc_queue_t;
-
-void gasnetc_queue_init(gasnetc_queue_t *q);
-void gasnetc_queue_item_init(gasnetc_queue_item_t *qi);
-
-gasnetc_queue_item_t *gasnetc_queue_pop(gasnetc_queue_t *q);
-void gasnetc_queue_push(gasnetc_queue_t *q, gasnetc_queue_item_t *qi);
-void gasnetc_queue_enqueue(gasnetc_queue_t *q, gasnetc_queue_item_t *qi);
-void gasnetc_queue_enqueue_no_lock(gasnetc_queue_t *q, gasnetc_queue_item_t *qi);
-
 void gasnetc_init_post_descriptor_pool(void);
 
 /* use the auxseg mechanism to allocate registered memory for bounce buffers */

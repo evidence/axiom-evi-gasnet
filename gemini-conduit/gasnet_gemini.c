@@ -22,20 +22,18 @@ static int gasnetc_mem_consistency;
 static unsigned int gasnetc_mb_maxcredit;
 
 int gasnetc_poll_burst = 10;
-static gasnetc_queue_t smsg_work_queue;
 
 static double shutdown_max;
 static uint32_t sys_exit_rcvd;
 
-
 typedef struct peer_struct {
-  gasnetc_queue_item_t qi;
+  struct peer_struct *next; /* pointer to next when queue, GC_NOT_QUEUED otherwise */
   gasneti_weakatomic_t am_credit;
-  gasnet_node_t rank; /* Could compute as (ptr - peer_data) */
+  gasnet_node_t rank;
 } peer_struct_t;
 
-static peer_struct_t mypeerdata;
 static peer_struct_t *peer_data;
+
 static gni_mem_handle_t my_smsg_handle;
 static gni_mem_handle_t my_mem_handle;
 static gni_mem_handle_t *peer_mem_handle;
@@ -93,6 +91,60 @@ const char *gasnetc_type_string(int type)
   return("unknown");
 }
 
+/*------ Work Queue threading peer_struct_t with pending AM receives ------*/
+
+struct {
+  peer_struct_t *head;
+  peer_struct_t *tail;
+  gasnetc_queuelock_t lock;
+} smsg_work_queue;
+
+#define GC_NOT_QUEUED ((struct peer_struct*)(uintptr_t)1)
+#define GC_IS_QUEUED(_qi) \
+        (gasneti_assert((_qi) != NULL), ((_qi)->next != GC_NOT_QUEUED))
+
+void gasnetc_work_queue_init(void)
+{
+  smsg_work_queue.head = NULL;
+  smsg_work_queue.tail = NULL;
+  GASNETC_INITLOCK_QUEUE(&smsg_work_queue);
+}
+
+/* Remove qi from HEAD of work queue - acquires and releases lock */
+GASNETI_INLINE(gasnetc_work_dequeue)
+peer_struct_t *gasnetc_work_dequeue(void)
+{
+  peer_struct_t *qi;
+  GASNETC_LOCK_QUEUE(&smsg_work_queue);
+  qi = smsg_work_queue.head;
+  if (qi != NULL) {
+    smsg_work_queue.head = qi->next;
+    if (smsg_work_queue.head == NULL) smsg_work_queue.tail = NULL;
+    qi->next = GC_NOT_QUEUED;
+  }
+  GASNETC_UNLOCK_QUEUE(&smsg_work_queue);
+  return(qi);
+}
+
+/* Add qi at TAIL of work queue - caller must hold lock */
+GASNETI_INLINE(gasnetc_work_enqueue_nolock)
+void gasnetc_work_enqueue_nolock(peer_struct_t *qi)
+{
+  gasneti_assert(qi != NULL);
+  gasneti_assert(qi->next == GC_NOT_QUEUED);
+  /* GASNETC_LOCK_QUEUE(&smsg_work_queue); */
+  if (smsg_work_queue.head == NULL) {
+    smsg_work_queue.head = qi;
+  } else {
+    gasneti_assert(smsg_work_queue.tail != NULL);
+    smsg_work_queue.tail->next = qi;
+  }
+  smsg_work_queue.tail = qi;
+  qi->next = NULL;
+  /* GASNETC_UNLOCK_QUEUE(&smsg_work_queue); */
+}
+
+/*-------------------------------------------------*/
 
 /* called after segment init. See gasneti_seginfo */
 /* allgather the memory handles for the segments */
@@ -198,7 +250,7 @@ uintptr_t gasnetc_init_messaging(void)
 
   GASNETC_INITLOCK_GNI();
 
-  gasnetc_queue_init(&smsg_work_queue);
+  gasnetc_work_queue_init();
 
   status = GNI_CdmCreate(gasneti_mynode, gasnetc_GNIT_Ptag(), gasnetc_GNIT_Cookie(), 
 			 modes,
@@ -366,7 +418,7 @@ uintptr_t gasnetc_init_messaging(void)
   /* init peer_data */
   peer_data = gasneti_malloc(gasneti_nodes * sizeof(peer_struct_t));
   for (i = 0; i < gasneti_nodes; i += 1) {
-    gasnetc_queue_item_init(&peer_data[i].qi);
+    peer_data[i].next = GC_NOT_QUEUED;
     gasneti_weakatomic_set(&peer_data[i].am_credit, gasnetc_mb_maxcredit / 2, 0); /* (req + reply) = 2 */
     peer_data[i].rank = i;
   }
@@ -687,9 +739,8 @@ void gasnetc_poll_smsg_completion_queue(void)
       gasneti_assert(source < gasneti_nodes);
       /* atomically enqueue the peer on the smsg queue if it isn't
 	 already there.  */
-      if (peer_data[source].qi.queue == NULL)
-	gasnetc_queue_enqueue_no_lock(&smsg_work_queue, 
-				 (gasnetc_queue_item_t *) &peer_data[source]);
+      if (!GC_IS_QUEUED(&peer_data[source]))
+	gasnetc_work_enqueue_nolock(&peer_data[source]);
     }
     GASNETC_UNLOCK_QUEUE(&smsg_work_queue);
   }
@@ -715,9 +766,8 @@ void gasnetc_poll_smsg_completion_queue(void)
     /* and enqueue everyone on the work queue, who isn't already */
     GASNETC_LOCK_QUEUE(&smsg_work_queue);
     for (source = 0; source < gasneti_nodes; source += 1) {
-      if (peer_data[source].qi.queue == NULL)
-	gasnetc_queue_enqueue_no_lock(&smsg_work_queue, 
-				 (gasnetc_queue_item_t *) &peer_data[source]);
+      if (!GC_IS_QUEUED(&peer_data[source]))
+	gasnetc_work_enqueue_nolock(&peer_data[source]);
     }
     GASNETC_UNLOCK_QUEUE(&smsg_work_queue);
     gasnetc_GNIT_Log("smsg queue overflow");
@@ -730,14 +780,13 @@ void gasnetc_poll_smsg_completion_queue(void)
 void gasnetc_poll_smsg_queue(void)
 {
   int i;
-  gasnet_node_t source;
   gasnetc_poll_smsg_completion_queue();
+
   /* Now see about processing some peers off the smsg_work_queue */
   for (i = 0; i < SMSG_PEER_BURST; i += 1) {
-    peer_struct_t *peer = (peer_struct_t *) gasnetc_queue_pop(&smsg_work_queue);
+    peer_struct_t *peer = gasnetc_work_dequeue();
     if (peer == NULL) break;
-    source = peer->rank;
-    gasnetc_process_smsg_q(source);
+    gasnetc_process_smsg_q(peer->rank);
   }
 }
 
@@ -1356,113 +1405,6 @@ void gasnetc_return_am_credit(uint32_t pe)
   fprintf(stderr, "r %d return am credit for %d, after is %d\n",
 	 gasneti_mynode, pe, (int)gasneti_weakatomic_read(&peer_data[pe].am_credit, 0));
 #endif
-}
-
-void gasnetc_queue_init(gasnetc_queue_t *q) 
-{
-  q->head = NULL;
-  q->tail = NULL;
-  GASNETC_INITLOCK_QUEUE(q);
-}
-
-void gasnetc_queue_item_init(gasnetc_queue_item_t *qi) 
-{
-  qi->next = NULL;
-  qi->queue = NULL;
-}
-
-#if 0
-gasnetc_queue_item_t *gasnetc_dequeue(gasnetc_queue_t *q, gasnetc_queue_item_t *qi)
-{
-  gasneti_assert(q != NULL);
-  GASNETC_LOCK_QUEUE(q);
-  if (qi != NULL) {
-    if (qi->prev == NULL) q->head = qi->next;
-    else qi->prev->next = qi->next;
-    if (qi->next == NULL) q->tail = qi->prev;
-    else qi->next->prev = qi->prev;
-    GC_DEBUG(qi->next = NULL);
-    GC_DEBUG(qi->prev = NULL);
-  }
-  GASNETC_UNLOCK_QUEUE(q);
-  return(qi);
-}
-#endif 
-
-gasnetc_queue_item_t *gasnetc_queue_pop(gasnetc_queue_t *q)
-{
-  gasnetc_queue_item_t *qi;
-  gasneti_assert(q != NULL);
-  GASNETC_LOCK_QUEUE(q);
-  qi = q->head;
-  if (qi != NULL) {
-    gasneti_assert(qi->queue == q);
-    q->head = qi->next;
-    if (q->head == NULL) q->tail = NULL;
-    qi->queue = NULL;
-    GC_DEBUG(qi->next = NULL);
-  }
-  GASNETC_UNLOCK_QUEUE(q);
-  return(qi);
-}
-
-void gasnetc_queue_push(gasnetc_queue_t *q, gasnetc_queue_item_t *qi)
-{
-  gasneti_assert(q != NULL);
-  gasneti_assert(qi != NULL);
-  gasneti_assert(qi->queue == NULL);
-  GASNETC_LOCK_QUEUE(q);
-  qi->next = q->head;
-  q->head = qi;
-  if (q->tail == NULL) q->tail = qi;
-  qi->queue = q;
-  GASNETC_UNLOCK_QUEUE(q);
-}
-
-void gasnetc_queue_enqueue(gasnetc_queue_t *q, gasnetc_queue_item_t *qi)
-{
-  gasneti_assert(q != NULL);
-  gasneti_assert(qi != NULL);
-  gasneti_assert(qi->queue == NULL);
-  GASNETC_LOCK_QUEUE(q);
-  if (q->head == NULL) {
-    q->head = qi;
-  } else {
-    gasneti_assert(q->tail != NULL);
-    q->tail->next = qi;
-  }
-  q->tail = qi;
-  qi->next = NULL;
-  qi->queue = q;
-  GASNETC_UNLOCK_QUEUE(q);
-}
-
-/* This version is used from smsg_poll inside a loop that holds the lock
- * to amortize locking costs
- */
-
-void gasnetc_queue_enqueue_no_lock(gasnetc_queue_t *q, gasnetc_queue_item_t *qi)
-{
-  gasneti_assert(q != NULL);
-  gasneti_assert(qi != NULL);
-  gasneti_assert(qi->queue == NULL);
-  /* GASNETC_LOCK_QUEUE(q); */
-  if (q->head == NULL) {
-    q->head = qi;
-  } else {
-    gasneti_assert(q->tail != NULL);
-    q->tail->next = qi;
-  }
-  q->tail = qi;
-  qi->next = NULL;
-  qi->queue = q;
-  /* GASNETC_UNLOCK_QUEUE(q); */
-}
-
-int gasnetc_queue_on_queue(gasnetc_queue_item_t *qi)
-{
-  gasneti_assert(qi != NULL);
-  return (qi->queue != NULL);
 }
 
 static gasneti_lifo_head_t post_descriptor_pool = GASNETI_LIFO_INITIALIZER;
