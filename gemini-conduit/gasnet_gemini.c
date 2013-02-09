@@ -595,6 +595,7 @@ extern void  gasnetc_poll_smsg_completion_queue(void);
 
 void gasnetc_process_smsg_q(gasnet_node_t pe)
 {
+  peer_struct_t * const peer = &peer_data[pe];
   gni_return_t status;
   GC_Header_t *recv_header;
   union {
@@ -608,7 +609,7 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
   int is_req;
   for (;;) {
     GASNETC_LOCK_GNI();
-    status = GNI_SmsgGetNext(peer_data[pe].ep_handle, 
+    status = GNI_SmsgGetNext(peer->ep_handle, 
 			     (void **) &recv_header);
     GASNETC_UNLOCK_GNI_IF_SEQ();
     if (status == GNI_RC_SUCCESS) {
@@ -621,7 +622,7 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
       is_req = (1 & recv_header->command); /* Requests have ODD values */
       switch (recv_header->command) {
       case GC_CMD_AM_NOP_REPLY: {
-	status = GNI_SmsgRelease(peer_data[pe].ep_handle);
+	status = GNI_SmsgRelease(peer->ep_handle);
         GASNETC_UNLOCK_GNI_IF_PAR();
 	gasnetc_return_am_credit(pe);
 	break;
@@ -630,7 +631,7 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
       case GC_CMD_AM_SHORT_REPLY: {
 	head_length = GASNETC_HEADLEN(short, numargs);
 	memcpy(&buffer, recv_header, head_length);
-	status = GNI_SmsgRelease(peer_data[pe].ep_handle);
+	status = GNI_SmsgRelease(peer->ep_handle);
 	GASNETC_UNLOCK_GNI_IF_PAR();
 	gasnetc_handle_am_short_packet(is_req, pe, &buffer.packet.gasp);
 	break;
@@ -641,7 +642,7 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
 	length = head_length + recv_header->misc;
 	memcpy(&buffer, recv_header, length);
 	gasneti_assert(recv_header->misc <= gasnet_AMMaxMedium());
-	status = GNI_SmsgRelease(peer_data[pe].ep_handle);
+	status = GNI_SmsgRelease(peer->ep_handle);
 	GASNETC_UNLOCK_GNI_IF_PAR();
 	gasnetc_handle_am_medium_packet(is_req, pe, &buffer.packet.gamp, &buffer.raw[head_length]);
 	break;
@@ -654,14 +655,14 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
 	  void *im_data = (void *) (((uintptr_t) recv_header) + head_length);
 	  memcpy(buffer.packet.galp.data, im_data, buffer.packet.galp.data_length);
 	}
-	status = GNI_SmsgRelease(peer_data[pe].ep_handle);
+	status = GNI_SmsgRelease(peer->ep_handle);
 	GASNETC_UNLOCK_GNI_IF_PAR();
 	gasnetc_handle_am_long_packet(is_req, pe, &buffer.packet.galp);
 	break;
       }
       case GC_CMD_SYS_SHUTDOWN_REQUEST: {
 	memcpy(&buffer, recv_header, sizeof(buffer.packet.gssp));
-	status = GNI_SmsgRelease(peer_data[pe].ep_handle);
+	status = GNI_SmsgRelease(peer->ep_handle);
 	GASNETC_UNLOCK_GNI_IF_PAR();
 	gasnetc_handle_sys_shutdown_packet(pe, &buffer.packet.gssp);
 	break;
@@ -1136,6 +1137,7 @@ void gasnetc_rdma_put_bulk(gasnet_node_t dest,
 		 void *dest_addr, void *source_addr,
 		 size_t nbytes, gasnetc_post_descriptor_t *gpd)
 {
+  peer_struct_t * const peer = &peer_data[dest];
   gni_post_descriptor_t *pd;
   gni_return_t status;
 
@@ -1146,7 +1148,7 @@ void gasnetc_rdma_put_bulk(gasnet_node_t dest,
   pd->cq_mode = GNI_CQMODE_GLOBAL_EVENT;
   pd->dlvr_mode = GNI_DLVMODE_PERFORMANCE;
   pd->remote_addr = (uint64_t) dest_addr;
-  pd->remote_mem_hndl = peer_data[dest].mem_handle;
+  pd->remote_mem_hndl = peer->mem_handle;
   pd->length = nbytes;
 
   /* confirm that the destination is in-segment on the far end */
@@ -1188,7 +1190,7 @@ void gasnetc_rdma_put_bulk(gasnet_node_t dest,
       pd->cq_mode = gasnetc_fma_put_cq_mode;
 #endif
       GASNETC_LOCK_GNI();
-      status = myPostFma(peer_data[dest].ep_handle, pd);
+      status = myPostFma(peer->ep_handle, pd);
       GASNETC_UNLOCK_GNI();
       if_pf (status != GNI_RC_SUCCESS) {
 	print_post_desc("postfma", pd);
@@ -1197,7 +1199,7 @@ void gasnetc_rdma_put_bulk(gasnet_node_t dest,
   } else {
       pd->type = GNI_POST_RDMA_PUT;
       GASNETC_LOCK_GNI();
-      status = myPostRdma(peer_data[dest].ep_handle, pd);
+      status = myPostRdma(peer->ep_handle, pd);
       GASNETC_UNLOCK_GNI();
       if_pf (status != GNI_RC_SUCCESS) {
 	print_post_desc("postrdma", pd);
@@ -1213,6 +1215,7 @@ int gasnetc_rdma_put(gasnet_node_t dest,
 		 void *dest_addr, void *source_addr,
 		 size_t nbytes, gasnetc_post_descriptor_t *gpd)
 {
+  peer_struct_t * const peer = &peer_data[dest];
   gni_post_descriptor_t *pd;
   gni_return_t status;
   int result = 1; /* assume local completion */
@@ -1224,7 +1227,7 @@ int gasnetc_rdma_put(gasnet_node_t dest,
   pd->cq_mode = GNI_CQMODE_GLOBAL_EVENT;
   pd->dlvr_mode = GNI_DLVMODE_PERFORMANCE;
   pd->remote_addr = (uint64_t) dest_addr;
-  pd->remote_mem_hndl = peer_data[dest].mem_handle;
+  pd->remote_mem_hndl = peer->mem_handle;
   pd->length = nbytes;
 
   /* confirm that the destination is in-segment on the far end */
@@ -1263,7 +1266,7 @@ int gasnetc_rdma_put(gasnet_node_t dest,
       pd->cq_mode = gasnetc_fma_put_cq_mode;
 #endif
       GASNETC_LOCK_GNI();
-      status = myPostFma(peer_data[dest].ep_handle, pd);
+      status = myPostFma(peer->ep_handle, pd);
       GASNETC_UNLOCK_GNI();
       if_pf (status != GNI_RC_SUCCESS) {
 	print_post_desc("postfma", pd);
@@ -1276,7 +1279,7 @@ int gasnetc_rdma_put(gasnet_node_t dest,
   } else {
       pd->type = GNI_POST_RDMA_PUT;
       GASNETC_LOCK_GNI();
-      status = myPostRdma(peer_data[dest].ep_handle, pd);
+      status = myPostRdma(peer->ep_handle, pd);
       GASNETC_UNLOCK_GNI();
       if_pf (status != GNI_RC_SUCCESS) {
 	print_post_desc("postrdma", pd);
@@ -1314,6 +1317,7 @@ void gasnetc_rdma_get(gasnet_node_t dest,
 		 void *dest_addr, void *source_addr,
 		 size_t nbytes, gasnetc_post_descriptor_t *gpd)
 {
+  peer_struct_t * const peer = &peer_data[dest];
   gni_post_descriptor_t *pd;
   gni_return_t status;
 
@@ -1325,7 +1329,7 @@ void gasnetc_rdma_get(gasnet_node_t dest,
   pd->cq_mode = GNI_CQMODE_GLOBAL_EVENT;
   pd->dlvr_mode = GNI_DLVMODE_PERFORMANCE;
   pd->remote_addr = (uint64_t) source_addr;
-  pd->remote_mem_hndl = peer_data[dest].mem_handle;
+  pd->remote_mem_hndl = peer->mem_handle;
   pd->length = nbytes;
 
   /* confirm that the destination is in-segment on the far end */
@@ -1367,7 +1371,7 @@ void gasnetc_rdma_get(gasnet_node_t dest,
   if (nbytes <= gasnetc_fma_rdma_cutover) {
       pd->type = GNI_POST_FMA_GET;
       GASNETC_LOCK_GNI();
-      status = myPostFma(peer_data[dest].ep_handle, pd);
+      status = myPostFma(peer->ep_handle, pd);
       GASNETC_UNLOCK_GNI();
       if_pf (status != GNI_RC_SUCCESS) {
 	print_post_desc("postfma", pd);
@@ -1376,7 +1380,7 @@ void gasnetc_rdma_get(gasnet_node_t dest,
   } else {
       pd->type = GNI_POST_RDMA_GET;
       GASNETC_LOCK_GNI();
-      status = myPostRdma(peer_data[dest].ep_handle, pd);
+      status = myPostRdma(peer->ep_handle, pd);
       GASNETC_UNLOCK_GNI();
       if_pf (status != GNI_RC_SUCCESS) {
 	print_post_desc("postrdma", pd);
