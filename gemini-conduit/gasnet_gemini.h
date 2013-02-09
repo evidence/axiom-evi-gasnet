@@ -272,7 +272,7 @@ uint32_t gasnetc_fma_rdma_cutover;
 #define GC_POST_UNBOUNCE 4
 #define GC_POST_UNREGISTER 8
 #define GC_POST_COMPLETION_FLAG 16
-#define GC_POST_COMPLETION_EOP 32
+#define GC_POST_COMPLETION_OP 32
 #define GC_POST_GET 64
 
 /* WARNING: if sizeof(gasnetc_post_descriptor_t) changes, then
@@ -283,7 +283,12 @@ typedef struct gasnetc_post_descriptor {
   uint32_t get_nbytes;
   uint32_t flags;
   gasnet_node_t dest;
-  gasnete_op_t *completion;
+  union {
+    gasneti_weakatomic_t *flag;
+    gasnete_eop_t *eop;
+    gasnete_iop_t *iop;
+    gasnete_op_t *op;
+  } completion;
   gni_post_descriptor_t pd;
   union {
   #if GASNETC_SMSG_RETRANSMIT

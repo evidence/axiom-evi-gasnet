@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/02/08 03:27:20 $
- * $Revision: 1.30 $
+ *     $Date: 2013/02/09 02:48:34 $
+ * $Revision: 1.31 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -832,14 +832,14 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
     /* fma credit needed here? LCS XXX */
     if (!is_packed) {
       gasnetc_post_descriptor_t *gpd = gasnetc_alloc_post_descriptor();
-      gasneti_atomic_t done = gasneti_atomic_init(0);
+      gasneti_weakatomic_t done = gasneti_weakatomic_init(0);
       gasneti_assert(gpd);
-      gpd->completion = (gasnete_op_t *) &done;
+      gpd->completion.flag = &done;
       gpd->flags = GC_POST_COMPLETION_FLAG;
 
       /* Rdma data, block, then fall through to send header only */
       gasnetc_rdma_put_bulk(dest, dest_addr, source_addr, nbytes, gpd);
-      while(!gasneti_atomic_read(&done, 0)) gasnetc_poll_local_queue();
+      while(!gasneti_weakatomic_read(&done, 0)) gasnetc_poll_local_queue();
 
       nbytes = 0;
     }
@@ -1033,14 +1033,14 @@ extern int gasnetc_AMReplyLongM(
     }
     if (!is_packed) {
       gasnetc_post_descriptor_t *gpd = gasnetc_alloc_post_descriptor();
-      gasneti_atomic_t done = gasneti_atomic_init(0);
+      gasneti_weakatomic_t done = gasneti_weakatomic_init(0);
       gasneti_assert(gpd);
-      gpd->completion = (gasnete_op_t *) &done;
+      gpd->completion.flag = &done;
       gpd->flags = GC_POST_COMPLETION_FLAG;
 
       /* Rdma data, block, then fall through to send header only */
       gasnetc_rdma_put_bulk(dest, dest_addr, source_addr, nbytes, gpd);
-      while(!gasneti_atomic_read(&done, 0)) gasnetc_poll_local_queue();
+      while(!gasneti_weakatomic_read(&done, 0)) gasnetc_poll_local_queue();
 
       nbytes = 0;
     }

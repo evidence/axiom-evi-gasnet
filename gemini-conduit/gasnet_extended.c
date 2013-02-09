@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2013/02/08 23:43:34 $
- * $Revision: 1.24 $
+ *     $Date: 2013/02/09 02:48:34 $
+ * $Revision: 1.25 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -419,8 +419,8 @@ gasnete_get_bulk_chunked(void *dest, gasnet_node_t node, void *src, size_t nbyte
     size_t chunk_len = GC_MAXRDMA - ((uintptr_t)src & (GC_MAXRDMA-1));
     gasneti_assert(chunk_len != 0);
     gpd = gasnetc_alloc_post_descriptor();
-    gpd->completion = (gasnete_op_t *) iop;
-    gpd->flags = GC_POST_COMPLETION_EOP;
+    gpd->completion.iop = iop;
+    gpd->flags = GC_POST_COMPLETION_OP;
     gasnetc_rdma_get(node, dest, src, chunk_len, gpd);
     dest = (char *) dest + chunk_len;
     src  = (char *) src  + chunk_len;
@@ -433,8 +433,8 @@ gasnete_get_bulk_chunked(void *dest, gasnet_node_t node, void *src, size_t nbyte
   gasneti_assert (nbytes > GC_MAXRDMA);
   do {
     gpd = gasnetc_alloc_post_descriptor();
-    gpd->completion = (gasnete_op_t *) iop;
-    gpd->flags = GC_POST_COMPLETION_EOP;
+    gpd->completion.iop = iop;
+    gpd->flags = GC_POST_COMPLETION_OP;
     gasnetc_rdma_get(node, dest, src, GC_MAXRDMA, gpd);
     dest = (char *) dest + GC_MAXRDMA;
     src  = (char *) src  + GC_MAXRDMA;
@@ -445,8 +445,8 @@ gasnete_get_bulk_chunked(void *dest, gasnet_node_t node, void *src, size_t nbyte
   /* final chunk (could be either full or partial) */
   gasneti_assert(nbytes != 0);
   gpd = gasnetc_alloc_post_descriptor();
-  gpd->completion = (gasnete_op_t *) iop;
-  gpd->flags = GC_POST_COMPLETION_EOP;
+  gpd->completion.iop = iop;
+  gpd->flags = GC_POST_COMPLETION_OP;
   gasnetc_rdma_get(node, dest, src, nbytes, gpd);
 
   iop->initiated_get_cnt += count;
@@ -464,8 +464,8 @@ extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void
     /* xfer is in-segment or "small-enough" out-of-segment: use a single op */
     gasnetc_post_descriptor_t *gpd = gasnetc_alloc_post_descriptor();
     gasnete_eop_t *eop = gasnete_eop_new(GASNETE_MYTHREAD);
-    gpd->completion = (gasnete_op_t *) eop;
-    gpd->flags = GC_POST_COMPLETION_EOP;
+    gpd->completion.eop = eop;
+    gpd->flags = GC_POST_COMPLETION_OP;
     gasnetc_rdma_get(node, dest, src, nbytes, gpd);
     return((gasnet_handle_t) eop);
   } else {
@@ -500,8 +500,8 @@ extern gasnet_handle_t gasnete_put_nb (gasnet_node_t node, void *dest, void *src
   /* Non-blocking non-bulk put of "tail" portion */
   gpd = gasnetc_alloc_post_descriptor();
   tail_op = gasnete_eop_new(GASNETE_MYTHREAD);
-  gpd->completion = (gasnete_op_t *) tail_op;
-  gpd->flags = GC_POST_COMPLETION_EOP;
+  gpd->completion.eop = tail_op;
+  gpd->flags = GC_POST_COMPLETION_OP;
   lc = gasnetc_rdma_put(node, dest, src, nbytes, gpd);
   gasneti_assert(lc);
 
@@ -525,8 +525,8 @@ gasnete_put_bulk_chunked(gasnet_node_t node, void *dest, void *src, size_t nbyte
     size_t chunk_len = GC_MAXRDMA - ((uintptr_t)src & (GC_MAXRDMA-1));
     gasneti_assert(chunk_len != 0);
     gpd = gasnetc_alloc_post_descriptor();
-    gpd->completion = (gasnete_op_t *) iop;
-    gpd->flags = GC_POST_COMPLETION_EOP;
+    gpd->completion.iop = iop;
+    gpd->flags = GC_POST_COMPLETION_OP;
     gasnetc_rdma_put_bulk(node, dest, src, chunk_len, gpd);
     dest = (char *) dest + chunk_len;
     src  = (char *) src  + chunk_len;
@@ -539,8 +539,8 @@ gasnete_put_bulk_chunked(gasnet_node_t node, void *dest, void *src, size_t nbyte
   gasneti_assert (nbytes > GC_MAXRDMA);
   do {
     gpd = gasnetc_alloc_post_descriptor();
-    gpd->completion = (gasnete_op_t *) iop;
-    gpd->flags = GC_POST_COMPLETION_EOP;
+    gpd->completion.iop = iop;
+    gpd->flags = GC_POST_COMPLETION_OP;
     gasnetc_rdma_put_bulk(node, dest, src, GC_MAXRDMA, gpd);
     dest = (char *) dest + GC_MAXRDMA;
     src  = (char *) src  + GC_MAXRDMA;
@@ -551,8 +551,8 @@ gasnete_put_bulk_chunked(gasnet_node_t node, void *dest, void *src, size_t nbyte
   /* final chunk (could be either full or partial) */
   gasneti_assert(nbytes != 0);
   gpd = gasnetc_alloc_post_descriptor();
-  gpd->completion = (gasnete_op_t *) iop;
-  gpd->flags = GC_POST_COMPLETION_EOP;
+  gpd->completion.iop = iop;
+  gpd->flags = GC_POST_COMPLETION_OP;
   gasnetc_rdma_put_bulk(node, dest, src, nbytes, gpd);
 
   iop->initiated_put_cnt += count;
@@ -565,8 +565,8 @@ extern gasnet_handle_t gasnete_put_nb_bulk (gasnet_node_t node, void *dest, void
     /* xfer is in-segment or "small-enough" out-of-segment: use a single op */
     gasnetc_post_descriptor_t *gpd = gasnetc_alloc_post_descriptor();
     gasnete_eop_t *eop = gasnete_eop_new(GASNETE_MYTHREAD);
-    gpd->completion = (gasnete_op_t *) eop;
-    gpd->flags = GC_POST_COMPLETION_EOP;
+    gpd->completion.eop = eop;
+    gpd->flags = GC_POST_COMPLETION_OP;
     gasnetc_rdma_put_bulk(node, dest, src, nbytes, gpd);
     return((gasnet_handle_t) eop);
   } else {
@@ -737,8 +737,8 @@ extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, siz
   if_pt ((nbytes <= GC_MAXRDMA) || gasneti_in_segment(gasneti_mynode, dest, nbytes)) {
     /* xfer is in-segment or "small-enough" out-of-segment: use a single op */
     gasnetc_post_descriptor_t *gpd = gasnetc_alloc_post_descriptor();
-    gpd->completion = (gasnete_op_t *) iop;
-    gpd->flags = GC_POST_COMPLETION_EOP;
+    gpd->completion.iop = iop;
+    gpd->flags = GC_POST_COMPLETION_OP;
     iop->initiated_get_cnt++;
     gasnetc_rdma_get(node, dest, src, nbytes, gpd);
   } else {
@@ -768,8 +768,8 @@ extern void gasnete_put_nbi      (gasnet_node_t node, void *dest, void *src, siz
 
   /* Non-blocking non-bulk put of "tail" portion */
   gpd = gasnetc_alloc_post_descriptor();
-  gpd->completion = (gasnete_op_t *) tail_op;
-  gpd->flags = GC_POST_COMPLETION_EOP;
+  gpd->completion.iop = tail_op;
+  gpd->flags = GC_POST_COMPLETION_OP;
   tail_op->initiated_put_cnt++;
   lc = gasnetc_rdma_put(node, dest, src, nbytes, gpd);
   gasneti_assert(lc);
@@ -787,8 +787,8 @@ extern void gasnete_put_nbi_bulk (gasnet_node_t node, void *dest, void *src, siz
   if_pt ((nbytes <= GC_MAXRDMA) || gasneti_in_segment(gasneti_mynode, src, nbytes)) {
     /* xfer is in-segment or "small-enough" out-of-segment: use a single op */
     gasnetc_post_descriptor_t *gpd = gasnetc_alloc_post_descriptor();
-    gpd->completion = (gasnete_op_t *) iop;
-    gpd->flags = GC_POST_COMPLETION_EOP;
+    gpd->completion.iop = iop;
+    gpd->flags = GC_POST_COMPLETION_OP;
     iop->initiated_put_cnt++;
     gasnetc_rdma_put_bulk(node, dest, src, nbytes, gpd);
   } else {

@@ -972,9 +972,9 @@ void gasnetc_poll_local_queue(void)
 
       /* indicate completion */
       if (gpd->flags & GC_POST_COMPLETION_FLAG) {
-	gasneti_atomic_set((gasneti_atomic_t *) gpd->completion, 1, 0);
-      } else if(gpd->flags & GC_POST_COMPLETION_EOP) {
-	gasnete_op_markdone(gpd->completion, (gpd->flags & GC_POST_GET) != 0);
+	gasneti_weakatomic_set(gpd->completion.flag, 1, 0);
+      } else if(gpd->flags & GC_POST_COMPLETION_OP) {
+	gasnete_op_markdone(gpd->completion.op, (gpd->flags & GC_POST_GET) != 0);
       }
 
       /* release resources */
@@ -1428,7 +1428,6 @@ gasnetc_post_descriptor_t *gasnetc_alloc_post_descriptor(void)
   while ((gpd = (gasnetc_post_descriptor_t *) 
 	  gasneti_lifo_pop(&post_descriptor_pool)) == NULL)
     gasnetc_poll_local_queue();
-  gpd->completion = NULL;
   return(gpd);
 }
 
@@ -1609,8 +1608,21 @@ gasneti_auxseg_request_t gasnetc_bounce_auxseg_alloc(gasnet_seginfo_t *auxseg_in
 }
 
 /* AuxSeg setup for registered post descriptors*/
+/* This ident string is used by upcrun (and potentially by other tools) to estimate
+ * the auxseg requirements, and gets rounded up.
+ * So, this doesn't need to be an exact value.
+ * As of 2013.02.08 I have systems with
+ *     Gemini = 336 bytes
+ *     Aries  = 352 bytes
+ */
+#if GASNET_CONDUIT_GEMINI
+  #define GASNETC_SIZEOF_GDP 336
+#else
+  #define GASNETC_SIZEOF_GDP 352
+#endif
 GASNETI_IDENT(gasneti_pd_auxseg_IdentString, /* XXX: update if gasnetc_post_descriptor_t changes */
-              "$GASNetAuxSeg_pd: 352*(GASNETC_GNI_NUM_PD:" _STRINGIFY(GASNETC_GNI_NUM_PD_DEFAULT)") $");
+              "$GASNetAuxSeg_pd: " _STRINGIFY(GASNETC_SIZEOF_GDP) "*"
+              "(GASNETC_GNI_NUM_PD:" _STRINGIFY(GASNETC_GNI_NUM_PD_DEFAULT) ") $");
 gasneti_auxseg_request_t gasnetc_pd_auxseg_alloc(gasnet_seginfo_t *auxseg_info) {
   gasneti_auxseg_request_t retval;
   
