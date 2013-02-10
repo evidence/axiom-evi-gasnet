@@ -48,11 +48,11 @@ static gni_cq_handle_t destination_cq_handle;
 static void *smsg_mmap_ptr;
 static size_t smsg_mmap_bytes;
 
-#if GASNETC_OPTIMIZE_LIMIT_CQ
-static int  numpes_on_smp;
-static int  max_outstanding_req;
-static int  outstanding_req;
-#endif
+/* Limit outstanding reqs that need CQ slots */
+static gasneti_weakatomic_t cq_credit;
+#define gasnetc_init_cq_credit(_val)       gasneti_weakatomic_set(&cq_credit,(_val),0)
+#define gasnetc_alloc_cq_credit()          gasnetc_atomic_dec_if_positive(&cq_credit)
+#define gasnetc_return_cq_credit()         gasneti_weakatomic_increment(&cq_credit,0)
 
 /* Limit the number of active dynamic memory registrations */
 static gasneti_weakatomic_t reg_credit;
@@ -282,22 +282,19 @@ uintptr_t gasnetc_init_messaging(void)
   smsg_type = GNI_SMSG_TYPE_MBOX;
 #endif
  
-#if GASNETC_OPTIMIZE_LIMIT_CQ
   {
     int depth, cpu_count,cq_entries,multiplier;
+    int numpes_on_smp, max_outstanding_req;
     depth = gasneti_getenv_int_withdefault("GASNET_NETWORKDEPTH", GASNETC_NETWORKDEPTH_DEFAULT, 0);
     gasnetc_mb_maxcredit = 2 * MAX(1,depth); 
     numpes_on_smp = gasnetc_GNIT_numpes_on_smp();
     cpu_count = gasneti_cpu_count();
     multiplier = MAX(1,cpu_count/numpes_on_smp);  max_outstanding_req = multiplier*depth;
-    outstanding_req = 0;  
+    gasnetc_init_cq_credit(max_outstanding_req);
     cq_entries = max_outstanding_req+2;
     status = GNI_CqCreate(nic_handle, cq_entries, 0, GNI_CQ_NOBLOCK, NULL, NULL, &bound_cq_handle);
+    gasneti_assert_always (status == GNI_RC_SUCCESS);
   }
-#else
-  status = GNI_CqCreate(nic_handle, 1024, 0, GNI_CQ_NOBLOCK, NULL, NULL, &bound_cq_handle);
-#endif
-  gasneti_assert_always (status == GNI_RC_SUCCESS);
 
   /* init peer_data */
   all_addr = gasnetc_gather_nic_addresses();
@@ -318,11 +315,6 @@ uintptr_t gasnetc_init_messaging(void)
   gasneti_free(all_addr);
 
   /* Initialize the short message system */
-#if !GASNETC_OPTIMIZE_LIMIT_CQ
-  { int tmp = gasneti_getenv_int_withdefault("GASNET_NETWORKDEPTH", GASNETC_NETWORKDEPTH_DEFAULT, 0);
-    gasnetc_mb_maxcredit = 2 * MAX(1,tmp); /* silently "fix" zero or negative values */
-  }
-#endif
 
   /*
    * allocate a CQ in which to receive message notifications
@@ -893,6 +885,10 @@ gasnetc_send_smsg(gasnet_node_t dest,
 
   GASNETI_TRACE_PRINTF(A, ("smsg s from %d to %d type %s\n", gasneti_mynode, dest, gasnetc_type_string(((GC_Header_t *) header)->command)));
 
+#if GASNETC_SMSG_RETRANSMIT
+  while (!gasnetc_alloc_cq_credit()) gasnetc_poll_local_queue();
+#endif
+
   for (;;) {
     GASNETC_LOCK_GNI();
     status = GNI_SmsgSend(peer_data[dest].ep_handle,
@@ -905,16 +901,20 @@ gasnetc_send_smsg(gasnet_node_t dest,
       gasnetc_GNIT_Abort("GNI_SmsgSend returned error %s\n", gni_return_string(status));
     }
 
-    if (++trial == max_trial) return GASNET_ERR_RESOURCE;
+    if_pf (++trial == max_trial) {
+#if GASNETC_SMSG_RETRANSMIT
+      gasnetc_return_cq_credit(); /* failed */
+#endif
+      return GASNET_ERR_RESOURCE;
+    }
 
-    /* XXX: On Gemini GNI_RC_NOT_DONE should NOT happen due to our flow control.
+    /* XXX: GNI_RC_NOT_DONE should NOT happen due to our flow control and Cq credits.
        However, it DOES rarely happen, expecially when using all the cores.
        Of course the fewer credits we allocate the more likely it is.
        So, we retry a finite number of times.  -PHH 2012.05.12
        TODO: Determine why/how we see NOT_DONE.
-       On Aries GNI_RC_NOT_DONE will occur "normally" whenever the Cq is full
      */
-    GASNETI_TRACE_PRINTF(A, ("smsg send got GNI_RC_NOT_DONE on trial %d\n", trial+1));
+    GASNETI_TRACE_PRINTF(A, ("smsg send got GNI_RC_NOT_DONE on trial %d\n", trial));
     gasnetc_poll_local_queue();
   }
   return(GASNET_OK);
@@ -939,6 +939,7 @@ void gasnetc_poll_local_queue(void)
 #if GASNETC_SMSG_RETRANSMIT
       if (GNI_CQ_GET_TYPE(event_data) == GNI_CQ_EVENT_TYPE_SMSG) {
         gasnetc_free_smsg(GNI_CQ_GET_MSG_ID(event_data));
+        gasnetc_return_cq_credit();
 	continue;
       }
 #endif
@@ -948,15 +949,17 @@ void gasnetc_poll_local_queue(void)
 	gasnetc_GNIT_Abort("GetCompleted(%p) failed %s\n",
 		   (void *) event_data, gni_return_string(status));
       gpd = gasnetc_get_struct_addr_from_field_addr(gasnetc_post_descriptor_t, pd, pd);
-#if GASNETC_OPTIMIZE_LIMIT_CQ
-      outstanding_req--;  /* already lock protected */
+
+#if GASNETC_SMSG_RETRANSMIT
+      /* Any SmsgSend of LongAsync header will "recycle" the Cq credit */
+      if_pt (!(gpd->flags & GC_POST_SEND)) gasnetc_return_cq_credit();
+#else
+      /* SmsgSend doesn't use Cq credits */
+      gasnetc_return_cq_credit();
 #endif
 
-
       /* handle remaining work */
-      if (gpd->flags & GC_POST_COPY) {
-	memcpy(gpd->get_target, gpd->bounce_buffer, gpd->get_nbytes);
-      } else if (gpd->flags & GC_POST_SEND) {
+      if (gpd->flags & GC_POST_SEND) {
 #if GASNETC_SMSG_RETRANSMIT
         gasnetc_smsg_t *smsg = gpd->u.smsg_p;
         const uint32_t msgid = smsg->msgid;
@@ -966,10 +969,13 @@ void gasnetc_poll_local_queue(void)
 #endif
         gasnetc_am_long_packet_t *galp = &smsg->smsg_header.galp;
         const size_t header_length = GASNETC_HEADLEN(long, galp->header.numargs);
+        /* TODO: Use retry loop? */
         status = GNI_SmsgSend(peer_data[gpd->dest].ep_handle,
                               &smsg->smsg_header, header_length,
                               NULL, 0,  msgid);
         gasneti_assert_always (status == GNI_RC_SUCCESS);
+      } else if (gpd->flags & GC_POST_COPY) {
+	memcpy(gpd->get_target, gpd->bounce_buffer, gpd->get_nbytes);
       }
 
       /* indicate completion */
@@ -1046,16 +1052,13 @@ static void print_post_desc(const char *title, gni_post_descriptor_t *cmd)) {
 static gni_return_t myPostRdma(gni_ep_handle_t ep, gni_post_descriptor_t *pd)
 {
   gni_return_t status;
-  int i;
-  i = 0;
-#if GASNETC_OPTIMIZE_LIMIT_CQ
-  while (outstanding_req >= max_outstanding_req) {
+  int i = 0;
+
+  if_pf (!gasnetc_alloc_cq_credit()) {
     GASNETC_UNLOCK_GNI();
-    gasnetc_poll_local_queue();
+    while (!gasnetc_alloc_cq_credit()) gasnetc_poll_local_queue();
     GASNETC_LOCK_GNI();
   }
-  outstanding_req++;
-#endif
   for (;;) {
       status = GNI_PostRdma(ep, pd);
       if (status == GNI_RC_SUCCESS) return status;
@@ -1068,26 +1071,21 @@ static gni_return_t myPostRdma(gni_ep_handle_t ep, gni_post_descriptor_t *pd)
       gasnetc_poll_local_queue();
       GASNETC_LOCK_GNI();
   }
-#if GASNETC_OPTIMIZE_LIMIT_CQ
   gasneti_assert(status != GNI_RC_SUCCESS);
-  outstanding_req--;  /* failed */
-#endif
+  gasnetc_return_cq_credit(); /* failed */
   return (status);
 }
 
 static gni_return_t myPostFma(gni_ep_handle_t ep, gni_post_descriptor_t *pd)
 {
   gni_return_t status;
-  int i;
-  i = 0;
-#if GASNETC_OPTIMIZE_LIMIT_CQ
-  while (outstanding_req >= max_outstanding_req) {
+  int i = 0;
+
+  if_pf (!gasnetc_alloc_cq_credit()) {
     GASNETC_UNLOCK_GNI();
-    gasnetc_poll_local_queue();
+    while (!gasnetc_alloc_cq_credit()) gasnetc_poll_local_queue();
     GASNETC_LOCK_GNI();
   }
-  outstanding_req++;
-#endif
   for (;;) {
       status = GNI_PostFma(ep, pd);
       if (status == GNI_RC_SUCCESS) return status;
@@ -1100,10 +1098,8 @@ static gni_return_t myPostFma(gni_ep_handle_t ep, gni_post_descriptor_t *pd)
       gasnetc_poll_local_queue();
       GASNETC_LOCK_GNI();
   }
-#if GASNETC_OPTIMIZE_LIMIT_CQ
   gasneti_assert(status != GNI_RC_SUCCESS);
-  outstanding_req--;  /* failed */
-#endif
+  gasnetc_return_cq_credit(); /* failed */
   return (status);
 }
 
