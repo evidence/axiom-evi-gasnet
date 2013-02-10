@@ -91,6 +91,15 @@ const char *gasnetc_type_string(int type)
   return("unknown");
 }
 
+const char *gasnetc_post_type_string(gni_post_type_t type)
+{
+  if (type == GNI_POST_RDMA_PUT) return("GNI_POST_RDMA_PUT");
+  if (type == GNI_POST_RDMA_GET) return("GNI_POST_RDMA_GET");
+  if (type == GNI_POST_FMA_PUT) return("GNI_POST_FMA_PUT");
+  if (type == GNI_POST_FMA_GET) return("GNI_POST_FMA_GET");
+  return("unknown");
+}
+
 /*------ Work Queue threading peer_struct_t with pending AM receives ------*/
 
 struct {
@@ -825,7 +834,7 @@ gasnetc_smsg_t *gasnetc_alloc_smsg(void)
   gasnetc_smsg_t *result = (gasnetc_smsg_t *)gasneti_lifo_pop(&gasnetc_smsg_pool);
 
   if_pf (NULL == result) {
-    GASNETC_LOCK_GNI();
+    GASNETC_LOCK_GNI(); /* Serializes realloc() vs gasnetc_free_smsg() */
 
     /* retry holding lock to avoid redundant growers */
     result = (gasnetc_smsg_t *)gasneti_lifo_pop(&gasnetc_smsg_pool);
@@ -929,7 +938,7 @@ void gasnetc_poll_local_queue(void)
   gni_post_descriptor_t *pd;
   gasnetc_post_descriptor_t *gpd;
 
-  GASNETC_LOCK_GNI();
+  GASNETC_LOCK_GNI(); /* TODO: can/should we reduce length of this critical section? */
   for (i = 0; i < gasnetc_poll_burst; i += 1) {
     /* Poll the bound_ep completion queue */
     status = GNI_CqGetEvent(bound_cq_handle,&event_data);
@@ -1029,7 +1038,7 @@ static void print_post_desc(const char *title, gni_post_descriptor_t *cmd)) {
   printf("r %d %s-segment %s, desc addr %p\n", gasneti_mynode, (in_seg?"in":"non"), title, cmd);
   printf("r %d status: %ld\n", gasneti_mynode, cmd->status);
   printf("r %d cq_mode_complete: 0x%x\n", gasneti_mynode, cmd->cq_mode_complete);
-  printf("r %d cq_mode_type: %d\n", gasneti_mynode, cmd->type);
+  printf("r %d type: %d (%s)\n", gasneti_mynode, cmd->type, gasnetc_post_type_string(cmd->type));
   printf("r %d cq_mode: 0x%x\n", gasneti_mynode, cmd->cq_mode);
   printf("r %d dlvr_mode: 0x%x\n", gasneti_mynode, cmd->dlvr_mode);
   printf("r %d local_address: %p(0x%lx, 0x%lx)\n", gasneti_mynode, (void *) cmd->local_addr, 
@@ -1045,62 +1054,44 @@ static void print_post_desc(const char *title, gni_post_descriptor_t *cmd)) {
   printf("r %d cqwrite_value: 0x%lx\n", gasneti_mynode, cmd->cqwrite_value);
 }
 
-/* These are here due to transient resource problems in PostRdma
- *  They are not expected to happen (often)
- */
-
 static gni_return_t myPostRdma(gni_ep_handle_t ep, gni_post_descriptor_t *pd)
 {
   gni_return_t status;
-  int i = 0;
+  const int max_trials = 1000;
+  int trial = 0;
 
-  if_pf (!gasnetc_alloc_cq_credit()) {
-    GASNETC_UNLOCK_GNI();
-    while (!gasnetc_alloc_cq_credit()) gasnetc_poll_local_queue();
-    GASNETC_LOCK_GNI();
-  }
-  for (;;) {
-      status = GNI_PostRdma(ep, pd);
-      if (status == GNI_RC_SUCCESS) return status;
-      if (status != GNI_RC_ERROR_RESOURCE) break;
-      if (++i >= 1000) {
-	fprintf(stderr, "postrdma retry failed\n");
-	break;
-      }
-      GASNETC_UNLOCK_GNI();
-      gasnetc_poll_local_queue();
+  do {
       GASNETC_LOCK_GNI();
+      status = GNI_PostRdma(ep, pd);
+      GASNETC_UNLOCK_GNI();
+      if_pt (status == GNI_RC_SUCCESS) return status;
+      if (status != GNI_RC_ERROR_RESOURCE) break; /* Fatal */
+      gasnetc_poll_local_queue();
+  } while (++trial < max_trials);
+  if (status == GNI_RC_ERROR_RESOURCE) {
+    fprintf(stderr, "postrdma retry failed\n");
   }
-  gasneti_assert(status != GNI_RC_SUCCESS);
-  gasnetc_return_cq_credit(); /* failed */
-  return (status);
+  return status;
 }
 
 static gni_return_t myPostFma(gni_ep_handle_t ep, gni_post_descriptor_t *pd)
 {
   gni_return_t status;
-  int i = 0;
+  const int max_trials = 1000;
+  int trial = 0;
 
-  if_pf (!gasnetc_alloc_cq_credit()) {
-    GASNETC_UNLOCK_GNI();
-    while (!gasnetc_alloc_cq_credit()) gasnetc_poll_local_queue();
-    GASNETC_LOCK_GNI();
-  }
-  for (;;) {
-      status = GNI_PostFma(ep, pd);
-      if (status == GNI_RC_SUCCESS) return status;
-      if (status != GNI_RC_ERROR_RESOURCE) break;
-      if (++i >= 1000) {
-	fprintf(stderr, "postfma retry failed\n");
-	break;
-      }
-      GASNETC_UNLOCK_GNI();
-      gasnetc_poll_local_queue();
+  do {
       GASNETC_LOCK_GNI();
+      status = GNI_PostFma(ep, pd);
+      GASNETC_UNLOCK_GNI();
+      if_pt (status == GNI_RC_SUCCESS) return status;
+      if (status != GNI_RC_ERROR_RESOURCE) break; /* Fatal */
+      gasnetc_poll_local_queue();
+  } while (++trial < max_trials);
+  if (status == GNI_RC_ERROR_RESOURCE) {
+    fprintf(stderr, "postfma retry failed\n");
   }
-  gasneti_assert(status != GNI_RC_SUCCESS);
-  gasnetc_return_cq_credit(); /* failed */
-  return (status);
+  return status;
 }
 
 /* Register local side of a pd, with bounded retry */
@@ -1108,23 +1099,25 @@ static gni_return_t myRegisterPd(gni_post_descriptor_t *pd)
 {
   const uint64_t addr = pd->local_addr;
   const size_t nbytes = pd->length;
-  const int limit = 10;
-  int count = 0;
+  const int max_trials = 10;
+  int trial = 0;
   gni_return_t status;
 
   while (gasnetc_atomic_dec_if_positive(&reg_credit) == 0) gasnetc_poll_local_queue();
 
-  GASNETC_LOCK_GNI();
   do {
+    GASNETC_LOCK_GNI();
     status = GNI_MemRegister(nic_handle, addr, nbytes, NULL,
                              gasnetc_memreg_flags, -1, &pd->local_mem_hndl);
+    GASNETC_UNLOCK_GNI();
     if_pt (status == GNI_RC_SUCCESS) break;
     fprintf(stderr, "MemRegister fault %d at %p %lx, code %s\n",
-            count, (void*)addr, (unsigned long)nbytes, gni_return_string(status));
+            trial, (void*)addr, (unsigned long)nbytes, gni_return_string(status));
     if (status != GNI_RC_ERROR_RESOURCE) break; /* Fatal */
-  } while (++count < limit);
-  GASNETC_UNLOCK_GNI();
-
+  } while (++trial < max_trials);
+  if (status == GNI_RC_ERROR_RESOURCE) {
+    fprintf(stderr, "memregister retry failed\n");
+  }
   return status;
 }
 
@@ -1178,6 +1171,9 @@ void gasnetc_rdma_put_bulk(gasnet_node_t dest,
     pd->local_mem_hndl = my_mem_handle;
   }
 
+  /* allocate space in the Cq */
+  while (!gasnetc_alloc_cq_credit()) gasnetc_poll_local_queue();
+
   /* now initiate the transfer according to fma/rdma cutover */
   /*  TODO: distnict Put and Get cut-overs */
   if (nbytes <= gasnetc_fma_rdma_cutover) {
@@ -1185,22 +1181,16 @@ void gasnetc_rdma_put_bulk(gasnet_node_t dest,
 #if FIX_HT_ORDERING
       pd->cq_mode = gasnetc_fma_put_cq_mode;
 #endif
-      GASNETC_LOCK_GNI();
       status = myPostFma(peer->ep_handle, pd);
-      GASNETC_UNLOCK_GNI();
-      if_pf (status != GNI_RC_SUCCESS) {
-	print_post_desc("postfma", pd);
-	gasnetc_GNIT_Abort("PostFma(Put) failed with %s\n", gni_return_string(status));
-      }
   } else {
       pd->type = GNI_POST_RDMA_PUT;
-      GASNETC_LOCK_GNI();
       status = myPostRdma(peer->ep_handle, pd);
-      GASNETC_UNLOCK_GNI();
-      if_pf (status != GNI_RC_SUCCESS) {
-	print_post_desc("postrdma", pd);
-	gasnetc_GNIT_Abort("PostRdma(Put) failed with %s\n", gni_return_string(status));
-      }
+  }
+
+  if_pf (status != GNI_RC_SUCCESS) {
+    gasnetc_return_cq_credit(); /* kind of pointless since we abort */
+    print_post_desc("Put_bulk", pd);
+    gasnetc_GNIT_Abort("Put_bulk failed with %s\n", gni_return_string(status));
   }
 }
 
@@ -1261,52 +1251,25 @@ int gasnetc_rdma_put(gasnet_node_t dest,
 #if FIX_HT_ORDERING
       pd->cq_mode = gasnetc_fma_put_cq_mode;
 #endif
-      GASNETC_LOCK_GNI();
       status = myPostFma(peer->ep_handle, pd);
-      GASNETC_UNLOCK_GNI();
-      if_pf (status != GNI_RC_SUCCESS) {
-	print_post_desc("postfma", pd);
-	gasnetc_GNIT_Abort("PostFma(Put) failed with %s\n", gni_return_string(status));
-      }
 #if GASNET_CONDUIT_GEMINI
     /* On Gemini (only) return from PostFma follows local completion */
     result = 1; /* even if was zeroed by choice of zero-copy */
 #endif
   } else {
       pd->type = GNI_POST_RDMA_PUT;
-      GASNETC_LOCK_GNI();
       status = myPostRdma(peer->ep_handle, pd);
-      GASNETC_UNLOCK_GNI();
-      if_pf (status != GNI_RC_SUCCESS) {
-	print_post_desc("postrdma", pd);
-	gasnetc_GNIT_Abort("PostRdma(Put) failed with %s\n", gni_return_string(status));
-      }
+  }
+
+  if_pf (status != GNI_RC_SUCCESS) {
+    gasnetc_return_cq_credit(); /* kind of pointless since we abort */
+    print_post_desc("Put", pd);
+    gasnetc_GNIT_Abort("Put failed with %s\n", gni_return_string(status));
   }
 
   gasneti_assert((result == 0) || (result == 1)); /* ensures caller can use "&=" or "+=" */
   return result;
 }
-
-/* Algorithm
-
-   get reuqires 4 byte alignment for source, dst, and length
-
-   if ((src | dst | len) & 3) == 0 {  // case aligned 
-      if (in segment) {
-        if (length < YYY) PostFMA
-	else PostRdma
-      } else { // out of semgnt
-        if (length < XXX) use bounce buffer
-        else call memregister
-      }
-      } else { //unaligned
-        if (length < XXX) use bounce buffer
-	   if (length < YYY) PostFMA
-	   else PostRdma
-	else use active message
-      }
- */
-
 
 /* for get, source_addr is remote */
 void gasnetc_rdma_get(gasnet_node_t dest,
@@ -1366,22 +1329,16 @@ void gasnetc_rdma_get(gasnet_node_t dest,
   /*  TODO: distnict Put and Get cut-overs */
   if (nbytes <= gasnetc_fma_rdma_cutover) {
       pd->type = GNI_POST_FMA_GET;
-      GASNETC_LOCK_GNI();
       status = myPostFma(peer->ep_handle, pd);
-      GASNETC_UNLOCK_GNI();
-      if_pf (status != GNI_RC_SUCCESS) {
-	print_post_desc("postfma", pd);
-	gasnetc_GNIT_Abort("PostFma(Get) failed with %s\n", gni_return_string(status));
-      }
   } else {
       pd->type = GNI_POST_RDMA_GET;
-      GASNETC_LOCK_GNI();
       status = myPostRdma(peer->ep_handle, pd);
-      GASNETC_UNLOCK_GNI();
-      if_pf (status != GNI_RC_SUCCESS) {
-	print_post_desc("postrdma", pd);
-	gasnetc_GNIT_Abort("PostRdma(Get) failed with %s\n", gni_return_string(status));
-      }
+  }
+
+  if_pf (status != GNI_RC_SUCCESS) {
+    gasnetc_return_cq_credit(); /* kind of pointless since we abort */
+    print_post_desc("Get", pd);
+    gasnetc_GNIT_Abort("Get failed with %s\n", gni_return_string(status));
   }
 }
 
