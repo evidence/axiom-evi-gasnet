@@ -343,17 +343,25 @@ void gasnetc_rdma_get(gasnet_node_t dest,
 
 #endif
 
-/* returns 1 if-and-only-if value was decremented.  based on gasneti_semaphore_trydown() */
-GASNETI_INLINE(gasnetc_atomic_dec_if_positive)
-int gasnetc_atomic_dec_if_positive(gasneti_weakatomic_t *p)
+/* returns 1 if-and-only-if value was decremented. */
+/* based on gasneti_semaphore_trydown() w/o padding or rmb */
+GASNETI_INLINE(gasnetc_weakatomic_dec_if_positive)
+int gasnetc_weakatomic_dec_if_positive(gasneti_weakatomic_t *p)
 {
+#if GASNETI_THREADS || defined(GASNETI_FORCE_TRUE_WEAKATOMICS)
   int swapped;
   do {
     const gasneti_weakatomic_val_t old = gasneti_weakatomic_read(p, 0);
     if_pf (old == 0) {
       return 0;       /* Note: "break" here generates infinite loop w/ pathcc 2.4 (bug 1620) */
     }
-    swapped = gasneti_weakatomic_compare_and_swap(p, old, old - 1, GASNETI_ATOMIC_ACQ_IF_TRUE);
+    swapped = gasneti_weakatomic_compare_and_swap(p, old, old - 1, GASNETI_ATOMIC_NONE);
   } while (GASNETT_PREDICT_FALSE(!swapped));
   return 1;
+#else
+  const gasneti_weakatomic_val_t old = gasneti_weakatomic_read(p, 0);
+  if_pf (old == 0) return 0;
+  gasneti_weakatomic_set(p, old-1, GASNETI_ATOMIC_NONE);
+  return 1;
+#endif
 }

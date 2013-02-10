@@ -48,14 +48,21 @@ static gni_cq_handle_t destination_cq_handle;
 static void *smsg_mmap_ptr;
 static size_t smsg_mmap_bytes;
 
+/*------ Resource accounting ------*/
+
 /* Limit outstanding reqs that need CQ slots */
 static gasneti_weakatomic_t cq_credit;
 #define gasnetc_init_cq_credit(_val)       gasneti_weakatomic_set(&cq_credit,(_val),0)
-#define gasnetc_alloc_cq_credit()          gasnetc_atomic_dec_if_positive(&cq_credit)
+#define gasnetc_alloc_cq_credit()          gasnetc_weakatomic_dec_if_positive(&cq_credit)
 #define gasnetc_return_cq_credit()         gasneti_weakatomic_increment(&cq_credit,0)
 
 /* Limit the number of active dynamic memory registrations */
 static gasneti_weakatomic_t reg_credit;
+#define gasnetc_init_reg_credit(_val)      gasneti_weakatomic_set(&reg_credit,(_val),0)
+#define gasnetc_alloc_reg_credit()         gasnetc_weakatomic_dec_if_positive(&reg_credit)
+#define gasnetc_return_reg_credit()        gasneti_weakatomic_increment(&reg_credit,0)
+
+/*------ Convience functions for printing error messages ------*/
 
 static const char *gni_return_string(gni_return_t status)
 {
@@ -165,7 +172,7 @@ void gasnetc_init_segment(void *segment_start, size_t segment_size)
 
   { int envval = gasneti_getenv_int_withdefault("GASNETC_GNI_MEMREG", GASNETC_GNI_MEMREG_DEFAULT, 0);
     if (envval < 1) envval = 1;
-    gasneti_weakatomic_set(&reg_credit, envval, GASNETI_ATOMIC_NONE);
+    gasnetc_init_reg_credit(envval);
   }
 
   gasnetc_mem_consistency = GASNETC_DEFAULT_RDMA_MEM_CONSISTENCY;
@@ -998,7 +1005,7 @@ void gasnetc_poll_local_queue(void)
       if (gpd->flags & GC_POST_UNREGISTER) {
 	status = GNI_MemDeregister(nic_handle, &gpd->pd.local_mem_hndl);
 	gasneti_assert_always (status == GNI_RC_SUCCESS);
-	gasneti_weakatomic_increment(&reg_credit, GASNETI_ATOMIC_NONE);
+	gasnetc_return_reg_credit();
       } else if (gpd->flags & GC_POST_UNBOUNCE) {
 	gasnetc_free_bounce_buffer(gpd->bounce_buffer);
       }
@@ -1103,7 +1110,7 @@ static gni_return_t myRegisterPd(gni_post_descriptor_t *pd)
   int trial = 0;
   gni_return_t status;
 
-  while (gasnetc_atomic_dec_if_positive(&reg_credit) == 0) gasnetc_poll_local_queue();
+  while (!gasnetc_alloc_reg_credit()) gasnetc_poll_local_queue();
 
   do {
     GASNETC_LOCK_GNI();
@@ -1350,7 +1357,7 @@ void gasnetc_get_am_credit(uint32_t pe)
   fprintf(stderr, "r %d get am credit for %d, before is %d\n",
 	 gasneti_mynode, pe, (int)gasneti_weakatomic_read(&peer_data[pe].am_credit, 0));
 #endif
-  while (gasnetc_atomic_dec_if_positive(p) == 0) {
+  while (gasnetc_weakatomic_dec_if_positive(p) == 0) {
     gasneti_AMPoll();
     gasneti_spinloop_hint();
   }
