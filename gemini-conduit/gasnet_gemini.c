@@ -52,15 +52,33 @@ static size_t smsg_mmap_bytes;
 
 /* Limit outstanding reqs that need CQ slots */
 static gasneti_weakatomic_t cq_credit;
-#define gasnetc_init_cq_credit(_val)       gasneti_weakatomic_set(&cq_credit,(_val),0)
 #define gasnetc_alloc_cq_credit()          gasnetc_weakatomic_dec_if_positive(&cq_credit)
-#define gasnetc_return_cq_credit()         gasneti_weakatomic_increment(&cq_credit,0)
+#if GASNET_DEBUG && 0
+  static gasneti_weakatomic_val_t cq_credit_max;
+  #define gasnetc_init_cq_credit(_val)     gasneti_weakatomic_set(&cq_credit,cq_credit_max=(_val),0)
+  static void gasnetc_return_cq_credit(void) {
+    gasneti_weakatomic_val_t new_val = gasneti_weakatomic_add(&cq_credit,1,0);
+    gasneti_assert(new_val <= cq_credit_max);
+  }
+#else
+  #define gasnetc_init_cq_credit(_val)     gasneti_weakatomic_set(&cq_credit,(_val),0)
+  #define gasnetc_return_cq_credit()       gasneti_weakatomic_increment(&cq_credit,0)
+#endif
 
 /* Limit the number of active dynamic memory registrations */
 static gasneti_weakatomic_t reg_credit;
-#define gasnetc_init_reg_credit(_val)      gasneti_weakatomic_set(&reg_credit,(_val),0)
 #define gasnetc_alloc_reg_credit()         gasnetc_weakatomic_dec_if_positive(&reg_credit)
-#define gasnetc_return_reg_credit()        gasneti_weakatomic_increment(&reg_credit,0)
+#if GASNET_DEBUG && 0
+static gasneti_weakatomic_val_t reg_credit_max;
+#define gasnetc_init_reg_credit(_val)      gasneti_weakatomic_set(&reg_credit,reg_credit_max=(_val),0)
+  static void gasnetc_return_reg_credit(void) {
+    gasneti_weakatomic_val_t new_val = gasneti_weakatomic_add(&reg_credit,1,0);
+    gasneti_assert(new_val <= reg_credit_max);
+  }
+#else
+  #define gasnetc_init_reg_credit(_val)    gasneti_weakatomic_set(&reg_credit,(_val),0)
+  #define gasnetc_return_reg_credit()      gasneti_weakatomic_increment(&reg_credit,0)
+#endif
 
 /*------ Convience functions for printing error messages ------*/
 
@@ -1251,6 +1269,9 @@ int gasnetc_rdma_put(gasnet_node_t dest,
     result = 0; /* FMA may override */
   }
 
+  /* allocate space in the Cq */
+  while (!gasnetc_alloc_cq_credit()) gasnetc_poll_local_queue();
+
   /* now initiate the transfer according to fma/rdma cutover */
   /*  TODO: distnict Put and Get cut-overs */
   if (nbytes <= gasnetc_fma_rdma_cutover) {
@@ -1331,6 +1352,9 @@ void gasnetc_rdma_get(gasnet_node_t dest,
     pd->local_addr = (uint64_t) dest_addr;
     pd->local_mem_hndl = my_mem_handle;
   }
+
+  /* allocate space in the Cq */
+  while (!gasnetc_alloc_cq_credit()) gasnetc_poll_local_queue();
 
   /* now initiate the transfer according to fma/rdma cutover */
   /*  TODO: distnict Put and Get cut-overs */
