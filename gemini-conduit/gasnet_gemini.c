@@ -354,7 +354,7 @@ uintptr_t gasnetc_init_messaging(void)
    * allocate a CQ in which to receive message notifications
    */
   /* TODO: is "* 2" still correct given mb_maxcredit has been halved since the original code? */
-  status = GNI_CqCreate(nic_handle,gasneti_nodes * gasnetc_mb_maxcredit * 2,0,GNI_CQ_NOBLOCK,NULL,NULL,&smsg_cq_handle);
+  status = GNI_CqCreate(nic_handle,gasneti_nodes * mb_maxcredit * 2,0,GNI_CQ_NOBLOCK,NULL,NULL,&smsg_cq_handle);
   if (status != GNI_RC_SUCCESS) {
     gasnetc_GNIT_Abort("GNI_CqCreate returned error %s\n", gni_return_string(status));
   }
