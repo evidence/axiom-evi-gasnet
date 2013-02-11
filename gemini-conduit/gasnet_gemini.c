@@ -19,8 +19,6 @@
 static uint32_t gasnetc_memreg_flags;
 static int gasnetc_mem_consistency;
 
-static unsigned int gasnetc_mb_maxcredit;
-
 int gasnetc_poll_burst = 10;
 
 static double shutdown_max;
@@ -282,6 +280,7 @@ uintptr_t gasnetc_init_messaging(void)
   uint32_t i;
   unsigned int bytes_per_mbox;
   unsigned int bytes_needed;
+  unsigned int mb_maxcredit;
   int modes = 0;
 
 #if GASNETC_DEBUG
@@ -320,7 +319,8 @@ uintptr_t gasnetc_init_messaging(void)
     int depth, cpu_count,cq_entries,multiplier;
     int numpes_on_smp, max_outstanding_req;
     depth = gasneti_getenv_int_withdefault("GASNET_NETWORKDEPTH", GASNETC_NETWORKDEPTH_DEFAULT, 0);
-    gasnetc_mb_maxcredit = 2 * MAX(1,depth); 
+    /* XXX: +1 below is for credit "slop" seen on Aries, but WHY do we need it?!? */
+    mb_maxcredit = 2 * MAX(1,depth) + 1;
     numpes_on_smp = gasnetc_GNIT_numpes_on_smp();
     cpu_count = gasneti_cpu_count();
     multiplier = MAX(1,cpu_count/numpes_on_smp);  max_outstanding_req = multiplier*depth;
@@ -343,7 +343,7 @@ uintptr_t gasnetc_init_messaging(void)
     gasnetc_GNIT_Log("ep bound to %d, addr %d", i, all_addr[i]);
 #endif
     /* mem_handle will be set at end of gasnetc_init_segment */
-    gasneti_weakatomic_set(&peer_data[i].am_credit, gasnetc_mb_maxcredit / 2, 0); /* (req + reply) = 2 */
+    gasneti_weakatomic_set(&peer_data[i].am_credit, mb_maxcredit / 2, 0); /* (req + reply) = 2 */
     peer_data[i].rank = i;
   }
   gasneti_free(all_addr);
@@ -353,7 +353,7 @@ uintptr_t gasnetc_init_messaging(void)
   /*
    * allocate a CQ in which to receive message notifications
    */
-  /* TODO: is "* 2" still correct given gasnetc_mb_maxcredit has been halved since the original code? */
+  /* TODO: is "* 2" still correct given mb_maxcredit has been halved since the original code? */
   status = GNI_CqCreate(nic_handle,gasneti_nodes * gasnetc_mb_maxcredit * 2,0,GNI_CQ_NOBLOCK,NULL,NULL,&smsg_cq_handle);
   if (status != GNI_RC_SUCCESS) {
     gasnetc_GNIT_Abort("GNI_CqCreate returned error %s\n", gni_return_string(status));
@@ -366,10 +366,10 @@ uintptr_t gasnetc_init_messaging(void)
    */
 
   my_smsg_attr.msg_type = smsg_type;
-  my_smsg_attr.mbox_maxcredit = gasnetc_mb_maxcredit;
+  my_smsg_attr.mbox_maxcredit = mb_maxcredit;
   my_smsg_attr.msg_maxsize = GASNETC_MSG_MAXSIZE;
 #if GASNETC_DEBUG
-  fprintf(stderr,"r %d maxcredit %d msg_maxsize %d\n", gasneti_mynode, gasnetc_mb_maxcredit, (int)GASNETC_MSG_MAXSIZE);
+  fprintf(stderr,"r %d maxcredit %d msg_maxsize %d\n", gasneti_mynode, mb_maxcredit, (int)GASNETC_MSG_MAXSIZE);
 #endif
 
   status = GNI_SmsgBufferSizeNeeded(&my_smsg_attr,&bytes_per_mbox);
@@ -433,7 +433,7 @@ uintptr_t gasnetc_init_messaging(void)
   my_smsg_attr.msg_type = smsg_type;
   my_smsg_attr.msg_buffer = smsg_mmap_ptr;
   my_smsg_attr.buff_size = bytes_per_mbox;
-  my_smsg_attr.mbox_maxcredit = gasnetc_mb_maxcredit;
+  my_smsg_attr.mbox_maxcredit = mb_maxcredit;
   my_smsg_attr.msg_maxsize = GASNETC_MSG_MAXSIZE;
 
   all_smsg_attr = gasneti_malloc(gasneti_nodes * sizeof(gni_smsg_attr_t));
