@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2013/02/09 02:48:34 $
- * $Revision: 1.25 $
+ *     $Date: 2013/02/11 00:35:09 $
+ * $Revision: 1.26 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -409,7 +409,6 @@ static gasnet_handle_t gasnete_get_nb_bulk_am (void *dest, gasnet_node_t node, v
 static void /* XXX: Inlining left to compiler's discression */
 gasnete_get_bulk_chunked(void *dest, gasnet_node_t node, void *src, size_t nbytes, gasnete_iop_t * const iop) {
   gasnetc_post_descriptor_t *gpd;
-  int count = 1; /* Start at 1 in lieu of incr for final chunk */
 
   gasneti_assert(nbytes > GC_MAXRDMA); /* always 2 or more chunks */
 
@@ -419,13 +418,13 @@ gasnete_get_bulk_chunked(void *dest, gasnet_node_t node, void *src, size_t nbyte
     size_t chunk_len = GC_MAXRDMA - ((uintptr_t)src & (GC_MAXRDMA-1));
     gasneti_assert(chunk_len != 0);
     gpd = gasnetc_alloc_post_descriptor();
-    gpd->completion.iop = iop;
     gpd->flags = GC_POST_COMPLETION_OP;
+    gpd->completion.iop = iop;
+    iop->initiated_get_cnt++;
     gasnetc_rdma_get(node, dest, src, chunk_len, gpd);
     dest = (char *) dest + chunk_len;
     src  = (char *) src  + chunk_len;
     nbytes -= chunk_len;
-    count = 2; /* in lieu of increment, since we know the result */
   }
 #endif
 
@@ -433,23 +432,22 @@ gasnete_get_bulk_chunked(void *dest, gasnet_node_t node, void *src, size_t nbyte
   gasneti_assert (nbytes > GC_MAXRDMA);
   do {
     gpd = gasnetc_alloc_post_descriptor();
-    gpd->completion.iop = iop;
     gpd->flags = GC_POST_COMPLETION_OP;
+    gpd->completion.iop = iop;
+    iop->initiated_get_cnt++;
     gasnetc_rdma_get(node, dest, src, GC_MAXRDMA, gpd);
     dest = (char *) dest + GC_MAXRDMA;
     src  = (char *) src  + GC_MAXRDMA;
     nbytes -= GC_MAXRDMA;
-    count += 1;
   } while (nbytes > GC_MAXRDMA);
 
   /* final chunk (could be either full or partial) */
   gasneti_assert(nbytes != 0);
   gpd = gasnetc_alloc_post_descriptor();
-  gpd->completion.iop = iop;
   gpd->flags = GC_POST_COMPLETION_OP;
+  gpd->completion.iop = iop;
+  iop->initiated_get_cnt++;
   gasnetc_rdma_get(node, dest, src, nbytes, gpd);
-
-  iop->initiated_get_cnt += count;
 }
 
 extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG) {
@@ -515,7 +513,6 @@ extern gasnet_handle_t gasnete_put_nb (gasnet_node_t node, void *dest, void *src
 static void /* XXX: Inlining left to compiler's discression */
 gasnete_put_bulk_chunked(gasnet_node_t node, void *dest, void *src, size_t nbytes, gasnete_iop_t * const iop) {
   gasnetc_post_descriptor_t *gpd;
-  int count = 1; /* Start at 1 in lieu of incr for final chunk */
 
   gasneti_assert(nbytes > GC_MAXRDMA); /* always 2 or more chunks */
 
@@ -525,13 +522,13 @@ gasnete_put_bulk_chunked(gasnet_node_t node, void *dest, void *src, size_t nbyte
     size_t chunk_len = GC_MAXRDMA - ((uintptr_t)src & (GC_MAXRDMA-1));
     gasneti_assert(chunk_len != 0);
     gpd = gasnetc_alloc_post_descriptor();
-    gpd->completion.iop = iop;
     gpd->flags = GC_POST_COMPLETION_OP;
+    gpd->completion.iop = iop;
+    iop->initiated_put_cnt++;
     gasnetc_rdma_put_bulk(node, dest, src, chunk_len, gpd);
     dest = (char *) dest + chunk_len;
     src  = (char *) src  + chunk_len;
     nbytes -= chunk_len;
-    count = 2; /* in lieu of increment, since we know the result */
   }
 #endif
 
@@ -539,23 +536,22 @@ gasnete_put_bulk_chunked(gasnet_node_t node, void *dest, void *src, size_t nbyte
   gasneti_assert (nbytes > GC_MAXRDMA);
   do {
     gpd = gasnetc_alloc_post_descriptor();
-    gpd->completion.iop = iop;
     gpd->flags = GC_POST_COMPLETION_OP;
+    gpd->completion.iop = iop;
+    iop->initiated_put_cnt++;
     gasnetc_rdma_put_bulk(node, dest, src, GC_MAXRDMA, gpd);
     dest = (char *) dest + GC_MAXRDMA;
     src  = (char *) src  + GC_MAXRDMA;
     nbytes -= GC_MAXRDMA;
-    count += 1;
   } while (nbytes > GC_MAXRDMA);
 
   /* final chunk (could be either full or partial) */
   gasneti_assert(nbytes != 0);
   gpd = gasnetc_alloc_post_descriptor();
-  gpd->completion.iop = iop;
   gpd->flags = GC_POST_COMPLETION_OP;
+  gpd->completion.iop = iop;
+  iop->initiated_put_cnt++;
   gasnetc_rdma_put_bulk(node, dest, src, nbytes, gpd);
-
-  iop->initiated_put_cnt += count;
 }
 
 extern gasnet_handle_t gasnete_put_nb_bulk (gasnet_node_t node, void *dest, void *src, size_t nbytes GASNETE_THREAD_FARG) {
