@@ -1,5 +1,5 @@
 Gemini-conduit design notes, from code review 8/2010
-$Revision: 1.15 $
+$Revision: 1.16 $
 
 number of bounce buffers, make clear the effects of, in the readme
 
@@ -10,9 +10,9 @@ use gprofile or oprofile to measure startup of a large job
 replace bootstrap exhcange with a faster one
 replace pmi_barrier with a faster one
 
-dont need segment addr and size info in peersegmentdata because gasnet already has that
+PHH DONE dont need segment addr and size info in peersegmentdata because gasnet already has that
 
-the smsg peer data is almost all constant and doesn't need to be exchanged or kept around in the runtime array of structs
+PHH DONE the smsg peer data is almost all constant and doesn't need to be exchanged or kept around in the runtime array of structs
 
 in gc_init_messaging, loop around
 
@@ -32,7 +32,7 @@ or maybe a timestamp field
 PHH DONE eliminate from and to fields, could pack packet type together with numargs
 
 
-remove unused and constant fields from all structs
+PHH DONE (but worth checking again) remove unused and constant fields from all structs
 
 LCS DONE insert padding in front of am medium payload if necessary to assure 64 bit alignment, just so the memcpy at destination will be faster  (use gasneti_align? call in call to gc_send inAMMediumRequest
 
@@ -121,7 +121,7 @@ DONE gc_rdma_get doesn't use immediate bounce buffer!
 DONE gc_rdma_get doesn't retry memregister the way gc_rdma_put does
 
 
-Separate concept of size of immediate bounce buffer from the concept of when to switch from FMA to RDMA  (fma->rdma at 1 K for MPI 4K for libpgas)
+DONE Separate concept of size of immediate bounce buffer from the concept of when to switch from FMA to RDMA  (fma->rdma at 1 K for MPI 4K for libpgas)
 
 INLINE the small fry
 
