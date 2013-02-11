@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testlarge.c,v $
- *     $Date: 2010/04/24 02:20:50 $
- * $Revision: 1.49 $
+ *     $Date: 2013/02/11 01:12:36 $
+ * $Revision: 1.50 $
  * Description: GASNet bulk get/put performance test
  *   measures the ping-pong average round-trip time and
  *   average flood throughput of GASNet bulk gets and puts
@@ -17,7 +17,9 @@
 		
 *************************************************************/
 
-int maxsz = 0;
+#include <gasnet.h>
+
+size_t maxsz = 0;
 #ifndef TEST_SEGSZ
   #define TEST_SEGSZ_EXPR ((uintptr_t)maxsz)
 #endif
@@ -28,7 +30,7 @@ int maxsz = 0;
 #define PRINT_THROUGHPUT 1
 
 typedef struct {
-	int datasize;
+	size_t datasize;
 	int iters;
 	uint64_t time;
 	double max_throughput;
@@ -46,8 +48,8 @@ int unitsMB = 0;
 int doputs = 1;
 int dogets = 1;
 
-int min_payload;
-int max_payload;
+size_t min_payload;
+size_t max_payload;
 
 char *tgtmem;
 void *msgbuf;
@@ -59,7 +61,7 @@ void *msgbuf;
 #define print_stat \
   GASNETT_TRACE_SETSOURCELINE(__FILE__,__LINE__), _print_stat
 
-void _init_stat(stat_struct_t *st, int sz)
+void _init_stat(stat_struct_t *st, size_t sz)
 {
 	st->iters = 0;
 	st->datasize = sz;
@@ -76,19 +78,19 @@ void _print_stat(int myproc, stat_struct_t *st, const char *name, int operation)
 {
 	switch (operation) {
 	case PRINT_LATENCY:
-		printf("%c: %3i - %10i byte : %7i iters,"
+		printf("%c: %3i - %10li byte : %7i iters,"
 			   " latency %12i us total, %9.3f us ave. (%s)\n",
                         TEST_SECTION_NAME(),
-			myproc, st->datasize, st->iters, (int) st->time,
+			myproc, (long) st->datasize, st->iters, (int) st->time,
 			((double)st->time) / st->iters,
 			name);
 		fflush(stdout);
 		break;
 	case PRINT_THROUGHPUT:
-		printf((unitsMB ? "%c: %3i - %10i byte : %7i iters, throughput %11.6f MB/sec (%s)\n":
-                                  "%c: %3i - %10i byte : %7i iters, throughput %11.3f KB/sec (%s)\n"),
+		printf((unitsMB ? "%c: %3i - %10li byte : %7i iters, throughput %11.6f MB/sec (%s)\n":
+                                  "%c: %3i - %10li byte : %7i iters, throughput %11.3f KB/sec (%s)\n"),
                         TEST_SECTION_NAME(),
-			myproc, st->datasize, st->iters,
+			myproc, (long) st->datasize, st->iters,
                         ((int)st->time == 0 ? 0.0 :
                         (1000000.0 * st->datasize * st->iters / 
                           (unitsMB?(1024.0*1024.0):1024.0)) / ((int)st->time)),
@@ -100,13 +102,16 @@ void _print_stat(int myproc, stat_struct_t *st, const char *name, int operation)
 	}
 }
 
+/* Double payload at each iter, but include max_payload which may not be power-of-2 */
+#define NEXT_SZ(sz) (MIN(sz*2,max_payload)+(sz==max_payload))
+
 void bulk_test(int iters) {GASNET_BEGIN_FUNCTION();
     int i;
     int64_t begin, end;
     stat_struct_t stget, stput;
-    int payload;
+    size_t payload;
     
-	for (payload = min_payload; payload <= max_payload && payload > 0; payload *= 2) {
+	for (payload = min_payload; payload <= max_payload && payload > 0; payload = NEXT_SZ(payload)) {
 		init_stat(&stput, payload);
 
 		BARRIER();
@@ -153,9 +158,9 @@ void bulk_test_nbi(int iters) {GASNET_BEGIN_FUNCTION();
     int i;
     int64_t begin, end;
     stat_struct_t stget, stput;
-    int payload;
+    size_t payload;
     
-	for (payload = min_payload; payload <= max_payload && payload > 0; payload *= 2) {
+	for (payload = min_payload; payload <= max_payload && payload > 0; payload = NEXT_SZ(payload)) {
 		init_stat(&stput, payload);
 
 		BARRIER();
@@ -205,11 +210,11 @@ void bulk_test_nb(int iters) {GASNET_BEGIN_FUNCTION();
     int64_t begin, end;
     stat_struct_t stget, stput;
     gasnet_handle_t *handles;
-    int payload;
+    size_t payload;
     
 	handles = (gasnet_handle_t *) test_malloc(sizeof(gasnet_handle_t) * iters);
 
-	for (payload = min_payload; payload <= max_payload && payload > 0; payload *= 2) {
+	for (payload = min_payload; payload <= max_payload && payload > 0; payload = NEXT_SZ(payload)) {
 		init_stat(&stput, payload);
 
 		BARRIER();
@@ -309,7 +314,7 @@ int main(int argc, char **argv)
 
     if (argc > arg) { iters = atoi(argv[arg]); arg++; }
     if (!iters) iters = 1000;
-    if (argc > arg) { maxsz = atoi(argv[arg]); arg++; }
+    if (argc > arg) { maxsz = gasnett_parse_int(argv[arg], 1); arg++; }
     if (!maxsz) maxsz = 2*1024*1024; /* 2 MB default */
     if (argc > arg) { TEST_SECTION_PARSE(argv[arg]); arg++; }
 
@@ -333,7 +338,7 @@ int main(int argc, char **argv)
     max_payload = maxsz;
 
     if (max_payload < min_payload) {
-      ERR("maxsz must be >= %i\n",min_payload);
+      ERR("maxsz (%li) must be >= %li\n",(long)max_payload,(long)min_payload);
       test_usage();
     }
 
@@ -381,13 +386,13 @@ int main(int argc, char **argv)
         assert(((uintptr_t)msgbuf) % PAGESZ == 0);
 
         if (myproc == 0) 
-          MSG("Running %i iterations of %s%s%sbulk put/get with local addresses %sside the segment for sizes: %i...%i\n", 
+          MSG("Running %i iterations of %s%s%sbulk put/get with local addresses %sside the segment for sizes: %li...%li\n", 
           iters, 
           (firstlastmode ? "first/last " : ""),
           (fullduplexmode ? "full-duplex ": ""),
           (crossmachinemode ? "cross-machine ": ""),
           insegment ? "in" : "out", 
-          min_payload, max_payload);
+          (long)min_payload, (long)max_payload);
         BARRIER();
 
         if (iamsender && !skipwarmup) { /* pay some warm-up costs */
