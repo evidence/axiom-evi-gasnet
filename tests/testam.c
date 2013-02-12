@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testam.c,v $
- *     $Date: 2013/02/11 23:29:18 $
- * $Revision: 1.35 $
+ *     $Date: 2013/02/12 15:42:55 $
+ * $Revision: 1.36 $
  * Description: GASNet Active Messages performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -185,12 +185,15 @@ int main(int argc, char **argv) {
 
   GASNET_Safe(gasnet_attach(htable, sizeof(htable)/sizeof(gasnet_handlerentry_t),
                             TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
-  test_init("testam", 1, "[options] (iters) (maxsz) (test_sections)\n"
 #if GASNET_PAR
+  test_init("testam", 1, "[options] (iters) (maxsz) (test_sections)\n"
                "  The -p option gives the number of polling threads, specified as\n"
                "    a non-negative integer argument (default is no polling threads).\n"
-#endif
                "  The -c option enables cross-machine pairing (default is nearest neighbor).\n");
+#else
+  test_init("testam", 1, "[options] (iters) (maxsz) (test_sections)\n"
+               "  The -c option enables cross-machine pairing (default is nearest neighbor).\n");
+#endif
   if (help || argc > arg) test_usage();
 
   TEST_PRINT_CONDUITINFO();
