@@ -917,6 +917,10 @@ gasnetc_send_smsg(gasnet_node_t dest,
   const uint32_t msgid = 0;
 #endif
 
+#if GASNET_PSHM
+  gasneti_assert(!gasneti_pshm_in_supernode(dest));
+#endif
+
   GASNETI_TRACE_PRINTF(A, ("smsg s from %d to %d type %s\n", gasneti_mynode, dest, gasnetc_type_string(((GC_Header_t *) header)->command)));
 
 #if GASNETC_SMSG_RETRANSMIT
@@ -1434,10 +1438,13 @@ double gasnetc_shutdown_seconds = 0.0;
 static double shutdown_max = 120.;  /* 2 minutes */
 static uint32_t sys_exit_rcvd = 0;
 
+#if GASNET_PSHM
+gasnetc_exitcode_t *gasnetc_exitcodes = NULL;
+#endif
 
 /* XXX: probably need to obtain am_credit or otherwise guard against
    the possibility of GNI_SmsgSend() returning GNI_RC_NOT_DONE. */
-extern void gasnetc_sys_SendShutdownMsg(gasnet_node_t node, int shift, int exitcode)
+extern void gasnetc_sys_SendShutdownMsg(gasnet_node_t peeridx, int shift, int exitcode)
 {
 #if GASNETC_SMSG_RETRANSMIT
   static gasnetc_smsg_t shutdown_smsg[32];
@@ -1446,10 +1453,15 @@ extern void gasnetc_sys_SendShutdownMsg(gasnet_node_t node, int shift, int exitc
   static gasnetc_smsg_t shutdown_smsg;
   gasnetc_smsg_t *smsg = &shutdown_smsg;
 #endif
+#if GASNET_PSHM
+  const gasnet_node_t dest = gasneti_pshm_firsts[peeridx];
+#else
+  const gasnet_node_t dest = peeridx;
+#endif
   int result;
 
   gasnetc_sys_shutdown_packet_t *gssp = &smsg->smsg_header.gssp;
-  GASNETI_TRACE_PRINTF(C,("Send SHUTDOWN Request to node %d w/ shift %d, exitcode %d",node,shift,exitcode));
+  GASNETI_TRACE_PRINTF(C,("Send SHUTDOWN Request to node %d w/ shift %d, exitcode %d",dest,shift,exitcode));
   gssp->header.command = GC_CMD_SYS_SHUTDOWN_REQUEST;
   gssp->header.misc    = exitcode; /* only 15 bits, but exit() only preserves low 8-bits anyway */
   gssp->header.numargs = 0;
@@ -1457,7 +1469,7 @@ extern void gasnetc_sys_SendShutdownMsg(gasnet_node_t node, int shift, int exitc
 #if GASNETC_SMSG_RETRANSMIT
   smsg->msgid = GC_SMGS_SHUTDOWN;
 #endif
-  result = gasnetc_send_smsg(node, smsg, sizeof(gasnetc_sys_shutdown_packet_t), NULL, 0, 0);
+  result = gasnetc_send_smsg(dest, smsg, sizeof(gasnetc_sys_shutdown_packet_t), NULL, 0, 0);
 #if GASNET_DEBUG
   if_pf (result) {
     fprintf(stderr, "WARNING: gasnetc_send_smsg() call at Shutdown failed on node %i\n", (int)gasneti_mynode);
@@ -1474,7 +1486,6 @@ void gasnetc_handle_sys_shutdown_packet(uint32_t source, gasnetc_sys_shutdown_pa
   uint8_t oldcode;
 #if GASNET_DEBUG || GASNETI_STATS_OR_TRACE
   int sender = source;
-  gasneti_assert_always(((uint32_t)sender + distance) % gasneti_nodes == gasneti_mynode);
   GASNETI_TRACE_PRINTF(C,("Got SHUTDOWN Request from node %d w/ exitcode %d",sender,exitcode));
 #endif
   oldcode = gasneti_atomic_read((gasneti_atomic_t *) &gasnetc_exitcode, 0);
@@ -1506,6 +1517,13 @@ void gasnetc_handle_sys_shutdown_packet(uint32_t source, gasnetc_sys_shutdown_pa
  */
 extern int gasnetc_sys_exit(int *exitcode_p)
 {
+#if GASNET_PSHM                  
+  const gasnet_node_t size = gasneti_nodemap_global_count;
+  const gasnet_node_t rank = gasneti_nodemap_global_rank;
+#else
+  const gasnet_node_t size = gasneti_nodes;
+  const gasnet_node_t rank = gasneti_mynode;
+#endif
   uint32_t goal = 0;
   uint32_t distance;
   int result = 0; /* success */
@@ -1517,21 +1535,57 @@ extern int gasnetc_sys_exit(int *exitcode_p)
 
   GASNETI_TRACE_PRINTF(C,("Entering SYS EXIT"));
 
-  /*  gasneti_assert(portals_sysqueue_initialized); */
+#if GASNET_PSHM
+  if (gasneti_nodemap_local_rank) {
+    gasnetc_exitcode_t * const self = &gasnetc_exitcodes[gasneti_nodemap_local_rank];
+    gasnetc_exitcode_t * const lead = &gasnetc_exitcodes[0];
 
-  for (distance = 1, shift = 0; distance < gasneti_nodes; distance *= 2, ++shift) {
-    gasnet_node_t peer;
+    /* publish our exit code for leader to read */
+    self->exitcode = exitcode;
+    gasneti_local_wmb(); /* Release */
+    self->present = 1;
 
-    if (distance >= gasneti_nodes - gasneti_mynode) {
-      peer = gasneti_mynode - (gasneti_nodes - distance);
-    } else {
-      peer = gasneti_mynode + distance;
+    /* wait for leader to publish final result */
+    while (! lead->present) {
+      gasnetc_poll();
+      if (gasneti_ticks_to_us(gasneti_ticks_now() - starttime) > timeout_us) {
+        result = 1; /* failure */
+        goto out;
+      }
     }
+    gasneti_local_rmb(); /* Acquire */
+    exitcode = lead->exitcode;
+
+    goto out;
+  } else {
+    gasnetc_exitcode_t * const self = &gasnetc_exitcodes[0];
+    int i;
+
+    /* collect exit codes */
+    for (i = 1; i < gasneti_nodemap_local_count; ++i) {
+      gasnetc_exitcode_t * const peer = &gasnetc_exitcodes[i];
+
+      while (! peer->present) {
+        gasnetc_poll();
+        if (gasneti_ticks_to_us(gasneti_ticks_now() - starttime) > timeout_us) {
+          result = 1; /* failure */
+          goto out;
+        }
+      }
+      gasneti_local_rmb(); /* Acquire */
+      exitcode = MAX(exitcode, peer->exitcode);
+    }
+  }
+#endif
+
+  for (distance = 1, shift = 0; distance < size; distance *= 2, ++shift) {
+    gasnet_node_t peeridx = (distance >= size - rank) ? rank - (size - distance)
+                                                      : rank + distance;
 
     oldcode = gasneti_atomic_read((gasneti_atomic_t *) &gasnetc_exitcode, 0);
     exitcode = MAX(exitcode, oldcode);
 
-    gasnetc_sys_SendShutdownMsg(peer, shift, exitcode);
+    gasnetc_sys_SendShutdownMsg(peeridx, shift, exitcode);
 
     /* wait for completion of the proper receive, which might arrive out of order */
     goal |= distance;
@@ -1543,6 +1597,15 @@ extern int gasnetc_sys_exit(int *exitcode_p)
       }
     }
   }
+
+#if GASNET_PSHM
+  { /* publish final exit code */
+    gasnetc_exitcode_t * const self = &gasnetc_exitcodes[0];
+    self->exitcode = exitcode;
+    gasneti_local_wmb(); /* Release */
+    self->present = 1;
+  }
+#endif
 
   #if GASNETC_SMSG_RETRANSMIT
   /* drain send completion events to avoid NOT_DONE at unbind: */

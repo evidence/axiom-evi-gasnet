@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core_internal.h,v $
- *     $Date: 2011/06/18 19:56:17 $
- * $Revision: 1.1 $
+ *     $Date: 2013/02/12 23:56:55 $
+ * $Revision: 1.2 $
  * Description: GASNet <conduitname> conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -37,6 +37,15 @@ typedef enum {
 /* Assert that a value is aligned to at least the given size */
 #define gasnetc_assert_aligned(_val,_align)	gasneti_assert(!((uintptr_t)(_val) % (_align)))
 
+
+#if GASNET_PSHM
+/* for intra-node exit coordination */
+typedef struct {
+    int exitcode;
+    volatile int present;
+} gasnetc_exitcode_t;
+extern gasnetc_exitcode_t *gasnetc_exitcodes;
+#endif
 
 
 /* AuxSeg setup for registered bounce  and post descriptors*/

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/02/09 02:48:34 $
- * $Revision: 1.31 $
+ *     $Date: 2013/02/12 23:56:55 $
+ * $Revision: 1.32 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -303,10 +303,9 @@ static int gasnetc_init(int *argc, char ***argv) {
      * conduit-specific uses.  The return value is a pointer to the space
      * requested by the 2nd argument.
      */
-    /* LCS  no shared mem needed for the conduit, we get it from the gni
-     * shared message queue machinery 
-     */
-    gasneti_pshm_init(&gasnetc_bootstrapExchange, 0);
+    gasnetc_exitcodes = gasneti_pshm_init(&gasnetc_bootstrapExchange,
+                                          gasneti_nodemap_local_count * sizeof(gasnetc_exitcode_t));
+    gasnetc_exitcodes[gasneti_nodemap_local_rank].present = 0;
   #endif
     /* LCS  Use segment size strategy from portals-conduit (CNL only) */
   #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
