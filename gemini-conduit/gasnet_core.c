@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/02/13 20:33:06 $
- * $Revision: 1.33 $
+ *     $Date: 2013/02/13 22:57:13 $
+ * $Revision: 1.34 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -16,6 +16,10 @@
 #include <errno.h>
 #include <unistd.h>
 #include <signal.h>
+
+#if !GASNET_PSHM
+#include <alloca.h>
+#endif
 
 #include <sys/mman.h>
 
@@ -724,6 +728,20 @@ extern int gasnetc_AMRequestShortM(
                                            0, 0, 0,
                                            numargs, argptr);
   } else
+#else
+  if (dest == gasneti_mynode) {
+    const gasneti_handler_fn_t handler_fn = gasnetc_handler[handler];
+    gasnetc_token_t the_token = { gasneti_mynode, 1 };
+    gasnet_token_t req_token = (gasnet_token_t)&the_token; /* RUN macros need an lvalue */
+    gasnet_handlerarg_t args[gasnet_AMMaxArgs()];
+    int i;
+
+    for (i = 0; i < numargs; i++) {
+      args[i] = (gasnet_handlerarg_t)va_arg(argptr, gasnet_handlerarg_t);
+    }
+    GASNETI_RUN_HANDLER_SHORT(1,handler,handler_fn,req_token,args,numargs);
+    retval = GASNET_OK;
+  } else
 #endif
   {
     /* (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
@@ -765,6 +783,22 @@ extern int gasnetc_AMRequestMediumM(
                                            source_addr, nbytes, 0,
                                            numargs, argptr);
   } else
+#else
+  if (dest == gasneti_mynode) {
+    const gasneti_handler_fn_t handler_fn = gasnetc_handler[handler];
+    gasnetc_token_t the_token = { gasneti_mynode, 1 };
+    gasnet_token_t req_token = (gasnet_token_t)&the_token; /* RUN macros need an lvalue */
+    gasnet_handlerarg_t args[gasnet_AMMaxArgs()];
+    void *payload = alloca(nbytes);
+    int i;
+
+    for (i = 0; i < numargs; i++) {
+      args[i] = (gasnet_handlerarg_t)va_arg(argptr, gasnet_handlerarg_t);
+    }
+    memcpy(payload, source_addr, nbytes);
+    GASNETI_RUN_HANDLER_MEDIUM(1,handler,handler_fn,req_token,args,numargs,payload,nbytes);
+    retval = GASNET_OK;
+  } else
 #endif
   {
     /* (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
@@ -805,6 +839,22 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
     retval = gasneti_AMPSHM_RequestGeneric(gasnetc_Long, dest, handler,
                                            source_addr, nbytes, dest_addr,
                                            numargs, argptr);
+  } else
+#else
+  if (dest == gasneti_mynode) {
+    const gasneti_handler_fn_t handler_fn = gasnetc_handler[handler];
+    gasnetc_token_t the_token = { gasneti_mynode, 1 };
+    gasnet_token_t req_token = (gasnet_token_t)&the_token; /* RUN macros need an lvalue */
+    gasnet_handlerarg_t args[gasnet_AMMaxArgs()];
+    int i;
+
+    for (i = 0; i < numargs; i++) {
+      args[i] = (gasnet_handlerarg_t)va_arg(argptr, gasnet_handlerarg_t);
+    }
+    memcpy(dest_addr, source_addr, nbytes);
+    gasneti_sync_writes(); /* sync memcpy */
+    GASNETI_RUN_HANDLER_LONG(1,handler,handler_fn,req_token,args,numargs,dest_addr,nbytes);
+    retval = GASNET_OK;
   } else
 #endif
   {
@@ -868,6 +918,22 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
                                            source_addr, nbytes, dest_addr,
                                            numargs, argptr);
   } else
+#else
+  if (dest == gasneti_mynode) {
+    const gasneti_handler_fn_t handler_fn = gasnetc_handler[handler];
+    gasnetc_token_t the_token = { gasneti_mynode, 1 };
+    gasnet_token_t req_token = (gasnet_token_t)&the_token; /* RUN macros need an lvalue */
+    gasnet_handlerarg_t args[gasnet_AMMaxArgs()];
+    int i;
+
+    for (i = 0; i < numargs; i++) {
+      args[i] = (gasnet_handlerarg_t)va_arg(argptr, gasnet_handlerarg_t);
+    }
+    memcpy(dest_addr, source_addr, nbytes);
+    gasneti_sync_writes(); /* sync memcpy */
+    GASNETI_RUN_HANDLER_LONG(1,handler,handler_fn,req_token,args,numargs,dest_addr,nbytes);
+    retval = GASNET_OK;
+  } else
 #endif
   {
     const int is_packed = (nbytes <= GASNETC_MAX_PACKED_LONG(numargs));
@@ -927,6 +993,28 @@ extern int gasnetc_AMReplyShortM(
     retval = gasneti_AMPSHM_ReplyGeneric(gasnetc_Short, token, handler,
                                          0, 0, 0,
                                          numargs, argptr);
+    va_end(argptr);
+    GASNETI_RETURN(retval);
+  }
+#endif
+
+  GASNETI_SAFE(gasnetc_AMGetMsgSource(token, &dest));
+  gasneti_assert(((gasnetc_token_t *)token)->need_reply);
+  ((gasnetc_token_t *)token)->need_reply = 0;
+
+#if !GASNET_PSHM
+  if (dest == gasneti_mynode) {
+    const gasneti_handler_fn_t handler_fn = gasnetc_handler[handler];
+    gasnetc_token_t the_token = { gasneti_mynode, 0 };
+    gasnet_token_t rep_token = (gasnet_token_t)&the_token; /* RUN macros need an lvalue */
+    gasnet_handlerarg_t args[gasnet_AMMaxArgs()];
+    int i;
+
+    for (i = 0; i < numargs; i++) {
+      args[i] = (gasnet_handlerarg_t)va_arg(argptr, gasnet_handlerarg_t);
+    }
+    GASNETI_RUN_HANDLER_SHORT(0,handler,handler_fn,rep_token,args,numargs);
+    retval = GASNET_OK;
   } else
 #endif
   { 
@@ -935,9 +1023,6 @@ extern int gasnetc_AMReplyShortM(
      */
     GASNETC_DECL_SMSG(smsg);
     gasnetc_am_short_packet_t *m = &smsg->smsg_header.gasp;
-    GASNETI_SAFE(gasnetc_AMGetMsgSource(token, &dest));
-    gasneti_assert(((gasnetc_token_t *)token)->need_reply);
-    ((gasnetc_token_t *)token)->need_reply = 0;
     m->header.command = GC_CMD_AM_SHORT_REPLY;
   /*m->header.misc    = 0;  -- field is unused by shorts */
     m->header.numargs = numargs;
@@ -968,6 +1053,30 @@ extern int gasnetc_AMReplyMediumM(
     retval = gasneti_AMPSHM_ReplyGeneric(gasnetc_Medium, token, handler,
                                          source_addr, nbytes, 0,
                                          numargs, argptr);
+    va_end(argptr);
+    GASNETI_RETURN(retval);
+  }
+#endif
+
+  GASNETI_SAFE(gasnetc_AMGetMsgSource(token, &dest));
+  gasneti_assert(((gasnetc_token_t *)token)->need_reply);
+  ((gasnetc_token_t *)token)->need_reply = 0;
+
+#if !GASNET_PSHM
+  if (dest == gasneti_mynode) {
+    const gasneti_handler_fn_t handler_fn = gasnetc_handler[handler];
+    gasnetc_token_t the_token = { gasneti_mynode, 0 };
+    gasnet_token_t rep_token = (gasnet_token_t)&the_token; /* RUN macros need an lvalue */
+    gasnet_handlerarg_t args[gasnet_AMMaxArgs()];
+    void *payload = alloca(nbytes);
+    int i;
+
+    for (i = 0; i < numargs; i++) {
+      args[i] = (gasnet_handlerarg_t)va_arg(argptr, gasnet_handlerarg_t);
+    }
+    memcpy(payload, source_addr, nbytes);
+    GASNETI_RUN_HANDLER_MEDIUM(0,handler,handler_fn,rep_token,args,numargs,payload,nbytes);
+    retval = GASNET_OK;
   } else
 #endif
   {
@@ -976,9 +1085,6 @@ extern int gasnetc_AMReplyMediumM(
      */
     GASNETC_DECL_SMSG(smsg);
     gasnetc_am_medium_packet_t *m = &smsg->smsg_header.gamp;
-    GASNETI_SAFE(gasnetc_AMGetMsgSource(token, &dest));
-    gasneti_assert(((gasnetc_token_t *)token)->need_reply);
-    ((gasnetc_token_t *)token)->need_reply = 0;
     m->header.command = GC_CMD_AM_MEDIUM_REPLY;
     m->header.misc    = nbytes;
     m->header.numargs = numargs;
@@ -1010,6 +1116,30 @@ extern int gasnetc_AMReplyLongM(
     retval = gasneti_AMPSHM_ReplyGeneric(gasnetc_Long, token, handler,
                                          source_addr, nbytes, dest_addr,
                                          numargs, argptr);
+    va_end(argptr);
+    GASNETI_RETURN(retval);
+  }
+#endif
+
+  GASNETI_SAFE(gasnetc_AMGetMsgSource(token, &dest));
+  gasneti_assert(((gasnetc_token_t *)token)->need_reply);
+  ((gasnetc_token_t *)token)->need_reply = 0;
+
+#if !GASNET_PSHM
+  if (dest == gasneti_mynode) {
+    const gasneti_handler_fn_t handler_fn = gasnetc_handler[handler];
+    gasnetc_token_t the_token = { gasneti_mynode, 0 };
+    gasnet_token_t rep_token = (gasnet_token_t)&the_token; /* RUN macros need an lvalue */
+    gasnet_handlerarg_t args[gasnet_AMMaxArgs()];
+    int i;
+
+    for (i = 0; i < numargs; i++) {
+      args[i] = (gasnet_handlerarg_t)va_arg(argptr, gasnet_handlerarg_t);
+    }
+    memcpy(dest_addr, source_addr, nbytes);
+    gasneti_sync_writes(); /* sync memcpy */
+    GASNETI_RUN_HANDLER_LONG(0,handler,handler_fn,rep_token,args,numargs,dest_addr,nbytes);
+    retval = GASNET_OK;
   } else
 #endif
   {
@@ -1019,9 +1149,6 @@ extern int gasnetc_AMReplyLongM(
     const int is_packed = (nbytes <= GASNETC_MAX_PACKED_LONG(numargs));
     GASNETC_DECL_SMSG(smsg);
     gasnetc_am_long_packet_t *m = &smsg->smsg_header.galp;
-    GASNETI_SAFE(gasnetc_AMGetMsgSource(token, &dest));
-    gasneti_assert(((gasnetc_token_t *)token)->need_reply);
-    ((gasnetc_token_t *)token)->need_reply = 0;
     m->header.command = GC_CMD_AM_LONG_REPLY;
     m->header.misc    = is_packed;
     m->header.numargs = numargs;
