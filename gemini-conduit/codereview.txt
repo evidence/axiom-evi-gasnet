@@ -1,5 +1,5 @@
 Gemini-conduit design notes, from code review 8/2010
-$Revision: 1.20 $
+$Revision: 1.21 $
 
 number of bounce buffers, make clear the effects of, in the readme
 
@@ -16,11 +16,12 @@ PHH DONE the smsg peer data is almost all constant and doesn't need to be exchan
 
 in gc_init_messaging, loop around
 
-multiplier sizing completion queue creates endpoints for the local supernode, which are not used when pshm is in use  there is a gasneti_pshm_in_supernode to test if we need an endpoint for them
+PHH DONE:multiplier sizing completion queue creates endpoints for the local supernode, which are not used when pshm is in use  there is a gasneti_pshm_in_supernode to test if we need an endpoint for them
 PHH DONE: but first must fix shutdown coordination not to use SmsgSend w/i the supernode
 PHH DONE: and implement non-GNI path for loopback AMs when PSHM is disabled
 
 can save memory for smsg buffering and cq sizing as well (and endpoints)
+PHH: sms init, cq sizing and endpoints DONE, but NOT yet smsg buffer space
 
 round up gc_post_descriptor to mulitple of cache line  (only in PAR bulds?)
   probablyu a good idea everywhere since gni libraries and kernel write fields in it.

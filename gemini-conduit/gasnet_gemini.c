@@ -177,6 +177,15 @@ void gasnetc_work_enqueue_nolock(peer_struct_t *qi)
 }
 
 /*-------------------------------------------------*/
+/* We don't allocate resources for comms w/ self or PSHM-reachable peers */
+
+#if GASNET_PSHM
+  #define node_is_local(_i) gasneti_pshm_in_supernode(_i)
+#else
+  #define node_is_local(_i) ((_i) == gasneti_mynode)
+#endif
+
+/*-------------------------------------------------*/
 
 /* called after segment init. See gasneti_seginfo */
 /* allgather the memory handles for the segments */
@@ -270,6 +279,7 @@ void gasnetc_init_segment(void *segment_start, size_t segment_size)
 
 uintptr_t gasnetc_init_messaging(void)
 {
+  const gasnet_node_t remote_nodes = gasneti_nodes - (GASNET_PSHM ? gasneti_nodemap_local_count : 1);
   gni_return_t status;
   gni_smsg_attr_t my_smsg_attr;
   gni_smsg_attr_t *all_smsg_attr;
@@ -334,6 +344,7 @@ uintptr_t gasnetc_init_messaging(void)
   all_addr = gasnetc_gather_nic_addresses();
   peer_data = gasneti_malloc(gasneti_nodes * sizeof(peer_struct_t));
   for (i = 0; i < gasneti_nodes; i += 1) {
+    if (node_is_local(i)) continue; /* no connection to self or PSHM-reachable peers */
     peer_data[i].next = GC_NOT_QUEUED;
     status = GNI_EpCreate(nic_handle, bound_cq_handle, &peer_data[i].ep_handle);
     gasneti_assert_always (status == GNI_RC_SUCCESS);
@@ -354,7 +365,8 @@ uintptr_t gasnetc_init_messaging(void)
    * allocate a CQ in which to receive message notifications
    */
   /* TODO: is "* 2" still correct given mb_maxcredit has been halved since the original code? */
-  status = GNI_CqCreate(nic_handle,gasneti_nodes * mb_maxcredit * 2,0,GNI_CQ_NOBLOCK,NULL,NULL,&smsg_cq_handle);
+  /* MAX(1,) avoids complication for remote_nodes==0 */
+  status = GNI_CqCreate(nic_handle,MAX(1,remote_nodes*mb_maxcredit* 2),0,GNI_CQ_NOBLOCK,NULL,NULL,&smsg_cq_handle);
   if (status != GNI_RC_SUCCESS) {
     gasnetc_GNIT_Abort("GNI_CqCreate returned error %s\n", gni_return_string(status));
   }
@@ -382,6 +394,7 @@ uintptr_t gasnetc_init_messaging(void)
   bytes_per_mbox = GASNETI_ALIGNUP(bytes_per_mbox, GASNETC_CACHELINE_SIZE);
   /* test */
   bytes_per_mbox += my_smsg_attr.mbox_maxcredit * my_smsg_attr.msg_maxsize;
+  /* TODO: no bytes_needed for self or PSHM-reachable peers (prereq: smarter indexing in mbox setup) */
   bytes_needed = gasneti_nodes * bytes_per_mbox;
   
 #if GASNETC_DEBUG
@@ -440,7 +453,9 @@ uintptr_t gasnetc_init_messaging(void)
   gasnetc_GNIT_Allgather(&my_smsg_attr, sizeof(gni_smsg_attr_t), all_smsg_attr);
   /* At this point all_smsg_attr has information for everyone */
   /* We need to patch up the smsg data, fixing the remote start addresses */
+  /* TODO: smarter indexing to avoid reserving space for self and PSHM-reachable peers */
   for (i = 0; i < gasneti_nodes; i += 1) {
+    if (node_is_local(i)) continue; /* no connection to self or PSHM-reachable peers */
     all_smsg_attr[i].mbox_offset = bytes_per_mbox * gasneti_mynode;
     my_smsg_attr.mbox_offset = bytes_per_mbox * i;
     status = GNI_SmsgInit(peer_data[i].ep_handle, &my_smsg_attr, &all_smsg_attr[i]);
@@ -484,10 +499,11 @@ void gasnetc_shutdown(void)
 
   /* for each rank */
   tries = 0;
-  left = gasneti_nodes;
+  left = gasneti_nodes - (GASNET_PSHM ? gasneti_nodemap_local_count : 1);
   while (left > 0) {
     tries += 1;
     for (i = 0; i < gasneti_nodes; i += 1) {
+      if (node_is_local(i)) continue; /* no connection to self or PSHM-reachable peers */
       if (peer_data[i].ep_handle != NULL) {
 	status = GNI_EpUnbind(peer_data[i].ep_handle);
 	if (status != GNI_RC_SUCCESS) {
@@ -794,6 +810,7 @@ void gasnetc_poll_smsg_completion_queue(void)
     /* and enqueue everyone on the work queue, who isn't already */
     GASNETC_LOCK_QUEUE(&smsg_work_queue);
     for (source = 0; source < gasneti_nodes; source += 1) {
+      if (node_is_local(source)) continue; /* no AMs for self or PSHM-reachable peers */
       if (!GC_IS_QUEUED(&peer_data[source]))
 	gasnetc_work_enqueue_nolock(&peer_data[source]);
     }
@@ -917,9 +934,7 @@ gasnetc_send_smsg(gasnet_node_t dest,
   const uint32_t msgid = 0;
 #endif
 
-#if GASNET_PSHM
-  gasneti_assert(!gasneti_pshm_in_supernode(dest));
-#endif
+  gasneti_assert(!node_is_local(dest));
 
   GASNETI_TRACE_PRINTF(A, ("smsg s from %d to %d type %s\n", gasneti_mynode, dest, gasnetc_type_string(((GC_Header_t *) header)->command)));
 
@@ -1159,7 +1174,8 @@ void gasnetc_rdma_put_bulk(gasnet_node_t dest,
   gni_post_descriptor_t *pd;
   gni_return_t status;
 
-  /*   if (nbytes == 0) return;  shouldn't happen */
+  gasneti_assert(!node_is_local(dest));
+
   pd = &gpd->pd;
 
   /*  bzero(&pd, sizeof(gni_post_descriptor_t)); */
@@ -1235,7 +1251,8 @@ int gasnetc_rdma_put(gasnet_node_t dest,
   gni_return_t status;
   int result = 1; /* assume local completion */
 
-  /*   if (nbytes == 0) return;  shouldn't happen */
+  gasneti_assert(!node_is_local(dest));
+
   pd = &gpd->pd;
 
   /*  bzero(&pd, sizeof(gni_post_descriptor_t)); */
@@ -1312,7 +1329,8 @@ void gasnetc_rdma_get(gasnet_node_t dest,
   gni_post_descriptor_t *pd;
   gni_return_t status;
 
-  /*  if (nbytes == 0) return; */
+  gasneti_assert(!node_is_local(dest));
+
   pd = &gpd->pd;
   gpd->flags |= GC_POST_GET;
 
