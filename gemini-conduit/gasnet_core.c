@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/02/12 23:56:55 $
- * $Revision: 1.32 $
+ *     $Date: 2013/02/13 20:33:06 $
+ * $Revision: 1.33 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -286,16 +286,6 @@ static int gasnetc_init(int *argc, char ***argv) {
 
   gasneti_nodemapParse();
 
-  #if GASNET_DEBUG_VERBOSE
-    fprintf(stderr,"gasnetc_init(): node %i/%i calling gasnetc_init_messaging.\n", 
-      gasneti_mynode, gasneti_nodes); fflush(stderr);
-  #endif
-  msgspace = gasnetc_init_messaging();
-  #if GASNET_DEBUG_VERBOSE
-    fprintf(stderr,"gasnetc_init(): node %i/%i finished gasnetc_init_messaging.\n", 
-      gasneti_mynode, gasneti_nodes); fflush(stderr);
-  #endif
-
   #if GASNET_PSHM
     /* If your conduit will support PSHM, you should initialize it here.
      * The 1st argument is normally "&gasnetc_bootstrapExchange" (described below).
@@ -307,6 +297,17 @@ static int gasnetc_init(int *argc, char ***argv) {
                                           gasneti_nodemap_local_count * sizeof(gasnetc_exitcode_t));
     gasnetc_exitcodes[gasneti_nodemap_local_rank].present = 0;
   #endif
+
+  #if GASNET_DEBUG_VERBOSE
+    fprintf(stderr,"gasnetc_init(): node %i/%i calling gasnetc_init_messaging.\n", 
+      gasneti_mynode, gasneti_nodes); fflush(stderr);
+  #endif
+  msgspace = gasnetc_init_messaging();
+  #if GASNET_DEBUG_VERBOSE
+    fprintf(stderr,"gasnetc_init(): node %i/%i finished gasnetc_init_messaging.\n", 
+      gasneti_mynode, gasneti_nodes); fflush(stderr);
+  #endif
+
     /* LCS  Use segment size strategy from portals-conduit (CNL only) */
   #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
     { 
