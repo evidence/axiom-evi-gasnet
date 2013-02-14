@@ -16,6 +16,11 @@
   #define FIX_HT_ORDERING 0
 #endif
 
+uint32_t gasnetc_dev_id;
+uint32_t gasnetc_cookie;
+uint32_t gasnetc_address;
+uint8_t  gasnetc_ptag;
+
 static uint32_t gasnetc_memreg_flags;
 static int gasnetc_mem_consistency;
 
@@ -205,26 +210,25 @@ int my_smsg_index(gasnet_node_t remote_node) {
 
 /*-------------------------------------------------*/
 
-static uint32_t *gather_nic_addresses(uint32_t device_id)
+static uint32_t *gather_nic_addresses(void)
 {
   gni_return_t status;
-  uint32_t myaddress, pmiaddress;
+  uint32_t myaddress;
   uint32_t cpu_id;
   uint32_t *result = gasneti_malloc(gasneti_nodes * sizeof(uint32_t));
 
   /* first query NicAddress of the device id... */
-  status = GNI_CdmGetNicAddress(device_id, &myaddress, &cpu_id);
+  status = GNI_CdmGetNicAddress(gasnetc_dev_id, &myaddress, &cpu_id);
   if (status != GNI_RC_SUCCESS) {
     gasnetc_GNIT_Abort();
   }
 
   /* ... but use $PMI_GNI_LOC_ADDR instead if different */
-  pmiaddress = gasneti_getenv_int_withdefault("PMI_GNI_LOC_ADDR", -1, 0);
-  if (pmiaddress != myaddress) {
+  if (gasnetc_address != myaddress) {
 #if GASNETC_DEBUG
-    fprintf(stderr, "rank %d PMI_GNI_LOC_ADDR is %d, using it\n", gasneti_mynode, pmiaddress);
+    fprintf(stderr, "rank %d PMI_GNI_LOC_ADDR is %d, using it\n", gasneti_mynode, gasnetc_address);
 #endif
-    myaddress = pmiaddress;
+    myaddress = gasnetc_address;
   }
 
   gasnetc_bootstrapExchange(&myaddress, sizeof(uint32_t), result);
@@ -338,11 +342,6 @@ uintptr_t gasnetc_init_messaging(void)
   unsigned int mb_maxcredit;
   int modes = 0;
 
-  /* TODO: validation / error handling */
-  uint8_t  ptag   = gasneti_getenv_int_withdefault("PMI_GNI_PTAG",   -1, 0);
-  uint32_t cookie = gasneti_getenv_int_withdefault("PMI_GNI_COOKIE", -1, 0);
-  uint32_t dev_id = gasneti_getenv_int_withdefault("PMI_GNI_DEV_ID", -1, 0);
-
 #if GASNETC_DEBUG
   gasnetc_GNIT_Log("entering");
   modes |= GNI_CDM_MODE_ERR_NO_KILL;
@@ -353,13 +352,13 @@ uintptr_t gasnetc_init_messaging(void)
   gasnetc_work_queue_init();
 
   status = GNI_CdmCreate(gasneti_mynode,
-			 ptag, cookie,
+			 gasnetc_ptag, gasnetc_cookie,
 			 modes,
 			 &cdm_handle);
   gasneti_assert_always (status == GNI_RC_SUCCESS);
 
   status = GNI_CdmAttach(cdm_handle,
-			 dev_id,
+			 gasnetc_dev_id,
 			 &local_address,
 			 &nic_handle);
 
@@ -396,7 +395,7 @@ uintptr_t gasnetc_init_messaging(void)
   }
 
   /* init peer_data */
-  all_addr = gather_nic_addresses(dev_id);
+  all_addr = gather_nic_addresses();
   peer_data = gasneti_malloc(gasneti_nodes * sizeof(peer_struct_t));
   for (i = 0; i < gasneti_nodes; i += 1) {
     if (node_is_local(i)) continue; /* no connection to self or PSHM-reachable peers */

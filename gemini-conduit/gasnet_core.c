@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/02/14 06:11:18 $
- * $Revision: 1.38 $
+ *     $Date: 2013/02/14 07:01:10 $
+ * $Revision: 1.39 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -76,8 +76,16 @@ static int gasnetc_bootstrapInit(int *argc, char ***argv) {
   int spawned, size, rank, appnum;
   if (PMI2_Init(&spawned, &size, &rank, &appnum) != MPI_SUCCESS)
     GASNETI_RETURN_ERRR(NOT_INIT, "Failure in PMI_Init\n");
+
   gasneti_nodes = size;
   gasneti_mynode = rank;
+
+  /* TODO: validation / error handling */
+  gasnetc_ptag    = gasneti_getenv_int_withdefault("PMI_GNI_PTAG",   -1, 0);
+  gasnetc_cookie  = gasneti_getenv_int_withdefault("PMI_GNI_COOKIE", -1, 0);
+  gasnetc_dev_id  = gasneti_getenv_int_withdefault("PMI_GNI_DEV_ID", -1, 0);
+  gasnetc_address = gasneti_getenv_int_withdefault("PMI_GNI_LOC_ADDR", -1, 0);
+
   return GASNET_OK;
 }
 

@@ -47,6 +47,11 @@ extern int gasnetc_debug;
   } while(0)
 
 
+/* global vars from environment */
+extern uint32_t gasnetc_dev_id;
+extern uint32_t gasnetc_cookie;
+extern uint32_t gasnetc_address;
+extern uint8_t  gasnetc_ptag;
 
 /* Set to 1 if want to use gasneti_spinlock_t rather than gasneti_mutex_t
  * in XXX
