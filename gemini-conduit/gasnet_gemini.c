@@ -1094,7 +1094,7 @@ void gasnetc_poll_local_queue(void)
                               NULL, 0,  msgid);
         gasneti_assert_always (status == GNI_RC_SUCCESS);
       } else if (gpd->flags & GC_POST_COPY) {
-	memcpy(gpd->get_target, gpd->bounce_buffer, gpd->get_nbytes);
+	memcpy(gpd->get_target, gpd->bounce_buffer, gpd->pd.length);
       }
 
       /* indicate completion */
@@ -1420,14 +1420,12 @@ void gasnetc_rdma_get(gasnet_node_t dest,
       gpd->flags |= GC_POST_COPY;
       gpd->bounce_buffer = gpd->u.immediate;
       gpd->get_target = dest_addr;
-      gpd->get_nbytes = nbytes;
       pd->local_addr = (uint64_t) gpd->bounce_buffer;
       pd->local_mem_hndl = my_mem_handle;
     } else if (nbytes <= gasnetc_bounce_register_cutover) {
       gpd->flags |= GC_POST_UNBOUNCE | GC_POST_COPY;
       gpd->bounce_buffer = gasnetc_alloc_bounce_buffer();
       gpd->get_target = dest_addr;
-      gpd->get_nbytes = nbytes;
       pd->local_addr = (uint64_t) gpd->bounce_buffer;
       pd->local_mem_hndl = my_mem_handle;
     } else {
@@ -1752,9 +1750,9 @@ gasneti_auxseg_request_t gasnetc_bounce_auxseg_alloc(gasnet_seginfo_t *auxseg_in
  *     Aries  = 352 bytes
  */
 #if GASNET_CONDUIT_GEMINI
-  #define GASNETC_SIZEOF_GDP 336
+  #define GASNETC_SIZEOF_GDP 328
 #else
-  #define GASNETC_SIZEOF_GDP 352
+  #define GASNETC_SIZEOF_GDP 344
 #endif
 GASNETI_IDENT(gasneti_pd_auxseg_IdentString, /* XXX: update if gasnetc_post_descriptor_t changes */
               "$GASNetAuxSeg_pd: " _STRINGIFY(GASNETC_SIZEOF_GDP) "*"

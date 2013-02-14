@@ -267,7 +267,6 @@ uint32_t gasnetc_fma_rdma_cutover;
 typedef struct gasnetc_post_descriptor {
   void *bounce_buffer;
   void *get_target;
-  uint32_t get_nbytes;
   uint32_t flags;
   gasnet_node_t dest;
   union {
