@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/02/14 04:38:59 $
- * $Revision: 1.37 $
+ *     $Date: 2013/02/14 06:11:18 $
+ * $Revision: 1.38 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -69,6 +69,20 @@ static void gasnetc_check_config(void) {
     gasneti_assert_always (device_type == GNI_DEVICE_ARIES);
 #endif
   }
+}
+
+/* TODO: move all PMI_* env queries here to centralize PMI dependencies */
+static int gasnetc_bootstrapInit(int *argc, char ***argv) {
+  int spawned, size, rank, appnum;
+  if (PMI2_Init(&spawned, &size, &rank, &appnum) != MPI_SUCCESS)
+    GASNETI_RETURN_ERRR(NOT_INIT, "Failure in PMI_Init\n");
+  gasneti_nodes = size;
+  gasneti_mynode = rank;
+  return GASNET_OK;
+}
+
+static void gasnetc_bootstrapFini(void) {
+  PMI2_Finalize();  /* normal exit via PMI */
 }
 
 /* TODO: use AMs (or Smgs directly) after gasnetc_init_messaging() */
@@ -256,7 +270,6 @@ extern uintptr_t gasnetc_portalsMaxPinMem(uintptr_t msgspace)
 
 static int gasnetc_init(int *argc, char ***argv) {
   uintptr_t msgspace;
-  char *errstring;
   int ret;
   int localranks;
   uint32_t  minlocalrank;
@@ -280,12 +293,8 @@ static int gasnetc_init(int *argc, char ***argv) {
     fprintf(stderr,"gasnetc_init(): about to call gasnetc_init...\n"); fflush(stderr);
 #endif
 
-  { int spawned, size, rank, appnum;
-    if (PMI2_Init(&spawned, &size, &rank, &appnum) != MPI_SUCCESS)
-      GASNETI_RETURN_ERRR(NOT_INIT, "Failure in PMI2_Init\n");
-    gasneti_nodes = size;
-    gasneti_mynode = rank;
-  }
+  ret = gasnetc_bootstrapInit(argc, argv);
+  if (ret != GASNET_OK) return ret;
 
     if (!gasneti_mynode) {
       fflush(NULL);
@@ -684,7 +693,7 @@ extern void gasnetc_exit(int exitcode) {
   gasneti_sched_yield();
   gasnetc_shutdown();
 
-  PMI2_Finalize();  /* normal exit via PMI */
+  gasnetc_bootstrapFini();  /* normal exit via PMI */
   gasneti_killmyprocess(exitcode); /* last chance */
   gasnetc_GNIT_Abort("gasnetc_exit failed!");
 }
