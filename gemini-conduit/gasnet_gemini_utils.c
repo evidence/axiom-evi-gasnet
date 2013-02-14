@@ -69,17 +69,6 @@ int gasnetc_gem_init(char **errorstringp)
 }
 
 
-/* Algorithm
- * Get the number of ranks on my supernode
- * Allocate an array of that size node numbers
- * Get the ranks of all local nodes
- * Find the smallest
- * AllGather that number so everyone has an array indexed by rank of the
- *  smallest rank on their supernode
- */
-
-
-
 void gasnetc_GNIT_Job_size(int *nranks)
 {
   *nranks = gasneti_nodes;
@@ -107,51 +96,60 @@ int gasnetc_GNIT_Device_Id(void)
 
 void gasnetc_GNIT_Allgather(void *local, long length, void *global)
 {
-  long itemsize = 1 + 1 + (length / sizeof(long)); /* length in longs */
-  long *unsorted = gasneti_malloc(itemsize * sizeof(long) * gasneti_nodes);
-  long *sorted = gasneti_malloc(itemsize * sizeof(long) * gasneti_nodes);
-  uint32_t peer;
-  uint32_t i;
-  int status;
-  gasneti_assert(unsorted);
-  gasneti_assert(sorted);
-  /* use beginning of sorted for the local data */
-  sorted[0] = gasneti_mynode;
-  memcpy(&sorted[1], local, length);  
-  /* initialize the unsorted array */
-  for (i = 0; i < itemsize * gasneti_nodes; i += 1) {
-    unsorted[i] = -1;
-  }
-  status = PMI_Allgather(sorted, unsorted, itemsize * sizeof(long));
+  /* work in chunks of same size as the gasnet_node_t */
+  gasnet_node_t itembytes = sizeof(gasnet_node_t) + GASNETI_ALIGNUP(length, sizeof(gasnet_node_t));
+  gasnet_node_t itemwords = itembytes / sizeof(gasnet_node_t);
+  gasnet_node_t *unsorted = gasneti_malloc(itembytes * gasneti_nodes);
+  gasnet_node_t *temporary;
+
+#if GASNET_DEBUG
+  char *found = gasneti_calloc(gasneti_nodes, 1);
+#endif
+  int i, status;
+
+  /* perform unsorted Allgather of records with prepended node number */
+  temporary = gasneti_malloc(itembytes);
+  temporary[0] = gasneti_mynode;   memcpy(&temporary[1], local, length);  
+  status = PMI_Allgather(temporary, unsorted, itembytes);
+  gasneti_free(temporary);
   if (status != PMI_SUCCESS) {
     fprintf(stderr, "rank %d: PMI_Allgather failed\n", gasneti_mynode);
     gasnetc_GNIT_Abort();
   }
+
+  /* extract the records from the unsorted array by using the prepended node numbers */
   for (i = 0; i < gasneti_nodes; i += 1) {
-    peer = unsorted[i * itemsize];
+    gasnet_node_t peer = unsorted[i * itemwords];
     if (peer >= gasneti_nodes) {
       fprintf(stderr, "rank %d PMI_Allgather failed, item %d is %d\n", 
 	      gasneti_mynode, i, peer);
       gasnetc_GNIT_Abort();
     }
-    memcpy(&sorted[peer * itemsize], 
-	   &unsorted[i * itemsize],
-	   itemsize * sizeof(long));
+    memcpy((void *) ((uintptr_t) global + (peer * length)),
+           &unsorted[(i * itemwords) + 1],
+           length);
+#if GASNET_DEBUG
+    ++found[peer];
+#endif
   }
+
+#if GASNET_DEBUG
+  /* verify exactly-once */
   for (i = 0; i < gasneti_nodes; i += 1) {
-    if (sorted[i * itemsize] != i) {
+    if (!found[i]) {
       fprintf(stderr, "rank %d Allgather rank %d missing\n", gasneti_mynode, i);
       gasnetc_GNIT_Abort();
     }
-    memcpy((void *) ((uintptr_t) global + (i * length)), &sorted[(i * itemsize) + 1], length);
   }
+  gasneti_free(found);
   /* check own data */
   if (memcmp(local, (void *) ((uintptr_t ) global + (gasneti_mynode * length)), length) != 0) {
     fprintf(stderr, "rank %d, allgather error\n", gasneti_mynode);
     gasnetc_GNIT_Abort();
   }
+#endif
+
   gasneti_free(unsorted);
-  gasneti_free(sorted);
 }
 
 
