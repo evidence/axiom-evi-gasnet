@@ -222,7 +222,7 @@ static uint32_t *gather_nic_addresses(void)
     gasnetc_dev_id  = 0;
     status = GNI_CdmGetNicAddress(gasnetc_dev_id, &gasnetc_address, &cpu_id);
     if (status != GNI_RC_SUCCESS) {
-      gasnetc_GNIT_Abort("GNI_CdmGetNicAddress failed:", gni_return_string(status));
+      gasnetc_GNIT_Abort("GNI_CdmGetNicAddress failed: %s", gni_return_string(status));
     }
   } else {
     /* use gasnetc_address taken from the environment */
