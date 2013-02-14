@@ -109,15 +109,3 @@ void gasnetc_GNIT_Allgather(void *local, long length, void *global)
 
   gasneti_free(unsorted);
 }
-
-
-void gasnetc_GNIT_Finalize(void)
-{
-  PMI2_Finalize();
-}
-
-
-void gasnetc_GNIT_Barrier(void)
-{
-  PMI_Barrier();
-}

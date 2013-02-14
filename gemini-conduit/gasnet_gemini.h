@@ -217,8 +217,6 @@ typedef struct {
 uint32_t *gasnetc_gather_nic_addresses(void);
 
 void gasnetc_GNIT_Allgather(void *local, long length, void *global);
-void gasnetc_GNIT_Finalize(void);
-void gasnetc_GNIT_Barrier(void);
 
 void gasnetc_get_am_credit(uint32_t pe);
 void gasnetc_return_am_credit(uint32_t pe);

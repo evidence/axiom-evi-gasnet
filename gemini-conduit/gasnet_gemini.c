@@ -525,7 +525,7 @@ uintptr_t gasnetc_init_messaging(void)
   if (gasnetc_fma_rdma_cutover > GASNETC_GNI_FMA_RDMA_CUTOVER_MAX)
     gasnetc_fma_rdma_cutover = GASNETC_GNI_FMA_RDMA_CUTOVER_MAX;
 
-  gasnetc_GNIT_Barrier();
+  PMI_Barrier(); /* XXX: should be gasnetc_bootstrapBarrier */
 
   return bytes_needed;
 }
