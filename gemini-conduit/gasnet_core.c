@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/02/14 04:17:39 $
- * $Revision: 1.36 $
+ *     $Date: 2013/02/14 04:38:59 $
+ * $Revision: 1.37 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -22,6 +22,10 @@
 #endif
 
 #include <sys/mman.h>
+
+#ifndef MPI_SUCCESS
+#define MPI_SUCCESS 0
+#endif
 
 GASNETI_IDENT(gasnetc_IdentString_Version, "$GASNetCoreLibraryVersion: " GASNET_CORE_VERSION_STR " $");
 GASNETI_IDENT(gasnetc_IdentString_Name,    "$GASNetCoreLibraryName: " GASNET_CORE_NAME_STR " $");
@@ -276,11 +280,12 @@ static int gasnetc_init(int *argc, char ***argv) {
     fprintf(stderr,"gasnetc_init(): about to call gasnetc_init...\n"); fflush(stderr);
 #endif
 
-    /* LCS Gemini init */
-
-    if ((ret = gasnetc_gem_init(&errstring)) != GASNET_OK) {
-      GASNETI_RETURN_ERRR(NOT_INIT, errstring);
-    }
+  { int spawned, size, rank, appnum;
+    if (PMI2_Init(&spawned, &size, &rank, &appnum) != MPI_SUCCESS)
+      GASNETI_RETURN_ERRR(NOT_INIT, "Failure in PMI2_Init\n");
+    gasneti_nodes = size;
+    gasneti_mynode = rank;
+  }
 
     if (!gasneti_mynode) {
       fflush(NULL);

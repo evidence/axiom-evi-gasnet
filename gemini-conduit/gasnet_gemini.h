@@ -212,12 +212,6 @@ typedef struct {
 } gasnetc_smsg_t;
 
 
-/* Routines in gasnet_gemini_utils.c */
-
-uint32_t *gasnetc_gather_nic_addresses(void);
-
-/* Routines in gasnet_gemini.c */
-
 void gasnetc_get_am_credit(uint32_t pe);
 void gasnetc_return_am_credit(uint32_t pe);
 
@@ -304,7 +298,6 @@ int gasnetc_sys_exit(int *exitcode);
 
 
 
-int gasnetc_gem_init(char **errstringp);
 void gasnetc_init_segment(void *segment_start, size_t segment_size);
 uintptr_t gasnetc_init_messaging(void);
 void gasnetc_shutdown(void); /* clean up all gni state */

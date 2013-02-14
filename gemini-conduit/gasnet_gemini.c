@@ -205,6 +205,34 @@ int my_smsg_index(gasnet_node_t remote_node) {
 
 /*-------------------------------------------------*/
 
+static uint32_t *gather_nic_addresses(uint32_t device_id)
+{
+  gni_return_t status;
+  uint32_t myaddress, pmiaddress;
+  uint32_t cpu_id;
+  uint32_t *result = gasneti_malloc(gasneti_nodes * sizeof(uint32_t));
+
+  /* first query NicAddress of the device id... */
+  status = GNI_CdmGetNicAddress(device_id, &myaddress, &cpu_id);
+  if (status != GNI_RC_SUCCESS) {
+    gasnetc_GNIT_Abort();
+  }
+
+  /* ... but use $PMI_GNI_LOC_ADDR instead if different */
+  pmiaddress = gasneti_getenv_int_withdefault("PMI_GNI_LOC_ADDR", -1, 0);
+  if (pmiaddress != myaddress) {
+#if GASNETC_DEBUG
+    fprintf(stderr, "rank %d PMI_GNI_LOC_ADDR is %d, using it\n", gasneti_mynode, pmiaddress);
+#endif
+    myaddress = pmiaddress;
+  }
+
+  gasnetc_bootstrapExchange(&myaddress, sizeof(uint32_t), result);
+
+  return result;
+}
+
+/*-------------------------------------------------*/
 /* called after segment init. See gasneti_seginfo */
 /* allgather the memory handles for the segments */
 /* create endpoints */
@@ -313,7 +341,7 @@ uintptr_t gasnetc_init_messaging(void)
   /* TODO: validation / error handling */
   uint8_t  ptag   = gasneti_getenv_int_withdefault("PMI_GNI_PTAG",   -1, 0);
   uint32_t cookie = gasneti_getenv_int_withdefault("PMI_GNI_COOKIE", -1, 0);
-  int      dev_id = gasneti_getenv_int_withdefault("PMI_GNI_DEV_ID", -1, 0);
+  uint32_t dev_id = gasneti_getenv_int_withdefault("PMI_GNI_DEV_ID", -1, 0);
 
 #if GASNETC_DEBUG
   gasnetc_GNIT_Log("entering");
@@ -371,7 +399,7 @@ uintptr_t gasnetc_init_messaging(void)
   }
 
   /* init peer_data */
-  all_addr = gasnetc_gather_nic_addresses();
+  all_addr = gather_nic_addresses(dev_id);
   peer_data = gasneti_malloc(gasneti_nodes * sizeof(peer_struct_t));
   for (i = 0; i < gasneti_nodes; i += 1) {
     if (node_is_local(i)) continue; /* no connection to self or PSHM-reachable peers */
