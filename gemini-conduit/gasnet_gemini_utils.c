@@ -11,15 +11,8 @@
 #define MPI_SUCCESS 0
 #endif
 
-static long int mygetenv(const char *name)
-{
-  char *valuestring = getenv(name);
-  long int value;
-  if (valuestring == NULL) return (-1);
-  value = atol(valuestring);
-  /*fprintf(stderr, "rank %d, get(%s) -> %s, %ld\n", rank, name, valuestring, value);*/
-  return(value);
-}
+#define mygetenv(_name) \
+  gasneti_getenv_int_withdefault(_name, -1, 0)
 
 uint32_t *gasnetc_gather_nic_addresses(void)
 {
