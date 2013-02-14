@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2013/02/11 01:39:30 $
- * $Revision: 1.27 $
+ *     $Date: 2013/02/14 23:29:10 $
+ * $Revision: 1.28 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -322,55 +322,6 @@ void gasneti_iop_markdone(gasneti_iop_t *iop, unsigned int noperations, int isge
   ==========================================================
 */
 /* ------------------------------------------------------------------------------------ */
-GASNETI_INLINE(gasnete_get_reqh_inner)
-void gasnete_get_reqh_inner(gasnet_token_t token, 
-  gasnet_handlerarg_t nbytes, void *dest, void *src, void *op) {
-  gasneti_assert(nbytes <= gasnet_AMMaxMedium());
-  GASNETI_SAFE(
-    MEDIUM_REP(2,4,(token, gasneti_handleridx(gasnete_get_reph),
-                  src, nbytes, 
-                  PACK(dest), PACK(op))));
-}
-SHORT_HANDLER(gasnete_get_reqh,4,7, 
-              (token, a0, UNPACK(a1),      UNPACK(a2),      UNPACK(a3)     ),
-              (token, a0, UNPACK2(a1, a2), UNPACK2(a3, a4), UNPACK2(a5, a6)));
-/* ------------------------------------------------------------------------------------ */
-GASNETI_INLINE(gasnete_get_reph_inner)
-void gasnete_get_reph_inner(gasnet_token_t token, 
-  void *addr, size_t nbytes,
-  void *dest, void *op) {
-  GASNETE_FAST_UNALIGNED_MEMCPY(dest, addr, nbytes);
-  gasneti_sync_writes();
-  gasnete_op_markdone((gasnete_op_t *)op, 1);
-}
-MEDIUM_HANDLER(gasnete_get_reph,2,4,
-              (token,addr,nbytes, UNPACK(a0),      UNPACK(a1)    ),
-              (token,addr,nbytes, UNPACK2(a0, a1), UNPACK2(a2, a3)));
-/* ------------------------------------------------------------------------------------ */
-GASNETI_INLINE(gasnete_getlong_reqh_inner)
-void gasnete_getlong_reqh_inner(gasnet_token_t token, 
-  gasnet_handlerarg_t nbytes, void *dest, void *src, void *op) {
-
-  GASNETI_SAFE(
-    LONG_REP(1,2,(token, gasneti_handleridx(gasnete_getlong_reph),
-                  src, nbytes, dest,
-                  PACK(op))));
-}
-SHORT_HANDLER(gasnete_getlong_reqh,4,7, 
-              (token, a0, UNPACK(a1),      UNPACK(a2),      UNPACK(a3)     ),
-              (token, a0, UNPACK2(a1, a2), UNPACK2(a3, a4), UNPACK2(a5, a6)));
-/* ------------------------------------------------------------------------------------ */
-GASNETI_INLINE(gasnete_getlong_reph_inner)
-void gasnete_getlong_reph_inner(gasnet_token_t token, 
-  void *addr, size_t nbytes, 
-  void *op) {
-  gasneti_sync_writes();
-  gasnete_op_markdone((gasnete_op_t *)op, 1);
-}
-LONG_HANDLER(gasnete_getlong_reph,1,2,
-              (token,addr,nbytes, UNPACK(a0)     ),
-              (token,addr,nbytes, UNPACK2(a0, a1)));
-/* ------------------------------------------------------------------------------------ */
 GASNETI_INLINE(gasnete_memset_reqh_inner)
 void gasnete_memset_reqh_inner(gasnet_token_t token, 
   gasnet_handlerarg_t val, void *nbytes_arg, void *dest, void *op) {
@@ -395,24 +346,62 @@ SHORT_HANDLER(gasnete_markdone_reph,1,2,
               (token, UNPACK2(a0, a1)));
 /* ------------------------------------------------------------------------------------ */
 
-static void gasnete_get_nbi_bulk_am (void *dest, gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG);
+static void /* XXX: Inlining left to compiler's discression */
+gasnete_get_bulk_unaligned(void *dest, gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG)
+{
+  const size_t max_chunk = gasnetc_bounce_register_cutover; /* XXX: this approach is fragile */
+  gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
+  gasnete_iop_t * const iop = mythread->current_iop;
+  gasnetc_post_descriptor_t *gpd;
+  size_t src_offset = 3 & (uintptr_t) src;
 
-static gasnet_handle_t gasnete_get_nb_bulk_am (void *dest, gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG) {
-  GASNETI_CHECKPSHM_GET(UNALIGNED,H);
-  if (nbytes <= GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD) {
-    gasnete_eop_t *op = gasnete_eop_new(GASNETE_MYTHREAD);
+  /* first chunk achieves 4-byte alignment if necessary */
+  if (src_offset != 0) {
+    const size_t chunksz = MIN(nbytes, (max_chunk - src_offset));
+    gpd = gasnetc_alloc_post_descriptor();
+    gpd->flags = GC_POST_COMPLETION_OP;
+    gpd->completion.iop = iop;
+    iop->initiated_get_cnt++;
+    gasnetc_rdma_get_unaligned(node, dest, src, chunksz, gpd);
+    dest = (char *) dest + chunksz;
+    src  = (char *) src  + chunksz;
+    nbytes -= chunksz;
+  }
+  if (!nbytes) return;
+  
+  /* if remaining length is now unaligned, split off the "tail" (yes, this is out-of-order) */
+  /* TODO: is dest isn't aligned then this probably doesn't help any, does it? */
+  gasneti_assert(0 == (3 & (uintptr_t)src));
+  if (nbytes & 3) {
+    const size_t chunksz = nbytes % GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE;
+    nbytes -= chunksz;
+    gpd = gasnetc_alloc_post_descriptor();
+    gpd->flags = GC_POST_COMPLETION_OP;
+    gpd->completion.iop = iop;
+    iop->initiated_get_cnt++;
+    gasnetc_rdma_get_unaligned(node, ((char *)dest + nbytes), ((char *)src + nbytes), chunksz, gpd);
+  }
+  if (!nbytes) return;
 
-    GASNETI_SAFE(
-      SHORT_REQ(4,7,(node, gasneti_handleridx(gasnete_get_reqh), 
-                   (gasnet_handlerarg_t)nbytes, PACK(dest), PACK(src), PACK(op))));
-
-    return (gasnet_handle_t)op;
+  /* now complete the "middle" portion, if any remains */
+  gasneti_assert(0 == (3 & (uintptr_t)src));
+  gasneti_assert(0 == (3 & nbytes));
+  if (3 & (uintptr_t) dest) {
+    /* dest address is unaligned - must use bounce buffers */
+    do {
+      const size_t chunksz = MIN(nbytes, max_chunk);
+      gpd = gasnetc_alloc_post_descriptor();
+      gpd->flags = GC_POST_COMPLETION_OP;
+      gpd->completion.iop = iop;
+      iop->initiated_get_cnt++;
+      gasnetc_rdma_get_unaligned(node, dest, src, chunksz, gpd);
+      dest = (char *) dest + chunksz;
+      src  = (char *) src  + chunksz;
+      nbytes -= chunksz;
+    } while (nbytes);
   } else {
-    /*  need many messages - use an access region to coalesce them into a single handle */
-    /*  (note this relies on the fact that our implementation of access regions allows recursion) */
-    gasnete_begin_nbi_accessregion(1 /* enable recursion */ GASNETE_THREAD_PASS);
-    gasnete_get_nbi_bulk_am(dest, node, src, nbytes GASNETE_THREAD_PASS);
-    return gasnete_end_nbi_accessregion(GASNETE_THREAD_PASS_ALONE);
+    /* dest address is aligned - may use zero-copy if applicable */
+    gasnete_get_nbi_bulk(dest, node, src, nbytes GASNETE_THREAD_PASS);
   }
 }
 
@@ -467,9 +456,12 @@ extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void
 
   GASNETI_CHECKPSHM_GET(UNALIGNED,H);
 
-  if_pf (3 & (nbytes | (uintptr_t)dest | (uintptr_t)src)) { /* unaligned */
-    /* TODO: may be possible to decompose into unaligned + aligned xfers */
-    return(gasnete_get_nb_bulk_am(dest, node, src, nbytes GASNETE_THREAD_PASS));
+  if_pf (3 & (nbytes | (uintptr_t)dest | (uintptr_t)src)) {
+    /* unaligned xfer - handled separately, and always via an iop */
+    gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
+    gasnete_begin_nbi_accessregion(1 GASNETE_THREAD_PASS);
+    gasnete_get_bulk_unaligned(dest, node, src, nbytes GASNETE_THREAD_PASS);
+    return gasnete_end_nbi_accessregion(GASNETE_THREAD_PASS_ALONE);
   }
 
   chunksz = gasneti_in_segment(gasneti_mynode, dest, nbytes) ? GC_MAXRDMA_IN : GC_MAXRDMA_OUT;
@@ -690,54 +682,6 @@ extern int  gasnete_try_syncnb_all (gasnet_handle_t *phandle, size_t numhandles)
 */
 /* ------------------------------------------------------------------------------------ */
 
-static void gasnete_get_nbi_bulk_am (void *dest, gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG) {
-  gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
-  gasnete_iop_t * const op = mythread->current_iop;
-  GASNETI_CHECKPSHM_GET(UNALIGNED,V);
-  if (nbytes <= GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD) {
-    op->initiated_get_cnt++;
-  
-    GASNETI_SAFE(
-      SHORT_REQ(4,7,(node, gasneti_handleridx(gasnete_get_reqh), 
-                   (gasnet_handlerarg_t)nbytes, PACK(dest), PACK(src), PACK(op))));
-    return;
-  } else {
-    int chunksz;
-    gasnet_handler_t reqhandler;
-    uint8_t *psrc = src;
-    uint8_t *pdest = dest;
-    #if GASNETE_USE_LONG_GETS
-      gasneti_memcheck(gasneti_seginfo);
-      if (gasneti_in_segment(gasneti_mynode, dest, nbytes)) {
-        chunksz = gasnet_AMMaxLongReply();
-        reqhandler = gasneti_handleridx(gasnete_getlong_reqh);
-      }
-      else 
-    #endif
-      { reqhandler = gasneti_handleridx(gasnete_get_reqh);
-        chunksz = gasnet_AMMaxMedium();
-      }
-    for (;;) {
-      op->initiated_get_cnt++;
-      if (nbytes > chunksz) {
-        GASNETI_SAFE(
-          SHORT_REQ(4,7,(node, reqhandler, 
-                       (gasnet_handlerarg_t)chunksz, PACK(pdest), PACK(psrc), PACK(op))));
-        nbytes -= chunksz;
-        psrc += chunksz;
-        pdest += chunksz;
-      } else {
-        GASNETI_SAFE(
-          SHORT_REQ(4,7,(node, reqhandler, 
-                       (gasnet_handlerarg_t)nbytes, PACK(pdest), PACK(psrc), PACK(op))));
-        break;
-      }
-    }
-    return;
-  }
-}
-
-
 extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG) {
   gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
   gasnete_iop_t * const iop = mythread->current_iop;
@@ -745,9 +689,9 @@ extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, siz
 
   GASNETI_CHECKPSHM_GET(UNALIGNED,V);
 
-  if (3 & (nbytes | (uintptr_t)dest | (uintptr_t)src)) { /* unaligned */
-    /* TODO: may be possible to decompose into unaligned + aligned xfers */
-    gasnete_get_nbi_bulk_am(dest, node, src, nbytes GASNETE_THREAD_PASS);
+  if_pf (3 & (nbytes | (uintptr_t)dest | (uintptr_t)src)) {
+    /* unaligned xfer - handled separately, and always via an iop */
+    gasnete_get_bulk_unaligned(dest, node, src, nbytes GASNETE_THREAD_PASS);
     return;
   }
 
@@ -970,10 +914,6 @@ static gasnet_handlerentry_t const gasnete_handlers[] = {
   /* ptr-width independent handlers */
 
   /* ptr-width dependent handlers */
-  gasneti_handler_tableentry_with_bits(gasnete_get_reqh),
-  gasneti_handler_tableentry_with_bits(gasnete_get_reph),
-  gasneti_handler_tableentry_with_bits(gasnete_getlong_reqh),
-  gasneti_handler_tableentry_with_bits(gasnete_getlong_reph),
   gasneti_handler_tableentry_with_bits(gasnete_memset_reqh),
   gasneti_handler_tableentry_with_bits(gasnete_markdone_reph),
 

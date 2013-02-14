@@ -1093,6 +1093,12 @@ void gasnetc_poll_local_queue(void)
                               &smsg->smsg_header, header_length,
                               NULL, 0,  msgid);
         gasneti_assert_always (status == GNI_RC_SUCCESS);
+      } else if (gpd->flags & GC_POST_COPY_TRIM) {
+        unsigned int overfetch = gpd->flags & GC_POST_COPY_TRIM;
+        void * const buffer = gpd->bounce_buffer;
+        gasneti_assert(gpd->flags & GC_POST_COPY);
+	memcpy(gpd->get_target, buffer, gpd->pd.length - overfetch);
+	gpd->bounce_buffer = (void*)(~3 & (uintptr_t)buffer); /* fixup for possible UNBOUNCE */
       } else if (gpd->flags & GC_POST_COPY) {
 	memcpy(gpd->get_target, gpd->bounce_buffer, gpd->pd.length);
       }
@@ -1407,7 +1413,7 @@ void gasnetc_rdma_get(gasnet_node_t dest,
   pd->remote_mem_hndl = peer->mem_handle;
   pd->length = nbytes;
 
-  /* confirm that the destination is in-segment on the far end */
+  /* confirm that the source is in-segment on the far end */
   gasneti_boundscheck(dest, source_addr, nbytes);
 
   /* check where the local addr is */
@@ -1456,6 +1462,72 @@ void gasnetc_rdma_get(gasnet_node_t dest,
     gasnetc_return_cq_credit(); /* kind of pointless since we abort */
     print_post_desc("Get", pd);
     gasnetc_GNIT_Abort("Get failed with %s\n", gni_return_string(status));
+  }
+}
+
+/* for get in which one or more of dest_addr, source_addr or nbytes is NOT divisible by 4 */
+void gasnetc_rdma_get_unaligned(gasnet_node_t dest,
+		 void *dest_addr, void *source_addr,
+		 size_t nbytes, gasnetc_post_descriptor_t *gpd)
+{
+  peer_struct_t * const peer = &peer_data[dest];
+  gni_post_descriptor_t *pd;
+  gni_return_t status;
+  char * buffer;
+
+  /* Compute length of "overfetch" required, if any */
+  unsigned int pre = (uintptr_t) source_addr & 3;
+  size_t       length = GASNETI_ALIGNUP(nbytes + pre, 4);
+  unsigned int overfetch = length - nbytes;
+
+  gasneti_assert(!node_is_local(dest));
+
+  pd = &gpd->pd;
+  gasneti_assert(0 == (overfetch & ~GC_POST_COPY_TRIM));
+  gpd->flags |= GC_POST_GET | GC_POST_COPY | overfetch;
+  gpd->get_target = dest_addr;
+
+  /*  bzero(&pd, sizeof(gni_post_descriptor_t)); */
+  pd->cq_mode = GNI_CQMODE_GLOBAL_EVENT;
+  pd->dlvr_mode = GNI_DLVMODE_PERFORMANCE;
+  pd->remote_addr = (uint64_t) source_addr - pre;
+  pd->remote_mem_hndl = peer->mem_handle;
+  pd->length = length;
+  pd->local_mem_hndl = my_mem_handle;
+
+  /* confirm that the source is in-segment on the far end */
+  gasneti_boundscheck(dest, source_addr, nbytes);
+
+  /* must always use immediate or bounce buffer */
+  if (length < GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE) {
+    buffer = gpd->u.immediate;
+  } else if (length <= gasnetc_bounce_register_cutover) {
+    gpd->flags |= GC_POST_UNBOUNCE;
+    buffer = gasnetc_alloc_bounce_buffer();
+  } else {
+    gasneti_fatalerror("get_unaligned called with nbytes too large for bounce buffers");
+  }
+
+  pd->local_addr = (uint64_t) buffer;
+  gpd->bounce_buffer = buffer + pre;
+
+  /* allocate space in the Cq */
+  while (!gasnetc_alloc_cq_credit()) gasnetc_poll_local_queue();
+
+  /* now initiate the transfer according to fma/rdma cutover */
+  /*  TODO: distnict Put and Get cut-overs */
+  if (nbytes <= gasnetc_fma_rdma_cutover) {
+      pd->type = GNI_POST_FMA_GET;
+      status = myPostFma(peer->ep_handle, pd);
+  } else {
+      pd->type = GNI_POST_RDMA_GET;
+      status = myPostRdma(peer->ep_handle, pd);
+  }
+
+  if_pf (status != GNI_RC_SUCCESS) {
+    gasnetc_return_cq_credit(); /* kind of pointless since we abort */
+    print_post_desc("Get", pd);
+    gasnetc_GNIT_Abort("Get unaligned failed with %s\n", gni_return_string(status));
   }
 }
 
