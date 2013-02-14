@@ -185,6 +185,24 @@ void gasnetc_work_enqueue_nolock(peer_struct_t *qi)
   #define node_is_local(_i) ((_i) == gasneti_mynode)
 #endif
 
+/* From point-of-view of a remote node, what is MY index as an Smsg peer? */
+GASNETI_INLINE(my_smsg_index)
+int my_smsg_index(gasnet_node_t remote_node) {
+#if GASNET_PSHM
+  int i, result = 0;
+
+  gasneti_assert(NULL != gasneti_nodemap);
+  for (i = 0; i < gasneti_mynode; ++i) {
+    /* counts nodes that are not local to remote_node */
+    result += (gasneti_nodemap[i] != gasneti_nodemap[remote_node]);
+  }
+  return result;
+#else
+  /* we either fall before or after the remote node skips over itself */
+  return gasneti_mynode - (gasneti_mynode > remote_node);
+#endif
+}
+
 /*-------------------------------------------------*/
 
 /* called after segment init. See gasneti_seginfo */
@@ -282,7 +300,6 @@ uintptr_t gasnetc_init_messaging(void)
   const gasnet_node_t remote_nodes = gasneti_nodes - (GASNET_PSHM ? gasneti_nodemap_local_count : 1);
   gni_return_t status;
   gni_smsg_attr_t my_smsg_attr;
-  gni_smsg_attr_t *all_smsg_attr;
   gni_smsg_type_t smsg_type;
   uint32_t *all_addr;
   uint32_t remote_addr;
@@ -394,8 +411,8 @@ uintptr_t gasnetc_init_messaging(void)
   bytes_per_mbox = GASNETI_ALIGNUP(bytes_per_mbox, GASNETC_CACHELINE_SIZE);
   /* test */
   bytes_per_mbox += my_smsg_attr.mbox_maxcredit * my_smsg_attr.msg_maxsize;
-  /* TODO: no bytes_needed for self or PSHM-reachable peers (prereq: smarter indexing in mbox setup) */
-  bytes_needed = gasneti_nodes * bytes_per_mbox;
+  /* TODO: remove MAX(1,) while still avoiding "issues" on single-(super)node runs */
+  bytes_needed = MAX(1,remote_nodes) * bytes_per_mbox;
   
 #if GASNETC_DEBUG
   fprintf(stderr,"Allocating %d bytes for each mailbox\n",bytes_per_mbox);
@@ -441,29 +458,44 @@ uintptr_t gasnetc_init_messaging(void)
   gasnetc_GNIT_Log("smsg region registered");
 #endif
 
-  /* exchange peer smsg data */
-  
   my_smsg_attr.msg_type = smsg_type;
   my_smsg_attr.msg_buffer = smsg_mmap_ptr;
   my_smsg_attr.buff_size = bytes_per_mbox;
   my_smsg_attr.mbox_maxcredit = mb_maxcredit;
   my_smsg_attr.msg_maxsize = GASNETC_MSG_MAXSIZE;
+  my_smsg_attr.mbox_offset = 0;
 
-  all_smsg_attr = gasneti_malloc(gasneti_nodes * sizeof(gni_smsg_attr_t));
-  gasnetc_GNIT_Allgather(&my_smsg_attr, sizeof(gni_smsg_attr_t), all_smsg_attr);
-  /* At this point all_smsg_attr has information for everyone */
-  /* We need to patch up the smsg data, fixing the remote start addresses */
-  /* TODO: smarter indexing to avoid reserving space for self and PSHM-reachable peers */
-  for (i = 0; i < gasneti_nodes; i += 1) {
-    if (node_is_local(i)) continue; /* no connection to self or PSHM-reachable peers */
-    all_smsg_attr[i].mbox_offset = bytes_per_mbox * gasneti_mynode;
-    my_smsg_attr.mbox_offset = bytes_per_mbox * i;
-    status = GNI_SmsgInit(peer_data[i].ep_handle, &my_smsg_attr, &all_smsg_attr[i]);
-    if (status != GNI_RC_SUCCESS) {
-      gasnetc_GNIT_Abort("GNI_SmsgInit returned error %s\n", gni_return_string(status));
+  /* exchange peer data and initialize smsg */
+  { struct smsg_exchange { void *addr; gni_mem_handle_t handle; };
+    struct smsg_exchange my_smsg_exchg = { smsg_mmap_ptr, my_smsg_handle };
+    struct smsg_exchange *all_smsg_exchg = gasneti_malloc(gasneti_nodes * sizeof(struct smsg_exchange));
+    gni_smsg_attr_t remote_attr;
+
+    gasnetc_GNIT_Allgather(&my_smsg_exchg, sizeof(struct smsg_exchange), all_smsg_exchg);
+
+    remote_attr.msg_type = smsg_type;
+    remote_attr.buff_size = bytes_per_mbox;
+    remote_attr.mbox_maxcredit = mb_maxcredit;
+    remote_attr.msg_maxsize = GASNETC_MSG_MAXSIZE;
+  
+    /* At this point all_smsg_exchg has the required information for everyone */
+    for (i = 0; i < gasneti_nodes; i += 1) {
+      if (node_is_local(i)) continue; /* no connection to self or PSHM-reachable peers */
+
+      remote_attr.msg_buffer  = all_smsg_exchg[i].addr;
+      remote_attr.mem_hndl    = all_smsg_exchg[i].handle;
+      remote_attr.mbox_offset = bytes_per_mbox * my_smsg_index(i);
+
+      status = GNI_SmsgInit(peer_data[i].ep_handle, &my_smsg_attr, &remote_attr);
+      if (status != GNI_RC_SUCCESS) {
+        gasnetc_GNIT_Abort("GNI_SmsgInit returned error %s\n", gni_return_string(status));
+      }
+
+      my_smsg_attr.mbox_offset += bytes_per_mbox;
     }
+
+    gasneti_free(all_smsg_exchg);
   }
-  gasneti_free(all_smsg_attr);
 
   /* Now make sure everyone is ready */
 #if GASNETC_DEBUG
