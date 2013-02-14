@@ -1,18 +1,8 @@
-#include <stdint.h>
-#include <assert.h>
 #include <gasnet_gemini.h>
-#include <pmi_cray.h>
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <gni_pub.h>
 
 #ifndef MPI_SUCCESS
 #define MPI_SUCCESS 0
 #endif
-
-#define mygetenv(_name) \
-  gasneti_getenv_int_withdefault(_name, -1, 0)
 
 uint32_t *gasnetc_gather_nic_addresses(void)
 {
@@ -22,12 +12,12 @@ uint32_t *gasnetc_gather_nic_addresses(void)
   uint32_t device_id;
   uint32_t *result = gasneti_malloc(gasneti_nodes * sizeof(uint32_t));
 
-  device_id = mygetenv("PMI_GNI_DEV_ID");
+  device_id = gasneti_getenv_int_withdefault("PMI_GNI_DEV_ID", -1, 0);
   status = GNI_CdmGetNicAddress(device_id, &myaddress, &cpu_id);
   if (status != GNI_RC_SUCCESS) {
     gasnetc_GNIT_Abort();
   }
-  pmiaddress = mygetenv("PMI_GNI_LOC_ADDR");
+  pmiaddress = gasneti_getenv_int_withdefault("PMI_GNI_LOC_ADDR", -1, 0);
   if (pmiaddress != myaddress) {
 #if GASNETC_DEBUG
     fprintf(stderr, "rank %d PMI_GNI_LOC_ADDR is %d, using it\n", gasneti_mynode, pmiaddress);
