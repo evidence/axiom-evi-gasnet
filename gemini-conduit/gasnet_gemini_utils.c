@@ -25,7 +25,7 @@ uint32_t *gasnetc_gather_nic_addresses(void)
     myaddress = pmiaddress;
   }
 
-  gasnetc_GNIT_Allgather(&myaddress, sizeof(uint32_t), result);
+  gasnetc_bootstrapExchange(&myaddress, sizeof(uint32_t), result);
   if (result[gasneti_mynode] != myaddress) {
     fprintf(stderr, "rank %d gathernic got %x should be %x\n", gasneti_mynode,
 	    result[gasneti_mynode], myaddress);
@@ -50,62 +50,4 @@ int gasnetc_gem_init(char **errorstringp)
    gasneti_nodes = size;
    gasneti_mynode = rank;
    return(GASNET_OK);
-}
-
-void gasnetc_GNIT_Allgather(void *local, long length, void *global)
-{
-  /* work in chunks of same size as the gasnet_node_t */
-  gasnet_node_t itembytes = sizeof(gasnet_node_t) + GASNETI_ALIGNUP(length, sizeof(gasnet_node_t));
-  gasnet_node_t itemwords = itembytes / sizeof(gasnet_node_t);
-  gasnet_node_t *unsorted = gasneti_malloc(itembytes * gasneti_nodes);
-  gasnet_node_t *temporary;
-
-#if GASNET_DEBUG
-  char *found = gasneti_calloc(gasneti_nodes, 1);
-#endif
-  int i, status;
-
-  /* perform unsorted Allgather of records with prepended node number */
-  temporary = gasneti_malloc(itembytes);
-  temporary[0] = gasneti_mynode;   memcpy(&temporary[1], local, length);  
-  status = PMI_Allgather(temporary, unsorted, itembytes);
-  gasneti_free(temporary);
-  if (status != PMI_SUCCESS) {
-    fprintf(stderr, "rank %d: PMI_Allgather failed\n", gasneti_mynode);
-    gasnetc_GNIT_Abort();
-  }
-
-  /* extract the records from the unsorted array by using the prepended node numbers */
-  for (i = 0; i < gasneti_nodes; i += 1) {
-    gasnet_node_t peer = unsorted[i * itemwords];
-    if (peer >= gasneti_nodes) {
-      fprintf(stderr, "rank %d PMI_Allgather failed, item %d is %d\n", 
-	      gasneti_mynode, i, peer);
-      gasnetc_GNIT_Abort();
-    }
-    memcpy((void *) ((uintptr_t) global + (peer * length)),
-           &unsorted[(i * itemwords) + 1],
-           length);
-#if GASNET_DEBUG
-    ++found[peer];
-#endif
-  }
-
-#if GASNET_DEBUG
-  /* verify exactly-once */
-  for (i = 0; i < gasneti_nodes; i += 1) {
-    if (!found[i]) {
-      fprintf(stderr, "rank %d Allgather rank %d missing\n", gasneti_mynode, i);
-      gasnetc_GNIT_Abort();
-    }
-  }
-  gasneti_free(found);
-  /* check own data */
-  if (memcmp(local, (void *) ((uintptr_t ) global + (gasneti_mynode * length)), length) != 0) {
-    fprintf(stderr, "rank %d, allgather error\n", gasneti_mynode);
-    gasnetc_GNIT_Abort();
-  }
-#endif
-
-  gasneti_free(unsorted);
 }

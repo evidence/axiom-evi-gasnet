@@ -212,11 +212,11 @@ typedef struct {
 } gasnetc_smsg_t;
 
 
-/* Routines in gc_utils.c */
+/* Routines in gasnet_gemini_utils.c */
 
 uint32_t *gasnetc_gather_nic_addresses(void);
 
-void gasnetc_GNIT_Allgather(void *local, long length, void *global);
+/* Routines in gasnet_gemini.c */
 
 void gasnetc_get_am_credit(uint32_t pe);
 void gasnetc_return_am_credit(uint32_t pe);

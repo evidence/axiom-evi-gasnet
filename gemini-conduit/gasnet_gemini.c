@@ -287,7 +287,7 @@ void gasnetc_init_segment(void *segment_start, size_t segment_size)
   {
     gni_mem_handle_t *all_mem_handle = gasneti_malloc(gasneti_nodes * sizeof(gni_mem_handle_t));
     gasnet_node_t i;
-    gasnetc_GNIT_Allgather(&my_mem_handle, sizeof(gni_mem_handle_t), all_mem_handle);
+    gasnetc_bootstrapExchange(&my_mem_handle, sizeof(gni_mem_handle_t), all_mem_handle);
     for (i = 0; i < gasneti_nodes; ++i) {
       peer_data[i].mem_handle = all_mem_handle[i];
     }
@@ -484,7 +484,7 @@ uintptr_t gasnetc_init_messaging(void)
     struct smsg_exchange *all_smsg_exchg = gasneti_malloc(gasneti_nodes * sizeof(struct smsg_exchange));
     gni_smsg_attr_t remote_attr;
 
-    gasnetc_GNIT_Allgather(&my_smsg_exchg, sizeof(struct smsg_exchange), all_smsg_exchg);
+    gasnetc_bootstrapExchange(&my_smsg_exchg, sizeof(struct smsg_exchange), all_smsg_exchg);
 
     remote_attr.msg_type = smsg_type;
     remote_attr.buff_size = bytes_per_mbox;
@@ -525,7 +525,7 @@ uintptr_t gasnetc_init_messaging(void)
   if (gasnetc_fma_rdma_cutover > GASNETC_GNI_FMA_RDMA_CUTOVER_MAX)
     gasnetc_fma_rdma_cutover = GASNETC_GNI_FMA_RDMA_CUTOVER_MAX;
 
-  PMI_Barrier(); /* XXX: should be gasnetc_bootstrapBarrier */
+  gasnetc_bootstrapBarrier();
 
   return bytes_needed;
 }

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core_internal.h,v $
- *     $Date: 2013/02/12 23:56:55 $
- * $Revision: 1.2 $
+ *     $Date: 2013/02/14 04:17:39 $
+ * $Revision: 1.3 $
  * Description: GASNet <conduitname> conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -53,6 +53,10 @@ extern gasnetc_exitcode_t *gasnetc_exitcodes;
 extern gasneti_auxseg_request_t gasnetc_bounce_auxseg_alloc(gasnet_seginfo_t *auxseg_info);
 extern gasneti_auxseg_request_t gasnetc_pd_auxseg_alloc(gasnet_seginfo_t *auxseg_info);
 
+/* Bootstrap collective operations */
+
+void gasnetc_bootstrapBarrier(void);
+void gasnetc_bootstrapExchange(void *src, size_t len, void *dest);
 
 #define GASNETC_AUXSEG_FNS() gasnetc_bounce_auxseg_alloc, \
     gasnetc_pd_auxseg_alloc,

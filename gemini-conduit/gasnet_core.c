@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/02/14 03:57:37 $
- * $Revision: 1.35 $
+ *     $Date: 2013/02/14 04:17:39 $
+ * $Revision: 1.36 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -67,15 +67,66 @@ static void gasnetc_check_config(void) {
   }
 }
 
-static void gasnetc_bootstrapBarrier(void) {
-  /* LCS */
+/* TODO: use AMs (or Smgs directly) after gasnetc_init_messaging() */
+void gasnetc_bootstrapBarrier(void) {
   PMI_Barrier();
 }
 
-static void gasnetc_bootstrapExchange(void *src, size_t len, void *dest) {
-  gasnetc_GNIT_Allgather(src, len, dest);
-}
+/* TODO: use AMs (or Smgs directly) after gasnetc_init_messaging() */
+void gasnetc_bootstrapExchange(void *src, size_t len, void *dest) {
+  /* work in chunks of same size as the gasnet_node_t */
+  gasnet_node_t itembytes = sizeof(gasnet_node_t) + GASNETI_ALIGNUP(len, sizeof(gasnet_node_t));
+  gasnet_node_t itemwords = itembytes / sizeof(gasnet_node_t);
+  gasnet_node_t *unsorted = gasneti_malloc(itembytes * gasneti_nodes);
+  gasnet_node_t *temporary;
 
+#if GASNET_DEBUG
+  char *found = gasneti_calloc(gasneti_nodes, 1);
+#endif
+  int i, status;
+
+  /* perform unsorted Allgather of records with prepended node number */
+  temporary = gasneti_malloc(itembytes);
+  temporary[0] = gasneti_mynode;   memcpy(&temporary[1], src, len);  
+  status = PMI_Allgather(temporary, unsorted, itembytes);
+  gasneti_free(temporary);
+  if (status != PMI_SUCCESS) {
+    fprintf(stderr, "rank %d: PMI_Allgather failed\n", gasneti_mynode);
+    gasnetc_GNIT_Abort();
+  }
+
+  /* extract the records from the unsorted array by using the prepended node numbers */
+  for (i = 0; i < gasneti_nodes; i += 1) {
+    gasnet_node_t peer = unsorted[i * itemwords];
+    if (peer >= gasneti_nodes) {
+      fprintf(stderr, "rank %d PMI_Allgather failed, item %d is %d\n", 
+	      gasneti_mynode, i, peer);
+      gasnetc_GNIT_Abort();
+    }
+    memcpy((void *) ((uintptr_t) dest + (peer * len)), &unsorted[(i * itemwords) + 1], len);
+#if GASNET_DEBUG
+    ++found[peer];
+#endif
+  }
+
+#if GASNET_DEBUG
+  /* verify exactly-once */
+  for (i = 0; i < gasneti_nodes; i += 1) {
+    if (!found[i]) {
+      fprintf(stderr, "rank %d Allgather rank %d missing\n", gasneti_mynode, i);
+      gasnetc_GNIT_Abort();
+    }
+  }
+  gasneti_free(found);
+  /* check own data */
+  if (memcmp(src, (void *) ((uintptr_t ) dest + (gasneti_mynode * len)), len) != 0) {
+    fprintf(stderr, "rank %d, allgather error\n", gasneti_mynode);
+    gasnetc_GNIT_Abort();
+  }
+#endif
+
+  gasneti_free(unsorted);
+}
 
 /* code from portals_conduit */
 /* ---------------------------------------------------------------------------------
@@ -282,7 +333,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     fprintf(stderr, "\n"); fflush(stderr);
   }
 #endif
-  gasnetc_GNIT_Allgather(&minlocalrank, sizeof(uint32_t), gasneti_nodemap);
+  gasnetc_bootstrapExchange(&minlocalrank, sizeof(uint32_t), gasneti_nodemap);
   for (i = 0; i < gasneti_nodes; i += 1) {
     /* gasneti_assert(gasneti_nodemap[i] >= 0);  type is unsigned, so this is moot */
     gasneti_assert(gasneti_nodemap[i] < gasneti_nodes);
