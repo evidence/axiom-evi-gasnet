@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/02/14 07:01:10 $
- * $Revision: 1.39 $
+ *     $Date: 2013/02/14 08:15:01 $
+ * $Revision: 1.40 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -74,17 +74,44 @@ static void gasnetc_check_config(void) {
 /* TODO: move all PMI_* env queries here to centralize PMI dependencies */
 static int gasnetc_bootstrapInit(int *argc, char ***argv) {
   int spawned, size, rank, appnum;
+  const char *envval;
+
   if (PMI2_Init(&spawned, &size, &rank, &appnum) != MPI_SUCCESS)
     GASNETI_RETURN_ERRR(NOT_INIT, "Failure in PMI_Init\n");
 
   gasneti_nodes = size;
   gasneti_mynode = rank;
 
+  /* Check for device and address (both or neither) in environment  */
+  envval = getenv("PMI_GNI_DEV_ID");
+  if (NULL != envval) {
+    int i=0;
+    char *p, *q;
+
+    gasnetc_dev_id = atoi(envval);
+    gasneti_assert_always(gasnetc_dev_id >= 0);
+
+    /* Device id is an index into colon-separated vector of addresses in $PMI_GNI_LOC_ADDR */
+    envval = getenv("PMI_GNI_LOC_ADDR");
+    gasneti_assert_always(NULL != envval);
+    q = gasneti_strdup(getenv("PMI_GNI_LOC_ADDR"));
+    p = strtok(q, ":");
+    for (i=0; i<gasnetc_dev_id; ++i) {
+      p = strtok(NULL, ":");
+      gasneti_assert_always(NULL != p);
+    }
+    gasnetc_address = (uint32_t) atoi(p);
+    gasneti_free(q);
+  } else {
+    /* defer local address resolution */
+    gasnetc_dev_id  = -1;
+    gasnetc_address = (uint32_t) -1;
+  }
+
   /* TODO: validation / error handling */
-  gasnetc_ptag    = gasneti_getenv_int_withdefault("PMI_GNI_PTAG",   -1, 0);
-  gasnetc_cookie  = gasneti_getenv_int_withdefault("PMI_GNI_COOKIE", -1, 0);
-  gasnetc_dev_id  = gasneti_getenv_int_withdefault("PMI_GNI_DEV_ID", -1, 0);
-  gasnetc_address = gasneti_getenv_int_withdefault("PMI_GNI_LOC_ADDR", -1, 0);
+  /* TODO: these might be colon-separated vectors too, right? */
+  gasnetc_ptag    = (uint8_t)  atoi(getenv("PMI_GNI_PTAG"));
+  gasnetc_cookie  = (uint32_t) atoi(getenv("PMI_GNI_COOKIE"));
 
   return GASNET_OK;
 }

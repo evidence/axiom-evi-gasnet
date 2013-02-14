@@ -48,7 +48,7 @@ extern int gasnetc_debug;
 
 
 /* global vars from environment */
-extern uint32_t gasnetc_dev_id;
+extern int      gasnetc_dev_id;
 extern uint32_t gasnetc_cookie;
 extern uint32_t gasnetc_address;
 extern uint8_t  gasnetc_ptag;

@@ -16,7 +16,7 @@
   #define FIX_HT_ORDERING 0
 #endif
 
-uint32_t gasnetc_dev_id;
+int      gasnetc_dev_id;
 uint32_t gasnetc_cookie;
 uint32_t gasnetc_address;
 uint8_t  gasnetc_ptag;
@@ -212,26 +212,23 @@ int my_smsg_index(gasnet_node_t remote_node) {
 
 static uint32_t *gather_nic_addresses(void)
 {
-  gni_return_t status;
-  uint32_t myaddress;
-  uint32_t cpu_id;
   uint32_t *result = gasneti_malloc(gasneti_nodes * sizeof(uint32_t));
 
-  /* first query NicAddress of the device id... */
-  status = GNI_CdmGetNicAddress(gasnetc_dev_id, &myaddress, &cpu_id);
-  if (status != GNI_RC_SUCCESS) {
-    gasnetc_GNIT_Abort();
+  if (gasnetc_dev_id == -1) {
+    /* no value was found in environment */
+    gni_return_t status;
+    uint32_t cpu_id;
+
+    gasnetc_dev_id  = 0;
+    status = GNI_CdmGetNicAddress(gasnetc_dev_id, &gasnetc_address, &cpu_id);
+    if (status != GNI_RC_SUCCESS) {
+      gasnetc_GNIT_Abort("GNI_CdmGetNicAddress failed:", gni_return_string(status));
+    }
+  } else {
+    /* use gasnetc_address taken from the environment */
   }
 
-  /* ... but use $PMI_GNI_LOC_ADDR instead if different */
-  if (gasnetc_address != myaddress) {
-#if GASNETC_DEBUG
-    fprintf(stderr, "rank %d PMI_GNI_LOC_ADDR is %d, using it\n", gasneti_mynode, gasnetc_address);
-#endif
-    myaddress = gasnetc_address;
-  }
-
-  gasnetc_bootstrapExchange(&myaddress, sizeof(uint32_t), result);
+  gasnetc_bootstrapExchange(&gasnetc_address, sizeof(uint32_t), result);
 
   return result;
 }
