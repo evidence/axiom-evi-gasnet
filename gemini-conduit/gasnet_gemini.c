@@ -378,15 +378,12 @@ uintptr_t gasnetc_init_messaging(void)
 #endif
  
   {
-    int depth, cq_entries, multiplier, max_outstanding_req;
+    int depth, cq_entries, max_outstanding_req;
 #if GASNET_SEQ
-    multiplier = 1;
+    int multiplier = 1;
 #else
-    int numpes_on_smp, cpu_count, ret;
-    ret = PMI_Get_numpes_on_smp(&numpes_on_smp);
-    gasneti_assert(ret == PMI_SUCCESS);
-    cpu_count = gasneti_cpu_count();
-    multiplier = MAX(1,cpu_count/numpes_on_smp); /* cores per process */
+    int multiplier = gasneti_cpu_count() / gasneti_nodemap_local_count;
+    multiplier = MAX(1,multiplier);
 #endif
     depth = gasneti_getenv_int_withdefault("GASNET_NETWORKDEPTH", GASNETC_NETWORKDEPTH_DEFAULT, 0);
     /* XXX: +1 below is for credit "slop" seen on Aries, but WHY do we need it?!? */
