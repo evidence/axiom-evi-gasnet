@@ -348,7 +348,6 @@ uintptr_t gasnetc_init_messaging(void)
     multiplier = 1;
 #else
     int numpes_on_smp, cpu_count, ret;
-    numpes_on_smp = gasnetc_GNIT_numpes_on_smp();
     ret = PMI_Get_numpes_on_smp(&numpes_on_smp);
     gasneti_assert(ret == PMI_SUCCESS);
     cpu_count = gasneti_cpu_count();
