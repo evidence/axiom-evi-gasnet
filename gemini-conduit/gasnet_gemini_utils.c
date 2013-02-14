@@ -146,13 +146,3 @@ void gasnetc_GNIT_Barrier(void)
 {
   PMI_Barrier();
 }
-
-int gasnetc_GNIT_numpes_on_smp(void)
-{
-	int size = 1;
-	if(PMI_Get_numpes_on_smp(&size)!= PMI_SUCCESS) {
-		fprintf(stderr, "rank %d, PMI failure\n", gasneti_mynode);
-		gasnetc_GNIT_Abort();
-	}
-	return size;
- }

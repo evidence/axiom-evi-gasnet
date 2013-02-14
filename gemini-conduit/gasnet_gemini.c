@@ -343,14 +343,21 @@ uintptr_t gasnetc_init_messaging(void)
 #endif
  
   {
-    int depth, cpu_count,cq_entries,multiplier;
-    int numpes_on_smp, max_outstanding_req;
+    int depth, cq_entries, multiplier, max_outstanding_req;
+#if GASNET_SEQ
+    multiplier = 1;
+#else
+    int numpes_on_smp, cpu_count, ret;
+    numpes_on_smp = gasnetc_GNIT_numpes_on_smp();
+    ret = PMI_Get_numpes_on_smp(&numpes_on_smp);
+    gasneti_assert(ret == PMI_SUCCESS);
+    cpu_count = gasneti_cpu_count();
+    multiplier = MAX(1,cpu_count/numpes_on_smp); /* cores per process */
+#endif
     depth = gasneti_getenv_int_withdefault("GASNET_NETWORKDEPTH", GASNETC_NETWORKDEPTH_DEFAULT, 0);
     /* XXX: +1 below is for credit "slop" seen on Aries, but WHY do we need it?!? */
     mb_maxcredit = 2 * MAX(1,depth) + 1;
-    numpes_on_smp = gasnetc_GNIT_numpes_on_smp();
-    cpu_count = gasneti_cpu_count();
-    multiplier = MAX(1,cpu_count/numpes_on_smp);  max_outstanding_req = multiplier*depth;
+    max_outstanding_req = multiplier*depth;
     gasnetc_init_cq_credit(max_outstanding_req);
     cq_entries = max_outstanding_req+2;
     status = GNI_CqCreate(nic_handle, cq_entries, 0, GNI_CQ_NOBLOCK, NULL, NULL, &bound_cq_handle);
