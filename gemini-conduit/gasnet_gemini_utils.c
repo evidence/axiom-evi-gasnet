@@ -69,16 +69,6 @@ int gasnetc_gem_init(char **errorstringp)
 }
 
 
-void gasnetc_GNIT_Job_size(int *nranks)
-{
-  *nranks = gasneti_nodes;
-}
-
-void gasnetc_GNIT_Rank(int *inst_id)
-{
-  *inst_id = gasneti_mynode;
-}
-
 char gasnetc_GNIT_Ptag(void)
 {
   return(mygetenv("PMI_GNI_PTAG"));
@@ -152,11 +142,6 @@ void gasnetc_GNIT_Allgather(void *local, long length, void *global)
   gasneti_free(unsorted);
 }
 
-
-void gasnetc_GNIT_TEST_SUCCESS(void)
-{
-  fprintf(stderr, "gasnetc_GNIT_TEST_SUCCESS called\n");
-}
 
 void gasnetc_GNIT_Finalize(void)
 {

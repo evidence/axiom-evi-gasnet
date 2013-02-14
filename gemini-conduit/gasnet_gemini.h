@@ -216,8 +216,6 @@ typedef struct {
 
 uint32_t *gasnetc_gather_nic_addresses(void);
 
-void gasnetc_GNIT_Job_size(int *nranks);
-void gasnetc_GNIT_Rank(int *inst_id);
 char gasnetc_GNIT_Ptag(void);
 int gasnetc_GNIT_Cookie(void);
 int gasnetc_GNIT_Device_Id(void);
