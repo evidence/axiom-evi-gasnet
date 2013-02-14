@@ -216,9 +216,6 @@ typedef struct {
 
 uint32_t *gasnetc_gather_nic_addresses(void);
 
-char gasnetc_GNIT_Ptag(void);
-int gasnetc_GNIT_Cookie(void);
-int gasnetc_GNIT_Device_Id(void);
 void gasnetc_GNIT_Allgather(void *local, long length, void *global);
 void gasnetc_GNIT_Finalize(void);
 void gasnetc_GNIT_Barrier(void);

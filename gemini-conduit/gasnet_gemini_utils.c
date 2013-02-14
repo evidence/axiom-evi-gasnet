@@ -19,9 +19,10 @@ uint32_t *gasnetc_gather_nic_addresses(void)
   gni_return_t status;
   uint32_t myaddress, pmiaddress;
   uint32_t cpu_id;
-  uint32_t device_id = gasnetc_GNIT_Device_Id();
+  uint32_t device_id;
   uint32_t *result = gasneti_malloc(gasneti_nodes * sizeof(uint32_t));
 
+  device_id = mygetenv("PMI_GNI_DEV_ID");
   status = GNI_CdmGetNicAddress(device_id, &myaddress, &cpu_id);
   if (status != GNI_RC_SUCCESS) {
     gasnetc_GNIT_Abort();
@@ -59,22 +60,6 @@ int gasnetc_gem_init(char **errorstringp)
    gasneti_nodes = size;
    gasneti_mynode = rank;
    return(GASNET_OK);
-}
-
-
-char gasnetc_GNIT_Ptag(void)
-{
-  return(mygetenv("PMI_GNI_PTAG"));
-}
-
-int gasnetc_GNIT_Cookie(void)
-{
-  return(mygetenv("PMI_GNI_COOKIE"));
-}
-
-int gasnetc_GNIT_Device_Id(void)
-{
-  return(mygetenv("PMI_GNI_DEV_ID"));
 }
 
 void gasnetc_GNIT_Allgather(void *local, long length, void *global)

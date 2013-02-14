@@ -310,6 +310,11 @@ uintptr_t gasnetc_init_messaging(void)
   unsigned int mb_maxcredit;
   int modes = 0;
 
+  /* TODO: validation / error handling */
+  uint8_t  ptag   = gasneti_getenv_int_withdefault("PMI_GNI_PTAG",   -1, 0);
+  uint32_t cookie = gasneti_getenv_int_withdefault("PMI_GNI_COOKIE", -1, 0);
+  int      dev_id = gasneti_getenv_int_withdefault("PMI_GNI_DEV_ID", -1, 0);
+
 #if GASNETC_DEBUG
   gasnetc_GNIT_Log("entering");
   modes |= GNI_CDM_MODE_ERR_NO_KILL;
@@ -319,12 +324,14 @@ uintptr_t gasnetc_init_messaging(void)
 
   gasnetc_work_queue_init();
 
-  status = GNI_CdmCreate(gasneti_mynode, gasnetc_GNIT_Ptag(), gasnetc_GNIT_Cookie(), 
+  status = GNI_CdmCreate(gasneti_mynode,
+			 ptag, cookie,
 			 modes,
 			 &cdm_handle);
   gasneti_assert_always (status == GNI_RC_SUCCESS);
 
-  status = GNI_CdmAttach(cdm_handle, gasnetc_GNIT_Device_Id(),
+  status = GNI_CdmAttach(cdm_handle,
+			 dev_id,
 			 &local_address,
 			 &nic_handle);
 
