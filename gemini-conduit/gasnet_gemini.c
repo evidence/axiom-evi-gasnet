@@ -1392,6 +1392,49 @@ int gasnetc_rdma_put(gasnet_node_t dest,
   return result;
 }
 
+/* Put from the immediate buffer in the gpd */
+void gasnetc_rdma_put_imm(gasnet_node_t dest, void *dest_addr,
+		size_t nbytes, gasnetc_post_descriptor_t *gpd)
+{
+  peer_struct_t * const peer = &peer_data[dest];
+  gni_post_descriptor_t *pd;
+  gni_return_t status;
+
+  gasneti_assert(!node_is_local(dest));
+  gasneti_assert(nbytes  <= GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE);
+
+  /* confirm that the destination is in-segment on the far end */
+  gasneti_boundscheck(dest, dest_addr, nbytes);
+
+  pd = &gpd->pd;
+
+  /*  bzero(&pd, sizeof(gni_post_descriptor_t)); */
+  pd->cq_mode = GNI_CQMODE_GLOBAL_EVENT;
+  pd->dlvr_mode = GNI_DLVMODE_PERFORMANCE;
+  pd->remote_addr = (uint64_t) dest_addr;
+  pd->remote_mem_hndl = peer->mem_handle;
+  pd->length = nbytes;
+  gpd->bounce_buffer = gpd->u.immediate;
+  pd->local_addr = (uint64_t) gpd->bounce_buffer;
+  pd->local_mem_hndl = my_mem_handle;
+
+  /* allocate space in the Cq */
+  while (!gasnetc_alloc_cq_credit()) gasnetc_poll_local_queue();
+
+  /* now initiate - *always* FMA for now */
+  pd->type = GNI_POST_FMA_PUT;
+#if FIX_HT_ORDERING
+  pd->cq_mode = gasnetc_fma_put_cq_mode;
+#endif
+  status = myPostFma(peer->ep_handle, pd);
+
+  if_pf (status != GNI_RC_SUCCESS) {
+    gasnetc_return_cq_credit(); /* kind of pointless since we abort */
+    print_post_desc("PutImm", pd);
+    gasnetc_GNIT_Abort("Put immediate failed with %s\n", gni_return_string(status));
+  }
+}
+
 /* for get, source_addr is remote */
 void gasnetc_rdma_get(gasnet_node_t dest,
 		 void *dest_addr, void *source_addr,

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2013/02/15 03:59:23 $
- * $Revision: 1.29 $
+ *     $Date: 2013/02/15 08:15:48 $
+ * $Revision: 1.30 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -857,6 +857,43 @@ extern gasnet_handle_t gasnete_end_nbi_accessregion(GASNETE_THREAD_FARG_ALONE) {
   mythread->current_iop = iop->next;
   iop->next = NULL;
   return (gasnet_handle_t)iop;
+}
+/* ------------------------------------------------------------------------------------ */
+/*
+  Blocking and non-blocking register-to-memory transfers
+  ======================================================
+*/
+/* ------------------------------------------------------------------------------------ */
+
+extern void gasnete_put_val(gasnet_node_t node, void *dest, gasnet_register_value_t value, size_t nbytes GASNETE_THREAD_FARG) {
+  gasnetc_post_descriptor_t *gpd = gasnetc_alloc_post_descriptor();
+  gasneti_weakatomic_t done = gasneti_weakatomic_init(0);
+  gpd->completion.flag = &done;
+  gpd->flags = GC_POST_COMPLETION_FLAG;
+  GASNETE_VALUE_ASSIGN(gpd->u.immediate, value, nbytes);
+  gasnetc_rdma_put_imm(node, dest, nbytes, gpd);
+  while (!gasneti_weakatomic_read(&done, 0)) gasnetc_poll_local_queue();
+}
+
+extern gasnet_handle_t gasnete_put_nb_val(gasnet_node_t node, void *dest, gasnet_register_value_t value, size_t nbytes GASNETE_THREAD_FARG) {
+  gasnetc_post_descriptor_t * const gpd = gasnetc_alloc_post_descriptor();
+  gasnete_eop_t * const eop = gasnete_eop_new(GASNETE_MYTHREAD);
+  gpd->completion.eop = eop;
+  gpd->flags = GC_POST_COMPLETION_OP;
+  GASNETE_VALUE_ASSIGN(gpd->u.immediate, value, nbytes);
+  gasnetc_rdma_put_imm(node, dest, nbytes, gpd);
+  return((gasnet_handle_t) eop);
+}
+
+extern void gasnete_put_nbi_val(gasnet_node_t node, void *dest, gasnet_register_value_t value, size_t nbytes GASNETE_THREAD_FARG) {
+  gasnetc_post_descriptor_t * const gpd = gasnetc_alloc_post_descriptor();
+  gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
+  gasnete_iop_t * const iop = mythread->current_iop;
+  gpd->completion.iop = iop;
+  gpd->flags = GC_POST_COMPLETION_OP;
+  iop->initiated_put_cnt++;
+  GASNETE_VALUE_ASSIGN(gpd->u.immediate, value, nbytes);
+  gasnetc_rdma_put_imm(node, dest, nbytes, gpd);
 }
 
 /* ------------------------------------------------------------------------------------ */

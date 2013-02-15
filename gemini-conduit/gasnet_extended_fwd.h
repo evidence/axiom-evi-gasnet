@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended_fwd.h,v $
- *     $Date: 2013/02/06 07:51:12 $
- * $Revision: 1.7 $
+ *     $Date: 2013/02/15 08:15:48 $
+ * $Revision: 1.8 $
  * Description: GASNet Extended API Header for Gemin Conduit (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -108,17 +108,17 @@ typedef struct _gasnete_op_t *gasnet_handle_t;
  * GASNETI_DIRECT_MEMSET
  *   unset: gasnete_memset() via gasnete_wait_syncnb(gasnete_memset_nb())
  *   set: conduit provides it own gasnete_memset()
- *
- * GASNETI_DIRECT_PUT_VAL
- *   unset: gasnete_put_val() via gasnete_putTI()
+ */
+#define GASNETI_DIRECT_PUT_VAL 1
+/*   unset: gasnete_put_val() via gasnete_putTI()
  *   set: conduit provides it own gasnete_put_val()
- *
- * GASNETI_DIRECT_PUT_NB_VAL
- *   unset: extern gasnete_put_nb_val() in gasnet_extended.c (or a macro)
+ */
+#define GASNETI_DIRECT_PUT_NB_VAL 1
+/*   unset: extern gasnete_put_nb_val() in gasnet_extended.c (or a macro)
  *   set: conduit provides own gasnete_put_nb_val() as an inline
- *
- * GASNETI_DIRECT_PUT_NBI_VAL
- *   unset: gasnete_put_nbi_val() via gasnete_put_nbi()
+ */
+#define GASNETI_DIRECT_PUT_NBI_VAL 1
+/*   unset: gasnete_put_nbi_val() via gasnete_put_nbi()
  *   set: conduit provides own gasnete_put_nbi_val()
  *
  * GASNETI_DIRECT_GET_VAL
