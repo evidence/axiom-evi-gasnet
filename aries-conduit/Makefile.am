@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/aries-conduit/Makefile.am,v $
-#     $Date: 2013/02/06 08:24:05 $
-# $Revision: 1.2 $
+#     $Date: 2013/02/15 23:34:34 $
+# $Revision: 1.3 $
 # Description: Makefile for GASNet aries conduit
 # Copyright 2013, E. O. Lawrence Berekely National Laboratory
 # Terms of use are as specified in license.txt
@@ -32,7 +32,6 @@ CONDUIT_FILELIST =            \
 CONDUIT_SOURCELIST =          \
       $(gemini_srcdir)/gasnet_core.c \
       $(gemini_srcdir)/gasnet_gemini.c \
-      $(gemini_srcdir)/gasnet_gemini_utils.c \
       $(gemini_srcdir)/gasnet_extended.c 
 
 # additional -I or -D directives needed by this specific conduit
