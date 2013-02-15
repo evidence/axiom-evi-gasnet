@@ -1,0 +1,6 @@
+If you are receiving this directory as a part of GASNet, be advised
+that these files have been modified for use within GASNet, and therefore
+might not be suitable for use in any other context.
+
+The unmodified PLPA package is available at
+        http://www.open-mpi.org/software/plpa/

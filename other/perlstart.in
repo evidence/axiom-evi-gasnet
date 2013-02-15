@@ -1,0 +1,36 @@
+
+# perlstart usage info: 
+# create a script.in file with the following contents (minus leading #'s)
+#      #!@BOURNE_SHELL@
+#      SOME_VAR_YOUR_SCRIPT_NEEDS=@SOME_VAR_YOUR_SCRIPT_NEEDS@
+#      @PERLSTART@
+# be sure to place your script file in configure.in AC_OUTPUT and GASNET_FIX_EXEC
+# also be sure to add targets in Makefile to copy the .pl file when builddir!=srcdir
+
+scriptname=$0
+
+readlink='@READLINK@'
+dirname='@DIRNAME@'
+basename='@BASENAME@'
+
+# be sure to follow any symbolic links to reach the location
+# where this script truly resides. If readlink is not available,
+# this link traversal will automatically be skipped
+if test "$readlink" -a "$dirname" -a "$basename" ; then
+ while "$readlink" ${scriptname} > /dev/null 2>&1 && \
+       "$dirname"  ${scriptname} > /dev/null 2>&1 && \
+       "$basename" ${scriptname} > /dev/null 2>&1
+  do
+  dir=`"$dirname" ${scriptname}`;
+  newpath=`"$readlink" ${scriptname}`;
+  newdir=`"$dirname" ${newpath}`;
+  newname=`"$basename" ${newpath}`;
+  dir=`cd ${dir} >/dev/null 2>&1; cd ${newdir} >/dev/null 2>&1; pwd`;
+  scriptname="${dir}/${newname}";
+ done
+fi
+
+exec '@PERL@' "${scriptname}.pl" "$@"
+
+echo "${scriptname}: exec failed." >&2
+exit 1

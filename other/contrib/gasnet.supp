@@ -1,0 +1,16 @@
+# This file is a suppression file for using Valgrind with GASNet.
+# See the valgrind documentation for info on the use and format of this file.
+#
+#   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/contrib/gasnet.supp,v $
+#   $Date: 2006/12/21 02:14:03 $
+#   $Revision: 1.1 $
+#
+
+# PLPA calls sched_setaffinity() with a NULL mask argument on purpose.
+{
+   PLPA-sched_setaffinity-NULL-mask
+   Memcheck:Param
+   sched_setaffinity(mask)
+   fun:syscall
+   fun:gasneti_plpa_*
+}

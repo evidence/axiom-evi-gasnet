@@ -1,0 +1,261 @@
+Goals of the design:
+
+1) Must be asynchronous, with distinct initiation and finalization
+calls.
+
+2) Must be "suitable" for implementing the UPC collectives.
+Specifically, we need to be able to enforce at least the minimum
+input/output constraints of the upc sync_mode.
+
+3) Must be suitable for use on all (reasonable) GASNet platforms,
+including those with unaligned segments, progress via polling only, etc.
+
+4) Must be suitable for use in heirarchical implementations on CLUMPS
+(both pthreaded and SysV)
+
+5) Must be "efficient" in terms of syncronization - for instance avoid
+use of a full barrier where point-to-point synchronization is faster
+and still sufficient for correctness.  Of course, this goal will be
+achieved differently on each platform and the reference version need
+not be infinitely tunable.
+
+6) Must admit optimizations using likely hardware features where appropriate
+(barriers, broadcast, RMDA-atomics).
+
+7) Must NOT break any existing GASNet semantics.
+
+8) MAY assume calls are, in fact, collective with single-valued
+arguments.  (Verification of arguments in a debug build sounds useful,
+but an optimized build can't afford extra communication to verify
+this).
+
+9) MAY perform "extra" communication and/or computation where there is
+some net savings (examples include implementing upc_all_scatter() with
+a broadcast and then discarding some of the data at each node, or use
+of full barriers where hardware support makes them superior to
+pairwise synchronization.)
+
+
+
+One of the most obvious questions when designing async collectives is
+what the semantic should be for syncing them.  While I have no
+motivation other than simplicity, I suggest that the OUT portion of
+the UPC sync_flags (or a GASNet near equivalent) define three possible
+conditions:
+
++ NOSYNC: The sync can succeed at any time so long as the last thread
+  to sync does not do so until all data movement has completed.
+
++ MYSYNC: The sync can succeed as soon as all data movement has
+  completed to and from local data areas specified in the call (note
+  that movement to or from buffers internal to the implementation
+  and local to the node might still be taking place, for instance in
+  tree-based broadcasts).
+
++ ALLSYNC: The sync can succeed as soon as all data movement has
+  completed to and from all data areas specified in the call.  This is
+  weaker than a full barrier, since the equivalent of a zero-byte
+  broadcast is sufficient.
+
+In implementing the UPC collectives it is clear that all three of
+these are useful.  If we do implement them then I'd assume the
+initiation call would specify exactly one of them (probably just
+passing the upc sync mode).  However, I think the following names are
+more appropriate (where the prefix is TBD):
+
++ UPC_OUT_ALLSYNC -> *_ALL    implies all buffers are safe for reuse.
++ UPC_OUT_MYSYNC  -> *_LOCAL  implies local buffers are reusable
++ UPC_OUT_NOSYNC  -> *_NONE   implies no specific buffers are reusable,
+                              until the last thread enters the next
+                              collective (barrier included)
+
+The argument I would make for offering all three would be that
+otherwise we must have one that is either sometimes too strong or
+sometimes too weak.  Too strong could hurt efficiency/scaling.  Too
+weak would require one or more additional GASNet calls to follow the
+sync in order to perform the synchronization.  This would necessarily
+be less efficient than combining the data movement and synchronization
+where possible (i.e. signaling-stores and/or signalling-loads).  So I
+think all three are justified.  I can't think of any others that can
+be compactly defined, so I'd say this is a good set.
+
+In terms of other semantics, I am not sure if we want to impose the
+UPC requirement that collective not be used between the NOTIFY and
+WAIT portions of a barrier.  Certainly that condition would allow us
+to use the barrier (when appropriate) for implementing the
+collectives.  I would say I don't know if this requirement actually
+hurts applications or not.  I guess this depends on what non-UPC
+gasnet clients will need from us.
+
+
+At the 2/19 UPC group meeting we (Dan and Paul) talked about having a
+variable number of addresses (dst of broadcast, scatter, gather_all, exchange
+and permute; and src of gather, gather_all, exchange and permute).
+The number of addresses could only take on a finite set of meaningful
+values.  The value of 1 indicates the same address is to be used on
+all nodes - perfect for UPC collective with aligned GASNet segments
+and UPC heaps.  A value equal to gasnet_nodes() indicated a distinct
+address on each node - perfect for UPC collectives when the UPC heaps
+are not aligned.  Furthermore, a value of N*gasnet_nodes() is perfect
+for dealing with CLUMPS where multiple UPC threads live on a single
+gasnet node with distinct heaps in the same address space.  As to the
+ordering of such an array in this case, I expect node-major ordering
+makes the work easier in both UPCR and GASNet.  Of course we want to
+avoid the multiplication and division, so we can encode this
+differently, as will be seen later.
+
+When passing this array there is the same question about lifetime that
+has come up in discussion of the scatter/gather metadata.  I am
+prepared to adopt the same lifetime for the collectives as gets
+selected for scatter/gather.  However, when there is only a single
+address across all nodes, I wonder about the forcing of that single
+address to a memory location (with possible lifetime issues) when it
+could very well be a function argument in a register instead.  For
+this reason, I am in favor of having separate functions for the single
+and multiple address cases.  For the functions gather_all, exchange
+and permute which have both multiple source nodes and multiple
+destination nodes I'd be in favor of 2 flavors each: single valued
+src&dst or multiple valued src&dst, but no single-src multi-dst or
+visa-versa.
+
+There is a question of where (gets or puts) we categorize the
+collectives with respect to syncing NBIs.  I don't have an answer, so
+I'm going to talk about just the _nb versions for now.  In this case I
+don't see a fundamental reason why we MUST have the same handle type
+as the GETS and PUTS in GASNet, but I can see how implementations
+might be simpler if there was a distict handle type.  For now I'm
+going to assume the same type, so we can sync collectives togther with
+other operations.
+
+
+The alignment question of bulk vs. non-bulk doesn't seem too imporant
+to me yet, as I can't see that any implementations we have so far have
+made any great advantage of the alignment requirement of the
+non-bulks.  For the moment, I'm assumimg we'll want both due to the
+difference in reusability of source buffers in the non-blocking cases.
+I generally don't wish to support the non-bulk versions for the
+non-blocking collectives, due to the potential buffering requirement.
+However, I will bow to pressure if applied politely.
+
+
+Collective cannot be initiated or synced from handler context.  This
+is consistent with the other operations in the Exteneded API.
+
+I am going to suggest a thread-semantic of "collectives must be
+initiated in the same order on all nodes" restriction.  However, we
+need to think a bit about what this imposes on threaded clients.  With
+GASNET_SEQ and GASNET_PARSYNC this restriction does not have any
+ambiguity associated with it (even for conduits w/ internal threads
+since collectives are prohibited in handlers).  However, for
+GASNET_PAR it is conceivable that even with a heirarchical collectives
+implementation, two threads might be running in distinct collective
+initiation calls creating a potential ambiguity as to which was
+initiated "first".  To see this, imagine two UPC collectives
+back-to-back with NOSYNC/NOSYNC.  In a possible heirarchical
+implementation thread 0 would enter the first UPC collective, mark it
+as started and then call the gasnet initiation function and the O/S
+de-schedules the thread before any code is executed in gasnet.  Thread
+1 arrives at the same collective, sees that it is marked started, sees
+no syncronization is required, and continues to enter the next
+collective and invoke its corresponding gasnet call, which is now seen
+out-or-order by gasnet.
+
+I see two solutions to the race above.  One is to require all threads
+to invoke the gasnet collective.  I am against that because so far we
+don't do any acurate tracking of how many threads exist (there can be
+some we've not yet seen), and because it is not consistent with the
+existing barrier.  So, the other solution is to simply put the burden
+on the client, out-lawing the heirarchical implementation sketched in
+the previous example.  I suggest stealing the semantic currently in
+the GASNet spec for the barrier: "Note that to execute a collective
+operation the collective initiation functions should be called exactly
+once (i.e. by one representative thread) on each node.  The client
+must serialize its own calls to the collective initiation functions to
+ensure that only one thread is ever inside a GASNet collective
+initiation function at a time."
+
+While the paragraph above, I realize that following the corresponding
+restriction on gasnet_barrier_try() might need to be applied to
+whatever function we'd use to syncronize the collectives.  This sounds
+like a pretty good argument AGAINST using the existing gasnet_handle_t
+and its associated try/wait sync calls - since we don't want to force
+their serialization.  Of course only one thread should ever be syncing
+on the corresponding handle anyway, so this might not be an issue.
+But since we explicitly allow that gasnet implementation might, during
+a sync call, complete operations from other threads, we should be
+certain that we don't break any existing implementations (unless they
+are already considered broken).  I think that for now I envision the
+serialization of the initiation functions to be sufficient, but I
+don't understand enough about the possible try/wait sync issues to
+know for certain if we'll have thread problems w/o a distinct handle.
+
+Of course we could go all the way to the extream of only allowing a
+single collective operation to be outstanding on a given node and thus
+not need a handle (just as the barrier does not).  However, I am
+strongly against that as it would prevent overlap when executing complex
+collectives which are built from simpler ones.
+
+
+There is the progress question.  It must be fully correct to call the
+initiation function and the blocking sync function w/ no interleaving
+any other GASNet calls.  Additionally, we don't want the initiation
+function to block trying to enforce a UPC_IN_ALLSYNC or UPC_IN_MSYNC
+condition.  However, we also want some chance of making progress
+between the initiation and finalization, even on a pure polling
+implementation.  For this reason, I think it appropriate that progess
+by polled for in gasnet_AMPoll(), including the one embedded in the
+trysync calls.  Of course this could also not block, but wouldn't need
+to if it was going to simply issue a GET, PUT or AMRequest in response
+to the change in value of some flag in memory (presumably changed by
+an AM or as the result of some signaling-store mechanism).  I have
+already submitted to Dan the patches I believe are needed to poll the
+existing barrier implementation from AMPoll, and believe it will also
+allow the same progress for the other collective operations.
+
+
+Here is a starting point for discussion of the broadcast operation:
+
+gasnet_handle_t
+gasnet_broadcast_nb_bulk(void *dest, gasnet_node_t node, void *src,
+			 size_t nbytes, gasnet_sync_t sync_mode);
+
+gasnet_handle_t
+gasnet_broadcastMulti_nb_bulk(void **dest_array, int dest_count,
+                              gasnet_node_t node, void *src,
+			      size_t nbytes, gasnet_sync_t sync_mode);
+
+Copy a single contiguous block of memory to one or more locations on
+each node.  Where multiple copies are created per node they each
+contain a full copy of the source block (replication rather than
+striping). 
+
+The parameter 'dest', to broadcast, is a single-valued parameter, and
+is the address to which the memory will be copied on all nodes.  In
+the broadcastMulti case, 'dest_array' is an array of addresses [which
+probably needs a const in its type], with 'dest_mult'*gasnet_nodes()
+entries.  Thus 'dest_array' provides 'dest_mult' addresses per node,
+in node-major order (all addresses on node 0, followed by all
+addresses on node 1, etc.)
+
+This is a collective operation and must be invoked on all nodes with
+single-valued (identical) arguments ('dest_array' need not be the same
+address but the arrays must have identical content).  All collective
+initiation calls must be made in the same order on all nodes.  Note
+that to execute a collective operation a collective initiation
+function should be called exactly once (i.e. by one representative
+thread) on each node.  The client must serialize its own calls to the
+collective initiation functions to ensure that only one thread is ever
+inside a GASNet collective initiation function at a time.
+
+If this call requests data movement between overlapping regions, the
+result is undefined.  If the source data is modified between this call
+and the corresponding sync, the result is implementation-specific.
+
+The meaning of sync_mode is analagous to the UPC definition, with the
+OUT condition enforced by the sync of the returned handle.
+[Implementers note: This initiation function should return as soon as
+possible, without blocking to enforce UPC_IN_MYSYNC or UPC_IN_ALLSYNC;
+such work should be done asynchronously (or in the sync function as a
+last resort)].
+
+Lifetime of 'dest_array' is [TBD].
