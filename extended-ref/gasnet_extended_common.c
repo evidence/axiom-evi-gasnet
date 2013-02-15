@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_common.c,v $
- *     $Date: 2012/09/14 00:29:12 $
- * $Revision: 1.9 $
+ *     $Date: 2013/02/15 22:30:24 $
+ * $Revision: 1.10 $
  * Description: GASNet Extended API Common code
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -145,8 +145,10 @@ static void gasnete_free_threaddata(gasnete_threaddata_t *thread) {
   #endif
   GASNETE_FREE_EOPS(thread);
 
+  #ifdef GASNETE_VALGET_FREEALL
   /* valgets */
   GASNETE_VALGET_FREEALL(thread);
+  #endif
 
   /* conduits needing additional cleanups should use gasnete_register_threadcleanup */
 
