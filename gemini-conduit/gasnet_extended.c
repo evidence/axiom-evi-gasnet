@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2013/02/14 23:29:10 $
- * $Revision: 1.28 $
+ *     $Date: 2013/02/15 03:59:23 $
+ * $Revision: 1.29 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -368,40 +368,33 @@ gasnete_get_bulk_unaligned(void *dest, gasnet_node_t node, void *src, size_t nby
     nbytes -= chunksz;
   }
   if (!nbytes) return;
-  
-  /* if remaining length is now unaligned, split off the "tail" (yes, this is out-of-order) */
-  /* TODO: is dest isn't aligned then this probably doesn't help any, does it? */
   gasneti_assert(0 == (3 & (uintptr_t)src));
-  if (nbytes & 3) {
-    const size_t chunksz = nbytes % GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE;
-    nbytes -= chunksz;
+  
+  if (0 == (3 & (uintptr_t) dest)) {
+    /* dest address is aligned - may use zero-copy (if applicable) 
+       however, must exclude any "tail" of unaligned length */
+    const size_t tailsz = (nbytes & 3) ? (nbytes % GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE) : 0;
+    const size_t chunksz = nbytes - tailsz;
+    if (chunksz) {
+      gasneti_assert(0 == (3 & chunksz));
+      gasnete_get_nbi_bulk(dest, node, src, chunksz GASNETE_THREAD_PASS);
+      dest = (char *) dest + chunksz;
+      src  = (char *) src  + chunksz;
+      nbytes = tailsz;
+    }
+  }
+
+  /* dest address and/or nbytes is unaligned - must use bounce buffers for remainder */
+  while (nbytes) {
+    const size_t chunksz = MIN(nbytes, max_chunk);
     gpd = gasnetc_alloc_post_descriptor();
     gpd->flags = GC_POST_COMPLETION_OP;
     gpd->completion.iop = iop;
     iop->initiated_get_cnt++;
-    gasnetc_rdma_get_unaligned(node, ((char *)dest + nbytes), ((char *)src + nbytes), chunksz, gpd);
-  }
-  if (!nbytes) return;
-
-  /* now complete the "middle" portion, if any remains */
-  gasneti_assert(0 == (3 & (uintptr_t)src));
-  gasneti_assert(0 == (3 & nbytes));
-  if (3 & (uintptr_t) dest) {
-    /* dest address is unaligned - must use bounce buffers */
-    do {
-      const size_t chunksz = MIN(nbytes, max_chunk);
-      gpd = gasnetc_alloc_post_descriptor();
-      gpd->flags = GC_POST_COMPLETION_OP;
-      gpd->completion.iop = iop;
-      iop->initiated_get_cnt++;
-      gasnetc_rdma_get_unaligned(node, dest, src, chunksz, gpd);
-      dest = (char *) dest + chunksz;
-      src  = (char *) src  + chunksz;
-      nbytes -= chunksz;
-    } while (nbytes);
-  } else {
-    /* dest address is aligned - may use zero-copy if applicable */
-    gasnete_get_nbi_bulk(dest, node, src, nbytes GASNETE_THREAD_PASS);
+    gasnetc_rdma_get_unaligned(node, dest, src, chunksz, gpd);
+    dest = (char *) dest + chunksz;
+    src  = (char *) src  + chunksz;
+    nbytes -= chunksz;
   }
 }
 
