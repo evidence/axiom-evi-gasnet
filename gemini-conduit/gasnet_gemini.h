@@ -327,7 +327,7 @@ int gasnetc_rdma_put(gasnet_node_t dest,
 		 void *dest_addr, void *source_addr,
 		 size_t nbytes, gasnetc_post_descriptor_t *gpd);
 
-void gasnetc_rdma_put_imm(gasnet_node_t dest, void *dest_addr,
+void gasnetc_rdma_put_buff(gasnet_node_t dest, void *dest_addr,
 		 size_t nbytes, gasnetc_post_descriptor_t *gpd);
 
 void gasnetc_rdma_get(gasnet_node_t dest,

@@ -1392,8 +1392,8 @@ int gasnetc_rdma_put(gasnet_node_t dest,
   return result;
 }
 
-/* Put from the immediate buffer in the gpd */
-void gasnetc_rdma_put_imm(gasnet_node_t dest, void *dest_addr,
+/* Put from the bounce buffer indicated in the gpd */
+void gasnetc_rdma_put_buff(gasnet_node_t dest, void *dest_addr,
 		size_t nbytes, gasnetc_post_descriptor_t *gpd)
 {
   peer_struct_t * const peer = &peer_data[dest];
@@ -1414,7 +1414,6 @@ void gasnetc_rdma_put_imm(gasnet_node_t dest, void *dest_addr,
   pd->remote_addr = (uint64_t) dest_addr;
   pd->remote_mem_hndl = peer->mem_handle;
   pd->length = nbytes;
-  gpd->bounce_buffer = gpd->u.immediate;
   pd->local_addr = (uint64_t) gpd->bounce_buffer;
   pd->local_mem_hndl = my_mem_handle;
 
@@ -1430,8 +1429,8 @@ void gasnetc_rdma_put_imm(gasnet_node_t dest, void *dest_addr,
 
   if_pf (status != GNI_RC_SUCCESS) {
     gasnetc_return_cq_credit(); /* kind of pointless since we abort */
-    print_post_desc("PutImm", pd);
-    gasnetc_GNIT_Abort("Put immediate failed with %s\n", gni_return_string(status));
+    print_post_desc("PutBuff", pd);
+    gasnetc_GNIT_Abort("PutBuff failed with %s\n", gni_return_string(status));
   }
 }
 
