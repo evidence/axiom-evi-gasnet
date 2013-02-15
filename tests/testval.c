@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testval.c,v $
- *     $Date: 2013/02/15 07:26:02 $
- * $Revision: 1.1 $
+ *     $Date: 2013/02/15 08:04:46 $
+ * $Revision: 1.2 $
  * Description: GASNet value get/put performance test
  *   measures the ping-pong average round-trip time and
  *   average flood throughput of GASNet gets and puts
@@ -330,7 +330,7 @@ void roundtrip_nbi_test(int iters, int nbytes)
 	BARRIER();
 	
 	if (iamsender && doputs) {
-		print_stat(myproc, &st, "put_nbi latency", PRINT_LATENCY);
+		print_stat(myproc, &st, "put_nbi_val latency", PRINT_LATENCY);
 	}	
 }
 
@@ -359,7 +359,7 @@ void oneway_nbi_test(int iters, int nbytes)
 	BARRIER();
 	
 	if (iamsender && doputs) {
-		print_stat(myproc, &st, "put_nbi throughput", PRINT_THROUGHPUT);
+		print_stat(myproc, &st, "put_nbi_val throughput", PRINT_THROUGHPUT);
 	}	
 }
 
