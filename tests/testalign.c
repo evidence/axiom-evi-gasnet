@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testalign.c,v $
- *     $Date: 2013/02/15 04:15:39 $
- * $Revision: 1.22 $
+ *     $Date: 2013/02/15 04:39:33 $
+ * $Revision: 1.23 $
  * Description: GASNet get/put alignment-sensitivity test
  *   measures flood throughput of GASNet gets and puts
  *   over varying payload alignments and fixed payload size
@@ -64,16 +64,18 @@ void _print_stat(int myproc, stat_struct_t *st, const char *name, int operation)
 {
 	switch (operation) {
 	case PRINT_LATENCY:
-		printf("Proc %2i - %5i byte %5i byte aligned : %7i iters,"
+		printf("%c: Proc %2i - %5i byte %5i byte aligned : %7i iters,"
 			   " latency %10i us total, %9.3f us ave. (%s)\n",
+			TEST_SECTION_NAME(),
 			myproc, st->datasize, st->alignment, st->iters, (int) st->time,
 			((float)st->time) / st->iters,
 			name);
 		fflush(stdout);
 		break;
 	case PRINT_THROUGHPUT:
-		printf((unitsMB?"Proc %2i - %5i byte %5i byte aligned : %7i iters, throughput %11.6f MB/sec (%s)\n":
-                                "Proc %2i - %5i byte %5i byte aligned : %7i iters, throughput %11.3f KB/sec (%s)\n"),
+		printf((unitsMB?"%c: Proc %2i - %5i byte %5i byte aligned : %7i iters, throughput %11.6f MB/sec (%s)\n":
+                                "%c: Proc %2i - %5i byte %5i byte aligned : %7i iters, throughput %11.3f KB/sec (%s)\n"),
+			TEST_SECTION_NAME(),
 			myproc, st->datasize, st->alignment, st->iters,
 			((int)st->time == 0 ? 0.0 :
                                 (1000000.0 * st->datasize * st->iters / 
@@ -262,6 +264,7 @@ int main(int argc, char **argv)
     int iters = 0;
     int j;
     int help = 0;   
+    int crossmachinemode = 0;   
 
     /* call startup */
     GASNET_Safe(gasnet_init(&argc, &argv));
@@ -281,6 +284,9 @@ int main(int argc, char **argv)
       } else if (!strcmp(argv[arg], "-p")) {
         doputs = 1; dogets = 0;
         ++arg;
+      } else if (!strcmp(argv[arg], "-c")) {
+        crossmachinemode = 1;
+        ++arg;
       } else if (!strcmp(argv[arg], "-m")) {
         unitsMB = 1;
         ++arg;
@@ -289,7 +295,6 @@ int main(int argc, char **argv)
         ++arg;
       } else break;
     }
-    if (help || argc > arg+2) test_usage();
 
     if (argc > arg) iters = atoi(argv[arg++]);
     if (!iters) iters = 1000;
@@ -297,13 +302,17 @@ int main(int argc, char **argv)
     if (argc > arg) size = atoi(argv[arg++]);
     if (!size) size = DEFAULT_SZ;
 
+    if (argc > arg) { TEST_SECTION_PARSE(argv[arg]); arg++; }
+ 
     GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
     test_init("testalign", 1,
-               "[options] (iters) (size)\n"
+               "[options] (iters) (size) (test_sections)\n"
                "  The '-in' or '-out' option selects whether the initiator-side\n"
                "   memory is in the GASNet segment or not (default is not).\n"
                "  The -p/-g option selects puts only or gets only (default is both).\n"
+               "  The -c option enables cross-machine pairing, default is nearest neighbor.\n"
                "  The -m option enables MB/sec units for bandwidth output (MB=2^20 bytes).");
+    if (help || argc > arg) test_usage();
 
     /* get SPMD info */
     myproc = gasnet_mynode();
@@ -316,13 +325,20 @@ int main(int argc, char **argv)
     }
 
     /* Setting peer thread rank */
-    peerproc = (myproc % 2) ? (myproc - 1) : (myproc + 1);
-    iamsender = (myproc % 2 == 0);
+    if (crossmachinemode) {
+      gasnet_node_t half =  numprocs / 2;
+      iamsender = (myproc < half);
+      peerproc = myproc + (iamsender ? half : -half);
+    } else {
+      peerproc = myproc ^ 1;
+      iamsender = !(myproc % 2);
+    }
     
     rembuf = (void *) TEST_SEG(peerproc);
 
-    MSG0("Running %i iterations of bulk %s%s%s with local addresses %sside the segment for size %i\n",
+    MSG0("Running %i iterations of %sbulk %s%s%s with local addresses %sside the segment for size %i\n",
           iters,
+          (crossmachinemode ? "cross-machine " : ""),
           (doputs             ? "put" : ""),
           ((doputs && dogets) ? "/"   : ""),
           (dogets             ? "get ": ""),
@@ -338,8 +354,15 @@ int main(int argc, char **argv)
 	locbuf = (void *)((tmp + PAGESZ - 1) & ~(PAGESZ - 1));
     }
 
+    BARRIER();
+
+    if (TEST_SECTION_BEGIN_ENABLED())
       for (j = 1; j <= PAGESZ; j *= 2) oneway_test(iters, size, j);
+
+    if (TEST_SECTION_BEGIN_ENABLED())
       for (j = 1; j <= PAGESZ; j *= 2) oneway_nbi_test(iters, size, j);
+
+    if (TEST_SECTION_BEGIN_ENABLED())
       for (j = 1; j <= PAGESZ; j *= 2) oneway_nb_test(iters, size, j);
 
     BARRIER();
