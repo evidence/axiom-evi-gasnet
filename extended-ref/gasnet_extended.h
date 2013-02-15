@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended.h,v $
- *     $Date: 2012/10/12 23:46:45 $
- * $Revision: 1.54 $
+ *     $Date: 2013/02/15 21:14:49 $
+ * $Revision: 1.55 $
  * Description: GASNet Extended API Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -78,6 +78,16 @@ extern void gasnete_init(void);
       gasnete_loopbackput_memsync();            \
       _GASNETI_RETURN_##rt;                     \
     }} while(0)
+  #define GASNETI_CHECKPSHM_GETVAL() do {     \
+    if (gasneti_pshm_in_supernode(node)) {      \
+      GASNETE_VALUE_RETURN(gasneti_pshm_addr2local(node, src), nbytes); \
+    }} while(0)
+  #define GASNETI_CHECKPSHM_PUTVAL(rt) do {     \
+    if (gasneti_pshm_in_supernode(node)) {      \
+      GASNETE_VALUE_ASSIGN(gasneti_pshm_addr2local(node, dest), value, nbytes); \
+      gasnete_loopbackput_memsync();            \
+      _GASNETI_RETURN_##rt;                     \
+    }} while(0)
   #define GASNETI_CHECKPSHM_MEMSET(rt) do {     \
     if (gasneti_pshm_in_supernode(node)) {      \
       memset(gasneti_pshm_addr2local(node, dest), val, nbytes); \
@@ -87,6 +97,8 @@ extern void gasnete_init(void);
 #else
   #define GASNETI_CHECKPSHM_GET(align, rt) ((void)0)
   #define GASNETI_CHECKPSHM_PUT(align, rt) ((void)0)
+  #define GASNETI_CHECKPSHM_GETVAL()       ((void)0)
+  #define GASNETI_CHECKPSHM_PUTVAL(rt)     ((void)0)
   #define GASNETI_CHECKPSHM_MEMSET(rt)     ((void)0)
 #endif
 
