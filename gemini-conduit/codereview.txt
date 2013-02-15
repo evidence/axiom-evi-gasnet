@@ -1,5 +1,5 @@
 Gemini-conduit design notes, from code review 8/2010
-$Revision: 1.21 $
+$Revision: 1.22 $
 
 number of bounce buffers, make clear the effects of, in the readme
 
@@ -20,8 +20,7 @@ PHH DONE:multiplier sizing completion queue creates endpoints for the local supe
 PHH DONE: but first must fix shutdown coordination not to use SmsgSend w/i the supernode
 PHH DONE: and implement non-GNI path for loopback AMs when PSHM is disabled
 
-can save memory for smsg buffering and cq sizing as well (and endpoints)
-PHH: sms init, cq sizing and endpoints DONE, but NOT yet smsg buffer space
+PHH DONE can save memory for smsg buffering and cq sizing as well (and endpoints)
 
 round up gc_post_descriptor to mulitple of cache line  (only in PAR bulds?)
   probablyu a good idea everywhere since gni libraries and kernel write fields in it.
@@ -101,12 +100,11 @@ consider having a 512 byte zero block somewher in mapped semgnet to use as sourc
 
 (or memset the immediate buffer)
 
-cray requires 4 byte align,ent for get, could break up into a small transfer to reach alignment
-(only owrks for same misalignment)
+DONE PHH: cray requires 4 byte alignment for get, could break up into a small transfer to reach alignment
 
 DONE PHH OR together the source, dest, and length, then & 3 only once
 
-short misalighned messages should get an aligned block to the immediate buffer then
+DONE PHH: short misalighned messages should get an aligned block to the immediate buffer then
 copy on completion
 
 if we fire off multiple chunks then make sure that the registrations don't overlap
