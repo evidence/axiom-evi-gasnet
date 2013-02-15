@@ -1,6 +1,6 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v $
-#     $Date: 2011/10/17 01:00:12 $
-# $Revision: 1.119 $
+#     $Date: 2013/02/15 07:26:02 $
+# $Revision: 1.120 $
 # Description: Makefile for GASNet tests
 # @configure_input@
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -71,6 +71,7 @@ testprograms_seq =      \
         testhsl         \
         testsmall       \
         testlarge       \
+        testval         \
         testam          \
         testmisc        \
         testcore1       \
