@@ -1093,14 +1093,11 @@ void gasnetc_poll_local_queue(void)
                               &smsg->smsg_header, header_length,
                               NULL, 0,  msgid);
         gasneti_assert_always (status == GNI_RC_SUCCESS);
-      } else if (gpd->flags & GC_POST_COPY_TRIM) {
-        unsigned int overfetch = gpd->flags & GC_POST_COPY_TRIM;
-        void * const buffer = gpd->bounce_buffer;
-        gasneti_assert(gpd->flags & GC_POST_COPY);
-	memcpy(gpd->get_target, buffer, gpd->pd.length - overfetch);
-	gpd->bounce_buffer = (void*)(~3 & (uintptr_t)buffer); /* fixup for possible UNBOUNCE */
       } else if (gpd->flags & GC_POST_COPY) {
-	memcpy(gpd->get_target, gpd->bounce_buffer, gpd->pd.length);
+        void * const buffer = gpd->bounce_buffer;
+        size_t length = gpd->pd.length - (gpd->flags & GC_POST_COPY_TRIM);
+	memcpy(gpd->get_target, gpd->bounce_buffer, length);
+	gpd->bounce_buffer = (void*)(~3 & (uintptr_t)buffer); /* fixup for possible UNBOUNCE */
       }
 
       /* indicate completion */
@@ -1118,7 +1115,9 @@ void gasnetc_poll_local_queue(void)
       } else if (gpd->flags & GC_POST_UNBOUNCE) {
 	gasnetc_free_bounce_buffer(gpd->bounce_buffer);
       }
-      gasnetc_free_post_descriptor(gpd);
+      if (!(gpd->flags & GC_POST_KEEP_GPD)) {
+        gasnetc_free_post_descriptor(gpd);
+      }
     } else if (status == GNI_RC_NOT_DONE) {
       break;
     } else {
@@ -1571,6 +1570,57 @@ void gasnetc_rdma_get_unaligned(gasnet_node_t dest,
     print_post_desc("Get", pd);
     gasnetc_GNIT_Abort("Get unaligned failed with %s\n", gni_return_string(status));
   }
+}
+
+/* Get into bounce_buffer indicated in the gpd
+   Will overfetch if source_addr or nbytes are not 4-byte aligned
+   but expects (does not check) that the buffer is aligned.
+   Caller must be allow for space (upto 6 bytes) for the overfetch.
+   Returns offset to start of data after adjustment for overfetch
+ */
+int gasnetc_rdma_get_buff(gasnet_node_t dest, void *source_addr,
+		size_t nbytes, gasnetc_post_descriptor_t *gpd)
+{
+  peer_struct_t * const peer = &peer_data[dest];
+  gni_post_descriptor_t *pd;
+  gni_return_t status;
+
+  /* Compute length of "overfetch" required, if any */
+  unsigned int pre = (uintptr_t) source_addr & 3;
+  size_t       length = GASNETI_ALIGNUP(nbytes + pre, 4);
+  unsigned int overfetch = length - nbytes;
+
+  gasneti_assert(!node_is_local(dest));
+  gasneti_assert(nbytes  <= GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE);
+
+  /* confirm that the source is in-segment on the far end */
+  gasneti_boundscheck(dest, source_addr, nbytes);
+
+  pd = &gpd->pd;
+
+  /*  bzero(&pd, sizeof(gni_post_descriptor_t)); */
+  pd->cq_mode = GNI_CQMODE_GLOBAL_EVENT;
+  pd->dlvr_mode = GNI_DLVMODE_PERFORMANCE;
+  pd->remote_addr = (uint64_t) source_addr - pre;
+  pd->remote_mem_hndl = peer->mem_handle;
+  pd->length = length;
+  pd->local_addr = (uint64_t) gpd->bounce_buffer;
+  pd->local_mem_hndl = my_mem_handle;
+
+  /* allocate space in the Cq */
+  while (!gasnetc_alloc_cq_credit()) gasnetc_poll_local_queue();
+
+  /* now initiate - *always* FMA for now */
+  pd->type = GNI_POST_FMA_GET;
+  status = myPostFma(peer->ep_handle, pd);
+
+  if_pf (status != GNI_RC_SUCCESS) {
+    gasnetc_return_cq_credit(); /* kind of pointless since we abort */
+    print_post_desc("GetBuff", pd);
+    gasnetc_GNIT_Abort("GetBuff failed with %s\n", gni_return_string(status));
+  }
+
+  return pre;
 }
 
 

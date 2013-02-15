@@ -262,6 +262,7 @@ uint32_t gasnetc_fma_rdma_cutover;
 #define GC_POST_COMPLETION_FLAG 128
 #define GC_POST_COMPLETION_OP 256
 #define GC_POST_GET 512
+#define GC_POST_KEEP_GPD 1024
 
 /* WARNING: if sizeof(gasnetc_post_descriptor_t) changes, then
  * you must update the value in gasneti_pd_auxseg_IdentString */
@@ -338,7 +339,8 @@ void gasnetc_rdma_get_unaligned(gasnet_node_t dest,
 		 void *dest_addr, void *source_addr,
 		 size_t nbytes, gasnetc_post_descriptor_t *gpd);
 
-#endif
+int gasnetc_rdma_get_buff(gasnet_node_t dest, void *source_addr,
+		 size_t nbytes, gasnetc_post_descriptor_t *gpd);
 
 /* returns 1 if-and-only-if value was decremented. */
 /* based on gasneti_semaphore_trydown() w/o padding or rmb */
@@ -362,3 +364,6 @@ int gasnetc_weakatomic_dec_if_positive(gasneti_weakatomic_t *p)
   return 1;
 #endif
 }
+
+#endif /* GASNET_GEMINI_H */
+

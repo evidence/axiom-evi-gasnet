@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2013/02/15 21:22:28 $
- * $Revision: 1.31 $
+ *     $Date: 2013/02/15 22:19:31 $
+ * $Revision: 1.32 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -908,6 +908,27 @@ extern void gasnete_put_nbi_val(gasnet_node_t node, void *dest, gasnet_register_
   }
 }
 
+GASNETI_INLINE(gasnete_get_val_help)
+gasnet_register_value_t gasnete_get_val_help(void *src, size_t nbytes) {
+  GASNETE_VALUE_RETURN(src, nbytes);
+}
+ 
+extern gasnet_register_value_t gasnete_get_val(gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG) {
+  GASNETI_CHECKPSHM_GETVAL();
+  {
+    gasnet_register_value_t result;
+    gasnetc_post_descriptor_t *gpd = gasnetc_alloc_post_descriptor();
+    gasneti_weakatomic_t done = gasneti_weakatomic_init(0);
+    uint8_t *buffer = gpd->bounce_buffer = gpd->u.immediate;
+    gpd->completion.flag = &done;
+    gpd->flags = GC_POST_COMPLETION_FLAG | GC_POST_KEEP_GPD;
+    buffer += gasnetc_rdma_get_buff(node, src, nbytes, gpd);
+    while (!gasneti_weakatomic_read(&done, 0)) gasnetc_poll_local_queue();
+    result = gasnete_get_val_help(buffer, nbytes);
+    gasnetc_free_post_descriptor(gpd);
+    return result;
+  }
+}
 /* ------------------------------------------------------------------------------------ */
 /*
   Barriers:

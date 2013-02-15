@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended_fwd.h,v $
- *     $Date: 2013/02/15 08:15:48 $
- * $Revision: 1.8 $
+ *     $Date: 2013/02/15 22:19:31 $
+ * $Revision: 1.9 $
  * Description: GASNet Extended API Header for Gemin Conduit (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -120,9 +120,9 @@ typedef struct _gasnete_op_t *gasnet_handle_t;
 #define GASNETI_DIRECT_PUT_NBI_VAL 1
 /*   unset: gasnete_put_nbi_val() via gasnete_put_nbi()
  *   set: conduit provides own gasnete_put_nbi_val()
- *
- * GASNETI_DIRECT_GET_VAL
- *   unset: extern gasnete_get_val() in gasnet_extended.c (or a macro)
+ */
+#define GASNETI_DIRECT_GET_VAL 1
+/*   unset: extern gasnete_get_val() in gasnet_extended.c (or a macro)
  *   set: conduit provides own gasnete_get_val() as an inline
  */
 
