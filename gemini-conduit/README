@@ -1,6 +1,6 @@
 GASNet gemini-conduit and aries-conduit documentation
 Larry Stewart <stewart@serissa.com> 
-$Revision: 1.15 $
+$Revision: 1.16 $
 
 User Information:
 -----------------
@@ -111,7 +111,7 @@ The desired number of Post Descriptors
 in gemini-conduit/gasnet_gemini.c
 
 
-int gc_poll_burst = 10;   /* number of rdma completions to get at once */
+int gasnetc_poll_burst = 10;   /* number of rdma completions to get at once */
 
 Sets the number of events for arriving short messages taken at once
 #define SMSG_BURST 20
@@ -140,7 +140,7 @@ gemini-conduit uses a single fixed memory registration for the GASNet segment. I
 
  * Credit management
 
-The gemini-conduit active message implementation uses a short message reply to every active message (independent of possible AM replies) to return credit. Credit return could be opportunistic, piggybacking on other messages headed the right way.  Also, right now each rank maintains credit independently for each other rank. This is a consequence of the gni short message system, which uses independent buffers for each rank, rather than a pool.
+The gemini-conduit active message implementation uses a message reply to every active message to return credit (either the explict replies, or implcit ones sent just for thus purpose). In a PAR build, credit return could be opportunistic, piggybacking on other messages headed the right way.  Also, right now each rank maintains credit independently for each other rank. This is a consequence of the gni short message system, which uses independent buffers for each rank, rather than a pool.
 
  * Inline
 
@@ -268,7 +268,7 @@ fit in a maximum sized message, then it is sent as immediate data
 and copied at the destination.  If the data is too large for the AM
 packet, then it is sent by RDMA, and when the RDMA completion event
 occurs, the Active message is sent.  For blocking AMs, the originator
-polls for completion of the RDMA by calling gc_poll_local_queue, which
+polls for completion of the RDMA by calling gasnetc_poll_local_queue, which
 checks for RDMA completions but does NOT check for arriving active
 messages.  In the case of a non-blocking long active message, the
 active message packet is constructed in memory attached to the RDMA
@@ -280,7 +280,7 @@ sent by the completion routine.
 Within the Gemini API (GNI), RDMA is commanded by creating a Post
 Descriptor and passing it to GNI. Both the source and destination
 memory of an RDMA transfer must be registered.  The knowledge of RDMA
-is encapsulated in the functions gc_rdma_put and gc_rdma_get.
+is encapsulated in the functions named gasnetc_rdma_{put,get}*().
 
 GASNet requires that the remote address of a put or get will be within
 the GASNet memory segment, which is pre-registered by gemini-conduit.
@@ -293,30 +293,24 @@ transfers and is commanded entirely in user mode.  The Byte Transfer
 Engine is intended for larger transfers and is kernel mediated.
 
 Gemini-conduit allocates a pool of RDMA Post Descriptors, called
-gc_post_descriptor.  These are kept on a LIFO queue in registered
-memory, because each one contains a small bounce buffer to be used in
-the event the local address of a short RDMA is not registered.
+gasnetc_post_descriptor.  These are kept on a LIFO queue in registered
+memory, because each one contains an "immediate" bounce buffer to
+be used in the event the local address of a short xfer is not
+registered.
 
 Gemini-conduit also allocates a pool of medium sized bounce buffers,
-which are used in the event the local address of an RDMA transfer is
-not registered.  For large transfers to or from memory outside the
-GASNet segment, the local buffer is registered for the duration of the
-transfer, then unregistered.
-
-So for a local address outside the segment, if the size of the
-transfer is less than the cutover point between FMA and RDMA, then the
-small bounce buffer in the post descriptor is used.  If the size of
-the transfer is less than the cutover point between bouncing and
-registration, then the an allocated bounce buffer is used. If the size
-is larger, then a one-time memory registration is done just for the
-duration of the transfer.
+which are used in the event the local address of a transfer is not
+registered and is too large for the immediate buffer.  For transfers
+to or from memory outside the GASNet segment that are too large for
+the medium sized bounce buffer, the local buffer is registered for
+the duration of the transfer, then unregistered.
 
 The post descriptor also contains a completion field, that defines
 what to do when the RDMA is finished, and a set of flags that control
 completion behavior.
 
-RDMA Completion event processing is done by gc_poll_local_queue.  A
-number of types of follow-on activities are implemented:
+RDMA Completion event processing is done by gasnetc_poll_local_queue.
+A number of types of follow-on activities are implemented:
 
  * For a GET, potentially copy data from a bounce buffer to the actual
    target
@@ -345,7 +339,7 @@ an RDMA transfer is larger than one megabyte, it is broken into
 smaller segments and all but the last are sent by blocking protocol.
 
 NOTE: The breakup of large blocks should probably be done for Long AMs
-as well.
+as well, to allow increasing gasnet_AMMaxLong{Request,Reply}().
 
 ==Locking==
 
@@ -359,15 +353,13 @@ safe, but without knowledge of the internals of gni it is hard to tell.
 
 Queue Locks
 
-Singly linked lists are used for the smsg_work_queue, and for pools
-for bounce buffers, and post descriptors.  Each list (queue) has its
-own lock, and there are push, pop, and enqueue functions that work on
-queues.
+A singly linked lists are used for the smsg_work_queue, and has its
+own lock.  The are enqueue and dequeue functions that work on this
+queue.
 
 The bounce buffer pool and post descriptor pool use the
 gasneti_lifo_push and gasneti_lifo_pop functions.
-
-The smsg_work_queue uses newly written enqueue and pop functions
+These are lock-free on the x86-64 architecture.
 
 
 
@@ -379,17 +371,17 @@ arriving short messages.
 
 ===bound_cq_handle  (RDMA completion)===
 
-On a call to gc_poll_local_queue, up to gc_poll_burst (default 10)
+On a call to gasnetc_poll_local_queue, up to gasnetc_poll_burst (default 10)
 completions are processed.  If the completion queue is empty, the
 function exits early.  For each completed post descriptor, the flags
 are checked and post-completion activities performed:
 
  GC_POST_COPY - copy from bounce buffer to target
+ GC_POST_SEND - send an AM that was waiting for PUT completion (AMLong)
  GC_POST_UNREGISTER - deregister one-time memory registration
  GC_POST_UNBOUNCE - free an allocated bounce buffer
- GC_POST_SEND - send an AM that was waiting for PUT completion (AMLong)
  GC_POST_COMPLETION_FLAG - atomic set a variable to signal a waiting thread
- GC_POST_COMPLETION_EOP - gasnete_op_markdone 
+ GC_POST_COMPLETION_OP - gasnete_op_markdone 
 
 ===smsg_cq_handle===
 
@@ -408,30 +400,30 @@ completion queue overflows, some events may be lost and it will be
 necessary to drain all endpoints to make sure no messages are left
 waiting.
 
-The work starts in gc_poll_smsg_queue.
+The work starts in gasnetc_poll_smsg_queue.
 
-First a call is make to gc_poll_smsg_completion_queue, which reads up
+First a call is make to gasnetc_poll_smsg_completion_queue, which reads up
 to SMSG_BURST events from the completion queue and quickly adds the
 relevant endpoints to a temporary array.  Then, after releasing the
 GNI big lock, the array is scanned, and any peers which are not
 already on the smsg_work_queue are added to it.  The smsg_work_queue
 is a list of endpoints which may have arriving traffic.  Finally,
-gc_poll_smsg_completion_queue checks to see if the smsg completion
+gasnetc_poll_smsg_completion_queue checks to see if the smsg completion
 queue overflowed, in which case the completion queue is drained and
 ALL endpoints are added to the smsg_work_queue
 
-Then for up to SMSG_PEER_BURST ranks, gc_process_smsg_q(source rank)
+Then for up to SMSG_PEER_BURST ranks, gasnetc_process_smsg_q(source rank)
 is called to deal with any arriving messages.
 
-In gc_process_smsg_q, arriving short messages are read and a dispatch
+In gasnetc_process_smsg_q, arriving short messages are read and a dispatch
 is made on the message type.  In the case of active messages, the
 message is copied into a local variable, the SMSG buffer is released,
 and then the AM handler is called.  This is done in order to prevent
 stack growth caused by recursive calls to process arriving
 messages. Each time around the message processing loop,
-gc_poll_smsg_completion_queue is called, which may result in
+gasnetc_poll_smsg_completion_queue is called, which may result in
 additional ranks being queued on the smsg_work_queue, but does not
-cause recursive calls to gc_process_smsg_q.  This is done so that the
+cause recursive calls to gasnetc_process_smsg_q.  This is done so that the
 average rate of retiring completion events is equal to the rate of
 processing messages, and prevents completion queue overflow.
 
@@ -448,7 +440,7 @@ that as an error exit and kill all the other ranks.
 The logic to determine the maximum size pinnable segment is borrowed
 from the portals-conduit.
 
-The module gc_utils.c contains the interface to PMI.  It also includes
+The gasnetc_bootstrap* functions containsthe interface to PMI.  It also includes
 the implementation of AllGather for GASNet bootstrapExchange and GNI
 initialization.  It uses PMI_AllGather.  For some reason,
 PMI_AllGather does not return data in rank order, so it is sorted into
