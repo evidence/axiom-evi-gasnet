@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2013/02/06 07:24:22 $
-# $Revision: 1.774 $
+#     $Date: 2013/02/16 06:00:54 $
+# $Revision: 1.775 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.774 $)
+AC_REVISION($Revision: 1.775 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1750,11 +1750,16 @@ GASNET_POPVAR(CFLAGS)
 
 ## Do CC/gas and CPU support "cmpxchg16b"?
 GASNET_PUSHVAR(CFLAGS,"$CFLAGS $MISC_CPPFLAGS $MISC_CFLAGS -I$TOP_SRCDIR -I$TOP_SRCDIR/other -D_IN_CONFIGURE")
-AC_MSG_CHECKING(for x86-64 cmpxchg16b support)
-AC_TRY_RUN([
-  #include "gasnet_asm.h" /* For PLATFORM_COMPILER_* and GASNETI_PGI_ASM_GNU */
-
-  int main(void) {
+if test "$cross_compiling" = "yes" ; then
+  GASNET_CROSS_VAR(GASNETI_HAVE_X86_CMPXCHG16B,HAVE_X86_CMPXCHG16B,[probe])
+  if test "$GASNETI_HAVE_X86_CMPXCHG16B" = 'yes'; then
+    AC_DEFINE(GASNETI_HAVE_X86_CMPXCHG16B)
+  fi
+fi
+if test "$cross_compiling" = 'no' -o "$GASNETI_HAVE_X86_CMPXCHG16B" = 'probe' ; then
+  GASNET_TRY_CACHE_RUN_WITHCC([for x86-64 cmpxchg16b support],[x86_64_cmpxchg16b],[
+    #include "gasnet_asm.h" /* For PLATFORM_COMPILER_* and GASNETI_PGI_ASM_GNU */
+  ],[[
   #if PLATFORM_ARCH_X86_64
     #if PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_INTEL || \
         PLATFORM_COMPILER_PATHSCALE || GASNETI_PGI_ASM_GNU || \
@@ -1790,12 +1795,8 @@ AC_TRY_RUN([
   #else
     #error wrong CPU architecture
   #endif
-  }
-], [AC_DEFINE(GASNETI_HAVE_X86_CMPXCHG16B)
-    AC_MSG_RESULT(yes)
-], [AC_MSG_RESULT(no)
-], [ : # For now we assume "NO" when cross compiling
-    AC_MSG_RESULT(no)])
+  ]], [AC_DEFINE(GASNETI_HAVE_X86_CMPXCHG16B)])
+fi
 GASNET_POPVAR(CFLAGS)
 
 ## x86 -fPIC which steals the B register
