@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2013/02/16 00:17:29 $
- * $Revision: 1.33 $
+ *     $Date: 2013/02/16 01:11:06 $
+ * $Revision: 1.34 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -52,9 +52,9 @@ extern void _gasnete_iop_check(gasnete_iop_t *iop) { gasnete_iop_check(iop); }
   Factored bits of extended API code common to most conduits, overridable when necessary
 */
 
-/* Using the default get_nb_val(), but with a custom helper */
-static gasnet_handle_t gasnete_get_nb_val_help(void *dest, gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG);
-#define GASNETE_VALGET_GETOP gasnete_get_nb_val_help
+/* ensure thread cleanup uses our custom for valget handles */
+#define GASNETE_VALGET_FREEALL(thread) gasnete_valget_freeall(thread)
+static void gasnete_valget_freeall(gasnete_threaddata_t *thread);
 
 #include "gasnet_extended_common.c"
 
@@ -864,8 +864,8 @@ extern gasnet_handle_t gasnete_end_nbi_accessregion(GASNETE_THREAD_FARG_ALONE) {
 }
 /* ------------------------------------------------------------------------------------ */
 /*
-  Blocking and non-blocking register-to-memory transfers
-  ======================================================
+  Blocking and non-blocking register-to-memory Puts
+  =================================================
 */
 /* ------------------------------------------------------------------------------------ */
 
@@ -912,6 +912,13 @@ extern void gasnete_put_nbi_val(gasnet_node_t node, void *dest, gasnet_register_
   }
 }
 
+/* ------------------------------------------------------------------------------------ */
+/*
+  Blocking and non-blocking memory-to-register Gets
+  =================================================
+*/
+/* ------------------------------------------------------------------------------------ */
+
 GASNETI_INLINE(gasnete_get_val_help)
 gasnet_register_value_t gasnete_get_val_help(void *src, size_t nbytes) {
   GASNETE_VALUE_RETURN(src, nbytes);
@@ -934,20 +941,80 @@ extern gasnet_register_value_t gasnete_get_val(gasnet_node_t node, void *src, si
   }
 }
 
-/* specialized version of gasnete_get_nb_bulk():
-   + dest is always out-of-segment
-   + nbytes is smaller than the immediate buffer
-   + src might not be 4-byte aligned
+/* Following implementation of valget_handle_t and associated operations
+   is cloned from gasnet_extended_common.c, and then:
+   The 'op' field has been flattened to a 'done' flag.
+   The order fileds had been reordered to minimize padding.
+   The underlying get has also been customized.
 */
-static gasnet_handle_t gasnete_get_nb_val_help(void *dest, gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG) {
-  gasnetc_post_descriptor_t *gpd = gasnetc_alloc_post_descriptor();
-  gasnete_eop_t *eop = gasnete_eop_new(GASNETE_MYTHREAD);
-  gpd->completion.eop = eop;
-  gpd->flags = GC_POST_COMPLETION_OP;
-  gasnetc_rdma_get_unaligned(node, dest, src, nbytes, gpd);
-  return((gasnet_handle_t) eop);
+
+typedef struct _gasnete_valget_op_t {
+  struct _gasnete_valget_op_t* next; /* for free-list only */
+  gasnet_register_value_t val;
+  gasneti_weakatomic_t done;
+  gasnete_threadidx_t threadidx;  /*  thread that owns me */
+} gasnete_valget_op_t;
+
+extern gasnet_valget_handle_t gasnete_get_nb_val(gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG) {
+  gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
+  gasnet_valget_handle_t retval;
+  gasneti_assert(nbytes > 0 && nbytes <= sizeof(gasnet_register_value_t));
+  gasneti_boundscheck(node, src, nbytes);
+  if (mythread->valget_free) {
+    retval = mythread->valget_free;
+    mythread->valget_free = retval->next;
+    gasneti_memcheck(retval);
+  } else {
+    retval = (gasnete_valget_op_t*)gasneti_malloc(sizeof(gasnete_valget_op_t));
+    gasneti_leak(retval);
+    retval->threadidx = mythread->threadidx;
+  }
+
+  retval->val = 0;
+#if GASNET_PSHM
+  if (gasneti_pshm_in_supernode(node)) {
+    /* Assume that addr2local on local node is cheaper than an extra branch */
+    GASNETE_FAST_ALIGNED_MEMCPY(GASNETE_STARTOFBITS(&(retval->val),nbytes),
+                                gasneti_pshm_addr2local(node, src), nbytes);
+    gasneti_weakatomic_set(&retval->done, 1, GASNETI_ATOMIC_NONE);
+  }
+#else
+  if (gasnete_islocal(node)) {
+    GASNETE_FAST_ALIGNED_MEMCPY(GASNETE_STARTOFBITS(&(retval->val),nbytes), src, nbytes);
+    gasneti_weakatomic_set(&retval->done, 1, GASNETI_ATOMIC_NONE);
+  }
+#endif
+  else {
+    gasnetc_post_descriptor_t *gpd = gasnetc_alloc_post_descriptor();
+    gpd->completion.flag = &retval->done;
+    gasneti_weakatomic_set(&retval->done, 0, GASNETI_ATOMIC_NONE);
+    gpd->flags = GC_POST_COMPLETION_FLAG;
+    gasnetc_rdma_get_unaligned(node, GASNETE_STARTOFBITS(&(retval->val),nbytes), src, nbytes, gpd);
+  }
+  return retval;
 }
 
+extern gasnet_register_value_t gasnete_wait_syncnb_valget(gasnet_valget_handle_t handle) {
+  gasnete_assert_valid_threadid(handle->threadidx);
+  { gasnete_threaddata_t * const thread = gasnete_threadtable[handle->threadidx];
+    gasnet_register_value_t val;
+    gasneti_assert(thread == gasnete_mythread());
+    handle->next = thread->valget_free; /* free before the wait to save time after the wait, */
+    thread->valget_free = handle;       /*  safe because this thread is under our control */
+    while (!gasneti_weakatomic_read(&handle->done, 0)) gasnetc_poll_local_queue();
+    val = handle->val;
+    return val;
+  }
+}
+
+static void gasnete_valget_freeall(gasnete_threaddata_t *thread) {
+  gasnete_valget_op_t *vg = thread->valget_free;
+  while (vg) {
+    gasnete_valget_op_t *next = vg->next;
+    gasneti_free(vg);  
+    vg = next;
+  }
+}
 
 /* ------------------------------------------------------------------------------------ */
 /*
