@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2013/02/15 22:19:31 $
- * $Revision: 1.32 $
+ *     $Date: 2013/02/16 00:17:29 $
+ * $Revision: 1.33 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -51,6 +51,10 @@ extern void _gasnete_iop_check(gasnete_iop_t *iop) { gasnete_iop_check(iop); }
   ========================
   Factored bits of extended API code common to most conduits, overridable when necessary
 */
+
+/* Using the default get_nb_val(), but with a custom helper */
+static gasnet_handle_t gasnete_get_nb_val_help(void *dest, gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG);
+#define GASNETE_VALGET_GETOP gasnete_get_nb_val_help
 
 #include "gasnet_extended_common.c"
 
@@ -929,6 +933,22 @@ extern gasnet_register_value_t gasnete_get_val(gasnet_node_t node, void *src, si
     return result;
   }
 }
+
+/* specialized version of gasnete_get_nb_bulk():
+   + dest is always out-of-segment
+   + nbytes is smaller than the immediate buffer
+   + src might not be 4-byte aligned
+*/
+static gasnet_handle_t gasnete_get_nb_val_help(void *dest, gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG) {
+  gasnetc_post_descriptor_t *gpd = gasnetc_alloc_post_descriptor();
+  gasnete_eop_t *eop = gasnete_eop_new(GASNETE_MYTHREAD);
+  gpd->completion.eop = eop;
+  gpd->flags = GC_POST_COMPLETION_OP;
+  gasnetc_rdma_get_unaligned(node, dest, src, nbytes, gpd);
+  return((gasnet_handle_t) eop);
+}
+
+
 /* ------------------------------------------------------------------------------------ */
 /*
   Barriers:
