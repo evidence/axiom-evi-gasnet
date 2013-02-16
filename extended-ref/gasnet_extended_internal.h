@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_internal.h,v $
- *     $Date: 2010/10/24 01:33:27 $
- * $Revision: 1.26 $
+ *     $Date: 2013/02/16 00:56:04 $
+ * $Revision: 1.27 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -71,6 +71,9 @@ typedef struct _gasnete_threaddata_t {
 
   gasnete_iop_t *iop_free;      /*  free list of iops */
 
+  #ifdef GASNETE_CONDUIT_THREADDATA_FIELDS
+  GASNETE_CONDUIT_THREADDATA_FIELDS
+  #endif
 } gasnete_threaddata_t;
 
 /* ------------------------------------------------------------------------------------ */
