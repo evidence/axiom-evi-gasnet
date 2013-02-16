@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2013/02/16 01:11:06 $
- * $Revision: 1.34 $
+ *     $Date: 2013/02/16 01:23:52 $
+ * $Revision: 1.35 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -879,7 +879,7 @@ extern void gasnete_put_val(gasnet_node_t node, void *dest, gasnet_register_valu
     gpd->bounce_buffer = gpd->u.immediate;
     GASNETE_VALUE_ASSIGN(gpd->u.immediate, value, nbytes);
     gasnetc_rdma_put_buff(node, dest, nbytes, gpd);
-    while (!gasneti_weakatomic_read(&done, 0)) gasnetc_poll_local_queue();
+    gasneti_polluntil(gasneti_weakatomic_read(&done, 0));
   }
 }
 
@@ -934,7 +934,7 @@ extern gasnet_register_value_t gasnete_get_val(gasnet_node_t node, void *src, si
     gpd->completion.flag = &done;
     gpd->flags = GC_POST_COMPLETION_FLAG | GC_POST_KEEP_GPD;
     buffer += gasnetc_rdma_get_buff(node, src, nbytes, gpd);
-    while (!gasneti_weakatomic_read(&done, 0)) gasnetc_poll_local_queue();
+    gasneti_polluntil(gasneti_weakatomic_read(&done, 0));
     result = gasnete_get_val_help(buffer, nbytes);
     gasnetc_free_post_descriptor(gpd);
     return result;
@@ -1001,7 +1001,7 @@ extern gasnet_register_value_t gasnete_wait_syncnb_valget(gasnet_valget_handle_t
     gasneti_assert(thread == gasnete_mythread());
     handle->next = thread->valget_free; /* free before the wait to save time after the wait, */
     thread->valget_free = handle;       /*  safe because this thread is under our control */
-    while (!gasneti_weakatomic_read(&handle->done, 0)) gasnetc_poll_local_queue();
+    gasneti_polluntil(gasneti_weakatomic_read(&handle->done, 0));
     val = handle->val;
     return val;
   }
