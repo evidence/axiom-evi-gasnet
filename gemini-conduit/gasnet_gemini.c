@@ -374,20 +374,21 @@ uintptr_t gasnetc_init_messaging(void)
   smsg_type = GNI_SMSG_TYPE_MBOX;
 #endif
  
-  {
-    int depth, cq_entries, max_outstanding_req;
-#if GASNET_SEQ
-    int multiplier = 1;
-#else
-    int multiplier = gasneti_cpu_count() / gasneti_nodemap_local_count;
-    multiplier = MAX(1,multiplier);
-#endif
+  { /* Determine credits for AMs: GASNET_NETWORKDEPTH */
+    int depth;
     depth = gasneti_getenv_int_withdefault("GASNET_NETWORKDEPTH", GASNETC_NETWORKDEPTH_DEFAULT, 0);
     /* XXX: +1 below is for credit "slop" seen on Aries, but WHY do we need it?!? */
     mb_maxcredit = 2 * MAX(1,depth) + 1;
-    max_outstanding_req = multiplier*depth;
-    gasnetc_init_cq_credit(max_outstanding_req);
-    cq_entries = max_outstanding_req+2;
+  }
+
+  { /* Determine Cq size: GASNETC_GNI_NUM_PD */
+    int num_pd, cq_entries;
+    num_pd = gasneti_getenv_int_withdefault("GASNETC_GNI_NUM_PD",
+                                            GASNETC_GNI_NUM_PD_DEFAULT,1);
+
+    gasnetc_init_cq_credit(num_pd);
+    cq_entries = num_pd+2; /* XXX: why +2 ?? */
+
     status = GNI_CqCreate(nic_handle, cq_entries, 0, GNI_CQ_NOBLOCK, NULL, NULL, &bound_cq_handle);
     gasneti_assert_always (status == GNI_RC_SUCCESS);
   }
