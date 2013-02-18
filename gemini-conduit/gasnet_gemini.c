@@ -56,21 +56,6 @@ static gasnet_seginfo_t gasnetc_pd_buffers;
 
 /*------ Resource accounting ------*/
 
-/* Limit outstanding reqs that need CQ slots */
-static gasneti_weakatomic_t cq_credit;
-#define gasnetc_alloc_cq_credit()          gasnetc_weakatomic_dec_if_positive(&cq_credit)
-#if GASNET_DEBUG && 0
-  static gasneti_weakatomic_val_t cq_credit_max;
-  #define gasnetc_init_cq_credit(_val)     gasneti_weakatomic_set(&cq_credit,cq_credit_max=(_val),0)
-  static void gasnetc_return_cq_credit(void) {
-    gasneti_weakatomic_val_t new_val = gasneti_weakatomic_add(&cq_credit,1,0);
-    gasneti_assert(new_val <= cq_credit_max);
-  }
-#else
-  #define gasnetc_init_cq_credit(_val)     gasneti_weakatomic_set(&cq_credit,(_val),0)
-  #define gasnetc_return_cq_credit()       gasneti_weakatomic_increment(&cq_credit,0)
-#endif
-
 /* Limit the number of active dynamic memory registrations */
 static gasneti_weakatomic_t reg_credit;
 #define gasnetc_alloc_reg_credit()         gasnetc_weakatomic_dec_if_positive(&reg_credit)
@@ -386,7 +371,6 @@ uintptr_t gasnetc_init_messaging(void)
     num_pd = gasneti_getenv_int_withdefault("GASNETC_GNI_NUM_PD",
                                             GASNETC_GNI_NUM_PD_DEFAULT,1);
 
-    gasnetc_init_cq_credit(num_pd);
     cq_entries = num_pd+2; /* XXX: why +2 ?? */
 
     status = GNI_CqCreate(nic_handle, cq_entries, 0, GNI_CQ_NOBLOCK, NULL, NULL, &bound_cq_handle);
@@ -961,10 +945,6 @@ gasnetc_send_smsg(gasnet_node_t dest,
 
   GASNETI_TRACE_PRINTF(A, ("smsg s from %d to %d type %s\n", gasneti_mynode, dest, gasnetc_type_string(((GC_Header_t *) header)->command)));
 
-#if GASNETC_SMSG_RETRANSMIT
-  while (!gasnetc_alloc_cq_credit()) gasnetc_poll_local_queue();
-#endif
-
   for (;;) {
     GASNETC_LOCK_GNI();
     status = GNI_SmsgSend(peer_data[dest].ep_handle,
@@ -978,9 +958,6 @@ gasnetc_send_smsg(gasnet_node_t dest,
     }
 
     if_pf (++trial == max_trial) {
-#if GASNETC_SMSG_RETRANSMIT
-      gasnetc_return_cq_credit(); /* failed */
-#endif
       return GASNET_ERR_RESOURCE;
     }
 
@@ -1015,7 +992,6 @@ void gasnetc_poll_local_queue(void)
 #if GASNETC_SMSG_RETRANSMIT
       if (GNI_CQ_GET_TYPE(event_data) == GNI_CQ_EVENT_TYPE_SMSG) {
         gasnetc_free_smsg(GNI_CQ_GET_MSG_ID(event_data));
-        gasnetc_return_cq_credit();
 	continue;
       }
 #endif
@@ -1025,14 +1001,6 @@ void gasnetc_poll_local_queue(void)
 	gasnetc_GNIT_Abort("GetCompleted(%p) failed %s\n",
 		   (void *) event_data, gni_return_string(status));
       gpd = gasnetc_get_struct_addr_from_field_addr(gasnetc_post_descriptor_t, pd, pd);
-
-#if GASNETC_SMSG_RETRANSMIT
-      /* Any SmsgSend of LongAsync header will "recycle" the Cq credit */
-      if_pt (!(gpd->flags & GC_POST_SEND)) gasnetc_return_cq_credit();
-#else
-      /* SmsgSend doesn't use Cq credits */
-      gasnetc_return_cq_credit();
-#endif
 
       /* handle remaining work */
       if (gpd->flags & GC_POST_SEND) {
@@ -1254,9 +1222,6 @@ void gasnetc_rdma_put_bulk(gasnet_node_t dest,
     pd->local_mem_hndl = my_mem_handle;
   }
 
-  /* allocate space in the Cq */
-  while (!gasnetc_alloc_cq_credit()) gasnetc_poll_local_queue();
-
   /* now initiate the transfer according to fma/rdma cutover */
   /*  TODO: distnict Put and Get cut-overs */
   if (nbytes <= gasnetc_fma_rdma_cutover) {
@@ -1271,7 +1236,6 @@ void gasnetc_rdma_put_bulk(gasnet_node_t dest,
   }
 
   if_pf (status != GNI_RC_SUCCESS) {
-    gasnetc_return_cq_credit(); /* kind of pointless since we abort */
     print_post_desc("Put_bulk", pd);
     gasnetc_GNIT_Abort("Put_bulk failed with %s\n", gni_return_string(status));
   }
@@ -1328,9 +1292,6 @@ int gasnetc_rdma_put(gasnet_node_t dest,
     result = 0; /* FMA may override */
   }
 
-  /* allocate space in the Cq */
-  while (!gasnetc_alloc_cq_credit()) gasnetc_poll_local_queue();
-
   /* now initiate the transfer according to fma/rdma cutover */
   /*  TODO: distnict Put and Get cut-overs */
   if (nbytes <= gasnetc_fma_rdma_cutover) {
@@ -1349,7 +1310,6 @@ int gasnetc_rdma_put(gasnet_node_t dest,
   }
 
   if_pf (status != GNI_RC_SUCCESS) {
-    gasnetc_return_cq_credit(); /* kind of pointless since we abort */
     print_post_desc("Put", pd);
     gasnetc_GNIT_Abort("Put failed with %s\n", gni_return_string(status));
   }
@@ -1383,9 +1343,6 @@ void gasnetc_rdma_put_buff(gasnet_node_t dest, void *dest_addr,
   pd->local_addr = (uint64_t) gpd->bounce_buffer;
   pd->local_mem_hndl = my_mem_handle;
 
-  /* allocate space in the Cq */
-  while (!gasnetc_alloc_cq_credit()) gasnetc_poll_local_queue();
-
   /* now initiate - *always* FMA for now */
   pd->type = GNI_POST_FMA_PUT;
 #if FIX_HT_ORDERING
@@ -1394,7 +1351,6 @@ void gasnetc_rdma_put_buff(gasnet_node_t dest, void *dest_addr,
   status = myPostFma(peer->ep_handle, pd);
 
   if_pf (status != GNI_RC_SUCCESS) {
-    gasnetc_return_cq_credit(); /* kind of pointless since we abort */
     print_post_desc("PutBuff", pd);
     gasnetc_GNIT_Abort("PutBuff failed with %s\n", gni_return_string(status));
   }
@@ -1453,9 +1409,6 @@ void gasnetc_rdma_get(gasnet_node_t dest,
     pd->local_mem_hndl = my_mem_handle;
   }
 
-  /* allocate space in the Cq */
-  while (!gasnetc_alloc_cq_credit()) gasnetc_poll_local_queue();
-
   /* now initiate the transfer according to fma/rdma cutover */
   /*  TODO: distnict Put and Get cut-overs */
   if (nbytes <= gasnetc_fma_rdma_cutover) {
@@ -1467,7 +1420,6 @@ void gasnetc_rdma_get(gasnet_node_t dest,
   }
 
   if_pf (status != GNI_RC_SUCCESS) {
-    gasnetc_return_cq_credit(); /* kind of pointless since we abort */
     print_post_desc("Get", pd);
     gasnetc_GNIT_Abort("Get failed with %s\n", gni_return_string(status));
   }
@@ -1519,9 +1471,6 @@ void gasnetc_rdma_get_unaligned(gasnet_node_t dest,
   pd->local_addr = (uint64_t) buffer;
   gpd->bounce_buffer = buffer + pre;
 
-  /* allocate space in the Cq */
-  while (!gasnetc_alloc_cq_credit()) gasnetc_poll_local_queue();
-
   /* now initiate the transfer according to fma/rdma cutover */
   /*  TODO: distnict Put and Get cut-overs */
   if (nbytes <= gasnetc_fma_rdma_cutover) {
@@ -1533,7 +1482,6 @@ void gasnetc_rdma_get_unaligned(gasnet_node_t dest,
   }
 
   if_pf (status != GNI_RC_SUCCESS) {
-    gasnetc_return_cq_credit(); /* kind of pointless since we abort */
     print_post_desc("Get", pd);
     gasnetc_GNIT_Abort("Get unaligned failed with %s\n", gni_return_string(status));
   }
@@ -1574,15 +1522,11 @@ int gasnetc_rdma_get_buff(gasnet_node_t dest, void *source_addr,
   pd->local_addr = (uint64_t) gpd->bounce_buffer;
   pd->local_mem_hndl = my_mem_handle;
 
-  /* allocate space in the Cq */
-  while (!gasnetc_alloc_cq_credit()) gasnetc_poll_local_queue();
-
   /* now initiate - *always* FMA for now */
   pd->type = GNI_POST_FMA_GET;
   status = myPostFma(peer->ep_handle, pd);
 
   if_pf (status != GNI_RC_SUCCESS) {
-    gasnetc_return_cq_credit(); /* kind of pointless since we abort */
     print_post_desc("GetBuff", pd);
     gasnetc_GNIT_Abort("GetBuff failed with %s\n", gni_return_string(status));
   }
