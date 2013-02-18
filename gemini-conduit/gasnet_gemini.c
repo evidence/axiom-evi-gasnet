@@ -904,7 +904,6 @@ void gasnetc_poll_smsg_queue(void)
 #if GASNETC_SMSG_RETRANSMIT
 
 static gasneti_lifo_head_t gasnetc_smsg_buffers = GASNETI_LIFO_INITIALIZER;
-static gasnetc_smsg_t **gasnetc_smsg_table = NULL;
 #define GC_SMGS_LAST_MSGID 0xFFFF0000 /* Values above this are "special" */
 #define GC_SMGS_NOP      0xFFFF0001 /* No completion action(s) */
 #define GC_SMGS_SHUTDOWN 0xFFFF0002
