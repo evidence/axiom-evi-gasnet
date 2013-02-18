@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core_fwd.h,v $
- *     $Date: 2013/02/06 07:51:12 $
- * $Revision: 1.8 $
+ *     $Date: 2013/02/18 23:57:25 $
+ * $Revision: 1.9 $
  * Description: GASNet header for <conduitname> conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -80,6 +80,15 @@ typedef ### gasnetc_handler_t;
 
   /* this can be used to add conduit-specific 
      statistical collection values (see gasnet_trace.h) */
-#define GASNETC_CONDUIT_STATS(CNT,VAL,TIME) 
+#define GASNETC_CONDUIT_STATS(CNT,VAL,TIME)       \
+        TIME(C, GET_AM_CREDIT_STALL, stalled time) \
+        TIME(C, ALLOC_PD_STALL, stalled time) \
+        TIME(C, ALLOC_BB_STALL, stalled time) \
+        TIME(C, MEM_REG_STALL, stalled time) \
+        VAL(C, POST_FMA_RETRY, retries) \
+        VAL(C, POST_RDMA_RETRY, retries) \
+        VAL(C, SMSG_SEND_RETRY, retries) \
+        VAL(C, MEM_REG_RETRY, retries) \
+        /* blank */
 
 #endif

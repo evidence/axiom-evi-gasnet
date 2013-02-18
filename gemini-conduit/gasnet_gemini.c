@@ -930,7 +930,7 @@ gasnetc_send_smsg(gasnet_node_t dest,
 {
   void * const header = &smsg->smsg_header;
   gni_return_t status;
-  const int max_trial = 4;
+  const int max_trials = 4;
   int trial = 0;
 
 #if GASNETC_SMSG_RETRANSMIT
@@ -952,12 +952,16 @@ gasnetc_send_smsg(gasnet_node_t dest,
                           data, data_length, msgid);
     GASNETC_UNLOCK_GNI();
 
-    if_pt (status == GNI_RC_SUCCESS) break;
+    if_pt (status == GNI_RC_SUCCESS) {
+      if (trial) GASNETC_STAT_EVENT_VAL(SMSG_SEND_RETRY, trial);
+      return GNI_RC_SUCCESS;
+    }
+
     if (status != GNI_RC_NOT_DONE) {
       gasnetc_GNIT_Abort("GNI_SmsgSend returned error %s\n", gni_return_string(status));
     }
 
-    if_pf (++trial == max_trial) {
+    if_pf (++trial == max_trials) {
       return GASNET_ERR_RESOURCE;
     }
 
@@ -967,14 +971,15 @@ gasnetc_send_smsg(gasnet_node_t dest,
        So, we retry a finite number of times.  -PHH 2012.05.12
        TODO: Determine why/how we see NOT_DONE.
      */
-    GASNETI_TRACE_PRINTF(A, ("smsg send got GNI_RC_NOT_DONE on trial %d\n", trial));
+    GASNETI_WAITHOOK();
     gasnetc_poll_local_queue();
   }
   return(GASNET_OK);
 }
 
 
-void gasnetc_poll_local_queue(void)
+GASNETI_NEVER_INLINE(gasnetc_poll_local_queue,
+void gasnetc_poll_local_queue(void))
 {
   gni_return_t status;
   gni_cq_entry_t event_data;
@@ -1114,12 +1119,16 @@ static gni_return_t myPostRdma(gni_ep_handle_t ep, gni_post_descriptor_t *pd)
       GASNETC_LOCK_GNI();
       status = GNI_PostRdma(ep, pd);
       GASNETC_UNLOCK_GNI();
-      if_pt (status == GNI_RC_SUCCESS) return status;
+      if_pt (status == GNI_RC_SUCCESS) {
+        if (trial) GASNETC_STAT_EVENT_VAL(POST_RDMA_RETRY, trial);
+        return GNI_RC_SUCCESS;
+      }
       if (status != GNI_RC_ERROR_RESOURCE) break; /* Fatal */
+      GASNETI_WAITHOOK();
       gasnetc_poll_local_queue();
   } while (++trial < max_trials);
   if (status == GNI_RC_ERROR_RESOURCE) {
-    fprintf(stderr, "postrdma retry failed\n");
+    gasnetc_GNIT_Log("PostRdma retry failed");
   }
   return status;
 }
@@ -1134,12 +1143,16 @@ static gni_return_t myPostFma(gni_ep_handle_t ep, gni_post_descriptor_t *pd)
       GASNETC_LOCK_GNI();
       status = GNI_PostFma(ep, pd);
       GASNETC_UNLOCK_GNI();
-      if_pt (status == GNI_RC_SUCCESS) return status;
+      if_pt (status == GNI_RC_SUCCESS) {
+        if (trial) GASNETC_STAT_EVENT_VAL(POST_FMA_RETRY, trial);
+        return GNI_RC_SUCCESS;
+      }
       if (status != GNI_RC_ERROR_RESOURCE) break; /* Fatal */
+      GASNETI_WAITHOOK();
       gasnetc_poll_local_queue();
   } while (++trial < max_trials);
   if (status == GNI_RC_ERROR_RESOURCE) {
-    fprintf(stderr, "postfma retry failed\n");
+    gasnetc_GNIT_Log("PostFma retry failed");
   }
   return status;
 }
@@ -1153,20 +1166,35 @@ static gni_return_t myRegisterPd(gni_post_descriptor_t *pd)
   int trial = 0;
   gni_return_t status;
 
-  while (!gasnetc_alloc_reg_credit()) gasnetc_poll_local_queue();
+  if_pf (!gasnetc_alloc_reg_credit()) {
+    /* We may simple not have polled the Cq recently.
+       So, WAITHOOK and STALL tracing only if still nothing after first poll */
+    GASNETC_TRACE_WAIT_BEGIN();
+    int stall = 0;
+    goto first;
+    do {
+      GASNETI_WAITHOOK();
+      stall = 1;
+first:
+      gasnetc_poll_local_queue();
+    } while (!gasnetc_alloc_reg_credit());
+    if_pf (stall) GASNETC_TRACE_WAIT_END(MEM_REG_STALL);
+  }
 
   do {
     GASNETC_LOCK_GNI();
     status = GNI_MemRegister(nic_handle, addr, nbytes, NULL,
                              gasnetc_memreg_flags, -1, &pd->local_mem_hndl);
     GASNETC_UNLOCK_GNI();
-    if_pt (status == GNI_RC_SUCCESS) break;
-    fprintf(stderr, "MemRegister fault %d at %p %lx, code %s\n",
-            trial, (void*)addr, (unsigned long)nbytes, gni_return_string(status));
+    if_pt (status == GNI_RC_SUCCESS) {
+      if (trial) GASNETC_STAT_EVENT_VAL(MEM_REG_RETRY, trial);
+      return GNI_RC_SUCCESS;
+    }
     if (status != GNI_RC_ERROR_RESOURCE) break; /* Fatal */
+    GASNETI_WAITHOOK();
   } while (++trial < max_trials);
   if (status == GNI_RC_ERROR_RESOURCE) {
-    fprintf(stderr, "memregister retry failed\n");
+    gasnetc_GNIT_Log("MemRegister retry failed");
   }
   return status;
 }
@@ -1542,9 +1570,13 @@ void gasnetc_get_am_credit(uint32_t pe)
   fprintf(stderr, "r %d get am credit for %d, before is %d\n",
 	 gasneti_mynode, pe, (int)gasneti_weakatomic_read(&peer_data[pe].am_credit, 0));
 #endif
-  while (gasnetc_weakatomic_dec_if_positive(p) == 0) {
-    gasneti_AMPoll();
-    gasneti_spinloop_hint();
+  if_pf (!gasnetc_weakatomic_dec_if_positive(p)) {
+    GASNETC_TRACE_WAIT_BEGIN();
+    do {
+      GASNETI_WAITHOOK();
+      gasneti_AMPoll();
+    } while (!gasnetc_weakatomic_dec_if_positive(p));
+    GASNETC_TRACE_WAIT_END(GET_AM_CREDIT_STALL);
   }
 }
 
@@ -1574,10 +1606,23 @@ void gasnetc_init_post_descriptor_pool(void)
 /* This needs no lock because there is an internal lock in the queue */
 gasnetc_post_descriptor_t *gasnetc_alloc_post_descriptor(void)
 {
-  gasnetc_post_descriptor_t *gpd;
-  while ((gpd = (gasnetc_post_descriptor_t *) 
-	  gasneti_lifo_pop(&post_descriptor_pool)) == NULL)
-    gasnetc_poll_local_queue();
+  gasnetc_post_descriptor_t *gpd =
+            (gasnetc_post_descriptor_t *) gasneti_lifo_pop(&post_descriptor_pool);
+  if_pf (!gpd) {
+    /* We may simple not have polled the Cq recently.
+       So, WAITHOOK and STALL tracing only if still nothing after first poll */
+    GASNETC_TRACE_WAIT_BEGIN();
+    int stall = 0;
+    goto first;
+    do {
+      GASNETI_WAITHOOK();
+      stall = 1;
+first:
+      gasnetc_poll_local_queue();
+      gpd = (gasnetc_post_descriptor_t *) gasneti_lifo_pop(&post_descriptor_pool);
+    } while (!gpd);
+    if_pf (stall) GASNETC_TRACE_WAIT_END(ALLOC_PD_STALL);
+  }
   return(gpd);
 }
 
@@ -1893,9 +1938,22 @@ void gasnetc_init_bounce_buffer_pool(void)
 
 void *gasnetc_alloc_bounce_buffer(void)
 {
-  void *buf;
-  while ((buf = gasneti_lifo_pop(&gasnetc_bounce_buffer_pool)) == NULL) 
-	 gasnetc_poll_local_queue();
+  void *buf = gasneti_lifo_pop(&gasnetc_bounce_buffer_pool);
+  if_pf (!buf) {
+    /* We may simple not have polled the Cq recently.
+       So, WAITHOOK and STALL tracing only if still nothing after first poll */
+    GASNETC_TRACE_WAIT_BEGIN();
+    int stall = 0;
+    goto first;
+    do {
+      GASNETI_WAITHOOK();
+      stall = 1;
+first:
+      gasnetc_poll_local_queue();
+      buf = gasneti_lifo_pop(&gasnetc_bounce_buffer_pool);
+    } while (!buf);
+    if_pf (stall) GASNETC_TRACE_WAIT_END(ALLOC_BB_STALL);
+  }
   return(buf);
 }
 

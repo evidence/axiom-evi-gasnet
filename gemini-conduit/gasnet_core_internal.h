@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core_internal.h,v $
- *     $Date: 2013/02/14 04:17:39 $
- * $Revision: 1.3 $
+ *     $Date: 2013/02/18 23:57:25 $
+ * $Revision: 1.4 $
  * Description: GASNet <conduitname> conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -38,8 +38,28 @@ typedef enum {
 #define gasnetc_assert_aligned(_val,_align)	gasneti_assert(!((uintptr_t)(_val) % (_align)))
 
 
+/* ------------------------------------------------------------------------------------ */
+
+#if GASNETI_STATS_OR_TRACE
+  #define GASNETC_TRACE_WAIT_BEGIN() \
+    gasneti_tick_t _waitstart = GASNETI_TICKS_NOW_IFENABLED(C)
+#else
+  #define GASNETC_TRACE_WAIT_BEGIN() \
+    static char _dummy = (char)sizeof(_dummy)
+#endif
+
+#define GASNETC_TRACE_WAIT_END(name) \
+  GASNETI_TRACE_EVENT_TIME(C,name,gasneti_ticks_now() - _waitstart)
+
+#define GASNETC_STAT_EVENT(name) \
+  _GASNETI_STAT_EVENT(C,name)
+#define GASNETC_STAT_EVENT_VAL(name,val) \
+  _GASNETI_STAT_EVENT_VAL(C,name,val)
+
+/* ------------------------------------------------------------------------------------ */
+/* intra-node exit coordination */
+
 #if GASNET_PSHM
-/* for intra-node exit coordination */
 typedef struct {
     int exitcode;
     volatile int present;
@@ -47,18 +67,21 @@ typedef struct {
 extern gasnetc_exitcode_t *gasnetc_exitcodes;
 #endif
 
-
-/* AuxSeg setup for registered bounce  and post descriptors*/
-
-extern gasneti_auxseg_request_t gasnetc_bounce_auxseg_alloc(gasnet_seginfo_t *auxseg_info);
-extern gasneti_auxseg_request_t gasnetc_pd_auxseg_alloc(gasnet_seginfo_t *auxseg_info);
-
+/* ------------------------------------------------------------------------------------ */
 /* Bootstrap collective operations */
 
 void gasnetc_bootstrapBarrier(void);
 void gasnetc_bootstrapExchange(void *src, size_t len, void *dest);
 
-#define GASNETC_AUXSEG_FNS() gasnetc_bounce_auxseg_alloc, \
+/* ------------------------------------------------------------------------------------ */
+/* AuxSeg setup for registered bounce  and post descriptors*/
+
+extern gasneti_auxseg_request_t gasnetc_bounce_auxseg_alloc(gasnet_seginfo_t *auxseg_info);
+extern gasneti_auxseg_request_t gasnetc_pd_auxseg_alloc(gasnet_seginfo_t *auxseg_info);
+
+#define GASNETC_AUXSEG_FNS() \
+    gasnetc_bounce_auxseg_alloc, \
     gasnetc_pd_auxseg_alloc,
 
+/* ------------------------------------------------------------------------------------ */
 #endif
