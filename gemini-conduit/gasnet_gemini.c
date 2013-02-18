@@ -1050,6 +1050,9 @@ void gasnetc_poll_local_queue(void)
 #endif
         gasnetc_am_long_packet_t *galp = &smsg->smsg_header.galp;
         const size_t header_length = GASNETC_HEADLEN(long, galp->header.numargs);
+#if GASNETC_SMSG_RETRANSMIT
+        smsg->buffer = NULL;
+#endif
         /* TODO: Use retry loop? */
         status = GNI_SmsgSend(peer_data[gpd->dest].ep_handle,
                               &smsg->smsg_header, header_length,
