@@ -903,10 +903,8 @@ void gasnetc_poll_smsg_queue(void)
 
 #if GASNETC_SMSG_RETRANSMIT
 
-static gasneti_lifo_head_t gasnetc_smsg_pool = GASNETI_LIFO_INITIALIZER;
 static gasneti_lifo_head_t gasnetc_smsg_buffers = GASNETI_LIFO_INITIALIZER;
 static gasnetc_smsg_t **gasnetc_smsg_table = NULL;
-#define GC_SMGS_POOL_CHUNKLEN 64
 #define GC_SMGS_LAST_MSGID 0xFFFF0000 /* Values above this are "special" */
 #define GC_SMGS_NOP      0xFFFF0001 /* No completion action(s) */
 #define GC_SMGS_SHUTDOWN 0xFFFF0002
@@ -920,18 +918,16 @@ void * gasnetc_smsg_buffer(size_t buffer_len) {
   return result ? result : gasneti_malloc(GASNETC_MSG_MAXSIZE); /* XXX: less? */
 }
 
-/* MUST call with GNI lock held */
 GASNETI_INLINE(gasnetc_free_smsg)
 void gasnetc_free_smsg(uint32_t msgid)
 {
   if_pt (msgid < GC_SMGS_LAST_MSGID) {
-    const uint32_t chunk = msgid / GC_SMGS_POOL_CHUNKLEN;
-    const uint32_t index = msgid % GC_SMGS_POOL_CHUNKLEN;
-    gasnetc_smsg_t *smsg = &gasnetc_smsg_table[chunk][index];
+    gasnetc_post_descriptor_t * const gpd = msgid + (gasnetc_post_descriptor_t *) gasnetc_pd_buffers.addr;
+    gasnetc_smsg_t * const smsg = &gpd->u.smsg;
     if (smsg->buffer) {
       gasneti_lifo_push(&gasnetc_smsg_buffers, smsg->buffer);
     }
-    gasneti_lifo_push(&gasnetc_smsg_pool, smsg);
+    gasnetc_free_post_descriptor(gpd);
   } else if_pf (msgid == GC_SMGS_SHUTDOWN) {
     gasneti_weakatomic_increment(&shutdown_smsg_counter, GASNETI_ATOMIC_NONE);
   }
@@ -939,43 +935,10 @@ void gasnetc_free_smsg(uint32_t msgid)
 
 gasnetc_smsg_t *gasnetc_alloc_smsg(void)
 {
-  gasnetc_smsg_t *result = (gasnetc_smsg_t *)gasneti_lifo_pop(&gasnetc_smsg_pool);
-
-  if_pf (NULL == result) {
-    GASNETC_LOCK_GNI(); /* Serializes realloc() vs gasnetc_free_smsg() */
-
-    /* retry holding lock to avoid redundant growers */
-    result = (gasnetc_smsg_t *)gasneti_lifo_pop(&gasnetc_smsg_pool);
-
-    if_pt (NULL == result) {
-      static uint32_t next_msgid = 0;
-
-      gasnetc_smsg_t *new_chunk = gasneti_malloc(GC_SMGS_POOL_CHUNKLEN * sizeof(gasnetc_smsg_t));
-      unsigned int chunks = next_msgid / GC_SMGS_POOL_CHUNKLEN;
-      int i;
-
-      gasnetc_smsg_table = gasneti_realloc(gasnetc_smsg_table, (chunks+1) * sizeof(gasnetc_smsg_t *));
-      gasnetc_smsg_table[chunks] = new_chunk;
-
-    #if GC_SMGS_POOL_CHUNKLEN > 1
-      for (i=0; i<GC_SMGS_POOL_CHUNKLEN; ++i) {
-        new_chunk[i].msgid = next_msgid++;
-        gasneti_lifo_link(new_chunk+i, new_chunk+i+1);
-      }
-      gasneti_lifo_push_many(&gasnetc_smsg_pool, new_chunk+1, new_chunk+GC_SMGS_POOL_CHUNKLEN-1);
-    #else
-      new_chunk[0].msgid = next_msgid++;
-    #endif
-
-      GASNETI_TRACE_PRINTF(A, ("smsg pool grew to %u\n", (unsigned int)next_msgid));
-
-      result = &new_chunk[0];
-    }
-
-    GASNETC_UNLOCK_GNI();
-  }
-
-  gasneti_assert(NULL != result);
+  gasnetc_post_descriptor_t *gpd = gasnetc_alloc_post_descriptor();
+  gasnetc_smsg_t * const result = &gpd->u.smsg;
+  /* TODO: allocate space in the gpd for a persistent msgid? (avoids integer division here) */
+  result->msgid = gpd - (gasnetc_post_descriptor_t *) gasnetc_pd_buffers.addr;
   return result;
 }
 

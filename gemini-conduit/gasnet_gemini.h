@@ -281,9 +281,8 @@ typedef struct gasnetc_post_descriptor {
   union {
   #if GASNETC_SMSG_RETRANSMIT
     gasnetc_smsg_t *smsg_p;
-  #else
-    gasnetc_smsg_t smsg;
   #endif
+    gasnetc_smsg_t smsg;
     char immediate[GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE];
   } u;
 } gasnetc_post_descriptor_t;
