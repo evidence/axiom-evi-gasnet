@@ -51,6 +51,9 @@ static gni_cq_handle_t destination_cq_handle;
 static void *smsg_mmap_ptr;
 static size_t smsg_mmap_bytes;
 
+static gasnet_seginfo_t gasnetc_bounce_buffers;
+static gasnet_seginfo_t gasnetc_pd_buffers;
+
 /*------ Resource accounting ------*/
 
 /* Limit outstanding reqs that need CQ slots */
@@ -723,9 +726,7 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
     if (status == GNI_RC_SUCCESS) {
       gasneti_assert((((uintptr_t) recv_header) & 7) == 0);
       numargs = recv_header->numargs;
-      if (numargs > gasnet_AMMaxArgs()) {
-	gasnetc_GNIT_Abort("numargs %d, max is %ld\n", numargs, gasnet_AMMaxArgs());
-      }
+      gasneti_assert(numargs <= gasnet_AMMaxArgs());
       GASNETI_TRACE_PRINTF(A, ("smsg r from %d to %d type %s\n", pe, gasneti_mynode, gasnetc_type_string(recv_header->command)));
       is_req = (1 & recv_header->command); /* Requests have ODD values */
       switch (recv_header->command) {
@@ -904,9 +905,6 @@ void gasnetc_poll_smsg_queue(void)
 #if GASNETC_SMSG_RETRANSMIT
 
 static gasneti_lifo_head_t gasnetc_smsg_buffers = GASNETI_LIFO_INITIALIZER;
-#define GC_SMGS_LAST_MSGID 0xFFFF0000 /* Values above this are "special" */
-#define GC_SMGS_NOP      0xFFFF0001 /* No completion action(s) */
-#define GC_SMGS_SHUTDOWN 0xFFFF0002
 
 /* For exit code, here for use in gasnetc_free_smsg */
 static gasneti_weakatomic_t shutdown_smsg_counter = gasneti_weakatomic_init(0);
@@ -920,16 +918,14 @@ void * gasnetc_smsg_buffer(size_t buffer_len) {
 GASNETI_INLINE(gasnetc_free_smsg)
 void gasnetc_free_smsg(uint32_t msgid)
 {
-  if_pt (msgid < GC_SMGS_LAST_MSGID) {
-    gasnetc_post_descriptor_t * const gpd = msgid + (gasnetc_post_descriptor_t *) gasnetc_pd_buffers.addr;
-    gasnetc_smsg_t * const smsg = &gpd->u.smsg;
-    if (smsg->buffer) {
-      gasneti_lifo_push(&gasnetc_smsg_buffers, smsg->buffer);
-    }
-    gasnetc_free_post_descriptor(gpd);
-  } else if_pf (msgid == GC_SMGS_SHUTDOWN) {
+  gasnetc_post_descriptor_t * const gpd = msgid + (gasnetc_post_descriptor_t *) gasnetc_pd_buffers.addr;
+  gasnetc_smsg_t * const smsg = &gpd->u.smsg;
+  if (smsg->buffer) {
+    gasneti_lifo_push(&gasnetc_smsg_buffers, smsg->buffer);
+  } else if_pf (smsg->smsg_header.header.command == GC_CMD_SYS_SHUTDOWN_REQUEST) {
     gasneti_weakatomic_increment(&shutdown_smsg_counter, GASNETI_ATOMIC_NONE);
   }
+  gasnetc_free_post_descriptor(gpd);
 }
 
 gasnetc_smsg_t *gasnetc_alloc_smsg(void)
@@ -1100,12 +1096,19 @@ void gasnetc_poll(void)
 
 void gasnetc_send_am_nop(uint32_t pe)
 {
+  int rc;
 #if GASNETC_SMSG_RETRANSMIT
-  static gasnetc_smsg_t m = { { { {GC_CMD_AM_NOP_REPLY, } } }, NULL, GC_SMGS_NOP };
+  gasnetc_smsg_t *smsg = gasnetc_alloc_smsg();
+  gasnetc_am_nop_packet_t *ganp = &smsg->smsg_header.ganp;
+  ganp->header.command = GC_CMD_AM_NOP_REPLY;
+ #if GASNET_DEBUG
+  ganp->header.numargs = 0;
+ #endif
 #else
   static gasnetc_smsg_t m = { { { {GC_CMD_AM_NOP_REPLY, } } } };
+  gasnetc_smsg_t * smsg = &m;
 #endif
-  int rc = gasnetc_send_smsg(pe, &m, sizeof(gasnetc_am_nop_packet_t), NULL, 0, 0);
+  rc = gasnetc_send_smsg(pe, smsg, sizeof(gasnetc_am_nop_packet_t), NULL, 0, 0);
   if_pf (rc) {
     gasnetc_GNIT_Abort("Failed to return AM credit\n");
   }
@@ -1658,8 +1661,7 @@ gasnetc_exitcode_t *gasnetc_exitcodes = NULL;
 extern void gasnetc_sys_SendShutdownMsg(gasnet_node_t peeridx, int shift, int exitcode)
 {
 #if GASNETC_SMSG_RETRANSMIT
-  static gasnetc_smsg_t shutdown_smsg[32];
-  gasnetc_smsg_t *smsg = &shutdown_smsg[shift];
+  gasnetc_smsg_t *smsg;
 #else
   static gasnetc_smsg_t shutdown_smsg;
   gasnetc_smsg_t *smsg = &shutdown_smsg;
@@ -1671,15 +1673,25 @@ extern void gasnetc_sys_SendShutdownMsg(gasnet_node_t peeridx, int shift, int ex
 #endif
   int result;
 
+#if GASNETC_SMSG_RETRANSMIT
+  if (0 == gasnetc_pd_buffers.addr) {
+    /* Exit before attach, so must populate gdp freelist */
+    const int count = 32; /* XXX: any reason to economize? */
+    gasnetc_pd_buffers.addr = gasneti_calloc(count, sizeof(gasnetc_post_descriptor_t));
+    gasnetc_pd_buffers.size = count * sizeof(gasnetc_post_descriptor_t);
+    gasnetc_init_post_descriptor_pool();
+  }
+  smsg = gasnetc_alloc_smsg();
+#endif
+
   gasnetc_sys_shutdown_packet_t *gssp = &smsg->smsg_header.gssp;
   GASNETI_TRACE_PRINTF(C,("Send SHUTDOWN Request to node %d w/ shift %d, exitcode %d",dest,shift,exitcode));
   gssp->header.command = GC_CMD_SYS_SHUTDOWN_REQUEST;
   gssp->header.misc    = exitcode; /* only 15 bits, but exit() only preserves low 8-bits anyway */
+#if GASNET_DEBUG
   gssp->header.numargs = 0;
-  gssp->header.handler = shift; /* log(distance) */
-#if GASNETC_SMSG_RETRANSMIT
-  smsg->msgid = GC_SMGS_SHUTDOWN;
 #endif
+  gssp->header.handler = shift; /* log(distance) */
   result = gasnetc_send_smsg(dest, smsg, sizeof(gasnetc_sys_shutdown_packet_t), NULL, 0, 0);
 #if GASNET_DEBUG
   if_pf (result) {

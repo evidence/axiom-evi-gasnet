@@ -182,6 +182,7 @@ typedef struct gasnetc_sys_shutdown_packet {
  * in the GC_Header_t
  */
 typedef union gasnetc_eq_packet {
+  GC_Header_t header;
   gasnetc_am_nop_packet_t ganp;
   gasnetc_am_short_packet_t gasp;
   gasnetc_am_medium_packet_t gamp;
@@ -240,8 +241,6 @@ void gasnetc_init_post_descriptor_pool(void);
 #define GASNETC_GNI_FMA_RDMA_CUTOVER_DEFAULT 4096
 #define GASNETC_GNI_FMA_RDMA_CUTOVER_MAX (4096*4)
 #define GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE 128
-gasnet_seginfo_t gasnetc_bounce_buffers;   /* fields addr and size */
-gasnet_seginfo_t gasnetc_pd_buffers;   /* fields addr and size */
 /* how many concurrent dynamic memory registrations to allow */
 #define GASNETC_GNI_MEMREG_DEFAULT 16 /* XXX: tune or auto-detect this! */
 

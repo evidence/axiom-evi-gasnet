@@ -1,5 +1,5 @@
 Gemini-conduit design notes, from code review 8/2010
-$Revision: 1.23 $
+$Revision: 1.24 $
 
 number of bounce buffers, make clear the effects of, in the readme
 
@@ -171,8 +171,4 @@ Items added post-review:
   * On Aries h/w SmsgSend (for AMs) also needs Cq space, and recent
     changes to embed the smsg struct in the post descriptor ensure that
     Cq slots for *explict* AMs can already be accounted for by bounding
-    the number of available gpds.
-  * TODO for Aries - SmsgSend paths that don't yet use any gpd:
-    - am_nop (implicit reply for AM credits)
-    - shutdown msgs, for which exit between Init and Attach must be
-      given extra consideration (the gpd freelist doesn't yet exist).
+    the number of available gpds, as can acks and shutdown msgs.
