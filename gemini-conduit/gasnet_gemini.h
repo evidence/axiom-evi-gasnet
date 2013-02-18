@@ -182,7 +182,7 @@ typedef struct gasnetc_sys_shutdown_packet {
  * in the GC_Header_t
  */
 typedef union gasnetc_eq_packet {
-  GC_Header_t header;
+  GC_Header_t header; /* must be first */
   gasnetc_am_nop_packet_t ganp;
   gasnetc_am_short_packet_t gasp;
   gasnetc_am_medium_packet_t gamp;

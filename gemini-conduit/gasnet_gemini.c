@@ -1104,7 +1104,7 @@ void gasnetc_send_am_nop(uint32_t pe)
   ganp->header.numargs = 0;
  #endif
 #else
-  static gasnetc_smsg_t m = { { { {GC_CMD_AM_NOP_REPLY, } } } };
+  static gasnetc_smsg_t m = { { {GC_CMD_AM_NOP_REPLY, } } };
   gasnetc_smsg_t * smsg = &m;
 #endif
   rc = gasnetc_send_smsg(pe, smsg, sizeof(gasnetc_am_nop_packet_t), NULL, 0, 0);
