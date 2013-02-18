@@ -1886,9 +1886,9 @@ gasneti_auxseg_request_t gasnetc_bounce_auxseg_alloc(gasnet_seginfo_t *auxseg_in
 /* This ident string is used by upcrun (and potentially by other tools) to estimate
  * the auxseg requirements, and gets rounded up.
  * So, this doesn't need to be an exact value.
- * As of 2013.02.08 I have systems with
- *     Gemini = 336 bytes
- *     Aries  = 352 bytes
+ * As of 2013.02.14 I have systems with
+ *     Gemini = 328 bytes
+ *     Aries  = 344 bytes
  */
 #if GASNET_CONDUIT_GEMINI
   #define GASNETC_SIZEOF_GDP 328
