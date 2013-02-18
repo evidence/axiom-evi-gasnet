@@ -370,8 +370,6 @@ uintptr_t gasnetc_init_messaging(void)
 
 #if GASNETC_SMSG_RETRANSMIT
   smsg_type = GNI_SMSG_TYPE_MBOX_AUTO_RETRANSMIT;
-  status = GNI_SmsgSetMaxRetrans(nic_handle, 1);
-  gasneti_assert_always (status == GNI_RC_SUCCESS);
 #else
   smsg_type = GNI_SMSG_TYPE_MBOX;
 #endif
