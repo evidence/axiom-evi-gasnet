@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/02/14 08:15:01 $
- * $Revision: 1.40 $
+ *     $Date: 2013/02/19 00:03:00 $
+ * $Revision: 1.41 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -989,7 +989,11 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
 
       /* Rdma data, block, then fall through to send header only */
       gasnetc_rdma_put_bulk(dest, dest_addr, source_addr, nbytes, gpd);
-      while(!gasneti_weakatomic_read(&done, 0)) gasnetc_poll_local_queue();
+      gasnetc_poll_local_queue();
+      while(!gasneti_weakatomic_read(&done, 0)) {
+        GASNETI_WAITHOOK();
+        gasnetc_poll_local_queue();
+      }
 
       nbytes = 0;
     }
@@ -1267,7 +1271,11 @@ extern int gasnetc_AMReplyLongM(
 
       /* Rdma data, block, then fall through to send header only */
       gasnetc_rdma_put_bulk(dest, dest_addr, source_addr, nbytes, gpd);
-      while(!gasneti_weakatomic_read(&done, 0)) gasnetc_poll_local_queue();
+      gasnetc_poll_local_queue();
+      while(!gasneti_weakatomic_read(&done, 0)) {
+        GASNETI_WAITHOOK();
+        gasnetc_poll_local_queue();
+      }
 
       nbytes = 0;
     }
