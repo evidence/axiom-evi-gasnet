@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/02/19 00:15:58 $
- * $Revision: 1.42 $
+ *     $Date: 2013/02/19 03:12:06 $
+ * $Revision: 1.43 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -694,6 +694,14 @@ static void gasnetc_atexit(void) {
 }
 #endif
 
+static void gasnetc_noop(void) { return; }
+static void gasnetc_disable_AMs(void) {
+  int i;
+  for (i = 0; i < GASNETC_MAX_NUMHANDLERS; ++i) {
+    gasnetc_handler[i] = (gasneti_handler_fn_t)&gasnetc_noop;
+  }
+}
+
 extern void gasnetc_exit(int exitcode) {
   /* once we start a shutdown, ignore all future SIGQUIT signals or we risk reentrancy */
   gasneti_reghandler(SIGQUIT, SIG_IGN);
@@ -708,6 +716,8 @@ extern void gasnetc_exit(int exitcode) {
   /* LCS Code modelled after portals-conduit */
   /* should prevent us from entering again */
   gasnetc_shutdownInProgress = 1;
+
+  gasnetc_disable_AMs();
 
     gasneti_reghandler(SIGALRM, SIG_DFL);
     alarm(2 + gasnetc_shutdown_seconds);
