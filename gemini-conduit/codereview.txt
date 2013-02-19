@@ -1,5 +1,5 @@
 Gemini-conduit design notes, from code review 8/2010
-$Revision: 1.26 $
+$Revision: 1.27 $
 
 number of bounce buffers, make clear the effects of, in the readme
 
@@ -151,7 +151,7 @@ either the sync synchronize in handle_am_X isn;t needed, or it doesn't work anyw
 Alternate atomic thing is a gasnet_semaphore_t 
 implementation is efficient.
 
-get rid of loop around printf failed to coordinate shutdown
+PHH DONE get rid of loop around printf failed to coordinate shutdown
 
 what does PMI_Finalize really mean? Is there a timer that is started?  Otherwise, bould move it above the flush_streams and trace_finish
 

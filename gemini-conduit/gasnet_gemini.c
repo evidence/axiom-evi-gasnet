@@ -550,34 +550,28 @@ void gasnetc_shutdown(void)
      release resources in the reverse order of acquisition
    */
 
-  /* for each rank */
-  tries = 0;
+  /* for each connected rank */
   left = gasneti_nodes - (GASNET_PSHM ? gasneti_nodemap_local_count : 1);
-  while (left > 0) {
-    tries += 1;
+  for (tries=0; tries<10; ++tries) {
     for (i = 0; i < gasneti_nodes; i += 1) {
       if (node_is_local(i)) continue; /* no connection to self or PSHM-reachable peers */
       if (peer_data[i].ep_handle != NULL) {
 	status = GNI_EpUnbind(peer_data[i].ep_handle);
-	if (status != GNI_RC_SUCCESS) {
-	  fprintf(stderr, "node %d shutdown epunbind %d try %d  got %s\n",
-		  gasneti_mynode, i, tries, gni_return_string(status));
-	} 
 	status = GNI_EpDestroy(peer_data[i].ep_handle);
-	if (status != GNI_RC_SUCCESS) {
-	  fprintf(stderr, "node %d shutdown epdestroy %d try %d  got %s\n",
-		  gasneti_mynode, i, tries, gni_return_string(status));
-	} else {
+	if (status == GNI_RC_SUCCESS) {
 	  peer_data[i].ep_handle = NULL;
 	  left -= 1;
 	}
       }
     }
-    if (tries >= 10) break;
+    if (!left) break;
+#if 0
+    GASNETI_WAITHOOK();
+    gasnetc_poll_local_queue();
+#endif
   }
   if (left > 0) {
-    fprintf(stderr, "node %d %d endpoints left after 10 tries\n", 
-	    gasneti_mynode, left);
+    gasnetc_GNIT_Log("at shutdown: %d endpoints left after 10 tries\n", left);
   }
 
   if (gasneti_attach_done) {
