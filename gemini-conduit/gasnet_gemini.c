@@ -736,8 +736,8 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
       case GC_CMD_SYS_SHUTDOWN_REQUEST: {
 	memcpy(&buffer, recv_header, sizeof(buffer.packet.gssp));
 	status = GNI_SmsgRelease(peer->ep_handle);
+	gasnetc_handle_sys_shutdown_packet(pe, &buffer.packet.gssp); /* <- run w/ lock held */
 	GASNETC_UNLOCK_GNI_IF_PAR();
-	gasnetc_handle_sys_shutdown_packet(pe, &buffer.packet.gssp);
 	gasneti_assert(is_req == 1); /* ensure NO call to gasnetc_return_am_credit() below */
 	gasneti_assert(need_reply == 0); /* ensure no reply is generated */
 	break;
@@ -1680,6 +1680,7 @@ extern void gasnetc_sys_SendShutdownMsg(gasnet_node_t peeridx, int shift, int ex
 
 
 /* this is called from poll when a shutdown packet arrives */
+/* NOTE: serialized by GNI_LOCK in caller */
 void gasnetc_handle_sys_shutdown_packet(uint32_t source, gasnetc_sys_shutdown_packet_t *sys)
 {
   uint32_t distance = 1 << sys->header.handler;
