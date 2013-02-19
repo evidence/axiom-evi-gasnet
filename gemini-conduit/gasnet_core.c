@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/02/19 03:12:06 $
- * $Revision: 1.43 $
+ *     $Date: 2013/02/19 03:25:35 $
+ * $Revision: 1.44 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -144,17 +144,14 @@ void gasnetc_bootstrapExchange(void *src, size_t len, void *dest) {
   status = PMI_Allgather(temporary, unsorted, itembytes);
   gasneti_free(temporary);
   if (status != PMI_SUCCESS) {
-    fprintf(stderr, "rank %d: PMI_Allgather failed\n", gasneti_mynode);
-    gasnetc_GNIT_Abort();
+    gasnetc_GNIT_Abort("PMI_Allgather failed rc=%d", status);
   }
 
   /* extract the records from the unsorted array by using the prepended node numbers */
   for (i = 0; i < gasneti_nodes; i += 1) {
     gasnet_node_t peer = unsorted[i * itemwords];
     if (peer >= gasneti_nodes) {
-      fprintf(stderr, "rank %d PMI_Allgather failed, item %d is %d\n", 
-	      gasneti_mynode, i, peer);
-      gasnetc_GNIT_Abort();
+      gasnetc_GNIT_Abort("PMI_Allgather failed, item %d has impossible rank %d", i, peer);
     }
     memcpy((void *) ((uintptr_t) dest + (peer * len)), &unsorted[(i * itemwords) + 1], len);
 #if GASNET_DEBUG
@@ -166,15 +163,13 @@ void gasnetc_bootstrapExchange(void *src, size_t len, void *dest) {
   /* verify exactly-once */
   for (i = 0; i < gasneti_nodes; i += 1) {
     if (!found[i]) {
-      fprintf(stderr, "rank %d Allgather rank %d missing\n", gasneti_mynode, i);
-      gasnetc_GNIT_Abort();
+      gasnetc_GNIT_Abort("PMI_Allgather failed: rank %d missing", i);
     }
   }
   gasneti_free(found);
   /* check own data */
   if (memcmp(src, (void *) ((uintptr_t ) dest + (gasneti_mynode * len)), len) != 0) {
-    fprintf(stderr, "rank %d, allgather error\n", gasneti_mynode);
-    gasnetc_GNIT_Abort();
+    gasnetc_GNIT_Abort("PMI_Allgather failed: slef data is incorrect");
   }
 #endif
 
