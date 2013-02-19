@@ -325,6 +325,7 @@ uintptr_t gasnetc_init_messaging(void)
   unsigned int bytes_per_mbox;
   unsigned int bytes_needed;
   unsigned int mb_maxcredit;
+  unsigned int am_maxcredit;
   int modes = 0;
 
 #if GASNETC_DEBUG
@@ -360,10 +361,10 @@ uintptr_t gasnetc_init_messaging(void)
 #endif
  
   { /* Determine credits for AMs: GASNET_NETWORKDEPTH */
-    int depth;
-    depth = gasneti_getenv_int_withdefault("GASNET_NETWORKDEPTH", GASNETC_NETWORKDEPTH_DEFAULT, 0);
-    /* XXX: +1 below is for credit "slop" seen on Aries, but WHY do we need it?!? */
-    mb_maxcredit = 2 * MAX(1,depth) + 1;
+    int depth = gasneti_getenv_int_withdefault("GASNET_NETWORKDEPTH",
+                                               GASNETC_NETWORKDEPTH_DEFAULT, 0);
+    am_maxcredit = MAX(1,depth); /* Min is 1 */
+    mb_maxcredit = 2 * am_maxcredit + 2; /* (req + reply) = 2 , +2 for "lag"?*/
   }
 
   { /* Determine Cq size: GASNETC_GNI_NUM_PD */
@@ -391,7 +392,7 @@ uintptr_t gasnetc_init_messaging(void)
     gasnetc_GNIT_Log("ep bound to %d, addr %d", i, all_addr[i]);
 #endif
     /* mem_handle will be set at end of gasnetc_init_segment */
-    gasneti_weakatomic_set(&peer_data[i].am_credit, mb_maxcredit / 2, 0); /* (req + reply) = 2 */
+    gasneti_weakatomic_set(&peer_data[i].am_credit, am_maxcredit, 0);
     peer_data[i].rank = i;
   }
   gasneti_free(all_addr);
