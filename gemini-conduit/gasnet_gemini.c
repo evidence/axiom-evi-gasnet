@@ -1645,8 +1645,6 @@ static uint32_t sys_exit_rcvd = 0;
 gasnetc_exitcode_t *gasnetc_exitcodes = NULL;
 #endif
 
-/* XXX: probably need to obtain am_credit or otherwise guard against
-   the possibility of GNI_SmsgSend() returning GNI_RC_NOT_DONE. */
 extern void gasnetc_sys_SendShutdownMsg(gasnet_node_t peeridx, int shift, int exitcode)
 {
 #if GASNETC_SMSG_RETRANSMIT
@@ -1665,7 +1663,7 @@ extern void gasnetc_sys_SendShutdownMsg(gasnet_node_t peeridx, int shift, int ex
 
 #if GASNETC_SMSG_RETRANSMIT
   if (0 == gasnetc_pd_buffers.addr) {
-    /* Exit before attach, so must populate gdp freelist */
+    /* If in exit before attach, must populate gdp freelist */
     const int count = 32; /* XXX: any reason to economize? */
     gasnetc_pd_buffers.addr = gasneti_calloc(count, sizeof(gasnetc_post_descriptor_t));
     gasnetc_pd_buffers.size = count * sizeof(gasnetc_post_descriptor_t);
@@ -1682,10 +1680,13 @@ extern void gasnetc_sys_SendShutdownMsg(gasnet_node_t peeridx, int shift, int ex
   gssp->header.numargs = 0;
 #endif
   gssp->header.handler = shift; /* log(distance) */
+
+  gasnetc_get_am_credit(dest);
+
   result = gasnetc_send_smsg(dest, smsg, sizeof(gasnetc_sys_shutdown_packet_t), NULL, 0, 0);
 #if GASNET_DEBUG
   if_pf (result) {
-    fprintf(stderr, "WARNING: gasnetc_send_smsg() call at Shutdown failed on node %i\n", (int)gasneti_mynode);
+    gasnetc_GNIT_Log("WARNING: gasnetc_send_smsg() call at Shutdown failed");
   }
 #endif
 }
@@ -1745,6 +1746,7 @@ extern int gasnetc_sys_exit(int *exitcode_p)
   int shift;
   gasneti_tick_t timeout_us = 1e6 * gasnetc_shutdown_seconds;
   gasneti_tick_t starttime = gasneti_ticks_now();
+  const int pre_attach = !gasneti_attach_done;
 
   GASNETI_TRACE_PRINTF(C,("Entering SYS EXIT"));
 
@@ -1791,6 +1793,8 @@ extern int gasnetc_sys_exit(int *exitcode_p)
   }
 #endif
 
+  if (pre_attach) gasneti_attach_done = 1; /* so we can poll for credits */
+
   for (distance = 1, shift = 0; distance < size; distance *= 2, ++shift) {
     gasnet_node_t peeridx = (distance >= size - rank) ? rank - (size - distance)
                                                       : rank + distance;
@@ -1810,6 +1814,8 @@ extern int gasnetc_sys_exit(int *exitcode_p)
       }
     }
   }
+
+  if (pre_attach) gasneti_attach_done = 0; /* so we clean up the right resources */
 
 #if GASNET_PSHM
   { /* publish final exit code */
