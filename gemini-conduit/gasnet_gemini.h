@@ -227,9 +227,9 @@ void gasnetc_init_post_descriptor_pool(void);
 
 /* use the auxseg mechanism to allocate registered memory for bounce buffers */
 /* we want at least this many post descriptors */
-#define GASNETC_GNI_MIN_NUM_PD_DEFAULT 4096
+#define GASNETC_GNI_MIN_NUM_PD_DEFAULT 128
 /* and preferably this much space */
-#define GASNETC_GNI_NUM_PD_DEFAULT (4096 * 4)
+#define GASNETC_GNI_NUM_PD_DEFAULT (128 * 4)
 /* we want at least this much space for bounce buffers */
 #define GASNETC_GNI_MIN_BOUNCE_SIZE_DEFAULT 65536
 /* and preferably this much space */
@@ -240,6 +240,7 @@ void gasnetc_init_post_descriptor_pool(void);
 /* a particular message up to this size goes via fma */
 #define GASNETC_GNI_FMA_RDMA_CUTOVER_DEFAULT 4096
 #define GASNETC_GNI_FMA_RDMA_CUTOVER_MAX (4096*4)
+/* space for immediate bounce buffer in the post descriptor */
 #define GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE 128
 /* how many concurrent dynamic memory registrations to allow */
 #define GASNETC_GNI_MEMREG_DEFAULT 16 /* XXX: tune or auto-detect this! */
