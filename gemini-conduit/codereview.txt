@@ -1,5 +1,5 @@
 Gemini-conduit design notes, from code review 8/2010
-$Revision: 1.25 $
+$Revision: 1.26 $
 
 number of bounce buffers, make clear the effects of, in the readme
 
@@ -158,8 +158,8 @@ what does PMI_Finalize really mean? Is there a timer that is started?  Otherwise
 
 Items added post-review:
 
-+ Document and enforce a minimum value of GASNET_NETWORKDEPTH
+PHH DONE: + Document and enforce a minimum value of GASNET_NETWORKDEPTH
 
-+ Does shutdown msg need an am_credit to avoid GNI_SmsgSend() failing w/ NOT_DONE?
+PHH DONE: + Does shutdown msg need an am_credit to avoid GNI_SmsgSend() failing w/ NOT_DONE?
 
 + Why do we still see NOT_DONE from SmsgSend (well before reaching shutdown).
