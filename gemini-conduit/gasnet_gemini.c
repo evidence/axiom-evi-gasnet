@@ -1660,6 +1660,7 @@ extern void gasnetc_sys_SendShutdownMsg(gasnet_node_t peeridx, int shift, int ex
 #else
   const gasnet_node_t dest = peeridx;
 #endif
+  gasnetc_sys_shutdown_packet_t *gssp;
   int result;
 
 #if GASNETC_SMSG_RETRANSMIT
@@ -1673,8 +1674,8 @@ extern void gasnetc_sys_SendShutdownMsg(gasnet_node_t peeridx, int shift, int ex
   smsg = gasnetc_alloc_smsg();
 #endif
 
-  gasnetc_sys_shutdown_packet_t *gssp = &smsg->smsg_header.gssp;
   GASNETI_TRACE_PRINTF(C,("Send SHUTDOWN Request to node %d w/ shift %d, exitcode %d",dest,shift,exitcode));
+  gssp = &smsg->smsg_header.gssp;
   gssp->header.command = GC_CMD_SYS_SHUTDOWN_REQUEST;
   gssp->header.misc    = exitcode; /* only 15 bits, but exit() only preserves low 8-bits anyway */
 #if GASNET_DEBUG
