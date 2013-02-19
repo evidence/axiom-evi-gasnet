@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/02/19 03:25:35 $
- * $Revision: 1.44 $
+ *     $Date: 2013/02/19 03:43:58 $
+ * $Revision: 1.45 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -169,7 +169,7 @@ void gasnetc_bootstrapExchange(void *src, size_t len, void *dest) {
   gasneti_free(found);
   /* check own data */
   if (memcmp(src, (void *) ((uintptr_t ) dest + (gasneti_mynode * len)), len) != 0) {
-    gasnetc_GNIT_Abort("PMI_Allgather failed: slef data is incorrect");
+    gasnetc_GNIT_Abort("PMI_Allgather failed: self data is incorrect");
   }
 #endif
 
