@@ -603,7 +603,7 @@ void gasnetc_shutdown(void)
 
 
 GASNETI_INLINE(gasnetc_handle_am_short_packet)
-void gasnetc_handle_am_short_packet(int req, gasnet_node_t source, 
+int gasnetc_handle_am_short_packet(int req, gasnet_node_t source, 
 			       gasnetc_am_short_packet_t *am)
 {
   int handlerindex = am->header.handler;
@@ -618,16 +618,11 @@ void gasnetc_handle_am_short_packet(int req, gasnet_node_t source,
 			    token,
 			    pargs,
 			    numargs);
-  if (!req) {
-    /* TODO: would returning credit before running handler help or hurt? */
-    gasnetc_return_am_credit(source);
-  } else if (the_token.need_reply) {
-    gasnetc_send_am_nop(source);
-  }
+  return the_token.need_reply;
 }
 
 GASNETI_INLINE(gasnetc_handle_am_medium_packet)
-void gasnetc_handle_am_medium_packet(int req, gasnet_node_t source, 
+int gasnetc_handle_am_medium_packet(int req, gasnet_node_t source, 
 				gasnetc_am_medium_packet_t *am, void* data)
 {
   int handlerindex = am->header.handler;
@@ -644,16 +639,11 @@ void gasnetc_handle_am_medium_packet(int req, gasnet_node_t source,
 			     numargs,
 			     data,
 			     am->header.misc);
-  if (!req) {
-    /* TODO: would returning credit before running handler help or hurt? */
-    gasnetc_return_am_credit(source);
-  } else if (the_token.need_reply) {
-    gasnetc_send_am_nop(source);
-  }
+  return the_token.need_reply;
 }
 
 GASNETI_INLINE(gasnetc_handle_am_long_packet)
-void gasnetc_handle_am_long_packet(int req, gasnet_node_t source, 
+int gasnetc_handle_am_long_packet(int req, gasnet_node_t source, 
 			      gasnetc_am_long_packet_t *am)
 {
   int handlerindex = am->header.handler;
@@ -670,12 +660,7 @@ void gasnetc_handle_am_long_packet(int req, gasnet_node_t source,
 			   numargs,
 			   am->data,
 			   am->data_length);
-  if (!req) {
-    /* TODO: would returning credit before running handler help or hurt? */
-    gasnetc_return_am_credit(source);
-  } else if (the_token.need_reply) {
-    gasnetc_send_am_nop(source);
-  }
+  return the_token.need_reply;
 }
 
 
@@ -695,7 +680,7 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
   size_t head_length;
   size_t length;
   uint32_t numargs;
-  int is_req;
+  int is_req, need_reply;
   for (;;) {
     GASNETC_LOCK_GNI();
     status = GNI_SmsgGetNext(peer->ep_handle, 
@@ -707,11 +692,12 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
       gasneti_assert(numargs <= gasnet_AMMaxArgs());
       GASNETI_TRACE_PRINTF(A, ("smsg r from %d to %d type %s\n", pe, gasneti_mynode, gasnetc_type_string(recv_header->command)));
       is_req = (1 & recv_header->command); /* Requests have ODD values */
+      need_reply = 0;
       switch (recv_header->command) {
       case GC_CMD_AM_NOP_REPLY: {
 	status = GNI_SmsgRelease(peer->ep_handle);
         GASNETC_UNLOCK_GNI_IF_PAR();
-	gasnetc_return_am_credit(pe);
+	gasneti_assert(is_req == 0); /* ensure call to gasnetc_return_am_credit() below */
 	break;
       }
       case GC_CMD_AM_SHORT:
@@ -720,7 +706,7 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
 	memcpy(&buffer, recv_header, head_length);
 	status = GNI_SmsgRelease(peer->ep_handle);
 	GASNETC_UNLOCK_GNI_IF_PAR();
-	gasnetc_handle_am_short_packet(is_req, pe, &buffer.packet.gasp);
+	need_reply = gasnetc_handle_am_short_packet(is_req, pe, &buffer.packet.gasp);
 	break;
       }
       case GC_CMD_AM_MEDIUM:
@@ -731,7 +717,7 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
 	gasneti_assert(recv_header->misc <= gasnet_AMMaxMedium());
 	status = GNI_SmsgRelease(peer->ep_handle);
 	GASNETC_UNLOCK_GNI_IF_PAR();
-	gasnetc_handle_am_medium_packet(is_req, pe, &buffer.packet.gamp, &buffer.raw[head_length]);
+	need_reply = gasnetc_handle_am_medium_packet(is_req, pe, &buffer.packet.gamp, &buffer.raw[head_length]);
 	break;
       }
       case GC_CMD_AM_LONG:
@@ -744,7 +730,7 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
 	}
 	status = GNI_SmsgRelease(peer->ep_handle);
 	GASNETC_UNLOCK_GNI_IF_PAR();
-	gasnetc_handle_am_long_packet(is_req, pe, &buffer.packet.galp);
+	need_reply = gasnetc_handle_am_long_packet(is_req, pe, &buffer.packet.galp);
 	break;
       }
       case GC_CMD_SYS_SHUTDOWN_REQUEST: {
@@ -752,11 +738,18 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
 	status = GNI_SmsgRelease(peer->ep_handle);
 	GASNETC_UNLOCK_GNI_IF_PAR();
 	gasnetc_handle_sys_shutdown_packet(pe, &buffer.packet.gssp);
+	gasneti_assert(is_req == 1); /* ensure NO call to gasnetc_return_am_credit() below */
+	gasneti_assert(need_reply == 0); /* ensure no reply is generated */
 	break;
       }
-      default: {
+      default:
 	gasnetc_GNIT_Abort("unknown packet type");
       }
+      if (!is_req) {
+        /* TODO: would returning credit before running handler help or hurt? */
+        gasnetc_return_am_credit(pe);
+      } else if (need_reply) {
+        gasnetc_send_am_nop(pe);
       }
       /* now check the SmsgRelease status */      
       if (status == GNI_RC_SUCCESS) {

@@ -130,8 +130,8 @@ enum GC_CMD { /* AM Request types must have ODD values */
     GC_CMD_AM_MEDIUM_REPLY,
     GC_CMD_AM_LONG,
     GC_CMD_AM_LONG_REPLY,
-    GC_CMD_AM_NOP_REPLY,
-    GC_CMD_SYS_SHUTDOWN_REQUEST   /* from portals-conduit */
+    GC_CMD_SYS_SHUTDOWN_REQUEST,
+    GC_CMD_AM_NOP_REPLY
 };
 
 
