@@ -1054,7 +1054,7 @@ void gasnetc_poll_local_queue(void))
       }
     } else if (status == GNI_RC_NOT_DONE) {
       break;
-    } else {
+    } else if (!gasnetc_shutdownInProgress) {
       gasnetc_GNIT_Log("bound CqGetEvent %s\n", gni_return_string(status));
     }
   }
