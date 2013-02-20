@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/02/20 03:09:17 $
- * $Revision: 1.46 $
+ *     $Date: 2013/02/20 21:40:03 $
+ * $Revision: 1.47 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -693,8 +693,8 @@ static void gasnetc_atexit(void) {
 
 static void gasnetc_exit_reqh(gasnet_token_t token, gasnet_handlerarg_t exitcode) {
   if (!gasnetc_shutdownInProgress) {
-    gasnetc_remoteShutdown = 1;
     gasneti_sighandlerfn_t handler = gasneti_reghandler(SIGQUIT, SIG_IGN);
+    gasnetc_remoteShutdown = 1;
     if ((handler != gasneti_defaultSignalHandler) &&
 #ifdef SIG_HOLD
 	(handler != (gasneti_sighandlerfn_t)SIG_HOLD) &&
