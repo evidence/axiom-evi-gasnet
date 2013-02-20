@@ -894,7 +894,7 @@ void gasnetc_free_smsg(uint32_t msgid)
   if (smsg->buffer) {
     gasneti_lifo_push(&gasnetc_smsg_buffers, smsg->buffer);
   } else if_pf (smsg->smsg_header.header.command == GC_CMD_SYS_SHUTDOWN_REQUEST) {
-    gasneti_weakatomic_increment(&shutdown_smsg_counter, GASNETI_ATOMIC_NONE);
+    gasneti_weakatomic_decrement(&shutdown_smsg_counter, GASNETI_ATOMIC_NONE);
   }
   gasnetc_free_post_descriptor(gpd);
 }
@@ -1657,6 +1657,7 @@ extern void gasnetc_sys_SendShutdownMsg(gasnet_node_t peeridx, int shift, int ex
     gasnetc_init_post_descriptor_pool();
   }
   smsg = gasnetc_alloc_smsg();
+  gasneti_weakatomic_increment(&shutdown_smsg_counter, GASNETI_ATOMIC_NONE);
 #endif
 
   GASNETI_TRACE_PRINTF(C,("Send SHUTDOWN Request to node %d w/ shift %d, exitcode %d",dest,shift,exitcode));
@@ -1697,20 +1698,6 @@ void gasnetc_handle_sys_shutdown_packet(uint32_t source, gasnetc_sys_shutdown_pa
     exitcode = oldcode;
   }
   sys_exit_rcvd |= distance;
-  if (!gasnetc_shutdownInProgress) {
-    gasneti_sighandlerfn_t handler = gasneti_reghandler(SIGQUIT, SIG_IGN);
-    if ((handler != gasneti_defaultSignalHandler) &&
-#ifdef SIG_HOLD
-	(handler != (gasneti_sighandlerfn_t)SIG_HOLD) &&
-#endif
-	(handler != (gasneti_sighandlerfn_t)SIG_ERR) &&
-	(handler != (gasneti_sighandlerfn_t)SIG_IGN) &&
-	(handler != (gasneti_sighandlerfn_t)SIG_DFL)) {
-      (void)gasneti_reghandler(SIGQUIT, handler);
-      raise(SIGQUIT);
-    }
-    if (!gasnetc_shutdownInProgress) gasnetc_exit(exitcode);
-  }
 }
 
 
@@ -1816,7 +1803,7 @@ extern int gasnetc_sys_exit(int *exitcode_p)
 
   #if GASNETC_SMSG_RETRANSMIT
   /* drain send completion events to avoid NOT_DONE at unbind: */
-    while (gasneti_weakatomic_read(&shutdown_smsg_counter, GASNETI_ATOMIC_NONE) != shift) {
+    while (gasneti_weakatomic_read(&shutdown_smsg_counter, GASNETI_ATOMIC_NONE)) {
       gasnetc_poll_local_queue();
       if (gasneti_ticks_to_us(gasneti_ticks_now() - starttime) > timeout_us) {
         result = 1; /* failure */

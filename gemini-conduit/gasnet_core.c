@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/02/19 03:43:58 $
- * $Revision: 1.45 $
+ *     $Date: 2013/02/20 03:09:17 $
+ * $Revision: 1.46 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -679,6 +679,8 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   return GASNET_OK;
 }
 /* ------------------------------------------------------------------------------------ */
+static int gasnetc_remoteShutdown = 0;
+
 #if HAVE_ON_EXIT
 static void gasnetc_on_exit(int exitcode, void *arg) {
   if (!gasnetc_shutdownInProgress) gasnetc_exit(exitcode);
@@ -688,6 +690,24 @@ static void gasnetc_atexit(void) {
   if (!gasnetc_shutdownInProgress) gasnetc_exit(0);
 }
 #endif
+
+static void gasnetc_exit_reqh(gasnet_token_t token, gasnet_handlerarg_t exitcode) {
+  if (!gasnetc_shutdownInProgress) {
+    gasnetc_remoteShutdown = 1;
+    gasneti_sighandlerfn_t handler = gasneti_reghandler(SIGQUIT, SIG_IGN);
+    if ((handler != gasneti_defaultSignalHandler) &&
+#ifdef SIG_HOLD
+	(handler != (gasneti_sighandlerfn_t)SIG_HOLD) &&
+#endif
+	(handler != (gasneti_sighandlerfn_t)SIG_ERR) &&
+	(handler != (gasneti_sighandlerfn_t)SIG_IGN) &&
+	(handler != (gasneti_sighandlerfn_t)SIG_DFL)) {
+      (void)gasneti_reghandler(SIGQUIT, handler);
+      raise(SIGQUIT);
+    }
+    if (!gasnetc_shutdownInProgress) gasnetc_exit(exitcode);
+  }
+}
 
 static void gasnetc_noop(void) { return; }
 static void gasnetc_disable_AMs(void) {
@@ -717,14 +737,40 @@ extern void gasnetc_exit(int exitcode) {
     gasneti_reghandler(SIGALRM, SIG_DFL);
     alarm(2 + gasnetc_shutdown_seconds);
 
-  if (gasnetc_sys_exit(&exitcode)) {
-    fprintf(stderr, "node %i Failed to coordinate shutdown after %lu milliseconds\n",gasneti_mynode,(unsigned long)(1e3*gasnetc_shutdown_seconds));
-    fflush(stderr);
-    /* Death of any process by a fatal signal will cause launcher to kill entire job.
-     * We don't use INT or TERM since one could be blocked if we are in its handler. */
-    
-    raise(SIGKILL);
-    gasneti_killmyprocess(exitcode); /* last chance */
+  if (gasnetc_remoteShutdown || gasnetc_sys_exit(&exitcode)) {
+    /* reduce-with-timeout(exitcode) failed: this is a non-collective exit */
+    const int pre_attach = !gasneti_attach_done;
+    unsigned int distance;
+
+    gasnetc_shutdown_seconds *= 2; /* allow twice as long as for the collective case */
+
+    alarm(2 + gasnetc_shutdown_seconds);
+    /* "best-effort" to induce a SIGQUIT on any nodes that aren't yet exiting.
+       We send to log(N) peers and expect everyone will "eventually" hear.
+       Those who are already exiting will ignore us, but will also be sending.
+     */
+    if (pre_attach) gasneti_attach_done = 1; /* so we can poll for credits */
+    for (distance = 1; distance < gasneti_nodes; distance *= 2) {
+      gasnet_node_t peer = (distance >= gasneti_nodes - gasneti_mynode)
+                                ? gasneti_mynode - (gasneti_nodes - distance)
+                                : gasneti_mynode + distance;
+      gasnetc_AMRequestShortM(peer, gasneti_handleridx(gasnetc_exit_reqh), 1, exitcode);
+    }
+    if (pre_attach) gasneti_attach_done = 0;
+
+    /* Now we try again, noting that any partial results from 1st attempt are harmless */
+    alarm(2 + gasnetc_shutdown_seconds);
+    if (gasnetc_sys_exit(&exitcode)) {
+#if 0
+      fprintf(stderr, "Failed to coordinate an orderly shutdown\n");
+      fflush(stderr);
+#endif
+
+      /* Death of any process by a fatal signal will cause launcher to kill entire job.
+       * We don't use INT or TERM since one could be blocked if we are in its handler. */
+      raise(SIGALRM); /* Consistent */
+      gasneti_killmyprocess(exitcode); /* last chance */
+    }
   }
   alarm(0);
 
@@ -1429,6 +1475,7 @@ static gasnet_handlerentry_t const gasnetc_handlers[] = {
     GASNETC_AUXSEG_HANDLERS(),
   #endif
   /* ptr-width independent handlers */
+    gasneti_handler_tableentry_no_bits(gasnetc_exit_reqh),
 
   /* ptr-width dependent handlers */
 
