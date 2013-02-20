@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcontend.c,v $
- *     $Date: 2011/06/03 22:24:22 $
- * $Revision: 1.19 $
+ *     $Date: 2013/02/20 20:37:04 $
+ * $Revision: 1.20 $
  *
  * Description: GASNet threaded contention tester.
  *   The test initializes GASNet and forks off up to 256 threads.  
@@ -26,7 +26,7 @@ typedef gasnet_handlerarg_t harg_t;
 
 /* configurable parameters */
 #define DEFAULT_ITERS 50
-int	iters = DEFAULT_ITERS;
+int	iters = 0;
 int amactive;
 int peer = -1;
 char *peerseg = NULL;
@@ -274,13 +274,18 @@ void *workerthread(void *args) {
   for (fnidx = 0; fnidx < NUM_FUNC; fnidx++) {
     int tcountpos;
 
+    /* ICK: */
+    if (!mythread) TEST_SECTION_BEGIN();
+    thread_barrier();
+    if (!TEST_SECTION_ENABLED()) continue;
+
     thread_barrier();
     if (mythread == 0 && gasnet_mynode() == 0) {
         MSG("--------------------------------------------------------------------------");
-        MSG("Running test %s", fntable[fnidx].desc);
-        MSG("--------------------------------------------------------------------------");
-        MSG(" Active-end threads\tPassive-end threads\tIterTime\tTotalTime");
-        MSG("--------------------------------------------------------------------------");
+        MSG("%c: Running test %s", TEST_SECTION_NAME(), fntable[fnidx].desc);
+        MSG("%c:------------------------------------------------------------------------", TEST_SECTION_NAME());
+        MSG("%c: Active-end threads\tPassive-end threads\tIterTime\tTotalTime",TEST_SECTION_NAME());
+        MSG("%c:------------------------------------------------------------------------", TEST_SECTION_NAME());
     }
 
     for (tcountpos = 0; tcountpos < tcountentries; tcountpos++) {
@@ -295,7 +300,8 @@ void *workerthread(void *args) {
       thread_barrier();
       if (mythread == 0 && amactive) { 
         const char *rpt = getreport();
-        if (rpt) MSG("\t   %d\t\t\t  %d\t\t%s", 
+        if (rpt) MSG("%c:\t   %d\t\t\t  %d\t\t%s", 
+          TEST_SECTION_NAME(),
           tcount[tcountpos].activecnt, tcount[tcountpos].passivecnt, rpt);
       }
     }
@@ -309,11 +315,14 @@ int main(int argc, char **argv) {
 
 	GASNET_Safe(gasnet_init(&argc, &argv));
     	GASNET_Safe(gasnet_attach(htable, HANDLER_TABLE_SIZE, TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
-	test_init("testcontend",1,"(maxthreads) (iters)");
+	test_init("testcontend",1,"(maxthreads) (iters) (test_sections)");
 
 	if (argc >= 2) maxthreads = atoi(argv[1]);
 	if (argc >= 3) iters = atoi(argv[2]);
-        if (argc > 3) test_usage();
+        if (iters < 1) iters = DEFAULT_ITERS;
+        if (argc >= 4) TEST_SECTION_PARSE(argv[3]);
+
+        if (argc > 4) test_usage();
 
 	if (maxthreads > TEST_MAXTHREADS || maxthreads < 1) {
 	  printf("Threads must be between 1 and %i\n", TEST_MAXTHREADS);
