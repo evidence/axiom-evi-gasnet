@@ -1472,7 +1472,7 @@ void gasnetc_rdma_get_unaligned(gasnet_node_t dest,
   pd->local_mem_hndl = my_mem_handle;
 
   /* confirm that the source is in-segment on the far end */
-  gasneti_boundscheck(dest, source_addr, nbytes);
+  gasneti_boundscheck(dest, source_addr, length);
 
   /* must always use immediate or bounce buffer */
   if (length < GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE) {
@@ -1489,7 +1489,7 @@ void gasnetc_rdma_get_unaligned(gasnet_node_t dest,
 
   /* now initiate the transfer according to fma/rdma cutover */
   /*  TODO: distnict Put and Get cut-overs */
-  if (nbytes <= gasnetc_fma_rdma_cutover) {
+  if (length <= gasnetc_fma_rdma_cutover) {
       pd->type = GNI_POST_FMA_GET;
       status = myPostFma(peer->ep_handle, pd);
   } else {
