@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2012/03/06 19:56:11 $
- * $Revision: 1.304 $
+ *     $Date: 2013/02/21 08:07:45 $
+ * $Revision: 1.305 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -2231,23 +2231,11 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
     i = 0;
     if (have_flow) {
       /* acks and credits travel packed in a "prefixed" argument, remaining args are shifted */
-      uint32_t acks;
-      uint32_t credits;
 
       /* "Grab" info w/ atomic load-and-clear operations: */
-#if GASNETC_ANY_PAR
-      do {
-        acks = gasnetc_atomic_read(&cep->am_flow.ack, 0);
-      } while (acks && !gasnetc_atomic_compare_and_swap(&cep->am_flow.ack, acks, 0, 0));
-      do {
-        credits = gasnetc_atomic_read(&cep->am_flow.credit, 0);
-      } while (credits && !gasnetc_atomic_compare_and_swap(&cep->am_flow.credit, credits, 0, 0));
-#else
-      acks = gasnetc_atomic_read(&cep->am_flow.ack, 0);
-      gasnetc_atomic_set(&cep->am_flow.ack, 0, 0);
-      credits = gasnetc_atomic_read(&cep->am_flow.credit, 0);
-      gasnetc_atomic_set(&cep->am_flow.credit, 0, 0);
-#endif
+      const uint32_t acks = gasnetc_atomic_swap(&cep->am_flow.ack, 0, 0);
+      const uint32_t credits = gasnetc_atomic_swap(&cep->am_flow.credit, 0, 0);
+
       gasneti_assert(acks <= 255);
       gasneti_assert(credits <= 255);
 

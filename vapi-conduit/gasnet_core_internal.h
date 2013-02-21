@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2012/03/06 19:56:11 $
- * $Revision: 1.229 $
+ *     $Date: 2013/02/21 08:07:45 $
+ * $Revision: 1.230 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -290,6 +290,19 @@ extern int gasnetc_ReplySysMedium(gasnet_token_t token,
                                    gasneti_atomic_decrement_and_test
   #define gasnetc_atomic_compare_and_swap \
                                    gasneti_atomic_compare_and_swap
+  #if GASNETI_HAVE_ATOMIC_SWAP
+    #define gasnetc_atomic_swap    gasneti_atomic_swap
+  #else
+    GASNETI_INLINE(gasnetc_atomic_swap)
+    gasnetc_atomic_val_t gasnetc_atomic_swap(gasnetc_atomic_t *p, gasnetc_atomic_val_t newval, int flags) {
+      gasnetc_atomic_val_t oldval;
+      do {
+        oldval = gasnetc_atomic_read(p, 0);
+      } while ((oldval != newval) &&
+               !gasnetc_atomic_compare_and_swap(p, oldval, newval, flags));
+      return oldval;
+    }
+  #endif
   #define gasnetc_atomic_add       gasneti_atomic_add
   #define gasnetc_atomic_subtract  gasneti_atomic_subtract
 #else
@@ -426,6 +439,12 @@ extern int gasnetc_ReplySysMedium(gasnet_token_t token,
     } else {
       return 0;
     }
+  }
+  GASNETI_INLINE(gasnetc_atomic_swap)
+  gasnetc_atomic_val_t gasnetc_atomic_swap(gasnetc_atomic_t *p, gasnetc_atomic_val_t newval, int flags) {
+    gasnetc_atomic_val_t oldval = *p;
+    *p = newval;
+    return oldval;
   }
   GASNETI_INLINE(gasnetc_atomic_add)
   gasnetc_atomic_val_t gasnetc_atomic_add(gasnetc_atomic_t *p, gasnetc_atomic_val_t op, int flags) {
