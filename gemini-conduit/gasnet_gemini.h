@@ -221,8 +221,6 @@ typedef struct {
 void gasnetc_get_am_credit(uint32_t pe);
 void gasnetc_return_am_credit(uint32_t pe);
 
-void gasnetc_send_am_nop(uint32_t pe);
-
 void gasnetc_init_post_descriptor_pool(void);
 
 /* use the auxseg mechanism to allocate registered memory for bounce buffers */
