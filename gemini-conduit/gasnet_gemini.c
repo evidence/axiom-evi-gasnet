@@ -1345,11 +1345,21 @@ int gasnetc_rdma_put(gasnet_node_t dest,
     pd->local_addr = (uint64_t) source_addr;
     status = myRegisterPd(pd);
     gasneti_assert_always (status == GNI_RC_SUCCESS);
-    result = 0; /* FMA may override */
+    result = 0;
+#if GASNET_CONDUIT_GEMINI
+    /* On Gemini (only) return from PostFma follows local completion.
+       However, that would change "result" here ONLY if we have
+         (gasnetc_fma_rdma_cutover > gasnetc_bounce_register_cutover)
+       which is NOT the normal case (4K and 8K, respectively).
+     */
+#endif
   } else {
     pd->local_addr = (uint64_t) source_addr;
     pd->local_mem_hndl = my_mem_handle;
-    result = 0; /* FMA may override */
+    result = 0;
+#if GASNET_CONDUIT_GEMINI
+    /* As above, Gemini FMA gives local completion, but not for default settings. */
+#endif
   }
 
   gasnetc_post_put(peer->ep_handle, pd);
