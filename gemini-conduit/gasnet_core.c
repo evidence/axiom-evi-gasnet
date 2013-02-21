@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/02/21 22:05:35 $
- * $Revision: 1.51 $
+ *     $Date: 2013/02/21 22:32:15 $
+ * $Revision: 1.52 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -75,7 +75,6 @@ static void gasnetc_check_config(void) {
   }
 }
 
-/* TODO: move all PMI_* env queries here to centralize PMI dependencies */
 static int gasnetc_bootstrapInit(int *argc, char ***argv) {
   int spawned, size, rank, appnum;
   const char *envval;
@@ -979,7 +978,7 @@ int gasnetc_long_common(gasnet_node_t dest, int cmd,
       gpd->flags = GC_POST_COMPLETION_FLAG;
 
       /* Rdma data, block, then fall through to send header only */
-      /* TODO: use POS_SEND and block only long enough for local completion? */
+      /* TODO: use POST_SEND and block only long enough for local completion? */
       gasnetc_rdma_put_bulk(dest, dest_addr, source_addr, nbytes, gpd);
       gasnetc_poll_local_queue();
       while(!gasneti_weakatomic_read(&done, 0)) {
