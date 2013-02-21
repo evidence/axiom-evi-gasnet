@@ -1472,7 +1472,7 @@ void gasnetc_rdma_get_unaligned(gasnet_node_t dest,
   pd->local_mem_hndl = my_mem_handle;
 
   /* confirm that the source is in-segment on the far end */
-  gasneti_boundscheck(dest, source_addr, length);
+  gasneti_boundscheck(dest, (void*)pd->remote_addr, pd->length);
 
   /* must always use immediate or bounce buffer */
   if (length < GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE) {
