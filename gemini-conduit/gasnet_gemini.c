@@ -1187,18 +1187,41 @@ first:
   return status;
 }
 
+/* initiate a Put according to fma/rdma cutover */
+GASNETI_INLINE(gasnetc_post_put)
+void gasnetc_post_put(gni_ep_handle_t ep, gni_post_descriptor_t *pd)
+{
+  gni_return_t status;
+  const size_t nbytes = pd->length;
+
+  /*  TODO: distnict Put and Get cut-overs */
+  if (nbytes <= gasnetc_fma_rdma_cutover) {
+      pd->type = GNI_POST_FMA_PUT;
+#if FIX_HT_ORDERING
+      pd->cq_mode = gasnetc_fma_put_cq_mode;
+#endif
+      status = myPostFma(ep, pd);
+  } else {
+      pd->type = GNI_POST_RDMA_PUT;
+      status = myPostRdma(ep, pd);
+  }
+
+  if_pf (status != GNI_RC_SUCCESS) {
+    print_post_desc("Put", pd);
+    gasnetc_GNIT_Abort("Put failed with %s\n", gni_return_string(status));
+  }
+}
+
 /* Perform an rdma/fma Put with no concern for local completion */
 void gasnetc_rdma_put_bulk(gasnet_node_t dest,
 		 void *dest_addr, void *source_addr,
 		 size_t nbytes, gasnetc_post_descriptor_t *gpd)
 {
   peer_struct_t * const peer = &peer_data[dest];
-  gni_post_descriptor_t *pd;
+  gni_post_descriptor_t * const pd = &gpd->pd;
   gni_return_t status;
 
   gasneti_assert(!node_is_local(dest));
-
-  pd = &gpd->pd;
 
   /*  bzero(&pd, sizeof(gni_post_descriptor_t)); */
   pd->cq_mode = GNI_CQMODE_GLOBAL_EVENT;
@@ -1238,23 +1261,7 @@ void gasnetc_rdma_put_bulk(gasnet_node_t dest,
     pd->local_mem_hndl = my_mem_handle;
   }
 
-  /* now initiate the transfer according to fma/rdma cutover */
-  /*  TODO: distnict Put and Get cut-overs */
-  if (nbytes <= gasnetc_fma_rdma_cutover) {
-      pd->type = GNI_POST_FMA_PUT;
-#if FIX_HT_ORDERING
-      pd->cq_mode = gasnetc_fma_put_cq_mode;
-#endif
-      status = myPostFma(peer->ep_handle, pd);
-  } else {
-      pd->type = GNI_POST_RDMA_PUT;
-      status = myPostRdma(peer->ep_handle, pd);
-  }
-
-  if_pf (status != GNI_RC_SUCCESS) {
-    print_post_desc("Put_bulk", pd);
-    gasnetc_GNIT_Abort("Put_bulk failed with %s\n", gni_return_string(status));
-  }
+  gasnetc_post_put(peer->ep_handle, pd);
 }
 
 /* Perform an rdma/fma Put which favors rapid local completion
@@ -1265,13 +1272,11 @@ int gasnetc_rdma_put(gasnet_node_t dest,
 		 size_t nbytes, gasnetc_post_descriptor_t *gpd)
 {
   peer_struct_t * const peer = &peer_data[dest];
-  gni_post_descriptor_t *pd;
+  gni_post_descriptor_t * const pd = &gpd->pd;
   gni_return_t status;
   int result = 1; /* assume local completion */
 
   gasneti_assert(!node_is_local(dest));
-
-  pd = &gpd->pd;
 
   /*  bzero(&pd, sizeof(gni_post_descriptor_t)); */
   pd->cq_mode = GNI_CQMODE_GLOBAL_EVENT;
@@ -1308,27 +1313,7 @@ int gasnetc_rdma_put(gasnet_node_t dest,
     result = 0; /* FMA may override */
   }
 
-  /* now initiate the transfer according to fma/rdma cutover */
-  /*  TODO: distnict Put and Get cut-overs */
-  if (nbytes <= gasnetc_fma_rdma_cutover) {
-      pd->type = GNI_POST_FMA_PUT;
-#if FIX_HT_ORDERING
-      pd->cq_mode = gasnetc_fma_put_cq_mode;
-#endif
-      status = myPostFma(peer->ep_handle, pd);
-#if GASNET_CONDUIT_GEMINI
-    /* On Gemini (only) return from PostFma follows local completion */
-    result = 1; /* even if was zeroed by choice of zero-copy */
-#endif
-  } else {
-      pd->type = GNI_POST_RDMA_PUT;
-      status = myPostRdma(peer->ep_handle, pd);
-  }
-
-  if_pf (status != GNI_RC_SUCCESS) {
-    print_post_desc("Put", pd);
-    gasnetc_GNIT_Abort("Put failed with %s\n", gni_return_string(status));
-  }
+  gasnetc_post_put(peer->ep_handle, pd);
 
   gasneti_assert((result == 0) || (result == 1)); /* ensures caller can use "&=" or "+=" */
   return result;
@@ -1339,7 +1324,7 @@ void gasnetc_rdma_put_buff(gasnet_node_t dest, void *dest_addr,
 		size_t nbytes, gasnetc_post_descriptor_t *gpd)
 {
   peer_struct_t * const peer = &peer_data[dest];
-  gni_post_descriptor_t *pd;
+  gni_post_descriptor_t * const pd = &gpd->pd;
   gni_return_t status;
 
   gasneti_assert(!node_is_local(dest));
@@ -1347,8 +1332,6 @@ void gasnetc_rdma_put_buff(gasnet_node_t dest, void *dest_addr,
 
   /* confirm that the destination is in-segment on the far end */
   gasneti_boundscheck(dest, dest_addr, nbytes);
-
-  pd = &gpd->pd;
 
   /*  bzero(&pd, sizeof(gni_post_descriptor_t)); */
   pd->cq_mode = GNI_CQMODE_GLOBAL_EVENT;
@@ -1367,8 +1350,30 @@ void gasnetc_rdma_put_buff(gasnet_node_t dest, void *dest_addr,
   status = myPostFma(peer->ep_handle, pd);
 
   if_pf (status != GNI_RC_SUCCESS) {
-    print_post_desc("PutBuff", pd);
-    gasnetc_GNIT_Abort("PutBuff failed with %s\n", gni_return_string(status));
+    print_post_desc("Put", pd);
+    gasnetc_GNIT_Abort("Put failed with %s\n", gni_return_string(status));
+  }
+}
+
+/* initiate a Get according to fma/rdma cutover */
+GASNETI_INLINE(gasnetc_post_get)
+void gasnetc_post_get(gni_ep_handle_t ep, gni_post_descriptor_t *pd)
+{
+  gni_return_t status;
+  const size_t nbytes = pd->length;
+
+  /*  TODO: distnict Put and Get cut-overs */
+  if (nbytes <= gasnetc_fma_rdma_cutover) {
+      pd->type = GNI_POST_FMA_GET;
+      status = myPostFma(ep, pd);
+  } else {
+      pd->type = GNI_POST_RDMA_GET;
+      status = myPostRdma(ep, pd);
+  }
+
+  if_pf (status != GNI_RC_SUCCESS) {
+    print_post_desc("Get", pd);
+    gasnetc_GNIT_Abort("Get failed with %s\n", gni_return_string(status));
   }
 }
 
@@ -1378,12 +1383,11 @@ void gasnetc_rdma_get(gasnet_node_t dest,
 		 size_t nbytes, gasnetc_post_descriptor_t *gpd)
 {
   peer_struct_t * const peer = &peer_data[dest];
-  gni_post_descriptor_t *pd;
+  gni_post_descriptor_t * const pd = &gpd->pd;
   gni_return_t status;
 
   gasneti_assert(!node_is_local(dest));
 
-  pd = &gpd->pd;
   gpd->flags |= GC_POST_GET;
 
   /*  bzero(&pd, sizeof(gni_post_descriptor_t)); */
@@ -1425,20 +1429,7 @@ void gasnetc_rdma_get(gasnet_node_t dest,
     pd->local_mem_hndl = my_mem_handle;
   }
 
-  /* now initiate the transfer according to fma/rdma cutover */
-  /*  TODO: distnict Put and Get cut-overs */
-  if (nbytes <= gasnetc_fma_rdma_cutover) {
-      pd->type = GNI_POST_FMA_GET;
-      status = myPostFma(peer->ep_handle, pd);
-  } else {
-      pd->type = GNI_POST_RDMA_GET;
-      status = myPostRdma(peer->ep_handle, pd);
-  }
-
-  if_pf (status != GNI_RC_SUCCESS) {
-    print_post_desc("Get", pd);
-    gasnetc_GNIT_Abort("Get failed with %s\n", gni_return_string(status));
-  }
+  gasnetc_post_get(peer->ep_handle, pd);
 }
 
 /* for get in which one or more of dest_addr, source_addr or nbytes is NOT divisible by 4 */
@@ -1447,8 +1438,7 @@ void gasnetc_rdma_get_unaligned(gasnet_node_t dest,
 		 size_t nbytes, gasnetc_post_descriptor_t *gpd)
 {
   peer_struct_t * const peer = &peer_data[dest];
-  gni_post_descriptor_t *pd;
-  gni_return_t status;
+  gni_post_descriptor_t * const pd = &gpd->pd;
   char * buffer;
 
   /* Compute length of "overfetch" required, if any */
@@ -1458,7 +1448,6 @@ void gasnetc_rdma_get_unaligned(gasnet_node_t dest,
 
   gasneti_assert(!node_is_local(dest));
 
-  pd = &gpd->pd;
   gasneti_assert(0 == (overfetch & ~GC_POST_COPY_TRIM));
   gpd->flags |= GC_POST_GET | GC_POST_COPY | overfetch;
   gpd->get_target = dest_addr;
@@ -1487,20 +1476,7 @@ void gasnetc_rdma_get_unaligned(gasnet_node_t dest,
   pd->local_addr = (uint64_t) buffer;
   gpd->bounce_buffer = buffer + pre;
 
-  /* now initiate the transfer according to fma/rdma cutover */
-  /*  TODO: distnict Put and Get cut-overs */
-  if (length <= gasnetc_fma_rdma_cutover) {
-      pd->type = GNI_POST_FMA_GET;
-      status = myPostFma(peer->ep_handle, pd);
-  } else {
-      pd->type = GNI_POST_RDMA_GET;
-      status = myPostRdma(peer->ep_handle, pd);
-  }
-
-  if_pf (status != GNI_RC_SUCCESS) {
-    print_post_desc("Get", pd);
-    gasnetc_GNIT_Abort("Get unaligned failed with %s\n", gni_return_string(status));
-  }
+  gasnetc_post_get(peer->ep_handle, pd);
 }
 
 /* Get into bounce_buffer indicated in the gpd
@@ -1513,7 +1489,7 @@ int gasnetc_rdma_get_buff(gasnet_node_t dest, void *source_addr,
 		size_t nbytes, gasnetc_post_descriptor_t *gpd)
 {
   peer_struct_t * const peer = &peer_data[dest];
-  gni_post_descriptor_t *pd;
+  gni_post_descriptor_t * const pd = &gpd->pd;
   gni_return_t status;
 
   /* Compute length of "overfetch" required, if any */
@@ -1526,8 +1502,6 @@ int gasnetc_rdma_get_buff(gasnet_node_t dest, void *source_addr,
 
   /* confirm that the source is in-segment on the far end */
   gasneti_boundscheck(dest, source_addr, nbytes);
-
-  pd = &gpd->pd;
 
   /*  bzero(&pd, sizeof(gni_post_descriptor_t)); */
   pd->cq_mode = GNI_CQMODE_GLOBAL_EVENT;
@@ -1543,8 +1517,8 @@ int gasnetc_rdma_get_buff(gasnet_node_t dest, void *source_addr,
   status = myPostFma(peer->ep_handle, pd);
 
   if_pf (status != GNI_RC_SUCCESS) {
-    print_post_desc("GetBuff", pd);
-    gasnetc_GNIT_Abort("GetBuff failed with %s\n", gni_return_string(status));
+    print_post_desc("Get", pd);
+    gasnetc_GNIT_Abort("Get failed with %s\n", gni_return_string(status));
   }
 
   return pre;
