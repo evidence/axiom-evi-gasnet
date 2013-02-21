@@ -1,5 +1,5 @@
 Gemini-conduit design notes, from code review 8/2010
-$Revision: 1.28 $
+$Revision: 1.29 $
 
 number of bounce buffers, make clear the effects of, in the readme
 
@@ -167,3 +167,5 @@ PHH DONE: + Does shutdown msg need an am_credit to avoid GNI_SmsgSend() failing 
 + If am_credits[] were in aux-seg, then could use AMO for gasnetc_send_am_nop().
 
 + Since pd's *are* in aux-seg, might use FMA for other internal purpose(s).
+
++ Requests could carry "banked" credits (if we can find header space)
