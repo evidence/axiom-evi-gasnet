@@ -56,6 +56,8 @@ static size_t smsg_mmap_bytes;
 static gasnet_seginfo_t gasnetc_bounce_buffers;
 static gasnet_seginfo_t gasnetc_pd_buffers;
 
+static unsigned int am_maxcredit;
+
 /*------ Resource accounting ------*/
 
 /* Limit the number of active dynamic memory registrations */
@@ -327,7 +329,6 @@ uintptr_t gasnetc_init_messaging(void)
   unsigned int bytes_per_mbox;
   unsigned int bytes_needed;
   unsigned int mb_maxcredit;
-  unsigned int am_maxcredit;
   int modes = 0;
 
 #if GASNETC_DEBUG
@@ -682,28 +683,30 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
     uint8_t raw[GASNETC_HEADLEN(medium, gasnet_AMMaxArgs()) + gasnet_AMMaxMedium()];
     uint64_t dummy_for_alignment;
   } buffer;
-  size_t head_length;
-  size_t length;
-  uint32_t numargs;
-  int is_req, need_reply;
   for (;;) {
     GASNETC_LOCK_GNI();
     status = GNI_SmsgGetNext(peer->ep_handle, 
 			     (void **) &recv_header);
     GASNETC_UNLOCK_GNI_IF_SEQ();
     if (status == GNI_RC_SUCCESS) {
+      const uint32_t numargs = recv_header->numargs;
+      const int is_req = (1 & recv_header->command); /* Requests have ODD values */
+      const unsigned int credits = recv_header->credit + !is_req;
+      int need_reply = 0;
+      size_t head_length;
+      size_t length;
+
       gasneti_assert((((uintptr_t) recv_header) & 7) == 0);
-      numargs = recv_header->numargs;
       gasneti_assert(numargs <= gasnet_AMMaxArgs());
       GASNETI_TRACE_PRINTF(A, ("smsg r from %d to %d type %s\n", pe, gasneti_mynode, gasnetc_type_string(recv_header->command)));
-      is_req = (1 & recv_header->command); /* Requests have ODD values */
-      need_reply = 0;
+
       switch (recv_header->command) {
       case GC_CMD_AM_NOP_REPLY: {
 	status = GNI_SmsgRelease(peer->ep_handle);
         GASNETC_UNLOCK_GNI_IF_PAR();
-        gasneti_weakatomic_add(&peer_data[pe].am_credit,(bank_credits+1),0);
-        goto no_reply; /* credits already adjusted */
+	gasneti_assert(is_req == 0); /* ensure implied credit */
+	gasneti_assert(need_reply == 0); /* ensure no reply is generated */
+ 	/* fall through to credit handling */
 	break;
       }
       case GC_CMD_AM_SHORT:
@@ -744,19 +747,25 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
 	status = GNI_SmsgRelease(peer->ep_handle);
 	gasnetc_handle_sys_shutdown_packet(pe, &buffer.packet.gssp); /* <- run w/ lock held */
 	GASNETC_UNLOCK_GNI_IF_PAR();
-        goto no_reply; /* no credits involved */
+	gasneti_assert(is_req == 1); /* ensure no implied credit */
+	gasneti_assert(need_reply == 0); /* ensure no reply is generated */
 	break;
       }
       default:
 	gasnetc_GNIT_Abort("unknown packet type");
       }
-      if (!is_req) {
-        /* TODO: would returning credit before running handler help or hurt? */
-        gasnetc_return_am_credit(pe);
-      } else if (need_reply) {
+      if (need_reply) {
         gasnetc_send_credit(pe);
       }
-no_reply:
+      if (credits) {
+        GASNETI_UNUSED_UNLESS_DEBUG int newval = 
+            gasneti_weakatomic_add(&peer->am_credit, credits, GASNETI_ATOMIC_NONE);
+        gasneti_assert(newval <= am_maxcredit);
+      #if GASNETC_DEBUG
+        fprintf(stderr, "r %d return %d am credit(s) for %d, after is %d\n",
+	        gasneti_mynode, pe, credits, newval);
+      #endif
+      }
       /* now check the SmsgRelease status */      
       if (status == GNI_RC_SUCCESS) {
 	/* LCS nothing to do */
@@ -922,7 +931,7 @@ gasnetc_send_smsg(gasnet_node_t dest,
                   gasnetc_smsg_t *smsg, int header_length, 
                   void *data, int data_length, int do_copy)
 {
-  void * const header = &smsg->smsg_header;
+  gasnetc_packet_t * const smsg_header = &smsg->smsg_header;
   gni_return_t status;
   const int max_trials = 4;
   int trial = 0;
@@ -937,12 +946,15 @@ gasnetc_send_smsg(gasnet_node_t dest,
 
   gasneti_assert(!node_is_local(dest));
 
-  GASNETI_TRACE_PRINTF(A, ("smsg s from %d to %d type %s\n", gasneti_mynode, dest, gasnetc_type_string(((GC_Header_t *) header)->command)));
+  GASNETI_TRACE_PRINTF(A, ("smsg s from %d to %d type %s\n", gasneti_mynode, dest,
+                           gasnetc_type_string(smsg_header->header.command)));
+
+  smsg_header->header.credit = gasnetc_weakatomic_swap(&peer_data[dest].am_credit_bank, 0);
 
   for (;;) {
     GASNETC_LOCK_GNI();
     status = GNI_SmsgSend(peer_data[dest].ep_handle,
-                          header, header_length,
+                          smsg_header, header_length,
                           data, data_length, msgid);
     GASNETC_UNLOCK_GNI();
 
@@ -1012,11 +1024,13 @@ void gasnetc_poll_local_queue(void))
 #endif
         gasnetc_am_long_packet_t *galp = &smsg->smsg_header.galp;
         const size_t header_length = GASNETC_HEADLEN(long, galp->header.numargs);
+        peer_struct_t * const peer = &peer_data[gpd->dest];
 #if GASNETC_SMSG_RETRANSMIT
         smsg->buffer = NULL;
 #endif
         /* TODO: Use retry loop? */
-        status = GNI_SmsgSend(peer_data[gpd->dest].ep_handle,
+        smsg->smsg_header.header.credit = gasnetc_weakatomic_swap(&peer->am_credit_bank, 0);
+        status = GNI_SmsgSend(peer->ep_handle,
                               &smsg->smsg_header, header_length,
                               NULL, 0,  msgid);
         gasneti_assert_always (status == GNI_RC_SUCCESS);
@@ -1060,36 +1074,27 @@ void gasnetc_poll(void)
   gasnetc_poll_local_queue();
 }
 
-GASNETI_INLINE(gasnetc_send_am_nop)
-void gasnetc_send_am_nop(uint32_t pe)
-{
-  int rc;
-#if GASNETC_SMSG_RETRANSMIT
-  gasnetc_smsg_t *smsg = gasnetc_alloc_smsg();
-  gasnetc_am_nop_packet_t *ganp = &smsg->smsg_header.ganp;
-  ganp->header.command = GC_CMD_AM_NOP_REPLY;
- #if GASNET_DEBUG
-  ganp->header.numargs = 0;
- #endif
-#else
-  static gasnetc_smsg_t m = { { {GC_CMD_AM_NOP_REPLY, } } };
-  gasnetc_smsg_t * smsg = &m;
-#endif
-  rc = gasnetc_send_smsg(pe, smsg, sizeof(gasnetc_am_nop_packet_t), NULL, 0, 0);
-  if_pf (rc) {
-    gasnetc_GNIT_Abort("Failed to return AM credit\n");
-  }
-}
-
+GASNETI_INLINE(gasnetc_send_credit)
 void gasnetc_send_credit(uint32_t pe)
 {
-  gasneti_weakatomic_val_t new_val = gasneti_weakatomic_add(&peer_data[pe].am_credit_bank,1,0);
- 
   /* bank_credits = 0: all credits result in a smsg sent
-   * bank_credits = 1: every other credit sends an smsg
+   * bank_credits = 1: send only if 1 credit is alrady banked, otherwise bank this one
    */
-  if (new_val & bank_credits) return;
-  gasnetc_send_am_nop(pe);
+  if (!bank_credits || gasnetc_weakatomic_swap(&peer_data[pe].am_credit_bank, 1)) {
+    GASNETC_DECL_SMSG(smsg);
+    gasnetc_am_nop_packet_t *ganp = &smsg->smsg_header.ganp;
+    int rc;
+
+    ganp->header.command = GC_CMD_AM_NOP_REPLY;
+  #if GASNET_DEBUG
+    ganp->header.numargs = 0;
+  #endif
+
+    rc = gasnetc_send_smsg(pe, smsg, sizeof(gasnetc_am_nop_packet_t), NULL, 0, 0);
+    if_pf (rc) {
+      gasnetc_GNIT_Abort("Failed to return AM implicit credit\n");
+    }
+  }
 }
 
 GASNETI_NEVER_INLINE(print_post_desc,
@@ -1559,15 +1564,6 @@ void gasnetc_get_am_credit(uint32_t pe)
   }
 }
 
-void gasnetc_return_am_credit(uint32_t pe)
-{
-  gasneti_weakatomic_increment(&peer_data[pe].am_credit, GASNETI_ATOMIC_NONE);
-#if GASNETC_DEBUG
-  fprintf(stderr, "r %d return am credit for %d, after is %d\n",
-	 gasneti_mynode, pe, (int)gasneti_weakatomic_read(&peer_data[pe].am_credit, 0));
-#endif
-}
-
 static gasneti_lifo_head_t post_descriptor_pool = GASNETI_LIFO_INITIALIZER;
 
 /* Needs no lock because it is called only from the init code */
@@ -1654,7 +1650,7 @@ extern void gasnetc_sys_SendShutdownMsg(gasnet_node_t peeridx, int shift, int ex
   GASNETI_TRACE_PRINTF(C,("Send SHUTDOWN Request to node %d w/ shift %d, exitcode %d",dest,shift,exitcode));
   gssp = &smsg->smsg_header.gssp;
   gssp->header.command = GC_CMD_SYS_SHUTDOWN_REQUEST;
-  gssp->header.misc    = exitcode; /* only 15 bits, but exit() only preserves low 8-bits anyway */
+  gssp->header.misc    = exitcode; /* only 14 bits, but exit() only preserves low 8-bits anyway */
 #if GASNET_DEBUG
   gssp->header.numargs = 0;
 #endif

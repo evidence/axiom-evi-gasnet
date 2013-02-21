@@ -137,7 +137,8 @@ enum GC_CMD { /* AM Request types must have ODD values */
 
 typedef struct GC_Header {
   uint32_t command : 4;        /* GC_CMD */
-  uint32_t misc    : 15;       /* msg-dependent field (e.g. nbytes in a Medium) */
+  uint32_t credit  : 1;        /* piggybacked credit in addition to one implied by a Reply */
+  uint32_t misc    : 14;       /* msg-dependent field (e.g. nbytes in a Medium) */
   uint32_t numargs : 5;        /* number of GASNet arguments */
   uint32_t handler : 8;        /* index of GASNet handler */
 } GC_Header_t;
@@ -208,7 +209,6 @@ typedef union gasnetc_eq_packet {
 #define GASNETC_MAX_PACKED_LONG(nargs) \
         (GASNETC_MSG_MAXSIZE - GASNETC_HEADLEN(long, (nargs)) - 8)
 
-/* XXX: warning if this changes then also edit gasnet_gemini.c:gasnetc_send_am_nop() */
 typedef struct {
   gasnetc_packet_t smsg_header;
 #if GASNETC_SMSG_RETRANSMIT
@@ -217,9 +217,16 @@ typedef struct {
 #endif
 } gasnetc_smsg_t;
 
+#if GASNETC_SMSG_RETRANSMIT
+  #define GASNETC_DECL_SMSG(_name) \
+    gasnetc_smsg_t *_name = gasnetc_alloc_smsg() /* no semi-colon */
+#else
+  #define GASNETC_DECL_SMSG(_name) \
+    gasnetc_smsg_t _##_name; \
+    gasnetc_smsg_t *_name = &_##_name /* no semi-colon */
+#endif
 
 void gasnetc_get_am_credit(uint32_t pe);
-void gasnetc_return_am_credit(uint32_t pe);
 
 void gasnetc_init_post_descriptor_pool(void);
 
@@ -359,6 +366,27 @@ int gasnetc_weakatomic_dec_if_positive(gasneti_weakatomic_t *p)
   if_pf (old == 0) return 0;
   gasneti_weakatomic_set(p, old-1, GASNETI_ATOMIC_NONE);
   return 1;
+#endif
+}
+
+GASNETI_INLINE(gasnetc_weakatomic_swap)
+gasneti_weakatomic_val_t gasnetc_weakatomic_swap(gasneti_weakatomic_t *p, gasneti_weakatomic_val_t newval)
+{
+#if GASNETI_THREADS || defined(GASNETI_FORCE_TRUE_WEAKATOMICS)
+  #if GASNETI_HAVE_ATOMIC_SWAP
+    return gasneti_atomic_swap(p, newval, GASNETI_ATOMIC_NONE);
+  #else
+    gasnetc_atomic_val_t oldval;
+    do {
+      oldval = gasneti_atomic_read(p, GASNETI_ATOMIC_NONE);
+    } while ((oldval != newval) &&
+               !gasneti_atomic_compare_and_swap(p, oldval, newval, flags));
+    return oldval;
+  #endif
+#else
+  const gasneti_weakatomic_val_t oldval = gasneti_weakatomic_read(p, GASNETI_ATOMIC_NONE);
+  gasneti_weakatomic_set(p, newval, GASNETI_ATOMIC_NONE);
+  return oldval;
 #endif
 }
 

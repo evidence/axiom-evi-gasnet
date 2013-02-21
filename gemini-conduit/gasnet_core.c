@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/02/21 06:53:52 $
- * $Revision: 1.49 $
+ *     $Date: 2013/02/21 20:42:50 $
+ * $Revision: 1.50 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -856,15 +856,6 @@ extern int gasnetc_AMPoll(void) {
   Active Message Request Functions
   ================================
 */
-
-#if GASNETC_SMSG_RETRANSMIT
-  #define GASNETC_DECL_SMSG(_name) \
-    gasnetc_smsg_t *_name = gasnetc_alloc_smsg() /* no semi-colon */
-#else
-  #define GASNETC_DECL_SMSG(_name) \
-    gasnetc_smsg_t _##_name; \
-    gasnetc_smsg_t *_name = &_##_name /* no semi-colon */
-#endif
 
 GASNETI_INLINE(gasnetc_short_common)
 int gasnetc_short_common(gasnet_node_t dest, int cmd,
