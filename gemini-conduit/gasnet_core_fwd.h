@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core_fwd.h,v $
- *     $Date: 2013/02/18 23:57:25 $
- * $Revision: 1.9 $
+ *     $Date: 2013/02/21 23:32:06 $
+ * $Revision: 1.10 $
  * Description: GASNet header for <conduitname> conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -89,6 +89,7 @@ typedef ### gasnetc_handler_t;
         VAL(C, POST_RDMA_RETRY, retries) \
         VAL(C, SMSG_SEND_RETRY, retries) \
         VAL(C, MEM_REG_RETRY, retries) \
+        CNT(C, SMSG_CQ_OVERRUN, times) \
         /* blank */
 
 #endif

@@ -407,9 +407,8 @@ uintptr_t gasnetc_init_messaging(void)
   /*
    * allocate a CQ in which to receive message notifications
    */
-  /* TODO: is "* 2" still correct given mb_maxcredit has been halved since the original code? */
   /* MAX(1,) avoids complication for remote_nodes==0 */
-  status = GNI_CqCreate(nic_handle,MAX(1,remote_nodes*mb_maxcredit* 2),0,GNI_CQ_NOBLOCK,NULL,NULL,&smsg_cq_handle);
+  status = GNI_CqCreate(nic_handle,MAX(1,remote_nodes*mb_maxcredit),0,GNI_CQ_NOBLOCK,NULL,NULL,&smsg_cq_handle);
   if (status != GNI_RC_SUCCESS) {
     gasnetc_GNIT_Abort("GNI_CqCreate returned error %s\n", gni_return_string(status));
   }
@@ -435,7 +434,9 @@ uintptr_t gasnetc_init_messaging(void)
   fprintf(stderr,"r %d GetSmsgBufferSize says %d bytes for each mailbox\n", gasneti_mynode, bytes_per_mbox);
 #endif
   bytes_per_mbox = GASNETI_ALIGNUP(bytes_per_mbox, GASNETC_CACHELINE_SIZE);
-  /* test */
+  /* TODO: no other GNI client is doing this scaling, yet GNI_SmsgBufferSizeNeeded()
+     yields a value much too small to buffer (mb_maxcredit*GASNETC_MSG_MAXSIZE) bytes.
+   */
   bytes_per_mbox += my_smsg_attr.mbox_maxcredit * my_smsg_attr.msg_maxsize;
   /* TODO: remove MAX(1,) while still avoiding "issues" on single-(super)node runs */
   bytes_needed = MAX(1,remote_nodes) * bytes_per_mbox;
@@ -852,6 +853,7 @@ void gasnetc_poll_smsg_completion_queue(void)
     /* nothing to do */
   } else if (status == GNI_RC_ERROR_RESOURCE) {
     /* drain the cq completely */
+    GASNETC_STAT_EVENT(SMSG_CQ_OVERRUN);
     GASNETC_LOCK_GNI();
     for (;;) {
       status = GNI_CqGetEvent(smsg_cq_handle,&event_data[0]);
@@ -869,7 +871,6 @@ void gasnetc_poll_smsg_completion_queue(void)
 	gasnetc_work_enqueue_nolock(&peer_data[source]);
     }
     GASNETC_UNLOCK_QUEUE(&smsg_work_queue);
-    gasnetc_GNIT_Log("smsg queue overflow");
   } else {
     /* anything else is a fatal error */
     gasnetc_GNIT_Abort("CqGetEvent(smsg_cq) returns error %s", gni_return_string(status));
