@@ -676,14 +676,15 @@ static void gasnetc_send_credit(uint32_t pe);
 void gasnetc_process_smsg_q(gasnet_node_t pe)
 {
   peer_struct_t * const peer = &peer_data[pe];
-  gni_return_t status;
-  GC_Header_t *recv_header;
   union {
     gasnetc_packet_t packet;
     uint8_t raw[GASNETC_HEADLEN(medium, gasnet_AMMaxArgs()) + gasnet_AMMaxMedium()];
     uint64_t dummy_for_alignment;
   } buffer;
   for (;;) {
+    GC_Header_t *recv_header;
+    gni_return_t status;
+
     GASNETC_LOCK_GNI();
     status = GNI_SmsgGetNext(peer->ep_handle, 
 			     (void **) &recv_header);
@@ -693,8 +694,6 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
       const int is_req = GASNETC_CMD_IS_REQ(recv_header->command);
       const unsigned int credits = recv_header->credit + !is_req;
       int need_reply = 0;
-      size_t head_length;
-      size_t length;
 
       gasneti_assert((((uintptr_t) recv_header) & 7) == 0);
       gasneti_assert(numargs <= gasnet_AMMaxArgs());
@@ -713,7 +712,7 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
       }
       case GC_CMD_AM_SHORT:
       case GC_CMD_AM_SHORT_REPLY: {
-	head_length = GASNETC_HEADLEN(short, numargs);
+	const size_t head_length = GASNETC_HEADLEN(short, numargs);
 	memcpy(&buffer, recv_header, head_length);
 	status = GNI_SmsgRelease(peer->ep_handle);
 	GASNETC_UNLOCK_GNI_IF_PAR();
@@ -722,8 +721,8 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
       }
       case GC_CMD_AM_MEDIUM:
       case GC_CMD_AM_MEDIUM_REPLY: {
-	head_length = GASNETC_HEADLEN(medium, numargs);
-	length = head_length + recv_header->misc;
+	const size_t head_length = GASNETC_HEADLEN(medium, numargs);
+	const size_t length = head_length + recv_header->misc;
 	memcpy(&buffer, recv_header, length);
 	gasneti_assert(recv_header->misc <= gasnet_AMMaxMedium());
 	status = GNI_SmsgRelease(peer->ep_handle);
@@ -733,7 +732,7 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
       }
       case GC_CMD_AM_LONG:
       case GC_CMD_AM_LONG_REPLY: {
-	head_length = GASNETC_HEADLEN(long, numargs);
+	const size_t head_length = GASNETC_HEADLEN(long, numargs);
 	memcpy(&buffer, recv_header, head_length);
 	if (buffer.packet.galp.header.misc) { /* payload follows header - copy it into place */
 	  void *im_data = (void *) (((uintptr_t) recv_header) + head_length);
