@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/02/21 01:49:06 $
- * $Revision: 1.48 $
+ *     $Date: 2013/02/21 06:53:52 $
+ * $Revision: 1.49 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -58,6 +58,10 @@ static void gasnetc_check_config(void) {
   gasneti_assert(0 == (1 & GC_CMD_AM_SHORT_REPLY));
   gasneti_assert(0 == (1 & GC_CMD_AM_MEDIUM_REPLY));
   gasneti_assert(0 == (1 & GC_CMD_AM_LONG_REPLY));
+
+  /* Otherwise space is being wasted: */
+  gasneti_assert(GASNETC_MSG_MAXSIZE ==
+                 (GASNETC_HEADLEN(medium, gasnet_AMMaxArgs()) + gasnet_AMMaxMedium()));
 
   { gni_nic_device_t device_type;
     gni_return_t status = GNI_GetDeviceType(&device_type);
