@@ -133,6 +133,7 @@ enum GC_CMD { /* AM Request types must have ODD values */
     GC_CMD_SYS_SHUTDOWN_REQUEST,
     GC_CMD_AM_NOP_REPLY
 };
+#define GASNETC_CMD_IS_REQ(_cmd) ((_cmd) & 1)
 
 
 typedef struct GC_Header {
@@ -320,7 +321,7 @@ void gasnetc_poll(void);
 gasnetc_smsg_t *gasnetc_alloc_smsg(void);
 #endif
 
-int gasnetc_send_smsg(gasnet_node_t dest,
+int gasnetc_send_am(gasnet_node_t dest,
             gasnetc_smsg_t *smsg, int header_length,
             void *data, int data_length, int do_copy);
 

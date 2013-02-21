@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/02/21 20:42:50 $
- * $Revision: 1.50 $
+ *     $Date: 2013/02/21 22:05:35 $
+ * $Revision: 1.51 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -51,13 +51,13 @@ static void gasnetc_check_config(void) {
   /* (###) add code to do some sanity checks on the number of nodes, handlers
    * and/or segment sizes */ 
 
-  /* Request and Reply must be distinguishable by least-significant bit: */
-  gasneti_assert(1 == (1 & GC_CMD_AM_SHORT));
-  gasneti_assert(1 == (1 & GC_CMD_AM_MEDIUM));
-  gasneti_assert(1 == (1 & GC_CMD_AM_LONG));
-  gasneti_assert(0 == (1 & GC_CMD_AM_SHORT_REPLY));
-  gasneti_assert(0 == (1 & GC_CMD_AM_MEDIUM_REPLY));
-  gasneti_assert(0 == (1 & GC_CMD_AM_LONG_REPLY));
+  /* Request and Reply must be distinguishable by their encoding */
+  gasneti_assert(GASNETC_CMD_IS_REQ(GC_CMD_AM_SHORT));
+  gasneti_assert(GASNETC_CMD_IS_REQ(GC_CMD_AM_MEDIUM));
+  gasneti_assert(GASNETC_CMD_IS_REQ(GC_CMD_AM_LONG));
+  gasneti_assert(!GASNETC_CMD_IS_REQ(GC_CMD_AM_SHORT_REPLY));
+  gasneti_assert(!GASNETC_CMD_IS_REQ(GC_CMD_AM_MEDIUM_REPLY));
+  gasneti_assert(!GASNETC_CMD_IS_REQ(GC_CMD_AM_LONG_REPLY));
 
   /* Otherwise space is being wasted: */
   gasneti_assert(GASNETC_MSG_MAXSIZE ==
@@ -863,7 +863,7 @@ int gasnetc_short_common(gasnet_node_t dest, int cmd,
                          int numargs, va_list argptr)
 {
   int i, retval;
-  const int isReq = (cmd & 1);
+  const int isReq = GASNETC_CMD_IS_REQ(cmd);
 #if !GASNET_PSHM
   if (dest == gasneti_mynode) {
     const gasneti_handler_fn_t handler_fn = gasnetc_handler[handler];
@@ -889,7 +889,7 @@ int gasnetc_short_common(gasnet_node_t dest, int cmd,
     for (i = 0; i < numargs; i++) {
       m->args[i] = va_arg(argptr, gasnet_handlerarg_t);
     }
-    retval = gasnetc_send_smsg(dest, smsg, GASNETC_HEADLEN(short, numargs), NULL, 0, 0);
+    retval = gasnetc_send_am(dest, smsg, GASNETC_HEADLEN(short, numargs), NULL, 0, 0);
   }
   return retval;
 }
@@ -900,7 +900,7 @@ int gasnetc_medium_common(gasnet_node_t dest, int cmd,
                           int numargs, va_list argptr)
 {
   int i, retval;
-  const int isReq = (cmd & 1);
+  const int isReq = GASNETC_CMD_IS_REQ(cmd);
 #if !GASNET_PSHM
   if (dest == gasneti_mynode) {
     const gasneti_handler_fn_t handler_fn = gasnetc_handler[handler];
@@ -928,7 +928,7 @@ int gasnetc_medium_common(gasnet_node_t dest, int cmd,
     for (i = 0; i < numargs; i++) {
       m->args[i] = va_arg(argptr, gasnet_handlerarg_t);
     }
-    retval = gasnetc_send_smsg(dest, smsg, GASNETC_HEADLEN(medium, numargs), source_addr, nbytes, 1);
+    retval = gasnetc_send_am(dest, smsg, GASNETC_HEADLEN(medium, numargs), source_addr, nbytes, 1);
   }
   return retval;
 }
@@ -940,7 +940,7 @@ int gasnetc_long_common(gasnet_node_t dest, int cmd,
                         int numargs, va_list argptr)
 {
   int i, retval;
-  const int isReq = (cmd & 1);
+  const int isReq = GASNETC_CMD_IS_REQ(cmd);
 #if !GASNET_PSHM
   if (dest == gasneti_mynode) {
     const gasneti_handler_fn_t handler_fn = gasnetc_handler[handler];
@@ -990,7 +990,7 @@ int gasnetc_long_common(gasnet_node_t dest, int cmd,
       nbytes = 0;
     }
 
-    retval = gasnetc_send_smsg(dest, smsg, GASNETC_HEADLEN(long, numargs), source_addr, nbytes, is_packed);
+    retval = gasnetc_send_am(dest, smsg, GASNETC_HEADLEN(long, numargs), source_addr, nbytes, is_packed);
   }
   return retval;
 }
@@ -1114,6 +1114,7 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
       gpd->dest = dest;
     #if GASNETC_SMSG_RETRANSMIT
       gpd->u.smsg_p = smsg;
+      smsg->buffer = NULL;
     #else
       smsg = &gpd->u.smsg;
     #endif
@@ -1132,7 +1133,7 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
 
     if (is_packed) {
       /* send data in smsg payload */
-      retval = gasnetc_send_smsg(dest, smsg, GASNETC_HEADLEN(long, numargs), source_addr, nbytes, 0);
+      retval = gasnetc_send_am(dest, smsg, GASNETC_HEADLEN(long, numargs), source_addr, nbytes, 0);
     } else {
       /* Rdma data, then send header as part of completion*/
       gasnetc_rdma_put_bulk(dest, dest_addr, source_addr, nbytes, gpd);
