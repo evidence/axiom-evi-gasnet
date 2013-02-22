@@ -29,7 +29,6 @@
 #define gasnetc_GNIT_Abort(msg, args...) do {			  \
     fprintf(stderr, "node %d error %s: " msg "\n", gasneti_mynode,	  \
 	    gasnett_current_loc, ##args);		  \
-    gasnett_print_backtrace(STDERR_FILENO);		  \
     gasnett_fatalerror("fatalerror (see above)");	  \
   } while(0)
 
