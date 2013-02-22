@@ -14,8 +14,6 @@
 #include "gasnet_core_internal.h"
 #include <gasnet_extended_internal.h>
 
-#define GASNETC_DEBUG 0
-
 #define GASNETC_STRICT_MEM_CONSISTENCY  1 /* use GNI_MEM_STRICT_PI_ORDERING */
 #define GASNETC_RELAXED_MEM_CONSISTENCY 2 /* use GNI_MEM_RELAXED_PI_ORDERING */
 #define GASNETC_DEFAULT_MEM_CONSISTENCY 3 /* use neither */
@@ -27,23 +25,18 @@
   #define GASNETC_SMSG_RETRANSMIT 1
 #endif
 
-#ifdef GASNETC_DEBUG
-#define GC_DEBUG(x) x
-#define STATS(x) x
-#endif
-extern int gasnetc_debug;
-
 /* debug support */
 #define gasnetc_GNIT_Abort(msg, args...) do {			  \
     fprintf(stderr, "node %d error %s: " msg "\n", gasneti_mynode,	  \
 	    gasnett_current_loc, ##args);		  \
-    gasnett_print_backtrace(2);				  \
-    gasnett_fatalerror("fatalerror");			  \
+    gasnett_print_backtrace(STDERR_FILENO);		  \
+    gasnett_fatalerror("fatalerror (see above)");	  \
   } while(0)
 
 #define gasnetc_GNIT_Log(msg, args...) do {			  \
     fprintf(stderr, "node %d log %s: " msg "\n", gasneti_mynode,	  \
 	    gasnett_current_loc, ##args);		  \
+    fflush(stderr); \
   } while(0)
 
 

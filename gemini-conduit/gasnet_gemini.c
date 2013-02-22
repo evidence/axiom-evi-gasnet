@@ -290,7 +290,7 @@ void gasnetc_init_segment(void *segment_start, size_t segment_size)
 			       &my_mem_handle);
       if (status == GNI_RC_SUCCESS) break;
       if (status == GNI_RC_ERROR_RESOURCE) {
-	fprintf(stderr, "MemRegister segment fault %d at  %p %lx, code %s\n", 
+	gasnetc_GNIT_Log("MemRegister segment fault %d at  %p %lx, code %s\n", 
 		count, segment_start, segment_size, gni_return_string(status));
 	count += 1;
 	if (count >= 10) break;
@@ -301,9 +301,6 @@ void gasnetc_init_segment(void *segment_start, size_t segment_size)
   }
 			       
   assert (status == GNI_RC_SUCCESS);
-#if GASNETC_DEBUG
-  gasnetc_GNIT_Log("segment mapped %p, %p", segment_start, (void *) segment_size);
-#endif
   
   {
     gni_mem_handle_t *all_mem_handle = gasneti_malloc(gasneti_nodes * sizeof(gni_mem_handle_t));
@@ -331,8 +328,7 @@ uintptr_t gasnetc_init_messaging(void)
   unsigned int mb_maxcredit;
   int modes = 0;
 
-#if GASNETC_DEBUG
-  gasnetc_GNIT_Log("entering");
+#if GASNET_DEBUG
   modes |= GNI_CDM_MODE_ERR_NO_KILL;
 #endif
 
@@ -352,10 +348,6 @@ uintptr_t gasnetc_init_messaging(void)
 			 &nic_handle);
 
   gasneti_assert_always (status == GNI_RC_SUCCESS);
-
-#if GASNETC_DEBUG
-  gasnetc_GNIT_Log("cdmattach");
-#endif
 
 #if GASNETC_SMSG_RETRANSMIT
   smsg_type = GNI_SMSG_TYPE_MBOX_AUTO_RETRANSMIT;
@@ -392,9 +384,6 @@ uintptr_t gasnetc_init_messaging(void)
     gasneti_assert_always (status == GNI_RC_SUCCESS);
     status = GNI_EpBind(peer_data[i].ep_handle, all_addr[i], i);
     gasneti_assert_always (status == GNI_RC_SUCCESS);
-#if GASNETC_DEBUG
-    gasnetc_GNIT_Log("ep bound to %d, addr %d", i, all_addr[i]);
-#endif
     /* mem_handle will be set at end of gasnetc_init_segment */
     gasneti_weakatomic_set(&peer_data[i].am_credit, am_maxcredit, 0);
     gasneti_weakatomic_set(&peer_data[i].am_credit_bank, 0, 0);
@@ -422,17 +411,11 @@ uintptr_t gasnetc_init_messaging(void)
   my_smsg_attr.msg_type = smsg_type;
   my_smsg_attr.mbox_maxcredit = mb_maxcredit;
   my_smsg_attr.msg_maxsize = GASNETC_MSG_MAXSIZE;
-#if GASNETC_DEBUG
-  fprintf(stderr,"r %d maxcredit %d msg_maxsize %d\n", gasneti_mynode, mb_maxcredit, (int)GASNETC_MSG_MAXSIZE);
-#endif
 
   status = GNI_SmsgBufferSizeNeeded(&my_smsg_attr,&bytes_per_mbox);
   if (status != GNI_RC_SUCCESS){
     gasnetc_GNIT_Abort("GNI_GetSmsgBufferSize returned error %s\n",gni_return_string(status));
   }
-#if GASNETC_DEBUG
-  fprintf(stderr,"r %d GetSmsgBufferSize says %d bytes for each mailbox\n", gasneti_mynode, bytes_per_mbox);
-#endif
   bytes_per_mbox = GASNETI_ALIGNUP(bytes_per_mbox, GASNETC_CACHELINE_SIZE);
   /* TODO: no other GNI client is doing this scaling, yet GNI_SmsgBufferSizeNeeded()
      yields a value much too small to buffer (mb_maxcredit*GASNETC_MSG_MAXSIZE) bytes.
@@ -441,20 +424,12 @@ uintptr_t gasnetc_init_messaging(void)
   /* TODO: remove MAX(1,) while still avoiding "issues" on single-(super)node runs */
   bytes_needed = MAX(1,remote_nodes) * bytes_per_mbox;
   
-#if GASNETC_DEBUG
-  fprintf(stderr,"Allocating %d bytes for each mailbox\n",bytes_per_mbox);
-  fprintf(stderr,"max medium %d, sizeof medium %d\n",(int)gasnet_AMMaxMedium(),
-	  (int)sizeof(gasnetc_am_medium_packet_t));
-#endif
   smsg_mmap_ptr = gasneti_huge_mmap(NULL, bytes_needed);
   smsg_mmap_bytes = bytes_needed;
   if (smsg_mmap_ptr == (char *)MAP_FAILED) {
     gasnetc_GNIT_Abort("hugepage mmap failed: ");
   }
   
-#if GASNETC_DEBUG
-  gasnetc_GNIT_Log("mmap %p", smsg_mmap_ptr);
-#endif
   {
     int count = 0;
     for (;;) {
@@ -467,7 +442,7 @@ uintptr_t gasnetc_init_messaging(void)
 			       &my_smsg_attr.mem_hndl);
       if (status == GNI_RC_SUCCESS) break;
       if (status == GNI_RC_ERROR_RESOURCE) {
-	fprintf(stderr, "MemRegister smsg fault %d at  %p %x, code %s\n", 
+	gasnetc_GNIT_Log("MemRegister smsg fault %d at  %p %x, code %s\n", 
 		count, smsg_mmap_ptr, bytes_needed, gni_return_string(status));
 	count += 1;
 	if (count >= 10) break;
@@ -480,10 +455,6 @@ uintptr_t gasnetc_init_messaging(void)
     gasnetc_GNIT_Abort("GNI_MemRegister returned error %s\n",gni_return_string(status));
   }
   my_smsg_handle = my_smsg_attr.mem_hndl;
-
-#if GASNETC_DEBUG
-  gasnetc_GNIT_Log("smsg region registered");
-#endif
 
   my_smsg_attr.msg_type = smsg_type;
   my_smsg_attr.msg_buffer = smsg_mmap_ptr;
@@ -524,21 +495,19 @@ uintptr_t gasnetc_init_messaging(void)
     gasneti_free(all_smsg_exchg);
   }
 
-  /* Now make sure everyone is ready */
-#if GASNETC_DEBUG
-  gasnetc_GNIT_Log("finishing");
-#endif
   /* set the number of seconds we poll until forceful shutdown.
    * May be over-ridden by env-vars.
    */
   gasnetc_shutdown_seconds = gasneti_get_exittimeout(shutdown_max, 3., 0.125, 0.);
 
+  /* TODO: distinct cut-offs for Put and Get */
   gasnetc_fma_rdma_cutover = 
     gasneti_getenv_int_withdefault("GASNETC_GNI_FMA_RDMA_CUTOVER",
 				   GASNETC_GNI_FMA_RDMA_CUTOVER_DEFAULT,1);
   if (gasnetc_fma_rdma_cutover > GASNETC_GNI_FMA_RDMA_CUTOVER_MAX)
     gasnetc_fma_rdma_cutover = GASNETC_GNI_FMA_RDMA_CUTOVER_MAX;
 
+  /* Now make sure everyone is ready */
   gasnetc_bootstrapBarrier();
 
   return bytes_needed;
@@ -604,7 +573,6 @@ void gasnetc_shutdown(void)
 
   status = GNI_CdmDestroy(cdm_handle);
   gasneti_assert_always (status == GNI_RC_SUCCESS);
-  /*  fprintf(stderr, "node %d gasnetc_shutdown done\n", gasneti_mynode); */
 }
 
 
@@ -763,10 +731,6 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
         GASNETI_UNUSED_UNLESS_DEBUG int newval = 
             gasneti_weakatomic_add(&peer->am_credit, credits, GASNETI_ATOMIC_NONE);
         gasneti_assert(newval <= am_maxcredit);
-      #if GASNETC_DEBUG
-        fprintf(stderr, "r %d return %d am credit(s) for %d, after is %d\n",
-	        gasneti_mynode, pe, credits, newval);
-      #endif
       }
       /* now check the SmsgRelease status */      
       if (status == GNI_RC_SUCCESS) {
@@ -1578,10 +1542,6 @@ int gasnetc_rdma_get_buff(gasnet_node_t dest, void *source_addr,
 void gasnetc_get_am_credit(uint32_t pe)
 {
   gasneti_weakatomic_t *p = &peer_data[pe].am_credit;
-#if GASNETC_DEBUG
-  fprintf(stderr, "r %d get am credit for %d, before is %d\n",
-	 gasneti_mynode, pe, (int)gasneti_weakatomic_read(&peer_data[pe].am_credit, 0));
-#endif
   if_pf (!gasnetc_weakatomic_dec_if_positive(p)) {
     GASNETC_TRACE_WAIT_BEGIN();
     do {
@@ -1855,19 +1815,9 @@ gasneti_auxseg_request_t gasnetc_bounce_auxseg_alloc(gasnet_seginfo_t *auxseg_in
   retval.optimalsz = gasneti_getenv_int_withdefault("GASNETC_GNI_BOUNCE_SIZE",
                                                     GASNETC_GNI_BOUNCE_SIZE_DEFAULT,1);
   if (retval.optimalsz < retval.minsz) retval.optimalsz = retval.minsz;
-#if GASNET_DEBUG_VERBOSE
-  fprintf(stderr, "auxseg asking for min  %ld opt %ld\n", retval.minsz, retval.optimalsz);
-#endif
-  if (auxseg_info == NULL){
-    return retval; /* initial query */
-  }	
-  else { /* auxseg granted */
+  if (auxseg_info != NULL) { /* auxseg granted */
     /* The only one we care about is our own node */
     gasnetc_bounce_buffers = auxseg_info[gasneti_mynode];
-#if GASNET_DEBUG_VERBOSE
-    fprintf(stderr, "got auxseg %p size %ld\n", gasnetc_bounce_buffers.addr,
-	    gasnetc_bounce_buffers.size);
-#endif
   }
 
   return retval;
@@ -1899,19 +1849,9 @@ gasneti_auxseg_request_t gasnetc_pd_auxseg_alloc(gasnet_seginfo_t *auxseg_info) 
                                                     GASNETC_GNI_NUM_PD_DEFAULT,1) 
     * sizeof(gasnetc_post_descriptor_t);
   if (retval.optimalsz < retval.minsz) retval.optimalsz = retval.minsz;
-#if GASNET_DEBUG_VERBOSE
-  fprintf(stderr, "auxseg post descriptor asking for min  %ld opt %ld\n", retval.minsz, retval.optimalsz);
-#endif
-  if (auxseg_info == NULL){
-    return retval; /* initial query */
-  }	
-  else { /* auxseg granted */
+  if (auxseg_info != NULL) { /* auxseg granted */
     /* The only one we care about is our own node */
     gasnetc_pd_buffers = auxseg_info[gasneti_mynode];
-#if GASNET_DEBUG_VERBOSE
-    fprintf(stderr, "got pd auxseg %p size %ld\n", gasnetc_pd_buffers.addr,
-	    gasnetc_pd_buffers.size);
-#endif
   }
 
   return retval;

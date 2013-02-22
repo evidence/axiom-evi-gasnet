@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/02/21 22:32:15 $
- * $Revision: 1.52 $
+ *     $Date: 2013/02/22 00:07:49 $
+ * $Revision: 1.53 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -308,9 +308,6 @@ static int gasnetc_init(int *argc, char ***argv) {
   uint32_t  minlocalrank;
   uint32_t i;
 
-#if GASNETC_DEBUG
-  fprintf(stderr, "Entering gasnetc_init\n"); fflush(stderr);
-#endif
   /*  check system sanity */
   gasnetc_check_config();
   
@@ -369,17 +366,6 @@ static int gasnetc_init(int *argc, char ***argv) {
   for (i = 0; i < localranks; i += 1) {
     if (gasneti_nodemap[i] < minlocalrank) minlocalrank = gasneti_nodemap[i];
   }
-#if GASNETC_DEBUG
-  {
-    int i;
-    fprintf(stderr, "rank %d, localranks (%d) are ", 
-	    gasneti_mynode, localranks);
-    for (i = 0; i < localranks; i += 1) {
-      fprintf(stderr," %d", gasneti_nodemap[i]);
-    }
-    fprintf(stderr, "\n"); fflush(stderr);
-  }
-#endif
   gasnetc_bootstrapExchange(&minlocalrank, sizeof(uint32_t), gasneti_nodemap);
   for (i = 0; i < gasneti_nodes; i += 1) {
     /* gasneti_assert(gasneti_nodemap[i] >= 0);  type is unsigned, so this is moot */
@@ -1385,8 +1371,3 @@ gasnet_handlerentry_t const *gasnetc_get_handlertable(void) {
 }
 
 /* ------------------------------------------------------------------------------------ */
-int gasnetc_debug = 0;
-void gasnetc_enable_debug(int enable)
-{
-  gasnetc_debug = enable;
-}
