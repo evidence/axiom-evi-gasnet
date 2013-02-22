@@ -666,7 +666,7 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
 
       gasneti_assert((((uintptr_t) recv_header) & 7) == 0);
       gasneti_assert(numargs <= gasnet_AMMaxArgs());
-      GASNETI_TRACE_PRINTF(A, ("smsg r from %d type %s%s\n", pe,
+      GASNETI_TRACE_PRINTF(D, ("smsg r from %d type %s%s\n", pe,
                                gasnetc_type_string(recv_header->command),
                                recv_header->credit ? " (+credit)" : ""));
 
@@ -913,7 +913,7 @@ gasnetc_send_smsg(gasnet_node_t dest, int take_lock,
 
   smsg_header->header.credit = gasnetc_weakatomic_swap(&peer->am_credit_bank, 0);
 
-  GASNETI_TRACE_PRINTF(A, ("smsg to %d type %s%s\n", dest,
+  GASNETI_TRACE_PRINTF(D, ("smsg to %d type %s%s\n", dest,
                            gasnetc_type_string(smsg_header->header.command),
                            smsg_header->header.credit ? " (+credit)" : ""));
 
