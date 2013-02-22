@@ -290,7 +290,7 @@ void gasnetc_init_segment(void *segment_start, size_t segment_size)
 			       &my_mem_handle);
       if (status == GNI_RC_SUCCESS) break;
       if (status == GNI_RC_ERROR_RESOURCE) {
-	gasnetc_GNIT_Log("MemRegister segment fault %d at  %p %lx, code %s\n", 
+	gasnetc_GNIT_Log("MemRegister segment fault %d at  %p %lx, code %s", 
 		count, segment_start, segment_size, gni_return_string(status));
 	count += 1;
 	if (count >= 10) break;
@@ -399,7 +399,7 @@ uintptr_t gasnetc_init_messaging(void)
   /* MAX(1,) avoids complication for remote_nodes==0 */
   status = GNI_CqCreate(nic_handle,MAX(1,remote_nodes*mb_maxcredit),0,GNI_CQ_NOBLOCK,NULL,NULL,&smsg_cq_handle);
   if (status != GNI_RC_SUCCESS) {
-    gasnetc_GNIT_Abort("GNI_CqCreate returned error %s\n", gni_return_string(status));
+    gasnetc_GNIT_Abort("GNI_CqCreate returned error %s", gni_return_string(status));
   }
   
   /*
@@ -414,7 +414,7 @@ uintptr_t gasnetc_init_messaging(void)
 
   status = GNI_SmsgBufferSizeNeeded(&my_smsg_attr,&bytes_per_mbox);
   if (status != GNI_RC_SUCCESS){
-    gasnetc_GNIT_Abort("GNI_GetSmsgBufferSize returned error %s\n",gni_return_string(status));
+    gasnetc_GNIT_Abort("GNI_GetSmsgBufferSize returned error %s",gni_return_string(status));
   }
   bytes_per_mbox = GASNETI_ALIGNUP(bytes_per_mbox, GASNETC_CACHELINE_SIZE);
   /* TODO: no other GNI client is doing this scaling, yet GNI_SmsgBufferSizeNeeded()
@@ -442,7 +442,7 @@ uintptr_t gasnetc_init_messaging(void)
 			       &my_smsg_attr.mem_hndl);
       if (status == GNI_RC_SUCCESS) break;
       if (status == GNI_RC_ERROR_RESOURCE) {
-	gasnetc_GNIT_Log("MemRegister smsg fault %d at  %p %x, code %s\n", 
+	gasnetc_GNIT_Log("MemRegister smsg fault %d at  %p %x, code %s", 
 		count, smsg_mmap_ptr, bytes_needed, gni_return_string(status));
 	count += 1;
 	if (count >= 10) break;
@@ -452,7 +452,7 @@ uintptr_t gasnetc_init_messaging(void)
     }
   }
   if (status != GNI_RC_SUCCESS) {
-    gasnetc_GNIT_Abort("GNI_MemRegister returned error %s\n",gni_return_string(status));
+    gasnetc_GNIT_Abort("GNI_MemRegister returned error %s",gni_return_string(status));
   }
   my_smsg_handle = my_smsg_attr.mem_hndl;
 
@@ -486,7 +486,7 @@ uintptr_t gasnetc_init_messaging(void)
 
       status = GNI_SmsgInit(peer_data[i].ep_handle, &my_smsg_attr, &remote_attr);
       if (status != GNI_RC_SUCCESS) {
-        gasnetc_GNIT_Abort("GNI_SmsgInit returned error %s\n", gni_return_string(status));
+        gasnetc_GNIT_Abort("GNI_SmsgInit returned error %s", gni_return_string(status));
       }
 
       my_smsg_attr.mbox_offset += bytes_per_mbox;
@@ -546,7 +546,7 @@ void gasnetc_shutdown(void)
 #endif
   }
   if (left > 0) {
-    gasnetc_GNIT_Log("at shutdown: %d endpoints left after 10 tries\n", left);
+    gasnetc_GNIT_Log("at shutdown: %d endpoints left after 10 tries", left);
   }
 
   if (gasneti_attach_done) {
@@ -739,7 +739,7 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
 	/* LCS SmsgRelease Failed */
 	/* GNI_RC_INVALID_PARAM here means bad endpoint */
 	/* GNI_RC_NOT_DONE here means there was no smsg */
-	gasnetc_GNIT_Log("SmsgRelease from pe %d fail with %s\n",
+	gasnetc_GNIT_Log("SmsgRelease from pe %d fail with %s",
 		   pe, gni_return_string(status));
       }
     } else if (status == GNI_RC_NOT_DONE) {
@@ -930,7 +930,7 @@ gasnetc_send_smsg(gasnet_node_t dest, int take_lock,
     }
 
     if (status != GNI_RC_NOT_DONE) {
-      gasnetc_GNIT_Abort("GNI_SmsgSend returned error %s\n", gni_return_string(status));
+      gasnetc_GNIT_Abort("GNI_SmsgSend returned error %s", gni_return_string(status));
     }
 
     if_pf (++trial == max_trials) {
@@ -994,7 +994,7 @@ void gasnetc_poll_local_queue(void))
 
       status = GNI_GetCompleted(bound_cq_handle, event_data, &pd);
       if (status != GNI_RC_SUCCESS)
-	gasnetc_GNIT_Abort("GetCompleted(%p) failed %s\n",
+	gasnetc_GNIT_Abort("GetCompleted(%p) failed %s",
 		   (void *) event_data, gni_return_string(status));
       gpd = gasnetc_get_struct_addr_from_field_addr(gasnetc_post_descriptor_t, pd, pd);
 
@@ -1039,7 +1039,7 @@ void gasnetc_poll_local_queue(void))
     } else if (status == GNI_RC_NOT_DONE) {
       break;
     } else if (!gasnetc_shutdownInProgress) {
-      gasnetc_GNIT_Log("bound CqGetEvent %s\n", gni_return_string(status));
+      gasnetc_GNIT_Log("bound CqGetEvent %s", gni_return_string(status));
     }
   }
   GASNETC_UNLOCK_GNI();
@@ -1074,7 +1074,7 @@ void gasnetc_send_credit(uint32_t pe)
                            smsg, sizeof(gasnetc_am_nop_packet_t),
                            NULL, 0);
     if_pf (rc) {
-      gasnetc_GNIT_Abort("Failed to return AM implicit credit\n");
+      gasnetc_GNIT_Abort("Failed to return AM implicit credit");
     }
   }
 }
@@ -1212,7 +1212,7 @@ void gasnetc_post_put(gni_ep_handle_t ep, gni_post_descriptor_t *pd)
 
   if_pf (status != GNI_RC_SUCCESS) {
     print_post_desc("Put", pd);
-    gasnetc_GNIT_Abort("Put failed with %s\n", gni_return_string(status));
+    gasnetc_GNIT_Abort("Put failed with %s", gni_return_string(status));
   }
 }
 
@@ -1365,7 +1365,7 @@ void gasnetc_rdma_put_buff(gasnet_node_t dest, void *dest_addr,
 
   if_pf (status != GNI_RC_SUCCESS) {
     print_post_desc("Put", pd);
-    gasnetc_GNIT_Abort("Put failed with %s\n", gni_return_string(status));
+    gasnetc_GNIT_Abort("Put failed with %s", gni_return_string(status));
   }
 }
 
@@ -1387,7 +1387,7 @@ void gasnetc_post_get(gni_ep_handle_t ep, gni_post_descriptor_t *pd)
 
   if_pf (status != GNI_RC_SUCCESS) {
     print_post_desc("Get", pd);
-    gasnetc_GNIT_Abort("Get failed with %s\n", gni_return_string(status));
+    gasnetc_GNIT_Abort("Get failed with %s", gni_return_string(status));
   }
 }
 
@@ -1532,7 +1532,7 @@ int gasnetc_rdma_get_buff(gasnet_node_t dest, void *source_addr,
 
   if_pf (status != GNI_RC_SUCCESS) {
     print_post_desc("Get", pd);
-    gasnetc_GNIT_Abort("Get failed with %s\n", gni_return_string(status));
+    gasnetc_GNIT_Abort("Get failed with %s", gni_return_string(status));
   }
 
   return pre;
