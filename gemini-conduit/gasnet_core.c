@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/02/22 00:07:49 $
- * $Revision: 1.53 $
+ *     $Date: 2013/02/22 07:24:52 $
+ * $Revision: 1.54 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -64,14 +64,17 @@ static void gasnetc_check_config(void) {
                  (GASNETC_HEADLEN(medium, gasnet_AMMaxArgs()) + gasnet_AMMaxMedium()));
 
   { gni_nic_device_t device_type;
-    gni_return_t status = GNI_GetDeviceType(&device_type);
-    gasneti_assert_always (status == GNI_RC_SUCCESS);
 #ifdef GASNET_CONDUIT_GEMINI
-    gasneti_assert_always (device_type == GNI_DEVICE_GEMINI);
+    const gni_nic_device_t expected = GNI_DEVICE_GEMINI;
 #endif
 #ifdef GASNET_CONDUIT_ARIES
-    gasneti_assert_always (device_type == GNI_DEVICE_ARIES);
+    const gni_nic_device_t expected = GNI_DEVICE_ARIES;
 #endif
+    gni_return_t status = GNI_GetDeviceType(&device_type);
+    if ((status != GNI_RC_SUCCESS) ||
+        (device_type != expected)) {
+      gasneti_fatalerror("You do not appear to be running on a node with " GASNET_CORE_NAME_STR " hardware");
+    }
   }
 }
 
