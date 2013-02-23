@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2013/02/23 04:09:09 $
- * $Revision: 1.37 $
+ *     $Date: 2013/02/23 07:42:34 $
+ * $Revision: 1.38 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -907,7 +907,13 @@ extern void gasnete_put_nbi_val(gasnet_node_t node, void *dest, gasnet_register_
 
 GASNETI_INLINE(gasnete_get_val_help)
 gasnet_register_value_t gasnete_get_val_help(void *src, size_t nbytes) {
+#if PLATFORM_ARCH_LITTLE_ENDIAN
+  /* Note that this is OK only on little-endian and when unaligned loads are "OKAY" */
+  return *(gasnet_register_value_t *)src & (~0UL >> (8*(SIZEOF_VOID_P-nbytes)));
+#else
+  /* XXX: could do load+shift but don't care given the lack of big-endian GNI systems */
   GASNETE_VALUE_RETURN(src, nbytes);
+#endif
 }
  
 extern gasnet_register_value_t gasnete_get_val(gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG) {
