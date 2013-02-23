@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2013/02/16 03:09:42 $
- * $Revision: 1.36 $
+ *     $Date: 2013/02/23 04:09:09 $
+ * $Revision: 1.37 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -852,6 +852,9 @@ extern gasnet_handle_t gasnete_end_nbi_accessregion(GASNETE_THREAD_FARG_ALONE) {
 */
 /* ------------------------------------------------------------------------------------ */
 
+#define gasnete_val_assign(_dst, _val) \
+    (*(gasnet_register_value_t *)(_dst) = (gasnet_register_value_t)(_val))
+
 extern void gasnete_put_val(gasnet_node_t node, void *dest, gasnet_register_value_t value, size_t nbytes GASNETE_THREAD_FARG) {
   GASNETI_CHECKPSHM_PUTVAL(V);
   {
@@ -859,8 +862,8 @@ extern void gasnete_put_val(gasnet_node_t node, void *dest, gasnet_register_valu
     gasneti_weakatomic_t done = gasneti_weakatomic_init(0);
     gpd->completion.flag = &done;
     gpd->flags = GC_POST_COMPLETION_FLAG;
-    gpd->bounce_buffer = gpd->u.immediate;
-    GASNETE_VALUE_ASSIGN(gpd->u.immediate, value, nbytes);
+    gpd->bounce_buffer = GASNETE_STARTOFBITS(gpd->u.immediate, nbytes);
+    gasnete_val_assign(gpd->u.immediate, value);
     gasnetc_rdma_put_buff(node, dest, nbytes, gpd);
     gasneti_polluntil(gasneti_weakatomic_read(&done, 0));
   }
@@ -873,8 +876,8 @@ extern gasnet_handle_t gasnete_put_nb_val(gasnet_node_t node, void *dest, gasnet
     gasnete_eop_t * const eop = gasnete_eop_new(GASNETE_MYTHREAD);
     gpd->completion.eop = eop;
     gpd->flags = GC_POST_COMPLETION_OP;
-    gpd->bounce_buffer = gpd->u.immediate;
-    GASNETE_VALUE_ASSIGN(gpd->u.immediate, value, nbytes);
+    gpd->bounce_buffer = GASNETE_STARTOFBITS(gpd->u.immediate, nbytes);
+    gasnete_val_assign(gpd->u.immediate, value);
     gasnetc_rdma_put_buff(node, dest, nbytes, gpd);
     return((gasnet_handle_t) eop);
   }
@@ -889,8 +892,8 @@ extern void gasnete_put_nbi_val(gasnet_node_t node, void *dest, gasnet_register_
     gpd->completion.iop = iop;
     iop->initiated_put_cnt++;
     gpd->flags = GC_POST_COMPLETION_OP;
-    gpd->bounce_buffer = gpd->u.immediate;
-    GASNETE_VALUE_ASSIGN(gpd->u.immediate, value, nbytes);
+    gpd->bounce_buffer = GASNETE_STARTOFBITS(gpd->u.immediate, nbytes);
+    gasnete_val_assign(gpd->u.immediate, value);
     gasnetc_rdma_put_buff(node, dest, nbytes, gpd);
   }
 }
