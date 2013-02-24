@@ -1225,12 +1225,12 @@ void gasnetc_rdma_put_bulk(gasnet_node_t dest,
     status = myPostFma(peer->ep_handle, pd);
   } else { /* Using RDMA, which requires local memory registration */
     if_pf (!gasneti_in_segment(gasneti_mynode, source_addr, nbytes)) {
-      /* Use immediate buffer, bounce buffer, or mem-reg according to size */
-      if (nbytes <= GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE) {
-        gpd->bounce_buffer = gpd->u.immediate;
-        memcpy(gpd->bounce_buffer, source_addr, nbytes);
-        pd->local_addr = (uint64_t) gpd->bounce_buffer;
-      } else if (nbytes <= gasnetc_bounce_register_cutover) {
+      /* Use a bounce buffer or mem-reg according to size.
+       * Use of gpd->u.immedate would only be reachable if
+       *     (fma_rdma_cutover < IMMEDIATE_BOUNCE_SIZE),
+       * which is not the default (nor recommended).
+       */
+      if (nbytes <= gasnetc_bounce_register_cutover) {
         gpd->flags |= GC_POST_UNBOUNCE;
         gpd->bounce_buffer = gasnetc_alloc_bounce_buffer();
         memcpy(gpd->bounce_buffer, source_addr, nbytes);
@@ -1241,7 +1241,6 @@ void gasnetc_rdma_put_bulk(gasnet_node_t dest,
         gasneti_assert_always (status == GNI_RC_SUCCESS);
       }
     }
-
     pd->type = GNI_POST_RDMA_PUT;
     status = myPostRdma(peer->ep_handle, pd);
   }
@@ -1292,27 +1291,30 @@ int gasnetc_rdma_put(gasnet_node_t dest,
   } else
 #endif
   { /* Favor bounce buffers if possible */
+  #if !GASNET_CONDUIT_GEMINI /* On Gemini the FMA path above would be selected instead */
     if (nbytes <= GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE) {
       gpd->bounce_buffer = gpd->u.immediate;
       memcpy(gpd->bounce_buffer, source_addr, nbytes);
       pd->local_addr = (uint64_t) gpd->bounce_buffer;
-    } else if (nbytes <= gasnetc_bounce_register_cutover) {
+    } else
+  #endif
+    if (nbytes <= gasnetc_bounce_register_cutover) {
       gpd->flags |= GC_POST_UNBOUNCE;
       gpd->bounce_buffer = gasnetc_alloc_bounce_buffer();
       memcpy(gpd->bounce_buffer, source_addr, nbytes);
       pd->local_addr = (uint64_t) gpd->bounce_buffer;
     } else {
+      result = 0;
       if_pf (!gasneti_in_segment(gasneti_mynode, source_addr, nbytes)) {
         /* source not in segment */
         gpd->flags |= GC_POST_UNREGISTER;
         status = myRegisterPd(pd);
         gasneti_assert_always (status == GNI_RC_SUCCESS);
       }
-      result = 0;
     }
  
 #if !GASNET_CONDUIT_GEMINI
-    /*  TODO: distnict Put and Get cut-overs */
+    /*  TODO: distinct Put and Get cut-overs */
     if (nbytes <= gasnetc_fma_rdma_cutover) {
       pd->type = GNI_POST_FMA_PUT;
     #if FIX_HT_ORDERING
@@ -1377,7 +1379,7 @@ void gasnetc_post_get(gni_ep_handle_t ep, gni_post_descriptor_t *pd)
   gni_return_t status;
   const size_t nbytes = pd->length;
 
-  /*  TODO: distnict Put and Get cut-overs */
+  /*  TODO: distinct Put and Get cut-overs */
   if (nbytes <= gasnetc_fma_rdma_cutover) {
       pd->type = GNI_POST_FMA_GET;
       status = myPostFma(ep, pd);
