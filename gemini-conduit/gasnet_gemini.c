@@ -1326,6 +1326,11 @@ int gasnetc_rdma_put(gasnet_node_t dest,
     }
   }
 
+  if_pf (status != GNI_RC_SUCCESS) {
+    print_post_desc("Put", pd);
+    gasnetc_GNIT_Abort("Put failed with %s", gni_return_string(status));
+  }
+
   gasneti_assert((result == 0) || (result == 1)); /* ensures caller can use "&=" or "+=" */
   return result;
 }
