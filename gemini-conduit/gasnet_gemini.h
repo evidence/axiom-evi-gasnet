@@ -206,7 +206,6 @@ typedef struct {
   gasnetc_packet_t smsg_header;
 #if GASNETC_SMSG_RETRANSMIT
   void *buffer;
-  uint32_t msgid;
 #endif
 } gasnetc_smsg_t;
 

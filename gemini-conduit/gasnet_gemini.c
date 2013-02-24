@@ -872,6 +872,7 @@ void gasnetc_free_smsg(uint32_t msgid)
 {
   gasnetc_post_descriptor_t * const gpd = msgid + (gasnetc_post_descriptor_t *) gasnetc_pd_buffers.addr;
   gasnetc_smsg_t * const smsg = &gpd->u.smsg;
+  gasneti_assert(gpd->pd.post_id == msgid);
   if (smsg->buffer) {
     gasneti_lifo_push(&gasnetc_smsg_buffers, smsg->buffer);
   } else if_pf (smsg->smsg_header.header.command == GC_CMD_SYS_SHUTDOWN_REQUEST) {
@@ -883,10 +884,7 @@ void gasnetc_free_smsg(uint32_t msgid)
 gasnetc_smsg_t *gasnetc_alloc_smsg(void)
 {
   gasnetc_post_descriptor_t *gpd = gasnetc_alloc_post_descriptor();
-  gasnetc_smsg_t * const result = &gpd->u.smsg;
-  /* TODO: allocate space in the gpd for a persistent msgid? (avoids integer division here) */
-  result->msgid = gpd - (gasnetc_post_descriptor_t *) gasnetc_pd_buffers.addr;
-  return result;
+  return &gpd->u.smsg;
 }
 
 #endif /* GASNETC_SMSG_RETRANSMIT*/
@@ -904,7 +902,9 @@ gasnetc_send_smsg(gasnet_node_t dest, int take_lock,
   int trial = 0;
 
 #if GASNETC_SMSG_RETRANSMIT
-  const uint32_t msgid = smsg->msgid;
+  gasnetc_post_descriptor_t * const gpd =
+          gasnetc_get_struct_addr_from_field_addr(gasnetc_post_descriptor_t, u.smsg, smsg);
+  const uint32_t msgid = gpd->pd.post_id;
 #else
   const uint32_t msgid = 0;
 #endif
@@ -1558,10 +1558,12 @@ static gasneti_lifo_head_t post_descriptor_pool = GASNETI_LIFO_INITIALIZER;
 void gasnetc_init_post_descriptor_pool(void)
 {
   int i;
+  const int count = gasnetc_pd_buffers.size / sizeof(gasnetc_post_descriptor_t);
   gasnetc_post_descriptor_t *data = gasnetc_pd_buffers.addr;
   gasneti_assert_always(data);
   memset(data, 0, gasnetc_pd_buffers.size); /* Just in case */
-  for (i = 0; i < (gasnetc_pd_buffers.size / sizeof(gasnetc_post_descriptor_t)); i += 1) {
+  for (i = 0; i < count; i += 1) {
+    data[i].pd.post_id = i;
     gasneti_lifo_push(&post_descriptor_pool, &data[i]);
   }
 }
