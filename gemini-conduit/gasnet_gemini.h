@@ -368,11 +368,11 @@ gasneti_weakatomic_val_t gasnetc_weakatomic_swap(gasneti_weakatomic_t *p, gasnet
   #if GASNETI_HAVE_ATOMIC_SWAP
     return gasneti_atomic_swap(p, newval, GASNETI_ATOMIC_NONE);
   #else
-    gasnetc_atomic_val_t oldval;
+    gasneti_atomic_val_t oldval;
     do {
       oldval = gasneti_atomic_read(p, GASNETI_ATOMIC_NONE);
     } while ((oldval != newval) &&
-               !gasneti_atomic_compare_and_swap(p, oldval, newval, flags));
+               !gasneti_atomic_compare_and_swap(p, oldval, newval, GASNETI_ATOMIC_NONE));
     return oldval;
   #endif
 #else
