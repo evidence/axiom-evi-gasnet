@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/aries-conduit/Makefile.am,v $
-#     $Date: 2013/02/15 23:34:34 $
-# $Revision: 1.3 $
+#     $Date: 2013/02/24 13:31:07 $
+# $Revision: 1.4 $
 # Description: Makefile for GASNet aries conduit
 # Copyright 2013, E. O. Lawrence Berekely National Laboratory
 # Terms of use are as specified in license.txt
@@ -39,10 +39,10 @@ CONDUIT_SOURCELIST =          \
 CONDUIT_EXTRALIBCFLAGS = @GNI_INCLUDES@ -I$(gemini_srcdir) -DGASNET_CONDUIT_ARIES
 
 # additional conduit header files to install from external, non-standard directories
-CONDUIT_EXTRAHEADERS = 
+CONDUIT_EXTRAHEADERS = $(gemini_install_hdrs)
 
 # headers selected by default rules that should NOT be installed
-CONDUIT_PRIVATEHEADERS =
+CONDUIT_PRIVATEHEADERS = gasnet_gemini.h
 
 # additional file dependencies not mentioned elsewhere 
 # that should force libgasnet rebuild on update
