@@ -1212,17 +1212,18 @@ void gasnetc_rdma_put_bulk(gasnet_node_t dest,
   /* confirm that the destination is in-segment on the far end */
   gasneti_boundscheck(dest, dest_addr, nbytes);
 
+  /* Start with defaults suitable for FMA or in-segment case */
+  pd->local_addr = (uint64_t) source_addr;
+  pd->local_mem_hndl = my_mem_handle;
+
   if (nbytes <= gasnetc_fma_rdma_cutover) {
     /* Small enough for FMA - no local memory registration is required */
-    pd->local_addr = (uint64_t) source_addr;
     pd->type = GNI_POST_FMA_PUT;
 #if FIX_HT_ORDERING
     pd->cq_mode = gasnetc_fma_put_cq_mode;
 #endif
     status = myPostFma(peer->ep_handle, pd);
   } else { /* Using RDMA, which requires local memory registration */
-    pd->local_addr = (uint64_t) source_addr; /* will overwrite if bounced */
-    pd->local_mem_hndl = my_mem_handle; /* will overwrite if registering */
     if_pf (!gasneti_in_segment(gasneti_mynode, source_addr, nbytes)) {
       /* Use immediate buffer, bounce buffer, or mem-reg according to size */
       if (nbytes <= GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE) {
@@ -1275,11 +1276,14 @@ int gasnetc_rdma_put(gasnet_node_t dest,
   /* confirm that the destination is in-segment on the far end */
   gasneti_boundscheck(dest, dest_addr, nbytes);
 
+  /* Start with defaults suitable for FMA or in-segment case */
+  pd->local_addr = (uint64_t) source_addr;
+  pd->local_mem_hndl = my_mem_handle;
+
 #if GASNET_CONDUIT_GEMINI
   /* On Gemini (only) return from PostFma follows local completion. */
   if (nbytes <= gasnetc_fma_rdma_cutover) {
     /* Small enough for FMA - no local memory registration is required */
-    pd->local_addr = (uint64_t) source_addr;
     pd->type = GNI_POST_FMA_PUT;
   #if FIX_HT_ORDERING
     pd->cq_mode = gasnetc_fma_put_cq_mode;
@@ -1288,8 +1292,6 @@ int gasnetc_rdma_put(gasnet_node_t dest,
   } else
 #endif
   { /* Favor bounce buffers if possible */
-    pd->local_addr = (uint64_t) source_addr; /* will overwrite if bounced */
-    pd->local_mem_hndl = my_mem_handle; /* will overwrite if registering */
     if (nbytes <= GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE) {
       gpd->bounce_buffer = gpd->u.immediate;
       memcpy(gpd->bounce_buffer, source_addr, nbytes);
@@ -1299,14 +1301,13 @@ int gasnetc_rdma_put(gasnet_node_t dest,
       gpd->bounce_buffer = gasnetc_alloc_bounce_buffer();
       memcpy(gpd->bounce_buffer, source_addr, nbytes);
       pd->local_addr = (uint64_t) gpd->bounce_buffer;
-    } else if_pf (!gasneti_in_segment(gasneti_mynode, source_addr, nbytes)) {
-      /* source not in segment */
-      gpd->flags |= GC_POST_UNREGISTER;
-      status = myRegisterPd(pd);
-      gasneti_assert_always (status == GNI_RC_SUCCESS);
-      result = 0;
     } else {
-      /* source in segment */
+      if_pf (!gasneti_in_segment(gasneti_mynode, source_addr, nbytes)) {
+        /* source not in segment */
+        gpd->flags |= GC_POST_UNREGISTER;
+        status = myRegisterPd(pd);
+        gasneti_assert_always (status == GNI_RC_SUCCESS);
+      }
       result = 0;
     }
  
@@ -1414,6 +1415,10 @@ void gasnetc_rdma_get(gasnet_node_t dest,
   /* confirm that the source is in-segment on the far end */
   gasneti_boundscheck(dest, source_addr, nbytes);
 
+  /* Start with defaults suitable for in-segment case */
+  pd->local_addr = (uint64_t) dest_addr;
+  pd->local_mem_hndl = my_mem_handle;
+
   /* check where the local addr is */
   if_pf (!gasneti_in_segment(gasneti_mynode, dest_addr, nbytes)) {
     /* dest not (entirely) in segment */
@@ -1425,22 +1430,16 @@ void gasnetc_rdma_get(gasnet_node_t dest,
       gpd->bounce_buffer = gpd->u.immediate;
       gpd->get_target = dest_addr;
       pd->local_addr = (uint64_t) gpd->bounce_buffer;
-      pd->local_mem_hndl = my_mem_handle;
     } else if (nbytes <= gasnetc_bounce_register_cutover) {
       gpd->flags |= GC_POST_UNBOUNCE | GC_POST_COPY;
       gpd->bounce_buffer = gasnetc_alloc_bounce_buffer();
       gpd->get_target = dest_addr;
       pd->local_addr = (uint64_t) gpd->bounce_buffer;
-      pd->local_mem_hndl = my_mem_handle;
     } else {
       gpd->flags |= GC_POST_UNREGISTER;
-      pd->local_addr = (uint64_t) dest_addr;
       status = myRegisterPd(pd);
       gasneti_assert_always (status == GNI_RC_SUCCESS);
     }
-  } else {
-    pd->local_addr = (uint64_t) dest_addr;
-    pd->local_mem_hndl = my_mem_handle;
   }
 
   gasnetc_post_get(peer->ep_handle, pd);
