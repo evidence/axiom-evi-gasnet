@@ -122,6 +122,7 @@ const char *gasnetc_post_type_string(gni_post_type_t type)
 
 /*------ Work Queue threading peer_struct_t with pending AM receives ------*/
 
+static
 struct {
   peer_struct_t *head;
   peer_struct_t *tail;
