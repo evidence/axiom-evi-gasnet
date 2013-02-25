@@ -552,28 +552,39 @@ void gasnetc_shutdown(void)
 
   if (gasneti_attach_done) {
     status = GNI_MemDeregister(nic_handle, &my_mem_handle);
-    gasneti_assert_always (status == GNI_RC_SUCCESS);
+    if_pf (status != GNI_RC_SUCCESS) {
+      gasnetc_GNIT_Abort("MemDeregister(segment) failed with %s", gni_return_string(status));
+    }
   }
 
   gasneti_huge_munmap(smsg_mmap_ptr, smsg_mmap_bytes);
 
   status = GNI_MemDeregister(nic_handle, &my_smsg_handle);
-  gasneti_assert_always (status == GNI_RC_SUCCESS);
+  if_pf (status != GNI_RC_SUCCESS) {
+    gasnetc_GNIT_Abort("MemDeregister(smsg_mem) failed with %s", gni_return_string(status));
+  }
 
   if (destination_cq_handle) {
     status = GNI_CqDestroy(destination_cq_handle);
-    gasneti_assert_always (status == GNI_RC_SUCCESS);
+    if_pf (status != GNI_RC_SUCCESS) {
+      gasnetc_GNIT_Abort("CqDestroy(dest_cq) failed with %s", gni_return_string(status));
+    }
   }
 
   status = GNI_CqDestroy(smsg_cq_handle);
-  gasneti_assert_always (status == GNI_RC_SUCCESS);
+  if_pf (status != GNI_RC_SUCCESS) {
+    gasnetc_GNIT_Abort("CqDestroy(smsg_cq) failed with %s", gni_return_string(status));
+  }
 
   status = GNI_CqDestroy(bound_cq_handle);
-  gasneti_assert_always (status == GNI_RC_SUCCESS);
-
+  if_pf (status != GNI_RC_SUCCESS) {
+    gasnetc_GNIT_Abort("CqDestroy(bound_cq) failed with %s", gni_return_string(status));
+  }
 
   status = GNI_CdmDestroy(cdm_handle);
-  gasneti_assert_always (status == GNI_RC_SUCCESS);
+  if_pf (status != GNI_RC_SUCCESS) {
+    gasnetc_GNIT_Abort("CdmDestroy(bound_cq) failed with %s", gni_return_string(status));
+  }
 }
 
 
