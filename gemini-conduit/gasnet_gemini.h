@@ -203,10 +203,10 @@ typedef union gasnetc_eq_packet {
         (GASNETC_MSG_MAXSIZE - GASNETC_HEADLEN(long, (nargs)) - 8)
 
 typedef struct {
-  gasnetc_packet_t smsg_header;
 #if GASNETC_SMSG_RETRANSMIT
   void *buffer;
 #endif
+  gasnetc_packet_t smsg_header;
 } gasnetc_smsg_t;
 
 #if GASNETC_SMSG_RETRANSMIT

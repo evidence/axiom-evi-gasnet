@@ -967,12 +967,20 @@ gasnetc_send_am(gasnet_node_t dest,
                   gasnetc_smsg_t *smsg, int header_length, 
                   void *data, int data_length, int do_copy)
 {
-  gasnetc_packet_t * const smsg_header = &smsg->smsg_header;
-  gni_return_t status;
-
 #if GASNETC_SMSG_RETRANSMIT
-  smsg->buffer = !do_copy ? NULL :
-    (data = data_length ? memcpy(gasnetc_smsg_buffer(data_length), data, data_length) : NULL);
+  gasnetc_packet_t * const smsg_header = &smsg->smsg_header;
+
+  smsg->buffer = NULL;
+  if (do_copy && data_length) {
+    const size_t imm_limit = GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE - offsetof(gasnetc_smsg_t,smsg_header);
+    void * buffer;
+    if ((data_length + header_length) > imm_limit) {
+      buffer = smsg->buffer = gasnetc_smsg_buffer(data_length);
+    } else {
+      buffer = (void*) ((uintptr_t)smsg_header + header_length);
+    }
+    memcpy(buffer, data, data_length);
+  }
 #endif
 
   return gasnetc_send_smsg(dest, 1,
