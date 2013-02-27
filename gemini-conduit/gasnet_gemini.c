@@ -1005,9 +1005,13 @@ gasnetc_smsg_t *gasnetc_alloc_smsg(void)
 
 static int
 #if GASNETC_SMSG_GASNET
+#define GASNETC_SEND_SMSG(_dest,_lock,_smsg,_hlen,_data,_dlen) \
+  gasnetc_send_smsg((_dest),(_lock),(_smsg),(_hlen)+(_dlen))
 gasnetc_send_smsg(gasnet_node_t dest, int take_lock, gasnetc_smsg_t *smsg,
                   size_t length)
 #else
+#define GASNETC_SEND_SMSG(_dest,_lock,_smsg,_hlen,_data,_dlen) \
+  gasnetc_send_smsg((_dest),(_lock),(_smsg),(_hlen),(_data),(_dlen))
 gasnetc_send_smsg(gasnet_node_t dest, int take_lock, gasnetc_smsg_t *smsg,
                   int header_length, void *data, int data_length)
 #endif
@@ -1024,7 +1028,7 @@ gasnetc_send_smsg(gasnet_node_t dest, int take_lock, gasnetc_smsg_t *smsg,
           gasnetc_get_struct_addr_from_field_addr(gasnetc_post_descriptor_t, u.smsg, smsg);
   gni_post_descriptor_t * const pd = &gpd->pd;
   const uint64_t *buffer = (uint64_t *)smsg_header;
-  gasneti_assert(length >= 8);
+  gasneti_assert(length > 0);
   gasneti_assert(length <= GASNETC_MSG_MAXSIZE);
 #elif GASNETC_SMSG_ARIES
   gasnetc_packet_t * const smsg_header = &smsg->smsg_header;
@@ -1052,7 +1056,7 @@ gasnetc_send_smsg(gasnet_node_t dest, int take_lock, gasnetc_smsg_t *smsg,
 
   /* First word will be written to the remote sync flag, while rest is the Put payload */
   pd->sync_flag_value = buffer[0];
-  pd->length = length - 8;
+  pd->length = MAX(length,8) - 8;
   pd->local_addr = (uint64_t) &buffer[1];
   pd->remote_mem_hndl = peer->mb.rem_hndl;
 
@@ -1136,7 +1140,6 @@ gasnetc_send_am(gasnet_node_t dest,
     }
     memcpy(buffer + header_length, data, data_length);
   }
-  return gasnetc_send_smsg(dest, 1, smsg, total_len);
 #elif GASNETC_SMSG_ARIES
   smsg->buffer = NULL;
   if (do_copy && data_length) {
@@ -1150,14 +1153,11 @@ gasnetc_send_am(gasnet_node_t dest,
     }
     memcpy(buffer, data, data_length);
   }
-  return gasnetc_send_smsg(dest, 1,
-                           smsg, header_length,
-                           data, data_length);
-#else
-  return gasnetc_send_smsg(dest, 1,
-                           smsg, header_length,
-                           data, data_length);
 #endif
+
+  return GASNETC_SEND_SMSG(dest, 1,
+                           smsg, header_length,
+                           data, data_length);
 }
 
 
@@ -1206,24 +1206,15 @@ void gasnetc_poll_local_queue(void))
 
       /* handle remaining work */
       if (gpd->flags & GC_POST_SEND) {
-#if GASNETC_SMSG_GASNET
+#if GASNETC_SMSG_GASNET || GASNETC_SMSG_ARIES
         gasnetc_smsg_t *smsg = gpd->u.smsg_p;
-        gasnetc_am_long_packet_t * const galp = &smsg->smsg_header.galp;
-        int rc = gasnetc_send_smsg(gpd->dest, 0, smsg,
-                                   GASNETC_HEADLEN(long, galp->header.numargs));
-#elif GASNETC_SMSG_ARIES
-        gasnetc_smsg_t *smsg = gpd->u.smsg_p;
-        gasnetc_am_long_packet_t * const galp = &smsg->smsg_header.galp;
-        int rc = gasnetc_send_smsg(gpd->dest, 0, smsg,
-                                   GASNETC_HEADLEN(long, galp->header.numargs),
-                                   NULL, 0);
 #else
         gasnetc_smsg_t *smsg = &gpd->u.smsg;
+#endif
         gasnetc_am_long_packet_t * const galp = &smsg->smsg_header.galp;
-        int rc = gasnetc_send_smsg(gpd->dest, 0, smsg,
+        int rc = GASNETC_SEND_SMSG(gpd->dest, 0, smsg,
                                    GASNETC_HEADLEN(long, galp->header.numargs),
                                    NULL, 0);
-#endif
         gasneti_assert_always (rc == GASNET_OK);
       } else if (gpd->flags & GC_POST_COPY) {
         void * const buffer = gpd->bounce_buffer;
@@ -1285,12 +1276,7 @@ void gasnetc_send_credit(uint32_t pe)
     smsg->buffer = NULL;
   #endif
 
-  #if GASNETC_SMSG_GASNET
-    rc = gasnetc_send_smsg(pe, 1, smsg, MAX(8, sizeof(gasnetc_am_nop_packet_t)));
-  #else
-    rc = gasnetc_send_smsg(pe, 1, smsg, sizeof(gasnetc_am_nop_packet_t),
-                           NULL, 0);
-  #endif
+    rc = GASNETC_SEND_SMSG(pe, 1, smsg, sizeof(gasnetc_am_nop_packet_t), NULL, 0);
 
     if_pf (rc) {
       gasnetc_GNIT_Abort("Failed to return AM implicit credit");
@@ -1873,13 +1859,7 @@ extern void gasnetc_sys_SendShutdownMsg(gasnet_node_t peeridx, int shift, int ex
 
   gasnetc_get_am_credit(dest);
 
-#if GASNETC_SMSG_GASNET
-  result = gasnetc_send_smsg(dest, 1, smsg, MAX(8, sizeof(gasnetc_sys_shutdown_packet_t)));
-#else
-  result = gasnetc_send_smsg(dest, 1,
-                             smsg, sizeof(gasnetc_sys_shutdown_packet_t),
-                             NULL, 0);
-#endif
+  result = GASNETC_SEND_SMSG(dest, 1, smsg, sizeof(gasnetc_sys_shutdown_packet_t), NULL, 0);
 
 #if GASNET_DEBUG
   if_pf (result) {
