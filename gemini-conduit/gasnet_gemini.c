@@ -1204,7 +1204,7 @@ void gasnetc_poll_local_queue(void))
 	memcpy(gpd->get_target, gpd->bounce_buffer, length);
 	gpd->bounce_buffer = (void*)(~3 & (uintptr_t)buffer); /* fixup for possible UNBOUNCE */
       }
-#if GASNETC_SMSG_PUTSYNC
+#if GASNETC_SMSG_GASNET
       else if (gpd->flags & GC_POST_SMSG) {
         gasnetc_smsg_t * const smsg = &gpd->u.smsg;
         if (smsg->buffer) {
