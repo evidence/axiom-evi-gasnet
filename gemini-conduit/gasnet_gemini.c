@@ -1846,7 +1846,7 @@ extern void gasnetc_sys_SendShutdownMsg(gasnet_node_t peeridx, int shift, int ex
   gssp->header.numargs = 0;
 #endif
   gssp->header.handler = shift; /* log(distance) */
-#if GASNETC_SMSG_GASNET || GASNETC_SMSG_ARIES
+
   gasnetc_get_am_credit(dest);
 
   result = GASNETC_SEND_SMSG(dest, 1, smsg, sizeof(gasnetc_sys_shutdown_packet_t), NULL, 0);
