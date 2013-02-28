@@ -1843,6 +1843,7 @@ extern void gasnetc_sys_SendShutdownMsg(gasnet_node_t peeridx, int shift, int ex
     gasnetc_init_post_descriptor_pool();
   }
   smsg = gasnetc_alloc_smsg();
+  smsg->buffer = NULL;
   gasneti_weakatomic_increment(&shutdown_smsg_counter, GASNETI_ATOMIC_NONE);
 #endif
 
@@ -1855,13 +1856,9 @@ extern void gasnetc_sys_SendShutdownMsg(gasnet_node_t peeridx, int shift, int ex
 #endif
   gssp->header.handler = shift; /* log(distance) */
 #if GASNETC_SMSG_GASNET || GASNETC_SMSG_ARIES
-  smsg->buffer = NULL;
-#endif
-
   gasnetc_get_am_credit(dest);
 
   result = GASNETC_SEND_SMSG(dest, 1, smsg, sizeof(gasnetc_sys_shutdown_packet_t), NULL, 0);
-
 #if GASNET_DEBUG
   if_pf (result) {
     gasnetc_GNIT_Log("WARNING: gasnetc_send_smsg() call at Shutdown failed");
