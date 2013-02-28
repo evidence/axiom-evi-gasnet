@@ -972,26 +972,13 @@ void gasnetc_poll_smsg_queue(void)
 
 static gasneti_lifo_head_t gasnetc_smsg_buffers = GASNETI_LIFO_INITIALIZER;
 
-/* For exit code, here for use in gasnetc_free_smsg */
+/* For exit code, but decl earlier for use in gasnetc_poll_local_queue */
 static gasneti_weakatomic_t shutdown_smsg_counter = gasneti_weakatomic_init(0);
 
 GASNETI_INLINE(gasnetc_smsg_buffer)
 void * gasnetc_smsg_buffer(size_t buffer_len) {
   void *result = gasneti_lifo_pop(&gasnetc_smsg_buffers);
   return result ? result : gasneti_malloc(GASNETC_MSG_MAXSIZE); /* XXX: less? */
-}
-
-GASNETI_INLINE(gasnetc_free_smsg)
-void gasnetc_free_smsg(gasnetc_post_descriptor_t * const gpd)
-{
-  gasnetc_smsg_t * const smsg = &gpd->u.smsg;
-
-  if (smsg->buffer) {
-    gasneti_lifo_push(&gasnetc_smsg_buffers, smsg->buffer);
-  } else if_pf (smsg->smsg_header.header.command == GC_CMD_SYS_SHUTDOWN_REQUEST) {
-    gasneti_weakatomic_decrement(&shutdown_smsg_counter, GASNETI_ATOMIC_NONE);
-  }
-  gasnetc_free_post_descriptor(gpd);
 }
 
 gasnetc_smsg_t *gasnetc_alloc_smsg(void)
@@ -1048,6 +1035,8 @@ gasnetc_send_smsg(gasnet_node_t dest, int take_lock, gasnetc_smsg_t *smsg,
                            smsg_header->header.credit ? " (+credit)" : ""));
 
 #if GASNETC_SMSG_GASNET
+  gpd->flags = GC_POST_SMSG;
+
   /*  bzero(&pd, sizeof(gni_post_descriptor_t)); */
   pd->cq_mode = GNI_CQMODE_GLOBAL_EVENT | GNI_CQMODE_REMOTE_EVENT;
   pd->dlvr_mode = GNI_DLVMODE_PERFORMANCE;
@@ -1197,15 +1186,6 @@ void gasnetc_poll_local_queue(void))
 		   (void *) event_data, gni_return_string(status));
       gpd = gasnetc_get_struct_addr_from_field_addr(gasnetc_post_descriptor_t, pd, pd);
 
-#if GASNETC_SMSG_GASNET
-      /* first handle completion of message sends */
-      if (pd->type == GNI_POST_FMA_PUT_W_SYNCFLAG) {
-        /* TODO: textually inline, possibly using a gpd->flags value to distinguish? */
-        gasnetc_free_smsg(gpd);
-	continue;
-      }
-#endif
-
       /* handle remaining work */
       if (gpd->flags & GC_POST_SEND) {
 #if GASNETC_SMSG_GASNET || GASNETC_SMSG_ARIES
@@ -1224,6 +1204,16 @@ void gasnetc_poll_local_queue(void))
 	memcpy(gpd->get_target, gpd->bounce_buffer, length);
 	gpd->bounce_buffer = (void*)(~3 & (uintptr_t)buffer); /* fixup for possible UNBOUNCE */
       }
+#if GASNETC_SMSG_PUTSYNC
+      else if (gpd->flags & GC_POST_SMSG) {
+        gasnetc_smsg_t * const smsg = &gpd->u.smsg;
+        if (smsg->buffer) {
+          gasneti_lifo_push(&gasnetc_smsg_buffers, smsg->buffer);
+        } else if_pf (smsg->smsg_header.header.command == GC_CMD_SYS_SHUTDOWN_REQUEST) {
+          gasneti_weakatomic_decrement(&shutdown_smsg_counter, GASNETI_ATOMIC_NONE);
+        }
+      }
+#endif
 
       /* indicate completion */
       if (gpd->flags & GC_POST_COMPLETION_FLAG) {
@@ -1836,7 +1826,8 @@ extern void gasnetc_sys_SendShutdownMsg(gasnet_node_t peeridx, int shift, int ex
 
 #if GASNETC_SMSG_GASNET || GASNETC_SMSG_ARIES
   if (0 == gasnetc_pd_buffers.addr) {
-    /* If in exit before attach, must populate gdp freelist */
+    /* If in exit before attach, must populate gpd freelist */
+
     const int count = 32; /* XXX: any reason to economize? */
     gasnetc_pd_buffers.addr = gasneti_calloc(count, sizeof(gasnetc_post_descriptor_t));
     gasnetc_pd_buffers.size = count * sizeof(gasnetc_post_descriptor_t);
