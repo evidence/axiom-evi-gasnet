@@ -19,31 +19,6 @@
 #define GASNETC_DEFAULT_MEM_CONSISTENCY 3 /* use neither */
 #define GASNETC_DEFAULT_RDMA_MEM_CONSISTENCY  GASNETC_RELAXED_MEM_CONSISTENCY
 
-/* Define exactly one of these to 1
- * GASNETC_SMSG_GEMINI  GNI_Smsg with local completion
- * GASNETC_SMSG_ARIES   GNI_Smsg withglobal completion 
- * GASNETC_SMSG_GASNET  Scratch implementation via FMA_PUT_W_SYNCFLAG 
- */
-
-#if defined(GASNET_CONDUIT_GEMINI)
-  #define GASNETC_SMSG_GEMINI 1
-#elif defined(GASNET_CONDUIT_ARIES)
-  #define GASNETC_SMSG_GASNET 1
-#else
-  #error
-#endif
-
-/* Normalize: */
-#ifndef GASNETC_SMSG_GEMINI
-#define GASNETC_SMSG_GEMINI 0
-#endif
-#ifndef GASNETC_SMSG_ARIES
-#define GASNETC_SMSG_ARIES 0
-#endif
-#ifndef GASNETC_SMSG_GASNET
-#define GASNETC_SMSG_GASNET 0
-#endif
-
 /* debug support */
 #define gasnetc_GNIT_Abort(msg, args...) do {			  \
     fprintf(stderr, "node %d error %s: " msg "\n", gasneti_mynode,	  \
@@ -113,14 +88,6 @@ typedef gasneti_mutex_t gasnetc_queuelock_t;
   gasneti_mutex_lock(&gasnetc_conn_queue[srcnode].lock)
 #define GASNETC_UNLOCK_NODE(srcnode)			\
   gasneti_mutex_unlock(&gasnetc_conn_queue[srcnode].lock)
-#endif
-
-#if GASNET_SEQ
-  #define GASNETC_UNLOCK_GNI_IF_SEQ() GASNETC_UNLOCK_GNI()
-  #define GASNETC_UNLOCK_GNI_IF_PAR() ((void)0)
-#else
-  #define GASNETC_UNLOCK_GNI_IF_SEQ() ((void)0)
-  #define GASNETC_UNLOCK_GNI_IF_PAR() GASNETC_UNLOCK_GNI()
 #endif
 
 typedef struct {
@@ -216,26 +183,9 @@ typedef union gasnetc_eq_packet {
                           + gasnet_AMMaxMedium()), GASNETC_CACHELINE_SIZE)
 
 /* max data one can pack into SMSG with a long header: */
-/* XXX: note 8-byte "fudge" because Larry K. has indicated some overhead exists */
 /* TODO: runtime control of cut-off via an env var */
 #define GASNETC_MAX_PACKED_LONG(nargs) \
-        (GASNETC_MSG_MAXSIZE - GASNETC_HEADLEN(long, (nargs)) - 8)
-
-typedef struct {
-#if GASNETC_SMSG_ARIES || GASNETC_SMSG_GASNET
-  void *buffer;
-#endif
-  gasnetc_packet_t smsg_header;
-} gasnetc_smsg_t;
-
-#if GASNETC_SMSG_ARIES || GASNETC_SMSG_GASNET
-  #define GASNETC_DECL_SMSG(_name) \
-    gasnetc_smsg_t *_name = gasnetc_alloc_smsg() /* no semi-colon */
-#else
-  #define GASNETC_DECL_SMSG(_name) \
-    gasnetc_smsg_t _##_name; \
-    gasnetc_smsg_t *_name = &_##_name /* no semi-colon */
-#endif
+        (GASNETC_MSG_MAXSIZE - GASNETC_HEADLEN(long, (nargs)))
 
 void gasnetc_get_am_credit(uint32_t pe);
 
@@ -293,14 +243,12 @@ typedef struct gasnetc_post_descriptor {
     gasnete_eop_t *eop;
     gasnete_iop_t *iop;
     gasnete_op_t *op;
+    struct gasnetc_post_descriptor *smsg;
   } completion;
   gni_post_descriptor_t pd;
   union {
-  #if GASNETC_SMSG_ARIES || GASNETC_SMSG_GASNET
-    gasnetc_smsg_t *smsg_p;
-  #endif
-    gasnetc_smsg_t smsg;
     char immediate[GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE];
+    gasnetc_packet_t packet;
   } u;
 } gasnetc_post_descriptor_t;
 
@@ -313,7 +261,6 @@ void gasnetc_free_post_descriptor(gasnetc_post_descriptor_t *pd);
 #endif
 
 /* exit related */
-int gasnetc_exitcode;
 volatile int gasnetc_shutdownInProgress;
 double gasnetc_shutdown_seconds; /* number of seconds to poll before forceful shutdown */
 int gasnetc_sys_exit(int *exitcode);
@@ -328,13 +275,9 @@ void gasnetc_shutdown(void); /* clean up all gni state */
 void gasnetc_poll_local_queue(void);
 void gasnetc_poll(void);
 
-#if GASNETC_SMSG_ARIES || GASNETC_SMSG_GASNET
-gasnetc_smsg_t *gasnetc_alloc_smsg(void);
-#endif
-
 int gasnetc_send_am(gasnet_node_t dest,
-            gasnetc_smsg_t *smsg, int header_length,
-            void *data, int data_length, int do_copy);
+            gasnetc_post_descriptor_t *gpd, int header_length,
+            void *data, int data_length);
 
 void gasnetc_rdma_put_bulk(gasnet_node_t dest,
 		 void *dest_addr, void *source_addr,
