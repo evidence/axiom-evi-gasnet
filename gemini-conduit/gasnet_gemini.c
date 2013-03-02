@@ -861,7 +861,7 @@ static gasneti_weakatomic_t shutdown_smsg_counter = gasneti_weakatomic_init(0);
 #if !GASNET_CONDUIT_GEMINI
 static gasneti_lifo_head_t gasnetc_smsg_buffers = GASNETI_LIFO_INITIALIZER;
 
-GASNETI_INLINE(gasnetc_smsg_buffer)
+GASNETI_INLINE(gasnetc_smsg_buffer) GASNETI_MALLOC
 gasnetc_packet_t * gasnetc_smsg_buffer(size_t buffer_len) {
   void *result = gasneti_lifo_pop(&gasnetc_smsg_buffers);
   return result ? result : gasneti_malloc(GASNETC_MSG_MAXSIZE); /* XXX: less? */
@@ -1566,6 +1566,7 @@ void gasnetc_init_post_descriptor_pool(void)
 }
 
 /* This needs no lock because there is an internal lock in the queue */
+GASNETI_MALLOC
 gasnetc_post_descriptor_t *gasnetc_alloc_post_descriptor(void)
 {
   gasnetc_post_descriptor_t *gpd =
@@ -1873,6 +1874,7 @@ void gasnetc_init_bounce_buffer_pool(void)
   }
 }
 
+GASNETI_MALLOC
 void *gasnetc_alloc_bounce_buffer(void)
 {
   void *buf = gasneti_lifo_pop(&gasnetc_bounce_buffer_pool);

@@ -211,7 +211,7 @@ void gasnetc_init_post_descriptor_pool(void);
 /* how many concurrent dynamic memory registrations to allow */
 #define GASNETC_GNI_MEMREG_DEFAULT 16 /* XXX: tune or auto-detect this! */
 
-void  *gasnetc_alloc_bounce_buffer(void);
+void  *gasnetc_alloc_bounce_buffer(void) GASNETI_MALLOC;
 void gasnetc_free_bounce_buffer(void *buf);
 
 
@@ -252,7 +252,7 @@ typedef struct gasnetc_post_descriptor {
   } u;
 } gasnetc_post_descriptor_t;
 
-gasnetc_post_descriptor_t *gasnetc_alloc_post_descriptor(void);
+gasnetc_post_descriptor_t *gasnetc_alloc_post_descriptor(void) GASNETI_MALLOC;
 void gasnetc_free_post_descriptor(gasnetc_post_descriptor_t *pd);
 
 /* default fraction of phys mem to assume is pinnable under CNL */
