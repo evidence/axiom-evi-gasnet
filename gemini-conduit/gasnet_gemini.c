@@ -670,10 +670,9 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
 {
   peer_struct_t * const peer = &peer_data[pe];
   gasnetc_mailbox_t buffer;
-  for (;;) {
-    gasnetc_mailbox_t * const mb = gasnetc_smsg_get_next(peer);
-    
-    if (NULL != mb) {
+  gasnetc_mailbox_t * mb;
+
+  while (NULL != (mb = gasnetc_smsg_get_next(peer))) {
       gasnetc_packet_t * msg = &mb->packet;
       const uint32_t numargs = msg->header.numargs;
       const int is_req = GASNETC_CMD_IS_REQ(msg->header.command);
@@ -750,10 +749,7 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
             gasneti_weakatomic_add(&peer->am_credit, credits, GASNETI_ATOMIC_NONE);
         gasneti_assert(newval <= am_maxcredit);
       }
-    } else {
-      break;  /* there was no smsg waiting */
-    }
-    gasnetc_poll_smsg_completion_queue();
+      gasnetc_poll_smsg_completion_queue();
   }
 }
 
