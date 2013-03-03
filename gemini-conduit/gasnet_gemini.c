@@ -36,7 +36,6 @@ typedef union {
 } gasnetc_mailbox_t;
 
 typedef struct peer_struct {
-  struct peer_struct *next; /* pointer to next when queue, GC_NOT_QUEUED otherwise */
   gni_ep_handle_t ep_handle;
   gni_mem_handle_t mem_handle;
   gasneti_weakatomic_t am_credit;
@@ -135,60 +134,6 @@ const char *gasnetc_post_type_string(gni_post_type_t type)
   if (type == GNI_POST_FMA_PUT) return("GNI_POST_FMA_PUT");
   if (type == GNI_POST_FMA_GET) return("GNI_POST_FMA_GET");
   return("unknown");
-}
-
-/*------ Work Queue threading peer_struct_t with pending AM receives ------*/
-
-static
-struct {
-  peer_struct_t *head;
-  peer_struct_t *tail;
-  gasnetc_queuelock_t lock;
-} smsg_work_queue;
-
-#define GC_NOT_QUEUED ((struct peer_struct*)(uintptr_t)1)
-#define GC_IS_QUEUED(_qi) \
-        (gasneti_assert((_qi) != NULL), ((_qi)->next != GC_NOT_QUEUED))
-
-void gasnetc_work_queue_init(void)
-{
-  smsg_work_queue.head = NULL;
-  smsg_work_queue.tail = NULL;
-  GASNETC_INITLOCK_QUEUE(&smsg_work_queue);
-}
-
-/* Remove qi from HEAD of work queue - acquires and releases lock */
-GASNETI_INLINE(gasnetc_work_dequeue)
-peer_struct_t *gasnetc_work_dequeue(void)
-{
-  peer_struct_t *qi;
-  GASNETC_LOCK_QUEUE(&smsg_work_queue);
-  qi = smsg_work_queue.head;
-  if (qi != NULL) {
-    smsg_work_queue.head = qi->next;
-    if (smsg_work_queue.head == NULL) smsg_work_queue.tail = NULL;
-    qi->next = GC_NOT_QUEUED;
-  }
-  GASNETC_UNLOCK_QUEUE(&smsg_work_queue);
-  return(qi);
-}
-
-/* Add qi at TAIL of work queue - caller must hold lock */
-GASNETI_INLINE(gasnetc_work_enqueue_nolock)
-void gasnetc_work_enqueue_nolock(peer_struct_t *qi)
-{
-  gasneti_assert(qi != NULL);
-  gasneti_assert(qi->next == GC_NOT_QUEUED);
-  /* GASNETC_LOCK_QUEUE(&smsg_work_queue); */
-  if (smsg_work_queue.head == NULL) {
-    smsg_work_queue.head = qi;
-  } else {
-    gasneti_assert(smsg_work_queue.tail != NULL);
-    smsg_work_queue.tail->next = qi;
-  }
-  smsg_work_queue.tail = qi;
-  qi->next = NULL;
-  /* GASNETC_UNLOCK_QUEUE(&smsg_work_queue); */
 }
 
 /*-------------------------------------------------*/
@@ -381,8 +326,6 @@ uintptr_t gasnetc_init_messaging(void)
 
   GASNETC_INITLOCK_GNI();
 
-  gasnetc_work_queue_init();
-
   status = GNI_CdmCreate(gasneti_mynode,
 			 gasnetc_ptag, gasnetc_cookie,
 			 modes,
@@ -420,7 +363,6 @@ uintptr_t gasnetc_init_messaging(void)
   peer_data = gasneti_malloc(gasneti_nodes * sizeof(peer_struct_t));
   for (i = 0; i < gasneti_nodes; i += 1) {
     if (node_is_local(i)) continue; /* no connection to self or PSHM-reachable peers */
-    peer_data[i].next = GC_NOT_QUEUED;
     status = GNI_EpCreate(nic_handle, bound_cq_handle, &peer_data[i].ep_handle);
     gasneti_assert_always (status == GNI_RC_SUCCESS);
     status = GNI_EpBind(peer_data[i].ep_handle, all_addr[i], i);
@@ -663,16 +605,15 @@ int gasnetc_handle_am_long_packet(int req, gasnet_node_t source,
 
 
 extern void gasnetc_handle_sys_shutdown_packet(uint32_t source, gasnetc_sys_shutdown_packet_t *sys);
-extern void  gasnetc_poll_smsg_completion_queue(void);
 static void gasnetc_send_credit(uint32_t pe);
 
-void gasnetc_process_smsg_q(gasnet_node_t pe)
+int gasnetc_process_smsg_q(gasnet_node_t pe)
 {
   peer_struct_t * const peer = &peer_data[pe];
   gasnetc_mailbox_t buffer;
-  gasnetc_mailbox_t * mb;
+  gasnetc_mailbox_t * const mb = gasnetc_smsg_get_next(peer);
 
-  while (NULL != (mb = gasnetc_smsg_get_next(peer))) {
+  if (mb) {
       gasnetc_packet_t * msg = &mb->packet;
       const uint32_t numargs = msg->header.numargs;
       const int is_req = GASNETC_CMD_IS_REQ(msg->header.command);
@@ -749,105 +690,37 @@ void gasnetc_process_smsg_q(gasnet_node_t pe)
             gasneti_weakatomic_add(&peer->am_credit, credits, GASNETI_ATOMIC_NONE);
         gasneti_assert(newval <= am_maxcredit);
       }
-      gasnetc_poll_smsg_completion_queue();
   }
+
+  return (NULL != mb);
 }
 
 
 #define SMSG_BURST 20
-#define SMSG_PEER_BURST 4
-
-/* algorithm, imagining that several threads call this at once
- * seize the GNI lock
- *   call CqGetEvent BURST times, into a local array
- * release the GNI lock
- * if any messages found:
- * seize the smsq_work_queue lock
- *   scan the local array, adding peers to the work queue if needed
- * release the smsg work queue lock
- * check the final status from the CqGetEvents
- *   if queue overflow
- *   seize the GNI lock and drain the cq
- *   seize the smsg_work_queue_lock and enqueue everyone not already there
- * up to PEER_BURST times
- *  try to dequeue a peer and process messages from them
- */
-
-void gasnetc_poll_smsg_completion_queue(void)
-{
-  gni_return_t status;
-  gasnet_node_t source;
-  gni_cq_entry_t event_data[SMSG_BURST];
-  int messages;
-  int i;
-
-  /* grab the gni lock, then spin through SMSG_BURST calls to
-   * CqGetEvent as fast as possible, saving the interpretation
-   * for later.  The GNI lock is global, for all GNI api activity.
-   */
-  GASNETC_LOCK_GNI();
-  for (messages = 0; messages < SMSG_BURST; ++messages) {
-    status = GNI_CqGetEvent(smsg_cq_handle,&event_data[messages]);
-    if (status != GNI_RC_SUCCESS) break;
-  }
-  GASNETC_UNLOCK_GNI();
-  /* Now run through what you found */
-  if (messages > 0) {
-    GASNETC_LOCK_QUEUE(&smsg_work_queue);
-    for (i = 0; i < messages; i += 1) {
-      source = GNI_CQ_GET_INST_ID(event_data[i]);
-      gasneti_assert(source < gasneti_nodes);
-      /* atomically enqueue the peer on the smsg queue if it isn't
-	 already there.  */
-      if (!GC_IS_QUEUED(&peer_data[source]))
-	gasnetc_work_enqueue_nolock(&peer_data[source]);
-    }
-    GASNETC_UNLOCK_QUEUE(&smsg_work_queue);
-  }
-  /* Now check the final status from the CqGetEvent */
-  /* the most likely case is no more messages */
-  /* The next most likely case is a full BURST, ending in success */
-  /* Next is queue overflow, which shouldn't happen but is recoverable */
-  if (status == GNI_RC_NOT_DONE) {
-    /* nothing to do */
-  } else if (status == GNI_RC_SUCCESS) {
-    /* nothing to do */
-  } else if (status == GNI_RC_ERROR_RESOURCE) {
-    /* drain the cq completely */
-    GASNETC_STAT_EVENT(SMSG_CQ_OVERRUN);
-    GASNETC_LOCK_GNI();
-    for (;;) {
-      status = GNI_CqGetEvent(smsg_cq_handle,&event_data[0]);
-      if (status == GNI_RC_SUCCESS) continue;
-      if (status == GNI_RC_ERROR_RESOURCE) continue;
-      if (status == GNI_RC_NOT_DONE) break;
-      gasnetc_GNIT_Abort("CqGetEvent(smsg_cq) drain returns error %s", gni_return_string(status));
-    }
-    GASNETC_UNLOCK_GNI();
-    /* and enqueue everyone on the work queue, who isn't already */
-    GASNETC_LOCK_QUEUE(&smsg_work_queue);
-    for (source = 0; source < gasneti_nodes; source += 1) {
-      if (node_is_local(source)) continue; /* no AMs for self or PSHM-reachable peers */
-      if (!GC_IS_QUEUED(&peer_data[source]))
-	gasnetc_work_enqueue_nolock(&peer_data[source]);
-    }
-    GASNETC_UNLOCK_QUEUE(&smsg_work_queue);
-  } else {
-    /* anything else is a fatal error */
-    gasnetc_GNIT_Abort("CqGetEvent(smsg_cq) returns error %s", gni_return_string(status));
-  }
-}
 
 void gasnetc_poll_smsg_queue(void)
 {
   int i;
-  gasnetc_poll_smsg_completion_queue();
 
-  /* Now see about processing some peers off the smsg_work_queue */
-  for (i = 0; i < SMSG_PEER_BURST; i += 1) {
-    peer_struct_t *peer = gasnetc_work_dequeue();
-    if (peer == NULL) break;
-    gasnetc_process_smsg_q(peer->rank);
+  for (i = 0; i < SMSG_BURST; ++i) {
+    gni_return_t status;
+    gni_cq_entry_t event_data;
+    gasnet_node_t source;
+
+    GASNETC_LOCK_GNI();
+    status = GNI_CqGetEvent(smsg_cq_handle, &event_data);
+    GASNETC_UNLOCK_GNI();
+
+    if (status != GNI_RC_SUCCESS) break;
+
+    source = GNI_CQ_GET_INST_ID(event_data);
+    gasneti_assert(source < gasneti_nodes);
+
+    /* out-of-order delivery could lead to temporary failure */
+    /* TODO: poll other sources (if any) to cover the latency, instead of blocking here */
+    while (!gasnetc_process_smsg_q(source)) {
+      GASNETI_WAITHOOK();
+    }
   }
 }
 
