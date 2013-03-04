@@ -698,16 +698,31 @@ int gasnetc_process_smsg_q(gasnet_node_t pe)
 
 #define SMSG_BURST 20
 
-/* TODO: grow the polling set upto the SMSG_BURST limit? */
-/* TODO: static queue to carry-over failures to next poll */
+/* TODO: Need a better scheme for pthreads than one critical section.
+ *       Current scheme prevents concurrent handler execution.
+ *       So, should consider fine-grained queue access.
+ */
 void gasnetc_poll_smsg_queue(void)
 {
-  gasnet_node_t queue[SMSG_BURST+1]; /* +1 prevents head==tail and its full/empty ambiguity */
-  int i;
+  /* FIFO queue of sources for which we have reaped a Cq entry,
+   * but have not yet completed the corresponding receive.
+   * A source may potentially appear multiple time.
+   * The +1 in sizing prevents head==tail and its full/empty ambiguity
+   */
+  static gasneti_mutex_t lock = GASNETI_MUTEX_INITIALIZER;
+  static gasnet_node_t queue[SMSG_BURST+1];
+  static int head = SMSG_BURST; /* Runs backward over range [0:SMSG_BURST] */
+  static int tail = SMSG_BURST; /* Runs backward over range [0:SMSG_BURST] */
+  static int free_space = SMSG_BURST;
+  int orig_tail;
 
-  for (i = 0; i < SMSG_BURST; ++i) {
+  if (gasneti_mutex_trylock(&lock)) return;
+
+  /* Reap Cq entries until our queue is full, or Cq is empty */
+  for (/*empty*/; free_space != 0; --free_space) {
     gni_return_t status;
     gni_cq_entry_t event_data;
+    gasnet_node_t source;
 
     GASNETC_LOCK_GNI();
     status = GNI_CqGetEvent(smsg_cq_handle, &event_data);
@@ -715,26 +730,26 @@ void gasnetc_poll_smsg_queue(void)
 
     if (status != GNI_RC_SUCCESS) break;
 
-    queue[i] = GNI_CQ_GET_INST_ID(event_data);
-    gasneti_assert(queue[i] < gasneti_nodes);
+    source = GNI_CQ_GET_INST_ID(event_data);
+    gasneti_assert(source < gasneti_nodes);
+
+    queue[tail] = source;
+    tail = tail ? (tail-1) : SMSG_BURST;
   }
 
-  /* Poll all "live" sources, looping to revisit any that were not ready on the first try */
-  if_pf (i) { /* Try to keep failed AMPoll cheap */
-    int head = 0;
-    int tail = i;
-    while (head != tail) {
-      gasnet_node_t source = queue[head];
-      if_pf (!gasnetc_process_smsg_q(source)) {
-        /* NOT done: move this source to the tail of the queue */
-        queue[tail] = source;
-        tail = (tail == SMSG_BURST) ? 0 : (tail + 1);
-      }
-      /* advance head */
-      head = (head == SMSG_BURST) ? 0 : (head + 1);
-      if (!head) GASNETI_WAITHOOK(); /* once per "cycle" */
+  /* Poll all "live" sources, starting with any that were not ready last time */
+  for (orig_tail = tail; head != orig_tail; head = head ? (head-1) : SMSG_BURST) {
+    const gasnet_node_t source = queue[head];
+    if_pt (gasnetc_process_smsg_q(source)) {
+      ++free_space;
+    } else {
+      /* NOT done: move this source to the tail of the queue */
+      queue[tail] = source;
+      tail = tail ? (tail-1) : SMSG_BURST;
     }
   }
+
+  gasneti_mutex_unlock(&lock);
 }
 
 /* For exit code, but decl earlier for use in gasnetc_poll_local_queue */
