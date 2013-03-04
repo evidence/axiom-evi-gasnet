@@ -51,7 +51,6 @@ typedef struct peer_struct {
     unsigned int recv_pos;
     unsigned int send_pos;
   } mb;
-  gasnet_node_t rank;
 } peer_struct_t;
 
 static peer_struct_t *peer_data;
