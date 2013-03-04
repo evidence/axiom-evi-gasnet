@@ -607,13 +607,12 @@ int gasnetc_handle_am_long_packet(int req, gasnet_node_t source,
 extern void gasnetc_handle_sys_shutdown_packet(uint32_t source, gasnetc_sys_shutdown_packet_t *sys);
 static void gasnetc_send_credit(uint32_t pe);
 
-int gasnetc_process_smsg_q(gasnet_node_t pe)
+void gasnetc_process_smsg_q(gasnet_node_t pe, gasnetc_mailbox_t * const mb)
 {
   peer_struct_t * const peer = &peer_data[pe];
   gasnetc_mailbox_t buffer;
-  gasnetc_mailbox_t * const mb = gasnetc_smsg_get_next(peer);
 
-  if (mb) {
+  {
       gasnetc_packet_t * msg = &mb->packet;
       const uint32_t numargs = msg->header.numargs;
       const int is_req = GASNETC_CMD_IS_REQ(msg->header.command);
@@ -691,17 +690,14 @@ int gasnetc_process_smsg_q(gasnet_node_t pe)
         gasneti_assert(newval <= am_maxcredit);
       }
   }
-
-  return (NULL != mb);
 }
 
 
+/* Max number of times to poll the AM mailboxes per entry */
+#define SMSG_BURST 20
+/* Max number of times to poll the AM mailboxes per entry */
 #define SMSG_BURST 20
 
-/* TODO: Need a better scheme for pthreads than one critical section.
- *       Current scheme prevents concurrent handler execution.
- *       So, should consider fine-grained queue access.
- */
 void gasnetc_poll_smsg_queue(void)
 {
   /* FIFO queue of sources for which we have reaped a Cq entry,
@@ -714,38 +710,53 @@ void gasnetc_poll_smsg_queue(void)
   static int head = SMSG_BURST; /* Runs backward over range [0:SMSG_BURST] */
   static int tail = SMSG_BURST; /* Runs backward over range [0:SMSG_BURST] */
   static int free_space = SMSG_BURST;
-  int orig_tail;
 
-  if (gasneti_mutex_trylock(&lock)) return;
+  int i;
+
+  gasneti_mutex_lock(&lock);
 
   /* Reap Cq entries until our queue is full, or Cq is empty */
-  for (/*empty*/; free_space != 0; --free_space) {
+  if (free_space) {
+    gni_cq_entry_t event_data[SMSG_BURST];
     gni_return_t status;
-    gni_cq_entry_t event_data;
-    gasnet_node_t source;
+    int count;
 
     GASNETC_LOCK_GNI();
-    status = GNI_CqGetEvent(smsg_cq_handle, &event_data);
+    for (count = 0; count < free_space; ++count) {
+      status = GNI_CqGetEvent(smsg_cq_handle, &event_data[count]);
+      if (status != GNI_RC_SUCCESS) break; /* TODO: check for fatal errors */
+    }
     GASNETC_UNLOCK_GNI();
 
-    if (status != GNI_RC_SUCCESS) break;
-
-    source = GNI_CQ_GET_INST_ID(event_data);
-    gasneti_assert(source < gasneti_nodes);
-
-    queue[tail] = source;
-    tail = tail ? (tail-1) : SMSG_BURST;
+    for (i = 0; i < count; ++i) {
+      gasnet_node_t source = GNI_CQ_GET_INST_ID(event_data[i]);
+      gasneti_assert(source < gasneti_nodes);
+      queue[tail] = source;
+      tail = tail ? (tail-1) : SMSG_BURST;
+    }
+    free_space -= count;
   }
 
   /* Poll all "live" sources, starting with any that were not ready last time */
-  for (orig_tail = tail; head != orig_tail; head = head ? (head-1) : SMSG_BURST) {
-    const gasnet_node_t source = queue[head];
-    if_pt (gasnetc_process_smsg_q(source)) {
-      ++free_space;
-    } else {
-      /* NOT done: move this source to the tail of the queue */
-      queue[tail] = source;
-      tail = tail ? (tail-1) : SMSG_BURST;
+  if (head != tail) {
+    for (i = 0; i < SMSG_BURST; ++i) {
+      /* dequeue one source and poll it */
+      const gasnet_node_t source = queue[head];
+      gasnetc_mailbox_t * const mb = gasnetc_smsg_get_next(&peer_data[source]);
+      head = head ? (head-1) : SMSG_BURST;
+
+      /* either run handler (w/o lock held) or requeue the source for later service */
+      if_pt (mb) {
+        ++free_space;
+        gasneti_mutex_unlock(&lock);
+        gasnetc_process_smsg_q(source, mb);
+        gasneti_mutex_lock(&lock);
+      } else {
+        queue[tail] = source;
+        tail = tail ? (tail-1) : SMSG_BURST;
+      }
+
+      if (head == tail) break; /* queue is empty */
     }
   }
 
