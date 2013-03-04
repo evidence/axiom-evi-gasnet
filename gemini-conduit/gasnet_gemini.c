@@ -369,7 +369,6 @@ uintptr_t gasnetc_init_messaging(void)
     /* mem_handle will be set at end of gasnetc_init_segment */
     gasneti_weakatomic_set(&peer_data[i].am_credit, am_maxcredit, 0);
     gasneti_weakatomic_set(&peer_data[i].am_credit_bank, 0, 0);
-    peer_data[i].rank = i;
   }
   gasneti_free(all_addr);
 
