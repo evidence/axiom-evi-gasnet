@@ -693,8 +693,6 @@ void gasnetc_process_smsg_q(gasnet_node_t pe, gasnetc_mailbox_t * const mb)
 
 /* Max number of times to poll the AM mailboxes per entry */
 #define SMSG_BURST 20
-/* Max number of times to poll the AM mailboxes per entry */
-#define SMSG_BURST 20
 
 void gasnetc_poll_smsg_queue(void)
 {
