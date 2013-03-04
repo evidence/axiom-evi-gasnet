@@ -698,14 +698,16 @@ int gasnetc_process_smsg_q(gasnet_node_t pe)
 
 #define SMSG_BURST 20
 
+/* TODO: grow the polling set upto the SMSG_BURST limit? */
+/* TODO: static queue to carry-over failures to next poll */
 void gasnetc_poll_smsg_queue(void)
 {
+  gasnet_node_t queue[SMSG_BURST+1]; /* +1 prevents head==tail and its full/empty ambiguity */
   int i;
 
   for (i = 0; i < SMSG_BURST; ++i) {
     gni_return_t status;
     gni_cq_entry_t event_data;
-    gasnet_node_t source;
 
     GASNETC_LOCK_GNI();
     status = GNI_CqGetEvent(smsg_cq_handle, &event_data);
@@ -713,13 +715,24 @@ void gasnetc_poll_smsg_queue(void)
 
     if (status != GNI_RC_SUCCESS) break;
 
-    source = GNI_CQ_GET_INST_ID(event_data);
-    gasneti_assert(source < gasneti_nodes);
+    queue[i] = GNI_CQ_GET_INST_ID(event_data);
+    gasneti_assert(queue[i] < gasneti_nodes);
+  }
 
-    /* out-of-order delivery could lead to temporary failure */
-    /* TODO: poll other sources (if any) to cover the latency, instead of blocking here */
-    while (!gasnetc_process_smsg_q(source)) {
-      GASNETI_WAITHOOK();
+  /* Poll all "live" sources, looping to revisit any that were not ready on the first try */
+  if_pf (i) { /* Try to keep failed AMPoll cheap */
+    int head = 0;
+    int tail = i;
+    while (head != tail) {
+      gasnet_node_t source = queue[head];
+      if_pf (!gasnetc_process_smsg_q(source)) {
+        /* NOT done: move this source to the tail of the queue */
+        queue[tail] = source;
+        tail = (tail == SMSG_BURST) ? 0 : (tail + 1);
+      }
+      /* advance head */
+      head = (head == SMSG_BURST) ? 0 : (head + 1);
+      if (!head) GASNETI_WAITHOOK(); /* once per "cycle" */
     }
   }
 }
