@@ -73,22 +73,6 @@ static gasnet_seginfo_t gasnetc_pd_buffers;
 static unsigned int mb_slots;
 static unsigned int am_maxcredit;
 
-/*------ Resource accounting ------*/
-
-/* Limit the number of active dynamic memory registrations */
-static gasneti_weakatomic_t reg_credit;
-#define gasnetc_alloc_reg_credit()         gasnetc_weakatomic_dec_if_positive(&reg_credit)
-#if GASNET_DEBUG && 0
-static gasneti_weakatomic_val_t reg_credit_max;
-#define gasnetc_init_reg_credit(_val)      gasneti_weakatomic_set(&reg_credit,reg_credit_max=(_val),0)
-  static void gasnetc_return_reg_credit(void) {
-    gasneti_weakatomic_val_t new_val = gasneti_weakatomic_add(&reg_credit,1,0);
-    gasneti_assert(new_val <= reg_credit_max);
-  }
-#else
-  #define gasnetc_init_reg_credit(_val)    gasneti_weakatomic_set(&reg_credit,(_val),0)
-  #define gasnetc_return_reg_credit()      gasneti_weakatomic_increment(&reg_credit,0)
-#endif
 
 /*------ Convience functions for printing error messages ------*/
 
@@ -133,6 +117,41 @@ const char *gasnetc_post_type_string(gni_post_type_t type)
   if (type == GNI_POST_FMA_PUT) return("GNI_POST_FMA_PUT");
   if (type == GNI_POST_FMA_GET) return("GNI_POST_FMA_GET");
   return("unknown");
+}
+
+/*------ Functions for dynamic memory registration ------*/
+
+/* Register local side of a pd, with unbounded retry */
+static void gasnetc_register_pd(gni_post_descriptor_t *pd)
+{
+  const uint64_t addr = pd->local_addr;
+  const size_t nbytes = pd->length;
+  int trial = 0;
+  gni_return_t status;
+
+  for (;;) {
+    GASNETC_LOCK_GNI();
+    status = GNI_MemRegister(nic_handle, addr, nbytes, NULL,
+                             gasnetc_memreg_flags, -1, &pd->local_mem_hndl);
+    GASNETC_UNLOCK_GNI();
+    if_pt (status == GNI_RC_SUCCESS) {
+      if (trial) GASNETC_STAT_EVENT_VAL(MEM_REG_RETRY, trial);
+      return;
+    }
+    if (status != GNI_RC_ERROR_RESOURCE) break; /* Fatal */
+    GASNETI_WAITHOOK();
+    gasnetc_poll_local_queue();
+    ++trial;
+  }
+  gasnetc_GNIT_Abort("MemRegister failed with %s", gni_return_string(status));
+}
+
+/* Deregister local side of a pd */
+GASNETI_INLINE(gasnetc_deregister_pd)
+void gasnetc_deregister_pd(gni_post_descriptor_t *pd)
+{
+  gni_return_t status = GNI_MemDeregister(nic_handle, &pd->local_mem_hndl);
+  gasneti_assert_always (status == GNI_RC_SUCCESS);
 }
 
 /*-------------------------------------------------*/
@@ -228,11 +247,6 @@ void gasnetc_init_segment(void *segment_start, size_t segment_size)
 {
   gni_return_t status;
   /* Map the shared segment */
-
-  { int envval = gasneti_getenv_int_withdefault("GASNETC_GNI_MEMREG", GASNETC_GNI_MEMREG_DEFAULT, 0);
-    if (envval < 1) envval = 1;
-    gasnetc_init_reg_credit(envval);
-  }
 
   gasnetc_mem_consistency = GASNETC_DEFAULT_RDMA_MEM_CONSISTENCY;
   { char * envval = gasneti_getenv("GASNETC_GNI_MEM_CONSISTENCY");
@@ -932,9 +946,7 @@ void gasnetc_poll_local_queue(void))
 
       /* release resources */
       if (gpd->flags & GC_POST_UNREGISTER) {
-	status = GNI_MemDeregister(nic_handle, &gpd->pd.local_mem_hndl);
-	gasneti_assert_always (status == GNI_RC_SUCCESS);
-	gasnetc_return_reg_credit();
+	gasnetc_deregister_pd(&gpd->pd);
       } else if (gpd->flags & GC_POST_UNBOUNCE) {
 	gasnetc_free_bounce_buffer(gpd->bounce_buffer);
       }
@@ -1051,48 +1063,6 @@ static gni_return_t myPostFma(gni_ep_handle_t ep, gni_post_descriptor_t *pd)
   return status;
 }
 
-/* Register local side of a pd, with bounded retry */
-static gni_return_t myRegisterPd(gni_post_descriptor_t *pd)
-{
-  const uint64_t addr = pd->local_addr;
-  const size_t nbytes = pd->length;
-  const int max_trials = 10;
-  int trial = 0;
-  gni_return_t status;
-
-  if_pf (!gasnetc_alloc_reg_credit()) {
-    /* We may simple not have polled the Cq recently.
-       So, WAITHOOK and STALL tracing only if still nothing after first poll */
-    GASNETC_TRACE_WAIT_BEGIN();
-    int stall = 0;
-    goto first;
-    do {
-      GASNETI_WAITHOOK();
-      stall = 1;
-first:
-      gasnetc_poll_local_queue();
-    } while (!gasnetc_alloc_reg_credit());
-    if_pf (stall) GASNETC_TRACE_WAIT_END(MEM_REG_STALL);
-  }
-
-  do {
-    GASNETC_LOCK_GNI();
-    status = GNI_MemRegister(nic_handle, addr, nbytes, NULL,
-                             gasnetc_memreg_flags, -1, &pd->local_mem_hndl);
-    GASNETC_UNLOCK_GNI();
-    if_pt (status == GNI_RC_SUCCESS) {
-      if (trial) GASNETC_STAT_EVENT_VAL(MEM_REG_RETRY, trial);
-      return GNI_RC_SUCCESS;
-    }
-    if (status != GNI_RC_ERROR_RESOURCE) break; /* Fatal */
-    GASNETI_WAITHOOK();
-  } while (++trial < max_trials);
-  if (status == GNI_RC_ERROR_RESOURCE) {
-    gasnetc_GNIT_Log("MemRegister retry failed");
-  }
-  return status;
-}
-
 /* Perform an rdma/fma Put with no concern for local completion */
 void gasnetc_rdma_put_bulk(gasnet_node_t dest,
 		 void *dest_addr, void *source_addr,
@@ -1139,8 +1109,7 @@ void gasnetc_rdma_put_bulk(gasnet_node_t dest,
         pd->local_addr = (uint64_t) gpd->bounce_buffer;
       } else {
         gpd->flags |= GC_POST_UNREGISTER;
-        status = myRegisterPd(pd);
-        gasneti_assert_always (status == GNI_RC_SUCCESS);
+        gasnetc_register_pd(pd);
       }
     }
     pd->type = GNI_POST_RDMA_PUT;
@@ -1210,8 +1179,7 @@ int gasnetc_rdma_put(gasnet_node_t dest,
       if_pf (!gasneti_in_segment(gasneti_mynode, source_addr, nbytes)) {
         /* source not in segment */
         gpd->flags |= GC_POST_UNREGISTER;
-        status = myRegisterPd(pd);
-        gasneti_assert_always (status == GNI_RC_SUCCESS);
+        gasnetc_register_pd(pd);
       }
     }
  
@@ -1341,8 +1309,7 @@ void gasnetc_rdma_get(gasnet_node_t dest,
       pd->local_addr = (uint64_t) gpd->bounce_buffer;
     } else {
       gpd->flags |= GC_POST_UNREGISTER;
-      status = myRegisterPd(pd);
-      gasneti_assert_always (status == GNI_RC_SUCCESS);
+      gasnetc_register_pd(pd);
     }
   }
 
