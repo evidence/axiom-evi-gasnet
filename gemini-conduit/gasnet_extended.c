@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2013/02/28 00:19:12 $
- * $Revision: 1.39 $
+ *     $Date: 2013/03/06 21:41:09 $
+ * $Revision: 1.40 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -393,10 +393,10 @@ gasnete_get_bulk_chunked(void *dest, gasnet_node_t node, void *src, size_t nbyte
 
   gasneti_assert(nbytes > chunksz); /* always 2 or more chunks */
 
-#if 0 /* TODO: current testing doesn't show a benefit, but more study is needed */
   /* If need more than 2 chunks, then size first one to achieve alignment of subsequent chunks */
-  if (nbytes > 2*GC_MAXRDMA_OUT) {
-    size_t chunk_len = GC_MAXRDMA_OUT - ((uintptr_t)src & (GC_MAXRDMA_OUT-1));
+  if (nbytes > 2*chunksz) {
+    const size_t align_to = GASNETI_PAGESIZE; /* Any power-of-two <= chunksz */
+    size_t chunk_len = chunksz - ((uintptr_t)src & (align_to-1));
     gasneti_assert(chunk_len != 0);
     gpd = gasnetc_alloc_post_descriptor();
     gpd->flags = GC_POST_COMPLETION_OP;
@@ -407,7 +407,6 @@ gasnete_get_bulk_chunked(void *dest, gasnet_node_t node, void *src, size_t nbyte
     src  = (char *) src  + chunk_len;
     nbytes -= chunk_len;
   }
-#endif
 
   /* 1 or more full chunks */
   gasneti_assert (nbytes > chunksz);
@@ -506,10 +505,10 @@ gasnete_put_bulk_chunked(gasnet_node_t node, void *dest, void *src, size_t nbyte
 
   gasneti_assert(nbytes > chunksz); /* always 2 or more chunks */
 
-#if 0 /* TODO: current testing doesn't show a benefit, but more study is needed */
   /* If need more than 2 chunks, then size first one to achieve alignment of subsequent chunks */
-  if (nbytes > 2*GC_MAXRDMA_OUT) {
-    size_t chunk_len = GC_MAXRDMA_OUT - ((uintptr_t)src & (GC_MAXRDMA_OUT-1));
+  if (nbytes > 2*chunksz) {
+    const size_t align_to = GASNETI_PAGESIZE; /* Any power-of-two <= chunksz */
+    size_t chunk_len = chunksz - ((uintptr_t)src & (align_to-1));
     gasneti_assert(chunk_len != 0);
     gpd = gasnetc_alloc_post_descriptor();
     gpd->flags = GC_POST_COMPLETION_OP;
@@ -520,7 +519,6 @@ gasnete_put_bulk_chunked(gasnet_node_t node, void *dest, void *src, size_t nbyte
     src  = (char *) src  + chunk_len;
     nbytes -= chunk_len;
   }
-#endif
 
   /* 1 or more full chunks */
   gasneti_assert (nbytes > chunksz);
