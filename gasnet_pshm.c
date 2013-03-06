@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.c,v $
- *     $Date: 2012/09/08 02:20:37 $
- * $Revision: 1.55 $
+ *     $Date: 2013/03/06 06:47:49 $
+ * $Revision: 1.56 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -133,9 +133,12 @@ void *gasneti_pshm_init(gasneti_bootstrapExchangefn_t exchangefn, size_t aux_sz)
    */
   gasnetc_pshmnet_region = gasneti_mmap_vnet(mmapsz, exchangefn);
   if (gasnetc_pshmnet_region == NULL) {
+    const int save_errno = errno;
+    char buf[16];
     gasneti_unlink_vnet();
-    gasneti_fatalerror("Failed to mmap %lu bytes for shared memory Active Messages region.",
-                       (unsigned long)mmapsz);
+    gasneti_fatalerror("Failed to mmap %s for intra-node shared memory communication, errno=%s(%i)",
+                       gasneti_format_number(mmapsz, buf, sizeof(buf), 1),
+                       strerror(save_errno), errno);
   }
   
   /* Prepare the shared info struct (including bootstrap barrier) */
