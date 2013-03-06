@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2012/08/24 23:20:20 $
- * $Revision: 1.303 $
+ *     $Date: 2013/03/06 21:21:34 $
+ * $Revision: 1.304 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1068,6 +1068,7 @@ static void gasnetc_probe_ports(int max_ports) {
   struct ibv_device	**hca_list;
   int			num_hcas;
 #endif
+  int			ib_hcas;
   gasnetc_port_info_t	*port_tbl;
   int			port_count = 0;
   int			hca_count = 0;
@@ -1102,6 +1103,7 @@ static void gasnetc_probe_ports(int max_ports) {
   gasneti_leak(hca_ids);
   rc = EVAPI_list_hcas(num_hcas, &num_hcas, hca_ids);
   GASNETC_VAPI_CHECK(rc, "while enumerating HCAs");
+  ib_hcas = num_hcas;
 #else
   hca_list = ibv_get_device_list(&num_hcas);
   if ((hca_list == NULL) || (num_hcas == 0)) {
@@ -1109,9 +1111,13 @@ static void gasnetc_probe_ports(int max_ports) {
     gasnetc_clear_ports();
     return;
   }
+  ib_hcas = 0;
+  for (curr_hca = 0; curr_hca < num_hcas; ++curr_hca) {
+    ib_hcas += (hca_list[curr_hca]->transport_type == IBV_TRANSPORT_IB);
+  }
 #endif
 
-  if ((num_hcas > GASNETC_IB_MAX_HCAS) && (gasnetc_port_list == NULL)) {
+  if ((ib_hcas > GASNETC_IB_MAX_HCAS) && (gasnetc_port_list == NULL)) {
 #if GASNET_CONDUIT_VAPI
     fprintf(stderr, "WARNING: Found %d IB HCAs, but GASNet was configured with '--with-vapi-max-hcas="
 		    _STRINGIFY(GASNETC_IB_MAX_HCAS) "'.  To utilize all your HCAs, you should "
@@ -1142,6 +1148,13 @@ static void gasnetc_probe_ports(int max_ports) {
     gasnetc_hca_cap_t	hca_cap;
     int found = 0;
     int curr_port;
+
+#if GASNET_CONDUIT_IBV
+    if (hca_list[curr_hca]->transport_type != IBV_TRANSPORT_IB) {
+      GASNETI_TRACE_PRINTF(C,("Probe skipping non-InfiniBand HCA '%s'", hca_name));
+      continue;
+    }
+#endif
 
     if (!gasnetc_match_port(hca_name, 0, 0)) {
       GASNETI_TRACE_PRINTF(C,("Probe skipping HCA '%s' - no match in " GASNET_VAPI_PORTS_STR, hca_name));
