@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2012/09/05 05:50:55 $
- * $Revision: 1.122 $
+ *     $Date: 2013/03/06 06:35:25 $
+ * $Revision: 1.123 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -755,6 +755,7 @@ extern void *gasneti_mmap_vnet(uintptr_t size, gasneti_bootstrapExchangefn_t exc
   /* Cygwin may raise SIGSYS when SysV support is absent.
      This will yield more informative error messages. */
   gasneti_sighandlerfn_t prev_handler = gasneti_reghandler(SIGSYS, SIG_IGN);
+  int save_errno;
   #endif
 
   #if defined(GASNETI_PSHM_FILE) || defined(GASNETI_PSHM_SYSV) || defined(GASNETI_PSHM_POSIX)
@@ -819,7 +820,9 @@ extern void *gasneti_mmap_vnet(uintptr_t size, gasneti_bootstrapExchangefn_t exc
   #endif
 
   #if defined(GASNETI_PSHM_SYSV) && PLATFORM_OS_CYGWIN
+  save_errno = errno;
   gasneti_reghandler(SIGSYS, prev_handler);
+  errno = save_errno;
   #endif
 
   return (ptr == MAP_FAILED) ? NULL : ptr;
