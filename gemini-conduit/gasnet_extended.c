@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2013/03/07 06:36:55 $
- * $Revision: 1.43 $
+ *     $Date: 2013/03/07 09:13:22 $
+ * $Revision: 1.44 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -364,6 +364,7 @@ gasnete_get_bulk_unaligned(void *dest, gasnet_node_t node, void *src, size_t nby
     const size_t chunksz = nbytes - tailsz;
     if (chunksz) {
       gasneti_assert(0 == (3 & chunksz));
+      /* TODO: gasnete_get_nbi_bulk includes duplicate PSHM and alignment checks */
       gasnete_get_nbi_bulk(dest, node, src, chunksz GASNETE_THREAD_PASS);
       dest = (char *) dest + chunksz;
       src  = (char *) src  + chunksz;
@@ -456,9 +457,9 @@ extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void
   } else {
     /* "too-large" xfer is chunked into multiple ops, each no larger than chunksz */
     gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
-    gasnete_begin_nbi_accessregion(1 GASNETE_THREAD_PASS);
-    gasnete_get_bulk_chunked(dest, node, src, nbytes, mythread->current_iop, chunksz);
-    return gasnete_end_nbi_accessregion(GASNETE_THREAD_PASS_ALONE);
+    gasnete_iop_t *iop = gasnete_iop_new(mythread);
+    gasnete_get_bulk_chunked(dest, node, src, nbytes, iop, chunksz);
+    return (gasnet_handle_t) iop;
   }
 }
 
@@ -559,9 +560,9 @@ extern gasnet_handle_t gasnete_put_nb_bulk (gasnet_node_t node, void *dest, void
   } else {
     /* "too-large" xfer is chunked into multiple ops, each no larger than chunksz */
     gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
-    gasnete_begin_nbi_accessregion(1 GASNETE_THREAD_PASS);
-    gasnete_put_bulk_chunked(node, dest, src, nbytes, mythread->current_iop, chunksz);
-    return gasnete_end_nbi_accessregion(GASNETE_THREAD_PASS_ALONE);
+    gasnete_iop_t *iop = gasnete_iop_new(mythread);
+    gasnete_put_bulk_chunked(node, dest, src, nbytes, iop, chunksz);
+    return (gasnet_handle_t) iop;
   }
 }
 
