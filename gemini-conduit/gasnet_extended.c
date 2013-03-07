@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2013/03/07 09:17:05 $
- * $Revision: 1.45 $
+ *     $Date: 2013/03/07 21:04:44 $
+ * $Revision: 1.46 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -89,6 +89,22 @@ extern void gasnete_init(void) {
 
   /* Initialize VIS subsystem */
   gasnete_vis_init();
+}
+
+/* Subset of gasnete_init() used for exit between init and attach.
+   Code is cloned, rather than factored, to keep closely to the
+   template_conduit for ease of tracking changes made there.
+ */
+extern void gasnete_init_mythread(void) {
+  gasnete_threaddata_t *threaddata = NULL;
+  static int is_done = 0;
+  if (is_done++) return;
+
+#if GASNETI_MAX_THREADS > 1
+  threaddata = gasnete_mythread(); 
+#else
+  threaddata = gasnete_new_threaddata();
+#endif
 }
 
 /* ------------------------------------------------------------------------------------ */
