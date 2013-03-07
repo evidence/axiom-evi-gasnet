@@ -95,10 +95,6 @@ typedef struct {
   int need_reply;
 } gasnetc_token_t;
 
-/* convert from a pointer to a field of a struct to the struct */
-#define gasnetc_get_struct_addr_from_field_addr(structname, fieldname, fieldaddr) \
-        ((structname*)(((uintptr_t)fieldaddr) - offsetof(structname,fieldname)))
-
 
 enum GC_CMD { /* AM Request types must have ODD values */
     GC_CMD_NULL = 0,
@@ -229,21 +225,22 @@ uint32_t gasnetc_fma_rdma_cutover;
 #define GC_POST_COMPLETION_OP 256
 #define GC_POST_GET 512
 #define GC_POST_KEEP_GPD 1024
-#define GC_POST_SMSG 2048
+#define GC_POST_SMSG_BUF 2048
+#define GC_POST_SHUTDOWN 4096
 
 /* WARNING: if sizeof(gasnetc_post_descriptor_t) changes, then
  * you must update the value in gasneti_pd_auxseg_IdentString */
 typedef struct gasnetc_post_descriptor {
+  gni_post_descriptor_t pd; /* must be first */
   #define gpd_completion pd.post_id
-  void *bounce_buffer;
-  void *get_target;
-  uint32_t flags;
-  gasnet_node_t dest;
-  gni_post_descriptor_t pd;
+  #define gpd_get_src    pd.first_operand
+  #define gpd_get_dst    pd.second_operand
   union {
-    char immediate[GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE];
+    uint8_t immediate[GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE];
     gasnetc_packet_t packet;
   } u;
+  uint32_t flags;
+  gasnet_node_t dest;
 } gasnetc_post_descriptor_t;
 
 gasnetc_post_descriptor_t *gasnetc_alloc_post_descriptor(void) GASNETI_MALLOC;
@@ -281,7 +278,8 @@ int gasnetc_rdma_put(gasnet_node_t dest,
 		 void *dest_addr, void *source_addr,
 		 size_t nbytes, gasnetc_post_descriptor_t *gpd);
 
-void gasnetc_rdma_put_buff(gasnet_node_t dest, void *dest_addr,
+void gasnetc_rdma_put_buff(gasnet_node_t dest,
+		 void *dest_addr, void *source_addr,
 		 size_t nbytes, gasnetc_post_descriptor_t *gpd);
 
 void gasnetc_rdma_get(gasnet_node_t dest,
@@ -292,7 +290,8 @@ void gasnetc_rdma_get_unaligned(gasnet_node_t dest,
 		 void *dest_addr, void *source_addr,
 		 size_t nbytes, gasnetc_post_descriptor_t *gpd);
 
-int gasnetc_rdma_get_buff(gasnet_node_t dest, void *source_addr,
+int gasnetc_rdma_get_buff(gasnet_node_t dest,
+		 void *dest_addr, void *source_addr,
 		 size_t nbytes, gasnetc_post_descriptor_t *gpd);
 
 /* returns 1 if-and-only-if value was decremented. */

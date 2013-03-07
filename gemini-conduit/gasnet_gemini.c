@@ -838,8 +838,6 @@ gasnetc_send_smsg(gasnet_node_t dest, int take_lock, gasnetc_post_descriptor_t *
                            gasnetc_type_string(msg->header.command),
                            msg->header.credit ? " (+credit)" : ""));
 
-  gpd->flags = GC_POST_SMSG;
-
   /*  bzero(&pd, sizeof(gni_post_descriptor_t)); */
   pd = &gpd->pd;
   pd->cq_mode = GNI_CQMODE_GLOBAL_EVENT | GNI_CQMODE_REMOTE_EVENT;
@@ -900,7 +898,7 @@ gasnetc_send_am(gasnet_node_t dest,
   gasnetc_mailbox_t imm_buffer;
 #endif
 
-  gpd->bounce_buffer = NULL;
+  gpd->flags = 0;
   if (data_length) {
     const size_t imm_limit = GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE;
     if (total_len > imm_limit) {
@@ -908,9 +906,9 @@ gasnetc_send_am(gasnet_node_t dest,
       to_send = &imm_buffer.packet;
     #else
       to_send = gasnetc_smsg_buffer(total_len);
+      gpd->flags = GC_POST_SMSG_BUF;
     #endif
       memcpy(to_send, msg, header_length);
-      gpd->bounce_buffer = to_send;
     }
     memcpy((uint8_t*)to_send + header_length, data, data_length);
   }
@@ -927,6 +925,7 @@ void gasnetc_poll_local_queue(void))
   int i;
   gni_post_descriptor_t *pd;
   gasnetc_post_descriptor_t *gpd;
+  uint32_t flags;
 
   GASNETC_LOCK_GNI(); /* TODO: can/should we reduce length of this critical section? */
   for (i = 0; i < gasnetc_poll_burst; i += 1) {
@@ -939,46 +938,45 @@ void gasnetc_poll_local_queue(void))
       if (status != GNI_RC_SUCCESS)
 	gasnetc_GNIT_Abort("GetCompleted(%p) failed %s",
 		   (void *) event_data, gni_return_string(status));
-      gpd = gasnetc_get_struct_addr_from_field_addr(gasnetc_post_descriptor_t, pd, pd);
+      gpd = (gasnetc_post_descriptor_t *)pd;
+      flags = gpd->flags;
 
       /* handle remaining work */
-      if (gpd->flags & GC_POST_SEND) {
+      if (flags & GC_POST_SEND) {
         gasnetc_post_descriptor_t * const smsg_gpd = (gasnetc_post_descriptor_t *) gpd->gpd_completion;
         gasnetc_packet_t * const msg = &smsg_gpd->u.packet;
         int rc = gasnetc_send_smsg(gpd->dest, 0, smsg_gpd, msg,
                                    GASNETC_HEADLEN(long, msg->header.numargs));
         gasneti_assert_always (rc == GASNET_OK);
-        gasneti_assert(0 == (gpd->flags & (GC_POST_COMPLETION_FLAG|GC_POST_COMPLETION_OP)));
-      } else if (gpd->flags & GC_POST_COPY) {
-        void * const buffer = gpd->bounce_buffer;
-        size_t length = gpd->pd.length - (gpd->flags & GC_POST_COPY_TRIM);
-	memcpy(gpd->get_target, gpd->bounce_buffer, length);
-	gpd->bounce_buffer = (void*)(~3 & (uintptr_t)buffer); /* fixup for possible UNBOUNCE */
-      } else if (gpd->flags & GC_POST_SMSG) {
-      #if !GASNET_CONDUIT_GEMINI
-        if (gpd->bounce_buffer) {
-          gasneti_lifo_push(&gasnetc_smsg_buffers, gpd->bounce_buffer);
-        } else
-      #endif
-        if_pf (gpd->u.packet.header.command == GC_CMD_SYS_SHUTDOWN_REQUEST) {
-          gasneti_weakatomic_decrement(&shutdown_smsg_counter, GASNETI_ATOMIC_NONE);
-        }
+        gasneti_assert(0 == (flags & (GC_POST_COMPLETION_FLAG|GC_POST_COMPLETION_OP)));
+      } else if (flags & GC_POST_COPY) {
+        const size_t length = gpd->pd.length - (flags & GC_POST_COPY_TRIM);
+        memcpy((void *) gpd->gpd_get_dst, (void *) gpd->gpd_get_src, length);
+      } else if (flags & GC_POST_SHUTDOWN) {
+        gasneti_assert(gpd->u.packet.header.command == GC_CMD_SYS_SHUTDOWN_REQUEST);
+        gasneti_weakatomic_decrement(&shutdown_smsg_counter, GASNETI_ATOMIC_NONE);
       }
 
       /* indicate completion */
-      if (gpd->flags & GC_POST_COMPLETION_FLAG) {
+      if (flags & GC_POST_COMPLETION_FLAG) {
         gasneti_weakatomic_set((gasneti_weakatomic_t*) gpd->gpd_completion, 1, 0);
-      } else if(gpd->flags & GC_POST_COMPLETION_OP) {
-        gasnete_op_markdone((gasnete_op_t *) gpd->gpd_completion, (gpd->flags & GC_POST_GET) != 0);
+        /* NOTE: if (flags & GC_POST_KEEP_GPD) then caller might free gpd now */
+      } else if(flags & GC_POST_COMPLETION_OP) {
+        gasnete_op_markdone((gasnete_op_t *) gpd->gpd_completion, (flags & GC_POST_GET) != 0);
       }
 
       /* release resources */
-      if (gpd->flags & GC_POST_UNREGISTER) {
-	gasnetc_deregister_pd(&gpd->pd);
-      } else if (gpd->flags & GC_POST_UNBOUNCE) {
-	gasnetc_free_bounce_buffer(gpd->bounce_buffer);
+      if (flags & GC_POST_UNREGISTER) {
+	gasnetc_deregister_pd(pd);
+      } else if (flags & GC_POST_UNBOUNCE) {
+	gasnetc_free_bounce_buffer((void *) pd->local_addr);
       }
-      if (!(gpd->flags & GC_POST_KEEP_GPD)) {
+    #if !GASNET_CONDUIT_GEMINI
+      else if (flags & GC_POST_SMSG_BUF) {
+        gasneti_lifo_push(&gasnetc_smsg_buffers, (void *) (pd->local_addr - 8));
+      }
+    #endif
+      if (!(flags & GC_POST_KEEP_GPD)) {
         gasnetc_free_post_descriptor(gpd);
       }
     } else if (status == GNI_RC_NOT_DONE) {
@@ -1012,7 +1010,7 @@ void gasnetc_send_credit(uint32_t pe)
     msg->header.numargs = 0;
   #endif
 
-    gpd->bounce_buffer = NULL;
+    gpd->flags = 0;
     rc = gasnetc_send_smsg(pe, 1, gpd, msg, MAX(8,sizeof(gasnetc_am_nop_packet_t)));
 
     if_pf (rc) {
@@ -1131,10 +1129,9 @@ void gasnetc_rdma_put_bulk(gasnet_node_t dest,
        * which is not the default (nor recommended).
        */
       if (nbytes <= gasnetc_bounce_register_cutover) {
+        void * const buffer = gasnetc_alloc_bounce_buffer();
+        pd->local_addr = (uint64_t) memcpy(buffer, source_addr, nbytes);
         gpd->flags |= GC_POST_UNBOUNCE;
-        gpd->bounce_buffer = gasnetc_alloc_bounce_buffer();
-        memcpy(gpd->bounce_buffer, source_addr, nbytes);
-        pd->local_addr = (uint64_t) gpd->bounce_buffer;
       } else {
         gpd->flags |= GC_POST_UNREGISTER;
         gasnetc_register_pd(pd);
@@ -1192,16 +1189,14 @@ int gasnetc_rdma_put(gasnet_node_t dest,
   { /* Favor bounce buffers if possible */
   #if !GASNET_CONDUIT_GEMINI /* On Gemini the FMA path above would be selected instead */
     if (nbytes <= GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE) {
-      gpd->bounce_buffer = gpd->u.immediate;
-      memcpy(gpd->bounce_buffer, source_addr, nbytes);
-      pd->local_addr = (uint64_t) gpd->bounce_buffer;
+      void * const buffer = gpd->u.immediate;
+      pd->local_addr = (uint64_t) memcpy(buffer, source_addr, nbytes);
     } else
   #endif
     if (nbytes <= gasnetc_bounce_register_cutover) {
+      void * const buffer = gasnetc_alloc_bounce_buffer();
+      pd->local_addr = (uint64_t) memcpy(buffer, source_addr, nbytes);
       gpd->flags |= GC_POST_UNBOUNCE;
-      gpd->bounce_buffer = gasnetc_alloc_bounce_buffer();
-      memcpy(gpd->bounce_buffer, source_addr, nbytes);
-      pd->local_addr = (uint64_t) gpd->bounce_buffer;
     } else {
       result = 0;
       if_pf (!gasneti_in_segment(gasneti_mynode, source_addr, nbytes)) {
@@ -1236,8 +1231,9 @@ int gasnetc_rdma_put(gasnet_node_t dest,
   return result;
 }
 
-/* FMA Put from the bounce_buffer field of the gpd */
-void gasnetc_rdma_put_buff(gasnet_node_t dest, void *dest_addr,
+/* FMA Put from a specified in-full-segment buffer */
+void gasnetc_rdma_put_buff(gasnet_node_t dest,
+		void *dest_addr, void *source_addr,
 		size_t nbytes, gasnetc_post_descriptor_t *gpd)
 {
   peer_struct_t * const peer = &peer_data[dest];
@@ -1255,7 +1251,7 @@ void gasnetc_rdma_put_buff(gasnet_node_t dest, void *dest_addr,
   pd->remote_addr = (uint64_t) dest_addr;
   pd->remote_mem_hndl = peer->mem_handle;
   pd->length = nbytes;
-  pd->local_addr = (uint64_t) gpd->bounce_buffer;
+  pd->local_addr = (uint64_t) source_addr;
 
   /* now initiate always using FMA */
   pd->type = GNI_POST_FMA_PUT;
@@ -1327,14 +1323,12 @@ void gasnetc_rdma_get(gasnet_node_t dest,
      */
     if (nbytes < GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE) {
       gpd->flags |= GC_POST_COPY;
-      gpd->bounce_buffer = gpd->u.immediate;
-      gpd->get_target = dest_addr;
-      pd->local_addr = (uint64_t) gpd->bounce_buffer;
+      gpd->gpd_get_src = pd->local_addr = (uint64_t) gpd->u.immediate;
+      gpd->gpd_get_dst = (uint64_t) dest_addr;
     } else if (nbytes <= gasnetc_bounce_register_cutover) {
       gpd->flags |= GC_POST_UNBOUNCE | GC_POST_COPY;
-      gpd->bounce_buffer = gasnetc_alloc_bounce_buffer();
-      gpd->get_target = dest_addr;
-      pd->local_addr = (uint64_t) gpd->bounce_buffer;
+      gpd->gpd_get_src = pd->local_addr = (uint64_t) gasnetc_alloc_bounce_buffer();
+      gpd->gpd_get_dst = (uint64_t) dest_addr;
     } else {
       gpd->flags |= GC_POST_UNREGISTER;
       gasnetc_register_pd(pd);
@@ -1351,7 +1345,7 @@ void gasnetc_rdma_get_unaligned(gasnet_node_t dest,
 {
   peer_struct_t * const peer = &peer_data[dest];
   gni_post_descriptor_t * const pd = &gpd->pd;
-  char * buffer;
+  uint8_t * buffer;
 
   /* Compute length of "overfetch" required, if any */
   unsigned int pre = (uintptr_t) source_addr & 3;
@@ -1362,7 +1356,6 @@ void gasnetc_rdma_get_unaligned(gasnet_node_t dest,
 
   gasneti_assert(0 == (overfetch & ~GC_POST_COPY_TRIM));
   gpd->flags |= GC_POST_GET | GC_POST_COPY | overfetch;
-  gpd->get_target = dest_addr;
 
   /*  bzero(&pd, sizeof(gni_post_descriptor_t)); */
   pd->cq_mode = GNI_CQMODE_GLOBAL_EVENT;
@@ -1378,7 +1371,7 @@ void gasnetc_rdma_get_unaligned(gasnet_node_t dest,
   /* must always use immediate or bounce buffer */
   if (length < GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE) {
     buffer = gpd->u.immediate;
-  } else if (length <= gasnetc_bounce_register_cutover) {
+  } else if_pt (length <= gasnetc_bounce_register_cutover) {
     gpd->flags |= GC_POST_UNBOUNCE;
     buffer = gasnetc_alloc_bounce_buffer();
   } else {
@@ -1386,18 +1379,20 @@ void gasnetc_rdma_get_unaligned(gasnet_node_t dest,
   }
 
   pd->local_addr = (uint64_t) buffer;
-  gpd->bounce_buffer = buffer + pre;
+  gpd->gpd_get_src = (uint64_t) buffer + pre;
+  gpd->gpd_get_dst = (uint64_t) dest_addr;
 
   gasnetc_post_get(peer->ep_handle, pd);
 }
 
-/* Get into bounce_buffer indicated in the gpd
+/* Get into a specified in-full-segment buffer
    Will overfetch if source_addr or nbytes are not 4-byte aligned
    but expects (does not check) that the buffer is aligned.
    Caller must be allow for space (upto 6 bytes) for the overfetch.
    Returns offset to start of data after adjustment for overfetch
  */
-int gasnetc_rdma_get_buff(gasnet_node_t dest, void *source_addr,
+int gasnetc_rdma_get_buff(gasnet_node_t dest,
+		void *dest_addr, void *source_addr,
 		size_t nbytes, gasnetc_post_descriptor_t *gpd)
 {
   peer_struct_t * const peer = &peer_data[dest];
@@ -1420,7 +1415,7 @@ int gasnetc_rdma_get_buff(gasnet_node_t dest, void *source_addr,
   pd->remote_addr = (uint64_t) source_addr - pre;
   pd->remote_mem_hndl = peer->mem_handle;
   pd->length = length;
-  pd->local_addr = (uint64_t) gpd->bounce_buffer;
+  pd->local_addr = (uint64_t) dest_addr;
   pd->local_mem_hndl = my_mem_handle;
 
   /* now initiate - *always* FMA for now */
@@ -1530,7 +1525,7 @@ extern void gasnetc_sys_SendShutdownMsg(gasnet_node_t peeridx, int shift, int ex
     gasnetc_init_post_descriptor_pool();
   }
   gpd = gasnetc_alloc_post_descriptor();
-  gpd->bounce_buffer = NULL;
+  gpd->flags = GC_POST_SHUTDOWN;
 
   GASNETI_TRACE_PRINTF(C,("Send SHUTDOWN Request to node %d w/ shift %d, exitcode %d",dest,shift,exitcode));
   msg = &gpd->u.packet;
@@ -1722,13 +1717,13 @@ gasneti_auxseg_request_t gasnetc_bounce_auxseg_alloc(gasnet_seginfo_t *auxseg_in
  * the auxseg requirements, and gets rounded up.
  * So, this doesn't need to be an exact value.
  * As of 2013.03.06 I have systems with
- *     Gemini = 320 bytes
- *     Aries  = 336 bytes
+ *     Gemini = 304 bytes
+ *     Aries  = 320 bytes
  */
 #if GASNET_CONDUIT_GEMINI
-  #define GASNETC_SIZEOF_GDP 320
+  #define GASNETC_SIZEOF_GDP 304
 #else
-  #define GASNETC_SIZEOF_GDP 336
+  #define GASNETC_SIZEOF_GDP 320
 #endif
 GASNETI_IDENT(gasneti_pd_auxseg_IdentString, /* XXX: update if gasnetc_post_descriptor_t changes */
               "$GASNetAuxSeg_pd: " _STRINGIFY(GASNETC_SIZEOF_GDP) "*"
