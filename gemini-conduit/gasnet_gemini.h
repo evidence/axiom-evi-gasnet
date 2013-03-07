@@ -208,6 +208,8 @@ void gasnetc_init_post_descriptor_pool(void);
 #define GASNETC_GNI_FMA_RDMA_CUTOVER_MAX (4096*4)
 /* space for immediate bounce buffer in the post descriptor */
 #define GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE 128
+/* how many concurrent dynamic memory registrations to allow */
+#define GASNETC_GNI_MEMREG_DEFAULT 16 /* 0 = unbounded.  TODO: tune/probe? */
 
 void  *gasnetc_alloc_bounce_buffer(void) GASNETI_MALLOC;
 void gasnetc_free_bounce_buffer(void *buf);

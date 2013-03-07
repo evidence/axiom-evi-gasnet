@@ -116,10 +116,16 @@ const char *gasnetc_post_type_string(gni_post_type_t type)
   if (type == GNI_POST_RDMA_GET) return("GNI_POST_RDMA_GET");
   if (type == GNI_POST_FMA_PUT) return("GNI_POST_FMA_PUT");
   if (type == GNI_POST_FMA_GET) return("GNI_POST_FMA_GET");
+  if (type == GNI_POST_FMA_PUT_W_SYNCFLAG) return("GNI_POST_FMA_PUT_W_SYNCFLAG");
   return("unknown");
 }
 
 /*------ Functions for dynamic memory registration ------*/
+
+static gasneti_weakatomic_t gasnetc_reg_credit;
+static gasneti_weakatomic_val_t gasnetc_reg_credit_max;
+#define gasnetc_init_reg_credit(_val) \
+	gasneti_weakatomic_set(&gasnetc_reg_credit,gasnetc_reg_credit_max=(_val),0)
 
 /* Register local side of a pd, with unbounded retry */
 static void gasnetc_register_pd(gni_post_descriptor_t *pd)
@@ -128,6 +134,22 @@ static void gasnetc_register_pd(gni_post_descriptor_t *pd)
   const size_t nbytes = pd->length;
   int trial = 0;
   gni_return_t status;
+
+  if_pf (gasnetc_reg_credit_max &&
+         !gasnetc_weakatomic_dec_if_positive(&gasnetc_reg_credit)) {
+    /* We may simple not have polled the Cq recently.
+       So, WAITHOOK and STALL tracing only if still nothing after first poll */
+    GASNETC_TRACE_WAIT_BEGIN();
+    int stall = 0;
+    goto first;
+    do {
+      GASNETI_WAITHOOK();
+      stall = 1;
+first:
+      gasnetc_poll_local_queue();
+    } while (!gasnetc_weakatomic_dec_if_positive(&gasnetc_reg_credit));
+    if_pf (stall) GASNETC_TRACE_WAIT_END(MEM_REG_STALL);
+  }
 
   for (;;) {
     GASNETC_LOCK_GNI();
@@ -152,6 +174,7 @@ void gasnetc_deregister_pd(gni_post_descriptor_t *pd)
 {
   gni_return_t status = GNI_MemDeregister(nic_handle, &pd->local_mem_hndl);
   gasneti_assert_always (status == GNI_RC_SUCCESS);
+  if (gasnetc_reg_credit_max) gasneti_weakatomic_increment(&gasnetc_reg_credit, 0);
 }
 
 /*-------------------------------------------------*/
@@ -247,6 +270,11 @@ void gasnetc_init_segment(void *segment_start, size_t segment_size)
 {
   gni_return_t status;
   /* Map the shared segment */
+
+  { int envval = gasneti_getenv_int_withdefault("GASNETC_GNI_MEMREG", GASNETC_GNI_MEMREG_DEFAULT, 0);
+    if (envval < 0) envval = 0;
+    gasnetc_init_reg_credit(envval);
+  }
 
   gasnetc_mem_consistency = GASNETC_DEFAULT_RDMA_MEM_CONSISTENCY;
   { char * envval = gasneti_getenv("GASNETC_GNI_MEM_CONSISTENCY");
