@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2013/02/16 06:00:54 $
-# $Revision: 1.775 $
+#     $Date: 2013/03/07 08:48:11 $
+# $Revision: 1.776 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.775 $)
+AC_REVISION($Revision: 1.776 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -3662,6 +3662,7 @@ if test "$enabled_ibv" = yes; then
   # Try to compile and link a basic IB Verbs program
   GASNET_PUSHVAR(CFLAGS,"$CFLAGS -I$IBV_INCLUDE $GASNET_THREAD_DEFINES $IBV_LIBCFLAGS")
   GASNET_PUSHVAR(LIBS,"$LIBS -L$IBV_LIBDIR $IBV_LIBS $GASNET_THREAD_LIBS")
+
   GASNET_TRY_CACHE_LINK(for working IB Verbs configuration, ibv_works, [
     #if defined(__GNUC__) && !defined(inline)
       /* ANSI-ify the verbs headers */
@@ -3675,6 +3676,23 @@ if test "$enabled_ibv" = yes; then
     struct ibv_device device;
     char *s = ibv_get_device_name(&device);
   }], [ : ], [ have_ibv=no; GASNET_ERR_SAVE() ] )
+
+  if test "$have_ibv" = yes; then
+    GASNET_TRY_CACHE_LINK(for ibv_device.transport_type, ibv_transport_type, [
+      #if defined(__GNUC__) && !defined(inline)
+        /* ANSI-ify the verbs headers */
+        #define inline __inline__
+        #include <infiniband/verbs.h>
+        #undef inline
+      #else
+        #include <infiniband/verbs.h>
+      #endif
+    ], [
+      struct ibv_device device;
+      device.transport_type = IBV_TRANSPORT_IB;
+    ], [ AC_DEFINE(HAVE_IBV_TRANSPORT_TYPE) ] )
+  fi
+
   GASNET_POPVAR(CFLAGS)
   GASNET_POPVAR(LIBS)
 

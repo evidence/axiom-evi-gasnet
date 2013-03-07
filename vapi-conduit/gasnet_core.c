@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2013/03/06 21:21:34 $
- * $Revision: 1.304 $
+ *     $Date: 2013/03/07 08:48:13 $
+ * $Revision: 1.305 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1103,7 +1103,6 @@ static void gasnetc_probe_ports(int max_ports) {
   gasneti_leak(hca_ids);
   rc = EVAPI_list_hcas(num_hcas, &num_hcas, hca_ids);
   GASNETC_VAPI_CHECK(rc, "while enumerating HCAs");
-  ib_hcas = num_hcas;
 #else
   hca_list = ibv_get_device_list(&num_hcas);
   if ((hca_list == NULL) || (num_hcas == 0)) {
@@ -1111,9 +1110,12 @@ static void gasnetc_probe_ports(int max_ports) {
     gasnetc_clear_ports();
     return;
   }
-  ib_hcas = 0;
+#endif
+
+  ib_hcas = num_hcas;
+#if HAVE_IBV_TRANSPORT_TYPE
   for (curr_hca = 0; curr_hca < num_hcas; ++curr_hca) {
-    ib_hcas += (hca_list[curr_hca]->transport_type == IBV_TRANSPORT_IB);
+    ib_hcas -= (hca_list[curr_hca]->transport_type != IBV_TRANSPORT_IB);
   }
 #endif
 
@@ -1149,7 +1151,7 @@ static void gasnetc_probe_ports(int max_ports) {
     int found = 0;
     int curr_port;
 
-#if GASNET_CONDUIT_IBV
+#if HAVE_IBV_TRANSPORT_TYPE
     if (hca_list[curr_hca]->transport_type != IBV_TRANSPORT_IB) {
       GASNETI_TRACE_PRINTF(C,("Probe skipping non-InfiniBand HCA '%s'", hca_name));
       continue;
