@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2013/03/07 09:13:22 $
- * $Revision: 1.44 $
+ *     $Date: 2013/03/07 09:17:05 $
+ * $Revision: 1.45 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -456,8 +456,7 @@ extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void
     return((gasnet_handle_t) eop);
   } else {
     /* "too-large" xfer is chunked into multiple ops, each no larger than chunksz */
-    gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
-    gasnete_iop_t *iop = gasnete_iop_new(mythread);
+    gasnete_iop_t *iop = gasnete_iop_new(GASNETE_MYTHREAD);
     gasnete_get_bulk_chunked(dest, node, src, nbytes, iop, chunksz);
     return (gasnet_handle_t) iop;
   }
@@ -559,8 +558,7 @@ extern gasnet_handle_t gasnete_put_nb_bulk (gasnet_node_t node, void *dest, void
     return((gasnet_handle_t) eop);
   } else {
     /* "too-large" xfer is chunked into multiple ops, each no larger than chunksz */
-    gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
-    gasnete_iop_t *iop = gasnete_iop_new(mythread);
+    gasnete_iop_t *iop = gasnete_iop_new(GASNETE_MYTHREAD);
     gasnete_put_bulk_chunked(node, dest, src, nbytes, iop, chunksz);
     return (gasnet_handle_t) iop;
   }
