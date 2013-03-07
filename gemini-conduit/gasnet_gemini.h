@@ -234,6 +234,7 @@ uint32_t gasnetc_fma_rdma_cutover;
 /* WARNING: if sizeof(gasnetc_post_descriptor_t) changes, then
  * you must update the value in gasneti_pd_auxseg_IdentString */
 typedef struct gasnetc_post_descriptor {
+  #define gpd_completion pd.post_id
   void *bounce_buffer;
   void *get_target;
   uint32_t flags;

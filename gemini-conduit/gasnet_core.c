@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/03/07 02:46:06 $
- * $Revision: 1.58 $
+ *     $Date: 2013/03/07 03:47:04 $
+ * $Revision: 1.59 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -963,7 +963,7 @@ int gasnetc_long_common(gasnet_node_t dest, int cmd,
       /* TODO: if (NUM_PD < 2*pthreads) this alloction might deadlock: */
       gasnetc_post_descriptor_t *put_gpd = gasnetc_alloc_post_descriptor();
       gasneti_weakatomic_t done = gasneti_weakatomic_init(0);
-      put_gpd->pd.post_id = (uintptr_t) &done;
+      put_gpd->gpd_completion = (uintptr_t) &done;
       put_gpd->flags = GC_POST_COMPLETION_FLAG;
 
       /* Rdma data, block, then fall through to send header only */
@@ -1110,7 +1110,7 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
       gasnetc_post_descriptor_t *put_gpd = gasnetc_alloc_post_descriptor();
       put_gpd->flags = GC_POST_SEND;
       put_gpd->dest = dest;
-      put_gpd->pd.post_id = (uintptr_t) gpd;
+      put_gpd->gpd_completion = (uintptr_t) gpd;
       gpd->bounce_buffer = NULL;
       gasnetc_rdma_put_bulk(dest, dest_addr, source_addr, nbytes, put_gpd);
       retval = GASNET_OK;

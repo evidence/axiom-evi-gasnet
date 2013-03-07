@@ -943,7 +943,7 @@ void gasnetc_poll_local_queue(void))
 
       /* handle remaining work */
       if (gpd->flags & GC_POST_SEND) {
-        gasnetc_post_descriptor_t * const smsg_gpd = (gasnetc_post_descriptor_t *)pd->post_id;
+        gasnetc_post_descriptor_t * const smsg_gpd = (gasnetc_post_descriptor_t *) gpd->gpd_completion;
         gasnetc_packet_t * const msg = &smsg_gpd->u.packet;
         int rc = gasnetc_send_smsg(gpd->dest, 0, smsg_gpd, msg,
                                    GASNETC_HEADLEN(long, msg->header.numargs));
@@ -967,9 +967,9 @@ void gasnetc_poll_local_queue(void))
 
       /* indicate completion */
       if (gpd->flags & GC_POST_COMPLETION_FLAG) {
-	gasneti_weakatomic_set((gasneti_weakatomic_t*)pd->post_id, 1, 0);
+        gasneti_weakatomic_set((gasneti_weakatomic_t*) gpd->gpd_completion, 1, 0);
       } else if(gpd->flags & GC_POST_COMPLETION_OP) {
-	gasnete_op_markdone((gasnete_op_t *)pd->post_id, (gpd->flags & GC_POST_GET) != 0);
+        gasnete_op_markdone((gasnete_op_t *) gpd->gpd_completion, (gpd->flags & GC_POST_GET) != 0);
       }
 
       /* release resources */
