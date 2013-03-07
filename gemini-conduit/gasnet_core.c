@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/03/07 06:36:55 $
- * $Revision: 1.60 $
+ *     $Date: 2013/03/07 07:45:18 $
+ * $Revision: 1.61 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -946,10 +946,23 @@ int gasnetc_long_common(gasnet_node_t dest, int cmd,
   } else
 #endif
   {
+    gasneti_weakatomic_t done = gasneti_weakatomic_init(0);
     const int is_packed = (nbytes <= GASNETC_MAX_PACKED_LONG(numargs));
     gasnetc_post_descriptor_t *gpd = gasnetc_alloc_post_descriptor();
-    gasnetc_am_long_packet_t *m = &gpd->u.packet.galp;
+    gasnetc_am_long_packet_t *m;
+
+    if (!is_packed) {
+      /* Launch RDMA put as early as possible */
+      gpd->gpd_completion = (uintptr_t) &done;
+      gpd->flags = GC_POST_COMPLETION_FLAG;
+      gasnetc_rdma_put_bulk(dest, dest_addr, source_addr, nbytes, gpd);
+
+      gpd = gasnetc_alloc_post_descriptor();
+    }
+
+    /* Overlap header setup and credit stall w/ the RDMA */
     if (isReq) gasnetc_get_am_credit(dest);
+    m = &gpd->u.packet.galp;
     m->header.command = cmd;
     m->header.misc    = is_packed;
     m->header.numargs = numargs;
@@ -959,23 +972,15 @@ int gasnetc_long_common(gasnet_node_t dest, int cmd,
     for (i = 0; i < numargs; i++) {
       m->args[i] = va_arg(argptr, gasnet_handlerarg_t);
     }
-    if (!is_packed) {
-      /* TODO: if (NUM_PD < 2*pthreads) this alloction might deadlock: */
-      gasnetc_post_descriptor_t *put_gpd = gasnetc_alloc_post_descriptor();
-      gasneti_weakatomic_t done = gasneti_weakatomic_init(0);
-      put_gpd->gpd_completion = (uintptr_t) &done;
-      put_gpd->flags = GC_POST_COMPLETION_FLAG;
 
-      /* Rdma data, block, then fall through to send header only */
-      /* TODO: use POST_SEND and block only long enough for local completion? */
-      gasnetc_rdma_put_bulk(dest, dest_addr, source_addr, nbytes, put_gpd);
+    if (!is_packed) {
+      /* Poll for the RDMA completion */
+      nbytes = 0;
       gasnetc_poll_local_queue();
       while(!gasneti_weakatomic_read(&done, 0)) {
         GASNETI_WAITHOOK();
         gasnetc_poll_local_queue();
       }
-
-      nbytes = 0;
     }
 
     retval = gasnetc_send_am(dest, gpd, GASNETC_HEADLEN(long, numargs), source_addr, nbytes);
