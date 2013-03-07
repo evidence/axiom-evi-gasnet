@@ -942,14 +942,7 @@ void gasnetc_poll_local_queue(void))
       flags = gpd->flags;
 
       /* handle remaining work */
-      if (flags & GC_POST_SEND) {
-        gasnetc_post_descriptor_t * const smsg_gpd = (gasnetc_post_descriptor_t *) gpd->gpd_completion;
-        gasnetc_packet_t * const msg = &smsg_gpd->u.packet;
-        int rc = gasnetc_send_smsg(gpd->dest, 0, smsg_gpd, msg,
-                                   GASNETC_HEADLEN(long, msg->header.numargs));
-        gasneti_assert_always (rc == GASNET_OK);
-        gasneti_assert(0 == (flags & (GC_POST_COMPLETION_FLAG|GC_POST_COMPLETION_OP)));
-      } else if (flags & GC_POST_COPY) {
+      if (flags & GC_POST_COPY) {
         const size_t length = gpd->pd.length - (flags & GC_POST_COPY_TRIM);
         memcpy((void *) gpd->gpd_get_dst, (void *) gpd->gpd_get_src, length);
       } else if (flags & GC_POST_SHUTDOWN) {
@@ -976,6 +969,16 @@ void gasnetc_poll_local_queue(void))
         gasneti_lifo_push(&gasnetc_smsg_buffers, (void *) (pd->local_addr - 8));
       }
     #endif
+
+      if (flags & GC_POST_SEND) {
+        /* repost this gpd, which already carries the msg in place */
+        gasnetc_packet_t * const msg = &gpd->u.packet;
+        int rc;
+        gpd->flags = 0;
+        rc = gasnetc_send_smsg(gpd->dest, 0, gpd, msg,
+                               GASNETC_HEADLEN(long, msg->header.numargs));
+        gasneti_assert_always (rc == GASNET_OK);
+      } else
       if (!(flags & GC_POST_KEEP_GPD)) {
         gasnetc_free_post_descriptor(gpd);
       }
