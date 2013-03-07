@@ -943,7 +943,7 @@ void gasnetc_poll_local_queue(void))
 
       /* handle remaining work */
       if (gpd->flags & GC_POST_SEND) {
-        gasnetc_post_descriptor_t * const smsg_gpd = gpd->completion.smsg;
+        gasnetc_post_descriptor_t * const smsg_gpd = (gasnetc_post_descriptor_t *)pd->post_id;
         gasnetc_packet_t * const msg = &smsg_gpd->u.packet;
         int rc = gasnetc_send_smsg(gpd->dest, 0, smsg_gpd, msg,
                                    GASNETC_HEADLEN(long, msg->header.numargs));
@@ -967,9 +967,9 @@ void gasnetc_poll_local_queue(void))
 
       /* indicate completion */
       if (gpd->flags & GC_POST_COMPLETION_FLAG) {
-	gasneti_weakatomic_set(gpd->completion.flag, 1, 0);
+	gasneti_weakatomic_set((gasneti_weakatomic_t*)pd->post_id, 1, 0);
       } else if(gpd->flags & GC_POST_COMPLETION_OP) {
-	gasnete_op_markdone(gpd->completion.op, (gpd->flags & GC_POST_GET) != 0);
+	gasnete_op_markdone((gasnete_op_t *)pd->post_id, (gpd->flags & GC_POST_GET) != 0);
       }
 
       /* release resources */
@@ -1721,14 +1721,14 @@ gasneti_auxseg_request_t gasnetc_bounce_auxseg_alloc(gasnet_seginfo_t *auxseg_in
 /* This ident string is used by upcrun (and potentially by other tools) to estimate
  * the auxseg requirements, and gets rounded up.
  * So, this doesn't need to be an exact value.
- * As of 2013.02.14 I have systems with
- *     Gemini = 328 bytes
- *     Aries  = 344 bytes
+ * As of 2013.03.06 I have systems with
+ *     Gemini = 320 bytes
+ *     Aries  = 336 bytes
  */
 #if GASNET_CONDUIT_GEMINI
-  #define GASNETC_SIZEOF_GDP 328
+  #define GASNETC_SIZEOF_GDP 320
 #else
-  #define GASNETC_SIZEOF_GDP 344
+  #define GASNETC_SIZEOF_GDP 336
 #endif
 GASNETI_IDENT(gasneti_pd_auxseg_IdentString, /* XXX: update if gasnetc_post_descriptor_t changes */
               "$GASNetAuxSeg_pd: " _STRINGIFY(GASNETC_SIZEOF_GDP) "*"

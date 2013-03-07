@@ -238,13 +238,6 @@ typedef struct gasnetc_post_descriptor {
   void *get_target;
   uint32_t flags;
   gasnet_node_t dest;
-  union {
-    gasneti_weakatomic_t *flag;
-    gasnete_eop_t *eop;
-    gasnete_iop_t *iop;
-    gasnete_op_t *op;
-    struct gasnetc_post_descriptor *smsg;
-  } completion;
   gni_post_descriptor_t pd;
   union {
     char immediate[GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE];
