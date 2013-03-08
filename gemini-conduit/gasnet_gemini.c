@@ -1499,7 +1499,7 @@ static gasneti_weakatomic_t sys_exit_code = gasneti_weakatomic_init(0);
 gasnetc_exitcode_t *gasnetc_exitcodes = NULL;
 #endif
 
-extern void gasnetc_sys_SendShutdownMsg(gasnete_iop_t *iop, gasnet_node_t peeridx, int shift, int exitcode)
+extern void gasnetc_sys_SendShutdownMsg(gasnet_node_t peeridx, int shift, int exitcode)
 {
   gasnetc_post_descriptor_t *gpd;
   gasnetc_packet_t *msg;
@@ -1513,9 +1513,7 @@ extern void gasnetc_sys_SendShutdownMsg(gasnete_iop_t *iop, gasnet_node_t peerid
   gasnetc_get_am_credit(dest);
 
   gpd = gasnetc_alloc_post_descriptor();
-  gpd->flags = GC_POST_COMPLETION_OP;
-  gpd->gpd_completion = (uintptr_t) iop;
-  iop->initiated_put_cnt++;
+  gpd->flags = 0;
 
   GASNETI_TRACE_PRINTF(C,("Send SHUTDOWN Request to node %d w/ shift %d, exitcode %d",dest,shift,exitcode));
   msg = &gpd->u.packet;
@@ -1563,14 +1561,11 @@ void gasnetc_handle_sys_shutdown_packet(uint32_t source, gasnetc_sys_shutdown_pa
 }
 
 
-extern void gasnete_init_mythread(void);
-
 /* Reduction (op=MAX) over exitcodes using dissemination pattern.
    Returns 0 on sucess, or non-zero on error (timeout).
  */
 extern int gasnetc_sys_exit(int *exitcode_p)
 {
-  gasnete_iop_t *iop;
 #if GASNET_PSHM                  
   const gasnet_node_t size = gasneti_nodemap_global_count;
   const gasnet_node_t rank = gasneti_nodemap_global_rank;
@@ -1639,10 +1634,8 @@ extern int gasnetc_sys_exit(int *exitcode_p)
     gasnetc_pd_buffers.size = count * sizeof(gasnetc_post_descriptor_t);
     gasnetc_init_post_descriptor_pool();
 
-    gasnete_init_mythread(); /* so we can use an iop */
     gasneti_attach_done = 1; /* so we can poll for credits */
   }
-  iop = gasnete_iop_new(gasnete_mythread());
 
   for (distance = 1, shift = 0; distance < size; distance *= 2, ++shift) {
     gasnet_node_t peeridx = (distance >= size - rank) ? rank - (size - distance)
@@ -1651,7 +1644,7 @@ extern int gasnetc_sys_exit(int *exitcode_p)
     oldcode = gasneti_weakatomic_read(&sys_exit_code, 0);
     exitcode = MAX(exitcode, oldcode);
 
-    gasnetc_sys_SendShutdownMsg(iop, peeridx, shift, exitcode);
+    gasnetc_sys_SendShutdownMsg(peeridx, shift, exitcode);
 
     /* wait for completion of the proper receive, which might arrive out of order */
     goal |= distance;
@@ -1673,15 +1666,6 @@ extern int gasnetc_sys_exit(int *exitcode_p)
   }
 #endif
 
-  /* drain send completion events to avoid NOT_DONE at unbind: */
-    while (gasnete_try_syncnb((gasnet_handle_t) iop) == GASNET_ERR_NOT_READY) {
-      gasnetc_poll_local_queue();
-      if (gasneti_ticks_to_us(gasneti_ticks_now() - starttime) > timeout_us) {
-        result = 1; /* failure */
-        goto out;
-      }
-    }
-    
 out:
   if (pre_attach) gasneti_attach_done = 0; /* so we clean up the right resources */
   oldcode = gasneti_weakatomic_read(&sys_exit_code, 0);
