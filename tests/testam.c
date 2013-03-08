@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testam.c,v $
- *     $Date: 2013/02/12 15:42:55 $
- * $Revision: 1.36 $
+ *     $Date: 2013/03/08 08:25:25 $
+ * $Revision: 1.37 $
  * Description: GASNet Active Messages performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -120,6 +120,7 @@ void done_shorthandler(gasnet_token_t token) {
 
 /* ------------------------------------------------------------------------------------ */
 int crossmachinemode = 0;
+int insegment = 1;
 int iters=0;
 int pollers=0;
 int i = 0;
@@ -168,6 +169,12 @@ int main(int argc, char **argv) {
       sleep(1);
       gasnet_exit(1);
 #endif
+    } else if (!strcmp(argv[arg], "-in")) {
+      insegment = 1;
+      ++arg;
+    } else if (!strcmp(argv[arg], "-out")) {
+      insegment = 0;
+      ++arg;
     } else if (!strcmp(argv[arg], "-c")) {
       crossmachinemode = 1;
       ++arg;
@@ -187,18 +194,27 @@ int main(int argc, char **argv) {
                             TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
 #if GASNET_PAR
   test_init("testam", 1, "[options] (iters) (maxsz) (test_sections)\n"
+               "  The '-in' or '-out' option selects whether the requestor's\n"
+               "    buffer is in the GASNet segment or not (default is 'in').\n"
                "  The -p option gives the number of polling threads, specified as\n"
                "    a non-negative integer argument (default is no polling threads).\n"
                "  The -c option enables cross-machine pairing (default is nearest neighbor).\n");
 #else
   test_init("testam", 1, "[options] (iters) (maxsz) (test_sections)\n"
+               "  The '-in' or '-out' option selects whether the requestor's\n"
+               "    buffer is in the GASNet segment or not (default is 'in').\n"
                "  The -c option enables cross-machine pairing (default is nearest neighbor).\n");
 #endif
   if (help || argc > arg) test_usage();
 
   TEST_PRINT_CONDUITINFO();
 
-  myseg = TEST_MYSEG();
+  if (insegment) {
+    myseg = TEST_MYSEG();
+  } else {
+    char *space = test_malloc(alignup(maxsz,PAGESZ) + PAGESZ);
+    myseg = alignup_ptr(space, PAGESZ);
+  }
 
   maxmed = MIN(maxsz, gasnet_AMMaxMedium());
   maxlongreq = MIN(maxsz, gasnet_AMMaxLongRequest());
