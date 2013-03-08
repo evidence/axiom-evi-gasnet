@@ -1641,9 +1641,6 @@ extern int gasnetc_sys_exit(int *exitcode_p)
     gasnet_node_t peeridx = (distance >= size - rank) ? rank - (size - distance)
                                                       : rank + distance;
 
-    oldcode = gasneti_weakatomic_read(&sys_exit_code, 0);
-    exitcode = MAX(exitcode, oldcode);
-
     gasnetc_sys_SendShutdownMsg(peeridx, shift, exitcode);
 
     /* wait for completion of the proper receive, which might arrive out of order */
@@ -1655,6 +1652,9 @@ extern int gasnetc_sys_exit(int *exitcode_p)
         goto out;
       }
     }
+
+    oldcode = gasneti_weakatomic_read(&sys_exit_code, 0);
+    exitcode = MAX(exitcode, oldcode);
   }
 
 #if GASNET_PSHM
@@ -1668,8 +1668,7 @@ extern int gasnetc_sys_exit(int *exitcode_p)
 
 out:
   if (pre_attach) gasneti_attach_done = 0; /* so we clean up the right resources */
-  oldcode = gasneti_weakatomic_read(&sys_exit_code, 0);
-  *exitcode_p = MAX(exitcode, oldcode);
+  *exitcode_p = exitcode;
 
   return result;
 }
