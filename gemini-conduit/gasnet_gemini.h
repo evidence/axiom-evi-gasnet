@@ -180,8 +180,15 @@ typedef union gasnetc_eq_packet {
 
 /* max data one can pack into SMSG with a long header: */
 /* TODO: runtime control of cut-off via an env var */
+#if GASNET_CONDUIT_GEMINI
+/* On Gemini it doesn't pay to pack more than 128 bytes or so */
+#define GASNETC_MAX_PACKED_LONG(nargs) \
+        (128 - GASNETC_HEADLEN(long, (nargs)))
+#else
+/* On Aries is pays to pack as much as possible */
 #define GASNETC_MAX_PACKED_LONG(nargs) \
         (GASNETC_MSG_MAXSIZE - GASNETC_HEADLEN(long, (nargs)))
+#endif
 
 void gasnetc_get_am_credit(uint32_t pe);
 
