@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testam.c,v $
- *     $Date: 2013/03/08 08:25:25 $
- * $Revision: 1.37 $
+ *     $Date: 2013/03/08 09:41:08 $
+ * $Revision: 1.38 $
  * Description: GASNet Active Messages performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -377,16 +377,18 @@ void doAMShort(void) {
   } while (0)
 
 #define TESTAM_PERF(DESC_STR, AMREQUEST, PING_HIDX, PONG_HIDX,                   \
-                                                      MAXREQ, MAXREP, DEST) do { \
+                                               MAXREQ, MAXREP, ASYNC, DEST) do { \
     uintptr_t MAXREQREP = MIN(MAXREQ, MAXREP);                                   \
     if (sender) { /* warm-up */                                                  \
       flag = 0;                                                                  \
-      for (i=0; i < iters; i++) {                                                \
-        GASNET_Safe(AMREQUEST(peer, PING_HIDX##_flood, myseg, MAXREQREP DEST));  \
-      }                                                                          \
-      GASNET_BLOCKUNTIL(flag == iters);                                          \
       GASNET_Safe(AMREQUEST(peer, PING_HIDX, myseg, MAXREQREP DEST));            \
-      GASNET_BLOCKUNTIL(flag == iters+1);                                        \
+      GASNET_BLOCKUNTIL(flag == 1);                                              \
+      if (!ASYNC) {                                                              \
+        for (i=0; i < iters; i++) {                                              \
+          GASNET_Safe(AMREQUEST(peer, PING_HIDX##_flood, myseg, MAXREQREP DEST));\
+        }                                                                        \
+        GASNET_BLOCKUNTIL(flag == iters+1);                                      \
+      }                                                                          \
     }                                                                            \
     BARRIER();                                                                   \
     /* ---------------------------------------------------------- */             \
@@ -413,7 +415,7 @@ void doAMShort(void) {
     }                                                                            \
     BARRIER();                                                                   \
     /* ---------------------------------------------------------- */             \
-    if (TEST_SECTION_BEGIN_ENABLED()) {                                          \
+    if (!ASYNC && TEST_SECTION_BEGIN_ENABLED()) {                                \
       uintptr_t sz;                                                              \
       char msg[255];                                                             \
       for (sz = 0; sz <= MAXREQ; ) {                                             \
@@ -454,7 +456,7 @@ void doAMShort(void) {
     }                                                                            \
     BARRIER();                                                                   \
     /* ---------------------------------------------------------- */             \
-    if (TEST_SECTION_BEGIN_ENABLED()) {                                          \
+    if (!ASYNC && TEST_SECTION_BEGIN_ENABLED()) {                                \
       uintptr_t sz;                                                              \
       char msg[255];                                                             \
       for (sz = 0; sz <= MAXREQ; ) {                                             \
@@ -504,7 +506,7 @@ void doAMShort(void) {
     }                                                                            \
     BARRIER();                                                                   \
     /* ---------------------------------------------------------- */             \
-    if (TEST_SECTION_BEGIN_ENABLED()) {                                          \
+    if (!ASYNC && TEST_SECTION_BEGIN_ENABLED()) {                                \
       uintptr_t sz; int64_t start;                                               \
       char msg[255];                                                             \
       for (sz = 0; sz <= MAXREQ; ) {                                             \
@@ -532,17 +534,17 @@ void doAMShort(void) {
 /* ------------------------------------------------------------------------------------ */
 void doAMMed(void) {
   GASNET_BEGIN_FUNCTION();
-  TESTAM_PERF("AMMedium   ",    gasnet_AMRequestMedium0,    hidx_ping_medhandler,  hidx_pong_medhandler,  maxmed, maxmed, MEDDEST);
+  TESTAM_PERF("AMMedium   ",    gasnet_AMRequestMedium0,    hidx_ping_medhandler,  hidx_pong_medhandler,  maxmed, maxmed, 0, MEDDEST);
 }
 /* ------------------------------------------------------------------------------------ */
 void doAMLong(void) {
   GASNET_BEGIN_FUNCTION();
-  TESTAM_PERF("AMLong     ",      gasnet_AMRequestLong0,      hidx_ping_longhandler, hidx_pong_longhandler, maxlongreq, maxlongrep, LONGDEST);
+  TESTAM_PERF("AMLong     ",      gasnet_AMRequestLong0,      hidx_ping_longhandler, hidx_pong_longhandler, maxlongreq, maxlongrep, 0, LONGDEST);
 }
 /* ------------------------------------------------------------------------------------ */
 void doAMLongAsync(void) {
   GASNET_BEGIN_FUNCTION();
-  TESTAM_PERF("AMLongAsync", gasnet_AMRequestLongAsync0, hidx_ping_longhandler, hidx_pong_longhandler, maxlongreq, maxlongrep, LONGDEST);
+  TESTAM_PERF("AMLongAsync", gasnet_AMRequestLongAsync0, hidx_ping_longhandler, hidx_pong_longhandler, maxlongreq, maxlongrep, 1, LONGDEST);
 }
 /* ------------------------------------------------------------------------------------ */
 void *doAll(void *ptr) {
