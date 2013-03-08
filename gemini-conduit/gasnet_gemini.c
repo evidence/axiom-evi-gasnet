@@ -231,6 +231,7 @@ gasnetc_mailbox_t *gasnetc_smsg_get_next(peer_struct_t *peer)
 GASNETI_INLINE(gasnetc_smsg_release)
 void gasnetc_smsg_release(peer_struct_t *peer, gasnetc_mailbox_t * mb)
 {
+  gasneti_assert(mb->full != 0);
   mb->full = 0;
 #if GASNETI_USE_TRUE_MUTEXES || GASNET_DEBUG
   gasneti_mutex_unlock(&peer->mb.lock);
@@ -657,6 +658,7 @@ void gasnetc_process_smsg_q(gasnet_node_t pe, gasnetc_mailbox_t * const mb)
       const uint32_t numargs = msg->header.numargs;
       const int is_req = GASNETC_CMD_IS_REQ(msg->header.command);
       const unsigned int credits = msg->header.credit + !is_req;
+      size_t length;
       int need_reply = 0;
 
       gasneti_assert((((uintptr_t) msg) & 7) == 0);
@@ -666,63 +668,60 @@ void gasnetc_process_smsg_q(gasnet_node_t pe, gasnetc_mailbox_t * const mb)
                                msg->header.credit ? " (+credit)" : ""));
 
       switch (msg->header.command) {
-      case GC_CMD_AM_NOP_REPLY: {
-	gasnetc_smsg_release(peer, mb);
+      case GC_CMD_AM_NOP_REPLY:
 	gasneti_assert(is_req == 0); /* ensure implied credit */
 	gasneti_assert(need_reply == 0); /* ensure no reply is generated */
  	/* fall through to credit handling */
 	break;
-      }
-      case GC_CMD_AM_SHORT:
-      case GC_CMD_AM_SHORT_REPLY: {
-      #if 1 /* (small) constant memcpy cheaper than variable length */
-	msg = memcpy(&buffer, msg, GASNETC_HEADLEN(short, gasnet_AMMaxArgs()));
-      #else
-	msg = memcpy(&buffer, msg, GASNETC_HEADLEN(short, numargs));
-      #endif
-	gasnetc_smsg_release(peer, mb);
+
+      case GC_CMD_AM_SHORT: /* Req cannot run in-place */
+        /* (small) constant memcpy cheaper than variable length */
+	length = GASNETC_HEADLEN(short, gasnet_AMMaxArgs());
+	msg = memcpy(&buffer, msg, length);
+        gasnetc_smsg_release(peer, mb);
+        /* fall through */
+      case GC_CMD_AM_SHORT_REPLY:
 	need_reply = gasnetc_handle_am_short_packet(is_req, pe, &msg->gasp);
 	break;
-      }
-      case GC_CMD_AM_MEDIUM:
-      case GC_CMD_AM_MEDIUM_REPLY: {
-	const size_t head_length = GASNETC_HEADLEN(medium, numargs);
-	const size_t length = head_length + msg->header.misc;
-	msg = memcpy(&buffer, msg, length);
-	gasneti_assert(msg->header.misc <= gasnet_AMMaxMedium());
-	gasnetc_smsg_release(peer, mb);
-	need_reply = gasnetc_handle_am_medium_packet(is_req, pe, &msg->gamp, head_length);
+
+      case GC_CMD_AM_MEDIUM: /* Req cannot run in-place */
+	length = GASNETC_HEADLEN(medium, numargs) + msg->header.misc;
+        msg = memcpy(&buffer, msg, length);
+        gasnetc_smsg_release(peer, mb);
+        /* fall through */
+      case GC_CMD_AM_MEDIUM_REPLY:
+	length = GASNETC_HEADLEN(medium, numargs);
+	need_reply = gasnetc_handle_am_medium_packet(is_req, pe, &msg->gamp, length);
 	break;
-      }
-      case GC_CMD_AM_LONG:
-      case GC_CMD_AM_LONG_REPLY: {
-	const size_t head_length = GASNETC_HEADLEN(long, numargs);
-	if (msg->galp.header.misc) { /* payload follows header - copy it into place */
-	  void *im_data = head_length + (uint8_t*) msg;
-	  memcpy(msg->galp.data, im_data, msg->galp.data_length);
-	}
-      #if 1 /* (small) constant memcpy cheaper than variable length */
-	msg = memcpy(&buffer, msg, GASNETC_HEADLEN(long, gasnet_AMMaxArgs()));
-      #else
-	msg = memcpy(&buffer, msg, head_len);
-      #endif
+
+      case GC_CMD_AM_LONG: /* Req cannot run in-place */
+        /* (small) constant memcpy cheaper than variable length */
+	length = GASNETC_HEADLEN(long, gasnet_AMMaxArgs());
+	msg = memcpy(&buffer, msg, length);
 	gasnetc_smsg_release(peer, mb);
+        /* fall through */
+      case GC_CMD_AM_LONG_REPLY:
+	if (msg->galp.header.misc) { /* payload follows header - copy it into place */
+	  length = GASNETC_HEADLEN(long, numargs);
+	  memcpy(msg->galp.data, &mb->raw[length], msg->galp.data_length);
+	}
 	need_reply = gasnetc_handle_am_long_packet(is_req, pe, &msg->galp);
 	break;
-      }
-      case GC_CMD_SYS_SHUTDOWN_REQUEST: {
-	msg = memcpy(&buffer, msg, sizeof(buffer.packet.gssp));
-	gasnetc_smsg_release(peer, mb);
+
+      case GC_CMD_SYS_SHUTDOWN_REQUEST: /* safe to run in place - no Reply */
 	gasnetc_handle_sys_shutdown_packet(pe, &msg->gssp);
+	gasnetc_smsg_release(peer, mb);
 	gasneti_assert(is_req == 1); /* ensure no implied credit */
 	gasneti_assert(need_reply == 0); /* ensure no reply is generated */
 	break;
-      }
+
       default:
 	gasnetc_GNIT_Abort("unknown packet type");
       }
       if (need_reply) {
         gasnetc_send_credit(pe);
+      } else if (!is_req) {
+        gasnetc_smsg_release(peer, mb);
       }
       if (credits) {
         GASNETI_UNUSED_UNLESS_DEBUG int newval = 
