@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testslice.c,v $
- *     $Date: 2010/03/29 00:23:04 $
- * $Revision: 1.9 $
+ *     $Date: 2013/03/08 03:19:45 $
+ * $Revision: 1.10 $
  * Description: GASNet randomized get/put correctness validation test
  * Copyright 2007, Parry Husbands and Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -76,7 +76,7 @@ int main(int argc, char **argv)
     if (argc > 5) test_usage();
     
     if(numprocs & 1) {
-        MSG("WARNING: This test requires an even number of nodes. Test skipped.\n");
+        MSG0("WARNING: This test requires an even number of nodes. Test skipped.\n");
         gasnet_exit(0); /* exit 0 to prevent false negatives in test harnesses for smp-conduit */
     }
     sender_p = !(myproc & 1);

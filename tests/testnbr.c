@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testnbr.c,v $
- *     $Date: 2012/08/07 22:37:13 $
- * $Revision: 1.24 $
+ *     $Date: 2013/03/08 03:19:45 $
+ * $Revision: 1.25 $
  * Description: MG-like Neighbor exchange
  * Copyright 2005, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -372,7 +372,7 @@ main(int argc, char **argv)
 	maxdim = MAX(level_dims[level][i], maxdim);
 
     if (!POWER_OF_TWO(nprocs)) {
-	MSG("WARNING: This test requires a power of two number of processes. Test skipped.\n");
+	MSG0("WARNING: This test requires a power of two number of processes. Test skipped.\n");
 	gasnet_exit(0); /* exit 0 to prevent false negatives */
     }
 

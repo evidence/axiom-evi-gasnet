@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testrand.c,v $
- *     $Date: 2010/04/24 02:20:50 $
- * $Revision: 1.16 $
+ *     $Date: 2013/03/08 03:19:45 $
+ * $Revision: 1.17 $
  * Description: GASNet get/put performance test
  *   measures measures the total time to write to each page of the
  *   remote test segment, using blocking puts in a random order.
@@ -116,7 +116,7 @@ int main(int argc, char **argv) {
     
     /* Only allow even number for numprocs */
     if (numprocs % 2 != 0) {
-      MSG("WARNING: This test requires an even number of nodes. Test skipped.\n");
+      MSG0("WARNING: This test requires an even number of nodes. Test skipped.\n");
       gasnet_exit(0); /* exit 0 to prevent false negatives in test harnesses for smp-conduit */
     }
     
