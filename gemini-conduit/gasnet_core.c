@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/03/08 04:44:52 $
- * $Revision: 1.63 $
+ *     $Date: 2013/03/08 06:32:11 $
+ * $Revision: 1.64 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -946,7 +946,7 @@ int gasnetc_long_common(gasnet_node_t dest, int cmd,
   } else
 #endif
   {
-    gasneti_weakatomic_t done = gasneti_weakatomic_init(0);
+    volatile int done = 0;
     const int is_packed = (nbytes <= GASNETC_MAX_PACKED_LONG(numargs));
     gasnetc_post_descriptor_t *gpd = gasnetc_alloc_post_descriptor();
     gasnetc_am_long_packet_t *m;
@@ -977,7 +977,7 @@ int gasnetc_long_common(gasnet_node_t dest, int cmd,
       /* Poll for the RDMA completion */
       nbytes = 0;
       gasnetc_poll_local_queue();
-      while(!gasneti_weakatomic_read(&done, 0)) {
+      while(! done) {
         GASNETI_WAITHOOK();
         gasnetc_poll_local_queue();
       }

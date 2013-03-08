@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2013/03/07 21:04:44 $
- * $Revision: 1.46 $
+ *     $Date: 2013/03/08 06:32:11 $
+ * $Revision: 1.47 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -873,13 +873,13 @@ extern void gasnete_put_val(gasnet_node_t node, void *dest, gasnet_register_valu
   GASNETI_CHECKPSHM_PUTVAL(V);
   {
     gasnetc_post_descriptor_t *gpd = gasnetc_alloc_post_descriptor();
-    gasneti_weakatomic_t done = gasneti_weakatomic_init(0);
+    volatile int done = 0;
     void * const src = GASNETE_STARTOFBITS(gpd->u.immediate, nbytes);
     gpd->gpd_completion = (uintptr_t) &done;
     gpd->flags = GC_POST_COMPLETION_FLAG;
     gasnete_val_assign(gpd->u.immediate, value);
     gasnetc_rdma_put_buff(node, dest, src, nbytes, gpd);
-    gasneti_polluntil(gasneti_weakatomic_read(&done, 0));
+    gasneti_polluntil(done);
   }
 }
 
@@ -935,12 +935,12 @@ extern gasnet_register_value_t gasnete_get_val(gasnet_node_t node, void *src, si
   {
     gasnet_register_value_t result;
     gasnetc_post_descriptor_t *gpd = gasnetc_alloc_post_descriptor();
-    gasneti_weakatomic_t done = gasneti_weakatomic_init(0);
+    volatile int done = 0;
     uint8_t *buffer = gpd->u.immediate;
     gpd->gpd_completion = (uintptr_t) &done;
     gpd->flags = GC_POST_COMPLETION_FLAG | GC_POST_KEEP_GPD;
     buffer += gasnetc_rdma_get_buff(node, buffer, src, nbytes, gpd);
-    gasneti_polluntil(gasneti_weakatomic_read(&done, 0));
+    gasneti_polluntil(done);
     result = gasnete_get_val_help(buffer, nbytes);
     gasnetc_free_post_descriptor(gpd);
     return result;
@@ -957,7 +957,7 @@ extern gasnet_register_value_t gasnete_get_val(gasnet_node_t node, void *src, si
 typedef struct _gasnete_valget_op_t {
   struct _gasnete_valget_op_t* next; /* for free-list only */
   gasnet_register_value_t val;
-  gasneti_weakatomic_t done;
+  volatile int done;
   gasnete_threadidx_t threadidx;  /*  thread that owns me */
 } gasnete_valget_op_t;
 
@@ -982,18 +982,18 @@ extern gasnet_valget_handle_t gasnete_get_nb_val(gasnet_node_t node, void *src, 
     /* Assume that addr2local on local node is cheaper than an extra branch */
     GASNETE_FAST_ALIGNED_MEMCPY(GASNETE_STARTOFBITS(&(retval->val),nbytes),
                                 gasneti_pshm_addr2local(node, src), nbytes);
-    gasneti_weakatomic_set(&retval->done, 1, GASNETI_ATOMIC_NONE);
+    retval->done = 1;
   }
 #else
   if (gasnete_islocal(node)) {
     GASNETE_FAST_ALIGNED_MEMCPY(GASNETE_STARTOFBITS(&(retval->val),nbytes), src, nbytes);
-    gasneti_weakatomic_set(&retval->done, 1, GASNETI_ATOMIC_NONE);
+    retval->done = 1;
   }
 #endif
   else {
     gasnetc_post_descriptor_t *gpd = gasnetc_alloc_post_descriptor();
     gpd->gpd_completion = (uintptr_t) &retval->done;
-    gasneti_weakatomic_set(&retval->done, 0, GASNETI_ATOMIC_NONE);
+    retval->done = 0;
     gpd->flags = GC_POST_COMPLETION_FLAG;
     gasnetc_rdma_get_unaligned(node, GASNETE_STARTOFBITS(&(retval->val),nbytes), src, nbytes, gpd);
   }
@@ -1007,7 +1007,7 @@ extern gasnet_register_value_t gasnete_wait_syncnb_valget(gasnet_valget_handle_t
     gasneti_assert(thread == gasnete_mythread());
     handle->next = thread->valget_free; /* free before the wait to save time after the wait, */
     thread->valget_free = handle;       /*  safe because this thread is under our control */
-    gasneti_polluntil(gasneti_weakatomic_read(&handle->done, 0));
+    gasneti_polluntil(handle->done);
     val = handle->val;
     return val;
   }

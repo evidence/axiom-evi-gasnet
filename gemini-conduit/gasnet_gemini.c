@@ -947,7 +947,7 @@ void gasnetc_poll_local_queue(void))
 
       /* indicate completion */
       if (flags & GC_POST_COMPLETION_FLAG) {
-        gasneti_weakatomic_set((gasneti_weakatomic_t*) gpd->gpd_completion, 1, 0);
+        *(volatile int *) gpd->gpd_completion = 1;
         /* NOTE: if (flags & GC_POST_KEEP_GPD) then caller might free gpd now */
       } else if(flags & GC_POST_COMPLETION_OP) {
         gasnete_op_markdone((gasnete_op_t *) gpd->gpd_completion, (flags & GC_POST_GET) != 0);
