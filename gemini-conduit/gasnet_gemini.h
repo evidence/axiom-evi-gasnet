@@ -47,16 +47,17 @@ extern uint8_t  gasnetc_ptag;
 #endif
 
 #if GASNETC_USE_SPINLOCK
-gasneti_atomic_t gasnetc_gni_lock;
+typedef gasneti_atomic_t gasnetc_gni_lock_t;
 #define GASNETC_INITLOCK_GNI() gasneti_spinlock_init(&gasnetc_gni_lock)
 #define GASNETC_LOCK_GNI() gasneti_spinlock_lock(&gasnetc_gni_lock)
 #define GASNETC_UNLOCK_GNI() gasneti_spinlock_unlock(&gasnetc_gni_lock)
 #else
-gasneti_mutex_t gasnetc_gni_lock;
+typedef gasneti_mutex_t gasnetc_gni_lock_t;
 #define GASNETC_INITLOCK_GNI() gasneti_mutex_init(&gasnetc_gni_lock)
 #define GASNETC_LOCK_GNI() gasneti_mutex_lock(&gasnetc_gni_lock)
 #define GASNETC_UNLOCK_GNI() gasneti_mutex_unlock(&gasnetc_gni_lock)
 #endif
+extern gasnetc_gni_lock_t gasnetc_gni_lock;
 
 typedef struct {
   gasnet_node_t source;

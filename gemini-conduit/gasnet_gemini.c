@@ -21,6 +21,8 @@ uint32_t gasnetc_cookie;
 uint32_t gasnetc_address;
 uint8_t  gasnetc_ptag;
 
+gasnetc_gni_lock_t gasnetc_gni_lock;
+
 static uint32_t gasnetc_memreg_flags;
 static int gasnetc_mem_consistency;
 
