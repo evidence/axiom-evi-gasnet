@@ -188,8 +188,8 @@ void gasnetc_free_bounce_buffer(void *buf);
 
 
 void gasnetc_init_bounce_buffer_pool(void);
-uint32_t gasnetc_bounce_register_cutover;
-uint32_t gasnetc_fma_rdma_cutover;
+extern uint32_t gasnetc_bounce_register_cutover;
+extern uint32_t gasnetc_fma_rdma_cutover;
 
 /* send/copy, unbounce/unregister, flag/eop are each mutually exclusive pairs */
 #define GC_POST_COPY_TRIM 7 /* up to 6 bytes of overfetch to achive 4-byte aligned Gets */

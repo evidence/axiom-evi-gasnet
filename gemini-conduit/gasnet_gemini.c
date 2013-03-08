@@ -11,7 +11,6 @@
 #ifdef GASNET_CONDUIT_GEMINI
   /* Use dual-events + PI_FLUSH to get "proper" ordering w/ relaxed and default PI ordering */
   #define FIX_HT_ORDERING 1
-  static uint16_t gasnetc_fma_put_cq_mode = GNI_CQMODE_GLOBAL_EVENT;
 #else
   #define FIX_HT_ORDERING 0
 #endif
@@ -21,12 +20,9 @@ uint32_t gasnetc_cookie;
 uint32_t gasnetc_address;
 uint8_t  gasnetc_ptag;
 
-gasnetc_gni_lock_t gasnetc_gni_lock;
-
 static uint32_t gasnetc_memreg_flags;
 static int gasnetc_mem_consistency;
 
-int gasnetc_poll_burst = 10;
 static int bank_credits;
 
 static double shutdown_max;
@@ -55,15 +51,9 @@ typedef struct peer_struct {
   } mb;
 } peer_struct_t;
 
-static peer_struct_t *peer_data;
-
 static gni_mem_handle_t my_smsg_handle;
-static gni_mem_handle_t my_mem_handle;
 
 static gni_cdm_handle_t cdm_handle;
-static gni_nic_handle_t nic_handle;
-static gni_cq_handle_t bound_cq_handle;
-static gni_cq_handle_t smsg_cq_handle;
 static gni_cq_handle_t destination_cq_handle;
 
 static void *smsg_mmap_ptr;
@@ -75,6 +65,37 @@ static gasnet_seginfo_t gasnetc_pd_buffers;
 static unsigned int mb_slots;
 static unsigned int am_maxcredit;
 
+
+/*------ Group the most commonly accessed variables together ------*/
+/* TODO: could move gasneti_{mynode,nodes} here, but it is non-trivial */
+
+/* read-only: */
+static gni_nic_handle_t nic_handle;
+static gni_mem_handle_t my_mem_handle;
+static gni_cq_handle_t bound_cq_handle;
+static gni_cq_handle_t smsg_cq_handle;
+static int gasnetc_poll_burst = 10;
+static peer_struct_t *peer_data;
+#if FIX_HT_ORDERING
+static uint16_t gasnetc_fma_put_cq_mode = GNI_CQMODE_GLOBAL_EVENT;
+#endif
+uint32_t gasnetc_fma_rdma_cutover;
+uint32_t gasnetc_bounce_register_cutover;
+
+/* lock: */
+static int8_t pad0[GASNETC_CACHELINE_SIZE];
+gasnetc_gni_lock_t gasnetc_gni_lock;
+
+/* read-write: */
+static int8_t pad1[GASNETC_CACHELINE_SIZE];
+static gasneti_weakatomic_t gasnetc_reg_credit;
+
+/* lifo_head_t contains cache-line padding */
+static gasneti_lifo_head_t post_descriptor_pool = GASNETI_LIFO_INITIALIZER;
+static gasneti_lifo_head_t gasnetc_bounce_buffer_pool = GASNETI_LIFO_INITIALIZER;
+#if !GASNET_CONDUIT_GEMINI
+static gasneti_lifo_head_t gasnetc_smsg_buffers = GASNETI_LIFO_INITIALIZER;
+#endif
 
 /*------ Convience functions for printing error messages ------*/
 
@@ -124,7 +145,6 @@ const char *gasnetc_post_type_string(gni_post_type_t type)
 
 /*------ Functions for dynamic memory registration ------*/
 
-static gasneti_weakatomic_t gasnetc_reg_credit;
 static gasneti_weakatomic_val_t gasnetc_reg_credit_max;
 #define gasnetc_init_reg_credit(_val) \
 	gasneti_weakatomic_set(&gasnetc_reg_credit,gasnetc_reg_credit_max=(_val),0)
@@ -804,8 +824,6 @@ void gasnetc_poll_smsg_queue(void)
 
 
 #if !GASNET_CONDUIT_GEMINI
-static gasneti_lifo_head_t gasnetc_smsg_buffers = GASNETI_LIFO_INITIALIZER;
-
 GASNETI_INLINE(gasnetc_smsg_buffer) GASNETI_MALLOC
 gasnetc_packet_t * gasnetc_smsg_buffer(size_t buffer_len) {
   void *result = gasneti_lifo_pop(&gasnetc_smsg_buffers);
@@ -1443,8 +1461,6 @@ void gasnetc_get_am_credit(uint32_t pe)
   }
 }
 
-static gasneti_lifo_head_t post_descriptor_pool = GASNETI_LIFO_INITIALIZER;
-
 /* Needs no lock because it is called only from the init code */
 void gasnetc_init_post_descriptor_pool(void)
 {
@@ -1732,8 +1748,6 @@ gasneti_auxseg_request_t gasnetc_pd_auxseg_alloc(gasnet_seginfo_t *auxseg_info) 
 
   return retval;
 }
-
-gasneti_lifo_head_t gasnetc_bounce_buffer_pool = GASNETI_LIFO_INITIALIZER;
 
 void gasnetc_init_bounce_buffer_pool(void)
 {
