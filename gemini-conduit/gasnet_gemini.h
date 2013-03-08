@@ -40,9 +40,7 @@ extern uint32_t gasnetc_address;
 extern uint8_t  gasnetc_ptag;
 
 /* Set to 1 if want to use gasneti_spinlock_t rather than gasneti_mutex_t
- * in XXX
  * By default, we will use mutex_t.
- * copied from portals conduit
  */
 #ifndef GASNETC_USE_SPINLOCK
 #define GASNETC_USE_SPINLOCK 0
@@ -53,41 +51,11 @@ gasneti_atomic_t gasnetc_gni_lock;
 #define GASNETC_INITLOCK_GNI() gasneti_spinlock_init(&gasnetc_gni_lock)
 #define GASNETC_LOCK_GNI() gasneti_spinlock_lock(&gasnetc_gni_lock)
 #define GASNETC_UNLOCK_GNI() gasneti_spinlock_unlock(&gasnetc_gni_lock)
-
-
-
-typedef gasneti_atomic_t gasnetc_queuelock_t;
-#define GASNETC_INITLOCK_QUEUE(ptr) gasneti_spinlock_init(&((ptr)->lock))
-#define GASNETC_TRYLOCK_QUEUE(ptr) gasneti_spinlock_trylock(&((ptr)->lock))
-#define GASNETC_LOCK_QUEUE(ptr) gasneti_spinlock_lock(&((ptr)->lock))
-#define GASNETC_UNLOCK_QUEUE(ptr) gasneti_spinlock_unlock(&((ptr)->lock))
-#define GASNETC_INITLOCK_NODE(srcnode)			\
-  gasneti_spinlock_init(&gasnetc_conn_queue[srcnode].lock)
-#define GASNETC_TRYLOCK_NODE(srcnode)				\
-  gasneti_spinlock_trylock(&gasnetc_conn_queue[srcnode].lock)
-#define GASNETC_LOCK_NODE(srcnode)				\
-  gasneti_spinlock_lock(&gasnetc_conn_queue[srcnode].lock)
-#define GASNETC_UNLOCK_NODE(srcnode)			\
-  gasneti_spinlock_unlock(&gasnetc_conn_queue[srcnode].lock)
 #else
 gasneti_mutex_t gasnetc_gni_lock;
 #define GASNETC_INITLOCK_GNI() gasneti_mutex_init(&gasnetc_gni_lock)
 #define GASNETC_LOCK_GNI() gasneti_mutex_lock(&gasnetc_gni_lock)
 #define GASNETC_UNLOCK_GNI() gasneti_mutex_unlock(&gasnetc_gni_lock)
-
-typedef gasneti_mutex_t gasnetc_queuelock_t;
-#define GASNETC_INITLOCK_QUEUE(ptr) gasneti_mutex_init(&((ptr)->lock))
-#define GASNETC_TRYLOCK_QUEUE(ptr) gasneti_mutex_trylock(&((ptr)->lock))
-#define GASNETC_LOCK_QUEUE(ptr) gasneti_mutex_lock(&((ptr)->lock))
-#define GASNETC_UNLOCK_QUEUE(ptr) gasneti_mutex_unlock(&((ptr)->lock))
-#define GASNETC_INITLOCK_NODE(srcnode)			\
-  gasneti_mutex_init(&gasnetc_conn_queue[srcnode].lock)
-#define GASNETC_TRYLOCK_NODE(srcnode)				\
-  gasneti_mutex_trylock(&gasnetc_conn_queue[srcnode].lock)
-#define GASNETC_LOCK_NODE(srcnode)				\
-  gasneti_mutex_lock(&gasnetc_conn_queue[srcnode].lock)
-#define GASNETC_UNLOCK_NODE(srcnode)			\
-  gasneti_mutex_unlock(&gasnetc_conn_queue[srcnode].lock)
 #endif
 
 typedef struct {
