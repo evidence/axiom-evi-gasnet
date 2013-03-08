@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/03/08 06:32:11 $
- * $Revision: 1.64 $
+ *     $Date: 2013/03/08 20:14:10 $
+ * $Revision: 1.65 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -725,6 +725,35 @@ extern void gasnetc_exit(int exitcode) {
   gasnetc_shutdownInProgress = 1;
 
   gasnetc_disable_AMs();
+
+  /* HACK borrowed from elan-conduit: release locks we might have held
+     If we are exiting from a signal hander, we might already hold some locks.
+     In a debug build we want to avoid the resulting assertions, and in all
+     builds we don't want to deadlock.
+     NOTE: there IS a risk that we make violate a non-reentrant restriction
+           as a result.  However, we hope that is relatively small.
+     TODO: make this conditional on being in a signal handler context
+   */
+  #if GASNETC_USE_SPINLOCK
+    #define _GASNETC_CLOBBER_LOCK gasneti_spinlock_init
+  #else
+    #define _GASNETC_CLOBBER_LOCK(pl) do {                     \
+          gasneti_mutex_t dummy_lock = GASNETI_MUTEX_INITIALIZER; \
+          memcpy((pl), &dummy_lock, sizeof(gasneti_mutex_t));     \
+        } while (0)
+  #endif
+  #if GASNET_DEBUG && !GASNETC_USE_SPINLOCK
+    /* prevent deadlock and assertion failures ONLY if we already hold the lock */
+    #define GASNETC_CLOBBER_LOCK(pl) \
+          if ((pl)->owner == GASNETI_THREADIDQUERY()) _GASNETC_CLOBBER_LOCK(pl)
+  #else
+    /* clobber the lock, even if held by another thread! */
+    #define GASNETC_CLOBBER_LOCK _GASNETC_CLOBBER_LOCK
+  #endif
+  GASNETC_CLOBBER_LOCK(&gasnetc_gni_lock);
+  /* TODO: AM mailbox locks */
+  #undef GASNETC_CLOBBER_LOCK
+  #undef _GASNETC_CLOBBER_LOCK
 
     gasneti_reghandler(SIGALRM, SIG_DFL);
     alarm(2 + gasnetc_shutdown_seconds);
