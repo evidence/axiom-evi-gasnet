@@ -62,6 +62,7 @@ static size_t smsg_mmap_bytes;
 static gasnet_seginfo_t gasnetc_bounce_buffers;
 static gasnet_seginfo_t gasnetc_pd_buffers;
 
+static unsigned int log2_remote;
 static unsigned int mb_slots;
 static unsigned int am_maxcredit;
 
@@ -437,11 +438,18 @@ uintptr_t gasnetc_init_messaging(void)
 
   /* Initialize the short message system */
 
+  /* log2_remote = MAX(1, ceil(log_2(remote_nodes))) */
+  log2_remote = 1;
+  for (i=2; i < remote_nodes; i*=2) {
+    log2_remote += 1;
+  }
+
   /*
    * allocate a CQ in which to receive message notifications
+   * include logarithmic space for shutdown messaging
    */
-  /* MAX(1,) avoids complication for remote_nodes==0 */
-  status = GNI_CqCreate(nic_handle,MAX(1,remote_nodes*mb_slots),0,GNI_CQ_NOBLOCK,NULL,NULL,&smsg_cq_handle);
+  i = log2_remote + remote_nodes*mb_slots;
+  status = GNI_CqCreate(nic_handle,i,0,GNI_CQ_NOBLOCK,NULL,NULL,&smsg_cq_handle);
   if (status != GNI_RC_SUCCESS) {
     gasnetc_GNIT_Abort("GNI_CqCreate returned error %s", gni_return_string(status));
   }
@@ -609,7 +617,7 @@ void recv_credits(peer_struct_t *peer, int n) {
   gasneti_assert(newval <= am_maxcredit);
 }
 
-extern void gasnetc_handle_sys_shutdown_packet(uint32_t source, uint16_t arg);
+static void gasnetc_handle_sys_shutdown_packet(uint32_t source, uint16_t arg);
 static void gasnetc_send_credit(uint32_t pe);
 
 static
@@ -1526,23 +1534,8 @@ static gasneti_weakatomic_t sys_exit_code = gasneti_weakatomic_init(0);
 gasnetc_exitcode_t *gasnetc_exitcodes = NULL;
 #endif
 
-extern void gasnetc_sys_SendShutdownMsg(gasnet_node_t peeridx, int shift, int exitcode)
-{
-#if GASNET_PSHM
-  const gasnet_node_t dest = gasneti_pshm_firsts[peeridx];
-#else
-  const gasnet_node_t dest = peeridx;
-#endif
-
-  /* Advisable to protect against Cq overflow at target */
-  gasnetc_get_am_credit(dest);
-
-  GASNETI_TRACE_PRINTF(C,("Send SHUTDOWN Request to node %d w/ shift %d, exitcode %d",dest,shift,exitcode));
-  gasnetc_send_control(dest, GC_CTRL_SHUTDOWN, (shift << 8) | (exitcode & 0xff));
-}
-
-
 /* this is called from poll when a shutdown packet arrives */
+static
 void gasnetc_handle_sys_shutdown_packet(uint32_t source, uint16_t arg)
 {
   uint32_t distance = 1 << (arg >> 8);
@@ -1588,7 +1581,6 @@ extern int gasnetc_sys_exit(int *exitcode_p)
   int shift;
   gasneti_tick_t timeout_us = 1e6 * gasnetc_shutdown_seconds;
   gasneti_tick_t starttime = gasneti_ticks_now();
-  const int pre_attach = !gasneti_attach_done;
 
   GASNETI_TRACE_PRINTF(C,("Entering SYS EXIT"));
 
@@ -1634,21 +1626,26 @@ extern int gasnetc_sys_exit(int *exitcode_p)
   }
 #endif
 
-  if (pre_attach) {
+  if (! gasneti_attach_done) {
     /* If in exit before attach, must populate gpd freelist that normally lives in auxseg */
-    const int count = 24; /* log_2(GASNET_MAXNODES) */
+    const int count = log2_remote;
     gasnetc_pd_buffers.addr = gasneti_calloc(count, sizeof(gasnetc_post_descriptor_t));
     gasnetc_pd_buffers.size = count * sizeof(gasnetc_post_descriptor_t);
     gasnetc_init_post_descriptor_pool();
-
-    gasneti_attach_done = 1; /* so we can poll for credits */
   }
 
   for (distance = 1, shift = 0; distance < size; distance *= 2, ++shift) {
     gasnet_node_t peeridx = (distance >= size - rank) ? rank - (size - distance)
                                                       : rank + distance;
+  #if GASNET_PSHM
+    gasnet_node_t dest = gasneti_pshm_firsts[peeridx];
+  #else
+    gasnet_node_t dest = peeridx;
+  #endif
 
-    gasnetc_sys_SendShutdownMsg(peeridx, shift, exitcode);
+    GASNETI_TRACE_PRINTF(C,("Send SHUTDOWN Request to node %d w/ shift %d, exitcode %d",
+                            dest,shift,exitcode));
+    gasnetc_send_control(dest, GC_CTRL_SHUTDOWN, (shift << 8) | (exitcode & 0xff));
 
     /* wait for completion of the proper receive, which might arrive out of order */
     goal |= distance;
@@ -1674,7 +1671,6 @@ extern int gasnetc_sys_exit(int *exitcode_p)
 #endif
 
 out:
-  if (pre_attach) gasneti_attach_done = 0; /* so we clean up the right resources */
   *exitcode_p = exitcode;
 
   return result;
