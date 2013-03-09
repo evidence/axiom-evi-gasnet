@@ -64,23 +64,26 @@ typedef struct {
   int need_reply;
 } gasnetc_token_t;
 
+/* Control messages */
+enum {
+    GC_CTRL_CREDIT = 0,
+    GC_CTRL_SHUTDOWN
+};
 
-enum GC_CMD { /* AM Request types must have ODD values */
+enum { /* AM Request types must have ODD values */
     GC_CMD_NULL = 0,
     GC_CMD_AM_SHORT = 1,
     GC_CMD_AM_SHORT_REPLY,
     GC_CMD_AM_MEDIUM,
     GC_CMD_AM_MEDIUM_REPLY,
     GC_CMD_AM_LONG,
-    GC_CMD_AM_LONG_REPLY,
-    GC_CMD_SYS_SHUTDOWN_REQUEST,
-    GC_CMD_AM_NOP_REPLY
+    GC_CMD_AM_LONG_REPLY
 };
 #define GASNETC_CMD_IS_REQ(_cmd) ((_cmd) & 1)
 
 
 typedef struct GC_Header {
-  uint32_t command : 4;        /* GC_CMD */
+  uint32_t command : 4;        /* */
   uint32_t credit  : 1;        /* piggybacked credit in addition to one implied by a Reply */
   uint32_t misc    : 14;       /* msg-dependent field (e.g. nbytes in a Medium) */
   uint32_t numargs : 5;        /* number of GASNet arguments */

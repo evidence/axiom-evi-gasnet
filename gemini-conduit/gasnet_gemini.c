@@ -37,7 +37,7 @@ typedef struct peer_struct {
   gni_ep_handle_t ep_handle;
   gni_mem_handle_t mem_handle;
   gasneti_weakatomic_t am_credit;
-  gasneti_weakatomic_t am_credit_bank; /* credits accumulated for return to peer */
+  gasneti_weakatomic_t am_credit_bank; /* single bit of credit accumulator for return to peer */
   struct {
   #if GASNETI_USE_TRUE_MUTEXES || GASNET_DEBUG /* Otherwise don't waste space for the dummy lock */
     gasneti_mutex_t lock;
@@ -128,8 +128,6 @@ const char *gasnetc_type_string(int type)
   if (type == GC_CMD_AM_SHORT_REPLY) return ("GC_CMD_AM_SHORT_REPLY");
   if (type == GC_CMD_AM_LONG_REPLY) return ("GC_CMD_AM_LONG_REPLY");
   if (type == GC_CMD_AM_MEDIUM_REPLY) return ("GC_CMD_AM_MEDIUM_REPLY");
-  if (type == GC_CMD_AM_NOP_REPLY) return ("GC_CMD_AM_NOP_REPLY");
-  if (type == GC_CMD_SYS_SHUTDOWN_REQUEST) return ("GC_CMD_SYS_SHUTDOWN_REQUEST");
   return("unknown");
 }
 
@@ -666,8 +664,14 @@ int gasnetc_handle_am_long_packet(int req, gasnet_node_t source,
   return the_token.need_reply;
 }
 
+GASNETI_INLINE(recv_credits)
+void recv_credits(peer_struct_t *peer, int n) {
+  GASNETI_UNUSED_UNLESS_DEBUG int newval = 
+    gasneti_weakatomic_add(&peer->am_credit, n, GASNETI_ATOMIC_NONE);
+  gasneti_assert(newval <= am_maxcredit);
+}
 
-extern void gasnetc_handle_sys_shutdown_packet(uint32_t source, gasnetc_sys_shutdown_packet_t *sys);
+extern void gasnetc_handle_sys_shutdown_packet(uint32_t source, uint16_t arg);
 static void gasnetc_send_credit(uint32_t pe);
 
 void gasnetc_process_smsg_q(gasnet_node_t pe, gasnetc_mailbox_t * const mb)
@@ -681,7 +685,7 @@ void gasnetc_process_smsg_q(gasnet_node_t pe, gasnetc_mailbox_t * const mb)
       const int is_req = GASNETC_CMD_IS_REQ(msg->header.command);
       const unsigned int credits = msg->header.credit + !is_req;
       size_t length;
-      int need_reply = 0;
+      int need_reply;
 
       gasneti_assert((((uintptr_t) msg) & 7) == 0);
       gasneti_assert(numargs <= gasnet_AMMaxArgs());
@@ -690,12 +694,6 @@ void gasnetc_process_smsg_q(gasnet_node_t pe, gasnetc_mailbox_t * const mb)
                                msg->header.credit ? " (+credit)" : ""));
 
       switch (msg->header.command) {
-      case GC_CMD_AM_NOP_REPLY:
-	gasneti_assert(is_req == 0); /* ensure implied credit */
-	gasneti_assert(need_reply == 0); /* ensure no reply is generated */
- 	/* fall through to credit handling */
-	break;
-
       case GC_CMD_AM_SHORT: /* Req cannot run in-place */
         /* (small) constant memcpy cheaper than variable length */
 	length = GASNETC_HEADLEN(short, gasnet_AMMaxArgs());
@@ -730,15 +728,11 @@ void gasnetc_process_smsg_q(gasnet_node_t pe, gasnetc_mailbox_t * const mb)
 	need_reply = gasnetc_handle_am_long_packet(is_req, pe, &msg->galp);
 	break;
 
-      case GC_CMD_SYS_SHUTDOWN_REQUEST: /* safe to run in place - no Reply */
-	gasnetc_handle_sys_shutdown_packet(pe, &msg->gssp);
-	gasnetc_smsg_release(peer, mb);
-	gasneti_assert(is_req == 1); /* ensure no implied credit */
-	gasneti_assert(need_reply == 0); /* ensure no reply is generated */
-	break;
-
+#if GASNET_DEBUG
       default:
 	gasnetc_GNIT_Abort("unknown packet type");
+        need_reply = 0;
+#endif
       }
       if (need_reply) {
         gasnetc_send_credit(pe);
@@ -746,9 +740,7 @@ void gasnetc_process_smsg_q(gasnet_node_t pe, gasnetc_mailbox_t * const mb)
         gasnetc_smsg_release(peer, mb);
       }
       if (credits) {
-        GASNETI_UNUSED_UNLESS_DEBUG int newval = 
-            gasneti_weakatomic_add(&peer->am_credit, credits, GASNETI_ATOMIC_NONE);
-        gasneti_assert(newval <= am_maxcredit);
+        recv_credits(peer, credits);
       }
   }
 }
@@ -775,7 +767,7 @@ void gasnetc_poll_smsg_queue(void)
   gasneti_mutex_lock(&lock);
 
   /* Reap Cq entries until our queue is full, or Cq is empty */
-  if (free_space) {
+  while (free_space) {
     gni_cq_entry_t event_data[SMSG_BURST];
     gni_return_t status;
     int count;
@@ -786,14 +778,40 @@ void gasnetc_poll_smsg_queue(void)
       if (status != GNI_RC_SUCCESS) break; /* TODO: check for fatal errors */
     }
     GASNETC_UNLOCK_GNI();
+    if (!count) break;
 
     for (i = 0; i < count; ++i) {
-      gasnet_node_t source = GNI_CQ_GET_INST_ID(event_data[i]);
-      gasneti_assert(source < gasneti_nodes);
-      queue[tail] = source;
-      tail = tail ? (tail-1) : SMSG_BURST;
+      uint32_t source = GNI_CQ_GET_INST_ID(event_data[i]);
+
+      if (source & GASNET_MAXNODES) { /* Control message */
+        const uint32_t control = event_data[i] >> 24;
+        const uint16_t     arg = control >> 8;
+        const uint8_t       op = control;
+        source &= (GASNET_MAXNODES - 1);
+        gasneti_assert((source < gasneti_nodes) && !node_is_local(source));
+
+        switch (op) {
+        case GC_CTRL_CREDIT:
+          gasneti_assert((arg == 1) || (arg == 2));
+          recv_credits(&peer_data[source], arg);
+          break;
+
+        case GC_CTRL_SHUTDOWN:
+	  gasnetc_handle_sys_shutdown_packet(source, arg);
+          break;
+
+#if GASNET_DEBUG
+        default:
+	  gasnetc_GNIT_Abort("unknown control message %d", (int)op);
+#endif
+        }
+      } else {
+        gasneti_assert((source < gasneti_nodes) && !node_is_local(source));
+        queue[tail] = source;
+        tail = tail ? (tail-1) : SMSG_BURST;
+        free_space -= 1;
+      }
     }
-    free_space -= count;
   }
 
   /* Poll all "live" sources, starting with any that were not ready last time */
@@ -1023,28 +1041,59 @@ void gasnetc_poll(void)
   gasnetc_poll_local_queue();
 }
 
+/* Send a 3-byte control message */
+/* Current ARBITRARILY managed as 8-bit op and 16-bit arg */
+void gasnetc_send_control(uint32_t dest, uint8_t op, uint16_t arg)
+{
+  peer_struct_t * const peer = &peer_data[dest];
+  gasnetc_post_descriptor_t * const gpd = gasnetc_alloc_post_descriptor();
+  gni_return_t status;
+  const int max_trials = 4;
+  int trial = 0;
+
+  /*  bzero(&gpd->pd, sizeof(gni_post_descriptor_t)); */
+  gpd->flags = 0;
+  gpd->pd.cq_mode = GNI_CQMODE_GLOBAL_EVENT | GNI_CQMODE_REMOTE_EVENT;
+  gpd->pd.dlvr_mode = GNI_DLVMODE_PERFORMANCE;
+  gpd->pd.type = GNI_POST_CQWRITE;
+  gpd->pd.remote_mem_hndl = peer->mb.rem_hndl;
+
+  gpd->pd.cqwrite_value = ((uint64_t) arg << 32)
+                        | ((uint64_t) op  << 24)
+                        | GASNET_MAXNODES | gasneti_mynode;
+
+  for (;;) {
+    GASNETC_LOCK_GNI();
+    status = GNI_PostCqWrite(peer->ep_handle, &gpd->pd);
+    GASNETC_UNLOCK_GNI();
+    if_pt (status == GNI_RC_SUCCESS) return;
+    if (status != GNI_RC_ERROR_RESOURCE) break; /* Fatal */
+    GASNETI_WAITHOOK();
+    gasnetc_poll_local_queue();
+  } while (++trial < max_trials);
+  if (status == GNI_RC_ERROR_RESOURCE) {
+    gasnetc_GNIT_Abort("PostCqWrite retry failed");
+  }
+}
+
 GASNETI_INLINE(gasnetc_send_credit)
 void gasnetc_send_credit(uint32_t pe)
 {
-  /* bank_credits = 0: all credits result in a smsg sent
-   * bank_credits = 1: send only if 1 credit is alrady banked, otherwise bank this one
+  uint32_t credits_to_send = 1;
+
+  /* bank_credits = 0: all calls result in a single credit sent
+   * bank_credits = 1:
+   *    bank = 0: deposit one and send none
+   *    bank = 1: withdraw one and send two
    */
-  if (!bank_credits || gasnetc_weakatomic_swap(&peer_data[pe].am_credit_bank, 1)) {
-    gasnetc_post_descriptor_t * const gpd = gasnetc_alloc_post_descriptor();
-    gasnetc_packet_t *msg = &gpd->u.packet;
-    int rc;
+  if (bank_credits) {
+    gasneti_weakatomic_val_t oldval = (1 ^ gasneti_weakatomic_add(&peer_data[pe].am_credit_bank, 1, 0));
+    credits_to_send = (oldval & 1) << 1;
+  }
 
-    msg->header.command = GC_CMD_AM_NOP_REPLY;
-  #if GASNET_DEBUG
-    msg->header.numargs = 0;
-  #endif
-
-    gpd->flags = 0;
-    rc = gasnetc_send_smsg(pe, gpd, msg, MAX(8,sizeof(gasnetc_am_nop_packet_t)));
-
-    if_pf (rc) {
-      gasnetc_GNIT_Abort("Failed to return AM implicit credit");
-    }
+  if (credits_to_send) {
+    gasneti_assert((credits_to_send == 1) || (credits_to_send == 2));
+    gasnetc_send_control(pe, GC_CTRL_CREDIT, credits_to_send);
   }
 }
 
@@ -1531,44 +1580,25 @@ gasnetc_exitcode_t *gasnetc_exitcodes = NULL;
 
 extern void gasnetc_sys_SendShutdownMsg(gasnet_node_t peeridx, int shift, int exitcode)
 {
-  gasnetc_post_descriptor_t *gpd;
-  gasnetc_packet_t *msg;
 #if GASNET_PSHM
   const gasnet_node_t dest = gasneti_pshm_firsts[peeridx];
 #else
   const gasnet_node_t dest = peeridx;
 #endif
-  GASNETI_UNUSED_UNLESS_DEBUG int result;
 
+  /* Advisable to protect against Cq overflow at target */
   gasnetc_get_am_credit(dest);
 
-  gpd = gasnetc_alloc_post_descriptor();
-  gpd->flags = 0;
-
   GASNETI_TRACE_PRINTF(C,("Send SHUTDOWN Request to node %d w/ shift %d, exitcode %d",dest,shift,exitcode));
-  msg = &gpd->u.packet;
-  msg->header.command = GC_CMD_SYS_SHUTDOWN_REQUEST;
-  msg->header.misc    = exitcode; /* only 14 bits, but exit() only preserves low 8-bits anyway */
-#if GASNET_DEBUG
-  msg->header.numargs = 0;
-#endif
-  msg->header.handler = shift; /* log(distance) */
-
-  result = gasnetc_send_smsg(dest, gpd, msg, MAX(8,sizeof(gasnetc_sys_shutdown_packet_t)));
-
-#if GASNET_DEBUG
-  if_pf (result) {
-    gasnetc_GNIT_Log("WARNING: gasnetc_send_smsg() call at Shutdown failed");
-  }
-#endif
+  gasnetc_send_control(dest, GC_CTRL_SHUTDOWN, (shift << 8) | (exitcode & 0xff));
 }
 
 
 /* this is called from poll when a shutdown packet arrives */
-void gasnetc_handle_sys_shutdown_packet(uint32_t source, gasnetc_sys_shutdown_packet_t *sys)
+void gasnetc_handle_sys_shutdown_packet(uint32_t source, uint16_t arg)
 {
-  uint32_t distance = 1 << sys->header.handler;
-  uint8_t exitcode = sys->header.misc;
+  uint32_t distance = 1 << (arg >> 8);
+  uint8_t exitcode = arg & 0xff;
   uint8_t oldcode;
 #if GASNET_DEBUG || GASNETI_STATS_OR_TRACE
   GASNETI_TRACE_PRINTF(C,("Got SHUTDOWN Request from node %d w/ exitcode %d",(int)source,exitcode));
@@ -1586,7 +1616,6 @@ void gasnetc_handle_sys_shutdown_packet(uint32_t source, gasnetc_sys_shutdown_pa
 #endif
 
   /* Atomic-OR via atomic-add: */
-  gasneti_assert(GASNETI_POWEROFTWO(distance));
   gasneti_weakatomic_add(&sys_exit_rcvd, distance, 0);
 }
 
@@ -1659,7 +1688,7 @@ extern int gasnetc_sys_exit(int *exitcode_p)
 
   if (pre_attach) {
     /* If in exit before attach, must populate gpd freelist that normally lives in auxseg */
-    const int count = 32; /* XXX: any reason to economize? */
+    const int count = 24; /* log_2(GASNET_MAXNODES) */
     gasnetc_pd_buffers.addr = gasneti_calloc(count, sizeof(gasnetc_post_descriptor_t));
     gasnetc_pd_buffers.size = count * sizeof(gasnetc_post_descriptor_t);
     gasnetc_init_post_descriptor_pool();
