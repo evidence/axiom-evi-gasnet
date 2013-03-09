@@ -83,29 +83,24 @@ enum { /* AM Request types must have ODD values */
 
 
 typedef struct GC_Header {
-  uint32_t command : 4;        /* */
+  uint32_t command : 3;        /* GC_CMD_AM_* */
   uint32_t credit  : 1;        /* piggybacked credit in addition to one implied by a Reply */
-  uint32_t misc    : 14;       /* msg-dependent field (e.g. nbytes in a Medium) */
+  uint32_t misc    : 15;       /* msg-dependent field (e.g. nbytes in a Medium) */
   uint32_t numargs : 5;        /* number of GASNet arguments */
   uint32_t handler : 8;        /* index of GASNet handler */
 } GC_Header_t;
 
 
-/* This type is used to return credits */
-typedef struct gasnetc_am_nop_packet {
-  GC_Header_t header;
-} gasnetc_am_nop_packet_t;
-
 /* This type is used by an AMShort request or reply */
 typedef struct {
   GC_Header_t header;
-  uint32_t args[gasnet_AMMaxArgs()];
+  gasnet_handlerarg_t args[gasnet_AMMaxArgs()];
 } gasnetc_am_short_packet_t;
 
 /* This type is used by an AMMedium request or reply */
 typedef struct {
   GC_Header_t header;
-  uint32_t args[gasnet_AMMaxArgs()];
+  gasnet_handlerarg_t args[gasnet_AMMaxArgs()];
 } gasnetc_am_medium_packet_t;
 
 /* This type is used by an AMLong request or reply */
@@ -117,13 +112,8 @@ typedef struct {
   size_t data_length;
 #endif
   void *data;
-  uint32_t args[gasnet_AMMaxArgs()];
+  gasnet_handlerarg_t args[gasnet_AMMaxArgs()];
 } gasnetc_am_long_packet_t;
-
-/* This type is used for the exitcode reduction */
-typedef struct gasnetc_sys_shutdown_packet {
-  GC_Header_t header;
-} gasnetc_sys_shutdown_packet_t;
 
 /* The various ways to interpret an arriving message
  * You can tell what it is by looking at the command field
@@ -131,11 +121,9 @@ typedef struct gasnetc_sys_shutdown_packet {
  */
 typedef union gasnetc_eq_packet {
   GC_Header_t header; /* must be first */
-  gasnetc_am_nop_packet_t ganp;
   gasnetc_am_short_packet_t gasp;
   gasnetc_am_medium_packet_t gamp;
   gasnetc_am_long_packet_t galp;
-  gasnetc_sys_shutdown_packet_t gssp;
 } gasnetc_packet_t;
   
 /* compute header len, padded to multiple of 8-bytes */

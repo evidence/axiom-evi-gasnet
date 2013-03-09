@@ -602,68 +602,6 @@ void gasnetc_shutdown(void)
 }
 
 
-GASNETI_INLINE(gasnetc_handle_am_short_packet)
-int gasnetc_handle_am_short_packet(int req, gasnet_node_t source, 
-			       gasnetc_am_short_packet_t *am)
-{
-  int handlerindex = am->header.handler;
-  gasneti_handler_fn_t handler = gasnetc_handler[handlerindex];
-  gasnetc_token_t the_token = { source, req };
-  gasnet_token_t token = (gasnet_token_t)&the_token; /* RUN macro needs al lvalue */
-  gasnet_handlerarg_t *pargs = (gasnet_handlerarg_t *) am->args;
-  int numargs = am->header.numargs;
-  GASNETI_RUN_HANDLER_SHORT(req, 
-			    handlerindex,
-			    handler,
-			    token,
-			    pargs,
-			    numargs);
-  return the_token.need_reply;
-}
-
-GASNETI_INLINE(gasnetc_handle_am_medium_packet)
-int gasnetc_handle_am_medium_packet(int req, gasnet_node_t source, 
-				gasnetc_am_medium_packet_t *am, size_t data_offset)
-{
-  int handlerindex = am->header.handler;
-  gasneti_handler_fn_t handler = gasnetc_handler[handlerindex];
-  gasnetc_token_t the_token = { source, req };
-  gasnet_token_t token = (gasnet_token_t)&the_token; /* RUN macro needs al lvalue */
-  gasnet_handlerarg_t *pargs = (gasnet_handlerarg_t *) am->args;
-  void * data = data_offset + (uint8_t*) am;
-  int numargs = am->header.numargs;
-  GASNETI_RUN_HANDLER_MEDIUM(req, 
-			     handlerindex,
-			     handler,
-			     token,
-			     pargs,
-			     numargs,
-			     data,
-			     am->header.misc);
-  return the_token.need_reply;
-}
-
-GASNETI_INLINE(gasnetc_handle_am_long_packet)
-int gasnetc_handle_am_long_packet(int req, gasnet_node_t source, 
-			      gasnetc_am_long_packet_t *am)
-{
-  int handlerindex = am->header.handler;
-  gasneti_handler_fn_t handler = gasnetc_handler[handlerindex];
-  gasnetc_token_t the_token = { source, req };
-  gasnet_token_t token = (gasnet_token_t)&the_token; /* RUN macro needs al lvalue */
-  gasnet_handlerarg_t *pargs = (gasnet_handlerarg_t *) am->args;
-  int numargs = am->header.numargs;
-  GASNETI_RUN_HANDLER_LONG(req, 
-			   handlerindex,
-			   handler,
-			   token,
-			   pargs,
-			   numargs,
-			   am->data,
-			   am->data_length);
-  return the_token.need_reply;
-}
-
 GASNETI_INLINE(recv_credits)
 void recv_credits(peer_struct_t *peer, int n) {
   GASNETI_UNUSED_UNLESS_DEBUG int newval = 
@@ -674,7 +612,8 @@ void recv_credits(peer_struct_t *peer, int n) {
 extern void gasnetc_handle_sys_shutdown_packet(uint32_t source, uint16_t arg);
 static void gasnetc_send_credit(uint32_t pe);
 
-void gasnetc_process_smsg_q(gasnet_node_t pe, gasnetc_mailbox_t * const mb)
+static
+void gasnetc_recv_am(gasnet_node_t pe, gasnetc_mailbox_t * const mb)
 {
   peer_struct_t * const peer = &peer_data[pe];
   gasnetc_mailbox_t buffer;
@@ -684,8 +623,12 @@ void gasnetc_process_smsg_q(gasnet_node_t pe, gasnetc_mailbox_t * const mb)
       const uint32_t numargs = msg->header.numargs;
       const int is_req = GASNETC_CMD_IS_REQ(msg->header.command);
       const unsigned int credits = msg->header.credit + !is_req;
+      const int handlerindex = msg->header.handler;
+      gasneti_handler_fn_t handler = gasnetc_handler[handlerindex];
+      gasnetc_token_t the_token = { pe, is_req };
+      gasnet_token_t token = (gasnet_token_t)&the_token; /* RUN macros need an lvalue */
       size_t length;
-      int need_reply;
+      void * data;
 
       gasneti_assert((((uintptr_t) msg) & 7) == 0);
       gasneti_assert(numargs <= gasnet_AMMaxArgs());
@@ -701,7 +644,8 @@ void gasnetc_process_smsg_q(gasnet_node_t pe, gasnetc_mailbox_t * const mb)
         gasnetc_smsg_release(peer, mb);
         /* fall through */
       case GC_CMD_AM_SHORT_REPLY:
-	need_reply = gasnetc_handle_am_short_packet(is_req, pe, &msg->gasp);
+        GASNETI_RUN_HANDLER_SHORT(is_req, handlerindex, handler,
+                                  token, msg->gasp.args, numargs);
 	break;
 
       case GC_CMD_AM_MEDIUM: /* Req cannot run in-place */
@@ -710,8 +654,10 @@ void gasnetc_process_smsg_q(gasnet_node_t pe, gasnetc_mailbox_t * const mb)
         gasnetc_smsg_release(peer, mb);
         /* fall through */
       case GC_CMD_AM_MEDIUM_REPLY:
-	length = GASNETC_HEADLEN(medium, numargs);
-	need_reply = gasnetc_handle_am_medium_packet(is_req, pe, &msg->gamp, length);
+        data = (void*)((uintptr_t) msg + GASNETC_HEADLEN(medium, numargs));
+        GASNETI_RUN_HANDLER_MEDIUM(is_req, handlerindex, handler,
+			           token, msg->gamp.args, numargs,
+			           data, msg->header.misc);
 	break;
 
       case GC_CMD_AM_LONG: /* Req cannot run in-place */
@@ -725,16 +671,17 @@ void gasnetc_process_smsg_q(gasnet_node_t pe, gasnetc_mailbox_t * const mb)
 	  length = GASNETC_HEADLEN(long, numargs);
 	  memcpy(msg->galp.data, &mb->raw[length], msg->galp.data_length);
 	}
-	need_reply = gasnetc_handle_am_long_packet(is_req, pe, &msg->galp);
+        GASNETI_RUN_HANDLER_LONG(is_req, handlerindex, handler,
+			         token, msg->galp.args, numargs,
+			         msg->galp.data, msg->galp.data_length);
 	break;
 
 #if GASNET_DEBUG
       default:
 	gasnetc_GNIT_Abort("unknown packet type");
-        need_reply = 0;
 #endif
       }
-      if (need_reply) {
+      if (the_token.need_reply) {
         gasnetc_send_credit(pe);
       } else if (!is_req) {
         gasnetc_smsg_release(peer, mb);
@@ -749,6 +696,7 @@ void gasnetc_process_smsg_q(gasnet_node_t pe, gasnetc_mailbox_t * const mb)
 /* Max number of times to poll the AM mailboxes per entry */
 #define SMSG_BURST 20
 
+static
 void gasnetc_poll_smsg_queue(void)
 {
   /* FIFO queue of sources for which we have reaped a Cq entry,
@@ -826,7 +774,7 @@ void gasnetc_poll_smsg_queue(void)
       if_pt (mb) {
         ++free_space;
         gasneti_mutex_unlock(&lock);
-        gasnetc_process_smsg_q(source, mb);
+        gasnetc_recv_am(source, mb);
         gasneti_mutex_lock(&lock);
       } else {
         queue[tail] = source;
