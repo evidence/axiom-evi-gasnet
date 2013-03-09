@@ -1540,7 +1540,8 @@ void gasnetc_handle_sys_shutdown_packet(uint32_t source, uint16_t arg)
 {
   uint32_t distance = 1 << (arg >> 8);
   uint8_t exitcode = arg & 0xff;
-  uint8_t oldcode;
+  gasneti_weakatomic_val_t readval;
+
 #if GASNET_DEBUG || GASNETI_STATS_OR_TRACE
   GASNETI_TRACE_PRINTF(C,("Got SHUTDOWN Request from node %d w/ exitcode %d",(int)source,exitcode));
 #endif
@@ -1548,16 +1549,21 @@ void gasnetc_handle_sys_shutdown_packet(uint32_t source, uint16_t arg)
 #if GASNETI_THREADS || defined(GASNETI_FORCE_TRUE_WEAKATOMICS)
   /* Atomic MAX via C-A-S: */
   do {
-    oldcode = gasneti_atomic_read(&sys_exit_code, 0);
-  } while ((exitcode > oldcode) &&
-           !gasneti_atomic_compare_and_swap(&sys_exit_code, oldcode, exitcode, 0));
-#else
-  oldcode = gasneti_weakatomic_read(&sys_exit_code, 0);
-  gasneti_weakatomic_set(&sys_exit_code, MAX(oldcode, exitcode), 0);
-#endif
+    readval = gasneti_atomic_read(&sys_exit_code, 0);
+  } while ((exitcode > readval) &&
+           !gasneti_atomic_compare_and_swap(&sys_exit_code, readval, exitcode, 0));
 
-  /* Atomic-OR via atomic-add: */
-  gasneti_weakatomic_add(&sys_exit_rcvd, distance, 0);
+  /* Atomic OR via C-A-S: */
+  do {
+    readval = gasneti_atomic_read(&sys_exit_rcvd, 0);
+  } while (! gasneti_atomic_compare_and_swap(&sys_exit_rcvd, readval, (distance|readval), 0));
+#else
+  readval = gasneti_weakatomic_read(&sys_exit_code, 0);
+  gasneti_weakatomic_set(&sys_exit_code, MAX(readval, exitcode), 0);
+
+  readval = gasneti_weakatomic_read(&sys_exit_rcvd, 0);
+  gasneti_weakatomic_set(&sys_exit_rcvd, (distance|readval), 0);
+#endif
 }
 
 
