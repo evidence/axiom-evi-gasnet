@@ -550,7 +550,17 @@ uintptr_t gasnetc_init_messaging(void)
                            gasnetc_put_bounce_register_cutover);
 #endif
 
+  /* Create a temporary pool of post descriptors for uses prior to the aux seg attach.
+   * NOTE: The immediate buffer WON'T be in registered memory - so no Put/Get.
+   */
+  for (i=0; i < log2_remote; ++i) {
+    /* allocate individually to ease later destruction of this pool. */
+    gasnetc_post_descriptor_t *gpd = gasneti_calloc(1, sizeof(gasnetc_post_descriptor_t));
+    gasneti_lifo_push(&post_descriptor_pool, gpd);
+  }
+
   /* Now make sure everyone is ready */
+  /* TODO: is this needed?  Exchange of memhandles should have been enough, right? */
   gasnetc_bootstrapBarrier();
 
   return bytes_needed;
@@ -1465,11 +1475,20 @@ void gasnetc_init_post_descriptor_pool(void)
 {
   int i;
   const int count = gasnetc_pd_buffers.size / sizeof(gasnetc_post_descriptor_t);
-  gasnetc_post_descriptor_t *data = gasnetc_pd_buffers.addr;
-  gasneti_assert_always(data);
-  memset(data, 0, gasnetc_pd_buffers.size); /* Just in case */
+  gasnetc_post_descriptor_t *gpd;
+
+  /* must first destroy the temporary pool of post descriptors */
+  for (i=0; i < log2_remote; ++i) {
+    gasnetc_post_descriptor_t *gpd = gasnetc_alloc_post_descriptor();
+    gasneti_free(gpd);
+  }
+
+  /* now create the new pool */
+  gpd = gasnetc_pd_buffers.addr;
+  gasneti_assert_always(gpd);
+  memset(gpd, 0, gasnetc_pd_buffers.size); /* Just in case */
   for (i = 0; i < count; i += 1) {
-    gasneti_lifo_push(&post_descriptor_pool, &data[i]);
+    gasneti_lifo_push(&post_descriptor_pool, gpd + i);
   }
 }
 
@@ -1613,14 +1632,6 @@ extern int gasnetc_sys_exit(int *exitcode_p)
     }
   }
 #endif
-
-  if (! gasneti_attach_done) {
-    /* If in exit before attach, must populate gpd freelist that normally lives in auxseg */
-    const int count = log2_remote;
-    gasnetc_pd_buffers.addr = gasneti_calloc(count, sizeof(gasnetc_post_descriptor_t));
-    gasnetc_pd_buffers.size = count * sizeof(gasnetc_post_descriptor_t);
-    gasnetc_init_post_descriptor_pool();
-  }
 
   for (distance = 1, shift = 0; distance < size; distance *= 2, ++shift) {
     gasnet_node_t peeridx = (distance >= size - rank) ? rank - (size - distance)
