@@ -163,11 +163,13 @@ void gasnetc_init_post_descriptor_pool(void);
 #define GASNETC_GNI_MIN_BOUNCE_SIZE_DEFAULT 65536
 /* and preferably this much space */
 #define GASNETC_GNI_BOUNCE_SIZE_DEFAULT (65536 * 4)
-/* a particular message up to this size goes via bounce */
-#define GASNETC_GNI_BOUNCE_REGISTER_CUTOVER_DEFAULT 8192
+/* a particular get or put <= this size goes via bounce */
+#define GASNETC_GNI_GET_BOUNCE_REGISTER_CUTOVER_DEFAULT 8192
+#define GASNETC_GNI_PUT_BOUNCE_REGISTER_CUTOVER_DEFAULT 8192
 #define GASNETC_GNI_BOUNCE_REGISTER_CUTOVER_MAX 32768
-/* a particular message up to this size goes via fma */
-#define GASNETC_GNI_FMA_RDMA_CUTOVER_DEFAULT 4096
+/* a particular get or put <= this size goes via fma */
+#define GASNETC_GNI_GET_FMA_RDMA_CUTOVER_DEFAULT 4096
+#define GASNETC_GNI_PUT_FMA_RDMA_CUTOVER_DEFAULT 4096
 #define GASNETC_GNI_FMA_RDMA_CUTOVER_MAX (4096*4)
 /* space for immediate bounce buffer in the post descriptor */
 #define GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE 128

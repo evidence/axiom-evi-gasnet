@@ -1,6 +1,6 @@
 GASNet gemini-conduit and aries-conduit documentation
 Larry Stewart <stewart@serissa.com> 
-$Revision: 1.21 $
+$Revision: 1.22 $
 
 User Information:
 -----------------
@@ -25,29 +25,29 @@ GASNETC_GNI_MIN_NUM_PD    - default 128, minimum number of post descriptors
   operations which can be in-flight at any time.
   On Aries (but not Gemini), AMs also require a Post Descriptor.
 
-GASNETC_GNI_FMA_RDMA_CUTOVER - default 4096 max 16384
-  This one sets the cutover from Fast Memory Access (RDMA commanded in
-  user mode) to RDMA commanded via device driver.  Every Post Descriptor
-  has a small bounce buffer (128 bytes) for handling out-of-segment FMAs
-  without the overhead of bounce buffers or dynamic registration (128
-  also happens to be the max size for a single packet FMA).  Larger
-  out-of-segment transfers will use either bounce buffers or dynamic
-  registration (see below).
+GASNETC_GNI_GET_FMA_RDMA_CUTOVER - default 4096 max 16384
+GASNETC_GNI_PUT_FMA_RDMA_CUTOVER - default 4096 max 16384
+  These set the cutover from Fast Memory Access (RDMA commanded in user
+  mode) to RDMA (commanded through the kernel).  Transfers up to and
+  including these sizes will be performed using FMA.
 
-GASNETC_GNI_BOUNCE_REGISTER_CUTOVER  - default 8192, max 32768
-  Puts and Long Active messages whose source is not in the segment and
-  don't fit within GASNETC_GNI_FMA_RDMA_CUTOVER can be copied to a bounce
-  buffer in the auxiliary segment if the size is no larger than the value
-  GASNETC_GNI_BOUNCE_REGISTER_CUTOVER.  Otherwise, a temporary memory
-  segment is registered.
-
+GASNETC_GNI_GET_BOUNCE_REGISTER_CUTOVER  - default 8192, max 32768
+GASNETC_GNI_PUT_BOUNCE_REGISTER_CUTOVER  - default 8192, max 32768
+  Every Post Descriptor has a small bounce buffer (128 bytes) for
+  handling out-of-segment transfers (normally FMAs) with the least
+  overhead.  Beyond that size out-of-segment can be performed using
+  either bounce buffers or dynamic registration.  Such transfers up
+  to and including these sizes will be conducted using bounce buffers.
+  Beyond these sizes, temporary memory registration is used.
+  
 GASNETC_GNI_BOUNCE_SIZE      - default 256K, desired space for bounce buffers
 GASNETC_GNI_MIN_BOUNCE_SIZE  - default 64K, minimum space for bounce buffers
-  There is a pool of bounce buffers, each of a fixed size determined by
-  GASNETC_GNI_BOUNCE_REGISTER_CUTOVER (see above).  The value of
-  GASNETC_GNI_BOUNCE_SIZE determines the size of the entire pool of memory
-  for bounce buffers.  Thus the number of bounce buffers available is
-     GASNETC_GNI_BOUNCE_SIZE / GASNETC_GNI_BOUNCE_REGISTER_CUTOVER
+  There is a pool of bounce buffers, each of a fixed size determined by the
+  larger of GASNETC_GNI_{PUT,GET}_BOUNCE_REGISTER_CUTOVER (see above).  The
+  value of GASNETC_GNI_BOUNCE_SIZE determines the size of the entire pool of
+  bounce buffers.  Thus the number of bounce buffers available is
+     GASNETC_GNI_BOUNCE_SIZE / MAX(GASNETC_GNI_PUT_BOUNCE_REGISTER_CUTOVER,
+                                   GASNETC_GNI_GET_BOUNCE_REGISTER_CUTOVER)
   which is 256K / 8K == 32 by default.
 
   If an operation must allocate a bounce buffer and the pool is empty,

@@ -80,8 +80,10 @@ static peer_struct_t *peer_data;
 #if FIX_HT_ORDERING
 static uint16_t gasnetc_fma_put_cq_mode = GNI_CQMODE_GLOBAL_EVENT;
 #endif
-static size_t gasnetc_fma_rdma_cutover;
-static size_t gasnetc_bounce_register_cutover;
+static size_t gasnetc_get_fma_rdma_cutover;
+static size_t gasnetc_put_fma_rdma_cutover;
+static size_t gasnetc_get_bounce_register_cutover;
+static size_t gasnetc_put_bounce_register_cutover;
 size_t gasnetc_max_get_unaligned;
 size_t gasnetc_max_put_lc;
 
@@ -525,19 +527,27 @@ uintptr_t gasnetc_init_messaging(void)
    */
   gasnetc_shutdown_seconds = gasneti_get_exittimeout(shutdown_max, 3., 0.125, 0.);
 
-  /* TODO: distinct cut-offs for Put and Get */
-  gasnetc_fma_rdma_cutover = 
-    gasneti_getenv_int_withdefault("GASNETC_GNI_FMA_RDMA_CUTOVER",
-				   GASNETC_GNI_FMA_RDMA_CUTOVER_DEFAULT,1);
-  if (gasnetc_fma_rdma_cutover > GASNETC_GNI_FMA_RDMA_CUTOVER_MAX)
-    gasnetc_fma_rdma_cutover = GASNETC_GNI_FMA_RDMA_CUTOVER_MAX;
+  gasnetc_get_fma_rdma_cutover = 
+    gasneti_getenv_int_withdefault("GASNETC_GNI_GET_FMA_RDMA_CUTOVER",
+				   GASNETC_GNI_GET_FMA_RDMA_CUTOVER_DEFAULT,1);
+  gasnetc_get_fma_rdma_cutover = MIN(gasnetc_get_fma_rdma_cutover,
+                                     GASNETC_GNI_FMA_RDMA_CUTOVER_MAX);
+
+  gasnetc_put_fma_rdma_cutover = 
+    gasneti_getenv_int_withdefault("GASNETC_GNI_PUT_FMA_RDMA_CUTOVER",
+				   GASNETC_GNI_PUT_FMA_RDMA_CUTOVER_DEFAULT,1);
+  gasnetc_put_fma_rdma_cutover = MIN(gasnetc_put_fma_rdma_cutover,
+                                     GASNETC_GNI_FMA_RDMA_CUTOVER_MAX);
 
   /* Derived limits used in extended API implementation: */
-  gasnetc_max_get_unaligned = MAX(GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE, gasnetc_bounce_register_cutover);
+  gasnetc_max_get_unaligned = MAX(GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE,
+                                  gasnetc_get_bounce_register_cutover);
 #if GASNET_CONDUIT_GEMINI
-  gasnetc_max_put_lc = MAX(gasnetc_fma_rdma_cutover, gasnetc_bounce_register_cutover);
+  gasnetc_max_put_lc = MAX(gasnetc_put_fma_rdma_cutover,
+                           gasnetc_put_bounce_register_cutover);
 #else
-  gasnetc_max_put_lc = MAX(GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE, gasnetc_bounce_register_cutover);
+  gasnetc_max_put_lc = MAX(GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE,
+                           gasnetc_put_bounce_register_cutover);
 #endif
 
   /* Now make sure everyone is ready */
@@ -1119,7 +1129,7 @@ void gasnetc_rdma_put_bulk(gasnet_node_t node,
   pd->local_addr = (uint64_t) source_addr;
   pd->local_mem_hndl = my_mem_handle;
 
-  if (nbytes <= gasnetc_fma_rdma_cutover) {
+  if (nbytes <= gasnetc_put_fma_rdma_cutover) {
     /* Small enough for FMA - no local memory registration is required */
     pd->type = GNI_POST_FMA_PUT;
 #if FIX_HT_ORDERING
@@ -1130,10 +1140,10 @@ void gasnetc_rdma_put_bulk(gasnet_node_t node,
     if_pf (!gasneti_in_segment(gasneti_mynode, source_addr, nbytes)) {
       /* Use a bounce buffer or mem-reg according to size.
        * Use of gpd->u.immedate would only be reachable if
-       *     (fma_rdma_cutover < IMMEDIATE_BOUNCE_SIZE),
+       *     (put_fma_rdma_cutover < IMMEDIATE_BOUNCE_SIZE),
        * which is not the default (nor recommended).
        */
-      if (nbytes <= gasnetc_bounce_register_cutover) {
+      if (nbytes <= gasnetc_put_bounce_register_cutover) {
         void * const buffer = gasnetc_alloc_bounce_buffer();
         pd->local_addr = (uint64_t) memcpy(buffer, source_addr, nbytes);
         gpd->flags |= GC_POST_UNBOUNCE;
@@ -1183,7 +1193,7 @@ int gasnetc_rdma_put(gasnet_node_t node,
 
 #if GASNET_CONDUIT_GEMINI
   /* On Gemini (only) return from PostFma follows local completion. */
-  if (nbytes <= gasnetc_fma_rdma_cutover) {
+  if (nbytes <= gasnetc_put_fma_rdma_cutover) {
     /* Small enough for FMA - no local memory registration is required */
     pd->type = GNI_POST_FMA_PUT;
   #if FIX_HT_ORDERING
@@ -1199,7 +1209,7 @@ int gasnetc_rdma_put(gasnet_node_t node,
       pd->local_addr = (uint64_t) memcpy(buffer, source_addr, nbytes);
     } else
   #endif
-    if (nbytes <= gasnetc_bounce_register_cutover) {
+    if (nbytes <= gasnetc_put_bounce_register_cutover) {
       void * const buffer = gasnetc_alloc_bounce_buffer();
       pd->local_addr = (uint64_t) memcpy(buffer, source_addr, nbytes);
       gpd->flags |= GC_POST_UNBOUNCE;
@@ -1213,8 +1223,7 @@ int gasnetc_rdma_put(gasnet_node_t node,
     }
  
 #if !GASNET_CONDUIT_GEMINI
-    /*  TODO: distinct Put and Get cut-overs */
-    if (nbytes <= gasnetc_fma_rdma_cutover) {
+    if (nbytes <= gasnetc_put_fma_rdma_cutover) {
       pd->type = GNI_POST_FMA_PUT;
     #if FIX_HT_ORDERING
       pd->cq_mode = gasnetc_fma_put_cq_mode;
@@ -1279,8 +1288,7 @@ void gasnetc_post_get(gni_ep_handle_t ep, gni_post_descriptor_t *pd)
   gni_return_t status;
   const size_t nbytes = pd->length;
 
-  /*  TODO: distinct Put and Get cut-overs */
-  if (nbytes <= gasnetc_fma_rdma_cutover) {
+  if (nbytes <= gasnetc_get_fma_rdma_cutover) {
       pd->type = GNI_POST_FMA_GET;
       status = myPostFma(ep, pd);
   } else {
@@ -1324,14 +1332,14 @@ void gasnetc_rdma_get(gasnet_node_t node,
   /* check where the local addr is */
   if_pf (!gasneti_in_segment(gasneti_mynode, dest_addr, nbytes)) {
     /* dest not (entirely) in segment */
-    /* if (nbytes <= gasnetc_bounce_register_cutover)  then use bounce buffer
+    /* if (nbytes <= gasnetc_get_bounce_register_cutover)  then use bounce buffer
      * else mem-register
      */
     if (nbytes < GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE) {
       gpd->flags |= GC_POST_COPY;
       gpd->gpd_get_src = pd->local_addr = (uint64_t) gpd->u.immediate;
       gpd->gpd_get_dst = (uint64_t) dest_addr;
-    } else if (nbytes <= gasnetc_bounce_register_cutover) {
+    } else if (nbytes <= gasnetc_get_bounce_register_cutover) {
       gpd->flags |= GC_POST_UNBOUNCE | GC_POST_COPY;
       gpd->gpd_get_src = pd->local_addr = (uint64_t) gasnetc_alloc_bounce_buffer();
       gpd->gpd_get_dst = (uint64_t) dest_addr;
@@ -1379,7 +1387,7 @@ void gasnetc_rdma_get_unaligned(gasnet_node_t node,
   /* must always use immediate or bounce buffer */
   if (length < GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE) {
     buffer = gpd->u.immediate;
-  } else if_pt (length <= gasnetc_bounce_register_cutover) {
+  } else if_pt (length <= gasnetc_get_bounce_register_cutover) {
     gpd->flags |= GC_POST_UNBOUNCE;
     buffer = gasnetc_alloc_bounce_buffer();
   } else {
@@ -1718,19 +1726,33 @@ void gasnetc_init_bounce_buffer_pool(void)
 {
   int i;
   int num_bounce;
+  size_t buffer_size;
   gasneti_assert_always(gasnetc_bounce_buffers.addr != NULL);
   gasneti_assert_always(gasnetc_bounce_buffers.size >= GASNETC_GNI_MIN_BOUNCE_SIZE_DEFAULT);
-  gasnetc_bounce_register_cutover = 
-    gasneti_getenv_int_withdefault("GASNETC_GNI_BOUNCE_REGISTER_CUTOVER",
-				   GASNETC_GNI_BOUNCE_REGISTER_CUTOVER_DEFAULT,1);
-  if (gasnetc_bounce_register_cutover > GASNETC_GNI_BOUNCE_REGISTER_CUTOVER_MAX)
-    gasnetc_bounce_register_cutover = GASNETC_GNI_BOUNCE_REGISTER_CUTOVER_MAX;
-  if (gasnetc_bounce_register_cutover > gasnetc_bounce_buffers.size)
-    gasnetc_bounce_register_cutover = gasnetc_bounce_buffers.size;
-  num_bounce = gasnetc_bounce_buffers.size / gasnetc_bounce_register_cutover;
+
+  gasnetc_get_bounce_register_cutover = 
+    gasneti_getenv_int_withdefault("GASNETC_GNI_GET_BOUNCE_REGISTER_CUTOVER",
+				   GASNETC_GNI_GET_BOUNCE_REGISTER_CUTOVER_DEFAULT,1);
+  gasnetc_get_bounce_register_cutover = MIN(gasnetc_get_bounce_register_cutover,
+                                            GASNETC_GNI_BOUNCE_REGISTER_CUTOVER_MAX);
+  gasnetc_get_bounce_register_cutover = MIN(gasnetc_get_bounce_register_cutover,
+                                            gasnetc_bounce_buffers.size);
+
+  gasnetc_put_bounce_register_cutover = 
+    gasneti_getenv_int_withdefault("GASNETC_GNI_PUT_BOUNCE_REGISTER_CUTOVER",
+				   GASNETC_GNI_PUT_BOUNCE_REGISTER_CUTOVER_DEFAULT,1);
+  gasnetc_put_bounce_register_cutover = MIN(gasnetc_put_bounce_register_cutover,
+                                            GASNETC_GNI_BOUNCE_REGISTER_CUTOVER_MAX);
+  gasnetc_put_bounce_register_cutover = MIN(gasnetc_put_bounce_register_cutover,
+                                            gasnetc_bounce_buffers.size);
+
+  buffer_size = MAX(gasnetc_get_bounce_register_cutover,
+                    gasnetc_put_bounce_register_cutover);
+
+  num_bounce = gasnetc_bounce_buffers.size / buffer_size;
   for(i = 0; i < num_bounce; i += 1) {
-    gasneti_lifo_push(&gasnetc_bounce_buffer_pool, (char *) gasnetc_bounce_buffers.addr + 
-		      (gasnetc_bounce_register_cutover * i));
+    gasneti_lifo_push(&gasnetc_bounce_buffer_pool,
+                      (char *) gasnetc_bounce_buffers.addr + (buffer_size * i));
   }
 }
 
