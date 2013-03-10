@@ -95,7 +95,7 @@ static gasneti_weakatomic_t gasnetc_reg_credit;
 static gasneti_lifo_head_t post_descriptor_pool = GASNETI_LIFO_INITIALIZER;
 static gasneti_lifo_head_t gasnetc_bounce_buffer_pool = GASNETI_LIFO_INITIALIZER;
 #if !GASNET_CONDUIT_GEMINI
-static gasneti_lifo_head_t gasnetc_smsg_buffers = GASNETI_LIFO_INITIALIZER;
+gasneti_lifo_head_t gasnetc_smsg_buffers = GASNETI_LIFO_INITIALIZER;
 #endif
 
 /*------ Convience functions for printing error messages ------*/
@@ -796,16 +796,7 @@ void gasnetc_poll_smsg_queue(void)
   gasneti_mutex_unlock(&lock);
 }
 
-
-#if !GASNET_CONDUIT_GEMINI
-GASNETI_INLINE(gasnetc_smsg_buffer) GASNETI_MALLOC
-gasnetc_packet_t * gasnetc_smsg_buffer(size_t buffer_len) {
-  void *result = gasneti_lifo_pop(&gasnetc_smsg_buffers);
-  return result ? result : gasneti_malloc(GASNETC_MSG_MAXSIZE); /* XXX: less? */
-}
-#endif
-
-static int
+extern int
 gasnetc_send_smsg(gasnet_node_t dest, gasnetc_post_descriptor_t *gpd,
                   gasnetc_packet_t *msg, size_t length)
 {
@@ -873,36 +864,6 @@ gasnetc_send_smsg(gasnet_node_t dest, gasnetc_post_descriptor_t *gpd,
   }
 
   return GASNET_OK;
-}
-
-int
-gasnetc_send_am(gasnet_node_t dest, 
-                  gasnetc_post_descriptor_t *gpd, int header_length, 
-                  void *data, int data_length)
-{
-  gasnetc_packet_t * const msg = &gpd->u.packet;
-  gasnetc_packet_t * to_send = msg;
-  const size_t total_len = header_length + data_length;
-#if GASNET_CONDUIT_GEMINI
-  gasnetc_mailbox_t imm_buffer;
-#endif
-
-  gpd->flags = 0;
-  if (data_length) {
-    const size_t imm_limit = GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE;
-    if (total_len > imm_limit) {
-    #if GASNET_CONDUIT_GEMINI
-      to_send = &imm_buffer.packet;
-    #else
-      to_send = gasnetc_smsg_buffer(total_len);
-      gpd->flags = GC_POST_SMSG_BUF;
-    #endif
-      memcpy(to_send, msg, header_length);
-    }
-    memcpy((uint8_t*)to_send + header_length, data, data_length);
-  }
-
-  return gasnetc_send_smsg(dest, gpd, to_send, total_len);
 }
 
 

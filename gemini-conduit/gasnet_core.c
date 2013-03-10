@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/03/08 20:14:10 $
- * $Revision: 1.65 $
+ *     $Date: 2013/03/10 07:01:40 $
+ * $Revision: 1.66 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -874,6 +874,20 @@ extern int gasnetc_AMPoll(void) {
   ================================
 */
 
+#if GASNET_CONDUIT_GEMINI
+  /* FMA on Gemini provides local completion */
+  #define alloc_am_buffer alloca
+#else
+  /* Need a buffer to outlive the caller */
+  extern gasneti_lifo_head_t gasnetc_smsg_buffers;
+  GASNETI_INLINE(gasnetc_smsg_buffer) GASNETI_MALLOC
+  gasnetc_packet_t * gasnetc_smsg_buffer(size_t buffer_len /*ignored*/) {
+    void *result = gasneti_lifo_pop(&gasnetc_smsg_buffers);
+    return result ? result : gasneti_malloc(GASNETC_MSG_MAXSIZE); 
+  }
+  #define alloc_am_buffer gasnetc_smsg_buffer
+#endif
+
 GASNETI_INLINE(gasnetc_short_common)
 int gasnetc_short_common(gasnet_node_t dest, int cmd,
                          gasnet_handler_t handler,
@@ -896,17 +910,23 @@ int gasnetc_short_common(gasnet_node_t dest, int cmd,
   } else
 #endif
   {
+    const size_t head_len = GASNETC_HEADLEN(short, numargs);
     gasnetc_post_descriptor_t *gpd = gasnetc_alloc_post_descriptor();
-    gasnetc_am_short_packet_t *m = &gpd->u.packet.gasp;
+    gasnetc_packet_t *m;
+
     if (isReq) gasnetc_get_am_credit(dest);
+    gpd->flags = 0;
+    m = &gpd->u.packet;
     m->header.command = cmd;
   /*m->header.misc    = 0;  -- field is unused by shorts */
     m->header.numargs = numargs;
     m->header.handler = handler;
     for (i = 0; i < numargs; i++) {
-      m->args[i] = va_arg(argptr, gasnet_handlerarg_t);
+      m->gasp.args[i] = va_arg(argptr, gasnet_handlerarg_t);
     }
-    retval = gasnetc_send_am(dest, gpd, GASNETC_HEADLEN(short, numargs), NULL, 0);
+
+    gasneti_assert(head_len <= GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE);
+    retval = gasnetc_send_smsg(dest, gpd, m, head_len);
   }
   return retval;
 }
@@ -935,17 +955,25 @@ int gasnetc_medium_common(gasnet_node_t dest, int cmd,
   } else
 #endif
   {
+    const size_t head_len = GASNETC_HEADLEN(medium, numargs);
+    const size_t total_len = head_len + nbytes;
+    const uint32_t flags = (total_len > GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE) ? GC_POST_SMSG_BUF : 0;
     gasnetc_post_descriptor_t *gpd = gasnetc_alloc_post_descriptor();
-    gasnetc_am_medium_packet_t *m = &gpd->u.packet.gamp;
+    gasnetc_packet_t *m;
+
     if (isReq) gasnetc_get_am_credit(dest);
+    gpd->flags = flags;
+    m = flags ? alloc_am_buffer(total_len) : &gpd->u.packet;
     m->header.command = cmd;
     m->header.misc    = nbytes;
     m->header.numargs = numargs;
     m->header.handler = handler;
     for (i = 0; i < numargs; i++) {
-      m->args[i] = va_arg(argptr, gasnet_handlerarg_t);
+      m->gamp.args[i] = va_arg(argptr, gasnet_handlerarg_t);
     }
-    retval = gasnetc_send_am(dest, gpd, GASNETC_HEADLEN(medium, numargs), source_addr, nbytes);
+
+    memcpy((void*)((uintptr_t)m + head_len), source_addr, nbytes);
+    retval = gasnetc_send_smsg(dest, gpd, m, total_len);
   }
   return retval;
 }
@@ -977,8 +1005,11 @@ int gasnetc_long_common(gasnet_node_t dest, int cmd,
   {
     volatile int done = 0;
     const int is_packed = (nbytes <= GASNETC_MAX_PACKED_LONG(numargs));
+    const size_t head_len = GASNETC_HEADLEN(long, numargs);
+    const size_t total_len = head_len + (is_packed ? nbytes : 0);
+    const uint32_t flags = (total_len > GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE) ? GC_POST_SMSG_BUF : 0;
     gasnetc_post_descriptor_t *gpd = gasnetc_alloc_post_descriptor();
-    gasnetc_am_long_packet_t *m;
+    gasnetc_packet_t *m;
 
     if (!is_packed) {
       /* Launch RDMA put as early as possible */
@@ -991,20 +1022,22 @@ int gasnetc_long_common(gasnet_node_t dest, int cmd,
 
     /* Overlap header setup and credit stall w/ the RDMA */
     if (isReq) gasnetc_get_am_credit(dest);
-    m = &gpd->u.packet.galp;
+    gpd->flags = flags;
+    m = flags ? alloc_am_buffer(total_len) : &gpd->u.packet;
     m->header.command = cmd;
     m->header.misc    = is_packed;
     m->header.numargs = numargs;
     m->header.handler = handler;
-    m->data_length = nbytes;
-    m->data = dest_addr;
+    m->galp.data_length = nbytes;
+    m->galp.data = dest_addr;
     for (i = 0; i < numargs; i++) {
-      m->args[i] = va_arg(argptr, gasnet_handlerarg_t);
+      m->galp.args[i] = va_arg(argptr, gasnet_handlerarg_t);
     }
 
-    if (!is_packed) {
+    if (is_packed) {
+      memcpy((void*)((uintptr_t)m + head_len), source_addr, nbytes);
+    } else {
       /* Poll for the RDMA completion */
-      nbytes = 0;
       gasnetc_poll_local_queue();
       while(! done) {
         GASNETI_WAITHOOK();
@@ -1012,7 +1045,7 @@ int gasnetc_long_common(gasnet_node_t dest, int cmd,
       }
     }
 
-    retval = gasnetc_send_am(dest, gpd, GASNETC_HEADLEN(long, numargs), source_addr, nbytes);
+    retval = gasnetc_send_smsg(dest, gpd, m, total_len);
   }
   return retval;
 }
@@ -1121,25 +1154,32 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
 #endif
   {
     const int is_packed = (nbytes <= GASNETC_MAX_PACKED_LONG(numargs));
+    const size_t head_len = GASNETC_HEADLEN(long, numargs);
+    const size_t total_len = head_len + (is_packed ? nbytes : 0);
+    const uint32_t flags = (total_len > GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE) ? GC_POST_SMSG_BUF : 0;
     gasnetc_post_descriptor_t *gpd = gasnetc_alloc_post_descriptor();
-    gasnetc_am_long_packet_t *m = &gpd->u.packet.galp;
-    gasnetc_get_am_credit(dest);
+    gasnetc_packet_t *m;
 
+    gasnetc_get_am_credit(dest);
+    gpd->flags = flags;
+    m = flags ? alloc_am_buffer(total_len) : &gpd->u.packet;
     m->header.command = GC_CMD_AM_LONG;
     m->header.misc    = is_packed;
     m->header.numargs = numargs;
     m->header.handler = handler;
-    m->data_length = nbytes;
-    m->data = dest_addr;
+    m->galp.data_length = nbytes;
+    m->galp.data = dest_addr;
     for (i = 0; i < numargs; i++) {
-      m->args[i] = va_arg(argptr, gasnet_handlerarg_t);
+      m->galp.args[i] = va_arg(argptr, gasnet_handlerarg_t);
     }
 
     if (is_packed) {
       /* send data in smsg payload */
-      retval = gasnetc_send_am(dest, gpd, GASNETC_HEADLEN(long, numargs), source_addr, nbytes);
+      memcpy((void*)((uintptr_t)m + head_len), source_addr, nbytes);
+      retval = gasnetc_send_smsg(dest, gpd, m, total_len);
     } else {
       /* Rdma data, then send header as part of completion*/
+      gasneti_assert(!flags); /* otherwise the msg isn't in the gpd where it needs to be */
       gpd->flags = GC_POST_SEND;
       gpd->dest = dest;
       gasnetc_rdma_put_bulk(dest, dest_addr, source_addr, nbytes, gpd);

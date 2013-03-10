@@ -232,9 +232,9 @@ void gasnetc_shutdown(void); /* clean up all gni state */
 void gasnetc_poll_local_queue(void);
 void gasnetc_poll(void);
 
-int gasnetc_send_am(gasnet_node_t dest,
-            gasnetc_post_descriptor_t *gpd, int header_length,
-            void *data, int data_length);
+int gasnetc_send_smsg(gasnet_node_t dest, 
+            gasnetc_post_descriptor_t *gpd,
+            gasnetc_packet_t *msg, size_t length);
 
 void gasnetc_rdma_put_bulk(gasnet_node_t dest,
 		 void *dest_addr, void *source_addr,
