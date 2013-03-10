@@ -80,8 +80,10 @@ static peer_struct_t *peer_data;
 #if FIX_HT_ORDERING
 static uint16_t gasnetc_fma_put_cq_mode = GNI_CQMODE_GLOBAL_EVENT;
 #endif
-uint32_t gasnetc_fma_rdma_cutover;
-uint32_t gasnetc_bounce_register_cutover;
+static size_t gasnetc_fma_rdma_cutover;
+static size_t gasnetc_bounce_register_cutover;
+size_t gasnetc_max_get_unaligned;
+size_t gasnetc_max_put_lc;
 
 /* lock: */
 static int8_t pad0[GASNETC_CACHELINE_SIZE];
@@ -529,6 +531,14 @@ uintptr_t gasnetc_init_messaging(void)
 				   GASNETC_GNI_FMA_RDMA_CUTOVER_DEFAULT,1);
   if (gasnetc_fma_rdma_cutover > GASNETC_GNI_FMA_RDMA_CUTOVER_MAX)
     gasnetc_fma_rdma_cutover = GASNETC_GNI_FMA_RDMA_CUTOVER_MAX;
+
+  /* Derived limits used in extended API implementation: */
+  gasnetc_max_get_unaligned = MAX(GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE, gasnetc_bounce_register_cutover);
+#if GASNET_CONDUIT_GEMINI
+  gasnetc_max_put_lc = MAX(gasnetc_fma_rdma_cutover, gasnetc_bounce_register_cutover);
+#else
+  gasnetc_max_put_lc = MAX(GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE, gasnetc_bounce_register_cutover);
+#endif
 
   /* Now make sure everyone is ready */
   gasnetc_bootstrapBarrier();
@@ -1144,6 +1154,7 @@ void gasnetc_rdma_put_bulk(gasnet_node_t dest,
 
 /* Perform an rdma/fma Put which favors rapid local completion
  * The return value is boolean, where 1 means locally complete.
+ * NOTE: be sure to update gasnetc_max_put_lc if the logic here changes
  */
 int gasnetc_rdma_put(gasnet_node_t dest,
 		 void *dest_addr, void *source_addr,
@@ -1333,7 +1344,9 @@ void gasnetc_rdma_get(gasnet_node_t dest,
   gasnetc_post_get(peer->ep_handle, pd);
 }
 
-/* for get in which one or more of dest_addr, source_addr or nbytes is NOT divisible by 4 */
+/* for get in which one or more of dest_addr, source_addr or nbytes is NOT divisible by 4
+ * NOTE: be sure to update gasnetc_max_get_unaligned if the logic here changes
+ */
 void gasnetc_rdma_get_unaligned(gasnet_node_t dest,
 		 void *dest_addr, void *source_addr,
 		 size_t nbytes, gasnetc_post_descriptor_t *gpd)

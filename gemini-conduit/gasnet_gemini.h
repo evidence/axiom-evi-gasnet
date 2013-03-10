@@ -179,8 +179,12 @@ void gasnetc_free_bounce_buffer(void *buf);
 
 
 void gasnetc_init_bounce_buffer_pool(void);
-extern uint32_t gasnetc_bounce_register_cutover;
-extern uint32_t gasnetc_fma_rdma_cutover;
+
+/* largest get that can be handled by gasnetc_rdma_get_unaligned() */
+extern size_t gasnetc_max_get_unaligned;
+
+/* largest put that gasnetc_rdma_put() will locally complete before return */
+extern size_t gasnetc_max_put_lc;
 
 /* send/copy, unbounce/unregister, flag/eop are each mutually exclusive pairs */
 #define GC_POST_COPY_TRIM 7 /* up to 6 bytes of overfetch to achive 4-byte aligned Gets */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2013/03/08 19:27:32 $
- * $Revision: 1.48 $
+ *     $Date: 2013/03/10 07:25:53 $
+ * $Revision: 1.49 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -336,7 +336,7 @@ SHORT_HANDLER(gasnete_markdone_reph,1,2,
 static void /* XXX: Inlining left to compiler's discression */
 gasnete_get_bulk_unaligned(void *dest, gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG)
 {
-  const size_t max_chunk = gasnetc_bounce_register_cutover; /* XXX: this approach is fragile */
+  const size_t max_chunk = gasnetc_max_get_unaligned;
   gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
   gasnete_iop_t * const iop = mythread->current_iop;
   gasnetc_post_descriptor_t *gpd;
@@ -468,7 +468,7 @@ extern gasnet_handle_t gasnete_put_nb (gasnet_node_t node, void *dest, void *src
   gasnetc_post_descriptor_t *gpd;
   gasnet_handle_t head_op = GASNET_INVALID_HANDLE;
   gasnete_eop_t *tail_op;
-  const size_t max_tail = gasnetc_bounce_register_cutover; /* XXX: this approach is fragile */
+  const size_t max_tail = gasnetc_max_put_lc;
   GASNETI_UNUSED_UNLESS_DEBUG int lc;
 
   GASNETI_CHECKPSHM_PUT(ALIGNED,H);
@@ -692,7 +692,7 @@ extern void gasnete_put_nbi      (gasnet_node_t node, void *dest, void *src, siz
   gasnete_iop_t * const tail_op = mythread->current_iop;
   gasnetc_post_descriptor_t *gpd;
   gasnet_handle_t head_op = GASNET_INVALID_HANDLE;
-  const size_t max_tail = gasnetc_bounce_register_cutover; /* XXX: this approach is fragile */
+  const size_t max_tail = gasnetc_max_put_lc;
   GASNETI_UNUSED_UNLESS_DEBUG int lc;
 
   GASNETI_CHECKPSHM_PUT(ALIGNED,V);
