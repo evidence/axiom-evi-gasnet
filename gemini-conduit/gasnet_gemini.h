@@ -240,27 +240,27 @@ int gasnetc_send_smsg(gasnet_node_t dest,
             gasnetc_post_descriptor_t *gpd,
             gasnetc_packet_t *msg, size_t length);
 
-void gasnetc_rdma_put_bulk(gasnet_node_t dest,
+void gasnetc_rdma_put_bulk(gasnet_node_t node,
 		 void *dest_addr, void *source_addr,
 		 size_t nbytes, gasnetc_post_descriptor_t *gpd);
 
-int gasnetc_rdma_put(gasnet_node_t dest,
+int gasnetc_rdma_put(gasnet_node_t node,
 		 void *dest_addr, void *source_addr,
 		 size_t nbytes, gasnetc_post_descriptor_t *gpd);
 
-void gasnetc_rdma_put_buff(gasnet_node_t dest,
+void gasnetc_rdma_put_buff(gasnet_node_t node,
 		 void *dest_addr, void *source_addr,
 		 size_t nbytes, gasnetc_post_descriptor_t *gpd);
 
-void gasnetc_rdma_get(gasnet_node_t dest,
+void gasnetc_rdma_get(gasnet_node_t node,
 		 void *dest_addr, void *source_addr,
 		 size_t nbytes, gasnetc_post_descriptor_t *gpd);
 
-void gasnetc_rdma_get_unaligned(gasnet_node_t dest,
+void gasnetc_rdma_get_unaligned(gasnet_node_t node,
 		 void *dest_addr, void *source_addr,
 		 size_t nbytes, gasnetc_post_descriptor_t *gpd);
 
-int gasnetc_rdma_get_buff(gasnet_node_t dest,
+int gasnetc_rdma_get_buff(gasnet_node_t node,
 		 void *dest_addr, void *source_addr,
 		 size_t nbytes, gasnetc_post_descriptor_t *gpd);
 

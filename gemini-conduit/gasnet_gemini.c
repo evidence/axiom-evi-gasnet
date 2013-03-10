@@ -1095,15 +1095,15 @@ static gni_return_t myPostFma(gni_ep_handle_t ep, gni_post_descriptor_t *pd)
 }
 
 /* Perform an rdma/fma Put with no concern for local completion */
-void gasnetc_rdma_put_bulk(gasnet_node_t dest,
+void gasnetc_rdma_put_bulk(gasnet_node_t node,
 		 void *dest_addr, void *source_addr,
 		 size_t nbytes, gasnetc_post_descriptor_t *gpd)
 {
-  peer_struct_t * const peer = &peer_data[dest];
+  peer_struct_t * const peer = &peer_data[node];
   gni_post_descriptor_t * const pd = &gpd->pd;
   gni_return_t status;
 
-  gasneti_assert(!node_is_local(dest));
+  gasneti_assert(!node_is_local(node));
 
   /*  bzero(&pd, sizeof(gni_post_descriptor_t)); */
   pd->cq_mode = GNI_CQMODE_GLOBAL_EVENT;
@@ -1113,7 +1113,7 @@ void gasnetc_rdma_put_bulk(gasnet_node_t dest,
   pd->length = nbytes;
 
   /* confirm that the destination is in-segment on the far end */
-  gasneti_boundscheck(dest, dest_addr, nbytes);
+  gasneti_boundscheck(node, dest_addr, nbytes);
 
   /* Start with defaults suitable for FMA or in-segment case */
   pd->local_addr = (uint64_t) source_addr;
@@ -1156,16 +1156,16 @@ void gasnetc_rdma_put_bulk(gasnet_node_t dest,
  * The return value is boolean, where 1 means locally complete.
  * NOTE: be sure to update gasnetc_max_put_lc if the logic here changes
  */
-int gasnetc_rdma_put(gasnet_node_t dest,
+int gasnetc_rdma_put(gasnet_node_t node,
 		 void *dest_addr, void *source_addr,
 		 size_t nbytes, gasnetc_post_descriptor_t *gpd)
 {
-  peer_struct_t * const peer = &peer_data[dest];
+  peer_struct_t * const peer = &peer_data[node];
   gni_post_descriptor_t * const pd = &gpd->pd;
   gni_return_t status;
   int result = 1; /* assume local completion */
 
-  gasneti_assert(!node_is_local(dest));
+  gasneti_assert(!node_is_local(node));
 
   /*  bzero(&pd, sizeof(gni_post_descriptor_t)); */
   pd->cq_mode = GNI_CQMODE_GLOBAL_EVENT;
@@ -1175,7 +1175,7 @@ int gasnetc_rdma_put(gasnet_node_t dest,
   pd->length = nbytes;
 
   /* confirm that the destination is in-segment on the far end */
-  gasneti_boundscheck(dest, dest_addr, nbytes);
+  gasneti_boundscheck(node, dest_addr, nbytes);
 
   /* Start with defaults suitable for FMA or in-segment case */
   pd->local_addr = (uint64_t) source_addr;
@@ -1237,19 +1237,19 @@ int gasnetc_rdma_put(gasnet_node_t dest,
   return result;
 }
 
-/* FMA Put from a specified in-full-segment buffer */
-void gasnetc_rdma_put_buff(gasnet_node_t dest,
+/* FMA Put from a specified buffer */
+void gasnetc_rdma_put_buff(gasnet_node_t node,
 		void *dest_addr, void *source_addr,
 		size_t nbytes, gasnetc_post_descriptor_t *gpd)
 {
-  peer_struct_t * const peer = &peer_data[dest];
+  peer_struct_t * const peer = &peer_data[node];
   gni_post_descriptor_t * const pd = &gpd->pd;
   gni_return_t status;
 
-  gasneti_assert(!node_is_local(dest));
+  gasneti_assert(!node_is_local(node));
 
   /* confirm that the destination is in-segment on the far end */
-  gasneti_boundscheck(dest, dest_addr, nbytes);
+  gasneti_boundscheck(node, dest_addr, nbytes);
 
   /*  bzero(&pd, sizeof(gni_post_descriptor_t)); */
   pd->cq_mode = GNI_CQMODE_GLOBAL_EVENT;
@@ -1295,15 +1295,15 @@ void gasnetc_post_get(gni_ep_handle_t ep, gni_post_descriptor_t *pd)
 }
 
 /* for get, source_addr is remote */
-void gasnetc_rdma_get(gasnet_node_t dest,
+void gasnetc_rdma_get(gasnet_node_t node,
 		 void *dest_addr, void *source_addr,
 		 size_t nbytes, gasnetc_post_descriptor_t *gpd)
 {
-  peer_struct_t * const peer = &peer_data[dest];
+  peer_struct_t * const peer = &peer_data[node];
   gni_post_descriptor_t * const pd = &gpd->pd;
   gni_return_t status;
 
-  gasneti_assert(!node_is_local(dest));
+  gasneti_assert(!node_is_local(node));
 
   gpd->flags |= GC_POST_GET;
 
@@ -1315,7 +1315,7 @@ void gasnetc_rdma_get(gasnet_node_t dest,
   pd->length = nbytes;
 
   /* confirm that the source is in-segment on the far end */
-  gasneti_boundscheck(dest, source_addr, nbytes);
+  gasneti_boundscheck(node, source_addr, nbytes);
 
   /* Start with defaults suitable for in-segment case */
   pd->local_addr = (uint64_t) dest_addr;
@@ -1347,11 +1347,11 @@ void gasnetc_rdma_get(gasnet_node_t dest,
 /* for get in which one or more of dest_addr, source_addr or nbytes is NOT divisible by 4
  * NOTE: be sure to update gasnetc_max_get_unaligned if the logic here changes
  */
-void gasnetc_rdma_get_unaligned(gasnet_node_t dest,
+void gasnetc_rdma_get_unaligned(gasnet_node_t node,
 		 void *dest_addr, void *source_addr,
 		 size_t nbytes, gasnetc_post_descriptor_t *gpd)
 {
-  peer_struct_t * const peer = &peer_data[dest];
+  peer_struct_t * const peer = &peer_data[node];
   gni_post_descriptor_t * const pd = &gpd->pd;
   uint8_t * buffer;
 
@@ -1360,7 +1360,7 @@ void gasnetc_rdma_get_unaligned(gasnet_node_t dest,
   size_t       length = GASNETI_ALIGNUP(nbytes + pre, 4);
   unsigned int overfetch = length - nbytes;
 
-  gasneti_assert(!node_is_local(dest));
+  gasneti_assert(!node_is_local(node));
 
   gasneti_assert(0 == (overfetch & ~GC_POST_COPY_TRIM));
   gpd->flags |= GC_POST_GET | GC_POST_COPY | overfetch;
@@ -1374,7 +1374,7 @@ void gasnetc_rdma_get_unaligned(gasnet_node_t dest,
   pd->local_mem_hndl = my_mem_handle;
 
   /* confirm that the source is in-segment on the far end */
-  gasneti_boundscheck(dest, (void*)pd->remote_addr, pd->length);
+  gasneti_boundscheck(node, (void*)pd->remote_addr, pd->length);
 
   /* must always use immediate or bounce buffer */
   if (length < GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE) {
@@ -1399,11 +1399,11 @@ void gasnetc_rdma_get_unaligned(gasnet_node_t dest,
    Caller must be allow for space (upto 6 bytes) for the overfetch.
    Returns offset to start of data after adjustment for overfetch
  */
-int gasnetc_rdma_get_buff(gasnet_node_t dest,
+int gasnetc_rdma_get_buff(gasnet_node_t node,
 		void *dest_addr, void *source_addr,
 		size_t nbytes, gasnetc_post_descriptor_t *gpd)
 {
-  peer_struct_t * const peer = &peer_data[dest];
+  peer_struct_t * const peer = &peer_data[node];
   gni_post_descriptor_t * const pd = &gpd->pd;
   gni_return_t status;
 
@@ -1411,11 +1411,11 @@ int gasnetc_rdma_get_buff(gasnet_node_t dest,
   unsigned int pre = (uintptr_t) source_addr & 3;
   size_t       length = GASNETI_ALIGNUP(nbytes + pre, 4);
 
-  gasneti_assert(!node_is_local(dest));
+  gasneti_assert(!node_is_local(node));
   gasneti_assert(nbytes  <= GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE);
 
   /* confirm that the source is in-segment on the far end */
-  gasneti_boundscheck(dest, source_addr, nbytes);
+  gasneti_boundscheck(node, source_addr, nbytes);
 
   /*  bzero(&pd, sizeof(gni_post_descriptor_t)); */
   pd->cq_mode = GNI_CQMODE_GLOBAL_EVENT;
