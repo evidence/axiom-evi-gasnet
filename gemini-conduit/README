@@ -1,6 +1,6 @@
 GASNet gemini-conduit and aries-conduit documentation
 Larry Stewart <stewart@serissa.com> 
-$Revision: 1.20 $
+$Revision: 1.21 $
 
 User Information:
 -----------------
@@ -88,40 +88,19 @@ Optional compile-time settings:
 
 * All the compile-time settings from extended-ref (see the extended-ref README)
 
-in gemini-conduit/gasnet_gemini.h
+in gemini-conduit/gasnet_gemini.h:
 
 GASNETC_USE_SPINLOCK	- 0 user gasneti_mutex_t (default)
 			  1 use gasneti_spinlock_t
 
-The minimum number of Post Descriptors we can live with
+The _DEFAULT values for all of the GASNETC_GNI_ environment variables.
 
-#define GASNETC_GNI_MIN_NUM_PD_DEFAULT 4096
-
-The desired number of Post Descriptors
-
-#define GASNETC_GNI_NUM_PD_DEFAULT (4096 * 4)
-/* we want at least this much space for bounce buffers */
-#define GASNETC_GNI_MIN_BOUNCE_SIZE_DEFAULT 65536
-/* and preferably this much space */
-#define GASNETC_GNI_BOUNCE_SIZE_DEFAULT (65536 * 4)
-/* a particular message up to this size goes via bounce */
-#define GASNETC_GNI_BOUNCE_REGISTER_CUTOVER_DEFAULT 8192
-#define GASNETC_GNI_BOUNCE_REGISTER_CUTOVER_MAX 32768
-/* a particular message up to this size goes via fma */
-#define GASNETC_GNI_FMA_RDMA_CUTOVER_DEFAULT 4096
-#define GASNETC_GNI_FMA_RDMA_CUTOVER_MAX (4096*4)
-
-
-in gemini-conduit/gasnet_gemini.c
-
+in gemini-conduit/gasnet_gemini.c:
 
 int gasnetc_poll_burst = 10;   /* number of rdma completions to get at once */
 
 Sets the number of events for arriving short messages taken at once
 #define SMSG_BURST 20
-
-Sets the number of peers processed per call
-#define SMSG_PEER_BURST 4
 
 Known problems:
 ---------------
@@ -131,20 +110,9 @@ Known problems:
 Future work:
 ------------
 
- * Conversion to Shared Message Queues
-
-Use of the Cray gni short message system (SMSG) requires O(N**2) memory overall and O(N) per node.  Gemini-conduit initializes all short message system resources at job startup, but they could be allocated incrementally, and you would have buffers allocated only for nodes that you talk to.
-
-Alternatively one could use the gni Shared Message Queue system (MSGQ). 
-The gni shared message queue system (MSGQ) uses resources that scale as the number of supernodes, rather than as the number of ranks, but it is not possible to use it incrementally.  MSGQ also has a maximum message size of 128 bytes, which means that Medium AMs would have to be fragmented and reassembled.
-
  * Caching of memory registrations (Firehose?)
 
-gemini-conduit uses a single fixed memory registration for the GASNet segment. It uses another for the short message system buffers, and transiently uses additional registrations for large RDMA transfers outside the segment.  There are only a modest number of mapping registers available per rank, so large numbers of registrations are inappropriate, but small numbers could be cached rather than per-rdma transient.
-
- * Credit management
-
-The gemini-conduit active message implementation uses a message reply to every active message to return credit (either the explict replies, or implcit ones sent just for thus purpose). In a PAR build, credit return could be opportunistic, piggybacking on other messages headed the right way.  Also, right now each rank maintains credit independently for each other rank. This is a consequence of the gni short message system, which uses independent buffers for each rank, rather than a pool.
+gemini-conduit uses a single fixed memory registration for the GASNet segment. It uses another for the AM receive buffers, and transiently uses additional registrations for large RDMA transfers outside the segment.  There are only a modest number of mapping registers available per rank, so large numbers of registrations are inappropriate, but small numbers could be cached rather than per-rdma transient.
 
  * Inline
 
@@ -152,7 +120,7 @@ It should be possible to inline the special cases of short blocking GET and shor
 
  * Alternative designs
 
-The gni short message or shared message queues could be used only for wakeup, leaving AM transport to RDMA, more along the lines of the shmem-conduit.  This would reduce buffer requirements for large jobs.
+The O(N) AM buffers queues could be used only for wakeup, leaving AM transport to RDMA, more along the lines of the shmem-conduit.  This would reduce buffer requirements for large jobs.
 
 ==============================================================================
 
