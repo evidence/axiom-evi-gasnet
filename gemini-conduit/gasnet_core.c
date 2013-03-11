@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/03/10 07:01:40 $
- * $Revision: 1.66 $
+ *     $Date: 2013/03/11 00:21:23 $
+ * $Revision: 1.67 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -145,6 +145,7 @@ void gasnetc_bootstrapExchange(void *src, size_t len, void *dest) {
   int i, status;
 
   /* perform unsorted Allgather of records with prepended node number */
+  /* TODO: order is deterministic so could allgather(mynode) just once */
   temporary = gasneti_malloc(itembytes);
   temporary[0] = gasneti_mynode;   memcpy(&temporary[1], src, len);  
   status = PMI_Allgather(temporary, unsorted, itembytes);
