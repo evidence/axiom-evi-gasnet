@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.c,v $
- *     $Date: 2013/03/06 06:47:49 $
- * $Revision: 1.56 $
+ *     $Date: 2013/03/11 23:51:29 $
+ * $Revision: 1.57 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -866,7 +866,9 @@ void gasneti_pshmnet_bootstrapBroadcast(gasneti_pshmnet_t *vnet, void *src,
     dst_addr += nbytes;
     remain -= nbytes;
   }
-  memmove(dst, src, len);
+  if (gasneti_pshm_mynode == rootpshmnode) {
+    memmove(dst, src, len);
+  }
 }
 
 /******************************************************************************
