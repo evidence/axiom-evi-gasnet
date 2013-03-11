@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/03/11 00:23:30 $
- * $Revision: 1.68 $
+ *     $Date: 2013/03/11 01:00:55 $
+ * $Revision: 1.69 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -132,49 +132,39 @@ static void gasnetc_bootstrapBarrierPMI(void) {
   PMI_Barrier();
 }
 
-static void gasnetc_bootstrapExchangePMI(void *src, size_t len, void *dest) {
-  /* work in chunks of same size as the gasnet_node_t */
-  gasnet_node_t itembytes = sizeof(gasnet_node_t) + GASNETI_ALIGNUP(len, sizeof(gasnet_node_t));
-  gasnet_node_t itemwords = itembytes / sizeof(gasnet_node_t);
-  gasnet_node_t *unsorted = gasneti_malloc(itembytes * gasneti_nodes);
-  gasnet_node_t *temporary;
+static gasnet_node_t *gasnetc_pmi_exchange_order = NULL;
 
-#if GASNET_DEBUG
-  char *found = gasneti_calloc(gasneti_nodes, 1);
-#endif
+static void gasnetc_bootstrapExchangePMI(void *src, size_t len, void *dest) {
+  uint8_t *unsorted = gasneti_malloc(len * gasneti_nodes);
+
   int i, status;
 
-  /* perform unsorted Allgather of records with prepended node number */
-  /* TODO: order is deterministic so could allgather(mynode) just once */
-  temporary = gasneti_malloc(itembytes);
-  temporary[0] = gasneti_mynode;   memcpy(&temporary[1], src, len);  
-  status = PMI_Allgather(temporary, unsorted, itembytes);
-  gasneti_free(temporary);
+  /* perform (just once) an Allgather of node number to establish the order */
+  if_pf (!gasnetc_pmi_exchange_order) {
+    gasnetc_pmi_exchange_order = gasneti_malloc(gasneti_nodes * sizeof(gasnet_node_t));
+    status = PMI_Allgather(&gasneti_mynode, gasnetc_pmi_exchange_order, sizeof(gasnet_node_t));
+    if (status != PMI_SUCCESS) {
+      gasnetc_GNIT_Abort("PMI_Allgather failed rc=%d", status);
+    }
+  }
+
+  /* Allgather the callers data to a temporary array */
+  status = PMI_Allgather(src, unsorted, len);
   if (status != PMI_SUCCESS) {
     gasnetc_GNIT_Abort("PMI_Allgather failed rc=%d", status);
   }
 
-  /* extract the records from the unsorted array by using the prepended node numbers */
+  /* extract the records from the unsorted array by using the 'order' array */
   for (i = 0; i < gasneti_nodes; i += 1) {
-    gasnet_node_t peer = unsorted[i * itemwords];
+    gasnet_node_t peer = gasnetc_pmi_exchange_order[i];
     if (peer >= gasneti_nodes) {
       gasnetc_GNIT_Abort("PMI_Allgather failed, item %d has impossible rank %d", i, peer);
     }
-    memcpy((void *) ((uintptr_t) dest + (peer * len)), &unsorted[(i * itemwords) + 1], len);
-#if GASNET_DEBUG
-    ++found[peer];
-#endif
+    memcpy((void *) ((uintptr_t) dest + (peer * len)), &unsorted[i * len], len);
   }
 
 #if GASNET_DEBUG
-  /* verify exactly-once */
-  for (i = 0; i < gasneti_nodes; i += 1) {
-    if (!found[i]) {
-      gasnetc_GNIT_Abort("PMI_Allgather failed: rank %d missing", i);
-    }
-  }
-  gasneti_free(found);
-  /* check own data */
+  /* verify own data as a sanity check */
   if (memcmp(src, (void *) ((uintptr_t ) dest + (gasneti_mynode * len)), len) != 0) {
     gasnetc_GNIT_Abort("PMI_Allgather failed: self data is incorrect");
   }
@@ -383,6 +373,7 @@ done:
   gasnetc_handler[_hidx_gasnetc_sys_barrier_reqh]  = (gasneti_handler_fn_t)&gasnetc_sys_barrier_reqh;
   gasnetc_handler[_hidx_gasnetc_sys_exchange_reqh] = (gasneti_handler_fn_t)&gasnetc_sys_exchange_reqh;
 
+  gasneti_free(gasnetc_pmi_exchange_order);
   gasnetc_bootstrap_am_coll = 1;
 }
 
