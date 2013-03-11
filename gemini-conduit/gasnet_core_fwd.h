@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core_fwd.h,v $
- *     $Date: 2013/03/09 05:46:57 $
- * $Revision: 1.14 $
+ *     $Date: 2013/03/11 00:23:30 $
+ * $Revision: 1.15 $
  * Description: GASNet header for <conduitname> conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -28,6 +28,7 @@
 
 /* Aries supports only 24 bits of inst_id and we steal one bit for ACKs */
 #define GASNET_MAXNODES 0x800000
+#define GASNETC_LOG2_MAXNODES 23
 
   /* GASNET_PSHM defined 1 if this conduit supports PSHM. leave undefined otherwise. */
 #if GASNETI_PSHM_ENABLED

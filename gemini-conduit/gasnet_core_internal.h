@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core_internal.h,v $
- *     $Date: 2013/02/20 03:09:17 $
- * $Revision: 1.5 $
+ *     $Date: 2013/03/11 00:23:30 $
+ * $Revision: 1.6 $
  * Description: GASNet <conduitname> conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -19,6 +19,8 @@
 #define GASNETC_HANDLER_BASE  1 /* reserve 1-63 for the core API */
 #define _hidx_gasnetc_auxseg_reqh             (GASNETC_HANDLER_BASE+0)
 #define _hidx_gasnetc_exit_reqh               (GASNETC_HANDLER_BASE+1)
+#define _hidx_gasnetc_sys_barrier_reqh        (GASNETC_HANDLER_BASE+2)
+#define _hidx_gasnetc_sys_exchange_reqh       (GASNETC_HANDLER_BASE+3)
 /* add new core API handlers here and to the bottom of gasnet_core.c */
 
 /* ------------------------------------------------------------------------------------ */

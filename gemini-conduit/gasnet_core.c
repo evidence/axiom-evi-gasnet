@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/03/11 00:21:23 $
- * $Revision: 1.67 $
+ *     $Date: 2013/03/11 00:23:30 $
+ * $Revision: 1.68 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -50,6 +50,8 @@ static void gasnetc_check_config(void) {
 
   /* (###) add code to do some sanity checks on the number of nodes, handlers
    * and/or segment sizes */ 
+
+  gasneti_assert((1<<GASNETC_LOG2_MAXNODES) == GASNET_MAXNODES);
 
   /* Request and Reply must be distinguishable by their encoding */
   gasneti_assert(GASNETC_CMD_IS_REQ(GC_CMD_AM_SHORT));
@@ -126,13 +128,11 @@ static void gasnetc_bootstrapFini(void) {
   PMI2_Finalize();  /* normal exit via PMI */
 }
 
-/* TODO: use AMs (or Smgs directly) after gasnetc_init_messaging() */
-void gasnetc_bootstrapBarrier(void) {
+static void gasnetc_bootstrapBarrierPMI(void) {
   PMI_Barrier();
 }
 
-/* TODO: use AMs (or Smgs directly) after gasnetc_init_messaging() */
-void gasnetc_bootstrapExchange(void *src, size_t len, void *dest) {
+static void gasnetc_bootstrapExchangePMI(void *src, size_t len, void *dest) {
   /* work in chunks of same size as the gasnet_node_t */
   gasnet_node_t itembytes = sizeof(gasnet_node_t) + GASNETI_ALIGNUP(len, sizeof(gasnet_node_t));
   gasnet_node_t itemwords = itembytes / sizeof(gasnet_node_t);
@@ -182,6 +182,211 @@ void gasnetc_bootstrapExchange(void *src, size_t len, void *dest) {
 
   gasneti_free(unsorted);
 }
+
+/* ------------------------------------------------------------------------------------ */
+/* Bootstrap Barrier and Exchange via AMs
+ * Taken from vapi-conduit w/o the thread safetly complications 
+ */
+
+static int gasnetc_bootstrap_am_coll = 0;
+
+static gasnet_node_t gasnetc_dissem_peers = 0;
+static gasnet_node_t *gasnetc_dissem_peer = NULL;
+static uint32_t gasnetc_sys_barrier_rcvd[2];
+
+static void gasnetc_sys_barrier_reqh(gasnet_token_t token, uint32_t arg)
+{
+    gasnetc_sys_barrier_rcvd[arg&1] |= arg;
+}
+
+GASNETI_NEVER_INLINE(gasnetc_bootstrapBarrier,
+void gasnetc_bootstrapBarrier(void))
+{
+  if (gasnetc_bootstrap_am_coll) {
+    static int phase = 0;
+    int pre_attach = !gasneti_attach_done;
+    int i;
+
+#if GASNET_PSHM
+    gasneti_pshmnet_bootstrapBarrier();
+#endif
+ 
+    if (pre_attach) gasneti_attach_done = 1; /* to use AMs before attach */
+
+    for (i = 0; i < gasnetc_dissem_peers; ++i) { /* EMPTY for all but first per supernode */
+      const uint32_t mask = 2 << i; /* (distance << 1) */
+
+      GASNETI_SAFE(
+          gasnetc_AMRequestShortM(gasnetc_dissem_peer[i],
+                                  gasneti_handleridx(gasnetc_sys_barrier_reqh),
+                                  1, phase | mask));
+
+      /* wait for completion of the proper receive, which might arrive out of order */
+      while (!(gasnetc_sys_barrier_rcvd[phase] & mask)) {
+         gasnetc_poll(); /* No PSHM progress required here */
+      }
+    }
+
+    if (pre_attach) gasneti_attach_done = 0;
+
+#if GASNET_PSHM
+    gasneti_pshmnet_bootstrapBarrier();
+#endif
+
+    /* reset for next barrier */
+    gasnetc_sys_barrier_rcvd[phase] = 0;
+    phase ^= 1;
+  } else {
+    gasnetc_bootstrapBarrierPMI();
+  }
+}
+
+#define GASNETC_SYS_EXCHANGE_MAX GASNETC_MAX_MEDIUM
+static unsigned int gasnetc_sys_exchange_rcvd[2][GASNETC_LOG2_MAXNODES];
+static uint8_t *gasnetc_sys_exchange_buf[2] = { NULL, NULL };
+
+static uint8_t *gasnetc_sys_exchange_addr(int phase, size_t elemsz)
+{
+  if (gasnetc_sys_exchange_buf[phase] == NULL) {
+    gasnetc_sys_exchange_buf[phase] = gasneti_malloc(elemsz * gasneti_nodes);
+  }
+  return gasnetc_sys_exchange_buf[phase];
+}
+
+static void gasnetc_sys_exchange_reqh(gasnet_token_t token, void *buf,
+                                 size_t nbytes, uint32_t arg0,
+                                 uint32_t elemsz)
+{
+  const int phase = arg0 & 1;
+  const int step = (arg0 >> 1) & 0x1f;
+  const int seq = (arg0 >> 6);
+  uint8_t *dest = gasnetc_sys_exchange_addr(phase, elemsz)
+                  + (elemsz << step) + (seq * GASNETC_SYS_EXCHANGE_MAX);
+
+  memcpy(dest, buf, nbytes);
+  ++gasnetc_sys_exchange_rcvd[phase][step];
+}
+
+GASNETI_NEVER_INLINE(gasnetc_bootstrapExchange,
+void gasnetc_bootstrapExchange(void *src, size_t len, void *dest))
+{
+  if (gasnetc_bootstrap_am_coll) {
+    static int phase = 0;
+
+    int pre_attach = !gasneti_attach_done;
+    uint8_t *temp = gasnetc_sys_exchange_addr(phase, len);
+    int step, distance;
+
+    /* Copy in local contribution */
+    memcpy(temp, src, len);
+
+    if (pre_attach) gasneti_attach_done = 1; /* to use AMs before attach */
+
+    /* Bruck's concatenation algorithm: */
+    for (step = 0, distance = 1; distance < gasneti_nodes; ++step, distance *= 2) {
+      const gasnet_node_t peer = (gasneti_mynode >= distance)
+                                  ? (gasneti_mynode - distance)
+                                  : (gasneti_mynode + (gasneti_nodes - distance));
+      size_t nbytes = len * MIN(distance, gasneti_nodes - distance);
+      size_t offset = 0;
+      uint32_t seq = 0;
+
+      gasneti_assert(step < GASNETC_LOG2_MAXNODES);
+
+      /* Send payload using one or more AMMediums */
+      do {
+        const size_t to_xfer = MIN(nbytes, GASNETC_SYS_EXCHANGE_MAX);
+
+        GASNETI_SAFE(
+            gasnetc_AMRequestMediumM(peer,
+                                     gasneti_handleridx(gasnetc_sys_exchange_reqh),
+                                     temp + offset, to_xfer,
+                                     2, phase | (step << 1) | (seq << 6), len));
+
+        ++seq;
+        offset += to_xfer;
+        nbytes -= to_xfer;
+        gasneti_assert(seq < (1<<(32-6)));
+      } while (nbytes);
+
+      /* poll until number of messages received matches number sent */
+      while (gasnetc_sys_exchange_rcvd[phase][step] != seq) {
+      #if GASNET_PSHM
+        gasneti_AMPSHMPoll(0);
+      #endif
+        gasnetc_poll();
+      }
+
+      /* reset */
+      gasnetc_sys_exchange_rcvd[phase][step] = 0;
+    }
+
+    if (pre_attach) gasneti_attach_done = 0;
+
+    /* Copy to destination while performing the "rotation" */
+    memcpy(dest, temp + len * (gasneti_nodes - gasneti_mynode), len * gasneti_mynode);
+    memcpy((uint8_t*)dest + len * gasneti_mynode, temp, len * (gasneti_nodes - gasneti_mynode));
+
+    /* Prepare for next */
+    gasneti_free(temp);
+    gasnetc_sys_exchange_buf[phase] = NULL;
+    gasneti_sync_writes();
+    phase ^= 1;
+  } else {
+    gasnetc_bootstrapExchangePMI(src, len, dest);
+  }
+}
+
+static void gasnetc_sys_coll_init(void)
+{
+  int i;
+
+#if GASNET_PSHM
+  const gasnet_node_t size = gasneti_nodemap_global_count;
+  const gasnet_node_t rank = gasneti_nodemap_global_rank;
+
+  if (gasneti_nodemap_local_rank) {
+    /* No network comms */
+    goto done;
+  }
+#else
+  const gasnet_node_t size = gasneti_nodes;
+  const gasnet_node_t rank = gasneti_mynode;
+#endif
+
+  if (size == 1) {
+    /* No network comms */
+    goto done;
+  }
+
+  /* Construct vector of the dissemination peers */
+  for (i = 1; i < size; i *= 2) {
+    ++gasnetc_dissem_peers;
+  }
+  gasnetc_dissem_peer = gasneti_malloc(gasnetc_dissem_peers * sizeof(gasnet_node_t));
+  gasneti_leak(gasnetc_dissem_peer);
+  for (i = 0; i < gasnetc_dissem_peers; ++i) {
+    const gasnet_node_t distance = 1 << i;
+    const gasnet_node_t peer = (distance >= size - rank)
+                                ? (rank - (size - distance))
+                                : (rank + distance);
+  #if GASNET_PSHM
+    /* Convert supernode numbers to node numbers */
+    gasnetc_dissem_peer[i] = gasneti_pshm_firsts[peer];
+  #else
+    gasnetc_dissem_peer[i] = peer;
+  #endif
+  }
+
+done:
+  /*  PRE-register the two AM handlers we need */
+  gasnetc_handler[_hidx_gasnetc_sys_barrier_reqh]  = (gasneti_handler_fn_t)&gasnetc_sys_barrier_reqh;
+  gasnetc_handler[_hidx_gasnetc_sys_exchange_reqh] = (gasneti_handler_fn_t)&gasnetc_sys_exchange_reqh;
+
+  gasnetc_bootstrap_am_coll = 1;
+}
+
+/* ------------------------------------------------------------------------------------ */
 
 /* code from portals_conduit */
 /* ---------------------------------------------------------------------------------
@@ -399,6 +604,9 @@ static int gasnetc_init(int *argc, char ***argv) {
     fprintf(stderr,"gasnetc_init(): node %i/%i finished gasnetc_init_messaging.\n", 
       gasneti_mynode, gasneti_nodes); fflush(stderr);
   #endif
+
+  /* Now that messaging is available, use it for remaining bootstrap collectives */
+  gasnetc_sys_coll_init();
 
     /* LCS  Use segment size strategy from portals-conduit (CNL only) */
   #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
@@ -1419,6 +1627,8 @@ static gasnet_handlerentry_t const gasnetc_handlers[] = {
   #endif
   /* ptr-width independent handlers */
     gasneti_handler_tableentry_no_bits(gasnetc_exit_reqh),
+    gasneti_handler_tableentry_no_bits(gasnetc_sys_barrier_reqh),
+    gasneti_handler_tableentry_no_bits(gasnetc_sys_exchange_reqh),
 
   /* ptr-width dependent handlers */
 
