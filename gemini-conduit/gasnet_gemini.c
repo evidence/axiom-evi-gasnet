@@ -559,10 +559,6 @@ uintptr_t gasnetc_init_messaging(void)
     gasneti_lifo_push(&post_descriptor_pool, gpd);
   }
 
-  /* Now make sure everyone is ready */
-  /* TODO: is this needed?  Exchange of memhandles should have been enough, right? */
-  gasnetc_bootstrapBarrier();
-
   return bytes_needed;
 }
 
