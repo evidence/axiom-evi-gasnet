@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/03/11 01:00:55 $
- * $Revision: 1.69 $
+ *     $Date: 2013/03/12 01:38:32 $
+ * $Revision: 1.70 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -163,13 +163,6 @@ static void gasnetc_bootstrapExchangePMI(void *src, size_t len, void *dest) {
     memcpy((void *) ((uintptr_t) dest + (peer * len)), &unsorted[i * len], len);
   }
 
-#if GASNET_DEBUG
-  /* verify own data as a sanity check */
-  if (memcmp(src, (void *) ((uintptr_t ) dest + (gasneti_mynode * len)), len) != 0) {
-    gasnetc_GNIT_Abort("PMI_Allgather failed: self data is incorrect");
-  }
-#endif
-
   gasneti_free(unsorted);
 }
 
@@ -182,6 +175,9 @@ static int gasnetc_bootstrap_am_coll = 0;
 
 static gasnet_node_t gasnetc_dissem_peers = 0;
 static gasnet_node_t *gasnetc_dissem_peer = NULL;
+static gasnet_node_t *gasnetc_exchange_rcvd = NULL;
+static gasnet_node_t *gasnetc_exchange_send = NULL;
+static gasnet_node_t *gasnetc_exchange_last;
 static uint32_t gasnetc_sys_barrier_rcvd[2];
 
 static void gasnetc_sys_barrier_reqh(gasnet_token_t token, uint32_t arg)
@@ -250,8 +246,9 @@ static void gasnetc_sys_exchange_reqh(gasnet_token_t token, void *buf,
   const int phase = arg0 & 1;
   const int step = (arg0 >> 1) & 0x1f;
   const int seq = (arg0 >> 6);
+  const size_t offset = elemsz * gasnetc_exchange_rcvd[step];
   uint8_t *dest = gasnetc_sys_exchange_addr(phase, elemsz)
-                  + (elemsz << step) + (seq * GASNETC_SYS_EXCHANGE_MAX);
+                  + offset + (seq * GASNETC_SYS_EXCHANGE_MAX);
 
   memcpy(dest, buf, nbytes);
   ++gasnetc_sys_exchange_rcvd[phase][step];
@@ -263,21 +260,24 @@ void gasnetc_bootstrapExchange(void *src, size_t len, void *dest))
   if (gasnetc_bootstrap_am_coll) {
     static int phase = 0;
 
-    int pre_attach = !gasneti_attach_done;
+    const int pre_attach = !gasneti_attach_done;
     uint8_t *temp = gasnetc_sys_exchange_addr(phase, len);
-    int step, distance;
+    int step;
 
+#if GASNET_PSHM
+    /* Construct supernode-local contribution */
+    gasneti_pshmnet_bootstrapGather(gasneti_request_pshmnet, src, len, temp, 0);
+    if (gasneti_nodemap_local_rank) goto end_network_comms;
+#else
     /* Copy in local contribution */
     memcpy(temp, src, len);
+#endif
 
     if (pre_attach) gasneti_attach_done = 1; /* to use AMs before attach */
 
     /* Bruck's concatenation algorithm: */
-    for (step = 0, distance = 1; distance < gasneti_nodes; ++step, distance *= 2) {
-      const gasnet_node_t peer = (gasneti_mynode >= distance)
-                                  ? (gasneti_mynode - distance)
-                                  : (gasneti_mynode + (gasneti_nodes - distance));
-      size_t nbytes = len * MIN(distance, gasneti_nodes - distance);
+    for (step = 0; step < gasnetc_dissem_peers; ++step) {
+      size_t nbytes = len * gasnetc_exchange_send[step];
       size_t offset = 0;
       uint32_t seq = 0;
 
@@ -288,7 +288,7 @@ void gasnetc_bootstrapExchange(void *src, size_t len, void *dest))
         const size_t to_xfer = MIN(nbytes, GASNETC_SYS_EXCHANGE_MAX);
 
         GASNETI_SAFE(
-            gasnetc_AMRequestMediumM(peer,
+            gasnetc_AMRequestMediumM(gasnetc_dissem_peer[step],
                                      gasneti_handleridx(gasnetc_sys_exchange_reqh),
                                      temp + offset, to_xfer,
                                      2, phase | (step << 1) | (seq << 6), len));
@@ -299,13 +299,10 @@ void gasnetc_bootstrapExchange(void *src, size_t len, void *dest))
         gasneti_assert(seq < (1<<(32-6)));
       } while (nbytes);
 
-      /* poll until number of messages received matches number sent */
-      while (gasnetc_sys_exchange_rcvd[phase][step] != seq) {
-      #if GASNET_PSHM
-        gasneti_AMPSHMPoll(0);
-      #endif
-        gasnetc_poll();
-      }
+      /* poll until correct number of messages have been received */
+      nbytes = len * (gasnetc_exchange_rcvd[step+1] - gasnetc_exchange_rcvd[step]);
+      seq = (nbytes + GASNETC_SYS_EXCHANGE_MAX - 1) / GASNETC_SYS_EXCHANGE_MAX;
+      gasneti_polluntil (gasnetc_sys_exchange_rcvd[phase][step] == seq);
 
       /* reset */
       gasnetc_sys_exchange_rcvd[phase][step] = 0;
@@ -317,14 +314,25 @@ void gasnetc_bootstrapExchange(void *src, size_t len, void *dest))
     memcpy(dest, temp + len * (gasneti_nodes - gasneti_mynode), len * gasneti_mynode);
     memcpy((uint8_t*)dest + len * gasneti_mynode, temp, len * (gasneti_nodes - gasneti_mynode));
 
+#if GASNET_PSHM
+end_network_comms:
+    gasneti_pshmnet_bootstrapBroadcast(gasneti_request_pshmnet, dest, len*gasneti_nodes, dest, 0);
+#endif
+
     /* Prepare for next */
     gasneti_free(temp);
     gasnetc_sys_exchange_buf[phase] = NULL;
-    gasneti_sync_writes();
     phase ^= 1;
   } else {
     gasnetc_bootstrapExchangePMI(src, len, dest);
   }
+
+#if GASNET_DEBUG
+  /* verify own data as a sanity check */
+  if (memcmp(src, (void *) ((uintptr_t ) dest + (gasneti_mynode * len)), len) != 0) {
+    gasnetc_GNIT_Abort("exchange failed: self data is incorrect");
+  }
+#endif
 }
 
 static void gasnetc_sys_coll_init(void)
@@ -356,15 +364,48 @@ static void gasnetc_sys_coll_init(void)
   gasnetc_dissem_peer = gasneti_malloc(gasnetc_dissem_peers * sizeof(gasnet_node_t));
   gasneti_leak(gasnetc_dissem_peer);
   for (i = 0; i < gasnetc_dissem_peers; ++i) {
-    const gasnet_node_t distance = 1 << i;
-    const gasnet_node_t peer = (distance >= size - rank)
-                                ? (rank - (size - distance))
-                                : (rank + distance);
+    const gasnet_node_t peer = (rank + size - (1<<i)) % size;
   #if GASNET_PSHM
     /* Convert supernode numbers to node numbers */
     gasnetc_dissem_peer[i] = gasneti_pshm_firsts[peer];
   #else
     gasnetc_dissem_peer[i] = peer;
+  #endif
+  }
+
+  /* Compute the recv offset and send count for each step of exchange */
+  gasnetc_exchange_rcvd = gasneti_calloc(gasnetc_dissem_peers+1, sizeof(gasnet_node_t));
+  gasnetc_exchange_send = gasneti_calloc(gasnetc_dissem_peers, sizeof(gasnet_node_t));
+  { int step;
+  #if GASNET_PSHM
+    gasnet_node_t *width;
+    gasnet_node_t sum1 = 0;
+    gasnet_node_t sum2 = 0;
+    gasnet_node_t last = (rank + size - (1<<(gasnetc_dissem_peers-1))) % size;
+
+    /* Step 1: determine the "width" of each supernode */
+    width = gasneti_calloc(size, sizeof(gasnet_node_t));
+    for (i = 0; i < gasneti_nodes; ++i) {
+      width[gasneti_nodeinfo[i].supernode] += 1;
+    }
+    /* Step 2: form the necessary partial sums */
+    for (step = i = 0; step < gasnetc_dissem_peers; ++step) {
+      const gasnet_node_t distance = 1 << step;
+      for (/*empty*/; i < distance; ++i) {
+        sum1 += width[ (rank + i) % size ];
+        sum2 += width[ (last + i) % size ];
+      }
+      gasnetc_exchange_rcvd[step] = gasnetc_exchange_send[step] = sum1;
+    }
+    gasnetc_exchange_send[step-1] = gasneti_nodes - sum2;
+    gasnetc_exchange_rcvd[step] = gasneti_nodes;
+    gasneti_free(width);
+  #else
+    for (step = 0; step < gasnetc_dissem_peers; ++step) {
+      gasnetc_exchange_rcvd[step] = gasnetc_exchange_send[step] = 1 << step;
+    }
+    gasnetc_exchange_send[step-1] = gasneti_nodes - gasnetc_exchange_send[step-1];
+    gasnetc_exchange_rcvd[step] = gasneti_nodes;
   #endif
   }
 
@@ -375,6 +416,19 @@ done:
 
   gasneti_free(gasnetc_pmi_exchange_order);
   gasnetc_bootstrap_am_coll = 1;
+}
+
+static void gasnetc_sys_coll_fini(void)
+{
+  gasneti_free(gasnetc_dissem_peer);
+  gasneti_free(gasnetc_exchange_rcvd);
+  gasneti_free(gasnetc_exchange_send);
+
+#if GASNET_DEBUG
+  gasnetc_dissem_peer = NULL;
+  gasnetc_exchange_rcvd = NULL;
+  gasnetc_exchange_send = NULL;
+#endif
 }
 
 /* ------------------------------------------------------------------------------------ */
@@ -866,6 +920,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   gasnetc_init_post_descriptor_pool();
   /* ensure extended API is initialized across nodes */
   gasnetc_bootstrapBarrier();
+  gasnetc_sys_coll_fini();
 
   GASNETI_TRACE_PRINTF(C,("gasnetc_attach: done\n"));
   return GASNET_OK;
