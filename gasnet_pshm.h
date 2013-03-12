@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.h,v $
- *     $Date: 2012/09/04 22:15:34 $
- * $Revision: 1.25 $
+ *     $Date: 2013/03/12 00:46:40 $
+ * $Revision: 1.26 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -272,6 +272,15 @@ void gasneti_pshmnet_bootstrapBroadcast(gasneti_pshmnet_t *vnet, void *src,
 extern
 void gasneti_pshmnet_bootstrapExchange(gasneti_pshmnet_t *vnet, void *src, 
                                        size_t len, void *dest);
+/* Bootstrap gather via pshmnet.
+ *
+ * This function has the following restrictions:
+ * 1) It must be called after gasneti_pshmnet_init() has completed.
+ * 2) It must be called collectively by all nodes in the vnet.
+ */
+extern
+void gasneti_pshmnet_bootstrapGather(gasneti_pshmnet_t *vnet, void *src, 
+                                     size_t len, void *dest, int rootpshmnode);
 
 /* "critical sections" in which we notify peers if we abort() while
  * they are potentially blocked in gasneti_pshmnet_bootstrapBarrier().
