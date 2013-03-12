@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.h,v $
- *     $Date: 2013/03/12 00:46:40 $
- * $Revision: 1.26 $
+ *     $Date: 2013/03/12 01:16:24 $
+ * $Revision: 1.27 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -257,7 +257,8 @@ void gasneti_pshmnet_bootstrapBarrier(void);
  * This function has the following restrictions:
  * 1) It must be called after gasneti_pshmnet_init() has completed.
  * 2) It must be called collectively by all nodes in the vnet.
- * 3) The rootpshmnode is the supernode-local rank
+ * 3) It must be called with the vnet's recv queues empty.
+ * 4) The rootpshmnode is the supernode-local rank.
  */
 extern
 void gasneti_pshmnet_bootstrapBroadcast(gasneti_pshmnet_t *vnet, void *src, 
@@ -268,6 +269,7 @@ void gasneti_pshmnet_bootstrapBroadcast(gasneti_pshmnet_t *vnet, void *src,
  * This function has the following restrictions:
  * 1) It must be called after gasneti_pshmnet_init() has completed.
  * 2) It must be called collectively by all nodes in the vnet.
+ * 3) It must be called with the vnet's recv queues empty.
  */
 extern
 void gasneti_pshmnet_bootstrapExchange(gasneti_pshmnet_t *vnet, void *src, 
@@ -277,6 +279,8 @@ void gasneti_pshmnet_bootstrapExchange(gasneti_pshmnet_t *vnet, void *src,
  * This function has the following restrictions:
  * 1) It must be called after gasneti_pshmnet_init() has completed.
  * 2) It must be called collectively by all nodes in the vnet.
+ * 3) It must be called with the vnet's recv queues empty.
+ * 4) The rootpshmnode is the supernode-local rank.
  */
 extern
 void gasneti_pshmnet_bootstrapGather(gasneti_pshmnet_t *vnet, void *src, 

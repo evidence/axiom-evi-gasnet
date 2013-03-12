@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.c,v $
- *     $Date: 2013/03/12 00:46:40 $
- * $Revision: 1.58 $
+ *     $Date: 2013/03/12 01:16:24 $
+ * $Revision: 1.59 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -840,7 +840,7 @@ static void gasneti_pshmnet_coll_recv(gasneti_pshmnet_t *vnet, size_t stride, vo
 /******************************************************************************
  * PSHMnet bootstrap broadcast
  * - Rootpshmnode is supernode-local rank
- * - Barriers ensure ordering w.r.t sends that precede or follow
+ * - Barriers ensure ordering w.r.t sends that may follow
  ******************************************************************************/
 void gasneti_pshmnet_bootstrapBroadcast(gasneti_pshmnet_t *vnet, void *src, 
                                         size_t len, void *dst, int rootpshmnode)
@@ -855,7 +855,6 @@ void gasneti_pshmnet_bootstrapBroadcast(gasneti_pshmnet_t *vnet, void *src,
   while (remain) {
     size_t nbytes = MIN(remain, GASNETI_PSHMNET_MAX_PAYLOAD);
 
-    gasneti_pshmnet_bootstrapBarrier();
     if (gasneti_pshm_mynode == rootpshmnode) {
       gasneti_pshmnet_coll_send(vnet, (void*)src_addr, nbytes);
     } else {
@@ -865,6 +864,8 @@ void gasneti_pshmnet_bootstrapBroadcast(gasneti_pshmnet_t *vnet, void *src,
     src_addr += nbytes;
     dst_addr += nbytes;
     remain -= nbytes;
+
+    gasneti_pshmnet_bootstrapBarrier();
   }
   if (gasneti_pshm_mynode == rootpshmnode) {
     memmove(dst, src, len);
@@ -873,7 +874,7 @@ void gasneti_pshmnet_bootstrapBroadcast(gasneti_pshmnet_t *vnet, void *src,
 
 /******************************************************************************
  * PSHMnet bootstrap exchange
- * - Barriers ensure ordering w.r.t sends that precede or follow
+ * - Barriers ensure ordering w.r.t sends that may follow
  ******************************************************************************/
 void gasneti_pshmnet_bootstrapExchange(gasneti_pshmnet_t *vnet, void *src, 
                                        size_t len, void *dst)
@@ -890,7 +891,6 @@ void gasneti_pshmnet_bootstrapExchange(gasneti_pshmnet_t *vnet, void *src,
     size_t nbytes = MIN(remain, GASNETI_PSHMNET_MAX_PAYLOAD);
     gasneti_pshm_rank_t i;
 
-    gasneti_pshmnet_bootstrapBarrier(); 
     for (i = 0; i < vnet->nodecount; i++) {
       if (gasneti_pshm_mynode == i) {
         gasneti_pshmnet_coll_send(vnet, (void*)src_addr, nbytes);
@@ -902,13 +902,15 @@ void gasneti_pshmnet_bootstrapExchange(gasneti_pshmnet_t *vnet, void *src,
     src_addr += nbytes;
     dst_addr += nbytes;
     remain -= nbytes;
+
+    gasneti_pshmnet_bootstrapBarrier();
   }
   memmove((void*)((uintptr_t)dst + (gasneti_pshm_mynode*len)), src, len);
 }
 
 /******************************************************************************
  * PSHMnet bootstrap gather
- * - Barriers ensure ordering w.r.t sends that precede or follow
+ * - Barriers ensure ordering w.r.t sends that may follow
  ******************************************************************************/
 void gasneti_pshmnet_bootstrapGather(gasneti_pshmnet_t *vnet, void *src, 
                                      size_t len, void *dst, int rootpshmnode)
@@ -916,30 +918,27 @@ void gasneti_pshmnet_bootstrapGather(gasneti_pshmnet_t *vnet, void *src,
   uintptr_t src_addr = (uintptr_t)src;
   uintptr_t dst_addr = (uintptr_t)dst;
   size_t remain = len;
+  void *msg;
 
   gasneti_assert(vnet != NULL);
   gasneti_assert(vnet->nodecount == gasneti_pshm_nodes);
 
-  /* All nodes send their contribution in turn */
+  /* All nodes send their contribution in chunks */
   while (remain) {
     size_t nbytes = MIN(remain, GASNETI_PSHMNET_MAX_PAYLOAD);
 
-    gasneti_pshmnet_bootstrapBarrier(); 
     if (gasneti_pshm_mynode == rootpshmnode) {
       gasneti_pshm_rank_t i;
       for (i = 0; i < vnet->nodecount - 1; i++) {
         gasneti_pshm_rank_t msg_from;
-        void *msg, *dest_elem;
         size_t msg_len;
 
         gasneti_waitwhile (gasneti_pshmnet_recv(vnet, &msg, &msg_len, &msg_from));
         gasneti_assert(msg_len == nbytes);
-        dest_elem = (void*)(dst_addr + (len * msg_from));
-        memcpy(dest_elem, msg, msg_len);
+        memcpy((void*)(dst_addr + (len * msg_from)), msg, msg_len);
         gasneti_pshmnet_recv_release(vnet, msg);
       }
     } else {
-      void *msg;
       gasneti_waitwhile (NULL == (msg = gasneti_pshmnet_get_send_buffer(vnet, nbytes, rootpshmnode)));
       memcpy(msg, (void*)src_addr, nbytes);
       gasneti_pshmnet_deliver_send_buffer(vnet, msg, nbytes, rootpshmnode);
@@ -948,6 +947,8 @@ void gasneti_pshmnet_bootstrapGather(gasneti_pshmnet_t *vnet, void *src,
     src_addr += nbytes;
     dst_addr += nbytes;
     remain -= nbytes;
+
+    gasneti_pshmnet_bootstrapBarrier(); 
   }
   if (gasneti_pshm_mynode == rootpshmnode) {
     memmove((void*)((uintptr_t)dst + (gasneti_pshm_mynode*len)), src, len);
