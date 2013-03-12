@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/03/12 01:38:32 $
- * $Revision: 1.70 $
+ *     $Date: 2013/03/12 01:42:28 $
+ * $Revision: 1.71 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -177,7 +177,6 @@ static gasnet_node_t gasnetc_dissem_peers = 0;
 static gasnet_node_t *gasnetc_dissem_peer = NULL;
 static gasnet_node_t *gasnetc_exchange_rcvd = NULL;
 static gasnet_node_t *gasnetc_exchange_send = NULL;
-static gasnet_node_t *gasnetc_exchange_last;
 static uint32_t gasnetc_sys_barrier_rcvd[2];
 
 static void gasnetc_sys_barrier_reqh(gasnet_token_t token, uint32_t arg)
