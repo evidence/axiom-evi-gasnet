@@ -28,7 +28,7 @@ static int bank_credits;
 static double shutdown_max;
 
 typedef union {
-  volatile uint64_t full; /* is zero until filled */
+  volatile uint32_t full; /* is zero until filled */
   gasnetc_packet_t packet;
   uint8_t raw[GASNETC_MSG_MAXSIZE];
 } gasnetc_mailbox_t;
@@ -653,61 +653,64 @@ void gasnetc_recv_am(gasnet_node_t pe, gasnetc_mailbox_t * const mb)
   gasnetc_mailbox_t buffer;
 
   {
-      gasnetc_packet_t * msg = &mb->packet;
-      const uint32_t numargs = msg->header.numargs;
-      const int is_req = GASNETC_CMD_IS_REQ(msg->header.command);
-      const unsigned int credits = msg->header.credit + !is_req;
-      const int handlerindex = msg->header.handler;
+      const GC_Header_t header = mb->packet.header; /* will be clobbered by smsg_release */
+      const int numargs = header.numargs;
+      const int misc = header.misc;
+      const int is_req = GASNETC_CMD_IS_REQ(header.command);
+      const int handlerindex = header.handler;
       gasneti_handler_fn_t handler = gasnetc_handler[handlerindex];
+
       gasnetc_token_t the_token = { pe, is_req };
       gasnet_token_t token = (gasnet_token_t)&the_token; /* RUN macros need an lvalue */
-      size_t length;
-      void * data;
 
-      gasneti_assert((((uintptr_t) msg) & 7) == 0);
+      uint8_t * data = mb->raw;
+
+      /* Mark mailbox free.
+       * Peer cannot possibly consume it until we send back a credit (Request case)
+       * or we send a Request using a newly acquired credit (Reply case).
+       * We've copied out mb->packet.header already and args are read before calling
+       * the handler.  So, if the handler does Reply (and thus return a credit) to a
+       * peer, these fields are safe to over-write.  Only the payload of a Medium
+       * Request needs to be copied out of the mailbox before its handler can run.
+       */
+      gasnetc_smsg_release(peer, mb);
+
       gasneti_assert(numargs <= gasnet_AMMaxArgs());
       GASNETI_TRACE_PRINTF(D, ("smsg r from %d type %s%s\n", pe,
-                               gasnetc_type_string(msg->header.command),
-                               msg->header.credit ? " (+credit)" : ""));
+                               gasnetc_type_string(header.command),
+                               header.credit ? " (+credit)" : ""));
 
-      switch (msg->header.command) {
-      case GC_CMD_AM_SHORT: /* Req cannot run in-place */
-        /* (small) constant memcpy cheaper than variable length */
-	length = GASNETC_HEADLEN(short, gasnet_AMMaxArgs());
-	msg = memcpy(&buffer, msg, length);
-        gasnetc_smsg_release(peer, mb);
-        /* fall through */
+      switch (header.command) {
+      case GC_CMD_AM_SHORT:
       case GC_CMD_AM_SHORT_REPLY:
         GASNETI_RUN_HANDLER_SHORT(is_req, handlerindex, handler,
-                                  token, msg->gasp.args, numargs);
+                                  token, mb->packet.gasp.args, numargs);
 	break;
 
-      case GC_CMD_AM_MEDIUM: /* Req cannot run in-place */
-	length = GASNETC_HEADLEN(medium, numargs) + msg->header.misc;
-        msg = memcpy(&buffer, msg, length);
-        gasnetc_smsg_release(peer, mb);
-        /* fall through */
+      case GC_CMD_AM_MEDIUM: { /* Req cannot run with payload in-place */
+        const size_t head_len = GASNETC_HEADLEN(medium, numargs);
+        memcpy(&buffer.raw[head_len], &mb->raw[head_len], misc);
+        data = buffer.raw;
+      } /* fall through */
       case GC_CMD_AM_MEDIUM_REPLY:
-        data = (void*)((uintptr_t) msg + GASNETC_HEADLEN(medium, numargs));
+        data += GASNETC_HEADLEN(medium, numargs);
+        gasneti_assert(0 == (((uintptr_t) data) % GASNETI_MEDBUF_ALIGNMENT));
+        gasneti_assert(misc <= gasnet_AMMaxMedium());
         GASNETI_RUN_HANDLER_MEDIUM(is_req, handlerindex, handler,
-			           token, msg->gamp.args, numargs,
-			           data, msg->header.misc);
+                                   token, mb->packet.gamp.args, numargs,
+                                   data, misc);
 	break;
 
-      case GC_CMD_AM_LONG: /* Req cannot run in-place */
-        /* (small) constant memcpy cheaper than variable length */
-	length = GASNETC_HEADLEN(long, gasnet_AMMaxArgs());
-	msg = memcpy(&buffer, msg, length);
-	gasnetc_smsg_release(peer, mb);
-        /* fall through */
+      case GC_CMD_AM_LONG:
       case GC_CMD_AM_LONG_REPLY:
-	if (msg->galp.header.misc) { /* payload follows header - copy it into place */
-	  length = GASNETC_HEADLEN(long, numargs);
-	  memcpy(msg->galp.data, &mb->raw[length], msg->galp.data_length);
-	}
+        if (misc) { /* payload follows header - copy it into place */
+          const size_t head_len = GASNETC_HEADLEN(long, numargs);
+          gasneti_assert(misc <= GASNETC_MAX_PACKED_LONG(numargs));
+          memcpy(mb->packet.galp.data, &mb->raw[head_len], mb->packet.galp.data_length);
+        }
         GASNETI_RUN_HANDLER_LONG(is_req, handlerindex, handler,
-			         token, msg->galp.args, numargs,
-			         msg->galp.data, msg->galp.data_length);
+        		         token, mb->packet.galp.args, numargs,
+        		         mb->packet.galp.data, mb->packet.galp.data_length);
 	break;
 
 #if GASNET_DEBUG
@@ -717,11 +720,9 @@ void gasnetc_recv_am(gasnet_node_t pe, gasnetc_mailbox_t * const mb)
       }
       if (the_token.need_reply) {
         gasnetc_send_credit(pe);
-      } else if (!is_req) {
-        gasnetc_smsg_release(peer, mb);
       }
-      if (credits) {
-        recv_credits(peer, credits);
+      { const int credits = header.credit + !is_req;
+        if (credits) recv_credits(peer, credits);
       }
   }
 }
@@ -865,8 +866,8 @@ gasnetc_send_smsg(gasnet_node_t dest, gasnetc_post_descriptor_t *gpd,
     peer->mb.send_pos = slot ? slot : mb_slots;
   }
 
-  pd->sync_flag_addr = (uint64_t) &mb->full;
-  pd->remote_addr = (uint64_t) (&mb->full + 1);
+  pd->sync_flag_addr = (uint64_t) mb;
+  pd->remote_addr = (uint64_t) mb + 8;
   for (;;) {
     status = GNI_PostFma(peer->ep_handle, pd);
 
