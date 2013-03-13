@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2013/03/13 19:35:17 $
- * $Revision: 1.50 $
+ *     $Date: 2013/03/13 19:58:23 $
+ * $Revision: 1.51 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -447,7 +447,7 @@ extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void
 
   chunksz = gasneti_in_segment(gasneti_mynode, dest, nbytes) ? GC_MAXRDMA_IN : GC_MAXRDMA_OUT;
   if_pt (nbytes <= chunksz) {
-    /* xfer is in-segment or "small-enough" out-of-segment: use a single op */
+    /* xfer is small-enough: use a single op */
     gasnetc_post_descriptor_t *gpd = gasnetc_alloc_post_descriptor();
     gasnete_eop_t *eop = gasnete_eop_new(GASNETE_MYTHREAD);
     gpd->gpd_completion = (uintptr_t) eop;
@@ -475,6 +475,7 @@ extern gasnet_handle_t gasnete_put_nb (gasnet_node_t node, void *dest, void *src
 
   /* Non-blocking bulk put of "head" portion */
   if (nbytes > max_tail) {
+    /* TODO: gasnete_put_nb_bulk includes duplicate PSHM check */
     const size_t head_len = nbytes - max_tail;
     head_op = gasnete_put_nb_bulk(node, dest, src, head_len GASNETE_THREAD_PASS);
     dest = (char *) dest + head_len;
@@ -549,7 +550,7 @@ extern gasnet_handle_t gasnete_put_nb_bulk (gasnet_node_t node, void *dest, void
 
   chunksz = gasneti_in_segment(gasneti_mynode, src, nbytes) ? GC_MAXRDMA_IN : GC_MAXRDMA_OUT;
   if_pt (nbytes <= chunksz) {
-    /* xfer is in-segment or "small-enough" out-of-segment: use a single op */
+    /* xfer is small-enough: use a single op */
     gasnetc_post_descriptor_t *gpd = gasnetc_alloc_post_descriptor();
     gasnete_eop_t *eop = gasnete_eop_new(GASNETE_MYTHREAD);
     gpd->gpd_completion = (uintptr_t) eop;
@@ -675,7 +676,7 @@ extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, siz
 
   chunksz = gasneti_in_segment(gasneti_mynode, dest, nbytes) ? GC_MAXRDMA_IN : GC_MAXRDMA_OUT;
   if_pt (nbytes <= chunksz) {
-    /* xfer is in-segment or "small-enough" out-of-segment: use a single op */
+    /* xfer is small-enough: use a single op */
     gasnetc_post_descriptor_t *gpd = gasnetc_alloc_post_descriptor();
     gpd->gpd_completion = (uintptr_t) iop;
     gpd->flags = GC_POST_COMPLETION_OP;
@@ -699,6 +700,7 @@ extern void gasnete_put_nbi      (gasnet_node_t node, void *dest, void *src, siz
 
   /* Non-blocking bulk put of "head" portion */
   if (nbytes > max_tail) {
+    /* TODO: gasnete_put_nb_bulk includes duplicate PSHM check */
     const size_t head_len = nbytes - max_tail;
     head_op = gasnete_put_nb_bulk(node, dest, src, head_len GASNETE_THREAD_PASS);
     dest = (char *) dest + head_len;
@@ -727,7 +729,7 @@ extern void gasnete_put_nbi_bulk (gasnet_node_t node, void *dest, void *src, siz
 
   chunksz = gasneti_in_segment(gasneti_mynode, src, nbytes) ? GC_MAXRDMA_IN : GC_MAXRDMA_OUT;
   if_pt (nbytes <= chunksz) {
-    /* xfer is in-segment or "small-enough" out-of-segment: use a single op */
+    /* xfer is small-enough: use a single op */
     gasnetc_post_descriptor_t *gpd = gasnetc_alloc_post_descriptor();
     gpd->gpd_completion = (uintptr_t) iop;
     gpd->flags = GC_POST_COMPLETION_OP;
