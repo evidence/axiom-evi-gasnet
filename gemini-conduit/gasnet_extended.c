@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2013/03/10 07:25:53 $
- * $Revision: 1.49 $
+ *     $Date: 2013/03/13 19:35:17 $
+ * $Revision: 1.50 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -491,7 +491,7 @@ extern gasnet_handle_t gasnete_put_nb (gasnet_node_t node, void *dest, void *src
   gasneti_assert(lc);
 
   /* Block for completion of head, if any */
-  gasnet_wait_syncnb(head_op);
+  gasnete_wait_syncnb(head_op);
 
   /* return the tail_op only if we did NOT already call wait_syncnb() */
   return (gasnet_handle_t)tail_op;
@@ -715,7 +715,7 @@ extern void gasnete_put_nbi      (gasnet_node_t node, void *dest, void *src, siz
   gasneti_assert(lc);
 
   /* Block for completion of head, if any */
-  gasnet_wait_syncnb(head_op);
+  gasnete_wait_syncnb(head_op);
 }
 
 extern void gasnete_put_nbi_bulk (gasnet_node_t node, void *dest, void *src, size_t nbytes GASNETE_THREAD_FARG) {
