@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/contrib/Makefile.am,v $
-#     $Date: 2012/04/14 00:37:47 $
-# $Revision: 1.24 $
+#     $Date: 2013/03/13 23:56:48 $
+# $Revision: 1.25 $
 # Description: Makefile for GASNet other/contrib
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -17,6 +17,7 @@ EXTRA_DIST = $(dotpl_DATA) $(vg_DATA) \
 	cross-configure-crayxt-catamount \
 	cross-configure-crayxt-linux \
 	cross-configure-crayxe-linux \
+	cross-configure-crayxc-linux \
 	crayxt-nptl-pthread-patch
 # exclude these from distribution for now
 #	cross-configure-bgl \
