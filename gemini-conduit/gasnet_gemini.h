@@ -70,20 +70,17 @@ enum {
     GC_CTRL_SHUTDOWN
 };
 
-enum { /* AM Request types must have ODD values */
-    GC_CMD_NULL = 0,
+enum {
+    GC_CMD_NULL = 0, /* zero GC_Header marks free mailboxes */
     GC_CMD_AM_SHORT = 1,
-    GC_CMD_AM_SHORT_REPLY,
     GC_CMD_AM_MEDIUM,
-    GC_CMD_AM_MEDIUM_REPLY,
-    GC_CMD_AM_LONG,
-    GC_CMD_AM_LONG_REPLY
+    GC_CMD_AM_LONG
 };
-#define GASNETC_CMD_IS_REQ(_cmd) ((_cmd) & 1)
 
 
 typedef struct GC_Header {
-  uint32_t command : 3;        /* GC_CMD_AM_* */
+  uint32_t command : 2;        /* GC_CMD_AM_* */
+  uint32_t is_req  : 1;        /* 1=request, 0=reply */
   uint32_t credit  : 1;        /* piggybacked credit in addition to one implied by a Reply */
   uint32_t misc    : 15;       /* msg-dependent field (e.g. nbytes in a Medium) */
   uint32_t numargs : 5;        /* number of GASNet arguments */

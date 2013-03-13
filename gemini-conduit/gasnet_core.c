@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/03/12 01:42:28 $
- * $Revision: 1.71 $
+ *     $Date: 2013/03/13 07:14:01 $
+ * $Revision: 1.72 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -52,14 +52,6 @@ static void gasnetc_check_config(void) {
    * and/or segment sizes */ 
 
   gasneti_assert((1<<GASNETC_LOG2_MAXNODES) == GASNET_MAXNODES);
-
-  /* Request and Reply must be distinguishable by their encoding */
-  gasneti_assert(GASNETC_CMD_IS_REQ(GC_CMD_AM_SHORT));
-  gasneti_assert(GASNETC_CMD_IS_REQ(GC_CMD_AM_MEDIUM));
-  gasneti_assert(GASNETC_CMD_IS_REQ(GC_CMD_AM_LONG));
-  gasneti_assert(!GASNETC_CMD_IS_REQ(GC_CMD_AM_SHORT_REPLY));
-  gasneti_assert(!GASNETC_CMD_IS_REQ(GC_CMD_AM_MEDIUM_REPLY));
-  gasneti_assert(!GASNETC_CMD_IS_REQ(GC_CMD_AM_LONG_REPLY));
 
   /* Otherwise space is being wasted: */
   gasneti_assert(GASNETC_MSG_MAXSIZE ==
@@ -1143,23 +1135,22 @@ extern int gasnetc_AMPoll(void) {
 #endif
 
 GASNETI_INLINE(gasnetc_short_common)
-int gasnetc_short_common(gasnet_node_t dest, int cmd,
+int gasnetc_short_common(gasnet_node_t dest, int is_req,
                          gasnet_handler_t handler,
                          int numargs, va_list argptr)
 {
   int i, retval;
-  const int isReq = GASNETC_CMD_IS_REQ(cmd);
 #if !GASNET_PSHM
   if (dest == gasneti_mynode) {
     const gasneti_handler_fn_t handler_fn = gasnetc_handler[handler];
-    gasnetc_token_t the_token = { gasneti_mynode, isReq };
+    gasnetc_token_t the_token = { gasneti_mynode, is_req };
     gasnet_token_t token = (gasnet_token_t)&the_token; /* RUN macros need an lvalue */
     gasnet_handlerarg_t args[gasnet_AMMaxArgs()];
 
     for (i = 0; i < numargs; i++) {
       args[i] = (gasnet_handlerarg_t)va_arg(argptr, gasnet_handlerarg_t);
     }
-    GASNETI_RUN_HANDLER_SHORT(isReq ,handler,handler_fn,token,args,numargs);
+    GASNETI_RUN_HANDLER_SHORT(is_req,handler,handler_fn,token,args,numargs);
     retval = GASNET_OK;
   } else
 #endif
@@ -1168,10 +1159,11 @@ int gasnetc_short_common(gasnet_node_t dest, int cmd,
     gasnetc_post_descriptor_t *gpd = gasnetc_alloc_post_descriptor();
     gasnetc_packet_t *m;
 
-    if (isReq) gasnetc_get_am_credit(dest);
+    if (is_req) gasnetc_get_am_credit(dest);
     gpd->flags = 0;
     m = &gpd->u.packet;
-    m->header.command = cmd;
+    m->header.command = GC_CMD_AM_SHORT;
+    m->header.is_req  = is_req;
   /*m->header.misc    = 0;  -- field is unused by shorts */
     m->header.numargs = numargs;
     m->header.handler = handler;
@@ -1185,17 +1177,17 @@ int gasnetc_short_common(gasnet_node_t dest, int cmd,
   return retval;
 }
 
-int gasnetc_medium_common(gasnet_node_t dest, int cmd,
+GASNETI_INLINE(gasnetc_medium_common)
+int gasnetc_medium_common(gasnet_node_t dest, int is_req,
                           gasnet_handler_t handler,
                           void *source_addr, size_t nbytes,
                           int numargs, va_list argptr)
 {
   int i, retval;
-  const int isReq = GASNETC_CMD_IS_REQ(cmd);
 #if !GASNET_PSHM
   if (dest == gasneti_mynode) {
     const gasneti_handler_fn_t handler_fn = gasnetc_handler[handler];
-    gasnetc_token_t the_token = { gasneti_mynode, isReq };
+    gasnetc_token_t the_token = { gasneti_mynode, is_req };
     gasnet_token_t token = (gasnet_token_t)&the_token; /* RUN macros need an lvalue */
     gasnet_handlerarg_t args[gasnet_AMMaxArgs()];
     void *payload = alloca(nbytes);
@@ -1204,7 +1196,7 @@ int gasnetc_medium_common(gasnet_node_t dest, int cmd,
       args[i] = (gasnet_handlerarg_t)va_arg(argptr, gasnet_handlerarg_t);
     }
     memcpy(payload, source_addr, nbytes);
-    GASNETI_RUN_HANDLER_MEDIUM(isReq,handler,handler_fn,token,args,numargs,payload,nbytes);
+    GASNETI_RUN_HANDLER_MEDIUM(is_req,handler,handler_fn,token,args,numargs,payload,nbytes);
     retval = GASNET_OK;
   } else
 #endif
@@ -1215,10 +1207,11 @@ int gasnetc_medium_common(gasnet_node_t dest, int cmd,
     gasnetc_post_descriptor_t *gpd = gasnetc_alloc_post_descriptor();
     gasnetc_packet_t *m;
 
-    if (isReq) gasnetc_get_am_credit(dest);
+    if (is_req) gasnetc_get_am_credit(dest);
     gpd->flags = flags;
     m = flags ? alloc_am_buffer(total_len) : &gpd->u.packet;
-    m->header.command = cmd;
+    m->header.command = GC_CMD_AM_MEDIUM;
+    m->header.is_req  = is_req;
     m->header.misc    = nbytes;
     m->header.numargs = numargs;
     m->header.handler = handler;
@@ -1232,18 +1225,18 @@ int gasnetc_medium_common(gasnet_node_t dest, int cmd,
   return retval;
 }
 
-int gasnetc_long_common(gasnet_node_t dest, int cmd,
+GASNETI_INLINE(gasnetc_long_common)
+int gasnetc_long_common(gasnet_node_t dest, int is_req,
                         gasnet_handler_t handler,
                         void *source_addr, size_t nbytes,
                         void *dest_addr,
                         int numargs, va_list argptr)
 {
   int i, retval;
-  const int isReq = GASNETC_CMD_IS_REQ(cmd);
 #if !GASNET_PSHM
   if (dest == gasneti_mynode) {
     const gasneti_handler_fn_t handler_fn = gasnetc_handler[handler];
-    gasnetc_token_t the_token = { gasneti_mynode, isReq };
+    gasnetc_token_t the_token = { gasneti_mynode, is_req };
     gasnet_token_t token = (gasnet_token_t)&the_token; /* RUN macros need an lvalue */
     gasnet_handlerarg_t args[gasnet_AMMaxArgs()];
 
@@ -1252,7 +1245,7 @@ int gasnetc_long_common(gasnet_node_t dest, int cmd,
     }
     memcpy(dest_addr, source_addr, nbytes);
     gasneti_sync_writes(); /* sync memcpy */
-    GASNETI_RUN_HANDLER_LONG(isReq,handler,handler_fn,token,args,numargs,dest_addr,nbytes);
+    GASNETI_RUN_HANDLER_LONG(is_req,handler,handler_fn,token,args,numargs,dest_addr,nbytes);
     retval = GASNET_OK;
   } else
 #endif
@@ -1275,10 +1268,11 @@ int gasnetc_long_common(gasnet_node_t dest, int cmd,
     }
 
     /* Overlap header setup and credit stall w/ the RDMA */
-    if (isReq) gasnetc_get_am_credit(dest);
+    if (is_req) gasnetc_get_am_credit(dest);
     gpd->flags = flags;
     m = flags ? alloc_am_buffer(total_len) : &gpd->u.packet;
-    m->header.command = cmd;
+    m->header.command = GC_CMD_AM_LONG;
+    m->header.is_req  = is_req;
     m->header.misc    = is_packed;
     m->header.numargs = numargs;
     m->header.handler = handler;
@@ -1321,7 +1315,7 @@ extern int gasnetc_AMRequestShortM(
                                            numargs, argptr);
   } else
 #endif
-  retval = gasnetc_short_common(dest,GC_CMD_AM_SHORT,handler,numargs,argptr);
+  retval = gasnetc_short_common(dest,1,handler,numargs,argptr);
   va_end(argptr);
   GASNETI_RETURN(retval);
 }
@@ -1344,7 +1338,7 @@ extern int gasnetc_AMRequestMediumM(
                                            numargs, argptr);
   } else
 #endif
-  retval = gasnetc_medium_common(dest,GC_CMD_AM_MEDIUM,handler,source_addr,nbytes,numargs,argptr);
+  retval = gasnetc_medium_common(dest,1,handler,source_addr,nbytes,numargs,argptr);
   va_end(argptr);
   GASNETI_RETURN(retval);
 }
@@ -1367,7 +1361,7 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
                                            numargs, argptr);
   } else
 #endif
-  retval = gasnetc_long_common(dest,GC_CMD_AM_LONG,handler,source_addr,nbytes,dest_addr,numargs,argptr);
+  retval = gasnetc_long_common(dest,1,handler,source_addr,nbytes,dest_addr,numargs,argptr);
   va_end(argptr);
   GASNETI_RETURN(retval);
 }
@@ -1418,6 +1412,7 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
     gpd->flags = flags;
     m = flags ? alloc_am_buffer(total_len) : &gpd->u.packet;
     m->header.command = GC_CMD_AM_LONG;
+    m->header.is_req  = 1;
     m->header.misc    = is_packed;
     m->header.numargs = numargs;
     m->header.handler = handler;
@@ -1468,7 +1463,7 @@ extern int gasnetc_AMReplyShortM(
   gasneti_assert(((gasnetc_token_t *)token)->need_reply);
   ((gasnetc_token_t *)token)->need_reply = 0;
 
-  retval = gasnetc_short_common(dest,GC_CMD_AM_SHORT_REPLY,handler,numargs,argptr);
+  retval = gasnetc_short_common(dest,0,handler,numargs,argptr);
   va_end(argptr);
   GASNETI_RETURN(retval);
 }
@@ -1498,7 +1493,7 @@ extern int gasnetc_AMReplyMediumM(
   gasneti_assert(((gasnetc_token_t *)token)->need_reply);
   ((gasnetc_token_t *)token)->need_reply = 0;
 
-  retval = gasnetc_medium_common(dest,GC_CMD_AM_MEDIUM_REPLY,handler,source_addr,nbytes,numargs,argptr);
+  retval = gasnetc_medium_common(dest,0,handler,source_addr,nbytes,numargs,argptr);
   va_end(argptr);
   GASNETI_RETURN(retval);
 }
@@ -1529,7 +1524,7 @@ extern int gasnetc_AMReplyLongM(
   gasneti_assert(((gasnetc_token_t *)token)->need_reply);
   ((gasnetc_token_t *)token)->need_reply = 0;
 
-  retval = gasnetc_long_common(dest,GC_CMD_AM_LONG_REPLY,handler,source_addr,nbytes,dest_addr,numargs,argptr);
+  retval = gasnetc_long_common(dest,0,handler,source_addr,nbytes,dest_addr,numargs,argptr);
   va_end(argptr);
   GASNETI_RETURN(retval);
 }

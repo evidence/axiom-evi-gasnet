@@ -121,17 +121,16 @@ static const char *gni_return_string(gni_return_t status)
 }
 
 
+#if GASNET_TRACE
 const char *gasnetc_type_string(int type)
 {
   if (type == GC_CMD_NULL) return("GC_CMD_AM_NULL");
   if (type == GC_CMD_AM_SHORT) return ("GC_CMD_AM_SHORT");
   if (type == GC_CMD_AM_LONG) return ("GC_CMD_AM_LONG");
   if (type == GC_CMD_AM_MEDIUM) return ("GC_CMD_AM_MEDIUM");
-  if (type == GC_CMD_AM_SHORT_REPLY) return ("GC_CMD_AM_SHORT_REPLY");
-  if (type == GC_CMD_AM_LONG_REPLY) return ("GC_CMD_AM_LONG_REPLY");
-  if (type == GC_CMD_AM_MEDIUM_REPLY) return ("GC_CMD_AM_MEDIUM_REPLY");
   return("unknown");
 }
+#endif
 
 const char *gasnetc_post_type_string(gni_post_type_t type)
 {
@@ -612,19 +611,16 @@ static
 void gasnetc_recv_am(gasnet_node_t pe, gasnetc_mailbox_t * const mb, const GC_Header_t header)
 {
   peer_struct_t * const peer = &peer_data[pe];
-  gasnetc_mailbox_t buffer;
 
   {
       const int numargs = header.numargs;
       const int misc = header.misc;
-      const int is_req = GASNETC_CMD_IS_REQ(header.command);
+      const int is_req = header.is_req;
       const int handlerindex = header.handler;
       gasneti_handler_fn_t handler = gasnetc_handler[handlerindex];
 
       gasnetc_token_t the_token = { pe, is_req };
       gasnet_token_t token = (gasnet_token_t)&the_token; /* RUN macros need an lvalue */
-
-      uint8_t * data = mb->raw;
 
       /* NOTE: Mailbox is already marked free.
        * Peer cannot possibly consume it until we send back a credit (Request case)
@@ -636,36 +632,37 @@ void gasnetc_recv_am(gasnet_node_t pe, gasnetc_mailbox_t * const mb, const GC_He
        */
 
       gasneti_assert(numargs <= gasnet_AMMaxArgs());
-      GASNETI_TRACE_PRINTF(D, ("smsg r from %d type %s%s\n", pe,
+      GASNETI_TRACE_PRINTF(D, ("smsg r from %d type %s_%s%s\n", pe,
                                gasnetc_type_string(header.command),
+                               is_req ? "REQUEST" : "REPLY",
                                header.credit ? " (+credit)" : ""));
 
       switch (header.command) {
       case GC_CMD_AM_SHORT:
-      case GC_CMD_AM_SHORT_REPLY:
         GASNETI_RUN_HANDLER_SHORT(is_req, handlerindex, handler,
                                   token, mb->packet.gasp.args, numargs);
 	break;
 
-      case GC_CMD_AM_MEDIUM: { /* Req cannot run with payload in-place */
+      case GC_CMD_AM_MEDIUM: {
+        uint8_t buffer[gasnet_AMMaxMedium()];
         const size_t head_len = GASNETC_HEADLEN(medium, numargs);
-        memcpy(&buffer.raw[head_len], &mb->raw[head_len], misc);
-        data = buffer.raw;
-      } /* fall through */
-      case GC_CMD_AM_MEDIUM_REPLY:
-        data += GASNETC_HEADLEN(medium, numargs);
+        uint8_t * data = &mb->raw[head_len];
+        if (is_req) { /* Req cannot run with payload in-place */
+          /* TODO: special case for non-replying requests (internal only for now) */
+          data = memcpy(&buffer, data, misc);
+        }
         gasneti_assert(0 == (((uintptr_t) data) % GASNETI_MEDBUF_ALIGNMENT));
         gasneti_assert(misc <= gasnet_AMMaxMedium());
         GASNETI_RUN_HANDLER_MEDIUM(is_req, handlerindex, handler,
                                    token, mb->packet.gamp.args, numargs,
                                    data, misc);
 	break;
+      }
 
       case GC_CMD_AM_LONG:
-      case GC_CMD_AM_LONG_REPLY:
         if (misc) { /* payload follows header - copy it into place */
           const size_t head_len = GASNETC_HEADLEN(long, numargs);
-          gasneti_assert(misc <= GASNETC_MAX_PACKED_LONG(numargs));
+          gasneti_assert(mb->packet.galp.data_length <= GASNETC_MAX_PACKED_LONG(numargs));
           memcpy(mb->packet.galp.data, &mb->raw[head_len], mb->packet.galp.data_length);
         }
         GASNETI_RUN_HANDLER_LONG(is_req, handlerindex, handler,
@@ -811,8 +808,9 @@ gasnetc_send_smsg(gasnet_node_t dest, gasnetc_post_descriptor_t *gpd,
 
   msg->header.credit = gasnetc_weakatomic_swap(&peer->am_credit_bank, 0);
 
-  GASNETI_TRACE_PRINTF(D, ("smsg to %d type %s%s\n", dest,
+  GASNETI_TRACE_PRINTF(D, ("smsg to %d type %s_%s%s\n", dest,
                            gasnetc_type_string(msg->header.command),
+                           msg->header.is_req ? "REQUEST" : "REPLY",
                            msg->header.credit ? " (+credit)" : ""));
 
   /*  bzero(&pd, sizeof(gni_post_descriptor_t)); */
