@@ -39,9 +39,6 @@ typedef struct peer_struct {
   gasneti_weakatomic_t am_credit;
   gasneti_weakatomic_t am_credit_bank; /* single bit of credit accumulator for return to peer */
   struct {
-  #if GASNETI_USE_TRUE_MUTEXES || GASNET_DEBUG /* Otherwise don't waste space for the dummy lock */
-    gasneti_mutex_t lock;
-  #endif
     gasnetc_mailbox_t *loc_addr;
     gasnetc_mailbox_t *rem_addr;
     gni_mem_handle_t rem_hndl;
@@ -226,40 +223,6 @@ int my_smsg_index(gasnet_node_t remote_node) {
 #else
   /* we either fall before or after the remote node skips over itself */
   return gasneti_mynode - (gasneti_mynode > remote_node);
-#endif
-}
-
-/*------ Convience functions for Smsg implementation ------*/
-
-/* NOTE: will leave with per-peer mb lock held IFF returning non-NULL */
-GASNETI_INLINE(gasnetc_smsg_get_next)
-gasnetc_mailbox_t *gasnetc_smsg_get_next(peer_struct_t *peer)
-{
-#if GASNETI_USE_TRUE_MUTEXES || GASNET_DEBUG
-  gasneti_mutex_lock(&peer->mb.lock);
-#endif
-  { unsigned int slot = peer->mb.recv_pos - 1;
-    gasnetc_mailbox_t * const mb = &peer->mb.loc_addr[slot];
-    if (mb->full) { /* First word is zero until mailbox is filled */
-      gasneti_sync_reads();
-      peer->mb.recv_pos = slot ? slot : mb_slots;
-      return mb; /* lock still held */
-    }
-  }
-#if GASNETI_USE_TRUE_MUTEXES || GASNET_DEBUG
-  gasneti_mutex_unlock(&peer->mb.lock);
-#endif
-  return NULL;
-}
-
-/* NOTE: will release per-peer mb lock */
-GASNETI_INLINE(gasnetc_smsg_release)
-void gasnetc_smsg_release(peer_struct_t *peer, gasnetc_mailbox_t * mb)
-{
-  gasneti_assert(mb->full != 0);
-  mb->full = 0;
-#if GASNETI_USE_TRUE_MUTEXES || GASNET_DEBUG
-  gasneti_mutex_unlock(&peer->mb.lock);
 #endif
 }
 
@@ -510,7 +473,6 @@ uintptr_t gasnetc_init_messaging(void)
     for (i = 0; i < gasneti_nodes; i += 1) {
       if (node_is_local(i)) continue; /* no connection to self or PSHM-reachable peers */
 
-      gasneti_mutex_init(&peer_data[i].mb.lock);
       peer_data[i].mb.loc_addr = (gasnetc_mailbox_t*) local_buffer;
       peer_data[i].mb.rem_addr = (gasnetc_mailbox_t*) all_smsg_exchg[i].addr + (mb_slots * my_smsg_index(i));
       peer_data[i].mb.rem_hndl = all_smsg_exchg[i].handle;
@@ -647,13 +609,12 @@ static void gasnetc_handle_sys_shutdown_packet(uint32_t source, uint16_t arg);
 static void gasnetc_send_credit(uint32_t pe);
 
 static
-void gasnetc_recv_am(gasnet_node_t pe, gasnetc_mailbox_t * const mb)
+void gasnetc_recv_am(gasnet_node_t pe, gasnetc_mailbox_t * const mb, const GC_Header_t header)
 {
   peer_struct_t * const peer = &peer_data[pe];
   gasnetc_mailbox_t buffer;
 
   {
-      const GC_Header_t header = mb->packet.header; /* will be clobbered by smsg_release */
       const int numargs = header.numargs;
       const int misc = header.misc;
       const int is_req = GASNETC_CMD_IS_REQ(header.command);
@@ -665,7 +626,7 @@ void gasnetc_recv_am(gasnet_node_t pe, gasnetc_mailbox_t * const mb)
 
       uint8_t * data = mb->raw;
 
-      /* Mark mailbox free.
+      /* NOTE: Mailbox is already marked free.
        * Peer cannot possibly consume it until we send back a credit (Request case)
        * or we send a Request using a newly acquired credit (Reply case).
        * We've copied out mb->packet.header already and args are read before calling
@@ -673,7 +634,6 @@ void gasnetc_recv_am(gasnet_node_t pe, gasnetc_mailbox_t * const mb)
        * peer, these fields are safe to over-write.  Only the payload of a Medium
        * Request needs to be copied out of the mailbox before its handler can run.
        */
-      gasnetc_smsg_release(peer, mb);
 
       gasneti_assert(numargs <= gasnet_AMMaxArgs());
       GASNETI_TRACE_PRINTF(D, ("smsg r from %d type %s%s\n", pe,
@@ -800,16 +760,24 @@ void gasnetc_poll_smsg_queue(void)
   /* Poll all "live" sources, starting with any that were not ready last time */
   if (head != tail) {
     for (i = 0; i < SMSG_BURST; ++i) {
-      /* dequeue one source and poll it */
+      /* dequeue one source and poll it, then we either run the
+         handler (w/o lock held) or requeue the source for later service */
       const gasnet_node_t source = queue[head];
-      gasnetc_mailbox_t * const mb = gasnetc_smsg_get_next(&peer_data[source]);
+      peer_struct_t * const peer = &peer_data[source];
+      unsigned int slot = peer->mb.recv_pos - 1;
+      gasnetc_mailbox_t * const mb = &peer->mb.loc_addr[slot];
+      GC_Header_t header;
+
       head = head ? (head-1) : SMSG_BURST;
 
-      /* either run handler (w/o lock held) or requeue the source for later service */
-      if_pt (mb) {
+      if (mb->full) { /* First word is zero until mailbox is filled */
+        gasneti_sync_reads();
+        header = mb->packet.header; /* before over-written via 'full' */
+        mb->full = 0;
+        peer->mb.recv_pos = slot ? slot : mb_slots;
         ++free_space;
         gasneti_mutex_unlock(&lock);
-        gasnetc_recv_am(source, mb);
+          gasnetc_recv_am(source, mb, header);
         gasneti_mutex_lock(&lock);
       } else {
         queue[tail] = source;
