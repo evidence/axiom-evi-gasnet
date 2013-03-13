@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2013/03/07 08:48:11 $
-# $Revision: 1.776 $
+#     $Date: 2013/03/13 23:49:56 $
+# $Revision: 1.777 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.776 $)
+AC_REVISION($Revision: 1.777 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -4046,6 +4046,29 @@ if test ${gni_network}:${enabled_[]lowername} = lowername[]:yes; then
   # However, failing on these can help distinguish which module is missing/broken.
   AC_CHECK_HEADERS(pmi_cray.h, [:], [have_[]lowername=no])
   AC_CHECK_HEADERS(gni_pub.h, [:], [have_[]lowername=no])
+
+  # PSHM must be XPMEM or none.  If none, then we still need hugetlbfs.
+  if test $have_[]lowername = no; then
+    : # empty
+  elif test "$with_pshm" = no; then
+    AC_MSG_CHECKING(for hugetlbfs support required by $1)
+    if test $have_hugetlbfs = yes; then
+      AC_MSG_RESULT(yes)
+      GNI_LIBS="$GNI_LIBS -lhugetlbfs"
+      GNI_INCLUDES="$GNI_INCLUDES -DGASNETI_USE_HUGETLBFS"
+    else
+      $have_[]lowername=no
+      AC_MSG_RESULT(no)
+    fi
+  else
+    AC_MSG_CHECKING(for pshm-over-xpmem support required by by $1)
+    if test "$with_pshm" = xpmem; then
+      AC_MSG_RESULT(yes)
+    else
+      $have_[]lowername=no
+      AC_MSG_RESULT(no)
+    fi
+  fi
 
   if test $have_[]lowername = yes; then
     # If/when we use firehose we need to disable certain optimizations.

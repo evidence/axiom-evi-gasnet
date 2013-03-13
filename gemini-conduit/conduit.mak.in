@@ -8,3 +8,5 @@
 #INSTRUCTIONS# or $(top_srcdir)/other/fragment-head.mak.in for usage info.
 
 CONDUIT_INCLUDES = -DGASNET_CONDUIT_GEMINI
+
+CONDUIT_LIBS = @GNI_LIBS@
