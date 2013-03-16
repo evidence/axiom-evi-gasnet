@@ -768,7 +768,7 @@ void gasnetc_poll_smsg_queue(void)
       head = head ? (head-1) : SMSG_BURST;
 
       if (mb->full) { /* First word is zero until mailbox is filled */
-        gasneti_sync_reads();
+        gasneti_local_rmb(); /* Acquire */
         header = mb->packet.header; /* before over-written via 'full' */
         mb->full = 0;
         peer->mb.recv_pos = slot ? slot : mb_slots;
