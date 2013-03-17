@@ -9,7 +9,7 @@
 #define GASNETC_NETWORKDEPTH_DEFAULT 12
 
 #ifdef GASNET_CONDUIT_GEMINI
-  /* Use dual-events + PI_FLUSH to get "proper" ordering w/ relaxed and default PI ordering */
+  /* Use remote event + PI_FLUSH to get "proper" ordering w/ relaxed and default PI ordering */
   #define FIX_HT_ORDERING 1
 #else
   #define FIX_HT_ORDERING 0
@@ -259,6 +259,47 @@ void gasnetc_init_segment(void *segment_start, size_t segment_size)
   gni_return_t status;
   /* Map the shared segment */
 
+  /* Protocol switch points: FMA vs. RDMA */
+  gasnetc_get_fma_rdma_cutover = 
+    gasneti_getenv_int_withdefault("GASNETC_GNI_GET_FMA_RDMA_CUTOVER",
+				   GASNETC_GNI_GET_FMA_RDMA_CUTOVER_DEFAULT,1);
+  gasnetc_get_fma_rdma_cutover = MIN(gasnetc_get_fma_rdma_cutover,
+                                     GASNETC_GNI_FMA_RDMA_CUTOVER_MAX);
+
+  gasnetc_put_fma_rdma_cutover = 
+    gasneti_getenv_int_withdefault("GASNETC_GNI_PUT_FMA_RDMA_CUTOVER",
+				   GASNETC_GNI_PUT_FMA_RDMA_CUTOVER_DEFAULT,1);
+  gasnetc_put_fma_rdma_cutover = MIN(gasnetc_put_fma_rdma_cutover,
+                                     GASNETC_GNI_FMA_RDMA_CUTOVER_MAX);
+
+  /* Protocol switch points: bounce buffer vs. registration */
+  gasnetc_get_bounce_register_cutover = 
+    gasneti_getenv_int_withdefault("GASNETC_GNI_GET_BOUNCE_REGISTER_CUTOVER",
+				   GASNETC_GNI_GET_BOUNCE_REGISTER_CUTOVER_DEFAULT,1);
+  gasnetc_get_bounce_register_cutover = MIN(gasnetc_get_bounce_register_cutover,
+                                            GASNETC_GNI_BOUNCE_REGISTER_CUTOVER_MAX);
+  gasnetc_get_bounce_register_cutover = MIN(gasnetc_get_bounce_register_cutover,
+                                            gasnetc_bounce_buffers.size);
+
+  gasnetc_put_bounce_register_cutover = 
+    gasneti_getenv_int_withdefault("GASNETC_GNI_PUT_BOUNCE_REGISTER_CUTOVER",
+				   GASNETC_GNI_PUT_BOUNCE_REGISTER_CUTOVER_DEFAULT,1);
+  gasnetc_put_bounce_register_cutover = MIN(gasnetc_put_bounce_register_cutover,
+                                            GASNETC_GNI_BOUNCE_REGISTER_CUTOVER_MAX);
+  gasnetc_put_bounce_register_cutover = MIN(gasnetc_put_bounce_register_cutover,
+                                            gasnetc_bounce_buffers.size);
+
+  /* Derived limits used in extended API implementation: */
+  gasnetc_max_get_unaligned = MAX(GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE,
+                                  gasnetc_get_bounce_register_cutover);
+#if GASNET_CONDUIT_GEMINI
+  gasnetc_max_put_lc = MAX(gasnetc_put_fma_rdma_cutover,
+                           gasnetc_put_bounce_register_cutover);
+#else
+  gasnetc_max_put_lc = MAX(GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE,
+                           gasnetc_put_bounce_register_cutover);
+#endif
+
   { int envval = gasneti_getenv_int_withdefault("GASNETC_GNI_MEMREG", GASNETC_GNI_MEMREG_DEFAULT, 0);
     if (envval < 0) envval = 0;
     gasnetc_init_reg_credit(envval);
@@ -365,7 +406,6 @@ uintptr_t gasnetc_init_messaging(void)
 			 gasnetc_dev_id,
 			 &local_address,
 			 &nic_handle);
-
   gasneti_assert_always (status == GNI_RC_SUCCESS);
 
   { /* Determine credits for AMs: GASNET_NETWORKDEPTH */
@@ -387,7 +427,7 @@ uintptr_t gasnetc_init_messaging(void)
     gasneti_assert_always (status == GNI_RC_SUCCESS);
   }
 
-  /* init peer_data */
+  /* create and bind endpoints */
   all_addr = gather_nic_addresses();
   peer_data = gasneti_malloc(gasneti_nodes * sizeof(peer_struct_t));
   for (i = 0; i < gasneti_nodes; i += 1) {
@@ -396,9 +436,6 @@ uintptr_t gasnetc_init_messaging(void)
     gasneti_assert_always (status == GNI_RC_SUCCESS);
     status = GNI_EpBind(peer_data[i].ep_handle, all_addr[i], i);
     gasneti_assert_always (status == GNI_RC_SUCCESS);
-    /* mem_handle will be set at end of gasnetc_init_segment */
-    gasneti_weakatomic_set(&peer_data[i].am_credit, am_maxcredit, 0);
-    gasneti_weakatomic_set(&peer_data[i].am_credit_bank, 0, 0);
   }
   gasneti_free(all_addr);
 
@@ -477,39 +514,13 @@ uintptr_t gasnetc_init_messaging(void)
       peer_data[i].mb.rem_hndl = all_smsg_exchg[i].handle;
       peer_data[i].mb.recv_pos = mb_slots;
       peer_data[i].mb.send_pos = mb_slots;
+      gasneti_weakatomic_set(&peer_data[i].am_credit, am_maxcredit, 0);
+      gasneti_weakatomic_set(&peer_data[i].am_credit_bank, 0, 0);
       local_buffer += bytes_per_mbox;
     }
 
     gasneti_free(all_smsg_exchg);
   }
-
-  /* set the number of seconds we poll until forceful shutdown.
-   * May be over-ridden by env-vars.
-   */
-  gasnetc_shutdown_seconds = gasneti_get_exittimeout(shutdown_max, 3., 0.125, 0.);
-
-  gasnetc_get_fma_rdma_cutover = 
-    gasneti_getenv_int_withdefault("GASNETC_GNI_GET_FMA_RDMA_CUTOVER",
-				   GASNETC_GNI_GET_FMA_RDMA_CUTOVER_DEFAULT,1);
-  gasnetc_get_fma_rdma_cutover = MIN(gasnetc_get_fma_rdma_cutover,
-                                     GASNETC_GNI_FMA_RDMA_CUTOVER_MAX);
-
-  gasnetc_put_fma_rdma_cutover = 
-    gasneti_getenv_int_withdefault("GASNETC_GNI_PUT_FMA_RDMA_CUTOVER",
-				   GASNETC_GNI_PUT_FMA_RDMA_CUTOVER_DEFAULT,1);
-  gasnetc_put_fma_rdma_cutover = MIN(gasnetc_put_fma_rdma_cutover,
-                                     GASNETC_GNI_FMA_RDMA_CUTOVER_MAX);
-
-  /* Derived limits used in extended API implementation: */
-  gasnetc_max_get_unaligned = MAX(GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE,
-                                  gasnetc_get_bounce_register_cutover);
-#if GASNET_CONDUIT_GEMINI
-  gasnetc_max_put_lc = MAX(gasnetc_put_fma_rdma_cutover,
-                           gasnetc_put_bounce_register_cutover);
-#else
-  gasnetc_max_put_lc = MAX(GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE,
-                           gasnetc_put_bounce_register_cutover);
-#endif
 
   /* Create a temporary pool of post descriptors for uses prior to the aux seg attach.
    * NOTE: The immediate buffer WON'T be in registered memory - so no Put/Get.
@@ -686,6 +697,7 @@ void gasnetc_recv_am(gasnet_node_t pe, gasnetc_mailbox_t * const mb, const GC_He
 
 
 /* Max number of times to poll the AM mailboxes per entry */
+/* TODO: control via env var (requires dynamic allocation of queue) */
 #define SMSG_BURST 20
 
 static
@@ -1697,22 +1709,6 @@ void gasnetc_init_bounce_buffer_pool(void)
   int num_bounce;
   size_t buffer_size;
   gasneti_assert_always(gasnetc_bounce_buffers.addr != NULL);
-
-  gasnetc_get_bounce_register_cutover = 
-    gasneti_getenv_int_withdefault("GASNETC_GNI_GET_BOUNCE_REGISTER_CUTOVER",
-				   GASNETC_GNI_GET_BOUNCE_REGISTER_CUTOVER_DEFAULT,1);
-  gasnetc_get_bounce_register_cutover = MIN(gasnetc_get_bounce_register_cutover,
-                                            GASNETC_GNI_BOUNCE_REGISTER_CUTOVER_MAX);
-  gasnetc_get_bounce_register_cutover = MIN(gasnetc_get_bounce_register_cutover,
-                                            gasnetc_bounce_buffers.size);
-
-  gasnetc_put_bounce_register_cutover = 
-    gasneti_getenv_int_withdefault("GASNETC_GNI_PUT_BOUNCE_REGISTER_CUTOVER",
-				   GASNETC_GNI_PUT_BOUNCE_REGISTER_CUTOVER_DEFAULT,1);
-  gasnetc_put_bounce_register_cutover = MIN(gasnetc_put_bounce_register_cutover,
-                                            GASNETC_GNI_BOUNCE_REGISTER_CUTOVER_MAX);
-  gasnetc_put_bounce_register_cutover = MIN(gasnetc_put_bounce_register_cutover,
-                                            gasnetc_bounce_buffers.size);
 
   buffer_size = MAX(gasnetc_get_bounce_register_cutover,
                     gasnetc_put_bounce_register_cutover);

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/03/13 07:14:01 $
- * $Revision: 1.72 $
+ *     $Date: 2013/03/17 22:53:07 $
+ * $Revision: 1.73 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -839,8 +839,9 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   /*  (###) register any custom signal handlers required by your conduit 
    *        (e.g. to support interrupt-based messaging)
    */
-  /* LCS None needed */
 
+  /* set the number of seconds we poll until forceful shutdown. */
+  gasnetc_shutdown_seconds = gasneti_get_exittimeout(shutdown_max, 3., 0.125, 0.);
   #if HAVE_ON_EXIT
     on_exit(gasnetc_on_exit, NULL);
   #else
@@ -899,16 +900,16 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
          gasneti_seginfo[gasneti_mynode].size == segsize);
 
   gasneti_auxseg_attach(); /* provide auxseg */
-  /* LCS After this, puts, and gets should work */
+
+  /* After these, puts, and gets should work */
   gasnetc_init_segment(segbase, segsize);
+  gasnetc_init_bounce_buffer_pool();
+  gasnetc_init_post_descriptor_pool();
 
   gasnete_init(); /* init the extended API */
 
   gasneti_nodemapFini();
 
-  gasnetc_init_bounce_buffer_pool();  /* auxseg should be set by now */
-
-  gasnetc_init_post_descriptor_pool();
   /* ensure extended API is initialized across nodes */
   gasnetc_bootstrapBarrier();
   gasnetc_sys_coll_fini();
