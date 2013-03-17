@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/03/17 22:53:07 $
- * $Revision: 1.73 $
+ *     $Date: 2013/03/17 23:08:02 $
+ * $Revision: 1.74 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -841,7 +841,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
    */
 
   /* set the number of seconds we poll until forceful shutdown. */
-  gasnetc_shutdown_seconds = gasneti_get_exittimeout(shutdown_max, 3., 0.125, 0.);
+  gasnetc_shutdown_seconds = gasneti_get_exittimeout(120., 3., 0.125, 0.);
   #if HAVE_ON_EXIT
     on_exit(gasnetc_on_exit, NULL);
   #else

@@ -25,8 +25,6 @@ static int gasnetc_mem_consistency;
 
 static int bank_credits;
 
-static double shutdown_max;
-
 typedef union {
   volatile uint32_t full; /* is zero until filled */
   gasnetc_packet_t packet;
@@ -1502,7 +1500,6 @@ void gasnetc_free_post_descriptor(gasnetc_post_descriptor_t *gpd)
 /* exit related */
 volatile int gasnetc_shutdownInProgress = 0;
 double gasnetc_shutdown_seconds = 0.0;
-static double shutdown_max = 120.;  /* 2 minutes */
 static gasneti_weakatomic_t sys_exit_rcvd = gasneti_weakatomic_init(0);
 static gasneti_weakatomic_t sys_exit_code = gasneti_weakatomic_init(0);
 
