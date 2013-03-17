@@ -259,20 +259,20 @@ void gasnetc_init_segment(void *segment_start, size_t segment_size)
 
   /* Protocol switch points: FMA vs. RDMA */
   gasnetc_get_fma_rdma_cutover = 
-    gasneti_getenv_int_withdefault("GASNETC_GNI_GET_FMA_RDMA_CUTOVER",
+    gasneti_getenv_int_withdefault("GASNET_GNI_GET_FMA_RDMA_CUTOVER",
 				   GASNETC_GNI_GET_FMA_RDMA_CUTOVER_DEFAULT,1);
   gasnetc_get_fma_rdma_cutover = MIN(gasnetc_get_fma_rdma_cutover,
                                      GASNETC_GNI_FMA_RDMA_CUTOVER_MAX);
 
   gasnetc_put_fma_rdma_cutover = 
-    gasneti_getenv_int_withdefault("GASNETC_GNI_PUT_FMA_RDMA_CUTOVER",
+    gasneti_getenv_int_withdefault("GASNET_GNI_PUT_FMA_RDMA_CUTOVER",
 				   GASNETC_GNI_PUT_FMA_RDMA_CUTOVER_DEFAULT,1);
   gasnetc_put_fma_rdma_cutover = MIN(gasnetc_put_fma_rdma_cutover,
                                      GASNETC_GNI_FMA_RDMA_CUTOVER_MAX);
 
   /* Protocol switch points: bounce buffer vs. registration */
   gasnetc_get_bounce_register_cutover = 
-    gasneti_getenv_int_withdefault("GASNETC_GNI_GET_BOUNCE_REGISTER_CUTOVER",
+    gasneti_getenv_int_withdefault("GASNET_GNI_GET_BOUNCE_REGISTER_CUTOVER",
 				   GASNETC_GNI_GET_BOUNCE_REGISTER_CUTOVER_DEFAULT,1);
   gasnetc_get_bounce_register_cutover = MIN(gasnetc_get_bounce_register_cutover,
                                             GASNETC_GNI_BOUNCE_REGISTER_CUTOVER_MAX);
@@ -280,7 +280,7 @@ void gasnetc_init_segment(void *segment_start, size_t segment_size)
                                             gasnetc_bounce_buffers.size);
 
   gasnetc_put_bounce_register_cutover = 
-    gasneti_getenv_int_withdefault("GASNETC_GNI_PUT_BOUNCE_REGISTER_CUTOVER",
+    gasneti_getenv_int_withdefault("GASNET_GNI_PUT_BOUNCE_REGISTER_CUTOVER",
 				   GASNETC_GNI_PUT_BOUNCE_REGISTER_CUTOVER_DEFAULT,1);
   gasnetc_put_bounce_register_cutover = MIN(gasnetc_put_bounce_register_cutover,
                                             GASNETC_GNI_BOUNCE_REGISTER_CUTOVER_MAX);
@@ -298,13 +298,13 @@ void gasnetc_init_segment(void *segment_start, size_t segment_size)
                            gasnetc_put_bounce_register_cutover);
 #endif
 
-  { int envval = gasneti_getenv_int_withdefault("GASNETC_GNI_MEMREG", GASNETC_GNI_MEMREG_DEFAULT, 0);
+  { int envval = gasneti_getenv_int_withdefault("GASNET_GNI_MEMREG", GASNETC_GNI_MEMREG_DEFAULT, 0);
     if (envval < 0) envval = 0;
     gasnetc_init_reg_credit(envval);
   }
 
   gasnetc_mem_consistency = GASNETC_DEFAULT_RDMA_MEM_CONSISTENCY;
-  { char * envval = gasneti_getenv("GASNETC_GNI_MEM_CONSISTENCY");
+  { char * envval = gasneti_getenv("GASNET_GNI_MEM_CONSISTENCY");
     if (!envval || !envval[0]) {
       /* No value given - keep default */
     } else if (!strcmp(envval, "strict") || !strcmp(envval, "STRICT")) {
@@ -316,7 +316,7 @@ void gasnetc_init_segment(void *segment_start, size_t segment_size)
     } else if (!gasneti_mynode) {
       fflush(NULL);
       fprintf(stderr, "WARNING: ignoring unknown value '%s' for environment "
-                      "variable GASNETC_GNI_MEM_CONSISTENCY\n", envval);
+                      "variable GASNET_GNI_MEM_CONSISTENCY\n", envval);
       fflush(NULL);
     }
   }
@@ -414,9 +414,9 @@ uintptr_t gasnetc_init_messaging(void)
     bank_credits = (depth > 1) ? 1 : 0;
   }
 
-  { /* Determine Cq size: GASNETC_GNI_NUM_PD */
+  { /* Determine Cq size: GASNET_GNI_NUM_PD */
     int num_pd, cq_entries;
-    num_pd = gasneti_getenv_int_withdefault("GASNETC_GNI_NUM_PD",
+    num_pd = gasneti_getenv_int_withdefault("GASNET_GNI_NUM_PD",
                                             GASNETC_GNI_NUM_PD_DEFAULT,1);
 
     cq_entries = num_pd+2; /* XXX: why +2 ?? */
@@ -1654,12 +1654,12 @@ out:
 
 /* AuxSeg setup for registered bounce buffer space*/
 GASNETI_IDENT(gasneti_bounce_auxseg_IdentString,
-              "$GASNetAuxSeg_bounce: GASNETC_GNI_BOUNCE_SIZE:" _STRINGIFY(GASNETC_GNI_BOUNCE_SIZE_DEFAULT)" $");
+              "$GASNetAuxSeg_bounce: GASNET_GNI_BOUNCE_SIZE:" _STRINGIFY(GASNETC_GNI_BOUNCE_SIZE_DEFAULT)" $");
 gasneti_auxseg_request_t gasnetc_bounce_auxseg_alloc(gasnet_seginfo_t *auxseg_info) {
   gasneti_auxseg_request_t retval;
   
   retval.minsz =
-  retval.optimalsz = gasneti_getenv_int_withdefault("GASNETC_GNI_BOUNCE_SIZE",
+  retval.optimalsz = gasneti_getenv_int_withdefault("GASNET_GNI_BOUNCE_SIZE",
                                                     GASNETC_GNI_BOUNCE_SIZE_DEFAULT,1);
   if (auxseg_info != NULL) { /* auxseg granted */
     /* The only one we care about is our own node */
@@ -1684,12 +1684,12 @@ gasneti_auxseg_request_t gasnetc_bounce_auxseg_alloc(gasnet_seginfo_t *auxseg_in
 #endif
 GASNETI_IDENT(gasneti_pd_auxseg_IdentString, /* XXX: update if gasnetc_post_descriptor_t changes */
               "$GASNetAuxSeg_pd: " _STRINGIFY(GASNETC_SIZEOF_GDP) "*"
-              "(GASNETC_GNI_NUM_PD:" _STRINGIFY(GASNETC_GNI_NUM_PD_DEFAULT) ") $");
+              "(GASNET_GNI_NUM_PD:" _STRINGIFY(GASNETC_GNI_NUM_PD_DEFAULT) ") $");
 gasneti_auxseg_request_t gasnetc_pd_auxseg_alloc(gasnet_seginfo_t *auxseg_info) {
   gasneti_auxseg_request_t retval;
   
   retval.minsz =
-  retval.optimalsz = gasneti_getenv_int_withdefault("GASNETC_GNI_NUM_PD",
+  retval.optimalsz = gasneti_getenv_int_withdefault("GASNET_GNI_NUM_PD",
                                                     GASNETC_GNI_NUM_PD_DEFAULT,1) 
     * sizeof(gasnetc_post_descriptor_t);
   if (auxseg_info != NULL) { /* auxseg granted */

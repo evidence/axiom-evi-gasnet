@@ -1,6 +1,6 @@
 GASNet gemini-conduit and aries-conduit documentation
 Larry Stewart <stewart@serissa.com> 
-$Revision: 1.23 $
+$Revision: 1.24 $
 
 User Information:
 -----------------
@@ -17,14 +17,14 @@ Recognized environment variables:
 
 GASNET_NETWORKDEPTH - depth of per-peer AM queues - default 12, min 1
 
-GASNETC_GNI_NUM_PD  	  - default 512, number of post descriptors
+GASNET_GNI_NUM_PD  	  - default 512, number of post descriptors
   AM and RDMA operations all requires use of a control block called a
   Post Descriptor. This variable controls how many of these are
   allocated, and therefore limit the total number of operations which
   can be in-flight at any time.
 
-GASNETC_GNI_GET_FMA_RDMA_CUTOVER - default 4096 max 16384
-GASNETC_GNI_PUT_FMA_RDMA_CUTOVER - default 4096 max 16384
+GASNET_GNI_GET_FMA_RDMA_CUTOVER - default 4096 max 16384
+GASNET_GNI_PUT_FMA_RDMA_CUTOVER - default 4096 max 16384
   These set the cutover from Fast Memory Access (RDMA commanded in user
   mode) to RDMA (commanded through the kernel).  Transfers up to and
   including these sizes will be performed using FMA.  Use of FMA will
@@ -32,8 +32,8 @@ GASNETC_GNI_PUT_FMA_RDMA_CUTOVER - default 4096 max 16384
   involvement by the CPU (and thus less potential, for instance, for
   overlap of non-blocking communication with computation).
 
-GASNETC_GNI_GET_BOUNCE_REGISTER_CUTOVER  - default 8192, max 32768
-GASNETC_GNI_PUT_BOUNCE_REGISTER_CUTOVER  - default 8192, max 32768
+GASNET_GNI_GET_BOUNCE_REGISTER_CUTOVER  - default 8192, max 32768
+GASNET_GNI_PUT_BOUNCE_REGISTER_CUTOVER  - default 8192, max 32768
   Every Post Descriptor has a small bounce buffer (128 bytes) for
   handling out-of-segment transfers (normally FMAs) with the least
   overhead.  Beyond that size out-of-segment can be performed using
@@ -41,13 +41,13 @@ GASNETC_GNI_PUT_BOUNCE_REGISTER_CUTOVER  - default 8192, max 32768
   to and including these sizes will be conducted using bounce buffers.
   Beyond these sizes, temporary memory registration is used.
   
-GASNETC_GNI_BOUNCE_SIZE      - default 256K, space for bounce buffers
+GASNET_GNI_BOUNCE_SIZE      - default 256K, space for bounce buffers
   There is a pool of bounce buffers, each of a fixed size determined by the
-  larger of GASNETC_GNI_{PUT,GET}_BOUNCE_REGISTER_CUTOVER (see above).  The
-  value of GASNETC_GNI_BOUNCE_SIZE determines the size of the entire pool of
+  larger of GASNET_GNI_{PUT,GET}_BOUNCE_REGISTER_CUTOVER (see above).  The
+  value of GASNET_GNI_BOUNCE_SIZE determines the size of the entire pool of
   bounce buffers.  Thus the number of bounce buffers available is
-     GASNETC_GNI_BOUNCE_SIZE / MAX(GASNETC_GNI_PUT_BOUNCE_REGISTER_CUTOVER,
-                                   GASNETC_GNI_GET_BOUNCE_REGISTER_CUTOVER)
+     GASNET_GNI_BOUNCE_SIZE / MAX(GASNET_GNI_PUT_BOUNCE_REGISTER_CUTOVER,
+                                   GASNET_GNI_GET_BOUNCE_REGISTER_CUTOVER)
   which is 256K / 8K == 32 by default.
 
   If an operation must allocate a bounce buffer and the pool is empty,
@@ -55,14 +55,14 @@ GASNETC_GNI_BOUNCE_SIZE      - default 256K, space for bounce buffers
   setting may limit the number of operations requiring use of a bounce
   buffer which can be in-flight at any time.
 
-GASNETC_GNI_MEM_CONSISTENCY
+GASNET_GNI_MEM_CONSISTENCY
   This control the use of the flag GNI_MEM_STRICT_PI_ORDERING,
   GNI_MEM_RELAXED_PI_ORDERING, or neither when registering memory
   for RDMA.
   The legal values are the strings "strict", "relaxed" or "default".
   In this release the default is "relaxed".
 
-GASNETC_GNI_MEMREG
+GASNET_GNI_MEMREG
   This controls the maximum number of concurrent temporary memory
   registrations, used for RDMA transfers to and from addresses
   outside of the GASNet segment.
@@ -95,7 +95,7 @@ in gemini-conduit/gasnet_gemini.h:
 GASNETC_USE_SPINLOCK	- 0 user gasneti_mutex_t (default)
 			  1 use gasneti_spinlock_t
 
-The _DEFAULT values for all of the GASNETC_GNI_ environment variables.
+The _DEFAULT values for all of the GASNET_GNI_ environment variables.
 
 in gemini-conduit/gasnet_gemini.c:
 
