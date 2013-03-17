@@ -1,6 +1,6 @@
 GASNet gemini-conduit and aries-conduit documentation
 Larry Stewart <stewart@serissa.com> 
-$Revision: 1.22 $
+$Revision: 1.23 $
 
 User Information:
 -----------------
@@ -17,19 +17,20 @@ Recognized environment variables:
 
 GASNET_NETWORKDEPTH - depth of per-peer AM queues - default 12, min 1
 
-GASNETC_GNI_NUM_PD  	  - default 512, desired number of post descriptors
-GASNETC_GNI_MIN_NUM_PD    - default 128, minimum number of post descriptors
-  RDMA operations, whether short Fast Memory Access or longer RDMA, use
-  a control block called a Post Descriptor. These variables control how
-  many of these are allocated, and therefore limit the total number of
-  operations which can be in-flight at any time.
-  On Aries (but not Gemini), AMs also require a Post Descriptor.
+GASNETC_GNI_NUM_PD  	  - default 512, number of post descriptors
+  AM and RDMA operations all requires use of a control block called a
+  Post Descriptor. This variable controls how many of these are
+  allocated, and therefore limit the total number of operations which
+  can be in-flight at any time.
 
 GASNETC_GNI_GET_FMA_RDMA_CUTOVER - default 4096 max 16384
 GASNETC_GNI_PUT_FMA_RDMA_CUTOVER - default 4096 max 16384
   These set the cutover from Fast Memory Access (RDMA commanded in user
   mode) to RDMA (commanded through the kernel).  Transfers up to and
-  including these sizes will be performed using FMA.
+  including these sizes will be performed using FMA.  Use of FMA will
+  typically result in lower latency, but at the expense of greater
+  involvement by the CPU (and thus less potential, for instance, for
+  overlap of non-blocking communication with computation).
 
 GASNETC_GNI_GET_BOUNCE_REGISTER_CUTOVER  - default 8192, max 32768
 GASNETC_GNI_PUT_BOUNCE_REGISTER_CUTOVER  - default 8192, max 32768
@@ -40,8 +41,7 @@ GASNETC_GNI_PUT_BOUNCE_REGISTER_CUTOVER  - default 8192, max 32768
   to and including these sizes will be conducted using bounce buffers.
   Beyond these sizes, temporary memory registration is used.
   
-GASNETC_GNI_BOUNCE_SIZE      - default 256K, desired space for bounce buffers
-GASNETC_GNI_MIN_BOUNCE_SIZE  - default 64K, minimum space for bounce buffers
+GASNETC_GNI_BOUNCE_SIZE      - default 256K, space for bounce buffers
   There is a pool of bounce buffers, each of a fixed size determined by the
   larger of GASNETC_GNI_{PUT,GET}_BOUNCE_REGISTER_CUTOVER (see above).  The
   value of GASNETC_GNI_BOUNCE_SIZE determines the size of the entire pool of
@@ -51,7 +51,9 @@ GASNETC_GNI_MIN_BOUNCE_SIZE  - default 64K, minimum space for bounce buffers
   which is 256K / 8K == 32 by default.
 
   If an operation must allocate a bounce buffer and the pool is empty,
-  it will poll the completion queue until one is returned.
+  it will poll the completion queue until one is returned.  Therefore, this
+  setting may limit the number of operations requiring use of a bounce
+  buffer which can be in-flight at any time.
 
 GASNETC_GNI_MEM_CONSISTENCY
   This control the use of the flag GNI_MEM_STRICT_PI_ORDERING,

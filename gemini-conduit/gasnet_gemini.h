@@ -152,13 +152,9 @@ void gasnetc_get_am_credit(uint32_t pe);
 void gasnetc_init_post_descriptor_pool(void);
 
 /* use the auxseg mechanism to allocate registered memory for bounce buffers */
-/* we want at least this many post descriptors */
-#define GASNETC_GNI_MIN_NUM_PD_DEFAULT 128
-/* and preferably this much space */
+/* we want this many post descriptors */
 #define GASNETC_GNI_NUM_PD_DEFAULT (128 * 4)
-/* we want at least this much space for bounce buffers */
-#define GASNETC_GNI_MIN_BOUNCE_SIZE_DEFAULT 65536
-/* and preferably this much space */
+/* we want this much space for bounce buffers */
 #define GASNETC_GNI_BOUNCE_SIZE_DEFAULT (65536 * 4)
 /* a particular get or put <= this size goes via bounce */
 #define GASNETC_GNI_GET_BOUNCE_REGISTER_CUTOVER_DEFAULT 8192

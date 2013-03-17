@@ -1649,11 +1649,9 @@ GASNETI_IDENT(gasneti_bounce_auxseg_IdentString,
 gasneti_auxseg_request_t gasnetc_bounce_auxseg_alloc(gasnet_seginfo_t *auxseg_info) {
   gasneti_auxseg_request_t retval;
   
-  retval.minsz = gasneti_getenv_int_withdefault("GASNETC_GNI_MIN_BOUNCE_SIZE",
-                                                GASNETC_GNI_MIN_BOUNCE_SIZE_DEFAULT,1);
+  retval.minsz =
   retval.optimalsz = gasneti_getenv_int_withdefault("GASNETC_GNI_BOUNCE_SIZE",
                                                     GASNETC_GNI_BOUNCE_SIZE_DEFAULT,1);
-  if (retval.optimalsz < retval.minsz) retval.optimalsz = retval.minsz;
   if (auxseg_info != NULL) { /* auxseg granted */
     /* The only one we care about is our own node */
     gasnetc_bounce_buffers = auxseg_info[gasneti_mynode];
@@ -1681,13 +1679,10 @@ GASNETI_IDENT(gasneti_pd_auxseg_IdentString, /* XXX: update if gasnetc_post_desc
 gasneti_auxseg_request_t gasnetc_pd_auxseg_alloc(gasnet_seginfo_t *auxseg_info) {
   gasneti_auxseg_request_t retval;
   
-  retval.minsz = gasneti_getenv_int_withdefault("GASNETC_GNI_MIN_NUM_PD",
-                                                GASNETC_GNI_MIN_NUM_PD_DEFAULT,1)
-    * sizeof(gasnetc_post_descriptor_t);
+  retval.minsz =
   retval.optimalsz = gasneti_getenv_int_withdefault("GASNETC_GNI_NUM_PD",
                                                     GASNETC_GNI_NUM_PD_DEFAULT,1) 
     * sizeof(gasnetc_post_descriptor_t);
-  if (retval.optimalsz < retval.minsz) retval.optimalsz = retval.minsz;
   if (auxseg_info != NULL) { /* auxseg granted */
     /* The only one we care about is our own node */
     gasnetc_pd_buffers = auxseg_info[gasneti_mynode];
@@ -1702,7 +1697,6 @@ void gasnetc_init_bounce_buffer_pool(void)
   int num_bounce;
   size_t buffer_size;
   gasneti_assert_always(gasnetc_bounce_buffers.addr != NULL);
-  gasneti_assert_always(gasnetc_bounce_buffers.size >= GASNETC_GNI_MIN_BOUNCE_SIZE_DEFAULT);
 
   gasnetc_get_bounce_register_cutover = 
     gasneti_getenv_int_withdefault("GASNETC_GNI_GET_BOUNCE_REGISTER_CUTOVER",
