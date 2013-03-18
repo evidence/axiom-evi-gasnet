@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2012/09/01 03:36:06 $
- * $Revision: 1.213 $
+ *     $Date: 2013/03/18 02:33:07 $
+ * $Revision: 1.214 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1267,8 +1267,12 @@ typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
   #define GASNETI_ATOMIC_CONFIG   atomics_forced_mutex
 #elif defined(GASNETI_FORCE_OS_ATOMICOPS)
   #define GASNETI_ATOMIC_CONFIG   atomics_forced_os
+#elif defined(GASNETI_FORCE_COMPILER_ATOMICOPS)
+  #define GASNETI_ATOMIC_CONFIG   atomics_forced_compiler
 #elif defined(GASNETI_USE_GENERIC_ATOMICOPS)
   #define GASNETI_ATOMIC_CONFIG   atomics_mutex
+#elif defined(GASNETI_USE_COMPILER_ATOMICOPS)
+  #define GASNETI_ATOMIC_CONFIG   atomics_compiler
 #elif defined(GASNETI_USE_OS_ATOMICOPS)
   #define GASNETI_ATOMIC_CONFIG   atomics_os
 #else
@@ -1279,8 +1283,12 @@ typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
   #define GASNETI_ATOMIC32_CONFIG   atomic32_forced_mutex
 #elif defined(GASNETI_FORCE_OS_ATOMICOPS)
   #define GASNETI_ATOMIC32_CONFIG   atomic32_forced_os
+#elif defined(GASNETI_FORCE_COMPILER_ATOMICOPS)
+  #define GASNETI_ATOMIC32_CONFIG   atomic32_forced_compiler
 #elif defined(GASNETI_USE_GENERIC_ATOMIC32)
   #define GASNETI_ATOMIC32_CONFIG   atomic32_mutex
+#elif defined(GASNETI_USE_COMPILER_ATOMICOPS)
+  #define GASNETI_ATOMIC32_CONFIG   atomic32_compiler
 #elif defined(GASNETI_USE_OS_ATOMICOPS)
   #define GASNETI_ATOMIC32_CONFIG   atomic32_os
 #else
@@ -1291,8 +1299,12 @@ typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
   #define GASNETI_ATOMIC64_CONFIG   atomic64_forced_mutex
 #elif defined(GASNETI_FORCE_OS_ATOMICOPS)
   #define GASNETI_ATOMIC64_CONFIG   atomic64_forced_os
+#elif defined(GASNETI_FORCE_COMPILER_ATOMICOPS) && PLATFORM_ARCH_64
+  #define GASNETI_ATOMIC64_CONFIG   atomic64_forced_compiler
 #elif defined(GASNETI_USE_GENERIC_ATOMIC64)
   #define GASNETI_ATOMIC64_CONFIG   atomic64_mutex
+#elif defined(GASNETI_USE_COMPILER_ATOMICOPS)
+  #define GASNETI_ATOMIC64_CONFIG   atomic64_compiler
 #elif defined(GASNETI_HYBRID_ATOMIC64)
   #define GASNETI_ATOMIC64_CONFIG   atomic64_hybrid
 #elif defined(GASNETI_USE_OS_ATOMICOPS)

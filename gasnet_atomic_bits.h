@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2012/09/01 03:36:06 $
- * $Revision: 1.352 $
+ *     $Date: 2013/03/18 02:33:07 $
+ * $Revision: 1.353 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -28,6 +28,9 @@
     PLATFORM_ARCH_MTA   ||                                       \
     PLATFORM_COMPILER_SGI
   #define GASNETI_USE_OS_ATOMICOPS
+#elif defined(GASNETI_FORCE_COMPILER_ATOMICOPS) || /* for debugging */ \
+    PLATFORM_ARCH_TILE
+  #define GASNETI_USE_COMPILER_ATOMICOPS
 #endif
 
 /* ------------------------------------------------------------------------------------ */
@@ -83,6 +86,42 @@
 #if defined(GASNETI_USE_GENERIC_ATOMICOPS)
   /* Use a very slow but portable implementation of atomic ops using mutexes */
   /* This case exists only to prevent the following cases from matching. */
+#elif defined(GASNETI_USE_COMPILER_ATOMICOPS)
+  #if PLATFORM_COMPILER_GNU /* XXX: work-alikes? */
+    /* Generic implementation in terms of GCC's __sync atomics */
+
+    /* GCC documentation promises a full memory barrier */
+    #define GASNETI_ATOMIC_FENCE_RMW (GASNETI_ATOMIC_MB_PRE | GASNETI_ATOMIC_MB_POST)
+
+    #define GASNETI_HAVE_ATOMIC32_T 1
+    typedef struct { volatile uint32_t ctr; } gasneti_atomic32_t;
+    #define _gasneti_atomic32_read(p)      ((p)->ctr)
+    #define _gasneti_atomic32_set(p,v)     do { (p)->ctr = (v); } while(0)
+    #define _gasneti_atomic32_init(v)      { (v) }
+
+    /* Default impls of inc, dec, dec-and-test, add and sub */
+    #define _gasneti_atomic32_fetchadd(p,op) (__sync_fetch_and_add(&(p)->ctr, (uint32_t)(op)))
+
+    GASNETI_INLINE(_gasneti_atomic32_compare_and_swap)
+    int _gasneti_atomic32_compare_and_swap(gasneti_atomic32_t *p, int oldval, int newval) {
+      return __sync_bool_compare_and_swap(&p->ctr, oldval, newval);
+    }
+
+    #if PLATFORM_ARCH_64 /* TODO: on 32-bit platform should we still be able to use this? */
+      #define GASNETI_HAVE_ATOMIC64_T 1
+      typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
+      #define _gasneti_atomic64_read(p)      ((p)->ctr)
+      #define _gasneti_atomic64_set(p,v)     do { (p)->ctr = (v); } while(0)
+      #define _gasneti_atomic64_init(v)      { (v) }
+
+      GASNETI_INLINE(_gasneti_atomic64_compare_and_swap)
+      int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval) {
+        return __sync_bool_compare_and_swap(&p->ctr, oldval, newval);
+      }
+    #endif
+  #else 
+    #error "GASNETI_USE_COMPILER_ATOMICOPS for unknown or unsupported compiler"
+  #endif
 #elif defined(GASNETI_USE_OS_ATOMICOPS)
   /* ------------------------------------------------------------------------------------
    * Use OS-provided atomics, which should be CPU-independent and

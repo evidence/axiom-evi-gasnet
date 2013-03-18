@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2013/03/07 08:48:11 $ */
-/*  $Revision: 1.186 $ */
+/*      $Date: 2013/03/18 02:33:07 $ */
+/*  $Revision: 1.187 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -265,6 +265,7 @@
 /* forcing use of "non-native" implementations: */
 #undef GASNETI_FORCE_GENERIC_ATOMICOPS
 #undef GASNETI_FORCE_OS_ATOMICOPS
+#undef GASNETI_FORCE_COMPILER_ATOMICOPS
 #undef GASNETI_FORCE_TRUE_WEAKATOMICS
 #undef GASNETI_FORCE_GENERIC_SEMAPHORES
 #undef GASNETI_FORCE_YIELD_MEMBARS

@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2013/03/14 00:42:49 $
-# $Revision: 1.778 $
+#     $Date: 2013/03/18 02:33:07 $
+# $Revision: 1.779 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.778 $)
+AC_REVISION($Revision: 1.779 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1983,12 +1983,19 @@ GASNET_IF_ENABLED(force-generic-atomicops,
 GASNET_IF_ENABLED(force-os-atomicops,
 		  [Force os-provided atomic ops (default is platform specific)],
 		  [enabled_force=yes; enabled_os_atomicops=yes])
-  if test "$enabled_generic_atomicops$enabled_os_atomicops" = yesyes; then
-    AC_MSG_ERROR([You cannot request both --enable-force-generic-atomicops and --enable-force-os-atomicops])
+GASNET_IF_ENABLED(force-compiler-atomicops,
+		  [Force compiler-provided atomic ops (default is platform specific)],
+		  [enabled_force=yes; enabled_compiler_atomicops=yes])
+  if test -z "$enabled_generic_atomicops$enabled_os_atomicops$enabled_compiler_atomicops"; then
+    : # Nothing to do
+  elif test "$enabled_generic_atomicops$enabled_os_atomicops$enabled_compiler_atomicops" != yes; then
+    AC_MSG_ERROR([You may request at most one of --enable-force-generic-atomicops, --enable-force-os-atomicops, --enable-force-compiler-atomicops])
   elif test -n "$enabled_generic_atomicops" ; then
     AC_DEFINE(GASNETI_FORCE_GENERIC_ATOMICOPS)
   elif test -n "$enabled_os_atomicops"; then
     AC_DEFINE(GASNETI_FORCE_OS_ATOMICOPS)
+  elif test -n "$enabled_compiler_atomicops"; then
+    AC_DEFINE(GASNETI_FORCE_COMPILER_ATOMICOPS)
   fi
 GASNET_IF_ENABLED(force-gettimeofday,
 		  [Force use of gettimeofday() for timers (default is platform-specific)],
