@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_membar.h,v $
- *     $Date: 2011/10/04 02:10:28 $
- * $Revision: 1.126 $
+ *     $Date: 2013/03/18 02:28:51 $
+ * $Revision: 1.127 $
  * Description: GASNet header for portable memory barrier operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -400,6 +400,12 @@
    #define GASNETI_RMB_IS_MB
    #define GASNETI_WMB_IS_MB
 /* ------------------------------------------------------------------------------------ */
+#elif PLATFORM_ARCH_TILE && PLATFORM_COMPILER_GNU
+   #define gasneti_local_mb() __sync_synchronize()
+   #define gasneti_local_wmb() gasneti_local_mb()
+   #define gasneti_local_rmb() gasneti_local_mb()
+   #define GASNETI_RMB_IS_MB
+   #define GASNETI_WMB_IS_MB
 #else
  #error unknown CPU - dont know how to do a local memory barrier for your CPU/OS
 #endif
