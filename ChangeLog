@@ -1,6 +1,20 @@
 GASNet ChangeLog 
 ----------------
-$Revision: 1.69 $
+$Revision: 1.70 $
+
+----------------------------------------------------------------------
+04-XX-2013 : Release 1.20.2
+
+* PLACEHOLDER
+
+* Cray XC30 (aries-conduit)
+  - This release includes Beta support for the Aries interconnect of
+    the Cray XC30 (aka Cascade) system.  This initial implementation
+    is believed to be fully correct, but has yet to be fully tuned.
+
+* Cray XE & XK series (gemini-conduit)
+  - With this release support for the Gemini interconnect of the Cray
+    XE and XK series systems has graduated out of BETA status.
 
 ----------------------------------------------------------------------
 10-30-2012 : Release 1.20.0
