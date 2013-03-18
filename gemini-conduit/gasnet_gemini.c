@@ -732,9 +732,10 @@ void gasnetc_poll_smsg_queue(void)
 
     for (i = 0; i < count; ++i) {
       uint32_t source = GNI_CQ_GET_INST_ID(event_data[i]);
+      gasneti_assert(0 == ((GASNET_MAXNODES - 1) & (source ^ GNI_CQ_GET_DATA(event_data[i]))));
 
       if (source & GASNET_MAXNODES) { /* Control message */
-        const uint32_t control = event_data[i] >> 24;
+        const uint32_t control = GNI_CQ_GET_DATA(event_data[i]) >> 24;
         const uint16_t     arg = control >> 8;
         const uint8_t       op = control;
         source &= (GASNET_MAXNODES - 1);
