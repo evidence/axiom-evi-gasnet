@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2013/03/12 04:38:33 $
- * $Revision: 1.306 $
+ *     $Date: 2013/03/19 17:59:55 $
+ * $Revision: 1.307 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1239,7 +1239,7 @@ static void gasnetc_probe_ports(int max_ports) {
 #endif
 
   ib_hcas = num_hcas;
-#if HAVE_IBV_TRANSPORT_TYPE
+#if GASNET_CONDUIT_IBV && HAVE_IBV_TRANSPORT_TYPE
   for (curr_hca = 0; curr_hca < num_hcas; ++curr_hca) {
     ib_hcas -= (hca_list[curr_hca]->transport_type != IBV_TRANSPORT_IB);
   }
