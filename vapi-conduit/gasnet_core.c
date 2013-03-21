@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2013/03/19 17:59:55 $
- * $Revision: 1.307 $
+ *     $Date: 2013/03/21 15:19:28 $
+ * $Revision: 1.308 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1277,7 +1277,7 @@ static void gasnetc_probe_ports(int max_ports) {
     int found = 0;
     int curr_port;
 
-#if HAVE_IBV_TRANSPORT_TYPE
+#if GASNET_CONDUIT_IBV && HAVE_IBV_TRANSPORT_TYPE
     if (hca_list[curr_hca]->transport_type != IBV_TRANSPORT_IB) {
       GASNETI_TRACE_PRINTF(C,("Probe skipping non-InfiniBand HCA '%s'", hca_name));
       continue;
