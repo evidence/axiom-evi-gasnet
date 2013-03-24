@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2013/02/21 08:07:45 $
- * $Revision: 1.230 $
+ *     $Date: 2013/03/24 23:38:37 $
+ * $Revision: 1.231 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -472,6 +472,7 @@ extern int gasnetc_ReplySysMedium(gasnet_token_t token,
 #if GASNET_CONDUIT_VAPI
   #define GASNETC_IB_CHOOSE(X,Y)		X
 
+  #define GASNETC_IB_MTU(_mtu)			MTU##_mtu
   #define gasnetc_close_hca(_hca)		EVAPI_release_hca_hndl(_hca)
   #define gasnetc_alloc_pd(_hca)		VAPI_alloc_pd((_hca)->handle, &((_hca)->pd))
   #define gasnetc_dealloc_pd(_hca,_pd)		VAPI_dealloc_pd((_hca),(_pd))
@@ -486,6 +487,7 @@ extern int gasnetc_ReplySysMedium(gasnet_token_t token,
 #else
   #define GASNETC_IB_CHOOSE(X,Y)		Y
 
+  #define GASNETC_IB_MTU(_mtu)			IBV_MTU_##_mtu
   #define gasnetc_close_hca(_hca)		((void)ibv_close_device(_hca))
   #define gasnetc_alloc_pd(_hca)		(((_hca)->pd = ibv_alloc_pd((_hca)->handle)) == NULL)
   #define gasnetc_dealloc_pd(_hca,_pd)		((void)ibv_dealloc_pd(_pd))
@@ -884,6 +886,7 @@ extern size_t		gasnetc_bounce_limit;
 #else
   #define GASNETC_USE_FIREHOSE	1
 #endif
+extern int              gasnetc_max_mtu;
 extern int              gasnetc_qp_timeout;
 extern int              gasnetc_qp_retry_count;
 extern int		gasnetc_amrdma_max_peers;

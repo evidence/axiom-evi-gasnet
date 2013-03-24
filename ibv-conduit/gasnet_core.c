@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2013/03/21 15:19:28 $
- * $Revision: 1.308 $
+ *     $Date: 2013/03/24 23:38:37 $
+ * $Revision: 1.309 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -80,6 +80,9 @@ static double gasnetc_exittimeout = GASNETC_DEFAULT_EXITTIMEOUT_MAX;
 
 /* Exit coordination setup */
 static void gasnetc_exit_init(void);
+
+/* Maximum MTU (will silently lower to port capability), 0 = use maximum */
+int gasnetc_max_mtu;
 
 /* HW level retry knobs */
 int gasnetc_qp_timeout, gasnetc_qp_retry_count;
@@ -803,6 +806,18 @@ static void gasnetc_init_pin_info(int first_local, int num_local) {
   gasneti_free(all_info);
 }
 
+static const char *mtu_to_str(int mtu) {
+  switch (mtu) {
+  case 0                   : return "0 (automatic)";
+  case GASNETC_IB_MTU(256) : return "256";
+  case GASNETC_IB_MTU(512) : return "512";
+  case GASNETC_IB_MTU(1024): return "1024";
+  case GASNETC_IB_MTU(2048): return "2048";
+  case GASNETC_IB_MTU(4096): return "4096";
+  default                  : return "unknown";
+  }
+}
+
 /* Process defaults and the environment to get configuration settings */
 static int gasnetc_load_settings(void) {
   const char *tmp;
@@ -824,6 +839,28 @@ static int gasnetc_load_settings(void) {
         GASNETI_RETURN_ERRR(BAD_ARG, "("#env_key" < "#minval") in environment");     \
       program_var = _tmp;                                                            \
     } while (0)
+  
+  GASNETC_ENVINT(gasnetc_max_mtu, GASNET_MAX_MTU, 0, 0, 1);
+  switch (gasnetc_max_mtu) {
+    default: fprintf(stderr,
+                     "WARNING: ignoring invalid GASNET_MAX_MTU value %d.\n",
+                     gasnetc_max_mtu);
+             /* fall through to "auto" case: */
+  case    0: /* TODO: "automatic" might be more sophisticated */
+             /* Our historic default is 1k, which is a good latency-vs-bandwidth compromise */
+             gasnetc_max_mtu = GASNETC_IB_MTU(1024);
+             break;
+  case  256: gasnetc_max_mtu = GASNETC_IB_MTU(256);
+             break;
+  case  512: gasnetc_max_mtu = GASNETC_IB_MTU(512);
+             break;
+  case 1024: gasnetc_max_mtu = GASNETC_IB_MTU(1024);
+             break;
+  case 2048: gasnetc_max_mtu = GASNETC_IB_MTU(2048);
+             break;
+  case 4096: gasnetc_max_mtu = GASNETC_IB_MTU(4096);
+             break;
+  }
 
   GASNETC_ENVINT(gasnetc_qp_timeout, GASNET_QP_TIMEOUT, GASNETC_DEFAULT_QP_TIMEOUT, 0, 0);
   if_pf (gasnetc_qp_timeout > 31) {
@@ -1032,6 +1069,7 @@ static int gasnetc_load_settings(void) {
   GASNETI_TRACE_PRINTF(I,  ("  GASNET_QP_RETRY_COUNT           = %d", gasnetc_qp_retry_count));
   GASNETI_TRACE_PRINTF(I,  ("  GASNET_QP_RD_ATOM               = %d%s", gasnetc_qp_rd_atom,
 				!gasnetc_qp_rd_atom ? " (automatic)" : ""));
+  GASNETI_TRACE_PRINTF(I,  ("  GASNET_MAX_MTU                  = %s", mtu_to_str(gasnetc_max_mtu)));
   GASNETI_TRACE_PRINTF(I,  ("}"));
 
   gasnetc_exittimeout = gasneti_get_exittimeout(GASNETC_DEFAULT_EXITTIMEOUT_MAX,
@@ -1500,6 +1538,11 @@ static int gasnetc_hca_report(void) {
         GASNETI_TRACE_PRINTF(I,("  port %d properties = {", (int)gasnetc_port_tbl[i].port_num));
         GASNETI_TRACE_PRINTF(I,("    LID                      = %u", (unsigned int)gasnetc_port_tbl[i].port.lid));
         GASNETI_TRACE_PRINTF(I,("    max_msg_sz               = %u", (unsigned int)gasnetc_port_tbl[i].port.max_msg_sz));
+      #if GASNET_CONDUIT_VAPI
+        GASNETI_TRACE_PRINTF(I,("    max_mtu                  = %s", mtu_to_str(gasnetc_port_tbl[i].port.max_mtu)));
+      #else
+        GASNETI_TRACE_PRINTF(I,("    active_mtu               = %s", mtu_to_str(gasnetc_port_tbl[i].port.active_mtu)));
+      #endif
         GASNETI_TRACE_PRINTF(I,("  }"));
       }
     }

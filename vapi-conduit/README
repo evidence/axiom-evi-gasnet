@@ -1,7 +1,7 @@
 README file for vapi-conduit and ibv-conduit
 ============================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.74 $
+$Revision: 1.75 $
 
 @ TOC: @
 @ Section: VAPI vs IBV @
@@ -280,6 +280,14 @@ $Revision: 1.74 $
     The default value is '0', which means to use the maximum supported
     value reported by the HCA.
     Other valid setting are typically in the range from 1 to 4.
+
+  + GASNET_MAX_MTU
+    This sets the maximum MTU to be used, and has the following valid
+    values:  0, 256, 512, 1024, 2048 or 4096.
+    If the value is 0 GASNet will automatically select the MTU size.
+    Otherwise the lesser of this setting or the port's configured value
+    will be used.
+    The default is 0: automatic MTU selection.
 
   + GASNET_CONNECT_DYNAMIC
     This boolean setting determines if connections can be established

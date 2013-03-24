@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2012/03/08 01:39:56 $
- * $Revision: 1.98 $
+ *     $Date: 2013/03/24 23:38:37 $
+ * $Revision: 1.99 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -18,10 +18,8 @@
   The following configuration cannot yet be overridden by environment variables.
 */
 #if GASNET_CONDUIT_VAPI
-  #define GASNETC_QP_PATH_MTU           MTU1024
   #define GASNETC_QP_MIN_RNR_TIMER      IB_RNR_NAK_TIMER_0_08
 #else
-  #define GASNETC_QP_PATH_MTU           IBV_MTU_1024
   #define GASNETC_QP_MIN_RNR_TIMER      6       /*IB_RNR_NAK_TIMER_0_08*/
 #endif
 #define GASNETC_QP_STATIC_RATE          0
@@ -748,7 +746,9 @@ gasnetc_qp_init2rtr(gasnetc_conn_info_t *conn_info)
       const gasnetc_port_info_t *port = conn_info->port[qpi];
 
       qp_attr.qp_ous_rd_atom = port->rd_atom;
-      qp_attr.path_mtu       = MIN(GASNETC_QP_PATH_MTU, port->port.max_mtu);
+      qp_attr.path_mtu       = gasnetc_max_mtu
+                                   ? MIN(gasnetc_max_mtu, port->port.max_mtu)
+                                   : port->port.max_mtu;
       qp_attr.rq_psn         = GASNETC_PSN(node, qpi);
       qp_attr.av.dlid        = port->remote_lids[node];
       qp_attr.dest_qp_num    = conn_info->remote_qpn[qpi];
@@ -773,7 +773,9 @@ gasnetc_qp_init2rtr(gasnetc_conn_info_t *conn_info)
       const gasnetc_port_info_t *port = conn_info->port[qpi];
 
       qp_attr.max_dest_rd_atomic = GASNETC_QPI_IS_REQ(qpi) ? 0 : port->rd_atom;
-      qp_attr.path_mtu           = MIN(GASNETC_QP_PATH_MTU, port->port.max_mtu);
+      qp_attr.path_mtu           = gasnetc_max_mtu
+                                       ? MIN(gasnetc_max_mtu, port->port.active_mtu)
+                                       : port->port.active_mtu;
       qp_attr.rq_psn             = GASNETC_PSN(node, qpi);
       qp_attr.ah_attr.dlid       = port->remote_lids[node];
       qp_attr.ah_attr.port_num   = port->port_num;
