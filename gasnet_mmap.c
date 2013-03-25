@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2013/03/06 06:35:25 $
- * $Revision: 1.123 $
+ *     $Date: 2013/03/25 04:32:04 $
+ * $Revision: 1.124 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1738,6 +1738,7 @@ extern int gasneti_getNodeInfo(gasnet_nodeinfo_t *nodeinfo_table, int numentries
     gasnet_node_t i;
 
     for (i=0; i < numentries; i++) {
+      nodeinfo_table[i].host = i;
       nodeinfo_table[i].supernode = i;
     #if GASNET_PSHM
       nodeinfo_table[i].offset = 0;

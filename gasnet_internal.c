@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2013/03/25 03:47:15 $
- * $Revision: 1.233 $
+ *     $Date: 2013/03/25 04:32:04 $
+ * $Revision: 1.234 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1084,12 +1084,14 @@ static void gasneti_nodemap_dflt(gasneti_bootstrapExchangefn_t exchangefn) {
  * TODO: splitting by socket or other criteria for/with GASNET_SUPERNODE_MAXSIZE.
  */
 extern void gasneti_nodemapParse(void) {
+  gasnet_node_t host_count = 0;
   gasnet_node_t i,j,first;
   gasnet_node_t limit;
 
   struct { /* TODO: alloca? */
     gasnet_node_t width;
     gasnet_node_t first;
+    gasnet_node_t host;
     gasnet_node_t supernode;
   } *s = gasneti_calloc(gasneti_nodes, sizeof(*s));
 
@@ -1117,7 +1119,7 @@ extern void gasneti_nodemapParse(void) {
    * + Apply the supernode size limit, if any.
    * + Determine global counts and rank
    * + Determine local rank
-   * + Construct gasneti_nodeinfo[]
+   * + Construct gasneti_nodeinfo[].{host,supernode}
    */
   gasneti_nodemap_global_count = 0;
   for (i = 0; i < gasneti_nodes; ++i) {
@@ -1127,6 +1129,7 @@ extern void gasneti_nodemapParse(void) {
     if (!lrank) {
       s[n].first = i;
       s[n].supernode = gasneti_nodemap_global_count++;
+      if (!width) s[n].host = host_count++;
     }
     if (i == gasneti_mynode) {
       gasneti_nodemap_global_rank = s[n].supernode;
@@ -1134,6 +1137,7 @@ extern void gasneti_nodemapParse(void) {
     }
     gasneti_nodemap[i] = s[n].first;
     gasneti_nodeinfo[i].supernode = s[n].supernode;
+    gasneti_nodeinfo[i].host = s[n].host;
   }
   gasneti_assert(gasneti_nodeinfo[gasneti_mynode].supernode == gasneti_nodemap_global_rank);
 

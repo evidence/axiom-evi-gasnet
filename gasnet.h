@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet.h,v $
- *     $Date: 2012/08/24 23:19:52 $
- * $Revision: 1.74 $
+ *     $Date: 2013/03/25 04:32:04 $
+ * $Revision: 1.75 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -300,7 +300,8 @@ GASNETI_END_EXTERNC
 #ifndef _GASNET_NODEINFO_T
 #define _GASNET_NODEINFO_T
   typedef struct gasneti_nodeinfo_s {
-    gasnet_node_t supernode;
+    gasnet_node_t host; /* 0-based identifier for procs on same compute node */
+    gasnet_node_t supernode; /* 0-based identifier for procs which comprise a shared-memory supernode */
   #if GASNET_PSHM
     /* Value one must add to find locally mapped address, if any. */
     uintptr_t offset;
