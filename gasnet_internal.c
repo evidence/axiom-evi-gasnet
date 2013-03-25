@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2013/03/25 04:32:04 $
- * $Revision: 1.234 $
+ *     $Date: 2013/03/25 05:31:03 $
+ * $Revision: 1.235 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1082,11 +1082,12 @@ static void gasneti_nodemap_dflt(gasneti_bootstrapExchangefn_t exchangefn) {
  *
  * NOTE: may modify gasneti_nodemap[] if env var GASNET_SUPERNODE_MAXSIZE is set.
  * TODO: splitting by socket or other criteria for/with GASNET_SUPERNODE_MAXSIZE.
+ * TODO: keep widths around for conduits to use? (vapi and gemini both use)
  */
 extern void gasneti_nodemapParse(void) {
   gasnet_node_t host_count = 0;
   gasnet_node_t i,j,first;
-  gasnet_node_t limit;
+  gasnet_node_t limit,orig;
 
   struct { /* TODO: alloca? */
     gasnet_node_t width;
@@ -1117,11 +1118,13 @@ extern void gasneti_nodemapParse(void) {
 
   /* First pass: 
    * + Apply the supernode size limit, if any.
-   * + Determine global counts and rank
-   * + Determine local rank
+   * + Determine global count and rank
+   * + Determine local count and rank
    * + Construct gasneti_nodeinfo[].{host,supernode}
    */
   gasneti_nodemap_global_count = 0;
+  gasneti_nodemap_local_count = 0;
+  orig = gasneti_nodemap[gasneti_mynode];
   for (i = 0; i < gasneti_nodes; ++i) {
     const gasnet_node_t n = gasneti_nodemap[i];
     const gasnet_node_t width = s[n].width++;
@@ -1139,16 +1142,17 @@ extern void gasneti_nodemapParse(void) {
     gasneti_nodeinfo[i].supernode = s[n].supernode;
     gasneti_nodeinfo[i].host = s[n].host;
   }
+  first = gasneti_nodemap[gasneti_mynode];
+  gasneti_nodemap_local_count = (first == s[orig].first) ? (((s[orig].width - 1) % limit) + 1) : limit;
   gasneti_assert(gasneti_nodeinfo[gasneti_mynode].supernode == gasneti_nodemap_global_rank);
+  gasneti_free(s);
 
-  /* Second pass: Construct array of local nodes, overwriting s[] */
-  first = gasneti_nodemap[gasneti_mynode]; 
-  for (i = first, j = 0; i < gasneti_nodes; ++i) {
+  /* Second pass: Construct array of local nodes */
+  gasneti_nodemap_local = gasneti_malloc(gasneti_nodemap_local_count*sizeof(gasnet_node_t));
+  for (i = first, j = 0; j < gasneti_nodemap_local_count; ++i) {
     gasneti_assert(i < gasneti_nodes);
-    if (gasneti_nodemap[i] == first) ((gasnet_node_t *) s)[j++] = i;
+    if (gasneti_nodemap[i] == first) gasneti_nodemap_local[j++] = i;
   }
-  gasneti_nodemap_local_count = j;
-  gasneti_nodemap_local = memcpy(gasneti_malloc(j*sizeof(gasnet_node_t)), s, j*sizeof(gasnet_node_t));
 
   #if GASNET_DEBUG_VERBOSE
   if (!gasneti_mynode) {
@@ -1158,7 +1162,6 @@ extern void gasneti_nodemapParse(void) {
   }
   #endif
   
-  gasneti_free(s);
 }
 
 /* gasneti_nodemapInit(exchangefn, ids, sz, stride)
