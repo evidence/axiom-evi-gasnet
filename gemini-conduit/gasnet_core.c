@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/03/27 02:38:32 $
- * $Revision: 1.77 $
+ *     $Date: 2013/03/27 04:02:06 $
+ * $Revision: 1.78 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -454,31 +454,20 @@ static void gasnetc_sys_coll_fini(void)
 /* ------------------------------------------------------------------------------------ */
 
 #if 0 /* Currently unused */
-/* code from portals_conduit */
 /* ---------------------------------------------------------------------------------
- * Helpers for try_pin() and gasnetc_portalsMaxPinMem()
+ * Helpers for gasnetc_MaxPinMem()
  * --------------------------------------------------------------------------------- */
 static void *try_pin_region = NULL;
 static uintptr_t try_pin_size = 0;
 
-#if HAVE_MMAP
-  static void *try_pin_alloc_inner(const uintptr_t size) {
-    void *addr = gasneti_mmap(size);
-    if (addr == MAP_FAILED) addr = NULL;
-    return addr;
-  }
-  static void try_pin_free_inner(void *addr, const uintptr_t size) {
-    gasneti_munmap(addr, size);
-  }
-#else
-  static void *try_pin_alloc_inner(const uintptr_t size) {
-    void *addr = gasneti_malloc_allowfail(size);
-    return addr;
-  }
-  static void try_pin_free_inner(void *addr, const uintptr_t size) {
-    gasneti_free(addr);
-  }
-#endif
+static void *try_pin_alloc_inner(const uintptr_t size) {
+  void *addr = gasneti_huge_mmap(NULL, size);
+  if (addr == MAP_FAILED) addr = NULL;
+  return addr;
+}
+static void try_pin_free_inner(void *addr, const uintptr_t size) {
+  gasneti_huge_munmap(addr, size);
+}
 
 static uintptr_t try_pin_alloc(uintptr_t size, const uintptr_t step) {
   void *addr = try_pin_alloc_inner(size);
@@ -517,6 +506,10 @@ static void try_pin_free(void) {
   try_pin_free_inner(try_pin_region, try_pin_size);
   try_pin_region = NULL;
   try_pin_size = 0;
+}
+
+static int try_pin(uintptr_t size) {
+  return gasnetc_try_pin(try_pin_region, size);
 }
 #endif
 
@@ -562,10 +555,24 @@ extern uintptr_t gasnetc_MaxPinMem(uintptr_t msgspace)
     return (uintptr_t)limit;
   }
 
-#if 0 /* This doesn't currenty DO anything that mmapLimit didn't already do */
+#if 0 /* TODO: do we ever need to actually try_pin() the mmapLimit result? */
   /* Allocate a block of memory on which to try pinning */
-  high = try_pin_alloc(limit, granularity);
-  low = high;
+  low = high = try_pin_alloc(limit, granularity);
+
+  /* See how much of the block can be pinned */
+  if (!try_pin(high)) {
+    /* Binary search */
+    low = 0;
+    while ((high - low) > granularity) {
+      uint64_t mid = (low + high)/2;
+      if (try_pin(mid)) {
+        low = mid;
+      } else {
+        high = mid;
+      }
+    }
+  }
+
   /* Free the block we've been pinning */
   try_pin_free();
 #else

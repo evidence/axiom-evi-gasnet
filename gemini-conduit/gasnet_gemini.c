@@ -140,6 +140,31 @@ const char *gasnetc_post_type_string(gni_post_type_t type)
   return("unknown");
 }
 
+/*------ Used to probe registration capabilities ------*/
+
+#if 0 /* Currently unused */
+int gasnetc_try_pin(void *addr, uintptr_t size)
+{ 
+  int i;
+
+  for (i=0; i<100; ++i) {
+    gni_mem_handle_t mem_handle;
+    gni_return_t status;
+
+    status = GNI_MemRegister(nic_handle, (uint64_t)addr, size, NULL,
+                             gasnetc_memreg_flags, -1, &mem_handle);
+    if_pt (status == GNI_RC_SUCCESS) {
+      status = GNI_MemDeregister(nic_handle, &mem_handle);
+      gasneti_assert(status == GNI_RC_SUCCESS);
+      return 1;
+    }
+    if (status != GNI_RC_ERROR_RESOURCE) break; /* Fatal */
+  }
+
+  return 0;
+}
+#endif
+
 /*------ Functions for dynamic memory registration ------*/
 
 static gasneti_weakatomic_val_t gasnetc_reg_credit_max;
