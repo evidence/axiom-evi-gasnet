@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/03/18 00:08:44 $
- * $Revision: 1.76 $
+ *     $Date: 2013/03/27 02:38:32 $
+ * $Revision: 1.77 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -22,6 +22,7 @@
 #endif
 
 #include <sys/mman.h>
+#include <hugetlbfs.h>
 
 #ifndef MPI_SUCCESS
 #define MPI_SUCCESS 0
@@ -452,6 +453,7 @@ static void gasnetc_sys_coll_fini(void)
 
 /* ------------------------------------------------------------------------------------ */
 
+#if 0 /* Currently unused */
 /* code from portals_conduit */
 /* ---------------------------------------------------------------------------------
  * Helpers for try_pin() and gasnetc_portalsMaxPinMem()
@@ -516,18 +518,17 @@ static void try_pin_free(void) {
   try_pin_region = NULL;
   try_pin_size = 0;
 }
+#endif
 
 /* ---------------------------------------------------------------------------------
  * Determine the largest amount of memory that can be pinned on the node.
  * --------------------------------------------------------------------------------- */
-extern uintptr_t gasnetc_portalsMaxPinMem(uintptr_t msgspace)
+extern uintptr_t gasnetc_MaxPinMem(uintptr_t msgspace)
 {
-#define MBYTE 1048576ULL
-  uintptr_t granularity = 16ULL * MBYTE;
+  uintptr_t granularity = gethugepagesize();
+  uintptr_t limit;
   uintptr_t low;
   uintptr_t high;
-  uintptr_t limit = 16ULL * 1024ULL * MBYTE;
-#undef MBYTE
 
   /* On CNL, if we try to pin beyond what the OS will allow, the job is killed.
    * So, there is really no way (that we know of) to determine the EXACT maximum
@@ -543,13 +544,15 @@ extern uintptr_t gasnetc_portalsMaxPinMem(uintptr_t msgspace)
 
   pm_limit = gasneti_getenv_int_withdefault("GASNET_PHYSMEM_MAX", pm_limit, 1);
 
-  msgspace *= gasneti_nodemap_local_count;
+  /* msgspace is allocated from hugepages (granularity) in every proc */
+  msgspace = GASNETI_ALIGNUP(msgspace, granularity) * gasneti_nodemap_local_count;
+
   if (pm_limit < msgspace || (pm_limit - msgspace) < (granularity * gasneti_nodemap_local_count)) {
     gasneti_fatalerror("Insufficient physical memory left for a GASNet segment");
   }
   pm_limit -= msgspace;
 
-  limit = gasneti_mmapLimit(limit, pm_limit,
+  limit = gasneti_mmapLimit((uintptr_t)-1, pm_limit,
                             &gasnetc_bootstrapExchange,
                             &gasnetc_bootstrapBarrier);
 
@@ -559,11 +562,15 @@ extern uintptr_t gasnetc_portalsMaxPinMem(uintptr_t msgspace)
     return (uintptr_t)limit;
   }
 
+#if 0 /* This doesn't currenty DO anything that mmapLimit didn't already do */
   /* Allocate a block of memory on which to try pinning */
   high = try_pin_alloc(limit, granularity);
   low = high;
   /* Free the block we've been pinning */
   try_pin_free();
+#else
+  low = limit;
+#endif
 
   if (low < granularity) {
     gasnetc_GNIT_Abort("Unable to alloc and pin minimal memory of size %d bytes",(int)granularity);
@@ -674,26 +681,12 @@ static int gasnetc_init(int *argc, char ***argv) {
   /* Now that messaging is available, use it for remaining bootstrap collectives */
   gasnetc_sys_coll_init();
 
-    /* LCS  Use segment size strategy from portals-conduit (CNL only) */
   #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
     { 
-      uintptr_t max_pin = gasnetc_portalsMaxPinMem(msgspace);
-
-
-#if GASNET_DEBUG_VERBOSE
-      {
-	fprintf(stderr, "node %i Gemini Conduit reports Max Pin Mem = %ld\n",
-	       gasneti_mynode,(long) max_pin);
-	fflush(stderr);
-      }
-#endif
+      uintptr_t max_pin = gasnetc_MaxPinMem(msgspace);
 
       /* localSegmentLimit provides a conduit-specific limit on the max segment size.
        * can use (uintptr_t)-1 as unlimited.
-       * In case of Portals/Catamount there is no mmap so both MaxLocalSegmentSize
-       * and MaxGlobalSegmentSize are basically set to the min of localSegmentLimit
-       * and GASNETI_MALLOCSEGMENT_MAX_SIZE, which defaults to 100MB.
-       * Can set GASNET_MAX_SEGSIZE=XXXM env var to over-ride this.
        */
       gasneti_segmentInit( max_pin, &gasnetc_bootstrapExchange);
 
