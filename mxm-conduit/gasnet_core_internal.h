@@ -134,8 +134,10 @@ typedef struct {
 #if MXM_API < MXM_VERSION(1,5)
     uint32_t   lkey;   /* used for local access by HCA */
     uint32_t   rkey;   /* used for remote access by HCA */
-#else
+#elif MXM_API == MXM_VERSION(1,5)
     mxm_mem_h  memh;
+#else
+#error MXM version is not supported
 #endif
 } gasnetc_memreg_t;
 

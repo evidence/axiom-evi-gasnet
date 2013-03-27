@@ -20,9 +20,11 @@ extern void _gasnete_iop_check(gasnete_iop_t *iop) {
 #if MXM_API < MXM_VERSION(1,5)
 extern uint32_t gasnetc_find_lkey(void *addr, int nbytes);
 extern uint32_t gasnetc_find_rkey(void *addr, int nbytes, int rank);
-#else
+#elif MXM_API == MXM_VERSION(1,5)
 extern mxm_mem_h gasnetc_find_memh(void *addr, int nbytes);
 extern mxm_mem_h gasnetc_find_remote_memh(void *addr, int nbytes, int rank);
+#else
+#error MXM version is not supported
 #endif
 
 /* ------------------------------------------------------------------------------------ */
@@ -399,8 +401,10 @@ gasnet_mxm_send_req_t * gasnete_fill_fence_request(gasnet_node_t node, void *cal
     mxm_sreq->base.data.buffer.length = 0;
 #if MXM_API < MXM_VERSION(1,5)
     mxm_sreq->base.data.buffer.mkey = MXM_MKEY_NONE;
-#else
+#elif MXM_API == MXM_VERSION(1,5)
     mxm_sreq->base.data.buffer.memh = NULL;
+#else
+#error MXM version is not supported
 #endif
     mxm_sreq->base.data_type = MXM_REQ_DATA_BUFFER;
 
@@ -617,9 +621,11 @@ void gasnete_fill_get_request(mxm_send_req_t * mxm_sreq, void *dest,
 #if MXM_API < MXM_VERSION(1,5)
     mxm_sreq->base.data.buffer.mkey = gasnetc_find_lkey(dest, nbytes);
     mxm_sreq->op.mem.remote_mkey = gasnetc_find_rkey(src, nbytes, (int)node);
-#else
+#elif MXM_API == MXM_VERSION(1,5)
     mxm_sreq->base.data.buffer.memh = gasnetc_find_memh(dest, nbytes);
     mxm_sreq->op.mem.remote_memh = gasnetc_find_remote_memh(src, nbytes, (int)node);
+#else
+#error MXM version is not supported
 #endif
 
     mxm_sreq->base.completed_cb = NULL;
@@ -647,9 +653,11 @@ void gasnete_fill_put_request(mxm_send_req_t * mxm_sreq, void *dest,
 #if MXM_API < MXM_VERSION(1,5)
     mxm_sreq->base.data.buffer.mkey = gasnetc_find_lkey(src, nbytes);
     mxm_sreq->op.mem.remote_mkey = gasnetc_find_rkey(dest, nbytes, (int)node);
-#else
+#elif MXM_API == MXM_VERSION(1,5)
     mxm_sreq->base.data.buffer.memh = gasnetc_find_memh(src, nbytes);
     mxm_sreq->op.mem.remote_memh = gasnetc_find_remote_memh(dest, nbytes, (int)node);
+#else
+#error MXM version is not supported
 #endif
 
     mxm_sreq->base.completed_cb = NULL;

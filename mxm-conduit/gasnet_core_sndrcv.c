@@ -174,8 +174,10 @@ extern void gasnetc_barrier_fence(void)
 
 #if MXM_API < MXM_VERSION(1,5)
         mxm_sreq->base.data.buffer.mkey = MXM_MKEY_NONE;
-#else
+#elif MXM_API == MXM_VERSION(1,5)
         mxm_sreq->base.data.buffer.memh = NULL;
+#else
+#error MXM version is not supported
 #endif
         mxm_sreq->base.data_type = MXM_REQ_DATA_BUFFER;
 
@@ -270,7 +272,7 @@ inline uint32_t gasnetc_find_rkey(void *src_addr, int nbytes, int rank)
 #endif
 }
 
-#else
+#elif MXM_API == MXM_VERSION(1,5)
 
 inline mxm_mem_h gasnetc_find_memh(void *addr, int nbytes)
 {
@@ -287,6 +289,8 @@ inline mxm_mem_h gasnetc_find_remote_memh(void *addr, int nbytes, int rank)
     return NULL; /* No zcopy on receive side, so don't bother */
 }
 
+#else
+#error MXM version is not supported
 #endif
 
 /* -------------------------------------------------------------------------- */
@@ -416,8 +420,10 @@ int gasnetc_AM_Generic(gasnetc_category_t category,
 
 #if MXM_API < MXM_VERSION(1,5)
         mxm_sreq->base.data.buffer.mkey = MXM_MKEY_NONE;
-#else
+#elif MXM_API == MXM_VERSION(1,5)
         mxm_sreq->base.data.buffer.memh = NULL;
+#else
+#error MXM version is not supported
 #endif
 
         mxm_sreq->base.data_type = MXM_REQ_DATA_BUFFER;
@@ -435,8 +441,10 @@ int gasnetc_AM_Generic(gasnetc_category_t category,
                                                   GASNETI_MEDBUF_ALIGNMENT);
 #if MXM_API < MXM_VERSION(1,5)
             p_sreq->sendiov[sge_idx].mkey = MXM_MKEY_NONE;
-#else
+#elif MXM_API == MXM_VERSION(1,5)
             p_sreq->sendiov[sge_idx].memh = NULL;
+#else
+#error MXM version is not supported
 #endif
             sge_idx++;
         }
@@ -446,8 +454,10 @@ int gasnetc_AM_Generic(gasnetc_category_t category,
             p_sreq->sendiov[sge_idx].length = nbytes;
 #if MXM_API < MXM_VERSION(1,5)
             p_sreq->sendiov[sge_idx].mkey = gasnetc_find_lkey(src_addr, nbytes);
-#else
+#elif MXM_API == MXM_VERSION(1,5)
             p_sreq->sendiov[sge_idx].memh = gasnetc_find_memh(src_addr, nbytes);
+#else
+#error MXM version is not supported
 #endif
             sge_idx++;
         }
@@ -487,9 +497,11 @@ int gasnetc_AM_Generic(gasnetc_category_t category,
 #if MXM_API < MXM_VERSION(1,5)
             put_mxm_sreq->base.data.buffer.mkey = gasnetc_find_lkey(src_addr, nbytes);
             put_mxm_sreq->op.mem.remote_mkey = gasnetc_find_rkey(dst_addr, nbytes, dest);
-#else
+#elif MXM_API == MXM_VERSION(1,5)
             put_mxm_sreq->base.data.buffer.memh = gasnetc_find_memh(src_addr, nbytes);
             put_mxm_sreq->op.mem.remote_memh = gasnetc_find_remote_memh(dst_addr, nbytes, dest);
+#else
+#error MXM version is not supported
 #endif
 
             /*
@@ -525,8 +537,10 @@ int gasnetc_AM_Generic(gasnetc_category_t category,
             p_sreq->sendiov[sge_idx].length = numargs * sizeof(gasnet_handlerarg_t);
 #if MXM_API < MXM_VERSION(1,5)
             p_sreq->sendiov[sge_idx].mkey = MXM_MKEY_NONE;
-#else
+#elif MXM_API == MXM_VERSION(1,5)
             p_sreq->sendiov[sge_idx].memh = NULL;
+#else
+#error MXM version is not supported
 #endif
             sge_idx++;
         }
@@ -537,8 +551,10 @@ int gasnetc_AM_Generic(gasnetc_category_t category,
         p_sreq->sendiov[sge_idx].length = sizeof(p_sreq->long_info);
 #if MXM_API < MXM_VERSION(1,5)
         p_sreq->sendiov[sge_idx].mkey = MXM_MKEY_NONE;
-#else
+#elif MXM_API == MXM_VERSION(1,5)
         p_sreq->sendiov[sge_idx].memh = NULL;
+#else
+#error MXM version is not supported
 #endif
         sge_idx++;
 

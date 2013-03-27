@@ -351,9 +351,11 @@ extern int gasnetc_pin(void *addr, size_t size, gasnetc_memreg_t *reg)
 #if MXM_API < MXM_VERSION(1,5)
     res = mxm_reg_mr(gasnet_mxm_module.mxm_ep, MXM_PTL_RDMA,
                      addr, size, &reg->lkey, &reg->rkey);
-#else
+#elif MXM_API == MXM_VERSION(1,5)
     res = mxm_mem_register(gasnet_mxm_module.mxm_context,
                            addr, size, &reg->memh);
+#else
+#error MXM version is not supported
 #endif
 
     if_pf (MXM_OK != res)
@@ -380,8 +382,10 @@ static void gasnetc_unpin(gasnetc_memreg_t *reg)
                                   (void *)reg->addr, reg->len)) {
         MXM_ERROR("Failed deregistering memory region\n");
     }
-#else
+#elif MXM_API == MXM_VERSION(1,5)
     mxm_mem_destroy(reg->memh);
+#else
+#error MXM version is not supported
 #endif
 
 #if GASNET_TRACE
@@ -552,8 +556,10 @@ static inline int gasnetc_post_recv(void)
     p_base->data.buffer.length = gasnet_mxm_module.recv_reg.len;
 #if MXM_API < MXM_VERSION(1,5)
     p_base->data.buffer.mkey = gasnet_mxm_module.recv_reg.lkey;
-#else
+#elif MXM_API == MXM_VERSION(1,5)
     p_base->data.buffer.memh = gasnet_mxm_module.recv_reg.memh;
+#else
+#error MXM version is not supported
 #endif
     return mxm_req_recv(p_req);
 }
@@ -567,9 +573,11 @@ static int gasnetc_init(int *argc, char ***argv)
     struct sockaddr_mxm_ib_local    sockaddr_bind_rdma;
     mxm_ep_opts_t                   mxm_ep_opts;
     mxm_context_opts_t              mxm_opts;
-#else
+#elif MXM_API == MXM_VERSION(1,5)
     mxm_ep_opts_t                 * mxm_ep_opts;
     mxm_context_opts_t            * mxm_opts;
+#else
+#error MXM version is not supported
 #endif
     gasnet_mxm_ep_conn_info_t       local_ep;
     mxm_error_t                     mxm_status;
@@ -577,6 +585,7 @@ static int gasnetc_init(int *argc, char ***argv)
     uint32_t                        res;
 
     uint32_t jobid = 0;
+    unsigned long cur_ver;
     memset(&gasnet_mxm_module, 0, sizeof(gasnet_mxm_module));
 
     /*  check system sanity */
@@ -623,11 +632,19 @@ static int gasnetc_init(int *argc, char ***argv)
      *   - MXM_ASYNC_MODE_THREAD
      * We need a progress thread or at least signal - otherwise AM won't work.
      */
+
+    cur_ver = mxm_get_version();
+    if (cur_ver != MXM_API) 
+    {
+        MXM_ERROR("Current MXM version %ld.%ld does not match to MXM version %d.%d UPC was compiled with.\n", (cur_ver >> MXM_MAJOR_BIT)& 0xff, (cur_ver >> MXM_MINOR_BIT) & 0xff, MXM_VERNO_MAJOR, MXM_VERNO_MINOR);
+        return GASNET_ERR_NOT_INIT;
+    }
+
 #if MXM_API < MXM_VERSION(1,5)
     mxm_fill_context_opts(&mxm_opts);
     mxm_opts.async_mode = MXM_ASYNC_MODE_THREAD;
     mxm_status = mxm_init(&mxm_opts, &gasnet_mxm_module.mxm_context);
-#else
+#elif MXM_API == MXM_VERSION(1,5)
     res = mxm_config_read_context_opts(&mxm_opts);
     if_pf (res != MXM_OK) {
         MXM_ERROR("Failed to parse MXM configuration");
@@ -636,6 +653,8 @@ static int gasnetc_init(int *argc, char ***argv)
     mxm_opts->async_mode = MXM_ASYNC_MODE_THREAD;
     mxm_opts->ptl_bitmap = MXM_BIT(MXM_PTL_SELF) | MXM_BIT(MXM_PTL_RDMA);
     mxm_status = mxm_init(mxm_opts, &gasnet_mxm_module.mxm_context);
+#else
+#error MXM version is not supported
 #endif
 
     if (mxm_status != MXM_OK) {
@@ -690,7 +709,7 @@ static int gasnetc_init(int *argc, char ***argv)
 
     mxm_status = mxm_ep_create(gasnet_mxm_module.mxm_context,
                                &mxm_ep_opts, &gasnet_mxm_module.mxm_ep);
-#else
+#elif MXM_API == MXM_VERSION(1,5)
     mxm_status = mxm_config_read_ep_opts(&mxm_ep_opts);
     if (mxm_status != MXM_OK) {
         MXM_ERROR("Failed to parse MXM configuration (%s)\n",
@@ -703,6 +722,8 @@ static int gasnetc_init(int *argc, char ***argv)
     mxm_status = mxm_ep_create(gasnet_mxm_module.mxm_context,
                         mxm_ep_opts, &gasnet_mxm_module.mxm_ep);
     mxm_config_free(mxm_ep_opts);
+#else
+#error MXM version is not supported
 #endif
 
     if (mxm_status != MXM_OK) {
@@ -714,9 +735,11 @@ static int gasnetc_init(int *argc, char ***argv)
 #if MXM_API < MXM_VERSION(1,5)
     gasnet_mxm_module.rndv_thresh = mxm_ep_opts.rdma.rndv_thresh;
     gasnet_mxm_module.zcopy_thresh = mxm_ep_opts.rdma.zcopy_thresh;
-#else
+#elif MXM_API == MXM_VERSION(1,5)
     gasnet_mxm_module.rndv_thresh = mxm_ep_opts->rdma.rndv_thresh;
     gasnet_mxm_module.zcopy_thresh = mxm_ep_opts->rdma.zcopy_thresh;
+#else
+#error MXM version is not supported
 #endif
 
     /*
