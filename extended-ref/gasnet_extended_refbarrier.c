@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2012/11/22 04:52:00 $
- * $Revision: 1.142 $
+ *     $Date: 2013/04/03 23:27:07 $
+ * $Revision: 1.143 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -359,7 +359,7 @@ gasneti_atomic_sval_t gasnete_pshmbarrier_try_inner(const gasnete_pshmbarrier_da
  */
 static gasnete_pshmbarrier_data_t *
 gasnete_pshmbarrier_init_inner(gasnete_coll_team_t team) {
-  gasnete_pshmbarrier_data_t *pshm_bdata;
+  gasnete_pshmbarrier_data_t *pshm_bdata = NULL;
   gasneti_pshm_barrier_t *shared_data = NULL;
   const int two_to_phase = 1; /* 2^0 */
   int i, radix;
