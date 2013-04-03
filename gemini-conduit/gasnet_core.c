@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/03/27 04:02:06 $
- * $Revision: 1.78 $
+ *     $Date: 2013/04/03 01:18:58 $
+ * $Revision: 1.79 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -535,6 +535,10 @@ extern uintptr_t gasnetc_MaxPinMem(uintptr_t msgspace)
                         "GASNET_PHYSMEM_PINNABLE_RATIO", 
                         GASNETC_DEFAULT_PHYSMEM_PINNABLE_RATIO);
 
+#if GASNET_CONDUIT_GEMINI
+  /* Even on large memory nodes on Hopper, this appears to be the NIC's limit: */
+  pm_limit = MIN(pm_limit, 24UL << 30 /* 24 GB */);
+#endif
   pm_limit = gasneti_getenv_int_withdefault("GASNET_PHYSMEM_MAX", pm_limit, 1);
 
   /* msgspace is allocated from hugepages (granularity) in every proc */
