@@ -1,9 +1,9 @@
-/* $Header: /Users/kamil/work/gasnet-cvs2/gasnet/license.txt,v 1.19 2013/02/06 07:24:22 phargrov Exp $
+/* $Header: /Users/kamil/work/gasnet-cvs2/gasnet/license.txt,v 1.20 2013/04/04 21:37:22 phargrov Exp $
  * All files in this directory and all sub-directories (except where otherwise noted)
  * are subject to the following licensing terms: 
  *
  * ---------------------------------------------------------------------------
- * "Copyright (c) 2000-2012 The Regents of the University of California.
+ * "Copyright (c) 2000-2013 The Regents of the University of California.
  * All rights reserved.
  * 
  * Permission to use, copy, modify, and distribute this software and its
@@ -39,7 +39,7 @@
  *  Christian Bell <csbell@cs.berkeley.edu>: gm-conduit, shmem-conduit
  *  Mike Welcome <mlwelcome@lbl.gov>: lapi-conduit, portals-conduit
  *  Paul H. Hargrove <PHHargrove@lbl.gov>:
- *     vapi-conduit, ibv-conduit, pami-conduit, aries-conduit(sub), atomics
+ *     vapi-conduit, ibv-conduit, pami-conduit, aries-conduit, atomics
  *  Rajesh Nishtala <rajeshn@cs.berkeley.edu>: collectives, dcmf-conduit
  *  Parry Husbands <PJRHusbands@lbl.gov>: lapi-conduit
  *  Filip Blagojevic <FBlagojevic@lbl.gov>: shared-memory support
