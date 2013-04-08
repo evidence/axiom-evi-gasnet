@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_asm.h,v $
- *     $Date: 2012/04/24 06:27:21 $
- * $Revision: 1.136 $
+ *     $Date: 2013/04/08 23:17:04 $
+ * $Revision: 1.137 $
  * Description: GASNet header for semi-portable inline asm support
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -242,8 +242,8 @@
 
 #if PLATFORM_ARCH_ARM && PLATFORM_OS_LINUX
   /* This helper macro hides ISA differences going from ARMv4 to ARMv5 */
-  #if defined(__thumb__)
-    #error "GASNet does not support ARM Thumb mode"
+  #if defined(__thumb__) && !defined(__thumb2__)
+    #error "GASNet does not support ARM Thumb1 mode"
     #define GASNETI_ARM_ASMCALL(_tmp, _offset) "choke me"
   #elif defined(__ARM_ARCH_2__)
     #error "GASNet does not support ARM versions earlier than ARMv3"

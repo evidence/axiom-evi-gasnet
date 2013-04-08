@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2013/03/18 02:33:07 $
- * $Revision: 1.353 $
+ *     $Date: 2013/04/08 23:17:04 $
+ * $Revision: 1.354 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2614,6 +2614,9 @@ GASNETI_MIPS_LL(_ll "   %0,0(%4)         \n\t")/* _retval = *p (starts ll/sc res
 	__asm__ __volatile__ (
 		"0:	mov	r0, r4          @ r0 = oldval              \n"
 		GASNETI_ARM_ASMCALL(r3, 0x3f)
+	#ifdef __thumb2__
+		"	ite	cc		@ THUMB2: If(cc)-Then-Else \n"
+	#endif
 		"	ldrcc	ip, [r2]	@ if (!swapped) ip=v->ctr  \n"
 		"	eorcs	ip, r4, #1	@ else ip=oldval^1         \n"
 		"	teq	r4, ip		@ if (ip == oldval)        \n"

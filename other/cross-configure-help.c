@@ -315,8 +315,8 @@ int main(void) {
 #endif
 
 #if defined(__arm__)
-  #if defined(__thumb__)
-    /* "GASNet does not support ARM Thumb mode" */
+  #if defined(__thumb__) && !defined(__thumb2__)
+    /* "GASNet does not support ARM Thumb1 mode" */
   #elif defined(__ARM_ARCH_2__)
     /* "GASNet does not support ARM versions earlier than ARMv3" */
   #elif defined(__ARM_ARCH_3__) || defined(__ARM_ARCH_4__) || defined(__ARM_ARCH_4T__)
@@ -349,6 +349,9 @@ int main(void) {
 	__asm__ __volatile__ (
 		"0:	mov	r0, r4          @ r0 = oldval              \n"
 	    	GASNETI_ARM_ASMCALL(r3, 0x3f)
+#ifdef __thumb2__
+		"	ite	cc		@ THUMB2: If(cc)-Then-Else \n"
+#endif
 		"	ldrcc	ip, [r2, #0]	@ if (!swapped) ip=v->ctr  \n"
 		"	eorcs	ip, r4, #1	@ else ip=oldval^1         \n"
 		"	teq	r4, ip		@ if (ip == oldval)        \n"

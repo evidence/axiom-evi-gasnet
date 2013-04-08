@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2013/03/29 23:38:42 $
-# $Revision: 1.780 $
+#     $Date: 2013/04/08 23:17:04 $
+# $Revision: 1.781 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.780 $)
+AC_REVISION($Revision: 1.781 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1628,6 +1628,9 @@ if expr "$target_cpu" : "arm" >/dev/null; then
 	__asm__ __volatile__ (
 		"0:	mov	r0, r4          @ r0 = oldval              \n"
 		GASNETI_ARM_ASMCALL(r3, 0x3f)
+#ifdef __thumb2__
+		"	ite	cc		@ THUMB2: If(cc)-Then-Else \n"
+#endif
 		"	ldrcc	ip, [[r2, #0]]	@ if (!swapped) ip=v->ctr  \n"
 		"	eorcs	ip, r4, #1	@ else ip=oldval^1         \n"
 		"	teq	r4, ip		@ if (ip == oldval)        \n"
