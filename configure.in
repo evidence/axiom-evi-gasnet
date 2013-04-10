@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2013/04/08 23:17:04 $
-# $Revision: 1.781 $
+#     $Date: 2013/04/10 00:35:48 $
+# $Revision: 1.782 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.781 $)
+AC_REVISION($Revision: 1.782 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -4108,9 +4108,9 @@ popdef([lowername])
 ])
 
 AC_MSG_CHECKING(for GNI network type)
-if test ${CRAYPE_NETWORK_TARGET:+set} = set ; then
+if test "${CRAYPE_NETWORK_TARGET+set}" = set ; then
   gni_network=${CRAYPE_NETWORK_TARGET}
-elif test ${XTPE_NETWORK_TARGET:+set} = set ; then
+elif test "${XTPE_NETWORK_TARGET+set}" = set ; then
   gni_network=${XTPE_NETWORK_TARGET}
 else
   gni_network="unknown"
