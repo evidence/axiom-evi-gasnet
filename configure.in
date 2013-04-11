@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2013/04/10 02:45:44 $
-# $Revision: 1.783 $
+#     $Date: 2013/04/11 19:34:15 $
+# $Revision: 1.784 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.783 $)
+AC_REVISION($Revision: 1.784 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -4018,6 +4018,62 @@ AM_CONDITIONAL(USE_PORTALS_CONDUIT, test "$have_portals" = yes)
 CONDUIT_END([test "$have_portals" = yes])
 
 #--------------------------------------------------------------------------------------------------------
+# Portals4 Conduit
+
+CONDUIT_BEGIN(portals4,[Portals4 network conduit (portals4)])
+if test "$enabled_portals4" = yes; then
+  # Start by assuming we do have Portals4
+  have_portals4=yes
+
+  # Start by finding a reasonable default
+  AC_PATH_PROGS([yod], [yod])
+  if test -n "$yod"; then
+    portals4_guess=`dirname \`dirname $yod\``
+  else
+    portals4_guess=/usr
+  fi
+  GASNET_ENV_DEFAULT(PORTALS4HOME, $portals4_guess)
+
+  AC_MSG_CHECKING(if $PORTALS4HOME is the Portals 4 install directory)
+  if test -r $PORTALS4HOME/include/portals4.h; then
+    # PORTALS4HOME looks OK
+    AC_MSG_RESULT([yes])
+  elif test -r $PORTALS4HOME/bin/yod; then
+    yod=$PORTALS4HOME/bin/yod
+    GASNET_FOLLOWLINKS(yod)
+    PORTALS4HOME=`dirname \`dirname $yod\``
+    AC_MSG_RESULT([no - followed symlink to $PORTALS4HOME])
+  else
+    AC_MSG_RESULT([probably not])
+  fi
+
+  GASNET_ENV_DEFAULT(PORTALS4_INCLUDE, $PORTALS4HOME/include)
+  GASNET_ENV_DEFAULT(PORTALS4_LIBS, -lportals -lportals_runtime)
+  GASNET_ENV_DEFAULT(PORTALS4_LIBDIR, $PORTALS4HOME/lib)
+
+  # Assemble any extra flags needed at library build time
+  PORTALS4_LIBCFLAGS='' # None yet
+
+  # Try to compile and link a basic Portals 4 program
+  GASNET_PUSHVAR(CFLAGS,"$CFLAGS -I$PORTALS4_INCLUDE $GASNET_THREAD_DEFINES $PORTALS4_LIBCFLAGS")
+  GASNET_PUSHVAR(LIBS,"$LIBS -L$PORTALS4_LIBDIR $PORTALS4_LIBS $GASNET_THREAD_LIBS")
+  GASNET_TRY_CACHE_LINK(for working Portals4 configuration, portals4_works, [
+      #include <portals4.h>
+  ], [{
+    PtlInit();
+  }], [ : ], [ have_portals4=no; GASNET_ERR_SAVE() ] )
+  GASNET_POPVAR(CFLAGS)
+  GASNET_POPVAR(LIBS)
+fi
+AC_SUBST(PORTALS4_INCLUDE)
+AC_SUBST(PORTALS4_LIBDIR)
+AC_SUBST(PORTALS4_LIBS)
+AC_SUBST(PORTALS4_LIBCFLAGS)
+AM_CONDITIONAL(USE_PORTALS4_CONDUIT, test "$have_portals4" = yes)
+AM_CONDITIONAL(PORTALS4_BOOTSTRAP_MPI, test "$have_mpi_compat" = yes)	# Option to omit MPI support?
+CONDUIT_END([test "$have_portals4" = yes])
+
+#--------------------------------------------------------------------------------------------------------
 # Gemini and Aries Conduits
 
 # set up include path for gni headers and pmi
@@ -5481,6 +5537,9 @@ shmem-conduit/conduit.mak
 
 portals-conduit/Makefile
 portals-conduit/conduit.mak
+
+portals4-conduit/Makefile
+portals4-conduit/conduit.mak
 
 gemini-conduit/Makefile
 gemini-conduit/conduit.mak
