@@ -1,4 +1,7 @@
 #!/usr/bin/perl
+#   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/contrib/Attic/gasnetrun_gm.pl,v $
+#     $Date: 2013/04/11 19:26:07 $
+# $Revision: 1.1.1.1 $
 #
 # Included here as a contrib/ from the mpich 1.2.5..10 mpirun script,
 # since this is the closest thing myricom ships to a spawner interface.
@@ -8,6 +11,7 @@
 use Socket;
 use Sys::Hostname;
 use Cwd;
+use Fcntl;
 
 use constant MAX_RECV_LEN => 65536;
 
@@ -25,7 +29,15 @@ $pwd = &Cwd::cwd();
 $delay_rexec = 0;
 $np = 1;
 $use_shmem = 1;
-$rexec = "/usr/bin/ssh";
+@extraopts = undef;
+@envlist_cmdline = undef;
+$ssh_exec = $ENV{"GASNET_SSH"} || "/usr/bin/ssh";
+$extraopts{"ssh"} = "";
+$rsh_exec = $ENV{"GASNET_RSH"} || "/usr/bin/rsh";
+$extraopts{"rsh"} = "";
+$rexec = "$ssh_exec";
+$rexec_type = "ssh";  
+$saw_type_option = 0;
 $rexec_reaper = 1;
 # May have to change the arch
 $arch = "LINUX";
@@ -33,14 +45,17 @@ $varenv = '';
 $dry_run = 0;
 $kill_time = 0;
 $recv_mode = 'polling';
+$exit_code = 0;
+my $envprog = $ENV{'ENVCMD'} || "/usr/bin/env";
+$envprog = "env" if (! -x $envprog);
 
 # GEXEC configuration, preconfigured for millennium.
-$use_gexec     = 0;  # preset to 1 to default to gexec
-$gm_board_info = "/usr/mill/pkg/gm/bin/gm_board_info";
-$gstat         = "/usr/bin/gstat -l1";
-$gexec         = "/usr/bin/gexec";
-$black_listed_hosts = "lime|lemon";
-$domainname    = ".Millennium.Berkeley.EDU";
+$gm_board_info = `which gm_board_info 2> /dev/null` || "/usr/mill/pkg/gm/bin/gm_board_info";
+$gstat         = $ENV{"GASNET_GSTAT_CMD"} || "/usr/bin/gstat -l1";
+$gexec         = $ENV{"GASNET_GEXEC_CMD"} || "/usr/bin/gexec -p none";
+$extraopts{"gexec"} = "";
+$black_listed_hosts = $ENV{"GASNET_GEXEC_BLACKLIST"} || "lime|lemon";
+$domainname    = $ENV{"GASNET_GEXEC_DOMAINNAME"} || ".Millennium.Berkeley.EDU";
 
 $totalview = 0;
 $totalview_cmd = $ENV{'TOTALVIEW'} || 'totalview';
@@ -53,13 +68,12 @@ $close_stdin = 0;
 $cleanup_shmem = 0;
 $pid_socket = 1;
 $pid_rexec = 1;
-$default_machinefile = "$ENV{'PBS_NODEFILE'}" || "$ENV{'HOME'}/.machines.$arch";
+$default_machinefile = "$ENV{'GASNET_NODEFILE'}" || "$ENV{'PBS_NODEFILE'}";
 $magic = int (rand (9999999));
 $local_host = hostname;
+$local_ip   = inet_ntoa(scalar gethostbyname($local_host || 'localhost'));
 $local_port = '8000';
 $runcmd = "";
-
-@rexec_flags = split(/ /, $rexec);
 
 
 ###################
@@ -69,16 +83,25 @@ $runcmd = "";
 ###################
 
 sub clean_up {
+  print "clean_up\n" if $verbose;
+  if ($rexec_type eq "gexec") { 
+    while (wait != -1) {
+     print "waiting for child processes...\n";
+     sleep 1;
+    }
+    return; 
+  }
+
   # reap remote processes, usefull because ssh is broken and does not
   # clean up remote processes when killed.
-  if (($pid_socket == 0) && ($rexec_reaper) && (!$use_gexec)) {
+  if (($pid_socket == 0) && ($rexec_reaper)) {
     print ("Reap remote processes:\n") if $verbose;
     for ($z=0; $z<$np; $z++) {
       if (defined ($remote_pids[$z])) {
 	$pid_reaper = fork;
 	if ($pid_reaper == 0) {
 	  if ($verbose) {
-	    print ("\t@rexec_flags $hosts[$z] -n kill -9 $remote_pids[$z] 2>/dev/null\n");
+	    print ("\t ".@rexec_flags." $hosts[$z] -n kill -9 $remote_pids[$z] 2>/dev/null\n");
 	  }
 	  exec (@rexec_flags, $hosts[$z], '-n', "kill -9 $remote_pids[$z]", "2>/dev/null");
 	}
@@ -131,6 +154,8 @@ sub clean_up {
   while (wait != -1) {
     ;
   }
+
+  unlink $ENV{"GASNET_NODEFILE"} if ($ENV{"GASNET_RM_NODEFILE"});
 }
 
 
@@ -173,7 +198,7 @@ sub cleanup_ALARM {
 }
 
 sub cleanup_TIMEOUT {
-  print ("Timeout: still waiting for data from remote MPI processes !\n");
+  print ("Timeout: still waiting for data from remote GASNet processes !\n");
   print ("Timeout: cleaning up...\n");
   clean_up
   exit (1);
@@ -209,18 +234,23 @@ sub find_program {
 
 sub usage {
   if ($_[0] ne '') {
-    print (STDERR "Error in mpirun.ch_gm: @_\n\n");
+    print (STDERR "Error in gasnetrun_gm: @_\n\n");
   }
 
-  print (STDERR "Usage:\n \t mpirun.ch_gm [options] [-np <n>] prog [flags]\n");
+  print (STDERR "Usage:\n \t gasnetrun_gm [options] [-np <n>] prog [flags]\n");
+  print (STDERR "   -E   <VAR1[,VAR2...]>   list of environment vars to propagate\n");
   print (STDERR "   -v   Verbose - provide additional details of the script's execution.\n");
   print (STDERR "   -t   Testing - do not actually run, just print what would be executed.\n");
   print (STDERR "   -s   Close stdin - can run in background without tty input problems.\n");
   print (STDERR "   -r   Cleanup remote shared memory files - should be removed automatically,\n");
   print (STDERR "        but always good to have an option to force it.\n");
-  print (STDERR "   -machinefile <file>   Specifies a machine file, default is\n");
-  print (STDERR "                         $default_machinefile.\n");
+  print (STDERR "   -machinefile <file>   Specifies a machine file, There is no default\n");
   print (STDERR "   --gexec         The spawner is gexec.\n");
+  print (STDERR "   --ssh           The spawner is ssh.\n");
+  print (STDERR "   --rsh           The spawner is rsh.\n");
+  print (STDERR "   --gexec-options <opt> Additional options to pass gexec.\n");
+  print (STDERR "   --ssh-options <opt>   Additional options to pass ssh.\n");
+  print (STDERR "   --rsh-options <opt>   Additional options to pass rsh.\n");
   print (STDERR "   --gm-no-shmem   Disable the shared memory support (enabled by default).\n");
   print (STDERR "   --gm-numa-shmem Enable shared memory only for processes sharing the same Myrinet interface.\n");
   print (STDERR "   --gm-wait <n>   Wait <n> seconds between each spawning step.\n");
@@ -269,8 +299,29 @@ while (@ARGV > 0) {
     usage ("No machine file specified (-machinefile) !") unless @ARGV >= 1;
     $machine_file = $ARGV[0];
   } elsif ($_ eq '--gexec') {
-    $use_gexec = 1;
+    $saw_type_option = 1;
+    $rexec_type = "gexec";
     $rexec = $gexec;
+  } elsif ($_ eq '--ssh') {
+    $saw_type_option = 1;
+    $rexec_type = "ssh";
+    $rexec = $ssh_exec;
+  } elsif ($_ eq '--rsh') {
+    $saw_type_option = 1;
+    $rexec_type = "rsh";
+    $rexec = $rsh_exec;
+  } elsif ($_ eq '--gexec-options') {
+    shift;
+    usage ("no options specified for --gexec-options !") unless @ARGV >= 1;
+    $extraopts{"gexec"} .= $ARGV[0] . " ";
+  } elsif ($_ eq '--ssh-options') {
+    shift;
+    usage ("no options specified for --ssh-options !") unless @ARGV >= 1;
+    $extraopts{"ssh"} .= $ARGV[0] . " ";
+  } elsif ($_ eq '--rsh-options') {
+    shift;
+    usage ("no options specified for --rsh-options !") unless @ARGV >= 1;
+    $extraopts{"rsh"} .= $ARGV[0] . " ";
   } elsif ($_ eq '--gm-no-shmem') {
     $use_shmem = 0;
   } elsif ($_ eq '--gm-numa-shmem') {
@@ -322,6 +373,12 @@ while (@ARGV > 0) {
       usage ("-np and -pg are exclusive !");
     }
     $np = $ARGV[0];
+  } elsif ($_ eq '-E') {
+    shift;
+    usage ("-E option given without an argument\n") unless @ARGV >= 1;
+    foreach (split(',', $ARGV[0])) {
+      $envlist_cmdline{$_} = 1;
+    }
   } elsif (($_ eq '-help') || ($_ eq '--help') || ($_ eq '-h')) {
     usage ('');
   } elsif ($_ eq '-mvback' ) {
@@ -332,11 +389,24 @@ while (@ARGV > 0) {
     usage ("Unknown option ($_) !");
   } else {
     $app_cmd = find_program ($ARGV[0]);
-    @app_flags = (@ARGV[1..$#ARGV]);
+    @app_flags = (map { "'$_'" } @ARGV[1..$#ARGV]);
     last;
   }
   shift;
 }
+
+$ENV{"GASNET_VERBOSEENV"} = "1" if ($verbose);
+$ENV{"GASNET_GASNETRUN_GM"} = "1";
+
+# Before going on, check if we should force using GEXEC, if 
+# GASNET_GEXEC_CMD is set.
+if (defined $ENV{"GASNET_GEXEC_CMD"} && !$saw_type_option) {
+    printf "Using gexec command $ENV{GASNET_GEXEC_CMD}\n" if $verbose;
+    $rexec = $gexec;
+    $rexec_type = "gexec";
+}
+
+@rexec_flags = split(/ /, $rexec . " " . $extraopts{${rexec_type}});
 
 $app_cmd or usage (" Missing program name !");
 
@@ -348,6 +418,14 @@ if (defined ($ENV{"MACHINE_FILE"})) {
 
 # If the machine file is not defined, use the system-wide one.
 $machine_file = $default_machinefile unless defined ($machine_file);
+
+if (!$machine_file && ($rexec_type ne "gexec")) {
+    printf "Can't detect a PBS or a GEXEC environment.  If you are not running\n"
+         . "within a batch system, set the GASNET_NODEFILE environment variable to\n"
+         . "a file containing one hostname per line (the first process will use \n"
+         . "the host on the first line, etc.)\n";
+    exit 1;
+}
 
 # If the machine file is not an absolute path, add the current directory.
 $machine_file = $pwd."/".$machine_file if !($machine_file =~ m|^/|);
@@ -435,7 +513,7 @@ if (defined ($procgroup_file)) {
       $np++;
     }
   }
-} elsif (!$use_gexec) {
+} elsif ($rexec_type ne "gexec") {
   # Open the machines file, read it and close it.
   open (MACHINE_FILE, "$machine_file")
     or die "Cannot open the machines file $machine_file: $!\n";
@@ -515,7 +593,7 @@ if ($verbose) {
 
 # Open the first socket with the first available port.
 if (!$dry_run) {
-  print ("Open a socket on $local_host...\n") if $verbose;
+  print ("Open a socket on $local_host ($local_ip)...\n") if $verbose;
   socket (FIRST_SOCKET, AF_INET, SOCK_STREAM, getprotobyname ('tcp'))
     or die ("First socket creation failed: $!\n");
   setsockopt (FIRST_SOCKET, SOL_SOCKET, SO_REUSEADDR, 1)
@@ -527,7 +605,7 @@ if (!$dry_run) {
   }
   if ($local_port < 20000) {
     print ("Got a first socket opened on port $local_port.\n") if $verbose;
-    $varenv .= " GMPI_MASTER=$local_host GMPI_PORT=$local_port";
+    $varenv .= " GMPI_MASTER=$local_ip GMPI_PORT=$local_port";
     listen (FIRST_SOCKET, SOMAXCONN)
       or die ("Error when listening on first socket: $!\n");
   } else {
@@ -558,17 +636,23 @@ if ($eager) {
   $varenv .= " GMPI_EAGER=$eager";
 }
 
-if ($use_gexec) {
+$SIG{'INT'} = 'cleanup_SIGINT';
+$SIG{'TERM'} = 'cleanup_SIGTERM';
+$SIG{'KILL'} = 'cleanup_SIGKILL';
+$SIG{'QUIT'} = 'cleanup_SIGQUIT';
+  
+if ($rexec_type eq "gexec") {
   my %gm_hosts;
   my %gstat_hosts;
   my $gstat_output = "";
   my %gstat_hosts_ignore;
   my @gstat_hosts;
   my $gm_hosts_found = 0;
+  my $gm_disconnected_spawner = 0;
 
   # Either keep user-supplied server list.
   $ENV{'GMPI_MAGIC'}  = $magic;
-  $ENV{'GMPI_MASTER'} = $local_host;
+  $ENV{'GMPI_MASTER'} = $local_ip;
   $ENV{'GMPI_PORT'}   = $local_port;
   $ENV{'GMPI_BOARD'}  = -1; # No multiboard support
 
@@ -576,24 +660,32 @@ if ($use_gexec) {
     open BOARD_INFO, "$gm_board_info |" or die "Can't run $gm_board_info: $!";
     while (<BOARD_INFO>)
     {
+      $gm_disconnected_spawner++ if /No boards found/;
       last if(/^---/);
     }
-  
-    while (<BOARD_INFO>)
-    {
-      (my $foo, my $gmID, my $MAC, my $gmName, my $Route) = split /\s+/, $_; 
-      print "No GM routes found\n" and exit if($gmID eq "***");
-      next if( $gmName =~/$black_listed_hosts/ );
-      $gm_hosts{$gmName.$domainname} = $gmID;
-      $gm_hosts_found++;
+    if ($gm_disconnected_spawner) {
+    	printf("WARNING: Spawning from a node disconnected from Myrinet\n") if $verbose;
     }
-    close (BOARD_INFO);
+    else {
+        while (<BOARD_INFO>)
+        {
+          (my $foo, my $gmID, my $MAC, my $gmName, my $Route) = split /\s+/, $_; 
+          print "No GM routes found\n" and exit if($gmID eq "***");
+          next if( $gmName =~/$black_listed_hosts/ );
+          $gm_hosts{$gmName} = $gmID;
+          $gm_hosts{$gmName.$domainname} = $gmID;
+          $gm_hosts_found++;
+        }
+        close (BOARD_INFO);
+    }
 
-    die("Can't find any GM hosts on cluster (is the mapper up?)\n") 
-        if (!$gm_hosts_found);
+    # Don't die if no hosts found, as no hosts may be found when run from a
+    # spawning node disconnected from the Myrinet network
+    #die("Can't find any GM hosts on cluster (is the mapper up?)\n") 
+    #    if (!$gm_hosts_found);
 
-    die("GM cluster only has $gm_hosts_found live nodes and $np requested\n")
-    	if ($gm_hosts_found < $np);
+    #die("GM cluster only has $gm_hosts_found live nodes and $np requested\n")
+    #	if ($gm_hosts_found < $np);
       
   
     open GSTAT_INFO, "$gstat $gstat_opts |" or 
@@ -603,7 +695,7 @@ if ($use_gexec) {
       /^([\w.]+)\s+(\d+)\D+(\d+)\D+(\d+)\D+([\d.]+)/;
       # $1 = name $2 = cpus $3 = running procs $4 total procs, $5 1-min load
       my $available_cpus = int($2);
-      if (not exists $gm_hosts{$1}) {
+      if ((not exists $gm_hosts{$1}) && !$gm_disconnected_spawner) {
       	print "Host $1 not found in gstat\n" if $verbose;
 	next;
       }
@@ -648,12 +740,13 @@ if ($use_gexec) {
   $ENV{'GEXEC_SVRS'} = join(" ", @hosts);
 }
 
-$SIG{'INT'} = 'cleanup_SIGINT';
-$SIG{'TERM'} = 'cleanup_SIGTERM';
-$SIG{'KILL'} = 'cleanup_SIGKILL';
-$SIG{'QUIT'} = 'cleanup_SIGQUIT';
-
 if (!$dry_run) {
+  # Try to set O_APPEND to avoid badly intermixed output
+  $flags = fcntl(STDOUT, F_GETFL, 0)
+    and fcntl(STDOUT, F_SETFL, $flags | O_APPEND);
+  $flags = fcntl(STDERR, F_GETFL, 0)
+    and fcntl(STDERR, F_SETFL, $flags | O_APPEND);
+
   $pid_socket = fork;
   if ($pid_socket == 0) {
     # Gather the information from all remote processes via sockets.
@@ -750,6 +843,7 @@ if (!$dry_run) {
 	}
       }
       $local_mapping .= ']]]';
+
       send (SECOND_SOCKET, "$global_mapping$local_mapping", 0);
       close (SECOND_SOCKET);
 
@@ -758,6 +852,8 @@ if (!$dry_run) {
     }
     alarm (0);
     print ("Data sent to all processes.\n") if $verbose;
+
+    if ($rexec_type eq "gexec") { exit(0); }
 
     # Keep the first socket opened for abort messages.
     while (1) {
@@ -786,7 +882,7 @@ if (!$dry_run) {
 }
 
 
-if ($use_gexec) {
+if ($rexec_type eq "gexec") {
 
   $runcmd = "$np " . $app_cmd . " ";
   for ($k=0; $k<scalar(@app_flags);$k++) {
@@ -831,8 +927,25 @@ for ($i=0; $i<$np; $i++) {
     $varenv .= " GMPI_NP=$np";
     $varenv .= " GMPI_BOARD=$boards[$i]";
 
+    @envlist = undef;
+    $envv = '';
+    foreach $e (keys %ENV) {
+	if (($e =~ m/(TI_)|(UPC_)|(GASNET_)/) || defined $envlist_cmdline{$e} ) {
+		@sp = split(/\s+/, $ENV{$e});
+		if ($#sp > 0 && $ENV{$e} !~ m/^\".*\"$/ && 
+		                $ENV{$e} !~ m/^'.*'$/) {
+		    $envv = "$e=\"$ENV{$e}\"";
+		}
+		else {
+		    $envv = "$e=$ENV{$e}";
+		}
+		push(@envlist, $envv);
+	}
+    }
+
     $slave_ip = inet_ntoa(inet_aton("$hosts[$i]"));
     $varenv .= " GMPI_SLAVE=$slave_ip";
+    $varenv .= " " . join (" ", @envlist);
 
     if (defined ($logins[$i])) {
       $login = 1;
@@ -843,18 +956,18 @@ for ($i=0; $i<$np; $i++) {
 
     if ($totalview) {
       if ($i == 0) {
-	$cmdline = "cd $wdir ; env $varenv $totalview_cmd $apps_cmd[$i] -a $apps_flags[$i] -mpichtv";
+	$cmdline = "cd $wdir ; $envprog $varenv $totalview_cmd $apps_cmd[$i] -a $apps_flags[$i] -mpichtv";
       } else {
-	$cmdline = "cd $wdir ; env $varenv $apps_cmd[$i] $apps_flags[$i] -mpichtv";
+	$cmdline = "cd $wdir ; $envprog $varenv $apps_cmd[$i] $apps_flags[$i] -mpichtv";
       }
     } elsif ($ddt) {
       if ($i == 0) {
-	$cmdline = "cd $wdir ; env $varenv $ddt_cmd $apps_cmd[$i] $apps_flags[$i] -mpichtv";
+	$cmdline = "cd $wdir ; $envprog $varenv $ddt_cmd $apps_cmd[$i] $apps_flags[$i] -mpichtv";
       } else {
-	$cmdline = "cd $wdir ; env $varenv $apps_cmd[$i] $apps_flags[$i] -mpichtv";
+	$cmdline = "cd $wdir ; $envprog $varenv $apps_cmd[$i] $apps_flags[$i] -mpichtv";
       }
     } else {
-      $cmdline = "cd $wdir ; env $varenv $apps_cmd[$i] $apps_flags[$i]";
+      $cmdline = "cd $wdir ; $envprog $varenv $apps_cmd[$i] $apps_flags[$i]";
     }
 
     if ($dry_run) {
@@ -913,18 +1026,20 @@ if ($kill_time) {
   $index--;
   if ($first_pid == -1) {
     clean_up;
-    exit 0;
+    exit $exit_code;
   }
 
   if ($first_pid == $pid_socket) {
     clean_up;
-    exit 0;
+    exit $exit_code;
   }
+
+  $exit_code = ($? << 8);
 
   if ($verbose) {
     for ($i=0; $i<$np; $i++) {
       if ($first_pid == $pids[$i]) {
-	print ("MPI Process $i has exited, wait $kill_time seconds and kill all remaining processes...\n") if $verbose;
+	print ("GASNet Process $i has exited, wait $kill_time seconds and kill all remaining processes...\n") if $verbose;
 	last;
       }
     }
@@ -939,21 +1054,23 @@ while (1) {
   if ($next_pid == -1) {
     print ("All processes have exited.\n") if $verbose;
     clean_up;
-    exit 0;
+    exit $exit_code;
   }
 
   if ($next_pid != $pid_socket) {
+    print ("Remote GASNet exited with status " . ($? >> 8) . ".\n") if $verbose;
+    $exit_code = ($? >> 8) unless ($exit_code != 0);	# Save first non-zero exit
     $index--;
     if ($index == 0) {
-      print ("All remote MPI processes have exited.\n") if $verbose;
+      print ("All remote GASNet processes have exited.\n") if $verbose;
       clean_up;
-      exit 0;
+      exit $exit_code;
     }
   } else {
     # the process waiting for an Abort has exited, so let's aborting
     print ("Abort in progress...\n") if $verbose;
     clean_up;
-    exit 0;
+    exit $exit_code;
   }
 }
-exit 0;
+exit $exit_code;

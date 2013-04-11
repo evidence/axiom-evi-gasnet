@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/GASNet/<conduitname>-conduit/gasnet_core.h                  $
- *     $Date: 2004/06/28 09:36:16 $
- * $Revision: 1.1 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_ammacros.h,v $
+ *     $Date: 2013/04/11 19:26:05 $
+ * $Revision: 1.1.1.1 $
  * Description: GASNet ammacros header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -13,7 +13,7 @@
 #ifndef _GASNET_AMMACROS_H
 #define _GASNET_AMMACROS_H
 
-BEGIN_EXTERNC
+GASNETI_BEGIN_EXTERNC
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -44,7 +44,7 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
                             void *dest_addr,                    /* data destination on destination node */
                             int numargs, ...);
 
-#ifdef GASNETC_NO_AMREQUESTLONGASYNC
+#if GASNETC_NO_AMREQUESTLONGASYNC
   #define gasnetc_AMRequestLongAsyncM gasnetc_AMRequestLongM
 #else
   extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destination node */
@@ -72,7 +72,7 @@ extern int gasnetc_AMReplyLongM(
                             void *dest_addr,                    /* data destination on destination node */
                             int numargs, ...);
 
-END_EXTERNC
+GASNETI_END_EXTERNC
 
 /* ------------------------------------------------------------------------------------ */
 /*

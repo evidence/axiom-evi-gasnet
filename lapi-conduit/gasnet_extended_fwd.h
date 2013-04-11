@@ -1,8 +1,9 @@
-/*  $Archive:: /Ti/GASNet/extended/gasnet_extended_fwd.h                  $
- *     $Date: 2002/11/22 01:10:25 $
- * $Revision: 1.1 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended_fwd.h,v $
+ *     $Date: 2013/04/11 19:26:07 $
+ * $Revision: 1.1.1.1 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
  */
 
 #ifndef _IN_GASNET_H
@@ -12,81 +13,65 @@
 #ifndef _GASNET_EXTENDED_FWD_H
 #define _GASNET_EXTENDED_FWD_H
 
-#define GASNET_EXTENDED_VERSION      0.1
+#if GASNETC_LAPI_RDMA
+  #include <firehose_trace.h>
+#else
+  #define GASNETI_FIREHOSE_STATS(CNT,VAL,TIME)	/* Empty */
+#endif
+
+#define GASNET_EXTENDED_VERSION      1.11
 #define GASNET_EXTENDED_VERSION_STR  _STRINGIFY(GASNET_EXTENDED_VERSION)
 #define GASNET_EXTENDED_NAME         LAPI
 #define GASNET_EXTENDED_NAME_STR     _STRINGIFY(GASNET_EXTENDED_NAME)
 
+/* blocking put/gets implemented directly in LAPI */
+#define GASNETI_DIRECT_GET_BULK 1
+#define GASNETI_DIRECT_PUT_BULK 1
+#define GASNETI_DIRECT_MEMSET   1
+
+/* conduit allows internal GASNet fns to issue put/get for remote addrs out of segment */
+#if GASNETC_LAPI_RDMA && !GASNET_PSHM
+#undef GASNETI_SUPPORTS_OUTOFSEGMENT_PUTGET
+#else
+#define GASNETI_SUPPORTS_OUTOFSEGMENT_PUTGET 1
+#endif
+
+#if GASNETC_LAPI_RDMA
+#define GASNETI_DIRECT_WAIT_SYNCNB 1
+#define GASNETI_DIRECT_WAIT_SYNCNB_ALL 1
+#define GASNETI_DIRECT_WAIT_SYNCNBI_GETS 1 
+#define GASNETI_DIRECT_WAIT_SYNCNBI_PUTS 1 
+#define GASNETI_DIRECT_WAIT_SYNCNBI_ALL 1
+#endif
+
+#define GASNETE_COLL_CONDUIT_BARRIERS GASNETE_COLL_BARRIER_LAPIGFENCE, GASNETE_COLL_BARRIER_LAPIAM
 
 #define _GASNET_HANDLE_T
 /*  an opaque type representing a non-blocking operation in-progress initiated using the extended API */
 struct _gasnete_op_t;
 typedef struct _gasnete_op_t *gasnet_handle_t;
 #define GASNET_INVALID_HANDLE ((gasnet_handle_t)0)
+#define GASNETI_EOP_IS_HANDLE 1
 
-#ifdef GASNETI_THREADS
-  #define GASNETI_THREADINFO_OPT
-  #define GASNETI_LAZY_BEGINFUNCTION
-#endif
-
-#ifdef GASNETI_THREADINFO_OPT
-  /* Here we use a clever trick - GASNET_GET_THREADINFO() uses the sizeof(gasneti_threadinfo_available)
-      to determine whether gasneti_threadinfo_cache was bound a value posted by GASNET_POST_THREADINFO()
-      of if it bound to the globally declared dummy variables. 
-     Even a very stupid C optimizer should constant-fold away the unused calls to gasneti_get_threadinfo() 
-      and discard the unused variables
-     We need 2 separate variables to ensure correct name-binding semantics for GASNET_POST_THREADINFO(GASNET_GET_THREADINFO())
+  /* if conduit-internal threads may call the Extended API and/or they may run
+     progress functions, then define GASNETE_CONDUIT_THREADS_USING_TD to the
+     maximum COUNT of such threads to allocate space for their threaddata
    */
-  static uint8_t gasnete_threadinfo_cache = 0;
-  static uint8_t gasnete_threadinfo_available = 
-    sizeof(gasnete_threadinfo_cache) + sizeof(gasnete_threadinfo_available);
-    /* silly little trick to prevent unused variable warning on gcc -Wall */
-
-  #define GASNET_POST_THREADINFO(info)                     \
-    gasnet_threadinfo_t gasnete_threadinfo_cache = (info); \
-    uint32_t gasnete_threadinfo_available = 0
-    /* if you get an unused variable warning on gasnete_threadinfo_available, 
-       it means you POST'ed in a function which made no GASNet calls that needed it */
-
-  #ifdef GASNETI_LAZY_BEGINFUNCTION
-    #define GASNET_GET_THREADINFO()                                   \
-      ( (sizeof(gasnete_threadinfo_available) == 1) ?                 \
-        (gasnet_threadinfo_t)gasnete_mythread() :                     \
-        ( (uintptr_t)gasnete_threadinfo_cache == 0 ?               \
-          ((gasnet_threadinfo_t)(uintptr_t)gasnete_threadinfo_cache = \
-            (gasnet_threadinfo_t)gasnete_mythread()) :                \
-        (gasnet_threadinfo_t)(uintptr_t)gasnete_threadinfo_cache) )
-  #else
-    #define GASNET_GET_THREADINFO()                   \
-      ( (sizeof(gasnete_threadinfo_available) == 1) ? \
-        (gasnet_threadinfo_t)gasnete_mythread() :     \
-        (gasnet_threadinfo_t)(uintptr_t)gasnete_threadinfo_cache )
-  #endif
-
-  /* the gasnet_threadinfo_t pointer points to a thread data-structure owned by
-     the extended API, whose first element is a pointer reserved
-     for use by the core API (initialized to NULL)
-   */
-
-  #ifdef GASNETI_LAZY_BEGINFUNCTION
-    /* postpone thread discovery to first use */
-    #define GASNET_BEGIN_FUNCTION() GASNET_POST_THREADINFO(0)
-  #else
-    #define GASNET_BEGIN_FUNCTION() GASNET_POST_THREADINFO(GASNET_GET_THREADINFO())
-  #endif
-
-#else
-  #define GASNET_POST_THREADINFO(info)   \
-    static uint8_t gasnete_dummy = sizeof(gasnete_dummy) /* prevent a parse error */
-  #define GASNET_GET_THREADINFO() (NULL)
-  #define GASNET_BEGIN_FUNCTION() GASNET_POST_THREADINFO(GASNET_GET_THREADINFO())
+#if 0
+  #define GASNETE_CONDUIT_THREADS_USING_TD ###
 #endif
-
 
   /* this can be used to add statistical collection values 
      specific to the extended API implementation (see gasnet_help.h) */
-#define CONDUIT_EXTENDED_STATS(CNT,VAL,TIME) \
+#define GASNETE_CONDUIT_STATS(CNT,VAL,TIME)  \
+        GASNETI_VIS_STATS(CNT,VAL,TIME)      \
+        GASNETI_COLL_STATS(CNT,VAL,TIME)     \
+        GASNETI_FIREHOSE_STATS(CNT,VAL,TIME)     \
         CNT(C, DYNAMIC_THREADLOOKUP, cnt)           
+
+#define GASNETE_AUXSEG_DECLS \
+    extern gasneti_auxseg_request_t gasnete_barr_auxseg_alloc(gasnet_seginfo_t *auxseg_info);
+#define GASNETE_AUXSEG_FNS() gasnete_barr_auxseg_alloc, 
 
 
 #endif

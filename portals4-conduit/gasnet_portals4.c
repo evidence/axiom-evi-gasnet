@@ -1,0 +1,1295 @@
+/*
+ * Description: Portals 4 specific configuration
+ * Copyright 2012, Sandia National Laboratories
+ * Terms of use are as specified in license.txt
+ */
+
+#include <gasnet_internal.h>
+#include <gasnet_handler.h>
+#include <gasnet_core_internal.h>
+
+#include <errno.h>
+#include <unistd.h>
+#include <signal.h>
+
+#include <portals4.h>
+#include <portals4/pmi.h>
+#include <gasnet_portals4.h>
+#include <gasnet_portals4_hash.h>
+
+static ptl_handle_ni_t matching_ni_h;
+static ptl_handle_md_t am_eq_md_h;
+static ptl_handle_me_t am_me_h;
+static ptl_handle_eq_t coll_eq_h;
+static ptl_handle_eq_t eqs_h[2];
+#define am_send_eq_h eqs_h[0]
+#define am_recv_eq_h eqs_h[1]
+
+static ptl_uid_t uid = PTL_UID_ANY;
+
+static ptl_size_t bootstrap_barrier_calls = 0;
+static ptl_handle_ct_t bootstrap_barrier_ct_h;
+static ptl_handle_me_t bootstrap_barrier_me_h;
+
+static char *kvs_name = NULL, *kvs_key = NULL, *kvs_value = NULL;
+static int max_name_len, max_key_len, max_val_len;
+
+static int p4_am_size = 1 * 1024 * 1024;
+static int p4_am_num_entries = 16;
+static p4_am_block_t *p4_am_blocks = NULL;
+static int p4_am_enabled = 0;
+static gasnetc_hash p4_long_hash;
+
+struct p4_long_match_t {
+  gasneti_weakatomic_t op_count;
+  void *dest_ptr;
+  size_t nbytes;
+  int handler;
+  int numargs;
+  gasnet_handlerarg_t pargs[gasnet_AMMaxArgs()];
+};
+typedef struct p4_long_match_t p4_long_match_t;
+
+#define LONG_HASH(a, b) ((gasnetc_key_t) ((a<<32) | b))
+
+static gasneti_weakatomic_t p4_send_credits = gasneti_weakatomic_init(0);
+static gasneti_weakatomic_val_t p4_max_send_credits = 0;
+
+static gasneti_weakatomic_t p4_op_count = gasneti_weakatomic_init(0);
+
+
+static int
+p4_encode(const void *inval, int invallen, char *outval, int outvallen)
+{
+    static unsigned char encodings[] = {
+        '0','1','2','3','4','5','6','7', \
+        '8','9','a','b','c','d','e','f' };
+    int i;
+
+    if (invallen * 2 + 1 > outvallen) {
+        return 1;
+    }
+
+    for (i = 0; i < invallen; i++) {
+        outval[2 * i] = encodings[((unsigned char *)inval)[i] & 0xf];
+        outval[2 * i + 1] = encodings[((unsigned char *)inval)[i] >> 4];
+    }
+
+    outval[invallen * 2] = '\0';
+
+    return 0;
+}
+
+
+static int
+p4_decode(const char *inval, void *outval, int outvallen)
+{
+    int i;
+    char *ret = (char*) outval;
+
+    if (outvallen != strlen(inval) / 2) {
+        return 1;
+    }
+
+    for (i = 0 ; i < outvallen ; ++i) {
+        if (*inval >= '0' && *inval <= '9') {
+            ret[i] = *inval - '0';
+        } else {
+            ret[i] = *inval - 'a' + 10;
+        }
+        inval++;
+        if (*inval >= '0' && *inval <= '9') {
+            ret[i] |= ((*inval - '0') << 4);
+        } else {
+            ret[i] |= ((*inval - 'a' + 10) << 4);
+        }
+        inval++;
+    }
+
+    return 0;
+}
+
+
+static void
+p4_info_put(const char *key, void *value, size_t valuelen) 
+{
+    snprintf(kvs_key, max_key_len, "gasnet-%lu-%s", (long unsigned) gasneti_mynode, key);
+    if (0 != p4_encode(value, valuelen, kvs_value, max_val_len)) {
+        gasneti_fatalerror("gasnetc_info_put() encode failed");
+    }
+    if (PMI_SUCCESS != PMI_KVS_Put(kvs_name, kvs_key, kvs_value)) {
+        gasneti_fatalerror("gasnetc_info_put() PMI_KVS_Put() failed");
+    }
+}
+
+
+static void
+p4_info_get(int pe, const char *key, void *value, size_t valuelen)
+{
+    snprintf(kvs_key, max_key_len, "gasnet-%lu-%s", (long unsigned) pe, key);
+    if (PMI_SUCCESS != PMI_KVS_Get(kvs_name, kvs_key, kvs_value, max_val_len)) {
+        gasneti_fatalerror("gasnetc_info_get() PMI_KVS_Get() failed");
+    }
+    if (0 != p4_decode(kvs_value, value, valuelen)) {
+        gasneti_fatalerror("gasnetc_info_get() decode failed");
+    }
+}
+
+
+static void
+p4_info_exchange(void)
+{
+    if (PMI_SUCCESS != PMI_KVS_Commit(kvs_name)) {
+        gasneti_fatalerror("gasnetc_info_exchange() PMI_KVS_Commit() failed");
+    }
+
+    if (PMI_SUCCESS != PMI_Barrier()) {
+        gasneti_fatalerror("gasnetc_info_exchange() PMI_Barrier() failed");
+    }
+}
+
+
+/* ---------------------------------------------------------------------------------
+ * Initialize Portals 4 conduit code
+ *
+ * Initialized memory descriptors for sending active messages
+ * (including data part of long messages), match list entries for
+ * active message handling, and match list for bootstrap barrier.
+ * --------------------------------------------------------------------------------- */
+int
+gasnetc_p4_init(int *rank, int *size)
+{
+    int initialized, ret, i;
+    ptl_ni_limits_t ni_req_limits, ni_limits;
+    ptl_process_t my_id;
+    ptl_process_t *desired = NULL;
+    ptl_md_t md;
+    ptl_me_t me;
+    ptl_pt_index_t pt;
+
+    if (PMI_SUCCESS != PMI_Initialized(&initialized)) {
+        gasneti_fatalerror("PMI_Initialized() failed");
+    }
+
+    if (!initialized) {
+        if (PMI_SUCCESS != PMI_Init(&initialized)) {
+            gasneti_fatalerror("PMI_Init() failed");
+        }
+    }
+
+    if (PMI_SUCCESS != PMI_Get_rank(rank)) {
+        gasneti_fatalerror("PMI_Get_rank() failed");
+    }
+
+    if (PMI_SUCCESS != PMI_Get_size(size)) {
+        gasneti_fatalerror("PMI_Get_size() failed");
+    }
+
+    /* this is a bit of an abstraction break, but makes debugging
+       output so much nicer... */
+    gasneti_mynode = *rank;
+    gasneti_nodes = *size;
+
+    if (PMI_SUCCESS != PMI_KVS_Get_name_length_max(&max_name_len)) {
+        gasneti_fatalerror("PMI_KVS_Get_name_length_max() failed");
+    }
+    kvs_name = (char*) gasneti_malloc(max_name_len);
+
+    if (PMI_SUCCESS != PMI_KVS_Get_key_length_max(&max_key_len)) {
+        gasneti_fatalerror("PMI_KVS_Get_key_length_max() failed");
+    }
+    kvs_key = (char*) gasneti_malloc(max_key_len);
+
+    if (PMI_SUCCESS != PMI_KVS_Get_value_length_max(&max_val_len)) {
+        gasneti_fatalerror("PMI_KVS_Get_value_length_max() failed");
+    }
+    kvs_value = (char*) gasneti_malloc(max_val_len);
+
+    if (PMI_SUCCESS != PMI_KVS_Get_my_name(kvs_name, max_name_len)) {
+        gasneti_fatalerror("PMI_KVS_Get_my_name() failed");
+    }
+
+    /* Setup data structures */
+    p4_long_hash = gasnetc_hash_create();
+    if (NULL == p4_long_hash) gasneti_fatalerror("gasnetc_hash_create");
+
+    /* Initialize Portals */
+    ret = PtlInit();
+    if (PTL_OK != ret) gasneti_fatalerror("PtlInit() failed: %d", ret);
+
+    /* Initialize network */
+    ni_req_limits.max_entries = 1024;
+    ni_req_limits.max_unexpected_headers = 1024;
+    ni_req_limits.max_mds = 1024;
+    ni_req_limits.max_eqs = 1024;
+    ni_req_limits.max_cts = 1024;
+    ni_req_limits.max_pt_index = 64;
+    ni_req_limits.max_iovecs = 1024;
+    ni_req_limits.max_list_size = 1024;
+    ni_req_limits.max_triggered_ops = 1024;
+    ni_req_limits.max_msg_size = LONG_MAX;
+    ni_req_limits.max_atomic_size = LONG_MAX;
+    ni_req_limits.max_fetch_atomic_size = LONG_MAX;
+    ni_req_limits.max_waw_ordered_size = LONG_MAX;
+    ni_req_limits.max_war_ordered_size = LONG_MAX;
+    ni_req_limits.max_volatile_size = LONG_MAX;
+#if GASNET_SEGMENT_EVERYTHING
+    ni_req_limits.features = PTL_TARGET_BIND_INACCESSIBLE;
+#else
+    ni_req_limits.features = 0;
+#endif
+
+    ret = PtlNIInit(PTL_IFACE_DEFAULT,
+                    PTL_NI_MATCHING | PTL_NI_LOGICAL,
+                    PTL_PID_ANY,
+                    &ni_req_limits,
+                    &ni_limits,
+                    &matching_ni_h);
+    if (PTL_OK != ret) gasneti_fatalerror("[%03d] PtlInit() failed: %d", 
+                                          gasneti_mynode, ret);
+
+#if GASNET_SEGMENT_EVERYTHING
+    if (ni_limits.features & PTL_TARGET_BIND_INACCESSIBLE == 0) {
+        gasneti_fatalerror("[%03d] Portals reports it doesn't support SEGMENT_EVERYTHING\n",
+                           gasneti_mynode);
+    }
+#endif
+
+    ret = PtlGetPhysId(matching_ni_h, &my_id);
+    if (PTL_OK != ret) gasneti_fatalerror("[%03d] PtlGetPhysId() failed: %d", 
+                                          gasneti_mynode, ret);
+
+    /* build id map */
+    p4_info_put("portals4-procid", &my_id, sizeof(my_id));
+    p4_info_exchange();
+    desired = gasneti_malloc(sizeof(ptl_process_t) * gasneti_nodes);
+    for (i = 0 ; i < gasneti_nodes; ++i) {
+        p4_info_get(i, "portals4-procid",
+                         &desired[i], sizeof(ptl_process_t));
+    }
+
+    gasneti_nodemapInit(NULL, &desired[0].phys.nid,
+                        sizeof(desired[0].phys.nid),
+                        sizeof(desired[0]));
+
+    ret = PtlSetMap(matching_ni_h,
+                    gasneti_nodes,
+                    desired);
+    if (PTL_OK != ret && PTL_IGNORED != ret) {
+        gasneti_fatalerror("[%03d] PtlSetMap() failed: %d", 
+                           gasneti_mynode, ret);
+    }
+
+    ret = PtlGetUid(matching_ni_h, &uid);
+    if (PTL_OK != ret) gasneti_fatalerror("[%03d] PtlGetUid() failed: %d", 
+                                          gasneti_mynode, ret);
+
+    ret = PtlEQAlloc(matching_ni_h, 8192, &am_send_eq_h);
+    if (PTL_OK != ret) gasneti_fatalerror("[%03d] PtlEQAlloc() failed: %d", 
+                                          gasneti_mynode, ret);
+    /* Every send will generate two events, the SEND event and the ACK
+       event.  We don't track them seperately because the retransmit
+       logical essentially means we either 1) need to hold both
+       credits until the ACK comes in or 2) reacquire credits in the
+       retransmit case, which has a whole host of deadlock
+       possibilities.  Since most hardware implementations are likely
+       to generate the SEND only slightly before the ACK (due to
+       end-to-end retransmit), this isn't that big of an optimization
+       loss anyway. */
+    p4_max_send_credits = 8192 / 2;
+
+    ret = PtlEQAlloc(matching_ni_h, 8192, &am_recv_eq_h);
+    if (PTL_OK != ret) gasneti_fatalerror("[%03d] PtlEQAlloc() failed: %d", 
+                                          gasneti_mynode, ret);
+
+    ret = PtlEQAlloc(matching_ni_h, 1024, &coll_eq_h);
+    if (PTL_OK != ret) gasneti_fatalerror("[%03d] PtlEQAlloc() failed: %d", 
+                                          gasneti_mynode, ret);
+
+    /* allocate portal table entries */
+    ret = PtlPTAlloc(matching_ni_h,
+                     0,
+                     coll_eq_h,
+                     COLLECTIVE_PT,
+                     &pt);
+    if (PTL_OK != ret) gasneti_fatalerror("[%03d] PtlPTAlloc() failed: %d", 
+                                          gasneti_mynode, ret);
+    if (COLLECTIVE_PT != pt) {
+        gasneti_fatalerror("[%03d] PtlPTAlloc() found bad PT", gasneti_mynode);
+    }
+
+    ret = PtlPTAlloc(matching_ni_h,
+                     PTL_PT_FLOWCTRL,
+                     am_recv_eq_h,
+                     AM_PT,
+                     &pt);
+    if (PTL_OK != ret) gasneti_fatalerror("[%03d] PtlPTAlloc() failed: %d", 
+                                          gasneti_mynode, ret);
+    if (AM_PT != pt) {
+        gasneti_fatalerror("[%03d] PtlPTAlloc() found bad PT", gasneti_mynode);
+    }
+
+    /* Allocate memory descriptor for active message transfer (including long transfers) */
+    md.start     = 0;
+    md.length    = PTL_SIZE_MAX;
+    md.options   = 0;
+    md.eq_handle = am_send_eq_h;
+    md.ct_handle = PTL_CT_NONE;
+    ret = PtlMDBind(matching_ni_h,
+                    &md,
+                    &am_eq_md_h);
+    if (PTL_OK != ret) {
+        gasneti_fatalerror("[%03d] PtlMDBind() failed: %d", gasneti_mynode, ret);
+    }
+
+    /* Configure the active message receive resources now, since
+       there's no harm in not waiting until the segment code is
+       figured out */
+    p4_am_blocks = gasneti_malloc(sizeof(p4_am_block_t) * p4_am_num_entries);
+    for (i = 0 ; i < p4_am_num_entries ; ++i) {
+        p4_am_blocks[i].data = gasneti_malloc(p4_am_size);
+        me.start = p4_am_blocks[i].data;
+        me.length = p4_am_size;
+        me.min_free = gasnet_AMMaxMedium() + gasnet_AMMaxArgs() * sizeof(gasnet_handlerarg_t);
+        me.ct_handle = PTL_CT_NONE;
+        me.uid = uid;
+        me.options = PTL_ME_OP_PUT | PTL_ME_MANAGE_LOCAL |
+            PTL_ME_MAY_ALIGN | PTL_ME_IS_ACCESSIBLE | 
+            PTL_ME_EVENT_LINK_DISABLE;
+        me.match_id.rank = PTL_RANK_ANY;
+        me.match_bits = ACTIVE_MESSAGE;
+        me.ignore_bits = AM_REQREP_BITS;
+        ret = PtlMEAppend(matching_ni_h,
+                          AM_PT,
+                          &me,
+                          PTL_PRIORITY_LIST,
+                          &(p4_am_blocks[i]),
+                          &p4_am_blocks[i].me_h);
+        if (PTL_OK != ret) gasneti_fatalerror("[%03d] PtlMEAppend() failed: %d", 
+                                              gasneti_mynode, ret);
+    }
+    p4_am_enabled = 1;
+
+    /* Configure the barrier memory descriptor now, so that we can
+       rely on it working from here on out... */
+    ret = PtlCTAlloc(matching_ni_h, &bootstrap_barrier_ct_h);
+    if (PTL_OK != ret) gasneti_fatalerror("[%03d] PtlCTAlloc() failed: %d", 
+                                          gasneti_mynode, ret);
+
+    me.start = NULL;
+    me.length = 0;
+    me.min_free = 0;
+    me.ct_handle = bootstrap_barrier_ct_h;
+    me.uid = uid;
+    me.options = PTL_ME_OP_PUT | PTL_ME_UNEXPECTED_HDR_DISABLE | 
+        PTL_ME_EVENT_SUCCESS_DISABLE | PTL_ME_EVENT_CT_COMM | 
+        PTL_ME_IS_ACCESSIBLE | 
+        PTL_ME_EVENT_LINK_DISABLE | PTL_ME_EVENT_UNLINK_DISABLE;
+    me.match_id.rank = PTL_RANK_ANY;
+    me.match_bits = BOOTSTRAP_BARRIER_MB;
+    me.ignore_bits = 0;
+    ret = PtlMEAppend(matching_ni_h,
+                      COLLECTIVE_PT,
+                      &me,
+                      PTL_OVERFLOW_LIST,
+                      NULL,
+                      &bootstrap_barrier_me_h);
+    if (PTL_OK != ret) gasneti_fatalerror("[%03d] PtlMEAppend() failed: %d", 
+                                          gasneti_mynode, ret);
+
+    /* One last barrier using PMI (the other being in the information
+       exchange), so that we can be sure everyone is ready to receive
+       the barrier messages.  
+
+       TODO: This could probably suck less.  One way to avoid this PMI
+       barrier would be to use physical addressing for the bootstrap
+       collectives so that we could initialize the receive resources
+       for the bootstrapBarrier before the info exchange and therefore
+       not care about synchronization until the segmentInit later in
+       gasnet_init(). */
+    ret = PMI_Barrier();
+    if (PMI_SUCCESS != ret) gasneti_fatalerror("[%03d] PMI_Barrier() failed: %d", 
+                                               gasneti_mynode, ret);
+
+    return GASNET_OK;
+}
+
+
+/* ---------------------------------------------------------------------------------
+ * Attach transfer segment
+ *
+ * Create match list entry for long data transfer
+ * --------------------------------------------------------------------------------- */
+int
+gasnetc_p4_attach(void *segbase, uintptr_t segsize)
+{
+    ptl_me_t me;
+    int ret;
+
+#if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
+    gasneti_assert((void*) 0 != segbase && (uintptr_t)-1 != segsize);
+    me.start = segbase;
+    me.length = segsize;
+#elif GASNET_SEGMENT_EVERYTHING
+    gasneti_assert((void*) 0 == segbase && (uintptr_t)-1 == segsize);
+    me.start = 0;
+    me.length = PTL_SIZE_MAX;
+#endif
+
+    me.min_free = 0;
+    me.ct_handle = PTL_CT_NONE;
+    me.uid = uid;
+    me.options = PTL_ME_OP_PUT | PTL_ME_EVENT_LINK_DISABLE | 
+        PTL_ME_UNEXPECTED_HDR_DISABLE;
+    me.match_id.rank = PTL_RANK_ANY;
+    me.match_bits = LONG_DATA;
+    me.ignore_bits = AM_REQREP_BITS;
+    ret = PtlMEAppend(matching_ni_h,
+                      AM_PT,
+                      &me,
+                      PTL_OVERFLOW_LIST,
+                      NULL,
+                      &am_me_h);
+    if (PTL_OK != ret) gasneti_fatalerror("[%03d] PtlMEAppend() failed: %d", 
+                                          gasneti_mynode, ret);
+
+    return GASNET_OK;
+}
+
+
+/* ---------------------------------------------------------------------------------
+ * Exit
+ *
+ * Clean up as many resources as possible.  Try not to do any more communication.
+ * --------------------------------------------------------------------------------- */
+void
+gasnetc_p4_exit(void)
+{
+    gasnetc_hash_destroy(p4_long_hash);
+    /* BWB: TODO */
+}
+
+
+static int
+p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
+{
+    ptl_event_t ev;
+    int ret;
+    unsigned int which;
+
+    while (1) {
+        ret = PtlEQPoll(eq_handles, size, 0, &ev, &which);
+        if (PTL_EQ_EMPTY == ret) {
+            break;
+        } else if (PTL_OK != ret) {
+            gasneti_fatalerror("[%03d] PtlEQPoll returned %d\n", gasneti_mynode, ret);
+        }
+
+        switch (ev.type) {
+        case PTL_EVENT_PUT:
+            /* AM or long data have arrived */
+            if (PTL_OK != ev.ni_fail_type) {
+                gasneti_fatalerror("[%03d] event of type %d failed %d\n", 
+                                   gasneti_mynode, ev.type, ev.ni_fail_type);
+            } else {
+                if (IS_ACTIVE_MESSAGE(ev.match_bits)) {
+                    int isReq = ((IS_AM_REQUEST(ev.match_bits)) ? 1 : 0);
+                    int nbytes = GET_PAYLOAD_LENGTH(ev.match_bits);
+                    int numargs = GET_ARG_COUNT(ev.match_bits);
+                    int handler = GET_HANDLERID(ev.match_bits);
+
+                    if (IS_AM_SHORT(ev.match_bits)) {
+                        gasnetc_p4_token_t token;
+                        gasnet_handlerarg_t *pargs = (gasnet_handlerarg_t*) ev.start;
+                        gasnetc_p4_token_t *tokenp = &token;
+                        
+                        token.reply_sent = 0;
+                        token.sourceid = ev.initiator.rank;
+
+                        gasneti_assert(0 == nbytes);
+                        gasneti_assert(ev.mlength == (numargs * sizeof(gasnet_handlerarg_t)));
+
+#ifdef P4_DEBUG
+                        fprintf(stderr, "%d: firing short handler %d from %d\n",
+                                (int) gasneti_mynode, handler, (int) token.sourceid);
+#endif
+                        GASNETI_RUN_HANDLER_SHORT(isReq, handler, gasnetc_handler[handler],
+                                                  tokenp, pargs, numargs);
+                    } else if (IS_AM_MEDIUM(ev.match_bits)) {
+                        gasnetc_p4_token_t token;
+                        gasnet_handlerarg_t *pargs = (gasnet_handlerarg_t*) ev.start;
+                        gasnetc_p4_token_t *tokenp = &token;
+                        void *buf = (void*) (pargs + numargs);
+                        void *free_buf = NULL;
+
+                        token.reply_sent = 0;
+                        token.sourceid = ev.initiator.rank;
+
+                        gasneti_assert(ev.mlength == (numargs * sizeof(gasnet_handlerarg_t)) + nbytes);
+                        gasneti_assert(nbytes <= gasnet_AMMaxMedium());
+
+                        if (((uintptr_t)buf) % 8 != 0) {
+                            free_buf = gasneti_malloc(nbytes);
+                            memcpy(free_buf, buf, nbytes);
+                            buf = free_buf;
+                        }
+
+#ifdef P4_DEBUG
+                        fprintf(stderr, "%d: firing medium handler %d from %d, nbytes: %d\n",
+                                (int) gasneti_mynode, handler, (int) token.sourceid, nbytes);
+#endif
+                        GASNETI_RUN_HANDLER_MEDIUM(isReq, handler, gasnetc_handler[handler],
+                                                   tokenp, pargs, numargs, buf, nbytes);
+                        
+                        if (NULL != free_buf) gasneti_free(free_buf);
+                    } else if (IS_AM_LONG_PACKED(ev.match_bits)) {
+                        gasnetc_p4_token_t token;
+                        gasnet_handlerarg_t *pargs = (gasnet_handlerarg_t*) ev.start;
+                        gasnetc_p4_token_t *tokenp = &token;
+			char *buf = (void*) (pargs + numargs);
+			void *dest_ptr;
+                        uint64_t tmp;
+
+                        token.reply_sent = 0;
+                        token.sourceid = ev.initiator.rank;
+
+                        memcpy(&tmp, buf, sizeof(uint64_t));
+                        dest_ptr = (void*) tmp;
+			buf += sizeof(uint64_t);
+
+			memcpy(dest_ptr, buf, nbytes);
+
+#ifdef P4_DEBUG
+                        fprintf(stderr, "%d: firing long (packed) handler from %d\n",
+                                (int) gasneti_mynode, (int) token.sourceid);
+#endif
+                        GASNETI_RUN_HANDLER_LONG(isReq, handler, gasnetc_handler[handler],
+                                                 tokenp, pargs, numargs, dest_ptr, nbytes);
+		    } else if (IS_AM_LONG(ev.match_bits)) {
+		      /* the header part of a long message */
+		      p4_long_match_t *match = 
+			(p4_long_match_t*) gasnetc_hash_get(p4_long_hash, 
+							    LONG_HASH(ev.hdr_data, ev.initiator.rank));
+		      if (NULL == match) {
+			match = gasneti_malloc(sizeof(p4_long_match_t));
+			gasneti_weakatomic_set(&match->op_count, 0, 0);
+			if (!gasnetc_hash_put(p4_long_hash, LONG_HASH(ev.hdr_data, ev.initiator.rank),
+					      match)) {
+			  gasneti_free(match);
+			  match = gasnetc_hash_get(p4_long_hash, LONG_HASH(ev.hdr_data, ev.initiator.rank));
+			  gasneti_assert(NULL != match);
+                        }
+                      }
+
+		      match->handler = handler;
+		      memcpy(match->pargs, ev.start, sizeof(gasnet_handlerarg_t) * numargs);
+		      match->numargs = numargs;
+
+		      if (2 == gasneti_weakatomic_add(&match->op_count, 1, 0)) {
+			gasnetc_p4_token_t token;
+			gasnetc_p4_token_t *tokenp = &token;
+
+			token.reply_sent = 0;
+			token.sourceid = ev.initiator.rank;
+
+#ifdef P4_DEBUG
+                        fprintf(stderr, "%d: firing long handler from %d\n",
+                                (int) gasneti_mynode, (int) token.sourceid);
+#endif
+			GASNETI_RUN_HANDLER_LONG(isReq, match->handler, 
+						 gasnetc_handler[match->handler],
+						 tokenp, match->pargs, match->numargs,
+						 match->dest_ptr, match->nbytes);
+			gasneti_free(match);
+                      }
+                    } else {
+                        gasneti_fatalerror("unknown active message type.  MB: 0x%lx\n",
+                                           ev.match_bits);
+                    }
+                } else {
+		  /* the payload part of a long message */
+		  int isReq = ((IS_AM_REQUEST(ev.match_bits)) ? 1 : 0);
+		  p4_long_match_t *match = 
+		    (p4_long_match_t*) gasnetc_hash_get(p4_long_hash, 
+							LONG_HASH(ev.hdr_data, ev.initiator.rank));
+		  if (NULL == match) {
+		    match = gasneti_malloc(sizeof(p4_long_match_t));
+		    gasneti_weakatomic_set(&match->op_count, 0, 0);
+		    if (!gasnetc_hash_put(p4_long_hash, LONG_HASH(ev.hdr_data, ev.initiator.rank),
+					  match)) {
+		      gasneti_free(match);
+		      match = gasnetc_hash_get(p4_long_hash, LONG_HASH(ev.hdr_data, ev.initiator.rank));
+		      gasneti_assert(NULL != match);
+                    }
+                  }
+
+		  match->dest_ptr = ev.start;
+		  match->nbytes = ev.mlength;
+
+		  if (2 == gasneti_weakatomic_add(&match->op_count, 1, 0)) {
+		    gasnetc_p4_token_t token;
+		    gasnetc_p4_token_t *tokenp = &token;
+
+		    token.reply_sent = 0;
+		    token.sourceid = ev.initiator.rank;
+
+#ifdef P4_DEBUG
+                    fprintf(stderr, "%d: firing long handler from %d\n",
+                            (int) gasneti_mynode, (int) token.sourceid);
+#endif
+		    GASNETI_RUN_HANDLER_LONG(isReq, match->handler, 
+					     gasnetc_handler[match->handler],
+					     tokenp, match->pargs, match->numargs,
+					     match->dest_ptr, match->nbytes);
+		    gasneti_free(match);
+		  }
+                }
+            }
+
+        case PTL_EVENT_SEND:
+            /* AM or long data send has arrived.  Don't need to do
+               anything if there wasn't an error, since we're doing
+               flow control stuff and have to wait for the ack... */
+            if (PTL_OK != ev.ni_fail_type) {
+                gasneti_fatalerror("[%03d] event of type %d failed %d\n", 
+                                   gasneti_mynode, ev.type, ev.ni_fail_type);
+            }
+            break;
+
+        case PTL_EVENT_ACK:
+            /* AM data has been acked */
+            if (PTL_NI_PT_DISABLED == ev.ni_fail_type) {
+                p4_frag_t *frag = (p4_frag_t*) ev.user_ptr;
+                ptl_process_t proc;
+
+                gasneti_assert(P4_FRAG_TYPE_AM == frag->type ||
+                               P4_FRAG_TYPE_DATA == frag->type);
+
+                gasneti_assert(1);
+
+                if (P4_FRAG_TYPE_AM == frag->type) {
+                    p4_frag_am_t *am_frag = (p4_frag_am_t*) frag;
+                    proc.rank = am_frag->rank;
+#ifdef P4_DEBUG
+                    fprintf(stderr, "%d: retransmitting am message to %d\n",
+                            (int) gasneti_mynode, (int) proc.rank);
+#endif
+                    ret = PtlPut(am_eq_md_h,
+                                 (ptl_size_t) am_frag->data,
+                                 am_frag->data_length,
+                                 PTL_ACK_REQ,
+                                 proc,
+                                 AM_PT,
+                                 am_frag->match_bits,
+                                 0,
+                                 am_frag,
+                                 am_frag->hdr_data);
+                    if (PTL_OK != ret) {
+                        return GASNET_ERR_BAD_ARG;
+                    }
+                } else {
+                    p4_frag_data_t *data_frag = (p4_frag_data_t*) frag;
+                    proc.rank = data_frag->am_frag->rank;
+#ifdef P4_DEBUG
+                    fprintf(stderr, "%d: retransmitting data message to %d\n",
+                            (int) gasneti_mynode, (int) proc.rank);
+#endif
+                    ret = PtlPut(am_eq_md_h,
+                                 data_frag->local_offset,
+                                 data_frag->length,
+                                 PTL_ACK_REQ,
+                                 proc,
+                                 AM_PT,
+                                 data_frag->match_bits,
+                                 data_frag->remote_offset,
+                                 data_frag,
+                                 data_frag->am_frag->hdr_data);
+                    if (PTL_OK != ret) {
+                        return GASNET_ERR_BAD_ARG;
+                    }
+                }
+            } else if (PTL_OK != ev.ni_fail_type) {
+                gasneti_fatalerror("[%03d] event of type %d failed %d\n", 
+                                   gasneti_mynode, ev.type, ev.ni_fail_type);
+            } else {
+                p4_frag_t *frag = (p4_frag_t*) ev.user_ptr;
+                p4_frag_am_t *am_frag;
+
+                gasneti_assert(P4_FRAG_TYPE_AM == frag->type ||
+                               P4_FRAG_TYPE_DATA == frag->type);
+
+                (void) gasneti_weakatomic_subtract(&p4_send_credits, 1, 0);
+
+                if (frag->type == P4_FRAG_TYPE_AM) {
+                    am_frag = (p4_frag_am_t*) frag;
+#ifdef P4_DEBUG
+                    fprintf(stderr, "%d: got ack for am to %d\n",
+                            (int) gasneti_mynode, (int) am_frag->rank);
+#endif
+                } else {
+                    p4_frag_data_t *data_frag = (p4_frag_data_t*) frag;
+                    am_frag = ((p4_frag_data_t*) frag)->am_frag;
+#ifdef P4_DEBUG
+                    fprintf(stderr, "%d: got ack for data to %d\n",
+                            (int) gasneti_mynode, (int) am_frag->rank);
+#endif
+                    *(data_frag->send_complete_ptr) = 1;
+                    gasneti_free(data_frag);
+                }
+
+                if (IS_AM_LONG(am_frag->match_bits)) {
+                    gasneti_weakatomic_val_t tmp;
+                    tmp = gasneti_weakatomic_add(&am_frag->op_count, 1, GASNETI_ATOMIC_NONE);
+                    if (tmp == 2) {
+                        gasneti_free(am_frag);
+                    }
+                } else {
+                    gasneti_free(am_frag);
+                }
+            }
+            
+            break;
+
+        case PTL_EVENT_PT_DISABLED:
+            /* delay doing anything until we're done draining the
+               queue (ie, until we get the auto_unlink events) */
+            p4_am_enabled = 0;
+            break;
+
+        case PTL_EVENT_AUTO_UNLINK:
+            {
+                p4_am_block_t *block = (p4_am_block_t*) ev.user_ptr;
+                ptl_me_t me;
+                
+                me.start = block->data;
+                me.length = p4_am_size;
+                me.min_free = gasnet_AMMaxMedium() + gasnet_AMMaxArgs() * sizeof(gasnet_handlerarg_t);
+                me.ct_handle = PTL_CT_NONE;
+                me.uid = uid;
+                me.options = PTL_ME_OP_PUT | PTL_ME_MANAGE_LOCAL |
+                    PTL_ME_MAY_ALIGN | PTL_ME_IS_ACCESSIBLE | 
+                    PTL_ME_EVENT_LINK_DISABLE;
+                me.match_id.rank = PTL_RANK_ANY;
+                me.match_bits = ACTIVE_MESSAGE;
+                me.ignore_bits = AM_REQREP_BITS;
+                ret = PtlMEAppend(matching_ni_h,
+                                  AM_PT,
+                                  &me,
+                                  PTL_PRIORITY_LIST,
+                                  block,
+                                  &block->me_h);
+                if (PTL_OK != ret) gasneti_fatalerror("[%03d] PtlMEAppend() failed: %d", 
+                                                      gasneti_mynode, ret);
+            }
+            break;
+
+        default:
+            gasneti_fatalerror("[%03d] Unexpected event type %d\n",
+                               gasneti_mynode, ev.type);
+        }
+    }
+    if (0 == p4_am_enabled) {
+        /* if the pt was disabled, we either ran out of bounce buffers
+           or eq space.  We've drained the eq.  We've theoretically
+           reposted the buffer.  Let's get going again. */
+        ret = PtlPTEnable(matching_ni_h, AM_PT);
+        if (PTL_OK != ret) gasneti_fatalerror("[%03d] PtlPTEnable() failed: %d", 
+                                              gasneti_mynode, ret);
+    }
+
+    return GASNET_OK;
+}
+
+
+/* ---------------------------------------------------------------------------------
+ * General progress loop
+ *
+ * Try to progress as many events as possible.  Safe to trigger
+ * request or reply handlers from this call.
+ * --------------------------------------------------------------------------------- */
+void
+gasnetc_p4_poll(void)
+{
+    int ret = p4_poll(eqs_h, 2);
+    if (GASNET_OK != ret) {
+        gasneti_fatalerror("[%03d] p4_poll returned %d\n",
+                           gasneti_mynode, ret);
+    }
+}
+
+
+/* ---------------------------------------------------------------------------------
+ * Generic request send
+ *
+ * Send message of type category to dest, triggering active message on reception
+ * --------------------------------------------------------------------------------- */
+int
+gasnetc_p4_TransferGeneric(int category, ptl_match_bits_t req_type, gasnet_node_t dest, 
+                          gasnet_handler_t handler, void *source_addr, size_t nbytes,
+                          void *dest_addr, int numargs, va_list argptr)
+{
+    int ret, i;
+    gasneti_weakatomic_val_t tmp;
+    p4_frag_am_t *frag;
+    ptl_process_t proc;
+    gasnet_handlerarg_t *arglist;
+    uint64_t protocol = 0;
+    size_t payload_length = 0;
+    int num_credits = (gasnetc_Long == category || gasnetc_LongAsync == category) ? 2 : 1;
+    int32_t long_send_complete  = 0;
+
+    /* attempt to get the right number of send credits */
+ retry:
+    tmp = gasneti_weakatomic_add(&p4_send_credits, num_credits, 0);
+    if (tmp > p4_max_send_credits) {
+#ifdef P4_DEBUG
+        fprintf(stderr, "%d: ran out of send credits\n", (int) gasneti_mynode);
+#endif
+        (void) gasneti_weakatomic_subtract(&p4_send_credits, num_credits, 0);
+
+        /* drain the send queue (make sure to get as many slots as
+           possible) */
+        ret = p4_poll(&am_send_eq_h, 1);
+        if (GASNET_OK != ret) return ret;
+        goto retry;
+    }
+
+#ifdef P4_DEBUG
+    fprintf(stderr, "%d: TransferGeneric to %d, nbytes = %d, category = %d\n",
+            (int) gasneti_mynode, (int) dest, (int) nbytes, (int) category);
+#endif
+
+    /* Allocate a send fragment */
+    frag = gasneti_malloc(sizeof(p4_frag_am_t) + 
+                          sizeof(gasnet_handlerarg_t) * gasnet_AMMaxArgs() +
+                          gasnet_AMMaxMedium());
+    frag->base.type = P4_FRAG_TYPE_AM;
+    frag->data_length = 0;
+
+    /* copy the arguments */
+    arglist = (gasnet_handlerarg_t*) frag->data;
+    for (i = 0 ; i < numargs ; ++i) {
+        arglist[i] = va_arg(argptr, gasnet_handlerarg_t);
+        frag->data_length += sizeof(gasnet_handlerarg_t);
+    }
+
+    frag->hdr_data = gasneti_weakatomic_add(&p4_op_count, 1, 0);
+    proc.rank = frag->rank = dest;
+
+    switch (category) {
+    case gasnetc_Short:
+        protocol = AM_SHORT;
+        payload_length = 0;
+        break;
+
+    case gasnetc_Medium:
+        protocol = AM_MEDIUM;
+        if (nbytes > 0) {
+            if (nbytes > gasnet_AMMaxMedium()) {
+                gasneti_fatalerror("[%03d] too long payload for medium message: %d\n",
+                                   gasneti_mynode, (int)nbytes);
+            }
+            /* copy the payload */
+            memcpy(frag->data + frag->data_length, source_addr, nbytes);
+	    frag->data_length += nbytes;
+        }
+        payload_length = nbytes;
+        break;
+    case gasnetc_Long:
+    case gasnetc_LongAsync:
+        if (nbytes <= (gasnet_AMMaxMedium() - sizeof(uint64_t))) {
+            uint64_t tmp = (uintptr_t) dest_addr;
+            protocol = AM_LONG_PACKED;
+
+	    /* copy in address where we should deliver the data */
+            memcpy(frag->data + frag->data_length, &tmp, sizeof(uint64_t));
+	    frag->data_length += sizeof(uint64_t);
+
+            /* copy the payload */
+            memcpy(frag->data + frag->data_length, source_addr, nbytes);
+            frag->data_length += nbytes;
+            payload_length = nbytes;
+
+            /* release the credits for the long put, since we ended up
+               not needing them.  also, mark the long send complete
+               for the same reason */
+            long_send_complete = 1;
+            (void) gasneti_weakatomic_subtract(&p4_send_credits, 1, 0);
+        } else {
+            p4_frag_data_t *data_frag = gasneti_malloc(sizeof(p4_frag_data_t));
+            if (NULL == data_frag) {
+                return GASNET_ERR_RESOURCE;
+            }
+
+            protocol = AM_LONG;
+            payload_length = 0;
+
+            data_frag->base.type = P4_FRAG_TYPE_DATA;
+            data_frag->am_frag = frag;
+            gasneti_weakatomic_set(&frag->op_count, 0, GASNETI_ATOMIC_NONE);
+            data_frag->send_complete_ptr = &long_send_complete;
+            data_frag->local_offset = (ptl_size_t) source_addr;
+            data_frag->length = nbytes;
+            data_frag->match_bits = CREATE_MATCH_BITS(LONG_DATA, req_type, AM_LONG, 0, 0, 0);
+            data_frag->remote_offset = (char*) dest_addr - (char*) gasneti_seginfo[dest].addr;
+
+            /* transfer the payload */
+            ret = PtlPut(am_eq_md_h,
+                         data_frag->local_offset,
+                         data_frag->length,
+                         PTL_ACK_REQ,
+                         proc,
+                         AM_PT,
+                         data_frag->match_bits,
+                         data_frag->remote_offset,
+                         data_frag,
+                         frag->hdr_data);
+            if (PTL_OK != ret) {
+                return GASNET_ERR_BAD_ARG;
+            }
+        }
+        break;
+    default:
+        gasneti_fatalerror("[%03d]: Unknown message category %d\n", 
+                           (int) gasneti_mynode, category);
+    }
+
+    frag->match_bits = CREATE_MATCH_BITS(ACTIVE_MESSAGE, req_type, protocol, numargs, handler, payload_length);
+
+    /* send the fragment */
+    ret = PtlPut(am_eq_md_h,
+                 (ptl_size_t) frag->data,
+                 frag->data_length,
+                 PTL_ACK_REQ,
+                 proc,
+                 AM_PT,
+                 frag->match_bits,
+                 0,
+                 frag,
+                 frag->hdr_data);
+    if (PTL_OK != ret) {
+        return GASNET_ERR_BAD_ARG;
+    }
+
+    /* if long, block until the send event */
+    while (gasnetc_Long == category && long_send_complete == 0) {
+        ret = p4_poll(&am_send_eq_h, 1);
+        if (GASNET_OK != ret) return ret;
+        gasneti_compiler_fence();
+    }
+
+    return GASNET_OK;
+}
+
+
+/* ---------------------------------------------------------------------------------
+ * Bootstrap barrier function over portals
+ * After the network has been initialized, but before all the conduit resources
+ * have been allocated, can use this function to perform the equivelent of
+ * an MPI_Barrier.  Assumes that barrier has been setup during gasnetc_init
+ * --------------------------------------------------------------------------------- */
+void
+gasnetc_bootstrapBarrier(void)
+{
+    int my_root = (gasneti_mynode == 0) ? 0 : (gasneti_mynode - 1) / 2;
+    int left = ((2 * gasneti_mynode + 1) < gasneti_nodes) ? (2 * gasneti_mynode + 1) : -1;
+    int right = ((2 * gasneti_mynode + 2) < gasneti_nodes) ? (2 * gasneti_mynode + 2) : -1;
+    int count = ((left == -1) ? 0 : 1) + ((right == -1) ? 0 : 1);
+    ptl_ct_event_t ct;
+    int ret;
+    ptl_process_t proc;
+    ptl_handle_md_t md_h;
+    ptl_md_t md;
+
+    bootstrap_barrier_calls++;
+
+    md.start = NULL;
+    md.length = 0;
+    md.options = PTL_MD_UNORDERED;
+    md.eq_handle = PTL_EQ_NONE;
+    md.ct_handle = PTL_CT_NONE;
+
+    ret = PtlMDBind(matching_ni_h, &md, &md_h);
+    if (PTL_OK != ret) {
+        gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlMDBind() failed %d", ret);
+    }
+
+    if (my_root == gasneti_mynode) {
+        /* root */
+        ret = PtlCTWait(bootstrap_barrier_ct_h, 
+                        bootstrap_barrier_calls * count,
+                        &ct);
+        if (PTL_OK != ret) {
+            gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlCTWait() failed %d", ret);
+        }
+
+        if (-1 != left) {
+            proc.rank = left;
+            ret = PtlPut(md_h,
+                         0,
+                         0,
+                         PTL_NO_ACK_REQ,
+                         proc,
+                         COLLECTIVE_PT,
+                         BOOTSTRAP_BARRIER_MB,
+                         0,
+                         NULL,
+                         0);
+            if (PTL_OK != ret) {
+                gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlPut() failed %d", ret);
+            }
+        }
+
+        if (-1 != right) {
+            proc.rank = right;
+            ret = PtlPut(md_h,
+                         0,
+                         0,
+                         PTL_NO_ACK_REQ,
+                         proc,
+                         COLLECTIVE_PT,
+                         BOOTSTRAP_BARRIER_MB,
+                         0,
+                         NULL,
+                         0);
+            if (PTL_OK != ret) {
+                gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlPut() failed %d", ret);
+            }
+        }
+
+    } else if (0 == count) {
+        /* leaf */
+        proc.rank = my_root;
+        ret = PtlPut(md_h,
+                     0,
+                     0,
+                     PTL_NO_ACK_REQ,
+                     proc,
+                     COLLECTIVE_PT,
+                     BOOTSTRAP_BARRIER_MB,
+                     0,
+                     NULL,
+                     0);
+        if (PTL_OK != ret) {
+            gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlPut() failed %d", ret);
+        }
+        
+        ret = PtlCTWait(bootstrap_barrier_ct_h, 
+                        bootstrap_barrier_calls,
+                        &ct);
+        if (PTL_OK != ret) {
+            gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlCTWait() failed %d", ret);
+        }
+
+    } else {
+        /* middle node */
+        ret = PtlCTWait(bootstrap_barrier_ct_h, 
+                        ((bootstrap_barrier_calls - 1) * (count + 1)) + count,
+                        &ct);
+        if (PTL_OK != ret) {
+            gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlCTWait() failed %d", ret);
+        }
+
+        if (-1 != left) {
+            proc.rank = left;
+            ret = PtlPut(md_h,
+                         0,
+                         0,
+                         PTL_NO_ACK_REQ,
+                         proc,
+                         COLLECTIVE_PT,
+                         BOOTSTRAP_BARRIER_MB,
+                         0,
+                         NULL,
+                         0);
+            if (PTL_OK != ret) {
+                gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlPut() failed %d", ret);
+            }
+        }
+
+        if (-1 != right) {
+            proc.rank = right;
+            ret = PtlPut(md_h,
+                         0,
+                         0,
+                         PTL_NO_ACK_REQ,
+                         proc,
+                         COLLECTIVE_PT,
+                         BOOTSTRAP_BARRIER_MB,
+                         0,
+                         NULL,
+                         0);
+            if (PTL_OK != ret) {
+                gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlPut() failed %d", ret);
+            }
+        }
+
+        /* wait for down part */
+        ret = PtlCTWait(bootstrap_barrier_ct_h, 
+                        bootstrap_barrier_calls * (count + 1),
+                        &ct);
+        if (PTL_OK != ret) {
+            gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlCTWait() failed %d", ret);
+        }
+
+        proc.rank = my_root;
+        ret = PtlPut(md_h,
+                     0,
+                     0,
+                     PTL_NO_ACK_REQ,
+                     proc,
+                     COLLECTIVE_PT,
+                     BOOTSTRAP_BARRIER_MB,
+                     0,
+                     NULL,
+                     0);
+        if (PTL_OK != ret) {
+            gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlPut() failed %d", ret);
+        }
+    }
+    
+    ret = PtlMDRelease(md_h);
+    if (PTL_OK != ret) {
+        gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlMDRelease() failed %d", ret);
+    }
+}
+
+
+/* ---------------------------------------------------------------------------------
+ * Bootstrap exchange function over portals
+ * After the network has been initialized, but before all the conduit resources
+ * have been allocated, can use this function to perform the equivelent of
+ * an MPI_Allgather.  Bruck's concatenation algorithm is used here.
+ * --------------------------------------------------------------------------------- */
+void
+gasnetc_bootstrapExchange(void *src, size_t len, void *dest)
+{
+    ptl_md_t md;
+    ptl_me_t me;
+    ptl_handle_me_t me_h;
+    ptl_handle_md_t md_h;
+    ptl_event_t ev;
+    ptl_hdr_data_t rcvd = 0;
+    ptl_hdr_data_t goal = 0;
+    ptl_hdr_data_t hdr_data = 1;
+    ptl_size_t offset = len;
+    void *temp;
+    uint32_t distance;
+    int ret, sends = 0;
+
+    GASNETI_TRACE_PRINTF(C,("bootExch with len = %d, src = %p dest = %p",(int)len,src,dest));
+
+    temp = gasneti_malloc(len * gasneti_nodes);
+
+    md.start = src;
+    md.length = len;
+    md.options = PTL_MD_UNORDERED;
+    md.eq_handle = coll_eq_h;
+    md.ct_handle = PTL_CT_NONE;
+    ret = PtlMDBind(matching_ni_h, &md, &md_h);
+    if (PTL_OK != ret) {
+        gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlMDBind() failed %d", ret);
+    }
+
+    /* register the temp md with an EQ on a match list */
+    me.start = temp;
+    me.length = len * gasneti_nodes;
+    me.ct_handle = PTL_CT_NONE;
+    me.uid = uid;
+    me.options = PTL_ME_OP_PUT;
+    me.match_id.rank = PTL_RANK_ANY;
+    me.match_bits = BOOTSTRAP_EXCHANGE_MB;
+    me.ignore_bits = 0;
+    me.min_free = 0;
+    ret = PtlMEAppend(matching_ni_h, COLLECTIVE_PT, &me, PTL_PRIORITY_LIST, NULL, &me_h);
+    if (PTL_OK != ret) {
+        gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlMEAppend() failed %d", ret);
+    }
+
+    gasnetc_bootstrapBarrier();
+
+    /* Bruck's Concatenation Algorithm */
+    memcpy(temp, src, len);
+    for (distance = 1; distance < gasneti_nodes; distance *= 2) {
+        ptl_size_t to_xfer;
+        gasnet_node_t peer;
+        ptl_process_t proc;
+
+        if (gasneti_mynode >= distance) {
+            peer = gasneti_mynode - distance;
+        } else {
+            peer = gasneti_mynode + (gasneti_nodes - distance);
+        }
+
+        to_xfer = len * MIN(distance, gasneti_nodes - distance);
+        proc.rank = peer;
+        ret = PtlPut(md_h, 
+                     0, 
+                     to_xfer, 
+                     PTL_NO_ACK_REQ, 
+                     proc,
+                     COLLECTIVE_PT,
+                     BOOTSTRAP_EXCHANGE_MB,
+                     offset,
+                     NULL,
+                     hdr_data);
+        if (PTL_OK != ret) {
+            gasneti_fatalerror("gasnetc_bootstrapExchange() PtlPut() failed %d", ret);
+        }
+
+        sends += 1;
+
+        /* wait for completion of the proper receive, and keep count
+           of uncompleted sends.  "rcvd" is an accumulator to deal
+           with out-of-order receives, which are IDed by the
+           hdr_data */
+        goal |= hdr_data;
+        while ((rcvd & goal) != goal) {
+            ret = PtlEQWait(coll_eq_h, &ev);
+            switch (ret) {
+            case PTL_OK:
+                if (ev.type == PTL_EVENT_SEND) {
+                    sends -= 1;
+                } else {
+                    rcvd |= ev.hdr_data;
+                    gasneti_assert(ev.rlength == ev.mlength);
+                    gasneti_assert((ev.rlength == to_xfer) || (ev.hdr_data != hdr_data));
+                }
+                break;
+            default:
+                gasneti_fatalerror("GASNet Portals4 Error in bootExchange waiting for event: %i\n at %s\n",
+                                   ret, gasneti_current_loc);
+            }
+        }
+        
+        hdr_data <<= 1;
+        offset += to_xfer;
+    }
+
+    /* wait for any SEND_END events not yet seen */
+    while (sends) {
+        ret = PtlEQWait(coll_eq_h, &ev);
+        switch (ret) {
+        case PTL_OK:
+            gasneti_assert( ev.type == PTL_EVENT_SEND );
+            sends -= 1;
+            break;
+        default:
+            gasneti_fatalerror("GASNet Portals Error in bootExchange waiting for event: %d\n at %s\n",
+                               ret, gasneti_current_loc);
+        }
+    }
+
+    ret = PtlMDRelease(md_h);
+    if (PTL_OK != ret) gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlMDRelease() failed %d", ret);
+    ret = PtlMEUnlink(me_h);
+    if (PTL_OK != ret) gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlMEUnlink() failed %d", ret);
+
+    /* now rotate into final position */
+    memcpy(dest, (uint8_t*)temp + len * (gasneti_nodes - gasneti_mynode), len * gasneti_mynode);
+    memcpy((uint8_t*)dest + len * gasneti_mynode, temp, len * (gasneti_nodes - gasneti_mynode));
+    gasneti_free(temp);
+
+    /* should not need a barrier here */
+    GASNETI_TRACE_PRINTF(C,("bootExch exit"));
+}

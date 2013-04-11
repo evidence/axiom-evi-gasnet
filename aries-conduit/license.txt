@@ -1,4 +1,4 @@
-$Header: /Users/kamil/work/gasnet-cvs2/gasnet/aries-conduit/license.txt,v 1.1 2013/02/06 07:54:59 phargrov Exp $
+$Header: /Users/kamil/work/gasnet-cvs2/gasnet/aries-conduit/license.txt,v 1.1.1.1 2013/04/11 19:26:06 phargrov Exp $
 All files in this directory (except where otherwise noted) are subject to the
 following licensing terms: 
 

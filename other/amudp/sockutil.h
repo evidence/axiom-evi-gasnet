@@ -1,11 +1,13 @@
-//  $Archive:: /Ti/AMUDP/sockutil.h                                       $
-//     $Date: 2003/12/11 20:19:53 $
-// $Revision: 1.1 $
+//   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/sockutil.h,v $
+//     $Date: 2013/04/11 19:26:07 $
+// $Revision: 1.1.1.1 $
 // Description: Simple sock utils
 // Copyright 1999, Dan Bonachea
 
 #ifndef SOCKUTIL_H
 #define SOCKUTIL_H
+
+#include <portable_inttypes.h>
 
 #include "socket.h"
 #include "sockaddr.h"
@@ -40,18 +42,33 @@ int recvLine(SOCKET s, char* buf, int bufsiz);
   // returns size with CRLF removed
   // may throw exception if bufsiz is too small
 
-void sendAll(SOCKET s, const void* buffer, int numbytes);
-void sendAll(SOCKET s, const char* buffer, int numbytes=-1);
+void sendAll(SOCKET s, const void* buffer, int numbytes, int dothrow=1);
+void sendAll(SOCKET s, const char* buffer, int numbytes=-1, int dothrow=1);
   // blocks until it can send numbytes on s from buffer
-  // (throws xSocket on close)
+  // (throws xSocket on close by default)
 void sendEOL(SOCKET s); // send CR LF
 
-unsigned long recv32(SOCKET s);
-void send32(SOCKET s, unsigned long value);
+uint32_t recv32(SOCKET s);
+void send32(SOCKET s, uint32_t value);
   // recv/send a 32-bit value with endian conversions
 extern bool endianconvert; // whether or not conversions should happen on recv/send
 
-unsigned long byteSwap(unsigned long val);
+uint16_t byteSwap16(uint16_t val);
+uint32_t byteSwap32(uint32_t val);
+uint64_t byteSwap64(uint64_t val);
+
+uint16_t ntoh16(uint16_t v);
+uint32_t ntoh32(uint32_t v);
+uint64_t ntoh64(uint64_t v);
+void ntoh16a(void *pv);
+void ntoh32a(void *pv);
+void ntoh64a(void *pv);
+uint16_t hton16(uint16_t v);
+uint32_t hton32(uint32_t v);
+uint64_t hton64(uint64_t v);
+void hton16a(void *pv);
+void hton32a(void *pv);
+void hton64a(void *pv);
 
 char recvch(SOCKET s); // get one character
 
@@ -88,6 +105,12 @@ int getSocketErrorCode();
 
 SockAddr getsockname(SOCKET s);
 SockAddr getpeername(SOCKET s);
+unsigned long getLocalAddress(SOCKET s);
+int getLocalPort(SOCKET s);
+void getSockPeer(SOCKET s, sockaddr_in &addr);
+unsigned long getRemoteAddress(SOCKET s);
+int getRemotePort(SOCKET s);
+void getSockName(SOCKET s, sockaddr_in &addr);
 
 char const *getMyHostName();
   // return the local hostname

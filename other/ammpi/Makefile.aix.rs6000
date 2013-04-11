@@ -1,29 +1,18 @@
-#  $Archive::                                                            $
-#     $Date: 2002/06/01 14:24:57 $
-# $Revision: 1.1 $
-# Description: IBM SP2 Makefile fragment for AMUDP
+#   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/Makefile.aix.rs6000,v $
+#     $Date: 2013/04/11 19:26:07 $
+# $Revision: 1.1.1.2 $
+# Description: IBM SP2 Makefile fragment
 # Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
 
-# Get default settings for everything
-include Makefile.common
-
-# ---------- required ------------------
-# endianness (uncomment one)
-#endianness = -DLITTLE_ENDIAN
-endianness = 
-#endianness = -DBIG_ENDIAN
-
-# additional defines
-# must include, minimally, a define to identify the platform
-platform_defines = -DUNIX -DAIX -DRS6000 ${endianness}
+# additional defines required to build on this platform
+platform_defines = 
 
 # ------- optional, changed from template ---------
 # additional libraries and/or library directories
 platform_libraries = 
 
 # this calls xlc internally 
-CC := mpcc
-ccdebugflags := -O0 -g
-#ccoptflags := -O3 -qstrict -qmaxmem=8192
-ccoptflags := -O3 -qstrict -qarch=pwr3 -qtune=pwr3 -qsmp=noauto -qmaxmem=8192
+CC = mpcc
+ccdebugflags = -O0 -g
+ccoptflags = -O3 -qstrict -qarch=auto -qtune=auto -qsmp=noauto -qmaxmem=-1
 

@@ -1,15 +1,12 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-#include <ammpi.h>
-#include <ammpi_spmd.h>
-
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amxtests/testbulk.c,v $
+ *     $Date: 2013/04/11 19:26:07 $
+ * $Revision: 1.1.1.2 $
+ * Description: AMX test
+ * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
+ */
 #include "apputils.h"
 
-
-
-#define VERBOSE 0
 
 #define BULK_REQ_HANDLER 1
 #define BULK_REP_HANDLER 2
@@ -26,9 +23,11 @@ int done = 0;
 uint32_t *VMseg;
 
 static void bulk_request_handler(void *token, void *buf, int nbytes, int arg) {
+  #if DEBUG
   uint32_t *recvdbuf = (uint32_t *)buf;
+  #endif
   #if VERBOSE
-    printf("%i: bulk_request_handler(). starting...", myproc); fflush(stdout);
+    printf("%i: bulk_request_handler(). starting...\n", myproc); fflush(stdout);
   #endif
 
   assert(arg == 666);
@@ -36,27 +35,24 @@ static void bulk_request_handler(void *token, void *buf, int nbytes, int arg) {
   assert(buf == ((uint8_t *)VMseg) + 100);
   /* assert(done < 2*nummsgs); */
 
-  #ifdef DEBUG
+  #if DEBUG
     /*  verify the result */
     { int i;
       for (i = 0; i < nbytes/4; i++) {
-        if (recvdbuf[i] != (uint32_t)i) {
-          printf("%i: ERROR: mismatched data recvdbuf[%i]=%i\n", myproc, i, recvdbuf[i]);
-          fflush(stdout);
-          abort();
-          }
-        }
+        if (recvdbuf[i] != (uint32_t)i) 
+          AMX_FatalErr("%i: ERROR: mismatched data recvdbuf[%i]=%i\n", myproc, i, (int)recvdbuf[i]);
       }
+    }
   #endif
 
   #if VERBOSE
-    printf("%i: bulk_request_handler(). sending reply...", myproc); fflush(stdout);
+    printf("%i: bulk_request_handler(). sending reply...\n", myproc); fflush(stdout);
   #endif
 
 
   AM_Safe(AM_Reply0(token, BULK_REP_HANDLER));
   done++;
-  }
+}
 
 static void bulk_reply_handler(void *token, int ctr, int dest, int val) {
   /* assert(done < 2*nummsgs); */
@@ -65,7 +61,7 @@ static void bulk_reply_handler(void *token, int ctr, int dest, int val) {
     printf("%i: bulk_reply_handler()\n", myproc); fflush(stdout);
   #endif
   done++;
-  }
+}
 
 int main(int argc, char **argv) {
   eb_t eb;
@@ -74,24 +70,11 @@ int main(int argc, char **argv) {
   int64_t begin, end, total;
   int polling = 1;
   int fullduplex = 0;
-  int depth = 0;
   int rightguy;
   uint32_t *srcmem;
   int iters = 0;
 
-  AMMPI_VerboseErrors = 1;
-
-  if (argc < 2) {
-    printf("Usage: %s iters (bulkmsgsize) (Poll/Block) (netdepth) (Half/Full)\n", argv[0]);
-    exit(1);
-    }
-
-  if (argc > 4) depth = atoi(argv[4]);
-  if (!depth) depth = 4;
-
-  /* call startup */
-  AM_Safe(AMMPI_SPMDStartup(&argc, &argv, 
-                            depth, &networkpid, &eb, &ep));
+  TEST_STARTUP(argc, argv, networkpid, eb, ep, 1, 4, "iters (bulkmsgsize) (Poll/Block) (Half/Full)");
 
   /* setup handlers */
   AM_Safe(AM_SetHandler(ep, BULK_REQ_HANDLER, bulk_request_handler));
@@ -100,8 +83,8 @@ int main(int argc, char **argv) {
   setupUtilHandlers(ep, eb);
 
   /* get SPMD info */
-  myproc = AMMPI_SPMDMyProc();
-  numprocs = AMMPI_SPMDNumProcs();
+  myproc = AMX_SPMDMyProc();
+  numprocs = AMX_SPMDNumProcs();
 
   if (argc > 1) iters = atoi(argv[1]);
   if (!iters) iters = 1;
@@ -111,19 +94,19 @@ int main(int argc, char **argv) {
     switch(argv[3][0]) {
       case 'p': case 'P': polling = 1; break;
       case 'b': case 'B': polling = 0; break;
-      default: printf("polling must be 'P' or 'B'..\n"); AMMPI_SPMDExit(1);
-      }
+      default: printf("polling must be 'P' or 'B'..\n"); AMX_SPMDExit(1);
     }
-  if (argc > 5) {
-    switch(argv[5][0]) {
+  }
+  if (argc > 4) {
+    switch(argv[4][0]) {
       case 'h': case 'H': fullduplex = 0; break;
       case 'f': case 'F': fullduplex = 1; break;
-      default: printf("duplex must be H or F..\n"); AMMPI_SPMDExit(1);
-      }
+      default: printf("duplex must be H or F..\n"); AMX_SPMDExit(1);
     }
-  if (!fullduplex && numprocs % 2 != 0) {
-     printf("half duplex requires an even number of processors\n"); AMMPI_SPMDExit(1);
-    }
+  }
+  if (!fullduplex && numprocs > 1 && numprocs % 2 != 0) {
+     printf("half duplex requires an even number of processors\n"); AMX_SPMDExit(1);
+  }
   msg_size = (size > AM_MaxLong() ? AM_MaxLong() : size);
   nummsgs = (size % AM_MaxLong() == 0 ? size / AM_MaxLong() : (size / AM_MaxLong())+1);
   srcmem = (uint32_t *)malloc(msg_size);
@@ -138,16 +121,16 @@ int main(int argc, char **argv) {
     int i;
     int numints = msg_size/4;
     for (i=0; i < numints; i++) srcmem[i] = i;
-    }
+  }
 
-  AM_Safe(AMMPI_SPMDBarrier());
+  AM_Safe(AMX_SPMDBarrier());
 
 
   if (myproc == 0) printf("Running %s bulk test sz=%i...\n", (fullduplex?"full-duplex":"half-duplex"), size);
 
   begin = getCurrentTimeMicrosec();
 
-  if (fullduplex || myproc % 2 == 1) {
+  if (fullduplex || myproc % 2 == 1 || numprocs == 1) {
     int q;
     for (q=0; q<iters; q++) {
       int j;
@@ -158,41 +141,42 @@ int main(int argc, char **argv) {
 	        printf("%i: sending request...", myproc); fflush(stdout);
         #endif
 	      AM_Safe(AM_RequestXfer1(ep, rightguy, 100, BULK_REQ_HANDLER, srcmem, msg_size, 666));
-        }
       }
     }
+  }
 
-  if (polling) { /* poll until everyone done */
-    int expectedmsgs = fullduplex ? 2*nummsgs*iters:nummsgs*iters;
-    while (done<expectedmsgs) {
-      AM_Safe(AM_Poll(eb));
+  { int expectedmsgs = nummsgs*iters;
+    if (numprocs == 1 || fullduplex) expectedmsgs *= 2;
+
+    if (polling) { /* poll until everyone done */
+      while (done<expectedmsgs) {
+        AM_Safe(AM_Poll(eb));
+      }
+    } else {
+      while (done<expectedmsgs) {
+        AM_Safe(AM_SetEventMask(eb, AM_NOTEMPTY)); 
+        AM_Safe(AM_WaitSema(eb));
+        AM_Safe(AM_Poll(eb));
       }
     }
-  else {
-    int expectedmsgs = fullduplex ? 2*nummsgs*iters:nummsgs*iters;
-    while (done<expectedmsgs) {
-      AM_Safe(AM_SetEventMask(eb, AM_NOTEMPTY)); 
-      AM_Safe(AM_WaitSema(eb));
-      AM_Safe(AM_Poll(eb));
-      }
-    }
+  }
 
   end = getCurrentTimeMicrosec();
 
   total = end - begin;
-  if (fullduplex || myproc % 2 == 1) 
+  if (fullduplex || myproc % 2 == 1 || numprocs == 1) 
     printf("Slave %i: %i microseconds total, throughput: %8.3f KB/sec\n", 
       myproc, (int)total, (float)(((float)1000000)*size*iters/((int)total))/1024.0);
   fflush(stdout);
 
   /* dump stats */
-  AM_Safe(AMMPI_SPMDBarrier());
+  AM_Safe(AMX_SPMDBarrier());
   printGlobalStats();
-  AM_Safe(AMMPI_SPMDBarrier());
+  AM_Safe(AMX_SPMDBarrier());
 
   /* exit */
-  AM_Safe(AMMPI_SPMDExit(0));
+  AM_Safe(AMX_SPMDExit(0));
 
   return 0;
-  }
+}
 /* ------------------------------------------------------------------------------------ */

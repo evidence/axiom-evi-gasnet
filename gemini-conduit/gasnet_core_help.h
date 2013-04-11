@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core_help.h,v $
- *     $Date: 2010/12/07 22:28:38 $
- * $Revision: 1.1 $
+ *     $Date: 2013/04/11 19:26:06 $
+ * $Revision: 1.1.1.2 $
  * Description: GASNet <conduitname> conduit core Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

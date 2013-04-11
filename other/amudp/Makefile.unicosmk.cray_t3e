@@ -1,29 +1,23 @@
-#  $Archive::                                                            $
-#     $Date: 2003/12/17 10:12:24 $
-# $Revision: 1.1 $
+#   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/Makefile.unicosmk.cray_t3e,v $
+#     $Date: 2013/04/11 19:26:07 $
+# $Revision: 1.1.1.1 $
 # Description: Cray-T3E Makefile fragment
 # Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
 
-# Get default settings for everything
-include Makefile.common
-
-# additional defines
-# must include, minimally, a define to identify the platform
-platform_defines = -DUNIX -DUNICOS -DCRAYT3E -DCRAY -D_CRAY
-
-# disable ILP32 tests
-testprograms_ILP32only =
-
 # Cray cc
-CC := cc 
-ccdebugflags := -O0 -g
-ccoptflags := -O2
-CXX := KCC
-cxxdebugflags := -O0 -g --display_error_number --diag_suppress 236 --diag_suppress 175 --diag_suppress 177
-cxxoptflags := -O2 --display_error_number --diag_suppress 236 --diag_suppress 175 --diag_suppress 177
+CC = cc 
+ccdebugflags = -O0 -g
+ccoptflags = -O2
+CXX = KCC
+cxxdebugflags = -O0 -g --display_error_number --diag_suppress 236 --diag_suppress 175 --diag_suppress 177
+cxxoptflags = -O2 --display_error_number --diag_suppress 236 --diag_suppress 175 --diag_suppress 177
 
-# ------- optional, changed from template ---------
+# additional defines required to build on this platform
+platform_defines = 
+
+# additional linker flags required to build on this platform
+platform_ldflags = 
+
 # additional libraries and/or library directories
-# -lpthread for sched_yield
-platform_libraries = -lpthread
+platform_libraries =
 

@@ -1,37 +1,25 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testnbr.c,v $
- *     $Date: 2005/03/10 09:17:49 $
- * $Revision: 1.1 $
- * Description: MG-like neighbour exchange
+ *     $Date: 2013/04/11 19:26:08 $
+ * $Revision: 1.1.1.1 $
+ * Description: MG-like Neighbor exchange
  * Copyright 2005, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  */
 
 /************************************************************
- * testneighbour.c:
- *   NAS MG modelled microbenchmark to measure the cost of neighbour ghost cell
+ * testnbr.c:
+ *   NAS MG modelled microbenchmark to measure the cost of nbr ghost cell
  *   exchanges.  The benchmark replicates ghost exchanges over all dimensions
  *   (two of which generate strided data communication).
  *
 *************************************************************/
 
 #include "gasnet.h"
-#include "gasnet_handler.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <sys/time.h>
-#include <unistd.h>
-#include <fcntl.h>
 #include <math.h>
 uintptr_t maxsegmentsz;
 #ifndef TEST_SEGSZ
-  #ifdef GASNET_SEGMENT_EVERYTHING
-    #define TEST_SEGSZ_EXPR ((uintptr_t)maxsegmentsz)
-  #else
-    #define TEST_SEGSZ_EXPR ((uintptr_t)maxsegmentsz)
-  #endif
+  #define TEST_SEGSZ_EXPR ((uintptr_t)maxsegmentsz)
 #endif
-#define TEST_DELAY
 #include "test.h"
 
 typedef struct {
@@ -45,7 +33,7 @@ typedef struct {
 } stat_struct_t;
 
 uintptr_t topalloc = 0;
-FILE *nbour_fp;
+FILE *nbr_fp;
 int maxlevel = 4;
 int myproc;
 int nprocs;
@@ -88,7 +76,7 @@ int nprocs;
  *
  * 1. UPC (Parry's MG)
  *    * Over each dimension, pack boundary plane in a buffer, send the buffer
- *      and signal the neighbour with a put.
+ *      and signal the nbr with a put.
  *    * Each processor spins on the signal waiting to unpack the buffer back
  *      into local computation data.
  *    * Memory reqs: 
@@ -101,7 +89,7 @@ int nprocs;
  */
 
 typedef
-struct _nbour_t {
+struct _nbr_t {
     int	 dimsz;	/* global dimension size */
     /* 0 => yz plane
      * 1 => xz plane
@@ -110,15 +98,15 @@ struct _nbour_t {
     int  procGrid[3];
     int  idGrid[3];
 
-    /* Upper and Lower neighbours in each dimension (grid id) */
+    /* Upper and Lower nbrs in each dimension (grid id) */
     int  idGridUpper[3];
     int  idGridLower[3];
 
-    /* Upper and Lower neighbours in each dimension (GASNet node ids) */
+    /* Upper and Lower nbrs in each dimension (GASNet node ids) */
     gasnet_node_t  nodeidUpper[3];
     gasnet_node_t  nodeidLower[3];
 
-    /* Cache dims in all Lower neighbours */
+    /* Cache dims in all Lower nbrs */
     int  dimsLower[3];
 
     /* blocks per grid element in each dimension */
@@ -142,7 +130,7 @@ struct _nbour_t {
     double    *xzBuffer; 
     /* xyBuffer requires no packing */
 
-    /* Arrays into communicaiton buffers, for low/up neighbour in each dim */
+    /* Arrays into communicaiton buffers, for low/up nbr in each dim */
     double    *dimBufs[3][2];
 
     /* Two local communication buffers for non-contiguous planes */
@@ -157,78 +145,57 @@ struct _nbour_t {
     /* For computing medians at node 0 */
     stat_struct_t   *stats0;
 }
-nbour_t;
+nbr_t;
 
 /* Only one-level for now */
-nbour_t	Nbour;
+nbr_t	Nbr;
 
 #define AREF(nb,k,j,i) (nb->Ldata[(k)*(nb)->dims[1]*(nb)->dims[0] + \
 		                  (j)*(nb)->dims[0] + i])
 
-#define NBOUR_SYNC_LEN	(1 + CACHELINE_SZ/sizeof(int))
-#define NBOUR_SYNC_OFF(axis,id,phase) (NBOUR_SYNC_LEN*(4*(axis)+2*(id)+(phase)))
-#define NBOUR_SYNCADDR(base,axis,id,phase) (((int*)(base)) + NBOUR_SYNC_OFF(axis,id,phase))
+#define NBR_SYNC_LEN	(1 + CACHELINE_SZ/sizeof(int))
+#define NBR_SYNC_OFF(axis,id,phase) (NBR_SYNC_LEN*(4*(axis)+2*(id)+(phase)))
+#define NBR_SYNCADDR(base,axis,id,phase) \
+        (((volatile int*)(base)) + NBR_SYNC_OFF(axis,id,phase))
 
-void setupGrid(nbour_t *nb, int level);
-void allocMultiGrid(nbour_t *nb);
-void initNbour(nbour_t *nb);
-void freeNbour(nbour_t *nb);
-void estimateMemSegment(nbour_t *nb, uintptr_t *local, uintptr_t *segment);
+void setupGrid(nbr_t *nb, int level);
+void allocMultiGrid(nbr_t *nb);
+void initNbr(nbr_t *nb);
+void freeNbr(nbr_t *nb);
+void estimateMemSegment(nbr_t *nb, uintptr_t *local, uintptr_t *segment);
 
-void ghostExchUPCMG         (nbour_t *nb, int iters, int axis, int pairwise_sync);
-void ghostExchGASNetNonBlock(nbour_t *nb, int iters, int axis, int pairwise_sync);
-void ghostExchAMLong        (nbour_t *nb, int iters, int axis);
+void ghostExchUPCMG         (nbr_t *nb, int iters, int axis, int pairwise_sync);
+void ghostExchGASNetNonBlock(nbr_t *nb, int iters, int axis, int pairwise_sync);
+void ghostExchAMLong        (nbr_t *nb, int iters, int axis);
 
-gasnet_handle_t ge_put   (nbour_t *nb, int type, int dir, int axis, int *flag);
-gasnet_handle_t ge_notify(nbour_t *nb, int dir, int axis);
-void	        ge_wait  (nbour_t *nb, int dir, int axis);
-void	        ge_unpack(nbour_t *nb, double *src, size_t destp, int axis);
+gasnet_handle_t ge_put   (nbr_t *nb, int type, int dir, int axis, int *flag);
+gasnet_handle_t ge_notify(nbr_t *nb, int dir, int axis);
+void	        ge_wait  (nbr_t *nb, int dir, int axis);
+void	        ge_unpack(nbr_t *nb, double *src, size_t destp, int axis);
 
-void pairwise_signal_neighbours(nbour_t *nb, gasnet_handle_t *h_nbour, int axis_in, int phase);
-void pairwise_wait_neighbours  (nbour_t *nb, gasnet_handle_t *h_nbour, int axis_in, int phase);
+void pairwise_signal_nbrs(nbr_t *nb, gasnet_handle_t *h_nbr, int axis_in, int phase);
+void pairwise_wait_nbrs  (nbr_t *nb, gasnet_handle_t *h_nbr, int axis_in, int phase);
 
-#define _hidx_ghostReqHandler 201
-#define _hidx_ghostRepHandler 202
+#define hidx_ghostReqHandler 201
 
-GASNET_INLINE_MODIFIER(ghostReqHandler_inner)
-void
-ghostReqHandler_inner(gasnet_token_t token, void *buf, size_t nbytes,
-	              int axis, int destp, int *flag)
+static
+void  ghostReqHandler(gasnet_token_t token, void *buf, size_t nbytes,
+	              int axis, int destp)
 {
     double *src = (double *)buf;
     int     face = (destp != 0);
 
     if (axis != AZ)
-	ge_unpack(&Nbour, src, destp, axis);
+	ge_unpack(&Nbr, src, destp, axis);
    
-    Nbour.amdims[axis][face] = 1;
+    Nbr.amdims[axis][face] = 1;
 
     return;
 }
-LONG_HANDLER(ghostReqHandler,3,4,
-	     (token,addr,nbytes,a0,a1,UNPACK(a2)),
-	     (token,addr,nbytes,a0,a1,UNPACK2(a2,a3)));
-
-/*
- * This reply handler is currently unused.
- */
-GASNET_INLINE_MODIFIER(ghostReqHandler_inner)
-void
-ghostRepHandler_inner(gasnet_token_t token, int *flag)
-{
-    *flag = 1;
-}
-SHORT_HANDLER(ghostRepHandler,1,2,
-	      (token, UNPACK(a0) ),
-	      (token, UNPACK2(a0,a1)));
 
 gasnet_handlerentry_t htable[] = {
-    gasneti_handler_tableentry_with_bits(ghostReqHandler),
-    gasneti_handler_tableentry_with_bits(ghostRepHandler),
+    { hidx_ghostReqHandler, ghostReqHandler }
 };
-
-void gam_amlong(nbour_t *nb, gasnet_node_t node, int axis, 
-	        int srcp, int destp, int *flag);
 
 #define init_stat \
   GASNETT_TRACE_SETSOURCELINE(__FILE__,__LINE__), _init_stat
@@ -237,8 +204,9 @@ void gam_amlong(nbour_t *nb, gasnet_node_t node, int axis,
 #define print_stat \
   GASNETT_TRACE_SETSOURCELINE(__FILE__,__LINE__), _print_stat
 
-void _init_stat(nbour_t *nb, stat_struct_t *st, int axis, int dims, int sz)
+void _init_stat(nbr_t *nb, stat_struct_t *st, int axis, int dims, int sz)
 {
+        memset(st, 0, sizeof(*st)); /* prevent valgrind warnings about struct padding */
 	st->iters = 0;
 	st->dims = dims;
 	st->datasize = sz;
@@ -257,9 +225,9 @@ void _update_stat(stat_struct_t *st, uint64_t temptime, int iters)
 	st->time += temptime;
 } 
 
-void _print_stat(nbour_t *nb, int myproc, stat_struct_t *st, const char *name)
+void _print_stat(nbr_t *nb, int myproc, stat_struct_t *st, const char *name)
 {
-	int	i,j,c;
+	int	i,c;
 	float	cattimes[4] = { 0.0 };
 	int	catcount[4] = { 0 };
 	double	stdev[4];
@@ -267,10 +235,10 @@ void _print_stat(nbour_t *nb, int myproc, stat_struct_t *st, const char *name)
 
 	/* Update statistics at zero.
 	 * If we are doing a per-axis test, we separate the printed values
-	 * within three categories based on the type of neighbour updates that
+	 * within three categories based on the type of nbr updates that
 	 * were completed.
 	 *
-	 * Updates to Upper/Lower neighbour can be
+	 * Updates to Upper/Lower nbr can be
 	 *  1. Global/Global (both updates required communication)
 	 *  2. Global/Local or Local/Global (only one update req'd comm).
 	 *  3. Local/Local (no updates required communication)
@@ -311,7 +279,7 @@ void _print_stat(nbour_t *nb, int myproc, stat_struct_t *st, const char *name)
 			continue;
 		    procavg = ((double)nb->stats0[i].time)/nb->stats0[i].iters;
 		    devmean = (double)cattimes[c] - procavg;
-		    sumsq += devmean*devmean; //pow((double)cattimes[c] - procavg, 2.0);
+		    sumsq += devmean*devmean; 
 		}
 		divm = sumsq / (catcount[c]-1);
 		stdev[c] = sqrt(divm);
@@ -329,9 +297,9 @@ void _print_stat(nbour_t *nb, int myproc, stat_struct_t *st, const char *name)
 	      st->dims, 'x'+st->axis, st->datasize, st->iters, cattimes[2], stdev[2], name
 	    );
 	}
-	if (nbour_fp != NULL) {
+	if (nbr_fp != NULL) {
 	    int cat = catcount[3] > 0 ? 3 : 2;
-	    fprintf(nbour_fp, "%-11s %c %4i %8i %9.2f %8.2f ",
+	    fprintf(nbr_fp, "%-11s %c %4i %8i %9.2f %8.2f ",
 	        name, cat == 3 ? 'F' : st->axis + 'x', st->dims, st->datasize, 
 		cattimes[cat], stdev[cat]);
 	    for (i = 0; i < nprocs; i++) {
@@ -340,10 +308,10 @@ void _print_stat(nbour_t *nb, int myproc, stat_struct_t *st, const char *name)
 		}
 		else
 		    ttime = ((float)nb->stats0[i].time) / nb->stats0[i].iters;
-		fprintf(nbour_fp, " %9.2f", ttime);
+		fprintf(nbr_fp, " %9.2f", ttime);
 	    }
-	    fprintf(nbour_fp, "\n");
-	    fflush(nbour_fp);
+	    fprintf(nbr_fp, "\n");
+	    fflush(nbr_fp);
 	}
 
 	fflush(stdout);
@@ -356,39 +324,20 @@ int level_dims[][20] = {
 	{ 64,128,192,256,320,384,448,512,576,640,704,768,832,896,960,1024,0 }
 };
 
-void
-usage()
-{
-    if (myproc != 0)
-	return;
-
-    printf("\ntestneighbour Neighbour-to-Neighbour microbenchmark\n\n");
-    printf("testneighbour [-f] [iters] [level]\n\n");
-    printf("-f      run full neighbour exchange (NAS MG) instead of per axis\n");
-    printf("[iters] How many iterations per exchange (default = 150)\n");
-    printf("[level] select level of dimensions (default level = 0)\n");
-    printf("   level=0 dims=<16,32,48,64,80,96,112,128>\n");
-    printf("   level=1 dims=<16,32,48,64, .. 128,160,192,224,256>\n");
-    printf("   level=2 dims=<32,64,96,128, .. 320,352,384,416,448,480,512>\n");
-    printf("   level=3 dims=<32,64,96,128, .. 928,960,992,1024>\n\n");
-    fflush(stdout);
-    gasnet_exit(1);
-}
-
 int
 main(int argc, char **argv)
 {
     int	level = 0, i;
     int alldimensions = 1;
-    char *nbourf;
+    int upctestonly = 0;
+    char *nbrf;
     uintptr_t insegsz, outsegsz;
     int iters = 150;
     int dim;
     int maxdim = 0;
     int axis;
     int argn = 1;
-    void *myseg;
-    void *alloc;
+    int help = 0;
 
     /* call startup */
     GASNET_Safe(gasnet_init(&argc, &argv));
@@ -398,49 +347,61 @@ main(int argc, char **argv)
     nprocs = gasnet_nodes();
 
     /* XXX parse args: iters min max */
+    while (argc > argn && *argv[argn] == '-') {
+	char c = argv[argn][1];
+
+	if (c == 'f')
+	    alldimensions = 0;
+	else if (c == 'm')
+	    upctestonly = 1;
+	else 
+	    help = 1;
+	argn++;
+    }
+
     if (argc > argn) {
-	if (*argv[argn] == '-') {
-	    if (argv[argn][1] == 'f') 
-		alldimensions = 0;
-	    else {
-		usage();
-		gasnet_exit(1);
-	    }
-	    argn++;
-	}
-	if (argc > argn) {
-	    iters = atoi(argv[argn++]);
-	    if (!iters)
-		usage();
-	}
-	if (argc > argn) {
-	    level = atoi(argv[argn++]);
-	    if (!(level >= 0 && level < 4))
-		usage();
-	}
+	iters = atoi(argv[argn++]);
+	if (!iters) help = 1;
+    }
+    if (argc > argn) {
+	level = atoi(argv[argn++]);
+	if (!(level >= 0 && level < 4)) help = 1;
     }
 
     for (i = 0; i < level_dims[level][i]; i++) 
 	maxdim = MAX(level_dims[level][i], maxdim);
 
     if (!POWER_OF_TWO(nprocs)) {
-	fprintf(stderr, "%s only runs on a power of two processors\n", argv[0]);
-	gasnet_exit(1);
+	MSG0("WARNING: This test requires a power of two number of processes. Test skipped.\n");
+	gasnet_exit(0); /* exit 0 to prevent false negatives */
     }
 
     /* setup max grid we intend to use, so we can get enough 
      * memory per proc at startup */
-    setupGrid(&Nbour, maxdim);
-    estimateMemSegment(&Nbour, &insegsz, &outsegsz);
-    maxsegmentsz = outsegsz + PAGESZ*nprocs;
+    if (help) maxsegmentsz = 0;
+    else {
+      setupGrid(&Nbr, maxdim);
+      estimateMemSegment(&Nbr, &insegsz, &outsegsz);
+      maxsegmentsz = outsegsz + PAGESZ*nprocs;
+    }
 
     GASNET_Safe(gasnet_attach(
 	htable, sizeof(htable)/sizeof(gasnet_handlerentry_t),
 	TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
+    test_init("testnbr",1, "[-f] [-m] [iters] [level]\n\n"
+      "-f      run full nbr exchange (NAS MG) instead of per axis\n"
+      "-m      run UPC version of GASNet MG test only\n"
+      "[iters] How many iterations per exchange (default = 150)\n"
+      "[level] select level of dimensions (default level = 0)\n"
+      "   level=0 dims=<16,32,48,64,80,96,112,128>\n"
+      "   level=1 dims=<16,32,48,64, .. 128,160,192,224,256>\n"
+      "   level=2 dims=<32,64,96,128, .. 320,352,384,416,448,480,512>\n"
+      "   level=3 dims=<32,64,96,128, .. 928,960,992,1024>\n\n"
+    );
+    if (help) test_usage();
+    TEST_SET_WAITMODE(1);
 
-    TEST_DEBUGPERFORMANCE_WARNING();
-
-    initNbour(&Nbour);
+    initNbr(&Nbr);
 
     BARRIER();
 
@@ -448,26 +409,26 @@ main(int argc, char **argv)
      * 0 -> x: yz planes
      * 1 -> y: xz planes
      * 2 -> z: xy planes
-     * 3 -> x,y,z Full MG-like Neighbour exchange
+     * 3 -> x,y,z Full MG-like Neighbor exchange
      */
     /* We may want to gather extended info in a file */
-    if (!myproc && (nbourf = gasnet_getenv("NBOURTEST_FILE")) != NULL) {
-	nbour_fp = fopen(nbourf, "w");
-	if (nbour_fp == NULL) {
-	    fprintf(stderr, "Can't open NBOURTEST_FILE %s\n", nbourf);
+    if (!myproc && (nbrf = gasnet_getenv("NBRTEST_FILE")) != NULL) {
+	nbr_fp = fopen(nbrf, "w");
+	if (nbr_fp == NULL) {
+	    fprintf(stderr, "Can't open NBRTEST_FILE %s\n", nbrf);
 	    gasnet_exit(1);
 	}
-	printf("Saving extended output to %s\n", nbourf);
+	printf("Saving extended output to %s\n", nbrf);
     }
     else
-	nbour_fp = NULL;
+	nbr_fp = NULL;
 
     if (!myproc) {
-        printf("\ntestneighbour running %d %s"
+        printf("\ntestnbr running %d %s"
 	       " (%d procs over processor grid = %2i x %2i x %2i)\n",
 		iters, alldimensions ? "ghost exchanges per axis" :
 		                       "full (NAS MG-like) ghost exchanges",
-		nprocs, Nbour.procGrid[0], Nbour.procGrid[1], Nbour.procGrid[2]);
+		nprocs, Nbr.procGrid[0], Nbr.procGrid[1], Nbr.procGrid[2]);
 
 	printf(
 	       "\nReported times are the medians across all processors only"
@@ -483,11 +444,11 @@ main(int argc, char **argv)
 	    if (!myproc) {
 		if (axis == 2)
 		    printf("\nExchange over 'z' contiguous axis, grid = %d procs\n",
-			    Nbour.procGrid[2]);
+			    Nbr.procGrid[2]);
 		else
 		    printf("\nExchange over '%c' non-contiguous axis, grid = "
 			   "%d procs (DIM%s x stride %s)\n", 'x' + axis,
-			   Nbour.procGrid[axis], axis==0 ? "^2" : "",
+			   Nbr.procGrid[axis], axis==0 ? "^2" : "",
 						 axis==0 ? "DIM" : "1");
 		fflush(stdout);
 	    } 
@@ -496,35 +457,38 @@ main(int argc, char **argv)
 
 	    for (i = 0; level_dims[level][i] != 0; i++) {
 		dim = level_dims[level][i];
-		setupGrid(&Nbour, dim);
-		allocMultiGrid(&Nbour);
+		setupGrid(&Nbr, dim);
+		allocMultiGrid(&Nbr);
 		BARRIER();
 		/* In the alldimensions test, run only the non-blocking
 		 * pairwise and the AMLong versions */
-		ghostExchUPCMG(&Nbour, 1, axis, 0); /* Dry run */
-		ghostExchUPCMG(&Nbour, iters, axis, 0);
+		ghostExchUPCMG(&Nbr, 1, axis, 0); /* Dry run */
+		ghostExchUPCMG(&Nbr, iters, axis, 0);
+	    }
+	    BARRIER();
+
+	    if (upctestonly)
+		continue;
+
+	    for (i = 0; level_dims[level][i] != 0; i++) {
+		dim = level_dims[level][i];
+		setupGrid(&Nbr, dim);
+		allocMultiGrid(&Nbr);
+		BARRIER();
+		/* In the alldimensions test, run only the non-blocking
+		 * pairwise and the AMLong versions */
+		ghostExchGASNetNonBlock(&Nbr, 1, axis, 1); /* Dry run */
+		ghostExchGASNetNonBlock(&Nbr, iters, axis, 1);
 	    }
 	    BARRIER();
 
 	    for (i = 0; level_dims[level][i] != 0; i++) {
 		dim = level_dims[level][i];
-		setupGrid(&Nbour, dim);
-		allocMultiGrid(&Nbour);
+		setupGrid(&Nbr, dim);
+		allocMultiGrid(&Nbr);
 		BARRIER();
-		/* In the alldimensions test, run only the non-blocking
-		 * pairwise and the AMLong versions */
-		ghostExchGASNetNonBlock(&Nbour, 1, axis, 1); /* Dry run */
-		ghostExchGASNetNonBlock(&Nbour, iters, axis, 1);
-	    }
-	    BARRIER();
-
-	    for (i = 0; level_dims[level][i] != 0; i++) {
-		dim = level_dims[level][i];
-		setupGrid(&Nbour, dim);
-		allocMultiGrid(&Nbour);
-		BARRIER();
-		ghostExchAMLong(&Nbour, 1, axis); /* Dry run */
-		ghostExchAMLong(&Nbour, iters, axis);
+		ghostExchAMLong(&Nbr, 1, axis); /* Dry run */
+		ghostExchAMLong(&Nbr, iters, axis);
 	    }
 	}
     }
@@ -535,39 +499,41 @@ main(int argc, char **argv)
 
 	for (i = 0; level_dims[level][i] != 0; i++) {
 	    dim = level_dims[level][i];
-	    setupGrid(&Nbour, dim);
-	    allocMultiGrid(&Nbour);
+	    setupGrid(&Nbr, dim);
+	    allocMultiGrid(&Nbr);
 	    BARRIER();
-	    ghostExchUPCMG(&Nbour, 1, axis, 0); /* Dry run */
-	    ghostExchUPCMG(&Nbour, iters, axis, 0);
+	    ghostExchUPCMG(&Nbr, 1, axis, 0); /* Dry run */
+	    ghostExchUPCMG(&Nbr, iters, axis, 0);
 	}
 	BARRIER();
 
-	for (i = 0; level_dims[level][i] != 0; i++) {
-	    dim = level_dims[level][i];
-	    setupGrid(&Nbour, dim);
-	    allocMultiGrid(&Nbour);
+	if (!upctestonly) {
+	    for (i = 0; level_dims[level][i] != 0; i++) {
+	        dim = level_dims[level][i];
+	        setupGrid(&Nbr, dim);
+	        allocMultiGrid(&Nbr);
+	        BARRIER();
+	        ghostExchGASNetNonBlock(&Nbr, 1, axis, 1); /* Dry run */
+	        ghostExchGASNetNonBlock(&Nbr, iters, axis, 1);
+	    }
 	    BARRIER();
-	    ghostExchGASNetNonBlock(&Nbour, 1, axis, 1); /* Dry run */
-	    ghostExchGASNetNonBlock(&Nbour, iters, axis, 1);
-	}
-	BARRIER();
 
-	for (i = 0; level_dims[level][i] != 0; i++) {
-	    dim = level_dims[level][i];
-	    setupGrid(&Nbour, dim);
-	    allocMultiGrid(&Nbour);
-	    BARRIER();
-	    ghostExchAMLong(&Nbour, 1, axis); /* Dry run */
-	    ghostExchAMLong(&Nbour, iters, axis);
+	    for (i = 0; level_dims[level][i] != 0; i++) {
+	        dim = level_dims[level][i];
+	        setupGrid(&Nbr, dim);
+	        allocMultiGrid(&Nbr);
+	        BARRIER();
+	        ghostExchAMLong(&Nbr, 1, axis); /* Dry run */
+	        ghostExchAMLong(&Nbr, iters, axis);
+	    }
 	}
     }
 
-    freeNbour(&Nbour);
+    freeNbr(&Nbr);
     BARRIER();
 
-    if (nbour_fp != NULL)
-	fclose(nbour_fp);
+    if (nbr_fp != NULL)
+	fclose(nbr_fp);
 
     gasnet_exit(0);
 
@@ -575,7 +541,7 @@ main(int argc, char **argv)
 }
 
 void
-setupGrid(nbour_t *nb, int dimsz)
+setupGrid(nbr_t *nb, int dimsz)
 {
     int t_grid = 1;
     int axis;
@@ -610,18 +576,18 @@ setupGrid(nbour_t *nb, int dimsz)
 
     /* Setup the number of blocks per grid element in each dimension. Total
      * elements per dimension contains an extra two boundary elements */
-    nb->elemsPerDim = elemsPerDim = dimsz;//(2<<(unsigned)level);
+    nb->elemsPerDim = elemsPerDim = dimsz;/*(2<<(unsigned)level);*/
     totelemsPerDim = elemsPerDim + 2;
     nb->totalSize = 1;
 
-    /* Setup lower and upper neighbours in each dimension */
+    /* Setup lower and upper nbrs in each dimension */
     for (axis = 0; axis <= 2; axis++) {
 	int blocksz = elemsPerDim / nb->procGrid[axis];
 
 	/* We don't handle corner cases, yet */
-	assert(blocksz > 0);
-	assert(elemsPerDim > nb->procGrid[axis]);
-	assert(elemsPerDim % nb->procGrid[axis] == 0);
+	assert_always(blocksz > 0);
+	assert_always(elemsPerDim > nb->procGrid[axis]);
+	assert_always(elemsPerDim % nb->procGrid[axis] == 0);
 
 	nb->idGridUpper[axis] = 
 	    nb->idGrid[axis] == nb->procGrid[axis]-1 
@@ -682,9 +648,9 @@ setupGrid(nbour_t *nb, int dimsz)
 	    nb->idGridLower[0], nb->idGridUpper[0],
 	    nb->idGridLower[1], nb->idGridUpper[1],
 	    nb->idGridLower[2], nb->idGridUpper[2],
-	    nb->nodeidLower[0], nb->nodeidUpper[0],
-	    nb->nodeidLower[1], nb->nodeidUpper[1],
-	    nb->nodeidLower[2], nb->nodeidUpper[2]);
+	    (int)(nb->nodeidLower[0]), (int)(nb->nodeidUpper[0]),
+	    (int)(nb->nodeidLower[1]), (int)(nb->nodeidUpper[1]),
+	    (int)(nb->nodeidLower[2]), (int)(nb->nodeidUpper[2]));
 
     }
 }
@@ -692,7 +658,7 @@ setupGrid(nbour_t *nb, int dimsz)
 /*
  * Estimate segment memory requirements for parry's ghost */
 void 
-estimateMemSegment(nbour_t *nb, uintptr_t *local, uintptr_t *segment)
+estimateMemSegment(nbr_t *nb, uintptr_t *local, uintptr_t *segment)
 {
     uintptr_t outseg = 0;
     uintptr_t inseg = 0;
@@ -706,7 +672,7 @@ estimateMemSegment(nbour_t *nb, uintptr_t *local, uintptr_t *segment)
 	      nprocs*6*sizeof(uintptr_t);
 
     inseg  += /* sync flags for each cube face, on a separate cache line */
-	      (sizeof(int)*8*2*2*NBOUR_SYNC_LEN);
+	      (sizeof(int)*8*2*2*NBR_SYNC_LEN);
 
     inseg  += /* xz,yz and xy target comm buffers, 2 boundaries each */
 	      (PX_SZ+PY_SZ+PZ_SZ)*2*sizeof(double);
@@ -726,7 +692,7 @@ estimateMemSegment(nbour_t *nb, uintptr_t *local, uintptr_t *segment)
 }
 
 void
-freeNbour(nbour_t *nb)
+freeNbr(nbr_t *nb)
 {
     free(nb->Dir);
     free(nb->Diryz);
@@ -736,7 +702,7 @@ freeNbour(nbour_t *nb)
 }
 
 void
-initNbour(nbour_t *nb)
+initNbr(nbr_t *nb)
 {
     nb->Dir   = (uintptr_t *) calloc(nprocs, sizeof(uintptr_t));
     nb->Diryz = (uintptr_t *) calloc(nprocs, sizeof(uintptr_t));
@@ -750,7 +716,7 @@ initNbour(nbour_t *nb)
  * Carve out our segment according to the grid dimensions currently set in Nb
  */
 void
-allocMultiGrid(nbour_t *nb)
+allocMultiGrid(nbr_t *nb)
 {
     int i;
     char *segaddr;
@@ -783,12 +749,14 @@ allocMultiGrid(nbour_t *nb)
 	segaddr += 2*PY_SZ*sizeof(double) ;
 
 	/* Dirsync requires counters on separate cache lines */
-	segaddr += NBOUR_SYNC_LEN*sizeof(int);
+	segaddr += NBR_SYNC_LEN*sizeof(int);
 	nb->DirSync[i] = (uintptr_t) segaddr;
-	segaddr += 8*NBOUR_SYNC_LEN*sizeof(int);
+	segaddr += 8*NBR_SYNC_LEN*sizeof(int);
 	nb->DirSyncComm3[i] = (uintptr_t) segaddr;
-	segaddr += 8*NBOUR_SYNC_LEN*sizeof(int);
+	segaddr += 8*NBR_SYNC_LEN*sizeof(int);
 	if (i == 0) {/* save address for stats at 0 */
+	    /* No allocator to give us word alignement */
+	    segaddr = alignup_ptr(segaddr,8);
 	    nb->stats0 = (stat_struct_t *) segaddr;
 	    segaddr += sizeof(stat_struct_t)*nprocs;
 	}
@@ -804,7 +772,7 @@ allocMultiGrid(nbour_t *nb)
 }
 
 void
-ge_unpack(nbour_t *nb, double *src, size_t destp, int axis)
+ge_unpack(nbr_t *nb, double *src, size_t destp, int axis)
 {
     int n,i,j,k;
     int dk = nb->dims[2];
@@ -831,18 +799,13 @@ ge_unpack(nbour_t *nb, double *src, size_t destp, int axis)
     return;
 }
 
-
 /*
- * Parry uses UPC-level shared directories to propagate the location of
- * per-thread communication buffers.
- *
  * if (axis == AALL), do all axis (full ghost exchange)
- *
  */
 void 
-ghostExchUPCMG(nbour_t *nb, int iters, int axis_in, int pairwise_sync)
+ghostExchUPCMGOrig(nbr_t *nb, int iters, int axis_in, int pairwise_sync)
 {
-    int i, j, axis, dest;
+    int i, j, axis;
     int axis_tot;
 
     uint64_t	    begin, end;
@@ -868,7 +831,7 @@ ghostExchUPCMG(nbour_t *nb, int iters, int axis_in, int pairwise_sync)
 	for (j = 0; j < axis_tot; j++) {
 	    axis = axes[j];
 
-	    /* Send data to upper and lower neighbour, in turn */
+	    /* Send data to upper and lower nbr, in turn */
 	    hput = ge_put(nb, GHOST_TYPE_PUT, GHOST_DIR_UPPER, axis, NULL);
 	    if (hput != GASNET_INVALID_HANDLE) {
 		gasnet_wait_syncnb(hput);
@@ -898,21 +861,86 @@ ghostExchUPCMG(nbour_t *nb, int iters, int axis_in, int pairwise_sync)
 }
 
 /*
+ * if (axis == AALL), do all axis (full ghost exchange)
+ */
+void 
+ghostExchUPCMG(nbr_t *nb, int iters, int axis_in, int pairwise_sync)
+{
+    int i, j, axis;
+    int axis_tot;
+
+    uint64_t	    begin, end;
+    stat_struct_t   stcomm3;
+    int		    axes[3];
+    gasnet_handle_t hput1, hput2;
+
+    if (axis_in == AALL) {
+	axes[0] = 0; axes[1] = 1; axes[2] = 2;
+	axis_tot = 3;
+	init_stat(nb, &stcomm3, axis_in, nb->dimsz, (PX_SZ+PY_SZ+PZ_SZ)*sizeof(double)*2);
+    }
+    else {
+	axes[0] = axis_in;
+	axis_tot = 1;
+	init_stat(nb, &stcomm3, axis_in, nb->dimsz, nb->facesz[axis_in]*sizeof(double)*2);
+    }
+
+    BARRIER();
+
+    for (i = 0; i < iters; i++) {
+	begin = TIME();
+	for (j = 0; j < axis_tot; j++) {
+	    axis = axes[j];
+
+	    /* Send data to upper and lower nbr, in turn */
+	    hput1 = ge_put(nb, GHOST_TYPE_PUT, GHOST_DIR_UPPER, axis, NULL);
+	    hput2 = ge_put(nb, GHOST_TYPE_PUT, GHOST_DIR_LOWER, axis, NULL);
+
+	    if (hput1 != GASNET_INVALID_HANDLE) {
+		gasnet_wait_syncnb(hput1);
+		gasnet_wait_syncnb( ge_notify(nb, GHOST_DIR_UPPER, axis) );
+	    }
+
+	    if (hput2 != GASNET_INVALID_HANDLE) {
+		gasnet_wait_syncnb(hput2);
+		gasnet_wait_syncnb( ge_notify(nb, GHOST_DIR_LOWER, axis) );
+	    }
+
+	    if (hput1 != GASNET_INVALID_HANDLE) 
+		ge_wait(nb, GHOST_DIR_LOWER, axis);
+
+	    if (hput2 != GASNET_INVALID_HANDLE) 
+		ge_wait(nb, GHOST_DIR_UPPER, axis);
+	}
+	end = TIME();
+	BARRIER(); /* don't include the barrier time */
+	update_stat(&stcomm3, (end-begin), 1);
+    }
+
+    if (iters > 1) {
+	print_stat(nb, myproc, &stcomm3, "UPC-MG");
+    }
+
+    BARRIER();
+
+    return;
+}
+
+
+/*
  * Parry uses UPC-level shared directories to propagate the location of
  * per-thread communication buffers.
  */
 void 
-ghostExchGASNetNonBlock(nbour_t *nb, int iters, int axis_in, int pairwise_sync)
+ghostExchGASNetNonBlock(nbr_t *nb, int iters, int axis_in, int pairwise_sync)
 {
-    unsigned int i, j, axis, dest, face;
-    int *sync;
+    unsigned int i, j, axis, face;
+    volatile int *syncflag;
 
     uint64_t	    begin, end;
     stat_struct_t   stcomm3;
     gasnet_handle_t hput[2];
     gasnet_handle_t sput[6];
-    int		    *syncaddr;
-    int		    phase = 1;
 
     int	    axes[3];
     int	    axis_tot;
@@ -965,14 +993,14 @@ ghostExchGASNetNonBlock(nbour_t *nb, int iters, int axis_in, int pairwise_sync)
 		for (face=0; face<2; face++) {
 		    if (rfacedone[face])
 			continue;
-		    sync = NBOUR_SYNCADDR(nb->DirSync[myproc], axis, face, 0);
-		    if (*sync != 0) {
+		    syncflag = NBR_SYNCADDR(nb->DirSync[myproc], axis, !face, 0);
+		    if (*syncflag != 0) {
 			/* Unless the axis is contiguous, unpack data */
 			if (axis != AZ) {
 			    ge_unpack(nb, nb->dimBufs[axis][face], 
 				      face ? nb->dims[axis]-1 : 0, axis);
 			}
-			*sync = 0;
+			*syncflag = 0;
 			rfacedone[face] = 1;
 			rfaces++;
 		    }
@@ -993,9 +1021,12 @@ ghostExchGASNetNonBlock(nbour_t *nb, int iters, int axis_in, int pairwise_sync)
 		    sfaces++;
 		    sent++;
 		}
+
+		/* Try to progress handles in sput[] */
+	        gasnet_try_syncnb_all(sput, sent);
 	    }
 	    /* When the loop ends, we've received face updates from both
-	     * neighbours */
+	     * nbrs */
 	}
 
 	end = TIME();
@@ -1018,12 +1049,12 @@ ghostExchGASNetNonBlock(nbour_t *nb, int iters, int axis_in, int pairwise_sync)
 }
 
 /*
- * Pairwise sync with neighbours.
+ * Pairwise sync with nbrs.
  *
- * It's currently unused in all three versions of neighbour exchanges.
+ * It's currently unused in all three versions of nbr exchanges.
  */
 void
-pairwise_signal_neighbours(nbour_t *nb, gasnet_handle_t *h_nbour, int axis_in, int phase)
+pairwise_signal_nbrs(nbr_t *nb, gasnet_handle_t *h_nbr, int axis_in, int phase)
 {
     int	    i, axis, axis_tot;
     int	    axes[3];
@@ -1044,26 +1075,24 @@ pairwise_signal_neighbours(nbour_t *nb, gasnet_handle_t *h_nbour, int axis_in, i
 	destup   = nb->nodeidUpper[axis];
 	destdown = nb->nodeidLower[axis];
 
-	h_nbour[i*2+0] = 
-	    gasnet_put_nb_val(destup, 
-		NBOUR_SYNCADDR(nb->DirSyncComm3[destup], axis, 1, phase), 
-		1, sizeof(int));
+	h_nbr[i*2+0] = gasnet_put_nb_val(destup, 
+	    (void *) NBR_SYNCADDR(nb->DirSyncComm3[destup], axis, 1, phase), 
+	    1, sizeof(int));
 
-	h_nbour[i*2+1] =
-	    gasnet_put_nb_val(destdown, 
-		NBOUR_SYNCADDR(nb->DirSyncComm3[destdown], axis, 0, phase), 
-		1, sizeof(int));
+	h_nbr[i*2+1] = gasnet_put_nb_val(destdown, 
+	    (void *) NBR_SYNCADDR(nb->DirSyncComm3[destdown], axis, 0, phase), 
+	    1, sizeof(int));
     }
 }
 
 void
-pairwise_wait_neighbours(nbour_t *nb, gasnet_handle_t *h_nbour, int axis_in, int phase)
+pairwise_wait_nbrs(nbr_t *nb, gasnet_handle_t *h_nbr, int axis_in, int phase)
 {
     int	    i, axis, axis_tot;
     int	    nfaces;
     int	    faces = 0;
     int	    axes[3];
-    int	    *sync;
+    volatile int    *syncflag;
 
     if (axis_in == AALL) {
 	nfaces = 6;
@@ -1077,36 +1106,34 @@ pairwise_wait_neighbours(nbour_t *nb, gasnet_handle_t *h_nbour, int axis_in, int
     }
 
     /* Reap our previous phase handles and poll on local signals */
-    gasnet_wait_syncnb_all(h_nbour, nfaces);
+    gasnet_wait_syncnb_all(h_nbr, nfaces);
 
     do {
 	faces = 0;
 	gasnet_AMPoll();
 	for (i = 0; i < axis_tot; i++) {
 	    axis = axes[i];
-	    sync = NBOUR_SYNCADDR(nb->DirSyncComm3[myproc], axis, 0, phase);
-	    if (*sync) faces++;
-	    sync = NBOUR_SYNCADDR(nb->DirSyncComm3[myproc], axis, 1, phase);
-	    if (*sync) faces++;
+	    syncflag = NBR_SYNCADDR(nb->DirSyncComm3[myproc], axis, 0, phase);
+	    if (*syncflag) faces++;
+	    syncflag = NBR_SYNCADDR(nb->DirSyncComm3[myproc], axis, 1, phase);
+	    if (*syncflag) faces++;
 	}
     } while (faces < nfaces);
 
     /* Reset signal locations for current phase */
     for (i = 0; i < axis_tot; i++) {
 	axis = axes[i];
-	sync = NBOUR_SYNCADDR(nb->DirSyncComm3[myproc], axis, 0, phase);
-	*sync = 0;
-	sync = NBOUR_SYNCADDR(nb->DirSyncComm3[myproc], axis, 1, phase);
-	*sync = 0;
+	syncflag = NBR_SYNCADDR(nb->DirSyncComm3[myproc], axis, 0, phase);
+	*syncflag = 0;
+	syncflag = NBR_SYNCADDR(nb->DirSyncComm3[myproc], axis, 1, phase);
+	*syncflag = 0;
     }
 }
 
 void
-ghostExchAMLong(nbour_t *nb, int iters, int axis_in)
+ghostExchAMLong(nbr_t *nb, int iters, int axis_in)
 {
-    int i, j, axis, dest, axis_tot;
-    int ghostexchUpper[3];
-    int ghostexchLower[3];
+    int i, j, axis, axis_tot;
     long maxmsg = 0;
 
     int	axes[3];
@@ -1178,7 +1205,7 @@ ghostExchAMLong(nbour_t *nb, int iters, int axis_in)
 }
 
 gasnet_handle_t
-ge_put(nbour_t *nb, int type, int dir, int axis, int *flag)
+ge_put(nbr_t *nb, int type, int dir, int axis, int *flag)
 {
     int	n=0,i,j,k;
     int dk = nb->dims[2];
@@ -1253,8 +1280,7 @@ ge_put(nbour_t *nb, int type, int dir, int axis, int *flag)
 
     if (type == GHOST_TYPE_AMLONG) {
 	/* By now, send an AMLong with data */
-	LONGASYNC_REQ(3,4,(node,gasneti_handleridx(ghostReqHandler),src,len,dest,
-			   axis,destp,PACK(flag)));
+	GASNET_Safe(gasnet_AMRequestLongAsync2(node,hidx_ghostReqHandler,src,len,dest, axis,destp));
 	return GASNET_INVALID_HANDLE;
     }
     else {
@@ -1268,26 +1294,26 @@ local_copy:
 }
 
 gasnet_handle_t
-ge_notify(nbour_t *nb, int dir, int axis)
+ge_notify(nbr_t *nb, int dir, int axis)
 {
     int islower = (dir == GHOST_DIR_LOWER);
     int node = islower ? nb->nodeidLower[axis] : nb->nodeidUpper[axis];
-    int *sync = NBOUR_SYNCADDR(nb->DirSync[node], axis, islower, 0);
+    volatile int *syncflag = NBR_SYNCADDR(nb->DirSync[node], axis, islower, 0);
 
     if (node == myproc) {
-	*sync = 1;
+	*syncflag = 1;
 	return GASNET_INVALID_HANDLE;
     }
     else
-	return gasnet_put_nb_val(node, sync, 1, sizeof(int));
+	return gasnet_put_nb_val(node, (void *)syncflag, 1, sizeof(int));
 }
 
 
 void
-ge_wait(nbour_t *nb, int dir, int axis)
+ge_wait(nbr_t *nb, int dir, int axis)
 {
     int islower = (dir == GHOST_DIR_LOWER);
-    int *syncaddr = NBOUR_SYNCADDR(nb->DirSync[myproc], axis, islower, 0);
+    volatile int *syncaddr = NBR_SYNCADDR(nb->DirSync[myproc], axis, islower, 0);
     int destp = islower ? nb->dims[axis]-1 : 0;
     double *src = nb->dimBufs[axis][dir];
 

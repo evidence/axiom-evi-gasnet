@@ -1,4 +1,4 @@
-Files in this directory named testmvapich* are distributed 
+Files in this directory named testosumpi* are distributed 
 under the following license:
 
 Copyright 2002-2005 The Ohio State University.

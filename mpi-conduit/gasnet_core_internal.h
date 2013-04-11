@@ -1,58 +1,40 @@
-/*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core_internal.h              $
- *     $Date: 2002/06/01 14:24:57 $
- * $Revision: 1.1 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/gasnet_core_internal.h,v $
+ *     $Date: 2013/04/11 19:26:07 $
+ * $Revision: 1.1.1.2 $
  * Description: GASNet MPI conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
  */
 
 #ifndef _GASNET_CORE_INTERNAL_H
 #define _GASNET_CORE_INTERNAL_H
 
-#include <gasnet.h>
 #include <gasnet_internal.h>
+#include <gasnet_handler.h>
 
 /*  whether or not to use spin-locking for HSL's */
 #define GASNETC_HSL_SPINLOCK 1
 #define GASNETC_NISTIMEOUT_WARNING_THRESHOLD 1000000 /* us for timeout warning under HSL_ERRCHECK */
-#ifdef DEBUG
-  #define DEBUG_VERBOSE               1
-#else
-  #define DEBUG_VERBOSE               0
-#endif
+#define GASNETC_DEFAULT_NETWORKDEPTH 4
 
 extern ep_t gasnetc_endpoint;
-extern gasnet_seginfo_t *gasnetc_seginfo;
 
-#define gasnetc_boundscheck(node,ptr,nbytes) gasneti_boundscheck(node,ptr,nbytes,c)
-
-#ifdef GASNET_PAR
-  extern pthread_mutex_t gasnetc_AMlock; /*  protect access to AMMPI */
-  #if GASNETC_HSL_SPINLOCK
-    #define AMLOCK() do {                                    \
-        int retval = pthread_mutex_trylock(&gasnetc_AMlock); \
-        if (!retval) break;                                  \
-        assert(retval == EBUSY);                             \
-      } while (1) 
-  #else
-    #define AMLOCK() do {                                 \
-        int retval = pthread_mutex_lock(&gasnetc_AMlock); \
-        assert(!retval);                                  \
-      } while (0)
-  #endif
-  #define AMUNLOCK()  do {                               \
-     int retval = pthread_mutex_unlock(&gasnetc_AMlock); \
-     assert(!retval);                                    \
+extern gasneti_mutex_t gasnetc_AMlock; /*  protect access to AMMPI */
+#define AMLOCK()             gasneti_mutex_lock(&gasnetc_AMlock)
+#define AMLOCK_TOSEND() do {             \
+    gasneti_suspend_spinpollers();       \
+    gasneti_mutex_lock(&gasnetc_AMlock); \
+    gasneti_resume_spinpollers();        \
   } while (0)
-#else
-  #define AMLOCK()   
-  #define AMUNLOCK() 
-#endif
+#define AMUNLOCK()           gasneti_mutex_unlock(&gasnetc_AMlock)
+#define AM_ASSERT_LOCKED()   gasneti_mutex_assertlocked(&gasnetc_AMlock)
+#define AM_ASSERT_UNLOCKED() gasneti_mutex_assertunlocked(&gasnetc_AMlock)
 
 /* ------------------------------------------------------------------------------------
  *  AM Error Handling
  * ------------------------------------------------------------------------------------ */
-GASNET_INLINE_MODIFIER(gasneti_AMErrorName)
-char *gasneti_AMErrorName(int errval) {
+GASNETI_INLINE(gasneti_AMErrorName)
+const char *gasneti_AMErrorName(int errval) {
   switch (errval) {
     case AM_OK:           return "AM_OK";      
     case AM_ERR_NOT_INIT: return "AM_ERR_NOT_INIT";      
@@ -67,55 +49,52 @@ char *gasneti_AMErrorName(int errval) {
 /* ------------------------------------------------------------------------------------ */
 /* make an AM call - if it fails, print error message and return */
 #define GASNETI_AM_SAFE(fncall) do {                            \
-   int retcode = (fncall);                                      \
-   if (gasneti_VerboseErrors && retcode != AM_OK) {                                      \
-     char msg[1024];                                            \
-     sprintf(msg, "\nGASNet encountered an AM Error: %s(%i)\n", \
-        gasneti_AMErrorName(retcode), retcode);                 \
+   int const _retcode = (fncall);                               \
+   if_pf (_retcode != AM_OK) {                                  \
+     char msg[128];                                             \
+     snprintf(msg, sizeof(msg),                                 \
+        "\nGASNet encountered an AM Error: %s(%i)\n",           \
+        gasneti_AMErrorName(_retcode), _retcode);               \
      GASNETI_RETURN_ERRFR(RESOURCE, fncall, msg);               \
    }                                                            \
  } while (0)
 
 /* ------------------------------------------------------------------------------------ */
-/* make an AM call - 
- * if it fails, print error message and value of expression is FALSE, 
- * otherwise, the value of this expression will be TRUE 
+/* make an AM call - if it fails, print error message and set retval to non-zero errcode
+ * else, set retval to zero
  */
-#define GASNETI_AM_SAFE_NORETURN(fncall) (gasneti_VerboseErrors ?        \
-      gasneti_checkAMreturn(fncall, #fncall,                             \
-                          GASNETI_CURRENT_FUNCTION, __FILE__, __LINE__): \
-      (fncall) == AM_OK)
-GASNET_INLINE_MODIFIER(gasneti_checkAMreturn)
-int gasneti_checkAMreturn(int retcode, const char *fncallstr, 
-                                const char *context, const char *file, int line) {
-   if (retcode != AM_OK) {  
-     fprintf(stderr, "\nGASNet %s encountered an AM Error: %s(%i)\n"
-                     "  at %s:%i\n", 
-       context, 
-       gasneti_AMErrorName(retcode), 
-       retcode, file, line); 
-     fflush(stderr);
-     return FALSE;
-   }
-   else return TRUE;
-}
-/* ------------------------------------------------------------------------------------ */
-/* make a GASNet call - if it fails, print error message and return */
-#define GASNETC_SAFE(fncall) do {                            \
-   int retcode = (fncall);                                   \
-   if_pf (gasneti_VerboseErrors && retcode != GASNET_OK) {                               \
-     char msg[1024];                                         \
-     sprintf(msg, "\nGASNet encountered an error: %s(%i)\n", \
-        gasneti_ErrorName(retcode), retcode);                \
-     GASNETI_RETURN_ERRFR(RESOURCE, fncall, msg);            \
-   }                                                         \
+#define GASNETI_AM_SAFE_NORETURN(retval,fncall) do {                   \
+   gasneti_assert(AM_OK == 0);                                         \
+   retval = (fncall);                                                  \
+   if_pf (retval) {                                                    \
+     if (gasneti_VerboseErrors) {                                      \
+       fprintf(stderr, "\nGASNet %s encountered an AM Error: %s(%i)\n" \
+                       "  at %s:%i\n",                                 \
+         GASNETI_CURRENT_FUNCTION,                                     \
+         gasneti_AMErrorName(retval),                                  \
+         retval, __FILE__, __LINE__);                                  \
+       fflush(stderr);                                                 \
+     }                                                                 \
+   }                                                                   \
  } while (0)
 
 /* ------------------------------------------------------------------------------------ */
-#define GASNETC_HANDLER_BASE  1 /* reserve 1-99 for the core API */
-#define _hidx_gasnetc_get_seginfo_req       (GASNETC_HANDLER_BASE+0) 
-#define _hidx_                              (GASNETC_HANDLER_BASE+)
+#define GASNETC_HANDLER_BASE  1 /* reserve 1-63 for the core API */
+#define _hidx_gasnetc_auxseg_reqh             (GASNETC_HANDLER_BASE+0)
 /* add new core API handlers here and to the bottom of gasnet_core.c */
 
+/* ------------------------------------------------------------------------------------ */
+#if GASNET_PSHM
+#define GASNETC_MAX_NUMHANDLERS 256
+extern gasneti_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS];
+#endif
+
+/* ------------------------------------------------------------------------------------ */
+/* AM category (recommended impl if supporting PSHM) */
+typedef enum {
+  gasnetc_Short=0,
+  gasnetc_Medium=1,
+  gasnetc_Long=2
+} gasnetc_category_t;
 
 #endif

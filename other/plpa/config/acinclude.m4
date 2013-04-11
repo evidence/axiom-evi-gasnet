@@ -11,6 +11,22 @@
 # 
 # $HEADER$
 #
+# This file is a clone of plpa.m4, with GASNet-specific modifications.
+#
+# ChangeLog for GASNet-specific modifications:
+# * 2006.08.18: Paul Hargrove <PHHargrove@lbl.gov>
+#   + DISABLE use of AM_CONDITIONAL - we don't use the Makefiles and
+#     need to avoid the configure time complaint if we build w/o PLPA.
+# * 2006.08.17: Paul Hargrove <PHHargrove@lbl.gov>
+#   + Disable AC_ARG_* calls - we don't need them and don't want their
+#       help mesages in the GASNet configure help.
+#   + Expand use of AS_IF for compatability with older automake
+# * 2006.08.16: Paul Hargrove <PHHargrove@lbl.gov>
+#   + Import plpa-1.0.3
+
+AC_DEFUN([DISABLED_AC_ARG_ENABLE],[])
+AC_DEFUN([DISABLED_AC_ARG_WITH],[])
+AC_DEFUN([DISABLED_AM_CONDITIONAL],[])
 
 # Main PLPA m4 macro, to be invoked by the user
 #
@@ -65,9 +81,12 @@ int i = 1;],
     fi
 
     # If all was good, do the real init
-    AS_IF([test "$happy" = "1"],
-          [_PLPA_INIT($1, $2)],
-          [$2])
+    if test "$happy" = 1; then
+        _PLPA_INIT($1, $2)
+    else
+        [$2]
+	:	# in case $2 is empty.
+    fi
 
     # Cleanup
     unset happy
@@ -106,7 +125,7 @@ AC_DEFUN([PLPA_SET_SYMBOL_PREFIX],[
 AC_DEFUN([_PLPA_INTERNAL_SETUP],[
 
     # Included mode, or standalone?
-    AC_ARG_ENABLE([included-mode],
+    DISABLED_AC_ARG_ENABLE([included-mode],
                     AC_HELP_STRING([--enable-included-mode],
                                    [Using --enable-included-mode puts the PLPA into "included" mode.  The default is --disable-included-mode, meaning that the PLPA is in "standalone" mode.]))
     if test "$enable_included_mode" = "yes"; then
@@ -116,7 +135,7 @@ AC_DEFUN([_PLPA_INTERNAL_SETUP],[
     fi
 
     # Change the symbol prefix?
-    AC_ARG_WITH([plpa-symbol-prefix],
+    DISABLED_AC_ARG_WITH([plpa-symbol-prefix],
                 AC_HELP_STRING([--with-plpa-symbol-prefix=STRING],
                                [STRING can be any valid C symbol name.  It will be prefixed to all public PLPA symbols.  Default: "plpa_"]))
     if test "$with_plpa_symbol_prefix" = ""; then
@@ -134,7 +153,7 @@ AC_DEFUN([_PLPA_INIT],[
 
     # Are we building as standalone or included?
     AC_MSG_CHECKING([for PLPA building mode])
-    AM_CONDITIONAL([PLPA_BUILD_STANDALONE], [test "$plpa_mode" = "standalone"])
+    DISABLED_AM_CONDITIONAL([PLPA_BUILD_STANDALONE], [test "$plpa_mode" = "standalone"])
     AC_MSG_RESULT([$plpa_mode])
 
     # What prefix are we using?

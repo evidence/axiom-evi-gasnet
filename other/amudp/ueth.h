@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/AMUDP/ueth.h                                           $
- *     $Date: 2003/12/17 10:12:24 $
- * $Revision: 1.1 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/ueth.h,v $
+ *     $Date: 2013/04/11 19:26:07 $
+ * $Revision: 1.1.1.1 $
  * Description: UETH interface to ISTORE-specific hardware driver
  * Copyright 2000, Dan Hettena <danielh@cs.berkeley.edu>
  *                 and Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -15,7 +15,7 @@
  * long as the used isn't concurrent, of course).
  */
 
-#ifdef WIN32
+#if PLATFORM_OS_MSWINDOWS
 /* ueth doesn't run on win32, but allow static checking of win32 amudp apps */
   #include <stddef.h>
   typedef unsigned __int8		uint8_t;
@@ -26,7 +26,7 @@
   typedef __int16			int16_t;
   typedef __int32			int32_t;
   typedef __int64			int64_t;
-#elif defined(CYGWIN)
+#elif PLATFORM_OS_CYGWIN
   #include <sys/types.h>
   typedef u_int8_t     uint8_t;
   typedef u_int16_t   uint16_t; 
@@ -55,7 +55,7 @@ extern "C" {
 #define	ueth_us_to_ticks(us)	(((us)*800)/3)
 
 /* May be used any time. Return value strictly increases with time. */
-static inline uint64_t ueth_getcputime() {
+static inline uint64_t ueth_getcputime(void) {
   uint64_t result;
   asm volatile("rdtsc" : "=A" (result));
   return result;

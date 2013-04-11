@@ -1,24 +1,80 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-#  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2002/06/01 14:24:57 $
-# $Revision: 1.1 $
+#   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/Makefile.am,v $
+#     $Date: 2013/04/11 19:26:07 $
+# $Revision: 1.1.1.2 $
 # Description: Makefile for GASNet other 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
+# Terms of use are as specified in license.txt
 
 AUTOMAKE_OPTIONS = foreign 1.4
 
-SUBDIRS =          \
-        ammpi      
+# GASNET_TOOLSONLY_TRUE_BEGIN
+# CONDUITMODE_SUBDIRS =
+# CONDUITMODE_EXTRADIST =
+# GASNET_TOOLSONLY_TRUE_END
+# GASNET_TOOLSONLY_FALSE_BEGIN
+CONDUITMODE_SUBDIRS = \
+        ammpi      \
+	amudp	   \
+	contrib    \
+	firehose   \
+	fca	   \
+	testspawn
+CONDUITMODE_EXTRADIST = \
+	amxtests    \
+	ssh-spawner \
+	mpi-spawner \
+	smp-collectives	\
+	myxml	\
+	detect-pshm.c \
+  # 	exclude these from distribution for now
+  # 	cross-configure-help.c
+# GASNET_TOOLSONLY_FALSE_END
+SUBDIRS = $(CONDUITMODE_SUBDIRS)
 
-EXTRA_DIST =              
+EXTRA_DIST =        			\
+        $(CONDUITMODE_EXTRADIST) 	\
+	detect-cachesz.c 		\
+	tools-toggle.pl
 
+include_HEADERS = \
+	portable_inttypes.h \
+	portable_platform.h
 
-tests: force
-if USE_MPI_CONDUIT                           
-	@$(MAKE) -C $(top_builddir)/other/ammpi tests
+if CONDUIT_MODE
+if USE_UDP_CONDUIT                           
+  UDP_dir=$(top_builddir)/other/amudp
+endif
+if USE_AMMPI                           
+  MPI_dir=$(top_builddir)/other/ammpi
+endif
+testdirs= $(UDP_dir) $(MPI_dir)
+
+tests tests-clean run-tests check-exports: 
+	@list='$(testdirs)'; for dir in $$list ; do \
+	  ( cd "$$dir" && $(MAKE) $@ ) || exit $$?; \
+	done
+CONDUITMODE_TARGETS = Makefile-conduit.mak
 endif
 
-.PHONY: force clean tests
+# If we add plpa to EXTRA_DIST, then automake-1.9 tries to package
+# plpa/config/acinclude.m4 more than once.
+dist-hook:
+	rm -f $(distdir)/plpa/config/acinclude.m4
+	cp -pR $(srcdir)/plpa $(distdir)/
+
+all-local: $(CONDUITMODE_TARGETS) perlstart
+
+# GASNET_TOOLSONLY_FALSE_BEGIN
+## Docs to install from any subdirs
+docdir = $(datadir)/doc/gasnet
+install-data-local:
+	$(INSTALL_DATA) $(srcdir)/ssh-spawner/README $(DESTDIR)$(docdir)/README-ssh-spawner
+uninstall-local:
+	rm -Rf $(DESTDIR)$(docdir)
+# GASNET_TOOLSONLY_FALSE_END
+
+.PHONY: force clean tests tests-clean run-tests
 
 force:
 	

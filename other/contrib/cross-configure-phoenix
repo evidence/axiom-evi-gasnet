@@ -15,6 +15,18 @@ CXX='CC -hinstantiate=local' ; export CXX  # vanilla target C++ compiler
 #MPI_CFLAGS='' ; export MPI_CFLAGS  # flags for MPI_CC
 #MPI_LIBS='' ; export MPI_LIBS      # libs for linking with MPI_CC
 #MPIRUN_CMD='mpirun -np %N %C' ; export MPIRUN_CMD  # launch command for MPI jobs
+EXTRA_CONFIGURE_ARGS='--disable-udp --disable-amudp --enable-shmem'
+
+# Host C compiler
+# NOTE: you may need to set GCC_EXEC_PREFIX=/usr/bin/ 
+# in your environment to get the correct assembler for gcc
+HOST_CC="gcc" ; export HOST_CC
+HOST_CFLAGS="-g -O2" ; export HOST_CFLAGS
+
+# Host C++ compiler - required by Titanium, not required for UPC or GASNet
+HOST_CXX='g++' ; export HOST_CXX  
+HOST_CXXFLAGS='' ; export HOST_CXXFLAGS
+cxxLDFLAGS='-static' ; export cxxLDFLAGS  # link statically for simplicity
 
 # 2. Fill in the canonical target machine type. You can usually obtain this
 #   by running config-aux/config.guess on the target machine
@@ -39,7 +51,7 @@ CROSS_PAGESIZE='65536' ; export CROSS_PAGESIZE
 
 # Does the system stack grow up?
 
-CROSS_STACK_GROWS_UP='1' ; export CROSS_STACK_GROWS_UP
+CROSS_STACK_GROWS_UP='0' ; export CROSS_STACK_GROWS_UP
 
 # Is char a signed type?
 
@@ -68,7 +80,7 @@ CROSS_SIGUSR1='16' ; export CROSS_SIGUSR1
 
 SRCDIR=`dirname $0`
 if test ! -f "$SRCDIR/configure" ; then
-  echo 'ERROR: The $0 script should be placed in the same directory as the configure script before execution'
+  echo "ERROR: The $0 script should be placed in the same directory as the configure script before execution"
   exit 1
 fi
 # Detect the build host machine type
@@ -95,4 +107,4 @@ if test "$HOST_ARG" = ""; then
   CC="$oldCC"
 fi
 # Now that everything is setup, run the actual configure script
-$SRCDIR/configure --enable-cross-compile $HOST_APPEND --build=$TARGET_ID --target=$TARGET_ID "$@"
+$SRCDIR/configure --enable-cross-compile $HOST_APPEND --build=$TARGET_ID --target=$TARGET_ID --program-prefix='' $EXTRA_CONFIGURE_ARGS "$@"

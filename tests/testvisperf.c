@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testvisperf.c,v $
- *     $Date: 2006/06/13 11:00:13 $
- * $Revision: 1.1 $
+ *     $Date: 2013/04/11 19:26:08 $
+ * $Revision: 1.1.1.1 $
  * Description: GASNet VIS performance test
  * Copyright 2006 Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -9,15 +9,9 @@
 #include "gasnet.h"
 #include "gasnet_vis.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <sys/time.h>
-#include <unistd.h>
-#include <fcntl.h>
-int maxsz = 0;
+uintptr_t maxsz = 0;
 #ifndef TEST_SEGSZ
-  #define TEST_SEGSZ_EXPR ((uintptr_t)maxsz)
+  #define TEST_SEGSZ_EXPR (maxsz)
 #endif
 #include "test.h"
 
@@ -160,8 +154,8 @@ int main(int argc, char **argv) {
   #else
     maxsz = 16*1024*1024;
   #endif
-  max_payload = MIN(maxsz, max_payload);
-  maxsz = MIN(max_payload * densitysteps,maxsz);
+  max_payload = (int)MIN(maxsz, max_payload);
+  maxsz = MIN(((uint64_t)max_payload) * densitysteps,maxsz);
   if (!min_contig) min_contig = 8;
   if (!max_contig) max_contig = MIN(256*1024,max_payload);
   if (!min_payload) min_payload = min_contig;
@@ -184,7 +178,7 @@ int main(int argc, char **argv) {
              "  -a        enables full-duplex mode, where all nodes send.\n"
              "  -c        enables cross-machine pairing, default is nearest neighbor.\n"
              "  -f        enables 'first/last' mode, where the first/last\n"
-             "   nodes communicate with each other, while all other nodes sit idle.");
+             "            nodes communicate with each other, while all other nodes sit idle.");
   if (help || argc > arg) test_usage();
 
   /* get SPMD info */
@@ -194,7 +188,7 @@ int main(int argc, char **argv) {
   if (!firstlastmode) {
     /* Only allow 1 or even number for numprocs */
     if (numprocs > 1 && numprocs % 2 != 0) {
-      MSG("WARNING: This test requires a unary or even number of threads. Test skipped.\n");
+      MSG0("WARNING: This test requires a unary or even number of nodes. Test skipped.\n");
       gasnet_exit(0); /* exit 0 to prevent false negatives in test harnesses for smp-conduit */
     }
   }
@@ -225,7 +219,7 @@ int main(int argc, char **argv) {
   if (insegment) {
     Lbase = TEST_SEG(myproc);
   } else {
-    alloc = test_malloc(maxsz+PAGESZ);
+    alloc = test_calloc(maxsz+PAGESZ,1); /* use calloc to prevent valgrind warnings */
     Lbase = alignup_ptr(alloc, PAGESZ); /* ensure page alignment of base */
   }
   assert(((uintptr_t)Lbase) % PAGESZ == 0);
@@ -272,8 +266,8 @@ int main(int argc, char **argv) {
             size_t datasz = aligndown(rawdatasz,contigsz);
             if (datasz == lastdatasz) continue;
             lastdatasz = datasz;
-            if (singlesender) sprintf(mystr,"%8i: ", (int)datasz);
-            else  sprintf(mystr,"P%i: %6i: ", myproc, (int)datasz);
+            if (singlesender) snprintf(mystr, sizeof(mystr), "%8i: ", (int)datasz);
+            else  snprintf(mystr, sizeof(mystr), "P%i: %6i: ", myproc, (int)datasz);
             for (di = 0; di < densitysteps; di++) {
               gasnett_tick_t begin, end;
               size_t Lcnt = (localcontig ? 1 : datasz/contigsz);
@@ -365,7 +359,7 @@ int main(int argc, char **argv) {
                 char tmp[80];
                 double secs = gasnett_ticks_to_ns(end - begin)/1.0E9;
                 double dataMB = ((double)datasz) * iters / (1024*1024);
-                sprintf(tmp, " %8.3f", dataMB / secs);
+                snprintf(tmp, sizeof(tmp), " %8.3f", dataMB / secs);
                 strcat(mystr, tmp);
               }
               if (Lilist) test_free(Lilist);

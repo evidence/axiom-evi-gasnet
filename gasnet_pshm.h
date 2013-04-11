@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.h,v $
- *     $Date: 2009/09/18 23:33:23 $
- * $Revision: 1.1 $
+ *     $Date: 2013/04/11 19:26:06 $
+ * $Revision: 1.1.1.1 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -13,6 +13,23 @@
   #error "gasnet_pshm.h included in a non-PSHM build"
 #endif
 
+/* Must defined EXACTLY one */
+/* TO DO: add to GASNet's config string */
+#if defined(GASNETI_PSHM_POSIX) && !defined(GASNETI_PSHM_SYSV) && !defined(GASNETI_PSHM_FILE) && !defined(GASNETI_PSHM_XPMEM)
+  #undef GASNETI_PSHM_POSIX
+  #define GASNETI_PSHM_POSIX 1
+#elif !defined(GASNETI_PSHM_POSIX) && defined(GASNETI_PSHM_SYSV) && !defined(GASNETI_PSHM_FILE) && !defined(GASNETI_PSHM_XPMEM)
+  #undef GASNETI_PSHM_SYSV
+  #define GASNETI_PSHM_SYSV 1
+#elif !defined(GASNETI_PSHM_POSIX) && !defined(GASNETI_PSHM_SYSV) && defined(GASNETI_PSHM_FILE) && !defined(GASNETI_PSHM_XPMEM)
+  #undef GASNETI_PSHM_FILE
+  #define GASNETI_PSHM_FILE 1
+#elif !defined(GASNETI_PSHM_POSIX) && !defined(GASNETI_PSHM_SYSV) && !defined(GASNETI_PSHM_FILE) && defined(GASNETI_PSHM_XPMEM)
+  #undef GASNETI_PSHM_XPMEM
+  #define GASNETI_PSHM_XPMEM 1
+#else
+  #error PSHM configuration must be exactly one of (GASNETI_PSHM_POSIX, GASNETI_PSHM_SYSV, GASNETI_PSHM_FILE,GASNETI_PSHM_XPMEM)
+#endif
 #include <gasnet_handler.h> /* Need gasneti_handler_fn_t */
 
 #if GASNET_PAGESIZE < 4096
@@ -25,13 +42,17 @@
 
 /* Max number of processes supported per node */
 #ifndef GASNETI_PSHM_MAX_NODES
-#define GASNETI_PSHM_MAX_NODES 255
+  #ifdef GASNETI_CONFIG_PSHM_MAX_NODES
+    #define GASNETI_PSHM_MAX_NODES GASNETI_CONFIG_PSHM_MAX_NODES
+  #else
+    #define GASNETI_PSHM_MAX_NODES 255
+  #endif
 #endif
 
 /* In gasnet_mmap.c */
 #define GASNETI_PSHM_UNIQUE_LEN 6
-extern const char *gasneti_pshm_makenames(const char *unique);
-extern void *gasneti_mmap_vnet(uintptr_t segsize);
+
+extern void *gasneti_mmap_vnet(uintptr_t segsize, gasneti_bootstrapExchangefn_t exchangefn);
 extern void gasneti_unlink_vnet(void);
 
 /* Virtual network between processes within a shared
@@ -46,6 +67,13 @@ typedef struct gasneti_pshmnet gasneti_pshmnet_t;
    Returns pointer to shared memory of length "aux_sz" available for conduit-specific use */
 extern void *gasneti_pshm_init(gasneti_bootstrapExchangefn_t exchangefn, size_t aux_sz);
 
+/*  PSHMnets needed for PSHM active messages.
+ *
+ * - Conduits using GASNET_PSHM must initialize these two vnets
+ *   to allow a fast implementation of Active Messages to run within the
+ *   supernode.  Other vnets may be created as are needed or useful.
+ * - Initialize these vnets before use via gasneti_pshmnet_init().
+ */
 extern gasneti_pshmnet_t *gasneti_request_pshmnet;
 extern gasneti_pshmnet_t *gasneti_reply_pshmnet;
 
@@ -133,21 +161,22 @@ extern gasneti_pshmnet_t *gasneti_reply_pshmnet;
 #endif
 
 /*******************************************************************************
- * <PSHM variables that must be initialized by the conduit using PSHM>
+ * <PSHM variables initialized by gasneti_pshm_init>
  */
-/*  PSHMnets needed for PSHM active messages.
- *
- * - Conduits using GASNET_PSHM must initialize these two vnets
- *   to allow a fast implementation of Active Messages to run within the
- *   supernode.  Other vnets may be created as are needed or useful.
- * - Initialize these vnets before use via gasneti_pshmnet_init().
- */
+
 /* # of nodes in my supernode
  * my 0-based rank within it
  * lowest of gasnet node # in supernode */
 extern gasneti_pshm_rank_t gasneti_pshm_nodes;
 extern gasneti_pshm_rank_t gasneti_pshm_mynode;
 extern gasnet_node_t gasneti_pshm_firstnode;
+
+/* # of supernodes */
+#define gasneti_pshm_supernodes (0+gasneti_nodemap_global_count)
+/* my supernode's 0-based rank among supernodes */
+#define gasneti_pshm_mysupernode (0+gasneti_nodemap_global_rank)
+/* vector of first node within each supernode */
+extern gasnet_node_t *gasneti_pshm_firsts;
 
 /* Non-NULL only when supernode members are non-contiguous */
 extern gasneti_pshm_rank_t *gasneti_pshm_rankmap;
@@ -160,7 +189,10 @@ extern gasneti_pshm_rank_t *gasneti_pshm_rankmap;
  * Otherwise returns an "impossible" value >= gasneti_pshm_nodes.
  */
 GASNETI_INLINE(gasneti_pshmnet_local_rank)
-gasneti_pshm_rank_t gasneti_pshm_local_rank(gasnet_node_t node) {
+unsigned int gasneti_pshm_local_rank(gasnet_node_t node) {
+#if GASNET_CONDUIT_SMP
+  return node;
+#else
   if_pt (gasneti_pshm_rankmap == NULL) {
     /* NOTE: gasnet_node_t is an unsigned type, so in the case of
      * (node < gasneti_pshm_firstnode), the subtraction will wrap to
@@ -170,6 +202,7 @@ gasneti_pshm_rank_t gasneti_pshm_local_rank(gasnet_node_t node) {
   } else {
     return gasneti_pshm_rankmap[node];
   }
+#endif
 }
 
 /* Returns 1 if given node is in the caller's supernode, or 0 if it's not.
@@ -177,14 +210,25 @@ gasneti_pshm_rank_t gasneti_pshm_local_rank(gasnet_node_t node) {
  */
 GASNETI_INLINE(gasneti_pshmnet_in_supernode)
 int gasneti_pshm_in_supernode(gasnet_node_t node) {
+#if GASNET_CONDUIT_SMP
+  return 1;
+#else
   return (gasneti_pshm_local_rank(node) < gasneti_pshm_nodes);
+#endif
 }
+
+/* Returns local version of remote in-supernode address.
+ */
+GASNETI_INLINE(gasneti_pshm_addr2local)
+void *gasneti_pshm_addr2local(gasnet_node_t node, void *addr) {
+  return  (void*)((uintptr_t)addr
+                   + (uintptr_t)gasneti_nodeinfo[node].offset);
+} 
 
 /* Returns amount of memory needed (rounded up to a multiple of the system
  * page size) needed for a new gasneti_pshmnet_t.
  * - Takes the number of nodes in the gasnet supernode.
- * - Reads the GASNET_PSHMNET_QUEUE_DEPTH and GASNET_PSHMNET_QUEUE_MEMORY
- *   environment variables, if present.
+ * - Reads the GASNET_PSHMNET_QUEUE_MEMORY environment variable, if set.
  */
 extern size_t gasneti_pshmnet_memory_needed(gasneti_pshm_rank_t nodes);
 
@@ -213,7 +257,8 @@ void gasneti_pshmnet_bootstrapBarrier(void);
  * This function has the following restrictions:
  * 1) It must be called after gasneti_pshmnet_init() has completed.
  * 2) It must be called collectively by all nodes in the vnet.
- * 3) The rootpshmnode is the supernode-local rank
+ * 3) It must be called with the vnet's recv queues empty.
+ * 4) The rootpshmnode is the supernode-local rank.
  */
 extern
 void gasneti_pshmnet_bootstrapBroadcast(gasneti_pshmnet_t *vnet, void *src, 
@@ -224,10 +269,28 @@ void gasneti_pshmnet_bootstrapBroadcast(gasneti_pshmnet_t *vnet, void *src,
  * This function has the following restrictions:
  * 1) It must be called after gasneti_pshmnet_init() has completed.
  * 2) It must be called collectively by all nodes in the vnet.
+ * 3) It must be called with the vnet's recv queues empty.
  */
 extern
 void gasneti_pshmnet_bootstrapExchange(gasneti_pshmnet_t *vnet, void *src, 
                                        size_t len, void *dest);
+/* Bootstrap gather via pshmnet.
+ *
+ * This function has the following restrictions:
+ * 1) It must be called after gasneti_pshmnet_init() has completed.
+ * 2) It must be called collectively by all nodes in the vnet.
+ * 3) It must be called with the vnet's recv queues empty.
+ * 4) The rootpshmnode is the supernode-local rank.
+ */
+extern
+void gasneti_pshmnet_bootstrapGather(gasneti_pshmnet_t *vnet, void *src, 
+                                     size_t len, void *dest, int rootpshmnode);
+
+/* "critical sections" in which we notify peers if we abort() while
+ * they are potentially blocked in gasneti_pshmnet_bootstrapBarrier().
+  */
+extern void gasneti_pshm_cs_enter(void);
+extern void gasneti_pshm_cs_leave(void);
 
 /* returns the maximum size payload that pshmnet can offer.  This is the
  * maximum size one can ask of gasneti_pshmnet_get_send_buffer.
@@ -251,14 +314,12 @@ void * gasneti_pshmnet_get_send_buffer(gasneti_pshmnet_t *vnet, size_t nbytes,
  * Notifies target that message is ready to be received.  After calling, 'buf'
  * logically belongs to the target process, and the caller should not touch
  * the memory pointed to by 'buf' again.
+ * 'nbytes' must be no larger than was passed to get_send_buffer
  * 'target' is rank relative to the supernode
- *
- * Returns nonzero if no message can be sent (message queue full).  Poll your
- * own queues and try again later.
  */
 extern
-int gasneti_pshmnet_deliver_send_buffer(gasneti_pshmnet_t *vnet, void *buf, size_t nbytes,
-                                        gasneti_pshm_rank_t target);
+void gasneti_pshmnet_deliver_send_buffer(gasneti_pshmnet_t *vnet, void *buf, size_t nbytes,
+                                         gasneti_pshm_rank_t target);
 
 
 /* Polls receipt queue for any messages from any sender.
@@ -324,5 +385,32 @@ int gasneti_AMPSHM_ReplyGeneric(int category, gasnet_token_t token,
                                         nbytes, dest_addr, numargs, argptr); 
   return retval;
 }
+
+/*******************************************************************************
+ * Intra-supernode shared-memory barrier
+ *******************************************************************************/
+
+typedef struct {
+    gasneti_atomic_t state; /* One done bit per phase and result in remaining bits */
+    gasneti_atomic_t ready; /* Indicates when initialization is completed */
+    int size;
+    gasnet_handlerarg_t volatile flags, value; /* supernode consensus for hierarchical barrier */
+    char _pad1[GASNETI_CACHE_PAD(  2*sizeof(gasneti_atomic_t)
+                                 + sizeof(int)
+                                 + 2*sizeof(gasnet_handlerarg_t))];
+    /*---------------*/
+    struct gasneti_pshm_barrier_node {
+      union gasneti_pshm_barrier_node_u {
+        struct {
+          int volatile value, flags;
+          int volatile phase;
+        } wmb;
+        uint64_t volatile u64;
+      } u;
+      char _pad[GASNETI_CACHE_PAD(sizeof(union gasneti_pshm_barrier_node_u))];
+    } node[1]; /* VLA */
+} gasneti_pshm_barrier_t;
+
+extern gasneti_pshm_barrier_t *gasneti_pshm_barrier;
 
 #endif /* _GASNET_SYSV_H */

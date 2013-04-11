@@ -1,14 +1,17 @@
-/*************************************************************************
- * Myricom MPICH-GM ch_gm backend                                        *
- * Copyright (c) 2001 by Myricom, Inc.                                   *
- * All rights reserved.                                                  *
- *************************************************************************/
+/* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core_conf.c,v $
+ * $Date: 2013/04/11 19:26:07 $
+ * $Revision: 1.1.1.1 $
+ * Description: GASNet GM conduit Implementation
+ * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
+ * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
+ */
+/* Much of the code below is taken from Myricom's MPICH bootstrap code */
 
 #include <gasnet_core_internal.h>
-#include <netdb.h>
-#ifdef GASNETC_HAVE_BNR
-#include <bnr.h>
-#endif
+#include <arpa/inet.h>
+#include <string.h>
+#include <ctype.h>
 
 #define RETURN_ERR(err)	do {	\
 		printf err;			\
@@ -17,298 +20,564 @@
 	} while (0)
 
 
+#define GASNETC_HOST_PATH	"/usr/bin/host"
 #define GASNETC_INIT_TIMEOUT	(3*60*1000)	/* 3 minutes */
 #define GASNETC_SOCKET_BUFSIZ	(128*1024)
-#define GASNETC_GETENV(env, ptr, err) do {			\
-		char *ptrenv = getenv(env);			\
-		if (ptrenv == NULL || *ptrenv == '\0') {	\
-			fprintf(stderr, err);			\
-			return GASNET_ERR_RESOURCE;		\
-		}						\
-		else {						\
-			ptr = ptrenv;				\
-		}						\
+
+#define GASNETC_SPAWNERR(msg) \
+   gasneti_fatalerror("spawning job on node %d (%s): %s", gasneti_mynode, gasnett_gethostname(), msg)
+
+#define GASNETC_GETENV(env, ptr, err) do {				\
+		char *ptrenv = getenv(env);				\
+		if (ptrenv == NULL || *ptrenv == '\0') {		\
+                        GASNETC_SPAWNERR(err);                          \
+		}							\
+		else {							\
+			ptr = ptrenv;					\
+		}							\
 	} while (0)
 
-#ifdef GASNETC_HAVE_BNR
-int
-gasnetc_getconf_BNR(void)
+
+#if 1
+/*
+ * Disable the gethostbyname() hack, as it's too fragile as is and hinders our
+ * ability to reliably support other GASNet spawners.
+ */
+#include <netdb.h>
+
+uint32_t
+gasnetc_parse_addr(char *hostaddr)
 {
-	char	attr_buffer[BNR_MAXATTRLEN];
-	char	val_buffer[BNR_MAXVALLEN];
+    struct hostent  *he;
+    uint32_t	     ip, a2, a3, a4;
 
-	/* MPD to spawn processes */
-	char	my_hostname[256];
-	char	*hostnames;
+    /*
+     * Use gethostbyname IFF we can't find an ip in the input address
+     * 'hostaddr'
+     */
+    if (sscanf(hostaddr, "%d.%d.%d.%d",&ip,&a2,&a3,&a4) != 4) {
+    	he = gethostbyname(hostaddr);
 
-	BNR_Group 	bnr_group;
-		
-	/* MPD to spawn processes */
-	gmpi.mpd = 1;
-	i = BNR_Init ();
-	i = BNR_Get_group (&bnr_group);
-	i = BNR_Get_rank (bnr_group, &gasnetc_mynode);
-	i = BNR_Get_size (bnr_group, &gasnetc_nodes);
-	
-	/* data allocation */
-	if (!gasnetc_alloc_nodemap(gasnetc_nodes))
-		RETURN_ERR(("%d: Can't allocate node mapping", gasnetc_mynode));
-
-	hostnames = (char *) gasneti_malloc (gasnetc_nodes * 256 * sizeof (char *));
-
-	/* open a port */
-	board_id = -1;
-	port_id = 0;
-	if (!gasnetc_gmport_allocate(&board_id, &port_id))
-		RETURN_ERR(("%d: Can't obtain GM port", gasnetc_mynode));
-
-	_gmc.my_port = port_id;
-
-	/* get the GM node id */
-	if (gm_get_node_id (_gmc.port, &_gmc.my_id) != GM_SUCCESS)
-		RETURN_ERR(("%d: Can't get local GM node id", gasnetc_mynode));
-		
-	/* build the data to send to master */
-	memset(val_buffer, 0, BNR_MAXVALLEN * sizeof (char));
-	gm_get_host_name (_gmc.port, my_hostname);
-	sprintf (val_buffer, "<%d:%d:%d:%s>\n", port_id, board_id, 
-	    _gmc.my_id, my_hostname);
-		
-	/* put our information */
-	memset (attr_buffer, 0, BNR_MAXATTRLEN * sizeof (char));
-	sprintf (attr_buffer, "MPICH-GM data [%d]\n", gasnetc_mynode);
-	i = BNR_Put (bnr_group, attr_buffer, val_buffer, -1);
-		
-	/* get other processes data */
-	i = BNR_Fence (bnr_group);
-	for (j = 0; j < gasnetc_nodes; j++) {
-		memset (attr_buffer, 0, BNR_MAXATTRLEN * sizeof (char));
-		sprintf (attr_buffer, "MPICH-GM data [%d]\n", j);
-		i = BNR_Get (bnr_group, attr_buffer, val_buffer);
-		
-		/* decrypt data */
-		if (sscanf (val_buffer, "<%hd:%*hd:%hd:%*s>",
-		    _gmc.gm_nodes[j].port, _gmc.gm_nodes[j].id) != 2)
-			RETURN_ERR(("%d: can't decode node mapping"));
-	}
-
-	return GASNET_OK;
+    	if (he == NULL || he->h_length != 4)
+		return 0;
+    	else {
+		memcpy(&ip, he->h_addr, he->h_length);
+		return ip;
+    	}
+    }
+    else {
+	if (inet_pton(AF_INET, hostaddr, &ip) < 1)
+	    return 0;
+	else
+	    return ip;
+    }
 }
 #else
-int
-gasnetc_getconf_BNR(void)
+/* 
+ * Replace gethostby... functionality
+ *
+ * These are unfortunately located in shared object libraries on linux, so we
+ * have to emulate them here in case they don't exist on certain systems that
+ * fail to install shared libraries correctly.
+ *
+ * This command parses hostaddr and returns the 32-bit ip address as an
+ * integer in network-byte order.  If fatal, or the address could not be parsed,
+ * the function returns 0.  This, of course, assumes that the caller will never
+ * want to use 0.0.0.0 as an address, which is reasonable for what we use this
+ * function for.
+ *
+ * In order, the command first tries to parse using perl, then /usr/bin/host.
+ */
+#include <ctype.h> /* isdigit */
+uint32_t
+gasnetc_parse_addr(char *hostaddr)
 {
-	fprintf(stderr, "BNR via MPD is unsupported\n");
-	return GASNET_ERR_RESOURCE;
+    uint32_t ip, a2, a3, a4;
+    char    cmd[256], line[128];
+    char    ipaddr[32];
+    char    *p, *ip_ptr = NULL;
+    int	    i = 0;
+    FILE    *fd;
+
+    ip_ptr = hostaddr;
+    
+    if (sscanf(ip_ptr, "%d.%d.%d.%d",&ip,&a2,&a3,&a4) != 4) {
+
+	/* First try using perl, assuming it's in users path */
+	snprintf(cmd, 256, "perl -e 'print join(\".\", unpack(\"C*\", "
+			   "(gethostbyname(\"%s\"))[4])), \"\\n\"'", hostaddr);
+
+	fd = popen(cmd, "r");
+	if (fd != NULL && (p = fgets(line,128,fd)) != NULL &&
+	   sscanf(p, "%d.%d.%d.%d", &ip,&a2,&a3,&a4) == 4) {
+	    int iplen = strspn(p, "0123456789.");
+	    *(p + iplen) = '\0';
+	    pclose(fd);
+	    if (inet_pton(AF_INET, p, &ip) < 1)
+		return 0;
+	    else
+		return ip;
+	}
+
+	/* If perl failed, try parsing /usr/bin/host, although this may be with
+	 * limited success since /usr/bin/host does not parse /etc/hosts */
+	snprintf(cmd, 256, "%s -t a %s", GASNETC_HOST_PATH, hostaddr);
+
+	fd = popen(cmd, "r");
+	if (fd == NULL) {
+	    fprintf(stderr, "Couldn't open %s\n", cmd);
+	    return 0;
+	}
+
+	while ((p = fgets(line, 128, fd)) != NULL) {
+	    /* Return the first matching ip -- wherever it is */
+	    while (*p != '\0') {
+		if (isdigit(*p) &&
+		   sscanf(p, "%d.%d.%d.%d", &ip,&a2,&a3,&a4) == 4) {
+		    int iplen = strspn(p, "0123456789.");
+		    *(p + iplen) = '\0';
+		    pclose(fd);
+		    if (inet_pton(AF_INET, p, &ip) < 1)
+			return 0;
+		    else
+			return ip;
+		}
+		p++;
+	    }
+	}
+	/* is EOF, or error, or no match at all */
+	pclose(fd);
+	return 0;
+    }
+    else {
+	if (inet_pton(AF_INET, ip_ptr, &ip) < 1)
+	    return 0;
+	else
+	    return ip;
+    }
 }
 #endif
 
-int
-gasnetc_getconf_sockets(void)
+static
+char *
+gasnetc_gexec_ip(char *buf, size_t buflen, gasnet_node_t nodeid)
 {
-	char	*magic, *master, *port1, *port2;
-	char	*id, *np, *board;
+	char	*svrs, *c;
+	int	i, len;
+
+	svrs = getenv("GEXEC_SVRS");
+	if (svrs == NULL || *svrs == '\0')
+		return NULL;
+
+	c = svrs;
+	if (*c == ' ')
+		c += strspn(svrs, " ");
+	if (*c == '\0')
+		return NULL;
+
+	for (i = 0; i < nodeid; i++) {
+		c += strcspn(c, " \t");
+		if (*c == '\0') 
+			return NULL;
+		c += strspn(c, " ");
+		if (*c == '\0') 
+			return NULL;
+	}
+
+	len = strcspn(c, " \t");
+
+	memcpy(buf, c, len);
+	buf[len] = '\0';
+
+	return buf;
+}
+
+static
+void
+gasnetc_get_nodeids(gasnet_node_t *myid, gasnet_node_t *numnodes)
+{
+	char    	*nprocs, *rank;
+	gasnet_node_t	id, nodes;
+
+	nprocs = getenv("GEXEC_NPROCS");
+
+	if (nprocs != NULL && *nprocs != '\0') {
+		nodes = (gasnet_node_t) atoi(nprocs);
+
+		rank = getenv("GEXEC_MY_VNN");
+		if (rank == NULL || *rank == '\0')
+			GASNETC_SPAWNERR("Can't obtain the number of GASNet/GM processes");
+		id = (gasnet_node_t) atoi(rank);
+	}
+	else {
+		nprocs = getenv("GMPI_NP");
+		if (nprocs == NULL || *nprocs == '\0')
+			GASNETC_SPAWNERR("Can't obtain the number of GASNet/GM processes");
+		nodes = (gasnet_node_t) atoi(nprocs);
+
+		rank = getenv("GMPI_ID");
+		if (rank == NULL || *rank == '\0')
+			GASNETC_SPAWNERR("Can't obtain the number of GASNet/GM processes");
+		id = (gasnet_node_t) atoi(rank);
+	}
+
+	if (nodes < 1) 
+		gasneti_fatalerror("Bad number of processes: %d", nodes);
+	
+	if (id >= nodes)
+		gasneti_fatalerror("Bad id %d out of %d processes", id, nodes);
+
+	*numnodes = nodes;
+	*myid = id;
+
+	return;
+}
+
+void
+gasnetc_getconf_mpiexec()
+{
+	char	*magic, *master, *port;
+	char	*board;
 	char	buffer[GASNETC_SOCKET_BUFSIZ];
 	char	*temp;
-	//char	temp[32];
-	int	sockfd;
+	int	sockfd, sockfd2;
 
-	unsigned int 	count, magic_number, master_port1, master_port2;
-	unsigned int	board_id, port_id;
+	unsigned int	slave_port, master_port;
+
+	unsigned int 	count, magic_number;
+	unsigned int	board_id, port_id, temp_id, temp_local_id;
 	unsigned int	i, j;
 
-	struct hostent		*master_he;
-	struct sockaddr_in	sa;
-		
 	/* gasnetrun with sockets */
-	GASNETC_GETENV ("GASNETGM_MAGIC", magic, "the job magic number");
-	GASNETC_GETENV ("GASNETGM_MASTER", master, "the master's hostname");
-	GASNETC_GETENV ("GASNETGM_PORT1", port1, "the master's port 1 number");
-	GASNETC_GETENV ("GASNETGM_PORT2", port2, "the master's port 2 number");
-	GASNETC_GETENV ("GASNETGM_ID", id, "the GASNet node id of the process");
-	GASNETC_GETENV ("GASNETGM_NP", np, "the number of GASNet/GM processes");
-	GASNETC_GETENV ("GASNETGM_BOARD", board, "the specified board");
-	
-	if (sscanf (magic, "%d", &magic_number) != 1)
-		RETURN_ERR(("Bad magic number: %s", magic));
+	GASNETC_GETENV ("GMPI_MAGIC", magic, "the job magic number");
+	GASNETC_GETENV ("GMPI_MASTER", master, "the master's hostname");
+	GASNETC_GETENV ("GMPI_PORT", port, "the master's port number");
+	GASNETC_GETENV ("GMPI_BOARD", board, "the specified board");
 
+	/* 
+	 * Check for mpich 1.2.4..8, which we do _not_ support.
+	 *
+	 * XXX This might break if Myricom decides to revive PORT1 in a new
+	 *     mpirun revision.  
+	 */
+	{
+		char *t1, *t2;
+		t1 = getenv("GMPI_PORT1");
+		t2 = getenv("MPIEXEC_STDOUT_PORT");
+
+		if (t1 != NULL && *t1 != '\0' &&
+		    (t2 == NULL || *t2 == '\0'))
+			gasneti_fatalerror(
+		    "Bootstrap doesn't support spawning from MPICH 1.2.4..8");
+	}
+
+	if (sscanf (magic, "%ud", &magic_number) != 1)
+		gasneti_fatalerror("(%s) Bootstrap: Bad magic number %s", gasnett_gethostname(), magic);
 	_gmc.job_magic = magic_number;
 		
-	if ((sscanf (np, "%hu", (unsigned short *) &gasnetc_nodes) != 1) 
-	    || (gasnetc_nodes < 1))
-		RETURN_ERR(("Bad number of processes: %s", np));
+	if (sscanf (port, "%ud", &master_port) != 1) 
+		gasneti_fatalerror(
+		    "(%s) Bootstrap: Bad master port 1 '%s', out of %d processes", 
+		    gasnett_gethostname(), port, gasneti_nodes);
+	_gmc.master_port = master_port;
 
-	if ((sscanf (id, "%hu", (unsigned short *) &gasnetc_mynode) != 1) 
-	    || gasnetc_mynode >= gasnetc_nodes)
-		RETURN_ERR(("Bad id %d out of %d processes", gasnetc_mynode, gasnetc_nodes));
-
-	if (sscanf (port1, "%d", &master_port1) != 1) 
-		RETURN_ERR(("Bad master port 1 (%s out of %d processes", 
-		     id, gasnetc_nodes));
-	_gmc.master_port1 = master_port1;
-
-	if (sscanf (port2, "%d", &master_port2) != 1) 
-		RETURN_ERR(("Bad master port 2 (%s out of %d processes", 
-		    id, gasnetc_nodes));
-	_gmc.master_port2 = master_port2;
-
-	if (sscanf (board, "%d", &board_id) != 1)
-		RETURN_ERR(("Bad magic number: %s", magic));
+	if (sscanf (board, "%ud", &board_id) != 1)
+		gasneti_fatalerror("(%s) Bootstrap: Bad magic number: %s", gasnett_gethostname(), magic);
 	_gmc.my_board = board_id;
 
+	gasnetc_get_nodeids(&gasneti_mynode, &gasneti_nodes);
+
 	port_id = 0;
-	if (!gasnetc_gmport_allocate(&board_id, &port_id))
-		RETURN_ERR(("%d: Can't obtain GM port", gasnetc_mynode));
+	if (!gasnetc_gmport_allocate((int*)&board_id, (int*)&port_id))
+		GASNETC_SPAWNERR("Can't obtain GM port");
 
 	_gmc.my_port = port_id;
 
 	/* get the GM node id */
 	if (gm_get_node_id (_gmc.port, &_gmc.my_id) != GM_SUCCESS)
-		RETURN_ERR(("%d: Can't get local GM node id", gasnetc_mynode));
+		GASNETC_SPAWNERR("Can't get local GM node id");
+
+	#ifdef GASNETC_GM_2
+	temp_id = _gmc.my_id;
+
+	/* GM2 only stores local node ids, so a global has to be obtained */
+	if (gm_node_id_to_global_id(_gmc.port, temp_id, &(_gmc.my_id)) 
+	    != GM_SUCCESS)
+		GASNETC_SPAWNERR("Couldn't get GM global node id");
+	#endif
 
 	/* allocate space for node mapping */
-	if (!gasnetc_alloc_nodemap(gasnetc_nodes))
-		RETURN_ERR(("%d: Can't allocate node mapping", gasnetc_mynode));
+	if (!gasnetc_alloc_nodemap(gasneti_nodes))
+		GASNETC_SPAWNERR("Can't allocate node mapping");
 
-	/* get a socket */
+	/*
+	 * Set up a socket for the master to connect o.
+	 * 
+	 */
 	sockfd = socket (AF_INET, SOCK_STREAM, 0);
 	if (sockfd < 0)
-		RETURN_ERR(("%d: Can't open socket", gasnetc_mynode));
+		GASNETC_SPAWNERR("Can't open first socket");
+	else {
+		char	buf[256];
+		char	*slave;
+		uint32_t slave_n;
 
-	/* get the master's IP address */
-	master_he = gethostbyname (master);
-	if (master_he == NULL) 
-		RETURN_ERR(("%d: Can't get IP from master host %s", 
-		     gasnetc_mynode, master));
+		slave = getenv("GMPI_SLAVE");
+		if (slave == NULL || *slave == '\0') {
+			slave = gasnetc_gexec_ip(buf, 256, gasneti_mynode);
 
-	/* connect to the master */
-	memset(&_gmc.master_addr, 0, sizeof(struct sockaddr));
-	_gmc.master_addr.sin_family = AF_INET;
-	_gmc.master_addr.sin_port = htons(_gmc.master_port1);
+			if (slave == NULL)
+				GASNETC_SPAWNERR("Can't identify local hostname");
+		}
 
-	memcpy(&_gmc.master_addr.sin_addr, 
-	    master_he->h_addr, master_he->h_length);
+		slave_n = gasnetc_parse_addr(slave);
+		if (!slave_n)
+		    gasneti_fatalerror("(%s) Couldn't get ip for %s", gasnett_gethostname(), slave);
 
-	i = GASNETC_INIT_TIMEOUT;
-	while (connect (sockfd, (struct sockaddr *) &_gmc.master_addr, 
-	    sizeof (_gmc.master_addr)) < 0) {
-		usleep (1000);
-		if (i == 0)
-			RETURN_ERR(("%d: Can't connect to master", 
-			    gasnetc_mynode));
-		i--;
+		memset(&_gmc.slave_addr, 0, sizeof(struct sockaddr_in));
+		_gmc.slave_addr.sin_family = AF_INET;
+		_gmc.slave_addr.sin_addr.s_addr = slave_n;
+
+		for (slave_port = 8000; slave_port < 20000; slave_port++) {
+			_gmc.slave_addr.sin_port = htons(slave_port);
+			if (bind(sockfd, (struct sockaddr *) &(_gmc.slave_addr),
+			    sizeof(_gmc.slave_addr)) == 0)
+				break;
+		}
+		if (slave_port >= 20000)
+			GASNETC_SPAWNERR("Couldn't find a port to bind slave socket");
 	}
 
-	/* send the magic:ID:port:board:node used to the master */
-	count = 0;
-	sprintf (buffer, "<<<%d:%d:%d:%d:%d:%d>>>\n", magic_number, 
-	    gasnetc_mynode, port_id, board_id, _gmc.my_id, (int) getpid ());
+	/*
+	 * Listen for the master
+	 */
+	if (listen(sockfd, 1) != 0) GASNETC_SPAWNERR("can't listen() on socket");
 
-	while (count < strlen (buffer)) {
-		i = write (sockfd, &buffer[count], strlen (buffer) - count);
-		if (i < 0)
-			RETURN_ERR(("%d: Write to socket failed", 
-			    gasnetc_mynode));
-		count += i;
-	}
-	close (sockfd);
+	/*
+	 * Get a second socket to connect to the master
+	 *
+	 */
+	sockfd2 = socket (AF_INET, SOCK_STREAM, 0);
+	if (sockfd2 < 0) GASNETC_SPAWNERR("Can't open second socket");
+	else {
+		gm_u64_t    start_time, stop_time;
+		ssize_t	    b;
+		uint32_t    master_n;
+
+		master_n = gasnetc_parse_addr(master);
+		if (!master_n)
+		    gasneti_fatalerror("(%s) Couldn't get ip for %s", gasnett_gethostname(), master);
+
+		memset(&_gmc.master_addr, 0, sizeof(struct sockaddr));
+		_gmc.master_addr.sin_family = AF_INET;
+		_gmc.master_addr.sin_addr.s_addr = master_n;
+		_gmc.master_addr.sin_port = htons(_gmc.master_port);
+
+		start_time = gm_ticks(_gmc.port);
+
+		while (connect(sockfd2, (struct sockaddr *) 
+		    &_gmc.master_addr, sizeof(_gmc.master_addr)) < 0) {
+
+			stop_time = gm_ticks(_gmc.port);
+			
+			if ((stop_time - start_time) > 
+			    (2000 * GASNETC_INIT_TIMEOUT))
+                                GASNETC_SPAWNERR("Unable to connect to master");
+		}
+
+		/* 
+		 * Send the magic:ID:port:board:node:numanode:pid::remoteport
+		 * used to the master 
+		 */
+
+		count = 0;
+		snprintf (buffer, sizeof(buffer),
+			"<<<%d:%d:%d:%d:%u:%d:%d::%d>>>\n", 
+			magic_number, gasneti_mynode, port_id, board_id, 
+			(unsigned) _gmc.my_id, 0, (int) getpid(), slave_port);
+
+		while (count < strlen (buffer)) {
+			b = write(sockfd2, &buffer[count], 
+				  strlen (buffer) - count);
+			if (b < 0) GASNETC_SPAWNERR("can't write to socket");
+			count += b;
+		}
+		close (sockfd2);
 		
-	/* get another socket */
-	sockfd = socket (AF_INET, SOCK_STREAM, 0);
-	if (sockfd < 0)
-		RETURN_ERR(("%d: Can't open second socket", gasnetc_mynode));
+		/*
+		 * Wait for the master to send the mapping
+		 */
+		sockfd2 = accept(sockfd, 0, 0);
+		if (sockfd2 < 0) GASNETC_SPAWNERR("can't accept on socket");
 
-	/* re-connect to the master */
-	_gmc.master_addr.sin_port = htons(_gmc.master_port2);
-	i = GASNETC_INIT_TIMEOUT;
-	while (connect (sockfd, (struct sockaddr *) &_gmc.master_addr, 
-	    sizeof (_gmc.master_addr)) < 0) {
-		usleep (1000);
-		if (i == 0)
-			RETURN_ERR(("%d: Can't connect to master", 
-			    gasnetc_mynode));
-		i--;
+		count = 0;
+		memset(buffer, '0', GASNETC_SOCKET_BUFSIZ * sizeof(char));
+
+		/*
+		 * Read the entire mapping
+		 *
+		 */
+		while (strstr (buffer, "]]]") == NULL) {
+			b = read(sockfd2, &buffer[count], 
+				 GASNETC_SOCKET_BUFSIZ-count);
+			if (b < 0) GASNETC_SPAWNERR("can't read from socket");
+			count += b;
+		}
+
+		close(sockfd2);
+
+
+		/*
+		 * Find where the mapping actually starts
+		 */
+		j = 0;
+		if (strncmp (buffer, "[[[", 3) != 0) GASNETC_SPAWNERR("bad format in node data from master");
+
+		/*
+		 * Decrypt the mapping
+		 *
+		 * We ignore the board id (field 2) and numa_nodes (field 4).
+		 */
+		j += 3;
+		for (i = 0; i < gasneti_nodes; i++) {
+			if (sscanf (&buffer[j], "<%hu:%*d:%u:%*d>",
+		    	    (unsigned short *) &_gmc.gm_nodes[i].port, &temp_id) != 2)
+				GASNETC_SPAWNERR("can't decode node mapping");
+			
+			_gmc.gm_nodes_rev[i].port = _gmc.gm_nodes[i].port;
+			_gmc.gm_nodes_rev[i].node = i;
+
+			#ifdef GASNETC_GM_2
+			temp_local_id = 0;
+			if (gm_global_id_to_node_id(_gmc.port, temp_id,
+			    &temp_local_id) != GM_SUCCESS)
+				gasneti_fatalerror("%d(%s)> couldn't translate "
+				    "GM global node id (%u) for gasnet "
+				    "node id %d", gasneti_mynode, gasnett_gethostname(),
+				    (unsigned) temp_id, i);
+
+			_gmc.gm_nodes_rev[i].id = (uint16_t) temp_local_id;
+			_gmc.gm_nodes[i].id = (uint16_t) temp_local_id;
+			#else
+			_gmc.gm_nodes[i].id = temp_id;
+			_gmc.gm_nodes_rev[i].id = temp_id;
+			#endif
+
+			temp = strchr(&buffer[j], '>');
+			if (temp == NULL) GASNETC_SPAWNERR("malformed node map");
+			j += (size_t) (temp - &buffer[j] + 1);
+		}
+
+		/* 
+		 * Skip the local mapping .
+		 *
+		 * The global->local ampping is separated by |||
+		 */
+
+		if (strncmp (&buffer[j], "]]]", 3) != 0 &&
+		    strncmp (&buffer[j], "|||", 3) != 0) {
+			char toto[96];
+			snprintf(toto, 96, &buffer[j]);
+			gasneti_fatalerror(
+			    "%d(%s): can't decode node mapping (end marker): %s",
+			    gasneti_mynode, gasnett_gethostname(), toto);
+		}
+
+		/* check consistency */
+		if (_gmc.gm_nodes[gasneti_mynode].port != _gmc.my_port)
+                  GASNETC_SPAWNERR("inconsistency in data collected from master");
+
+		qsort(_gmc.gm_nodes_rev, gasneti_nodes,
+				sizeof(gasnetc_gm_nodes_rev_t),
+				gasnetc_gm_nodes_compare);
 	}
 
-	/* send the a small authentification magic:ID to the master */
-	count = 0;
-	sprintf (buffer, "<->%d:%d<->\n", magic_number, gasnetc_mynode);
-
-	while (count < strlen (buffer)) {
-		i = write (sockfd, &buffer[count], strlen (buffer) - count); 
-		if (i < 0) 
-			RETURN_ERR(("%d: Write to socket failed", gasnetc_mynode));
-		count += i;
-	}
-
-	/* Get the whole GM mapping from the master */
-	count = 0;
-	memset(buffer, '0', GASNETC_SOCKET_BUFSIZ * sizeof(char));
-
-	while (strstr (buffer, "]]]") == NULL) {
-		i = read (sockfd, &buffer[count], GASNETC_SOCKET_BUFSIZ-count);
-		if (i < 0)
-			RETURN_ERR(("%d: read from socket failed", 
-			    gasnetc_mynode));
-		count += i;
-	}
-	close (sockfd);
-  
-	/* check the initial marker */
-	j = 0;
-	if (strncmp (&buffer[j], "[[[", 3) != 0)
-		RETURN_ERR(("%d: bad format in node data from master",
-		    gasnetc_mynode));
-
-	/* Decrypt the global mapping */
-	j += 3;
-	for (i = 0; i < gasnetc_nodes; i++) {
-		if (sscanf (&buffer[j], "<%hu:%*d:%hu>",
-		    (unsigned short *) &_gmc.gm_nodes[i].port, 
-		    (unsigned short *) &_gmc.gm_nodes[i].id) != 2)
-			RETURN_ERR(("%d: can't decode node mapping", 
-			    gasnetc_mynode));
-
-		_gmc.gm_nodes_rev[i].port = _gmc.gm_nodes[i].port;
-		_gmc.gm_nodes_rev[i].id = _gmc.gm_nodes[i].id;
-		_gmc.gm_nodes_rev[i].node = i;
-
-		temp = strchr(&buffer[j], '>');
-		if (temp == NULL)
-			RETURN_ERR(("%d: can't decode node mapping (>)", 
-			    gasnetc_mynode));
-		j += (size_t) (temp - &buffer[j] + 1);
-	}
-
-	/* decrypt the local mapping */
-	if (strncmp (&buffer[j], "]]]", 3) != 0)
-		RETURN_ERR(("%d: can't decode node mapping (end marker)", 
-		    gasnetc_mynode));
-
-	/* check consistency */
-	if ((_gmc.gm_nodes[gasnetc_mynode].port != _gmc.my_port) 
-	    || (_gmc.gm_nodes[gasnetc_mynode].id != _gmc.my_id))
-		RETURN_ERR(("%d: inconsistency in data collected from master",
-		    gasnetc_mynode));
-
-	qsort(_gmc.gm_nodes_rev, gasnetc_nodes, sizeof(gasnetc_gm_nodes_rev_t),
-	    gasnetc_gm_nodes_compare);
-
-	return GASNET_OK;
+	return;
 }
 
-extern int
-gasnetc_getconf (void)
+#ifdef GASNETC_GM_MPI_COMPAT
+#include <gasnet_bootstrap_internal.h>
+void
+gasnetc_getconf_bootmpi(int *argc, char ***argv)
 {
-	setbuf (stdout, NULL);
-	setbuf (stderr, NULL);
+    unsigned int    port_id = 0, board_id = 0;
+    unsigned int    temp_id;
+    unsigned int    my_idport[2];
+    unsigned int    *global_idport;
+    int		    i;
 
-	if (getenv ("MAN_MPD_FD") != NULL)
-		return gasnetc_getconf_BNR();
-	else {
-		if (getenv("GASNETGM_MASTER") == NULL)
-			return gasnetc_getconf_conffile();
-		else 
-			return gasnetc_getconf_sockets();
-	}
+    gasneti_bootstrapInit_mpi(argc, argv, &gasneti_nodes, &gasneti_mynode);
+
+    if (!gasnetc_gmport_allocate((int*)&board_id, (int*)&port_id))
+	GASNETC_SPAWNERR("Can't obtain GM port");
+
+    _gmc.my_port = port_id;
+
+    /* get the GM node id */
+    if (gm_get_node_id (_gmc.port, &_gmc.my_id) != GM_SUCCESS)
+        GASNETC_SPAWNERR("Can't get local GM node id");
+
+    #ifdef GASNETC_GM_2
+    /* GM2 only stores local node ids, so a global has to be obtained */
+    if (gm_node_id_to_global_id(_gmc.port, _gmc.my_id, &(_gmc.my_id)) != GM_SUCCESS)
+	GASNETC_SPAWNERR("Couldn't get GM global node id");
+    #endif
+
+    /* allocate space for node mapping */
+    if (!gasnetc_alloc_nodemap(gasneti_nodes)) GASNETC_SPAWNERR("Can't allocate node mapping");
+
+    global_idport = gasneti_malloc(sizeof(unsigned int)*2*gasneti_nodes);
+
+    /* exchange port, id information */
+    my_idport[0] = _gmc.my_id;
+    my_idport[1] = _gmc.my_port;
+    gasneti_bootstrapExchange_mpi(&my_idport, sizeof(unsigned int)*2, global_idport);
+
+    for (i = 0; i < gasneti_nodes; i++) {
+
+	temp_id = global_idport[i*2];
+	_gmc.gm_nodes[i].port = 
+	    _gmc.gm_nodes_rev[i].port = (uint16_t) global_idport[i*2+1];
+	_gmc.gm_nodes_rev[i].node = i;
+
+	#ifdef GASNETC_GM_2
+	if (gm_global_id_to_node_id(_gmc.port, temp_id, &temp_id) != GM_SUCCESS)
+	    gasneti_fatalerror(
+	      "%d (%s)> couldn't translate GM global node id (%u) for gasnet node id %d", 
+	      gasneti_mynode, gasnett_gethostname(), (unsigned) temp_id, i);
+	#endif
+
+	_gmc.gm_nodes[i].id = _gmc.gm_nodes_rev[i].id = (uint16_t) temp_id;
+    }
+    /* check consistency */
+    if (_gmc.gm_nodes[gasneti_mynode].port != _gmc.my_port)
+      GASNETC_SPAWNERR("inconsistency in data collected from MPI spawner");
+
+    qsort(_gmc.gm_nodes_rev, gasneti_nodes, sizeof(gasnetc_gm_nodes_rev_t), 
+	  gasnetc_gm_nodes_compare);
+
+    gasneti_free(global_idport);
+    return;
+}
+#endif
+
+extern void
+gasnetc_getconf (int *argc, char ***argv)
+{
+    setbuf (stdout, NULL);
+    setbuf (stderr, NULL);
+
+    #ifdef GASNETC_GM_MPI_COMPAT
+	if (getenv("GASNET_GASNETRUN_GM"))
+	    gasnetc_getconf_mpiexec();
+	else
+	    gasnetc_getconf_bootmpi(argc, argv);
+    #else
+	if (getenv("GMPI_MAGIC"))
+	    gasnetc_getconf_mpiexec();
+	else
+	    gasnetc_getconf_conffile();
+    #endif
+
+    return;
 }

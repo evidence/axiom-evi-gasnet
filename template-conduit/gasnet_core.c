@@ -1,33 +1,30 @@
-/*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2002/06/01 14:24:57 $
- * $Revision: 1.1 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/template-conduit/gasnet_core.c,v $
+ *     $Date: 2013/04/11 19:26:08 $
+ * $Revision: 1.1.1.2 $
  * Description: GASNet <conduitname> conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
  */
 
-#include <gasnet.h>
 #include <gasnet_internal.h>
 #include <gasnet_handler.h>
 #include <gasnet_core_internal.h>
 
 #include <errno.h>
 #include <unistd.h>
+#include <signal.h>
 
-extern const char gasnetc_IdentString_Version[];
-const char gasnetc_IdentString_Version[] = "$GASNetCoreLibraryVersion: " GASNET_CORE_VERSION_STR " $";
+GASNETI_IDENT(gasnetc_IdentString_Version, "$GASNetCoreLibraryVersion: " GASNET_CORE_VERSION_STR " $");
+GASNETI_IDENT(gasnetc_IdentString_Name,    "$GASNetCoreLibraryName: " GASNET_CORE_NAME_STR " $");
 
-gasnet_handlerentry_t const *gasnetc_get_handlertable();
+gasnet_handlerentry_t const *gasnetc_get_handlertable(void);
+#if HAVE_ON_EXIT
+static void gasnetc_on_exit(int, void*);
+#else
+static void gasnetc_atexit(void);
+#endif
 
-gasnet_node_t gasnetc_mynode = -1;
-gasnet_node_t gasnetc_nodes = 0;
-
-gasnet_seginfo_t *gasnetc_seginfo = NULL;
-
-int gasnetc_init_done = 0; /*  true after init */
-void gasnetc_checkinit() {
-  if (!gasnetc_init_done)
-    gasneti_fatalerror("Illegal call to GASNet before gasnet_init() initialization");
-}
+gasneti_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS]; /* handler table (recommended impl) */
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -35,198 +32,366 @@ void gasnetc_checkinit() {
   ==============
 */
 /* called at startup to check configuration sanity */
-static void gasnetc_check_config() {
-  assert(GASNET_MAXNODES <= AMMPI_MAX_SPMDPROCS);
-  assert(AMMPI_MAX_NUMHANDLERS >= 256);
-  assert(AMMPI_MAX_SEGLENGTH == GASNET_SEGSIZE_EVERYTHING);
+static void gasnetc_check_config(void) {
+  gasneti_check_config_preinit();
+
+  /* (###) add code to do some sanity checks on the number of nodes, handlers
+   * and/or segment sizes */ 
 }
 
-static int gasnetc_init(int *argc, char ***argv, 
-                gasnet_handlerentry_t *table, int numentries, 
-                void *segbase, uintptr_t segsize,
-                int allowFaults) {
-  int retval = GASNET_OK;
-  size_t pagesize = gasneti_getSystemPageSize();
-  int havehint = (segbase != GASNET_SEGBASE_ANY);
-  int sizeeverything = (segsize == GASNET_SEGSIZE_EVERYTHING);
-  char checkuniqhandler[256];
+static void gasnetc_bootstrapBarrier(void) {
+  /* (###) add code here to implement an external barrier 
+      this barrier should not rely on AM or the GASNet API because it's used 
+      during bootstrapping before such things are fully functional
+     It need not be particularly efficient, because we only call it a few times
+      and only during bootstrapping - it just has to work correctly
+     If your underlying spawning or batch system provides barrier functionality,
+      that would probably be a good choice for this
+   */
+}
 
+static int gasnetc_init(int *argc, char ***argv) {
   /*  check system sanity */
   gasnetc_check_config();
 
-  if (gasnetc_init_done) 
+  if (gasneti_init_done) 
     GASNETI_RETURN_ERRR(NOT_INIT, "GASNet already initialized");
 
+  gasneti_freezeForDebugger();
 
-  /*  check segment base hint sanity */
-  if (havehint) { /*  have a hint */
-    if (((uintptr_t)segbase) > GASNET_SEGSIZE_EVERYTHING - segsize) 
-      GASNETI_RETURN_ERRR(BAD_ARG, "segment too large to fit at hint base address");
+  #if GASNET_DEBUG_VERBOSE
+    /* note - can't call trace macros during gasnet_init because trace system not yet initialized */
+    fprintf(stderr,"gasnetc_init(): about to spawn...\n"); fflush(stderr);
+  #endif
 
-    if (((uintptr_t)segbase) % pagesize != 0) 
-      GASNETI_RETURN_ERRR(BAD_ARG, "segbase not page-aligned");
+  /* (###) add code here to bootstrap the nodes for your conduit */
+
+  gasneti_mynode = ###;
+  gasneti_nodes = ###;
+
+  #if GASNET_DEBUG_VERBOSE
+    fprintf(stderr,"gasnetc_init(): spawn successful - node %i/%i starting...\n", 
+      gasneti_mynode, gasneti_nodes); fflush(stderr);
+  #endif
+
+  /* (###) Add code here to determine which GASNet nodes may share memory.
+     The collection of nodes sharing memory are known as a "supernode".
+     The (first) data structure to describe this is gasneti_nodemap[]:
+        For all i: gasneti_nodemap[i] is the lowest node number collocated w/ node i
+     where nodes are considered collocated if they have the same node "ID".
+     Or in English:
+       "gasneti_nodemap[] maps from node to first node on the same supernode."
+
+     If the conduit has already communicated endpoint address information or
+     a similar identifier that is unique per shared-memory compute node, then
+     that info can be passed via arguments 2 through 4.
+     Otherwise the conduit should pass a non-null gasnetc_bootstrapExchange
+     as argument 1 to use platform-specific IDs, such as gethostid().
+     See gasneti_nodemapInit() in gasnet_internal.c for more usage documentation.
+     See below for info on gasnetc_bootstrapExchange()
+
+     If the conduit can build gasneti_nodemap[] w/o assistance, it should
+     call gasneti_nodemapParse() after constructing it (instead of nodemapInit()).
+  */
+  gasneti_nodemapInit(###);
+
+  #if GASNET_PSHM
+    /* (###) If your conduit will support PSHM, you should initialize it here.
+     * The 1st argument is normally "&gasnetc_bootstrapExchange" (described below).
+     * The 2nd argument is the amount of shared memory space needed for any
+     * conduit-specific uses.  The return value is a pointer to the space
+     * requested by the 2nd argument.
+     */
+    ### = gasneti_pshm_init(###, ###);
+  #endif
+
+  #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
+    { 
+      /* (###) Add code here to determine optimistic maximum segment size */
+      gasneti_MaxLocalSegmentSize = ###;
+
+      /* (###) Add code here to find the MIN(MaxLocalSegmentSize) over all nodes */
+      gasneti_MaxGlobalSegmentSize = ###;
+
+      /* it may be appropriate to use gasneti_segmentInit() here to set 
+         gasneti_MaxLocalSegmentSize and gasneti_MaxGlobalSegmentSize,
+         if your conduit can use memory anywhere in the address space
+         (you may want to tune GASNETI_MMAP_MAX_SIZE to limit the max size)
+
+         it may also be appropriate to first call gasneti_mmapLimit() to
+         account for limitations imposed by having multiple GASNet nodes
+         per shared-memory compute node
+      */
+    }
+  #elif GASNET_SEGMENT_EVERYTHING
+    /* segment is everything - nothing to do */
+  #else
+    #error Bad segment config
+  #endif
+
+  #if ###
+    /* Enable this if you wish to use the default GASNet services for broadcasting 
+        the environment from one compute node to all the others (for use in gasnet_getenv(),
+        which needs to return environment variable values from the "spawning console").
+        You need to provide two functions (gasnetc_bootstrapExchange and gasnetc_bootstrapBroadcast)
+        which the system can safely and immediately use to broadcast and exchange information 
+        between nodes (gasnetc_bootstrapBroadcast is optional but highly recommended).
+        See gasnet/other/mpi-spawner/gasnet_bootstrap_mpi.c for definitions of these two
+        functions in terms of MPI collective operations.
+       This system assumes that at least one of the compute nodes has a copy of the 
+        full environment from the "spawning console" (if this is not true, you'll need to
+        implement something yourself to get the values from the spawning console)
+       If your job system already always propagates environment variables to all the compute
+        nodes, then you probably don't need this.
+     */
+    gasneti_setupGlobalEnvironment(gasneti_nodes, gasneti_mynode, 
+                                   gasnetc_bootstrapExchange, gasnetc_bootstrapBroadcast);
+  #endif
+
+  gasneti_init_done = 1;  
+
+  gasneti_auxseg_init(); /* adjust max seg values based on auxseg */
+
+  return GASNET_OK;
+}
+
+/* ------------------------------------------------------------------------------------ */
+extern int gasnet_init(int *argc, char ***argv) {
+  int retval = gasnetc_init(argc, argv);
+  if (retval != GASNET_OK) GASNETI_RETURN(retval);
+  gasneti_trace_init(argc, argv);
+  return GASNET_OK;
+}
+/* ------------------------------------------------------------------------------------ */
+static char checkuniqhandler[256] = { 0 };
+static int gasnetc_reghandlers(gasnet_handlerentry_t *table, int numentries,
+                               int lowlimit, int highlimit,
+                               int dontcare, int *numregistered) {
+  int i;
+  *numregistered = 0;
+  for (i = 0; i < numentries; i++) {
+    int newindex;
+
+    if ((table[i].index == 0 && !dontcare) || 
+        (table[i].index && dontcare)) continue;
+    else if (table[i].index) newindex = table[i].index;
+    else { /* deterministic assignment of dontcare indexes */
+      for (newindex = lowlimit; newindex <= highlimit; newindex++) {
+        if (!checkuniqhandler[newindex]) break;
+      }
+      if (newindex > highlimit) {
+        char s[255];
+        snprintf(s, sizeof(s), "Too many handlers. (limit=%i)", highlimit - lowlimit + 1);
+        GASNETI_RETURN_ERRR(BAD_ARG, s);
+      }
+    }
+
+    /*  ensure handlers fall into the proper range of pre-assigned values */
+    if (newindex < lowlimit || newindex > highlimit) {
+      char s[255];
+      snprintf(s, sizeof(s), "handler index (%i) out of range [%i..%i]", newindex, lowlimit, highlimit);
+      GASNETI_RETURN_ERRR(BAD_ARG, s);
+    }
+
+    /* discover duplicates */
+    if (checkuniqhandler[newindex] != 0) 
+      GASNETI_RETURN_ERRR(BAD_ARG, "handler index not unique");
+    checkuniqhandler[newindex] = 1;
+
+    /* register the handler */
+    gasnetc_handler[(gasnet_handler_t)newindex] = (gasneti_handler_fn_t)table[i].fnptr;
+
+    /* The check below for !table[i].index is redundant and present
+     * only to defeat the over-aggressive optimizer in pathcc 2.1
+     */
+    if (dontcare && !table[i].index) table[i].index = newindex;
+
+    (*numregistered)++;
   }
+  return GASNET_OK;
+}
+/* ------------------------------------------------------------------------------------ */
+extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
+                          uintptr_t segsize, uintptr_t minheapoffset) {
+  void *segbase = NULL;
+  
+  GASNETI_TRACE_PRINTF(C,("gasnetc_attach(table (%i entries), segsize=%lu, minheapoffset=%lu)",
+                          numentries, (unsigned long)segsize, (unsigned long)minheapoffset));
 
-  /*  check segment size sanity */
-  if (segsize == 0 || 
-      (!sizeeverything && segsize % pagesize != 0)) 
-      GASNETI_RETURN_ERRR(BAD_ARG, "segsize zero or not even multiple of page size");
+  if (!gasneti_init_done) 
+    GASNETI_RETURN_ERRR(NOT_INIT, "GASNet attach called before init");
+  if (gasneti_attach_done) 
+    GASNETI_RETURN_ERRR(NOT_INIT, "GASNet already attached");
 
-  if (sizeeverything && !allowFaults) 
-      GASNETI_RETURN_ERRR(RESOURCE, "client requested GASNET_SEGSIZE_EVERYTHING, but !allowFaults"
-        "(asking us to mmap entire VA space - don't even try to do that)");
+  /*  check argument sanity */
+  #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
+    if ((segsize % GASNET_PAGESIZE) != 0) 
+      GASNETI_RETURN_ERRR(BAD_ARG, "segsize not page-aligned");
+    if (segsize > gasneti_MaxLocalSegmentSize) 
+      GASNETI_RETURN_ERRR(BAD_ARG, "segsize too large");
+    if ((minheapoffset % GASNET_PAGESIZE) != 0) /* round up the minheapoffset to page sz */
+      minheapoffset = ((minheapoffset / GASNET_PAGESIZE) + 1) * GASNET_PAGESIZE;
+  #else
+    segsize = 0;
+    minheapoffset = 0;
+  #endif
 
-  /* (???) add code here to bootstrap the system for your conduit */
-
-  gasnetc_mynode = ???;
-  gasnetc_nodes = ???;
+  segsize = gasneti_auxseg_preattach(segsize); /* adjust segsize for auxseg reqts */
 
   /* ------------------------------------------------------------------------------------ */
   /*  register handlers */
-  memset(checkuniqhandler, 0, 256);
+  { int i;
+    for (i = 0; i < GASNETC_MAX_NUMHANDLERS; i++) 
+      gasnetc_handler[i] = (gasneti_handler_fn_t)&gasneti_defaultAMHandler;
+  }
   { /*  core API handlers */
-    gasnet_handlerentry_t const *ctable = gasnetc_get_handlertable();
-    int i;
-    assert(ctable);
-    for (i = 0; ctable[i].fnptr; i++) {
-      assert(ctable[i].index); /*  ensure all core API handlers have pre-assigned index 1..99 */
-      assert(ctable[i].index >= 1 && ctable[i].index <= 99);
-      /* discover duplicates */
-      assert(checkuniqhandler[ctable[i].index] == 0);
-      checkuniqhandler[ctable[i].index] = 1;
-      /* (???) add code here to register ctable[i].fnptr on index (handler_t)ctable[i].index */
-    }
+    gasnet_handlerentry_t *ctable = (gasnet_handlerentry_t *)gasnetc_get_handlertable();
+    int len = 0;
+    int numreg = 0;
+    gasneti_assert(ctable);
+    while (ctable[len].fnptr) len++; /* calc len */
+    if (gasnetc_reghandlers(ctable, len, 1, 63, 0, &numreg) != GASNET_OK)
+      GASNETI_RETURN_ERRR(RESOURCE,"Error registering core API handlers");
+    gasneti_assert(numreg == len);
   }
 
   { /*  extended API handlers */
-    gasnet_handlerentry_t const *etable = gasnete_get_handlertable();
-    int i;
-    assert(etable);
-    for (i = 0; etable[i].fnptr; i++) {
-      assert(etable[i].index); /*  ensure all extended API handlers have pre-assigned index 100..199 */
-      assert(etable[i].index >= 100 && etable[i].index <= 199);
-      /* discover duplicates */
-      assert(checkuniqhandler[etable[i].index] == 0);
-      checkuniqhandler[etable[i].index] = 1;
-      /* (???) add code here to register etable[i].fnptr on index (handler_t)etable[i].index */
-    }
+    gasnet_handlerentry_t *etable = (gasnet_handlerentry_t *)gasnete_get_handlertable();
+    int len = 0;
+    int numreg = 0;
+    gasneti_assert(etable);
+    while (etable[len].fnptr) len++; /* calc len */
+    if (gasnetc_reghandlers(etable, len, 64, 127, 0, &numreg) != GASNET_OK)
+      GASNETI_RETURN_ERRR(RESOURCE,"Error registering extended API handlers");
+    gasneti_assert(numreg == len);
   }
 
   if (table) { /*  client handlers */
-    int i;
-    
-    if (numentries > 56) 
-      GASNETI_RETURN_ERRR(BAD_ARG, "client tried to register too many handlers (limit=56)");
+    int numreg1 = 0;
+    int numreg2 = 0;
 
     /*  first pass - assign all fixed-index handlers */
-    for (i = 0; i < numentries; i++) {
-      if (table[i].index) {
-        assert(table[i].index >= 200 && table[i].index <= 255);
-        assert(table[i].fnptr);
-        /* discover duplicates */
-        assert(checkuniqhandler[table[i].index] == 0);
-        checkuniqhandler[table[i].index] = 1;
-        /* (???) add code here to register table[i].fnptr on index (handler_t)table[i].index */
-      }
-    }
+    if (gasnetc_reghandlers(table, numentries, 128, 255, 0, &numreg1) != GASNET_OK)
+      GASNETI_RETURN_ERRR(RESOURCE,"Error registering fixed-index client handlers");
+
     /*  second pass - fill in dontcare-index handlers */
-    for (i = 0; i < numentries; i++) {
-      if (!table[i].index) {
-        handler_t tmp;
-        assert(table[i].fnptr);
-        for (tmp=200; tmp < 255; tmp++) {
-          if (checkuniqhandler[tmp] == 0) break;
-        }
-        /* (???) add code here to register table[i].fnptr at index tmp */
-        table[i].index = tmp;
-        /* discover duplicates */
-        assert(checkuniqhandler[table[i].index] == 0);
-        checkuniqhandler[table[i].index] = 1;
-      }
-    }
+    if (gasnetc_reghandlers(table, numentries, 128, 255, 1, &numreg2) != GASNET_OK)
+      GASNETI_RETURN_ERRR(RESOURCE,"Error registering fixed-index client handlers");
+
+    gasneti_assert(numreg1 + numreg2 == numentries);
   }
 
   /* ------------------------------------------------------------------------------------ */
   /*  register fatal signal handlers */
 
-  /*  (???) catch fatal signals and convert to SIGQUIT */
+  /* catch fatal signals and convert to SIGQUIT */
+  gasneti_registerSignalHandlers(gasneti_defaultSignalHandler);
+
+  /*  (###) register any custom signal handlers required by your conduit 
+   *        (e.g. to support interrupt-based messaging)
+   */
+
+  #if HAVE_ON_EXIT
+    on_exit(gasnetc_on_exit, NULL);
+  #else
+    atexit(gasnetc_atexit);
+  #endif
 
   /* ------------------------------------------------------------------------------------ */
   /*  register segment  */
 
-  if (segbase == GASNET_SEGBASE_ANY) {
-    /*  (???) choose a segment for the user of size segsize and allocate/register it,
-              save base in segbase
-    */
-  } else {
-    /*  (???) allocate/register the client requested segment in (segbase,segsize) */
-  }
+  gasneti_seginfo = (gasnet_seginfo_t *)gasneti_malloc(gasneti_nodes*sizeof(gasnet_seginfo_t));
+  gasneti_leak(gasneti_seginfo);
 
-  assert(segbase % pagesize == 0);
-  assert(segsize % pagesize == 0);
+  #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
+    if (segsize == 0) segbase = NULL; /* no segment */
+    else {
+      /* (###) add code here to choose and register a segment 
+         (ensuring alignment across all nodes if this conduit sets GASNET_ALIGNED_SEGMENTS==1) 
+         you can use gasneti_segmentAttach() here if you used gasneti_segmentInit() above
+      */
+      gasneti_assert(((uintptr_t)segbase) % GASNET_PAGESIZE == 0);
+      gasneti_assert(segsize % GASNET_PAGESIZE == 0);
+    }
+  #else
+  { /* GASNET_SEGMENT_EVERYTHING */
+    gasnet_node_t i;
+    for (i=0; i<gasneti_nodes; i++) {
+      gasneti_seginfo[i].addr = (void *)0;
+      gasneti_seginfo[i].size = (uintptr_t)-1;
+    }
+    segbase = (void *)0;
+    segsize = (uintptr_t)-1;
+    /* (###) add any code here needed to setup GASNET_SEGMENT_EVERYTHING support */
+  }
+  #endif
+
+  /* After local segment is attached, call optional client-provided hook
+     (###) should call BEFORE any conduit-specific pinning/registration of the segment
+   */
+  if (gasnet_client_attach_hook) {
+    gasnet_client_attach_hook(segbase, segsize);
+  }
 
   /* ------------------------------------------------------------------------------------ */
   /*  gather segment information */
 
-  gasnetc_seginfo = (gasnet_seginfo_t *)gasneti_malloc_inhandler(gasnetc_nodes*sizeof(gasnet_seginfo_t));
-  /* (???) add code here to fill in gasnetc_seginfo with segment info from all the nodes */
+  /* (###) add code here to gather the segment assignment info into 
+           gasneti_seginfo on each node (may be possible to use AMShortRequest here)
+   */
 
-  assert(gasnetc_seginfo[gasnetc_mynode].addr == segbase &&
-         gasnetc_seginfo[gasnetc_mynode].size == segsize);
+  /* ------------------------------------------------------------------------------------ */
+  /*  primary attach complete */
+  gasneti_attach_done = 1;
+  gasnetc_bootstrapBarrier();
 
-  #if GASNET_ALIGNED_SEGMENTS == 1
-    {  /*  need to check that segments are aligned */
-      int i;
-      for (i=0; i < gasnetc_nodes; i++) {
-        if (gasnetc_seginfo[i].size != segsize) 
-          GASNETI_RETURN_ERRR(RESOURCE, "client-requested sizes differ - failure");
-        if (gasnetc_seginfo[i].addr != segbase) {
-          /*  we grabbed unaligned memory */
-          /*  TODO: need a recovery mechanism here ... */
-          assert(0);
-        }
-      }
-    }
-  #endif
+  GASNETI_TRACE_PRINTF(C,("gasnetc_attach(): primary attach complete"));
 
-  /* (???) add a barrier here */
+  gasneti_assert(gasneti_seginfo[gasneti_mynode].addr == segbase &&
+         gasneti_seginfo[gasneti_mynode].size == segsize);
 
-  /*  init complete */
-  gasnetc_init_done = 1;
+  gasneti_auxseg_attach(); /* provide auxseg */
+
+  gasnete_init(); /* init the extended API */
+
+  gasneti_nodemapFini();
+
+  /* ensure extended API is initialized across nodes */
+  gasnetc_bootstrapBarrier();
 
   return GASNET_OK;
 }
-
-
-extern int gasnet_init(int *argc, char ***argv, 
-                gasnet_handlerentry_t *table, int numentries, 
-                void *segbase, uintptr_t segsize,
-                int allowFaults) {
-  int retval = gasnetc_init(argc, argv, table, numentries, segbase, segsize, allowFaults);
-  if (retval != GASNET_OK) GASNETI_RETURN(retval);
-  gasnete_init();
-  return GASNET_OK;
-}
-
 /* ------------------------------------------------------------------------------------ */
+#if HAVE_ON_EXIT
+static void gasnetc_on_exit(int exitcode, void *arg) {
+    gasnetc_exit(exitcode);
+}
+#else
+static void gasnetc_atexit(void) {
+    gasnetc_exit(0);
+}
+#endif
+
 extern void gasnetc_exit(int exitcode) {
-  /* (???) add code here to terminate the job across all nodes */
-  abort();
-}
+  /* once we start a shutdown, ignore all future SIGQUIT signals or we risk reentrancy */
+  gasneti_reghandler(SIGQUIT, SIG_IGN);
 
-/* ------------------------------------------------------------------------------------ */
-/*
-  Job Environment Queries
-  =======================
-*/
-extern int gasnetc_getSegmentInfo(gasnet_seginfo_t *seginfo_table, int numentries) {
-  GASNETC_CHECKINIT();
-  assert(gasnetc_seginfo && seginfo_table);
-  if (!gasnetc_init_done) GASNETI_RETURN_ERR(NOT_INIT);
-  if (numentries < gasnetc_nodes) GASNETI_RETURN_ERR(BAD_ARG);
-  memset(seginfo_table, 0, numentries*sizeof(gasnet_seginfo_t));
-  memcpy(seginfo_table, gasnetc_seginfo, gasnetc_nodes*sizeof(gasnet_seginfo_t));
-  return GASNET_OK;
+  {  /* ensure only one thread ever continues past this point */
+    static gasneti_mutex_t exit_lock = GASNETI_MUTEX_INITIALIZER;
+    gasneti_mutex_lock(&exit_lock);
+  }
+
+  GASNETI_TRACE_PRINTF(C,("gasnet_exit(%i)\n", exitcode));
+
+  gasneti_flush_streams();
+  gasneti_trace_finish();
+  gasneti_sched_yield();
+
+  /* (###) add code here to terminate the job across _all_ nodes 
+           with gasneti_killmyprocess(exitcode) (not regular exit()), preferably
+           after raising a SIGQUIT to inform the client of the exit
+  */
+  gasneti_fatalerror("gasnetc_exit failed!");
 }
 
 /* ------------------------------------------------------------------------------------ */
@@ -234,26 +399,60 @@ extern int gasnetc_getSegmentInfo(gasnet_seginfo_t *seginfo_table, int numentrie
   Misc. Active Message Functions
   ==============================
 */
+#if GASNET_PSHM
+/* (###) GASNETC_GET_HANDLER
+ *   If your conduit will support PSHM, then there needs to be a way
+ *   for PSHM to see your handler table.  If you use the recommended
+ *   implementation (gasnetc_handler[]) then you don't need to do
+ *   anything special.  Othwerwise, #define GASNETC_GET_HANDLER in
+ *   gasnet_core_fwd.h and implement gasnetc_get_handler() here, or
+ *   as a macro or inline in gasnet_core_internal.h
+ *
+ * (###) GASNETC_TOKEN_CREATE
+ *   If your conduit will support PSHM, then there needs to be a way
+ *   for the conduit-specific and PSHM token spaces to co-exist.
+ *   The default PSHM implementation produces tokens with the least-
+ *   significant bit set and assumes the conduit never will.  If that
+ *   is true, you don't need to do anything special here.
+ *   If your conduit cannot use the default PSHM token code, then
+ *   #define GASNETC_TOKEN_CREATE in gasnet_core_fwd.h and implement
+ *   the associated routines described in gasnet_pshm.h.  That code
+ *   could be functions located here, or could be macros or inlines
+ *   in gasnet_core_internal.h.
+ */
+#endif
+
 extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex) {
-  ammpi_buf_t *p;
   gasnet_node_t sourceid;
-  GASNETC_CHECKINIT();
-  if (!token) GASNETI_RETURN_ERRR(BAD_ARG,"bad token");
-  if (!srcindex) GASNETI_RETURN_ERRR(BAD_ARG,"bad src ptr");
+  GASNETI_CHECKATTACH();
+  GASNETI_CHECK_ERRR((!token),BAD_ARG,"bad token");
+  GASNETI_CHECK_ERRR((!srcindex),BAD_ARG,"bad src ptr");
 
-  /* (???) add code here to write the source index into sourceid */
-  sourceid = ???;
+#if GASNET_PSHM
+  /* (###) If your conduit will support PSHM, let the PSHM code
+   * have a chance to recognize the token first, as shown here. */
+  if (gasneti_AMPSHMGetMsgSource(token, &sourceid) != GASNET_OK)
+#endif
+  {
+    /* (###) add code here to write the source index into sourceid. */
+    sourceid = ###;
+  }
 
-  assert(sourceid < gasnetc_nodes);
+  gasneti_assert(sourceid < gasneti_nodes);
   *srcindex = sourceid;
   return GASNET_OK;
 }
 
-extern int gasnetc_AMPoll() {
+extern int gasnetc_AMPoll(void) {
   int retval;
-  GASNETC_CHECKINIT();
+  GASNETI_CHECKATTACH();
 
-  /* (???) add code here to run your AM progress engine */
+#if GASNET_PSHM
+  /* (###) If your conduit will support PSHM, let it make progress here. */
+  gasneti_AMPSHMPoll(0);
+#endif
+
+  /* (###) add code here to run your AM progress engine */
 
   return GASNET_OK;
 }
@@ -270,18 +469,26 @@ extern int gasnetc_AMRequestShortM(
                             int numargs, ...) {
   int retval;
   va_list argptr;
-  GASNETC_CHECKINIT();
-  if_pf (dest >= gasnetc_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
+  GASNETI_COMMON_AMREQUESTSHORT(dest,handler,numargs);
+  gasneti_AMPoll(); /* (###) poll at least once, to assure forward progress */
   va_start(argptr, numargs); /*  pass in last argument */
-
-    /* (???) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
+#if GASNET_PSHM
+  /* (###) If your conduit will support PSHM, let it check the dest first. */
+  if_pt (gasneti_pshm_in_supernode(dest)) {
+    retval = gasneti_AMPSHM_RequestGeneric(gasnetc_Short, dest, handler,
+                                           0, 0, 0,
+                                           numargs, argptr);
+  } else
+#endif
+  {
+    /* (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
              and send the active message 
      */
 
-    retval = ???;
+    retval = ###;
+  }
   va_end(argptr);
-  if (retval) return GASNET_OK;
-  else GASNETI_RETURN_ERR(RESOURCE);
+  GASNETI_RETURN(retval);
 }
 
 extern int gasnetc_AMRequestMediumM( 
@@ -291,18 +498,26 @@ extern int gasnetc_AMRequestMediumM(
                             int numargs, ...) {
   int retval;
   va_list argptr;
-  GASNETC_CHECKINIT();
-  if_pf (dest >= gasnetc_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
+  GASNETI_COMMON_AMREQUESTMEDIUM(dest,handler,source_addr,nbytes,numargs);
+  gasneti_AMPoll(); /* (###) poll at least once, to assure forward progress */
   va_start(argptr, numargs); /*  pass in last argument */
-
-    /* (???) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
+#if GASNET_PSHM
+  /* (###) If your conduit will support PSHM, let it check the dest first. */
+  if_pt (gasneti_pshm_in_supernode(dest)) {
+    retval = gasneti_AMPSHM_RequestGeneric(gasnetc_Medium, dest, handler,
+                                           source_addr, nbytes, 0,
+                                           numargs, argptr);
+  } else
+#endif
+  {
+    /* (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
              and send the active message 
      */
 
-    retval = ???;
+    retval = ###;
+  }
   va_end(argptr);
-  if (retval) return GASNET_OK;
-  else GASNETI_RETURN_ERR(RESOURCE);
+  GASNETI_RETURN(retval);
 }
 
 extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination node */
@@ -312,25 +527,26 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
                             int numargs, ...) {
   int retval;
   va_list argptr;
-  GASNETC_CHECKINIT();
-  
-  gasnetc_boundscheck(dest, dest_addr, nbytes);
-  if_pf (dest >= gasnetc_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
-  if_pf (((uintptr_t)dest_addr) < ((uintptr_t)gasnetc_seginfo[dest].addr) ||
-         ((uintptr_t)dest_addr) + nbytes > 
-           ((uintptr_t)gasnetc_seginfo[dest].addr) + gasnetc_seginfo[dest].size) 
-         GASNETI_RETURN_ERRR(BAD_ARG,"destination address out of segment range");
-
+  GASNETI_COMMON_AMREQUESTLONG(dest,handler,source_addr,nbytes,dest_addr,numargs);
+  gasneti_AMPoll(); /* (###) poll at least once, to assure forward progress */
   va_start(argptr, numargs); /*  pass in last argument */
-
-    /* (???) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
+#if GASNET_PSHM
+  /* (###) If your conduit will support PSHM, let it check the dest first. */
+  if_pt (gasneti_pshm_in_supernode(dest)) {
+    retval = gasneti_AMPSHM_RequestGeneric(gasnetc_Long, dest, handler,
+                                           source_addr, nbytes, dest_addr,
+                                           numargs, argptr);
+  } else
+#endif
+  {
+    /* (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
              and send the active message 
      */
 
-    retval = ???;
+    retval = ###;
+  }
   va_end(argptr);
-  if (retval) return GASNET_OK;
-  else GASNETI_RETURN_ERR(RESOURCE);
+  GASNETI_RETURN(retval);
 }
 
 extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destination node */
@@ -340,25 +556,26 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
                             int numargs, ...) {
   int retval;
   va_list argptr;
-  GASNETC_CHECKINIT();
-  
-  gasnetc_boundscheck(dest, dest_addr, nbytes);
-  if_pf (dest >= gasnetc_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
-  if_pf (((uintptr_t)dest_addr) < ((uintptr_t)gasnetc_seginfo[dest].addr) ||
-         ((uintptr_t)dest_addr) + nbytes > 
-           ((uintptr_t)gasnetc_seginfo[dest].addr) + gasnetc_seginfo[dest].size) 
-         GASNETI_RETURN_ERRR(BAD_ARG,"destination address out of segment range");
-
+  GASNETI_COMMON_AMREQUESTLONGASYNC(dest,handler,source_addr,nbytes,dest_addr,numargs);
+  gasneti_AMPoll(); /* (###) poll at least once, to assure forward progress */
   va_start(argptr, numargs); /*  pass in last argument */
-
-    /* (???) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
+#if GASNET_PSHM
+  /* (###) If your conduit will support PSHM, let it check the dest first. */
+  if_pt (gasneti_pshm_in_supernode(dest)) {
+    retval = gasneti_AMPSHM_RequestGeneric(gasnetc_Long, dest, handler,
+                                           source_addr, nbytes, dest_addr,
+                                           numargs, argptr);
+  } else
+#endif
+  {
+    /* (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
              and send the active message 
      */
 
-    retval = ???;
+    retval = ###;
+  }
   va_end(argptr);
-  if (retval) return GASNET_OK;
-  else GASNETI_RETURN_ERR(RESOURCE);
+  GASNETI_RETURN(retval);
 }
 
 extern int gasnetc_AMReplyShortM( 
@@ -367,16 +584,25 @@ extern int gasnetc_AMReplyShortM(
                             int numargs, ...) {
   int retval;
   va_list argptr;
+  GASNETI_COMMON_AMREPLYSHORT(token,handler,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
-
-    /* (???) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
+#if GASNET_PSHM
+  /* (###) If your conduit will support PSHM, let it check the token first. */
+  if_pt (gasnetc_token_is_pshm(token)) {
+    retval = gasneti_AMPSHM_ReplyGeneric(gasnetc_Short, token, handler,
+                                         0, 0, 0,
+                                         numargs, argptr);
+  } else
+#endif
+  { 
+    /* (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
              and send the active message 
      */
 
-    retval = ???;
+    retval = ###;
+  }
   va_end(argptr);
-  if (retval) return GASNET_OK;
-  else GASNETI_RETURN_ERR(RESOURCE);
+  GASNETI_RETURN(retval);
 }
 
 extern int gasnetc_AMReplyMediumM( 
@@ -386,16 +612,25 @@ extern int gasnetc_AMReplyMediumM(
                             int numargs, ...) {
   int retval;
   va_list argptr;
+  GASNETI_COMMON_AMREPLYMEDIUM(token,handler,source_addr,nbytes,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
-
-    /* (???) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
+#if GASNET_PSHM
+  /* (###) If your conduit will support PSHM, let it check the token first. */
+  if_pt (gasnetc_token_is_pshm(token)) {
+    retval = gasneti_AMPSHM_ReplyGeneric(gasnetc_Medium, token, handler,
+                                         source_addr, nbytes, 0,
+                                         numargs, argptr);
+  } else
+#endif
+  {
+    /* (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
              and send the active message 
      */
 
-    retval = ???;
+    retval = ###;
+  }
   va_end(argptr);
-  if (retval) return GASNET_OK;
-  else GASNETI_RETURN_ERR(RESOURCE);
+  GASNETI_RETURN(retval);
 }
 
 extern int gasnetc_AMReplyLongM( 
@@ -405,28 +640,26 @@ extern int gasnetc_AMReplyLongM(
                             void *dest_addr,                    /* data destination on destination node */
                             int numargs, ...) {
   int retval;
-  gasnet_node_t dest;
   va_list argptr;
-  
-  retval = gasnet_AMGetMsgSource(token, &dest);
-  if (retval != GASNET_OK) GASNETI_RETURN(retval);
-  gasnetc_boundscheck(dest, dest_addr, nbytes);
-  if_pf (dest >= gasnetc_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
-  if_pf (((uintptr_t)dest_addr) < ((uintptr_t)gasnetc_seginfo[dest].addr) ||
-         ((uintptr_t)dest_addr) + nbytes > 
-           ((uintptr_t)gasnetc_seginfo[dest].addr) + gasnetc_seginfo[dest].size) 
-         GASNETI_RETURN_ERRR(BAD_ARG,"destination address out of segment range");
-
+  GASNETI_COMMON_AMREPLYLONG(token,handler,source_addr,nbytes,dest_addr,numargs); 
   va_start(argptr, numargs); /*  pass in last argument */
-
-    /* (???) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
+#if GASNET_PSHM
+  /* (###) If your conduit will support PSHM, let it check the token first. */
+  if_pt (gasnetc_token_is_pshm(token)) {
+    retval = gasneti_AMPSHM_ReplyGeneric(gasnetc_Long, token, handler,
+                                         source_addr, nbytes, dest_addr,
+                                         numargs, argptr);
+  } else
+#endif
+  {
+    /* (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
              and send the active message 
      */
 
-    retval = ???;
+    retval = ###;
+  }
   va_end(argptr);
-  if (retval) return GASNET_OK;
-  else GASNETI_RETURN_ERR(RESOURCE);
+  GASNETI_RETURN(retval);
 }
 
 /* ------------------------------------------------------------------------------------ */
@@ -440,14 +673,15 @@ extern int gasnetc_AMReplyLongM(
     gasnete_threaddata_t data structure which is reserved for use by the core 
     (and this is one place you'll probably want to use it)
 */
-#if ???
-  extern void gasnetc_hold_interrupts() {
-    GASNETC_CHECKINIT();
-    /* (???) add code here to disable handler interrupts for _this_ thread */
+#if GASNETC_USE_INTERRUPTS
+  #error interrupts not implemented
+  extern void gasnetc_hold_interrupts(void) {
+    GASNETI_CHECKATTACH();
+    /* add code here to disable handler interrupts for _this_ thread */
   }
-  extern void gasnetc_resume_interrupts() {
-    GASNETC_CHECKINIT();
-    /* (???) add code here to re-enable handler interrupts for _this_ thread */
+  extern void gasnetc_resume_interrupts(void) {
+    GASNETI_CHECKATTACH();
+    /* add code here to re-enable handler interrupts for _this_ thread */
   }
 #endif
 
@@ -456,71 +690,103 @@ extern int gasnetc_AMReplyLongM(
   Handler-safe locks
   ==================
 */
-
+#if !GASNETC_NULL_HSL
 extern void gasnetc_hsl_init   (gasnet_hsl_t *hsl) {
-  GASNETC_CHECKINIT();
+  GASNETI_CHECKATTACH();
+  gasneti_mutex_init(&(hsl->lock));
 
-  #ifdef GASNETI_THREADS
-  { int retval = pthread_mutex_init(&(hsl->lock), NULL);
-    if (retval) 
-      gasneti_fatalerror("In gasnetc_hsl_init(), pthread_mutex_init()=%i",strerror(retval));
-  }
+  #if GASNETC_USE_INTERRUPTS
+    /* add code here to init conduit-specific HSL state */
+    #error interrupts not implemented
   #endif
-
-  /* (???) add code here to init conduit-specific HSL state */
 }
 
 extern void gasnetc_hsl_destroy(gasnet_hsl_t *hsl) {
-  GASNETC_CHECKINIT();
-  #ifdef GASNETI_THREADS
-  { int retval = pthread_mutex_destroy(&(hsl->lock));
-    if (retval) 
-      gasneti_fatalerror("In gasnetc_hsl_destroy(), pthread_mutex_destroy()=%i",strerror(retval));
-  }
-  #endif
+  GASNETI_CHECKATTACH();
+  gasneti_mutex_destroy(&(hsl->lock));
 
-  /* (???) add code here to cleanup conduit-specific HSL state */
+  #if GASNETC_USE_INTERRUPTS
+    /* add code here to cleanup conduit-specific HSL state */
+    #error interrupts not implemented
+  #endif
 }
 
 extern void gasnetc_hsl_lock   (gasnet_hsl_t *hsl) {
-  GASNETC_CHECKINIT();
+  GASNETI_CHECKATTACH();
 
-  #ifdef GASNETI_THREADS
-  { int retval; 
-    #if GASNETC_HSL_SPINLOCK
-      do {
-        retval = pthread_mutex_trylock(&(hsl->lock));
-      } while (retval == EBUSY);
-    #else
-        retval = pthread_mutex_lock(&(hsl->lock));
+  {
+    #if GASNETI_STATS_OR_TRACE
+      gasneti_tick_t startlock = GASNETI_TICKS_NOW_IFENABLED(L);
     #endif
-    if (retval) 
-      gasneti_fatalerror("In gasnetc_hsl_lock(), pthread_mutex_lock()=%i",strerror(retval));
+    #if GASNETC_HSL_SPINLOCK
+      if_pf (gasneti_mutex_trylock(&(hsl->lock)) == EBUSY) {
+        if (gasneti_wait_mode == GASNET_WAIT_SPIN) {
+          while (gasneti_mutex_trylock(&(hsl->lock)) == EBUSY) {
+            gasneti_compiler_fence();
+            gasneti_spinloop_hint();
+          }
+        } else {
+          gasneti_mutex_lock(&(hsl->lock));
+        }
+      }
+    #else
+      gasneti_mutex_lock(&(hsl->lock));
+    #endif
+    #if GASNETI_STATS_OR_TRACE
+      hsl->acquiretime = GASNETI_TICKS_NOW_IFENABLED(L);
+      GASNETI_TRACE_EVENT_TIME(L, HSL_LOCK, hsl->acquiretime-startlock);
+    #endif
   }
-  #endif
 
-  /* (???) conduits with interrupt-based handler dispatch need to add code here to 
-           disable handler interrupts on _this_ thread, (if this is the outermost
-           HSL lock acquire and we're not inside an enclosing no-interrupt section)
-   */
+  #if GASNETC_USE_INTERRUPTS
+    /* conduits with interrupt-based handler dispatch need to add code here to 
+       disable handler interrupts on _this_ thread, (if this is the outermost
+       HSL lock acquire and we're not inside an enclosing no-interrupt section)
+     */
+    #error interrupts not implemented
+  #endif
 }
 
 extern void gasnetc_hsl_unlock (gasnet_hsl_t *hsl) {
-  GASNETC_CHECKINIT();
+  GASNETI_CHECKATTACH();
 
-  /* (???) conduits with interrupt-based handler dispatch need to add code here to 
-           re-enable handler interrupts on _this_ thread, (if this is the outermost
-           HSL lock release and we're not inside an enclosing no-interrupt section)
-   */
-
-  #ifdef GASNETI_THREADS
-  { int retval = pthread_mutex_unlock(&(hsl->lock));
-    if (retval) 
-      gasneti_fatalerror("In gasnetc_hsl_unlock(), pthread_mutex_unlock()=%i",strerror(retval));
-  }
+  #if GASNETC_USE_INTERRUPTS
+    /* conduits with interrupt-based handler dispatch need to add code here to 
+       re-enable handler interrupts on _this_ thread, (if this is the outermost
+       HSL lock release and we're not inside an enclosing no-interrupt section)
+     */
+    #error interrupts not implemented
   #endif
+
+  GASNETI_TRACE_EVENT_TIME(L, HSL_UNLOCK, GASNETI_TICKS_NOW_IFENABLED(L)-hsl->acquiretime);
+
+  gasneti_mutex_unlock(&(hsl->lock));
 }
 
+extern int  gasnetc_hsl_trylock(gasnet_hsl_t *hsl) {
+  GASNETI_CHECKATTACH();
+
+  {
+    int locked = (gasneti_mutex_trylock(&(hsl->lock)) == 0);
+
+    GASNETI_TRACE_EVENT_VAL(L, HSL_TRYLOCK, locked);
+    if (locked) {
+      #if GASNETI_STATS_OR_TRACE
+        hsl->acquiretime = GASNETI_TICKS_NOW_IFENABLED(L);
+      #endif
+      #if GASNETC_USE_INTERRUPTS
+        /* conduits with interrupt-based handler dispatch need to add code here to 
+           disable handler interrupts on _this_ thread, (if this is the outermost
+           HSL lock acquire and we're not inside an enclosing no-interrupt section)
+         */
+        #error interrupts not implemented
+      #endif
+    }
+
+    return locked ? GASNET_OK : GASNET_ERR_NOT_READY;
+  }
+}
+#endif
 /* ------------------------------------------------------------------------------------ */
 /*
   Private Handlers:
@@ -529,6 +795,9 @@ extern void gasnetc_hsl_unlock (gasnet_hsl_t *hsl) {
   (for internal conduit use in bootstrapping, job management, etc.)
 */
 static gasnet_handlerentry_t const gasnetc_handlers[] = {
+  #ifdef GASNETC_AUXSEG_HANDLERS
+    GASNETC_AUXSEG_HANDLERS(),
+  #endif
   /* ptr-width independent handlers */
 
   /* ptr-width dependent handlers */
@@ -536,7 +805,7 @@ static gasnet_handlerentry_t const gasnetc_handlers[] = {
   { 0, NULL }
 };
 
-gasnet_handlerentry_t const *gasnetc_get_handlertable() {
+gasnet_handlerentry_t const *gasnetc_get_handlertable(void) {
   return gasnetc_handlers;
 }
 

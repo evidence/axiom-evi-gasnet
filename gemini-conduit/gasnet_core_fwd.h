@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core_fwd.h,v $
- *     $Date: 2011/05/18 03:30:49 $
- * $Revision: 1.1 $
+ *     $Date: 2013/04/11 19:26:06 $
+ * $Revision: 1.1.1.2 $
  * Description: GASNet header for <conduitname> conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -13,22 +13,22 @@
 #ifndef _GASNET_CORE_FWD_H
 #define _GASNET_CORE_FWD_H
 
-/* auxseg enable */
-//#include <gasnet_internal.h>
-//#include <gasnet_handler.h>
-//#include <gasnet_core_internal.h>
-//#include "gc.h"
-//#include <fcntl.h>
-//#include <sys/mman.h>
-//#include <signal.h>
-
-#define GASNET_CORE_VERSION      0.2
+#define GASNET_CORE_VERSION      0.3
 #define GASNET_CORE_VERSION_STR  _STRINGIFY(GASNET_CORE_VERSION)
-#define GASNET_CORE_NAME         GEMINI
+#if defined GASNET_CONDUIT_GEMINI
+  #define GASNET_CORE_NAME       GEMINI
+#elif defined GASNET_CONDUIT_ARIES
+  #define GASNET_CORE_NAME       ARIES
+#else
+  #error "Exactly one of GASNET_CONDUIT_GEMINI or GASNET_CONDUIT_ARIES must be defined"
+#endif
 #define GASNET_CORE_NAME_STR     _STRINGIFY(GASNET_CORE_NAME)
 #define GASNET_CONDUIT_NAME      GASNET_CORE_NAME
 #define GASNET_CONDUIT_NAME_STR  _STRINGIFY(GASNET_CONDUIT_NAME)
-#define GASNET_CONDUIT_GEMINI 1
+
+/* Aries supports only 24 bits of inst_id and we steal one bit for ACKs */
+#define GASNET_MAXNODES 0x800000
+#define GASNETC_LOG2_MAXNODES 23
 
   /* GASNET_PSHM defined 1 if this conduit supports PSHM. leave undefined otherwise. */
 #if GASNETI_PSHM_ENABLED
@@ -41,6 +41,12 @@
   #define GASNET_ALIGNED_SEGMENTS   0 /* user or PSHM disabled segment alignment */
 #else
   #define GASNET_ALIGNED_SEGMENTS   ###
+#endif
+
+  /* define to 1 if conduit allows internal GASNet fns to issue put/get for remote
+     addrs out of segment - not true when PSHM is used */
+#if 0
+#define GASNETI_SUPPORTS_OUTOFSEGMENT_PUTGET 1
 #endif
 
   /* conduits should define GASNETI_CONDUIT_THREADS to 1 if they have one or more 
@@ -66,13 +72,21 @@
 #define GASNETC_GET_HANDLER 1
 typedef ### gasnetc_handler_t;
 #endif
-/* LCS check this */
 #if 0
 #define GASNETC_TOKEN_CREATE 1
 #endif
 
   /* this can be used to add conduit-specific 
      statistical collection values (see gasnet_trace.h) */
-#define GASNETC_CONDUIT_STATS(CNT,VAL,TIME) 
+#define GASNETC_CONDUIT_STATS(CNT,VAL,TIME)       \
+        TIME(C, GET_AM_CREDIT_STALL, stalled time) \
+        TIME(C, ALLOC_PD_STALL, stalled time) \
+        TIME(C, ALLOC_BB_STALL, stalled time) \
+        TIME(C, MEM_REG_STALL, stalled time) \
+        VAL(C, POST_FMA_RETRY, retries) \
+        VAL(C, POST_RDMA_RETRY, retries) \
+        VAL(C, SMSG_SEND_RETRY, retries) \
+        VAL(C, MEM_REG_RETRY, retries) \
+        /* blank */
 
 #endif

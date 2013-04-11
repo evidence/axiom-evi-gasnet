@@ -1,127 +1,148 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-#  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2002/06/10 07:54:52 $
-# $Revision: 1.1 $
+#   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/Makefile.am,v $
+#     $Date: 2013/04/11 19:26:07 $
+# $Revision: 1.1.1.1 $
 # Description: Makefile for GASNet gm conduit
-# Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
+# Terms of use are as specified in license.txt
 
 AUTOMAKE_OPTIONS = foreign 1.4
 
-if HAVE_PTHREAD
-thread_defines = @GASNET_THREAD_DEFINES@
+CONDUIT_NAME=gm
+
+# Firehose
+fh_type=page
+include $(top_builddir)/other/firehose/firehose.mak
+
+# any conduit-specific subdirectories containing Makefile.am's
+SUBDIRS = contrib
+
+# complete list of files in the conduit directory
+# include all headers, documentation, etc. 
+# and any subdirectories not containing Makefile.am's
+CONDUIT_FILELIST =               \
+      gasnet_core.c              \
+      gasnet_core.h              \
+      gasnet_core_conf.c         \
+      gasnet_core_fwd.h          \
+      gasnet_core_help.h         \
+      gasnet_core_internal.h     \
+      gasnet_core_receive.c      \
+      gasnet_extended.c          \
+      gasnet_extended_firehose.c \
+      gasnet_extended_fwd.h      \
+      gasnet_extended_internal.h \
+      gasnet_extended_op.c       \
+      gasnet_extended_ref.c      \
+      firehose_fwd.h		 \
+      license.txt                
+
+CONDUIT_SOURCELIST =                       \
+      $(srcdir)/gasnet_core.c              \
+      $(srcdir)/gasnet_core_receive.c      \
+      $(srcdir)/gasnet_core_conf.c         \
+      $(srcdir)/gasnet_extended.c          \
+      $(srcdir)/gasnet_extended_op.c       \
+      $(srcdir)/gasnet_extended_ref.c      \
+      $(srcdir)/gasnet_extended_firehose.c \
+      $(fh_sourcelist)
+
+if GM_MPI_COMPAT
+# If using MPI for bootstrap then we must compile this object with MPI_CC
+mpi_srcdir = $(top_srcdir)/other/mpi-spawner
+mpi_cflags = -I$(mpi_srcdir)
+mpi_srcs = $(mpi_srcdir)/gasnet_bootstrap_mpi.c
+mpi_deps = $(mpi_srcdir)/*.h $(mpi_srcdir)/*.c
+mpi_objs = $(builddir)/gasnet_bootstrap_mpi-$(THREAD_MODEL).o
+$(builddir)/gasnet_bootstrap_mpi-$(THREAD_MODEL).o: force
+	@MPI_CC@ @MPI_CFLAGS@ $(LIBDEFINES) $(CONDUIT_EXTRALIBCFLAGS) $(LIBINCLUDES) -o $@ -c $(mpi_srcs)
+mpi_subdirs = contrib
 endif
 
-INCLUDES = -I$(srcdir) -I$(top_srcdir) -I$(top_builddir)        \
-           -I$(top_srcdir)/extended-ref  
-	   
-
-filelist =                   \
-      gasnet_core.c          \
-      gasnet_core_receive.c  \
-      gasnet_core_misc.c     \
-      gasnet_core.h          \
-      gasnet_core_fwd.h      \
-      gasnet_core_help.h     \
-      gasnet_core_types.h    \
-      gasnet_core_internal.h 
-
-othersourcefiles =                             \
-      $(top_srcdir)/gasnet_internal.c          \
-      $(top_srcdir)/extended-ref/gasnet_extended.c 
-
-EXTRA_DIST = $(filelist)
-
-libgasnet_sources = $(srcdir)/gasnet_core.c $(othersourcefiles)
-libgasnet_dependencies = $(filelist) $(libgasnet_sources) \
-                         $(top_srcdir)/*.h                \
-                         $(top_srcdir)/extended-ref/*.h       
-libgasnet_objects = gasnet_core.o gasnet_internal.o gasnet_extended.o
-
-if HAVE_PTHREAD
-threaded_libraries = libgasnet-gm-par.a libgasnet-gm-parsync.a
+if GM_RODATA_WORKAROUND
+# bug 1036: ensure .rodata section in executable is actually writeable, because GM
+# registration fails on read-only virtual pages
+# bug 1044: this is now off by default, because the Linux linker is buggy and 
+# intermittently barfs with fatal error "Not enough room for program headers" 
+# when it mispredicts the section requirements of the program (instead of restarting 
+# with a larger value, which would be a reasonable approach)
+rodata_objs = $(builddir)/gasnet_rodata-$(THREAD_MODEL).o
+rodata_flags = -DGASNETI_GM_RODATA_WORKAROUND=1
+$(builddir)/gasnet_rodata-$(THREAD_MODEL).o: force
+	echo 'const int gasneti_dummy_rodata_writable = 1;' > $@.tmp.c 
+	$(CC) -c -o $@.tmp.o $@.tmp.c
+	objcopy --set-section-flags .rodata=contents,alloc,load,data $@.tmp.o $@
+	rm -f $@.tmp.*
 endif
-libraries = libgasnet-gm-seq.a $(threaded_libraries)
 
-VPATH=$(srcdir)
+# additional -I or -D directives needed by this specific conduit
+# other than the standard GASNet includes and flags
+CONDUIT_EXTRALIBCFLAGS = $(fh_extralibcflags) $(mpi_cflags) $(rodata_flags) -I@GM_INCLUDE@ 
+			 
+
+# additional conduit header files to install from external, non-standard directories
+CONDUIT_EXTRAHEADERS = $(fh_extraheaders)
+
+# headers selected by default rules that should NOT be installed
+CONDUIT_PRIVATEHEADERS = $(fh_privheaders)
+
+# additional file dependencies not mentioned elsewhere 
+# that should force libgasnet rebuild on update
+CONDUIT_EXTRADEPS = $(fh_extradeps) $(mpi_deps)
+
+# additional object files to be included in libgasnet that need to be compiled 
+# using a special, conduit-specific command. These should also be included as
+# forced targets in this file, and should probably use LIBINCLUDES/LIBDEFINES
+CONDUIT_SPECIAL_OBJS = $(fh_special_objs) $(mpi_objs) $(rodata_objs) 
+
+# the default job spawn command to be used for "make run-tests"
+# The following substitutions are performed:
+#   %P = program executable name
+#   %N = requested node count
+#   %A = program arguments
+#   %Q = program arguments w/ an extra level of quotes
+#   %D = the current working directory 
+#   %H = hostfile (if any)
+CONDUIT_RUNCMD = @TOP_BUILDDIR@/gm-conduit/contrib/gasnetrun_gm -np %N %P %A
+
+# conduit-specific tests in ../tests directory
+CONDUIT_TESTS =
+
+# -------- Do not modify anything below this line --------
+
+if BUILD_SEQ_LIBS
+libgasnet_gm_seq_a_SOURCES =
+libraries_seq = libgasnet-gm-seq.a
+endif
+if BUILD_PAR_LIBS
+libgasnet_gm_par_a_SOURCES =
+libraries_par = libgasnet-gm-par.a
+endif
+if BUILD_PARSYNC_LIBS
+libgasnet_gm_parsync_a_SOURCES =
+libraries_parsync = libgasnet-gm-parsync.a
+endif
+libraries = $(libraries_seq) $(libraries_par) $(libraries_parsync)
+
+include $(top_builddir)/other/Makefile-conduit.mak
 
 libgasnet-gm-seq.a: $(libgasnet_dependencies)
-	$(CC) $(CFLAGS) $(INCLUDES) -DGASNET_SEQ -c $(libgasnet_sources)
-	$(AR) cru $@ $(libgasnet_objects)
-	$(RANLIB) $@
-	rm -f $(libgasnet_objects)
+	@$(MAKE) do-libgasnet-seq
 
 libgasnet-gm-par.a: $(libgasnet_dependencies)
-	$(CC) $(CFLAGS) $(INCLUDES) -DGASNET_PAR $(thread_defines) -c $(libgasnet_sources)
-	$(AR) cru $@ $(libgasnet_objects)
-	$(RANLIB) $@
-	rm -f $(libgasnet_objects)
+	@$(MAKE) do-libgasnet-par
 
 libgasnet-gm-parsync.a: $(libgasnet_dependencies)
-	$(CC) $(CFLAGS) $(INCLUDES) -DGASNET_PARSYNC $(thread_defines) -c $(libgasnet_sources)
-	$(AR) cru $@ $(libgasnet_objects)
-	$(RANLIB) $@
-	rm -f $(libgasnet_objects)
+	@$(MAKE) do-libgasnet-parsync
 
-.PHONY: all libs clean-local install-data-local uninstall-local tests force tests-seq tests-par tests-parsync
-
-
-libs: $(libraries)
-	
-if USE_<CONDUITNAME>_CONDUIT                           
-lib_LIBRARIES = $(libraries)
-
-all: libs
-	
-clean-local: 
-	rm -f $(libgasnet_objects) $(libraries) *.o core
-	@$(MAKE) -f $(top_srcdir)/tests/Makefile clean
-
-headers = $(srcdir)/*.h $(top_srcdir)/extended-ref/*.h 
-
-install-data-local: $(headers)
-	$(mkinstalldirs) $(includedir)/gm-conduit
-	@list='$(headers)'; for p in $$list; do \
-	  if test -f $$p; then \
-	    filename=`basename $$p` \
-	    echo " $(INSTALL_DATA) $$p $(includedir)/gm-conduit/$$filename"; \
-	    $(INSTALL_DATA) $$p $(includedir)/gm-conduit/$$filename; \
-	  else :; fi; \
-	done
-
-uninstall-local:
-	rm -f $(includedir)/gm-conduit/*.h
-
+if USE_GM_CONDUIT  
+lib_LIBRARIES = $(libraries) 
+all-local: $(lib_LIBRARIES) $(makefile_fragments)
+clean-local: do-clean-local
+install-data-local: do-install-data-local
+uninstall-local: do-uninstall-local
+else
+$(top_srcdir)/gasnet.h: do-error
 endif
-
-tests:
-	@echo You must specify one of tests-seq, tests-par or tests-parsync
-	@exit 1
-
-TESTLIBS = $(LIBGCC) $(LIBS) $(LIBM)
-
-tests-seq: force libgasnet-gm-seq.a
-	@$(MAKE) -f $(top_srcdir)/tests/Makefile tests	     \
-	  srcdir="$(top_srcdir)/tests"			     \
-	  COMPILE="$(CC) $(CFLAGS) $(INCLUDES) -DGASNET_SEQ" \
-	  LINK="$(CC) $(CFLAGS)"                     \
-	  LINKEND="-L$(top_builddir)/gm-conduit -lgasnet-gm-seq $(TESTLIBS)" 
-
-tests-par: force libgasnet-gm-par.a
-	@$(MAKE) -f $(top_srcdir)/tests/Makefile tests	     \
-	  srcdir="$(top_srcdir)/tests"			     \
-	  COMPILE="$(CC) $(CFLAGS) $(INCLUDES) -DGASNET_PAR $(thread_defines)" \
-	  LINK="$(CC) $(CFLAGS)"                     \
-	  LINKEND="-L$(top_builddir)/gm-conduit -lgasnet-gm-par $(TESTLIBS) $(GASNET_THREAD_LIBS)" 
-
-tests-parsync: force libgasnet-gm-parsync.a
-	@$(MAKE) -f $(top_srcdir)/tests/Makefile tests	         \
-	  srcdir="$(top_srcdir)/tests"			         \
-	  COMPILE="$(CC) $(CFLAGS) $(INCLUDES) -DGASNET_PARSYNC $(thread_defines)" \
-	  LINK="$(CC) $(CFLAGS)"                     \
-	  LINKEND="-L$(top_builddir)/gm-conduit -lgasnet-gm-parsync $(TESTLIBS) $(GASNET_THREAD_LIBS) " 
-
-force:
-	
 
 

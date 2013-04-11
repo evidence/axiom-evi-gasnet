@@ -1,47 +1,62 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-#  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/08/06 06:04:09 $
-# $Revision: 1.1 $
+#   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/contrib/Makefile.am,v $
+#     $Date: 2013/04/11 19:26:07 $
+# $Revision: 1.1.1.1 $
 # Description: Makefile for GASNet other/contrib
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
 
 AUTOMAKE_OPTIONS = foreign 1.4
 
-SUBDIRS =         
+SUBDIRS = .
 
-EXTRA_DIST = gasnet_trace.pl
+EXTRA_DIST = $(dotpl_DATA) $(vg_DATA) \
+	gasnet_ibrun \
+ 	cross-configure-bgp \
+ 	cross-configure-bgq \
+	cross-configure-crayxt-catamount \
+	cross-configure-crayxt-linux \
+	cross-configure-crayxe-linux \
+	cross-configure-crayxc-linux \
+	crayxt-nptl-pthread-patch
+# exclude these from distribution for now
+#	cross-configure-bgl \
+#	cross-configure-phoenix \
+#	cross-configure-k42ppc64 \
+#	cross-configure-linux-arm \
+#	cross-configure-osxi686 \
+#	cross-configure-osxppc64 \
+#	cross-configure-osxx86_64 \
+#	cross-configure-uclinux-microblaze
 
-# Need a bin_DATA rule, but automake disallows that.  So, fake it.
-mybindir = $(bindir)
+dotpldir = $(bindir)
+dotpl_DATA = gasnet_trace.pl
 
-bin_SCRIPTS = gasnet_trace gasnet_trace.pl
-mybin_DATA = gasnet_trace.pl
+vgdir = $(libdir)/valgrind
+vg_DATA = gasnet.supp
 
-builddir = $(top_builddir)/other/contrib
+bin_SCRIPTS = gasnet_trace
 
-all-local: gasnet_trace $(builddir)/gasnet_trace.pl
+all-local: $(bin_SCRIPTS) $(dotpl_DATA)
 
 $(top_builddir)/other/perlstart: $(top_srcdir)/other/perlstart.in
-	@$(MAKE) -C $(top_builddir)/other perlstart
+	@cd $(top_builddir)/other && $(MAKE) perlstart
 
-gasnet_trace: $(top_builddir)/other/perlstart
+gasnet_trace: $(top_builddir)/other/perlstart gasnet_trace.pl
 
-$(builddir)/gasnet_trace.pl: force
-	@if test "`cd $(top_builddir);@PWD_PROG@`" != "`cd $(top_srcdir);@PWD_PROG@`"; then \
-            echo cp -f $(srcdir)/gasnet_trace.pl $@; \
-            cp -f $(srcdir)/gasnet_trace.pl $@; \
-         fi;
-
-distclean-local:
-	@if test "`cd $(top_builddir);@PWD_PROG@`" != "`cd $(top_srcdir);@PWD_PROG@`"; then \
-            echo rm -f $(builddir)/gasnet_trace.pl; \
-            rm -f $(builddir)/gasnet_trace.pl; \
-         fi;
-
-install-data-local:
-	chmod -x $(DESTDIR)$(bindir)/gasnet_trace.pl
-
+# Files to copy from srcdir to builddir if they differ
+if BUILD_IS_SRC
+files_we_copy = 
+else
+files_we_copy = $(dotpl_DATA)
+$(files_we_copy): force
+	@srcfile="$(srcdir)/`basename $@`" ; \
+         if test ! -f "$@" -o "`find $$srcfile -newer '$@' 2>&1`" ; then \
+          echo cp -f "$$srcfile" . ;         \
+          cp -f "$$srcfile" . ;              \
+         fi
+endif
+DISTCLEANFILES = $(files_we_copy)
 
 .PHONY: force
 

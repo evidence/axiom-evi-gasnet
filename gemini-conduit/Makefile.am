@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/Makefile.am,v $
-#     $Date: 2011/08/01 20:15:49 $
-# $Revision: 1.1.1.2 $
+#     $Date: 2013/04/11 19:26:06 $
+# $Revision: 1.1.1.3 $
 # Description: Makefile for GASNet gemini conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -22,29 +22,28 @@ CONDUIT_FILELIST =           \
       gasnet_core_fwd.h      \
       gasnet_core_help.h     \
       gasnet_core_internal.h \
-      gasnet_gemini.h                   \
-      gasnet_gemini.c                   \
-      gasnet_gemini_utils.c
+      gasnet_extended.c      \
+      gasnet_extended_fwd.h  \
+      gasnet_gemini.h        \
+      gasnet_gemini.c
 
 # list of conduit core and extended .c source files 
 # to be compiled into libgasnet on the compiler command line
 CONDUIT_SOURCELIST =          \
       $(srcdir)/gasnet_core.c \
       $(srcdir)/gasnet_gemini.c \
-      $(srcdir)/gasnet_gemini_utils.c \
       $(srcdir)/gasnet_extended.c 
 #      $(top_srcdir)/extended-ref/gasnet_extended.c 
 
 # additional -I or -D directives needed by this specific conduit
 # other than the standard GASNet includes and flags
-CONDUIT_EXTRALIBCFLAGS = -I/opt/cray/gni-headers/default/include \
-			-I/opt/cray/pmi/default/include
+CONDUIT_EXTRALIBCFLAGS = @GNI_INCLUDES@ -DGASNET_CONDUIT_GEMINI
 
 # additional conduit header files to install from external, non-standard directories
 CONDUIT_EXTRAHEADERS = 
 
 # headers selected by default rules that should NOT be installed
-CONDUIT_PRIVATEHEADERS =
+CONDUIT_PRIVATEHEADERS = gasnet_gemini.h
 
 # additional file dependencies not mentioned elsewhere 
 # that should force libgasnet rebuild on update
@@ -63,7 +62,8 @@ CONDUIT_SPECIAL_OBJS =
 #   %Q = program arguments w/ an extra level of quotes
 #   %D = the current working directory
 #   %H = hostfile (if any)
-CONDUIT_RUNCMD = aprun -n %N %P %A
+#CONDUIT_RUNCMD = aprun -N 1 -n %N %P %A
+CONDUIT_RUNCMD = @TOP_BUILDDIR@/mpi-conduit/contrib/gasnetrun_mpi -np %N -c 0 %P %A
 
 # conduit-specific tests in ../tests directory
 CONDUIT_TESTS =

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_fwd.h,v $
- *     $Date: 2006/02/12 03:26:29 $
- * $Revision: 1.1 $
+ *     $Date: 2013/04/11 19:26:06 $
+ * $Revision: 1.1.1.1 $
  * Description: GASNet Collectives Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -13,7 +13,7 @@
 #ifndef _GASNET_COLL_FWD_H
 #define _GASNET_COLL_FWD_H
 
-#define GASNETI_COLL_PROGRESSFNS(FN)
+#define GASNETI_COLL_PROGRESSFNS(FN) 
 
 /* stats needed by the COLL reference implementation */
 #ifndef GASNETI_COLL_STATS
@@ -53,5 +53,9 @@
         VAL(W, COLL_SCAN_M, cnt)              \
         VAL(W, COLL_SCAN_M_NB, cnt)
 #endif
+
+#define GASNETE_COLL_AUXSEG_DECLS \
+    extern gasneti_auxseg_request_t gasnete_coll_auxseg_alloc(gasnet_seginfo_t *auxseg_info);
+#define GASNETE_COLL_AUXSEG_FNS() gasnete_coll_auxseg_alloc, 
 
 #endif

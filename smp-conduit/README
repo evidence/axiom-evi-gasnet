@@ -1,5 +1,6 @@
 GASNet smp-conduit documentation
 Dan Bonachea <bonachea@cs.berkeley.edu>
+$Revision: 1.1.1.1 $
 
 User Information:
 -----------------
@@ -10,6 +11,9 @@ It should be extremely portable and run anywhere with a POSIX-like environment.
 
 Recognized environment variables:
 ---------------------------------
+
+* GASNET_BARRIER=PSHM (default when PSHM support is enabled)
+  Enables shared-memory implementation of GASNet barriers
 
 * All the standard GASNet environment variables (see top-level README)
 
@@ -32,6 +36,6 @@ Design Overview:
 ----------------
 
 All puts/gets are local accesses (with the locality check removed at compile
-time), and all AM handlers execute synchronously on the calling thread. Segment
-alignment is trivially guaranteed.
+time).  When PSHM is not in use all AM handlers execute synchronously on the
+calling thread, and segment alignment is trivially guaranteed.
 

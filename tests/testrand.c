@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/GASNet/tests/testrand.c                                 $
- *     $Date: 2004/02/09 19:40:47 $
- * $Revision: 1.1 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testrand.c,v $
+ *     $Date: 2013/04/11 19:26:08 $
+ * $Revision: 1.1.1.1 $
  * Description: GASNet get/put performance test
  *   measures measures the total time to write to each page of the
  *   remote test segment, using blocking puts in a random order.
@@ -18,8 +18,11 @@
 *************************************************************/
 
 #include "gasnet.h"
-#include <stdio.h>
-#include <stdlib.h>
+
+uintptr_t maxsz = 0;
+#ifndef TEST_SEGSZ
+  #define TEST_SEGSZ_EXPR ((uintptr_t)maxsz)
+#endif
 
 #include "test.h"
 
@@ -32,31 +35,34 @@ int nbytes = 8;
 void *remmem;
 void *locmem;
 
+#undef rem_addr /* AIX 5.3 header bug */
+
 void do_test(void) {GASNET_BEGIN_FUNCTION();
     int i;
     int64_t begin, end;
     int iamsender = (myproc % 2 == 0);
-    int pages = TEST_SEGSZ / PAGESZ;
+    int pagesz = MAX(PAGESZ, nbytes);
+    int pages = maxsz / pagesz;
     void **loc_addr = test_malloc(pages * sizeof(void *));
     void **rem_addr = test_malloc(pages * sizeof(void *));
     
 	if (iamsender) {
 		/* create in-order arrays of page addresses */
 		for (i = 0; i < pages; ++i) {
-		    loc_addr[i] = (void *)((uintptr_t)locmem + (i * PAGESZ));
-		    rem_addr[i] = (void *)((uintptr_t)remmem + (i * PAGESZ));
+		    loc_addr[i] = (void *)((uintptr_t)locmem + (i * pagesz));
+		    rem_addr[i] = (void *)((uintptr_t)remmem + (i * pagesz));
 		}
 		/* permute the arrays separately */
 		for (i = 0; i < pages - 1; ++i) {
 		    int j;
 		    void *tmp;
 		   
-		    j = rand() % (pages - i);
+		    j = TEST_RAND(0,pages - 1 - i);
 		    tmp = loc_addr[i+j];
 		    loc_addr[i+j] = loc_addr[i];
 		    loc_addr[i] = tmp;
 		   
-		    j = rand() % (pages - i);
+		    j = TEST_RAND(0,pages - 1 - i);
 		    tmp = rem_addr[i+j];
 		    rem_addr[i+j] = rem_addr[i];
 		    rem_addr[i] = tmp;
@@ -74,36 +80,44 @@ void do_test(void) {GASNET_BEGIN_FUNCTION();
 		end = TIME();
 		printf("Proc %3i - %5i bytes, seed %10u, %7i pages: %12i us total, %9.3f us ave. per page\n",
 			myproc, nbytes, seed, pages, (int)(end-begin), ((double)(end-begin))/pages);
+                fflush(stdout);
+                sleep(1);
 	}
 
 	BARRIER();
 }
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
+
     /* call startup */
     GASNET_Safe(gasnet_init(&argc, &argv));
-    GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ, TEST_MINHEAPOFFSET));
-    TEST_SEG(gasnet_mynode()); /* ensure we got the segment requested */
 
-    /* parse arguments (we could do better) */
-    if ((argc < 2) || (argc > 3)) {
-	printf("Usage: %s nbytes (seed)\n", argv[0]);
-	gasnet_exit(1);
-    }
-    nbytes = atoi(argv[1]);
-    if (argc > 2) seed = atoi(argv[2]);
-    if (!seed) seed = getpid();
-    srand(seed);
+    /* parse arguments */
+    if (argc > 1) nbytes = atoi(argv[1]);
+    if (argc > 2) {
+      maxsz = atol(argv[2]);
+      maxsz = MAX(maxsz, nbytes);
+      maxsz = alignup(maxsz, PAGESZ);
+    } else maxsz = 1024*1024;
+    if (argc > 3) seed = atoi(argv[3]);
+    if (!seed) seed = (int)TIME();
+    TEST_SRAND(seed);
+
+    #ifdef GASNET_SEGMENT_EVERYTHING
+      if (maxsz > TEST_SEGSZ) { MSG("maxsz must be <= %lu on GASNET_SEGMENT_EVERYTHING",(unsigned long)TEST_SEGSZ); gasnet_exit(1); }
+    #endif
+    GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
+    test_init("testrand",1, "nbytes (segsz) (seed)");
+    if ((argc < 2) || (argc > 4)) test_usage();
 
     /* get SPMD info */
     myproc = gasnet_mynode();
     numprocs = gasnet_nodes();
     
     /* Only allow even number for numprocs */
-    if (numprocs % 2 == 1) {
-    	printf("Number of threads should be even number.\n");
-    	gasnet_exit(1);
+    if (numprocs % 2 != 0) {
+      MSG0("WARNING: This test requires an even number of nodes. Test skipped.\n");
+      gasnet_exit(0); /* exit 0 to prevent false negatives in test harnesses for smp-conduit */
     }
     
     /* Setting peer thread rank */

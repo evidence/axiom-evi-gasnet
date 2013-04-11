@@ -6,19 +6,21 @@
 # Usage Instructions: 
 #  1. fill in the following values to point to the target and host compilers:
 
-#COMPILEMODE_FLAGS="-Os"
-COMPILEMODE_FLAGS="-g"
+UCLINUX_HOME="/home/proj/blue/uClinux-1/uClinux-dist"
+MICROBLAZE_HOME="/home/proj/blue/microblaze-gcc-sources-2/release/lin/microblaze"
 
-COMPILEDEFS="-DEMBED -Dlinux -D__linux__ -Dunix -D__uClinux__"
-COMPILEDEFS="$COMPILEDEFS -DGASNET_ALLOW_OPTIMIZED_DEBUG=1" # work-around for broken uclinux headers
+COMPILEMODE_FLAGS="-Os -g" # -Os required for correct operation?
+#COMPILEMODE_FLAGS="-g"
+
+COMPILEDEFS="-DEMBED -Dlinux -D__linux__ -Dunix -D__uClinux__ -DMB_FSL_CC -DMB_TICKS_PER_US=100"
 
 CODEGENFLAGS="-fomit-frame-pointer -fno-builtin -msoft-float -mxl-soft-mul -mxl-soft-div"
 
-CC="/home/proj/upc/uClinux-dist/tools/ucfront-gcc /home/proj/upc/microblaze-elf-tools/bin/mb-gcc"
+CC="$UCLINUX_HOME/tools/ucfront-gcc $MICROBLAZE_HOME/bin/mb-gcc"
 CC="$CC $COMPILEMODE_FLAGS $COMPILEDEFS $CODEGENFLAGS" 
 export CC  # vanilla target C compiler
 
-CXX="/home/proj/upc/uClinux-dist/tools/ucfront-g++ /home/proj/upc/microblaze-elf-tools/bin/mb-g++"
+CXX="$UCLINUX_HOME/tools/ucfront-g++ $MICROBLAZE_HOME/bin/mb-g++"
 CXX="$CXX $COMPILEMODE_FLAGS $COMPILEDEFS $CODEGENFLAGS -nostdinc++" 
 export CXX  # vanilla target C++ compiler
 
@@ -28,11 +30,11 @@ LIBS='-lstdc++' ; export LIBS
 # Host C compiler
 # NOTE: you may need to set GCC_EXEC_PREFIX=/usr/bin/
 # to get the correct assembler if gcc is your host compiler
-HOST_CC='/usr/bin/gcc-3.3' ; export HOST_CC
+HOST_CC='gcc' ; export HOST_CC
 HOST_CFLAGS='-g -O2' ; export HOST_CFLAGS
 
 # Host C++ compiler - required by Titanium, not required for UPC or GASNet
-HOST_CXX='/usr/bin/g++-3.3' ; export HOST_CXX
+HOST_CXX='g++' ; export HOST_CXX
 HOST_CXXFLAGS='' ; export HOST_CXXFLAGS
 
 # Optional additional settings: (see configure --help for complete list)
@@ -66,7 +68,7 @@ CROSS_PAGESIZE='4096' ; export CROSS_PAGESIZE
 
 # Does the system stack grow up?
 
-CROSS_STACK_GROWS_UP='1' ; export CROSS_STACK_GROWS_UP
+CROSS_STACK_GROWS_UP='0' ; export CROSS_STACK_GROWS_UP
 
 # Is char a signed type?
 

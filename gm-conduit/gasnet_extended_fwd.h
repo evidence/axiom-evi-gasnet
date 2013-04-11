@@ -1,8 +1,9 @@
-/*  $Archive:: /Ti/GASNet/extended/gasnet_extended_fwd.h                  $
- *     $Date: 2002/08/15 10:43:15 $
- * $Revision: 1.1 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended_fwd.h,v $
+ *     $Date: 2013/04/11 19:26:07 $
+ * $Revision: 1.1.1.1 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
  */
 
 #ifndef _IN_GASNET_H
@@ -12,62 +13,88 @@
 #ifndef _GASNET_EXTENDED_FWD_H
 #define _GASNET_EXTENDED_FWD_H
 
-#define GASNET_EXTENDED_VERSION      0.1
-#define GASNET_EXTENDED_VERSION_STR  _STRINGIFY(GASNET_EXTENDED_VERSION)
-#define GASNET_EXTENDED_NAME         REFERENCE
-#define GASNET_EXTENDED_NAME_STR     _STRINGIFY(GASNET_EXTENDED_NAME)
+#include <gm.h>
+#include <firehose_trace.h>
 
+#define GASNET_EXTENDED_VERSION      1.11
+#define GASNET_EXTENDED_VERSION_STR  _STRINGIFY(GASNET_EXTENDED_VERSION)
+#define GASNET_EXTENDED_NAME         GM
+#define GASNET_EXTENDED_NAME_STR     _STRINGIFY(GASNET_EXTENDED_NAME)
 
 #define _GASNET_HANDLE_T
 /*  an opaque type representing a non-blocking operation in-progress initiated using the extended API */
 struct _gasnete_op_t;
 typedef struct _gasnete_op_t *gasnet_handle_t;
 #define GASNET_INVALID_HANDLE ((gasnet_handle_t)0)
+#define GASNETI_EOP_IS_HANDLE 1
 
-#ifdef GASNETI_THREADS
-  #define GASNETI_THREADINFO_OPT
+  /* if conduit-internal threads may call the Extended API and/or they may run
+     progress functions, then define GASNETE_CONDUIT_THREADS_USING_TD to the
+     maximum COUNT of such threads to allocate space for their threaddata
+   */
+#if 0
+  #define GASNETE_CONDUIT_THREADS_USING_TD ###
 #endif
 
-#ifdef GASNETI_THREADINFO_OPT
-  /* Here we use a clever trick - GASNET_GET_THREADINFO() uses the sizeof(gasneti_threadinfo_available)
-      to determine whether gasneti_threadinfo_cache was bound a value posted by GASNET_POST_THREADINFO()
-      of if it bound to the globally declared dummy variables. 
-     Even a very stupid C optimizer should constant-fold away the unused calls to gasneti_get_threadinfo() 
-      and discard the unused variables
-     We need 2 separate variables to ensure correct name-binding semantics for GASNET_BEGIN_FUNCTION()
-   */
-  static uint8_t gasnete_threadinfo_cache = 0;
-  static uint8_t gasnete_threadinfo_available = 
-    sizeof(gasnete_threadinfo_cache) + sizeof(gasnete_threadinfo_available);
-    /* silly little trick to prevent unused variable warning on gcc -Wall */
-
-  #define GASNET_POST_THREADINFO(info)                     \
-    gasnet_threadinfo_t gasnete_threadinfo_cache = (info); \
-    uint32_t gasnete_threadinfo_available = 0
-    /* if you get an unused variable warning on gasnete_threadinfo_available, 
-       it means you POST'ed in a function which made no GASNet calls that needed it */
-
-  #define GASNET_GET_THREADINFO()                  \
-    ( (sizeof(gasnete_threadinfo_available) == 1) ? \
-      (gasnet_threadinfo_t)gasnete_mythread() :    \
-      (gasnet_threadinfo_t)(uintptr_t)gasnete_threadinfo_cache )
-
-  /* the gasnet_threadinfo_t pointer points to a thread data-structure owned by
-     the extended API, whose first element is a pointer reserved
-     for use by the core API (initialized to NULL)
-   */
+#if GASNETI_CLIENT_THREADS
+#define GASNETE_GM_IN_UNKNOWN() \
+        (((gasnete_threaddata_t *)GASNET_GET_THREADINFO())->in_gm_unknown)
+#define GASNETE_GM_SET_IN_UNKNOWN() \
+        (((gasnete_threaddata_t *)GASNET_GET_THREADINFO())->in_gm_unknown = 1)
+#define GASNETE_GM_UNSET_IN_UNKNOWN() \
+        (((gasnete_threaddata_t *)GASNET_GET_THREADINFO())->in_gm_unknown = 0)
 #else
-  #define GASNET_POST_THREADINFO(info)   \
-    static uint8_t gasnete_dummy = sizeof(gasnete_dummy) /* prevent a parse error */
-  #define GASNET_GET_THREADINFO() (NULL)
+#define GASNETE_GM_IN_UNKNOWN()		1
+#define GASNETE_GM_SET_IN_UNKNOWN()
+#define GASNETE_GM_UNSET_IN_UNKNOWN()
 #endif
-
-#define GASNET_BEGIN_FUNCTION() GASNET_POST_THREADINFO(GASNET_GET_THREADINFO())
 
   /* this can be used to add statistical collection values 
      specific to the extended API implementation (see gasnet_help.h) */
-#define CONDUIT_EXTENDED_STATS(CNT,VAL,TIME) \
-        CNT(C, DYNAMIC_THREADLOOKUP, )           
+#define GASNETE_CONDUIT_STATS(CNT,VAL,TIME) 		\
+        GASNETI_VIS_STATS(CNT,VAL,TIME)                 \
+        GASNETI_COLL_STATS(CNT,VAL,TIME)                \
+	GASNETI_FIREHOSE_STATS(CNT,VAL,TIME)            \
+        CNT(C, DYNAMIC_THREADLOOKUP, cnt)		\
+	VAL(C, FIREHOSE_MOVES, firehoses moved for puts)\
+	VAL(C, FIREHOSE_MOVE_OLD_BUCKETS,		\
+		number of replacement firhoses)		\
+	CNT(C, FIREHOSE_VICTIM_POLLS,			\
+		number of firehoses recovered by poll)	\
+	VAL(C, FIREHOSE_TOUCHED, 			\
+		firehoses touched for puts)		\
+	VAL(C, BUCKET_LOCAL_PINS,			\
+		local buckets pinned for puts/gets)	\
+	VAL(C, BUCKET_LOCAL_TOUCHED, 			\
+		local buckets touched for puts/gets)	\
+	VAL(C, BUCKET_VICTIM_UNPINS, 			\
+		number of bucket unpins in victim FIFO) \
+	VAL(C, BUCKET_VICTIM_COUNT, 			\
+		number of buckets in victim FIFO)	\
+	VAL(C, FIREHOSE_LOCALPIN_PAGES,			\
+		number of pages pinned locally)		\
+	VAL(C, FIREHOSE_LOCALUNPIN_PAGES,		\
+		number of pages unpinned locally)	\
+	TIME(C, FIREHOSE_MOVE_TIME, unpin+pin time in   \
+		firehose handler)			\
+	TIME(C, FIREHOSE_BUILD_LIST_TIME, time to build \
+		firehose list)				\
+	TIME(C, FIREHOSE_MOVE_LOCAL, local bookkeeping	\
+		in firehose reply handler)		\
+	TIME(C, FIREHOSE_UNPIN_TIME, unpin time in	\
+		firehose handler)			\
+	TIME(C, FIREHOSE_PIN_TIME, pin time in firehose \
+		handler)				\
+	TIME(C, FIREHOSE_PUT_ONE, puts one fh move)	\
+	TIME(C, FIREHOSE_PUT_MANY, puts many fh moves)	\
+	TIME(C, FIREHOSE_PUT_ONESIDED, puts one-sided)  \
+	TIME(C, FIREHOSE_GET_ONE, gets one fh move)	\
+	TIME(C, FIREHOSE_GET_MANY, gets many fh moves)	\
+	TIME(C, FIREHOSE_GET_ONESIDED, gets one-sided)
+
+#define GASNETE_AUXSEG_DECLS \
+    extern gasneti_auxseg_request_t gasnete_barr_auxseg_alloc(gasnet_seginfo_t *auxseg_info);
+#define GASNETE_AUXSEG_FNS() gasnete_barr_auxseg_alloc, 
 
 
 #endif

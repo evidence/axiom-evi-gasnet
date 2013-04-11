@@ -1,6 +1,6 @@
-//  $Archive:: /Ti/AMUDP/sockutil.cpp                                     $
-//     $Date: 2003/12/11 20:19:53 $
-// $Revision: 1.1 $
+//   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/sockutil.cpp,v $
+//     $Date: 2013/04/11 19:26:07 $
+// $Revision: 1.1.1.1 $
 // Description: Simple sock utils
 // Copyright 1999, Dan Bonachea
 
@@ -10,30 +10,42 @@
 #include "sockutil.h"
 #include "sig.h"
 #include "sockaddr.h"
+#include "portable_inttypes.h"
 
 bool endianconvert = false;
 
 //-------------------------------------------------------------------------------------
-#ifdef WIN32
-bool socklibinit(){
-  WSADATA d;
-  if (!WSAStartup(MAKEWORD(1,1), &d)) return true;
-  else return false;
+static int isinit = 0;
+static bool nh_cvt = false;
+#define CHECKINIT() assert(isinit > 0)
+#ifdef WINSOCK
+  bool socklibinit(){
+    WSADATA d;
+    if (!WSAStartup(MAKEWORD(1,1), &d)) {
+      nh_cvt = isLittleEndian();
+      isinit++;
+      return true;
+    } else return false;
   }
-bool socklibend() {
-  WSACleanup();
-  return true;
+  bool socklibend() {
+    WSACleanup();
+    isinit--;
+    return true;
   }
 #else
-#include <errno.h>      // errno, strerror
-bool socklibinit(){ return true; }
-bool socklibend(){ return true; }
+  #include <errno.h>      // errno, strerror
+  bool socklibinit(){ 
+    nh_cvt = isLittleEndian();
+    isinit++; 
+    return true; 
+  }
+  bool socklibend(){ isinit--; return true; }
 #endif
 //-------------------------------------------------------------------------------------
 SOCKET listen_socket(unsigned short port, bool allowshared) {
   // create a socket to listen to a specific port
   return listen_socket(SockAddr((long unsigned int)INADDR_ANY, port), allowshared);
-  }
+}
 //-------------------------------------------------------------------------------------
 SOCKET listen_socket(struct sockaddr* saddr, bool allowshared) {
   // create a socket to listen to a specific address
@@ -45,54 +57,40 @@ SOCKET listen_socket(struct sockaddr* saddr, bool allowshared) {
     if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, (char *)&allow, sizeof(int)) == -1) {
       closesocket(s);
       xsocket(s, "setsockopt() failed to set reuseaddr while creating a listener socket");
-      }
     }
+  }
 
   // bind
   if (bind(s, saddr, sizeof(struct sockaddr_in)) == SOCKET_ERROR) {
     closesocket(s);
     xsocket(s, "bind() failed to bind a listener socket");
-    }
+  }
 
   // listen
   if (listen(s, SOMAXCONN) == SOCKET_ERROR) {
     closesocket(s);
     xsocket(s, "listen() failed while creating a listener socket");
-    }
+  }
 
   return s;
-  }
+}
 //------------------------------------------------------------------------------------
-// addr-length argument type fiasco..
-#if defined(LINUX)
-#  define LENGTH_PARAM socklen_t
-#elif defined(OSF1)
-#  define LENGTH_PARAM unsigned long
-#elif defined(FREEBSD)
-#  define LENGTH_PARAM socklen_t
-#elif defined(AIX)
-#  define LENGTH_PARAM socklen_t
-#elif defined(SOLARIS)
-#  define LENGTH_PARAM socklen_t
-#else
-#  define LENGTH_PARAM int
-#endif
 
 SOCKET accept_socket(SOCKET listener, struct sockaddr* calleraddr) {
   LENGTH_PARAM sz = (calleraddr?sizeof(struct sockaddr_in):0);
   while (1) {
     SOCKET newsock;
-    if ((newsock = accept(listener, calleraddr, &sz)) == INVALID_SOCKET) {
-      #ifndef WIN32
+    if ((newsock = SOCK_accept(listener, calleraddr, &sz)) == INVALID_SOCKET) {
+      #ifndef WINSOCK
         if (errno == EINTR) continue; // ignore signal interruptions - keep blocking
       #endif
       closesocket(listener);
       xsocket(listener, "accept() failed on listener socket");
-      }
+    }
 
     return newsock;
-    }
   }
+}
 //-------------------------------------------------------------------------------------
 SOCKET connect_socket(struct sockaddr* saddr) {
   SOCKET s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -101,9 +99,9 @@ SOCKET connect_socket(struct sockaddr* saddr) {
   if (connect(s, saddr, sizeof(struct sockaddr)) == SOCKET_ERROR) {
     closesocket(s);
     xsocket(s, "connect() failed while creating a connect socket");
-    }
-  return s;
   }
+  return s;
+}
 //-------------------------------------------------------------------------------------
 SOCKET connect_socket(char* addr) {
   // create a socket and connect it to a remote host/port
@@ -115,7 +113,7 @@ SOCKET connect_socket(char* addr) {
   while(*p) { // check for stray crap
     if (!isdigit(*p)) throw xBase("Stray characters after address in connect");
     p++;
-    }
+  }
   struct sockaddr_in saddr;
   saddr.sin_family = AF_INET;
   saddr.sin_port = htons(portnum);
@@ -124,13 +122,13 @@ SOCKET connect_socket(char* addr) {
   else { // need to do DNS thing
     struct hostent* he = gethostbyname(addr);
     if (!he) xsocket(INVALID_SOCKET, "DNS failure in gethostbyname()");
-    #ifdef UNICOS
+    #if PLATFORM_OS_UNICOS
       assert(sizeof(u_long) == he->h_length);
       saddr.sin_addr.s_addr = *(u_long *)he->h_addr_list[0]; // s_addr is a bitfield on Unicos
     #else
       memcpy(&saddr.sin_addr.s_addr, he->h_addr_list[0], he->h_length);
     #endif
-    }
+  }
   
   SOCKET s = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
   if (s == INVALID_SOCKET) xsocket(s, "socket() failed while creating a connect socket");
@@ -138,9 +136,9 @@ SOCKET connect_socket(char* addr) {
   if (connect(s, (struct sockaddr*)&saddr, sizeof(struct sockaddr_in)) == SOCKET_ERROR) {
     closesocket(s);
     xsocket(s, "connect() failed while creating a connect socket");
-    }
-  return s;
   }
+  return s;
+}
 //-------------------------------------------------------------------------------------
 void recvAll(SOCKET s, void* buffer, int numbytes) {
   // blocks until it can receive numbytes on s into buffer
@@ -152,54 +150,54 @@ void recvAll(SOCKET s, void* buffer, int numbytes) {
     if (retval == SOCKET_ERROR) {
       closesocket(s);
       xsocket(s, "error in recvAll() - connection closed");
-      }
-    else if (retval == 0) {
+    } else if (retval == 0) {
       closesocket(s);
       xsocket(s, "connection closed on recv() in recvAll()");
-      }
+    }
     assert(retval <= numbytes); // can't send more than was in buffer...
 
     buf += retval;
     numbytes -= retval;
-    }
   }
+}
 //-------------------------------------------------------------------------------------
-void sendAll(SOCKET s, const void* buffer, int numbytes) {
+void sendAll(SOCKET s, const void* buffer, int numbytes, int dothrow) {
   // blocks until it can send numbytes on s from buffer
-  // (throws xSocket on close)
-  #ifndef WIN32
+  // (throws xSocket on close by default)
+  #if !PLATFORM_OS_MSWINDOWS
     LPSIGHANDLER oldsighandler = reghandler(SIGPIPE, (LPSIGHANDLER)SIG_IGN); 
     // ignore broken pipes, because we get that when we write to a socket after other side reset
   #endif
-  const char *buf = (const char*)buffer;
+  char *buf = (char*)buffer;
   while (numbytes) {
     int retval;
     retval = send(s, buf, numbytes, 0);
     if (retval == SOCKET_ERROR) {
       closesocket(s);
-      #ifndef WIN32
+      #if !PLATFORM_OS_MSWINDOWS
         reghandler(SIGPIPE, oldsighandler); // restore handler
       #endif
-      xsocket(s, "error in sendAll() - connection closed");
-      }
+      if (dothrow) xsocket(s, "error in sendAll() - connection closed");
+      else break;
+    }
     assert(retval <= numbytes); // can't send more than was in buffer...
 
     buf += retval;
     numbytes -= retval;
-    }
-  #ifndef WIN32
+  }
+  #if !PLATFORM_OS_MSWINDOWS
     reghandler(SIGPIPE, oldsighandler); // restore handler
   #endif
-  }
+}
 //-------------------------------------------------------------------------------------
-void sendAll(SOCKET s, const char* buffer, int numbytes) {
+void sendAll(SOCKET s, const char* buffer, int numbytes, int dothrow) {
   if (numbytes == -1) numbytes = strlen(buffer);
-  sendAll(s, (void *)buffer, numbytes);
-  }
+  sendAll(s, (void *)buffer, numbytes, dothrow);
+}
 //-------------------------------------------------------------------------------------
 void sendEOL(SOCKET s) {
   sendAll(s, "\r\n", 2);
-  }
+}
 //-------------------------------------------------------------------------------------
 int recvLine(SOCKET s, char* buf, int bufsiz) {
   int readcount = 0;
@@ -210,7 +208,7 @@ int recvLine(SOCKET s, char* buf, int bufsiz) {
     else if (retval == 0) { // graceful close - nothing left to read
       if (readcount == 0) xsocket(s, "connection closed in recvLine()");
       else return readcount;
-      }
+    }
     for(int i=0; i < retval-1; i++) {
       if (buf[readcount+i+1] == '\n') { // got eol
         bool bareeol = (buf[readcount+i] != '\r'); // also accept bare LF
@@ -220,22 +218,20 @@ int recvLine(SOCKET s, char* buf, int bufsiz) {
           if (readcount == 0) 
             xsocket(s, "connection closed in recv() in recvLine()"); // unexpected connection close
           else return readcount;
-          }
+        }
         assert(retval == i+2); // make sure it gave us everything
         if (bareeol) {
           buf[readcount + i + 1] = '\0';
           return readcount + i + 1;
-          }
-        else {
+        } else {
           buf[readcount + i] = '\0';
           return readcount + i;
-          }
         }
       }
+    }
     if (retval+readcount >= bufsiz) { // buffer too small to get entire line
       throw xBase("Buffer overrun in recvLine");
-      }
-    else { // get what we can
+    } else { // get what we can
       int len = retval;
       retval = recv(s, buf+readcount, len, 0);
       if (retval == SOCKET_ERROR) xsocket(s, "error on recv() in recvLine()");
@@ -243,58 +239,143 @@ int recvLine(SOCKET s, char* buf, int bufsiz) {
         if (readcount == 0) 
           xsocket(s, "connection closed on recv() in recvLine()"); // unexpected connection close
         else return readcount;
-        }
+      }
       assert(retval == len); // make sure it gave us everything
       readcount += retval;
-      }
     }
   }
+}
+//------------------------------------------------------------------------------------
+void getSockName(SOCKET s, sockaddr_in &addr) {
+  GETSOCKNAME_LENGTH_T namelen = sizeof(sockaddr_in);    
+  if (SOCK_getsockname(s, (sockaddr*)&addr, &namelen) == SOCKET_ERROR) {
+    xsocket(s, "getsockname");
+  }
+}
 //-------------------------------------------------------------------------------------
-unsigned long byteSwap(unsigned long val) {
-  unsigned char* p = (unsigned char *)&val;
-  unsigned char tmp;
+unsigned long getLocalAddress(SOCKET s) {
+  sockaddr_in saddr;
+  getSockName(s, saddr);
+  return ntohl(saddr.sin_addr.s_addr);
+}
+//------------------------------------------------------------------------------------
+int getLocalPort(SOCKET s) {
+  sockaddr_in saddr;
+  getSockName(s, saddr);
+  return ntohs(saddr.sin_port);
+}
+//------------------------------------------------------------------------------------
+void getSockPeer(SOCKET s, sockaddr_in &addr) {
+  GETSOCKNAME_LENGTH_T namelen = sizeof(sockaddr_in);     
+  if (SOCK_getpeername(s, (sockaddr*)&addr, &namelen) == SOCKET_ERROR) {
+    xsocket(s, "getpeername");
+  }
+}
+//------------------------------------------------------------------------------------
+unsigned long getRemoteAddress(SOCKET s) {
+  sockaddr_in saddr;
+  getSockPeer(s, saddr);
+  return ntohl(saddr.sin_addr.s_addr);
+}
+//------------------------------------------------------------------------------------
+int getRemotePort(SOCKET s) {
+  sockaddr_in saddr;
+  getSockPeer(s, saddr);
+  return ntohs(saddr.sin_port);
+}
+//------------------------------------------------------------------------------------
+void byteSwap16(void *val) {
+  uint8_t* p = (uint8_t *)val;
+  uint8_t tmp;
+  tmp = p[0];
+  p[0] = p[1];
+  p[1] = tmp;
+}
+//------------------------------------------------------------------------------------
+void byteSwap32(void *val) {
+  uint8_t* p = (uint8_t *)val;
+  uint8_t tmp;
   tmp = p[0];
   p[0] = p[3];
   p[3] = tmp;
   tmp = p[1];
   p[1] = p[2];
   p[2] = tmp;
-  return val;
-  }
+}
+//------------------------------------------------------------------------------------
+void byteSwap64(void *val) {
+  uint8_t* p = (uint8_t *)val;
+  uint8_t tmp;
+  tmp = p[0];
+  p[0] = p[7];
+  p[7] = tmp;
+  tmp = p[1];
+  p[1] = p[6];
+  p[6] = tmp;
+  tmp = p[2];
+  p[2] = p[5];
+  p[5] = tmp;
+  tmp = p[3];
+  p[3] = p[4];
+  p[4] = tmp;
+}
 //-------------------------------------------------------------------------------------
-unsigned long recv32(SOCKET s) { // get 32-bit integer
-  unsigned long temp;
+#define NTOH_DEF(width)                            \
+  uint##width##_t ntoh##width(uint##width##_t v) { \
+    CHECKINIT();                                   \
+    if (nh_cvt) byteSwap##width(&v);               \
+    return v;                                      \
+  }                                                \
+  void ntoh##width##a(void *pv) {                  \
+    CHECKINIT();                                   \
+    if (nh_cvt) byteSwap##width(pv);               \
+  }                                                \
+  uint##width##_t hton##width(uint##width##_t v) { \
+    CHECKINIT();                                   \
+    if (nh_cvt) byteSwap##width(&v);               \
+    return v;                                      \
+  }                                                \
+  void hton##width##a(void *pv) {                  \
+    CHECKINIT();                                   \
+    if (nh_cvt) byteSwap##width(pv);               \
+  }                                                
+NTOH_DEF(16)
+NTOH_DEF(32)
+NTOH_DEF(64)
+//-------------------------------------------------------------------------------------
+uint32_t recv32(SOCKET s) { // get 32-bit integer
+  uint32_t temp;
   recvAll(s, &temp, 4);
-  if (endianconvert) return byteSwap(temp);
-  else return temp;
-  }
+  if (endianconvert) byteSwap32(&temp);
+  return temp;
+}
 //-------------------------------------------------------------------------------------
-void send32(SOCKET s, unsigned long value) { // send 32-bit integer
-  if (endianconvert) value = byteSwap(value);
+void send32(SOCKET s, uint32_t value) { // send 32-bit integer
+  if (endianconvert) byteSwap32(&value);
   sendAll(s, &value, 4);
-  }
+}
 //-------------------------------------------------------------------------------------
 char recvch(SOCKET s) { // get one character
   char temp;
   recvAll(s, &temp, 1);
   return temp;
-  }
+}
 //-------------------------------------------------------------------------------------
 SockAddr getsockname(SOCKET s) {
-  LENGTH_PARAM sz = sizeof(struct sockaddr);
+  GETSOCKNAME_LENGTH_T sz = sizeof(struct sockaddr);
   SockAddr saddr;
-  if (getsockname(s, (struct sockaddr *)saddr, &sz) == SOCKET_ERROR) 
+  if (SOCK_getsockname(s, (struct sockaddr *)saddr, &sz) == SOCKET_ERROR) 
     xsocket(s, "getsockname");
   return saddr;
-  }
+}
 //-------------------------------------------------------------------------------------
 SockAddr getpeername(SOCKET s) {
-  LENGTH_PARAM sz = sizeof(struct sockaddr);
+  GETSOCKNAME_LENGTH_T sz = sizeof(struct sockaddr);
   SockAddr saddr;
-  if (getpeername(s, (struct sockaddr *)saddr, &sz) == SOCKET_ERROR) 
+  if (SOCK_getpeername(s, (struct sockaddr *)saddr, &sz) == SOCKET_ERROR) 
     xsocket(s, "getpeername");
   return saddr;
-  }
+}
 //-------------------------------------------------------------------------------------
 char const *getMyHostName() {
   static char hostname[1024]; // assume never changes during program run
@@ -303,23 +384,22 @@ char const *getMyHostName() {
     if (gethostname(hostname, 1024) == SOCKET_ERROR) 
       xsocket(INVALID_SOCKET, "gethostname");
     firsttime = false;
-    }
-  return hostname;
   }
+  return hostname;
+}
 //-------------------------------------------------------------------------------------
 SockAddr DNSLookup(const char *hostnameOrIPStr) {
   const char *hostname = hostnameOrIPStr;
   if (isValidIP(hostnameOrIPStr)) { // numeric IP
     return SockAddr(hostnameOrIPStr, 0);
-    }
-  else {
+  } else {
     hostent *he = gethostbyname(hostname);
     if (!he) xsocket(INVALID_SOCKET, "gethostbyname"); 
-    if (he->h_length != sizeof(unsigned int)) xsocket(INVALID_SOCKET, "gethostbyname returned wrong h_length"); 
+    if (he->h_length != 4) xsocket(INVALID_SOCKET, "gethostbyname returned wrong h_length"); 
     if (he->h_addr_list[0] == NULL) xsocket(INVALID_SOCKET, "gethostbyname returned no entries"); 
-    return SockAddr(ntohl(*((unsigned int *)he->h_addr_list[0])), (unsigned short)0);
-    }
+    return SockAddr((unsigned long)ntohl(*((uint32_t *)he->h_addr_list[0])), (unsigned short)0);
   }
+}
 //-------------------------------------------------------------------------------------
 bool inputWaiting(SOCKET s) { // returns true if input or close conn is waiting
   fd_set sockset;
@@ -331,14 +411,14 @@ bool inputWaiting(SOCKET s) { // returns true if input or close conn is waiting
   else if (retval > 0) return true; // new input or closed conn
   
   return false;
-  }
+}
 //-------------------------------------------------------------------------------------
 int numBytesWaiting(SOCKET s) { // returns number of bytes waiting to be received
-  unsigned long arg;
-  if (ioctlsocket(s, _FIONREAD, &arg) == SOCKET_ERROR) 
+  IOCTL_FIONREAD_ARG_T arg = 0;
+  if (SOCK_ioctlsocket(s, _FIONREAD, &arg) == SOCKET_ERROR) 
     xsocket(s, "numBytesWaiting");
-  return arg;
-  }
+  return (int)arg;
+}
 //-------------------------------------------------------------------------------------
 bool isValidIP(const char* buf) {
   int a = atoi(buf);
@@ -362,34 +442,30 @@ bool isValidIP(const char* buf) {
   int d = atoi(buf);
   if (d > 255 || d < 0) return false;
   while (isdigit(*buf)) buf++;
-  const char* p = buf;
   while (isspace(*buf)) buf++;
   if (*buf != '\0') return false;
 
-  #if 0
-    *p = '\0'; // trim trailing space
-  #endif
   return true;
-  }
+}
 //-------------------------------------------------------------------------------------
 bool isLittleEndian() {
   union {
     int i;                  // machine word
     unsigned char b[sizeof(int)];    // b[0] overlaid with first byte of i
-    } x;
+  } x;
   x.i = 0xFF;    // set lsb, zero all others
   return x.b[0] == 0xFF;
-  }
+}
 //-------------------------------------------------------------------------------------
 bool isBigEndian() {
   return !isLittleEndian();
-  }
+}
 //-------------------------------------------------------------------------------------
 void close_socket(SOCKET s) {
   if (closesocket(s) == SOCKET_ERROR) {
     xsocket(s, "closesocket");
-    }
   }
+}
 //-------------------------------------------------------------------------------------
 void closeGracefully(SOCKET s){
   // close a socket gracefully, blocking until everything is sent
@@ -397,7 +473,7 @@ void closeGracefully(SOCKET s){
   shutdown(s, SD_SEND); // initiate graceful close
   recv(s, &temp, 1, 0); // wait for other side to acknowledge or reset
   closesocket(s); // deallocate socket
-  }
+}
 //-------------------------------------------------------------------------------------
 void waitForClose(SOCKET s) {
   char temp;
@@ -406,8 +482,8 @@ void waitForClose(SOCKET s) {
   else if (retval == SOCKET_ERROR) xsocket(s, "waitForClose()");
   else {
     xsocket(s, "waitForClose() got data when close expected");
-    }
   }
+}
 //-------------------------------------------------------------------------------------
 bool waitForActivity(SOCKET s, struct timeval* tv) {
   fd_set set;
@@ -416,13 +492,13 @@ bool waitForActivity(SOCKET s, struct timeval* tv) {
   int retval = select(s+1, &set, NULL, NULL, tv);
   if (retval < 0) {
     xsocket(s, "waitForActivity()");
-    }
+  }
   else if (retval == 1) return true;
   else if (retval == 0) return false;
-  else abort();
+  else { perror("select"); abort(); }
 
   return false; /* make compiler happy */
-  }
+}
 //-------------------------------------------------------------------------------------
 bool isClosed(SOCKET s) {
   // first, test to see if recv will block
@@ -441,7 +517,7 @@ bool isClosed(SOCKET s) {
   if (len == 0) return true; // socket closed
   else if (len == SOCKET_ERROR) {
     int err = getSocketErrorCode();
-    #ifdef WIN32
+    #ifdef WINSOCK
       if (err == WSAECONNRESET ||
           err == WSAENOTCONN ||
           err == WSAENETRESET ||
@@ -461,11 +537,11 @@ bool isClosed(SOCKET s) {
           err == ETIMEDOUT) return true;
     #endif
     else xsocket(s, "recv(MSG_PEEK) within isClosed()"); // some error
-    }
+  }
 
   // not closed
   return false;
-  }
+}
 //-----------------------------------------------------------------------------------
 bool hasOOBdata(SOCKET s) {
   FD_SET set;
@@ -477,11 +553,11 @@ bool hasOOBdata(SOCKET s) {
     char buffer[10];
     int retval = recv(s, buffer, 10, MSG_OOB);
     return true;
-    }
-  return false;
   }
+  return false;
+}
 //------------------------------------------------------------------------------------
-#ifdef WIN32
+#ifdef WINSOCK
 // return string associated with a given code
 #define MAKEERRSTRING(code, desc)  { code, #code ": " desc }
 char const *errorCodeString(int code) {
@@ -508,7 +584,7 @@ char const *errorCodeString(int code) {
     MAKEERRSTRING(  WSAEINTR,           "Blocking call interrupted" ),
     MAKEERRSTRING(  WSAEINVAL,          "Invalid parameter" ),
     MAKEERRSTRING(  WSAEISCONN,         "Socket already connected" ),
-    MAKEERRSTRING(  WSAELOOP,           "Routing loop discovered (??)" ),
+    MAKEERRSTRING(  WSAELOOP,           "Routing loop discovered (?)" ),
     MAKEERRSTRING(  WSAEMFILE,          "No more file descriptors available" ),
     MAKEERRSTRING(  WSAEMSGSIZE,        "Message size exceeds maximum datagram size" ),
     MAKEERRSTRING(  WSAENAMETOOLONG,    "Name too long" ),
@@ -548,45 +624,48 @@ char const *errorCodeString(int code) {
   for (int i=0; i < sizeof(arr)/sizeof(arr[0]); i++) {
     if (arr[i].code == code) {
       return arr[i].message;
-      }
     }
+  }
 
   // unknown code
   return NULL;
-  }
+}
 
 int getSocketErrorCode() {
   return WSAGetLastError();
-  }
+}
 //------------------------------------------------------------------------------------
 #else //    ^^ win32    unix vv
 
 
 char const *errorCodeString(int code){
   return strerror(code);
-  }
+}
 
 int getSocketErrorCode() {
   return errno;
-  }
+}
 
 #endif
 //------------------------------------------------------------------------------------
 #undef select
 extern int myselect(int  n,  fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
             struct timeval *timeout) {
-  #ifdef WIN32
+  #ifdef FD_SETSIZE
+    assert((unsigned int)n <= (unsigned int)FD_SETSIZE);
+  #endif
+  #if PLATFORM_OS_MSWINDOWS
     return select(n, readfds, writefds, exceptfds, timeout);
   #else
-    /* a select that ignores UNIX's stupid fucking interrupt signals */
+    /* a select that ignores UNIX's ridiculously inconvenient interrupt signals */
     int retval;
     do {
       retval = select(n, readfds, writefds, exceptfds, timeout);
-      } while (retval == SOCKET_ERROR && errno == EINTR);
+    } while (retval == SOCKET_ERROR && errno == EINTR);
     return retval;
   #endif
 
-  }
+}
 /* ------------------------------------------------------------------------------------ */
 extern int myrecvfrom(SOCKET s, char * buf, int len, int flags,                  
                       struct sockaddr *from, int *fromlen) {
@@ -595,14 +674,10 @@ extern int myrecvfrom(SOCKET s, char * buf, int len, int flags,
     LENGTH_PARAM *psz = &sz;
     if (fromlen) sz = *fromlen;
     else psz = NULL;
-    #ifdef WIN32
-      int retval = recvfrom(s, buf, len, flags, from, psz);
-    #else
-      int retval = recvfrom(s, buf, len, flags, from, psz);
-    #endif
+    int retval = SOCK_recvfrom(s, buf, len, flags, from, psz);
     if (fromlen) *fromlen = (int)sz;
 
-    #ifdef WIN32
+    #ifdef WINSOCK
      /* winsock returns WSAECONNRESET from recvfrom on UDP sockets to 
       * indicate the receipt of an ICMP "Port Unreachable" message 
       * caused by a previous sendto()
@@ -616,8 +691,8 @@ extern int myrecvfrom(SOCKET s, char * buf, int len, int flags,
        continue;
     #endif
     return retval;
-    }
   }
+}
 /* ------------------------------------------------------------------------------------ */
 
 

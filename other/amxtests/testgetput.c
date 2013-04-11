@@ -1,9 +1,10 @@
-#include <stdio.h>
-#include <stdlib.h>
-
-#include <ammpi.h>
-#include <ammpi_spmd.h>
-
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amxtests/testgetput.c,v $
+ *     $Date: 2013/04/11 19:26:07 $
+ * $Revision: 1.1.1.2 $
+ * Description: AMX test
+ * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
+ */
 #include "apputils.h"
 
 #define MAX_PROCS 255
@@ -18,40 +19,31 @@ int main(int argc, char **argv) {
   int k;
   int iters = 0;
 
-  if (argc < 2) {
-    printf("Usage: %s iters\n", argv[0]);
-    exit(1);
-    }
+  TEST_STARTUP(argc, argv, networkpid, eb, ep, 1, 1, "iters");
 
-  AMMPI_VerboseErrors = 1;
-
-  /* call startup */
-  AM_Safe(AMMPI_SPMDStartup(&argc, &argv, 
-                            0, &networkpid, &eb, &ep));
+  TEST_32BIT_ONLY();
 
   /* setup handlers */
   setupUtilHandlers(ep, eb);
 
   /* get SPMD info */
-  myproc = AMMPI_SPMDMyProc();
-  numprocs = AMMPI_SPMDNumProcs();
+  myproc = AMX_SPMDMyProc();
+  numprocs = AMX_SPMDNumProcs();
 
   if (argc > 1) iters = atoi(argv[1]);
   if (!iters) iters = 1;
   if (myproc == 0) {
     printf("Running %i iterations of get/put test...\n", iters);
     fflush(stdout);
-    }
+  }
 
   for (k=0;k < iters; k++) {
-
     /* set just my val */
-    {int i;
-     for (i=0;i<MAX_PROCS;i++) vals[i] = -1;
-     vals[myproc] = myproc;
-     }
+    int i;
+    for (i=0;i<MAX_PROCS;i++) vals[i] = (uint32_t)(-1);
+    vals[myproc] = myproc;
 
-    AM_Safe(AMMPI_SPMDBarrier()); /* barrier */
+    AM_Safe(AMX_SPMDBarrier()); /* barrier */
 
     { /* try some gets */
       int i;
@@ -60,51 +52,50 @@ int main(int argc, char **argv) {
       for (i = 0; i < numprocs; i++) {
         sum += getWord(i, &vals[i]); /*  get each peer's value and add them up */
         verify += i;
-        }
+      }
       if (verify != sum) {
         printf("Proc %i GET TEST FAILED : sum = %i   verify = %i\n", myproc, sum, verify);
         fflush(stdout);
-        }
-      #ifdef DEBUG
+      }
+      #if VERBOSE
         else {
           printf("Proc %i verified.\n", myproc);
           fflush(stdout);
-          }
+        }
       #endif
-      }
+    }
 
-    AM_Safe(AMMPI_SPMDBarrier()); /* barrier */
+    AM_Safe(AMX_SPMDBarrier()); /* barrier */
 
     { /* try some puts */
       int i;
       for (i = 0; i < numprocs; i++) {
         putWord(i, &vals[myproc], myproc); /*  push our value to correct position on each peer */
-        }
-      AM_Safe(AMMPI_SPMDBarrier()); /* barrier */
+      }
+      AM_Safe(AMX_SPMDBarrier()); /* barrier */
       for (i = 0; i < numprocs; i++) {
         if (((int)vals[i]) != i) {
-          printf("Proc %i PUT TEST FAILED : i = %i   vals[i] = %i\n", myproc, i, vals[i]);
+          printf("Proc %i PUT TEST FAILED : i = %i   vals[i] = %i\n", myproc, i, (int)vals[i]);
           break;
-          }
         }
-      #ifdef DEBUG
+      }
+      #if VERBOSE
         if (i == numprocs) {
           printf("Proc %i verified.\n", myproc);
           fflush(stdout);
-          }
+        }
       #endif
-
-      }
     }
+  }
 
   /* dump stats */
-  AM_Safe(AMMPI_SPMDBarrier());
+  AM_Safe(AMX_SPMDBarrier());
   printGlobalStats();
-  AM_Safe(AMMPI_SPMDBarrier());
+  AM_Safe(AMX_SPMDBarrier());
 
   /* exit */
-  AM_Safe(AMMPI_SPMDExit(0));
+  AM_Safe(AMX_SPMDExit(0));
 
   return 0;
-  }
+}
 /* ------------------------------------------------------------------------------------ */

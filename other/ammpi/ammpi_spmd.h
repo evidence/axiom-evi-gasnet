@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/AMMPI/ammpi_spmd.h                                     $
- *     $Date: 2002/06/16 09:19:26 $
- * $Revision: 1.2 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_spmd.h,v $
+ *     $Date: 2013/04/11 19:26:07 $
+ * $Revision: 1.1.1.2 $
  * Description: AMMPI Header for SPMD interface
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -10,7 +10,10 @@
 
 #include <ammpi.h>
 
-BEGIN_EXTERNC
+AMMPI_BEGIN_EXTERNC
+
+#undef  AMMPI_SPMDStartup
+#define AMMPI_SPMDStartup _CONCAT(AMMPI_SPMDStartup_AMMPI,AMMPI_DEBUG_CONFIG)
 
 /* ------------------------------------------------------------------------------------ */
 /* AMMPI SPMD Entry Points */
@@ -39,20 +42,59 @@ extern int AMMPI_SPMDExit(int exitcode);
   /* terminate the parallel job with given exit code (also handles AM_Terminate)
    */
 
+extern int AMMPI_SPMDSetExitCallback(void (*fp)(int));
+  /* register a function to be called when AMMPI_SPMDExit is called by any node
+   * exit code is passed
+   */
+extern void (*AMMPI_SPMDkillmyprocess)(int);
+  /* function used to finally kill the process (_exit by default) */
+
+extern int AMMPI_SPMDSetThreadMode(int usingthreads, const char **provided_level, int *argc, char ***argv);
+  /* attempt to request thread support level indicated by usingthreads from MPI-2 
+   * returns non-zero on success or zero on failure, 
+   * and in all cases returns the reported suport level in *provided_level
+   * must be called before AMMPI_SPMDStartup 
+   */
+
 extern int AMMPI_SPMDIsWorker(char **argv); 
   /* given the initial command line arguments, determine whether this process is a 
    * worker process created by the AMMPI SPMD job startup API
    */
-extern int AMMPI_SPMDNumProcs(); /* return the number of processors in the parallel job */
-extern int AMMPI_SPMDMyProc();   /* return a zero-based unique identifier of this processor in the parallel job */
+extern int AMMPI_SPMDNumProcs(void); /* return the number of processors in the parallel job */
+extern int AMMPI_SPMDMyProc(void);   /* return a zero-based unique identifier of this processor in the parallel job */
 
-extern int AMMPI_SPMDBarrier(); 
+extern int AMMPI_SPMDBarrier(void); 
 /* block until all SPMD processors call this function, 
  * and poll the SPMD endpoint while waiting
  * a slow, but functional barrier that is advisable to call after setting up handlers
  * but before making transport calls, to prevent returned messages due to races 
  */
 
-END_EXTERNC
+extern int AMMPI_SPMDAllGather(void *source, void *dest, size_t len);
+extern int AMMPI_SPMDBroadcast(void *buf, size_t len, int rootid);
+/* expose the MPI_AllGather & MPI_Bcast functions which can be useful for bootstrapping 
+   AMMPI_SPMDAllGather: gather len bytes from source buf on each node, concatenate them and write 
+   them into the dest buffer (which must have length len*numnodes) in rank order
+   AMMPI_SPMDBroadcast: broadcast len bytes from buf on node rootid to buf on all nodes
+   may only be used after startup - beware, these functions block without polling
+*/
+
+/* ------------------------------------------------------------------------------------ */
+/* standardized AM-2 extensions */
+
+#define AMX_SPMDgetenvMaster      getenv
+#define AMX_SPMDBarrier           AMMPI_SPMDBarrier
+#define AMX_SPMDNumProcs          AMMPI_SPMDNumProcs
+#define AMX_SPMDMyProc            AMMPI_SPMDMyProc
+#define AMX_SPMDExit              AMMPI_SPMDExit
+#define AMX_SPMDSetExitCallback   AMMPI_SPMDSetExitCallback          
+#define AMX_SPMDkillmyprocess     AMMPI_SPMDkillmyprocess
+#define AMX_SPMDIsWorker(x)       (1)
+#define AMX_SPMDAllGather         AMMPI_SPMDAllGather
+
+#define AMX_SPMDStartup(pargc, pargv, networkdepth, pnetworkpid, peb, pep) \
+      AMMPI_SPMDStartup((pargc), (pargv), (networkdepth), (pnetworkpid), (peb), (pep))
+
+AMMPI_END_EXTERNC
 
 #endif

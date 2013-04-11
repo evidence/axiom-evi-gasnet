@@ -1,6 +1,6 @@
-//  $Archive:: /Ti/AMUDP/exc.h                                            $
-//     $Date: 2003/12/11 20:19:53 $
-// $Revision: 1.1 $
+//   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/exc.h,v $
+//     $Date: 2013/04/11 19:26:07 $
+// $Revision: 1.1.1.1 $
 // Description: Exception handlers for fserver
 // Copyright 1999, Dan Bonachea & Scott McPeak
 
@@ -9,7 +9,7 @@
 
 #include "socket.h"
 
-void breaker();
+void breaker(void);
 
 // by using this macro, the debugger gets a shot before the stack is unwound
 #ifdef THROW
@@ -35,8 +35,8 @@ bool unwinding_other(xBase const &x);
   catch (xBase &x) {             \
     if (!unwinding_other(x)) {   \
       throw;   /* re-throw */    \
-      }                            \
-    }
+    }                            \
+  }
 
 #define MAX_EXC_MSG 1024
 //------------------------------------------------------------------------------------
@@ -56,7 +56,7 @@ public:
   char const *why() const
     { return msg; }
 
-  };
+};
 //------------------------------------------------------------------------------------
 // exception thrown by SOCKET funcs
 class xSocket : public xBase {
@@ -69,7 +69,7 @@ public:
 
   xSocket(xSocket const &obj);
   ~xSocket();
-  };
+};
 
 void xsocket(SOCKET s, char const *msg); // creates and throws an xsocket
 
@@ -81,7 +81,7 @@ public:
   xForm(char const *m);    // create exception object with message 'm'
   xForm(xForm const &obj);   // copy ctor
   ~xForm();
-  };
+};
 
 
 #endif // _EXC_H

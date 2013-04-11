@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testval.c,v $
- *     $Date: 2013/02/15 07:26:02 $
- * $Revision: 1.1 $
+ *     $Date: 2013/04/11 19:26:08 $
+ * $Revision: 1.1.1.1 $
  * Description: GASNet value get/put performance test
  *   measures the ping-pong average round-trip time and
  *   average flood throughput of GASNet gets and puts
@@ -17,8 +17,10 @@ int maxsz = 8;
 int maxsz = 4;
 #endif
 
+int iters = 0;
+
 #ifndef TEST_SEGSZ
-  #define TEST_SEGSZ_EXPR (2*MAX(PAGESZ,(uintptr_t)maxsz))
+  #define TEST_SEGSZ_EXPR (maxsz*iters)
 #endif
 #include "test.h"
 
@@ -43,7 +45,7 @@ int unitsMB = 0;
 int doputs = 1;
 int dogets = 1;
 
-void *tgtmem;
+uint8_t *tgtmem;
 
 #define init_stat \
   GASNETT_TRACE_SETSOURCELINE(__FILE__,__LINE__), _init_stat
@@ -94,7 +96,7 @@ void _print_stat(int myproc, stat_struct_t *st, const char *name, int operation)
 }
 
 
-void roundtrip_test(int iters, int nbytes)
+void roundtrip_test(int nbytes)
 {GASNET_BEGIN_FUNCTION();
     int i;
     int64_t begin, end;
@@ -110,7 +112,8 @@ void roundtrip_test(int iters, int nbytes)
 		/* measure the round-trip time of put */
 		begin = TIME();
 		for (i = 0; i < iters; i++) {
-			gasnet_put_val(peerproc, tgtmem, (gasnet_register_value_t)i, nbytes);
+			unsigned int offset = i * nbytes;
+			gasnet_put_val(peerproc, tgtmem+offset, (gasnet_register_value_t)i, nbytes);
 		}
 		end = TIME();
 	 	update_stat(&st, (end - begin), iters);
@@ -129,7 +132,8 @@ void roundtrip_test(int iters, int nbytes)
 		/* measure the round-trip time of get */
 		begin = TIME();
 		for (i = 0; i < iters; i++) {
-	 		reg ^= gasnet_get_val(peerproc, tgtmem, nbytes);
+			unsigned int offset = i * nbytes;
+	 		reg ^= gasnet_get_val(peerproc, tgtmem+offset, nbytes);
 		}
 		end = TIME();
 	 	update_stat(&st, (end - begin), iters);
@@ -142,7 +146,7 @@ void roundtrip_test(int iters, int nbytes)
 	}	
 }
 
-void oneway_test(int iters, int nbytes)
+void oneway_test(int nbytes)
 {GASNET_BEGIN_FUNCTION();
     int i;
     int64_t begin, end;
@@ -158,7 +162,8 @@ void oneway_test(int iters, int nbytes)
 		/* measure the throughput of put */
 		begin = TIME();
 		for (i = 0; i < iters; i++) {
-			gasnet_put_val(peerproc, tgtmem, (gasnet_register_value_t)i, nbytes);
+			unsigned int offset = i * nbytes;
+			gasnet_put_val(peerproc, tgtmem+offset, (gasnet_register_value_t)i, nbytes);
 		}
 		end = TIME();
 	 	update_stat(&st, (end - begin), iters);
@@ -177,7 +182,8 @@ void oneway_test(int iters, int nbytes)
 		/* measure the throughput of get */
 		begin = TIME();
 		for (i = 0; i < iters; i++) {
-	 		reg ^= gasnet_get_val(peerproc, tgtmem, nbytes);
+			unsigned int offset = i * nbytes;
+	 		reg ^= gasnet_get_val(peerproc, tgtmem+offset, nbytes);
 		}
 		end = TIME();
 	 	update_stat(&st, (end - begin), iters);
@@ -191,7 +197,7 @@ void oneway_test(int iters, int nbytes)
 }
 
 
-void roundtrip_nb_test(int iters, int nbytes)
+void roundtrip_nb_test(int nbytes)
 {GASNET_BEGIN_FUNCTION();
     int i;
     int64_t begin, end;
@@ -209,7 +215,8 @@ void roundtrip_nb_test(int iters, int nbytes)
 		/* measure the round-trip time of nonblocking put */
 		begin = TIME();
 		for (i = 0; i < iters; i++) {
-			hdlput = gasnet_put_nb_val(peerproc, tgtmem, (gasnet_register_value_t)i, nbytes);
+			unsigned int offset = i * nbytes;
+			hdlput = gasnet_put_nb_val(peerproc, tgtmem+offset, (gasnet_register_value_t)i, nbytes);
 			gasnet_wait_syncnb(hdlput);
 		}
 		end = TIME();
@@ -229,7 +236,8 @@ void roundtrip_nb_test(int iters, int nbytes)
 		/* measure the round-trip time of nonblocking get */
 		begin = TIME();
 		for (i = 0; i < iters; i++) {
-	 		hdlget = gasnet_get_nb_val(peerproc, tgtmem, nbytes);
+			unsigned int offset = i * nbytes;
+	 		hdlget = gasnet_get_nb_val(peerproc, tgtmem+offset, nbytes);
 			reg ^= gasnet_wait_syncnb_valget(hdlget);
 		}
 		end = TIME();
@@ -244,7 +252,7 @@ void roundtrip_nb_test(int iters, int nbytes)
 
 }
 
-void oneway_nb_test(int iters, int nbytes)
+void oneway_nb_test(int nbytes)
 {GASNET_BEGIN_FUNCTION();
     int i;
     int64_t begin, end;
@@ -265,7 +273,8 @@ void oneway_nb_test(int iters, int nbytes)
 		/* measure the throughput of sending a message */
 		begin = TIME();
                 for (i = 0; i < iters; i++) {
-                        phandles[i] = gasnet_put_nb_val(peerproc, tgtmem, (gasnet_register_value_t)i, nbytes);
+			unsigned int offset = i * nbytes;
+                        phandles[i] = gasnet_put_nb_val(peerproc, tgtmem+offset, (gasnet_register_value_t)i, nbytes);
                 }
 		gasnet_wait_syncnb_all(phandles, iters); 
 		end = TIME();
@@ -285,7 +294,8 @@ void oneway_nb_test(int iters, int nbytes)
 		/* measure the throughput of receiving a message */
 		begin = TIME();
                 for (i = 0; i < iters; i++) {
-                    ghandles[i] = gasnet_get_nb_val(peerproc, tgtmem, nbytes);
+			unsigned int offset = i * nbytes;
+                    ghandles[i] = gasnet_get_nb_val(peerproc, tgtmem+offset, nbytes);
                 } 
                 for (i = 0; i < iters; i++) {
 		    reg ^= gasnet_wait_syncnb_valget(ghandles[i]);
@@ -305,7 +315,7 @@ void oneway_nb_test(int iters, int nbytes)
 }
 
 
-void roundtrip_nbi_test(int iters, int nbytes)
+void roundtrip_nbi_test(int nbytes)
 {GASNET_BEGIN_FUNCTION();
     int i;
     int64_t begin, end;
@@ -320,7 +330,9 @@ void roundtrip_nbi_test(int iters, int nbytes)
 		/* measure the round-trip time of nonblocking implicit put */
 		begin = TIME();
 		for (i = 0; i < iters; i++) {
-			gasnet_put_nbi_val(peerproc, tgtmem, (gasnet_register_value_t)i, nbytes);
+			unsigned int offset = i * nbytes;
+			gasnet_put_nbi_val(peerproc, tgtmem+offset, (gasnet_register_value_t)i, nbytes);
+
 			gasnet_wait_syncnbi_puts();
 		}
 		end = TIME();
@@ -330,11 +342,11 @@ void roundtrip_nbi_test(int iters, int nbytes)
 	BARRIER();
 	
 	if (iamsender && doputs) {
-		print_stat(myproc, &st, "put_nbi latency", PRINT_LATENCY);
+		print_stat(myproc, &st, "put_nbi_val latency", PRINT_LATENCY);
 	}	
 }
 
-void oneway_nbi_test(int iters, int nbytes)
+void oneway_nbi_test(int nbytes)
 {GASNET_BEGIN_FUNCTION();
     int i;
     int64_t begin, end;
@@ -349,7 +361,8 @@ void oneway_nbi_test(int iters, int nbytes)
 		/* measure the throughput of nonblocking implicit put */
 		begin = TIME();
 		for (i = 0; i < iters; i++) {
-			gasnet_put_nbi_val(peerproc, tgtmem, (gasnet_register_value_t)i, nbytes);
+			unsigned int offset = i * nbytes;
+			gasnet_put_nbi_val(peerproc, tgtmem+offset, (gasnet_register_value_t)i, nbytes);
 		}
 		gasnet_wait_syncnbi_puts();
 		end = TIME();
@@ -359,7 +372,7 @@ void oneway_nbi_test(int iters, int nbytes)
 	BARRIER();
 	
 	if (iamsender && doputs) {
-		print_stat(myproc, &st, "put_nbi throughput", PRINT_THROUGHPUT);
+		print_stat(myproc, &st, "put_nbi_val throughput", PRINT_THROUGHPUT);
 	}	
 }
 
@@ -369,7 +382,6 @@ int main(int argc, char **argv)
     void *myseg;
     void *alloc;
     int arg;
-    int iters = 0;
     int j;
     int firstlastmode = 0;
     int fullduplexmode = 0;
@@ -436,7 +448,7 @@ int main(int argc, char **argv)
     if (!firstlastmode) {
       /* Only allow 1 or even number for numprocs */
       if (numprocs > 1 && numprocs % 2 != 0) {
-        MSG("WARNING: This test requires a unary or even number of nodes. Test skipped.\n");
+        MSG0("WARNING: This test requires a unary or even number of nodes. Test skipped.\n");
         gasnet_exit(0); /* exit 0 to prevent false negatives in test harnesses for smp-conduit */
       }
     }
@@ -498,22 +510,22 @@ int main(int argc, char **argv)
         BARRIER();
 
 	if (TEST_SECTION_BEGIN_ENABLED()) 
-        for (j = min_payload; j <= max_payload && j > 0; j *= 2)  roundtrip_test(iters, j); 
+        for (j = min_payload; j <= max_payload && j > 0; j *= 2)  roundtrip_test(j); 
 
   	if (TEST_SECTION_BEGIN_ENABLED()) 
-        for (j = min_payload; j <= max_payload && j > 0; j *= 2)  oneway_test(iters, j);
+        for (j = min_payload; j <= max_payload && j > 0; j *= 2)  oneway_test(j);
 
   	if (TEST_SECTION_BEGIN_ENABLED()) 
-  	for (j = min_payload; j <= max_payload && j > 0; j *= 2)  roundtrip_nb_test(iters, j);
+  	for (j = min_payload; j <= max_payload && j > 0; j *= 2)  roundtrip_nb_test(j);
 
   	if (TEST_SECTION_BEGIN_ENABLED()) 
-  	for (j = min_payload; j <= max_payload && j > 0; j *= 2)  oneway_nb_test(iters, j);
+  	for (j = min_payload; j <= max_payload && j > 0; j *= 2)  oneway_nb_test(j);
 
   	if (TEST_SECTION_BEGIN_ENABLED()) 
-  	for (j = min_payload; j <= max_payload && j > 0; j *= 2)  roundtrip_nbi_test(iters, j);
+  	for (j = min_payload; j <= max_payload && j > 0; j *= 2)  roundtrip_nbi_test(j);
 
   	if (TEST_SECTION_BEGIN_ENABLED()) 
-  	for (j = min_payload; j <= max_payload && j > 0; j *= 2)  oneway_nbi_test(iters, j);
+  	for (j = min_payload; j <= max_payload && j > 0; j *= 2)  oneway_nbi_test(j);
 
         BARRIER();
 

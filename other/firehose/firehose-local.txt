@@ -3,10 +3,27 @@
   by: Dan Bonachea, Christian Bell and Paul Hargrove
   for deadlock-free, thread-safe management of firehose-local resources
   using optimistic concurrency control
+  $Revision: 1.1.1.1 $
 
   Known bugs/issues
   -----------------
-
+  1) To avoid race between unlock-move-lock (keeping table and conduit
+  consistent), we need a TRANSIT state (used for both "in bound" and
+  "out bound" buckets).  If the local (non-AM) code hits such a bucket
+  then it must UPYL until it is either pinned or unpinned.  In the case
+  that the AM handler encounters one we need a new queue to deffer the
+  the handler's actual work.  This queue is serviced soon after the
+  table is updated (except in the handler).
+  WE NEED TO WRITE THE HANDLER CODE EXAMPLE TOO!
+  2) We need to worry about the E->D state transition since it requires
+  a ++LOnly.  To keep FHC_MAXVICTIM_BUCKETS_AVAIL > 0 we may need to UPYL
+  even if we hit, if the bucket we hit is in state E (refc_r > 0, 
+  refc_l == 0) and FHC_MAXVICTIM_BUCKETS_AVAIL == 0.  I think this is
+  another thing to check for when making our first pass over the bucket
+  table to estimate how many "new" buckets we will need.
+  Note that we already got WaitLocalBucketsToPin correct with
+  respect to the B->E and D->E state transitions which will raise
+  FHC_MAXVICTIM_BUCKETS_AVAIL.
 */
 
 int
@@ -201,6 +218,7 @@ again:
             fhi_local_da = 0;
             pthread_cond_broadcast(&fhi_local_da_cv);
         }
+	Service_AM_Transit_Queue();
     }
     else {
         /* We saw one of more TRANSIT buckets.  We unwind, wait

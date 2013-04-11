@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/detect-cachesz.c,v $
- *     $Date: 2005/02/14 12:42:46 $
- * $Revision: 1.1 $
+ *     $Date: 2013/04/11 19:26:07 $
+ * $Revision: 1.1.1.1 $
  * Description: stand-alone tool to empirically detect SMP shared data cache line size
  * Copyright 2005, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -9,6 +9,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #define NUM_TRIALS 10
 #define MAX_SIZE  1024
@@ -26,7 +27,10 @@ static ustime_t timeStamp(void) {
 void * thread_spin(void *arg) {
   volatile unsigned char *p = arg;
   done = 0;
-  while (!done) (*p)++;
+  while (!done) { 
+    (*p)++;
+    if (*p % 0xFFFF == 0) pthread_testcancel(); /* fix hangs on SunCC optimizer */
+  }
   return NULL;
 }
 int vote[32];
@@ -51,7 +55,7 @@ int detect_cachesz(double confidence_threshold, int conservative_default) {
         ustime_t end, start = timeStamp();
         for (i = 0; i < iters; i++) (*p)++;
         end = timeStamp();
-        if (end - start >= 5000) {
+        if (end - start >= 10000) {
           res[pos] = (end - start)/(double)iters;
           break;
         }
@@ -95,7 +99,7 @@ int detect_cachesz(double confidence_threshold, int conservative_default) {
 }
 
 #ifndef CONFIG_TEST
-int main() {
+int main(void) {
   detect_cachesz(0.0, 0);
   return 0;
 }

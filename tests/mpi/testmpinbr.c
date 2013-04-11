@@ -1,19 +1,20 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/mpi/testmpinbr.c,v $
- *     $Date: 2005/04/11 11:31:44 $
- * $Revision: 1.1 $
- * Description: MG-like neighbour exchange
+ *     $Date: 2013/04/11 19:26:08 $
+ * $Revision: 1.1.1.1 $
+ * Description: MG-like neighbor exchange
  * Copyright 2005, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  */
 
 /************************************************************
- * testmpineighbour.c:
- *   NAS MG modelled microbenchmark to measure the cost of neighbour ghost cell
+ * testmpineighbor.c:
+ *   NAS MG modelled microbenchmark to measure the cost of neighbor ghost cell
  *   exchanges.  The benchmark replicates ghost exchanges over all dimensions
  *   (two of which generate strided data communication).
  *
 *************************************************************/
 
+#include "portable_inttypes.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -22,13 +23,10 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <math.h>
+#include <string.h>
 
 #include <mpi.h>
-#include "portable_inttypes.h"
 #include <assert.h>
-
-typedef uintptr_t uint64_t;
-typedef  intptr_t  int64_t;
 
 typedef struct {
 	int datasize;
@@ -41,7 +39,7 @@ typedef struct {
 } stat_struct_t;
 
 uintptr_t topalloc = 0;
-FILE *nbour_fp;
+FILE *nbr_fp;
 int maxlevel = 4;
 int myproc;
 int nprocs;
@@ -98,7 +96,7 @@ int peermpitag;
  *
  * 1. UPC (Parry's MG)
  *    * Over each dimension, pack boundary plane in a buffer, send the buffer
- *      and signal the neighbour with a put.
+ *      and signal the neighbor with a put.
  *    * Each processor spins on the signal waiting to unpack the buffer back
  *      into local computation data.
  *    * Memory reqs: 
@@ -111,7 +109,7 @@ int peermpitag;
  */
 
 typedef
-struct _nbour_t {
+struct _nbr_t {
     int	 dimsz;	/* global dimension size */
     /* 0 => yz plane
      * 1 => xz plane
@@ -120,15 +118,15 @@ struct _nbour_t {
     int  procGrid[3];
     int  idGrid[3];
 
-    /* Upper and Lower neighbours in each dimension (grid id) */
+    /* Upper and Lower neighbors in each dimension (grid id) */
     int  idGridUpper[3];
     int  idGridLower[3];
 
-    /* Upper and Lower neighbours in each dimension (GASNet node ids) */
+    /* Upper and Lower neighbors in each dimension (GASNet node ids) */
     int  nodeidUpper[3];
     int  nodeidLower[3];
 
-    /* Cache dims in all Lower neighbours */
+    /* Cache dims in all Lower neighbors */
     int  dimsLower[3];
 
     /* blocks per grid element in each dimension */
@@ -149,7 +147,7 @@ struct _nbour_t {
     double	*Dirxy;	    /* Target for xy boundary exchanges */
 
 
-    /* Arrays into communicaiton buffers, for low/up neighbour in each dim */
+    /* Arrays into communicaiton buffers, for low/up neighbor in each dim */
     double    *dimBufs[3][2];
 
     /* Three local communication buffers for non-contiguous planes */
@@ -160,25 +158,25 @@ struct _nbour_t {
     /* For computing medians at node 0 */
     stat_struct_t   *stats0;
 }
-nbour_t;
+nbr_t;
 
 /* Only one-level for now */
-nbour_t	Nbour;
+nbr_t	Nbr;
 
 #define AREF(nb,k,j,i) (nb->Ldata[(k)*(nb)->dims1*(nb)->dims0 + \
 		                  (j)*(nb)->dims0 + i])
 
-void setupGrid(nbour_t *nb, int level);
-void allocMultiGrid(nbour_t *nb);
-void estimateMemSegment(nbour_t *nb, uintptr_t *local, uintptr_t *segment);
+void setupGrid(nbr_t *nb, int level);
+void allocMultiGrid(nbr_t *nb);
+void estimateMemSegment(nbr_t *nb, uintptr_t *local, uintptr_t *segment);
 
 /*
  * MPI-style ghost exchange (as in NAS MG 2.4)
  */
-void ghostExchMPI(nbour_t *nb, int iters, int axis);
-void ge_take3(nbour_t *nb, double *src, size_t destp, int axis, MPI_Request *req);
-MPI_Request *ge_post3(nbour_t *nb, int dir, int axis, MPI_Request *req);
-void ge_give3(nbour_t *nb, int dir, int axis, MPI_Request *req);
+void ghostExchMPI(nbr_t *nb, int iters, int axis);
+void ge_take3(nbr_t *nb, double *src, size_t destp, int axis, MPI_Request *req);
+MPI_Request *ge_post3(nbr_t *nb, int dir, int axis, MPI_Request *req);
+void ge_give3(nbr_t *nb, int dir, int axis, MPI_Request *req);
 
 void BARRIER() {
   DEBUGMSG("entering barrier");
@@ -200,7 +198,7 @@ int64_t getMicrosecondTimeStamp() {
 #define TIME()	getMicrosecondTimeStamp()
 
 
-void init_stat(nbour_t *nb, stat_struct_t *st, int axis, int dims, int sz)
+void init_stat(nbr_t *nb, stat_struct_t *st, int axis, int dims, int sz)
 {
 	st->iters = 0;
 	st->dims = dims;
@@ -220,7 +218,7 @@ void update_stat(stat_struct_t *st, uint64_t temptime, int iters)
 	st->time += temptime;
 } 
 
-void print_stat(nbour_t *nb, int myproc, stat_struct_t *st, const char *name)
+void print_stat(nbr_t *nb, int myproc, stat_struct_t *st, const char *name)
 {
 	int	i,j,c;
 	float	cattimes[4] = { 0.0 };
@@ -230,10 +228,10 @@ void print_stat(nbour_t *nb, int myproc, stat_struct_t *st, const char *name)
 
 	/* Update statistics at zero.
 	 * If we are doing a per-axis test, we separate the printed values
-	 * within three categories based on the type of neighbour updates that
+	 * within three categories based on the type of neighbor updates that
 	 * were completed.
 	 *
-	 * Updates to Upper/Lower neighbour can be
+	 * Updates to Upper/Lower neighbor can be
 	 *  1. Global/Global (both updates required communication)
 	 *  2. Global/Local or Local/Global (only one update req'd comm).
 	 *  3. Local/Local (no updates required communication)
@@ -298,9 +296,9 @@ void print_stat(nbour_t *nb, int myproc, stat_struct_t *st, const char *name)
 	      st->dims, 'x'+st->axis, st->datasize, st->iters, cattimes[2], stdev[2], name
 	    );
 	}
-	if (nbour_fp != NULL) {
+	if (nbr_fp != NULL) {
 	    int cat = catcount[3] > 0 ? 3 : 2;
-	    fprintf(nbour_fp, "%-11s %c %4i %8i %9.2f %8.2f ",
+	    fprintf(nbr_fp, "%-11s %c %4i %8i %9.2f %8.2f ",
 	        name, cat == 3 ? 'F' : st->axis + 'x', st->dims, st->datasize, 
 		cattimes[cat], stdev[cat]);
 	    for (i = 0; i < nprocs; i++) {
@@ -309,10 +307,10 @@ void print_stat(nbour_t *nb, int myproc, stat_struct_t *st, const char *name)
 		}
 		else
 		    ttime = ((float)nb->stats0[i].time) / nb->stats0[i].iters;
-		fprintf(nbour_fp, " %9.2f", ttime);
+		fprintf(nbr_fp, " %9.2f", ttime);
 	    }
-	    fprintf(nbour_fp, "\n");
-	    fflush(nbour_fp);
+	    fprintf(nbr_fp, "\n");
+	    fflush(nbr_fp);
 	}
 
 	fflush(stdout);
@@ -332,9 +330,9 @@ usage()
     if (myproc != 0)
 	return;
 
-    printf("\ntestneighbour Neighbour-to-Neighbour microbenchmark\n\n");
-    printf("testneighbour [-f] [iters] [level]\n\n");
-    printf("-f      run full neighbour exchange (NAS MG) instead of per axis\n");
+    printf("\ntestneighbor Neighbor-to-Neighbor microbenchmark\n\n");
+    printf("testneighbor [-f] [iters] [level]\n\n");
+    printf("-f      run full neighbor exchange (NAS MG) instead of per axis\n");
     printf("[iters] How many iterations per exchange (default = 150)\n");
     printf("[level] select level of dimensions (default level = 0)\n");
     printf("   level=0 dims=<16,32,48,64,80,96,112,128>\n");
@@ -372,11 +370,7 @@ void startupMPI(int* argc, char ***argv) {
 }
 
 void shutdownMPI() {
-  char *buffer= NULL;
-  int sz = 0;
   DEBUGMSG("shutting down");
-  MPI_SAFE(MPI_Buffer_detach(&buffer, &sz));
-  free(buffer);
   MPI_SAFE(MPI_Finalize());
 
   printf("P%i exiting...\n", myproc); fflush(stdout);
@@ -388,7 +382,7 @@ main(int argc, char **argv)
 {
     int	level = 0, i;
     int alldimensions = 1;
-    char *nbourf;
+    char *nbrf;
     uintptr_t insegsz, outsegsz;
     int iters = 150;
     int dim;
@@ -435,13 +429,13 @@ main(int argc, char **argv)
     }
 
     if (!myproc) {
-      printf("=====> testmpineighbour nprocs=%d config=MPI\n", nprocs);
+      printf("=====> testmpineighbor nprocs=%d config=MPI\n", nprocs);
       fflush(stdout);
     }
 
     /* setup max grid we intend to use, so we can get enough 
      * memory per proc at startup */
-    setupGrid(&Nbour, maxdim);
+    setupGrid(&Nbr, maxdim);
 
     BARRIER();
 
@@ -449,27 +443,27 @@ main(int argc, char **argv)
      * 0 -> x: yz planes
      * 1 -> y: xz planes
      * 2 -> z: xy planes
-     * 3 -> x,y,z Full MG-like Neighbour exchange
+     * 3 -> x,y,z Full MG-like Neighbor exchange
      */
     /* We may want to gather extended info in a file */
-    if (!myproc && (nbourf = getenv("NBOURTEST_FILE")) != NULL) {
-	nbour_fp = fopen(nbourf, "w");
-	if (nbour_fp == NULL) {
-	    fprintf(stderr, "Can't open NBOURTEST_FILE %s\n", nbourf);
+    if (!myproc && (nbrf = getenv("NBRTEST_FILE")) != NULL) {
+	nbr_fp = fopen(nbrf, "w");
+	if (nbr_fp == NULL) {
+	    fprintf(stderr, "Can't open NBRTEST_FILE %s\n", nbrf);
 	    shutdownMPI();
 	    exit(1);
 	}
-	printf("Saving extended output to %s\n", nbourf);
+	printf("Saving extended output to %s\n", nbrf);
     }
     else
-	nbour_fp = NULL;
+	nbr_fp = NULL;
 
     if (!myproc) {
-        printf("\ntestneighbour running %d %s"
+        printf("\ntestneighbor running %d %s"
 	       " (%d procs over processor grid = %2i x %2i x %2i)\n",
 		iters, alldimensions ? "ghost exchanges per axis" :
 		                       "full (NAS MG-like) ghost exchanges",
-		nprocs, Nbour.procGrid[0], Nbour.procGrid[1], Nbour.procGrid[2]);
+		nprocs, Nbr.procGrid[0], Nbr.procGrid[1], Nbr.procGrid[2]);
 
 	printf(
 	       "\nReported times are the medians across all processors only"
@@ -484,11 +478,11 @@ main(int argc, char **argv)
 	    if (!myproc) {
 		if (axis == 2)
 		    printf("\nExchange over 'z' contiguous axis, grid = %d procs\n",
-			    Nbour.procGrid[2]);
+			    Nbr.procGrid[2]);
 		else
 		    printf("\nExchange over '%c' non-contiguous axis, grid = "
 			   "%d procs (DIM%s x stride %s)\n", 'x' + axis,
-			   Nbour.procGrid[axis], axis==0 ? "^2" : "",
+			   Nbr.procGrid[axis], axis==0 ? "^2" : "",
 						 axis==0 ? "DIM" : "1");
 		fflush(stdout);
 	    } 
@@ -496,13 +490,13 @@ main(int argc, char **argv)
 
 	    for (i = 0; level_dims[level][i] != 0; i++) {
 		dim = level_dims[level][i];
-		setupGrid(&Nbour, dim);
-		allocMultiGrid(&Nbour);
+		setupGrid(&Nbr, dim);
+		allocMultiGrid(&Nbr);
 		BARRIER();
 		/* In the alldimensions test, run only the non-blocking
 		 * pairwise and the AMLong versions */
-		ghostExchMPI(&Nbour, 1, axis); /* Dry run */
-		ghostExchMPI(&Nbour, iters, axis);
+		ghostExchMPI(&Nbr, 1, axis); /* Dry run */
+		ghostExchMPI(&Nbr, iters, axis);
 	    }
 	    BARRIER();
 	}
@@ -514,25 +508,25 @@ main(int argc, char **argv)
 
 	for (i = 0; level_dims[level][i] != 0; i++) {
 	    dim = level_dims[level][i];
-	    setupGrid(&Nbour, dim);
-	    allocMultiGrid(&Nbour);
+	    setupGrid(&Nbr, dim);
+	    allocMultiGrid(&Nbr);
 	    BARRIER();
-	    ghostExchMPI(&Nbour, 1, axis); /* Dry run */
-	    ghostExchMPI(&Nbour, iters, axis);
+	    ghostExchMPI(&Nbr, 1, axis); /* Dry run */
+	    ghostExchMPI(&Nbr, iters, axis);
 	}
     }
 
     BARRIER();
 
-    if (nbour_fp != NULL)
-	fclose(nbour_fp);
+    if (nbr_fp != NULL)
+	fclose(nbr_fp);
 
     shutdownMPI();
     return 0;
 }
 
 void
-setupGrid(nbour_t *nb, int dimsz)
+setupGrid(nbr_t *nb, int dimsz)
 {
     int t_grid = 1;
     int axis;
@@ -571,7 +565,7 @@ setupGrid(nbour_t *nb, int dimsz)
     totelemsPerDim = elemsPerDim + 2;
     nb->totalSize = 1;
 
-    /* Setup lower and upper neighbours in each dimension */
+    /* Setup lower and upper neighbors in each dimension */
     for (axis = 0; axis <= 2; axis++) {
 	int blocksz = elemsPerDim / nb->procGrid[axis];
 
@@ -653,7 +647,7 @@ setupGrid(nbour_t *nb, int dimsz)
  * Carve out our segment according to the grid dimensions currently set in Nb
  */
 void
-allocMultiGrid(nbour_t *nb)
+allocMultiGrid(nbr_t *nb)
 {
     int i;
     char *segaddr;
@@ -681,7 +675,7 @@ allocMultiGrid(nbour_t *nb)
 }
 
 void
-ge_take3(nbour_t *nb, double *src, size_t destp, int axis, MPI_Request *req)
+ge_take3(nbr_t *nb, double *src, size_t destp, int axis, MPI_Request *req)
 {
     int n,i,j,k;
     int dk = nb->dims2;
@@ -721,7 +715,7 @@ ge_take3(nbour_t *nb, double *src, size_t destp, int axis, MPI_Request *req)
  *
  */
 void 
-ghostExchMPI(nbour_t *nb, int iters, int axis_in)
+ghostExchMPI(nbr_t *nb, int iters, int axis_in)
 {
     int i, j, axis, dest;
     int axis_tot;
@@ -783,7 +777,7 @@ ghostExchMPI(nbour_t *nb, int iters, int axis_in)
  * Prepost a receive buffer
  */
 MPI_Request *
-ge_post3(nbour_t *nb, int dir, int axis, MPI_Request *req)
+ge_post3(nbr_t *nb, int dir, int axis, MPI_Request *req)
 {
     double *buf;
     size_t  sz;
@@ -824,7 +818,7 @@ ge_post3(nbour_t *nb, int dir, int axis, MPI_Request *req)
 }
 
 void
-ge_give3(nbour_t *nb, int dir, int axis, MPI_Request *req)
+ge_give3(nbr_t *nb, int dir, int axis, MPI_Request *req)
 {
     int	n=0,i,j,k;
     int dk = nb->dims2;
@@ -835,7 +829,7 @@ ge_give3(nbour_t *nb, int dir, int axis, MPI_Request *req)
     int	    node, srcp, destp;
     size_t  len;
 
-    //printf("%d> in give dir=%d, axis=%d\n", myproc, dir, axis);
+    /*printf("%d> in give dir=%d, axis=%d\n", myproc, dir, axis);*/
     if (dir == GHOST_DIR_UPPER) {
 	node = nb->nodeidUpper[axis];
 	srcp = nb->dims[axis]-2;
@@ -871,7 +865,6 @@ ge_give3(nbour_t *nb, int dir, int axis, MPI_Request *req)
 	default:
 	    break;
     }
-    //MPI_SAFE(
 	MPI_Isend(src, len, MPI_BYTE, node, myproc, MPI_COMM_WORLD, req);
 
     return;

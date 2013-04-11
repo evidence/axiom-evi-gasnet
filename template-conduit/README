@@ -1,5 +1,6 @@
 GASNet <conduitname>-conduit documentation
 Your Name <youremail@whereever.com> ###
+$Revision: 1.1.1.1 $
 
 User Information:
 -----------------
@@ -22,7 +23,7 @@ Known problems:
 Future work:
 ------------
 
-===============================================================================
+==============================================================================
 
 Design Overview:
 ----------------

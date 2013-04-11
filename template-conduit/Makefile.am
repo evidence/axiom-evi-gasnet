@@ -1,123 +1,101 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-#  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2002/06/01 14:24:57 $
-# $Revision: 1.1 $
+#   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/template-conduit/Makefile.am,v $
+#     $Date: 2013/04/11 19:26:08 $
+# $Revision: 1.1.1.2 $
 # Description: Makefile for GASNet <conduitname> conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
+# Terms of use are as specified in license.txt
 
 AUTOMAKE_OPTIONS = foreign 1.4
 
-if HAVE_PTHREAD
-thread_defines = @GASNET_THREAD_DEFINES@
-endif
+CONDUIT_NAME=<conduitname>
 
-INCLUDES = -I$(srcdir) -I$(top_srcdir) -I$(top_builddir)        \
-           -I$(top_srcdir)/extended-ref  
-	   
+# any conduit-specific subdirectories containing Makefile.am's
+SUBDIRS = .
 
-filelist =                   \
+# complete list of files in the conduit directory
+# include all headers, documentation, etc. 
+# and any subdirectories not containing Makefile.am's
+CONDUIT_FILELIST =           \
       gasnet_core.c          \
       gasnet_core.h          \
       gasnet_core_fwd.h      \
       gasnet_core_help.h     \
       gasnet_core_internal.h 
 
-othersourcefiles =                             \
-      $(top_srcdir)/gasnet_internal.c          \
+# list of conduit core and extended .c source files 
+# to be compiled into libgasnet on the compiler command line
+CONDUIT_SOURCELIST =          \
+      $(srcdir)/gasnet_core.c \
       $(top_srcdir)/extended-ref/gasnet_extended.c 
 
-EXTRA_DIST = $(filelist)
+# additional -I or -D directives needed by this specific conduit
+# other than the standard GASNet includes and flags
+CONDUIT_EXTRALIBCFLAGS = 
 
-libgasnet_sources = $(srcdir)/gasnet_core.c $(othersourcefiles)
-libgasnet_dependencies = $(filelist) $(libgasnet_sources) \
-                         $(top_srcdir)/*.h                \
-                         $(top_srcdir)/extended-ref/*.h       
-libgasnet_objects = gasnet_core.o gasnet_internal.o gasnet_extended.o
+# additional conduit header files to install from external, non-standard directories
+CONDUIT_EXTRAHEADERS = 
 
-if HAVE_PTHREAD
-threaded_libraries = libgasnet-<conduitname>-par.a libgasnet-<conduitname>-parsync.a
+# headers selected by default rules that should NOT be installed
+CONDUIT_PRIVATEHEADERS =
+
+# additional file dependencies not mentioned elsewhere 
+# that should force libgasnet rebuild on update
+CONDUIT_EXTRADEPS = 
+
+# additional object files to be included in libgasnet that need to be compiled 
+# using a special, conduit-specific command. These should also be included as
+# forced targets in this file, and should probably use LIBINCLUDES/LIBDEFINES
+CONDUIT_SPECIAL_OBJS = 
+
+# the default job spawn command to be used for "make run-tests"
+# The following substitutions are performed:
+#   %P = program executable name
+#   %N = requested node count
+#   %A = program arguments
+#   %Q = program arguments w/ an extra level of quotes
+#   %D = the current working directory
+#   %H = hostfile (if any)
+CONDUIT_RUNCMD = mpirun -np %N %P %A
+
+# conduit-specific tests in ../tests directory
+CONDUIT_TESTS =
+
+# -------- Do not modify anything below this line --------
+
+if BUILD_SEQ_LIBS
+libgasnet_<conduitname>_seq_a_SOURCES =
+libraries_seq = libgasnet-<conduitname>-seq.a
 endif
-libraries = libgasnet-<conduitname>-seq.a $(threaded_libraries)
+if BUILD_PAR_LIBS
+libgasnet_<conduitname>_par_a_SOURCES =
+libraries_par = libgasnet-<conduitname>-par.a
+endif
+if BUILD_PARSYNC_LIBS
+libgasnet_<conduitname>_parsync_a_SOURCES =
+libraries_parsync = libgasnet-<conduitname>-parsync.a
+endif
+libraries = $(libraries_seq) $(libraries_par) $(libraries_parsync)
 
-VPATH=$(srcdir)
+include $(top_builddir)/other/Makefile-conduit.mak
 
 libgasnet-<conduitname>-seq.a: $(libgasnet_dependencies)
-	$(CC) $(CFLAGS) $(INCLUDES) -DGASNET_SEQ -c $(libgasnet_sources)
-	$(AR) cru $@ $(libgasnet_objects)
-	$(RANLIB) $@
-	rm -f $(libgasnet_objects)
+	@$(MAKE) do-libgasnet-seq
 
 libgasnet-<conduitname>-par.a: $(libgasnet_dependencies)
-	$(CC) $(CFLAGS) $(INCLUDES) -DGASNET_PAR $(thread_defines) -c $(libgasnet_sources)
-	$(AR) cru $@ $(libgasnet_objects)
-	$(RANLIB) $@
-	rm -f $(libgasnet_objects)
+	@$(MAKE) do-libgasnet-par
 
 libgasnet-<conduitname>-parsync.a: $(libgasnet_dependencies)
-	$(CC) $(CFLAGS) $(INCLUDES) -DGASNET_PARSYNC $(thread_defines) -c $(libgasnet_sources)
-	$(AR) cru $@ $(libgasnet_objects)
-	$(RANLIB) $@
-	rm -f $(libgasnet_objects)
+	@$(MAKE) do-libgasnet-parsync
 
-.PHONY: all libs clean-local install-data-local uninstall-local tests force tests-seq tests-par tests-parsync
-
-
-libs: $(libraries)
-	
-if USE_<CONDUITNAME>_CONDUIT                           
-lib_LIBRARIES = $(libraries)
-
-all: libs
-	
-clean-local: 
-	rm -f $(libgasnet_objects) $(libraries) *.o core
-	@$(MAKE) -f $(top_srcdir)/tests/Makefile clean
-
-headers = $(srcdir)/*.h $(top_srcdir)/extended-ref/*.h 
-
-install-data-local: $(headers)
-	$(mkinstalldirs) $(includedir)/<conduitname>-conduit
-	@list='$(headers)'; for p in $$list; do \
-	  if test -f $$p; then \
-	    filename=`basename $$p` \
-	    echo " $(INSTALL_DATA) $$p $(includedir)/<conduitname>-conduit/$$filename"; \
-	    $(INSTALL_DATA) $$p $(includedir)/<conduitname>-conduit/$$filename; \
-	  else :; fi; \
-	done
-
-uninstall-local:
-	rm -f $(includedir)/<conduitname>-conduit/*.h
-
+if USE_<CONDUITNAME>_CONDUIT  
+lib_LIBRARIES = $(libraries) 
+all-local: $(lib_LIBRARIES) $(makefile_fragments)
+clean-local: do-clean-local
+install-data-local: do-install-data-local
+uninstall-local: do-uninstall-local
+else
+$(top_srcdir)/gasnet.h: do-error
 endif
-
-tests:
-	@echo You must specify one of tests-seq, tests-par or tests-parsync
-	@exit 1
-
-TESTLIBS = $(LIBGCC) $(LIBS) $(LIBM)
-
-tests-seq: force libgasnet-<conduitname>-seq.a
-	@$(MAKE) -f $(top_srcdir)/tests/Makefile tests	     \
-	  srcdir="$(top_srcdir)/tests"			     \
-	  COMPILE="$(CC) $(CFLAGS) $(INCLUDES) -DGASNET_SEQ" \
-	  LINK="$(CC) $(CFLAGS)"                     \
-	  LINKEND="-L$(top_builddir)/<conduitname>-conduit -lgasnet-<conduitname>-seq $(TESTLIBS)" 
-
-tests-par: force libgasnet-<conduitname>-par.a
-	@$(MAKE) -f $(top_srcdir)/tests/Makefile tests	     \
-	  srcdir="$(top_srcdir)/tests"			     \
-	  COMPILE="$(CC) $(CFLAGS) $(INCLUDES) -DGASNET_PAR $(thread_defines)" \
-	  LINK="$(CC) $(CFLAGS)"                     \
-	  LINKEND="-L$(top_builddir)/<conduitname>-conduit -lgasnet-<conduitname>-par $(TESTLIBS) $(GASNET_THREAD_LIBS)" 
-
-tests-parsync: force libgasnet-<conduitname>-parsync.a
-	@$(MAKE) -f $(top_srcdir)/tests/Makefile tests	         \
-	  srcdir="$(top_srcdir)/tests"			         \
-	  COMPILE="$(CC) $(CFLAGS) $(INCLUDES) -DGASNET_PARSYNC $(thread_defines)" \
-	  LINK="$(CC) $(CFLAGS)"                     \
-	  LINKEND="-L$(top_builddir)/<conduitname>-conduit -lgasnet-<conduitname>-parsync $(TESTLIBS) $(GASNET_THREAD_LIBS) " 
-
-force:
-	
 
 

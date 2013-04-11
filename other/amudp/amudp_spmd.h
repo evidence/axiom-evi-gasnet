@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/AMUDP/amudp_spmd.h                                     $
- *     $Date: 2003/12/11 20:19:53 $
- * $Revision: 1.1 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_spmd.h,v $
+ *     $Date: 2013/04/11 19:26:07 $
+ * $Revision: 1.1.1.1 $
  * Description: AMUDP Header for SPMD interface
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -10,14 +10,17 @@
 
 #include <amudp.h>
 
-BEGIN_EXTERNC
+SOCK_BEGIN_EXTERNC
+
+/* idiot proofing */
+#undef  AMUDP_SPMDStartup
+#define AMUDP_SPMDStartup _CONCAT(AMUDP_SPMDStartup_AMUDP,AMUDP_DEBUG_CONFIG)
 
 /* ------------------------------------------------------------------------------------ */
 /* AMUDP SPMD Entry Points */
 
 typedef int (*amudp_spawnfn_t)(int nproc, int argc, char **argv);
 /* return non-zero if successful */
-
 
 extern int AMUDP_SPMDStartup(int *argc, char ***argv,
                              int nproc, int networkdepth, 
@@ -48,9 +51,16 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
 extern int AMUDP_SPMDExit(int exitcode); 
   /* terminate the parallel job with given exit code (also handles AM_Terminate)
    */
+#if defined(__GNUC__) && (__GNUC__ < 3 || (__GNUC__ == 3 && __GNUC_MINOR__ == 0))
+  /* adding extern C for these versions fails with "multiple storage classes in 
+     declaration of `amudp_exitcallback_t'" */
+#else
+  SOCK_EXTERNC 
+#endif
+typedef void (*amudp_exitcallback_t)(int);
 
-extern int AMUDP_SPMDSetExitCallback(void (*fp)(int));
-  /* register a function to be called when AMMPI_SPMDExit is called by any node
+SOCK_EXTERNC int AMUDP_SPMDSetExitCallback(amudp_exitcallback_t);
+  /* register a function to be called when AMUDP_SPMDExit is called by any node
    * exit code is passed
    */
 extern void (*AMUDP_SPMDkillmyprocess)(int);
@@ -60,10 +70,10 @@ extern int AMUDP_SPMDIsWorker(char **argv);
   /* given the initial command line arguments, determine whether this process is a 
    * worker process created by the AMUDP SPMD job startup API
    */
-extern int AMUDP_SPMDNumProcs(); /* return the number of processors in the parallel job */
-extern int AMUDP_SPMDMyProc();   /* return a zero-based unique identifier of this processor in the parallel job */
+extern int AMUDP_SPMDNumProcs(void); /* return the number of processors in the parallel job */
+extern int AMUDP_SPMDMyProc(void);   /* return a zero-based unique identifier of this processor in the parallel job */
 
-extern int AMUDP_SPMDBarrier(); 
+extern int AMUDP_SPMDBarrier(void); 
 /* block until all SPMD processors call this function, 
  * and poll the SPMD endpoint while waiting
  * a slow, but functional barrier that is advisable to call after setting up handlers
@@ -106,6 +116,22 @@ typedef struct {
 extern amudp_spawnfn_desc_t const AMUDP_Spawnfn_Desc[];
 /* null-terminated array of spawn functions available, with descriptions */
 
-END_EXTERNC
+/* ------------------------------------------------------------------------------------ */
+/* standardized AM-2 extensions */
+
+#define AMX_SPMDgetenvMaster      AMUDP_SPMDgetenvMaster
+#define AMX_SPMDBarrier           AMUDP_SPMDBarrier
+#define AMX_SPMDNumProcs          AMUDP_SPMDNumProcs
+#define AMX_SPMDMyProc            AMUDP_SPMDMyProc
+#define AMX_SPMDExit              AMUDP_SPMDExit
+#define AMX_SPMDSetExitCallback   AMUDP_SPMDSetExitCallback          
+#define AMX_SPMDkillmyprocess     AMUDP_SPMDkillmyprocess
+#define AMX_SPMDIsWorker          AMUDP_SPMDIsWorker
+#define AMX_SPMDAllGather         AMUDP_SPMDAllGather
+
+#define AMX_SPMDStartup(pargc, pargv, networkdepth, pnetworkpid, peb, pep) \
+      AMUDP_SPMDStartup((pargc), (pargv), 0, (networkdepth), NULL, (pnetworkpid), (peb), (pep))
+
+SOCK_END_EXTERNC
 
 #endif

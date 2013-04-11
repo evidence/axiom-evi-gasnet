@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/GASNet/tests/testgasnet.c                              $
- *     $Date: 2003/08/31 12:38:56 $
- * $Revision: 1.1 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testmpi.c,v $
+ *     $Date: 2013/04/11 19:26:08 $
+ * $Revision: 1.1.1.1 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -9,11 +9,10 @@
 #include <mpi.h>
 
 #define TEST_MPI 1
-#define HAVE_MPI 1  /* required for using mpi.h w/ mpi-conduit/AMMPI */
 #include "testthreads.c"
 
 static char *MPI_ErrorName(int errval) {
-  char *code = NULL;
+  const char *code = NULL;
   char systemErrDesc[MPI_MAX_ERROR_STRING+10];
   int len = MPI_MAX_ERROR_STRING;
   static char msg[MPI_MAX_ERROR_STRING+100];
@@ -42,7 +41,7 @@ static char *MPI_ErrorName(int errval) {
     }
   if (MPI_Error_string(errval, systemErrDesc, &len) != MPI_SUCCESS || len == 0)
     strcpy(systemErrDesc, "(no description available)");
-  sprintf(msg, "%s(%i): %s", code, errval, systemErrDesc);
+  snprintf(msg, sizeof(msg), "%s(%i): %s", code, errval, systemErrDesc);
   return msg;
   }
 
@@ -50,7 +49,7 @@ static char *MPI_ErrorName(int errval) {
    int retcode = (fncall);                                                                        \
    if_pf (retcode != MPI_SUCCESS) {                                                               \
      char msg[1024];                                                                              \
-     sprintf(msg, "\ntestmpi encountered an MPI Error: %s(%i)\n", MPI_ErrorName(retcode), retcode); \
+     snprintf(msg, sizeof(msg), "\ntestmpi encountered an MPI ERROR: %s(%i)\n", MPI_ErrorName(retcode), retcode); \
    }                                                                                              \
  } while (0)
 
@@ -95,7 +94,7 @@ char **mpi_buf;
 int *mpi_bufsz;
 
 /* called by a single thread after gasnet_attach and args parsing */
-void attach_test_mpi() {
+void attach_test_mpi(void) {
     int rank;
     int gasnet_node;
     int mpinodes;
@@ -109,16 +108,18 @@ void attach_test_mpi() {
 
     MPI_SAFE(MPI_Comm_rank(MPI_COMM_WORLD, &rank));
     MPI_SAFE(MPI_Comm_size(MPI_COMM_WORLD, &mpinodes));
-    printf("GASNet node %i == MPI node %i\n", gasnet_mynode(), rank);
-    assert(mpinodes == gasnet_nodes() && rank >= 0 && rank < mpinodes);
+    printf("GASNet node %i == MPI node %i\n", (int)gasnet_mynode(), rank);
+    if (gasnet_mynode() != rank) 
+      printf("WARNING: Node numbering between GASNet and MPI do not coincide\n");
+    assert_always(mpinodes == gasnet_nodes() && rank >= 0 && rank < mpinodes);
     gasnet_node = gasnet_mynode();
     MPI_SAFE(MPI_Allgather(&gasnet_node,sizeof(int),MPI_BYTE,
                            mpirank_to_gasnetnode,sizeof(int),MPI_BYTE,
                            MPI_COMM_WORLD));
-    assert(mpirank_to_gasnetnode[rank] == gasnet_mynode());
+    assert_always(mpirank_to_gasnetnode[rank] == gasnet_mynode());
     for (i = 0; i < mpinodes; i++) gasnetnode_to_mpirank[i] = -1;
     for (i = 0; i < mpinodes; i++) gasnetnode_to_mpirank[mpirank_to_gasnetnode[i]] = i;
-    for (i = 0; i < mpinodes; i++) assert(gasnetnode_to_mpirank[i] != -1);
+    for (i = 0; i < mpinodes; i++) assert_always(gasnetnode_to_mpirank[i] != -1);
 
     tot_threads = threads_num * gasnet_nodes();
     mpi_recvhandle = test_malloc(sizeof(MPI_Request)*tot_threads);
@@ -136,31 +137,36 @@ void attach_test_mpi() {
 }
 
 void mpi_barrier(threaddata_t *tdata) {
-  static pthread_mutex_t  barrier_mutex = PTHREAD_MUTEX_INITIALIZER;
-  static pthread_cond_t   barrier_cond = PTHREAD_COND_INITIALIZER;
+#if GASNET_PAR
+  static gasnett_mutex_t  barrier_mutex = GASNETT_MUTEX_INITIALIZER;
+  static gasnett_cond_t   barrier_cond = GASNETT_COND_INITIALIZER;
   static volatile int     barrier_count = 0;
   static int volatile phase = 0;
-  pthread_mutex_lock(&barrier_mutex);
+  gasnett_mutex_lock(&barrier_mutex);
   barrier_count++;
   if (barrier_count < threads_num) {
     int myphase = phase;
     while (myphase == phase) {
-      pthread_cond_wait(&barrier_cond, &barrier_mutex);
+      gasnett_cond_wait(&barrier_cond, &barrier_mutex);
     }
   } else {
     /* All threads here - now do the MPI barrier */
     MPI_SAFE(MPI_Barrier(MPI_COMM_WORLD));
     barrier_count = 0;
     phase = !phase;
-    pthread_cond_broadcast(&barrier_cond);
+    gasnett_cond_broadcast(&barrier_cond);
   }
-  pthread_mutex_unlock(&barrier_mutex);
+  gasnett_mutex_unlock(&barrier_mutex);
+#else
+  MPI_SAFE(MPI_Barrier(MPI_COMM_WORLD));
+#endif
 }
 
 #if MPI_THREADSAFE
   #define MPI_LOCK()
   #define MPI_UNLOCK()
 #else
+  GASNETI_UNUSED_UNLESS_THREADS
   static gasnet_hsl_t  mpi_hsl = GASNET_HSL_INITIALIZER;
   #define MPI_LOCK()   gasnet_hsl_lock(&mpi_hsl)
   #define MPI_UNLOCK() gasnet_hsl_unlock(&mpi_hsl)
@@ -175,7 +181,7 @@ void mpi_handler(gasnet_token_t token, harg_t tid, harg_t sz) {
   gasnet_AMGetMsgSource(token, &node);
 
   PRINT_AM(("node=%2d> AMShort MPI Request for tid=%i, nbytes=%i\n",
-            gasnet_mynode(), tid, sz));
+            (int)gasnet_mynode(), (int)tid, (int)sz));
   assert(tt_thread_map[tid] == node);
   assert(sz > 0);
   mpipeer = gasnetnode_to_mpirank[node];
@@ -190,7 +196,7 @@ void mpi_handler(gasnet_token_t token, harg_t tid, harg_t sz) {
     mpi_buf[tid] = buf;
     mpi_bufsz[tid] = sz;
 
-    ACTION_PRINTF("node=%2d> setting MPI_Irecv, %i bytes\n", gasnet_mynode(), sz);
+    ACTION_PRINTF("node=%2d> setting MPI_Irecv, %i bytes\n", (int)gasnet_mynode(), (int)sz);
     MPI_SAFE(MPI_Irecv(mpi_buf[tid], sz, MPI_BYTE, mpipeer, tag, MPI_COMM_WORLD, &(mpi_recvhandle[tid])));
     assert(mpi_recvhandle[tid] != MPI_REQUEST_NULL);
           
@@ -218,7 +224,7 @@ void mpi_probehandler(gasnet_token_t token, harg_t tid) {
         assert(mpi_recvhandle[tid] == MPI_REQUEST_NULL);
         assert(mpi_sendhandle[tid] == MPI_REQUEST_NULL);
         assert(mpi_buf[tid] != NULL && sz >= 0);
-        ACTION_PRINTF("node=%2d> sending MPI reply message, %i bytes\n", gasnet_mynode(), sz);
+        ACTION_PRINTF("node=%2d> sending MPI reply message, %i bytes\n", (int)gasnet_mynode(), sz);
         MPI_SAFE(MPI_Isend(mpi_buf[tid], sz, MPI_BYTE, mpipeer, 10000+tag, MPI_COMM_WORLD, &(mpi_sendhandle[tid])));
         assert(mpi_sendhandle[tid] != MPI_REQUEST_NULL);
       } 
@@ -241,7 +247,7 @@ void mpi_probehandler(gasnet_token_t token, harg_t tid) {
     test_free(mpi_buf[tid]);
     mpi_buf[tid] = NULL;
     PRINT_AM(("node=%2d> Sending AMShort MPI Reply for tid=%i\n",
-            gasnet_mynode(), tid));
+            (int)gasnet_mynode(), (int)tid));
     GASNET_Safe(gasnet_AMReplyShort1(token, hidx_mpi_replyhandler, tid));
   }
 }
@@ -249,7 +255,7 @@ void mpi_probehandler(gasnet_token_t token, harg_t tid) {
 void mpi_replyhandler(gasnet_token_t token, harg_t tid) {
   int ltid = tid - gasnet_mynode()*threads_num;
   PRINT_AM(("node=%2d> Got AMShort MPI Reply for tid=%d\n",
-                        gasnet_mynode(), tid));
+                        (int)gasnet_mynode(), (int)tid));
   assert(tt_thread_map[tid] == gasnet_mynode());
   tt_thread_data[ltid].flag = 0;
 }
@@ -295,7 +301,7 @@ void test_mpi(threaddata_t *tdata) {
     sendbuf = (char*)test_malloc(sz);
     recvbuf = (char*)test_malloc(sz);
 
-    for (i=0; i < sz; i++) {
+    for (i=0; i < MIN(sz,4096); i++) { /* randomize at least the first 4 KB */
       sendbuf[i] = (char)rand();
     }
 
@@ -315,7 +321,7 @@ void test_mpi(threaddata_t *tdata) {
 
 
     tdata->flag = -1;
-    gasnett_local_membar();
+    gasnett_local_wmb();
     ACTION_PRINTF("tid=%3d> MPI AMShortRequest to tid=%3d\n", tdata->tid, peer);
     GASNET_Safe(gasnet_AMRequestShort2(node, hidx_mpi_handler, tdata->tid, sz));
 
@@ -323,7 +329,7 @@ void test_mpi(threaddata_t *tdata) {
       ACTION_PRINTF("tid=%3d> MPI probe AMShortRequest to tid=%3d\n", tdata->tid, peer);
       GASNET_Safe(gasnet_AMRequestShort1(node, hidx_mpi_probehandler, tdata->tid));
 
-      sched_yield();
+      gasnett_sched_yield();
       test_sleep(tdata);
       GASNET_Safe(gasnet_AMPoll());
       mpi_test(&sendhandle); /* occasional testing may be required for progress */
@@ -336,10 +342,8 @@ void test_mpi(threaddata_t *tdata) {
 
     /* verify */
     for (i=0; i < sz; i++) {
-      if (sendbuf[i] != recvbuf[i]) {
-        fprintf(stderr,"ERROR: mismatch at element %i in MPI test.", i);
-        abort();
-      }
+      if (sendbuf[i] != recvbuf[i])
+        FATALERR("mismatch at element %i in MPI test.", i);
     }
 
     test_free(sendbuf);

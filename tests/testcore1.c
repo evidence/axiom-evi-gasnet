@@ -1,7 +1,8 @@
-/* $Id: testcore1.c,v 1.1 2002/08/05 03:11:17 csbell Exp $
- * $Date: 2002/08/05 03:11:17 $
- * $Revision: 1.1 $
+/* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcore1.c,v $
+ * $Date: 2013/04/11 19:26:08 $
+ * $Revision: 1.1.1.1 $
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
  *
  * Description: GASNet Core Monotonic checksum test
  * This stress tests the ability of the core to successfully send
@@ -19,20 +20,11 @@
  * Steps 2 and 3 are puts for each other node.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <sys/time.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <gasnet.h>
 #include "test.h"
-
-DECLARE_ALIGNED_SEG(PAGESZ);
 
 #define DEBUG_TRACE
 #define CHKSUM_LENGTH	8
-#define CHKSUM_NUM	400
+#define CHKSUM_NUM	64
 #define CHKSUM_TOTAL	CHKSUM_LENGTH*CHKSUM_NUM
 #define TESTSafe(x, msg) do {					\
 	    if (!(x)) {  printf msg; gasnet_exit(1); } } while (0)
@@ -51,10 +43,9 @@ int	numprocs;
 gasnet_seginfo_t *seginfo_table;
 
 /* Test specific globals */
-int		chksum_success = 0;
-int		chksum_iters = 0;
-int		chksum_received = 0;
-unsigned char   chksum_reqbuf[CHKSUM_TOTAL];
+int		 chksum_iters = 0;
+gasnett_atomic_t chksum_success  = gasnett_atomic_init(0);
+gasnett_atomic_t chksum_received = gasnett_atomic_init(0);
 
 #define CHKSUM_DUMP(chksum) do {			\
 		int i = 0;				\
@@ -86,12 +77,13 @@ chksum_gen(int seed, void *buf)
 {
 	int		i;
 	uint64_t	chksum;
+        uint8_t         *p = buf;
 
 	chksum = test_checksum((void *)&seed, 4);
 	for (i = 0; i < CHKSUM_NUM; i++) {
 		chksum = test_checksum((void *)&chksum, CHKSUM_LENGTH);
-		memcpy(buf, &chksum, CHKSUM_LENGTH);
-		buf += CHKSUM_LENGTH;
+		memcpy(p, &chksum, CHKSUM_LENGTH);
+		p += CHKSUM_LENGTH;
 	}
 	return;
 }
@@ -100,15 +92,13 @@ void
 monoseed_init(int num)
 {
 	int 		i;
-	uint64_t	chksum;
 
 	if (myproc % 2 == 0) {
-		_mseed = (monoseed_t *) malloc(sizeof(monoseed_t) * num);
-		assert(_mseed != NULL);
-		srandom(time(0));
+		_mseed = (monoseed_t *) test_malloc(sizeof(monoseed_t) * num);
+	        srand((int)TIME());
 
 		for (i = 0; i < num; i++) {
-			_mseed[i].seed = (int) random() + 1;
+			_mseed[i].seed = (int) rand() + 1;
 			chksum_gen(_mseed[i].seed, &_mseed[i].chksum);
 		}
 	}
@@ -120,6 +110,10 @@ chksum_test(int iters)
 {
 	int	i;
 	int	iamsender, iamreceiver;
+	int     received;
+#ifdef VERBOSE
+	int     nloop = 0;
+#endif
 
 	iamsender = (myproc % 2 == 0);
 	iamreceiver = !iamsender;
@@ -133,23 +127,35 @@ chksum_test(int iters)
 				201, i, _mseed[i].seed));
 	}
 
-	while (chksum_received < iters) {
+	while ( (received = gasnett_atomic_read(&chksum_received,0)) < iters ) {
 		/*
 		if (iamreceiver) {
-			if (chksum_received % 5 == 0) {
+			if (received % 5 == 0) {
 				printf("sleep 1\n");
 				sleep(1);
 			}
 		}
 		*/
-		gasnet_AMPoll();
+#ifdef VERBOSE
+	    nloop++;
+	    if (nloop % 1000 == 0) {
+		printf("TEST[%d] nloop = %d chksum_received = %d\n",
+		       myproc,nloop,received);
+	    }
+#endif
+	    gasnet_AMPoll();
 	}
+#ifdef VERBOSE
+	printf("TEST[%d] COMPLETE: nloop = %d chksum_received = %d\n",
+	       myproc,nloop,received);
+#endif
 
 	BARRIER();
 
 	if (iamsender) {
+	        int success = gasnett_atomic_read(&chksum_success,0);
 		printf("chksum_test(%d) passed %d/%d\n", chksum_iters, 
-		    chksum_success, chksum_received);
+		    success, received);
 	}
 }
 
@@ -168,7 +174,9 @@ chksum_test(int iters)
 void chksum_reqh(gasnet_token_t token, 
 	gasnet_handlerarg_t iter, gasnet_handlerarg_t seed)
 {
-	chksum_received++;
+        unsigned char   chksum_reqbuf[CHKSUM_TOTAL];
+
+	gasnett_atomic_increment(&chksum_received, 0);
 	chksum_gen(seed, &chksum_reqbuf);
 	monoseed_trace(iter, seed, &chksum_reqbuf, NULL);
 	GASNET_Safe( 
@@ -181,16 +189,14 @@ void
 chksum_reph(gasnet_token_t token, 
 	void *buf, size_t nbytes, gasnet_handlerarg_t iter) 
 {
-	uint64_t	chksum;
-
-	chksum_received++;
-	assert(iter < chksum_iters && iter >= 0);
-	assert(nbytes == CHKSUM_TOTAL);
+	gasnett_atomic_increment(&chksum_received, 0);
+	assert_always(iter < chksum_iters && iter >= 0);
+	assert_always(nbytes == CHKSUM_TOTAL);
 	monoseed_trace(iter, _mseed[iter].seed, &_mseed[iter].chksum, buf);
 	if (memcmp(&_mseed[iter].chksum, buf, CHKSUM_LENGTH) == 0) 
-		chksum_success++;
+  	        gasnett_atomic_increment(&chksum_success, 0);
 	else {
-		printf("iter %3d failed! chksum_local=", iter);
+		printf("iter %3d failed! chksum_local=", (int)iter);
 		CHKSUM_DUMP(&_mseed[iter].chksum);
 		printf(" chksum_remote=");
 		CHKSUM_DUMP(buf);
@@ -211,29 +217,31 @@ main(int argc, char **argv)
 	};
 
 	/* call startup */
-	GASNET_Safe(gasnet_init(&argc, &argv, htable, 
-	    sizeof(htable)/sizeof(gasnet_handlerentry_t), MYSEG(), SEGSZ(), 0));
+        GASNET_Safe(gasnet_init(&argc, &argv));
+        GASNET_Safe(gasnet_attach(htable, sizeof(htable)/sizeof(gasnet_handlerentry_t), TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
+	test_init("testcore1",0,"(iters)");
 
-	if (argc < 2) {
-		printf("Usage: %s <iters>\n", argv[0]);
-		gasnet_exit(1);
-	}
+        assert(CHKSUM_TOTAL <= gasnet_AMMaxMedium());
+
 	if (argc > 1) iters = atoi(argv[1]);
-	if (!iters) iters = 1;
+	if (!iters) iters = 1000;
+        if (argc > 2) test_usage();
+	
 
 	/* get SPMD info */
 	chksum_iters = iters;
 	myproc = gasnet_mynode();
 	numprocs = gasnet_nodes();
-	TESTSafe(numprocs % 2 == 0, ("Need an even number of threads\n"));
+        /* Only allow even number for numprocs */
+        if (numprocs % 2 != 0) {
+          MSG0("WARNING: This test requires an even number of nodes. Test skipped.\n");
+          gasnet_exit(0); /* exit 0 to prevent false negatives in test harnesses for smp-conduit */
+        }
 	peerproc = (myproc % 2) ? myproc-1 : myproc+1;
 
-	seginfo_table = (gasnet_seginfo_t *) malloc(sizeof(gasnet_seginfo_t) * numprocs);
-	if (seginfo_table == NULL) {
-		printf("Cannot allocate seginfo_table.\n");
-		gasnet_exit(1);
-	}
+	seginfo_table = (gasnet_seginfo_t *) test_malloc(sizeof(gasnet_seginfo_t) * numprocs);
 
+	printf("%d> starting monoseed_init(%d)\n", myproc, iters);
 	monoseed_init(iters);
 	printf("%d> starting chksums_test(%d)\n", myproc, iters);
 	chksum_test(iters);

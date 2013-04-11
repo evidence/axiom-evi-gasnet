@@ -1,6 +1,6 @@
-//  $Archive:: /Ti/AMUDP/socklist.h                                       $
-//     $Date: 2003/12/11 20:19:53 $
-// $Revision: 1.1 $
+//   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/socklist.h,v $
+//     $Date: 2013/04/11 19:26:07 $
+// $Revision: 1.1.1.1 $
 // Description: 
 // Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
 
@@ -10,7 +10,7 @@
 #include "socket.h"
 #include <stdlib.h>
 
-#ifdef _MT
+#ifdef SOCKLIST_MT
   #include "semaphor.h"
 #endif
 
@@ -22,7 +22,7 @@ class SocketList {
     unsigned long maxfd;
     fd_set prvSet;
 
-    #ifdef _MT
+    #ifdef SOCKLIST_MT
       static semaphore lock; 
     #endif
     int TS; // threadsafe?
@@ -34,10 +34,10 @@ class SocketList {
     ~SocketList();
 
     void clear();
-    unsigned long getCount() { return count; }
-    unsigned long getMaxFd() { return maxfd; }
+    unsigned long getCount(void) { return count; }
+    unsigned long getMaxFd(void) { return maxfd; }
 
-    #ifdef _MT
+    #ifdef SOCKLIST_MT
       void setThreadSafe(int ThreadSafe) { TS = ThreadSafe; }
     #endif
 
@@ -55,8 +55,6 @@ class SocketList {
     int getIntersection(fd_set* set, SOCKET* buffer, int bufsiz);
       // same as above except return the number matched
 
-    };
-
-
+};
 
 #endif

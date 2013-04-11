@@ -1,6 +1,6 @@
-/*   $Archive::                                                            $ */
-/*      $Date: 2004/04/19 23:22:52 $ */
-/*  $Revision: 1.1 $ */
+/*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/portable_inttypes.h,v $ */
+/*      $Date: 2013/04/11 19:26:07 $ */
+/*  $Revision: 1.1.1.1 $ */
 /*  Description: portable_inttypes.h  */
 /*  Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu> */
 
@@ -25,8 +25,17 @@
 
 #ifndef _INTTYPES_DEFINED
 #define _INTTYPES_DEFINED
-  /* first, certain known systems are handled specially */
-  #if defined(WIN32) && defined(_MSC_VER)
+  /* first, check for the easy and preferred case - 
+     if configure reports that a standards-compliant 
+     system header is available, then use it */
+  #if defined(COMPLETE_INTTYPES_H)
+    #include <inttypes.h>
+  #elif defined(COMPLETE_STDINT_H)
+    #include <stdint.h>
+  #elif defined(COMPLETE_SYS_TYPES_H)
+    #include <sys/types.h>
+  /* next, certain known systems are handled specially */
+  #elif defined(_WIN32) && defined(_MSC_VER) /* MS Visual C++ */
     typedef signed __int8      int8_t;
     typedef unsigned __int8   uint8_t;
     typedef __int16           int16_t;
@@ -39,7 +48,8 @@
     typedef          int     intptr_t; 
     typedef unsigned int    uintptr_t; 
   #elif defined(_CRAYT3E)
-    /* oddball architecture lacks a 16-bit type */
+    /* oddball architecture lacking a 16-bit type */
+    #define INTTYPES_16BIT_MISSING 1
     typedef signed char        int8_t;
     typedef unsigned char     uint8_t;
     typedef short             int16_t; /* This is 32-bits, should be 16 !!! */
@@ -51,6 +61,14 @@
 
     typedef          int     intptr_t; 
     typedef unsigned int    uintptr_t; 
+  #elif defined(__MTA__)
+    #include <sys/types.h>
+    typedef u_int8_t          uint8_t;
+    typedef u_int16_t        uint16_t;
+    typedef u_int32_t        uint32_t;
+    typedef u_int64_t        uint64_t;
+    typedef int64_t          intptr_t;
+    typedef u_int64_t       uintptr_t;
   #elif defined(_SX)
     #include <sys/types.h> /* provides int32_t and uint32_t - use to prevent conflict */
     typedef signed char        int8_t;
@@ -63,114 +81,129 @@
     typedef          long    intptr_t; 
     typedef unsigned long   uintptr_t; 
   #elif defined(__CYGWIN__)
-    /* inttypes.h is incomplete or missing on some versions of cygwin */
-    #include <sys/types.h>
-    #ifndef __uint8_t_defined
-      typedef u_int8_t     uint8_t;
+    /* what a mess - 
+       inttypes.h and stdint.h are incomplete or missing on 
+       various versions of cygwin, with no easy way to check */
+    #ifdef HAVE_INTTYPES_H
+      #include <inttypes.h>
     #endif
-    #ifndef __uint16_t_defined
-      typedef u_int16_t   uint16_t; 
+    #ifdef HAVE_STDINT_H
+      #include <stdint.h>
+    #endif
+    #ifdef HAVE_SYS_TYPES_H
+      #include <sys/types.h>
     #endif
     #ifndef __uint32_t_defined
+      typedef u_int8_t     uint8_t;
+      typedef u_int16_t   uint16_t; 
       typedef u_int32_t   uint32_t;
-    #endif
-    #ifndef __uint64_t_defined
       typedef u_int64_t   uint64_t;
     #endif
     #ifndef __intptr_t_defined
       typedef          int     intptr_t; 
-    #endif
-    #ifndef __uintptr_t_defined
       typedef unsigned int    uintptr_t; 
-    #endif
-  #elif defined(HAVE_INTTYPES_H)
-    /* configure says the system header is available, so use it */
-    #include <inttypes.h>
-    #ifndef _USING_INTTYPES_H
-    #define _USING_INTTYPES_H
     #endif
   #elif defined(SIZEOF_CHAR) && \
         defined(SIZEOF_SHORT) && \
         defined(SIZEOF_INT) && \
         defined(SIZEOF_LONG) && \
+        defined(SIZEOF_LONG_LONG) && \
         defined(SIZEOF_VOID_P)
-      /* configure-detected integer sizes are available, so use those to automatically detect the sizes */
+      /* configure-detected integer sizes are available, 
+       * so use those to automatically detect the sizes 
+       * system headers may typedef some subset of these, 
+       * so we cannot safely use typedefs here
+       * so use macros instead
+       */
+      /* first include the system headers if we know we have them, to try and avoid conflicts */
+      #ifdef HAVE_INTTYPES_H
+        #include <inttypes.h>
+      #endif
+      #ifdef HAVE_STDINT_H
+        #include <stdint.h>
+      #endif
+      #ifdef HAVE_SYS_TYPES_H
+        #include <sys/types.h>
+      #endif
+
       #if SIZEOF_CHAR == 1
-        typedef signed   char  int8_t;
-        typedef unsigned char uint8_t;
+        typedef signed   char  _pit_int8_t;
+        typedef unsigned char _pit_uint8_t;
       #else
         #error Cannot find an 8-bit type for your platform
       #endif
 
       #if SIZEOF_CHAR == 2
-        typedef signed   char  int16_t;
-        typedef unsigned char uint16_t;
+        typedef signed   char  _pit_int16_t;
+        typedef unsigned char _pit_uint16_t;
       #elif SIZEOF_SHORT == 2
-        typedef          short  int16_t;
-        typedef unsigned short uint16_t;
+        typedef          short  _pit_int16_t;
+        typedef unsigned short _pit_uint16_t;
       #elif SIZEOF_INT == 2
-        typedef          int  int16_t;
-        typedef unsigned int uint16_t;
+        typedef          int  _pit_int16_t;
+        typedef unsigned int _pit_uint16_t;
       #else
         #error Cannot find a 16-bit type for your platform
       #endif
 
       #if SIZEOF_SHORT == 4
-        typedef          short  int32_t;
-        typedef unsigned short uint32_t;
+        typedef          short  _pit_int32_t;
+        typedef unsigned short _pit_uint32_t;
       #elif SIZEOF_INT == 4
-        typedef          int  int32_t;
-        typedef unsigned int uint32_t;
+        typedef          int  _pit_int32_t;
+        typedef unsigned int _pit_uint32_t;
       #elif SIZEOF_LONG == 4
-        typedef          long  int32_t;
-        typedef unsigned long uint32_t;
+        typedef          long  _pit_int32_t;
+        typedef unsigned long _pit_uint32_t;
       #else
         #error Cannot find a 32-bit type for your platform
       #endif
 
       #if SIZEOF_INT == 8
-        typedef          int  int64_t;
-        typedef unsigned int uint64_t;
+        typedef          int  _pit_int64_t;
+        typedef unsigned int _pit_uint64_t;
       #elif SIZEOF_LONG == 8
-        typedef          long  int64_t;
-        typedef unsigned long uint64_t;
+        typedef          long  _pit_int64_t;
+        typedef unsigned long _pit_uint64_t;
       #elif SIZEOF_LONG_LONG == 8
-        typedef          long long  int64_t;
-        typedef unsigned long long uint64_t;
+        typedef          long long  _pit_int64_t;
+        typedef unsigned long long _pit_uint64_t;
       #else
         #error Cannot find a 64-bit type for your platform
       #endif
 
       #if SIZEOF_VOID_P == SIZEOF_SHORT
-        typedef          short  intptr_t;
-        typedef unsigned short uintptr_t;
+        typedef          short  _pit_intptr_t;
+        typedef unsigned short _pit_uintptr_t;
       #elif SIZEOF_VOID_P == SIZEOF_INT
-        typedef          int  intptr_t;
-        typedef unsigned int uintptr_t;
+        typedef          int  _pit_intptr_t;
+        typedef unsigned int _pit_uintptr_t;
       #elif SIZEOF_VOID_P == SIZEOF_LONG
-        typedef          long  intptr_t;
-        typedef unsigned long uintptr_t;
+        typedef          long  _pit_intptr_t;
+        typedef unsigned long _pit_uintptr_t;
       #elif SIZEOF_VOID_P == SIZEOF_LONG_LONG
-        typedef          long long  intptr_t;
-        typedef unsigned long long uintptr_t;
+        typedef          long long  _pit_intptr_t;
+        typedef unsigned long long _pit_uintptr_t;
       #else
         #error Cannot find a integral pointer-sized type for your platform
       #endif  
+      
+      #define  int8_t    _pit_int8_t
+      #define uint8_t   _pit_uint8_t
+      #define  int16_t   _pit_int16_t
+      #define uint16_t  _pit_uint16_t
+      #define  int32_t   _pit_int32_t
+      #define uint32_t  _pit_uint32_t
+      #define  int64_t   _pit_int64_t
+      #define uint64_t  _pit_uint64_t
+      #define  intptr_t  _pit_intptr_t
+      #define uintptr_t _pit_uintptr_t
   #else
     /* no information available, so try inttypes.h and hope for the best 
        if we die here, the correct fix is to detect the sizes using configure 
        (and include *config.h before this file).
      */
     #include <inttypes.h>
-    #ifndef _USING_INTTYPES_H
-    #define _USING_INTTYPES_H
-    #endif
-  #endif
-
-  #if defined(HPUX) && defined(__STDC_32_MODE__) && defined(_USING_INTTYPES_H)
-    /* HPUX inttypes.h stupidly omits these in some cases */
-    typedef          long long  int64_t;
-    typedef unsigned long long uint64_t;
   #endif
 #endif /* _INTTYPES_DEFINED */
 

@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/GASNet/tests/testbarrierlate.c                         $
- *     $Date: 2004/03/12 21:48:11 $
- * $Revision: 1.1 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testbarrierlate.c,v $
+ *     $Date: 2013/04/11 19:26:08 $
+ * $Revision: 1.1.1.1 $
  * Description: GASNet barrier performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -14,28 +14,38 @@
 int main(int argc, char **argv) {
   struct delay_s {
     int64_t	delay_us;
-    int	delay_loops;
+    int64_t	delay_loops;
   } delay_params;
   int mynode, nodes, iters=0;
-  int64_t start,total,delay_us;
+  int64_t start,total,delay_us,baseline_us;
   int64_t min_time, max_time, avg_time;
-  int delay_loops = 0;
+  int64_t delay_loops = 0;
   int j, i = 0;
   int pause_len;
+  int pollcnt = 0;
 
   GASNET_Safe(gasnet_init(&argc, &argv));
-  GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ, TEST_MINHEAPOFFSET));
-
-  MSG("running...");
+  GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
+  test_init("testbarrierlate",1,"(iters) (pollcnt)");
 
   mynode = gasnet_mynode();
   nodes = gasnet_nodes();
+
   if (argc > 1) iters = atoi(argv[1]);
   if (!iters) iters = 10000;
+  if (argc > 2) pollcnt = atoi(argv[2]);
+  if (argc > 3) test_usage();
 
   if (mynode == 0) {
-      printf("Running barrier late arrival test with %i iterations...\n",iters);
+      printf("Running barrier late arrival test with %i iterations, pollcnt=%i...\n",iters, pollcnt);
       fflush(stdout);
+  }
+  BARRIER();
+
+  /* warmup */
+  for (i=0; i < MIN(100,iters/100); i++) {
+    gasnet_barrier_notify(0, GASNET_BARRIERFLAG_ANONYMOUS);            
+    GASNET_Safe(gasnet_barrier_wait(0, GASNET_BARRIERFLAG_ANONYMOUS)); 
   }
   BARRIER();
 
@@ -44,13 +54,13 @@ int main(int argc, char **argv) {
     gasnet_barrier_notify(0, GASNET_BARRIERFLAG_ANONYMOUS);            
     GASNET_Safe(gasnet_barrier_wait(0, GASNET_BARRIERFLAG_ANONYMOUS)); 
   }
-  total = TIME() - start;
+  baseline_us = TIME() - start;
 
   BARRIER();
 
   if (mynode == 0) {
       printf("Total time: %8.3f sec  Avg Anon. Barrier latency: %8.3f us\n",
-        ((float)total)/1000000, ((float)total)/iters);
+        ((float)baseline_us)/1000000, ((float)baseline_us)/iters);
       fflush(stdout);
   }
 
@@ -63,15 +73,16 @@ int main(int argc, char **argv) {
    * calibration is iterative.)
    */
   BARRIER();
-  pause_len = 1 + 2 * (total + 999999)/1000000;
+  pause_len = 1 + 4 * (baseline_us + 999999)/1000000;
 
   if (mynode == 0) {
       struct delay_s *p = (struct delay_s *)TEST_MYSEG();
 
-      printf("Calibrating delay loop (expect at least a %ds pause)... ", pause_len);
+      start = TIME();
+      printf("Calibrating delay loop (expect at least a %d sec pause)...\n", pause_len);
       fflush(stdout);
-      p->delay_us = total;	/* delay at least one full barrier time */
-      p->delay_loops = test_calibrate_delay(iters, &(p->delay_us));
+      p->delay_us = 2*baseline_us;	/* delay at least two full barrier times */
+      p->delay_loops = test_calibrate_delay(iters, pollcnt, &(p->delay_us));
   } else {
       sleep(pause_len);
   }
@@ -80,7 +91,8 @@ int main(int argc, char **argv) {
   delay_us = delay_params.delay_us;
   delay_loops = delay_params.delay_loops;
   if (mynode == 0) {
-    printf("done.\n");
+    printf("Calibration complete (actual pause = %5.3f sec).\n", (float)((TIME()-start)/1000000.0));
+    printf("Ideal loop time = %8.3f sec.\n", (float)(delay_us)/1000000.0);
     fflush(stdout);
   }
 
@@ -100,7 +112,7 @@ int main(int argc, char **argv) {
     start = TIME();
     for (i=0; i < iters; i++) {
       if (j == mynode) {
-        test_delay(delay_loops);
+        test_delay(delay_loops, pollcnt);
       }
       gasnet_barrier_notify(0, GASNET_BARRIERFLAG_ANONYMOUS);
       GASNET_Safe(gasnet_barrier_wait(0, GASNET_BARRIERFLAG_ANONYMOUS)); 
@@ -120,9 +132,9 @@ int main(int argc, char **argv) {
   avg_time /= nodes;
 
   if (mynode == 0) {
-    printf("Total difference: %8.3f sec  Late notify() Anon. Barrier net latency, minimum: %8.3f us\n", ((float)min_time)/1000000, ((float)min_time)/iters);
-    printf("Total difference: %8.3f sec  Late notify() Anon. Barrier net latency, maximum: %8.3f us\n", ((float)max_time)/1000000, ((float)max_time)/iters);
-    printf("Total difference: %8.3f sec  Late notify() Anon. Barrier net latency, average: %8.3f us\n", ((float)avg_time)/1000000, ((float)avg_time)/iters);
+    printf("Total difference: %8.3f sec  Late notify() Anon. Barrier net latency, minimum: %8.3f us (%6.2f%%)\n", ((float)min_time)/1000000, ((float)min_time)/iters, ((float)min_time * 100.)/baseline_us);
+    printf("Total difference: %8.3f sec  Late notify() Anon. Barrier net latency, maximum: %8.3f us (%6.2f%%)\n", ((float)max_time)/1000000, ((float)max_time)/iters, ((float)max_time * 100.)/baseline_us);
+    printf("Total difference: %8.3f sec  Late notify() Anon. Barrier net latency, average: %8.3f us (%6.2f%%)\n", ((float)avg_time)/1000000, ((float)avg_time)/iters, ((float)avg_time * 100.)/baseline_us);
     fflush(stdout);
   }
 
@@ -143,7 +155,7 @@ int main(int argc, char **argv) {
     for (i=0; i < iters; i++) {
       gasnet_barrier_notify(0, GASNET_BARRIERFLAG_ANONYMOUS);
       if (j == mynode) {
-        test_delay(delay_loops);
+        test_delay(delay_loops, pollcnt);
       }
       GASNET_Safe(gasnet_barrier_wait(0, GASNET_BARRIERFLAG_ANONYMOUS)); 
     }
@@ -162,9 +174,9 @@ int main(int argc, char **argv) {
   avg_time /= nodes;
 
   if (mynode == 0) {
-    printf("Total difference: %8.3f sec  Late wait() Anon. Barrier net latency, minimum: %8.3f us\n", ((float)min_time)/1000000, ((float)min_time)/iters);
-    printf("Total difference: %8.3f sec  Late wait() Anon. Barrier net latency, maximum: %8.3f us\n", ((float)max_time)/1000000, ((float)max_time)/iters);
-    printf("Total difference: %8.3f sec  Late wait() Anon. Barrier net latency, average: %8.3f us\n", ((float)avg_time)/1000000, ((float)avg_time)/iters);
+    printf("Total difference: %8.3f sec  Late notify() Anon. Barrier net latency, minimum: %8.3f us (%6.2f%%)\n", ((float)min_time)/1000000, ((float)min_time)/iters, ((float)min_time * 100.)/baseline_us);
+    printf("Total difference: %8.3f sec  Late notify() Anon. Barrier net latency, maximum: %8.3f us (%6.2f%%)\n", ((float)max_time)/1000000, ((float)max_time)/iters, ((float)max_time * 100.)/baseline_us);
+    printf("Total difference: %8.3f sec  Late notify() Anon. Barrier net latency, average: %8.3f us (%6.2f%%)\n", ((float)avg_time)/1000000, ((float)avg_time)/iters, ((float)avg_time * 100.)/baseline_us);
     fflush(stdout);
   }
 

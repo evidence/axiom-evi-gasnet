@@ -1,14 +1,12 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcore3.c,v $
- *     $Date: 2010/04/06 22:43:45 $
- * $Revision: 1.1 $
+ *     $Date: 2013/04/11 19:26:08 $
+ * $Revision: 1.1.1.1 $
  * Description: GASNet Active Messages conformance test
- * Copyright 2009, Lawrence Berkeley National Laboratory
+ * Copyright (c) 2010, The Regents of the University of California
  * Terms of use are as specified in license.txt
  */
 
 #include <gasnet.h>
-
-#define TEST_SEGSZ (64ULL*1024)
 #include <test.h>
 
 gasnet_node_t mynode = 0;

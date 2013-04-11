@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testhello.c,v $
- *     $Date: 2010/05/01 19:51:05 $
- * $Revision: 1.1 $
+ *     $Date: 2013/04/11 19:26:08 $
+ * $Revision: 1.1.1.1 $
  * Description: GASNet "Hello, World" test/example
  * Copyright 2010, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt

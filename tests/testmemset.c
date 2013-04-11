@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testmemset.c,v $
- *     $Date: 2011/09/26 21:43:43 $
- * $Revision: 1.1 $
+ *     $Date: 2013/04/11 19:26:08 $
+ * $Revision: 1.1.1.1 $
  * Description: GASNet memset performance test
  *   varying payload size and synchronization mechanisms
  * Terms of use are as specified in license.txt
@@ -265,7 +265,7 @@ int main(int argc, char **argv)
     if (!firstlastmode) {
       /* Only allow 1 or even number for numprocs */
       if (numprocs > 1 && numprocs % 2 != 0) {
-        MSG("WARNING: This test requires a unary or even number of nodes. Test skipped.\n");
+        MSG0("WARNING: This test requires a unary or even number of nodes. Test skipped.\n");
         gasnet_exit(0); /* exit 0 to prevent false negatives in test harnesses for smp-conduit */
       }
     }

@@ -1,127 +1,153 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/Makefile.am,v 1.1 2003/03/08 00:07:09 phargrov Exp $
+#   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/Makefile.am,v $
+#     $Date: 2013/04/11 19:26:08 $
+# $Revision: 1.1.1.1 $
 # Description: Makefile for GASNet vapi conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
 
 AUTOMAKE_OPTIONS = foreign 1.4
 
-thread_defines = @GASNET_THREAD_DEFINES@
+CONDUIT_NAME=vapi
 
-INCLUDES = -I$(srcdir) -I$(top_srcdir) -I$(top_builddir)        \
-           -I$(top_srcdir)/extended-ref  
-	   
+## Firehose
+fh_type=region
+include $(top_builddir)/other/firehose/firehose.mak
 
-filelist =                   \
-      gasnet_core.c          \
-      gasnet_core.h          \
-      gasnet_core_fwd.h      \
-      gasnet_core_help.h     \
-      gasnet_core_internal.h 
-
-othersourcefiles =                             \
-      $(top_srcdir)/gasnet_internal.c          \
-      $(top_srcdir)/extended-ref/gasnet_extended.c 
-
-EXTRA_DIST = $(filelist)
-
-libgasnet_sources = $(srcdir)/gasnet_core.c $(othersourcefiles)
-libgasnet_dependencies = $(filelist) $(libgasnet_sources) \
-                         $(top_srcdir)/*.[ch]             \
-                         $(top_srcdir)/extended-ref/*.h       
-libgasnet_objects = gasnet_core.o gasnet_internal.o gasnet_extended.o
-
-if HAVE_PTHREAD
-threaded_libraries = libgasnet-vapi-par.a libgasnet-vapi-parsync.a
-libgasnet_vapi_par_a_SOURCES =
-libgasnet_vapi_parsync_a_SOURCES =
+##
+## SSH bootstrap support (built unless fork() is unavailable)
+##
+if VAPI_BOOTSTRAP_SSH
+ssh_defines = -DHAVE_SSH_SPAWNER
+ssh_srcdir = $(top_srcdir)/other/ssh-spawner
+ssh_sources = $(ssh_srcdir)/gasnet_bootstrap_ssh.c
+ssh_deps = $(ssh_srcdir)/*.h
 endif
-libraries = libgasnet-vapi-seq.a $(threaded_libraries)
+
+##
+## MPI bootstrap support (optional)
+## XXX: should have a way to control this independent of MPI conduit
+##
+if VAPI_BOOTSTRAP_MPI
+mpi_defines = -DHAVE_MPI_SPAWNER
+mpi_srcdir = $(top_srcdir)/other/mpi-spawner
+mpi_deps = $(mpi_srcdir)/*.h $(mpi_srcdir)/*.c
+# We must compile this one object with MPI_CC.
+mpi_special_objs = $(builddir)/gasnet_bootstrap_mpi-$(THREAD_MODEL).o
+$(builddir)/gasnet_bootstrap_mpi-$(THREAD_MODEL).o: force
+	@MPI_CC@ @MPI_CFLAGS@ $(LIBDEFINES) $(CONDUIT_EXTRALIBCFLAGS) $(LIBINCLUDES) \
+		-o $@ -c $(mpi_srcdir)/gasnet_bootstrap_mpi.c
+endif
+
+##
+## VAPI AM receiver thead support (optional)
+##
+if VAPI_RCV_THREAD
+# VAPI conduit needs GASNET_THREAD_DEFINES even for SEQ mode
+rcv_thread_defines = @GASNET_THREAD_DEFINES@
+endif
+
+# any conduit-specific subdirectories containing Makefile.am's
+SUBDIRS = contrib
+
+# complete list of files in the conduit directory
+# include all headers, documentation, etc. 
+# and any subdirectories not containing Makefile.am's
+CONDUIT_FILELIST =               \
+      gasnet_core.c              \
+      gasnet_core_connect.c      \
+      gasnet_core_sndrcv.c       \
+      gasnet_core_thread.c       \
+      gasnet_core.h              \
+      gasnet_core_fwd.h          \
+      gasnet_core_help.h         \
+      gasnet_core_internal.h     \
+      gasnet_extended.c          \
+      gasnet_extended_fwd.h      \
+      gasnet_extended_internal.h \
+      gasnet_firehose.c          \
+      firehose_fwd.h             \
+      license.txt                
+
+# list of conduit core and extended .c source files 
+# to be compiled into libgasnet on the compiler command line
+CONDUIT_SOURCELIST =                 \
+      $(srcdir)/gasnet_core.c        \
+      $(srcdir)/gasnet_core_connect.c \
+      $(srcdir)/gasnet_core_sndrcv.c \
+      $(srcdir)/gasnet_core_thread.c \
+      $(srcdir)/gasnet_extended.c    \
+      $(srcdir)/gasnet_firehose.c    \
+      $(fh_sourcelist) $(ssh_sources)
+
+# additional -I or -D directives needed by this specific conduit
+# other than the standard GASNet includes and flags
+CONDUIT_EXTRALIBCFLAGS = -I@VAPI_INCLUDE@ $(fh_extralibcflags) $(ssh_defines) $(mpi_defines)\
+			 @VAPI_LIBCFLAGS@ $(rcv_thread_defines) -DGASNET_CONDUIT_VAPI
+
+# additional conduit header files to install from external, non-standard directories
+CONDUIT_EXTRAHEADERS = $(fh_extraheaders)
+
+# headers selected by default rules that should NOT be installed
+CONDUIT_PRIVATEHEADERS = $(fh_privheaders)
+
+# additional file dependencies not mentioned elsewhere 
+# that should force libgasnet rebuild on update
+CONDUIT_EXTRADEPS = $(fh_extradeps) $(ssh_deps) $(mpi_deps)
+
+# additional object files to be included in libgasnet that need to be compiled 
+# using a special, conduit-specific command. These should also be included as
+# forced targets in this file, and should probably use LIBINCLUDES/LIBDEFINES
+CONDUIT_SPECIAL_OBJS = $(mpi_special_objs) $(fh_special_objs)
+
+# the default job spawn command to be used for "make run-tests"
+# The following substitutions are performed:
+#   %P = program executable name
+#   %N = requested node count
+#   %A = program arguments
+#   %Q = program arguments w/ an extra level of quotes
+#   %D = the current working directory
+#   %H = hostfile (if any)
+CONDUIT_RUNCMD = @TOP_BUILDDIR@/vapi-conduit/contrib/gasnetrun_vapi -np %N %P %A
+
+# conduit-specific tests in ../tests directory
+CONDUIT_TESTS =
+
+# -------- Do not modify anything below this line --------
+
+if BUILD_SEQ_LIBS
 libgasnet_vapi_seq_a_SOURCES =
+libraries_seq = libgasnet-vapi-seq.a
+endif
+if BUILD_PAR_LIBS
+libgasnet_vapi_par_a_SOURCES =
+libraries_par = libgasnet-vapi-par.a
+endif
+if BUILD_PARSYNC_LIBS
+libgasnet_vapi_parsync_a_SOURCES =
+libraries_parsync = libgasnet-vapi-parsync.a
+endif
+libraries = $(libraries_seq) $(libraries_par) $(libraries_parsync)
 
-VPATH=$(srcdir)
-
-LIBCFLAGS = @CFLAGS@ @MISC_CFLAGS@ @BUILDCONFIG_DEFINES@ @GASNET_MACHINE_DEFINES@ $(INCLUDES)
+include $(top_builddir)/other/Makefile-conduit.mak
 
 libgasnet-vapi-seq.a: $(libgasnet_dependencies)
-	$(CC) $(LIBCFLAGS) -DGASNET_SEQ -c $(libgasnet_sources)
-	$(AR) cru $@ $(libgasnet_objects)
-	$(RANLIB) $@
-	rm -f $(libgasnet_objects)
+	@$(MAKE) do-libgasnet-seq
 
 libgasnet-vapi-par.a: $(libgasnet_dependencies)
-	$(CC) $(LIBCFLAGS) -DGASNET_PAR $(thread_defines) -c $(libgasnet_sources)
-	$(AR) cru $@ $(libgasnet_objects)
-	$(RANLIB) $@
-	rm -f $(libgasnet_objects)
+	@$(MAKE) do-libgasnet-par
 
 libgasnet-vapi-parsync.a: $(libgasnet_dependencies)
-	$(CC) $(LIBCFLAGS) -DGASNET_PARSYNC $(thread_defines) -c $(libgasnet_sources)
-	$(AR) cru $@ $(libgasnet_objects)
-	$(RANLIB) $@
-	rm -f $(libgasnet_objects)
+	@$(MAKE) do-libgasnet-parsync
 
-.PHONY: all libs clean-local install-data-local uninstall-local tests force tests-seq tests-par tests-parsync
-
-
-libs: $(libraries)
-	
-if USE_VAPI_CONDUIT                           
-lib_LIBRARIES = $(libraries)
-
-all: libs
-	
-clean-local: 
-	rm -f $(libgasnet_objects) $(libraries) *.o core
-	@$(MAKE) -f $(top_builddir)/tests/Makefile clean     \
-	  srcdir="$(top_srcdir)/tests"			     \
-	  configfile="/dev/null"
-
-headers = $(srcdir)/*.h $(top_srcdir)/extended-ref/*.h 
-makefile_fragments = vapi-seq.mak vapi-parsync.mak vapi-par.mak
-
-install-data-local: $(headers)
-	$(mkinstalldirs) $(includedir)/vapi-conduit
-	@list='$(headers)'; for p in $$list; do \
-	  if test -f $$p; then \
-	    filename=`basename $$p`; \
-	    echo " $(INSTALL_DATA) $$p $(includedir)/vapi-conduit/$$filename"; \
-	    $(INSTALL_DATA) $$p $(includedir)/vapi-conduit/$$filename; \
-	  else :; fi; \
-	done
-	@list='$(makefile_fragments)'; for p in $$list; do \
-	  if test -f $$p; then \
-	    filename=`basename $$p`; \
-	    echo " grep -v "###NOINSTALL###" $$p > $(includedir)/vapi-conduit/$$filename"; \
-	    grep -v "###NOINSTALL###" $$p > $(includedir)/vapi-conduit/$$filename; \
-	  else :; fi; \
-	done
-
-uninstall-local:
-	rm -f $(includedir)/vapi-conduit/*.h $(includedir)/vapi-conduit/*.mak
-
+if USE_VAPI_CONDUIT  
+lib_LIBRARIES = $(libraries) 
+all-local: $(lib_LIBRARIES) $(makefile_fragments)
+clean-local: do-clean-local
+install-data-local: do-install-data-local
+uninstall-local: do-uninstall-local
+else
+$(top_srcdir)/gasnet.h: do-error
 endif
-
-tests:
-	@echo You must specify one of tests-seq, tests-par or tests-parsync
-	@exit 1
-
-tests-seq: force libgasnet-vapi-seq.a
-	@$(MAKE) -f $(top_builddir)/tests/Makefile tests     \
-	  srcdir="$(top_srcdir)/tests"			     \
-	  configfile="vapi-seq.mak"
-
-tests-parsync: force libgasnet-vapi-parsync.a
-	@$(MAKE) -f $(top_builddir)/tests/Makefile tests     \
-	  srcdir="$(top_srcdir)/tests"			     \
-	  configfile="vapi-parsync.mak"
-
-tests-par: force libgasnet-vapi-par.a
-	@$(MAKE) -f $(top_builddir)/tests/Makefile tests     \
-	  srcdir="$(top_srcdir)/tests"			     \
-	  configfile="vapi-par.mak"
-
-force:
-	
 
 

@@ -1,16 +1,11 @@
-#include <stdio.h>
-#include <stdlib.h>
-
-#include <ammpi.h>
-#include <ammpi_spmd.h>
-
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amxtests/testping.c,v $
+ *     $Date: 2013/04/11 19:26:07 $
+ * $Revision: 1.1.1.2 $
+ * Description: AMX test
+ * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
+ */
 #include "apputils.h"
-
-#ifdef DEBUG
-#define VERBOSE 0
-#else
-#define VERBOSE 0
-#endif
 
 #define PING_REQ_HANDLER 1
 #define PING_REP_HANDLER 2
@@ -28,7 +23,7 @@ static void ping_request_handler(void *token) {
   #endif
 
   AM_Safe(AM_Reply0(token, PING_REP_HANDLER));
-  }
+}
 
 static void ping_reply_handler(void *token) {
 
@@ -37,9 +32,9 @@ static void ping_reply_handler(void *token) {
   #endif
 
   numleft--;
-  }
+}
 
-/* usage: testping  numprocs  spawnfn  iters  P/B  depth
+/* usage: testping  numprocs  spawnfn  iters  P/B
  */
 int main(int argc, char **argv) {
   eb_t eb;
@@ -49,21 +44,8 @@ int main(int argc, char **argv) {
   int polling = 1;
   int k;
   int iters = 0;
-  int depth = 0;
 
-  if (argc < 2) {
-    printf("Usage: %s (iters) (Poll/Block) (netdepth)\n", argv[0]);
-    exit(1);
-    }
-
-  AMMPI_VerboseErrors = 1;
-
-  if (argc > 3) depth = atoi(argv[3]);
-  if (!depth) depth = 4;
-
-  /* call startup */
-  AM_Safe(AMMPI_SPMDStartup(&argc, &argv, 
-                            depth, &networkpid, &eb, &ep));
+  TEST_STARTUP(argc, argv, networkpid, eb, ep, 1, 2, "iters (Poll/Block)");
 
   /* setup handlers */
   AM_Safe(AM_SetHandler(ep, PING_REQ_HANDLER, ping_request_handler));
@@ -72,8 +54,8 @@ int main(int argc, char **argv) {
   setupUtilHandlers(ep, eb);
 
   /* get SPMD info */
-  myproc = AMMPI_SPMDMyProc();
-  numprocs = AMMPI_SPMDNumProcs();
+  myproc = AMX_SPMDMyProc();
+  numprocs = AMX_SPMDNumProcs();
 
   if (argc > 1) iters = atoi(argv[1]);
   if (!iters) iters = 1;
@@ -81,57 +63,57 @@ int main(int argc, char **argv) {
     switch(argv[2][0]) {
       case 'p': case 'P': polling = 1; break;
       case 'b': case 'B': polling = 0; break;
-      default: printf("polling must be 'P' or 'B'..\n"); AMMPI_SPMDExit(1);
-      }
+      default: printf("polling must be 'P' or 'B'..\n"); AMX_SPMDExit(1);
     }
+  }
 
-  if (myproc == 0) numleft = (numprocs-1)*iters;
+  if (numprocs == 1) numleft = 2*iters;
+  else if (myproc == 0) numleft = (numprocs-1)*iters;
   else numleft = iters;
 
-  AM_Safe(AMMPI_SPMDBarrier());
+  AM_Safe(AMX_SPMDBarrier());
 
   if (myproc == 0) printf("Running %i iterations of ping test...\n", iters);
 
   begin = getCurrentTimeMicrosec();
 
-  if (myproc != 0) { /* everybody sends packets to 0 */
+  if (myproc != 0 || numprocs == 1) { /* everybody sends packets to 0 */
     for (k=0;k < iters; k++) {
       #if VERBOSE
         printf("%i: sending request...", myproc); fflush(stdout);
       #endif
       AM_Safe(AM_Request0(ep, 0, PING_REQ_HANDLER));
-      }
     }
+  }
 
   if (polling) { /* poll until everyone done */
     while (numleft) {
       AM_Safe(AM_Poll(eb));
-      }
     }
-  else {
+  } else {
     while (numleft) {
       AM_Safe(AM_SetEventMask(eb, AM_NOTEMPTY)); 
       AM_Safe(AM_WaitSema(eb));
       AM_Safe(AM_Poll(eb));
-      }
     }
+  }
 
   end = getCurrentTimeMicrosec();
 
   total = end - begin;
-  if (myproc != 0) printf("Slave %i: %i microseconds total, throughput: %i requests/sec (%i us / request)\n", 
-    myproc, (int)total, (int)(((float)1000000)*iters/((int)total)), ((int)total)/iters);
+  if (myproc != 0 || numprocs == 1) printf("Slave %i: %i microseconds total, throughput: %i requests/sec (%.3f us / request)\n", 
+    myproc, (int)total, (int)(((float)1000000)*iters/((int)total)), ((double)total)/iters);
   else printf("Slave 0 done.\n");
   fflush(stdout);
 
   /* dump stats */
-  AM_Safe(AMMPI_SPMDBarrier());
+  AM_Safe(AMX_SPMDBarrier());
   printGlobalStats();
-  AM_Safe(AMMPI_SPMDBarrier());
+  AM_Safe(AMX_SPMDBarrier());
 
   /* exit */
-  AM_Safe(AMMPI_SPMDExit(0));
+  AM_Safe(AMX_SPMDExit(0));
 
   return 0;
-  }
+}
 /* ------------------------------------------------------------------------------------ */
