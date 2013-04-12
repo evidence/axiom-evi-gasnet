@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.c,v $
- *     $Date: 2013/03/12 01:16:24 $
- * $Revision: 1.59 $
+ *     $Date: 2013/04/12 01:35:48 $
+ * $Revision: 1.60 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -138,7 +138,7 @@ void *gasneti_pshm_init(gasneti_bootstrapExchangefn_t exchangefn, size_t aux_sz)
     gasneti_unlink_vnet();
     gasneti_fatalerror("Failed to mmap %s for intra-node shared memory communication, errno=%s(%i)",
                        gasneti_format_number(mmapsz, buf, sizeof(buf), 1),
-                       strerror(save_errno), errno);
+                       strerror(save_errno), save_errno);
   }
   
   /* Prepare the shared info struct (including bootstrap barrier) */
