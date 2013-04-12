@@ -1,6 +1,6 @@
 GASNet ChangeLog 
 ----------------
-$Revision: 1.70 $
+$Revision: 1.71 $
 
 ----------------------------------------------------------------------
 04-XX-2013 : Release 1.20.2
@@ -15,6 +15,12 @@ $Revision: 1.70 $
 * Cray XE & XK series (gemini-conduit)
   - With this release support for the Gemini interconnect of the Cray
     XE and XK series systems has graduated out of BETA status.
+
+* NEW Beta support for Portals 4.x API (portals4-conduit)
+  - This release includes BETA support for the Portals 4.x API as
+    implemented at https://code.google.com/p/portals4/
+  - This initial implementation does not yet include "native" Put
+    or Get support, using the AM-based reference implementation instead.
 
 ----------------------------------------------------------------------
 10-30-2012 : Release 1.20.0
