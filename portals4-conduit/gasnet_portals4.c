@@ -1090,6 +1090,30 @@ gasnetc_bootstrapBarrier(void)
             gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlCTWait() failed %d", ret);
         }
 
+        proc.rank = my_root;
+        ret = PtlPut(md_h,
+                     0,
+                     0,
+                     PTL_NO_ACK_REQ,
+                     proc,
+                     COLLECTIVE_PT,
+                     BOOTSTRAP_BARRIER_MB,
+                     0,
+                     NULL,
+                     0);
+        if (PTL_OK != ret) {
+            gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlPut() failed %d", ret);
+        }
+
+        /* wait for down part */
+        ret = PtlCTWait(bootstrap_barrier_ct_h, 
+                        bootstrap_barrier_calls * (count + 1),
+                        &ct);
+        if (PTL_OK != ret) {
+            gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlCTWait() failed %d", ret);
+        }
+
+
         if (-1 != left) {
             proc.rank = left;
             ret = PtlPut(md_h,
@@ -1122,29 +1146,6 @@ gasnetc_bootstrapBarrier(void)
             if (PTL_OK != ret) {
                 gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlPut() failed %d", ret);
             }
-        }
-
-        /* wait for down part */
-        ret = PtlCTWait(bootstrap_barrier_ct_h, 
-                        bootstrap_barrier_calls * (count + 1),
-                        &ct);
-        if (PTL_OK != ret) {
-            gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlCTWait() failed %d", ret);
-        }
-
-        proc.rank = my_root;
-        ret = PtlPut(md_h,
-                     0,
-                     0,
-                     PTL_NO_ACK_REQ,
-                     proc,
-                     COLLECTIVE_PT,
-                     BOOTSTRAP_BARRIER_MB,
-                     0,
-                     NULL,
-                     0);
-        if (PTL_OK != ret) {
-            gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlPut() failed %d", ret);
         }
     }
     
