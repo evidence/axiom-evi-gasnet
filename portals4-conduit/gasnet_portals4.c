@@ -542,6 +542,27 @@ void p4_free_long_match(p4_long_match_t *match)
     gasneti_lifo_push(&p4_long_match_pool, match);
 }
 
+/* Error reporting path
+ * TODO: strings for PTL_ errors.
+ */
+GASNETI_NEVER_INLINE(_p4_failed_put,
+int _p4_failed_put(int ret, const char *descr, const char *fromfn, const char *file, int line))
+{
+    if (gasneti_VerboseErrors) {
+        fprintf(stderr, "GASNet %s returning an error code: GASNET_ERR_BAD_ARG (%s)\n"
+                        "  at %s:%i\n"
+                        "  reason: PtlPut() failed with error %d while %s\n",
+                        fromfn, gasnet_ErrorDesc(GASNET_ERR_BAD_ARG),
+                        __FILE__, __LINE__,
+                        ret, descr);
+        fflush(stderr);
+    }
+    gasnett_freezeForDebuggerErr(); /* allow freeze */
+    return GASNET_ERR_BAD_ARG;
+}
+#define p4_failed_put(_ret, _descr) \
+	_p4_failed_put(_ret, _descr, GASNETI_CURRENT_FUNCTION, __FILE__, __LINE__)
+
 static int
 p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
 {
@@ -760,8 +781,8 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
                                  0,
                                  am_frag,
                                  am_frag->hdr_data);
-                    if (PTL_OK != ret) {
-                        return GASNET_ERR_BAD_ARG;
+                    if_pf (PTL_OK != ret) {
+                        return p4_failed_put(ret, "resending an AM frag");
                     }
                 } else {
                     p4_frag_data_t *data_frag = (p4_frag_data_t*) frag;
@@ -780,8 +801,8 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
                                  data_frag->remote_offset,
                                  data_frag,
                                  data_frag->am_frag->hdr_data);
-                    if (PTL_OK != ret) {
-                        return GASNET_ERR_BAD_ARG;
+                    if_pf (PTL_OK != ret) {
+                        return p4_failed_put(ret, "resending a data frag");
                     }
                 }
             } else if (PTL_OK != ev.ni_fail_type) {
@@ -1009,8 +1030,8 @@ gasnetc_p4_TransferGeneric(int category, ptl_match_bits_t req_type, gasnet_node_
                          data_frag->remote_offset,
                          data_frag,
                          frag->hdr_data);
-            if (PTL_OK != ret) {
-                return GASNET_ERR_BAD_ARG;
+            if_pf (PTL_OK != ret) {
+                return p4_failed_put(ret, "sending a data frag");
             }
         }
         break;
@@ -1032,8 +1053,8 @@ gasnetc_p4_TransferGeneric(int category, ptl_match_bits_t req_type, gasnet_node_
                  0,
                  frag,
                  frag->hdr_data);
-    if (PTL_OK != ret) {
-        return GASNET_ERR_BAD_ARG;
+    if_pf (PTL_OK != ret) {
+        return p4_failed_put(ret, "sending an AM frag");
     }
 
     /* if long, block until the send event */
