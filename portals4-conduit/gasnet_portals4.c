@@ -1183,7 +1183,7 @@ gasnetc_bootstrapExchange(void *src, size_t len, void *dest)
     temp = gasneti_malloc(len * gasneti_nodes);
 
     md.start = src;
-    md.length = len;
+    md.length = len * gasneti_nodes;
     md.options = PTL_MD_UNORDERED;
     md.eq_handle = coll_eq_h;
     md.ct_handle = PTL_CT_NONE;
