@@ -11,7 +11,10 @@
 #include <errno.h>
 #include <unistd.h>
 #include <signal.h>
+
+#if GASNETI_USE_ALLOCA
 #include <alloca.h>
+#endif
 
 #include <portals4.h>
 #include <portals4/pmi.h>
