@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testteambarrier.c,v $
- *     $Date: 2011/06/02 19:09:11 $
- * $Revision: 1.4 $
+ *     $Date: 2013/04/12 09:23:30 $
+ * $Revision: 1.5 $
  * Description: GASNet barrier performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -102,9 +102,16 @@ int main(int argc, char **argv) {
   if (argc > 2) {
     threads_per_node = atoi(argv[2]);
   } else {
-    threads_per_node = gasnett_cpu_count(); 
+    if (gasnett_getenv_yesno_withdefault("GASNET_TEST_POLITE_SYNC",0)) {
+      /* May overcommit only if somebody already expected it */
+      threads_per_node = gasnett_cpu_count();
+    } else {
+      threads_per_node = gasnett_cpu_count() / TEST_LOCALPROCS();
+    } 
     threads_per_node = MIN(threads_per_node, 8);
-  }
+    threads_per_node = test_thread_limit(threads_per_node);
+    threads_per_node = MAX(threads_per_node, 1);
+  } 
   if (threads_per_node > TEST_MAXTHREADS || threads_per_node < 1) {
     printf("ERROR: Threads must be between 1 and %d\n", TEST_MAXTHREADS);
     exit(EXIT_FAILURE);

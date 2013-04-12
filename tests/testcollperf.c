@@ -1097,7 +1097,7 @@ int main(int argc, char **argv)
       threads_per_node = gasnett_cpu_count() / TEST_LOCALPROCS(); 
     }
     threads_per_node = MIN(threads_per_node, 8);
-    threads_per_node = MIN(threads_per_node, TEST_MAXTHREADS);
+    threads_per_node = test_thread_limit(threads_per_node);
     threads_per_node = MAX(threads_per_node, 1);
   }
   if (threads_per_node > TEST_MAXTHREADS || threads_per_node < 1) {
