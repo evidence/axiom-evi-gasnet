@@ -809,7 +809,9 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
                     fprintf(stderr, "%d: got ack for data to %d\n",
                             (int) gasneti_mynode, (int) am_frag->rank);
 #endif
-                    *(data_frag->send_complete_ptr) = 1;
+                    if (data_frag->send_complete_ptr) {
+                        *(data_frag->send_complete_ptr) = 1;
+                    }
                     p4_free_data_frag(data_frag);
                 }
 
@@ -990,7 +992,7 @@ gasnetc_p4_TransferGeneric(int category, ptl_match_bits_t req_type, gasnet_node_
 
             data_frag->am_frag = frag;
             gasneti_weakatomic_set(&frag->op_count, 0, GASNETI_ATOMIC_NONE);
-            data_frag->send_complete_ptr = &long_send_complete;
+            data_frag->send_complete_ptr = (category == gasnetc_Long) ? &long_send_complete : NULL;
             data_frag->local_offset = (ptl_size_t) source_addr;
             data_frag->length = nbytes;
             data_frag->match_bits = CREATE_MATCH_BITS(LONG_DATA, req_type, AM_LONG, 0, 0, 0);
