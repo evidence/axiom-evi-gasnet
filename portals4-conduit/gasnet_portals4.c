@@ -152,6 +152,60 @@ p4_info_exchange(void)
     }
 }
 
+/* ---------------------------------------------------------------------------------
+ * Error reporting helpers
+ *
+ * To reduce impact on critical code paths and code bloat from inlining, these
+ * are annotated as "NEVER_INLINE" and should be called in if_pf() paths.
+ * Example:
+ *     if_pf (PTL_OK != ret) {
+ *         return p4_failed_put(ret, "sending an AM frag");
+ *     }
+ */
+
+GASNETI_NEVER_INLINE(p4_error_string,
+static const char *
+p4_error_string(int ret))
+{
+    switch (ret) {
+    case PTL_OK:              return "PTL_OK";
+    case PTL_ARG_INVALID:     return "PTL_ARG_INVALID";
+    case PTL_CT_NONE_REACHED: return "PTL_CT_NONE_REACHED";
+    case PTL_EQ_DROPPED:      return "PTL_EQ_DROPPED";
+    case PTL_EQ_EMPTY:        return "PTL_EQ_EMPTY";
+    case PTL_FAIL:            return "PTL_FAIL";
+    case PTL_IGNORED:         return "PTL_IGNORED";
+    case PTL_IN_USE:          return "PTL_IN_USE";
+    case PTL_INTERRUPTED:     return "PTL_INTERRUPTED";
+    case PTL_LIST_TOO_LONG:   return "PTL_LIST_TOO_LONG";
+    case PTL_NO_INIT:         return "PTL_NO_INIT";
+    case PTL_NO_SPACE:        return "PTL_NO_SPACE";
+    case PTL_PID_IN_USE:      return "PTL_PID_IN_USE";
+    case PTL_PT_FULL:         return "PTL_PT_FULL";
+    case PTL_PT_EQ_NEEDED:    return "PTL_PT_EQ_NEEDED";
+    case PTL_PT_IN_USE:       return "PTL_PT_IN_USE";
+    }
+    return "Unknown or invalid error code";
+}
+
+GASNETI_NEVER_INLINE(_p4_failed_put,
+static int
+_p4_failed_put(int ret, const char *descr, const char *fromfn, const char *file, int line))
+{
+    if (gasneti_VerboseErrors) {
+        fprintf(stderr, "GASNet %s returning an error code: GASNET_ERR_BAD_ARG (%s)\n"
+                        "  at %s:%i\n"
+                        "  reason: PtlPut() failed with error %d (%s) while %s\n",
+                        fromfn, gasnet_ErrorDesc(GASNET_ERR_BAD_ARG),
+                        __FILE__, __LINE__,
+                        ret, p4_error_string(ret), descr);
+        fflush(stderr);
+    }
+    gasnett_freezeForDebuggerErr(); /* allow freeze */
+    return GASNET_ERR_BAD_ARG;
+}
+#define p4_failed_put(_ret, _descr) \
+	_p4_failed_put(_ret, _descr, GASNETI_CURRENT_FUNCTION, __FILE__, __LINE__)
 
 /* ---------------------------------------------------------------------------------
  * Initialize Portals 4 conduit code
@@ -567,27 +621,6 @@ void p4_free_long_match(p4_long_match_t *match)
 {
     gasneti_lifo_push(&p4_long_match_pool, match);
 }
-
-/* Error reporting path
- * TODO: strings for PTL_ errors.
- */
-GASNETI_NEVER_INLINE(_p4_failed_put,
-int _p4_failed_put(int ret, const char *descr, const char *fromfn, const char *file, int line))
-{
-    if (gasneti_VerboseErrors) {
-        fprintf(stderr, "GASNet %s returning an error code: GASNET_ERR_BAD_ARG (%s)\n"
-                        "  at %s:%i\n"
-                        "  reason: PtlPut() failed with error %d while %s\n",
-                        fromfn, gasnet_ErrorDesc(GASNET_ERR_BAD_ARG),
-                        __FILE__, __LINE__,
-                        ret, descr);
-        fflush(stderr);
-    }
-    gasnett_freezeForDebuggerErr(); /* allow freeze */
-    return GASNET_ERR_BAD_ARG;
-}
-#define p4_failed_put(_ret, _descr) \
-	_p4_failed_put(_ret, _descr, GASNETI_CURRENT_FUNCTION, __FILE__, __LINE__)
 
 static int
 p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
