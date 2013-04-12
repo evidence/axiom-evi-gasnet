@@ -470,6 +470,74 @@ gasnetc_p4_exit(void)
 }
 
 
+/* ---------------------------------------------------------------------------------
+ * freelists for fragments and long matches
+ * --------------------------------------------------------------------------------- */
+static gasneti_lifo_head_t p4_am_frag_pool = GASNETI_LIFO_INITIALIZER;
+
+GASNETI_INLINE(p4_alloc_am_frag)
+p4_frag_am_t *p4_alloc_am_frag(void)
+{
+    p4_frag_am_t *frag = gasneti_lifo_pop(&p4_am_frag_pool);
+    if_pf (NULL == frag) {
+        frag = gasneti_malloc(offsetof(p4_frag_am_t,data) + 
+                              sizeof(gasnet_handlerarg_t) * gasnet_AMMaxArgs() +
+                              gasnet_AMMaxMedium());
+        gasneti_leak(frag);
+    }
+    frag->base.type = P4_FRAG_TYPE_AM; /* lost while on freelist */
+    frag->data_length = 0;
+    return frag;
+}
+
+GASNETI_INLINE(p4_free_am_frag)
+void p4_free_am_frag(p4_frag_am_t *frag)
+{
+    gasneti_assert(P4_FRAG_TYPE_AM == frag->base.type);
+    gasneti_lifo_push(&p4_am_frag_pool, frag);
+}
+
+static gasneti_lifo_head_t p4_data_frag_pool = GASNETI_LIFO_INITIALIZER;
+
+GASNETI_INLINE(p4_alloc_data_frag)
+p4_frag_data_t *p4_alloc_data_frag(void)
+{
+    p4_frag_data_t *frag = gasneti_lifo_pop(&p4_data_frag_pool);
+    if_pf (NULL == frag) {
+        frag = gasneti_malloc(sizeof(p4_frag_data_t));
+        gasneti_leak(frag);
+    }
+    frag->base.type = P4_FRAG_TYPE_DATA; /* lost while on freelist */
+    return frag;
+}
+
+GASNETI_INLINE(p4_free_data_frag)
+void p4_free_data_frag(p4_frag_data_t *frag)
+{
+    gasneti_assert(P4_FRAG_TYPE_DATA == frag->base.type);
+    gasneti_lifo_push(&p4_data_frag_pool, frag);
+}
+
+static gasneti_lifo_head_t p4_long_match_pool = GASNETI_LIFO_INITIALIZER;
+
+GASNETI_INLINE(p4_alloc_long_match)
+p4_long_match_t *p4_alloc_long_match(void)
+{
+    p4_long_match_t *match = gasneti_lifo_pop(&p4_long_match_pool);
+    if_pf (NULL == match) {
+        match = gasneti_malloc(sizeof(p4_long_match_t));
+        gasneti_leak(match);
+    }
+    gasneti_weakatomic_set(&match->op_count, 0, 0);
+    return match;
+}
+
+GASNETI_INLINE(p4_free_long_match)
+void p4_free_long_match(p4_long_match_t *match)
+{
+    gasneti_lifo_push(&p4_long_match_pool, match);
+}
+
 static int
 p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
 {
@@ -571,11 +639,10 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
 			(p4_long_match_t*) gasnetc_hash_get(p4_long_hash, 
 							    LONG_HASH(ev.hdr_data, ev.initiator.rank));
 		      if (NULL == match) {
-			match = gasneti_malloc(sizeof(p4_long_match_t));
-			gasneti_weakatomic_set(&match->op_count, 0, 0);
+			match = p4_alloc_long_match();
 			if (!gasnetc_hash_put(p4_long_hash, LONG_HASH(ev.hdr_data, ev.initiator.rank),
 					      match)) {
-			  gasneti_free(match);
+		          p4_free_long_match(match);
 			  match = gasnetc_hash_get(p4_long_hash, LONG_HASH(ev.hdr_data, ev.initiator.rank));
 			  gasneti_assert(NULL != match);
                         }
@@ -600,7 +667,7 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
 						 gasnetc_handler[match->handler],
 						 tokenp, match->pargs, match->numargs,
 						 match->dest_ptr, match->nbytes);
-			gasneti_free(match);
+		        p4_free_long_match(match);
                       }
                     } else {
                         gasneti_fatalerror("unknown active message type.  MB: 0x%lx\n",
@@ -613,11 +680,10 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
 		    (p4_long_match_t*) gasnetc_hash_get(p4_long_hash, 
 							LONG_HASH(ev.hdr_data, ev.initiator.rank));
 		  if (NULL == match) {
-		    match = gasneti_malloc(sizeof(p4_long_match_t));
-		    gasneti_weakatomic_set(&match->op_count, 0, 0);
+		    match = p4_alloc_long_match();
 		    if (!gasnetc_hash_put(p4_long_hash, LONG_HASH(ev.hdr_data, ev.initiator.rank),
 					  match)) {
-		      gasneti_free(match);
+		      p4_free_long_match(match);
 		      match = gasnetc_hash_get(p4_long_hash, LONG_HASH(ev.hdr_data, ev.initiator.rank));
 		      gasneti_assert(NULL != match);
                     }
@@ -641,7 +707,7 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
 					     gasnetc_handler[match->handler],
 					     tokenp, match->pargs, match->numargs,
 					     match->dest_ptr, match->nbytes);
-		    gasneti_free(match);
+		    p4_free_long_match(match);
 		  }
                 }
             }
@@ -734,17 +800,17 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
                             (int) gasneti_mynode, (int) am_frag->rank);
 #endif
                     *(data_frag->send_complete_ptr) = 1;
-                    gasneti_free(data_frag);
+                    p4_free_data_frag(data_frag);
                 }
 
                 if (IS_AM_LONG(am_frag->match_bits)) {
                     gasneti_weakatomic_val_t tmp;
                     tmp = gasneti_weakatomic_add(&am_frag->op_count, 1, GASNETI_ATOMIC_NONE);
                     if (tmp == 2) {
-                        gasneti_free(am_frag);
+                        p4_free_am_frag(am_frag);
                     }
                 } else {
-                    gasneti_free(am_frag);
+                    p4_free_am_frag(am_frag);
                 }
             }
             
@@ -860,11 +926,7 @@ gasnetc_p4_TransferGeneric(int category, ptl_match_bits_t req_type, gasnet_node_
 #endif
 
     /* Allocate a send fragment */
-    frag = gasneti_malloc(sizeof(p4_frag_am_t) + 
-                          sizeof(gasnet_handlerarg_t) * gasnet_AMMaxArgs() +
-                          gasnet_AMMaxMedium());
-    frag->base.type = P4_FRAG_TYPE_AM;
-    frag->data_length = 0;
+    frag = p4_alloc_am_frag();
 
     /* copy the arguments */
     arglist = (gasnet_handlerarg_t*) frag->data;
@@ -916,15 +978,11 @@ gasnetc_p4_TransferGeneric(int category, ptl_match_bits_t req_type, gasnet_node_
             long_send_complete = 1;
             (void) gasneti_weakatomic_subtract(&p4_send_credits, 1, 0);
         } else {
-            p4_frag_data_t *data_frag = gasneti_malloc(sizeof(p4_frag_data_t));
-            if (NULL == data_frag) {
-                return GASNET_ERR_RESOURCE;
-            }
+            p4_frag_data_t *data_frag = p4_alloc_data_frag();
 
             protocol = AM_LONG;
             payload_length = 0;
 
-            data_frag->base.type = P4_FRAG_TYPE_DATA;
             data_frag->am_frag = frag;
             gasneti_weakatomic_set(&frag->op_count, 0, GASNETI_ATOMIC_NONE);
             data_frag->send_complete_ptr = &long_send_complete;
