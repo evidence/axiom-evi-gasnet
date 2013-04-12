@@ -1189,7 +1189,7 @@ gasnetc_bootstrapExchange(void *src, size_t len, void *dest)
     md.ct_handle = PTL_CT_NONE;
     ret = PtlMDBind(matching_ni_h, &md, &md_h);
     if (PTL_OK != ret) {
-        gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlMDBind() failed %d", ret);
+        gasneti_fatalerror("gasnetc_bootstrapExchange() PtlMDBind() failed %d", ret);
     }
 
     /* register the temp md with an EQ on a match list */
@@ -1204,8 +1204,15 @@ gasnetc_bootstrapExchange(void *src, size_t len, void *dest)
     me.min_free = 0;
     ret = PtlMEAppend(matching_ni_h, COLLECTIVE_PT, &me, PTL_PRIORITY_LIST, NULL, &me_h);
     if (PTL_OK != ret) {
-        gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlMEAppend() failed %d", ret);
+        gasneti_fatalerror("gasnetc_bootstrapExchange() PtlMEAppend() failed %d", ret);
     }
+
+    ret = PtlEQWait(coll_eq_h, &ev);
+    if (ret != PTL_OK) {
+        gasneti_fatalerror("GASNet Portals Error in bootExchange waiting for event: %d\n at %s\n",
+                           ret, gasneti_current_loc);
+    }
+    gasneti_assert( ev.type == PTL_EVENT_LINK );
 
     gasnetc_bootstrapBarrier();
 
@@ -1282,9 +1289,9 @@ gasnetc_bootstrapExchange(void *src, size_t len, void *dest)
     }
 
     ret = PtlMDRelease(md_h);
-    if (PTL_OK != ret) gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlMDRelease() failed %d", ret);
+    if (PTL_OK != ret) gasneti_fatalerror("gasnetc_bootstrapExchange() PtlMDRelease() failed %d", ret);
     ret = PtlMEUnlink(me_h);
-    if (PTL_OK != ret) gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlMEUnlink() failed %d", ret);
+    if (PTL_OK != ret) gasneti_fatalerror("gasnetc_bootstrapExchange() PtlMEUnlink() failed %d", ret);
 
     /* now rotate into final position */
     memcpy(dest, (uint8_t*)temp + len * (gasneti_nodes - gasneti_mynode), len * gasneti_mynode);
