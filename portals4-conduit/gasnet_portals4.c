@@ -1182,7 +1182,7 @@ gasnetc_bootstrapExchange(void *src, size_t len, void *dest)
 
     temp = gasneti_malloc(len * gasneti_nodes);
 
-    md.start = src;
+    md.start = temp;
     md.length = len * gasneti_nodes;
     md.options = PTL_MD_UNORDERED;
     md.eq_handle = coll_eq_h;
@@ -1207,6 +1207,7 @@ gasnetc_bootstrapExchange(void *src, size_t len, void *dest)
         gasneti_fatalerror("gasnetc_bootstrapExchange() PtlMEAppend() failed %d", ret);
     }
 
+    /* ensure ME is linked before the barrier */
     ret = PtlEQWait(coll_eq_h, &ev);
     if (ret != PTL_OK) {
         gasneti_fatalerror("GASNet Portals Error in bootExchange waiting for event: %d\n at %s\n",
@@ -1260,6 +1261,7 @@ gasnetc_bootstrapExchange(void *src, size_t len, void *dest)
                     sends -= 1;
                 } else {
                     rcvd |= ev.hdr_data;
+                    gasneti_assert(ev.type == PTL_EVENT_PUT);
                     gasneti_assert(ev.rlength == ev.mlength);
                     gasneti_assert((ev.rlength == to_xfer) || (ev.hdr_data != hdr_data));
                 }
