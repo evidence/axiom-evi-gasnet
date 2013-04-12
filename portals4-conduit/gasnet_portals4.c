@@ -804,7 +804,7 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
 #endif
                 } else {
                     p4_frag_data_t *data_frag = (p4_frag_data_t*) frag;
-                    am_frag = ((p4_frag_data_t*) frag)->am_frag;
+                    am_frag = data_frag->am_frag;
 #ifdef P4_DEBUG
                     fprintf(stderr, "%d: got ack for data to %d\n",
                             (int) gasneti_mynode, (int) am_frag->rank);
@@ -813,13 +813,8 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
                     p4_free_data_frag(data_frag);
                 }
 
-                if (IS_AM_LONG(am_frag->match_bits)) {
-                    gasneti_weakatomic_val_t tmp;
-                    tmp = gasneti_weakatomic_add(&am_frag->op_count, 1, GASNETI_ATOMIC_NONE);
-                    if (tmp == 2) {
-                        p4_free_am_frag(am_frag);
-                    }
-                } else {
+                if (!IS_AM_LONG(am_frag->match_bits) ||
+                    (2 == gasneti_weakatomic_add(&am_frag->op_count, 1, 0))) {
                     p4_free_am_frag(am_frag);
                 }
             }
@@ -912,7 +907,7 @@ gasnetc_p4_TransferGeneric(int category, ptl_match_bits_t req_type, gasnet_node_
     uint64_t protocol = 0;
     size_t payload_length = 0;
     int num_credits = (gasnetc_Long == category || gasnetc_LongAsync == category) ? 2 : 1;
-    int32_t long_send_complete  = 0;
+    volatile int32_t long_send_complete  = 0;
 
     /* attempt to get the right number of send credits */
  retry:

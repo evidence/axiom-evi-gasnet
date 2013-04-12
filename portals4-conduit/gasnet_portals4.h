@@ -107,7 +107,7 @@ struct p4_frag_data_t {
     p4_frag_t base;
 
     p4_frag_am_t *am_frag;
-    int32_t *send_complete_ptr;
+    volatile int32_t *send_complete_ptr;
     ptl_size_t local_offset;
     ptl_size_t length;
     ptl_match_bits_t match_bits;
