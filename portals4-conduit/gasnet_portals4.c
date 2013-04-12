@@ -1292,7 +1292,15 @@ gasnetc_bootstrapExchange(void *src, size_t len, void *dest)
 
     ret = PtlMDRelease(md_h);
     if (PTL_OK != ret) gasneti_fatalerror("gasnetc_bootstrapExchange() PtlMDRelease() failed %d", ret);
-    ret = PtlMEUnlink(me_h);
+    /* There appears to be a race condition in the reference implementation
+     * where we're getting PTL_IN_USE from MEUnlink even though there are no
+     * events pending (and if you try to wait for an event, you'll wait
+     * forever).  For now, just wait for the implementation to right itself and
+     * move on. */
+    do {
+      ret = PtlMEUnlink(me_h);
+      if (PTL_IN_USE == ret) sleep(1);
+    } while (PTL_IN_USE == ret);
     if (PTL_OK != ret) gasneti_fatalerror("gasnetc_bootstrapExchange() PtlMEUnlink() failed %d", ret);
 
     /* now rotate into final position */
