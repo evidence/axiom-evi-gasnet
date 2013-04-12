@@ -645,15 +645,14 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
                                                  tokenp, pargs, numargs, dest_ptr, nbytes);
 		    } else if (IS_AM_LONG(ev.match_bits)) {
 		      /* the header part of a long message */
+		      const gasnetc_key_t key = LONG_HASH(ev.hdr_data, ev.initiator.rank);
 		      p4_long_match_t *match = 
-			(p4_long_match_t*) gasnetc_hash_get(p4_long_hash, 
-							    LONG_HASH(ev.hdr_data, ev.initiator.rank));
+			(p4_long_match_t*) gasnetc_hash_get(p4_long_hash, key);
 		      if (NULL == match) {
 			match = p4_alloc_long_match();
-			if (!gasnetc_hash_put(p4_long_hash, LONG_HASH(ev.hdr_data, ev.initiator.rank),
-					      match)) {
+			if (!gasnetc_hash_put(p4_long_hash, key, match)) {
 		          p4_free_long_match(match);
-			  match = gasnetc_hash_get(p4_long_hash, LONG_HASH(ev.hdr_data, ev.initiator.rank));
+			  match = gasnetc_hash_get(p4_long_hash, key);
 			  gasneti_assert(NULL != match);
                         }
                       }
@@ -677,6 +676,7 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
 						 gasnetc_handler[match->handler],
 						 tokenp, match->pargs, match->numargs,
 						 match->dest_ptr, match->nbytes);
+			gasnetc_hash_remove(p4_long_hash, key);
 		        p4_free_long_match(match);
                       }
                     } else {
@@ -686,15 +686,14 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
                 } else {
 		  /* the payload part of a long message */
 		  int isReq = ((IS_AM_REQUEST(ev.match_bits)) ? 1 : 0);
+		  const gasnetc_key_t key = LONG_HASH(ev.hdr_data, ev.initiator.rank);
 		  p4_long_match_t *match = 
-		    (p4_long_match_t*) gasnetc_hash_get(p4_long_hash, 
-							LONG_HASH(ev.hdr_data, ev.initiator.rank));
+		    (p4_long_match_t*) gasnetc_hash_get(p4_long_hash, key);
 		  if (NULL == match) {
 		    match = p4_alloc_long_match();
-		    if (!gasnetc_hash_put(p4_long_hash, LONG_HASH(ev.hdr_data, ev.initiator.rank),
-					  match)) {
+		    if (!gasnetc_hash_put(p4_long_hash, key, match)) {
 		      p4_free_long_match(match);
-		      match = gasnetc_hash_get(p4_long_hash, LONG_HASH(ev.hdr_data, ev.initiator.rank));
+		      match = gasnetc_hash_get(p4_long_hash, key);
 		      gasneti_assert(NULL != match);
                     }
                   }
@@ -717,6 +716,7 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
 					     gasnetc_handler[match->handler],
 					     tokenp, match->pargs, match->numargs,
 					     match->dest_ptr, match->nbytes);
+		    gasnetc_hash_remove(p4_long_hash, key);
 		    p4_free_long_match(match);
 		  }
                 }
