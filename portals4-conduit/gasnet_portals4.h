@@ -128,4 +128,11 @@ int gasnetc_p4_TransferGeneric(int category, ptl_match_bits_t req_type,
 void gasnetc_bootstrapBarrier(void);
 void gasnetc_bootstrapExchange(void *src, size_t len, void *dest);
 
+/* Use alloca()?  (e.g. to work-around bug 2079) */
+#ifdef GASNETI_USE_ALLOCA
+  /* Keep defn */
+#elif !PLATFORM_COMPILER_PGI
+  #define GASNETI_USE_ALLOCA 1
+#endif
+
 #endif

@@ -11,6 +11,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <signal.h>
+#include <alloca.h>
 
 #include <portals4.h>
 #include <portals4/pmi.h>
@@ -596,8 +597,12 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
                         gasneti_assert(ev.mlength == (numargs * sizeof(gasnet_handlerarg_t)) + nbytes);
                         gasneti_assert(nbytes <= gasnet_AMMaxMedium());
 
-                        if (((uintptr_t)buf) % 8 != 0) {
+                        if (((uintptr_t)buf) % GASNETI_MEDBUF_ALIGNMENT != 0) {
+#if GASNETI_USE_ALLOCA
+                            free_buf = alloca(nbytes);
+#else
                             free_buf = gasneti_malloc(nbytes);
+#endif
                             memcpy(free_buf, buf, nbytes);
                             buf = free_buf;
                         }
@@ -609,7 +614,9 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
                         GASNETI_RUN_HANDLER_MEDIUM(isReq, handler, gasnetc_handler[handler],
                                                    tokenp, pargs, numargs, buf, nbytes);
                         
+#if !GASNETI_USE_ALLOCA
                         if (NULL != free_buf) gasneti_free(free_buf);
+#endif
                     } else if (IS_AM_LONG_PACKED(ev.match_bits)) {
                         gasnetc_p4_token_t token;
                         gasnet_handlerarg_t *pargs = (gasnet_handlerarg_t*) ev.start;
