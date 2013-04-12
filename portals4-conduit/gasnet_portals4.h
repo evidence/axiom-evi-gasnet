@@ -16,6 +16,8 @@
 #define BOOTSTRAP_EXCHANGE_MB   0x00003
 
 /*
+ * match bits used on the active message PT
+ * 
  * header data: op count
  *
  * match bits used on AM_PT

@@ -469,8 +469,34 @@ gasnetc_p4_attach(void *segbase, uintptr_t segsize)
 void
 gasnetc_p4_exit(void)
 {
+    int i, ret;
+
+    /* assume that there's nothing to clean up in the hash, since
+       hopefully all long messages are processed before we exit. */
     gasnetc_hash_destroy(p4_long_hash);
-    /* BWB: TODO */
+
+    PtlMEUnlink(bootstrap_barrier_me_h);
+    PtlCTFree(bootstrap_barrier_ct_h);
+
+    for (i = 0 ; i < p4_am_num_entries ; ++i) {
+        ret = PtlMEUnlink(p4_am_blocks[i].me_h);
+        if (PTL_OK == ret) {
+            /* if we didn't unlink, don't free the data, as the unlink
+               likely failed because there's a communication in
+               progress.  Blocking here seems bad, so just let it
+               leak. */
+            gasneti_free(p4_am_blocks[i].data);
+        }
+    }
+    gasneti_free(p4_am_blocks);
+
+    PtlMDRelease(am_eq_md_h);
+    PtlPTFree(matching_ni_h, AM_PT);
+    PtlPTFree(matching_ni_h, COLLECTIVE_PT);
+
+    PtlEQFree(coll_eq_h);
+    PtlEQFree(am_recv_eq_h);
+    PtlEQFree(am_send_eq_h);
 }
 
 
@@ -761,8 +787,6 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
 
                 gasneti_assert(P4_FRAG_TYPE_AM == frag->type ||
                                P4_FRAG_TYPE_DATA == frag->type);
-
-                gasneti_assert(1);
 
                 if (P4_FRAG_TYPE_AM == frag->type) {
                     p4_frag_am_t *am_frag = (p4_frag_am_t*) frag;
