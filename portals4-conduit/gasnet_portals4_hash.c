@@ -40,6 +40,24 @@ typedef uintptr_t marked_ptr_t;
 #define CONSTRUCT(mark, ptr) (PTR_MASK((uintptr_t)ptr) | (mark))
 #define UNINITIALIZED ((marked_ptr_t)0)
 
+/* This is more or less a NO-OP on x86-64, but MIGHT be required on other arches */
+/* TODO: can we weaken this? */
+#define CAS_MB (GASNETI_ATOMIC_REL | GASNETI_ATOMIC_ACQ)
+
+#if PLATFORM_ARCH_32
+# ifdef GASNETI_ATOMIC32_NOT_SIGNALSAFE
+#  error "this code requires native 32-bit atomics"
+# endif
+# define CAS_marked_ptr(_p,_o,_n) gasneti_weakatomic32_compare_and_swap((gasneti_weakatomic32_t*)(_p),(_o),(_n),CAS_MB)
+#elif PLATFORM_ARCH_64
+# ifdef GASNETI_ATOMIC64_NOT_SIGNALSAFE
+#  error "this code requires native 64-bit atomics"
+# endif
+# define CAS_marked_ptr(_p,_o,_n) gasneti_weakatomic64_compare_and_swap((gasneti_weakatomic64_t*)(_p),(_o),(_n),CAS_MB)
+#else
+# error "Unknown pointer width"
+#endif
+
 static size_t   hard_max_buckets = 0;
 
 /* BWB: TODO */
@@ -149,7 +167,7 @@ static int gasnetc_lf_list_insert(marked_ptr_t *head,
             return 0;
         }
         node->next = CONSTRUCT(0, cur);
-        if (__sync_bool_compare_and_swap(lprev, CONSTRUCT(0, cur), CONSTRUCT(0, node))) {
+        if (CAS_marked_ptr(lprev, CONSTRUCT(0, cur), CONSTRUCT(0, node))) {
             if (ocur) { *ocur = cur; }
             return 1;
         }
@@ -165,8 +183,8 @@ static int gasnetc_lf_list_delete(marked_ptr_t *head,
         marked_ptr_t  lnext;
 
         if (gasnetc_lf_list_find(head, key, &lprev, &lcur, &lnext) == NULL) { return 0; }
-        if (!__sync_bool_compare_and_swap(&PTR_OF(lcur)->next, CONSTRUCT(0, lnext), CONSTRUCT(1, lnext))) { continue; }
-        if (__sync_bool_compare_and_swap(lprev, CONSTRUCT(0, lcur), CONSTRUCT(0, lnext))) {
+        if (!CAS_marked_ptr(&PTR_OF(lcur)->next, CONSTRUCT(0, lnext), CONSTRUCT(1, lnext))) { continue; }
+        if (CAS_marked_ptr(lprev, CONSTRUCT(0, lcur), CONSTRUCT(0, lnext))) {
             FREE_HASH_ENTRY(PTR_OF(lcur));
         } else {
             gasnetc_lf_list_find(head, key, NULL, NULL, NULL);                       // needs to set cur/prev/next
@@ -213,7 +231,7 @@ static void *gasnetc_lf_list_find(marked_ptr_t  *head,
                 // but if current key < key, the we don't know yet, keep looking
                 prev = &(PTR_OF(cur)->next);
             } else {
-                if (__sync_bool_compare_and_swap(prev, CONSTRUCT(0, cur), CONSTRUCT(0, next))) {
+                if (CAS_marked_ptr(prev, CONSTRUCT(0, cur), CONSTRUCT(0, next))) {
                     FREE_HASH_ENTRY(PTR_OF(cur));
                 } else {
                     break;
