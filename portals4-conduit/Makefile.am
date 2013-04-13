@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/Makefile.am,v $
-#     $Date: 2013/04/11 19:26:08 $
-# $Revision: 1.1 $
+#     $Date: 2013/04/13 01:16:07 $
+# $Revision: 1.2 $
 # Description: Makefile for GASNet portals4 conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -43,7 +43,7 @@ CONDUIT_EXTRALIBCFLAGS = -I@PORTALS4_INCLUDE@ @PORTALS4_LIBCFLAGS@
 CONDUIT_EXTRAHEADERS = 
 
 # headers selected by default rules that should NOT be installed
-CONDUIT_PRIVATEHEADERS = gasnet_portals4.h
+CONDUIT_PRIVATEHEADERS = gasnet_portals4.h gasnet_portals4_hash.h
 
 # additional file dependencies not mentioned elsewhere 
 # that should force libgasnet rebuild on update
