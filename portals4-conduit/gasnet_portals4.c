@@ -307,7 +307,7 @@ gasnetc_p4_init(int *rank, int *size)
                                           gasneti_mynode, ret);
 
 #if GASNET_SEGMENT_EVERYTHING
-    if (ni_limits.features & PTL_TARGET_BIND_INACCESSIBLE == 0) {
+    if ((ni_limits.features & PTL_TARGET_BIND_INACCESSIBLE) == 0) {
         gasneti_fatalerror("[%03d] Portals reports it doesn't support SEGMENT_EVERYTHING\n",
                            gasneti_mynode);
     }
