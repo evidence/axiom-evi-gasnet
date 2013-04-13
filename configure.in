@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2013/04/11 19:34:15 $
-# $Revision: 1.784 $
+#     $Date: 2013/04/13 00:06:06 $
+# $Revision: 1.785 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.784 $)
+AC_REVISION($Revision: 1.785 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -4049,7 +4049,15 @@ if test "$enabled_portals4" = yes; then
 
   GASNET_ENV_DEFAULT(PORTALS4_INCLUDE, $PORTALS4HOME/include)
   GASNET_ENV_DEFAULT(PORTALS4_LIBS, -lportals -lportals_runtime)
-  GASNET_ENV_DEFAULT(PORTALS4_LIBDIR, $PORTALS4HOME/lib)
+
+  # TODO: we should have (and uniformly use) a macro for this -PHH
+  portals4_lib_guess="$PORTALS4HOME/lib${GASNETI_PTR_BITS}"
+  if test -e "$portals4_lib_guess/libportals.so" -o -e "$portals4_lib_guess/libportals.a"; then
+    : # keep lib32 or lib64 as default
+  else
+    portals4_lib_guess="$PORTALS4HOME/lib"
+  fi
+  GASNET_ENV_DEFAULT(PORTALS4_LIBDIR, $portals4_lib_guess)
 
   # Assemble any extra flags needed at library build time
   PORTALS4_LIBCFLAGS='' # None yet
