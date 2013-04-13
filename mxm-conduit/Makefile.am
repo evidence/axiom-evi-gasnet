@@ -73,7 +73,7 @@ CONDUIT_EXTRALIBCFLAGS = -I@MXM_INCLUDE@  $(ssh_defines) $(mpi_defines) $(fca_ex
 CONDUIT_EXTRAHEADERS = $(fca_extraheaders)
 
 # headers selected by default rules that should NOT be installed
-CONDUIT_PRIVATEHEADERS = $(fca_privheaders)
+CONDUIT_PRIVATEHEADERS = $(fca_privheaders) gasnet_mxm_req.h
 
 # additional file dependencies not mentioned elsewhere 
 # that should force libgasnet rebuild on update
