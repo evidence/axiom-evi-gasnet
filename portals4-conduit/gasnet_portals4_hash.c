@@ -149,7 +149,7 @@ static int gasnetc_lf_list_insert(marked_ptr_t *head,
             return 0;
         }
         node->next = CONSTRUCT(0, cur);
-        if (__sync_val_compare_and_swap(lprev, node->next, CONSTRUCT(0, node)) == CONSTRUCT(0, cur)) {
+        if (__sync_bool_compare_and_swap(lprev, CONSTRUCT(0, cur), CONSTRUCT(0, node))) {
             if (ocur) { *ocur = cur; }
             return 1;
         }
@@ -165,8 +165,8 @@ static int gasnetc_lf_list_delete(marked_ptr_t *head,
         marked_ptr_t  lnext;
 
         if (gasnetc_lf_list_find(head, key, &lprev, &lcur, &lnext) == NULL) { return 0; }
-        if (__sync_val_compare_and_swap(&PTR_OF(lcur)->next, CONSTRUCT(0, lnext), CONSTRUCT(1, lnext)) != CONSTRUCT(0, lnext)) { continue; }
-        if (__sync_val_compare_and_swap(lprev, CONSTRUCT(0, lcur), CONSTRUCT(0, lnext)) == CONSTRUCT(0, lcur)) {
+        if (!__sync_bool_compare_and_swap(&PTR_OF(lcur)->next, CONSTRUCT(0, lnext), CONSTRUCT(1, lnext))) { continue; }
+        if (__sync_bool_compare_and_swap(lprev, CONSTRUCT(0, lcur), CONSTRUCT(0, lnext))) {
             FREE_HASH_ENTRY(PTR_OF(lcur));
         } else {
             gasnetc_lf_list_find(head, key, NULL, NULL, NULL);                       // needs to set cur/prev/next
@@ -213,7 +213,7 @@ static void *gasnetc_lf_list_find(marked_ptr_t  *head,
                 // but if current key < key, the we don't know yet, keep looking
                 prev = &(PTR_OF(cur)->next);
             } else {
-                if (__sync_val_compare_and_swap(prev, CONSTRUCT(0, cur), CONSTRUCT(0, next)) == CONSTRUCT(0, cur)) {
+                if (__sync_bool_compare_and_swap(prev, CONSTRUCT(0, cur), CONSTRUCT(0, next))) {
                     FREE_HASH_ENTRY(PTR_OF(cur));
                 } else {
                     break;
@@ -266,7 +266,7 @@ int  gasnetc_hash_put(gasnetc_hash  h,
     csize = h->size;
     if (__sync_fetch_and_add(&h->count, 1) / csize > MAX_LOAD) {
         if (2 * csize <= hard_max_buckets) { /* this caps the size of the hash */
-            __sync_val_compare_and_swap(&h->size, csize, 2 * csize);
+            __sync_bool_compare_and_swap(&h->size, csize, 2 * csize);
         }
     }
     return 1;
