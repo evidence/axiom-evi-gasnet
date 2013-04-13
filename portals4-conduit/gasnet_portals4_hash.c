@@ -37,7 +37,7 @@ typedef uintptr_t marked_ptr_t;
 #define MARK_OF(x)           ((x) & 1)
 #define PTR_MASK(x)          ((x) & ~(marked_ptr_t)1)
 #define PTR_OF(x)            ((hash_entry *)PTR_MASK(x))
-#define CONSTRUCT(mark, ptr) ((mark) ? PTR_MASK((uintptr_t)ptr) : ((uintptr_t)ptr|mark))
+#define CONSTRUCT(mark, ptr) ((mark) ? ((uintptr_t)ptr|mark) : PTR_MASK((uintptr_t)ptr))
 #define UNINITIALIZED ((marked_ptr_t)0)
 
 /* This is more or less a NO-OP on x86-64, but MIGHT be required on other arches */
