@@ -1,3 +1,10 @@
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4_hash.h,v $
+ *     $Date: 2013/04/14 01:14:26 $
+ * $Revision: 1.3 $
+ * Description: GASNet portals4-conduit lock-free hash table implementation
+ * Terms of use are as specified in license.txt
+ */
+
 #ifndef GASNETC_HASH_H
 #define GASNETC_HASH_H
 

@@ -1,3 +1,10 @@
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4_hash.c,v $
+ *     $Date: 2013/04/14 01:14:26 $
+ * $Revision: 1.11 $
+ * Description: GASNet header for portals4-conduit lock-free hash table
+ * Terms of use are as specified in license.txt
+ */
+
 #include <gasnet_internal.h>
 #include <gasnet_handler.h>
 #include <gasnet_core_internal.h>
