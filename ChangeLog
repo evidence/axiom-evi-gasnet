@@ -1,11 +1,9 @@
 GASNet ChangeLog 
 ----------------
-$Revision: 1.71 $
+$Revision: 1.72 $
 
 ----------------------------------------------------------------------
-04-XX-2013 : Release 1.20.2
-
-* PLACEHOLDER
+04-30-2013 : Release 1.20.2
 
 * Cray XC30 (aries-conduit)
   - This release includes Beta support for the Aries interconnect of
@@ -16,11 +14,26 @@ $Revision: 1.71 $
   - With this release support for the Gemini interconnect of the Cray
     XE and XK series systems has graduated out of BETA status.
 
+* IBM PAMI (pami-conduit)
+  - Updated to support BG/Q driver V1R2M0
+
 * NEW Beta support for Portals 4.x API (portals4-conduit)
   - This release includes BETA support for the Portals 4.x API as
     implemented at https://code.google.com/p/portals4/
   - This initial implementation does not yet include "native" Put
     or Get support, using the AM-based reference implementation instead.
+
+* InfiniBand (ibv- and vapi-conduits)
+  - Can control the IB MTU size via environment variable GASNET_MAX_MTU.
+  - Automatically ignore unsupported iWARP adapters.
+
+* PSHM (intra-node shared memory)
+  - Now support GASNET_SUPERNODE_MAXSIZE environment variable to control
+    group of cores on a compute node into multiple GASNet "supernodes".
+
+* Platform support/portability
+  - Added support for THUMB2 mode of recent ARM processors
+  - Work around a bug in Clang++ building udp-conduit (GASNet bug 3129)
 
 ----------------------------------------------------------------------
 10-30-2012 : Release 1.20.0
