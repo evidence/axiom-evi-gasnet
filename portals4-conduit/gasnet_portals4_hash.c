@@ -78,7 +78,9 @@ typedef struct hash_entry_s {
 struct gasnetc_hash_s {
     marked_ptr_t   *B;  // Buckets
     gasneti_weakatomic_t count;
-    gasneti_weakatomic_t size; /* TODO: always a power-of-two, so store (size-1) to change '%' to '&' */
+    /* 'size' is always a power-of-two.
+     * So, we replace it by mask = (size-1) to allowing transforming of '%' to '&' */
+    gasneti_weakatomic_t mask;
 };
 
 /* prototypes */
@@ -268,10 +270,10 @@ int  gasnetc_hash_put(gasnetc_hash  h,
     hash_entry *node = ALLOC_HASH_ENTRY();
     size_t      bucket;
     lkey_t      lkey = (uint64_t)(uintptr_t)key;
-    gasneti_weakatomic_val_t csize;
+    size_t csize;
 
     HASH_KEY(lkey);
-    bucket = lkey % gasneti_weakatomic_read(&h->size, 0);
+    bucket = lkey & gasneti_weakatomic_read(&h->mask, 0);
 
     gasneti_assert(node);
     gasneti_assert((lkey & MSB) == 0);
@@ -286,11 +288,11 @@ int  gasnetc_hash_put(gasnetc_hash  h,
         FREE_HASH_ENTRY(node);
         return 0;
     }
-    csize = gasneti_weakatomic_read(&h->size, 0);
+    csize = 1 + gasneti_weakatomic_read(&h->mask, 0);
     /* gasneti_weakatomic_add() is add-and-fetch, so we must offset */
     if ((gasneti_weakatomic_add(&h->count, 1, 0) - 1) / csize > MAX_LOAD) {
         if (2 * csize <= hard_max_buckets) { /* this caps the size of the hash */
-            (void) gasneti_weakatomic_compare_and_swap(&h->size, csize, 2 * csize, 0);
+            (void) gasneti_weakatomic_compare_and_swap(&h->mask, csize-1, (2 * csize) - 1, 0);
             gasneti_assert(GASNETI_POWEROFTWO(csize));
         }
     }
@@ -304,7 +306,7 @@ void  *gasnetc_hash_get(gasnetc_hash        h,
     lkey_t lkey = (uint64_t)(uintptr_t)key;
 
     HASH_KEY(lkey);
-    bucket = lkey % gasneti_weakatomic_read(&h->size, 0);
+    bucket = lkey & gasneti_weakatomic_read(&h->mask, 0);
 
     if (h->B[bucket] == UNINITIALIZED) {
         /* You'd think returning NULL at this point would be a good idea; but
@@ -322,7 +324,7 @@ int  gasnetc_hash_remove(gasnetc_hash        h,
     lkey_t lkey = (uint64_t)(uintptr_t)key;
 
     HASH_KEY(lkey);
-    bucket = lkey % gasneti_weakatomic_read(&h->size, 0);
+    bucket = lkey & gasneti_weakatomic_read(&h->mask, 0);
 
     if (h->B[bucket] == UNINITIALIZED) {
         initialize_bucket(h, bucket);
@@ -377,10 +379,12 @@ gasnetc_hash  gasnetc_hash_create()
     gasneti_assert(tmp);
     if (hard_max_buckets == 0) {
         hard_max_buckets = getpagesize() / sizeof(marked_ptr_t);
+        gasneti_assert(GASNETI_POWEROFTWO(hard_max_buckets));
+        gasneti_assert(hard_max_buckets <= GASNETI_ATOMIC_MAX);
     }
     tmp->B = gasneti_calloc(hard_max_buckets, sizeof(marked_ptr_t));
     gasneti_assert(tmp->B);
-    gasneti_weakatomic_set(&tmp->size, 2, 0);
+    gasneti_weakatomic_set(&tmp->mask, 1, 0); /* corresponds to size=2 */
     gasneti_weakatomic_set(&tmp->count, 0, 0);
     {
         hash_entry *dummy = ALLOC_HASH_ENTRY();
@@ -432,7 +436,7 @@ void  gasnetc_hash_destroy_deallocate(gasnetc_hash                h,
 size_t  gasnetc_hash_count(gasnetc_hash h)
 {
     gasneti_assert(h);
-    return gasneti_weakatomic_read(&h->size, 0);
+    return 1 + gasneti_weakatomic_read(&h->mask, 0);
 }
 
 void  gasnetc_hash_callback(gasnetc_hash             h,
