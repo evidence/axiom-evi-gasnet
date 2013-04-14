@@ -84,5 +84,5 @@ void  gasnetc_hash_callback(gasnetc_hash             h,
 }
 #endif
 
-#endif // ifndef GASNETC_HASH_H
+#endif /* ifndef GASNETC_HASH_H */
 /* vim:set expandtab: */

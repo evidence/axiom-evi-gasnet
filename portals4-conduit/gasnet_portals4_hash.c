@@ -30,6 +30,7 @@
 #define USE_HASHWORD 1
 
 /* internal types */
+/* TODO: lkey_t and so_key_t could probably be uintptr_t too */
 typedef uint64_t lkey_t;
 typedef uint64_t so_key_t;
 typedef uintptr_t marked_ptr_t;
@@ -76,7 +77,7 @@ typedef struct hash_entry_s {
 } hash_entry;
 
 struct gasnetc_hash_s {
-    marked_ptr_t   *B;  // Buckets
+    marked_ptr_t   *B;  /* Buckets */
     gasneti_weakatomic_t count;
     /* 'size' is always a power-of-two.
      * So, we replace it by mask = (size-1) to allowing transforming of '%' to '&' */
@@ -94,13 +95,12 @@ static void initialize_bucket(gasnetc_hash h,
 
 #define MSB (((uint64_t)1) << 63)
 #define REVERSE_BYTE(x) ((so_key_t)((((((uint32_t)(x)) * 0x0802LU & 0x22110LU) | (((uint32_t)(x)) * 0x8020LU & 0x88440LU)) * 0x10101LU >> 16) & 0xff))
-#if 0
-/* 32-bit reverse */
+#if PLATFORM_ARCH_32
 # define REVERSE(x) (REVERSE_BYTE((((so_key_t)(x))) & 0xff) << 24) | \
     (REVERSE_BYTE((((so_key_t)(x)) >> 8) & 0xff) << 16) |            \
     (REVERSE_BYTE((((so_key_t)(x)) >> 16) & 0xff) << 8) |            \
     (REVERSE_BYTE((((so_key_t)(x)) >> 24) & 0xff))
-#else
+#elif PLATFORM_ARCH_64
 # define REVERSE(x) ((REVERSE_BYTE((((so_key_t)(x))) & 0xff) << 56) |       \
                      (REVERSE_BYTE((((so_key_t)(x)) >> 8) & 0xff) << 48) |  \
                      (REVERSE_BYTE((((so_key_t)(x)) >> 16) & 0xff) << 40) | \
@@ -109,7 +109,9 @@ static void initialize_bucket(gasnetc_hash h,
                      (REVERSE_BYTE((((so_key_t)(x)) >> 40) & 0xff) << 16) | \
                      (REVERSE_BYTE((((so_key_t)(x)) >> 48) & 0xff) << 8) |  \
                      (REVERSE_BYTE((((so_key_t)(x)) >> 56) & 0xff) << 0))
-#endif /* if 0 */
+#else
+# error "Unknown wordsize"
+#endif
 
 #ifdef USE_HASHWORD
 # define HASH_KEY(key) key = gasnetc_hashword(key)
@@ -126,7 +128,7 @@ static uint64_t gasnetc_hashword(uint64_t key)
         key
     };
 
-    a  = b = c = 0x32533d0c + sizeof(uint64_t); // an arbitrary value, randomly selected
+    a  = b = c = 0x32533d0c + sizeof(uint64_t); /* an arbitrary value, randomly selected */
     c += 47;
 
     b += k.b[7] << 24;
@@ -169,7 +171,7 @@ static int gasnetc_lf_list_insert(marked_ptr_t *head,
         marked_ptr_t *lprev;
         marked_ptr_t  cur;
 
-        if (gasnetc_lf_list_find(head, key, &lprev, &cur, NULL) != NULL) {                       // needs to set cur/prev
+        if (gasnetc_lf_list_find(head, key, &lprev, &cur, NULL) != NULL) { /* needs to set cur/prev */
             if (ocur) { *ocur = cur; }
             return 0;
         }
@@ -194,7 +196,7 @@ static int gasnetc_lf_list_delete(marked_ptr_t *head,
         if (CAS_marked_ptr(lprev, CONSTRUCT0(lcur), CONSTRUCT0(lnext))) {
             FREE_HASH_ENTRY(PTR_OF(lcur));
         } else {
-            gasnetc_lf_list_find(head, key, NULL, NULL, NULL);                       // needs to set cur/prev/next
+            gasnetc_lf_list_find(head, key, NULL, NULL, NULL); /* needs to set cur/prev/next */
         }
         return 1;
     }
@@ -226,16 +228,16 @@ static void *gasnetc_lf_list_find(marked_ptr_t  *head,
             ckey = PTR_OF(cur)->key;
             cval = PTR_OF(cur)->value;
             if (*prev != CONSTRUCT0(cur)) {
-                break; // this means someone mucked with the list; start over
+                break; /* this means someone mucked with the list; start over */
             }
-            if (!MARK_OF(next)) {  // if next pointer is not marked
-                if (ckey >= key) { // if current key > key, the key isn't in the list; if current key == key, the key IS in the list
+            if (!MARK_OF(next)) {  /* if next pointer is not marked */
+                if (ckey >= key) { /* if current key > key, the key isn't in the list; if current key == key, the key IS in the list */
                     if (oprev) { *oprev = prev; }
                     if (ocur) { *ocur = cur; }
                     if (onext) { *onext = next; }
                     return (ckey == key) ? cval : NULL;
                 }
-                // but if current key < key, the we don't know yet, keep looking
+                /* but if current key < key, the we don't know yet, keep looking */
                 prev = &(PTR_OF(cur)->next);
             } else {
                 if (CAS_marked_ptr(prev, CONSTRUCT0(cur), CONSTRUCT0(next))) {
@@ -249,15 +251,19 @@ static void *gasnetc_lf_list_find(marked_ptr_t  *head,
     }
 } /*}}}*/
 
-static inline so_key_t so_regularkey(const lkey_t key)
+GASNETI_ALWAYS_INLINE(so_regularkey) GASNETI_CONST
+so_key_t so_regularkey(const lkey_t key)
 {
     return REVERSE(key | MSB);
 }
+GASNETI_CONSTP(so_regularkey)
 
-static inline so_key_t so_dummykey(const lkey_t key)
+GASNETI_ALWAYS_INLINE(so_dummykey) GASNETI_CONST
+so_key_t so_dummykey(const lkey_t key)
 {
     return REVERSE(key);
 }
+GASNETI_CONSTP(so_dummykey)
 
 void  gasnetc_hash_initialize_subsystem(void)
 {
@@ -269,7 +275,7 @@ int  gasnetc_hash_put(gasnetc_hash  h,
 {
     hash_entry *node = ALLOC_HASH_ENTRY();
     size_t      bucket;
-    lkey_t      lkey = (uint64_t)(uintptr_t)key;
+    lkey_t      lkey = (lkey_t)(uintptr_t)key;
     size_t csize;
 
     HASH_KEY(lkey);
@@ -303,7 +309,7 @@ void  *gasnetc_hash_get(gasnetc_hash        h,
                            const gasnetc_key_t key)
 {
     size_t bucket;
-    lkey_t lkey = (uint64_t)(uintptr_t)key;
+    lkey_t lkey = (lkey_t)(uintptr_t)key;
 
     HASH_KEY(lkey);
     bucket = lkey & gasneti_weakatomic_read(&h->mask, 0);
@@ -321,7 +327,7 @@ int  gasnetc_hash_remove(gasnetc_hash        h,
                             const gasnetc_key_t key)
 {
     size_t bucket;
-    lkey_t lkey = (uint64_t)(uintptr_t)key;
+    lkey_t lkey = (lkey_t)(uintptr_t)key;
 
     HASH_KEY(lkey);
     bucket = lkey & gasneti_weakatomic_read(&h->mask, 0);
@@ -336,7 +342,8 @@ int  gasnetc_hash_remove(gasnetc_hash        h,
     return 1;
 }
 
-static inline size_t GET_PARENT(uint64_t bucket)
+GASNETI_ALWAYS_INLINE(GET_PARENT) GASNETI_CONST
+size_t GET_PARENT(uint64_t bucket)
 {
     uint64_t t = bucket;
 
@@ -348,6 +355,7 @@ static inline size_t GET_PARENT(uint64_t bucket)
     t |= t >> 32;     /* creates a mask */
     return bucket & (t >> 1);
 }
+GASNETI_CONSTP(GET_PARENT)
 
 static void initialize_bucket(gasnetc_hash h,
                               size_t  bucket)
