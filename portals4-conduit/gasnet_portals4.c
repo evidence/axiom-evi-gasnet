@@ -54,7 +54,7 @@ struct p4_long_match_t {
 };
 typedef struct p4_long_match_t p4_long_match_t;
 
-#define LONG_HASH(a, b) ((gasnetc_key_t) ((a<<32) | b))
+#define LONG_HASH(a, b) ((gasnetc_key_t)GASNETI_MAKEWORD(a,b))
 
 static gasneti_weakatomic_t p4_send_credits = gasneti_weakatomic_init(0);
 static gasneti_weakatomic_val_t p4_max_send_credits = 0;
