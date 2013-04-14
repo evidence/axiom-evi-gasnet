@@ -37,7 +37,8 @@ typedef uintptr_t marked_ptr_t;
 #define MARK_OF(x)           ((x) & 1)
 #define PTR_MASK(x)          ((x) & ~(marked_ptr_t)1)
 #define PTR_OF(x)            ((hash_entry *)PTR_MASK(x))
-#define CONSTRUCT(mark, ptr) ((mark) ? ((uintptr_t)ptr|mark) : PTR_MASK((uintptr_t)ptr))
+#define CONSTRUCT0(ptr)      PTR_MASK((marked_ptr_t)ptr)
+#define CONSTRUCT1(ptr)      ((marked_ptr_t)ptr|1)
 #define UNINITIALIZED ((marked_ptr_t)0)
 
 /* This is more or less a NO-OP on x86-64, but MIGHT be required on other arches */
@@ -170,8 +171,8 @@ static int gasnetc_lf_list_insert(marked_ptr_t *head,
             if (ocur) { *ocur = cur; }
             return 0;
         }
-        node->next = CONSTRUCT(0, cur);
-        if (CAS_marked_ptr(lprev, CONSTRUCT(0, cur), CONSTRUCT(0, node))) {
+        node->next = CONSTRUCT0(cur);
+        if (CAS_marked_ptr(lprev, node->next, CONSTRUCT0(node))) {
             if (ocur) { *ocur = cur; }
             return 1;
         }
@@ -187,8 +188,8 @@ static int gasnetc_lf_list_delete(marked_ptr_t *head,
         marked_ptr_t  lnext;
 
         if (gasnetc_lf_list_find(head, key, &lprev, &lcur, &lnext) == NULL) { return 0; }
-        if (!CAS_marked_ptr(&PTR_OF(lcur)->next, CONSTRUCT(0, lnext), CONSTRUCT(1, lnext))) { continue; }
-        if (CAS_marked_ptr(lprev, CONSTRUCT(0, lcur), CONSTRUCT(0, lnext))) {
+        if (!CAS_marked_ptr(&PTR_OF(lcur)->next, CONSTRUCT0(lnext), CONSTRUCT1(lnext))) { continue; }
+        if (CAS_marked_ptr(lprev, CONSTRUCT0(lcur), CONSTRUCT0(lnext))) {
             FREE_HASH_ENTRY(PTR_OF(lcur));
         } else {
             gasnetc_lf_list_find(head, key, NULL, NULL, NULL);                       // needs to set cur/prev/next
@@ -222,7 +223,7 @@ static void *gasnetc_lf_list_find(marked_ptr_t  *head,
             next = PTR_OF(cur)->next;
             ckey = PTR_OF(cur)->key;
             cval = PTR_OF(cur)->value;
-            if (*prev != CONSTRUCT(0, cur)) {
+            if (*prev != CONSTRUCT0(cur)) {
                 break; // this means someone mucked with the list; start over
             }
             if (!MARK_OF(next)) {  // if next pointer is not marked
@@ -235,7 +236,7 @@ static void *gasnetc_lf_list_find(marked_ptr_t  *head,
                 // but if current key < key, the we don't know yet, keep looking
                 prev = &(PTR_OF(cur)->next);
             } else {
-                if (CAS_marked_ptr(prev, CONSTRUCT(0, cur), CONSTRUCT(0, next))) {
+                if (CAS_marked_ptr(prev, CONSTRUCT0(cur), CONSTRUCT0(next))) {
                     FREE_HASH_ENTRY(PTR_OF(cur));
                 } else {
                     break;
@@ -363,9 +364,9 @@ static void initialize_bucket(gasnetc_hash h,
     if (!gasnetc_lf_list_insert(&(h->B[parent]), dummy, &cur)) {
         FREE_HASH_ENTRY(dummy);
         dummy = PTR_OF(cur);
-        while (h->B[bucket] != CONSTRUCT(0, dummy)) ;
+        while (h->B[bucket] != CONSTRUCT0(dummy)) ;
     } else {
-        h->B[bucket] = CONSTRUCT(0, dummy);
+        h->B[bucket] = CONSTRUCT0(dummy);
     }
 }
 
@@ -385,7 +386,7 @@ gasnetc_hash  gasnetc_hash_create()
         hash_entry *dummy = ALLOC_HASH_ENTRY();
         gasneti_assert(dummy);
         memset(dummy, 0, sizeof(hash_entry));
-        tmp->B[0] = CONSTRUCT(0, dummy);
+        tmp->B[0] = CONSTRUCT0(dummy);
     }
     return tmp;
 }
