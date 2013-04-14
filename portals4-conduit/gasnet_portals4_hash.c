@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4_hash.c,v $
- *     $Date: 2013/04/14 01:14:26 $
- * $Revision: 1.11 $
+ *     $Date: 2013/04/14 01:53:10 $
+ * $Revision: 1.12 $
  * Description: GASNet header for portals4-conduit lock-free hash table
  * Terms of use are as specified in license.txt
  */
@@ -73,10 +73,6 @@ typedef uintptr_t marked_ptr_t;
 
 static size_t   hard_max_buckets = 0;
 
-/* BWB: TODO */
-# define ALLOC_HASH_ENTRY() gasneti_malloc(sizeof(hash_entry))
-# define FREE_HASH_ENTRY(t) gasneti_free(t)
-
 typedef struct hash_entry_s {
     so_key_t     key;
     void        *value;
@@ -90,6 +86,25 @@ struct gasnetc_hash_s {
      * So, we replace it by mask = (size-1) to allowing transforming of '%' to '&' */
     gasneti_weakatomic_t mask;
 };
+
+/* A lock-free hash table deserves lock-free allocation */
+#if 1
+  static gasneti_lifo_head_t entry_pool = GASNETI_LIFO_INITIALIZER;
+  GASNETI_ALWAYS_INLINE(alloc_hash_entry)
+  hash_entry *alloc_hash_entry(void)
+  {
+    hash_entry *entry = gasneti_lifo_pop(&entry_pool);
+    if_pf (NULL == entry) {
+      gasneti_leak(entry = gasneti_malloc(sizeof(hash_entry)));
+    }
+    return entry;
+  }
+# define ALLOC_HASH_ENTRY() alloc_hash_entry()
+# define FREE_HASH_ENTRY(t) gasneti_lifo_push(&entry_pool, (t))
+#else
+# define ALLOC_HASH_ENTRY() gasneti_malloc(sizeof(hash_entry))
+# define FREE_HASH_ENTRY(t) gasneti_free(t)
+#endif
 
 /* prototypes */
 static void *gasnetc_lf_list_find(marked_ptr_t  *head,
