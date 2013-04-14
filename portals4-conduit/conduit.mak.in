@@ -7,5 +7,5 @@
 #INSTRUCTIONS# See the conduit-writer instructions in the generated fragments
 #INSTRUCTIONS# or $(top_srcdir)/other/fragment-head.mak.in for usage info.
 
-GASNET_LDFLAGS_OVERRIDE = @LDFLAGS@ -L@PORTALS4_LIBDIR@
+CONDUIT_LIBDIRS = -L@PORTALS4_LIBDIR@
 CONDUIT_LIBS = @PORTALS4_LIBS@
