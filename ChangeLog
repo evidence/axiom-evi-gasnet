@@ -1,6 +1,6 @@
 GASNet ChangeLog 
 ----------------
-$Revision: 1.72 $
+$Revision: 1.73 $
 
 ----------------------------------------------------------------------
 04-30-2013 : Release 1.20.2
@@ -28,8 +28,8 @@ $Revision: 1.72 $
   - Automatically ignore unsupported iWARP adapters.
 
 * PSHM (intra-node shared memory)
-  - Now support GASNET_SUPERNODE_MAXSIZE environment variable to control
-    group of cores on a compute node into multiple GASNet "supernodes".
+  - Add the GASNET_SUPERNODE_MAXSIZE environment variable to control the
+    grouping of cores on a compute node into multiple GASNet "supernodes".
 
 * Platform support/portability
   - Added support for THUMB2 mode of recent ARM processors
