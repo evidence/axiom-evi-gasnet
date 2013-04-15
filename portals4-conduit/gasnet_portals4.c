@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4.c,v $
- *     $Date: 2013/04/15 21:25:58 $
- * $Revision: 1.25 $
+ *     $Date: 2013/04/15 22:44:34 $
+ * $Revision: 1.26 $
  * Description: Portals 4 specific configuration
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
@@ -66,6 +66,12 @@ static gasneti_weakatomic_t p4_send_credits = gasneti_weakatomic_init(0);
 static gasneti_weakatomic_val_t p4_max_send_credits = 0;
 
 static gasneti_weakatomic_t p4_op_count = gasneti_weakatomic_init(0);
+
+#define P4_AM_MAX_DATA_LENGTH                                        \
+  GASNETI_ALIGNUP(sizeof(gasnet_handlerarg_t) * gasnet_AMMaxArgs() + \
+                  gasnet_AMMaxMedium(), GASNETI_MEDBUF_ALIGNMENT)
+#define ASSERT_IS_MED_ALIGNED(x) \
+  gasneti_assert(0 == ((uintptr_t)(x) & (GASNETI_MEDBUF_ALIGNMENT-1)))
 
 
 static int
@@ -416,14 +422,17 @@ gasnetc_p4_init(int *rank, int *size)
        figured out */
     p4_am_blocks = gasneti_malloc(sizeof(p4_am_block_t) * p4_am_num_entries);
     for (i = 0 ; i < p4_am_num_entries ; ++i) {
-        p4_am_blocks[i].data = gasneti_malloc(p4_am_size);
-        me.start = p4_am_blocks[i].data;
+        void * data = gasneti_malloc(p4_am_size);
+        ASSERT_IS_MED_ALIGNED(data);
+        p4_am_blocks[i].data = data;
+        me.start = data;
         me.length = p4_am_size;
-        me.min_free = gasnet_AMMaxMedium() + gasnet_AMMaxArgs() * sizeof(gasnet_handlerarg_t);
+        me.min_free = P4_AM_MAX_DATA_LENGTH;
         me.ct_handle = PTL_CT_NONE;
         me.uid = uid;
         me.options = PTL_ME_OP_PUT | PTL_ME_MANAGE_LOCAL |
-            PTL_ME_MAY_ALIGN | PTL_ME_IS_ACCESSIBLE | 
+            PTL_ME_MAY_ALIGN |  /* XXX: assumes won't make things LESS than our 8-byte alignment */
+            PTL_ME_IS_ACCESSIBLE | 
             PTL_ME_EVENT_LINK_DISABLE;
         me.match_id.rank = PTL_RANK_ANY;
         me.match_bits = ACTIVE_MESSAGE;
@@ -580,9 +589,7 @@ p4_frag_am_t *p4_alloc_am_frag(void)
 {
     p4_frag_am_t *frag = gasneti_lifo_pop(&p4_am_frag_pool);
     if_pf (NULL == frag) {
-        frag = gasneti_malloc(offsetof(p4_frag_am_t,data) + 
-                              sizeof(gasnet_handlerarg_t) * gasnet_AMMaxArgs() +
-                              gasnet_AMMaxMedium());
+        frag = gasneti_malloc(offsetof(p4_frag_am_t,data) + P4_AM_MAX_DATA_LENGTH);
         gasneti_leak(frag);
     }
     frag->base.type = P4_FRAG_TYPE_AM; /* lost while on freelist */
@@ -675,6 +682,9 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
                     int numargs = GET_ARG_COUNT(ev.match_bits);
                     int handler = GET_HANDLERID(ev.match_bits);
 
+                    ASSERT_IS_MED_ALIGNED(ev.start);
+                    ASSERT_IS_MED_ALIGNED(ev.mlength);
+
                     if (IS_AM_SHORT(ev.match_bits)) {
                         gasnetc_p4_token_t token;
                         gasnet_handlerarg_t *pargs = (gasnet_handlerarg_t*) ev.start;
@@ -684,7 +694,9 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
                         token.sourceid = ev.initiator.rank;
 
                         gasneti_assert(0 == nbytes);
-                        gasneti_assert(ev.mlength == (numargs * sizeof(gasnet_handlerarg_t)));
+                        gasneti_assert(ev.mlength ==
+                                       GASNETI_ALIGNUP(numargs * sizeof(gasnet_handlerarg_t),
+                                                       GASNETI_MEDBUF_ALIGNMENT));
 
 #ifdef P4_DEBUG
                         fprintf(stderr, "%d: firing short handler %d from %d\n",
@@ -696,24 +708,17 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
                         gasnetc_p4_token_t token;
                         gasnet_handlerarg_t *pargs = (gasnet_handlerarg_t*) ev.start;
                         gasnetc_p4_token_t *tokenp = &token;
-                        void *buf = (void*) (pargs + numargs);
-                        void *free_buf = NULL;
+
+                        /* Medium payload is after args, with padding to GASNETI_MEDBUF_ALIGNMENT */
+                        void *buf = (void *)GASNETI_ALIGNUP((pargs + numargs), GASNETI_MEDBUF_ALIGNMENT);
 
                         token.reply_sent = 0;
                         token.sourceid = ev.initiator.rank;
 
-                        gasneti_assert(ev.mlength == (numargs * sizeof(gasnet_handlerarg_t)) + nbytes);
+                        gasneti_assert(ev.mlength ==
+                                       GASNETI_ALIGNUP((uintptr_t)buf + nbytes - (uintptr_t)ev.start,
+                                                       GASNETI_MEDBUF_ALIGNMENT));
                         gasneti_assert(nbytes <= gasnet_AMMaxMedium());
-
-                        if (((uintptr_t)buf) % GASNETI_MEDBUF_ALIGNMENT != 0) {
-#if GASNETI_USE_ALLOCA
-                            free_buf = alloca(nbytes);
-#else
-                            free_buf = gasneti_malloc(nbytes);
-#endif
-                            memcpy(free_buf, buf, nbytes);
-                            buf = free_buf;
-                        }
 
 #ifdef P4_DEBUG
                         fprintf(stderr, "%d: firing medium handler %d from %d, nbytes: %d\n",
@@ -736,6 +741,11 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
                         token.reply_sent = 0;
                         token.sourceid = ev.initiator.rank;
 
+                        gasneti_assert(ev.mlength ==
+                                       GASNETI_ALIGNUP(numargs * sizeof(gasnet_handlerarg_t)
+                                                         + sizeof(uint64_t) + nbytes,
+                                                       GASNETI_MEDBUF_ALIGNMENT));
+
                         memcpy(&tmp, buf, sizeof(uint64_t));
                         dest_ptr = (void*) tmp;
 			buf += sizeof(uint64_t);
@@ -752,6 +762,10 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
 		      /* the header part of a long message */
 		      const gasnetc_key_t key = LONG_HASH(ev.hdr_data, ev.initiator.rank);
 		      p4_long_match_t *match = p4_find_long_match(key);
+
+                      gasneti_assert(ev.mlength ==
+                                     GASNETI_ALIGNUP(numargs * sizeof(gasnet_handlerarg_t),
+                                                     GASNETI_MEDBUF_ALIGNMENT));
 
 		      match->handler = handler;
 		      memcpy(match->pargs, ev.start, sizeof(gasnet_handlerarg_t) * numargs);
@@ -923,11 +937,12 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
                 
                 me.start = block->data;
                 me.length = p4_am_size;
-                me.min_free = gasnet_AMMaxMedium() + gasnet_AMMaxArgs() * sizeof(gasnet_handlerarg_t);
+                me.min_free = P4_AM_MAX_DATA_LENGTH;
                 me.ct_handle = PTL_CT_NONE;
                 me.uid = uid;
                 me.options = PTL_ME_OP_PUT | PTL_ME_MANAGE_LOCAL |
-                    PTL_ME_MAY_ALIGN | PTL_ME_IS_ACCESSIBLE | 
+                    PTL_ME_MAY_ALIGN |  /* XXX: assumes won't make things LESS than our 8-byte alignment */
+                    PTL_ME_IS_ACCESSIBLE | 
                     PTL_ME_EVENT_LINK_DISABLE;
                 me.match_id.rank = PTL_RANK_ANY;
                 me.match_bits = ACTIVE_MESSAGE;
@@ -1040,12 +1055,18 @@ gasnetc_p4_TransferGeneric(int category, ptl_match_bits_t req_type, gasnet_node_
 
     case gasnetc_Medium:
         protocol = AM_MEDIUM;
+        gasneti_assert (nbytes <= gasnet_AMMaxMedium());
         if (nbytes > 0) {
-            if (nbytes > gasnet_AMMaxMedium()) {
-                gasneti_fatalerror("[%03d] too long payload for medium message: %d\n",
-                                   gasneti_mynode, (int)nbytes);
-            }
-            /* copy the payload */
+            /* copy payload with appropriate alignment relative to 'data' field */
+            const int offset = frag->data_length & (GASNETI_MEDBUF_ALIGNMENT - 1);
+#if (GASNETI_MEDBUF_ALIGNMENT == 8)
+            /* Use the fact that alignment must be at least 4-bytes */
+            gasneti_assert(!offset || (offset == 4));
+            frag->data_length += offset;
+#else
+            /* This is the fully general case */
+            frag->data_length += offset ? (GASNETI_MEDBUF_ALIGNMENT - offset) : 0;
+#endif
             memcpy(frag->data + frag->data_length, source_addr, nbytes);
 	    frag->data_length += nbytes;
         }
@@ -1053,7 +1074,7 @@ gasnetc_p4_TransferGeneric(int category, ptl_match_bits_t req_type, gasnet_node_
         break;
     case gasnetc_Long:
     case gasnetc_LongAsync:
-        if (nbytes <= (gasnet_AMMaxMedium() - sizeof(uint64_t))) {
+        if ((frag->data_length + nbytes) <= (P4_AM_MAX_DATA_LENGTH - sizeof(uint64_t))) {
             uint64_t tmp = (uintptr_t) dest_addr;
             protocol = AM_LONG_PACKED;
 
@@ -1107,6 +1128,10 @@ gasnetc_p4_TransferGeneric(int category, ptl_match_bits_t req_type, gasnet_node_
     }
 
     frag->match_bits = CREATE_MATCH_BITS(ACTIVE_MESSAGE, req_type, protocol, numargs, handler, payload_length);
+
+    /* maintain alignment at target */
+    frag->data_length = GASNETI_ALIGNUP(frag->data_length, GASNETI_MEDBUF_ALIGNMENT);
+    gasneti_assert (frag->data_length <= P4_AM_MAX_DATA_LENGTH);
 
     /* send the fragment */
     ret = PtlPut(am_eq_md_h,
