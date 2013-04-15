@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4.c,v $
- *     $Date: 2013/04/15 19:38:36 $
- * $Revision: 1.22 $
+ *     $Date: 2013/04/15 19:50:18 $
+ * $Revision: 1.23 $
  * Description: Portals 4 specific configuration
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
@@ -1140,6 +1140,26 @@ gasnetc_p4_TransferGeneric(int category, ptl_match_bits_t req_type, gasnet_node_
  * have been allocated, can use this function to perform the equivelent of
  * an MPI_Barrier.  Assumes that barrier has been setup during gasnetc_init
  * --------------------------------------------------------------------------------- */
+static void p4_barrier_send(ptl_handle_md_t md_h, int peer)
+{
+    ptl_process_t proc;
+    int ret;
+
+    proc.rank = left;
+    ret = PtlPut(md_h,
+                 0,
+                 0,
+                 PTL_NO_ACK_REQ,
+                 proc,
+                 COLLECTIVE_PT,
+                 BOOTSTRAP_BARRIER_MB,
+                 0,
+                 NULL,
+                 0);
+    if_pf (PTL_OK != ret) {
+        gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlPut() failed %d", ret);
+    }
+}
 void
 gasnetc_bootstrapBarrier(void)
 {
@@ -1149,7 +1169,6 @@ gasnetc_bootstrapBarrier(void)
     int count = ((left == -1) ? 0 : 1) + ((right == -1) ? 0 : 1);
     ptl_ct_event_t ct;
     int ret;
-    ptl_process_t proc;
     ptl_handle_md_t md_h;
     ptl_md_t md;
 
@@ -1175,57 +1194,12 @@ gasnetc_bootstrapBarrier(void)
             gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlCTWait() failed %d", ret);
         }
 
-        if (-1 != left) {
-            proc.rank = left;
-            ret = PtlPut(md_h,
-                         0,
-                         0,
-                         PTL_NO_ACK_REQ,
-                         proc,
-                         COLLECTIVE_PT,
-                         BOOTSTRAP_BARRIER_MB,
-                         0,
-                         NULL,
-                         0);
-            if (PTL_OK != ret) {
-                gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlPut() failed %d", ret);
-            }
-        }
-
-        if (-1 != right) {
-            proc.rank = right;
-            ret = PtlPut(md_h,
-                         0,
-                         0,
-                         PTL_NO_ACK_REQ,
-                         proc,
-                         COLLECTIVE_PT,
-                         BOOTSTRAP_BARRIER_MB,
-                         0,
-                         NULL,
-                         0);
-            if (PTL_OK != ret) {
-                gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlPut() failed %d", ret);
-            }
-        }
-
+        if (-1 != left ) { p4_barrier_send(left ); }
+        if (-1 != right) { p4_barrier_send(right); }
     } else if (0 == count) {
         /* leaf */
-        proc.rank = my_root;
-        ret = PtlPut(md_h,
-                     0,
-                     0,
-                     PTL_NO_ACK_REQ,
-                     proc,
-                     COLLECTIVE_PT,
-                     BOOTSTRAP_BARRIER_MB,
-                     0,
-                     NULL,
-                     0);
-        if (PTL_OK != ret) {
-            gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlPut() failed %d", ret);
-        }
-        
+        p4_barrier_send(my_root);
+
         ret = PtlCTWait(bootstrap_barrier_ct_h, 
                         bootstrap_barrier_calls,
                         &ct);
@@ -1235,70 +1209,28 @@ gasnetc_bootstrapBarrier(void)
 
     } else {
         /* middle node */
+        const int goal = bootstrap_barrier_calls * (count + 1);
+
+        /* wait for up part */
         ret = PtlCTWait(bootstrap_barrier_ct_h, 
-                        ((bootstrap_barrier_calls - 1) * (count + 1)) + count,
+                        goal - 1,
                         &ct);
         if (PTL_OK != ret) {
             gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlCTWait() failed %d", ret);
         }
 
-        proc.rank = my_root;
-        ret = PtlPut(md_h,
-                     0,
-                     0,
-                     PTL_NO_ACK_REQ,
-                     proc,
-                     COLLECTIVE_PT,
-                     BOOTSTRAP_BARRIER_MB,
-                     0,
-                     NULL,
-                     0);
-        if (PTL_OK != ret) {
-            gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlPut() failed %d", ret);
-        }
+        p4_barrier_send(my_root);
 
         /* wait for down part */
         ret = PtlCTWait(bootstrap_barrier_ct_h, 
-                        bootstrap_barrier_calls * (count + 1),
+                        goal,
                         &ct);
         if (PTL_OK != ret) {
             gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlCTWait() failed %d", ret);
         }
 
-
-        if (-1 != left) {
-            proc.rank = left;
-            ret = PtlPut(md_h,
-                         0,
-                         0,
-                         PTL_NO_ACK_REQ,
-                         proc,
-                         COLLECTIVE_PT,
-                         BOOTSTRAP_BARRIER_MB,
-                         0,
-                         NULL,
-                         0);
-            if (PTL_OK != ret) {
-                gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlPut() failed %d", ret);
-            }
-        }
-
-        if (-1 != right) {
-            proc.rank = right;
-            ret = PtlPut(md_h,
-                         0,
-                         0,
-                         PTL_NO_ACK_REQ,
-                         proc,
-                         COLLECTIVE_PT,
-                         BOOTSTRAP_BARRIER_MB,
-                         0,
-                         NULL,
-                         0);
-            if (PTL_OK != ret) {
-                gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlPut() failed %d", ret);
-            }
-        }
+        if (-1 != left ) { p4_barrier_send(left ); }
+        if (-1 != right) { p4_barrier_send(right); }
     }
     
     ret = PtlMDRelease(md_h);
