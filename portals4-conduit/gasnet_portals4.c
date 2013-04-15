@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4.c,v $
- *     $Date: 2013/04/15 09:12:02 $
- * $Revision: 1.21 $
+ *     $Date: 2013/04/15 19:38:36 $
+ * $Revision: 1.22 $
  * Description: Portals 4 specific configuration
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
@@ -1123,8 +1123,11 @@ gasnetc_p4_TransferGeneric(int category, ptl_match_bits_t req_type, gasnet_node_
     while (gasnetc_Long == category && long_send_complete == 0) {
         ret = p4_poll(&am_send_eq_h, 1);
         if (GASNET_OK != ret) return ret;
-        /* TODO: gasneti_AMPSHMPoll() here?  If so, pass 0 or 1? */
-        gasneti_compiler_fence();
+#if GASNET_PSHM
+        /* Progress shared-memory Request and Reply queues while we wait */
+        gasneti_AMPSHMPoll(0);
+#endif
+        GASNETI_WAITHOOK();
     }
 
     return GASNET_OK;
