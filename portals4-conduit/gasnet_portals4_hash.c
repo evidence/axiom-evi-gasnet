@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4_hash.c,v $
- *     $Date: 2013/04/15 06:35:04 $
- * $Revision: 1.14 $
+ *     $Date: 2013/04/15 06:46:00 $
+ * $Revision: 1.15 $
  * Description: GASNet header for portals4-conduit lock-free hash table
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
@@ -304,7 +304,6 @@ int  gasnetc_hash_put(gasnetc_hash  h,
     HASH_KEY(lkey);
     bucket = lkey & gasneti_weakatomic_read(&h->mask, 0);
 
-    gasneti_assert(node);
     gasneti_assert((lkey & MSB) == 0);
     node->key   = so_regularkey(lkey);
     node->value = value;
@@ -342,7 +341,6 @@ void *gasnetc_hash_put_find(gasnetc_hash  h,
     HASH_KEY(lkey);
     bucket = lkey & gasneti_weakatomic_read(&h->mask, 0);
 
-    gasneti_assert(node);
     gasneti_assert((lkey & MSB) == 0);
     node->key   = so_regularkey(lkey);
     node->value = value;
@@ -428,7 +426,6 @@ static void initialize_bucket(gasnetc_hash h,
         initialize_bucket(h, parent);
     }
     dummy = ALLOC_HASH_ENTRY();
-    gasneti_assert(dummy);
     dummy->key   = so_dummykey((lkey_t)bucket);
     dummy->value = NULL;
     dummy->next  = UNINITIALIZED;
@@ -445,19 +442,16 @@ gasnetc_hash  gasnetc_hash_create()
 {
     gasnetc_hash tmp = gasneti_malloc(sizeof(struct gasnetc_hash_s));
 
-    gasneti_assert(tmp);
     if (hard_max_buckets == 0) {
         hard_max_buckets = getpagesize() / sizeof(marked_ptr_t);
         gasneti_assert(GASNETI_POWEROFTWO(hard_max_buckets));
         gasneti_assert(hard_max_buckets <= GASNETI_ATOMIC_MAX);
     }
     tmp->B = gasneti_calloc(hard_max_buckets, sizeof(marked_ptr_t));
-    gasneti_assert(tmp->B);
     gasneti_weakatomic_set(&tmp->mask, 1, 0); /* corresponds to size=2 */
     gasneti_weakatomic_set(&tmp->count, 0, 0);
     {
         hash_entry *dummy = ALLOC_HASH_ENTRY();
-        gasneti_assert(dummy);
         memset(dummy, 0, sizeof(hash_entry));
         tmp->B[0] = CONSTRUCT0(dummy);
     }
