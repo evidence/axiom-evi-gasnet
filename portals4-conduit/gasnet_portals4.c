@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4.c,v $
- *     $Date: 2013/04/15 19:50:18 $
- * $Revision: 1.23 $
+ *     $Date: 2013/04/15 19:53:39 $
+ * $Revision: 1.24 $
  * Description: Portals 4 specific configuration
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
@@ -1145,7 +1145,7 @@ static void p4_barrier_send(ptl_handle_md_t md_h, int peer)
     ptl_process_t proc;
     int ret;
 
-    proc.rank = left;
+    proc.rank = peer;
     ret = PtlPut(md_h,
                  0,
                  0,
@@ -1194,11 +1194,11 @@ gasnetc_bootstrapBarrier(void)
             gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlCTWait() failed %d", ret);
         }
 
-        if (-1 != left ) { p4_barrier_send(left ); }
-        if (-1 != right) { p4_barrier_send(right); }
+        if (-1 != left ) { p4_barrier_send(md_h,left ); }
+        if (-1 != right) { p4_barrier_send(md_h,right); }
     } else if (0 == count) {
         /* leaf */
-        p4_barrier_send(my_root);
+        p4_barrier_send(md_h,my_root);
 
         ret = PtlCTWait(bootstrap_barrier_ct_h, 
                         bootstrap_barrier_calls,
@@ -1219,7 +1219,7 @@ gasnetc_bootstrapBarrier(void)
             gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlCTWait() failed %d", ret);
         }
 
-        p4_barrier_send(my_root);
+        p4_barrier_send(md_h,my_root);
 
         /* wait for down part */
         ret = PtlCTWait(bootstrap_barrier_ct_h, 
@@ -1229,8 +1229,8 @@ gasnetc_bootstrapBarrier(void)
             gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlCTWait() failed %d", ret);
         }
 
-        if (-1 != left ) { p4_barrier_send(left ); }
-        if (-1 != right) { p4_barrier_send(right); }
+        if (-1 != left ) { p4_barrier_send(md_h,left ); }
+        if (-1 != right) { p4_barrier_send(md_h,right); }
     }
     
     ret = PtlMDRelease(md_h);
