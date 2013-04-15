@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4_hash.c,v $
- *     $Date: 2013/04/15 04:38:34 $
- * $Revision: 1.13 $
+ *     $Date: 2013/04/15 06:35:04 $
+ * $Revision: 1.14 $
  * Description: GASNet header for portals4-conduit lock-free hash table
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
@@ -326,6 +326,44 @@ int  gasnetc_hash_put(gasnetc_hash  h,
         }
     }
     return 1;
+}
+
+/* PHH: _put extended to return the pre-existing value on failure */
+void *gasnetc_hash_put_find(gasnetc_hash  h,
+                         gasnetc_key_t key,
+                         void    *value)
+{
+    marked_ptr_t cur;
+    hash_entry *node = ALLOC_HASH_ENTRY();
+    size_t      bucket;
+    lkey_t      lkey = (lkey_t)(uintptr_t)key;
+    size_t csize;
+
+    HASH_KEY(lkey);
+    bucket = lkey & gasneti_weakatomic_read(&h->mask, 0);
+
+    gasneti_assert(node);
+    gasneti_assert((lkey & MSB) == 0);
+    node->key   = so_regularkey(lkey);
+    node->value = value;
+    node->next  = UNINITIALIZED;
+
+    if (h->B[bucket] == UNINITIALIZED) {
+        initialize_bucket(h, bucket);
+    }
+    if (!gasnetc_lf_list_insert(&(h->B[bucket]), node, &cur)) {
+        FREE_HASH_ENTRY(node);
+        return PTR_OF(cur)->value;
+    }
+    csize = 1 + gasneti_weakatomic_read(&h->mask, 0);
+    /* gasneti_weakatomic_add() is add-and-fetch, so we must offset */
+    if ((gasneti_weakatomic_add(&h->count, 1, 0) - 1) / csize > MAX_LOAD) {
+        if (2 * csize <= hard_max_buckets) { /* this caps the size of the hash */
+            (void) gasneti_weakatomic_compare_and_swap(&h->mask, csize-1, (2 * csize) - 1, 0);
+            gasneti_assert(GASNETI_POWEROFTWO(csize));
+        }
+    }
+    return NULL;
 }
 
 void  *gasnetc_hash_get(gasnetc_hash        h,

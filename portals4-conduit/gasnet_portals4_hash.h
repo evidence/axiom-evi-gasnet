@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4_hash.h,v $
- *     $Date: 2013/04/15 04:38:34 $
- * $Revision: 1.4 $
+ *     $Date: 2013/04/15 06:35:04 $
+ * $Revision: 1.5 $
  * Description: GASNet portals4-conduit lock-free hash table implementation
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
@@ -52,6 +52,20 @@ void  gasnetc_hash_destroy_deallocate(gasnetc_hash                h,
  *      failed.
  */
 int  gasnetc_hash_put(gasnetc_hash  h,
+                         gasnetc_key_t key,
+                         void    *value);
+
+/*!
+ * @fn gasnetc_hash_put_find(gasnetc_hash        h,
+ *                 const gasnetc_key_t key,
+ *                 void          *value)
+ *                 void          **found_p)
+ * @brief Insert a mapping from <key> to <value> into the hash map or
+ *      find the existing mapping. This function returns NULL if the
+ *      insertion succeeded, or the value of the existing mapping on
+ *      failure.
+ */
+void*  gasnetc_hash_put_find(gasnetc_hash  h,
                          gasnetc_key_t key,
                          void    *value);
 
