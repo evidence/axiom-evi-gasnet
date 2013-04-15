@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4_hash.c,v $
- *     $Date: 2013/04/15 06:46:00 $
- * $Revision: 1.15 $
+ *     $Date: 2013/04/15 10:14:10 $
+ * $Revision: 1.16 $
  * Description: GASNet header for portals4-conduit lock-free hash table
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
@@ -38,7 +38,6 @@
 #define USE_HASHWORD 1
 
 /* internal types */
-/* TODO: lkey_t and so_key_t could probably be uintptr_t too */
 typedef uint64_t lkey_t;
 typedef uint64_t so_key_t;
 typedef uintptr_t marked_ptr_t;
@@ -116,14 +115,15 @@ static void *gasnetc_lf_list_find(marked_ptr_t  *head,
 static void initialize_bucket(gasnetc_hash h,
                               size_t  bucket);
 
-#define MSB (((uint64_t)1) << 63)
 #define REVERSE_BYTE(x) ((so_key_t)((((((uint32_t)(x)) * 0x0802LU & 0x22110LU) | (((uint32_t)(x)) * 0x8020LU & 0x88440LU)) * 0x10101LU >> 16) & 0xff))
 #if PLATFORM_ARCH_32
+# define MSB (((uint64_t)1) << 31)
 # define REVERSE(x) (REVERSE_BYTE((((so_key_t)(x))) & 0xff) << 24) | \
     (REVERSE_BYTE((((so_key_t)(x)) >> 8) & 0xff) << 16) |            \
     (REVERSE_BYTE((((so_key_t)(x)) >> 16) & 0xff) << 8) |            \
     (REVERSE_BYTE((((so_key_t)(x)) >> 24) & 0xff))
 #elif PLATFORM_ARCH_64
+# define MSB (((uint64_t)1) << 63)
 # define REVERSE(x) ((REVERSE_BYTE((((so_key_t)(x))) & 0xff) << 56) |       \
                      (REVERSE_BYTE((((so_key_t)(x)) >> 8) & 0xff) << 48) |  \
                      (REVERSE_BYTE((((so_key_t)(x)) >> 16) & 0xff) << 40) | \
@@ -136,9 +136,14 @@ static void initialize_bucket(gasnetc_hash h,
 # error "Unknown wordsize"
 #endif
 
+/* TODO: This hash is probably waaay to expensive for the way the table is being
+ * used right now (perhaps a dozen keys?), but is probably a good choice for
+ * more general-purpose use.  So, what should be done here?   -PHH 2013.04.15
+ */
 #ifdef USE_HASHWORD
 # define HASH_KEY(key) key = gasnetc_hashword(key)
 /* this function based on http://burtleburtle.net/bob/hash/evahash.html */
+/* TODO: inline asm for CPUs w/ rotate instructions? */
 # define rot(x, k) (((x) << (k)) | ((x) >> (32 - (k))))
 static uint64_t gasnetc_hashword(uint64_t key)
 {   /*{{{*/
@@ -496,6 +501,7 @@ void  gasnetc_hash_destroy_deallocate(gasnetc_hash                h,
     gasneti_free(h);
 }
 
+/* TODO: this is the table size, not the number of entries */
 size_t  gasnetc_hash_count(gasnetc_hash h)
 {
     gasneti_assert(h);
