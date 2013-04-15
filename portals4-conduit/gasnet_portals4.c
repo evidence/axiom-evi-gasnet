@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4.c,v $
- *     $Date: 2013/04/14 01:14:26 $
- * $Revision: 1.18 $
+ *     $Date: 2013/04/15 06:41:39 $
+ * $Revision: 1.19 $
  * Description: Portals 4 specific configuration
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
@@ -606,15 +606,24 @@ void p4_free_data_frag(p4_frag_data_t *frag)
 
 static gasneti_lifo_head_t p4_long_match_pool = GASNETI_LIFO_INITIALIZER;
 
-GASNETI_INLINE(p4_alloc_long_match)
-p4_long_match_t *p4_alloc_long_match(void)
+GASNETI_INLINE(p4_find_long_match)
+p4_long_match_t *p4_find_long_match(const gasnetc_key_t key)
 {
-    p4_long_match_t *match = gasneti_lifo_pop(&p4_long_match_pool);
-    if_pf (NULL == match) {
-        match = gasneti_malloc(sizeof(p4_long_match_t));
-        gasneti_leak(match);
+    p4_long_match_t *match, *tmp;
+    match = (p4_long_match_t*) gasnetc_hash_get(p4_long_hash, key);
+    if (NULL == match) {
+        match = gasneti_lifo_pop(&p4_long_match_pool);
+        if_pf (NULL == match) {
+            match = gasneti_malloc(sizeof(p4_long_match_t));
+            gasneti_leak(match);
+        }
+        gasneti_weakatomic_set(&match->op_count, 0, 0);
+        tmp = gasnetc_hash_put_find(p4_long_hash, key, match);
+        if (NULL != tmp) {
+            gasneti_lifo_push(&p4_long_match_pool, match);
+            match = tmp;
+        }
     }
-    gasneti_weakatomic_set(&match->op_count, 0, 0);
     return match;
 }
 
@@ -728,16 +737,7 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
 		    } else if (IS_AM_LONG(ev.match_bits)) {
 		      /* the header part of a long message */
 		      const gasnetc_key_t key = LONG_HASH(ev.hdr_data, ev.initiator.rank);
-		      p4_long_match_t *match = 
-			(p4_long_match_t*) gasnetc_hash_get(p4_long_hash, key);
-		      if (NULL == match) {
-			match = p4_alloc_long_match();
-			if (!gasnetc_hash_put(p4_long_hash, key, match)) {
-		          p4_free_long_match(match);
-			  match = gasnetc_hash_get(p4_long_hash, key);
-			  gasneti_assert(NULL != match);
-                        }
-                      }
+		      p4_long_match_t *match = p4_find_long_match(key);
 
 		      match->handler = handler;
 		      memcpy(match->pargs, ev.start, sizeof(gasnet_handlerarg_t) * numargs);
@@ -746,6 +746,8 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
 		      if (2 == gasneti_weakatomic_add(&match->op_count, 1, 0)) {
 			gasnetc_p4_token_t token;
 			gasnetc_p4_token_t *tokenp = &token;
+
+			gasnetc_hash_remove(p4_long_hash, key);
 
 			token.reply_sent = 0;
 			token.sourceid = ev.initiator.rank;
@@ -758,27 +760,17 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
 						 gasnetc_handler[match->handler],
 						 tokenp, match->pargs, match->numargs,
 						 match->dest_ptr, match->nbytes);
-			gasnetc_hash_remove(p4_long_hash, key);
 		        p4_free_long_match(match);
                       }
                     } else {
                         gasneti_fatalerror("unknown active message type.  MB: 0x%lx\n",
-                                           ev.match_bits);
+                                           (unsigned long)ev.match_bits);
                     }
                 } else {
 		  /* the payload part of a long message */
 		  int isReq = ((IS_AM_REQUEST(ev.match_bits)) ? 1 : 0);
 		  const gasnetc_key_t key = LONG_HASH(ev.hdr_data, ev.initiator.rank);
-		  p4_long_match_t *match = 
-		    (p4_long_match_t*) gasnetc_hash_get(p4_long_hash, key);
-		  if (NULL == match) {
-		    match = p4_alloc_long_match();
-		    if (!gasnetc_hash_put(p4_long_hash, key, match)) {
-		      p4_free_long_match(match);
-		      match = gasnetc_hash_get(p4_long_hash, key);
-		      gasneti_assert(NULL != match);
-                    }
-                  }
+		  p4_long_match_t *match = p4_find_long_match(key);
 
 		  match->dest_ptr = ev.start;
 		  match->nbytes = ev.mlength;
@@ -786,6 +778,8 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
 		  if (2 == gasneti_weakatomic_add(&match->op_count, 1, 0)) {
 		    gasnetc_p4_token_t token;
 		    gasnetc_p4_token_t *tokenp = &token;
+
+		    gasnetc_hash_remove(p4_long_hash, key);
 
 		    token.reply_sent = 0;
 		    token.sourceid = ev.initiator.rank;
@@ -798,7 +792,6 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
 					     gasnetc_handler[match->handler],
 					     tokenp, match->pargs, match->numargs,
 					     match->dest_ptr, match->nbytes);
-		    gasnetc_hash_remove(p4_long_hash, key);
 		    p4_free_long_match(match);
 		  }
                 }
