@@ -1,7 +1,8 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4_hash.h,v $
- *     $Date: 2013/04/14 01:14:26 $
- * $Revision: 1.3 $
+ *     $Date: 2013/04/15 04:38:34 $
+ * $Revision: 1.4 $
  * Description: GASNet portals4-conduit lock-free hash table implementation
+ * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
  */
 

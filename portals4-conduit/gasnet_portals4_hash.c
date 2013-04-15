@@ -1,7 +1,8 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4_hash.c,v $
- *     $Date: 2013/04/14 01:53:10 $
- * $Revision: 1.12 $
+ *     $Date: 2013/04/15 04:38:34 $
+ * $Revision: 1.13 $
  * Description: GASNet header for portals4-conduit lock-free hash table
+ * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
  */
 
@@ -30,7 +31,7 @@
  *
  * NOTE: I did not implement the Dynamic-Sized Array extension, because I don't
  * expect to support large numbers of entries in the table at the same time,
- * and I'm worried about state creep.
+ * and I'm worried about state creep.   -Kyle Wheeler
  */
 
 #define MAX_LOAD     4
