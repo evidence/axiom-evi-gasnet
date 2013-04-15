@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2013/04/03 23:27:07 $
- * $Revision: 1.143 $
+ *     $Date: 2013/04/15 09:04:30 $
+ * $Revision: 1.144 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -440,6 +440,7 @@ gasnete_pshmbarrier_init_inner(gasnete_coll_team_t team) {
         if (count) {
           pshm_bdata->private.num_children = count;
           pshm_bdata->private.children = gasneti_malloc(count * sizeof(struct gasnete_pshmbarrier_children));
+          gasneti_leak(pshm_bdata->private.children);
           for (i = 0; i < count; ++i) {
             pshm_bdata->private.children[i].node = &shared_data->node[rank+1+i];
           }
@@ -453,6 +454,7 @@ gasnete_pshmbarrier_init_inner(gasnete_coll_team_t team) {
       if (count) {
         pshm_bdata->private.num_children = count;
         pshm_bdata->private.children = gasneti_malloc(count * sizeof(struct gasnete_pshmbarrier_children));
+        gasneti_leak(pshm_bdata->private.children);
         for (i = 0; i < count; ++i) {
           pshm_bdata->private.children[i].node = &shared_data->node[first + i];
         }
