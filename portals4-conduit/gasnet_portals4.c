@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4.c,v $
- *     $Date: 2013/04/15 22:44:34 $
- * $Revision: 1.26 $
+ *     $Date: 2013/04/15 23:54:37 $
+ * $Revision: 1.27 $
  * Description: Portals 4 specific configuration
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
@@ -219,6 +219,15 @@ _p4_failed_put(int ret, const char *descr, const char *fromfn, const char *file,
 #define p4_failed_put(_ret, _descr) \
 	_p4_failed_put(_ret, _descr, GASNETI_CURRENT_FUNCTION, __FILE__, __LINE__)
 
+static void p4_fatalerror(int ret, const char *descr) GASNETI_NORETURN;
+GASNETI_NEVER_INLINE(p4_fatalerror,
+static void p4_fatalerror(int ret, const char *descr))
+{
+    gasneti_fatalerror("[%03d] %s failed: %d (%s)", 
+                       gasneti_mynode, descr, ret, p4_error_string(ret));
+}
+GASNETI_NORETURNP(p4_fatalerror)
+
 /* ---------------------------------------------------------------------------------
  * Initialize Portals 4 conduit code
  *
@@ -285,7 +294,7 @@ gasnetc_p4_init(int *rank, int *size)
 
     /* Initialize Portals */
     ret = PtlInit();
-    if (PTL_OK != ret) gasneti_fatalerror("PtlInit() failed: %d", ret);
+    if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlInit()");
 
     /* Initialize network */
     ni_req_limits.max_entries = 1024;
@@ -315,19 +324,17 @@ gasnetc_p4_init(int *rank, int *size)
                     &ni_req_limits,
                     &ni_limits,
                     &matching_ni_h);
-    if (PTL_OK != ret) gasneti_fatalerror("[%03d] PtlInit() failed: %d", 
-                                          gasneti_mynode, ret);
+    if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlNiInit()");
 
 #if GASNET_SEGMENT_EVERYTHING
     if ((ni_limits.features & PTL_TARGET_BIND_INACCESSIBLE) == 0) {
-        gasneti_fatalerror("[%03d] Portals reports it doesn't support SEGMENT_EVERYTHING\n",
+        gasneti_fatalerror("[%03d] Portals reports it doesn't support SEGMENT_EVERYTHING",
                            gasneti_mynode);
     }
 #endif
 
     ret = PtlGetPhysId(matching_ni_h, &my_id);
-    if (PTL_OK != ret) gasneti_fatalerror("[%03d] PtlGetPhysId() failed: %d", 
-                                          gasneti_mynode, ret);
+    if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlGetPhysId()");
 
     /* build id map */
     p4_info_put("portals4-procid", &my_id, sizeof(my_id));
@@ -345,10 +352,7 @@ gasnetc_p4_init(int *rank, int *size)
     ret = PtlSetMap(matching_ni_h,
                     gasneti_nodes,
                     desired);
-    if (PTL_OK != ret && PTL_IGNORED != ret) {
-        gasneti_fatalerror("[%03d] PtlSetMap() failed: %d", 
-                           gasneti_mynode, ret);
-    }
+    if_pf (PTL_OK != ret && PTL_IGNORED != ret) p4_fatalerror(ret, "PtlSetMap()");
 
     gasneti_free(desired);
     gasneti_free(kvs_name);
@@ -356,12 +360,10 @@ gasnetc_p4_init(int *rank, int *size)
     gasneti_free(kvs_value);
 
     ret = PtlGetUid(matching_ni_h, &uid);
-    if (PTL_OK != ret) gasneti_fatalerror("[%03d] PtlGetUid() failed: %d", 
-                                          gasneti_mynode, ret);
+    if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlGetUid()");
 
     ret = PtlEQAlloc(matching_ni_h, 8192, &am_send_eq_h);
-    if (PTL_OK != ret) gasneti_fatalerror("[%03d] PtlEQAlloc() failed: %d", 
-                                          gasneti_mynode, ret);
+    if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlEQAlloc(send)");
     /* Every send will generate two events, the SEND event and the ACK
        event.  We don't track them seperately because the retransmit
        logical essentially means we either 1) need to hold both
@@ -374,12 +376,10 @@ gasnetc_p4_init(int *rank, int *size)
     p4_max_send_credits = 8192 / 2;
 
     ret = PtlEQAlloc(matching_ni_h, 8192, &am_recv_eq_h);
-    if (PTL_OK != ret) gasneti_fatalerror("[%03d] PtlEQAlloc() failed: %d", 
-                                          gasneti_mynode, ret);
+    if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlEQAlloc(recv)");
 
     ret = PtlEQAlloc(matching_ni_h, 1024, &coll_eq_h);
-    if (PTL_OK != ret) gasneti_fatalerror("[%03d] PtlEQAlloc() failed: %d", 
-                                          gasneti_mynode, ret);
+    if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlEQAlloc(coll)");
 
     /* allocate portal table entries */
     ret = PtlPTAlloc(matching_ni_h,
@@ -387,8 +387,7 @@ gasnetc_p4_init(int *rank, int *size)
                      coll_eq_h,
                      COLLECTIVE_PT,
                      &pt);
-    if (PTL_OK != ret) gasneti_fatalerror("[%03d] PtlPTAlloc() failed: %d", 
-                                          gasneti_mynode, ret);
+    if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlPTAlloc(COLLECTIVE)");
     if (COLLECTIVE_PT != pt) {
         gasneti_fatalerror("[%03d] PtlPTAlloc() found bad PT", gasneti_mynode);
     }
@@ -398,8 +397,7 @@ gasnetc_p4_init(int *rank, int *size)
                      am_recv_eq_h,
                      AM_PT,
                      &pt);
-    if (PTL_OK != ret) gasneti_fatalerror("[%03d] PtlPTAlloc() failed: %d", 
-                                          gasneti_mynode, ret);
+    if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlPTAlloc(AM)");
     if (AM_PT != pt) {
         gasneti_fatalerror("[%03d] PtlPTAlloc() found bad PT", gasneti_mynode);
     }
@@ -413,9 +411,7 @@ gasnetc_p4_init(int *rank, int *size)
     ret = PtlMDBind(matching_ni_h,
                     &md,
                     &am_eq_md_h);
-    if (PTL_OK != ret) {
-        gasneti_fatalerror("[%03d] PtlMDBind() failed: %d", gasneti_mynode, ret);
-    }
+    if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlMDBind(AM)");
 
     /* Configure the active message receive resources now, since
        there's no harm in not waiting until the segment code is
@@ -443,16 +439,14 @@ gasnetc_p4_init(int *rank, int *size)
                           PTL_PRIORITY_LIST,
                           &(p4_am_blocks[i]),
                           &p4_am_blocks[i].me_h);
-        if (PTL_OK != ret) gasneti_fatalerror("[%03d] PtlMEAppend() failed: %d", 
-                                              gasneti_mynode, ret);
+        if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlMEAppend(AM block)");
     }
     p4_am_enabled = 1;
 
     /* Configure the barrier memory descriptor now, so that we can
        rely on it working from here on out... */
     ret = PtlCTAlloc(matching_ni_h, &bootstrap_barrier_ct_h);
-    if (PTL_OK != ret) gasneti_fatalerror("[%03d] PtlCTAlloc() failed: %d", 
-                                          gasneti_mynode, ret);
+    if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlCTAlloc()");
 
     me.start = NULL;
     me.length = 0;
@@ -472,8 +466,7 @@ gasnetc_p4_init(int *rank, int *size)
                       PTL_OVERFLOW_LIST,
                       NULL,
                       &bootstrap_barrier_me_h);
-    if (PTL_OK != ret) gasneti_fatalerror("[%03d] PtlMEAppend() failed: %d", 
-                                          gasneti_mynode, ret);
+    if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlMEAppend(barrier)");
 
     /* One last barrier using PMI (the other being in the information
        exchange), so that we can be sure everyone is ready to receive
@@ -528,8 +521,7 @@ gasnetc_p4_attach(void *segbase, uintptr_t segsize)
                       PTL_OVERFLOW_LIST,
                       NULL,
                       &am_me_h);
-    if (PTL_OK != ret) gasneti_fatalerror("[%03d] PtlMEAppend() failed: %d", 
-                                          gasneti_mynode, ret);
+    if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlMEAppend(attach)");
 
     return GASNET_OK;
 }
@@ -663,17 +655,17 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
 
     while (1) {
         ret = PtlEQPoll(eq_handles, size, 0, &ev, &which);
-        if (PTL_EQ_EMPTY == ret) {
+        if_pt (PTL_EQ_EMPTY == ret) {
             break;
-        } else if (PTL_OK != ret) {
-            gasneti_fatalerror("[%03d] PtlEQPoll returned %d\n", gasneti_mynode, ret);
+        } else if_pf (PTL_OK != ret) {
+            p4_fatalerror(ret, "PtlEQPoll()");
         }
 
         switch (ev.type) {
         case PTL_EVENT_PUT:
             /* AM or long data have arrived */
-            if (PTL_OK != ev.ni_fail_type) {
-                gasneti_fatalerror("[%03d] event of type %d failed %d\n", 
+            if_pf (PTL_OK != ev.ni_fail_type) {
+                gasneti_fatalerror("[%03d] event of type %d failed %d", 
                                    gasneti_mynode, ev.type, ev.ni_fail_type);
             } else {
                 if (IS_ACTIVE_MESSAGE(ev.match_bits)) {
@@ -791,7 +783,7 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
 		        p4_free_long_match(match);
                       }
                     } else {
-                        gasneti_fatalerror("unknown active message type.  MB: 0x%lx\n",
+                        gasneti_fatalerror("unknown active message type.  MB: 0x%lx",
                                            (unsigned long)ev.match_bits);
                     }
                 } else {
@@ -829,8 +821,8 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
             /* AM or long data send has arrived.  Don't need to do
                anything if there wasn't an error, since we're doing
                flow control stuff and have to wait for the ack... */
-            if (PTL_OK != ev.ni_fail_type) {
-                gasneti_fatalerror("[%03d] event of type %d failed %d\n", 
+            if_pf (PTL_OK != ev.ni_fail_type) {
+                gasneti_fatalerror("[%03d] event of type %d failed %d", 
                                    gasneti_mynode, ev.type, ev.ni_fail_type);
             }
             break;
@@ -885,8 +877,8 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
                         return p4_failed_put(ret, "resending a data frag");
                     }
                 }
-            } else if (PTL_OK != ev.ni_fail_type) {
-                gasneti_fatalerror("[%03d] event of type %d failed %d\n", 
+            } else if_pf (PTL_OK != ev.ni_fail_type) {
+                gasneti_fatalerror("[%03d] event of type %d failed %d", 
                                    gasneti_mynode, ev.type, ev.ni_fail_type);
             } else {
                 p4_frag_t *frag = (p4_frag_t*) ev.user_ptr;
@@ -953,13 +945,12 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
                                   PTL_PRIORITY_LIST,
                                   block,
                                   &block->me_h);
-                if (PTL_OK != ret) gasneti_fatalerror("[%03d] PtlMEAppend() failed: %d", 
-                                                      gasneti_mynode, ret);
+                if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlMEAppend(relink)");
             }
             break;
 
         default:
-            gasneti_fatalerror("[%03d] Unexpected event type %d\n",
+            gasneti_fatalerror("[%03d] Unexpected event type %d",
                                gasneti_mynode, ev.type);
         }
     }
@@ -968,8 +959,7 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
            or eq space.  We've drained the eq.  We've theoretically
            reposted the buffer.  Let's get going again. */
         ret = PtlPTEnable(matching_ni_h, AM_PT);
-        if (PTL_OK != ret) gasneti_fatalerror("[%03d] PtlPTEnable() failed: %d", 
-                                              gasneti_mynode, ret);
+        if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlPTEnable()");
     }
 
     return GASNET_OK;
@@ -986,9 +976,9 @@ void
 gasnetc_p4_poll(void)
 {
     int ret = p4_poll(eqs_h, 2);
-    if (GASNET_OK != ret) {
-        gasneti_fatalerror("[%03d] p4_poll returned %d\n",
-                           gasneti_mynode, ret);
+    if_pf (GASNET_OK != ret) {
+        gasneti_fatalerror("[%03d] p4_poll returned %d (%s)",
+                           gasneti_mynode, ret, gasnet_ErrorName(ret));
     }
 }
 
@@ -1123,7 +1113,7 @@ gasnetc_p4_TransferGeneric(int category, ptl_match_bits_t req_type, gasnet_node_
         }
         break;
     default:
-        gasneti_fatalerror("[%03d]: Unknown message category %d\n", 
+        gasneti_fatalerror("[%03d]: Unknown message category %d", 
                            (int) gasneti_mynode, category);
     }
 
@@ -1185,9 +1175,7 @@ static void p4_barrier_send(ptl_handle_md_t md_h, int peer)
                  0,
                  NULL,
                  0);
-    if_pf (PTL_OK != ret) {
-        gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlPut() failed %d", ret);
-    }
+    if_pf (PTL_OK != ret) p4_fatalerror(ret, "gasnetc_bootstrapBarrier() PtlPut()");
 }
 void
 gasnetc_bootstrapBarrier(void)
@@ -1210,18 +1198,14 @@ gasnetc_bootstrapBarrier(void)
     md.ct_handle = PTL_CT_NONE;
 
     ret = PtlMDBind(matching_ni_h, &md, &md_h);
-    if (PTL_OK != ret) {
-        gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlMDBind() failed %d", ret);
-    }
+    if_pf (PTL_OK != ret) p4_fatalerror(ret, "gasnetc_bootstrapBarrier() PtlMDBind()");
 
     if (my_root == gasneti_mynode) {
         /* root */
         ret = PtlCTWait(bootstrap_barrier_ct_h, 
                         bootstrap_barrier_calls * count,
                         &ct);
-        if (PTL_OK != ret) {
-            gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlCTWait() failed %d", ret);
-        }
+        if_pf (PTL_OK != ret) p4_fatalerror(ret, "gasnetc_bootstrapBarrier() PtlCTWait(root)");
 
         if (-1 != left ) { p4_barrier_send(md_h,left ); }
         if (-1 != right) { p4_barrier_send(md_h,right); }
@@ -1232,10 +1216,7 @@ gasnetc_bootstrapBarrier(void)
         ret = PtlCTWait(bootstrap_barrier_ct_h, 
                         bootstrap_barrier_calls,
                         &ct);
-        if (PTL_OK != ret) {
-            gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlCTWait() failed %d", ret);
-        }
-
+        if_pf (PTL_OK != ret) p4_fatalerror(ret, "gasnetc_bootstrapBarrier() PtlCTWait(leaf)");
     } else {
         /* middle node */
         const int goal = bootstrap_barrier_calls * (count + 1);
@@ -1244,9 +1225,7 @@ gasnetc_bootstrapBarrier(void)
         ret = PtlCTWait(bootstrap_barrier_ct_h, 
                         goal - 1,
                         &ct);
-        if (PTL_OK != ret) {
-            gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlCTWait() failed %d", ret);
-        }
+        if_pf (PTL_OK != ret) p4_fatalerror(ret, "gasnetc_bootstrapBarrier() PtlCTWait(up)");
 
         p4_barrier_send(md_h,my_root);
 
@@ -1254,18 +1233,14 @@ gasnetc_bootstrapBarrier(void)
         ret = PtlCTWait(bootstrap_barrier_ct_h, 
                         goal,
                         &ct);
-        if (PTL_OK != ret) {
-            gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlCTWait() failed %d", ret);
-        }
+        if_pf (PTL_OK != ret) p4_fatalerror(ret, "gasnetc_bootstrapBarrier() PtlCTWait(down)");
 
         if (-1 != left ) { p4_barrier_send(md_h,left ); }
         if (-1 != right) { p4_barrier_send(md_h,right); }
     }
     
     ret = PtlMDRelease(md_h);
-    if (PTL_OK != ret) {
-        gasneti_fatalerror("gasnetc_bootstrapBarrier() PtlMDRelease() failed %d", ret);
-    }
+    if_pf (PTL_OK != ret) p4_fatalerror(ret, "gasnetc_bootstrapBarrier() PtlMDRelease()");
 }
 
 
@@ -1301,9 +1276,7 @@ gasnetc_bootstrapExchange(void *src, size_t len, void *dest)
     md.eq_handle = coll_eq_h;
     md.ct_handle = PTL_CT_NONE;
     ret = PtlMDBind(matching_ni_h, &md, &md_h);
-    if (PTL_OK != ret) {
-        gasneti_fatalerror("gasnetc_bootstrapExchange() PtlMDBind() failed %d", ret);
-    }
+    if_pf (PTL_OK != ret) p4_fatalerror(ret, "gasnetc_bootstrapExchange() PtlMDBind()");
 
     /* register the temp md with an EQ on a match list */
     me.start = temp;
@@ -1316,16 +1289,11 @@ gasnetc_bootstrapExchange(void *src, size_t len, void *dest)
     me.ignore_bits = 0;
     me.min_free = 0;
     ret = PtlMEAppend(matching_ni_h, COLLECTIVE_PT, &me, PTL_PRIORITY_LIST, NULL, &me_h);
-    if (PTL_OK != ret) {
-        gasneti_fatalerror("gasnetc_bootstrapExchange() PtlMEAppend() failed %d", ret);
-    }
+    if_pf (PTL_OK != ret) p4_fatalerror(ret, "gasnetc_bootstrapExchange() PtlMEAppend()");
 
     /* ensure ME is linked before the barrier */
     ret = PtlEQWait(coll_eq_h, &ev);
-    if (ret != PTL_OK) {
-        gasneti_fatalerror("GASNet Portals Error in bootExchange waiting for event: %d\n at %s\n",
-                           ret, gasneti_current_loc);
-    }
+    if (ret != PTL_OK) p4_fatalerror(ret, "gasnetc_bootstrapExchange() PtlEQWait(link)");
     gasneti_assert( ev.type == PTL_EVENT_LINK );
 
     gasnetc_bootstrapBarrier();
@@ -1355,9 +1323,7 @@ gasnetc_bootstrapExchange(void *src, size_t len, void *dest)
                      offset,
                      NULL,
                      hdr_data);
-        if (PTL_OK != ret) {
-            gasneti_fatalerror("gasnetc_bootstrapExchange() PtlPut() failed %d", ret);
-        }
+        if_pf (PTL_OK != ret) p4_fatalerror(ret, "gasnetc_bootstrapExchange() PtlPut()");
 
         sends += 1;
 
@@ -1380,8 +1346,7 @@ gasnetc_bootstrapExchange(void *src, size_t len, void *dest)
                 }
                 break;
             default:
-                gasneti_fatalerror("GASNet Portals4 Error in bootExchange waiting for event: %i\n at %s\n",
-                                   ret, gasneti_current_loc);
+                p4_fatalerror(ret, "gasnetc_bootstrapExchange() PtlEQWait(loop)");
             }
         }
         
@@ -1398,13 +1363,12 @@ gasnetc_bootstrapExchange(void *src, size_t len, void *dest)
             sends -= 1;
             break;
         default:
-            gasneti_fatalerror("GASNet Portals Error in bootExchange waiting for event: %d\n at %s\n",
-                               ret, gasneti_current_loc);
+            p4_fatalerror(ret, "gasnetc_bootstrapExchange() PtlEQWait(final)");
         }
     }
 
     ret = PtlMDRelease(md_h);
-    if (PTL_OK != ret) gasneti_fatalerror("gasnetc_bootstrapExchange() PtlMDRelease() failed %d", ret);
+    if_pf (PTL_OK != ret) p4_fatalerror(ret, "gasnetc_bootstrapExchange() PtlMDRelease()");
     /* There appears to be a race condition in the reference implementation
      * where we're getting PTL_IN_USE from MEUnlink even though there are no
      * events pending (and if you try to wait for an event, you'll wait
@@ -1414,7 +1378,7 @@ gasnetc_bootstrapExchange(void *src, size_t len, void *dest)
       ret = PtlMEUnlink(me_h);
       if (PTL_IN_USE == ret) sleep(1);
     } while (PTL_IN_USE == ret);
-    if (PTL_OK != ret) gasneti_fatalerror("gasnetc_bootstrapExchange() PtlMEUnlink() failed %d", ret);
+    if_pf (PTL_OK != ret) p4_fatalerror(ret, "gasnetc_bootstrapExchange() PtlMEUnlink()");
 
     /* now rotate into final position */
     memcpy(dest, (uint8_t*)temp + len * (gasneti_nodes - gasneti_mynode), len * gasneti_mynode);
