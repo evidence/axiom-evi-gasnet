@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4.c,v $
- *     $Date: 2013/04/15 19:53:39 $
- * $Revision: 1.24 $
+ *     $Date: 2013/04/15 21:25:58 $
+ * $Revision: 1.25 $
  * Description: Portals 4 specific configuration
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
@@ -40,8 +40,12 @@ static ptl_handle_me_t bootstrap_barrier_me_h;
 static char *kvs_name = NULL, *kvs_key = NULL, *kvs_value = NULL;
 static int max_name_len, max_key_len, max_val_len;
 
+/* 16 blocks of 1MB each for AM reception
+ * TODO: control these via environment variable
+ */
 static int p4_am_size = 1 * 1024 * 1024;
 static int p4_am_num_entries = 16;
+
 static p4_am_block_t *p4_am_blocks = NULL;
 static int p4_am_enabled = 0;
 static gasnetc_hash p4_long_hash;
