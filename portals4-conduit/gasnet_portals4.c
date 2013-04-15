@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4.c,v $
- *     $Date: 2013/04/15 06:41:39 $
- * $Revision: 1.19 $
+ *     $Date: 2013/04/15 08:47:35 $
+ * $Revision: 1.20 $
  * Description: Portals 4 specific configuration
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
@@ -553,6 +553,11 @@ gasnetc_p4_exit(void)
     PtlEQFree(coll_eq_h);
     PtlEQFree(am_recv_eq_h);
     PtlEQFree(am_send_eq_h);
+
+#if 0 /* TODO: are these safe to do here? */
+    PtlNIFini(matching_ni_h);
+    PtlFini();
+#endif
 }
 
 
@@ -1113,6 +1118,7 @@ gasnetc_p4_TransferGeneric(int category, ptl_match_bits_t req_type, gasnet_node_
     while (gasnetc_Long == category && long_send_complete == 0) {
         ret = p4_poll(&am_send_eq_h, 1);
         if (GASNET_OK != ret) return ret;
+        /* TODO: gasneti_AMPSHMPoll() here?  If so, pass 0 or 1? */
         gasneti_compiler_fence();
     }
 
