@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4.c,v $
- *     $Date: 2013/04/15 08:47:35 $
- * $Revision: 1.20 $
+ *     $Date: 2013/04/15 09:12:02 $
+ * $Revision: 1.21 $
  * Description: Portals 4 specific configuration
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
@@ -339,6 +339,11 @@ gasnetc_p4_init(int *rank, int *size)
         gasneti_fatalerror("[%03d] PtlSetMap() failed: %d", 
                            gasneti_mynode, ret);
     }
+
+    gasneti_free(desired);
+    gasneti_free(kvs_name);
+    gasneti_free(kvs_key);
+    gasneti_free(kvs_value);
 
     ret = PtlGetUid(matching_ni_h, &uid);
     if (PTL_OK != ret) gasneti_fatalerror("[%03d] PtlGetUid() failed: %d", 
