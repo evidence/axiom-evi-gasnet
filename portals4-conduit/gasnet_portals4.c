@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4.c,v $
- *     $Date: 2013/04/15 23:54:37 $
- * $Revision: 1.27 $
+ *     $Date: 2013/04/16 00:48:11 $
+ * $Revision: 1.28 $
  * Description: Portals 4 specific configuration
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
@@ -70,8 +70,8 @@ static gasneti_weakatomic_t p4_op_count = gasneti_weakatomic_init(0);
 #define P4_AM_MAX_DATA_LENGTH                                        \
   GASNETI_ALIGNUP(sizeof(gasnet_handlerarg_t) * gasnet_AMMaxArgs() + \
                   gasnet_AMMaxMedium(), GASNETI_MEDBUF_ALIGNMENT)
-#define ASSERT_IS_MED_ALIGNED(x) \
-  gasneti_assert(0 == ((uintptr_t)(x) & (GASNETI_MEDBUF_ALIGNMENT-1)))
+#define IS_MED_ALIGNED(x) \
+  (0 == ((uintptr_t)(x) & (GASNETI_MEDBUF_ALIGNMENT-1)))
 
 
 static int
@@ -419,7 +419,7 @@ gasnetc_p4_init(int *rank, int *size)
     p4_am_blocks = gasneti_malloc(sizeof(p4_am_block_t) * p4_am_num_entries);
     for (i = 0 ; i < p4_am_num_entries ; ++i) {
         void * data = gasneti_malloc(p4_am_size);
-        ASSERT_IS_MED_ALIGNED(data);
+        gasneti_assert(IS_MED_ALIGNED(data));
         p4_am_blocks[i].data = data;
         me.start = data;
         me.length = p4_am_size;
@@ -427,8 +427,7 @@ gasnetc_p4_init(int *rank, int *size)
         me.ct_handle = PTL_CT_NONE;
         me.uid = uid;
         me.options = PTL_ME_OP_PUT | PTL_ME_MANAGE_LOCAL |
-            PTL_ME_MAY_ALIGN |  /* XXX: assumes won't make things LESS than our 8-byte alignment */
-            PTL_ME_IS_ACCESSIBLE | 
+            PTL_ME_MAY_ALIGN | PTL_ME_IS_ACCESSIBLE | 
             PTL_ME_EVENT_LINK_DISABLE;
         me.match_id.rank = PTL_RANK_ANY;
         me.match_bits = ACTIVE_MESSAGE;
@@ -674,8 +673,7 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
                     int numargs = GET_ARG_COUNT(ev.match_bits);
                     int handler = GET_HANDLERID(ev.match_bits);
 
-                    ASSERT_IS_MED_ALIGNED(ev.start);
-                    ASSERT_IS_MED_ALIGNED(ev.mlength);
+                    gasneti_assert(IS_MED_ALIGNED(ev.mlength));
 
                     if (IS_AM_SHORT(ev.match_bits)) {
                         gasnetc_p4_token_t token;
@@ -700,9 +698,15 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
                         gasnetc_p4_token_t token;
                         gasnet_handlerarg_t *pargs = (gasnet_handlerarg_t*) ev.start;
                         gasnetc_p4_token_t *tokenp = &token;
+#if !GASNETI_USE_ALLOCA
+                        void *free_buf = NULL;
+#endif
 
                         /* Medium payload is after args, with padding to GASNETI_MEDBUF_ALIGNMENT */
-                        void *buf = (void *)GASNETI_ALIGNUP((pargs + numargs), GASNETI_MEDBUF_ALIGNMENT);
+                        void *buf = (void *)(pargs +
+                                             GASNETI_ALIGNUP(numargs,
+                                                             (GASNETI_MEDBUF_ALIGNMENT /
+                                                                sizeof(gasnet_handlerarg_t))));
 
                         token.reply_sent = 0;
                         token.sourceid = ev.initiator.rank;
@@ -712,6 +716,16 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
                                                        GASNETI_MEDBUF_ALIGNMENT));
                         gasneti_assert(nbytes <= gasnet_AMMaxMedium());
 
+                        /* We must allow for PTL_ME_MAY_ALIGN to produce even senseless alignments */
+                        if_pf (! IS_MED_ALIGNED(buf)) {
+#if GASNETI_USE_ALLOCA
+                            buf = memcpy(alloca(nbytes), buf, nbytes);
+#else
+                            buf = memcpy(gasneti_malloc(nbytes), buf, nbytes);
+                            free_buf = buf;
+#endif
+                        }
+
 #ifdef P4_DEBUG
                         fprintf(stderr, "%d: firing medium handler %d from %d, nbytes: %d\n",
                                 (int) gasneti_mynode, handler, (int) token.sourceid, nbytes);
@@ -720,7 +734,7 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
                                                    tokenp, pargs, numargs, buf, nbytes);
                         
 #if !GASNETI_USE_ALLOCA
-                        if (NULL != free_buf) gasneti_free(free_buf);
+                        gasneti_free(free_buf);
 #endif
                     } else if (IS_AM_LONG_PACKED(ev.match_bits)) {
                         gasnetc_p4_token_t token;
@@ -933,8 +947,7 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
                 me.ct_handle = PTL_CT_NONE;
                 me.uid = uid;
                 me.options = PTL_ME_OP_PUT | PTL_ME_MANAGE_LOCAL |
-                    PTL_ME_MAY_ALIGN |  /* XXX: assumes won't make things LESS than our 8-byte alignment */
-                    PTL_ME_IS_ACCESSIBLE | 
+                    PTL_ME_MAY_ALIGN | PTL_ME_IS_ACCESSIBLE | 
                     PTL_ME_EVENT_LINK_DISABLE;
                 me.match_id.rank = PTL_RANK_ANY;
                 me.match_bits = ACTIVE_MESSAGE;
