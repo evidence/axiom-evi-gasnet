@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4.c,v $
- *     $Date: 2013/04/16 01:06:04 $
- * $Revision: 1.29 $
+ *     $Date: 2013/04/16 01:14:46 $
+ * $Revision: 1.30 $
  * Description: Portals 4 specific configuration
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
@@ -228,13 +228,13 @@ static void p4_fatalerror(int ret, const char *descr))
 }
 GASNETI_NORETURNP(p4_fatalerror)
 
-static void p4_failed_eqpoll(int ret, const ptl_handle_eq_t *eq_h) GASNETI_NORETURN;
+static void p4_failed_eqpoll(int ret, const ptl_handle_eq_t eq_h) GASNETI_NORETURN;
 GASNETI_NEVER_INLINE(p4_failed_eqpoll,
 static void
-p4_failed_eqpoll(int ret, const ptl_handle_eq_t *eq_h))
+p4_failed_eqpoll(int ret, const ptl_handle_eq_t eq_h))
 {
-    if (eq_h == &am_send_eq_h) p4_fatalerror(ret, "PtlEQPoll(am_send_eq)");
-    if (eq_h == &am_recv_eq_h) p4_fatalerror(ret, "PtlEQPoll(am_recv_eq)");
+    if (eq_h == am_send_eq_h) p4_fatalerror(ret, "PtlEQPoll(am_send_eq)");
+    if (eq_h == am_recv_eq_h) p4_fatalerror(ret, "PtlEQPoll(am_recv_eq)");
     p4_fatalerror(ret, "PtlEQPoll(UNKNOWN)");
 }
 GASNETI_NORETURNP(p4_failed_eqpoll)
@@ -668,7 +668,7 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
         if_pt (PTL_EQ_EMPTY == ret) {
             break;
         } else if_pf (PTL_OK != ret) {
-            p4_failed_eqpoll(ret, &eq_handles[which]);
+            p4_failed_eqpoll(ret, eq_handles[which]);
         }
 
         switch (ev.type) {
