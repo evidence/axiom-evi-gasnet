@@ -1,6 +1,6 @@
 GASNet ChangeLog 
 ----------------
-$Revision: 1.73 $
+$Revision: 1.74 $
 
 ----------------------------------------------------------------------
 04-30-2013 : Release 1.20.2
@@ -15,7 +15,11 @@ $Revision: 1.73 $
     XE and XK series systems has graduated out of BETA status.
 
 * IBM PAMI (pami-conduit)
-  - Updated to support BG/Q driver V1R2M0
+  - Updated to support BlueGene/Q driver V1R2M0
+  - BlueGene/Q users are advised to use V1R2M0 + efix 23 (or newer)
+    if using GASNET_PAR mode.  Prior to efix 23, memset() in the BG/Q
+    C runtime was not thread safe, and this was responsible for the
+    "unexplained failures" noted in GASNet's 1.18.2 release notes.
 
 * NEW Beta support for Portals 4.x API (portals4-conduit)
   - This release includes BETA support for the Portals 4.x API as
