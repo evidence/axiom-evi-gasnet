@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4.c,v $
- *     $Date: 2013/04/18 18:55:59 $
- * $Revision: 1.31 $
+ *     $Date: 2013/04/18 21:05:03 $
+ * $Revision: 1.32 $
  * Description: Portals 4 specific configuration
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
@@ -1031,6 +1031,8 @@ gasnetc_p4_TransferGeneric(int category, ptl_match_bits_t req_type, gasnet_node_
     int num_credits = (gasnetc_Long == category || gasnetc_LongAsync == category) ? 2 : 1;
     volatile int32_t long_send_complete  = 0;
 
+    /* TODO: Count credits downward and use gasneti_semaphore_trydown_n()?
+     *       -PHH 2013.04.18 */
     /* attempt to get the right number of send credits */
  retry:
     tmp = gasneti_weakatomic_add(&p4_send_credits, num_credits, 0);
