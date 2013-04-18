@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4.c,v $
- *     $Date: 2013/04/16 01:14:46 $
- * $Revision: 1.30 $
+ *     $Date: 2013/04/18 18:55:59 $
+ * $Revision: 1.31 $
  * Description: Portals 4 specific configuration
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
@@ -577,6 +577,10 @@ gasnetc_p4_exit(void)
 #if 0 /* TODO: are these safe to do here? */
     PtlNIFini(matching_ni_h);
     PtlFini();
+#endif
+
+#if 0 /* If we make this call then non-collective exits will hang */
+    PMI_Finalize();
 #endif
 }
 
@@ -1393,15 +1397,21 @@ gasnetc_bootstrapExchange(void *src, size_t len, void *dest)
 
     ret = PtlMDRelease(md_h);
     if_pf (PTL_OK != ret) p4_fatalerror(ret, "gasnetc_bootstrapExchange() PtlMDRelease()");
+#if 1
     /* There appears to be a race condition in the reference implementation
      * where we're getting PTL_IN_USE from MEUnlink even though there are no
      * events pending (and if you try to wait for an event, you'll wait
      * forever).  For now, just wait for the implementation to right itself and
-     * move on. */
+     * move on.  -BWB 2013.04.12 */
+    /* portals4 issue #28 "Unlink / in_use race" was fixed in svn r2182.
+       For now we retain the retry loop "just in case" -PHH 2013.04.18 */
     do {
       ret = PtlMEUnlink(me_h);
       if (PTL_IN_USE == ret) sleep(1);
     } while (PTL_IN_USE == ret);
+#else
+    ret = PtlMEUnlink(me_h);
+#endif
     if_pf (PTL_OK != ret) p4_fatalerror(ret, "gasnetc_bootstrapExchange() PtlMEUnlink()");
 
     /* now rotate into final position */
