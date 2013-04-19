@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4.c,v $
- *     $Date: 2013/04/18 21:05:03 $
- * $Revision: 1.32 $
+ *     $Date: 2013/04/19 04:32:37 $
+ * $Revision: 1.33 $
  * Description: Portals 4 specific configuration
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
@@ -73,6 +73,17 @@ static gasneti_weakatomic_t p4_op_count = gasneti_weakatomic_init(0);
 #define IS_MED_ALIGNED(x) \
   (0 == ((uintptr_t)(x) & (GASNETI_MEDBUF_ALIGNMENT-1)))
 
+
+/* Possible encode/decode options include (for a 32-bit ptl_process_t):
+ *   hexadecimal: 8 bytes (100% expansion) <- CURRENT
+ *   base64: 6 bytes (50% expansion)
+ *   asci85: 5 bytes (25% expansion)
+ * See http://en.wikipedia.org/wiki/Binary-to-text_encoding
+ * If we start getting concerned w/ scalability, we may consider
+ * paying the added complexity of the more efficient encodings.
+ * However, we can save MORE space by first shortening the Keys.
+ *    -PHH 2013.04.18
+ */
 
 static int
 p4_encode(const void *inval, int invallen, char *outval, int outvallen)
