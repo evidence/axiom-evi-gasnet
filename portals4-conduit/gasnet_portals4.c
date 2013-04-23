@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4.c,v $
- *     $Date: 2013/04/19 04:32:37 $
- * $Revision: 1.33 $
+ *     $Date: 2013/04/23 01:04:16 $
+ * $Revision: 1.34 $
  * Description: Portals 4 specific configuration
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
@@ -81,7 +81,7 @@ static gasneti_weakatomic_t p4_op_count = gasneti_weakatomic_init(0);
  * See http://en.wikipedia.org/wiki/Binary-to-text_encoding
  * If we start getting concerned w/ scalability, we may consider
  * paying the added complexity of the more efficient encodings.
- * However, we can save MORE space by first shortening the Keys.
+ * However, we can still save space by more shortening of the Keys.
  *    -PHH 2013.04.18
  */
 
@@ -140,7 +140,7 @@ p4_decode(const char *inval, void *outval, int outvallen)
 static void
 p4_info_put(const char *key, void *value, size_t valuelen) 
 {
-    snprintf(kvs_key, max_key_len, "gasnet-%lu-%s", (long unsigned) gasneti_mynode, key);
+    snprintf(kvs_key, max_key_len, "gsnt-%lx-%s", (long unsigned) gasneti_mynode, key);
     if (0 != p4_encode(value, valuelen, kvs_value, max_val_len)) {
         gasneti_fatalerror("gasnetc_info_put() encode failed");
     }
@@ -153,7 +153,7 @@ p4_info_put(const char *key, void *value, size_t valuelen)
 static void
 p4_info_get(int pe, const char *key, void *value, size_t valuelen)
 {
-    snprintf(kvs_key, max_key_len, "gasnet-%lu-%s", (long unsigned) pe, key);
+    snprintf(kvs_key, max_key_len, "gsnt-%lx-%s", (long unsigned) pe, key);
     if (PMI_SUCCESS != PMI_KVS_Get(kvs_name, kvs_key, kvs_value, max_val_len)) {
         gasneti_fatalerror("gasnetc_info_get() PMI_KVS_Get() failed");
     }
@@ -359,11 +359,11 @@ gasnetc_p4_init(int *rank, int *size)
     if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlGetPhysId()");
 
     /* build id map */
-    p4_info_put("portals4-procid", &my_id, sizeof(my_id));
+    p4_info_put("ptl4-pid", &my_id, sizeof(my_id));
     p4_info_exchange();
     desired = gasneti_malloc(sizeof(ptl_process_t) * gasneti_nodes);
     for (i = 0 ; i < gasneti_nodes; ++i) {
-        p4_info_get(i, "portals4-procid",
+        p4_info_get(i, "ptl4-pid",
                          &desired[i], sizeof(ptl_process_t));
     }
 
