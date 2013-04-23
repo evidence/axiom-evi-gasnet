@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4.c,v $
- *     $Date: 2013/04/23 01:04:16 $
- * $Revision: 1.34 $
+ *     $Date: 2013/04/23 23:14:35 $
+ * $Revision: 1.35 $
  * Description: Portals 4 specific configuration
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
@@ -40,9 +40,7 @@ static ptl_handle_me_t bootstrap_barrier_me_h;
 static char *kvs_name = NULL, *kvs_key = NULL, *kvs_value = NULL;
 static int max_name_len, max_key_len, max_val_len;
 
-/* 16 blocks of 1MB each for AM reception
- * TODO: control these via environment variable
- */
+/* 16 blocks of 1MB each for AM reception */
 static int p4_am_size = 1 * 1024 * 1024;
 static int p4_am_num_entries = 16;
 
@@ -74,7 +72,7 @@ static gasneti_weakatomic_t p4_op_count = gasneti_weakatomic_init(0);
   (0 == ((uintptr_t)(x) & (GASNETI_MEDBUF_ALIGNMENT-1)))
 
 
-/* Possible encode/decode options include (for a 32-bit ptl_process_t):
+/* TODO: Possible encode/decode options include (for a 32-bit ptl_process_t):
  *   hexadecimal: 8 bytes (100% expansion) <- CURRENT
  *   base64: 6 bytes (50% expansion)
  *   asci85: 5 bytes (25% expansion)
@@ -267,6 +265,11 @@ gasnetc_p4_init(int *rank, int *size)
     ptl_md_t md;
     ptl_me_t me;
     ptl_pt_index_t pt;
+    int p4_am_eq_len;
+
+    p4_am_size = gasneti_getenv_int_withdefault("GASNET_AM_BUFFER_SIZE", p4_am_size, 0);
+    p4_am_num_entries = gasneti_getenv_int_withdefault("GASNET_AM_NUM_ENTRIES", p4_am_num_entries, 0);
+    p4_am_eq_len = gasneti_getenv_int_withdefault("GASNET_AM_EVENT_QUEUE_LENGTH", 8192, 0);
 
     if (PMI_SUCCESS != PMI_Initialized(&initialized)) {
         gasneti_fatalerror("PMI_Initialized() failed");
@@ -384,7 +387,7 @@ gasnetc_p4_init(int *rank, int *size)
     ret = PtlGetUid(matching_ni_h, &uid);
     if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlGetUid()");
 
-    ret = PtlEQAlloc(matching_ni_h, 8192, &am_send_eq_h);
+    ret = PtlEQAlloc(matching_ni_h, p4_am_eq_len, &am_send_eq_h);
     if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlEQAlloc(send)");
     /* Every send will generate two events, the SEND event and the ACK
        event.  We don't track them seperately because the retransmit
@@ -395,9 +398,9 @@ gasnetc_p4_init(int *rank, int *size)
        to generate the SEND only slightly before the ACK (due to
        end-to-end retransmit), this isn't that big of an optimization
        loss anyway. */
-    p4_max_send_credits = 8192 / 2;
+    p4_max_send_credits = p4_am_eq_len / 2;
 
-    ret = PtlEQAlloc(matching_ni_h, 8192, &am_recv_eq_h);
+    ret = PtlEQAlloc(matching_ni_h, p4_am_eq_len, &am_recv_eq_h);
     if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlEQAlloc(recv)");
 
     ret = PtlEQAlloc(matching_ni_h, 1024, &coll_eq_h);
