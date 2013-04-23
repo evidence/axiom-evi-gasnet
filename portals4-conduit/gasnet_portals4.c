@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4.c,v $
- *     $Date: 2013/04/23 23:14:35 $
- * $Revision: 1.35 $
+ *     $Date: 2013/04/23 23:56:07 $
+ * $Revision: 1.36 $
  * Description: Portals 4 specific configuration
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
@@ -60,8 +60,7 @@ typedef struct p4_long_match_t p4_long_match_t;
 
 #define LONG_HASH(a, b) ((gasnetc_key_t)GASNETI_MAKEWORD(a,b))
 
-static gasneti_weakatomic_t p4_send_credits = gasneti_weakatomic_init(0);
-static gasneti_weakatomic_val_t p4_max_send_credits = 0;
+static gasneti_semaphore_t p4_send_credits;
 
 static gasneti_weakatomic_t p4_op_count = gasneti_weakatomic_init(0);
 
@@ -389,6 +388,14 @@ gasnetc_p4_init(int *rank, int *size)
 
     ret = PtlEQAlloc(matching_ni_h, p4_am_eq_len, &am_send_eq_h);
     if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlEQAlloc(send)");
+#ifdef PTL_MD_EVENT_SEND_DISABLE
+    /* TODO: EVENT_SEND_DISABLE is part of the 4.0 spec but was only
+       implemented in the reference implementation on April 23, 2013.
+       Before 1.22.0 release, we should remove the checks for
+       EVENT_SEND_DISABLE, as everyone should have it. - BWB
+       4/23/2013 */
+    gasneti_semaphore_init(&p4_send_credits, p4_am_eq_len - 1, p4_am_eq_len - 1);
+#else
     /* Every send will generate two events, the SEND event and the ACK
        event.  We don't track them seperately because the retransmit
        logical essentially means we either 1) need to hold both
@@ -398,7 +405,8 @@ gasnetc_p4_init(int *rank, int *size)
        to generate the SEND only slightly before the ACK (due to
        end-to-end retransmit), this isn't that big of an optimization
        loss anyway. */
-    p4_max_send_credits = p4_am_eq_len / 2;
+    gasneti_semaphore_init(&p4_send_credits, p4_am_eq_len / 2 - 1, p4_am_eq_len / 2 - 1);
+#endif
 
     ret = PtlEQAlloc(matching_ni_h, p4_am_eq_len, &am_recv_eq_h);
     if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlEQAlloc(recv)");
@@ -430,7 +438,11 @@ gasnetc_p4_init(int *rank, int *size)
     /* Allocate memory descriptor for active message transfer (including long transfers) */
     md.start     = 0;
     md.length    = PTL_SIZE_MAX;
+#ifdef PTL_MD_EVENT_SEND_DISABLE
+    md.options   = PTL_MD_EVENT_SEND_DISABLE;
+#else
     md.options   = 0;
+#endif
     md.eq_handle = am_send_eq_h;
     md.ct_handle = PTL_CT_NONE;
     ret = PtlMDBind(matching_ni_h,
@@ -860,6 +872,7 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
                 }
             }
 
+#ifndef PTL_MD_EVENT_SEND_DISABLE
         case PTL_EVENT_SEND:
             /* AM or long data send has arrived.  Don't need to do
                anything if there wasn't an error, since we're doing
@@ -869,6 +882,7 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
                                    gasneti_mynode, ev.type, ev.ni_fail_type);
             }
             break;
+#endif
 
         case PTL_EVENT_ACK:
             /* AM data has been acked */
@@ -930,7 +944,7 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
                 gasneti_assert(P4_FRAG_TYPE_AM == frag->type ||
                                P4_FRAG_TYPE_DATA == frag->type);
 
-                (void) gasneti_weakatomic_subtract(&p4_send_credits, 1, 0);
+                gasneti_semaphore_up(&p4_send_credits);
 
                 if (frag->type == P4_FRAG_TYPE_AM) {
                     am_frag = (p4_frag_am_t*) frag;
@@ -1036,7 +1050,6 @@ gasnetc_p4_TransferGeneric(int category, ptl_match_bits_t req_type, gasnet_node_
                           void *dest_addr, int numargs, va_list argptr)
 {
     int ret, i;
-    gasneti_weakatomic_val_t tmp;
     p4_frag_am_t *frag;
     ptl_process_t proc;
     gasnet_handlerarg_t *arglist;
@@ -1045,22 +1058,15 @@ gasnetc_p4_TransferGeneric(int category, ptl_match_bits_t req_type, gasnet_node_
     int num_credits = (gasnetc_Long == category || gasnetc_LongAsync == category) ? 2 : 1;
     volatile int32_t long_send_complete  = 0;
 
-    /* TODO: Count credits downward and use gasneti_semaphore_trydown_n()?
-     *       -PHH 2013.04.18 */
     /* attempt to get the right number of send credits */
- retry:
-    tmp = gasneti_weakatomic_add(&p4_send_credits, num_credits, 0);
-    if (tmp > p4_max_send_credits) {
+    while (0 == gasneti_semaphore_trydown_n(&p4_send_credits, num_credits)) {
 #ifdef P4_DEBUG
         fprintf(stderr, "%d: ran out of send credits\n", (int) gasneti_mynode);
 #endif
-        (void) gasneti_weakatomic_subtract(&p4_send_credits, num_credits, 0);
-
         /* drain the send queue (make sure to get as many slots as
            possible) */
         ret = p4_poll(&am_send_eq_h, 1);
         if (GASNET_OK != ret) return ret;
-        goto retry;
     }
 
 #ifdef P4_DEBUG
@@ -1125,7 +1131,7 @@ gasnetc_p4_TransferGeneric(int category, ptl_match_bits_t req_type, gasnet_node_
                not needing them.  also, mark the long send complete
                for the same reason */
             long_send_complete = 1;
-            (void) gasneti_weakatomic_subtract(&p4_send_credits, 1, 0);
+            gasneti_semaphore_up(&p4_send_credits);
         } else {
             p4_frag_data_t *data_frag = p4_alloc_data_frag();
 
