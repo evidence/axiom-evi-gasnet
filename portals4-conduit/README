@@ -21,6 +21,28 @@ Recognized environment variables:
 
 * All the standard GASNet environment variables (see top-level README)
 
+GASNET_AM_BUFFER_SIZE=<size>
+  Size of each bounce buffer, in bytes, for receiving active messages.
+  Default is 1MB.  This, combined with GASNET_AM_NUM_ENTRIES,
+  determines how much memory per process is set aside for receiving
+  active messages.  Increasing this value may help performance if
+  frequent retransmissions are necessary, but it is likely that
+  increasing GASNET_AM_NUM_ENTRIES will be more fruitful.
+
+GASNET_AM_NUM_ENTRIES=<count>
+  Number of bounce buffers that should be used for receiving active
+  messages.  Default is 16.  Increasing this value may help
+  performance if frequent retransmissions are necessary.
+
+GASNET_AM_EVENT_QUEUE_LENGTH=<count>
+  Number of event queue entries in the send and receive event queues
+  for active messages.  Default is 8192 and the value should be a
+  power of two.  The number of outstanding outgoing active messages is
+  limited by this queue length, with one entry required for every
+  short / medium active message and two entries required for every
+  long active message.  The number of queued received active messages
+  is similarly limited.
+
 Optional compile-time settings:
 ------------------------------
 
