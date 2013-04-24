@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2013/04/24 21:53:20 $
-# $Revision: 1.790 $
+#     $Date: 2013/04/24 23:23:52 $
+# $Revision: 1.791 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.790 $)
+AC_REVISION($Revision: 1.791 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2295,7 +2295,12 @@ AC_DEFUN([GASNET_ID_OTHER_COMPILER],[
   if test x"$gasnet_cv_[]lowername[]_family" != x"$gasnet_cv_cc_family"; then
     mismatch="families"
   elif test x"$gasnet_cv_PLATFORM_[$1]_VERSION" != x"$gasnet_cv_PLATFORM_COMPILER_VERSION"; then
+   : # bug3160: identical ID strings (excluding STD portion) will suppress a numerical mis-match
+   idstr1=x`echo "$gasnet_cv_PLATFORM_COMPILER_IDSTR" | $AWK '{sub("STD:.*","")}; 1'`
+   idstr2=x`echo "$gasnet_cv_PLATFORM_[$1]_IDSTR" | $AWK '{sub("STD:.*","")}; 1'`
+   if test "$idstr1" != "$idstr2"; then
     mismatch="version codes"
+   fi
   fi
   if test -n "$mismatch"; then
     pushdef([outfmt],[$AWK -F'|' '{ printf("%s\t%s",[$]2,[$]3); }'])
