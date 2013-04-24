@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2013/04/24 21:32:46 $
-# $Revision: 1.789 $
+#     $Date: 2013/04/24 21:53:20 $
+# $Revision: 1.790 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.789 $)
+AC_REVISION($Revision: 1.790 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2649,7 +2649,7 @@ AC_DEFUN([GASNET_CHECK_MPI_CC],[
       fi
       GASNET_SET_CHECKED_CFLAGS(MPI_CC, MPI_CFLAGS, $1, $SAFE_MPI_CFLAGS)
     else
-      GASNET_MSG_WARN([MPI compiler "$MPI_CC" was not found.  Consider passing --with-mpi-cc if you want mpi-conduit or require MPI compatability])
+      GASNET_MSG_WARN([MPI compiler "$MPI_CC" was not found.  Consider passing --with-mpi-cc if you want mpi-conduit or require MPI compatibility])
       # Avoid unecessary and potentially confusing probes and their errors/warnings
       MPI_CC=no
       have_mpi=no
@@ -2794,7 +2794,7 @@ if test "$enabled_mpi" = yes || test "$enabled_mpi_compat" = yes; then
       GASNET_ENV_DEFAULT(MPI_LIBS, )
       GASNET_ENV_DEFAULT(MPIRUN_CMD, mpirun -np %N %C)
       if test "$MPI_CC" = ""; then
-        GASNET_MSG_WARN([I don't know how to build MPI programs on your system: consider passing --with-mpi-cc and/or setting \$MPI_CFLAGS and \$MPI_LIBS to configure MPI support for your site if you want mpi-conduit or require MPI compatability])
+        GASNET_MSG_WARN([I don't know how to build MPI programs on your system: consider passing --with-mpi-cc and/or setting \$MPI_CFLAGS and \$MPI_LIBS to configure MPI support for your site if you want mpi-conduit or require MPI compatibility])
 	MPI_CC=$CC
         have_mpi=no
       fi 
@@ -2869,7 +2869,7 @@ if test "$enabled_mpi" = yes || test "$enabled_mpi_compat" = yes; then
         ])
       ])
   elif test "$mpi_reason" = ""; then
-      GASNET_MSG_WARN([build test failed: I don't know how to build MPI programs on your system -- see $TOP_BUILDDIR/config.log for details: consider using --with-mpi-cc, \$MPI_CFLAGS and \$MPI_LIBS to configure MPI support for your site if you want mpi-conduit or require MPI compatability])
+      GASNET_MSG_WARN([build test failed: I don't know how to build MPI programs on your system -- see $TOP_BUILDDIR/config.log for details: consider using --with-mpi-cc, \$MPI_CFLAGS and \$MPI_LIBS to configure MPI support for your site if you want mpi-conduit or require MPI compatibility])
       have_mpi=no
   fi
   if test "$have_mpi$mpi_reason" = no ; then
