@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2013/04/24 21:23:31 $
-# $Revision: 1.788 $
+#     $Date: 2013/04/24 21:32:46 $
+# $Revision: 1.789 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.788 $)
+AC_REVISION($Revision: 1.789 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2634,20 +2634,39 @@ dnl GASNET_TOOLSONLY_FALSE_END
 # --enable-mpi controls mpi-conduit
 CONDUIT_BEGIN(mpi,[portable MPI-1.1/2.x network conduit (mpi)])
 
+AC_DEFUN([GASNET_CHECK_MPI_CC],[
+  if test "x$MPI_CC" = 'xno' >/dev/null; then
+    # Avoid unecessary and potentially confusing probes and their errors/warnings
+    have_mpi=no
+    mpi_reason="was disabled"
+  else
+    GASNET_GETFULLPATH(MPI_CC)
+    if expr "$MPI_CC" : '/' >/dev/null; then
+      if test "$BUILDCONFIG" = "debug" ; then
+        SAFE_MPI_CFLAGS="-g"
+      else
+        SAFE_MPI_CFLAGS="-O"
+      fi
+      GASNET_SET_CHECKED_CFLAGS(MPI_CC, MPI_CFLAGS, $1, $SAFE_MPI_CFLAGS)
+    else
+      GASNET_MSG_WARN([MPI compiler "$MPI_CC" was not found.  Consider passing --with-mpi-cc if you want mpi-conduit or require MPI compatability])
+      # Avoid unecessary and potentially confusing probes and their errors/warnings
+      MPI_CC=no
+      have_mpi=no
+      mpi_reason="was not found"
+    fi
+  fi
+])
+
 if test "$enabled_mpi" = yes || test "$enabled_mpi_compat" = yes; then
   # user can explicitly configure MPI by setting MPI_CC, MPI_CFLAGS and MPI_LIBS
   have_mpi=yes # start by assuming they have it
-  if test "$BUILDCONFIG" = "debug" ; then
-    SAFE_MPI_CFLAGS="-g"
-  else
-    SAFE_MPI_CFLAGS="-O"
-  fi
   case "$target_os" in
     solaris*)  
         # I don't have access to a Solaris cluster with MPI (other than NOW) 
         # but these seem like sane defaults
     	GASNET_ENV_DEFAULT(MPI_CC, mpicc)
-        GASNET_SET_CHECKED_CFLAGS(MPI_CC, MPI_CFLAGS, $MISC_CFLAGS $CFLAGS, $SAFE_MPI_CFLAGS)
+        GASNET_CHECK_MPI_CC($MISC_CFLAGS $CFLAGS)
     	GASNET_ENV_DEFAULT(MPI_LIBS, )
 	GASNET_ENV_DEFAULT(MPIRUN_CMD, mpirun -np %N %C)
         ;;
@@ -2673,14 +2692,13 @@ if test "$enabled_mpi" = yes || test "$enabled_mpi_compat" = yes; then
     	  GASNET_ENV_DEFAULT(MPI_LIBS, )
 	  GASNET_ENV_DEFAULT(MPIRUN_CMD, mpirun -np %N %C)
         fi
-        GASNET_SET_CHECKED_CFLAGS(MPI_CC, MPI_CFLAGS, $MISC_CFLAGS $CFLAGS, $SAFE_MPI_CFLAGS)
+        GASNET_CHECK_MPI_CC($MISC_CFLAGS $CFLAGS)
         GASNET_ENV_DEFAULT(MPIRUN_CMD_BATCH, "")
         ;;
     darwin*) # Need to probe -Wno-long-double independently
         GASNET_ENV_DEFAULT(MPI_CC, mpicc)
-        GASNET_SET_CHECKED_CFLAGS(MPI_CC, MPI_CFLAGS,
-                                  `echo "$MISC_CFLAGS $CFLAGS" | sed -e 's/-Wno-long-double//'`,
-                                  $SAFE_MPI_CFLAGS)
+        BASIC_MPI_CFLAGS=`echo "$MISC_CFLAGS $CFLAGS" | sed -e 's/-Wno-long-double//'`
+        GASNET_CHECK_MPI_CC($BASIC_MPI_CFLAGS)
         GASNET_PUSHVAR(CC,"$MPI_CC")
         GASNET_PUSHVAR(CFLAGS,"$MPI_CFLAGS")
         if test x"$MPI_CC" != xno; then
@@ -2708,7 +2726,7 @@ if test "$enabled_mpi" = yes || test "$enabled_mpi_compat" = yes; then
 	else
       	  BASIC_MPI_CFLAGS="-g $BASIC_MPI_CFLAGS"
 	fi
-        GASNET_SET_CHECKED_CFLAGS(MPI_CC, MPI_CFLAGS, $BASIC_MPI_CFLAGS, $SAFE_MPI_CFLAGS)
+        GASNET_CHECK_MPI_CC($BASIC_MPI_CFLAGS)
     	GASNET_ENV_DEFAULT(MPI_LIBS, -lmpi)
 	GASNET_ENV_DEFAULT(MPIRUN_CMD, mpirun -np %N %C)
         ;;
@@ -2720,7 +2738,7 @@ if test "$enabled_mpi" = yes || test "$enabled_mpi_compat" = yes; then
 	else
     	  BASIC_MPI_CFLAGS="-g $BASIC_MPI_CFLAGS"
 	fi
-        GASNET_SET_CHECKED_CFLAGS(MPI_CC, MPI_CFLAGS, $BASIC_MPI_CFLAGS, $SAFE_MPI_CFLAGS)
+        GASNET_CHECK_MPI_CC($BASIC_MPI_CFLAGS)
     	GASNET_ENV_DEFAULT(MPI_LIBS, [-Wl,-bbigtoc])
 	GASNET_ENV_DEFAULT(MPIRUN_CMD, poe %C -procs %N -nodes %M -rmpool 1 -euilib us -retry 1 -retrycount 10000 -msg_api mpi)
         ;;
@@ -2732,7 +2750,7 @@ if test "$enabled_mpi" = yes || test "$enabled_mpi_compat" = yes; then
         else
           BASIC_MPI_CFLAGS="-g $BASIC_MPI_CFLAGS"
         fi
-        GASNET_SET_CHECKED_CFLAGS(MPI_CC, MPI_CFLAGS, $BASIC_MPI_CFLAGS, $SAFE_MPI_CFLAGS)
+        GASNET_CHECK_MPI_CC($BASIC_MPI_CFLAGS)
         GASNET_ENV_DEFAULT(MPI_LIBS, -lmpi -lelan -lrt)
         GASNET_ENV_DEFAULT(MPIRUN_CMD, prun -n %N -N %M %C)
         ;;
@@ -2755,39 +2773,34 @@ if test "$enabled_mpi" = yes || test "$enabled_mpi_compat" = yes; then
 	else
     	  BASIC_MPI_CFLAGS="-g $BASIC_MPI_CFLAGS"
 	fi
-        GASNET_SET_CHECKED_CFLAGS(MPI_CC, MPI_CFLAGS, $BASIC_MPI_CFLAGS, $SAFE_MPI_CFLAGS)
+        GASNET_CHECK_MPI_CC($BASIC_MPI_CFLAGS)
         ;;
     mtx*)
     	GASNET_ENV_DEFAULT(MPI_CC, cc)
-        GASNET_SET_CHECKED_CFLAGS(MPI_CC, MPI_CFLAGS, $MISC_CFLAGS $CFLAGS, $SAFE_MPI_CFLAGS)
+        GASNET_CHECK_MPI_CC($MISC_CFLAGS $CFLAGS)
     	GASNET_ENV_DEFAULT(MPI_LIBS, -lmpi)
 	GASNET_ENV_DEFAULT(MPIRUN_CMD, mtarun -t %N -m %N /usr/bin/env _MPI_MT=%N %C)
         ;;
     superux*)
       GASNET_ENV_DEFAULT(MPI_CC, mpic++ -Xa)
-      GASNET_SET_CHECKED_CFLAGS(MPI_CC, MPI_CFLAGS, $MISC_CFLAGS $CFLAGS, $SAFE_MPI_CFLAGS)
+      GASNET_CHECK_MPI_CC($MISC_CFLAGS $CFLAGS)
       GASNET_ENV_DEFAULT(MPI_LIBS, )
       GASNET_ENV_DEFAULT(MPIRUN_CMD, mpirun -np %N %C)
       ;;
     *) 
       # unknown OS - if user doesn't provide info, nothing we can do
       GASNET_ENV_DEFAULT(MPI_CC, mpicc)
-      GASNET_SET_CHECKED_CFLAGS(MPI_CC, MPI_CFLAGS, $MISC_CFLAGS $CFLAGS, $SAFE_MPI_CFLAGS)
+      GASNET_CHECK_MPI_CC($MISC_CFLAGS $CFLAGS)
       GASNET_ENV_DEFAULT(MPI_LIBS, )
       GASNET_ENV_DEFAULT(MPIRUN_CMD, mpirun -np %N %C)
       if test "$MPI_CC" = ""; then
-        GASNET_MSG_WARN([I don't know how to build MPI programs on your system: consider using \$MPI_CC \$MPI_CFLAGS and \$MPI_LIBS to configure MPI support for your site if you want the mpi-* backends])
+        GASNET_MSG_WARN([I don't know how to build MPI programs on your system: consider passing --with-mpi-cc and/or setting \$MPI_CFLAGS and \$MPI_LIBS to configure MPI support for your site if you want mpi-conduit or require MPI compatability])
 	MPI_CC=$CC
         have_mpi=no
       fi 
       ;;
   esac
-  if test x"$MPI_CC" = xno; then
-    # Avoid unecessary and potentially confusing probes and their errors/warnings
-    have_mpi=no
-    mpi_reason="was disabled"
-  else
-  GASNET_GETFULLPATH(MPI_CC)
+  if test x"$MPI_CC" != xno; then
   GASNET_GETFULLPATH(MPIRUN_CMD)
   fi
 
@@ -2856,7 +2869,7 @@ if test "$enabled_mpi" = yes || test "$enabled_mpi_compat" = yes; then
         ])
       ])
   elif test "$mpi_reason" = ""; then
-      GASNET_MSG_WARN([build test failed: I don't know how to build MPI programs on your system -- see $TOP_BUILDDIR/config.log for details: consider using \$MPI_CC \$MPI_CFLAGS and \$MPI_LIBS to configure MPI support for your site if you want the mpi conduit])
+      GASNET_MSG_WARN([build test failed: I don't know how to build MPI programs on your system -- see $TOP_BUILDDIR/config.log for details: consider using --with-mpi-cc, \$MPI_CFLAGS and \$MPI_LIBS to configure MPI support for your site if you want mpi-conduit or require MPI compatability])
       have_mpi=no
   fi
   if test "$have_mpi$mpi_reason" = no ; then
