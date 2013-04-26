@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4.c,v $
- *     $Date: 2013/04/23 23:56:07 $
- * $Revision: 1.36 $
+ *     $Date: 2013/04/26 19:11:20 $
+ * $Revision: 1.37 $
  * Description: Portals 4 specific configuration
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
@@ -871,6 +871,7 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
 		  }
                 }
             }
+            break;
 
 #ifndef PTL_MD_EVENT_SEND_DISABLE
         case PTL_EVENT_SEND:
