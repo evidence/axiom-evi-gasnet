@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2013/03/13 20:28:11 $
- * $Revision: 1.52 $
+ *     $Date: 2013/05/01 00:12:31 $
+ * $Revision: 1.53 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -333,6 +333,16 @@ SHORT_HANDLER(gasnete_markdone_reph,1,2,
               (token, UNPACK2(a0, a1)));
 /* ------------------------------------------------------------------------------------ */
 
+/* Gemini requires 4-byte alignment of local address, while Aries doesn't.
+   However, intial testing shows that Aries performance is poor w/o alignment */
+#if defined(GASNET_CONDUIT_GEMINI) || 1
+  #define GASNETE_GET_IS_UNALIGNED(_nbytes, _src, _dest) \
+      (3 & ((uintptr_t)(_nbytes) | (uintptr_t)(_src) | (uintptr_t)(_dest)))
+#else
+  #define GASNETE_GET_IS_UNALIGNED(_nbytes, _src, _dest) \
+      (3 & ((uintptr_t)(_nbytes) | (uintptr_t)(_src)))
+#endif
+
 static void /* XXX: Inlining left to compiler's discression */
 gasnete_get_bulk_unaligned(void *dest, gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG)
 {
@@ -357,14 +367,15 @@ gasnete_get_bulk_unaligned(void *dest, gasnet_node_t node, void *src, size_t nby
   if (!nbytes) return;
   gasneti_assert(0 == (3 & (uintptr_t)src));
   
-  if (0 == (3 & (uintptr_t) dest)) {
-    /* dest address is aligned - may use zero-copy (if applicable) 
+  if (! GASNETE_GET_IS_UNALIGNED(0,0,dest)) {
+    /* dest address is sufficiently aligned - may use zero-copy (if applicable) 
        however, must exclude any "tail" of unaligned length */
     const size_t tailsz = (nbytes & 3) ? (nbytes % GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE) : 0;
     const size_t chunksz = nbytes - tailsz;
     if (chunksz) {
       gasneti_assert(0 == (3 & chunksz));
       /* TODO: gasnete_get_nbi_bulk includes duplicate PSHM and alignment checks */
+      gasneti_assert_always(GASNETE_GET_IS_UNALIGNED(chunksz,src,dest));
       gasnete_get_nbi_bulk(dest, node, src, chunksz GASNETE_THREAD_PASS);
       dest = (char *) dest + chunksz;
       src  = (char *) src  + chunksz;
@@ -436,7 +447,7 @@ extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void
 
   GASNETI_CHECKPSHM_GET(UNALIGNED,H);
 
-  if_pf (3 & (nbytes | (uintptr_t)dest | (uintptr_t)src)) {
+  if_pf (GASNETE_GET_IS_UNALIGNED(nbytes, src, dest)) {
     /* unaligned xfer - handled separately, and always via an iop */
     GASNETI_UNUSED_UNLESS_THREADS
     gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
@@ -668,7 +679,7 @@ extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, siz
 
   GASNETI_CHECKPSHM_GET(UNALIGNED,V);
 
-  if_pf (3 & (nbytes | (uintptr_t)dest | (uintptr_t)src)) {
+  if_pf (GASNETE_GET_IS_UNALIGNED(nbytes, src, dest)) {
     /* unaligned xfer - handled separately, and always via an iop */
     gasnete_get_bulk_unaligned(dest, node, src, nbytes GASNETE_THREAD_PASS);
     return;
