@@ -1,7 +1,7 @@
 README file for dcmf-conduit
 ============================
 Rajesh Nishtala <rajeshn@cs.berkeley.edu>
-$Revision: 1.10 $
+$Revision: 1.11 $
 
 
 GASNet's DCMF conduit is the native port of GASNet to the BlueGene/P
@@ -99,16 +99,12 @@ Section: Running on the BlueGene/P Systems
   recognizes to adjust parameters that could influence the parameters. 
 
   GASNET_BARRIER=DCMF_BARRIER (default)
-    + Enables dcmf-specific implementation of GASNet barriers
+    + Enables dcmf-specific implementation of GASNet barriers.
+      If one does not wish to use the dcmf-specific barrier, then
+      GASNET_BARRIER=DISSEM is the recommended alternative.
   GASNET_DCMF_PRINT_TORUS_LOCATION (yes/no): 
     + Each nodes prints it's X,Y,Z,T location in the 3D Torus (set
       to 1 to enable)
-  GASNET_DCMF_FAST_BARRIER (yes/no):
-    + Use BlueGene/P hardware support for barrier.
-      Additionally, assume that all threads agree on whether a given barrier is 
-      named or anonymous, to allow higher performance barrier. Set
-      to "no" to strictly comply with GASNet specification. (defaults
-      to yes)
   GASNET_DCMF_MAX_SEG_SIZE (in MB or GB):
     + Set the largest size for the GASNet segment. Defaults to 3/4
       physical memory. (i.e. 384 MB in VirtualNode mode, 768MB in Dual

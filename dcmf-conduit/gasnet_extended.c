@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_extended.c,v $
- *     $Date: 2012/09/14 05:43:40 $
- * $Revision: 1.31 $
+ *     $Date: 2013/05/01 19:36:24 $
+ * $Revision: 1.32 $
  * Description: GASNet Extended API Implementation for DCMF
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
  *                 Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -1226,7 +1226,6 @@ static void gasnete_dcmfbarrier_init(gasnete_coll_team_t team);
 static void gasnete_dcmfbarrier_notify(gasnete_coll_team_t team, int id, int flags);
 static int gasnete_dcmfbarrier_wait(gasnete_coll_team_t team, int id, int flags);
 static int gasnete_dcmfbarrier_try(gasnete_coll_team_t team, int id, int flags);
-int gasnete_dcmfbarrier_fast = 0;
 
 #define GASNETE_BARRIER_DEFAULT "DCMF_BARRIER"
 #define GASNETE_BARRIER_READENV() do { \
@@ -1269,19 +1268,15 @@ static DCMF_Protocol_t anon_barrier_registration;
 
 
 static void gasnete_dcmfbarrier_init(gasnete_coll_team_t team) {
-  int allow_hw_barrier;
-
   team->barrier_splitstate = OUTSIDE_BARRIER;
   
-  allow_hw_barrier = gasneti_getenv_yesno_withdefault("GASNET_DCMF_FAST_BARRIER", 1);
   /*initialize hw barrier*/
-  if(allow_hw_barrier) {
+  {
     DCMF_GlobalBarrier_Configuration_t config;
     
     /*for now just sticked w/ a single barrier protocol that we pick*/
     const char *barrier_protocol = gasneti_getenv_withdefault("GASNET_DCMF_ANONBARRIER_PROTOCOL", "DEFAULT");
     bzero(&config, sizeof(DCMF_GlobalBarrier_Configuration_t));
-    gasnete_dcmfbarrier_fast = 1;
     if(!strcmp(barrier_protocol, "DEFAULT")) {
       config.protocol = DCMF_DEFAULT_GLOBALBARRIER_PROTOCOL;
     } else if(!strcmp(barrier_protocol, "GLOBAL_INTERRUPT")) {
@@ -1300,12 +1295,6 @@ static void gasnete_dcmfbarrier_init(gasnete_coll_team_t team) {
     GASNETC_DCMF_CHECK_PTR(&anon_barrier_registration);
     DCMF_SAFE(DCMF_GlobalBarrier_register(&anon_barrier_registration, &config));
     GASNETC_DCMF_UNLOCK();
-  } else {
-    /* if DCMF hardware barrier is disabled then just return and use the default AM barrier */
-    team->barrier_notify = NULL;
-    team->barrier_wait = NULL;
-    team->barrier_try = NULL;
-    return;
   }
 
   /*initialize reductions for named barrier*/
