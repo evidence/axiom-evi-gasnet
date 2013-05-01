@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2013/05/01 02:22:50 $
- * $Revision: 1.55 $
+ *     $Date: 2013/05/01 04:37:05 $
+ * $Revision: 1.56 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -350,9 +350,18 @@ gasnete_get_bulk_unaligned(void *dest, gasnet_node_t node, void *src, size_t nby
   gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
   gasnete_iop_t * const iop = mythread->current_iop;
   gasnetc_post_descriptor_t *gpd;
-  size_t src_offset = 3 & (uintptr_t) src;
 
-  /* first chunk achieves 4-byte alignment if necessary */
+#ifdef GASNET_CONDUIT_GEMINI
+  /* Upto 1300 bytes or so, larger alignment helps */
+  const size_t mask = (nbytes <= 1300) ? 63 : 3;
+#else
+  /* Larger alignment always helps */
+  const size_t mask = 63;
+#endif
+  const size_t src_offset = mask & (uintptr_t) src;
+
+  /* first chunk achieves alignment to as much as 64-bytes if necessary */
+  gasneti_assert(src_offset < max_chunk);
   if (src_offset != 0) {
     const size_t chunksz = MIN(nbytes, (max_chunk - src_offset));
     gpd = gasnetc_alloc_post_descriptor();
@@ -367,7 +376,7 @@ gasnete_get_bulk_unaligned(void *dest, gasnet_node_t node, void *src, size_t nby
   if (!nbytes) return;
   gasneti_assert(0 == (3 & (uintptr_t)src));
   
-  if (! GASNETE_GET_IS_UNALIGNED(0,0,dest)) {
+  if (! GASNETE_GET_IS_UNALIGNED(0,0,dest) && (nbytes > max_chunk)) {
     /* dest address is sufficiently aligned - may use zero-copy (if applicable) 
        however, must exclude any "tail" of unaligned length */
     const size_t tailsz = (nbytes & 3) ? (nbytes % GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE) : 0;
