@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2013/05/01 00:12:31 $
- * $Revision: 1.53 $
+ *     $Date: 2013/05/01 00:20:37 $
+ * $Revision: 1.54 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -375,7 +375,7 @@ gasnete_get_bulk_unaligned(void *dest, gasnet_node_t node, void *src, size_t nby
     if (chunksz) {
       gasneti_assert(0 == (3 & chunksz));
       /* TODO: gasnete_get_nbi_bulk includes duplicate PSHM and alignment checks */
-      gasneti_assert_always(GASNETE_GET_IS_UNALIGNED(chunksz,src,dest));
+      gasneti_assert(GASNETE_GET_IS_UNALIGNED(chunksz,src,dest));
       gasnete_get_nbi_bulk(dest, node, src, chunksz GASNETE_THREAD_PASS);
       dest = (char *) dest + chunksz;
       src  = (char *) src  + chunksz;
