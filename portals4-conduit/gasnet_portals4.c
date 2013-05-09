@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4.c,v $
- *     $Date: 2013/04/26 19:11:20 $
- * $Revision: 1.37 $
+ *     $Date: 2013/05/09 14:47:41 $
+ * $Revision: 1.38 $
  * Description: Portals 4 specific configuration
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
@@ -421,9 +421,6 @@ gasnetc_p4_init(int *rank, int *size)
                      COLLECTIVE_PT,
                      &pt);
     if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlPTAlloc(COLLECTIVE)");
-    if (COLLECTIVE_PT != pt) {
-        gasneti_fatalerror("[%03d] PtlPTAlloc() found bad PT", gasneti_mynode);
-    }
 
     ret = PtlPTAlloc(matching_ni_h,
                      PTL_PT_FLOWCTRL,
@@ -431,9 +428,6 @@ gasnetc_p4_init(int *rank, int *size)
                      AM_PT,
                      &pt);
     if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlPTAlloc(AM)");
-    if (AM_PT != pt) {
-        gasneti_fatalerror("[%03d] PtlPTAlloc() found bad PT", gasneti_mynode);
-    }
 
     /* Allocate memory descriptor for active message transfer (including long transfers) */
     md.start     = 0;
