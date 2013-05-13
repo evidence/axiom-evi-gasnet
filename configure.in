@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2013/05/09 14:51:48 $
-# $Revision: 1.795 $
+#     $Date: 2013/05/13 17:29:29 $
+# $Revision: 1.796 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.795 $)
+AC_REVISION($Revision: 1.796 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2641,7 +2641,7 @@ AC_DEFUN([GASNET_CHECK_MPI_CC],[
     mpi_reason="was disabled"
   else
     GASNET_GETFULLPATH(MPI_CC)
-    if expr "$MPI_CC" : '/' >/dev/null; then
+    if expr "x$MPI_CC" : 'x/' >/dev/null; then
       if test "$BUILDCONFIG" = "debug" ; then
         SAFE_MPI_CFLAGS="-g"
       else
