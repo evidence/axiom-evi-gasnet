@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2012/06/07 20:51:32 $
-dnl $Revision: 1.168 $
+dnl     $Date: 2013/05/14 22:23:35 $
+dnl $Revision: 1.169 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -1995,12 +1995,12 @@ AC_CACHE_CHECK(for $1 compiler family, $3, [
   if test "$$3" = "unknown"; then
     GASNET_IFDEF(__GNUC__, $3=GNU, [], $_force_compile) 
     dnl Note GNUC one above must precede many of those below
-    GASNET_IFDEF(__PATHCC__, $3=Pathscale, [], $_force_compile)
     GASNET_IFDEF(__PGI, $3=PGI, [], $_force_compile)
     GASNET_IFDEF(__INTEL_COMPILER, $3=Intel, [], $_force_compile)
     GASNET_IFDEF(__OPENCC__, $3=Open64, [], $_force_compile)
     GASNET_IFDEF(__PCC__, $3=PCC, [], $_force_compile)
     GASNET_IFDEF(__clang__, $3=Clang, [], $_force_compile)
+    GASNET_IFDEF(__PATHCC__, $3=Pathscale, [], $_force_compile)
   fi
   dnl other vendor compilers
   if test "$$3" = "unknown"; then
