@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_diagnostic.c,v $
- *     $Date: 2012/08/14 22:11:37 $
- * $Revision: 1.38 $
+ *     $Date: 2013/05/14 21:21:49 $
+ * $Revision: 1.39 $
  * Description: GASNet internal diagnostics
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -115,7 +115,7 @@ extern int gasneti_run_diagnostics(int iter_cnt, int threadcnt, const char *test
   if (partner == gasnet_nodes()) partner = gasnet_mynode();
   test_errs = 0;
   iters = iter_cnt;
-  iters2 = iters*100;
+  iters2 = (iters <= INT_MAX/100) ? iters*100 : iters;
   iters0 = MAX(1,iters/100);
   peer = gasnet_mynode()^1;
   if (peer == gasnet_nodes()) peer = gasnet_mynode();
@@ -233,10 +233,10 @@ static void malloc_test(int id) {
 
   PTHREAD_BARRIER(num_threads);
   
-  maxobjs = MIN(iters,10000/num_threads);
+  maxobjs = MIN(iters0,10000/num_threads);
   ptrs = gasneti_calloc(maxobjs,sizeof(void*));
   for (i = 0; i < maxobjs; i++) assert_always(ptrs[i] == NULL);
-  for (i = 0; i < iters2/num_threads; i++) {
+  for (i = 0; i < iters/num_threads; i++) {
     gasneti_memcheck_one();
     if (cnt == maxobjs || (cnt > 0 && TEST_RAND_ONEIN(2))) {
       size_t idx = TEST_RAND(0,cnt-1);
@@ -590,7 +590,7 @@ static void atomic128_test(int id) {
   }
 
   gasneti_atomic128_set(var128, iters, 0, 0);
-  for (i=0;i<=iters;i++) {
+  for (i=0;i<iters;i++) {
     if (gasneti_atomic128_compare_and_swap(var128, iters+i-1, i-1, iters+i-2, i-2, 0))
       ERR("gasneti_atomic128_compare_and_swap succeeded at i=%i when it should have failed", i);
     if (gasneti_atomic128_compare_and_swap(var128, iters+i+1, i+1, iters+i-2, i-2, 0))
@@ -620,7 +620,7 @@ static void atomicswap_test(int id) {
 
   TEST_HEADER("atomic SWAP test"); else return;
 
-  limit = num_threads * MIN(GASNETI_ATOMIC_MAX/num_threads, 65536);
+  limit = num_threads * MIN(GASNETI_ATOMIC_MAX/num_threads, 16384);
 
   if (0 == id) {
     gasneti_atomic_set(&var, GASNETI_ATOMIC_MAX, 0);
