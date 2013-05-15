@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2010/04/26 01:45:00 $
- * $Revision: 1.100 $
+ *     $Date: 2013/05/15 00:16:31 $
+ * $Revision: 1.101 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -373,9 +373,9 @@ int main(int argc, char **argv) {
     if (gasnett_atomic_read(&var,0) != (gasnett_atomic_val_t)(2*iters))
       ERR("gasnett_atomic_set/gasnett_atomic_read got wrong value");
 
-    for (i=1;i<=iters;i++) {
+    for (i=0;i<iters;i++) {
       gasnett_atomic_increment(&var,0);
-      if (gasnett_atomic_read(&var,0) != (gasnett_atomic_val_t)(2*iters + i))
+      if (gasnett_atomic_read(&var,0) != (gasnett_atomic_val_t)(2*iters + (i+1)))
         ERR("gasnett_atomic_increment got wrong value");
     }
 
@@ -385,14 +385,14 @@ int main(int argc, char **argv) {
         ERR("gasnett_atomic_decrement got wrong value");
     }
 
-    for (i=1;i<=iters;i++) {
+    for (i=0;i<iters;i++) {
       gasnett_atomic_set(&var, i, 0);
       gasnett_atomic_increment(&var,0);
       if (gasnett_atomic_read(&var,0) != (gasnett_atomic_val_t)(i+1))
         ERR("gasnett_atomic_set/gasnett_atomic_increment got wrong value");
     }
 
-    for (i=1;i<=iters;i++) {
+    for (i=0;i<iters;i++) {
       gasnett_atomic_set(&var, i, 0);
       gasnett_atomic_decrement(&var,0);
       if (gasnett_atomic_read(&var,0) != (gasnett_atomic_val_t)(i-1))
@@ -413,7 +413,7 @@ int main(int argc, char **argv) {
 
     #if defined(GASNETT_HAVE_ATOMIC_CAS)
       gasnett_atomic_set(&var, 0, 0);
-      for (i=0;i<=iters;i++) {
+      for (i=0;i<iters;i++) {
 	if (gasnett_atomic_compare_and_swap(&var, i-1, i-2, 0))
           ERR("gasnett_atomic_compare_and_swap succeeded at i=%i when it should have failed", i);
 	if (gasnett_atomic_compare_and_swap(&var, i+1, i-2, 0))
@@ -429,7 +429,7 @@ int main(int argc, char **argv) {
 
     #if defined(GASNETT_HAVE_ATOMIC_ADD_SUB)
       gasnett_atomic_set(&var, 1, 0);
-      for (i=1;i<=iters;i++) {
+      for (i=1;i<iters;i++) {
         if ((gasnett_atomic_add(&var, i, 0) != (gasnett_atomic_val_t)(2*i)) ||
             (gasnett_atomic_read(&var,0) != (gasnett_atomic_val_t)(2*i)))
           ERR("gasnett_atomic_add got wrong value");
@@ -564,7 +564,7 @@ int main(int argc, char **argv) {
       }
 
       gasnett_atomic32_set(&var32, 0, 0);
-      for (i=0;i<=iters;i++) {
+      for (i=0;i<iters;i++) {
 	if (gasnett_atomic32_compare_and_swap(&var32, i-1, i-2, 0))
           ERR("gasnett_atomic32_compare_and_swap succeeded at i=%i when it should have failed", i);
 	if (gasnett_atomic32_compare_and_swap(&var32, i+1, i-2, 0))
@@ -615,7 +615,7 @@ int main(int argc, char **argv) {
       }
 
       gasnett_atomic64_set(&var64, 0, 0);
-      for (i=0;i<=iters;i++) {
+      for (i=0;i<iters;i++) {
 	if (gasnett_atomic64_compare_and_swap(&var64, i-1, i-2, 0))
           ERR("gasnett_atomic64_compare_and_swap succeeded at i=%i when it should have failed", i);
 	if (gasnett_atomic64_compare_and_swap(&var64, i+1, i-2, 0))
