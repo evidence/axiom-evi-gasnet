@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_diagnostic.c,v $
- *     $Date: 2013/05/14 21:21:49 $
- * $Revision: 1.39 $
+ *     $Date: 2013/05/15 01:08:57 $
+ * $Revision: 1.40 $
  * Description: GASNet internal diagnostics
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -371,6 +371,7 @@ static void mutex_test(int id) {
   static gasneti_mutex_t lock1 = GASNETI_MUTEX_INITIALIZER;
   static gasneti_mutex_t lock2;
   static unsigned int counter;
+  unsigned int count = iters2 / num_threads;
   int i;
 
   PTHREAD_BARRIER(num_threads);
@@ -401,7 +402,7 @@ static void mutex_test(int id) {
 
   PTHREAD_BARRIER(num_threads);
 
-    for (i=0;i<iters2;i++) {
+    for (i=0;i<count;i++) {
       if (i&1) {
         gasneti_mutex_lock(&lock1);
       } else {
@@ -416,8 +417,8 @@ static void mutex_test(int id) {
 
   PTHREAD_BARRIER(num_threads);
 
-    if (counter != (num_threads * iters2)) 
-      ERR("failed mutex test: counter=%i expecting=%i", counter, (num_threads * iters2));
+    if (counter != (num_threads * count)) 
+      ERR("failed mutex test: counter=%i expecting=%i", counter, (num_threads * count));
 
   PTHREAD_BARRIER(num_threads);
 }
@@ -427,6 +428,7 @@ static void spinlock_test(int id) {
   static gasneti_atomic_t lock1 = GASNETI_SPINLOCK_INITIALIZER;
   static gasneti_atomic_t lock2;
   static unsigned int counter;
+  unsigned int count = iters2 / num_threads;
   int i;
 
   PTHREAD_BARRIER(num_threads);
@@ -450,7 +452,7 @@ static void spinlock_test(int id) {
 
   PTHREAD_BARRIER(num_threads);
 
-    for (i=0;i<iters2;i++) {
+    for (i=0;i<count;i++) {
       if (i&1) {
         gasneti_spinlock_lock(&lock1);
       } else {
@@ -465,8 +467,8 @@ static void spinlock_test(int id) {
 
   PTHREAD_BARRIER(num_threads);
 
-    if (counter != (num_threads * iters2)) 
-      ERR("failed spinlock test: counter=%i expecting=%i", counter, (num_threads * iters2));
+    if (counter != (num_threads * count)) 
+      ERR("failed spinlock test: counter=%i expecting=%i", counter, (num_threads * count));
 
   PTHREAD_BARRIER(num_threads);
 }
@@ -480,7 +482,8 @@ static void semaphore_test(int id) {
   static gasneti_semaphore_t sema1 = GASNETI_SEMAPHORE_INITIALIZER(GASNETI_SEMAPHORE_MAX,0);
   static gasneti_semaphore_t sema2;
   static gasneti_atomic_t counter;
-  gasneti_atomic_val_t limit = MIN(1000000, num_threads * iters2);
+  int count = iters2 / num_threads;
+  gasneti_atomic_val_t limit = MIN(1000000, num_threads * count);
   int i;
 
   PTHREAD_BARRIER(num_threads);
@@ -512,7 +515,7 @@ static void semaphore_test(int id) {
 
   PTHREAD_BARRIER(num_threads);
 
-    for (i=0;i<iters2;i++) {
+    for (i=0;i<count;i++) {
       if (gasneti_semaphore_trydown(&sema1))
         gasneti_semaphore_up(&sema1);
     }
@@ -678,7 +681,8 @@ static void lifo_test(int id) {
   static gasneti_lifo_head_t lifo1 = GASNETI_LIFO_INITIALIZER;
   static gasneti_lifo_head_t lifo2;
   static gasneti_atomic_t counter;
-  int limit = MIN(1000000, num_threads * iters2);
+  int count = iters2 / num_threads;
+  int limit = MIN(1000000, num_threads * count);
   int i;
 
   PTHREAD_BARRIER(num_threads);
@@ -686,7 +690,7 @@ static void lifo_test(int id) {
 
   { 
     void * tmp = test_malloc(sizeof(void *));
-    for (i = 0; i < iters2; ++i) {
+    for (i = 0; i < count; ++i) {
       gasneti_lifo_push(&lifo1, tmp);
       tmp = gasneti_lifo_pop(&lifo1);
       if (tmp == NULL)
@@ -731,7 +735,7 @@ static void lifo_test(int id) {
 
   PTHREAD_BARRIER(num_threads);
 
-    for (i=0;i<iters2;i++) {
+    for (i=0;i<count;i++) {
       void * tmp = gasneti_lifo_pop(&lifo1);
       if (tmp != NULL) {
         gasneti_lifo_push(&lifo2, tmp);
@@ -749,7 +753,7 @@ static void lifo_test(int id) {
   {
     void * head = NULL;
 
-    for (i=0;i<iters2;i++) {
+    for (i=0;i<count;i++) {
       void * tmp = gasneti_lifo_pop(&lifo2);
       if (tmp != NULL) {
 	*(void **)tmp = head;
