@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_diagnostic.c,v $
- *     $Date: 2013/05/15 01:34:21 $
- * $Revision: 1.41 $
+ *     $Date: 2013/05/15 22:14:23 $
+ * $Revision: 1.42 $
  * Description: GASNet internal diagnostics
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -623,7 +623,7 @@ static void atomicswap_test(int id) {
 
   TEST_HEADER("atomic SWAP test"); else return;
 
-  limit = MIN(GASNETI_ATOMIC_MAX, 25000);
+  limit = MIN(GASNETI_ATOMIC_MAX, 8192);
 
   if (0 == id) {
     gasneti_atomic_set(&var, GASNETI_ATOMIC_MAX, 0);
