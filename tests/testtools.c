@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2013/05/15 00:16:31 $
- * $Revision: 1.101 $
+ *     $Date: 2013/05/15 04:47:56 $
+ * $Revision: 1.102 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -195,9 +195,30 @@ int main(int argc, char **argv) {
     gasnett_tick_t ticktimemin = GASNETT_TICK_MIN;
     gasnett_tick_t ticktimemax = GASNETT_TICK_MAX;
 
+    double overhead = gasnett_tick_overheadus();
+    double granularity = gasnett_tick_granularityus();
+
+    /* Aiming for 'total' microseconds of busy waits, with 25% of it
+       in the last iteration, but need a non-trivial number of ticks
+       to pass int each iteration. */
+    uint64_t total = 20 * 1000000;
+    uint64_t us_delay = (0.75*total) / timeiters;
+    uint64_t min_delay = MAX(1, 50*granularity);
+    if (us_delay < min_delay) {
+       us_delay = min_delay;
+       timeiters = (0.75*total) / min_delay;
+    }
+
     if (!(ticktimemin < ticktimemax)) ERR("!(min < max)");
     if (!(gasnett_ticks_now() > ticktimemin)) ERR("!(now > min)");
     if (!(gasnett_ticks_now() < ticktimemax)) ERR("!(now < max)");
+
+    if (granularity <= 0.0 || overhead <= 0.0 ||
+        (granularity+0.1) < 0.5*overhead) 
+        /* allow some leeway for noise at granularities approaching cycle speed */
+        /*granularity < 0.5*overhead)*/
+        ERR("nonsensical timer overhead/granularity measurements:\n"
+             "  overhead: %.3fus  granularity: %.3fus\n",overhead, granularity);
 
     begin = gasnett_ticks_now();  /* outer time point */
     beginref = gasnett_gettimeofday_us();
@@ -206,6 +227,7 @@ int main(int argc, char **argv) {
       if (i == timeiters - 1) {
         start = begin; /* use outer time point for base of last iteration */
         startref = beginref;
+        us_delay = total; /* consume the remainder (about 25%) of the total interval */
       } else {
         start = gasnett_ticks_now(); /* inner time point */
         startref = gasnett_gettimeofday_us();
@@ -226,7 +248,7 @@ int main(int argc, char **argv) {
                  (unsigned long long)next, (unsigned long long)GASNETT_TICK_MAX);
           d_junk *= 1.0001;
           last = next;
-        } while (gasnett_ticks_to_us(last-start) < 100000);
+        } while (gasnett_ticks_to_us(last-start) < us_delay);
       }
       end = gasnett_ticks_now();
       endref = gasnett_gettimeofday_us();
@@ -247,15 +269,6 @@ int main(int argc, char **argv) {
         ERR("ticks_to_ns(A)/1000 != ticks_to_us(A)");
 
     }
-  }
-  { double overhead = gasnett_tick_overheadus();
-    double granularity = gasnett_tick_granularityus();
-    if (granularity <= 0.0 || overhead <= 0.0 ||
-        (granularity+0.1) < 0.5*overhead) 
-        /* allow some leeway for noise at granularities approaching cycle speed */
-        /*granularity < 0.5*overhead)*/
-        ERR("nonsensical timer overhead/granularity measurements:\n"
-             "  overhead: %.3fus  granularity: %.3fus\n",overhead, granularity);
   }
 
   TEST_HEADER("Testing zero-byte counting...")
