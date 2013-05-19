@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_diagnostic.c,v $
- *     $Date: 2013/05/15 22:14:23 $
- * $Revision: 1.42 $
+ *     $Date: 2013/05/19 18:20:24 $
+ * $Revision: 1.43 $
  * Description: GASNet internal diagnostics
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -801,6 +801,10 @@ static void progressfn_tester(int *counter) {
   if (!iamactive) return;
 
   /* do some work that should be legal inside a progress fn */
+#if 0
+  if ((gasneti_weakatomic_read(&progressfn_req_sent,0) -
+       gasneti_weakatomic_read(&progressfn_rep_rcvd,0)) <= 128U)
+#endif
   { static int tmp = 47;
     int sz;
     gasnet_put_nbi(peer, peersegmid, &tmp, sizeof(tmp));
