@@ -1,6 +1,6 @@
 GASNet gemini-conduit and aries-conduit documentation
 Larry Stewart <stewart@serissa.com> 
-$Revision: 1.25 $
+$Revision: 1.26 $
 
 User Information:
 -----------------
@@ -14,6 +14,13 @@ Recognized environment variables:
 ---------------------------------
 
 * All the standard GASNet environment variables (see top-level README)
+
+GASNET_BARRIER - barrier algorithm selection
+  In addition to the algorithms in the top-level README, there is an
+  implementation specific to Gemini and Aries:
+    GNIDISSEM - like RDMADISSEM, but implemented using lower-level
+                GNI operations for lower latency.
+  Currently GNIDISSEM is the default on both Gemini and Aries.
 
 GASNET_NETWORKDEPTH - depth of per-peer AM queues - default 12, min 1
 

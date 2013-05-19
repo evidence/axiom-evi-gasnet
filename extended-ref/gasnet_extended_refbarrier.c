@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2013/04/15 09:04:30 $
- * $Revision: 1.144 $
+ *     $Date: 2013/05/19 23:18:01 $
+ * $Revision: 1.145 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2118,6 +2118,12 @@ gasneti_auxseg_request_t gasnete_barr_auxseg_alloc(gasnet_seginfo_t *auxseg_info
   } else
 #if !GASNETE_USING_REF_EXTENDED
   if (!strcmp(barrier, "DISSEM")) {
+    retval.minsz = rmdbarrier_request;
+    retval.optimalsz = rmdbarrier_request;
+  } else
+#endif
+#ifdef GASNETE_CONDUIT_RDMADISSEM
+  if (!strcmp(barrier, _STRINGIFY(GASNETE_CONDUIT_RDMADISSEM))) {
     retval.minsz = rmdbarrier_request;
     retval.optimalsz = rmdbarrier_request;
   } else
