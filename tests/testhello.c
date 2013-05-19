@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testhello.c,v $
- *     $Date: 2010/05/01 19:51:05 $
- * $Revision: 1.1 $
+ *     $Date: 2013/05/19 18:59:13 $
+ * $Revision: 1.2 $
  * Description: GASNet "Hello, World" test/example
  * Copyright 2010, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -26,12 +26,21 @@
 int main(int argc, char **argv)
 {
   gasnet_node_t rank, size;
+  size_t segsz = GASNET_PAGESIZE;
+  size_t heapsz = GASNET_PAGESIZE;
+  int argi;
 
   GASNET_SAFE(gasnet_init(&argc, &argv));
-  GASNET_SAFE(gasnet_attach(NULL, 0, GASNET_PAGESIZE, GASNET_PAGESIZE));
-
   rank = gasnet_mynode();
   size = gasnet_nodes();
+
+  argi = 1;
+  if ((argi < argc) && !strcmp(argv[argi], "-m")) {
+    segsz = gasnet_getMaxLocalSegmentSize();
+    ++argi;
+  }
+    
+  GASNET_SAFE(gasnet_attach(NULL, 0, segsz, heapsz));
 
   /* Only first and last print here, to keep managable I/O volume at scale */
   if (!rank || (rank == size-1))
