@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2013/05/19 23:18:01 $
- * $Revision: 1.145 $
+ *     $Date: 2013/05/20 02:13:05 $
+ * $Revision: 1.146 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -19,6 +19,8 @@
 #if GASNETI_STATS_OR_TRACE
   gasneti_tick_t gasnete_barrier_notifytime; /* for statistical purposes */ 
 #endif
+
+static gasnet_seginfo_t *gasnete_rdmabarrier_auxseg = NULL;
 
 /*eventually this has to be changed so that all outstanding barriers are polled*/
 /*keep a list of active barriers across all the teams. The poller walks the list and then kicks
@@ -1440,8 +1442,6 @@ void gasnete_rmdbarrier_kick_team_all(void) {
   gasnete_rmdbarrier_kick(GASNET_TEAM_ALL);
 }
 
-static gasnet_seginfo_t *gasnete_rmdbarrier_auxseg = NULL;
-
 static void gasnete_rmdbarrier_init(gasnete_coll_team_t team) {
   gasnete_coll_rmdbarrier_t *barrier_data;
   int steps;
@@ -1486,9 +1486,9 @@ static void gasnete_rmdbarrier_init(gasnete_coll_team_t team) {
     barrier_data->barrier_handles = gasneti_calloc(steps, sizeof(gasnet_handle_t));
 #endif
 
-    gasneti_assert(gasnete_rmdbarrier_auxseg);
+    gasneti_assert(gasnete_rdmabarrier_auxseg);
     gasneti_assert_always(2 * sizeof(gasnete_coll_rmdbarrier_inbox_t) <= GASNETE_RDMABARRIER_INBOX_SZ);
-    barrier_data->barrier_inbox = gasnete_rmdbarrier_auxseg[gasneti_mynode].addr;
+    barrier_data->barrier_inbox = gasnete_rdmabarrier_auxseg[gasneti_mynode].addr;
 
     barrier_data->barrier_peers = gasneti_malloc(steps * sizeof(* barrier_data->barrier_peers));
     gasneti_leak(barrier_data->barrier_peers);
@@ -1511,7 +1511,7 @@ static void gasnete_rmdbarrier_init(gasnete_coll_team_t team) {
       }
 
       barrier_data->barrier_peers[step].node = node;
-      barrier_data->barrier_peers[step].addr = (uintptr_t)gasnete_rmdbarrier_auxseg[node].addr;
+      barrier_data->barrier_peers[step].addr = (uintptr_t)gasnete_rdmabarrier_auxseg[node].addr;
     }
   } else {
     barrier_data->barrier_slot = barrier_data->barrier_goal;
@@ -1521,7 +1521,7 @@ static void gasnete_rmdbarrier_init(gasnete_coll_team_t team) {
 #endif
   }
 
-  gasneti_free(gasnete_rmdbarrier_auxseg);
+  gasneti_free(gasnete_rdmabarrier_auxseg);
 
 #if GASNETI_PSHM_BARRIER_HIER
   gasneti_free(supernode_reps);
@@ -2109,23 +2109,23 @@ GASNETI_IDENT(gasnete_barr_auxseg_IdentString,
 
 gasneti_auxseg_request_t gasnete_barr_auxseg_alloc(gasnet_seginfo_t *auxseg_info) {
   const char *barrier = gasneti_getenv_withdefault("GASNET_BARRIER",GASNETE_BARRIER_DEFAULT);
-  const size_t rmdbarrier_request = 64 * GASNETE_RDMABARRIER_INBOX_SZ;
+  size_t rmdbarrier_request = 64 * GASNETE_RDMABARRIER_INBOX_SZ;
   gasneti_auxseg_request_t retval;
 
+  retval.minsz = rmdbarrier_request;
+  retval.optimalsz = rmdbarrier_request;
+
   if (!strcmp(barrier, "RDMADISSEM")) {
-    retval.minsz = rmdbarrier_request;
-    retval.optimalsz = rmdbarrier_request;
+    /* Nothing else to do */
   } else
 #if !GASNETE_USING_REF_EXTENDED
   if (!strcmp(barrier, "DISSEM")) {
-    retval.minsz = rmdbarrier_request;
-    retval.optimalsz = rmdbarrier_request;
+    /* Nothing else to do */
   } else
 #endif
-#ifdef GASNETE_CONDUIT_RDMADISSEM
-  if (!strcmp(barrier, _STRINGIFY(GASNETE_CONDUIT_RDMADISSEM))) {
-    retval.minsz = rmdbarrier_request;
-    retval.optimalsz = rmdbarrier_request;
+#ifdef GASNETE_CONDUIT_RDMABARRIER
+  if (GASNETE_CONDUIT_RDMABARRIER(barrier, &retval)) {
+    /* Nothing else to do */
   } else
 #endif
   {
@@ -2137,9 +2137,9 @@ gasneti_auxseg_request_t gasnete_barr_auxseg_alloc(gasnet_seginfo_t *auxseg_info
     return retval; /* initial query */
   }
   else if (auxseg_info[0].size) { /* auxseg granted */
-    gasneti_assert(!gasnete_rmdbarrier_auxseg);
-    gasnete_rmdbarrier_auxseg = gasneti_malloc(gasneti_nodes*sizeof(gasnet_seginfo_t));
-    memcpy(gasnete_rmdbarrier_auxseg, auxseg_info, gasneti_nodes*sizeof(gasnet_seginfo_t));
+    gasneti_assert(!gasnete_rdmabarrier_auxseg);
+    gasnete_rdmabarrier_auxseg = gasneti_malloc(gasneti_nodes*sizeof(gasnet_seginfo_t));
+    memcpy(gasnete_rdmabarrier_auxseg, auxseg_info, gasneti_nodes*sizeof(gasnet_seginfo_t));
   }
 
   return retval;

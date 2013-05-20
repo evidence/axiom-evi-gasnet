@@ -39,6 +39,8 @@ extern uint32_t gasnetc_cookie;
 extern uint32_t gasnetc_address;
 extern uint8_t  gasnetc_ptag;
 
+extern unsigned int gasnetc_log2_remote;
+
 /* Set to 1 if want to use gasneti_spinlock_t rather than gasneti_mutex_t
  * By default, we will use mutex_t.
  */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2013/05/19 23:18:03 $
- * $Revision: 1.57 $
+ *     $Date: 2013/05/20 02:13:07 $
+ * $Revision: 1.58 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1052,12 +1052,26 @@ static void gasnete_gdbarrier_init(gasnete_coll_team_t team);
   } while (0)
 
 /* Can use the auxseg allocation from the generic implementation: */
-#define GASNETE_CONDUIT_RDMADISSEM GNIDISSEM
+static int gasnete_conduit_rdmabarrier(const char *barrier, gasneti_auxseg_request_t *result);
+#define GASNETE_CONDUIT_RDMABARRIER gasnete_conduit_rdmabarrier
 
 /* use reference implementation of barrier */
 #define GASNETI_GASNET_EXTENDED_REFBARRIER_C 1
 #include "gasnet_extended_refbarrier.c"
 #undef GASNETI_GASNET_EXTENDED_REFBARRIER_C
+
+static int gasnete_conduit_rdmabarrier(const char *barrier, gasneti_auxseg_request_t *result) {
+  if (0 == strcmp(barrier, "GNIDISSEM")) {
+    size_t request = gasnetc_log2_remote * GASNETE_RDMABARRIER_INBOX_SZ * 2;
+    gasneti_assert_always(GASNETE_RDMABARRIER_INBOX_SZ >= sizeof(uint64_t));
+    gasneti_assert_always(request <= result->optimalsz);
+    result->minsz = request;
+    result->optimalsz = request;
+    return 1;
+  }
+
+  return 0;
+}
 
 /* ------------------------------------------------------------------------------------ */
 /* GNI-specific RDMA-based Dissemination implementation of barrier
@@ -1412,9 +1426,8 @@ static void gasnete_gdbarrier_init(gasnete_coll_team_t team) {
 #endif
     int step;
 
-    gasneti_assert(gasnete_rmdbarrier_auxseg);
-    gasneti_assert_always(2 * sizeof(uint64_t) <= GASNETE_RDMABARRIER_INBOX_SZ);
-    barrier_data->barrier_inbox = gasnete_rmdbarrier_auxseg[gasneti_mynode].addr;
+    gasneti_assert(gasnete_rdmabarrier_auxseg);
+    barrier_data->barrier_inbox = gasnete_rdmabarrier_auxseg[gasneti_mynode].addr;
 
     barrier_data->barrier_peers = gasneti_malloc(steps * sizeof(* barrier_data->barrier_peers));
     gasneti_leak(barrier_data->barrier_peers);
@@ -1437,13 +1450,13 @@ static void gasnete_gdbarrier_init(gasnete_coll_team_t team) {
       }
 
       barrier_data->barrier_peers[step].node = node;
-      barrier_data->barrier_peers[step].addr = gasnete_rmdbarrier_auxseg[node].addr;
+      barrier_data->barrier_peers[step].addr = gasnete_rdmabarrier_auxseg[node].addr;
     }
   } else {
     barrier_data->barrier_slot = barrier_data->barrier_goal;
   }
 
-  gasneti_free(gasnete_rmdbarrier_auxseg);
+  gasneti_free(gasnete_rdmabarrier_auxseg);
 
 #if GASNETI_PSHM_BARRIER_HIER
   gasneti_free(supernode_reps);

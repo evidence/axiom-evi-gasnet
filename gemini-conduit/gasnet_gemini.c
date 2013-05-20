@@ -57,7 +57,7 @@ static size_t smsg_mmap_bytes;
 static gasnet_seginfo_t gasnetc_bounce_buffers;
 static gasnet_seginfo_t gasnetc_pd_buffers;
 
-static unsigned int log2_remote;
+unsigned int gasnetc_log2_remote;
 static unsigned int mb_slots;
 static unsigned int am_maxcredit;
 
@@ -464,17 +464,17 @@ uintptr_t gasnetc_init_messaging(void)
 
   /* Initialize the short message system */
 
-  /* log2_remote = MAX(1, ceil(log_2(remote_nodes))) */
-  log2_remote = 1;
+  /* gasnetc_log2_remote = MAX(1, ceil(log_2(remote_nodes))) */
+  gasnetc_log2_remote = 1;
   for (i=2; i < remote_nodes; i*=2) {
-    log2_remote += 1;
+    gasnetc_log2_remote += 1;
   }
 
   /*
    * allocate a CQ in which to receive message notifications
    * include logarithmic space for shutdown messaging
    */
-  i = log2_remote + remote_nodes*mb_slots;
+  i = gasnetc_log2_remote + remote_nodes*mb_slots;
   status = GNI_CqCreate(nic_handle,i,0,GNI_CQ_NOBLOCK,NULL,NULL,&smsg_cq_handle);
   if (status != GNI_RC_SUCCESS) {
     gasnetc_GNIT_Abort("GNI_CqCreate returned error %s", gni_return_string(status));
@@ -548,7 +548,7 @@ uintptr_t gasnetc_init_messaging(void)
   /* Create a temporary pool of post descriptors for uses prior to the aux seg attach.
    * NOTE: The immediate buffer WON'T be in registered memory - so no Put/Get.
    */
-  for (i=0; i < log2_remote; ++i) {
+  for (i=0; i < gasnetc_log2_remote; ++i) {
     /* allocate individually to ease later destruction of this pool. */
     gasnetc_post_descriptor_t *gpd = gasneti_calloc(1, sizeof(gasnetc_post_descriptor_t));
     gasneti_lifo_push(&post_descriptor_pool, gpd);
@@ -1477,7 +1477,7 @@ void gasnetc_init_post_descriptor_pool(void)
   gasnetc_post_descriptor_t *gpd;
 
   /* must first destroy the temporary pool of post descriptors */
-  for (i=0; i < log2_remote; ++i) {
+  for (i=0; i < gasnetc_log2_remote; ++i) {
     gasnetc_post_descriptor_t *gpd = gasnetc_alloc_post_descriptor();
     gasneti_free(gpd);
   }
