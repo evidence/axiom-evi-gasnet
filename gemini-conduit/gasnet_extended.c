@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2013/05/21 23:12:04 $
- * $Revision: 1.59 $
+ *     $Date: 2013/05/21 23:12:41 $
+ * $Revision: 1.60 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1179,9 +1179,8 @@ void gasnete_gdbarrier_kick(gasnete_coll_team_t team) {
 
   /* early unlocked read: */
   slot = barrier_data->barrier_slot;
-  inbox = GASNETE_GDBARRIER_INBOX(barrier_data, slot);
 
-  if (slot >= barrier_data->barrier_goal || !(*inbox))
+  if (slot >= barrier_data->barrier_goal)
     return; /* nothing to do */
 
   gasneti_assert(team->total_ranks > 1); /* singleton should have matched (slot >= goal), above */
