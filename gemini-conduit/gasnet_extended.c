@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2013/05/20 02:13:07 $
- * $Revision: 1.58 $
+ *     $Date: 2013/05/21 23:12:04 $
+ * $Revision: 1.59 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1062,12 +1062,23 @@ static int gasnete_conduit_rdmabarrier(const char *barrier, gasneti_auxseg_reque
 
 static int gasnete_conduit_rdmabarrier(const char *barrier, gasneti_auxseg_request_t *result) {
   if (0 == strcmp(barrier, "GNIDISSEM")) {
-    size_t request = gasnetc_log2_remote * GASNETE_RDMABARRIER_INBOX_SZ * 2;
+    /* TODO: could keep the full space and allocate some to additional teams */
+    size_t request;
+#if GASNETI_PSHM_BARRIER_HIER
+    const int size = gasneti_nodemap_global_count;
+#else
+    const int size = gasneti_nodes;
+#endif
+    int steps, i;
+
+    for (steps=0, i=1; i<size; ++steps, i*=2) /* empty */ ;
+
+    request = 2 * steps * GASNETE_RDMABARRIER_INBOX_SZ;
     gasneti_assert_always(GASNETE_RDMABARRIER_INBOX_SZ >= sizeof(uint64_t));
     gasneti_assert_always(request <= result->optimalsz);
     result->minsz = request;
     result->optimalsz = request;
-    return 1;
+    return (steps != 0);
   }
 
   return 0;
