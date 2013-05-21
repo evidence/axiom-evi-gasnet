@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2013/05/21 05:19:59 $
- * $Revision: 1.147 $
+ *     $Date: 2013/05/21 20:18:45 $
+ * $Revision: 1.148 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1176,6 +1176,7 @@ void gasnete_rmdbarrier_send(gasnete_coll_rmdbarrier_t *barrier_data,
   gasnete_wait_syncnb(handle);
 #else
   /* save the new ops to sync after the barrier is complete */
+  step -= numsteps;
   gasneti_assert(barrier_data->barrier_handles[step] == GASNET_INVALID_HANDLE);
   barrier_data->barrier_handles[step] = handle;
 #endif
