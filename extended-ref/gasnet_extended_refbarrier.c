@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2013/05/20 02:13:05 $
- * $Revision: 1.146 $
+ *     $Date: 2013/05/21 05:19:59 $
+ * $Revision: 1.147 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1144,12 +1144,7 @@ void gasnete_rmdbarrier_send(gasnete_coll_rmdbarrier_t *barrier_data,
                              gasnet_handlerarg_t value, gasnet_handlerarg_t flags) {
   GASNETE_THREAD_LOOKUP /* XXX: can we remove/avoid this lookup? */
   unsigned int step = slot >> 1;
-#if GASNETI_THREADS
-  gasnet_handle_t tmp_handles[32];
-  gasnet_handle_t * handles = &tmp_handles[0];
-#else
-  gasnet_handle_t * handles = &barrier_data->barrier_handles[step];
-#endif
+  gasnet_handle_t handle;
   gasnete_coll_rmdbarrier_inbox_t *payload;
   int i;
 
@@ -1164,20 +1159,25 @@ void gasnete_rmdbarrier_send(gasnete_coll_rmdbarrier_t *barrier_data,
   payload->flags2 = ~flags;
   payload->value2 = ~value;
 
+  /* Here we use NBI bulk puts in a recursive NBI access region, which avoids
+   * consuming any of the 65535 explicit handles promised to the client.
+   */
+
+  gasnete_begin_nbi_accessregion(1 GASNETE_THREAD_PASS);
   for (i = 0; i < numsteps; ++i, slot += 2, step += 1) {
     const gasnet_node_t node = barrier_data->barrier_peers[step].node;
     void * const addr = GASNETE_RDMABARRIER_INBOX_REMOTE(barrier_data, step, slot);
-
-    /* use a non-blocking bulk put and collect the handles */
-#if !GASNETI_THREADS
-    gasneti_assert(handles[i] == GASNET_INVALID_HANDLE);
-#endif
-    handles[i] = gasnete_put_nb_bulk(node, addr, payload, sizeof(*payload) GASNETE_THREAD_PASS);
+    gasnete_put_nbi_bulk(node, addr, payload, sizeof(*payload) GASNETE_THREAD_PASS);
   }
+  handle = gasnete_end_nbi_accessregion(GASNETE_THREAD_PASS_ALONE);
 
 #if GASNETI_THREADS
-  /* sync the new handles, since we can't know this thread will re-enter the barrier code */
-  gasnete_wait_syncnb_all(handles, numsteps);
+  /* sync the new ops, since we can't know this thread will re-enter the barrier code */
+  gasnete_wait_syncnb(handle);
+#else
+  /* save the new ops to sync after the barrier is complete */
+  gasneti_assert(barrier_data->barrier_handles[step] == GASNET_INVALID_HANDLE);
+  barrier_data->barrier_handles[step] = handle;
 #endif
 }
 
