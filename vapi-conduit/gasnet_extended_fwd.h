@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_extended_fwd.h,v $
- *     $Date: 2012/10/15 22:26:59 $
- * $Revision: 1.30 $
+ *     $Date: 2013/05/22 23:17:37 $
+ * $Revision: 1.31 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -26,6 +26,10 @@
 #endif
 #define GASNET_EXTENDED_NAME_STR     _STRINGIFY(GASNET_EXTENDED_NAME)
 
+
+/* Addition(s) to barrier-types enum: */
+#define GASNETE_COLL_CONDUIT_BARRIERS \
+        GASNETE_COLL_BARRIER_IBDISSEM
 
 #define _GASNET_HANDLE_T
 /*  an opaque type representing a non-blocking operation in-progress initiated using the extended API */

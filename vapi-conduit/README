@@ -1,7 +1,7 @@
 README file for vapi-conduit and ibv-conduit
 ============================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.75 $
+$Revision: 1.76 $
 
 @ TOC: @
 @ Section: VAPI vs IBV @
@@ -200,6 +200,13 @@ $Revision: 1.75 $
   and the optional GASNET_EXITTIMEOUT and GASNET_THREAD_STACK families
   of environment variables.
   See GASNet's top-level README for documentation.
+
+  + GASNET_BARRIER
+    In addition to the barrier algorithms in the top-level README, there
+    is an implementation specific to VAPI and IBV:
+    IBDISSEM - like RDMADISSEM, but implemented using lower-level
+               operations for lower latency.
+    Currently IBDISSEM is the default on both VAPI and IBV.
 
   Connection settings:
   Under normal conditions, Host Channel Adapters and Ports will be
