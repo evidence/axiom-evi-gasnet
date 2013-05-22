@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2013/05/21 23:12:41 $
- * $Revision: 1.60 $
+ *     $Date: 2013/05/22 20:35:16 $
+ * $Revision: 1.61 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1472,7 +1472,7 @@ static void gasnete_gdbarrier_init(gasnete_coll_team_t team) {
   gasneti_free(supernode_reps);
 
   if (pshm_bdata && (pshm_bdata->shared->size == 1)) {
-    /* With singleton proc on local supernode we can short-cut the PHSM code.
+    /* With singleton proc on local supernode we can short-cut the PSHM code.
      * This does not require alteration of the barrier_peers[] contructed above
      */
     gasnete_pshmbarrier_fini_inner(pshm_bdata);

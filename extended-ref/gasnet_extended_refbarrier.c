@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2013/05/21 20:18:45 $
- * $Revision: 1.148 $
+ *     $Date: 2013/05/22 20:35:14 $
+ * $Revision: 1.149 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -53,7 +53,7 @@ void gasnete_barrier_pf_disable(gasnete_coll_team_t team) {
 #if !GASNET_PSHM
   /* No PSHM support: GASNETI_PSHM_BARRIER == GASNETI_PSHM_BARRIER_HIER == 0 */
   #if GASNETI_PSHM_BARRIER_HIER
-    #error "GASNETI_PSHM_BARRIER_HIER non-zero but not configured for PHSM support"
+    #error "GASNETI_PSHM_BARRIER_HIER non-zero but not configured for PSHM support"
   #endif
   #undef GASNETI_PSHM_BARRIER_HIER
   #define GASNETI_PSHM_BARRIER_HIER 0
@@ -1038,7 +1038,7 @@ static void gasnete_amdbarrier_init(gasnete_coll_team_t team) {
   gasneti_free(supernode_reps);
 
   if (pshm_bdata && (pshm_bdata->shared->size == 1)) {
-    /* With singleton proc on local supernode we can short-cut the PHSM code.
+    /* With singleton proc on local supernode we can short-cut the PSHM code.
      * This does not require alteration of the amdbarrier_peers[] contructed above
      */
     gasnete_pshmbarrier_fini_inner(pshm_bdata);
@@ -1528,7 +1528,7 @@ static void gasnete_rmdbarrier_init(gasnete_coll_team_t team) {
   gasneti_free(supernode_reps);
 
   if (pshm_bdata && (pshm_bdata->shared->size == 1)) {
-    /* With singleton proc on local supernode we can short-cut the PHSM code.
+    /* With singleton proc on local supernode we can short-cut the PSHM code.
      * This does not require alteration of the barrier_peers[] contructed above
      */
     gasnete_pshmbarrier_fini_inner(pshm_bdata);
@@ -1838,7 +1838,7 @@ static void gasnete_amcbarrier_init(gasnete_coll_team_t team) {
 
 #if GASNETI_PSHM_BARRIER_HIER
   if (pshm_bdata && (pshm_bdata->shared->size == 1)) {
-    /* With singleton proc on local supernode we can short-cut the PHSM code.
+    /* With singleton proc on local supernode we can short-cut the PSHM code.
      * This does not require changing the amcbarrier_master selected above.
      */
     gasnete_pshmbarrier_fini_inner(pshm_bdata);
