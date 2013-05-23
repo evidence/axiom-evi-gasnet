@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_extended.c,v $
- *     $Date: 2013/05/22 23:17:37 $
- * $Revision: 1.62 $
+ *     $Date: 2013/05/23 21:27:19 $
+ * $Revision: 1.63 $
  * Description: GASNet Extended API over VAPI/IB Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -807,10 +807,15 @@ void gasnete_ibdbarrier_send(gasnete_coll_ibdbarrier_t *barrier_data,
                              int numsteps, unsigned int slot,
                              gasnet_handlerarg_t value, gasnet_handlerarg_t flags) {
   unsigned int step = slot >> 1;
-  uint64_t payload = GASNETE_IBDBARRIER_BUILD(value, flags);
   int i;
 
-  gasneti_assert(sizeof(payload) <= sizeof(gasnet_register_value_t));
+  /* Use the upper half (padding) an "other phase" inbox as an in-segment temporary.
+   * This has sufficient lifetime for bulk and sufficient alignment for non-bulk.
+   * Use of opposite phase prevents cacheline contention with arrivals.
+   */
+  volatile uint64_t *payload = GASNETE_IBDBARRIER_INBOX(barrier_data, (slot^1))
+                                    + (GASNETE_IBDBARRIER_INBOX_WORDS/2);
+  *payload = GASNETE_IBDBARRIER_BUILD(value, flags);
 
   /* TODO:
    *   Reduce latency by pre-computing sr_desc and rkey_index at init time
@@ -820,7 +825,7 @@ void gasnete_ibdbarrier_send(gasnete_coll_ibdbarrier_t *barrier_data,
   for (i = 0; i < numsteps; ++i, slot += 2, step += 1) {
     const gasnet_node_t node = barrier_data->barrier_peers[step].node;
     uint64_t * const dst = GASNETE_IBDBARRIER_INBOX_REMOTE(barrier_data, step, slot);
-    (void) gasnetc_rdma_put(node, &payload, dst, sizeof(payload), NULL, NULL);
+    (void) gasnetc_rdma_put(node, (void*)payload, dst, sizeof(*payload), NULL, NULL);
   }
 }
 
@@ -1093,6 +1098,7 @@ static void gasnete_ibdbarrier_init(gasnete_coll_team_t team) {
 
     gasneti_assert(gasnete_rdmabarrier_auxseg);
     barrier_data->barrier_inbox = gasnete_rdmabarrier_auxseg[gasneti_mynode].addr;
+    gasneti_assert(GASNETE_IBDBARRIER_INBOX_WORDS > 1);
 
     barrier_data->barrier_peers = gasneti_malloc(steps * sizeof(* barrier_data->barrier_peers));
     gasneti_leak(barrier_data->barrier_peers);
