@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4.c,v $
- *     $Date: 2013/05/23 18:15:26 $
- * $Revision: 1.39 $
+ *     $Date: 2013/05/23 20:41:22 $
+ * $Revision: 1.40 $
  * Description: Portals 4 specific configuration
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
@@ -43,6 +43,9 @@ static int max_name_len, max_key_len, max_val_len;
 /* 16 blocks of 1MB each for AM reception */
 static int p4_am_size = 1 * 1024 * 1024;
 static int p4_am_num_entries = 16;
+
+static int p4_am_eq_len = 8192;
+static int p4_poll_limit = 1024;
 
 static p4_am_block_t *p4_am_blocks = NULL;
 static int p4_am_enabled = 0;
@@ -268,11 +271,15 @@ gasnetc_p4_init(int *rank, int *size)
     ptl_md_t md;
     ptl_me_t me;
     ptl_pt_index_t pt;
-    int p4_am_eq_len;
 
+    /* TODO:
+       + Distinct env vars for send and recv eq lengths
+       + Distinct env var for poll limit
+     */
     p4_am_size = gasneti_getenv_int_withdefault("GASNET_AM_BUFFER_SIZE", p4_am_size, 0);
     p4_am_num_entries = gasneti_getenv_int_withdefault("GASNET_AM_NUM_ENTRIES", p4_am_num_entries, 0);
-    p4_am_eq_len = gasneti_getenv_int_withdefault("GASNET_AM_EVENT_QUEUE_LENGTH", 8192, 0);
+    p4_am_eq_len = gasneti_getenv_int_withdefault("GASNET_AM_EVENT_QUEUE_LENGTH", p4_am_eq_len, 0);
+    p4_poll_limit = p4_am_eq_len / 8; /* arbitrary */
 
     if (PMI_SUCCESS != PMI_Initialized(&initialized)) {
         gasneti_fatalerror("PMI_Initialized() failed");
@@ -595,10 +602,9 @@ gasnetc_p4_exit(void)
     PtlEQFree(am_recv_eq_h);
     PtlEQFree(am_send_eq_h);
 
-#if 0 /* TODO: are these safe to do here? */
+    /* TODO: are these safe to do here? */
     PtlNIFini(matching_ni_h);
     PtlFini();
-#endif
 
 #if 0 /* If we make this call then non-collective exits will hang */
     PMI_Finalize();
@@ -682,19 +688,31 @@ void p4_free_long_match(p4_long_match_t *match)
 }
 
 static int
-p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
+p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size, unsigned int limit)
 {
     ptl_event_t ev;
     int ret;
     unsigned int which;
+    int empty = 0;
+    int idx = 0;
 
-    while (1) {
-        ret = PtlEQPoll(eq_handles, size, 0, &ev, &which);
+    while (--limit) {
+        /* round-robin to prevent first eq from starving the other(s) when size > 1 */
+        const ptl_handle_eq_t *eq_ptr = &eq_handles[idx++];
+	if (idx == size) idx = 0;
+
+        ret = PtlEQPoll(eq_ptr, 1, 0, &ev, &which);
         if_pt (PTL_EQ_EMPTY == ret) {
+            if (++empty != size) continue;
             break;
         } else if_pf (PTL_OK != ret) {
-            p4_failed_eqpoll(ret, eq_handles[which]);
+	    if_pf ((PTL_EQ_DROPPED == ret) && *eq_ptr == am_recv_eq_h) {
+                /* fall through and treat as PTL_OK */
+            } else {
+                p4_failed_eqpoll(ret, *eq_ptr);
+            }
         }
+        empty = 0;
 
         switch (ev.type) {
         case PTL_EVENT_PUT:
@@ -868,17 +886,16 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
             }
             break;
 
-#ifndef PTL_MD_EVENT_SEND_DISABLE
         case PTL_EVENT_SEND:
-            /* AM or long data send has arrived.  Don't need to do
-               anything if there wasn't an error, since we're doing
-               flow control stuff and have to wait for the ack... */
+            /* SEND has finished.  In general, we disable the send
+               events, but some implementations will generate them
+               during error conditions.  Ignore except when there is
+               an error. */
             if_pf (PTL_OK != ev.ni_fail_type) {
                 gasneti_fatalerror("[%03d] event of type %d failed %d", 
                                    gasneti_mynode, ev.type, ev.ni_fail_type);
             }
             break;
-#endif
 
         case PTL_EVENT_ACK:
             /* AM data has been acked */
@@ -970,9 +987,17 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
             break;
 
         case PTL_EVENT_PT_DISABLED:
-            /* delay doing anything until we're done draining the
-               queue (ie, until we get the auto_unlink events) */
+            /* The receive queue ran out of some resource.  Drain the
+            receive queue (since we can't end up with multiple
+            PT_DISABLED events in the receive queue at one time, this
+            can not create a recursion path longer than depth 2), then
+            re-enable the PT.  */
             p4_am_enabled = 0;
+            ret = p4_poll(eq_ptr, 1, 0); /* Fully drain this queue */
+            if_pf (GASNET_OK != ret) gasneti_fatalerror("failed p4_poll() call to drain am_recv_eq");
+            ret = PtlPTEnable(matching_ni_h, AM_PT);
+            if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlPTEnable()");
+            p4_am_enabled = 1;
             break;
 
         case PTL_EVENT_AUTO_UNLINK:
@@ -1006,13 +1031,6 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
                                gasneti_mynode, ev.type);
         }
     }
-    if (0 == p4_am_enabled) {
-        /* if the pt was disabled, we either ran out of bounce buffers
-           or eq space.  We've drained the eq.  We've theoretically
-           reposted the buffer.  Let's get going again. */
-        ret = PtlPTEnable(matching_ni_h, AM_PT);
-        if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlPTEnable()");
-    }
 
     return GASNET_OK;
 }
@@ -1027,7 +1045,7 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size)
 void
 gasnetc_p4_poll(void)
 {
-    int ret = p4_poll(eqs_h, 2);
+    int ret = p4_poll(eqs_h, 2, p4_poll_limit);
     if_pf (GASNET_OK != ret) {
         gasneti_fatalerror("[%03d] p4_poll returned %d (%s)",
                            gasneti_mynode, ret, gasnet_ErrorName(ret));
@@ -1061,7 +1079,7 @@ gasnetc_p4_TransferGeneric(int category, ptl_match_bits_t req_type, gasnet_node_
 #endif
         /* drain the send queue (make sure to get as many slots as
            possible) */
-        ret = p4_poll(&am_send_eq_h, 1);
+        ret = p4_poll(&am_send_eq_h, 1, p4_am_eq_len); /* TODO: send_eq len when distinct */
         if (GASNET_OK != ret) return ret;
     }
 
@@ -1186,12 +1204,12 @@ gasnetc_p4_TransferGeneric(int category, ptl_match_bits_t req_type, gasnet_node_
 
     /* if long, block until the send event */
     while (gasnetc_Long == category && long_send_complete == 0) {
-        ret = p4_poll(&am_send_eq_h, 1);
-        if (GASNET_OK != ret) return ret;
 #if GASNET_PSHM
         /* Progress shared-memory Request and Reply queues while we wait */
         gasneti_AMPSHMPoll(0);
 #endif
+        ret = p4_poll(&am_send_eq_h, 1, p4_am_eq_len);
+        if (GASNET_OK != ret) return ret;
         GASNETI_WAITHOOK();
     }
 
