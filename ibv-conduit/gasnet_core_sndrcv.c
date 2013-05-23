@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/02/21 08:07:45 $
- * $Revision: 1.305 $
+ *     $Date: 2013/05/23 20:16:17 $
+ * $Revision: 1.306 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -3316,7 +3316,7 @@ extern int gasnetc_sndrcv_init(void) {
 
     if (gasnetc_remote_nodes) {
       /* Allocated pinned memory for receive buffers */
-      size = rcv_count * sizeof(gasnetc_buffer_t);
+      size = GASNETI_PAGE_ALIGNUP(rcv_count * sizeof(gasnetc_buffer_t));
       buf = gasneti_mmap(size);
       if_pf (buf == MAP_FAILED) {
         buf = NULL;
