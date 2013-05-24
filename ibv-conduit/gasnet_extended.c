@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_extended.c,v $
- *     $Date: 2013/05/23 21:27:19 $
- * $Revision: 1.63 $
+ *     $Date: 2013/05/24 23:11:33 $
+ * $Revision: 1.64 $
  * Description: GASNet Extended API over VAPI/IB Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -851,11 +851,11 @@ void gasnete_ibdbarrier_kick(gasnete_coll_team_t team) {
 
   /* reread w/ lock held: */
   slot = barrier_data->barrier_slot;
-#endif
 
   if_pf (slot < 2) {/* need to pick up value/flags from notify */
     gasneti_sync_reads(); /* value/flags were written by the non-locked notify */
   }
+#endif
 
   value = barrier_data->barrier_value;
   flags = barrier_data->barrier_flags;
