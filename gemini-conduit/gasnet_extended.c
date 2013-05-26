@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2013/05/24 23:11:31 $
- * $Revision: 1.62 $
+ *     $Date: 2013/05/26 00:13:36 $
+ * $Revision: 1.63 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1205,6 +1205,17 @@ void gasnete_gdbarrier_kick(gasnete_coll_team_t team) {
   for (cursor = slot; cursor < barrier_data->barrier_goal && (0 != (result = *inbox)); cursor+=2) {
     const int step_value = GASNETE_GDBARRIER_VALUE(result);
     const int step_flags = GASNETE_GDBARRIER_FLAGS(result);
+
+#if PLATFORM_COMPILER_CRAY
+    /* Cray C (at least 8.1.x) is droping the (0 != ...) check in the while().
+     * Adding this line works-around the problem.
+     * Note that (!result) doesn't work here because it gets dropped too!
+     */
+    if (!step_flags) break;
+#else
+    gasneti_assert(step_flags);
+#endif
+
     *inbox = 0;
 
     if ((flags | step_flags) & GASNET_BARRIERFLAG_MISMATCH) {
