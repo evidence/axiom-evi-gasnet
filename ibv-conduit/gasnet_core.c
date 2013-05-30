@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2013/03/24 23:38:37 $
- * $Revision: 1.309 $
+ *     $Date: 2013/05/30 19:00:07 $
+ * $Revision: 1.310 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1640,7 +1640,7 @@ static int gasnetc_init(int *argc, char ***argv) {
       fprintf(stderr,
               "WARNING: GASNET_USE_SRQ disabled because HCA lacks support.\n"
               "         To suppress this message set environment variable\n"
-              "         GASNET_USE_SRQ=0 or reconfigure with --disble-ibv-srq.\n"
+              "         GASNET_USE_SRQ=0 or reconfigure with --disable-ibv-srq.\n"
              );
     }
   }
@@ -1652,7 +1652,7 @@ static int gasnetc_init(int *argc, char ***argv) {
       fprintf(stderr,
               "WARNING: GASNET_USE_XRC disabled because SRQ is unavailable.\n"
               "         To suppress this message set environment variable\n"
-              "         GASNET_USE_XRC=0 or reconfigure with --disble-ibv-xrc.\n"
+              "         GASNET_USE_XRC=0 or reconfigure with --disable-ibv-xrc.\n"
              );
     }
   } else if (gasnetc_use_xrc) {
@@ -1667,7 +1667,7 @@ static int gasnetc_init(int *argc, char ***argv) {
       fprintf(stderr,
               "WARNING: GASNET_USE_XRC disabled because HCA lacks support.\n"
               "         To suppress this message set environment variable\n"
-              "         GASNET_USE_XRC=0 or reconfigure with --disble-ibv-xrc.\n"
+              "         GASNET_USE_XRC=0 or reconfigure with --disable-ibv-xrc.\n"
              );
     }
   }
