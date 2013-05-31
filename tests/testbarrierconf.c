@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testbarrierconf.c,v $
- *     $Date: 2013/03/08 03:19:45 $
- * $Revision: 1.27 $
+ *     $Date: 2013/05/31 08:27:08 $
+ * $Revision: 1.28 $
  * Description: GASNet barrier performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -159,10 +159,21 @@ static void * doTest(void *arg) {
       MSG("ERROR: Failed to allow anonymous notify with named wait.");
       gasnet_exit(1);
     }
+    if (!gasnet_barrier_result(&result)) {
+      MSG("ERROR: Wrong gasnet_barrier_result() return from anonymous notify with named wait.");
+      gasnet_exit(1);
+    }
     gasnet_barrier_notify(0, 0);
     result = my_barrier_wait(0, GASNET_BARRIERFLAG_ANONYMOUS);
     if (result != GASNET_OK) {
       MSG("ERROR: Failed to allow named notify with anonymous wait.");
+      gasnet_exit(1);
+    }
+    if (gasnet_barrier_result(&result)) {
+      MSG("ERROR: Wrong gasnet_barrier_result() return from named notify with anonymous wait.");
+      gasnet_exit(1);
+    } else if (0 != result) {
+      MSG("ERROR: Wrong gasnet_barrier_result() value from named notify with anonymous wait.");
       gasnet_exit(1);
     }
 
@@ -183,6 +194,13 @@ static void * doTest(void *arg) {
           MSG("ERROR: Failed to match anon notify on node %d with named notify elsewhere.", j);
           gasnet_exit(1);
         }
+        if (gasnet_barrier_result(&result)) {
+          MSG("ERROR: Wrong gasnet_barrier_result() return from mixed test #1");
+          gasnet_exit(1);
+        } else if (5551212 != result) {
+          MSG("ERROR: Wrong gasnet_barrier_result() value from mixed test #1");
+          gasnet_exit(1);
+        }
 
         /* Mix many named with one anonymous notify plus named wait: */
         if (mynode == j) {
@@ -194,6 +212,13 @@ static void * doTest(void *arg) {
         }
         if (result != GASNET_OK) {
           MSG("ERROR: Failed to match anon notify and named wait on node %d with named notify elsewhere.", j);
+          gasnet_exit(1);
+        }
+        if (gasnet_barrier_result(&result)) {
+          MSG("ERROR: Wrong gasnet_barrier_result() return from mixed test #2");
+          gasnet_exit(1);
+        } else if (5551212 != result) {
+          MSG("ERROR: Wrong gasnet_barrier_result() value from mixed test #2");
           gasnet_exit(1);
         }
 
@@ -221,6 +246,13 @@ static void * doTest(void *arg) {
         }
         if (result != GASNET_OK) {
           MSG("ERROR: Failed to match named notify on node %d with anon notify elsewhere.", j);
+          gasnet_exit(1);
+        }
+        if (gasnet_barrier_result(&result)) {
+          MSG("ERROR: Wrong gasnet_barrier_result() return from mixed test #4");
+          gasnet_exit(1);
+        } else if (0xcafef00d != result) {
+          MSG("ERROR: Wrong gasnet_barrier_result() value from mixed test #4");
           gasnet_exit(1);
         }
       }
