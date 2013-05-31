@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet.h,v $
- *     $Date: 2013/03/25 04:32:04 $
- * $Revision: 1.75 $
+ *     $Date: 2013/05/31 08:08:02 $
+ * $Revision: 1.76 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -224,6 +224,10 @@
   #define GASNET_BARRIERFLAG_ANONYMOUS 1
   #define GASNET_BARRIERFLAG_MISMATCH  2
   #define GASNET_BARRIERFLAG_IMAGES 4
+
+  /* UNNAMED includes ANONYMOUS to yield a trivial default implementation: */
+  #define GASNETE_BARRIERFLAG_UNNAMED 8
+  #define GASNET_BARRIERFLAG_UNNAMED (GASNET_BARRIERFLAG_ANONYMOUS|GASNETE_BARRIERFLAG_UNNAMED)
 #endif
 
 /* Errors: GASNET_OK must be zero */

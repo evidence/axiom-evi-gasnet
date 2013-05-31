@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami.c,v $
- *     $Date: 2013/02/06 18:52:20 $
- * $Revision: 1.34 $
+ *     $Date: 2013/05/31 08:08:04 $
+ * $Revision: 1.35 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -132,7 +132,7 @@ gasnetc_dflt_coll_alg(pami_geometry_t geom, pami_xfer_type_t op, pami_algorithm_
     dfltval = "I0:Binomial:"; /* uniformly "good" on BG/Q and PERCS */
     break;
 
-  /* Used for gasnetc_fast_barrier(): */
+  /* Used for gasnetc_fast_barrier() and GASNET_BARRIERFLAG_UNNAMED */
   case PAMI_XFER_BARRIER:
     envvar = "GASNET_PAMI_BARRIER_ALG";
   #if GASNETI_ARCH_BGQ

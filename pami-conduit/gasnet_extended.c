@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2013/05/31 07:08:06 $
- * $Revision: 1.45 $
+ *     $Date: 2013/05/31 08:08:04 $
+ * $Revision: 1.46 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -907,6 +907,7 @@ static void gasnete_pdbarrier_init(gasnete_coll_team_t team);
 
 typedef struct {
   /* PAMI portions */
+  pami_xfer_t barrier_op;
   pami_xfer_t reduce_op;
   uint64_t sndbuf[2];
   uint64_t rcvbuf[2];
@@ -917,6 +918,7 @@ typedef struct {
 
 static void gasnete_parbarrier_notify(gasnete_coll_team_t team, int id, int flags) {
   gasnete_parbarrier_t *barr = team->barrier_data;
+  pami_xfer_t *op = &barr->reduce_op;
   
   gasneti_sync_reads();
   if_pf (team->barrier_splitstate == INSIDE_BARRIER) {
@@ -925,6 +927,12 @@ static void gasnete_parbarrier_notify(gasnete_coll_team_t team, int id, int flag
 
   ++barr->count;
 
+  if (flags & GASNETE_BARRIERFLAG_UNNAMED) {
+    /* Setup for sucessful match in gasnete_parbarrier_finish() */
+    barr->rcvbuf[0] = 0;
+    barr->rcvbuf[1] = 0xFFFFFFFF;
+    op = &barr->barrier_op;
+  } else
   if (flags & GASNET_BARRIERFLAG_MISMATCH) {
     /* Larger than any possible "id" AND fails low-word test */
     barr->sndbuf[0] = GASNETI_MAKEWORD(2,0);
@@ -940,8 +948,8 @@ static void gasnete_parbarrier_notify(gasnete_coll_team_t team, int id, int flag
 
   GASNETC_PAMI_LOCK(gasnetc_context);
   {
-    pami_result_t rc = PAMI_Collective(gasnetc_context, &barr->reduce_op);
-    GASNETC_PAMI_CHECK(rc, "initiating all-reduce for barrier");
+    pami_result_t rc = PAMI_Collective(gasnetc_context, op);
+    GASNETC_PAMI_CHECK(rc, "initiating collective for barrier");
   }
   GASNETC_PAMI_UNLOCK(gasnetc_context);
   
@@ -1026,6 +1034,12 @@ static void gasnete_parbarrier_init(gasnete_coll_team_t team) {
 
   barr->count = barr->done = 0;
 
+  memset(&barr->barrier_op, 0, sizeof(pami_xfer_t));
+  gasnetc_dflt_coll_alg(geom, PAMI_XFER_BARRIER, &barr->barrier_op.algorithm);
+  barr->barrier_op.cookie = (void *)&barr->done;
+  barr->barrier_op.cb_done = &gasnetc_cb_inc_release;
+  barr->barrier_op.options.multicontext = PAMI_HINT_DISABLE;
+
   memset(&barr->reduce_op, 0, sizeof(pami_xfer_t));
   gasnetc_dflt_coll_alg(geom, PAMI_XFER_ALLREDUCE, &barr->reduce_op.algorithm);
   barr->reduce_op.cookie = (void *)&barr->done;
@@ -1085,6 +1099,7 @@ typedef struct {
     volatile int next;  /* Which message index are we waiting for */
     int busy;           /* Prevent recursion */
   } state[2]; /* per-phase */
+  pami_xfer_t barrier_op;
 } gasnete_pdbarrier_t;
 
 typedef struct {
@@ -1104,6 +1119,13 @@ typedef struct {
 #define GASNETE_PDBARRIER_MSG_T offsetof(gasnete_pdbarrier_msg_t, end)
 
 static pami_send_hint_t gasnete_pdbarrier_send_hint;
+
+static void gasnete_cb_pdbarr_done(pami_context_t context, void *cookie, pami_result_t status) {
+  volatile int *next_p = (volatile int *)cookie;
+  *next_p = -1;
+  gasneti_sync_writes();
+  gasneti_assert(status == PAMI_SUCCESS);
+}
 
 /* Called only w/ context lock held */
 GASNETI_ALWAYS_INLINE(gasnete_pdbarr_send)
@@ -1219,8 +1241,18 @@ static void gasnete_pdbarrier_notify(gasnete_coll_team_t team, int id, int flags
 
   if (do_send) {
     GASNETC_PAMI_LOCK(gasnetc_context);
+    if ((flags & GASNETE_BARRIERFLAG_UNNAMED) && barr->barrier_op.cb_done) {
+      /* launch a non-blocking barrier on the geometry */
+      struct gasnete_pdbarrier_state * const state = &barr->state[phase];
+      pami_result_t rc;
+      gasneti_assert(state->flags == GASNET_BARRIERFLAG_ANONYMOUS);
+      barr->barrier_op.cookie = (void *)&state->next;
+      rc = PAMI_Collective(gasnetc_context, &barr->barrier_op);
+      GASNETC_PAMI_CHECK(rc, "initiating collective for barrier");
+    } else {
       /* Merge w/ any earlier arrivals and send the notify: */
       gasnete_pdbarr_advance(barr, team->team_id, id, flags, phase, 0);
+    }
     GASNETC_PAMI_UNLOCK(gasnetc_context);
   }
   
@@ -1351,6 +1383,25 @@ static void gasnete_pdbarrier_init(gasnete_coll_team_t team) {
 
   /* Allocate memory */
   gasnete_pdbarrier_t *barr = gasneti_malloc(sizeof(gasnete_pdbarrier_t));
+
+  /* Try to setup resources for GASNET_BARRIERFLAG_UNNAMED */
+  { pami_geometry_t geom = PAMI_GEOMETRY_NULL;
+    if (team == GASNET_TEAM_ALL)  {
+      geom = gasnetc_world_geom; /* team init not completed yet, sigh */
+    } else {
+    #if GASNET_PAMI_NATIVE_COLL
+      geom = team->pami.geom;
+    #endif
+    }
+    memset(&barr->barrier_op, 0, sizeof(pami_xfer_t));
+    if (geom != PAMI_GEOMETRY_NULL) {
+      /* Using native collectives for this team */
+      gasnetc_dflt_coll_alg(geom, PAMI_XFER_BARRIER, &barr->barrier_op.algorithm);
+      barr->barrier_op.cb_done = &gasnete_cb_pdbarr_done;
+      barr->barrier_op.options.multicontext = PAMI_HINT_DISABLE;
+      /* cookie is set at each call */
+    }
+  }
 
 #if GASNETI_PSHM_BARRIER_HIER
   gasnet_node_t *supernode_reps = NULL;
