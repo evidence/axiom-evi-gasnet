@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2013/05/31 03:42:17 $
- * $Revision: 1.44 $
+ *     $Date: 2013/05/31 07:08:06 $
+ * $Revision: 1.45 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -1032,7 +1032,11 @@ static void gasnete_parbarrier_init(gasnete_coll_team_t team) {
   barr->reduce_op.cb_done = &gasnetc_cb_inc_release;
   barr->reduce_op.options.multicontext = PAMI_HINT_DISABLE;
 
-#if SIZEOF_LONG == 8
+#if 0
+  /* Yes, this is correct, and may even be marginally faster! */
+  barr->reduce_op.cmd.xfer_allreduce.stype = PAMI_TYPE_DOUBLE;
+  barr->reduce_op.cmd.xfer_allreduce.rtype = PAMI_TYPE_DOUBLE;
+#elif SIZEOF_LONG == 8
   barr->reduce_op.cmd.xfer_allreduce.stype = PAMI_TYPE_UNSIGNED_LONG;
   barr->reduce_op.cmd.xfer_allreduce.rtype = PAMI_TYPE_UNSIGNED_LONG;
 #elif SIZEOF_LONG_LONG == 8
