@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2013/05/15 04:47:56 $
- * $Revision: 1.102 $
+ *     $Date: 2013/05/31 20:52:11 $
+ * $Revision: 1.103 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1008,11 +1008,11 @@ void * thread_fn(void *arg) {
   TEST_HEADER("parallel compare-and-swap test...") {
     #if defined(GASNETT_HAVE_ATOMIC_CAS)
       static gasnett_atomic_t counter2 = gasnett_atomic_init(0);
-      static uint32_t shared_counter = 0;
-      uint32_t woncnt = 0;
-      uint32_t share = ((unsigned)iters >= (0xffffffffU / NUM_THREADS)) ? (0xffffffffU / NUM_THREADS) : iters;
-      uint32_t goal = NUM_THREADS * share;
-      uint32_t i, oldval;
+      static gasnett_atomic_val_t shared_counter = 0;
+      gasnett_atomic_val_t woncnt = 0;
+      gasnett_atomic_val_t share = ((unsigned)iters >= (GASNETT_ATOMIC_MAX / NUM_THREADS)) ? (GASNETT_ATOMIC_MAX / NUM_THREADS) : iters;
+      gasnett_atomic_val_t goal = NUM_THREADS * share;
+      gasnett_atomic_val_t i, oldval;
 
       /* Look for missing or doubled updates by taking an equal share of increments */
       while (woncnt < share &&
