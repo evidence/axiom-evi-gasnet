@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testbarrier.c,v $
- *     $Date: 2012/08/28 03:14:50 $
- * $Revision: 1.24 $
+ *     $Date: 2013/06/01 02:59:18 $
+ * $Revision: 1.25 $
  * Description: GASNet barrier performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -102,6 +102,7 @@ int main(int argc, char **argv) {
 static void * doTest(void *arg) {
   int warmups = MIN(100, iters/100);
   int64_t start,total;
+  int result;
   int i = 0;
 
   if (arg) {
@@ -114,6 +115,7 @@ static void * doTest(void *arg) {
   for (i=0; i < warmups; i++) {
     gasnet_barrier_notify(i, 0);            
     GASNET_Safe(my_barrier_wait(i, 0)); 
+    assert_always(!gasnet_barrier_result(&result));
   }
 
   BARRIER();
@@ -137,6 +139,7 @@ static void * doTest(void *arg) {
   for (i=0; i < warmups; i++) {
     gasnet_barrier_notify(0, GASNET_BARRIERFLAG_ANONYMOUS);            
     GASNET_Safe(my_barrier_wait(0, GASNET_BARRIERFLAG_ANONYMOUS)); 
+    assert_always(gasnet_barrier_result(&result));
   }
 
   BARRIER();
@@ -170,6 +173,7 @@ static void * doTest(void *arg) {
       int flags = parity ? 0 : GASNET_BARRIERFLAG_ANONYMOUS;
       gasnet_barrier_notify(value, flags);
       GASNET_Safe(my_barrier_wait(value, flags)); 
+      assert_always(!gasnet_barrier_result(&result) || (nodes == 1));
     }
 
     BARRIER();
@@ -191,6 +195,32 @@ static void * doTest(void *arg) {
     }
   }
   BARRIER();
+
+#ifdef TEST_UNNAMED_BARRIER
+  /* Warmup Unnamed */
+  for (i=0; i < warmups; i++) {
+    gasnet_barrier_notify(0, GASNET_BARRIERFLAG_UNNAMED);            
+    GASNET_Safe(my_barrier_wait(0, GASNET_BARRIERFLAG_UNNAMED)); 
+    assert_always(gasnet_barrier_result(&result));
+  }
+
+  BARRIER();
+  start = TIME();
+  for (i=0; i < iters; i++) {
+    gasnet_barrier_notify(0, GASNET_BARRIERFLAG_UNNAMED);            
+    GASNET_Safe(my_barrier_wait(0, GASNET_BARRIERFLAG_UNNAMED)); 
+  }
+  total = TIME() - start;
+
+  BARRIER();
+
+  if (mynode == 0) {
+      printf("Total time: %8.3f sec  Avg Uname Barrier latency: %8.3f us\n",
+        ((float)total)/1000000, ((float)total)/iters);
+      fflush(stdout);
+  }
+  BARRIER();
+#endif
 
   GASNET_Safe(gasnet_AMRequestShort0(mynode, hidx_done_shorthandler));
   return NULL;
