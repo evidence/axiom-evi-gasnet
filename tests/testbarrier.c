@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testbarrier.c,v $
- *     $Date: 2013/06/01 02:59:18 $
- * $Revision: 1.25 $
+ *     $Date: 2013/06/01 19:48:49 $
+ * $Revision: 1.26 $
  * Description: GASNet barrier performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -14,6 +14,10 @@
   #define PERFORM_MIXED_NAMED_ANON_TESTS (!GASNETE_USING_ELANFAST_BARRIER())
 #else
   #define PERFORM_MIXED_NAMED_ANON_TESTS 1
+#endif
+
+#ifndef TEST_UNNAMED_BARRIER
+  #define TEST_UNNAMED_BARRIER 1
 #endif
 
 int mynode, nodes, iters = 0;
@@ -196,7 +200,7 @@ static void * doTest(void *arg) {
   }
   BARRIER();
 
-#ifdef TEST_UNNAMED_BARRIER
+#if TEST_UNNAMED_BARRIER
   /* Warmup Unnamed */
   for (i=0; i < warmups; i++) {
     gasnet_barrier_notify(0, GASNET_BARRIERFLAG_UNNAMED);            
