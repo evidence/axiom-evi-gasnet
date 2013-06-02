@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2013/05/13 17:29:29 $
-# $Revision: 1.796 $
+#     $Date: 2013/06/02 22:37:51 $
+# $Revision: 1.797 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.796 $)
+AC_REVISION($Revision: 1.797 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -3841,6 +3841,21 @@ elif test "$enabled_mxm" != no; then
     elif test "$mxm_in_path$mxm_in_mxm_home" = nono; then
         have_mxm=no
     fi
+
+	if test "$have_mxm" = yes; then
+	  # Try to compile and link a basic MXM program
+	  GASNET_PUSHVAR(CFLAGS,"$CFLAGS -I$mxm_home/include")
+	  GASNET_PUSHVAR(LIBS,"$LIBS -L$mxm_lib_path -lmxm")
+	  GASNET_TRY_CACHE_LINK(for working MXM configuration, mxm_works, [
+            #include <mxm/api/mxm_api.h>
+            #include <mxm/api/mxm_addr.h>
+        ], [{
+               unsigned long cur_ver = mxm_get_version();
+               mxm_error_t mxm_status = mxm_init(NULL,NULL);
+            }], [ : ], [ have_mxm=no; GASNET_ERR_SAVE() ] )
+      GASNET_POPVAR(CFLAGS)
+	  GASNET_POPVAR(LIBS)
+	fi
 fi
 
 if test "$have_mxm" = yes; then
