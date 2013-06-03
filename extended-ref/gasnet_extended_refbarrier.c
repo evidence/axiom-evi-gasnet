@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2013/05/31 03:42:11 $
- * $Revision: 1.151 $
+ *     $Date: 2013/06/03 00:11:15 $
+ * $Revision: 1.152 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2006,10 +2006,10 @@ int gasnete_coll_barrier_result(gasnete_coll_team_t team, int *id GASNETE_THREAD
 }
 
 #ifndef GASNETE_CONDUIT_PRE_BARRIER
-#define GASNETE_CONDUIT_PRE_BARRIER
+#define GASNETE_CONDUIT_PRE_BARRIER(team) /*empty*/
 #endif
 #ifndef GASNETE_CONDUIT_POST_BARRIER
-#define GASNETE_CONDUIT_POST_BARRIER
+#define GASNETE_CONDUIT_POST_BARRIER(team) /*empty*/
 #endif
 
 void gasnete_coll_barrier_single_phase(gasnete_coll_team_t team) {
