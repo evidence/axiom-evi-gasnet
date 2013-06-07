@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_internal.h,v $
- *     $Date: 2013/06/07 05:48:58 $
- * $Revision: 1.72 $
+ *     $Date: 2013/06/07 06:05:28 $
+ * $Revision: 1.73 $
  * Description: GASNet Collectives conduit header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -230,19 +230,6 @@ typedef int (*gasnete_all_barrier_result)(gasnete_coll_team_t team, int *id);
     gasnete_coll_barrier(TEAM, 0, GASNET_BARRIERFLAG_UNNAMED GASNETE_THREAD_GET); \
   } while(0)
 #endif
-
-#ifndef gasnete_coll_teambarrier_notify
-#define gasnete_coll_teambarrier_notify(TEAM) do {\
-    gasnete_coll_barrier_notify(TEAM, 0, GASNET_BARRIERFLAG_UNNAMED GASNETE_THREAD_GET); \
-  } while(0)
-#endif
-
-#ifndef gasnete_coll_teambarrier_wait
-#define gasnete_coll_teambarrier_wait(TEAM) do {\
-    gasnete_coll_barrier_wait(TEAM, 0, GASNET_BARRIERFLAG_UNNAMED GASNETE_THREAD_GET); \
-  } while(0)
-#endif
-
 
 typedef enum {
   GASNETE_COLL_BARRIER_ENVDEFAULT=0,
