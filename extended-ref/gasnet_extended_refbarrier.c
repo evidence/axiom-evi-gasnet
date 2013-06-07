@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2013/06/07 04:18:52 $
- * $Revision: 1.153 $
+ *     $Date: 2013/06/07 04:29:44 $
+ * $Revision: 1.154 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1982,6 +1982,12 @@ int gasnete_coll_barrier_wait_internal(gasnete_coll_team_t team, int id, int fla
     return (*team->barrier_wait)(team, id, flags);
 }
 
+GASNETI_INLINE(gasnete_coll_barrier_internal)
+int gasnete_coll_barrier_internal(gasnete_coll_team_t team, int id, int flags GASNETE_THREAD_FARG) {
+  gasneti_assert(team->barrier);
+  return (*team->barrier)(team, id, flags);
+}
+
 GASNETI_INLINE(gasnete_coll_barrier_result_internal)
 int gasnete_coll_barrier_result_internal(gasnete_coll_team_t team, int *id GASNETE_THREAD_FARG) {
   gasneti_assert(team->barrier_result);
@@ -1999,6 +2005,10 @@ int gasnete_coll_barrier_try(gasnete_coll_team_t team, int id, int flags GASNETE
 
 int gasnete_coll_barrier_wait(gasnete_coll_team_t team, int id, int flags GASNETE_THREAD_FARG) {
   return gasnete_coll_barrier_wait_internal(team, id, flags GASNETE_THREAD_PASS);
+}
+
+int gasnete_coll_barrier(gasnete_coll_team_t team, int id, int flags GASNETE_THREAD_FARG) {
+  return gasnete_coll_barrier_internal(team, id, flags GASNETE_THREAD_PASS);
 }
 
 int gasnete_coll_barrier_result(gasnete_coll_team_t team, int *id GASNETE_THREAD_FARG) {
@@ -2048,16 +2058,45 @@ int gasnet_barrier_try(int id, int flags) {
   return retval;
 }
 
+int gasnet_barrier(int id, int flags) {
+  GASNETI_TRACE_PRINTF(B, ("BARRIER(team=GASNET_TEAM_ALL,id=%i,flags=%i)", id, flags));
+
+  gasneti_assert(GASNET_TEAM_ALL->barrier);
+
+  return gasnete_coll_barrier_internal(GASNET_TEAM_ALL, id, flags GASNETE_THREAD_GET);
+}
+
 int gasnet_barrier_result(int *id) {
   gasneti_assert(GASNET_TEAM_ALL->barrier_result);
   return gasnete_coll_barrier_result_internal(GASNET_TEAM_ALL, id GASNETE_THREAD_GET);
 }
+
+
 
 /* This is for use by conduits that don't have a conforming version */
 static int gasnete_barrier_result_default(gasnete_coll_team_t team, int *id) {
   /* Pretend all barriers are anonymous if no _result is implemented */
   return 1;
 }
+
+/* This is for use by conduits that don't have a specialized version */
+int gasnete_barrier_default(gasnete_coll_team_t team, int id, int flags) {
+  GASNETE_THREAD_LOOKUP
+  #if GASNETI_STATS_OR_TRACE
+    gasneti_tick_t barrier_start = GASNETI_TICKS_NOW_IFENABLED(B);
+  #endif
+  int retval;
+  
+  gasneti_assert(team->barrier_notify);
+  gasnete_coll_barrier_notify_internal(team, id, flags GASNETE_THREAD_PASS);
+
+  gasneti_assert(team->barrier_wait);
+  retval = gasnete_coll_barrier_wait_internal(team, id, flags GASNETE_THREAD_PASS);
+ 
+  GASNETI_TRACE_EVENT_TIME(B,BARRIER,GASNETI_TICKS_NOW_IFENABLED(B)-barrier_start);
+  return retval;
+}
+
 
 extern void gasnete_coll_barrier_init(gasnete_coll_team_t team,  int barrier_type_in) {
   gasnete_coll_barrier_type_t barrier_type= (gasnete_coll_barrier_type_t) barrier_type_in;
@@ -2118,6 +2157,7 @@ extern void gasnete_coll_barrier_init(gasnete_coll_team_t team,  int barrier_typ
   team->barrier_notify = NULL;
   team->barrier_wait = NULL;
   team->barrier_try = NULL;
+  team->barrier = &gasnete_barrier_default;
   team->barrier_result = NULL;
   GASNETE_BARRIER_INIT(team, barrier_type);
   if (team->barrier_notify) { /* conduit has identified a barrier mechanism */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.h,v $
- *     $Date: 2012/05/10 04:30:47 $
- * $Revision: 1.67 $
+ *     $Date: 2013/06/07 04:29:42 $
+ * $Revision: 1.68 $
  * Description: GASNet Tracing Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -776,6 +776,7 @@ extern void gasneti_trace_finish(void);
         TIME(B, BARRIER_NOTIFYWAIT, notify-wait interval) \
         TIME(B, BARRIER_ASYNC_COMPLETION, notify-wait interval) \
         TIME(B, BARRIER_WAIT, waittime)                   \
+        TIME(B, BARRIER, single-phase barrier time)       \
         VAL(B, BARRIER_TRY, success)                      \
                                                           \
         TIME(L, HSL_LOCK, waittime)                       \
