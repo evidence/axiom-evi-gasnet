@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_coll_barrier_dcmf.c,v $
- *     $Date: 2011/02/09 06:40:54 $
- * $Revision: 1.7 $
+ *     $Date: 2013/06/07 19:05:05 $
+ * $Revision: 1.8 $
  * Description: GASNet barrier implementation on DCMF
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -21,8 +21,8 @@ int gasnete_dcmf_num_localbarriers;
 /* callback function for DCMF_Barrier() */
 static void gasnete_dcmf_coll_cb_done(void *clientdata, DCMF_Error_t *e)
 {
-  int *p = (int *)clientdata;
-  *p = 0;
+  volatile int *p = (volatile int *)clientdata;
+  *p = GASNETE_COLL_BARRIER_DONE;
 }
 
 void gasnete_coll_barrier_proto_register(void)
@@ -115,12 +115,13 @@ void gasnete_coll_teambarrier_notify_dcmf(gasnet_team_handle_t team)
   gasneti_sync_reads();
   
   cb_done.function = gasnete_dcmf_coll_cb_done;
-  cb_done.clientdata = (void *)&(dcmf_tp->in_barrier);
+  cb_done.clientdata = (void *)&(dcmf_tp->barrier_state);
 
   GASNETC_DCMF_LOCK();
-  gasneti_assert(gasnete_dcmf_busy == 0);
+  gasneti_assert(gasnete_dcmf_busy == 0); /* XXX: implies usage restrictions */
+  gasneti_assert(dcmf_tp->barrier_state == GASNETE_COLL_BARRIER_IDLE);
   gasnete_dcmf_busy = 1;  
-  dcmf_tp->in_barrier = 1;
+  dcmf_tp->barrier_state = GASNETE_COLL_BARRIER_BUSY;
   DCMF_SAFE(DCMF_Barrier(&dcmf_tp->geometry, cb_done, DCMF_MATCH_CONSISTENCY));
   GASNETC_DCMF_UNLOCK();
   
@@ -133,9 +134,11 @@ void gasnete_coll_teambarrier_wait_dcmf(gasnet_team_handle_t team)
   
   gasneti_sync_reads();
   
+  gasneti_assert(dcmf_tp->barrier_state != GASNETE_COLL_BARRIER_IDLE);
   GASNETC_DCMF_LOCK();
-  while (dcmf_tp->in_barrier)
+  while (dcmf_tp->barrier_state == GASNETE_COLL_BARRIER_BUSY)
     DCMF_Messager_advance();
+  dcmf_tp->barrier_state = GASNETE_COLL_BARRIER_IDLE;
   gasnete_dcmf_busy = 0;  
   GASNETC_DCMF_UNLOCK();
   
@@ -145,13 +148,18 @@ void gasnete_coll_teambarrier_wait_dcmf(gasnet_team_handle_t team)
 int gasnete_coll_teambarrier_try_dcmf(gasnet_team_handle_t team)
 {
   gasnete_coll_team_dcmf_t *dcmf_tp = (gasnete_coll_team_dcmf_t *)team->dcmf_tp;
+  int retval = GASNET_ERR_NOT_READY;
  
+  gasneti_assert(dcmf_tp->barrier_state != GASNETE_COLL_BARRIER_IDLE);
   GASNETC_DCMF_LOCK();
   DCMF_Messager_advance();
-  GASNETC_DCMF_UNLOCK();
-  
-  if (!dcmf_tp->in_barrier)
+  if (dcmf_tp->barrier_state == GASNETE_COLL_BARRIER_DONE)
+    {
+      retval = GASNET_OK;
+      dcmf_tp->barrier_state = GASNETE_COLL_BARRIER_IDLE;
       gasnete_dcmf_busy = 0;
+    }
+  GASNETC_DCMF_UNLOCK();
 
-  return (dcmf_tp->in_barrier);
+  return retval;
 }
