@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_autotune.c,v $
- *     $Date: 2012/07/20 20:16:41 $
- * $Revision: 1.35 $
+ *     $Date: 2013/06/07 19:26:59 $
+ * $Revision: 1.36 $
  * Description: GASNet Autotuner Implementation
  * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>, Paul H. Hargrove <PHHargrove@lbl.gov>, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2088,7 +2088,7 @@ static gasnett_tick_t run_collective_bench(gasnet_team_handle_t team, gasnet_col
   
   total = gasnett_ticks_now()-start;
 
-  /* gasnete_coll_teambarrier(team); */
+  /* gasnete_coll_barrier(team, 0, GASNET_BARRIERFLAG_UNNAMED GASNETE_THREAD_PASS); */
 
   return total;
 
