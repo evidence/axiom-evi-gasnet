@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_coll.h,v $
- *     $Date: 2013/06/07 04:35:13 $
- * $Revision: 1.58 $
+ *     $Date: 2013/06/07 06:01:59 $
+ * $Revision: 1.59 $
  * Description: GASNet Extended API Collective declarations
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -409,12 +409,14 @@ extern void gasnete_coll_barrier_notify(gasnete_coll_team_t team, int id, int fl
 extern int gasnete_coll_barrier_try(gasnete_coll_team_t team, int id, int flags GASNETE_THREAD_FARG);
 extern int gasnete_coll_barrier_wait(gasnete_coll_team_t team, int id, int flags GASNETE_THREAD_FARG);
 extern int gasnete_coll_barrier(gasnete_coll_team_t team, int id, int flags GASNETE_THREAD_FARG);
+extern int gasnete_coll_barrier_result(gasnete_coll_team_t team, int *id GASNETE_THREAD_FARG);
 
 
 #define gasnet_coll_barrier_notify(team, id, flags) gasnete_coll_barrier_notify(team, id, flags GASNETE_THREAD_GET)
 #define gasnet_coll_barrier_try(team, id, flags) gasnete_coll_barrier_try(team, id, flags GASNETE_THREAD_GET)
 #define gasnet_coll_barrier_wait(team, id, flags) gasnete_coll_barrier_wait(team, id, flags GASNETE_THREAD_GET)
 #define gasnet_coll_barrier(team, id, flags) gasnete_coll_barrier(team, id, flags GASNETE_THREAD_GET)
+#define gasnet_coll_barrier_result(team, id) gasnete_coll_barrier_result(team, id GASNETE_THREAD_GET)
 
 #define gasnet_coll_try_sync(handle) \
        _gasnet_coll_try_sync(handle GASNETE_THREAD_GET)
