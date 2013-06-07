@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_extended_coll_dcmf.h,v $
- *     $Date: 2013/06/07 19:05:05 $
- * $Revision: 1.9 $
+ *     $Date: 2013/06/07 19:27:56 $
+ * $Revision: 1.10 $
  * Description: GASNet extended collectives implementation on DCMF
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -39,8 +39,6 @@ extern int gasnete_use_dcmf_coll;
 
 /* global flag to indicate if there is a DCMF collective operation executing */
 extern volatile int gasnete_dcmf_busy;
-
-GASNETE_COLL_TEAM_CONDUIT_DECLS;
 
 /**
  * Initialize the dcmf data structures for gasnet team, used in the

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_extended_fwd.h,v $
- *     $Date: 2012/10/15 22:26:42 $
- * $Revision: 1.15 $
+ *     $Date: 2013/06/07 19:27:56 $
+ * $Revision: 1.16 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
  *                 Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -62,14 +62,8 @@ typedef struct _gasnete_op_t *gasnet_handle_t;
 #define gasnete_coll_exchange gasnete_coll_exchange_dcmf
 #define gasnete_coll_broadcast_nb gasnete_coll_broadcast_nb_dcmf
 #define gasnete_coll_broadcast gasnete_coll_broadcast_dcmf 
-#define gasnete_coll_teambarrier gasnete_coll_teambarrier_dcmf
-/* #define gasnete_coll_teambarrier_notify gasnete_coll_teambarrier_notify_dcmf */
-/* #define gasnete_coll_teambarrier_wait gasnete_coll_teambarrier_wait_dcmf */
 #endif /* #if GASNET_SEQ */
 #endif /* #ifndef GASNET_NO_DCMF_COLL */
-
-#define GASNETE_COLL_TEAM_CONDUIT_DECLS \
-    extern void gasnete_coll_teambarrier_dcmf(gasnet_team_handle_t team);
 
 #if 0
 #define GASNETE_COLL_CONDUIT_COLLECTIVES 1
