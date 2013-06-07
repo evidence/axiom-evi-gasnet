@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended.h,v $
- *     $Date: 2013/05/31 03:42:11 $
- * $Revision: 1.56 $
+ *     $Date: 2013/06/07 04:18:52 $
+ * $Revision: 1.57 $
  * Description: GASNet Extended API Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -884,7 +884,6 @@ extern void gasnet_barrier_notify(int id, int flags);
 extern int gasnet_barrier_wait(int id, int flags);
 extern int gasnet_barrier_try(int id, int flags);
 extern int gasnet_barrier_result(int *id);
-extern void gasnet_barrier_single_phase(void);
 /* ------------------------------------------------------------------------------------ */
 
 GASNETI_END_EXTERNC
