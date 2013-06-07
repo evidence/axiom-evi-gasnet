@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_extended.c,v $
- *     $Date: 2013/05/31 03:42:07 $
- * $Revision: 1.33 $
+ *     $Date: 2013/06/07 19:14:08 $
+ * $Revision: 1.34 $
  * Description: GASNet Extended API Implementation for DCMF
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
  *                 Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -1332,6 +1332,17 @@ static void gasnete_dcmfbarrier_notify(gasnete_coll_team_t team, int id, int fla
   /*gasneti_assert(id >= 0);*/
   GASNETI_TRACE_PRINTF(B, ("running barrier notify (%d,%d)", id, flags));
   
+#if GASNET_SEQ
+  if (flags & GASNETE_BARRIERFLAG_UNNAMED) 
+    {
+      /* Short cut for unnamed barrier */
+      gasnete_coll_teambarrier_notify_dcmf(team);
+      team->barrier_splitstate = INSIDE_BARRIER; 
+      gasneti_sync_writes();
+      return;
+    }
+  else
+#endif
   if (flags & GASNET_BARRIERFLAG_MISMATCH) 
     {
       /* Smaller than any possible "id" AND fails low-word test */
@@ -1487,7 +1498,16 @@ static int gasnete_dcmfbarrier_wait(gasnete_coll_team_t team, int id, int flags)
     gasneti_fatalerror("gasnet_barrier_wait() called without a matching notify");
   }
   
-
+#if GASNET_SEQ
+  if (flags & GASNETE_BARRIERFLAG_UNNAMED) 
+    {
+      /* Short cut for unnamed barrier */
+      gasnete_coll_teambarrier_wait_dcmf(team);
+      team->barrier_splitstate = OUTSIDE_BARRIER;
+      gasneti_sync_writes();
+      return GASNET_OK;
+    }
+#endif
 
   GASNETI_TRACE_PRINTF(B, ("start barrier wait (%d,%d)", id, flags));
   /*wait for whatever barrier we executed to be done*/
@@ -1509,6 +1529,16 @@ static int gasnete_dcmfbarrier_try(gasnete_coll_team_t team, int id, int flags) 
     gasneti_fatalerror("gasnet_barrier_try() called without a matching notify");
   }
   
+#if GASNET_SEQ
+  if (flags & GASNETE_BARRIERFLAG_UNNAMED) 
+    {
+      /* Short cut for unnamed barrier */
+      int ret = gasnete_coll_teambarrier_try_dcmf(team);
+      team->barrier_splitstate = OUTSIDE_BARRIER;
+      gasneti_sync_writes();
+      return ret;
+    }
+#endif
   
   if(barrier_done!=1) {
     /*barrier is not done yet ... try again later*/
