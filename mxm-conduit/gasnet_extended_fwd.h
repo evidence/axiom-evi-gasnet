@@ -47,8 +47,6 @@ typedef struct gasnet_handle_t * gasnet_handle_t;
 #define GASNETI_DIRECT_GET_NBI  1
 #define GASNETI_DIRECT_PUT_NBI  1
 
-#define GASNETE_CONDUIT_PRE_BARRIER(x) gasnetc_barrier_fence()
-
 /* XXX: RDMADISSEM leads to error which need to be investigated! */
 #define GASNETE_BARRIER_DEFAULT "AMDISSEM"
 
