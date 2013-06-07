@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testteam.c,v $
- * $Date: 2011/03/01 06:24:16 $
- * $Revision: 1.7 $
+ * $Date: 2013/06/07 05:58:51 $
+ * $Revision: 1.8 $
  * LBNL 2009
  */
 
@@ -104,8 +104,8 @@ int main(int argc, char **argv)
   BARRIER();
   start = TIME();
   for (i=0; i < iters; i++) {
-    gasnete_coll_teambarrier_notify(my_row_team);            
-    gasnete_coll_teambarrier_wait(my_row_team); 
+    gasnet_coll_barrier_notify(my_row_team, 0, GASNET_BARRIERFLAG_UNNAMED);
+    gasnet_coll_barrier_wait(my_row_team, 0, GASNET_BARRIERFLAG_UNNAMED);
   }
   total = TIME() - start;
 
@@ -124,8 +124,8 @@ int main(int argc, char **argv)
   BARRIER();
   start = TIME();
   for (i=0; i < iters; i++) {
-    gasnete_coll_teambarrier_notify(my_col_team);            
-    gasnete_coll_teambarrier_wait(my_col_team); 
+    gasnet_coll_barrier_notify(my_col_team, 0, GASNET_BARRIERFLAG_UNNAMED);
+    gasnet_coll_barrier_wait(my_col_team, 0, GASNET_BARRIERFLAG_UNNAMED);
   }
   total = TIME() - start;
   

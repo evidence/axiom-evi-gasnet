@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testteambcast.c,v $
- * $Date: 2012/07/31 00:35:18 $
- * $Revision: 1.3 $
+ * $Date: 2013/06/07 05:58:51 $
+ * $Revision: 1.4 $
  * See license.txt for terms
  * Rajesh Nishtala and Yili Zheng
  */
@@ -111,8 +111,8 @@ int main(int argc, char **argv)
   BARRIER();
   start = TIME();
   for (i=0; i < iters*10; i++) {
-    gasnete_coll_teambarrier_notify(my_row_team);            
-    gasnete_coll_teambarrier_wait(my_row_team); 
+    gasnet_coll_barrier_notify(my_row_team, 0, GASNET_BARRIERFLAG_UNNAMED);
+    gasnet_coll_barrier_wait(my_row_team, 0, GASNET_BARRIERFLAG_UNNAMED);
   }
   total = TIME() - start;
 
@@ -131,8 +131,8 @@ int main(int argc, char **argv)
   BARRIER();
   start = TIME();
   for (i=0; i < iters*10; i++) {
-    gasnete_coll_teambarrier_notify(my_col_team);            
-    gasnete_coll_teambarrier_wait(my_col_team); 
+    gasnet_coll_barrier_notify(my_col_team, 0, GASNET_BARRIERFLAG_UNNAMED);
+    gasnet_coll_barrier_wait(my_col_team, 0, GASNET_BARRIERFLAG_UNNAMED);
   }
   total = TIME() - start;
   
