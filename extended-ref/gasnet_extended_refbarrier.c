@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2013/06/09 05:39:04 $
- * $Revision: 1.160 $
+ *     $Date: 2013/06/09 07:43:29 $
+ * $Revision: 1.161 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1006,7 +1006,7 @@ static int gasnete_amdbarrier(gasnete_coll_team_t team, int id, int flags) {
     GASNETI_TRACE_EVENT_TIME(B,BARRIER,GASNETI_TICKS_NOW_IFENABLED(B)-barrier_start);
     return retval;
   } else {
-    gasnete_amdbarrier_notify(team, id, flags);
+    (team->barrier_notify)(team, id, flags);
     return gasnete_amdbarrier_wait(team, id, flags);
   }
 }
@@ -1510,7 +1510,7 @@ static int gasnete_rmdbarrier(gasnete_coll_team_t team, int id, int flags) {
     GASNETI_TRACE_EVENT_TIME(B,BARRIER,GASNETI_TICKS_NOW_IFENABLED(B)-barrier_start);
     return retval;
   } else {
-    gasnete_rmdbarrier_notify(team, id, flags);
+    (team->barrier_notify)(team, id, flags);
     return gasnete_rmdbarrier_wait(team, id, flags);
   }
 }
