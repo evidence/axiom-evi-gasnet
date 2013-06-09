@@ -144,7 +144,10 @@ int gasnete_fca_barrier(gasnete_coll_team_t team, int id, int flags) {
         gasnet_team_fca_is_active(team, _FCA_BARRIER) &&
         !fca_do_barrier(fca_comm_data->fca_comm)) {
         result = GASNET_OK;
-    } else if (gasnet_team_fca_is_active(team, _FCA_REDUCE)) {
+    } else
+#if 0
+	/* This code is correct, but cannot implement gasnet_barrier_result() */
+	if (gasnet_team_fca_is_active(team, _FCA_REDUCE)) {
         fca_reduce_spec_t spec;
         uint64_t sbuf[2], rbuf[2];
         int ret;
@@ -173,6 +176,7 @@ int gasnete_fca_barrier(gasnete_coll_team_t team, int id, int flags) {
                          ? GASNET_OK : GASNET_ERR_BARRIER_MISMATCH;
         }
     }
+#endif
 
     return result;
 }
