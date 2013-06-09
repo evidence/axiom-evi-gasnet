@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/05/31 03:42:21 $
- * $Revision: 1.65 $
+ *     $Date: 2013/06/09 04:45:27 $
+ * $Revision: 1.66 $
  * Description: GASNet Extended API over VAPI/IB Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1054,6 +1054,26 @@ static int gasnete_ibdbarrier_try(gasnete_coll_team_t team, int id, int flags) {
   else return GASNET_ERR_NOT_READY;
 }
 
+#ifdef GASNET_FCA_ENABLED
+static int gasnete_ibdbarrier(gasnete_coll_team_t team, int id, int flags) {
+  #if GASNETI_STATS_OR_TRACE
+  gasneti_tick_t barrier_start = GASNETI_TICKS_NOW_IFENABLED(B);
+  #endif
+
+  int retval = gasnete_fca_barrier(team, &id, &flags);
+  if (retval != GASNET_ERR_RESOURCE) {
+    gasnete_coll_ibdbarrier_t * const barrier_data = team->barrier_data;
+    barrier_data->barrier_value = id;
+    barrier_data->barrier_flags = flags;
+    GASNETI_TRACE_EVENT_TIME(B,BARRIER,GASNETI_TICKS_NOW_IFENABLED(B)-barrier_start);
+    return retval;
+  } else {
+    gasnete_ibdbarrier_notify(team, id, flags);
+    return gasnete_ibdbarrier_wait(team, id, flags);
+  }
+}
+#endif
+
 static int gasnete_ibdbarrier_result(gasnete_coll_team_t team, int *id) {
   gasneti_sync_reads();
   if_pf (team->barrier_splitstate != OUTSIDE_BARRIER) {
@@ -1158,6 +1178,9 @@ static void gasnete_ibdbarrier_init(gasnete_coll_team_t team) {
   team->barrier_notify = steps ? &gasnete_ibdbarrier_notify : &gasnete_ibdbarrier_notify_singleton;
   team->barrier_wait =   &gasnete_ibdbarrier_wait;
   team->barrier_try =    &gasnete_ibdbarrier_try;
+#ifdef GASNET_FCA_ENABLED
+  team->barrier     =    &gasnete_ibdbarrier;
+#endif
   team->barrier_result = &gasnete_ibdbarrier_result;
   team->barrier_pf =     (team == GASNET_TEAM_ALL) ? &gasnete_ibdbarrier_kick_team_all : NULL;
 }
