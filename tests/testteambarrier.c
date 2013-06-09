@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testteambarrier.c,v $
- *     $Date: 2013/06/09 22:15:51 $
- * $Revision: 1.6 $
+ *     $Date: 2013/06/09 23:20:24 $
+ * $Revision: 1.7 $
  * Description: GASNet barrier performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -21,7 +21,7 @@ typedef struct {
 int mynode, nodes, iters, threads_per_node=0;
 
 #define MYBARRIER() \
-    GASNET_Safe(gasnet_barrier(0, GASNET_BARRIERFLAG_UNNAMED | GASNET_BARRIERFLAG_IMAGES))
+    GASNET_Safe(gasnet_coll_barrier(GASNET_TEAM_ALL, 0, GASNET_BARRIERFLAG_UNNAMED | GASNET_BARRIERFLAG_IMAGES))
 
 void *thread_main(void *arg) {
   thread_data_t *td = (thread_data_t*) arg;
