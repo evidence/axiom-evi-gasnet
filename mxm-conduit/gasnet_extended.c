@@ -385,7 +385,7 @@ static void mxm_nbi_get_callback(void *mxm_callback_data) {
     gasneti_free(mxm_callback_data);
 }
 
-GASNETI_INLINE(_single_mxm_fence)
+GASNETI_INLINE(gasnete_fill_fence_request)
 gasnet_mxm_send_req_t * gasnete_fill_fence_request(gasnet_node_t node, void *callback_fn, void *callback_data)
 {
     gasnet_mxm_send_req_t *gasnet_mxm_sreq = gasnetc_alloc_send_req();
