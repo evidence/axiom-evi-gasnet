@@ -137,12 +137,42 @@ int gasnet_fca_reduce_all( void *target, const void *source, int fca_op,
 
 /* Helper for use in FCA-aware barriers */
 int gasnete_fca_barrier(gasnete_coll_team_t team, int id, int flags) {
-    if (!gasnet_team_fca_is_active(team, _FCA_BARRIER)) {
-        return 0;
-    } else if (flags & GASNETE_BARRIERFLAG_UNNAMED) {
-        return (0 == gasnet_fca_barrier(team));
-    } else {
-        /* TODO: reduction formulation of the named barrier */
-        return 0;
+    fca_comm_data_t *fca_comm_data = &team->fca_comm_data;
+    int result = GASNET_ERR_RESOURCE; /* assume failure */
+
+    if ((flags & GASNETE_BARRIERFLAG_UNNAMED) &&
+        gasnet_team_fca_is_active(team, _FCA_BARRIER) &&
+        !fca_do_barrier(fca_comm_data->fca_comm)) {
+        result = GASNET_OK;
+    } else if (gasnet_team_fca_is_active(team, _FCA_REDUCE)) {
+        fca_reduce_spec_t spec;
+        uint64_t sbuf[2], rbuf[2];
+        int ret;
+
+        spec.sbuf = (void *)sbuf;
+        spec.rbuf = (void *)rbuf;
+        spec.dtype = FCA_DTYPE_UNSIGNED_LONG;
+        spec.op = FCA_OP_MAX;
+        spec.length = 2;
+
+        if (flags & GASNET_BARRIERFLAG_MISMATCH) {
+            /* Larger than any possible "id" AND fails low-word test */
+            sbuf[0] = GASNETI_MAKEWORD(2,0);
+            sbuf[1] = GASNETI_MAKEWORD(2,0);
+        } else if (flags & GASNET_BARRIERFLAG_ANONYMOUS) {
+            /* Smaller than any possible "id" AND passes low-word test */
+            sbuf[0] = 0;
+            sbuf[1] = 0xFFFFFFFF;
+        } else {
+            sbuf[0] = GASNETI_MAKEWORD(1, (uint32_t)id);
+            sbuf[1] = GASNETI_MAKEWORD(1,~(uint32_t)id);
+        }
+
+        if (!fca_do_all_reduce(fca_comm_data->fca_comm, &spec)) {
+            result = (GASNETI_LOWORD(rbuf[0]) == ~GASNETI_LOWORD(rbuf[1]))
+                         ? GASNET_OK : GASNET_ERR_BARRIER_MISMATCH;
+        }
     }
+
+    return result;
 }

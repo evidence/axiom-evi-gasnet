@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2013/06/09 00:27:05 $
- * $Revision: 1.156 $
+ *     $Date: 2013/06/09 01:08:09 $
+ * $Revision: 1.157 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2088,9 +2088,10 @@ int gasnete_barrier_default(gasnete_coll_team_t team, int id, int flags) {
   int retval;
   
   #ifdef GASNET_FCA_ENABLED
-  if (gasnete_fca_barrier(team, id, flags)) {
+  retval = gasnete_fca_barrier(team, id, flags);
+  if (retval != GASNET_ERR_RESOURCE) {
     GASNETI_TRACE_EVENT_TIME(B,BARRIER,GASNETI_TICKS_NOW_IFENABLED(B)-barrier_start);
-    return GASNET_OK;
+    return retval;
   }
   #endif
 
