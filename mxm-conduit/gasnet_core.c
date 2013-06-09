@@ -45,7 +45,7 @@ gasnet_mxm_module_t   gasnet_mxm_module;
 #endif
 
 #ifdef MXM_MUTEX_AMPOLL_LOCK
-static gasneti_mutex_t gasnetc_ampoll_lock;
+static gasneti_mutex_t gasnetc_ampoll_lock = GASNETI_MUTEX_INITIALIZER;
 #endif
 #ifdef MXM_ATOMIC_AMPOLL_LOCK
 static gasneti_atomic_t gasnetc_ampoll_atomic_lock = gasneti_atomic_init(1);
@@ -955,9 +955,6 @@ static int gasnetc_init(int *argc, char ***argv)
     gasnetc_bootstrapBarrier();
 
     gasneti_auxseg_init(); /* adjust max seg values based on auxseg */
-#ifdef MXM_MUTEX_AMPOLL_LOCK
-    gasneti_mutex_init(&gasnetc_ampoll_lock);
-#endif
     return GASNET_OK;
 }
 
@@ -2087,7 +2084,7 @@ static int gasnetc_AMPoll_nocheckattach(void) {
     if (gasneti_mutex_trylock(&gasnetc_ampoll_lock) == 0) {
 #endif
 #ifdef MXM_ATOMIC_AMPOLL_LOCK
-        if (gasneti_atomic_decrement_and_test(&gasnetc_ampoll_atomic_lock,0)) {
+        if (gasneti_atomic_decrement_and_test(&gasnetc_ampoll_atomic_lock,GASNETI_ATOMIC_ACQ)) {
 #endif
 
 
@@ -2115,7 +2112,7 @@ static int gasnetc_AMPoll_nocheckattach(void) {
         }
 #endif
 #ifdef MXM_ATOMIC_AMPOLL_LOCK
-        gasneti_atomic_set(&gasnetc_ampoll_atomic_lock,1,GASNETI_ATOMIC_WMB_POST);
+        gasneti_atomic_set(&gasnetc_ampoll_atomic_lock,1,GASNETI_ATOMIC_REL);
     }
 #endif
     return GASNET_OK;
