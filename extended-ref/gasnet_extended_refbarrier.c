@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2013/06/07 04:29:44 $
- * $Revision: 1.154 $
+ *     $Date: 2013/06/09 00:13:23 $
+ * $Revision: 1.155 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -49,6 +49,23 @@ void gasnete_barrier_pf_disable(gasnete_coll_team_t team) {
     GASNETI_PROGRESSFNS_DISABLE(gasneti_pf_barrier,BOOLEAN);
   }
 }
+
+/* ------------------------------------------------------------------------------------ */
+/* Helper(s) for use in FCA-aware barriers */
+
+#ifdef GASNET_FCA_ENABLED
+
+int gasnete_fca_barrier(gasnete_coll_team_t team, int id, int flags) {
+  if (!gasnet_team_fca_is_active(team, _FCA_BARRIER)) {
+    return 0;
+  } else if (flags & GASNETE_BARRIERFLAG_UNNAMED) {
+	return (0 == gasnet_fca_barrier(team));
+  } else {
+    /* TODO: reduction formulation of the named barrier */
+    return 0;
+  }
+}
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 /* 
@@ -2087,6 +2104,13 @@ int gasnete_barrier_default(gasnete_coll_team_t team, int id, int flags) {
   #endif
   int retval;
   
+  #ifdef GASNET_FCA_ENABLED
+  if (gasnete_fca_barrier(team, id, flags)) {
+    GASNETI_TRACE_EVENT_TIME(B,BARRIER,GASNETI_TICKS_NOW_IFENABLED(B)-barrier_start);
+    return GASNET_OK;
+  }
+  #endif
+
   gasneti_assert(team->barrier_notify);
   gasnete_coll_barrier_notify_internal(team, id, flags GASNETE_THREAD_PASS);
 
