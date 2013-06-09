@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testbarrierconf.c,v $
- *     $Date: 2013/05/31 08:27:08 $
- * $Revision: 1.28 $
+ *     $Date: 2013/06/09 03:33:55 $
+ * $Revision: 1.29 $
  * Description: GASNet barrier performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -44,6 +44,7 @@ int main(int argc, char **argv) {
 
   GASNET_Safe(gasnet_init(&argc, &argv));
   GASNET_Safe(gasnet_attach(htable, 1, TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
+  TEST_COLL_INIT();
 
 #if GASNET_PAR
   test_init("testbarrierconf", 0, "[-t] [-p polling_threads] (iters)\n"
@@ -144,6 +145,13 @@ static void * doTest(void *arg) {
       gasnet_exit(1);
     }
 
+    /* node 0 indicates mismatch on blocking barrier: */
+    result = gasnet_barrier(0, !mynode ? GASNET_BARRIERFLAG_MISMATCH : 0);
+    if (result != GASNET_ERR_BARRIER_MISMATCH) {
+      MSG("ERROR: Failed to detect barrier mismatch indicated in blocking barrier.");
+      gasnet_exit(1);
+    }
+
     /* ids differ between notify and wait */
     gasnet_barrier_notify(0, 0);
     result = my_barrier_wait(1, 0);
@@ -202,6 +210,24 @@ static void * doTest(void *arg) {
           gasnet_exit(1);
         }
 
+        /* Mix many named with one anonymous (blocking): */
+        if (mynode == j) {
+          result = gasnet_barrier(12345, GASNET_BARRIERFLAG_ANONYMOUS);
+        } else {
+          result = gasnet_barrier(5551212, 0);
+        }
+        if (result != GASNET_OK) {
+          MSG("ERROR: Failed to match anon node %d with named barier elsewhere.", j);
+          gasnet_exit(1);
+        }
+        if (gasnet_barrier_result(&result)) {
+          MSG("ERROR: Wrong gasnet_barrier_result() return from mixed test #1b");
+          gasnet_exit(1);
+        } else if (5551212 != result) {
+          MSG("ERROR: Wrong gasnet_barrier_result() value from mixed test #1b");
+          gasnet_exit(1);
+        }
+
         /* Mix many named with one anonymous notify plus named wait: */
         if (mynode == j) {
           gasnet_barrier_notify(12345, GASNET_BARRIERFLAG_ANONYMOUS);
@@ -255,12 +281,90 @@ static void * doTest(void *arg) {
           MSG("ERROR: Wrong gasnet_barrier_result() value from mixed test #4");
           gasnet_exit(1);
         }
+
+        /* Mix one named with many anonymous (blocking): */
+        if (mynode == j) {
+          result = gasnet_barrier(0xcafef00d, 0);
+        } else {
+          result = gasnet_barrier(911, GASNET_BARRIERFLAG_ANONYMOUS);
+        }
+        if (result != GASNET_OK) {
+          MSG("ERROR: Failed to match named barrier on node %d with anon elsewhere.", j);
+          gasnet_exit(1);
+        }
+        if (gasnet_barrier_result(&result)) {
+          MSG("ERROR: Wrong gasnet_barrier_result() return from mixed test #4b");
+          gasnet_exit(1);
+        } else if (0xcafef00d != result) {
+          MSG("ERROR: Wrong gasnet_barrier_result() value from mixed test #4b");
+          gasnet_exit(1);
+        }
       }
+
+	    /* All named (blocking): */
+        result = gasnet_barrier(i, 0);
+        if (result != GASNET_OK) {
+          MSG("ERROR: Failed to pass on properly matched barrier");
+          gasnet_exit(1);
+        }
+        if (gasnet_barrier_result(&result)) {
+          MSG("ERROR: Wrong gasnet_barrier_result() return from matching barrier");
+          gasnet_exit(1);
+        } else if (i != result) {
+          MSG("ERROR: Wrong gasnet_barrier_result() value from matching barrier");
+          gasnet_exit(1);
+        }
+
+	    /* All anon (blocking): */
+        result = gasnet_barrier(i^j, GASNET_BARRIERFLAG_ANONYMOUS);
+        if (result != GASNET_OK) {
+          MSG("ERROR: Failed to pass on all-anonymous barrier");
+          gasnet_exit(1);
+        }
+        if (!gasnet_barrier_result(&result)) {
+          MSG("ERROR: Wrong gasnet_barrier_result() return from all-anonymous barrier");
+          gasnet_exit(1);
+        }
+
+	    /* All named: */
+        gasnet_barrier_notify(i, 0);
+        result = my_barrier_wait(i, 0);
+        if (result != GASNET_OK) {
+          MSG("ERROR: Failed to pass on properly matched notify/wait");
+          gasnet_exit(1);
+        }
+        if (gasnet_barrier_result(&result)) {
+          MSG("ERROR: Wrong gasnet_barrier_result() return from matching notify/wait");
+          gasnet_exit(1);
+        } else if (i != result) {
+          MSG("ERROR: Wrong gasnet_barrier_result() value from matching notify/wait");
+          gasnet_exit(1);
+        }
+
+	    /* All anon: */
+        gasnet_barrier_notify(i^j, GASNET_BARRIERFLAG_ANONYMOUS);
+        result = my_barrier_wait(i^j, 0);
+        if (result != GASNET_OK) {
+          MSG("ERROR: Failed to pass on all-anonymous notify");
+          gasnet_exit(1);
+        }
+        if (!gasnet_barrier_result(&result)) {
+          MSG("ERROR: Wrong gasnet_barrier_result() return from all-anonymous notify");
+          gasnet_exit(1);
+        }
+
         /* Mismatched id: */
         gasnet_barrier_notify(mynode == j, 0);
         result = my_barrier_wait(mynode == j, 0);
         if (result != GASNET_ERR_BARRIER_MISMATCH) {
-          MSG("ERROR: Failed to detect different id on node %d.", j);
+          MSG("ERROR: Failed to detect different notify id on node %d.", j);
+          gasnet_exit(1);
+        }
+
+        /* Mismatched id (blocking): */
+        result = gasnet_barrier(mynode == j, 0);
+        if (result != GASNET_ERR_BARRIER_MISMATCH) {
+          MSG("ERROR: Failed to detect different barrier id on node %d.", j);
           gasnet_exit(1);
         }
 
@@ -269,6 +373,13 @@ static void * doTest(void *arg) {
         result = my_barrier_wait(0, (j == mynode) ? GASNET_BARRIERFLAG_MISMATCH : 0);
         if (result != GASNET_ERR_BARRIER_MISMATCH) {
           MSG("ERROR: Failed to detect barrier mismatch indicated on notify by node %d.", j);
+          gasnet_exit(1);
+        }
+
+        /* Node j indicates mismatch on barrier: */
+        result = gasnet_barrier(0, (j == mynode) ? GASNET_BARRIERFLAG_MISMATCH : 0);
+        if (result != GASNET_ERR_BARRIER_MISMATCH) {
+          MSG("ERROR: Failed to detect barrier mismatch indicated by node %d.", j);
           gasnet_exit(1);
         }
 
@@ -306,6 +417,19 @@ static void * doTest(void *arg) {
           } else {
             gasnet_barrier_notify(12345, GASNET_BARRIERFLAG_ANONYMOUS);
             result = my_barrier_wait(12345, GASNET_BARRIERFLAG_ANONYMOUS);
+          }
+          if (result != GASNET_ERR_BARRIER_MISMATCH) {
+            MSG("ERROR: Failed to detect mismatched names (on %d and %d) intermixed with anon.", j, k);
+            gasnet_exit(1);
+          }
+
+          /* Mix two names and anonymous (blocking): */
+          if (mynode == j) {
+            result = gasnet_barrier(1592, 0);
+          } else if (mynode == k) {
+            result = gasnet_barrier(1776, 0);
+          } else {
+            result = gasnet_barrier(12345, GASNET_BARRIERFLAG_ANONYMOUS);
           }
           if (result != GASNET_ERR_BARRIER_MISMATCH) {
             MSG("ERROR: Failed to detect mismatched names (on %d and %d) intermixed with anon.", j, k);
