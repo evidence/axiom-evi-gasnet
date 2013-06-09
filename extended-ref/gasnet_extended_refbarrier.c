@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2013/06/09 23:22:26 $
- * $Revision: 1.165 $
+ *     $Date: 2013/06/09 23:27:26 $
+ * $Revision: 1.166 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1968,9 +1968,10 @@ static void gasnete_amcbarrier_init(gasnete_coll_team_t team) {
   gasneti_handler_tableentry_no_bits(gasnete_amcbarrier_done_reqh)  
 
 /* ------------------------------------------------------------------------------------ */
-/* Initialization and barrier mechanism selection */
-
-static gasnete_coll_barrier_type_t gasnete_coll_default_barrier_type=GASNETE_COLL_BARRIER_ENVDEFAULT;
+/* Generic layer called by both gasnet_coll_ and gasnet_ barrier APIs
+ * + implements GASNET_BARRIERFLAG_IMAGES
+ * + dispatches via function pointer(s)
+ */
 
 GASNETI_INLINE(gasnete_coll_barrier_notify_internal)
 void gasnete_coll_barrier_notify_internal(gasnete_coll_team_t team, int id, int flags GASNETE_THREAD_FARG) {
@@ -2053,6 +2054,10 @@ int gasnete_coll_barrier_result_internal(gasnete_coll_team_t team, int *id GASNE
   return (*team->barrier_result)(team, id);
 }
 
+/* ------------------------------------------------------------------------------------ */
+/* gasnete_coll_barrier* layer which just calls the generic layer, above.
+ */
+
 void gasnete_coll_barrier_notify(gasnete_coll_team_t team, int id, int flags GASNETE_THREAD_FARG) {
   gasnete_coll_barrier_notify_internal(team, id, flags GASNETE_THREAD_PASS);
 }
@@ -2073,10 +2078,13 @@ int gasnete_coll_barrier_result(gasnete_coll_team_t team, int *id GASNETE_THREAD
   return gasnete_coll_barrier_result_internal(team, id GASNETE_THREAD_PASS);
 }
 
-
-/*the default gasnet_barrier_* as defined by the spec must only be called amongst the nodes by ONE representative image
-   client is responsible for synchronizing images
+/* ------------------------------------------------------------------------------------ */
+/* gasnet_barrier* layer which calls the generic layer, above, for the "hardwork".
+ * Handles passing TEAM_ALL and THREAD_GET to the generic layer.
+ * Include tracing not (yet?) present in the teams-oriented gasnete_coll_barrier* API
+ * Spec says single thread may call per proc, so no _IMAGES support.
  */
+
 void gasnet_barrier_notify(int id, int flags) {
   GASNETI_TRACE_PRINTF(B, ("BARRIER_NOTIFY(team=GASNET_TEAM_ALL,id=%i,flags=%i)", id, flags));
   #if GASNETI_STATS_OR_TRACE
@@ -2087,7 +2095,6 @@ void gasnet_barrier_notify(int id, int flags) {
   gasneti_assert(!(flags & GASNET_BARRIERFLAG_IMAGES));
   gasnete_coll_barrier_notify_internal(GASNET_TEAM_ALL, id, flags GASNETE_THREAD_GET);
 }
-
 
 int gasnet_barrier_wait(int id, int flags) {
   #if GASNETI_STATS_OR_TRACE
@@ -2109,7 +2116,6 @@ int gasnet_barrier_try(int id, int flags) {
 
   gasneti_assert(GASNET_TEAM_ALL->barrier_try);
   gasneti_assert(!(flags & GASNET_BARRIERFLAG_IMAGES));
-  
   retval = gasnete_coll_barrier_try_internal(GASNET_TEAM_ALL, id, flags GASNETE_THREAD_GET);
 
   GASNETI_TRACE_EVENT_VAL(B,BARRIER_TRY,(retval != GASNET_ERR_NOT_READY));
@@ -2129,7 +2135,8 @@ int gasnet_barrier_result(int *id) {
   return gasnete_coll_barrier_result_internal(GASNET_TEAM_ALL, id GASNETE_THREAD_GET);
 }
 
-
+/* ------------------------------------------------------------------------------------ */
+/* Helpers for possible reuse as the team->barrier* function pointers */
 
 /* This is for use by conduits that don't have a conforming version */
 static int gasnete_barrier_result_default(gasnete_coll_team_t team, int *id) {
@@ -2166,6 +2173,10 @@ int gasnete_barrier_default(gasnete_coll_team_t team, int id, int flags) {
   return retval;
 }
 
+/* ------------------------------------------------------------------------------------ */
+/* Initialization and barrier mechanism selection */
+
+static gasnete_coll_barrier_type_t gasnete_coll_default_barrier_type=GASNETE_COLL_BARRIER_ENVDEFAULT;
 
 extern void gasnete_coll_barrier_init(gasnete_coll_team_t team,  int barrier_type_in) {
   gasnete_coll_barrier_type_t barrier_type= (gasnete_coll_barrier_type_t) barrier_type_in;
