@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2013/06/09 01:08:09 $
- * $Revision: 1.157 $
+ *     $Date: 2013/06/09 04:32:39 $
+ * $Revision: 1.158 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -992,6 +992,26 @@ static int gasnete_amdbarrier_try(gasnete_coll_team_t team, int id, int flags) {
   else return GASNET_ERR_NOT_READY;
 }
 
+static int gasnete_amdbarrier(gasnete_coll_team_t team, int id, int flags) {
+  #if GASNETI_STATS_OR_TRACE
+    gasneti_tick_t barrier_start = GASNETI_TICKS_NOW_IFENABLED(B);
+  #endif
+
+  #ifdef GASNET_FCA_ENABLED
+  int retval = gasnete_fca_barrier(team, &id, &flags);
+  if (retval != GASNET_ERR_RESOURCE) {
+    gasnete_coll_amdbarrier_t * const barrier_data = team->barrier_data;
+    barrier_data->amdbarrier_value = id;
+    barrier_data->amdbarrier_flags = flags;
+    GASNETI_TRACE_EVENT_TIME(B,BARRIER,GASNETI_TICKS_NOW_IFENABLED(B)-barrier_start);
+    return retval;
+  }
+  #endif
+
+  gasnete_amdbarrier_notify(team, id, flags);
+  return gasnete_amdbarrier_wait(team, id, flags);
+}
+
 static int gasnete_amdbarrier_result(gasnete_coll_team_t team, int *id) {
   gasneti_sync_reads();
   if_pf (team->barrier_splitstate != OUTSIDE_BARRIER) {
@@ -1080,6 +1100,7 @@ static void gasnete_amdbarrier_init(gasnete_coll_team_t team) {
   team->barrier_notify = steps ? &gasnete_amdbarrier_notify : &gasnete_amdbarrier_notify_singleton;
   team->barrier_wait =   &gasnete_amdbarrier_wait;
   team->barrier_try =    &gasnete_amdbarrier_try;
+  team->barrier        = &gasnete_amdbarrier;
   team->barrier_result = &gasnete_amdbarrier_result;
   team->barrier_pf =     (team == GASNET_TEAM_ALL) ? &gasnete_amdbarrier_kick_team_all : NULL;
 }
@@ -2088,10 +2109,13 @@ int gasnete_barrier_default(gasnete_coll_team_t team, int id, int flags) {
   int retval;
   
   #ifdef GASNET_FCA_ENABLED
-  retval = gasnete_fca_barrier(team, id, flags);
-  if (retval != GASNET_ERR_RESOURCE) {
-    GASNETI_TRACE_EVENT_TIME(B,BARRIER,GASNETI_TICKS_NOW_IFENABLED(B)-barrier_start);
-    return retval;
+  /* Don't have a generic way to implement gasnet_barrier_result() - so only UNNAMED */
+  if (flags & GASNETE_BARRIERFLAG_UNNAMED) {
+    retval = gasnete_fca_barrier(team, &id, &flags);
+    if (retval != GASNET_ERR_RESOURCE) {
+      GASNETI_TRACE_EVENT_TIME(B,BARRIER,GASNETI_TICKS_NOW_IFENABLED(B)-barrier_start);
+      return retval;
+    }
   }
   #endif
 

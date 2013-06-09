@@ -136,18 +136,17 @@ int gasnet_fca_reduce_all( void *target, const void *source, int fca_op,
 }
 
 /* Helper for use in FCA-aware barriers */
-int gasnete_fca_barrier(gasnete_coll_team_t team, int id, int flags) {
+int gasnete_fca_barrier(gasnete_coll_team_t team, int *id_p, int *flags_p) {
     fca_comm_data_t *fca_comm_data = &team->fca_comm_data;
     int result = GASNET_ERR_RESOURCE; /* assume failure */
+	const int id = *id_p;
+	const int flags = *flags_p;
 
     if ((flags & GASNETE_BARRIERFLAG_UNNAMED) &&
         gasnet_team_fca_is_active(team, _FCA_BARRIER) &&
         !fca_do_barrier(fca_comm_data->fca_comm)) {
         result = GASNET_OK;
-    } else
-#if 0
-	/* This code is correct, but cannot implement gasnet_barrier_result() */
-	if (gasnet_team_fca_is_active(team, _FCA_REDUCE)) {
+    } else if (gasnet_team_fca_is_active(team, _FCA_REDUCE)) {
         fca_reduce_spec_t spec;
         uint64_t sbuf[2], rbuf[2];
         int ret;
@@ -174,9 +173,10 @@ int gasnete_fca_barrier(gasnete_coll_team_t team, int id, int flags) {
         if (!fca_do_all_reduce(fca_comm_data->fca_comm, &spec)) {
             result = (GASNETI_LOWORD(rbuf[0]) == ~GASNETI_LOWORD(rbuf[1]))
                          ? GASNET_OK : GASNET_ERR_BARRIER_MISMATCH;
+            *id_p = GASNETI_LOWORD(rbuf[0]);
+            *flags_p = GASNETI_HIWORD(rbuf[0]) ? 0 : GASNET_BARRIERFLAG_ANONYMOUS;
         }
     }
-#endif
 
     return result;
 }
