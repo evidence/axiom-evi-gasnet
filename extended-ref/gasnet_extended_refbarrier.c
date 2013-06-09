@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2013/06/09 22:55:52 $
- * $Revision: 1.164 $
+ *     $Date: 2013/06/09 23:22:26 $
+ * $Revision: 1.165 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2120,7 +2120,7 @@ int gasnet_barrier(int id, int flags) {
   GASNETI_TRACE_PRINTF(B, ("BARRIER(team=GASNET_TEAM_ALL,id=%i,flags=%i)", id, flags));
 
   gasneti_assert(GASNET_TEAM_ALL->barrier);
-
+  gasneti_assert(!(flags & GASNET_BARRIERFLAG_IMAGES));
   return gasnete_coll_barrier_internal(GASNET_TEAM_ALL, id, flags GASNETE_THREAD_GET);
 }
 
