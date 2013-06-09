@@ -246,7 +246,8 @@ static int __fca_comm_new(gasnet_team_handle_t team)
      if (team_root_id == fca_comm_data->my_rank){
         rcounts = gasneti_calloc(fca_comm_data->proc_count, sizeof *rcounts);
      }
-     gasnet_coll_gather(team, team_root_image, (void *)rcounts, (void *)&info_size, sizeof(int), GASNET_COLL_LOCAL | GASNET_COLL_IN_ALLSYNC | GASNET_COLL_OUT_ALLSYNC);
+     /* TODO: can we loosen this to IN_MYSYNC? */
+     gasnet_coll_gather(team, team_root_image, (void *)rcounts, (void *)&info_size, sizeof(int), GASNET_COLL_LOCAL | GASNET_COLL_IN_ALLSYNC | GASNET_COLL_OUT_MYSYNC);
      
      /* We need to gather all the node managers' infos at team_root node. In general those infos can be of different size on different nodes, thus
         we cannot use gasnet_coll_gather. Moreover, we don't have smth like MPI_Gatherv in gasnet. So the way round is:
@@ -264,7 +265,7 @@ static int __fca_comm_new(gasnet_team_handle_t team)
          memcpy(max_info,my_info,info_size);
      }
      /*broadcasting max_info_size*/
-     gasnet_coll_broadcast(team,(void *)&max_info_size,team_root_id,(void *)&max_info_size, sizeof(int), GASNET_COLL_LOCAL | GASNET_COLL_IN_ALLSYNC | GASNET_COLL_OUT_ALLSYNC);
+     gasnet_coll_broadcast(team,(void *)&max_info_size,team_root_id,(void *)&max_info_size, sizeof(int), GASNET_COLL_LOCAL | GASNET_COLL_IN_MYSYNC | GASNET_COLL_OUT_MYSYNC);
  
      /*prepare memory on not team_root nodes*/
      if (team_root_id != fca_comm_data->my_rank){
@@ -274,7 +275,7 @@ static int __fca_comm_new(gasnet_team_handle_t team)
      }
  
      /*gather my_infos on team_root node: NOTO, all nodes that are not node managers will pass zero max_info to the gasnet_coll_gather*/
-     gasnet_coll_gather(team, team_root_image, max_info, max_info, max_info_size, GASNET_COLL_LOCAL | GASNET_COLL_IN_ALLSYNC | GASNET_COLL_OUT_ALLSYNC);
+     gasnet_coll_gather(team, team_root_image, max_info, max_info, max_info_size, GASNET_COLL_LOCAL | GASNET_COLL_IN_MYSYNC | GASNET_COLL_OUT_MYSYNC);
  
      
      if (team_root_id == fca_comm_data->my_rank) {
@@ -320,7 +321,7 @@ static int __fca_comm_new(gasnet_team_handle_t team)
         gasneti_free(max_info);
  
         
-        gasnet_coll_broadcast(team,(void *)&ret,team_root_id,(void *)&ret, sizeof(int), GASNET_COLL_LOCAL | GASNET_COLL_IN_ALLSYNC | GASNET_COLL_OUT_ALLSYNC);
+        gasnet_coll_broadcast(team,(void *)&ret,team_root_id,(void *)&ret, sizeof(int), GASNET_COLL_LOCAL | GASNET_COLL_IN_MYSYNC | GASNET_COLL_OUT_MYSYNC);
           
         /* Examine comm_new return value */
         if (ret < 0)
@@ -335,8 +336,9 @@ static int __fca_comm_new(gasnet_team_handle_t team)
         }
      
         
+        /* TODO: can we loosen this to OUT_MYSYNC? */
         gasnet_coll_broadcast(team,(void *)&fca_comm_data->fca_comm_desc,team_root_id,(void *)&fca_comm_data->fca_comm_desc,
-                sizeof(fca_comm_data->fca_comm_desc), GASNET_COLL_LOCAL | GASNET_COLL_IN_ALLSYNC | GASNET_COLL_OUT_ALLSYNC);         
+                sizeof(fca_comm_data->fca_comm_desc), GASNET_COLL_LOCAL | GASNET_COLL_IN_MYSYNC | GASNET_COLL_OUT_ALLSYNC);         
      
         FCA_VERBOSE(5,"Received FCA communicator spec, comm_id %d",
                 fca_comm_data->fca_comm_desc.comm_id);
