@@ -143,33 +143,6 @@ static uint64_t primes[] = {
     0xb20b78617a55da61ULL
 };
 
-static uint64_t hostname_hash(const char *name){
-    int i;
-    uint64_t h = 0;
-    int size = strlen(name) / 8;
-    int left = strlen(name) % 8;
-    uint64_t *value = (uint64_t*)name;
-    for (i = 0; i < size; i++) {
-        h = primes[i%5]*h + *value;
-        value++;
-    }
-    if (left){
-        memcpy(value,name+size*8,left);
-        h = primes[i%5]*h + *value;
-    }
-    return h;
-}
-static int construct_node_map(int proc_count)
-{
-    const char *myname = gasneti_gethostname();
-    uint64_t myid = hostname_hash(myname);
-    FCA_VERBOSE(30,"host=%s: rank=%i: id=%lu",myname,gasnet_mynode(),myid);
-    gasnet_fca_component.node_map = (uint64_t *)gasneti_calloc(proc_count,sizeof(uint64_t));
-    gasnet_coll_gather_all(gasnete_coll_team_all, (void *)gasnet_fca_component.node_map,
-            (void *)&myid, sizeof(uint64_t), GASNET_COLL_LOCAL | GASNET_COLL_IN_ALLSYNC | GASNET_COLL_OUT_ALLSYNC);
-    return GASNET_FCA_SUCCESS;
-}
-
 static int register_gasnet_fca_params(void){
     /*default values of control parameters*/
     gasnet_fca_component.fca_enable = 1;
@@ -224,10 +197,6 @@ int gasnet_fca_open(int my_rank)
         return GASNET_FCA_ERROR;
     }
     if (gasnet_fca_component.fca_enable){
-        if (GASNET_FCA_SUCCESS != construct_node_map(gasnet_nodes())){
-            FCA_ERROR("Can not construct node map");
-            return GASNET_FCA_ERROR;
-        }
         if (GASNET_FCA_SUCCESS != gasnet_fca_get_fca_lib(my_rank)){
             FCA_ERROR("error: gasnet_fca_get_fca_lib failed!");
             return GASNET_FCA_ERROR;
@@ -413,7 +382,9 @@ static int __create_fca_comm(gasnet_team_handle_t team)
 
 static int __rank_is_local(int rank, int my_rank)
 {
-    return gasnet_fca_component.node_map[rank] == gasnet_fca_component.node_map[my_rank];
+    return (NULL != gasneti_nodeinfo)
+                ? (gasneti_nodeinfo[rank].host == gasneti_nodeinfo[my_rank].host)
+                : (rank == my_rank);
 }
 static int __get_local_ranks(gasnet_team_handle_t team)
 {
@@ -450,20 +421,6 @@ static int __get_local_ranks(gasnet_team_handle_t team)
     return GASNET_FCA_SUCCESS;
 }
 
-static int have_remote_peers(gasnet_team_handle_t team)
-{
-    size_t i;
-    int ret;
-
-    ret = 0;
-    for (i = 0; i < team->total_ranks; ++i) {
-        if (!__rank_is_local(gasnete_coll_team_rank2node(team,i),gasnet_mynode())) {
-            ret = 1;
-        }
-    }
-    return ret;
-}
-
 int gasnet_team_fca_enable(gasnet_team_handle_t team)
 {
    
@@ -485,7 +442,9 @@ int gasnet_team_fca_enable(gasnet_team_handle_t team)
 
     team->fca_comm_data.my_rank = team->myrank;
     team->fca_comm_data.proc_count = team->total_ranks;
-    if (!have_remote_peers(team)){
+    __get_local_ranks(team);
+
+    if (team->fca_comm_data.num_local_procs == team->fca_comm_data.proc_count) {
         FCA_VERBOSE(20,"All ranks are local");
         return GASNET_FCA_ERROR;
     }
@@ -493,7 +452,6 @@ int gasnet_team_fca_enable(gasnet_team_handle_t team)
     if (team->total_ranks < 2){
         FCA_VERBOSE(20,"team size (%d) < 2",team->total_ranks);
     }
-    __get_local_ranks(team);
     if (GASNET_FCA_SUCCESS != __create_fca_comm(team)){
         FCA_ERROR("Can not create fca communicator");
         return GASNET_FCA_ERROR;

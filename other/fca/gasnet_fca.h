@@ -43,7 +43,6 @@ typedef struct gasnet_fca_component_ {
 
    /* FCA global stuff */
    fca_t *fca_context;                                 /* FCA context handle */
-   uint64_t *node_map;
 } gasnet_fca_component_t;
 
 typedef struct fca_comm_data_ {
