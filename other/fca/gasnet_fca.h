@@ -89,6 +89,8 @@ extern int gasnet_fca_reduce_all( void *target, const void *source, int fca_op,
                                   gasnet_team_handle_t team, int flags);
 extern int gasnet_fca_barrier(gasnet_team_handle_t team);
 
+extern int gasnete_fca_barrier(gasnet_team_handle_t team, int id, int flags);
+
 #define FCA_ERROR(format, ... ) FCA_VERBOSE(0,format, ## __VA_ARGS__)
 #define FCA_VERBOSE(level,format, ... ) do{ \
     if (level <= gasnet_fca_verbose_level) \

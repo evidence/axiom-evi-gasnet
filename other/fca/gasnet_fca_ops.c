@@ -134,3 +134,15 @@ int gasnet_fca_reduce_all( void *target, const void *source, int fca_op,
     }
     return ret;
 }
+
+/* Helper for use in FCA-aware barriers */
+int gasnete_fca_barrier(gasnete_coll_team_t team, int id, int flags) {
+    if (!gasnet_team_fca_is_active(team, _FCA_BARRIER)) {
+        return 0;
+    } else if (flags & GASNETE_BARRIERFLAG_UNNAMED) {
+        return (0 == gasnet_fca_barrier(team));
+    } else {
+        /* TODO: reduction formulation of the named barrier */
+        return 0;
+    }
+}
