@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testbarrier.c,v $
- *     $Date: 2013/06/01 19:48:49 $
- * $Revision: 1.26 $
+ *     $Date: 2013/06/09 04:30:18 $
+ * $Revision: 1.27 $
  * Description: GASNet barrier performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -23,11 +23,26 @@
 int mynode, nodes, iters = 0;
 
 static int do_try = 0;
+static int do_block = 0;
+static int blocking_result = 0;
+
+GASNETT_INLINE(my_barrier_notify)
+void my_barrier_notify(int value, int flags) {
+  int rc;
+  if (do_block) {
+    blocking_result = gasnet_barrier(value, flags);
+  } else {
+    gasnet_barrier_notify(value, flags); 
+  }
+}
+
 GASNETT_INLINE(my_barrier_wait)
 int my_barrier_wait(int value, int flags) {
   int rc;
   if (do_try) {
     do { rc = gasnet_barrier_try(value, flags); } while (rc == GASNET_ERR_NOT_READY);
+  } else if (do_block) {
+    rc = blocking_result;
   } else {
     rc = gasnet_barrier_wait(value, flags); 
   }
@@ -44,18 +59,22 @@ gasnet_handlerentry_t htable[] = { { hidx_done_shorthandler,  done_shorthandler 
 static void * doTest(void *);
 
 int main(int argc, char **argv) {
+  const char *kind = "";
   int pollers = 0;
   int arg = 1;
 
   GASNET_Safe(gasnet_init(&argc, &argv));
   GASNET_Safe(gasnet_attach(htable, 1, TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
+  TEST_COLL_INIT();
 
 #if GASNET_PAR
   test_init("testbarrier", 1, "[-t] [-p polling_threads] (iters)\n"
             "  The -p option gives a number of polling threads to spawn (default is 0).\n"
+            "  The -b option replaces barrier_notify calls with blocking barrier calls\n"
             "  The -t option replaces barrier_wait calls with looping on barrier_try");
 #else
   test_init("testbarrier", 1, "[-t] (iters)\n"
+            "  The -b option replaces barrier_notify calls with blocking barrier calls\n"
             "  The -t option replaces barrier_wait calls with looping on barrier_try");
 #endif
   mynode = gasnet_mynode();
@@ -77,6 +96,11 @@ int main(int argc, char **argv) {
 #endif
    } else if (!strcmp(argv[arg], "-t")) {
     do_try = 1;
+	kind = " polling";
+    arg += 1;
+   } else if (!strcmp(argv[arg], "-b")) {
+    do_block = 1;
+	kind = " blocking";
     arg += 1;
    }
   }
@@ -84,10 +108,15 @@ int main(int argc, char **argv) {
   if (!iters) iters = 10000;
   if (argc-arg >= 2) test_usage();
 
+  if (do_try && do_block) {
+    if (!mynode) fprintf(stderr, "ERROR: The -b and -t options are mutually exclusive.\n");
+	gasnet_exit(1);
+  }
+
 #if !defined(GASNET_PAR)
-  MSG0("Running barrier test with %i iterations...\n",iters);
+  MSG0("Running%s barrier test with %i iterations...\n",kind,iters);
 #else
-  MSG0("Running barrier test with %i iterations and %i extra polling threads...\n",iters,pollers);
+  MSG0("Running%s barrier test with %i iterations and %i extra polling threads...\n",kind,iters,pollers);
 
   if (pollers)
       test_createandjoin_pthreads(pollers+1,doTest,NULL,0);
@@ -117,7 +146,7 @@ static void * doTest(void *arg) {
 
   /* Warmup Named */
   for (i=0; i < warmups; i++) {
-    gasnet_barrier_notify(i, 0);            
+    my_barrier_notify(i, 0);            
     GASNET_Safe(my_barrier_wait(i, 0)); 
     assert_always(!gasnet_barrier_result(&result));
   }
@@ -125,7 +154,7 @@ static void * doTest(void *arg) {
   BARRIER();
   start = TIME();
   for (i=0; i < iters; i++) {
-    gasnet_barrier_notify(i, 0);            
+    my_barrier_notify(i, 0);            
     GASNET_Safe(my_barrier_wait(i, 0)); 
   }
   total = TIME() - start;
@@ -141,7 +170,7 @@ static void * doTest(void *arg) {
 
   /* Warmup Anonymous */
   for (i=0; i < warmups; i++) {
-    gasnet_barrier_notify(0, GASNET_BARRIERFLAG_ANONYMOUS);            
+    my_barrier_notify(0, GASNET_BARRIERFLAG_ANONYMOUS);            
     GASNET_Safe(my_barrier_wait(0, GASNET_BARRIERFLAG_ANONYMOUS)); 
     assert_always(gasnet_barrier_result(&result));
   }
@@ -149,7 +178,7 @@ static void * doTest(void *arg) {
   BARRIER();
   start = TIME();
   for (i=0; i < iters; i++) {
-    gasnet_barrier_notify(0, GASNET_BARRIERFLAG_ANONYMOUS);            
+    my_barrier_notify(0, GASNET_BARRIERFLAG_ANONYMOUS);            
     GASNET_Safe(my_barrier_wait(0, GASNET_BARRIERFLAG_ANONYMOUS)); 
   }
   total = TIME() - start;
@@ -175,7 +204,7 @@ static void * doTest(void *arg) {
     for (i=0; i < warmups; i++, parity ^= 1) {
       int value = parity ? iters : 0;
       int flags = parity ? 0 : GASNET_BARRIERFLAG_ANONYMOUS;
-      gasnet_barrier_notify(value, flags);
+      my_barrier_notify(value, flags);
       GASNET_Safe(my_barrier_wait(value, flags)); 
       assert_always(!gasnet_barrier_result(&result) || (nodes == 1));
     }
@@ -185,7 +214,7 @@ static void * doTest(void *arg) {
     for (i=0; i < iters; i++, parity ^= 1) {
       int value = parity ? iters : 0;
       int flags = parity ? 0 : GASNET_BARRIERFLAG_ANONYMOUS;
-      gasnet_barrier_notify(value, flags);
+      my_barrier_notify(value, flags);
       GASNET_Safe(my_barrier_wait(value, flags)); 
     }
     total = TIME() - start;
@@ -203,7 +232,7 @@ static void * doTest(void *arg) {
 #if TEST_UNNAMED_BARRIER
   /* Warmup Unnamed */
   for (i=0; i < warmups; i++) {
-    gasnet_barrier_notify(0, GASNET_BARRIERFLAG_UNNAMED);            
+    my_barrier_notify(0, GASNET_BARRIERFLAG_UNNAMED);            
     GASNET_Safe(my_barrier_wait(0, GASNET_BARRIERFLAG_UNNAMED)); 
     assert_always(gasnet_barrier_result(&result));
   }
@@ -211,7 +240,7 @@ static void * doTest(void *arg) {
   BARRIER();
   start = TIME();
   for (i=0; i < iters; i++) {
-    gasnet_barrier_notify(0, GASNET_BARRIERFLAG_UNNAMED);            
+    my_barrier_notify(0, GASNET_BARRIERFLAG_UNNAMED);            
     GASNET_Safe(my_barrier_wait(0, GASNET_BARRIERFLAG_UNNAMED)); 
   }
   total = TIME() - start;
