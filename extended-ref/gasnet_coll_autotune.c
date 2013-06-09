@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_autotune.c,v $
- *     $Date: 2013/06/07 19:26:59 $
- * $Revision: 1.36 $
+ *     $Date: 2013/06/09 23:00:40 $
+ * $Revision: 1.37 $
  * Description: GASNet Autotuner Implementation
  * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>, Paul H. Hargrove <PHHargrove@lbl.gov>, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1335,11 +1335,6 @@ gasnete_coll_autotune_info_t* gasnete_coll_autotune_init(gasnet_team_handle_t te
 
 
 
-#define GASNETE_COLL_AUTOTUNE_BARRIER(TEAM) do { \
-    gasnet_coll_barrier_notify(TEAM, 0,GASNET_BARRIERFLAG_ANONYMOUS); \
-    gasnet_coll_barrier_wait(TEAM, 0, GASNET_BARRIERFLAG_ANONYMOUS); \
-} while (0)
-
 gasnete_coll_tree_type_t gasnete_coll_autotune_get_bcast_tree_type(gasnete_coll_autotune_info_t* autotune_info, 
                                                                    gasnet_coll_optype_t op_type, 
                                                                    gasnet_node_t root, size_t nbytes, int flags) {
@@ -1356,11 +1351,7 @@ gasnete_coll_tree_type_t gasnete_coll_autotune_get_bcast_tree_type(gasnete_coll_
 	if(autotune_info->bcast_tree_radix_limits[log2_nbytes] == -1) {
 		/*perform search across fanouts*/
 		/* do a barrier to ensure all threads have arrived*/
-		GASNETE_COLL_AUTOTUNE_BARRIER(autotune_info->team);
-   /* XXX: Is something missing here? */ 
-		
-		
-		GASNETE_COLL_AUTOTUNE_BARRIER(autotune_info->team);
+		gasnet_coll_barrier(autotune_info->team, 0, GASNET_BARRIERFLAG_UNNAMED);
 	} else {
     /*for larger arrays just use the maximum setting that we've already found*/
 		ret = gasnete_coll_make_tree_type_str((char*) "KNOMIAL_TREE,2");
@@ -1879,9 +1870,7 @@ gasnete_coll_autotune_index_entry_t *gasnete_coll_load_autotuner_defaults(gasnet
 /*run the given op on the given arguments*/
 /*and return the best one*/
 int gasnete_coll_autotune_barrier(gasnete_coll_team_t team) {
-  int ret;
-  gasnet_coll_barrier_notify(team, 0, GASNET_BARRIERFLAG_ANONYMOUS | GASNET_BARRIERFLAG_IMAGES);
-  ret = gasnet_coll_barrier_wait(team, 0, GASNET_BARRIERFLAG_ANONYMOUS | GASNET_BARRIERFLAG_IMAGES);
+  int ret = gasnet_coll_barrier(team, 0, GASNET_BARRIERFLAG_UNNAMED | GASNET_BARRIERFLAG_IMAGES);
   gasneti_assert_always(ret == GASNET_OK);
   return ret;
 }

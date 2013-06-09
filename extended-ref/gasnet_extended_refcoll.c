@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refcoll.c,v $
- *     $Date: 2012/10/12 23:46:45 $
- * $Revision: 1.104 $
+ *     $Date: 2013/06/09 23:00:40 $
+ * $Revision: 1.105 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>, Paul H. Hargrove <PHHargrove@lbl.gov>, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1161,8 +1161,7 @@ extern void gasnete_coll_init(const gasnet_image_t images[], gasnet_image_t my_i
 
     /* This barrier, together with the thread barrier that follows, ensures all global
        collectives initialization is complete before any collectives can be called. */
-    gasnet_barrier_notify((int)GASNET_TEAM_ALL->sequence,0);
-    gasnet_barrier_wait((int)GASNET_TEAM_ALL->sequence,0);
+    gasnet_barrier((int)GASNET_TEAM_ALL->sequence,0);
   }
 
   if (images) {
@@ -1263,7 +1262,7 @@ int gasnete_coll_consensus_do_try(gasnete_coll_team_t team) {
   }
     return 0;
 #else
-    int rc = gasnet_coll_barrier_try(team, 0, GASNET_BARRIERFLAG_ANONYMOUS);
+    int rc = gasnet_coll_barrier_try(team, 0, GASNET_BARRIERFLAG_UNNAMED);
     if_pt (rc == GASNET_OK) {
       /* A barrier is complete, advance */
       ++team->consensus_id;
@@ -1279,7 +1278,7 @@ void gasnete_coll_consensus_do_notify(gasnete_coll_team_t team) {
 #if GASNET_DEBUG
   gasnet_coll_barrier_notify(team, team->consensus_id, 0);
 #else
-  gasnet_coll_barrier_notify(team, 0, GASNET_BARRIERFLAG_ANONYMOUS);
+  gasnet_coll_barrier_notify(team, 0, GASNET_BARRIERFLAG_UNNAMED);
 #endif
    
 }
