@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2013/06/07 19:36:31 $
- * $Revision: 1.47 $
+ *     $Date: 2013/06/10 01:45:18 $
+ * $Revision: 1.48 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -921,9 +921,7 @@ static void gasnete_parbarrier_notify(gasnete_coll_team_t team, int id, int flag
   pami_xfer_t *op = &barr->reduce_op;
   
   gasneti_sync_reads();
-  if_pf (team->barrier_splitstate == INSIDE_BARRIER) {
-    gasneti_fatalerror("gasnet_barrier_notify() called twice in a row");
-  }
+  GASNETE_SPLITSTATE_NOTIFY(team);
 
   ++barr->count;
 
@@ -953,7 +951,7 @@ static void gasnete_parbarrier_notify(gasnete_coll_team_t team, int id, int flag
   }
   GASNETC_PAMI_UNLOCK(gasnetc_context);
   
-  team->barrier_splitstate = INSIDE_BARRIER;
+  GASNETE_SPLITSTATE_ENTER(team);
   gasneti_sync_writes();
 }
 
@@ -970,7 +968,7 @@ int gasnete_parbarrier_finish(gasnete_coll_team_t team, int id, int flags) {
     retval = GASNET_ERR_BARRIER_MISMATCH;
   }
 
-  team->barrier_splitstate = OUTSIDE_BARRIER;
+  GASNETE_SPLITSTATE_LEAVE(team);
   gasneti_sync_writes();
   return retval;
 }
@@ -979,9 +977,7 @@ static int gasnete_parbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
   gasnete_parbarrier_t *barr = team->barrier_data;
 
   gasneti_sync_reads();
-  if_pf (team->barrier_splitstate == OUTSIDE_BARRIER) {
-    gasneti_fatalerror("gasnet_barrier_wait() called without a matching notify");
-  }
+  GASNETE_SPLITSTATE_WAIT(team);
 
   gasneti_polluntil(barr->done == barr->count);
 
@@ -992,9 +988,7 @@ static int gasnete_parbarrier_try(gasnete_coll_team_t team, int id, int flags) {
   gasnete_parbarrier_t *barr = team->barrier_data;
 
   gasneti_sync_reads();
-  if_pf (team->barrier_splitstate == OUTSIDE_BARRIER) {
-    gasneti_fatalerror("gasnet_barrier_notify() called without a matching notify");
-  }
+  GASNETE_SPLITSTATE_TRY(team);
 
   GASNETI_SAFE(gasneti_AMPoll());
 
@@ -1073,7 +1067,6 @@ static void gasnete_parbarrier_init(gasnete_coll_team_t team) {
   team->barrier_result = &gasnete_parbarrier_result;
   team->barrier_pf =     NULL; /* AMPoll is sufficient */
 
-  team->barrier_splitstate = OUTSIDE_BARRIER;
   team->barrier_data = barr;
 }
 
@@ -1225,9 +1218,7 @@ static void gasnete_pdbarrier_notify(gasnete_coll_team_t team, int id, int flags
   
   gasneti_sync_reads();
   phase = barr->phase ^ 1;
-  if_pf (team->barrier_splitstate == INSIDE_BARRIER) {
-    gasneti_fatalerror("gasnet_barrier_notify() called twice in a row");
-  }
+  GASNETE_SPLITSTATE_NOTIFY(team);
 
 #if GASNETI_PSHM_BARRIER_HIER
   if (barr->pshm_data) {
@@ -1257,7 +1248,7 @@ static void gasnete_pdbarrier_notify(gasnete_coll_team_t team, int id, int flags
   }
   
   barr->phase = phase;
-  team->barrier_splitstate = INSIDE_BARRIER;
+  GASNETE_SPLITSTATE_ENTER(team);
   gasneti_sync_writes();
 }
 
@@ -1285,7 +1276,7 @@ int gasnete_pdbarrier_finish(
   state->flags   = GASNET_BARRIERFLAG_ANONYMOUS;
   state->arrived = 0;
   state->next    = 0;
-  team->barrier_splitstate = OUTSIDE_BARRIER;
+  GASNETE_SPLITSTATE_LEAVE(team);
 
 #if GASNETI_PSHM_BARRIER_HIER
   if (barr->pshm_data) {
@@ -1308,9 +1299,7 @@ static int gasnete_pdbarrier_wait(gasnete_coll_team_t team, int id, int flags) {
   int retval = GASNET_OK;
 
   gasneti_sync_reads();
-  if_pf (team->barrier_splitstate == OUTSIDE_BARRIER) {
-    gasneti_fatalerror("gasnet_barrier_wait() called without a matching notify");
-  }
+  GASNETE_SPLITSTATE_WAIT(team);
 
 #if GASNETI_PSHM_BARRIER_HIER
   if (barr->pshm_data) {
@@ -1320,7 +1309,7 @@ static int gasnete_pdbarrier_wait(gasnete_coll_team_t team, int id, int flags) {
       /* Once the active peer signals done, we can return */
       barr->prev_value = pshm_bdata->shared->value;
       barr->prev_flags = pshm_bdata->shared->flags;
-      team->barrier_splitstate = OUTSIDE_BARRIER;
+      GASNETE_SPLITSTATE_LEAVE(team);
       gasneti_sync_writes(); /* ensure all state changes committed before return */
       return retval;
     }
@@ -1339,9 +1328,7 @@ static int gasnete_pdbarrier_try(gasnete_coll_team_t team, int id, int flags) {
   int retval = GASNET_ERR_NOT_READY;
 
   gasneti_sync_reads();
-  if_pf (team->barrier_splitstate == OUTSIDE_BARRIER) {
-    gasneti_fatalerror("gasnet_barrier_notify() called without a matching notify");
-  }
+  GASNETE_SPLITSTATE_TRY(team);
 
   GASNETI_SAFE(gasneti_AMPoll());
 
@@ -1491,7 +1478,6 @@ static void gasnete_pdbarrier_init(gasnete_coll_team_t team) {
   team->barrier_result = &gasnete_pdbarrier_result;
   team->barrier_pf =     NULL; /* AMPoll is sufficient */
 
-  team->barrier_splitstate = OUTSIDE_BARRIER;
   team->barrier_data = barr;
 
   gasneti_leak(barr);
