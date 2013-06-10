@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/09 07:43:31 $
- * $Revision: 1.67 $
+ *     $Date: 2013/06/10 01:15:08 $
+ * $Revision: 1.68 $
  * Description: GASNet Extended API over VAPI/IB Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -908,8 +908,7 @@ static void gasnete_ibdbarrier_notify(gasnete_coll_team_t team, int id, int flag
   int do_send = 1;
   int slot;
 
-  if_pf(team->barrier_splitstate == INSIDE_BARRIER) 
-    gasneti_fatalerror("gasnet_barrier_notify() called twice in a row");
+  GASNETE_SPLITSTATE_NOTIFY(team);
 
 #if GASNETI_PSHM_BARRIER_HIER
   if (barrier_data->barrier_pshm) {
@@ -934,7 +933,7 @@ static void gasnete_ibdbarrier_notify(gasnete_coll_team_t team, int id, int flag
   }
 
   /*  update state */
-  team->barrier_splitstate = INSIDE_BARRIER;
+  GASNETE_SPLITSTATE_ENTER(team);
   gasneti_sync_writes(); /* ensure all state changes committed before return */
 }
 
@@ -942,8 +941,7 @@ static void gasnete_ibdbarrier_notify(gasnete_coll_team_t team, int id, int flag
 static void gasnete_ibdbarrier_notify_singleton(gasnete_coll_team_t team, int id, int flags) {
   gasnete_coll_ibdbarrier_t *barrier_data = team->barrier_data;
 
-  if_pf(team->barrier_splitstate == INSIDE_BARRIER) 
-    gasneti_fatalerror("gasnet_barrier_notify() called twice in a row");
+  GASNETE_SPLITSTATE_NOTIFY(team);
 
 #if GASNETI_PSHM_BARRIER_HIER
   if (barrier_data->barrier_pshm) {
@@ -958,7 +956,7 @@ static void gasnete_ibdbarrier_notify_singleton(gasnete_coll_team_t team, int id
   barrier_data->barrier_flags = flags;
 
   /*  update state */
-  team->barrier_splitstate = INSIDE_BARRIER;
+  GASNETE_SPLITSTATE_ENTER(team);
   gasneti_sync_writes(); /* ensure all state changes committed before return */
 }
 
@@ -969,9 +967,8 @@ static int gasnete_ibdbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
 #endif
   int retval = GASNET_OK;
 
-  gasneti_sync_reads(); /* ensure we read correct barrier_splitstate */
-  if_pf(team->barrier_splitstate == OUTSIDE_BARRIER) 
-    gasneti_fatalerror("gasnet_barrier_wait() called without a matching notify");
+  gasneti_sync_reads(); /* ensure we read correct state */
+  GASNETE_SPLITSTATE_WAIT(team);
 
 #if GASNETI_PSHM_BARRIER_HIER
   if (pshm_bdata) {
@@ -981,7 +978,7 @@ static int gasnete_ibdbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
       /* Once the active peer signals done, we can return */
       barrier_data->barrier_value = pshm_bdata->shared->value;
       barrier_data->barrier_flags = pshm_bdata->shared->flags;
-      team->barrier_splitstate = OUTSIDE_BARRIER;
+      GASNETE_SPLITSTATE_LEAVE(team);
       gasneti_sync_writes(); /* ensure all state changes committed before return */
       return retval;
     }
@@ -1014,7 +1011,7 @@ static int gasnete_ibdbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
   }
 
   /*  update state */
-  team->barrier_splitstate = OUTSIDE_BARRIER;
+  GASNETE_SPLITSTATE_LEAVE(team);
 #if GASNETI_PSHM_BARRIER_HIER
   if (pshm_bdata) {
     /* Signal any passive peers w/ the final result */
@@ -1031,10 +1028,9 @@ static int gasnete_ibdbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
 
 static int gasnete_ibdbarrier_try(gasnete_coll_team_t team, int id, int flags) {
   gasnete_coll_ibdbarrier_t *barrier_data = team->barrier_data;
-  gasneti_sync_reads(); /* ensure we read correct barrier_splitstate */
+  gasneti_sync_reads(); /* ensure we read correct state */
 
-  if_pf(team->barrier_splitstate == OUTSIDE_BARRIER) 
-    gasneti_fatalerror("gasnet_barrier_try() called without a matching notify");
+  GASNETE_SPLITSTATE_TRY(team);
 
   GASNETI_SAFE(gasneti_AMPoll());
 
@@ -1076,9 +1072,7 @@ static int gasnete_ibdbarrier(gasnete_coll_team_t team, int id, int flags) {
 
 static int gasnete_ibdbarrier_result(gasnete_coll_team_t team, int *id) {
   gasneti_sync_reads();
-  if_pf (team->barrier_splitstate != OUTSIDE_BARRIER) {
-    gasneti_fatalerror("gasnet_barrier_result() called between notify and wait/try");
-  }
+  GASNETE_SPLITSTATE_RESULT(team);
 
   { const gasnete_coll_ibdbarrier_t * const barrier_data = team->barrier_data;
     *id = barrier_data->barrier_value;
@@ -1116,7 +1110,7 @@ static void gasnete_ibdbarrier_init(gasnete_coll_team_t team) {
   gasneti_assert(team == GASNET_TEAM_ALL); /* TODO: deal w/ in-segment allocation */
 
   gasnete_ibdbarrier_lock_init(&barrier_data->barrier_lock);
-  team->barrier_splitstate = OUTSIDE_BARRIER;
+  GASNETE_SPLITSTATE_LEAVE(team);
 
   /* determine barrier size (number of steps) */
   for (steps=0, j=1; j < total_ranks; ++steps, j*=2) ;
