@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_extended.c,v $
- *     $Date: 2013/05/31 03:42:19 $
- * $Revision: 1.41 $
+ *     $Date: 2013/06/10 02:49:25 $
+ * $Revision: 1.42 $
  * Description: GASNet Extended API SHMEM Implementation
  * Copyright 2003, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -319,8 +319,7 @@ static void gasnete_barrier_broadcastmismatch(void)) {
 
 static void gasnete_shmembarrier_notify(gasnete_coll_team_t team, int id, int flags) {
     uint64_t curval;
-    if_pf (team->barrier_splitstate == INSIDE_BARRIER)
-	gasneti_fatalerror("gasnet_barrier_notify() called twice in a row");
+    GASNETE_SPLITSTATE_NOTIFY_ENTER(team);
 
     barrier_phase = !barrier_phase;
     barrier_state[barrier_phase].barrier_value = id;
@@ -358,7 +357,6 @@ static void gasnete_shmembarrier_notify(gasnete_coll_team_t team, int id, int fl
 	shmem_long_finc((long*)&barrier_notify_ctr[barrier_phase], 0);
     #endif
 
-    team->barrier_splitstate = INSIDE_BARRIER;
     gasneti_sync_writes();
 }
 
@@ -371,11 +369,8 @@ static int gasnete_shmembarrier_wait(gasnete_coll_team_t team, int id, int flags
 
     gasneti_sync_reads();
 
-    if_pf(team->barrier_splitstate == OUTSIDE_BARRIER) 
-	gasneti_fatalerror(
-	    "gasnet_barrier_wait() called without a matching notify");
+    GASNETE_SPLITSTATE_WAIT_LEAVE(team);
 
-    team->barrier_splitstate = OUTSIDE_BARRIER;
     gasneti_sync_writes();
 
     if (gasneti_mynode == 0) {
@@ -446,14 +441,12 @@ static int gasnete_shmembarrier_wait(gasnete_coll_team_t team, int id, int flags
 }
 
 static int gasnete_shmembarrier_try(gasnete_coll_team_t team, int id, int flags) {
-    if_pf(team->barrier_splitstate == OUTSIDE_BARRIER)
-	gasneti_fatalerror("gasnet_barrier_try() called without a matching notify");
+    GASNETE_SPLITSTATE_TRY(team);
     return gasnete_shmembarrier_wait(team, id, flags);
 }
 
 static int gasnete_shmembarrier_result(gasnete_coll_team_t team, int *id) {
-    if_pf(team->barrier_splitstate != OUTSIDE_BARRIER)
-	gasneti_fatalerror("gasnet_barrier_result() called between notify and wait/try");
+   GASNETE_SPLITSTATE_RESULT(team);
 
    *id = GASNETI_LOWORD(barrier_result);
    return (barrier_result == BARRIER_ANONVAL);
