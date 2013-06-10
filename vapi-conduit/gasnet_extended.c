@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/10 01:22:24 $
- * $Revision: 1.69 $
+ *     $Date: 2013/06/10 02:16:07 $
+ * $Revision: 1.70 $
  * Description: GASNet Extended API over VAPI/IB Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -908,7 +908,7 @@ static void gasnete_ibdbarrier_notify(gasnete_coll_team_t team, int id, int flag
   int do_send = 1;
   int slot;
 
-  GASNETE_SPLITSTATE_NOTIFY(team);
+  GASNETE_SPLITSTATE_NOTIFY_ENTER(team);
 
 #if GASNETI_PSHM_BARRIER_HIER
   if (barrier_data->barrier_pshm) {
@@ -933,7 +933,6 @@ static void gasnete_ibdbarrier_notify(gasnete_coll_team_t team, int id, int flag
   }
 
   /*  update state */
-  GASNETE_SPLITSTATE_ENTER(team);
   gasneti_sync_writes(); /* ensure all state changes committed before return */
 }
 
@@ -941,7 +940,7 @@ static void gasnete_ibdbarrier_notify(gasnete_coll_team_t team, int id, int flag
 static void gasnete_ibdbarrier_notify_singleton(gasnete_coll_team_t team, int id, int flags) {
   gasnete_coll_ibdbarrier_t *barrier_data = team->barrier_data;
 
-  GASNETE_SPLITSTATE_NOTIFY(team);
+  GASNETE_SPLITSTATE_NOTIFY_ENTER(team);
 
 #if GASNETI_PSHM_BARRIER_HIER
   if (barrier_data->barrier_pshm) {
@@ -956,7 +955,6 @@ static void gasnete_ibdbarrier_notify_singleton(gasnete_coll_team_t team, int id
   barrier_data->barrier_flags = flags;
 
   /*  update state */
-  GASNETE_SPLITSTATE_ENTER(team);
   gasneti_sync_writes(); /* ensure all state changes committed before return */
 }
 
@@ -968,7 +966,7 @@ static int gasnete_ibdbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
   int retval = GASNET_OK;
 
   gasneti_sync_reads(); /* ensure we read correct state */
-  GASNETE_SPLITSTATE_WAIT(team);
+  GASNETE_SPLITSTATE_WAIT_LEAVE(team);
 
 #if GASNETI_PSHM_BARRIER_HIER
   if (pshm_bdata) {
@@ -978,7 +976,6 @@ static int gasnete_ibdbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
       /* Once the active peer signals done, we can return */
       barrier_data->barrier_value = pshm_bdata->shared->value;
       barrier_data->barrier_flags = pshm_bdata->shared->flags;
-      GASNETE_SPLITSTATE_LEAVE(team);
       gasneti_sync_writes(); /* ensure all state changes committed before return */
       return retval;
     }
@@ -1011,7 +1008,6 @@ static int gasnete_ibdbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
   }
 
   /*  update state */
-  GASNETE_SPLITSTATE_LEAVE(team);
 #if GASNETI_PSHM_BARRIER_HIER
   if (pshm_bdata) {
     /* Signal any passive peers w/ the final result */

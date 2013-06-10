@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2013/06/10 01:48:15 $
- * $Revision: 1.49 $
+ *     $Date: 2013/06/10 02:16:05 $
+ * $Revision: 1.50 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -921,7 +921,7 @@ static void gasnete_parbarrier_notify(gasnete_coll_team_t team, int id, int flag
   pami_xfer_t *op = &barr->reduce_op;
   
   gasneti_sync_reads();
-  GASNETE_SPLITSTATE_NOTIFY(team);
+  GASNETE_SPLITSTATE_NOTIFY_ENTER(team);
 
   ++barr->count;
 
@@ -951,7 +951,6 @@ static void gasnete_parbarrier_notify(gasnete_coll_team_t team, int id, int flag
   }
   GASNETC_PAMI_UNLOCK(gasnetc_context);
   
-  GASNETE_SPLITSTATE_ENTER(team);
   gasneti_sync_writes();
 }
 
@@ -1216,7 +1215,7 @@ static void gasnete_pdbarrier_notify(gasnete_coll_team_t team, int id, int flags
   
   gasneti_sync_reads();
   phase = barr->phase ^ 1;
-  GASNETE_SPLITSTATE_NOTIFY(team);
+  GASNETE_SPLITSTATE_NOTIFY_ENTER(team);
 
 #if GASNETI_PSHM_BARRIER_HIER
   if (barr->pshm_data) {
@@ -1246,7 +1245,6 @@ static void gasnete_pdbarrier_notify(gasnete_coll_team_t team, int id, int flags
   }
   
   barr->phase = phase;
-  GASNETE_SPLITSTATE_ENTER(team);
   gasneti_sync_writes();
 }
 

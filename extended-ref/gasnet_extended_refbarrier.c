@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2013/06/10 01:22:22 $
- * $Revision: 1.169 $
+ *     $Date: 2013/06/10 02:16:03 $
+ * $Revision: 1.170 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -82,6 +82,15 @@ void gasnete_barrier_pf_disable(gasnete_coll_team_t team) {
     GASNETE_SPLITSTATE_CHECK(team,INSIDE_BARRIER,"gasnet_barrier() called between notify and wait/try")
 #define GASNETE_SPLITSTATE_RESULT(_team) \
     GASNETE_SPLITSTATE_CHECK(team,INSIDE_BARRIER,"gasnet_barrier_result() called between notify and wait/try")
+
+#define GASNETE_SPLITSTATE_NOTIFY_ENTER(_team) do { \
+    GASNETE_SPLITSTATE_NOTIFY(_team);               \
+    GASNETE_SPLITSTATE_ENTER(_team);                \
+  } while(0)
+#define GASNETE_SPLITSTATE_WAIT_LEAVE(_team) do { \
+    GASNETE_SPLITSTATE_WAIT(_team);               \
+    GASNETE_SPLITSTATE_LEAVE(_team);              \
+  } while(0)
 
 /* ------------------------------------------------------------------------------------ */
 /* 
@@ -634,7 +643,7 @@ gasnete_pshmbarrier_init_hier(gasnete_coll_team_t team, int *size_p, int *rank_p
 
 static void gasnete_pshmbarrier_notify(gasnete_coll_team_t team, int id, int flags) {
   gasneti_sync_reads(); /* ensure we read up-to-date phase, etc */
-  GASNETE_SPLITSTATE_NOTIFY(team);
+  GASNETE_SPLITSTATE_NOTIFY_ENTER(team);
 
   (void)gasnete_pshmbarrier_notify_inner(team->barrier_data, id, flags);
   
@@ -643,18 +652,16 @@ static void gasnete_pshmbarrier_notify(gasnete_coll_team_t team, int id, int fla
 #else
   /* No sync_writes() needed due to WMB inside notify_inner */
 #endif
-  GASNETE_SPLITSTATE_ENTER(team);
 }
 
 static int gasnete_pshmbarrier_wait(gasnete_coll_team_t team, int id, int flags) {
   gasneti_sync_reads(); /* ensure we read up-to-date phase, etc */
-  GASNETE_SPLITSTATE_WAIT(team);
+  GASNETE_SPLITSTATE_WAIT_LEAVE(team);
 
   {
     const int result = gasnete_pshmbarrier_wait_inner(team->barrier_data, id, flags, 0);
     gasneti_assert(result != GASNET_ERR_NOT_READY);
 
-    GASNETE_SPLITSTATE_LEAVE(team);
     gasneti_sync_writes();
     return result;
   }
@@ -847,7 +854,7 @@ static void gasnete_amdbarrier_notify(gasnete_coll_team_t team, int id, int flag
   int phase;
   
   gasneti_sync_reads(); /* ensure we read up-to-date phase, etc */
-  GASNETE_SPLITSTATE_NOTIFY(team);
+  GASNETE_SPLITSTATE_NOTIFY_ENTER(team);
 
 #if GASNETI_PSHM_BARRIER_HIER
   if (barrier_data->amdbarrier_pshm) {
@@ -880,7 +887,6 @@ static void gasnete_amdbarrier_notify(gasnete_coll_team_t team, int id, int flag
   }
 
   /*  update state */
-  GASNETE_SPLITSTATE_ENTER(team);
   gasneti_sync_writes(); /* ensure all state changes committed before return */
 }
 
@@ -889,7 +895,7 @@ static void gasnete_amdbarrier_notify_singleton(gasnete_coll_team_t team, int id
   int phase;
   
   gasneti_sync_reads(); /* ensure we read up-to-date phase, etc */
-  GASNETE_SPLITSTATE_NOTIFY(team);
+  GASNETE_SPLITSTATE_NOTIFY_ENTER(team);
 
 #if GASNETI_PSHM_BARRIER_HIER
   if (barrier_data->amdbarrier_pshm) {
@@ -915,7 +921,6 @@ static void gasnete_amdbarrier_notify_singleton(gasnete_coll_team_t team, int id
   barrier_data->amdbarrier_recv_flags[phase] = flags;
 
   /*  update state */
-  GASNETE_SPLITSTATE_ENTER(team);
   gasneti_sync_writes(); /* ensure all state changes committed before return */
 }
 
@@ -931,7 +936,7 @@ static int gasnete_amdbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
   int phase;
   gasneti_sync_reads(); /* ensure we read up-to-date phase, etc */
   phase = barrier_data->amdbarrier_phase;
-  GASNETE_SPLITSTATE_WAIT(team);
+  GASNETE_SPLITSTATE_WAIT_LEAVE(team);
 
 #if GASNETI_PSHM_BARRIER_HIER
   if (pshm_bdata) {
@@ -941,7 +946,6 @@ static int gasnete_amdbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
       /* Once the active peer signals done, we can return */
       barrier_data->amdbarrier_value = pshm_bdata->shared->value;
       barrier_data->amdbarrier_flags = pshm_bdata->shared->flags;
-      GASNETE_SPLITSTATE_LEAVE(team);
       gasneti_sync_writes(); /* ensure all state changes committed before return */
       return retval;
     }
@@ -971,7 +975,6 @@ static int gasnete_amdbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
   barrier_data->amdbarrier_flags = barrier_data->amdbarrier_recv_flags[phase];
 
   /*  update state */
-  GASNETE_SPLITSTATE_LEAVE(team);
   barrier_data->amdbarrier_recv_flags[phase] = GASNET_BARRIERFLAG_ANONYMOUS;
 #if GASNETI_PSHM_BARRIER_HIER
   if (pshm_bdata) {
@@ -1360,7 +1363,7 @@ static void gasnete_rmdbarrier_notify(gasnete_coll_team_t team, int id, int flag
   int do_send = 1;
   int slot;
 
-  GASNETE_SPLITSTATE_NOTIFY(team);
+  GASNETE_SPLITSTATE_NOTIFY_ENTER(team);
 
 #if GASNETI_PSHM_BARRIER_HIER
   if (barrier_data->barrier_pshm) {
@@ -1385,7 +1388,6 @@ static void gasnete_rmdbarrier_notify(gasnete_coll_team_t team, int id, int flag
   }
 
   /*  update state */
-  GASNETE_SPLITSTATE_ENTER(team);
   gasneti_sync_writes(); /* ensure all state changes committed before return */
 }
 
@@ -1393,7 +1395,7 @@ static void gasnete_rmdbarrier_notify(gasnete_coll_team_t team, int id, int flag
 static void gasnete_rmdbarrier_notify_singleton(gasnete_coll_team_t team, int id, int flags) {
   gasnete_coll_rmdbarrier_t *barrier_data = team->barrier_data;
 
-  GASNETE_SPLITSTATE_NOTIFY(team);
+  GASNETE_SPLITSTATE_NOTIFY_ENTER(team);
 
 #if GASNETI_PSHM_BARRIER_HIER
   if (barrier_data->barrier_pshm) {
@@ -1408,7 +1410,6 @@ static void gasnete_rmdbarrier_notify_singleton(gasnete_coll_team_t team, int id
   barrier_data->barrier_flags = flags;
 
   /*  update state */
-  GASNETE_SPLITSTATE_ENTER(team);
   gasneti_sync_writes(); /* ensure all state changes committed before return */
 }
 
@@ -1420,7 +1421,7 @@ static int gasnete_rmdbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
   int retval = GASNET_OK;
 
   gasneti_sync_reads(); /* ensure we read only up-to-date values */
-  GASNETE_SPLITSTATE_WAIT(team);
+  GASNETE_SPLITSTATE_WAIT_LEAVE(team);
 
 #if GASNETI_PSHM_BARRIER_HIER
   if (pshm_bdata) {
@@ -1430,7 +1431,6 @@ static int gasnete_rmdbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
       /* Once the active peer signals done, we can return */
       barrier_data->barrier_value = pshm_bdata->shared->value;
       barrier_data->barrier_flags = pshm_bdata->shared->flags;
-      GASNETE_SPLITSTATE_LEAVE(team);
       gasneti_sync_writes(); /* ensure all state changes committed before return */
       return retval;
     }
@@ -1471,7 +1471,6 @@ static int gasnete_rmdbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
 #endif
 
   /*  update state */
-  GASNETE_SPLITSTATE_LEAVE(team);
 #if GASNETI_PSHM_BARRIER_HIER
   if (pshm_bdata) {
     /* Signal any passive peers w/ the final result */
@@ -1786,7 +1785,7 @@ static void gasnete_amcbarrier_notify(gasnete_coll_team_t team, int id, int flag
   int phase;
 
   gasneti_sync_reads(); /* ensure we read up-to-date phase, etc */
-  GASNETE_SPLITSTATE_NOTIFY(team);
+  GASNETE_SPLITSTATE_NOTIFY_ENTER(team);
 
   phase = !barrier_data->amcbarrier_phase; /*  enter new phase */
   barrier_data->amcbarrier_phase = phase;
@@ -1815,7 +1814,6 @@ static void gasnete_amcbarrier_notify(gasnete_coll_team_t team, int id, int flag
   }
 
   /*  update state */
-  GASNETE_SPLITSTATE_ENTER(team);
   gasneti_sync_writes(); /* ensure all state changes committed before return */
 }
 
@@ -1829,7 +1827,7 @@ static int gasnete_amcbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
 
   gasneti_sync_reads(); /* ensure we read up-to-date phase, etc */
   phase = barrier_data->amcbarrier_phase;
-  GASNETE_SPLITSTATE_WAIT(team);
+  GASNETE_SPLITSTATE_WAIT_LEAVE(team);
 
 #if GASNETI_PSHM_BARRIER_HIER
   if (pshm_bdata) {
@@ -1839,7 +1837,6 @@ static int gasnete_amcbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
       /* Once the active peer signals done, we can return */
       barrier_data->amcbarrier_response_value[phase] = pshm_bdata->shared->value;
       barrier_data->amcbarrier_response_flags[phase] = pshm_bdata->shared->flags;
-      GASNETE_SPLITSTATE_LEAVE(team);
       gasneti_sync_writes(); /* ensure all state changes committed before return */
       return retval;
     }
@@ -1866,7 +1863,6 @@ static int gasnete_amcbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
   }
 
   /*  update state */
-  GASNETE_SPLITSTATE_LEAVE(team);
   barrier_data->amcbarrier_response_done[phase] = 0;
 #if GASNETI_PSHM_BARRIER_HIER
   if (pshm_bdata) {

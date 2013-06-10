@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_extended.c,v $
- *     $Date: 2013/06/10 01:43:33 $
- * $Revision: 1.35 $
+ *     $Date: 2013/06/10 02:16:01 $
+ * $Revision: 1.36 $
  * Description: GASNet Extended API Implementation for DCMF
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
  *                 Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -1323,7 +1323,7 @@ static void gasnete_dcmfbarrier_notify(gasnete_coll_team_t team, int id, int fla
   DCMF_Callback_t cb_done;
   
   gasneti_sync_reads();
-  GASNETE_SPLITSTATE_NOTIFY(team);
+  GASNETE_SPLITSTATE_NOTIFY_ENTER(team);
 
   /*gasneti_assert(id >= 0);*/
   GASNETI_TRACE_PRINTF(B, ("running barrier notify (%d,%d)", id, flags));
@@ -1333,7 +1333,6 @@ static void gasnete_dcmfbarrier_notify(gasnete_coll_team_t team, int id, int fla
     {
       /* Short cut for unnamed barrier */
       gasnete_coll_teambarrier_notify_dcmf(team);
-      GASNETE_SPLITSTATE_ENTER(team);
       gasneti_sync_writes();
       return;
     }
@@ -1380,7 +1379,6 @@ static void gasnete_dcmfbarrier_notify(gasnete_coll_team_t team, int id, int fla
 
   current_barrier_flags = flags;
   current_barrier_id = id;
-  GASNETE_SPLITSTATE_ENTER(team);
 
   gasneti_sync_writes();
   GASNETI_TRACE_PRINTF(B, ("finishing barrier notify (%d,%d)", id, flags));
