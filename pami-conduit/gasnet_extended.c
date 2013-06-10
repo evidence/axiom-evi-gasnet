@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2013/06/10 01:45:18 $
- * $Revision: 1.48 $
+ *     $Date: 2013/06/10 01:48:15 $
+ * $Revision: 1.49 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -997,9 +997,7 @@ static int gasnete_parbarrier_try(gasnete_coll_team_t team, int id, int flags) {
 
 static int gasnete_parbarrier_result(gasnete_coll_team_t team, int *id) {
   gasneti_sync_reads();
-  if_pf (team->barrier_splitstate != OUTSIDE_BARRIER) {
-    gasneti_fatalerror("gasnet_barrier_result() called between notify and wait/try");
-  }
+  GASNETE_SPLITSTATE_RESULT(team);
 
   { const gasnete_parbarrier_t * const barr = team->barrier_data;
     *id = GASNETI_LOWORD(barr->rcvbuf[0]);
@@ -1353,9 +1351,7 @@ static int gasnete_pdbarrier_try(gasnete_coll_team_t team, int id, int flags) {
 
 static int gasnete_pdbarrier_result(gasnete_coll_team_t team, int *id) {
   gasneti_sync_reads();
-  if_pf (team->barrier_splitstate != OUTSIDE_BARRIER) {
-    gasneti_fatalerror("gasnet_barrier_result() called between notify and wait/try");
-  }
+  GASNETE_SPLITSTATE_RESULT(team);
 
   { const gasnete_pdbarrier_t * const barr = team->barrier_data;
     *id = barr->prev_value;
