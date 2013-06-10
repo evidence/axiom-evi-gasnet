@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2013/06/10 00:47:06 $
- * $Revision: 1.168 $
+ *     $Date: 2013/06/10 01:22:22 $
+ * $Revision: 1.169 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -695,8 +695,6 @@ static int gasnete_pshmbarrier_result(gasnete_coll_team_t team, int *id) {
 static void gasnete_pshmbarrier_init(gasnete_coll_team_t team) {
   team->barrier_data = (void *)gasnete_pshmbarrier_init_inner(team);
 
-  GASNETE_SPLITSTATE_LEAVE(team);
-
   team->barrier_notify = &gasnete_pshmbarrier_notify;
   team->barrier_wait =   &gasnete_pshmbarrier_wait;
   team->barrier_try =    &gasnete_pshmbarrier_try;
@@ -1069,7 +1067,6 @@ static void gasnete_amdbarrier_init(gasnete_coll_team_t team) {
   gasneti_leak(barrier_data);
   team->barrier_data = barrier_data;
   gasnet_hsl_init(&barrier_data->amdbarrier_lock);
-  GASNETE_SPLITSTATE_LEAVE(team);
 
   barrier_data->amdbarrier_recv_flags[0] = GASNET_BARRIERFLAG_ANONYMOUS;
   barrier_data->amdbarrier_recv_flags[1] = GASNET_BARRIERFLAG_ANONYMOUS;
@@ -1575,7 +1572,6 @@ static void gasnete_rmdbarrier_init(gasnete_coll_team_t team) {
   gasneti_assert(team == GASNET_TEAM_ALL); /* TODO: deal w/ in-segment allocation */
 
   gasnete_rmdbarrier_lock_init(&barrier_data->barrier_lock);
-  GASNETE_SPLITSTATE_LEAVE(team);
 
   /* determine barrier size (number of steps) */
   for (steps=0, j=1; j < total_ranks; ++steps, j*=2) ;
@@ -1966,7 +1962,6 @@ static void gasnete_amcbarrier_init(gasnete_coll_team_t team) {
   }
 #endif
 
-  GASNETE_SPLITSTATE_LEAVE(team);
   team->barrier_data =   barrier_data;
   team->barrier_notify = &gasnete_amcbarrier_notify;
   team->barrier_wait =   &gasnete_amcbarrier_wait;
@@ -2250,6 +2245,7 @@ extern void gasnete_coll_barrier_init(gasnete_coll_team_t team,  int barrier_typ
   team->barrier_try = NULL;
   team->barrier = &gasnete_barrier_default;
   team->barrier_result = NULL;
+  GASNETE_SPLITSTATE_LEAVE(team);
   GASNETE_BARRIER_INIT(team, barrier_type);
   if (team->barrier_notify) { /* conduit has identified a barrier mechanism */
     /*make sure that wait and try were also defined*/

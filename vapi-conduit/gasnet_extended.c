@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/10 01:15:08 $
- * $Revision: 1.68 $
+ *     $Date: 2013/06/10 01:22:24 $
+ * $Revision: 1.69 $
  * Description: GASNet Extended API over VAPI/IB Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1110,7 +1110,6 @@ static void gasnete_ibdbarrier_init(gasnete_coll_team_t team) {
   gasneti_assert(team == GASNET_TEAM_ALL); /* TODO: deal w/ in-segment allocation */
 
   gasnete_ibdbarrier_lock_init(&barrier_data->barrier_lock);
-  GASNETE_SPLITSTATE_LEAVE(team);
 
   /* determine barrier size (number of steps) */
   for (steps=0, j=1; j < total_ranks; ++steps, j*=2) ;
