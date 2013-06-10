@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_extended.c,v $
- *     $Date: 2013/06/07 19:14:08 $
- * $Revision: 1.34 $
+ *     $Date: 2013/06/10 01:43:33 $
+ * $Revision: 1.35 $
  * Description: GASNet Extended API Implementation for DCMF
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
  *                 Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -1265,8 +1265,6 @@ static DCMF_Protocol_t anon_barrier_registration;
 
 
 static void gasnete_dcmfbarrier_init(gasnete_coll_team_t team) {
-  team->barrier_splitstate = OUTSIDE_BARRIER;
-
   team->barrier_notify = &gasnete_dcmfbarrier_notify;
   team->barrier_wait =   &gasnete_dcmfbarrier_wait;
   team->barrier_try =    &gasnete_dcmfbarrier_try;
@@ -1325,9 +1323,7 @@ static void gasnete_dcmfbarrier_notify(gasnete_coll_team_t team, int id, int fla
   DCMF_Callback_t cb_done;
   
   gasneti_sync_reads();
-  if(team->barrier_splitstate == INSIDE_BARRIER) {
-    gasneti_fatalerror("gasnet_barrier_notify() called twice in a row");
-  } 
+  GASNETE_SPLITSTATE_NOTIFY(team);
 
   /*gasneti_assert(id >= 0);*/
   GASNETI_TRACE_PRINTF(B, ("running barrier notify (%d,%d)", id, flags));
@@ -1337,7 +1333,7 @@ static void gasnete_dcmfbarrier_notify(gasnete_coll_team_t team, int id, int fla
     {
       /* Short cut for unnamed barrier */
       gasnete_coll_teambarrier_notify_dcmf(team);
-      team->barrier_splitstate = INSIDE_BARRIER; 
+      GASNETE_SPLITSTATE_ENTER(team);
       gasneti_sync_writes();
       return;
     }
@@ -1384,7 +1380,7 @@ static void gasnete_dcmfbarrier_notify(gasnete_coll_team_t team, int id, int fla
 
   current_barrier_flags = flags;
   current_barrier_id = id;
-  team->barrier_splitstate = INSIDE_BARRIER; 
+  GASNETE_SPLITSTATE_ENTER(team);
 
   gasneti_sync_writes();
   GASNETI_TRACE_PRINTF(B, ("finishing barrier notify (%d,%d)", id, flags));
@@ -1478,7 +1474,7 @@ int finish_barrier(gasnete_coll_team_t team, int id, int flags)
       ret = GASNET_OK;
     }
   
-  team->barrier_splitstate = OUTSIDE_BARRIER;
+  GASNETE_SPLITSTATE_LEAVE(team);
   gasneti_sync_writes();
   
   /*the barrier is complete so check for mismatch of value from wait/try  */
@@ -1494,16 +1490,14 @@ static int gasnete_dcmfbarrier_wait(gasnete_coll_team_t team, int id, int flags)
   int ret;
   
   gasneti_sync_reads();
-  if(team->barrier_splitstate == OUTSIDE_BARRIER) {
-    gasneti_fatalerror("gasnet_barrier_wait() called without a matching notify");
-  }
+  GASNETE_SPLITSTATE_WAIT(team);
   
 #if GASNET_SEQ
   if (flags & GASNETE_BARRIERFLAG_UNNAMED) 
     {
       /* Short cut for unnamed barrier */
       gasnete_coll_teambarrier_wait_dcmf(team);
-      team->barrier_splitstate = OUTSIDE_BARRIER;
+      GASNETE_SPLITSTATE_LEAVE(team);
       gasneti_sync_writes();
       return GASNET_OK;
     }
@@ -1525,16 +1519,14 @@ static int gasnete_dcmfbarrier_wait(gasnete_coll_team_t team, int id, int flags)
 
 static int gasnete_dcmfbarrier_try(gasnete_coll_team_t team, int id, int flags) { 
   gasneti_sync_reads();
-  if(team->barrier_splitstate == OUTSIDE_BARRIER) {
-    gasneti_fatalerror("gasnet_barrier_try() called without a matching notify");
-  }
+  GASNETE_SPLITSTATE_TRY(team);
   
 #if GASNET_SEQ
   if (flags & GASNETE_BARRIERFLAG_UNNAMED) 
     {
       /* Short cut for unnamed barrier */
       int ret = gasnete_coll_teambarrier_try_dcmf(team);
-      team->barrier_splitstate = OUTSIDE_BARRIER;
+      GASNETE_SPLITSTATE_LEAVE(team);
       gasneti_sync_writes();
       return ret;
     }
@@ -1558,9 +1550,7 @@ static int gasnete_dcmfbarrier_try(gasnete_coll_team_t team, int id, int flags) 
 
 static int gasnete_dcmfbarrier_result(gasnete_coll_team_t team, int *id) {
   gasneti_sync_reads();
-  if_pf (team->barrier_splitstate != OUTSIDE_BARRIER) {
-    gasneti_fatalerror("gasnet_barrier_result() called between notify and wait/try");
-  }
+  GASNETE_SPLITSTATE_RESULT(team);
 
   *id = GASNETI_LOWORD(named_barrier_result[0]);
   return (2 == GASNETI_HIWORD(named_barrier_result[0]));
