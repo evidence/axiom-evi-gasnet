@@ -2,7 +2,7 @@
 README file for GASNet tools
 ============================
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.31 $
+$Revision: 1.32 $
 GASNet tools specification version: 1.7
 
 The GASNet tools are a set of communication-independent utilities that are used
@@ -566,14 +566,6 @@ declarator
   Declare the given function as one that must not be omitted, even if the compiler
   believes the function cannot ever be called.
 
-if_pf(cond) S;
-if_pt(cond) S;
-
-  Drop-in replacements for the standard C 'if' keyword with branch-prediction hints.
-  if_pf and if_pt behave just like 'if' except they give the C compiler a hint that 
-  the condition is predicted to be false (if_pf) and the branch not taken, 
-  or predicted to be true (pt) and the branch taken.
-
 GASNETT_PREDICT_TRUE(expr)
 GASNETT_PREDICT_FALSE(expr)
 
@@ -585,6 +577,19 @@ GASNETT_PREDICT_FALSE(expr)
   Examples:
     do { S; } while(GASNETT_PREDICT_FALSE(expr)); // single-trip is common case
     V = GASNETT_PREDICT_TRUE(expr) ? (val1) : (val2); // val1 is common case
+
+if_pf(cond) S;
+if_pt(cond) S;
+
+  Drop-in replacements for the standard C 'if' keyword with branch-prediction hints.
+  if_pf and if_pt behave just like 'if' except they give the C compiler a hint that 
+  the condition is predicted to be false (if_pf) and the branch not taken, 
+  or predicted to be true (pt) and the branch taken.
+  These are equivalent to
+    if(GASNETT_PREDICT_TRUE(expr)) S;
+  and
+    if(GASNETT_PREDICT_FALSE(expr)) S;
+  respectively.
 
 -----------------------------------------------------
 Error-checking System Mutexes and Condition Variables
