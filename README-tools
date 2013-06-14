@@ -2,7 +2,7 @@
 README file for GASNet tools
 ============================
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.32 $
+$Revision: 1.33 $
 GASNet tools specification version: 1.7
 
 The GASNet tools are a set of communication-independent utilities that are used
@@ -590,6 +590,11 @@ if_pt(cond) S;
   and
     if(GASNETT_PREDICT_FALSE(expr)) S;
   respectively.
+
+gasnett_constant_p(expr)
+
+  This expands to use of __builtin_constant_p() on compilers with the necessary
+  suport, or to the constant 0 otherwise.
 
 -----------------------------------------------------
 Error-checking System Mutexes and Condition Variables

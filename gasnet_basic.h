@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2012/07/13 23:51:00 $
- * $Revision: 1.118 $
+ *     $Date: 2013/06/14 00:12:53 $
+ * $Revision: 1.119 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -120,6 +120,12 @@
   #define GASNETI_RESTRICT
   /* define to 1 because 0 triggers use of (void*) in place of the typedef */
   #define GASNETI_RESTRICT_MAY_QUALIFY_TYPEDEFS 1
+#endif
+
+#if HAVE_BUILTIN_CONSTANT_P
+  #define gasneti_constant_p(_expr) __builtin_constant_p(_expr)
+#else
+  #define gasneti_constant_p(_expr) (0)
 #endif
 
 #ifndef _STRINGIFY

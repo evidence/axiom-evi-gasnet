@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2012/01/06 21:53:58 $
- * $Revision: 1.128 $
+ *     $Date: 2013/06/14 00:12:53 $
+ * $Revision: 1.129 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -129,6 +129,8 @@ GASNETI_BEGIN_EXTERNC
 #define GASNETT_EXTERNC                 GASNETI_EXTERNC
 #define GASNETT_COMMON_EXTERN           GASNETI_COMMON_EXTERN
 #define GASNETT_TENTATIVE_EXTERN        GASNETI_TENTATIVE_EXTERN
+
+#define gasnett_constant_p              gasneti_constant_p
 
 /* ------------------------------------------------------------------------------------ */
 /* portable memory barriers */

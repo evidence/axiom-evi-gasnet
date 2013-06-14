@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2013/03/18 02:33:07 $ */
-/*  $Revision: 1.187 $ */
+/*      $Date: 2013/06/14 00:12:53 $ */
+/*  $Revision: 1.188 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -244,6 +244,9 @@
 
 /* has __builtin_expect */
 #undef HAVE_BUILTIN_EXPECT
+
+/* has __builtin_constant_p */
+#undef HAVE_BUILTIN_CONSTANT_P
 
 /* has __builtin_prefetch */
 #undef HAVE_BUILTIN_PREFETCH
