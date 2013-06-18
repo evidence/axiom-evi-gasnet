@@ -21,17 +21,26 @@ static int gasnetc_connect_static(void)
 {
     int i;
     mxm_error_t mxm_status;
+#if MXM_API < MXM_VERSION(2,0)
     mxm_conn_req_t * mxm_conn_reqs;
 
     /*
      * Allocate and fill in connection requests
      */
-
     mxm_conn_reqs = gasneti_calloc(gasneti_nodes, sizeof(mxm_conn_req_t));
     if (mxm_conn_reqs == NULL) {
         MXM_ERROR("Out of memory");
         return GASNET_ERR_NOT_INIT;
     }
+
+#endif
+
+    gasnet_mxm_module.connections = gasneti_calloc(gasneti_nodes, sizeof(mxm_conn_h));
+    if (gasnet_mxm_module.connections == NULL) {
+        MXM_ERROR("Out of memory");
+        return GASNET_ERR_NOT_INIT;
+    }
+
 
     /*
      * NOTE: we do NOT copy the data from the remote_eps buffer,
@@ -41,12 +50,24 @@ static int gasnetc_connect_static(void)
      */
 
     for (i = 0; i < gasneti_nodes; ++i) {
+#if MXM_API < MXM_VERSION(2,0)
         mxm_conn_reqs[i].ptl_addr[MXM_PTL_SELF] =
             (struct sockaddr *) &gasnet_mxm_module.remote_eps[i].ptl_addr[MXM_PTL_SELF];
         mxm_conn_reqs[i].ptl_addr[MXM_PTL_RDMA] =
             (struct sockaddr *) &gasnet_mxm_module.remote_eps[i].ptl_addr[MXM_PTL_RDMA];
+#else
+        mxm_status = mxm_ep_connect(gasnet_mxm_module.mxm_ep, 
+                gasnet_mxm_module.remote_eps[i].ep_addr, 
+                &gasnet_mxm_module.connections[i]
+                );
+        if (mxm_status != MXM_OK) {
+             MXM_ERROR("MXM returned connect error: %s\n", mxm_error_string(mxm_status));
+             return mxm_status;
+        }
+#endif
     }
 
+#if MXM_API < MXM_VERSION(2,0)
     /*
      * Connect to ALL the nodes through MXM, including the local nodes
      */
@@ -68,16 +89,11 @@ static int gasnetc_connect_static(void)
      * Save returned connections and free connection requests
      */
 
-    gasnet_mxm_module.connections = gasneti_calloc(gasneti_nodes, sizeof(mxm_conn_h));
-    if (gasnet_mxm_module.connections == NULL) {
-        MXM_ERROR("Out of memory");
-        return GASNET_ERR_NOT_INIT;
-    }
-
     for (i = 0; i < gasnet_nodes(); ++i) {
         gasnet_mxm_module.connections[i] = mxm_conn_reqs[i].conn;
     }
     gasneti_free(mxm_conn_reqs);
+#endif
 
     /* TODO: using 0xabcd as context ID - do we have only one communicator? */
     mxm_status = mxm_mq_create(gasnet_mxm_module.mxm_context, 0xabcd, &gasnet_mxm_module.mxm_mq);

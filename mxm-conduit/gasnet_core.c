@@ -194,6 +194,7 @@ static void gasneti_bootstrapInit(
 
 /* -------------------------------------------------------------------------- */
 
+#if MXM_API < MXM_VERSION(2,0)
 static int
 gasneti_mxm_get_ep_address(gasnet_mxm_ep_conn_info_t *ep_info, mxm_ptl_id_t id)
 {
@@ -209,6 +210,7 @@ gasneti_mxm_get_ep_address(gasnet_mxm_ep_conn_info_t *ep_info, mxm_ptl_id_t id)
                   mxm_error_string(mxm_status));
     return mxm_status;
 }
+#endif
 
 /* -------------------------------------------------------------------------- */
 
@@ -348,14 +350,14 @@ extern int gasnetc_pin(void *addr, size_t size, gasnetc_memreg_t *reg)
     gasneti_assert(((uintptr_t)addr % GASNET_PAGESIZE) == 0);
     gasneti_assert(((uintptr_t)size % GASNET_PAGESIZE) == 0);
 
-#if MXM_API < MXM_VERSION(1,5)
+#if MXM_API >= MXM_VERSION(2,0)
+    res = mxm_mem_map(gasnet_mxm_module.mxm_context, &addr, &size, 0, 0, 0); 
+#elif MXM_API < MXM_VERSION(1,5)
     res = mxm_reg_mr(gasnet_mxm_module.mxm_ep, MXM_PTL_RDMA,
                      addr, size, &reg->lkey, &reg->rkey);
 #elif MXM_API == MXM_VERSION(1,5)
     res = mxm_mem_register(gasnet_mxm_module.mxm_context,
                            addr, size, &reg->memh);
-#else
-#error MXM version is not supported
 #endif
 
     if_pf (MXM_OK != res)
@@ -364,6 +366,9 @@ extern int gasnetc_pin(void *addr, size_t size, gasnetc_memreg_t *reg)
     reg->addr     = (uintptr_t)addr;
     reg->len      = size;
     reg->end      = (uintptr_t)addr + (size - 1);
+#if MXM_API >= MXM_VERSION(2,0)
+    mxm_mem_get_key(gasnet_mxm_module.mxm_context, addr, &reg->m_key);
+#endif
 
 #if GASNET_TRACE
     gasnetc_pinned_blocks += 1;
@@ -377,15 +382,18 @@ extern int gasnetc_pin(void *addr, size_t size, gasnetc_memreg_t *reg)
 
 static void gasnetc_unpin(gasnetc_memreg_t *reg)
 {
-#if MXM_API < MXM_VERSION(1,5)
+#if MXM_API >= MXM_VERSION(2,0)
+    if_pf (MXM_OK != mxm_mem_unmap(gasnet_mxm_module.mxm_context, (void *)reg->addr, reg->len, 0)) {
+        MXM_ERROR("Failed deregistering memory region\n");
+    }
+
+#elif MXM_API < MXM_VERSION(1,5)
     if_pf (MXM_OK != mxm_dereg_mr(gasnet_mxm_module.mxm_ep, MXM_PTL_RDMA,
                                   (void *)reg->addr, reg->len)) {
         MXM_ERROR("Failed deregistering memory region\n");
     }
 #elif MXM_API == MXM_VERSION(1,5)
     mxm_mem_destroy(reg->memh);
-#else
-#error MXM version is not supported
 #endif
 
 #if GASNET_TRACE
@@ -548,18 +556,17 @@ static inline int gasnetc_post_recv(void)
     p_req->tag_mask = 0; /* match any tag */
     p_base->completed_cb = NULL;
     p_base->conn = NULL; /* receive from any source */
-    p_base->flags = 0;
     p_base->mq = gasnet_mxm_module.mxm_mq;
     p_base->state = MXM_REQ_NEW;
     p_base->data_type = MXM_REQ_DATA_BUFFER;
     p_base->data.buffer.ptr = (void *)gasnet_mxm_module.recv_reg.addr;
     p_base->data.buffer.length = gasnet_mxm_module.recv_reg.len;
 #if MXM_API < MXM_VERSION(1,5)
+    p_base->flags = 0;
     p_base->data.buffer.mkey = gasnet_mxm_module.recv_reg.lkey;
 #elif MXM_API == MXM_VERSION(1,5)
+    p_base->flags = 0;
     p_base->data.buffer.memh = gasnet_mxm_module.recv_reg.memh;
-#else
-#error MXM version is not supported
 #endif
     return mxm_req_recv(p_req);
 }
@@ -573,16 +580,17 @@ static int gasnetc_init(int *argc, char ***argv)
     struct sockaddr_mxm_ib_local    sockaddr_bind_rdma;
     mxm_ep_opts_t                   mxm_ep_opts;
     mxm_context_opts_t              mxm_opts;
-#elif MXM_API == MXM_VERSION(1,5)
+#else
     mxm_ep_opts_t                 * mxm_ep_opts;
     mxm_context_opts_t            * mxm_opts;
-#else
-#error MXM version is not supported
 #endif
     gasnet_mxm_ep_conn_info_t       local_ep;
     mxm_error_t                     mxm_status;
     int                             i;
     uint32_t                        res;
+#if MXM_API >= MXM_VERSION(2,0)
+    size_t                          mxm_addr_len;
+#endif
 
     uint32_t jobid = 0;
     unsigned long cur_ver;
@@ -644,17 +652,17 @@ static int gasnetc_init(int *argc, char ***argv)
     mxm_fill_context_opts(&mxm_opts);
     mxm_opts.async_mode = MXM_ASYNC_MODE_THREAD;
     mxm_status = mxm_init(&mxm_opts, &gasnet_mxm_module.mxm_context);
-#elif MXM_API == MXM_VERSION(1,5)
+#else 
     res = mxm_config_read_context_opts(&mxm_opts);
     if_pf (res != MXM_OK) {
         MXM_ERROR("Failed to parse MXM configuration");
         return GASNET_ERR_NOT_INIT;
     }
     mxm_opts->async_mode = MXM_ASYNC_MODE_THREAD;
+#if MXM_API == MXM_VERSION(1,5)
     mxm_opts->ptl_bitmap = MXM_BIT(MXM_PTL_SELF) | MXM_BIT(MXM_PTL_RDMA);
+#endif
     mxm_status = mxm_init(mxm_opts, &gasnet_mxm_module.mxm_context);
-#else
-#error MXM version is not supported
 #endif
 
     if (mxm_status != MXM_OK) {
@@ -709,21 +717,25 @@ static int gasnetc_init(int *argc, char ***argv)
 
     mxm_status = mxm_ep_create(gasnet_mxm_module.mxm_context,
                                &mxm_ep_opts, &gasnet_mxm_module.mxm_ep);
-#elif MXM_API == MXM_VERSION(1,5)
+#else
     mxm_status = mxm_config_read_ep_opts(&mxm_ep_opts);
     if (mxm_status != MXM_OK) {
         MXM_ERROR("Failed to parse MXM configuration (%s)\n",
                   mxm_error_string(mxm_status));
         return GASNET_ERR_NOT_INIT;
     }
+#if MXM_API == MXM_VERSION(1,5)
     mxm_ep_opts->job_id = jobid;
     mxm_ep_opts->local_rank = gasneti_nodemap_local_rank;
     mxm_ep_opts->num_local_procs = gasneti_nodemap_local_count;
+#endif
     mxm_status = mxm_ep_create(gasnet_mxm_module.mxm_context,
                         mxm_ep_opts, &gasnet_mxm_module.mxm_ep);
+#if MXM_API == MXM_VERSION(1,5)
     mxm_config_free(mxm_ep_opts);
 #else
-#error MXM version is not supported
+    mxm_config_free_ep_opts(mxm_ep_opts);
+#endif
 #endif
 
     if (mxm_status != MXM_OK) {
@@ -735,20 +747,30 @@ static int gasnetc_init(int *argc, char ***argv)
 #if MXM_API < MXM_VERSION(1,5)
     gasnet_mxm_module.rndv_thresh = mxm_ep_opts.rdma.rndv_thresh;
     gasnet_mxm_module.zcopy_thresh = mxm_ep_opts.rdma.zcopy_thresh;
-#elif MXM_API == MXM_VERSION(1,5)
+#elif MXM_API == MXM_VERSION(1,5) 
     gasnet_mxm_module.rndv_thresh = mxm_ep_opts->rdma.rndv_thresh;
     gasnet_mxm_module.zcopy_thresh = mxm_ep_opts->rdma.zcopy_thresh;
 #else
-#error MXM version is not supported
+    gasnet_mxm_module.rndv_thresh = mxm_ep_opts->rndv_thresh;
+    gasnet_mxm_module.zcopy_thresh = mxm_ep_opts->zcopy_thresh;
 #endif
 
     /*
      * Get address for each PTL on this endpoint and exchange it
      */
+#if MXM_API < MXM_VERSION(2,0)
     if (MXM_OK != gasneti_mxm_get_ep_address(&local_ep, MXM_PTL_SELF))
         return GASNET_ERR_NOT_INIT;
     if (MXM_OK != gasneti_mxm_get_ep_address(&local_ep, MXM_PTL_RDMA))
         return GASNET_ERR_NOT_INIT;
+#else
+    mxm_addr_len = sizeof(local_ep.ep_addr);
+    if (MXM_OK != (mxm_status = mxm_ep_get_address(gasnet_mxm_module.mxm_ep, local_ep.ep_addr, &mxm_addr_len))) {
+        MXM_ERROR("Unable to extract endpoint address (%s)\n",
+                                  mxm_error_string(mxm_status));
+        return GASNET_ERR_NOT_INIT;
+    }
+#endif
     /*
      * MXM fills in addresses for MXM_PTL_SELF and MXM_PTL_RDMA.
      * We don't care about the rest - tell valgrind to ignore it.

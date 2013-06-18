@@ -24,7 +24,8 @@ extern uint32_t gasnetc_find_rkey(void *addr, int nbytes, int rank);
 extern mxm_mem_h gasnetc_find_memh(void *addr, int nbytes);
 extern mxm_mem_h gasnetc_find_remote_memh(void *addr, int nbytes, int rank);
 #else
-#error MXM version is not supported
+extern mxm_mem_key_t *gasnetc_find_mkey(void *addr, int nbytes);
+extern mxm_mem_key_t *gasnetc_find_remote_mkey(void *addr, int nbytes, int rank);
 #endif
 
 /* ------------------------------------------------------------------------------------ */
@@ -390,21 +391,24 @@ gasnet_mxm_send_req_t * gasnete_fill_fence_request(gasnet_node_t node, void *cal
 {
     gasnet_mxm_send_req_t *gasnet_mxm_sreq = gasnetc_alloc_send_req();
     mxm_send_req_t *mxm_sreq = &gasnet_mxm_sreq->mxm_sreq;
-    mxm_sreq->opcode = MXM_REQ_OP_FENCE;
 
     mxm_sreq->base.state = MXM_REQ_NEW;
     mxm_sreq->base.conn = gasnet_mxm_module.connections[node];
     mxm_sreq->base.mq = gasnet_mxm_module.mxm_mq;
+#if MXM_API < MXM_VERSION(2,0)
+    mxm_sreq->opcode = MXM_REQ_OP_FENCE;
     mxm_sreq->base.flags = MXM_REQ_FLAG_SEND_SYNC;
+#else
+    mxm_sreq->opcode = MXM_REQ_OP_NOP_SYNC;
+    mxm_sreq->flags = MXM_REQ_SEND_FLAG_FENCE;
+#endif
 
     mxm_sreq->base.data.buffer.ptr = NULL;
     mxm_sreq->base.data.buffer.length = 0;
 #if MXM_API < MXM_VERSION(1,5)
     mxm_sreq->base.data.buffer.mkey = MXM_MKEY_NONE;
-#elif MXM_API == MXM_VERSION(1,5)
-    mxm_sreq->base.data.buffer.memh = NULL;
 #else
-#error MXM version is not supported
+    mxm_sreq->base.data.buffer.memh = NULL;
 #endif
     mxm_sreq->base.data_type = MXM_REQ_DATA_BUFFER;
 
@@ -472,7 +476,11 @@ void gasnete_fill_get_request(mxm_send_req_t * mxm_sreq, void *dest,
     mxm_sreq->base.state = MXM_REQ_NEW;
     mxm_sreq->base.conn = gasnet_mxm_module.connections[node];
     mxm_sreq->base.mq = gasnet_mxm_module.mxm_mq;
+#if MXM_API < MXM_VERSION(2,0)
     mxm_sreq->base.flags = 0;
+#else
+    mxm_sreq->flags = 0;
+#endif
 
     mxm_sreq->base.data_type = MXM_REQ_DATA_BUFFER;
     mxm_sreq->opcode = MXM_REQ_OP_GET;
@@ -488,7 +496,8 @@ void gasnete_fill_get_request(mxm_send_req_t * mxm_sreq, void *dest,
     mxm_sreq->base.data.buffer.memh = gasnetc_find_memh(dest, nbytes);
     mxm_sreq->op.mem.remote_memh = gasnetc_find_remote_memh(src, nbytes, (int)node);
 #else
-#error MXM version is not supported
+    mxm_sreq->base.data.buffer.memh = gasnetc_find_mkey(dest, nbytes);
+    mxm_sreq->op.mem.remote_mkey = gasnetc_find_remote_mkey(src, nbytes, (int)node);
 #endif
 
     mxm_sreq->base.completed_cb = NULL;
@@ -504,8 +513,12 @@ void gasnete_fill_put_request(mxm_send_req_t * mxm_sreq, void *dest,
     mxm_sreq->base.state = MXM_REQ_NEW;
     mxm_sreq->base.conn = gasnet_mxm_module.connections[node];
     mxm_sreq->base.mq = gasnet_mxm_module.mxm_mq;
-    mxm_sreq->base.flags = 0;
 
+#if MXM_API < MXM_VERSION(2,0)
+    mxm_sreq->base.flags = 0;
+#else
+    mxm_sreq->flags = 0;
+#endif
     mxm_sreq->base.data_type = MXM_REQ_DATA_BUFFER;
     mxm_sreq->opcode = MXM_REQ_OP_PUT;
 
@@ -520,7 +533,8 @@ void gasnete_fill_put_request(mxm_send_req_t * mxm_sreq, void *dest,
     mxm_sreq->base.data.buffer.memh = gasnetc_find_memh(src, nbytes);
     mxm_sreq->op.mem.remote_memh = gasnetc_find_remote_memh(dest, nbytes, (int)node);
 #else
-#error MXM version is not supported
+    mxm_sreq->base.data.buffer.memh = gasnetc_find_mkey(dest, nbytes);
+    mxm_sreq->op.mem.remote_mkey = gasnetc_find_remote_mkey(src, nbytes, (int)node);
 #endif
 
     mxm_sreq->base.completed_cb = NULL;
@@ -595,7 +609,11 @@ gasnet_handle_t gasnete_put_nb_inner(
     gasnet_handle_t handle = (gasnet_handle_t)gasneti_malloc(sizeof(struct gasnet_handle_t));
 
     gasnete_fill_put_request(mxm_sreq, dest, node, src, nbytes);
+#if MXM_API < MXM_VERSION(2,0)
     mxm_sreq->base.flags = MXM_REQ_FLAG_BLOCKING;
+#else
+    mxm_sreq->flags = MXM_REQ_SEND_FLAG_BLOCKING ;
+#endif
 
     mxm_res = mxm_req_send(mxm_sreq);
     if (mxm_res != MXM_OK)
@@ -651,9 +669,16 @@ void gasnete_put_inner(gasnet_node_t node, void* dest, void *src,
     mxm_error_t mxm_res;
 
     gasnete_fill_put_request(&mxm_sreq, dest, node, src, nbytes);
+
+#if MXM_API < MXM_VERSION(2,0)
     mxm_sreq.base.flags = MXM_REQ_FLAG_BLOCKING;
     if (gasnet_mxm_module.strict_api)
         mxm_sreq.base.flags |= MXM_REQ_FLAG_SEND_SYNC;
+#else
+    mxm_sreq.flags = MXM_REQ_SEND_FLAG_BLOCKING;
+    if (gasnet_mxm_module.strict_api)
+        mxm_sreq.opcode |= MXM_REQ_OP_PUT_SYNC;
+#endif
 
     mxm_res = mxm_req_send(&mxm_sreq);
     if (mxm_res != MXM_OK)
@@ -907,7 +932,11 @@ void gasnete_put_nbi_inner(gasnet_node_t node, void *dest, void *src,
     mxm_nbi_cb_data->op = op;
 
     gasnete_fill_put_request(mxm_sreq, dest, node, src, nbytes);
+#if MXM_API < MXM_VERSION(2,0)
     mxm_sreq->base.flags = MXM_REQ_FLAG_BLOCKING;
+#else
+    mxm_sreq->flags = MXM_REQ_SEND_FLAG_BLOCKING;
+#endif
 
     if_pf (GASNETE_ACTIVE_MXM_MSG_NUMBER >= GASNETE_MXM_MAX_OUTSTANDING_MSGS) {
         do {

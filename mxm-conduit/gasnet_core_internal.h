@@ -108,8 +108,16 @@ enum {
 #include <mpi-spawner/gasnet_bootstrap_internal.h>
 #endif
 
+#include <mxm/api/mxm_version.h>
 #include <mxm/api/mxm_api.h>
+
+#ifndef MXM_VERSION
+#define MXM_VERSION(major, minor) (((major)<<MXM_MAJOR_BIT) | ((minor)<<MXM_MINOR_BIT))
+#endif
+
+#if MXM_API < MXM_VERSION(2,0)
 #include <mxm/api/mxm_addr.h>
+#endif
 #if HAVE_MMAP
 #include <sys/mman.h> /* For MAP_FAILED */
 #endif
@@ -120,9 +128,6 @@ enum {
 #define GASNETI_USE_ALLOCA 1
 #endif
 
-#ifndef MXM_VERSION
-#define MXM_VERSION(major, minor) (((major)<<MXM_MAJOR_BIT) | ((minor)<<MXM_MINOR_BIT))
-#endif
 
 extern uintptr_t gasnetc_max_msg_sz;
 
@@ -136,6 +141,8 @@ typedef struct {
     uint32_t   rkey;   /* used for remote access by HCA */
 #elif MXM_API == MXM_VERSION(1,5)
     mxm_mem_h  memh;
+#elif MXM_API >= MXM_VERSION(2,0)
+    mxm_mem_key_t m_key;
 #else
 #error MXM version is not supported
 #endif
@@ -208,8 +215,14 @@ extern void (*gasneti_bootstrapBroadcast_p)(void *src, size_t len, void *dest, i
 #define gasneti_bootstrapAlltoall       (*gasneti_bootstrapAlltoall_p)
 #define gasneti_bootstrapBroadcast      (*gasneti_bootstrapBroadcast_p)
 
+#define MXM_MAX_ADDR_LEN 1024
+
 typedef struct _gasnet_mxm_ep_conn_info {
-    struct sockaddr_storage  ptl_addr[MXM_PTL_LAST];
+#if MXM_API >= MXM_VERSION(2,0)
+        char ep_addr[MXM_MAX_ADDR_LEN];
+#else
+        struct sockaddr_storage  ptl_addr[MXM_PTL_LAST];
+#endif
 } gasnet_mxm_ep_conn_info_t;
 
 typedef struct gasnetc_mkey_ {
