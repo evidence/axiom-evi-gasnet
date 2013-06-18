@@ -23,29 +23,20 @@ dotpldir = $(bindir)
 $(top_builddir)/other/perlstart: $(top_srcdir)/other/perlstart.in
 	@cd $(top_builddir)/other && $(MAKE) perlstart
 $(target): $(top_builddir)/other/perlstart
-all-local: $(target).pl $(target)
+$(target).pl: $(top_srcdir)/vapi-conduit/contrib/gasnetrun_vapi.pl
+	cp -f "$?" $@
+all-local: $(target) $(target).pl $(mpi_target_pl)
 
-# Files to copy from srcdir to builddir if they differ
-if BUILD_IS_SRC
-files_we_copy =
-else
-files_we_copy = $(target).pl
-$(files_we_copy): force
-	@srcfile="$(srcdir)/`basename $@`" ; \
-         if test ! -f "$@" -o "`find $$srcfile -newer '$@' 2>&1`" ; then \
-          echo cp -f "$$srcfile" . ;         \
-          cp -f "$$srcfile" . ;              \
-         fi
-endif
-DISTCLEANFILES = $(files_we_copy)
+DISTCLEANFILES = $(target) $(target).pl $(mpi_target_pl)
 
-# Ensure the .pl is distributed, even if not installed
-EXTRA_DIST = $(target).pl
-
-# Install the .pl and its wrapper
+# Conditionally install the .pl and its wrapper
+if USE_MXM_CONDUIT
 scripts = $(target)
 data = $(target).pl $(mpi_target_pl)
-
+else
+scripts =
+data =
+endif
 bin_SCRIPTS = $(scripts)
 dotpl_DATA = $(data)
 
