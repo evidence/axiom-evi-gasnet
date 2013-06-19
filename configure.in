@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2013/06/19 21:30:00 $
-# $Revision: 1.800 $
+#     $Date: 2013/06/19 21:39:43 $
+# $Revision: 1.801 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.800 $)
+AC_REVISION($Revision: 1.801 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -5382,7 +5382,7 @@ GASNET_WITH(fca, [Specifiy a custom FCA install directory],
              fi
              user_fca_home="$withval"
              fca_user_provided=yes],
-            [GASNET_MSG_ERROR(["--with-fca requires an argument (FCA install directory).  Use --diable-fca if you wish to disable FCA support."])],
+            [GASNET_MSG_ERROR(["--with-fca requires an argument (FCA install directory).  Use --disable-fca if you wish to disable FCA support."])],
             [fca_user_provided=no])
 GASNET_WITH(fca-enabled-by-default,
             [Enable FCA support for collective operations by default],
