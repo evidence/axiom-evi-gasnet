@@ -3,9 +3,9 @@
  */
 
 #include <stdio.h>
-#include <fca_api.h>
-#include <fca_version.h>
-#include <config/fca_parse_specfile.h>
+#include <fca/fca_api.h>
+#include <fca/fca_version.h>
+#include <fca/config/fca_parse_specfile.h>
 
 #ifndef FCA_API
 #define GASNET_FCA_VERSION 12
