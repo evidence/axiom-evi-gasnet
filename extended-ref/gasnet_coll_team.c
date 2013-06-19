@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_team.c,v $
- *     $Date: 2013/06/07 19:26:59 $
- * $Revision: 1.21 $
+ *     $Date: 2013/06/19 21:30:02 $
+ * $Revision: 1.22 $
  *
  * Description: GASNet generic team implementation for collectives 
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
@@ -21,9 +21,6 @@
 GASNETE_COLL_TEAM_CONDUIT_DECLS
 #endif
 
-#ifdef GASNET_FCA_ENABLED
-#include <other/fca/gasnet_fca.h>
-#endif
 /* #define DEBUG_TEAM */
 
 static 
@@ -182,7 +179,7 @@ void gasnete_coll_team_init(gasnet_team_handle_t team,
   team->team_id = team_id;
   team->total_ranks = total_ranks;
   team->myrank = myrank;
-#ifdef GASNET_FCA_ENABLED
+#ifdef GASNETI_USE_FCA
   team->use_fca = 0;
 #endif
   if (team->rel2act_map == NULL)
@@ -379,7 +376,7 @@ gasnet_team_handle_t gasnete_coll_team_split(gasnet_team_handle_t team,
   
   gasneti_free(rel2act_map);
   gasnete_coll_barrier(team, 0, GASNET_BARRIERFLAG_UNNAMED GASNETE_THREAD_PASS);
-#ifdef GASNET_FCA_ENABLED
+#ifdef GASNETI_USE_FCA
   gasnet_team_fca_enable(newteam);
 #endif
   return newteam;

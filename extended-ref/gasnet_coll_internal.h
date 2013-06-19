@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_internal.h,v $
- *     $Date: 2013/06/07 19:26:59 $
- * $Revision: 1.74 $
+ *     $Date: 2013/06/19 21:30:02 $
+ * $Revision: 1.75 $
  * Description: GASNet Collectives conduit header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -327,7 +327,7 @@ struct gasnete_coll_team_t_ {
   GASNETE_COLL_TEAM_EXTRA
 #endif
 
-#ifdef GASNET_FCA_ENABLED
+#ifdef GASNETI_USE_FCA
   fca_comm_data_t fca_comm_data;
   int use_fca;
 #endif

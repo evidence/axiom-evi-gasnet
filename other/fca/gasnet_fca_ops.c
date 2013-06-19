@@ -6,6 +6,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <gasnet_coll_internal.h>
+
+#if GASNETI_USE_FCA /* Otherwise empty */
+
 int gasnet_fca_barrier(gasnet_team_handle_t team)
 {
     fca_comm_data_t *fca_comm_data = &team->fca_comm_data;
@@ -180,3 +183,5 @@ int gasnete_fca_barrier(gasnete_coll_team_t team, int *id_p, int *flags_p) {
 
     return result;
 }
+
+#endif /* GASNETI_USE_FCA */

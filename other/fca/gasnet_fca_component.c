@@ -10,6 +10,9 @@
 #include <string.h>
 #include "gasnet_fca.h"
 #include <gasnet_coll_internal.h>
+
+#if GASNETI_USE_FCA /* Otherwise empty */
+
 /*
  * Instantiate the public struct with all of our public information
  * and pointers to our public functions in it
@@ -190,7 +193,7 @@ static int register_gasnet_fca_params(void){
 int gasnet_fca_open(int my_rank)
 {
     gasnet_fca_component.fca_context = NULL;
-    gasnet_fca_component.fca_spec_file = (char *)GASNET_FCA_HOME "/etc/fca_mpi_spec.ini";
+    gasnet_fca_component.fca_spec_file = (char *)GASNETI_FCA_HOME "/etc/fca_mpi_spec.ini";
 
     if (GASNET_FCA_SUCCESS != register_gasnet_fca_params()){
         FCA_ERROR("error: register_gasnet_fca_params failed!");
@@ -461,3 +464,5 @@ int gasnet_team_fca_enable(gasnet_team_handle_t team)
     team->use_fca = 1;
     return GASNET_FCA_SUCCESS;
 }
+
+#endif /* GASNETI_USE_FCA */

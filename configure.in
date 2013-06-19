@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2013/06/18 20:12:44 $
-# $Revision: 1.799 $
+#     $Date: 2013/06/19 21:30:00 $
+# $Revision: 1.800 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.799 $)
+AC_REVISION($Revision: 1.800 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -5369,7 +5369,7 @@ dnl GASNET_TOOLSONLY_FALSE_BEGIN
 ########################################################################
 ##                        FCA SUPPORT
 dnl echo "----------------------- Configuring FCA support -----------------------"
-dnl NOTE: no auto-detect option currently because FCA disables pthreads -PHH
+dnl NOTE: no auto-detect option currently because FCA used to disable pthreads -PHH
 GASNET_IF_ENABLED(fca,
   [Enable FCA for acceleration of collectives - disables pthreads support (default is no)],
   [enable_fca="yes";force_fca=yes],[enable_fca="no"])
@@ -5462,13 +5462,8 @@ dnl        fi
     AC_SUBST([FCA_LIBDIR])
     AC_SUBST([FCA_LIBS])
 
-    AC_DEFINE_UNQUOTED(GASNET_FCA_HOME, "$fca_home")
-
-    # XXX: This really should be repalced w/ proper use of #if in the sources -PHH
-    # disable PAR and PARSYNC modes since FCA does support SEQ only
-    AM_CONDITIONAL(BUILD_PAR_LIBS, test "no" = "yes")
-    AM_CONDITIONAL(BUILD_PARSYNC_LIBS, test "no" = "yes")
-    GASNET_MSG_WARN([Warning: FCA support was enabled which works in SEQ mode only. PAR and PARSYNC modes have been disabled!])
+    AC_DEFINE_UNQUOTED(GASNETI_FCA_HOME, "$fca_home")
+    AC_DEFINE(GASNET_FCA_ENABLED)
   fi
 fi
 AM_CONDITIONAL(FCA_ENABLED, test "$have_fca" = "yes")

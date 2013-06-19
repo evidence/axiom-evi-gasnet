@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/10 02:16:07 $
- * $Revision: 1.70 $
+ *     $Date: 2013/06/19 21:30:06 $
+ * $Revision: 1.71 $
  * Description: GASNet Extended API over VAPI/IB Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1046,7 +1046,7 @@ static int gasnete_ibdbarrier_try(gasnete_coll_team_t team, int id, int flags) {
   else return GASNET_ERR_NOT_READY;
 }
 
-#ifdef GASNET_FCA_ENABLED
+#ifdef GASNETI_USE_FCA
 static int gasnete_ibdbarrier(gasnete_coll_team_t team, int id, int flags) {
   #if GASNETI_STATS_OR_TRACE
   gasneti_tick_t barrier_start = GASNETI_TICKS_NOW_IFENABLED(B);
@@ -1167,7 +1167,7 @@ static void gasnete_ibdbarrier_init(gasnete_coll_team_t team) {
   team->barrier_notify = steps ? &gasnete_ibdbarrier_notify : &gasnete_ibdbarrier_notify_singleton;
   team->barrier_wait =   &gasnete_ibdbarrier_wait;
   team->barrier_try =    &gasnete_ibdbarrier_try;
-#ifdef GASNET_FCA_ENABLED
+#ifdef GASNETI_USE_FCA
   team->barrier     =    &gasnete_ibdbarrier;
 #endif
   team->barrier_result = &gasnete_ibdbarrier_result;

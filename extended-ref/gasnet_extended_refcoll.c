@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refcoll.c,v $
- *     $Date: 2013/06/19 03:50:22 $
- * $Revision: 1.106 $
+ *     $Date: 2013/06/19 21:30:02 $
+ * $Revision: 1.107 $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>, Paul H. Hargrove <PHHargrove@lbl.gov>, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1209,7 +1209,7 @@ extern void gasnete_coll_init(const gasnet_image_t images[], gasnet_image_t my_i
   }
 #endif
 
-#ifdef GASNET_FCA_ENABLED
+#ifdef GASNETI_USE_FCA
   gasnet_team_fca_enable(GASNET_TEAM_ALL);
 #endif
 }
@@ -2222,7 +2222,7 @@ _gasnet_coll_broadcast_nb(gasnet_team_handle_t team,
                           size_t nbytes, int flags GASNETE_THREAD_FARG) {
   gasnet_coll_handle_t handle;
 
-#ifdef GASNET_FCA_ENABLED
+#ifdef GASNETI_USE_FCA
   if (gasnet_team_fca_is_active(team,_FCA_BCAST)){
     int rc = gasnet_fca_broadcast(src,dst,(int)srcimage,nbytes,team, flags);
     if_pt(rc >= 0) return GASNET_COLL_INVALID_HANDLE;
@@ -2259,7 +2259,7 @@ GASNETI_COLL_FN_HEADER(_gasnet_coll_broadcast)
                                  void *dst,
                                  gasnet_image_t srcimage, void *src,
                                  size_t nbytes, int flags GASNETE_THREAD_FARG) {
-#ifdef GASNET_FCA_ENABLED
+#ifdef GASNETI_USE_FCA
   if (gasnet_team_fca_is_active(team,_FCA_BCAST)){
     int rc = gasnet_fca_broadcast(src,dst,(int)srcimage,nbytes,team, flags);
     if_pt(rc >= 0) return;
@@ -2297,7 +2297,7 @@ _gasnet_coll_broadcastM_nb(gasnet_team_handle_t team,
                            size_t nbytes, int flags GASNETE_THREAD_FARG) {
   gasnet_coll_handle_t handle;
 
-#ifdef GASNET_FCA_ENABLED
+#ifdef GASNETI_USE_FCA
   if (gasnet_team_fca_is_active(team,_FCA_BCAST)){
     void *dst = GASNETE_COLL_MY_1ST_IMAGE(team,dstlist,flags);
     int rc = gasnet_fca_broadcast(src,dst,(int)srcimage,nbytes,team, flags);
@@ -2335,7 +2335,7 @@ GASNETI_COLL_FN_HEADER(_gasnet_coll_broadcastM)
                                   void * const dstlist[],
                                   gasnet_image_t srcimage, void *src,
                                   size_t nbytes, int flags GASNETE_THREAD_FARG) {
-#ifdef GASNET_FCA_ENABLED
+#ifdef GASNETI_USE_FCA
   if (gasnet_team_fca_is_active(team,_FCA_BCAST)){
     void *dst = GASNETE_COLL_MY_1ST_IMAGE(team,dstlist,flags);
     int rc = gasnet_fca_broadcast(src,dst,(int)srcimage,nbytes,team, flags);
@@ -2607,7 +2607,7 @@ _gasnet_coll_gather_all_nb(gasnet_team_handle_t team,
                            size_t nbytes, int flags GASNETE_THREAD_FARG) {
   gasnet_coll_handle_t handle;
 
-#ifdef GASNET_FCA_ENABLED
+#ifdef GASNETI_USE_FCA
   if (gasnet_team_fca_is_active(team,_FCA_ALLGATHER)){
     int rc = gasnet_fca_all_gather_all(dst,src,nbytes,team, flags);
     if_pt(rc >= 0) return GASNET_COLL_INVALID_HANDLE;
@@ -2640,7 +2640,7 @@ GASNETI_COLL_FN_HEADER(_gasnet_coll_gather_all)
      void _gasnet_coll_gather_all(gasnet_team_handle_t team,
                                   void *dst, void *src,
                                   size_t nbytes, int flags GASNETE_THREAD_FARG) {
-#ifdef GASNET_FCA_ENABLED
+#ifdef GASNETI_USE_FCA
   if (gasnet_team_fca_is_active(team,_FCA_ALLGATHER)){
     int rc = gasnet_fca_all_gather_all(dst,src,nbytes,team, flags);
     if_pt(rc >= 0) return;
@@ -2674,7 +2674,7 @@ _gasnet_coll_gather_allM_nb(gasnet_team_handle_t team,
                             size_t nbytes, int flags GASNETE_THREAD_FARG) {
   gasnet_coll_handle_t handle;
 
-#ifdef GASNET_FCA_ENABLED
+#ifdef GASNETI_USE_FCA
   if (gasnet_team_fca_is_active(team,_FCA_ALLGATHER)){
     void *dst = GASNETE_COLL_MY_1ST_IMAGE(team,dstlist,flags);
     void *src = GASNETE_COLL_MY_1ST_IMAGE(team,srclist,flags);
@@ -2709,7 +2709,7 @@ GASNETI_COLL_FN_HEADER(_gasnet_coll_gather_allM)
      void _gasnet_coll_gather_allM(gasnet_team_handle_t team,
                                    void * const dstlist[], void * const srclist[],
                                    size_t nbytes, int flags GASNETE_THREAD_FARG) {
-#ifdef GASNET_FCA_ENABLED
+#ifdef GASNETI_USE_FCA
   if (gasnet_team_fca_is_active(team,_FCA_ALLGATHER)){
     void *dst = GASNETE_COLL_MY_1ST_IMAGE(team,dstlist,flags);
     void *src = GASNETE_COLL_MY_1ST_IMAGE(team,srclist,flags);

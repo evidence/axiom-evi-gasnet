@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2013/06/10 02:16:03 $
- * $Revision: 1.170 $
+ *     $Date: 2013/06/19 21:30:02 $
+ * $Revision: 1.171 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1014,7 +1014,7 @@ static int gasnete_amdbarrier_try(gasnete_coll_team_t team, int id, int flags) {
   else return GASNET_ERR_NOT_READY;
 }
 
-#ifdef GASNET_FCA_ENABLED
+#ifdef GASNETI_USE_FCA
 static int gasnete_amdbarrier(gasnete_coll_team_t team, int id, int flags) {
   #if GASNETI_STATS_OR_TRACE
     gasneti_tick_t barrier_start = GASNETI_TICKS_NOW_IFENABLED(B);
@@ -1121,7 +1121,7 @@ static void gasnete_amdbarrier_init(gasnete_coll_team_t team) {
   team->barrier_notify = steps ? &gasnete_amdbarrier_notify : &gasnete_amdbarrier_notify_singleton;
   team->barrier_wait =   &gasnete_amdbarrier_wait;
   team->barrier_try =    &gasnete_amdbarrier_try;
-#ifdef GASNET_FCA_ENABLED
+#ifdef GASNETI_USE_FCA
   team->barrier        = &gasnete_amdbarrier;
 #endif
   team->barrier_result = &gasnete_amdbarrier_result;
@@ -1509,7 +1509,7 @@ static int gasnete_rmdbarrier_try(gasnete_coll_team_t team, int id, int flags) {
   else return GASNET_ERR_NOT_READY;
 }
 
-#ifdef GASNET_FCA_ENABLED
+#ifdef GASNETI_USE_FCA
 static int gasnete_rmdbarrier(gasnete_coll_team_t team, int id, int flags) {
   #if GASNETI_STATS_OR_TRACE
     gasneti_tick_t barrier_start = GASNETI_TICKS_NOW_IFENABLED(B);
@@ -1640,7 +1640,7 @@ static void gasnete_rmdbarrier_init(gasnete_coll_team_t team) {
   team->barrier_notify = steps ? &gasnete_rmdbarrier_notify : &gasnete_rmdbarrier_notify_singleton;
   team->barrier_wait =   &gasnete_rmdbarrier_wait;
   team->barrier_try =    &gasnete_rmdbarrier_try;
-#ifdef GASNET_FCA_ENABLED
+#ifdef GASNETI_USE_FCA
   team->barrier        = &gasnete_rmdbarrier;
 #endif
   team->barrier_result = &gasnete_rmdbarrier_result;
@@ -2154,7 +2154,7 @@ int gasnete_barrier_default(gasnete_coll_team_t team, int id, int flags) {
 
   GASNETE_SPLITSTATE_BARRIER(team);
   
-  #ifdef GASNET_FCA_ENABLED
+  #ifdef GASNETI_USE_FCA
   /* Don't have a generic way to implement gasnet_barrier_result() - so only UNNAMED */
   if (flags & GASNETE_BARRIERFLAG_UNNAMED) {
     retval = gasnete_fca_barrier(team, &id, &flags);

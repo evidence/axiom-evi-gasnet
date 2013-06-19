@@ -4,10 +4,15 @@
 
 #ifndef GASNET_FCA_H
 #define GASNET_FCA_H
-#include "gasnet_fca_api.h"
+
 #ifndef _INCLUDED_GASNET_H
 #include <gasnet_internal.h>
 #endif
+
+#if defined(GASNET_SEQ) && (GASNET_CONDUIT_MXM || GASNET_CONDUIT_IBV)
+
+#include "gasnet_fca_api.h"
+#define GASNETI_USE_FCA 1
 #define GASNET_FCA_ERROR -1
 #define GASNET_FCA_SUCCESS 0
 
@@ -99,4 +104,5 @@ extern int gasnete_fca_barrier(gasnet_team_handle_t team, int *id_p, int *flags_
 
 /* API functions */
 
+#endif /* seq + a supported conduit */
 #endif
