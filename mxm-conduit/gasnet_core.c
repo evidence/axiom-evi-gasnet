@@ -594,7 +594,6 @@ static int gasnetc_init(int *argc, char ***argv)
 
     uint32_t jobid = 0;
     unsigned long cur_ver;
-    memset(&gasnet_mxm_module, 0, sizeof(gasnet_mxm_module));
 
     /*  check system sanity */
     gasnetc_check_config();
@@ -603,6 +602,8 @@ static int gasnetc_init(int *argc, char ***argv)
         GASNETI_RETURN_ERRR(NOT_INIT, "GASNet already initialized");
 
     gasneti_freezeForDebugger();
+
+    memset(&gasnet_mxm_module, 0, sizeof(gasnet_mxm_module));
 
 #if GASNET_DEBUG_VERBOSE
     /* note - can't call trace macros during gasnet_init because trace system not yet initialized */
