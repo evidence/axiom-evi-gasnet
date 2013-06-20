@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2013/06/20 07:51:47 $
-# $Revision: 1.806 $
+#     $Date: 2013/06/20 09:13:00 $
+# $Revision: 1.807 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.806 $)
+AC_REVISION($Revision: 1.807 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -5377,6 +5377,10 @@ if test "$enable_fca" != "no"; then
   fca_in_path=no
   fca_in_fca_home=no
 
+  FCA_INCLUDES=''
+  FCA_LIBDIR=''
+  FCA_LIBS=''
+
   if test "$fca_user_provided" != yes; then
     # looking for FCA in standard locations only if user didn't provide its location
     AC_CHECK_HEADERS(fca/fca_api.h, fca_have_header=yes)
@@ -5388,10 +5392,7 @@ if test "$enable_fca" != "no"; then
     AC_MSG_RESULT([$fca_in_path])
   fi
 
-  if test "$fca_in_path" = yes; then
-    FCA_INCLUDES=''
-    FCA_LIBDIR=''
-  else
+  if test "$fca_in_path" = no; then
     if test -e "$fca_home/include/fca/fca_api.h" ; then
       fca_have_header=yes
     fi
@@ -5406,11 +5407,10 @@ if test "$enable_fca" != "no"; then
     AC_MSG_CHECKING(for FCA in $fca_home)
     if test "$fca_have_header$fca_have_lib" = yesyes; then
         fca_in_fca_home=yes
+        FCA_INCLUDES="-I$fca_home/include"
+        FCA_LIBDIR="-L$fca_lib_path"
     fi
     AC_MSG_RESULT([$fca_in_fca_home])
-
-    FCA_INCLUDES="-I$fca_home/include"
-    FCA_LIBDIR="-L$fca_lib_path"
   fi
 
   if test "$fca_user_provided$fca_in_fca_home" = yesno; then
@@ -5424,17 +5424,15 @@ if test "$enable_fca" != "no"; then
     GASNET_MSG_ERROR([User requested --enable-fca but FCA support could not be found])
   elif test "$have_fca" = yes; then
     FCA_LIBS="-lfca"
-
-    AC_SUBST([FCA_INCLUDES])
-    AC_SUBST([FCA_LIBDIR])
-    AC_SUBST([FCA_LIBS])
-
     AC_DEFINE_UNQUOTED(GASNETI_FCA_HOME, "$fca_home")
     AC_DEFINE(GASNET_FCA_ENABLED)
   fi
 fi
 FCA_ENABLED="$have_fca"
-AC_SUBST(FCA_ENABLED)
+AC_SUBST([FCA_ENABLED])
+AC_SUBST([FCA_INCLUDES])
+AC_SUBST([FCA_LIBDIR])
+AC_SUBST([FCA_LIBS])
 AM_CONDITIONAL(FCA_ENABLED, test "$have_fca" = "yes")
 dnl GASNET_TOOLSONLY_FALSE_END
 
