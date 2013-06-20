@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2013/06/20 00:50:45 $
-# $Revision: 1.804 $
+#     $Date: 2013/06/20 02:26:55 $
+# $Revision: 1.805 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.804 $)
+AC_REVISION($Revision: 1.805 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -5346,19 +5346,17 @@ GASNET_WITH(tool-prefix, [Naming prefix to use for contributed tools],
 AC_SUBST(TOOL_PREFIX)
 
 dnl GASNET_TOOLSONLY_FALSE_BEGIN
-########################################################################
 ##                        FCA SUPPORT
-dnl echo "----------------------- Configuring FCA support -----------------------"
-dnl NOTE: no auto-detect option, originally because FCA used to disable pthreads -PHH
-GASNET_IF_ENABLED(fca,
-  [Enable FCA for acceleration of collectives (default is no)],
-  [enable_fca="yes";force_fca=yes],[enable_fca="no"])
+GASNET_IF_ENABLED_WITH_AUTO(fca, [Enable/disable FCA for acceleration of collectives (auto-detected)],
+  [enable_fca=yes;force_fca=yes],
+  [enable_fca=no],
+  [enable_fca=probe])
 
 have_fca=no
 if test "$enable_fca" != "no"; then
   fca_home=''
   user_fca_home=''
-  GASNET_WITH(fca, [Specifiy a custom FCA install directory],
+  GASNET_WITH(fca, [Specify a custom FCA install directory],
             [if test "$withval" = 'yes'; then
                 GASNET_MSG_ERROR(["--with-fca requires an argument (FCA install directory)"])
              fi
