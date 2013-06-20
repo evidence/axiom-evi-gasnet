@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2013/06/19 23:48:02 $
-# $Revision: 1.803 $
+#     $Date: 2013/06/20 00:50:45 $
+# $Revision: 1.804 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.803 $)
+AC_REVISION($Revision: 1.804 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -3032,8 +3032,8 @@ if test $enabled_gm = yes; then
     *)	# All unknown for now
         GASNET_ENV_DEFAULT(GM_INCLUDE, $GMHOME/include)
         # Note 'test -d $foo/.' works even if $foo is a symlink
-        if test x"$ac_cv_sizeof_void_p" = x8 -a -d $GMHOME/lib64/.; then
-          gm_libdir_default=$GMHOME/lib64
+        if -d $GMHOME/lib${GASNETI_PTR_BITS}/.; then
+          gm_libdir_default=$GMHOME/lib${GASNETI_PTR_BITS}
         else
           gm_libdir_default=$GMHOME/lib
         fi
@@ -3548,8 +3548,8 @@ if test "$enabled_vapi" = yes; then
   GASNET_ENV_DEFAULT(VAPI_INCLUDE, $MTHOME/include)
   GASNET_ENV_DEFAULT(VAPI_LIBS, -lvapi -lmtl_common -lmosal -lmpga)
   # Note 'test -d $foo/.' works even if $foo is a symlink
-  if test x"$ac_cv_sizeof_void_p" = x8 -a -d $MTHOME/lib64/.; then
-    vapi_libdir_default=$MTHOME/lib64
+  if test -d $MTHOME/lib${GASNETI_PTR_BITS}/.; then
+    vapi_libdir_default=$MTHOME/lib${GASNETI_PTR_BITS}
   else
     vapi_libdir_default=$MTHOME/lib
   fi
@@ -3674,8 +3674,8 @@ if test "$enabled_ibv" = yes; then
   GASNET_ENV_DEFAULT(IBV_INCLUDE, $IBVHOME/include)
   GASNET_ENV_DEFAULT(IBV_LIBS, -libverbs)
   # Note 'test -d $foo/.' works even if $foo is a symlink
-  if test x"$ac_cv_sizeof_void_p" = x8 -a -d $IBVHOME/lib64/.; then
-    ibv_libdir_default=$IBVHOME/lib64
+  if test -d $IBVHOME/lib${GASNETI_PTR_BITS}/.; then
+    ibv_libdir_default=$IBVHOME/lib${GASNETI_PTR_BITS}
   else
     ibv_libdir_default=$IBVHOME/lib
   fi
@@ -3820,12 +3820,9 @@ elif test "$enabled_mxm" != no; then
       if test -e "$mxm_home/include/mxm/api/mxm_api.h" ; then
         mxm_have_header=yes
       fi
-      if test -e "$mxm_home/lib64/libmxm.so" -a "$GASNETI_PTR_BITS" = 64 ; then
+      if test -e "$mxm_home/lib${GASNETI_PTR_BITS}/libmxm.so" ; then
         mxm_have_lib=yes
-        mxm_lib_path="$mxm_home/lib64"
-      elif test -e "$mxm_home/lib32/libmxm.so" -a "$GASNETI_PTR_BITS" = 32 ; then
-        mxm_have_lib=yes
-        mxm_lib_path="$mxm_home/lib32"
+        mxm_lib_path="$mxm_home/lib${GASNETI_PTR_BITS}"
       elif test -e "$mxm_home/lib/libmxm.so" ; then
         mxm_have_lib=yes
         mxm_lib_path="$mxm_home/lib"
@@ -4473,18 +4470,12 @@ if test $enabled_pami = yes; then
     GASNET_ENV_DEFAULT(PAMI_INCLUDE, [-I$PAMI_HOME/include]) 
     # XXX: There should be a better way to find these libs.
     #      Could/should we literally "find"?
-    if test "$GASNETI_PTR_BITS" = 64; then
-      if test -e "$PAMI_HOME/lib/pami64"; then
-        GASNET_ENV_DEFAULT(PAMI_LIBDIR, [-L$PAMI_HOME/lib/pami64])
-      elif test -e "$PAMI_HOME/gnu/lib64/pami64"; then
-        GASNET_ENV_DEFAULT(PAMI_LIBDIR, [-L$PAMI_HOME/gnu/lib64/pami64])
-      fi
-    else
-      if test -e "$PAMI_HOME/lib/pami32"; then
-        GASNET_ENV_DEFAULT(PAMI_LIBDIR, [-L$PAMI_HOME/lib/pami32])
-      elif test -e "$PAMI_HOME/gnu/lib/pami32"; then
-        GASNET_ENV_DEFAULT(PAMI_LIBDIR, [-L$PAMI_HOME/gnu/lib/pami32])
-      fi
+    if test -e "$PAMI_HOME/lib/pami${GASNETI_PTR_BITS}"; then
+        GASNET_ENV_DEFAULT(PAMI_LIBDIR, [-L$PAMI_HOME/lib/pami${GASNETI_PTR_BITS}])
+    elif test -e "$PAMI_HOME/gnu/lib${GASNETI_PTR_BITS}/pami${GASNETI_PTR_BITS}"; then
+        GASNET_ENV_DEFAULT(PAMI_LIBDIR, [-L$PAMI_HOME/gnu/lib${GASNETI_PTR_BITS}/pami${GASNETI_PTR_BITS}])
+    elif test -e "$PAMI_HOME/gnu/lib/pami${GASNETI_PTR_BITS}"; then
+        GASNET_ENV_DEFAULT(PAMI_LIBDIR, [-L$PAMI_HOME/gnu/lib/pami${GASNETI_PTR_BITS}])
     fi
     GASNET_ENV_DEFAULT(PAMI_LIBS, [-lpami])
     GASNET_ENV_DEFAULT(PAMI_SYS_LIBDIR, [])
@@ -4493,10 +4484,8 @@ if test $enabled_pami = yes; then
     # We'll just make a reasonable guess:
     GASNET_ENV_DEFAULT(PAMI_HOME, [/usr])
     GASNET_ENV_DEFAULT(PAMI_INCLUDE, [-I$PAMI_HOME/include]) 
-    if test "$GASNETI_PTR_BITS" = 64 -a -e "$PAMI_HOME/lib64"; then
-      GASNET_ENV_DEFAULT(PAMI_LIBDIR, [-L$PAMI_HOME/lib64])
-    elif test "$GASNETI_PTR_BITS" = 32 -a -e "$PAMI_HOME/lib32"; then
-      GASNET_ENV_DEFAULT(PAMI_LIBDIR, [-L$PAMI_HOME/lib32])
+    if test "$PAMI_HOME/lib${GASNETI_PTR_BITS}"; then
+      GASNET_ENV_DEFAULT(PAMI_LIBDIR, [-L$PAMI_HOME/lib${GASNETI_PTR_BITS}])
     else
       GASNET_ENV_DEFAULT(PAMI_LIBDIR, [-L$PAMI_HOME/lib])
     fi
@@ -5408,12 +5397,9 @@ if test "$enable_fca" != "no"; then
     if test -e "$fca_home/include/fca/fca_api.h" ; then
       fca_have_header=yes
     fi
-    if test -e "$fca_home/lib64/libfca.so" -a "$GASNETI_PTR_BITS" = 64 ; then
+    if test -e "$fca_home/lib${GASNETI_PTR_BITS}/libfca.so" ; then
       fca_have_lib=yes
-      fca_lib_path="$fca_home/lib64"
-    elif test -e "$fca_home/lib32/libfca.so" -a "$GASNETI_PTR_BITS" = 32 ; then
-      fca_have_lib=yes
-      fca_lib_path="$fca_home/lib32"
+      fca_lib_path="$fca_home/lib${GASNETI_PTR_BITS}"
     elif test -e "$fca_home/lib/libfca.so" ; then
       fca_have_lib=yes
       fca_lib_path="$fca_home/lib"
