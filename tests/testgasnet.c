@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testgasnet.c,v $
- *     $Date: 2012/05/05 21:43:05 $
- * $Revision: 1.69 $
+ *     $Date: 2013/06/20 20:45:14 $
+ * $Revision: 1.70 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -204,8 +204,14 @@ int main(int argc, char **argv) {
     assert_always(gasnet_getMaxGlobalSegmentSize() % GASNET_PAGESIZE == 0);
     assert_always(gasnet_getMaxGlobalSegmentSize() > 0);
   #endif
+  assert_always(GASNET_ERR_NOT_INIT == gasnet_init(&argc, &argv)); /* Duplicate init */
+
   GASNET_Safe(gasnet_attach(handlers, sizeof(handlers)/sizeof(gasnet_handlerentry_t), 
                             TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
+  assert_always(GASNET_ERR_NOT_INIT == /* Duplicate attach */
+                gasnet_attach(handlers, sizeof(handlers)/sizeof(gasnet_handlerentry_t), 
+                              TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
+
   test_init("testgasnet",0,"");
   assert(TEST_SEGSZ >= 2*sizeof(int)*NUMHANDLERS_PER_TYPE);
 
