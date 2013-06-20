@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/contrib/gasnetrun_ibv.pl,v $
-#     $Date: 2013/06/18 20:48:44 $
-# $Revision: 1.10 $
+#     $Date: 2013/06/20 07:37:22 $
+# $Revision: 1.11 $
 # Description: GASNet VAPI, IBV and MXM spawner
 # Terms of use are as specified in license.txt
 
@@ -18,6 +18,7 @@ my $dryrun = 0;
 my $exebase = undef;
 my $exepath = undef;
 my $exeindex = undef;
+my $envlist = undef;
 my $nodefile = $ENV{'GASNET_NODEFILE'} || $ENV{'PBS_NODEFILE'};
 my @tmpfiles = (defined($nodefile) && $ENV{'GASNET_RM_NODEFILE'}) ? ("$nodefile") : ();
 my $spawner = $ENV{'GASNET_IB_SPAWNER'};
@@ -96,6 +97,7 @@ sub fullpath($)
 	} elsif ($_ eq '-E') {
 	    shift;
 	    push @mpi_args, $ARGV[0];
+	    $envlist = $ARGV[0];
 	    usage ("-E option given without an argument\n") unless @ARGV >= 1;
 	} elsif ($_ =~ /^-spawner=(.+)$/) {
 	    $spawner = $1;
@@ -127,6 +129,14 @@ sub fullpath($)
     }
     if (($spawner eq 'MPI') && !$ENV{GASNET_IB_BOOTSTRAP_MPI}) {
         usage "Spawner is set to MPI, but MPI support was not compiled in\n"
+    }
+
+# Implement -E for ssh, if required, as a wrapper (processed below)
+    if (($spawner eq 'SSH') && defined $envlist) {
+        foreach (split(',', $envlist)) {
+            unshift @ARGV, "$_=$ENV{$_}";
+        }
+        unshift @ARGV, $ENV{'ENVCMD'};
     }
 
 # Find the program (possibly a wrapper)
