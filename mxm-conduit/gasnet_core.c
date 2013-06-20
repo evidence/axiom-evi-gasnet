@@ -1303,12 +1303,16 @@ static void gasneti_mxm_finalize(void)
     if (gasnet_mxm_module.mxm_ep)
         mxm_ep_destroy(gasnet_mxm_module.mxm_ep);
 
-    /*
-     * TODO: deregister memory
-     *       mxm_error_t mxm_dereg_mr(mxm_ep_h ep,
-     *                                mxm_ptl_id_t ptlid,
-     *                                void *addr, size_t len);
-     */
+    gasnetc_unpin(&gasnet_mxm_module.recv_reg);
+
+    if (gasneti_attach_done) {
+        size_t remain = gasneti_seginfo[gasneti_mynode].size;
+        int j = gasnetc_max_regs*gasneti_mynode;
+        while (remain) {
+            gasnetc_unpin(&gasnet_mxm_module.reg[j++]);
+            remain -= MIN(remain, gasnetc_pin_maxsz);
+        }
+    }
 
     if (gasnet_mxm_module.mxm_context)
         mxm_cleanup(gasnet_mxm_module.mxm_context);
