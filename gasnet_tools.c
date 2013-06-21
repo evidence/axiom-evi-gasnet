@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2013/01/17 04:34:45 $
- * $Revision: 1.278 $
+ *     $Date: 2013/06/21 01:06:44 $
+ * $Revision: 1.279 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -703,6 +703,9 @@ extern void gasneti_qualify_path(char *path_out, const char *path_in) {
 #if HAVE_PRINTSTACK
   #define GASNETI_BT_PRINTSTACK	&printstack
 #endif
+#if defined(GSTACK_PATH) && !GASNETI_NO_FORK
+  #define GASNETI_BT_GSTACK	&gasneti_bt_gstack
+#endif
 #if defined(GDB_PATH) && !GASNETI_NO_FORK
   #define GASNETI_BT_GDB	&gasneti_bt_gdb
 #endif
@@ -917,6 +920,16 @@ static int gasneti_bt_mkstemp(char *filename, int limit) {
   }
 #endif
 
+#ifdef GASNETI_BT_GSTACK
+  static int gasneti_bt_gstack(int fd) {
+    static char cmd[12 + GASNETI_BT_PATHSZ];
+    const char *gstack = (access(GSTACK_PATH, X_OK) ? "gstack" : GSTACK_PATH);
+    int rc = snprintf(cmd, sizeof(cmd), "%s %i", gstack, (int)getpid());
+    if ((rc < 0) || (rc >= sizeof(cmd))) return -1;
+    return gasneti_system_redirected_coprocess(cmd, fd);
+  }
+#endif
+
 #ifdef GASNETI_BT_GDB
   static int gasneti_bt_gdb(int fd) {
     /* Change "backtrace" to "backtrace full" to also see local vars from each frame */
@@ -1038,6 +1051,9 @@ out:
 static gasnett_backtrace_type_t gasneti_backtrace_mechanisms[] = {
   #ifdef GASNETI_BT_LADEBUG
   { "LADEBUG", GASNETI_BT_LADEBUG, 1 },
+  #endif
+  #ifdef GASNETI_BT_GSTACK
+  { "GSTACK", GASNETI_BT_GSTACK, 1 },
   #endif
   #ifdef GASNETI_BT_GDB
   { "GDB", GASNETI_BT_GDB, 1 },

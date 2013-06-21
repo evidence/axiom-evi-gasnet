@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2013/06/19 21:30:00 $ */
-/*  $Revision: 1.189 $ */
+/*      $Date: 2013/06/21 01:06:44 $ */
+/*  $Revision: 1.190 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -198,6 +198,7 @@
 #undef HAVE_PRINTSTACK
 #undef ADDR2LINE_PATH
 #undef GDB_PATH
+#undef GSTACK_PATH
 #undef PGDBG_PATH
 #undef IDB_PATH
 #undef LADEBUG_PATH
