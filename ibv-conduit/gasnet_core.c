@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2013/05/30 19:00:07 $
- * $Revision: 1.310 $
+ *     $Date: 2013/06/22 22:29:41 $
+ * $Revision: 1.311 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -82,7 +82,7 @@ static double gasnetc_exittimeout = GASNETC_DEFAULT_EXITTIMEOUT_MAX;
 static void gasnetc_exit_init(void);
 
 /* Maximum MTU (will silently lower to port capability), 0 = use maximum */
-int gasnetc_max_mtu;
+gasnetc_mtu_t gasnetc_max_mtu;
 
 /* HW level retry knobs */
 int gasnetc_qp_timeout, gasnetc_qp_retry_count;
@@ -806,9 +806,9 @@ static void gasnetc_init_pin_info(int first_local, int num_local) {
   gasneti_free(all_info);
 }
 
-static const char *mtu_to_str(int mtu) {
+static const char *mtu_to_str(gasnetc_mtu_t mtu) {
   switch (mtu) {
-  case 0                   : return "0 (automatic)";
+  case (gasnetc_mtu_t)0    : return "0 (automatic)";
   case GASNETC_IB_MTU(256) : return "256";
   case GASNETC_IB_MTU(512) : return "512";
   case GASNETC_IB_MTU(1024): return "1024";

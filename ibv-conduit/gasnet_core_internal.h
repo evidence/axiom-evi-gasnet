@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2013/03/24 23:38:37 $
- * $Revision: 1.231 $
+ *     $Date: 2013/06/22 22:29:41 $
+ * $Revision: 1.232 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -472,7 +472,7 @@ extern int gasnetc_ReplySysMedium(gasnet_token_t token,
 #if GASNET_CONDUIT_VAPI
   #define GASNETC_IB_CHOOSE(X,Y)		X
 
-  #define GASNETC_IB_MTU(_mtu)			MTU##_mtu
+  #define GASNETC_IB_MTU(_mtu)			(IB_mtu_t)MTU##_mtu
   #define gasnetc_close_hca(_hca)		EVAPI_release_hca_hndl(_hca)
   #define gasnetc_alloc_pd(_hca)		VAPI_alloc_pd((_hca)->handle, &((_hca)->pd))
   #define gasnetc_dealloc_pd(_hca,_pd)		VAPI_dealloc_pd((_hca),(_pd))
@@ -533,6 +533,7 @@ typedef GASNETC_IB_CHOOSE(VAPI_lkey_t,		uint32_t)		gasnetc_lkey_t;
 typedef GASNETC_IB_CHOOSE(VAPI_rkey_t,		uint32_t)		gasnetc_rkey_t;
 typedef GASNETC_IB_CHOOSE(IB_port_t,		uint8_t)		gasnetc_port_t;
 typedef GASNETC_IB_CHOOSE(IB_lid_t,		uint16_t)		gasnetc_lid_t;
+typedef GASNETC_IB_CHOOSE(IB_mtu_t,		enum ibv_mtu)		gasnetc_mtu_t;
 typedef GASNETC_IB_CHOOSE(VAPI_mrw_acl_t,	enum ibv_access_flags)	gasnetc_acl_t;
 typedef GASNETC_IB_CHOOSE(VAPI_wc_status_t,	enum ibv_wc_status)	gasnetc_wc_status_t;
 typedef GASNETC_IB_CHOOSE(VAPI_wr_opcode_t,	enum ibv_wr_opcode)	gasnetc_wr_opcode_t;
@@ -886,7 +887,7 @@ extern size_t		gasnetc_bounce_limit;
 #else
   #define GASNETC_USE_FIREHOSE	1
 #endif
-extern int              gasnetc_max_mtu;
+extern gasnetc_mtu_t    gasnetc_max_mtu;
 extern int              gasnetc_qp_timeout;
 extern int              gasnetc_qp_retry_count;
 extern int		gasnetc_amrdma_max_peers;
