@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_extended_internal.h,v $
- *     $Date: 2010/04/05 07:56:06 $
- * $Revision: 1.27 $
+ *     $Date: 2013/06/23 23:05:39 $
+ * $Revision: 1.28 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -13,16 +13,11 @@
 
 /* ------------------------------------------------------------------------------------ */
 
-enum {
-  gasnete_opExplicit = 0,	/* gasnete_eop_new() relies on this value */
-  gasnete_opImplicit
-};
-
 /* gasnet_handle_t is a void* pointer to a gasnete_op_t, 
    which is either a gasnete_eop_t or an gasnete_iop_t
    */
 typedef struct _gasnete_op_t {
-  uint8_t type;                   /*  type tag */
+  uint8_t flags;                  /*  flags - type tag */
   gasnete_threadidx_t threadidx;  /*  thread that owns me */
 } gasnete_op_t;
 
@@ -41,20 +36,20 @@ typedef union _gasnete_eopaddr_t {
 #define gasnete_eopaddr_isnil(addr) ((addr).fulladdr == EOPADDR_NIL.fulladdr)
 
 typedef struct _gasnete_eop_t {
-  uint8_t type;                   /*  type tag */
+  uint8_t flags;                  /*  state flags */
   gasnete_threadidx_t threadidx;  /*  thread that owns me */
   gasnete_eopaddr_t addr;         /*  next cell while in free list, my own eopaddr_t while in use */
   gasnetc_counter_t req_oust;
 } gasnete_eop_t;
 
 typedef struct _gasnete_iop_t {
-  uint8_t type;                   /*  type tag */
+  uint8_t flags;                  /*  state flags */
   gasnete_threadidx_t threadidx;  /*  thread that owns me */
   uint16_t _unused;
 
   struct _gasnete_iop_t *next;    /*  next cell while in free list, deferred iop while being filled */
 
-  /*  make sure the counters live on a distinct cache line for SMPs */
+  /*  make sure the counters live on different cache lines for SMP's */
   uint8_t _pad1[MAX(8,(ssize_t)(GASNETI_CACHE_LINE_BYTES - 2*sizeof(void *)))];
   gasnetc_counter_t get_req_oust;     /*  count of get ops outstanding */
   gasnetc_counter_t put_req_oust;     /*  count of put ops outstanding */
@@ -69,16 +64,55 @@ typedef struct _gasnete_threaddata_t {
   int eop_num_bufs;             /*  number of valid buffer entries */
   gasnete_eopaddr_t eop_free;   /*  free list of eops */
 
-  gasnete_iop_t *current_iop;   /* active iop servicing new implicit ops */
+  /*  stack of iops - head is active iop servicing new implicit ops */
+  gasnete_iop_t *current_iop;  
 
   gasnete_iop_t *iop_free;      /*  free list of iops */
 
+  #ifdef GASNETE_CONDUIT_THREADDATA_FIELDS
+  GASNETE_CONDUIT_THREADDATA_FIELDS
+  #endif
 } gasnete_threaddata_t;
+
 /* ------------------------------------------------------------------------------------ */
 
-/*  get a new op */
+/* gasnete_op_t flags field */
+#define OPTYPE_EXPLICIT               0x00  /*  gasnete_eop_new() relies on this value */
+#define OPTYPE_IMPLICIT               0x80
+/* unlike reference, don't need any masking for type-vs-flags bits */
+#define OPTYPE(op) ((op)->flags)
+GASNETI_INLINE(SET_OPTYPE)
+void SET_OPTYPE(gasnete_op_t *op, uint8_t type) {
+  op->flags = type;
+}
+
+#if 0 /* Not using FREE/INFLIGHT/COMPLETED state bits from extended-ref */
+/*  state - only valid for explicit ops */
+#define OPSTATE_FREE      0   /*  gasnete_eop_new() relies on this value */
+#define OPSTATE_INFLIGHT  1
+#define OPSTATE_COMPLETE  2
+#define OPSTATE(op) ((op)->flags & 0x03) 
+GASNETI_INLINE(SET_OPSTATE)
+void SET_OPSTATE(gasnete_eop_t *op, uint8_t state) {
+  op->flags = (op->flags & 0xFC) | (state & 0x03);
+  /* RACE: If we are marking the op COMPLETE, don't assert for completion
+   * state as another thread spinning on the op may already have changed
+   * the state. */
+  gasneti_assert(state == OPSTATE_COMPLETE ? 1 : OPSTATE(op) == state);
+}
+#endif
+
+/*  get a new op and mark it in flight */
 gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t *thread);
 gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t *thread);
+#if 0 /* Not using FREE/INFLIGHT/COMPLETED state bits from extended-ref */
+/*  query an eop for completeness */
+int gasnete_op_isdone(gasnete_op_t *op);
+/*  mark an op done - isget ignored for explicit ops */
+void gasnete_op_markdone(gasnete_op_t *op, int isget);
+/*  free an op */
+void gasnete_op_free(gasnete_op_t *op);
+#endif
 
 #define GASNETE_EOPADDR_TO_PTR(threaddata, eopaddr)                      \
       (gasneti_memcheck(threaddata),                                     \
@@ -91,7 +125,7 @@ gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t *thread);
   /* check an in-flight/complete eop */
   #define gasnete_eop_check(eop) do {                                \
     gasnete_threaddata_t * _th;                                      \
-    gasneti_assert((eop)->type == gasnete_opExplicit);               \
+    gasneti_assert(OPTYPE(eop) == OPTYPE_EXPLICIT);                  \
     gasnete_assert_valid_threadid((eop)->threadidx);                 \
     _th = gasnete_threadtable[(eop)->threadidx];                     \
     gasneti_assert(GASNETE_EOPADDR_TO_PTR(_th, (eop)->addr) == eop); \
@@ -101,7 +135,7 @@ gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t *thread);
     gasneti_memcheck(iop);                                    \
     _tmp_next = (iop)->next;                                  \
     if (_tmp_next != NULL) _gasnete_iop_check(_tmp_next);     \
-    gasneti_assert((iop)->type == gasnete_opImplicit);        \
+    gasneti_assert(OPTYPE(iop) == OPTYPE_IMPLICIT);           \
     gasnete_assert_valid_threadid((iop)->threadidx);          \
   } while (0)
   extern void _gasnete_iop_check(gasnete_iop_t *iop);
@@ -114,6 +148,7 @@ gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t *thread);
 #define GASNETE_SCATTER_EOPS_ACROSS_CACHELINES    1 
 
 /* ------------------------------------------------------------------------------------ */
+
 #define GASNETE_HANDLER_BASE  64 /* reserve 64-127 for the extended API */
 #define _hidx_gasnete_amdbarrier_notify_reqh (GASNETE_HANDLER_BASE+0) 
 #define _hidx_gasnete_amcbarrier_notify_reqh (GASNETE_HANDLER_BASE+1) 
