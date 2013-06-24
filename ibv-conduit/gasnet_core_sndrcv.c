@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/05/23 20:16:17 $
- * $Revision: 1.306 $
+ *     $Date: 2013/06/24 04:33:39 $
+ * $Revision: 1.307 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -3068,13 +3068,13 @@ extern int gasnetc_sndrcv_limits(void) {
 
   /* Ops outstanding per peer and total: */
   if (gasnetc_op_oust_limit == 0) { /* 0 = automatic limit computation */
-    gasnetc_op_oust_per_qp = gasnetc_hca[0].hca_cap.gasnetc_f_max_cqe / gasnetc_hca[0].qps;
-    for (h = 1; h < gasnetc_num_hcas; ++h) {
-      gasnetc_op_oust_per_qp = MIN(gasnetc_op_oust_per_qp,
-		          (gasnetc_hca[h].hca_cap.gasnetc_f_max_cqe / gasnetc_hca[h].qps));
+    gasnetc_op_oust_per_qp = INT_MAX;
+    GASNETC_FOR_ALL_HCA_INDEX(h) {
+      gasneti_atomic_val_t tmp = MIN(GASNETI_ATOMIC_MAX, gasnetc_hca[h].hca_cap.gasnetc_f_max_cqe);
+      gasnetc_op_oust_per_qp = MIN(gasnetc_op_oust_per_qp, (tmp / gasnetc_hca[h].qps));
     }
   } else {
-    gasnetc_op_oust_per_qp = gasnetc_op_oust_limit / gasnetc_num_qps;
+    gasnetc_op_oust_per_qp = MIN(GASNETI_ATOMIC_MAX, gasnetc_op_oust_limit) / gasnetc_num_qps;
     GASNETC_FOR_ALL_HCA(hca) {
       int tmp = hca->qps * gasnetc_op_oust_per_qp;
       if (tmp > hca->hca_cap.gasnetc_f_max_cqe) {
