@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2013/06/24 21:30:14 $
- * $Revision: 1.9 $
+ *     $Date: 2013/06/24 22:26:05 $
+ * $Revision: 1.10 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -213,6 +213,10 @@ gasnete_op_t *gasnete_opaddr_to_ptr(gasnete_threadidx_t threadid, gasnete_opaddr
   #define gasnete_eop_check(eop)   ((void)0)
   #define gasnete_iop_check(iop)   ((void)0)
 #endif
+
+#define GASNETE_IOP_DONE(_iop, _putget) \
+  (gasneti_weakatomic_read(&(_iop)->completed_##_putget##_cnt, 0) \
+          == ((_iop)->initiated_##_putget##_cnt & GASNETI_ATOMIC_MAX))
 
 /*  1 = scatter newly allocated eops across cache lines to reduce false sharing */
 #define GASNETE_SCATTER_EOPS_ACROSS_CACHELINES    1 
