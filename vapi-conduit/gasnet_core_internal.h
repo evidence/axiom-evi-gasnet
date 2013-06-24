@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2013/06/24 06:43:52 $
- * $Revision: 1.233 $
+ *     $Date: 2013/06/24 09:08:05 $
+ * $Revision: 1.234 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -170,75 +170,6 @@ typedef enum {
 #define GASNETC_ANY_PAR         (GASNETC_CLI_PAR || GASNETC_IB_RCV_THREAD)
 
 /* ------------------------------------------------------------------------------------ */
-/* Type and ops for rdma counters */
-
-#if GASNETC_ANY_PAR
-  /* Concurrent version */
-  typedef struct {
-      gasneti_atomic_t     completed;
-      gasneti_atomic_val_t initiated;
-  } gasnetc_counter_t;
-  #define GASNETC_COUNTER_INITIALIZER   {gasneti_atomic_init(0), 0}
-  #define gasnetc_counter_init(P)       do { gasneti_atomic_set(&(P)->completed, 0, 0); \
-                                             (P)->initiated = 0;                         \
-                                        } while (0)
-  #define gasnetc_counter_done(P)       (((P)->initiated & GASNETI_ATOMIC_MAX) == \
-                                             gasneti_atomic_read(&(P)->completed, 0))
-  #define gasnetc_counter_dec(P)        do { gasneti_assert(!gasnetc_counter_done(P));      \
-                                             gasneti_atomic_increment(&(P)->completed, 0); \
-                                        } while (0)
-  #if defined(GASNETI_HAVE_ATOMIC_ADD_SUB)
-    #define gasnetc_counter_dec_by(P,v)   \
-        gasneti_atomic_add(&(P)->completed,(v),0)
-  #else /* yuk */
-    #define gasnetc_counter_dec_by(P,v)   do {       \
-        int _i = (v);                                \
-        while (_i) { gasnetc_counter_dec(P); _i--; } \
-    } while (0)
-  #endif
-#else
-  /* Sequential version */
-  typedef struct {
-      gasneti_atomic_val_t completed;
-      gasneti_atomic_val_t initiated;
-  } gasnetc_counter_t;
-  #define GASNETC_COUNTER_INITIALIZER   {0, 0}
-  #define gasnetc_counter_init(P)       do { (P)->completed = (P)->initiated = 0; } while (0)
-  #define gasnetc_counter_done(P)       ((P)->initiated == (P)->completed)
-  #define gasnetc_counter_dec_by(P,v)   do { (P)->completed += (v); } while (0)
-  #define gasnetc_counter_dec(P)        gasnetc_counter_dec_by((P),1)
-#endif
-
-/* Same version concurrent/sequential */
-#define gasnetc_counter_inc(P)		do { (P)->initiated++; } while (0)
-#define gasnetc_counter_inc_by(P,v)	do { (P)->initiated += (v); } while (0)
-#define gasnetc_counter_inc_if(P)	do { if(P) gasnetc_counter_inc(P); } while (0)
-#define gasnetc_counter_inc_if_pf(P)	do { if_pf(P) gasnetc_counter_inc(P); } while (0)
-#define gasnetc_counter_inc_if_pt(P)	do { if_pt(P) gasnetc_counter_inc(P); } while (0)
-#define gasnetc_counter_dec_if(P)	do { if(P) gasnetc_counter_dec(P); } while (0)
-#define gasnetc_counter_dec_if_pf(P)	do { if_pf(P) gasnetc_counter_dec(P); } while (0)
-#define gasnetc_counter_dec_if_pt(P)	do { if_pt(P) gasnetc_counter_dec(P); } while (0)
-
-/* If using trace or stats, want meaningful counts when tracing NBI access regions */
-#if GASNETI_STATS_OR_TRACE
-  #define gasnetc_counter_reset(P)      gasnetc_counter_init(P)
-  #define gasnetc_counter_val(P)	((P)->initiated)
-#else
-  #define gasnetc_counter_reset(P)      ((void)0)
-#endif
-
-/* Wait until given counter is marked as done.
- * Note that no AMPoll is done in the best case.
- */
-extern void gasnetc_counter_wait_aux(gasnetc_counter_t *counter, int handler_context);
-GASNETI_INLINE(gasnetc_counter_wait)
-void gasnetc_counter_wait(gasnetc_counter_t *counter, int handler_context) { 
-  if_pf (!gasnetc_counter_done(counter)) {
-    gasnetc_counter_wait_aux(counter, handler_context);
-  }
-  gasneti_sync_reads();
-} 
-/* ------------------------------------------------------------------------------------ */
 
 #define GASNETC_ARGSEND_AUX(s,nargs) \
 	(offsetof(s,args)+((nargs)*sizeof(gasnet_handlerarg_t)))
@@ -283,32 +214,6 @@ typedef union {
   gasnetc_medmsg_t	medmsg;
   gasnetc_longmsg_t	longmsg;
 } gasnetc_buffer_t;
-
-/* ------------------------------------------------------------------------------------ */
-/* System AM Request/Reply Functions
- * These can be called between init and attach.
- * They have an optional counter allowing one to test/block for local completion.
- */
-
-extern int gasnetc_RequestSysShort(gasnet_node_t dest,
-                                   gasnetc_counter_t *req_oust, /* counter for local completion */
-                                   gasnet_handler_t handler,
-                                   int numargs, ...);
-extern int gasnetc_RequestSysMedium(gasnet_node_t dest,
-                                    gasnetc_counter_t *req_oust, /* counter for local completion */
-                                    gasnet_handler_t handler,
-                                    void *source_addr, size_t nbytes,
-                                    int numargs, ...);
-
-extern int gasnetc_ReplySysShort(gasnet_token_t token,
-                                 gasnetc_counter_t *req_oust, /* counter for local completion */
-                                 gasnet_handler_t handler,
-                                 int numargs, ...);
-extern int gasnetc_ReplySysMedium(gasnet_token_t token,
-                                  gasnetc_counter_t *req_oust, /* counter for local completion */
-                                  gasnet_handler_t handler,
-                                  void *source_addr, size_t nbytes,
-                                  int numargs, ...);
 
 /* ------------------------------------------------------------------------------------ */
 
@@ -395,6 +300,7 @@ extern int gasnetc_ReplySysMedium(gasnet_token_t token,
 
   typedef gasneti_atomic_t     gasnetc_atomic_t;
   typedef gasneti_atomic_val_t gasnetc_atomic_val_t;
+  #define gasnetc_atomic_init      gasneti_atomic_init
   #define gasnetc_atomic_read      gasneti_atomic_read
   #define gasnetc_atomic_set       gasneti_atomic_set
   #define gasnetc_atomic_increment gasneti_atomic_increment
@@ -480,6 +386,7 @@ extern int gasnetc_ReplySysMedium(gasnet_token_t token,
   } gasnetc_lifo_head_t;
   #define GASNETC_LIFO_INITIALIZER  { NULL }
 
+  #define gasnetc_atomic_init(v) (v)
   GASNETI_INLINE(gasnetc_lifo_init)
   void gasnetc_lifo_init(gasnetc_lifo_head_t *lifo) {
     gasneti_assert(lifo != NULL);
@@ -567,6 +474,90 @@ extern int gasnetc_ReplySysMedium(gasnet_token_t token,
     return ((*p) -= op);
   }
 #endif
+
+/* ------------------------------------------------------------------------------------ */
+/* Type and ops for rdma counters */
+
+typedef struct {
+    gasnetc_atomic_t     completed;
+    gasnetc_atomic_val_t initiated;
+} gasnetc_counter_t;
+
+#define GASNETC_COUNTER_INITIALIZER   {gasnetc_atomic_init(0), 0}
+
+#define gasnetc_counter_init(P)       do { gasnetc_atomic_set(&(P)->completed, 0, 0); \
+                                           (P)->initiated = 0;                         \
+                                      } while (0)
+#define gasnetc_counter_done(P)       (((P)->initiated & GASNETI_ATOMIC_MAX) == \
+                                           gasnetc_atomic_read(&(P)->completed, 0))
+#define gasnetc_counter_dec(P)        do { gasneti_assert(!gasnetc_counter_done(P));      \
+                                           gasnetc_atomic_increment(&(P)->completed, 0); \
+                                      } while (0)
+
+#if defined(GASNETI_HAVE_ATOMIC_ADD_SUB) || !GASNETC_ANY_PAR
+  #define gasnetc_counter_dec_by(P,v)   gasnetc_atomic_add(&(P)->completed,(v),0)
+#else /* yuk */
+  #define gasnetc_counter_dec_by(P,v)   do {       \
+      int _i = (v);                                \
+      while (_i) { gasnetc_counter_dec(P); _i--; } \
+  } while (0)
+  #error "vapi/ibv shouldn't be built w/o atomic add/sub "
+#endif
+
+#define gasnetc_counter_inc(P)		do { (P)->initiated++; } while (0)
+#define gasnetc_counter_inc_by(P,v)	do { (P)->initiated += (v); } while (0)
+#define gasnetc_counter_inc_if(P)	do { if(P) gasnetc_counter_inc(P); } while (0)
+#define gasnetc_counter_inc_if_pf(P)	do { if_pf(P) gasnetc_counter_inc(P); } while (0)
+#define gasnetc_counter_inc_if_pt(P)	do { if_pt(P) gasnetc_counter_inc(P); } while (0)
+#define gasnetc_counter_dec_if(P)	do { if(P) gasnetc_counter_dec(P); } while (0)
+#define gasnetc_counter_dec_if_pf(P)	do { if_pf(P) gasnetc_counter_dec(P); } while (0)
+#define gasnetc_counter_dec_if_pt(P)	do { if_pt(P) gasnetc_counter_dec(P); } while (0)
+
+/* If using trace or stats, want meaningful counts when tracing NBI access regions */
+#if GASNETI_STATS_OR_TRACE
+  #define gasnetc_counter_reset(P)      gasnetc_counter_init(P)
+  #define gasnetc_counter_val(P)	((P)->initiated)
+#else
+  #define gasnetc_counter_reset(P)      ((void)0)
+#endif
+
+/* Wait until given counter is marked as done.
+ * Note that no AMPoll is done in the best case.
+ */
+extern void gasnetc_counter_wait_aux(gasnetc_counter_t *counter, int handler_context);
+GASNETI_INLINE(gasnetc_counter_wait)
+void gasnetc_counter_wait(gasnetc_counter_t *counter, int handler_context) { 
+  if_pf (!gasnetc_counter_done(counter)) {
+    gasnetc_counter_wait_aux(counter, handler_context);
+  }
+  gasneti_sync_reads();
+} 
+
+/* ------------------------------------------------------------------------------------ */
+/* System AM Request/Reply Functions
+ * These can be called between init and attach.
+ * They have an optional counter allowing one to test/block for local completion.
+ */
+
+extern int gasnetc_RequestSysShort(gasnet_node_t dest,
+                                   gasnetc_counter_t *req_oust, /* counter for local completion */
+                                   gasnet_handler_t handler,
+                                   int numargs, ...);
+extern int gasnetc_RequestSysMedium(gasnet_node_t dest,
+                                    gasnetc_counter_t *req_oust, /* counter for local completion */
+                                    gasnet_handler_t handler,
+                                    void *source_addr, size_t nbytes,
+                                    int numargs, ...);
+
+extern int gasnetc_ReplySysShort(gasnet_token_t token,
+                                 gasnetc_counter_t *req_oust, /* counter for local completion */
+                                 gasnet_handler_t handler,
+                                 int numargs, ...);
+extern int gasnetc_ReplySysMedium(gasnet_token_t token,
+                                  gasnetc_counter_t *req_oust, /* counter for local completion */
+                                  gasnet_handler_t handler,
+                                  void *source_addr, size_t nbytes,
+                                  int numargs, ...);
 
 /* ------------------------------------------------------------------------------------ */
 
