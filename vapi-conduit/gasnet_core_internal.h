@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2013/06/24 09:08:05 $
- * $Revision: 1.234 $
+ *     $Date: 2013/06/24 11:31:22 $
+ * $Revision: 1.235 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -490,25 +490,15 @@ typedef struct {
                                       } while (0)
 #define gasnetc_counter_done(P)       (((P)->initiated & GASNETI_ATOMIC_MAX) == \
                                            gasnetc_atomic_read(&(P)->completed, 0))
-#define gasnetc_counter_dec(P)        do { gasneti_assert(!gasnetc_counter_done(P));      \
-                                           gasnetc_atomic_increment(&(P)->completed, 0); \
-                                      } while (0)
-
-#if defined(GASNETI_HAVE_ATOMIC_ADD_SUB) || !GASNETC_ANY_PAR
-  #define gasnetc_counter_dec_by(P,v)   gasnetc_atomic_add(&(P)->completed,(v),0)
-#else /* yuk */
-  #define gasnetc_counter_dec_by(P,v)   do {       \
-      int _i = (v);                                \
-      while (_i) { gasnetc_counter_dec(P); _i--; } \
-  } while (0)
-  #error "vapi/ibv shouldn't be built w/o atomic add/sub "
-#endif
 
 #define gasnetc_counter_inc(P)		do { (P)->initiated++; } while (0)
 #define gasnetc_counter_inc_by(P,v)	do { (P)->initiated += (v); } while (0)
 #define gasnetc_counter_inc_if(P)	do { if(P) gasnetc_counter_inc(P); } while (0)
 #define gasnetc_counter_inc_if_pf(P)	do { if_pf(P) gasnetc_counter_inc(P); } while (0)
 #define gasnetc_counter_inc_if_pt(P)	do { if_pt(P) gasnetc_counter_inc(P); } while (0)
+
+#define gasnetc_counter_dec(P)		gasnetc_atomic_increment(&(P)->completed, 0)
+#define gasnetc_counter_dec_by(P,v)	gasnetc_atomic_add(&(P)->completed,(v),0)
 #define gasnetc_counter_dec_if(P)	do { if(P) gasnetc_counter_dec(P); } while (0)
 #define gasnetc_counter_dec_if_pf(P)	do { if_pf(P) gasnetc_counter_dec(P); } while (0)
 #define gasnetc_counter_dec_if_pt(P)	do { if_pt(P) gasnetc_counter_dec(P); } while (0)
@@ -516,7 +506,6 @@ typedef struct {
 /* If using trace or stats, want meaningful counts when tracing NBI access regions */
 #if GASNETI_STATS_OR_TRACE
   #define gasnetc_counter_reset(P)      gasnetc_counter_init(P)
-  #define gasnetc_counter_val(P)	((P)->initiated)
 #else
   #define gasnetc_counter_reset(P)      ((void)0)
 #endif
@@ -944,15 +933,15 @@ extern int gasnetc_ReplyGeneric(gasnetc_category_t category,
 				int numargs, gasnetc_counter_t *mem_oust,
 				gasnetc_counter_t *req_oust, va_list argptr);
 #if GASNETC_PIN_SEGMENT
-  extern int gasnetc_rdma_put(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, size_t nbytes, gasnetc_counter_t *mem_oust, gasnetc_counter_t *req_oust);
+  extern int gasnetc_rdma_put(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, size_t nbytes, gasnetc_counter_t *mem_oust, gasnetc_atomic_val_t *initiated, gasnetc_atomic_t *completed);
 #else
-  extern int gasnetc_rdma_put_fh(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, size_t nbytes, gasnetc_counter_t *mem_oust, gasnetc_counter_t *req_oust, gasnetc_counter_t *am_oust);
-  #define gasnetc_rdma_put(epid,src_ptr,dst_ptr,nbytes,mem_oust,req_oust) \
-	gasnetc_rdma_put_fh(epid,src_ptr,dst_ptr,nbytes,mem_oust,req_oust,NULL)
+  extern int gasnetc_rdma_put_fh(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, size_t nbytes, gasnetc_counter_t *mem_oust, gasnetc_atomic_val_t *initiated, gasnetc_atomic_t *completed, gasnetc_counter_t *am_oust);
+  #define gasnetc_rdma_put(epid,src_ptr,dst_ptr,nbytes,mem_oust,initiated,completed) \
+	gasnetc_rdma_put_fh(epid,src_ptr,dst_ptr,nbytes,mem_oust,initiated,completed,NULL)
 #endif
-extern int gasnetc_rdma_get(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, size_t nbytes, gasnetc_counter_t *req_oust);
-extern int gasnetc_rdma_putv(gasnetc_epid_t epid, size_t srccount, gasnet_memvec_t const srclist[], void *dst_ptr, gasnetc_counter_t *mem_oust, gasnetc_counter_t *req_oust);
-extern int gasnetc_rdma_getv(gasnetc_epid_t epid, void *src_ptr, size_t dstcount, gasnet_memvec_t const dstlist[], gasnetc_counter_t *req_oust);
+extern int gasnetc_rdma_get(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, size_t nbytes, gasnetc_atomic_val_t *initiated, gasnetc_atomic_t *completed);
+extern int gasnetc_rdma_putv(gasnetc_epid_t epid, size_t srccount, gasnet_memvec_t const srclist[], void *dst_ptr, gasnetc_counter_t *mem_oust, gasnetc_atomic_val_t *initiated, gasnetc_atomic_t *completed);
+extern int gasnetc_rdma_getv(gasnetc_epid_t epid, void *src_ptr, size_t dstcount, gasnet_memvec_t const dstlist[], gasnetc_atomic_val_t *initiated, gasnetc_atomic_t *completed);
 
 /* Routines in gasnet_core_thread.c */
 #if GASNETI_CONDUIT_THREADS
