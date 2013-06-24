@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.h,v $
- *     $Date: 2013/06/24 03:56:26 $
- * $Revision: 1.64 $
+ *     $Date: 2013/06/24 06:22:14 $
+ * $Revision: 1.65 $
  * Description: GASNet header for vapi conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -176,7 +176,8 @@ typedef struct _gasnet_hsl_t {
   #define gasnetc_counter_init(P)       do { gasneti_atomic_set(&(P)->completed, 0, 0); \
                                              (P)->initiated = 0;                         \
                                         } while (0)
-  #define gasnetc_counter_done(P)       ((P)->initiated == gasneti_atomic_read(&(P)->completed, 0))
+  #define gasnetc_counter_done(P)       (((P)->initiated & GASNETI_ATOMIC_MAX) == \
+                                             gasneti_atomic_read(&(P)->completed, 0))
   #define gasnetc_counter_dec(P)        do { gasneti_assert(!gasnetc_counter_done(P));      \
                                              gasneti_atomic_increment(&(P)->completed, 0); \
                                         } while (0)
@@ -202,24 +203,9 @@ typedef struct _gasnet_hsl_t {
   #define gasnetc_counter_dec(P)        gasnetc_counter_dec_by((P),1)
 #endif
 
-/* True if and only if atomics have less range than gasneti_atomic_val_t.
- * Any decent compiler should be able to discard branch for full-range atomics.
- */
-#define GASNETC_WRAP_COUNTER_CAREFULLY (GASNETI_ATOMIC_MAX != ~(gasneti_atomic_val_t)0)
-
 /* Same version concurrent/sequential */
-#define gasnetc_counter_inc(P)          do { if_pf (GASNETC_WRAP_COUNTER_CAREFULLY && \
-                                                    ((P)->initiated == GASNETI_ATOMIC_MAX)) \
-                                               (P)->initiated = 0; \
-                                             else \
-                                               (P)->initiated++; \
-                                        } while (0)
-#define gasnetc_counter_inc_by(P,v)     do { if_pf (GASNETC_WRAP_COUNTER_CAREFULLY && \
-                                                    ((P)->initiated > GASNETI_ATOMIC_MAX - (v))) \
-                                               (P)->initiated -= GASNETI_ATOMIC_MAX - (v); \
-                                             else \
-                                               (P)->initiated += (v); \
-                                        } while (0)
+#define gasnetc_counter_inc(P)		do { (P)->initiated++; } while (0)
+#define gasnetc_counter_inc_by(P,v)	do { (P)->initiated += (v); } while (0)
 #define gasnetc_counter_inc_if(P)	do { if(P) gasnetc_counter_inc(P); } while (0)
 #define gasnetc_counter_inc_if_pf(P)	do { if_pf(P) gasnetc_counter_inc(P); } while (0)
 #define gasnetc_counter_inc_if_pt(P)	do { if_pt(P) gasnetc_counter_inc(P); } while (0)
