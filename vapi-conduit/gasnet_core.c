@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2013/06/22 22:29:41 $
- * $Revision: 1.311 $
+ *     $Date: 2013/06/24 06:38:39 $
+ * $Revision: 1.312 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -81,7 +81,7 @@ static double gasnetc_exittimeout = GASNETC_DEFAULT_EXITTIMEOUT_MAX;
 /* Exit coordination setup */
 static void gasnetc_exit_init(void);
 
-/* Maximum MTU (will silently lower to port capability), 0 = use maximum */
+/* Maximum MTU (will silently lower to port capability) */
 gasnetc_mtu_t gasnetc_max_mtu;
 
 /* HW level retry knobs */
@@ -808,7 +808,6 @@ static void gasnetc_init_pin_info(int first_local, int num_local) {
 
 static const char *mtu_to_str(gasnetc_mtu_t mtu) {
   switch (mtu) {
-  case (gasnetc_mtu_t)0    : return "0 (automatic)";
   case GASNETC_IB_MTU(256) : return "256";
   case GASNETC_IB_MTU(512) : return "512";
   case GASNETC_IB_MTU(1024): return "1024";
@@ -821,6 +820,7 @@ static const char *mtu_to_str(gasnetc_mtu_t mtu) {
 /* Process defaults and the environment to get configuration settings */
 static int gasnetc_load_settings(void) {
   const char *tmp;
+  int i;
 
   tmp =  gasneti_getenv("GASNET_HCA_ID");
   if (tmp && strlen(tmp)) {
@@ -840,11 +840,11 @@ static int gasnetc_load_settings(void) {
       program_var = _tmp;                                                            \
     } while (0)
   
-  GASNETC_ENVINT(gasnetc_max_mtu, GASNET_MAX_MTU, 0, 0, 1);
-  switch (gasnetc_max_mtu) {
+  GASNETC_ENVINT(i, GASNET_MAX_MTU, 0, 0, 1);
+  switch (i) {
     default: fprintf(stderr,
                      "WARNING: ignoring invalid GASNET_MAX_MTU value %d.\n",
-                     gasnetc_max_mtu);
+                     i);
              /* fall through to "auto" case: */
   case    0: /* TODO: "automatic" might be more sophisticated */
              /* Our historic default is 1k, which is a good latency-vs-bandwidth compromise */
