@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/06/24 11:31:22 $
- * $Revision: 1.309 $
+ *     $Date: 2013/06/24 20:31:28 $
+ * $Revision: 1.310 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -3734,27 +3734,22 @@ extern void gasnetc_sndrcv_poll(int handler_context) {
 
 extern void gasnetc_counter_wait_aux(gasnetc_counter_t *counter, int handler_context)
 {
-  const int initiated = (counter->initiated & GASNETI_ATOMIC_MAX);
-  #if GASNETC_ANY_PAR
-    #define gasnetc_counter_completed(p) gasneti_atomic_read(&((p)->completed), 0)
-  #else
-    #define gasnetc_counter_completed(p) ((p)->completed)
-  #endif
+  const gasnetc_atomic_val_t initiated = (counter->initiated & GASNETI_ATOMIC_MAX);
+  gasnetc_atomic_t * const completed = &counter->completed;
 
   if (handler_context) {
     do {
       /* must not poll rcv queue in hander context */
       GASNETI_WAITHOOK();
       gasnetc_poll_snd();
-    } while (initiated != gasnetc_counter_completed(counter));
+    } while (initiated != gasnetc_atomic_read(completed, 0));
   } else {
     do {
       GASNETI_WAITHOOK();
       gasnetc_poll_both();
       GASNETI_PROGRESSFNS_RUN();
-    } while (initiated != gasnetc_counter_completed(counter));
+    } while (initiated != gasnetc_atomic_read(completed, 0));
   }
-  #undef gasnetc_counter_completed
 }
 
 #if GASNETC_PIN_SEGMENT
