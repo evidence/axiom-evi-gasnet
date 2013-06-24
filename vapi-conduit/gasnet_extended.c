@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/23 23:59:33 $
- * $Revision: 1.73 $
+ *     $Date: 2013/06/24 00:09:26 $
+ * $Revision: 1.74 $
  * Description: GASNet Extended API over VAPI/IB Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -58,7 +58,7 @@ gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread) {
       #if 0 /* these can safely be skipped when values are zero */
 	SET_OPSTATE(&(buf[i]),OPSTATE_FREE);
       #endif
-      gasnetc_counter_reset(&(eop->req_oust));
+      gasnetc_counter_reset(&(buf[i].req_oust));
     }
      /*  add a list terminator */
     #if GASNETE_SCATTER_EOPS_ACROSS_CACHELINES
