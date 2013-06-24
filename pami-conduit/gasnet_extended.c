@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2013/06/24 23:19:47 $
- * $Revision: 1.53 $
+ *     $Date: 2013/06/24 23:37:45 $
+ * $Revision: 1.54 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -253,7 +253,7 @@ int gasnete_op_isdone(gasnete_op_t *op) {
   } else {
     gasnete_iop_t *iop = (gasnete_iop_t*)op;
     gasnete_iop_check(iop);
-    return (GASNETE_IOP_DONE(iop,get) && GASNETE_IOP_DONE(iop,put));
+    return (GASNETE_IOP_CNTDONE(iop,get) && GASNETE_IOP_CNTDONE(iop,put));
   }
 }
 
@@ -761,7 +761,7 @@ extern int  gasnete_try_syncnbi_gets(GASNETE_THREAD_FARG_ALONE) {
         gasneti_fatalerror("VIOLATION: attempted to call gasnete_try_syncnbi_gets() inside an NBI access region");
     #endif
 
-    if (GASNETE_IOP_DONE(iop,get)) {
+    if (GASNETE_IOP_CNTDONE(iop,get)) {
       gasneti_sync_reads();
       return GASNET_OK;
     } else return GASNET_ERR_NOT_READY;
@@ -786,7 +786,7 @@ extern int  gasnete_try_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
     #endif
 
 
-    if (GASNETE_IOP_DONE(iop,put)) {
+    if (GASNETE_IOP_CNTDONE(iop,put)) {
       gasneti_sync_reads();
       return GASNET_OK;
     } else return GASNET_ERR_NOT_READY;

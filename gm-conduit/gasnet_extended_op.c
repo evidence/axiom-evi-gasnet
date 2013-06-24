@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended_op.c,v $
- * $Date: 2013/06/24 23:19:43 $
- * $Revision: 1.20 $
+ * $Date: 2013/06/24 23:37:41 $
+ * $Revision: 1.21 $
  * Description: GASNet Extended API OPs interface
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -152,7 +152,7 @@ gasnete_op_isdone(gasnete_op_t *op)
 	} else {
 		gasnete_iop_t *iop = (gasnete_iop_t*)op;
                 gasnete_iop_check(iop);
-		return GASNETE_IOP_DONE(iop,get) && GASNETE_IOP_DONE(iop,put);
+		return GASNETE_IOP_CNTDONE(iop,get) && GASNETE_IOP_CNTDONE(iop,put);
 	}
 }
 

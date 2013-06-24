@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/24 21:04:08 $
- * $Revision: 1.77 $
+ *     $Date: 2013/06/24 23:37:49 $
+ * $Revision: 1.78 $
  * Description: GASNet Extended API over VAPI/IB Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -160,8 +160,8 @@ void gasnete_iop_free(gasnete_iop_t *iop) {
   gasnete_threaddata_t * const thread = gasnete_threadtable[iop->threadidx];
   gasneti_assert(thread == gasnete_mythread());
   gasnete_iop_check(iop);
-  gasneti_assert(GASNETE_IOP_DONE(iop,get));
-  gasneti_assert(GASNETE_IOP_DONE(iop,put));
+  gasneti_assert(GASNETE_IOP_CNTDONE(iop,get));
+  gasneti_assert(GASNETE_IOP_CNTDONE(iop,put));
   iop->next = thread->iop_free;
   thread->iop_free = iop;
 }
@@ -177,7 +177,7 @@ int gasnete_eop_test(gasnete_eop_t *eop) {
 GASNETI_INLINE(gasnete_iop_test)
 int gasnete_iop_test(gasnete_iop_t *iop) {
   gasnete_iop_check(iop);
-  return (GASNETE_IOP_DONE(iop,get) && GASNETE_IOP_DONE(iop,put));
+  return (GASNETE_IOP_CNTDONE(iop,get) && GASNETE_IOP_CNTDONE(iop,put));
 }
 
 /*  query an op for completeness 
@@ -536,7 +536,7 @@ extern int  gasnete_try_syncnbi_gets(GASNETE_THREAD_FARG_ALONE) {
       gasneti_fatalerror("VIOLATION: attempted to call gasnete_try_syncnbi_gets() inside an NBI access region");
   #endif
 
-  return GASNETE_IOP_DONE(iop,get) ? GASNET_OK : GASNET_ERR_NOT_READY;
+  return GASNETE_IOP_CNTDONE(iop,get) ? GASNET_OK : GASNET_ERR_NOT_READY;
 }
 
 extern int  gasnete_try_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
@@ -549,7 +549,7 @@ extern int  gasnete_try_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
       gasneti_fatalerror("VIOLATION: attempted to call gasnete_try_syncnbi_puts() inside an NBI access region");
   #endif
 
-  return GASNETE_IOP_DONE(iop,put) ? GASNET_OK : GASNET_ERR_NOT_READY;
+  return GASNETE_IOP_CNTDONE(iop,put) ? GASNET_OK : GASNET_ERR_NOT_READY;
 }
 
 /* ------------------------------------------------------------------------------------ */

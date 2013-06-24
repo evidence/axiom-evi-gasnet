@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/24 22:47:07 $
- * $Revision: 1.57 $
+ *     $Date: 2013/06/24 23:37:41 $
+ * $Revision: 1.58 $
  * Description: GASNet Extended API GM Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -199,7 +199,7 @@ extern int  gasnete_try_syncnbi_gets(GASNETE_THREAD_FARG_ALONE) {
         gasneti_fatalerror("VIOLATION: attempted to call gasnete_try_syncnbi_gets() inside an NBI access region");
     #endif
 
-    if (GASNETE_IOP_DONE(iop,get)) {
+    if (GASNETE_IOP_CNTDONE(iop,get)) {
       gasneti_sync_reads();
       return GASNET_OK;
     } else return GASNET_ERR_NOT_READY;
@@ -223,7 +223,7 @@ extern int  gasnete_try_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
     #endif
 
 
-    if (GASNETE_IOP_DONE(iop,put)) {
+    if (GASNETE_IOP_CNTDONE(iop,put)) {
       gasneti_sync_reads();
       return GASNET_OK;
     } else return GASNET_ERR_NOT_READY;

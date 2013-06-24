@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2013/06/24 22:46:59 $
- * $Revision: 1.7 $
+ *     $Date: 2013/06/24 23:37:33 $
+ * $Revision: 1.8 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
  *                 Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -161,7 +161,7 @@ void gasnete_op_free(gasnete_op_t *op);
   #define gasnete_iop_check(iop)   ((void)0)
 #endif
 
-#define GASNETE_IOP_DONE(_iop, _putget) \
+#define GASNETE_IOP_CNTDONE(_iop, _putget) \
   (gasneti_weakatomic_read(&(_iop)->completed_##_putget##_cnt, 0) \
           == ((_iop)->initiated_##_putget##_cnt & GASNETI_ATOMIC_MAX))
 

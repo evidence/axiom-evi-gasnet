@@ -195,7 +195,7 @@ GASNETI_INLINE(gasnete_iop_isdone)
 int gasnete_iop_isdone(gasnete_op_t *op) {
     gasnete_iop_t *iop = (gasnete_iop_t*)op;
     gasnete_iop_check(iop);
-    return (GASNETE_IOP_DONE(iop,get) && GASNETE_IOP_DONE(iop,put));
+    return (GASNETE_IOP_CNTDONE(iop,get) && GASNETE_IOP_CNTDONE(iop,put));
 }
 int gasnete_op_isdone(gasnete_op_t *op) {
     gasnet_handle_t handle = (gasnet_handle_t)op;
@@ -1020,7 +1020,7 @@ extern int  gasnete_try_syncnbi_gets(GASNETE_THREAD_FARG_ALONE) {
             gasneti_fatalerror("VIOLATION: attempted to call gasnete_try_syncnbi_gets() inside an NBI access region");
 #endif
 
-        if (GASNETE_IOP_DONE(iop,get)) {
+        if (GASNETE_IOP_CNTDONE(iop,get)) {
             gasneti_sync_reads();
             return GASNET_OK;
         } else return GASNET_ERR_NOT_READY;
@@ -1044,7 +1044,7 @@ extern int  gasnete_try_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
 #endif
 
 
-        if (GASNETE_IOP_DONE(iop,put)) {
+        if (GASNETE_IOP_CNTDONE(iop,put)) {
             gasneti_sync_reads();
             return GASNET_OK;
         } else return GASNET_ERR_NOT_READY;
