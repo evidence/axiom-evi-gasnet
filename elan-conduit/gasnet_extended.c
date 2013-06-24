@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/24 22:47:01 $
- * $Revision: 1.108 $
+ *     $Date: 2013/06/24 23:19:37 $
+ * $Revision: 1.109 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -336,6 +336,13 @@ gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t * const thread) {
     gasneti_memcheck(iop);
     gasneti_assert(OPTYPE(iop) == OPTYPE_IMPLICIT);
     gasneti_assert(iop->threadidx == thread->threadidx);
+    /* If using trace or stats, want meaningful counts when tracing NBI access regions */
+    #if GASNETI_STATS_OR_TRACE
+      iop->initiated_get_cnt = 0;
+      iop->initiated_put_cnt = 0;
+      gasneti_weakatomic_set(&(iop->completed_get_cnt), 0, 0);
+      gasneti_weakatomic_set(&(iop->completed_put_cnt), 0, 0);
+    #endif
   } else {
     int sz = sizeof(gasnete_iop_t);
     gasneti_assert(sizeof(gasnete_iop_t) % sizeof(void*) == 0);
@@ -344,12 +351,12 @@ gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t * const thread) {
     gasneti_leak(iop);
     SET_OPTYPE((gasnete_op_t *)iop, OPTYPE_IMPLICIT);
     iop->threadidx = thread->threadidx;
+    iop->initiated_get_cnt = 0;
+    iop->initiated_put_cnt = 0;
+    gasneti_weakatomic_set(&(iop->completed_get_cnt), 0, 0);
+    gasneti_weakatomic_set(&(iop->completed_put_cnt), 0, 0);
   }
   iop->next = NULL;
-  iop->initiated_get_cnt = 0;
-  iop->initiated_put_cnt = 0;
-  gasneti_weakatomic_set(&(iop->completed_get_cnt), 0, 0);
-  gasneti_weakatomic_set(&(iop->completed_put_cnt), 0, 0);
 
   evtbin_data = (ELAN_EVENT **)(iop+1);
   gasnete_evtbin_init(&(iop->putbin), gasnete_nbi_throttle, evtbin_data);

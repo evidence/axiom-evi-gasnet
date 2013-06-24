@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2013/06/24 22:47:11 $
- * $Revision: 1.52 $
+ *     $Date: 2013/06/24 23:19:47 $
+ * $Revision: 1.53 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -213,6 +213,13 @@ gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t * const thread) {
     gasneti_assert(OPTYPE(iop) == OPTYPE_IMPLICIT);
     gasneti_assert(! gasnete_op_read_lc((gasnete_op_t *)iop));
     gasneti_assert(iop->threadidx == thread->threadidx);
+    /* If using trace or stats, want meaningful counts when tracing NBI access regions */
+    #if GASNETI_STATS_OR_TRACE
+      iop->initiated_get_cnt = 0;
+      iop->initiated_put_cnt = 0;
+      gasneti_weakatomic_set(&(iop->completed_get_cnt), 0, 0);
+      gasneti_weakatomic_set(&(iop->completed_put_cnt), 0, 0);
+    #endif
   } else {
     iop = (gasnete_iop_t *)gasneti_malloc(sizeof(gasnete_iop_t));
     gasneti_leak(iop);
@@ -226,12 +233,12 @@ gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t * const thread) {
     iop->flags = OPTYPE_IMPLICIT;
 #endif
     iop->threadidx = thread->threadidx;
+    iop->initiated_get_cnt = 0;
+    iop->initiated_put_cnt = 0;
+    gasneti_weakatomic_set(&(iop->completed_get_cnt), 0, 0);
+    gasneti_weakatomic_set(&(iop->completed_put_cnt), 0, 0);
   }
   iop->next = NULL;
-  iop->initiated_get_cnt = 0;
-  iop->initiated_put_cnt = 0;
-  gasneti_weakatomic_set(&(iop->completed_get_cnt), 0, 0);
-  gasneti_weakatomic_set(&(iop->completed_put_cnt), 0, 0);
   gasnete_iop_check(iop);
   return iop;
 }

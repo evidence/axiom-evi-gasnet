@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/24 22:47:13 $
- * $Revision: 1.28 $
+ *     $Date: 2013/06/24 23:19:49 $
+ * $Revision: 1.29 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -191,10 +191,13 @@ gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t * const thread) {
     gasneti_assert(OPTYPE(iop) == OPTYPE_IMPLICIT);
     gasneti_assert(OPSTATE(iop) == OPSTATE_FREE);
     SET_OPSTATE((gasnete_op_t*)iop, OPSTATE_INFLIGHT);
-    iop->initiated_get_cnt = 0;
-    iop->initiated_put_cnt = 0;
-    gasneti_weakatomic_set(&(iop->completed_get_cnt), 0, 0);
-    gasneti_weakatomic_set(&(iop->completed_put_cnt), 0, 0);
+    /* If using trace or stats, want meaningful counts when tracing NBI access regions */
+    #if GASNETI_STATS_OR_TRACE
+      iop->initiated_get_cnt = 0;
+      iop->initiated_put_cnt = 0;
+      gasneti_weakatomic_set(&(iop->completed_get_cnt), 0, 0);
+      gasneti_weakatomic_set(&(iop->completed_put_cnt), 0, 0);
+    #endif
     gasnete_iop_check(iop);
     return iop;
   } else { /*  free list empty - need more iops */
@@ -221,6 +224,10 @@ gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t * const thread) {
       thread->iop_free = &buf[i];
       SET_OPSTATE((gasnete_op_t*)&(buf[i]),OPSTATE_FREE); 
       SET_OPTYPE((gasnete_op_t*)&(buf[i]),OPTYPE_IMPLICIT); 
+      buf[i].initiated_get_cnt = 0;
+      buf[i].initiated_put_cnt = 0;
+      gasneti_weakatomic_set(&(buf[i].completed_get_cnt), 0, 0);
+      gasneti_weakatomic_set(&(buf[i].completed_put_cnt), 0, 0);
     }
 
     #if GASNET_DEBUG
