@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.h,v $
- *     $Date: 2013/06/24 06:22:14 $
- * $Revision: 1.65 $
+ *     $Date: 2013/06/24 06:43:52 $
+ * $Revision: 1.66 $
  * Description: GASNet header for vapi conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -119,120 +119,6 @@ typedef struct _gasnet_hsl_t {
 #endif
 
 /* ------------------------------------------------------------------------------------ */
-/* Internal threads */
-
-#ifndef GASNETC_DYNAMIC_CONNECT
-#define GASNETC_DYNAMIC_CONNECT 1
-#endif
-
-/* GASNETC_*_RCV_THREAD enables a progress thread for receiving AMs. */
-#if (GASNET_CONDUIT_VAPI && GASNETC_VAPI_RCV_THREAD) || \
-    (GASNET_CONDUIT_IBV  && GASNETC_IBV_RCV_THREAD)
-  #define GASNETC_IB_RCV_THREAD 1
-#else
-  #define GASNETC_IB_RCV_THREAD 0
-#endif
-
-/* GASNETC_*_CONN_THREAD enables a progress thread for establishing dynamic connections. */
-#if GASNETC_DYNAMIC_CONNECT && \
-    ((GASNET_CONDUIT_VAPI && GASNETC_VAPI_CONN_THREAD) || \
-     (GASNET_CONDUIT_IBV  && GASNETC_IBV_CONN_THREAD))
-  #define GASNETC_IB_CONN_THREAD 1
-#else
-  #define GASNETC_IB_CONN_THREAD 0
-#endif
-
-/* ------------------------------------------------------------------------------------ */
-/* Measures of concurency
- *
- * GASNETC_ANY_PAR      Non-zero if multiple threads can be executing in GASNet.
- *                      This is inclusive of the AM receive thread.
- * GASNETC_CLI_PAR      Non-zero if multiple _client_ threads can be executing in GASNet.
- *                      This excludes the AM receive thread.
- * These differ from GASNETI_THREADS and GASNETI_CLIENT_THREADS in that they don't count
- * GASNET_PARSYNC, since it has threads which do not enter GASNet concurrently.
- */
-
-#if GASNET_PAR
-  #define GASNETC_CLI_PAR 1
-#else
-  #define GASNETC_CLI_PAR 0
-#endif
-
-#define GASNETC_ANY_PAR         (GASNETC_CLI_PAR || GASNETC_IB_RCV_THREAD)
-
-/* ------------------------------------------------------------------------------------ */
-/* Type and ops for rdma counters */
-/* XXX: only typedef and gasnetc_counter_wait() actually need to be public */
-#include <gasnet_atomicops.h> /* must come after hsl defs */
-
-#if GASNETC_ANY_PAR
-  /* Concurrent version */
-  typedef struct {
-      gasneti_atomic_t     completed;
-      gasneti_atomic_val_t initiated;
-  } gasnetc_counter_t;
-  #define GASNETC_COUNTER_INITIALIZER   {gasneti_atomic_init(0), 0}
-  #define gasnetc_counter_init(P)       do { gasneti_atomic_set(&(P)->completed, 0, 0); \
-                                             (P)->initiated = 0;                         \
-                                        } while (0)
-  #define gasnetc_counter_done(P)       (((P)->initiated & GASNETI_ATOMIC_MAX) == \
-                                             gasneti_atomic_read(&(P)->completed, 0))
-  #define gasnetc_counter_dec(P)        do { gasneti_assert(!gasnetc_counter_done(P));      \
-                                             gasneti_atomic_increment(&(P)->completed, 0); \
-                                        } while (0)
-  #if defined(GASNETI_HAVE_ATOMIC_ADD_SUB)
-    #define gasnetc_counter_dec_by(P,v)   \
-        gasneti_atomic_add(&(P)->completed,(v),0)
-  #else /* yuk */
-    #define gasnetc_counter_dec_by(P,v)   do {       \
-        int _i = (v);                                \
-        while (_i) { gasnetc_counter_dec(P); _i--; } \
-    } while (0)
-  #endif
-#else
-  /* Sequential version */
-  typedef struct {
-      gasneti_atomic_val_t completed;
-      gasneti_atomic_val_t initiated;
-  } gasnetc_counter_t;
-  #define GASNETC_COUNTER_INITIALIZER   {0, 0}
-  #define gasnetc_counter_init(P)       do { (P)->completed = (P)->initiated = 0; } while (0)
-  #define gasnetc_counter_done(P)       ((P)->initiated == (P)->completed)
-  #define gasnetc_counter_dec_by(P,v)   do { (P)->completed += (v); } while (0)
-  #define gasnetc_counter_dec(P)        gasnetc_counter_dec_by((P),1)
-#endif
-
-/* Same version concurrent/sequential */
-#define gasnetc_counter_inc(P)		do { (P)->initiated++; } while (0)
-#define gasnetc_counter_inc_by(P,v)	do { (P)->initiated += (v); } while (0)
-#define gasnetc_counter_inc_if(P)	do { if(P) gasnetc_counter_inc(P); } while (0)
-#define gasnetc_counter_inc_if_pf(P)	do { if_pf(P) gasnetc_counter_inc(P); } while (0)
-#define gasnetc_counter_inc_if_pt(P)	do { if_pt(P) gasnetc_counter_inc(P); } while (0)
-#define gasnetc_counter_dec_if(P)	do { if(P) gasnetc_counter_dec(P); } while (0)
-#define gasnetc_counter_dec_if_pf(P)	do { if_pf(P) gasnetc_counter_dec(P); } while (0)
-#define gasnetc_counter_dec_if_pt(P)	do { if_pt(P) gasnetc_counter_dec(P); } while (0)
-
-/* If using trace or stats, want meaningful counts when tracing NBI access regions */
-#if GASNETI_STATS_OR_TRACE
-  #define gasnetc_counter_reset(P)      gasnetc_counter_init(P)
-  #define gasnetc_counter_val(P)	((P)->initiated)
-#else
-  #define gasnetc_counter_reset(P)      ((void)0)
-#endif
-
-/* Wait until given counter is marked as done.
- * Note that no AMPoll is done in the best case.
- */
-extern void gasnetc_counter_wait_aux(gasnetc_counter_t *counter, int handler_context);
-GASNETI_INLINE(gasnetc_counter_wait)
-void gasnetc_counter_wait(gasnetc_counter_t *counter, int handler_context) { 
-  if_pf (!gasnetc_counter_done(counter)) {
-    gasnetc_counter_wait_aux(counter, handler_context);
-  }
-  gasneti_sync_reads();
-} 
-/* ------------------------------------------------------------------------------------ */
 /*
   Active Message Size Limits
   ==========================
@@ -283,30 +169,6 @@ extern int gasnetc_AMPoll(void);
 #define gasnet_AMGetMsgSource  gasnetc_AMGetMsgSource
 
 #define GASNET_BLOCKUNTIL(cond) gasneti_polluntil(cond)
-
-/* ------------------------------------------------------------------------------------ */
-/*
-  RDMA ops
-  =====================
- */
-
-/*
- * gasnetc_epid_d is node and qp encoded together
- * passing just a node (the default) means any qp to that node
- */
-typedef uint32_t gasnetc_epid_t;
-
-/* RDMA initiation operations */
-#if GASNETC_PIN_SEGMENT
-  extern int gasnetc_rdma_put(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, size_t nbytes, gasnetc_counter_t *mem_oust, gasnetc_counter_t *req_oust);
-#else
-  extern int gasnetc_rdma_put_fh(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, size_t nbytes, gasnetc_counter_t *mem_oust, gasnetc_counter_t *req_oust, gasnetc_counter_t *am_oust);
-  #define gasnetc_rdma_put(epid,src_ptr,dst_ptr,nbytes,mem_oust,req_oust) \
-	gasnetc_rdma_put_fh(epid,src_ptr,dst_ptr,nbytes,mem_oust,req_oust,NULL)
-#endif
-extern int gasnetc_rdma_get(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, size_t nbytes, gasnetc_counter_t *req_oust);
-extern int gasnetc_rdma_putv(gasnetc_epid_t epid, size_t srccount, gasnet_memvec_t const srclist[], void *dst_ptr, gasnetc_counter_t *mem_oust, gasnetc_counter_t *req_oust);
-extern int gasnetc_rdma_getv(gasnetc_epid_t epid, void *src_ptr, size_t dstcount, gasnet_memvec_t const dstlist[], gasnetc_counter_t *req_oust);
 
 /* ------------------------------------------------------------------------------------ */
 
