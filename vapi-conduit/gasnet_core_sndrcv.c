@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/06/24 04:33:39 $
- * $Revision: 1.307 $
+ *     $Date: 2013/06/24 07:07:31 $
+ * $Revision: 1.308 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -3721,7 +3721,7 @@ extern void gasnetc_sndrcv_poll(int handler_context) {
 
 extern void gasnetc_counter_wait_aux(gasnetc_counter_t *counter, int handler_context)
 {
-  const int initiated = counter->initiated;
+  const int initiated = (counter->initiated & GASNETI_ATOMIC_MAX);
   #if GASNETC_ANY_PAR
     #define gasnetc_counter_completed(p) gasneti_atomic_read(&((p)->completed), 0)
   #else
