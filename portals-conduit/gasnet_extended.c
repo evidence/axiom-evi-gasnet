@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/24 22:26:05 $
- * $Revision: 1.27 $
+ *     $Date: 2013/06/24 22:47:13 $
+ * $Revision: 1.28 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1017,10 +1017,6 @@ extern int  gasnete_try_syncnbi_gets(GASNETE_THREAD_FARG_ALONE) {
     #endif
 
     if (GASNETE_IOP_DONE(iop,get)) {
-      if_pf (iop->initiated_get_cnt > 65000) { /* make sure we don't overflow the counters */
-        gasneti_weakatomic_set(&(iop->completed_get_cnt), 0, 0);
-        iop->initiated_get_cnt = 0;
-      }
       gasneti_sync_reads();
       return GASNET_OK;
     } else return GASNET_ERR_NOT_READY;
@@ -1045,10 +1041,6 @@ extern int  gasnete_try_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
 
 
     if (GASNETE_IOP_DONE(iop,put)) {
-      if_pf (iop->initiated_put_cnt > 65000) { /* make sure we don't overflow the counters */
-        gasneti_weakatomic_set(&(iop->completed_put_cnt), 0, 0);
-        iop->initiated_put_cnt = 0;
-      }
       gasneti_sync_reads();
       return GASNET_OK;
     } else return GASNET_ERR_NOT_READY;

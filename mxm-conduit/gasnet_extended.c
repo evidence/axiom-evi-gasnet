@@ -1014,10 +1014,6 @@ extern int  gasnete_try_syncnbi_gets(GASNETE_THREAD_FARG_ALONE) {
 #endif
 
         if (GASNETE_IOP_DONE(iop,get)) {
-            if_pf (iop->initiated_get_cnt > 65000) { /* make sure we don't overflow the counters */
-                gasneti_weakatomic_set(&(iop->completed_get_cnt), 0, 0);
-                iop->initiated_get_cnt = 0;
-            }
             gasneti_sync_reads();
             return GASNET_OK;
         } else return GASNET_ERR_NOT_READY;
@@ -1042,10 +1038,6 @@ extern int  gasnete_try_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
 
 
         if (GASNETE_IOP_DONE(iop,put)) {
-            if_pf (iop->initiated_put_cnt > 65000) { /* make sure we don't overflow the counters */
-                gasneti_weakatomic_set(&(iop->completed_put_cnt), 0, 0);
-                iop->initiated_put_cnt = 0;
-            }
             gasneti_sync_reads();
             return GASNET_OK;
         } else return GASNET_ERR_NOT_READY;

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/24 22:25:53 $
- * $Revision: 1.107 $
+ *     $Date: 2013/06/24 22:47:01 $
+ * $Revision: 1.108 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1290,10 +1290,6 @@ static int gasnete_iop_gets_done(gasnete_iop_t *iop) {
   ASSERT_ELAN_UNLOCKED();
   if (GASNETE_IOP_DONE(iop,get)) {
     int retval = 1;
-    if_pf (iop->initiated_get_cnt > 65000) { /* make sure we don't overflow the counters */
-      gasneti_weakatomic_set(&(iop->completed_get_cnt), 0, 0);
-      iop->initiated_get_cnt = 0;
-    }
     if (iop->getbin.evt_cnt || iop->elan_getbb_list) {
         LOCK_ELAN_WEAK();
           if (!gasnete_evtbin_done(&(iop->getbin))) 
@@ -1310,10 +1306,6 @@ static int gasnete_iop_puts_done(gasnete_iop_t *iop) {
   ASSERT_ELAN_UNLOCKED();
   if (GASNETE_IOP_DONE(iop,put)) {
     int retval = 1;
-    if_pf (iop->initiated_put_cnt > 65000) { /* make sure we don't overflow the counters */
-      gasneti_weakatomic_set(&(iop->completed_put_cnt), 0, 0);
-      iop->initiated_put_cnt = 0;
-    }
     if (iop->putbin.evt_cnt || iop->elan_putbb_list) {
         LOCK_ELAN_WEAK();
           if (!gasnete_evtbin_done(&(iop->putbin))) 

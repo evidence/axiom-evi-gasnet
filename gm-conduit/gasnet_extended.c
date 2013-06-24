@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/24 22:25:59 $
- * $Revision: 1.56 $
+ *     $Date: 2013/06/24 22:47:07 $
+ * $Revision: 1.57 $
  * Description: GASNet Extended API GM Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -200,10 +200,6 @@ extern int  gasnete_try_syncnbi_gets(GASNETE_THREAD_FARG_ALONE) {
     #endif
 
     if (GASNETE_IOP_DONE(iop,get)) {
-      if_pf (iop->initiated_get_cnt > 65000) { /* make sure we don't overflow the counters */
-        gasneti_weakatomic_set(&(iop->completed_get_cnt), 0, 0);
-        iop->initiated_get_cnt = 0;
-      }
       gasneti_sync_reads();
       return GASNET_OK;
     } else return GASNET_ERR_NOT_READY;
@@ -228,10 +224,6 @@ extern int  gasnete_try_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
 
 
     if (GASNETE_IOP_DONE(iop,put)) {
-      if_pf (iop->initiated_put_cnt > 65000) { /* make sure we don't overflow the counters */
-        gasneti_weakatomic_set(&(iop->completed_put_cnt), 0, 0);
-        iop->initiated_put_cnt = 0;
-      }
       gasneti_sync_reads();
       return GASNET_OK;
     } else return GASNET_ERR_NOT_READY;

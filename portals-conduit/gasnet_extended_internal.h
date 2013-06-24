@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2013/06/24 22:26:05 $
- * $Revision: 1.10 $
+ *     $Date: 2013/06/24 22:47:13 $
+ * $Revision: 1.11 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -197,16 +197,9 @@ gasnete_op_t *gasnete_opaddr_to_ptr(gasnete_threadidx_t threadid, gasnete_opaddr
     gasneti_assert(GASNETE_EOPADDR_TO_PTR(_th, (eop)->addr) == eop); \
   } while (0)
   #define gasnete_iop_check(iop) do {                         \
-    int _temp;                                                \
     gasneti_assert(OPTYPE(iop) == OPTYPE_IMPLICIT);           \
     gasneti_assert(OPSTATE(iop) == OPSTATE_INFLIGHT);         \
     gasnete_assert_valid_threadid(GASNETE_OP_THREADID(iop));  \
-    _temp = gasneti_weakatomic_read(&((iop)->completed_put_cnt), GASNETI_ATOMIC_RMB_POST); \
-    if (_temp <= 65000) /* prevent race condition on reset */ \
-      gasneti_assert((iop)->initiated_put_cnt >= _temp);      \
-    _temp = gasneti_weakatomic_read(&((iop)->completed_get_cnt), GASNETI_ATOMIC_RMB_POST); \
-    if (_temp <= 65000) /* prevent race condition on reset */ \
-      gasneti_assert((iop)->initiated_get_cnt >= _temp);      \
   } while (0)
   extern void _gasnete_iop_check(gasnete_iop_t *iop);
 #else
