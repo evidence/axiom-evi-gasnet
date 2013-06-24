@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_extended_internal.h,v $
- *     $Date: 2013/06/24 06:43:52 $
- * $Revision: 1.29 $
+ *     $Date: 2013/06/24 21:04:08 $
+ * $Revision: 1.30 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -47,14 +47,17 @@ typedef struct _gasnete_iop_t {
   uint8_t flags;                  /*  state flags */
   gasnete_threadidx_t threadidx;  /*  thread that owns me */
   uint16_t _unused;
+  gasnetc_atomic_val_t initiated_get_cnt;     /*  count of get ops initiated */
+  gasnetc_atomic_val_t initiated_put_cnt;     /*  count of put ops initiated */
 
   struct _gasnete_iop_t *next;    /*  next cell while in free list, deferred iop while being filled */
 
   /*  make sure the counters live on different cache lines for SMP's */
-  uint8_t _pad1[MAX(8,(ssize_t)(GASNETI_CACHE_LINE_BYTES - 2*sizeof(void *)))];
-  gasnetc_counter_t get_req_oust;     /*  count of get ops outstanding */
-  gasnetc_counter_t put_req_oust;     /*  count of put ops outstanding */
-  uint8_t _pad2[MAX(8,(ssize_t)(GASNETI_CACHE_LINE_BYTES - 2*sizeof(gasnetc_counter_t)))];
+  uint8_t pad[MAX(8,(ssize_t)(GASNETI_CACHE_LINE_BYTES - sizeof(void*) - sizeof(gasnetc_atomic_val_t)))];
+
+  gasnetc_atomic_t completed_get_cnt;     /*  count of get ops completed */
+  gasnetc_atomic_t completed_put_cnt;     /*  count of put ops completed */
+  uint8_t _pad2[MAX(8,(ssize_t)(GASNETI_CACHE_LINE_BYTES - 2*sizeof(gasnetc_atomic_t)))];
 } gasnete_iop_t;
 
 /* ------------------------------------------------------------------------------------ */
@@ -144,6 +147,10 @@ void gasnete_op_free(gasnete_op_t *op);
   #define gasnete_eop_check(eop)   ((void)0)
   #define gasnete_iop_check(iop)   ((void)0)
 #endif
+
+#define GASNETE_IOP_DONE(_iop, _putget) \
+  (gasnetc_atomic_read(&(_iop)->completed_##_putget##_cnt, 0) \
+          == ((_iop)->initiated_##_putget##_cnt & GASNETI_ATOMIC_MAX))
 
 /*  1 = scatter newly allocated eops across cache lines to reduce false sharing */
 #define GASNETE_SCATTER_EOPS_ACROSS_CACHELINES    1 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2013/06/24 11:31:22 $
- * $Revision: 1.235 $
+ *     $Date: 2013/06/24 21:04:08 $
+ * $Revision: 1.236 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -502,13 +502,6 @@ typedef struct {
 #define gasnetc_counter_dec_if(P)	do { if(P) gasnetc_counter_dec(P); } while (0)
 #define gasnetc_counter_dec_if_pf(P)	do { if_pf(P) gasnetc_counter_dec(P); } while (0)
 #define gasnetc_counter_dec_if_pt(P)	do { if_pt(P) gasnetc_counter_dec(P); } while (0)
-
-/* If using trace or stats, want meaningful counts when tracing NBI access regions */
-#if GASNETI_STATS_OR_TRACE
-  #define gasnetc_counter_reset(P)      gasnetc_counter_init(P)
-#else
-  #define gasnetc_counter_reset(P)      ((void)0)
-#endif
 
 /* Wait until given counter is marked as done.
  * Note that no AMPoll is done in the best case.
