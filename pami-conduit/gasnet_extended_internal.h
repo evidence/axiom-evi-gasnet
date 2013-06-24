@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2012/04/14 00:37:49 $
- * $Revision: 1.2 $
+ *     $Date: 2013/06/24 21:30:12 $
+ * $Revision: 1.3 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -47,13 +47,13 @@ typedef struct _gasnete_iop_t {
   uint8_t flags;                  /*  state flags */
   gasnete_threadidx_t threadidx;  /*  thread that owns me */
   uint16_t _unused;
-  int initiated_get_cnt;     /*  count of get ops initiated */
-  int initiated_put_cnt;     /*  count of put ops initiated */
+  gasneti_weakatomic_val_t initiated_get_cnt;     /*  count of get ops initiated */
+  gasneti_weakatomic_val_t initiated_put_cnt;     /*  count of put ops initiated */
 
   struct _gasnete_iop_t *next;    /*  next cell while in free list, deferred iop while being filled */
 
   /*  make sure the counters live on different cache lines for SMP's */
-  uint8_t pad[GASNETI_CACHE_PAD(4 + 2*sizeof(int) + sizeof(void*))];
+  uint8_t pad[GASNETI_CACHE_PAD(sizeof(gasneti_weakatomic_val_t) + sizeof(void*))];
 
   gasneti_weakatomic_t completed_get_cnt;     /*  count of get ops completed */
   gasneti_weakatomic_t completed_put_cnt;     /*  count of put ops completed */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2010/10/24 01:33:25 $
- * $Revision: 1.31 $
+ *     $Date: 2013/06/24 21:30:04 $
+ * $Revision: 1.32 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -59,8 +59,8 @@ typedef struct _gasnete_iop_t {
   uint8_t flags;                  /*  state flags */
   gasnete_threadidx_t threadidx;  /*  thread that owns me */
   uint16_t _unused;
-  int initiated_put_cnt;     /*  count of put ops initiated */
-  int initiated_get_cnt;     /*  count of get ops initiated */
+  gasneti_weakatomic_val_t initiated_put_cnt;     /*  count of put ops initiated */
+  gasneti_weakatomic_val_t initiated_get_cnt;     /*  count of get ops initiated */
 
   struct _gasnete_iop_t *next;    /*  next cell while in free list, deferred iop while being filled */
 
@@ -71,7 +71,7 @@ typedef struct _gasnete_iop_t {
   gasnete_eop_t *elan_getbb_list; /* list of bounce-buffered elan get eops */
 
   /*  make sure the completion counters live on a cache line by themselves for SMP's */
-  uint8_t _pad[MAX(8,(ssize_t)(GASNETI_CACHE_LINE_BYTES - 4*sizeof(void*) - sizeof(int)))]; 
+  uint8_t _pad[MAX(8,(ssize_t)(GASNETI_CACHE_LINE_BYTES - 4*sizeof(void*) - sizeof(gasneti_weakatomic_val_t)))]; 
   gasneti_weakatomic_t completed_put_cnt;     /*  count of put ops completed */
   gasneti_weakatomic_t completed_get_cnt;     /*  count of get ops completed */
   uint8_t _pad2[MAX(8,(ssize_t)(GASNETI_CACHE_LINE_BYTES - 2*sizeof(gasneti_atomic_t)))]; 
