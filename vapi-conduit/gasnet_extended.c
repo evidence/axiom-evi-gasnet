@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/24 00:09:26 $
- * $Revision: 1.74 $
+ *     $Date: 2013/06/24 03:56:26 $
+ * $Revision: 1.75 $
  * Description: GASNet Extended API over VAPI/IB Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -58,7 +58,7 @@ gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread) {
       #if 0 /* these can safely be skipped when values are zero */
 	SET_OPSTATE(&(buf[i]),OPSTATE_FREE);
       #endif
-      gasnetc_counter_reset(&(buf[i].req_oust));
+      gasnetc_counter_init(&(buf[i].req_oust));
     }
      /*  add a list terminator */
     #if GASNETE_SCATTER_EOPS_ACROSS_CACHELINES
@@ -121,6 +121,8 @@ gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t * const thread) {
     gasneti_assert(iop->threadidx == thread->threadidx);
     gasneti_assert(gasnetc_counter_done(&(iop->get_req_oust)));
     gasneti_assert(gasnetc_counter_done(&(iop->put_req_oust)));
+    gasnetc_counter_reset(&(iop->get_req_oust));
+    gasnetc_counter_reset(&(iop->put_req_oust));
   } else {
     iop = (gasnete_iop_t *)gasneti_malloc(sizeof(gasnete_iop_t));
     gasneti_leak(iop);
@@ -129,8 +131,8 @@ gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t * const thread) {
     #endif
     SET_OPTYPE((gasnete_op_t *)iop, OPTYPE_IMPLICIT);
     iop->threadidx = thread->threadidx;
-    gasnetc_counter_reset(&(iop->get_req_oust));
-    gasnetc_counter_reset(&(iop->put_req_oust));
+    gasnetc_counter_init(&(iop->get_req_oust));
+    gasnetc_counter_init(&(iop->put_req_oust));
   }
   iop->next = NULL;
   gasnete_iop_check(iop);
@@ -170,13 +172,8 @@ int gasnete_eop_test(gasnete_eop_t *eop) {
 GASNETI_INLINE(gasnete_iop_test)
 int gasnete_iop_test(gasnete_iop_t *iop) {
   gasnete_iop_check(iop);
-  if (gasnetc_counter_done(&(iop->get_req_oust)) &&
-      gasnetc_counter_done(&(iop->put_req_oust))) {
-    gasnetc_counter_reset(&(iop->get_req_oust));
-    gasnetc_counter_reset(&(iop->put_req_oust));
-    return 1;
-  }
-  return 0;
+  return (gasnetc_counter_done(&(iop->get_req_oust)) &&
+          gasnetc_counter_done(&(iop->put_req_oust)));
 }
 
 /*  query an op for completeness 
@@ -423,9 +420,7 @@ extern void gasnete_wait_syncnb(gasnet_handle_t op) {
     } else {
       gasnete_iop_t *iop = (gasnete_iop_t*)op;
       gasnetc_counter_wait(&iop->get_req_oust, 0);
-      gasnetc_counter_reset(&iop->get_req_oust);
       gasnetc_counter_wait(&iop->put_req_oust, 0);
-      gasnetc_counter_reset(&iop->put_req_oust);
       gasnete_iop_free(iop);
     }
   }
@@ -554,11 +549,7 @@ extern int  gasnete_try_syncnbi_gets(GASNETE_THREAD_FARG_ALONE) {
       gasneti_fatalerror("VIOLATION: attempted to call gasnete_try_syncnbi_gets() inside an NBI access region");
   #endif
 
-  if (gasnetc_counter_done(&iop->get_req_oust)) {
-    gasnetc_counter_reset(&iop->get_req_oust); /* Avoid overflow */
-    return GASNET_OK;
-  }
-  return GASNET_ERR_NOT_READY;
+  return gasnetc_counter_done(&iop->get_req_oust) ? GASNET_OK : GASNET_ERR_NOT_READY;
 }
 
 extern int  gasnete_try_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
@@ -571,11 +562,7 @@ extern int  gasnete_try_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
       gasneti_fatalerror("VIOLATION: attempted to call gasnete_try_syncnbi_puts() inside an NBI access region");
   #endif
 
-  if (gasnetc_counter_done(&iop->put_req_oust)) {
-    gasnetc_counter_reset(&iop->put_req_oust); /* Avoid overflow */
-    return GASNET_OK;
-  }
-  return GASNET_ERR_NOT_READY;
+  return gasnetc_counter_done(&iop->put_req_oust) ? GASNET_OK : GASNET_ERR_NOT_READY;
 }
 
 extern void gasnete_wait_syncnbi_gets(GASNETE_THREAD_FARG_ALONE) {
@@ -589,7 +576,6 @@ extern void gasnete_wait_syncnbi_gets(GASNETE_THREAD_FARG_ALONE) {
   #endif
 
   gasnetc_counter_wait(&iop->get_req_oust, 0);
-  gasnetc_counter_reset(&iop->get_req_oust);
 }
 
 extern void gasnete_wait_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
@@ -603,7 +589,6 @@ extern void gasnete_wait_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
   #endif
 
   gasnetc_counter_wait(&iop->put_req_oust, 0);
-  gasnetc_counter_reset(&iop->put_req_oust);
 }
 
 /* ------------------------------------------------------------------------------------ */
