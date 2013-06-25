@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/25 03:57:11 $
- * $Revision: 1.59 $
+ *     $Date: 2013/06/25 06:56:43 $
+ * $Revision: 1.60 $
  * Description: GASNet Extended API GM Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -38,8 +38,6 @@ const gasnete_eopaddr_t	EOPADDR_NIL = { { 0xFF, 0xFF } };
   ========================
   Factored bits of extended API code common to most conduits, overridable when necessary
 */
-
-#define GASNETE_IOP_ISDONE(iop) gasnete_iop_isdone(iop)
 
 #include "gasnet_extended_common.c"
 

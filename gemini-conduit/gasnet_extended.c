@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2013/06/25 06:10:39 $
- * $Revision: 1.72 $
+ *     $Date: 2013/06/25 06:56:41 $
+ * $Revision: 1.73 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -43,8 +43,6 @@ extern void _gasnete_iop_check(gasnete_iop_t *iop) { gasnete_iop_check(iop); }
 /* ensure thread cleanup uses our custom for valget handles */
 #define GASNETE_VALGET_FREEALL(thread) gasnete_valget_freeall(thread)
 static void gasnete_valget_freeall(gasnete_threaddata_t *thread);
-
-#define GASNETE_IOP_ISDONE(iop) gasnete_iop_isdone(iop)
 
 #include "gasnet_extended_common.c"
 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2013/06/25 06:43:58 $
- * $Revision: 1.55 $
+ *     $Date: 2013/06/25 06:56:49 $
+ * $Revision: 1.56 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -28,8 +28,6 @@ static uintptr_t gasnete_mysegsize;
   ========================
   Factored bits of extended API code common to most conduits, overridable when necessary
 */
-
-#define GASNETE_IOP_ISDONE(iop) gasnete_iop_isdone(iop)
 
 #include "gasnet_extended_common.c"
 

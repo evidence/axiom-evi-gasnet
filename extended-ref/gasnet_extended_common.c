@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_common.c,v $
- *     $Date: 2013/02/15 22:30:24 $
- * $Revision: 1.10 $
+ *     $Date: 2013/06/25 06:56:39 $
+ * $Revision: 1.11 $
  * Description: GASNet Extended API Common code
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -111,7 +111,7 @@ static void gasnete_valget_freeall(gasnete_threaddata_t *thread);
 static void gasnete_free_threaddata(gasnete_threaddata_t *thread) {
 
   #ifndef GASNETE_IOP_ISDONE
-  #define GASNETE_IOP_ISDONE(iop) gasnete_op_isdone((gasnete_op_t *)(iop))
+  #define GASNETE_IOP_ISDONE(iop) gasnete_iop_isdone(iop)
   #endif
 
   #ifndef GASNETE_FREE_IOPS

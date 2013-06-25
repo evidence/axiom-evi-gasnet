@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/25 06:53:22 $
- * $Revision: 1.31 $
+ *     $Date: 2013/06/25 06:56:51 $
+ * $Revision: 1.32 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -56,8 +56,6 @@ static size_t gasnete_max_get_single = GASNETC_PTL_MAX_TRANS_SZ;
     gasneti_free(thread->iop_bufs[i]);         \
   }                                            \
 }
-
-#define GASNETE_IOP_ISDONE(iop) gasnete_iop_isdone(iop)
 
 #include "gasnet_extended_common.c"
 

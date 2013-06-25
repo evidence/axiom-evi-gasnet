@@ -246,7 +246,6 @@ gasnet_handle_t gasneti_eop_to_handle(gasneti_eop_t *eop) {
   Factored bits of extended API code common to most conduits, overridable when necessary
 */
 
-#define GASNETE_IOP_ISDONE(iop) gasnete_iop_isdone(iop)
 #include "gasnet_extended_common.c"
 
 /* ------------------------------------------------------------------------------------ */

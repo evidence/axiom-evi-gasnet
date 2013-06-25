@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/25 06:45:20 $
- * $Revision: 1.131 $
+ *     $Date: 2013/06/25 06:56:45 $
+ * $Revision: 1.132 $
  * Description: GASNet Extended API over LAPI Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -52,8 +52,6 @@ extern firehose_info_t gasnetc_firehose_info;
   #define GASNETE_NEW_THREADDATA_CALLBACK(threaddata) \
     gasneti_semaphore_up_n(&gasnete_lapi_pvo_sema, GASNETC_MAX_PVOS_PER_THREAD)
 #endif
-
-#define GASNETE_IOP_ISDONE(iop) gasnete_iop_isdone(iop)
 
 #include "gasnet_extended_common.c"
 

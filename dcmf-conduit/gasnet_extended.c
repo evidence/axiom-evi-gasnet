@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_extended.c,v $
- *     $Date: 2013/06/25 06:16:10 $
- * $Revision: 1.41 $
+ *     $Date: 2013/06/25 06:56:37 $
+ * $Revision: 1.42 $
  * Description: GASNet Extended API Implementation for DCMF
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
  *                 Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -71,8 +71,6 @@ static void empty_cb(void *arg, DCMF_Error_t *e) {
   ========================
   Factored bits of extended API code common to most conduits, overridable when necessary
 */
-
-#define GASNETE_IOP_ISDONE(iop) gasnete_iop_isdone(iop)
 
 #include "gasnet_extended_common.c"
 

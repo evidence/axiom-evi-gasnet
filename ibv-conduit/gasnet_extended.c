@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_extended.c,v $
- *     $Date: 2013/06/25 04:56:36 $
- * $Revision: 1.81 $
+ *     $Date: 2013/06/25 06:56:53 $
+ * $Revision: 1.82 $
  * Description: GASNet Extended API over VAPI/IB Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -198,8 +198,6 @@ SHORT_HANDLER(gasnete_markdone_reph,1,2,
   ========================
   Factored bits of extended API code common to most conduits, overridable when necessary
 */
-
-#define GASNETE_IOP_ISDONE(iop) gasnete_iop_isdone(iop)
 
 #include "gasnet_extended_common.c"
 
