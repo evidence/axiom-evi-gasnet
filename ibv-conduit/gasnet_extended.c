@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_extended.c,v $
- *     $Date: 2013/06/24 23:37:49 $
- * $Revision: 1.78 $
+ *     $Date: 2013/06/25 02:28:03 $
+ * $Revision: 1.79 $
  * Description: GASNet Extended API over VAPI/IB Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -144,6 +144,7 @@ gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t * const thread) {
   return iop;
 }
 
+/*  free an eop */
 GASNETI_INLINE(gasnete_eop_free)
 void gasnete_eop_free(gasnete_eop_t *eop) {
   gasnete_threaddata_t * const thread = gasnete_threadtable[eop->threadidx];
@@ -155,6 +156,7 @@ void gasnete_eop_free(gasnete_eop_t *eop) {
   thread->eop_free = addr;
 }
 
+/*  free an iop */
 GASNETI_INLINE(gasnete_iop_free)
 void gasnete_iop_free(gasnete_iop_t *iop) {
   gasnete_threaddata_t * const thread = gasnete_threadtable[iop->threadidx];
@@ -162,20 +164,21 @@ void gasnete_iop_free(gasnete_iop_t *iop) {
   gasnete_iop_check(iop);
   gasneti_assert(GASNETE_IOP_CNTDONE(iop,get));
   gasneti_assert(GASNETE_IOP_CNTDONE(iop,put));
+  gasneti_assert(iop->next == NULL);
   iop->next = thread->iop_free;
   thread->iop_free = iop;
 }
 
-/* query an eop for completeness */
-GASNETI_INLINE(gasnete_eop_test)
-int gasnete_eop_test(gasnete_eop_t *eop) {
+/*  query an eop for completeness */
+GASNETI_INLINE(gasnete_eop_isdone)
+int gasnete_eop_isdone(gasnete_eop_t *eop) {
   gasnete_eop_check(eop);
   return gasnetc_counter_done(&eop->req_oust);
 }
 
-/* query an iop for completeness - this means both puts and gets */
-GASNETI_INLINE(gasnete_iop_test)
-int gasnete_iop_test(gasnete_iop_t *iop) {
+/*  query an iop for completeness - this means both puts and gets */
+GASNETI_INLINE(gasnete_iop_isdone)
+int gasnete_iop_isdone(gasnete_iop_t *iop) {
   gasnete_iop_check(iop);
   return (GASNETE_IOP_CNTDONE(iop,get) && GASNETE_IOP_CNTDONE(iop,put));
 }
@@ -191,7 +194,7 @@ int gasnete_op_try_free(gasnet_handle_t handle) {
   if_pt (OPTYPE(op) == OPTYPE_EXPLICIT) {
     gasnete_eop_t *eop = (gasnete_eop_t*)op;
 
-    if (gasnete_eop_test(eop)) {
+    if (gasnete_eop_isdone(eop)) {
       gasneti_sync_reads();
       gasnete_eop_free(eop);
       return 1;
@@ -199,7 +202,7 @@ int gasnete_op_try_free(gasnet_handle_t handle) {
   } else {
     gasnete_iop_t *iop = (gasnete_iop_t*)op;
 
-    if (gasnete_iop_test(iop)) {
+    if (gasnete_iop_isdone(iop)) {
       gasneti_sync_reads();
       gasnete_iop_free(iop);
       return 1;
@@ -219,7 +222,7 @@ int gasnete_op_try_free_clear(gasnet_handle_t *handle_p) {
   if_pt (OPTYPE(op) == OPTYPE_EXPLICIT) {
     gasnete_eop_t *eop = (gasnete_eop_t*)op;
 
-    if (gasnete_eop_test(eop)) {
+    if (gasnete_eop_isdone(eop)) {
       gasneti_sync_reads();
       gasnete_eop_free(eop);
       *handle_p = GASNET_INVALID_HANDLE;
@@ -228,7 +231,7 @@ int gasnete_op_try_free_clear(gasnet_handle_t *handle_p) {
   } else {
     gasnete_iop_t *iop = (gasnete_iop_t*)op;
 
-    if (gasnete_iop_test(iop)) {
+    if (gasnete_iop_isdone(iop)) {
       gasneti_sync_reads();
       gasnete_iop_free(iop);
       *handle_p = GASNET_INVALID_HANDLE;
@@ -254,7 +257,7 @@ SHORT_HANDLER(gasnete_markdone_reph,1,2,
   Factored bits of extended API code common to most conduits, overridable when necessary
 */
 
-#define GASNETE_IOP_ISDONE(iop) gasnete_iop_test(iop)
+#define GASNETE_IOP_ISDONE(iop) gasnete_iop_isdone(iop)
 
 #include "gasnet_extended_common.c"
 

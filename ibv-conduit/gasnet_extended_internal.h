@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_extended_internal.h,v $
- *     $Date: 2013/06/25 00:59:05 $
- * $Revision: 1.32 $
+ *     $Date: 2013/06/25 02:28:03 $
+ * $Revision: 1.33 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -106,16 +106,18 @@ void SET_OPSTATE(gasnete_eop_t *op, uint8_t state) {
 }
 #endif
 
+#if 0 /* Not using FREE/INFLIGHT/COMPLETED state bits from extended-ref */
 /*  get a new op and mark it in flight */
 gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t *thread);
 gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t *thread);
-#if 0 /* Not using FREE/INFLIGHT/COMPLETED state bits from extended-ref */
-/*  query an eop for completeness */
-int gasnete_op_isdone(gasnete_op_t *op);
+/*  query an op for completeness */
+int gasnete_eop_isdone(gasnete_eop_t *eop);
+int gasnete_iop_isdone(gasnete_iop_t *iop);
 /*  mark an op done - isget ignored for explicit ops */
 void gasnete_op_markdone(gasnete_op_t *op, int isget);
 /*  free an op */
-void gasnete_op_free(gasnete_op_t *op);
+void gasnete_eop_free(gasnete_eop_t *eop);
+void gasnete_iop_free(gasnete_iop_t *iop);
 #endif
 
 #define GASNETE_EOPADDR_TO_PTR(threaddata, eopaddr)                      \
