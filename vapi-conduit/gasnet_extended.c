@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/25 02:28:03 $
- * $Revision: 1.79 $
+ *     $Date: 2013/06/25 03:31:08 $
+ * $Revision: 1.80 $
  * Description: GASNet Extended API over VAPI/IB Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -216,27 +216,9 @@ int gasnete_op_try_free(gasnet_handle_t handle) {
  *  returns 0 or 1 */
 GASNETI_INLINE(gasnete_op_try_free_clear)
 int gasnete_op_try_free_clear(gasnet_handle_t *handle_p) {
-  gasnete_op_t *op = (gasnete_op_t *)(*handle_p);
-
-  gasneti_assert(op->threadidx == gasnete_mythread()->threadidx);
-  if_pt (OPTYPE(op) == OPTYPE_EXPLICIT) {
-    gasnete_eop_t *eop = (gasnete_eop_t*)op;
-
-    if (gasnete_eop_isdone(eop)) {
-      gasneti_sync_reads();
-      gasnete_eop_free(eop);
-      *handle_p = GASNET_INVALID_HANDLE;
-      return 1;
-    }
-  } else {
-    gasnete_iop_t *iop = (gasnete_iop_t*)op;
-
-    if (gasnete_iop_isdone(iop)) {
-      gasneti_sync_reads();
-      gasnete_iop_free(iop);
-      *handle_p = GASNET_INVALID_HANDLE;
-      return 1;
-    }
+  if (gasnete_op_try_free(*handle_p)) {
+    *handle_p = GASNET_INVALID_HANDLE;
+    return 1;
   }
   return 0;
 }
