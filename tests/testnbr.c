@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testnbr.c,v $
- *     $Date: 2013/03/08 03:19:45 $
- * $Revision: 1.25 $
+ *     $Date: 2013/06/25 22:48:17 $
+ * $Revision: 1.26 $
  * Description: MG-like Neighbor exchange
  * Copyright 2005, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -371,14 +371,9 @@ main(int argc, char **argv)
     for (i = 0; i < level_dims[level][i]; i++) 
 	maxdim = MAX(level_dims[level][i], maxdim);
 
-    if (!POWER_OF_TWO(nprocs)) {
-	MSG0("WARNING: This test requires a power of two number of processes. Test skipped.\n");
-	gasnet_exit(0); /* exit 0 to prevent false negatives */
-    }
-
     /* setup max grid we intend to use, so we can get enough 
      * memory per proc at startup */
-    if (help) maxsegmentsz = 0;
+    if (help || !POWER_OF_TWO(nprocs)) maxsegmentsz = 0;
     else {
       setupGrid(&Nbr, maxdim);
       estimateMemSegment(&Nbr, &insegsz, &outsegsz);
@@ -399,6 +394,10 @@ main(int argc, char **argv)
       "   level=3 dims=<32,64,96,128, .. 928,960,992,1024>\n\n"
     );
     if (help) test_usage();
+    if (!POWER_OF_TWO(nprocs)) {
+	MSG0("WARNING: This test requires a power of two number of processes. Test skipped.\n");
+	gasnet_exit(0); /* exit 0 to prevent false negatives */
+    }
     TEST_SET_WAITMODE(1);
 
     initNbr(&Nbr);
