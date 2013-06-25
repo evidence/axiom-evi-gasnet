@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/24 23:37:35 $
- * $Revision: 1.110 $
+ *     $Date: 2013/06/25 04:37:10 $
+ * $Revision: 1.111 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -122,7 +122,7 @@ extern void _gasnete_iop_check(gasnete_iop_t *iop) { gasnete_iop_check(iop); }
   Factored bits of extended API code common to most conduits, overridable when necessary
 */
 
-#define GASNETE_IOP_ISDONE(iop) gasnete_op_isdone((gasnete_op_t *)(iop), 0)
+#define GASNETE_IOP_ISDONE(iop) gasnete_iop_isdone((iop), 0)
 
 #define GASNETC_NEW_THREADDATA_CALLBACK(threaddata) gasnetc_new_threaddata_callback(&((threaddata)->gasnetc_threaddata))
 extern void gasnetc_new_threaddata_callback(void **core_threadinfo);
@@ -211,7 +211,7 @@ extern void gasnete_init(void) {
     /* cause the first pool of eops to be allocated (optimization) */
     eop = gasnete_eop_new(threaddata, OPCAT_MEMSET);
     gasnete_op_markdone((gasnete_op_t *)eop, 0);
-    gasnete_op_free((gasnete_op_t *)eop);
+    gasnete_eop_free(eop);
   }
 
   /* Initialize barrier resources */
@@ -373,25 +373,25 @@ gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t * const thread) {
 static int gasnete_iop_gets_done(gasnete_iop_t *iop);
 static int gasnete_iop_puts_done(gasnete_iop_t *iop);
 
-/*  query an op for completeness - for iop this means both puts and gets */
-int gasnete_op_isdone(gasnete_op_t *op, int have_elanLock) {
-  gasneti_assert(op->threadidx == gasnete_mythread()->threadidx);
+/*  query an eop for completeness */
+int gasnete_eop_isdone(gasnete_eop_t *eop, int have_elanLock) {
+  gasneti_assert(eop->threadidx == gasnete_mythread()->threadidx);
   if (have_elanLock)   ASSERT_ELAN_LOCKED_WEAK();
   else                 ASSERT_ELAN_UNLOCKED();
-  if_pt (OPTYPE(op) == OPTYPE_EXPLICIT) {
+  {
     uint8_t cat;
-    gasneti_assert(OPSTATE(op) != OPSTATE_FREE);
-    gasnete_eop_check((gasnete_eop_t *)op);
-    if (OPSTATE(op) == OPSTATE_COMPLETE) {
+    gasneti_assert(OPSTATE(eop) != OPSTATE_FREE);
+    gasnete_eop_check(eop);
+    if (OPSTATE(eop) == OPSTATE_COMPLETE) {
       gasneti_sync_reads();
       return 1;
     }
-    cat = OPCAT(op);
+    cat = OPCAT(eop);
     switch (cat) {
       case OPCAT_ELANGETBB:
       case OPCAT_ELANPUTBB: {
         int result;
-        gasnete_bouncebuf_t *bb = ((gasnete_eop_t *)op)->bouncebuf;
+        gasnete_bouncebuf_t *bb = eop->bouncebuf;
         if (!have_elanLock) LOCK_ELAN_WEAK();
           result = elan_poll(bb->evt, GASNETC_ELAN_POLLITERS);
           if (result) {
@@ -401,9 +401,9 @@ int gasnete_op_isdone(gasnete_op_t *op, int have_elanLock) {
             }
             elan_free(STATE(), bb);
             #if GASNET_DEBUG
-              ((gasnete_eop_t *)op)->bouncebuf = NULL;
+              eop->bouncebuf = NULL;
             #endif
-            SET_OPSTATE((gasnete_eop_t *)op, OPSTATE_COMPLETE);
+            SET_OPSTATE(eop, OPSTATE_COMPLETE);
           } 
         if (!have_elanLock) UNLOCK_ELAN_WEAK();
         /* gasneti_sync_reads() is NOT required along this path-
@@ -419,8 +419,15 @@ int gasnete_op_isdone(gasnete_op_t *op, int have_elanLock) {
         return 0;
       default: gasneti_fatalerror("unrecognized op category");
     }
-  } else {
-    gasnete_iop_t *iop = (gasnete_iop_t*)op;
+  }
+}
+
+/*  query an iop for completeness - this means both puts and gets */
+int gasnete_iop_isdone(gasnete_iop_t *iop, int have_elanLock) {
+  gasneti_assert(iop->threadidx == gasnete_mythread()->threadidx);
+  if (have_elanLock)   ASSERT_ELAN_LOCKED_WEAK();
+  else                 ASSERT_ELAN_UNLOCKED();
+  {
     gasnete_iop_check(iop);
     if (gasnete_iop_gets_done(iop) && gasnete_iop_puts_done(iop)) {
       gasneti_sync_reads();
@@ -444,26 +451,52 @@ void gasnete_op_markdone(gasnete_op_t *op, int isget) {
   }
 }
 
-/*  free an op */
-void gasnete_op_free(gasnete_op_t *op) {
-  gasnete_threaddata_t * const thread = gasnete_threadtable[op->threadidx];
+/*  free an eop */
+void gasnete_eop_free(gasnete_eop_t *eop) {
+  gasnete_threaddata_t * const thread = gasnete_threadtable[eop->threadidx];
   gasneti_assert(thread == gasnete_mythread());
-  if (OPTYPE(op) == OPTYPE_EXPLICIT) {
-    gasnete_eop_t *eop = (gasnete_eop_t *)op;
+  {
     gasnete_eopaddr_t addr = eop->addr;
-    gasneti_assert(OPSTATE(eop) == OPSTATE_COMPLETE);
     gasnete_eop_check(eop);
+    gasneti_assert(OPSTATE(eop) == OPSTATE_COMPLETE);
     SET_OPSTATE(eop, OPSTATE_FREE);
     eop->addr = thread->eop_free;
     thread->eop_free = addr;
-  } else {
-    gasnete_iop_t *iop = (gasnete_iop_t *)op;
+  }
+}
+
+/*  free an iop */
+void gasnete_iop_free(gasnete_iop_t *iop) {
+  gasnete_threaddata_t * const thread = gasnete_threadtable[iop->threadidx];
+  gasneti_assert(thread == gasnete_mythread());
+  {
     gasnete_iop_check(iop);
     gasneti_assert(iop->next == NULL);
     iop->next = thread->iop_free;
     thread->iop_free = iop;
   }
 }
+
+/*  query an op and free if done */
+GASNETI_INLINE(gasnete_op_isdone_free)
+int gasnete_op_isdone_free(gasnete_op_t *op) {
+  ASSERT_ELAN_LOCKED_WEAK();
+  if_pt (OPTYPE(op) == OPTYPE_EXPLICIT) {
+    gasnete_eop_t *eop = (gasnete_eop_t*)op;
+    if (gasnete_eop_isdone(eop, 1)) {
+      gasnete_eop_free(eop);
+      return 1;
+    }
+  } else {
+    gasnete_iop_t *iop = (gasnete_iop_t*)op;
+    if (gasnete_iop_isdone(iop, 1)) {
+      gasnete_iop_free(iop);
+      return 1;
+    }
+  }
+  return 0;
+}
+
 /* ------------------------------------------------------------------------------------ */
 /* GASNET-Internal OP Interface */
 gasneti_eop_t *gasneti_eop_create(GASNETE_THREAD_FARG_ALONE) {
@@ -835,16 +868,30 @@ extern gasnet_handle_t gasnete_memset_nb   (gasnet_node_t node, void *dest, int 
   Synchronization for explicit-handle non-blocking operations:
   ===========================================================
 */
-GASNETI_INLINE(gasnete_try_syncnb_inner)
-int gasnete_try_syncnb_inner(gasnet_handle_t handle) {
+
+/*  query an op for completeness 
+ *  free it if complete
+ *  returns 0 or 1
+ */
+GASNETI_INLINE(gasnete_op_try_free)
+int gasnete_op_try_free(gasnet_handle_t handle) {
   ASSERT_ELAN_UNLOCKED();
   if (GASNETE_HANDLE_IS_OP(handle)) {
     gasnete_op_t *op = GASNETE_HANDLE_TO_OP(handle);
-    if (gasnete_op_isdone(op, 0)) {
-      gasnete_op_free(op);
-      return GASNET_OK;
+    if (OPTYPE(op) == OPTYPE_EXPLICIT) {
+      gasnete_eop_t *eop = (gasnete_eop_t*)op;
+      if (gasnete_eop_isdone(eop,0)) { /* includes the rmb */
+        gasnete_eop_free(eop);
+        return 1;
+      }
+    } else {
+      gasnete_iop_t *iop = (gasnete_iop_t*)op;
+      if (gasnete_iop_isdone(iop,0)) { /* includes the rmb */
+        gasnete_iop_free(iop);
+        return 1;
+      }
     }
-    else return GASNET_ERR_NOT_READY;
+    return 0;
   } else {
     ELAN_EVENT *evt = GASNETE_HANDLE_TO_ELANEVENT(handle);
     int result;
@@ -852,9 +899,21 @@ int gasnete_try_syncnb_inner(gasnet_handle_t handle) {
       result = elan_poll(evt, GASNETC_ELAN_POLLITERS);
     UNLOCK_ELAN_WEAK();
 
-    if (result) return GASNET_OK;
-    else return GASNET_ERR_NOT_READY;
+    return result ? 1 : 0; /* must be 1 or 0 */
   }
+}
+
+/*  query an op for completeness 
+ *  free it and clear the handle if complete
+ *  returns 0 or 1
+ */
+GASNETI_INLINE(gasnete_op_try_free_clear)
+int gasnete_op_try_free_clear(gasnet_handle_t *handle_p) {
+  if (gasnete_op_try_free(*handle_p)) {
+    *handle_p = GASNET_INVALID_HANDLE;
+    return 1;
+  }
+  return 0;
 }
 
 extern int  gasnete_try_syncnb(gasnet_handle_t handle) {
@@ -862,11 +921,11 @@ extern int  gasnete_try_syncnb(gasnet_handle_t handle) {
   /* HACK: AMPoll on elan4's buggy pre-1.8.7 drivers is far more expensive than it should be
            so avoid it when not strictly necessary  */
  #if 0
-  int val = gasnete_try_syncnb_inner(handle);
-  if_pf (val == GASNET_ERR_NOT_READY) GASNETI_SAFE(gasneti_AMPoll());
-  return val;
+  int val = gasnete_op_try_free(handle);
+  if_pf (!val) GASNETI_SAFE(gasneti_AMPoll());
+  return val ?  ? GASNET_OK : GASNET_ERR_NOT_READY;
  #else
-  if (gasnete_try_syncnb_inner(handle) == GASNET_OK) return GASNET_OK;
+  if (gasnete_op_try_free(handle)) return GASNET_OK;
   GASNETI_SAFE(gasneti_AMPoll());
   return GASNET_ERR_NOT_READY;
  #endif
@@ -876,7 +935,7 @@ extern int  gasnete_try_syncnb(gasnet_handle_t handle) {
   GASNETI_SAFE(gasneti_AMPoll());
 #endif
 
-  return gasnete_try_syncnb_inner(handle);
+  return gasnete_op_try_free(handle) ? GASNET_OK : GASNET_ERR_NOT_READY;
 #endif
 }
 
@@ -892,22 +951,14 @@ extern int  gasnete_try_syncnb_some (gasnet_handle_t *phandle, size_t numhandles
 
   { int i;
     for (i = 0; i < numhandles; i++) {
-      gasnet_handle_t handle = phandle[i];
-      if (handle != GASNET_INVALID_HANDLE) {
+      if (phandle[i] != GASNET_INVALID_HANDLE) {
         empty = 0;
-        /* could rewrite this to reduce contention for weak elan lock,
-           but the important thing is we only poll once
-        */
-        if (gasnete_try_syncnb_inner(handle) == GASNET_OK) { 
-          phandle[i] = GASNET_INVALID_HANDLE;
-          success = 1;
-        }  
+        success |= gasnete_op_try_free_clear(&phandle[i]);
       }
     }
   }
 
-  if (success || empty) return GASNET_OK;
-  else return GASNET_ERR_NOT_READY;
+  return (success || empty) ? GASNET_OK : GASNET_ERR_NOT_READY;
 }
 
 extern int  gasnete_try_syncnb_all (gasnet_handle_t *phandle, size_t numhandles) {
@@ -920,21 +971,14 @@ extern int  gasnete_try_syncnb_all (gasnet_handle_t *phandle, size_t numhandles)
   gasneti_assert(phandle);
 
   { int i;
-    for (i = 0; i < numhandles; i++) {
-      gasnet_handle_t handle = phandle[i];
-      if (handle != GASNET_INVALID_HANDLE) {
-        /* could rewrite this to reduce contention for weak elan lock,
-           but the important thing is we only poll once
-        */
-        if (gasnete_try_syncnb_inner(handle) == GASNET_OK) {
-          phandle[i] = GASNET_INVALID_HANDLE;
-        } else success = 0;
+      for (i = 0; i < numhandles; i++) {
+      if (phandle[i] != GASNET_INVALID_HANDLE) {
+        success &= gasnete_op_try_free_clear(&phandle[i]);
       }
     }
   }
 
-  if (success) return GASNET_OK;
-  else return GASNET_ERR_NOT_READY;
+  return success ? GASNET_OK : GASNET_ERR_NOT_READY;
 }
 
 /* ------------------------------------------------------------------------------------ */
@@ -996,10 +1040,7 @@ static gasnete_eop_t * gasnete_putgetbblist_pending(gasnete_eop_t *eoplist) {
     gasneti_assert(OPCAT(op) == OPCAT_ELANGETBB || OPCAT(op) == OPCAT_ELANPUTBB);
     gasneti_assert(eoplist->bouncebuf);
     next = eoplist->bouncebuf->next;
-    if (gasnete_op_isdone(op, 1)) {
-      gasnete_op_free(op);
-    }
-    else 
+    if (!gasnete_op_isdone_free(op))
       return eoplist; /* stop when we find the first pending one */
     eoplist = next;
   }

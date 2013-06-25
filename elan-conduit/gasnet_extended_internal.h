@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2013/06/25 00:58:55 $
- * $Revision: 1.36 $
+ *     $Date: 2013/06/25 04:37:10 $
+ * $Revision: 1.37 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -135,12 +135,14 @@ void SET_OPCAT(gasnete_eop_t *op, uint8_t cat) {
 /*  get a new op and mark it in flight */
 gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t *thread, uint8_t cat);
 gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t *thread);
-/*  query an eop for completeness */
-int gasnete_op_isdone(gasnete_op_t *op, int have_elanLock);
+/*  query an op for completeness */
+int gasnete_eop_isdone(gasnete_eop_t *eop, int have_elanLock);
+int gasnete_iop_isdone(gasnete_iop_t *iop, int have_elanLock);
 /*  mark an op done - isget ignored for explicit ops */
 void gasnete_op_markdone(gasnete_op_t *op, int isget);
 /*  free an op */
-void gasnete_op_free(gasnete_op_t *op);
+void gasnete_eop_free(gasnete_eop_t *eop);
+void gasnete_iop_free(gasnete_iop_t *iop);
 
 #define GASNETE_EOPADDR_TO_PTR(threaddata, eopaddr)                      \
       (gasneti_memcheck(threaddata),                                     \
