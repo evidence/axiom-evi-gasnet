@@ -184,16 +184,15 @@ gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t * const thread) {
 }
 
 /*  query an op for completeness - for iop this means both puts and gets */
-GASNETI_INLINE(gasnete_eop_isdone)
-int gasnete_eop_isdone(gasnete_op_t *op) {
-    gasneti_assert(OPSTATE(op) != OPSTATE_FREE);
-    gasnete_eop_check((gasnete_eop_t *)op);
-    return OPSTATE(op) == OPSTATE_COMPLETE;
+GASNETI_INLINE(gasnete_eop_test)
+int gasnete_eop_test(gasnete_eop_t *eop) {
+    gasneti_assert(OPSTATE(eop) != OPSTATE_FREE);
+    gasnete_eop_check(eop);
+    return OPSTATE(eop) == OPSTATE_COMPLETE;
 }
 
-GASNETI_INLINE(gasnete_iop_isdone)
-int gasnete_iop_isdone(gasnete_op_t *op) {
-    gasnete_iop_t *iop = (gasnete_iop_t*)op;
+GASNETI_INLINE(gasnete_iop_test)
+int gasnete_iop_test(gasnete_iop_t *iop) {
     gasnete_iop_check(iop);
     return (GASNETE_IOP_CNTDONE(iop,get) && GASNETE_IOP_CNTDONE(iop,put));
 }
@@ -206,10 +205,10 @@ int gasnete_op_isdone(gasnete_op_t *op) {
         op = handle->handle;
         gasneti_assert(op->threadidx == gasnete_mythread()->threadidx);
         if_pt (OPTYPE(op) == OPTYPE_EXPLICIT) {
-            return gasnete_eop_isdone(op);
+            return gasnete_eop_test((gasnete_eop_t *)op);
         }
         else {
-            return gasnete_iop_isdone(op);
+            return gasnete_iop_test((gasnete_iop_t *)op);
         }
     }
 }
@@ -274,7 +273,7 @@ gasnet_handle_t gasneti_eop_to_handle(gasneti_eop_t *eop) {
   Factored bits of extended API code common to most conduits, overridable when necessary
 */
 
-#define GASNETE_IOP_ISDONE(iop) gasnete_iop_isdone((gasnete_op_t *)(iop))
+#define GASNETE_IOP_ISDONE(iop) gasnete_iop_test(iop)
 #include "gasnet_extended_common.c"
 
 /* ------------------------------------------------------------------------------------ */
