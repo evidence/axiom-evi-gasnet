@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/25 03:31:08 $
- * $Revision: 1.80 $
+ *     $Date: 2013/06/25 04:56:36 $
+ * $Revision: 1.81 $
  * Description: GASNet Extended API over VAPI/IB Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -144,6 +144,20 @@ gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t * const thread) {
   return iop;
 }
 
+/*  query an eop for completeness */
+GASNETI_INLINE(gasnete_eop_isdone)
+int gasnete_eop_isdone(gasnete_eop_t *eop) {
+  gasnete_eop_check(eop);
+  return gasnetc_counter_done(&eop->req_oust);
+}
+
+/*  query an iop for completeness - this means both puts and gets */
+GASNETI_INLINE(gasnete_iop_isdone)
+int gasnete_iop_isdone(gasnete_iop_t *iop) {
+  gasnete_iop_check(iop);
+  return (GASNETE_IOP_CNTDONE(iop,get) && GASNETE_IOP_CNTDONE(iop,put));
+}
+
 /*  free an eop */
 GASNETI_INLINE(gasnete_eop_free)
 void gasnete_eop_free(gasnete_eop_t *eop) {
@@ -167,60 +181,6 @@ void gasnete_iop_free(gasnete_iop_t *iop) {
   gasneti_assert(iop->next == NULL);
   iop->next = thread->iop_free;
   thread->iop_free = iop;
-}
-
-/*  query an eop for completeness */
-GASNETI_INLINE(gasnete_eop_isdone)
-int gasnete_eop_isdone(gasnete_eop_t *eop) {
-  gasnete_eop_check(eop);
-  return gasnetc_counter_done(&eop->req_oust);
-}
-
-/*  query an iop for completeness - this means both puts and gets */
-GASNETI_INLINE(gasnete_iop_isdone)
-int gasnete_iop_isdone(gasnete_iop_t *iop) {
-  gasnete_iop_check(iop);
-  return (GASNETE_IOP_CNTDONE(iop,get) && GASNETE_IOP_CNTDONE(iop,put));
-}
-
-/*  query an op for completeness 
- *  free it if complete
- *  returns 0 or 1 */
-GASNETI_INLINE(gasnete_op_try_free)
-int gasnete_op_try_free(gasnet_handle_t handle) {
-  gasnete_op_t *op = (gasnete_op_t *)handle;
-
-  gasneti_assert(op->threadidx == gasnete_mythread()->threadidx);
-  if_pt (OPTYPE(op) == OPTYPE_EXPLICIT) {
-    gasnete_eop_t *eop = (gasnete_eop_t*)op;
-
-    if (gasnete_eop_isdone(eop)) {
-      gasneti_sync_reads();
-      gasnete_eop_free(eop);
-      return 1;
-    }
-  } else {
-    gasnete_iop_t *iop = (gasnete_iop_t*)op;
-
-    if (gasnete_iop_isdone(iop)) {
-      gasneti_sync_reads();
-      gasnete_iop_free(iop);
-      return 1;
-    }
-  }
-  return 0;
-}
-
-/*  query an op for completeness 
- *  free it and clear the handle if complete
- *  returns 0 or 1 */
-GASNETI_INLINE(gasnete_op_try_free_clear)
-int gasnete_op_try_free_clear(gasnet_handle_t *handle_p) {
-  if (gasnete_op_try_free(*handle_p)) {
-    *handle_p = GASNET_INVALID_HANDLE;
-    return 1;
-  }
-  return 0;
 }
 
 /* Reply handler to complete an op - might be replaced w/ IB atomics one day */
@@ -394,9 +354,47 @@ extern gasnet_handle_t gasnete_memset_nb   (gasnet_node_t node, void *dest, int 
 /*
   Synchronization for explicit-handle non-blocking operations:
   ===========================================================
-  
-  Note that these routines do not check for INVALID_HANDLE
 */
+
+/*  query an op for completeness 
+ *  free it if complete
+ *  returns 0 or 1 */
+GASNETI_INLINE(gasnete_op_try_free)
+int gasnete_op_try_free(gasnet_handle_t handle) {
+  gasnete_op_t *op = (gasnete_op_t *)handle;
+
+  gasneti_assert(op->threadidx == gasnete_mythread()->threadidx);
+  if_pt (OPTYPE(op) == OPTYPE_EXPLICIT) {
+    gasnete_eop_t *eop = (gasnete_eop_t*)op;
+
+    if (gasnete_eop_isdone(eop)) {
+      gasneti_sync_reads();
+      gasnete_eop_free(eop);
+      return 1;
+    }
+  } else {
+    gasnete_iop_t *iop = (gasnete_iop_t*)op;
+
+    if (gasnete_iop_isdone(iop)) {
+      gasneti_sync_reads();
+      gasnete_iop_free(iop);
+      return 1;
+    }
+  }
+  return 0;
+}
+
+/*  query an op for completeness 
+ *  free it and clear the handle if complete
+ *  returns 0 or 1 */
+GASNETI_INLINE(gasnete_op_try_free_clear)
+int gasnete_op_try_free_clear(gasnet_handle_t *handle_p) {
+  if (gasnete_op_try_free(*handle_p)) {
+    *handle_p = GASNET_INVALID_HANDLE;
+    return 1;
+  }
+  return 0;
+}
 
 extern int  gasnete_try_syncnb(gasnet_handle_t handle) {
 #if 0

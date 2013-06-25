@@ -233,66 +233,6 @@ void gasnete_iop_free(gasnete_iop_t *iop) {
     thread->iop_free = iop;
 }
 
-/*  helper for gasnete_op_try_free */
-GASNETI_INLINE(gasnete_op_try_free_inner)
-int gasnete_op_try_free_inner(gasnet_handle_t handle) {
-    if (MXM_HANDLE_TYPE == handle->type) {
-        if (mxm_req_test(&((gasnet_mxm_send_req_t *)handle->handle)->mxm_sreq.base)) {
-            gasneti_sync_reads();
-            gasnetc_free_send_req(handle->handle);
-            return 1;
-        }
-    }
-    else {
-        gasnete_op_t *op = (gasnete_op_t *)handle->handle;
-        gasneti_assert(op->threadidx == gasnete_mythread()->threadidx);
-
-        if_pt (OPTYPE(op) == OPTYPE_EXPLICIT) {
-            gasnete_eop_t *eop = (gasnete_eop_t*)op;
-
-            if (gasnete_eop_isdone(eop)) {
-                gasneti_sync_reads();
-                gasnete_eop_free(eop);
-                return 1;
-            }
-        }
-        else {
-            gasnete_iop_t *iop = (gasnete_iop_t*)op;
-
-            if (gasnete_iop_isdone(iop)) {
-                gasneti_sync_reads();
-                gasnete_iop_free(iop);
-                return 1;
-            }
-        }
-    }
-    return 0;
-}
-
-/*  query an op for completeness 
- *  free it if complete
- *  returns 0 or 1 */
-GASNETI_INLINE(gasnete_op_try_free)
-int gasnete_op_try_free(gasnet_handle_t handle) {
-    if (gasnete_op_try_free_inner(handle)) {
-        gasneti_free(handle);
-        return 1;
-    }
-    return 0;
-}
-
-/*  query an op for completeness 
- *  free it and clear the handle if complete
- *  returns 0 or 1 */
-GASNETI_INLINE(gasnete_op_try_free_clear)
-int gasnete_op_try_free_clear(gasnet_handle_t *handle_p) {
-    if (gasnete_op_try_free(*handle_p)) {
-        *handle_p = GASNET_INVALID_HANDLE;
-        return 1;
-    }
-    return 0;
-}   
-
 gasnet_handle_t gasneti_eop_to_handle(gasneti_eop_t *eop) {
     gasnet_handle_t handle = (gasnet_handle_t)gasneti_malloc(sizeof(struct gasnet_handle_t));
     handle->type = OP_HANDLE_TYPE;
@@ -811,6 +751,66 @@ extern void gasnete_get_bulk(void *dest, gasnet_node_t node, void *src,
   Synchronization for explicit-handle non-blocking operations:
   ===========================================================
 */
+
+/*  helper for gasnete_op_try_free */
+GASNETI_INLINE(gasnete_op_try_free_inner)
+int gasnete_op_try_free_inner(gasnet_handle_t handle) {
+    if (MXM_HANDLE_TYPE == handle->type) {
+        if (mxm_req_test(&((gasnet_mxm_send_req_t *)handle->handle)->mxm_sreq.base)) {
+            gasneti_sync_reads();
+            gasnetc_free_send_req(handle->handle);
+            return 1;
+        }
+    }
+    else {
+        gasnete_op_t *op = (gasnete_op_t *)handle->handle;
+        gasneti_assert(op->threadidx == gasnete_mythread()->threadidx);
+
+        if_pt (OPTYPE(op) == OPTYPE_EXPLICIT) {
+            gasnete_eop_t *eop = (gasnete_eop_t*)op;
+
+            if (gasnete_eop_isdone(eop)) {
+                gasneti_sync_reads();
+                gasnete_eop_free(eop);
+                return 1;
+            }
+        }
+        else {
+            gasnete_iop_t *iop = (gasnete_iop_t*)op;
+
+            if (gasnete_iop_isdone(iop)) {
+                gasneti_sync_reads();
+                gasnete_iop_free(iop);
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
+
+/*  query an op for completeness 
+ *  free it if complete
+ *  returns 0 or 1 */
+GASNETI_INLINE(gasnete_op_try_free)
+int gasnete_op_try_free(gasnet_handle_t handle) {
+    if (gasnete_op_try_free_inner(handle)) {
+        gasneti_free(handle);
+        return 1;
+    }
+    return 0;
+}
+
+/*  query an op for completeness 
+ *  free it and clear the handle if complete
+ *  returns 0 or 1 */
+GASNETI_INLINE(gasnete_op_try_free_clear)
+int gasnete_op_try_free_clear(gasnet_handle_t *handle_p) {
+    if (gasnete_op_try_free(*handle_p)) {
+        *handle_p = GASNET_INVALID_HANDLE;
+        return 1;
+    }
+    return 0;
+}   
 
 extern int  gasnete_try_syncnb(gasnet_handle_t handle) {
 #if 0
