@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2013/06/24 23:37:47 $
- * $Revision: 1.12 $
+ *     $Date: 2013/06/25 00:59:03 $
+ * $Revision: 1.13 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -197,9 +197,14 @@ gasnete_op_t *gasnete_opaddr_to_ptr(gasnete_threadidx_t threadid, gasnete_opaddr
     gasneti_assert(GASNETE_EOPADDR_TO_PTR(_th, (eop)->addr) == eop); \
   } while (0)
   #define gasnete_iop_check(iop) do {                         \
+    gasneti_weakatomic_val_t _temp;                           \
     gasneti_assert(OPTYPE(iop) == OPTYPE_IMPLICIT);           \
     gasneti_assert(OPSTATE(iop) == OPSTATE_INFLIGHT);         \
     gasnete_assert_valid_threadid(GASNETE_OP_THREADID(iop));  \
+    _temp = gasneti_weakatomic_read(&((iop)->completed_put_cnt), GASNETI_ATOMIC_RMB_POST); \
+    gasneti_assert((((iop)->initiated_put_cnt - _temp) & GASNETI_ATOMIC_MAX) < (GASNETI_ATOMIC_MAX/2)); \
+    _temp = gasneti_weakatomic_read(&((iop)->completed_get_cnt), GASNETI_ATOMIC_RMB_POST); \
+    gasneti_assert((((iop)->initiated_get_cnt - _temp) & GASNETI_ATOMIC_MAX) < (GASNETI_ATOMIC_MAX/2)); \
   } while (0)
   extern void _gasnete_iop_check(gasnete_iop_t *iop);
 #else
