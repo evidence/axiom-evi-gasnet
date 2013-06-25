@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/24 23:37:41 $
- * $Revision: 1.58 $
+ *     $Date: 2013/06/25 03:57:11 $
+ * $Revision: 1.59 $
  * Description: GASNet Extended API GM Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -38,6 +38,8 @@ const gasnete_eopaddr_t	EOPADDR_NIL = { { 0xFF, 0xFF } };
   ========================
   Factored bits of extended API code common to most conduits, overridable when necessary
 */
+
+#define GASNETE_IOP_ISDONE(iop) gasnete_iop_isdone(iop)
 
 #include "gasnet_extended_common.c"
 
@@ -84,7 +86,7 @@ extern void gasnete_init(void) {
 		/* cause the first pool of eops to be allocated optimization */
 		eop = gasnete_eop_new(threaddata);
 		gasnete_op_markdone((gasnete_op_t *)eop, 0);
-		gasnete_op_free((gasnete_op_t *)eop);
+		gasnete_eop_free(eop);
 	}
  
   /* Initialize barrier resources */
@@ -99,18 +101,53 @@ extern void gasnete_init(void) {
   ===========================================================
 */
 
+/*  query an op for completeness 
+ *  free it if complete
+ *  returns 0 or 1 */
+GASNETI_INLINE(gasnete_op_try_free)
+int gasnete_op_try_free(gasnet_handle_t handle) {
+	gasnete_op_t *op = (gasnete_op_t *)handle;
+
+	gasneti_assert(op->threadidx == gasnete_mythread()->threadidx);
+	if_pt (OPTYPE(op) == OPTYPE_EXPLICIT) {
+		gasnete_eop_t *eop = (gasnete_eop_t*)op;
+
+		if (gasnete_eop_isdone(eop)) {
+			gasneti_sync_reads();
+			gasnete_eop_free(eop);
+			return 1;
+		}
+	} else {
+		gasnete_iop_t *iop = (gasnete_iop_t*)op;
+
+		if (gasnete_iop_isdone(iop)) {
+			gasneti_sync_reads();
+			gasnete_iop_free(iop);
+			return 1;
+		}
+	}
+	return 0;
+}
+
+/*  query an op for completeness 
+ *  free it and clear the handle if complete
+ *  returns 0 or 1 */
+GASNETI_INLINE(gasnete_op_try_free_clear)
+int gasnete_op_try_free_clear(gasnet_handle_t *handle_p) {
+	if (gasnete_op_try_free(*handle_p)) {
+		*handle_p = GASNET_INVALID_HANDLE;
+		return 1;
+	}
+	return 0;
+}
+
 extern int  gasnete_try_syncnb(gasnet_handle_t handle) {
 #if 0
 	/* polling now takes place in callers which needed and NOT in those which don't */
 	GASNETI_SAFE(gasneti_AMPoll());
 #endif
 
-	if (gasnete_op_isdone(handle)) {
-		gasneti_sync_reads();
-		gasnete_op_free(handle);
-		return GASNET_OK;
-	}
-	else return GASNET_ERR_NOT_READY;
+	return gasnete_op_try_free(handle) ? GASNET_OK : GASNET_ERR_NOT_READY;
 }
 
 extern int
@@ -125,25 +162,16 @@ gasnete_try_syncnb_some (gasnet_handle_t *phandle, size_t numhandles)
 #endif
 	gasneti_assert(phandle);
 
-	{ 
-		int i;
+	{	int i;
 		for (i = 0; i < numhandles; i++) {
-			gasnete_op_t *op = phandle[i];
-			if (op != GASNET_INVALID_HANDLE) {
+			if (phandle[i] != GASNET_INVALID_HANDLE) {
 				empty = 0;
-				if (gasnete_op_isdone(op)) {
-					gasneti_sync_reads();
-					gasnete_op_free(op);
-					phandle[i] = GASNET_INVALID_HANDLE;
-					success = 1;
-				}
+				success |= gasnete_op_try_free_clear(&phandle[i]);
 			}
 		}
 	}
-	if (success || empty) 
-		return GASNET_OK;
-	else 
-		return GASNET_ERR_NOT_READY;
+
+	return (success || empty) ? GASNET_OK : GASNET_ERR_NOT_READY;
 }
 
 extern int  
@@ -157,25 +185,15 @@ gasnete_try_syncnb_all (gasnet_handle_t *phandle, size_t numhandles)
 
 	gasneti_assert(phandle);
 
-	{ 
-		int i;
+	{	int i;
 		for (i = 0; i < numhandles; i++) {
-			gasnete_op_t *op = phandle[i];
-			if (op != GASNET_INVALID_HANDLE) {
-				if (gasnete_op_isdone(op)) {
-					gasneti_sync_reads();
-					gasnete_op_free(op);
-					phandle[i] = GASNET_INVALID_HANDLE;
-				} 
-				else 
-					success = 0;
+			if (phandle[i] != GASNET_INVALID_HANDLE) {
+				success &= gasnete_op_try_free_clear(&phandle[i]);
 			}
 		}
 	}
-	if (success) 
-		return GASNET_OK;
-	else 
-		return GASNET_ERR_NOT_READY;
+
+	return success ? GASNET_OK : GASNET_ERR_NOT_READY;
 }
 
 /* ------------------------------------------------------------------------------------ */

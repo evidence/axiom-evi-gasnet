@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2013/06/25 00:58:59 $
- * $Revision: 1.43 $
+ *     $Date: 2013/06/25 03:57:11 $
+ * $Revision: 1.44 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -152,12 +152,16 @@ void SET_OPMISC(gasnete_eop_t *op, uint8_t misc) {
 gasnete_eop_t	*gasnete_eop_new(gasnete_threaddata_t * const thread);
 gasnete_iop_t	*gasnete_iop_new(gasnete_threaddata_t * const thread);
 
-/*  query an eop for completeness */
-int		gasnete_op_isdone(gasnete_op_t *op);
+/*  query an op for completeness */
+int		gasnete_eop_isdone(gasnete_eop_t *eop);
+int		gasnete_iop_isdone(gasnete_iop_t *iop);
 
 /*  mark an op done - isget ignored for explicit ops */
 void		gasnete_op_markdone(gasnete_op_t *op, int isget);
-void		gasnete_op_free(gasnete_op_t *op);
+
+/*  free an op */
+void		gasnete_eop_free(gasnete_eop_t *eop);
+void		gasnete_iop_free(gasnete_iop_t *iop);
 
 #define GASNETE_EOPADDR_TO_PTR(threaddata, eopaddr)                      \
       (gasneti_memcheck(threaddata),                                     \
