@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2013/06/25 06:56:49 $
- * $Revision: 1.56 $
+ *     $Date: 2013/06/26 01:26:11 $
+ * $Revision: 1.57 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -105,6 +105,22 @@ extern void gasnete_init(void) {
   Op management
   =============
 */
+
+/*  local completion flag - valid only for ops which block for local-completion */
+#define OPFLAG_LC  OPFLAG_CONDUIT0
+GASNETI_INLINE(gasnete_op_read_lc)
+int gasnete_op_read_lc(gasnete_op_t *op) {
+  return (op->flags & OPFLAG_LC);
+}
+GASNETI_INLINE(gasnete_op_set_lc)
+void gasnete_op_set_lc(gasnete_op_t *op) {
+  op->flags |= OPFLAG_LC;
+}
+GASNETI_INLINE(gasnete_op_clr_lc)
+void gasnete_op_clr_lc(gasnete_op_t *op) {
+  op->flags &= ~OPFLAG_LC;
+}
+
 /*  get a new op and mark it in flight */
 gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread) {
   gasnete_eopaddr_t head = thread->eop_free;
