@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_extended.c,v $
- *     $Date: 2013/06/25 06:56:37 $
- * $Revision: 1.42 $
+ *     $Date: 2013/06/26 06:26:15 $
+ * $Revision: 1.43 $
  * Description: GASNet Extended API Implementation for DCMF
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
  *                 Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -211,7 +211,7 @@ gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread) {
     gasneti_assert(!gasnete_eopaddr_equal(thread->eop_free,head));
     gasneti_assert(eop->threadidx == thread->threadidx);
     gasneti_assert(OPTYPE(eop) == OPTYPE_EXPLICIT);
-    gasneti_assert(OPTYPE(eop) == OPSTATE_FREE);
+    gasneti_assert(OPSTATE(eop) == OPSTATE_FREE);
     SET_OPSTATE(eop, OPSTATE_INFLIGHT);
     /*eop->dcmf_req = gasnetc_get_dcmf_req();*/
     return eop;

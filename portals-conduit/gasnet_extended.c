@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/25 06:56:51 $
- * $Revision: 1.32 $
+ *     $Date: 2013/06/26 06:26:29 $
+ * $Revision: 1.33 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -100,7 +100,7 @@ gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread) {
     gasneti_assert(!gasnete_opaddr_equal(thread->eop_free,head));
     gasneti_assert(GASNETE_OP_THREADID(eop) == thread->threadidx);
     gasneti_assert(OPTYPE(eop) == OPTYPE_EXPLICIT);
-    gasneti_assert(OPTYPE(eop) == OPSTATE_FREE);
+    gasneti_assert(OPSTATE(eop) == OPSTATE_FREE);
     SET_OPSTATE((gasnete_op_t*)eop, OPSTATE_INFLIGHT);
     return eop;
   } else { /*  free list empty - need more eops */

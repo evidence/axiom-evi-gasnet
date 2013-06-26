@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2013/06/26 01:31:55 $
- * $Revision: 1.58 $
+ *     $Date: 2013/06/26 06:26:27 $
+ * $Revision: 1.59 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -131,7 +131,7 @@ gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread) {
     gasneti_assert(!gasnete_eopaddr_equal(thread->eop_free,head));
     gasneti_assert(eop->threadidx == thread->threadidx);
     gasneti_assert(OPTYPE(eop) == OPTYPE_EXPLICIT);
-    gasneti_assert(OPTYPE(eop) == OPSTATE_FREE);
+    gasneti_assert(OPSTATE(eop) == OPSTATE_FREE);
 #if 0
     gasnete_op_clr_lc((gasnete_op_t *)eop));
     SET_OPSTATE(eop, OPSTATE_INFLIGHT);

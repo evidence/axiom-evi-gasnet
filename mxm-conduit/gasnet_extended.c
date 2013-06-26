@@ -170,7 +170,7 @@ gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread) {
         gasneti_assert(!gasnete_eopaddr_equal(thread->eop_free,head));
         gasneti_assert(eop->threadidx == thread->threadidx);
         gasneti_assert(OPTYPE(eop) == OPTYPE_EXPLICIT);
-        gasneti_assert(OPTYPE(eop) == OPSTATE_FREE);
+        gasneti_assert(OPSTATE(eop) == OPSTATE_FREE);
         SET_OPSTATE(eop, OPSTATE_INFLIGHT);
         return eop;
     }
