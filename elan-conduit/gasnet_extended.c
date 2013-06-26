@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/25 04:37:10 $
- * $Revision: 1.111 $
+ *     $Date: 2013/06/26 05:00:20 $
+ * $Revision: 1.112 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -117,6 +117,304 @@ extern void _gasnete_iop_check(gasnete_iop_t *iop) { gasnete_iop_check(iop); }
 
 /* ------------------------------------------------------------------------------------ */
 /*
+  Op management
+  =============
+*/
+
+/*  allocate more eops */
+GASNETI_NEVER_INLINE(gasnete_eop_alloc,
+static void gasnete_eop_alloc(gasnete_threaddata_t * const thread)) {
+    gasnete_eopaddr_t addr;
+    int bufidx = thread->eop_num_bufs;
+    gasnete_eop_t *buf;
+    int i;
+    gasnete_threadidx_t threadidx = thread->threadidx;
+    if (bufidx == 256) gasneti_fatalerror("GASNet Extended API: Ran out of explicit handles (limit=65535)");
+    thread->eop_num_bufs++;
+    buf = (gasnete_eop_t *)gasneti_calloc(256,sizeof(gasnete_eop_t));
+    gasneti_leak(buf);
+    GASNETE_ASSERT_ALIGNED(buf);
+    for (i=0; i < 256; i++) {
+      addr.bufferidx = bufidx;
+      #if GASNETE_SCATTER_EOPS_ACROSS_CACHELINES
+        #ifdef GASNETE_EOP_MOD
+          addr.eopidx = (i+32) % 255;
+        #else
+          { int k = i+32;
+            addr.eopidx = k > 255 ? k - 255 : k;
+          }
+        #endif
+      #else
+        addr.eopidx = i+1;
+      #endif
+      buf[i].threadidx = threadidx;
+      buf[i].addr = addr;
+      #if 0 /* these can safely be skipped when the values are zero */
+        SET_OPSTATE(&(buf[i]),OPSTATE_FREE); 
+        SET_OPTYPE(&(buf[i]),OPTYPE_EXPLICIT); 
+      #endif
+    }
+     /*  add a list terminator */
+    #if GASNETE_SCATTER_EOPS_ACROSS_CACHELINES
+      #ifdef GASNETE_EOP_MOD
+        buf[223].addr.eopidx = 255; /* modular arithmetic messes up this one */
+      #endif
+      buf[255].addr = EOPADDR_NIL;
+    #else
+      buf[255].addr = EOPADDR_NIL;
+    #endif
+    thread->eop_bufs[bufidx] = buf;
+    addr.bufferidx = bufidx;
+    addr.eopidx = 0;
+    thread->eop_free = addr;
+
+    #if GASNET_DEBUG
+    { /* verify new free list got built correctly */
+      int i;
+      int seen[256];
+      gasnete_eopaddr_t addr = thread->eop_free;
+
+      #if 0
+      if (gasneti_mynode == 0)
+        for (i=0;i<256;i++) {                                   
+          fprintf(stderr,"%i:  %i: next=%i\n",gasneti_mynode,i,buf[i].addr.eopidx);
+          fflush(stderr);
+        }
+        sleep(5);
+      #endif
+
+      gasneti_memcheck(thread->eop_bufs[bufidx]);
+      memset(seen, 0, 256*sizeof(int));
+      for (i=0;i<(bufidx==255?255:256);i++) {                                   
+        gasnete_eop_t *eop;                                   
+        gasneti_assert(!gasnete_eopaddr_isnil(addr));                 
+        eop = GASNETE_EOPADDR_TO_PTR(thread,addr);            
+        GASNETE_ASSERT_ALIGNED(eop);
+        gasneti_assert(OPTYPE(eop) == OPTYPE_EXPLICIT);               
+        gasneti_assert(OPSTATE(eop) == OPSTATE_FREE);                 
+        gasneti_assert(eop->threadidx == threadidx);                  
+        gasneti_assert(addr.bufferidx == bufidx);
+        gasneti_assert(!seen[addr.eopidx]);/* see if we hit a cycle */
+        seen[addr.eopidx] = 1;
+        addr = eop->addr;                                     
+      }                                                       
+      gasneti_assert(gasnete_eopaddr_isnil(addr)); 
+    }
+    #endif
+}
+
+/*  allocate a new iop */
+GASNETI_NEVER_INLINE(gasnete_iop_alloc,
+static gasnete_iop_t *gasnete_iop_alloc(gasnete_threaddata_t * const thread)) {
+    gasnete_iop_t *iop;
+    int sz = sizeof(gasnete_iop_t);
+    gasneti_assert(sizeof(gasnete_iop_t) % sizeof(void*) == 0);
+    sz += 2*gasnete_nbi_throttle*sizeof(ELAN_EVENT*);
+    iop = (gasnete_iop_t *)gasneti_malloc(sz);
+    gasneti_leak(iop);
+    SET_OPTYPE((gasnete_op_t *)iop, OPTYPE_IMPLICIT);
+    iop->threadidx = thread->threadidx;
+    iop->initiated_get_cnt = 0;
+    iop->initiated_put_cnt = 0;
+    gasneti_weakatomic_set(&(iop->completed_get_cnt), 0, 0);
+    gasneti_weakatomic_set(&(iop->completed_put_cnt), 0, 0);
+    return iop;
+}
+
+/*  get a new op and mark it in flight */
+static
+gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread, uint8_t const cat) {
+  gasnete_eopaddr_t head = thread->eop_free;
+  if_pf (gasnete_eopaddr_isnil(head)) {
+    gasnete_eop_alloc(thread);
+    head = thread->eop_free;
+  }
+  {
+    gasnete_eop_t *eop = GASNETE_EOPADDR_TO_PTR(thread, head);
+    thread->eop_free = eop->addr;
+    eop->addr = head;
+    gasneti_assert(!gasnete_eopaddr_equal(thread->eop_free,head));
+    gasneti_assert(eop->threadidx == thread->threadidx);
+    gasneti_assert(OPTYPE(eop) == OPTYPE_EXPLICIT);
+    gasneti_assert(OPTYPE(eop) == OPSTATE_FREE);
+    SET_OPSTATE(eop, OPSTATE_INFLIGHT);
+    SET_OPCAT(eop, cat);
+    #if GASNET_DEBUG
+      eop->bouncebuf = NULL;
+    #endif
+    return eop;
+  }
+}
+
+/*  get a new iop */
+static
+gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t * const thread) {
+  gasnete_iop_t *iop = thread->iop_free;
+  ELAN_EVENT **evtbin_data;
+  gasneti_assert(gasnete_nbi_throttle > 0);
+  if_pt (iop) {
+    thread->iop_free = iop->next;
+    gasneti_memcheck(iop);
+    gasneti_assert(OPTYPE(iop) == OPTYPE_IMPLICIT);
+    gasneti_assert(iop->threadidx == thread->threadidx);
+    /* If using trace or stats, want meaningful counts when tracing NBI access regions */
+    #if GASNETI_STATS_OR_TRACE
+      iop->initiated_get_cnt = 0;
+      iop->initiated_put_cnt = 0;
+      gasneti_weakatomic_set(&(iop->completed_get_cnt), 0, 0);
+      gasneti_weakatomic_set(&(iop->completed_put_cnt), 0, 0);
+    #endif
+  } else {
+    iop = gasnete_iop_alloc(thread);
+  }
+  iop->next = NULL;
+
+  evtbin_data = (ELAN_EVENT **)(iop+1);
+  gasnete_evtbin_init(&(iop->putbin), gasnete_nbi_throttle, evtbin_data);
+  evtbin_data += gasnete_nbi_throttle;
+  gasnete_evtbin_init(&(iop->getbin), gasnete_nbi_throttle, evtbin_data);
+
+  iop->elan_putbb_list = NULL;
+  iop->elan_getbb_list = NULL;
+
+  gasnete_iop_check(iop);
+  return iop;
+}
+
+static int gasnete_iop_gets_done(gasnete_iop_t *iop);
+static int gasnete_iop_puts_done(gasnete_iop_t *iop);
+
+/*  query an eop for completeness */
+static
+int gasnete_eop_isdone(gasnete_eop_t *eop, int have_elanLock) {
+  gasneti_assert(eop->threadidx == gasnete_mythread()->threadidx);
+  if (have_elanLock)   ASSERT_ELAN_LOCKED_WEAK();
+  else                 ASSERT_ELAN_UNLOCKED();
+  {
+    uint8_t cat;
+    gasneti_assert(OPSTATE(eop) != OPSTATE_FREE);
+    gasnete_eop_check(eop);
+    if (OPSTATE(eop) == OPSTATE_COMPLETE) {
+      gasneti_sync_reads();
+      return 1;
+    }
+    cat = OPCAT(eop);
+    switch (cat) {
+      case OPCAT_ELANGETBB:
+      case OPCAT_ELANPUTBB: {
+        int result;
+        gasnete_bouncebuf_t *bb = eop->bouncebuf;
+        if (!have_elanLock) LOCK_ELAN_WEAK();
+          result = elan_poll(bb->evt, GASNETC_ELAN_POLLITERS);
+          if (result) {
+            if (cat == OPCAT_ELANGETBB) {
+              gasneti_assert(bb->get_dest);
+              memcpy(bb->get_dest, bb+1, bb->get_nbytes);
+            }
+            elan_free(STATE(), bb);
+            #if GASNET_DEBUG
+              eop->bouncebuf = NULL;
+            #endif
+            SET_OPSTATE(eop, OPSTATE_COMPLETE);
+          } 
+        if (!have_elanLock) UNLOCK_ELAN_WEAK();
+        /* gasneti_sync_reads() is NOT required along this path-
+          we've verified by source inspection that elan_poll executes
+          a read memory barrier before returning success
+         */
+        return result;
+      }
+      case OPCAT_AMGET:
+      case OPCAT_AMPUT:
+      case OPCAT_MEMSET:
+      case OPCAT_OTHER:
+        return 0;
+      default: gasneti_fatalerror("unrecognized op category");
+    }
+  }
+}
+
+/*  query an iop for completeness - this means both puts and gets */
+static
+int gasnete_iop_isdone(gasnete_iop_t *iop, int have_elanLock) {
+  gasneti_assert(iop->threadidx == gasnete_mythread()->threadidx);
+  if (have_elanLock)   ASSERT_ELAN_LOCKED_WEAK();
+  else                 ASSERT_ELAN_UNLOCKED();
+  {
+    gasnete_iop_check(iop);
+    if (gasnete_iop_gets_done(iop) && gasnete_iop_puts_done(iop)) {
+      gasneti_sync_reads();
+      return 1;
+    } else return 0;
+  }
+}
+
+/*  mark an op done - isget ignored for explicit ops */
+static
+void gasnete_op_markdone(gasnete_op_t *op, int isget) {
+  if (OPTYPE(op) == OPTYPE_EXPLICIT) {
+    gasnete_eop_t *eop = (gasnete_eop_t *)op;
+    gasneti_assert(OPSTATE(eop) == OPSTATE_INFLIGHT);
+    gasnete_eop_check(eop);
+    SET_OPSTATE(eop, OPSTATE_COMPLETE);
+  } else {
+    gasnete_iop_t *iop = (gasnete_iop_t *)op;
+    gasnete_iop_check(iop);
+    if (isget) gasneti_weakatomic_increment(&(iop->completed_get_cnt), 0);
+    else gasneti_weakatomic_increment(&(iop->completed_put_cnt), 0);
+  }
+}
+
+/*  free an eop */
+static
+void gasnete_eop_free(gasnete_eop_t *eop) {
+  gasnete_threaddata_t * const thread = gasnete_threadtable[eop->threadidx];
+  gasneti_assert(thread == gasnete_mythread());
+  {
+    gasnete_eopaddr_t addr = eop->addr;
+    gasnete_eop_check(eop);
+    gasneti_assert(OPSTATE(eop) == OPSTATE_COMPLETE);
+    SET_OPSTATE(eop, OPSTATE_FREE);
+    eop->addr = thread->eop_free;
+    thread->eop_free = addr;
+  }
+}
+
+/*  free an iop */
+static
+void gasnete_iop_free(gasnete_iop_t *iop) {
+  gasnete_threaddata_t * const thread = gasnete_threadtable[iop->threadidx];
+  gasneti_assert(thread == gasnete_mythread());
+  {
+    gasnete_iop_check(iop);
+    gasneti_assert(iop->next == NULL);
+    iop->next = thread->iop_free;
+    thread->iop_free = iop;
+  }
+}
+
+/*  query an op and free if done */
+GASNETI_INLINE(gasnete_op_isdone_free)
+int gasnete_op_isdone_free(gasnete_op_t *op) {
+  ASSERT_ELAN_LOCKED_WEAK();
+  if_pt (OPTYPE(op) == OPTYPE_EXPLICIT) {
+    gasnete_eop_t *eop = (gasnete_eop_t*)op;
+    if (gasnete_eop_isdone(eop, 1)) {
+      gasnete_eop_free(eop);
+      return 1;
+    }
+  } else {
+    gasnete_iop_t *iop = (gasnete_iop_t*)op;
+    if (gasnete_iop_isdone(iop, 1)) {
+      gasnete_iop_free(iop);
+      return 1;
+    }
+  }
+  return 0;
+}
+
+/* ------------------------------------------------------------------------------------ */
+/*
   Extended API Common Code
   ========================
   Factored bits of extended API code common to most conduits, overridable when necessary
@@ -219,282 +517,6 @@ extern void gasnete_init(void) {
 
   /* Initialize VIS subsystem */
   gasnete_vis_init();
-}
-
-/* ------------------------------------------------------------------------------------ */
-/*
-  Op management
-  =============
-*/
-/*  get a new op and mark it in flight */
-gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread, uint8_t const cat) {
-  gasnete_eopaddr_t head = thread->eop_free;
-  if_pt (!gasnete_eopaddr_isnil(head)) {
-    gasnete_eop_t *eop = GASNETE_EOPADDR_TO_PTR(thread, head);
-    thread->eop_free = eop->addr;
-    eop->addr = head;
-    gasneti_assert(!gasnete_eopaddr_equal(thread->eop_free,head));
-    gasneti_assert(eop->threadidx == thread->threadidx);
-    gasneti_assert(OPTYPE(eop) == OPTYPE_EXPLICIT);
-    gasneti_assert(OPTYPE(eop) == OPSTATE_FREE);
-    SET_OPSTATE(eop, OPSTATE_INFLIGHT);
-    SET_OPCAT(eop, cat);
-    #if GASNET_DEBUG
-      eop->bouncebuf = NULL;
-    #endif
-    return eop;
-  } else { /*  free list empty - need more eops */
-    int bufidx = thread->eop_num_bufs;
-    gasnete_eop_t *buf;
-    int i;
-    gasnete_threadidx_t threadidx = thread->threadidx;
-    if (bufidx == 256) gasneti_fatalerror("GASNet Extended API: Ran out of explicit handles (limit=65535)");
-    thread->eop_num_bufs++;
-    buf = (gasnete_eop_t *)gasneti_calloc(256,sizeof(gasnete_eop_t));
-    gasneti_leak(buf);
-    GASNETE_ASSERT_ALIGNED(buf);
-    for (i=0; i < 256; i++) {
-      gasnete_eopaddr_t addr;
-      addr.bufferidx = bufidx;
-      #if GASNETE_SCATTER_EOPS_ACROSS_CACHELINES
-        #ifdef GASNETE_EOP_MOD
-          addr.eopidx = (i+32) % 255;
-        #else
-          { int k = i+32;
-            addr.eopidx = k > 255 ? k - 255 : k;
-          }
-        #endif
-      #else
-        addr.eopidx = i+1;
-      #endif
-      buf[i].threadidx = threadidx;
-      buf[i].addr = addr;
-      #if 0 /* these can safely be skipped when the values are zero */
-        SET_OPSTATE(&(buf[i]),OPSTATE_FREE); 
-        SET_OPTYPE(&(buf[i]),OPTYPE_EXPLICIT); 
-      #endif
-    }
-     /*  add a list terminator */
-    #if GASNETE_SCATTER_EOPS_ACROSS_CACHELINES
-      #ifdef GASNETE_EOP_MOD
-        buf[223].addr.eopidx = 255; /* modular arithmetic messes up this one */
-      #endif
-      buf[255].addr = EOPADDR_NIL;
-    #else
-      buf[255].addr = EOPADDR_NIL;
-    #endif
-    thread->eop_bufs[bufidx] = buf;
-    head.bufferidx = bufidx;
-    head.eopidx = 0;
-    thread->eop_free = head;
-
-    #if GASNET_DEBUG
-    { /* verify new free list got built correctly */
-      int i;
-      int seen[256];
-      gasnete_eopaddr_t addr = thread->eop_free;
-
-      #if 0
-      if (gasneti_mynode == 0)
-        for (i=0;i<256;i++) {                                   
-          fprintf(stderr,"%i:  %i: next=%i\n",gasneti_mynode,i,buf[i].addr.eopidx);
-          fflush(stderr);
-        }
-        sleep(5);
-      #endif
-
-      gasneti_memcheck(thread->eop_bufs[bufidx]);
-      memset(seen, 0, 256*sizeof(int));
-      for (i=0;i<(bufidx==255?255:256);i++) {                                   
-        gasnete_eop_t *eop;                                   
-        gasneti_assert(!gasnete_eopaddr_isnil(addr));                 
-        eop = GASNETE_EOPADDR_TO_PTR(thread,addr);           
-        GASNETE_ASSERT_ALIGNED(eop);
-        gasneti_assert(OPTYPE(eop) == OPTYPE_EXPLICIT);               
-        gasneti_assert(OPSTATE(eop) == OPSTATE_FREE);                 
-        gasneti_assert(eop->threadidx == threadidx);                  
-        gasneti_assert(addr.bufferidx == bufidx);
-        gasneti_assert(!seen[addr.eopidx]);/* see if we hit a cycle */
-        seen[addr.eopidx] = 1;
-        addr = eop->addr;                                     
-      }                                                       
-      gasneti_assert(gasnete_eopaddr_isnil(addr)); 
-    }
-    #endif
-
-    return gasnete_eop_new(thread, cat); /*  should succeed this time */
-  }
-}
-
-gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t * const thread) {
-  gasnete_iop_t *iop;
-  ELAN_EVENT **evtbin_data;
-  gasneti_assert(gasnete_nbi_throttle > 0);
-  if_pt (thread->iop_free) {
-    iop = thread->iop_free;
-    thread->iop_free = iop->next;
-    gasneti_memcheck(iop);
-    gasneti_assert(OPTYPE(iop) == OPTYPE_IMPLICIT);
-    gasneti_assert(iop->threadidx == thread->threadidx);
-    /* If using trace or stats, want meaningful counts when tracing NBI access regions */
-    #if GASNETI_STATS_OR_TRACE
-      iop->initiated_get_cnt = 0;
-      iop->initiated_put_cnt = 0;
-      gasneti_weakatomic_set(&(iop->completed_get_cnt), 0, 0);
-      gasneti_weakatomic_set(&(iop->completed_put_cnt), 0, 0);
-    #endif
-  } else {
-    int sz = sizeof(gasnete_iop_t);
-    gasneti_assert(sizeof(gasnete_iop_t) % sizeof(void*) == 0);
-    sz += 2*gasnete_nbi_throttle*sizeof(ELAN_EVENT*);
-    iop = (gasnete_iop_t *)gasneti_malloc(sz);
-    gasneti_leak(iop);
-    SET_OPTYPE((gasnete_op_t *)iop, OPTYPE_IMPLICIT);
-    iop->threadidx = thread->threadidx;
-    iop->initiated_get_cnt = 0;
-    iop->initiated_put_cnt = 0;
-    gasneti_weakatomic_set(&(iop->completed_get_cnt), 0, 0);
-    gasneti_weakatomic_set(&(iop->completed_put_cnt), 0, 0);
-  }
-  iop->next = NULL;
-
-  evtbin_data = (ELAN_EVENT **)(iop+1);
-  gasnete_evtbin_init(&(iop->putbin), gasnete_nbi_throttle, evtbin_data);
-  evtbin_data += gasnete_nbi_throttle;
-  gasnete_evtbin_init(&(iop->getbin), gasnete_nbi_throttle, evtbin_data);
-
-  iop->elan_putbb_list = NULL;
-  iop->elan_getbb_list = NULL;
-
-  gasnete_iop_check(iop);
-  return iop;
-}
-
-static int gasnete_iop_gets_done(gasnete_iop_t *iop);
-static int gasnete_iop_puts_done(gasnete_iop_t *iop);
-
-/*  query an eop for completeness */
-int gasnete_eop_isdone(gasnete_eop_t *eop, int have_elanLock) {
-  gasneti_assert(eop->threadidx == gasnete_mythread()->threadidx);
-  if (have_elanLock)   ASSERT_ELAN_LOCKED_WEAK();
-  else                 ASSERT_ELAN_UNLOCKED();
-  {
-    uint8_t cat;
-    gasneti_assert(OPSTATE(eop) != OPSTATE_FREE);
-    gasnete_eop_check(eop);
-    if (OPSTATE(eop) == OPSTATE_COMPLETE) {
-      gasneti_sync_reads();
-      return 1;
-    }
-    cat = OPCAT(eop);
-    switch (cat) {
-      case OPCAT_ELANGETBB:
-      case OPCAT_ELANPUTBB: {
-        int result;
-        gasnete_bouncebuf_t *bb = eop->bouncebuf;
-        if (!have_elanLock) LOCK_ELAN_WEAK();
-          result = elan_poll(bb->evt, GASNETC_ELAN_POLLITERS);
-          if (result) {
-            if (cat == OPCAT_ELANGETBB) {
-              gasneti_assert(bb->get_dest);
-              memcpy(bb->get_dest, bb+1, bb->get_nbytes);
-            }
-            elan_free(STATE(), bb);
-            #if GASNET_DEBUG
-              eop->bouncebuf = NULL;
-            #endif
-            SET_OPSTATE(eop, OPSTATE_COMPLETE);
-          } 
-        if (!have_elanLock) UNLOCK_ELAN_WEAK();
-        /* gasneti_sync_reads() is NOT required along this path-
-          we've verified by source inspection that elan_poll executes
-          a read memory barrier before returning success
-         */
-        return result;
-      }
-      case OPCAT_AMGET:
-      case OPCAT_AMPUT:
-      case OPCAT_MEMSET:
-      case OPCAT_OTHER:
-        return 0;
-      default: gasneti_fatalerror("unrecognized op category");
-    }
-  }
-}
-
-/*  query an iop for completeness - this means both puts and gets */
-int gasnete_iop_isdone(gasnete_iop_t *iop, int have_elanLock) {
-  gasneti_assert(iop->threadidx == gasnete_mythread()->threadidx);
-  if (have_elanLock)   ASSERT_ELAN_LOCKED_WEAK();
-  else                 ASSERT_ELAN_UNLOCKED();
-  {
-    gasnete_iop_check(iop);
-    if (gasnete_iop_gets_done(iop) && gasnete_iop_puts_done(iop)) {
-      gasneti_sync_reads();
-      return 1;
-    } else return 0;
-  }
-}
-
-/*  mark an op done - isget ignored for explicit ops */
-void gasnete_op_markdone(gasnete_op_t *op, int isget) {
-  if (OPTYPE(op) == OPTYPE_EXPLICIT) {
-    gasnete_eop_t *eop = (gasnete_eop_t *)op;
-    gasneti_assert(OPSTATE(eop) == OPSTATE_INFLIGHT);
-    gasnete_eop_check(eop);
-    SET_OPSTATE(eop, OPSTATE_COMPLETE);
-  } else {
-    gasnete_iop_t *iop = (gasnete_iop_t *)op;
-    gasnete_iop_check(iop);
-    if (isget) gasneti_weakatomic_increment(&(iop->completed_get_cnt), 0);
-    else gasneti_weakatomic_increment(&(iop->completed_put_cnt), 0);
-  }
-}
-
-/*  free an eop */
-void gasnete_eop_free(gasnete_eop_t *eop) {
-  gasnete_threaddata_t * const thread = gasnete_threadtable[eop->threadidx];
-  gasneti_assert(thread == gasnete_mythread());
-  {
-    gasnete_eopaddr_t addr = eop->addr;
-    gasnete_eop_check(eop);
-    gasneti_assert(OPSTATE(eop) == OPSTATE_COMPLETE);
-    SET_OPSTATE(eop, OPSTATE_FREE);
-    eop->addr = thread->eop_free;
-    thread->eop_free = addr;
-  }
-}
-
-/*  free an iop */
-void gasnete_iop_free(gasnete_iop_t *iop) {
-  gasnete_threaddata_t * const thread = gasnete_threadtable[iop->threadidx];
-  gasneti_assert(thread == gasnete_mythread());
-  {
-    gasnete_iop_check(iop);
-    gasneti_assert(iop->next == NULL);
-    iop->next = thread->iop_free;
-    thread->iop_free = iop;
-  }
-}
-
-/*  query an op and free if done */
-GASNETI_INLINE(gasnete_op_isdone_free)
-int gasnete_op_isdone_free(gasnete_op_t *op) {
-  ASSERT_ELAN_LOCKED_WEAK();
-  if_pt (OPTYPE(op) == OPTYPE_EXPLICIT) {
-    gasnete_eop_t *eop = (gasnete_eop_t*)op;
-    if (gasnete_eop_isdone(eop, 1)) {
-      gasnete_eop_free(eop);
-      return 1;
-    }
-  } else {
-    gasnete_iop_t *iop = (gasnete_iop_t*)op;
-    if (gasnete_iop_isdone(iop, 1)) {
-      gasnete_iop_free(iop);
-      return 1;
-    }
-  }
-  return 0;
 }
 
 /* ------------------------------------------------------------------------------------ */
