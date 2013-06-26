@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2013/06/26 01:00:42 $
- * $Revision: 1.47 $
+ *     $Date: 2013/06/26 01:02:40 $
+ * $Revision: 1.48 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -260,10 +260,10 @@ void gasnete_extref_put_nbi_bulk (gasnet_node_t node, void *dest, void *src,
 #define _hidx_gasnete_amcbarrier_notify_reqh (GASNETE_HANDLER_BASE+1) 
 #define _hidx_gasnete_amcbarrier_done_reqh   (GASNETE_HANDLER_BASE+2)
 #if 0 /* UNUSED: No AM-based Gets in gm-conduit */
-#define _hidx_gasnete_get_reqh               (GASNETE_HANDLER_BASE+3)
-#define _hidx_gasnete_get_reph               (GASNETE_HANDLER_BASE+4)
-#define _hidx_gasnete_getlong_reqh           (GASNETE_HANDLER_BASE+5)
-#define _hidx_gasnete_getlong_reph           (GASNETE_HANDLER_BASE+6)
+#define _hidx_gasnete_extref_get_reqh        (GASNETE_HANDLER_BASE+3)
+#define _hidx_gasnete_extref_get_reph        (GASNETE_HANDLER_BASE+4)
+#define _hidx_gasnete_extref_getlong_reqh    (GASNETE_HANDLER_BASE+5)
+#define _hidx_gasnete_extref_getlong_reph    (GASNETE_HANDLER_BASE+6)
 #endif
 #define _hidx_gasnete_extref_put_reqh        (GASNETE_HANDLER_BASE+7)
 #define _hidx_gasnete_extref_putlong_reqh    (GASNETE_HANDLER_BASE+8)
