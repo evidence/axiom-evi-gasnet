@@ -1,12 +1,11 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2013/06/26 00:24:29 $
- * $Revision: 1.12 $
+ *     $Date: 2013/06/26 00:49:51 $
+ * $Revision: 1.13 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
  *                 Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  */
-
 
 #ifndef _GASNET_EXTENDED_INTERNAL_H
 #define _GASNET_EXTENDED_INTERNAL_H
@@ -41,7 +40,6 @@ typedef union _gasnete_eopaddr_t {
 #define gasnete_eopaddr_isnil(addr) ((addr).fulladdr == EOPADDR_NIL.fulladdr)
 
 typedef struct _gasnete_eop_t {
-
   uint8_t flags;                  /*  state flags */
   gasnete_threadidx_t threadidx;  /*  thread that owns me */
   gasnete_eopaddr_t addr;         /*  next cell while in free list, my own eopaddr_t while in use */
@@ -94,6 +92,7 @@ typedef struct _gasnete_threaddata_t {
   GASNETE_CONDUIT_THREADDATA_FIELDS
   #endif
 } gasnete_threaddata_t;
+
 /* ------------------------------------------------------------------------------------ */
 
 /* gasnete_op_t flags field */
@@ -156,7 +155,6 @@ void gasnete_iop_free(gasnete_iop_t *iop);
     _th = gasnete_threadtable[(eop)->threadidx];                     \
     gasneti_assert(GASNETE_EOPADDR_TO_PTR(_th, (eop)->addr) == eop); \
   } while (0)
-
   #define gasnete_iop_check(iop) do {                         \
     gasnete_iop_t *_tmp_next;                                 \
     gasneti_weakatomic_val_t _temp;                           \
@@ -170,8 +168,6 @@ void gasnete_iop_free(gasnete_iop_t *iop);
     _temp = gasneti_weakatomic_read(&((iop)->completed_get_cnt), GASNETI_ATOMIC_RMB_POST); \
     gasneti_assert((((iop)->initiated_get_cnt - _temp) & GASNETI_ATOMIC_MAX) < (GASNETI_ATOMIC_MAX/2)); \
   } while (0)
-
-
   extern void _gasnete_iop_check(gasnete_iop_t *iop);
 #else
   #define gasnete_eop_check(eop)   ((void)0)
