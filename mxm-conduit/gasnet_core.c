@@ -33,7 +33,7 @@ gasneti_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS]; /* handler table 
 
 gasnet_mxm_module_t   gasnet_mxm_module;
 
-//#define MXM_MUTEX_AMPOLL_LOCK
+/*#define MXM_MUTEX_AMPOLL_LOCK*/
 
 #ifndef GASNET_SEQ
 #ifndef MXM_MUTEX_AMPOLL_LOCK
@@ -309,8 +309,8 @@ static int gasneti_load_settings(void)
 
 size_t inline gasneti_AMMaxMedium(void)
 {
-    //return gasnet_mxm_module.max_am_med -
-    //          (sizeof(gasnet_handlerarg_t) * GASNETC_MAX_ARGS));
+    /*return gasnet_mxm_module.max_am_med -*/
+    /*          (sizeof(gasnet_handlerarg_t) * GASNETC_MAX_ARGS));*/
     return gasnet_mxm_module.max_am_med;
 }
 
@@ -319,7 +319,7 @@ size_t inline gasneti_AMMaxMedium(void)
 /* Maximum pinning capabilities */
 typedef struct gasnetc_pin_info_t_ {
     uintptr_t    memory;    /* How much pinnable (per proc) */
-    //uint32_t   regions;
+    /*uint32_t   regions;*/
     int          ppn;       /* How many procs on the same host */
 } gasnetc_pin_info_t;
 static gasnetc_pin_info_t gasnetc_pin_info;
@@ -410,14 +410,14 @@ static void *gasnetc_try_pin_inner(size_t size, gasnetc_memreg_t *reg)
 
     addr = gasneti_mmap(size);
     if (addr != MAP_FAILED) {
-        //MXM_DEBUG("MMap for size %lu succeeded, trying to register\n", size);
+        /*MXM_DEBUG("MMap for size %lu succeeded, trying to register\n", size);*/
         if (gasnetc_pin(addr, size, reg)) {
             MXM_DEBUG("Registering for size %lu failed\n", size);
             gasnetc_unpin(reg);
             gasneti_munmap(addr, size);
             return NULL;
         } else {
-            //MXM_DEBUG("Registering for size %lu succeeded\n", size);
+            /*MXM_DEBUG("Registering for size %lu succeeded\n", size);*/
         }
     } else {
         MXM_DEBUG("MMap for size %lu failed\n", size);
@@ -776,7 +776,7 @@ static int gasnetc_init(int *argc, char ***argv)
      * MXM fills in addresses for MXM_PTL_SELF and MXM_PTL_RDMA.
      * We don't care about the rest - tell valgrind to ignore it.
      */
-    //VALGRIND_MAKE_MEM_DEFINED(&local_ep, sizeof (local_ep));
+    /*VALGRIND_MAKE_MEM_DEFINED(&local_ep, sizeof (local_ep));*/
 
     gasnet_mxm_module.remote_eps =
         gasneti_calloc(gasneti_nodes, sizeof(local_ep));
@@ -902,7 +902,7 @@ static int gasnetc_init(int *argc, char ***argv)
 
         gasneti_assert(gasnetc_pin_info.memory != 0);
         gasneti_assert(gasnetc_pin_info.memory != (uintptr_t)(-1));
-        //gasneti_assert(gasnetc_pin_info.regions != 0);
+        /*gasneti_assert(gasnetc_pin_info.regions != 0);*/
 
 
 #if GASNET_SEGMENT_FAST
@@ -1641,8 +1641,8 @@ static int gasnetc_get_exit_role(void)
          * Don't know our role yet.
          * Send a system-category AM Request to determine our role.
          */
-        rc = gasnetc_SystemRequest(GASNETC_EXIT_FLOW_ROOT_NODE, // destination
-                                   1,                           // nargs
+        rc = gasnetc_SystemRequest(GASNETC_EXIT_FLOW_ROOT_NODE, /* destination*/
+                                   1,                           /* nargs*/
                                    (gasnet_handlerarg_t)SYSTEM_EXIT_ROLE_REQ);
 
         gasneti_assert(rc == GASNET_OK);
@@ -1763,8 +1763,8 @@ static int gasnetc_exit_master(int exitcode, int64_t timeout_us)
             return -1;
 
         MXM_DEBUG_EXIT_FLOW("Master sending exit request to slave node %d\n", i);
-        rc = gasnetc_SystemRequest(i, // destination
-                                   2, // nargs
+        rc = gasnetc_SystemRequest(i, /* destination*/
+                                   2, /* nargs*/
                                    (gasnet_handlerarg_t) SYSTEM_EXIT_REQ,
                                    (gasnet_handlerarg_t) exitcode);
         if (rc != GASNET_OK)
@@ -2085,7 +2085,7 @@ void gasnetc_exit(int exitcode)
 
 extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex) {
     gasnet_node_t sourceid;
-//  GASNETI_CHECKATTACH();
+/*  GASNETI_CHECKATTACH();*/
     GASNETI_CHECK_ERRR((!token),BAD_ARG,"bad token");
     GASNETI_CHECK_ERRR((!srcindex),BAD_ARG,"bad src ptr");
 
@@ -2178,10 +2178,10 @@ extern int gasnetc_AMRequestShortM(
          */
 
         retval = gasnetc_RequestGeneric(gasnetc_Short, dest, handler,
-                                        NULL,        // void *src_addr
-                                        0,           // int nbytes
-                                        NULL,        // void *dst_addr
-                                        1,           // uint8_t is_sync
+                                        NULL,        /* void *src_addr*/
+                                        0,           /* int nbytes*/
+                                        NULL,        /* void *dst_addr*/
+                                        1,           /* uint8_t is_sync*/
                                         numargs, argptr);
     }
     va_end(argptr);
@@ -2211,10 +2211,10 @@ extern int gasnetc_AMRequestMediumM(
                  and send the active message
          */
         retval = gasnetc_RequestGeneric(gasnetc_Medium, dest, handler,
-                                        source_addr, // void *src_addr
-                                        nbytes,      // int nbytes
-                                        NULL,        // void *dst_addr
-                                        1,           // uint8_t is_sync
+                                        source_addr, /* void *src_addr*/
+                                        nbytes,      /* int nbytes*/
+                                        NULL,        /* void *dst_addr*/
+                                        1,           /* uint8_t is_sync*/
                                         numargs, argptr);
     }
     va_end(argptr);
@@ -2245,10 +2245,10 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
          */
 
         retval = gasnetc_RequestGeneric(gasnetc_Long, dest, handler,
-                                        source_addr, // void *src_addr
-                                        nbytes,      // int nbytes
-                                        dest_addr,   // void *dst_addr
-                                        1,           // uint8_t is_sync
+                                        source_addr, /* void *src_addr*/
+                                        nbytes,      /* int nbytes*/
+                                        dest_addr,   /* void *dst_addr*/
+                                        1,           /* uint8_t is_sync*/
                                         numargs, argptr);
     }
     va_end(argptr);
@@ -2279,10 +2279,10 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
          */
 
         retval = gasnetc_RequestGeneric(gasnetc_Long, dest, handler,
-                                        source_addr, // void *src_addr
-                                        nbytes,      // int nbytes
-                                        dest_addr,   // void *dst_addr
-                                        0,           // uint8_t is_sync
+                                        source_addr, /* void *src_addr*/
+                                        nbytes,      /* int nbytes*/
+                                        dest_addr,   /* void *dst_addr*/
+                                        0,           /* uint8_t is_sync*/
                                         numargs, argptr);
     }
     va_end(argptr);
@@ -2311,11 +2311,11 @@ extern int gasnetc_AMReplyShortM(
                  and send the active message
          */
 
-        retval = gasnetc_ReplyGeneric(gasnetc_Short, // gasnetc_category_t category
-                                      token,         // gasnet_token_t token
-                                      handler,       // gasnet_handler_t handler
-                                      NULL, 0,       // void *src_addr, int nbytes
-                                      NULL,          // void *dst_addr
+        retval = gasnetc_ReplyGeneric(gasnetc_Short, /* gasnetc_category_t category*/
+                                      token,         /* gasnet_token_t token*/
+                                      handler,       /* gasnet_handler_t handler*/
+                                      NULL, 0,       /* void *src_addr, int nbytes*/
+                                      NULL,          /* void *dst_addr*/
                                       numargs, argptr);
     }
     va_end(argptr);
@@ -2345,12 +2345,12 @@ extern int gasnetc_AMReplyMediumM(
                  and send the active message
          */
 
-        retval = gasnetc_ReplyGeneric(gasnetc_Medium,// gasnetc_category_t category
-                                      token,         // gasnet_token_t token
-                                      handler,       // gasnet_handler_t handler
-                                      source_addr,   // void *src_addr
-                                      nbytes,        // int nbytes
-                                      NULL,          // void *dst_addr
+        retval = gasnetc_ReplyGeneric(gasnetc_Medium,/* gasnetc_category_t category*/
+                                      token,         /* gasnet_token_t token*/
+                                      handler,       /* gasnet_handler_t handler*/
+                                      source_addr,   /* void *src_addr*/
+                                      nbytes,        /* int nbytes*/
+                                      NULL,          /* void *dst_addr*/
                                       numargs, argptr);
     }
     va_end(argptr);
@@ -2381,12 +2381,12 @@ extern int gasnetc_AMReplyLongM(
                  and send the active message
          */
 
-        retval = gasnetc_ReplyGeneric(gasnetc_Long,  // gasnetc_category_t category
-                                      token,         // gasnet_token_t token
-                                      handler,       // gasnet_handler_t handler
-                                      source_addr,   // void *src_addr
-                                      nbytes,        // int nbytes
-                                      dest_addr,     // void *dst_addr
+        retval = gasnetc_ReplyGeneric(gasnetc_Long,  /* gasnetc_category_t category*/
+                                      token,         /* gasnet_token_t token*/
+                                      handler,       /* gasnet_handler_t handler*/
+                                      source_addr,   /* void *src_addr*/
+                                      nbytes,        /* int nbytes*/
+                                      dest_addr,     /* void *dst_addr*/
                                       numargs, argptr);
     }
     va_end(argptr);
@@ -2401,13 +2401,13 @@ static int gasnetc_SystemRequest(gasnet_node_t dest,
     int retval;
     va_list argptr;
     va_start(argptr, numargs);
-    retval = gasnetc_RequestGeneric(gasnetc_System,// gasnetc_category_t category
-                                    dest,          // destination
-                                    0,             // gasnet_handler_t handler
-                                    NULL,          // void *src_addr
-                                    0,             // int nbytes
-                                    NULL,          // void *dst_addr
-                                    1,             // uint8_t is_sync
+    retval = gasnetc_RequestGeneric(gasnetc_System,/* gasnetc_category_t category*/
+                                    dest,          /* destination*/
+                                    0,             /* gasnet_handler_t handler*/
+                                    NULL,          /* void *src_addr*/
+                                    0,             /* int nbytes*/
+                                    NULL,          /* void *dst_addr*/
+                                    1,             /* uint8_t is_sync*/
                                     numargs, argptr);
     va_end(argptr);
     GASNETI_RETURN(retval);
@@ -2421,11 +2421,11 @@ int gasnetc_SystemReply(gasnet_token_t token,
     int retval;
     va_list argptr;
     va_start(argptr, numargs);
-    retval = gasnetc_ReplyGeneric(gasnetc_System, // gasnetc_category_t category
-                                  token,          // gasnet_token_t token
-                                  0,              // gasnet_handler_t handler
-                                  NULL, 0,        // void *src_addr, int nbytes
-                                  NULL,           // void *dst_addr
+    retval = gasnetc_ReplyGeneric(gasnetc_System, /* gasnetc_category_t category*/
+                                  token,          /* gasnet_token_t token*/
+                                  0,              /* gasnet_handler_t handler*/
+                                  NULL, 0,        /* void *src_addr, int nbytes*/
+                                  NULL,           /* void *dst_addr*/
                                   numargs, argptr);
     va_end(argptr);
     GASNETI_RETURN(retval);

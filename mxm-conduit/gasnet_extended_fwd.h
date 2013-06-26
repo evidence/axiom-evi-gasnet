@@ -43,4 +43,4 @@ typedef struct _gasnete_op_t *gasnet_handle_t;
                    extern gasneti_auxseg_request_t gasnete_barr_auxseg_alloc(gasnet_seginfo_t *auxseg_info);
 #define GASNETE_AUXSEG_FNS() gasnete_barr_auxseg_alloc,
 
-#endif //_GASNET_EXTENDED_FWD_H
+#endif /* _GASNET_EXTENDED_FWD_H */

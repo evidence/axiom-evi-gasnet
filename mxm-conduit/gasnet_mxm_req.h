@@ -33,4 +33,4 @@ extern gasnet_mxm_module_t   gasnet_mxm_module;
 extern gasnet_mxm_send_req_t * gasnetc_alloc_send_req(void);
 extern void gasnetc_free_send_req(void * p_sreq);
 
-#endif // GASNET_MXM_REQ_H
+#endif /* GASNET_MXM_REQ_H */
