@@ -368,9 +368,14 @@ static void mxm_nbi_put_callback(void *mxm_callback_data)
 }
 
 static void mxm_nbi_get_callback(void *mxm_callback_data) {
-    gasnetc_free_send_req(((mxm_nbi_callback_struct_t *)mxm_callback_data)->gasnet_mxm_sreq_send);
-    gasnete_op_markdone((gasnete_op_t *)(((mxm_nbi_callback_struct_t *)mxm_callback_data)->op), 1);
-    gasneti_free(mxm_callback_data);
+    mxm_nbi_callback_struct_t *cb = (mxm_nbi_callback_struct_t *)mxm_callback_data;
+    gasnetc_free_send_req(cb->gasnet_mxm_sreq_send);
+    gasnete_op_markdone((gasnete_op_t *)(cb->op), 1);
+#if GASNET_DEBUG
+    /* clear object's data before freeing it - might catch use after free */
+    memset(cb, 0, sizeof(mxm_nbi_callback_struct_t));
+#endif
+    gasneti_free(cb);
 }
 
 GASNETI_INLINE(gasnete_fill_fence_request)
