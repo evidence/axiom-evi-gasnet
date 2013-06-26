@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/25 06:56:53 $
- * $Revision: 1.82 $
+ *     $Date: 2013/06/26 01:53:01 $
+ * $Revision: 1.83 $
  * Description: GASNet Extended API over VAPI/IB Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -12,6 +12,57 @@
 
 static const gasnete_eopaddr_t EOPADDR_NIL = { { 0xFF, 0xFF } };
 extern void _gasnete_iop_check(gasnete_iop_t *iop) { gasnete_iop_check(iop); }
+
+/* ------------------------------------------------------------------------------------ */
+/*
+  Extended API Common Code
+  ========================
+  Factored bits of extended API code common to most conduits, overridable when necessary
+*/
+
+#include "gasnet_extended_common.c"
+
+/* ------------------------------------------------------------------------------------ */
+/*
+  Initialization
+  ==============
+*/
+/* called at startup to check configuration sanity */
+static void gasnete_check_config(void) {
+  gasneti_check_config_postattach();
+
+  gasneti_assert_always(gasnete_eopaddr_isnil(EOPADDR_NIL));
+}
+
+extern void gasnete_init(void) {
+  static int firstcall = 1;
+  GASNETI_TRACE_PRINTF(C,("gasnete_init()"));
+  gasneti_assert(firstcall); /*  make sure we haven't been called before */
+  firstcall = 0;
+
+  gasnete_check_config(); /*  check for sanity */
+
+  gasneti_assert(gasneti_nodes >= 1 && gasneti_mynode < gasneti_nodes);
+
+  { gasnete_threaddata_t *threaddata = NULL;
+    #if GASNETI_MAX_THREADS > 1
+      /* register first thread (optimization) */
+      threaddata = gasnete_mythread(); 
+    #else
+      /* register only thread (required) */
+      threaddata = gasnete_new_threaddata();
+    #endif
+
+    /* cause the first pool of eops to be allocated (optimization) */
+    gasnete_eop_free(gasnete_eop_new(threaddata));
+  }
+   
+  /* Initialize barrier resources */
+  gasnete_barrier_init();
+
+  /* Initialize VIS subsystem */
+  gasnete_vis_init();
+}
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -145,21 +196,18 @@ gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t * const thread) {
 }
 
 /*  query an eop for completeness */
-GASNETI_INLINE(gasnete_eop_isdone)
 int gasnete_eop_isdone(gasnete_eop_t *eop) {
   gasnete_eop_check(eop);
   return gasnetc_counter_done(&eop->req_oust);
 }
 
 /*  query an iop for completeness - this means both puts and gets */
-GASNETI_INLINE(gasnete_iop_isdone)
 int gasnete_iop_isdone(gasnete_iop_t *iop) {
   gasnete_iop_check(iop);
   return (GASNETE_IOP_CNTDONE(iop,get) && GASNETE_IOP_CNTDONE(iop,put));
 }
 
 /*  free an eop */
-GASNETI_INLINE(gasnete_eop_free)
 void gasnete_eop_free(gasnete_eop_t *eop) {
   gasnete_threaddata_t * const thread = gasnete_threadtable[eop->threadidx];
   gasnete_eopaddr_t addr = eop->addr;
@@ -171,7 +219,6 @@ void gasnete_eop_free(gasnete_eop_t *eop) {
 }
 
 /*  free an iop */
-GASNETI_INLINE(gasnete_iop_free)
 void gasnete_iop_free(gasnete_iop_t *iop) {
   gasnete_threaddata_t * const thread = gasnete_threadtable[iop->threadidx];
   gasneti_assert(thread == gasnete_mythread());
@@ -182,24 +229,6 @@ void gasnete_iop_free(gasnete_iop_t *iop) {
   iop->next = thread->iop_free;
   thread->iop_free = iop;
 }
-
-/* Reply handler to complete an op - might be replaced w/ IB atomics one day */
-GASNETI_INLINE(gasnete_markdone_reph_inner)
-void gasnete_markdone_reph_inner(gasnet_token_t token, void *completed) {
-  gasnetc_atomic_increment((gasnetc_atomic_t *)completed, 0);
-}
-SHORT_HANDLER(gasnete_markdone_reph,1,2,
-              (token, UNPACK(a0)    ),
-              (token, UNPACK2(a0, a1)));
-
-/* ------------------------------------------------------------------------------------ */
-/*
-  Extended API Common Code
-  ========================
-  Factored bits of extended API code common to most conduits, overridable when necessary
-*/
-
-#include "gasnet_extended_common.c"
 
 /* ------------------------------------------------------------------------------------ */
 /* GASNET-Internal OP Interface */
@@ -234,48 +263,6 @@ void gasneti_iop_markdone(gasneti_iop_t *iop, unsigned int noperations, int isge
 
 /* ------------------------------------------------------------------------------------ */
 /*
-  Initialization
-  ==============
-*/
-/* called at startup to check configuration sanity */
-static void gasnete_check_config(void) {
-  gasneti_check_config_postattach();
-
-  gasneti_assert_always(gasnete_eopaddr_isnil(EOPADDR_NIL));
-}
-
-extern void gasnete_init(void) {
-  static int firstcall = 1;
-  GASNETI_TRACE_PRINTF(C,("gasnete_init()"));
-  gasneti_assert(firstcall); /*  make sure we haven't been called before */
-  firstcall = 0;
-
-  gasnete_check_config(); /*  check for sanity */
-
-  gasneti_assert(gasneti_nodes >= 1 && gasneti_mynode < gasneti_nodes);
-
-  { gasnete_threaddata_t *threaddata = NULL;
-    #if GASNETI_MAX_THREADS > 1
-      /* register first thread (optimization) */
-      threaddata = gasnete_mythread(); 
-    #else
-      /* register only thread (required) */
-      threaddata = gasnete_new_threaddata();
-    #endif
-
-    /* cause the first pool of eops to be allocated (optimization) */
-    gasnete_eop_free(gasnete_eop_new(threaddata));
-  }
-   
-  /* Initialize barrier resources */
-  gasnete_barrier_init();
-
-  /* Initialize VIS subsystem */
-  gasnete_vis_init();
-}
-
-/* ------------------------------------------------------------------------------------ */
-/*
   Non-blocking memory-to-memory transfers (explicit handle)
   ==========================================================
 */
@@ -293,6 +280,16 @@ void gasnete_memset_reqh_inner(gasnet_token_t token,
 SHORT_HANDLER(gasnete_memset_reqh,4,7,
               (token, a0, UNPACK(a1),      UNPACK(a2),      UNPACK(a3)     ),
               (token, a0, UNPACK2(a1, a2), UNPACK2(a3, a4), UNPACK2(a5, a6)));
+/* ------------------------------------------------------------------------------------ */
+/* Reply handler to complete an op - might be replaced w/ IB atomics one day */
+GASNETI_INLINE(gasnete_markdone_reph_inner)
+void gasnete_markdone_reph_inner(gasnet_token_t token,
+  void *completed) {
+  gasnetc_atomic_increment((gasnetc_atomic_t *)completed, 0);
+}
+SHORT_HANDLER(gasnete_markdone_reph,1,2,
+              (token, UNPACK(a0)    ),
+              (token, UNPACK2(a0, a1)));
 /* ------------------------------------------------------------------------------------ */
 
 extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG) {

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_extended_internal.h,v $
- *     $Date: 2013/06/26 00:24:43 $
- * $Revision: 1.35 $
+ *     $Date: 2013/06/26 01:53:01 $
+ * $Revision: 1.36 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -104,6 +104,7 @@ void SET_OPSTATE(gasnete_eop_t *op, uint8_t state) {
    * the state. */
   gasneti_assert(state == OPSTATE_COMPLETE ? 1 : OPSTATE(op) == state);
 }
+#endif /* Not using FREE/INFLIGHT/COMPLETED state bits from extended-ref */
 
 /* gasnete_op_t flag bits reserved for conduit-specific uses.
  * guaranteed not to conflict with use in extendef-ref and
@@ -123,7 +124,6 @@ void gasnete_op_markdone(gasnete_op_t *op, int isget);
 /*  free an op */
 void gasnete_eop_free(gasnete_eop_t *eop);
 void gasnete_iop_free(gasnete_iop_t *iop);
-#endif /* Not using FREE/INFLIGHT/COMPLETED state bits from extended-ref */
 
 #define GASNETE_EOPADDR_TO_PTR(threaddata, eopaddr)                      \
       (gasneti_memcheck(threaddata),                                     \
