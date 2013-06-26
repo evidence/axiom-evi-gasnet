@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/26 01:53:01 $
- * $Revision: 1.83 $
+ *     $Date: 2013/06/26 03:12:15 $
+ * $Revision: 1.84 $
  * Description: GASNet Extended API over VAPI/IB Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -206,6 +206,23 @@ int gasnete_iop_isdone(gasnete_iop_t *iop) {
   gasnete_iop_check(iop);
   return (GASNETE_IOP_CNTDONE(iop,get) && GASNETE_IOP_CNTDONE(iop,put));
 }
+
+#if 0 /* Ununsed - we gasnetc_atomic_increment() the proper word directly */
+/*  mark an op done - isget ignored for explicit ops */
+void gasnete_op_markdone(gasnete_op_t *op, int isget) {
+  if (OPTYPE(op) == OPTYPE_EXPLICIT) {
+    gasnete_eop_t *eop = (gasnete_eop_t *)op;
+    gasneti_assert(! gasnetc_counter_done(&eop->req_oust));
+    gasnete_eop_check(eop);
+    gasnetc_atomic_increment(&eop->req_oust.completed, 0);
+  } else {
+    gasnete_iop_t *iop = (gasnete_iop_t *)op;
+    gasnete_iop_check(iop);
+    if (isget) gasnetc_atomic_increment(&(iop->completed_get_cnt), 0);
+    else gasnetc_atomic_increment(&(iop->completed_put_cnt), 0);
+  }
+}
+#endif
 
 /*  free an eop */
 void gasnete_eop_free(gasnete_eop_t *eop) {
