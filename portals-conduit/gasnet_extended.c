@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/26 06:26:29 $
- * $Revision: 1.33 $
+ *     $Date: 2013/06/26 06:55:59 $
+ * $Revision: 1.34 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -39,52 +39,13 @@ static size_t gasnete_max_get_single = GASNETC_PTL_MAX_TRANS_SZ;
 
 /* ------------------------------------------------------------------------------------ */
 /*
-  Extended API Common Code
-  ========================
-  Factored bits of extended API code common to most conduits, overridable when necessary
-*/
-
-#define GASNETE_NEW_THREADDATA_CALLBACK(threaddata) \
-  gasneti_weakatomic_set(&(threaddata->local_completion_count), 0, 0)
-
-#define GASNETC_NEW_THREADDATA_CALLBACK(threaddata) \
-  threaddata->gasnetc_threaddata = gasnetc_new_threaddata(threaddata->threadidx)
-
-#define GASNETE_FREE_IOPS(thread) {            \
-  int i;                                       \
-  for (i = 0; i < thread->iop_num_bufs; i++) { \
-    gasneti_free(thread->iop_bufs[i]);         \
-  }                                            \
-}
-
-#include "gasnet_extended_common.c"
-
-/* ------------------------------------------------------------------------------------ */
-/*
-  Initialization
-  ==============
-*/
-/* called at startup to check configuration sanity */
-static void gasnete_check_config(void) {
-  gasneti_check_config_postattach();
-
-  gasneti_assert_always(GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD <= gasnet_AMMaxMedium());
-  gasneti_assert_always(gasnete_opaddr_isnil(gasnete_opaddr_nil));
-
-#if GASNETE_USEAM
-  /* The next two ensure nbytes in AM-based Gets will fit in handler_arg_t (bug 2770) */
-  gasneti_assert_always(gasnet_AMMaxMedium() <= (size_t)0xffffffff);
-  gasneti_assert_always(gasnet_AMMaxLongReply() <= (size_t)0xffffffff);
-#endif
-}
-
-
-/* ------------------------------------------------------------------------------------ */
-/*
   Op management
   =============
+  TODO: spilt new/alloc of eop and iop 
 */
+
 /*  get a new op and mark it in flight */
+static
 gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread) {
   gasnete_opaddr_t head = thread->eop_free;
   if_pt (!gasnete_opaddr_isnil(head)) {
@@ -178,6 +139,8 @@ gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread) {
   }
 }
 
+/*  get a new iop */
+static
 gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t * const thread) {
   if_pt (thread->iop_free) {
     gasnete_iop_t *iop = thread->iop_free;
@@ -256,6 +219,7 @@ gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t * const thread) {
 }
 
 /*  query an eop for completeness */
+static
 int gasnete_eop_isdone(gasnete_eop_t *eop) {
   gasneti_assert(GASNETE_OP_THREADID(eop) == gasnete_mythread()->threadidx);
   gasneti_assert(OPSTATE(eop) != OPSTATE_FREE);
@@ -264,6 +228,7 @@ int gasnete_eop_isdone(gasnete_eop_t *eop) {
 }
 
 /*  query an iop for completeness - this means both puts and gets */
+static
 int gasnete_iop_isdone(gasnete_iop_t *iop) {
   gasneti_assert(GASNETE_OP_THREADID(iop) == gasnete_mythread()->threadidx);
   gasnete_iop_check(iop);
@@ -271,6 +236,7 @@ int gasnete_iop_isdone(gasnete_iop_t *iop) {
 }
 
 /*  mark an op done - isget ignored for explicit ops */
+static
 void gasnete_op_markdone(gasnete_op_t *op, int isget) {
   if (OPTYPE(op) == OPTYPE_EXPLICIT) {
     gasnete_eop_t *eop = (gasnete_eop_t *)op;
@@ -286,6 +252,7 @@ void gasnete_op_markdone(gasnete_op_t *op, int isget) {
 }
 
 /*  free an eop */
+static
 void gasnete_eop_free(gasnete_eop_t *eop) {
   gasnete_threaddata_t * const thread = gasnete_threadtable[GASNETE_OP_THREADID(eop)];
   gasneti_assert(thread == gasnete_mythread());
@@ -305,6 +272,7 @@ void gasnete_eop_free(gasnete_eop_t *eop) {
 }
 
 /*  free an iop */
+static
 void gasnete_iop_free(gasnete_iop_t *iop) {
   gasnete_threaddata_t * const thread = gasnete_threadtable[GASNETE_OP_THREADID(iop)];
   gasneti_assert(thread == gasnete_mythread());
@@ -316,6 +284,49 @@ void gasnete_iop_free(gasnete_iop_t *iop) {
     GASNETI_TRACE_PRINTF(C,("IOP_FREE: iop = 0x%lx",(uintptr_t)iop));
   }
 }
+
+/* ------------------------------------------------------------------------------------ */
+/*
+  Extended API Common Code
+  ========================
+  Factored bits of extended API code common to most conduits, overridable when necessary
+*/
+
+#define GASNETE_NEW_THREADDATA_CALLBACK(threaddata) \
+  gasneti_weakatomic_set(&(threaddata->local_completion_count), 0, 0)
+
+#define GASNETC_NEW_THREADDATA_CALLBACK(threaddata) \
+  threaddata->gasnetc_threaddata = gasnetc_new_threaddata(threaddata->threadidx)
+
+#define GASNETE_FREE_IOPS(thread) {            \
+  int i;                                       \
+  for (i = 0; i < thread->iop_num_bufs; i++) { \
+    gasneti_free(thread->iop_bufs[i]);         \
+  }                                            \
+}
+
+#include "gasnet_extended_common.c"
+
+/* ------------------------------------------------------------------------------------ */
+/*
+  Initialization
+  ==============
+*/
+/* called at startup to check configuration sanity */
+static void gasnete_check_config(void) {
+  gasneti_check_config_postattach();
+
+  gasneti_assert_always(GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD <= gasnet_AMMaxMedium());
+  gasneti_assert_always(gasnete_opaddr_isnil(gasnete_opaddr_nil));
+
+#if GASNETE_USEAM
+  /* The next two ensure nbytes in AM-based Gets will fit in handler_arg_t (bug 2770) */
+  gasneti_assert_always(gasnet_AMMaxMedium() <= (size_t)0xffffffff);
+  gasneti_assert_always(gasnet_AMMaxLongReply() <= (size_t)0xffffffff);
+#endif
+}
+
+
 /* ------------------------------------------------------------------------------------ */
 /* GASNET-Internal OP Interface */
 gasneti_eop_t *gasneti_eop_create(GASNETE_THREAD_FARG_ALONE) {
