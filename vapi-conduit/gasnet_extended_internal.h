@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2013/06/26 00:04:56 $
- * $Revision: 1.34 $
+ *     $Date: 2013/06/26 00:24:43 $
+ * $Revision: 1.35 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -104,9 +104,14 @@ void SET_OPSTATE(gasnete_eop_t *op, uint8_t state) {
    * the state. */
   gasneti_assert(state == OPSTATE_COMPLETE ? 1 : OPSTATE(op) == state);
 }
-#endif
 
-#if 0 /* Not using FREE/INFLIGHT/COMPLETED state bits from extended-ref */
+/* gasnete_op_t flag bits reserved for conduit-specific uses.
+ * guaranteed not to conflict with use in extendef-ref and
+ * are preserved by SET_OP{STATE,TYPE}() */
+#define OPFLAG_CONDUIT0 0x04
+#define OPFLAG_CONDUIT1 0x08
+#define OPFLAG_CONDUIT2 0x10
+
 /*  get a new op and mark it in flight */
 gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t *thread);
 gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t *thread);
@@ -118,7 +123,7 @@ void gasnete_op_markdone(gasnete_op_t *op, int isget);
 /*  free an op */
 void gasnete_eop_free(gasnete_eop_t *eop);
 void gasnete_iop_free(gasnete_iop_t *iop);
-#endif
+#endif /* Not using FREE/INFLIGHT/COMPLETED state bits from extended-ref */
 
 #define GASNETE_EOPADDR_TO_PTR(threaddata, eopaddr)                      \
       (gasneti_memcheck(threaddata),                                     \

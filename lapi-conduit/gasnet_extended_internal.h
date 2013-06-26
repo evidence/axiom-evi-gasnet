@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2013/06/26 00:04:50 $
- * $Revision: 1.43 $
+ *     $Date: 2013/06/26 00:24:37 $
+ * $Revision: 1.44 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -166,6 +166,13 @@ GASNETI_INLINE(SET_OPSTATE)
    * the state. */
     gasneti_assert(state == OPSTATE_COMPLETE ? 1 : OPSTATE(op) == state);
 }
+
+/* gasnete_op_t flag bits reserved for conduit-specific uses.
+ * guaranteed not to conflict with use in extendef-ref and
+ * are preserved by SET_OP{STATE,TYPE}() */
+#define OPFLAG_CONDUIT0 0x04
+#define OPFLAG_CONDUIT1 0x08
+#define OPFLAG_CONDUIT2 0x10
 
 /*  get a new op and mark it in flight */
 gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t *thread);

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2013/06/26 00:04:48 $
- * $Revision: 1.45 $
+ *     $Date: 2013/06/26 00:24:35 $
+ * $Revision: 1.46 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -134,9 +134,6 @@ void SET_OPTYPE(gasnete_op_t *op, uint8_t type) {
 #define OPSTATE_INFLIGHT	1
 #define OPSTATE_COMPLETE	2
 #define OPSTATE(op)		((op)->flags & 0x03) 
-#define OPMISC_NONAMBUF		4
-#define OPMISC_AMBUF		8
-#define OPMISC(op)		((op)->flags & 0x0C)
 GASNETI_INLINE(SET_OPSTATE)
 void SET_OPSTATE(gasnete_eop_t *op, uint8_t state) {
 	op->flags = (op->flags & 0xFC) | (state & 0x03);
@@ -146,6 +143,16 @@ void SET_OPSTATE(gasnete_eop_t *op, uint8_t state) {
 	gasneti_assert(state == OPSTATE_COMPLETE ? 1 : OPSTATE(op) == state);
 }
 
+/* gasnete_op_t flag bits reserved for conduit-specific uses.
+ * guaranteed not to conflict with use in extendef-ref and
+ * are preserved by SET_OP{STATE,TYPE}() */
+#define OPFLAG_CONDUIT0		0x04
+#define OPFLAG_CONDUIT1		0x08
+#define OPFLAG_CONDUIT2		0x10
+
+#define OPMISC_NONAMBUF		OPFLAG_CONDUIT0
+#define OPMISC_AMBUF		OPFLAG_CONDUIT1
+#define OPMISC(op)		((op)->flags & 0x0C)
 GASNETI_INLINE(SET_OPMISC)
 void SET_OPMISC(gasnete_eop_t *op, uint8_t misc) {
 	op->flags = (op->flags & 0xF3) | (misc & 0x0C);

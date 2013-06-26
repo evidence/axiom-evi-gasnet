@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2013/06/26 00:04:52 $
- * $Revision: 1.9 $
+ *     $Date: 2013/06/26 00:24:39 $
+ * $Revision: 1.10 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -102,8 +102,15 @@ void SET_OPSTATE(gasnete_eop_t *op, uint8_t state) {
   gasneti_assert(state == OPSTATE_COMPLETE ? 1 : OPSTATE(op) == state);
 }
 
+/* gasnete_op_t flag bits reserved for conduit-specific uses.
+ * guaranteed not to conflict with use in extendef-ref and
+ * are preserved by SET_OP{STATE,TYPE}() */
+#define OPFLAG_CONDUIT0 0x04
+#define OPFLAG_CONDUIT1 0x08
+#define OPFLAG_CONDUIT2 0x10
+
 /*  local completion flag - valid only for ops which block for local-completion */
-#define OPFLAG_LC  4
+#define OPFLAG_LC  OPFLAG_CONDUIT0
 GASNETI_INLINE(gasnete_op_read_lc)
 int gasnete_op_read_lc(gasnete_op_t *op) {
   return (op->flags & OPFLAG_LC);
