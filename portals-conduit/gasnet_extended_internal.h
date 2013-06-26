@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2013/06/25 06:53:22 $
- * $Revision: 1.14 $
+ *     $Date: 2013/06/26 00:04:54 $
+ * $Revision: 1.15 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -69,8 +69,8 @@ typedef struct _gasnete_iop_t {
   gasneti_weakatomic_val_t initiated_get_cnt;     /*  count of get ops initiated */
   gasneti_weakatomic_val_t initiated_put_cnt;     /*  count of put ops initiated */
 
-  /*  make sure the counters live on different cache lines for SMP's */
-  uint8_t pad[MAX(8,(ssize_t)(GASNETI_CACHE_LINE_BYTES - sizeof(void*) - sizeof(gasneti_weakatomic_val_t)))];
+  /*  make sure the initiated/completed counters live on different cache lines for SMP's */
+  uint8_t pad[GASNETI_CACHE_PAD(sizeof(gasneti_weakatomic_val_t))];
 
   gasneti_weakatomic_t completed_get_cnt;     /*  count of get ops completed */
   gasneti_weakatomic_t completed_put_cnt;     /*  count of put ops completed */
@@ -102,6 +102,9 @@ typedef struct _gasnete_threaddata_t {
    */
   gasneti_weakatomic_t local_completion_count;
 
+#ifdef GASNETE_CONDUIT_THREADDATA_FIELDS
+  GASNETE_CONDUIT_THREADDATA_FIELDS
+#endif
 } gasnete_threaddata_t;
 extern gasnete_threaddata_t *gasnete_threadtable[];
 

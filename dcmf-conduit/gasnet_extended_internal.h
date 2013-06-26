@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2013/06/25 06:16:10 $
- * $Revision: 1.10 $
+ *     $Date: 2013/06/26 00:04:42 $
+ * $Revision: 1.11 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
  *                 Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -57,11 +57,11 @@ typedef struct _gasnete_iop_t {
   uint16_t _unused;
   gasneti_weakatomic_val_t initiated_get_cnt;     /*  count of get ops initiated */
   gasneti_weakatomic_val_t initiated_put_cnt;     /*  count of put ops initiated */
-/*   gasnetc_dcmf_req_t *dcmf_req_head;   */
+
   struct _gasnete_iop_t *next;    /*  next cell while in free list, deferred iop while being filled */
 
-  /*  make sure the counters live on different cache lines for SMP's */
-  uint8_t pad[MAX(8,(ssize_t)(GASNETI_CACHE_LINE_BYTES - sizeof(void*) - sizeof(gasneti_weakatomic_val_t)))]; 
+  /*  make sure the initiated/completed counters live on different cache lines for SMP's */
+  uint8_t pad[GASNETI_CACHE_PAD(sizeof(void*) + sizeof(gasneti_weakatomic_val_t))];
 
   gasneti_weakatomic_t completed_get_cnt;     /*  count of get ops completed */
   gasneti_weakatomic_t completed_put_cnt;     /*  count of put ops completed */
@@ -90,6 +90,9 @@ typedef struct _gasnete_threaddata_t {
 
   gasnete_iop_t *iop_free;      /*  free list of iops */
 
+  #ifdef GASNETE_CONDUIT_THREADDATA_FIELDS
+  GASNETE_CONDUIT_THREADDATA_FIELDS
+  #endif
 } gasnete_threaddata_t;
 /* ------------------------------------------------------------------------------------ */
 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2013/06/25 04:37:10 $
- * $Revision: 1.37 $
+ *     $Date: 2013/06/26 00:04:44 $
+ * $Revision: 1.38 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -59,8 +59,8 @@ typedef struct _gasnete_iop_t {
   uint8_t flags;                  /*  state flags */
   gasnete_threadidx_t threadidx;  /*  thread that owns me */
   uint16_t _unused;
-  gasneti_weakatomic_val_t initiated_put_cnt;     /*  count of put ops initiated */
   gasneti_weakatomic_val_t initiated_get_cnt;     /*  count of get ops initiated */
+  gasneti_weakatomic_val_t initiated_put_cnt;     /*  count of put ops initiated */
 
   struct _gasnete_iop_t *next;    /*  next cell while in free list, deferred iop while being filled */
 
@@ -70,10 +70,11 @@ typedef struct _gasnete_iop_t {
   gasnete_eop_t *elan_putbb_list; /* list of bounce-buffered elan put eops */
   gasnete_eop_t *elan_getbb_list; /* list of bounce-buffered elan get eops */
 
-  /*  make sure the completion counters live on a cache line by themselves for SMP's */
-  uint8_t _pad[MAX(8,(ssize_t)(GASNETI_CACHE_LINE_BYTES - 4*sizeof(void*) - sizeof(gasneti_weakatomic_val_t)))]; 
-  gasneti_weakatomic_t completed_put_cnt;     /*  count of put ops completed */
+  /*  make sure the intiated/completed counters live on different cache lines for SMP's */
+  uint8_t pad[GASNETI_CACHE_PAD(4*sizeof(void*) + sizeof(gasneti_weakatomic_val_t))];
+
   gasneti_weakatomic_t completed_get_cnt;     /*  count of get ops completed */
+  gasneti_weakatomic_t completed_put_cnt;     /*  count of put ops completed */
   uint8_t _pad2[MAX(8,(ssize_t)(GASNETI_CACHE_LINE_BYTES - 2*sizeof(gasneti_atomic_t)))]; 
 } gasnete_iop_t;
 
@@ -90,6 +91,9 @@ typedef struct _gasnete_threaddata_t {
 
   gasnete_iop_t *iop_free;      /*  free list of iops */
 
+  #ifdef GASNETE_CONDUIT_THREADDATA_FIELDS
+  GASNETE_CONDUIT_THREADDATA_FIELDS
+  #endif
 } gasnete_threaddata_t;
 /* ------------------------------------------------------------------------------------ */
 

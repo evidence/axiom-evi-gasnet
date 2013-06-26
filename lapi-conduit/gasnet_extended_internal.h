@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2013/06/25 06:45:20 $
- * $Revision: 1.42 $
+ *     $Date: 2013/06/26 00:04:50 $
+ * $Revision: 1.43 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -115,8 +115,8 @@ typedef struct _gasnete_iop_t {
 
     struct _gasnete_iop_t *next;    /*  next cell while in free list, deferred iop while being filled */
 
-    /*  make sure the counters live on different cache lines for SMP's */
-    uint8_t pad[MAX(8,(ssize_t)(GASNETI_CACHE_LINE_BYTES - sizeof(void*) - sizeof(int)))]; 
+    /*  make sure the initiated/completed counters live on different cache lines for SMP's */
+    uint8_t pad[GASNETI_CACHE_PAD(sizeof(void*) + sizeof(int))];
 
     lapi_cntr_t      get_cntr;
     lapi_cntr_t      put_cntr;
@@ -138,6 +138,9 @@ typedef struct _gasnete_threaddata_t {
 
     gasnete_iop_t *iop_free;      /*  free list of iops */
 
+    #ifdef GASNETE_CONDUIT_THREADDATA_FIELDS
+    GASNETE_CONDUIT_THREADDATA_FIELDS
+    #endif
 } gasnete_threaddata_t;
 /* ------------------------------------------------------------------------------------ */
 
