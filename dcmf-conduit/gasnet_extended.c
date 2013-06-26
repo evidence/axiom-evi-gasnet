@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_extended.c,v $
- *     $Date: 2013/06/26 06:50:12 $
- * $Revision: 1.44 $
+ *     $Date: 2013/06/26 20:47:30 $
+ * $Revision: 1.45 $
  * Description: GASNet Extended API Implementation for DCMF
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
  *                 Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -437,7 +437,8 @@ void gasneti_iop_markdone(gasneti_iop_t *iop, unsigned int noperations, int isge
   gasnete_iop_t *op = (gasnete_iop_t *)iop;
   gasneti_weakatomic_t * const pctr = (isget ? &(op->completed_get_cnt) : &(op->completed_put_cnt));
   gasnete_iop_check(op);
-  if (noperations == 1) gasneti_weakatomic_increment(pctr, 0);
+  if (gasneti_constant_p(noperations) && (noperations == 1))
+      gasneti_weakatomic_increment(pctr, 0);
   else {
     #if defined(GASNETI_HAVE_WEAKATOMIC_ADD_SUB)
       gasneti_weakatomic_add(pctr, noperations, 0);

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/26 06:55:59 $
- * $Revision: 1.34 $
+ *     $Date: 2013/06/26 20:47:46 $
+ * $Revision: 1.35 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -352,7 +352,8 @@ void gasneti_iop_markdone(gasneti_iop_t *iop, unsigned int noperations, int isge
   gasneti_assert( OPTYPE(op) == OPTYPE_IMPLICIT );
   pctr = (isget ? &(op->completed_get_cnt) : &(op->completed_put_cnt));
   gasnete_iop_check(op);
-  if (noperations == 1) gasneti_weakatomic_increment(pctr, 0);
+  if (gasneti_constant_p(noperations) && (noperations == 1))
+      gasneti_weakatomic_increment(pctr, 0);
   else {
     #if defined(GASNETI_HAVE_WEAKATOMIC_ADD_SUB)
       gasneti_weakatomic_add(pctr, noperations, 0);

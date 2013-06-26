@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended_op.c,v $
- * $Date: 2013/06/26 06:26:23 $
- * $Revision: 1.23 $
+ * $Date: 2013/06/26 20:47:38 $
+ * $Revision: 1.24 $
  * Description: GASNet Extended API OPs interface
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -223,7 +223,8 @@ void gasneti_iop_markdone(gasneti_iop_t *iop, unsigned int noperations, int isge
   gasnete_iop_t *op = (gasnete_iop_t *)iop;
   gasneti_weakatomic_t * const pctr = (isget ? &(op->completed_get_cnt) : &(op->completed_put_cnt));
   gasnete_iop_check(op);
-  if (noperations == 1) gasneti_weakatomic_increment(pctr, 0);
+  if (gasneti_constant_p(noperations) && (noperations == 1))
+      gasneti_weakatomic_increment(pctr, 0);
   else {
     #if defined(GASNETI_HAVE_WEAKATOMIC_ADD_SUB)
       gasneti_weakatomic_add(pctr, noperations, 0);

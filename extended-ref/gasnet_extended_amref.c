@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_amref.c,v $
- *     $Date: 2013/06/26 06:26:19 $
- * $Revision: 1.84 $
+ *     $Date: 2013/06/26 20:47:34 $
+ * $Revision: 1.85 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -321,7 +321,8 @@ void gasneti_iop_markdone(gasneti_iop_t *iop, unsigned int noperations, int isge
   gasnete_iop_t *op = (gasnete_iop_t *)iop;
   gasneti_weakatomic_t * const pctr = (isget ? &(op->completed_get_cnt) : &(op->completed_put_cnt));
   gasnete_iop_check(op);
-  if (noperations == 1) gasneti_weakatomic_increment(pctr, 0);
+  if (gasneti_constant_p(noperations) && (noperations == 1))
+      gasneti_weakatomic_increment(pctr, 0);
   else {
     #if defined(GASNETI_HAVE_WEAKATOMIC_ADD_SUB)
       gasneti_weakatomic_add(pctr, noperations, 0);

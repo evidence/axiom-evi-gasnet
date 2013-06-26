@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/26 06:36:11 $
- * $Revision: 1.133 $
+ *     $Date: 2013/06/26 20:47:40 $
+ * $Revision: 1.134 $
  * Description: GASNet Extended API over LAPI Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -408,7 +408,8 @@ gasneti_iop_t *gasneti_iop_register(unsigned int noperations, int isget GASNETE_
   gasnete_iop_t * const op = mythread->current_iop;
   gasneti_weakatomic_t * const pctr = (isget ? &(op->get_aux_cntr) : &(op->put_aux_cntr));
   gasnete_iop_check(op);
-  if (noperations == 1) gasneti_weakatomic_increment(pctr, 0);
+  if (gasneti_constant_p(noperations) && (noperations == 1))
+      gasneti_weakatomic_increment(pctr, 0);
   else {
     #if defined(GASNETI_HAVE_WEAKATOMIC_ADD_SUB)
       gasneti_weakatomic_add(pctr, noperations, 0);
