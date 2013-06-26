@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2013/06/26 00:49:51 $
- * $Revision: 1.13 $
+ *     $Date: 2013/06/26 06:50:12 $
+ * $Revision: 1.14 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
  *                 Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -124,18 +124,6 @@ void SET_OPSTATE(gasnete_eop_t *op, uint8_t state) {
 #define OPFLAG_CONDUIT0 0x04
 #define OPFLAG_CONDUIT1 0x08
 #define OPFLAG_CONDUIT2 0x10
-
-/*  get a new op and mark it in flight */
-gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t *thread);
-gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t *thread);
-/*  query an op for completeness */
-int gasnete_eop_isdone(gasnete_eop_t *eop);
-int gasnete_iop_isdone(gasnete_iop_t *iop);
-/*  mark an op done - isget ignored for explicit ops */
-void gasnete_op_markdone(gasnete_op_t *op, int isget);
-/*  free an op */
-void gasnete_eop_free(gasnete_eop_t *eop);
-void gasnete_iop_free(gasnete_iop_t *iop);
 
 #define GASNETE_EOPADDR_TO_PTR(threaddata, eopaddr)                      \
       (gasneti_memcheck(threaddata),                                     \
