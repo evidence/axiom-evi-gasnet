@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_amref.c,v $
- *     $Date: 2013/06/25 06:56:39 $
- * $Revision: 1.81 $
+ *     $Date: 2013/06/26 02:03:49 $
+ * $Revision: 1.82 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -71,7 +71,7 @@ extern void gasnete_init(void) {
 
   { gasnete_threaddata_t *threaddata = NULL;
     gasnete_eop_t *eop = NULL;
-    #if GASNETI_THREADS
+    #if GASNETI_MAX_THREADS > 1
       /* register first thread (optimization) */
       threaddata = gasnete_mythread(); 
     #else

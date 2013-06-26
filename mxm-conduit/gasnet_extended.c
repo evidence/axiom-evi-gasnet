@@ -284,7 +284,7 @@ extern void gasnete_init(void) {
 
     {   gasnete_threaddata_t *threaddata = NULL;
         gasnete_eop_t *eop = NULL;
-#if GASNETI_CLIENT_THREADS
+#if GASNETI_MAX_THREADS > 1
         /* register first thread (optimization) */
         threaddata = gasnete_mythread();
 #else
