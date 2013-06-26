@@ -225,7 +225,7 @@ volatile int gasnetc_shutdownInProgress;
 double gasnetc_shutdown_seconds; /* number of seconds to poll before forceful shutdown */
 int gasnetc_sys_exit(int *exitcode);
 
-
+void gasnete_op_markdone(gasnete_op_t *op, int isget);
 
 void gasnetc_init_segment(void *segment_start, size_t segment_size);
 uintptr_t gasnetc_init_messaging(void);
