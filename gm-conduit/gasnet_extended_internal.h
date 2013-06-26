@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2013/06/26 00:24:35 $
- * $Revision: 1.46 $
+ *     $Date: 2013/06/26 01:00:42 $
+ * $Revision: 1.47 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -52,7 +52,6 @@ typedef union _gasnete_eopaddr_t {
 struct _gasnete_iop_t;
 typedef struct _gasnete_eop_t {
 	uint8_t		flags;	/*  state flags */
-
 	gasnete_threadidx_t	threadidx;  /*  thread that owns me */
 
 	const firehose_request_t	*req_local;
@@ -79,7 +78,6 @@ typedef struct _gasnete_eop_t {
 /* Implicit ops, used by the extended reference implementation */
 typedef struct _gasnete_iop_t {
   	uint8_t		flags;	/*  state flags */
-
 	gasnete_threadidx_t	threadidx;  /*  thread that owns me */
 	gasnet_node_t		node;
   	uintptr_t		dest;		/* remote RDMA addr */
@@ -99,7 +97,7 @@ typedef struct _gasnete_iop_t {
 	gasneti_weakatomic_t completed_put_cnt;     /*  count of put ops completed */
 } gasnete_iop_t;
 
-/* -------------------------------------------------------------------------- */
+/* ------------------------------------------------------------------------------------ */
 typedef struct _gasnete_threaddata_t {
   GASNETE_COMMON_THREADDATA_FIELDS /* MUST come first, for reserved ptrs */
 
@@ -111,13 +109,15 @@ typedef struct _gasnete_threaddata_t {
 
 	/*  stack of iops - head is active iop servicing new implicit ops */
 	gasnete_iop_t *current_iop;  
+
 	gasnete_iop_t *iop_free;      /*  free list of iops */
 
 	#ifdef GASNETE_CONDUIT_THREADDATA_FIELDS
 	GASNETE_CONDUIT_THREADDATA_FIELDS
 	#endif
 } gasnete_threaddata_t;
-/* -------------------------------------------------------------------------- */
+
+/* ------------------------------------------------------------------------------------ */
 
 /* gasnete_op_t flags field */
 #define OPTYPE_EXPLICIT		0x00  /* gasnete_eop_new() relies on this value */
@@ -129,7 +129,7 @@ void SET_OPTYPE(gasnete_op_t *op, uint8_t type) {
 	gasneti_assert(OPTYPE(op) == type);
 }
 
-/*  state */
+/*  state - only valid for explicit ops */
 #define OPSTATE_FREE		0   /* gasnete_eop_new() relies on this value */
 #define OPSTATE_INFLIGHT	1
 #define OPSTATE_COMPLETE	2
@@ -159,17 +159,14 @@ void SET_OPMISC(gasnete_eop_t *op, uint8_t misc) {
 	gasneti_assert(OPMISC(op) == misc);
 }
 
-/* New op creation, gets new op and marks it in flight */
+/*  get a new op and mark it in flight */
 gasnete_eop_t	*gasnete_eop_new(gasnete_threaddata_t * const thread);
 gasnete_iop_t	*gasnete_iop_new(gasnete_threaddata_t * const thread);
-
 /*  query an op for completeness */
 int		gasnete_eop_isdone(gasnete_eop_t *eop);
 int		gasnete_iop_isdone(gasnete_iop_t *iop);
-
 /*  mark an op done - isget ignored for explicit ops */
 void		gasnete_op_markdone(gasnete_op_t *op, int isget);
-
 /*  free an op */
 void		gasnete_eop_free(gasnete_eop_t *eop);
 void		gasnete_iop_free(gasnete_iop_t *iop);
@@ -215,11 +212,10 @@ void		gasnete_iop_free(gasnete_iop_t *iop);
   (gasneti_weakatomic_read(&(_iop)->completed_##_putget##_cnt, 0) \
           == ((_iop)->initiated_##_putget##_cnt & GASNETI_ATOMIC_MAX))
 
-/* 1 = scatter newly allocated eops across cache lines to 
- *     reduce false sharing */
+/* 1 = scatter newly allocated eops across cache lines to reduce false sharing */
 #define GASNETE_SCATTER_EOPS_ACROSS_CACHELINES    1 
 
-/* -------------------------------------------------------------------------- */
+/* ------------------------------------------------------------------------------------ */
 /* Extended threads support */
 extern const gasnete_eopaddr_t	EOPADDR_NIL;
 
@@ -264,10 +260,10 @@ void gasnete_extref_put_nbi_bulk (gasnet_node_t node, void *dest, void *src,
 #define _hidx_gasnete_amcbarrier_notify_reqh (GASNETE_HANDLER_BASE+1) 
 #define _hidx_gasnete_amcbarrier_done_reqh   (GASNETE_HANDLER_BASE+2)
 #if 0 /* UNUSED: No AM-based Gets in gm-conduit */
-#define _hidx_gasnete_extref_get_reqh        (GASNETE_HANDLER_BASE+3)
-#define _hidx_gasnete_extref_get_reph        (GASNETE_HANDLER_BASE+4)
-#define _hidx_gasnete_extref_getlong_reqh    (GASNETE_HANDLER_BASE+5)
-#define _hidx_gasnete_extref_getlong_reph    (GASNETE_HANDLER_BASE+6)
+#define _hidx_gasnete_get_reqh               (GASNETE_HANDLER_BASE+3)
+#define _hidx_gasnete_get_reph               (GASNETE_HANDLER_BASE+4)
+#define _hidx_gasnete_getlong_reqh           (GASNETE_HANDLER_BASE+5)
+#define _hidx_gasnete_getlong_reph           (GASNETE_HANDLER_BASE+6)
 #endif
 #define _hidx_gasnete_extref_put_reqh        (GASNETE_HANDLER_BASE+7)
 #define _hidx_gasnete_extref_putlong_reqh    (GASNETE_HANDLER_BASE+8)
@@ -276,5 +272,6 @@ void gasnete_extref_put_nbi_bulk (gasnet_node_t node, void *dest, void *src,
 
 #define _hidx_gasnete_get_dma_reqh           (GASNETE_HANDLER_BASE+11)
 #define _hidx_gasnete_get_dma_reph           (GASNETE_HANDLER_BASE+12)
+/* add new extended API handlers here and to the bottom of gasnet_extended.c */
 
 #endif
