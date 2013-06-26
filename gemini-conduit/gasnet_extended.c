@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2013/06/25 06:56:41 $
- * $Revision: 1.73 $
+ *     $Date: 2013/06/26 01:33:47 $
+ * $Revision: 1.74 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -227,8 +227,8 @@ gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t * const thread) {
 /*  query an eop for completeness */
 int gasnete_eop_isdone(gasnete_eop_t *eop) {
   gasneti_assert(eop->threadidx == gasnete_mythread()->threadidx);
-  gasnete_eop_check(eop);
   gasneti_assert(OPSTATE(eop) != OPSTATE_FREE);
+  gasnete_eop_check(eop);
   return OPSTATE(eop) == OPSTATE_COMPLETE;
 }
 
@@ -272,6 +272,8 @@ void gasnete_iop_free(gasnete_iop_t *iop) {
   gasnete_threaddata_t * const thread = gasnete_threadtable[iop->threadidx];
   gasneti_assert(thread == gasnete_mythread());
   gasnete_iop_check(iop);
+  gasneti_assert(GASNETE_IOP_CNTDONE(iop,get));
+  gasneti_assert(GASNETE_IOP_CNTDONE(iop,put));
   gasneti_assert(iop->next == NULL);
   iop->next = thread->iop_free;
   thread->iop_free = iop;
