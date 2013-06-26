@@ -16,20 +16,9 @@
 #define _GASNET_HANDLE_T
 /*  an opaque type representing a non-blocking operation in-progress initiated using the extended API */
 struct _gasnete_op_t;
-
-typedef enum {
-    MXM_HANDLE_TYPE = 0,
-    OP_HANDLE_TYPE = 1
-} handle_type_t;
-
-struct gasnet_handle_t {
-    void *handle;
-    handle_type_t type;
-};
-typedef struct gasnet_handle_t * gasnet_handle_t;
-
+typedef struct _gasnete_op_t *gasnet_handle_t;
 #define GASNET_INVALID_HANDLE ((gasnet_handle_t)0)
-#define GASNETI_EOP_IS_HANDLE 0
+#define GASNETI_EOP_IS_HANDLE 1
 
 /* this can be used to add statistical collection values
  *      specific to the extended API implementation (see gasnet_help.h) */

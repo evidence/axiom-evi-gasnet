@@ -233,12 +233,19 @@ void gasnete_iop_free(gasnete_iop_t *iop) {
     thread->iop_free = iop;
 }
 
-gasnet_handle_t gasneti_eop_to_handle(gasneti_eop_t *eop) {
-    gasnet_handle_t handle = (gasnet_handle_t)gasneti_malloc(sizeof(struct gasnet_handle_t));
-    handle->type = OP_HANDLE_TYPE;
-    handle->handle = (gasnet_handle_t)eop;
-    return handle;
+/* ------------------------------------------------------------------------------------ */
+/* Make a gasnet_mxm_send_req_t act as a gasnete_op_t */
+
+#define OPFLAG_MXM OPFLAG_CONDUIT0
+
+GASNETI_INLINE(gasnete_sreq_to_handle) /* two call sites */
+gasnet_handle_t gasnete_sreq_to_handle(gasnet_mxm_send_req_t *mop GASNETE_THREAD_FARG) {
+    gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
+    mop->flags = OPFLAG_MXM;
+    mop->threadidx = mythread->threadidx;
+    return (gasnet_handle_t)mop;
 }
+
 /* ------------------------------------------------------------------------------------ */
 /*
   Extended API Common Code
@@ -526,8 +533,6 @@ GASNETI_INLINE(gasnete_get_nb_inner)
 gasnet_handle_t gasnete_get_nb_inner (void *dest, gasnet_node_t node,
                                       void *src, size_t nbytes GASNETE_THREAD_FARG)
 {
-    gasnet_handle_t handle = (gasnet_handle_t)
-                             gasneti_malloc(sizeof(struct gasnet_handle_t));
     gasnet_mxm_send_req_t *gasnet_mxm_sreq = gasnetc_alloc_send_req();
     mxm_send_req_t *mxm_sreq = &gasnet_mxm_sreq->mxm_sreq;
     mxm_error_t mxm_res;
@@ -538,11 +543,9 @@ gasnet_handle_t gasnete_get_nb_inner (void *dest, gasnet_node_t node,
     if (mxm_res != MXM_OK)
         gasneti_fatalerror("Error posting send request - %s\n",
                            mxm_error_string(mxm_res));
-    handle->handle = (void *)gasnet_mxm_sreq;
-    handle->type = MXM_HANDLE_TYPE;
 
     gasnetc_AMPoll();
-    return handle;
+    return gasnete_sreq_to_handle(gasnet_mxm_sreq GASNETE_THREAD_PASS);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -580,7 +583,6 @@ gasnet_handle_t gasnete_put_nb_inner(
     mxm_send_req_t *mxm_sreq = &gasnet_mxm_sreq->mxm_sreq;
     gasnet_mxm_send_req_t *mxm_fence_sreq;
     mxm_error_t mxm_res;
-    gasnet_handle_t handle = (gasnet_handle_t)gasneti_malloc(sizeof(struct gasnet_handle_t));
 
     gasnete_fill_put_request(mxm_sreq, dest, node, src, nbytes);
 #if MXM_API < MXM_VERSION(2,0)
@@ -597,12 +599,8 @@ gasnet_handle_t gasnete_put_nb_inner(
     mxm_fence_sreq = _mxm_fence_nb(node, gasnetc_free_send_req,
                                    (void *)gasnet_mxm_sreq);
 
-    handle->handle = (void *)mxm_fence_sreq;
-    handle->type = MXM_HANDLE_TYPE;
-
     gasnetc_AMPoll();
-
-    return handle;
+    return gasnete_sreq_to_handle(mxm_fence_sreq GASNETE_THREAD_PASS);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -622,14 +620,11 @@ extern gasnet_handle_t gasnete_memset_nb   (gasnet_node_t node, void *dest, int 
     GASNETI_CHECKPSHM_MEMSET(H);
     {
         gasnete_eop_t *op = gasnete_eop_new(GASNETE_MYTHREAD);
-        gasnet_handle_t handle = (gasnet_handle_t)gasneti_malloc(sizeof(struct gasnet_handle_t));
         GASNETI_SAFE(
             SHORT_REQ(4,7,(node, gasneti_handleridx(gasnete_memset_reqh),
                            (gasnet_handlerarg_t)val, PACK(nbytes),
                            PACK(dest), PACK(op))));
-        handle->handle = (gasnet_handle_t)op;
-        handle->type = OP_HANDLE_TYPE;
-        return handle;
+        return (gasnet_handle_t)op;
     }
 }
 
@@ -751,50 +746,38 @@ extern void gasnete_get_bulk(void *dest, gasnet_node_t node, void *src,
   ===========================================================
 */
 
-/*  helper for gasnete_op_try_free */
-GASNETI_INLINE(gasnete_op_try_free_inner)
-int gasnete_op_try_free_inner(gasnet_handle_t handle) {
-    if (MXM_HANDLE_TYPE == handle->type) {
-        if (mxm_req_test(&((gasnet_mxm_send_req_t *)handle->handle)->mxm_sreq.base)) {
-            gasneti_sync_reads();
-            gasnetc_free_send_req(handle->handle);
-            return 1;
-        }
-    }
-    else {
-        gasnete_op_t *op = (gasnete_op_t *)handle->handle;
-        gasneti_assert(op->threadidx == gasnete_mythread()->threadidx);
+/*  query an op for completeness 
+ *  free it if complete
+ *  returns 0 or 1 */
+GASNETI_INLINE(gasnete_op_try_free)
+int gasnete_op_try_free(gasnet_handle_t handle) {
+    gasneti_assert(handle->threadidx == gasnete_mythread()->threadidx);
 
-        if_pt (OPTYPE(op) == OPTYPE_EXPLICIT) {
-            gasnete_eop_t *eop = (gasnete_eop_t*)op;
+    if_pt (handle->flags == OPFLAG_MXM) {
+            gasnet_mxm_send_req_t *send_req = (gasnet_mxm_send_req_t *)handle;
+            if (mxm_req_test(&send_req->mxm_sreq.base)) {
+                gasneti_sync_reads();
+                gasnetc_free_send_req(send_req);
+                return 1;
+            }
+    }
+    else if_pt (OPTYPE(handle) == OPTYPE_EXPLICIT) {
+            gasnete_eop_t *eop = (gasnete_eop_t*)handle;
 
             if (gasnete_eop_isdone(eop)) {
                 gasneti_sync_reads();
                 gasnete_eop_free(eop);
                 return 1;
             }
-        }
-        else {
-            gasnete_iop_t *iop = (gasnete_iop_t*)op;
+    }
+    else {
+            gasnete_iop_t *iop = (gasnete_iop_t*)handle;
 
             if (gasnete_iop_isdone(iop)) {
                 gasneti_sync_reads();
                 gasnete_iop_free(iop);
                 return 1;
             }
-        }
-    }
-    return 0;
-}
-
-/*  query an op for completeness 
- *  free it if complete
- *  returns 0 or 1 */
-GASNETI_INLINE(gasnete_op_try_free)
-int gasnete_op_try_free(gasnet_handle_t handle) {
-    if (gasnete_op_try_free_inner(handle)) {
-        gasneti_free(handle);
-        return 1;
     }
     return 0;
 }
@@ -1092,7 +1075,6 @@ extern void            gasnete_begin_nbi_accessregion(int allowrecursion GASNETE
 extern gasnet_handle_t gasnete_end_nbi_accessregion(GASNETE_THREAD_FARG_ALONE) {
     gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
     gasnete_iop_t *iop = mythread->current_iop; /*  pop an iop */
-    gasnet_handle_t handle = (gasnet_handle_t)gasneti_malloc(sizeof(struct gasnet_handle_t));
     GASNETI_TRACE_EVENT_VAL(S,END_NBI_ACCESSREGION,iop->initiated_get_cnt + iop->initiated_put_cnt);
 #if GASNET_DEBUG
     if (iop->next == NULL)
@@ -1100,9 +1082,7 @@ extern gasnet_handle_t gasnete_end_nbi_accessregion(GASNETE_THREAD_FARG_ALONE) {
 #endif
     mythread->current_iop = iop->next;
     iop->next = NULL;
-    handle->handle = (void *)iop;
-    handle->type = OP_HANDLE_TYPE;
-    return handle;
+    return (gasnet_handle_t)iop;
 }
 
 /* ------------------------------------------------------------------------------------ */

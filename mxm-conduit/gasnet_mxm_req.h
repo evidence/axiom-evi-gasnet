@@ -12,6 +12,7 @@
 /*** gasnet_mxm_sent_req_t
  * This struct holds all the data that is needed
  * to be used in MXM's send request:
+ *    - two fixed "header" fields for use as a _gasnete_op_t
  *    - MXM send request itself
  *    - IOV of 2 entries
  *    - buffer for arguments
@@ -19,6 +20,9 @@
  *    - user data that was possibly copied in from the user buffer
  */
 typedef struct gasnet_mxm_send_req {
+    /* first two must align with _gasnete_op_t */
+    uint8_t flags;                   /*  flags - type tag */
+    gasnete_threadidx_t threadidx;   /*  thread that owns me */
     mxm_send_req_t       mxm_sreq;
     mxm_req_buffer_t     sendiov[2];
     gasnet_handlerarg_t  args_buf[GASNETC_MAX_ARGS];
