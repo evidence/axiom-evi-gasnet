@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2013/06/26 00:24:31 $
- * $Revision: 1.39 $
+ *     $Date: 2013/06/26 00:51:27 $
+ * $Revision: 1.40 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -95,6 +95,7 @@ typedef struct _gasnete_threaddata_t {
   GASNETE_CONDUIT_THREADDATA_FIELDS
   #endif
 } gasnete_threaddata_t;
+
 /* ------------------------------------------------------------------------------------ */
 
 /* gasnete_op_t flags field */
@@ -209,6 +210,7 @@ void gasnete_iop_free(gasnete_iop_t *iop);
 #define GASNETE_SCATTER_EOPS_ACROSS_CACHELINES    1 
 
 /* ------------------------------------------------------------------------------------ */
+
 #define GASNETE_HANDLER_BASE  64 /* reserve 64-127 for the extended API */
 #define _hidx_gasnete_amdbarrier_notify_reqh (GASNETE_HANDLER_BASE+0) 
 #define _hidx_gasnete_amcbarrier_notify_reqh (GASNETE_HANDLER_BASE+1) 
@@ -221,7 +223,6 @@ void gasnete_iop_free(gasnete_iop_t *iop);
 #define _hidx_gasnete_putlong_reqh           (GASNETE_HANDLER_BASE+8)
 #define _hidx_gasnete_memset_reqh            (GASNETE_HANDLER_BASE+9)
 #define _hidx_gasnete_markdone_reph          (GASNETE_HANDLER_BASE+10)
-
 /* add new extended API handlers here and to the bottom of gasnet_extended.c */
 
 #endif
