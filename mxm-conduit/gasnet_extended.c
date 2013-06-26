@@ -53,6 +53,66 @@ static int gasnete_mxm_max_outstanding_msgs;
 #define GASNETE_ACTIVE_MXM_MSG_NUMBER (GASNETE_ACTIVE_MXM_GET_NUMBER + GASNETE_ACTIVE_MXM_PUT_NUMBER)
 /* ------------------------------------------------------------------------------------ */
 /*
+  Extended API Common Code
+  ========================
+  Factored bits of extended API code common to most conduits, overridable when necessary
+*/
+
+#include "gasnet_extended_common.c"
+
+/* ------------------------------------------------------------------------------------ */
+/*
+  Initialization
+  ==============
+*/
+/* called at startup to check configuration sanity */
+static void gasnete_check_config(void) {
+    gasneti_check_config_postattach();
+
+    gasneti_assert_always(GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD <= gasnet_AMMaxMedium());
+    gasneti_assert_always(gasnete_eopaddr_isnil(EOPADDR_NIL));
+
+    /* The next two ensure nbytes in AM-based Gets will fit in handler_arg_t (bug 2770) */
+    gasneti_assert_always(gasnet_AMMaxMedium() <= (size_t)0xffffffff);
+    gasneti_assert_always(gasnet_AMMaxLongReply() <= (size_t)0xffffffff);
+}
+
+extern void gasnete_init(void) {
+    static int firstcall = 1;
+    GASNETI_TRACE_PRINTF(C,("gasnete_init()"));
+    gasneti_assert(firstcall); /*  make sure we haven't been called before */
+    firstcall = 0;
+
+    gasnete_check_config(); /*  check for sanity */
+
+    gasneti_assert(gasneti_nodes >= 1 && gasneti_mynode < gasneti_nodes);
+
+    {   gasnete_threaddata_t *threaddata = NULL;
+        gasnete_eop_t *eop = NULL;
+#if GASNETI_MAX_THREADS > 1
+        /* register first thread (optimization) */
+        threaddata = gasnete_mythread();
+#else
+        /* register only thread (required) */
+        threaddata = gasnete_new_threaddata();
+#endif
+
+        /* cause the first pool of eops to be allocated (optimization) */
+        eop = gasnete_eop_new(threaddata);
+        gasnete_op_markdone((gasnete_op_t *)eop, 0);
+        gasnete_eop_free(eop);
+    }
+
+    gasnete_mxm_max_outstanding_msgs = gasneti_getenv_int_withdefault("GASNET_MXM_MAX_OUTSTANDING_MSGS", 500, 1);
+    /* Initialize barrier resources */
+    gasnete_barrier_init();
+
+    /* Initialize VIS subsystem */
+    gasnete_vis_init();
+}
+
+/* ------------------------------------------------------------------------------------ */
+/*
   Op management
   =============
 */
@@ -78,6 +138,7 @@ gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread) {
         if (bufidx == 256) gasneti_fatalerror("GASNet Extended API: Ran out of explicit handles (limit=65535)");
         thread->eop_num_bufs++;
         buf = (gasnete_eop_t *)gasneti_calloc(256,sizeof(gasnete_eop_t));
+        gasneti_leak(buf);
         for (i=0; i < 256; i++) {
             gasnete_eopaddr_t addr;
             addr.bufferidx = bufidx;
@@ -168,6 +229,7 @@ gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t * const thread) {
     }
     else {
         iop = (gasnete_iop_t *)gasneti_malloc(sizeof(gasnete_iop_t));
+        gasneti_leak(iop);
 #if GASNET_DEBUG
         memset(iop, 0, sizeof(gasnete_iop_t)); /* set pad to known value */
 #endif
@@ -185,6 +247,7 @@ gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t * const thread) {
 
 /*  query an eop for completeness */
 int gasnete_eop_isdone(gasnete_eop_t *eop) {
+    gasneti_assert(eop->threadidx == gasnete_mythread()->threadidx);
     gasneti_assert(OPSTATE(eop) != OPSTATE_FREE);
     gasnete_eop_check(eop);
     return OPSTATE(eop) == OPSTATE_COMPLETE;
@@ -192,6 +255,7 @@ int gasnete_eop_isdone(gasnete_eop_t *eop) {
 
 /*  query an iop for completeness - this means both puts and gets */
 int gasnete_iop_isdone(gasnete_iop_t *iop) {
+    gasneti_assert(iop->threadidx == gasnete_mythread()->threadidx);
     gasnete_iop_check(iop);
     return (GASNETE_IOP_CNTDONE(iop,get) && GASNETE_IOP_CNTDONE(iop,put));
 }
@@ -228,6 +292,8 @@ void gasnete_iop_free(gasnete_iop_t *iop) {
     gasnete_threaddata_t * const thread = gasnete_threadtable[iop->threadidx];
     gasneti_assert(thread == gasnete_mythread());
     gasnete_iop_check(iop);
+    gasneti_assert(GASNETE_IOP_CNTDONE(iop,get));
+    gasneti_assert(GASNETE_IOP_CNTDONE(iop,put));
     gasneti_assert(iop->next == NULL);
     iop->next = thread->iop_free;
     thread->iop_free = iop;
@@ -244,66 +310,6 @@ gasnet_handle_t gasnete_sreq_to_handle(gasnet_mxm_send_req_t *mop GASNETE_THREAD
     mop->flags = OPFLAG_MXM;
     mop->threadidx = mythread->threadidx;
     return (gasnet_handle_t)mop;
-}
-
-/* ------------------------------------------------------------------------------------ */
-/*
-  Extended API Common Code
-  ========================
-  Factored bits of extended API code common to most conduits, overridable when necessary
-*/
-
-#include "gasnet_extended_common.c"
-
-/* ------------------------------------------------------------------------------------ */
-/*
-  Initialization
-  ==============
-*/
-/* called at startup to check configuration sanity */
-static void gasnete_check_config(void) {
-    gasneti_check_config_postattach();
-
-    gasneti_assert_always(GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD <= gasnet_AMMaxMedium());
-    gasneti_assert_always(gasnete_eopaddr_isnil(EOPADDR_NIL));
-
-    /* The next two ensure nbytes in AM-based Gets will fit in handler_arg_t (bug 2770) */
-    gasneti_assert_always(gasnet_AMMaxMedium() <= (size_t)0xffffffff);
-    gasneti_assert_always(gasnet_AMMaxLongReply() <= (size_t)0xffffffff);
-}
-
-extern void gasnete_init(void) {
-    static int firstcall = 1;
-    GASNETI_TRACE_PRINTF(C,("gasnete_init()"));
-    gasneti_assert(firstcall); /*  make sure we haven't been called before */
-    firstcall = 0;
-
-    gasnete_check_config(); /*  check for sanity */
-
-    gasneti_assert(gasneti_nodes >= 1 && gasneti_mynode < gasneti_nodes);
-
-    {   gasnete_threaddata_t *threaddata = NULL;
-        gasnete_eop_t *eop = NULL;
-#if GASNETI_MAX_THREADS > 1
-        /* register first thread (optimization) */
-        threaddata = gasnete_mythread();
-#else
-        /* register only thread (required) */
-        threaddata = gasnete_new_threaddata();
-#endif
-
-        /* cause the first pool of eops to be allocated (optimization) */
-        eop = gasnete_eop_new(threaddata);
-        gasnete_op_markdone((gasnete_op_t *)eop, 0);
-        gasnete_eop_free(eop);
-    }
-
-    gasnete_mxm_max_outstanding_msgs = gasneti_getenv_int_withdefault("GASNET_MXM_MAX_OUTSTANDING_MSGS", 500, 1);
-    /* Initialize barrier resources */
-    gasnete_barrier_init();
-
-    /* Initialize VIS subsystem */
-    gasnete_vis_init();
 }
 
 /* ------------------------------------------------------------------------------------ */
@@ -620,10 +626,12 @@ extern gasnet_handle_t gasnete_memset_nb   (gasnet_node_t node, void *dest, int 
     GASNETI_CHECKPSHM_MEMSET(H);
     {
         gasnete_eop_t *op = gasnete_eop_new(GASNETE_MYTHREAD);
+
         GASNETI_SAFE(
             SHORT_REQ(4,7,(node, gasneti_handleridx(gasnete_memset_reqh),
                            (gasnet_handlerarg_t)val, PACK(nbytes),
                            PACK(dest), PACK(op))));
+
         return (gasnet_handle_t)op;
     }
 }
