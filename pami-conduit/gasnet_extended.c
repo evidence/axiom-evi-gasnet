@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2013/06/26 01:26:11 $
- * $Revision: 1.57 $
+ *     $Date: 2013/06/26 01:31:55 $
+ * $Revision: 1.58 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -332,27 +332,25 @@ static void gasnete_cb_op_lc(pami_context_t context, void *cookie, pami_result_t
 /*  free an eop */
 void gasnete_eop_free(gasnete_eop_t *eop) {
   gasnete_threaddata_t * const thread = gasnete_threadtable[eop->threadidx];
+  gasnete_eopaddr_t addr = eop->addr;
   gasneti_assert(thread == gasnete_mythread());
-  {
-    gasnete_eopaddr_t addr = eop->addr;
-    gasnete_eop_check(eop);
-    gasneti_assert(OPSTATE(eop) == OPSTATE_COMPLETE);
-    SET_OPSTATE(eop, OPSTATE_FREE);
-    eop->addr = thread->eop_free;
-    thread->eop_free = addr;
-  }
+  gasnete_eop_check(eop);
+  gasneti_assert(OPSTATE(eop) == OPSTATE_COMPLETE);
+  SET_OPSTATE(eop, OPSTATE_FREE);
+  eop->addr = thread->eop_free;
+  thread->eop_free = addr;
 }
 
 /*  free an iop */
 void gasnete_iop_free(gasnete_iop_t *iop) {
   gasnete_threaddata_t * const thread = gasnete_threadtable[iop->threadidx];
   gasneti_assert(thread == gasnete_mythread());
-  {
-    gasnete_iop_check(iop);
-    gasneti_assert(iop->next == NULL);
-    iop->next = thread->iop_free;
-    thread->iop_free = iop;
-  }
+  gasnete_iop_check(iop);
+  gasneti_assert(GASNETE_IOP_CNTDONE(iop,get));
+  gasneti_assert(GASNETE_IOP_CNTDONE(iop,put));
+  gasneti_assert(iop->next == NULL);
+  iop->next = thread->iop_free;
+  thread->iop_free = iop;
 }
 
 /* ------------------------------------------------------------------------------------ */
