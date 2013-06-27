@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_amref.c,v $
- *     $Date: 2013/06/27 06:33:55 $
- * $Revision: 1.87 $
+ *     $Date: 2013/06/27 06:41:50 $
+ * $Revision: 1.88 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -13,11 +13,6 @@
 static const gasnete_eopaddr_t EOPADDR_NIL = { { 0xFF, 0xFF } };
 extern void _gasnete_iop_check(gasnete_iop_t *iop) { gasnete_iop_check(iop); }
 
-/* Conduits which clone this file should remove the following lines unless
- * they are still using the AM-based Gets and Puts, respectively */
-#define GASNETE_USING_REF_EXTENDED_GET 1
-#define GASNETE_USING_REF_EXTENDED_PUT 1
-
 /* ------------------------------------------------------------------------------------ */
 /*
   Tuning Parameters
@@ -25,6 +20,11 @@ extern void _gasnete_iop_check(gasnete_iop_t *iop) { gasnete_iop_check(iop); }
   Conduits may choose to override the default tuning parameters below by defining them
   in their gasnet_core_fwd.h
 */
+
+/* Conduits which clone this file should remove the following lines unless
+ * they are still using the AM-based Gets and Puts, respectively */
+#define GASNETE_USING_REF_EXTENDED_GET 1
+#define GASNETE_USING_REF_EXTENDED_PUT 1
 
 /* the size threshold where gets/puts stop using medium messages and start using longs */
 #ifndef GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/27 04:54:47 $
- * $Revision: 1.61 $
+ *     $Date: 2013/06/27 06:41:54 $
+ * $Revision: 1.62 $
  * Description: GASNet Extended API GM Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -19,6 +19,11 @@ const gasnete_eopaddr_t	EOPADDR_NIL = { { 0xFF, 0xFF } };
   Conduits may choose to override the default tuning parameters below by
   defining them in their gasnet_core_fwd.h
 */
+
+/* Conduits which clone this file should remove the following lines unless
+ * they are still using the AM-based Gets and Puts, respectively */
+/*#define GASNETE_USING_REF_EXTENDED_GET 1*/
+/*#define GASNETE_USING_REF_EXTENDED_PUT 1*/
 
 /* the size threshold where gets/puts stop using medium messages and start
  * using longs */

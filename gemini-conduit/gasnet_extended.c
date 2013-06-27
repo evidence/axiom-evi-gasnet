@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2013/06/27 05:46:26 $
- * $Revision: 1.79 $
+ *     $Date: 2013/06/27 06:41:52 $
+ * $Revision: 1.80 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -18,6 +18,11 @@ extern void _gasnete_iop_check(gasnete_iop_t *iop) { gasnete_iop_check(iop); }
   Tuning Parameters
   =================
 */
+
+/* Conduits which clone this file should remove the following lines unless
+ * they are still using the AM-based Gets and Puts, respectively */
+/*#define GASNETE_USING_REF_EXTENDED_GET 1*/
+/*#define GASNETE_USING_REF_EXTENDED_PUT 1*/
 
 /* Maximum length of an RDMA op with local address INside the segment.
    GNI_PostRdma() as a limit of 2^32-1, but we pick a 4MB aligned value

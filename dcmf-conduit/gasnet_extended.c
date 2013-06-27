@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_extended.c,v $
- *     $Date: 2013/06/27 04:54:39 $
- * $Revision: 1.46 $
+ *     $Date: 2013/06/27 06:41:48 $
+ * $Revision: 1.47 $
  * Description: GASNet Extended API Implementation for DCMF
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
  *                 Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -47,6 +47,11 @@ static void empty_cb(void *arg, DCMF_Error_t *e) {
   Conduits may choose to override the default tuning parameters below by defining them
   in their gasnet_core_fwd.h
 */
+
+/* Conduits which clone this file should remove the following lines unless
+ * they are still using the AM-based Gets and Puts, respectively */
+/*#define GASNETE_USING_REF_EXTENDED_GET 1*/
+/*#define GASNETE_USING_REF_EXTENDED_PUT 1*/
 
 /* the size threshold where gets/puts stop using medium messages and start using longs */
 #ifndef GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD

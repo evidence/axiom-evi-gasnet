@@ -36,6 +36,11 @@ extern mxm_mem_key_t *gasnetc_find_remote_mkey(void *addr, int nbytes, int rank)
   in their gasnet_core_fwd.h
 */
 
+/* Conduits which clone this file should remove the following lines unless
+ * they are still using the AM-based Gets and Puts, respectively */
+/*#define GASNETE_USING_REF_EXTENDED_GET 1*/
+/*#define GASNETE_USING_REF_EXTENDED_PUT 1*/
+
 /* the size threshold where gets/puts stop using medium messages and start using longs */
 #ifndef GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD
 #define GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD   gasnet_AMMaxMedium()
