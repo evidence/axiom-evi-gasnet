@@ -190,10 +190,9 @@ extern size_t gasnetc_max_put_lc;
 #define GC_POST_UNBOUNCE 32
 #define GC_POST_UNREGISTER 64
 #define GC_POST_COMPLETION_FLAG 128
-#define GC_POST_COMPLETION_OP 256
-#define GC_POST_GET 512
-#define GC_POST_KEEP_GPD 1024
-#define GC_POST_SMSG_BUF 2048
+#define GC_POST_COMPLETION_CNTR 256
+#define GC_POST_KEEP_GPD 512
+#define GC_POST_SMSG_BUF 1024
 
 /* WARNING: if sizeof(gasnetc_post_descriptor_t) changes, then
  * you must update the value in gasneti_pd_auxseg_IdentString */
@@ -225,7 +224,6 @@ volatile int gasnetc_shutdownInProgress;
 double gasnetc_shutdown_seconds; /* number of seconds to poll before forceful shutdown */
 int gasnetc_sys_exit(int *exitcode);
 
-void gasnete_op_markdone(gasnete_op_t *op, int isget);
 
 void gasnetc_init_segment(void *segment_start, size_t segment_size);
 uintptr_t gasnetc_init_messaging(void);

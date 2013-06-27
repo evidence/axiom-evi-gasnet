@@ -949,8 +949,8 @@ void gasnetc_poll_local_queue(void))
       if (flags & GC_POST_COMPLETION_FLAG) {
         *(volatile int *) gpd->gpd_completion = 1;
         /* NOTE: if (flags & GC_POST_KEEP_GPD) then caller might free gpd now */
-      } else if(flags & GC_POST_COMPLETION_OP) {
-        gasnete_op_markdone((gasnete_op_t *) gpd->gpd_completion, (flags & GC_POST_GET));
+      } else if(flags & GC_POST_COMPLETION_CNTR) {
+        gasneti_weakatomic_increment((gasneti_weakatomic_t *) gpd->gpd_completion, 0);
       }
 
       /* release resources */
@@ -1322,8 +1322,6 @@ void gasnetc_rdma_get(gasnet_node_t node,
 
   gasneti_assert(!node_is_local(node));
 
-  gpd->flags |= GC_POST_GET;
-
   /*  bzero(&pd, sizeof(gni_post_descriptor_t)); */
   pd->cq_mode = GNI_CQMODE_GLOBAL_EVENT;
   pd->dlvr_mode = GNI_DLVMODE_PERFORMANCE;
@@ -1380,7 +1378,7 @@ void gasnetc_rdma_get_unaligned(gasnet_node_t node,
   gasneti_assert(!node_is_local(node));
 
   gasneti_assert(0 == (overfetch & ~GC_POST_COPY_TRIM));
-  gpd->flags |= GC_POST_GET | GC_POST_COPY | overfetch;
+  gpd->flags |= GC_POST_COPY | overfetch;
 
   /*  bzero(&pd, sizeof(gni_post_descriptor_t)); */
   pd->cq_mode = GNI_CQMODE_GLOBAL_EVENT;
