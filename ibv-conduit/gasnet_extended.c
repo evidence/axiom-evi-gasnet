@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_extended.c,v $
- *     $Date: 2013/06/27 04:54:59 $
- * $Revision: 1.86 $
+ *     $Date: 2013/06/27 04:57:46 $
+ * $Revision: 1.87 $
  * Description: GASNet Extended API over VAPI/IB Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -178,17 +178,19 @@ int gasnete_iop_isdone(gasnete_iop_t *iop) {
 /*  mark an op done - isget ignored for explicit ops */
 static
 void gasnete_op_markdone(gasnete_op_t *op, int isget) {
+  gasnetc_atomic_t * pctr;
   if (OPTYPE(op) == OPTYPE_EXPLICIT) {
     gasnete_eop_t *eop = (gasnete_eop_t *)op;
-    gasneti_assert(! gasnetc_counter_done(&eop->req_oust));
     gasnete_eop_check(eop);
-    gasnetc_atomic_increment(&eop->req_oust.completed, 0);
+    gasneti_assert(! gasnetc_counter_done(&eop->req_oust));
+    pctr = &(eop->req_oust.completed);
   } else {
     gasnete_iop_t *iop = (gasnete_iop_t *)op;
     gasnete_iop_check(iop);
-    if (isget) gasnetc_atomic_increment(&(iop->completed_get_cnt), 0);
-    else gasnetc_atomic_increment(&(iop->completed_put_cnt), 0);
+    gasneti_assert(isget ? !GASNETE_IOP_CNTDONE(iop,get) : !GASNETE_IOP_CNTDONE(iop,put));
+    pctr = isget ? &(iop->completed_get_cnt) : &(iop->completed_put_cnt);
   }
+  gasnetc_atomic_increment(pctr, 0);
 }
 #endif
 
