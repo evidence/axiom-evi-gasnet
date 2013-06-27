@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/26 20:47:32 $
- * $Revision: 1.114 $
+ *     $Date: 2013/06/27 04:54:41 $
+ * $Revision: 1.115 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -446,6 +446,7 @@ static void gasnete_check_config(void) {
 }
 
 extern void gasnete_init(void) {
+  GASNETI_UNUSED_UNLESS_DEBUG
   static int firstcall = 1;
   int default_nbi_throttle = GASNETE_DEFAULT_NBI_THROTTLE;
   GASNETI_TRACE_PRINTF(C,("gasnete_init()"));

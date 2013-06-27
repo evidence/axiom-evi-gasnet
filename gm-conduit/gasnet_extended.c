@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/25 06:56:43 $
- * $Revision: 1.60 $
+ *     $Date: 2013/06/27 04:54:47 $
+ * $Revision: 1.61 $
  * Description: GASNet Extended API GM Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -61,6 +61,7 @@ static void gasnete_check_config(void) {
 }
 
 extern void gasnete_init(void) {
+    GASNETI_UNUSED_UNLESS_DEBUG
     static int firstcall = 1;
     GASNETI_TRACE_PRINTF(C,("gasnete_init()"));
     gasneti_assert(firstcall); /*  make sure we haven't been called before */

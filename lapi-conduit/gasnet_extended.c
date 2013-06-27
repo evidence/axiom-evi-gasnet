@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/26 20:47:40 $
- * $Revision: 1.134 $
+ *     $Date: 2013/06/27 04:54:49 $
+ * $Revision: 1.135 $
  * Description: GASNet Extended API over LAPI Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -350,6 +350,7 @@ static void gasnete_check_config(void) {
 }
 
 extern void gasnete_init(void) {
+    GASNETI_UNUSED_UNLESS_DEBUG
     static int firstcall = 1;
     GASNETI_TRACE_PRINTF(C,("gasnete_init()"));
     gasneti_assert(firstcall); /*  make sure we haven't been called before */

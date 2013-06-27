@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2013/06/26 20:47:44 $
- * $Revision: 1.61 $
+ *     $Date: 2013/06/27 04:54:53 $
+ * $Revision: 1.62 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -317,6 +317,7 @@ static void gasnete_check_config(void) {
 }
 
 extern void gasnete_init(void) {
+  GASNETI_UNUSED_UNLESS_DEBUG
   static int firstcall = 1;
   GASNETI_TRACE_PRINTF(C,("gasnete_init()"));
   gasneti_assert(firstcall); /*  make sure we haven't been called before */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_extended.c,v $
- *     $Date: 2013/06/26 20:47:30 $
- * $Revision: 1.45 $
+ *     $Date: 2013/06/27 04:54:39 $
+ * $Revision: 1.46 $
  * Description: GASNet Extended API Implementation for DCMF
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
  *                 Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -320,6 +320,7 @@ static DCMF_Protocol_t gasnete_dcmf_get_registration;
 #endif
 
 extern void gasnete_init(void) {
+  GASNETI_UNUSED_UNLESS_DEBUG
   static int firstcall = 1;
   GASNETI_TRACE_PRINTF(C,("gasnete_init()"));
   gasneti_assert(firstcall); /*  make sure we haven't been called before */

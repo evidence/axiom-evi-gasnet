@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2013/06/26 20:47:36 $
- * $Revision: 1.77 $
+ *     $Date: 2013/06/27 04:54:45 $
+ * $Revision: 1.78 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -268,7 +268,8 @@ static void gasnete_check_config(void) {
 }
 
 extern void gasnete_init(void) {
-  GASNETI_UNUSED_UNLESS_DEBUG static int firstcall = 1;
+  GASNETI_UNUSED_UNLESS_DEBUG
+  static int firstcall = 1;
   GASNETI_TRACE_PRINTF(C,("gasnete_init()"));
   gasneti_assert(firstcall); /*  make sure we haven't been called before */
   firstcall = 0;

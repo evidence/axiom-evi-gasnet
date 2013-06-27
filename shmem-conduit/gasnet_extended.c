@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_extended.c,v $
- *     $Date: 2013/06/10 02:49:25 $
- * $Revision: 1.42 $
+ *     $Date: 2013/06/27 04:54:57 $
+ * $Revision: 1.43 $
  * Description: GASNet Extended API SHMEM Implementation
  * Copyright 2003, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -48,6 +48,7 @@ extern uint64_t gasneti_max_threads(void) { return 1; }
 
 
 extern void gasnete_init(void) {
+  GASNETI_UNUSED_UNLESS_DEBUG
   static int firstcall = 1;
   GASNETI_TRACE_PRINTF(C,("gasnete_init()"));
   gasneti_assert(firstcall); /*  make sure we haven't been called before */
