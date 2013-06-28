@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/27 04:54:49 $
- * $Revision: 1.135 $
+ *     $Date: 2013/06/28 20:33:34 $
+ * $Revision: 1.136 $
  * Description: GASNet Extended API over LAPI Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -199,7 +199,6 @@ int gasnete_eop_isdone(gasnete_eop_t *eop)
     gasneti_assert(eop->threadidx == gasnete_mythread()->threadidx);
 
     {	int result = 1; /* Assume success if both counts are zero */
-	gasneti_assert(OPSTATE(eop) != OPSTATE_FREE);
         gasnete_eop_check(eop);
 
 	if (eop->initiated_cnt > 0) {
@@ -1414,7 +1413,6 @@ extern void gasnete_wait_syncnb(gasnet_handle_t handle) {
     gasneti_assert(op->threadidx == gasnete_mythread()->threadidx);
     if_pt (OPTYPE(op) == OPTYPE_EXPLICIT) {
 	gasnete_eop_t *eop = (gasnete_eop_t*)op;
-	gasneti_assert(OPSTATE(op) != OPSTATE_FREE);
         gasnete_eop_check(eop);
 	if (eop->initiated_cnt > 0) {
 	    GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&eop->cntr,eop->initiated_cnt,&eop->initiated_cnt));

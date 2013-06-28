@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2013/06/27 04:54:53 $
- * $Revision: 1.62 $
+ *     $Date: 2013/06/28 20:33:38 $
+ * $Revision: 1.63 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -200,7 +200,6 @@ gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t * const thread) {
 static
 int gasnete_eop_isdone(gasnete_eop_t *eop) {
   gasneti_assert(eop->threadidx == gasnete_mythread()->threadidx);
-  gasneti_assert(OPSTATE(eop) != OPSTATE_FREE);
   gasnete_eop_check(eop);
   return OPSTATE(eop) == OPSTATE_COMPLETE;
 }

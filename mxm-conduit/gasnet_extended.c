@@ -209,7 +209,6 @@ gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t * const thread) {
 static
 int gasnete_eop_isdone(gasnete_eop_t *eop) {
     gasneti_assert(eop->threadidx == gasnete_mythread()->threadidx);
-    gasneti_assert(OPSTATE(eop) != OPSTATE_FREE);
     gasnete_eop_check(eop);
     return OPSTATE(eop) == OPSTATE_COMPLETE;
 }

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/27 04:54:41 $
- * $Revision: 1.115 $
+ *     $Date: 2013/06/28 20:33:28 $
+ * $Revision: 1.116 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -292,7 +292,6 @@ int gasnete_eop_isdone(gasnete_eop_t *eop, int have_elanLock) {
   else                 ASSERT_ELAN_UNLOCKED();
   {
     uint8_t cat;
-    gasneti_assert(OPSTATE(eop) != OPSTATE_FREE);
     gasnete_eop_check(eop);
     if (OPSTATE(eop) == OPSTATE_COMPLETE) {
       gasneti_sync_reads();
