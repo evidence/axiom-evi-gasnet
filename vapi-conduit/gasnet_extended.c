@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/27 04:57:46 $
- * $Revision: 1.87 $
+ *     $Date: 2013/06/28 22:11:44 $
+ * $Revision: 1.88 $
  * Description: GASNet Extended API over VAPI/IB Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -48,6 +48,7 @@ static void gasnete_eop_alloc(gasnete_threaddata_t * const thread)) {
       buf[i].addr = addr;
       #if 0 /* these can safely be skipped when the values are zero */
 	SET_OPSTATE(&(buf[i]),OPSTATE_FREE);
+	SET_OPTYPE(&(buf[i]),OPTYPE_EXPLICIT);
       #endif
       gasnetc_counter_init(&(buf[i].req_oust));
     }
@@ -87,6 +88,7 @@ static void gasnete_eop_alloc(gasnete_threaddata_t * const thread)) {
         gasneti_assert(!gasnete_eopaddr_isnil(addr));                 
         eop = GASNETE_EOPADDR_TO_PTR(thread,addr);            
         gasneti_assert(OPTYPE(eop) == OPTYPE_EXPLICIT);               
+        gasneti_assert(OPSTATE(eop) == OPSTATE_FREE);
         gasneti_assert(gasnetc_counter_done(&(eop->req_oust)));
         gasneti_assert(eop->threadidx == threadidx);                  
         gasneti_assert(addr.bufferidx == bufidx);
@@ -131,6 +133,10 @@ gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread) {
     gasneti_assert(!gasnete_eopaddr_equal(thread->eop_free,head));
     gasneti_assert(eop->threadidx == thread->threadidx);
     gasneti_assert(OPTYPE(eop) == OPTYPE_EXPLICIT);
+    gasneti_assert(OPSTATE(eop) == OPSTATE_FREE);
+  #if GASNET_DEBUG
+    SET_OPSTATE(eop, OPSTATE_INFLIGHT);
+  #endif
     gasneti_assert(gasnetc_counter_done(&(eop->req_oust)));
     return eop;
   }
@@ -181,6 +187,7 @@ void gasnete_op_markdone(gasnete_op_t *op, int isget) {
   gasnetc_atomic_t * pctr;
   if (OPTYPE(op) == OPTYPE_EXPLICIT) {
     gasnete_eop_t *eop = (gasnete_eop_t *)op;
+    gasneti_assert(OPSTATE(eop) == OPSTATE_INFLIGHT);
     gasnete_eop_check(eop);
     gasneti_assert(! gasnetc_counter_done(&eop->req_oust));
     pctr = &(eop->req_oust.completed);
@@ -202,6 +209,9 @@ void gasnete_eop_free(gasnete_eop_t *eop) {
   gasneti_assert(thread == gasnete_mythread());
   gasnete_eop_check(eop);
   gasneti_assert(gasnetc_counter_done(&(eop->req_oust)));
+#if GASNET_DEBUG
+  SET_OPSTATE(eop, OPSTATE_FREE);
+#endif
   eop->addr = thread->eop_free;
   thread->eop_free = addr;
 }

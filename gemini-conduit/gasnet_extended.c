@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2013/06/27 06:41:52 $
- * $Revision: 1.80 $
+ *     $Date: 2013/06/28 22:11:42 $
+ * $Revision: 1.81 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -72,12 +72,9 @@ static void gasnete_eop_alloc(gasnete_threaddata_t * const thread)) {
       buf[i].threadidx = threadidx;
       buf[i].addr = addr;
       #if 0 /* these can safely be skipped when the values are zero */
+        SET_OPSTATE(&(buf[i]),OPSTATE_FREE);
         SET_OPTYPE(&(buf[i]),OPTYPE_EXPLICIT); 
         buff[i].initiated_cnt = 0;
-      #endif
-      #if GASNET_DEBUG
-        /* This keeps the stock gasnete_eop_check() happy. The state never changes. */
-        SET_OPSTATE(&(buf[i]), OPSTATE_INFLIGHT);
       #endif
       gasneti_weakatomic_set(&buf[i].completed_cnt, 0 , 0);
     }
@@ -117,6 +114,7 @@ static void gasnete_eop_alloc(gasnete_threaddata_t * const thread)) {
         gasneti_assert(!gasnete_eopaddr_isnil(addr));                 
         eop = GASNETE_EOPADDR_TO_PTR(thread,addr);            
         gasneti_assert(OPTYPE(eop) == OPTYPE_EXPLICIT);               
+        gasneti_assert(OPSTATE(eop) == OPSTATE_FREE);               
         gasneti_assert(eop->threadidx == threadidx);                  
         gasneti_assert(addr.bufferidx == bufidx);
         gasneti_assert(!seen[addr.eopidx]);/* see if we hit a cycle */
@@ -160,6 +158,10 @@ gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread) {
     gasneti_assert(!gasnete_eopaddr_equal(thread->eop_free,head));
     gasneti_assert(eop->threadidx == thread->threadidx);
     gasneti_assert(OPTYPE(eop) == OPTYPE_EXPLICIT);
+    gasneti_assert(OPSTATE(eop) == OPSTATE_FREE);
+  #if GASNET_DEBUG
+    SET_OPSTATE(eop, OPSTATE_INFLIGHT);
+  #endif
     return eop;
   }
 }
@@ -212,6 +214,7 @@ void gasnete_op_markdone(gasnete_op_t *op, int isget) {
   gasneti_weakatomic_t * pctr;
   if (OPTYPE(op) == OPTYPE_EXPLICIT) {
     gasnete_eop_t *eop = (gasnete_eop_t *)op;
+    gasneti_assert(OPSTATE(eop) == OPSTATE_INFLIGHT);
     gasnete_eop_check(eop);
     pctr = &(eop->completed_cnt);
   } else {
@@ -232,6 +235,9 @@ void gasnete_eop_free(gasnete_eop_t *eop) {
   gasnete_eop_check(eop);
   gasneti_assert(gasneti_weakatomic_read(&eop->completed_cnt, 0) ==
                  (eop->initiated_cnt & GASNETI_ATOMIC_MAX));
+#if GASNET_DEBUG
+  SET_OPSTATE(eop, OPSTATE_FREE);
+#endif
   eop->addr = thread->eop_free;
   thread->eop_free = addr;
 }

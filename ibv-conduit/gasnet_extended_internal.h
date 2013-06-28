@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_extended_internal.h,v $
- *     $Date: 2013/06/26 04:43:27 $
- * $Revision: 1.37 $
+ *     $Date: 2013/06/28 22:11:44 $
+ * $Revision: 1.38 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -83,14 +83,12 @@ typedef struct _gasnete_threaddata_t {
 /* gasnete_op_t flags field */
 #define OPTYPE_EXPLICIT               0x00  /*  gasnete_eop_new() relies on this value */
 #define OPTYPE_IMPLICIT               0x80
-/* unlike reference, don't need any masking for type-vs-flags bits */
-#define OPTYPE(op) ((op)->flags)
+#define OPTYPE(op) ((op)->flags & 0x80)
 GASNETI_INLINE(SET_OPTYPE)
 void SET_OPTYPE(gasnete_op_t *op, uint8_t type) {
-  op->flags = type;
+  op->flags = (op->flags & 0x7F) | (type & 0x80);
 }
 
-#if 0 /* Not using FREE/INFLIGHT/COMPLETED state bits from extended-ref */
 /*  state - only valid for explicit ops */
 #define OPSTATE_FREE      0   /*  gasnete_eop_new() relies on this value */
 #define OPSTATE_INFLIGHT  1
@@ -104,7 +102,6 @@ void SET_OPSTATE(gasnete_eop_t *op, uint8_t state) {
    * the state. */
   gasneti_assert(state == OPSTATE_COMPLETE ? 1 : OPSTATE(op) == state);
 }
-#endif /* Not using FREE/INFLIGHT/COMPLETED state bits from extended-ref */
 
 /* gasnete_op_t flag bits reserved for conduit-specific uses.
  * guaranteed not to conflict with use in extendef-ref and
@@ -125,6 +122,8 @@ void SET_OPSTATE(gasnete_eop_t *op, uint8_t state) {
   #define gasnete_eop_check(eop) do {                                \
     gasnete_threaddata_t * _th;                                      \
     gasneti_assert(OPTYPE(eop) == OPTYPE_EXPLICIT);                  \
+    gasneti_assert(OPSTATE(eop) == OPSTATE_INFLIGHT ||               \
+                   OPSTATE(eop) == OPSTATE_COMPLETE);                \
     gasnete_assert_valid_threadid((eop)->threadidx);                 \
     _th = gasnete_threadtable[(eop)->threadidx];                     \
     gasneti_assert(GASNETE_EOPADDR_TO_PTR(_th, (eop)->addr) == eop); \
