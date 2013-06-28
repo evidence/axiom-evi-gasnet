@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/28 20:33:28 $
- * $Revision: 1.116 $
+ *     $Date: 2013/06/28 22:03:06 $
+ * $Revision: 1.117 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -373,7 +373,9 @@ void gasnete_eop_free(gasnete_eop_t *eop) {
     gasnete_eopaddr_t addr = eop->addr;
     gasnete_eop_check(eop);
     gasneti_assert(OPSTATE(eop) == OPSTATE_COMPLETE);
+  #if GASNET_DEBUG
     SET_OPSTATE(eop, OPSTATE_FREE);
+  #endif
     eop->addr = thread->eop_free;
     thread->eop_free = addr;
   }

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/28 20:33:40 $
- * $Revision: 1.38 $
+ *     $Date: 2013/06/28 22:03:18 $
+ * $Revision: 1.39 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -264,7 +264,9 @@ void gasnete_eop_free(gasnete_eop_t *eop) {
     gasnete_opaddr_t addr = eop->addr;
     gasnete_eop_check(eop);
     gasneti_assert(OPSTATE(eop) == OPSTATE_COMPLETE);
+#if GASNET_DEBUG
     SET_OPSTATE(eop, OPSTATE_FREE);
+#endif
     eop->addr = thread->eop_free;
     thread->eop_free = addr;
 #if GASNETI_STATS_OR_TRACE

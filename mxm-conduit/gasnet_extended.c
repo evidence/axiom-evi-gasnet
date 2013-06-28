@@ -245,7 +245,9 @@ void gasnete_eop_free(gasnete_eop_t *eop) {
     gasneti_assert(thread == gasnete_mythread());
     gasnete_eop_check(eop);
     gasneti_assert(OPSTATE(eop) == OPSTATE_COMPLETE);
+#if GASNET_DEBUG
     SET_OPSTATE(eop, OPSTATE_FREE);
+#endif
     eop->addr = thread->eop_free;
     thread->eop_free = addr;
 }

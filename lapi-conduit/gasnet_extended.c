@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/28 20:33:34 $
- * $Revision: 1.136 $
+ *     $Date: 2013/06/28 22:03:12 $
+ * $Revision: 1.137 $
  * Description: GASNet Extended API over LAPI Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -297,7 +297,9 @@ void gasnete_eop_free(gasnete_eop_t *eop) {
         gasneti_assert(eop->num_transfers == 0);
 #endif
         gasnete_eop_check(eop);
+#if GASNET_DEBUG
 	SET_OPSTATE(eop, OPSTATE_FREE);
+#endif
 	eop->addr = thread->eop_free;
 	thread->eop_free = addr;
     }
