@@ -1,10 +1,12 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_amref.c,v $
- *     $Date: 2013/06/29 00:25:56 $
- * $Revision: 1.91 $
+ *     $Date: 2013/06/29 04:48:01 $
+ * $Revision: 1.92 $
  * Description: GASNet Extended API Reference Implementation: AM-base Get/Put/Memset
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  */
+
+#include <gasnet_handler.h>
 
 /* 
  * Guidance for conduit writers.
