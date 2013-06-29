@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended.c,v $
- *     $Date: 2013/06/29 00:25:56 $
- * $Revision: 1.91 $
+ *     $Date: 2013/06/29 00:30:56 $
+ * $Revision: 1.92 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -376,7 +376,7 @@ void gasneti_iop_markdone(gasneti_iop_t *iop, unsigned int noperations, int isge
 /*
   Non-blocking memory-to-memory transfers (explicit handle)
   ==========================================================
- */
+*/
 /* ------------------------------------------------------------------------------------ */
 
 /* Conduits not using the gasnete_amref_ versions should implement at least the following:
@@ -487,7 +487,7 @@ extern int  gasnete_try_syncnb_all (gasnet_handle_t *phandle, size_t numhandles)
 /*
   Non-blocking memory-to-memory transfers (implicit handle)
   ==========================================================
- */
+*/
 /* ------------------------------------------------------------------------------------ */
 
 /* Conduits not using the gasnete_amref_ versions should implement at least the following:
