@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended.c,v $
- *     $Date: 2013/06/29 00:30:56 $
- * $Revision: 1.92 $
+ *     $Date: 2013/06/29 00:39:59 $
+ * $Revision: 1.93 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -20,12 +20,6 @@ extern void _gasnete_iop_check(gasnete_iop_t *iop) { gasnete_iop_check(iop); }
   Conduits may choose to override the default tuning parameters below by defining them
   in their gasnet_core_fwd.h
 */
-
-/* Conduits which clone this file should remove the following lines unless
- * they are still using the respective AM-based implementaions. */
-#define GASNETE_USING_REF_EXTENDED_GET 1
-#define GASNETE_USING_REF_EXTENDED_PUT 1
-#define GASNETE_USING_REF_EXTENDED_MEMSET 1
 
 /* the size threshold where gets/puts stop using medium messages and start using longs */
 #ifndef GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD
@@ -348,7 +342,11 @@ void gasneti_iop_markdone(gasneti_iop_t *iop, unsigned int noperations, int isge
   ===============
 */
 
-/* use reference implementation of get/put/memset in terms of AMs */
+/* Use reference implementation of get/put/memset in terms of AMs */
+/* NOTE: Barriers, Collectives, VIS may use these 3 in algorithm selection */
+#define GASNETE_USING_REF_EXTENDED_GET 1
+#define GASNETE_USING_REF_EXTENDED_PUT 1
+#define GASNETE_USING_REF_EXTENDED_MEMSET 1
 
 #if GASNETE_USING_REF_EXTENDED_GET
 #define GASNETE_BUILD_AMREF_GET     1
