@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2013/06/29 07:39:04 $
- * $Revision: 1.66 $
+ *     $Date: 2013/06/29 07:50:07 $
+ * $Revision: 1.67 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -419,7 +419,7 @@ void gasneti_iop_markdone(gasneti_iop_t *iop, unsigned int noperations, int isge
 */
 
 /* Use reference implementation of get/put/memset in terms of AMs */
-/* NOTE: Barriers, Collectives, VIS may use these 3 in algorithm selection */
+/* NOTE: Barriers, Collectives, VIS may use GASNETE_USING_REF_* in algorithm selection */
 #define GASNETE_USING_REF_EXTENDED_GET_BULK 0 /* all PAMI-based */
 #define GASNETE_USING_REF_EXTENDED_PUT_BULK 0 /* all PAMI-based */
 #define GASNETE_USING_REF_EXTENDED_PUT      0 /* all PAMI-based */

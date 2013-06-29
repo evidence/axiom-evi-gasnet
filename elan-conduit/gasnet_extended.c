@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/29 07:38:56 $
- * $Revision: 1.119 $
+ *     $Date: 2013/06/29 07:49:59 $
+ * $Revision: 1.120 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -598,7 +598,7 @@ static int gasnete_warned_nbp_AM = 0;
 */
 
 /* Use reference implementation of get/put/memset in terms of AMs */
-/* NOTE: Barriers, Collectives, VIS may use these 3 in algorithm selection */
+/* NOTE: Barriers, Collectives, VIS may use GASNETE_USING_REF_* in algorithm selection */
 #define GASNETE_USING_REF_EXTENDED_GET_BULK 0 /* conduit-specific */
 #define GASNETE_USING_REF_EXTENDED_PUT_BULK 0 /* conduit-specific */
 #define GASNETE_USING_REF_EXTENDED_PUT      0 /* conduit-specific */

@@ -378,7 +378,7 @@ void gasneti_iop_markdone(gasneti_iop_t *iop, unsigned int noperations, int isge
 */
 
 /* Use reference implementation of get/put/memset in terms of AMs */
-/* NOTE: Barriers, Collectives, VIS may use these 3 in algorithm selection */
+/* NOTE: Barriers, Collectives, VIS may use GASNETE_USING_REF_* in algorithm selection */
 #define GASNETE_USING_REF_EXTENDED_GET_BULK 0 /* conduit-specific implementation */
 #define GASNETE_USING_REF_EXTENDED_PUT_BULK 0 /* conduit-specific implementation */
 #define GASNETE_USING_REF_EXTENDED_PUT      0 /* conduit-specific implementation */

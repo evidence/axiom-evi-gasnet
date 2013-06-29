@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_extended.c,v $
- *     $Date: 2013/06/29 07:38:54 $
- * $Revision: 1.53 $
+ *     $Date: 2013/06/29 07:49:57 $
+ * $Revision: 1.54 $
  * Description: GASNet Extended API Implementation for DCMF
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
  *                 Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -471,7 +471,7 @@ void gasneti_iop_markdone(gasneti_iop_t *iop, unsigned int noperations, int isge
 */
 
 /* Use reference implementation of get/put/memset in terms of AMs */
-/* NOTE: Barriers, Collectives, VIS may use these 3 in algorithm selection */
+/* NOTE: Barriers, Collectives, VIS may use GASNETE_USING_REF_* in algorithm selection */
 #if GASNETE_DIRECT_PUT_GET
 /* use conduit-specifc implementation */
 #define GASNETE_USING_REF_EXTENDED_GET_BULK 0

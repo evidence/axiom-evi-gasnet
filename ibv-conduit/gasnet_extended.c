@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_extended.c,v $
- *     $Date: 2013/06/29 07:39:06 $
- * $Revision: 1.91 $
+ *     $Date: 2013/06/29 07:50:09 $
+ * $Revision: 1.92 $
  * Description: GASNet Extended API over VAPI/IB Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -329,7 +329,7 @@ void gasneti_iop_markdone(gasneti_iop_t *iop, unsigned int noperations, int isge
 */
 
 /* Use reference implementation of get/put/memset in terms of AMs */
-/* NOTE: Barriers, Collectives, VIS may use these 3 in algorithm selection */
+/* NOTE: Barriers, Collectives, VIS may use GASNETE_USING_REF_* in algorithm selection */
 #define GASNETE_USING_REF_EXTENDED_GET_BULK 0    /* conduit-specific via RDMA */
 #define GASNETE_USING_REF_EXTENDED_PUT_BULK 0    /* conduit-specific via RDMA */
 #define GASNETE_USING_REF_EXTENDED_PUT      0    /* conduit-specific via RDMA */
