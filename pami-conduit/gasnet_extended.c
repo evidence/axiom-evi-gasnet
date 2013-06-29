@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2013/06/29 06:49:20 $
- * $Revision: 1.65 $
+ *     $Date: 2013/06/29 07:39:04 $
+ * $Revision: 1.66 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -420,24 +420,30 @@ void gasneti_iop_markdone(gasneti_iop_t *iop, unsigned int noperations, int isge
 
 /* Use reference implementation of get/put/memset in terms of AMs */
 /* NOTE: Barriers, Collectives, VIS may use these 3 in algorithm selection */
-#define GASNETE_USING_REF_EXTENDED_GET 0 /* all PAMI-based */
-#define GASNETE_USING_REF_EXTENDED_PUT 0 /* all PAMI-based */
-#define GASNETE_USING_REF_EXTENDED_MEMSET 1
+#define GASNETE_USING_REF_EXTENDED_GET_BULK 0 /* all PAMI-based */
+#define GASNETE_USING_REF_EXTENDED_PUT_BULK 0 /* all PAMI-based */
+#define GASNETE_USING_REF_EXTENDED_PUT      0 /* all PAMI-based */
+#define GASNETE_USING_REF_EXTENDED_MEMSET   1
 
-#if GASNETE_USING_REF_EXTENDED_GET
+#if GASNETE_USING_REF_EXTENDED_GET_BULK
 #define GASNETE_BUILD_AMREF_GET_HANDLERS 1
-#define GASNETE_BUILD_AMREF_GET     1
+#define GASNETE_BUILD_AMREF_GET_BULK     1
 #define gasnete_amref_get_nb_bulk   gasnete_get_nb_bulk
 #define gasnete_amref_get_nbi_bulk  gasnete_get_nbi_bulk
+#endif
+
+#if GASNETE_USING_REF_EXTENDED_PUT_BULK
+#define GASNETE_BUILD_AMREF_PUT_HANDLERS 1
+#define GASNETE_BUILD_AMREF_PUT_BULK     1
+#define gasnete_amref_put_nb_bulk   gasnete_put_nb_bulk
+#define gasnete_amref_put_nbi_bulk  gasnete_put_nbi_bulk
 #endif
 
 #if GASNETE_USING_REF_EXTENDED_PUT
 #define GASNETE_BUILD_AMREF_PUT_HANDLERS 1
 #define GASNETE_BUILD_AMREF_PUT     1
 #define gasnete_amref_put_nb        gasnete_put_nb
-#define gasnete_amref_put_nb_bulk   gasnete_put_nb_bulk
 #define gasnete_amref_put_nbi       gasnete_put_nbi
-#define gasnete_amref_put_nbi_bulk  gasnete_put_nbi_bulk
 #endif
 
 #if GASNETE_USING_REF_EXTENDED_MEMSET

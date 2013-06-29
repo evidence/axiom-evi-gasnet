@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2013/06/27 06:35:38 $
- * $Revision: 1.173 $
+ *     $Date: 2013/06/29 07:38:58 $
+ * $Revision: 1.174 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2264,7 +2264,7 @@ extern void gasnete_coll_barrier_init(gasnete_coll_team_t team,  int barrier_typ
     gasnete_rmdbarrier_init(team);
   } else if (barrier_type == GASNETE_COLL_BARRIER_DISSEM) {
     /*we specify that we want to auto-select either AMDISSEM or RDMADISSEM Barrier*/
-  #if !GASNETE_USING_REF_EXTENDED_PUT
+  #if !GASNETE_USING_REF_EXTENDED_PUT_NBI
     if (team == GASNET_TEAM_ALL) {
       gasnete_rmdbarrier_init(team);
     } else
@@ -2302,7 +2302,7 @@ gasneti_auxseg_request_t gasnete_barr_auxseg_alloc(gasnet_seginfo_t *auxseg_info
   if (!strcmp(barrier, "RDMADISSEM")) {
     /* Nothing else to do */
   } else
-#if !GASNETE_USING_REF_EXTENDED_PUT
+#if !GASNETE_USING_REF_EXTENDED_PUT_NBI
   if (!strcmp(barrier, "DISSEM")) {
     /* Nothing else to do */
   } else

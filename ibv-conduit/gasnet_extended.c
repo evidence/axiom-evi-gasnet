@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_extended.c,v $
- *     $Date: 2013/06/29 06:14:21 $
- * $Revision: 1.90 $
+ *     $Date: 2013/06/29 07:39:06 $
+ * $Revision: 1.91 $
  * Description: GASNet Extended API over VAPI/IB Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -330,24 +330,30 @@ void gasneti_iop_markdone(gasneti_iop_t *iop, unsigned int noperations, int isge
 
 /* Use reference implementation of get/put/memset in terms of AMs */
 /* NOTE: Barriers, Collectives, VIS may use these 3 in algorithm selection */
-#define GASNETE_USING_REF_EXTENDED_GET 0    /* conduit-specific via RDMA */
-#define GASNETE_USING_REF_EXTENDED_PUT 0    /* conduit-specific via RDMA */
-#define GASNETE_USING_REF_EXTENDED_MEMSET 0 /* conduit-specific (due to custom eop) */
+#define GASNETE_USING_REF_EXTENDED_GET_BULK 0    /* conduit-specific via RDMA */
+#define GASNETE_USING_REF_EXTENDED_PUT_BULK 0    /* conduit-specific via RDMA */
+#define GASNETE_USING_REF_EXTENDED_PUT      0    /* conduit-specific via RDMA */
+#define GASNETE_USING_REF_EXTENDED_MEMSET   0    /* conduit-specific (due to custom eop) */
 
-#if GASNETE_USING_REF_EXTENDED_GET
+#if GASNETE_USING_REF_EXTENDED_GET_BULK
 #define GASNETE_BUILD_AMREF_GET_HANDLERS 1
-#define GASNETE_BUILD_AMREF_GET     1
+#define GASNETE_BUILD_AMREF_GET_BULK     1
 #define gasnete_amref_get_nb_bulk   gasnete_get_nb_bulk
 #define gasnete_amref_get_nbi_bulk  gasnete_get_nbi_bulk
+#endif
+
+#if GASNETE_USING_REF_EXTENDED_PUT_BULK
+#define GASNETE_BUILD_AMREF_PUT_HANDLERS 1
+#define GASNETE_BUILD_AMREF_PUT_BULK     1
+#define gasnete_amref_put_nb_bulk   gasnete_put_nb_bulk
+#define gasnete_amref_put_nbi_bulk  gasnete_put_nbi_bulk
 #endif
 
 #if GASNETE_USING_REF_EXTENDED_PUT
 #define GASNETE_BUILD_AMREF_PUT_HANDLERS 1
 #define GASNETE_BUILD_AMREF_PUT     1
 #define gasnete_amref_put_nb        gasnete_put_nb
-#define gasnete_amref_put_nb_bulk   gasnete_put_nb_bulk
 #define gasnete_amref_put_nbi       gasnete_put_nbi
-#define gasnete_amref_put_nbi_bulk  gasnete_put_nbi_bulk
 #endif
 
 #if GASNETE_USING_REF_EXTENDED_MEMSET
