@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_extended_fwd.h,v $
- *     $Date: 2013/06/07 19:27:56 $
- * $Revision: 1.16 $
+ *     $Date: 2013/06/29 04:56:57 $
+ * $Revision: 1.17 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
  *                 Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -69,6 +69,12 @@ typedef struct _gasnete_op_t *gasnet_handle_t;
 #define GASNETE_COLL_CONDUIT_COLLECTIVES 1
 #define GASNETE_COLL_CONDUIT_BROADCAST_OPS GASNETE_COLL_BROADCAST_DCMF, GASNETE_COLL_BROADCAST_DCMF_TREE
 #endif
+
+#define GASNETE_EXTENDED_NEEDS_CORE 1
+#define GASNETE_CONDUIT_EOP_FIELDS \
+  /*make sure the eops are sep. by atleast one cacheline*/ \
+  char _pad[GASNETI_CACHE_PAD(sizeof(uint8_t) + sizeof(gasnete_threadidx_t) + sizeof(gasnete_eopaddr_t))]; \
+  DCMF_Request_t dcmf_req;
 
 #endif
 

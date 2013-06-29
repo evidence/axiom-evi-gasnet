@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_extended.c,v $
- *     $Date: 2013/06/29 01:41:24 $
- * $Revision: 1.50 $
+ *     $Date: 2013/06/29 04:56:57 $
+ * $Revision: 1.51 $
  * Description: GASNet Extended API Implementation for DCMF
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
  *                 Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -31,6 +31,14 @@ static void increment_value(void *arg, DCMF_Error_t *e) {
 static void empty_cb(void *arg, DCMF_Error_t *e) {
   return;
 }
+
+typedef struct _gasnete_iop_dcmf_req_t{
+  void *ptr;
+  uint8_t _pad1[GASNETI_CACHE_LINE_BYTES - sizeof(void*)];
+  /*all dcmf requrests are multiple of 128 bytes*/
+  DCMF_Request_t dcmf_req;
+  
+} gasnete_iop_dcmf_req_t;
 
 /* No loopback check should be required for gasnete_{get,put,memset}*:
  *  For the external Extended API the wrappers in gasnet_extended.h check for loopback

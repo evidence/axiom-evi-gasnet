@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_internal.h,v $
- *     $Date: 2013/06/29 00:25:56 $
- * $Revision: 1.38 $
+ *     $Date: 2013/06/29 04:56:59 $
+ * $Revision: 1.39 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -11,6 +11,9 @@
 
 #include <gasnet_internal.h>
 #include <gasnet_handler.h>
+#ifdef GASNETE_EXTENDED_NEEDS_CORE
+#include <gasnet_core_internal.h>
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 

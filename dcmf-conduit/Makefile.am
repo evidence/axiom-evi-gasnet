@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/Makefile.am,v $
-#     $Date: 2010/06/03 02:25:24 $
-# $Revision: 1.7 $
+#     $Date: 2013/06/29 04:56:57 $
+# $Revision: 1.8 $
 # Description: Makefile for GASNet dcmf conduit
 # Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
 #                 Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -26,7 +26,6 @@ CONDUIT_FILELIST =                \
       gasnet_core_internal.h      \
       gasnet_extended.c           \
       gasnet_extended_fwd.h       \
-      gasnet_extended_internal.h  \
       gasnet_extended_coll_dcmf.c \
       gasnet_extended_coll_dcmf.h \
       gasnet_coll_exchange_dcmf.c \
