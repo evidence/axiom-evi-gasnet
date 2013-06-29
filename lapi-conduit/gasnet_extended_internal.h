@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2013/06/26 06:36:11 $
- * $Revision: 1.45 $
+ *     $Date: 2013/06/29 05:06:45 $
+ * $Revision: 1.46 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -10,14 +10,15 @@
 #define _GASNET_EXTENDED_INTERNAL_H
 
 #include <gasnet_internal.h>
+#ifdef GASNETE_EXTENDED_NEEDS_CORE
+#include <lapi.h>
+#include <gasnet_core_internal.h>
+#endif
 
 /* =====================================================================
  * LAPI specific structures
  * =====================================================================
  */
-#include <lapi.h>
-/* no point in re-defining everything */
-#include <gasnet_core_internal.h>
 
 extern void** gasnete_remote_memset_hh;
 extern void** gasnete_remote_barrier_hh;

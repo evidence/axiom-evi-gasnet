@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended_fwd.h,v $
- *     $Date: 2012/10/15 22:26:49 $
- * $Revision: 1.35 $
+ *     $Date: 2013/06/29 05:06:45 $
+ * $Revision: 1.36 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -73,6 +73,7 @@ typedef struct _gasnete_op_t *gasnet_handle_t;
     extern gasneti_auxseg_request_t gasnete_barr_auxseg_alloc(gasnet_seginfo_t *auxseg_info);
 #define GASNETE_AUXSEG_FNS() gasnete_barr_auxseg_alloc, 
 
+#define GASNETE_EXTENDED_NEEDS_CORE 1
 
 #endif
 

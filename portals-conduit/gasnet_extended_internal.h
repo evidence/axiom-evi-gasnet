@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2013/06/26 06:55:59 $
- * $Revision: 1.17 $
+ *     $Date: 2013/06/29 05:06:47 $
+ * $Revision: 1.18 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -10,7 +10,9 @@
 #define _GASNET_EXTENDED_INTERNAL_H
 
 #include <gasnet_internal.h>
-#include <gasnet_handler.h>
+#ifdef GASNETE_EXTENDED_NEEDS_CORE
+#include <gasnet_core_internal.h>
+#endif
 
 #ifndef GASNETE_USEAM
 /* MLW: debug: use AMs for extended ref implementation
