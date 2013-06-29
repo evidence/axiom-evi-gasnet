@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended.c,v $
- *     $Date: 2013/06/29 04:48:01 $
- * $Revision: 1.94 $
+ *     $Date: 2013/06/29 06:05:16 $
+ * $Revision: 1.95 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -348,12 +348,14 @@ void gasneti_iop_markdone(gasneti_iop_t *iop, unsigned int noperations, int isge
 #define GASNETE_USING_REF_EXTENDED_MEMSET 1
 
 #if GASNETE_USING_REF_EXTENDED_GET
+#define GASNETE_BUILD_AMREF_GET_HANDLERS 1
 #define GASNETE_BUILD_AMREF_GET     1
 #define gasnete_amref_get_nb_bulk   gasnete_get_nb_bulk
 #define gasnete_amref_get_nbi_bulk  gasnete_get_nbi_bulk
 #endif
 
 #if GASNETE_USING_REF_EXTENDED_PUT
+#define GASNETE_BUILD_AMREF_PUT_HANDLERS 1
 #define GASNETE_BUILD_AMREF_PUT     1
 #define gasnete_amref_put_nb        gasnete_put_nb
 #define gasnete_amref_put_nb_bulk   gasnete_put_nb_bulk
@@ -362,6 +364,7 @@ void gasneti_iop_markdone(gasneti_iop_t *iop, unsigned int noperations, int isge
 #endif
 
 #if GASNETE_USING_REF_EXTENDED_MEMSET
+#define GASNETE_BUILD_AMREF_MEMSET_HANDLERS 1
 #define GASNETE_BUILD_AMREF_MEMSET  1
 #define gasnete_amref_memset_nb     gasnete_memset_nb
 #define gasnete_amref_memset_nbi    gasnete_memset_nbi
@@ -626,20 +629,20 @@ static gasnet_handlerentry_t const gasnete_handlers[] = {
   /* ptr-width independent handlers */
 
   /* ptr-width dependent handlers */
-#if GASNETE_BUILD_AMREF_GET
+#if GASNETE_BUILD_AMREF_GET_HANDLERS
   gasneti_handler_tableentry_with_bits(gasnete_amref_get_reqh),
   gasneti_handler_tableentry_with_bits(gasnete_amref_get_reph),
   gasneti_handler_tableentry_with_bits(gasnete_amref_getlong_reqh),
   gasneti_handler_tableentry_with_bits(gasnete_amref_getlong_reph),
 #endif
-#if GASNETE_BUILD_AMREF_PUT
+#if GASNETE_BUILD_AMREF_PUT_HANDLERS
   gasneti_handler_tableentry_with_bits(gasnete_amref_put_reqh),
   gasneti_handler_tableentry_with_bits(gasnete_amref_putlong_reqh),
 #endif
-#if GASNETE_BUILD_AMREF_MEMSET
+#if GASNETE_BUILD_AMREF_MEMSET_HANDLERS
   gasneti_handler_tableentry_with_bits(gasnete_amref_memset_reqh),
 #endif
-#if GASNETE_BUILD_AMREF_PUT || GASNETE_BUILD_AMREF_MEMSET
+#if GASNETE_BUILD_AMREF_PUT_HANDLERS || GASNETE_BUILD_AMREF_MEMSET_HANDLERS
   gasneti_handler_tableentry_with_bits(gasnete_amref_markdone_reph),
 #endif
 

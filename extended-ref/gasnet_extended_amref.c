@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_amref.c,v $
- *     $Date: 2013/06/29 04:48:01 $
- * $Revision: 1.92 $
+ *     $Date: 2013/06/29 06:05:16 $
+ * $Revision: 1.93 $
  * Description: GASNet Extended API Reference Implementation: AM-base Get/Put/Memset
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -19,7 +19,8 @@
  *      To build
  *         gasnete_amref_get_nb_bulk
  *         gasnete_amref_get_nbi_bulk
- *      and the necessary supporting AM handlers
+ *    #define GASNETE_BUILD_AMREF_GET_HANDLERS 1
+ *      To build the corresponding supporting AM handlers
  *
  *    #define GASNETE_BUILD_AMREF_PUT 1
  *      To build
@@ -27,13 +28,15 @@
  *         gasnete_amref_put_nb_bulk
  *         gasnete_amref_put_nbi
  *         gasnete_amref_put_nbi_bulk
- *      and the necessary supporting AM handlers
+ *    #define GASNETE_BUILD_AMREF_PUT_HANDLERS 1
+ *      To build the corresponding supporting AM handlers
  *
  *    #define GASNETE_BUILD_AMREF_MEMSET 1
  *      To build
  *         gasnete_amref_memset_nb
  *         gasnete_amref_memset_nbi
- *      and the necessary supporting AM handlers
+ *    #define GASNETE_BUILD_AMREF_MEMSET_HANDLERS 1
+ *      To build the corresponding supporting AM handlers
  *
  * If one does not define ANY of those, then this file contains no code.
  *
@@ -122,7 +125,7 @@
 */
 
 /* ------------------------------------------------------------------------------------ */
-#if GASNETE_BUILD_AMREF_GET
+#if GASNETE_BUILD_AMREF_GET_HANDLERS
 
 GASNETI_INLINE(gasnete_amref_get_reqh_inner)
 void gasnete_amref_get_reqh_inner(gasnet_token_t token, 
@@ -174,9 +177,9 @@ LONG_HANDLER(gasnete_amref_getlong_reph,1,2,
               (token,addr,nbytes, UNPACK(a0)     ),
               (token,addr,nbytes, UNPACK2(a0, a1)));
 
-#endif /* GASNETE_BUILD_AMREF_GET */
+#endif /* GASNETE_BUILD_AMREF_GET_HANDLERS */
 /* ------------------------------------------------------------------------------------ */
-#if GASNETE_BUILD_AMREF_PUT
+#if GASNETE_BUILD_AMREF_PUT_HANDLERS
 
 GASNETI_INLINE(gasnete_amref_put_reqh_inner)
 void gasnete_amref_put_reqh_inner(gasnet_token_t token, 
@@ -205,9 +208,9 @@ LONG_HANDLER(gasnete_amref_putlong_reqh,1,2,
               (token,addr,nbytes, UNPACK(a0)     ),
               (token,addr,nbytes, UNPACK2(a0, a1)));
 
-#endif /* GASNETE_BUILD_AMREF_PUT */
+#endif /* GASNETE_BUILD_AMREF_PUT_HANDLERS */
 /* ------------------------------------------------------------------------------------ */
-#if GASNETE_BUILD_AMREF_MEMSET
+#if GASNETE_BUILD_AMREF_MEMSET_HANDLERS
 
 GASNETI_INLINE(gasnete_amref_memset_reqh_inner)
 void gasnete_amref_memset_reqh_inner(gasnet_token_t token, 
@@ -223,9 +226,9 @@ SHORT_HANDLER(gasnete_amref_memset_reqh,4,7,
               (token, a0, UNPACK(a1),      UNPACK(a2),      UNPACK(a3)     ),
               (token, a0, UNPACK2(a1, a2), UNPACK2(a3, a4), UNPACK2(a5, a6)));
 
-#endif /* GASNETE_BUILD_AMREF_MEMSET */
+#endif /* GASNETE_BUILD_AMREF_MEMSET_HANDLERS */
 /* ------------------------------------------------------------------------------------ */
-#if GASNETE_BUILD_AMREF_PUT || GASNETE_BUILD_AMREF_MEMSET
+#if GASNETE_BUILD_AMREF_PUT_HANDLERS || GASNETE_BUILD_AMREF_MEMSET_HANDLERS
 
 GASNETI_INLINE(gasnete_amref_markdone_reph_inner)
 void gasnete_amref_markdone_reph_inner(gasnet_token_t token, 
@@ -236,7 +239,7 @@ SHORT_HANDLER(gasnete_amref_markdone_reph,1,2,
               (token, UNPACK(a0)    ),
               (token, UNPACK2(a0, a1)));
 
-#endif /* GASNETE_BUILD_AMREF_PUT || GASNETE_BUILD_AMREF_MEMSET */
+#endif /* GASNETE_BUILD_AMREF_PUT_HANDLERS || GASNETE_BUILD_AMREF_MEMSET_HANDLERS */
 
 /* ------------------------------------------------------------------------------------ */
 /*
