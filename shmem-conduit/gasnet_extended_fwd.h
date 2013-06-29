@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_extended_fwd.h,v $
- *     $Date: 2012/10/15 22:26:55 $
- * $Revision: 1.21 $
+ *     $Date: 2013/06/29 18:42:23 $
+ * $Revision: 1.22 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -59,5 +59,9 @@ extern struct _gasnete_threaddata_t * const gasnete_threaddata_ptr;
 #define GASNETI_MAX_THREADS 1
 
 #define GASNETE_COLL_CONDUIT_BARRIERS GASNETE_COLL_BARRIER_SHMEM
+
+/* Using these unused slots: */
+#define _hidx_gasnete_memset_reqh    _hidx_gasnete_amref_memset_reqh
+#define _hidx_gasnete_markdone_reph  _hidx_gasnete_amref_markdone_reph
 
 #endif
