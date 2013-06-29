@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_amref.c,v $
- *     $Date: 2013/06/29 07:38:58 $
- * $Revision: 1.94 $
+ *     $Date: 2013/06/29 08:06:41 $
+ * $Revision: 1.95 $
  * Description: GASNet Extended API Reference Implementation: AM-base Get/Put/Memset
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -310,8 +310,14 @@ gasnet_handle_t gasnete_amref_put_nb_inner(gasnet_node_t node, void *dest, void 
     /*  need many messages - use an access region to coalesce them into a single handle */
     /*  (note this relies on the fact that our implementation of access regions allows recursion) */
     gasnete_begin_nbi_accessregion(1 /* enable recursion */ GASNETE_THREAD_PASS);
+    #if GASNETE_BUILD_AMREF_PUT_BULK && GASNETE_BUILD_AMREF_PUT
       if (isbulk) gasnete_amref_put_nbi_bulk(node, dest, src, nbytes GASNETE_THREAD_PASS);
       else        gasnete_amref_put_nbi    (node, dest, src, nbytes GASNETE_THREAD_PASS);
+    #elif GASNETE_BUILD_AMREF_PUT_BULK
+                  gasnete_amref_put_nbi_bulk(node, dest, src, nbytes GASNETE_THREAD_PASS);
+    #else
+                  gasnete_amref_put_nbi    (node, dest, src, nbytes GASNETE_THREAD_PASS);
+    #endif
     return gasnete_end_nbi_accessregion(GASNETE_THREAD_PASS_ALONE);
   }
 }
