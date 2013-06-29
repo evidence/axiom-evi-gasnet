@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2013/06/29 05:06:39 $
- * $Revision: 1.42 $
+ *     $Date: 2013/06/29 06:22:15 $
+ * $Revision: 1.43 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -205,14 +205,14 @@ void SET_OPCAT(gasnete_eop_t *op, uint8_t cat) {
 #define _hidx_gasnete_amdbarrier_notify_reqh (GASNETE_HANDLER_BASE+0) 
 #define _hidx_gasnete_amcbarrier_notify_reqh (GASNETE_HANDLER_BASE+1) 
 #define _hidx_gasnete_amcbarrier_done_reqh   (GASNETE_HANDLER_BASE+2)
-#define _hidx_gasnete_get_reqh               (GASNETE_HANDLER_BASE+3)
-#define _hidx_gasnete_get_reph               (GASNETE_HANDLER_BASE+4)
-#define _hidx_gasnete_getlong_reqh           (GASNETE_HANDLER_BASE+5)
-#define _hidx_gasnete_getlong_reph           (GASNETE_HANDLER_BASE+6)
-#define _hidx_gasnete_put_reqh               (GASNETE_HANDLER_BASE+7)
-#define _hidx_gasnete_putlong_reqh           (GASNETE_HANDLER_BASE+8)
-#define _hidx_gasnete_memset_reqh            (GASNETE_HANDLER_BASE+9)
-#define _hidx_gasnete_markdone_reph          (GASNETE_HANDLER_BASE+10)
+#define _hidx_gasnete_amref_get_reqh         (GASNETE_HANDLER_BASE+3)
+#define _hidx_gasnete_amref_get_reph         (GASNETE_HANDLER_BASE+4)
+#define _hidx_gasnete_amref_getlong_reqh     (GASNETE_HANDLER_BASE+5)
+#define _hidx_gasnete_amref_getlong_reph     (GASNETE_HANDLER_BASE+6)
+#define _hidx_gasnete_amref_put_reqh         (GASNETE_HANDLER_BASE+7)
+#define _hidx_gasnete_amref_putlong_reqh     (GASNETE_HANDLER_BASE+8)
+#define _hidx_gasnete_amref_memset_reqh      (GASNETE_HANDLER_BASE+9)
+#define _hidx_gasnete_amref_markdone_reph    (GASNETE_HANDLER_BASE+10)
 /* add new extended API handlers here and to the bottom of gasnet_extended.c */
 
 #endif
