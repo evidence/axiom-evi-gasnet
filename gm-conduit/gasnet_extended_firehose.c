@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended_firehose.c,v $
- * $Date: 2011/02/09 04:10:19 $
- * $Revision: 1.60 $
+ * $Date: 2013/06/29 08:37:37 $
+ * $Revision: 1.61 $
  * Description: GASNet GM conduit Firehose DMA Registration Algorithm
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -391,7 +391,7 @@ gasnete_put_nb (gasnet_node_t node, void *dest, void *src,
 	    (unsigned) node, dest, src, (int)nbytes));
 
 	if_pf (nbytes > GASNETC_AM_LEN)
-	    handle = gasnete_extref_put_nb(node, dest, src, nbytes 
+	    handle = gasnete_amref_put_nb(node, dest, src, nbytes 
 		                           GASNETE_THREAD_PASS);
 	else
 	    handle = gasnete_firehose_put(node, dest, src, nbytes, 
@@ -411,7 +411,7 @@ gasnete_put_nbi(gasnet_node_t node, void *dest, void *src,
 	    (unsigned) node, dest, src, (int)nbytes));
 
 	if_pf (nbytes > GASNETC_AM_LEN)
-	    gasnete_extref_put_nbi(node, dest, src, nbytes 
+	    gasnete_amref_put_nbi(node, dest, src, nbytes 
 			           GASNETE_THREAD_PASS);
 	else
 	    gasnete_firehose_put(node, dest, src, nbytes, 
