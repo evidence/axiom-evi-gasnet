@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended_fwd.h,v $
- *     $Date: 2013/06/27 05:46:26 $
- * $Revision: 1.12 $
+ *     $Date: 2013/06/29 06:32:37 $
+ * $Revision: 1.13 $
  * Description: GASNet Extended API Header for Gemin Conduit (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -141,6 +141,10 @@ typedef struct _gasnete_valget_op_t *gasnet_valget_handle_t;
 #define GASNETE_CONDUIT_EOP_FIELDS \
         gasneti_weakatomic_val_t initiated_cnt; \
         gasneti_weakatomic_t     completed_cnt;
+
+/* Using these unused slots: */
+#define _hidx_gasnete_memset_reqh    _hidx_gasnete_amref_memset_reqh 
+#define _hidx_gasnete_markdone_reph  _hidx_gasnete_amref_markdone_reph
 
 #endif
 

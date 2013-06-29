@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2013/06/29 05:34:55 $
- * $Revision: 1.82 $
+ *     $Date: 2013/06/29 06:32:37 $
+ * $Revision: 1.83 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -13,6 +13,7 @@
 
 static const gasnete_eopaddr_t EOPADDR_NIL = { { 0xFF, 0xFF } };
 extern void _gasnete_iop_check(gasnete_iop_t *iop) { gasnete_iop_check(iop); }
+
 /* ------------------------------------------------------------------------------------ */
 /*
   Tuning Parameters
@@ -345,11 +346,44 @@ void gasneti_iop_markdone(gasneti_iop_t *iop, unsigned int noperations, int isge
   }
   gasnete_iop_check(op);
 }
+
 /* ------------------------------------------------------------------------------------ */
 /*
-  Non-blocking memory-to-memory transfers (explicit handle)
-  ==========================================================
+  Get/Put/Memset:
+  ===============
 */
+
+/* Use reference implementation of get/put/memset in terms of AMs */
+/* NOTE: Barriers, Collectives, VIS may use these 3 in algorithm selection */
+#define GASNETE_USING_REF_EXTENDED_GET 0    /* conduit-specific via RDMA */
+#define GASNETE_USING_REF_EXTENDED_PUT 0    /* conduit-specific via RDMA */
+#define GASNETE_USING_REF_EXTENDED_MEMSET 0 /* conduit-specific (due to custom eop) */
+
+#if GASNETE_USING_REF_EXTENDED_GET
+#define GASNETE_BUILD_AMREF_GET_HANDLERS 1
+#define GASNETE_BUILD_AMREF_GET     1
+#define gasnete_amref_get_nb_bulk   gasnete_get_nb_bulk
+#define gasnete_amref_get_nbi_bulk  gasnete_get_nbi_bulk
+#endif
+
+#if GASNETE_USING_REF_EXTENDED_PUT
+#define GASNETE_BUILD_AMREF_PUT_HANDLERS 1
+#define GASNETE_BUILD_AMREF_PUT     1
+#define gasnete_amref_put_nb        gasnete_put_nb
+#define gasnete_amref_put_nb_bulk   gasnete_put_nb_bulk
+#define gasnete_amref_put_nbi       gasnete_put_nbi
+#define gasnete_amref_put_nbi_bulk  gasnete_put_nbi_bulk
+#endif
+
+#if GASNETE_USING_REF_EXTENDED_MEMSET
+#define GASNETE_BUILD_AMREF_MEMSET_HANDLERS 1
+#define GASNETE_BUILD_AMREF_MEMSET  1
+#define gasnete_amref_memset_nb     gasnete_memset_nb
+#define gasnete_amref_memset_nbi    gasnete_memset_nbi
+#endif
+
+#include "gasnet_extended_amref.c"
+
 /* ------------------------------------------------------------------------------------ */
 GASNETI_INLINE(gasnete_memset_reqh_inner)
 void gasnete_memset_reqh_inner(gasnet_token_t token, 
@@ -375,7 +409,6 @@ SHORT_HANDLER(gasnete_markdone_reph,1,2,
               (token, UNPACK2(a0, a1)));
 
 /* ------------------------------------------------------------------------------------ */
-/* Helpers for NB and NBI */
 
 /* Gemini requires 4-byte alignment of local address, while Aries doesn't.
    However, intial testing shows that Aries performance is poor w/o alignment */
@@ -525,7 +558,20 @@ gasnete_put_bulk_inner(gasnet_node_t node, void *dest, void *src, size_t nbytes,
   gasneti_assert(nbytes && (nbytes <= chunksz));
   gasnetc_rdma_put_bulk(node, dest, src, nbytes, gasnete_cntr_gpd(initiated_p, completed_p));
 }
+
 /* ------------------------------------------------------------------------------------ */
+/*
+  Non-blocking memory-to-memory transfers (explicit handle)
+  ==========================================================
+*/
+/* ------------------------------------------------------------------------------------ */
+
+/* Conduits not using the gasnete_amref_ versions should implement at least the following:
+     gasnete_get_nb_bulk
+     gasnete_put_nb
+     gasnete_put_nb_bulk
+     gasnete_memset_nb
+*/
 
 extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG) {
   GASNETI_CHECKPSHM_GET(UNALIGNED,H);
@@ -699,6 +745,13 @@ extern int  gasnete_try_syncnb_all (gasnet_handle_t *phandle, size_t numhandles)
   ==========================================================
 */
 /* ------------------------------------------------------------------------------------ */
+
+/* Conduits not using the gasnete_amref_ versions should implement at least the following:
+     gasnete_get_nbi_bulk
+     gasnete_put_nbi
+     gasnete_put_nbi_bulk
+     gasnete_memset_nbi
+*/
 
 extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG) {
   GASNETI_CHECKPSHM_GET(UNALIGNED,V);
@@ -1515,6 +1568,22 @@ static gasnet_handlerentry_t const gasnete_handlers[] = {
   /* ptr-width independent handlers */
 
   /* ptr-width dependent handlers */
+#if GASNETE_BUILD_AMREF_GET_HANDLERS
+  gasneti_handler_tableentry_with_bits(gasnete_amref_get_reqh),
+  gasneti_handler_tableentry_with_bits(gasnete_amref_get_reph),
+  gasneti_handler_tableentry_with_bits(gasnete_amref_getlong_reqh),
+  gasneti_handler_tableentry_with_bits(gasnete_amref_getlong_reph),
+#endif
+#if GASNETE_BUILD_AMREF_PUT_HANDLERS
+  gasneti_handler_tableentry_with_bits(gasnete_amref_put_reqh),
+  gasneti_handler_tableentry_with_bits(gasnete_amref_putlong_reqh),
+#endif
+#if GASNETE_BUILD_AMREF_MEMSET_HANDLERS
+  gasneti_handler_tableentry_with_bits(gasnete_amref_memset_reqh),
+#endif
+#if GASNETE_BUILD_AMREF_PUT_HANDLERS || GASNETE_BUILD_AMREF_MEMSET_HANDLERS
+  gasneti_handler_tableentry_with_bits(gasnete_amref_markdone_reph),
+#endif
   gasneti_handler_tableentry_with_bits(gasnete_memset_reqh),
   gasneti_handler_tableentry_with_bits(gasnete_markdone_reph),
 
