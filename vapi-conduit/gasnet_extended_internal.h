@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2013/06/30 02:25:47 $
- * $Revision: 1.40 $
+ *     $Date: 2013/06/30 04:43:44 $
+ * $Revision: 1.41 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -57,7 +57,12 @@ typedef struct _gasnete_eop_t {
   uint8_t flags;                  /*  state flags */
   gasnete_threadidx_t threadidx;  /*  thread that owns me */
   gasnete_eopaddr_t addr;         /*  next cell while in free list, my own eopaddr_t while in use */
+  #if GASNETE_EOP_COUNTED
   gasnetc_counter_t req_oust;
+  #endif
+  #ifdef GASNETE_CONDUIT_EOP_FIELDS
+  GASNETE_CONDUIT_EOP_FIELDS
+  #endif
 } gasnete_eop_t;
 
 typedef struct _gasnete_iop_t {
@@ -75,6 +80,10 @@ typedef struct _gasnete_iop_t {
   gasnetc_atomic_t completed_get_cnt;     /*  count of get ops completed */
   gasnetc_atomic_t completed_put_cnt;     /*  count of put ops completed */
   uint8_t _pad2[MAX(8,(ssize_t)(GASNETI_CACHE_LINE_BYTES - 2*sizeof(gasnetc_atomic_t)))];
+
+  #ifdef GASNETE_CONDUIT_IOP_FIELDS
+  GASNETE_CONDUIT_IOP_FIELDS
+  #endif
 } gasnete_iop_t;
 
 /* ------------------------------------------------------------------------------------ */
