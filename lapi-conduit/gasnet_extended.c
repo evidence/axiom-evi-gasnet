@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/28 22:03:12 $
- * $Revision: 1.137 $
+ *     $Date: 2013/06/30 04:37:11 $
+ * $Revision: 1.138 $
  * Description: GASNet Extended API over LAPI Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -81,6 +81,12 @@ static void gasnete_eop_alloc(gasnete_threaddata_t * const thread)) {
 #if 0 /* these can safely be skipped when the values are zero */
         SET_OPSTATE(&(buf[i]),OPSTATE_FREE); 
         SET_OPTYPE(&(buf[i]),OPTYPE_EXPLICIT); 
+#if GASNETE_EOP_COUNTED
+        buff[i].initiated_cnt = 0;
+#endif
+#endif
+#if GASNETE_EOP_COUNTED
+        gasneti_weakatomic_set(&buf[i].completed_cnt, 0 , 0);
 #endif
     }
     /*  add a list terminator */
@@ -141,9 +147,9 @@ static gasnete_iop_t *gasnete_iop_alloc(gasnete_threaddata_t * const thread)) {
     return iop;
 }
 
-/*  get a new op and mark it in flight */
+/*  get a new op */
 static
-gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread) {
+gasnete_eop_t *_gasnete_eop_new(gasnete_threaddata_t * const thread) {
     gasnete_eopaddr_t head = thread->eop_free;
     if_pf (gasnete_eopaddr_isnil(head)) {
         gasnete_eop_alloc(thread);
@@ -166,6 +172,16 @@ gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread) {
 #endif
 	return eop;
     }
+}
+
+/*  get a new op AND mark it in flight */
+GASNETI_INLINE(gasnete_eop_new)
+gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread) {
+    gasnete_eop_t *eop = _gasnete_eop_new(thread);
+#if GASNETE_EOP_COUNTED
+    eop->initiated_cnt++;
+#endif
+    return eop;
 }
 
 /* get a new iop */
