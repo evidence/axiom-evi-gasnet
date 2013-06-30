@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/30 21:26:01 $
- * $Revision: 1.122 $
+ *     $Date: 2013/06/30 22:30:41 $
+ * $Revision: 1.123 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -372,13 +372,8 @@ static
 void gasnete_op_markdone(gasnete_op_t *op, int isget) {
   if (OPTYPE(op) == OPTYPE_EXPLICIT) {
     gasnete_eop_t *eop = (gasnete_eop_t *)op;
-    gasneti_assert(!GASNETE_EOP_DONE(eop));
     gasnete_eop_check(eop);
-#if GASNETE_EOP_COUNTED
-    gasneti_weakatomic_increment(&(eop->completed_cnt), 0);
-#else
-    SET_OPSTATE(eop, OPSTATE_COMPLETE);
-#endif
+    GASNETE_EOP_MARKDONE(eop);
   } else {
     gasnete_iop_t *iop = (gasnete_iop_t *)op;
     gasnete_iop_check(iop);
@@ -535,7 +530,7 @@ extern void gasnete_init(void) {
 
     /* cause the first pool of eops to be allocated (optimization) */
     eop = gasnete_eop_new(threaddata, OPCAT_MEMSET);
-    gasnete_op_markdone((gasnete_op_t *)eop, 0);
+    GASNETE_EOP_MARKDONE(eop);
     gasnete_eop_free(eop);
   }
 
@@ -565,7 +560,9 @@ gasneti_iop_t *gasneti_iop_register(unsigned int noperations, int isget GASNETE_
   return (gasneti_iop_t *)op;
 }
 void gasneti_eop_markdone(gasneti_eop_t *eop) {
-  gasnete_op_markdone((gasnete_op_t *)eop, 0);
+  gasnete_eop_t *op = (gasnete_eop_t *)eop;
+  gasnete_eop_check(op);
+  GASNETE_EOP_MARKDONE(op);
 }
 void gasneti_iop_markdone(gasneti_iop_t *iop, unsigned int noperations, int isget) {
   gasnete_iop_t *op = (gasnete_iop_t *)iop;
