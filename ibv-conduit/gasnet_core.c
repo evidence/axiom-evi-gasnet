@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2013/06/24 06:38:39 $
- * $Revision: 1.312 $
+ *     $Date: 2013/06/30 05:10:35 $
+ * $Revision: 1.313 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2647,7 +2647,7 @@ static int gasnetc_exit_slave(int64_t timeout_us) {
     gasnetc_sndrcv_poll(0); /* works even before _attach */
   }
 
-  /* wait until out reply has been placed on the wire */
+  /* wait until our reply has been placed on the wire */
   gasneti_sync_reads(); /* For non-atomic portion of gasnetc_exit_repl_oust */
   gasnetc_counter_wait(&gasnetc_exit_repl_oust, 1);
 
@@ -2859,7 +2859,8 @@ static void gasnetc_exit_reqh(gasnet_token_t token, gasnet_handlerarg_t arg0) {
   (void)gasneti_atomic_compare_and_swap(&gasnetc_exit_role, GASNETC_EXIT_ROLE_UNKNOWN, GASNETC_EXIT_ROLE_SLAVE, 0);
 
   /* Send a reply so the master knows we are reachable */
-  GASNETI_SAFE(gasnetc_ReplySysShort(token, &gasnetc_exit_repl_oust,
+  gasnetc_counter_inc(&gasnetc_exit_repl_oust);
+  GASNETI_SAFE(gasnetc_ReplySysShort(token, &gasnetc_exit_repl_oust.completed,
 				   gasneti_handleridx(gasnetc_exit_reph), /* no args */ 0));
   gasneti_sync_writes(); /* For non-atomic portion of gasnetc_exit_repl_oust */
 

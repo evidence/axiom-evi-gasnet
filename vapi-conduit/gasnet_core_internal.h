@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2013/06/24 21:04:08 $
- * $Revision: 1.236 $
+ *     $Date: 2013/06/30 05:10:35 $
+ * $Revision: 1.237 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -522,21 +522,21 @@ void gasnetc_counter_wait(gasnetc_counter_t *counter, int handler_context) {
  */
 
 extern int gasnetc_RequestSysShort(gasnet_node_t dest,
-                                   gasnetc_counter_t *req_oust, /* counter for local completion */
+                                   gasnetc_atomic_t *completed, /* counter for local completion */
                                    gasnet_handler_t handler,
                                    int numargs, ...);
 extern int gasnetc_RequestSysMedium(gasnet_node_t dest,
-                                    gasnetc_counter_t *req_oust, /* counter for local completion */
+                                    gasnetc_atomic_t *completed, /* counter for local completion */
                                     gasnet_handler_t handler,
                                     void *source_addr, size_t nbytes,
                                     int numargs, ...);
 
 extern int gasnetc_ReplySysShort(gasnet_token_t token,
-                                 gasnetc_counter_t *req_oust, /* counter for local completion */
+                                 gasnetc_atomic_t *completed, /* counter for local completion */
                                  gasnet_handler_t handler,
                                  int numargs, ...);
 extern int gasnetc_ReplySysMedium(gasnet_token_t token,
-                                  gasnetc_counter_t *req_oust, /* counter for local completion */
+                                  gasnetc_atomic_t *completed, /* counter for local completion */
                                   gasnet_handler_t handler,
                                   void *source_addr, size_t nbytes,
                                   int numargs, ...);
@@ -919,12 +919,12 @@ extern int gasnetc_RequestGeneric(gasnetc_category_t category,
 				  int dest, gasnet_handler_t handler,
 				  void *src_addr, int nbytes, void *dst_addr,
 				  int numargs, gasnetc_counter_t *mem_oust,
-				  gasnetc_counter_t *req_oust, va_list argptr);
+				  gasnetc_atomic_t *completed, va_list argptr);
 extern int gasnetc_ReplyGeneric(gasnetc_category_t category,
 				gasnet_token_t token, gasnet_handler_t handler,
 				void *src_addr, int nbytes, void *dst_addr,
 				int numargs, gasnetc_counter_t *mem_oust,
-				gasnetc_counter_t *req_oust, va_list argptr);
+				gasnetc_atomic_t *completed, va_list argptr);
 #if GASNETC_PIN_SEGMENT
   extern int gasnetc_rdma_put(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, size_t nbytes, gasnetc_counter_t *mem_oust, gasnetc_atomic_val_t *initiated, gasnetc_atomic_t *completed);
 #else
