@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_amref.c,v $
- *     $Date: 2013/06/30 00:27:57 $
- * $Revision: 1.96 $
+ *     $Date: 2013/06/30 03:20:42 $
+ * $Revision: 1.97 $
  * Description: GASNet Extended API Reference Implementation: AM-base Get/Put/Memset
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -524,7 +524,6 @@ extern void gasnete_amref_put_nbi_bulk (gasnet_node_t node, void *dest, void *sr
 extern void gasnete_amref_memset_nbi   (gasnet_node_t node, void *dest, int val, size_t nbytes GASNETE_THREAD_FARG) {
   gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
   gasnete_iop_t *op = mythread->current_iop;
-  gasneti_weakatomic_t *cntr = &(op->completed_put_cnt);
   GASNETI_CHECKPSHM_MEMSET(V);
 
   op->initiated_put_cnt++;
@@ -532,7 +531,7 @@ extern void gasnete_amref_memset_nbi   (gasnet_node_t node, void *dest, int val,
   GASNETI_SAFE(
     SHORT_REQ(4,7,(node, gasneti_handleridx(gasnete_amref_memset_reqh),
                  (gasnet_handlerarg_t)val, PACK(nbytes),
-                 PACK(dest), PACK(cntr))));
+                 PACK(dest), PACK_IOP_DONE(op,get))));
 
 }
 #endif /* GASNETE_BUILD_AMREF_MEMSET */
