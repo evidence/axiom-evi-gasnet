@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/29 08:37:37 $
- * $Revision: 1.64 $
+ *     $Date: 2013/06/30 22:54:20 $
+ * $Revision: 1.65 $
  * Description: GASNet Extended API GM Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -84,7 +84,7 @@ extern void gasnete_init(void) {
 
 		/* cause the first pool of eops to be allocated optimization */
 		eop = gasnete_eop_new(threaddata);
-		gasnete_op_markdone((gasnete_op_t *)eop, 0);
+		GASNETE_EOP_MARKDONE(eop);
 		gasnete_eop_free(eop);
 	}
  

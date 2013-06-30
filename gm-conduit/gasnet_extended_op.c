@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended_op.c,v $
- * $Date: 2013/06/30 21:26:07 $
- * $Revision: 1.28 $
+ * $Date: 2013/06/30 22:54:20 $
+ * $Revision: 1.29 $
  * Description: GASNet Extended API OPs interface
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -162,9 +162,8 @@ gasnete_iop_isdone(gasnete_iop_t *iop)
 void gasnete_op_markdone(gasnete_op_t *op, int isget) {
 	if (OPTYPE(op) == OPTYPE_EXPLICIT) {
 		gasnete_eop_t *eop = (gasnete_eop_t *)op;
-		gasneti_assert(!GASNETE_EOP_DONE(eop));
                 gasnete_eop_check(eop);
-		SET_OPSTATE(eop, OPSTATE_COMPLETE);
+		GASNETE_EOP_MARKDONE(eop);
 	} else {
 		gasnete_iop_t *iop = (gasnete_iop_t *)op;
                 gasnete_iop_check(iop);
@@ -220,7 +219,9 @@ gasneti_iop_t *gasneti_iop_register(unsigned int noperations, int isget GASNETE_
   return (gasneti_iop_t *)op;
 }
 void gasneti_eop_markdone(gasneti_eop_t *eop) {
-  gasnete_op_markdone((gasnete_op_t *)eop, 0);
+  gasnete_eop_t *op = (gasnete_eop_t *)eop;
+  gasnete_eop_check(op);
+  GASNETE_EOP_MARKDONE(op);
 }
 void gasneti_iop_markdone(gasneti_iop_t *iop, unsigned int noperations, int isget) {
   gasnete_iop_t *op = (gasnete_iop_t *)iop;

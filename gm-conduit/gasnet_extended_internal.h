@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2013/06/30 03:43:12 $
- * $Revision: 1.51 $
+ *     $Date: 2013/06/30 22:54:20 $
+ * $Revision: 1.52 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -216,6 +216,10 @@ void		gasnete_iop_free(gasnete_iop_t *iop);
           == ((_iop)->initiated_##_putget##_cnt & GASNETI_ATOMIC_MAX))
 
 #define GASNETE_EOP_DONE(_eop) (OPSTATE(_eop) == OPSTATE_COMPLETE)
+#define GASNETE_EOP_MARKDONE(_eop) do {          \
+        gasneti_assert(!GASNETE_EOP_DONE(_eop)); \
+        SET_OPSTATE((_eop), OPSTATE_COMPLETE);   \
+    } while (0)
 
 /* 1 = scatter newly allocated eops across cache lines to reduce false sharing */
 #define GASNETE_SCATTER_EOPS_ACROSS_CACHELINES    1 
