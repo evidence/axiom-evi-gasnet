@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_extended.c,v $
- *     $Date: 2013/06/29 07:49:57 $
- * $Revision: 1.54 $
+ *     $Date: 2013/06/30 04:17:24 $
+ * $Revision: 1.55 $
  * Description: GASNet Extended API Implementation for DCMF
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
  *                 Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -111,6 +111,12 @@ static void gasnete_eop_alloc(gasnete_threaddata_t * const thread)) {
       #if 0 /* these can safely be skipped when the values are zero */
         SET_OPSTATE(&(buf[i]),OPSTATE_FREE); 
         SET_OPTYPE(&(buf[i]),OPTYPE_EXPLICIT); 
+       #if GASNETE_EOP_COUNTED
+        buff[i].initiated_cnt = 0;
+       #endif
+      #endif
+      #if GASNETE_EOP_COUNTED 
+        gasneti_weakatomic_set(&buf[i].completed_cnt, 0 , 0);
       #endif
     }
      /*  add a list terminator */
@@ -178,9 +184,9 @@ static gasnete_iop_t *gasnete_iop_alloc(gasnete_threaddata_t * const thread)) {
     return iop;
 }
 
-/*  get a new op and mark it in flight */
+/*  get a new op */
 static
-gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread) {
+gasnete_eop_t *_gasnete_eop_new(gasnete_threaddata_t * const thread) {
   gasnete_eopaddr_t head = thread->eop_free;
   if_pf (gasnete_eopaddr_isnil(head)) {
     gasnete_eop_alloc(thread);
@@ -194,10 +200,22 @@ gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread) {
     gasneti_assert(eop->threadidx == thread->threadidx);
     gasneti_assert(OPTYPE(eop) == OPTYPE_EXPLICIT);
     gasneti_assert(OPSTATE(eop) == OPSTATE_FREE);
+  #if GASNET_DEBUG || !GASNETE_EOP_COUNTED
     SET_OPSTATE(eop, OPSTATE_INFLIGHT);
+  #endif
     /*eop->dcmf_req = gasnetc_get_dcmf_req();*/
     return eop;
   }
+}
+
+/*  get a new op AND mark it in flight */
+GASNETI_INLINE(gasnete_eop_new)
+gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread) {
+  gasnete_eop_t *eop = _gasnete_eop_new(thread);
+#if GASNETE_EOP_COUNTED
+  eop->initiated_cnt++;
+#endif
+  return eop;
 }
 
 /*  get a new iop */
@@ -229,7 +247,7 @@ static
 int gasnete_eop_isdone(gasnete_eop_t *eop) {
   gasneti_assert(eop->threadidx == gasnete_mythread()->threadidx);
   gasnete_eop_check(eop);
-  return OPSTATE(eop) == OPSTATE_COMPLETE;
+  return GASNETE_EOP_DONE(eop);
 }
 
 /*  query an iop for completeness - this means both puts and gets */
@@ -247,7 +265,11 @@ void gasnete_op_markdone(gasnete_op_t *op, int isget) {
     gasnete_eop_t *eop = (gasnete_eop_t *)op;
     gasneti_assert(OPSTATE(eop) == OPSTATE_INFLIGHT);
     gasnete_eop_check(eop);
+#if GASNETE_EOP_COUNTED
+    gasneti_weakatomic_increment(&(eop->completed_cnt), 0);
+#else
     SET_OPSTATE(eop, OPSTATE_COMPLETE);
+#endif
   } else {
     gasnete_iop_t *iop = (gasnete_iop_t *)op;
     gasnete_iop_check(iop);
@@ -263,7 +285,7 @@ void gasnete_eop_free(gasnete_eop_t *eop) {
   gasnete_eopaddr_t addr = eop->addr;
   gasneti_assert(thread == gasnete_mythread());
   gasnete_eop_check(eop);
-  gasneti_assert(OPSTATE(eop) == OPSTATE_COMPLETE);
+  gasneti_assert(GASNETE_EOP_DONE(eop));
 #if GASNET_DEBUG
   SET_OPSTATE(eop, OPSTATE_FREE);
 #endif
