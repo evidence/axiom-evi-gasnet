@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended_op.c,v $
- * $Date: 2013/06/28 22:03:10 $
- * $Revision: 1.26 $
+ * $Date: 2013/06/30 03:43:12 $
+ * $Revision: 1.27 $
  * Description: GASNet Extended API OPs interface
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -139,6 +139,25 @@ gasnete_iop_new(gasnete_threaddata_t * const thread)
         gasnete_iop_check(iop);
 	return iop;
 }
+
+/*  query an eop for completeness */
+int 
+gasnete_eop_isdone(gasnete_eop_t *eop) 
+{
+	gasneti_assert(eop->threadidx == gasnete_mythread()->threadidx);
+	gasnete_eop_check(eop);
+	return GASNETE_EOP_DONE(eop);
+}
+
+/*  query an iop for completeness - this means both puts and gets */
+int 
+gasnete_iop_isdone(gasnete_iop_t *iop) 
+{
+	gasneti_assert(iop->threadidx == gasnete_mythread()->threadidx);
+	gasnete_iop_check(iop);
+	return (GASNETE_IOP_CNTDONE(iop,get) && GASNETE_IOP_CNTDONE(iop,put));
+}
+
 /*  mark an op done - isget ignored for explicit ops */
 void gasnete_op_markdone(gasnete_op_t *op, int isget) {
 	if (OPTYPE(op) == OPTYPE_EXPLICIT) {
@@ -164,7 +183,7 @@ void gasnete_eop_free(gasnete_eop_t *eop) {
            ONLY be called from the owning thread!!! */
         gasneti_assert(thread == gasnete_mythread());
 	gasnete_eop_check(eop);
-	gasneti_assert(OPSTATE(eop) == OPSTATE_COMPLETE);
+	gasneti_assert(GASNETE_EOP_DONE(eop));
 #if GASNET_DEBUG
 	SET_OPSTATE(eop, OPSTATE_FREE);
 #endif
@@ -179,29 +198,12 @@ void gasnete_iop_free(gasnete_iop_t *iop) {
            ONLY be called from the owning thread!!! */
         gasneti_assert(thread == gasnete_mythread());
 	gasnete_iop_check(iop);
+	gasneti_assert(GASNETE_IOP_CNTDONE(iop,get));
+	gasneti_assert(GASNETE_IOP_CNTDONE(iop,put));
 	gasneti_assert(iop->next == NULL);
 	iop->next = thread->iop_free;
 	thread->iop_free = iop;
 }
-
-/*  query an eop for completeness */
-int 
-gasnete_eop_isdone(gasnete_eop_t *eop) 
-{
-	gasneti_assert(eop->threadidx == gasnete_mythread()->threadidx);
-	gasnete_eop_check(eop);
-	return OPSTATE(eop) == OPSTATE_COMPLETE;
-}
-
-/*  query an iop for completeness - this means both puts and gets */
-int 
-gasnete_iop_isdone(gasnete_iop_t *iop) 
-{
-	gasneti_assert(iop->threadidx == gasnete_mythread()->threadidx);
-	gasnete_iop_check(iop);
-	return GASNETE_IOP_CNTDONE(iop,get) && GASNETE_IOP_CNTDONE(iop,put);
-}
-
 /* ------------------------------------------------------------------------------------ */
 /* GASNET-Internal OP Interface */
 gasneti_eop_t *gasneti_eop_create(GASNETE_THREAD_FARG_ALONE) {
