@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/30 03:13:13 $
- * $Revision: 1.121 $
+ *     $Date: 2013/06/30 21:26:01 $
+ * $Revision: 1.122 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -372,7 +372,7 @@ static
 void gasnete_op_markdone(gasnete_op_t *op, int isget) {
   if (OPTYPE(op) == OPTYPE_EXPLICIT) {
     gasnete_eop_t *eop = (gasnete_eop_t *)op;
-    gasneti_assert(OPSTATE(eop) == OPSTATE_INFLIGHT);
+    gasneti_assert(!GASNETE_EOP_DONE(eop));
     gasnete_eop_check(eop);
 #if GASNETE_EOP_COUNTED
     gasneti_weakatomic_increment(&(eop->completed_cnt), 0);

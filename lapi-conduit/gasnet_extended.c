@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/30 04:37:11 $
- * $Revision: 1.138 $
+ *     $Date: 2013/06/30 21:26:09 $
+ * $Revision: 1.139 $
  * Description: GASNet Extended API over LAPI Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -286,7 +286,7 @@ static
 void gasnete_op_markdone(gasnete_op_t *op, int isget) {
     if (OPTYPE(op) == OPTYPE_EXPLICIT) {
 	gasnete_eop_t *eop = (gasnete_eop_t *)op;
-	gasneti_assert(OPSTATE(eop) == OPSTATE_INFLIGHT);
+	gasneti_assert(!GASNETE_EOP_DONE(eop));
         gasnete_eop_check(eop);
 
 	GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&eop->cntr,eop->initiated_cnt));

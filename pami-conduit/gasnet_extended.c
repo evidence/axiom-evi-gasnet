@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2013/06/30 04:35:49 $
- * $Revision: 1.68 $
+ *     $Date: 2013/06/30 21:26:13 $
+ * $Revision: 1.69 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -233,7 +233,7 @@ static
 void gasnete_op_markdone(gasnete_op_t *op, int isget) {
   if (OPTYPE(op) == OPTYPE_EXPLICIT) {
     gasnete_eop_t *eop = (gasnete_eop_t *)op;
-    gasneti_assert(OPSTATE(eop) == OPSTATE_INFLIGHT);
+    gasneti_assert(!GASNETE_EOP_DONE(eop));
     gasnete_eop_check(eop);
 #if GASNETE_EOP_COUNTED
     gasneti_weakatomic_increment(&(eop->completed_cnt), 0);

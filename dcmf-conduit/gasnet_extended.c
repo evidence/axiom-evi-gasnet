@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_extended.c,v $
- *     $Date: 2013/06/30 04:17:24 $
- * $Revision: 1.55 $
+ *     $Date: 2013/06/30 21:25:59 $
+ * $Revision: 1.56 $
  * Description: GASNet Extended API Implementation for DCMF
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
  *                 Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -263,7 +263,7 @@ static
 void gasnete_op_markdone(gasnete_op_t *op, int isget) {
   if (OPTYPE(op) == OPTYPE_EXPLICIT) {
     gasnete_eop_t *eop = (gasnete_eop_t *)op;
-    gasneti_assert(OPSTATE(eop) == OPSTATE_INFLIGHT);
+    gasneti_assert(!GASNETE_EOP_DONE(eop));
     gasnete_eop_check(eop);
 #if GASNETE_EOP_COUNTED
     gasneti_weakatomic_increment(&(eop->completed_cnt), 0);

@@ -239,7 +239,7 @@ static
 void gasnete_op_markdone(gasnete_op_t *op, int isget) {
     if (OPTYPE(op) == OPTYPE_EXPLICIT) {
         gasnete_eop_t *eop = (gasnete_eop_t *)op;
-        gasneti_assert(OPSTATE(eop) == OPSTATE_INFLIGHT);
+        gasneti_assert(!GASNETE_EOP_DONE(eop));
         gasnete_eop_check(eop);
 #if GASNETE_EOP_COUNTED
         gasneti_weakatomic_increment(&(eop->completed_cnt), 0);
