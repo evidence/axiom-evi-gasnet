@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_extended_internal.h,v $
- *     $Date: 2013/06/30 04:43:44 $
- * $Revision: 1.41 $
+ *     $Date: 2013/06/30 05:43:31 $
+ * $Revision: 1.42 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -58,7 +58,8 @@ typedef struct _gasnete_eop_t {
   gasnete_threadidx_t threadidx;  /*  thread that owns me */
   gasnete_eopaddr_t addr;         /*  next cell while in free list, my own eopaddr_t while in use */
   #if GASNETE_EOP_COUNTED
-  gasnetc_counter_t req_oust;
+  gasnetc_atomic_val_t initiated_cnt;
+  gasnetc_atomic_t     completed_cnt;
   #endif
   #ifdef GASNETE_CONDUIT_EOP_FIELDS
   GASNETE_CONDUIT_EOP_FIELDS
@@ -178,7 +179,9 @@ void SET_OPSTATE(gasnete_eop_t *op, uint8_t state) {
           == ((_iop)->initiated_##_putget##_cnt & GASNETI_ATOMIC_MAX))
 
 #if GASNETE_EOP_COUNTED
-  #define GASNETE_EOP_DONE(_eop) gasnetc_counter_done(&((_eop)->req_oust))
+  #define GASNETE_EOP_DONE(_eop) \
+    (gasneti_weakatomic_read(&(_eop)->completed_cnt, 0) \
+          == ((_eop)->initiated_cnt & GASNETI_ATOMIC_MAX))
 #else
   #define GASNETE_EOP_DONE(_eop) (OPSTATE(_eop) == OPSTATE_COMPLETE)
 #endif

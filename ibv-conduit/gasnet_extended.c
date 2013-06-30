@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_extended.c,v $
- *     $Date: 2013/06/30 05:22:55 $
- * $Revision: 1.95 $
+ *     $Date: 2013/06/30 05:43:31 $
+ * $Revision: 1.96 $
  * Description: GASNet Extended API over VAPI/IB Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -64,11 +64,11 @@ static void gasnete_eop_alloc(gasnete_threaddata_t * const thread)) {
 	SET_OPSTATE(&(buf[i]),OPSTATE_FREE);
 	SET_OPTYPE(&(buf[i]),OPTYPE_EXPLICIT);
        #if GASNETE_EOP_COUNTED
-        buff[i].req_oust.initiated = 0;
+        buff[i].initiated_cnt = 0;
        #endif
       #endif
       #if GASNETE_EOP_COUNTED
-        gasnetc_counter_init(&(buf[i].req_oust));
+        gasnetc_atomic_set(&(buf[i].completed_cnt), 0, 0);
       #endif
     }
      /*  add a list terminator */
@@ -164,7 +164,7 @@ GASNETI_INLINE(gasnete_eop_new)
 gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread) {
   gasnete_eop_t *eop = _gasnete_eop_new(thread);
 #if GASNETE_EOP_COUNTED
-  eop->req_oust.initiated++;
+  eop->initiated_cnt++;
 #endif
   return eop;
 }
@@ -217,7 +217,7 @@ void gasnete_op_markdone(gasnete_op_t *op, int isget) {
     gasneti_assert(OPSTATE(eop) == OPSTATE_INFLIGHT);
     gasnete_eop_check(eop);
 #if GASNETE_EOP_COUNTED
-    gasnetc_atomic_increment(&(eop->req_oust.completed), 0);
+    gasnetc_atomic_increment(&(eop->completed_cnt), 0);
 #else
     SET_OPSTATE(eop, OPSTATE_COMPLETE);
 #endif
@@ -330,7 +330,7 @@ gasneti_iop_t *gasneti_iop_register(unsigned int noperations, int isget GASNETE_
 void gasneti_eop_markdone(gasneti_eop_t *eop) {
   gasnete_eop_t *op = (gasnete_eop_t *)eop;
   gasnete_eop_check(op);
-  gasnetc_counter_dec(&op->req_oust);
+  gasnetc_atomic_increment(&op->completed_cnt, 0);
   gasnete_eop_check(op);
 }
 void gasneti_iop_markdone(gasneti_iop_t *iop, unsigned int noperations, int isget) {
@@ -429,7 +429,7 @@ extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void
   gasnete_eop_t *op = _gasnete_eop_new(GASNETE_MYTHREAD);
 
   /* XXX check error returns */
-  gasnetc_rdma_get(node, src, dest, nbytes, &op->req_oust.initiated, &op->req_oust.completed);
+  gasnetc_rdma_get(node, src, dest, nbytes, &op->initiated_cnt, &op->completed_cnt);
 
   return (gasnet_handle_t)op;
  }
@@ -442,7 +442,7 @@ extern gasnet_handle_t gasnete_put_nb      (gasnet_node_t node, void *dest, void
   gasnetc_counter_t mem_oust = GASNETC_COUNTER_INITIALIZER;
 
   /* XXX check error returns */
-  gasnetc_rdma_put(node, src, dest, nbytes, &mem_oust, &op->req_oust.initiated, &op->req_oust.completed);
+  gasnetc_rdma_put(node, src, dest, nbytes, &mem_oust, &op->initiated_cnt, &op->completed_cnt);
   gasnetc_counter_wait(&mem_oust, 0);
 
   return (gasnet_handle_t)op;
@@ -455,7 +455,7 @@ extern gasnet_handle_t gasnete_put_nb_bulk (gasnet_node_t node, void *dest, void
   gasnete_eop_t *op = _gasnete_eop_new(GASNETE_MYTHREAD);
 
   /* XXX check error returns */
-  gasnetc_rdma_put(node, src, dest, nbytes, NULL, &op->req_oust.initiated, &op->req_oust.completed);
+  gasnetc_rdma_put(node, src, dest, nbytes, NULL, &op->initiated_cnt, &op->completed_cnt);
 
   return (gasnet_handle_t)op;
  }
@@ -469,7 +469,7 @@ extern gasnet_handle_t gasnete_memset_nb   (gasnet_node_t node, void *dest, int 
   GASNETI_SAFE(
     SHORT_REQ(4,7,(node, gasneti_handleridx(gasnete_memset_reqh),
                  (gasnet_handlerarg_t)val, PACK(nbytes),
-                 PACK(dest), PACK(&op->req_oust.completed))));
+                 PACK(dest), PACK(&op->completed_cnt))));
 
   return (gasnet_handle_t)op;
  }
