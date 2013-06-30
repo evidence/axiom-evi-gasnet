@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2013/06/29 06:22:15 $
- * $Revision: 1.43 $
+ *     $Date: 2013/06/30 03:13:13 $
+ * $Revision: 1.44 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -195,6 +195,14 @@ void SET_OPCAT(gasnete_eop_t *op, uint8_t cat) {
 #define GASNETE_IOP_CNTDONE(_iop, _putget) \
   (gasneti_weakatomic_read(&(_iop)->completed_##_putget##_cnt, 0) \
           == ((_iop)->initiated_##_putget##_cnt & GASNETI_ATOMIC_MAX))
+
+#if GASNETE_EOP_COUNTED
+  #define GASNETE_EOP_DONE(_eop) \
+    (gasneti_weakatomic_read(&(_eop)->completed_cnt, 0) \
+          == ((_eop)->initiated_cnt & GASNETI_ATOMIC_MAX))
+#else
+  #define GASNETE_EOP_DONE(_eop) (OPSTATE(_eop) == OPSTATE_COMPLETE)
+#endif
 
 /*  1 = scatter newly allocated eops across cache lines to reduce false sharing */
 #define GASNETE_SCATTER_EOPS_ACROSS_CACHELINES    1 

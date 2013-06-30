@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/29 07:49:59 $
- * $Revision: 1.120 $
+ *     $Date: 2013/06/30 03:13:13 $
+ * $Revision: 1.121 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -19,6 +19,10 @@
 static int gasnete_nbi_throttle = 0;
 static const gasnete_eopaddr_t EOPADDR_NIL = { { 0xFF, 0xFF } };
 extern void _gasnete_iop_check(gasnete_iop_t *iop) { gasnete_iop_check(iop); }
+
+#if GASNETE_EOP_COUNTED
+#error "Build config error: elan requires GASNETE_EOP_BOOLEAN"
+#endif
 
 #if GASNETE_MULTI_PGCTRL
   int gasnete_elan_pgctrl_cnt = 0;
@@ -151,6 +155,12 @@ static void gasnete_eop_alloc(gasnete_threaddata_t * const thread)) {
       #if 0 /* these can safely be skipped when the values are zero */
         SET_OPSTATE(&(buf[i]),OPSTATE_FREE); 
         SET_OPTYPE(&(buf[i]),OPTYPE_EXPLICIT); 
+       #if GASNETE_EOP_COUNTED
+        buff[i].initiated_cnt = 0;
+       #endif
+      #endif
+      #if GASNETE_EOP_COUNTED
+        gasneti_weakatomic_set(&buf[i].completed_cnt, 0 , 0);
       #endif
     }
      /*  add a list terminator */
@@ -220,9 +230,9 @@ static gasnete_iop_t *gasnete_iop_alloc(gasnete_threaddata_t * const thread)) {
     return iop;
 }
 
-/*  get a new op and mark it in flight */
+/*  get a new op */
 static
-gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread, uint8_t const cat) {
+gasnete_eop_t *_gasnete_eop_new(gasnete_threaddata_t * const thread, uint8_t const cat) {
   gasnete_eopaddr_t head = thread->eop_free;
   if_pf (gasnete_eopaddr_isnil(head)) {
     gasnete_eop_alloc(thread);
@@ -243,6 +253,16 @@ gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread, uint8_t cons
     #endif
     return eop;
   }
+}
+
+/*  get a new op AND mark it in flight */
+GASNETI_INLINE(gasnete_eop_new)
+gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread, uint8_t const cat) {
+  gasnete_eop_t *eop = _gasnete_eop_new(thread,cat);
+#if GASNETE_EOP_COUNTED
+  eop->initiated_cnt++;
+#endif
+  return eop;
 }
 
 /*  get a new iop */
@@ -354,7 +374,11 @@ void gasnete_op_markdone(gasnete_op_t *op, int isget) {
     gasnete_eop_t *eop = (gasnete_eop_t *)op;
     gasneti_assert(OPSTATE(eop) == OPSTATE_INFLIGHT);
     gasnete_eop_check(eop);
+#if GASNETE_EOP_COUNTED
+    gasneti_weakatomic_increment(&(eop->completed_cnt), 0);
+#else
     SET_OPSTATE(eop, OPSTATE_COMPLETE);
+#endif
   } else {
     gasnete_iop_t *iop = (gasnete_iop_t *)op;
     gasnete_iop_check(iop);
@@ -371,7 +395,7 @@ void gasnete_eop_free(gasnete_eop_t *eop) {
   {
     gasnete_eopaddr_t addr = eop->addr;
     gasnete_eop_check(eop);
-    gasneti_assert(OPSTATE(eop) == OPSTATE_COMPLETE);
+    gasneti_assert(GASNETE_EOP_DONE(eop));
   #if GASNET_DEBUG
     SET_OPSTATE(eop, OPSTATE_FREE);
   #endif
@@ -387,6 +411,8 @@ void gasnete_iop_free(gasnete_iop_t *iop) {
   gasneti_assert(thread == gasnete_mythread());
   {
     gasnete_iop_check(iop);
+    gasneti_assert(GASNETE_IOP_CNTDONE(iop,get));
+    gasneti_assert(GASNETE_IOP_CNTDONE(iop,put));
     gasneti_assert(iop->next == NULL);
     iop->next = thread->iop_free;
     thread->iop_free = iop;
