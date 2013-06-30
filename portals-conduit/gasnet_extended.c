@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/30 21:26:15 $
- * $Revision: 1.41 $
+ *     $Date: 2013/06/30 22:40:39 $
+ * $Revision: 1.42 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -239,9 +239,8 @@ static
 void gasnete_op_markdone(gasnete_op_t *op, int isget) {
   if (OPTYPE(op) == OPTYPE_EXPLICIT) {
     gasnete_eop_t *eop = (gasnete_eop_t *)op;
-    gasneti_assert(!GASNETE_EOP_DONE(eop));
     gasnete_eop_check(eop);
-    SET_OPSTATE((gasnete_op_t*)eop, OPSTATE_COMPLETE);
+    GASNETE_EOP_MARKDONE(eop);
   } else {
     gasnete_iop_t *iop = (gasnete_iop_t *)op;
     gasnete_iop_check(iop);
@@ -344,8 +343,9 @@ gasneti_iop_t *gasneti_iop_register(unsigned int noperations, int isget GASNETE_
   return (gasneti_iop_t *)op;
 }
 void gasneti_eop_markdone(gasneti_eop_t *eop) {
-  gasneti_assert(OPTYPE( ((gasnete_eop_t*)eop) ) == OPTYPE_EXPLICIT);
-  gasnete_op_markdone((gasnete_op_t *)eop, 0);
+  gasnete_eop_t *op = (gasnete_eop_t *)eop;
+  gasnete_eop_check(op);
+  GASNETE_EOP_MARKDONE(op);
 }
 void gasneti_iop_markdone(gasneti_iop_t *iop, unsigned int noperations, int isget) {
   gasnete_iop_t *op = (gasnete_iop_t *)iop;
@@ -392,7 +392,7 @@ extern void gasnete_init(void) {
 
     /* cause the first pool of eops and iops to be allocated (optimization) */
     eop = gasnete_eop_new(threaddata);
-    gasnete_op_markdone((gasnete_op_t *)eop, 0);
+    GASNETE_EOP_MARKDONE(eop);
     gasnete_eop_free(eop);
 
     /* MLW: add for iops as well */

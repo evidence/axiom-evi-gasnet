@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2013/06/29 05:06:47 $
- * $Revision: 1.18 $
+ *     $Date: 2013/06/30 22:40:39 $
+ * $Revision: 1.19 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -216,6 +216,22 @@ gasnete_op_t *gasnete_opaddr_to_ptr(gasnete_threadidx_t threadid, gasnete_opaddr
 #define GASNETE_IOP_CNTDONE(_iop, _putget) \
   (gasneti_weakatomic_read(&(_iop)->completed_##_putget##_cnt, 0) \
           == ((_iop)->initiated_##_putget##_cnt & GASNETI_ATOMIC_MAX))
+
+#if GASNETE_EOP_COUNTED
+  #define GASNETE_EOP_DONE(_eop) \
+    (gasneti_weakatomic_read(&(_eop)->completed_cnt, 0) \
+          == ((_eop)->initiated_cnt & GASNETI_ATOMIC_MAX))
+  #define GASNETE_EOP_MARKDONE(_eop) do {                        \
+      gasneti_assert(!GASNETE_EOP_DONE(_eop));                   \
+      gasneti_weakatomic_increment(&((_eop)->completed_cnt), 0); \
+    } while (0)
+#else
+  #define GASNETE_EOP_DONE(_eop) (OPSTATE(_eop) == OPSTATE_COMPLETE)
+  #define GASNETE_EOP_MARKDONE(_eop) do {      \
+      gasneti_assert(!GASNETE_EOP_DONE(_eop)); \
+      SET_OPSTATE((_eop), OPSTATE_COMPLETE);   \
+    } while (0)
+#endif
 
 /*  1 = scatter newly allocated eops across cache lines to reduce false sharing */
 #define GASNETE_SCATTER_EOPS_ACROSS_CACHELINES    1 
