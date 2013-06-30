@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/30 04:03:43 $
- * $Revision: 1.94 $
+ *     $Date: 2013/06/30 05:22:55 $
+ * $Revision: 1.95 $
  * Description: GASNet Extended API over VAPI/IB Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -464,9 +464,8 @@ extern gasnet_handle_t gasnete_put_nb_bulk (gasnet_node_t node, void *dest, void
 extern gasnet_handle_t gasnete_memset_nb   (gasnet_node_t node, void *dest, int val, size_t nbytes GASNETE_THREAD_FARG) {
  GASNETI_CHECKPSHM_MEMSET(H);
  {
-  gasnete_eop_t *op = _gasnete_eop_new(GASNETE_MYTHREAD);
+  gasnete_eop_t *op = gasnete_eop_new(GASNETE_MYTHREAD); /* no leading _ == count of 1 */
 
-  gasnetc_counter_inc(&op->req_oust);
   GASNETI_SAFE(
     SHORT_REQ(4,7,(node, gasneti_handleridx(gasnete_memset_reqh),
                  (gasnet_handlerarg_t)val, PACK(nbytes),
