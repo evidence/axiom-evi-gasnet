@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2013/06/29 05:06:49 $
- * $Revision: 1.39 $
+ *     $Date: 2013/06/30 02:25:47 $
+ * $Revision: 1.40 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -12,6 +12,21 @@
 #include <gasnet_internal.h>
 #ifdef GASNETE_EXTENDED_NEEDS_CORE
 #include <gasnet_core_internal.h>
+#endif
+
+/* ------------------------------------------------------------------------------------ */
+
+#if defined(GASNETE_EOP_COUNTED)
+#  ifdef GASNETE_EOP_BOOLEAN
+#    error "Only one of GASNETE_EOP_COUNTED or GASNETE_EOP_BOOLEAN may be defined"
+#  endif
+#  undef GASNETE_EOP_COUNTED
+#  define GASNETE_EOP_COUNTED 1
+#  define GASNETE_EOP_BOOLEAN 0
+#else
+#  undef GASNETE_EOP_BOOLEAN
+#  define GASNETE_EOP_BOOLEAN 1
+#  define GASNETE_EOP_COUNTED 0
 #endif
 
 /* ------------------------------------------------------------------------------------ */
@@ -153,6 +168,12 @@ void SET_OPSTATE(gasnete_eop_t *op, uint8_t state) {
   (gasnetc_atomic_read(&(_iop)->completed_##_putget##_cnt, 0) \
           == ((_iop)->initiated_##_putget##_cnt & GASNETI_ATOMIC_MAX))
 
+#if GASNETE_EOP_COUNTED
+  #define GASNETE_EOP_DONE(_eop) gasnetc_counter_done(&((_eop)->req_oust))
+#else
+  #define GASNETE_EOP_DONE(_eop) (OPSTATE(_eop) == OPSTATE_COMPLETE)
+#endif
+
 /*  1 = scatter newly allocated eops across cache lines to reduce false sharing */
 #define GASNETE_SCATTER_EOPS_ACROSS_CACHELINES    1 
 
@@ -162,8 +183,14 @@ void SET_OPSTATE(gasnete_eop_t *op, uint8_t state) {
 #define _hidx_gasnete_amdbarrier_notify_reqh (GASNETE_HANDLER_BASE+0) 
 #define _hidx_gasnete_amcbarrier_notify_reqh (GASNETE_HANDLER_BASE+1) 
 #define _hidx_gasnete_amcbarrier_done_reqh   (GASNETE_HANDLER_BASE+2)
-#define _hidx_gasnete_markdone_reph          (GASNETE_HANDLER_BASE+3)
-#define _hidx_gasnete_memset_reqh            (GASNETE_HANDLER_BASE+4)
+#define _hidx_gasnete_amref_get_reqh         (GASNETE_HANDLER_BASE+3)
+#define _hidx_gasnete_amref_get_reph         (GASNETE_HANDLER_BASE+4)
+#define _hidx_gasnete_amref_getlong_reqh     (GASNETE_HANDLER_BASE+5)
+#define _hidx_gasnete_amref_getlong_reph     (GASNETE_HANDLER_BASE+6)
+#define _hidx_gasnete_amref_put_reqh         (GASNETE_HANDLER_BASE+7)
+#define _hidx_gasnete_amref_putlong_reqh     (GASNETE_HANDLER_BASE+8)
+#define _hidx_gasnete_amref_memset_reqh      (GASNETE_HANDLER_BASE+9)
+#define _hidx_gasnete_amref_markdone_reph    (GASNETE_HANDLER_BASE+10)
 /* add new extended API handlers here and to the bottom of gasnet_extended.c */
 
 #endif

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_extended_fwd.h,v $
- *     $Date: 2013/06/29 05:06:49 $
- * $Revision: 1.33 $
+ *     $Date: 2013/06/30 02:25:47 $
+ * $Revision: 1.34 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -65,7 +65,12 @@ typedef struct _gasnete_op_t *gasnet_handle_t;
 #define GASNETI_DIRECT_PUT_BULK 1
 #define GASNETI_DIRECT_MEMSET 1
 
+#define GASNETE_EOP_COUNTED 1
 #define GASNETE_EXTENDED_NEEDS_CORE 1
+
+/* Stealing these unused slots: */
+#define _hidx_gasnete_memset_reqh    _hidx_gasnete_amref_memset_reqh
+#define _hidx_gasnete_markdone_reph  _hidx_gasnete_amref_markdone_reph
 
 #endif
 
