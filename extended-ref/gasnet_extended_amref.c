@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_amref.c,v $
- *     $Date: 2013/06/30 21:23:08 $
- * $Revision: 1.99 $
+ *     $Date: 2013/06/30 21:55:47 $
+ * $Revision: 1.100 $
  * Description: GASNet Extended API Reference Implementation: AM-base Get/Put/Memset
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -62,6 +62,12 @@
  * file from its own gasnete_{get,put,memset}*() as needed (for instance
  * for dealing with out-of-segment arguments which cannot be dealt with
  * using native RDMA mechanisms).
+ *
+ * By default, the code here uses counter increments directly when one
+ * has defined GASNETE_EOP_COUNTED, and calls to gasnete_op_markdone()
+ * for the (default) GASNETE_EOP_BOOLEAN case.  If a conduit defines
+ * GASNETE_AMREF_USE_MARKDONE to 1, then this code will use calls to
+ * gasnete_op_markdone() unconditionally.
  *
  * NOTE: If tempted to clone this file into your conduit in order to get
  * finer-grained control over what is build, then instead *please* email
@@ -130,7 +136,7 @@
   ===========
 */
 
-#if GASNETE_EOP_COUNTED
+#if GASNETE_EOP_COUNTED && !GASNETE_AMREF_USE_MARKDONE
   #define PACK_EOP_DONE(_eop)         PACK(&(_eop)->completed_cnt)
   #define PACK_IOP_DONE(_iop,_getput) PACK(&(_iop)->completed_##_getput##_cnt)
   #define MARK_DONE(_ptr,_isget)      gasneti_weakatomic_increment((gasneti_weakatomic_t *)(_ptr), \
