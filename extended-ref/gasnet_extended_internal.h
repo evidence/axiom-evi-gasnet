@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_internal.h,v $
- *     $Date: 2013/06/29 05:06:41 $
- * $Revision: 1.40 $
+ *     $Date: 2013/06/30 00:27:57 $
+ * $Revision: 1.41 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -12,6 +12,21 @@
 #include <gasnet_internal.h>
 #ifdef GASNETE_EXTENDED_NEEDS_CORE
 #include <gasnet_core_internal.h>
+#endif
+
+/* ------------------------------------------------------------------------------------ */
+
+#if defined(GASNETE_EOP_COUNTED)
+#  ifdef GASNETE_EOP_BOOLEAN
+#    error "Only one of GASNETE_EOP_COUNTED or GASNETE_EOP_BOOLEAN may be defined"
+#  endif
+#  undef GASNETE_EOP_COUNTED
+#  define GASNETE_EOP_COUNTED 1
+#  define GASNETE_EOP_BOOLEAN 0
+#else
+#  undef GASNETE_EOP_BOOLEAN
+#  define GASNETE_EOP_BOOLEAN 1
+#  define GASNETE_EOP_COUNTED 0
 #endif
 
 /* ------------------------------------------------------------------------------------ */
@@ -42,7 +57,10 @@ typedef struct _gasnete_eop_t {
   uint8_t flags;                  /*  state flags */
   gasnete_threadidx_t threadidx;  /*  thread that owns me */
   gasnete_eopaddr_t addr;         /*  next cell while in free list, my own eopaddr_t while in use */
-
+  #if GASNETE_EOP_COUNTED
+  gasneti_weakatomic_val_t initiated_cnt;
+  gasneti_weakatomic_t     completed_cnt;
+  #endif
   #ifdef GASNETE_CONDUIT_EOP_FIELDS
   GASNETE_CONDUIT_EOP_FIELDS
   #endif
@@ -158,6 +176,14 @@ void SET_OPSTATE(gasnete_eop_t *op, uint8_t state) {
 #define GASNETE_IOP_CNTDONE(_iop, _putget) \
   (gasneti_weakatomic_read(&(_iop)->completed_##_putget##_cnt, 0) \
           == ((_iop)->initiated_##_putget##_cnt & GASNETI_ATOMIC_MAX))
+
+#if GASNETE_EOP_COUNTED
+  #define GASNETE_EOP_DONE(_eop) \
+    (gasneti_weakatomic_read(&(_eop)->completed_cnt, 0) \
+          == ((_eop)->initiated_cnt & GASNETI_ATOMIC_MAX))
+#else
+  #define GASNETE_EOP_DONE(_eop) (OPSTATE(_eop) == OPSTATE_COMPLETE)
+#endif
 
 /*  1 = scatter newly allocated eops across cache lines to reduce false sharing */
 #define GASNETE_SCATTER_EOPS_ACROSS_CACHELINES    1 
