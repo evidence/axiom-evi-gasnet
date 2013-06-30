@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_amref.c,v $
- *     $Date: 2013/06/30 03:20:42 $
- * $Revision: 1.97 $
+ *     $Date: 2013/06/30 07:40:04 $
+ * $Revision: 1.98 $
  * Description: GASNet Extended API Reference Implementation: AM-base Get/Put/Memset
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -47,7 +47,7 @@
  * If one does not define ANY of those, then this file contains no code.
  *
  * One can (as in extended-ref/gasnet_extended.c) use these directly by
- * using one or more of the following defined *before* including this
+ * using one or more of the following defines *before* including this
  * file to shift the names of the functions listed above:
  *    #define gasnete_amref_get_nb_bulk   gasnete_get_nb_bulk
  *    #define gasnete_amref_get_nbi_bulk  gasnete_get_nbi_bulk
@@ -63,7 +63,7 @@
  * for dealing with out-of-segment arguments which cannot be dealt with
  * using native RDMA mechanisms).
  *
- * NOTE: If tempted to clone this file into yout conduit in order to get
+ * NOTE: If tempted to clone this file into your conduit in order to get
  * finer-grained control over what is build, then instead *please* email
  * upc-devel@lbl.gov to request finer-grained GASNETE_BUILD_AMREF_*.
  */
