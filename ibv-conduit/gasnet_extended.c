@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_extended.c,v $
- *     $Date: 2013/06/30 02:25:47 $
- * $Revision: 1.93 $
+ *     $Date: 2013/06/30 04:03:43 $
+ * $Revision: 1.94 $
  * Description: GASNet Extended API over VAPI/IB Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -152,7 +152,7 @@ gasnete_eop_t *_gasnete_eop_new(gasnete_threaddata_t * const thread) {
     gasneti_assert(eop->threadidx == thread->threadidx);
     gasneti_assert(OPTYPE(eop) == OPTYPE_EXPLICIT);
     gasneti_assert(OPSTATE(eop) == OPSTATE_FREE);
-  #if GASNET_DEBUG || GASNETE_EOP_BOOLEAN
+  #if GASNET_DEBUG || !GASNETE_EOP_COUNTED
     SET_OPSTATE(eop, OPSTATE_INFLIGHT);
   #endif
     return eop;

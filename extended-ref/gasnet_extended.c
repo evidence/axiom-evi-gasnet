@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended.c,v $
- *     $Date: 2013/06/30 00:27:57 $
- * $Revision: 1.98 $
+ *     $Date: 2013/06/30 04:03:39 $
+ * $Revision: 1.99 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -155,7 +155,7 @@ gasnete_eop_t *_gasnete_eop_new(gasnete_threaddata_t * const thread) {
     gasneti_assert(eop->threadidx == thread->threadidx);
     gasneti_assert(OPTYPE(eop) == OPTYPE_EXPLICIT);
     gasneti_assert(OPSTATE(eop) == OPSTATE_FREE);
-  #if GASNET_DEBUG || GASNETE_EOP_BOOLEAN
+  #if GASNET_DEBUG || !GASNETE_EOP_COUNTED
     SET_OPSTATE(eop, OPSTATE_INFLIGHT);
   #endif
     return eop;
