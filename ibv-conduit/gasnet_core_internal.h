@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2013/06/30 05:10:35 $
- * $Revision: 1.237 $
+ *     $Date: 2013/07/01 05:54:54 $
+ * $Revision: 1.238 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -929,8 +929,9 @@ extern int gasnetc_ReplyGeneric(gasnetc_category_t category,
   extern int gasnetc_rdma_put(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, size_t nbytes, gasnetc_counter_t *mem_oust, gasnetc_atomic_val_t *initiated, gasnetc_atomic_t *completed);
 #else
   extern int gasnetc_rdma_put_fh(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, size_t nbytes, gasnetc_counter_t *mem_oust, gasnetc_atomic_val_t *initiated, gasnetc_atomic_t *completed, gasnetc_counter_t *am_oust);
-  #define gasnetc_rdma_put(epid,src_ptr,dst_ptr,nbytes,mem_oust,initiated,completed) \
-	gasnetc_rdma_put_fh(epid,src_ptr,dst_ptr,nbytes,mem_oust,initiated,completed,NULL)
+  GASNETI_INLINE(gasnetc_rdma_put)
+  int gasnetc_rdma_put(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, size_t nbytes, gasnetc_counter_t *mem_oust, gasnetc_atomic_val_t *initiated, gasnetc_atomic_t *completed)
+  { return gasnetc_rdma_put_fh(epid,src_ptr,dst_ptr,nbytes,mem_oust,initiated,completed,NULL); }
 #endif
 extern int gasnetc_rdma_get(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, size_t nbytes, gasnetc_atomic_val_t *initiated, gasnetc_atomic_t *completed);
 extern int gasnetc_rdma_putv(gasnetc_epid_t epid, size_t srccount, gasnet_memvec_t const srclist[], void *dst_ptr, gasnetc_counter_t *mem_oust, gasnetc_atomic_val_t *initiated, gasnetc_atomic_t *completed);
