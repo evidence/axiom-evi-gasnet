@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/06/30 05:10:35 $
- * $Revision: 1.311 $
+ *     $Date: 2013/07/01 07:20:44 $
+ * $Revision: 1.312 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -987,8 +987,7 @@ static int gasnetc_snd_reap(int limit) {
 	    gasneti_assert(sreq->bb_addr != NULL);
 	    gasneti_assert(sreq->bb_len > 0);
 	    memcpy(sreq->bb_addr, sreq->bb_buff, sreq->bb_len);
-            gasneti_sync_writes();
-            gasnetc_atomic_increment(sreq->completed, 0);
+	    gasnetc_atomic_increment(sreq->completed, GASNETI_ATOMIC_REL);
 	    GASNETC_COLLECT_BBUF(sreq->bb_buff);
 	    break;
           #endif
