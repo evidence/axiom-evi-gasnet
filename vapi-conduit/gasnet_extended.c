@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/06/30 22:29:19 $
- * $Revision: 1.99 $
+ *     $Date: 2013/07/01 01:36:57 $
+ * $Revision: 1.100 $
  * Description: GASNet Extended API over VAPI/IB Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -601,8 +601,10 @@ extern int  gasnete_try_syncnbi_gets(GASNETE_THREAD_FARG_ALONE) {
       gasneti_fatalerror("VIOLATION: attempted to call gasnete_try_syncnbi_gets() inside an NBI access region");
   #endif
 
-  /* TODO: why don't we have a sync_reads() on success like extended-ref does? */
-  return GASNETE_IOP_CNTDONE(iop,get) ? GASNET_OK : GASNET_ERR_NOT_READY;
+    if (GASNETE_IOP_CNTDONE(iop,get)) {
+      gasneti_sync_reads();
+      return GASNET_OK;
+    } else return GASNET_ERR_NOT_READY;
  }
 }
 
@@ -622,8 +624,11 @@ extern int  gasnete_try_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
       gasneti_fatalerror("VIOLATION: attempted to call gasnete_try_syncnbi_puts() inside an NBI access region");
   #endif
 
-  /* TODO: why don't we have a sync_reads() on success like extended-ref does? */
-  return GASNETE_IOP_CNTDONE(iop,put) ? GASNET_OK : GASNET_ERR_NOT_READY;
+
+    if (GASNETE_IOP_CNTDONE(iop,put)) {
+      gasneti_sync_reads();
+      return GASNET_OK;
+    } else return GASNET_ERR_NOT_READY;
  }
 }
 
