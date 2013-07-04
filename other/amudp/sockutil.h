@@ -1,6 +1,6 @@
 //   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/sockutil.h,v $
-//     $Date: 2010/09/23 20:04:52 $
-// $Revision: 1.6 $
+//     $Date: 2013/07/04 01:20:42 $
+// $Revision: 1.7 $
 // Description: Simple sock utils
 // Copyright 1999, Dan Bonachea
 
@@ -120,6 +120,9 @@ SockAddr DNSLookup(const char *hostnameOrIPStr);
   // don't call on a local hostname, because there may be several interfaces 
   // and we may get the wrong one
 
+bool getIfaceAddr(SockAddr ipnet_sa, SockAddr &ret);
+  // returns true, and sets *ret, if we have a local interface on the subnet
+  // given by ipnet_sa
 
 #ifdef __cplusplus
   extern "C" {

@@ -1,6 +1,6 @@
 GASNet udp-conduit documentation
 Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.8 $
+$Revision: 1.9 $
 
 User Information:
 -----------------
@@ -36,6 +36,18 @@ Recognized environment variables:
   connections. If zero, no explicit forwarding is performed and this duty 
   is left up to the underlying system and job spawner.  The default is
   system-dependent.
+
+* GASNET_MASTERIP
+  Specify the exact IP address which the worker nodes should use to connect
+  to the master (spawning) node.  By default the master node will pass the
+  result of gethostname() to the worker nodes, which will then resolve that
+  to an IP address using gethostbynname().
+
+* GASNET_WORKERIP
+  Specify the IP subnet to be used for communication among the worker nodes.
+  By default, worker nodes will communicate among themselves using the same
+  interface used to connect to the master node (see GASNET_MASTERIP, above).
+  Example: GASNET_WORKERIP=192.168.0.0
 
 Optional compile-time settings:
 ------------------------------

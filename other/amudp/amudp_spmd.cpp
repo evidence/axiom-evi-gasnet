@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_spmd.cpp,v $
- *     $Date: 2011/07/25 20:28:46 $
- * $Revision: 1.47 $
+ *     $Date: 2013/07/04 01:20:42 $
+ * $Revision: 1.48 $
  * Description: AMUDP Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -505,6 +505,18 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
         slaveargv[2] = masteraddrstr;
       #endif
     }
+    #if HAVE_GETIFADDRS
+      // append WORKERIP which it is needed before the master env is sent
+      { char *network = AMUDP_getenv_prefixed_withdefault("WORKERIP","");
+        if (network && network[0]) {
+          char *tmp = (char*)AMUDP_malloc(2+strlen(network)+strlen(slaveargv[2]));
+          strcpy(tmp, slaveargv[2]);
+          strcat(tmp,"@");
+          strcat(tmp,network);
+          slaveargv[2] = tmp;
+        }
+      }
+    #endif
     for (int k = 1; k < (*argc); k++) {
       slaveargv[k+2] = (*argv)[k];
     }
@@ -884,8 +896,19 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
 
     // parse special args 
     SockAddr masterAddr;
+    #if HAVE_GETIFADDRS
+      char *network = NULL;
+    #endif
     if ((*argc) < 3) AMUDP_Err("Missing arguments to slave process");
     {
+      #if HAVE_GETIFADDRS
+        // extract appended WORKERIP which it is needed before the master env is sent
+        char *delimiter = strchr((*argv)[2],'@');
+        if (delimiter != NULL) {
+          network = delimiter+1;
+          *delimiter = '\0';
+        }
+      #endif
       if (strchr((*argv)[2],',')) {
         masterAddr = SockAddr((*argv)[2]);
       } else {
@@ -934,6 +957,20 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
         /* here we assume the interface used to contact the master is the same 
            one to be used for UDP endpoints */
         SockAddr myinterface = getsockname(AMUDP_SPMDControlSocket);
+        #if HAVE_GETIFADDRS // allow user to override our same-interface assumption
+          network = AMUDP_getenv_prefixed_withdefault("WORKERIP",network);
+          if (network && network[0]) {
+            SockAddr networkaddr(network, 0);
+            if (! getIfaceAddr(networkaddr, myinterface)) {
+              AMUDP_Err("Failed to find interface on requested subnet %s", network);
+              AMUDP_RETURN(AM_ERR_RESOURCE);
+            }
+          }
+        #endif
+        if (!AMUDP_SilentMode) {
+          fprintf(stderr, "slave using IP %s\n", myinterface.IPStr());
+          fflush(stderr);
+        }
         AMUDP_SetUDPInterface(myinterface.IP());
       #endif
         

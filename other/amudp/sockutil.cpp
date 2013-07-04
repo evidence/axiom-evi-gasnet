@@ -1,6 +1,6 @@
 //   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/sockutil.cpp,v $
-//     $Date: 2010/09/25 22:55:25 $
-// $Revision: 1.20 $
+//     $Date: 2013/07/04 01:20:42 $
+// $Revision: 1.21 $
 // Description: Simple sock utils
 // Copyright 1999, Dan Bonachea
 
@@ -694,5 +694,35 @@ extern int myrecvfrom(SOCKET s, char * buf, int len, int flags,
   }
 }
 /* ------------------------------------------------------------------------------------ */
+#if HAVE_GETIFADDRS
+#if HAVE_IFADDRS_H
+#include <ifaddrs.h>
+#endif
+bool getIfaceAddr(SockAddr ipnet_sa, SockAddr &ret) {
+  struct sockaddr_in *net = (sockaddr_in*)ipnet_sa;
+  struct sockaddr_in *result = (sockaddr_in*)ret;
+  bool found = false;
+  struct ifaddrs *ifas;
 
+  if (getifaddrs(&ifas) != -1) {
+    for (struct ifaddrs *ifa = ifas; ifa != NULL; ifa = ifa->ifa_next) {
+      if (!ifa->ifa_addr || (ifa->ifa_addr->sa_family != AF_INET))
+        continue;
+      
+      struct sockaddr_in *if_addr = (sockaddr_in*)ifa->ifa_addr;
+      struct sockaddr_in *if_mask = (sockaddr_in*)ifa->ifa_netmask;
 
+      if ((if_addr->sin_addr.s_addr & if_mask->sin_addr.s_addr) == net->sin_addr.s_addr) {
+        memcpy(result, if_addr, sizeof(struct sockaddr_in));
+        result->sin_port = 0;
+        found = true;
+        break;
+      }
+    }
+    freeifaddrs(ifas);
+  }
+
+  return found;
+}
+#endif // HAVE_GETIFADDRS
+/* ------------------------------------------------------------------------------------ */
