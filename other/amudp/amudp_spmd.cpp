@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_spmd.cpp,v $
- *     $Date: 2013/07/04 01:20:42 $
- * $Revision: 1.48 $
+ *     $Date: 2013/07/04 01:25:06 $
+ * $Revision: 1.49 $
  * Description: AMUDP Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -897,7 +897,7 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
     // parse special args 
     SockAddr masterAddr;
     #if HAVE_GETIFADDRS
-      char *network = NULL;
+      char *network = "";
     #endif
     if ((*argc) < 3) AMUDP_Err("Missing arguments to slave process");
     {
