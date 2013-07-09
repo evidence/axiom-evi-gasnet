@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4.c,v $
- *     $Date: 2013/05/23 20:41:22 $
- * $Revision: 1.40 $
+ *     $Date: 2013/07/09 18:00:25 $
+ * $Revision: 1.41 $
  * Description: Portals 4 specific configuration
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
@@ -396,25 +396,8 @@ gasnetc_p4_init(int *rank, int *size)
 
     ret = PtlEQAlloc(matching_ni_h, p4_am_eq_len, &am_send_eq_h);
     if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlEQAlloc(send)");
-#ifdef PTL_MD_EVENT_SEND_DISABLE
-    /* TODO: EVENT_SEND_DISABLE is part of the 4.0 spec but was only
-       implemented in the reference implementation on April 23, 2013.
-       Before 1.22.0 release, we should remove the checks for
-       EVENT_SEND_DISABLE, as everyone should have it. - BWB
-       4/23/2013 */
+    /* Every send generates the ACK event, so initialize the send credits to size of eq */
     gasneti_semaphore_init(&p4_send_credits, p4_am_eq_len - 1, p4_am_eq_len - 1);
-#else
-    /* Every send will generate two events, the SEND event and the ACK
-       event.  We don't track them seperately because the retransmit
-       logical essentially means we either 1) need to hold both
-       credits until the ACK comes in or 2) reacquire credits in the
-       retransmit case, which has a whole host of deadlock
-       possibilities.  Since most hardware implementations are likely
-       to generate the SEND only slightly before the ACK (due to
-       end-to-end retransmit), this isn't that big of an optimization
-       loss anyway. */
-    gasneti_semaphore_init(&p4_send_credits, p4_am_eq_len / 2 - 1, p4_am_eq_len / 2 - 1);
-#endif
 
     ret = PtlEQAlloc(matching_ni_h, p4_am_eq_len, &am_recv_eq_h);
     if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlEQAlloc(recv)");
@@ -440,11 +423,7 @@ gasnetc_p4_init(int *rank, int *size)
     /* Allocate memory descriptor for active message transfer (including long transfers) */
     md.start     = 0;
     md.length    = PTL_SIZE_MAX;
-#ifdef PTL_MD_EVENT_SEND_DISABLE
     md.options   = PTL_MD_EVENT_SEND_DISABLE;
-#else
-    md.options   = 0;
-#endif
     md.eq_handle = am_send_eq_h;
     md.ct_handle = PTL_CT_NONE;
     ret = PtlMDBind(matching_ni_h,
@@ -491,7 +470,7 @@ gasnetc_p4_init(int *rank, int *size)
     me.min_free = 0;
     me.ct_handle = bootstrap_barrier_ct_h;
     me.uid = uid;
-    me.options = PTL_ME_OP_PUT | PTL_ME_UNEXPECTED_HDR_DISABLE | 
+    me.options = PTL_ME_OP_PUT |
         PTL_ME_EVENT_SUCCESS_DISABLE | PTL_ME_EVENT_CT_COMM | 
         PTL_ME_IS_ACCESSIBLE | 
         PTL_ME_EVENT_LINK_DISABLE | PTL_ME_EVENT_UNLINK_DISABLE;
@@ -501,7 +480,7 @@ gasnetc_p4_init(int *rank, int *size)
     ret = PtlMEAppend(matching_ni_h,
                       COLLECTIVE_PT,
                       &me,
-                      PTL_OVERFLOW_LIST,
+                      PTL_PRIORITY_LIST,
                       NULL,
                       &bootstrap_barrier_me_h);
     if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlMEAppend(barrier)");
