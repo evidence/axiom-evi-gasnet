@@ -1,14 +1,15 @@
+
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2013/07/04 01:20:40 $
-# $Revision: 1.809 $
+#     $Date: 2013/07/09 21:48:28 $
+# $Revision: 1.810 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.809 $)
+AC_REVISION($Revision: 1.810 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -4095,6 +4096,35 @@ if test "$enabled_portals4" = yes; then
   }], [ : ], [ have_portals4=no; GASNET_ERR_SAVE() ] )
   GASNET_POPVAR(CFLAGS)
   GASNET_POPVAR(LIBS)
+
+  max_md_size=0
+  GASNET_WITH([portals4-max-md-size],
+    [Log base 2 of the maximum size in bytes of a memory descriptor.  Should only be set for implementations which do not support binding all of virtual address space.],
+    [if test "$with_portals4_max_md_size" = "yes" ; then
+       max_md_size=0
+     else
+       max_md_size=$with_portals4_max_md_size
+     fi])
+    AC_DEFINE_UNQUOTED([GASNETC_PORTALS4_MAX_MD_SIZE], [$max_md_size],
+      [Log base 2 of the maximum size in bytes of a memory descriptor.  Set to 0 if MD can bind all of memory.])
+  max_va_size=0
+  GASNET_WITH([portals4-max-va-size],
+         [Log base 2 of the maximum size in bytes of the user virtual address space.  Should only be set for implementations which do not support binding all of virtual address space.],
+    [if test "$with_portals4_max_va_size" = "yes" ; then
+       max_va_size=0
+     else
+       max_va_size=$with_portals4_max_va_size
+     fi])
+    AC_DEFINE_UNQUOTED([GASNETC_PORTALS4_MAX_VA_SIZE], [$max_va_size],
+      [Log base 2 of the maximum size in bytes of the user virtual address space.  Set to 0 if MD can bind all of memory.])
+
+    AS_IF([test \( $max_md_size -eq 0 -a $max_va_size -ne 0 \) -o \( $max_md_size -ne 0 -a $max_va_size -eq 0 \)],
+          [AC_ERROR([If either --with-portals4-max-md-size or --with-portals4-max-va-size is set, both must be set.])])
+    AS_IF([test $max_md_size -ge $max_va_size],
+          [max_md_size=0
+           max_va_size=0])
+    AS_IF([test $max_md_size -ne 0 -a $max_va_size -ne 0],
+          [AC_MSG_NOTICE([Portals 4 address space size: $max_md_size, $max_va_size])])
 fi
 AC_SUBST(PORTALS4_INCLUDE)
 AC_SUBST(PORTALS4_LIBDIR)

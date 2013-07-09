@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4.h,v $
- *     $Date: 2013/04/14 01:14:26 $
- * $Revision: 1.5 $
+ *     $Date: 2013/07/09 21:48:30 $
+ * $Revision: 1.6 $
  * Description: Portals 4 specific configuration
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
@@ -112,6 +112,7 @@ struct p4_frag_data_t {
 
     p4_frag_am_t *am_frag;
     volatile int32_t *send_complete_ptr;
+    ptl_handle_md_t md_h;
     ptl_size_t local_offset;
     ptl_size_t length;
     ptl_match_bits_t match_bits;

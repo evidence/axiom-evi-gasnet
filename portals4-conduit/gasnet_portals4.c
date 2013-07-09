@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4.c,v $
- *     $Date: 2013/07/09 18:00:25 $
- * $Revision: 1.41 $
+ *     $Date: 2013/07/09 21:48:30 $
+ * $Revision: 1.42 $
  * Description: Portals 4 specific configuration
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
@@ -24,7 +24,11 @@
 #include <gasnet_portals4_hash.h>
 
 static ptl_handle_ni_t matching_ni_h;
+#if GASNETC_PORTALS4_MAX_MD_SIZE < GASNETC_PORTALS4_MAX_VA_SIZE
+static ptl_handle_md_t *am_eq_md_hs;
+#else
 static ptl_handle_md_t am_eq_md_h;
+#endif
 static ptl_handle_me_t am_me_h;
 static ptl_handle_eq_t coll_eq_h;
 static ptl_handle_eq_t eqs_h[2];
@@ -254,6 +258,63 @@ p4_failed_eqpoll(int ret, const ptl_handle_eq_t eq_h))
 }
 GASNETI_NORETURNP(p4_failed_eqpoll)
 
+/*
+ * Not all implementations of Portals 4 support binding a memory
+ * descriptor which covers all of memory, but all support covering a
+ * large fraction of memory.  Therefore, rather than working around
+ * the issue by pinning per message, we use a number of memory
+ * descriptors to cover all of memory.  As long as the maximum memory
+ * descriptor is a large fraction of the user virtual address space
+ * (like 46 bit MDs on a platform with 47 bits of user virtual address
+ * space), this works fine.
+ *
+ * Our scheme is to create N memory descriptors which contiguously
+ * cover the entire user address space, then another N-1 contiguous
+ * memory descriptors offset by 1/2 the size of the MD, then a final
+ * memory descriptor of 1/2 the size of the other MDs covering the top
+ * of the memory space, to avoid if statements in the critical path.  This
+ * scheme allows for a maximum message size of 1/2 the size of the MD
+ * without ever crossing an MD boundary.  Also, because MD sizes are
+ * always on a power of 2 in this scheme, computing the offsets and MD
+ * selection are quick, using only bit shift and mask.
+ *
+ * p4_get_md() relies heavily on compiler constant folding.  "mask"
+ * can be constant folded into a constant.  "which" compiler folds
+ * into a bit shift of a register a constant number of times, then
+ * masked by a constant (the input is, unfortunately, not constant).
+ *
+ * In the case where an MD can cover all of memory, p4_get_md() will
+ * be compiled into two assignments.  Assuming the function inlines
+ * (and it certainly should be), the two assignments should be
+ * optimized into register assignments for the Portals call relatively
+ * easily.
+ */
+static inline void
+p4_get_am_md(const void *ptr, ptl_handle_md_t *md_h, void **base_ptr)
+{
+#if GASNETC_PORTALS4_MAX_MD_SIZE < GASNETC_PORTALS4_MAX_VA_SIZE
+    int mask = (1ULL << (GASNETC_PORTALS4_MAX_VA_SIZE - GASNETC_PORTALS4_MAX_MD_SIZE + 1)) - 1;
+    int which = (((uintptr_t) ptr) >> (GASNETC_PORTALS4_MAX_MD_SIZE - 1)) & mask;
+    *md_h = am_eq_md_hs[which];
+    *base_ptr = (void*) (which * (1ULL << (GASNETC_PORTALS4_MAX_MD_SIZE - 1)));
+#else
+    *md_h = am_eq_md_h;
+    *base_ptr = 0;
+#endif
+}
+
+
+static inline int
+p4_get_num_mds(void)
+{
+#if GASNETC_PORTALS4_MAX_MD_SIZE < GASNETC_PORTALS4_MAX_VA_SIZE
+    return (1 << (GASNETC_PORTALS4_MAX_VA_SIZE - GASNETC_PORTALS4_MAX_MD_SIZE + 1));
+#else
+    return 1;
+#endif
+}
+
+
 /* ---------------------------------------------------------------------------------
  * Initialize Portals 4 conduit code
  *
@@ -421,15 +482,34 @@ gasnetc_p4_init(int *rank, int *size)
     if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlPTAlloc(AM)");
 
     /* Allocate memory descriptor for active message transfer (including long transfers) */
-    md.start     = 0;
-    md.length    = PTL_SIZE_MAX;
     md.options   = PTL_MD_EVENT_SEND_DISABLE;
     md.eq_handle = am_send_eq_h;
     md.ct_handle = PTL_CT_NONE;
+#if GASNETC_PORTALS4_MAX_MD_SIZE < GASNETC_PORTALS4_MAX_VA_SIZE
+    {
+        int num_mds;
+        ptl_size_t size = 1ULL << GASNETC_PORTALS4_MAX_MD_SIZE;
+        ptl_size_t offset_unit = (1ULL << GASNETC_PORTALS4_MAX_MD_SIZE) / 2;
+
+        num_mds = p4_get_num_mds();
+        am_eq_md_hs = gasneti_malloc(sizeof(ptl_handle_md_t) * num_mds);
+        for (i = 0 ; i < num_mds ; ++i) {
+            md.start = (char*) (offset_unit * i);
+            md.length = (i - 1 == num_mds) ? size / 2 : size;
+            ret = PtlMDBind(matching_ni_h,
+                            &md,
+                            &am_eq_md_hs[i]);
+            if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlMDBind(AM)");
+        }
+    }
+#else
+    md.start     = 0;
+    md.length    = PTL_SIZE_MAX;
     ret = PtlMDBind(matching_ni_h,
                     &md,
                     &am_eq_md_h);
     if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlMDBind(AM)");
+#endif
 
     /* Configure the active message receive resources now, since
        there's no harm in not waiting until the segment code is
@@ -535,7 +615,7 @@ gasnetc_p4_attach(void *segbase, uintptr_t segsize)
     ret = PtlMEAppend(matching_ni_h,
                       AM_PT,
                       &me,
-                      PTL_OVERFLOW_LIST,
+                      PTL_PRIORITY_LIST,
                       NULL,
                       &am_me_h);
     if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlMEAppend(attach)");
@@ -573,7 +653,17 @@ gasnetc_p4_exit(void)
     }
     gasneti_free(p4_am_blocks);
 
+#if GASNETC_PORTALS4_MAX_MD_SIZE < GASNETC_PORTALS4_MAX_VA_SIZE
+    {
+        int num_mds = p4_get_num_mds();
+        for (i = 0 ; i < num_mds ; ++i) {
+            PtlMDRelease(am_eq_md_hs[i]);
+        }
+        gasneti_free(am_eq_md_hs);
+    }
+#else
     PtlMDRelease(am_eq_md_h);
+#endif
     PtlPTFree(matching_ni_h, AM_PT);
     PtlPTFree(matching_ni_h, COLLECTIVE_PT);
 
@@ -881,6 +971,8 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size, unsigned int limit
             if (PTL_NI_PT_DISABLED == ev.ni_fail_type) {
                 p4_frag_t *frag = (p4_frag_t*) ev.user_ptr;
                 ptl_process_t proc;
+                ptl_handle_md_t md_h;
+                void *base;
 
                 gasneti_assert(P4_FRAG_TYPE_AM == frag->type ||
                                P4_FRAG_TYPE_DATA == frag->type);
@@ -892,8 +984,9 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size, unsigned int limit
                     fprintf(stderr, "%d: retransmitting am message to %d\n",
                             (int) gasneti_mynode, (int) proc.rank);
 #endif
-                    ret = PtlPut(am_eq_md_h,
-                                 (ptl_size_t) am_frag->data,
+                    p4_get_am_md(am_frag->data, &md_h, &base);
+                    ret = PtlPut(md_h,
+                                 (ptl_size_t) ((char*) am_frag->data - (char*) base),
                                  am_frag->data_length,
                                  PTL_ACK_REQ,
                                  proc,
@@ -912,7 +1005,7 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size, unsigned int limit
                     fprintf(stderr, "%d: retransmitting data message to %d\n",
                             (int) gasneti_mynode, (int) proc.rank);
 #endif
-                    ret = PtlPut(am_eq_md_h,
+                    ret = PtlPut(data_frag->md_h,
                                  data_frag->local_offset,
                                  data_frag->length,
                                  PTL_ACK_REQ,
@@ -1045,6 +1138,8 @@ gasnetc_p4_TransferGeneric(int category, ptl_match_bits_t req_type, gasnet_node_
     int ret, i;
     p4_frag_am_t *frag;
     ptl_process_t proc;
+    ptl_handle_md_t md_h;
+    void *base;
     gasnet_handlerarg_t *arglist;
     uint64_t protocol = 0;
     size_t payload_length = 0;
@@ -1131,16 +1226,19 @@ gasnetc_p4_TransferGeneric(int category, ptl_match_bits_t req_type, gasnet_node_
             protocol = AM_LONG;
             payload_length = 0;
 
+            p4_get_am_md(source_addr, &md_h, &base);
+
             data_frag->am_frag = frag;
             gasneti_weakatomic_set(&frag->op_count, 0, GASNETI_ATOMIC_NONE);
             data_frag->send_complete_ptr = (category == gasnetc_Long) ? &long_send_complete : NULL;
-            data_frag->local_offset = (ptl_size_t) source_addr;
+            data_frag->md_h = md_h;
+            data_frag->local_offset = (ptl_size_t) ((char*) source_addr - (char*) base);
             data_frag->length = nbytes;
             data_frag->match_bits = CREATE_MATCH_BITS(LONG_DATA, req_type, AM_LONG, 0, 0, 0);
             data_frag->remote_offset = (char*) dest_addr - (char*) gasneti_seginfo[dest].addr;
 
             /* transfer the payload */
-            ret = PtlPut(am_eq_md_h,
+            ret = PtlPut(data_frag->md_h,
                          data_frag->local_offset,
                          data_frag->length,
                          PTL_ACK_REQ,
@@ -1167,8 +1265,9 @@ gasnetc_p4_TransferGeneric(int category, ptl_match_bits_t req_type, gasnet_node_
     gasneti_assert (frag->data_length <= P4_AM_MAX_DATA_LENGTH);
 
     /* send the fragment */
-    ret = PtlPut(am_eq_md_h,
-                 (ptl_size_t) frag->data,
+    p4_get_am_md(frag->data, &md_h, &base);
+    ret = PtlPut(md_h,
+                 (ptl_size_t) ((char*) frag->data - (char*) base),
                  frag->data_length,
                  PTL_ACK_REQ,
                  proc,
