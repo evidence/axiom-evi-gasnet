@@ -158,7 +158,7 @@ static void gasneti_bootstrapInit(
     gasnet_node_t *mynode_p)
 {
     char *spawner = gasneti_getenv_withdefault("GASNET_MXM_SPAWNER", "(not set)");
-    if (!strcmp(spawner, "SSH")) {
+    if (!strcmp(spawner, "ssh")) {
 #if HAVE_SSH_SPAWNER
         gasneti_bootstrapInit_ssh(argc_p, argv_p, nodes_p, mynode_p);
         gasneti_bootstrapFini_p     = &gasneti_bootstrapFini_ssh;
@@ -180,7 +180,7 @@ static void gasneti_bootstrapInit(
         gasneti_bootstrapAlltoall_p	= &gasneti_bootstrapAlltoall_mpi;
         gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_mpi;
 #else
-        if (!strcmp(spawner, "MPI")) {
+        if (!strcmp(spawner, "mpi")) {
             gasneti_fatalerror("Requested mpi-spawner is not supported in this build");
         } else {
             gasneti_fatalerror("Requested spawner \"%s\" is unknown", spawner);
