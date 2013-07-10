@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2013/06/30 05:10:35 $
- * $Revision: 1.313 $
+ *     $Date: 2013/07/10 22:38:23 $
+ * $Revision: 1.314 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1080,40 +1080,38 @@ static int gasnetc_load_settings(void) {
   return GASNET_OK;
 }
 
-static void gasneti_bootstrapInit(int *argc_p, char ***argv_p,
+static int  gasneti_bootstrapInit(int *argc_p, char ***argv_p,
 				  gasnet_node_t *nodes_p, gasnet_node_t *mynode_p) {
   char *spawner = gasneti_getenv_withdefault("GASNET_IB_SPAWNER", "(not set)");
+  int result = GASNET_ERR_NOT_INIT;
 
-  if (!strcmp(spawner, "ssh") ||
-      ((*argc_p >= 2) && !strncmp((*argv_p)[1], "-GASNET-SPAWN-", 14))) {
 #if HAVE_SSH_SPAWNER
-    gasneti_bootstrapInit_ssh(argc_p, argv_p, nodes_p, mynode_p);
+  /* Sigh.  We can't assume GASNET_IB_SPAWNER has been set except in the master */
+  if (GASNET_OK == (result = gasneti_bootstrapInit_ssh(argc_p, argv_p, nodes_p, mynode_p))) {
     gasneti_bootstrapFini_p	= &gasneti_bootstrapFini_ssh;
     gasneti_bootstrapAbort_p	= &gasneti_bootstrapAbort_ssh;
     gasneti_bootstrapBarrier_p	= &gasneti_bootstrapBarrier_ssh;
     gasneti_bootstrapExchange_p	= &gasneti_bootstrapExchange_ssh;
     gasneti_bootstrapAlltoall_p	= &gasneti_bootstrapAlltoall_ssh;
     gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_ssh;
-#else
-    gasneti_fatalerror("Requested ssh-spawner is not supported in this build");
+  } else
 #endif
-  } else {
 #if HAVE_MPI_SPAWNER
-    gasneti_bootstrapInit_mpi(argc_p, argv_p, nodes_p, mynode_p);
+  if (!strcmp(spawner, "mpi")) {
+    result = gasneti_bootstrapInit_mpi(argc_p, argv_p, nodes_p, mynode_p);
     gasneti_bootstrapFini_p	= &gasneti_bootstrapFini_mpi;
     gasneti_bootstrapAbort_p	= &gasneti_bootstrapAbort_mpi;
     gasneti_bootstrapBarrier_p	= &gasneti_bootstrapBarrier_mpi;
     gasneti_bootstrapExchange_p	= &gasneti_bootstrapExchange_mpi;
     gasneti_bootstrapAlltoall_p	= &gasneti_bootstrapAlltoall_mpi;
     gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_mpi;
-#else
-    if (!strcmp(spawner, "mpi")) {
-      gasneti_fatalerror("Requested mpi-spawner is not supported in this build");
-    } else {
-      gasneti_fatalerror("Requested spawner \"%s\" is unknown", spawner);
-    }
+  } else
 #endif
-  } 
+  {
+    gasneti_fatalerror("Requested spawner \"%s\" is unknown or not supported in this build", spawner);
+  }
+
+  return result;
 }
 
 /* Info used while probing for HCAs/ports */
@@ -1573,7 +1571,10 @@ static int gasnetc_init(int *argc, char ***argv) {
     /* note - can't call trace macros during gasnet_init because trace system not yet initialized */
     fprintf(stderr,"gasnetc_init(): about to spawn...\n"); fflush(stderr);
   #endif
-  gasneti_bootstrapInit(argc, argv, &gasneti_nodes, &gasneti_mynode);
+  i = gasneti_bootstrapInit(argc, argv, &gasneti_nodes, &gasneti_mynode);
+  if (i != GASNET_OK) {
+    return i;
+  }
 
   gasneti_init_done = 1; /* enable early to allow tracing */
 
