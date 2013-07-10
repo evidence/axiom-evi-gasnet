@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/06/25 19:18:11 $
- * $Revision: 1.80 $
+ *     $Date: 2013/07/10 22:21:58 $
+ * $Revision: 1.81 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -23,10 +23,6 @@
 
 #include <sys/mman.h>
 #include <hugetlbfs.h>
-
-#ifndef MPI_SUCCESS
-#define MPI_SUCCESS 0
-#endif
 
 GASNETI_IDENT(gasnetc_IdentString_Version, "$GASNetCoreLibraryVersion: " GASNET_CORE_VERSION_STR " $");
 GASNETI_IDENT(gasnetc_IdentString_Name,    "$GASNetCoreLibraryName: " GASNET_CORE_NAME_STR " $");
@@ -73,15 +69,30 @@ static void gasnetc_check_config(void) {
   }
 }
 
-static int gasnetc_bootstrapInit(int *argc, char ***argv) {
-  int spawned, size, rank, appnum;
-  const char *envval;
+static int gasneti_bootstrapInitPMI(int *argc_p, char ***argv_p,
+                                    gasnet_node_t *nodes_p, gasnet_node_t *mynode_p) {
+  int spawned, size, rank;
 
-  if (PMI2_Init(&spawned, &size, &rank, &appnum) != MPI_SUCCESS)
+  if (PMI_SUCCESS != PMI_Init(&spawned))
     GASNETI_RETURN_ERRR(NOT_INIT, "Failure in PMI_Init\n");
 
-  gasneti_nodes = size;
-  gasneti_mynode = rank;
+  if (PMI_SUCCESS != PMI_Get_size(&size))
+    GASNETI_RETURN_ERRR(NOT_INIT, "Failure in PMI_Get_size\n");
+  *nodes_p = size;
+
+  if (PMI_SUCCESS != PMI_Get_rank(&rank))
+    GASNETI_RETURN_ERRR(NOT_INIT, "Failure in PMI_Get_rank\n");
+  *mynode_p = rank;
+
+  return GASNET_OK;
+}
+
+static int gasnetc_bootstrapInit(int *argc, char ***argv) {
+  const char *envval;
+
+  { int retval = gasneti_bootstrapInitPMI(argc, argv, &gasneti_nodes, &gasneti_mynode);
+    if (retval != GASNET_OK) GASNETI_RETURN(retval);
+  }
 
   /* Check for device and address (both or neither) in environment  */
   envval = getenv("PMI_GNI_DEV_ID");
@@ -115,7 +126,7 @@ static int gasnetc_bootstrapInit(int *argc, char ***argv) {
   gasnetc_cookie  = (uint32_t) atoi(getenv("PMI_GNI_COOKIE"));
 
   /* As good a place as any for this: */
-  if (0 == rank) {
+  if (0 == gasneti_mynode) {
     static const char *old_vars[][3] = {
         {"GASNETC_GNI_MIN_NUM_PD", "removed", "GASNET_GNI_NUM_PD"},
         {"GASNETC_GNI_MIN_BOUNCE_SIZE", "removed", "GASNET_GNI_BOUNCE_SIZE"},
@@ -146,7 +157,7 @@ static int gasnetc_bootstrapInit(int *argc, char ***argv) {
 }
 
 static void gasnetc_bootstrapFini(void) {
-  PMI2_Finalize();  /* normal exit via PMI */
+  PMI_Finalize();  /* normal exit via PMI */
 }
 
 static void gasnetc_bootstrapBarrierPMI(void) {
