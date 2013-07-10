@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/contrib/gasnetrun_ibv.pl,v $
-#     $Date: 2013/06/20 07:37:22 $
-# $Revision: 1.11 $
+#     $Date: 2013/07/10 21:53:27 $
+# $Revision: 1.12 $
 # Description: GASNet VAPI, IBV and MXM spawner
 # Terms of use are as specified in license.txt
 
@@ -180,7 +180,7 @@ sub fullpath($)
 
 # Run it which ever way makes sense
     $ENV{"GASNET_VERBOSEENV"} = "1" if ($verbose);
-    $ENV{'GASNET_IB_SPAWNER'} = $spawner;
+    $ENV{'GASNET_IB_SPAWNER'} = lc($spawner);
     if ($spawner eq 'MPI') {
         print("gasnetrun: forwarding to mpi-based spawner\n") if ($verbose);
         @ARGV = (@mpi_args, @ARGV);
