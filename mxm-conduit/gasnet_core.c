@@ -152,14 +152,17 @@ static void gasnetc_bootstrapBarrier(void) {
 }
 /* -------------------------------------------------------------------------- */
 
-static void gasneti_bootstrapInit(
+static int gasneti_bootstrapInit(
     int *argc_p, char ***argv_p,
     gasnet_node_t *nodes_p,
     gasnet_node_t *mynode_p)
 {
     char *spawner = gasneti_getenv_withdefault("GASNET_IB_SPAWNER", "(not set)");
-    if (!strcmp(spawner, "ssh")) {
+    int res = GASNET_ERR_NOT_INIT;
+
 #if HAVE_SSH_SPAWNER
+    /* Sigh.  We can't assume GASNET_IB_SPAWNER has been set except in the master */
+    if (GASNET_OK == (res = gasneti_bootstrapInit_ssh(argc_p, argv_p, nodes_p, mynode_p))) {
         gasneti_bootstrapInit_ssh(argc_p, argv_p, nodes_p, mynode_p);
         gasneti_bootstrapFini_p     = &gasneti_bootstrapFini_ssh;
         gasneti_bootstrapAbort_p    = &gasneti_bootstrapAbort_ssh;
@@ -167,11 +170,11 @@ static void gasneti_bootstrapInit(
         gasneti_bootstrapExchange_p = &gasneti_bootstrapExchange_ssh;
         gasneti_bootstrapAlltoall_p = &gasneti_bootstrapAlltoall_ssh;
         gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_ssh;
-#else
-        gasneti_fatalerror("Requested ssh-spawner is not supported in this build");
+    } else
 #endif
-    } else {
 #if HAVE_MPI_SPAWNER
+    if (!strcmp(spawner, "mpi")) {
+        res = gasneti_bootstrapInit_mpi(argc_p, argv_p, nodes_p, mynode_p);
         gasneti_bootstrapInit_mpi(argc_p, argv_p, nodes_p, mynode_p);
         gasneti_bootstrapFini_p	= &gasneti_bootstrapFini_mpi;
         gasneti_bootstrapAbort_p	= &gasneti_bootstrapAbort_mpi;
@@ -179,15 +182,13 @@ static void gasneti_bootstrapInit(
         gasneti_bootstrapExchange_p	= &gasneti_bootstrapExchange_mpi;
         gasneti_bootstrapAlltoall_p	= &gasneti_bootstrapAlltoall_mpi;
         gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_mpi;
-#else
-        if (!strcmp(spawner, "mpi")) {
-            gasneti_fatalerror("Requested mpi-spawner is not supported in this build");
-        } else {
-            gasneti_fatalerror("Requested spawner \"%s\" is unknown", spawner);
-        }
+    } else
 #endif
+    {
+        gasneti_fatalerror("Requested spawner \"%s\" is unknown or not supported in this build", spawner);
     }
 
+    return res;
 }
 
 
@@ -616,7 +617,10 @@ static int gasnetc_init(int *argc, char ***argv)
      * Using existing bootstrap init via SSH.
      * This also initializes gasneti_nodes and gasneti_mynode globals.
      */
-    gasneti_bootstrapInit(argc, argv, &gasneti_nodes, &gasneti_mynode);
+    res = gasneti_bootstrapInit(argc, argv, &gasneti_nodes, &gasneti_mynode);
+    if (res != GASNET_OK) {
+        return res;
+    }
 
     gasneti_init_done = 1; /* enable early to allow tracing */
 
