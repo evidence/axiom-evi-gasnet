@@ -157,7 +157,7 @@ static void gasneti_bootstrapInit(
     gasnet_node_t *nodes_p,
     gasnet_node_t *mynode_p)
 {
-    char *spawner = gasneti_getenv_withdefault("GASNET_MXM_SPAWNER", "(not set)");
+    char *spawner = gasneti_getenv_withdefault("GASNET_IB_SPAWNER", "(not set)");
     if (!strcmp(spawner, "ssh")) {
 #if HAVE_SSH_SPAWNER
         gasneti_bootstrapInit_ssh(argc_p, argv_p, nodes_p, mynode_p);
