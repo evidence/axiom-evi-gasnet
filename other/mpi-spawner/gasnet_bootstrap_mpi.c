@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/mpi-spawner/gasnet_bootstrap_mpi.c,v $
- *     $Date: 2012/11/20 05:16:10 $
- * $Revision: 1.21 $
+ *     $Date: 2013/07/10 22:30:21 $
+ * $Revision: 1.22 $
  * Description: GASNet conduit-independent mpi-based spawner
  * Copyright 2003, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -29,16 +29,16 @@ static int gasnetc_mpi_preinitialized = 0;
 static int gasnetc_mpi_size = -1;
 static int gasnetc_mpi_rank = -1;
 
-void gasneti_bootstrapInit_mpi(int *argc, char ***argv, gasnet_node_t *nodes, gasnet_node_t *mynode) {
+int gasneti_bootstrapInit_mpi(int *argc, char ***argv, gasnet_node_t *nodes, gasnet_node_t *mynode) {
   MPI_Group world;
   int err;
 
   /* Call MPI_Init exactly once */
   err = MPI_Initialized(&gasnetc_mpi_preinitialized);
-  gasneti_assert(err == MPI_SUCCESS);
+  if (MPI_SUCCESS != err) return GASNET_ERR_NOT_INIT;
   if (!gasnetc_mpi_preinitialized) {
     err = MPI_Init(argc, argv);
-    gasneti_assert(err == MPI_SUCCESS);
+    if (MPI_SUCCESS != err) return GASNET_ERR_NOT_INIT;
   }
 
   /* Create private communicator */
@@ -62,6 +62,8 @@ void gasneti_bootstrapInit_mpi(int *argc, char ***argv, gasnet_node_t *nodes, ga
   gasneti_setupGlobalEnvironment(*nodes, *mynode,
 				 &gasneti_bootstrapExchange_mpi,
 				 &gasneti_bootstrapBroadcast_mpi);
+
+  return GASNET_OK;
 }
 
 void gasneti_bootstrapFini_mpi(void) {

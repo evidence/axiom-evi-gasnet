@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2012/09/22 02:39:27 $
- * $Revision: 1.111 $
+ *     $Date: 2013/07/10 22:30:23 $
+ * $Revision: 1.112 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -104,7 +104,7 @@
    If demand exists, scalable Scatter and Gather are possible.
 
    The following are needed to handle startup and termination:
-      extern void gasneti_bootstrapInit_ssh(int *argc_p, char ***argv_p,
+      extern int  gasneti_bootstrapInit_ssh(int *argc_p, char ***argv_p,
                                             gasnet_node_t *nodes_p,
                                             gasnet_node_t *mynode_p);
       extern void gasneti_bootstrapFini_ssh(void);
@@ -1923,12 +1923,12 @@ static void gather_pids(void) {
  * Not waiting here allows any subsequent that first collective to overlap
  * with the spawning.
  */
-void gasneti_bootstrapInit_ssh(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet_node_t *mynode_p) {
+int gasneti_bootstrapInit_ssh(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet_node_t *mynode_p) {
   int argc = *argc_p;
   char **argv = *argv_p;
 
-  if (argc < 2) {
-    usage(argv[0]);
+  if ((*argc_p < 2) || strncmp((*argv_p)[1], "-GASNET-SPAWN-", 14)) {
+    return GASNET_ERR_NOT_INIT;
   }
 
   argv0 = argv[0];
@@ -1962,6 +1962,8 @@ void gasneti_bootstrapInit_ssh(int *argc_p, char ***argv_p, gasnet_node_t *nodes
   } else {
     do_master(argc, argv); /* Does not return */
   }
+
+  return GASNET_OK;
 }
 
 /* gasneti_bootstrapFini

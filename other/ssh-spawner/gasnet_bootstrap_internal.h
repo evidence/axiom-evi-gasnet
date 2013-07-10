@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_internal.h,v $
- *     $Date: 2005/07/03 14:33:42 $
- * $Revision: 1.3 $
+ *     $Date: 2013/07/10 22:30:23 $
+ * $Revision: 1.4 $
  * Description: GASNet conduit-independent ssh-based spawner (prototypes)
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -9,7 +9,7 @@
 #ifndef _GASNET_BOOTSTRAP_INTERNAL_SSH_H
 #define _GASNET_BOOTSTRAP_INTERNAL_SSH_H
 
-extern void gasneti_bootstrapInit_ssh(int *argc_p, char ***argv_p,
+extern int  gasneti_bootstrapInit_ssh(int *argc_p, char ***argv_p,
                                       gasnet_node_t *nodes_p, gasnet_node_t *mynode_p);
 extern void gasneti_bootstrapFini_ssh(void);
 extern void gasneti_bootstrapAbort_ssh(int exitcode) GASNETI_NORETURN;
