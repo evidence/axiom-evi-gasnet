@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4.h,v $
- *     $Date: 2013/07/09 21:48:30 $
- * $Revision: 1.6 $
+ *     $Date: 2013/07/10 16:27:02 $
+ * $Revision: 1.7 $
  * Description: Portals 4 specific configuration
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
@@ -9,8 +9,9 @@
 #ifndef GASNET_PORTALS4_H
 #define GASNET_PORTALS4_H
 
-#define COLLECTIVE_PT 6
-#define AM_PT         7
+#define bootstrap_idx 6 /* matching ni */
+#define am_idx        7 /* matching ni */
+#define long_data_idx 8 /* matching ni */
 
 /* match bits used on collective PT */
 #define BOOTSTRAP_BARRIER_MB    0x00001

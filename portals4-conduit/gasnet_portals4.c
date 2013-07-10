@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4.c,v $
- *     $Date: 2013/07/09 21:48:30 $
- * $Revision: 1.42 $
+ *     $Date: 2013/07/10 16:27:02 $
+ * $Revision: 1.43 $
  * Description: Portals 4 specific configuration
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
@@ -52,6 +52,8 @@ static int p4_am_eq_len = 8192;
 static int p4_poll_limit = 1024;
 
 static p4_am_block_t *p4_am_blocks = NULL;
+/* TODO: This is really just here for debugging; should probably be
+   covered in a debugging macro to save a cycle here or there */
 static int p4_am_enabled = 0;
 static gasnetc_hash p4_long_hash;
 
@@ -470,16 +472,23 @@ gasnetc_p4_init(int *rank, int *size)
     ret = PtlPTAlloc(matching_ni_h,
                      0,
                      coll_eq_h,
-                     COLLECTIVE_PT,
+                     bootstrap_idx,
                      &pt);
-    if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlPTAlloc(COLLECTIVE)");
+    if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlPTAlloc(bootstrap)");
 
     ret = PtlPTAlloc(matching_ni_h,
                      PTL_PT_FLOWCTRL,
                      am_recv_eq_h,
-                     AM_PT,
+                     am_idx,
                      &pt);
-    if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlPTAlloc(AM)");
+    if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlPTAlloc(active message)");
+
+    ret = PtlPTAlloc(matching_ni_h,
+                     PTL_PT_FLOWCTRL,
+                     am_recv_eq_h,
+                     long_data_idx,
+                     &pt);
+    if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlPTAlloc(long data)");
 
     /* Allocate memory descriptor for active message transfer (including long transfers) */
     md.options   = PTL_MD_EVENT_SEND_DISABLE;
@@ -531,7 +540,7 @@ gasnetc_p4_init(int *rank, int *size)
         me.match_bits = ACTIVE_MESSAGE;
         me.ignore_bits = AM_REQREP_BITS;
         ret = PtlMEAppend(matching_ni_h,
-                          AM_PT,
+                          am_idx,
                           &me,
                           PTL_PRIORITY_LIST,
                           &(p4_am_blocks[i]),
@@ -558,7 +567,7 @@ gasnetc_p4_init(int *rank, int *size)
     me.match_bits = BOOTSTRAP_BARRIER_MB;
     me.ignore_bits = 0;
     ret = PtlMEAppend(matching_ni_h,
-                      COLLECTIVE_PT,
+                      bootstrap_idx,
                       &me,
                       PTL_PRIORITY_LIST,
                       NULL,
@@ -607,13 +616,12 @@ gasnetc_p4_attach(void *segbase, uintptr_t segsize)
     me.min_free = 0;
     me.ct_handle = PTL_CT_NONE;
     me.uid = uid;
-    me.options = PTL_ME_OP_PUT | PTL_ME_EVENT_LINK_DISABLE | 
-        PTL_ME_UNEXPECTED_HDR_DISABLE;
+    me.options = PTL_ME_OP_PUT | PTL_ME_EVENT_LINK_DISABLE;
     me.match_id.rank = PTL_RANK_ANY;
     me.match_bits = LONG_DATA;
     me.ignore_bits = AM_REQREP_BITS;
     ret = PtlMEAppend(matching_ni_h,
-                      AM_PT,
+                      long_data_idx,
                       &me,
                       PTL_PRIORITY_LIST,
                       NULL,
@@ -664,8 +672,9 @@ gasnetc_p4_exit(void)
 #else
     PtlMDRelease(am_eq_md_h);
 #endif
-    PtlPTFree(matching_ni_h, AM_PT);
-    PtlPTFree(matching_ni_h, COLLECTIVE_PT);
+    PtlPTFree(matching_ni_h, long_data_idx);
+    PtlPTFree(matching_ni_h, am_idx);
+    PtlPTFree(matching_ni_h, bootstrap_idx);
 
     PtlEQFree(coll_eq_h);
     PtlEQFree(am_recv_eq_h);
@@ -756,6 +765,9 @@ void p4_free_long_match(p4_long_match_t *match)
     gasneti_lifo_push(&p4_long_match_pool, match);
 }
 
+/* ---------------------------------------------------------------------------------
+ * Internal polling progress loop
+ * --------------------------------------------------------------------------------- */
 static int
 p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size, unsigned int limit)
 {
@@ -990,7 +1002,7 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size, unsigned int limit
                                  am_frag->data_length,
                                  PTL_ACK_REQ,
                                  proc,
-                                 AM_PT,
+                                 am_idx,
                                  am_frag->match_bits,
                                  0,
                                  am_frag,
@@ -1010,7 +1022,7 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size, unsigned int limit
                                  data_frag->length,
                                  PTL_ACK_REQ,
                                  proc,
-                                 AM_PT,
+                                 long_data_idx,
                                  data_frag->match_bits,
                                  data_frag->remote_offset,
                                  data_frag,
@@ -1059,15 +1071,21 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size, unsigned int limit
             break;
 
         case PTL_EVENT_PT_DISABLED:
-            /* The receive queue ran out of some resource.  Drain the
-            receive queue (since we can't end up with multiple
-            PT_DISABLED events in the receive queue at one time, this
-            can not create a recursion path longer than depth 2), then
-            re-enable the PT.  */
+            /* Either the receive queue ran out of space or the am
+               space filled (note that while the long_data pt can be
+               disabled due to the event queue, it can not fill,
+               because it's a persistent remote managed put/get ME).
+               Drain the receive queue.  If the receive queue
+               overflowed, we might end up getting one (and only one)
+               more PT_DISABLED, recursing again, but that won't cause
+               any problems.  Once the queue is drained, re-enable the
+               PT that generated the disabled (if both PTs went down,
+               we'll get two events, handling that case
+               automagically). */
             p4_am_enabled = 0;
             ret = p4_poll(eq_ptr, 1, 0); /* Fully drain this queue */
             if_pf (GASNET_OK != ret) gasneti_fatalerror("failed p4_poll() call to drain am_recv_eq");
-            ret = PtlPTEnable(matching_ni_h, AM_PT);
+            ret = PtlPTEnable(matching_ni_h, ev.pt_index);
             if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlPTEnable()");
             p4_am_enabled = 1;
             break;
@@ -1089,7 +1107,7 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size, unsigned int limit
                 me.match_bits = ACTIVE_MESSAGE;
                 me.ignore_bits = AM_REQREP_BITS;
                 ret = PtlMEAppend(matching_ni_h,
-                                  AM_PT,
+                                  am_idx,
                                   &me,
                                   PTL_PRIORITY_LIST,
                                   block,
@@ -1243,7 +1261,7 @@ gasnetc_p4_TransferGeneric(int category, ptl_match_bits_t req_type, gasnet_node_
                          data_frag->length,
                          PTL_ACK_REQ,
                          proc,
-                         AM_PT,
+                         long_data_idx,
                          data_frag->match_bits,
                          data_frag->remote_offset,
                          data_frag,
@@ -1271,7 +1289,7 @@ gasnetc_p4_TransferGeneric(int category, ptl_match_bits_t req_type, gasnet_node_
                  frag->data_length,
                  PTL_ACK_REQ,
                  proc,
-                 AM_PT,
+                 am_idx,
                  frag->match_bits,
                  0,
                  frag,
@@ -1312,7 +1330,7 @@ static void p4_barrier_send(ptl_handle_md_t md_h, int peer)
                  0,
                  PTL_NO_ACK_REQ,
                  proc,
-                 COLLECTIVE_PT,
+                 bootstrap_idx,
                  BOOTSTRAP_BARRIER_MB,
                  0,
                  NULL,
@@ -1430,7 +1448,7 @@ gasnetc_bootstrapExchange(void *src, size_t len, void *dest)
     me.match_bits = BOOTSTRAP_EXCHANGE_MB;
     me.ignore_bits = 0;
     me.min_free = 0;
-    ret = PtlMEAppend(matching_ni_h, COLLECTIVE_PT, &me, PTL_PRIORITY_LIST, NULL, &me_h);
+    ret = PtlMEAppend(matching_ni_h, bootstrap_idx, &me, PTL_PRIORITY_LIST, NULL, &me_h);
     if_pf (PTL_OK != ret) p4_fatalerror(ret, "gasnetc_bootstrapExchange() PtlMEAppend()");
 
     /* ensure ME is linked before the barrier */
@@ -1460,7 +1478,7 @@ gasnetc_bootstrapExchange(void *src, size_t len, void *dest)
                      to_xfer, 
                      PTL_NO_ACK_REQ, 
                      proc,
-                     COLLECTIVE_PT,
+                     bootstrap_idx,
                      BOOTSTRAP_EXCHANGE_MB,
                      offset,
                      NULL,
