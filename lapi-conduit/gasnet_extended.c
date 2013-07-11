@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/07/10 20:49:24 $
- * $Revision: 1.140 $
+ *     $Date: 2013/07/11 00:59:36 $
+ * $Revision: 1.141 $
  * Description: GASNet Extended API over LAPI Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -163,7 +163,9 @@ gasnete_eop_t *_gasnete_eop_new(gasnete_threaddata_t * const thread) {
 	gasneti_assert(eop->threadidx == thread->threadidx);
 	gasneti_assert(OPTYPE(eop) == OPTYPE_EXPLICIT);
 	gasneti_assert(OPSTATE(eop) == OPSTATE_FREE);
+#if GASNET_DEBUG
 	SET_OPSTATE(eop, OPSTATE_INFLIGHT);
+#endif
 	GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&eop->cntr,0));
 	eop->initiated_cnt = 0;
 #if GASNETC_LAPI_RDMA
@@ -286,10 +288,13 @@ static
 void gasnete_op_markdone(gasnete_op_t *op, int isget) {
     if (OPTYPE(op) == OPTYPE_EXPLICIT) {
 	gasnete_eop_t *eop = (gasnete_eop_t *)op;
+        gasneti_assert(!GASNETE_EOP_DONE(eop));
         gasnete_eop_check(eop);
 
 	GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&eop->cntr,eop->initiated_cnt));
-	/* SET_OPSTATE(eop, OPSTATE_COMPLETE); -- not used */
+#if GASNET_DEBUG
+	GASNETE_EOP_MARKDONE(eop);
+#endif
         gasnete_eop_check(eop);
     } else {
 	/* gasnete_iop_t *iop = (gasnete_iop_t *)op; */
@@ -306,7 +311,7 @@ void gasnete_eop_free(gasnete_eop_t *eop) {
     {
 	gasnete_eopaddr_t addr = eop->addr;
         /* DOB: OPSTATE_COMPLETE not currently used by lapi-conduit
-          gasneti_assert(OPSTATE(eop) == OPSTATE_COMPLETE);*/
+          gasneti_assert(GASNETE_EOP_DONE(eop));*/
         gasneti_assert(eop->initiated_cnt == 0);
 #if GASNETC_LAPI_RDMA
         gasneti_assert(eop->num_transfers == 0);
@@ -447,7 +452,9 @@ void gasneti_eop_markdone(gasneti_eop_t *_eop) {
   gasneti_assert(OPTYPE(eop) == OPTYPE_EXPLICIT);
   gasnete_eop_check(eop);
   GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&eop->cntr,eop->initiated_cnt));
-  /* SET_OPSTATE(eop, OPSTATE_COMPLETE); -- not used */
+#if GASNET_DEBUG
+  SET_OPSTATE(eop, OPSTATE_COMPLETE);
+#endif
   /* gasneti_sync_writes(); */
 }
 
