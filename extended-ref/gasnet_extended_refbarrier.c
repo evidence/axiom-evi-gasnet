@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2013/06/29 22:35:03 $
- * $Revision: 1.175 $
+ *     $Date: 2013/07/11 22:26:01 $
+ * $Revision: 1.176 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1016,13 +1016,14 @@ static int gasnete_amdbarrier_try(gasnete_coll_team_t team, int id, int flags) {
 
 #ifdef GASNETI_USE_FCA
 static int gasnete_amdbarrier(gasnete_coll_team_t team, int id, int flags) {
+  int retval;
   #if GASNETI_STATS_OR_TRACE
     gasneti_tick_t barrier_start = GASNETI_TICKS_NOW_IFENABLED(B);
   #endif
 
   GASNETE_SPLITSTATE_BARRIER(team);
 
-  int retval = gasnete_fca_barrier(team, &id, &flags);
+  retval = gasnete_fca_barrier(team, &id, &flags);
   if (retval != GASNET_ERR_RESOURCE) {
     gasnete_coll_amdbarrier_t * const barrier_data = team->barrier_data;
     barrier_data->amdbarrier_value = id;
@@ -1511,13 +1512,14 @@ static int gasnete_rmdbarrier_try(gasnete_coll_team_t team, int id, int flags) {
 
 #ifdef GASNETI_USE_FCA
 static int gasnete_rmdbarrier(gasnete_coll_team_t team, int id, int flags) {
+  int retval;
   #if GASNETI_STATS_OR_TRACE
     gasneti_tick_t barrier_start = GASNETI_TICKS_NOW_IFENABLED(B);
   #endif
 
   GASNETE_SPLITSTATE_BARRIER(team);
 
-  int retval = gasnete_fca_barrier(team, &id, &flags);
+  retval = gasnete_fca_barrier(team, &id, &flags);
   if (retval != GASNET_ERR_RESOURCE) {
     gasnete_coll_rmdbarrier_t * const barrier_data = team->barrier_data;
     barrier_data->barrier_value = id;
