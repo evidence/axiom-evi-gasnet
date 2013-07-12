@@ -926,7 +926,7 @@ static int gasnetc_init(int *argc, char ***argv)
 #error Bad segment config
 #endif
 
-#if (1)
+#if (0) /* The ssh or mpi spwaner code takes care of this */
     /* Enable this if you wish to use the default GASNet services for broadcasting
         the environment from one compute node to all the others (for use in gasnet_getenv(),
         which needs to return environment variable values from the "spawning console").
