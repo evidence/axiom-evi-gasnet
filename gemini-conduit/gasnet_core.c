@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/07/10 22:21:58 $
- * $Revision: 1.81 $
+ *     $Date: 2013/07/17 18:56:08 $
+ * $Revision: 1.82 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -71,17 +71,12 @@ static void gasnetc_check_config(void) {
 
 static int gasneti_bootstrapInitPMI(int *argc_p, char ***argv_p,
                                     gasnet_node_t *nodes_p, gasnet_node_t *mynode_p) {
-  int spawned, size, rank;
+  int spawned, size, rank, appnum;
 
-  if (PMI_SUCCESS != PMI_Init(&spawned))
-    GASNETI_RETURN_ERRR(NOT_INIT, "Failure in PMI_Init\n");
+  if (PMI_SUCCESS != PMI2_Init(&spawned, &size, &rank, &appnum))
+    GASNETI_RETURN_ERRR(NOT_INIT, "Failure in PMI2_Init\n");
 
-  if (PMI_SUCCESS != PMI_Get_size(&size))
-    GASNETI_RETURN_ERRR(NOT_INIT, "Failure in PMI_Get_size\n");
   *nodes_p = size;
-
-  if (PMI_SUCCESS != PMI_Get_rank(&rank))
-    GASNETI_RETURN_ERRR(NOT_INIT, "Failure in PMI_Get_rank\n");
   *mynode_p = rank;
 
   return GASNET_OK;
@@ -157,7 +152,7 @@ static int gasnetc_bootstrapInit(int *argc, char ***argv) {
 }
 
 static void gasnetc_bootstrapFini(void) {
-  PMI_Finalize();  /* normal exit via PMI */
+  PMI2_Finalize();  /* normal exit via PMI */
 }
 
 static void gasnetc_bootstrapBarrierPMI(void) {
