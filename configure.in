@@ -2,14 +2,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2013/07/10 17:24:01 $
-# $Revision: 1.811 $
+#     $Date: 2013/07/17 23:22:19 $
+# $Revision: 1.812 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.811 $)
+AC_REVISION($Revision: 1.812 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -4154,19 +4154,7 @@ esac
 if test ${gni_network}:${enabled_[]lowername} = lowername[]:yes; then
   have_[]lowername=yes # start by assuming we have it
 
-  GASNET_ENV_DEFAULT(PE_DIR, /opt/cray)
-  cray_pmi_guess=`pkg-config cray-pmi --cflags 2>/dev/null`
-  if test -z "$cray_pmi_guess"; then
-    cray_pmi_guess="$PE_DIR/pmi/default/include"
-  fi
-  GASNET_ENV_DEFAULT(PMI_CFLAGS, "$cray_pmi_guess")
-  cray_gni_guess=`pkg-config cray-gni-headers --cflags 2>/dev/null`
-  if test -z "$cray_gni_guess"; then
-    cray_gni_guess="$PE_DIR/gni-headers/default/include"
-  fi
-  GASNET_ENV_DEFAULT(GNI_CFLAGS, "$cray_gni_guess")
-
-  GNI_INCLUDES="${GNI_CFLAGS} ${PMI_CFLAGS}"
+  GASNET_ENV_DEFAULT(GNI_INCLUDES,)
   GASNET_ENV_DEFAULT(GNI_LIBS,)
 
   GASNET_PUSHVAR(CPPFLAGS,"$CPPFLAGS ${GNI_INCLUDES}")
