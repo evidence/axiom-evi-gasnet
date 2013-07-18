@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2013/07/10 22:30:23 $
- * $Revision: 1.112 $
+ *     $Date: 2013/07/18 05:15:02 $
+ * $Revision: 1.113 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -2314,4 +2314,8 @@ void gasneti_bootstrapBroadcast_ssh(void *src, size_t len, void *dest, int rootn
 #else
   #error
 #endif
+}
+
+void gasneti_bootstrapCleanup_ssh(void) {
+  /* TODO: anything we can free at end of bootstrap collectives? */
 }

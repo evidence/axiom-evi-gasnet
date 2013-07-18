@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2013/06/21 01:06:44 $ */
-/*  $Revision: 1.190 $ */
+/*      $Date: 2013/07/18 05:14:46 $ */
+/*  $Revision: 1.191 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -425,6 +425,9 @@
 #undef GASNETI_SSH_TOPO_FLAT
 #undef GASNETI_SSH_TOPO_NARY
 #undef GASNETI_SSH_NARY_DEGREE
+
+/* Support for pmi-spawner */
+#undef HAVE_PMI_H
 
 @BOTTOM@
 

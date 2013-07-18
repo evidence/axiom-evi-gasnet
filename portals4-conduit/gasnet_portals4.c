@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4.c,v $
- *     $Date: 2013/07/10 16:27:02 $
- * $Revision: 1.43 $
+ *     $Date: 2013/07/18 05:15:04 $
+ * $Revision: 1.44 $
  * Description: Portals 4 specific configuration
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
@@ -9,6 +9,7 @@
 #include <gasnet_internal.h>
 #include <gasnet_handler.h>
 #include <gasnet_core_internal.h>
+#include <pmi-spawner/gasnet_bootstrap_internal.h>
 
 #include <errno.h>
 #include <unistd.h>
@@ -40,9 +41,6 @@ static ptl_uid_t uid = PTL_UID_ANY;
 static ptl_size_t bootstrap_barrier_calls = 0;
 static ptl_handle_ct_t bootstrap_barrier_ct_h;
 static ptl_handle_me_t bootstrap_barrier_me_h;
-
-static char *kvs_name = NULL, *kvs_key = NULL, *kvs_value = NULL;
-static int max_name_len, max_key_len, max_val_len;
 
 /* 16 blocks of 1MB each for AM reception */
 static int p4_am_size = 1 * 1024 * 1024;
@@ -78,112 +76,6 @@ static gasneti_weakatomic_t p4_op_count = gasneti_weakatomic_init(0);
                   gasnet_AMMaxMedium(), GASNETI_MEDBUF_ALIGNMENT)
 #define IS_MED_ALIGNED(x) \
   (0 == ((uintptr_t)(x) & (GASNETI_MEDBUF_ALIGNMENT-1)))
-
-
-/* TODO: Possible encode/decode options include (for a 32-bit ptl_process_t):
- *   hexadecimal: 8 bytes (100% expansion) <- CURRENT
- *   base64: 6 bytes (50% expansion)
- *   asci85: 5 bytes (25% expansion)
- * See http://en.wikipedia.org/wiki/Binary-to-text_encoding
- * If we start getting concerned w/ scalability, we may consider
- * paying the added complexity of the more efficient encodings.
- * However, we can still save space by more shortening of the Keys.
- *    -PHH 2013.04.18
- */
-
-static int
-p4_encode(const void *inval, int invallen, char *outval, int outvallen)
-{
-    static unsigned char encodings[] = {
-        '0','1','2','3','4','5','6','7', \
-        '8','9','a','b','c','d','e','f' };
-    int i;
-
-    if (invallen * 2 + 1 > outvallen) {
-        return 1;
-    }
-
-    for (i = 0; i < invallen; i++) {
-        outval[2 * i] = encodings[((unsigned char *)inval)[i] & 0xf];
-        outval[2 * i + 1] = encodings[((unsigned char *)inval)[i] >> 4];
-    }
-
-    outval[invallen * 2] = '\0';
-
-    return 0;
-}
-
-
-static int
-p4_decode(const char *inval, void *outval, int outvallen)
-{
-    int i;
-    char *ret = (char*) outval;
-
-    if (outvallen != strlen(inval) / 2) {
-        return 1;
-    }
-
-    for (i = 0 ; i < outvallen ; ++i) {
-        if (*inval >= '0' && *inval <= '9') {
-            ret[i] = *inval - '0';
-        } else {
-            ret[i] = *inval - 'a' + 10;
-        }
-        inval++;
-        if (*inval >= '0' && *inval <= '9') {
-            ret[i] |= ((*inval - '0') << 4);
-        } else {
-            ret[i] |= ((*inval - 'a' + 10) << 4);
-        }
-        inval++;
-    }
-
-    return 0;
-}
-
-
-static void
-p4_info_put(ptl_process_t *my_name)
-{
-    snprintf(kvs_key, max_key_len, "gsntp4%lx", (long unsigned) gasneti_mynode);
-    if (0 != p4_encode(my_name, sizeof(ptl_process_t), kvs_value, max_val_len)) {
-        gasneti_fatalerror("gasnetc_info_put() encode failed");
-    }
-    if (PMI_SUCCESS != PMI_KVS_Put(kvs_name, kvs_key, kvs_value)) {
-        gasneti_fatalerror("gasnetc_info_put() PMI_KVS_Put() failed");
-    }
-}
-
-
-static void
-p4_info_get(ptl_process_t *names, int num_names)
-{
-    int pe;
-
-    for (pe = 0 ; pe < num_names ; ++pe) {
-        snprintf(kvs_key, max_key_len, "gsntp4%lx", (long unsigned) pe);
-        if (PMI_SUCCESS != PMI_KVS_Get(kvs_name, kvs_key, kvs_value, max_val_len)) {
-            gasneti_fatalerror("gasnetc_info_get() PMI_KVS_Get() failed");
-        }
-        if (0 != p4_decode(kvs_value, &names[pe], sizeof(ptl_process_t))) {
-            gasneti_fatalerror("gasnetc_info_get() decode failed");
-        }
-    }
-}
-
-
-static void
-p4_info_exchange(void)
-{
-    if (PMI_SUCCESS != PMI_KVS_Commit(kvs_name)) {
-        gasneti_fatalerror("gasnetc_info_exchange() PMI_KVS_Commit() failed");
-    }
-
-    if (PMI_SUCCESS != PMI_Barrier()) {
-        gasneti_fatalerror("gasnetc_info_exchange() PMI_Barrier() failed");
-    }
-}
 
 /* ---------------------------------------------------------------------------------
  * Error reporting helpers
@@ -325,7 +217,7 @@ p4_get_num_mds(void)
  * active message handling, and match list for bootstrap barrier.
  * --------------------------------------------------------------------------------- */
 int
-gasnetc_p4_init(int *rank, int *size)
+gasnetc_p4_init(gasnet_node_t *rank_p, gasnet_node_t *size_p)
 {
     int initialized, ret, i;
     ptl_ni_limits_t ni_req_limits, ni_limits;
@@ -344,47 +236,8 @@ gasnetc_p4_init(int *rank, int *size)
     p4_am_eq_len = gasneti_getenv_int_withdefault("GASNET_AM_EVENT_QUEUE_LENGTH", p4_am_eq_len, 0);
     p4_poll_limit = p4_am_eq_len / 8; /* arbitrary */
 
-    if (PMI_SUCCESS != PMI_Initialized(&initialized)) {
-        gasneti_fatalerror("PMI_Initialized() failed");
-    }
-
-    if (!initialized) {
-        if (PMI_SUCCESS != PMI_Init(&initialized)) {
-            gasneti_fatalerror("PMI_Init() failed");
-        }
-    }
-
-    if (PMI_SUCCESS != PMI_Get_rank(rank)) {
-        gasneti_fatalerror("PMI_Get_rank() failed");
-    }
-
-    if (PMI_SUCCESS != PMI_Get_size(size)) {
-        gasneti_fatalerror("PMI_Get_size() failed");
-    }
-
-    /* this is a bit of an abstraction break, but makes debugging
-       output so much nicer... */
-    gasneti_mynode = *rank;
-    gasneti_nodes = *size;
-
-    if (PMI_SUCCESS != PMI_KVS_Get_name_length_max(&max_name_len)) {
-        gasneti_fatalerror("PMI_KVS_Get_name_length_max() failed");
-    }
-    kvs_name = (char*) gasneti_malloc(max_name_len);
-
-    if (PMI_SUCCESS != PMI_KVS_Get_key_length_max(&max_key_len)) {
-        gasneti_fatalerror("PMI_KVS_Get_key_length_max() failed");
-    }
-    kvs_key = (char*) gasneti_malloc(max_key_len);
-
-    if (PMI_SUCCESS != PMI_KVS_Get_value_length_max(&max_val_len)) {
-        gasneti_fatalerror("PMI_KVS_Get_value_length_max() failed");
-    }
-    kvs_value = (char*) gasneti_malloc(max_val_len);
-
-    if (PMI_SUCCESS != PMI_KVS_Get_my_name(kvs_name, max_name_len)) {
-        gasneti_fatalerror("PMI_KVS_Get_my_name() failed");
-    }
+    ret = gasneti_bootstrapInit_pmi(NULL, NULL, size_p, rank_p);
+    if (GASNET_OK != ret) return ret;
 
     /* Setup data structures */
     p4_long_hash = gasnetc_hash_create();
@@ -435,10 +288,8 @@ gasnetc_p4_init(int *rank, int *size)
     if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlGetPhysId()");
 
     /* build id map */
-    p4_info_put(&my_id);
-    p4_info_exchange();
     desired = gasneti_malloc(sizeof(ptl_process_t) * gasneti_nodes);
-    p4_info_get(desired, gasneti_nodes);
+    gasneti_bootstrapExchange_pmi(&my_id, sizeof(ptl_process_t), desired);
 
     gasneti_nodemapInit(NULL, &desired[0].phys.nid,
                         sizeof(desired[0].phys.nid),
@@ -450,9 +301,6 @@ gasnetc_p4_init(int *rank, int *size)
     if_pf (PTL_OK != ret && PTL_IGNORED != ret) p4_fatalerror(ret, "PtlSetMap()");
 
     gasneti_free(desired);
-    gasneti_free(kvs_name);
-    gasneti_free(kvs_key);
-    gasneti_free(kvs_value);
 
     ret = PtlGetUid(matching_ni_h, &uid);
     if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlGetUid()");
@@ -584,9 +432,9 @@ gasnetc_p4_init(int *rank, int *size)
        for the bootstrapBarrier before the info exchange and therefore
        not care about synchronization until the segmentInit later in
        gasnet_init(). */
-    ret = PMI_Barrier();
-    if (PMI_SUCCESS != ret) gasneti_fatalerror("[%03d] PMI_Barrier() failed: %d", 
-                                               gasneti_mynode, ret);
+    gasneti_bootstrapBarrier_pmi();
+
+    gasneti_bootstrapCleanup_pmi(); /* no more PMI-based collectives */
 
     return GASNET_OK;
 }
@@ -685,7 +533,7 @@ gasnetc_p4_exit(void)
     PtlFini();
 
 #if 0 /* If we make this call then non-collective exits will hang */
-    PMI_Finalize();
+    gasneti_bootstrapFini_pmi();
 #endif
 }
 

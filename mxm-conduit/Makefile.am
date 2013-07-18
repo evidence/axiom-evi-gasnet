@@ -35,6 +35,15 @@ $(builddir)/gasnet_bootstrap_mpi-$(THREAD_MODEL).o: force
 	@MPI_CC@ @MPI_CFLAGS@ $(LIBDEFINES) $(CONDUIT_EXTRALIBCFLAGS) $(LIBINCLUDES) \
 		-o $@ -c $(mpi_srcdir)/gasnet_bootstrap_mpi.c
 endif
+##
+## PMI bootstrap support (optional)
+##
+if HAVE_BOOTSTRAP_PMI
+pmi_cppflags = -DHAVE_PMI_SPAWNER @PMI_SPAWNER_INCLUDES@
+pmi_srcdir = $(top_srcdir)/other/pmi-spawner
+pmi_sources = $(pmi_srcdir)/gasnet_bootstrap_pmi.c
+pmi_deps = $(pmi_srcdir)/*.h
+endif
 
 # any conduit-specific subdirectories containing Makefile.am's
 SUBDIRS = contrib
@@ -62,11 +71,11 @@ CONDUIT_SOURCELIST =                  \
       $(srcdir)/gasnet_core_connect.c \
       $(srcdir)/gasnet_core_sndrcv.c  \
       $(srcdir)/gasnet_extended.c     \
-      $(fca_sourcelist) $(ssh_sources)
+      $(fca_sourcelist) $(ssh_sources) $(pmi_sources)
 
 # additional -I or -D directives needed by this specific conduit
 # other than the standard GASNet includes and flags
-CONDUIT_EXTRALIBCFLAGS = @MXM_INCLUDE@  $(ssh_defines) $(mpi_defines) $(fca_extralibcflags)
+CONDUIT_EXTRALIBCFLAGS = @MXM_INCLUDE@  $(ssh_defines) $(pmi_cppflags) $(mpi_defines) $(fca_extralibcflags)
 
 # additional conduit header files to install from external, non-standard directories
 CONDUIT_EXTRAHEADERS = $(fca_extraheaders)
@@ -76,7 +85,7 @@ CONDUIT_PRIVATEHEADERS = $(fca_privheaders) gasnet_mxm_req.h
 
 # additional file dependencies not mentioned elsewhere 
 # that should force libgasnet rebuild on update
-CONDUIT_EXTRADEPS = $(ssh_deps) $(mpi_deps) $(fca_extradeps)
+CONDUIT_EXTRADEPS = $(ssh_deps) $(pmi_deps) $(mpi_deps) $(fca_extradeps)
 
 # additional object files to be included in libgasnet that need to be compiled 
 # using a special, conduit-specific command. These should also be included as

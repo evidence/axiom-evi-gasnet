@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/07/17 18:56:08 $
- * $Revision: 1.82 $
+ *     $Date: 2013/07/18 05:14:50 $
+ * $Revision: 1.83 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -10,6 +10,7 @@
 #include <gasnet_internal.h>
 #include <gasnet_handler.h>
 #include <gasnet_core_internal.h>
+#include <pmi-spawner/gasnet_bootstrap_internal.h>
 #include <gasnet_gemini.h>
 /* #include <alps/libalpslli.h> */
 
@@ -69,23 +70,10 @@ static void gasnetc_check_config(void) {
   }
 }
 
-static int gasneti_bootstrapInitPMI(int *argc_p, char ***argv_p,
-                                    gasnet_node_t *nodes_p, gasnet_node_t *mynode_p) {
-  int spawned, size, rank, appnum;
-
-  if (PMI_SUCCESS != PMI2_Init(&spawned, &size, &rank, &appnum))
-    GASNETI_RETURN_ERRR(NOT_INIT, "Failure in PMI2_Init\n");
-
-  *nodes_p = size;
-  *mynode_p = rank;
-
-  return GASNET_OK;
-}
-
 static int gasnetc_bootstrapInit(int *argc, char ***argv) {
   const char *envval;
 
-  { int retval = gasneti_bootstrapInitPMI(argc, argv, &gasneti_nodes, &gasneti_mynode);
+  { int retval = gasneti_bootstrapInit_pmi(argc, argv, &gasneti_nodes, &gasneti_mynode);
     if (retval != GASNET_OK) GASNETI_RETURN(retval);
   }
 
@@ -151,48 +139,6 @@ static int gasnetc_bootstrapInit(int *argc, char ***argv) {
   return GASNET_OK;
 }
 
-static void gasnetc_bootstrapFini(void) {
-  PMI2_Finalize();  /* normal exit via PMI */
-}
-
-static void gasnetc_bootstrapBarrierPMI(void) {
-  PMI_Barrier();
-}
-
-static gasnet_node_t *gasnetc_pmi_exchange_order = NULL;
-
-static void gasnetc_bootstrapExchangePMI(void *src, size_t len, void *dest) {
-  uint8_t *unsorted = gasneti_malloc(len * gasneti_nodes);
-
-  int i, status;
-
-  /* perform (just once) an Allgather of node number to establish the order */
-  if_pf (!gasnetc_pmi_exchange_order) {
-    gasnetc_pmi_exchange_order = gasneti_malloc(gasneti_nodes * sizeof(gasnet_node_t));
-    status = PMI_Allgather(&gasneti_mynode, gasnetc_pmi_exchange_order, sizeof(gasnet_node_t));
-    if (status != PMI_SUCCESS) {
-      gasnetc_GNIT_Abort("PMI_Allgather failed rc=%d", status);
-    }
-  }
-
-  /* Allgather the callers data to a temporary array */
-  status = PMI_Allgather(src, unsorted, len);
-  if (status != PMI_SUCCESS) {
-    gasnetc_GNIT_Abort("PMI_Allgather failed rc=%d", status);
-  }
-
-  /* extract the records from the unsorted array by using the 'order' array */
-  for (i = 0; i < gasneti_nodes; i += 1) {
-    gasnet_node_t peer = gasnetc_pmi_exchange_order[i];
-    if (peer >= gasneti_nodes) {
-      gasnetc_GNIT_Abort("PMI_Allgather failed, item %d has impossible rank %d", i, peer);
-    }
-    memcpy((void *) ((uintptr_t) dest + (peer * len)), &unsorted[i * len], len);
-  }
-
-  gasneti_free(unsorted);
-}
-
 /* ------------------------------------------------------------------------------------ */
 /* Bootstrap Barrier and Exchange via AMs
  * Taken from vapi-conduit w/o the thread safetly complications 
@@ -249,7 +195,7 @@ void gasnetc_bootstrapBarrier(void))
     gasnetc_sys_barrier_rcvd[phase] = 0;
     phase ^= 1;
   } else {
-    gasnetc_bootstrapBarrierPMI();
+    gasneti_bootstrapBarrier_pmi();
   }
 }
 
@@ -350,7 +296,7 @@ end_network_comms:
     gasnetc_sys_exchange_buf[phase] = NULL;
     phase ^= 1;
   } else {
-    gasnetc_bootstrapExchangePMI(src, len, dest);
+    gasneti_bootstrapExchange_pmi(src, len, dest);
   }
 
 #if GASNET_DEBUG
@@ -440,8 +386,8 @@ done:
   gasnetc_handler[_hidx_gasnetc_sys_barrier_reqh]  = (gasneti_handler_fn_t)&gasnetc_sys_barrier_reqh;
   gasnetc_handler[_hidx_gasnetc_sys_exchange_reqh] = (gasneti_handler_fn_t)&gasnetc_sys_exchange_reqh;
 
-  gasneti_free(gasnetc_pmi_exchange_order);
   gasnetc_bootstrap_am_coll = 1;
+  gasneti_bootstrapCleanup_pmi(); /* No further use of PMI-based colelctives */
 }
 
 static void gasnetc_sys_coll_fini(void)
@@ -1087,7 +1033,7 @@ extern void gasnetc_exit(int exitcode) {
   gasneti_sched_yield();
   gasnetc_shutdown();
 
-  gasnetc_bootstrapFini();  /* normal exit via PMI */
+  gasneti_bootstrapFini_pmi();  /* normal exit */
   gasneti_killmyprocess(exitcode); /* last chance */
   gasnetc_GNIT_Abort("gasnetc_exit failed!");
 }

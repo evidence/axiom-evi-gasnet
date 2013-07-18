@@ -21,6 +21,9 @@ GASNETI_IDENT(gasnetc_IdentString_HaveSSHSpawner, "$GASNetSSHSpawner: 1 $");
 #if HAVE_MPI_SPAWNER
 GASNETI_IDENT(gasnetc_IdentString_HaveMPISpawner, "$GASNetMPISpawner: 1 $");
 #endif
+#if HAVE_PMI_SPAWNER
+GASNETI_IDENT(gasnetc_IdentString_HavePMISpawner, "$GASNetPMISpawner: 1 $");
+#endif
 
 gasnet_handlerentry_t const *gasnetc_get_handlertable(void);
 #if HAVE_ON_EXIT
@@ -119,6 +122,7 @@ void (*gasneti_bootstrapBarrier_p)(void) = NULL;
 void (*gasneti_bootstrapExchange_p)(void *src, size_t len, void *dest) = NULL;
 void (*gasneti_bootstrapAlltoall_p)(void *src, size_t len, void *dest) = NULL;
 void (*gasneti_bootstrapBroadcast_p)(void *src, size_t len, void *dest, int rootnode) = NULL;
+void (*gasneti_bootstrapCleanup_p)(void) = NULL;
 
 #if GASNET_TRACE
 static unsigned int	gasnetc_pinned_blocks = 0;
@@ -170,6 +174,7 @@ static int gasneti_bootstrapInit(
         gasneti_bootstrapExchange_p = &gasneti_bootstrapExchange_ssh;
         gasneti_bootstrapAlltoall_p = &gasneti_bootstrapAlltoall_ssh;
         gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_ssh;
+        gasneti_bootstrapCleanup_p  = &gasneti_bootstrapCleanup_ssh;
     } else
 #endif
 #if HAVE_MPI_SPAWNER
@@ -182,6 +187,18 @@ static int gasneti_bootstrapInit(
         gasneti_bootstrapExchange_p	= &gasneti_bootstrapExchange_mpi;
         gasneti_bootstrapAlltoall_p	= &gasneti_bootstrapAlltoall_mpi;
         gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_mpi;
+        gasneti_bootstrapCleanup_p  = &gasneti_bootstrapCleanup_mpi;
+    } else
+#endif
+#if HAVE_PMI_SPAWNER
+    if (GASNET_OK == (res = gasneti_bootstrapInit_pmi(argc_p, argv_p, nodes_p, mynode_p))) {
+        gasneti_bootstrapFini_p = &gasneti_bootstrapFini_pmi;
+        gasneti_bootstrapAbort_p    = &gasneti_bootstrapAbort_pmi;
+        gasneti_bootstrapBarrier_p  = &gasneti_bootstrapBarrier_pmi;
+        gasneti_bootstrapExchange_p = &gasneti_bootstrapExchange_pmi;
+        gasneti_bootstrapAlltoall_p = &gasneti_bootstrapAlltoall_pmi;
+        gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_pmi;
+        gasneti_bootstrapCleanup_p  = &gasneti_bootstrapCleanup_pmi;
     } else
 #endif
     {
@@ -1245,6 +1262,8 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 
     /* ensure extended API is initialized across nodes */
     gasnetc_bootstrapBarrier();
+
+    gasneti_bootstrapCleanup();
 
     return GASNET_OK;
 }

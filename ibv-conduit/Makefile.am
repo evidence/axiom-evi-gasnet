@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/Makefile.am,v $
-#     $Date: 2012/10/12 23:46:47 $
-# $Revision: 1.13 $
+#     $Date: 2013/07/18 05:14:52 $
+# $Revision: 1.14 $
 # Description: Makefile for GASNet ibv conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -50,6 +50,16 @@ $(builddir)/gasnet_bootstrap_mpi-$(THREAD_MODEL).o: force
 endif
 
 ##
+## PMI bootstrap support (optional)
+##
+if HAVE_BOOTSTRAP_PMI
+pmi_cppflags = -DHAVE_PMI_SPAWNER @PMI_SPAWNER_INCLUDES@
+pmi_srcdir = $(top_srcdir)/other/pmi-spawner
+pmi_sources = $(pmi_srcdir)/gasnet_bootstrap_pmi.c
+pmi_deps = $(pmi_srcdir)/*.h
+endif
+
+##
 ## IBV AM receiver thead support (optional)
 ##
 if IBV_RCV_THREAD
@@ -77,11 +87,11 @@ CONDUIT_SOURCELIST =                 \
       $(vapi_srcdir)/gasnet_core_thread.c \
       $(vapi_srcdir)/gasnet_extended.c    \
       $(vapi_srcdir)/gasnet_firehose.c    \
-      $(fca_sourcelist) $(fh_sourcelist) $(ssh_sources)
+      $(fca_sourcelist) $(fh_sourcelist) $(ssh_sources) $(pmi_sources)
 
 # additional -I or -D directives needed by this specific conduit
 # other than the standard GASNet includes and flags
-CONDUIT_EXTRALIBCFLAGS = -I@IBV_INCLUDE@ -I$(vapi_srcdir) $(fh_extralibcflags) $(ssh_defines) $(mpi_defines) $(fca_extralibcflags)\
+CONDUIT_EXTRALIBCFLAGS = -I@IBV_INCLUDE@ -I$(vapi_srcdir) $(fh_extralibcflags) $(ssh_defines) $(mpi_defines) $(pmi_cppflags) $(fca_extralibcflags)\
 			 @IBV_LIBCFLAGS@ $(rcv_thread_defines) -DGASNET_CONDUIT_IBV
 
 # additional conduit header files to install from external, non-standard directories
@@ -93,7 +103,7 @@ CONDUIT_PRIVATEHEADERS = $(fh_privheaders) $(fca_privheaders)
 
 # additional file dependencies not mentioned elsewhere 
 # that should force libgasnet rebuild on update
-CONDUIT_EXTRADEPS = $(vapi_srcdir)/*.[ch] $(fh_extradeps) $(ssh_deps) $(mpi_deps) $(fca_extradeps)
+CONDUIT_EXTRADEPS = $(vapi_srcdir)/*.[ch] $(fh_extradeps) $(ssh_deps) $(mpi_deps) $(pmi_deps) $(fca_extradeps)
 
 # additional object files to be included in libgasnet that need to be compiled 
 # using a special, conduit-specific command. These should also be included as

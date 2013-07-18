@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/Makefile.am,v $
-#     $Date: 2012/03/06 02:20:33 $
-# $Revision: 1.51 $
+#     $Date: 2013/07/18 05:15:06 $
+# $Revision: 1.52 $
 # Description: Makefile for GASNet vapi conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -37,6 +37,16 @@ mpi_special_objs = $(builddir)/gasnet_bootstrap_mpi-$(THREAD_MODEL).o
 $(builddir)/gasnet_bootstrap_mpi-$(THREAD_MODEL).o: force
 	@MPI_CC@ @MPI_CFLAGS@ $(LIBDEFINES) $(CONDUIT_EXTRALIBCFLAGS) $(LIBINCLUDES) \
 		-o $@ -c $(mpi_srcdir)/gasnet_bootstrap_mpi.c
+endif
+
+##
+## PMI bootstrap support (optional)
+##
+if HAVE_BOOTSTRAP_PMI
+pmi_cppflags = -DHAVE_PMI_SPAWNER @PMI_SPAWNER_INCLUDES@
+pmi_srcdir = $(top_srcdir)/other/pmi-spawner
+pmi_sources = $(pmi_srcdir)/gasnet_bootstrap_pmi.c
+pmi_deps = $(pmi_srcdir)/*.h
 endif
 
 ##
@@ -78,11 +88,11 @@ CONDUIT_SOURCELIST =                 \
       $(srcdir)/gasnet_core_thread.c \
       $(srcdir)/gasnet_extended.c    \
       $(srcdir)/gasnet_firehose.c    \
-      $(fh_sourcelist) $(ssh_sources)
+      $(fh_sourcelist) $(ssh_sources) $(pmi_sources)
 
 # additional -I or -D directives needed by this specific conduit
 # other than the standard GASNet includes and flags
-CONDUIT_EXTRALIBCFLAGS = -I@VAPI_INCLUDE@ $(fh_extralibcflags) $(ssh_defines) $(mpi_defines)\
+CONDUIT_EXTRALIBCFLAGS = -I@VAPI_INCLUDE@ $(fh_extralibcflags) $(ssh_defines) $(mpi_defines) $(pmi_cppflags) \
 			 @VAPI_LIBCFLAGS@ $(rcv_thread_defines) -DGASNET_CONDUIT_VAPI
 
 # additional conduit header files to install from external, non-standard directories
@@ -93,7 +103,7 @@ CONDUIT_PRIVATEHEADERS = $(fh_privheaders)
 
 # additional file dependencies not mentioned elsewhere 
 # that should force libgasnet rebuild on update
-CONDUIT_EXTRADEPS = $(fh_extradeps) $(ssh_deps) $(mpi_deps)
+CONDUIT_EXTRADEPS = $(fh_extradeps) $(ssh_deps) $(mpi_deps) $(pmi_deps)
 
 # additional object files to be included in libgasnet that need to be compiled 
 # using a special, conduit-specific command. These should also be included as

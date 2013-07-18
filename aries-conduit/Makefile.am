@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/aries-conduit/Makefile.am,v $
-#     $Date: 2013/02/24 13:31:07 $
-# $Revision: 1.4 $
+#     $Date: 2013/07/18 05:14:48 $
+# $Revision: 1.5 $
 # Description: Makefile for GASNet aries conduit
 # Copyright 2013, E. O. Lawrence Berekely National Laboratory
 # Terms of use are as specified in license.txt
@@ -15,6 +15,9 @@ CONDUIT_NAME=aries
 ##
 gemini_srcdir = $(top_srcdir)/gemini-conduit
 gemini_install_hdrs = $(gemini_srcdir)/*.h
+
+## generalized PMI support
+pmi_srcdir = $(top_srcdir)/other/pmi-spawner
 
 # any conduit-specific subdirectories containing Makefile.am's
 SUBDIRS = .
@@ -32,7 +35,8 @@ CONDUIT_FILELIST =            \
 CONDUIT_SOURCELIST =          \
       $(gemini_srcdir)/gasnet_core.c \
       $(gemini_srcdir)/gasnet_gemini.c \
-      $(gemini_srcdir)/gasnet_extended.c 
+      $(gemini_srcdir)/gasnet_extended.c \
+      $(pmi_srcdir)/gasnet_bootstrap_pmi.c
 
 # additional -I or -D directives needed by this specific conduit
 # other than the standard GASNet includes and flags
@@ -46,7 +50,7 @@ CONDUIT_PRIVATEHEADERS = gasnet_gemini.h
 
 # additional file dependencies not mentioned elsewhere 
 # that should force libgasnet rebuild on update
-CONDUIT_EXTRADEPS = $(gemini_srcdir)/*.[ch]
+CONDUIT_EXTRADEPS = $(gemini_srcdir)/*.[ch] $(pmi_srcdir)/*.h
 
 # additional object files to be included in libgasnet that need to be compiled 
 # using a special, conduit-specific command. These should also be included as

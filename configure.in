@@ -2,14 +2,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2013/07/17 23:22:19 $
-# $Revision: 1.812 $
+#     $Date: 2013/07/18 05:14:46 $
+# $Revision: 1.813 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.812 $)
+AC_REVISION($Revision: 1.813 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -4072,7 +4072,7 @@ if test "$enabled_portals4" = yes; then
   fi
 
   GASNET_ENV_DEFAULT(PORTALS4_INCLUDE, $PORTALS4HOME/include)
-  GASNET_ENV_DEFAULT(PORTALS4_LIBS, -lportals -lportals_runtime)
+  GASNET_ENV_DEFAULT(PORTALS4_LIBS, -lportals)
 
   # TODO: we should have (and uniformly use) a macro for this -PHH
   portals4_lib_guess="$PORTALS4HOME/lib${GASNETI_PTR_BITS}"
@@ -4084,16 +4084,30 @@ if test "$enabled_portals4" = yes; then
   GASNET_ENV_DEFAULT(PORTALS4_LIBDIR, $portals4_lib_guess)
 
   # Assemble any extra flags needed at library build time
-  PORTALS4_LIBCFLAGS='' # None yet
+  PORTALS4_LIBCFLAGS=''
 
-  # Try to compile and link a basic Portals 4 program
   GASNET_PUSHVAR(CFLAGS,"$CFLAGS -I$PORTALS4_INCLUDE $GASNET_THREAD_DEFINES $PORTALS4_LIBCFLAGS")
   GASNET_PUSHVAR(LIBS,"$LIBS -L$PORTALS4_LIBDIR $PORTALS4_LIBS $GASNET_THREAD_LIBS")
+
+  # Try to compile and link a basic Portals 4 program
   GASNET_TRY_CACHE_LINK(for working Portals4 configuration, portals4_works, [
       #include <portals4.h>
   ], [{
     PtlInit();
   }], [ : ], [ have_portals4=no; GASNET_ERR_SAVE() ] )
+
+  # Try to compile and link Portals 4 PMI support
+  LIBS="$LIBS -lportals_runtime"
+  GASNET_TRY_CACHE_LINK(for PMI support in Portals4 runtime library, portals4_pmi_works, [
+      #include <stddef.h>
+      #include <portals4/pmi.h>
+  ], [{
+      PMI_Init(NULL);
+  }], [
+      PORTALS4_LIBCFLAGS="$PORTALS4_LIBCFLAGS -I$PORTALS4_INCLUDE/portals4 -DHAVE_PMI_H"
+      PORTALS4_LIBS="$PORTALS4_LIBS -lportals_runtime"
+   ] )
+
   GASNET_POPVAR(CFLAGS)
   GASNET_POPVAR(LIBS)
 
@@ -4133,7 +4147,6 @@ AC_SUBST(PORTALS4_LIBDIR)
 AC_SUBST(PORTALS4_LIBS)
 AC_SUBST(PORTALS4_LIBCFLAGS)
 AM_CONDITIONAL(USE_PORTALS4_CONDUIT, test "$have_portals4" = yes)
-AM_CONDITIONAL(PORTALS4_BOOTSTRAP_MPI, test "$have_mpi_compat" = yes)	# Option to omit MPI support?
 CONDUIT_END([test "$have_portals4" = yes])
 
 #--------------------------------------------------------------------------------------------------------
@@ -4162,6 +4175,7 @@ if test ${gni_network}:${enabled_[]lowername} = lowername[]:yes; then
 
   # These duplicate part of the "working Gemini/Aries configuration" probe.
   # However, failing on these can help distinguish which module is missing/broken.
+  # Also HAVE_PMI_CRAY_H squashes later probe for pmi.h
   AC_CHECK_HEADERS(pmi_cray.h, [:], [have_[]lowername=no])
   AC_CHECK_HEADERS(gni_pub.h, [:], [have_[]lowername=no])
 
@@ -4728,6 +4742,73 @@ GASNET_WITH(ssh-topology,
     esac],
    [AC_MSG_ERROR([--with-ssh-topology requires an argument])],
    [AC_DEFINE(GASNETI_SSH_TOPO_FLAT)])
+
+# Things for pmi-spawner
+
+GASNET_WITH(pmi, [path to PMI headers and libs],
+            [with_pmi="$withval"], [with_pmi=no], [with_pmi='/usr'])
+if test "x$HAVE_PMI_CRAY_H" = xyes; then
+  AC_CHECK_FUNCS([PMI_Allgather PMI_Bcast])
+  with_pmi='no'
+elif test "$with_pmi" = yes; then
+  with_pmi='/usr'
+fi
+
+if test "$with_pmi" != 'no'; then
+  GASNET_PUSHVAR(LIBS,"$LIBS")
+  GASNET_PUSHVAR(LDFLAGS,"$LDFLAGS")
+  if test "$with_pmi" = '/usr'; then
+    : # Nothing to do
+  elif test -d "${with_pmi}/lib${GASNETI_PTR_BITS}/."; then
+    PMI_SPAWNER_LIBDIR="-L${with_pmi}/lib${GASNETI_PTR_BITS}"
+  elif test -d "${with_pmi}/lib/."; then
+    PMI_SPAWNER_LIBDIR="-L${with_pmi}/lib"
+  fi
+  LDFLAGS="$LDFLAGS $PMI_SPAWNER_LIBDIR"
+
+  AC_CHECK_LIB(pmi, PMI_Init, [
+    have_pmi=yes
+    PMI_SPAWNER_LIBS="-lpmi"
+    LIBS="$LIBS $PMI_SPAWNER_LIBS"
+  ],[
+    have_pmi=no
+  ])
+
+  if test "$have_pmi" = yes; then
+    if test -f "${with_pmi}/include/slurm/pmi.h"; then
+      AC_DEFINE(HAVE_PMI_H)
+      PMI_SPAWNER_INCLUDES="-I${with_pmi}/include/slurm"
+    elif test -f "${with_pmi}/include/pmi.h"; then
+      AC_DEFINE(HAVE_PMI_H)
+      if test "$with_pmi" != '/usr'; then
+        PMI_SPAWNER_INCLUDES="-I${with_pmi}/include"
+      fi
+    else
+      have_pmi=no
+    fi
+  fi
+
+  if test "$have_pmi" = yes; then
+    # Not seen outside of Cray PMI, but we can hope:
+    AC_CHECK_FUNCS([PMI_Allgather PMI_Bcast])
+  fi
+
+  GASNET_POPVAR(LDFLAGS)
+  GASNET_POPVAR(LIBS)
+else
+  have_pmi=no
+fi
+
+if test "$have_pmi" = no; then
+  PMI_SPAWNER_LIBS=""
+  PMI_SPAWNER_LIBDIR=""
+  PMI_SPAWNER_INCLUDES=""
+fi
+
+AC_SUBST(PMI_SPAWNER_LIBS)
+AC_SUBST(PMI_SPAWNER_LIBDIR)
+AC_SUBST(PMI_SPAWNER_INCLUDES)
+AM_CONDITIONAL(HAVE_BOOTSTRAP_PMI, test "$have_pmi" = yes)
 
 dnl GASNET_TOOLSONLY_FALSE_END
 ########################################################################

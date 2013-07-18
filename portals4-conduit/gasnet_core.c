@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_core.c,v $
- *     $Date: 2013/04/23 01:01:55 $
- * $Revision: 1.2 $
+ *     $Date: 2013/07/18 05:15:04 $
+ * $Revision: 1.3 $
  * Description: GASNet portals4 conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -43,7 +43,6 @@ static void gasnetc_check_config(void) {
 
 static int gasnetc_init(int *argc, char ***argv) {
     int ret;
-    int rank, size;
     
     /*  check system sanity */
     gasnetc_check_config();
@@ -66,11 +65,8 @@ static int gasnetc_init(int *argc, char ***argv) {
     /* gasnetc_p4_init has barrier semantics such that
        gasnetc_bootstrapBarrier and gasnetc_bootstrapExchange will
        work upon return of init. */
-    ret = gasnetc_p4_init(&rank, &size);
+    ret = gasnetc_p4_init(&gasneti_mynode, &gasneti_nodes);
     if (GASNET_OK != ret) gasneti_fatalerror("gasnetc_p4_init failed: %d\n", ret);
-
-    gasneti_mynode = rank;
-    gasneti_nodes = size;
 
     /* node map set in gasnetc_p4_init */
 

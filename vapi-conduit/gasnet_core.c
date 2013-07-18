@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2013/07/10 22:38:23 $
- * $Revision: 1.314 $
+ *     $Date: 2013/07/18 05:15:06 $
+ * $Revision: 1.315 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -24,6 +24,9 @@ GASNETI_IDENT(gasnetc_IdentString_Name,    "$GASNetCoreLibraryName: " GASNET_COR
 #endif
 #if HAVE_MPI_SPAWNER
   GASNETI_IDENT(gasnetc_IdentString_HaveMPISpawner, "$GASNetMPISpawner: 1 $");
+#endif
+#if HAVE_PMI_SPAWNER
+  GASNETI_IDENT(gasnetc_IdentString_HavePMISpawner, "$GASNetMPISpawner: 1 $");
 #endif
 
 /* ------------------------------------------------------------------------------------ */
@@ -179,6 +182,7 @@ void (*gasneti_bootstrapFini_p)(void) = NULL;
 void (*gasneti_bootstrapAbort_p)(int exitcode) = NULL;
 void (*gasneti_bootstrapAlltoall_p)(void *src, size_t len, void *dest) = NULL;
 void (*gasneti_bootstrapBroadcast_p)(void *src, size_t len, void *dest, int rootnode) = NULL;
+void (*gasneti_bootstrapCleanup_p)(void) = NULL;
 
 static int gasneti_bootstrap_native_coll = 0;
 static gasnet_node_t gasnetc_dissem_peers = 0;
@@ -307,6 +311,7 @@ static void gasnetc_sys_coll_init(void)
 
 done:
   gasneti_bootstrap_native_coll = 1;
+  gasneti_bootstrapCleanup(); /* No futher use of ssh/mpi/pmi collectives */
 }
 
 static void gasnetc_sys_coll_fini(void)
@@ -1094,6 +1099,7 @@ static int  gasneti_bootstrapInit(int *argc_p, char ***argv_p,
     gasneti_bootstrapExchange_p	= &gasneti_bootstrapExchange_ssh;
     gasneti_bootstrapAlltoall_p	= &gasneti_bootstrapAlltoall_ssh;
     gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_ssh;
+    gasneti_bootstrapCleanup_p  = &gasneti_bootstrapCleanup_ssh;
   } else
 #endif
 #if HAVE_MPI_SPAWNER
@@ -1105,6 +1111,18 @@ static int  gasneti_bootstrapInit(int *argc_p, char ***argv_p,
     gasneti_bootstrapExchange_p	= &gasneti_bootstrapExchange_mpi;
     gasneti_bootstrapAlltoall_p	= &gasneti_bootstrapAlltoall_mpi;
     gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_mpi;
+    gasneti_bootstrapCleanup_p  = &gasneti_bootstrapCleanup_mpi;
+  } else
+#endif
+#if HAVE_PMI_SPAWNER
+  if (GASNET_OK == (result = gasneti_bootstrapInit_pmi(argc_p, argv_p, nodes_p, mynode_p))) {
+    gasneti_bootstrapFini_p	= &gasneti_bootstrapFini_pmi;
+    gasneti_bootstrapAbort_p	= &gasneti_bootstrapAbort_pmi;
+    gasneti_bootstrapBarrier_p	= &gasneti_bootstrapBarrier_pmi;
+    gasneti_bootstrapExchange_p	= &gasneti_bootstrapExchange_pmi;
+    gasneti_bootstrapAlltoall_p	= &gasneti_bootstrapAlltoall_pmi;
+    gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_pmi;
+    gasneti_bootstrapCleanup_p  = &gasneti_bootstrapCleanup_pmi;
   } else
 #endif
   {

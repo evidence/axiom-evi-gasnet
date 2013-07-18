@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4.h,v $
- *     $Date: 2013/07/10 16:27:02 $
- * $Revision: 1.7 $
+ *     $Date: 2013/07/18 05:15:04 $
+ * $Revision: 1.8 $
  * Description: Portals 4 specific configuration
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
@@ -121,7 +121,7 @@ struct p4_frag_data_t {
 };
 typedef struct p4_frag_data_t p4_frag_data_t;
 
-int gasnetc_p4_init(int *rank, int *size);
+int gasnetc_p4_init(gasnet_node_t *rank, gasnet_node_t *size);
 int gasnetc_p4_attach(void *segbase, uintptr_t segsize);
 void gasnetc_p4_exit(void);
 void gasnetc_p4_poll(void);

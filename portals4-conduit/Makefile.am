@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/Makefile.am,v $
-#     $Date: 2013/04/18 02:09:39 $
-# $Revision: 1.3 $
+#     $Date: 2013/07/18 05:15:04 $
+# $Revision: 1.4 $
 # Description: Makefile for GASNet portals4 conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -9,6 +9,9 @@
 AUTOMAKE_OPTIONS = foreign 1.4
 
 CONDUIT_NAME=portals4
+
+## generalized PMI support
+pmi_srcdir = $(top_srcdir)/other/pmi-spawner
 
 # any conduit-specific subdirectories containing Makefile.am's
 SUBDIRS = .
@@ -32,6 +35,7 @@ CONDUIT_FILELIST =           \
 CONDUIT_SOURCELIST =              \
       $(srcdir)/gasnet_core.c     \
       $(top_srcdir)/extended-ref/gasnet_extended.c \
+      $(pmi_srcdir)/gasnet_bootstrap_pmi.c \
       $(srcdir)/gasnet_portals4.c \
       $(srcdir)/gasnet_portals4_hash.c
 
@@ -47,7 +51,7 @@ CONDUIT_PRIVATEHEADERS = gasnet_portals4.h gasnet_portals4_hash.h
 
 # additional file dependencies not mentioned elsewhere 
 # that should force libgasnet rebuild on update
-CONDUIT_EXTRADEPS = 
+CONDUIT_EXTRADEPS = $(pmi_srcdir)/*.[ch]
 
 # additional object files to be included in libgasnet that need to be compiled 
 # using a special, conduit-specific command. These should also be included as

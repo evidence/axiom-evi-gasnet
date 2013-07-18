@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_internal.h,v $
- *     $Date: 2013/07/10 22:30:23 $
- * $Revision: 1.4 $
+ *     $Date: 2013/07/18 05:15:02 $
+ * $Revision: 1.5 $
  * Description: GASNet conduit-independent ssh-based spawner (prototypes)
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -17,5 +17,6 @@ extern void gasneti_bootstrapBarrier_ssh(void);
 extern void gasneti_bootstrapExchange_ssh(void *src, size_t len, void *dest);
 extern void gasneti_bootstrapAlltoall_ssh(void *src, size_t len, void *dest);
 extern void gasneti_bootstrapBroadcast_ssh(void *src, size_t len, void *dest, int rootnode);
+extern void gasneti_bootstrapCleanup_ssh(void);
 
 #endif

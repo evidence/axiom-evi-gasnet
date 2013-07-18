@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2013/07/01 05:54:54 $
- * $Revision: 1.238 $
+ *     $Date: 2013/07/18 05:15:06 $
+ * $Revision: 1.239 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -25,6 +25,9 @@
 #endif
 #if HAVE_MPI_SPAWNER
   #include <mpi-spawner/gasnet_bootstrap_internal.h>
+#endif
+#if HAVE_PMI_SPAWNER
+  #include <pmi-spawner/gasnet_bootstrap_internal.h>
 #endif
 
 #if GASNET_CONDUIT_VAPI
@@ -953,10 +956,12 @@ extern void (*gasneti_bootstrapFini_p)(void);
 extern void (*gasneti_bootstrapAbort_p)(int exitcode);
 extern void (*gasneti_bootstrapAlltoall_p)(void *src, size_t len, void *dest);
 extern void (*gasneti_bootstrapBroadcast_p)(void *src, size_t len, void *dest, int rootnode);
+extern void (*gasneti_bootstrapCleanup_p)(void);
 #define gasneti_bootstrapFini           (*gasneti_bootstrapFini_p)
 #define gasneti_bootstrapAbort          (*gasneti_bootstrapAbort_p)
 #define gasneti_bootstrapAlltoall       (*gasneti_bootstrapAlltoall_p)
 #define gasneti_bootstrapBroadcast      (*gasneti_bootstrapBroadcast_p)
+#define gasneti_bootstrapCleanup        (*gasneti_bootstrapCleanup_p)
 extern void gasneti_bootstrapBarrier(void);
 extern void gasneti_bootstrapExchange(void *src, size_t len, void *dest);
 
