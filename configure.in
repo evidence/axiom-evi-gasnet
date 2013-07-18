@@ -2,14 +2,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2013/07/18 05:14:46 $
-# $Revision: 1.813 $
+#     $Date: 2013/07/18 22:52:06 $
+# $Revision: 1.814 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.813 $)
+AC_REVISION($Revision: 1.814 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -4747,7 +4747,7 @@ GASNET_WITH(ssh-topology,
 
 GASNET_WITH(pmi, [path to PMI headers and libs],
             [with_pmi="$withval"], [with_pmi=no], [with_pmi='/usr'])
-if test "x$HAVE_PMI_CRAY_H" = xyes; then
+if test -n "$HAVE_PMI_CRAY_H" ; then
   AC_CHECK_FUNCS([PMI_Allgather PMI_Bcast])
   with_pmi='no'
 elif test "$with_pmi" = yes; then
