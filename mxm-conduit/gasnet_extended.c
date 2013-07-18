@@ -478,8 +478,10 @@ gasnet_mxm_send_req_t * gasnete_fill_fence_request(gasnet_node_t node, void *cal
     mxm_sreq->opcode = MXM_REQ_OP_FENCE;
     mxm_sreq->base.flags = MXM_REQ_FLAG_SEND_SYNC;
 #else
-    mxm_sreq->opcode = MXM_REQ_OP_NOP_SYNC;
+    mxm_sreq->opcode = MXM_REQ_OP_PUT_SYNC;
     mxm_sreq->flags = MXM_REQ_SEND_FLAG_FENCE;
+    mxm_sreq->op.mem.remote_vaddr = 0;
+    mxm_sreq->op.mem.remote_mkey  = &mxm_empty_mem_key;
 #endif
 
     mxm_sreq->base.data.buffer.ptr = NULL;
