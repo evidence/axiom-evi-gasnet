@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2013/05/14 22:23:35 $
-dnl $Revision: 1.169 $
+dnl     $Date: 2013/07/19 03:04:56 $
+dnl $Revision: 1.170 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -878,6 +878,8 @@ if test "$cv_prefix[]_gfp_disable" = ""; then
       $1="$gasnet_gfp_progenv$cv_prefix[]_gfp_fullprogname_$1 $gasnet_gfp_progargs"
     fi
     AC_MSG_RESULT($$1)
+  else
+    $1="$gasnet_gfp_progenv$gasnet_gfp_progname $gasnet_gfp_progargs"
   fi
 fi
 GASNET_FUN_END([$0($1)])
