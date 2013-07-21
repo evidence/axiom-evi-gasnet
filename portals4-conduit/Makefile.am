@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/Makefile.am,v $
-#     $Date: 2013/07/18 05:15:04 $
-# $Revision: 1.4 $
+#     $Date: 2013/07/21 21:09:54 $
+# $Revision: 1.5 $
 # Description: Makefile for GASNet portals4 conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -25,6 +25,8 @@ CONDUIT_FILELIST =           \
       gasnet_core_fwd.h      \
       gasnet_core_help.h     \
       gasnet_core_internal.h \
+      gasnet_extended.c      \
+      gasnet_extended_fwd.h  \
       gasnet_portals4.h      \
       gasnet_portals4.c      \
       gasnet_portals4_hash.h \
@@ -34,7 +36,7 @@ CONDUIT_FILELIST =           \
 # to be compiled into libgasnet on the compiler command line
 CONDUIT_SOURCELIST =              \
       $(srcdir)/gasnet_core.c     \
-      $(top_srcdir)/extended-ref/gasnet_extended.c \
+      $(srcdir)/gasnet_extended.c \
       $(pmi_srcdir)/gasnet_bootstrap_pmi.c \
       $(srcdir)/gasnet_portals4.c \
       $(srcdir)/gasnet_portals4_hash.c
