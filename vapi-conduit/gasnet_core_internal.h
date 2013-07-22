@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2013/07/18 05:15:06 $
- * $Revision: 1.239 $
+ *     $Date: 2013/07/22 23:08:46 $
+ * $Revision: 1.240 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -929,16 +929,16 @@ extern int gasnetc_ReplyGeneric(gasnetc_category_t category,
 				int numargs, gasnetc_counter_t *mem_oust,
 				gasnetc_atomic_t *completed, va_list argptr);
 #if GASNETC_PIN_SEGMENT
-  extern int gasnetc_rdma_put(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, size_t nbytes, gasnetc_counter_t *mem_oust, gasnetc_atomic_val_t *initiated, gasnetc_atomic_t *completed);
+  extern int gasnetc_rdma_put(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, size_t nbytes, gasnetc_counter_t *mem_oust, gasnetc_atomic_val_t *initiated, gasnetc_atomic_t *completed GASNETE_THREAD_FARG);
 #else
-  extern int gasnetc_rdma_put_fh(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, size_t nbytes, gasnetc_counter_t *mem_oust, gasnetc_atomic_val_t *initiated, gasnetc_atomic_t *completed, gasnetc_counter_t *am_oust);
+  extern int gasnetc_rdma_put_fh(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, size_t nbytes, gasnetc_counter_t *mem_oust, gasnetc_atomic_val_t *initiated, gasnetc_atomic_t *completed, gasnetc_counter_t *am_oust GASNETE_THREAD_FARG);
   GASNETI_INLINE(gasnetc_rdma_put)
-  int gasnetc_rdma_put(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, size_t nbytes, gasnetc_counter_t *mem_oust, gasnetc_atomic_val_t *initiated, gasnetc_atomic_t *completed)
-  { return gasnetc_rdma_put_fh(epid,src_ptr,dst_ptr,nbytes,mem_oust,initiated,completed,NULL); }
+  int gasnetc_rdma_put(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, size_t nbytes, gasnetc_counter_t *mem_oust, gasnetc_atomic_val_t *initiated, gasnetc_atomic_t *completed GASNETE_THREAD_FARG)
+  { return gasnetc_rdma_put_fh(epid,src_ptr,dst_ptr,nbytes,mem_oust,initiated,completed,NULL GASNETE_THREAD_PASS); }
 #endif
-extern int gasnetc_rdma_get(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, size_t nbytes, gasnetc_atomic_val_t *initiated, gasnetc_atomic_t *completed);
-extern int gasnetc_rdma_putv(gasnetc_epid_t epid, size_t srccount, gasnet_memvec_t const srclist[], void *dst_ptr, gasnetc_counter_t *mem_oust, gasnetc_atomic_val_t *initiated, gasnetc_atomic_t *completed);
-extern int gasnetc_rdma_getv(gasnetc_epid_t epid, void *src_ptr, size_t dstcount, gasnet_memvec_t const dstlist[], gasnetc_atomic_val_t *initiated, gasnetc_atomic_t *completed);
+extern int gasnetc_rdma_get(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, size_t nbytes, gasnetc_atomic_val_t *initiated, gasnetc_atomic_t *completed GASNETE_THREAD_FARG);
+extern int gasnetc_rdma_putv(gasnetc_epid_t epid, size_t srccount, gasnet_memvec_t const srclist[], void *dst_ptr, gasnetc_counter_t *mem_oust, gasnetc_atomic_val_t *initiated, gasnetc_atomic_t *completed GASNETE_THREAD_FARG);
+extern int gasnetc_rdma_getv(gasnetc_epid_t epid, void *src_ptr, size_t dstcount, gasnet_memvec_t const dstlist[], gasnetc_atomic_val_t *initiated, gasnetc_atomic_t *completed GASNETE_THREAD_FARG);
 
 /* Routines in gasnet_core_thread.c */
 #if GASNETI_CONDUIT_THREADS

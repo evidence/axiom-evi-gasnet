@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2013/07/01 04:46:11 $
- * $Revision: 1.101 $
+ *     $Date: 2013/07/22 23:08:46 $
+ * $Revision: 1.102 $
  * Description: GASNet Extended API over VAPI/IB Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -259,6 +259,9 @@ void gasnete_iop_free(gasnete_iop_t *iop) {
   Factored bits of extended API code common to most conduits, overridable when necessary
 */
 
+extern void gasnetc_new_threaddata_callback(void **core_threadinfo);
+#define GASNETC_NEW_THREADDATA_CALLBACK(td) gasnetc_new_threaddata_callback(&((td)->gasnetc_threaddata))
+
 #include "gasnet_extended_common.c"
 
 /* ------------------------------------------------------------------------------------ */
@@ -404,7 +407,7 @@ extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void
   gasnete_eop_t *op = _gasnete_eop_new(GASNETE_MYTHREAD);
 
   /* XXX check error returns */
-  gasnetc_rdma_get(node, src, dest, nbytes, GASNETE_EOP_CNTRS(op));
+  gasnetc_rdma_get(node, src, dest, nbytes, GASNETE_EOP_CNTRS(op) GASNETE_THREAD_PASS);
 
   return (gasnet_handle_t)op;
  }
@@ -417,7 +420,7 @@ extern gasnet_handle_t gasnete_put_nb      (gasnet_node_t node, void *dest, void
   gasnetc_counter_t mem_oust = GASNETC_COUNTER_INITIALIZER;
 
   /* XXX check error returns */
-  gasnetc_rdma_put(node, src, dest, nbytes, &mem_oust, GASNETE_EOP_CNTRS(op));
+  gasnetc_rdma_put(node, src, dest, nbytes, &mem_oust, GASNETE_EOP_CNTRS(op) GASNETE_THREAD_PASS);
   gasnetc_counter_wait(&mem_oust, 0);
 
   return (gasnet_handle_t)op;
@@ -430,7 +433,7 @@ extern gasnet_handle_t gasnete_put_nb_bulk (gasnet_node_t node, void *dest, void
   gasnete_eop_t *op = _gasnete_eop_new(GASNETE_MYTHREAD);
 
   /* XXX check error returns */
-  gasnetc_rdma_put(node, src, dest, nbytes, NULL, GASNETE_EOP_CNTRS(op));
+  gasnetc_rdma_put(node, src, dest, nbytes, NULL, GASNETE_EOP_CNTRS(op) GASNETE_THREAD_PASS);
 
   return (gasnet_handle_t)op;
  }
@@ -557,7 +560,7 @@ extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, siz
   gasnete_iop_t *op = mythread->current_iop;
 
   /* XXX check error returns */ 
-  gasnetc_rdma_get(node, src, dest, nbytes, GASNETE_IOP_CNTRS(op,get));
+  gasnetc_rdma_get(node, src, dest, nbytes, GASNETE_IOP_CNTRS(op,get) GASNETE_THREAD_PASS);
  }
 }
 
@@ -570,7 +573,7 @@ extern void gasnete_put_nbi      (gasnet_node_t node, void *dest, void *src, siz
   gasnetc_counter_t mem_oust = GASNETC_COUNTER_INITIALIZER;
 
   /* XXX check error returns */ 
-  gasnetc_rdma_put(node, src, dest, nbytes, &mem_oust, GASNETE_IOP_CNTRS(op,put));
+  gasnetc_rdma_put(node, src, dest, nbytes, &mem_oust, GASNETE_IOP_CNTRS(op,put) GASNETE_THREAD_PASS);
   gasnetc_counter_wait(&mem_oust, 0);
  }
 }
@@ -582,7 +585,7 @@ extern void gasnete_put_nbi_bulk (gasnet_node_t node, void *dest, void *src, siz
   gasnete_iop_t *op = mythread->current_iop;
 
   /* XXX check error returns */ 
-  gasnetc_rdma_put(node, src, dest, nbytes, NULL, GASNETE_IOP_CNTRS(op,put));
+  gasnetc_rdma_put(node, src, dest, nbytes, NULL, GASNETE_IOP_CNTRS(op,put) GASNETE_THREAD_PASS);
  }
 }
 
@@ -684,7 +687,7 @@ extern void gasnete_get_bulk (void *dest, gasnet_node_t node, void *src,
   GASNETI_CHECKPSHM_GET(UNALIGNED,V);
  {
   gasnetc_counter_t req_oust = GASNETC_COUNTER_INITIALIZER;
-  gasnetc_rdma_get(node, src, dest, nbytes, GASNETE_REQ_CNTRS(req_oust));
+  gasnetc_rdma_get(node, src, dest, nbytes, GASNETE_REQ_CNTRS(req_oust) GASNETE_THREAD_PASS);
   gasnetc_counter_wait(&req_oust, 0);
  }
 }
@@ -694,7 +697,7 @@ extern void gasnete_put_bulk (gasnet_node_t node, void* dest, void *src,
   GASNETI_CHECKPSHM_PUT(UNALIGNED,V);
  {
   gasnetc_counter_t req_oust = GASNETC_COUNTER_INITIALIZER;
-  gasnetc_rdma_put(node, src, dest, nbytes, NULL, GASNETE_REQ_CNTRS(req_oust));
+  gasnetc_rdma_put(node, src, dest, nbytes, NULL, GASNETE_REQ_CNTRS(req_oust) GASNETE_THREAD_PASS);
   gasnetc_counter_wait(&req_oust, 0);
  }
 }   
@@ -826,6 +829,7 @@ GASNETI_INLINE(gasnete_ibdbarrier_send)
 void gasnete_ibdbarrier_send(gasnete_coll_ibdbarrier_t *barrier_data,
                              int numsteps, unsigned int slot,
                              gasnet_handlerarg_t value, gasnet_handlerarg_t flags) {
+  GASNETE_THREAD_LOOKUP
   unsigned int step = slot >> 1;
   int i;
 
@@ -845,7 +849,7 @@ void gasnete_ibdbarrier_send(gasnete_coll_ibdbarrier_t *barrier_data,
   for (i = 0; i < numsteps; ++i, slot += 2, step += 1) {
     const gasnet_node_t node = barrier_data->barrier_peers[step].node;
     uint64_t * const dst = GASNETE_IBDBARRIER_INBOX_REMOTE(barrier_data, step, slot);
-    (void) gasnetc_rdma_put(node, (void*)payload, dst, sizeof(*payload), NULL, NULL, NULL);
+    (void) gasnetc_rdma_put(node, (void*)payload, dst, sizeof(*payload), NULL, NULL, NULL GASNETE_THREAD_PASS);
   }
 }
 
