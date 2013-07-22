@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_common.c,v $
- *     $Date: 2013/06/25 06:56:39 $
- * $Revision: 1.11 $
+ *     $Date: 2013/07/22 22:06:25 $
+ * $Revision: 1.12 $
  * Description: GASNet Extended API Common code
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -277,7 +277,8 @@ static void gasnete_threaddata_cleanup_fn(void *_thread) {
   gasneti_mutex_unlock(&threadtable_lock);
 }
 
-static gasnete_threaddata_t * gasnete_new_threaddata(void) {
+GASNETI_NEVER_INLINE(gasnete_new_threaddata,
+static gasnete_threaddata_t * gasnete_new_threaddata(void)) {
   gasnete_threaddata_t *threaddata = (gasnete_threaddata_t *)gasneti_calloc(1,sizeof(gasnete_threaddata_t));
   int idx;
   uint64_t maxthreads = gasneti_max_threads();
@@ -319,6 +320,7 @@ static gasnete_threaddata_t * gasnete_new_threaddata(void) {
 
   GASNETE_INIT_THREADDATA(threaddata);
 
+  GASNETI_TRACE_PRINTF(C,("gasnete_new_threaddata: idx=%i, numthreads=%i", threaddata->threadidx, gasnete_numthreads));
   return threaddata;
 }
 /* PURE function (returns same value for a given thread every time) 
@@ -327,15 +329,11 @@ static gasnete_threaddata_t * gasnete_new_threaddata(void) {
   extern gasnete_threaddata_t *gasnete_mythread(void) {
     gasnete_threaddata_t *threaddata = gasneti_threadkey_get(gasnete_threaddata);
     GASNETI_STAT_EVENT(C, DYNAMIC_THREADLOOKUP); /* tracing here can cause inf recursion */
-    if_pt (threaddata) {
-      gasneti_memcheck(threaddata);
-      return threaddata;
+    if_pf (!threaddata) {
+      /* first time we've seen this thread - need to set it up */
+      threaddata = gasnete_new_threaddata();
     }
-
-    /* first time we've seen this thread - need to set it up */
-    threaddata = gasnete_new_threaddata();
     gasneti_memcheck(threaddata);
-    GASNETI_TRACE_PRINTF(C,("gasnete_new_threaddata: idx=%i, numthreads=%i", threaddata->threadidx, gasnete_numthreads));
     return threaddata;
   }
 #endif
