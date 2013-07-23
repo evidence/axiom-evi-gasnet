@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/07/23 07:11:27 $
- * $Revision: 1.322 $
+ *     $Date: 2013/07/23 07:27:04 $
+ * $Revision: 1.323 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -415,9 +415,8 @@ const firehose_request_t *gasnetc_fh_aligned_local_pin(uintptr_t start, size_t l
 }
 
 GASNETI_INLINE(gasnetc_sr_desc_init)
-void *gasnetc_sr_desc_init(gasnetc_snd_wr_t *result, gasnetc_sge_t *sg_lst_p, int sg_lst_len, int count)
+void *gasnetc_sr_desc_init(gasnetc_snd_wr_t *result, gasnetc_sge_t *sg_lst_p)
 {
-    gasneti_assert(count == 1);
     #if GASNET_DEBUG
       result->gasnetc_f_wr_num_sge = 0; /* invalid to ensure caller sets it */
     #endif
@@ -425,11 +424,11 @@ void *gasnetc_sr_desc_init(gasnetc_snd_wr_t *result, gasnetc_sge_t *sg_lst_p, in
   
   return result;
 }
-#define GASNETC_DECL_SR_DESC(_name, _sg_lst_len, _count)                \
-	gasnetc_snd_wr_t _name[_count];                                   \
-	gasnetc_sge_t _CONCAT(_name,_sg_lst)[_count*_sg_lst_len];       \
+#define GASNETC_DECL_SR_DESC(_name, _sg_lst_len)                        \
+	gasnetc_snd_wr_t _name[1];                                      \
+	gasnetc_sge_t _CONCAT(_name,_sg_lst)[_sg_lst_len];              \
 	GASNETI_UNUSED                                                  \
-	void *_CONCAT(_name,_dummy) = gasnetc_sr_desc_init(_name, _CONCAT(_name,_sg_lst), _sg_lst_len, _count) /* note intentional lack of final semicolon */
+	void *_CONCAT(_name,_dummy) = gasnetc_sr_desc_init(_name, _CONCAT(_name,_sg_lst)) /* note intentional lack of final semicolon */
 
 /* Use of IB's 32-bit immediate data:
  *   0-7: handlerID
@@ -2254,7 +2253,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
   
     /* send the AM */
     {
-      GASNETC_DECL_SR_DESC(sr_desc, 1, 1);
+      GASNETC_DECL_SR_DESC(sr_desc, 1);
       gasnetc_sreq_t *sreq;
       int numargs_field = have_flow ? GASNETC_MAX_ARGS : numargs;
 
@@ -2328,7 +2327,7 @@ int gasnetc_unpinned(uintptr_t start, size_t *len_p) {
 /* Assemble and post a bounce-buffer PUT or GET */
 GASNETI_INLINE(gasnetc_bounce_common)
 void gasnetc_bounce_common(gasnetc_epid_t epid, int rkey_index, uintptr_t rem_addr, size_t len, gasnetc_sreq_t *sreq, gasnetc_wr_opcode_t op) {
-  GASNETC_DECL_SR_DESC(sr_desc, GASNETC_SND_SG, 1);
+  GASNETC_DECL_SR_DESC(sr_desc, GASNETC_SND_SG);
   gasnetc_cep_t *cep;
 
   sr_desc->opcode      = op;
@@ -2350,7 +2349,7 @@ void gasnetc_bounce_common(gasnetc_epid_t epid, int rkey_index, uintptr_t rem_ad
  */
 GASNETI_INLINE(gasnetc_zerocp_common)
 size_t gasnetc_zerocp_common(gasnetc_epid_t epid, int rkey_index, uintptr_t loc_addr, uintptr_t rem_addr, size_t len, gasnetc_sreq_t *sreq, gasnetc_wr_opcode_t op) {
-  GASNETC_DECL_SR_DESC(sr_desc, GASNETC_SND_SG, 1);
+  GASNETC_DECL_SR_DESC(sr_desc, GASNETC_SND_SG);
   gasnetc_cep_t *cep;
   size_t remain, count;
   int seg;
@@ -2449,7 +2448,7 @@ static void gasnetc_do_put_inline(const gasnetc_epid_t epid, int rkey_index,
                                   uintptr_t src, uintptr_t dst, size_t nbytes,
                                   gasnetc_atomic_val_t *initiated, gasnetc_atomic_t *completed
 				  GASNETE_THREAD_FARG) {
-  GASNETC_DECL_SR_DESC(sr_desc, 1, 1);
+  GASNETC_DECL_SR_DESC(sr_desc, 1);
   gasnetc_cep_t *cep;
   gasnetc_sreq_t *sreq;
 
@@ -2603,7 +2602,7 @@ static void gasnetc_do_get_zerocp(const gasnetc_epid_t epid, int rkey_index,
  */
 GASNETI_INLINE(gasnetc_fh_put_inline)
 void gasnetc_fh_put_inline(gasnetc_sreq_t *sreq) {
-  GASNETC_DECL_SR_DESC(sr_desc, 1, 1);
+  GASNETC_DECL_SR_DESC(sr_desc, 1);
   const firehose_request_t * const fh_rem = sreq->fh_ptr[0];
   size_t len = sreq->fh_len;
   gasnetc_counter_t *mem_oust;
@@ -2636,7 +2635,7 @@ void gasnetc_fh_put_bounce(gasnetc_sreq_t *orig_sreq) {
   /* Stashed value avoids dynamic thread lookup here */
   void * const _threadinfo = (void *) orig_sreq->fh_bbuf;
 #endif
-  GASNETC_DECL_SR_DESC(sr_desc, 1, 1);
+  GASNETC_DECL_SR_DESC(sr_desc, 1);
   const firehose_request_t * const fh_rem = orig_sreq->fh_ptr[0];
   gasnetc_epid_t epid = orig_sreq->epid;
   size_t nbytes = orig_sreq->fh_len;
@@ -2701,7 +2700,7 @@ void gasnetc_fh_put_bounce(gasnetc_sreq_t *orig_sreq) {
 
 GASNETI_INLINE(gasnetc_fh_post)
 void gasnetc_fh_post(gasnetc_sreq_t *sreq, gasnetc_wr_opcode_t op) {
-  GASNETC_DECL_SR_DESC(sr_desc, GASNETC_SND_SG, 1);
+  GASNETC_DECL_SR_DESC(sr_desc, GASNETC_SND_SG);
   gasnetc_sge_t *sg_entry;
   gasnetc_cep_t *cep;
   uintptr_t loc_addr;
