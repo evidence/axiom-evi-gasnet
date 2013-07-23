@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/07/23 01:46:30 $
- * $Revision: 1.316 $
+ *     $Date: 2013/07/23 02:30:42 $
+ * $Revision: 1.317 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -676,10 +676,11 @@ void gasnetc_amrdma_eligable(gasnetc_cep_t *cep) {
 
 /* GASNETI_INLINE(gasnetc_processPacket) */
 void gasnetc_processPacket(gasnetc_cep_t *cep, gasnetc_rbuf_t *rbuf, uint32_t flags) {
-  gasnetc_buffer_t *buf = (gasnetc_buffer_t *)(uintptr_t)(rbuf->rr_sg.addr);
-  gasnet_handler_t handler_id = GASNETC_MSG_HANDLERID(flags);
-  gasneti_handler_fn_t handler_fn = gasnetc_handler[handler_id];
-  gasnetc_category_t category = GASNETC_MSG_CATEGORY(flags);
+  gasnetc_buffer_t * const buf = (gasnetc_buffer_t *)(uintptr_t)(rbuf->rr_sg.addr);
+  const gasnet_handler_t handler_id = GASNETC_MSG_HANDLERID(flags);
+  const gasneti_handler_fn_t handler_fn = gasnetc_handler[handler_id];
+  const gasnetc_category_t category = GASNETC_MSG_CATEGORY(flags);
+  const isreq = GASNETC_MSG_ISREQUEST(flags);
   int full_numargs = GASNETC_MSG_NUMARGS(flags);
   int user_numargs = full_numargs;
   gasnet_handlerarg_t *args;
@@ -689,7 +690,7 @@ void gasnetc_processPacket(gasnetc_cep_t *cep, gasnetc_rbuf_t *rbuf, uint32_t fl
     gasneti_assert(cep != NULL);
   #endif
 
-  rbuf->rbuf_needReply = GASNETC_MSG_ISREQUEST(flags);
+  rbuf->rbuf_needReply = isreq;
 #if GASNET_DEBUG
   rbuf->rbuf_handlerRunning = 1;
 #endif
@@ -739,7 +740,7 @@ void gasnetc_processPacket(gasnetc_cep_t *cep, gasnetc_rbuf_t *rbuf, uint32_t fl
     }
 
     /* Available remotely posted (request) buffers */
-    if (GASNETC_MSG_ISREPLY(flags)) { ++credits; } /* Credit for self */
+    credits += (isreq ^ 1); /* Credit for self if this is a reply */
     if (credits) {
       gasnetc_sema_up_n(&cep->am_rem, credits);
     }
@@ -754,7 +755,7 @@ void gasnetc_processPacket(gasnetc_cep_t *cep, gasnetc_rbuf_t *rbuf, uint32_t fl
   switch (category) {
     case gasnetc_Short:
       { 
-        GASNETI_RUN_HANDLER_SHORT(GASNETC_MSG_ISREQUEST(flags),handler_id,handler_fn,rbuf,args,user_numargs);
+        GASNETI_RUN_HANDLER_SHORT(isreq,handler_id,handler_fn,rbuf,args,user_numargs);
       }
       break;
 
@@ -762,7 +763,7 @@ void gasnetc_processPacket(gasnetc_cep_t *cep, gasnetc_rbuf_t *rbuf, uint32_t fl
       {
         void * data = GASNETC_MSG_MED_DATA(buf, full_numargs);
         size_t nbytes = buf->medmsg.nBytes;
-        GASNETI_RUN_HANDLER_MEDIUM(GASNETC_MSG_ISREQUEST(flags),handler_id,handler_fn,rbuf,args,user_numargs,data,nbytes);
+        GASNETI_RUN_HANDLER_MEDIUM(isreq,handler_id,handler_fn,rbuf,args,user_numargs,data,nbytes);
       }
       break;
 
@@ -774,10 +775,10 @@ void gasnetc_processPacket(gasnetc_cep_t *cep, gasnetc_rbuf_t *rbuf, uint32_t fl
 	  /* Must relocate the payload which is packed like a Medium. */
 	  gasneti_assert(nbytes <= GASNETC_MAX_PACKEDLONG);
 	  gasneti_assert((nbytes <= gasnetc_packedlong_limit) ||
-			 (!GASNETC_PIN_SEGMENT && GASNETC_MSG_ISREPLY(flags)));
+			 (!GASNETC_PIN_SEGMENT && !isreq));
 	  memcpy(data, GASNETC_MSG_LONG_DATA(buf, full_numargs), (size_t)nbytes);
 	}
-        GASNETI_RUN_HANDLER_LONG(GASNETC_MSG_ISREQUEST(flags),handler_id,handler_fn,rbuf,args,user_numargs,data,(size_t)nbytes);
+        GASNETI_RUN_HANDLER_LONG(isreq,handler_id,handler_fn,rbuf,args,user_numargs,data,(size_t)nbytes);
       }
       break;
   }
