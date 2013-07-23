@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/07/23 02:30:42 $
- * $Revision: 1.317 $
+ *     $Date: 2013/07/23 02:37:40 $
+ * $Revision: 1.318 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -1209,9 +1209,10 @@ GASNETI_INLINE(gasnetc_rcv_am)
 void gasnetc_rcv_am(const gasnetc_wc_t *comp, gasnetc_rbuf_t **spare_p) {
   gasnetc_rbuf_t emergency_spare;
   gasnetc_rbuf_t *rbuf = (gasnetc_rbuf_t *)(uintptr_t)comp->gasnetc_f_wr_id;
-  uint32_t flags = comp->imm_data;
+  const uint32_t flags = comp->imm_data;
   gasnetc_cep_t *cep = rbuf->cep;
   gasnetc_rbuf_t *spare;
+  const int isrep = GASNETC_MSG_ISREPLY(flags);
 
   GASNETC_STAT_EVENT(RCV_AM_SNDRCV);
 
@@ -1221,7 +1222,7 @@ void gasnetc_rcv_am(const gasnetc_wc_t *comp, gasnetc_rbuf_t **spare_p) {
     gasnetc_hca_t *hca = cep->hca;
 
 #if GASNETI_STATS_OR_TRACE
-    if (GASNETC_MSG_ISREPLY(flags)) {
+    if (isrep) {
       gasneti_tick_t _starttime = ((gasnetc_buffer_t *)(uintptr_t)(rbuf->rr_sg.addr))->stamp;
       GASNETI_TRACE_EVENT_TIME(C,AM_ROUNDTRIP_TIME,gasneti_ticks_now()-_starttime);
     }
@@ -1229,7 +1230,7 @@ void gasnetc_rcv_am(const gasnetc_wc_t *comp, gasnetc_rbuf_t **spare_p) {
 
     /* SRQ means rbuf->cep is "inexact", so must reconstruct */
     cep = GASNETC_NODE2CEP(GASNETC_MSG_SRCIDX(flags));
-    if (GASNETC_MSG_ISREQUEST(flags)) {
+    if (!isrep) {
       cep += gasnetc_num_qps; /* Search top half of table */
     }
     if (gasnetc_num_qps > 1) {
@@ -1241,7 +1242,7 @@ void gasnetc_rcv_am(const gasnetc_wc_t *comp, gasnetc_rbuf_t **spare_p) {
     }
 
     /* All flow-control and any Reply belong to opposite member of the pair */
-    if (GASNETC_MSG_ISREPLY(flags)) {
+    if (isrep) {
       cep += gasnetc_num_qps;
     } else {
       cep -= gasnetc_num_qps;
@@ -1256,12 +1257,12 @@ void gasnetc_rcv_am(const gasnetc_wc_t *comp, gasnetc_rbuf_t **spare_p) {
     }
 
     gasnetc_rcv_post(orig_cep, rbuf);
-    if (GASNETC_MSG_ISREPLY(flags)) {
+    if (isrep) {
       gasnetc_sema_up(&hca->am_sema);
     }
   } else
 #endif
-  if (GASNETC_MSG_ISREPLY(flags)) {
+  if (isrep) {
 #if GASNETI_STATS_OR_TRACE
     gasneti_tick_t _starttime = ((gasnetc_buffer_t *)(uintptr_t)(rbuf->rr_sg.addr))->stamp;
     GASNETI_TRACE_EVENT_TIME(C,AM_ROUNDTRIP_TIME,gasneti_ticks_now()-_starttime);
