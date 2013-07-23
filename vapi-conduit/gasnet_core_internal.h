@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2013/07/22 23:08:46 $
- * $Revision: 1.240 $
+ *     $Date: 2013/07/23 07:11:27 $
+ * $Revision: 1.241 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -708,7 +708,9 @@ typedef char gasnetc_amrdma_buf_t[GASNETC_AMRDMA_SZ];
     pthread_t               thread_id;
     uint64_t                prev_time;
     uint64_t                min_us;
+  #if GASNET_CONDUIT_VAPI
     gasnetc_hca_hndl_t      hca;
+  #endif
     gasnetc_cq_hndl_t       cq;
     gasnetc_comp_handler_t  compl;
     volatile int            done;

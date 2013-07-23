@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_thread.c,v $
- *     $Date: 2013/05/15 02:47:36 $
- * $Revision: 1.17 $
+ *     $Date: 2013/07/23 07:11:27 $
+ * $Revision: 1.18 $
  * Description: GASNet vapi/ibv conduit implementation, progress thread logic
  * Copyright 2012, LBNL
  * Terms of use are as specified in license.txt
@@ -61,7 +61,9 @@ void gasnetc_testcancel(gasnetc_progress_thread_t * const pthr_p) {
 static void * gasnetc_progress_thread(void *arg)
 {
   gasnetc_progress_thread_t * const pthr_p  = arg;
+#if GASNET_CONDUIT_VAPI
   const gasnetc_hca_hndl_t hca_hndl         = pthr_p->hca;
+#endif
   const gasnetc_cq_hndl_t cq_hndl           = pthr_p->cq;
   const gasnetc_comp_handler_t compl_hndl   = pthr_p->compl;
   void (* const fn)(gasnetc_wc_t *, void *) = pthr_p->fn;

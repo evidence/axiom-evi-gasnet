@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/07/23 06:27:04 $
- * $Revision: 1.321 $
+ *     $Date: 2013/07/23 07:11:27 $
+ * $Revision: 1.322 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -359,7 +359,6 @@ gasnetc_create_cq(gasnetc_hca_hndl_t hca_hndl, gasnetc_cqe_cnt_t req_size,
     int rc = ibv_req_notify_cq(result, 0);
     GASNETC_VAPI_CHECK(rc, "while requesting cq events");
     memset(pthr_p, 0, sizeof(*pthr_p));
-    pthr_p->hca = hca_hndl;
     pthr_p->compl = compl;
     pthr_p->cq = result;
   }
