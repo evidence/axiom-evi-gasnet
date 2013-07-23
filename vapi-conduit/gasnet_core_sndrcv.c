@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/07/23 01:38:23 $
- * $Revision: 1.315 $
+ *     $Date: 2013/07/23 01:46:30 $
+ * $Revision: 1.316 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -3861,7 +3861,6 @@ extern int gasnetc_rdma_put_fh(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr
     size_t count;
 
     sreq->epid = epid;
-    sreq->fh_bbuf = NULL;
  
     sreq->mem_oust = mem_oust;
     sreq->completed = completed;
