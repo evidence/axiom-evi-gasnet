@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/07/23 02:48:10 $
- * $Revision: 1.319 $
+ *     $Date: 2013/07/23 03:07:10 $
+ * $Revision: 1.320 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -249,8 +249,8 @@ static int gasnetc_am_rbufs_per_qp;
  * ------------------------------------------------------------------------------------ */
 
 #if GASNETI_THREADS
-  /* Note: first word of gasnete_mythread is reserved for core */
-  #define gasnetc_my_perthread() (gasnetc_per_thread_t *)(*(void**)(gasnete_mythread()))
+  /* Note: first word of thread data is reserved for core */
+  #define gasnetc_my_perthread() (gasnetc_per_thread_t *)(*(void**)(GASNETE_MYTHREAD))
 #else
   static gasnetc_per_thread_t gasnetc_per_thread;
   #define gasnetc_my_perthread() (&gasnetc_per_thread)
@@ -2972,7 +2972,7 @@ size_t gasnetc_fh_put_helper(gasnet_node_t node, gasnetc_sreq_t *sreq, gasnetc_a
     } else if ((nbytes <= gasnetc_bounce_limit) && (sreq->mem_oust != NULL)) {
       /* Bounce buffer use for non-bulk puts (upto a limit) */
 #if GASNETI_THREADS
-      sreq->fh_bbuf = gasnete_mythread(); /* avoid dynamic thread lookup in the callback */
+      sreq->fh_bbuf = GASNETE_MYTHREAD; /* avoid dynamic thread lookup in the callback */
 #endif
       sreq->opcode = GASNETC_OP_PUT_BOUNCE;
       if_pf (fh_rem == NULL) { /* Memory will be copied asynchronously */
@@ -3511,7 +3511,7 @@ extern int gasnetc_sndrcv_init(void) {
 
   /* Init thread-local data */
 #if GASNETI_THREADS
-  (void)gasnetc_my_perthread();
+  (void)gasnete_mythread();
 #else
   gasnetc_per_thread_init(&gasnetc_per_thread);
 #endif
