@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/07/23 09:48:50 $
- * $Revision: 1.325 $
+ *     $Date: 2013/07/23 09:53:24 $
+ * $Revision: 1.326 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -3733,11 +3733,10 @@ extern int gasnetc_rdma_put(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, s
 #if GASNET_ALIGNED_SEGMENTS
   uintptr_t offset = (uintptr_t)dst_ptr - gasnetc_seg_start;
 #else
-  const gasnet_node_t node = gasnetc_epid2node(epid);
-  uintptr_t offset = (uintptr_t)dst_ptr - (uintptr_t)gasneti_seginfo[node].addr;
+  uintptr_t offset = (uintptr_t)dst_ptr - (uintptr_t)gasneti_seginfo[gasnetc_epid2node(epid)].addr;
 #endif
 
-  gasneti_assert(offset < gasneti_seginfo[node].size);
+  gasneti_assert(offset < gasneti_seginfo[gasnetc_epid2node(epid)].size);
   gasneti_assert(nbytes != 0);
   
   sr_desc->gasnetc_f_wr_rem_addr = (uintptr_t)dst_ptr;
@@ -3792,11 +3791,10 @@ extern int gasnetc_rdma_get(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, s
 #if GASNET_ALIGNED_SEGMENTS
   uintptr_t offset = (uintptr_t)src_ptr - gasnetc_seg_start;
 #else
-  const gasnet_node_t node = gasnetc_epid2node(epid);
-  uintptr_t offset = (uintptr_t)src_ptr - (uintptr_t)gasneti_seginfo[node].addr;
+  uintptr_t offset = (uintptr_t)src_ptr - (uintptr_t)gasneti_seginfo[gasnetc_epid2node(epid)].addr;
 #endif
 
-  gasneti_assert(offset < gasneti_seginfo[node].size);
+  gasneti_assert(offset < gasneti_seginfo[gasnetc_epid2node(epid)].size);
   gasneti_assert(nbytes != 0);
   gasneti_assert(initiated != NULL);
 
