@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/07/23 00:18:56 $
- * $Revision: 1.314 $
+ *     $Date: 2013/07/23 01:38:23 $
+ * $Revision: 1.315 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -2652,7 +2652,10 @@ void gasnetc_fh_put_inline(gasnetc_sreq_t *sreq) {
 
 GASNETI_INLINE(gasnetc_fh_put_bounce)
 void gasnetc_fh_put_bounce(gasnetc_sreq_t *orig_sreq) {
-  GASNETE_THREAD_LOOKUP
+#if GASNETI_THREADS
+  /* Stashed value avoids dynamic thread lookup here */
+  void * const _threadinfo = (void *) orig_sreq->fh_bbuf;
+#endif
   GASNETC_DECL_SR_DESC(sr_desc, 1, 1);
   const firehose_request_t * const fh_rem = orig_sreq->fh_ptr[0];
   gasnetc_epid_t epid = orig_sreq->epid;
@@ -2878,7 +2881,7 @@ static size_t gasnetc_fh_put_args_fn(void * context, firehose_remotecallback_arg
 
 GASNETI_INLINE(gasnetc_fh_put_helper)
 size_t gasnetc_fh_put_helper(gasnet_node_t node, gasnetc_sreq_t *sreq, gasnetc_atomic_val_t *initiated,
-		          uintptr_t loc_addr, uintptr_t rem_addr, size_t len) {
+		          uintptr_t loc_addr, uintptr_t rem_addr, size_t len GASNETE_THREAD_FARG) {
   const firehose_request_t *fh_rem;
   size_t putinmove = sreq->fh_putinmove = 0;
 
@@ -2966,6 +2969,9 @@ size_t gasnetc_fh_put_helper(gasnet_node_t node, gasnetc_sreq_t *sreq, gasnetc_a
       }
     } else if ((nbytes <= gasnetc_bounce_limit) && (sreq->mem_oust != NULL)) {
       /* Bounce buffer use for non-bulk puts (upto a limit) */
+#if GASNETI_THREADS
+      sreq->fh_bbuf = gasnete_mythread(); /* avoid dynamic thread lookup in the callback */
+#endif
       sreq->opcode = GASNETC_OP_PUT_BOUNCE;
       if_pf (fh_rem == NULL) { /* Memory will be copied asynchronously */
 	gasnetc_counter_inc(sreq->mem_oust);
@@ -3861,7 +3867,7 @@ extern int gasnetc_rdma_put_fh(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr
     sreq->completed = completed;
     sreq->fh_oust = am_oust;
 
-    count = gasnetc_fh_put_helper(epid, sreq, initiated, src, dst, nbytes);
+    count = gasnetc_fh_put_helper(epid, sreq, initiated, src, dst, nbytes GASNETE_THREAD_PASS);
 
     src += count;
     dst += count;
