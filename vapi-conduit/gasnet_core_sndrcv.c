@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/07/23 02:37:40 $
- * $Revision: 1.318 $
+ *     $Date: 2013/07/23 02:48:10 $
+ * $Revision: 1.319 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -680,7 +680,7 @@ void gasnetc_processPacket(gasnetc_cep_t *cep, gasnetc_rbuf_t *rbuf, uint32_t fl
   const gasnet_handler_t handler_id = GASNETC_MSG_HANDLERID(flags);
   const gasneti_handler_fn_t handler_fn = gasnetc_handler[handler_id];
   const gasnetc_category_t category = GASNETC_MSG_CATEGORY(flags);
-  const isreq = GASNETC_MSG_ISREQUEST(flags);
+  const int isreq = GASNETC_MSG_ISREQUEST(flags);
   int full_numargs = GASNETC_MSG_NUMARGS(flags);
   int user_numargs = full_numargs;
   gasnet_handlerarg_t *args;
