@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/07/22 23:08:46 $
- * $Revision: 1.313 $
+ *     $Date: 2013/07/23 00:18:56 $
+ * $Revision: 1.314 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -1582,6 +1582,35 @@ void gasnetc_do_poll(int poll_rcv, int poll_snd) {
   }
 }
 
+/* helper for allocation of a send request structure */
+GASNETI_NEVER_INLINE(gasnetc_get_sreq_miss,
+gasnetc_sreq_t *gasnetc_get_sreq_miss(gasnetc_sreq_t * const oldest))
+{
+    gasnetc_sreq_t *sreq = oldest;
+
+    /* 2) Next poll all CQs and then check the oldest sreq again */
+    int h;
+    GASNETC_FOR_ALL_HCA_INDEX(h) {
+      (void)gasnetc_snd_reap(1);
+    }
+    if_pf (sreq->opcode != GASNETC_OP_FREE) {
+      /* 3) Next scan ahead, skipping over in-flight firehose misses for instance */
+      do {
+        sreq = sreq->next;
+      } while ((sreq->opcode != GASNETC_OP_FREE) && (sreq != oldest));
+      if_pf (sreq->opcode != GASNETC_OP_FREE) {
+        /* 4) Finally allocate more */
+        gasnetc_sreq_t *head, *tail;
+        gasneti_assert(sreq == oldest);
+        gasnetc_alloc_sreqs(&head, &tail);
+        tail->next = sreq->next;
+        sreq = (sreq->next = head);
+      }
+    }
+
+    return sreq;
+}
+
 /* allocate a send request structure */
 GASNETI_INLINE(gasnetc_get_sreq) GASNETI_MALLOC
 gasnetc_sreq_t *gasnetc_get_sreq(gasnetc_sreq_opcode_t opcode GASNETE_THREAD_FARG) {
@@ -1592,26 +1621,9 @@ gasnetc_sreq_t *gasnetc_get_sreq(gasnetc_sreq_opcode_t opcode GASNETE_THREAD_FAR
   sreq = td->sreqs;
   gasneti_assert(sreq != NULL);
   if_pf (sreq->opcode != GASNETC_OP_FREE) {
-    /* 2) Next poll all CQs and then check the oldest sreq again */
-    int h;
-    GASNETC_FOR_ALL_HCA_INDEX(h) {
-      (void)gasnetc_snd_reap(1);
-    }
-    if_pf (sreq->opcode != GASNETC_OP_FREE) {
-      /* 3) Next scan ahead, skipping over in-flight firehose misses for instance */
-      do {
-        sreq = sreq->next;
-      } while ((sreq->opcode != GASNETC_OP_FREE) && (sreq != td->sreqs));
-      if_pf (sreq->opcode != GASNETC_OP_FREE) {
-        /* 4) Finally allocate more */
-        gasnetc_sreq_t *head, *tail;
-        gasnetc_alloc_sreqs(&head, &tail);
-        tail->next = sreq->next;
-        sreq = (sreq->next = head);
-      }
-    }
+    /* steps 2...4 above */
+    sreq = gasnetc_get_sreq_miss(sreq);
   }
-  gasneti_assert(sreq->opcode == GASNETC_OP_FREE);
 
   td->sreqs = sreq->next;
   gasneti_assert(td->sreqs != NULL);
@@ -1633,6 +1645,7 @@ gasnetc_sreq_t *gasnetc_get_sreq(gasnetc_sreq_opcode_t opcode GASNETE_THREAD_FAR
     sreq->fh_oust = NULL;
   #endif
 
+  gasneti_assert(sreq->opcode == GASNETC_OP_FREE);
   gasneti_assert(opcode != GASNETC_OP_FREE);
   sreq->opcode = opcode;
 
