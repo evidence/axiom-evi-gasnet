@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/07/23 03:07:10 $
- * $Revision: 1.320 $
+ *     $Date: 2013/07/23 06:27:04 $
+ * $Revision: 1.321 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -2430,38 +2430,17 @@ size_t gasnetc_zerocp_common(gasnetc_epid_t epid, int rkey_index, uintptr_t loc_
 }
 
 GASNETI_INLINE(gasnetc_get_rkey_index)
-int gasnetc_get_rkey_index(const gasnetc_epid_t epid, uintptr_t start, size_t *len_p) {
-#if GASNET_ALIGNED_SEGMENTS
-  const uintptr_t segbase = gasnetc_seg_start;
-#else
-  const gasnet_seginfo_t *seginfo = &gasneti_seginfo[gasnetc_epid2node(epid)];
-  const uintptr_t segbase = (uintptr_t)seginfo->addr;
-  const uintptr_t seglen  = (uintptr_t)seginfo->size;
-#endif
+int gasnetc_get_rkey_index(uintptr_t offset, size_t *len_p) {
   size_t len = *len_p;
-  uintptr_t end = start + (len - 1);
-  uintptr_t tmp;
-  int index;
-
-  gasneti_assert(start >= segbase);
 
   /* Compute in which region of the segment the address lies */
-  index = (start - segbase) >> gasnetc_pin_maxsz_shift;
+  const int index = offset >> gasnetc_pin_maxsz_shift;
   gasneti_assert(index >= 0);
   gasneti_assert(index < gasnetc_max_regs);
 
   /* Now trim length to the end of the region */
-#if GASNET_ALIGNED_SEGMENTS
-  /* gasnetc_seg_ends values are absolute */
-  tmp = gasnetc_seg_ends[index];
-#else
-  /* gasnetc_seg_ends values are relative */
-  tmp = MIN(gasnetc_seg_ends[index], seglen) + segbase;
-#endif
-  if (end > tmp) {
-    *len_p = (tmp - start) + 1;
-  }
-  gasneti_assert(((start + (*len_p-1) - segbase) >> gasnetc_pin_maxsz_shift) == index);
+  *len_p = MIN(len, (gasnetc_seg_ends[index] - offset));
+  gasneti_assert(((offset + (*len_p-1)) >> gasnetc_pin_maxsz_shift) == index);
 
   return index;
 }
@@ -3629,23 +3608,9 @@ extern void gasnetc_sndrcv_attach_segment(void) {
     gasnetc_seg_ends = gasneti_malloc(gasnetc_max_regs * sizeof(uintptr_t));
     gasneti_leak(gasnetc_seg_ends);
     for (i = 0; i < gasnetc_max_regs; ++i) {
-  #if GASNET_ALIGNED_SEGMENTS
-      /* gasnetc_seg_ends values are absolute */
-      gasnetc_seg_ends[i] = (gasnetc_seg_start - 1) + ((uintptr_t)(i+1) << gasnetc_pin_maxsz_shift);
-  #else
       /* gasnetc_seg_ends values are relative */
-      gasnetc_seg_ends[i] = ((uintptr_t)(i+1) << gasnetc_pin_maxsz_shift) - 1;
-  #endif
+      gasnetc_seg_ends[i] = (uintptr_t)(i+1) << gasnetc_pin_maxsz_shift;
     }
-  #if GASNET_ALIGNED_SEGMENTS
-    gasneti_assert(i == gasnetc_max_regs);
-    if (gasnetc_seg_ends[i-1] < gasnetc_seg_start) {
-      /* Fixup any wrap-around */
-      gasnetc_seg_ends[i-1] = ~((uintptr_t)0);
-    }
-  #else
-    /* Fixup is in gasnetc_get_rkey_index() due to differing lengths */
-  #endif
 #else
   /* Nothing currently needed */
 #endif
@@ -3768,13 +3733,20 @@ extern void gasnetc_counter_wait_aux(gasnetc_counter_t *counter, int handler_con
 extern int gasnetc_rdma_put(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, size_t nbytes, gasnetc_counter_t *mem_oust, gasnetc_atomic_val_t *initiated, gasnetc_atomic_t *completed GASNETE_THREAD_FARG) {
   uintptr_t src = (uintptr_t)src_ptr;
   uintptr_t dst = (uintptr_t)dst_ptr;
+#if GASNET_ALIGNED_SEGMENTS
+  uintptr_t offset = dst - gasnetc_seg_start;
+#else
+  const gasnet_node_t node = gasnetc_epid2node(epid);
+  uintptr_t offset = dst - (uintptr_t)gasneti_seginfo[node].addr;
+#endif
 
+  gasneti_assert(offset < gasneti_seginfo[node].size);
   gasneti_assert(nbytes != 0);
   
   do {
     /* Loop over contiguous pinned regions on remote end */
     size_t count = nbytes;
-    const int rkey_index = gasnetc_get_rkey_index(epid, dst, &count);
+    const int rkey_index = gasnetc_get_rkey_index(offset, &count);
 
     if (count <= gasnetc_inline_limit) {
       /* Use a short-cut for sends that are short enough.
@@ -3805,6 +3777,7 @@ extern int gasnetc_rdma_put(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, s
 
     src += count;
     dst += count;
+    offset += count;
     nbytes -= count;
   } while (nbytes);
 
@@ -3819,14 +3792,21 @@ extern int gasnetc_rdma_put(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, s
 extern int gasnetc_rdma_get(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, size_t nbytes, gasnetc_atomic_val_t *initiated, gasnetc_atomic_t *completed GASNETE_THREAD_FARG) {
   uintptr_t src = (uintptr_t)src_ptr;
   uintptr_t dst = (uintptr_t)dst_ptr;
+#if GASNET_ALIGNED_SEGMENTS
+  uintptr_t offset = src - gasnetc_seg_start;
+#else
+  const gasnet_node_t node = gasnetc_epid2node(epid);
+  uintptr_t offset = src - (uintptr_t)gasneti_seginfo[node].addr;
+#endif
 
+  gasneti_assert(offset < gasneti_seginfo[node].size);
   gasneti_assert(nbytes != 0);
   gasneti_assert(initiated != NULL);
 
   do {
     /* Loop over contiguous pinned regions on remote end */
     size_t count = nbytes;
-    const int rkey_index = gasnetc_get_rkey_index(epid, src, &count);
+    const int rkey_index = gasnetc_get_rkey_index(offset, &count);
 
 #if GASNETC_FH_OPTIONAL 
     if_pf (!GASNETC_USE_FIREHOSE && gasnetc_unpinned(dst, &count)) {
@@ -3840,6 +3820,7 @@ extern int gasnetc_rdma_get(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, s
 
     src += count;
     dst += count;
+    offset += count;
     nbytes -= count;
   } while (nbytes);
 
