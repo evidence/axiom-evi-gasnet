@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2013/03/24 23:38:37 $
- * $Revision: 1.99 $
+ *     $Date: 2013/07/23 07:04:10 $
+ * $Revision: 1.100 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -2449,7 +2449,6 @@ gasnetc_connect_static(void)
     GASNETC_STAT_EVENT(CONN_STATIC);
   }
 
-done:
 #if GASNETC_IBV_XRC
   gasneti_free(xrc_remote_srq_num);
   gasneti_free(xrc_remote_rcv_qpn);
