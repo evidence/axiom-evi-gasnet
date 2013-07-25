@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/07/25 22:34:43 $
- * $Revision: 1.342 $
+ *     $Date: 2013/07/25 23:30:19 $
+ * $Revision: 1.343 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -3865,6 +3865,7 @@ extern int gasnetc_rdma_get(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, s
 }
 #endif
 
+#if 0 /* Putv and Getv UNUSED */
 /* Putv - contiguous remote dst, vector local src
  *
  * Initial naive implementation
@@ -3894,6 +3895,7 @@ extern int gasnetc_rdma_getv(gasnetc_epid_t epid, void *src_ptr, size_t dstcount
 
   return 0;
 }
+#endif
 
 extern int gasnetc_RequestGeneric(gasnetc_category_t category,
 				  int dest, gasnet_handler_t handler,
