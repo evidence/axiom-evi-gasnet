@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/07/25 03:53:40 $
- * $Revision: 1.329 $
+ *     $Date: 2013/07/25 05:14:26 $
+ * $Revision: 1.330 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -2350,35 +2350,33 @@ GASNETI_INLINE(gasnetc_zerocp_common)
 size_t gasnetc_zerocp_common(gasnetc_epid_t epid, int rkey_index, gasnetc_snd_wr_t *sr_desc, size_t len, gasnetc_sreq_t *sreq, gasnetc_wr_opcode_t op) {
   uintptr_t loc_addr = sr_desc->gasnetc_f_wr_sg_list[0].addr;
   gasnetc_cep_t *cep;
-  size_t remain, count;
-  int seg;
+  size_t remain = len;
 
   sr_desc->opcode = op;
 
   if_pf (!gasnetc_unpinned(loc_addr, &len)) {
     /* loc_addr is in-segment */
     const int base = (loc_addr - gasnetc_seg_start) >> gasnetc_pin_maxsz_shift;
-    const gasnetc_memreg_t * seg_reg = &gasnetc_hca[0].seg_reg[base]; /*  HCA-independent */
-    remain = len;
+    size_t count = MIN(remain, ((gasnetc_hca[0].seg_reg[base].end - loc_addr) + 1));
+    int seg;
     sreq->fh_count = 0;
-    for (seg = 0; remain && (seg < GASNETC_SND_SG); ++seg, ++seg_reg) {
-      gasneti_assert((base + seg) >= 0);
-      gasneti_assert((base + seg) < gasnetc_seg_reg_count);
+    for (seg = 0; remain && (seg < GASNETC_SND_SG); ++seg) {
       gasneti_assert((base + seg) == (loc_addr - gasnetc_seg_start) >> gasnetc_pin_maxsz_shift);
-
-      count = MIN(remain, (seg_reg->end - loc_addr) + 1);
 
       sr_desc->gasnetc_f_wr_sg_list[seg].addr = loc_addr;
       sr_desc->gasnetc_f_wr_sg_list[seg].gasnetc_f_sg_len = count;
     #if GASNETC_IB_MAX_HCAS == 1
       sr_desc->gasnetc_f_wr_sg_list[seg].lkey = GASNETC_SEG_LKEY(NULL, base+seg);
     #endif
-      sr_desc->gasnetc_f_wr_num_sge = seg + 1;
 
       loc_addr += count;
       remain -= count;
+
+      /* 2nd and subsequent (if any) xfers are aligned to start of a seg_reg */
+      count = MIN(remain, gasnetc_pin_maxsz);
     }
-    gasneti_assert(sr_desc->gasnetc_f_wr_num_sge > 0);
+    gasneti_assert(seg > 0);
+    sr_desc->gasnetc_f_wr_num_sge = seg;
     gasneti_assert(remain < len);
     len -= remain;
     cep = gasnetc_bind_cep(epid, sreq, op, len);
@@ -2390,11 +2388,11 @@ size_t gasnetc_zerocp_common(gasnetc_epid_t epid, int rkey_index, gasnetc_snd_wr
   #endif
   } else {
     const firehose_request_t *fh_loc = gasnetc_fh_aligned_local_pin(loc_addr, len);
-    remain = len;
+    int seg;
     for (seg = 0; fh_loc != NULL; ++seg) {
+      const size_t count = MIN(remain, (fh_loc->addr + fh_loc->len - loc_addr));
       sreq->fh_ptr[seg] = fh_loc;
       sreq->fh_count = seg + 1;
-      count = MIN(remain, (fh_loc->addr + fh_loc->len - loc_addr));
       sr_desc->gasnetc_f_wr_sg_list[seg].addr = loc_addr;
       sr_desc->gasnetc_f_wr_sg_list[seg].gasnetc_f_sg_len = count;
     #if GASNETC_IB_MAX_HCAS == 1
