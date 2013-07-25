@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/07/25 17:50:14 $
- * $Revision: 1.337 $
+ *     $Date: 2013/07/25 20:50:05 $
+ * $Revision: 1.338 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -3701,21 +3701,25 @@ extern int gasnetc_rdma_put(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, s
   
   sr_desc->gasnetc_f_wr_rem_addr = dst;
   sr_desc_sg_lst[0].addr = src;
+
+  /* Use a short-cut for sends that are short enough and target a single registration.
+   *
+   * Note that we do this based only on the size and alignment, without checking whether
+   * the caller cares about local completion, or whether zero-copy is possible.
+   */
+  if ((nbytes <= gasnetc_inline_limit) &&
+      (nbytes <= (gasnetc_pin_maxsz - (offset & gasnetc_pin_maxsz_mask)))) {
+    const int rkey_index = (offset >> gasnetc_pin_maxsz_shift);
+    gasnetc_do_put_inline(epid, rkey_index, sr_desc, nbytes, initiated, completed GASNETE_THREAD_PASS);
+    return 0;
+  }
+
   do {
     /* Loop over contiguous pinned regions on remote end */
     const int rkey_index = (offset >> gasnetc_pin_maxsz_shift);
     const size_t rem = gasnetc_pin_maxsz - (offset & gasnetc_pin_maxsz_mask);
     size_t count = MIN(nbytes, rem);
 
-    if (count <= gasnetc_inline_limit) {
-      /* Use a short-cut for sends that are short enough.
-       *
-       * Note that we do this based only on the size of the request, without bothering to check whether
-       * the caller cares about local completion, or whether zero-copy is possible.
-       * We do this is because the cost of this small copy is cheaper than the alternative logic.
-       */
-      gasnetc_do_put_inline(epid, rkey_index, sr_desc, count, initiated, completed GASNETE_THREAD_PASS);
-    } else
     if (((count <= gasnetc_bounce_limit) && (mem_oust != NULL)) ||
         (!GASNETC_USE_FIREHOSE && gasnetc_unpinned(sr_desc_sg_lst[0].addr, &count))) {
       /* Because VAPI lacks any indication of "local" completion, the only ways to
