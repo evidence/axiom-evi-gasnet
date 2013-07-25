@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2013/07/23 07:11:27 $
- * $Revision: 1.241 $
+ *     $Date: 2013/07/25 06:12:17 $
+ * $Revision: 1.242 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1027,7 +1027,7 @@ extern uintptr_t	gasnetc_max_msg_sz;
   extern int			gasnetc_seg_reg_count;
   extern int			gasnetc_max_regs; /* max of gasnetc_seg_reg_count over all nodes */
   extern uintptr_t		gasnetc_seg_start;
-  extern uintptr_t		gasnetc_seg_end;
+  extern uintptr_t		gasnetc_seg_len;
   extern uint64_t		gasnetc_pin_maxsz;
   extern unsigned int		gasnetc_pin_maxsz_shift;
 #endif

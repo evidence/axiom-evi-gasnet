@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2013/07/18 05:15:06 $
- * $Revision: 1.315 $
+ *     $Date: 2013/07/25 06:12:17 $
+ * $Revision: 1.316 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -133,7 +133,7 @@ int                      gasnetc_num_ports = 0;
   int			gasnetc_seg_reg_count;
   int			gasnetc_max_regs;
   uintptr_t		gasnetc_seg_start;
-  uintptr_t		gasnetc_seg_end;
+  uintptr_t		gasnetc_seg_len;
   uint64_t 		gasnetc_pin_maxsz;
   unsigned int		gasnetc_pin_maxsz_shift;
 #endif
@@ -2057,7 +2057,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     }
 
     gasnetc_seg_start = (uintptr_t)segbase;
-    gasnetc_seg_end   = (uintptr_t)segbase + (segsize - 1);
+    gasnetc_seg_len   = segsize;
 
     /* Find the largest number of pinned regions required */
     for (i=0; i<gasneti_nodes; ++i) {

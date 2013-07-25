@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/07/25 05:14:26 $
- * $Revision: 1.330 $
+ *     $Date: 2013/07/25 06:12:17 $
+ * $Revision: 1.331 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -2296,32 +2296,24 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
 /* Test if a given (addr, len) is in the local GASNet segment or not.
  * Returns non-zero if starting address is outside the segment
  * and adjusts len to describe a region that is fully out of segment.
- * Len is unchanged if start is in the segment.
+ * Len is unchanged if addr is IN or AFTER the segment.
  */
 GASNETI_INLINE(gasnetc_unpinned)
-int gasnetc_unpinned(uintptr_t start, size_t *len_p) {
-  size_t len = *len_p;
-  uintptr_t end = start + (len - 1);
+int gasnetc_unpinned(uintptr_t addr, size_t *len_p) {
+  const uintptr_t offset = addr - gasnetc_seg_start;
 
-  if_pt ((start >= gasnetc_seg_start) && (end <= gasnetc_seg_end)) {
+  if_pt (offset <= gasnetc_seg_len) {
     /* FULLY IN */
+    gasneti_assert(addr + (*len_p - 1) <= gasnetc_seg_start + (gasnetc_seg_len - 1));
     return 0;
   }
 
-  if_pt ((start > gasnetc_seg_end) || (end < gasnetc_seg_start)) {
-    /* FULLY OUT */
-    return 1;
+  if (addr < gasnetc_seg_start) {
+    const size_t len = *len_p;
+    const size_t rem = 0 - (ssize_t)offset; 
+    *len_p = MIN(len, rem);
   }
-
-  /* Partials: */
-  if (start < gasnetc_seg_start) {
-    /* Starts OUT, ends IN */
-    *len_p = gasnetc_seg_start - start;
-    return 1;
-  } else {
-    gasneti_assert(end > gasnetc_seg_end);
-    return 0;
-  }
+  return 1;
 }
 
 /* Assemble and post a bounce-buffer PUT or GET */
