@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/07/25 21:11:45 $
- * $Revision: 1.339 $
+ *     $Date: 2013/07/25 21:35:05 $
+ * $Revision: 1.340 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -2289,27 +2289,16 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
  * ###############################################################
  */
 
-/* Test if a given (addr, len) is in the local GASNet segment or not.
- * Returns non-zero if starting address is outside the segment
- * and adjusts len to describe a region that is fully out of segment.
- * Len is unchanged if addr is IN or AFTER the segment.
+/* Test if a given addr is in the local GASNet segment or not.
+ * Returns non-zero if address is outside the segment.
+ * This test is used under the assumption that the client's arguments
+ * to Put or Get will always correspond to a region which is entirely
+ * IN or entirely OUT of the segment.
  */
 GASNETI_INLINE(gasnetc_unpinned)
-int gasnetc_unpinned(uintptr_t addr, size_t *len_p) {
-  const uintptr_t offset = addr - gasnetc_seg_start;
-
-  if_pt (offset <= gasnetc_seg_len) {
-    /* FULLY IN */
-    gasneti_assert(addr + (*len_p - 1) <= gasnetc_seg_start + (gasnetc_seg_len - 1));
-    return 0;
-  }
-
-  if (addr < gasnetc_seg_start) {
-    const size_t len = *len_p;
-    const size_t rem = 0 - (ssize_t)offset; 
-    *len_p = MIN(len, rem);
-  }
-  return 1;
+int gasnetc_unpinned(uintptr_t addr) {
+  const uintptr_t offset = (addr - gasnetc_seg_start); /* negative is a LARGE positive */
+  return (offset > gasnetc_seg_len);
 }
 
 /* Assemble and post a bounce-buffer PUT or GET */
@@ -2342,7 +2331,7 @@ size_t gasnetc_zerocp_common(gasnetc_epid_t epid, int rkey_index, gasnetc_snd_wr
 
   sr_desc->opcode = op;
 
-  if_pf (!gasnetc_unpinned(loc_addr, &len)) {
+  if_pf (!gasnetc_unpinned(loc_addr)) {
     /* loc_addr is in-segment */
     const int base = (loc_addr - gasnetc_seg_start) >> gasnetc_pin_maxsz_shift;
     size_t count = MIN(remain, ((gasnetc_hca[0].seg_reg[base].end - loc_addr) + 1));
@@ -3720,10 +3709,10 @@ extern int gasnetc_rdma_put(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, s
     /* Loop over contiguous pinned regions on remote end */
     const int rkey_index = (offset >> gasnetc_pin_maxsz_shift);
     const size_t rem = gasnetc_pin_maxsz - (offset & gasnetc_pin_maxsz_mask);
-    size_t count = MIN(nbytes, rem);
+    const size_t count = MIN(nbytes, rem);
 
     if (((count <= gasnetc_bounce_limit) && (mem_oust != NULL)) ||
-        (!GASNETC_USE_FIREHOSE && gasnetc_unpinned(sr_desc_sg_lst[0].addr, &count))) {
+        (!GASNETC_USE_FIREHOSE && gasnetc_unpinned(sr_desc_sg_lst[0].addr))) {
       /* Because VAPI lacks any indication of "local" completion, the only ways to
        * implement non-bulk puts (mem_oust != NULL) are as fully blocking puts, or
        * with bounce buffers.  So, if a non-bulk put is "not too large" use bounce
@@ -3775,9 +3764,9 @@ extern int gasnetc_rdma_get(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, s
     /* Loop over contiguous pinned regions on remote end */
     const int rkey_index = (offset >> gasnetc_pin_maxsz_shift);
     const size_t rem = gasnetc_pin_maxsz - (offset & gasnetc_pin_maxsz_mask);
-    size_t count = MIN(nbytes, rem);
+    const size_t count = MIN(nbytes, rem);
 
-    if (!GASNETC_USE_FIREHOSE && gasnetc_unpinned(sr_desc_sg_lst[0].addr, &count)) {
+    if (!GASNETC_USE_FIREHOSE && gasnetc_unpinned(sr_desc_sg_lst[0].addr)) {
       /* Firehose disabled.  Use bounce buffers since dst is out-of-segment */
       gasnetc_do_get_bounce(epid, rkey_index, sr_desc, count, initiated, completed GASNETE_THREAD_PASS);
     } else
