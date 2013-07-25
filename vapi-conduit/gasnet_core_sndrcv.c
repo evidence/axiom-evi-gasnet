@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/07/25 16:23:54 $
- * $Revision: 1.336 $
+ *     $Date: 2013/07/25 17:50:14 $
+ * $Revision: 1.337 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -2409,7 +2409,8 @@ size_t gasnetc_zerocp_common(gasnetc_epid_t epid, int rkey_index, gasnetc_snd_wr
 }
 
 /* Helper for rdma puts: inline send case */
-static void gasnetc_do_put_inline(const gasnetc_epid_t epid, int rkey_index,
+GASNETI_INLINE(gasnetc_do_put_inline)
+void gasnetc_do_put_inline(const gasnetc_epid_t epid, int rkey_index,
                                   gasnetc_snd_wr_t *sr_desc,
                                   size_t nbytes,
                                   gasnetc_atomic_val_t *initiated, gasnetc_atomic_t *completed
@@ -2442,7 +2443,8 @@ static void gasnetc_do_put_inline(const gasnetc_epid_t epid, int rkey_index,
 }
       
 /* Helper for rdma puts: bounce buffer case */
-static void gasnetc_do_put_bounce(const gasnetc_epid_t epid, int rkey_index,
+GASNETI_INLINE(gasnetc_do_put_bounce)
+void gasnetc_do_put_bounce(const gasnetc_epid_t epid, int rkey_index,
                                   gasnetc_snd_wr_t *sr_desc,
                                   size_t nbytes,
                                   gasnetc_atomic_val_t *initiated, gasnetc_atomic_t *completed
@@ -2472,7 +2474,8 @@ static void gasnetc_do_put_bounce(const gasnetc_epid_t epid, int rkey_index,
 }
 
 /* Helper for rdma puts: zero copy case */
-static void gasnetc_do_put_zerocp(const gasnetc_epid_t epid, int rkey_index,
+GASNETI_INLINE(gasnetc_do_put_zerocp)
+void gasnetc_do_put_zerocp(const gasnetc_epid_t epid, int rkey_index,
                                   gasnetc_snd_wr_t *sr_desc,
                                   size_t nbytes,
                                   gasnetc_counter_t *mem_oust,
@@ -2505,7 +2508,8 @@ static void gasnetc_do_put_zerocp(const gasnetc_epid_t epid, int rkey_index,
 
 #if GASNETC_FH_OPTIONAL /* Only available if Firehose has been disabled */
 /* Helper for rdma gets: bounce buffer case */
-static void gasnetc_do_get_bounce(const gasnetc_epid_t epid, int rkey_index,
+GASNETI_INLINE(gasnetc_do_get_bounce)
+void gasnetc_do_get_bounce(const gasnetc_epid_t epid, int rkey_index,
                                   gasnetc_snd_wr_t *sr_desc,
                                   size_t nbytes,
                                   gasnetc_atomic_val_t *initiated, gasnetc_atomic_t *completed
@@ -2536,7 +2540,8 @@ static void gasnetc_do_get_bounce(const gasnetc_epid_t epid, int rkey_index,
 #endif
 
 /* Helper for rdma gets: zero copy case */
-static void gasnetc_do_get_zerocp(const gasnetc_epid_t epid, int rkey_index,
+GASNETI_INLINE(gasnetc_do_get_zerocp)
+void gasnetc_do_get_zerocp(const gasnetc_epid_t epid, int rkey_index,
                                   gasnetc_snd_wr_t *sr_desc,
                                   size_t nbytes,
                                   gasnetc_atomic_val_t *initiated, gasnetc_atomic_t *completed
