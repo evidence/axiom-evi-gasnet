@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/07/25 20:50:05 $
- * $Revision: 1.338 $
+ *     $Date: 2013/07/25 21:11:45 $
+ * $Revision: 1.339 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -2506,7 +2506,6 @@ void gasnetc_do_put_zerocp(const gasnetc_epid_t epid, int rkey_index,
   } while (nbytes);
 }
 
-#if GASNETC_FH_OPTIONAL /* Only available if Firehose has been disabled */
 /* Helper for rdma gets: bounce buffer case */
 GASNETI_INLINE(gasnetc_do_get_bounce)
 void gasnetc_do_get_bounce(const gasnetc_epid_t epid, int rkey_index,
@@ -2514,6 +2513,7 @@ void gasnetc_do_get_bounce(const gasnetc_epid_t epid, int rkey_index,
                                   size_t nbytes,
                                   gasnetc_atomic_val_t *initiated, gasnetc_atomic_t *completed
 				  GASNETE_THREAD_FARG) {
+#if GASNETC_FH_OPTIONAL /* Only reachable if Firehose has been disabled */
   uintptr_t dst = sr_desc->gasnetc_f_wr_sg_list[0].addr;
   GASNETI_TRACE_EVENT_VAL(C, RDMA_GET_BOUNCE, nbytes);
 
@@ -2536,8 +2536,10 @@ void gasnetc_do_get_bounce(const gasnetc_epid_t epid, int rkey_index,
     nbytes -= count;
   } while (nbytes);
   sr_desc->gasnetc_f_wr_sg_list[0].addr = dst;
-}
+#else
+  gasneti_fatalerror("unreachble call to gasnetc_do_get_bounce()");
 #endif
+}
 
 /* Helper for rdma gets: zero copy case */
 GASNETI_INLINE(gasnetc_do_get_zerocp)
