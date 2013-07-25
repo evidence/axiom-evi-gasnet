@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/07/24 04:25:41 $
- * $Revision: 1.327 $
+ *     $Date: 2013/07/25 03:35:38 $
+ * $Revision: 1.328 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -2357,22 +2357,17 @@ size_t gasnetc_zerocp_common(gasnetc_epid_t epid, int rkey_index, gasnetc_snd_wr
 
   if_pf (!gasnetc_unpinned(loc_addr, &len)) {
     /* loc_addr is in-segment */
-    const uintptr_t end = loc_addr + (len - 1);
     const int base = (loc_addr - gasnetc_seg_start) >> gasnetc_pin_maxsz_shift;
+    const gasnetc_memreg_t * seg_reg = &gasnetc_hca[0].seg_reg[base]; /*  HCA-independent */
     remain = len;
     sreq->fh_count = 0;
-    for (seg = 0; remain && (seg < GASNETC_SND_SG); ++seg) {
-      const int index = base + seg;
-      gasneti_assert(index >= 0);
-      gasneti_assert(index < gasnetc_seg_reg_count);
-      gasneti_assert(index == (loc_addr - gasnetc_seg_start) >> gasnetc_pin_maxsz_shift);
+    for (seg = 0; remain && (seg < GASNETC_SND_SG); ++seg, ++seg_reg) {
+      gasneti_assert((base + seg) >= 0);
+      gasneti_assert((base + seg) < gasnetc_seg_reg_count);
+      gasneti_assert((base + seg) == (loc_addr - gasnetc_seg_start) >> gasnetc_pin_maxsz_shift);
 
-      /* Note seg_reg boundaries are HCA-independent */
-      if (end > gasnetc_hca[0].seg_reg[index].end) {
-        count = (gasnetc_hca[0].seg_reg[index].end - loc_addr) + 1;
-      } else {
-	count = remain;
-      }
+      count = MIN(remain, (seg_reg->end - loc_addr) + 1);
+
       sr_desc->gasnetc_f_wr_sg_list[seg].addr = loc_addr;
       sr_desc->gasnetc_f_wr_sg_list[seg].gasnetc_f_sg_len = count;
       sr_desc->gasnetc_f_wr_num_sge = seg + 1;
