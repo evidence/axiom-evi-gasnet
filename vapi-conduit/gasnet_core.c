@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2013/07/25 06:12:17 $
- * $Revision: 1.316 $
+ *     $Date: 2013/07/25 07:06:26 $
+ * $Revision: 1.317 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -135,6 +135,7 @@ int                      gasnetc_num_ports = 0;
   uintptr_t		gasnetc_seg_start;
   uintptr_t		gasnetc_seg_len;
   uint64_t 		gasnetc_pin_maxsz;
+  uint64_t 		gasnetc_pin_maxsz_mask;
   unsigned int		gasnetc_pin_maxsz_shift;
 #endif
 firehose_info_t	gasnetc_firehose_info;
@@ -583,6 +584,7 @@ static void setup_pin_maxsz(uint64_t size) {
   size >>= 1;
   for (gasnetc_pin_maxsz_shift=0; size != 0; ++gasnetc_pin_maxsz_shift) { size >>= 1; }
   gasnetc_pin_maxsz = ((uint64_t)1) << gasnetc_pin_maxsz_shift;
+  gasnetc_pin_maxsz_mask = (gasnetc_pin_maxsz - 1);
 }
 #endif
 
@@ -2110,8 +2112,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   }
   #endif
 
-  /* Global and per-endpoint work */
-  gasnetc_sndrcv_attach_segment();
+  /* Per-endpoint work */
   for (i = 0; i < gasneti_nodes; i++) {
     gasnetc_cep_t *cep = GASNETC_NODE2CEP(i);
     if (cep) {

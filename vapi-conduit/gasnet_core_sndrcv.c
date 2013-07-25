@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/07/25 06:12:17 $
- * $Revision: 1.331 $
+ *     $Date: 2013/07/25 07:06:26 $
+ * $Revision: 1.332 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -233,10 +233,6 @@ static size_t                           gasnetc_am_inline_limit_rdma = 0;
 static gasnetc_lifo_head_t		gasnetc_bbuf_freelist = GASNETC_LIFO_INITIALIZER;
 
 static gasnetc_sema_t			*gasnetc_cq_semas;
-
-#if GASNETC_PIN_SEGMENT
-  static uintptr_t			*gasnetc_seg_ends;
-#endif
 
 /* Shared between gasnetc_sndrcv_{limits,init}() */
 static int gasnetc_op_oust_per_qp;
@@ -2424,18 +2420,13 @@ size_t gasnetc_zerocp_common(gasnetc_epid_t epid, int rkey_index, gasnetc_snd_wr
 
 GASNETI_INLINE(gasnetc_get_rkey_index)
 int gasnetc_get_rkey_index(uintptr_t offset, size_t *len_p) {
-  size_t len = *len_p;
+  /* Compute distance remaining to the end of the region and trim *len_p */
+  const size_t rem = gasnetc_pin_maxsz - (offset & gasnetc_pin_maxsz_mask);
+  const size_t len = *len_p;
+  *len_p = MIN(len, rem);
 
   /* Compute in which region of the segment the address lies */
-  const int index = offset >> gasnetc_pin_maxsz_shift;
-  gasneti_assert(index >= 0);
-  gasneti_assert(index < gasnetc_max_regs);
-
-  /* Now trim length to the end of the region */
-  *len_p = MIN(len, (gasnetc_seg_ends[index] - offset));
-  gasneti_assert(((offset + (*len_p-1)) >> gasnetc_pin_maxsz_shift) == index);
-
-  return index;
+  return (offset >> gasnetc_pin_maxsz_shift);
 }
 
 /* Helper for rdma puts: inline send case */
@@ -3592,21 +3583,6 @@ extern void gasnetc_sndrcv_attach_peer(gasnet_node_t node, gasnetc_cep_t *cep) {
   #endif
     cep->rkeys   = &hca->rkeys[node * gasnetc_max_regs];
   }
-#else
-  /* Nothing currently needed */
-#endif
-}
-
-extern void gasnetc_sndrcv_attach_segment(void) {
-#if GASNETC_PIN_SEGMENT
-    int i;
-
-    gasnetc_seg_ends = gasneti_malloc(gasnetc_max_regs * sizeof(uintptr_t));
-    gasneti_leak(gasnetc_seg_ends);
-    for (i = 0; i < gasnetc_max_regs; ++i) {
-      /* gasnetc_seg_ends values are relative */
-      gasnetc_seg_ends[i] = (uintptr_t)(i+1) << gasnetc_pin_maxsz_shift;
-    }
 #else
   /* Nothing currently needed */
 #endif
