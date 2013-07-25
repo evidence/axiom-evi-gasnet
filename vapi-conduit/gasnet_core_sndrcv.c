@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/07/25 07:06:26 $
- * $Revision: 1.332 $
+ *     $Date: 2013/07/25 07:38:39 $
+ * $Revision: 1.333 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -2418,17 +2418,6 @@ size_t gasnetc_zerocp_common(gasnetc_epid_t epid, int rkey_index, gasnetc_snd_wr
   return len;
 }
 
-GASNETI_INLINE(gasnetc_get_rkey_index)
-int gasnetc_get_rkey_index(uintptr_t offset, size_t *len_p) {
-  /* Compute distance remaining to the end of the region and trim *len_p */
-  const size_t rem = gasnetc_pin_maxsz - (offset & gasnetc_pin_maxsz_mask);
-  const size_t len = *len_p;
-  *len_p = MIN(len, rem);
-
-  /* Compute in which region of the segment the address lies */
-  return (offset >> gasnetc_pin_maxsz_shift);
-}
-
 /* Helper for rdma puts: inline send case */
 static void gasnetc_do_put_inline(const gasnetc_epid_t epid, int rkey_index,
                                   gasnetc_snd_wr_t *sr_desc,
@@ -3719,8 +3708,9 @@ extern int gasnetc_rdma_put(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, s
   sr_desc_sg_lst[0].addr = src;
   do {
     /* Loop over contiguous pinned regions on remote end */
-    size_t count = nbytes;
-    const int rkey_index = gasnetc_get_rkey_index(offset, &count);
+    const int rkey_index = (offset >> gasnetc_pin_maxsz_shift);
+    const size_t rem = gasnetc_pin_maxsz - (offset & gasnetc_pin_maxsz_mask);
+    size_t count = MIN(nbytes, rem);
 
     if (count <= gasnetc_inline_limit) {
       /* Use a short-cut for sends that are short enough.
@@ -3785,8 +3775,9 @@ extern int gasnetc_rdma_get(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, s
   sr_desc_sg_lst[0].addr = dst;
   do {
     /* Loop over contiguous pinned regions on remote end */
-    size_t count = nbytes;
-    const int rkey_index = gasnetc_get_rkey_index(offset, &count);
+    const int rkey_index = (offset >> gasnetc_pin_maxsz_shift);
+    const size_t rem = gasnetc_pin_maxsz - (offset & gasnetc_pin_maxsz_mask);
+    size_t count = MIN(nbytes, rem);
 
 #if GASNETC_FH_OPTIONAL 
     if_pf (!GASNETC_USE_FIREHOSE && gasnetc_unpinned(sr_desc_sg_lst[0].addr, &count)) {
