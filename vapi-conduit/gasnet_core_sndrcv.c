@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/07/25 22:27:10 $
- * $Revision: 1.341 $
+ *     $Date: 2013/07/25 22:34:43 $
+ * $Revision: 1.342 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -2301,6 +2301,22 @@ int gasnetc_unpinned(uintptr_t addr) {
   return (offset > gasnetc_seg_len);
 }
 
+/* Convert an offset into the corresponding index into the seg_reg table.
+   This is independent of node and HCA.
+*/
+GASNETI_INLINE(gasnetc_seg_index)
+int gasnetc_seg_index(uintptr_t offset) {
+  return (offset >> gasnetc_pin_maxsz_shift);
+}
+
+/* Convert an offset into bytes remaining in the corresponding seg_reg.
+   This is independent of node and HCA.
+*/
+GASNETI_INLINE(gasnetc_seg_remain)
+int gasnetc_seg_remain(uintptr_t offset) {
+  return (gasnetc_pin_maxsz - (offset & gasnetc_pin_maxsz_mask));
+}
+
 /* Assemble and post a bounce-buffer PUT or GET */
 GASNETI_INLINE(gasnetc_bounce_common)
 void gasnetc_bounce_common(gasnetc_epid_t epid, int rkey_index, gasnetc_snd_wr_t *sr_desc, size_t len, gasnetc_sreq_t *sreq, gasnetc_wr_opcode_t op) {
@@ -2334,12 +2350,12 @@ size_t gasnetc_zerocp_common(gasnetc_epid_t epid, int rkey_index, gasnetc_snd_wr
   if_pf (!gasnetc_unpinned(loc_addr)) {
     /* loc_addr is in-segment */
     const uintptr_t offset = loc_addr - gasnetc_seg_start;
-    const int base = (offset >> gasnetc_pin_maxsz_shift);
-    size_t count = MIN(remain, (gasnetc_pin_maxsz - (offset & gasnetc_pin_maxsz_mask)));
+    const int base = gasnetc_seg_index(offset);
+    size_t count = MIN(remain, gasnetc_seg_remain(offset));
     int seg;
     sreq->fh_count = 0;
     for (seg = 0; remain && (seg < GASNETC_SND_SG); ++seg) {
-      gasneti_assert((base + seg) == (loc_addr - gasnetc_seg_start) >> gasnetc_pin_maxsz_shift);
+      gasneti_assert((base + seg) == gasnetc_seg_index(loc_addr - gasnetc_seg_start));
 
       sr_desc->gasnetc_f_wr_sg_list[seg].addr = loc_addr;
       sr_desc->gasnetc_f_wr_sg_list[seg].gasnetc_f_sg_len = count;
@@ -3699,17 +3715,16 @@ extern int gasnetc_rdma_put(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, s
    * Note that we do this based only on the size and alignment, without checking whether
    * the caller cares about local completion, or whether zero-copy is possible.
    */
-  if ((nbytes <= gasnetc_inline_limit) &&
-      (nbytes <= (gasnetc_pin_maxsz - (offset & gasnetc_pin_maxsz_mask)))) {
-    const int rkey_index = (offset >> gasnetc_pin_maxsz_shift);
+  if ((nbytes <= gasnetc_inline_limit) && (nbytes <= gasnetc_seg_remain(offset))) {
+    const int rkey_index = gasnetc_seg_index(offset);
     gasnetc_do_put_inline(epid, rkey_index, sr_desc, nbytes, initiated, completed GASNETE_THREAD_PASS);
     return 0;
   }
 
   do {
     /* Loop over contiguous pinned regions on remote end */
-    const int rkey_index = (offset >> gasnetc_pin_maxsz_shift);
-    const size_t rem = gasnetc_pin_maxsz - (offset & gasnetc_pin_maxsz_mask);
+    const int rkey_index = gasnetc_seg_index(offset);
+    const size_t rem = gasnetc_seg_remain(offset);
     const size_t count = MIN(nbytes, rem);
 
     if (((count <= gasnetc_bounce_limit) && (mem_oust != NULL)) ||
@@ -3763,8 +3778,8 @@ extern int gasnetc_rdma_get(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, s
   sr_desc_sg_lst[0].addr = dst;
   do {
     /* Loop over contiguous pinned regions on remote end */
-    const int rkey_index = (offset >> gasnetc_pin_maxsz_shift);
-    const size_t rem = gasnetc_pin_maxsz - (offset & gasnetc_pin_maxsz_mask);
+    const int rkey_index = gasnetc_seg_index(offset);
+    const size_t rem = gasnetc_seg_remain(offset);
     const size_t count = MIN(nbytes, rem);
 
     if (!GASNETC_USE_FIREHOSE && gasnetc_unpinned(sr_desc_sg_lst[0].addr)) {
