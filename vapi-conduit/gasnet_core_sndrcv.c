@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/07/25 16:06:14 $
- * $Revision: 1.335 $
+ *     $Date: 2013/07/25 16:23:54 $
+ * $Revision: 1.336 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -3712,7 +3712,7 @@ extern int gasnetc_rdma_put(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, s
       gasnetc_do_put_inline(epid, rkey_index, sr_desc, count, initiated, completed GASNETE_THREAD_PASS);
     } else
     if (((count <= gasnetc_bounce_limit) && (mem_oust != NULL)) ||
-        GASNETT_PREDICT_FALSE(!GASNETC_USE_FIREHOSE && gasnetc_unpinned(sr_desc_sg_lst[0].addr, &count))) {
+        (!GASNETC_USE_FIREHOSE && gasnetc_unpinned(sr_desc_sg_lst[0].addr, &count))) {
       /* Because VAPI lacks any indication of "local" completion, the only ways to
        * implement non-bulk puts (mem_oust != NULL) are as fully blocking puts, or
        * with bounce buffers.  So, if a non-bulk put is "not too large" use bounce
@@ -3766,7 +3766,7 @@ extern int gasnetc_rdma_get(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, s
     const size_t rem = gasnetc_pin_maxsz - (offset & gasnetc_pin_maxsz_mask);
     size_t count = MIN(nbytes, rem);
 
-    if_pf (!GASNETC_USE_FIREHOSE && gasnetc_unpinned(sr_desc_sg_lst[0].addr, &count)) {
+    if (!GASNETC_USE_FIREHOSE && gasnetc_unpinned(sr_desc_sg_lst[0].addr, &count)) {
       /* Firehose disabled.  Use bounce buffers since dst is out-of-segment */
       gasnetc_do_get_bounce(epid, rkey_index, sr_desc, count, initiated, completed GASNETE_THREAD_PASS);
     } else
