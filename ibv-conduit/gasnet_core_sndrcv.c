@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/07/25 03:35:38 $
- * $Revision: 1.328 $
+ *     $Date: 2013/07/25 03:53:40 $
+ * $Revision: 1.329 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -2370,6 +2370,9 @@ size_t gasnetc_zerocp_common(gasnetc_epid_t epid, int rkey_index, gasnetc_snd_wr
 
       sr_desc->gasnetc_f_wr_sg_list[seg].addr = loc_addr;
       sr_desc->gasnetc_f_wr_sg_list[seg].gasnetc_f_sg_len = count;
+    #if GASNETC_IB_MAX_HCAS == 1
+      sr_desc->gasnetc_f_wr_sg_list[seg].lkey = GASNETC_SEG_LKEY(NULL, base+seg);
+    #endif
       sr_desc->gasnetc_f_wr_num_sge = seg + 1;
 
       loc_addr += count;
@@ -2379,10 +2382,12 @@ size_t gasnetc_zerocp_common(gasnetc_epid_t epid, int rkey_index, gasnetc_snd_wr
     gasneti_assert(remain < len);
     len -= remain;
     cep = gasnetc_bind_cep(epid, sreq, op, len);
+  #if GASNETC_IB_MAX_HCAS > 1
     for (seg = 0; seg < sr_desc->gasnetc_f_wr_num_sge; ++seg) {
       /* Xlate index to actual lkey */
       sr_desc->gasnetc_f_wr_sg_list[seg].lkey = GASNETC_SEG_LKEY(cep, base+seg);
     }
+  #endif
   } else {
     const firehose_request_t *fh_loc = gasnetc_fh_aligned_local_pin(loc_addr, len);
     remain = len;
@@ -2392,6 +2397,9 @@ size_t gasnetc_zerocp_common(gasnetc_epid_t epid, int rkey_index, gasnetc_snd_wr
       count = MIN(remain, (fh_loc->addr + fh_loc->len - loc_addr));
       sr_desc->gasnetc_f_wr_sg_list[seg].addr = loc_addr;
       sr_desc->gasnetc_f_wr_sg_list[seg].gasnetc_f_sg_len = count;
+    #if GASNETC_IB_MAX_HCAS == 1
+      sr_desc->gasnetc_f_wr_sg_list[seg].lkey = GASNETC_FH_LKEY(NULL, fh_loc);
+    #endif
       loc_addr += count;
       remain -= count;
       if (!remain || seg == (GASNETC_SND_SG-1)) {
@@ -2406,10 +2414,12 @@ size_t gasnetc_zerocp_common(gasnetc_epid_t epid, int rkey_index, gasnetc_snd_wr
     gasneti_assert(remain < len);
     len -= remain;
     cep = gasnetc_bind_cep(epid, sreq, op, len);
+  #if GASNETC_IB_MAX_HCAS > 1
     for (seg = 0; seg < sr_desc->gasnetc_f_wr_num_sge; ++seg) {
       /* Xlate to actual lkeys */
       sr_desc->gasnetc_f_wr_sg_list[seg].lkey = GASNETC_FH_LKEY(cep, sreq->fh_ptr[seg]);
     }
+  #endif
   }
 
   sr_desc->gasnetc_f_wr_rkey = GASNETC_SEG_RKEY(cep, rkey_index);
