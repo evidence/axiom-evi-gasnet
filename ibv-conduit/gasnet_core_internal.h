@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2013/07/25 16:23:54 $
- * $Revision: 1.244 $
+ *     $Date: 2013/07/25 22:27:10 $
+ * $Revision: 1.245 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -676,7 +676,6 @@ typedef struct {
   gasnetc_rkey_t	rkey;	/* used for remote access by HCA */
   uintptr_t		addr;
   size_t		len;
-  uintptr_t		end;	/* inclusive */
 } gasnetc_memreg_t;
 
 typedef struct {

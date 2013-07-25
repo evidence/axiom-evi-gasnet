@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/07/25 21:35:05 $
- * $Revision: 1.340 $
+ *     $Date: 2013/07/25 22:27:10 $
+ * $Revision: 1.341 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -2333,8 +2333,9 @@ size_t gasnetc_zerocp_common(gasnetc_epid_t epid, int rkey_index, gasnetc_snd_wr
 
   if_pf (!gasnetc_unpinned(loc_addr)) {
     /* loc_addr is in-segment */
-    const int base = (loc_addr - gasnetc_seg_start) >> gasnetc_pin_maxsz_shift;
-    size_t count = MIN(remain, ((gasnetc_hca[0].seg_reg[base].end - loc_addr) + 1));
+    const uintptr_t offset = loc_addr - gasnetc_seg_start;
+    const int base = (offset >> gasnetc_pin_maxsz_shift);
+    size_t count = MIN(remain, (gasnetc_pin_maxsz - (offset & gasnetc_pin_maxsz_mask)));
     int seg;
     sreq->fh_count = 0;
     for (seg = 0; remain && (seg < GASNETC_SND_SG); ++seg) {

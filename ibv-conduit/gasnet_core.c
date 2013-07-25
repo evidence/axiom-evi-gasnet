@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2013/07/25 07:06:26 $
- * $Revision: 1.317 $
+ *     $Date: 2013/07/25 22:27:10 $
+ * $Revision: 1.318 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -633,7 +633,6 @@ extern int gasnetc_pin(gasnetc_hca_t *hca, void *addr, size_t size, gasnetc_acl_
 
   reg->addr     = (uintptr_t)addr;
   reg->len      = size;
-  reg->end      = (uintptr_t)addr + (size - 1);
 
 #endif
 #if GASNET_TRACE
