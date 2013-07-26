@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/07/26 22:07:17 $
- * $Revision: 1.344 $
+ *     $Date: 2013/07/26 22:59:42 $
+ * $Revision: 1.345 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -3489,8 +3489,8 @@ extern void gasnetc_sndrcv_init_peer(gasnet_node_t node, gasnetc_cep_t *cep) {
 
     #if GASNETC_IB_MAX_HCAS > 1
       /* "Cache" the local keys associated w/ this cep */
-      cep->rcv_lkey = hca->rcv_reg.lkey;
-      cep->snd_lkey = hca->snd_reg.lkey;
+      cep->rcv_lkey = hca->rcv_reg.gasnetc_mr_lkey;
+      cep->snd_lkey = hca->snd_reg.gasnetc_mr_lkey;
     #endif
 
       /* Initialize local AM-over-RDMA info */
