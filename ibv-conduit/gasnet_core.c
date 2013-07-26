@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2013/07/26 15:20:33 $
- * $Revision: 1.319 $
+ *     $Date: 2013/07/26 21:00:07 $
+ * $Revision: 1.320 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -171,6 +171,8 @@ static char *gasnetc_vapi_ports;
   static unsigned int	gasnetc_pinned_blocks = 0;
   static size_t		gasnetc_pinned_bytes = 0;
 #endif
+
+static int gasnetc_did_firehose_init = 0;
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -2119,7 +2121,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   }
 
   /* Initialize firehose */
-  if (GASNETC_USE_FIREHOSE) {
+  if (GASNETC_USE_FIREHOSE && (gasneti_nodes > 1)) {
     uintptr_t firehose_mem = gasnetc_pin_info.memory;
     int firehose_reg = gasnetc_pin_info.regions;
     int reg_count, h;
@@ -2172,6 +2174,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 
       firehose_init(firehose_mem, firehose_reg, gasnetc_fh_maxsize,
 		    prereg, reg_count, flags, &gasnetc_firehose_info);
+      gasnetc_did_firehose_init = 1;
     }
 
     /* Determine alignment (and max size) for fh requests - a power-of-two <= max_region/2 */
@@ -2775,7 +2778,7 @@ static void gasnetc_exit_body(void) {
  #endif
 #endif
   gasnetc_connect_fini();
-  if (GASNETC_USE_FIREHOSE && gasneti_attach_done && !gasnetc_exit_in_signal) {
+  if (gasnetc_did_firehose_init && !gasnetc_exit_in_signal) {
     /* Note we skip firehose_fini() on exit via a signal */
     GASNETC_EXIT_STATE("in firehose_fini()");
     firehose_fini();
