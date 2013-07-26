@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2013/07/26 22:07:17 $
- * $Revision: 1.321 $
+ *     $Date: 2013/07/26 23:36:01 $
+ * $Revision: 1.322 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -130,7 +130,6 @@ gasnetc_port_info_t      *gasnetc_port_tbl = NULL;
 int                      gasnetc_num_ports = 0;
 
 #if GASNETC_PIN_SEGMENT
-  int			gasnetc_seg_reg_count;
   int			gasnetc_max_regs;
   uintptr_t		gasnetc_seg_start;
   uintptr_t		gasnetc_seg_len;
@@ -2096,7 +2095,6 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
          */
         gasneti_bootstrapExchange(my_rkeys, gasnetc_max_regs*sizeof(gasnetc_rkey_t), hca->rkeys);
       }
-      gasnetc_seg_reg_count = j;
       gasneti_free(my_rkeys);
     }
   }
