@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2013/07/25 23:30:19 $
- * $Revision: 1.246 $
+ *     $Date: 2013/07/26 22:07:17 $
+ * $Revision: 1.247 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -667,13 +667,21 @@ typedef GASNETC_IB_CHOOSE(VAPI_sg_lst_entry_t,	struct ibv_sge)		gasnetc_sge_t;
 #define gasnetc_f_wr_rkey	GASNETC_IB_CHOOSE(r_key,		wr.rdma.rkey)
 #define gasnetc_f_sg_len	GASNETC_IB_CHOOSE(len,			length)
 
+/* Field names in gasnetc_memreg_t */
+#define gasnetc_mr_lkey         GASNETC_IB_CHOOSE(lkey,                 handle->lkey)
+#define gasnetc_mr_rkey         GASNETC_IB_CHOOSE(rkey,                 handle->rkey)
+
 /* ------------------------------------------------------------------------------------ */
 
 /* Description of a pre-pinned memory region */
 typedef struct {
   gasnetc_mr_hndl_t	handle;	/* used to release or modify the region */
+#if GASNET_CONDUIT_VAPI
   gasnetc_lkey_t	lkey;	/* used for local access by HCA */
   gasnetc_rkey_t	rkey;	/* used for remote access by HCA */
+#else
+  /* lkey and rkey are accessed via 'handle' */
+#endif
   uintptr_t		addr;
   size_t		len;
 } gasnetc_memreg_t;

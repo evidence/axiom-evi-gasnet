@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2013/07/26 21:00:07 $
- * $Revision: 1.320 $
+ *     $Date: 2013/07/26 22:07:17 $
+ * $Revision: 1.321 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -628,9 +628,6 @@ extern int gasnetc_pin(gasnetc_hca_t *hca, void *addr, size_t size, gasnetc_acl_
 
   reg->handle = ibv_reg_mr(hca->pd, addr, size, acl);
   if_pf (reg->handle == NULL) return 1;
-
-  reg->lkey     = reg->handle->lkey;	/* XXX: Redundant */
-  reg->rkey     = reg->handle->rkey;	/* XXX: Redundant */
 
   reg->addr     = (uintptr_t)addr;
   reg->len      = size;
@@ -2087,7 +2084,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 			      (gasnetc_acl_t)(GASNETC_ACL_LOC_WR | GASNETC_ACL_REM_WR | GASNETC_ACL_REM_RD),
 			      &hca->seg_reg[j]);
           GASNETC_VAPI_CHECK(vstat, "when registering the segment");
-	  my_rkeys[j] = hca->seg_reg[j].rkey;
+	  my_rkeys[j] = hca->seg_reg[j].gasnetc_mr_rkey;
 	  addr += len;
 	  remain -= len;
           gasneti_assert(j <= gasnetc_max_regs);
@@ -2133,8 +2130,8 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     prereg[0].len              = gasnetc_hca[0].snd_reg.len;
     GASNETC_FOR_ALL_HCA_INDEX(h) {
       prereg[0].client.handle[h] = GASNETC_INVAL_HNDL;	/* unreg must fail */
-      prereg[0].client.lkey[h]   = gasnetc_hca[h].snd_reg.lkey;
-      prereg[0].client.rkey[h]   = gasnetc_hca[h].snd_reg.rkey;
+      prereg[0].client.lkey[h]   = gasnetc_hca[h].snd_reg.gasnetc_mr_lkey;
+      prereg[0].client.rkey[h]   = gasnetc_hca[h].snd_reg.gasnetc_mr_rkey;
     }
     reg_size = prereg[0].len;
     reg_count = 1;

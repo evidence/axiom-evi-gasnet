@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2013/07/23 07:04:10 $
- * $Revision: 1.100 $
+ *     $Date: 2013/07/26 22:07:17 $
+ * $Revision: 1.101 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -1499,7 +1499,7 @@ gasnetc_qp_setup_ud(gasnetc_port_info_t *port, int fully_connected)
       #endif  
         desc->sg.gasnetc_f_sg_len = recv_sz;
         desc->sg.addr             = addr;
-        desc->sg.lkey             = mem_reg.lkey;
+        desc->sg.lkey             = mem_reg.gasnetc_mr_lkey;
         gasnetc_rcv_post_ud(desc);
       }
     }
@@ -1560,7 +1560,7 @@ gasnetc_qp_setup_ud(gasnetc_port_info_t *port, int fully_connected)
         desc->sg.gasnetc_f_sg_len = ~0;
       #endif  
         desc->sg.addr             = addr;
-        desc->sg.lkey             = mem_reg.lkey;
+        desc->sg.lkey             = mem_reg.gasnetc_mr_lkey;
         gasneti_lifo_push(&conn_snd_freelist, desc);
       }
     }

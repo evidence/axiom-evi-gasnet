@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/07/25 23:30:19 $
- * $Revision: 1.343 $
+ *     $Date: 2013/07/26 22:07:17 $
+ * $Revision: 1.344 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -384,12 +384,12 @@ gasnetc_create_cq(gasnetc_hca_hndl_t hca_hndl, gasnetc_cqe_cnt_t req_size,
   #define GASNETC_HCA_IDX(_cep)		((_cep)->hca_index)
   #define GASNETC_SND_LKEY(_cep)	((_cep)->snd_lkey)
   #define GASNETC_RCV_LKEY(_cep)	((_cep)->rcv_lkey)
-  #define GASNETC_SEG_LKEY(_cep, _index) ((_cep)->seg_reg[_index].lkey)
+  #define GASNETC_SEG_LKEY(_cep, _index) ((_cep)->seg_reg[_index].gasnetc_mr_lkey)
 #else
   #define GASNETC_HCA_IDX(_cep)		0
-  #define GASNETC_SND_LKEY(_cep)	(gasnetc_hca[0].snd_reg.lkey)
-  #define GASNETC_RCV_LKEY(_cep)	(gasnetc_hca[0].rcv_reg.lkey)
-  #define GASNETC_SEG_LKEY(_cep, _index) (gasnetc_hca[0].seg_reg[_index].lkey)
+  #define GASNETC_SND_LKEY(_cep)	(gasnetc_hca[0].snd_reg.gasnetc_mr_lkey)
+  #define GASNETC_RCV_LKEY(_cep)	(gasnetc_hca[0].rcv_reg.gasnetc_mr_lkey)
+  #define GASNETC_SEG_LKEY(_cep, _index) (gasnetc_hca[0].seg_reg[_index].gasnetc_mr_lkey)
 #endif
 #define GASNETC_FH_RKEY(_cep, _fhptr)	((_fhptr)->client.rkey[GASNETC_HCA_IDX(_cep)])
 #define GASNETC_FH_LKEY(_cep, _fhptr)	((_fhptr)->client.lkey[GASNETC_HCA_IDX(_cep)])
@@ -578,7 +578,7 @@ static void gasnetc_amrdma_grant(gasnetc_hca_t *hca, gasnetc_cep_t *cep) {
     GASNETI_SAFE(
 	SHORT_REQ(3,4,(node, gasneti_handleridx(gasnetc_amrdma_grant_reqh),
 		       (gasnet_handlerarg_t)qpi,
-		       (gasnet_handlerarg_t)hca->amrdma_reg.rkey,
+		       (gasnet_handlerarg_t)hca->amrdma_reg.gasnetc_mr_rkey,
 		       PACK(cep->amrdma_recv->addr))));
   }
 }
