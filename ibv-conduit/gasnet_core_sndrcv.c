@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/07/26 22:59:42 $
- * $Revision: 1.345 $
+ *     $Date: 2013/07/27 00:22:55 $
+ * $Revision: 1.346 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -384,12 +384,12 @@ gasnetc_create_cq(gasnetc_hca_hndl_t hca_hndl, gasnetc_cqe_cnt_t req_size,
   #define GASNETC_HCA_IDX(_cep)		((_cep)->hca_index)
   #define GASNETC_SND_LKEY(_cep)	((_cep)->snd_lkey)
   #define GASNETC_RCV_LKEY(_cep)	((_cep)->rcv_lkey)
-  #define GASNETC_SEG_LKEY(_cep, _index) ((_cep)->seg_reg[_index].gasnetc_mr_lkey)
+  #define GASNETC_SEG_LKEY(_cep, _index) ((_cep)->seg_lkeys[_index])
 #else
   #define GASNETC_HCA_IDX(_cep)		0
   #define GASNETC_SND_LKEY(_cep)	(gasnetc_hca[0].snd_reg.gasnetc_mr_lkey)
   #define GASNETC_RCV_LKEY(_cep)	(gasnetc_hca[0].rcv_reg.gasnetc_mr_lkey)
-  #define GASNETC_SEG_LKEY(_cep, _index) (gasnetc_hca[0].seg_reg[_index].gasnetc_mr_lkey)
+  #define GASNETC_SEG_LKEY(_cep, _index) (gasnetc_hca[0].seg_lkeys[_index])
 #endif
 #define GASNETC_FH_RKEY(_cep, _fhptr)	((_fhptr)->client.rkey[GASNETC_HCA_IDX(_cep)])
 #define GASNETC_FH_LKEY(_cep, _fhptr)	((_fhptr)->client.lkey[GASNETC_HCA_IDX(_cep)])
@@ -2301,7 +2301,7 @@ int gasnetc_unpinned(uintptr_t addr) {
   return (offset > gasnetc_seg_len);
 }
 
-/* Convert an offset into the corresponding index into the seg_reg table.
+/* Convert from offset to the index of the corresponding registration.
    This is independent of node and HCA.
 */
 GASNETI_INLINE(gasnetc_seg_index)
@@ -2309,7 +2309,7 @@ int gasnetc_seg_index(uintptr_t offset) {
   return (offset >> gasnetc_pin_maxsz_shift);
 }
 
-/* Convert an offset into bytes remaining in the corresponding seg_reg.
+/* Convert from offset to bytes remaining in the corresponding registration.
    This is independent of node and HCA.
 */
 GASNETI_INLINE(gasnetc_seg_remain)
@@ -2335,7 +2335,7 @@ void gasnetc_bounce_common(gasnetc_epid_t epid, int rkey_index, gasnetc_snd_wr_t
   sr_desc->gasnetc_f_wr_rem_addr += len;
 }
 
-/* Assemble and post a zero-copy PUT or GET using either the seg_reg table or
+/* Assemble and post a zero-copy PUT or GET using either the seg_lkeys table or
  * firehose to obtain the lkeys.  Both cases delay the bind to a qp until the
  * total xfer len is known.
  */
@@ -2363,7 +2363,7 @@ size_t gasnetc_zerocp_common(gasnetc_epid_t epid, int rkey_index, gasnetc_snd_wr
       loc_addr += count;
       remain -= count;
 
-      /* 2nd and subsequent (if any) xfers are aligned to start of a seg_reg */
+      /* 2nd and subsequent (if any) xfers are aligned to start of a registration */
       count = MIN(remain, gasnetc_pin_maxsz);
     }
     gasneti_assert(seg > 0);
@@ -3571,7 +3571,7 @@ extern void gasnetc_sndrcv_attach_peer(gasnet_node_t node, gasnetc_cep_t *cep) {
   for (i = 0; i < gasnetc_alloc_qps; ++i, ++cep) {
     gasnetc_hca_t *hca = cep->hca;
   #if GASNETC_IB_MAX_HCAS > 1
-    cep->seg_reg = hca->seg_reg;
+    cep->seg_lkeys = hca->seg_lkeys;
   #endif
     cep->rkeys   = &hca->rkeys[node * gasnetc_max_regs];
   }

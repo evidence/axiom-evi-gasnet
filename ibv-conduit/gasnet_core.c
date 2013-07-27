@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2013/07/26 23:36:01 $
- * $Revision: 1.322 $
+ *     $Date: 2013/07/27 00:22:55 $
+ * $Revision: 1.323 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2065,6 +2065,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 
     /* pin the segment and exchange the RKeys, once per HCA */
     { gasnetc_rkey_t	*my_rkeys;
+      gasnetc_memreg_t  memreg;
       int		vstat;
       int		j;
 
@@ -2074,16 +2075,18 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
         uintptr_t		addr;
         hca->rkeys = gasneti_calloc(gasneti_nodes*gasnetc_max_regs, sizeof(gasnetc_rkey_t));
         gasneti_leak(hca->rkeys);
-        hca->seg_reg = gasneti_calloc(gasnetc_max_regs, sizeof(gasnetc_memreg_t));
-        gasneti_leak(hca->seg_reg);
+        hca->seg_lkeys = gasnett_malloc_aligned(GASNETI_CACHE_LINE_BYTES,
+                                                gasnetc_max_regs * sizeof(gasnetc_lkey_t));
+        gasneti_leak_aligned(hca->seg_lkeys);
 
         for (j = 0, addr = gasnetc_seg_start, remain = segsize; remain != 0; ++j) {
 	  size_t len = MIN(remain, gasnetc_pin_maxsz);
           vstat = gasnetc_pin(hca, (void *)addr, len,
 			      (gasnetc_acl_t)(GASNETC_ACL_LOC_WR | GASNETC_ACL_REM_WR | GASNETC_ACL_REM_RD),
-			      &hca->seg_reg[j]);
+			      &memreg);
           GASNETC_VAPI_CHECK(vstat, "when registering the segment");
-	  my_rkeys[j] = hca->seg_reg[j].gasnetc_mr_rkey;
+	  my_rkeys[j] = memreg.gasnetc_mr_rkey;
+	  hca->seg_lkeys[j] = memreg.gasnetc_mr_lkey;
 	  addr += len;
 	  remain -= len;
           gasneti_assert(j <= gasnetc_max_regs);

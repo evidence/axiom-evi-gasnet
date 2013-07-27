@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2013/07/26 23:36:01 $
- * $Revision: 1.248 $
+ *     $Date: 2013/07/27 00:22:55 $
+ * $Revision: 1.249 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -751,7 +751,7 @@ typedef struct {
   gasnetc_memreg_t	rcv_reg;
   gasnetc_memreg_t	snd_reg;
 #if GASNETC_PIN_SEGMENT
-  gasnetc_memreg_t	*seg_reg;
+  gasnetc_lkey_t        *seg_lkeys;
   gasnetc_rkey_t	*rkeys;	/* RKey(s) registered at attach time */
 #endif
 #if GASNETC_IBV_SRQ
@@ -861,7 +861,7 @@ struct gasnetc_cep_t_ {
   gasnetc_rkey_t	*rkeys;	/* RKey(s) registered at attach time (== uint32_t) */
 #endif
 #if GASNETC_PIN_SEGMENT && (GASNETC_IB_MAX_HCAS > 1)
-  gasnetc_memreg_t	*seg_reg;
+  gasnetc_lkey_t        *seg_lkeys;
 #endif
 #if (GASNETC_IB_MAX_HCAS > 1)
   gasnetc_lkey_t	rcv_lkey;
@@ -1033,7 +1033,7 @@ extern int		gasnetc_num_hcas;
 extern gasnetc_hca_t	gasnetc_hca[GASNETC_IB_MAX_HCAS];
 extern uintptr_t	gasnetc_max_msg_sz;
 #if GASNETC_PIN_SEGMENT
-  extern int			gasnetc_max_regs; /* max of length of seg_reg array over all nodes */
+  extern int			gasnetc_max_regs; /* max of length of seg_lkeys array over all nodes */
   extern uintptr_t		gasnetc_seg_start;
   extern uintptr_t		gasnetc_seg_len;
   extern uint64_t		gasnetc_pin_maxsz;
