@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/07/27 00:22:55 $
- * $Revision: 1.346 $
+ *     $Date: 2013/07/27 00:49:02 $
+ * $Revision: 1.347 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -2311,6 +2311,8 @@ int gasnetc_seg_index(uintptr_t offset) {
 
 /* Convert from offset to bytes remaining in the corresponding registration.
    This is independent of node and HCA.
+   NOTE: We construct gasnetc_pin_maxsz to never exceed the HCA's max_msg_sz.
+         So without an extra check, this also prevents exceeding that limit.
 */
 GASNETI_INLINE(gasnetc_seg_remain)
 int gasnetc_seg_remain(uintptr_t offset) {
