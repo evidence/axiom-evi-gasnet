@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4.c,v $
- *     $Date: 2013/07/18 05:15:04 $
- * $Revision: 1.44 $
+ *     $Date: 2013/07/28 21:51:24 $
+ * $Revision: 1.45 $
  * Description: Portals 4 specific configuration
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
@@ -20,7 +20,6 @@
 #endif
 
 #include <portals4.h>
-#include <portals4/pmi.h>
 #include <gasnet_portals4.h>
 #include <gasnet_portals4_hash.h>
 
