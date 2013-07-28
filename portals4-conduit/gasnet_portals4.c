@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4.c,v $
- *     $Date: 2013/07/28 21:51:24 $
- * $Revision: 1.45 $
+ *     $Date: 2013/07/28 23:53:19 $
+ * $Revision: 1.46 $
  * Description: Portals 4 specific configuration
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
@@ -531,9 +531,8 @@ gasnetc_p4_exit(void)
     PtlNIFini(matching_ni_h);
     PtlFini();
 
-#if 0 /* If we make this call then non-collective exits will hang */
+    /* Currently, regardless whether make this call, non-collective exits hang */
     gasneti_bootstrapFini_pmi();
-#endif
 }
 
 
