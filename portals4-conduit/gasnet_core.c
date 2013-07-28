@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_core.c,v $
- *     $Date: 2013/07/18 05:15:04 $
- * $Revision: 1.3 $
+ *     $Date: 2013/07/28 23:54:59 $
+ * $Revision: 1.4 $
  * Description: GASNet portals4 conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -295,12 +295,17 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   return GASNET_OK;
 }
 /* ------------------------------------------------------------------------------------ */
+
+static int gasnetc_exit_in_progress = 0;
+
 #if HAVE_ON_EXIT
 static void gasnetc_on_exit(int exitcode, void *arg) {
+  if (!gasnetc_exit_in_progress)
     gasnetc_exit(exitcode);
 }
 #else
 static void gasnetc_atexit(void) {
+  if (!gasnetc_exit_in_progress)
     gasnetc_exit(0);
 }
 #endif
@@ -308,6 +313,7 @@ static void gasnetc_atexit(void) {
 extern void gasnetc_exit(int exitcode) {
   /* once we start a shutdown, ignore all future SIGQUIT signals or we risk reentrancy */
   gasneti_reghandler(SIGQUIT, SIG_IGN);
+  gasnetc_exit_in_progress = 1;
 
   {  /* ensure only one thread ever continues past this point */
     static gasneti_mutex_t exit_lock = GASNETI_MUTEX_INITIALIZER;
