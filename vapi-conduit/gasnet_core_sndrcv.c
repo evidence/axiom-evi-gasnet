@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/07/27 00:49:02 $
- * $Revision: 1.347 $
+ *     $Date: 2013/07/28 05:19:32 $
+ * $Revision: 1.348 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -2302,6 +2302,7 @@ int gasnetc_unpinned(uintptr_t addr) {
 }
 
 /* Convert from offset to the index of the corresponding registration.
+   In a single registration case this always returns 0.
    This is independent of node and HCA.
 */
 GASNETI_INLINE(gasnetc_seg_index)
@@ -2310,9 +2311,9 @@ int gasnetc_seg_index(uintptr_t offset) {
 }
 
 /* Convert from offset to bytes remaining in the corresponding registration.
+   In a single registration case, this returns gasnetc_max_msg_sz.
+   Otherwise we have (gasnetc_pin_maxsz <= gasnetc_max_msg_sz) by construction.
    This is independent of node and HCA.
-   NOTE: We construct gasnetc_pin_maxsz to never exceed the HCA's max_msg_sz.
-         So without an extra check, this also prevents exceeding that limit.
 */
 GASNETI_INLINE(gasnetc_seg_remain)
 int gasnetc_seg_remain(uintptr_t offset) {
