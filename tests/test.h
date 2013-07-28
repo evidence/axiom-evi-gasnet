@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2013/01/12 00:36:01 $
- * $Revision: 1.151 $
+ *     $Date: 2013/07/28 05:49:54 $
+ * $Revision: 1.152 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -233,7 +233,7 @@ static void *_test_malloc(size_t sz, const char *curloc) {
   test_hold_interrupts();
   ptr = malloc(sz);
   test_resume_interrupts();
-  if (ptr == NULL) FATALERR("Failed to malloc(%i) bytes at %s\n",(int)sz,curloc);
+  if (ptr == NULL) FATALERR("Failed to malloc(%lu) bytes at %s\n",(unsigned long)sz,curloc);
   return ptr;
 }
 static void *_test_calloc(size_t sz, const char *curloc) {
