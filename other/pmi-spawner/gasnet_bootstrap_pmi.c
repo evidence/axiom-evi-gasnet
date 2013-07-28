@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/pmi-spawner/gasnet_bootstrap_pmi.c,v $
- *     $Date: 2013/07/18 05:15:00 $
- * $Revision: 1.1 $
+ *     $Date: 2013/07/28 21:24:41 $
+ * $Revision: 1.2 $
  * Description: GASNet conduit-independent pmi-based spawner
  * Copyright 2013, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -260,7 +260,7 @@ void gasneti_bootstrapFini_pmi(void) {
 #if USE_PMI2_API
     PMI2_Finalize();
 #else
-    if (PMI_TRUE == gasneti_pmi_initialized) {
+    if (PMI_FALSE == gasneti_pmi_initialized) {
         PMI_Finalize();
     }
 #endif
