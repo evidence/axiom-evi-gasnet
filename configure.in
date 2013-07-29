@@ -2,14 +2,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2013/07/20 01:26:25 $
-# $Revision: 1.815 $
+#     $Date: 2013/07/29 21:23:46 $
+# $Revision: 1.816 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.815 $)
+AC_REVISION($Revision: 1.816 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -3775,7 +3775,7 @@ CONDUIT_END([test "$have_ibv" = yes])
 # MXM configuration
 #
 
-CONDUIT_BEGIN(mxm,[Mellanox MXM conduit])
+CONDUIT_BEGIN(mxm,[Mellanox MXM conduit (mxm)])
 have_mxm=no
 if test "$have_fork" = no; then
     GASNET_MSG_WARN([mxm-conduit requires or fork() ($fork_reason) for startup - disabling mxm])
