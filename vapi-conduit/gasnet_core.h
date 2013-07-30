@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.h,v $
- *     $Date: 2013/06/24 06:43:52 $
- * $Revision: 1.66 $
+ *     $Date: 2013/07/30 07:39:31 $
+ * $Revision: 1.67 $
  * Description: GASNet header for vapi conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -164,7 +164,6 @@ typedef struct _gasnet_hsl_t {
   ==============================
 */
 extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex);
-extern int gasnetc_AMPoll(void);
 
 #define gasnet_AMGetMsgSource  gasnetc_AMGetMsgSource
 

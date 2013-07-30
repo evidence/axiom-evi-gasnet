@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.h,v $
- *     $Date: 2013/02/21 06:53:52 $
- * $Revision: 1.2 $
+ *     $Date: 2013/07/30 07:39:09 $
+ * $Revision: 1.3 $
  * Description: GASNet header for gemini conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -145,7 +145,6 @@ typedef struct _gasnet_hsl_t {
   ==============================
 */
 extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex);
-extern int gasnetc_AMPoll(void);
 
 #define gasnet_AMGetMsgSource  gasnetc_AMGetMsgSource
 

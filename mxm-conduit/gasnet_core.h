@@ -183,7 +183,6 @@ size_t gasneti_AMMaxMedium();
   ==============================
 */
 extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex);
-extern int gasnetc_AMPoll(void);
 
 #define gasnet_AMGetMsgSource  gasnetc_AMGetMsgSource
 

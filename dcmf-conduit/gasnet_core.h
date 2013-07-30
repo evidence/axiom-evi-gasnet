@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_core.h,v $
- *     $Date: 2010/08/08 07:55:28 $
- * $Revision: 1.8 $
+ *     $Date: 2013/07/30 07:39:05 $
+ * $Revision: 1.9 $
  * Description: GASNet header for dcmf conduit core
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
  *                 Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -149,7 +149,6 @@ typedef struct _gasnet_hsl_t {
   ==============================
 */
 extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex);
-extern int gasnetc_AMPoll(void);
 
 #define gasnet_AMGetMsgSource  gasnetc_AMGetMsgSource
 

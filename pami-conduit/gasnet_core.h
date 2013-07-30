@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_core.h,v $
- *     $Date: 2012/04/14 00:37:49 $
- * $Revision: 1.2 $
+ *     $Date: 2013/07/30 07:39:19 $
+ * $Revision: 1.3 $
  * Description: GASNet header for PAMI conduit core
  * Copyright 2012, Lawrence Berkeley National Laboratory
  * Terms of use are as specified in license.txt
@@ -149,7 +149,6 @@ typedef struct _gasnet_hsl_t {
   ==============================
 */
 extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex);
-extern int gasnetc_AMPoll(void);
 
 #define gasnet_AMGetMsgSource  gasnetc_AMGetMsgSource
 
