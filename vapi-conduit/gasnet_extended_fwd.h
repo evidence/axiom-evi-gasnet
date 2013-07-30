@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_extended_fwd.h,v $
- *     $Date: 2013/06/30 21:58:32 $
- * $Revision: 1.35 $
+ *     $Date: 2013/07/30 21:43:09 $
+ * $Revision: 1.36 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -42,10 +42,19 @@ typedef struct _gasnete_op_t *gasnet_handle_t;
      progress functions, then define GASNETE_CONDUIT_THREADS_USING_TD to the
      maximum COUNT of such threads to allocate space for their threaddata
    */
-#if (GASNET_CONDUIT_VAPI && GASNETC_VAPI_RCV_THREAD) || \
-    (GASNET_CONDUIT_IBV  && GASNETC_IBV_RCV_THREAD )
-  /* The RCV thread needs a slot in the threadtable.  The CONN thread doesn't. */
+  /* Each RCV thread needs a slot in the threadtable.  The CONN thread doesn't. */
+#if (GASNET_CONDUIT_VAPI && GASNETC_VAPI_RCV_THREAD)
+ #ifdef GASNETC_VAPI_MAX_HCAS
+  #define GASNETE_CONDUIT_THREADS_USING_TD GASNETC_VAPI_MAX_HCAS
+ #else
   #define GASNETE_CONDUIT_THREADS_USING_TD 1
+ #endif
+#elif (GASNET_CONDUIT_IBV && GASNETC_IBV_RCV_THREAD)
+ #ifdef GASNETC_IBV_MAX_HCAS
+  #define GASNETE_CONDUIT_THREADS_USING_TD GASNETC_IBV_MAX_HCAS
+ #else
+  #define GASNETE_CONDUIT_THREADS_USING_TD 1
+ #endif
 #endif
 
   /* this can be used to add statistical collection values 
