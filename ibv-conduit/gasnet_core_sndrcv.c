@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/07/30 10:31:37 $
- * $Revision: 1.351 $
+ *     $Date: 2013/07/30 19:13:48 $
+ * $Revision: 1.352 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -2265,12 +2265,10 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
       sr_desc->gasnetc_f_wr_sg_list[0].gasnetc_f_sg_len = msg_len;
       sr_desc->gasnetc_f_wr_sg_list[0].lkey             = GASNETC_SND_LKEY(cep);
   
-      sreq = gasnetc_get_sreq(GASNETC_OP_AM GASNETE_THREAD_PASS);
+      sreq = gasnetc_get_sreq(completed ? GASNETC_OP_AM_BLOCK : GASNETC_OP_AM
+                              GASNETE_THREAD_PASS);
+      sreq->completed = completed;
       sreq->am_buff = buf_alloc;
-      if_pf (completed) {
-        sreq->completed = completed;
-        sreq->opcode = GASNETC_OP_AM_BLOCK;
-      }
   
       (void)gasnetc_bind_cep_inner(epid, sreq, GASNETC_WR_SEND_WITH_IMM, msg_len, token != NULL);
 
