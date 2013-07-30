@@ -1,6 +1,6 @@
 GASNet udp-conduit documentation
 Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.9 $
+$Revision: 1.10 $
 
 User Information:
 -----------------
@@ -213,7 +213,11 @@ $ ./a.out 3 arg1 arg2 arg3
 Hello from node0
 Hello from node1
 Hello from node2
-$
+
+Similarly, one can use the srun command in SLURM:
+
+$ setenv GASNET_SPAWNFN 'C'
+$ setenv GASNET_CSPAWN_CMD 'srun -n %N %C'  
 
 * GASNET_SPAWNFN='R'  (Berkeley rexec spawner)
 
