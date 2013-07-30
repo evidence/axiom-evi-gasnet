@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/07/30 08:32:15 $
- * $Revision: 1.350 $
+ *     $Date: 2013/07/30 10:31:37 $
+ * $Revision: 1.351 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -244,12 +244,16 @@ static int gasnetc_am_rbufs_per_qp;
  *  File-scoped functions and macros                                                    *
  * ------------------------------------------------------------------------------------ */
 
-#if GASNETI_THREADS
+#if GASNETI_MAX_THREADS > 1
   /* Note: first word of thread data is reserved for core */
   #define gasnetc_my_perthread() (gasnetc_per_thread_t *)(*(void**)(GASNETE_MYTHREAD))
+  /* Since we use system-level AMs between gasnetc_sndrcv_init and gasnete_init(),
+     the TLD will get initialized at first use in the AM Request path anyway. */
+  #define gasnetc_per_thread_setup() ((void)0)
 #else
   static gasnetc_per_thread_t gasnetc_per_thread;
   #define gasnetc_my_perthread() (&gasnetc_per_thread)
+  #define gasnetc_per_thread_setup() gasnetc_per_thread_init(&gasnetc_per_thread)
 #endif
 
 static void gasnetc_free_aligned(void *ptr) {
@@ -304,7 +308,7 @@ void gasnetc_per_thread_init(gasnetc_per_thread_t *td)
 extern void
 gasnetc_new_threaddata_callback(void **core_threadinfo) {
     gasnetc_per_thread_t *result;
-#if GASNETI_THREADS
+#if GASNETI_MAX_THREADS > 1
     result = gasneti_malloc_aligned(GASNETI_CACHE_LINE_BYTES,
                                     GASNETI_ALIGNUP(sizeof(gasnetc_per_thread_t),
                                                     GASNETI_CACHE_LINE_BYTES));
@@ -2614,7 +2618,7 @@ void gasnetc_fh_put_inline(gasnetc_sreq_t *sreq) {
 
 GASNETI_INLINE(gasnetc_fh_put_bounce)
 void gasnetc_fh_put_bounce(gasnetc_sreq_t *orig_sreq) {
-#if GASNETI_THREADS
+#if GASNETI_MAX_THREADS > 1
   /* Stashed value avoids dynamic thread lookup here */
   void * const _threadinfo = (void *) orig_sreq->fh_bbuf;
 #endif
@@ -2931,7 +2935,7 @@ size_t gasnetc_fh_put_helper(gasnet_node_t node, gasnetc_sreq_t *sreq, gasnetc_a
       }
     } else if ((nbytes <= gasnetc_bounce_limit) && (sreq->mem_oust != NULL)) {
       /* Bounce buffer use for non-bulk puts (upto a limit) */
-#if GASNETI_THREADS
+#if GASNETI_MAX_THREADS > 1
       /* avoid dynamic thread lookup in the callback */
       sreq->fh_bbuf = (gasnetc_buffer_t *)GASNETE_MYTHREAD;
 #endif
@@ -3471,15 +3475,7 @@ extern int gasnetc_sndrcv_init(void) {
  }
 
   /* Init thread-local data */
-#if GASNETI_THREADS
-  /* Since we use system-level AMs between here and gasnete_init(), the TLD
-     will get initialized at first use in the AM Request path anyway. */
-  #if 0
-  { void * volatile dummy = gasnete_mythread(); }
-  #endif
-#else
-  gasnetc_per_thread_init(&gasnetc_per_thread);
-#endif
+  gasnetc_per_thread_setup();
 
   return GASNET_OK;
 }
