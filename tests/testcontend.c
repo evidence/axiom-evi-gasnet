@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcontend.c,v $
- *     $Date: 2013/03/08 03:19:45 $
- * $Revision: 1.22 $
+ *     $Date: 2013/07/30 22:51:45 $
+ * $Revision: 1.23 $
  *
  * Description: GASNet threaded contention tester.
  *   The test initializes GASNet and forks off up to 256 threads.  
@@ -41,34 +41,16 @@ typedef void * (*threadmain_t)(void *args);
 void	ping_shorthandler(gasnet_token_t token);
 void 	pong_shorthandler(gasnet_token_t token);
 
-void	ping_medhandler(gasnet_token_t token, void *buf, size_t nbytes);
-void	pong_medhandler(gasnet_token_t token, void *buf, size_t nbytes);
-
-void	ping_longhandler(gasnet_token_t token, void *buf, size_t nbytes);
-void	pong_longhandler(gasnet_token_t token, void *buf, size_t nbytes);
-
 void	markdone_shorthandler(gasnet_token_t token);
-void	noop_shorthandler(gasnet_token_t token);
-
 
 #define hidx_ping_shorthandler        201
 #define hidx_pong_shorthandler        202
-#define hidx_ping_medhandler          203
-#define hidx_pong_medhandler          204
-#define hidx_ping_longhandler         205
-#define hidx_pong_longhandler         206
-#define hidx_markdone_shorthandler    207
-#define hidx_noop_shorthandler        208
+#define hidx_markdone_shorthandler    203
 
 gasnet_handlerentry_t htable[] = { 
 	{ hidx_ping_shorthandler,  ping_shorthandler  },
 	{ hidx_pong_shorthandler,  pong_shorthandler  },
-	{ hidx_ping_medhandler,    ping_medhandler    },
-	{ hidx_pong_medhandler,    pong_medhandler    },
-	{ hidx_ping_longhandler,   ping_longhandler   },
-	{ hidx_pong_longhandler,   pong_longhandler   },
 	{ hidx_markdone_shorthandler,   markdone_shorthandler   },
-	{ hidx_noop_shorthandler,   noop_shorthandler   },
 };
 #define HANDLER_TABLE_SIZE (sizeof(htable)/sizeof(gasnet_handlerentry_t))
 
@@ -359,25 +341,6 @@ void ping_shorthandler(gasnet_token_t token) {
 
 void pong_shorthandler(gasnet_token_t token) {
   gasnett_atomic_increment(&pong,0);
-}
-
-void ping_medhandler(gasnet_token_t token, void *buf, size_t nbytes) {
-  GASNET_Safe(gasnet_AMReplyMedium0(token, hidx_pong_medhandler, buf, nbytes));
-}
-
-void pong_medhandler(gasnet_token_t token, void *buf, size_t nbytes) {
-  gasnett_atomic_increment(&pong,0);
-}
-
-void ping_longhandler(gasnet_token_t token, void *buf, size_t nbytes) {
-  GASNET_Safe(gasnet_AMReplyLong0(token, hidx_pong_longhandler, buf, nbytes, peerseg));
-}
-
-void pong_longhandler(gasnet_token_t token, void *buf, size_t nbytes) {
-  gasnett_atomic_increment(&pong,0);
-}
-
-void noop_shorthandler(gasnet_token_t token) {
 }
 
 void markdone_shorthandler(gasnet_token_t token) {
