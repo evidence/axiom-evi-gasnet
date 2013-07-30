@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2013/06/30 22:29:19 $
- * $Revision: 1.43 $
+ *     $Date: 2013/07/30 09:59:44 $
+ * $Revision: 1.44 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -180,11 +180,11 @@ void SET_OPSTATE(gasnete_eop_t *op, uint8_t state) {
 
 #if GASNETE_EOP_COUNTED
   #define GASNETE_EOP_DONE(_eop) \
-    (gasneti_weakatomic_read(&(_eop)->completed_cnt, 0) \
+    (gasnetc_atomic_read(&(_eop)->completed_cnt, 0) \
           == ((_eop)->initiated_cnt & GASNETI_ATOMIC_MAX))
   #define GASNETE_EOP_MARKDONE(_eop) do {                        \
       gasneti_assert(!GASNETE_EOP_DONE(_eop));                   \
-      gasneti_weakatomic_increment(&((_eop)->completed_cnt), 0); \
+      gasnetc_atomic_increment(&((_eop)->completed_cnt), 0);     \
     } while (0)
 #else
   #define GASNETE_EOP_DONE(_eop) (OPSTATE(_eop) == OPSTATE_COMPLETE)
