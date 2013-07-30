@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/07/30 19:13:48 $
- * $Revision: 1.352 $
+ *     $Date: 2013/07/30 21:48:30 $
+ * $Revision: 1.353 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -331,7 +331,7 @@ gasnetc_create_cq(gasnetc_hca_hndl_t hca_hndl, gasnetc_cqe_cnt_t req_size,
 #if GASNET_CONDUIT_VAPI
   int rc = VAPI_create_cq(hca_hndl, req_size, cq_p, act_size);
   GASNETC_VAPI_CHECK(rc, "from VAPI_create_cq()");
- #if GASNETI_CONDUIT_THREADS
+ #if GASNETC_IB_RCV_THREAD
   if (pthr_p) {
     memset(pthr_p, 0, sizeof(*pthr_p));
     rc = EVAPI_set_comp_eventh(hca_hndl, *cq_p,
@@ -346,7 +346,7 @@ gasnetc_create_cq(gasnetc_hca_hndl_t hca_hndl, gasnetc_cqe_cnt_t req_size,
 #else
   gasnetc_comp_handler_t compl = NULL;
   gasnetc_cq_hndl_t result;
- #if GASNETI_CONDUIT_THREADS
+ #if GASNETC_IB_RCV_THREAD
   if (pthr_p) {
     compl = ibv_create_comp_channel(hca_hndl);
     GASNETC_VAPI_CHECK_PTR(compl, "from ibv_create_comp_channel");
@@ -354,7 +354,7 @@ gasnetc_create_cq(gasnetc_hca_hndl_t hca_hndl, gasnetc_cqe_cnt_t req_size,
  #endif
   result = ibv_create_cq(hca_hndl, req_size, NULL, compl, 0);
   GASNETC_VAPI_CHECK_PTR(result, "from ibv_create_cq()");
- #if GASNETI_CONDUIT_THREADS
+ #if GASNETC_IB_RCV_THREAD
   if (pthr_p) {
     int rc = ibv_req_notify_cq(result, 0);
     GASNETC_VAPI_CHECK(rc, "while requesting cq events");
