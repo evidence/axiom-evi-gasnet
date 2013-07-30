@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2013/07/30 09:59:44 $
- * $Revision: 1.44 $
+ *     $Date: 2013/07/30 10:11:42 $
+ * $Revision: 1.45 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -76,7 +76,7 @@ typedef struct _gasnete_iop_t {
   struct _gasnete_iop_t *next;    /*  next cell while in free list, deferred iop while being filled */
 
   /*  make sure the initiated/completed counters live on different cache lines for SMP's */
-  uint8_t pad[GASNETI_CACHE_PAD(sizeof(void*) + sizeof(gasneti_weakatomic_val_t))];
+  uint8_t pad[GASNETI_CACHE_PAD(sizeof(void*) + sizeof(gasnetc_atomic_val_t))];
 
   gasnetc_atomic_t completed_get_cnt;     /*  count of get ops completed */
   gasnetc_atomic_t completed_put_cnt;     /*  count of put ops completed */
@@ -157,15 +157,15 @@ void SET_OPSTATE(gasnete_eop_t *op, uint8_t state) {
   } while (0)
   #define gasnete_iop_check(iop) do {                         \
     gasnete_iop_t *_tmp_next;                                 \
-    gasneti_weakatomic_val_t _temp;                           \
+    gasnetc_atomic_val_t _temp;                               \
     gasneti_memcheck(iop);                                    \
     _tmp_next = (iop)->next;                                  \
     if (_tmp_next != NULL) _gasnete_iop_check(_tmp_next);     \
     gasneti_assert(OPTYPE(iop) == OPTYPE_IMPLICIT);           \
     gasnete_assert_valid_threadid((iop)->threadidx);          \
-    _temp = gasneti_weakatomic_read(&((iop)->completed_put_cnt), GASNETI_ATOMIC_RMB_POST); \
+    _temp = gasnetc_atomic_read(&((iop)->completed_put_cnt), GASNETI_ATOMIC_RMB_POST); \
     gasneti_assert((((iop)->initiated_put_cnt - _temp) & GASNETI_ATOMIC_MAX) < (GASNETI_ATOMIC_MAX/2)); \
-    _temp = gasneti_weakatomic_read(&((iop)->completed_get_cnt), GASNETI_ATOMIC_RMB_POST); \
+    _temp = gasnetc_atomic_read(&((iop)->completed_get_cnt), GASNETI_ATOMIC_RMB_POST); \
     gasneti_assert((((iop)->initiated_get_cnt - _temp) & GASNETI_ATOMIC_MAX) < (GASNETI_ATOMIC_MAX/2)); \
   } while (0)
   extern void _gasnete_iop_check(gasnete_iop_t *iop);
