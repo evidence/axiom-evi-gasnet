@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_thread.c,v $
- *     $Date: 2013/07/29 20:07:22 $
- * $Revision: 1.19 $
+ *     $Date: 2013/07/30 01:03:57 $
+ * $Revision: 1.20 $
  * Description: GASNet vapi/ibv conduit implementation, progress thread logic
  * Copyright 2012, LBNL
  * Terms of use are as specified in license.txt
@@ -71,7 +71,7 @@ static void * gasnetc_progress_thread(void *arg)
   const uint64_t min_us                     = pthr_p->min_us;
 
   /* Perform per-thrad initialization now (optimization) */
-  volatile void *dummy = gasnete_mythread();
+  void * volatile dummy = gasnete_mythread();
 
   my_cleanup_push(my_cleanup, fn_arg);
   my_cancel_deferred();
