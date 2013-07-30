@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_reqrep.c,v $
- *     $Date: 2010/09/21 02:37:54 $
- * $Revision: 1.42 $
+ *     $Date: 2013/07/30 04:12:01 $
+ * $Revision: 1.43 $
  * Description: AMMPI Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -117,7 +117,7 @@ static int sendPacket(ep_t ep, ammpi_virtual_network_t *activeNet, void *packet,
   AMMPI_STATS(ep->stats.TotalBytesSent += packetlength);
 
   if_pt (mpihandle) { 
-    #if AMMPI_RECV_REPOST_SLACK
+    #if AMMPI_RECV_REPOST_SLACK && AMMPI_PREPOST_RECVS
     { /* use the send delay slot to catch up on deferred recv buffer reposting work */ 
       /* check the opposite net, because a reply send means we just got a request,
          and a request send means we're likely to have recently received a reply */
