@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_reqrep.c,v $
- *     $Date: 2013/07/30 04:12:01 $
- * $Revision: 1.43 $
+ *     $Date: 2013/07/30 04:18:03 $
+ * $Revision: 1.44 $
  * Description: AMMPI Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -133,7 +133,7 @@ static int sendPacket(ep_t ep, ammpi_virtual_network_t *activeNet, void *packet,
       }
     }
     #endif
-    #if AMMPI_SEND_EARLYCOMPLETE
+    #if AMMPI_SEND_EARLYCOMPLETE && AMMPI_NONBLOCKING_SENDS
     { /* use the send delay slot to catch up on send completion work */ 
       ammpi_sendbuffer_pool_t * const pool = 
         ( (packetlength <= AMMPI_SMALL_SENDBUF_SZ) ? 
