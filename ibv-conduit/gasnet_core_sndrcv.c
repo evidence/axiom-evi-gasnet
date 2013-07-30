@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/07/30 01:18:24 $
- * $Revision: 1.349 $
+ *     $Date: 2013/07/30 08:32:15 $
+ * $Revision: 1.350 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -3470,14 +3470,15 @@ extern int gasnetc_sndrcv_init(void) {
   }
  }
 
-#if 0 /* Since we use system-level AMs between here and gasnete_init(), the TLD
-         will get initialized at first use in the AM Request path anyway. */
   /* Init thread-local data */
 #if GASNETI_THREADS
+  /* Since we use system-level AMs between here and gasnete_init(), the TLD
+     will get initialized at first use in the AM Request path anyway. */
+  #if 0
   { void * volatile dummy = gasnete_mythread(); }
+  #endif
 #else
   gasnetc_per_thread_init(&gasnetc_per_thread);
-#endif
 #endif
 
   return GASNET_OK;
