@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2012/08/21 14:35:30 $
- * $Revision: 1.113 $
+ *     $Date: 2013/07/31 03:34:56 $
+ * $Revision: 1.114 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -613,9 +613,12 @@ typedef void (*gasneti_progressfn_t)(void);
           lock contention and cache thrashing between spin-pollers
         - manage AMPoll calls internal to GASNet (including those from polluntil) 
           and explicit client AMPoll calls
+       Lowest priority design goals, which have not been achieved:
         - allow concurrent handler execution - if the spin poller recvs an AM, 
           it should release another spin poller before invoking the handler
+          [lock reacquisition becomes a bottleneck]
         - the single spin-poller should not need to pay locking overheads in the loop
+          [a limitation of the infrastructure: no way to differentiate "single"]
     */
     extern gasneti_atomic_t gasneti_throttle_haveusefulwork;
     extern gasneti_mutex_t gasneti_throttle_spinpoller;
