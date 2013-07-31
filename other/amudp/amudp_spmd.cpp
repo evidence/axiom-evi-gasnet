@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_spmd.cpp,v $
- *     $Date: 2013/07/19 23:55:03 $
- * $Revision: 1.50 $
+ *     $Date: 2013/07/31 19:01:11 $
+ * $Revision: 1.51 $
  * Description: AMUDP Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -505,18 +505,21 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
         slaveargv[2] = masteraddrstr;
       #endif
     }
-    #if HAVE_GETIFADDRS
-      // append WORKERIP which it is needed before the master env is sent
-      { char *network = AMUDP_getenv_prefixed_withdefault("WORKERIP","");
-        if (network && network[0]) {
+    // append WORKERIP which it is needed before the master env is sent
+    { char *network = AMUDP_getenv_prefixed_withdefault("WORKERIP","");
+      if (network && network[0]) {
+        #if HAVE_GETIFADDRS
           char *tmp = (char*)AMUDP_malloc(2+strlen(network)+strlen(slaveargv[2]));
           strcpy(tmp, slaveargv[2]);
           strcat(tmp,"@");
           strcat(tmp,network);
           slaveargv[2] = tmp;
-        }
+        #else
+          fprintf(stderr,"AMUDP: Warning: WORKERIP set in the environment, but your platform "
+                         "lacks the required getifaddrs() support.  Ignoring WORKERIP.\n");
+        #endif
       }
-    #endif
+    }
     for (int k = 1; k < (*argc); k++) {
       slaveargv[k+2] = (*argv)[k];
     }
