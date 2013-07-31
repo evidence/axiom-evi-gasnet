@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/07/18 05:14:50 $
- * $Revision: 1.83 $
+ *     $Date: 2013/07/31 03:47:09 $
+ * $Revision: 1.84 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -1158,7 +1158,10 @@ int gasnetc_short_common(gasnet_node_t dest, int is_req,
     }
 
     gasneti_assert(head_len <= GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE);
+
+    gasneti_suspend_spinpollers();
     retval = gasnetc_send_smsg(dest, gpd, m, head_len);
+    gasneti_resume_spinpollers();
   }
   return retval;
 }
@@ -1206,7 +1209,10 @@ int gasnetc_medium_common(gasnet_node_t dest, int is_req,
     }
 
     memcpy((void*)((uintptr_t)m + head_len), source_addr, nbytes);
+
+    gasneti_suspend_spinpollers();
     retval = gasnetc_send_smsg(dest, gpd, m, total_len);
+    gasneti_resume_spinpollers();
   }
   return retval;
 }
@@ -1248,7 +1254,9 @@ int gasnetc_long_common(gasnet_node_t dest, int is_req,
       /* Launch RDMA put as early as possible */
       gpd->gpd_completion = (uintptr_t) &done;
       gpd->flags = GC_POST_COMPLETION_FLAG;
+      gasneti_suspend_spinpollers();
       gasnetc_rdma_put_bulk(dest, dest_addr, source_addr, nbytes, gpd);
+      gasneti_resume_spinpollers();
 
       gpd = gasnetc_alloc_post_descriptor();
     }
@@ -1279,7 +1287,9 @@ int gasnetc_long_common(gasnet_node_t dest, int is_req,
       }
     }
 
+    gasneti_suspend_spinpollers();
     retval = gasnetc_send_smsg(dest, gpd, m, total_len);
+    gasneti_resume_spinpollers();
   }
   return retval;
 }
@@ -1408,6 +1418,7 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
       m->galp.args[i] = va_arg(argptr, gasnet_handlerarg_t);
     }
 
+    gasneti_suspend_spinpollers();
     if (is_packed) {
       /* send data in smsg payload */
       memcpy((void*)((uintptr_t)m + head_len), source_addr, nbytes);
@@ -1420,6 +1431,7 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
       gasnetc_rdma_put_bulk(dest, dest_addr, source_addr, nbytes, gpd);
       retval = GASNET_OK;
     }
+    gasneti_resume_spinpollers();
   }
   va_end(argptr);
   GASNETI_RETURN(retval);
