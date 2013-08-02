@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2013/06/21 01:06:44 $
- * $Revision: 1.279 $
+ *     $Date: 2013/08/02 20:01:59 $
+ * $Revision: 1.280 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -432,7 +432,7 @@ extern gasneti_sighandlerfn_t gasneti_reghandler(int sigtocatch, gasneti_sighand
 }
 /* ------------------------------------------------------------------------------------ */
 typedef struct { 
-  int value;
+  int signum;
   const char *name;
   const char *desc;
   enum {
@@ -442,127 +442,136 @@ typedef struct {
     GASNETI_SV_FATAL,         /*  interrupts that cannot be caught or ignored */
     GASNETI_SV_OTHER          /*  everything else  */
   } variety;
+  int enable_gasnet_handler;
+  gasneti_sighandlerfn_t oldhandler;
 } gasnett_siginfo_t;
 static gasnett_siginfo_t gasneti_sigtable[] = {
   #ifdef SIGABRT
-    {SIGABRT, "SIGABRT", "Process abort signal.", GASNETI_SV_PROGRAM_ERROR}, /*  (abort()) */
+    {SIGABRT, "SIGABRT", "Process abort signal.", GASNETI_SV_PROGRAM_ERROR, 1}, /*  (abort()) */
   #endif
   #ifdef SIGFPE
-    {SIGFPE,  "SIGFPE", "Erroneous arithmetic operation.", GASNETI_SV_PROGRAM_ERROR}, /*  (FP error) */
+    {SIGFPE,  "SIGFPE", "Erroneous arithmetic operation.", GASNETI_SV_PROGRAM_ERROR, 1}, /*  (FP error) */
   #endif
   #ifdef SIGILL
-    {SIGILL,  "SIGILL", "Illegal instruction.", GASNETI_SV_PROGRAM_ERROR}, /*  (bad instruction) */
+    {SIGILL,  "SIGILL", "Illegal instruction.", GASNETI_SV_PROGRAM_ERROR, 1}, /*  (bad instruction) */
   #endif
   #ifdef SIGINT
-    {SIGINT,  "SIGINT", "Terminal interrupt signal.", GASNETI_SV_TERM_INT}, /*  (control-c) */
+    {SIGINT,  "SIGINT", "Terminal interrupt signal.", GASNETI_SV_TERM_INT, 1}, /*  (control-c) */
   #endif
   #ifdef SIGSEGV
-    {SIGSEGV, "SIGSEGV", "Invalid memory reference.", GASNETI_SV_PROGRAM_ERROR}, /*  (seg fault) */
+    {SIGSEGV, "SIGSEGV", "Invalid memory reference.", GASNETI_SV_PROGRAM_ERROR, 1}, /*  (seg fault) */
   #endif
   #ifdef SIGTERM
-    {SIGTERM, "SIGTERM", "Termination signal.", GASNETI_SV_SYS_INT}, /*  (kill command) */
+    {SIGTERM, "SIGTERM", "Termination signal.", GASNETI_SV_SYS_INT, 1}, /*  (kill command) */
   #endif
   #ifdef SIGALRM
-    {SIGALRM, "SIGALRM", "Alarm clock.", GASNETI_SV_OTHER},
+    {SIGALRM, "SIGALRM", "Alarm clock.", GASNETI_SV_OTHER, 0},
   #endif
   #ifdef SIGHUP
-    {SIGHUP,  "SIGHUP", "Hangup.", GASNETI_SV_SYS_INT},
+    {SIGHUP,  "SIGHUP", "Hangup.", GASNETI_SV_SYS_INT, 1},
   #endif
   #ifdef SIGKILL
-    {SIGKILL, "SIGKILL", "Kill (cannot be caught or ignored).", GASNETI_SV_FATAL}, /*  (kill -9 command) */
+    {SIGKILL, "SIGKILL", "Kill (cannot be caught or ignored).", GASNETI_SV_FATAL, 0}, /*  (kill -9 command) */
   #endif
   #ifdef SIGPIPE
-    {SIGPIPE, "SIGPIPE", "Write on a pipe with no one to read it.", GASNETI_SV_OTHER}, /*  (send() after close) */
+    {SIGPIPE, "SIGPIPE", "Write on a pipe with no one to read it.", GASNETI_SV_OTHER, 1}, /*  (send() after close) */
   #endif
   #ifdef SIGQUIT
-    {SIGQUIT, "SIGQUIT", "Terminal quit signal.", GASNETI_SV_TERM_INT}, /*  (control-\) */
+    {SIGQUIT, "SIGQUIT", "Terminal quit signal.", GASNETI_SV_TERM_INT, 1}, /*  (control-\) */
   #endif
   #ifdef SIGUSR1
-    {SIGUSR1, "SIGUSR1", "User-defined signal 1.", GASNETI_SV_OTHER},
+    {SIGUSR1, "SIGUSR1", "User-defined signal 1.", GASNETI_SV_OTHER, 0},
   #endif
   #ifdef SIGUSR2
-    {SIGUSR2, "SIGUSR2", "User-defined signal 2.", GASNETI_SV_OTHER},
+    {SIGUSR2, "SIGUSR2", "User-defined signal 2.", GASNETI_SV_OTHER, 0},
   #endif
   #ifdef SIGCHLD
-    {SIGCHLD, "SIGCHLD", "Child process terminated or stopped.", GASNETI_SV_OTHER}, /*  (sent to parent proc) */
+    {SIGCHLD, "SIGCHLD", "Child process terminated or stopped.", GASNETI_SV_OTHER, 0}, /*  (sent to parent proc) */
   #endif
   #ifdef SIGCONT
-    {SIGCONT, "SIGCONT", "Continue executing, if stopped.", GASNETI_SV_OTHER}, /*  (also sent by kill command) */
+    {SIGCONT, "SIGCONT", "Continue executing, if stopped.", GASNETI_SV_OTHER, 0}, /*  (also sent by kill command) */
   #endif
   #ifdef SIGSTOP
-    {SIGSTOP, "SIGSTOP", "Stop executing (cannot be caught or ignored).", GASNETI_SV_FATAL},
+    {SIGSTOP, "SIGSTOP", "Stop executing (cannot be caught or ignored).", GASNETI_SV_FATAL, 0},
   #endif
   #ifdef SIGTSTP
-    {SIGTSTP, "SIGTSTP", "Terminal stop signal.", GASNETI_SV_TERM_INT}, /*  (control-z) */
+    {SIGTSTP, "SIGTSTP", "Terminal stop signal.", GASNETI_SV_TERM_INT, 0}, /*  (control-z) */
   #endif
   #ifdef SIGTTIN
-    {SIGTTIN, "SIGTTIN", "Background process attempting read.", GASNETI_SV_OTHER},
+    {SIGTTIN, "SIGTTIN", "Background process attempting read.", GASNETI_SV_OTHER, 0},
   #endif
   #ifdef SIGTTOU
-    {SIGTTOU, "SIGTTOU", "Background process attempting write.", GASNETI_SV_OTHER},
+    {SIGTTOU, "SIGTTOU", "Background process attempting write.", GASNETI_SV_OTHER, 0},
   #endif
   #ifdef SIGBUS
-    {SIGBUS,  "SIGBUS", "Bus error.", GASNETI_SV_PROGRAM_ERROR}, /*  (alignment error) */
+    {SIGBUS,  "SIGBUS", "Bus error.", GASNETI_SV_PROGRAM_ERROR, 1}, /*  (alignment error) */
   #endif
   #ifdef SIGPOLL
-    {SIGPOLL, "SIGPOLL", "Pollable event.", GASNETI_SV_OTHER},
+    {SIGPOLL, "SIGPOLL", "Pollable event.", GASNETI_SV_OTHER, 0},
   #endif
   #ifdef SIGXFSZ
-    {SIGXFSZ, "SIGXFSZ", " File size limit exceeded.", GASNETI_SV_PROGRAM_ERROR},
+    {SIGXFSZ, "SIGXFSZ", " File size limit exceeded.", GASNETI_SV_PROGRAM_ERROR, 0},
   #endif
   #ifdef SIGPROF
-    {SIGPROF, "SIGPROF", "Profiling timer expired.", GASNETI_SV_OTHER},
+    {SIGPROF, "SIGPROF", "Profiling timer expired.", GASNETI_SV_OTHER, 0},
   #endif
   #ifdef SIGSYS
-    {SIGSYS,  "SIGSYS", "Bad system call.", GASNETI_SV_PROGRAM_ERROR},
+    {SIGSYS,  "SIGSYS", "Bad system call.", GASNETI_SV_PROGRAM_ERROR, 0},
   #endif
   #ifdef SIGTRAP
-    {SIGTRAP, "SIGTRAP", "Trace/breakpoint trap.", GASNETI_SV_PROGRAM_ERROR},
+    {SIGTRAP, "SIGTRAP", "Trace/breakpoint trap.", GASNETI_SV_PROGRAM_ERROR, 0},
   #endif
   #ifdef SIGURG
-    {SIGURG,  "SIGURG", "High bandwidth data is available at a socket.", GASNETI_SV_OTHER},
+    {SIGURG,  "SIGURG", "High bandwidth data is available at a socket.", GASNETI_SV_OTHER, 0},
   #endif
   #ifdef SIGVTALRM
-    {SIGVTALRM,"SIGVTALRM", "Virtual timer expired.", GASNETI_SV_OTHER},
+    {SIGVTALRM,"SIGVTALRM", "Virtual timer expired.", GASNETI_SV_OTHER, 0},
   #endif
   #ifdef SIGXCPU
-    {SIGXCPU, "SIGXCPU", "CPU time limit exceeded.", GASNETI_SV_PROGRAM_ERROR},
+    {SIGXCPU, "SIGXCPU", "CPU time limit exceeded.", GASNETI_SV_PROGRAM_ERROR, 0},
   #endif
   #ifdef SIGEMT
-    {SIGEMT,     "SIGEMT", "Emulation Trap", GASNETI_SV_OTHER},
+    {SIGEMT,     "SIGEMT", "Emulation Trap", GASNETI_SV_OTHER, 0},
   #endif
   #ifdef SIGPWR
-    {SIGPWR,     "SIGPWR", "Power Fail or Restart", GASNETI_SV_OTHER},
+    {SIGPWR,     "SIGPWR", "Power Fail or Restart", GASNETI_SV_OTHER, 0},
   #endif
   #ifdef SIGWINCH
-    {SIGWINCH,   "SIGWINCH", "Window Size Change", GASNETI_SV_OTHER},
+    {SIGWINCH,   "SIGWINCH", "Window Size Change", GASNETI_SV_OTHER, 0},
   #endif
   #ifdef SIGWAITING
-    {SIGWAITING, "SIGWAITING", "Concurrency signal reserved  by threads library", GASNETI_SV_OTHER},
+    {SIGWAITING, "SIGWAITING", "Concurrency signal reserved  by threads library", GASNETI_SV_OTHER, 0},
   #endif
   #ifdef SIGLWP
-    {SIGLWP,     "SIGLWP", "Inter-LWP  signal  reserved  by threads library", GASNETI_SV_OTHER},
+    {SIGLWP,     "SIGLWP", "Inter-LWP  signal  reserved  by threads library", GASNETI_SV_OTHER, 0},
   #endif
   #ifdef SIGFREEZE
-    {SIGFREEZE,  "SIGFREEZE", "Check point Freeze", GASNETI_SV_OTHER},
+    {SIGFREEZE,  "SIGFREEZE", "Check point Freeze", GASNETI_SV_OTHER, 0},
   #endif
   #ifdef SIGTHAW
-    {SIGTHAW,    "SIGTHAW", "Check point Thaw", GASNETI_SV_OTHER},
+    {SIGTHAW,    "SIGTHAW", "Check point Thaw", GASNETI_SV_OTHER, 0},
   #endif
   #ifdef SIGCANCEL
-    {SIGCANCEL,  "SIGCANCEL", "Cancellation signal reserved by threads library", GASNETI_SV_OTHER},
+    {SIGCANCEL,  "SIGCANCEL", "Cancellation signal reserved by threads library", GASNETI_SV_OTHER, 0},
   #endif
-  {0, NULL, NULL, GASNETI_SV_OTHER}
+    {0, NULL, NULL, GASNETI_SV_OTHER, 0}
 };
 /* ------------------------------------------------------------------------------------ */
-gasnett_siginfo_t const *gasnett_siginfo_fromval(int sigval) {
+gasnett_siginfo_t *gasnett_siginfo_fromval(int sigval) {
   size_t i;
   for (i=0; i<sizeof(gasneti_sigtable)/sizeof(gasnett_siginfo_t)-1; i++) {
-    if (sigval == gasneti_sigtable[i].value) return &gasneti_sigtable[i];
+    if (sigval == gasneti_sigtable[i].signum) return &gasneti_sigtable[i];
   }
   return NULL;
 }
-gasnett_siginfo_t const *gasnett_siginfo_fromstr(const char *str) {
+const char *gasnett_signame_fromval(int sigval) {
+    gasnett_siginfo_t  *s;
+    
+    if ((s = gasnett_siginfo_fromval(sigval)))
+        return(s->name);
+    return(NULL);
+}
+gasnett_siginfo_t *gasnett_siginfo_fromstr(const char *str) {
   while (*str && isspace(*str)) str++;
   if (isdigit(*str)) return gasnett_siginfo_fromval(atoi(str));
   else {
@@ -645,13 +654,13 @@ extern void gasneti_ondemand_init(void) {
     if (str) {
       gasnett_siginfo_t const *info = gasnett_siginfo_fromstr(str);
       if (!info) fprintf(stderr, "WARNING: ignoring unrecognized GASNET_FREEZE_SIGNAL: %s", str);
-      else gasneti_freezesignal = info->value;
+      else gasneti_freezesignal = info->signum;
     }
     str = gasneti_getenv_withdefault("GASNET_BACKTRACE_SIGNAL",NULL);
     if (str) {
       gasnett_siginfo_t const *info = gasnett_siginfo_fromstr(str);
       if (!info) fprintf(stderr, "WARNING: ignoring unrecognized GASNET_BACKTRACE_SIGNAL: %s", str);
-      else gasneti_backtracesignal = info->value;
+      else gasneti_backtracesignal = info->signum;
     }
     gasneti_local_wmb();
     firsttime = 0;
@@ -1239,6 +1248,43 @@ extern int gasneti_print_backtrace(int fd) {
 
   return retval;
 }
+
+
+void gasneti_registerSignalHandlers(gasneti_sighandlerfn_t handler) {
+  int i;
+
+  char *nocatch =  gasneti_getenv("GASNET_NO_CATCH_SIGNAL");
+  int star = ((nocatch != NULL) && (strcmp(nocatch, "*") == 0)) ? 1: 0;
+
+  if ((nocatch != NULL) && !star){
+      const char *sep = " ,";
+      char *w;
+      
+      for (w = (char *)strtok(nocatch, sep); w; w = (char *)strtok(NULL, sep)) {
+          gasnett_siginfo_t *s;
+          
+          if ((s = gasnett_siginfo_fromstr(w)) != NULL) {
+              GASNETT_TRACE_PRINTF("gasnett leaving signal %s unregistered", s->name);
+              s->enable_gasnet_handler = 0;
+          } else {
+              fprintf(stderr, "WARNING: unknown signal %s in GASNET_NO_CATCH_SIGNAL", w);  
+          }
+      }
+  }
+
+  if (!star) {
+      for (i = 0; i < sizeof(gasneti_sigtable)/sizeof(gasnett_siginfo_t); i++) {
+          gasnett_siginfo_t *s = gasneti_sigtable + i; 
+          if (s->enable_gasnet_handler)
+              s->oldhandler = gasneti_reghandler(s->signum, handler);
+      }
+  } else {
+      GASNETT_TRACE_PRINTF("gasnett not registering any default signal handlers\n");
+  }
+
+  gasneti_ondemand_init(); /* allow user override of signal handlers */
+}
+
 /* ------------------------------------------------------------------------------------ */
 static int _gasneti_print_backtrace_ifenabled(int fd) {
   static int noticeshown = 0;

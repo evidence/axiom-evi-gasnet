@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2013/03/25 05:31:03 $
- * $Revision: 1.235 $
+ *     $Date: 2013/08/02 20:01:59 $
+ * $Revision: 1.236 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -296,25 +296,6 @@ extern void gasneti_defaultAMHandler(gasnet_token_t token) {
                      (int)gasnet_mynode(), (int)gasnet_nodes(), (int)srcnode);
 }
 /* ------------------------------------------------------------------------------------ */
-#define DEF_SIGNAL(name) { name, #name, NULL }
-static struct {
-  int signum;
-  const char *signame;
-  gasneti_sighandlerfn_t oldhandler;
-} gasneti_signals[] = {
-  /* abort signals */
-  DEF_SIGNAL(SIGABRT),
-  DEF_SIGNAL(SIGILL),
-  DEF_SIGNAL(SIGSEGV),
-  DEF_SIGNAL(SIGBUS),
-  DEF_SIGNAL(SIGFPE),
-  /* termination signals */
-  DEF_SIGNAL(SIGQUIT),
-  DEF_SIGNAL(SIGINT),
-  DEF_SIGNAL(SIGTERM),
-  DEF_SIGNAL(SIGHUP),
-  DEF_SIGNAL(SIGPIPE)
-};
 
 #ifndef GASNETC_FATALSIGNAL_CALLBACK
 #define GASNETC_FATALSIGNAL_CALLBACK(sig)
@@ -330,16 +311,10 @@ static void do_raise(int sig) {
 }
 
 void gasneti_defaultSignalHandler(int sig) {
-  gasneti_sighandlerfn_t oldhandler = NULL;
   gasneti_sighandlerfn_t oldsigpipe = NULL;
-  const char *signame = NULL;
+  const char *signame =  gasnett_signame_fromval(sig);
   int i;
-  for (i = 0; i < sizeof(gasneti_signals)/sizeof(gasneti_signals[0]); i++) {
-    if (gasneti_signals[i].signum == sig) {
-      oldhandler = gasneti_signals[i].oldhandler;
-      signame = gasneti_signals[i].signame;
-    }
-  }
+
   gasneti_assert(signame);
 
   switch (sig) {
@@ -385,15 +360,6 @@ void gasneti_defaultSignalHandler(int sig) {
 
       do_raise(SIGQUIT);
   }
-}
-
-void gasneti_registerSignalHandlers(gasneti_sighandlerfn_t handler) {
-  int i;
-  for (i = 0; i < sizeof(gasneti_signals)/sizeof(gasneti_signals[0]); i++) {
-    gasneti_signals[i].oldhandler = 
-      gasneti_reghandler(gasneti_signals[i].signum, handler);
-  }
-  gasneti_ondemand_init(); /* allow user override of signal handlers */
 }
 
 extern int gasneti_set_waitmode(int wait_mode) {

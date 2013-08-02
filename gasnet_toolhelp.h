@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_toolhelp.h,v $
- *     $Date: 2011/05/24 20:20:46 $
- * $Revision: 1.61 $
+ *     $Date: 2013/08/02 20:01:59 $
+ * $Revision: 1.62 $
  * Description: misc declarations needed by both gasnet_tools and libgasnet
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -168,6 +168,8 @@ extern int gasneti_isLittleEndian(void);
 
 typedef void (*gasneti_sighandlerfn_t)(int);
 gasneti_sighandlerfn_t gasneti_reghandler(int sigtocatch, gasneti_sighandlerfn_t fp);
+void gasneti_registerSignalHandlers(gasneti_sighandlerfn_t handler);
+const char *gasnett_signame_fromval(int sigval);
 
 /* return a fast but simple/insecure 64-bit checksum of arbitrary data */
 extern uint64_t gasneti_checksum(const void *p, int numbytes);

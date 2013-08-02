@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2012/07/31 00:30:46 $
- * $Revision: 1.131 $
+ *     $Date: 2013/08/02 20:01:59 $
+ * $Revision: 1.132 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -253,7 +253,6 @@ extern void gasneti_freezeForDebugger(void);
 /* ------------------------------------------------------------------------------------ */
 /* memory segment registration and management */
 
-void gasneti_registerSignalHandlers(gasneti_sighandlerfn_t handler);
 void gasneti_defaultSignalHandler(int sig);
 
 #if defined(HAVE_MMAP) || (GASNET_PSHM && defined(GASNETI_PSHM_SYSV))
