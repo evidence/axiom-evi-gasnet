@@ -756,7 +756,7 @@ void gasnetc_poll_smsg_queue(void)
     if (!count) break;
 
     for (i = 0; i < count; ++i) {
-    #ifdef GNI_CQ_GET_REM_INST_ID_xxxx /* This needs to be tested!! */
+    #ifdef GNI_CQ_GET_REM_INST_ID
       /* Mar 2013 (S-2446-5002) docs introduces this call for use on recv CQs ... */
       uint32_t source = GNI_CQ_GET_REM_INST_ID(event_data[i]);
     #else
