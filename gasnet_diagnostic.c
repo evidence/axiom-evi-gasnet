@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_diagnostic.c,v $
- *     $Date: 2013/05/19 18:20:24 $
- * $Revision: 1.43 $
+ *     $Date: 2013/08/06 07:28:37 $
+ * $Revision: 1.44 $
  * Description: GASNet internal diagnostics
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -863,6 +863,7 @@ static void progressfns_test(int id) {
       gasnet_AMPoll();
     }
 
+    PTHREAD_BARRIER(num_threads);
     /* ensure they did run */
     cnt_c = pf_cnt_counted; cnt_b = pf_cnt_boolean;
     assert_always(cnt_c > 0); assert_always(cnt_b > 0);
