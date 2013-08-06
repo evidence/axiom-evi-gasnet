@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2013/07/31 03:34:56 $
- * $Revision: 1.114 $
+ *     $Date: 2013/08/06 04:14:04 $
+ * $Revision: 1.115 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -635,16 +635,17 @@ typedef void (*gasneti_progressfn_t)(void);
     /* and finally, the throttled poll implementation */
     GASNETI_INLINE(gasneti_AMPoll)
     int gasneti_AMPoll() {
-       int retval;
+       int retval = GASNET_OK;
        gasneti_AMPoll_spinpollers_check();
        gasneti_memcheck_one();
-       if (gasneti_atomic_read(&gasneti_throttle_haveusefulwork,0) > 0) 
-         return GASNET_OK; /* another thread sending - skip the poll */
-       if (gasneti_mutex_trylock(&gasneti_throttle_spinpoller) != 0)
-         return GASNET_OK; /* another thread spin-polling - skip the poll */
-       retval = gasnetc_AMPoll();
-       gasneti_mutex_unlock(&gasneti_throttle_spinpoller);
-       GASNETI_PROGRESSFNS_RUN();
+       /* if another thread is spin-polling then skip both the poll and progress fns: */
+       if_pt (!gasneti_mutex_trylock(&gasneti_throttle_spinpoller)) {
+          /* if another thread is sending then skip the poll: */
+          if_pt (!gasneti_atomic_read(&gasneti_throttle_haveusefulwork,0))
+             retval = gasnetc_AMPoll();
+          gasneti_mutex_unlock(&gasneti_throttle_spinpoller);
+          GASNETI_PROGRESSFNS_RUN();
+       }
        return retval;
     }
   #endif
