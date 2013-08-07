@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2013/08/02 20:01:59 $
- * $Revision: 1.280 $
+ *     $Date: 2013/08/07 18:29:18 $
+ * $Revision: 1.281 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -653,13 +653,13 @@ extern void gasneti_ondemand_init(void) {
     const char *str = gasneti_getenv_withdefault("GASNET_FREEZE_SIGNAL",NULL);
     if (str) {
       gasnett_siginfo_t const *info = gasnett_siginfo_fromstr(str);
-      if (!info) fprintf(stderr, "WARNING: ignoring unrecognized GASNET_FREEZE_SIGNAL: %s", str);
+      if (!info) fprintf(stderr, "WARNING: ignoring unrecognized GASNET_FREEZE_SIGNAL: %s\n", str);
       else gasneti_freezesignal = info->signum;
     }
     str = gasneti_getenv_withdefault("GASNET_BACKTRACE_SIGNAL",NULL);
     if (str) {
       gasnett_siginfo_t const *info = gasnett_siginfo_fromstr(str);
-      if (!info) fprintf(stderr, "WARNING: ignoring unrecognized GASNET_BACKTRACE_SIGNAL: %s", str);
+      if (!info) fprintf(stderr, "WARNING: ignoring unrecognized GASNET_BACKTRACE_SIGNAL: %s\n", str);
       else gasneti_backtracesignal = info->signum;
     }
     gasneti_local_wmb();
@@ -1267,7 +1267,7 @@ void gasneti_registerSignalHandlers(gasneti_sighandlerfn_t handler) {
               GASNETT_TRACE_PRINTF("gasnett leaving signal %s unregistered", s->name);
               s->enable_gasnet_handler = 0;
           } else {
-              fprintf(stderr, "WARNING: unknown signal %s in GASNET_NO_CATCH_SIGNAL", w);  
+              fprintf(stderr, "WARNING: unknown signal %s in GASNET_NO_CATCH_SIGNAL\n", w);  
           }
       }
   }
