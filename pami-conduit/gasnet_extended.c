@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2013/06/30 23:05:52 $
- * $Revision: 1.70 $
+ *     $Date: 2013/08/07 22:17:11 $
+ * $Revision: 1.71 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -1390,6 +1390,7 @@ static int gasnete_pdbarrier_wait(gasnete_coll_team_t team, int id, int flags) {
     retval = gasnete_pshmbarrier_wait_inner(barr->pshm_data, id, flags, passive_shift);
     if (passive_shift) {
       /* Once the active peer signals done, we can return */
+      const PSHM_BDATA_DECL(pshm_bdata, barr->pshm_data);
       barr->prev_value = pshm_bdata->shared->value;
       barr->prev_flags = pshm_bdata->shared->flags;
       GASNETE_SPLITSTATE_LEAVE(team);
@@ -1448,6 +1449,10 @@ static void gasnete_pdbarrier_init(gasnete_coll_team_t team) {
   static int is_init = 0;
   int total_ranks = team->total_ranks;
   int myrank = team->myrank;
+#if GASNETI_PSHM_BARRIER_HIER
+  gasnet_node_t *supernode_reps = NULL;
+  PSHM_BDATA_DECL(pshm_bdata, gasnete_pshmbarrier_init_hier(team, &total_ranks, &myrank, &supernode_reps));
+#endif
 
   /* Allocate memory */
   gasnete_pdbarrier_t *barr = gasneti_malloc(sizeof(gasnete_pdbarrier_t));
@@ -1472,9 +1477,6 @@ static void gasnete_pdbarrier_init(gasnete_coll_team_t team) {
   }
 
 #if GASNETI_PSHM_BARRIER_HIER
-  gasnet_node_t *supernode_reps = NULL;
-  PSHM_BDATA_DECL(pshm_bdata, gasnete_pshmbarrier_init_hier(team, &total_ranks, &myrank, &supernode_reps));
-
   if (pshm_bdata) {
     barr->pshm_data = pshm_bdata;
     barr->pshm_shift = pshm_bdata->private.rank ? 2 : 0;
