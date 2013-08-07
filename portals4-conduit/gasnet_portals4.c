@@ -1,12 +1,15 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4.c,v $
- *     $Date: 2013/07/28 23:53:19 $
- * $Revision: 1.46 $
+ *     $Date: 2013/08/07 21:09:30 $
+ * $Revision: 1.47 $
  * Description: Portals 4 specific configuration
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
  */
 
+
+
 #include <gasnet_internal.h>
+#include <gasnet_extended_internal.h>
 #include <gasnet_handler.h>
 #include <gasnet_core_internal.h>
 #include <pmi-spawner/gasnet_bootstrap_internal.h>
@@ -24,16 +27,21 @@
 #include <gasnet_portals4_hash.h>
 
 static ptl_handle_ni_t matching_ni_h;
+static ptl_handle_ni_t nonmatching_ni_h;
 #if GASNETC_PORTALS4_MAX_MD_SIZE < GASNETC_PORTALS4_MAX_VA_SIZE
 static ptl_handle_md_t *am_eq_md_hs;
+static ptl_handle_md_t *rdma_md_hs;
 #else
-static ptl_handle_md_t am_eq_md_h;
+static ptl_handle_md_t am_eq_md_h[1];
+static ptl_handle_md_t rdma_md_hs[1];
 #endif
 static ptl_handle_me_t am_me_h;
+static ptl_handle_le_t rdma_le_h;
 static ptl_handle_eq_t coll_eq_h;
-static ptl_handle_eq_t eqs_h[2];
+static ptl_handle_eq_t eqs_h[3];
 #define am_send_eq_h eqs_h[0]
 #define am_recv_eq_h eqs_h[1]
+#define rdma_eq_h eqs_h[2]
 
 static ptl_uid_t uid = PTL_UID_ANY;
 
@@ -67,6 +75,7 @@ typedef struct p4_long_match_t p4_long_match_t;
 #define LONG_HASH(a, b) ((gasnetc_key_t)GASNETI_MAKEWORD(a,b))
 
 static gasneti_semaphore_t p4_send_credits;
+static gasneti_semaphore_t p4_rdma_credits;
 
 static gasneti_weakatomic_t p4_op_count = gasneti_weakatomic_init(0);
 
@@ -183,15 +192,16 @@ GASNETI_NORETURNP(p4_failed_eqpoll)
  * easily.
  */
 static inline void
-p4_get_am_md(const void *ptr, ptl_handle_md_t *md_h, void **base_ptr)
+p4_get_md(const void *ptr, ptl_handle_md_t const * md_array,
+          ptl_handle_md_t *md_h, void **base_ptr)
 {
 #if GASNETC_PORTALS4_MAX_MD_SIZE < GASNETC_PORTALS4_MAX_VA_SIZE
     int mask = (1ULL << (GASNETC_PORTALS4_MAX_VA_SIZE - GASNETC_PORTALS4_MAX_MD_SIZE + 1)) - 1;
     int which = (((uintptr_t) ptr) >> (GASNETC_PORTALS4_MAX_MD_SIZE - 1)) & mask;
-    *md_h = am_eq_md_hs[which];
+    *md_h = md_array[which];
     *base_ptr = (void*) (which * (1ULL << (GASNETC_PORTALS4_MAX_MD_SIZE - 1)));
 #else
-    *md_h = am_eq_md_h;
+    *md_h = md_array[0];
     *base_ptr = 0;
 #endif
 }
@@ -274,8 +284,7 @@ gasnetc_p4_init(gasnet_node_t *rank_p, gasnet_node_t *size_p)
                     &ni_req_limits,
                     &ni_limits,
                     &matching_ni_h);
-    if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlNiInit()");
-
+    if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlNiInit(matching)");
 #if GASNET_SEGMENT_EVERYTHING
     if ((ni_limits.features & PTL_TARGET_BIND_INACCESSIBLE) == 0) {
         gasneti_fatalerror("[%03d] Portals reports it doesn't support SEGMENT_EVERYTHING",
@@ -283,6 +292,23 @@ gasnetc_p4_init(gasnet_node_t *rank_p, gasnet_node_t *size_p)
     }
 #endif
 
+    ret = PtlNIInit(PTL_IFACE_DEFAULT,
+                    PTL_NI_NO_MATCHING | PTL_NI_LOGICAL,
+                    PTL_PID_ANY,
+                    &ni_req_limits,
+                    &ni_limits,
+                    &nonmatching_ni_h);
+    if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlNiInit(nonmatching)");
+#if GASNET_SEGMENT_EVERYTHING
+    if ((ni_limits.features & PTL_TARGET_BIND_INACCESSIBLE) == 0) {
+        gasneti_fatalerror("[%03d] Portals reports it doesn't support SEGMENT_EVERYTHING",
+                           gasneti_mynode);
+    }
+#endif
+
+    /* NOTE: the Portals 4 specification says that your Physical ID
+       must be the same on every logical NI, so this is safe (ie, we
+       don't have to call GetPhysId on the non-matching ni) */
     ret = PtlGetPhysId(matching_ni_h, &my_id);
     if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlGetPhysId()");
 
@@ -297,10 +323,18 @@ gasnetc_p4_init(gasnet_node_t *rank_p, gasnet_node_t *size_p)
     ret = PtlSetMap(matching_ni_h,
                     gasneti_nodes,
                     desired);
-    if_pf (PTL_OK != ret && PTL_IGNORED != ret) p4_fatalerror(ret, "PtlSetMap()");
+    if_pf (PTL_OK != ret && PTL_IGNORED != ret) p4_fatalerror(ret, "PtlSetMap(matching)");
+
+    ret = PtlSetMap(nonmatching_ni_h,
+                    gasneti_nodes,
+                    desired);
+    if_pf (PTL_OK != ret && PTL_IGNORED != ret) p4_fatalerror(ret, "PtlSetMap(nonmatching)");
 
     gasneti_free(desired);
 
+    /* uid is similar to physical id in terms of multiple network
+       interfaces, so just getting the uid off the matching ni is
+       ok */
     ret = PtlGetUid(matching_ni_h, &uid);
     if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlGetUid()");
 
@@ -314,6 +348,10 @@ gasnetc_p4_init(gasnet_node_t *rank_p, gasnet_node_t *size_p)
 
     ret = PtlEQAlloc(matching_ni_h, 1024, &coll_eq_h);
     if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlEQAlloc(coll)");
+
+    ret = PtlEQAlloc(nonmatching_ni_h, p4_am_eq_len, &rdma_eq_h);
+    if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlEQAlloc(rdma)");
+    gasneti_semaphore_init(&p4_rdma_credits, p4_am_eq_len - 1, p4_am_eq_len - 1);
 
     /* allocate portal table entries */
     ret = PtlPTAlloc(matching_ni_h,
@@ -337,6 +375,13 @@ gasnetc_p4_init(gasnet_node_t *rank_p, gasnet_node_t *size_p)
                      &pt);
     if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlPTAlloc(long data)");
 
+    ret = PtlPTAlloc(nonmatching_ni_h,
+                     PTL_PT_FLOWCTRL,
+                     rdma_eq_h,
+                     rdma_idx,
+                     &pt);
+    if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlPTAlloc(rdma)");
+
     /* Allocate memory descriptor for active message transfer (including long transfers) */
     md.options   = PTL_MD_EVENT_SEND_DISABLE;
     md.eq_handle = am_send_eq_h;
@@ -344,7 +389,7 @@ gasnetc_p4_init(gasnet_node_t *rank_p, gasnet_node_t *size_p)
 #if GASNETC_PORTALS4_MAX_MD_SIZE < GASNETC_PORTALS4_MAX_VA_SIZE
     {
         int num_mds;
-        ptl_size_t size = 1ULL << GASNETC_PORTALS4_MAX_MD_SIZE;
+        ptl_size_t size = (1ULL << GASNETC_PORTALS4_MAX_MD_SIZE) - 1;
         ptl_size_t offset_unit = (1ULL << GASNETC_PORTALS4_MAX_MD_SIZE) / 2;
 
         num_mds = p4_get_num_mds();
@@ -363,8 +408,38 @@ gasnetc_p4_init(gasnet_node_t *rank_p, gasnet_node_t *size_p)
     md.length    = PTL_SIZE_MAX;
     ret = PtlMDBind(matching_ni_h,
                     &md,
-                    &am_eq_md_h);
+                    &am_eq_md_h[0]);
     if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlMDBind(AM)");
+#endif
+
+    /* Allocate memory descriptor for rdma operations */
+    md.options   = PTL_MD_EVENT_SEND_DISABLE;
+    md.eq_handle = rdma_eq_h;
+    md.ct_handle = PTL_CT_NONE;
+#if GASNETC_PORTALS4_MAX_MD_SIZE < GASNETC_PORTALS4_MAX_VA_SIZE
+    {
+        int num_mds;
+        ptl_size_t size = (1ULL << GASNETC_PORTALS4_MAX_MD_SIZE) - 1;
+        ptl_size_t offset_unit = (1ULL << GASNETC_PORTALS4_MAX_MD_SIZE) / 2;
+
+        num_mds = p4_get_num_mds();
+        rdma_md_hs = gasneti_malloc(sizeof(ptl_handle_md_t) * num_mds);
+        for (i = 0 ; i < num_mds ; ++i) {
+            md.start = (char*) (offset_unit * i);
+            md.length = (i - 1 == num_mds) ? size / 2 : size;
+            ret = PtlMDBind(nonmatching_ni_h,
+                            &md,
+                            &rdma_md_hs[i]);
+            if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlMDBind(rdma)");
+        }
+    }
+#else
+    md.start     = 0;
+    md.length    = PTL_SIZE_MAX;
+    ret = PtlMDBind(nonmatching_ni_h,
+                    &md,
+                     &rdma_md_hs[0]);
+    if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlMDBind(rdma)");
 #endif
 
     /* Configure the active message receive resources now, since
@@ -448,16 +523,17 @@ int
 gasnetc_p4_attach(void *segbase, uintptr_t segsize)
 {
     ptl_me_t me;
+    ptl_le_t le;
     int ret;
 
 #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
     gasneti_assert((void*) 0 != segbase && (uintptr_t)-1 != segsize);
-    me.start = segbase;
-    me.length = segsize;
+    me.start = le.start = segbase;
+    me.length = le.length = segsize;
 #elif GASNET_SEGMENT_EVERYTHING
     gasneti_assert((void*) 0 == segbase && (uintptr_t)-1 == segsize);
-    me.start = 0;
-    me.length = PTL_SIZE_MAX;
+    me.start = le.start = 0;
+    me.length = le.start = PTL_SIZE_MAX;
 #endif
 
     me.min_free = 0;
@@ -474,6 +550,18 @@ gasnetc_p4_attach(void *segbase, uintptr_t segsize)
                       NULL,
                       &am_me_h);
     if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlMEAppend(attach)");
+
+    le.ct_handle = PTL_CT_NONE;
+    le.uid = uid;
+    le.options = PTL_LE_OP_PUT | PTL_LE_OP_GET | 
+        PTL_LE_EVENT_SUCCESS_DISABLE | PTL_LE_EVENT_LINK_DISABLE;
+    ret = PtlLEAppend(nonmatching_ni_h,
+                      rdma_idx,
+                      &le,
+                      PTL_PRIORITY_LIST,
+                      NULL,
+                      &rdma_le_h);
+    if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlLEAppend(attach)");
 
     return GASNET_OK;
 }
@@ -492,6 +580,9 @@ gasnetc_p4_exit(void)
     /* assume that there's nothing to clean up in the hash, since
        hopefully all long messages are processed before we exit. */
     gasnetc_hash_destroy(p4_long_hash);
+
+    PtlMEUnlink(am_me_h);
+    PtlLEUnlink(rdma_le_h);
 
     PtlMEUnlink(bootstrap_barrier_me_h);
     PtlCTFree(bootstrap_barrier_ct_h);
@@ -513,22 +604,28 @@ gasnetc_p4_exit(void)
         int num_mds = p4_get_num_mds();
         for (i = 0 ; i < num_mds ; ++i) {
             PtlMDRelease(am_eq_md_hs[i]);
+            PtlMDRelease(rdma_md_hs[i]);
         }
         gasneti_free(am_eq_md_hs);
+        gasneti_free(rdma_md_hs);
     }
 #else
-    PtlMDRelease(am_eq_md_h);
+    PtlMDRelease(am_eq_md_h[0]);
+    PtlMDRelease(rdma_md_hs[0]);
 #endif
     PtlPTFree(matching_ni_h, long_data_idx);
     PtlPTFree(matching_ni_h, am_idx);
     PtlPTFree(matching_ni_h, bootstrap_idx);
+    PtlPTFree(matching_ni_h, rdma_idx);
 
     PtlEQFree(coll_eq_h);
     PtlEQFree(am_recv_eq_h);
     PtlEQFree(am_send_eq_h);
+    PtlEQFree(rdma_eq_h);
 
     /* TODO: are these safe to do here? */
     PtlNIFini(matching_ni_h);
+    PtlNIFini(nonmatching_ni_h);
     PtlFini();
 
     /* Currently, regardless whether make this call, non-collective exits hang */
@@ -549,7 +646,6 @@ p4_frag_am_t *p4_alloc_am_frag(void)
         frag = gasneti_malloc(offsetof(p4_frag_am_t,data) + P4_AM_MAX_DATA_LENGTH);
         gasneti_leak(frag);
     }
-    frag->base.type = P4_FRAG_TYPE_AM; /* lost while on freelist */
     frag->data_length = 0;
     return frag;
 }
@@ -557,7 +653,6 @@ p4_frag_am_t *p4_alloc_am_frag(void)
 GASNETI_INLINE(p4_free_am_frag)
 void p4_free_am_frag(p4_frag_am_t *frag)
 {
-    gasneti_assert(P4_FRAG_TYPE_AM == frag->base.type);
     gasneti_lifo_push(&p4_am_frag_pool, frag);
 }
 
@@ -571,14 +666,12 @@ p4_frag_data_t *p4_alloc_data_frag(void)
         frag = gasneti_malloc(sizeof(p4_frag_data_t));
         gasneti_leak(frag);
     }
-    frag->base.type = P4_FRAG_TYPE_DATA; /* lost while on freelist */
     return frag;
 }
 
 GASNETI_INLINE(p4_free_data_frag)
 void p4_free_data_frag(p4_frag_data_t *frag)
 {
-    gasneti_assert(P4_FRAG_TYPE_DATA == frag->base.type);
     gasneti_lifo_push(&p4_data_frag_pool, frag);
 }
 
@@ -825,24 +918,19 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size, unsigned int limit
             break;
 
         case PTL_EVENT_ACK:
-            /* AM data has been acked */
-            if (PTL_NI_PT_DISABLED == ev.ni_fail_type) {
-                p4_frag_t *frag = (p4_frag_t*) ev.user_ptr;
+            if_pf (PTL_NI_PT_DISABLED == ev.ni_fail_type) {
                 ptl_process_t proc;
                 ptl_handle_md_t md_h;
                 void *base;
 
-                gasneti_assert(P4_FRAG_TYPE_AM == frag->type ||
-                               P4_FRAG_TYPE_DATA == frag->type);
-
-                if (P4_FRAG_TYPE_AM == frag->type) {
-                    p4_frag_am_t *am_frag = (p4_frag_am_t*) frag;
+                if (OP_TYPE_AM == OP_GET_TYPE(ev.user_ptr)) {
+                    p4_frag_am_t *am_frag = (p4_frag_am_t*) OP_GET_PTR(ev.user_ptr);
                     proc.rank = am_frag->rank;
 #ifdef P4_DEBUG
                     fprintf(stderr, "%d: retransmitting am message to %d\n",
                             (int) gasneti_mynode, (int) proc.rank);
 #endif
-                    p4_get_am_md(am_frag->data, &md_h, &base);
+                    p4_get_md(am_frag->data, am_eq_md_h, &md_h, &base);
                     ret = PtlPut(md_h,
                                  (ptl_size_t) ((char*) am_frag->data - (char*) base),
                                  am_frag->data_length,
@@ -851,13 +939,13 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size, unsigned int limit
                                  am_idx,
                                  am_frag->match_bits,
                                  0,
-                                 am_frag,
+                                 OP_USER_PTR_BUILD(OP_TYPE_AM, am_frag),
                                  am_frag->hdr_data);
                     if_pf (PTL_OK != ret) {
                         return p4_failed_put(ret, "resending an AM frag");
                     }
                 } else {
-                    p4_frag_data_t *data_frag = (p4_frag_data_t*) frag;
+                    p4_frag_data_t *data_frag = (p4_frag_data_t*) OP_GET_PTR(ev.user_ptr);
                     proc.rank = data_frag->am_frag->rank;
 #ifdef P4_DEBUG
                     fprintf(stderr, "%d: retransmitting data message to %d\n",
@@ -871,49 +959,101 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size, unsigned int limit
                                  long_data_idx,
                                  data_frag->match_bits,
                                  data_frag->remote_offset,
-                                 data_frag,
+                                 OP_USER_PTR_BUILD(OP_TYPE_AM_DATA, data_frag),
                                  data_frag->am_frag->hdr_data);
                     if_pf (PTL_OK != ret) {
                         return p4_failed_put(ret, "resending a data frag");
                     }
                 }
-            } else if_pf (PTL_OK != ev.ni_fail_type) {
+                /* RDMA operations will never hit a NI_PT_DISABLED state */
+            } else if (PTL_OK != ev.ni_fail_type) {
                 gasneti_fatalerror("[%03d] event of type %d failed %d", 
                                    gasneti_mynode, ev.type, ev.ni_fail_type);
             } else {
-                p4_frag_t *frag = (p4_frag_t*) ev.user_ptr;
-                p4_frag_am_t *am_frag;
-
-                gasneti_assert(P4_FRAG_TYPE_AM == frag->type ||
-                               P4_FRAG_TYPE_DATA == frag->type);
-
-                gasneti_semaphore_up(&p4_send_credits);
-
-                if (frag->type == P4_FRAG_TYPE_AM) {
-                    am_frag = (p4_frag_am_t*) frag;
+                switch(OP_GET_TYPE(ev.user_ptr)) {
+                case OP_TYPE_AM:
+                    {
+                        p4_frag_am_t *am_frag = (p4_frag_am_t*) OP_GET_PTR(ev.user_ptr);
 #ifdef P4_DEBUG
-                    fprintf(stderr, "%d: got ack for am to %d\n",
-                            (int) gasneti_mynode, (int) am_frag->rank);
+                        fprintf(stderr, "%d: got ack for am to %d\n",
+                                (int) gasneti_mynode, (int) am_frag->rank);
 #endif
-                } else {
-                    p4_frag_data_t *data_frag = (p4_frag_data_t*) frag;
-                    am_frag = data_frag->am_frag;
-#ifdef P4_DEBUG
-                    fprintf(stderr, "%d: got ack for data to %d\n",
-                            (int) gasneti_mynode, (int) am_frag->rank);
-#endif
-                    if (data_frag->send_complete_ptr) {
-                        *(data_frag->send_complete_ptr) = 1;
+                        gasneti_semaphore_up(&p4_send_credits);
+                        if (!IS_AM_LONG(am_frag->match_bits) ||
+                            (2 == gasneti_weakatomic_add(&am_frag->op_count, 1, 0))) {
+                            p4_free_am_frag(am_frag);
+                        }
                     }
-                    p4_free_data_frag(data_frag);
-                }
+                    break;
+                case OP_TYPE_AM_DATA:
+                    {
+                        p4_frag_data_t *data_frag = (p4_frag_data_t*) OP_GET_PTR(ev.user_ptr);
+                        p4_frag_am_t *am_frag = data_frag->am_frag;
+#ifdef P4_DEBUG
+                        fprintf(stderr, "%d: got ack for data to %d\n",
+                                (int) gasneti_mynode, (int) am_frag->rank);
+#endif
+                        gasneti_semaphore_up(&p4_send_credits);
 
-                if (!IS_AM_LONG(am_frag->match_bits) ||
-                    (2 == gasneti_weakatomic_add(&am_frag->op_count, 1, 0))) {
-                    p4_free_am_frag(am_frag);
+                        if (data_frag->send_complete_ptr) {
+                            *(data_frag->send_complete_ptr) = 1;
+                        }
+                        p4_free_data_frag(data_frag);
+                        if (!IS_AM_LONG(am_frag->match_bits) ||
+                            (2 == gasneti_weakatomic_add(&am_frag->op_count, 1, 0))) {
+                            p4_free_am_frag(am_frag);
+                        }
+                    }
+                    break;
+                case OP_TYPE_EOP:
+                    {
+                        gasnete_eop_t *eop = (gasnete_eop_t*) OP_GET_PTR(ev.user_ptr);
+#ifdef P4_DEBUG
+                        fprintf(stderr, "%d: got ack for eop %p\n",
+                                (int) gasneti_mynode, eop);
+#endif
+                        gasneti_semaphore_up(&p4_rdma_credits);
+                        GASNETE_EOP_MARKDONE(eop);
+                    }
+                    break;
+                case OP_TYPE_IOP:
+                    {
+                        gasnete_iop_t *iop = (gasnete_iop_t*) OP_GET_PTR(ev.user_ptr);
+#ifdef P4_DEBUG
+                        fprintf(stderr, "%d: got ack for iop %p\n",
+                                (int) gasneti_mynode, iop);
+#endif
+                        gasneti_semaphore_up(&p4_rdma_credits);
+                        gasneti_weakatomic_increment(&(iop->completed_put_cnt), 0);
+                    }
+                    break;
                 }
             }
             
+            break;
+
+        case PTL_EVENT_REPLY:
+            {
+                gasneti_assert(OP_TYPE_IOP == OP_GET_TYPE(ev.user_ptr) ||
+                               OP_TYPE_EOP == OP_GET_TYPE(ev.user_ptr));
+
+                switch (OP_GET_TYPE(ev.user_ptr)) {
+                case OP_TYPE_EOP:
+                    {
+                        gasnete_eop_t *eop = (gasnete_eop_t*) OP_GET_PTR(ev.user_ptr);
+                        gasneti_semaphore_up(&p4_rdma_credits);
+                        GASNETE_EOP_MARKDONE(eop);
+                    }
+                    break;
+                case OP_TYPE_IOP:
+                    {
+                        gasnete_iop_t *iop = (gasnete_iop_t*) OP_GET_PTR(ev.user_ptr);
+                        gasneti_semaphore_up(&p4_rdma_credits);
+                        gasneti_weakatomic_increment(&(iop->completed_get_cnt), 0);
+                    }
+                    break;
+                }
+            }
             break;
 
         case PTL_EVENT_PT_DISABLED:
@@ -981,7 +1121,7 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size, unsigned int limit
 void
 gasnetc_p4_poll(void)
 {
-    int ret = p4_poll(eqs_h, 2, p4_poll_limit);
+    int ret = p4_poll(eqs_h, 3, p4_poll_limit);
     if_pf (GASNET_OK != ret) {
         gasneti_fatalerror("[%03d] p4_poll returned %d (%s)",
                            gasneti_mynode, ret, gasnet_ErrorName(ret));
@@ -1090,7 +1230,7 @@ gasnetc_p4_TransferGeneric(int category, ptl_match_bits_t req_type, gasnet_node_
             protocol = AM_LONG;
             payload_length = 0;
 
-            p4_get_am_md(source_addr, &md_h, &base);
+            p4_get_md(source_addr, am_eq_md_h, &md_h, &base);
 
             data_frag->am_frag = frag;
             gasneti_weakatomic_set(&frag->op_count, 0, GASNETI_ATOMIC_NONE);
@@ -1110,7 +1250,7 @@ gasnetc_p4_TransferGeneric(int category, ptl_match_bits_t req_type, gasnet_node_
                          long_data_idx,
                          data_frag->match_bits,
                          data_frag->remote_offset,
-                         data_frag,
+                         OP_USER_PTR_BUILD(OP_TYPE_AM_DATA, data_frag),
                          frag->hdr_data);
             if_pf (PTL_OK != ret) {
                 return p4_failed_put(ret, "sending a data frag");
@@ -1129,7 +1269,7 @@ gasnetc_p4_TransferGeneric(int category, ptl_match_bits_t req_type, gasnet_node_
     gasneti_assert (frag->data_length <= P4_AM_MAX_DATA_LENGTH);
 
     /* send the fragment */
-    p4_get_am_md(frag->data, &md_h, &base);
+    p4_get_md(frag->data, am_eq_md_h, &md_h, &base);
     ret = PtlPut(md_h,
                  (ptl_size_t) ((char*) frag->data - (char*) base),
                  frag->data_length,
@@ -1138,7 +1278,7 @@ gasnetc_p4_TransferGeneric(int category, ptl_match_bits_t req_type, gasnet_node_
                  am_idx,
                  frag->match_bits,
                  0,
-                 frag,
+                 OP_USER_PTR_BUILD(OP_TYPE_AM, frag),
                  frag->hdr_data);
     if_pf (PTL_OK != ret) {
         return p4_failed_put(ret, "sending an AM frag");
@@ -1156,6 +1296,106 @@ gasnetc_p4_TransferGeneric(int category, ptl_match_bits_t req_type, gasnet_node_
     }
 
     return GASNET_OK;
+}
+
+
+void
+gasnetc_rdma_put(gasnet_node_t node, void *dest, void *src, size_t nbytes,
+                 int type, gasnet_handle_t op)
+{
+    int ret;
+    ptl_handle_md_t md_h;
+    ptl_process_t proc;
+    void *base;
+
+    proc.rank = node;
+
+    while (0 == gasneti_semaphore_trydown_n(&p4_rdma_credits, 1)) {
+        /* drain the rdma queue (make sure to get as many slots as
+           possible) */
+        ret = p4_poll(&rdma_eq_h, 1, p4_am_eq_len); /* TODO: send_eq len when distinct */
+        if (GASNET_OK != ret) abort();
+    }
+
+    p4_get_md(src, rdma_md_hs, &md_h, &base);
+    ret = PtlPut(md_h,
+                 (ptl_size_t) ((char*) src - (char*) base),
+                 nbytes,
+                 PTL_ACK_REQ,
+                 proc,
+                 rdma_idx,
+                 0,
+                 (char*) dest - (char*) gasneti_seginfo[node].addr,
+                 OP_USER_PTR_BUILD(type, op),
+                 0);
+    if_pf (PTL_OK != ret) {
+        p4_failed_put(ret, "put(implicit)");
+    }
+}
+
+
+void
+gasnetc_rdma_put_wait(gasnet_handle_t oph)
+{
+    int ret;
+    gasnete_op_t *op = (gasnete_op_t*) oph;
+
+    if (OPTYPE(op) == OPTYPE_EXPLICIT) {
+        gasnete_eop_t *eop = (gasnete_eop_t *)op;
+        while (!GASNETE_EOP_DONE(eop)) {
+#if GASNET_PSHM
+            /* Progress shared-memory Request and Reply queues while we wait */
+            gasneti_AMPSHMPoll(0);
+#endif
+            ret = p4_poll(&rdma_eq_h, 1, p4_am_eq_len);
+            if (GASNET_OK != ret) abort();
+            GASNETI_WAITHOOK();
+        }
+    } else {
+        gasnete_iop_t *iop = (gasnete_iop_t *)op;
+        while (!(GASNETE_IOP_CNTDONE(iop,get) && GASNETE_IOP_CNTDONE(iop,put))) {
+#if GASNET_PSHM
+            /* Progress shared-memory Request and Reply queues while we wait */
+            gasneti_AMPSHMPoll(0);
+#endif
+            ret = p4_poll(&rdma_eq_h, 1, p4_am_eq_len);
+            if (GASNET_OK != ret) abort();
+            GASNETI_WAITHOOK();
+        }
+    }
+}
+
+
+void
+gasnetc_rdma_get(void *dest, gasnet_node_t node, void * src, size_t nbytes,
+                 int type, gasnet_handle_t op)
+{
+    int ret;
+    ptl_handle_md_t md_h;
+    ptl_process_t proc;
+    void *base;
+
+    proc.rank = node;
+
+    while (0 == gasneti_semaphore_trydown_n(&p4_rdma_credits, 1)) {
+        /* drain the rdma queue (make sure to get as many slots as
+           possible) */
+        ret = p4_poll(&rdma_eq_h, 1, p4_am_eq_len); /* TODO: send_eq len when distinct */
+        if (GASNET_OK != ret) abort();
+    }
+
+    p4_get_md(dest, rdma_md_hs, &md_h, &base);
+    ret = PtlGet(md_h,
+                 (ptl_size_t) ((char*) dest - (char*) base),
+                 nbytes,
+                 proc,
+                 rdma_idx,
+                 0,
+                 (char*) src - (char*) gasneti_seginfo[node].addr,
+                 OP_USER_PTR_BUILD(type, op));
+    if_pf (PTL_OK != ret) {
+        p4_failed_put(ret, "put(implicit)");
+    }
 }
 
 

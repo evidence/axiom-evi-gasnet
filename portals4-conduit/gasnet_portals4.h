@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4.h,v $
- *     $Date: 2013/07/18 05:15:04 $
- * $Revision: 1.8 $
+ *     $Date: 2013/08/07 21:09:30 $
+ * $Revision: 1.9 $
  * Description: Portals 4 specific configuration
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
@@ -9,9 +9,12 @@
 #ifndef GASNET_PORTALS4_H
 #define GASNET_PORTALS4_H
 
+#include <portals4.h>
+
 #define bootstrap_idx 6 /* matching ni */
 #define am_idx        7 /* matching ni */
 #define long_data_idx 8 /* matching ni */
+#define rdma_idx      9 /* non-matching ni */
 
 /* match bits used on collective PT */
 #define BOOTSTRAP_BARRIER_MB    0x00001
@@ -86,18 +89,17 @@ struct p4_am_block_t {
 };
 typedef struct p4_am_block_t p4_am_block_t;
 
-#define P4_FRAG_TYPE_AM   0x01
-#define P4_FRAG_TYPE_DATA 0x02
+#define OP_TYPE_AM      0x01
+#define OP_TYPE_AM_DATA 0x02
+#define OP_TYPE_EOP     0x03
+#define OP_TYPE_IOP     0x04
 
-struct p4_frag_t {
-    int type;
-};
-typedef struct p4_frag_t p4_frag_t;
+#define OP_USER_PTR_BUILD(type, ptr) ((void*) (((uintptr_t) ptr) | ((uint64_t) type << 60)))
+#define OP_GET_TYPE(user_ptr) (((uintptr_t) user_ptr) >> 60)
+#define OP_GET_PTR(user_ptr) ((void*) (((uintptr_t) user_ptr) & 0x0FFFFFFFFFFFFFFFULL))
 
 /* match_bits and hdr_data are for retransmit */
 struct p4_frag_am_t {
-    p4_frag_t base;
-
     int rank;
     ptl_match_bits_t match_bits;
     ptl_hdr_data_t hdr_data;
@@ -109,8 +111,6 @@ struct p4_frag_am_t {
 typedef struct p4_frag_am_t p4_frag_am_t;
 
 struct p4_frag_data_t {
-    p4_frag_t base;
-
     p4_frag_am_t *am_frag;
     volatile int32_t *send_complete_ptr;
     ptl_handle_md_t md_h;
@@ -125,6 +125,12 @@ int gasnetc_p4_init(gasnet_node_t *rank, gasnet_node_t *size);
 int gasnetc_p4_attach(void *segbase, uintptr_t segsize);
 void gasnetc_p4_exit(void);
 void gasnetc_p4_poll(void);
+
+void gasnetc_rdma_put(gasnet_node_t node, void *dest, void * src, size_t nbytes,
+                      int type, gasnet_handle_t op);
+void gasnetc_rdma_put_wait(gasnet_handle_t op);
+void gasnetc_rdma_get(void *dest, gasnet_node_t node, void * src, size_t nbytes,
+                      int type, gasnet_handle_t op);
 
 int gasnetc_p4_TransferGeneric(int category, ptl_match_bits_t req_type,
                                gasnet_node_t dest, 

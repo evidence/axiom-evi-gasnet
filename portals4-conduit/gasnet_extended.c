@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_extended.c,v $
- *     $Date: 2013/07/21 21:09:54 $
- * $Revision: 1.3 $
+ *     $Date: 2013/08/07 21:09:30 $
+ * $Revision: 1.4 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -8,6 +8,7 @@
 
 #include <gasnet_internal.h>
 #include <gasnet_extended_internal.h>
+#include <gasnet_portals4.h>
 
 static const gasnete_eopaddr_t EOPADDR_NIL = { { 0xFF, 0xFF } };
 extern void _gasnete_iop_check(gasnete_iop_t *iop) { gasnete_iop_check(iop); }
@@ -362,9 +363,9 @@ void gasneti_iop_markdone(gasneti_iop_t *iop, unsigned int noperations, int isge
 
 /* Use reference implementation of get/put/memset in terms of AMs */
 /* NOTE: Barriers, Collectives, VIS may use GASNETE_USING_REF_* in algorithm selection */
-#define GASNETE_USING_REF_EXTENDED_GET_BULK 1
-#define GASNETE_USING_REF_EXTENDED_PUT_BULK 1
-#define GASNETE_USING_REF_EXTENDED_PUT      1
+#define GASNETE_USING_REF_EXTENDED_GET_BULK 0
+#define GASNETE_USING_REF_EXTENDED_PUT_BULK 0
+#define GASNETE_USING_REF_EXTENDED_PUT      0
 #define GASNETE_USING_REF_EXTENDED_MEMSET   1
 
 #if GASNETE_USING_REF_EXTENDED_GET_BULK
@@ -410,6 +411,43 @@ void gasneti_iop_markdone(gasneti_iop_t *iop, unsigned int noperations, int isge
      gasnete_put_nb_bulk
      gasnete_memset_nb
 */
+
+gasnet_handle_t
+gasnete_get_nb_bulk(void *dest, gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG)
+{
+    GASNETI_CHECKPSHM_GET(UNALIGNED,H);
+    {
+        gasnete_eop_t *op = _gasnete_eop_new(GASNETE_MYTHREAD);
+        gasnetc_rdma_get(dest, node, src, nbytes, OP_TYPE_EOP, (gasnet_handle_t) op);
+        return (gasnet_handle_t)op;
+    }
+}
+
+
+gasnet_handle_t
+gasnete_put_nb(gasnet_node_t node, void *dest, void *src, size_t nbytes GASNETE_THREAD_FARG)
+{
+    GASNETI_CHECKPSHM_PUT(UNALIGNED,H);
+    {
+        gasnete_eop_t *op = _gasnete_eop_new(GASNETE_MYTHREAD);
+        gasnetc_rdma_put(node, dest, src, nbytes, OP_TYPE_EOP, (gasnet_handle_t) op);
+        gasnetc_rdma_put_wait((gasnet_handle_t) op);
+        return (gasnet_handle_t)op;
+    }
+}
+
+
+gasnet_handle_t
+gasnete_put_nb_bulk(gasnet_node_t node, void *dest, void *src, size_t nbytes GASNETE_THREAD_FARG)
+{
+    GASNETI_CHECKPSHM_PUT(UNALIGNED,H);
+    {
+        gasnete_eop_t *op = _gasnete_eop_new(GASNETE_MYTHREAD);
+        gasnetc_rdma_put(node, dest, src, nbytes, OP_TYPE_EOP, (gasnet_handle_t) op);
+        return (gasnet_handle_t)op;
+    }
+}
+
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -521,6 +559,46 @@ extern int  gasnete_try_syncnb_all (gasnet_handle_t *phandle, size_t numhandles)
      gasnete_put_nbi_bulk
      gasnete_memset_nbi
 */
+
+void
+gasnete_get_nbi_bulk(void *dest, gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG)
+{
+    GASNETI_CHECKPSHM_GET(UNALIGNED,H);
+    {
+        gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
+        gasnete_iop_t *op = mythread->current_iop;
+        op->initiated_get_cnt++;
+        gasnetc_rdma_get(dest, node, src, nbytes, OP_TYPE_IOP, (gasnet_handle_t) op);
+    }
+}
+
+
+void
+gasnete_put_nbi(gasnet_node_t node, void *dest, void *src, size_t nbytes GASNETE_THREAD_FARG)
+{
+    GASNETI_CHECKPSHM_PUT(ALIGNED,V);
+    {
+        gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
+        gasnete_iop_t *op = mythread->current_iop;
+        op->initiated_put_cnt++;
+        gasnetc_rdma_put(node, dest, src, nbytes, OP_TYPE_IOP, (gasnet_handle_t) op);
+        gasnetc_rdma_put_wait((gasnet_handle_t) op);
+    }
+}
+
+
+void
+gasnete_put_nbi_bulk(gasnet_node_t node, void *dest, void *src, size_t nbytes GASNETE_THREAD_FARG)
+{
+    GASNETI_CHECKPSHM_PUT(ALIGNED,V);
+    {
+        gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
+        gasnete_iop_t *op = mythread->current_iop;
+        op->initiated_put_cnt++;
+        gasnetc_rdma_put(node, dest, src, nbytes, OP_TYPE_IOP, (gasnet_handle_t) op);
+    }
+}
+
 
 /* ------------------------------------------------------------------------------------ */
 /*
