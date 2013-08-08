@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2013/06/10 18:23:06 $
-# $Revision: 1.103 $
+#     $Date: 2013/08/08 03:28:34 $
+# $Revision: 1.104 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -516,6 +516,8 @@ sub expand {
     # Auto export env var required for PSHM support
     push @envvars, 'BG_SHAREDMEMPOOLSIZE'
         if ($is_bgp && exists($ENV{'BG_SHAREDMEMPOOLSIZE'}));
+    push @envvars, 'BG_SHAREDMEMSIZE'
+        if ($is_bgq && exists($ENV{'BG_SHAREDMEMSIZE'}));
 
 # Build up the environment-passing arguments in several steps
     my @envargs = @envvars;

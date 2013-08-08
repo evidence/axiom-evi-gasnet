@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2013/03/25 04:32:04 $
- * $Revision: 1.124 $
+ *     $Date: 2013/08/08 03:28:32 $
+ * $Revision: 1.125 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -100,8 +100,8 @@
   #define GASNETI_MMAP_NOTFIXED_FLAG 0
 #endif
 
-#if GASNET_PSHM && (PLATFORM_OS_BGP || PLATFORM_OS_CYGWIN)
-  /* BG/P: MAP_FIXED is ignored for fd obtained from pshm_open() */
+#if GASNET_PSHM && (PLATFORM_OS_BGP || PLATFORM_OS_BGQ || PLATFORM_OS_CYGWIN)
+  /* BG/P and /Q: MAP_FIXED is ignored for fd obtained from pshm_open() */
   /* CYGWIN: may not honor the address passed to shmat() */
   #define GASNETI_PSHM_MAP_FIXED_IGNORED 1
 #endif
@@ -446,7 +446,8 @@ static void gasneti_pshm_unlink(int pshm_rank);
 
 /* create the object/region/segment and return its address */
 static void * gasneti_pshm_mmap(int pshm_rank, void *segbase, size_t segsize) {
-#if defined(PLATFORM_OS_BGP) /* pshm_unlink() is apparently a no-op on BG/P */
+#if defined(PLATFORM_OS_BGP) || defined(PLATFORM_OS_BGQ)
+  /* pshm_unlink() is apparently a no-op on BG/P and /Q */
   const int create = ((pshm_rank == gasneti_pshm_nodes) && !gasneti_pshm_mynode);
 #else
   const int create = (pshm_rank == gasneti_pshm_mynode) ||
@@ -506,11 +507,13 @@ static void * gasneti_pshm_mmap(int pshm_rank, void *segbase, size_t segsize) {
     ptr = mmap(segbase, segsize, (PROT_READ|PROT_WRITE), mmap_flags, fd, 0);
   }
 
+  #if !defined(PLATFORM_OS_BGQ) /* seems to reuse the memory otherwise! */
   {
     const int save_errno = errno;
     (void) close(fd);
     errno = save_errno;
   }
+  #endif
 #elif defined(GASNETI_PSHM_XPMEM)
   if (create) {
   #if HAVE_HUGETLBFS
