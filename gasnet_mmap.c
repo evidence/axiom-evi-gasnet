@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2013/08/08 03:28:32 $
- * $Revision: 1.125 $
+ *     $Date: 2013/08/08 21:28:28 $
+ * $Revision: 1.126 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -442,6 +442,36 @@ extern void gasneti_huge_munmap(void *addr, uintptr_t size) {
 #endif
 
 #if GASNET_PSHM
+
+#if defined(PLATFORM_OS_BGQ) /* must delay close until unmap() */
+  #define GASNETI_MAPSTBL_LEN 1024
+  static struct {
+    void *addr;
+    int fd;
+  } gasneti_addr2fd[GASNETI_MAPSTBL_LEN];
+  static void gasneti_addr2fd_add(void *addr, int fd) {
+    int i;
+    for (i=0; i<GASNETI_MAPSTBL_LEN; ++i) {
+      if (gasneti_addr2fd[i].addr == NULL) {
+        gasneti_addr2fd[i].addr = addr;
+        gasneti_addr2fd[i].fd = fd;
+        return;
+      }
+    }
+    gasneti_fatalerror("addr2fd table is full");
+  }
+  static int gasneti_addr2fd_del(void *addr) {
+    int i;
+    for (i=0; i<GASNETI_MAPSTBL_LEN; ++i) {
+      if (gasneti_addr2fd[i].addr == addr) {
+        gasneti_addr2fd[i].addr = NULL;
+        return gasneti_addr2fd[i].fd;
+      }
+    }
+    gasneti_fatalerror("address not found in addr2fd table");
+  }
+#endif /* BGQ */
+
 static void gasneti_pshm_unlink(int pshm_rank);
 
 /* create the object/region/segment and return its address */
@@ -507,13 +537,17 @@ static void * gasneti_pshm_mmap(int pshm_rank, void *segbase, size_t segsize) {
     ptr = mmap(segbase, segsize, (PROT_READ|PROT_WRITE), mmap_flags, fd, 0);
   }
 
-  #if !defined(PLATFORM_OS_BGQ) /* seems to reuse the memory otherwise! */
+ #if defined(PLATFORM_OS_BGQ)
+  /* must delay close() untile just before munmap() */
+  if (ptr != MAP_FAILED) {
+    gasneti_addr2fd_add(ptr, fd);
+  } else
+ #endif
   {
     const int save_errno = errno;
     (void) close(fd);
     errno = save_errno;
   }
-  #endif
 #elif defined(GASNETI_PSHM_XPMEM)
   if (create) {
   #if HAVE_HUGETLBFS
@@ -849,6 +883,10 @@ extern void gasneti_munmap(void *segbase, uintptr_t segsize) {
       if (msync(segbase, segsize, MS_INVALIDATE))
         gasneti_fatalerror("msync("GASNETI_LADDRFMT",%lu) failed: %s\n",
 	        GASNETI_LADDRSTR(segbase), (unsigned long)segsize, strerror(errno));
+    #endif
+    #if defined(PLATFORM_OS_BGQ)
+      /* we delayed the close() until now */
+      close(gasneti_addr2fd_del(segbase));
     #endif
     if (munmap(segbase, segsize) != 0) 
       gasneti_fatalerror("munmap("GASNETI_LADDRFMT",%lu) failed: %s\n",
