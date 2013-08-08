@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.h,v $
- *     $Date: 2013/03/12 01:16:24 $
- * $Revision: 1.27 $
+ *     $Date: 2013/08/08 16:52:01 $
+ * $Revision: 1.28 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -228,7 +228,7 @@ void *gasneti_pshm_addr2local(gasnet_node_t node, void *addr) {
 /* Returns amount of memory needed (rounded up to a multiple of the system
  * page size) needed for a new gasneti_pshmnet_t.
  * - Takes the number of nodes in the gasnet supernode.
- * - Reads the GASNET_PSHMNET_QUEUE_MEMORY environment variable, if set.
+ * - Reads the GASNET_PSHM_NETWORK_DEPTH environment variable, if set.
  */
 extern size_t gasneti_pshmnet_memory_needed(gasneti_pshm_rank_t nodes);
 

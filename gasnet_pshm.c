@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.c,v $
- *     $Date: 2013/04/12 01:35:48 $
- * $Revision: 1.60 $
+ *     $Date: 2013/08/08 16:52:01 $
+ * $Revision: 1.61 $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -92,7 +92,6 @@ void *gasneti_pshm_init(gasneti_bootstrapExchangefn_t exchangefn, size_t aux_sz)
   gasneti_assert(gasneti_pshm_firstnode == 0);
   gasneti_assert(gasneti_pshm_mynode == gasneti_mynode);
 #else
-  /* TODO: Allow env var to limit size of a supernode. */
   gasneti_assert(gasneti_nodemap[0] == 0);
   for (i=1; i<gasneti_nodes; ++i) {
     /* Determine if supernode members are numbered contiguously */
