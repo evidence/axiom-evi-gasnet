@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended.c,v $
- *     $Date: 2013/08/07 22:17:11 $
- * $Revision: 1.71 $
+ *     $Date: 2013/08/08 07:23:26 $
+ * $Revision: 1.72 $
  * Description: GASNet Extended API PAMI-conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory
@@ -1297,6 +1297,7 @@ static void gasnete_pdbarr_dispatch(
 
 static void gasnete_pdbarrier_notify(gasnete_coll_team_t team, int id, int flags) {
   gasnete_pdbarrier_t *barr = team->barrier_data;
+  const int is_unnamed = ((flags & GASNETE_BARRIERFLAG_UNNAMED) && barr->barrier_op.cb_done);
   int do_send = 1;
   int phase;
   
@@ -1305,7 +1306,7 @@ static void gasnete_pdbarrier_notify(gasnete_coll_team_t team, int id, int flags
   GASNETE_SPLITSTATE_NOTIFY_ENTER(team);
 
 #if GASNETI_PSHM_BARRIER_HIER
-  if (barr->pshm_data) {
+  if (barr->pshm_data && !is_unnamed) {
     PSHM_BDATA_DECL(pshm_bdata, barr->pshm_data);
     (void)gasnete_pshmbarrier_notify_inner(pshm_bdata, id, flags);
     do_send = !barr->pshm_shift;
@@ -1316,7 +1317,7 @@ static void gasnete_pdbarrier_notify(gasnete_coll_team_t team, int id, int flags
 
   if (do_send) {
     GASNETC_PAMI_LOCK(gasnetc_context);
-    if ((flags & GASNETE_BARRIERFLAG_UNNAMED) && barr->barrier_op.cb_done) {
+    if (is_unnamed) {
       /* launch a non-blocking barrier on the geometry */
       struct gasnete_pdbarrier_state * const state = &barr->state[phase];
       pami_result_t rc;
@@ -1362,7 +1363,7 @@ int gasnete_pdbarrier_finish(
   GASNETE_SPLITSTATE_LEAVE(team);
 
 #if GASNETI_PSHM_BARRIER_HIER
-  if (barr->pshm_data) {
+  if (barr->pshm_data && !((flags & GASNETE_BARRIERFLAG_UNNAMED) && barr->barrier_op.cb_done)) {
     /* Signal any passive peers w/ the final result */
     const PSHM_BDATA_DECL(pshm_bdata, barr->pshm_data);
     pshm_bdata->shared->value = final_value;
@@ -1385,7 +1386,7 @@ static int gasnete_pdbarrier_wait(gasnete_coll_team_t team, int id, int flags) {
   GASNETE_SPLITSTATE_WAIT(team);
 
 #if GASNETI_PSHM_BARRIER_HIER
-  if (barr->pshm_data) {
+  if (barr->pshm_data && !((flags & GASNETE_BARRIERFLAG_UNNAMED) && barr->barrier_op.cb_done)) {
     const int passive_shift = barr->pshm_shift;
     retval = gasnete_pshmbarrier_wait_inner(barr->pshm_data, id, flags, passive_shift);
     if (passive_shift) {
@@ -1417,7 +1418,7 @@ static int gasnete_pdbarrier_try(gasnete_coll_team_t team, int id, int flags) {
   GASNETI_SAFE(gasneti_AMPoll());
 
 #if GASNETI_PSHM_BARRIER_HIER
-  if (barr->pshm_data) {
+  if (barr->pshm_data && !((flags & GASNETE_BARRIERFLAG_UNNAMED) && barr->barrier_op.cb_done)) {
     const int pshm_shift = barr->pshm_shift;
     if (!gasnete_pshmbarrier_try_inner(barr->pshm_data, pshm_shift))
       return GASNET_ERR_NOT_READY;
