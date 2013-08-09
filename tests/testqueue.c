@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testqueue.c,v $
- *     $Date: 2013/03/08 03:19:45 $
- * $Revision: 1.20 $
+ *     $Date: 2013/08/09 23:46:47 $
+ * $Revision: 1.21 $
  * Description: GASNet put/get injection performance test
  *   measures the average non-blocking put/get injection time 
  *   for increasing number of back-to-back operations
@@ -33,6 +33,8 @@ int maxdepth = 0;
 char *tgtmem;
 void *msgbuf;
 gasnet_handle_t *handles;
+gasnet_valget_handle_t *vghandles;
+volatile gasnet_register_value_t regval = 5551212;
 
 #define hidx_ping_shorthandler   201
 #define hidx_ping_medhandler     202
@@ -66,11 +68,12 @@ int help = 0;
 int do_puts = 0, do_gets = 0, do_amshort = 0, do_ammedium = 0, do_amlong = 0;
 int numflavors = 0;
 int numsync = 0;
-int do_bulk = 0, do_nonbulk = 0;
+int do_bulk = 0, do_nonbulk = 0, do_value = 0;
 int do_implicit = 0, do_explicit = 0, do_blocking = 0;
 
 void do_bulkputgets(void);
 void do_nonbulkputgets(void);
+void do_valueputgets(void);
 void do_blockingputgets(void);
 void do_amtests(void);
 
@@ -113,6 +116,9 @@ int main(int argc, char **argv) {
         ++arg;
       } else if (!strcmp(argv[arg], "-n")) {
         do_nonbulk = 1; 
+        ++arg;
+      } else if (!strcmp(argv[arg], "-v")) {
+        do_value = 1; 
         ++arg;
       } else if (!strcmp(argv[arg], "-i")) {
         do_implicit = 1; numsync++;
@@ -157,6 +163,7 @@ int main(int argc, char **argv) {
                "   -l : AMLong\n"
                "   -n : Test non-bulk put/gets\n"
                "   -b : Test bulk put/gets\n"
+               "   -v : Test value-based put/gets\n"
                "   -i : Test implicit-handle put/gets\n"
                "   -e : Test explicit-handle put/gets\n"
                "   -k : Test blocking put/gets\n");
@@ -177,9 +184,10 @@ int main(int argc, char **argv) {
       do_explicit = 1;
       do_blocking = 1;
     }
-    if (!do_bulk && !do_nonbulk) {
+    if (!do_bulk && !do_nonbulk && !do_value) {
       do_bulk = 1;
       do_nonbulk = 1;
+      do_value = 1;
     }
 
     if (!do_implicit && !do_explicit && !do_blocking) {
@@ -246,9 +254,11 @@ int main(int argc, char **argv) {
     BARRIER();
 
     handles = (gasnet_handle_t *) test_malloc(sizeof(gasnet_handle_t) * maxdepth);
+    vghandles = (gasnet_valget_handle_t *) test_malloc(sizeof(gasnet_valget_handle_t) * maxdepth);
 
     do_bulkputgets();
     do_nonbulkputgets();
+    do_valueputgets();
     do_blockingputgets();
     do_amtests();
 
@@ -409,6 +419,29 @@ void do_nonbulkputgets(void) {
                  gasnet_wait_syncnbi_all(), (void)0, 0);
     }
 }
+void do_valueputgets(void) {
+    if (do_puts && do_value && do_explicit) {
+      QUEUE_TEST("gasnet_put_nb_val",
+                 handles[i] = gasnet_put_nb_val(peerproc, tgtmem, regval, payload), 
+                 gasnet_wait_syncnb_all(handles, depth),
+                 (void)0, SIZEOF_GASNET_REGISTER_VALUE_T);
+    }
+
+    if (do_gets && do_value && do_explicit) {
+      QUEUE_TEST("gasnet_get_nb_val",
+                 vghandles[i] = gasnet_get_nb_val(peerproc, tgtmem, payload), 
+                 { for (i=0;i<depth;++i) regval ^= gasnet_wait_syncnb_valget(vghandles[i]); },
+                 (void)0, SIZEOF_GASNET_REGISTER_VALUE_T);
+    }
+
+    if (do_puts && do_value && do_implicit) {
+      QUEUE_TEST("gasnet_put_nbi_val",
+                 gasnet_put_nbi_val(peerproc, tgtmem, regval, payload),
+                 gasnet_wait_syncnbi_all(),
+                 (void)0, SIZEOF_GASNET_REGISTER_VALUE_T);
+    }
+
+}
 void do_blockingputgets(void) {
     if (do_puts && do_nonbulk && do_blocking) {
       QUEUE_TEST("gasnet_put (BLOCKING - represents round-trip latency)", 
@@ -432,6 +465,18 @@ void do_blockingputgets(void) {
       QUEUE_TEST("gasnet_get_bulk (BLOCKING - represents round-trip latency)", 
                  gasnet_get_bulk(msgbuf, peerproc, tgtmem, payload), 
                  (void)0, (void)0, 0);
+    }
+
+    if (do_puts && do_value && do_blocking) {
+      QUEUE_TEST("gasnet_put_val (BLOCKING - represents round-trip latency)", 
+                 gasnet_put_val(peerproc, tgtmem, regval, payload), 
+                 (void)0, (void)0, SIZEOF_GASNET_REGISTER_VALUE_T);
+    }
+
+    if (do_gets && do_value && do_blocking) {
+      QUEUE_TEST("gasnet_get_val (BLOCKING - represents round-trip latency)", 
+                 regval ^= gasnet_get_val(peerproc, tgtmem, payload), 
+                 (void)0, (void)0, SIZEOF_GASNET_REGISTER_VALUE_T);
     }
 }
 void do_amtests(void) {
