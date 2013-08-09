@@ -1,12 +1,13 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testgasnet.c,v $
- *     $Date: 2013/06/20 20:57:50 $
- * $Revision: 1.71 $
+ *     $Date: 2013/08/09 23:39:25 $
+ * $Revision: 1.72 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  */
 
 #include <gasnet.h>
+#include <gasnet_tools.h>
 
 /* limit segsz to prevent stack overflows for seg_everything tests */
 #define TEST_MAXTHREADS 1
@@ -190,19 +191,22 @@ void test_libgasnet_tools(void) {
 }
 /* ------------------------------------------------------------------------------------ */
 int main(int argc, char **argv) {
+  uintptr_t local_segsz, global_segsz;
   int partner;
   
   gasnet_handlerentry_t handlers[] = { EVERYTHING_SEG_HANDLERS() ALLAM_HANDLERS() };
 
   GASNET_Safe(gasnet_init(&argc, &argv));
+  local_segsz = gasnet_getMaxLocalSegmentSize();
+  global_segsz = gasnet_getMaxGlobalSegmentSize();
   #if GASNET_SEGMENT_EVERYTHING
-    assert_always(gasnet_getMaxLocalSegmentSize() == (uintptr_t)-1);
-    assert_always(gasnet_getMaxGlobalSegmentSize() == (uintptr_t)-1);
+    assert_always(local_segsz == (uintptr_t)-1);
+    assert_always(global_segsz == (uintptr_t)-1);
   #else
-    assert_always(gasnet_getMaxLocalSegmentSize() >= gasnet_getMaxGlobalSegmentSize());
-    assert_always(gasnet_getMaxLocalSegmentSize() % GASNET_PAGESIZE == 0);
-    assert_always(gasnet_getMaxGlobalSegmentSize() % GASNET_PAGESIZE == 0);
-    assert_always(gasnet_getMaxGlobalSegmentSize() > 0);
+    assert_always(local_segsz >= global_segsz);
+    assert_always(local_segsz % GASNET_PAGESIZE == 0);
+    assert_always(global_segsz % GASNET_PAGESIZE == 0);
+    assert_always(global_segsz > 0);
   #endif
 #if 0
   assert_always(GASNET_ERR_NOT_INIT == gasnet_init(&argc, &argv)); /* Duplicate init */
@@ -220,6 +224,14 @@ int main(int argc, char **argv) {
   assert(TEST_SEGSZ >= 2*sizeof(int)*NUMHANDLERS_PER_TYPE);
 
   TEST_PRINT_CONDUITINFO();
+  { char lstr[50], gstr[50];
+    gasnett_format_number(local_segsz, lstr, sizeof(lstr), 1);
+    gasnett_format_number(global_segsz, gstr, sizeof(gstr), 1);
+    MSG0(" MaxLocalSegmentSize on node0:  %s\n"
+         " MaxGlobalSegmentSize:          %s",
+         lstr, gstr);
+  }
+  BARRIER();
 
   { int smaj = GASNET_SPEC_VERSION_MAJOR;
     int smin = GASNET_SPEC_VERSION_MINOR;
@@ -238,6 +250,7 @@ int main(int argc, char **argv) {
     }
     printf("]\n"); fflush(stdout);
   }
+  BARRIER();
 
   TEST_BACKTRACE_INIT(argv[0]);
   TEST_BACKTRACE();
