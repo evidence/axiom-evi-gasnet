@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_extended.c,v $
- *     $Date: 2013/08/07 21:09:30 $
- * $Revision: 1.4 $
+ *     $Date: 2013/08/10 18:43:17 $
+ * $Revision: 1.5 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -563,7 +563,7 @@ extern int  gasnete_try_syncnb_all (gasnet_handle_t *phandle, size_t numhandles)
 void
 gasnete_get_nbi_bulk(void *dest, gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG)
 {
-    GASNETI_CHECKPSHM_GET(UNALIGNED,H);
+    GASNETI_CHECKPSHM_GET(UNALIGNED,V);
     {
         gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
         gasnete_iop_t *op = mythread->current_iop;
