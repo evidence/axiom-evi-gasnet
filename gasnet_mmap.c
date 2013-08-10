@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2013/08/08 21:28:28 $
- * $Revision: 1.126 $
+ *     $Date: 2013/08/10 01:49:04 $
+ * $Revision: 1.127 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -444,14 +444,16 @@ extern void gasneti_huge_munmap(void *addr, uintptr_t size) {
 #if GASNET_PSHM
 
 #if defined(PLATFORM_OS_BGQ) /* must delay close until unmap() */
-  #define GASNETI_MAPSTBL_LEN 1024
   static struct {
     void *addr;
     int fd;
-  } gasneti_addr2fd[GASNETI_MAPSTBL_LEN];
+  } *gasneti_addr2fd = NULL;
   static void gasneti_addr2fd_add(void *addr, int fd) {
     int i;
-    for (i=0; i<GASNETI_MAPSTBL_LEN; ++i) {
+    if (NULL == gasneti_addr2fd) {
+       gasneti_addr2fd = gasneti_calloc(1+gasneti_pshm_nodes, sizeof(*gasneti_addr2fd));
+    }
+    for (i=0; i<=gasneti_pshm_nodes; ++i) {
       if (gasneti_addr2fd[i].addr == NULL) {
         gasneti_addr2fd[i].addr = addr;
         gasneti_addr2fd[i].fd = fd;
@@ -462,7 +464,7 @@ extern void gasneti_huge_munmap(void *addr, uintptr_t size) {
   }
   static int gasneti_addr2fd_del(void *addr) {
     int i;
-    for (i=0; i<GASNETI_MAPSTBL_LEN; ++i) {
+    for (i=0; i<=gasneti_pshm_nodes; ++i) {
       if (gasneti_addr2fd[i].addr == addr) {
         gasneti_addr2fd[i].addr = NULL;
         return gasneti_addr2fd[i].fd;
@@ -695,6 +697,10 @@ static void gasneti_cleanup_shm(void) {
     gasneti_free(gasneti_pshmname);
     gasneti_pshmname = NULL;
   }
+  #if defined(PLATFORM_OS_BGQ)
+    gasneti_free(gasneti_addr2fd);
+    gasneti_addr2fd = NULL;
+  #endif
 #elif defined(GASNETI_PSHM_XPMEM)
   gasneti_free(gasneti_pshm_segids);
   gasneti_pshm_segids = NULL;
