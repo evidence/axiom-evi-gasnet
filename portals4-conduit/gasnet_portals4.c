@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4.c,v $
- *     $Date: 2013/08/07 21:09:30 $
- * $Revision: 1.47 $
+ *     $Date: 2013/08/10 18:47:11 $
+ * $Revision: 1.48 $
  * Description: Portals 4 specific configuration
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
@@ -39,8 +39,8 @@ static ptl_handle_me_t am_me_h;
 static ptl_handle_le_t rdma_le_h;
 static ptl_handle_eq_t coll_eq_h;
 static ptl_handle_eq_t eqs_h[3];
-#define am_send_eq_h eqs_h[0]
-#define am_recv_eq_h eqs_h[1]
+#define am_recv_eq_h eqs_h[0]
+#define am_send_eq_h eqs_h[1]
 #define rdma_eq_h eqs_h[2]
 
 static ptl_uid_t uid = PTL_UID_ANY;
@@ -57,9 +57,6 @@ static int p4_am_eq_len = 8192;
 static int p4_poll_limit = 1024;
 
 static p4_am_block_t *p4_am_blocks = NULL;
-/* TODO: This is really just here for debugging; should probably be
-   covered in a debugging macro to save a cycle here or there */
-static int p4_am_enabled = 0;
 static gasnetc_hash p4_long_hash;
 
 struct p4_long_match_t {
@@ -450,14 +447,27 @@ gasnetc_p4_init(gasnet_node_t *rank_p, gasnet_node_t *size_p)
         void * data = gasneti_malloc(p4_am_size);
         gasneti_assert(IS_MED_ALIGNED(data));
         p4_am_blocks[i].data = data;
+
+#ifdef GASNET_PAR
+        ret = PtlCTAlloc(matching_ni_h,
+                         &p4_am_blocks[i].ct_h);
+        if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlCTAlloc(AM block)");
+        gasneti_weakatomic_set(&p4_am_blocks[i].op_count, 0, 0);
+#endif
+
         me.start = data;
         me.length = p4_am_size;
         me.min_free = P4_AM_MAX_DATA_LENGTH;
-        me.ct_handle = PTL_CT_NONE;
         me.uid = uid;
         me.options = PTL_ME_OP_PUT | PTL_ME_MANAGE_LOCAL |
             PTL_ME_MAY_ALIGN | PTL_ME_IS_ACCESSIBLE | 
             PTL_ME_EVENT_LINK_DISABLE;
+#ifdef GASNET_PAR
+        me.ct_handle = p4_am_blocks[i].ct_h;
+        me.options |= PTL_ME_EVENT_CT_COMM;
+#else
+        me.ct_handle = PTL_CT_NONE;
+#endif
         me.match_id.rank = PTL_RANK_ANY;
         me.match_bits = ACTIVE_MESSAGE;
         me.ignore_bits = AM_REQREP_BITS;
@@ -469,7 +479,6 @@ gasnetc_p4_init(gasnet_node_t *rank_p, gasnet_node_t *size_p)
                           &p4_am_blocks[i].me_h);
         if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlMEAppend(AM block)");
     }
-    p4_am_enabled = 1;
 
     /* Configure the barrier memory descriptor now, so that we can
        rely on it working from here on out... */
@@ -588,6 +597,10 @@ gasnetc_p4_exit(void)
     PtlCTFree(bootstrap_barrier_ct_h);
 
     for (i = 0 ; i < p4_am_num_entries ; ++i) {
+#ifdef GASNET_PAR
+        PtlCTFree(p4_am_blocks[i].ct_h);
+#endif
+
         ret = PtlMEUnlink(p4_am_blocks[i].me_h);
         if (PTL_OK == ret) {
             /* if we didn't unlink, don't free the data, as the unlink
@@ -746,6 +759,9 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size, unsigned int limit
                     int nbytes = GET_PAYLOAD_LENGTH(ev.match_bits);
                     int numargs = GET_ARG_COUNT(ev.match_bits);
                     int handler = GET_HANDLERID(ev.match_bits);
+#if GASNET_PAR
+                    p4_am_block_t *block = (p4_am_block_t*) ev.user_ptr;
+#endif
 
                     gasneti_assert(IS_MED_ALIGNED(ev.mlength));
 
@@ -874,6 +890,10 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size, unsigned int limit
                         gasneti_fatalerror("unknown active message type.  MB: 0x%lx",
                                            (unsigned long)ev.match_bits);
                     }
+#ifdef GASNET_PAR
+                    gasneti_weakatomic_add(&block->op_count, 1, 0);
+#endif
+
                 } else {
 		  /* the payload part of a long message */
 		  int isReq = ((IS_AM_REQUEST(ev.match_bits)) ? 1 : 0);
@@ -1068,27 +1088,51 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size, unsigned int limit
                PT that generated the disabled (if both PTs went down,
                we'll get two events, handling that case
                automagically). */
-            p4_am_enabled = 0;
             ret = p4_poll(eq_ptr, 1, 0); /* Fully drain this queue */
             if_pf (GASNET_OK != ret) gasneti_fatalerror("failed p4_poll() call to drain am_recv_eq");
             ret = PtlPTEnable(matching_ni_h, ev.pt_index);
             if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlPTEnable()");
-            p4_am_enabled = 1;
             break;
 
         case PTL_EVENT_AUTO_UNLINK:
             {
                 p4_am_block_t *block = (p4_am_block_t*) ev.user_ptr;
                 ptl_me_t me;
+#ifdef GASNET_PAR
+                ptl_ct_event_t ct;
+                gasneti_weakatomic_val_t val;
+
+                PtlCTGet(block->ct_h, &ct);
+                val = gasneti_weakatomic_read(&block->op_count, 0);
+                while (ct.success + ct.failure > val) {
+                    /* If we're here, there are messages that have
+                       been delivered into the ME that have not yet
+                       been processed.  Therefore, we need to wait
+                       until the other thread finishes processing the
+                       events associated with this ME */
+                    fprintf(stderr, "%03d: spinning waiting for block to finish %ld, %ld\n",
+                            gasneti_mynode, ct.success + ct.failure, val);
+                    GASNETI_WAITHOOK();
+                    val = gasneti_weakatomic_read(&block->op_count, 0);
+                }
+                ct.success = ct.failure = 0;
+                PtlCTSet(block->ct_h, ct);
+                gasneti_weakatomic_set(&block->op_count, 0, 0);
+#endif
                 
                 me.start = block->data;
                 me.length = p4_am_size;
                 me.min_free = P4_AM_MAX_DATA_LENGTH;
-                me.ct_handle = PTL_CT_NONE;
                 me.uid = uid;
                 me.options = PTL_ME_OP_PUT | PTL_ME_MANAGE_LOCAL |
                     PTL_ME_MAY_ALIGN | PTL_ME_IS_ACCESSIBLE | 
                     PTL_ME_EVENT_LINK_DISABLE;
+#ifdef GASNET_PAR
+                me.ct_handle = block->ct_h;
+                me.options |= PTL_LE_EVENT_CT_COMM;
+#else
+                me.ct_handle = PTL_CT_NONE;
+#endif
                 me.match_id.rank = PTL_RANK_ANY;
                 me.match_bits = ACTIVE_MESSAGE;
                 me.ignore_bits = AM_REQREP_BITS;

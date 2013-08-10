@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4.h,v $
- *     $Date: 2013/08/07 21:09:30 $
- * $Revision: 1.9 $
+ *     $Date: 2013/08/10 18:47:11 $
+ * $Revision: 1.10 $
  * Description: Portals 4 specific configuration
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
@@ -85,6 +85,8 @@ typedef struct gasnetc_p4_token_t gasnetc_p4_token_t;
    p4_am_num_entriess. */
 struct p4_am_block_t {
     ptl_handle_me_t me_h;
+    ptl_handle_ct_t ct_h;
+    gasneti_weakatomic_t op_count;
     void *data;
 };
 typedef struct p4_am_block_t p4_am_block_t;
