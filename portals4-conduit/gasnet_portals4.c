@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4.c,v $
- *     $Date: 2013/08/10 18:47:11 $
- * $Revision: 1.48 $
+ *     $Date: 2013/08/10 19:41:41 $
+ * $Revision: 1.49 $
  * Description: Portals 4 specific configuration
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
@@ -54,6 +54,7 @@ static int p4_am_size = 1 * 1024 * 1024;
 static int p4_am_num_entries = 16;
 
 static int p4_am_eq_len = 8192;
+static int p4_rdma_eq_len = 8192;
 static int p4_poll_limit = 1024;
 
 static p4_am_block_t *p4_am_blocks = NULL;
@@ -240,6 +241,7 @@ gasnetc_p4_init(gasnet_node_t *rank_p, gasnet_node_t *size_p)
     p4_am_size = gasneti_getenv_int_withdefault("GASNET_AM_BUFFER_SIZE", p4_am_size, 0);
     p4_am_num_entries = gasneti_getenv_int_withdefault("GASNET_AM_NUM_ENTRIES", p4_am_num_entries, 0);
     p4_am_eq_len = gasneti_getenv_int_withdefault("GASNET_AM_EVENT_QUEUE_LENGTH", p4_am_eq_len, 0);
+    p4_rdma_eq_len = gasneti_getenv_int_withdefault("GASNET_EXTENDED_EVENT_QUEUE_LENGTH", p4_rdma_eq_len, 0);
     p4_poll_limit = p4_am_eq_len / 8; /* arbitrary */
 
     ret = gasneti_bootstrapInit_pmi(NULL, NULL, size_p, rank_p);
@@ -346,9 +348,9 @@ gasnetc_p4_init(gasnet_node_t *rank_p, gasnet_node_t *size_p)
     ret = PtlEQAlloc(matching_ni_h, 1024, &coll_eq_h);
     if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlEQAlloc(coll)");
 
-    ret = PtlEQAlloc(nonmatching_ni_h, p4_am_eq_len, &rdma_eq_h);
+    ret = PtlEQAlloc(nonmatching_ni_h, p4_rdma_eq_len, &rdma_eq_h);
     if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlEQAlloc(rdma)");
-    gasneti_semaphore_init(&p4_rdma_credits, p4_am_eq_len - 1, p4_am_eq_len - 1);
+    gasneti_semaphore_init(&p4_rdma_credits, p4_rdma_eq_len, p4_rdma_eq_len);
 
     /* allocate portal table entries */
     ret = PtlPTAlloc(matching_ni_h,
@@ -1076,6 +1078,16 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size, unsigned int limit
             }
             break;
 
+        case PTL_EVENT_GET:
+            if_pf (PTL_OK != ev.ni_fail_type) {
+                gasneti_fatalerror("[%03d] event of type %d failed %d", 
+                                   gasneti_mynode, ev.type, ev.ni_fail_type);
+            } else {
+                gasneti_fatalerror("[%03d] unexpected event of type %d", 
+                                   gasneti_mynode, ev.type);
+            }
+            break;
+
         case PTL_EVENT_PT_DISABLED:
             /* Either the receive queue ran out of space or the am
                space filled (note that while the long_data pt can be
@@ -1357,7 +1369,7 @@ gasnetc_rdma_put(gasnet_node_t node, void *dest, void *src, size_t nbytes,
     while (0 == gasneti_semaphore_trydown_n(&p4_rdma_credits, 1)) {
         /* drain the rdma queue (make sure to get as many slots as
            possible) */
-        ret = p4_poll(&rdma_eq_h, 1, p4_am_eq_len); /* TODO: send_eq len when distinct */
+        ret = p4_poll(&rdma_eq_h, 1, p4_rdma_eq_len); /* TODO: send_eq len when distinct */
         if (GASNET_OK != ret) abort();
     }
 
@@ -1391,7 +1403,7 @@ gasnetc_rdma_put_wait(gasnet_handle_t oph)
             /* Progress shared-memory Request and Reply queues while we wait */
             gasneti_AMPSHMPoll(0);
 #endif
-            ret = p4_poll(&rdma_eq_h, 1, p4_am_eq_len);
+            ret = p4_poll(&rdma_eq_h, 1, p4_rdma_eq_len);
             if (GASNET_OK != ret) abort();
             GASNETI_WAITHOOK();
         }
@@ -1402,7 +1414,7 @@ gasnetc_rdma_put_wait(gasnet_handle_t oph)
             /* Progress shared-memory Request and Reply queues while we wait */
             gasneti_AMPSHMPoll(0);
 #endif
-            ret = p4_poll(&rdma_eq_h, 1, p4_am_eq_len);
+            ret = p4_poll(&rdma_eq_h, 1, p4_rdma_eq_len);
             if (GASNET_OK != ret) abort();
             GASNETI_WAITHOOK();
         }
@@ -1424,7 +1436,7 @@ gasnetc_rdma_get(void *dest, gasnet_node_t node, void * src, size_t nbytes,
     while (0 == gasneti_semaphore_trydown_n(&p4_rdma_credits, 1)) {
         /* drain the rdma queue (make sure to get as many slots as
            possible) */
-        ret = p4_poll(&rdma_eq_h, 1, p4_am_eq_len); /* TODO: send_eq len when distinct */
+        ret = p4_poll(&rdma_eq_h, 1, p4_rdma_eq_len); /* TODO: send_eq len when distinct */
         if (GASNET_OK != ret) abort();
     }
 
