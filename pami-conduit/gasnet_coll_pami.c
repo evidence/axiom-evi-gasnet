@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami.c,v $
- *     $Date: 2013/05/31 08:08:04 $
- * $Revision: 1.35 $
+ *     $Date: 2013/08/10 03:40:11 $
+ * $Revision: 1.36 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -252,7 +252,7 @@ gasnetc_dflt_coll_alg(pami_geometry_t geom, pami_xfer_type_t op, pami_algorithm_
   *alg_p = algorithms[alg];
 }
 
-static void bootstrap_collective(pami_xfer_t *op_p) {
+static void native_collective(pami_xfer_t *op_p) {
   pami_result_t rc;
   volatile unsigned int counter = 0;
 
@@ -261,10 +261,14 @@ static void bootstrap_collective(pami_xfer_t *op_p) {
   op_p->options.multicontext = PAMI_HINT_DISABLE;
 
   rc = PAMI_Collective(gasnetc_context, op_p);
-  GASNETC_PAMI_CHECK(rc, "initiating a bootstrap collective");
+  GASNETC_PAMI_CHECK(rc, "initiating a native collective");
 
-  rc = gasnetc_wait_uint(gasnetc_context, &counter, 1);
-  GASNETC_PAMI_CHECK(rc, "polling a bootstrap collective");
+  if (gasneti_attach_done) {
+    gasneti_polluntil(counter);
+  } else {
+    rc = gasnetc_wait_uint(gasnetc_context, &counter, 1);
+    GASNETC_PAMI_CHECK(rc, "polling a native collective");
+  }
 }
 
 extern void
@@ -278,7 +282,7 @@ gasnetc_fast_barrier_nothr(void) {
     is_init = 1;
   }
 
-  bootstrap_collective(&op);
+  native_collective(&op);
 }
 
 extern void
@@ -306,7 +310,7 @@ gasnetc_bootstrapExchange(void *src, size_t len, void *dst) {
   op.cmd.xfer_allgather.rtype      = PAMI_TYPE_BYTE;
   op.cmd.xfer_allgather.rtypecount = len; /* times gasneti_nodes */
 
-  bootstrap_collective(&op);
+  native_collective(&op);
 }
 
 /* ------------------------------------------------------------------------------------ */
