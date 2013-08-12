@@ -1,11 +1,16 @@
 GASNet ChangeLog 
 ----------------
-$Revision: 1.76 $
+$Revision: 1.77 $
 
 ----------------------------------------------------------------------
 10-??-2013 : Release 1.22.0
 
 PLACEHOLDER
+
+* IBM BG/Q (pami-conduit)
+  - Support for intra-node shared memory communication (PHSM) is now
+    available on BlueGene/Q.  Please see docs/pshm-design.txt for
+    details of the configuration and environment setup required.
 
 * Portable UDP support (udp-conduit)
   - Support MASTERIP and WORKERIP settings to deal with a much wider

@@ -1,6 +1,6 @@
 GASNet inter-Process SHared Memory (PSHM) design
 ---------------------------------------------
-$Revision: 1.17 $
+$Revision: 1.18 $
 
 Document by:
     Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -304,6 +304,7 @@ Status:
     - FreeBSD 8/i386      smp
     - FreeBSD 8/amd64     smp
     - IBM BG/P            smp, dcmf
+    - IBM BG/Q            smp, pami
   We have no reason to think that any conduit listed above would NOT support
   PSHM on any OS/cpu above (assuming the conduit works on that platform at all).
 * IBM BG/P platform-specific notes:
@@ -323,6 +324,17 @@ Status:
     when using Berkeley UPC's upcrun command:
       UPC_SHARED_HEAP_SIZE=400M
       BG_SHAREDMEMPOOLSIZE=810
+* IBM BG/Q platform-specific notes:
+  - Currently one must manually set up a few things to use PSHM on BG/Q
+    + Must set CROSS_HAVE_SHM_OPEN=1 on configure command line
+    + BG_SHAREDMEMSIZE env var must be set to fit the shared segment plus
+      extra for Active Message buffers
+  - Example environment variable settings for 200MB shared heap in "c4"
+    mode when using Berkeley UPC's upcrun command:
+      BG_SHAREDMEMSIZE=820
+  - Example environment variable settings for 400MB shared heap in "c2"
+    mode when using Berkeley UPC's upcrun command:
+      BG_SHAREDMEMSIZE=810
 * Cray XT and XE platform-specific notes:
   - Portals conduit supports PSHM on the Cray XT
   - We have no native conduit for the Cray XE, but mpi-conduit is supported
