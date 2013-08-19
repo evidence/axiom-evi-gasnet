@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_internal.h,v $
- *     $Date: 2013/06/30 22:27:14 $
- * $Revision: 1.42 $
+ *     $Date: 2013/08/19 20:44:46 $
+ * $Revision: 1.43 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -173,9 +173,11 @@ void SET_OPSTATE(gasnete_eop_t *op, uint8_t state) {
   #define gasnete_iop_check(iop)   ((void)0)
 #endif
 
+#ifndef GASNETE_IOP_CNTDONE
 #define GASNETE_IOP_CNTDONE(_iop, _putget) \
   (gasneti_weakatomic_read(&(_iop)->completed_##_putget##_cnt, 0) \
           == ((_iop)->initiated_##_putget##_cnt & GASNETI_ATOMIC_MAX))
+#endif
 
 #if GASNETE_EOP_COUNTED
   #define GASNETE_EOP_DONE(_eop) \
