@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2013/08/20 22:10:43 $
-dnl $Revision: 1.171 $
+dnl     $Date: 2013/08/20 22:54:12 $
+dnl $Revision: 1.172 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -2062,6 +2062,7 @@ else
   case "$_gasnet_gcc_version_string" in
     *gccfss*) $2_SUBFAMILY='GCCFSS';;
     *) GASNET_IFDEF(__APPLE_CC__, [$2_SUBFAMILY='APPLE'])
+       GASNET_IFDEF(__NVCC__, [$2_SUBFAMILY='NVIDIA'])
        ;;
   esac
 fi
