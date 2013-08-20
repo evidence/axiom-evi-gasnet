@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2013/08/02 06:34:43 $
-# $Revision: 1.817 $
+#     $Date: 2013/08/20 22:10:43 $
+# $Revision: 1.818 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.817 $)
+AC_REVISION($Revision: 1.818 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -161,17 +161,10 @@ GASNET_FAMILY_CACHE_CHECK(C, CC, gasnet_cv_cc_family)
 
 case "$gasnet_cv_cc_family" in
   GNU)  GASNET_GCC_VERSION_CHECK(CC)
-        GASNET_TRY_CACHE_EXTRACT_STR([for gcc version string],gcc_version_string,[
-          #ifndef __VERSION__
-            #define __VERSION__ "unknown"
-          #endif
-         ],[__VERSION__],[GASNETI_GCC_VERSION])
-        case "$GASNETI_GCC_VERSION" in
-          *gccfss*) AC_DEFINE(GASNETI_GCC_GCCFSS) ;;
+        case "$CC_SUBFAMILY" in
+          GCCFSS) AC_DEFINE(GASNETI_GCC_GCCFSS) ;;
+          APPLE) AC_DEFINE(GASNETI_GCC_APPLE) ;;
         esac
-        GASNET_IFDEF(__APPLE_CC__,[
-          AC_DEFINE(GASNETI_GCC_APPLE)
-        ])
         ;;
   MTA)  # override target_os for MTA, which may be wrong if cross-compiling
         target_os="mtx"   ;;
