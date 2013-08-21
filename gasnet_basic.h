@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2013/06/14 00:12:53 $
- * $Revision: 1.119 $
+ *     $Date: 2013/08/21 07:51:32 $
+ * $Revision: 1.120 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -531,7 +531,11 @@
 /* GASNETI_NEVER_INLINE: Most forceful demand available to disable inlining for function.
  */
 #if GASNETT_USE_GCC_ATTRIBUTE_NOINLINE
+ #ifdef __noinline__ /* e.g. nvcc's host_defines */
+  #define GASNETI_NEVER_INLINE(fnname,declarator) __attribute__((noinline)) declarator
+ #else
   #define GASNETI_NEVER_INLINE(fnname,declarator) __attribute__((__noinline__)) declarator
+ #endif
 #elif PLATFORM_COMPILER_SUN_C
   #define GASNETI_NEVER_INLINE(fnname,declarator) declarator; GASNETI_PRAGMA(no_inline(fnname)) declarator
 #elif PLATFORM_COMPILER_CRAY
