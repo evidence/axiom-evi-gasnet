@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2013/08/21 03:12:10 $
-# $Revision: 1.820 $
+#     $Date: 2013/08/21 17:08:09 $
+# $Revision: 1.821 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.820 $)
+AC_REVISION($Revision: 1.821 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -159,7 +159,7 @@ GASNET_FAMILY_CACHE_CHECK(C, CC, gasnet_cv_cc_family)
 
 ## compiler family early initialization
 
-case "$gasnet_cv_cc_family" in
+case "$CC_FAMILY" in
   GNU)  GASNET_GCC_VERSION_CHECK(CC)
         gcc_flag_prefix=''
         gcc_flag_delim=' '
@@ -216,7 +216,7 @@ AC_DEFUN([GASNET_TRY_WNO_FLAG],[
         ]GASNET_TRY_[$1]FLAG[([$2],
             ]GASNET_TRY_[$1]FLAG[(patsubst([$2],[Wno-],[W]),[$3]))])
 
-case "$gasnet_cv_cc_family" in
+case "$CC_FAMILY" in
   GNU)  GASNET_PUSHVAR(CFLAGS,"-O3")
 	# prefer the --param inliner option(s), which give us finer control
         GASNET_TRY_CFLAG([${gcc_flag_prefix}--param${gcc_flag_delim}max-inline-insns-single=35000],
@@ -392,7 +392,7 @@ AC_DEFUN([GASNET_GET_GNUWARNINGFLAGS],[
         #]GASNET_TRY_[$1]FLAG[([-ansi -U__STRICT_ANSI__],[[$1]FLAGS="$[$1]FLAGS -ansi -U__STRICT_ANSI__"])
 ])
 
-case "$gasnet_cv_cc_family" in
+case "$CC_FAMILY" in
   GNU)  GASNET_PUSHVAR(CFLAGS,"${gcc_flag_prefix}-g3")
         case "$target_os" in
           darwin*) # Want -gstabs+ instead of -g3, if supported
@@ -587,7 +587,7 @@ AC_DEFUN([GASNET_GET_HPUX_FLAGS],[
 ])
 
 
-case "$gasnet_cv_cc_family" in
+case "$CC_FAMILY" in
   GNU)
     case "$target_cpu" in
       sparc) GASNET_GET_ULTRASPARC_FLAGS(C,["-mcpu=ultrasparc3 -mtune=ultrasparc3" "-mcpu=ultrasparc -mtune=ultrasparc"]);;
@@ -632,7 +632,7 @@ case "$gasnet_cv_cc_family" in
   *)   MISC_CFLAGS="" ;;
 esac
 
-case "$gasnet_cv_cc_family" in
+case "$CC_FAMILY" in
   XLC) MISC_CPPFLAGS="-qcpluscmt" ;; # tell preprocessor to allow C++-style comments
   PGI) MISC_CPPFLAGS="-B" ;; # C++ comments
   Sun) MISC_CPPFLAGS="-xCC" ;; # C++ comments
@@ -757,7 +757,7 @@ esac
 AC_SUBST(MISC_CFLAGS)	      # warning suppression and other misc C flags
 AC_SUBST(MISC_CPPFLAGS)	      # misc preprocessor flags
 
-case "$gasnet_cv_cc_family" in
+case "$CC_FAMILY" in
   GNU) KEEPTMP_CFLAGS="-save-temps" ;;
   Pathscale) KEEPTMP_CFLAGS="-keep" ;;
   Open64) KEEPTMP_CFLAGS="-keep" ;;
@@ -842,7 +842,7 @@ AC_DEFUN([GASNET_INLINE_MODIFIER],[
 pushdef([lowername],translit($2,'A-Z','a-z'))
 pushdef([uppername],translit($2,'a-z','A-Z'))
 inlinemod=""
-case "$gasnet_cv_[]lowername[]_family" in
+case "$[]uppername[]_FAMILY" in
   Compaq) # force __inline on Compaq C, because it's the most effective
     inlinemod=__inline
   ;;
@@ -1076,7 +1076,7 @@ case "$target_os" in
         GASNET_THREAD_LIBS="-pthread" # bug 1205: do not explicitly select threading lib
 	;;
   openbsd*) 
-	case "$gasnet_cv_cc_family" in
+	case "$CC_FAMILY" in
   	GNU)  GASNET_THREAD_DEFINES="-pthread -D_REENTRANT" # _REENTRANT probably redundant
 	      GASNET_THREAD_LIBS="-pthread" # bug 1205: do not explicitly select threading lib
 	      ;;
@@ -1226,7 +1226,7 @@ else
   GASNET_IF_ENABLED_WITH_AUTO(tls, Enable/disable use of thread-local storage extensions (ie __thread) (auto-detected),
     enabled_tls=yes, enabled_tls=no, enabled_tls=probe)
   if test "$enabled_tls" != "no" ; then
-    case "$gasnet_cv_cc_family-$target_cpu" in
+    case "$CC_FAMILY-$target_cpu" in
       Sun-i*86) have_tls=no ;; # __thread causes sunC 5.7 for x86 to crash on libgasnet-par
       *) 
       GASNET_CHECK_TLS_SUPPORT([ 
@@ -2178,7 +2178,7 @@ dnl GASNET_TOOLSONLY_TRUE_END
 #---------------------------------------------------------------------------------------------------------------
 dnl find proper CFLAGS for compiling firehose library
 AC_DEFUN([GASNET_FH_CFLAGS],[
-  case "$gasnet_cv_cc_family" in
+  case "$CC_FAMILY" in
           GNU) fh_cflags_default="${gcc_flag_prefix}-fno-strict-aliasing";;
     Pathscale) fh_cflags_default="-fno-strict-aliasing";;
        Open64) fh_cflags_default="-fno-strict-aliasing";;
@@ -2299,7 +2299,7 @@ AC_DEFUN([GASNET_ID_OTHER_COMPILER],[
   GASNET_GET_PLATFORM_ID([$1],[$2 compiler])
   GASNET_FAMILY_CACHE_CHECK([$2], [$1], gasnet_cv_[]lowername[]_family)
   mismatch=""
-  if test x"$gasnet_cv_[]lowername[]_family" != x"$gasnet_cv_cc_family"; then
+  if test x"$[$1]_FAMILY" != x"$CC_FAMILY"; then
     mismatch="families"
   elif test x"$gasnet_cv_PLATFORM_[$1]_VERSION" != x"$gasnet_cv_PLATFORM_COMPILER_VERSION"; then
     mismatch="version codes"
@@ -2430,7 +2430,7 @@ if test $enabled_udp = yes; then
   CXXDEBUGFLAGS="-g"
   CXXOPTFLAGS="-O2"
   GASNET_UDP_LIBS=""
-  case "$gasnet_cv_cxx_family" in
+  case "$CXX_FAMILY" in
     GNU) 
        GASNET_GCC_VERSION_CHECK(CXX)
        gxx_flag_prefix=''
@@ -2573,7 +2573,7 @@ if test $enabled_udp = yes; then
   # Apple's gcc/g++ don't provide TLS support, but the FSF gcc/g++ do.
   # The two are link compatible IF we explicitly pass -lgcc_eh
   # XXX: Really only needed for PAR and PARSYNC, but we don't distinguish.
-  if test "$cxx_helper_worked$have_tls$gasnet_cv_cc_family" = noyesGNU; then
+  if test "$cxx_helper_worked$have_tls$CC_FAMILY" = noyesGNU; then
     LIBS="$LIBS $LIBGCC -lgcc_eh"  # $LIBGCC appears in $GASNET_LIBS eventually
     GASNET_LINKHELPER_TRY_RUN(for working C++ to C linkage w/ added -lgcc_eh,
         cxx_works_gcc_eh, [],[],
@@ -2695,7 +2695,7 @@ if test "$enabled_mpi" = yes || test "$enabled_mpi_compat" = yes; then
 	  GASNET_ENV_DEFAULT(MPIRUN_CMD, mpirun -np %N %C)
         elif test -n "$GASNETI_ARCH_IBMPE"; then
           gasnet_mpcc="mpcc -m$GASNETI_PTR_BITS"
-          case "$gasnet_cv_cc_family" in
+          case "$CC_FAMILY" in
                   GNU) gasnet_mpcc="$gasnet_mpcc -compiler gnu";;
                   XLC) gasnet_mpcc="$gasnet_mpcc -compiler xl";;
                 Intel) gasnet_mpcc="$gasnet_mpcc -compiler intel";;
@@ -2844,7 +2844,7 @@ if test "$enabled_mpi" = yes || test "$enabled_mpi_compat" = yes; then
     # Apple's gcc (and thus their mpicc) doesn't provide TLS support, but the
     # FSF gcc does.  The two are link compatible IF we explicitly pass -lgcc_eh
     # XXX: Really only needed for PAR and PARSYNC, but we don't distinguish.
-    if test "$mpi_test_worked$have_tls$gasnet_cv_cc_family" = noyesGNU; then
+    if test "$mpi_test_worked$have_tls$CC_FAMILY" = noyesGNU; then
       LIBS="$LIBS $LIBGCC -lgcc_eh"  # $LIBGCC appears in $GASNET_LIBS eventually
       GASNET_LINKHELPER_TRY_LINK(for working MPI configuration w/ added -lgcc_eh, mpi_works_gcc_eh, [
         #include <mpi.h>
@@ -3944,7 +3944,7 @@ if test "$enabled_portals" = yes; then
       ;;
   esac
 
-  if test "$gasnet_cv_cc_family" != GNU; then
+  if test "$CC_FAMILY" != GNU; then
     # bug 1584 - non-GNU compilers don't support portals until PE v1.5
     if test -z "$XTOS_VERSION" ; then
       for val in "$PE_DIR" "$PRGENV_DIR" "$OS_DIR" "$CATAMOUNT_DIR" ; do
@@ -5425,7 +5425,7 @@ case "$target_os" in
   ;;
 
   irix*)
-    case "$gasnet_cv_cc_family" in
+    case "$CC_FAMILY" in
       MIPS) LDFLAGS="$LDFLAGS -LD_MSG:off=84" # don't warn about unused libm
       ;;
       GNU) LDFLAGS="$LDFLAGS -Wl,-LD_MSG:off=84" # don't warn about unused libm
@@ -5442,7 +5442,7 @@ AC_SUBST(LDFLAGS)
 
 GASNET_IF_ENABLED(strict-prototypes, [Use strict prototypes in GASNet headers (at the expense of slight deviation from the specification)], [
   AC_DEFINE(GASNET_USE_STRICT_PROTOTYPES)
-  case "$gasnet_cv_cc_family" in
+  case "$CC_FAMILY" in
   GNU|Pathscale|Open64)
         dnl Consistent w/ other GNU warning flags:
         dnl    CFLAGS and MPI_CFLAGS get the flag only for a debug build
