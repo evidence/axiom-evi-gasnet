@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2013/08/21 00:11:13 $
-# $Revision: 1.819 $
+#     $Date: 2013/08/21 03:12:10 $
+# $Revision: 1.820 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.819 $)
+AC_REVISION($Revision: 1.820 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -396,7 +396,7 @@ case "$gasnet_cv_cc_family" in
   GNU)  GASNET_PUSHVAR(CFLAGS,"${gcc_flag_prefix}-g3")
         case "$target_os" in
           darwin*) # Want -gstabs+ instead of -g3, if supported
-            GASNET_TRY_CFLAG([${gcc_flag_prefix}-gstabs+], [CFLAGS='${gcc_flag_prefix}-gstabs+'])
+            GASNET_TRY_CFLAG([${gcc_flag_prefix}-gstabs+], [CFLAGS="${gcc_flag_prefix}-gstabs+"])
             ;;
         esac
         GASNET_GET_GNUWARNINGFLAGS(C)
@@ -597,8 +597,8 @@ case "$gasnet_cv_cc_family" in
     case "$target_os" in
       hpux*) GASNET_GET_HPUX_FLAGS(C,["-D__STDC_EXT__=1"]);;
       darwin*) 
-        GASNET_TRY_WNO_FLAG([C],[-Wno-long-double],
-                            [MISC_CFLAGS="$MISC_CFLAGS -Wno-long-double"])
+        GASNET_TRY_WNO_FLAG([C],[${gcc_flag_prefix}-Wno-long-double],
+                            [MISC_CFLAGS="$MISC_CFLAGS ${gcc_flag_prefix}-Wno-long-double"])
       ;; 
     esac
     ;;
@@ -640,8 +640,8 @@ case "$gasnet_cv_cc_family" in
   GNU)
     case "$target_os" in
       darwin*) # add some options which are specific to the Apple Inc version of gcc
-        GASNET_TRY_CFLAG([-no-cpp-precomp],
-                         [MISC_CPPFLAGS="$MISC_CPPFLAGS -no-cpp-precomp"])
+        GASNET_TRY_CFLAG([${gcc_flag_prefix}-no-cpp-precomp],
+                         [MISC_CPPFLAGS="$MISC_CPPFLAGS ${gcc_flag_prefix}-no-cpp-precomp"])
       ;; 
     esac ;;
   *)  MISC_CPPFLAGS="" ;;
@@ -2451,7 +2451,7 @@ if test $enabled_udp = yes; then
        GASNET_PUSHVAR(CXXFLAGS,"${gxx_flag_prefix}-g3")
        case "$target_os" in
          darwin*) # Want -gstabs+ instead of -g3, if supported
-           GASNET_TRY_CXXFLAG([${gxx_flag_prefix}-gstabs+], [CXXFLAGS='${gxx_flag_prefix}-gstabs+'])
+           GASNET_TRY_CXXFLAG([${gxx_flag_prefix}-gstabs+], [CXXFLAGS="${gxx_flag_prefix}-gstabs+"])
            ;;
        esac
        GASNET_GET_GNUWARNINGFLAGS(CXX)
@@ -5409,13 +5409,18 @@ case "$target_os" in
     # Darwin linker complains about symbols defined in multiple dynamic libs.
     # This is a minor annoyance in some cases, however it becomes a fatal error
     # when linking with the mpich libs.
-    LDFLAGS="$LDFLAGS -Wl,-multiply_defined,suppress"
+    if test "$CC_FAMILY$CC_SUBFAMILY" = 'GNUNVIDIA'; then
+      dash_Wl='-Xlinker '
+    else
+      dash_Wl='-Wl,'
+    fi
+    LDFLAGS="$LDFLAGS ${dash_Wl}-multiply_defined,suppress"
 
     # Darwin 11 (MacOSX Lion) and newer use address-space randomization by default
     # TODO: should this be ommitted if aligned segments have been disabled?
-    tmp_ver=`expr "$target_os" : "darwin\([[0-9]]*\)" >/dev/null`
+    tmp_ver=`expr "$target_os" : 'darwin\([[0-9]]*\)' 2>/dev/null`
     if expr $tmp_ver \>= 11 >/dev/null; then
-      LDFLAGS="$LDFLAGS -Wl,-no_pie"
+      LDFLAGS="$LDFLAGS ${dash_Wl}-no_pie"
     fi
   ;;
 
