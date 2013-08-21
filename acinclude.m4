@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2013/08/20 22:54:12 $
-dnl $Revision: 1.172 $
+dnl     $Date: 2013/08/21 00:11:13 $
+dnl $Revision: 1.173 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -492,7 +492,14 @@ AC_REQUIRE([AC_PROG_CC])
 AC_CACHE_CHECK(for libgcc link flags, cv_prefix[]lib_gcc,
 [if test "$GCC" = yes; then
   #LIBGCC="`$CC -v 2>&1 | sed -n 's:^Reading specs from \(.*\)/specs$:-L\1 -lgcc:p'`"
-  LIBGCC="-L`$CC -print-libgcc-file-name | xargs dirname` -lgcc"
+  if test "$CC_SUBFAMILY" = 'NVIDIA'; then
+    rm -f "gasnet-conftest.$ac_ext"
+    echo 'int foo;' > "gasnet-conftest.$ac_ext"
+    LIBGCC="-L`$CC -c gasnet-conftest.$ac_ext -Xcompiler -print-libgcc-file-name | xargs dirname` -lgcc"
+    rm -f "gasnet-conftest.*"
+  else
+    LIBGCC="-L`$CC -print-libgcc-file-name | xargs dirname` -lgcc"
+  fi
   if test -z "$LIBGCC"; then
     GASNET_MSG_ERROR(cannot find libgcc)
   fi
