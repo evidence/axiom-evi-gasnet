@@ -44,8 +44,8 @@ GASNET_AM_NUM_ENTRIES=<count>
 GASNET_AM_EVENT_QUEUE_LENGTH=<count>
   Number of event queue entries in the send and receive event queues
   for active messages.  Default is 8192 and the value should be a
-  power of two.  The number of outstanding outgoing active messages is
-  limited by this queue length, with one entry required for every
+  multiple of two.  The number of outstanding outgoing active messages
+  is limited by this queue length, with one entry required for every
   short / medium active message and two entries required for every
   long active message.  The number of queued received active messages
   is similarly limited.
@@ -53,8 +53,8 @@ GASNET_AM_EVENT_QUEUE_LENGTH=<count>
 GASNET_EXTENDED_EVENT_QUEUE_LENGTH=<count>
   Number of event queue entries in the event queue used for extended
   API communication.  One entry is required for each outstanding put
-  or get operation and no resources are required on the target.  The
-  default is 8192.
+  or get operation at the initiator and no resources are required on
+  the target.  The default is 8192.
 
 Optional compile-time settings:
 ------------------------------
@@ -80,7 +80,8 @@ Future work:
 
 * Optimization
 * Use counting events to track implicit handle events
-
+* Improved cleanup handling
+* Native barrier support
 
 ==============================================================================
 
@@ -171,8 +172,9 @@ Extended API:
   match list entries used by the core API, for higher message rate.
   The target side generates no events unless an error has occurred.
   The source side is rate limited by the size of the event queue,
-  although the default event queue should be large enough to cover
-  latency/delay product issues.
+  although the default event queue should be large enough to cover the
+  maximum number of operations that can be in flight for current
+  hardware.
 
   The Portals 4 conduit was designed with an end-to-end reliability
   protocol in mind.  In these implementations, the SEND event will
