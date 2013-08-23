@@ -1,11 +1,21 @@
 GASNet ChangeLog 
 ----------------
-$Revision: 1.77 $
+$Revision: 1.78 $
 
 ----------------------------------------------------------------------
 10-??-2013 : Release 1.22.0
 
 PLACEHOLDER
+
+* Removal of unmaintained network conduits
+  - This release no longer supports the following networks:
+    + elan (Quadrics elan3/elan4)
+    + gm (Myrinet GM)
+    + lapi (IBM LAPI)
+    + portals (Cray Portals for XT series)
+    + sci (Dolphin SCI)
+    If you require GASNet on one these networks, and can provide
+    access to resource for maintenance of the code, please contact us.
 
 * IBM BG/Q (pami-conduit)
   - Support for intra-node shared memory communication (PHSM) is now
