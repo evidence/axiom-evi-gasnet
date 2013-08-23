@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2013/07/18 05:14:46 $ */
-/*  $Revision: 1.191 $ */
+/*      $Date: 2013/08/23 19:52:29 $ */
+/*  $Revision: 1.192 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -359,10 +359,6 @@
 #undef GASNETC_HAVE_O_ASYNC
 #undef GASNETC_USE_SOCKETPAIR
 
-/* GASNet gm-conduit broken 2.x versions */
-#undef GASNETC_GM_ENABLE_BROKEN_VERSIONS
-#undef GASNETC_GM_MPI_COMPAT
-
 /* GASNet vapi-conduit features and bug work-arounds */
 #undef HAVE_VAPI_FMR
 #undef GASNETC_VAPI_POLL_LOCK
@@ -378,39 +374,6 @@
 #undef GASNETC_IBV_RCV_THREAD
 #undef GASNETC_IBV_CONN_THREAD
 #undef GASNETC_IBV_MAX_HCAS
-
-/* GASNet lapi-conduit specific */
-#undef GASNETC_LAPI_FEDERATION
-#undef GASNETC_LAPI_COLONY
-#undef GASNETC_LAPI_GENERIC
-#undef GASNETC_LAPI_VERSION_A
-#undef GASNETC_LAPI_VERSION_B
-#undef GASNETC_LAPI_VERSION_C
-#undef GASNETC_LAPI_VERSION_D
-#undef GASNETC_LAPI_RDMA
-
-/* GASNet elan-conduit specific */
-#undef GASNETC_ELAN3
-#undef GASNETC_ELAN4
-#undef ELAN_VERSION_MAJOR
-#undef ELAN_VERSION_MINOR
-#undef ELAN_VERSION_SUB
-#undef ELAN_DRIVER_VERSION
-#undef ELAN4_KERNEL_PATCH
-#undef HAVE_RMS_RMSAPI_H
-#undef HAVE_RMS_KILLRESOURCE
-#undef RMS_RCONTROL_PATH
-#undef SLURM_SCANCEL_PATH
-#undef HAVE_SLURM_SLURM_H
-#undef HAVE_SLURM_KILL_JOB
-#undef HAVE_ELAN_QUEUEMAXSLOTSIZE
-#undef HAVE_ELAN_DONE
-#undef HAVE_ELAN_QUEUETXINIT
-
-/* GASNet portals-conduit specific */
-#undef HAVE_PCTMBOX_H
-#undef HAVE_PMI_CNOS
-#undef GASNETC_PORTALS_MISSING_EQ_HANDLER_T
 
 /* GASNet bug1389 detection/work-around */
 #undef GASNETI_BUG1389_WORKAROUND

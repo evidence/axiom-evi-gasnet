@@ -1,6 +1,6 @@
 GASNet inter-Process SHared Memory (PSHM) design
 ---------------------------------------------
-$Revision: 1.18 $
+$Revision: 1.19 $
 
 Document by:
     Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -289,24 +289,9 @@ Known Problems / To do:
 
 Status:
 ------
-* The entire GASNet and Berkeley UPC test suites have been run on the
-  following platforms and there are no known pshm-specific failures:
-    - Linux 2.6/i686      smp, vapi, gm, mpi, udp
-    - Linux 2.6/x86-64    smp, vapi, ibv, elan, mpi, udp
-    - Linux 2.6/ia64      smp
-    - Linux 2.6/ppc64     smp
-    - AIX 5.3/ppc64       smp
-    - Solaris 10/SPARC64  smp, udp
-    - Solaris 10/x86      smp
-    - Solaris 10/x64      smp
-    - OpenSolaris/x86     smp
-    - OpenSolaris/x64     smp
-    - FreeBSD 8/i386      smp
-    - FreeBSD 8/amd64     smp
-    - IBM BG/P            smp, dcmf
-    - IBM BG/Q            smp, pami
-  We have no reason to think that any conduit listed above would NOT support
-  PSHM on any OS/cpu above (assuming the conduit works on that platform at all).
+* The entire GASNet and Berkeley UPC test suites are run on the platforms
+  which support PSHM, and it is considered stable on Linux, AIX, Solaris,
+  {Free,Net,Open}BSD, BG/P and BG/Q.
 * IBM BG/P platform-specific notes:
   - PSHM does not work at all in "SMP" mode, only "DUAL" or "VN"
   - In "VN" mode one cannot run a hybrid GASNet+MPI code (appears that some
@@ -335,13 +320,9 @@ Status:
   - Example environment variable settings for 400MB shared heap in "c2"
     mode when using Berkeley UPC's upcrun command:
       BG_SHAREDMEMSIZE=810
-* Cray XT and XE platform-specific notes:
-  - Portals conduit supports PSHM on the Cray XT
-  - We have no native conduit for the Cray XE, but mpi-conduit is supported
-  - CNL/CLE does not (at least on any systems we've encountered) support
-    POSIX shared memory, but SystemV shared memory is available.
-  - Add the following to your (cross-)configure options:
-       --enable-pshm --enable-pshm-sysv
+* Cray XE and XC platform-specific notes:
+  - The Gemini and Aries conduits support PSHM, and the provided cross-
+    configure scripts --enable-pshm-xpmem
 * MacOS X platform-specific notes:
   - MacOS X with POSIX shared memory is NOT supported because we appear to 
     trigger a kernel memory leak.
@@ -355,19 +336,9 @@ Status:
        --enable-pshm --enable-pshm-sysv
 
 * GASNet conduits known NOT to work:
-  - LAPI conduit requires "large pages" which cannot be obtained for POSIX
-    shared memory segments by any mechanism we are aware of.  While we now
-    have support for SystemV-based PSHM, we lack access to a LAPI system
-    to complete the required integration with the conduit.
   - SHMEM conduit does not support PSHM, but there is no reason to think
     that doing so would be constructive.
-  - SCI conduit does not support PSHM because we no longer have any platform
-    on which to develop and test sci-conduit.
   Keep in mind that if you use one of these conduits on a platform with the
   necessary support for PSHM, you may still configure with --enable-pshm to
   get PSHM support in other conduits (e.g. SMP and MPI), and these few
   conduits will still build (they will simply be missing PSHM support).
-
-* Platforms known NOT to work:
-  - Catamount can't share memory (in any way that we know of).
-
