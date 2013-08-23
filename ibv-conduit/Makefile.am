@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/Makefile.am,v $
-#     $Date: 2013/07/18 05:14:52 $
-# $Revision: 1.14 $
+#     $Date: 2013/08/23 23:44:23 $
+# $Revision: 1.15 $
 # Description: Makefile for GASNet ibv conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -9,16 +9,11 @@
 AUTOMAKE_OPTIONS = foreign 1.4
 
 CONDUIT_NAME=ibv
+
 ## Fca
 if FCA_ENABLED
 include $(top_builddir)/other/fca/fca.mak
 endif
-
-##
-## vapi-conduit holds the actual sources
-##
-vapi_srcdir = $(top_srcdir)/vapi-conduit
-vapi_install_hdrs = $(vapi_srcdir)/*.h
 
 ## Firehose
 fh_type=region
@@ -74,28 +69,39 @@ SUBDIRS = contrib
 # include all headers, documentation, etc. 
 # and any subdirectories not containing Makefile.am's
 CONDUIT_FILELIST =               \
-      gasnet_empty_internal.h    \
-      README                     \
+      gasnet_core.c              \
+      gasnet_core_connect.c      \
+      gasnet_core_sndrcv.c       \
+      gasnet_core_thread.c       \
+      gasnet_core.h              \
+      gasnet_core_fwd.h          \
+      gasnet_core_help.h         \
+      gasnet_core_internal.h     \
+      gasnet_extended.c          \
+      gasnet_extended_fwd.h      \
+      gasnet_extended_internal.h \
+      gasnet_firehose.c          \
+      firehose_fwd.h             \
       license.txt                
 
 # list of conduit core and extended .c source files 
 # to be compiled into libgasnet on the compiler command line
 CONDUIT_SOURCELIST =                 \
-      $(vapi_srcdir)/gasnet_core.c        \
-      $(vapi_srcdir)/gasnet_core_connect.c \
-      $(vapi_srcdir)/gasnet_core_sndrcv.c \
-      $(vapi_srcdir)/gasnet_core_thread.c \
-      $(vapi_srcdir)/gasnet_extended.c    \
-      $(vapi_srcdir)/gasnet_firehose.c    \
+      $(srcdir)/gasnet_core.c        \
+      $(srcdir)/gasnet_core_connect.c \
+      $(srcdir)/gasnet_core_sndrcv.c \
+      $(srcdir)/gasnet_core_thread.c \
+      $(srcdir)/gasnet_extended.c    \
+      $(srcdir)/gasnet_firehose.c    \
       $(fca_sourcelist) $(fh_sourcelist) $(ssh_sources) $(pmi_sources)
 
 # additional -I or -D directives needed by this specific conduit
 # other than the standard GASNet includes and flags
-CONDUIT_EXTRALIBCFLAGS = -I@IBV_INCLUDE@ -I$(vapi_srcdir) $(fh_extralibcflags) $(ssh_defines) $(mpi_defines) $(pmi_cppflags) $(fca_extralibcflags)\
+CONDUIT_EXTRALIBCFLAGS = -I@IBV_INCLUDE@ $(fh_extralibcflags) $(ssh_defines) $(mpi_defines) $(pmi_cppflags) $(fca_extralibcflags)\
 			 @IBV_LIBCFLAGS@ $(rcv_thread_defines) -DGASNET_CONDUIT_IBV
 
 # additional conduit header files to install from external, non-standard directories
-CONDUIT_EXTRAHEADERS = $(vapi_install_hdrs) $(fh_extraheaders) $(fca_extraheaders)
+CONDUIT_EXTRAHEADERS = $(fh_extraheaders) $(fca_extraheaders)
 
 
 # headers selected by default rules that should NOT be installed
@@ -103,7 +109,7 @@ CONDUIT_PRIVATEHEADERS = $(fh_privheaders) $(fca_privheaders)
 
 # additional file dependencies not mentioned elsewhere 
 # that should force libgasnet rebuild on update
-CONDUIT_EXTRADEPS = $(vapi_srcdir)/*.[ch] $(fh_extradeps) $(ssh_deps) $(mpi_deps) $(pmi_deps) $(fca_extradeps)
+CONDUIT_EXTRADEPS = $(fh_extradeps) $(ssh_deps) $(mpi_deps) $(pmi_deps) $(fca_extradeps)
 
 # additional object files to be included in libgasnet that need to be compiled 
 # using a special, conduit-specific command. These should also be included as
@@ -122,13 +128,6 @@ CONDUIT_RUNCMD = @TOP_BUILDDIR@/ibv-conduit/contrib/gasnetrun_ibv -np %N %P %A
 
 # conduit-specific tests in ../tests directory
 CONDUIT_TESTS =
-
-# conduit-specific hook to install VAPI's README as our own
-# The normal uninstall is sufficient to remove it.
-conduit_has_install_data_hook = yes
-do-install-data-conduit:
-	@rm -f $(DESTDIR)$(docdir)/README-ibv
-	$(INSTALL_DATA) $(srcdir)/../vapi-conduit/README $(DESTDIR)$(docdir)/README-ibv
 
 # -------- Do not modify anything below this line --------
 

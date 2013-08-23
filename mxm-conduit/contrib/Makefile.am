@@ -23,7 +23,7 @@ dotpldir = $(bindir)
 $(top_builddir)/other/perlstart: $(top_srcdir)/other/perlstart.in
 	@cd $(top_builddir)/other && $(MAKE) perlstart
 $(target): $(top_builddir)/other/perlstart
-$(target).pl: $(top_srcdir)/vapi-conduit/contrib/gasnetrun_vapi.pl
+$(target).pl: $(top_srcdir)/ibv-conduit/contrib/gasnetrun_ibv.pl
 	cp -f "$?" $@
 all-local: $(target) $(target).pl $(mpi_target_pl)
 

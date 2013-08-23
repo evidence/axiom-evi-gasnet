@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in       -*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/contrib/Makefile.am,v $
-#     $Date: 2006/12/15 22:54:25 $
-# $Revision: 1.2 $
+#     $Date: 2013/08/23 23:44:25 $
+# $Revision: 1.3 $
 # Description: Makefile for GASNet IBV spawner
 # Terms of use are as specified in ibv-conduit/license.txt
 
@@ -26,11 +26,24 @@ dotpldir = $(bindir)
 $(top_builddir)/other/perlstart: $(top_srcdir)/other/perlstart.in
 	@cd $(top_builddir)/other && $(MAKE) perlstart
 $(target): $(top_builddir)/other/perlstart
-$(target).pl: $(top_srcdir)/vapi-conduit/contrib/gasnetrun_vapi.pl
-	cp -f "$?" $@
-all-local: $(target) $(target).pl $(mpi_target_pl)
+all-local: $(target).pl $(target) $(mpi_target_pl)
 
-DISTCLEANFILES = $(target) $(target).pl $(mpi_target_pl)
+# Files to copy from srcdir to builddir if they differ
+if BUILD_IS_SRC
+files_we_copy =
+else
+files_we_copy = $(target).pl
+$(files_we_copy): force
+	@srcfile="$(srcdir)/`basename $@`" ; \
+         if test ! -f "$@" -o "`find $$srcfile -newer '$@' 2>&1`" ; then \
+          echo cp -f "$$srcfile" . ;         \
+          cp -f "$$srcfile" . ;              \
+         fi
+endif
+DISTCLEANFILES = $(files_we_copy) $(mpi_target_pl)
+
+# Ensure the .pl is distributed, even if not installed
+EXTRA_DIST = $(target).pl
 
 # Conditionally install the .pl and its wrapper
 if USE_IBV_CONDUIT
