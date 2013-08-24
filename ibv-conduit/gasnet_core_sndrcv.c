@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/08/24 06:38:36 $
- * $Revision: 1.357 $
+ *     $Date: 2013/08/24 06:45:43 $
+ * $Revision: 1.358 $
  * Description: GASNet ibv conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -806,7 +806,6 @@ void gasnetc_processPacket(gasnetc_cep_t *cep, gasnetc_rbuf_t *rbuf, uint32_t fl
 GASNETI_NEVER_INLINE(gasnetc_dump_cqs,
 void gasnetc_dump_cqs(struct ibv_wc *comp, gasnetc_hca_t *hca, const int is_snd)) {
   static gasnet_hsl_t lock = GASNET_HSL_INITIALIZER;
-  int vstat;
   enum ibv_wc_status status = IBV_WC_SUCCESS;
   int count = 0;
   const char *label;
@@ -837,8 +836,8 @@ void gasnetc_dump_cqs(struct ibv_wc *comp, gasnetc_hca_t *hca, const int is_snd)
   }
 
   do { /* Drain the other CQ */
-    vstat = ibv_poll_cq((is_snd ? hca->rcv_cq : hca->snd_cq), 1, comp);
-    if (vstat != 0) {
+    int rc = ibv_poll_cq((is_snd ? hca->rcv_cq : hca->snd_cq), 1, comp);
+    if (rc != 0) {
       /* use an invalid value to ensure output is generated on the last pass */
       comp->status = (enum ibv_wc_status)(-1);
     }
@@ -870,7 +869,7 @@ void gasnetc_dump_cqs(struct ibv_wc *comp, gasnetc_hca_t *hca, const int is_snd)
 
 /* Try to pull completed entries (if any) from the send CQ(s). */
 static int gasnetc_snd_reap(int limit) {
-  int rc, count;
+  int count;
   struct ibv_wc comp;
   #if GASNETC_SND_REAP_COLLECT
     int i, fh_num = 0;
@@ -893,11 +892,11 @@ static int gasnetc_snd_reap(int limit) {
   gasneti_assert(limit <= GASNETC_SND_REAP_LIMIT);
 
   for (count = 0; count < limit; ++count) {
-    rc = ibv_poll_cq(hca->snd_cq, 1, &comp);
-    if_pt (rc == GASNETC_POLL_CQ_EMPTY) {
+    int rc = ibv_poll_cq(hca->snd_cq, 1, &comp);
+    if_pt (rc == 0) {
       /* CQ empty - we are done */
       break;
-    } else if_pt (rc == GASNETC_POLL_CQ_OK) {
+    } else if_pt (rc == 1) {
       if_pt (comp.status == IBV_WC_SUCCESS) {
         gasnetc_sreq_t *sreq = (gasnetc_sreq_t *)(uintptr_t)comp.wr_id;
       #if GASNETC_DYNAMIC_CONNECT && !GASNETC_USE_CONN_THREAD
@@ -1276,16 +1275,15 @@ void gasnetc_rcv_am(const struct ibv_wc *comp, gasnetc_rbuf_t **spare_p) {
 }
 
 static int gasnetc_rcv_reap(gasnetc_hca_t *hca, const int limit, gasnetc_rbuf_t **spare_p) {
-  int vstat;
   struct ibv_wc comp;
   int count;
 
   for (count = 0; count < limit; ++count) {
-    vstat = ibv_poll_cq(hca->rcv_cq, 1, &comp);
-    if_pt (vstat == GASNETC_POLL_CQ_EMPTY) {
+    int rc = ibv_poll_cq(hca->rcv_cq, 1, &comp);
+    if_pt (rc == 0) {
       /* CQ empty - we are done */
       break;
-    } else if_pt (vstat == GASNETC_POLL_CQ_OK) {
+    } else if_pt (rc == 1) {
       if_pt (comp.status == IBV_WC_SUCCESS) {
       #if GASNETC_DYNAMIC_CONNECT && !GASNETC_USE_CONN_THREAD
         if_pf (comp.wr_id & 1) {
@@ -1311,7 +1309,7 @@ static int gasnetc_rcv_reap(gasnetc_hca_t *hca, const int limit, gasnetc_rbuf_t 
       /* disconnected by another thread */
       gasnetc_exit(0);
     } else {
-      GASNETC_IBV_CHECK(vstat, "while reaping the recv queue");
+      GASNETC_IBV_CHECK(rc, "while reaping the recv queue");
     }
   } 
 

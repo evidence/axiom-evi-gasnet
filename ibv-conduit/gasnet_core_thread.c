@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_thread.c,v $
- *     $Date: 2013/08/24 05:11:11 $
- * $Revision: 1.22 $
+ *     $Date: 2013/08/24 06:45:43 $
+ * $Revision: 1.23 $
  * Description: GASNet ibv conduit implementation, progress thread logic
  * Copyright 2012, LBNL
  * Terms of use are as specified in license.txt
@@ -76,7 +76,7 @@ static void * gasnetc_progress_thread(void *arg)
     int rc;
 
     rc = ibv_poll_cq(cq_hndl, 1, &comp);
-    if (rc == GASNETC_POLL_CQ_OK) {
+    if (rc == 1) {
       gasneti_assert((comp.opcode == IBV_WC_RECV) ||
 		     (comp.status != IBV_WC_SUCCESS));
       my_cancel_disable();
@@ -113,7 +113,7 @@ static void * gasnetc_progress_thread(void *arg)
         }
         pthr_p->prev_time = gasneti_ticks_now();
       }
-    } else if (rc == GASNETC_POLL_CQ_EMPTY) {
+    } else if (rc == 0) {
       struct ibv_cq * the_cq;
       void *the_ctx;
 

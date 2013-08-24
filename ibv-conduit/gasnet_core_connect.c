@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2013/08/24 06:15:47 $
- * $Revision: 1.103 $
+ *     $Date: 2013/08/24 06:45:43 $
+ * $Revision: 1.104 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -1092,7 +1092,7 @@ static int conn_snd_poll(void)
   rc = ibv_poll_cq(conn_ud_snd_cq, 1, &comp);
   if (GASNETC_IS_EXITING()) {
     /* shutdown in another thread */
-  } else if (rc == GASNETC_POLL_CQ_OK) {
+  } else if (rc == 1) {
     if_pf (comp.status != IBV_WC_SUCCESS) {
       gasneti_fatalerror("failed dynamic connection send work request");
     } else if_pf(comp.opcode != IBV_WC_SEND) {
@@ -1100,7 +1100,7 @@ static int conn_snd_poll(void)
     }
     gasnetc_conn_snd_wc(&comp);
     return 1;
-  } else if (rc != GASNETC_POLL_CQ_EMPTY) {
+  } else if (rc != 0) {
     gasneti_fatalerror("failed dynamic connection send cq poll");
   }
 

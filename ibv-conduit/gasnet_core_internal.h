@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2013/08/24 06:15:47 $
- * $Revision: 1.251 $
+ *     $Date: 2013/08/24 06:45:43 $
+ * $Revision: 1.252 $
  * Description: GASNet ibv conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -529,12 +529,6 @@ extern int gasnetc_ReplySysMedium(gasnet_token_t token,
   #define GASNETC_FOR_ALL_HCA_INDEX(h)	for (h = 0; h < 1; ++h)
   #define GASNETC_FOR_ALL_HCA(p)	for (p = &gasnetc_hca[0]; p < &gasnetc_hca[1]; ++p)
 #endif
-
-/* ------------------------------------------------------------------------------------ */
-
-/* Constants */
-#define GASNETC_POLL_CQ_OK      1
-#define GASNETC_POLL_CQ_EMPTY   0
 
 /* ------------------------------------------------------------------------------------ */
 
