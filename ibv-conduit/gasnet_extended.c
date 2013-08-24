@@ -1,7 +1,7 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_extended.c,v $
- *     $Date: 2013/07/22 23:08:46 $
- * $Revision: 1.102 $
- * Description: GASNet Extended API over VAPI/IB Implementation
+ *     $Date: 2013/08/24 05:11:11 $
+ * $Revision: 1.103 $
+ * Description: GASNet Extended API over IB Verbs Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  */
@@ -14,7 +14,7 @@ static const gasnete_eopaddr_t EOPADDR_NIL = { { 0xFF, 0xFF } };
 extern void _gasnete_iop_check(gasnete_iop_t *iop) { gasnete_iop_check(iop); }
 
 #if !GASNETE_EOP_COUNTED
-#error "Build config error: vapi/ibv requires GASNETE_EOP_COUNTED"
+#error "Build config error: ibv requires GASNETE_EOP_COUNTED"
 #endif
 
 /* ------------------------------------------------------------------------------------ */

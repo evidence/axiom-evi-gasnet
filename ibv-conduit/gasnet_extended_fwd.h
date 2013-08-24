@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_extended_fwd.h,v $
- *     $Date: 2013/07/30 21:43:09 $
- * $Revision: 1.36 $
+ *     $Date: 2013/08/24 05:11:11 $
+ * $Revision: 1.37 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -17,15 +17,8 @@
 
 #define GASNET_EXTENDED_VERSION      1.13
 #define GASNET_EXTENDED_VERSION_STR  _STRINGIFY(GASNET_EXTENDED_VERSION)
-#if GASNET_CONDUIT_VAPI
-  #define GASNET_EXTENDED_NAME         VAPI
-#elif GASNET_CONDUIT_IBV
-  #define GASNET_EXTENDED_NAME         IBV
-#else
-  #error "Exactly one of GASNET_CONDUIT_VAPI or GASNET_CONDUIT_IBV must be defined"
-#endif
+#define GASNET_EXTENDED_NAME         IBV
 #define GASNET_EXTENDED_NAME_STR     _STRINGIFY(GASNET_EXTENDED_NAME)
-
 
 /* Addition(s) to barrier-types enum: */
 #define GASNETE_COLL_CONDUIT_BARRIERS \
@@ -43,13 +36,7 @@ typedef struct _gasnete_op_t *gasnet_handle_t;
      maximum COUNT of such threads to allocate space for their threaddata
    */
   /* Each RCV thread needs a slot in the threadtable.  The CONN thread doesn't. */
-#if (GASNET_CONDUIT_VAPI && GASNETC_VAPI_RCV_THREAD)
- #ifdef GASNETC_VAPI_MAX_HCAS
-  #define GASNETE_CONDUIT_THREADS_USING_TD GASNETC_VAPI_MAX_HCAS
- #else
-  #define GASNETE_CONDUIT_THREADS_USING_TD 1
- #endif
-#elif (GASNET_CONDUIT_IBV && GASNETC_IBV_RCV_THREAD)
+#if GASNETC_IBV_RCV_THREAD
  #ifdef GASNETC_IBV_MAX_HCAS
   #define GASNETE_CONDUIT_THREADS_USING_TD GASNETC_IBV_MAX_HCAS
  #else

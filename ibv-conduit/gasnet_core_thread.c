@@ -1,7 +1,7 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_thread.c,v $
- *     $Date: 2013/07/30 21:38:30 $
- * $Revision: 1.21 $
- * Description: GASNet vapi/ibv conduit implementation, progress thread logic
+ *     $Date: 2013/08/24 05:11:11 $
+ * $Revision: 1.22 $
+ * Description: GASNet ibv conduit implementation, progress thread logic
  * Copyright 2012, LBNL
  * Terms of use are as specified in license.txt
  */
@@ -61,12 +61,9 @@ void gasnetc_testcancel(gasnetc_progress_thread_t * const pthr_p) {
 static void * gasnetc_progress_thread(void *arg)
 {
   gasnetc_progress_thread_t * const pthr_p  = arg;
-#if GASNET_CONDUIT_VAPI
-  const gasnetc_hca_hndl_t hca_hndl         = pthr_p->hca;
-#endif
-  const gasnetc_cq_hndl_t cq_hndl           = pthr_p->cq;
-  const gasnetc_comp_handler_t compl_hndl   = pthr_p->compl;
-  void (* const fn)(gasnetc_wc_t *, void *) = pthr_p->fn;
+  struct ibv_cq * const cq_hndl             = pthr_p->cq;
+  struct ibv_comp_channel * const compl_hndl= pthr_p->compl;
+  void (* const fn)(struct ibv_wc *, void *)= pthr_p->fn;
   void * const fn_arg                       = pthr_p->fn_arg;
   const uint64_t min_us                     = pthr_p->min_us;
 
@@ -75,17 +72,13 @@ static void * gasnetc_progress_thread(void *arg)
   my_cancel_enable();
 
   while (!pthr_p->done) {
-    gasnetc_wc_t comp;
+    struct ibv_wc comp;
     int rc;
 
-  #if GASNET_CONDUIT_VAPI
-    rc = EVAPI_poll_cq_block(hca_hndl, cq_hndl, 0, &comp);
-  #else
     rc = ibv_poll_cq(cq_hndl, 1, &comp);
-  #endif
     if (rc == GASNETC_POLL_CQ_OK) {
-      gasneti_assert((comp.opcode == GASNETC_WC_RECV) ||
-		     (comp.status != GASNETC_WC_SUCCESS));
+      gasneti_assert((comp.opcode == IBV_WC_RECV) ||
+		     (comp.status != IBV_WC_SUCCESS));
       my_cancel_disable();
       (fn)(&comp, fn_arg);
       my_cancel_enable();
@@ -121,17 +114,14 @@ static void * gasnetc_progress_thread(void *arg)
         pthr_p->prev_time = gasneti_ticks_now();
       }
     } else if (rc == GASNETC_POLL_CQ_EMPTY) {
-    #if GASNET_CONDUIT_VAPI
-      continue; /* false wake up - loop again */
-    #else
-      gasnetc_cq_hndl_t the_cq;
+      struct ibv_cq * the_cq;
       void *the_ctx;
 
       /* block for event on the empty CQ */
       rc = ibv_get_cq_event(compl_hndl, &the_cq, &the_ctx);
       if_pf (0 != rc) {
         gasnetc_testcancel(pthr_p);
-        GASNETC_VAPI_CHECK(rc, "while blocked for CQ event");
+        GASNETC_IBV_CHECK(rc, "while blocked for CQ event");
         /* Not reached */
       }
       gasneti_assert(the_cq == cq_hndl);
@@ -141,19 +131,14 @@ static void * gasnetc_progress_thread(void *arg)
       rc = ibv_req_notify_cq(cq_hndl, 0);
       if_pf (0 != rc) {
         gasnetc_testcancel(pthr_p);
-        GASNETC_VAPI_CHECK(rc, "while requesting CQ events");
+        GASNETC_IBV_CHECK(rc, "while requesting CQ events");
         /* Not reached */
       }
 
       /* loop to poll for the new completion */
-    #endif
     } else {
       gasnetc_testcancel(pthr_p);
-    #if GASNET_CONDUIT_VAPI
-      GASNETC_VAPI_CHECK(rc, "from EVAPI_poll_cq_block");
-    #else
-      GASNETC_VAPI_CHECK(rc, "from ibv_poll_cq in async thread");
-    #endif
+      GASNETC_IBV_CHECK(rc, "from ibv_poll_cq in async thread");
       /* Not reached */
     }
   }
@@ -222,9 +207,6 @@ gasnetc_stop_progress_thread(gasnetc_progress_thread_t *pthr_p)
   if (pthr_p->done) return; /* no "over kill" */
   pthr_p->done = 1;
   gasneti_sync_writes();
-#if GASNET_CONDUIT_VAPI
-  (void) EVAPI_poll_cq_unblock(pthr_p->hca, pthr_p->cq);
-#endif
 #if GASNETC_THREAD_CANCEL
   (void)pthread_cancel(pthr_p->thread_id); /* ignore failure */
 #endif

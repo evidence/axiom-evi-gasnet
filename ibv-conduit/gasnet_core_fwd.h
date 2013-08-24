@@ -1,7 +1,7 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_fwd.h,v $
- *     $Date: 2012/09/14 00:57:57 $
- * $Revision: 1.64 $
- * Description: GASNet header for vapi conduit core (forward definitions)
+ *     $Date: 2013/08/24 05:11:11 $
+ * $Revision: 1.65 $
+ * Description: GASNet header for ibv conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  */
@@ -13,26 +13,17 @@
 #ifndef _GASNET_CORE_FWD_H
 #define _GASNET_CORE_FWD_H
 
-/* At least one VAPI MPI does '#define VAPI 1'.
- * This will clobber our GASNET_CORE_NAME.
- * Grumble, grumble.
- */
-#ifdef VAPI
-  #undef VAPI
+#ifdef GASNET_CONDUIT_VAPI
+  #error "VAPI-conduit is no longer supported"
 #endif
 
 #define GASNET_CORE_VERSION      1.15
 #define GASNET_CORE_VERSION_STR  _STRINGIFY(GASNET_CORE_VERSION)
-#if defined(GASNET_CONDUIT_VAPI)
-  #define GASNET_CORE_NAME         VAPI
-#elif defined(GASNET_CONDUIT_IBV)
-  #define GASNET_CORE_NAME         IBV
-#else
-  #error "Exactly one of GASNET_CONDUIT_VAPI or GASNET_CONDUIT_IBV must be defined"
-#endif
+#define GASNET_CORE_NAME         IBV
 #define GASNET_CORE_NAME_STR     _STRINGIFY(GASNET_CORE_NAME)
 #define GASNET_CONDUIT_NAME      GASNET_CORE_NAME
 #define GASNET_CONDUIT_NAME_STR  _STRINGIFY(GASNET_CONDUIT_NAME)
+#define GASNET_CONDUIT_IBV       1
 
 /* 16K is the limit on the LID space, but we must allow more than 1 proc per node */
 /* 64K corresponds to 16 bits used in the AM Header and 16-bit gasnet_node_t */
@@ -67,8 +58,7 @@ typedef uint8_t gasnet_handler_t;
      "private" threads which may be used to run AM handlers, even under GASNET_SEQ
      this ensures locking is still done correctly, etc
    */
-#if (GASNET_CONDUIT_VAPI && (GASNETC_VAPI_RCV_THREAD || GASNETC_VAPI_CONN_THREAD)) || \
-    (GASNET_CONDUIT_IBV  && (GASNETC_IBV_RCV_THREAD  || GASNETC_IBV_CONN_THREAD))
+#if (GASNETC_IBV_RCV_THREAD  || GASNETC_USE_CONN_THREAD)
   #define GASNETI_CONDUIT_THREADS 1
 #endif
 
@@ -139,24 +129,6 @@ typedef uint8_t gasnet_handler_t;
 #if PLATFORM_OS_DARWIN && !GASNET_SEQ
   #define GASNETC_PTHREAD_CREATE_OVERRIDE(create_fn, thread, attr, start_routine, arg) \
 	gasnetc_pthread_create(create_fn, thread, attr, start_routine, arg)
-#endif
-
-#if PLATFORM_COMPILER_PGI && GASNET_CONDUIT_VAPI
-  /* VAPI headers rely on the non-portable u_int*_t names
-     PGI lacks these, so translate them to the versions guaranteed by the C99 spec and portable_inttypes
-   */
- #ifndef u_int8_t
-  #define u_int8_t  uint8_t
- #endif
- #ifndef u_int16_t
-  #define u_int16_t uint16_t
- #endif
- #ifndef u_int32_t
-  #define u_int32_t uint32_t
- #endif
- #if 0 && !defined(u_int64_t)
-  #define u_int64_t uint64_t
- #endif
 #endif
 
 #endif

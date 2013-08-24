@@ -1,7 +1,7 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_help.h,v $
- *     $Date: 2006/03/19 02:08:30 $
- * $Revision: 1.12 $
- * Description: GASNet vapi conduit core Header Helpers (Internal code, not for client use)
+ *     $Date: 2013/08/24 05:11:11 $
+ * $Revision: 1.13 $
+ * Description: GASNet ibv conduit core Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  */
