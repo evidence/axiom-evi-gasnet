@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/firehose_fwd.h,v $
- *     $Date: 2011/11/27 04:26:26 $
- * $Revision: 1.18 $
+ *     $Date: 2013/08/24 00:46:52 $
+ * $Revision: 1.19 $
  * Description: Configuration of firehose code to fit vapi-conduit
  * Copyright 2003, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -68,7 +68,6 @@
   #define _FIREHOSE_VAPI_MR_HNDL_T	struct ibv_mr *
   #define _FIREHOSE_VAPI_LKEY_T		uint32_t
   #define _FIREHOSE_VAPI_RKEY_T		uint32_t
-  #define GASNETC_IB_MAX_
   #ifdef GASNETC_IBV_MAX_HCAS
     #define GASNETC_IB_MAX_HCAS GASNETC_IBV_MAX_HCAS
   #else /* no multi-rail support */
