@@ -1,9 +1,7 @@
 README file for ssh-spawner
 ================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.10 $
-
-See vapi-conduit for an example of how to use this code in a conduit.
+$Revision: 1.11 $
 
 Configure Options:
   --disable-pdeathsig (auto-detect by default)
@@ -101,7 +99,7 @@ Command-line Usage:
 If running a UPC or Titanium application, then language-specific
 commands upcrun or tirun should be used instead.  In other cases
 it is advisable to use a GASNet conduit-specific spawner script
-such as gasnetrun_ibv or gasnetrun_vapi.  However, if you find
+such as gasnetrun_ibv or gasnetrun_mxm.  However, if you find
 you must use the ssh-spawner directly, the following apply:
 
 + usage summary:
@@ -148,4 +146,4 @@ compute nodes, but this is not required.
 
 GASNet Developers:
 
-See vapi-conduit for an example of how to use this code in a conduit.
+See ibv-conduit for an example of how to use this code in a conduit.

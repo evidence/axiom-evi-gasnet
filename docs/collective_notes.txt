@@ -1,6 +1,6 @@
 GASNet collectives design notes
 ===============================
-* $Revision: 1.38 $
+* $Revision: 1.39 $
 * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu> and Paul Hargrove <PHHargrove@lbl.gov>
 * Terms of use are as specified in license.txt
 
@@ -1669,7 +1669,7 @@ to do so until there are no collectives in-flight (since we don't presently
 expose any "this thread has unsynced handles inside the collectives").
 This is true not only of any thread dedicated to collectives, but of ALL
 conduit-internal threads.  If a conduit-internal thread normally would
-go to sleep (such as the vapi AM recv thread that blocks until an AM
+go to sleep (such as the ibv AM recv thread that blocks until an AM
 arrival), then it must either
  1) Never enter the collective progress engine
 or

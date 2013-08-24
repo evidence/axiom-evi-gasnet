@@ -1,9 +1,9 @@
 README file for mpi-spawner
 ================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.1 $
+$Revision: 1.2 $
 
-See vapi-conduit for an example of how to use this code in a conduit.
+See ibv-conduit for an example of how to use this code in a conduit.
 
 When using the mpi-spawner, the following apply:
 

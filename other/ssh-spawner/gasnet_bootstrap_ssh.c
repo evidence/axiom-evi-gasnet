@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2013/07/18 05:15:02 $
- * $Revision: 1.113 $
+ *     $Date: 2013/08/24 05:41:59 $
+ * $Revision: 1.114 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -97,7 +97,7 @@
       extern void gasneti_bootstrapExchange_ssh(void *src, size_t len, void *dest);
       extern void gasneti_bootstrapBroadcast_ssh(void *src, size_t len, void *dest, int rootnode);
    
-   Additionally, the following is useful (at least in vapi-conduit)
+   Additionally, the following is useful (at least in ibv-conduit)
    for exchanging endpoint identifiers in a scalable manner:
       extern void gasneti_bootstrapAlltoall_ssh(void *src, size_t len, void *dest);
 
@@ -1346,7 +1346,7 @@ static void spawn_one(gasnet_node_t child_id, char *myhost) {
     gasnet_node_t prev_id = child_id - 1;
     const char *prev_host = child[prev_id].nodelist ? child[prev_id].nodelist[0] : nodelist[0];
     if (0 == strcmp(host, prev_host)) {
-      /* TODO: Factor - this logic also used in vapi-conduit/gasnet_core_thread.c */
+      /* TODO: Factor - this logic also used in ibv-conduit/gasnet_core_thread.c */
 #if HAVE_USLEEP
       usleep(conn_delay);
 #elif HAVE_NANOSLEEP

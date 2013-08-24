@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2013/08/23 20:16:59 $
- * $Revision: 1.237 $
+ *     $Date: 2013/08/24 05:41:51 $
+ * $Revision: 1.238 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -738,8 +738,6 @@ static void gasneti_check_portable_conduit(void) { /* check for portable conduit
           { "/dev/xpmem",          S_IFCHR, "SGI Altix", 0 },
         #endif
         { "/dev/infiniband/uverbs0", S_IFCHR, "InfiniBand IBV", 2 },  /* OFED 1.0 */
-        { "/dev/vipkl",          S_IFCHR, "InfiniBand VAPI", 2 },  /* Mellanox drivers */
-        { "/dev/ib_dsc",         S_IFCHR, "InfiniBand VAPI", 2 },  /* wotan - could also run system_profiler */
         #if !GASNET_SEGMENT_EVERYTHING
           { "/dev/kgni0",            S_IFCHR, "Cray Gemini", 6 },
           { "/proc/kgnilnd",         S_IFDIR, "Cray Gemini", 6 },
@@ -1039,7 +1037,7 @@ static void gasneti_nodemap_dflt(gasneti_bootstrapExchangefn_t exchangefn) {
  *
  * NOTE: may modify gasneti_nodemap[] if env var GASNET_SUPERNODE_MAXSIZE is set.
  * TODO: splitting by socket or other criteria for/with GASNET_SUPERNODE_MAXSIZE.
- * TODO: keep widths around for conduits to use? (vapi and gemini both use)
+ * TODO: keep widths around for conduits to use? (ibv and gemini both use)
  */
 extern void gasneti_nodemapParse(void) {
   gasnet_node_t host_count = 0;

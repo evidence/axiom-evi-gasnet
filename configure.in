@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2013/08/24 05:32:53 $
-# $Revision: 1.823 $
+#     $Date: 2013/08/24 05:41:51 $
+# $Revision: 1.824 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.823 $)
+AC_REVISION($Revision: 1.824 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -3020,7 +3020,7 @@ if test "$enabled_ibv" = yes; then
 
     # Since we are using firehose we need to disable certain optimizations.
     # See bug #350 for an example of why firehose needs this.
-    # See bug #596 or #1031 for evidence that VAPI is affected by this.
+    # See bug #596 or #1031 for evidence that InfiniBand is affected by this.
     # See bug #1052 for evidence that xlc is affected.
     GASNET_FH_CFLAGS
 
