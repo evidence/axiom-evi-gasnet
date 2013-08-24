@@ -1,10 +1,9 @@
-README file for vapi-conduit and ibv-conduit
-============================================
+README file for ibv-conduit
+===========================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.3 $
+$Revision: 1.4 $
 
 @ TOC: @
-@ Section: VAPI vs IBV @
 @ Section: Job Spawning @
 @ Section: Multi-rail Support @
 @ Section: Runtime Configuration @
@@ -16,20 +15,6 @@ $Revision: 1.3 $
 @ Section: References @
 
 
-@ Section: VAPI vs IBV @
-
-  The same source code is used to build GASNet's support for the two
-  popular InfiniBand APIs:
-  + VAPI: The "Verbs API" from Mellanox
-  + IBV: The "IB Verbs" from the OpenFabrics Alliance (aka OpenIB)
-
-  Unless stated otherwise, everything in this document applies to
-  both vapi-conduit and ibv-conduit.  For clarity (and due to
-  history) this document consistently talks about VAPI.  However,
-  anywhere "vapi" or "VAPI" appears in the name of a configuration
-  option, environment variable, or command, one may substitute "ibv"
-  or "IBV" to obtain the equivalent to be used with ibv-conduit.
-
 @ Section: Job Spawning @
   
   If MPI support was NOT enabled when GASNet was configured, then
@@ -37,19 +22,19 @@ $Revision: 1.3 $
   may be ignored.
 
   If MPI support was enabled when GASNet was configured, then there
-  are two options for spawning a GASNet vapi-conduit application:
+  are two options for spawning a GASNet ibv-conduit application:
   MPI or SSH.  The default can be set at configure time with
-      --with-vapi-spawner=ssh
-  or  --with-vapi-spawner=mpi
+      --with-ibv-spawner=ssh
+  or  --with-ibv-spawner=mpi
   where mpi is the default.  At runtime the environment variable
-  GASNET_VAPI_SPAWNER (set to "mpi" or "ssh") can override the
+  GASNET_IBV_SPAWNER (set to "mpi" or "ssh") can override the
   value set at configuration time.
 
   If using UPC or Titanium, the language-specific commands should be used
   to launch applications.  Otherwise, applications can be launched using
-  the gasnetrun_vapi utility:
+  the gasnetrun_ibv utility:
   + usage summary:
-    gasnetrun_vapi -n <n> [options] [--] prog [program args]
+    gasnetrun_ibv -n <n> [options] [--] prog [program args]
     options:
       -n <n>                number of processes to run (required)
       -N <N>                number of nodes to run on (not supported by all MPIs)
@@ -60,7 +45,7 @@ $Revision: 1.3 $
       -spawner=(ssh|mpi)    force use of MPI or SSH for spawning (if available)
 
   If spawning using MPI, then the following apply:
-  + In order to bootstrap vapi-conduit, a working MPI must be installed
+  + In order to bootstrap ibv-conduit, a working MPI must be installed
     and configured on your system.  See mpi-conduit/README for
     information on configuring GASNet for a particular MPI.  Note that
     you must compile mpi-conduit as well (even if you never plan to use
@@ -138,9 +123,9 @@ $Revision: 1.3 $
   
 @ Section: Multi-rail Support @
 
-  Multi-rail support is ON in GASNet vapi-conduit by default.
+  Multi-rail support is ON in GASNet ibv-conduit by default.
 
-  By default, GASNet vapi-conduit will open up to two InfiniBand Host
+  By default, GASNet ibv-conduit will open up to two InfiniBand Host
   Channel Adapters (HCAs) per node, and will stripe communications over
   one active port on each adapter.  See the sections "Build-time
   Configuration" and "Runtime Configuration" for information on
@@ -152,61 +137,52 @@ $Revision: 1.3 $
   How the resulting trade off works for a given application may be
   hard to predict.  If one is concerned with obtaining the maximum
   possible performance for a given application, then experiment with
-  the GASNET_NUM_QPS and/or GASNET_VAPI_PORTS environment variables
+  the GASNET_NUM_QPS and/or GASNET_IBV_PORTS environment variables
   (documented in "Runtime Configuration") to determine how a given
   application runs best.
 
 @ Section: Build-time Configuration @
 
-  Vapi-conduit can ensures good network attentiveness (timely
+  Ibv-conduit can ensures good network attentiveness (timely
   processing of incoming AMs) by spawning an extra thread that
   remains blocked until the arrival of an Active Message.  One
   can disable this thread by configuring GASNet with the flag
-  '--disable-vapi-rcv-thread'.  It is recommended that one NOT
+  '--disable-ibv-rcv-thread'.  It is recommended that one NOT
   use this option, but instead disabled the thread at runtime
   (see Runtime Configuration section).  If the extra thread will
   never be needed, disabling it at build time will yield a small
   reduction in latencies by allowing some locking operations to
   compile away.
 
-  In firmware versions prior to 3.0, the VAPI_poll_cq() call is
-  not thread safe under some conditions.  To run correctly with
-  pre-3.0 firmware, one must configure GASNet with the flag
-  '--enable-vapi-poll-lock'.  One may also pass this flag if
-  there is reason to believe that VAPI_poll_cq() and/or
-  EVAPI_peek_cq() are not thread-safe.
-  If vapi-conduit detects pre-3.0 firmware at startup, a fatal
-  error will be issued.
-
-  By default, vapi-conduit will open at most two Host Channel Adapters
+  By default, ibv-conduit will open at most two Host Channel Adapters
   (HCAs) on a node.  To utilize more than two HCAs in a host, specify
-  '--with-vapi-max-hcas=N' at configure time.  However, if you
+  '--with-ibv-max-hcas=N' at configure time.  However, if you
   have only a single HCA per host, then you may be able to get a small
   performance improvement by disabling multi-rail support with
-  '--disable-vapi-multirail' at configure time.
+  '--disable-ibv-multirail' at configure time.
   
   When using dynamic connections (see GASNET_CONNECT_DYNAMIC env var,
   below) there is an extra thread spawned to block for the arrival of
   connection requests.  If needed, this can be disabled at configure
-  time using '--disable-vapi-conn-thread'.
+  time using '--disable-ibv-conn-thread'.
 
 @ Section: Runtime Configuration @
 
-  There are a number of parameters in vapi-conduit which can be tuned
+  There are a number of parameters in ibv-conduit which can be tuned
   at runtime via environment variables.
 
   General settings:
-  Vapi-conduit supports all of the standard GASNet environment variables
+  Ibv-conduit supports all of the standard GASNet environment variables
   and the optional GASNET_EXITTIMEOUT and GASNET_THREAD_STACK families
   of environment variables.
   See GASNet's top-level README for documentation.
 
   + GASNET_BARRIER
     In addition to the barrier algorithms in the top-level README, there
-    is an implementation specific to VAPI and IBV:
+    is an implementation specific to IBV:
     IBDISSEM - like RDMADISSEM, but implemented using lower-level
                operations for lower latency.
-    Currently IBDISSEM is the default on both VAPI and IBV.
+    Currently IBDISSEM is the default on IBV.
 
   Connection settings:
   Under normal conditions, Host Channel Adapters and Ports will be
@@ -217,7 +193,7 @@ $Revision: 1.3 $
   These parameters may legally take different values on each node.
 
   See "Build-time Configuration", above, for information on enabling
-  use of multiple HCAs in GASNet vapi-conduit.
+  use of multiple HCAs in GASNet ibv-conduit.
 
   + GASNET_HCA_ID
   + GASNET_PORT_NUM
@@ -237,11 +213,11 @@ $Revision: 1.3 $
     improvement or a degradation, depending on traffic pattern.
     The default is 0, which means one QP per HCA/port used.
 
-  + GASNET_VAPI_PORTS
+  + GASNET_IBV_PORTS
     By default, GASNet will open and use one active IB port on each HCA
     used, which will be all HCAs (when GASNET_NUM_QPS is zero), or the
     first GASNET_NUM_QPS HCAs found (when GASNET_NUM_QPS is non-zero).
-    Setting GASNET_VAPI_PORTS will specify a filter for which ports will
+    Setting GASNET_IBV_PORTS will specify a filter for which ports will
     be used.  This can be used for instance to cause multiple physical
     ports to be used per HCA, or to specify specific ports and/or HCAs
     to be considered (up to GASNET_NUM_QPS if it is non-zero).
@@ -251,20 +227,19 @@ $Revision: 1.3 $
     The list of port numbers, if provided, is separated from the HCA id
     by a ':'.  If a list of ports is given, only those ports may be used.
     Otherwise the first active port on the given HCA may be used.  The
-    following example allows the first active port on HCA InfiniHost0,
-    and only port 2 on InfiniHost1:
-	GASNET_VAPI_PORTS="InfiniHost0+InfiniHost1:2".
+    following example allows the first active port on HCA mlx4_0, and
+    only port 2 on mlx4_1:
+	GASNET_IBV_PORTS="mlx4_0+mlx4_1:2".
     Note that this list is a *filter*, which means:
     + Duplicate entries do not cause multiple opens of a port or HCA
     + Entries describing non-existent HCAs are silently ignored
     + Entries describing inactive ports are silently ignored
     + Order is not significant.  In particular if GASNET_NUM_QPS is
-      less than the number of entries in GASNET_VAPI_PORTS, ports
+      less than the number of entries in GASNET_IBV_PORTS, ports
       are opened in the order detected, regardless of their order
-      in GASNET_VAPI_PORTS
-    Note that in most VAPI distributions the 'vstat' utility will list
-    the available HCAs and the status of their ports, while for IBV the
-    equivalent is 'ibv_devices'.
+      in GASNET_IBV_PORTS
+    Note that in most IBV distributions the 'iv_devinfo' utility will list
+    the available HCAs and the status of their ports.
     The default is no filter.
 
   + GASNET_QP_TIMEOUT
@@ -432,14 +407,14 @@ $Revision: 1.3 $
     are therefore not documented here.
 
   Software configuration settings:
-  There are some optional behaviors in vapi-conduit that can be turned
+  There are some optional behaviors in ibv-conduit that can be turned
   ON or OFF.  These parameters may legally take different values on each
   node, but doing so may not be useful.
 
   + GASNET_RCV_THREAD
     This gives a boolean: "0" to disable, or "1" to enable, the use of
     an extra thread that blocks waiting for an Active Message Request
-    or Reply to arrive.  This allows vapi-conduit to remain attentive
+    or Reply to arrive.  This allows ibv-conduit to remain attentive
     to incoming AM traffic even while the application is not making any
     calls to GASNet.  The down side is that when this thread wakes it
     must contend for CPU resources and for locks.  Therefore, for an
@@ -448,13 +423,12 @@ $Revision: 1.3 $
     where an otherwise idle processor is available the use of this
     thread can REDUCE running time by relieving the application thread
     of the burden of servicing incoming AM Requests and Replies.
-    Note that if '--disable-vapi-rcv-thread' was specified at build time
+    Note that if '--disable-ibv-rcv-thread' was specified at build time
     then the extra thread is unavailable and this environment variable
     is ignored.
     Currently the default is disabled (0), but this is subject to change.
     NOTE: In releases prior to GASNet 1.18.2 the AM receive thread was
     unavailable for ibv-conduit, but that is no longer the case.
-    Both VAPI and IBV now support the AM receive thread.
 
   + GASNET_RCV_THREAD_RATE
     If GASNET_RCV_THREAD is enabled, then this setting can be used to
@@ -468,7 +442,7 @@ $Revision: 1.3 $
     impose a limit on the *fraction* of time the thread spends awake.
 
   Pinnable memory probe configuration:
-  In normal operation of vapi-conduit it is necessary to know how much memory
+  In normal operation of ibv-conduit it is necessary to know how much memory
   may be registered (aka pinned) with the InfiniBand HCA(s).  This is limited
   by multiple factors and thus cannot be determined by a simple query.
   Therefore, the default behavior is to attempt to mmap and register as much
@@ -486,7 +460,7 @@ $Revision: 1.3 $
   otherwise is undefined.
 
   + GASNET_PHYSMEM_MAX
-    If non-zero this parameter tells vapi-conduit the maximum amount of
+    If non-zero this parameter tells ibv-conduit the maximum amount of
     physical memory to pin.  The suffixes "M" and "G" are interpreted as
     Megabytes and Gigabytes respectively.  The current default is zero,
     which means to probe the limits imposed by the O/S and HCA.
@@ -516,28 +490,19 @@ $Revision: 1.3 $
   otherwise is undefined.
 
   + GASNET_INLINESEND_LIMIT
-    VAPI includes an "inline send" operation that transfers the data to
+    IBV includes an "inline send" operation that transfers the data to
     the HCA at the same time it transfers the request.  This normally
     provides a measurable performance improvement, but is only available
-    up to an firmware-dependent maximum size.
+    up to an hardware- and firmware-dependent maximum size.
 
     A value of 0 disables use of inline sends.
     The default of 72 is normally correct.
     For ibv-conduit the default of -1 causes use of the maximum value
     reported by the HCA.
    
-    In Mellanox firmware versions after 1.17 and prior to 3.0, there
-    is a performance anomaly with the call EVAPI_post_inline_sr().
-    By default, vapi-conduit will use this call to perform small
-    PUTs.  If firmware in the range [1.18, 3.0) is detected at
-    runtime, a warning will be printed but the call will still
-    be used.  In this case (or if you believe that the same anomaly
-    is affecting some other version) you should try setting this
-    variable to 0.
-
   + GASNET_PACKEDLONG_LIMIT
     To perform an AMLong or AMLongAsync with non-empty payload,
-    vapi-conduit must transfer both the payload and the header.  For
+    ibv-conduit must transfer both the payload and the header.  For
     sufficiently small payloads, it is more efficient (in terms of both CPU
     overhead and network latency) to pack the header and payload together
     and copy the payload into place on the target before running the
@@ -550,7 +515,7 @@ $Revision: 1.3 $
   + GASNET_NONBULKPUT_BOUNCE_LIMIT
     To perform a non-bulk PUT with nbytes > GASNET_INLINESEND_LIMIT or to
     transfer the payload of an AMLong (but not AMLongAsync) with nbytes >
-    MAX(GASNET_INLINESEND_LIMIT, GASNET_PACKEDLONG_LIMIT), vapi-conduit must
+    MAX(GASNET_INLINESEND_LIMIT, GASNET_PACKEDLONG_LIMIT), ibv-conduit must
     either copy the data into bounce buffers, or block until remote
     completion is signaled by the HCA.  Such transfers up to and including
     size GASNET_NONBULKPUT_BOUNCE_LIMIT are performed using bounce buffers
@@ -572,9 +537,8 @@ $Revision: 1.3 $
     A value of zero disables this optimization.
 
   + GASNET_USE_SRQ
-    This controls whether IBV Shared Receive Queue (SRQ) support is used.
-    This setting is ignored for VAPI, for which GASNet has no SRQ support,
-    and for IBV if GASNet was configured with --disable-ibv-srq.
+    This controls whether IBV Shared Receive Queue (SRQ) support is used,
+    but is ignored if GASNet was configured with --disable-ibv-srq.
     This setting defaults to -1, which means that SRQ will be used only
     if doing so would reduce memory usage (as determined from the value
     of the GASNET_RBUF_COUNT setting, described below).
@@ -594,10 +558,9 @@ $Revision: 1.3 $
 
   + GASNET_USE_XRC
     This controls whether IBV eXtended Reliable Connection (XRC) support
-    is used.  This setting is ignored for VAPI, and for IBV if GASNet was
-    was configured with --disable-ibv-xrc.  It is also ignored if SRQ
-    support is not used (regardless of why), or if XRC support was not
-    found at configure time.
+    is used.  However, it is is ignored if GASNet was was configured with
+    --disable-ibv-xrc, if XRC support was not found at configure time, or
+    if SRQ support is not used (regardless of why),
     This setting defaults to 1 if SRQ support was enabled at configure
     time.  As a result XRC will be used anytime SRQ is used.
 
@@ -617,7 +580,7 @@ $Revision: 1.3 $
     in-flight simultaneously from a node to each of its peers.  Here
     "in-flight" means queued to the send work queue and not yet reaped
     from the send completion queue.  This value is the depth of each
-    send work queue.  This limit is on the number of vapi-level ops
+    send work queue.  This limit is on the number of ibv-level ops
     in-flight, and the number of GASNet-level operations may be less
     (for example, when the remote range of a PUT or GET covers more
     than one pinned region, due to GASNET_PIN_MAXSZ, or because an AM
@@ -715,10 +678,10 @@ $Revision: 1.3 $
    
   AMRDMA configuration:
   The following environment variables control the AM-over-RDMA code in
-  vapi-conduit.  These parameters must be equal across all nodes, and
+  ibv-conduit.  These parameters must be equal across all nodes, and
   the behavior otherwise is undefined.
 
-  As an optimization, vapi-conduit can send Active Message (AM) traffic
+  As an optimization, ibv-conduit can send Active Message (AM) traffic
   using RDMA PUT operations to buffers reserved for this purpose.  This
   leads to a reduction in the end-to-end latency of such AM traffic, but
   at the cost of increased memory usage and in the cost of a polling for
@@ -745,7 +708,7 @@ $Revision: 1.3 $
     This environment variable limits the number of peers from which AMs may
     be received over RDMA.  Larger values may potentially allow for lower
     cost AM traffic, but at the cost of increased memory consumption and
-    greater overhead each time that vapi-conduit polls for AM traffic.
+    greater overhead each time that ibv-conduit polls for AM traffic.
     A value of zero will disable AMRDMA.
     The current default is 32.
 
@@ -792,7 +755,7 @@ $Revision: 1.3 $
     because pinning is required for RDMA.  However, GASNet allows for
     local addresses (source of a PUT or destination of a GET) to lie
     outside of the GASNet segment.  So, to perform RDMA GETs and PUTs,
-    vapi-conduit must either copy out-of-segment transfers though
+    ibv-conduit must either copy out-of-segment transfers though
     preregistered bounce buffers, or dynamically register memory.  By
     default firehose is used to manage registration of out-of-segment
     memory.  (default is ON).
@@ -849,7 +812,7 @@ $Revision: 1.3 $
 
 @ Section: HCA Configuration @
 
-  To achieve normal correct operation of GASNet over VAPI or IBVerbs should
+  To achieve normal correct operation of GASNet over IBVerbs should
   *not* require any specialized configuration of your HCAs.  However, this
   section documents any configuration that *may* help improve performance.
 
@@ -886,7 +849,7 @@ $Revision: 1.3 $
 
 + Flow-control for AMs.
 
-  The AMs in vapi-conduit are just implemented as send/recv traffic.
+  The AMs in ibv-conduit are just implemented as send/recv traffic.
   Therefore a send without a corresponding recv buffer preposted at the
   peer will be stalled by the RNR (receiver-not-ready) flow control
   in IB.  However there are two reasons why we want to avoid this
@@ -958,6 +921,8 @@ $Revision: 1.3 $
   back in the unposted pool.  For the dedicated receive thread we can
   do even better, never touching the unposted pool at all, by always
   keeping a single thread-local "spare", initially acquired at startup.
+
+  Note that with SRQ is used, no fow control is used.
 
 @ Section: Extended API @
 
@@ -1044,7 +1009,7 @@ Notes for myself for extended API:
 
 @ Section: Graceful exits @
 
-On June 24, 2003 vapi-conduit now passes all 9 (I added two recently)
+On June 24, 2003 ibv-conduit now passes all 9 (I added two recently)
 of the cases in testexit.  By "Pass" I mean that the entire gasnet job
 (tested up to 8-way across my 4 dual-processor machines) terminates
 with no orphans, and with tracing properly finalized (if tracing is
@@ -1182,7 +1147,7 @@ complete the (hopefully) graceful exit of the gasnet job.
 
 It is important to note that if we get a remote exit request that
 initiates an exit, then we will never return from the handler.
-However, the design of the AM code in VAPI conduit ensures that this
+However, the design of the AM code in IBV conduit ensures that this
 will actually work without deadlock.  For one, we never run handlers
 from signal context or with locks held.  Thus we can expect a
 "clean" set of locks.  Furthermore, we don't expect to do anything
