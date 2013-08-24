@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/08/24 06:45:43 $
- * $Revision: 1.358 $
+ *     $Date: 2013/08/24 09:37:53 $
+ * $Revision: 1.359 $
  * Description: GASNet ibv conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -54,7 +54,7 @@ size_t					gasnetc_packedlong_limit;
 #if !GASNETC_PIN_SEGMENT
   size_t				gasnetc_putinmove_limit;
 #endif
-int					gasnetc_use_rcv_thread = GASNETC_IBV_RCV_THREAD;
+int					gasnetc_use_rcv_thread = GASNETC_USE_RCV_THREAD;
 #if GASNETC_FH_OPTIONAL
   int					gasnetc_use_firehose = 1;
 #endif
@@ -1784,7 +1784,7 @@ void gasnetc_snd_post_common(gasnetc_sreq_t *sreq, struct ibv_send_wr *sr_desc, 
 #define gasnetc_snd_post(x,y)		gasnetc_snd_post_common(x,y,0)
 #define gasnetc_snd_post_inline(x,y)	gasnetc_snd_post_common(x,y,1)
 
-#if GASNETC_IBV_RCV_THREAD
+#if GASNETC_USE_RCV_THREAD
 static void gasnetc_rcv_thread(struct ibv_wc *comp_p, void *arg)
 {
   gasnetc_hca_t * const hca = (gasnetc_hca_t *)arg;
@@ -1811,7 +1811,7 @@ static void gasnetc_rcv_thread(struct ibv_wc *comp_p, void *arg)
     GASNETI_PROGRESSFNS_RUN();
   }
 }
-#endif /* GASNETC_IBV_RCV_THREAD */
+#endif /* GASNETC_USE_RCV_THREAD */
 
 /* Try to claim the next slot */
 GASNETI_INLINE(gasnetc_get_amrdma_slot)
@@ -3219,7 +3219,7 @@ extern int gasnetc_sndrcv_init(void) {
     const int rcv_count = hca->qps * gasnetc_am_rbufs_per_qp;
     const int cqe_count = rcv_count + (!hca->hca_index ? ud_rcvs : 0);
     gasnetc_progress_thread_t *rcv_thread = NULL;
-  #if GASNETC_IBV_RCV_THREAD
+  #if GASNETC_USE_RCV_THREAD
     if (gasnetc_use_rcv_thread) rcv_thread = &hca->rcv_thread;
   #endif
     vstat = gasnetc_create_cq(hca->handle, cqe_count, &hca->rcv_cq, &act_size, rcv_thread);
@@ -3306,7 +3306,7 @@ extern int gasnetc_sndrcv_init(void) {
   
         rbuf = (gasnetc_rbuf_t *)((uintptr_t)rbuf + padded_size);
       }
-#if GASNETC_IBV_RCV_THREAD
+#if GASNETC_USE_RCV_THREAD
       if (gasnetc_use_rcv_thread) {
         hca->rcv_thread_priv = gasnetc_lifo_pop(&hca->rbuf_freelist);
         gasneti_assert(hca->rcv_thread_priv != NULL);
@@ -3516,7 +3516,7 @@ extern void gasnetc_sndrcv_attach_peer(gasnet_node_t node, gasnetc_cep_t *cep) {
 #endif
 }
 
-#if GASNETC_IBV_RCV_THREAD
+#if GASNETC_USE_RCV_THREAD
 extern void gasnetc_sndrcv_start_thread(void) {
   if (gasnetc_remote_nodes && gasnetc_use_rcv_thread) {
     int rcv_max_rate = gasneti_getenv_int_withdefault("GASNET_RCV_THREAD_RATE", 0, 1);

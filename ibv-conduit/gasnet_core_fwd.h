@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_fwd.h,v $
- *     $Date: 2013/08/24 05:11:11 $
- * $Revision: 1.65 $
+ *     $Date: 2013/08/24 09:37:53 $
+ * $Revision: 1.66 $
  * Description: GASNet header for ibv conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -58,7 +58,10 @@ typedef uint8_t gasnet_handler_t;
      "private" threads which may be used to run AM handlers, even under GASNET_SEQ
      this ensures locking is still done correctly, etc
    */
-#if (GASNETC_IBV_RCV_THREAD  || GASNETC_USE_CONN_THREAD)
+#ifndef GASNETC_DYNAMIC_CONNECT
+  #define GASNETC_DYNAMIC_CONNECT 1
+#endif
+#if GASNETC_IBV_RCV_THREAD || (GASNETC_DYNAMIC_CONNECT && GASNETC_IBV_CONN_THREAD)
   #define GASNETI_CONDUIT_THREADS 1
 #endif
 

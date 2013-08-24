@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2013/08/24 06:15:47 $
- * $Revision: 1.327 $
+ *     $Date: 2013/08/24 09:37:53 $
+ * $Revision: 1.328 $
  * Description: GASNet ibv conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -322,7 +322,7 @@ static void gasnetc_sys_coll_fini(void)
 #endif
 }
 
-#if GASNETC_IBV_RCV_THREAD
+#if GASNETC_USE_RCV_THREAD
   static gasneti_atomic_t gasnetc_sys_barrier_rcvd[2] =
                             {gasneti_atomic_init(0), gasneti_atomic_init(0)};
   #define gasnetc_sys_barrier_read(_phase) \
@@ -340,7 +340,7 @@ static void gasnetc_sys_coll_fini(void)
 static void gasnetc_sys_barrier_reqh(gasnet_token_t token, uint32_t arg)
 {
     const int phase = arg & 1;
-#if GASNETC_IBV_RCV_THREAD
+#if GASNETC_USE_RCV_THREAD
     gasneti_atomic_t *p = &gasnetc_sys_barrier_rcvd[phase];
   #if defined(GASNETI_HAVE_ATOMIC_ADD_SUB)
     /* atomic OR via ADD since no bit will be set more than once */
@@ -398,7 +398,7 @@ extern void gasneti_bootstrapBarrier(void)
 #error "Update gasneti_bootstrapExchange for > 16-bit node count"
 #endif
 
-#if GASNETC_IBV_RCV_THREAD
+#if GASNETC_USE_RCV_THREAD
   static gasneti_atomic_t gasnetc_sys_exchange_rcvd[2][16] =
   { { gasneti_atomic_init(0), gasneti_atomic_init(0),
       gasneti_atomic_init(0), gasneti_atomic_init(0),
@@ -439,12 +439,12 @@ static uint8_t *gasnetc_sys_exchange_buf[2] = { NULL, NULL };
 static uint8_t *gasnetc_sys_exchange_addr(int phase, size_t elemsz)
 {
   if (gasnetc_sys_exchange_buf[phase] == NULL) {
-  #if GASNETC_IBV_RCV_THREAD
+  #if GASNETC_USE_RCV_THREAD
     static gasneti_mutex_t lock = GASNETI_MUTEX_INITIALIZER;
     gasneti_mutex_lock(&lock);
   #endif
     gasnetc_sys_exchange_buf[phase] = gasneti_malloc(elemsz * gasneti_nodes);
-  #if GASNETC_IBV_RCV_THREAD
+  #if GASNETC_USE_RCV_THREAD
     gasneti_mutex_unlock(&lock);
   #endif
   }
@@ -898,7 +898,7 @@ static int gasnetc_load_settings(void) {
   gasnetc_use_rcv_thread = gasneti_getenv_yesno_withdefault("GASNET_RCV_THREAD", 0);
 
   /* Verify correctness/sanity of values */
-  if (gasnetc_use_rcv_thread && !GASNETC_IBV_RCV_THREAD) {
+  if (gasnetc_use_rcv_thread && !GASNETC_USE_RCV_THREAD) {
     gasneti_fatalerror("AM receive thread enabled by environment variable GASNET_RCV_THREAD, but was disabled at GASNet build time");
   }
 #if GASNETC_FH_OPTIONAL
@@ -952,7 +952,7 @@ static int gasnetc_load_settings(void) {
   /* Report */
   GASNETI_TRACE_PRINTF(I,("ibv-conduit build time configuration settings = {"));
   GASNETI_TRACE_PRINTF(I,("  AM receives in internal thread %sabled (GASNETC_IBV_RCV_THREAD)",
-				GASNETC_IBV_RCV_THREAD ? "en" : "dis"));
+				GASNETC_USE_RCV_THREAD ? "en" : "dis"));
 #if GASNETC_IBV_POLL_LOCK
   GASNETI_TRACE_PRINTF(I,("  Serialized CQ polls            YES (--enable-ibv-poll-lock)"));
 #else
@@ -1006,7 +1006,7 @@ static int gasnetc_load_settings(void) {
   GASNETI_TRACE_PRINTF(I,  ("  GASNET_AMRDMA_DEPTH             = %u", (unsigned int)gasnetc_amrdma_depth));
   GASNETI_TRACE_PRINTF(I,  ("  GASNET_AMRDMA_LIMIT             = %u", (unsigned int)gasnetc_amrdma_limit));
   GASNETI_TRACE_PRINTF(I,  ("  GASNET_AMRDMA_CYCLE             = %lu", (unsigned long)gasnetc_amrdma_cycle));
-#if GASNETC_IBV_RCV_THREAD
+#if GASNETC_USE_RCV_THREAD
   GASNETI_TRACE_PRINTF(I,  ("  GASNET_RCV_THREAD               = %d (%sabled)", gasnetc_use_rcv_thread,
 				gasnetc_use_rcv_thread ? "en" : "dis"));
 #else
@@ -2050,7 +2050,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 
   gasneti_nodemapFini();
 
-#if GASNETC_IBV_RCV_THREAD
+#if GASNETC_USE_RCV_THREAD
   /* Start AM receive thread, if applicable */
   gasnetc_sndrcv_start_thread();
 #endif
@@ -2559,7 +2559,7 @@ static void gasnetc_exit_body(void) {
     }
   }
 
-#if GASNETC_IBV_RCV_THREAD
+#if GASNETC_USE_RCV_THREAD
   /* Stop AM receive thread, if applicable (won't kill self) */
   gasnetc_sndrcv_stop_thread();
 #endif

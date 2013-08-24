@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2013/08/24 06:45:43 $
- * $Revision: 1.252 $
+ *     $Date: 2013/08/24 09:37:53 $
+ * $Revision: 1.253 $
  * Description: GASNet ibv conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -118,15 +118,18 @@ typedef enum {
 /* ------------------------------------------------------------------------------------ */
 /* Internal threads */
 
-#ifndef GASNETC_DYNAMIC_CONNECT
-#define GASNETC_DYNAMIC_CONNECT 1
-#endif
-
-/* GASNETC_*_CONN_THREAD enables a progress thread for establishing dynamic connections. */
+/* GASNETC_USE_CONN_THREAD enables a progress thread for establishing dynamic connections. */
 #if GASNETC_DYNAMIC_CONNECT && GASNETC_IBV_CONN_THREAD
   #define GASNETC_USE_CONN_THREAD 1
 #else
   #define GASNETC_USE_CONN_THREAD 0
+#endif
+
+/* GASNETC_USE_RCV_THREAD enables a progress thread for running AMs. */
+#if GASNETC_IBV_RCV_THREAD
+  #define GASNETC_USE_RCV_THREAD 1
+#else
+  #define GASNETC_USE_RCV_THREAD 0
 #endif
 
 /* ------------------------------------------------------------------------------------ */
@@ -146,7 +149,7 @@ typedef enum {
   #define GASNETC_CLI_PAR 0
 #endif
 
-#define GASNETC_ANY_PAR         (GASNETC_CLI_PAR || GASNETC_IBV_RCV_THREAD)
+#define GASNETC_ANY_PAR         (GASNETC_CLI_PAR || GASNETC_USE_RCV_THREAD)
 
 /* ------------------------------------------------------------------------------------ */
 
@@ -628,7 +631,7 @@ typedef struct {
   void			*rbufs;
   gasnetc_lifo_head_t	rbuf_freelist;
 
-#if GASNETC_IBV_RCV_THREAD
+#if GASNETC_USE_RCV_THREAD
   /* Rcv thread */
   gasnetc_progress_thread_t rcv_thread;
   void                      *rcv_thread_priv;
