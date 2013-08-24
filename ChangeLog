@@ -1,6 +1,6 @@
 GASNet ChangeLog 
 ----------------
-$Revision: 1.79 $
+$Revision: 1.80 $
 
 ----------------------------------------------------------------------
 10-??-2013 : Release 1.22.0
@@ -11,6 +11,7 @@ PLACEHOLDER
   - This release no longer supports the following networks:
     + elan (Quadrics elan3/elan4)
     + gm (Myrinet GM)
+    + vapi (legacy Mellanox-specific InfiniBand)
     + lapi (IBM LAPI)
     + portals (Cray Portals for XT series)
     + sci (Dolphin SCI)
@@ -18,7 +19,7 @@ PLACEHOLDER
     access to resources for maintenance of the code, please contact us.
 
 * IBM BG/Q (pami-conduit)
-  - Support for intra-node shared memory communication (PHSM) is now
+  - Support for intra-node shared memory communication (PSHM) is now
     available on BlueGene/Q.  Please see docs/pshm-design.txt for
     details of the configuration and environment setup required.
 
