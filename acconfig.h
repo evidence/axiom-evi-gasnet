@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2013/08/24 05:41:51 $ */
-/*  $Revision: 1.193 $ */
+/*      $Date: 2013/08/24 06:38:34 $ */
+/*  $Revision: 1.194 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -363,7 +363,6 @@
 #undef HAVE_IBV_SRQ
 #undef HAVE_IBV_XRC
 #undef HAVE_IBV_TRANSPORT_TYPE
-#undef GASNETC_IBV_POLL_LOCK
 #undef GASNETC_IBV_RCV_THREAD
 #undef GASNETC_IBV_CONN_THREAD
 #undef GASNETC_IBV_MAX_HCAS

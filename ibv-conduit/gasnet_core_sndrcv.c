@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/08/24 06:15:47 $
- * $Revision: 1.356 $
+ *     $Date: 2013/08/24 06:38:36 $
+ * $Revision: 1.357 $
  * Description: GASNet ibv conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -440,16 +440,6 @@ void *gasnetc_sr_desc_init(struct ibv_send_wr *result, struct ibv_sge *sg_lst_p)
              | ((cat)     << 8         )        \
              | ((hand)                 )))
 
-/* Work around apparent thread-safety bug in VAPI_poll_cq (and peek as well?) */
-#if GASNETC_IBV_POLL_LOCK
-  static gasneti_mutex_t gasnetc_cq_poll_lock = GASNETI_MUTEX_INITIALIZER;
-  #define CQ_LOCK	gasneti_mutex_lock(&gasnetc_cq_poll_lock);
-  #define CQ_UNLOCK	gasneti_mutex_unlock(&gasnetc_cq_poll_lock);
-#else
-  #define CQ_LOCK	do {} while (0)
-  #define CQ_UNLOCK	do {} while (0)
-#endif
-
 #define gasnetc_poll_rcv()		gasnetc_do_poll(1,0)
 #define gasnetc_poll_snd()		gasnetc_do_poll(0,1)
 #define gasnetc_poll_both()		gasnetc_do_poll(1,1)
@@ -847,9 +837,7 @@ void gasnetc_dump_cqs(struct ibv_wc *comp, gasnetc_hca_t *hca, const int is_snd)
   }
 
   do { /* Drain the other CQ */
-    CQ_LOCK;
     vstat = ibv_poll_cq((is_snd ? hca->rcv_cq : hca->snd_cq), 1, comp);
-    CQ_UNLOCK;
     if (vstat != 0) {
       /* use an invalid value to ensure output is generated on the last pass */
       comp->status = (enum ibv_wc_status)(-1);
@@ -905,10 +893,7 @@ static int gasnetc_snd_reap(int limit) {
   gasneti_assert(limit <= GASNETC_SND_REAP_LIMIT);
 
   for (count = 0; count < limit; ++count) {
-    CQ_LOCK;
     rc = ibv_poll_cq(hca->snd_cq, 1, &comp);
-    CQ_UNLOCK;
-
     if_pt (rc == GASNETC_POLL_CQ_EMPTY) {
       /* CQ empty - we are done */
       break;
@@ -1296,10 +1281,7 @@ static int gasnetc_rcv_reap(gasnetc_hca_t *hca, const int limit, gasnetc_rbuf_t 
   int count;
 
   for (count = 0; count < limit; ++count) {
-    CQ_LOCK;
     vstat = ibv_poll_cq(hca->rcv_cq, 1, &comp);
-    CQ_UNLOCK;
-
     if_pt (vstat == GASNETC_POLL_CQ_EMPTY) {
       /* CQ empty - we are done */
       break;
