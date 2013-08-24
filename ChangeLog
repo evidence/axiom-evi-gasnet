@@ -1,6 +1,6 @@
 GASNet ChangeLog 
 ----------------
-$Revision: 1.80 $
+$Revision: 1.81 $
 
 ----------------------------------------------------------------------
 10-??-2013 : Release 1.22.0
@@ -17,6 +17,9 @@ PLACEHOLDER
     + sci (Dolphin SCI)
     If you require GASNet on one these networks, and can provide
     access to resources for maintenance of the code, please contact us.
+
+* InfiniBand (ibv- and mxm-conduit)
+  - Now support direct PMI-based launch (e.g. srun or hydra)
 
 * IBM BG/Q (pami-conduit)
   - Support for intra-node shared memory communication (PSHM) is now

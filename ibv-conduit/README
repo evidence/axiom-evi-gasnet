@@ -1,7 +1,7 @@
 README file for ibv-conduit
 ===========================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.4 $
+$Revision: 1.5 $
 
 @ TOC: @
 @ Section: Job Spawning @
@@ -26,9 +26,10 @@ $Revision: 1.4 $
   MPI or SSH.  The default can be set at configure time with
       --with-ibv-spawner=ssh
   or  --with-ibv-spawner=mpi
-  where mpi is the default.  At runtime the environment variable
-  GASNET_IBV_SPAWNER (set to "mpi" or "ssh") can override the
-  value set at configuration time.
+  or  --with-ibv-spawner=pmi
+  where mpi is the default.
+
+  Additionally
 
   If using UPC or Titanium, the language-specific commands should be used
   to launch applications.  Otherwise, applications can be launched using
@@ -43,6 +44,13 @@ $Revision: 1.4 $
       -t                    test only, don't execute anything (implies -v)
       -k                    keep any temporary files created (implies -v)
       -spawner=(ssh|mpi)    force use of MPI or SSH for spawning (if available)
+
+  At runtime the environment variable GASNET_IBV_SPAWNER (set to "mpi" or "ssh")
+  can override the value set at configuration time, but the command line option
+  will override the environment variable.
+
+  If configured for PMI as the default, then you should use your PMI-based
+  launcher, such as srun or yod, to launch ibv-conduit applications directly.
 
   If spawning using MPI, then the following apply:
   + In order to bootstrap ibv-conduit, a working MPI must be installed

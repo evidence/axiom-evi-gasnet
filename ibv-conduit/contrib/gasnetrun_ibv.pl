@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/contrib/gasnetrun_ibv.pl,v $
-#     $Date: 2013/07/10 21:53:27 $
-# $Revision: 1.12 $
+#     $Date: 2013/08/24 06:12:35 $
+# $Revision: 1.13 $
 # Description: GASNet VAPI, IBV and MXM spawner
 # Terms of use are as specified in license.txt
 
@@ -118,7 +118,10 @@ sub fullpath($)
 	}
 	shift;
     }
+
     $spawner = uc($spawner);
+    die "gasnetrun: $conduit-conduit was configure for PMI-based launch\n"
+        if ($spawner eq 'PMI')
 
 # Validate flags
     if (!defined($numproc)) {

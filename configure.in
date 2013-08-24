@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2013/08/24 05:41:51 $
-# $Revision: 1.824 $
+#     $Date: 2013/08/24 06:12:31 $
+# $Revision: 1.825 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.824 $)
+AC_REVISION($Revision: 1.825 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -3049,16 +3049,16 @@ if test "$enabled_ibv" = yes; then
       fi
 
     GASNET_WITH(ibv-spawner,
-       [IBV job spawner ("ssh" or "mpi", default is mpi when available)],
+       [IBV job spawner ("ssh", "mpi" or "pmi", default is mpi when available)],
        [case "$withval" in
-          ssh|mpi) gasnet_ibv_spawner_conf=$withval
+          ssh|mpi|pmi) gasnet_ibv_spawner_conf=$withval
                ;;
-          yes) AC_MSG_ERROR([--with-ibv-spawner requires an argument ("ssh" or "mpi")])
+          yes) AC_MSG_ERROR([--with-ibv-spawner requires an argument ("ssh", "mpi" or "pmi")])
                ;;
-          *)   AC_MSG_ERROR([--with-ibv-spawner argument must be "ssh" or "mpi"])
+          *)   AC_MSG_ERROR([--with-ibv-spawner argument must be "ssh", "mpi" or "pmi"])
                ;;
         esac],
-       [AC_MSG_ERROR([--with-ibv-spawner argument must be "ssh" or "mpi"])],
+       [AC_MSG_ERROR([--with-ibv-spawner argument must be "ssh", "mpi" or "pmi"])],
        [if test "$have_mpi_compat" = yes; then
           gasnet_ibv_spawner_conf=mpi
         else
