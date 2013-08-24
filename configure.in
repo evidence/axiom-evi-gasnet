@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2013/08/23 19:52:29 $
-# $Revision: 1.822 $
+#     $Date: 2013/08/24 05:32:53 $
+# $Revision: 1.823 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.822 $)
+AC_REVISION($Revision: 1.823 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -289,7 +289,7 @@ case "$CC_FAMILY" in
   XLC)
     case "$target_os" in
 	darwin*)
-	    # enabling ipa (-O4 or higher) breaks linking to MPI (and thus vapi).
+	    # enabling ipa (-O4 or higher) breaks linking to MPI (and thus ibv).
 	    case `/usr/sbin/sysctl hw.cpusubtype | cut '-d ' -f2` in
 		# bug926: on G5 (cpusubtype 100) -qarch={ppc970,auto} causes corruption of 64-bit integer arithmetic
 		100)	CCOPTFLAGS="-O3 -qhot -qarch=g5 -qtune=auto -qthreaded -qnosmp -qmaxmem=-1" ;; 
@@ -2189,109 +2189,6 @@ AC_DEFUN([GASNET_FH_CFLAGS],[
   AC_SUBST(FH_CFLAGS)
 ])
 
-dnl GASNET_IB_OPTIONS(family)
-dnl Parse IB-specific configure arguments common to VAPI and IBV conduits
-AC_DEFUN([GASNET_IB_OPTIONS],[
-  pushdef([lowername],translit($1,'A-Z','a-z'))
-  pushdef([uppername],translit($1,'a-z','A-Z'))
-  pushdef([enabled_ib_poll_lock],enabled_[]lowername[]_poll_lock)
-  pushdef([enabled_ib_rcv_thread],enabled_[]lowername[]_rcv_thread)
-  pushdef([enabled_ib_multirail],enabled_[]lowername[]_multirail)
-  pushdef([gasnetc_ib_max_hcas],gasnetc_[]lowername[]_max_hcas)
-  pushdef([gasnet_ib_spawner_conf],gasnet_[]lowername[]_spawner_conf)
-  pushdef([GASNETC_IB_POLL_LOCK],GASNETC_[]uppername[]_POLL_LOCK)
-  pushdef([GASNETC_IB_RCV_THREAD],GASNETC_[]uppername[]_RCV_THREAD)
-  pushdef([GASNETC_IB_CONN_THREAD],GASNETC_[]uppername[]_CONN_THREAD)
-  pushdef([GASNETC_IB_MAX_HCAS],GASNETC_[]uppername[]_MAX_HCAS)
-  pushdef([GASNET_IB_SPAWNER_CONF],GASNET_[]uppername[]_SPAWNER_CONF)
-
-  # Since we are using firehose we need to disable certain optimizations.
-  # See bug #350 for an example of why firehose needs this.
-  # See bug #596 or #1031 for evidence that VAPI is affected by this.
-  # See bug #1052 for evidence that xlc is affected.
-  GASNET_FH_CFLAGS
-
-  GASNET_IF_ENABLED(lowername[]-poll-lock, [See vapi-conduit/README (disabled by default)], 
-    enabled_ib_poll_lock=yes, enabled_ib_poll_lock=no)
-    if test "$enabled_ib_poll_lock" = yes; then
-      AC_DEFINE(GASNETC_IB_POLL_LOCK)
-    fi
-
-  GASNET_IF_ENABLED_WITH_AUTO(lowername[]-rcv-thread, [See vapi-conduit/README (enabled by default if pthreads available)], 
-    [enabled_ib_rcv_thread=yes
-     if test "$have_pthread" = no; then
-       AC_MSG_ERROR([--enable-[]lowername[]-rcv-thread requires pthread support but pthreads $pthread_reason])
-     fi],
-    [enabled_ib_rcv_thread=no],
-    [enabled_ib_rcv_thread=$have_pthread])
-    if test "$enabled_ib_rcv_thread" = yes; then
-      AC_DEFINE(GASNETC_IB_RCV_THREAD)
-    fi
-
-  GASNET_IF_ENABLED_WITH_AUTO(lowername[]-conn-thread, [See vapi-conduit/README (enabled by default if pthreads available)], 
-    [enabled_ib_conn_thread=yes
-     if test "$have_pthread" = no; then
-       AC_MSG_ERROR([--enable-[]lowername[]-conn-thread requires pthread support but pthreads $pthread_reason])
-     fi],
-    [enabled_ib_conn_thread=no],
-    [enabled_ib_conn_thread=$have_pthread])
-    if test "$enabled_ib_conn_thread" = yes; then
-      AC_DEFINE(GASNETC_IB_CONN_THREAD)
-    fi
-
-  GASNET_WITH(lowername[]-spawner,
-     [uppername job spawner ("ssh" or "mpi", default is mpi when available)],
-     [case "$withval" in
-        ssh|mpi) gasnet_ib_spawner_conf=$withval
-             ;;
-        yes) AC_MSG_ERROR([--with-[]lowername[]-spawner requires an argument ("ssh" or "mpi")])
-             ;;
-        *)   AC_MSG_ERROR([--with-[]lowername[]-spawner argument must be "ssh" or "mpi"])
-             ;;
-      esac],
-     [AC_MSG_ERROR([--with-[]lowername[]-spawner argument must be "ssh" or "mpi"])],
-     [if test "$have_mpi_compat" = yes; then
-        gasnet_ib_spawner_conf=mpi
-      else
-        gasnet_ib_spawner_conf=ssh
-      fi])
-  if test "$gasnet_ib_spawner_conf$have_mpi_compat" = mpino; then
-    AC_MSG_ERROR([--with-[]lowername[]-spawner=mpi requires MPI compatibility support which $mpi_compat_reason])
-  fi
-  if test "$gasnet_ib_spawner_conf$have_fork" = sshno; then
-    AC_MSG_ERROR([--with-[]lowername[]-spawner=ssh requires fork() support which $fork_reason])
-  fi
-  GASNET_IB_SPAWNER_CONF=$gasnet_ib_spawner_conf
-  AC_SUBST(GASNET_IB_SPAWNER_CONF)
-
-  gasnetc_ib_max_hcas=2
-  GASNET_IF_DISABLED(lowername[]-multirail, [Disable uppername over multiple HCAs, see vapi-conduit/README (enabled by default)], enabled_ib_multirail=no, enabled_ib_multirail=yes)
-  GASNET_WITH(lowername[]-max-hcas,
-     [maximum number of uppername HCAs to open for multi-rail support (default is 2)],
-     [if expr "${withval}" : "[[1-9]][[0-9]]*" >/dev/null; then
-        gasnetc_ib_max_hcas="$withval"
-      else
-        AC_MSG_ERROR([--with-[]lowername[]-max-hcas requires a postive integer argument])
-      fi],
-     [AC_MSG_ERROR([--with-[]lowername[]-max-hcas requires a postive integer argument])],
-     [:])
-  if test "$enabled_ib_multirail" = yes; then
-    AC_DEFINE_UNQUOTED(GASNETC_IB_MAX_HCAS, $gasnetc_ib_max_hcas)
-  fi
-
-  popdef([lowername])
-  popdef([uppername])
-  popdef([enabled_ib_poll_lock])
-  popdef([enabled_ib_rcv_thread])
-  popdef([enabled_ib_multirail])
-  popdef([gasnetc_ib_max_hcas])
-  popdef([gasnet_ib_spawner_conf])
-  popdef([GASNETC_IB_POLL_LOCK])
-  popdef([GASNETC_IB_RCV_THREAD])
-  popdef([GASNETC_IB_MAX_HCAS])
-  popdef([GASNET_IB_SPAWNER_CONF])
-])
-
 dnl GASNET_ID_OTHER_COMPILER(CCVAR, lang-decr)
 dnl CCVAR is CXX|MPI_CC
 AC_DEFUN([GASNET_ID_OTHER_COMPILER],[
@@ -3026,134 +2923,6 @@ echo " " >> $CONDUIT_LIST
 echo " Native, high-performance conduits:" >> $CONDUIT_LIST
 echo " ---------------------------------" >> $CONDUIT_LIST
 fi
-
-#--------------------------------------------------------------------------------------------------------
-# VAPI configuration
-
-CONDUIT_BEGIN(vapi,[Mellanox InfiniBand/VAPI network conduit (vapi)])
-if test "$enabled_vapi$have_mpi_compat$have_fork" = yesnono; then
-  enabled_vapi=no
-  GASNET_MSG_WARN([vapi-conduit requires either MPI compatibility ($mpi_compat_reason) or fork() ($fork_reason) for startup - disabling vapi])
-fi
-if test "$enabled_vapi" = yes; then
-  # Start by assuming we do have VAPI
-  have_vapi=yes
-
-  # Start by finding a reasonable default
-  AC_PATH_PROGS(vstat, vstat)
-  if test -n "$vstat"; then
-    vapi_guess=`dirname \`dirname $vstat\``
-  elif test -r /usr/local/ibgd/driver/infinihost; then
-    vapi_guess=/usr/local/ibgd/driver/infinihost
-  elif test -r /usr/mellanox; then
-    vapi_guess=/usr/mellanox
-  else
-    vapi_guess=/usr
-  fi
-  GASNET_ENV_DEFAULT(MTHOME, $vapi_guess)
-
-  # MTHOME may point to either 'true' home, or to symlinked location
-  AC_MSG_CHECKING(if $MTHOME is the VAPI install directory)
-  if test -r $MTHOME/include/vapi.h; then
-    # MTHOME looks OK
-    AC_MSG_RESULT([yes])
-  elif test -r $MTHOME/bin/vstat; then
-    vstat=$MTHOME/bin/vstat
-    GASNET_FOLLOWLINKS(vstat)
-    MTHOME=`dirname \`dirname $vstat\``
-    AC_MSG_RESULT([no - followed symlink to $MTHOME])
-  else
-    AC_MSG_RESULT([probably not])
-  fi
-
-  GASNET_ENV_DEFAULT(VAPI_INCLUDE, $MTHOME/include)
-  GASNET_ENV_DEFAULT(VAPI_LIBS, -lvapi -lmtl_common -lmosal -lmpga)
-  # Note 'test -d $foo/.' works even if $foo is a symlink
-  if test -d $MTHOME/lib${GASNETI_PTR_BITS}/.; then
-    vapi_libdir_default=$MTHOME/lib${GASNETI_PTR_BITS}
-  else
-    vapi_libdir_default=$MTHOME/lib
-  fi
-  GASNET_ENV_DEFAULT(VAPI_LIBDIR, $vapi_libdir_default)
-
-  # Assemble any extra flags needed at library build time
-  VAPI_LIBCFLAGS=''
-
-    # Once assumed always true for GCC, but that is not always the case.
-    GASNET_TRY_CACHE_CHECK(if $CC supports GNU variadic preprocessor macros, cc_gnu_variadic_macros, [
-	extern void bar1(int a);
-	extern void bar3(int a, int b, int c);
-	#define foo1(A, B...) bar1(A, ## B)	/* expect the comma to disappear */
-	#define foo3(A, B...) bar3(A, ## B)	/* expect the comma to remain */
-    ],[
-	foo1(1);
-	foo3(1, 2, 3);
-    ],[],[
-      # Work aroung bug #522 by omitting mtl_log.h
-      VAPI_LIBCFLAGS="$VAPI_LIBCFLAGS -DH_MTL_LOG_H"
-    ])
-
-  # Try to compile and link a basic VAPI program
-  GASNET_PUSHVAR(CFLAGS,"$CFLAGS -I$VAPI_INCLUDE $GASNET_THREAD_DEFINES $VAPI_LIBCFLAGS")
-  GASNET_PUSHVAR(LIBS,"$LIBS -L$VAPI_LIBDIR $VAPI_LIBS $GASNET_THREAD_LIBS")
-  GASNET_TRY_CACHE_LINK(for working VAPI configuration, vapi_works, [
-    #if defined(__GNUC__) && !defined(inline)
-      /* ANSI-ify the vapi headers */
-      #define inline __inline__
-      #include <evapi.h>
-      #undef inline
-    #else
-      #include <evapi.h>
-    #endif
-  ], [{
-    int rc;
-    u_int32_t num_of_hcas;
-    VAPI_hca_id_t inst_hca_id;
-
-    rc = EVAPI_list_hcas(1, &num_of_hcas, &inst_hca_id);
-  }], [ : ], [ have_vapi=no; GASNET_ERR_SAVE() ] )
-  GASNET_POPVAR(CFLAGS)
-  GASNET_POPVAR(LIBS)
-
-  if test "$have_vapi" = yes; then
-    GASNET_PUSHVAR(CFLAGS,"$CFLAGS -I$VAPI_INCLUDE $GASNET_THREAD_DEFINES $VAPI_LIBCFLAGS")
-    GASNET_PUSHVAR(LIBS,"$LIBS -L$VAPI_LIBDIR $VAPI_LIBS $GASNET_THREAD_LIBS")
-
-    GASNET_IF_ENABLED_WITH_AUTO(vapi-fmr, support/use VAPI Fast Memory Regions (default is to probe),
-                 [enabled_vapi_fmr="yes"], [enabled_vapi_fmr="no"], [enabled_vapi_fmr="try"])
-    if test "$enabled_vapi_fmr" != no; then
-      GASNET_TRY_CACHE_LINK(for VAPI FMR support, vapi_fmr, [
-        #include <vapi.h>
-        #include <evapi.h>
-      ], [{
-        VAPI_hca_hndl_t my_hca;
-        EVAPI_fmr_hndl_t handles[[1]];
-        EVAPI_unmap_fmr(my_hca, 1, handles);
-      }], [ have_vapi_fmr="yes" ], [ have_vapi_fmr="no" ])
-      if test "$have_vapi_fmr" = yes; then
-        AC_DEFINE(HAVE_VAPI_FMR)
-      elif test "$enabled_vapi_fmr" = yes; then
-        AC_MSG_ERROR(User requested --enable-vapi-fmr but support was not found.)
-      fi
-    fi
-
-    GASNET_POPVAR(CFLAGS)
-    GASNET_POPVAR(LIBS)
-
-    # Collect IB-specifc configure options
-    GASNET_IB_OPTIONS(VAPI)
-  fi
-fi
-AC_SUBST(VAPI_INCLUDE)
-AC_SUBST(VAPI_LIBDIR)
-AC_SUBST(VAPI_LIBS)
-AC_SUBST(VAPI_LIBCFLAGS)
-AM_CONDITIONAL(USE_VAPI_CONDUIT, test "$have_vapi" = yes)
-AM_CONDITIONAL(VAPI_BOOTSTRAP_SSH, test "$have_fork" = yes)
-AM_CONDITIONAL(VAPI_BOOTSTRAP_MPI, test "$have_mpi_compat" = yes)	# Option to omit MPI support?
-AM_CONDITIONAL(VAPI_RCV_THREAD,test "$enabled_vapi_rcv_thread" = yes)
-CONDUIT_END([test "$have_vapi" = yes])
-
 #--------------------------------------------------------------------------------------------------------
 # IBV configuration
 
@@ -3249,8 +3018,75 @@ if test "$enabled_ibv" = yes; then
     #AC_SEARCH_LIBS(ibv_get_devices, ibverbs, AC_DEFINE(HAVE_IBV_GET_DEVICES))
     #GASNET_POPVAR(LIBS)
 
+    # Since we are using firehose we need to disable certain optimizations.
+    # See bug #350 for an example of why firehose needs this.
+    # See bug #596 or #1031 for evidence that VAPI is affected by this.
+    # See bug #1052 for evidence that xlc is affected.
+    GASNET_FH_CFLAGS
+
     # Collect IB-specifc configure options
-    GASNET_IB_OPTIONS(IBV)
+
+    GASNET_IF_ENABLED_WITH_AUTO(ibv-rcv-thread, [See ibv-conduit/README (enabled by default if pthreads available)], 
+      [enabled_ibv_rcv_thread=yes
+       if test "$have_pthread" = no; then
+         AC_MSG_ERROR([--enable-ibv-rcv-thread requires pthread support but pthreads $pthread_reason])
+       fi],
+      [enabled_ibv_rcv_thread=no],
+      [enabled_ibv_rcv_thread=$have_pthread])
+      if test "$enabled_ibv_rcv_thread" = yes; then
+        AC_DEFINE(GASNETC_IBV_RCV_THREAD)
+      fi
+
+    GASNET_IF_ENABLED_WITH_AUTO(ibv-conn-thread, [See ibv-conduit/README (enabled by default if pthreads available)], 
+      [enabled_ibv_conn_thread=yes
+       if test "$have_pthread" = no; then
+         AC_MSG_ERROR([--enable-ibv-conn-thread requires pthread support but pthreads $pthread_reason])
+       fi],
+      [enabled_ibv_conn_thread=no],
+      [enabled_ibv_conn_thread=$have_pthread])
+      if test "$enabled_ibv_conn_thread" = yes; then
+        AC_DEFINE(GASNETC_IBV_CONN_THREAD)
+      fi
+
+    GASNET_WITH(ibv-spawner,
+       [IBV job spawner ("ssh" or "mpi", default is mpi when available)],
+       [case "$withval" in
+          ssh|mpi) gasnet_ibv_spawner_conf=$withval
+               ;;
+          yes) AC_MSG_ERROR([--with-ibv-spawner requires an argument ("ssh" or "mpi")])
+               ;;
+          *)   AC_MSG_ERROR([--with-ibv-spawner argument must be "ssh" or "mpi"])
+               ;;
+        esac],
+       [AC_MSG_ERROR([--with-ibv-spawner argument must be "ssh" or "mpi"])],
+       [if test "$have_mpi_compat" = yes; then
+          gasnet_ibv_spawner_conf=mpi
+        else
+          gasnet_ibv_spawner_conf=ssh
+        fi])
+    if test "$gasnet_ibv_spawner_conf$have_mpi_compat" = mpino; then
+      AC_MSG_ERROR([--with-ibv-spawner=mpi requires MPI compatibility support which $mpi_compat_reason])
+    fi
+    if test "$gasnet_ibv_spawner_conf$have_fork" = sshno; then
+      AC_MSG_ERROR([--with-ibv-spawner=ssh requires fork() support which $fork_reason])
+    fi
+    GASNET_IBV_SPAWNER_CONF=$gasnet_ibv_spawner_conf
+    AC_SUBST(GASNET_IBV_SPAWNER_CONF)
+
+    gasnetc_ibv_max_hcas=2
+    GASNET_IF_DISABLED(ibv-multirail, [Disable IBV over multiple HCAs, see ibv-conduit/README (enabled by default)], enabled_ibv_multirail=no, enabled_ibv_multirail=yes)
+    GASNET_WITH(ibv-max-hcas,
+       [maximum number of IBV HCAs to open for multi-rail support (default is 2)],
+       [if expr "${withval}" : "[[1-9]][[0-9]]*" >/dev/null; then
+          gasnetc_ibv_max_hcas="$withval"
+        else
+          AC_MSG_ERROR([--with-ibv-max-hcas requires a postive integer argument])
+        fi],
+       [AC_MSG_ERROR([--with-ibv-max-hcas requires a postive integer argument])],
+       [:])
+    if test "$enabled_ibv_multirail" = yes; then
+      AC_DEFINE_UNQUOTED(GASNETC_IBV_MAX_HCAS, $gasnetc_ibv_max_hcas)
+    fi
 
     GASNET_IF_DISABLED([ibv-srq],
                        [Disable Shared Receive Queue (SRQ) support in ibv-conduit (enabled by default)],
@@ -4900,7 +4736,6 @@ dnl GASNET_TOOLSONLY_FALSE_END
 ##
 
 GASNET_FIX_EXEC(mpi-conduit/contrib/gasnetrun_mpi)
-GASNET_FIX_EXEC(vapi-conduit/contrib/gasnetrun_vapi)
 GASNET_FIX_EXEC(ibv-conduit/contrib/gasnetrun_ibv)
 GASNET_FIX_EXEC(mxm-conduit/contrib/gasnetrun_mxm)
 GASNET_FIX_EXEC(dcmf-conduit/contrib/gasnetrun_dcmf)
@@ -4961,11 +4796,6 @@ pami-conduit/Makefile
 pami-conduit/conduit.mak
 pami-conduit/contrib/Makefile
 pami-conduit/contrib/gasnetrun_pami
-
-vapi-conduit/Makefile
-vapi-conduit/conduit.mak
-vapi-conduit/contrib/Makefile
-vapi-conduit/contrib/gasnetrun_vapi
 
 ibv-conduit/Makefile
 ibv-conduit/conduit.mak

@@ -1,6 +1,6 @@
 External Software README
 ------------------------
-$Revision: 1.6 $
+$Revision: 1.7 $
 
 This subdirectory contains various external libraries and tools
 used by this GASNet implementation.
@@ -81,21 +81,21 @@ MPI-SPAWNER
 
 The mpi-spawner directory contains an implementation of job-launch
 and GASNet communications bootstrapping using MPI.  It is optionally
-used by GASNet's vapi, ibv and mxm conduits.
+used by GASNet's ibv and mxm conduits.
 
 ------------------------------------------------------------------
 SSH-SPAWNER
 
 The ssh-spawner directory contains an implementation of job-launch
 and GASNet communications bootstrapping using ssh.  It is optionally
-used by GASNet's vapi, ibv and mxm conduits.
+used by GASNet's ibv and mxm conduits.
 
 ------------------------------------------------------------------
 PMI-SPAWNER
 
 The mpi-spawner directory contains an implementation of job-launch
 and GASNet communications bootstrapping using MPI.  It is optionally
-used by GASNet's vapi, ibv and mxm conduits, and unconditionally by
+used by GASNet's ibv and mxm conduits, and unconditionally by
 portals4, gemini and aries conduits.
 
 ------------------------------------------------------------------

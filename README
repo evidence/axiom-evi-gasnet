@@ -1,6 +1,6 @@
 README file for GASNet
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.160 $
+$Revision: 1.161 $
 
 This is a combination user manual and design document for GASNet. Anyone
 planning on using, modifying or adding to the GASNet code base should read this
@@ -194,12 +194,12 @@ Platforms where GASNet and Berkeley UPC have been successfully tested:
       OS/Architecture/compiler/ABI: network conduits
       ----------------------------------------------
     * Linux/x86-Ethernet/gcc/32:     smp, mpi, udp
-    * Linux/x86-Mellanox/gcc/32:     smp, mpi, udp, vapi, ibv
+    * Linux/x86-Mellanox/gcc/32:     smp, mpi, udp, ibv
     * Linux/x86/IntelC/32:           smp, mpi, udp
     * Linux/x86/PortlandGroupC/32:   smp, mpi, udp
     * Linux/Itanium/{gcc,IntelC}/64: smp, mpi, udp &
     * Linux/Opteron-Ethernet/{gcc,PortlandGroup,SunC}/{32,64}: smp, mpi, udp
-    * Linux/Opteron-Mellanox/{gcc,PathScale,IntelC,SunC}/64: smp, mpi, udp, vapi, ibv, mxm
+    * Linux/Opteron-Mellanox/{gcc,PathScale,IntelC,SunC}/64: smp, mpi, udp, ibv, mxm
     * Linux/Opteron/x86-Open64/64:   smp, udp, #
     * Linux/Alpha/gcc/64:            smp, udp, #&
     * Linux/PowerPC-Ethernet/gcc/64: smp, mpi, udp
@@ -232,7 +232,7 @@ Platforms where GASNet and Berkeley UPC have been successfully tested:
 
     * MSWindows-Cygwin/x86/gcc/32/: smp, udp, mpi (MPICH.NT,MPICH2)
 
-    * MacOSX/PowerPC/{gcc,xlc}/32,64: smp, udp, mpi, vapi
+    * MacOSX/PowerPC/{gcc,xlc}/32,64: smp, udp, mpi
     * MacOSX/x86/{gcc,icc}/32,64: smp, udp, mpi
     * MacOSX/x86/{PGI}/32,64: smp, udp, #
 
@@ -438,7 +438,7 @@ application-specific support.
 * GASNET_VIS_REMOTECONTIG - enables a pack & RDMA algorithm for gather puts and
  scatter gets - i.e. cases that are locally non-contiguous but remotely
  contiguous. Currently unsafe for use on many conduits, thus disabled by default.
- (Currently vapi and ibv are known or suspected to be unsafe).
+ (Currently ibv is known or suspected to be unsafe).
 
 * GASNET_COLL_OPT - set to 1 to enable the optimized versions of 
  the collectives. These include binomial trees for the rooted collectives 
