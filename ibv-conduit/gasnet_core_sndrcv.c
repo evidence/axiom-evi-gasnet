@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2013/08/24 05:11:11 $
- * $Revision: 1.355 $
+ *     $Date: 2013/08/24 06:15:47 $
+ * $Revision: 1.356 $
  * Description: GASNet ibv conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -2996,7 +2996,7 @@ extern int gasnetc_sndrcv_limits(void) {
      * in particular on the simple node-independent repetition of ports. */
     int i;
     for (i = 0; i < gasnetc_num_qps; ++i) {
-      hca = &gasnetc_hca[uint8_tbl[i % gasnetc_num_ports].hca_index];
+      hca = &gasnetc_hca[gasnetc_port_tbl[i % gasnetc_num_ports].hca_index];
       hca->qps += 1;
       hca->max_qps += gasnetc_remote_nodes;
     }

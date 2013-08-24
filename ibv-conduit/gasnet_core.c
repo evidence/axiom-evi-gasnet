@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2013/08/24 05:59:32 $
- * $Revision: 1.326 $
+ *     $Date: 2013/08/24 06:15:47 $
+ * $Revision: 1.327 $
  * Description: GASNet ibv conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -115,7 +115,7 @@ gasnetc_hca_t	gasnetc_hca[GASNETC_IB_MAX_HCAS];
 uintptr_t	gasnetc_max_msg_sz;
 int		gasnetc_qp_rd_atom;
 
-gasnetc_port_info_t      *uint8_tbl = NULL;
+gasnetc_port_info_t      *gasnetc_port_tbl = NULL;
 int                      gasnetc_num_ports = 0;
 
 #if GASNETC_PIN_SEGMENT
@@ -1344,8 +1344,8 @@ static void gasnetc_probe_ports(int max_ports) {
 
   gasnetc_num_hcas = hca_count;
   gasnetc_num_ports = port_count;
-  uint8_tbl  = gasneti_realloc(port_tbl, port_count * sizeof(gasnetc_port_info_t));
-  gasneti_leak(uint8_tbl);
+  gasnetc_port_tbl  = gasneti_realloc(port_tbl, port_count * sizeof(gasnetc_port_info_t));
+  gasneti_leak(gasnetc_port_tbl);
 }
 
 static int gasnetc_hca_report(void) {
@@ -1390,11 +1390,11 @@ static int gasnetc_hca_report(void) {
       
     /* Per-port: */
     for (i = 0; i < gasnetc_num_ports; ++i) {
-      if (uint8_tbl[i].hca_index == h) {
-        GASNETI_TRACE_PRINTF(I,("  port %d properties = {", (int)uint8_tbl[i].port_num));
-        GASNETI_TRACE_PRINTF(I,("    LID                      = %u", (unsigned int)uint8_tbl[i].port.lid));
-        GASNETI_TRACE_PRINTF(I,("    max_msg_sz               = %u", (unsigned int)uint8_tbl[i].port.max_msg_sz));
-        GASNETI_TRACE_PRINTF(I,("    active_mtu               = %s", mtu_to_str(uint8_tbl[i].port.active_mtu)));
+      if (gasnetc_port_tbl[i].hca_index == h) {
+        GASNETI_TRACE_PRINTF(I,("  port %d properties = {", (int)gasnetc_port_tbl[i].port_num));
+        GASNETI_TRACE_PRINTF(I,("    LID                      = %u", (unsigned int)gasnetc_port_tbl[i].port.lid));
+        GASNETI_TRACE_PRINTF(I,("    max_msg_sz               = %u", (unsigned int)gasnetc_port_tbl[i].port.max_msg_sz));
+        GASNETI_TRACE_PRINTF(I,("    active_mtu               = %s", mtu_to_str(gasnetc_port_tbl[i].port.active_mtu)));
         GASNETI_TRACE_PRINTF(I,("  }"));
       }
     }
@@ -1454,7 +1454,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     /* Let the probe determine gasnetc_num_qps */
     gasnetc_num_qps = gasnetc_num_ports;
   }
-  if (!gasnetc_num_ports || (uint8_tbl == NULL)) {
+  if (!gasnetc_num_ports || (gasnetc_port_tbl == NULL)) {
     if (gasnetc_ibv_ports && strlen(gasnetc_ibv_ports)) {
       GASNETI_RETURN_ERRR(RESOURCE, "unable to open any HCA ports given in GASNET_IBV_PORTS");
     } else {
@@ -1529,9 +1529,9 @@ static int gasnetc_init(int *argc, char ***argv) {
 #endif /* GASNETC_IBV_XRC */
 
   /* Determine gasnetc_max_msg_sz and dependent variables */
-  gasnetc_max_msg_sz = uint8_tbl[0].port.max_msg_sz;
+  gasnetc_max_msg_sz = gasnetc_port_tbl[0].port.max_msg_sz;
   for (i = 1; i < gasnetc_num_ports; ++i) {
-    gasnetc_max_msg_sz = MIN(gasnetc_max_msg_sz, uint8_tbl[i].port.max_msg_sz);
+    gasnetc_max_msg_sz = MIN(gasnetc_max_msg_sz, gasnetc_port_tbl[i].port.max_msg_sz);
   }
   gasnetc_bounce_limit = MIN(gasnetc_max_msg_sz, gasnetc_bounce_limit);
 
@@ -1539,7 +1539,7 @@ static int gasnetc_init(int *argc, char ***argv) {
   local_lid = gasneti_calloc(gasnetc_num_ports, sizeof(uint16_t));
   remote_lid = gasneti_calloc(gasnetc_num_ports * gasneti_nodes, sizeof(uint16_t));
   for (i = 0; i < gasnetc_num_ports; ++i) {
-    local_lid[i] = uint8_tbl[i].port.lid;
+    local_lid[i] = gasnetc_port_tbl[i].port.lid;
   }
   gasneti_bootstrapExchange(local_lid, gasnetc_num_ports * sizeof(uint16_t), remote_lid);
   gasneti_free(local_lid);
@@ -1570,10 +1570,10 @@ static int gasnetc_init(int *argc, char ***argv) {
 
   /* record remote lids */
   for (i = 0; i < gasnetc_num_ports; ++i) {
-    uint8_tbl[i].remote_lids = gasneti_malloc(gasneti_nodes * sizeof(uint16_t));
-    gasneti_leak(uint8_tbl[i].remote_lids);
+    gasnetc_port_tbl[i].remote_lids = gasneti_malloc(gasneti_nodes * sizeof(uint16_t));
+    gasneti_leak(gasnetc_port_tbl[i].remote_lids);
     for (node = 0; node < gasneti_nodes; ++node) {
-      uint8_tbl[i].remote_lids[node] = remote_lid[node * gasnetc_num_ports + i];
+      gasnetc_port_tbl[i].remote_lids[node] = remote_lid[node * gasnetc_num_ports + i];
     }
   }
   gasneti_free(remote_lid);

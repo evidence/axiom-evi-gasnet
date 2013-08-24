@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2013/08/24 05:11:11 $
- * $Revision: 1.250 $
+ *     $Date: 2013/08/24 06:15:47 $
+ * $Revision: 1.251 $
  * Description: GASNet ibv conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -888,7 +888,7 @@ extern uintptr_t	gasnetc_max_msg_sz;
 extern size_t			gasnetc_fh_align;
 extern size_t			gasnetc_fh_align_mask;
 extern firehose_info_t		gasnetc_firehose_info;
-extern gasnetc_port_info_t      *uint8_tbl;
+extern gasnetc_port_info_t      *gasnetc_port_tbl;
 extern int                      gasnetc_num_ports;
 extern gasnetc_cep_t            **gasnetc_node2cep;
 extern gasnet_node_t            gasnetc_remote_nodes;

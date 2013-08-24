@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_connect.c,v $
- *     $Date: 2013/08/24 05:11:11 $
- * $Revision: 1.102 $
+ *     $Date: 2013/08/24 06:15:47 $
+ * $Revision: 1.103 $
  * Description: Connection management code
  * Copyright 2011, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -310,7 +310,7 @@ gasnetc_xrc_tmpname(uint16_t mylid, int index) {
 /* XXX: Requires that the call is collective */
 extern int
 gasnetc_xrc_init(void) {
-  const uint16_t mylid = uint8_tbl[0].port.lid;
+  const uint16_t mylid = gasnetc_port_tbl[0].port.lid;
   char *filename[GASNETC_IB_MAX_HCAS+1];
   size_t flen;
   int index, fd;
@@ -384,7 +384,7 @@ gasnetc_select_port(gasnet_node_t node, int qpi) {
      * repeated for each node.
      * XXX: If this changes, gasnetc_sndrcv_limits() must change to match.
      */
-    return  &uint8_tbl[qpi % gasnetc_num_ports];
+    return  &gasnetc_port_tbl[qpi % gasnetc_num_ports];
 }
 
 /* Setup ports array for one node */
@@ -418,7 +418,7 @@ gasnetc_setup_ports(gasnetc_conn_info_t *conn_info)
 static void
 gasnetc_check_inline_limit(int port_num, int send_wr, int send_sge)
 {
-  const gasnetc_port_info_t *port = &uint8_tbl[port_num];
+  const gasnetc_port_info_t *port = &gasnetc_port_tbl[port_num];
   gasnetc_hca_t *hca = &gasnetc_hca[port->hca_index];
   struct ibv_qp * qp_handle;
 
@@ -2317,7 +2317,7 @@ gasnetc_connect_init(void)
     GASNETI_TRACE_PRINTF(I, ("Dynamic connection automatically disabled for fully-connected job"));
   } else {
     /* TODO: allow env var to select specific port for UD */
-    gasnetc_qp_setup_ud(&uint8_tbl[0], fully_connected);
+    gasnetc_qp_setup_ud(&gasnetc_port_tbl[0], fully_connected);
   }
 #else
   GASNETI_TRACE_PRINTF(I, ("Dynamic connection was disabled at library build time"));
