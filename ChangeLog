@@ -1,6 +1,6 @@
 GASNet ChangeLog 
 ----------------
-$Revision: 1.81 $
+$Revision: 1.82 $
 
 ----------------------------------------------------------------------
 10-??-2013 : Release 1.22.0
@@ -29,6 +29,9 @@ PLACEHOLDER
 * Portable UDP support (udp-conduit)
   - Support MASTERIP and WORKERIP settings to deal with a much wider
     range of network configurations.
+
+* Platform support/portability
+  - Initial support for building GASNet with NVIDIA's nvcc compiler
 
 ----------------------------------------------------------------------
 04-30-2013 : Release 1.20.2
