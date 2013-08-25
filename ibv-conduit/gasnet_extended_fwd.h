@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_extended_fwd.h,v $
- *     $Date: 2013/08/24 09:37:53 $
- * $Revision: 1.38 $
+ *     $Date: 2013/08/25 20:38:39 $
+ * $Revision: 1.39 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -36,7 +36,7 @@ typedef struct _gasnete_op_t *gasnet_handle_t;
      maximum COUNT of such threads to allocate space for their threaddata
    */
   /* Each RCV thread needs a slot in the threadtable.  The CONN thread doesn't. */
-#if GASNETC_USE_RCV_THREAD
+#if GASNETC_IBV_RCV_THREAD
  #ifdef GASNETC_IBV_MAX_HCAS
   #define GASNETE_CONDUIT_THREADS_USING_TD GASNETC_IBV_MAX_HCAS
  #else
