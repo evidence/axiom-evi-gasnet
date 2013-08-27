@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/aries-conduit/Makefile.am,v $
-#     $Date: 2013/07/18 05:14:48 $
-# $Revision: 1.5 $
+#     $Date: 2013/08/27 22:15:47 $
+# $Revision: 1.6 $
 # Description: Makefile for GASNet aries conduit
 # Copyright 2013, E. O. Lawrence Berekely National Laboratory
 # Terms of use are as specified in license.txt
@@ -40,7 +40,7 @@ CONDUIT_SOURCELIST =          \
 
 # additional -I or -D directives needed by this specific conduit
 # other than the standard GASNet includes and flags
-CONDUIT_EXTRALIBCFLAGS = @GNI_INCLUDES@ -I$(gemini_srcdir) -DGASNET_CONDUIT_ARIES
+CONDUIT_EXTRALIBCFLAGS = @GNI_INCLUDES@ -I$(gemini_srcdir) -DGASNET_CONDUIT_ARIES -D_GNU_SOURCE
 
 # additional conduit header files to install from external, non-standard directories
 CONDUIT_EXTRAHEADERS = $(gemini_install_hdrs)
