@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4.c,v $
- *     $Date: 2013/08/12 19:52:52 $
- * $Revision: 1.51 $
+ *     $Date: 2013/08/28 04:05:20 $
+ * $Revision: 1.52 $
  * Description: Portals 4 specific configuration
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
@@ -1123,7 +1123,7 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size, unsigned int limit
                        until the other thread finishes processing the
                        events associated with this ME */
                     fprintf(stderr, "%03d: spinning waiting for block to finish %ld, %ld\n",
-                            gasneti_mynode, ct.success + ct.failure, val);
+                            gasneti_mynode, ct.success + ct.failure, (long)val);
                     GASNETI_WAITHOOK();
                     val = gasneti_weakatomic_read(&block->op_count, 0);
                 }
