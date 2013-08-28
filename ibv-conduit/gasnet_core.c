@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2013/08/24 09:37:53 $
- * $Revision: 1.328 $
+ *     $Date: 2013/08/28 04:32:11 $
+ * $Revision: 1.329 $
  * Description: GASNet ibv conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -765,6 +765,7 @@ static void gasnetc_init_pin_info(int first_local, int num_local) {
   gasneti_free(all_info);
 }
 
+#if GASNET_TRACE
 static const char *mtu_to_str(enum ibv_mtu mtu) {
   switch (mtu) {
   case IBV_MTU_256 : return "256";
@@ -775,6 +776,7 @@ static const char *mtu_to_str(enum ibv_mtu mtu) {
   default                  : return "unknown";
   }
 }
+#endif
 
 /* Process defaults and the environment to get configuration settings */
 static int gasnetc_load_settings(void) {
@@ -1302,7 +1304,9 @@ static void gasnetc_probe_ports(int max_ports) {
 	  /* By default one at most 1 port per HCA */
 	  break;
 	}
-      } else {
+      }
+#if GASNET_TRACE
+      else {
 	const char *state;
 
 	switch (this_port->port.state) {
@@ -1320,6 +1324,7 @@ static void gasnetc_probe_ports(int max_ports) {
         }
         GASNETI_TRACE_PRINTF(C,("Probe skipping HCA '%s', port %d - state = %s", hca_name, curr_port, state));
       }
+#endif
     }
 
     /* Install or release the HCA */
@@ -1410,7 +1415,6 @@ static int gasnetc_init(int *argc, char ***argv) {
   uint16_t		*local_lid;
   uint16_t		*remote_lid;
   gasnet_node_t		node;
-  int			vstat;
   int 			i;
 
   /*  check system sanity */
