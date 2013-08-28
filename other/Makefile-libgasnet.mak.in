@@ -207,6 +207,7 @@ $(top_builddir)/other/Makefile-libgasnet.mak: $(top_srcdir)/other/Makefile-libga
 @GNU_NM_TRUE@		    -e ' [\._]*fhi_' -e ' [\._]*fhc_' -e ' [\._]*fhsmp_' -e ' [\._]*fhuni_' \
 @GNU_NM_TRUE@		    -e ' [\._]*myxml_' -e ' [\._]*smp_coll_'                        \
 @GNU_NM_TRUE@		    -e ' W _bgp_Make_[a-zA-Z]*_UCI' -e ' [\._]*emutls_'             \
+@GNU_NM_TRUE@		    -e ' D bg_[a-z]' -e ' D _uci_' -e ' D _parse[A-Z][a-z]'         \
 @GNU_NM_TRUE@		    -e __FUNCTION__ -e __PRETTY_FUNCTION__ -e ' [\._]*DWinfo'       \
 @GNU_NM_TRUE@               -e ' [\._][\._]*debug_'                                              \
 @GNU_NM_TRUE@               -e ' [\._]*stab' -e ' [\._]*gnu_dev_' -e '^00* W '  |           \
