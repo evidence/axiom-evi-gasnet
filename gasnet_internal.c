@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2013/08/24 05:41:51 $
- * $Revision: 1.238 $
+ *     $Date: 2013/08/28 02:36:57 $
+ * $Revision: 1.239 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -313,7 +313,6 @@ static void do_raise(int sig) {
 void gasneti_defaultSignalHandler(int sig) {
   gasneti_sighandlerfn_t oldsigpipe = NULL;
   const char *signame =  gasnett_signame_fromval(sig);
-  int i;
 
   gasneti_assert(signame);
 
