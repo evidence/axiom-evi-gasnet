@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2013/08/10 01:49:04 $
- * $Revision: 1.127 $
+ *     $Date: 2013/08/29 21:19:11 $
+ * $Revision: 1.128 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -890,7 +890,7 @@ extern void gasneti_munmap(void *segbase, uintptr_t segsize) {
         gasneti_fatalerror("msync("GASNETI_LADDRFMT",%lu) failed: %s\n",
 	        GASNETI_LADDRSTR(segbase), (unsigned long)segsize, strerror(errno));
     #endif
-    #if defined(PLATFORM_OS_BGQ)
+    #if GASNET_PSHM && defined(PLATFORM_OS_BGQ)
       /* we delayed the close() until now */
       close(gasneti_addr2fd_del(segbase));
     #endif
