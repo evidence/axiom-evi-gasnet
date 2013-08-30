@@ -1,6 +1,6 @@
 README file for GASNet
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.161 $
+$Revision: 1.162 $
 
 This is a combination user manual and design document for GASNet. Anyone
 planning on using, modifying or adding to the GASNet code base should read this
@@ -698,9 +698,15 @@ accomplishing this:
 
 int isMPIinit;
 int main(int argc, char **argv) {
+  size_t segment_size = 64*1024*1024; /* want 64MB segment in this example */
+  size_t segment_max;
 
   gasnet_init(&argc, &argv);
-  gasnet_attach(NULL, 0, gasnet_getMaxGlobalSegmentSize(), 0);
+
+  segment_max = gasnet_getMaxGlobalSegmentSize();
+  if (segment_size > segment_max) segment_size = segment_max;
+
+  gasnet_attach(NULL, 0, segment_size, 0);
 
   gasnet_barrier_notify(0, GASNET_BARRIERFLAG_ANONYMOUS);
   gasnet_barrier_wait(0, GASNET_BARRIERFLAG_ANONYMOUS);
