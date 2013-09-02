@@ -53,73 +53,80 @@ typedef gasneti_atomic_t gasnetc_gni_lock_t;
 #define GASNETC_INITLOCK_GNI() gasneti_spinlock_init(&gasnetc_gni_lock)
 #define GASNETC_LOCK_GNI() gasneti_spinlock_lock(&gasnetc_gni_lock)
 #define GASNETC_UNLOCK_GNI() gasneti_spinlock_unlock(&gasnetc_gni_lock)
+#define GASNETC_INITLOCK_AM_BUFFER() gasneti_spinlock_init(&gasnetc_am_buffer_lock)
+#define GASNETC_LOCK_AM_BUFFER() gasneti_spinlock_lock(&gasnetc_am_buffer_lock)
+#define GASNETC_UNLOCK_AM_BUFFER() gasneti_spinlock_unlock(&gasnetc_am_buffer_lock)
 #else
 typedef gasneti_mutex_t gasnetc_gni_lock_t;
 #define GASNETC_INITLOCK_GNI() gasneti_mutex_init(&gasnetc_gni_lock)
 #define GASNETC_LOCK_GNI() gasneti_mutex_lock(&gasnetc_gni_lock)
 #define GASNETC_UNLOCK_GNI() gasneti_mutex_unlock(&gasnetc_gni_lock)
+#define GASNETC_INITLOCK_AM_BUFFER() gasneti_mutex_init(&gasnetc_am_buffer_lock)
+#define GASNETC_LOCK_AM_BUFFER() gasneti_mutex_lock(&gasnetc_am_buffer_lock)
+#define GASNETC_UNLOCK_AM_BUFFER() gasneti_mutex_unlock(&gasnetc_am_buffer_lock)
 #endif
 extern gasnetc_gni_lock_t gasnetc_gni_lock;
+extern gasnetc_gni_lock_t gasnetc_am_buffer_lock;
+
+typedef uint64_t gasnetc_notify_t;
 
 typedef struct {
   gasnet_node_t source;
   int need_reply;
+  gasnetc_notify_t notify;  
 } gasnetc_token_t;
 
 /* Control messages */
 enum {
-    GC_CTRL_CREDIT = 0,
-    GC_CTRL_SHUTDOWN
+    GC_CTRL_SHUTDOWN 
 };
 
+/* AM message "commands" */
 enum {
-    GC_CMD_NULL = 0, /* zero GC_Header marks free mailboxes */
-    GC_CMD_AM_SHORT = 1,
+    GC_CMD_AM_SHORT,
     GC_CMD_AM_MEDIUM,
-    GC_CMD_AM_LONG
+    GC_CMD_AM_LONG,
+    GC_CMD_AM_LONG_PACKED
 };
 
+/* Encode AM header bits to fit in upper 32 bits of 64 bit word */
+#define gasnetc_build_am_header(command, numargs, handler, nbytes) \
+ (((uint64_t)(command) << 61) | \
+  ((uint64_t)(numargs) << 56) | \
+  ((uint64_t)(handler) << 48) | \
+  ((uint64_t)(nbytes)  << 32))
 
-typedef struct GC_Header {
-  uint32_t command : 2;        /* GC_CMD_AM_* */
-  uint32_t is_req  : 1;        /* 1=request, 0=reply */
-  uint32_t credit  : 1;        /* piggybacked credit in addition to one implied by a Reply */
-  uint32_t misc    : 15;       /* msg-dependent field (e.g. nbytes in a Medium) */
-  uint32_t numargs : 5;        /* number of GASNet arguments */
-  uint32_t handler : 8;        /* index of GASNet handler */
-} GC_Header_t;
-
+#define gasnetc_am_command(n) (((n) >> 61) & 0x7)     /* using only 2 of 3 bits */
+#define gasnetc_am_numargs(n) (((n) >> 56) & 0x1f)
+#define gasnetc_am_handler(n) (((n) >> 48) & 0xff)
+#define gasnetc_am_nbytes(n)  (((n) >> 32) & 0xffff)  /* using only 10 of 16 bits */
 
 /* This type is used by an AMShort request or reply */
 typedef struct {
-  GC_Header_t header;
   gasnet_handlerarg_t args[gasnet_AMMaxArgs()];
 } gasnetc_am_short_packet_t;
 
 /* This type is used by an AMMedium request or reply */
 typedef struct {
-  GC_Header_t header;
   gasnet_handlerarg_t args[gasnet_AMMaxArgs()];
 } gasnetc_am_medium_packet_t;
 
 /* This type is used by an AMLong request or reply */
 typedef struct {
-  GC_Header_t header;
+  void *data;
 #if GASNETC_MAX_LONG <= 0xFFFFFFFFU
   uint32_t data_length;
 #else
   size_t data_length;
 #endif
-  void *data;
   gasnet_handlerarg_t args[gasnet_AMMaxArgs()];
 } gasnetc_am_long_packet_t;
 
 /* The various ways to interpret an arriving message
  * You can tell what it is by looking at the command field
- * in the GC_Header_t
+ * in the header portion of the notify word
  */
-typedef union gasnetc_eq_packet {
-  GC_Header_t header; /* must be first */
+typedef union gasnetc_packet_u {
   gasnetc_am_short_packet_t gasp;
   gasnetc_am_medium_packet_t gamp;
   gasnetc_am_long_packet_t galp;
@@ -148,8 +155,6 @@ typedef union gasnetc_eq_packet {
 #define GASNETC_MAX_PACKED_LONG(nargs) \
         (GASNETC_MSG_MAXSIZE - GASNETC_HEADLEN(long, (nargs)))
 #endif
-
-void gasnetc_get_am_credit(uint32_t pe);
 
 void gasnetc_init_post_descriptor_pool(void);
 
@@ -192,7 +197,6 @@ extern size_t gasnetc_max_put_lc;
 #define GC_POST_COMPLETION_FLAG 128
 #define GC_POST_COMPLETION_CNTR 256
 #define GC_POST_KEEP_GPD 512
-#define GC_POST_SMSG_BUF 1024
 
 /* WARNING: if sizeof(gasnetc_post_descriptor_t) changes, then
  * you must update the value in gasneti_pd_auxseg_IdentString */
@@ -201,12 +205,16 @@ typedef struct gasnetc_post_descriptor {
   #define gpd_completion pd.post_id
   #define gpd_get_src    pd.first_operand
   #define gpd_get_dst    pd.second_operand
+  #define gpd_am_header  pd.sync_flag_value
+  #define gpd_am_packet  pd.local_addr
+  #define gpd_am_peer    pd.first_operand
+  #define gpd_am_next    pd.second_operand
   union {
     uint8_t immediate[GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE];
     gasnetc_packet_t packet;
+    gasnetc_notify_t notify;
   } u;
   uint32_t flags;
-  gasnet_node_t dest;
 } gasnetc_post_descriptor_t;
 
 gasnetc_post_descriptor_t *gasnetc_alloc_post_descriptor(void) GASNETI_MALLOC;
@@ -232,10 +240,6 @@ void gasnetc_shutdown(void); /* clean up all gni state */
 
 void gasnetc_poll_local_queue(void);
 void gasnetc_poll(void);
-
-int gasnetc_send_smsg(gasnet_node_t dest, 
-            gasnetc_post_descriptor_t *gpd,
-            gasnetc_packet_t *msg, size_t length);
 
 void gasnetc_rdma_put_bulk(gasnet_node_t node,
 		 void *dest_addr, void *source_addr,
@@ -284,26 +288,29 @@ int gasnetc_weakatomic_dec_if_positive(gasneti_weakatomic_t *p)
 #endif
 }
 
-GASNETI_INLINE(gasnetc_weakatomic_swap)
-gasneti_weakatomic_val_t gasnetc_weakatomic_swap(gasneti_weakatomic_t *p, gasneti_weakatomic_val_t newval)
-{
-#if GASNETI_THREADS || defined(GASNETI_FORCE_TRUE_WEAKATOMICS)
-  #if GASNETI_HAVE_ATOMIC_SWAP
-    return gasneti_atomic_swap(p, newval, GASNETI_ATOMIC_NONE);
-  #else
-    gasneti_atomic_val_t oldval;
-    do {
-      oldval = gasneti_atomic_read(p, GASNETI_ATOMIC_NONE);
-    } while ((oldval != newval) &&
-               !gasneti_atomic_compare_and_swap(p, oldval, newval, GASNETI_ATOMIC_NONE));
-    return oldval;
-  #endif
-#else
-  const gasneti_weakatomic_val_t oldval = gasneti_weakatomic_read(p, GASNETI_ATOMIC_NONE);
-  gasneti_weakatomic_set(p, newval, GASNETI_ATOMIC_NONE);
-  return oldval;
-#endif
+/* Given a value between 1 and INT_MAX, returns the smallest power of two
+ * that is greater than or equal to the argument.
+ * Specifically power of two arguments return themselves.
+ */
+GASNETI_INLINE(gasnetc_next_power_of_2)
+int gasnetc_next_power_of_2(int x) {
+  x -= 1;
+  x |= (x >> 1);
+  x |= (x >> 2);
+  x |= (x >> 4);
+  x |= (x >> 8);
+  x |= (x >> 16);
+  x += 1;
+  return x;
 }
+
+extern int gasnetc_send_control(gasnet_node_t dest, uint8_t op, uint16_t arg);
+
+extern int gasnetc_send_am(gasnetc_post_descriptor_t *gpd);
+gasnetc_post_descriptor_t *gasnetc_alloc_reply_post_descriptor(gasnet_token_t t,
+                                                               size_t length);
+gasnetc_post_descriptor_t *gasnetc_alloc_request_post_descriptor(gasnet_node_t dest, 
+                                                                 size_t length);
 
 #endif /* GASNET_GEMINI_H */
 
