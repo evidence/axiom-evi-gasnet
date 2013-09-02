@@ -999,6 +999,7 @@ void ampoll_ins(peer_struct_t *peer)
 static void gasnetc_handle_sys_shutdown_packet(uint32_t source, uint16_t arg);
 
 GASNETI_NEVER_INLINE(dispatch_ctrl,
+static
 void dispatch_ctrl(peer_struct_t * const peer,gasnetc_notify_t notify))
 {
   const uint16_t arg = notify_ctrl_arg(notify);
