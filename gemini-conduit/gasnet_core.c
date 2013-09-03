@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/09/03 04:28:19 $
- * $Revision: 1.86 $
+ *     $Date: 2013/09/03 04:36:08 $
+ * $Revision: 1.87 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -570,23 +570,6 @@ static int gasnetc_init(int *argc, char ***argv) {
 
   ret = gasnetc_bootstrapInit(argc, argv);
   if (ret != GASNET_OK) return ret;
-
-#if GASNET_CONDUIT_ARIES
-    if (!gasneti_mynode) {
-      fflush(NULL);
-      fprintf(stdout,
-              "-----------------------------------------------------------------------\n"
-              " WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING\n"
-              "\n"
-              " GASNet's aries-conduit is currently in BETA status.\n"
-              " You should NOT trust any performance numbers from this run as\n"
-              " predictive of the performance of the conduit when completed.\n"
-              "\n"
-              " WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING\n"
-              "-----------------------------------------------------------------------\n");
-      fflush(NULL);
-    }
-#endif
 
   #if GASNET_DEBUG_VERBOSE
     fprintf(stderr,"gasnetc_init(): gasnetc_init done - node %i/%i starting...\n", 
