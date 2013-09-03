@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/09/02 21:34:54 $
- * $Revision: 1.85 $
+ *     $Date: 2013/09/03 04:28:19 $
+ * $Revision: 1.86 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -201,7 +201,7 @@ void gasnetc_bootstrapBarrier(void))
   }
 }
 
-#define GASNETC_SYS_EXCHANGE_MAX GASNETC_MAX_MEDIUM
+#define GASNETC_SYS_EXCHANGE_MAX GASNETC_GNI_MAX_MEDIUM
 static unsigned int gasnetc_sys_exchange_rcvd[2][GASNETC_LOG2_MAXNODES];
 static uint8_t *gasnetc_sys_exchange_buf[2] = { NULL, NULL };
 

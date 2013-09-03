@@ -1,6 +1,6 @@
 GASNet gemini-conduit and aries-conduit documentation
 Larry Stewart <stewart@serissa.com> 
-$Revision: 1.27 $
+$Revision: 1.28 $
 
 User Information:
 -----------------
@@ -101,6 +101,16 @@ PMI_GNI_COOKIE     - Access code shared by all nodes in job
 PMI_GNI_PTAG       - Protection tag shared by all nodes in job
 PMI_GNI_DEV_ID     - Device ID (Selects which NIC is in use)
   Provided by Cray runtime system.  Don't mess with these.
+
+Optional configure-time settings:
+------------------------------
+
+--with-gni-max-medium=[value]
+   By default gasnet_AMMaxMedium() is 960: a 1024 byte buffer minus
+   64 bytes reserved for up to 16 handler arguments.  This configure
+   option allows control over the value of gasnet_AMMaxMedium().
+   The value must be a multiple of 64, and cannot be less than 512.
+   The default value is 960.
 
 Optional compile-time settings:
 ------------------------------

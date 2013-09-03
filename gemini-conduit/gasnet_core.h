@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.h,v $
- *     $Date: 2013/09/02 21:34:54 $
- * $Revision: 1.4 $
+ *     $Date: 2013/09/03 04:28:19 $
+ * $Revision: 1.5 $
  * Description: GASNet header for gemini conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -124,16 +124,18 @@ typedef struct _gasnet_hsl_t {
 */
 
 #define gasnet_AMMaxArgs()          ((size_t)16)
-#define GASNETC_MAX_MEDIUM          960
+#ifndef GASNETC_GNI_MAX_MEDIUM
+  #define GASNETC_GNI_MAX_MEDIUM    960
+#endif
 #define GASNETC_MAX_LONG          0x100000
 #if GASNET_PSHM
   /* (###) If supporting PSHM a conduit must "negotiate" the maximum size of a
    * Medium message.  This can either be done by lowering the conduit's value to
    * the default PSHM value (as shown here), or GASNETI_MAX_MEDIUM_PSHM can be
    * defined in gasnet_core_fwd.h to give the conduit complete control. */
-  #define gasnet_AMMaxMedium()      ((size_t)MIN(GASNETC_MAX_MEDIUM, GASNETI_MAX_MEDIUM_PSHM))
+  #define gasnet_AMMaxMedium()      ((size_t)MIN(GASNETC_GNI_MAX_MEDIUM, GASNETI_MAX_MEDIUM_PSHM))
 #else
-#define gasnet_AMMaxMedium()      ((size_t)GASNETC_MAX_MEDIUM) 
+#define gasnet_AMMaxMedium()        ((size_t)GASNETC_GNI_MAX_MEDIUM) 
 #endif
 #define gasnet_AMMaxLongRequest()   ((size_t)GASNETC_MAX_LONG)
 #define gasnet_AMMaxLongReply()     ((size_t)GASNETC_MAX_LONG)

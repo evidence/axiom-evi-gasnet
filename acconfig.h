@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2013/08/24 06:38:34 $ */
-/*  $Revision: 1.194 $ */
+/*      $Date: 2013/09/03 04:28:17 $ */
+/*  $Revision: 1.195 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -358,6 +358,9 @@
 /* GASNet smp-conduit */
 #undef GASNETC_HAVE_O_ASYNC
 #undef GASNETC_USE_SOCKETPAIR
+
+/* GASNet {gemini,aries}-conduit settings */
+#undef GASNETC_GNI_MAX_MEDIUM
 
 /* GASNet ibv-conduit features and bug work-arounds */
 #undef HAVE_IBV_SRQ
