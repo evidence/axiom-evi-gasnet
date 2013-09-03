@@ -1,22 +1,21 @@
 GASNet ChangeLog 
 ----------------
-$Revision: 1.82 $
+$Revision: 1.83 $
 
 ----------------------------------------------------------------------
 10-??-2013 : Release 1.22.0
 
-PLACEHOLDER
+* Cray XC30 (aries-conduit)
+  - With this release support for the Aries interconnect of the Cray
+    XC-30 system has graduated out of BETA status.
+  - See gemini-conduit, below, for additional (common) changes
 
-* Removal of unmaintained network conduits
-  - This release no longer supports the following networks:
-    + elan (Quadrics elan3/elan4)
-    + gm (Myrinet GM)
-    + vapi (legacy Mellanox-specific InfiniBand)
-    + lapi (IBM LAPI)
-    + portals (Cray Portals for XT series)
-    + sci (Dolphin SCI)
-    If you require GASNet on one these networks, and can provide
-    access to resources for maintenance of the code, please contact us.
+* Cray XE & XK series (gemini-conduit)
+  - This release includes a new implementation of Active Messages
+    + Memory use scales better (18% less per peer by default)
+    + Larger MaxMedium yields higher peak AM Medium bandwidth
+    + MaxMedium may now be changed at configure time
+  - This release features a new default barrier: GNIDISSEM
 
 * InfiniBand (ibv- and mxm-conduit)
   - Now support direct PMI-based launch (e.g. srun or hydra)
@@ -32,6 +31,17 @@ PLACEHOLDER
 
 * Platform support/portability
   - Initial support for building GASNet with NVIDIA's nvcc compiler
+
+* Removal of unmaintained network conduits
+  - This release no longer supports the following networks:
+    + elan (Quadrics elan3/elan4)
+    + gm (Myrinet GM)
+    + vapi (legacy Mellanox-specific InfiniBand)
+    + lapi (IBM LAPI)
+    + portals (Cray Portals for XT series)
+    + sci (Dolphin SCI)
+    If you require GASNet on one these networks, and can provide
+    access to resources for maintenance of the code, please contact us.
 
 ----------------------------------------------------------------------
 04-30-2013 : Release 1.20.2
