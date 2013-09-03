@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2013/08/08 09:34:02 $
-# $Revision: 1.105 $
+#     $Date: 2013/09/03 04:08:24 $
+# $Revision: 1.106 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -109,6 +109,7 @@ sub gasnet_encode($) {
 #   my $is_bgp_mpi   = ($platform eq 'bgp' && $mpirun_help =~ m|fake-mpirun| && $mpirun_help =~ m|-partition|);
     my $is_bgp       = ($platform eq 'bgp' && $mpirun_help =~ m|--mode <mode|s);
     my $is_bgq_cqsub = ($platform eq 'bgq' && ($mpirun_help =~ m| <cobaltlog file path>| ||
+                                               $mpirun_help =~ m|Usage: qsub.py| ||
                                                $mpirun_help =~ m|.time. not provided|));
     my $is_bgq       = ($platform eq 'bgq' && $mpirun_help =~ m|--mode <mode|s);
     my $is_bgq_runjob= ($platform eq 'bgq' && $mpirun_help =~ m|five dimensional sub-block|s);
