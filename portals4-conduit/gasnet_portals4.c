@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4.c,v $
- *     $Date: 2013/08/28 04:05:20 $
- * $Revision: 1.52 $
+ *     $Date: 2013/09/04 01:24:02 $
+ * $Revision: 1.53 $
  * Description: Portals 4 specific configuration
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt
@@ -375,7 +375,7 @@ gasnetc_p4_init(gasnet_node_t *rank_p, gasnet_node_t *size_p)
     if_pf (PTL_OK != ret) p4_fatalerror(ret, "PtlPTAlloc(long data)");
 
     ret = PtlPTAlloc(nonmatching_ni_h,
-                     PTL_PT_FLOWCTRL,
+                     0,
                      rdma_eq_h,
                      rdma_idx,
                      &pt);
