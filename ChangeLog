@@ -1,6 +1,6 @@
 GASNet ChangeLog 
 ----------------
-$Revision: 1.83 $
+$Revision: 1.84 $
 
 ----------------------------------------------------------------------
 10-??-2013 : Release 1.22.0
@@ -16,6 +16,7 @@ $Revision: 1.83 $
     + Larger MaxMedium yields higher peak AM Medium bandwidth
     + MaxMedium may now be changed at configure time
   - This release features a new default barrier: GNIDISSEM
+  - Contention among pthreads in a PAR build has been greatly reduced
 
 * InfiniBand (ibv- and mxm-conduit)
   - Now support direct PMI-based launch (e.g. srun or hydra)
