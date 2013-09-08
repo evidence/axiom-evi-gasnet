@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/Makefile.am,v $
-#     $Date: 2013/09/02 21:34:54 $
-# $Revision: 1.14 $
+#     $Date: 2013/09/08 22:14:52 $
+# $Revision: 1.15 $
 # Description: Makefile for GASNet gemini conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -14,7 +14,7 @@ CONDUIT_NAME=gemini
 pmi_srcdir = $(top_srcdir)/other/pmi-spawner
 
 # any conduit-specific subdirectories containing Makefile.am's
-SUBDIRS = .
+SUBDIRS = contrib
 
 # complete list of files in the conduit directory
 # include all headers, documentation, etc. 
@@ -66,7 +66,7 @@ CONDUIT_SPECIAL_OBJS =
 #   %D = the current working directory
 #   %H = hostfile (if any)
 #CONDUIT_RUNCMD = aprun -N 1 -n %N %P %A
-CONDUIT_RUNCMD = @TOP_BUILDDIR@/mpi-conduit/contrib/gasnetrun_mpi -np %N -c 0 %P %A
+CONDUIT_RUNCMD = @TOP_BUILDDIR@/gemini-conduit/contrib/gasnetrun_gemini -np %N -c 0 %P %A
 
 # conduit-specific tests in ../tests directory
 CONDUIT_TESTS =

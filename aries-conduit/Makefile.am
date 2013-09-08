@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/aries-conduit/Makefile.am,v $
-#     $Date: 2013/08/27 22:15:47 $
-# $Revision: 1.6 $
+#     $Date: 2013/09/08 22:14:48 $
+# $Revision: 1.7 $
 # Description: Makefile for GASNet aries conduit
 # Copyright 2013, E. O. Lawrence Berekely National Laboratory
 # Terms of use are as specified in license.txt
@@ -20,7 +20,7 @@ gemini_install_hdrs = $(gemini_srcdir)/*.h
 pmi_srcdir = $(top_srcdir)/other/pmi-spawner
 
 # any conduit-specific subdirectories containing Makefile.am's
-SUBDIRS = .
+SUBDIRS = contrib
 
 # complete list of files in the conduit directory
 # include all headers, documentation, etc. 
@@ -66,7 +66,7 @@ CONDUIT_SPECIAL_OBJS =
 #   %D = the current working directory
 #   %H = hostfile (if any)
 #CONDUIT_RUNCMD = aprun -N 1 -n %N %P %A
-CONDUIT_RUNCMD = @TOP_BUILDDIR@/mpi-conduit/contrib/gasnetrun_mpi -np %N -c 0 %P %A
+CONDUIT_RUNCMD = @TOP_BUILDDIR@/aries-conduit/contrib/gasnetrun_aries -np %N -c 0 %P %A
 
 # conduit-specific tests in ../tests directory
 CONDUIT_TESTS =

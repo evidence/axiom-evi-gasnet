@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2013/09/03 04:28:17 $
-# $Revision: 1.826 $
+#     $Date: 2013/09/08 22:14:46 $
+# $Revision: 1.827 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.826 $)
+AC_REVISION($Revision: 1.827 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -4756,6 +4756,8 @@ GASNET_FIX_EXEC(ibv-conduit/contrib/gasnetrun_ibv)
 GASNET_FIX_EXEC(mxm-conduit/contrib/gasnetrun_mxm)
 GASNET_FIX_EXEC(dcmf-conduit/contrib/gasnetrun_dcmf)
 GASNET_FIX_EXEC(pami-conduit/contrib/gasnetrun_pami)
+GASNET_FIX_EXEC(gemini-conduit/contrib/gasnetrun_gemini)
+GASNET_FIX_EXEC(aries-conduit/contrib/gasnetrun_aries)
 GASNET_FIX_EXEC(other/contrib/gasnet_trace)
 
 if test "$gasnet_toolsonly_mode" = "no" ; then
@@ -4831,9 +4833,13 @@ portals4-conduit/conduit.mak
 
 gemini-conduit/Makefile
 gemini-conduit/conduit.mak
+gemini-conduit/contrib/Makefile
+gemini-conduit/contrib/gasnetrun_gemini
 
 aries-conduit/Makefile
 aries-conduit/conduit.mak
+aries-conduit/contrib/Makefile
+aries-conduit/contrib/gasnetrun_aries
 
 other/Makefile-conduit.mak
 other/fragment-head.mak
