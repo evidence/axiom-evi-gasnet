@@ -1,7 +1,7 @@
 README file for ssh-spawner
 ================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.11 $
+$Revision: 1.12 $
 
 Configure Options:
   --disable-pdeathsig (auto-detect by default)
@@ -51,10 +51,14 @@ Environment Variables: (may be controlled by a wrapper script)
   If set, the variable GASNET_SSH_SERVERS itself contains a list of
   hostnames, delimited by commas or whitespace.
   If both are set, GASNET_SSH_NODEFILE takes precedence.
-  Environment variables set by the PBS, LSF and SGE batch systems
-  are also recognized if the GASNET_* variables are not set.
   Note that if starting a job via upcrun or tirun, these variables
   may be set for you from other sources.
+  The following environment variables set by supported batch systems
+  are also recognized if the GASNET_* variables are not set:
+    PBS:    PBS_NODEFILE
+    LSF:    LSB_HOSTS
+    SGE:    PE_HOSTFILE
+    SLURM:  Use `scontrol show hostname` if SLURM_JOB_ID is set
 
 + The environment variable GASNET_SSH_CMD can be set to specify a
   specific remote shell (perhaps rsh), without arguments (see below).
