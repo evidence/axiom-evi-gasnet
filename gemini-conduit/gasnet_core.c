@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/09/12 04:35:40 $
- * $Revision: 1.88 $
+ *     $Date: 2013/09/12 04:58:17 $
+ * $Revision: 1.89 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -963,15 +963,17 @@ extern void gasnetc_exit(int exitcode) {
   #if GASNET_DEBUG && !GASNETC_USE_SPINLOCK
     /* prevent deadlock and assertion failures ONLY if we already hold the lock */
     #define GASNETC_CLOBBER_LOCK(pl) \
-          if ((pl)->owner == GASNETI_THREADIDQUERY()) _GASNETC_CLOBBER_LOCK(pl)
+          if ((pl)->owner == GASNETI_THREADIDQUERY()) gasneti_mutex_unlock(pl)
   #else
     /* clobber the lock, even if held by another thread! */
     #define GASNETC_CLOBBER_LOCK _GASNETC_CLOBBER_LOCK
   #endif
   GASNETC_CLOBBER_LOCK(&gasnetc_gni_lock);
   #if GASNETI_THROTTLE_POLLERS
+  if (gasnetc_remoteShutdown) {
     /* This one we might hold even in non-signal context */
     GASNETC_CLOBBER_LOCK(&gasneti_throttle_spinpoller);
+  }
   #endif
   /* TODO: AM subsystem locks */
   #undef GASNETC_CLOBBER_LOCK
