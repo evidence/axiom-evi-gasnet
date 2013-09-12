@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.c,v $
- *     $Date: 2013/09/03 04:36:08 $
- * $Revision: 1.87 $
+ *     $Date: 2013/09/12 04:35:40 $
+ * $Revision: 1.88 $
  * Description: GASNet gemini conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Gemini conduit by Larry Stewart <stewart@serissa.com>
@@ -969,7 +969,11 @@ extern void gasnetc_exit(int exitcode) {
     #define GASNETC_CLOBBER_LOCK _GASNETC_CLOBBER_LOCK
   #endif
   GASNETC_CLOBBER_LOCK(&gasnetc_gni_lock);
-  /* TODO: AM mailbox locks */
+  #if GASNETI_THROTTLE_POLLERS
+    /* This one we might hold even in non-signal context */
+    GASNETC_CLOBBER_LOCK(&gasneti_throttle_spinpoller);
+  #endif
+  /* TODO: AM subsystem locks */
   #undef GASNETC_CLOBBER_LOCK
   #undef _GASNETC_CLOBBER_LOCK
 
