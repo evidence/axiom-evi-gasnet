@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2013/09/03 04:28:17 $ */
-/*  $Revision: 1.195 $ */
+/*      $Date: 2013/09/15 20:03:49 $ */
+/*  $Revision: 1.196 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -361,6 +361,7 @@
 
 /* GASNet {gemini,aries}-conduit settings */
 #undef GASNETC_GNI_MAX_MEDIUM
+#undef GASNETC_GNI_MULTI_DOMAIN
 
 /* GASNet ibv-conduit features and bug work-arounds */
 #undef HAVE_IBV_SRQ
