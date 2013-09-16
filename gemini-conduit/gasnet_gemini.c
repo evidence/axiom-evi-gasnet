@@ -285,14 +285,10 @@ int gasnetc_try_pin(void *addr, uintptr_t size)
 /*------ Macros to keep code more readable ------*/
 
 #if GASNETC_USE_MULTI_DOMAIN
-#  define gasnetc_poll_bound_cq       _gasnetc_poll_bound_cq
-#  define gasnetc_alloc_bounce_buffer _gasnetc_alloc_bounce_buffer
 #  define DOMAIN_SPECIFIC_VAL(_var, _didx)         (gasnetc_cdom_data[(_didx)]._var)
 #  define DOMAIN_SPECIFIC_PTR(_var, _didx)         (&gasnetc_cdom_data[(_didx)]._var)
 #  define DOMAIN_SPECIFIC_VAR(_type, _var, _didx)  _type _var = gasnetc_cdom_data[(_didx)]._var
 #else
-#  define gasnetc_poll_bound_cq(_didx)       _gasnetc_poll_bound_cq()
-#  define gasnetc_alloc_bounce_buffer(_dixd) _gasnetc_alloc_bounce_buffer()
 #  define DOMAIN_SPECIFIC_VAL(_var, _didx)        (_var)
 #  define DOMAIN_SPECIFIC_PTR(_var, _didx)        (&_var)
 #  define DOMAIN_SPECIFIC_VAR(_type, _var, _didx) GASNETI_UNUSED char _dummy##_var = 0;
@@ -986,7 +982,7 @@ void gasnetc_shutdown(void)
 }
 
 static GASNETI_MALLOC
-void *_gasnetc_alloc_bounce_buffer(GASNETC_DIDX_FARG_ALONE)
+void *gasnetc_alloc_bounce_buffer(GASNETC_DIDX_FARG_ALONE)
 {
   gasneti_lifo_head_t * const pool_p = DOMAIN_SPECIFIC_PTR(bounce_buffer_pool, didx);
   void *buf = gasneti_lifo_pop(pool_p);
@@ -1440,8 +1436,8 @@ void gasnetc_poll_smsg_queue(void)
 }
 
 /* Poll the bound_ep completion queue */
-GASNETI_INLINE(_gasnetc_poll_bound_cq)
-gasnetc_post_descriptor_t *_gasnetc_poll_bound_cq(GASNETC_DIDX_FARG_ALONE)
+GASNETI_INLINE(gasnetc_poll_bound_cq)
+gasnetc_post_descriptor_t *gasnetc_poll_bound_cq(GASNETC_DIDX_FARG_ALONE)
 {
   DOMAIN_SPECIFIC_VAR(gni_cq_handle_t, bound_cq_handle, didx);
   gni_post_descriptor_t * result = NULL;
@@ -1479,7 +1475,7 @@ void _gasnetc_poll_local_queue(GASNETC_DIDX_FARG_ALONE))
   int i;
 
   for (i = 0; i < gasnetc_poll_burst; i += 1) {
-    gasnetc_post_descriptor_t * const gpd = gasnetc_poll_bound_cq(didx);
+    gasnetc_post_descriptor_t * const gpd = gasnetc_poll_bound_cq(GASNETC_DIDX_PASS_ALONE);
 
     if_pt (! gpd) { /* empty Cq is common case */
       break;
@@ -1667,7 +1663,7 @@ void gasnetc_rdma_put_bulk(gasnet_node_t node,
        * which is not the default (nor recommended).
        */
       if (nbytes <= gasnetc_put_bounce_register_cutover) {
-        void * const buffer = gasnetc_alloc_bounce_buffer(didx);
+        void * const buffer = gasnetc_alloc_bounce_buffer(GASNETC_DIDX_PASS_ALONE);
         pd->local_addr = (uint64_t) memcpy(buffer, source_addr, nbytes);
         gpd->flags |= GC_POST_UNBOUNCE;
       } else {
@@ -1736,7 +1732,7 @@ int gasnetc_rdma_put(gasnet_node_t node,
     } else
   #endif
     if (nbytes <= gasnetc_put_bounce_register_cutover) {
-      void * const buffer = gasnetc_alloc_bounce_buffer(didx);
+      void * const buffer = gasnetc_alloc_bounce_buffer(GASNETC_DIDX_PASS_ALONE);
       pd->local_addr = (uint64_t) memcpy(buffer, source_addr, nbytes);
       gpd->flags |= GC_POST_UNBOUNCE;
     } else {
@@ -1870,7 +1866,7 @@ void gasnetc_rdma_get(gasnet_node_t node,
       gpd->gpd_get_dst = (uint64_t) dest_addr;
     } else if (nbytes <= gasnetc_get_bounce_register_cutover) {
       gpd->flags |= GC_POST_UNBOUNCE | GC_POST_COPY;
-      gpd->gpd_get_src = pd->local_addr = (uint64_t) gasnetc_alloc_bounce_buffer(didx);
+      gpd->gpd_get_src = pd->local_addr = (uint64_t) gasnetc_alloc_bounce_buffer(GASNETC_DIDX_PASS_ALONE);
       gpd->gpd_get_dst = (uint64_t) dest_addr;
     } else {
       gpd->flags |= GC_POST_UNREGISTER;
@@ -1921,7 +1917,7 @@ void gasnetc_rdma_get_unaligned(gasnet_node_t node,
     buffer = gpd->u.immediate;
   } else if_pt (length <= gasnetc_get_bounce_register_cutover) {
     gpd->flags |= GC_POST_UNBOUNCE;
-    buffer = gasnetc_alloc_bounce_buffer(didx);
+    buffer = gasnetc_alloc_bounce_buffer(GASNETC_DIDX_PASS_ALONE);
   } else {
     gasneti_fatalerror("get_unaligned called with nbytes too large for bounce buffers");
   }
@@ -1982,7 +1978,7 @@ int gasnetc_rdma_get_buff(gasnet_node_t node,
 }
 
 /* Needs no lock because it is called only from the init code */
-void _gasnetc_init_post_descriptor_pool(GASNETC_DIDX_FARG_ALONE) 
+void gasnetc_init_post_descriptor_pool(GASNETC_DIDX_FARG_ALONE) 
 {
   int i;
   const int count = gasnetc_pd_buffers.size / sizeof(gasnetc_post_descriptor_t) / gasnetc_domain_count;
@@ -2105,6 +2101,7 @@ void gasnetc_handle_sys_shutdown_packet(uint32_t source, uint16_t arg)
  */
 extern int gasnetc_sys_exit(int *exitcode_p)
 {
+  GASNETC_DIDX_DECL(didx, GASNETC_DEFAULT_DOMAIN);
 #if GASNET_PSHM                  
   const gasnet_node_t size = gasneti_nodemap_global_count;
   const gasnet_node_t rank = gasneti_nodemap_global_rank;
@@ -2135,7 +2132,7 @@ extern int gasnetc_sys_exit(int *exitcode_p)
 
     /* wait for leader to publish final result */
     while (! lead->present) {
-      gasnetc_poll(GASNETC_DEFAULT_DOMAIN);
+      gasnetc_poll(GASNETC_DIDX_PASS_ALONE);
       if (gasneti_ticks_to_us(gasneti_ticks_now() - starttime) > timeout_us) {
         result = 1; /* failure */
         goto out;
@@ -2153,7 +2150,7 @@ extern int gasnetc_sys_exit(int *exitcode_p)
       gasnetc_exitcode_t * const peer = &gasnetc_exitcodes[i];
 
       while (! peer->present) {
-        gasnetc_poll(GASNETC_DEFAULT_DOMAIN);
+        gasnetc_poll(GASNETC_DIDX_PASS_ALONE);
         if (gasneti_ticks_to_us(gasneti_ticks_now() - starttime) > timeout_us) {
           result = 1; /* failure */
           goto out;
@@ -2181,7 +2178,7 @@ extern int gasnetc_sys_exit(int *exitcode_p)
     /* wait for completion of the proper receive, which might arrive out of order */
     goal |= distance;
     while ((gasneti_weakatomic_read(&sys_exit_rcvd, 0) & goal) != goal) {
-      gasnetc_poll(GASNETC_DEFAULT_DOMAIN);
+      gasnetc_poll(GASNETC_DIDX_PASS_ALONE);
       if (gasneti_ticks_to_us(gasneti_ticks_now() - starttime) > timeout_us) {
         result = 1; /* failure */
         goto out;
@@ -2271,7 +2268,7 @@ gasneti_auxseg_request_t gasnetc_pd_auxseg_alloc(gasnet_seginfo_t *auxseg_info) 
   return retval;
 }
 
-void _gasnetc_init_bounce_buffer_pool(GASNETC_DIDX_FARG_ALONE)
+void gasnetc_init_bounce_buffer_pool(GASNETC_DIDX_FARG_ALONE)
 {
   int i;
   int num_bounce;
