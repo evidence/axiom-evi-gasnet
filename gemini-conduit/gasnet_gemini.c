@@ -1987,6 +1987,7 @@ void _gasnetc_init_post_descriptor_pool(GASNETC_DIDX_FARG_ALONE)
   int i;
   const int count = gasnetc_pd_buffers.size / sizeof(gasnetc_post_descriptor_t) / gasnetc_domain_count;
   gasnetc_post_descriptor_t *gpd;
+  gasneti_assert_always(gasnetc_pd_buffers.addr != NULL);
 
 #if GASNETC_USE_MULTI_DOMAIN
   /* must first destroy the temporary pool of post descriptors (only first domain) */
@@ -1999,7 +2000,6 @@ void _gasnetc_init_post_descriptor_pool(GASNETC_DIDX_FARG_ALONE)
 
   gpd = gasnetc_pd_buffers.addr;
   gpd += count * didx;
-  gasneti_assert_always(gpd);
   memset(gpd, 0, count * sizeof(gasnetc_post_descriptor_t)); /* Just in case */
   /* sacrifice the first one to work as a padding */
   for (i = 1; i < count; i += 1) {
@@ -2014,7 +2014,6 @@ void _gasnetc_init_post_descriptor_pool(GASNETC_DIDX_FARG_ALONE)
 
   /* now create the new pool */
   gpd = gasnetc_pd_buffers.addr;
-  gasneti_assert_always(gpd);
   memset(gpd, 0, gasnetc_pd_buffers.size); /* Just in case */
   for (i = 0; i < count; i += 1) {
     gasneti_lifo_push(&post_descriptor_pool, gpd + i);
