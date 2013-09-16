@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2013/09/15 20:03:51 $
- * $Revision: 1.93 $
+ *     $Date: 2013/09/16 00:21:38 $
+ * $Revision: 1.94 $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -270,7 +270,7 @@ void gasnete_iop_free(gasnete_iop_t *iop) {
 */
 
 #if GASNETC_USE_MULTI_DOMAIN
-#define GASNETD_NEW_THREADDATA_CALLBACK(td) \
+#define GASNETE_NEW_THREADDATA_CALLBACK(td) \
     (td)->domain_idx = gasnetc_get_domain_idx((td)->threadidx);
 #endif
 
