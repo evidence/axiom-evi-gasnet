@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2013/09/06 21:07:07 $
- * $Revision: 1.129 $
+ *     $Date: 2013/09/17 01:45:41 $
+ * $Revision: 1.130 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1644,15 +1644,14 @@ void gasneti_segmentAttachLocal(uintptr_t segsize, uintptr_t minheapoffset,
 
 #if GASNET_PSHM
 static uintptr_t
-gasneti_AttachRemote(uintptr_t segsize, const gasnet_node_t pshm_node,
+gasneti_AttachRemote(const gasnet_node_t pshm_node,
                      uintptr_t minheapoffset, gasnet_seginfo_t *seginfo) {
   void *segbase = NULL;
   uintptr_t topofheap;
   gasnet_node_t node = gasneti_nodemap_local[pshm_node];
+  uintptr_t segsize = seginfo[node].size;
 
   gasneti_assert(seginfo);
-  gasneti_assert(gasneti_segexch);
-  gasneti_memcheck(gasneti_segexch);
   gasneti_assert(node != gasneti_mynode);
 
     topofheap = gasneti_myheapend;
@@ -1749,7 +1748,7 @@ void gasneti_segmentAttach(uintptr_t segsize, uintptr_t minheapoffset,
     gasneti_nodeinfo[gasneti_mynode].offset = 0;
     for(i=0; i<gasneti_pshm_nodes; i++){
       if (i == gasneti_pshm_mynode) continue;
-      ar = gasneti_AttachRemote(seginfo[i].size, i, minheapoffset, seginfo);
+      ar = gasneti_AttachRemote(i, minheapoffset, seginfo);
       if (ar) break;
     }
 
