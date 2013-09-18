@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_core_internal.h,v $
- *     $Date: 2012/08/01 23:58:33 $
- * $Revision: 1.16 $
+ *     $Date: 2013/09/18 04:52:07 $
+ * $Revision: 1.17 $
  * Description: GASNet PAMI conduit header for internal definitions in Core API
  * Copyright 2012, Lawrence Berkeley National Laboratory
  * Terms of use are as specified in license.txt
@@ -179,12 +179,11 @@ pami_result_t gasnetc_wait_atomic(pami_context_t context,
 /* Get the default or user-specified algorithm for a given collective operation */
 extern void gasnetc_dflt_coll_alg(pami_geometry_t geom, pami_xfer_type_t op, pami_algorithm_t *alg_p);
 
-/* Used for gasnetc_bootstrapBarrier() and ALLSYNC barrier in blocking collectives: */
+/* Used for ALLSYNC barrier in blocking collectives: */
 extern void gasnetc_fast_barrier(void);
-extern void gasnetc_fast_barrier_nothr(void);
 
 /* The Boostrap collective operations: */
-#define gasnetc_bootstrapBarrier gasnetc_fast_barrier_nothr
+extern void gasnetc_bootstrapBarrier(void);
 extern void gasnetc_bootstrapExchange(void *src, size_t len, void *dst);
 
 #endif

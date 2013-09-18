@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_coll_pami.c,v $
- *     $Date: 2013/08/10 03:40:11 $
- * $Revision: 1.36 $
+ *     $Date: 2013/09/18 04:52:07 $
+ * $Revision: 1.37 $
  * Description: GASNet extended collectives implementation on PAMI
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -252,7 +252,7 @@ gasnetc_dflt_coll_alg(pami_geometry_t geom, pami_xfer_type_t op, pami_algorithm_
   *alg_p = algorithms[alg];
 }
 
-static void native_collective(pami_xfer_t *op_p) {
+static void native_collective(pami_xfer_t *op_p, int need_lock) {
   pami_result_t rc;
   volatile unsigned int counter = 0;
 
@@ -260,8 +260,10 @@ static void native_collective(pami_xfer_t *op_p) {
   op_p->cookie = (void *)&counter;
   op_p->options.multicontext = PAMI_HINT_DISABLE;
 
+  if (need_lock) GASNETC_PAMI_LOCK(gasnetc_context);
   rc = PAMI_Collective(gasnetc_context, op_p);
   GASNETC_PAMI_CHECK(rc, "initiating a native collective");
+  if (need_lock) GASNETC_PAMI_UNLOCK(gasnetc_context);
 
   if (gasneti_attach_done) {
     gasneti_polluntil(counter);
@@ -271,26 +273,25 @@ static void native_collective(pami_xfer_t *op_p) {
   }
 }
 
-extern void
-gasnetc_fast_barrier_nothr(void) {
-  static pami_xfer_t op;
-  static int is_init = 0;
-
-  if_pf (!is_init) {
-    memset(&op, 0, sizeof(op)); /* Shouldn't need for static, but let's be safe */
-    gasnetc_dflt_coll_alg(gasnetc_world_geom, PAMI_XFER_BARRIER, &op.algorithm);
-    is_init = 1;
-  }
-
-  native_collective(&op);
-}
+static pami_xfer_t fast_barrier_op;
+static int fast_barrier_is_init = 0;
 
 extern void
 gasnetc_fast_barrier(void) {
-  GASNETC_PAMI_LOCK(gasnetc_context);
-  gasnetc_fast_barrier_nothr();
-  GASNETC_PAMI_UNLOCK(gasnetc_context);
+  gasneti_assert(fast_barrier_is_init);
+  native_collective(&fast_barrier_op, 1);
 }
+
+extern void
+gasnetc_bootstrapBarrier(void) {
+  if_pf (!fast_barrier_is_init) {
+    memset(&fast_barrier_op, 0, sizeof(fast_barrier_op)); /* Shouldn't need for static, but let's be safe */
+    gasnetc_dflt_coll_alg(gasnetc_world_geom, PAMI_XFER_BARRIER, &fast_barrier_op.algorithm);
+    fast_barrier_is_init = 1;
+  }
+  native_collective(&fast_barrier_op, 0);
+}
+
 
 extern void
 gasnetc_bootstrapExchange(void *src, size_t len, void *dst) {
@@ -310,7 +311,7 @@ gasnetc_bootstrapExchange(void *src, size_t len, void *dst) {
   op.cmd.xfer_allgather.rtype      = PAMI_TYPE_BYTE;
   op.cmd.xfer_allgather.rtypecount = len; /* times gasneti_nodes */
 
-  native_collective(&op);
+  native_collective(&op, 0);
 }
 
 /* ------------------------------------------------------------------------------------ */
