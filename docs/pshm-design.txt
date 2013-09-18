@@ -1,6 +1,6 @@
 GASNet inter-Process SHared Memory (PSHM) design
 ---------------------------------------------
-$Revision: 1.19 $
+$Revision: 1.20 $
 
 Document by:
     Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -312,14 +312,21 @@ Status:
 * IBM BG/Q platform-specific notes:
   - Currently one must manually set up a few things to use PSHM on BG/Q
     + Must set CROSS_HAVE_SHM_OPEN=1 on configure command line
-    + BG_SHAREDMEMSIZE env var must be set to fit the shared segment plus
-      extra for Active Message buffers
+    + Set env var BG_SHAREDMEMSIZE to fit the shared segment plus extra
+      space for Active Message buffers.  The value is in units of MB and
+      should be prefixed with '+' to ADD the value to the system default.
+    + Set BG_MAPCOMMONHEAP=1 or the entire shared heap will be deducted
+      from the heap of the first process.
   - Example environment variable settings for 200MB shared heap in "c4"
     mode when using Berkeley UPC's upcrun command:
-      BG_SHAREDMEMSIZE=820
+      UPC_SHARED_HEAP_SIZE=200M
+      BG_SHAREDMEMSIZE=+820
+      BG_MAPCOMMONHEAP=1
   - Example environment variable settings for 400MB shared heap in "c2"
     mode when using Berkeley UPC's upcrun command:
-      BG_SHAREDMEMSIZE=810
+      UPC_SHARED_HEAP_SIZE=400M
+      BG_SHAREDMEMSIZE=+810
+      BG_MAPCOMMONHEAP=1
 * Cray XE and XC platform-specific notes:
   - The Gemini and Aries conduits support PSHM, and the provided cross-
     configure scripts --enable-pshm-xpmem
