@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/portable_platform.h,v $
- *     $Date: 2013/09/06 21:07:09 $
- * $Revision: 1.36 $
+ *     $Date: 2013/09/18 23:01:54 $
+ * $Revision: 1.37 $
  * Description: Portable platform detection header
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -687,6 +687,13 @@
   #else
     /* IRIX */
     #define PLATFORM_ARCH_BIG_ENDIAN 1
+  #endif
+  #ifdef _MIPS_SZPTR
+    #if _MIPS_SZPTR == 32
+      #define _PLATFORM_ARCH_32 1
+    #elif _MIPS_SZPTR == 64
+      #define _PLATFORM_ARCH_64 1
+    #endif
   #endif
 
 #elif defined(__sparc) || defined(__sparc__) || \
