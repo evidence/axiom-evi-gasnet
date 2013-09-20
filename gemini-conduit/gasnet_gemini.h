@@ -41,28 +41,24 @@
 
 #define GASNETC_AM_DOMAIN_POLL_MASK_DEFAULT (0x7f)
 
-#define GASNETC_DIDX_DECL(_var, _val) const int _var = (_val)
+#define GASNETC_DIDX_POST(_val) const int _domain_idx = (_val)
 
-#define GASNETC_DIDX_FARG_ALONE const int didx
+#define GASNETC_DIDX_FARG_ALONE const int _domain_idx
 #define GASNETC_DIDX_FARG       , GASNETC_DIDX_FARG_ALONE
-#define GASNETC_DIDX_PASS_ALONE didx
+#define GASNETC_DIDX_PASS_ALONE _domain_idx
 #define GASNETC_DIDX_PASS       , GASNETC_DIDX_PASS_ALONE
-
-#define gasnetc_alloc_post_descriptor _gasnetc_alloc_post_descriptor
-#define gasnetc_poll_local_queue _gasnetc_poll_local_queue
+#define GASNETC_DIDX            (_domain_idx)
 #else
 /* Multi domain support makes sense only for PAR mode. */
 #define GASNETC_USE_MULTI_DOMAIN 0
 
-#define GASNETC_DIDX_DECL(_var, _val) GASNETI_UNUSED const int _var = 0
+#define GASNETC_DIDX_POST(_val)  GASNETI_UNUSED const int _domain_idx = 0
 
 #define GASNETC_DIDX_FARG_ALONE  void
 #define GASNETC_DIDX_FARG        /*empty*/
 #define GASNETC_DIDX_PASS_ALONE  /*empty*/
 #define GASNETC_DIDX_PASS        /*empty*/
-
-#define gasnetc_alloc_post_descriptor(didx) _gasnetc_alloc_post_descriptor()
-#define gasnetc_poll_local_queue(didx) _gasnetc_poll_local_queue()
+#define GASNETC_DIDX             (%%% invalid use of GASNETC_DIDX %%%)
 #endif
 
 /* debug support */
@@ -96,32 +92,8 @@ extern unsigned int gasnetc_log2_remote;
 
 #if GASNETC_USE_SPINLOCK
 typedef gasneti_atomic_t gasnetc_gni_lock_t;
- #if GASNETC_USE_MULTI_DOMAIN
-  #define GASNETC_INITLOCK_GNI(i) gasneti_spinlock_init(&(gasnetc_cdom_data[i].gasnetc_gni_lock))
-  #define GASNETC_LOCK_GNI(i)  gasneti_spinlock_lock(&(gasnetc_cdom_data[i].gasnetc_gni_lock))
-  #define GASNETC_UNLOCK_GNI(i)  gasneti_spinlock_unlock(&(gasnetc_cdom_data[i].gasnetc_gni_lock))
- #else
-  #define GASNETC_INITLOCK_GNI(i) gasneti_spinlock_init(&gasnetc_gni_lock)
-  #define GASNETC_LOCK_GNI(i) gasneti_spinlock_lock(&gasnetc_gni_lock)
-  #define GASNETC_UNLOCK_GNI(i) gasneti_spinlock_unlock(&gasnetc_gni_lock)
- #endif
-#define GASNETC_INITLOCK_AM_BUFFER() gasneti_spinlock_init(&gasnetc_am_buffer_lock)
-#define GASNETC_LOCK_AM_BUFFER() gasneti_spinlock_lock(&gasnetc_am_buffer_lock)
-#define GASNETC_UNLOCK_AM_BUFFER() gasneti_spinlock_unlock(&gasnetc_am_buffer_lock)
 #else
 typedef gasneti_mutex_t gasnetc_gni_lock_t;
- #if GASNETC_USE_MULTI_DOMAIN
-  #define GASNETC_INITLOCK_GNI(i) gasneti_mutex_init(&(gasnetc_cdom_data[i].gasnetc_gni_lock))
-  #define GASNETC_LOCK_GNI(i)  gasneti_mutex_lock(&(gasnetc_cdom_data[i].gasnetc_gni_lock))
-  #define GASNETC_UNLOCK_GNI(i) gasneti_mutex_unlock(&(gasnetc_cdom_data[i].gasnetc_gni_lock))
- #else
-  #define GASNETC_INITLOCK_GNI(i) gasneti_mutex_init(&gasnetc_gni_lock)
-  #define GASNETC_LOCK_GNI(i) gasneti_mutex_lock(&gasnetc_gni_lock)
-  #define GASNETC_UNLOCK_GNI(i) gasneti_mutex_unlock(&gasnetc_gni_lock)
- #endif
-#define GASNETC_INITLOCK_AM_BUFFER() gasneti_mutex_init(&gasnetc_am_buffer_lock)
-#define GASNETC_LOCK_AM_BUFFER() gasneti_mutex_lock(&gasnetc_am_buffer_lock)
-#define GASNETC_UNLOCK_AM_BUFFER() gasneti_mutex_unlock(&gasnetc_am_buffer_lock)
 #endif
 
 #if GASNETC_USE_MULTI_DOMAIN
@@ -247,13 +219,13 @@ void gasnetc_init_bounce_buffer_pool(GASNETC_DIDX_FARG_ALONE);
 /* largest get that can be handled by gasnetc_rdma_get_unaligned() */
 extern size_t gasnetc_max_get_unaligned;
 
-/* largest put that gasnetc_rdma_put() will locally complete before return */
+/* largest put that gasnetc_rdma_put_lc() will accept */
 extern size_t gasnetc_max_put_lc;
 
 /* send/copy, unbounce/unregister, flag/eop are each mutually exclusive pairs */
 #define GC_POST_COPY_TRIM 7 /* up to 6 bytes of overfetch to achive 4-byte aligned Gets */
 #define GC_POST_COPY 8
-#define GC_POST_SEND 16
+#define GC_POST_COMPLETION_SEND 16
 #define GC_POST_UNBOUNCE 32
 #define GC_POST_UNREGISTER 64
 #define GC_POST_COMPLETION_FLAG 128
@@ -270,10 +242,9 @@ typedef struct gasnetc_post_descriptor {
   #define gpd_am_header  pd.sync_flag_value
   #define gpd_am_packet  pd.local_addr
   #define gpd_am_peer    pd.first_operand
-  #define gpd_am_next    pd.second_operand
   union {
     uint8_t immediate[GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE];
-    gasnetc_packet_t packet;
+    gasneti_weakatomic_t counter;
     gasnetc_notify_t notify;
   } u;
   uint32_t flags;
@@ -282,7 +253,7 @@ typedef struct gasnetc_post_descriptor {
 #endif
 } gasnetc_post_descriptor_t;
 
-gasnetc_post_descriptor_t *_gasnetc_alloc_post_descriptor(GASNETC_DIDX_FARG_ALONE) GASNETI_MALLOC;
+gasnetc_post_descriptor_t *gasnetc_alloc_post_descriptor(GASNETC_DIDX_FARG_ALONE) GASNETI_MALLOC;
 
 void gasnetc_free_post_descriptor(gasnetc_post_descriptor_t *pd);
 
@@ -308,14 +279,14 @@ uintptr_t gasnetc_init_messaging(void);
 void gasnetc_shutdown(void); /* clean up all gni state */
 
 
-void _gasnetc_poll_local_queue(GASNETC_DIDX_FARG_ALONE);
+void gasnetc_poll_local_queue(GASNETC_DIDX_FARG_ALONE);
 void gasnetc_poll(GASNETC_DIDX_FARG_ALONE);
 
-void gasnetc_rdma_put_bulk(gasnet_node_t node,
+size_t gasnetc_rdma_put_bulk(gasnet_node_t node,
 		 void *dest_addr, void *source_addr,
-		 size_t nbytes, gasnetc_post_descriptor_t *gpd);
+		 size_t nbytes, gasnetc_post_descriptor_t *gpd) GASNETI_WARN_UNUSED_RESULT;
 
-int gasnetc_rdma_put(gasnet_node_t node,
+void gasnetc_rdma_put_lc(gasnet_node_t node,
 		 void *dest_addr, void *source_addr,
 		 size_t nbytes, gasnetc_post_descriptor_t *gpd);
 
@@ -323,9 +294,9 @@ void gasnetc_rdma_put_buff(gasnet_node_t node,
 		 void *dest_addr, void *source_addr,
 		 size_t nbytes, gasnetc_post_descriptor_t *gpd);
 
-void gasnetc_rdma_get(gasnet_node_t node,
+size_t gasnetc_rdma_get(gasnet_node_t node,
 		 void *dest_addr, void *source_addr,
-		 size_t nbytes, gasnetc_post_descriptor_t *gpd);
+		 size_t nbytes, gasnetc_post_descriptor_t *gpd) GASNETI_WARN_UNUSED_RESULT;
 
 void gasnetc_rdma_get_unaligned(gasnet_node_t node,
 		 void *dest_addr, void *source_addr,
