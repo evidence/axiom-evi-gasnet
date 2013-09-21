@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_extended.c,v $
- *     $Date: 2013/06/30 23:11:54 $
- * $Revision: 1.57 $
+ *     $Date: 2013/09/21 00:55:38 $
+ * $Revision: 1.58 $
  * Description: GASNet Extended API Implementation for DCMF
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
  *                 Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -1107,7 +1107,7 @@ static void gasnete_dcmfbarrier_notify(gasnete_coll_team_t team, int id, int fla
   /*gasneti_assert(id >= 0);*/
   GASNETI_TRACE_PRINTF(B, ("running barrier notify (%d,%d)", id, flags));
   
-#if GASNET_SEQ
+#if GASNET_SEQ && 0 /* DISABLED!  Deadlocks because wait will not poll AMs */
   if (flags & GASNETE_BARRIERFLAG_UNNAMED) 
     {
       /* Short cut for unnamed barrier */
@@ -1269,7 +1269,7 @@ static int gasnete_dcmfbarrier_wait(gasnete_coll_team_t team, int id, int flags)
   gasneti_sync_reads();
   GASNETE_SPLITSTATE_WAIT(team);
   
-#if GASNET_SEQ
+#if GASNET_SEQ && 0 /* DISABLED!  Deadlocks because wait will not poll AMs */
   if (flags & GASNETE_BARRIERFLAG_UNNAMED) 
     {
       /* Short cut for unnamed barrier */
@@ -1298,7 +1298,7 @@ static int gasnete_dcmfbarrier_try(gasnete_coll_team_t team, int id, int flags) 
   gasneti_sync_reads();
   GASNETE_SPLITSTATE_TRY(team);
   
-#if GASNET_SEQ
+#if GASNET_SEQ && 0 /* DISABLED!  Deadlocks because wait will not poll AMs */
   if (flags & GASNETE_BARRIERFLAG_UNNAMED) 
     {
       /* Short cut for unnamed barrier */
