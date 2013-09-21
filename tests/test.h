@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2013/07/28 05:49:54 $
- * $Revision: 1.152 $
+ *     $Date: 2013/09/21 23:43:31 $
+ * $Revision: 1.153 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -358,7 +358,7 @@ GASNETT_IDENT(GASNetT_IdentString_link_GASNetConfig,
  "$GASNetConfig: (<link>) " TEST_CONFIG_STRING " $");
 #ifndef HAVE_PTHREAD_H
   /* for systems lacking pthread support - ensure upcrun never tries to use it */
-  #if GASNET_PSHM
+  #if GASNET_PSHM || (defined(GASNETI_PSHM_ENABLED) && defined(TEST_GASNET_TOOLS_ONLY))
     #define TEST_SHMEM_CONFIG "pshm"
   #else
     #define TEST_SHMEM_CONFIG "none"
@@ -369,7 +369,7 @@ GASNETT_IDENT(GASNetT_IdentString_link_GASNetConfig,
      such a setup will only run the gasnet test on N/T nodes (as opposed to N as one might like)
      but the alternative is not to run at all. harness -nopthreads does not have this problem.
    */
-  #if GASNET_PSHM
+  #if GASNET_PSHM || (defined(GASNETI_PSHM_ENABLED) && defined(TEST_GASNET_TOOLS_ONLY))
     #define TEST_SHMEM_CONFIG "pthreads/pshm"
   #else
     #define TEST_SHMEM_CONFIG "pthreads"
