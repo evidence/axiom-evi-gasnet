@@ -588,7 +588,7 @@ void gasnete_fill_put_request(mxm_send_req_t * mxm_sreq, void *dest,
     mxm_sreq->base.data.buffer.memh = gasnetc_find_memh(src, nbytes);
     mxm_sreq->op.mem.remote_memh = gasnetc_find_remote_memh(dest, nbytes, (int)node);
 #else
-    mxm_sreq->op.mem.remote_mkey = gasnetc_find_remote_mkey(src, nbytes, (int)node);
+    mxm_sreq->op.mem.remote_mkey = gasnetc_find_remote_mkey(dest, nbytes, (int)node);
 #endif
 
     mxm_sreq->base.completed_cb = NULL;
