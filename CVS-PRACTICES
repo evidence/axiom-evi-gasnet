@@ -88,7 +88,6 @@ GASNet Release Procedure
   Conduits: */gasnet_core_fwd.h, */gasnet_extended_fwd.h
   GASNet document spec version: docs/gasnet.texi
   GASNet tools document spec version: README-tools
-  AMX version numbers (AM{UDP,MPI}_LIBRARY_VERSION): other/am{udp,mpi}/am{udp,mpi}.h
 
 * Review checkin messages and write a summary of user-visible changes and 
   bug fixes since last public release - add to ChangeLog
@@ -101,18 +100,6 @@ GASNet Release Procedure
      gmake all distcheck [GASNET_DOCS=PATH_TO_GASNET_DOCUMENTATION]
   the release candidate archive.  See below for info on the optional
   GASNET_DOCS setting.
-
-* cd into $(blddir)/other/ammpi and gmake amxdist to build the AMMPI release
-
-* cd into $(blddir)/other/amudp and gmake amxdist to build the AMUDP release
-
-* Test the AMMPI and AMUDP archives:
-     gmake
-     gmake tests
-     gmake run-tests
-  Relative to the gasnet sources, expect the archives to be missing the
-  files Makefile.in, Makefile.standalone and *.DSP; and to have added
-  a Makefile, the portable_*.h headers and the contents of amxtests/
 
 * Unpack the archive and diff against the source tree to find missing files,
   especially documentation and auxiliary files.  Check that other/contrib
@@ -134,12 +121,17 @@ GASNet Release Procedure
 * Test the release candidate on all directly supported systems and conduits,
   with both debug-stats-trace and ndebug configs, and all supported backend
   C compilers:
-   IBM SP: mpi, lapi - 32 & 64 bit
-   Linux-Myrinet: mpi, gm
-   Linux-Quadrics: mpi, elan
-   Linux-Ethernet: mpi
-   Linux-InfiniBand: mpi, vapi, ibv
-   Linux-Altix: shmem
+   IBM BG/P: dcmf (and mpi if time/allocation allows)
+   IBM BG/Q: pami (and mpi if time/allocation allows)
+   Cray XE: gemini (and mpi if time/allocation allows)
+   Cray XC: aries (and mpi if time/allocation allows)
+   Linux-Ethernet: mpi, udp
+   Linux-InfiniBand: mpi, ibv (and portals4 & mxm, if possible)
+   Linux-Altix: smp, shmem
+   Windows/Cygwin: smp+pthreads
+   Mac OS X: smp+pthreads
+  In most cases these test will be conducted as part of Berkeley UPC's
+  release testing (the "gasnet-tests" suite of the BUPC test harness).
 
 * Install the release candidate and ensure that share/docs/gasnet contains
   all the intended documentation, including any files referenced by README.
@@ -157,10 +149,6 @@ GASNet Release Procedure
 * Post to webpage, update HTML, email release notice with ChangeLog entry
 
 * CVS tag the archive as GASNET_V_v (for version V.v) and docs/gasnet.texi as GASNETSPEC_V_v
-
-* CVS tag other/ammpi as AMMPI_V_v (for version V.v)
-
-* CVS tag other/amudp as AMUDP_V_v (for version V.v)
 
 * Increment overall public release version number in configure.in
    should be a odd minor and patch version number for development versions
