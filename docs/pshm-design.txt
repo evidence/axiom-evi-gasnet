@@ -1,6 +1,6 @@
 GASNet inter-Process SHared Memory (PSHM) design
 ---------------------------------------------
-$Revision: 1.21 $
+$Revision: 1.22 $
 
 Document by:
     Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -31,7 +31,7 @@ Linux.  On all other platforms, one must pass --enable-pshm if PSHM support
 is desired.  On Linux PSHM can be disabled by passing --disable-pshm at
 configure time.
 
-The PSHM support in GASNet can operate via three possible mechanisms: POSIX
+The PSHM support in GASNet can operate via three generic mechanisms: POSIX
 shared memory, SystemV shared memory, or mmap()ed disk files.  When PSHM is
 enabled, the default is for the configure step to probe only for support
 via POSIX shared memory (except on MacOS, where it is known to be broken).
@@ -49,6 +49,11 @@ the desired mechanism:
 
         On Linux "--enable-pshm" is the default.
         On all other platforms "--disable-pshm" is the default.
+
+For Cray XE, XK and XC systems, PSHM-over-XPMEM is enabled automatically
+by the corresponding cross-configure scripts.  However, one can also
+optionally enable PSHM-over-XPMEM on an SGI Altix as follows:
+        XPMEM: --enable-pshm --disable-pshm-posix --enable-pshm-xpmem
 
 PSHM includes an environment variable for controlling use of memory for
 intra-memory AM traffic:
