@@ -1,0 +1,95 @@
+This is the README.git file for GASNet
+
+A note on proprietary (NDA) information:
+  A stern reminder that a "git clone" includes the entire
+  history of everything that has ever existed in the public
+  repo, and that this public repo is world readable.
+  So, you must NEVER "git push" anything to the public
+  server (even to a private branch that might be merged)
+  that you don't have the rights to publish.
+  A detailed "protocol" for dealing with proprietary data
+  (especially that with an expiration date) will eventually
+  be added to this document.
+
+The GASNet project is following the gitflow workflow. See
+http://nvie.com/posts/a-successful-git-branching-model/
+The basic ideas:
+ + 1 long-lived "master" branch to hold public releases, and
+   should generally have a tag for each commit.
+   This is the default branch for mosr users.
+ + 1 long-lived "develop" branch for continuous integration
+ + feature branches (off of develop) for work on each task,
+   which are merged to develop when completed.
+   This is the branch developers should be committing to.
+ + release integration branches (off of develop) which are
+   merged to BOTH develop and master when completed
+ + hot fix branches (from master)
+ + all branch merges are done with --no-ff
+
+Explanation regarding merges of feature branches:
+
+When merging feature branches to develop, we want a (nearly)
+linear history, but want to be able to clearly see the start
+and end of the sequence of commits which correspond to any
+given feature branch.  So, we want a true merge with a commit
+which is a summary of the branch (bug fix, enhancement, etc.)
+which is being merged.  Therefore, we do NOT want a fast-forward
+but still require a rebase prior to merging to keep a linear
+history:
+  git rebase [-i] develop [branch-name]
+  git checkout develop
+  git merge --edit --no-ff branch-name
+  git branch -d branch-name
+  git push
+Note that --edit is required so one can write a description
+for the work being merged.
+
+So, what happens on a push failure (race against a peer)?
+When your post-merge "git push" fails with
+  ! [rejected]        develop -> develop (non-fast-forward)
+You should fetch and then rebase the merge onto an up-to-date
+develop:
+  git fetch
+  git rebase -p
+  git push
+That "-p" is vital to preserving the branch structure we are
+trying to achieve, and is the reason that we should not use
+the more common "git pull --rebase".  See a better description
+of the problem(s) with pull at https://coderwall.com/p/jiswdq
+
+One downside is that if you delay removing the feature branch
+until after the (failed) push, you must use "-D" instead of "-d":
+  git branch -D branch-name
+because the "rebase -p" results in git not realizing that your
+branch has been fully merged.
+
+Note that the fetch+rebase-p approach will preserve the branch
+structure even if you have merged multiple local branches to
+your local develop since the last fetch or pull.  This is a
+good thing if you need to work disconnected for an extended
+period.
+
+
+For a release branch we again want a non-fast-forward commit, but
+will NOT rebase (because we explicitly branched to keep subsequent
+changes on develop from entering the release).
+  git checkout -b release-v9.9 develop
+  [prepare the release]
+  git checkout develop
+  git merge --edit --no-ff release-v9.9
+  git push
+  git checkout master
+  git merge --edit --no-ff release-v9.9
+  git push
+  git tag -a v9.9 -m "Release v9.9 of GASNet" master
+  git push --tags
+  git branch -d release-v9.9
+
+
+Identification:
+
+You probably want to start with the following to configure your name
+and email before doing much of anything:
+  git config --global user.name "Jane Doe"
+  git config --global user.email "JDoe@lbl.gov"
+Omit "--global" if you want to do this for ONLY the current repo.
