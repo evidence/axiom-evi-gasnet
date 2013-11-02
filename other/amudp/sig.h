@@ -1,6 +1,4 @@
-//   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/sig.h,v $
-//     $Date: 2006/05/23 12:42:29 $
-// $Revision: 1.3 $
+//   $Source: bitbucket.org:berkeleylab/gasnet.git/other/amudp/sig.h $
 // Description: signal handling module
 // Copyright 1999, Dan Bonachea
 

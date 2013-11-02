@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_rvous.c,v $
- *     $Date: 2010/08/08 06:31:07 $
- * $Revision: 1.68 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/extended-ref/gasnet_coll_rvous.c $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

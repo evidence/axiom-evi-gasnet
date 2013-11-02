@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testqueue.c,v $
- *     $Date: 2013/08/09 23:46:47 $
- * $Revision: 1.21 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/tests/testqueue.c $
  * Description: GASNet put/get injection performance test
  *   measures the average non-blocking put/get injection time 
  *   for increasing number of back-to-back operations

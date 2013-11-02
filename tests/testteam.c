@@ -1,6 +1,4 @@
-/* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testteam.c,v $
- * $Date: 2013/06/07 05:58:51 $
- * $Revision: 1.8 $
+/* $Source: bitbucket.org:berkeleylab/gasnet.git/tests/testteam.c $
  * LBNL 2009
  */
 

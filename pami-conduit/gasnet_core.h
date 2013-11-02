@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_core.h,v $
- *     $Date: 2013/07/30 07:39:19 $
- * $Revision: 1.3 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/pami-conduit/gasnet_core.h $
  * Description: GASNet header for PAMI conduit core
  * Copyright 2012, Lawrence Berkeley National Laboratory
  * Terms of use are as specified in license.txt

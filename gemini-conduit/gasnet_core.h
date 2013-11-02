@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core.h,v $
- *     $Date: 2013/09/03 04:28:19 $
- * $Revision: 1.5 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/gemini-conduit/gasnet_core.h $
  * Description: GASNet header for gemini conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_spawn.cpp,v $
- *     $Date: 2012/05/04 00:01:58 $
- * $Revision: 1.16 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/other/amudp/amudp_spawn.cpp $
  * Description: AMUDP Implementations of SPMD spawn functions for various environments
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */

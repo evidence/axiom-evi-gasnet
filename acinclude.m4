@@ -1,6 +1,4 @@
-dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2013/08/21 00:11:13 $
-dnl $Revision: 1.173 $
+dnl   $Source: bitbucket.org:berkeleylab/gasnet.git/acinclude.m4 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt

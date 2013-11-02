@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_pshm.c,v $
- *     $Date: 2013/08/08 16:52:01 $
- * $Revision: 1.61 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/gasnet_pshm.c $
  * Description: GASNet infrastructure for shared memory communications
  * Copyright 2012, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt

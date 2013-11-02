@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet.h,v $
- *     $Date: 2013/05/31 08:08:02 $
- * $Revision: 1.76 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/gasnet.h $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

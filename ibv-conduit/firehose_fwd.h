@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/firehose_fwd.h,v $
- *     $Date: 2013/08/24 05:11:11 $
- * $Revision: 1.19 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/ibv-conduit/firehose_fwd.h $
  * Description: Configuration of firehose code to fit ibv-conduit
  * Copyright 2003, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt

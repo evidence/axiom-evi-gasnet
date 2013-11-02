@@ -1,4 +1,4 @@
-/* $Header: /Users/kamil/work/gasnet-cvs2/gasnet/license.txt,v 1.23 2013/09/23 15:08:00 eahoffman Exp $
+/* $Source: bitbucket.org:berkeleylab/gasnet.git/license.txt $
  * All files in this directory and all sub-directories (except where otherwise noted)
  * are subject to the following licensing terms: 
  *

@@ -1,6 +1,5 @@
 GASNet collectives design notes
 ===============================
-* $Revision: 1.39 $
 * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu> and Paul Hargrove <PHHargrove@lbl.gov>
 * Terms of use are as specified in license.txt
 

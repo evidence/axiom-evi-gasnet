@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_spmd.c,v $
- *     $Date: 2010/08/25 17:58:10 $
- * $Revision: 1.43 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/other/ammpi/ammpi_spmd.c $
  * Description: AMMPI Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */

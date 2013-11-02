@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_internal.h,v $
- *     $Date: 2012/04/24 04:02:31 $
- * $Revision: 1.46 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/other/firehose/firehose_internal.h $
  * Description: Internal Header file
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

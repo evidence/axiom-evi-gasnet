@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_membar.h,v $
- *     $Date: 2013/10/16 06:55:36 $
- * $Revision: 1.130 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/gasnet_membar.h $
  * Description: GASNet header for portable memory barrier operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

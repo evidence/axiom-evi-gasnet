@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_team.c,v $
- *     $Date: 2013/06/19 21:30:02 $
- * $Revision: 1.22 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/extended-ref/gasnet_coll_team.c $
  *
  * Description: GASNet generic team implementation for collectives 
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory

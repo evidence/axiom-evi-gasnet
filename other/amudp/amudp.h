@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp.h,v $
- *     $Date: 2010/10/23 06:16:51 $
- * $Revision: 1.43 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/other/amudp/amudp.h $
  * Description: AMUDP Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */

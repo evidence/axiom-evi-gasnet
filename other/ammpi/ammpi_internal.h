@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_internal.h,v $
- *     $Date: 2011/06/30 21:03:07 $
- * $Revision: 1.45 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/other/ammpi/ammpi_internal.h $
  * Description: AMMPI internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */

@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_handler.h,v $
- *     $Date: 2009/03/29 04:03:01 $
- * $Revision: 1.10 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/gasnet_handler.h $
  * Description: GASNet Helpers for using bit-width-independent AM handlers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

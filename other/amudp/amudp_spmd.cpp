@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_spmd.cpp,v $
- *     $Date: 2013/07/31 19:01:11 $
- * $Revision: 1.51 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/other/amudp/amudp_spmd.cpp $
  * Description: AMUDP Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */

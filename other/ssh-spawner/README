@@ -1,7 +1,6 @@
 README file for ssh-spawner
 ================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.12 $
 
 Configure Options:
   --disable-pdeathsig (auto-detect by default)

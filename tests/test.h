@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2013/09/21 23:43:31 $
- * $Revision: 1.153 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/tests/test.h $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

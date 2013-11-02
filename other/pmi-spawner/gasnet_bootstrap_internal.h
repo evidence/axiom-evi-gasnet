@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/pmi-spawner/gasnet_bootstrap_internal.h,v $
- *     $Date: 2013/07/18 05:15:00 $
- * $Revision: 1.1 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/other/pmi-spawner/gasnet_bootstrap_internal.h $
  * Description: GASNet conduit-independent pmi-based spawner (prototypes)
  * Copyright 2013, The Regents of the University of California
  * Terms of use are as specified in license.txt

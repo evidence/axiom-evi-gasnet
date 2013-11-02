@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testexit.c,v $
- *     $Date: 2012/09/11 01:18:42 $
- * $Revision: 1.31 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/tests/testexit.c $
  * Description: GASNet gasnet_exit correctness test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

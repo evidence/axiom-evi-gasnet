@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testlogGP.c,v $
- *     $Date: 2011/06/03 22:24:22 $
- * $Revision: 1.33 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/tests/testlogGP.c $
  * Description: GASNet logGP tester.
  *   measures the ping-pong average round-trip time and
  *   average flood throughput of GASNet gets and puts

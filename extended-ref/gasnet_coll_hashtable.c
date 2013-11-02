@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_hashtable.c,v $
- *     $Date: 2012/01/08 23:20:13 $
- * $Revision: 1.6 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/extended-ref/gasnet_coll_hashtable.c $
  * Description: Reference implemetation of GASNet Collectives team
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt

@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amxtests/testam.h,v $
- *     $Date: 2009/03/29 04:03:07 $
- * $Revision: 1.15 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/other/amxtests/testam.h $
  * Description: AMX test
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

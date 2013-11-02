@@ -1,4 +1,4 @@
-$Header: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/license.txt,v 1.2 2012/04/14 00:37:49 phargrov Exp $
+$Source: bitbucket.org:berkeleylab/gasnet.git/pami-conduit/license.txt $
 All files in this directory (except where otherwise noted) are subject to the
 following licensing terms: 
 

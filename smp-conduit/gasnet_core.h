@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_core.h,v $
- *     $Date: 2012/07/27 14:40:02 $
- * $Revision: 1.25 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/smp-conduit/gasnet_core.h $
  * Description: GASNet header for smp conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

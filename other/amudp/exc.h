@@ -1,6 +1,4 @@
-//   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/exc.h,v $
-//     $Date: 2009/03/30 02:40:45 $
-// $Revision: 1.4 $
+//   $Source: bitbucket.org:berkeleylab/gasnet.git/other/amudp/exc.h $
 // Description: Exception handlers for fserver
 // Copyright 1999, Dan Bonachea & Scott McPeak
 

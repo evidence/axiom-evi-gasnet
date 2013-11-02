@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amxtests/testreduce.c,v $
- *     $Date: 2006/04/11 03:23:45 $
- * $Revision: 1.6 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/other/amxtests/testreduce.c $
  * Description: AMX test
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

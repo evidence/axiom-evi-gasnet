@@ -1,6 +1,4 @@
-#   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/Makefile.titanium.in,v $
-#     $Date: 2006/06/06 16:03:30 $
-# $Revision: 1.11 $
+#   $Source: bitbucket.org:berkeleylab/gasnet.git/other/amudp/Makefile.titanium.in $
 # Description: setup necessary variables needed by Makefile
 # Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
 

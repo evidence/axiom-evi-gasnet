@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_fwd_sample.h,v $
- *     $Date: 2008/04/02 17:57:16 $
- * $Revision: 1.7 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/other/firehose/firehose_fwd_sample.h $
  * Description: Firehose forward declarations
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

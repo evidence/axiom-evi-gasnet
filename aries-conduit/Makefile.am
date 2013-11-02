@@ -1,7 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-#   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/aries-conduit/Makefile.am,v $
-#     $Date: 2013/09/08 22:14:48 $
-# $Revision: 1.7 $
+#   $Source: bitbucket.org:berkeleylab/gasnet.git/aries-conduit/Makefile.am $
 # Description: Makefile for GASNet aries conduit
 # Copyright 2013, E. O. Lawrence Berekely National Laboratory
 # Terms of use are as specified in license.txt

@@ -1,6 +1,4 @@
-#   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/Makefile.irix.origin,v $
-#     $Date: 2006/05/31 08:17:40 $
-# $Revision: 1.7 $
+#   $Source: bitbucket.org:berkeleylab/gasnet.git/other/ammpi/Makefile.irix.origin $
 # Description: Linux Makefile fragment
 # Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
 

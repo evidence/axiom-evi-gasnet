@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amxtests/testbounce.c,v $
- *     $Date: 2006/05/11 09:43:42 $
- * $Revision: 1.10 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/other/amxtests/testbounce.c $
  * Description: AMX test
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

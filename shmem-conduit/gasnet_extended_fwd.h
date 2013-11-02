@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_extended_fwd.h,v $
- *     $Date: 2013/06/29 18:42:23 $
- * $Revision: 1.22 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/shmem-conduit/gasnet_extended_fwd.h $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

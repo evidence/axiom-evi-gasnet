@@ -1,6 +1,4 @@
-#   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/Makefile.standalone,v $
-#     $Date: 2006/06/06 16:03:30 $
-# $Revision: 1.26 $
+#   $Source: bitbucket.org:berkeleylab/gasnet.git/other/amudp/Makefile.standalone $
 # Description: Makefile for AMUDP
 # Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
 srcdir = .

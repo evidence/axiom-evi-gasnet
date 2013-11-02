@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.h,v $
- *     $Date: 2013/06/07 04:29:42 $
- * $Revision: 1.68 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/gasnet_trace.h $
  * Description: GASNet Tracing Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

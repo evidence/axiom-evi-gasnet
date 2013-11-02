@@ -1,6 +1,4 @@
-//   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/socklist.cpp,v $
-//     $Date: 2006/04/20 23:45:12 $
-// $Revision: 1.5 $
+//   $Source: bitbucket.org:berkeleylab/gasnet.git/other/amudp/socklist.cpp $
 // Description: 
 // Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
 

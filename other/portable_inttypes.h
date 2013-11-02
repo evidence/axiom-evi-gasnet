@@ -1,6 +1,4 @@
-/*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/portable_inttypes.h,v $ */
-/*      $Date: 2006/05/23 12:42:25 $ */
-/*  $Revision: 1.13 $ */
+/*    $Source: bitbucket.org:berkeleylab/gasnet.git/other/portable_inttypes.h $ */
 /*  Description: portable_inttypes.h  */
 /*  Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu> */
 

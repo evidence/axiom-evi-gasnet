@@ -1,6 +1,4 @@
-/* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcore2.c,v $
- * $Date: 2007/11/15 00:06:30 $
- * $Revision: 1.6 $
+/* $Source: bitbucket.org:berkeleylab/gasnet.git/tests/testcore2.c $
  * Copyright 2007, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  *

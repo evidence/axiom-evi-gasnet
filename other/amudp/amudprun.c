@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudprun.c,v $
- *     $Date: 2011/11/26 21:00:36 $
- * $Revision: 1.4 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/other/amudp/amudprun.c $
  * Description: Stand-alone AMUDP job launcher
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  */

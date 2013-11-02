@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testhsl.c,v $
- *     $Date: 2010/04/24 03:25:34 $
- * $Revision: 1.24 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/tests/testhsl.c $
  * Description: GASNet HSL correctness test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

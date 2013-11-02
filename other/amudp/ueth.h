@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/ueth.h,v $
- *     $Date: 2009/03/30 02:40:45 $
- * $Revision: 1.4 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/other/amudp/ueth.h $
  * Description: UETH interface to ISTORE-specific hardware driver
  * Copyright 2000, Dan Hettena <danielh@cs.berkeley.edu>
  *                 and Dan Bonachea <bonachea@cs.berkeley.edu>

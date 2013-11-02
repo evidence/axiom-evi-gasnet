@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/gasnet_core_fwd.h,v $
- *     $Date: 2012/08/10 23:04:08 $
- * $Revision: 1.32 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/mpi-conduit/gasnet_core_fwd.h $
  * Description: GASNet header for MPI conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
