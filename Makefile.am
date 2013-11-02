@@ -351,8 +351,6 @@ dist-hook:
 	     cp -p $$file $$fulldistdir/tests/$$file || exit $$? ; \
           fi ; \
         done
-	rm -Rf `find $(distdir) -name CVS -type d -print`
-	rm -f `find $(distdir) -name .#\* -print`
 
 # If we've enabled PSHM, also enabled for 'make distcheck'
 if USE_PSHM
