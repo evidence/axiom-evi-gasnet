@@ -27,7 +27,9 @@ rm -f Makefile.in              \
       mxm-conduit/contrib/Makefile.in \
       portals4-conduit/Makefile.in  \
       gemini-conduit/Makefile.in \
+      gemini-conduit/contrib/Makefile.in   \
       aries-conduit/Makefile.in \
+      aries-conduit/contrib/Makefile.in   \
       pami-conduit/Makefile.in \
       pami-conduit/contrib/Makefile.in   \
       smp-conduit/Makefile.in  \
