@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refvis.c,v $
- *     $Date: 2012/05/10 01:54:53 $
- * $Revision: 1.24 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/extended-ref/gasnet_extended_refvis.c $
  * Description: Reference implementation of GASNet Vector, Indexed & Strided
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

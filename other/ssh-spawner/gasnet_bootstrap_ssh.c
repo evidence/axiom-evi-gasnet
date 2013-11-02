@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2013/08/24 05:41:59 $
- * $Revision: 1.114 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/other/ssh-spawner/gasnet_bootstrap_ssh.c $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt

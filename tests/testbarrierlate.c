@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testbarrierlate.c,v $
- *     $Date: 2012/08/29 04:49:03 $
- * $Revision: 1.12 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/tests/testbarrierlate.c $
  * Description: GASNet barrier performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

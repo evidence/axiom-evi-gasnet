@@ -1,6 +1,4 @@
-/*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2013/10/30 03:09:48 $ */
-/*  $Revision: 1.197 $ */
+/*    $Source: bitbucket.org:berkeleylab/gasnet.git/acconfig.h $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */

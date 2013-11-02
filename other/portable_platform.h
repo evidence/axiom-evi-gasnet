@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/portable_platform.h,v $
- *     $Date: 2013/09/18 23:01:54 $
- * $Revision: 1.37 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/other/portable_platform.h $
  * Description: Portable platform detection header
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  */

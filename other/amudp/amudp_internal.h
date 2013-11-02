@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_internal.h,v $
- *     $Date: 2011/06/30 22:51:22 $
- * $Revision: 1.40 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/other/amudp/amudp_internal.h $
  * Description: AMUDP internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */

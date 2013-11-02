@@ -1,7 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-#   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/Makefile.am,v $
-#     $Date: 2009/04/27 22:24:19 $
-# $Revision: 1.2 $
+#   $Source: bitbucket.org:berkeleylab/gasnet.git/other/firehose/Makefile.am $
 # Description: Makefile for GASNet other/firehose
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt

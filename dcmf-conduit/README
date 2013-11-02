@@ -1,7 +1,6 @@
 README file for dcmf-conduit
 ============================
 Rajesh Nishtala <rajeshn@cs.berkeley.edu>
-$Revision: 1.11 $
 
 
 GASNet's DCMF conduit is the native port of GASNet to the BlueGene/P

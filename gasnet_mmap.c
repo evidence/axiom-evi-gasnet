@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2013/10/30 03:09:48 $
- * $Revision: 1.132 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/gasnet_mmap.c $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testrand.c,v $
- *     $Date: 2013/03/08 03:19:45 $
- * $Revision: 1.17 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/tests/testrand.c $
  * Description: GASNet get/put performance test
  *   measures measures the total time to write to each page of the
  *   remote test segment, using blocking puts in a random order.

@@ -1,7 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-#   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/Makefile.am,v $
-#     $Date: 2013/07/21 21:09:54 $
-# $Revision: 1.5 $
+#   $Source: bitbucket.org:berkeleylab/gasnet.git/portals4-conduit/Makefile.am $
 # Description: Makefile for GASNet portals4 conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt

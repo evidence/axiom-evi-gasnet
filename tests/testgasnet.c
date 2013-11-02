@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testgasnet.c,v $
- *     $Date: 2013/08/09 23:39:25 $
- * $Revision: 1.72 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/tests/testgasnet.c $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

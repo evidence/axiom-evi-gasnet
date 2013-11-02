@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_extended_help_extra.h,v $
- *     $Date: 2012/05/10 01:55:05 $
- * $Revision: 1.14 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/shmem-conduit/gasnet_extended_help_extra.h $
  * Description: GASNet Extended Shmem-specific Header 
  * Copyright 2005, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

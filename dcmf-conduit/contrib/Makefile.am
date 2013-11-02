@@ -1,7 +1,5 @@
 ## Process this file with automake to produce Makefile.in       -*- makefile -*-
-#   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/contrib/Makefile.am,v $
-#     $Date: 2008/10/28 05:43:41 $
-# $Revision: 1.2 $
+#   $Source: bitbucket.org:berkeleylab/gasnet.git/dcmf-conduit/contrib/Makefile.am $
 # Description: Makefile for GASNet DCMF spawner
 # Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
 #                 Paul Hargrove <phhargrove@lbl.gov>

@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_core.c,v $
- *     $Date: 2012/09/04 23:05:42 $
- * $Revision: 1.82 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/smp-conduit/gasnet_core.c $
  * Description: GASNet smp conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

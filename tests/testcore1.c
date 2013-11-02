@@ -1,6 +1,4 @@
-/* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcore1.c,v $
- * $Date: 2013/03/08 03:19:45 $
- * $Revision: 1.23 $
+/* $Source: bitbucket.org:berkeleylab/gasnet.git/tests/testcore1.c $
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  *

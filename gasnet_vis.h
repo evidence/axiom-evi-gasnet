@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_vis.h,v $
- *     $Date: 2010/10/11 00:35:14 $
- * $Revision: 1.23 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/gasnet_vis.h $
  * Description: GASNet Extended API Vector, Indexed & Strided declarations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

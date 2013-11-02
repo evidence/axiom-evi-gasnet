@@ -1,6 +1,5 @@
 GASNet inter-Process SHared Memory (PSHM) design
 ---------------------------------------------
-$Revision: 1.23 $
 
 Document by:
     Dan Bonachea <bonachea@cs.berkeley.edu>

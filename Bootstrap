@@ -1,7 +1,5 @@
 #!/bin/sh
-#   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/Bootstrap,v $
-#     $Date: 2009/03/27 05:03:49 $
-# $Revision: 1.26 $
+#   $Source: bitbucket.org:berkeleylab/gasnet.git/Bootstrap $
 # Description: GASNet developer Bootstrap script
 # Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt

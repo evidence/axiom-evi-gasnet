@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcore3.c,v $
- *     $Date: 2010/04/07 17:26:31 $
- * $Revision: 1.3 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/tests/testcore3.c $
  * Description: GASNet Active Messages conformance test
  * Copyright (c) 2010, The Regents of the University of California
  * Terms of use are as specified in license.txt

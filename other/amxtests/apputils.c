@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amxtests/apputils.c,v $
- *     $Date: 2010/05/23 23:52:50 $
- * $Revision: 1.19 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/other/amxtests/apputils.c $
  * Description: AMX Application utilities
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */

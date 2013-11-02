@@ -1,6 +1,4 @@
-#   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/Makefile.mtx.mta,v $
-#     $Date: 2006/05/31 08:17:42 $
-# $Revision: 1.4 $
+#   $Source: bitbucket.org:berkeleylab/gasnet.git/other/amudp/Makefile.mtx.mta $
 # Description: Cray-T3E Makefile fragment
 # Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
 

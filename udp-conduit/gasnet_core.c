@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/udp-conduit/gasnet_core.c,v $
- *     $Date: 2012/08/24 23:20:18 $
- * $Revision: 1.47 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/udp-conduit/gasnet_core.c $
  * Description: GASNet UDP conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_coll_exchange_dcmf.h,v $
- *     $Date: 2010/05/05 15:24:17 $
- * $Revision: 1.6 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/dcmf-conduit/gasnet_coll_exchange_dcmf.h $
  * Description: GASNet exchange (alltoall) implementation for DCMF
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt

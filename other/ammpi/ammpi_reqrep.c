@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_reqrep.c,v $
- *     $Date: 2013/07/30 04:18:03 $
- * $Revision: 1.44 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/other/ammpi/ammpi_reqrep.c $
  * Description: AMMPI Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */

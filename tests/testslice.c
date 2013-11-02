@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testslice.c,v $
- *     $Date: 2013/03/08 03:19:45 $
- * $Revision: 1.10 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/tests/testslice.c $
  * Description: GASNet randomized get/put correctness validation test
  * Copyright 2007, Parry Husbands and Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

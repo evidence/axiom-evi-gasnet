@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testmemset.c,v $
- *     $Date: 2013/03/08 03:19:45 $
- * $Revision: 1.2 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/tests/testmemset.c $
  * Description: GASNet memset performance test
  *   varying payload size and synchronization mechanisms
  * Terms of use are as specified in license.txt

@@ -1,6 +1,4 @@
-/* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_coll_allreduce_dcmf.h,v $
- * $Date: 2010/05/05 15:24:17 $
- * $Revision: 1.1 $
+/* $Source: bitbucket.org:berkeleylab/gasnet.git/dcmf-conduit/gasnet_coll_allreduce_dcmf.h $
  * Description: GASNet allreduce implementation on DCMF
  * Copyright 2010, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt

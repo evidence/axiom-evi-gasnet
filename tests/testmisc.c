@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testmisc.c,v $
- *     $Date: 2012/05/10 00:16:51 $
- * $Revision: 1.50 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/tests/testmisc.c $
  * Description: GASNet misc performance test
  *   Measures the overhead associated with a number of purely local 
  *   operations that involve no communication. 

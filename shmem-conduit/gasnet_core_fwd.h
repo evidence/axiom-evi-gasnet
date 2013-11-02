@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_core_fwd.h,v $
- *     $Date: 2012/08/10 23:04:16 $
- * $Revision: 1.19 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/shmem-conduit/gasnet_core_fwd.h $
  * Description: GASNet header for shmem conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testthreads.c,v $
- *     $Date: 2009/08/15 08:58:21 $
- * $Revision: 1.32 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/tests/testthreads.c $
  *
  * Description: GASNet threaded tester.
  *   The test initializes GASNet and forks off up to 256 threads.  Each of

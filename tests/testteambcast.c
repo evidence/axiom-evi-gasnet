@@ -1,6 +1,4 @@
-/* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testteambcast.c,v $
- * $Date: 2013/06/07 05:58:51 $
- * $Revision: 1.4 $
+/* $Source: bitbucket.org:berkeleylab/gasnet.git/tests/testteambcast.c $
  * See license.txt for terms
  * Rajesh Nishtala and Yili Zheng
  */

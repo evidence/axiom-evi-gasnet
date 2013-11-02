@@ -1,7 +1,5 @@
 #!/usr/bin/env perl
-#   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/contrib/gasnetrun_ibv.pl,v $
-#     $Date: 2013/08/24 06:21:14 $
-# $Revision: 1.14 $
+#   $Source: bitbucket.org:berkeleylab/gasnet.git/ibv-conduit/contrib/gasnetrun_ibv.pl $
 # Description: GASNet VAPI, IBV and MXM spawner
 # Terms of use are as specified in license.txt
 

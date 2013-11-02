@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_diagnostic.c,v $
- *     $Date: 2013/08/06 07:28:37 $
- * $Revision: 1.44 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/gasnet_diagnostic.c $
  * Description: GASNet internal diagnostics
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

@@ -1,4 +1,4 @@
-/* $Header: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/license.txt,v 1.2 2004/08/26 04:53:50 bonachea Exp $
+/* $Source: bitbucket.org:berkeleylab/gasnet.git/other/amudp/license.txt $
  * All files in this directory and all sub-directories (except where otherwise noted)
  * are subject to the following licensing terms: 
  *
