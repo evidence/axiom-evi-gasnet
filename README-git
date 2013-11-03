@@ -11,40 +11,54 @@ A note on proprietary (NDA) information:
   (especially that with an expiration date) will eventually
   be added to this document.
 
-The GASNet project is following the gitflow workflow. See
-http://nvie.com/posts/a-successful-git-branching-model/
+This documentation assumes you are using git-1.8, and is known
+to use features that were not present in git-1.7.  If future
+versions of git break these instructions, we'll update this
+document appropriately.
+
+The GASNet project is following the gitflow workflow.
+See http://nvie.com/posts/a-successful-git-branching-model/
 The basic ideas:
- + 1 long-lived "master" branch to hold public releases, and
+ + A long-lived "master" branch to hold public releases, and
    should generally have a tag for each commit.
-   This is the default branch for mosr users.
- + 1 long-lived "develop" branch for continuous integration
- + feature branches (off of develop) for work on each task,
-   which are merged to develop when completed.
+   This is the default branch for most users.
+ + A long-lived "develop" branch for continuous integration.
    This is the branch developers should be committing to.
- + release integration branches (off of develop) which are
-   merged to BOTH develop and master when completed
- + hot fix branches (from master)
- + all branch merges are done with --no-ff
+ + Feature branches (off of develop) for work on each task,
+   which are merged to develop when only when completed/tested.
+ + Release integration branches (off of develop) which are
+   merged to BOTH develop and master when completed.
+ + Hot fix branches (from master), which should be rare.
+ + All branch merges are done with --no-ff to preserve a clear
+   start and end to the commits from each feature branch.
+   
 
 Explanation regarding merges of feature branches:
 
 When merging feature branches to develop, we want a (nearly)
 linear history, but want to be able to clearly see the start
 and end of the sequence of commits which correspond to any
-given feature branch.  So, we want a true merge with a commit
+given feature branch.  So, we want a "true merge" with a commit
 which is a summary of the branch (bug fix, enhancement, etc.)
 which is being merged.  Therefore, we do NOT want a fast-forward
 but still require a rebase prior to merging to keep a linear
 history:
   git rebase [-i] develop [branch-name]
   git checkout develop
-  git merge --edit --no-ff branch-name
+  git merge [--log] --edit --no-ff branch-name
   git branch -d branch-name
   git push
-Note that --edit is required so one can write a description
-for the work being merged.
+Notes on the rebase step:
+  -i     Optionally perform rebase interactively, which allows
+         one to squash commits if desired.
+  If branch-name is omitted then this command merges HEAD.
+Notes on the merge step:
+  --log  Optionally pre-populates the commit message with the
+         summary (first line) of all the constituent commits.
+  --edit Required so one can edit the commit message to write
+         a description of the work being merged.
 
-So, what happens on a push failure (race against a peer)?
+So, what happens on a push failure above (race against a peer)?
 When your post-merge "git push" fails with
   ! [rejected]        develop -> develop (non-fast-forward)
 You should fetch and then rebase the merge onto an up-to-date
