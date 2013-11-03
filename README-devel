@@ -154,8 +154,9 @@ GASNet Release Procedure
   In the srcdir:
     ./unBootstrap
     git status --ignored
-  If "git status" listed any "untracked files" then you need to update
-  unBootstrap (or you didn't start with a clean repo!).
+  If "git status" listed any "ignored files" then you need to update
+  unBootstrap (and if it lists any "untracked files" then you didn't
+  start with a clean repo).
 
 * If the spec has not changed since the previous release, consider reusing
   the generated files from a past release.  That can be automated by adding
