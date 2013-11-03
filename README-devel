@@ -1,64 +1,100 @@
-GASNet CVS Usage Practices
---------------------------
+GASNet Revision Control Practices
+---------------------------------
 Development practices that GASNet developers are expected to follow:
 
 * All developers doing commits must be on the upc-devel@lbl.gov email list,
-  which receives gasnet checkin messages.
+  which receives gasnet commit messages.
 
-* You must include an explanatory log message for any change. It should describe
-  the high-level of what you did, and why you did it (e.g. to solve a particular
-  bug, etc). Generally larger changes deserve more detailed log messages -
-  remember the idea is to keep other developers apprised of changes you've made
-  that could affect their work somehow. Checkin messages should reference any 
-  particular bug ID's that they address.
+* You should commit only to the 'develop' branch - do NOT commit to 'master'
+  except for stable public releases (may include snapshots, etc. but NOT normal
+  day-to-day development work).
 
-* You should only commit working code - do NOT check in untested or flagrantly
-  broken code that could affect system stability. The idea is to ensure the main
-  trunk of the repository is mostly-working at all times, so try to make sure
-  your commits leave the repository in at least as working a state as you found
-  it. I understand that it may not be practical to test a given change on all
-  platforms, but you should at least test it throughly on your development
-  platform, and any other platforms that you have reason to believe may be
-  affected (this is especially true for configure scripts and Makefiles). If you
-  wish to checkin intermediate or untested versions of your code, please do so
-  on a private branch (see http://www.cvshome.org/docs/manual/cvs_5.html#SEC56).
+* Anything that is not a "trivial" change (such as correcting a typo or a small
+  1 or 2 line bug fix) should be performed on a "feature branch" and merged back
+  to 'develop' following the gitflow workflow as described in more detail in
+  the file README-git.  This allows the "feature" to be developed over multiple
+  commits while clearly identifying the start and end of the work, preventing
+  interleaving of commits with the work of other developers, and provides a
+  commit message that can summarize the purpose of the change(s).
 
-* Whenever you add _any_ files to the CVS repository, make sure they also
-  get added to the Makefile.am file for the enclosing directory (if there is one)
-  otherwise your added file won't be included in the public release.
+* When merging your feature branch to 'develop' don't include any extra changes
+  that might confuse a review, or be lost if your feature must be reverted.  For
+  instance if during the merge you notice a bug in the feature, go back to the
+  branch and fix it before restarting the merge.  If you encounter a bug, a typo
+  or other "issue" in 'develop' that is not related to your feature, then fix it
+  either before merging your branch (requiring an additional rebase), or else
+  fix it after your merge is completed.
 
-* When in doubt, use a CVS tag. CVS's built-in facilities for retrieving an old,
-  consistent snapshot of the entire system are rather poor, and work most smoothly
-  when there is a system-wide CVS tag at the point of interest. Developers
-  should create a CVS tag with an explanatory name before any major change that
-  is likely to affect system stability (eg merging a large development branch),
-  before rolling back any non-trivial change, and whenever distributing a
-  snapshot of the archive to any user or external party.
+* You must include an explanatory log message for every commit you make.  It
+  should describe the high-level of what you did, and why you did it (e.g. to
+  solve a particular bug, etc).  Generally larger changes deserve more detailed
+  log messages - remember the idea is to keep other developers apprised of
+  changes you've made that could affect their work somehow.  Commit messages
+  should reference any particular bug ID's that they address.  When doing work
+  as multiple commits to a feature branch, this rule applies NOT only to the
+  final merge commit, but also to the individual commits on the branch which
+  should each be reviewable individually.  Remember that somebody you've never
+  met may read your log message years after you write it.  So, make everything
+  explicit, avoiding phrases like "Apply Jane's idea from last week's meeting".
 
-* Follow good CVS branch merging practice: when merging from the CVS head to a branch, 
-  you should first tag the head, then merge to that tag. Subsequent merges will also
-  require the tag from your last merge to the branch.
+* The rule on log messages above applies to anything that will become publicly
+  visible.  For your own work in a local Git repo you are welcome practice any
+  discipline that works for you.  HOWEVER, when it is time to merge work back to
+  'develop' one should use Git to edit commit messages or squash commits to
+  ensure your work meets these standards.  Anything on 'develop' is
+  world-visible.
 
-* When merging from the CVS head to a branch, perform a separate branch commit
-  that contains nothing but the merge (and note that in the commit log). Do not 
-  lump in your own branch changes along with a merge from the head, because that
-  makes it harder to see what has actually changed in your commit, and muddies the
-  branch history. If your working copy already has both the merged head updates 
-  and your manual changes, you should checkout a separate copy of your branch, 
-  merge the head to it and commit that to the branch, then cvs up your working
-  copy before doing the commit of your real changes.
+* Our git repository at Bitbucket is configure to DENY any history re-writes on
+  the 'develop' branch.  This means you cannot 'git amend' or otherwise make
+  any modifications to history once you've pushed to 'origin/develop'.  Keep
+  this in mind along with the fact that anything you push to the server is
+  visible to the entire world.
+
+* You should only commit *working* code to 'develop' - do NOT commit untested or
+  of flagrantly broken code that could affect system stability.  The idea is to
+  ensure the 'develop' branch of the repository is mostly-working at all times.
+  So, try to make sure your commits leave the repository in at least as working
+  a state as you found it.  We understand that it may not be practical to test
+  a given change on all platforms, but you should at least test it thoroughly on
+  your development platform, and any other platforms that you have reason to
+  believe may be affected (this is especially true for configure scripts and
+  Makefiles).
+
+* If you wish to share intermediate or untested versions of your code for review
+  or testing by other developers, you can push your feature branch to Bitbucket.
+  Once there, a Pull Request can be used to provide a forum for review if this
+  is desired.  However, we are not currently imposing any formal requirement for
+  use of Pull Requests.
+
+* Whenever you "git add" any files to the repository, make sure they also get
+  added to the Makefile.am file (if any) for the enclosing directory.  Otherwise
+  your added file won't be included in the public release.
+
+* When we were using CVS, we recommended frequent use of tags, such as any time
+  you begin a branch or merge your branch to or from HEAD.  This is not nearly
+  as necessary in Git because there is always a hash to identify the state of
+  the entire repository after any given commit, and tools to find them easily.
+  Additionally our use of the gitflow workflow ensures that even after merging,
+  the sequence of commits that comprise a given feature branch is easily
+  identifiable (and therefore can quickly be reverted or applied to 'master' if
+  necessary).  This is not to say that there is NO use for tags with Git.  They
+  are especially important when you want to be able to correlate points in time
+  across multiple repositories (e.g. a gasnet commit which provides a feature
+  required for Berkeley UPC).
 
 * GASNet supports both a regular and tools-only (conduit-free) distribution.
   The Bootstrap -o option activates tools-only mode for a given source tree
-  by MODIFYING several source files, but the CVS repo is always kept in regular
+  by MODIFYING several source files, but the Git repo is always kept in regular
   distribution mode. This means if you use tools-only mode, you MUST Bootstrap
   back to regular mode (without -o) before committing any changes to the repo.
 
-* All GASNet developers are required to follow the GASNet coding standards outlined 
-  in the top-level README.
+* All GASNet developers are required to follow the GASNet coding standards
+  outlined in the top-level README.
 
 GASNet Release Procedure
 ------------------------
+
+XXX: This section needs a big rewrite for Git.
 
 * Start from a clean checkout of the CVS tree.
   Do *NOT* use an existing source tree - otherwise it's very easy for stray files,
