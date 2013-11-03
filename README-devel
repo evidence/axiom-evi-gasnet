@@ -208,9 +208,9 @@ GASNet Release Procedure
 * Now merge the release to 'master', where the general public will expect
   to find our sources intended for general consumption, and tag:
     git checkout master
-    git merge release-9.8.0
+    git merge --edit --no-ff release-9.8.0
     git push
-    git tag -a gasnet-9.8.0 -m "Public release v9.8.0" master
+    git tag -a gasnet-9.8.0 -m "GASNet release 9.8.0" master
     git push --tags
   If there were any "hot fixes" on 'master' since the previous release
   then you will may need to resolve conflicts in the "git merge ..." step
@@ -233,7 +233,7 @@ GASNet Release Procedure
   the version numbering has changed, this step ensures a common ancestor
   in the release branch, which will aide automatic merging the next release.
     git checkout develop
-    git merge release-9.8.0
+    git merge --edit --no-ff release-9.8.0
     git push
   In the event of merge conflicts, abort the merge and resolve on the
   release branch, just as for the merge to 'master'.

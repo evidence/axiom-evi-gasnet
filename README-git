@@ -73,17 +73,18 @@ period.
 For a release branch we again want a non-fast-forward commit, but
 will NOT rebase (because we explicitly branched to keep subsequent
 changes on develop from entering the release).
-  git checkout -b release-v9.9 develop
+  git checkout -b release-9.8.0 develop
   [prepare the release]
-  git checkout develop
-  git merge --edit --no-ff release-v9.9
-  git push
   git checkout master
-  git merge --edit --no-ff release-v9.9
+  git merge --edit --no-ff release-9.8.0
   git push
-  git tag -a v9.9 -m "Release v9.9 of GASNet" master
+  git tag -a ganet-9.8.0 -m "GASNet release 9.8.0" master
   git push --tags
-  git branch -d release-v9.9
+  git checkout develop
+  git merge --edit --no-ff release-9.8.0
+  git push
+  git branch -d release-9.8.0
+The "[prepare the release]" step is covered in more detail in README-devel
 
 
 Identification:
