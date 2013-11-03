@@ -105,7 +105,7 @@ GASNet Release Procedure
   new work from 'develop' and update version numbers, etc.
   This procedure begins with the creation of the "release branch" for a
   hypothetical 9.8.0 release:
-    git checkout -b release-9.8.0 develop
+    git checkout -b release/9.8.0 develop
 
 * Increment the version number for each item or software module that has
   changed since the last public release:
@@ -191,7 +191,7 @@ GASNet Release Procedure
   problems (Git is smart enough to deal with this at the later merge step).
 
 * Clone a *second* copy of the repository for the tools-only distribution:
-    git clone --branch release-9.8.0 \
+    git clone --branch release/9.8.0 \
             https://bitbucket.org/berkeleylab/gasnet gasnet-tools
     cd gasnet-tools
     ./Bootstrap -o
@@ -209,7 +209,7 @@ GASNet Release Procedure
 * Now merge the release to 'master', where the general public will expect
   to find our sources intended for general consumption, and tag:
     git checkout master
-    git merge --edit --no-ff release-9.8.0
+    git merge --edit --no-ff release/9.8.0
     git push
     git tag -a gasnet-9.8.0 -m "GASNet release 9.8.0" master
     git push --tags
@@ -234,7 +234,7 @@ GASNet Release Procedure
   the version numbering has changed, this step ensures a common ancestor
   in the release branch, which will aide automatic merging the next release.
     git checkout develop
-    git merge --edit --no-ff release-9.8.0
+    git merge --edit --no-ff release/9.8.0
     git push
   In the event of merge conflicts, abort the merge and resolve on the
   release branch, just as for the merge to 'master'.
@@ -242,7 +242,7 @@ GASNet Release Procedure
 [TODO: what if the branch was pushed to Bitbucket]
 * You can now discard the release branch (all of its commits are reachable):
     [still on 'develop' branch from previous step]
-    git branch -d release-9.8.0
+    git branch -d release/9.8.0
 
 * Still on 'develop' branch from previous steps, advance the version numbers
   in configure.in (odd minor and patch numbers for development)

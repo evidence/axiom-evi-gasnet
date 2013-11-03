@@ -32,6 +32,12 @@ The basic ideas:
  + Hot fix branches (from master), which should be rare.
  + All branch merges are done with --no-ff to preserve a clear
    start and end to the commits from each feature branch.
+
+To enable (totally optional) use the gitflow extensions, the
+the names 'master' and 'develop' have been chosen to match the
+defaults.  Similarly, the use of "feature/", "release/" and
+"hotfix/" are strongly recommended when naming branches of
+the corresponding types to match the gitflow defaults.
    
 
 Explanation regarding merges of feature branches:
@@ -44,15 +50,15 @@ which is a summary of the branch (bug fix, enhancement, etc.)
 which is being merged.  Therefore, we do NOT want a fast-forward
 but still require a rebase prior to merging to keep a linear
 history:
-  git rebase [-i] develop [branch-name]
+  git rebase [-i] develop [feature/whatever]
   git checkout develop
-  git merge [--log] --edit --no-ff branch-name
-  git branch -d branch-name
+  git merge [--log] --edit --no-ff feature/whatever
+  git branch -d feature/whatever
   git push
 Notes on the rebase step:
   -i     Optionally perform rebase interactively, which allows
          one to squash commits if desired.
-  If branch-name is omitted then this command merges HEAD.
+  If feature/whatever is omitted then this command merges HEAD.
 Notes on the merge step:
   --log  Optionally seeds the commit message with the summary
          (first line) of each of the constituent commits.
@@ -60,7 +66,7 @@ Notes on the merge step:
          a description of the work being merged.
 The --edit flag to "git merge" doesn't exist in git-1.7, but
 it can be simulated by using a two-step merge+commit:
-  git merge [--log] --no-commit --no-ff branch-name
+  git merge [--log] --no-commit --no-ff feature/whatever
   git commit
 which invokes the editor at the commit step.
 
@@ -81,7 +87,7 @@ git-1.8, but are required with git-1.7.
 
 One downside is that if you delay removing the feature branch
 until after the (failed) push, you must use "-D" instead of "-d":
-  git branch -D branch-name
+  git branch -D feature/whatever
 because the "rebase -p" results in git not realizing that your
 branch has been fully merged.
 
@@ -95,17 +101,17 @@ period.
 For a release branch we again want a non-fast-forward commit, but
 will NOT rebase (because we explicitly branched to keep subsequent
 changes on develop from entering the release).
-  git checkout -b release-9.8.0 develop
+  git checkout -b release/9.8.0 develop
   [prepare the release]
   git checkout master
-  git merge --edit --no-ff release-9.8.0
+  git merge --edit --no-ff release/9.8.0
   git push
   git tag -a ganet-9.8.0 -m "GASNet release 9.8.0" master
   git push --tags
   git checkout develop
-  git merge --edit --no-ff release-9.8.0
+  git merge --edit --no-ff release/9.8.0
   git push
-  git branch -d release-9.8.0
+  git branch -d release/9.8.0
 "[prepare the release]" is covered in more detail in README-devel.
 If using git-1.7 there is no support for "merge --edit"; see the text
 regarding merging feature branches for the merge+commit alternative.
