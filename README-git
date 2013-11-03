@@ -11,10 +11,11 @@ A note on proprietary (NDA) information:
   (especially that with an expiration date) will eventually
   be added to this document.
 
-This documentation assumes you are using git-1.8, and is known
-to use features that were not present in git-1.7.  If future
-versions of git break these instructions, we'll update this
-document appropriately.
+This documentation was written using git-1.8.
+Where known, alternatives required for git-1.7 are included.
+No effort has been expended to back-port to older git releases.
+If future versions of git break these instructions, we'll update
+this document appropriately.
 
 The GASNet project is following the gitflow workflow.
 See http://nvie.com/posts/a-successful-git-branching-model/
@@ -53,10 +54,15 @@ Notes on the rebase step:
          one to squash commits if desired.
   If branch-name is omitted then this command merges HEAD.
 Notes on the merge step:
-  --log  Optionally pre-populates the commit message with the
-         summary (first line) of all the constituent commits.
+  --log  Optionally seeds the commit message with the summary
+         (first line) of each of the constituent commits.
   --edit Required so one can edit the commit message to write
          a description of the work being merged.
+The --edit flag to "git merge" doesn't exist in git-1.7, but
+it can be simulated by using a two-step merge+commit:
+  git merge [--log] --no-commit --no-ff branch-name
+  git commit
+which invokes the editor at the commit step.
 
 So, what happens on a push failure above (race against a peer)?
 When your post-merge "git push" fails with
@@ -64,12 +70,14 @@ When your post-merge "git push" fails with
 You should fetch and then rebase the merge onto an up-to-date
 develop:
   git fetch
-  git rebase -p
+  git rebase -p [origin/develop develop]
   git push
 That "-p" is vital to preserving the branch structure we are
 trying to achieve, and is the reason that we should not use
 the more common "git pull --rebase".  See a better description
 of the problem(s) with pull at https://coderwall.com/p/jiswdq
+The rebase arguments "origin/develop develop" are optional for
+git-1.8, but are required with git-1.7.
 
 One downside is that if you delay removing the feature branch
 until after the (failed) push, you must use "-D" instead of "-d":
@@ -98,7 +106,9 @@ changes on develop from entering the release).
   git merge --edit --no-ff release-9.8.0
   git push
   git branch -d release-9.8.0
-The "[prepare the release]" step is covered in more detail in README-devel
+"[prepare the release]" is covered in more detail in README-devel.
+If using git-1.7 there is no support for "merge --edit"; see the text
+regarding merging feature branches for the merge+commit alternative.
 
 
 Identification:
