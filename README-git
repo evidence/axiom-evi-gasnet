@@ -96,12 +96,6 @@ is applied consistently, one can freely move between git-flow and plain git
 commands to work on your repository.  In particular, a branch which is created
 with git-flow can safely be merged using plain git and vise versa.
 
-Additionally, since git-flow is just wrappers you will find that in the case of
-a merge conflict (or other error) it will just stop; leaving you to finish by
-using the plain git commands.  So, you should be familiar with the plain git
-procedures in this document even if you plan to use git-flow for most of your
-work.
-
 
 Setup
 -----
@@ -187,6 +181,11 @@ If one is using git-flow then the sequence for a feature branch "example" is:
 The '-r' option to the finish forces a rebase to ensure a (nearly) linear
 history if you have other commits/merges to 'develop' between the start and
 finish of this feature branch.
+
+If there is a merge conflict, resolve the conflict(s) and run "git commit" to
+complete the merge.  After that, there are two choices: you can simply reissue
+the "finish" which should pick up where it left off, OR you can complete the
+remaining step (branch deletion) using the non-git-flow steps, below.
 
 It is worth noting that if the feature branch contains exactly one commit, then
 git-flow will perform a fast-forward commit.  This is under the assumption that

@@ -145,14 +145,16 @@ See also:
   because is keeps the "messy bits" of history off the main-line of 'develop'.
 
 * Advanced warning #3:
-  Git-flow is not magical.  If it encounters a merge conflict it will (as far
-  as I can tell) just give up, leaving you to not only resolve the conflict but
-  to complete the remainder of the steps as well (using plain git).
+  Git-flow is not magical.  If it encounters a merge conflict you will need to
+  resolve the conflict(s) and run "git commit" to complete the merge.  After
+  that, there are two choices: you can simply reissue the "git finish" which
+  should be able to pick up where it left off, OR you can complete the
+  remaining step(s) using the non-git-flow steps, below.
 
 * Now merge the release branch to 'master' (where the general public will
   expect to find sources intended for general consumption), tag the release,
   merge back to 'develop' as well, and delete the transient release branch.
-  With git-flow this one step:
+  With git-flow this all happens in one step:
     $ git flow release finish -m "GASNet release 9.8.0" 9.8.0
   Without git-flow it is six:
     $ git checkout master
@@ -161,6 +163,15 @@ See also:
     $ git checkout develop
     $ git merge --edit --no-ff release/9.8.0
     $ git branch -d release/9.8.0
+
+* The use of "git flow release finish..." has sometimes been seen to place the
+  tag on the wrong commit (rather than on the merge commit, it was applied to
+  its parent on the release branch).  Check this as follows:
+    $ git show gasnet-9.8.0
+  The output should show the commit message for the *merge*.  If it shows any
+  of the earlier commits, move it using "--force":
+    $ git tag --force -a gasnet-9.8.0 -m "GASNet release 9.8.0" master
+  OR, just "--force" it without checking - this is perfectly safe.
 
 [TODO: extra cleanup if the release branch was "published" to BitBucket]
 
