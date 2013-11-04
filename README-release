@@ -125,9 +125,19 @@ See also:
 * Iterate the appropriate steps above until you have final release
   tarballs for both GASNet and GASNet_Tools
 
+* Before merging the release branch be sure you have up-to-date clones of both
+  'master' and 'develop'.  While it is unlikely that 'master' has changed since
+  you began, concurrent development on 'develop' should be considered normal.
+  Since you haven't committed anything to either branch in your local repo,
+  the following should be safe:
+    $ git checkout develop
+    $ git pull --ff-only
+    $ git checkout master
+    $ git pull --ff-only
+
 * Advanced warning #1:
   If there were any "hot fixes" on 'master' since the previous release
-  then you will may need to resolve conflicts in the "git flow finish ..." or
+  then you will may need to resolve conflicts in the "git ... finish ..." or
   "git merge ..." step below.  If you are motivated to accept any conflict
   resolution other than "-X theirs" (meaning: "use the release branch in the
   case of all conflicts") then you should abort the merge and resolve the
@@ -138,17 +148,17 @@ See also:
   In the event that any feature on 'develop' was reverted on the release branch
   (e.g. due to test failures) but you wish to retain the feature on 'develop',
   you will need to take extra steps to deal with this.  If using git-flow then
-  your only opportunity is to fix things up on 'develop' after the "git flow
+  your only opportunity is to fix things up on 'develop' after the "git ...
   finish ..." but before the "git push ...".  If not using git-flow, then the
-  preferred sequence would be to fix things up on the release branch after is is
-  merge to 'master' but before it is merged to 'develop'.  This is preferred
+  preferred sequence would be to fix things up on the release branch after it
+  is merged to 'master' but before it is merged to 'develop'.  This is preferred
   because is keeps the "messy bits" of history off the main-line of 'develop'.
 
 * Advanced warning #3:
   Git-flow is not magical.  If it encounters a merge conflict you will need to
   resolve the conflict(s) and run "git commit" to complete the merge.  After
-  that, there are two choices: you can simply reissue the "git finish" which
-  should be able to pick up where it left off, OR you can complete the
+  that, there are two choices: you can simply reissue the "git ... finish ..."
+  which should be able to pick up where it left off, OR you can complete the
   remaining step(s) using the non-git-flow steps, below.
 
 * Now merge the release branch to 'master' (where the general public will
