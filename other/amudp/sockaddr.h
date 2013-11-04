@@ -1,6 +1,4 @@
-//   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/sockaddr.h,v $
-//     $Date: 2011/06/30 22:51:22 $
-// $Revision: 1.13 $
+//   $Source: bitbucket.org:berkeleylab/gasnet.git/other/amudp/sockaddr.h $
 // Description: Objects for encapsulating and hashing SockAddr's
 // Copyright 1998, Dan Bonachea
 

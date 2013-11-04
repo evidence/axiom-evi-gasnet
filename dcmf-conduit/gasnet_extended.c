@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_extended.c,v $
- *     $Date: 2013/09/21 00:55:38 $
- * $Revision: 1.58 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/dcmf-conduit/gasnet_extended.c $
  * Description: GASNet Extended API Implementation for DCMF
  * Copyright 2008, Rajesh Nishtala <rajeshn@cs.berkeley.edu>
  *                 Dan Bonachea <bonachea@cs.berkeley.edu>

@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testam.c,v $
- *     $Date: 2013/03/08 09:41:08 $
- * $Revision: 1.38 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/tests/testam.c $
  * Description: GASNet Active Messages performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

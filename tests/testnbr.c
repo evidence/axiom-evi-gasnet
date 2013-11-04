@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testnbr.c,v $
- *     $Date: 2013/06/25 22:48:17 $
- * $Revision: 1.26 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/tests/testnbr.c $
  * Description: MG-like Neighbor exchange
  * Copyright 2005, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

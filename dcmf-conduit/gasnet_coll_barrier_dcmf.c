@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/dcmf-conduit/gasnet_coll_barrier_dcmf.c,v $
- *     $Date: 2013/06/07 19:05:05 $
- * $Revision: 1.8 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/dcmf-conduit/gasnet_coll_barrier_dcmf.c $
  * Description: GASNet barrier implementation on DCMF
  * Copyright 2009, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt

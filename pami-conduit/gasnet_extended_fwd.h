@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/gasnet_extended_fwd.h,v $
- *     $Date: 2012/10/15 22:26:53 $
- * $Revision: 1.25 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/pami-conduit/gasnet_extended_fwd.h $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Copyright 2012, Lawrence Berkeley National Laboratory

@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.h,v $
- *     $Date: 2013/08/24 05:11:11 $
- * $Revision: 1.68 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/ibv-conduit/gasnet_core.h $
  * Description: GASNet header for ibv conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4.c,v $
- *     $Date: 2013/09/04 01:24:02 $
- * $Revision: 1.53 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/portals4-conduit/gasnet_portals4.c $
  * Description: Portals 4 specific configuration
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt

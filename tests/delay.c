@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/delay.c,v $
- *     $Date: 2009/03/24 23:42:27 $
- * $Revision: 1.9 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/tests/delay.c $
  * Description: 
  * Copyright 2004, Paul Hargrove <PHHargrove@lbl.gov>
  * Terms of use are as specified in license.txt

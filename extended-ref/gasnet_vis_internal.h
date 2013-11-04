@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_vis_internal.h,v $
- *     $Date: 2009/05/12 02:16:38 $
- * $Revision: 1.20 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/extended-ref/gasnet_vis_internal.h $
  * Description: Internal definitions for GASNet Vector, Indexed & Strided implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_thread.c,v $
- *     $Date: 2013/10/17 04:09:41 $
- * $Revision: 1.24 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/ibv-conduit/gasnet_core_thread.c $
  * Description: GASNet ibv conduit implementation, progress thread logic
  * Copyright 2012, LBNL
  * Terms of use are as specified in license.txt

@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_core.c,v $
- *     $Date: 2013/07/28 23:54:59 $
- * $Revision: 1.4 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/portals4-conduit/gasnet_core.c $
  * Description: GASNet portals4 conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

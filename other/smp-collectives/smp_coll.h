@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/smp-collectives/smp_coll.h,v $
- *     $Date: 2009/10/22 20:24:55 $
- * $Revision: 1.3 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/other/smp-collectives/smp_coll.h $
  * Description: Shared Memory Collectives
  * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>
  * Terms of use are as specified in license.txt

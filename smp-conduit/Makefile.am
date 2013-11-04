@@ -1,7 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-#   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/Makefile.am,v $
-#     $Date: 2011/10/04 18:08:34 $
-# $Revision: 1.27 $
+#   $Source: bitbucket.org:berkeleylab/gasnet.git/smp-conduit/Makefile.am $
 # Description: Makefile for GASNet smp conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt

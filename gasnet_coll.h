@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_coll.h,v $
- *     $Date: 2013/06/07 06:01:59 $
- * $Revision: 1.59 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/gasnet_coll.h $
  * Description: GASNet Extended API Collective declarations
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

@@ -1,6 +1,4 @@
-//   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/sockutil.h,v $
-//     $Date: 2013/07/04 01:20:42 $
-// $Revision: 1.7 $
+//   $Source: bitbucket.org:berkeleylab/gasnet.git/other/amudp/sockutil.h $
 // Description: Simple sock utils
 // Copyright 1999, Dan Bonachea
 

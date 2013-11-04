@@ -1,7 +1,5 @@
 ## Process this file with automake to produce Makefile.in       -*- makefile -*-
-#   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/pami-conduit/contrib/Makefile.am,v $
-#     $Date: 2013/09/08 22:09:41 $
-# $Revision: 1.3 $
+#   $Source: bitbucket.org:berkeleylab/gasnet.git/pami-conduit/contrib/Makefile.am $
 # Description: Makefile for GASNet PAMI spawner
 # Copyright 2012, Lawrence Berkeley National Laboratory
 # Terms of use are as specified in license.txt

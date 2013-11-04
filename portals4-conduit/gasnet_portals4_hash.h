@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals4-conduit/gasnet_portals4_hash.h,v $
- *     $Date: 2013/04/15 06:35:04 $
- * $Revision: 1.5 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/portals4-conduit/gasnet_portals4_hash.h $
  * Description: GASNet portals4-conduit lock-free hash table implementation
  * Copyright 2012, Sandia National Laboratories
  * Terms of use are as specified in license.txt

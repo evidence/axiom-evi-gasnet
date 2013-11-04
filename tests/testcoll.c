@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcoll.c,v $
- *     $Date: 2010/05/21 03:39:32 $
- * $Revision: 1.43 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/tests/testcoll.c $
  * Description: GASNet collectives test
  * Copyright 2002-2004, Jaein Jeong and Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

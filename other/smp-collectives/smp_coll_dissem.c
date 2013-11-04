@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/smp-collectives/smp_coll_dissem.c,v $
- *     $Date: 2010/08/08 06:31:11 $
- * $Revision: 1.4 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/other/smp-collectives/smp_coll_dissem.c $
  * Description: Shared Memory Collectives
  * Copyright 2009, Rajesh Nishtala <rajeshn@eecs.berkeley.edu>
  * Terms of use are as specified in license.txt

@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testinternal.c,v $
- *     $Date: 2010/04/26 03:59:23 $
- * $Revision: 1.7 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/tests/testinternal.c $
  * Description: GASNet internal diagnostic tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

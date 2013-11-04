@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_extended.c,v $
- *     $Date: 2013/09/20 06:21:09 $
- * $Revision: 1.95 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/gemini-conduit/gasnet_extended.c $
  * Description: GASNet Extended API over Gemini Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

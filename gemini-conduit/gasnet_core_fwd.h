@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gemini-conduit/gasnet_core_fwd.h,v $
- *     $Date: 2013/09/15 20:03:51 $
- * $Revision: 1.18 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/gemini-conduit/gasnet_core_fwd.h $
  * Description: GASNet header for <conduitname> conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

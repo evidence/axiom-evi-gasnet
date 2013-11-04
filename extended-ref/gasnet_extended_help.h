@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_help.h,v $
- *     $Date: 2012/09/14 00:57:55 $
- * $Revision: 1.58 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/extended-ref/gasnet_extended_help.h $
  * Description: GASNet Extended API Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

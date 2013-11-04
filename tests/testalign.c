@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testalign.c,v $
- *     $Date: 2013/03/08 03:19:45 $
- * $Revision: 1.24 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/tests/testalign.c $
  * Description: GASNet get/put alignment-sensitivity test
  *   measures flood throughput of GASNet gets and puts
  *   over varying payload alignments and fixed payload size

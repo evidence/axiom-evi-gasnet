@@ -1,7 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-#   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/udp-conduit/Makefile.am,v $
-#     $Date: 2010/06/26 23:51:22 $
-# $Revision: 1.25 $
+#   $Source: bitbucket.org:berkeleylab/gasnet.git/udp-conduit/Makefile.am $
 # Description: Makefile for GASNet udp conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt

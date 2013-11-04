@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_reqrep.cpp,v $
- *     $Date: 2012/12/06 06:19:27 $
- * $Revision: 1.46 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/other/amudp/amudp_reqrep.cpp $
  * Description: AMUDP Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */

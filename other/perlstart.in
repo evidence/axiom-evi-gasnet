@@ -1,7 +1,5 @@
 # @configure_input@
-#   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/perlstart.in,v $
-#     $Date: 2009/12/22 23:44:24 $
-# $Revision: 1.18 $
+#   $Source: bitbucket.org:berkeleylab/gasnet.git/other/perlstart.in $
 # Description: 
 # Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt

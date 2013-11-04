@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_region.c,v $
- *     $Date: 2012/03/06 22:21:41 $
- * $Revision: 1.49 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/other/firehose/firehose_region.c $
  * Description: 
  * Copyright 2004, Paul Hargrove <PHHargrove@lbl.gov>
  * Terms of use are as specified in license.txt

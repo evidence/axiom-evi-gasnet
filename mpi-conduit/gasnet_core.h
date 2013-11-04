@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/gasnet_core.h,v $
- *     $Date: 2013/07/30 07:39:15 $
- * $Revision: 1.30 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/mpi-conduit/gasnet_core.h $
  * Description: GASNet header for MPI conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

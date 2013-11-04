@@ -1,4 +1,4 @@
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/other/fragment-body.mak.in,v 1.7 2009/09/18 23:33:36 phargrov Exp $
+# $Source: bitbucket.org:berkeleylab/gasnet.git/other/fragment-body.mak.in $
 # ----------------------------------------------------------------------
 # Following section @configure_input@
 

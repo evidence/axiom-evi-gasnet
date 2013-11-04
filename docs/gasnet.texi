@@ -1,6 +1,6 @@
 \input texinfo   @c -*-texinfo-*-
 @c %**start of header
-@c   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/docs/gasnet.texi,v $
+@c   $Source: bitbucket.org:berkeleylab/gasnet.git/docs/gasnet.texi $
 @c     $Date: 2008/10/11 04:34:38 $
 @c $Revision: 1.44 $
 @c Description: GASNet specification

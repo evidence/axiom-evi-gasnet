@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2013/08/27 01:23:44 $
- * $Revision: 1.116 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/gasnet_help.h $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

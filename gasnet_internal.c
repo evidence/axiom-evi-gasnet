@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2013/08/28 02:36:57 $
- * $Revision: 1.239 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/gasnet_internal.c $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

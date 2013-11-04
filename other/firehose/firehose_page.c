@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_page.c,v $
- *     $Date: 2012/03/06 22:21:41 $
- * $Revision: 1.61 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/other/firehose/firehose_page.c $
  * Description: 
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

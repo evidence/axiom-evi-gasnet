@@ -1,7 +1,5 @@
 #!/bin/sh
-#   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/unBootstrap,v $
-#     $Date: 2013/08/24 05:32:53 $
-# $Revision: 1.30 $
+#   $Source: bitbucket.org:berkeleylab/gasnet.git/unBootstrap $
 # Terms of use are as specified in license.txt
 # Description:
 # This scripts undoes the effects of a "Bootstrap", 
@@ -27,7 +25,9 @@ rm -f Makefile.in              \
       mxm-conduit/contrib/Makefile.in \
       portals4-conduit/Makefile.in  \
       gemini-conduit/Makefile.in \
+      gemini-conduit/contrib/Makefile.in   \
       aries-conduit/Makefile.in \
+      aries-conduit/contrib/Makefile.in   \
       pami-conduit/Makefile.in \
       pami-conduit/contrib/Makefile.in   \
       smp-conduit/Makefile.in  \

@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/testspawn/gasnet_core.h,v $
- *     $Date: 2005/04/18 00:31:55 $
- * $Revision: 1.3 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/other/testspawn/gasnet_core.h $
  * Description:
  * Copyright 2005, Regents of the University of California
  * Terms of use are as specified in license.txt

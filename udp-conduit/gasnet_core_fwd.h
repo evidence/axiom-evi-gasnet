@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/udp-conduit/gasnet_core_fwd.h,v $
- *     $Date: 2012/08/10 23:04:22 $
- * $Revision: 1.26 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/udp-conduit/gasnet_core_fwd.h $
  * Description: GASNet header for UDP conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

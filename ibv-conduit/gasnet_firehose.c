@@ -1,6 +1,4 @@
-/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_firehose.c,v $
- *     $Date: 2013/08/24 05:11:11 $
- * $Revision: 1.18 $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/ibv-conduit/gasnet_firehose.c $
  * Description: Client-specific firehose code
  * Copyright 2003, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt

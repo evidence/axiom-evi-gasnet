@@ -1,7 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-#   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/contrib/Makefile.am,v $
-#     $Date: 2013/09/06 21:07:11 $
-# $Revision: 1.26 $
+#   $Source: bitbucket.org:berkeleylab/gasnet.git/other/contrib/Makefile.am $
 # Description: Makefile for GASNet other/contrib
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
