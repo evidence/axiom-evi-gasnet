@@ -197,8 +197,9 @@ See also:
     $ git push --tags origin develop master
   This is the only step of this entire procedure that cannot be undone.
 
-[TODO: do we need to generate new tarballs, or will the "-X theirs" discipline
- be enough to ensure identical contents?]
+* Generate ("gmake dist") the GASNet and GASNet_Tools tarballs one more
+  time from a checkout of the tagged commit to embed the proper git version
+  info.
 
 * On 'develop' advance the version numbers in configure.in (odd minor and patch
   numbers for development), and apply a corresponding annotated tag for use by

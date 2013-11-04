@@ -6,7 +6,14 @@ dnl -*- m4 -*-
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-#AC_REVISION($Revision: 1.832 $)   TODO: bring this back?
+
+dnl Note that dist-hook rewrites AC_REVISION in the generated configure
+dnl GASNET_TOOLSONLY_FALSE_BEGIN
+AC_REVISION("no-version-control-info")
+dnl GASNET_TOOLSONLY_FALSE_END
+dnl GASNET_TOOLSONLY_TRUE_BEGIN
+dnl AC_REVISION("no-version-control-info (tools only)")
+dnl GASNET_TOOLSONLY_TRUE_END
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
