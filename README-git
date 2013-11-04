@@ -1,13 +1,16 @@
-This is the README.git file for GASNet
+GASNet's Git Workflow
+---------------------
 
 The purpose of this document is to describe how git is to be used for GASNet
 development, providing examples of the most common tasks.  This assumes you
-have a basic working knowledge of git and is not a full tutorial.
+have a basic working knowledge of git and is not a full tutorial.  This is a
+companion to, but distinct from, the coding standards (in README) and
+development rules in README-devel.
 
 See also:
- + README-devel, which contains related rules developers are expected to follow
-   when committing to the repository.
- + README, which includes GASNet's coding standards
+ + README: includes GASNet's coding standards
+ + README-devel: rules developers are expected to follow when committing
+ + README-release: detailed release procedure
 
 
 A note on proprietary (NDA) information
@@ -151,9 +154,9 @@ The alternative that avoids the risks is a two-step process:
 Where the arguments "origin/develop develop" are optional for git-1.8, but are
 required with git-1.7.
 
-This works like "git pull -rebase", but with the important addition of the '-p'
-('--preserve-merges') option to the rebase step to preserve the desired branch
-structure.
+This works like "git pull --rebase", but with the important addition of the
+'-p' ('--preserve-merges') option to the rebase step to preserve the desired
+branch structure.
 
 Of course, if your local 'develop' branch has no un-pushed commits, then both
 "git pull" and "git pull --rebase" are perfectly safe.
@@ -282,3 +285,25 @@ revert from what gets merged to 'develop'.  While this is possible to do with
 git-flow (by amending the merge commit prior to pushing), it is probably easier
 to handle this situation using plain git, by reversing to revert on the release
 branch between "checkout develop" and the merge that follows it.
+
+
+Aliases
+-------
+
+[TODO: develop easy to use short-cuts, or at least give examples of what can be
+done?]
+
+
+Proprietary (NDA) information
+-----------------------------
+
+[TODO: describe a detailed protocol]
+
+At a VERY high-level:
++ Do NOT conduct NDA work using the BitBucket repository.
++ Work from a clone on a "controlled" machine.
++ Don't clone your repo containing NDA-covered to any "uncontrolled" machine.
++ Consider using "git archive" to move files w/o conveying any history or
+  deleted files.
++ Consider using "git archive" to import the final code (but no history or
+  deleted files) once it is allowable to do so.
