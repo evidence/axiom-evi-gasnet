@@ -191,14 +191,15 @@ See also:
  be enough to ensure identical contents?]
 
 * On 'develop' advance the version numbers in configure.in (odd minor and patch
-  numbers for development).  Please resist the urge to make this change right
-  after creating the release branch.  While that might seem logical (it
-  certainly does to me), it will cause an entirely unnecessary merge conflict
-  at the "finish" step.
-
-* Tag 'develop' with the version from the previous step, using an annotated
-  tag so that "git describe" will give something useful:
+  numbers for development), and apply a corresponding annotated tag for use by
+  the "git describe" command:
+    $ git checkout develop
+    [ edit GASNET_RELEASE_VERSION_* in configure.in ]
     $ git tag -a -m "GASNet development version 9.9.1" gasnet-9.9.1 develop
+    $ git push --tags origin develop
+  Please resist the urge to make this change right after creating the release
+  branch.  While that might seem logical, it will cause an entirely unnecessary
+  merge conflict at the "finish" step.
 
 * In Bugzilla (before publishing the release):
   + Add the version number of this release
