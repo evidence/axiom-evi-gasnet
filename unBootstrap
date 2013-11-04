@@ -10,6 +10,7 @@ rm -Rf autom4te*.cache
 rm -f Makefile.in              \
       configure                \
       gasnet_config.h.in       \
+      gasnet_config.h.in~      \
       aclocal.m4               \
       config.status            \
       stamp-h.in               \
