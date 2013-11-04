@@ -196,6 +196,10 @@ See also:
   certainly does to me), it will cause an entirely unnecessary merge conflict
   at the "finish" step.
 
+* Tag 'develop' with the version from the previous step, using an annotated
+  tag so that "git describe" will give something useful:
+    $ git tag -a -m "GASNet development version 9.9.1" gasnet-9.9.1 develop
+
 * In Bugzilla (before publishing the release):
   + Add the version number of this release
   + Add a milestone for the next release
