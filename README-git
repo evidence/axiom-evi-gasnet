@@ -256,7 +256,7 @@ For a release branch the steps using git-flow are much the same as for
 development.  For a hypothetical release of version 9.8.0:
     [begin with an up-to-date 'develop' and 'master']
     $ git flow release start 9.8.0
-    [prepare the release following the procedure in README-devel]
+    [prepare the release following the procedure in README-release]
     $ git flow release finish -m "GASNet release 9.8.0" 9.8.0
     $ git push --tags origin develop master
 
@@ -266,10 +266,10 @@ explicitly branched to keep concurrent changes on 'develop' from entering the
 release).  We do still want a non-fast-forward commit.  The steps look like:
     [begin with an up-to-date 'develop' AND 'master']
     $ git checkout -b release/9.8.0 develop
-    [prepare the release following the procedure in README-devel]
+    [prepare the release following the procedure in README-release]
     $ git checkout master
     $ git merge --edit --no-ff release/9.8.0
-    $ git tag -a ganet-9.8.0 -m "GASNet release 9.8.0" master
+    $ git tag -a gasnet-9.8.0 -m "GASNet release 9.8.0" master
     $ git checkout develop
     $ git merge --edit --no-ff release/9.8.0
     $ git branch -d release/9.8.0
