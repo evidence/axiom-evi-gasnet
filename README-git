@@ -117,7 +117,11 @@ for help with the key upload.  If you have a suitable key already, you can
 probably skip right to step #6.
 
 As a developer, the first thing you probably want to do is:
-    $ git branch develop
+    $ git checkout develop
+If your git is too old (prior to 1.7) for that command to work, try this:
+    $ git checkout --track -b develop origin/develop
+BUT be warned that none of our git usage instructions have been tested
+with anything older than git-1.7.
 
 If you will be using the git-flow extensions you need to initialize git-flow.
 Since we use the defaults for branch names, this just takes two steps:
