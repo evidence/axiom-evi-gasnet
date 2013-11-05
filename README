@@ -14,7 +14,7 @@ Other documentation:
  * For documentation on the communication-independent GASNet-tools library,
    see README-tools.
  * Additional information, including the GASNet specification and our bug
-   tracking database, is available from http://gasnet.cs.berkeley.edu
+   tracking database, is available from http://gasnet.lbl.gov
 
 Contents of this file:
  * Building and Installing GASNet
@@ -805,7 +805,7 @@ See the GASNet specification for information about the GASNet API. A copy is
 included with this archive in docs/, and the definitive version is located on
 the GASNet webpage here:
 
-  http://gasnet.cs.berkeley.edu/
+  http://gasnet.lbl.gov/
 
 The GASNet API is a two-level interface consisting of the lower-level "core API"
 and the upper-level "extended API". All of the functions in the extended API can
