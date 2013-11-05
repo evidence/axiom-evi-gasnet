@@ -51,7 +51,7 @@
  *  Eric Hoffman <eahoffman@lbl.gov>: gemini/aries conduit
  * 
  * For more information about GASNet, visit our home page at:
- *  http://gasnet.cs.berkeley.edu/
+ *  http://gasnet.lbl.gov/
  * Or send email to:
  *  <upc@lbl.gov>
  *

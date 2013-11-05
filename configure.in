@@ -25,7 +25,7 @@ AC_VALIDATE_CACHED_SYSTEM_TUPLE
 dnl Public release version packaging identifier:
 AC_DEFUN([GASNET_RELEASE_VERSION_MAJOR_D],[1])
 AC_DEFUN([GASNET_RELEASE_VERSION_MINOR_D],[22])
-AC_DEFUN([GASNET_RELEASE_VERSION_PATCH_D],[1g])
+AC_DEFUN([GASNET_RELEASE_VERSION_PATCH_D],[2g])
 dnl GASNet spec version:
 AC_DEFUN([GASNET_SPEC_VERSION_MAJOR_D],[1])
 AC_DEFUN([GASNET_SPEC_VERSION_MINOR_D],[8])
@@ -3819,7 +3819,7 @@ dnl GASNET_TOOLSONLY_TRUE_END
 dnl GASNET_TOOLSONLY_FALSE_BEGIN
 if test -z "$CONDUITS" ; then
   pushdef([COMMONMSG],[If you intend to use GASNet without network support, you must use the
-GASNet_Tools distribution instead (see http://gasnet.cs.berkeley.edu).
+GASNet_Tools distribution instead (see http://gasnet.lbl.gov).
 See the GASNet documentation for additional details.])
   if test "$enabled_auto_detect" = yes; then
     GASNET_MSG_ERROR([No network conduits were auto-detected.
@@ -4807,7 +4807,7 @@ EOF
 else
 cat >>$CONDUIT_LIST <<EOF
  GASNet is configured in tools-only mode, with all network communication services disabled.
- For the full GASNet distribution, visit http://gasnet.cs.berkeley.edu
+ For the full GASNet distribution, visit http://gasnet.lbl.gov
 
  Misc Settings
  -------------
