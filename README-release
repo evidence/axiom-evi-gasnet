@@ -221,7 +221,7 @@ See also:
   + Update index.html for the new release
     Minimum update is new versions and MD5s for the tarballs
 
-* On the gasnet.lbl.gov and gasnet.cs.berkeley.edu servers:
+* On the gasnet.lbl.gov server:
   + "cvs up" to get the new tarballs and index.html
   + "tar xfz ..." to extract the new GASNet release (not Tools)
   + Move the "dist" symbolic link:
