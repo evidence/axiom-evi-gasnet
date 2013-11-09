@@ -276,7 +276,7 @@ a "pull request" which uses all of git's considerable intelligence to merge
 your changes with those which may have been pushed since you forked.  The same
 is true if you are a developer with Write access who has just chosen to work
 in a private repo (though you can short-cut the pull request process
-considerably).
+considerably).  See more in "Pull Requests" below.
 
 To create a fork from a given branch there are three steps:
    1. Create an empty git repository with your hosting provider, and
@@ -300,6 +300,8 @@ branch to your existing clone of the GASNet repo, while the other is to clone
 your new repo and add a branch for tracking its upstream repo.  Since the
 first option begins in your existing clone (where you just ran "git push")
 we'll look at that first.
+
++ Option 1: Fork as tracking branch
 
 We need to create a "remote" to refer to the new repo, and a branch to track
 it:
@@ -326,6 +328,8 @@ a developer to work on the fork exactly as they would any other feature, with
 the addition of having control over the access to the repo to which the branch
 will be pushed.
 
++ Option 2: GASNet as upstream
+
 The second option reverses the roles of the original and the fork, and may be
 more appropriate for an external developer because their work is 'master' in
 the forked repo.  This option starts with cloning the fork, and then adds a
@@ -346,6 +350,101 @@ developer without Write access to the repo.
 Regardless of which of these two options you use, keep in mind that with the
 default settings "git fetch" will only fetch the repository corresponding to
 the current branch, while "git remote update" will fetch all remotes.
+
+
+Pull Requests
+-------------
+
++ Pulling your own work
+
+If you are a developer with Write access to the GASNet git repo and have forked
+to develop in private, then merging your fork back to 'develop' is as simple as
+merging any other branch.  If you followed the "Fork as tracking branch" steps
+above, then you already have your fork setup (and named) just like any other
+feature branch.  So, you merge it the same way too (see "General Development",
+above).  Using the same names as in "Fork as tracking branch":
+    $ git rebase develop feature/example-fork
+    $ git checkout develop
+    $ git merge [--log] --edit --no-ff feature/example-fork
+    $ git push origin develop
+If you are done with the fork, delete both the tracking branch and the remote:
+    $ git branch -d feature/example-fork
+    $ git remote rm USER/example
+
++ Preparing to generate a pull request
+
+If you are an external developer (one without Write access) who has forked
+GASNet, then when you are ready to contribute your work back to us the
+preferred mechanism is known as a "pull request".  Unlike sending patches
+(which contain all of the changes but no history), a pull request involves
+providing a GASNet developer with access to read your fork.  This allow the
+developer to incorporate not only your changes, but also your history (commit
+messages).  Before the pull request, you need to be sure of two things:
+   1. That your work meets the GASNet standards.
+      + README for GASNet's coding standards
+      + README-develop for rules concerning git commit messages, etc.
+   2. That your fork will merge cleanly.
+      It needs to be rebased onto the branch it was forked from.
+
+Since we use the git-flow model, we don't do three-way merges and only apply to
+'develop' those changes that *could* be fast-forwarded, though we do a "true
+merge" to allow a commit message for the merge.  If you followed the steps
+under "GASNet as upstream", above, then you already have an "upstream" branch
+to track what you forked from.  So, the steps to rebase are:
+    $ git checkout upstream
+    $ git pull
+    $ git rebase [-i] upstream master
+If you think you may need (or just want) to cleanup your history, then the '-i'
+option will cause an interactive rebase.
+
+Finally, you need to do whatever your hosting service requires to ensure the
+GASNet developers have access to clone your repository.
+
++ Generating a pull request
+
+Now it is time for the pull request.  If using BitBucket, then there is a GUI
+for this, and you will find documentation on their site.  If using another
+hosting service, or if you just don't like the GUI, then you just need to
+email the repo URL to us at upc-devel@lbl.gov with an explanation of the work
+you are contributing back.  Ideally you will have communicated and
+collaborated with us prior to the pull request and we'll already be familiar
+with the work.
+
++ Merging a pull request
+
+Let's assume now that you are the GASNet developer who has been chosen to
+merge the work of an external developer's pull request.  You have the choice
+between pulling into a feature branch or creating a temporary tracking
+branch for the contributed fork.  Unless you have high confidence that the
+contribution requires little or no testing, the tracking branch approach is
+recommended.  First follow the steps under "Fork as a tracking branch", though
+unless the contributor actually wants you pushing to their repo, you can skip
+the "git config remote.<name>.push ..." step.  Second, perform any/all
+appropriate testing using the tracking branch prior to merging it to
+'develop'.  Finally, you can merge as described under "Pulling you own work".
+
+When *not* using a tracking branch, the work required is actually not too
+different.  Instead of a "git merge ..." with the name of a branch, you will
+"git pull ..." into a short-lived feature branch and merge that to 'develop'.
+If using git-flow the steps are:
+    [ begin with an up-to-date 'develop' ]
+    $ git flow feature start pull-example
+    $ git pull URL [branch-if-not-the-default]
+    $ git rebase develop
+    [ carefully examine/test the resulting feature branch ]
+    $ git flow feature finish
+    $ git push origin develop
+
+Without git-flow the equivalent steps are:
+    [begin with an up-to-date 'develop']
+    $ git checkout -b feature/pull-example develop
+    $ git pull URL [branch-if-not-the-default]
+    $ git rebase develop
+    [ carefully examine/test the resulting feature branch ]
+    $ git checkout develop
+    $ git merge [--log] --edit --no-ff feature/pull-example
+    $ git branch -d feature/pull-example
+    $ git push origin develop
 
 
 Releases
