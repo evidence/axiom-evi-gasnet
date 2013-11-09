@@ -34,7 +34,7 @@ instructions, we'll update this document appropriately.
 
 Since GASNet is hosted on BitBucket.org you will require an account there if
 you are going to push (upload) anything to the repository.  Contact us at
-upc-devel@lbl.gov to request Write permission for your BitBucket userid.
+upc-devel@lbl.gov to request Write permission for your BitBucket account.
 
 Example commands in this document will be written like
     $ git ...
@@ -109,6 +109,11 @@ second (ssh) requires that you upload an ssh public key to BitBucket.  See
     https://confluence.atlassian.com/display/BITBUCKET/Set+up+SSH+for+Git
 for help with the key upload.  If you have a suitable key already, you can
 probably skip right to step #6.
+
+If you do not have a BitBucket account then you can still clone the repo, but
+will not be able to push your changes back.  See the section "Forking
+Development" for information on what you can do without Write access to the
+repo.
 
 As a developer, the first thing you probably want to do is:
     $ git checkout develop
@@ -243,6 +248,104 @@ Note that the fetch+rebase-p approach will preserve the branch structure even
 if you have merged multiple feature branches to your local 'develop' since the
 last fetch or pull.  This is a good thing if you need to work disconnected for
 an extended period.
+
+
+Publishing Branches
+-------------------
+[TODO: publishing your feature branches]
+
+
+Forking Development
+-------------------
+
+The steps described above under "General Development" and "Publishing
+Branches" both assume you have Write access to the GASNet repo on BitBucket.
+The "Publishing Branches" section additionally assumes you want your
+work-in-progress visible to the entire world.  However, you can also create a
+"fork" of the GASNet repo under your own account on BitBucket.  This does not
+require Write access to the GASNet repo and additionally allows you (as the
+owner of the forked repo) to have full control over access permissions.
+
+The concept of a "fork" is simply a hosted (could be any provider, not
+necessarily BitBucket) clone of a repo (commonly called the "upstream" repo)
+that is not pushed to its upstream.
+
+In the case you are an "external" developer without Write access to the GASNet
+repo, you can still contribute your work back to GASNet's 'develop' branch via
+a "pull request" which uses all of git's considerable intelligence to merge
+your changes with those which may have been pushed since you forked.  The same
+is true if you are a developer with Write access who has just chosen to work
+in a private repo (though you can short-cut the pull request process
+considerably).
+
+To create a fork from a given branch there are three steps:
+   1. Create an empty git repository with your hosting provider, and
+      set access permissions as you wish.
+      For the purpose of this example you are USER@bitbucket.org and
+      have created a repo named 'my-example-fork'.
+   2. Using either a new or existing clone of the GASNet repo, checkout
+      the branch you want to fork from.
+      This should almost always be 'develop'.
+   3. From within this checkout push a copy to your empty repo.
+    $ git push git@bitbucket.org:USER/my-example-fork HEAD:master
+
+All you have done above is copy your HEAD (presumably the tip of GASNet's
+'develop') to your own repo.  This does not modify your clone of the GASNet
+repo in any way (not even settings in .git/config).
+
+At this point you can clone your new repo and work on it as a completely
+independent project.  However, if you wish to continue tracking GASNet's
+'develop' there are (at least) two ways you can do it.  One option is to add a
+branch to your existing clone of the GASNet repo, while the other is to clone
+your new repo and add a branch for tracking its upstream repo.  Since the
+first option begins in your existing clone (where you just ran "git push")
+we'll look at that first.
+
+We need to create a "remote" to refer to the new repo, and a branch to track
+it:
+   [ still in your clone of the GASNet repo ]
+   1. Create a remote to name the new repo and fetch its meta data:
+    $ git remote add USER/example git@bitbucket.org:USER/my-example-fork
+    $ git fetch USER/example
+   2. Create a branch to track 'master' in the new remote:
+    $ git branch -t feature/example-fork USER/example/master
+   3. Ensure push without a refspec sends your updates to the right place:
+    $ git config remote.USER/example.push feature/example-fork:master
+The third step is unnecessary if you have push.default set to "upstream" in
+your git configuration.  However, that is a matter of preference and so the
+third step appears here for completeness.  If you do use this step and are
+tracking multiple branches from the same repository, then you should create a
+distinct "remote" for each or a "git push" will require a refspec argument to
+do the "right thing".
+
+Note that there is nothing special about the names "USER/example" (for the
+remote) or "feature/example-fork" (for the branch).  For instance, there is
+no requirement to have a '/' in either name.  The branch name was chosen to
+match the git-flow convention for feature branches.  This example would allow
+a developer to work on the fork exactly as they would any other feature, with
+the addition of having control over the access to the repo to which the branch
+will be pushed.
+
+The second option reverses the roles of the original and the fork, and may be
+more appropriate for an external developer because their work is 'master' in
+the forked repo.  This option starts with cloning the fork, and then adds a
+remote and branch for tracking the original repo:
+   [ starting in some location NOT in your clone of the GASNet repo ]
+    $ git clone git@bitbucket.org:USER/my-example-fork
+    $ cd my-example-fork
+    $ git remote add upstream https://bitbucket.org/berkeleylab/gasnet
+    $ git fetch upstream
+    $ git branch -t upstream upstream/develop
+
+Again there is nothing special about the name "upstream" which has been used
+for BOTH the remote and the branch, but their use is a common convention.  It
+is also worth noting that this example has used the anonymous https URL for
+the definition of the "upstream" remote.  This is appropriate for an external
+developer without Write access to the repo.
+
+Regardless of which of these two options you use, keep in mind that with the
+default settings "git fetch" will only fetch the repository corresponding to
+the current branch, while "git remote update" will fetch all remotes.
 
 
 Releases
