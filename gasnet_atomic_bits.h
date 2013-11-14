@@ -182,8 +182,8 @@
   #endif
 #else
   /* ------------------------------------------------------------------------------------
-   * Not using GENERIC (mutex) or OS-provided atomics, so provide our own based on the
-   * CPU and compiler support for inline assembly code
+   * Not using GENERIC (mutex), compiler-provided or OS-provided atomics, so
+   * provide our own based on the CPU and compiler support for inline assembly code
    * ------------------------------------------------------------------------------------ */
   #if PLATFORM_ARCH_X86 || PLATFORM_ARCH_X86_64 || PLATFORM_ARCH_MIC /* x86 and Athlon64/Opteron and MIC */
     #if PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_INTEL || \
@@ -2457,7 +2457,7 @@ GASNETI_MIPS_LL(_ll "   %0,0(%4)         \n\t")/* _retval = *p (starts ll/sc res
     #endif
   /* ------------------------------------------------------------------------------------ */
   #else
-    #error Unrecognized platform - need to implement GASNet atomics (or #define GASNETI_USE_GENERIC_ATOMICOPS)
+    /* Unknown ARCH will "fall through" to use of the generics */
   #endif
 #endif
 
