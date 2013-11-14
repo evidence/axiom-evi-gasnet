@@ -15,8 +15,6 @@
 /* Identify special cases lacking native support */
 
 #if defined(GASNETI_FORCE_GENERIC_ATOMICOPS) || /* for debugging */                \
-    PLATFORM_ARCH_CRAYT3E    || /* T3E seems to have no atomic ops */              \
-    PLATFORM_ARCH_NECSX      || /* NEC SX-6 atomics not available to user code? */ \
     PLATFORM_COMPILER_LCC    || /* not implemented - lacks inline asm */           \
     (PLATFORM_ARCH_ARM && !defined(GASNETI_HAVE_ARM_CMPXCHG)) ||                   \
     (PLATFORM_ARCH_MIPS && defined(_MIPS_ISA) && (_MIPS_ISA < 2)) ||               \
@@ -1781,35 +1779,6 @@
 
     /* Currently operating on the assumption that gsync() is a full MB: */
     #define GASNETI_ATOMIC_FENCE_RMW	GASNETI_ATOMIC_MB_POST
-  /* ------------------------------------------------------------------------------------ */
-  #elif PLATFORM_ARCH_NECSX
-    #define GASNETI_HAVE_PRIVATE_ATOMIC_T 1	/* No CAS */
-    typedef uint32_t                      gasneti_atomic_val_t;
-    typedef int32_t                       gasneti_atomic_sval_t;
-    #define GASNETI_ATOMIC_MAX            ((gasneti_atomic_val_t)0xFFFFFFFFU)
-    #define GASNETI_ATOMIC_SIGNED_MIN     ((gasneti_atomic_sval_t)0x80000000)
-    #define GASNETI_ATOMIC_SIGNED_MAX     ((gasneti_atomic_sval_t)0x7FFFFFFF)
-    typedef struct { volatile uint32_t ctr; } gasneti_atomic32_t;
-    #define _gasneti_atomic_init(v)      { (v) }
-   #if 0
-    /* these are disabled for now because they don't link */
-    #include <sys/mplock.h>
-    #define _gasneti_atomic_read(p)      (atomic_read4((p)->ctr))
-    #define _gasneti_atomic_set(p,v)     (atomic_set4((p)->ctr,(v)))
-
-    /* Default impls of inc, dec, dec-and-test, add and sub */
-    #define _gasneti_atomic_addfetch(p,op) atomic_add4(&((p)->ctr),op)
-
-    /* Using default fences (TODO: VERIFY THAT WE NEED THEM) */
-   #else
-    #define _gasneti_atomic_read(p)      (muget(&((p)->ctr)))
-    #define _gasneti_atomic_set(p,v)     (muset(&((p)->ctr),(v)))
-
-    /* Default impls of inc, dec, dec-and-test, add and sub */
-    #define _gasneti_atomic_addfetch(p,op) muadd(&((p)->ctr),op)
-
-    /* Using default fences (TODO: VERIFY THAT WE NEED THEM) */
-   #endif
   /* ------------------------------------------------------------------------------------ */
   #elif PLATFORM_ARCH_POWERPC
     #if defined(GASNETI_ARCH_PPC64)
