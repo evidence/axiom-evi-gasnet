@@ -1734,14 +1734,6 @@ AC_TRY_RUN([
 
   #if !PLATFORM_ARCH_IA64
     #error wrong CPU architecture
-  #elif PLATFORM_COMPILER_HP && !GASNETI_HP_ASM_BAD_16B_ATOMICS
-    #include <machine/sys/inline.h>
-    int cmp8xchg16(void volatile *ptr, unsigned long oldlo, unsigned long newlo, unsigned long newhi) {
-      _Asm_mov_to_ar(_AREG_CSD, newhi);
-      _Asm_mov_to_ar(_AREG_CCV, oldlo);
-      return oldlo == _Asm_cmp8xchg16(_SEM_ACQ, ptr, newlo, _LDHINT_NONE, _UNGUARDED,
-                                      (_Asm_fence)(_UP_MEM_FENCE | _DOWN_MEM_FENCE));
-    }
   #elif PLATFORM_COMPILER_INTEL
     #include <ia64intrin.h>
     int cmp8xchg16(void volatile *ptr, unsigned long oldlo, unsigned long newlo, unsigned long newhi) {

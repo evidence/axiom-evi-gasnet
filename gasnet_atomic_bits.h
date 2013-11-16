@@ -1017,65 +1017,11 @@
       /* The default c-a-s based add and subtract are already the best we can do. */
 
       /* See fence treatment after #endif */
-    #elif PLATFORM_COMPILER_HP /* HP C/C++ Itanium intrinsics */
-      #include <machine/sys/inline.h>
-
-      /* legal values for imm are -16, -8, -4, -1, 1, 4, 8, and 16 returns *old* value */
-      #define gasneti_atomic32_addandfetch(ptr, imm) \
-         _Asm_fetchadd(_FASZ_W, _SEM_ACQ, ptr, imm,  \
-                       _LDHINT_NONE, (_Asm_fence)(_UP_MEM_FENCE | _DOWN_MEM_FENCE))
-      GASNETI_INLINE(gasneti_atomic32_cmpxchg)
-      uint32_t gasneti_atomic32_cmpxchg(uint32_t volatile *ptr, uint32_t oldval, uint32_t newval) {
-        register uint64_t result;
-        _Asm_mov_to_ar(_AREG_CCV, (int64_t)oldval);
-        result = _Asm_cmpxchg(_SZ_W, _SEM_ACQ, ptr, newval, 
-                           _LDHINT_NONE, (_Asm_fence)(_UP_MEM_FENCE | _DOWN_MEM_FENCE));
-        return (uint32_t) result;
-      }
-
-      /* legal values for imm are -16, -8, -4, -1, 1, 4, 8, and 16 returns *old* value */
-      #define gasneti_atomic64_addandfetch(ptr, imm) \
-         _Asm_fetchadd(_FASZ_D, _SEM_ACQ, ptr, imm,  \
-                       _LDHINT_NONE, (_Asm_fence)(_UP_MEM_FENCE | _DOWN_MEM_FENCE))
-      GASNETI_INLINE(gasneti_atomic64_cmpxchg)
-      uint64_t gasneti_atomic64_cmpxchg(uint64_t volatile *ptr, uint64_t oldval, uint64_t newval) {
-        register uint64_t result;
-        _Asm_mov_to_ar(_AREG_CCV, oldval);
-        result = _Asm_cmpxchg(_SZ_D, _SEM_ACQ, ptr, newval, 
-                              _LDHINT_NONE, (_Asm_fence)(_UP_MEM_FENCE | _DOWN_MEM_FENCE));
-        return result;
-      }
-
-      #define GASNETI_HAVE_ATOMIC32_T 1
-      typedef struct { volatile uint32_t ctr; } gasneti_atomic32_t;
-      #define _gasneti_atomic32_read(p)      ((p)->ctr)
-      #define _gasneti_atomic32_set(p,v)     ((p)->ctr = (v))
-      #define _gasneti_atomic32_init(v)      { (v) }
-      #define _gasneti_atomic32_increment(p) (gasneti_atomic32_addandfetch(&((p)->ctr),1))
-      #define _gasneti_atomic32_decrement(p) (gasneti_atomic32_addandfetch(&((p)->ctr),-1))
-      #define _gasneti_atomic32_decrement_and_test(p) (gasneti_atomic32_addandfetch(&((p)->ctr),-1) == 1)
-      #define _gasneti_atomic32_compare_and_swap(p,oval,nval) \
-        (gasneti_atomic32_cmpxchg(&((p)->ctr),oval,nval) == (oval))
-
-      #define GASNETI_HAVE_ATOMIC64_T 1
-      typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
-      #define _gasneti_atomic64_read(p)      ((p)->ctr)
-      #define _gasneti_atomic64_set(p,v)     ((p)->ctr = (v))
-      #define _gasneti_atomic64_init(v)      { (v) }
-      #define _gasneti_atomic64_increment(p) (gasneti_atomic64_addandfetch(&((p)->ctr),1))
-      #define _gasneti_atomic64_decrement(p) (gasneti_atomic64_addandfetch(&((p)->ctr),-1))
-      #define _gasneti_atomic64_decrement_and_test(p) (gasneti_atomic64_addandfetch(&((p)->ctr),-1) == 1)
-      #define _gasneti_atomic64_compare_and_swap(p,oval,nval) \
-        (gasneti_atomic64_cmpxchg(&((p)->ctr),oval,nval) == (oval))
-
-      /* The default c-a-s based add and subtract are already the best we can do. */
-
-      /* See fence treatment after #endif */
     #else
       #error unrecognized Itanium compiler - need to implement GASNet atomics (or #define GASNETI_USE_GENERIC_ATOMICOPS)
     #endif
 
-    /* Since all 3 compilers are generating r-m-w with .acq variants, we can customize
+    /* Since supported compilers are generating r-m-w with .acq variants, we can customize
      * the atomic fencing implementation by noting that "mf;; foo.acq" is a full memory
      * barrier both before and after. */
     #define _gasneti_atomic_fence_before_rmw(p, flags) \
