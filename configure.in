@@ -204,7 +204,6 @@ AC_SUBST(GASNETI_PTR_BITS)
 # XXX: Incomplete...
 
 GASNET_IF_ENABLED_NOHELP(arch-altix, [force_arch_altix=yes])
-GASNET_IF_ENABLED_NOHELP(arch-sicortex, [force_arch_sicortex=yes])
 GASNET_IF_ENABLED_NOHELP(arch-ibmpe, [force_arch_ibmpe=yes])
 
 ### 
@@ -1022,13 +1021,6 @@ case "$target_os" in
 	    AC_DEFINE(GASNETI_USE_MMTIMER)
 	  fi
 	fi
-	# Check for SiCortex hardware by device or cpu name
-	if test x$force_arch_sicortex = xyes -o -c "/dev/scfabric" || 
-           expr "`/usr/bin/uname -p 2>&1`" : SiCortex >/dev/null; then
-	    GASNETI_ARCH_SICORTEX=1
-	    GASNET_PLATFORM=sicortex
-	    AC_DEFINE(GASNETI_ARCH_SICORTEX)
-	fi
 	# Check for IBM PE by presence of POE
 	if test x$force_arch_imbpe = xyes || 
            ( env PAGER=cat poe -h | grep 'Parallel Operating Environment' ) >/dev/null 2>&1; then
@@ -1566,27 +1558,6 @@ if expr "$enabled_sgi_ip27@$target_cpu" : "unknown@mips" >/dev/null; then
 fi
 if test "$enabled_sgi_ip27" = yes; then
   AC_DEFINE(GASNETI_ARCH_SGI_IP27)
-fi
-
-## Look for potentially buggy SiCortex ICE9A processor
-# There is a processor erratum to work-around in our atomics :-(
-GASNET_IF_ENABLED_WITH_AUTO(arch-ice9a, Enable/disable work-around for buggy SiCoretex ICE9A processor (auto-detected),
-  enabled_arch_ice9a=yes, enabled_arch_ice9a=no, enabled_arch_ice9a=unknown)
-if (expr "$enabled_arch_ice9a@$target_cpu" : "unknown@mips" && \
-    expr "$target_os" : "linux") >/dev/null; then
-  if test "$cross_compiling" = "yes" ; then
-    AC_MSG_ERROR([Cannot probe for ICE9A processor when cross compiling.  Please configure either with --enable-arch-ice9a or --disable-arch-ice9a])
-  fi
-  AC_MSG_CHECKING(for potentially buggy ICE9A processor)
-  if grep -i ICE9A /proc/cpuinfo >/dev/null 2>&1; then
-    enabled_arch_ice9a=yes
-  else
-    enabled_arch_ice9a=no
-  fi
-  AC_MSG_RESULT($enabled_arch_ice9a)
-fi
-if test "$enabled_arch_ice9a" = yes; then
-  AC_DEFINE(GASNETI_ARCH_ICE9A)
 fi
 
 # Check how to reference MIPS assembler temporary register ("$1" or "$at")

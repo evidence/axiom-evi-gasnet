@@ -313,12 +313,6 @@
 /* platform is an IBM BlueGene/Q multiprocessor */
 #undef GASNETI_ARCH_BGQ
 
-/* platform is a SiCortex multiprocessor */
-#undef GASNETI_ARCH_SICORTEX
-
-/* have (potentially buggy) SiCortex ICE9A CPU */
-#undef GASNETI_ARCH_ICE9A
-
 /* have (potentially buggy) MIPS R10000 multiprocessor */
 #undef GASNETI_ARCH_SGI_IP27
 

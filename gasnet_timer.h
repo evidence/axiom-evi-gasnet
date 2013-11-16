@@ -241,65 +241,6 @@ GASNETI_BEGIN_EXTERNC
     return (uint64_t)(st * gasneti_timer_tick);
   }
 /* ------------------------------------------------------------------------------------ */
-#elif GASNETI_ARCH_SICORTEX
- #if 1
-  typedef uint64_t gasneti_tick_t;
-  GASNETI_INLINE(gasneti_ticks_now)
-  gasneti_tick_t gasneti_ticks_now(void) {
-    gasneti_tick_t _count = 0;
-    __asm__ __volatile__(".set push     \n"
-                         ".set mips32r2 \n"
-                         "rdhwr $3, $30 \n"
-                         ".set pop      \n"
-                         "move %0, $3   \n"
-                         : "=r"(_count) : : "$2", "$3");
-    return _count;
-  }
-
-  GASNETI_INLINE(gasneti_ticks_to_ns)
-  uint64_t gasneti_ticks_to_ns(gasneti_tick_t ticks) {
-    static int firsttime = 1;
-    static double adjust;
-    if_pf(firsttime) {
-      #define GASNETI_HZ_FILE "/sys/devices/system/clusterclock/hz"
-      FILE *fp = fopen(GASNETI_HZ_FILE,"r");
-      char input[255];
-      int hz;
-      if (fp && fgets(input, 255, fp)) {
-        hz = atoi(input);
-        gasneti_assert(hz > 100000000);
-        adjust = 1.0E9 / hz;
-      } else {
-        /* fall back on hard-coded frequency */
-        #ifndef GASNETI_CPU_CLOCK_MHZ
-        #define GASNETI_CPU_CLOCK_MHZ 500
-        #endif
-        double freq = GASNETI_CPU_CLOCK_MHZ;
-        /* cycle counter runs at half of core clock speed */
-        adjust = 2.0E3/freq;
-      }
-      gasneti_sync_writes();
-      firsttime = 0;
-      if (fp) fclose(fp);
-    } else gasneti_sync_reads();
-    return (uint64_t)(((double)ticks) * adjust);
-  }
- #else /* this works, but performs no better than gettimeofday and seems less robust */
-  #include <asm/unistd.h>
-  #include <time.h>
-  typedef uint64_t gasneti_tick_t;
-  GASNETI_INLINE(gasneti_ticks_now)
-  gasneti_tick_t gasneti_ticks_now(void) {
-    gasneti_tick_t retval;
-    struct timespec foo;
-    syscall(__NR_clock_gettime,CLOCK_REALTIME,&foo);
-    retval = (gasneti_tick_t)foo.tv_sec*(gasneti_tick_t)1000000000;
-    retval += (gasneti_tick_t)foo.tv_nsec;
-    return retval;
-  }   
-  #define gasneti_ticks_to_ns(x) (x)
- #endif
-/* ------------------------------------------------------------------------------------ */
 #elif (PLATFORM_OS_LINUX || PLATFORM_OS_CNL || PLATFORM_OS_CATAMOUNT || PLATFORM_OS_OPENBSD || \
        GASNETI_HAVE_SYSCTL_MACHDEP_TSC_FREQ) && \
      (PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_INTEL || PLATFORM_COMPILER_SUN || \

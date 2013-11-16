@@ -1790,25 +1790,13 @@
       #define GASNETI_MIPS_BEQZ "beqz "
     #endif
 
-    #if GASNETI_ARCH_ICE9A
-      /* According to SiCortex the ICE9A processor has an errata that
-       * can be worked-around by doubling of the LL or LLD instruction.
-       */
-      #define GASNETI_MIPS_LL(_insn) _insn _insn
-    #else
-      #define GASNETI_MIPS_LL(_insn) _insn
-    #endif
-  
-    #if PLATFORM_COMPILER_PATHSCALE
-      /* Don't define GASNETI_MIPS_AT, as pathcc uses $at as a GP register */
-      #undef GASNETI_MIPS_AT
-    #elif defined(GASNETI_HAVE_MIPS_REG_AT)
+    #if defined(GASNETI_HAVE_MIPS_REG_AT)
       #define GASNETI_MIPS_AT "$at"
     #elif defined(GASNETI_HAVE_MIPS_REG_1)
       #define GASNETI_MIPS_AT "$1"
     #endif
 
-    #if PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_PATHSCALE
+    #if PLATFORM_COMPILER_GNU
       #define GASNETI_HAVE_ATOMIC32_T 1
       typedef struct { volatile uint32_t ctr; } gasneti_atomic32_t;
       #define _gasneti_atomic32_read(p)      ((p)->ctr)
@@ -1823,13 +1811,6 @@
         #define GASNETI_MIPS_START_NOREORDER   ".set   noreorder\n\t.set   nomacro\n\t"
         #define GASNETI_MIPS_END_NOREORDER     ".set   reorder\n\t.set   macro\n\t"
         #define GASNETI_MIPS_RETRY(ARGS)       GASNETI_MIPS_BEQZ ARGS "\n\t"
-      #elif PLATFORM_COMPILER_PATHSCALE
-        /* Default is noat,noreorder,nomacro */
-        #define GASNETI_MIPS_START_NOAT
-        #define GASNETI_MIPS_END_NOAT
-        #define GASNETI_MIPS_START_NOREORDER
-        #define GASNETI_MIPS_END_NOREORDER
-        #define GASNETI_MIPS_RETRY(ARGS)       GASNETI_MIPS_BEQZ ARGS "\n\tnop\n\t"
       #else
         #error
       #endif
@@ -1841,7 +1822,7 @@
 		".set	mips2		\n\t"
 		"1:			\n\t"
 		"move	%1,%3		\n\t"
-GASNETI_MIPS_LL("ll	%0,0(%4)	\n\t")
+		"ll	%0,0(%4)	\n\t"
 		"sc	%1,0(%4)	\n\t"
 		GASNETI_MIPS_RETRY("%1,1b")
 		".set	mips0		\n\t"
@@ -1860,7 +1841,7 @@ GASNETI_MIPS_LL("ll	%0,0(%4)	\n\t")
 		GASNETI_MIPS_START_NOAT
 		".set	mips2		\n\t"
 		"1:			\n\t"
-GASNETI_MIPS_LL("ll	%0,0(%3)	\n\t")
+		"ll	%0,0(%3)	\n\t"
 		"addu	" GASNETI_MIPS_AT ",%0,%2	\n\t"
 		"sc	" GASNETI_MIPS_AT ",0(%3)	\n\t"
 		GASNETI_MIPS_RETRY(GASNETI_MIPS_AT ",1b")
@@ -1874,7 +1855,7 @@ GASNETI_MIPS_LL("ll	%0,0(%3)	\n\t")
 	__asm__ __volatile__(
 		".set	mips2		\n\t"
 		"1:			\n\t"
-GASNETI_MIPS_LL("ll	%0,0(%4)	\n\t")
+		"ll	%0,0(%4)	\n\t"
 		"addu	%1,%0,%3	\n\t"
 		"sc	%1,0(%4)	\n\t"
 		GASNETI_MIPS_RETRY("%1,1b")
@@ -1892,7 +1873,7 @@ GASNETI_MIPS_LL("ll	%0,0(%4)	\n\t")
          __asm__ __volatile__ (                                                                \
                 "1:                      \n\t"                                                 \
                 ".set   " _abi "         \n\t" /* [ set ABI to allow ll/sc ]                */ \
-GASNETI_MIPS_LL(_ll "   %0,0(%4)         \n\t")/* _retval = *p (starts ll/sc reservation)   */ \
+		_ll "   %0,0(%4)         \n\t" /* _retval = *p (starts ll/sc reservation)   */ \
                 ".set   mips0            \n\t" /* [ set ABI back to default ]               */ \
                 GASNETI_MIPS_START_NOREORDER   /* [ tell assembler we fill our delay slot ] */ \
                 "bne    %0,%z2,2f        \n\t" /* Break loop on mismatch                    */ \
