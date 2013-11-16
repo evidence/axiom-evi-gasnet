@@ -159,10 +159,7 @@ GASNETI_BEGIN_EXTERNC
   /* GASNETI_SRCLINES_FORCE ensures we always track srclines
      otherwise we only track them as needed for tracing purposes */
   #ifdef GASNETI_SRCLINES_FORCE
-    #if PLATFORM_COMPILER_SGI /* bug 2357: workaround a braindead C compiler bug */
-      static const int _gasneti_srclines_force = 1; 
-      #define GASNETI_SRCLINE_TRACKING() (_gasneti_srclines_force)
-    #else
+    #if 1 /* All currently supported platforms */
       #define GASNETI_SRCLINE_TRACKING() (1)
     #endif
   #else

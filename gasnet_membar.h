@@ -60,9 +60,7 @@
   #endif
 /* ------------------------------------------------------------------------------------ */
 #elif PLATFORM_ARCH_MIPS
-  #if PLATFORM_COMPILER_SGI
-   #error "GASNet no longer supports the SGI compilers for MIPS"
-  #else
+  #if 1 /* All currently supported compilers (gnu and pathscale) */
     GASNETI_INLINE(_gasneti_local_mb)
     void _gasneti_local_mb(void) {
       GASNETI_ASM(".set mips2  \n\t"
