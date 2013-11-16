@@ -1514,30 +1514,6 @@ AM_CONDITIONAL(USE_PSHM, test "$with_pshm" != no)
 ########################################################################
 ## CPU feature checks
 
-## Does gcc/gas support "ldcw,co" pseudo-op on PA-RISC?
-GASNET_PUSHVAR(CFLAGS,"$CFLAGS $MISC_CPPFLAGS $MISC_CFLAGS -I$TOP_SRCDIR/other")
-GASNET_TRY_CACHE_CHECK(for pa-risc LDCW psuedo-op, parisc_ldcw_co, [
-  #include "portable_platform.h"
-], [
-  #if PLATFORM_ARCH_PARISC
-    #if PLATFORM_COMPILER_GNU
-      unsigned int gasneti_loadandclear_32(unsigned int volatile *v) {
-        register unsigned int volatile * addr = (unsigned int volatile *)v;
-        register unsigned int val = 0;
-          __asm__ __volatile__ (
-            "ldcw,co 0(%2), %0 \n"
-            : "=r"(val), "=m" (*addr) : "r" (addr), "m" (*addr));
-        return val;
-      }
-    #else
-	/* Don't know, but also don't currently care */
-    #endif
-  #else
-    #error wrong CPU architecture
-  #endif
-], [AC_DEFINE(GASNETI_HAVE_PARISC_LDCW_CO)])
-GASNET_POPVAR(CFLAGS)
-
 ## Look for PPC970/PPC970FX (aka G5)
 # Both false positives and false negatives are safe, but getting this
 # wrong may hurt performance.

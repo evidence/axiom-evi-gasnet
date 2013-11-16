@@ -237,9 +237,6 @@
 /* has support (toolchain and cpu) for x86_64 cmpxchg16b instruction */
 #undef GASNETI_HAVE_X86_CMPXCHG16B
 
-/* gcc/gas support "LDCW,CO" psuedo-op on PA-RISC */
-#undef GASNETI_HAVE_PARISC_LDCW_CO
-
 /* gcc support for "U" and "h" register classes on SPARC32 */
 #undef GASNETI_HAVE_SPARC32_64BIT_ASM
 

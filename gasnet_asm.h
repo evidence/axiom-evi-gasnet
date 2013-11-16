@@ -97,9 +97,6 @@
     #define GASNETI_PGI_ASM_BUG2843 1
   #endif
   #define GASNETI_ASM_SPECIAL(mnemonic) asm(mnemonic)
-#elif PLATFORM_COMPILER_COMPAQ
-  #include <c_asm.h>
-  #define GASNETI_ASM(mnemonic) asm(mnemonic)
 #elif PLATFORM_COMPILER_SUN 
   #ifdef __cplusplus 
     #if PLATFORM_OS_LINUX
@@ -111,10 +108,7 @@
   #else /* Sun C */
     #define GASNETI_ASM(mnemonic)  __asm(mnemonic)
   #endif
-#elif PLATFORM_COMPILER_NEC 
-  #define GASNETI_ASM(mnemonic)  asm(mnemonic)
-#elif PLATFORM_COMPILER_SGI || PLATFORM_COMPILER_HP_CXX || PLATFORM_COMPILER_XLC || \
-      PLATFORM_COMPILER_CRAY || PLATFORM_COMPILER_MTA || PLATFORM_COMPILER_LCC
+#elif PLATFORM_COMPILER_XLC || PLATFORM_COMPILER_CRAY || PLATFORM_COMPILER_MTA || PLATFORM_COMPILER_LCC
   /* platforms where inline assembly not supported or used */
   #define GASNETI_ASM(mnemonic)  ERROR_NO_INLINE_ASSEMBLY_AVAIL 
   #undef GASNETI_ASM_AVAILABLE
