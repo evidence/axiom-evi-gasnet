@@ -147,12 +147,6 @@ AC_SUBST_FILE(PERLSTART)
 ##  C/C++ Compilers
 ##
 
-# Some OS's need help to find the right C compiler
-case "$target_os" in
-  superux*) # "cc" is completely broken on SuperUX, never use it
-     GASNET_ENV_DEFAULT(CC, c++ -Xa) ;; # may also/alternately want -Kc99
-esac
-
 GASNET_PROG_CC
 AC_PROG_LN_S
 GASNET_BIGENDIAN
@@ -398,7 +392,6 @@ case "$CC_FAMILY" in
         CCDEBUGFLAGS="$CFLAGS"
         GASNET_POPVAR(CFLAGS)
   ;;
-  NEC)   CCDEBUGFLAGS="-g -Cnoopt -Cdebug" ;; 
   HP)   CCDEBUGFLAGS="-g +ESdbgasm" ;; # need +ESdbgasm to use -g with _asm()
   MTA)  CCDEBUGFLAGS="-g2" ;; # need +ESdbgasm to use -g with _asm()
   Compaq) CCDEBUGFLAGS="-trapuv -g2" ;;
@@ -611,7 +604,6 @@ case "$CC_FAMILY" in
          GASNET_TRY_CFLAG([-wd1572],
                           [MISC_CFLAGS="$MISC_CFLAGS -wd1572"])
          ;;
-  NEC) MISC_CFLAGS="-woff=68:111:174:177:236:301:550:940" ;; 
   PGI) MISC_CFLAGS="-Masmkeyword -c9x -Msignextend";; # get inline assembly, restrict and sign-extended narrowing
   MTA) MISC_CFLAGS="-display_error_number -WS 111,174,238" ;;
   Sun) if test "$target_cpu" = "sparc"; then 
@@ -1094,10 +1086,6 @@ case "$target_os" in
 	GASNET_THREAD_DEFINES=""
         GASNET_THREAD_LIBS="-lpthread" 
         ;;
-  superux*)
-        GASNET_THREAD_DEFINES="-D_REENTRANT"
-        GASNET_THREAD_LIBS="-lpthread"
-	;;
   *)
         GASNET_MSG_WARN(unknown OS - you may need to update the configure script)
         ;;
@@ -2313,10 +2301,6 @@ if test $enabled_udp = yes; then
          CXXOPTFLAGS="-xO2" # Can we go higher to match "-fast -xO5" of CCOPTFLAGS?
          GASNET_TRY_CXXFLAG([-xlibmopt], [CXXOPTFLAGS="$CXXOPTFLAGS -xlibmopt"])
       ;;
-    NEC)   MISC_CXXFLAGS="-woff=68:111:174:177:236:301:550:940 -Kexceptions" 
-           CXXDEBUGFLAGS="-g -Cnoopt -Cdebug"
-	   GASNET_UDP_LIBS="-Kexceptions" 
-      ;; 
     Cray)
      case "$target_cpu" in
       x86_64)   MISC_CXXFLAGS="-hnomessage=236 -hexceptions -hnew_for_init" ;; # XT, XE, XK, XC, etc.
@@ -2597,12 +2581,6 @@ if test "$enabled_mpi" = yes || test "$enabled_mpi_compat" = yes; then
     	GASNET_ENV_DEFAULT(MPI_LIBS, -lmpi)
 	GASNET_ENV_DEFAULT(MPIRUN_CMD, mtarun -t %N -m %N /usr/bin/env _MPI_MT=%N %C)
         ;;
-    superux*)
-      GASNET_ENV_DEFAULT(MPI_CC, mpic++ -Xa)
-      GASNET_CHECK_MPI_CC($MISC_CFLAGS $CFLAGS)
-      GASNET_ENV_DEFAULT(MPI_LIBS, )
-      GASNET_ENV_DEFAULT(MPIRUN_CMD, mpirun -np %N %C)
-      ;;
     *) 
       # unknown OS - if user doesn't provide info, nothing we can do
       GASNET_ENV_DEFAULT(MPI_CC, mpicc)
