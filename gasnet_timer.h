@@ -155,12 +155,6 @@ GASNETI_BEGIN_EXTERNC
   #define GASNETI_TICK_MAX        ((gasneti_tick_t)(((uint64_t)-1)>>1))
 #endif
 /* ------------------------------------------------------------------------------------ */
-#elif PLATFORM_OS_CATAMOUNT && PLATFORM_COMPILER_PGI && !GASNETI_PGI_ASM_GNU && 0 /* DISABLED */
-  #include <catamount/dclock.h>
-  typedef uint64_t gasneti_tick_t;
-  #define gasneti_ticks_to_ns(st)  (st)
-  #define gasneti_ticks_now()      ((gasneti_tick_t)(dclock()*1E9))
-/* ------------------------------------------------------------------------------------ */
 #elif GASNETI_USE_MMTIMER
   /* use IA-PC HPET (High Precision Event Timers) */
   #define GASNETI_HPET_MMAP 1
@@ -241,7 +235,7 @@ GASNETI_BEGIN_EXTERNC
     return (uint64_t)(st * gasneti_timer_tick);
   }
 /* ------------------------------------------------------------------------------------ */
-#elif (PLATFORM_OS_LINUX || PLATFORM_OS_CNL || PLATFORM_OS_CATAMOUNT || PLATFORM_OS_OPENBSD || \
+#elif (PLATFORM_OS_LINUX || PLATFORM_OS_CNL || PLATFORM_OS_OPENBSD || \
        GASNETI_HAVE_SYSCTL_MACHDEP_TSC_FREQ) && \
      (PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_INTEL || PLATFORM_COMPILER_SUN || \
       PLATFORM_COMPILER_PATHSCALE || PLATFORM_COMPILER_PGI || PLATFORM_COMPILER_TINY || \
@@ -250,8 +244,6 @@ GASNETI_BEGIN_EXTERNC
       !(PLATFORM_ARCH_IA64 && GASNETI_ARCH_ALTIX) /* bug 1622 */
   #if PLATFORM_ARCH_IA64 && PLATFORM_COMPILER_INTEL
     #include <ia64intrin.h>
-  #elif PLATFORM_OS_CATAMOUNT
-    extern unsigned int __cpu_mhz; /* system provided */
   #elif GASNETI_HAVE_SYSCTL_MACHDEP_TSC_FREQ || PLATFORM_OS_OPENBSD
     #include <sys/sysctl.h> 
   #endif
@@ -322,9 +314,7 @@ GASNETI_BEGIN_EXTERNC
     static int firstTime = 1;
     static double Tick = 0.0; /* inverse GHz */
     if_pf (firstTime) {
-     #if PLATFORM_OS_CATAMOUNT /* lacks /proc filesystem */
-        Tick = 1000.0 / __cpu_mhz;
-     #elif GASNETI_HAVE_SYSCTL_MACHDEP_TSC_FREQ /* FreeBSD and NetBSD */
+     #if GASNETI_HAVE_SYSCTL_MACHDEP_TSC_FREQ /* FreeBSD and NetBSD */
         int64_t cpuspeed = 0;
         size_t len = sizeof(cpuspeed);
         if (sysctlbyname("machdep.tsc_freq", &cpuspeed, &len, NULL, 0) == -1) 

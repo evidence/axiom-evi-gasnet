@@ -178,15 +178,6 @@ case "$CC_FAMILY" in
         ;;
   MTA)  # override target_os for MTA, which may be wrong if cross-compiling
         target_os="mtx"   ;;
-  Cray) # Min supported version is 7.2 (which reports as 10.2)
-        AC_TRY_COMPILE([
-          #if (defined(__CRAYXT_COMPUTE_LINUX_TARGET) || defined(__LIBCATAMOUNT__)) && \
-              (((_RELEASE == 10) && (_RELEASE_MINOR < 2)) || (_RELEASE < 10))
-          # error
-          #endif
-        ],[ ], [:],
-        [AC_MSG_ERROR([GASNet does not support Cray compilers prior to CCE 7.2 on the CrayXT])])
-        ;;
 esac
 
 if test "$cross_compiling" = "yes" ; then
@@ -1029,11 +1020,6 @@ case "$target_os" in
 	    AC_DEFINE(GASNETI_ARCH_IBMPE)
 	fi
         case "$target" in
-          *-catamount-*) 
-	    GASNET_IFDEF(__LIBCATAMOUNT__,[],[
-	      GASNET_MSG_ERROR([Compiling for a catamount target, but __LIBCATAMOUNT__ is not predefined! Are you using the right compiler? (perhaps try mpicc)])
-	    ])
-          ;;
           powerpc-blrts-linux*)
 	    GASNET_PLATFORM=bgl
 	    ;;
@@ -1360,7 +1346,7 @@ if test "$enabled_pshm" != no; then
   have_shm_open=probe
   AC_SEARCH_LIBS(shm_open, [rt posix4], [
     if test "$cross_compiling" = "yes" ; then
-      # To the best of my knowledge CNL, Catamount, and BG/L all lack
+      # To the best of my knowledge CNL, and BG/L all lack
       # working shm_open() support, though at least CNL finds the symbol.
       # Our support on BG/P is marginal at the moment (see pshm-design.txt).
       # So, we default to NO shm_open() when cross-compiling. -PHH
@@ -4347,9 +4333,6 @@ else
 dnl GASNET_TOOLSONLY_FALSE_END
 fi
 
-case "$target" in
-*-catamount-*) ;; # don't use mallopt on catamount, even if it appears to be available
-*)
 dnl Check for ptmalloc's mallopt() to work aroung bugs 495 and 955
 AC_CHECK_HEADERS([malloc.h])
 GASNET_TRY_CACHE_LINK(for ptmalloc, malloc_is_ptmalloc,
@@ -4363,7 +4346,6 @@ GASNET_TRY_CACHE_LINK(for ptmalloc, malloc_is_ptmalloc,
     mallopt(M_TRIM_THRESHOLD, -1);
     mallopt(M_MMAP_MAX, 0);
   ],[ AC_DEFINE(HAVE_PTMALLOC) ])
-esac
 
 DEBUGMALLOC_VAR=GASNET_unused
 DEBUGMALLOC_VAL=0

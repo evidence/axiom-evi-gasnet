@@ -380,8 +380,6 @@ extern void gasneti_filesystem_sync(void) {
   if ( gasneti_getenv_yesno_withdefault("GASNET_FS_SYNC",0) ) {
 #if PLATFORM_OS_MTA
     mta_sync();
-#elif PLATFORM_OS_CATAMOUNT
-    /* Empty */
 #else
     sync();
 #endif
@@ -1903,8 +1901,6 @@ extern int gasneti_cpu_count(void) {
 #if PLATFORM_OS_DARWIN || PLATFORM_OS_FREEBSD || PLATFORM_OS_NETBSD || PLATFORM_OS_OPENBSD
   #include <sys/types.h>
   #include <sys/sysctl.h>
-#elif PLATFORM_OS_CATAMOUNT
-  #include <catamount/catmalloc.h>
 #elif PLATFORM_OS_HPUX
   #include <sys/param.h>
   #include <sys/pstat.h>
@@ -1967,16 +1963,6 @@ extern uint64_t gasneti_getPhysMemSz(int failureIsFatal) {
     { /* returns amount of real memory in kilobytes */
       long int val = sysconf(_SC_AIX_REALMEM);
       if (val > 0) retval = (1024 * (uint64_t)val);
-    }
-  #elif PLATFORM_OS_CATAMOUNT
-    { static uint64_t result = 0; /* call is expensive, so amortize */
-      if (!result) {
-        size_t fragments;
-        unsigned long total_free, largest_free, total_used;
-        gasneti_assert_zeroret(heap_info(&fragments, &total_free, &largest_free, &total_used));
-        result = total_free + total_used;
-     }
-     retval = result;
     }
   #elif PLATFORM_OS_HPUX
     { struct pst_static pst;
@@ -2156,8 +2142,6 @@ void gasneti_set_affinity(int rank) {
  #endif
  #undef MAXHOSTNAMELEN
  #define MAXHOSTNAMELEN 19
-#elif PLATFORM_OS_CATAMOUNT
- #include <catamount/data.h>
 #else
 #include <sys/param.h>
 #endif 
@@ -2228,9 +2212,6 @@ const char *gasneti_gethostname(void) {
                          (unsigned int)BG_UCI_GET_COMPUTE_CARD(cc_uci),
                          (unsigned int)proc
               );
-    #elif PLATFORM_OS_CATAMOUNT
-      /* TODO: can we do anything special for VN? */
-      snprintf(hostname, MAXHOSTNAMELEN, "nid%05u", _my_pnid);
     #else
       if (gethostname(hostname, MAXHOSTNAMELEN))
         gasnett_fatalerror("gasneti_gethostname() failed to get hostname: aborting");

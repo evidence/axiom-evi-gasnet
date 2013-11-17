@@ -971,7 +971,7 @@ static void gasneti_nodemap_dflt(gasneti_bootstrapExchangefn_t exchangefn) {
 
     gasneti_free(allids);
   #endif
-#elif PLATFORM_OS_BGQ || PLATFORM_OS_BGP || PLATFORM_OS_BLRTS || PLATFORM_OS_CATAMOUNT || !HAVE_GETHOSTID
+#elif PLATFORM_OS_BGQ || PLATFORM_OS_BGP || PLATFORM_OS_BLRTS || !HAVE_GETHOSTID
     /* Nodes are either (at least effectively) single process,
      * or we don't have a usable gethostid().  So, build a trivial nodemap. */
     gasneti_nodemap_trivial();

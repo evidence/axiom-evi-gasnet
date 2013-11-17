@@ -42,7 +42,7 @@ GASNETI_BEGIN_EXTERNC
 #if PLATFORM_OS_MTA
    #include <machine/runtime.h>
    #define _gasneti_sched_yield() mta_yield()
-#elif defined(HAVE_SCHED_YIELD) && !PLATFORM_OS_BLRTS && !PLATFORM_OS_CATAMOUNT
+#elif defined(HAVE_SCHED_YIELD) && !PLATFORM_OS_BLRTS
    #include <sched.h>
    #define _gasneti_sched_yield() sched_yield()
 #else
