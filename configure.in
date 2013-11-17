@@ -296,7 +296,6 @@ case "$CC_FAMILY" in
       fi
     done
   ;;
-  Compaq) CCOPTFLAGS="-fast -noifo -O4 -tune host -inline all" ;;
   Intel) CCOPTFLAGS="-O3" ;;
   MTA) CCOPTFLAGS="-O3" ;; # MTA C actually ignores -O, optimization controlled by presence/absence of -g
   PGI)
@@ -357,9 +356,8 @@ AC_DEFUN([GASNET_GET_GNUWARNINGFLAGS],[
         # some crappy pthread mutex implementations generate warnings without -Wno-missing-braces
 	AC_MSG_CHECKING(for buggy pthread.h mutex initializers)
         old[$1]FLAGS="$[$1]FLAGS"
-        # OSF and FREEBSD require the -pthread compiler flag when including pthread.h
+        # FREEBSD requires the -pthread compiler flag when including pthread.h
         case "$target_os" in 
-          osf*)     [$1]FLAGS="-pthread $[$1]FLAGS" ;;
           freebsd*) [$1]FLAGS="-pthread $[$1]FLAGS" ;;
         esac 
         ]GASNET_TRY_[$1]COMPILE_WITHWARN[([#include <pthread.h>],
@@ -394,7 +392,6 @@ case "$CC_FAMILY" in
   ;;
   HP)   CCDEBUGFLAGS="-g +ESdbgasm" ;; # need +ESdbgasm to use -g with _asm()
   MTA)  CCDEBUGFLAGS="-g2" ;; # need +ESdbgasm to use -g with _asm()
-  Compaq) CCDEBUGFLAGS="-trapuv -g2" ;;
   Pathscale) GASNET_PUSHVAR(CFLAGS,"-g3 -O0") # need to explicitly disable optimization
         GASNET_GET_GNUWARNINGFLAGS(C)
         CCDEBUGFLAGS="$CFLAGS"
@@ -598,7 +595,6 @@ case "$CC_FAMILY" in
   MIPS) MISC_CFLAGS="-common -diag_error 1035 -diag_suppress1171,1174,1209,1552" # 1035 ensures "#error" is fatal
         # bug1555: older versions (7.4.0) don't have _Pragma without -c99, but that flag causes incorrect optimizer behavior
 	;;
-  Compaq) MISC_CFLAGS="-msg_disable extrasemi" ;;
   HP)     MISC_CFLAGS="+W612 +W2111 +W2174 +W2177 +W2236 +W2550 -Wp,-H100000" ;; # -H increases internal preprocessor table size
   Intel) MISC_CFLAGS="-wd177 -wd279" 
          GASNET_TRY_CFLAG([-wd1572],
@@ -829,9 +825,6 @@ pushdef([lowername],translit($2,'A-Z','a-z'))
 pushdef([uppername],translit($2,'a-z','A-Z'))
 inlinemod=""
 case "$[]uppername[]_FAMILY" in
-  Compaq) # force __inline on Compaq C, because it's the most effective
-    inlinemod=__inline
-  ;;
   XLC) # force __inline on XLC, to avoid warnings
     inlinemod=__inline
   ;;
@@ -1072,11 +1065,6 @@ case "$target_os" in
   aix*)
         GASNET_THREAD_DEFINES="-D_REENTRANT -D_THREAD_SAFE"
         GASNET_THREAD_LIBS="-lpthread"
-	;;
-  osf*)
-        # -D_PTHREAD_NOMETER_STATIC fixes failures when initially trylocking a statically-init mutex
-        GASNET_THREAD_DEFINES="-D_REENTRANT -D_THREAD_SAFE -D_PTHREAD_NOMETER_STATIC"
-        GASNET_THREAD_LIBS="-pthread -lpthreads"
 	;;
   hpux*)
         GASNET_THREAD_DEFINES="-D_REENTRANT"
@@ -2279,7 +2267,6 @@ if test $enabled_udp = yes; then
     HP)    MISC_CXXFLAGS="+W612 +W749 +W2111 +W2174 +W2177 +W2236 +W2550"
            CXXOPTFLAGS="+O3"
            ;;
-    Compaq) MISC_CXXFLAGS="-msg_disable extrasemi,boolexprconst,codeunreachable" ;;
     MTA)   MISC_CXXFLAGS="-exceptions -display_error_number -WS 111,174,238" 
            CXXDEBUGFLAGS="-g2"
            CXXOPTFLAGS="-O3"
@@ -2562,18 +2549,6 @@ if test "$enabled_mpi" = yes || test "$enabled_mpi_compat" = yes; then
         GASNET_CHECK_MPI_CC($BASIC_MPI_CFLAGS)
     	GASNET_ENV_DEFAULT(MPI_LIBS, [-Wl,-bbigtoc])
 	GASNET_ENV_DEFAULT(MPIRUN_CMD, poe %C -procs %N -nodes %M -rmpool 1 -euilib us -retry 1 -retrycount 10000 -msg_api mpi)
-        ;;
-    osf*)
-	GASNET_ENV_DEFAULT(MPI_CC, cc)
-	BASIC_MPI_CFLAGS="-msg_disable extrasemi"
-        if test "$BUILDCONFIG" = "optimize" ; then
-          BASIC_MPI_CFLAGS="-fast -noifo -O4 -tune host -inline speed $BASIC_MPI_CFLAGS"
-        else
-          BASIC_MPI_CFLAGS="-g $BASIC_MPI_CFLAGS"
-        fi
-        GASNET_CHECK_MPI_CC($BASIC_MPI_CFLAGS)
-        GASNET_ENV_DEFAULT(MPI_LIBS, -lmpi -lelan -lrt)
-        GASNET_ENV_DEFAULT(MPIRUN_CMD, prun -n %N -N %M %C)
         ;;
     mtx*)
     	GASNET_ENV_DEFAULT(MPI_CC, cc)
@@ -4385,13 +4360,6 @@ case "$target_os" in
         if test x"$ac_cv_sizeof_void_p" = x8; then
             AR="ar -X64"
             RANLIB="ranlib -X64"
-        fi
-        ;;
-    osf*)
-        # Tru64 has a default /bin/sh that emits error msgs for missing
-        # commands, even when 2>/dev/null passed.  Use posix shell instead.
-        if test -x /usr/bin/posix/sh; then
-            BOURNE_SHELL="/usr/bin/posix/sh"
         fi
         ;;
 esac

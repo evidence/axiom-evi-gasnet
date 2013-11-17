@@ -882,15 +882,6 @@ extern void gasneti_munmap(void *segbase, uintptr_t segsize) {
   gasneti_tick_t t1, t2;
   gasneti_assert(segsize > 0);
   t1 = gasneti_ticks_now();
-    #if 0 && PLATFORM_OS_TRU64 /* doesn't seem to help */
-      /* invalidate the pages before unmap to avoid write-back penalty */
-      if (madvise(segbase, segsize, MADV_DONTNEED))
-        gasneti_fatalerror("madvise("GASNETI_LADDRFMT",%lu) failed: %s\n",
-	        GASNETI_LADDRSTR(segbase), (unsigned long)segsize, strerror(errno));
-      if (msync(segbase, segsize, MS_INVALIDATE))
-        gasneti_fatalerror("msync("GASNETI_LADDRFMT",%lu) failed: %s\n",
-	        GASNETI_LADDRSTR(segbase), (unsigned long)segsize, strerror(errno));
-    #endif
     if (munmap(segbase, segsize) != 0) 
       gasneti_fatalerror("munmap("GASNETI_LADDRFMT",%lu) failed: %s\n",
 	      GASNETI_LADDRSTR(segbase), (unsigned long)segsize, strerror(errno));
@@ -989,7 +980,7 @@ static gasnet_seginfo_t _gasneti_mmap_segment_search_inner(uintptr_t maxsz) {
     si.size = maxsz;
     mmaped = 1;
   } else { /* use a search to find largest possible */
-    #if PLATFORM_OS_TRU64
+    #if 0
       /* linear descending search best on systems with 
          fast mmap-failed and very slow unmap and/or mmap-succeed */
       si = gasneti_mmap_lineardesc_segsrch(maxsz);

@@ -49,10 +49,6 @@
   /* avoid bugs in Cray C compiler */
   #undef GASNETE_LOOPING_DIMS
   #define GASNETE_LOOPING_DIMS 4  
-#elif PLATFORM_COMPILER_COMPAQ && GASNETE_LOOPING_DIMS > 4
-  /* avoid bugs in Compaq C optimizer */
-  #undef GASNETE_LOOPING_DIMS
-  #define GASNETE_LOOPING_DIMS 4 
 #endif
 
 /* GASNETE_DIRECT_DIMS: second level of strided performance:

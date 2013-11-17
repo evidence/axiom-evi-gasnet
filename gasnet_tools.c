@@ -1894,8 +1894,6 @@ extern int gasneti_cpu_count(void) {
   #include <sys/pstat.h>
 #elif PLATFORM_OS_IRIX
   #include <invent.h>
-#elif PLATFORM_OS_TRU64 && HAVE_SYS_TABLE_H
-  #include <sys/table.h>
 #endif
 extern uint64_t gasneti_getPhysMemSz(int failureIsFatal) {
   uint64_t retval = _gasneti_getPhysMemSysconf();
@@ -1977,13 +1975,6 @@ extern uint64_t gasneti_getPhysMemSz(int failureIsFatal) {
       retval = result_mb * (uint64_t)1048576;
     }
     #endif /* defined(INV_MEMORY) && defined(INV_MAIN_MB) */
-  #elif PLATFORM_OS_TRU64 && defined(TBL_PMEMSTATS)
-    {
-      struct tbl_pmemstats stats;
-      if (1 == table(TBL_PMEMSTATS, 0, &stats, 1, sizeof(stats))) {
-        retval = stats.physmem;
-      }
-    }
   #else  /* unknown OS */
     { }
   #endif

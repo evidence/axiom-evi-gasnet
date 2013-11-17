@@ -444,23 +444,6 @@ GASNETI_BEGIN_EXTERNC
     return (uint64_t)(st * Tick);
   }
 /* ------------------------------------------------------------------------------------ */
-#elif 0 && PLATFORM_OS_TRU64
-  /* the precision for this is no better than gettimeofday (~1 ms) */
-  /* TODO: use elan real-time counter, or rpcc instruction (which returns
-     a 32-bit cycle count that wraps too quickly to be useful by itself)
-     luckily, the Quadrics NIC provides a nanosecond clock (with ~1us overhead)
-   */
-  #include <time.h>
-
-  typedef uint64_t gasneti_tick_t;
-  GASNETI_INLINE(gasneti_ticks_now)
-  gasneti_tick_t gasneti_ticks_now() {
-    struct timespec t;
-    gasneti_assert_zeroret(clock_gettime(CLOCK_REALTIME, &t));
-    return ((((uint64_t)t.tv_sec) & 0xFFFF) * 1000000000) + t.tv_nsec;
-  }
-  #define gasneti_ticks_to_ns(st)  (st)
-/* ------------------------------------------------------------------------------------ */
 #elif PLATFORM_OS_CYGWIN
   #include <windows.h>
   /* note: QueryPerformanceCounter is a Win32 system call and thus has ~1us overhead

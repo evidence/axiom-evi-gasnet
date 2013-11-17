@@ -1963,10 +1963,6 @@ int gasnete_coll_p2p_send_data(gasnete_coll_op_t *op, gasnete_coll_p2p_t *p2p,
 /*---------------------------------------------------------------------------------*/
 /* functions for generic ops */
 
-#if PLATFORM_COMPILER_COMPAQ_C /* bug525 workaround - prevent inliner resource exhaustion with -inline all */
-#pragma noinline (gasnete_coll_generic_alloc,gasnete_coll_generic_free,gasnete_coll_op_generic_init)
-#endif
-
 extern gasnete_coll_generic_data_t *gasnete_coll_generic_alloc(GASNETE_THREAD_FARG_ALONE) {
   gasnete_coll_threaddata_t *td = GASNETE_COLL_MYTHREAD;
   gasnete_coll_generic_data_t *result;
