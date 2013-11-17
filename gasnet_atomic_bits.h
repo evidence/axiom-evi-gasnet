@@ -1676,7 +1676,7 @@
         int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval) {
           register uint64_t result;
           __asm__ __volatile__ (
-		"0\t"
+		"0:\t"
 		"ldarx    %0,0,%2 \n\t"         /* load to result */
 		"xor.     %0,%0,%3 \n\t"        /* compare result w/ oldval */
 		"bne      1f \n\t"              /* branch on mismatch */
