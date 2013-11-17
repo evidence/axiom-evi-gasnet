@@ -1925,11 +1925,6 @@ extern uint64_t gasneti_getPhysMemSz(int failureIsFatal) {
             (int)len, strerror(errno), errno);
       }
     }
-  #elif PLATFORM_OS_AIX
-    { /* returns amount of real memory in kilobytes */
-      long int val = sysconf(_SC_AIX_REALMEM);
-      if (val > 0) retval = (1024 * (uint64_t)val);
-    }
   #else  /* unknown OS */
     { }
   #endif
@@ -1942,8 +1937,6 @@ extern uint64_t gasneti_getPhysMemSz(int failureIsFatal) {
 /* CPU affinity control */
 #if HAVE_PLPA
   #include "plpa.h"
-#elif PLATFORM_OS_AIX
-  #include <sys/thread.h>
 #elif PLATFORM_OS_SOLARIS
   #include <sys/types.h>
   #include <sys/processor.h>
@@ -1984,13 +1977,6 @@ void gasneti_set_affinity_default(int rank) {
       PLPA_CPU_SET(local_rank, &mask);
       gasneti_assert_zeroret(gasneti_plpa_sched_setaffinity(0, sizeof(mask), &mask));
     }
-  }
-  #elif PLATFORM_OS_AIX
-  {
-    int cpus = gasneti_set_affinity_cpus();
-    int local_rank = rank % cpus;
-
-    gasneti_assert_zeroret(bindprocessor(BINDTHREAD, thread_self(), local_rank));
   }
   #elif PLATFORM_OS_SOLARIS
   {

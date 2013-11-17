@@ -1399,16 +1399,14 @@
          atomic64_t works on 64-bit types without any extra alignment, we may need
          to use mutex-based atomics when not aligned.  See bug 1595 for more info.
        */
-      #if ((PLATFORM_OS_DARWIN && PLATFORM_ARCH_32) || PLATFORM_OS_AIX)
+      #if (PLATFORM_OS_DARWIN && PLATFORM_ARCH_32)
         /* + Apple's 32-bit ABI only guarantees 4-byte minimum aligment for 64-bit integers and doubles.
-         * + AIX's ABI only guarantees 4-byte minimum aligment for doubles.
          */
         #define GASNETI_HYBRID_ATOMIC64	1
       #endif
 
       /* Should we use native 64-bit atomics on ILP32? */
-      #if PLATFORM_ARCH_32 && \
-	  (PLATFORM_OS_DARWIN || PLATFORM_OS_AIX || PLATFORM_OS_LINUX)
+      #if PLATFORM_ARCH_32 && (PLATFORM_OS_DARWIN || PLATFORM_OS_LINUX)
         #define GASNETI_PPC64_ILP32_NATIVE_ATOMICS 1
       #endif
     #endif

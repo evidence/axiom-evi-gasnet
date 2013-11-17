@@ -30,32 +30,6 @@ GASNETI_BEGIN_EXTERNC
     #error Incomplete conduit-specific timer impl.
   #endif
 /* ------------------------------------------------------------------------------------ */
-#elif PLATFORM_OS_AIX
-  #include <sys/time.h>
-  #include <sys/systemcfg.h>
-
-  /* we want to avoid expensive divide and conversion operations during collection, 
-     but timebasestruct_t structs are too difficult to perform arithmetic on
-     we stuff the internal cycle counter into a 64-bit holder and expand to realtime later */
-  typedef uint64_t gasneti_tick_t;
-  GASNETI_INLINE(gasneti_ticks_now)
-  gasneti_tick_t gasneti_ticks_now(void) {
-    timebasestruct_t t;
-    read_real_time(&t,TIMEBASE_SZ);
-    return (((uint64_t)t.tb_high) << 32) | ((uint64_t)t.tb_low);
-  }
-  GASNETI_INLINE(gasneti_ticks_to_ns)
-  uint64_t gasneti_ticks_to_ns(gasneti_tick_t st) {
-    timebasestruct_t t;
-    gasneti_assert((read_real_time(&t,TIMEBASE_SZ), 
-                   t.flag == RTC_POWER_PC)); /* otherwise timer arithmetic (min/max/sum) is compromised */
-    t.flag = RTC_POWER_PC;
-    t.tb_high = (uint32_t)(st >> 32);
-    t.tb_low =  (uint32_t)(st);
-    time_base_to_time(&t,TIMEBASE_SZ);
-    return (((uint64_t)t.tb_high) * 1000000000) + t.tb_low;
-  }
-/* ------------------------------------------------------------------------------------ */
 #elif PLATFORM_OS_MTA
   #include <sys/mta_task.h>
   #include <machine/mtaops.h>
