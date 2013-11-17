@@ -97,9 +97,6 @@
     #define GASNETI_PGI_ASM_BUG2843 1
   #endif
   #define GASNETI_ASM_SPECIAL(mnemonic) asm(mnemonic)
-#elif PLATFORM_COMPILER_COMPAQ
-  #include <c_asm.h>
-  #define GASNETI_ASM(mnemonic) asm(mnemonic)
 #elif PLATFORM_COMPILER_SUN 
   #ifdef __cplusplus 
     #if PLATFORM_OS_LINUX
@@ -111,17 +108,7 @@
   #else /* Sun C */
     #define GASNETI_ASM(mnemonic)  __asm(mnemonic)
   #endif
-#elif PLATFORM_COMPILER_NEC 
-  #define GASNETI_ASM(mnemonic)  asm(mnemonic)
-#elif PLATFORM_COMPILER_HP_C
-  #define GASNETI_ASM(mnemonic)  _asm(mnemonic)
-  #if (PLATFORM_COMPILER_VERSION_GE(5,55,0) && PLATFORM_COMPILER_VERSION_LT(6,5,0))
-    /* HP's Inline ASM guide documents versions [A.05.55 , A.06.05) as having a
-     * buggy implementation of the 16byte atomics; says they should not be used. */
-    #define GASNETI_HP_ASM_BAD_16B_ATOMICS 1
-  #endif
-#elif PLATFORM_COMPILER_SGI || PLATFORM_COMPILER_HP_CXX || PLATFORM_COMPILER_XLC || \
-      PLATFORM_COMPILER_CRAY || PLATFORM_COMPILER_MTA || PLATFORM_COMPILER_LCC
+#elif PLATFORM_COMPILER_XLC || PLATFORM_COMPILER_CRAY || PLATFORM_COMPILER_MTA || PLATFORM_COMPILER_LCC
   /* platforms where inline assembly not supported or used */
   #define GASNETI_ASM(mnemonic)  ERROR_NO_INLINE_ASSEMBLY_AVAIL 
   #undef GASNETI_ASM_AVAILABLE

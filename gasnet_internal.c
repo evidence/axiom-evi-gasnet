@@ -727,7 +727,7 @@ static void gasneti_check_portable_conduit(void) { /* check for portable conduit
         const char *desc;
         int hwid;
       } known_devs[] = {
-      #if PLATFORM_OS_BLRTS || PLATFORM_OS_BGP || PLATFORM_OS_BGQ
+      #if PLATFORM_OS_BGP || PLATFORM_OS_BGQ
         { "/dont_probe_an_io_node", S_IFDIR, "", 0 }
       #else
         #if PLATFORM_OS_LINUX && PLATFORM_ARCH_IA64 && GASNET_SEQ
@@ -753,10 +753,7 @@ static void gasneti_check_portable_conduit(void) { /* check for portable conduit
             while (i < lim && hwid == known_devs[i].hwid) i++; /* don't report a network twice */
         }
       }
-      #if PLATFORM_ARCH_CRAYX1
-        if (strlen(natives)) strcat(natives,", ");
-        strcat(natives,"Cray SHMEM (X1)");
-      #elif PLATFORM_OS_CNL
+      #if PLATFORM_OS_CNL
         if (strlen(natives)) strcat(natives,", ");
         strcat(natives,"Cray Gemini (XE and XK) or Aries (XC)");
       #elif PLATFORM_OS_BGP
@@ -971,7 +968,7 @@ static void gasneti_nodemap_dflt(gasneti_bootstrapExchangefn_t exchangefn) {
 
     gasneti_free(allids);
   #endif
-#elif PLATFORM_OS_BGQ || PLATFORM_OS_BGP || PLATFORM_OS_BLRTS || PLATFORM_OS_CATAMOUNT || !HAVE_GETHOSTID
+#elif PLATFORM_OS_BGQ || PLATFORM_OS_BGP || !HAVE_GETHOSTID
     /* Nodes are either (at least effectively) single process,
      * or we don't have a usable gethostid().  So, build a trivial nodemap. */
     gasneti_nodemap_trivial();

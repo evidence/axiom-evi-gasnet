@@ -606,7 +606,6 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
    * construct which allows a load between the LL and the SC.
    */
   #if PLATFORM_COMPILER_GNU
-    /* Note use of "Lga.0.%=" for labels works around the AIX assembler, which doesn't like "1:" */
     typedef struct {
       /* Ensure list head pointer is the only item on its cache line.
        * This prevents a live-lock which would result if a list element fell
@@ -641,28 +640,28 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
 	return NULL;
       }
       #if PLATFORM_ARCH_32
-        __asm__ __volatile__ ("Lga.1.%=:	   \n\t"
+        __asm__ __volatile__ ("1: \n\t"
 			      "lwarx	%1,0,%0    \n\t" /* head = p->head */
 			      "cmpwi	0,%1,0     \n\t" /* head == NULL? */
-			      "beq-	Lga.2.%=   \n\t" /* end on NULL */
+			      "beq-	2f         \n\t" /* end on NULL */
 			      GASNETI_PPC_RMB_ASM "\n\t" /* rmb */
 			      "lwz	%2,0(%1)   \n\t" /* next = head->next */
 			      "stwcx.	%2,0,%0    \n\t" /* p->head = next */
-			      "bne-	Lga.1.%=   \n"   /* retry on conflict */
-			      "Lga.2.%=: "
+			      "bne-	1b         \n"   /* retry on conflict */
+			      "2: "
 				: "=b" (addr), "=b" (head), "=r" (next)
 				: "0" (addr)
 				: "memory", "cc");
       #elif PLATFORM_ARCH_64
-        __asm__ __volatile__ ("Lga.1.%=:	   \n\t"
+        __asm__ __volatile__ ("1: \n\t"
 			      "ldarx	%1,0,%0    \n\t" /* head = p->head */
 			      "cmpdi	0,%1,0     \n\t" /* head == NULL? */
-			      "beq-	Lga.2.%=   \n\t" /* end on NULL */
+			      "beq-	2f         \n\t" /* end on NULL */
 			      GASNETI_PPC_RMB_ASM "\n\t" /* rmb */
 			      "ld	%2,0(%1)   \n\t" /* next = head->next */
 			      "stdcx.	%2,0,%0    \n\t" /* p->head = next */
-			      "bne-	Lga.1.%=   \n"   /* retry on conflict */
-			      "Lga.2.%=: "
+			      "bne-	1b         \n"   /* retry on conflict */
+			      "2: "
 				: "=b" (addr), "=b" (head), "=r" (next)
 				: "0" (addr)
 				: "memory", "cc");
@@ -865,25 +864,7 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
      *   _gasneti_lifo_st8_rel(): st8.rel instruction
      * and implement push/pop in terms of those using compiler-independent code.
      */
-    #if PLATFORM_COMPILER_HP
-      #include <machine/sys/inline.h>
-	
-      GASNETI_INLINE(_gasneti_lifo_store16)
-      int _gasneti_lifo_store16(void volatile *ptr, uint64_t oldtag, void *newval) {
-	_Asm_mov_to_ar(_AREG_CSD, (int64_t)newval);
-	_Asm_mov_to_ar(_AREG_CCV, (int64_t)oldtag);
-	return oldtag != _Asm_cmp8xchg16(_SEM_ACQ, ptr, (oldtag+1), _LDHINT_NONE, _UNGUARDED,
-                                         (_Asm_fence)(_UP_MEM_FENCE | _DOWN_MEM_FENCE));
-      }
-      #define _gasneti_lifo_load16(_addr, _tag, _head) do { \
-        (_tag) = _Asm_ld16(_LDHINT_NONE, (void *)(_addr), _UNGUARDED); \
-        (_head) = _Asm_mov_from_ar(_AREG_CSD); \
-      } while (0)
-      #define _gasneti_lifo_st8_rel(_addr, _val) \
-	_Asm_st_volatile(_SZ_D, _LDHINT_NONE, (void *)(_addr), (int64_t)(_val))
-
-      #define GASNETI_HAVE_ARCH_LIFO	1
-    #elif PLATFORM_COMPILER_INTEL
+    #if PLATFORM_COMPILER_INTEL
       #include <ia64intrin.h>
       GASNETI_INLINE(_gasneti_lifo_store16)
       int _gasneti_lifo_store16(void volatile *ptr, uint64_t oldtag, void *newval) {

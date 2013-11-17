@@ -49,23 +49,8 @@
 
 #if !HAVE_MMAP
   /* Skip the following platform checks */
-#elif PLATFORM_OS_IRIX
-  #ifdef MAP_SGI_ANYADDR /* allow mmap to use 'reserved' 256MB region on O2k */
-    #define GASNETI_MMAP_FLAGS (MAP_PRIVATE | MAP_SGI_ANYADDR | MAP_AUTORESRV)
-  #else
-    #define GASNETI_MMAP_FLAGS (MAP_PRIVATE | MAP_AUTORESRV)
-  #endif
-  #define GASNETI_MMAP_FILE "/dev/zero"
-#elif PLATFORM_ARCH_CRAYX1
-  #define GASNETI_MMAP_FLAGS (MAP_PRIVATE | MAP_AUTORESRV)
-  #define GASNETI_MMAP_FILE "/dev/zero"
-#elif PLATFORM_ARCH_CRAYT3E
-  #error mmap not supported on Cray-T3E
 #elif PLATFORM_OS_CYGWIN
   #error mmap not supported on Cygwin - it doesnt work properly
-#elif PLATFORM_OS_HPUX
-  #define GASNETI_MMAP_FLAGS (MAP_ANONYMOUS | MAP_NORESERVE | MAP_PRIVATE)
-  #define GASNETI_MMAP_NOTFIXED_FLAG MAP_VARIABLE
 #elif PLATFORM_ARCH_MIC
   #define GASNETI_MMAP_FLAGS (MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE | MAP_HUGETLB)
 #endif
@@ -887,15 +872,6 @@ extern void gasneti_munmap(void *segbase, uintptr_t segsize) {
   gasneti_tick_t t1, t2;
   gasneti_assert(segsize > 0);
   t1 = gasneti_ticks_now();
-    #if 0 && PLATFORM_OS_TRU64 /* doesn't seem to help */
-      /* invalidate the pages before unmap to avoid write-back penalty */
-      if (madvise(segbase, segsize, MADV_DONTNEED))
-        gasneti_fatalerror("madvise("GASNETI_LADDRFMT",%lu) failed: %s\n",
-	        GASNETI_LADDRSTR(segbase), (unsigned long)segsize, strerror(errno));
-      if (msync(segbase, segsize, MS_INVALIDATE))
-        gasneti_fatalerror("msync("GASNETI_LADDRFMT",%lu) failed: %s\n",
-	        GASNETI_LADDRSTR(segbase), (unsigned long)segsize, strerror(errno));
-    #endif
     if (munmap(segbase, segsize) != 0) 
       gasneti_fatalerror("munmap("GASNETI_LADDRFMT",%lu) failed: %s\n",
 	      GASNETI_LADDRSTR(segbase), (unsigned long)segsize, strerror(errno));
@@ -994,7 +970,7 @@ static gasnet_seginfo_t _gasneti_mmap_segment_search_inner(uintptr_t maxsz) {
     si.size = maxsz;
     mmaped = 1;
   } else { /* use a search to find largest possible */
-    #if PLATFORM_OS_TRU64
+    #if 0
       /* linear descending search best on systems with 
          fast mmap-failed and very slow unmap and/or mmap-succeed */
       si = gasneti_mmap_lineardesc_segsrch(maxsz);

@@ -12,15 +12,12 @@ EXTRA_DIST = $(dotpl_DATA) $(vg_DATA) \
 	gasnet_ibrun \
  	cross-configure-bgp \
  	cross-configure-bgq \
-	cross-configure-crayxt-catamount \
 	cross-configure-crayxt-linux \
 	cross-configure-crayxe-linux \
 	cross-configure-crayxc-linux \
 	cross-configure-intel-mic \
 	crayxt-nptl-pthread-patch
 # exclude these from distribution for now
-#	cross-configure-bgl \
-#	cross-configure-phoenix \
 #	cross-configure-k42ppc64 \
 #	cross-configure-linux-arm \
 #	cross-configure-osxi686 \

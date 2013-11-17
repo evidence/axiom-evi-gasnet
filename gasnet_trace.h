@@ -159,19 +159,13 @@ GASNETI_BEGIN_EXTERNC
   /* GASNETI_SRCLINES_FORCE ensures we always track srclines
      otherwise we only track them as needed for tracing purposes */
   #ifdef GASNETI_SRCLINES_FORCE
-    #if PLATFORM_COMPILER_SGI /* bug 2357: workaround a braindead C compiler bug */
-      static const int _gasneti_srclines_force = 1; 
-      #define GASNETI_SRCLINE_TRACKING() (_gasneti_srclines_force)
-    #else
+    #if 1 /* All currently supported platforms */
       #define GASNETI_SRCLINE_TRACKING() (1)
     #endif
   #else
     #define GASNETI_SRCLINE_TRACKING() GASNETI_TRACE_ENABLED(N)
   #endif
-  #if PLATFORM_ARCH_CRAYT3E /* workaround a compiler bug */
-    #define GASNETI_TRACE_SETSOURCELINE(filename, linenum) \
-         gasneti_trace_setsourceline(filename, linenum) 
-  #else
+  #if 1 /* All currently supported platforms */
     #define GASNETI_TRACE_SETSOURCELINE(filename, linenum) \
       (GASNETI_SRCLINE_TRACKING() ? gasneti_trace_setsourceline((const char *)filename, (unsigned int)linenum) : ((void)0))
   #endif

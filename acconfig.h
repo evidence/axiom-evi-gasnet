@@ -237,9 +237,6 @@
 /* has support (toolchain and cpu) for x86_64 cmpxchg16b instruction */
 #undef GASNETI_HAVE_X86_CMPXCHG16B
 
-/* gcc/gas support "LDCW,CO" psuedo-op on PA-RISC */
-#undef GASNETI_HAVE_PARISC_LDCW_CO
-
 /* gcc support for "U" and "h" register classes on SPARC32 */
 #undef GASNETI_HAVE_SPARC32_64BIT_ASM
 
@@ -315,12 +312,6 @@
 
 /* platform is an IBM BlueGene/Q multiprocessor */
 #undef GASNETI_ARCH_BGQ
-
-/* platform is a SiCortex multiprocessor */
-#undef GASNETI_ARCH_SICORTEX
-
-/* have (potentially buggy) SiCortex ICE9A CPU */
-#undef GASNETI_ARCH_ICE9A
 
 /* have (potentially buggy) MIPS R10000 multiprocessor */
 #undef GASNETI_ARCH_SGI_IP27

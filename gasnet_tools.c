@@ -41,10 +41,6 @@
 #include <sys/resource.h>
 #endif
 
-#if PLATFORM_OS_IRIX
-#define signal(a,b) bsd_signal(a,b)
-#endif
-
 
 #if PLATFORM_COMPILER_SUN_C
   /* disable warnings triggerred by some macro idioms we use */
@@ -300,18 +296,8 @@ extern const char *gasnett_performance_warning_str(void) {
 extern uint64_t gasneti_gettimeofday_us(void) {
   uint64_t retval;
   struct timeval tv;
-  #if PLATFORM_OS_UNICOS
-  retry:
-  #endif
   gasneti_assert_zeroret(gettimeofday(&tv, NULL));
   retval = ((uint64_t)tv.tv_sec) * 1000000 + (uint64_t)tv.tv_usec;
-  #if PLATFORM_OS_UNICOS
-    /* fix an empirically observed bug in UNICOS gettimeofday(),
-       which occasionally returns ridiculously incorrect values
-       SPR 728120, fixed in kernel 2.4.34 
-     */
-    if_pf(retval < (((uint64_t)3) << 48)) goto retry;
-  #endif
   return retval;
 }
 
@@ -380,8 +366,6 @@ extern void gasneti_filesystem_sync(void) {
   if ( gasneti_getenv_yesno_withdefault("GASNET_FS_SYNC",0) ) {
 #if PLATFORM_OS_MTA
     mta_sync();
-#elif PLATFORM_OS_CATAMOUNT
-    /* Empty */
 #else
     sync();
 #endif
@@ -1831,14 +1815,7 @@ int gasnett_maximize_rlimit(int res, const char *lim_desc) {
 
 /* ------------------------------------------------------------------------------------ */
 /* Physical CPU query */
-#if PLATFORM_OS_IRIX || PLATFORM_ARCH_CRAYX1
-#define _SC_NPROCESSORS_ONLN _SC_NPROC_ONLN
-#elif PLATFORM_ARCH_CRAYT3E
-#define _SC_NPROCESSORS_ONLN _SC_CRAY_MAXPES
-#elif PLATFORM_OS_HPUX
-#include <sys/param.h>
-#include <sys/pstat.h>
-#elif PLATFORM_OS_DARWIN || PLATFORM_OS_FREEBSD || PLATFORM_OS_NETBSD || PLATFORM_OS_OPENBSD
+#if PLATFORM_OS_DARWIN || PLATFORM_OS_FREEBSD || PLATFORM_OS_NETBSD || PLATFORM_OS_OPENBSD
 #include <sys/param.h>
 #include <sys/sysctl.h>
 #endif
@@ -1859,12 +1836,6 @@ extern int gasneti_cpu_count(void) {
         gasneti_assert_zeroret(sysctl(mib, 2, &hwprocs, &len, NULL, 0));
         if (hwprocs < 1) hwprocs = 0;
       }
-  #elif PLATFORM_OS_HPUX
-      {
-        struct pst_dynamic psd;
-        gasneti_assert_zeroret(pstat_getdynamic(&psd, sizeof(psd), (size_t)1, 0) == -1);
-        hwprocs = psd.psd_proc_cnt;
-      }
   #elif defined(GASNETI_HAVE_BGP_INLINES)
       { 
         register _BGP_SprgShMem sprg4;
@@ -1877,8 +1848,8 @@ extern int gasneti_cpu_count(void) {
         const uint8_t ppn = (sprg7 >> 8) & 0xff; /* Byte 6 is processes per node: 1,2,4,8,16,32 or 64 */
         hwprocs = 64 / ppn; /* XXX: this counts all SMT threads as cpus */
       }
-  #elif PLATFORM_OS_SUPERUX || PLATFORM_OS_MTA
-      hwprocs = 0; /* appears to be no way to query CPU count on these */
+  #elif PLATFORM_OS_MTA
+      hwprocs = 0; /* appears to be no way to query CPU count */
   #else
       hwprocs = sysconf(_SC_NPROCESSORS_ONLN);
       if (hwprocs < 1) hwprocs = 0; /* catch failures on Solaris/Cygwin */
@@ -1903,15 +1874,6 @@ extern int gasneti_cpu_count(void) {
 #if PLATFORM_OS_DARWIN || PLATFORM_OS_FREEBSD || PLATFORM_OS_NETBSD || PLATFORM_OS_OPENBSD
   #include <sys/types.h>
   #include <sys/sysctl.h>
-#elif PLATFORM_OS_CATAMOUNT
-  #include <catamount/catmalloc.h>
-#elif PLATFORM_OS_HPUX
-  #include <sys/param.h>
-  #include <sys/pstat.h>
-#elif PLATFORM_OS_IRIX
-  #include <invent.h>
-#elif PLATFORM_OS_TRU64 && HAVE_SYS_TABLE_H
-  #include <sys/table.h>
 #endif
 extern uint64_t gasneti_getPhysMemSz(int failureIsFatal) {
   uint64_t retval = _gasneti_getPhysMemSysconf();
@@ -1963,53 +1925,6 @@ extern uint64_t gasneti_getPhysMemSz(int failureIsFatal) {
             (int)len, strerror(errno), errno);
       }
     }
-  #elif PLATFORM_OS_AIX
-    { /* returns amount of real memory in kilobytes */
-      long int val = sysconf(_SC_AIX_REALMEM);
-      if (val > 0) retval = (1024 * (uint64_t)val);
-    }
-  #elif PLATFORM_OS_CATAMOUNT
-    { static uint64_t result = 0; /* call is expensive, so amortize */
-      if (!result) {
-        size_t fragments;
-        unsigned long total_free, largest_free, total_used;
-        gasneti_assert_zeroret(heap_info(&fragments, &total_free, &largest_free, &total_used));
-        result = total_free + total_used;
-     }
-     retval = result;
-    }
-  #elif PLATFORM_OS_HPUX
-    { struct pst_static pst;
-      gasneti_assert_zeroret(pstat_getstatic(&pst, sizeof(pst), (size_t)1, 0) == -1);
-      retval = (uint64_t)(pst.physical_memory) * pst.page_size;
-    }
-  #elif PLATFORM_OS_IRIX
-    #if defined(INV_MEMORY) && defined(INV_MAIN_MB)
-    { static int result_mb = 0; /* amortize cost of table search */
-      /* Full result may exceed native word size and thus not be read/written atomically.
-       * So, we cache in units of MB (using the same type used by the OS interface). */
-      if (!result_mb) {
-        inv_state_t *st = NULL;
-        inventory_t *pinv;
-        gasneti_assert_zeroret(setinvent_r(&st)); /* Using thread-safe variant */
-        while (NULL != (pinv = getinvent_r(st))) {
-          if ((pinv->inv_class == INV_MEMORY) && (pinv->inv_type == INV_MAIN_MB)) {
-            result_mb = pinv->inv_state;
-            break;
-          }
-        }
-        endinvent_r(st);
-      }
-      retval = result_mb * (uint64_t)1048576;
-    }
-    #endif /* defined(INV_MEMORY) && defined(INV_MAIN_MB) */
-  #elif PLATFORM_OS_TRU64 && defined(TBL_PMEMSTATS)
-    {
-      struct tbl_pmemstats stats;
-      if (1 == table(TBL_PMEMSTATS, 0, &stats, 1, sizeof(stats))) {
-        retval = stats.physmem;
-      }
-    }
   #else  /* unknown OS */
     { }
   #endif
@@ -2022,8 +1937,6 @@ extern uint64_t gasneti_getPhysMemSz(int failureIsFatal) {
 /* CPU affinity control */
 #if HAVE_PLPA
   #include "plpa.h"
-#elif PLATFORM_OS_AIX
-  #include <sys/thread.h>
 #elif PLATFORM_OS_SOLARIS
   #include <sys/types.h>
   #include <sys/processor.h>
@@ -2064,13 +1977,6 @@ void gasneti_set_affinity_default(int rank) {
       PLPA_CPU_SET(local_rank, &mask);
       gasneti_assert_zeroret(gasneti_plpa_sched_setaffinity(0, sizeof(mask), &mask));
     }
-  }
-  #elif PLATFORM_OS_AIX
-  {
-    int cpus = gasneti_set_affinity_cpus();
-    int local_rank = rank % cpus;
-
-    gasneti_assert_zeroret(bindprocessor(BINDTHREAD, thread_self(), local_rank));
   }
   #elif PLATFORM_OS_SOLARIS
   {
@@ -2156,8 +2062,6 @@ void gasneti_set_affinity(int rank) {
  #endif
  #undef MAXHOSTNAMELEN
  #define MAXHOSTNAMELEN 19
-#elif PLATFORM_OS_CATAMOUNT
- #include <catamount/data.h>
 #else
 #include <sys/param.h>
 #endif 
@@ -2228,9 +2132,6 @@ const char *gasneti_gethostname(void) {
                          (unsigned int)BG_UCI_GET_COMPUTE_CARD(cc_uci),
                          (unsigned int)proc
               );
-    #elif PLATFORM_OS_CATAMOUNT
-      /* TODO: can we do anything special for VN? */
-      snprintf(hostname, MAXHOSTNAMELEN, "nid%05u", _my_pnid);
     #else
       if (gethostname(hostname, MAXHOSTNAMELEN))
         gasnett_fatalerror("gasneti_gethostname() failed to get hostname: aborting");

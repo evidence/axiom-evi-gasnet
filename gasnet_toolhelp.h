@@ -42,7 +42,7 @@ GASNETI_BEGIN_EXTERNC
 #if PLATFORM_OS_MTA
    #include <machine/runtime.h>
    #define _gasneti_sched_yield() mta_yield()
-#elif defined(HAVE_SCHED_YIELD) && !PLATFORM_OS_BLRTS && !PLATFORM_OS_CATAMOUNT
+#elif defined(HAVE_SCHED_YIELD)
    #include <sched.h>
    #define _gasneti_sched_yield() sched_yield()
 #else
@@ -487,12 +487,7 @@ int gasneti_count0s_uint32_t(uint32_t x) {
   } while (0)
   #define gasneti_cond_destroy(pc)    gasneti_assert_zeroret(pthread_cond_destroy(&((pc)->cond)))
 
-  #if PLATFORM_ARCH_CRAYX1 /* bug 993 - workaround for buggy pthread library */
-    static gasneti_cond_t const gasneti_cond_staticinitialized = GASNETI_COND_INITIALIZER;
-    #define GASNETI_COND_INIT_CHECK(pc) \
-      (!memcmp(&(gasneti_cond_staticinitialized.cond),&((pc)->cond),sizeof(pthread_cond_t)) ? \
-        (void)pthread_cond_init(&((pc)->cond), NULL) : (void)0 )
-  #else
+  #if 1 /* All currently supported platforms */
     #define GASNETI_COND_INIT_CHECK(pc) ((void)0)
   #endif
 

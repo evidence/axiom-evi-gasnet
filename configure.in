@@ -147,12 +147,6 @@ AC_SUBST_FILE(PERLSTART)
 ##  C/C++ Compilers
 ##
 
-# Some OS's need help to find the right C compiler
-case "$target_os" in
-  superux*) # "cc" is completely broken on SuperUX, never use it
-     GASNET_ENV_DEFAULT(CC, c++ -Xa) ;; # may also/alternately want -Kc99
-esac
-
 GASNET_PROG_CC
 AC_PROG_LN_S
 GASNET_BIGENDIAN
@@ -178,15 +172,6 @@ case "$CC_FAMILY" in
         ;;
   MTA)  # override target_os for MTA, which may be wrong if cross-compiling
         target_os="mtx"   ;;
-  Cray) # Min supported version is 7.2 (which reports as 10.2)
-        AC_TRY_COMPILE([
-          #if (defined(__CRAYXT_COMPUTE_LINUX_TARGET) || defined(__LIBCATAMOUNT__)) && \
-              (((_RELEASE == 10) && (_RELEASE_MINOR < 2)) || (_RELEASE < 10))
-          # error
-          #endif
-        ],[ ], [:],
-        [AC_MSG_ERROR([GASNet does not support Cray compilers prior to CCE 7.2 on the CrayXT])])
-        ;;
 esac
 
 if test "$cross_compiling" = "yes" ; then
@@ -204,7 +189,6 @@ AC_SUBST(GASNETI_PTR_BITS)
 # XXX: Incomplete...
 
 GASNET_IF_ENABLED_NOHELP(arch-altix, [force_arch_altix=yes])
-GASNET_IF_ENABLED_NOHELP(arch-sicortex, [force_arch_sicortex=yes])
 GASNET_IF_ENABLED_NOHELP(arch-ibmpe, [force_arch_ibmpe=yes])
 
 ### 
@@ -289,8 +273,6 @@ case "$CC_FAMILY" in
        CCOPTFLAGS="-fast $SUN_ARCH_FLAG -xO5" 
        ;;
   Cray) CCOPTFLAGS="-O2" ;; # DOB: -O3 is unstable on Cray cc
-  HP) CCOPTFLAGS="-O3" ;;
-  MIPS) CCOPTFLAGS="-O3" ;;
   XLC)
     case "$target_os" in
 	darwin*)
@@ -312,7 +294,6 @@ case "$CC_FAMILY" in
       fi
     done
   ;;
-  Compaq) CCOPTFLAGS="-fast -noifo -O4 -tune host -inline all" ;;
   Intel) CCOPTFLAGS="-O3" ;;
   MTA) CCOPTFLAGS="-O3" ;; # MTA C actually ignores -O, optimization controlled by presence/absence of -g
   PGI)
@@ -373,9 +354,8 @@ AC_DEFUN([GASNET_GET_GNUWARNINGFLAGS],[
         # some crappy pthread mutex implementations generate warnings without -Wno-missing-braces
 	AC_MSG_CHECKING(for buggy pthread.h mutex initializers)
         old[$1]FLAGS="$[$1]FLAGS"
-        # OSF and FREEBSD require the -pthread compiler flag when including pthread.h
+        # FREEBSD requires the -pthread compiler flag when including pthread.h
         case "$target_os" in 
-          osf*)     [$1]FLAGS="-pthread $[$1]FLAGS" ;;
           freebsd*) [$1]FLAGS="-pthread $[$1]FLAGS" ;;
         esac 
         ]GASNET_TRY_[$1]COMPILE_WITHWARN[([#include <pthread.h>],
@@ -408,10 +388,7 @@ case "$CC_FAMILY" in
         CCDEBUGFLAGS="$CFLAGS"
         GASNET_POPVAR(CFLAGS)
   ;;
-  NEC)   CCDEBUGFLAGS="-g -Cnoopt -Cdebug" ;; 
-  HP)   CCDEBUGFLAGS="-g +ESdbgasm" ;; # need +ESdbgasm to use -g with _asm()
   MTA)  CCDEBUGFLAGS="-g2" ;; # need +ESdbgasm to use -g with _asm()
-  Compaq) CCDEBUGFLAGS="-trapuv -g2" ;;
   Pathscale) GASNET_PUSHVAR(CFLAGS,"-g3 -O0") # need to explicitly disable optimization
         GASNET_GET_GNUWARNINGFLAGS(C)
         CCDEBUGFLAGS="$CFLAGS"
@@ -556,41 +533,6 @@ AC_DEFUN([GASNET_GET_PPC64_FLAGS],[
   popdef([ppc64code])
 ])
 
-dnl GASNET_GET_HPUX_FLAGS(type, flags)  type=C or CXX
-# find the proper MISC_CFLAGS/MISC_CPPFLAGS required to work around a known
-# gcc+hp/ux problem (http://gcc.gnu.org/ml/gcc-bugs/1999-09n/msg00676.html)
-AC_DEFUN([GASNET_GET_HPUX_FLAGS],[
-  pushdef([hpuxcode],[[
-	#define _LARGEFILE64_SOURCE 1
-	#include <errno.h> /* Many other headers possible here */
-	int main(void) { return 0; }]])
-  AC_MSG_CHECKING(for Large File support by default)
-  AC_TRY_RUN(hpuxcode, [hpux_flag_worked=1], [hpux_flag_worked=0])
-  if test "$hpux_flag_worked" = 1; then
-    AC_MSG_RESULT([yes])
-  else
-    AC_MSG_RESULT([no])
-    for flag in $2 ; do
-      ]GASNET_TRY_[$1]FLAG[([$flag],[hpux_flag_worked=1],[hpux_flag_worked=0])
-      if test "$hpux_flag_worked" = 1; then
-        GASNET_PUSHVAR([$1]FLAGS,"$[$1]FLAGS $MISC_[$1]FLAGS $flag")
-        AC_TRY_RUN(hpuxcode, [hpux_flag_worked=1], [hpux_flag_worked=0])
-        GASNET_POPVAR([$1]FLAGS)
-        if test "$hpux_flag_worked" = 1; then
-          AC_MSG_CHECKING(for flags required for Large File support)
-          AC_MSG_RESULT($flag)
-          MISC_[$1]FLAGS="$flag"
-          break;
-        fi
-      fi
-    done
-    if test "$hpux_flag_worked" = 0; then
-      AC_MSG_ERROR([no flags found to allow Large File support])
-    fi
-  fi
-  popdef([hpuxcode])
-])
-
 
 case "$CC_FAMILY" in
   GNU)
@@ -600,7 +542,6 @@ case "$CC_FAMILY" in
       ia64) GASNET_TRY_CFLAG([-mtls-size=64], [MISC_CFLAGS="$MISC_CFLAGS -mtls-size=64"]);;
     esac
     case "$target_os" in
-      hpux*) GASNET_GET_HPUX_FLAGS(C,["-D__STDC_EXT__=1"]);;
       darwin*) 
         GASNET_TRY_WNO_FLAG([C],[${gcc_flag_prefix}-Wno-long-double],
                             [MISC_CFLAGS="$MISC_CFLAGS ${gcc_flag_prefix}-Wno-long-double"])
@@ -609,20 +550,13 @@ case "$CC_FAMILY" in
     ;;
   Cray) 
     case "$target_cpu" in
-      alphaev5) MISC_CFLAGS="-hnomessage=236 -htaskprivate $LIBCM" ;; # T3E
-      x86_64)   MISC_CFLAGS="-hnomessage=236" ;; # XT
-      *)        MISC_CFLAGS="-hnomessage=236 $LIBCM" ;; # X1
+      x86_64)   MISC_CFLAGS="-hnomessage=236" ;; # XT, XE, XK, XC, etc.
+      *)        AC_MSG_ERROR(Cray C compiler for unknown target CPU) ;;
     esac ;;
-  MIPS) MISC_CFLAGS="-common -diag_error 1035 -diag_suppress1171,1174,1209,1552" # 1035 ensures "#error" is fatal
-        # bug1555: older versions (7.4.0) don't have _Pragma without -c99, but that flag causes incorrect optimizer behavior
-	;;
-  Compaq) MISC_CFLAGS="-msg_disable extrasemi" ;;
-  HP)     MISC_CFLAGS="+W612 +W2111 +W2174 +W2177 +W2236 +W2550 -Wp,-H100000" ;; # -H increases internal preprocessor table size
   Intel) MISC_CFLAGS="-wd177 -wd279" 
          GASNET_TRY_CFLAG([-wd1572],
                           [MISC_CFLAGS="$MISC_CFLAGS -wd1572"])
          ;;
-  NEC) MISC_CFLAGS="-woff=68:111:174:177:236:301:550:940" ;; 
   PGI) MISC_CFLAGS="-Masmkeyword -c9x -Msignextend";; # get inline assembly, restrict and sign-extended narrowing
   MTA) MISC_CFLAGS="-display_error_number -WS 111,174,238" ;;
   Sun) if test "$target_cpu" = "sparc"; then 
@@ -641,7 +575,6 @@ case "$CC_FAMILY" in
   XLC) MISC_CPPFLAGS="-qcpluscmt" ;; # tell preprocessor to allow C++-style comments
   PGI) MISC_CPPFLAGS="-B" ;; # C++ comments
   Sun) MISC_CPPFLAGS="-xCC" ;; # C++ comments
-  HP)  MISC_CPPFLAGS="+W67" ;; # unrecognized #pragma upc
   GNU)
     case "$target_os" in
       darwin*) # add some options which are specific to the Apple Inc version of gcc
@@ -770,7 +703,6 @@ case "$CC_FAMILY" in
   PGI) KEEPTMP_CFLAGS="-Mkeepasm" ;; # XXX: only keeps .s.  Can't find a way to preserve .i
   Intel) KEEPTMP_CFLAGS="-save-temps" ;; # XXX: only keeps .s.  Can't find a way to preserve .i
   Sun) KEEPTMP_CFLAGS="-keeptmp" ;;
-  MIPS) KEEPTMP_CFLAGS="-keep" ;; # XXX: only keeps .s and .B.  Can't find a way to preserve .i
   Cray) KEEPTMP_CFLAGS="-hkeepfiles" ;; # XXX: only keeps .s.  Can't find a way to preserve .i
   *) KEEPTMP_CFLAGS="" ;;
 esac
@@ -848,16 +780,8 @@ pushdef([lowername],translit($2,'A-Z','a-z'))
 pushdef([uppername],translit($2,'a-z','A-Z'))
 inlinemod=""
 case "$[]uppername[]_FAMILY" in
-  Compaq) # force __inline on Compaq C, because it's the most effective
-    inlinemod=__inline
-  ;;
   XLC) # force __inline on XLC, to avoid warnings
     inlinemod=__inline
-  ;;
-  HP) # __inline crashes HP C when optimizations are disabled
-    if test "$BUILDCONFIG" = "debug" ; then
-      inlinemod=" "
-    fi
   ;;
 esac
 GASNET_TRY_INLINE($1,lowername,[inline])
@@ -1022,13 +946,6 @@ case "$target_os" in
 	    AC_DEFINE(GASNETI_USE_MMTIMER)
 	  fi
 	fi
-	# Check for SiCortex hardware by device or cpu name
-	if test x$force_arch_sicortex = xyes -o -c "/dev/scfabric" || 
-           expr "`/usr/bin/uname -p 2>&1`" : SiCortex >/dev/null; then
-	    GASNETI_ARCH_SICORTEX=1
-	    GASNET_PLATFORM=sicortex
-	    AC_DEFINE(GASNETI_ARCH_SICORTEX)
-	fi
 	# Check for IBM PE by presence of POE
 	if test x$force_arch_imbpe = xyes || 
            ( env PAGER=cat poe -h | grep 'Parallel Operating Environment' ) >/dev/null 2>&1; then
@@ -1037,14 +954,6 @@ case "$target_os" in
 	    AC_DEFINE(GASNETI_ARCH_IBMPE)
 	fi
         case "$target" in
-          *-catamount-*) 
-	    GASNET_IFDEF(__LIBCATAMOUNT__,[],[
-	      GASNET_MSG_ERROR([Compiling for a catamount target, but __LIBCATAMOUNT__ is not predefined! Are you using the right compiler? (perhaps try mpicc)])
-	    ])
-          ;;
-          powerpc-blrts-linux*)
-	    GASNET_PLATFORM=bgl
-	    ;;
           powerpc-bgp-linux*) # apparently lacks any identifying preprocessor macro
 	    GASNETI_ARCH_BGP=1
 	    AC_DEFINE(GASNETI_ARCH_BGP)
@@ -1099,48 +1008,9 @@ case "$target_os" in
 	GASNET_THREAD_DEFINES="-D_REENTRANT"
         GASNET_THREAD_LIBS=""
 	;;
-  irix*)
-	GASNET_THREAD_DEFINES="-D_REENTRANT"
-	GASNET_THREAD_LIBS="-lpthread"
-        ;;
-  aix*)
-        GASNET_THREAD_DEFINES="-D_REENTRANT -D_THREAD_SAFE"
-        GASNET_THREAD_LIBS="-lpthread"
-	;;
-  osf*)
-        # -D_PTHREAD_NOMETER_STATIC fixes failures when initially trylocking a statically-init mutex
-        GASNET_THREAD_DEFINES="-D_REENTRANT -D_THREAD_SAFE -D_PTHREAD_NOMETER_STATIC"
-        GASNET_THREAD_LIBS="-pthread -lpthreads"
-	;;
-  hpux*)
-        GASNET_THREAD_DEFINES="-D_REENTRANT"
-        GASNET_THREAD_LIBS="-lpthread"
-	;;
   mtx*)
 	GASNET_THREAD_DEFINES=""
         GASNET_THREAD_LIBS="-lpthread" 
-        ;;
-  superux*)
-        GASNET_THREAD_DEFINES="-D_REENTRANT"
-        GASNET_THREAD_LIBS="-lpthread"
-	;;
-  unicos*)
-        GASNET_THREAD_LIBS="-lpthread"
-	GASNET_TRY_CACHE_CHECK(for Cray T3E, cc_is_t3e, [], [
-	    #ifndef _CRAYT3E
-	      #error not Cray T3E
-	    #endif
-	  ], [
-            GASNET_THREAD_DEFINES="-D_REENTRANT"
-	    use_pthreads=no  # pthreads are horribly broken on the T3E
-	  ])
-        GASNET_TRY_CACHE_CHECK(for Cray X1, cc_is_x1, [], [
-            #ifndef __crayx1
-              #error not Cray X1
-            #endif
-          ], [
-            GASNET_THREAD_DEFINES="-D_REENTRANT -hthreadsafe"
-          ])
         ;;
   *)
         GASNET_MSG_WARN(unknown OS - you may need to update the configure script)
@@ -1368,7 +1238,7 @@ if test "$enabled_pshm" != no; then
   have_shm_open=probe
   AC_SEARCH_LIBS(shm_open, [rt posix4], [
     if test "$cross_compiling" = "yes" ; then
-      # To the best of my knowledge CNL, Catamount, and BG/L all lack
+      # To the best of my knowledge CNL, and BG/L all lack
       # working shm_open() support, though at least CNL finds the symbol.
       # Our support on BG/P is marginal at the moment (see pshm-design.txt).
       # So, we default to NO shm_open() when cross-compiling. -PHH
@@ -1514,30 +1384,6 @@ AM_CONDITIONAL(USE_PSHM, test "$with_pshm" != no)
 ########################################################################
 ## CPU feature checks
 
-## Does gcc/gas support "ldcw,co" pseudo-op on PA-RISC?
-GASNET_PUSHVAR(CFLAGS,"$CFLAGS $MISC_CPPFLAGS $MISC_CFLAGS -I$TOP_SRCDIR/other")
-GASNET_TRY_CACHE_CHECK(for pa-risc LDCW psuedo-op, parisc_ldcw_co, [
-  #include "portable_platform.h"
-], [
-  #if PLATFORM_ARCH_PARISC
-    #if PLATFORM_COMPILER_GNU
-      unsigned int gasneti_loadandclear_32(unsigned int volatile *v) {
-        register unsigned int volatile * addr = (unsigned int volatile *)v;
-        register unsigned int val = 0;
-          __asm__ __volatile__ (
-            "ldcw,co 0(%2), %0 \n"
-            : "=r"(val), "=m" (*addr) : "r" (addr), "m" (*addr));
-        return val;
-      }
-    #else
-	/* Don't know, but also don't currently care */
-    #endif
-  #else
-    #error wrong CPU architecture
-  #endif
-], [AC_DEFINE(GASNETI_HAVE_PARISC_LDCW_CO)])
-GASNET_POPVAR(CFLAGS)
-
 ## Look for PPC970/PPC970FX (aka G5)
 # Both false positives and false negatives are safe, but getting this
 # wrong may hurt performance.
@@ -1546,9 +1392,6 @@ GASNET_IF_ENABLED_WITH_AUTO(tune-ppc970, Enable/disable tuning for PPC970 (aka G
 if expr "$enabled_ppc970@$cross_compiling@$target_cpu" : "probe@no@powerpc" >/dev/null; then
   AC_MSG_CHECKING(whether to tune for PPC970/G5)
   case "$target_os" in
-     aix*) if /usr/sbin/lsattr -l proc0 -E | grep -i PowerPC_970 >/dev/null 2>&1; then
-             enabled_ppc970=yes
-           fi ;;
    linux*) if grep -i PPC970 /proc/cpuinfo >/dev/null 2>&1; then
              enabled_ppc970=yes
            fi ;;
@@ -1568,49 +1411,10 @@ fi
 # There is a processor erratum to work-around in our atomics :-(
 # The only SGI products w/ the bad cpus are the "IP27" platforms (Origin 200, Origin 2000, and Onyx 2)
 # XXX: We could refine this to check the reported cpu revision
-GASNET_IF_ENABLED_WITH_AUTO(arch-sgi-ip27, Enable/disable work-around for buggy SGI IP27 platforms (Onyx2, Origin200 and Origin2000) (auto-detected),
-  enabled_sgi_ip27=yes, enabled_sgi_ip27=no, enabled_sgi_ip27=unknown)
-if expr "$enabled_sgi_ip27@$cross_compiling@$target_cpu" : "unknown@no@mips" >/dev/null; then
-  AC_MSG_CHECKING(for potentially buggy MIPS R10K multiprocessor system)
-  case "$target_os" in
-    irix*) if test `uname -m` = "IP27" ; then
-             enabled_sgi_ip27=yes
-	   else
-             enabled_sgi_ip27=no
-	   fi ;;
-    *) # Linux, others?
-       enabled_sgi_ip27=no
-       ;;
-  esac
-  AC_MSG_RESULT($enabled_sgi_ip27)
-fi
-if expr "$enabled_sgi_ip27@$target_cpu" : "unknown@mips" >/dev/null; then
-  # Either cross compiling, or not on IRIX.
-  AC_MSG_ERROR([Do not know how to probe for an SGI IP27 system.  Please configure either with --enable-sgi-ip27 or --disable-sgi-ip27])
-fi
+GASNET_IF_ENABLED_WITH_AUTO(arch-sgi-ip27, Enable/disable work-around for buggy SGI IP27 platforms (Onyx2, Origin200 and Origin2000) (disabled),
+  enabled_sgi_ip27=yes, enabled_sgi_ip27=no, enabled_sgi_ip27=no)
 if test "$enabled_sgi_ip27" = yes; then
   AC_DEFINE(GASNETI_ARCH_SGI_IP27)
-fi
-
-## Look for potentially buggy SiCortex ICE9A processor
-# There is a processor erratum to work-around in our atomics :-(
-GASNET_IF_ENABLED_WITH_AUTO(arch-ice9a, Enable/disable work-around for buggy SiCoretex ICE9A processor (auto-detected),
-  enabled_arch_ice9a=yes, enabled_arch_ice9a=no, enabled_arch_ice9a=unknown)
-if (expr "$enabled_arch_ice9a@$target_cpu" : "unknown@mips" && \
-    expr "$target_os" : "linux") >/dev/null; then
-  if test "$cross_compiling" = "yes" ; then
-    AC_MSG_ERROR([Cannot probe for ICE9A processor when cross compiling.  Please configure either with --enable-arch-ice9a or --disable-arch-ice9a])
-  fi
-  AC_MSG_CHECKING(for potentially buggy ICE9A processor)
-  if grep -i ICE9A /proc/cpuinfo >/dev/null 2>&1; then
-    enabled_arch_ice9a=yes
-  else
-    enabled_arch_ice9a=no
-  fi
-  AC_MSG_RESULT($enabled_arch_ice9a)
-fi
-if test "$enabled_arch_ice9a" = yes; then
-  AC_DEFINE(GASNETI_ARCH_ICE9A)
 fi
 
 # Check how to reference MIPS assembler temporary register ("$1" or "$at")
@@ -1734,14 +1538,6 @@ AC_TRY_RUN([
 
   #if !PLATFORM_ARCH_IA64
     #error wrong CPU architecture
-  #elif PLATFORM_COMPILER_HP && !GASNETI_HP_ASM_BAD_16B_ATOMICS
-    #include <machine/sys/inline.h>
-    int cmp8xchg16(void volatile *ptr, unsigned long oldlo, unsigned long newlo, unsigned long newhi) {
-      _Asm_mov_to_ar(_AREG_CSD, newhi);
-      _Asm_mov_to_ar(_AREG_CCV, oldlo);
-      return oldlo == _Asm_cmp8xchg16(_SEM_ACQ, ptr, newlo, _LDHINT_NONE, _UNGUARDED,
-                                      (_Asm_fence)(_UP_MEM_FENCE | _DOWN_MEM_FENCE));
-    }
   #elif PLATFORM_COMPILER_INTEL
     #include <ia64intrin.h>
     int cmp8xchg16(void volatile *ptr, unsigned long oldlo, unsigned long newlo, unsigned long newhi) {
@@ -2363,9 +2159,6 @@ if test $enabled_udp = yes; then
          rs6000|powerpc*) GASNET_GET_PPC64_FLAGS(CXX,["-force_cpusubtype_ALL" "-Wa,-mppc64"]);;
          ia64) GASNET_TRY_CXXFLAG([-mtls-size=64], [MISC_CXXFLAGS="$MISC_CXXFLAGS -mtls-size=64"]);;
        esac
-       case "$target_os" in
-         hpux*) GASNET_GET_HPUX_FLAGS(CXX,["-D__STDC_EXT__=1"]);;
-       esac
        GASNET_PUSHVAR(CXXFLAGS,"${gxx_flag_prefix}-g3")
        case "$target_os" in
          darwin*) # Want -gstabs+ instead of -g3, if supported
@@ -2384,11 +2177,6 @@ if test $enabled_udp = yes; then
            esac
            ;;
     KAI)   MISC_CXXFLAGS="--diag_suppress 611 --diag_suppress 610" ;;
-    MIPS)  MISC_CXXFLAGS="-diag_error 1035 -diag_suppress 1171,1174,1209,1552,1681,1682 -LANG:std -common" ;;
-    HP)    MISC_CXXFLAGS="+W612 +W749 +W2111 +W2174 +W2177 +W2236 +W2550"
-           CXXOPTFLAGS="+O3"
-           ;;
-    Compaq) MISC_CXXFLAGS="-msg_disable extrasemi,boolexprconst,codeunreachable" ;;
     MTA)   MISC_CXXFLAGS="-exceptions -display_error_number -WS 111,174,238" 
            CXXDEBUGFLAGS="-g2"
            CXXOPTFLAGS="-O3"
@@ -2400,26 +2188,17 @@ if test $enabled_udp = yes; then
     XLC)
      GASNET_GET_PPC64_FLAGS(CXX)
      MISC_CXXFLAGS="$MISC_CXXFLAGS -qsuppress=1540-0809" # 1540-0809 = empty source file (some linux headers)
-     case "$target_os" in
-      aix*) MISC_CXXFLAGS="$MISC_CXXFLAGS -qeh -qweaksymbol" ;;
-      *) MISC_CXXFLAGS="$MISC_CXXFLAGS -qeh" ;;
-     esac ;;
+     MISC_CXXFLAGS="$MISC_CXXFLAGS -qeh" ;;
     Sun) if test "$target_cpu" = "sparc"; then 
            GASNET_GET_ULTRASPARC_FLAGS(CXX,["-xarch=v8plusb" "-xarch=v8plusa" "-xarch=v8plus" "-xarch=sparcvis2" "-xarch=sparcvis" "-xarch=sparc"])
          fi
          CXXOPTFLAGS="-xO2" # Can we go higher to match "-fast -xO5" of CCOPTFLAGS?
          GASNET_TRY_CXXFLAG([-xlibmopt], [CXXOPTFLAGS="$CXXOPTFLAGS -xlibmopt"])
       ;;
-    NEC)   MISC_CXXFLAGS="-woff=68:111:174:177:236:301:550:940 -Kexceptions" 
-           CXXDEBUGFLAGS="-g -Cnoopt -Cdebug"
-	   GASNET_UDP_LIBS="-Kexceptions" 
-      ;; 
     Cray)
      case "$target_cpu" in
-       # Cray CC v3.3.0.2 fails to accept "-htaskprivate", but accepts "-htask private", v3.6.0.2 accepts neither
-      alphaev5) MISC_CXXFLAGS="-hnomessage=236:611:997 -hexceptions -hnew_for_init $LIBCM" ;; # T3E
-      x86_64)   MISC_CXXFLAGS="-hnomessage=236 -hexceptions -hnew_for_init" ;; # XT
-      *)        MISC_CXXFLAGS="-hnomessage=236:611:997 -hexceptions -hnew_for_init $LIBCM" ;; # X1
+      x86_64)   MISC_CXXFLAGS="-hnomessage=236 -hexceptions -hnew_for_init" ;; # XT, XE, XK, XC, etc.
+      *)        AC_MSG_ERROR(Cray C++ compiler for unknown target CPU) ;;
      esac ;;
     Pathscale)  CXXDEBUGFLAGS="-g3 -O0" ;; # consistent with CCDEBUGFLAGS
     Open64)
@@ -2646,83 +2425,12 @@ if test "$enabled_mpi" = yes || test "$enabled_mpi_compat" = yes; then
         GASNET_ENV_DEFAULT(MPI_LIBS, )
         GASNET_ENV_DEFAULT(MPIRUN_CMD, mpirun -np %N %C)
         ;;
-    irix*)
-	# use SGI native MPI library
-        # user may need to do a "module load mpt" to make this work
-        if test "$GASNETI_PTR_BITS" = 64; then
-          GASNET_ENV_DEFAULT(MPI_CC, cc -64)
-        else
-          GASNET_ENV_DEFAULT(MPI_CC, cc -n32)
-        fi
-        # cannot use MISC_CFLAGS here because C compiler may not be MIPSPro
-        # -common gets us correct linking behavior for tentative definitions
-	BASIC_MPI_CFLAGS="-diag_error 1035 -diag_suppress1171,1174,1209,1552 -common"
-	if test "$BUILDCONFIG" = "optimize" ; then
-      	  BASIC_MPI_CFLAGS="-O2 $BASIC_MPI_CFLAGS"
-	else
-      	  BASIC_MPI_CFLAGS="-g $BASIC_MPI_CFLAGS"
-	fi
-        GASNET_CHECK_MPI_CC($BASIC_MPI_CFLAGS)
-    	GASNET_ENV_DEFAULT(MPI_LIBS, -lmpi)
-	GASNET_ENV_DEFAULT(MPIRUN_CMD, mpirun -np %N %C)
-        ;;
-    aix*)
-    	GASNET_ENV_DEFAULT(MPI_CC, mpcc)
-	BASIC_MPI_CFLAGS=""
-	if test "$BUILDCONFIG" = "optimize" ; then
-    	  BASIC_MPI_CFLAGS="-O3 -qstrict -qarch=auto -qtune=auto -qthreaded -qnosmp -qmaxmem=-1 $BASIC_MPI_CFLAGS"
-	else
-    	  BASIC_MPI_CFLAGS="-g $BASIC_MPI_CFLAGS"
-	fi
-        GASNET_CHECK_MPI_CC($BASIC_MPI_CFLAGS)
-    	GASNET_ENV_DEFAULT(MPI_LIBS, [-Wl,-bbigtoc])
-	GASNET_ENV_DEFAULT(MPIRUN_CMD, poe %C -procs %N -nodes %M -rmpool 1 -euilib us -retry 1 -retrycount 10000 -msg_api mpi)
-        ;;
-    osf*)
-	GASNET_ENV_DEFAULT(MPI_CC, cc)
-	BASIC_MPI_CFLAGS="-msg_disable extrasemi"
-        if test "$BUILDCONFIG" = "optimize" ; then
-          BASIC_MPI_CFLAGS="-fast -noifo -O4 -tune host -inline speed $BASIC_MPI_CFLAGS"
-        else
-          BASIC_MPI_CFLAGS="-g $BASIC_MPI_CFLAGS"
-        fi
-        GASNET_CHECK_MPI_CC($BASIC_MPI_CFLAGS)
-        GASNET_ENV_DEFAULT(MPI_LIBS, -lmpi -lelan -lrt)
-        GASNET_ENV_DEFAULT(MPIRUN_CMD, prun -n %N -N %M %C)
-        ;;
-    unicos*)
-        # Cray cc - need to enable private global vars and disable a silly warning
-        # user may need to do a "module load mpt" to make this work
-    	GASNET_ENV_DEFAULT(MPI_CC, cc)
-        case "$target_cpu" in
-          alphaev5) BASIC_MPI_CFLAGS="-hnomessage=236 -htaskprivate $LIBCM"  # T3E
-                    GASNET_ENV_DEFAULT(MPIRUN_CMD, mpprun -n %N %C)
-    	            GASNET_ENV_DEFAULT(MPI_LIBS, )
-          ;;
-          *)        BASIC_MPI_CFLAGS="-hnomessage=236 $LIBCM" # X1
-                    GASNET_ENV_DEFAULT(MPIRUN_CMD, mpirun -np %N %C)
-    	            GASNET_ENV_DEFAULT(MPI_LIBS, -lpthread)
-          ;;
-        esac
-	if test "$BUILDCONFIG" = "optimize" ; then
-    	  BASIC_MPI_CFLAGS="-O2 $BASIC_MPI_CFLAGS"
-	else
-    	  BASIC_MPI_CFLAGS="-g $BASIC_MPI_CFLAGS"
-	fi
-        GASNET_CHECK_MPI_CC($BASIC_MPI_CFLAGS)
-        ;;
     mtx*)
     	GASNET_ENV_DEFAULT(MPI_CC, cc)
         GASNET_CHECK_MPI_CC($MISC_CFLAGS $CFLAGS)
     	GASNET_ENV_DEFAULT(MPI_LIBS, -lmpi)
 	GASNET_ENV_DEFAULT(MPIRUN_CMD, mtarun -t %N -m %N /usr/bin/env _MPI_MT=%N %C)
         ;;
-    superux*)
-      GASNET_ENV_DEFAULT(MPI_CC, mpic++ -Xa)
-      GASNET_CHECK_MPI_CC($MISC_CFLAGS $CFLAGS)
-      GASNET_ENV_DEFAULT(MPI_LIBS, )
-      GASNET_ENV_DEFAULT(MPIRUN_CMD, mpirun -np %N %C)
-      ;;
     *) 
       # unknown OS - if user doesn't provide info, nothing we can do
       GASNET_ENV_DEFAULT(MPI_CC, mpicc)
@@ -3518,22 +3226,6 @@ if test $enabled_shmem = yes; then
   AC_MSG_CHECKING(for SHMEM network type)
 
   case "$target_os" in
-    unicos*)
-      AC_MSG_RESULT(Cray)
-      GASNET_ENV_DEFAULT(SHMEM_INCLUDE, /opt/ctl/mpt/mpt/include)
-      GASNET_ENV_DEFAULT(SHMEM_LIBDIR, /opt/ctl/mpt/mpt/lib)
-      GASNET_ENV_DEFAULT(SHMEM_LIBS, "-lsma")
-      SHMEM_FLAVOUR="CRAY_SHMEM"
-      ;;
-    irix*)
-      AC_MSG_RESULT(SGI/IRIX)
-      SHMEM_FLAVOUR="SGI_SHMEM"
-      GASNET_ENV_DEFAULT(SHMEM_INCLUDE, /usr/include)
-      # Explict -L/usr/lib would only be correct for o32 objects
-      GASNET_ENV_DEFAULT(SHMEM_LIBDIR, /anything/but/usr/lib)
-      GASNET_ENV_DEFAULT(SHMEM_LIBS, [-lsma -lmpi])
-      GASNET_MSG_WARN(building _EXPERIMENTAL_ support for SHMEM on IRIX.)
-      ;;
     # Linux shmem may mean Quadrics shmem or SGI shmem, but only SGI shmem is supported.
     linux*)
       if test -n "$GASNETI_ARCH_ALTIX"; then
@@ -4408,9 +4100,6 @@ else
 dnl GASNET_TOOLSONLY_FALSE_END
 fi
 
-case "$target" in
-*-catamount-*) ;; # don't use mallopt on catamount, even if it appears to be available
-*)
 dnl Check for ptmalloc's mallopt() to work aroung bugs 495 and 955
 AC_CHECK_HEADERS([malloc.h])
 GASNET_TRY_CACHE_LINK(for ptmalloc, malloc_is_ptmalloc,
@@ -4424,15 +4113,10 @@ GASNET_TRY_CACHE_LINK(for ptmalloc, malloc_is_ptmalloc,
     mallopt(M_TRIM_THRESHOLD, -1);
     mallopt(M_MMAP_MAX, 0);
   ],[ AC_DEFINE(HAVE_PTMALLOC) ])
-esac
 
 DEBUGMALLOC_VAR=GASNET_unused
 DEBUGMALLOC_VAL=0
 case "$target" in
-*-blrts-*)
-   # Glibc's debug malloc vars crash BG/L RTS
-   debugmalloc_support=no
-   ;;
 *-openbsd*)
    debugmalloc_support=yes
    DEBUGMALLOC_VAR=MALLOC_OPTIONS
@@ -4446,11 +4130,6 @@ case "$target" in
    DEBUGMALLOC_VAR=MALLOC_OPTIONS
    DEBUGMALLOC_VAL=AJ # (A)bort (J)unk-fill
    ;;
-#*-aix*) I was unable to get even a simple malloc() example to run -PHH
-#   debugmalloc_support=yes
-#   DEBUGMALLOC_VAR=MALLOCTYPE
-#   DEBUGMALLOC_VAL=debug
-#   ;;
 #*-solaris*) Not willing to mess w/ dynamic linker tricks -PHH
 #   debugmalloc_support=yes
 #   DEBUGMALLOC_VAR=LD_PRELOAD
@@ -4536,22 +4215,6 @@ AC_CHECK_HEADERS(sys/param.h)
 
 dnl Use the results of AC_CHECK_SIZEOF(void *) to select 64-bit mode for some tools
 dnl NOTE: AC_CHECK_SIZEOF may only be safely called after AC_PROG_CC/AC_PROG_CPP
-case "$target_os" in
-    aix*)
-        # If on AIX, and in 64 bit mode, we need to use 'ranlib -X64' and 'ar -X64'
-        if test x"$ac_cv_sizeof_void_p" = x8; then
-            AR="ar -X64"
-            RANLIB="ranlib -X64"
-        fi
-        ;;
-    osf*)
-        # Tru64 has a default /bin/sh that emits error msgs for missing
-        # commands, even when 2>/dev/null passed.  Use posix shell instead.
-        if test -x /usr/bin/posix/sh; then
-            BOURNE_SHELL="/usr/bin/posix/sh"
-        fi
-        ;;
-esac
 dnl     Store full paths, so we find right ones even if users have
 dnl     some other version in their path
 if test x"$BOURNE_SHELL" = x; then
@@ -4603,20 +4266,6 @@ AC_SUBST(ENVCMD)
 # complete linker setup
 
 case "$target_os" in
-  aix*)
-    # AIX linker doesn't allow large enough TOC by default to accomodate
-    # most large applications
-    # LDFLAGS="$LDFLAGS -Wl,-bbigtoc"
-
-    # set the data segment size to the largest permitted size for 32-bit apps (2GB)
-    # MLW: No.  (1) this has no effect when building libraries, only executables
-    #               and should be under control of end user.
-    #           (2) If this was used for a executable in a 32 bit app there would
-    #               only be one segment left for mmap and shared memory segments
-    #               and GASNET allocs shared mem region using mmap.
-    # LDFLAGS="$LDFLAGS -Wl,-bmaxdata:0x80000000"
-  ;;
-
   darwin*)
     # Darwin linker complains about symbols defined in multiple dynamic libs.
     # This is a minor annoyance in some cases, however it becomes a fatal error
@@ -4636,15 +4285,6 @@ case "$target_os" in
     fi
   ;;
 
-  irix*)
-    case "$CC_FAMILY" in
-      MIPS) LDFLAGS="$LDFLAGS -LD_MSG:off=84" # don't warn about unused libm
-      ;;
-      GNU) LDFLAGS="$LDFLAGS -Wl,-LD_MSG:off=84" # don't warn about unused libm
-           LDFLAGS="$LDFLAGS -Wl,-LD_MSG:off=47" # don't warn about inline branch insn
-      ;;
-    esac
-  ;;
 esac
 AC_SUBST(LDFLAGS)
 
