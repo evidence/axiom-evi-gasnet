@@ -300,18 +300,8 @@ extern const char *gasnett_performance_warning_str(void) {
 extern uint64_t gasneti_gettimeofday_us(void) {
   uint64_t retval;
   struct timeval tv;
-  #if PLATFORM_OS_UNICOS
-  retry:
-  #endif
   gasneti_assert_zeroret(gettimeofday(&tv, NULL));
   retval = ((uint64_t)tv.tv_sec) * 1000000 + (uint64_t)tv.tv_usec;
-  #if PLATFORM_OS_UNICOS
-    /* fix an empirically observed bug in UNICOS gettimeofday(),
-       which occasionally returns ridiculously incorrect values
-       SPR 728120, fixed in kernel 2.4.34 
-     */
-    if_pf(retval < (((uint64_t)3) << 48)) goto retry;
-  #endif
   return retval;
 }
 
@@ -1829,10 +1819,8 @@ int gasnett_maximize_rlimit(int res, const char *lim_desc) {
 
 /* ------------------------------------------------------------------------------------ */
 /* Physical CPU query */
-#if PLATFORM_OS_IRIX || PLATFORM_ARCH_CRAYX1
+#if PLATFORM_OS_IRIX
 #define _SC_NPROCESSORS_ONLN _SC_NPROC_ONLN
-#elif PLATFORM_ARCH_CRAYT3E
-#define _SC_NPROCESSORS_ONLN _SC_CRAY_MAXPES
 #elif PLATFORM_OS_HPUX
 #include <sys/param.h>
 #include <sys/pstat.h>

@@ -599,9 +599,8 @@ case "$CC_FAMILY" in
     ;;
   Cray) 
     case "$target_cpu" in
-      alphaev5) MISC_CFLAGS="-hnomessage=236 -htaskprivate $LIBCM" ;; # T3E
-      x86_64)   MISC_CFLAGS="-hnomessage=236" ;; # XT
-      *)        MISC_CFLAGS="-hnomessage=236 $LIBCM" ;; # X1
+      x86_64)   MISC_CFLAGS="-hnomessage=236" ;; # XT, XE, XK, XC, etc.
+      *)        AC_MSG_ERROR(Cray C compiler for unknown target CPU) ;;
     esac ;;
   MIPS) MISC_CFLAGS="-common -diag_error 1035 -diag_suppress1171,1174,1209,1552" # 1035 ensures "#error" is fatal
         # bug1555: older versions (7.4.0) don't have _Pragma without -c99, but that flag causes incorrect optimizer behavior
@@ -1099,24 +1098,6 @@ case "$target_os" in
         GASNET_THREAD_DEFINES="-D_REENTRANT"
         GASNET_THREAD_LIBS="-lpthread"
 	;;
-  unicos*)
-        GASNET_THREAD_LIBS="-lpthread"
-	GASNET_TRY_CACHE_CHECK(for Cray T3E, cc_is_t3e, [], [
-	    #ifndef _CRAYT3E
-	      #error not Cray T3E
-	    #endif
-	  ], [
-            GASNET_THREAD_DEFINES="-D_REENTRANT"
-	    use_pthreads=no  # pthreads are horribly broken on the T3E
-	  ])
-        GASNET_TRY_CACHE_CHECK(for Cray X1, cc_is_x1, [], [
-            #ifndef __crayx1
-              #error not Cray X1
-            #endif
-          ], [
-            GASNET_THREAD_DEFINES="-D_REENTRANT -hthreadsafe"
-          ])
-        ;;
   *)
         GASNET_MSG_WARN(unknown OS - you may need to update the configure script)
         ;;
@@ -2338,10 +2319,8 @@ if test $enabled_udp = yes; then
       ;; 
     Cray)
      case "$target_cpu" in
-       # Cray CC v3.3.0.2 fails to accept "-htaskprivate", but accepts "-htask private", v3.6.0.2 accepts neither
-      alphaev5) MISC_CXXFLAGS="-hnomessage=236:611:997 -hexceptions -hnew_for_init $LIBCM" ;; # T3E
-      x86_64)   MISC_CXXFLAGS="-hnomessage=236 -hexceptions -hnew_for_init" ;; # XT
-      *)        MISC_CXXFLAGS="-hnomessage=236:611:997 -hexceptions -hnew_for_init $LIBCM" ;; # X1
+      x86_64)   MISC_CXXFLAGS="-hnomessage=236 -hexceptions -hnew_for_init" ;; # XT, XE, XK, XC, etc.
+      *)        AC_MSG_ERROR(Cray C++ compiler for unknown target CPU) ;;
      esac ;;
     Pathscale)  CXXDEBUGFLAGS="-g3 -O0" ;; # consistent with CCDEBUGFLAGS
     Open64)
@@ -2611,27 +2590,6 @@ if test "$enabled_mpi" = yes || test "$enabled_mpi_compat" = yes; then
         GASNET_CHECK_MPI_CC($BASIC_MPI_CFLAGS)
         GASNET_ENV_DEFAULT(MPI_LIBS, -lmpi -lelan -lrt)
         GASNET_ENV_DEFAULT(MPIRUN_CMD, prun -n %N -N %M %C)
-        ;;
-    unicos*)
-        # Cray cc - need to enable private global vars and disable a silly warning
-        # user may need to do a "module load mpt" to make this work
-    	GASNET_ENV_DEFAULT(MPI_CC, cc)
-        case "$target_cpu" in
-          alphaev5) BASIC_MPI_CFLAGS="-hnomessage=236 -htaskprivate $LIBCM"  # T3E
-                    GASNET_ENV_DEFAULT(MPIRUN_CMD, mpprun -n %N %C)
-    	            GASNET_ENV_DEFAULT(MPI_LIBS, )
-          ;;
-          *)        BASIC_MPI_CFLAGS="-hnomessage=236 $LIBCM" # X1
-                    GASNET_ENV_DEFAULT(MPIRUN_CMD, mpirun -np %N %C)
-    	            GASNET_ENV_DEFAULT(MPI_LIBS, -lpthread)
-          ;;
-        esac
-	if test "$BUILDCONFIG" = "optimize" ; then
-    	  BASIC_MPI_CFLAGS="-O2 $BASIC_MPI_CFLAGS"
-	else
-    	  BASIC_MPI_CFLAGS="-g $BASIC_MPI_CFLAGS"
-	fi
-        GASNET_CHECK_MPI_CC($BASIC_MPI_CFLAGS)
         ;;
     mtx*)
     	GASNET_ENV_DEFAULT(MPI_CC, cc)
@@ -3440,13 +3398,6 @@ if test $enabled_shmem = yes; then
   AC_MSG_CHECKING(for SHMEM network type)
 
   case "$target_os" in
-    unicos*)
-      AC_MSG_RESULT(Cray)
-      GASNET_ENV_DEFAULT(SHMEM_INCLUDE, /opt/ctl/mpt/mpt/include)
-      GASNET_ENV_DEFAULT(SHMEM_LIBDIR, /opt/ctl/mpt/mpt/lib)
-      GASNET_ENV_DEFAULT(SHMEM_LIBS, "-lsma")
-      SHMEM_FLAVOUR="CRAY_SHMEM"
-      ;;
     irix*)
       AC_MSG_RESULT(SGI/IRIX)
       SHMEM_FLAVOUR="SGI_SHMEM"

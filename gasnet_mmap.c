@@ -56,11 +56,6 @@
     #define GASNETI_MMAP_FLAGS (MAP_PRIVATE | MAP_AUTORESRV)
   #endif
   #define GASNETI_MMAP_FILE "/dev/zero"
-#elif PLATFORM_ARCH_CRAYX1
-  #define GASNETI_MMAP_FLAGS (MAP_PRIVATE | MAP_AUTORESRV)
-  #define GASNETI_MMAP_FILE "/dev/zero"
-#elif PLATFORM_ARCH_CRAYT3E
-  #error mmap not supported on Cray-T3E
 #elif PLATFORM_OS_CYGWIN
   #error mmap not supported on Cygwin - it doesnt work properly
 #elif PLATFORM_OS_HPUX

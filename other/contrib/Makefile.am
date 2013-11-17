@@ -18,7 +18,6 @@ EXTRA_DIST = $(dotpl_DATA) $(vg_DATA) \
 	cross-configure-intel-mic \
 	crayxt-nptl-pthread-patch
 # exclude these from distribution for now
-#	cross-configure-phoenix \
 #	cross-configure-k42ppc64 \
 #	cross-configure-linux-arm \
 #	cross-configure-osxi686 \

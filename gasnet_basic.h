@@ -185,17 +185,6 @@
 #ifndef GASNET_PAGESIZE
   #ifdef GASNETI_PAGESIZE
     #define GASNET_PAGESIZE GASNETI_PAGESIZE
-  #elif PLATFORM_ARCH_CRAYT3E
-    /* on Cray: shmemalign allocates mem aligned across nodes, 
-        but there seems to be no fixed page size (man pagesize)
-        this is probably because they don't support VM
-       actual page size is set separately for each linker section, 
-        ranging from 512KB(default) to 8MB
-       Here we return 8 to reflect the lack of page alignment constraints
-       (for basic sanity, we want page alignment >= MAX(cache line,reqd double alignment))
-   */
-
-    #define GASNET_PAGESIZE GASNETI_CACHE_LINE_BYTES
   #else
     #error GASNET_PAGESIZE unknown and not set by conduit
   #endif

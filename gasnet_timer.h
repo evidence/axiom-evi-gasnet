@@ -56,41 +56,6 @@ GASNETI_BEGIN_EXTERNC
     return (((uint64_t)t.tb_high) * 1000000000) + t.tb_low;
   }
 /* ------------------------------------------------------------------------------------ */
-#elif PLATFORM_ARCH_CRAYT3E || PLATFORM_ARCH_CRAYX1
-  typedef uint64_t gasneti_tick_t;
-  #if PLATFORM_COMPILER_GNU
-    #define _rtc rtclock
-  #else
-    extern long _rtc(void);
-  #endif
-
-  #define gasneti_ticks_now()      (_rtc())
-
-  #if PLATFORM_ARCH_CRAYT3E || defined(GASNETI_UNICOS_SYS_CLOCK)
-    #include <sys/machinfo.h>
-    #ifndef GASNETI_UNICOS_SYS_CLOCK /* T3E has 75 Mhz sys. clock */
-    #define GASNETI_UNICOS_SYS_CLOCK 75000000
-    #endif
-    #define gasneti_ticks_to_ns(st)  ((gasneti_tick_t)(((gasneti_tick_t)(st)) * (1000000000.0 / GASNETI_UNICOS_SYS_CLOCK)))
-  #elif PLATFORM_ARCH_CRAYX1
-    #include <intrinsics.h>
-    extern long IRTC_RATE(void);
-    /* 100 or 113 Mhz sys. clock, depending on hardware */
-    GASNETI_INLINE(gasneti_ticks_to_ns)
-    uint64_t gasneti_ticks_to_ns(gasneti_tick_t st) {
-      static int gasneti_rtc_rate_set = 0;
-      static double gasneti_rtc_rate;
-      if_pf (!gasneti_rtc_rate_set) {
-        long const rateval = IRTC_RATE();
-        gasneti_assert(rateval > 1E6 && rateval < 1E12); /* sanity check */
-        gasneti_rtc_rate = 1000000000.0 / rateval;
-        gasneti_local_wmb();
-        gasneti_rtc_rate_set = 1;
-      }
-      return st * gasneti_rtc_rate;
-    }
-  #endif
-/* ------------------------------------------------------------------------------------ */
 #elif PLATFORM_OS_IRIX
   #include <time.h>
   #include <sys/ptimers.h>

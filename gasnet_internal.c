@@ -753,10 +753,7 @@ static void gasneti_check_portable_conduit(void) { /* check for portable conduit
             while (i < lim && hwid == known_devs[i].hwid) i++; /* don't report a network twice */
         }
       }
-      #if PLATFORM_ARCH_CRAYX1
-        if (strlen(natives)) strcat(natives,", ");
-        strcat(natives,"Cray SHMEM (X1)");
-      #elif PLATFORM_OS_CNL
+      #if PLATFORM_OS_CNL
         if (strlen(natives)) strcat(natives,", ");
         strcat(natives,"Cray Gemini (XE and XK) or Aries (XC)");
       #elif PLATFORM_OS_BGP
