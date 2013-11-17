@@ -1020,9 +1020,6 @@ case "$target_os" in
 	    AC_DEFINE(GASNETI_ARCH_IBMPE)
 	fi
         case "$target" in
-          powerpc-blrts-linux*)
-	    GASNET_PLATFORM=bgl
-	    ;;
           powerpc-bgp-linux*) # apparently lacks any identifying preprocessor macro
 	    GASNETI_ARCH_BGP=1
 	    AC_DEFINE(GASNETI_ARCH_BGP)
@@ -4350,10 +4347,6 @@ GASNET_TRY_CACHE_LINK(for ptmalloc, malloc_is_ptmalloc,
 DEBUGMALLOC_VAR=GASNET_unused
 DEBUGMALLOC_VAL=0
 case "$target" in
-*-blrts-*)
-   # Glibc's debug malloc vars crash BG/L RTS
-   debugmalloc_support=no
-   ;;
 *-openbsd*)
    debugmalloc_support=yes
    DEBUGMALLOC_VAR=MALLOC_OPTIONS

@@ -358,7 +358,7 @@ GASNETI_BEGIN_EXTERNC
 /* ------------------------------------------------------------------------------------ */
 #elif PLATFORM_ARCH_POWERPC && \
       ( PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_XLC || PLATFORM_COMPILER_CLANG ) && \
-      ( PLATFORM_OS_LINUX || PLATFORM_OS_BLRTS || PLATFORM_OS_BGP || PLATFORM_OS_BGQ)
+      ( PLATFORM_OS_LINUX || PLATFORM_OS_BGP || PLATFORM_OS_BGQ)
   /* Use the 64-bit "timebase" register on both 32- and 64-bit PowerPC CPUs */
   #include <sys/types.h>
   #include <dirent.h>
@@ -428,10 +428,7 @@ GASNETI_BEGIN_EXTERNC
     static double Tick = 0.0;
     if_pf (firstTime) {
       uint32_t freq;
-     #if PLATFORM_OS_BLRTS
-      /* don't know how to query this, so hard-code it for now */
-      freq = 700000000;
-     #elif PLATFORM_OS_BGP
+     #if PLATFORM_OS_BGP
       /* don't know how to query this, so hard-code it for now */
       freq = 850000000;
      #elif PLATFORM_OS_BGQ

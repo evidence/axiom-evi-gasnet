@@ -1541,7 +1541,7 @@
 	  "7ca32b78"  /*    mr      r3,r5     */ \
         }
         #pragma reg_killed_by _gasneti_atomic64_read cr0, gr0, gr5
-	#if PLATFORM_OS_LINUX || PLATFORM_OS_BLRTS /* ABI differs from Darwin and AIX */
+	#if PLATFORM_OS_LINUX /* ABI differs from Darwin and AIX */
           #pragma mc_func _gasneti_atomic64_set { \
             /* ARGS: r3 = p, r5 = hi32, r6 = lo32  LOCAL: r0 = tmp */ \
 	    "78c60020"  /*    clrldi  r6,r6,32 */ \
