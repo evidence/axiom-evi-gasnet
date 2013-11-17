@@ -1821,9 +1821,6 @@ int gasnett_maximize_rlimit(int res, const char *lim_desc) {
 /* Physical CPU query */
 #if PLATFORM_OS_IRIX
 #define _SC_NPROCESSORS_ONLN _SC_NPROC_ONLN
-#elif PLATFORM_OS_HPUX
-#include <sys/param.h>
-#include <sys/pstat.h>
 #elif PLATFORM_OS_DARWIN || PLATFORM_OS_FREEBSD || PLATFORM_OS_NETBSD || PLATFORM_OS_OPENBSD
 #include <sys/param.h>
 #include <sys/sysctl.h>
@@ -1844,12 +1841,6 @@ extern int gasneti_cpu_count(void) {
         len = sizeof(hwprocs);
         gasneti_assert_zeroret(sysctl(mib, 2, &hwprocs, &len, NULL, 0));
         if (hwprocs < 1) hwprocs = 0;
-      }
-  #elif PLATFORM_OS_HPUX
-      {
-        struct pst_dynamic psd;
-        gasneti_assert_zeroret(pstat_getdynamic(&psd, sizeof(psd), (size_t)1, 0) == -1);
-        hwprocs = psd.psd_proc_cnt;
       }
   #elif defined(GASNETI_HAVE_BGP_INLINES)
       { 
@@ -1889,9 +1880,6 @@ extern int gasneti_cpu_count(void) {
 #if PLATFORM_OS_DARWIN || PLATFORM_OS_FREEBSD || PLATFORM_OS_NETBSD || PLATFORM_OS_OPENBSD
   #include <sys/types.h>
   #include <sys/sysctl.h>
-#elif PLATFORM_OS_HPUX
-  #include <sys/param.h>
-  #include <sys/pstat.h>
 #elif PLATFORM_OS_IRIX
   #include <invent.h>
 #endif
@@ -1949,11 +1937,6 @@ extern uint64_t gasneti_getPhysMemSz(int failureIsFatal) {
     { /* returns amount of real memory in kilobytes */
       long int val = sysconf(_SC_AIX_REALMEM);
       if (val > 0) retval = (1024 * (uint64_t)val);
-    }
-  #elif PLATFORM_OS_HPUX
-    { struct pst_static pst;
-      gasneti_assert_zeroret(pstat_getstatic(&pst, sizeof(pst), (size_t)1, 0) == -1);
-      retval = (uint64_t)(pst.physical_memory) * pst.page_size;
     }
   #elif PLATFORM_OS_IRIX
     #if defined(INV_MEMORY) && defined(INV_MAIN_MB)

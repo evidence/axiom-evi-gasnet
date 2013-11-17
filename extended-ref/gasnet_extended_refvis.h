@@ -41,11 +41,7 @@
   #define GASNETE_LOOPING_DIMS 8
 #endif
 
-#if PLATFORM_COMPILER_HP && GASNETE_LOOPING_DIMS > 7
-  /* avoid bugs in HP C preprocessor */
-  #undef GASNETE_LOOPING_DIMS
-  #define GASNETE_LOOPING_DIMS 7  
-#elif PLATFORM_COMPILER_CRAY && GASNETE_LOOPING_DIMS > 4
+#if PLATFORM_COMPILER_CRAY && GASNETE_LOOPING_DIMS > 4
   /* avoid bugs in Cray C compiler */
   #undef GASNETE_LOOPING_DIMS
   #define GASNETE_LOOPING_DIMS 4  

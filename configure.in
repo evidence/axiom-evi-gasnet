@@ -273,7 +273,6 @@ case "$CC_FAMILY" in
        CCOPTFLAGS="-fast $SUN_ARCH_FLAG -xO5" 
        ;;
   Cray) CCOPTFLAGS="-O2" ;; # DOB: -O3 is unstable on Cray cc
-  HP) CCOPTFLAGS="-O3" ;;
   MIPS) CCOPTFLAGS="-O3" ;;
   XLC)
     case "$target_os" in
@@ -390,7 +389,6 @@ case "$CC_FAMILY" in
         CCDEBUGFLAGS="$CFLAGS"
         GASNET_POPVAR(CFLAGS)
   ;;
-  HP)   CCDEBUGFLAGS="-g +ESdbgasm" ;; # need +ESdbgasm to use -g with _asm()
   MTA)  CCDEBUGFLAGS="-g2" ;; # need +ESdbgasm to use -g with _asm()
   Pathscale) GASNET_PUSHVAR(CFLAGS,"-g3 -O0") # need to explicitly disable optimization
         GASNET_GET_GNUWARNINGFLAGS(C)
@@ -536,41 +534,6 @@ AC_DEFUN([GASNET_GET_PPC64_FLAGS],[
   popdef([ppc64code])
 ])
 
-dnl GASNET_GET_HPUX_FLAGS(type, flags)  type=C or CXX
-# find the proper MISC_CFLAGS/MISC_CPPFLAGS required to work around a known
-# gcc+hp/ux problem (http://gcc.gnu.org/ml/gcc-bugs/1999-09n/msg00676.html)
-AC_DEFUN([GASNET_GET_HPUX_FLAGS],[
-  pushdef([hpuxcode],[[
-	#define _LARGEFILE64_SOURCE 1
-	#include <errno.h> /* Many other headers possible here */
-	int main(void) { return 0; }]])
-  AC_MSG_CHECKING(for Large File support by default)
-  AC_TRY_RUN(hpuxcode, [hpux_flag_worked=1], [hpux_flag_worked=0])
-  if test "$hpux_flag_worked" = 1; then
-    AC_MSG_RESULT([yes])
-  else
-    AC_MSG_RESULT([no])
-    for flag in $2 ; do
-      ]GASNET_TRY_[$1]FLAG[([$flag],[hpux_flag_worked=1],[hpux_flag_worked=0])
-      if test "$hpux_flag_worked" = 1; then
-        GASNET_PUSHVAR([$1]FLAGS,"$[$1]FLAGS $MISC_[$1]FLAGS $flag")
-        AC_TRY_RUN(hpuxcode, [hpux_flag_worked=1], [hpux_flag_worked=0])
-        GASNET_POPVAR([$1]FLAGS)
-        if test "$hpux_flag_worked" = 1; then
-          AC_MSG_CHECKING(for flags required for Large File support)
-          AC_MSG_RESULT($flag)
-          MISC_[$1]FLAGS="$flag"
-          break;
-        fi
-      fi
-    done
-    if test "$hpux_flag_worked" = 0; then
-      AC_MSG_ERROR([no flags found to allow Large File support])
-    fi
-  fi
-  popdef([hpuxcode])
-])
-
 
 case "$CC_FAMILY" in
   GNU)
@@ -580,7 +543,6 @@ case "$CC_FAMILY" in
       ia64) GASNET_TRY_CFLAG([-mtls-size=64], [MISC_CFLAGS="$MISC_CFLAGS -mtls-size=64"]);;
     esac
     case "$target_os" in
-      hpux*) GASNET_GET_HPUX_FLAGS(C,["-D__STDC_EXT__=1"]);;
       darwin*) 
         GASNET_TRY_WNO_FLAG([C],[${gcc_flag_prefix}-Wno-long-double],
                             [MISC_CFLAGS="$MISC_CFLAGS ${gcc_flag_prefix}-Wno-long-double"])
@@ -595,7 +557,6 @@ case "$CC_FAMILY" in
   MIPS) MISC_CFLAGS="-common -diag_error 1035 -diag_suppress1171,1174,1209,1552" # 1035 ensures "#error" is fatal
         # bug1555: older versions (7.4.0) don't have _Pragma without -c99, but that flag causes incorrect optimizer behavior
 	;;
-  HP)     MISC_CFLAGS="+W612 +W2111 +W2174 +W2177 +W2236 +W2550 -Wp,-H100000" ;; # -H increases internal preprocessor table size
   Intel) MISC_CFLAGS="-wd177 -wd279" 
          GASNET_TRY_CFLAG([-wd1572],
                           [MISC_CFLAGS="$MISC_CFLAGS -wd1572"])
@@ -618,7 +579,6 @@ case "$CC_FAMILY" in
   XLC) MISC_CPPFLAGS="-qcpluscmt" ;; # tell preprocessor to allow C++-style comments
   PGI) MISC_CPPFLAGS="-B" ;; # C++ comments
   Sun) MISC_CPPFLAGS="-xCC" ;; # C++ comments
-  HP)  MISC_CPPFLAGS="+W67" ;; # unrecognized #pragma upc
   GNU)
     case "$target_os" in
       darwin*) # add some options which are specific to the Apple Inc version of gcc
@@ -827,11 +787,6 @@ inlinemod=""
 case "$[]uppername[]_FAMILY" in
   XLC) # force __inline on XLC, to avoid warnings
     inlinemod=__inline
-  ;;
-  HP) # __inline crashes HP C when optimizations are disabled
-    if test "$BUILDCONFIG" = "debug" ; then
-      inlinemod=" "
-    fi
   ;;
 esac
 GASNET_TRY_INLINE($1,lowername,[inline])
@@ -1064,10 +1019,6 @@ case "$target_os" in
         ;;
   aix*)
         GASNET_THREAD_DEFINES="-D_REENTRANT -D_THREAD_SAFE"
-        GASNET_THREAD_LIBS="-lpthread"
-	;;
-  hpux*)
-        GASNET_THREAD_DEFINES="-D_REENTRANT"
         GASNET_THREAD_LIBS="-lpthread"
 	;;
   mtx*)
@@ -2242,9 +2193,6 @@ if test $enabled_udp = yes; then
          rs6000|powerpc*) GASNET_GET_PPC64_FLAGS(CXX,["-force_cpusubtype_ALL" "-Wa,-mppc64"]);;
          ia64) GASNET_TRY_CXXFLAG([-mtls-size=64], [MISC_CXXFLAGS="$MISC_CXXFLAGS -mtls-size=64"]);;
        esac
-       case "$target_os" in
-         hpux*) GASNET_GET_HPUX_FLAGS(CXX,["-D__STDC_EXT__=1"]);;
-       esac
        GASNET_PUSHVAR(CXXFLAGS,"${gxx_flag_prefix}-g3")
        case "$target_os" in
          darwin*) # Want -gstabs+ instead of -g3, if supported
@@ -2264,9 +2212,6 @@ if test $enabled_udp = yes; then
            ;;
     KAI)   MISC_CXXFLAGS="--diag_suppress 611 --diag_suppress 610" ;;
     MIPS)  MISC_CXXFLAGS="-diag_error 1035 -diag_suppress 1171,1174,1209,1552,1681,1682 -LANG:std -common" ;;
-    HP)    MISC_CXXFLAGS="+W612 +W749 +W2111 +W2174 +W2177 +W2236 +W2550"
-           CXXOPTFLAGS="+O3"
-           ;;
     MTA)   MISC_CXXFLAGS="-exceptions -display_error_number -WS 111,174,238" 
            CXXDEBUGFLAGS="-g2"
            CXXOPTFLAGS="-O3"
