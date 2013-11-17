@@ -41,10 +41,6 @@
 #include <sys/resource.h>
 #endif
 
-#if PLATFORM_OS_IRIX
-#define signal(a,b) bsd_signal(a,b)
-#endif
-
 
 #if PLATFORM_COMPILER_SUN_C
   /* disable warnings triggerred by some macro idioms we use */
@@ -1819,9 +1815,7 @@ int gasnett_maximize_rlimit(int res, const char *lim_desc) {
 
 /* ------------------------------------------------------------------------------------ */
 /* Physical CPU query */
-#if PLATFORM_OS_IRIX
-#define _SC_NPROCESSORS_ONLN _SC_NPROC_ONLN
-#elif PLATFORM_OS_DARWIN || PLATFORM_OS_FREEBSD || PLATFORM_OS_NETBSD || PLATFORM_OS_OPENBSD
+#if PLATFORM_OS_DARWIN || PLATFORM_OS_FREEBSD || PLATFORM_OS_NETBSD || PLATFORM_OS_OPENBSD
 #include <sys/param.h>
 #include <sys/sysctl.h>
 #endif
@@ -1880,8 +1874,6 @@ extern int gasneti_cpu_count(void) {
 #if PLATFORM_OS_DARWIN || PLATFORM_OS_FREEBSD || PLATFORM_OS_NETBSD || PLATFORM_OS_OPENBSD
   #include <sys/types.h>
   #include <sys/sysctl.h>
-#elif PLATFORM_OS_IRIX
-  #include <invent.h>
 #endif
 extern uint64_t gasneti_getPhysMemSz(int failureIsFatal) {
   uint64_t retval = _gasneti_getPhysMemSysconf();
@@ -1938,26 +1930,6 @@ extern uint64_t gasneti_getPhysMemSz(int failureIsFatal) {
       long int val = sysconf(_SC_AIX_REALMEM);
       if (val > 0) retval = (1024 * (uint64_t)val);
     }
-  #elif PLATFORM_OS_IRIX
-    #if defined(INV_MEMORY) && defined(INV_MAIN_MB)
-    { static int result_mb = 0; /* amortize cost of table search */
-      /* Full result may exceed native word size and thus not be read/written atomically.
-       * So, we cache in units of MB (using the same type used by the OS interface). */
-      if (!result_mb) {
-        inv_state_t *st = NULL;
-        inventory_t *pinv;
-        gasneti_assert_zeroret(setinvent_r(&st)); /* Using thread-safe variant */
-        while (NULL != (pinv = getinvent_r(st))) {
-          if ((pinv->inv_class == INV_MEMORY) && (pinv->inv_type == INV_MAIN_MB)) {
-            result_mb = pinv->inv_state;
-            break;
-          }
-        }
-        endinvent_r(st);
-      }
-      retval = result_mb * (uint64_t)1048576;
-    }
-    #endif /* defined(INV_MEMORY) && defined(INV_MAIN_MB) */
   #else  /* unknown OS */
     { }
   #endif

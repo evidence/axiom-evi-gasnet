@@ -56,19 +56,6 @@ GASNETI_BEGIN_EXTERNC
     return (((uint64_t)t.tb_high) * 1000000000) + t.tb_low;
   }
 /* ------------------------------------------------------------------------------------ */
-#elif PLATFORM_OS_IRIX
-  #include <time.h>
-  #include <sys/ptimers.h>
-
-  typedef uint64_t gasneti_tick_t;
-  GASNETI_INLINE(gasneti_ticks_now)
-  gasneti_tick_t gasneti_ticks_now(void) {
-    struct timespec t;
-    gasneti_assert_zeroret(clock_gettime(CLOCK_SGI_CYCLE, &t));
-    return ((((uint64_t)t.tv_sec) & 0xFFFF) * 1000000000) + t.tv_nsec;
-  }
-  #define gasneti_ticks_to_ns(st)  (st)
-/* ------------------------------------------------------------------------------------ */
 #elif PLATFORM_OS_MTA
   #include <sys/mta_task.h>
   #include <machine/mtaops.h>

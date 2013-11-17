@@ -142,8 +142,6 @@ static int gasnetc_init(int *argc, char ***argv) {
 
   #if defined(CRAY_SHMEM) || GASNETI_ARCH_ALTIX
     start_pes(0);
-  #elif PLATFORM_OS_IRIX
-    MPI_Init(argc, argv);
   #elif defined(QUADRICS_SHMEM)
     shmem_init();
   #endif

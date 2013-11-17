@@ -49,13 +49,6 @@
 
 #if !HAVE_MMAP
   /* Skip the following platform checks */
-#elif PLATFORM_OS_IRIX
-  #ifdef MAP_SGI_ANYADDR /* allow mmap to use 'reserved' 256MB region on O2k */
-    #define GASNETI_MMAP_FLAGS (MAP_PRIVATE | MAP_SGI_ANYADDR | MAP_AUTORESRV)
-  #else
-    #define GASNETI_MMAP_FLAGS (MAP_PRIVATE | MAP_AUTORESRV)
-  #endif
-  #define GASNETI_MMAP_FILE "/dev/zero"
 #elif PLATFORM_OS_CYGWIN
   #error mmap not supported on Cygwin - it doesnt work properly
 #elif PLATFORM_ARCH_MIC

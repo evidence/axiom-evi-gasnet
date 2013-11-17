@@ -273,7 +273,6 @@ case "$CC_FAMILY" in
        CCOPTFLAGS="-fast $SUN_ARCH_FLAG -xO5" 
        ;;
   Cray) CCOPTFLAGS="-O2" ;; # DOB: -O3 is unstable on Cray cc
-  MIPS) CCOPTFLAGS="-O3" ;;
   XLC)
     case "$target_os" in
 	darwin*)
@@ -554,9 +553,6 @@ case "$CC_FAMILY" in
       x86_64)   MISC_CFLAGS="-hnomessage=236" ;; # XT, XE, XK, XC, etc.
       *)        AC_MSG_ERROR(Cray C compiler for unknown target CPU) ;;
     esac ;;
-  MIPS) MISC_CFLAGS="-common -diag_error 1035 -diag_suppress1171,1174,1209,1552" # 1035 ensures "#error" is fatal
-        # bug1555: older versions (7.4.0) don't have _Pragma without -c99, but that flag causes incorrect optimizer behavior
-	;;
   Intel) MISC_CFLAGS="-wd177 -wd279" 
          GASNET_TRY_CFLAG([-wd1572],
                           [MISC_CFLAGS="$MISC_CFLAGS -wd1572"])
@@ -707,7 +703,6 @@ case "$CC_FAMILY" in
   PGI) KEEPTMP_CFLAGS="-Mkeepasm" ;; # XXX: only keeps .s.  Can't find a way to preserve .i
   Intel) KEEPTMP_CFLAGS="-save-temps" ;; # XXX: only keeps .s.  Can't find a way to preserve .i
   Sun) KEEPTMP_CFLAGS="-keeptmp" ;;
-  MIPS) KEEPTMP_CFLAGS="-keep" ;; # XXX: only keeps .s and .B.  Can't find a way to preserve .i
   Cray) KEEPTMP_CFLAGS="-hkeepfiles" ;; # XXX: only keeps .s.  Can't find a way to preserve .i
   *) KEEPTMP_CFLAGS="" ;;
 esac
@@ -1013,10 +1008,6 @@ case "$target_os" in
 	GASNET_THREAD_DEFINES="-D_REENTRANT"
         GASNET_THREAD_LIBS=""
 	;;
-  irix*)
-	GASNET_THREAD_DEFINES="-D_REENTRANT"
-	GASNET_THREAD_LIBS="-lpthread"
-        ;;
   aix*)
         GASNET_THREAD_DEFINES="-D_REENTRANT -D_THREAD_SAFE"
         GASNET_THREAD_LIBS="-lpthread"
@@ -1427,26 +1418,8 @@ fi
 # There is a processor erratum to work-around in our atomics :-(
 # The only SGI products w/ the bad cpus are the "IP27" platforms (Origin 200, Origin 2000, and Onyx 2)
 # XXX: We could refine this to check the reported cpu revision
-GASNET_IF_ENABLED_WITH_AUTO(arch-sgi-ip27, Enable/disable work-around for buggy SGI IP27 platforms (Onyx2, Origin200 and Origin2000) (auto-detected),
-  enabled_sgi_ip27=yes, enabled_sgi_ip27=no, enabled_sgi_ip27=unknown)
-if expr "$enabled_sgi_ip27@$cross_compiling@$target_cpu" : "unknown@no@mips" >/dev/null; then
-  AC_MSG_CHECKING(for potentially buggy MIPS R10K multiprocessor system)
-  case "$target_os" in
-    irix*) if test `uname -m` = "IP27" ; then
-             enabled_sgi_ip27=yes
-	   else
-             enabled_sgi_ip27=no
-	   fi ;;
-    *) # Linux, others?
-       enabled_sgi_ip27=no
-       ;;
-  esac
-  AC_MSG_RESULT($enabled_sgi_ip27)
-fi
-if expr "$enabled_sgi_ip27@$target_cpu" : "unknown@mips" >/dev/null; then
-  # Either cross compiling, or not on IRIX.
-  AC_MSG_ERROR([Do not know how to probe for an SGI IP27 system.  Please configure either with --enable-sgi-ip27 or --disable-sgi-ip27])
-fi
+GASNET_IF_ENABLED_WITH_AUTO(arch-sgi-ip27, Enable/disable work-around for buggy SGI IP27 platforms (Onyx2, Origin200 and Origin2000) (disabled),
+  enabled_sgi_ip27=yes, enabled_sgi_ip27=no, enabled_sgi_ip27=no)
 if test "$enabled_sgi_ip27" = yes; then
   AC_DEFINE(GASNETI_ARCH_SGI_IP27)
 fi
@@ -2211,7 +2184,6 @@ if test $enabled_udp = yes; then
            esac
            ;;
     KAI)   MISC_CXXFLAGS="--diag_suppress 611 --diag_suppress 610" ;;
-    MIPS)  MISC_CXXFLAGS="-diag_error 1035 -diag_suppress 1171,1174,1209,1552,1681,1682 -LANG:std -common" ;;
     MTA)   MISC_CXXFLAGS="-exceptions -display_error_number -WS 111,174,238" 
            CXXDEBUGFLAGS="-g2"
            CXXOPTFLAGS="-O3"
@@ -2462,26 +2434,6 @@ if test "$enabled_mpi" = yes || test "$enabled_mpi_compat" = yes; then
         GASNET_POPVAR(CFLAGS)
         GASNET_ENV_DEFAULT(MPI_LIBS, )
         GASNET_ENV_DEFAULT(MPIRUN_CMD, mpirun -np %N %C)
-        ;;
-    irix*)
-	# use SGI native MPI library
-        # user may need to do a "module load mpt" to make this work
-        if test "$GASNETI_PTR_BITS" = 64; then
-          GASNET_ENV_DEFAULT(MPI_CC, cc -64)
-        else
-          GASNET_ENV_DEFAULT(MPI_CC, cc -n32)
-        fi
-        # cannot use MISC_CFLAGS here because C compiler may not be MIPSPro
-        # -common gets us correct linking behavior for tentative definitions
-	BASIC_MPI_CFLAGS="-diag_error 1035 -diag_suppress1171,1174,1209,1552 -common"
-	if test "$BUILDCONFIG" = "optimize" ; then
-      	  BASIC_MPI_CFLAGS="-O2 $BASIC_MPI_CFLAGS"
-	else
-      	  BASIC_MPI_CFLAGS="-g $BASIC_MPI_CFLAGS"
-	fi
-        GASNET_CHECK_MPI_CC($BASIC_MPI_CFLAGS)
-    	GASNET_ENV_DEFAULT(MPI_LIBS, -lmpi)
-	GASNET_ENV_DEFAULT(MPIRUN_CMD, mpirun -np %N %C)
         ;;
     aix*)
     	GASNET_ENV_DEFAULT(MPI_CC, mpcc)
@@ -3296,15 +3248,6 @@ if test $enabled_shmem = yes; then
   AC_MSG_CHECKING(for SHMEM network type)
 
   case "$target_os" in
-    irix*)
-      AC_MSG_RESULT(SGI/IRIX)
-      SHMEM_FLAVOUR="SGI_SHMEM"
-      GASNET_ENV_DEFAULT(SHMEM_INCLUDE, /usr/include)
-      # Explict -L/usr/lib would only be correct for o32 objects
-      GASNET_ENV_DEFAULT(SHMEM_LIBDIR, /anything/but/usr/lib)
-      GASNET_ENV_DEFAULT(SHMEM_LIBS, [-lsma -lmpi])
-      GASNET_MSG_WARN(building _EXPERIMENTAL_ support for SHMEM on IRIX.)
-      ;;
     # Linux shmem may mean Quadrics shmem or SGI shmem, but only SGI shmem is supported.
     linux*)
       if test -n "$GASNETI_ARCH_ALTIX"; then
@@ -4392,15 +4335,6 @@ case "$target_os" in
     fi
   ;;
 
-  irix*)
-    case "$CC_FAMILY" in
-      MIPS) LDFLAGS="$LDFLAGS -LD_MSG:off=84" # don't warn about unused libm
-      ;;
-      GNU) LDFLAGS="$LDFLAGS -Wl,-LD_MSG:off=84" # don't warn about unused libm
-           LDFLAGS="$LDFLAGS -Wl,-LD_MSG:off=47" # don't warn about inline branch insn
-      ;;
-    esac
-  ;;
 esac
 AC_SUBST(LDFLAGS)
 
