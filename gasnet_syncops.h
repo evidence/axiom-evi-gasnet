@@ -606,7 +606,6 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
    * construct which allows a load between the LL and the SC.
    */
   #if PLATFORM_COMPILER_GNU
-    /* Note use of "Lga.0.%=" for labels works around the AIX assembler, which doesn't like "1:" */
     typedef struct {
       /* Ensure list head pointer is the only item on its cache line.
        * This prevents a live-lock which would result if a list element fell
@@ -641,28 +640,28 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
 	return NULL;
       }
       #if PLATFORM_ARCH_32
-        __asm__ __volatile__ ("Lga.1.%=:	   \n\t"
+        __asm__ __volatile__ ("1: \n\t"
 			      "lwarx	%1,0,%0    \n\t" /* head = p->head */
 			      "cmpwi	0,%1,0     \n\t" /* head == NULL? */
-			      "beq-	Lga.2.%=   \n\t" /* end on NULL */
+			      "beq-	2f         \n\t" /* end on NULL */
 			      GASNETI_PPC_RMB_ASM "\n\t" /* rmb */
 			      "lwz	%2,0(%1)   \n\t" /* next = head->next */
 			      "stwcx.	%2,0,%0    \n\t" /* p->head = next */
-			      "bne-	Lga.1.%=   \n"   /* retry on conflict */
-			      "Lga.2.%=: "
+			      "bne-	1b         \n"   /* retry on conflict */
+			      "2: "
 				: "=b" (addr), "=b" (head), "=r" (next)
 				: "0" (addr)
 				: "memory", "cc");
       #elif PLATFORM_ARCH_64
-        __asm__ __volatile__ ("Lga.1.%=:	   \n\t"
+        __asm__ __volatile__ ("1: \n\t"
 			      "ldarx	%1,0,%0    \n\t" /* head = p->head */
 			      "cmpdi	0,%1,0     \n\t" /* head == NULL? */
-			      "beq-	Lga.2.%=   \n\t" /* end on NULL */
+			      "beq-	2f         \n\t" /* end on NULL */
 			      GASNETI_PPC_RMB_ASM "\n\t" /* rmb */
 			      "ld	%2,0(%1)   \n\t" /* next = head->next */
 			      "stdcx.	%2,0,%0    \n\t" /* p->head = next */
-			      "bne-	Lga.1.%=   \n"   /* retry on conflict */
-			      "Lga.2.%=: "
+			      "bne-	1b         \n"   /* retry on conflict */
+			      "2: "
 				: "=b" (addr), "=b" (head), "=r" (next)
 				: "0" (addr)
 				: "memory", "cc");

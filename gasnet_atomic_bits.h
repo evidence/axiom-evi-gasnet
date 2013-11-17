@@ -1618,11 +1618,11 @@
       uint32_t gasneti_atomic32_addandfetch(gasneti_atomic32_t *v, int32_t op) {
         register uint32_t result;
         __asm__ __volatile__ ( 
-          "Lga.0.%=:\t"                 /* AIX assembler doesn't grok "0:"-type local labels */
+          "0:\t"
           "lwarx    %0,0,%2 \n\t" 
           "add%I3   %0,%0,%3 \n\t"
           "stwcx.   %0,0,%2 \n\t"
-          "bne-     Lga.0.%= \n\t" 
+          "bne-     0b \n\t" 
           : "=&b"(result), "=m" (v->ctr)	/* constraint b = "b"ase register (not r0) */
           : "r" (v), "Ir"(op) , "m"(v->ctr)
           : "cr0");
@@ -1636,10 +1636,10 @@
       uint32_t _gasneti_atomic32_swap(gasneti_atomic32_t *v, uint32_t newval) {
         register uint32_t oldval;
         __asm__ __volatile__ ( 
-          "Lga.0.%=:\t"                 /* AIX assembler doesn't grok "0:"-type local labels */
+          "0:\t"
           "lwarx    %0,0,%2 \n\t" 
           "stwcx.   %3,0,%2 \n\t"
-          "bne-     Lga.0.%= \n\t" 
+          "bne-     0b \n\t" 
           : "=&r"(oldval), "=m" (v->ctr)
           : "r" (v), "r"(newval) , "m"(v->ctr)
           : "cr0");
@@ -1652,13 +1652,13 @@
       int _gasneti_atomic32_compare_and_swap(gasneti_atomic32_t *p, uint32_t oldval, uint32_t newval) {
         register uint32_t result;
         __asm__ __volatile__ (
-          "Lga.0.%=:\t"                   /* AIX assembler doesn't grok "0:"-type local labels */
+          "0:\t"
 	  "lwarx    %0,0,%2 \n\t"         /* load to result */
 	  "xor.     %0,%0,%3 \n\t"        /* xor result w/ oldval */
-	  "bne      Lga.1.%= \n\t"        /* branch on mismatch */
+	  "bne      1f \n\t"              /* branch on mismatch */
 	  "stwcx.   %4,0,%2 \n\t"         /* store newval */
-	  "bne-     Lga.0.%= \n\t" 
-	  "Lga.1.%=:	"
+	  "bne-     0b \n\t" 
+	  "1:	"
 	  : "=&r"(result), "=m"(p->ctr)
 	  : "r" (p), "r"(oldval), "r"(newval), "m"(p->ctr)
 	  : "cr0");
@@ -1676,13 +1676,13 @@
         int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval) {
           register uint64_t result;
           __asm__ __volatile__ (
-		"Lga.0.%=:\t"                   /* AIX assembler doesn't grok "0:"-type local labels */
+		"0\t"
 		"ldarx    %0,0,%2 \n\t"         /* load to result */
 		"xor.     %0,%0,%3 \n\t"        /* compare result w/ oldval */
-		"bne      Lga.1.%= \n\t"        /* branch on mismatch */
+		"bne      1f \n\t"              /* branch on mismatch */
 		"stdcx.   %4,0,%2 \n\t"         /* store newval */
-		"bne-     Lga.0.%= \n\t"        /* retry on conflict */
-		"Lga.1.%=:	"
+		"bne-     0b \n\t"              /* retry on conflict */
+		"1:	"
 		: "=&b"(result), "=m"(p->ctr)
 		: "r" (p), "r"(oldval), "r"(newval), "m"(p->ctr)
 		: "cr0");
@@ -1700,12 +1700,12 @@
 	     (context switch, signal handler, etc.). */
           __asm__ __volatile__ (
 		"clrldi	%L2,%L2,32	\n\t"	/* Zap undefined top half of val */
-		"Lga.0.%=:		\t"	/* AIX assembler doesn't grok "0:"-type local labels */
+		"0:\t"
 		"ldarx	%1,0,%3		\n\t"	/* establish reservation */
 		"sldi	%1,%2,32	\n\t"	/* construct 64-bit...   */
 		"or	%1,%1,%L2	\n\t"	/* ... value in tmp register */
 		"stdcx.	%1,0,%3		\n\t"	/* store val */
-		"bne-	Lga.0.%=	"	/* retry on loss of reservation */
+		"bne-	0b		"	/* retry on loss of reservation */
 		: "=m"(p->ctr), "=&b"(tmp)
 		: "r"(val), "r"(p), "m"(p->ctr)
 		: "cr0" );
@@ -1720,7 +1720,7 @@
 	     zero in the lower half to be insensitive to whether the "clobber" does
 	     sign extension or zero extension. */ 
           __asm__ __volatile__ (
-		"Lga.0.%=:\t"                   /* AIX assembler doesn't grok "0:"-type local labels */
+		"0:\t"
 		"li	%1,0x7fff	\n\t"	/* Canary value in tmp ... */
 		"sldi	%1,%1,32	\n\t"   /*  ... = 0x00007FFF.00000000 */
 		"ld	%0,%2		\n\t"	/* 64-bit load into "hi" reg of pair */
@@ -1728,7 +1728,7 @@
 		"srdi	%0,%0,32	\n\t"	/* "hi" reg of pair gets 32 high bits */
 		"srdi	%1,%1,32	\n\t"	/* Check that upper half of canary... */
 		"cmpdi	%1,0x7fff	\n\t"	/*  ... is still 0x00007FFF */
-		"bne-	Lga.0.%=	"	/* retry on canary changed */
+		"bne-	0b		"	/* retry on canary changed */
 		: "=&r"(retval), "=&r"(tmp)
 		: "m"(p->ctr)
 		: "cr0" );
@@ -1748,19 +1748,19 @@
           __asm__ __volatile__ (
 		"clrldi   %L5,%L5,32	\n\t"	/* Zap undefined top half of oldval */
 		"clrldi   %L6,%L6,32	\n\t"	/* Zap undefined top half of newval */
-		"Lga.0.%=:		\t"	/* AIX assembler doesn't grok "0:"-type local labels */
+		"0:\t"
 		"ldarx    %1,0,%3	\n\t"	/* load memory to tmp */
 		"sldi     %0,%5,32	\n\t"	/* shift hi32 half of oldval to result */
 		"or       %0,%0,%L5	\n\t"	/*   and or in lo32 of oldval to result */
 		"cmpd     0,%0,%1	\n\t"	/* compare memory (tmp) w/ oldval (result) */
 		"li	  %0,0		\n\t"	/* assume failure */
-		"bne      Lga.1.%=	\n\t"	/* branch to stdcx. on mismatch */
+		"bne      1f		\n\t"	/* branch to stdcx. on mismatch */
 		"li	  %0,1		\n\t"	/* success */
 		"sldi     %1,%6,32      \n\t"	/* shift hi32 half of newval to tmp  */
 		"or       %1,%1,%L6     \n\t"	/*   and or in lo32 of newval to tmp */
-		"Lga.1.%=:		\t"
+		"1:\t"
 		"stdcx.   %1,0,%3	\n\t"	/* try to store tmp (may be newval or read value) */
-		"bne-     Lga.0.%=	"	/* retry on loss of reservation */
+		"bne-     0b		"	/* retry on loss of reservation */
 		: "=&r"(result), "=&r"(tmp), "=m"(p->ctr)
 		: "r" (p), "m"(p->ctr), "r"(oldval), "r"(newval)
 		: "cr0");
