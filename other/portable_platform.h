@@ -503,10 +503,6 @@
   #define PLATFORM_OS_CNL 1
   #define PLATFORM_OS_FAMILYNAME CNL
 
-#elif defined(__blrts) || defined(__blrts__) || defined(__gnu_blrts__)
-  #define PLATFORM_OS_BLRTS 1
-  #define PLATFORM_OS_FAMILYNAME BLRTS
-
 #elif defined(GASNETI_ARCH_BGP) || defined(__bgp__)
   #define PLATFORM_OS_BGP 1
   #define PLATFORM_OS_FAMILYNAME BGP
@@ -514,6 +510,10 @@
 #elif defined(GASNETI_ARCH_BGQ) || defined(__bgq__)
   #define PLATFORM_OS_BGQ 1
   #define PLATFORM_OS_FAMILYNAME BGQ
+
+#elif defined(__blrts) || defined(__blrts__) || defined(__gnu_blrts__)
+  #define PLATFORM_OS_BLRTS 1
+  #define PLATFORM_OS_FAMILYNAME BLRTS
 
 #elif defined(__K42)
   #define PLATFORM_OS_K42 1
