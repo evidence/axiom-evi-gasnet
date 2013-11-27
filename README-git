@@ -587,8 +587,37 @@ branch between "checkout develop" and the merge that follows it.
 Aliases
 -------
 
-[TODO: develop easy to use short-cuts, or at least give examples of what can be
-done?]
+There are a few examples in this document which require some non-default
+options to git.  The following are some suggested git aliases to help
+reduce what one needs to remember (and type).  See "git help config" for
+information on creating git aliases.
+
++ "git pull-dev" and "git push-dev".
+Matched pair to simplify syncing with origin/develop (esp. the fetch+rebase-p):
+    pull-dev = !git fetch origin develop && git rebase -p origin/develop develop
+    push-dev = push origin develop
+
++ "git mg <commit>"
+To invoke merge with all of our desired options.
+For git-1.8:
+    mg = merge --log --edit --no-ff
+For git-1.7 (which lacks an --edit option to merge):
+    mg = !sh -c 'git merge --log --no-commit --no-ff "$@" && git commit' --
+
++ "git start <name>" and "git finish <name>"
+These are simple (thus less powerful) alternatives to the corresponding
+"git flow feature (start|finish)" commands:
+    start = !sh -c 'git checkout -b feature/$1 develop' --
+    finish = !sh -c 'git rebase develop feature/$1 && \
+                     git checkout develop && \
+                     git mg feature/$1 && \
+                     git branch -d feature/$1' --
+Note that "finish" requires "mg", defined above.
+
++ "git switch <name>"
+In the same spirit as start and finish, this is a short-cut for checking
+out a contentionally-named feature branch with less typing:
+    switch = !sh -c 'git checkout feature/$1' --
 
 
 Proprietary (NDA) information
