@@ -97,6 +97,7 @@ See also:
 * You should only commit *working* code to 'develop' - do NOT commit untested or
   flagrantly broken code that could affect system stability.  The idea is to
   ensure the 'develop' branch of the repository is mostly-working at all times.
+  To do otherwise renders the powerful 'git bisect' command essentially useless.
   So, try to make sure your commits leave the repository in at least as working
   a state as you found it.  We understand that it may not be practical to test
   a given change on all platforms, but you should at least test it thoroughly on
