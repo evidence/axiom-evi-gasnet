@@ -252,7 +252,99 @@ an extended period.
 
 Publishing Branches
 -------------------
-[TODO: publishing your feature branches]
+
+So far we've only worked with feature branches which are born, developed
+and eventually merged to 'develop' in your own clone of the GASNet repo,
+and thus live on a single machine.  For a project like GASNet in
+particular, it is seldom sufficient to develop and test on a single
+platform.  Additionally, collaboration is tough with the branch living in
+your own clone of the repo.  So, in this section we look at how to
+"publish" your feature branch by making it appear on BitBucket along with
+the standard 'develop' and 'master' branches.  This means others can
+collaborate with you on the work (perhaps just reviewing the work, but
+potentially contributing to it as well), and you can easily clone your
+feature branch to multiple machines where you can test.
+
+If you're looking only for the ability to clone your branch, git does have
+the ability (not described here) to use its ssh-based protocol to clone
+your repos without using a hosting service like BitBucket.  If you don't
+want to work "in the open", but want the convenience of a hosted git, then
+see the "Forking Development" section, below, for a more private
+alternative to "publishing" of your feature branches
+
+Publishing of a feature branch just means pushing it to the GASNet repo at
+BitBucket and telling your local repo to consider that to be the "upstream"
+for all push, pull and fetch operations.  Assuming your branch has been
+named "feature/pub-example" all it takes is one simple command:
+    $ git push -u origin feature/pub-example
+If using git-flow, you save just two characters:
+    $ git flow feature publish pub-example
+
+Note again that one can freely mix work with and without the git-flow
+extensions.  For instance the two commands above both work regardless of
+whether or not "git flow feature start" was used to create the branch (so
+long as one uses the "feature/" prefix consistently with plain git).
+
+As with work committed to 'develop', your work exists only in your local
+repository until you explicitly push it to BitBucket:
+    $ git push origin feature/pub-example
+Or, potentially just "git push" depending on your configuration.
+
+Regardless of whether one uses the git-flow or plain git steps to "finish"
+the feature branch, there is one additional step which is needed at the
+end to delete the branch on the BitBucket repo:
+    $ git push origin :feature/pub-example
+
++ Rebasing published branches
+
+A friendly reminder: it is considered rude to rewrite history in public.
+While we have configured the BitBucket repo to disallow rebases on the
+'develop' and 'master' branches, there is no such control on the branches
+you may choose to publish.  If you rebase or amend any commits that have
+been pushed to BitBucket there is no mechanism to stop you, and you *will*
+cause problems for any repo which has pulled the effected commits.  A very
+simple rule is that if you need to pass "--force" (or "-f") to a "git push"
+then you've done something "bad".
+
+For a long-lived feature branch it is almost certain that one will need to
+sync with 'develop' occasionally.  At a minimum one should sync up at least
+once near the end to test before the final merge to 'develop'.  The
+preferred work-flow for GASNet is a rebase-centric one, which would suggest
+that one would want to perform syncs against 'develop' using rebase.
+However, for a published branch a rebase would conflict with the
+prohibition against public rewrites of history.  There are at least three
+ways one can resolve this apparent conflict.
+
+1. Versioned branches:
+The simplest way to deal with rebasing of a long-lived published feature
+branch is to create (and publish) a new branch each time one wants to sync
+with 'develop'.  This means no disruption to anybody who has cloned the
+prior branches, but does require communicating with your collaborators to
+ensure a clean transition of development from one branch to the next.  When
+using this approach it is helpful to suffix the names of the new branches
+with either a sequence number or the date of the rebase.  Example:
+    $ git checkout -b feature/pub-example-2 feature/pub-example
+    $ git rebase develop
+    $ git push origin :feature/pub-example-2
+Of course you will want to delete all of these branches when the feature is
+finally merged into 'develop', if not sooner than that.
+
+2. Single branch:
+If the idea of periodically shifting work to a new branch each time you
+wish to rebase against 'develop' doesn't appeal to you, then you can keep a
+single branch and use merges (and possibly cherry-picks) to sync your
+feature branch with 'develop'.  This means your branch's history may become
+"ladder like", but all of that will go away in the final rebase when it is
+time to merge back to 'develop'.  For any commit from 'develop' that was
+applied to your branch without conflict (whether by merge or cherry-pick)
+git will be able to automatically skip the changes at rebase time.
+
+3. Fork instead of branch:
+If you are not looking to collaborate with others and really just want to
+push your work to a public repo to simplify testing across multiple
+platforms, then consider the next section "Forking Development" in which
+you push your work somewhere NOT public.  That way the entire "rewriting
+history in public" issue goes away and you can "push -f" if you wish.
 
 
 Forking Development
