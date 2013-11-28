@@ -10,6 +10,12 @@
 @settitle GASNet Specification
 @syncodeindex tp fn
 
+@ifnottex
+@macro comma
+,
+@end macro
+@end ifnottex
+
 @c -DNOTEXHACKS turns off (potentially non-portable) Tex/Texinfo formatting hacks
 @ifclear NOTEXHACKS
 @iftex
