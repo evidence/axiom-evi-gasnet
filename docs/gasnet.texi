@@ -195,16 +195,9 @@ Published by LBNL FTG and U.C. Berkeley
 @page
 @vskip 0pt plus 1filll
 
-@ifnottex
-@copying
-@end ifnottex
 This the GASNet specification, version @value{VERSION}.
 
 @COPYRIGHTTEXT
-@ifnottex
-@end copying
-@insertcopying
-@end ifnottex
 @end titlepage
 @c ------------------------------------------------------------------------------------
 @c So the toc is printed in the right place.
@@ -216,8 +209,6 @@ This the GASNet specification, version @value{VERSION}.
 @ifnottex
 @node Top
 @top GASNet Specification
-
-@insertcopying
 @end ifnottex
 
 @c HTML/Plain text title info
