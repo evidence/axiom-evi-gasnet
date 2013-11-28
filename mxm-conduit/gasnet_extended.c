@@ -705,7 +705,7 @@ void gasnete_put_inner(gasnet_node_t node, void* dest, void *src,
 #else
     mxm_sreq.flags = MXM_REQ_SEND_FLAG_BLOCKING;
     if (gasnet_mxm_module.strict_api)
-        mxm_sreq.opcode |= MXM_REQ_OP_PUT_SYNC;
+        mxm_sreq.opcode = MXM_REQ_OP_PUT_SYNC;
 #endif
 
     mxm_res = mxm_req_send(&mxm_sreq);
