@@ -10,11 +10,14 @@
 @settitle GASNet Specification
 @syncodeindex tp fn
 
+@c define @comma if texinfi < 5.0
+@ifclear txicommandconditionals
 @ifnottex
 @macro comma
 ,
 @end macro
 @end ifnottex
+@end ifclear
 
 @c -DNOTEXHACKS turns off (potentially non-portable) Tex/Texinfo formatting hacks
 @ifclear NOTEXHACKS
