@@ -586,6 +586,13 @@ handlers
 (No-Interrupt Sections and Handler-Safe Locks) 
 @end itemize
 
+@menu
+* Job Control Interface::
+* Job Environment Queries::
+* Active Messaging Interface::
+* Atomicity Control::
+@end menu
+
 @node Job Control Interface
 @section Job Control Interface
 
@@ -640,6 +647,14 @@ However, implementors are encouraged to investigate higher-performance alternati
 using dynamic pinning schemes (possibly with caching to amortize rendezvous and 
 pinning costs) or combinations of direct remote accesses and AM-based accesses.
 }
+
+@menu
+* gasnet_init::
+* gasnet_attach::
+* gasnet_getMaxLocalSegmentSize::
+* gasnet_getMaxGlobalSegmentSize::
+* gasnet_exit::
+@end menu
 
 @FNS gasnet_init
 @cindex startup
@@ -864,6 +879,13 @@ may be meaningful (and non-fatal) to certain GASNet implementations.
 @node Job Environment Queries
 @section Job Environment Queries
 
+@menu
+* gasnet_mynode::
+* gasnet_nodes::
+* gasnet_getSegmentInfo::
+* gasnet_getenv::
+@end menu
+
 @FNS gasnet_mynode
 @deftypefn {} {gasnet_node_t} gasnet_mynode ()
  
@@ -992,6 +1014,13 @@ not been registered on the destination node, GASNet will print an implementation
 error message and terminate the job. It is implementation-defined whether this
 checking happens on the sending or receiving node.
 
+@menu
+* Active Message Categories::
+* Active Message Size Limits::
+* Active Message Request Functions::
+* Active Message Reply Functions::
+* Misc. Active Message Functions::
+@end menu
 @c ------------------------------------------------------------------------------------
 @node Active Message Categories
 @subsection Active Message Categories
@@ -1057,6 +1086,13 @@ These functions are used to query the maximum size messages of each category sup
 given implementation. These are likely to be implemented as macros for 
 efficiency of client code which uses them (within packing loops, etc.)
 
+@menu
+* gasnet_AMMaxArgs::
+* gasnet_AMMaxMedium::
+* gasnet_AMMaxLongRequest::
+* gasnet_AMMaxLongReply::
+@end menu
+
 @FNSS gasnet_AMMaxArgs
 @deftypefn {} {size_t} gasnet_AMMaxArgs ()
 
@@ -1101,6 +1137,13 @@ messages are likely to support a much larger value.
 @cindex Requests
 
 In the function descriptions below, M is to be replaced with a number in [0 ... @code{gasnet_AMMaxArgs()}]
+
+@menu
+* gasnet_AMRequestShortM::
+* gasnet_AMRequestMediumM::
+* gasnet_AMRequestLongM::
+* gasnet_AMRequestLongAsyncM::
+@end menu
 
 @FNSS gasnet_AMRequestShortM
 @deftypefn {} {int} gasnet_AMRequestShortM ( gasnet_node_t @var{dest}, gasnet_handler_t @var{handler}, gasnet_handlerarg_t @var{arg0}, ..., gasnet_handlerarg_t @var{argM-1} ); 
@@ -1199,6 +1242,12 @@ The following active message reply functions may only be called from the context
 running active message request handler, and a reply function may be called at most once from any
 given request handler (it is an error to do otherwise).
 
+@menu
+* gasnet_AMReplyShortM::
+* gasnet_AMReplyMediumM::
+* gasnet_AMReplyLongM::
+@end menu
+
 @FNSS gasnet_AMReplyShortM
 @deftypefn {} {int} gasnet_AMReplyShortM ( gasnet_token_t @var{token}, gasnet_handler_t @var{handler}, gasnet_handlerarg_t @var{arg0}, ..., gasnet_handlerarg_t @var{argM-1} ); 
 
@@ -1271,6 +1320,12 @@ Returns @code{GASNET_OK} on success.
 @node Misc. Active Message Functions
 @subsection Misc. Active Message Functions
 @cindex Poll
+
+@menu
+* gasnet_AMPoll::
+* GASNET_BLOCKUNTIL::
+* gasnet_AMGetMsgSource::
+@end menu
 
 @FNSS gasnet_AMPoll
 @deftypefn {} {int} gasnet_AMPoll ()
@@ -1352,6 +1407,14 @@ Returns @code{GASNET_OK} on success.
 @section Atomicity Control
 @cindex Atomicity
 
+@menu
+* Atomicity semantics of handlers::
+* No-Interrupt Sections::
+* Restrictions on No-Interrupt Sections::
+* Handler-Safe Locks::
+* Restrictions on Handler-Safe Locks::
+@end menu
+
 @node Atomicity semantics of handlers
 @subsection Atomicity semantics of handlers
 
@@ -1409,6 +1472,10 @@ thread to temporarily disable the network interrupts that run handlers. All
 function calls that are not signal-safe and could possibly access state 
 shared by functions also called from handlers MUST be called within a GASNet 
 "No-Interrupt Section": 
+
+@menu
+* gasnet_hold_interrupts, gasnet_resume_interrupts::
+@end menu
 
 @FNHSS gasnet_hold_interrupts@comma{} gasnet_resume_interrupts
 @FNI gasnet_hold_interrupts
@@ -1510,6 +1577,12 @@ on their usage which allows this to be safe (see below). All lock-protected
 data structures in the client that need to be accessed by handlers should be 
 protected using a Handler-Safe Lock (i.e. instead of a standard POSIX 
 mutex). 
+
+@menu
+* gasnet_hsl_t::
+* gasnet_hsl_init, gasnet_hsl_destroy::
+* gasnet_hsl_lock, gasnet_hsl_unlock::
+@end menu
 
 @FNSS gasnet_hsl_t
 @code{gasnet_hsl_t} is an opaque type representing a Handler-Safe Lock. 
@@ -1644,6 +1717,15 @@ No-Interrupt Section.
 Errors in calls to the extended API are considered fatal and abort the job 
 (by sending a @code{SIGABORT} signal) after printing an appropriate error message.
 
+@menu
+* Memory-to-memory Data Transfer Functions::
+* Blocking memory-to-memory Transfers::
+* Non-blocking memory-to-memory transfers::
+* Register-memory operations::
+* Barriers::
+* Threading support::
+@end menu
+
 @node Memory-to-memory Data Transfer Functions
 @section Memory-to-memory Data Transfer Functions
 @cindex Data transfer semantics
@@ -1680,6 +1762,12 @@ exactly coincide) the resulting value is undefined
 @section Blocking memory-to-memory Transfers
 @cindex gets
 @cindex puts
+
+@menu
+* gasnet_get, gasnet_put::
+* gasnet_get_bulk, gasnet_put_bulk::
+* gasnet_memset::
+@end menu
 
 @FNHS gasnet_get@comma{} gasnet_put
 @FNI gasnet_get
@@ -1749,6 +1837,15 @@ These operations don't return a handle from the initiation -
 synchronization is accomplished by calling a synchronization 
 routine that synchronizes all outstanding nbi operations.
 @end table
+
+@menu
+* Synchronization semantics of non-blocking data transfers::
+* Non-blocking memory-to-memory transfers (explicit handle)::
+* Synchronization for explicit-handle non-blocking operations::
+* Non-blocking memory-to-memory transfers (implicit handle)::
+* Synchronization for implicit-handle non-blocking operations::
+* Implicit access region synchronization::
+@end menu
 
 @c ------------------------------------------------------------------------------------
 @node Synchronization semantics of non-blocking data transfers
@@ -1826,6 +1923,12 @@ It is always an error to discard the @code{gasnet_handle_t} value for an
 explicit-handle operation in-flight - i.e. to initiate an operation and never 
 synchronize on its completion.
 
+@menu
+* gasnet_get_nb, gasnet_put_nb::
+* gasnet_get_nb_bulk, gasnet_put_nb_bulk::
+* gasnet_memset_nb::
+@end menu
+
 @FNHSS gasnet_get_nb@comma{} gasnet_put_nb
 @FNI gasnet_get_nb
 @FNI gasnet_put_nb
@@ -1871,8 +1974,8 @@ synchronization operation).
 @end deftypefn
 
 @c ------------------------------------------------------------------------------------
-@node Synchronization for explicit-handle non-blocking operations:
-@subsection Synchronization for explicit-handle non-blocking operations:
+@node Synchronization for explicit-handle non-blocking operations
+@subsection Synchronization for explicit-handle non-blocking operations
 @cindex synchronization 
 
 GASNet supports two basic types of synchronization for non-blocking 
@@ -1880,6 +1983,12 @@ operations - trying (polling) and waiting (blocking). All explicit-handle
 synchronization functions take one or more @code{gasnet_handle_t} values as input 
 and either return an indication of whether the operation has completed or 
 block until it completes. 
+
+@menu
+* gasnet_wait_syncnb, gasnet_try_syncnb::
+* gasnet_wait_syncnb_all, gasnet_try_syncnb_all::
+* gasnet_wait_syncnb_some, gasnet_try_syncnb_some::
+@end menu
 
 @FNHSS gasnet_wait_syncnb@comma{} gasnet_try_syncnb
 @FNI gasnet_wait_syncnb
@@ -1966,6 +2075,11 @@ immediately and @code{gasnet_try_sync_some_list} will return @code{GASNET_OK}.
 
 @cindex memset
 @cindex implicit-handle
+
+@menu
+* gasnet_get_nbi, gasnet_put_nbi, gasnet_get_nbi_bulk, gasnet_put_nbi_bulk, gasnet_memset_nbi::
+@end menu
+
 @FNHSS gasnet_get_nbi@comma{} gasnet_put_nbi@comma{} gasnet_get_nbi_bulk@comma{} gasnet_put_nbi_bulk@comma{} gasnet_memset_nbi
 @FNI gasnet_get_nbi
 @FNI gasnet_put_nbi
@@ -1995,8 +2109,8 @@ except that it is synchronized as if it were a non-blocking, implicit-handle put
 @end deftypefn
 
 @c ------------------------------------------------------------------------------------
-@node Synchronization for implicit-handle non-blocking operations:
-@subsection Synchronization for implicit-handle non-blocking operations:
+@node Synchronization for implicit-handle non-blocking operations
+@subsection Synchronization for implicit-handle non-blocking operations
 @cindex synchronization 
 
 The following functions are used to synchronize implicit-handle non-blocking operations.
@@ -2008,6 +2122,10 @@ sharing the GASNet interface proceed independently and are not synchronized.
 Implicit-handle synchronization functions will synchronize operations 
 initiated within other function frames by the calling thread (but this 
 cannot affect the correctness of correctly synchronized code).
+
+@menu
+* gasnet_wait_syncnbi_gets, gasnet_wait_syncnbi_puts, gasnet_wait_syncnbi_all, gasnet_try_syncnbi_gets, gasnet_try_syncnbi_puts, gasnet_try_syncnbi_all::
+@end menu
 
 @FNHSS gasnet_wait_syncnbi_gets@comma{} gasnet_wait_syncnbi_puts@comma{} gasnet_wait_syncnbi_all@comma{} gasnet_try_syncnbi_gets@comma{} gasnet_try_syncnbi_puts@comma{} gasnet_try_syncnbi_all
 @FNI gasnet_wait_syncnbi_gets
@@ -2068,6 +2186,10 @@ this may not be desirable because it requires managing an array of handles
 expensive to allocate when the size is not known until runtime).
 To handle these cases, we provide "implicit access region" synchronization, 
 described below.
+
+@menu
+* gasnet_begin_nbi_accessregion, gasnet_end_nbi_accessregion::
+@end menu
 
 @FNHSS gasnet_begin_nbi_accessregion@comma{} gasnet_end_nbi_accessregion
 @FNI gasnet_begin_nbi_accessregion
@@ -2133,9 +2255,19 @@ data to pass through the local memory system. Some interconnects may be able
 to take advantage of this capability and launch remote puts directly from 
 registers or recieve remote gets directly into registers.
 
+@menu
+* Value Put::
+* Blocking Value Get::
+* Non-Blocking Value Get (explicit-handle)::
+@end menu
+
 @c ------------------------------------------------------------------------------------
 @node Value Put
 @subsection Value Put
+
+@menu
+* gasnet_put_val, gasnet_put_nb_val, gasnet_put_nbi_val::
+@end menu
 
 @FNHSS gasnet_put_val@comma{} gasnet_put_nb_val@comma{} gasnet_put_nbi_val
 @FNI gasnet_put_val
@@ -2161,6 +2293,11 @@ or implicit synchronization functions defined above, as appropriate
 @node Blocking Value Get
 @subsection Blocking Value Get
 
+@menu
+* gasnet_get_val::
+* gasnet_get_nb_val, gasnet_wait_syncnb_valget::
+@end menu
+
 @FNSS gasnet_get_val
 @deftypefn {} {gasnet_register_value_t} gasnet_get_val (gasnet_node_t @var{node}, void *@var{src}, size_t @var{nbytes});
 
@@ -2185,6 +2322,10 @@ operations in GASNet.
 
 @findex gasnet_valget_handle_t
 @code{typedef ??? gasnet_valget_handle_t;}
+
+@menu
+* gasnet_get_nb_val, gasnet_wait_syncnb_valget::
+@end menu
 
 @FNHSS gasnet_get_nb_val@comma{} gasnet_wait_syncnb_valget
 @FNI gasnet_get_nb_val
@@ -2226,6 +2367,12 @@ time (esp. @code{gasnet_barrier_try()}).
 #define GASNET_BARRIERFLAG_ANONYMOUS ???
 #define GASNET_BARRIERFLAG_MISMATCH ???
 @end lisp
+
+@menu
+* gasnet_barrier_notify::
+* gasnet_barrier_wait::
+* gasnet_barrier_try::
+@end menu
 
 @FNS gasnet_barrier_notify
 @deftypefn {} {void} gasnet_barrier_notify (int @var{id}, int @var{flags})
@@ -2305,9 +2452,14 @@ last call to @code{gasnet_barrier_notify()} on this node.
 @node Threading support
 @section Threading support
 
+@menu
+* Thread-identification optimization::
+* Thread management::
+@end menu
+
 @c ------------------------------------------------------------------------------------
-@node Thread-identification optimization:
-@subsection Thread-identification optimization:
+@node Thread-identification optimization
+@subsection Thread-identification optimization
 
 When compiled in the @code{GASNET_PAR} or @code{GASNET_PARSYNC} configurations, GASNet is 
 capable of handling multiple client threads. It is likely that GASNet 
@@ -2331,6 +2483,12 @@ to suffer without it in a @code{GASNET_PAR} or @code{GASNET_PARSYNC} configurati
 @code{gasnet_threadinfo_t} is an opaque pointer representing the internal GASNet 
 metadata associated with a particular client thread.
  
+@menu
+* GASNET_GET_THREADINFO::
+* GASNET_POST_THREADINFO::
+* GASNET_BEGIN_FUNCTION::
+@end menu
+
 @FNSS GASNET_GET_THREADINFO
 @code{#define GASNET_GET_THREADINFO() ???}
 
@@ -2372,6 +2530,10 @@ until the first place where it is actually needed.
 @c ------------------------------------------------------------------------------------
 @node Thread management
 @subsection Thread management
+
+@menu
+* gasnet_set_waitmode::
+@end menu
 
 @FNSS gasnet_set_waitmode
 @deftypefn {} {int} gasnet_set_waitmode (int @var{wait_mode})
