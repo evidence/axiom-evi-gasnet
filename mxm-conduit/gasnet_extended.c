@@ -444,7 +444,9 @@ static void mxm_nbi_put_callback(void *mxm_callback_data)
 {
     mxm_nbi_callback_struct_t *cb = (mxm_nbi_callback_struct_t *)mxm_callback_data;
     gasnetc_free_send_req(cb->gasnet_mxm_sreq_send);
+#if MXM_API < MXM_VERSION(2,0)
     gasnetc_free_send_req(cb->gasnet_mxm_sreq_fence);
+#endif
     gasnete_op_markdone((gasnete_op_t *)(cb->op), 0);
 #if GASNET_DEBUG
     /* clear object's data before freeing it - might catch use after free */
@@ -570,12 +572,13 @@ void gasnete_fill_put_request(mxm_send_req_t * mxm_sreq, void *dest,
     mxm_sreq->base.mq = gasnet_mxm_module.mxm_mq;
 
 #if MXM_API < MXM_VERSION(2,0)
+    mxm_sreq->opcode = MXM_REQ_OP_PUT;
     mxm_sreq->base.flags = 0;
 #else
+    mxm_sreq->opcode = MXM_REQ_OP_PUT_SYNC;
     mxm_sreq->flags = 0;
 #endif
     mxm_sreq->base.data_type = MXM_REQ_DATA_BUFFER;
-    mxm_sreq->opcode = MXM_REQ_OP_PUT;
 
     mxm_sreq->base.data.buffer.ptr = src;
     mxm_sreq->base.data.buffer.length = nbytes;
@@ -1003,6 +1006,8 @@ void gasnete_put_nbi_inner(gasnet_node_t node, void *dest, void *src,
     mxm_sreq->base.flags = MXM_REQ_FLAG_BLOCKING;
 #else
     mxm_sreq->flags = MXM_REQ_SEND_FLAG_BLOCKING;
+    mxm_sreq->base.completed_cb = (void (*)(void *))mxm_nbi_put_callback;
+    mxm_sreq->base.context = mxm_nbi_cb_data;
 #endif
 
     if_pf (GASNETE_ACTIVE_MXM_MSG_NUMBER >= GASNETE_MXM_MAX_OUTSTANDING_MSGS) {
@@ -1016,7 +1021,9 @@ void gasnete_put_nbi_inner(gasnet_node_t node, void *dest, void *src,
         gasneti_fatalerror("Error posting send request - %s\n",
                            mxm_error_string(mxm_res));
 
+#if MXM_API < MXM_VERSION(2,0)
     _mxm_fence_nbi(node, mxm_nbi_put_callback, mxm_nbi_cb_data);
+#endif
 
     gasnetc_AMPoll();
 }
