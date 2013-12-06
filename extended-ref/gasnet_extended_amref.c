@@ -11,7 +11,32 @@
  *
  * Conduits are NOT expected to clone this file.
  * Instead they may #include it or not at their discretion.
- * A conduit may select which portions of the code are built:
+ * A conduit may select which portions of the code are built using
+ * either fine-grained or coarse-grained controls.
+ *
+ * The coarse-grained controls just define the fine-grained ones:
+ *
+ *    #define GASNETE_USING_REF_EXTENDED_GET_BULK 1
+ *      Is equivalent to
+ *         #define GASNETE_BUILD_AMREF_GET_HANDLERS 1
+ *         #define GASNETE_BUILD_AMREF_GET_BULK 1
+ *
+ *    #define GASNETE_USING_REF_EXTENDED_PUT_BULK 1
+ *      Is equivalent to
+ *         #define GASNETE_BUILD_AMREF_PUT_HANDLERS 1
+ *         #define GASNETE_BUILD_AMREF_PUT_BULK 1
+ *
+ *    #define GASNETE_USING_REF_EXTENDED_PUT 1
+ *      Is equivalent to
+ *         #define GASNETE_BUILD_AMREF_PUT_HANDLERS 1
+ *         #define GASNETE_BUILD_AMREF_PUT 1
+ *
+ *    #define GASNETE_USING_REF_EXTENDED_MEMSET 1
+ *      Is equivalent to
+ *         #define GASNETE_BUILD_AMREF_MEMSET_HANDLERS 1
+ *         #define GASNETE_BUILD_AMREF_MEMSET 1
+ *
+ * The fine-grained controls:
  *
  *    #define GASNETE_BUILD_AMREF_GET_BULK 1
  *      To build
@@ -44,9 +69,8 @@
  *
  * If one does not define ANY of those, then this file contains no code.
  *
- * One can (as in extended-ref/gasnet_extended.c) use these directly by
- * using one or more of the following defines *before* including this
- * file to shift the names of the functions listed above:
+ * A conduit can use these directly by using one or more of the following
+ * in its gasnet_extended_fwd.h name-shift the functions listed above:
  *    #define gasnete_amref_get_nb_bulk   gasnete_get_nb_bulk
  *    #define gasnete_amref_get_nbi_bulk  gasnete_get_nbi_bulk
  *    #define gasnete_amref_put_nb_bulk   gasnete_put_nb_bulk
@@ -69,8 +93,28 @@
  *
  * NOTE: If tempted to clone this file into your conduit in order to get
  * finer-grained control over what is build, then instead *please* email
- * upc-devel@lbl.gov to request finer-grained GASNETE_BUILD_AMREF_*.
+ * upc-devel@lbl.gov to request even finer-grained GASNETE_BUILD_AMREF_*.
  */
+
+/* ------------------------------------------------------------------------------------ */
+/* Implement the coarse-grained build controls: */
+
+#if GASNETE_USING_REF_EXTENDED_GET_BULK
+#define GASNETE_BUILD_AMREF_GET_HANDLERS 1
+#define GASNETE_BUILD_AMREF_GET_BULK 1
+#endif
+#if GASNETE_USING_REF_EXTENDED_PUT_BULK
+#define GASNETE_BUILD_AMREF_PUT_HANDLERS 1
+#define GASNETE_BUILD_AMREF_PUT_BULK 1
+#endif
+#if GASNETE_USING_REF_EXTENDED_PUT
+#define GASNETE_BUILD_AMREF_PUT_HANDLERS 1
+#define GASNETE_BUILD_AMREF_PUT 1
+#endif
+#if GASNETE_USING_REF_EXTENDED_MEMSET
+#define GASNETE_BUILD_AMREF_MEMSET_HANDLERS 1
+#define GASNETE_BUILD_AMREF_MEMSET 1
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 /*

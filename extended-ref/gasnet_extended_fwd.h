@@ -118,5 +118,22 @@ typedef struct _gasnete_op_t *gasnet_handle_t;
  *   set: conduit provides own gasnete_get_val() as an inline
  */
 
+/* Configure use of AM-based implementation of get/put/memset */
+/* NOTE: Barriers, Collectives, VIS may use GASNETE_USING_REF_* in algorithm selection */
+#define GASNETE_USING_REF_EXTENDED_GET_BULK 1
+#define GASNETE_USING_REF_EXTENDED_PUT_BULK 1
+#define GASNETE_USING_REF_EXTENDED_PUT      1
+#define GASNETE_USING_REF_EXTENDED_MEMSET   1
+
+/* Implement all eight "base" operations directly via amref: */
+#define gasnete_amref_get_nb_bulk   gasnete_get_nb_bulk
+#define gasnete_amref_get_nbi_bulk  gasnete_get_nbi_bulk
+#define gasnete_amref_put_nb_bulk   gasnete_put_nb_bulk
+#define gasnete_amref_put_nbi_bulk  gasnete_put_nbi_bulk
+#define gasnete_amref_put_nb        gasnete_put_nb
+#define gasnete_amref_put_nbi       gasnete_put_nbi
+#define gasnete_amref_memset_nb     gasnete_memset_nb
+#define gasnete_amref_memset_nbi    gasnete_memset_nbi
+
 #endif
 

@@ -64,13 +64,6 @@ typedef struct _gasnete_iop_dcmf_req_t{
 #define GASNETE_USE_LONG_GETS 1
 #endif
 
-
-/*enable puts to turn into DCMF_Puts*/
-#ifndef GASNETE_DIRECT_PUT_GET
-#define GASNETE_DIRECT_PUT_GET 1
-#endif
-
-
 /* ------------------------------------------------------------------------------------ */
 /*
   Op management
@@ -488,48 +481,6 @@ void gasneti_iop_markdone(gasneti_iop_t *iop, unsigned int noperations, int isge
 */
 
 /* Use reference implementation of get/put/memset in terms of AMs */
-/* NOTE: Barriers, Collectives, VIS may use GASNETE_USING_REF_* in algorithm selection */
-#if GASNETE_DIRECT_PUT_GET
-/* use conduit-specifc implementation */
-#define GASNETE_USING_REF_EXTENDED_GET_BULK 0
-#define GASNETE_USING_REF_EXTENDED_PUT_BULK 0
-#define GASNETE_USING_REF_EXTENDED_PUT      0
-#else
-/* use AM-based implementation */
-#define GASNETE_USING_REF_EXTENDED_GET_BULK 1
-#define GASNETE_USING_REF_EXTENDED_PUT_BULK 1
-#define GASNETE_USING_REF_EXTENDED_PUT      1
-#endif
-#define GASNETE_USING_REF_EXTENDED_MEMSET   1
-
-#if GASNETE_USING_REF_EXTENDED_GET_BULK
-#define GASNETE_BUILD_AMREF_GET_HANDLERS 1
-#define GASNETE_BUILD_AMREF_GET_BULK     1
-#define gasnete_amref_get_nb_bulk   gasnete_get_nb_bulk
-#define gasnete_amref_get_nbi_bulk  gasnete_get_nbi_bulk
-#endif
-
-#if GASNETE_USING_REF_EXTENDED_PUT_BULK
-#define GASNETE_BUILD_AMREF_PUT_HANDLERS 1
-#define GASNETE_BUILD_AMREF_PUT_BULK     1
-#define gasnete_amref_put_nb_bulk   gasnete_put_nb_bulk
-#define gasnete_amref_put_nbi_bulk  gasnete_put_nbi_bulk
-#endif
-
-#if GASNETE_USING_REF_EXTENDED_PUT
-#define GASNETE_BUILD_AMREF_PUT_HANDLERS 1
-#define GASNETE_BUILD_AMREF_PUT     1
-#define gasnete_amref_put_nb        gasnete_put_nb
-#define gasnete_amref_put_nbi       gasnete_put_nbi
-#endif
-
-#if GASNETE_USING_REF_EXTENDED_MEMSET
-#define GASNETE_BUILD_AMREF_MEMSET_HANDLERS 1
-#define GASNETE_BUILD_AMREF_MEMSET  1
-#define gasnete_amref_memset_nb     gasnete_memset_nb
-#define gasnete_amref_memset_nbi    gasnete_memset_nbi
-#endif
-
 #include "gasnet_extended_amref.c"
 
 /* ------------------------------------------------------------------------------------ */
