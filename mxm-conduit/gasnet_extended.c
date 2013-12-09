@@ -650,7 +650,19 @@ gasnet_handle_t gasnete_put_nb_inner(
 /* -------------------------------------------------------------------------- */
 extern gasnet_handle_t gasnete_put_nb      (gasnet_node_t node, void *dest, void *src, size_t nbytes GASNETE_THREAD_FARG) {
     GASNETI_CHECKPSHM_PUT(ALIGNED,H);
-    return gasnete_put_nb_inner(node, dest, src, nbytes, 0 GASNETE_THREAD_PASS);
+    mxm_wait_t wait;
+    gasnet_mxm_send_req_t *h;
+
+    h = (gasnet_mxm_send_req_t *)gasnete_put_nb_inner(node, dest, src, nbytes, 0 GASNETE_THREAD_PASS);
+
+    /* wait till source buffer is safe for reuse */
+    wait.req = &h->mxm_sreq.base;
+    wait.state = (mxm_req_state_t)(MXM_REQ_SENT | MXM_REQ_COMPLETED);
+    wait.progress_cb = NULL;
+    wait.progress_arg = NULL;
+    mxm_wait(&wait);
+
+    return (gasnet_handle_t)h;
 }
 
 /* -------------------------------------------------------------------------- */
