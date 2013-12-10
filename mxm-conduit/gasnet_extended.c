@@ -617,7 +617,10 @@ extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node,
 }
 
 /* -------------------------------------------------------------------------- */
-
+/*
+ * In mxm2.0 we use PUT_SYNC request, so there is no need to follow
+ * PUT request with as special sync request as we did in mxm1.xx
+ */
 GASNETI_INLINE(gasnete_put_nb_inner)
 gasnet_handle_t gasnete_put_nb_inner(
     gasnet_node_t node, void *dest, void *src,
@@ -625,8 +628,10 @@ gasnet_handle_t gasnete_put_nb_inner(
 {
     gasnet_mxm_send_req_t *gasnet_mxm_sreq = gasnetc_alloc_send_req();
     mxm_send_req_t *mxm_sreq = &gasnet_mxm_sreq->mxm_sreq;
-    gasnet_mxm_send_req_t *mxm_fence_sreq;
     mxm_error_t mxm_res;
+#if MXM_API < MXM_VERSION(2,0)
+    gasnet_mxm_send_req_t *mxm_fence_sreq;
+#endif
 
     gasnete_fill_put_request(mxm_sreq, dest, node, src, nbytes);
 #if MXM_API < MXM_VERSION(2,0)
@@ -640,17 +645,33 @@ gasnet_handle_t gasnete_put_nb_inner(
         gasneti_fatalerror("Error posting send request - %s\n",
                            mxm_error_string(mxm_res));
 
+#if MXM_API < MXM_VERSION(2,0)
     mxm_fence_sreq = _mxm_fence_nb(node, gasnetc_free_send_req,
                                    (void *)gasnet_mxm_sreq);
-
     gasnetc_AMPoll();
     return gasnete_sreq_to_handle(mxm_fence_sreq GASNETE_THREAD_PASS);
+#else
+    gasnetc_AMPoll();
+    return gasnete_sreq_to_handle(gasnet_mxm_sreq GASNETE_THREAD_PASS);
+#endif
 }
 
 /* -------------------------------------------------------------------------- */
 extern gasnet_handle_t gasnete_put_nb      (gasnet_node_t node, void *dest, void *src, size_t nbytes GASNETE_THREAD_FARG) {
     GASNETI_CHECKPSHM_PUT(ALIGNED,H);
-    return gasnete_put_nb_inner(node, dest, src, nbytes, 0 GASNETE_THREAD_PASS);
+    mxm_wait_t wait;
+    gasnet_mxm_send_req_t *h;
+
+    h = (gasnet_mxm_send_req_t *)gasnete_put_nb_inner(node, dest, src, nbytes, 0 GASNETE_THREAD_PASS);
+
+    /* wait till source buffer is safe for reuse */
+    wait.req = &h->mxm_sreq.base;
+    wait.state = (mxm_req_state_t)(MXM_REQ_SENT | MXM_REQ_COMPLETED);
+    wait.progress_cb = NULL;
+    wait.progress_arg = NULL;
+    mxm_wait(&wait);
+
+    return (gasnet_handle_t)h;
 }
 
 /* -------------------------------------------------------------------------- */
