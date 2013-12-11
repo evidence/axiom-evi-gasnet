@@ -484,7 +484,7 @@ void doit5(int partner, int *partnerseg) {
 
   BARRIER();
 
-  /*  put/overwrite/get test */
+  /* NB and NBI put/overwrite/get tests */
   #define MAXVALS (1024)
   #define MAXSZ (MAXVALS*8)
   #define SEGSZ (MAXSZ*4)
@@ -539,14 +539,14 @@ void doit5(int partner, int *partnerseg) {
           ok = localpos[j] == val;
           if (sz < 8) ok = !memcmp(&(localpos[j]), &val, sz);
           if (!ok) {
-              MSG("*** ERROR - FAILED OUT-OF-SEG PUT/OVERWRITE TEST!!! sz=%i j=%i (got=%016llx expected=%016llx)", (sz), j,
+              MSG("*** ERROR - FAILED OUT-OF-SEG PUT_NB/OVERWRITE TEST!!! sz=%i j=%i (got=%016llx expected=%016llx)", (sz), j,
                   (unsigned long long)localpos[j], (unsigned long long)val);
               success = 0;
           }
           ok = segpos[j] == val;
           if (sz < 8) ok = !memcmp(&(segpos[j]), &val, sz);
           if (!ok) {
-              MSG("*** ERROR - FAILED IN-SEG PUT/OVERWRITE TEST!!! sz=%i j=%i (got=%016llx expected=%016llx)", (sz), j,
+              MSG("*** ERROR - FAILED IN-SEG PUT_NB/OVERWRITE TEST!!! sz=%i j=%i (got=%016llx expected=%016llx)", (sz), j,
                   (unsigned long long)segpos[j], (unsigned long long)val);
               success = 0;
           }
@@ -554,7 +554,75 @@ void doit5(int partner, int *partnerseg) {
       }
     }
     test_free(localvals);
-    if (success) MSG("*** passed put/overwrite test!!");
+    if (success) MSG("*** passed nb put/overwrite test!!");
+  }
+  { GASNET_BEGIN_FUNCTION();
+    uint64_t *localvals=(uint64_t *)test_malloc(SEGSZ);
+    int success = 1;
+    int i, sz;
+    for (i = 0; i < MAX(1,iters/10); i++) {
+      uint64_t *localpos=localvals;
+      uint64_t *segpos=(uint64_t *)TEST_MYSEG();
+      uint64_t *rsegpos=(uint64_t *)((char*)partnerseg+SEGSZ);
+      for (sz = 1; sz <= MAXSZ; sz*=2) {
+        int elems = sz/8;
+        int j;
+        uint64_t val = VAL(sz, i+91); /* setup known src value, different from NB test */
+        if (sz < 8) {
+          elems = 1;
+          memset(localpos, (val & 0xFF), sz);
+          memset(segpos, (val & 0xFF), sz);
+          memset(&val, (val & 0xFF), sz);
+        } else {
+          for (j=0; j < elems; j++) {
+            localpos[j] = val;
+            segpos[j] = val;
+          }
+        }
+        gasnet_put_nbi_bulk(partner, rsegpos, localpos, sz);
+        gasnet_wait_syncnbi_puts();
+
+        gasnet_put_nbi(partner, rsegpos+elems, localpos, sz);
+        memset(localpos, 0xCC, sz); /* clear */
+        gasnet_wait_syncnbi_puts();
+
+        gasnet_put_nbi_bulk(partner, rsegpos+2*elems, segpos, sz);
+        gasnet_wait_syncnbi_puts();
+
+        gasnet_put_nbi(partner, rsegpos+3*elems, segpos, sz);
+        memset(segpos, 0xCC, sz); /* clear */
+        gasnet_wait_syncnbi_puts();
+
+        gasnet_get_nbi(localpos, partner, rsegpos, sz);
+        gasnet_wait_syncnbi_gets();
+        gasnet_get_nbi_bulk(localpos+elems, partner, rsegpos+elems, sz);
+        gasnet_wait_syncnbi_gets();
+        gasnet_get_nbi(segpos, partner, rsegpos+2*elems, sz);
+        gasnet_wait_syncnbi_gets();
+        gasnet_get_nbi_bulk(segpos+elems, partner, rsegpos+3*elems, sz);
+        gasnet_wait_syncnbi_gets();
+
+        for (j=0; j < elems*2; j++) {
+          int ok;
+          ok = localpos[j] == val;
+          if (sz < 8) ok = !memcmp(&(localpos[j]), &val, sz);
+          if (!ok) {
+              MSG("*** ERROR - FAILED OUT-OF-SEG PUT_NBI/OVERWRITE TEST!!! sz=%i j=%i (got=%016llx expected=%016llx)", (sz), j,
+                  (unsigned long long)localpos[j], (unsigned long long)val);
+              success = 0;
+          }
+          ok = segpos[j] == val;
+          if (sz < 8) ok = !memcmp(&(segpos[j]), &val, sz);
+          if (!ok) {
+              MSG("*** ERROR - FAILED IN-SEG PUT_NBI/OVERWRITE TEST!!! sz=%i j=%i (got=%016llx expected=%016llx)", (sz), j,
+                  (unsigned long long)segpos[j], (unsigned long long)val);
+              success = 0;
+          }
+        }
+      }
+    }
+    test_free(localvals);
+    if (success) MSG("*** passed nbi put/overwrite test!!");
   }
 
   BARRIER();
