@@ -1623,7 +1623,7 @@
           "add%I3   %0,%0,%3 \n\t"
           "stwcx.   %0,0,%2 \n\t"
           "bne-     0b \n\t" 
-          : "=&b"(result), "=m" (v->ctr)	/* constraint b = "b"ase register (not r0) */
+          : "=&b"(result), "=m" (v->ctr)	/* constraint b = 'b'ase register (not r0) */
           : "r" (v), "Ir"(op) , "m"(v->ctr)
           : "cr0");
         return result;

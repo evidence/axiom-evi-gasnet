@@ -349,7 +349,7 @@ static int64_t test_calibrate_delay(int iters, int pollcnt, int64_t *time_p)
   #endif
   #define TEST_TITANIUM_BACKEND "sequential"
   #define TEST_CONFIG_STRING \
-    "RELEASE=x,SPEC=x,CONDUIT="_STRINGIFY(GASNETI_TOOLS_CONDUIT)"("_STRINGIFY(GASNETI_TOOLS_CONDUIT)"-x/REFERENCE-x),THREADMODEL=PAR,SEGMENT=FAST,PTR=x,align,nodebug,notrace,nostats"
+    "RELEASE=x,SPEC=x,CONDUIT=" _STRINGIFY(GASNETI_TOOLS_CONDUIT) "(" _STRINGIFY(GASNETI_TOOLS_CONDUIT) "-x/REFERENCE-x),THREADMODEL=PAR,SEGMENT=FAST,PTR=x,align,nodebug,notrace,nostats"
 #endif
 /* mimic Berkeley UPC build config strings, to allow running GASNet tests using upcrun */
 GASNETT_IDENT(GASNetT_IdentString_link_GASNetConfig, 
@@ -375,7 +375,7 @@ GASNETT_IDENT(GASNetT_IdentString_link_GASNetConfig,
   GASNETT_IDENT(GASNetT_IdentString_PthCnt, "$UPCRDefaultPthreadCount: 1 $");
 #endif
 GASNETT_IDENT(GASNetT_IdentString_link_UPCRConfig,
-   "$UPCRConfig: (<link>) " TEST_CONFIG_STRING ",SHMEM="TEST_SHMEM_CONFIG",SHAREDPTRREP=packed,dynamicthreads $");
+   "$UPCRConfig: (<link>) " TEST_CONFIG_STRING ",SHMEM=" TEST_SHMEM_CONFIG ",SHAREDPTRREP=packed,dynamicthreads $");
 GASNETT_IDENT(GASNetT_IdentString_link_upcver, 
  "$UPCVersion: (<link>) *** GASNet test *** $");
 GASNETT_IDENT(GASNetT_IdentString_link_compileline, 
