@@ -200,7 +200,7 @@ GASNETI_BEGIN_EXTERNC
 
 #define GASNETI_TRACE_GET_NAMED(name,locality,dest,node,src,nbytes) do {                   \
   GASNETI_TRACE_EVENT_VAL_##locality(G,name,(nbytes));                                     \
-  GASNETI_TRACE_PRINTF(D,(#name ": "GASNETI_LADDRFMT" <- "GASNETI_RADDRFMT" (%llu bytes)", \
+  GASNETI_TRACE_PRINTF(D,(#name ": " GASNETI_LADDRFMT" <- " GASNETI_RADDRFMT" (%llu bytes)", \
                           GASNETI_LADDRSTR(dest), GASNETI_RADDRSTR((node),(src)),          \
                           (unsigned long long)(nbytes)));                                  \
 } while (0)
@@ -209,7 +209,7 @@ GASNETI_BEGIN_EXTERNC
 #define GASNETI_TRACE_PUT_NAMED(name,locality,node,dest,src,nbytes) do {                       \
   GASNETI_UNUSED void *_src = (src);  /* workaround for CrayC warning, unused if !TRACE */     \
   GASNETI_TRACE_EVENT_VAL_##locality(P,name,(nbytes));                                         \
-  GASNETI_TRACE_PRINTF(D,(#name ": "GASNETI_RADDRFMT" <- "GASNETI_LADDRFMT" (%llu bytes): %s", \
+  GASNETI_TRACE_PRINTF(D,(#name ": " GASNETI_RADDRFMT" <- " GASNETI_LADDRFMT" (%llu bytes): %s", \
                           GASNETI_RADDRSTR((node),(dest)), GASNETI_LADDRSTR(_src),             \
                           (unsigned long long)(nbytes), gasneti_formatdata(_src,(nbytes))));   \
 } while (0)
@@ -219,7 +219,7 @@ GASNETI_BEGIN_EXTERNC
 
 #define GASNETI_TRACE_MEMSET_NAMED(name,locality,node,dest,val,nbytes) do { \
   GASNETI_TRACE_EVENT_VAL_##locality(P,name,(nbytes));                      \
-  GASNETI_TRACE_PRINTF(D,(#name": "GASNETI_RADDRFMT" val=%02x nbytes=%llu", \
+  GASNETI_TRACE_PRINTF(D,(#name": " GASNETI_RADDRFMT" val=%02x nbytes=%llu",\
                           GASNETI_RADDRSTR((node),(dest)), (val),           \
                           (unsigned long long)(nbytes)));                   \
 } while (0)
@@ -293,7 +293,7 @@ GASNETI_BEGIN_EXTERNC
 #define GASNETI_TRACE_AMMEDIUM(name,dest,handler,source_addr,nbytes,numargs) do {                         \
   _GASNETI_TRACE_GATHERARGS(numargs);                                                                     \
   _GASNETI_STAT_EVENT(A,name);                                                                            \
-  GASNETI_TRACE_PRINTF(A,(#name": dest=%i handler=%i source_addr="GASNETI_LADDRFMT" nbytes=%llu args:%s", \
+  GASNETI_TRACE_PRINTF(A,(#name": dest=%i handler=%i source_addr=" GASNETI_LADDRFMT" nbytes=%llu args:%s", \
     (int)dest,handler,GASNETI_LADDRSTR(source_addr),(unsigned long long)nbytes,argstr));                  \
   GASNETI_TRACE_PRINTF(D,(#name": payload data: %s", gasneti_formatdata(source_addr,nbytes)));            \
 } while(0)
@@ -301,8 +301,8 @@ GASNETI_BEGIN_EXTERNC
 #define GASNETI_TRACE_AMLONG(name,dest,handler,source_addr,nbytes,dest_addr,numargs) do {      \
   _GASNETI_TRACE_GATHERARGS(numargs);                                                          \
   _GASNETI_STAT_EVENT(A,name);                                                                 \
-  GASNETI_TRACE_PRINTF(A,(#name": dest=%i handler=%i source_addr="GASNETI_LADDRFMT             \
-                                " nbytes=%llu dest_addr="GASNETI_LADDRFMT" args:%s",           \
+  GASNETI_TRACE_PRINTF(A,(#name": dest=%i handler=%i source_addr=" GASNETI_LADDRFMT            \
+                                " nbytes=%llu dest_addr=" GASNETI_LADDRFMT" args:%s",          \
     (int)dest,handler,GASNETI_LADDRSTR(source_addr),(unsigned long long)nbytes,                \
     GASNETI_LADDRSTR(dest_addr),argstr));                                                      \
   GASNETI_TRACE_PRINTF(D,(#name": payload data: %s", gasneti_formatdata(source_addr,nbytes))); \
