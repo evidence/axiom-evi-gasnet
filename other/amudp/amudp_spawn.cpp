@@ -34,7 +34,7 @@ amudp_spawnfn_desc_t const AMUDP_Spawnfn_Desc[] = {
   { 'G',  "Spawn jobs using GLUNIX (Berkeley NOW only)", 
     (amudp_spawnfn_t)AMUDP_SPMDGlunixSpawn },
 #endif
-  { 'C',  "Spawn jobs using custom job spawner ("AMUDP_ENV_PREFIX_STR"_CSPAWN_CMD)", 
+  { 'C',  "Spawn jobs using custom job spawner (" AMUDP_ENV_PREFIX_STR"_CSPAWN_CMD)", 
     (amudp_spawnfn_t)AMUDP_SPMDCustomSpawn },
   { '\0', NULL, (amudp_spawnfn_t)NULL }
 };
@@ -400,7 +400,7 @@ int AMUDP_SPMDCustomSpawn(int nproc, int argc, char **argv) {
 
   spawn_cmd = AMUDP_getenv_prefixed_withdefault("CSPAWN_CMD","");
   if (!strlen(spawn_cmd)) {
-    AMUDP_Err("You must set the "AMUDP_ENV_PREFIX_STR"_CSPAWN_CMD environment variable to use the custom spawn function"); 
+    AMUDP_Err("You must set the " AMUDP_ENV_PREFIX_STR"_CSPAWN_CMD environment variable to use the custom spawn function"); 
     return FALSE;
   }
   spawn_servers = AMUDP_getenv_prefixed_withdefault("CSPAWN_SERVERS","");
@@ -424,7 +424,7 @@ int AMUDP_SPMDCustomSpawn(int nproc, int argc, char **argv) {
       while (*p && strchr(SSH_SERVERS_DELIM_CHARS, *p)) p++;
       end = p + strcspn(p, SSH_SERVERS_DELIM_CHARS);
       if (p == end) {
-        printf("Not enough machines in environment variable "AMUDP_ENV_PREFIX_STR"_CSPAWN_SERVERS to satisfy request for (%i).\n"
+        printf("Not enough machines in environment variable " AMUDP_ENV_PREFIX_STR"_CSPAWN_SERVERS to satisfy request for (%i).\n"
           "Only (%i) machines available: %s\n", nproc, i, spawn_servers);
         return FALSE;
       }
@@ -474,8 +474,8 @@ int AMUDP_SPMDCustomSpawn(int nproc, int argc, char **argv) {
       switch (*(p+1)) {
         case 'M': case 'm': 
           if (!spawn_servers) { /* user failed to provide servers and now is asking for them */
-            AMUDP_Err("You must set the "AMUDP_ENV_PREFIX_STR"_CSPAWN_SERVERS environment "
-                       "variable to use the %%M option in "AMUDP_ENV_PREFIX_STR"_CSPAWN_CMD");
+            AMUDP_Err("You must set the " AMUDP_ENV_PREFIX_STR"_CSPAWN_SERVERS environment "
+                       "variable to use the %%M option in " AMUDP_ENV_PREFIX_STR"_CSPAWN_CMD");
           }
           replacement = workerservers; 
           break;

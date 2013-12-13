@@ -375,7 +375,7 @@ GASNETT_IDENT(GASNetT_IdentString_link_GASNetConfig,
   GASNETT_IDENT(GASNetT_IdentString_PthCnt, "$UPCRDefaultPthreadCount: 1 $");
 #endif
 GASNETT_IDENT(GASNetT_IdentString_link_UPCRConfig,
-   "$UPCRConfig: (<link>) " TEST_CONFIG_STRING ",SHMEM="TEST_SHMEM_CONFIG",SHAREDPTRREP=packed,dynamicthreads $");
+   "$UPCRConfig: (<link>) " TEST_CONFIG_STRING ",SHMEM=" TEST_SHMEM_CONFIG ",SHAREDPTRREP=packed,dynamicthreads $");
 GASNETT_IDENT(GASNetT_IdentString_link_upcver, 
  "$UPCVersion: (<link>) *** GASNet test *** $");
 GASNETT_IDENT(GASNetT_IdentString_link_compileline, 
