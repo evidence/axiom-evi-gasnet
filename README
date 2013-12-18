@@ -231,7 +231,6 @@ Platforms where GASNet and Berkeley UPC have been successfully tested:
 
     * Linux/Cray-XD1/{gcc,PGI}/64: smp, mpi &
 
-    * CNK/IBM-BlueGeneP-PowerPC/{gcc,xlc}/32: smp, mpi, dcmf
     * CNK/IBM-BlueGeneQ-PowerPC/{gcc,xlc}/64: smp, mpi, pami
  
     * MTX/Cray-MTA/CrayMTAC/64: smp, udp &
