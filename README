@@ -99,11 +99,11 @@ compilers, including which GASNet conduits are supported.
 
   For cross-compilation support, look for an appropriate cross configure
 script in other/contrib/ and link it into your top-level source directory and
-invoke it in place of configure.  Example for the IBM BlueGene/P:
+invoke it in place of configure.  Example for the IBM BlueGene/Q:
      cd <path-to-gasnet-src>
-     ln -s other/contrib/cross-configure-bgp .
+     ln -s other/contrib/cross-configure-bgq .
      cd <your-build-dir>
-     <path-to-gasnet-src>/cross-configure-bgp (configure_options)
+     <path-to-gasnet-src>/cross-configure-bgq (configure_options)
 
   For cross-compilation support on platforms without scripts in other/contrib
 see the instructions in other/cross-configure-help.c.
