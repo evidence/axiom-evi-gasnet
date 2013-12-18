@@ -406,7 +406,7 @@ GASNETT_IDENT(GASNetT_TiCompiler_IdentString,
    TEST_USE_PRIMORDIAL_THREAD can be defined to spawn only numthreads-1 new pthreads and run the last on this thread
  */
 #ifndef TEST_USE_PRIMORDIAL_THREAD
-  #if PLATFORM_OS_BGP || PLATFORM_OS_BGQ
+  #if PLATFORM_OS_BGQ
     /* some systems have strict limits on how many threads can exist */
     #define TEST_USE_PRIMORDIAL_THREAD 1
   #else
@@ -428,7 +428,7 @@ GASNETT_IDENT(GASNetT_TiCompiler_IdentString,
 static int test_thread_limit(int numthreads) {
     int limit = gasnett_getenv_int_withdefault("GASNET_TEST_THREAD_LIMIT", TEST_MAXTHREADS, 0);
     limit = MIN(limit, TEST_MAXTHREADS); /* Ignore attempt to raise above TEST_MAXTHREADS */
-  #if PLATFORM_OS_BGP || PLATFORM_OS_BGQ
+  #if PLATFORM_OS_BGQ
     { int cores = gasnett_cpu_count();
       int depth = gasnett_getenv_int_withdefault("BG_APPTHREADDEPTH", 1, 0); /* V1R4M0 and later */
       limit = MIN(limit, cores*depth);
@@ -875,7 +875,7 @@ static void _test_set_waitmode(int threads) {
     }
   }
 #endif
-#if PLATFORM_OS_BGP || PLATFORM_OS_BGQ
+#if PLATFORM_OS_BGQ
   /* assume no overcommit, since gasnett_cpu_count() reports cores per proc, NOT per node */
 #else
   threads *= local_procs;
