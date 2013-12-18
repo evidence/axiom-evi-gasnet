@@ -3298,137 +3298,6 @@ AM_CONDITIONAL(USE_SHMEM_CONDUIT, test "$enabled_shmem$have_shmem" = yesyes)
 CONDUIT_END([test "$enabled_shmem$have_shmem" = yesyes])
 
 #--------------------------------------------------------------------------------------------------------
-# DCMF configuration
-CONDUIT_BEGIN(dcmf,[BlueGene/P network conduit (dcmf)])
-if test $enabled_dcmf = yes; then
-  # Assume the best
-  have_dcmf=yes
-  
-  GASNET_IF_ENABLED_WITH_AUTO(dcmf-linux, [Use Linux as the Compute Node OS], [enabled_dcmf_linux="yes"], [enabled_dcmf_linux="no"], [enabled_dcmf_linux="no"])
-  if test $enabled_dcmf_linux = yes; then
-    #this hasn't been completely enabled yet so we'll just link w/ the developers version
-    #Developer is Kazutomo Yoshii 
-    dcmf_guess=/home/kazutomo/zepto-devel/prebuilt/DCMF/install
-    GASNET_ENV_DEFAULT(DCMF_HOME, $dcmf_guess)
-    GASNET_ENV_DEFAULT(DCMF_INCLUDE, $DCMF_HOME/comm/sys/include/)
-    GASNET_ENV_DEFAULT(DCMF_SYS_INCLUDE, $DCMF_INCLUDE)
-  
-    GASNET_ENV_DEFAULT(DCMF_LIBDIR, $DCMF_HOME/comm/sys/lib)
-    GASNET_ENV_DEFAULT(DCMF_SYS_LIBDIR, $DCMF_LIB_DIR)
-    GASNET_ENV_DEFAULT(DCMF_LIBS, -ldcmf.zcl -ldcmfcoll.zcl -lSPI.zcl -lzcl -lzoid_cn -lrt -lpthread -lm)
-  else
-    dcmf_guess=/bgsys/drivers/ppcfloor
-    GASNET_ENV_DEFAULT(DCMF_HOME, $dcmf_guess)
-    GASNET_ENV_DEFAULT(DCMF_INCLUDE, $DCMF_HOME/comm/sys/include) 
-    GASNET_ENV_DEFAULT(DCMF_SYS_INCLUDE, $DCMF_HOME/arch/include)
-  
-
-    GASNET_ENV_DEFAULT(DCMF_LIBDIR, $DCMF_HOME/comm/sys/lib)
-    GASNET_ENV_DEFAULT(DCMF_SYS_LIBDIR, $DCMF_HOME/runtime/SPI)
-
-    
-    if test "$BUILDCONFIG" = "debug" ; then  
-      #if debug build, link w/ debug version of DCMF
-      GASNET_ENV_DEFAULT(DCMF_LIBS, -ldcmf.cnk -ldcmfcoll.cnk -lpthread -lrt -lSPI.cna)
-    else
-      #else link with optimized version of DCMF
-      GASNET_ENV_DEFAULT(DCMF_LIBS, -ldcmf-fast.cnk -ldcmfcoll-fast.cnk -lpthread -lrt -lSPI-fast.cna)
-    fi
-  fi #end if for dcmf-linux
-
-  # if we can't even find a valid incldue path no point trying to compile even if user requests it
-  AC_MSG_CHECKING(for valid DCMF include path)
-  if test ! -d "$DCMF_INCLUDE"; then
-      have_dcmf=no
-      AC_MSG_RESULT(no)
-  else
-      AC_MSG_RESULT(yes)
-  fi
-
-  AC_MSG_CHECKING(for forced dcmf compile)
-  force_dcmf_compile="no"
-  GASNET_IF_ENABLED_NOHELP(force-compile-dcmf, [force_dcmf_compile="yes"])  
-  AC_MSG_RESULT($force_dcmf_compile)
-
-  if test $force_dcmf_compile$have_dcmf = noyes; then
-    # check to see if we can find the other directories needed for our build 
-    AC_MSG_CHECKING(for additional valid DCMF directories)
-    have_dcmf=no
-    if test -z "$DCMF_SYS_INCLUDE"; then
-      AC_MSG_RESULT([no (DCMF_SYS_INCLUDE setting is empty)])
-    elif test ! -d "$DCMF_SYS_INCLUDE"; then
-      AC_MSG_RESULT([no (DCMF_SYS_INCLUDE=\"$DCMF_SYS_INCLUDE\" is not a directory])
-    elif test -z "$DCMF_LIBDIR"; then
-      AC_MSG_RESULT([no (DCMF_LIBDIR setting is empty)])
-    elif test -z "$DCMF_SYS_LIBDIR"; then
-      AC_MSG_RESULT([no (DCMF_SYS_LIBDIR setting is empty)])
-    else
-      have_dcmf=yes
-      AC_MSG_RESULT(yes)
-    fi
-
-    GASNET_PUSHVAR(CFLAGS,"$CFLAGS -I$DCMF_INCLUDE -I$DCMF_SYS_INCLUDE -L$DCMF_LIBDIR -L$DCMF_SYS_LIBDIR")
-    GASNET_PUSHVAR(LIBS,"$LIBS $DCMF_LIBS")
-    if test $have_dcmf = yes; then
-      GASNET_TRY_CACHE_CHECK(for compatible DCMF Version, dcmf_version_check, [
-        #include <dcmf.h>
-         #include <dcmf_collectives.h>
-         #if (DCMF_VERSION_RELEASE == 0)
-           #if (DCMF_VERSION_MAJOR >= 2)
-             #if (DCMF_VERSION_MINOR < 0)
-               #warning Minor Version number is <0
-             #endif
-           #else
-             #error Incompatible dcmf major version
-           #endif
-         #else
-            #warning this release version not been tested with GASNet
-         #endif
-      ], [], [ ], [
-        GASNET_ERR_SAVE() 
-        AC_MSG_RESULT(GASNet needs at least DCMF 0.2.0)    
-        have_dcmf=no
-      ])
-    fi
-    if test $have_dcmf = yes; then
-      pushdef([dcmfincludes],[
-        #include <stdio.h>
-        #include <stdlib.h>
-        #include <dcmf.h>
-        #include <dcmf_collectives.h>
-      ])
-      pushdef([dcmfcode],[
-        DCMF_Messager_initialize();
-        DCMF_Messager_finalize();  
-        DCMF_Broadcast_register(NULL,NULL);
-      ])
-      GASNET_TRY_CACHE_LINK(for working DCMF configuration, dcmf_link_test,
-        [dcmfincludes],[dcmfcode],[],[ 
-          # Try again swapping -ldcmf... w/ -ldcmfcoll...
-          DCMF_LIBS=[`echo "$DCMF_LIBS"|sed -e 's/\(-ldcmf[^ 	]*\)[ 	]*\(-ldcmf[^ 	]*\)/\2 \1/'`]
-          GASNET_POPVAR(LIBS)
-          GASNET_PUSHVAR(LIBS,"$LIBS $DCMF_LIBS")
-          GASNET_TRY_CACHE_LINK(for working DCMF configuration (alternate libs), dcmf_alt_link_test,
-            [dcmfincludes],[dcmfcode],[],[ 
-	      GASNET_ERR_SAVE() 
-              have_dcmf=no
-	    ])
-	])
-    fi
-    GASNET_POPVAR(CFLAGS)
-    GASNET_POPVAR(LIBS)
-  fi #END FORCE_DCMF_CHECK
-fi #END ENABLE DCMF
-
-AC_SUBST(DCMF_INCLUDE)
-AC_SUBST(DCMF_SYS_INCLUDE)
-AC_SUBST(DCMF_LIBDIR)
-AC_SUBST(DCMF_SYS_LIBDIR)
-AC_SUBST(DCMF_LIBS)
-AM_CONDITIONAL(USE_DCMF_CONDUIT, test "$enabled_dcmf$have_dcmf" = yesyes)
-CONDUIT_END([test "$enabled_dcmf$have_dcmf" = yesyes])
-
-#--------------------------------------------------------------------------------------------------------
 # PAMI configuration
 CONDUIT_BEGIN(pami,[IBM PAMI network conduit (pami)])
 if test $enabled_pami = yes; then
@@ -4433,7 +4302,6 @@ dnl GASNET_TOOLSONLY_FALSE_END
 GASNET_FIX_EXEC(mpi-conduit/contrib/gasnetrun_mpi)
 GASNET_FIX_EXEC(ibv-conduit/contrib/gasnetrun_ibv)
 GASNET_FIX_EXEC(mxm-conduit/contrib/gasnetrun_mxm)
-GASNET_FIX_EXEC(dcmf-conduit/contrib/gasnetrun_dcmf)
 GASNET_FIX_EXEC(pami-conduit/contrib/gasnetrun_pami)
 GASNET_FIX_EXEC(gemini-conduit/contrib/gasnetrun_gemini)
 GASNET_FIX_EXEC(aries-conduit/contrib/gasnetrun_aries)
@@ -4483,11 +4351,6 @@ udp-conduit/conduit.mak
 
 smp-conduit/Makefile
 smp-conduit/conduit.mak
-
-dcmf-conduit/Makefile
-dcmf-conduit/conduit.mak
-dcmf-conduit/contrib/Makefile
-dcmf-conduit/contrib/gasnetrun_dcmf
 
 pami-conduit/Makefile
 pami-conduit/conduit.mak

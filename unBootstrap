@@ -16,8 +16,6 @@ rm -f Makefile.in              \
       stamp-h.in               \
       config-aux/Makefile.in   \
       config-aux/Makefile      \
-      dcmf-conduit/Makefile.in   \
-      dcmf-conduit/contrib/Makefile.in   \
       ibv-conduit/Makefile.in  \
       ibv-conduit/contrib/Makefile.in \
       mpi-conduit/Makefile.in  \

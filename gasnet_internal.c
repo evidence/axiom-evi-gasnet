@@ -756,9 +756,6 @@ static void gasneti_check_portable_conduit(void) { /* check for portable conduit
       #if PLATFORM_OS_CNL
         if (strlen(natives)) strcat(natives,", ");
         strcat(natives,"Cray Gemini (XE and XK) or Aries (XC)");
-      #elif PLATFORM_OS_BGP
-        if (strlen(natives)) strcat(natives,", ");
-        strcat(natives,"IBM DCMF (BG/P)");
       #elif PLATFORM_OS_BGQ
         if (strlen(natives)) strcat(natives,", ");
         strcat(natives,"IBM PAMI (BG/Q)");
