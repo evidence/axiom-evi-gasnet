@@ -727,7 +727,7 @@ static void gasneti_check_portable_conduit(void) { /* check for portable conduit
         const char *desc;
         int hwid;
       } known_devs[] = {
-      #if PLATFORM_OS_BGP || PLATFORM_OS_BGQ
+      #if PLATFORM_OS_BGQ
         { "/dont_probe_an_io_node", S_IFDIR, "", 0 }
       #else
         #if PLATFORM_OS_LINUX && PLATFORM_ARCH_IA64 && GASNET_SEQ
@@ -908,32 +908,7 @@ void gasneti_nodemap_trivial(void) {
  * Used when no conduit-specific IDs are provided.
  */
 static void gasneti_nodemap_dflt(gasneti_bootstrapExchangefn_t exchangefn) {
-#if PLATFORM_OS_BGP && GASNETI_HAVE_BGP_INLINES
-    /* Build gasneti_nodemap from <X,Y,Z> coords of all ranks. */
-    _BGP_SprgShMem sprg4;
-
-    GASNETI_BGP_SPR(sprg4.shmem, _BGP_SPRGRO_SHMem); /* SPRG4 30:31 = (processes per node) - 1 */
-
-    if ((0 == GASNET_PSHM) ||
-        !sprg4.ShmNumProcs || (gasneti_nodes == 1)) {
-      /* Just build the trivial map if GASNET_PSHM is zero,
-         or are in SMP mode, or we have just a single node */
-      gasneti_nodemap_trivial();
-    } else {
-      uint32_t *allids = gasneti_malloc(gasneti_nodes * sizeof(uint32_t));
-
-      /* Kernel call to get torus coords for all ranks */
-      { int rc;
-        GASNETI_BGP_SYSCALL2(rc, RANKS2COORDS, (uintptr_t)allids, (uint32_t)gasneti_nodes);
-        gasneti_assert(!rc);
-      }
-
-      /* Compare only the upper 3 bytes, discarding the T coordinate */
-      gasneti_nodemap_helper(allids, 3, sizeof(uint32_t));
-
-      gasneti_free(allids);
-    }
-#elif PLATFORM_OS_BGQ && GASNETI_HAVE_BGQ_INLINES
+#if PLATFORM_OS_BGQ && GASNETI_HAVE_BGQ_INLINES
   #if 0 /* "Clean" but not usable in general due to (non)inlined implementation */
     uint64_t count, size = gasneti_nodes * sizeof(BG_CoordinateMapping_t);
     BG_CoordinateMapping_t *allids = gasneti_malloc(size);
@@ -965,7 +940,7 @@ static void gasneti_nodemap_dflt(gasneti_bootstrapExchangefn_t exchangefn) {
 
     gasneti_free(allids);
   #endif
-#elif PLATFORM_OS_BGQ || PLATFORM_OS_BGP || !HAVE_GETHOSTID
+#elif PLATFORM_OS_BGQ || !HAVE_GETHOSTID
     /* Nodes are either (at least effectively) single process,
      * or we don't have a usable gethostid().  So, build a trivial nodemap. */
     gasneti_nodemap_trivial();
