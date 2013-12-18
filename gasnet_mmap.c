@@ -85,8 +85,8 @@
   #define GASNETI_MMAP_NOTFIXED_FLAG 0
 #endif
 
-#if GASNET_PSHM && (PLATFORM_OS_BGP || PLATFORM_OS_BGQ || PLATFORM_OS_CYGWIN)
-  /* BG/P and /Q: MAP_FIXED is ignored for fd obtained from pshm_open() */
+#if GASNET_PSHM && (PLATFORM_OS_BGQ || PLATFORM_OS_CYGWIN)
+  /* BG/Q: MAP_FIXED is ignored for fd obtained from pshm_open() */
   /* CYGWIN: may not honor the address passed to shmat() */
   #define GASNETI_PSHM_MAP_FIXED_IGNORED 1
 #endif
@@ -436,13 +436,8 @@ static void gasneti_pshm_unlink(int pshm_rank);
 
 /* create the object/region/segment and return its address */
 static void * gasneti_pshm_mmap(int pshm_rank, void *segbase, size_t segsize) {
-#if defined(GASNETI_PSHM_POSIX) && defined(PLATFORM_OS_BGP)
-  /* shm_unlink() is apparently a no-op on BG/P */
-  const int create = ((pshm_rank == gasneti_pshm_nodes) && !gasneti_pshm_mynode);
-#else
   const int create = (pshm_rank == gasneti_pshm_mynode) ||
                      ((pshm_rank == gasneti_pshm_nodes) && !gasneti_pshm_mynode);
-#endif
   void * ptr = MAP_FAILED;
 
 #if defined(GASNETI_PSHM_SYSV)
@@ -1125,9 +1120,7 @@ uintptr_t gasneti_mmapLimit(uintptr_t localLimit, uint64_t sharedLimit,
   gasneti_assert(gasneti_nodemap);
 
   /* Apply system-dependent defaults, if any */
-#if defined(GASNETI_HAVE_BGP_INLINES) && 0 /* Not implemented */
-    /* XXX: should be able to do something like done for BG/Q, below */
-#elif defined(GASNETI_HAVE_BGQ_INLINES)
+#if defined(GASNETI_HAVE_BGQ_INLINES)
   if ((localLimit == (uintptr_t)-1) || (sharedLimit == (uint64_t)-1)) {
     const uint64_t nodemem = gasneti_getPhysMemSz(1); /* sysconf() reports phys mem for full node */
     const uint64_t safemem = (nodemem * 4) / 5; /* 80% as a safety margin (but just a guess) */
@@ -1401,7 +1394,7 @@ void gasneti_segmentInit(uintptr_t localSegmentLimit,
       gasneti_maxbase = maxbase;
       #if GASNET_ALIGNED_SEGMENTS
        /* BG/[PQ] would incorrectly probe the I/O node */
-       #if !defined(PLATFORM_OS_BGP) && !defined(PLATFORM_OS_BGQ)
+       #if !defined(PLATFORM_OS_BGQ)
         if (gasneti_nodes > 1) { 
           /* bug 2067 - detect if the compute nodes are using Linux's 'intentional VM space randomization'
            * security feature, which is known to break GASNET_ALIGNED_SEGMENTS, esp at large scale
