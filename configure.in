@@ -585,27 +585,6 @@ case "$CC_FAMILY" in
   *)  MISC_CPPFLAGS="" ;;
 esac
 
-# Locate system directories for BG/P
-if expr "$target" : powerpc-bgp-linux >/dev/null; then
-  AC_PATH_PROGS(bgpmaster, bgpmaster)
-  if test -n "$bgpmaster"; then
-    GASNET_FOLLOWLINKS(bgpmaster)
-    bgsys_guess=`dirname \`dirname $bgpmaster\``
-  else
-    bgsys_guess=/bgsys/drivers/ppcfloor
-  fi
-  GASNET_ENV_DEFAULT(BGP_SYS_HOME, $bgsys_guess)
-  GASNET_ENV_DEFAULT(BGP_SYS_INCLUDE, $BGP_SYS_HOME/arch/include)
-  if test -e "$BGP_SYS_INCLUDE/common"; then
-    tmp_flag="-isystem $BGP_SYS_INCLUDE"
-    GASNET_TRY_CFLAG([$tmp_flag], [:], [tmp_flag="-I$BGP_SYS_INCLUDE"])
-    SYS_HEADER_BLD="$SYS_HEADER_BLD $tmp_flag"
-    SYS_HEADER_INST="$SYS_HEADER_INST $tmp_flag"
-  fi
-  AC_SUBST(SYS_HEADER_BLD) dnl "Hook" shared with GASNET_CHECK_OVERRIDE_PTHREADS
-  AC_SUBST(SYS_HEADER_INST) dnl "Hook" shared with GASNET_CHECK_OVERRIDE_PTHREADS
-fi
-
 # Locate system directories for BG/Q
 if expr "$target" : powerpc64-bgq-linux >/dev/null; then
   # TODO: Something like bgpmaster to search on?
@@ -954,11 +933,6 @@ case "$target_os" in
 	    AC_DEFINE(GASNETI_ARCH_IBMPE)
 	fi
         case "$target" in
-          powerpc-bgp-linux*) # apparently lacks any identifying preprocessor macro
-	    GASNETI_ARCH_BGP=1
-	    AC_DEFINE(GASNETI_ARCH_BGP)
-	    GASNET_PLATFORM=bgp
-	    ;;
           powerpc64-bgq-linux*) # apparently lacks any identifying preprocessor macro
 	    GASNETI_ARCH_BGQ=1
 	    AC_DEFINE(GASNETI_ARCH_BGQ)
@@ -1240,7 +1214,6 @@ if test "$enabled_pshm" != no; then
     if test "$cross_compiling" = "yes" ; then
       # To the best of my knowledge CNL, and BG/L all lack
       # working shm_open() support, though at least CNL finds the symbol.
-      # Our support on BG/P is marginal at the moment (see pshm-design.txt).
       # So, we default to NO shm_open() when cross-compiling. -PHH
       # Update: CNL on Cray XE *does* have working shm_open(). -PHH
       # One can set CROSS_HAVE_SHM_OPEN=1 to force building PSHM for POSIX.
@@ -1370,7 +1343,7 @@ GASNET_IF_DISABLED([aligned-segments],
 		   [GASNETI_DISABLE_ALIGNED_SEGMENTS=1
 		    AC_DEFINE(GASNETI_DISABLE_ALIGNED_SEGMENTS)],
 		   [RVMFILE="/proc/sys/kernel/randomize_va_space"
-		    if test -n "$GASNETI_ARCH_BGP$GASNETI_ARCH_BGQ"; then
+		    if test -n "$GASNETI_ARCH_BGQ"; then
                       : # Cross-compiled and NOT applicable
 		    elif test -f $RVMFILE && test "`cat $RVMFILE`" != "0" ; then
 WMSG="$RVMFILE on this node indicates the Linux VM space randomization \

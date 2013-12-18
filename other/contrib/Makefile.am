@@ -10,7 +10,6 @@ SUBDIRS = .
 
 EXTRA_DIST = $(dotpl_DATA) $(vg_DATA) \
 	gasnet_ibrun \
- 	cross-configure-bgp \
  	cross-configure-bgq \
 	cross-configure-crayxt-linux \
 	cross-configure-crayxe-linux \
