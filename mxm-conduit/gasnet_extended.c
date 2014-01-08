@@ -575,10 +575,7 @@ extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node,
 }
 
 /* -------------------------------------------------------------------------- */
-/*
- * In mxm2.0 we use PUT_SYNC request, so there is no need to follow
- * PUT request with as special sync request as we did in mxm1.xx
- */
+
 GASNETI_INLINE(gasnete_put_nb_inner)
 gasnet_handle_t gasnete_put_nb_inner(
     gasnet_node_t node, void *dest, void *src,
@@ -595,7 +592,6 @@ gasnet_handle_t gasnete_put_nb_inner(
         gasneti_fatalerror("Error posting send request - %s\n",
                            mxm_error_string(mxm_res));
 
-    gasnet_mxm_sreq;
     gasnetc_AMPoll();
 
     if (! isbulk) {
