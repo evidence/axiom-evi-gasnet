@@ -787,7 +787,11 @@ static int gasneti_system_redirected_coprocess(const char *cmd, int stdout_fd) {
       if (retval) { /* system call failed - nuke the output */
         gasneti_bt_rc_unused = ftruncate(tmpfd, 0);
       } 
+#if 0 /* gasneti_filesystem_sync() is currenlty a no-op by default */
       gasneti_filesystem_sync(); /* flush output */
+#else
+      fsync(tmpfd); /* flush output */
+#endif
       kill(parentpid, GASNETI_UNFREEZE_SIGNAL); /* signal the parent of completion */
       gasneti_killmyprocess(0); /* die */
     } else { /* the parent - our debugger target */
@@ -797,6 +801,7 @@ static int gasneti_system_redirected_coprocess(const char *cmd, int stdout_fd) {
         gasneti_sched_yield(); /* sched_yield seems to be friendlier than sleep() for stack-walkers */
       }
       /* awakened */
+      gasneti_bt_complete_flag = 0;
       gasneti_reghandler(GASNETI_UNFREEZE_SIGNAL, old_sigh);
       if (fstat(tmpfd, &tmpstat)) rc = -1; /* never happens? */
       else if (tmpstat.st_size == 0) rc = -1; /* child process spawn failed */
