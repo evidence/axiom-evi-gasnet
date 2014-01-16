@@ -165,9 +165,13 @@ static int gasneti_bootstrapInit(
     int res = GASNET_ERR_NOT_INIT;
 
 #if HAVE_SSH_SPAWNER
-    /* Sigh.  We can't assume GASNET_IB_SPAWNER has been set except in the master */
-    if (GASNET_OK == (res = gasneti_bootstrapInit_ssh(argc_p, argv_p, nodes_p, mynode_p))) {
-        gasneti_bootstrapInit_ssh(argc_p, argv_p, nodes_p, mynode_p);
+    /* Sigh.  We can't assume GASNET_IB_SPAWNER has been set except in the master.
+     * However, gasneti_bootstrapInit_ssh() verifies the command line args and
+     * returns GASNET_ERR_NOT_INIT on failure witout any noise on stderr.
+     * So, we try ssh-based spawn first.
+     */
+    if (GASNET_OK != res &&
+        GASNET_OK == (res = gasneti_bootstrapInit_ssh(argc_p, argv_p, nodes_p, mynode_p))) {
         gasneti_bootstrapFini_p     = &gasneti_bootstrapFini_ssh;
         gasneti_bootstrapAbort_p    = &gasneti_bootstrapAbort_ssh;
         gasneti_bootstrapBarrier_p  = &gasneti_bootstrapBarrier_ssh;
@@ -175,23 +179,31 @@ static int gasneti_bootstrapInit(
         gasneti_bootstrapAlltoall_p = &gasneti_bootstrapAlltoall_ssh;
         gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_ssh;
         gasneti_bootstrapCleanup_p  = &gasneti_bootstrapCleanup_ssh;
-    } else
+    }
 #endif
+
 #if HAVE_MPI_SPAWNER
-    if (!strcmp(spawner, "mpi")) {
-        res = gasneti_bootstrapInit_mpi(argc_p, argv_p, nodes_p, mynode_p);
-        gasneti_bootstrapInit_mpi(argc_p, argv_p, nodes_p, mynode_p);
-        gasneti_bootstrapFini_p	= &gasneti_bootstrapFini_mpi;
+    /* Only try MPI-based spawn when spawner == "mpi".
+     * Otherwise things could hang or fail in "messy" ways here.
+     */
+    if (GASNET_OK != res && !strcmp(spawner, "mpi") && 
+        GASNET_OK == (res = gasneti_bootstrapInit_mpi(argc_p, argv_p, nodes_p, mynode_p))) {
+        gasneti_bootstrapFini_p	    = &gasneti_bootstrapFini_mpi;
         gasneti_bootstrapAbort_p	= &gasneti_bootstrapAbort_mpi;
         gasneti_bootstrapBarrier_p	= &gasneti_bootstrapBarrier_mpi;
         gasneti_bootstrapExchange_p	= &gasneti_bootstrapExchange_mpi;
         gasneti_bootstrapAlltoall_p	= &gasneti_bootstrapAlltoall_mpi;
         gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_mpi;
         gasneti_bootstrapCleanup_p  = &gasneti_bootstrapCleanup_mpi;
-    } else
+    }
 #endif
+
 #if HAVE_PMI_SPAWNER
-    if (GASNET_OK == (res = gasneti_bootstrapInit_pmi(argc_p, argv_p, nodes_p, mynode_p))) {
+    /* Don't expect GASNET_IB_SPAWNER set if launched directly by srun, mpirun, yod, etc.
+     * So, we try pmi-based spawn last.
+     */
+    if (GASNET_OK != res &&
+        GASNET_OK == (res = gasneti_bootstrapInit_pmi(argc_p, argv_p, nodes_p, mynode_p))) {
         gasneti_bootstrapFini_p = &gasneti_bootstrapFini_pmi;
         gasneti_bootstrapAbort_p    = &gasneti_bootstrapAbort_pmi;
         gasneti_bootstrapBarrier_p  = &gasneti_bootstrapBarrier_pmi;
@@ -199,8 +211,20 @@ static int gasneti_bootstrapInit(
         gasneti_bootstrapAlltoall_p = &gasneti_bootstrapAlltoall_pmi;
         gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_pmi;
         gasneti_bootstrapCleanup_p  = &gasneti_bootstrapCleanup_pmi;
-    } else
+    }
 #endif
+
+    if (GASNET_OK != res
+#if HAVE_SSH_SPAWNER
+        && strcmp(spawner, "ssh")
+#endif
+#if HAVE_MPI_SPAWNER
+        && strcmp(spawner, "mpi")
+#endif
+#if HAVE_PMI_SPAWNER
+        && strcmp(spawner, "pmi")
+#endif
+        )
     {
         gasneti_fatalerror("Requested spawner \"%s\" is unknown or not supported in this build", spawner);
     }
