@@ -167,7 +167,6 @@ static int gasneti_bootstrapInit(
 #if HAVE_SSH_SPAWNER
     /* Sigh.  We can't assume GASNET_IB_SPAWNER has been set except in the master */
     if (GASNET_OK == (res = gasneti_bootstrapInit_ssh(argc_p, argv_p, nodes_p, mynode_p))) {
-        gasneti_bootstrapInit_ssh(argc_p, argv_p, nodes_p, mynode_p);
         gasneti_bootstrapFini_p     = &gasneti_bootstrapFini_ssh;
         gasneti_bootstrapAbort_p    = &gasneti_bootstrapAbort_ssh;
         gasneti_bootstrapBarrier_p  = &gasneti_bootstrapBarrier_ssh;
@@ -178,10 +177,9 @@ static int gasneti_bootstrapInit(
     } else
 #endif
 #if HAVE_MPI_SPAWNER
-    if (!strcmp(spawner, "mpi")) {
-        res = gasneti_bootstrapInit_mpi(argc_p, argv_p, nodes_p, mynode_p);
-        gasneti_bootstrapInit_mpi(argc_p, argv_p, nodes_p, mynode_p);
-        gasneti_bootstrapFini_p	= &gasneti_bootstrapFini_mpi;
+    if (!strcmp(spawner, "mpi") && 
+        GASNET_OK == (res = gasneti_bootstrapInit_mpi(argc_p, argv_p, nodes_p, mynode_p))) {
+        gasneti_bootstrapFini_p	    = &gasneti_bootstrapFini_mpi;
         gasneti_bootstrapAbort_p	= &gasneti_bootstrapAbort_mpi;
         gasneti_bootstrapBarrier_p	= &gasneti_bootstrapBarrier_mpi;
         gasneti_bootstrapExchange_p	= &gasneti_bootstrapExchange_mpi;
