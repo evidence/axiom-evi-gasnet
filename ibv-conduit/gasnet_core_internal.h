@@ -263,15 +263,6 @@ typedef union {
 #if GASNETC_ANY_PAR
   #define GASNETC_PARSEQ _PAR
 
-  typedef gasneti_lifo_head_t gasnetc_lifo_head_t;
-  #define GASNETC_LIFO_INITIALIZER GASNETI_LIFO_INITIALIZER
-  #define gasnetc_lifo_init      gasneti_lifo_init
-  #define gasnetc_lifo_link      gasneti_lifo_link
-  #define gasnetc_lifo_next      gasneti_lifo_next
-  #define gasnetc_lifo_push      gasneti_lifo_push
-  #define gasnetc_lifo_push_many gasneti_lifo_push_many
-  #define gasnetc_lifo_pop       gasneti_lifo_pop
-
   typedef gasneti_atomic_t     gasnetc_atomic_t;
   typedef gasneti_atomic_val_t gasnetc_atomic_val_t;
   #define gasnetc_atomic_init      gasneti_atomic_init
@@ -299,56 +290,6 @@ typedef union {
   #define gasnetc_atomic_subtract  gasneti_atomic_subtract
 #else
   #define GASNETC_PARSEQ _SEQ
-
-  typedef struct {
-    void **head;
-  } gasnetc_lifo_head_t;
-  #define GASNETC_LIFO_INITIALIZER  { NULL }
-
-  GASNETI_INLINE(gasnetc_lifo_init)
-  void gasnetc_lifo_init(gasnetc_lifo_head_t *lifo) {
-    gasneti_assert(lifo != NULL);
-    lifo->head = NULL;
-  }
-  GASNETI_INLINE(_gasnetc_lifo_push)
-  void _gasnetc_lifo_push(gasnetc_lifo_head_t *lifo, void **head, void **tail) {
-    *tail = lifo->head;
-    lifo->head = head;
-  }
-  GASNETI_INLINE(gasnetc_lifo_push)
-  void gasnetc_lifo_push(gasnetc_lifo_head_t *lifo, void *elem) {
-    gasneti_assert(lifo != NULL);
-    gasneti_assert(elem != NULL);
-    _gasnetc_lifo_push(lifo, elem, elem);
-  }
-  GASNETI_INLINE(gasnetc_lifo_push_many)
-  void gasnetc_lifo_push_many(gasnetc_lifo_head_t *lifo, void *head, void *tail) {
-    gasneti_assert(lifo != NULL);
-    gasneti_assert(head != NULL);
-    gasneti_assert(tail != NULL);
-    _gasnetc_lifo_push(lifo, head, tail);
-  }
-  GASNETI_INLINE(gasnetc_lifo_pop) GASNETI_MALLOC
-  void *gasnetc_lifo_pop(gasnetc_lifo_head_t *lifo) {
-    void **elem;
-    gasneti_assert(lifo != NULL);
-    elem = lifo->head;
-    if_pt (elem != NULL) {
-      lifo->head = *elem;
-    }
-    return (void *)elem;
-  }
-  GASNETI_INLINE(gasnetc_lifo_link)
-  void gasnetc_lifo_link(void *p, void *q) {
-    gasneti_assert(p != NULL);
-    gasneti_assert(q != NULL);
-    *((void **)p) = q;
-  }
-  GASNETI_INLINE(gasnetc_lifo_next)
-  void *gasnetc_lifo_next(void *elem) {
-    gasneti_assert(elem != NULL);
-    return *((void **)elem);
-  }
 
   typedef gasneti_atomic_val_t gasnetc_atomic_t;
   typedef gasneti_atomic_val_t gasnetc_atomic_val_t;
@@ -402,6 +343,16 @@ typedef union {
 #define gasnetc_sema_up           gasnetc_cons_sema(up)
 #define gasnetc_sema_up_n         gasnetc_cons_sema(up_n)
 #define gasnetc_sema_trydown      gasnetc_cons_sema(trydown)
+
+#define GASNETC_LIFO_INITIALIZER  _CONCAT(GASNETI_LIFO_,_CONCAT(INITIALIZER,GASNETC_PARSEQ))
+#define gasnetc_cons_lifo(_id)    _CONCAT(gasneti_lifo_,_CONCAT(_id,GASNETC_PARSEQ))
+#define gasnetc_lifo_head_t       gasnetc_cons_lifo(head_t)
+#define gasnetc_lifo_init         gasnetc_cons_lifo(init)
+#define gasnetc_lifo_pop          gasnetc_cons_lifo(pop)
+#define gasnetc_lifo_push         gasnetc_cons_lifo(push)
+#define gasnetc_lifo_push_many    gasnetc_cons_lifo(push_many)
+#define gasnetc_lifo_link         gasneti_lifo_link
+#define gasnetc_lifo_next         gasneti_lifo_next
 
 /* ------------------------------------------------------------------------------------ */
 /* Type and ops for rdma counters */
