@@ -286,23 +286,23 @@ typedef struct {
     _gasneti_semaphore_t	S;
     char			_pad[GASNETI_CACHE_PAD(sizeof(_gasneti_semaphore_t))];
   #endif
-} gasneti_semaphore_t;
+} gasneti_semaphore_t_PAR;
 
 #if GASNET_DEBUG
-  #define GASNETI_SEMAPHORE_INITIALIZER(N,L) {_GASNETI_SEMAPHORE_INITIALIZER(N), (L),}
+  #define GASNETI_SEMAPHORE_INITIALIZER_PAR(N,L) {_GASNETI_SEMAPHORE_INITIALIZER(N), (L),}
   #define GASNETI_SEMA_CHECK(_s)	do {                    \
       gasneti_atomic_val_t _tmp = _gasneti_semaphore_read(&(_s)->S); \
       gasneti_assert(_tmp <= GASNETI_SEMAPHORE_MAX);            \
       gasneti_assert((_tmp <= (_s)->limit) || !(_s)->limit);    \
     } while (0)
 #else
-  #define GASNETI_SEMAPHORE_INITIALIZER(N,L) {_GASNETI_SEMAPHORE_INITIALIZER(N),}
+  #define GASNETI_SEMAPHORE_INITIALIZER_PAR(N,L) {_GASNETI_SEMAPHORE_INITIALIZER(N),}
   #define GASNETI_SEMA_CHECK(_s)	do {} while(0)
 #endif
 
 /* gasneti_semaphore_init */
-GASNETI_INLINE(gasneti_semaphore_init)
-void gasneti_semaphore_init(gasneti_semaphore_t *s, int n, gasneti_atomic_val_t limit) {
+GASNETI_INLINE(gasneti_semaphore_init_PAR)
+void gasneti_semaphore_init_PAR(gasneti_semaphore_t_PAR *s, int n, gasneti_atomic_val_t limit) {
   gasneti_assert(limit <= GASNETI_SEMAPHORE_MAX);
   _gasneti_semaphore_init(&(s->S), n);
   #if GASNET_DEBUG
@@ -312,8 +312,8 @@ void gasneti_semaphore_init(gasneti_semaphore_t *s, int n, gasneti_atomic_val_t 
 }
 
 /* gasneti_semaphore_destroy */
-GASNETI_INLINE(gasneti_semaphore_destroy)
-void gasneti_semaphore_destroy(gasneti_semaphore_t *s) {
+GASNETI_INLINE(gasneti_semaphore_destroy_PAR)
+void gasneti_semaphore_destroy_PAR(gasneti_semaphore_t_PAR *s) {
   GASNETI_SEMA_CHECK(s);
   _gasneti_semaphore_destroy(&(s->S));
 }
@@ -322,8 +322,8 @@ void gasneti_semaphore_destroy(gasneti_semaphore_t *s) {
  *
  * Returns current value of the semaphore
  */
-GASNETI_INLINE(gasneti_semaphore_read)
-gasneti_atomic_val_t gasneti_semaphore_read(gasneti_semaphore_t *s) {
+GASNETI_INLINE(gasneti_semaphore_read_PAR)
+gasneti_atomic_val_t gasneti_semaphore_read_PAR(gasneti_semaphore_t_PAR *s) {
   GASNETI_SEMA_CHECK(s);
   return _gasneti_semaphore_read(&(s->S));
 }
@@ -333,8 +333,8 @@ gasneti_atomic_val_t gasneti_semaphore_read(gasneti_semaphore_t *s) {
  * Atomically increments the value of the semaphore.
  * Since this just a busy-waiting semaphore, no waking operations are required.
  */
-GASNETI_INLINE(gasneti_semaphore_up)
-void gasneti_semaphore_up(gasneti_semaphore_t *s) {
+GASNETI_INLINE(gasneti_semaphore_up_PAR)
+void gasneti_semaphore_up_PAR(gasneti_semaphore_t_PAR *s) {
   GASNETI_SEMA_CHECK(s);
   _gasneti_semaphore_up(&(s->S));
   GASNETI_SEMA_CHECK(s);
@@ -345,8 +345,8 @@ void gasneti_semaphore_up(gasneti_semaphore_t *s) {
  * If the value of the semaphore is non-zero, decrements it and returns non-zero.
  * If the value is zero, returns zero.  Otherwise returns 1;
  */
-GASNETI_INLINE(gasneti_semaphore_trydown) GASNETI_WARN_UNUSED_RESULT
-int gasneti_semaphore_trydown(gasneti_semaphore_t *s) {
+GASNETI_INLINE(gasneti_semaphore_trydown_PAR) GASNETI_WARN_UNUSED_RESULT
+int gasneti_semaphore_trydown_PAR(gasneti_semaphore_t_PAR *s) {
   int retval;
 
   GASNETI_SEMA_CHECK(s);
@@ -361,8 +361,8 @@ int gasneti_semaphore_trydown(gasneti_semaphore_t *s) {
  * Increases the value of the semaphore by the indicated count.
  * Since this just a busy-waiting semaphore, no waking operations are required.
  */
-GASNETI_INLINE(gasneti_semaphore_up_n)
-void gasneti_semaphore_up_n(gasneti_semaphore_t *s, gasneti_atomic_val_t n) {
+GASNETI_INLINE(gasneti_semaphore_up_n_PAR)
+void gasneti_semaphore_up_n_PAR(gasneti_semaphore_t_PAR *s, gasneti_atomic_val_t n) {
   GASNETI_SEMA_CHECK(s);
   _gasneti_semaphore_up_n(&(s->S), n);
   GASNETI_SEMA_CHECK(s);
@@ -373,8 +373,8 @@ void gasneti_semaphore_up_n(gasneti_semaphore_t *s, gasneti_atomic_val_t n) {
  * Decrements the semaphore by 'n' or fails.
  * If the "old" value is zero, returns zero.
  */
-GASNETI_INLINE(gasneti_semaphore_trydown_n) GASNETI_WARN_UNUSED_RESULT
-gasneti_atomic_val_t gasneti_semaphore_trydown_n(gasneti_semaphore_t *s, gasneti_atomic_val_t n) {
+GASNETI_INLINE(gasneti_semaphore_trydown_n_PAR) GASNETI_WARN_UNUSED_RESULT
+gasneti_atomic_val_t gasneti_semaphore_trydown_n_PAR(gasneti_semaphore_t_PAR *s, gasneti_atomic_val_t n) {
   gasneti_atomic_val_t retval;
 
   GASNETI_SEMA_CHECK(s);
@@ -391,8 +391,8 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_n(gasneti_semaphore_t *s, gasneti
  * and this value is returned.
  * If the "old" value is zero, returns zero.
  */
-GASNETI_INLINE(gasneti_semaphore_trydown_partial) GASNETI_WARN_UNUSED_RESULT
-gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, gasneti_atomic_val_t n) {
+GASNETI_INLINE(gasneti_semaphore_trydown_partial_PAR) GASNETI_WARN_UNUSED_RESULT
+gasneti_atomic_val_t gasneti_semaphore_trydown_partial_PAR(gasneti_semaphore_t_PAR *s, gasneti_atomic_val_t n) {
   gasneti_atomic_val_t retval;
 
   GASNETI_SEMA_CHECK(s);
@@ -401,6 +401,100 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
 
   return retval;
 }
+
+/* _SEQ implementation of semaphores */
+#define GASNETI_SEMAPHORE_MAX_SEQ GASNETI_ATOMIC_MAX
+#if GASNET_DEBUG
+  typedef struct {
+    gasneti_atomic_val_t count;
+    gasneti_atomic_val_t limit;
+  } gasneti_semaphore_t_SEQ;
+  #define GASNETI_SEMAPHORE_INITIALIZER_SEQ(count,limit) { (count), (limit) }
+  #define GASNETI_SEMA_CHECK_SEQ(_s)        do {             \
+    gasneti_assert((_s)->count <= GASNETI_SEMAPHORE_MAX_SEQ);     \
+    gasneti_assert(((_s)->count <= (_s)->limit) || !(_s)->limit); \
+  } while (0)
+#else
+  typedef struct {
+    gasneti_atomic_val_t count;
+  } gasneti_semaphore_t_SEQ;
+  #define GASNETI_SEMAPHORE_INITIALIZER_SEQ(count,limit) { (count) }
+  #define GASNETI_SEMA_CHECK_SEQ(_s) do { } while (0)
+#endif
+GASNETI_INLINE(gasneti_semaphore_init_SEQ)
+void gasneti_semaphore_init_SEQ(gasneti_semaphore_t_SEQ *s,
+                                gasneti_atomic_val_t value,
+                                gasneti_atomic_val_t limit) {
+  s->count = value;
+#if GASNET_DEBUG
+  s->limit = limit;
+#endif
+  GASNETI_SEMA_CHECK_SEQ(s);
+}
+GASNETI_INLINE(gasneti_semaphore_destroy_SEQ)
+void gasneti_semaphore_destroy_SEQ(gasneti_semaphore_t_SEQ *s) {
+  GASNETI_SEMA_CHECK_SEQ(s);
+  /* Nothing */
+}
+GASNETI_INLINE(gasneti_semaphore_read_SEQ)
+gasneti_atomic_val_t gasneti_semaphore_read_SEQ(gasneti_semaphore_t_SEQ *s) {
+  GASNETI_SEMA_CHECK_SEQ(s);
+  return s->count;
+}
+GASNETI_INLINE(gasneti_semaphore_up_SEQ)
+void gasneti_semaphore_up_SEQ(gasneti_semaphore_t_SEQ *s) {
+  GASNETI_SEMA_CHECK_SEQ(s);
+  s->count += 1;
+  GASNETI_SEMA_CHECK_SEQ(s);
+}
+GASNETI_INLINE(gasneti_semaphore_trydown_SEQ) GASNETI_WARN_UNUSED_RESULT
+int gasneti_semaphore_trydown_SEQ(gasneti_semaphore_t_SEQ *s) {
+  int retval;
+  GASNETI_SEMA_CHECK_SEQ(s);
+  retval = s->count;
+  if_pt (retval != 0)
+    s->count -= 1;
+  GASNETI_SEMA_CHECK_SEQ(s);
+  return retval;
+}
+GASNETI_INLINE(gasneti_semaphore_up_n_SEQ)
+void gasneti_semaphore_up_n_SEQ(gasneti_semaphore_t_SEQ *s, gasneti_atomic_val_t n) {
+  GASNETI_SEMA_CHECK_SEQ(s);
+  s->count += n;
+  GASNETI_SEMA_CHECK_SEQ(s);
+}
+GASNETI_INLINE(gasneti_semaphore_trydown_n_SEQ) GASNETI_WARN_UNUSED_RESULT
+gasneti_atomic_val_t gasneti_semaphore_trydown_n_SEQ(gasneti_semaphore_t_SEQ *s, gasneti_atomic_val_t n) {
+  GASNETI_SEMA_CHECK_SEQ(s);
+  if_pt (s->count >= n) {
+    s->count -= n;
+  } else {
+    n = 0;
+  }
+  GASNETI_SEMA_CHECK_SEQ(s);
+  return n;
+}
+GASNETI_INLINE(gasneti_semaphore_trydown_partial_SEQ) GASNETI_WARN_UNUSED_RESULT
+gasneti_atomic_val_t gasneti_semaphore_trydown_partial_SEQ(gasneti_semaphore_t_SEQ *s, gasneti_atomic_val_t n) {
+  GASNETI_SEMA_CHECK_SEQ(s);
+  n = MIN(s->count, n);
+  s->count -= n;
+  GASNETI_SEMA_CHECK_SEQ(s);
+  return n;
+}
+
+/* Finally define gasneti_semaphore in terms of either the _PAR or _SEQ variant */
+#define GASNETI_SEMAPHORE_INITIALIZER      _CONCAT(GASNETI_SEMAPHORE_,_CONCAT(INITIALIZER,_GASNETI_PARSEQ))
+#define gasneti_cons_sema(_id)             _CONCAT(gasneti_semaphore_,_CONCAT(_id,_GASNETI_PARSEQ))
+#define gasneti_semaphore_t                gasneti_cons_sema(t)
+#define gasneti_semaphore_init             gasneti_cons_sema(init)
+#define gasneti_semaphore_destroy          gasneti_cons_sema(destroy)
+#define gasneti_semaphore_read             gasneti_cons_sema(read)
+#define gasneti_semaphore_up               gasneti_cons_sema(up)
+#define gasneti_semaphore_trydown          gasneti_cons_sema(trydown)
+#define gasneti_semaphore_up_n             gasneti_cons_sema(up_n)
+#define gasneti_semaphore_trydown_n        gasneti_cons_sema(trydown_n)
+#define gasneti_semaphore_trydown_partial  gasneti_cons_sema(trydown_partial)
 
 /* ------------------------------------------------------------------------------------ */
 /* Optional atomic operations for pointer-sized data.
