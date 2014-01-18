@@ -261,13 +261,7 @@ typedef union {
  * but use of "weak" atomics would pay the unnecessary costs for those.
  */
 #if GASNETC_ANY_PAR
-  typedef gasneti_semaphore_t gasnetc_sema_t;
-  #define GASNETC_SEMA_INITIALIZER GASNETI_SEMAPHORE_INITIALIZER
-  #define gasnetc_sema_init    gasneti_semaphore_init
-  #define gasnetc_sema_read    gasneti_semaphore_read
-  #define gasnetc_sema_up      gasneti_semaphore_up
-  #define gasnetc_sema_up_n    gasneti_semaphore_up_n
-  #define gasnetc_sema_trydown gasneti_semaphore_trydown
+  #define GASNETC_PARSEQ _PAR
 
   typedef gasneti_lifo_head_t gasnetc_lifo_head_t;
   #define GASNETC_LIFO_INITIALIZER GASNETI_LIFO_INITIALIZER
@@ -304,69 +298,13 @@ typedef union {
   #define gasnetc_atomic_add       gasneti_atomic_add
   #define gasnetc_atomic_subtract  gasneti_atomic_subtract
 #else
-  #define GASNETC_SEMA_MAX GASNETI_ATOMIC_MAX
-  #if GASNET_DEBUG
-    typedef struct {
-      gasneti_atomic_val_t count;
-      gasneti_atomic_val_t limit;
-    } gasnetc_sema_t;
-    #define GASNETC_SEMA_INITIALIZER(count,limit) { (count), (limit) }
-    #define GASNETC_SEMA_CHECK(_s)        do {                      \
-      gasneti_assert((_s)->count <= GASNETC_SEMA_MAX);              \
-      gasneti_assert(((_s)->count <= (_s)->limit) || !(_s)->limit); \
-    } while (0)
-  #else
-    typedef struct {
-      gasneti_atomic_val_t count;
-    } gasnetc_sema_t;
-    #define GASNETC_SEMA_INITIALIZER(count,limit) { (count) }
-    #define GASNETC_SEMA_CHECK(_s) do { } while (0)
-  #endif
-
-  GASNETI_INLINE(gasnetc_sema_init)
-  void gasnetc_sema_init(gasnetc_sema_t *s,
-                         gasneti_atomic_val_t value,
-                         gasneti_atomic_val_t limit) {
-    s->count = value;
-  #if GASNET_DEBUG
-    s->limit = limit;
-  #endif
-    GASNETC_SEMA_CHECK(s);
-  }
-  GASNETI_INLINE(gasnetc_sema_read)
-  gasneti_atomic_val_t gasnetc_sema_read(gasnetc_sema_t *s) {
-    GASNETC_SEMA_CHECK(s);
-    return s->count;
-  }
-  GASNETI_INLINE(gasnetc_sema_up)
-  void gasnetc_sema_up(gasnetc_sema_t *s) {
-    GASNETC_SEMA_CHECK(s);
-    s->count += 1;
-    GASNETC_SEMA_CHECK(s);
-  }
-  GASNETI_INLINE(gasnetc_sema_up_n)
-  void gasnetc_sema_up_n(gasnetc_sema_t *s, gasneti_atomic_val_t n) {
-    GASNETC_SEMA_CHECK(s);
-    s->count += n;
-    GASNETC_SEMA_CHECK(s);
-  }
-  GASNETI_INLINE(gasnetc_sema_trydown)
-  int gasnetc_sema_trydown(gasnetc_sema_t *s) {
-    int retval;
-    GASNETC_SEMA_CHECK(s);
-    retval = s->count;
-    if_pt (retval != 0)
-      s->count -= 1;
-    GASNETC_SEMA_CHECK(s);
-    return retval;
-  }
+  #define GASNETC_PARSEQ _SEQ
 
   typedef struct {
     void **head;
   } gasnetc_lifo_head_t;
   #define GASNETC_LIFO_INITIALIZER  { NULL }
 
-  #define gasnetc_atomic_init(v) (v)
   GASNETI_INLINE(gasnetc_lifo_init)
   void gasnetc_lifo_init(gasnetc_lifo_head_t *lifo) {
     gasneti_assert(lifo != NULL);
@@ -414,6 +352,7 @@ typedef union {
 
   typedef gasneti_atomic_val_t gasnetc_atomic_t;
   typedef gasneti_atomic_val_t gasnetc_atomic_val_t;
+  #define gasnetc_atomic_init(v) (v)
   GASNETI_INLINE(gasnetc_atomic_read)
   gasnetc_atomic_val_t gasnetc_atomic_read(gasnetc_atomic_t *p, int flags) {
     return *p;
@@ -454,6 +393,15 @@ typedef union {
     return ((*p) -= op);
   }
 #endif
+
+#define GASNETC_SEMA_INITIALIZER  _CONCAT(GASNETI_SEMAPHORE_,_CONCAT(INITIALIZER,GASNETC_PARSEQ))
+#define gasnetc_cons_sema(_id)    _CONCAT(gasneti_semaphore_,_CONCAT(_id,GASNETC_PARSEQ))
+#define gasnetc_sema_t            gasnetc_cons_sema(t)
+#define gasnetc_sema_init         gasnetc_cons_sema(init)
+#define gasnetc_sema_read         gasnetc_cons_sema(read)
+#define gasnetc_sema_up           gasnetc_cons_sema(up)
+#define gasnetc_sema_up_n         gasnetc_cons_sema(up_n)
+#define gasnetc_sema_trydown      gasnetc_cons_sema(trydown)
 
 /* ------------------------------------------------------------------------------------ */
 /* Type and ops for rdma counters */
