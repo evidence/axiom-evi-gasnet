@@ -484,17 +484,18 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial_SEQ(gasneti_semaphore_t_S
 }
 
 /* Finally define gasneti_semaphore in terms of either the _PAR or _SEQ variant */
-#define GASNETI_SEMAPHORE_INITIALIZER      _CONCAT(GASNETI_SEMAPHORE_,_CONCAT(INITIALIZER,_GASNETI_PARSEQ))
-#define gasneti_cons_sema(_id)             _CONCAT(gasneti_semaphore_,_CONCAT(_id,_GASNETI_PARSEQ))
-#define gasneti_semaphore_t                gasneti_cons_sema(t)
-#define gasneti_semaphore_init             gasneti_cons_sema(init)
-#define gasneti_semaphore_destroy          gasneti_cons_sema(destroy)
-#define gasneti_semaphore_read             gasneti_cons_sema(read)
-#define gasneti_semaphore_up               gasneti_cons_sema(up)
-#define gasneti_semaphore_trydown          gasneti_cons_sema(trydown)
-#define gasneti_semaphore_up_n             gasneti_cons_sema(up_n)
-#define gasneti_semaphore_trydown_n        gasneti_cons_sema(trydown_n)
-#define gasneti_semaphore_trydown_partial  gasneti_cons_sema(trydown_partial)
+#define GASNETI_CONS_SEMA(_suff,_id)       _CONCAT(GASNETI_SEMAPHORE_,_CONCAT(_id,_suff))
+#define gasneti_cons_sema(_suff,_id)       _CONCAT(gasneti_semaphore_,_CONCAT(_id,_suff))
+#define GASNETI_SEMAPHORE_INITIALIZER      GASNETI_CONS_SEMA(_GASNETI_PARSEQ,INITIALIZER)
+#define gasneti_semaphore_t                gasneti_cons_sema(_GASNETI_PARSEQ,t)
+#define gasneti_semaphore_init             gasneti_cons_sema(_GASNETI_PARSEQ,init)
+#define gasneti_semaphore_destroy          gasneti_cons_sema(_GASNETI_PARSEQ,destroy)
+#define gasneti_semaphore_read             gasneti_cons_sema(_GASNETI_PARSEQ,read)
+#define gasneti_semaphore_up               gasneti_cons_sema(_GASNETI_PARSEQ,up)
+#define gasneti_semaphore_trydown          gasneti_cons_sema(_GASNETI_PARSEQ,trydown)
+#define gasneti_semaphore_up_n             gasneti_cons_sema(_GASNETI_PARSEQ,up_n)
+#define gasneti_semaphore_trydown_n        gasneti_cons_sema(_GASNETI_PARSEQ,trydown_n)
+#define gasneti_semaphore_trydown_partial  gasneti_cons_sema(_GASNETI_PARSEQ,trydown_partial)
 
 /* ------------------------------------------------------------------------------------ */
 /* Optional atomic operations for pointer-sized data.
@@ -1183,14 +1184,15 @@ void *gasneti_lifo_next(void *elem) {
 }
 
 /* Finally define gasneti_lifo_head in terms of either the _PAR or _SEQ variant */
-#define GASNETI_LIFO_INITIALIZER   _CONCAT(GASNETI_LIFO_,_CONCAT(INITIALIZER,_GASNETI_PARSEQ))
-#define gasneti_cons_lifo(_id)     _CONCAT(gasneti_lifo_,_CONCAT(_id,_GASNETI_PARSEQ))
-#define gasneti_lifo_head_t        gasneti_cons_lifo(head_t)
-#define gasneti_lifo_init          gasneti_cons_lifo(init)
-#define gasneti_lifo_destroy       gasneti_cons_lifo(destroy)
-#define gasneti_lifo_pop           gasneti_cons_lifo(pop)
-#define gasneti_lifo_push          gasneti_cons_lifo(push)
-#define gasneti_lifo_push_many     gasneti_cons_lifo(push_many)
+#define GASNETI_CONS_LIFO(_suff,_id) _CONCAT(GASNETI_LIFO_,_CONCAT(_id,_suff))
+#define gasneti_cons_lifo(_suff,_id) _CONCAT(gasneti_lifo_,_CONCAT(_id,_suff))
+#define GASNETI_LIFO_INITIALIZER     GASNETI_CONS_LIFO(_GASNETI_PARSEQ,INITIALIZER)
+#define gasneti_lifo_head_t          gasneti_cons_lifo(_GASNETI_PARSEQ,head_t)
+#define gasneti_lifo_init            gasneti_cons_lifo(_GASNETI_PARSEQ,init)
+#define gasneti_lifo_destroy         gasneti_cons_lifo(_GASNETI_PARSEQ,destroy)
+#define gasneti_lifo_pop             gasneti_cons_lifo(_GASNETI_PARSEQ,pop)
+#define gasneti_lifo_push            gasneti_cons_lifo(_GASNETI_PARSEQ,push)
+#define gasneti_lifo_push_many       gasneti_cons_lifo(_GASNETI_PARSEQ,push_many)
 
 /* ------------------------------------------------------------------------------------ */
 GASNETI_END_EXTERNC

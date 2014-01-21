@@ -335,22 +335,20 @@ typedef union {
   }
 #endif
 
-#define GASNETC_SEMA_INITIALIZER  _CONCAT(GASNETI_SEMAPHORE_,_CONCAT(INITIALIZER,GASNETC_PARSEQ))
-#define gasnetc_cons_sema(_id)    _CONCAT(gasneti_semaphore_,_CONCAT(_id,GASNETC_PARSEQ))
-#define gasnetc_sema_t            gasnetc_cons_sema(t)
-#define gasnetc_sema_init         gasnetc_cons_sema(init)
-#define gasnetc_sema_read         gasnetc_cons_sema(read)
-#define gasnetc_sema_up           gasnetc_cons_sema(up)
-#define gasnetc_sema_up_n         gasnetc_cons_sema(up_n)
-#define gasnetc_sema_trydown      gasnetc_cons_sema(trydown)
+#define GASNETC_SEMA_INITIALIZER  GASNETI_CONS_SEMA(GASNETC_PARSEQ,INITIALIZER)
+#define gasnetc_sema_t            gasneti_cons_sema(GASNETC_PARSEQ,t)
+#define gasnetc_sema_init         gasneti_cons_sema(GASNETC_PARSEQ,init)
+#define gasnetc_sema_read         gasneti_cons_sema(GASNETC_PARSEQ,read)
+#define gasnetc_sema_up           gasneti_cons_sema(GASNETC_PARSEQ,up)
+#define gasnetc_sema_up_n         gasneti_cons_sema(GASNETC_PARSEQ,up_n)
+#define gasnetc_sema_trydown      gasneti_cons_sema(GASNETC_PARSEQ,trydown)
 
-#define GASNETC_LIFO_INITIALIZER  _CONCAT(GASNETI_LIFO_,_CONCAT(INITIALIZER,GASNETC_PARSEQ))
-#define gasnetc_cons_lifo(_id)    _CONCAT(gasneti_lifo_,_CONCAT(_id,GASNETC_PARSEQ))
-#define gasnetc_lifo_head_t       gasnetc_cons_lifo(head_t)
-#define gasnetc_lifo_init         gasnetc_cons_lifo(init)
-#define gasnetc_lifo_pop          gasnetc_cons_lifo(pop)
-#define gasnetc_lifo_push         gasnetc_cons_lifo(push)
-#define gasnetc_lifo_push_many    gasnetc_cons_lifo(push_many)
+#define GASNETC_LIFO_INITIALIZER  GASNETI_CONS_LIFO(GASNETC_PARSEQ,INITIALIZER)
+#define gasnetc_lifo_head_t       gasneti_cons_lifo(GASNETC_PARSEQ,head_t)
+#define gasnetc_lifo_init         gasneti_cons_lifo(GASNETC_PARSEQ,init)
+#define gasnetc_lifo_pop          gasneti_cons_lifo(GASNETC_PARSEQ,pop)
+#define gasnetc_lifo_push         gasneti_cons_lifo(GASNETC_PARSEQ,push)
+#define gasnetc_lifo_push_many    gasneti_cons_lifo(GASNETC_PARSEQ,push_many)
 #define gasnetc_lifo_link         gasneti_lifo_link
 #define gasnetc_lifo_next         gasneti_lifo_next
 
