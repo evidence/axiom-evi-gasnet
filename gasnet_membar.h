@@ -127,11 +127,13 @@
    #define gasneti_local_mb() _gasneti_local_mb()
  #endif
 /* ------------------------------------------------------------------------------------ */
-#elif PLATFORM_ARCH_MIC
-   GASNETI_INLINE(gasneti_local_wmb)
-   void gasneti_local_wmb(void) {
-     __asm__ __volatile__("":::"memory");
-   }
+#elif PLATFORM_ARCH_MIC /* MIC a.k.a. Xeon Phi */
+   /* in-order  -  only need a compiler fence */
+   #define gasneti_local_wmb() gasneti_compiler_fence()
+   #define gasneti_local_rmb() gasneti_compiler_fence()
+   #define gasneti_local_mb()  gasneti_compiler_fence()
+   #define GASNETI_RMB_IS_MB
+   #define GASNETI_WMB_IS_MB
 /* ------------------------------------------------------------------------------------ */
 #elif PLATFORM_ARCH_IA64 /* Itanium */
     /* Empirically observed that IA64 requires a full "mf" for both wmb and rmb (see bug 1000).
