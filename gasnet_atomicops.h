@@ -61,6 +61,12 @@
 #define GASNETI_ATOMIC_ACQ_IF_FALSE	GASNETI_ATOMIC_RMB_POST_IF_FALSE
 
 /* ------------------------------------------------------------------------------------ */
+/* Non-public definitions needed in the platform-specific parts */
+
+#define _GASNETI_ATOMIC_CHECKALIGN(_a,_p) \
+    gasneti_assert(!(_a) || !(((uintptr_t)(_p))&((_a)-1)))
+
+/* ------------------------------------------------------------------------------------ */
 /* All the platform-specific parts */
 #include <gasnet_atomic_bits.h>
 
@@ -792,9 +798,7 @@
 /* Part 4.  Fenced atomic templates, using the fencing macros of Part 3, above.
  */
 
-#define GASNETI_ATOMIC_CHECKALIGN(stem,p)                          \
-  GASNETI_UNUSED                                                   \
-  char _dummy_checkalign = (gasneti_assert(!stem##align || !(((uintptr_t)(p))&(stem##align-1))),0)
+#define GASNETI_ATOMIC_CHECKALIGN(stem,p) _GASNETI_ATOMIC_CHECKALIGN(stem##align,p)
 
 #define GASNETI_ATOMIC_FENCED_SET(group,_func,stem,p,v,f)           \
   do {                                                              \
