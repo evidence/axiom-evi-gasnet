@@ -179,12 +179,14 @@
   #endif
 
   /* Optional internal parts: */
-  #if defined(_gasneti_atomic32_addfetch)
+  #if defined(gasneti_atomic32_addfetch)
+    #define gasneti_atomic_addfetch		gasneti_atomic32_addfetch
+  #elif defined(gasneti_atomic32_fetchadd)
+    #define gasneti_atomic_fetchadd		gasneti_atomic32_fetchadd
+  #elif defined(_gasneti_atomic32_addfetch)
     #define _gasneti_atomic_addfetch		_gasneti_atomic32_addfetch
   #elif defined(_gasneti_atomic32_fetchadd)
     #define _gasneti_atomic_fetchadd		_gasneti_atomic32_fetchadd
-  #elif defined(gasneti_atomic32_addfetch)
-    #define gasneti_atomic_addfetch		gasneti_atomic32_addfetch
   #endif
 
   #if defined(GASNETI_USE_GENERIC_ATOMIC32)
@@ -252,12 +254,14 @@
   #endif
 
   /* Optional internal parts: */
-  #if defined(_gasneti_atomic64_addfetch)
+  #if defined(gasneti_atomic64_addfetch)
+    #define gasneti_atomic_addfetch		gasneti_atomic64_addfetch
+  #elif defined(gasneti_atomic64_fetchadd)
+    #define gasneti_atomic_fetchadd		gasneti_atomic64_fetchadd
+  #elif defined(_gasneti_atomic64_addfetch)
     #define _gasneti_atomic_addfetch		_gasneti_atomic64_addfetch
   #elif defined(_gasneti_atomic64_fetchadd)
     #define _gasneti_atomic_fetchadd		_gasneti_atomic64_fetchadd
-  #elif defined(gasneti_atomic64_addfetch)
-    #define gasneti_atomic_addfetch		gasneti_atomic64_addfetch
   #endif
 
   #if defined(GASNETI_USE_GENERIC_ATOMIC64)
@@ -341,6 +345,34 @@
   #endif
   #ifndef GASNETI_HAVE_ATOMIC_ADD_SUB
     #define GASNETI_HAVE_ATOMIC_ADD_SUB 	1
+  #endif
+#elif defined(gasneti_atomic_fetchadd)
+  #ifndef gasneti_atomic_increment
+    #define gasneti_atomic_increment(p,f)       ((void)gasneti_atomic_fetchadd((p),1,(f)))
+  #endif
+  #ifndef gasneti_atomic_decrement
+    #define gasneti_atomic_decrement(p,f)       ((void)gasneti_atomic_fetchadd((p),-1,(f)))
+  #endif
+  #ifndef gasneti_atomic_decrement_and_test
+    #define gasneti_atomic_decrement_and_test(p,f) \
+                                                (gasneti_atomic_fetchadd((p),-1,(f)) == 1)
+  #endif
+  #ifndef gasneti_atomic_add
+    GASNETI_INLINE(gasneti_atomic_add)
+    gasneti_atomic_val_t gasneti_atomic_add(gasneti_atomic_t *p, gasneti_atomic_sval_t op, int f) {
+      return (gasneti_atomic_val_t)(gasneti_atomic_fetchadd(p,op,f) + op);
+    }
+    #define gasneti_atomic_add gasneti_atomic_add
+  #endif
+  #ifndef gasneti_atomic_subtract
+    GASNETI_INLINE(gasneti_atomic_subtract)
+    gasneti_atomic_val_t gasneti_atomic_subtract(gasneti_atomic_t *p, gasneti_atomic_sval_t op, int f) {
+      return (gasneti_atomic_val_t)(gasneti_atomic_fetchadd(p,-op,f) - op);
+    }
+    #define gasneti_atomic_subtract gasneti_atomic_subtract
+  #endif
+  #ifndef GASNETI_HAVE_ATOMIC_ADD_SUB
+    #define GASNETI_HAVE_ATOMIC_ADD_SUB         1
   #endif
 #elif defined(_gasneti_atomic_fetchadd)	
   #ifndef _gasneti_atomic_increment
