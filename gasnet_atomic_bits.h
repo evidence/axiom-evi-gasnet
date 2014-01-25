@@ -300,8 +300,8 @@
 	#endif
       }
 
-      GASNETI_INLINE(gasneti_atomic32_fetchadd)
-      uint32_t gasneti_atomic32_fetchadd(gasneti_atomic32_t *v, int32_t op) {
+      GASNETI_INLINE(_gasneti_atomic32_fetchadd)
+      uint32_t _gasneti_atomic32_fetchadd(gasneti_atomic32_t *v, int32_t op) {
 	/* CAUTION: Both PathScale and Intel compilers have been seen to be
          * rather fragile with respect to this asm template (bug 1563).
          * Change this at your own risk!
@@ -315,7 +315,7 @@
                 : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
 	return retval;
       }
-      #define _gasneti_atomic32_fetchadd gasneti_atomic32_fetchadd
+      #define _gasneti_atomic32_fetchadd _gasneti_atomic32_fetchadd
 
       /* 64-bit differ between x86 and x86-64: */
       #if PLATFORM_ARCH_X86_64 || PLATFORM_ARCH_MIC /* Athlon64/Opteron */
