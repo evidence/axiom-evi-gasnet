@@ -404,13 +404,14 @@
 		    "jnz	0b		\n\t"
 		    : "=m" (p->ctr), "+&A" (oldval)
 		    : "m" (p->ctr), "b" (newlo), "c" (newhi)
-		    : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
+		    : "cc", "memory");
 	}
 	#define gasneti_atomic64_set gasneti_atomic64_set
         GASNETI_INLINE(gasneti_atomic64_read)
-        uint64_t gasneti_atomic64_read(gasneti_atomic64_t *p, int flags) {
+        uint64_t gasneti_atomic64_read(gasneti_atomic64_t *p, const int flags) {
 	  GASNETI_ASM_REGISTER_KEYWORD uint64_t retval;
           _GASNETI_ATOMIC_CHECKALIGN(gasneti_atomic64_align, p);
+          _gasneti_atomic_cf_before(flags);
           __asm__ __volatile__ (
 		    /* Set [a:d] = [b:c], thus preserving b and c */
 		    "movl	%%ebx, %%eax	\n\t"
@@ -420,6 +421,7 @@
 		    : "=m" (p->ctr), "=&A" (retval)
 		    : "m" (p->ctr)
 		    : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
+          _gasneti_atomic_cf_after(flags);
 	  return retval;
 	}
 	#define gasneti_atomic64_read gasneti_atomic64_read
@@ -459,9 +461,10 @@
 	}
 	#define gasneti_atomic64_set gasneti_atomic64_set
         GASNETI_INLINE(gasneti_atomic64_read)
-        uint64_t gasneti_atomic64_read(gasneti_atomic64_t *p, int flags) {
+        uint64_t gasneti_atomic64_read(gasneti_atomic64_t *p, const int flags) {
 	  GASNETI_ASM_REGISTER_KEYWORD uint64_t retval;
           _GASNETI_ATOMIC_CHECKALIGN(gasneti_atomic64_align, p);
+          _gasneti_atomic_cf_before(flags);
           __asm__ __volatile__ (
 		    /* Set [a:d] = [b:c], thus preserving b and c */
 		    "movl	%%ebx, %%eax	\n\t"
@@ -471,6 +474,7 @@
 		    : "=m" (p->ctr), "=&A" (retval)
 		    : "m" (p->ctr)
 		    : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
+          _gasneti_atomic_cf_after(flags);
 	  return retval;
 	}
 	#define gasneti_atomic64_read gasneti_atomic64_read
@@ -522,9 +526,10 @@
 	}
 	#define gasneti_atomic64_set gasneti_atomic64_set
         GASNETI_INLINE(gasneti_atomic64_read)
-        uint64_t gasneti_atomic64_read(gasneti_atomic64_t *p, int flags) {
+        uint64_t gasneti_atomic64_read(gasneti_atomic64_t *p, const int flags) {
 	  GASNETI_ASM_REGISTER_KEYWORD uint64_t retval;
           _GASNETI_ATOMIC_CHECKALIGN(gasneti_atomic64_align, p);
+          _gasneti_atomic_cf_before(flags);
           __asm__ __volatile__ (
 		    /* Set [a:d] = [b:c], thus preserving b and c */
 		    "movl	%%ebx, %%eax	\n\t"
@@ -534,6 +539,7 @@
 		    : "=m" (p->ctr), "=&A" (retval)
 		    : "r" (&p->ctr)
 		    : "cc");
+          _gasneti_atomic_cf_after(flags);
 	  return retval;
 	}
 	#define gasneti_atomic64_read gasneti_atomic64_read
@@ -575,13 +581,14 @@
 		    "jnz	0b		"
 		    : "+m" (p->ctr), "+&a" (oldlo),  "+&d" (oldhi)
 		    : "b" (newlo), "c" (newhi)
-		    : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
+		    : "cc", "memory");
 	}
 	#define gasneti_atomic64_set gasneti_atomic64_set
         GASNETI_INLINE(gasneti_atomic64_read)
-        uint64_t gasneti_atomic64_read(gasneti_atomic64_t *p, int flags) {
+        uint64_t gasneti_atomic64_read(gasneti_atomic64_t *p, const int flags) {
 	  GASNETI_ASM_REGISTER_KEYWORD uint32_t retlo, rethi;
           _GASNETI_ATOMIC_CHECKALIGN(gasneti_atomic64_align, p);
+          _gasneti_atomic_cf_before(flags);
           __asm__ __volatile__ (
 		    /* Set [a:d] = [b:c], thus preserving b and c */
 		    "movl	%%ebx, %%eax	\n\t"
@@ -591,6 +598,7 @@
 		    : "+m" (p->ctr), "=&a" (retlo),  "=&d" (rethi)
 		    : /* no inputs */
 		    : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
+          _gasneti_atomic_cf_after(flags);
 	  return GASNETI_MAKEWORD(rethi, retlo);
 	}
 	#define gasneti_atomic64_read gasneti_atomic64_read

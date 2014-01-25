@@ -66,6 +66,17 @@
 #define _GASNETI_ATOMIC_CHECKALIGN(_a,_p) \
     gasneti_assert(!(_a) || !(((uintptr_t)(_p))&((_a)-1)))
 
+#define GASNETI_ATOMIC_MASK_PRE         (GASNETI_ATOMIC_WMB_PRE | GASNETI_ATOMIC_RMB_PRE)
+#define GASNETI_ATOMIC_MASK_POST        (GASNETI_ATOMIC_WMB_POST | GASNETI_ATOMIC_RMB_POST)
+#define GASNETI_ATOMIC_MASK_BOOL        (GASNETI_ATOMIC_MASK_POST | \
+                                         GASNETI_ATOMIC_RMB_POST_IF_TRUE | \
+                                         GASNETI_ATOMIC_RMB_POST_IF_FALSE)
+
+#define _gasneti_atomic_cf_before(f)	if (f & GASNETI_ATOMIC_MASK_PRE) gasneti_compiler_fence();
+#define _gasneti_atomic_cf_after(f)	if (f & GASNETI_ATOMIC_MASK_POST) gasneti_compiler_fence();
+#define _gasneti_atomic_cf_bool(f)	if (f & GASNETI_ATOMIC_MASK_BOOL) gasneti_compiler_fence();
+
+
 /* ------------------------------------------------------------------------------------ */
 /* All the platform-specific parts */
 #include <gasnet_atomic_bits.h>
@@ -541,13 +552,6 @@
  * of their respective macros.
  */
 
-#define GASNETI_ATOMIC_MASK_PRE		(GASNETI_ATOMIC_WMB_PRE | GASNETI_ATOMIC_RMB_PRE)
-#define GASNETI_ATOMIC_MASK_POST	(GASNETI_ATOMIC_WMB_POST | GASNETI_ATOMIC_RMB_POST)
-#define GASNETI_ATOMIC_MASK_BOOL	(GASNETI_ATOMIC_WMB_POST | \
-					 GASNETI_ATOMIC_RMB_POST | \
-					 GASNETI_ATOMIC_RMB_POST_IF_TRUE | \
-					 GASNETI_ATOMIC_RMB_POST_IF_FALSE)
-
 
 /* Part 1.  Removal of fences which are redundant on a given platform
  *	_gasneti_atomic_{mb,rmb,wmb}_{before,after}(flags)
@@ -605,12 +609,6 @@
   #define _gasneti_atomic_rmb_bool(f, v) \
     if (((f & GASNETI_ATOMIC_RMB_POST_IF_TRUE ) &&  v) || \
         ((f & GASNETI_ATOMIC_RMB_POST_IF_FALSE) && !v)) gasneti_local_rmb();
-#endif
-
-#if 1 /* No current need/desire to override these */
-  #define _gasneti_atomic_cf_before(f)	if (f & GASNETI_ATOMIC_MASK_PRE) gasneti_compiler_fence();
-  #define _gasneti_atomic_cf_after(f)	if (f & GASNETI_ATOMIC_MASK_POST) gasneti_compiler_fence();
-  #define _gasneti_atomic_cf_bool(f)	if (f & GASNETI_ATOMIC_MASK_BOOL) gasneti_compiler_fence();
 #endif
 
 /* Part 2.  Convienience macros for weakatomics
