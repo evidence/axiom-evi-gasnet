@@ -503,49 +503,11 @@
 /* Uniform memory fences for GASNet atomics.
  */
 
-/* The following groups of preprocessor directives are designed to perform
- * as much elimination of unreachable code as possible at preprocess time.
- * While much could be done more naturally (and with far less code) by the
- * compiler, there are 3 major reasons we want to go to this trouble:
- * 1) The inliner for gcc (and probably most other compilers) applies some
- *    heuristics and limits when deciding which functions to inline.
- *    These decisions are typically(?) made based on the "size" of the
- *    candidate function *before* dead code can be eliminated.  Therefore,
- *    any possible reduction in the size of the inline atomic functions is
- *    desirable.
- * 2) The "annotations" of memory fence properties are known to us, but
- *    are not always apparent to the optimizer.  For instance when the mb()
- *    and rmb() are the same, the following can (and will be) simplified by
- *    our preprocessor logic:
- *      if ((f & (R_flag|W_flag)) == (R_flag|W_flag)) mb();
- *      else if (f & R_flag) rmb();
- *      else if (f & W_flag) wmb();
- *    can become
- *	if (f & R_flag) rmb();
- *      else if (f & W_flag) wmb();
- *    while we are going to conservatively assume the compilers optimizer
- *    will not, either because it can't tell that mb() and rmb() are
- *    equal, or because merging the two conditionals is a non-obvious
- *    transformation.
- * 3) We are going to assume the least we can about the optimizer, giving
- *    it the simplest code possible for the final compile-time removal of
- *    dead code, even when the transformation are more obvious than the
- *    example in #2.
- *
- * There are two levels of information available to us to perform our
- * transformations.  The first is the memory fence properties, which allow
- * us to make simplifications like the example in (2), above.  The macros
- * resulting from this level of macros provide a fence implementation
- * which is applicable to both the normal and weak atomics.  The second
- * level of information is the memory fenceing side-effects of the atomic
- * ops, and is applicable to the non-weak atomics only.
- *
- * The following preprocessor code is lengthy, and divided in to four
+/* The following preprocessor code is lengthy, and divided in to four
  * distinct parts for (some resemblance of) clarity:
- * Part 1.  Performs the simplifications based on membar properties.
+ * Part 1.  Builds the lowest macros based on membar properties.
  * Part 2.  Defines weakatomic fence macros in terms of the macros of Part 1.
- * Part 3.  Defines atomic fence macros in terms of the macros of Part 1,
- *          while applying simplications based on atomic side-effects.
+ * Part 3.  Defines atomic fence macros in terms of the macros of Part 1.
  * Part 4.  Defines templates for defining the fenced atomics, of which there
  *          may be up to 3 families (32-bit, 64-bit and "other").
  * Both Parts 2 and 3 can be overridden by platform-specific definitions
@@ -554,8 +516,8 @@
 
 
 /* Part 1.  Removal of fences which are redundant on a given platform
- *	_gasneti_atomic_{mb,rmb,wmb}_{before,after}(flags)
- *	_gasneti_atomic_fence_after_bool(flags, value)
+ *	_gasneti_atomic_fence_{before,after}(flags)
+ *	_gasneti_atomic_fence_bool(flags, value)
  *
  * This level of macros serves to remove at, preprocess-time, any tests
  * which are redundant due to the relationships among fences.  For example,
@@ -567,38 +529,47 @@
   /* Since mb() == rmb() == wmb() (including case that all are empty), only
    * a single check is needed for all three.
    */
-  #define _gasneti_atomic_mb_before(f)	if (f & GASNETI_ATOMIC_MASK_PRE) gasneti_local_mb();
-  #define _gasneti_atomic_rmb_before(f)	/* nothing */
-  #define _gasneti_atomic_wmb_before(f)	/* nothing */
-  #define _gasneti_atomic_mb_after(f)	if (f & GASNETI_ATOMIC_MASK_POST) gasneti_local_mb();
-  #define _gasneti_atomic_rmb_after(f)	/* nothing */
-  #define _gasneti_atomic_wmb_after(f)	/* nothing */
+  #define _gasneti_atomic_fence_before(f)       if (f & GASNETI_ATOMIC_MASK_PRE) gasneti_local_mb();
+  #define _gasneti_atomic_fence_after(f)        if (f & GASNETI_ATOMIC_MASK_POST) gasneti_local_mb();
 #elif GASNETI_MB_IS_SUM
   /* Since mb() == rmb()+wmb(), distinct rmb() and wmb() checks are
    * sufficient to implement a request for mb(), rmb() or wmb().
+   * This includes the case where either is just a compiler fence.
    */
-  #define _gasneti_atomic_mb_before(f)	/* nothing */
-  #define _gasneti_atomic_rmb_before(f)	if (f & GASNETI_ATOMIC_RMB_PRE) gasneti_local_rmb();
-  #define _gasneti_atomic_wmb_before(f)	if (f & GASNETI_ATOMIC_WMB_PRE) gasneti_local_wmb();
-  #define _gasneti_atomic_mb_after(f)	/* nothing */
-  #define _gasneti_atomic_rmb_after(f)	if (f & GASNETI_ATOMIC_RMB_POST) gasneti_local_rmb();
-  #define _gasneti_atomic_wmb_after(f)	if (f & GASNETI_ATOMIC_WMB_POST) gasneti_local_wmb();
+  #define _gasneti_atomic_fence_before(f)       if (f & GASNETI_ATOMIC_RMB_PRE) gasneti_local_rmb(); \
+                                                if (f & GASNETI_ATOMIC_WMB_PRE) gasneti_local_wmb();
+  #define _gasneti_atomic_fence_after(f)        if (f & GASNETI_ATOMIC_RMB_POST) gasneti_local_rmb(); \
+                                                if (f & GASNETI_ATOMIC_WMB_POST) gasneti_local_wmb();
+#elif GASNETI_RMB_IS_MB
+  /* Case with mb() == rmb() and a distinct wmb().
+   */
+  #define _gasneti_atomic_fence_before(f)	if (f & GASNETI_ATOMIC_RMB_PRE) gasneti_local_rmb(); \
+                                                else if (f & GASNETI_ATOMIC_WMB_PRE) gasneti_local_wmb();
+  #define _gasneti_atomic_fence_after(f)	if (f & GASNETI_ATOMIC_RMB_POST) gasneti_local_rmb(); \
+                                                else if (f & GASNETI_ATOMIC_WMB_POST) gasneti_local_wmb();
+#elif GASNETI_WMB_IS_MB
+  /* Case with mb() == wmb() and a distinct rmb().
+   */
+  #define _gasneti_atomic_fence_before(f)	if (f & GASNETI_ATOMIC_WMB_PRE) gasneti_local_wmb(); \
+                                                else if (f & GASNETI_ATOMIC_RMB_PRE) gasneti_local_rmb();
+  #define _gasneti_atomic_fence_after(f)	if (f & GASNETI_ATOMIC_WMB_POST) gasneti_local_wmb(); \
+                                                else if (f & GASNETI_ATOMIC_RMB_POST) gasneti_local_rmb();
 #else
   /*  With distinct mb(), rmb() and wmb(), we make the most general 3 checks (like a "switch").
    */
-  #define _gasneti_atomic_mb_before(f)	if ((f & GASNETI_ATOMIC_MASK_PRE) == GASNETI_ATOMIC_MB_PRE) gasneti_local_mb();
-  #define _gasneti_atomic_rmb_before(f)	else if (f & GASNETI_ATOMIC_RMB_PRE) gasneti_local_rmb();
-  #define _gasneti_atomic_wmb_before(f)	else if (f & GASNETI_ATOMIC_WMB_PRE) gasneti_local_wmb();
-  #define _gasneti_atomic_mb_after(f)	if ((f & GASNETI_ATOMIC_MASK_POST) == GASNETI_ATOMIC_MB_POST) gasneti_local_mb();
-  #define _gasneti_atomic_rmb_after(f)	else if (f & GASNETI_ATOMIC_RMB_POST) gasneti_local_rmb();
-  #define _gasneti_atomic_wmb_after(f)	else if (f & GASNETI_ATOMIC_WMB_POST) gasneti_local_wmb();
+  #define _gasneti_atomic_fence_before(f)	if ((f & GASNETI_ATOMIC_MASK_PRE) == GASNETI_ATOMIC_MB_PRE) gasneti_local_mb(); \
+                                                else if (f & GASNETI_ATOMIC_RMB_PRE) gasneti_local_rmb(); \
+                                                else if (f & GASNETI_ATOMIC_WMB_PRE) gasneti_local_wmb();
+  #define _gasneti_atomic_fence_after(f)	if ((f & GASNETI_ATOMIC_MASK_POST) == GASNETI_ATOMIC_MB_POST) gasneti_local_mb(); \
+                                                else if (f & GASNETI_ATOMIC_RMB_POST) gasneti_local_rmb(); \
+                                                else if (f & GASNETI_ATOMIC_WMB_POST) gasneti_local_wmb();
 #endif
 
 #if 1
   /*
    * Several optimizations are possible when a conditional rmb() is combined
    * with an unconditional POST fence.  Such optimizations would prevent
-   * imposing a "double" mb() in such cases.  However:
+   * imposing a "double" rmb() in such cases.  However:
    * 1) There are no current callers that mix *MB_POST with a
    *    conditional RMB_POST_IF*, and no likely reason to.
    * 2) Though they all reduce a great deal at compile-time,
@@ -606,7 +577,7 @@
    *    before any dead code can be eliminated.
    * Therefore, they are not currently implemented.
    */
-  #define _gasneti_atomic_rmb_bool(f, v) \
+  #define _gasneti_atomic_fence_bool(f, v) \
     if (((f & GASNETI_ATOMIC_RMB_POST_IF_TRUE ) &&  v) || \
         ((f & GASNETI_ATOMIC_RMB_POST_IF_FALSE) && !v)) gasneti_local_rmb();
 #endif
@@ -622,33 +593,23 @@
  * replicate the logic in Part 3, below, if this were to ever become
  * necessary.
  */
-#if defined(_gasneti_weakatomic_fence_before) && \
-    defined(_gasneti_weakatomic_fence_after)  && \
-    defined(_gasneti_weakatomic_fence_after_bool)
-  /* Use platform-specific definitions */
-#elif defined(_gasneti_weakatomic_fence_before) || \
-      defined(_gasneti_weakatomic_fence_after)  || \
-      defined(_gasneti_weakatomic_fence_after_bool)
-  #error "A platform must define either ALL or NONE of _gasneti_weakatomic_fence_{before,after,after_bool}"
+#if GASNETI_THREADS || defined(GASNETI_FORCE_TRUE_WEAKATOMICS)
+  #define _gasneti_weak_fence_check(f)	0
 #else
-  #if GASNETI_THREADS || defined(GASNETI_FORCE_TRUE_WEAKATOMICS)
-    #define _gasneti_weak_fence_check(f)	0
-  #else
-    #define _gasneti_weak_fence_check(f)	(f & GASNETI_ATOMIC_WEAK_FENCE)
-  #endif
+  #define _gasneti_weak_fence_check(f)	(f & GASNETI_ATOMIC_WEAK_FENCE)
+#endif
+#ifndef _gasneti_weakatomic_fence_before
   #define _gasneti_weakatomic_fence_before(p,f)	\
-	   if (!_gasneti_weak_fence_check(f)) { _gasneti_atomic_mb_before(f)  \
-						_gasneti_atomic_rmb_before(f) \
-						_gasneti_atomic_wmb_before(f) }
+	   if (!_gasneti_weak_fence_check(f)) { _gasneti_atomic_fence_before(f); }
+#endif
+#ifndef _gasneti_weakatomic_fence_after
   #define _gasneti_weakatomic_fence_after(p,f)	\
-	   if (!_gasneti_weak_fence_check(f)) { _gasneti_atomic_mb_after(f)  \
-						_gasneti_atomic_rmb_after(f) \
-						_gasneti_atomic_wmb_after(f) }
+	   if (!_gasneti_weak_fence_check(f)) { _gasneti_atomic_fence_after(f); }
+#endif
+#ifndef _gasneti_weakatomic_fence_after_bool
   #define _gasneti_weakatomic_fence_after_bool(p,f,v) \
-	   if (!_gasneti_weak_fence_check(f)) { _gasneti_atomic_mb_after(f)  \
-						_gasneti_atomic_rmb_after(f) \
-						_gasneti_atomic_wmb_after(f) \
-						_gasneti_atomic_rmb_bool(f,v) }
+	   if (!_gasneti_weak_fence_check(f)) { _gasneti_atomic_fence_after(f)  \
+						_gasneti_atomic_fence_bool(f,v) }
 #endif
 #define _gasneti_weakatomic_fence_before_set  _gasneti_weakatomic_fence_before
 #define _gasneti_weakatomic_fence_after_set   _gasneti_weakatomic_fence_after
@@ -657,139 +618,32 @@
 #define _gasneti_weakatomic_fence_before_rmw  _gasneti_weakatomic_fence_before
 #define _gasneti_weakatomic_fence_after_rmw   _gasneti_weakatomic_fence_after
 
-
-/* Part 3.  Removal of fences which are redundant before/after atomic ops.
+/* Part 3.  Fences in terms of macros defined in Part 1.
  *	_gasneti_atomic_fence_{before,after}_{set,read,rmb}(p, flags)
  *	_gasneti_atomic_fence_after_bool(p, flags, value)
- *
- * This level of macros serves to remove at, preprocess-time, any tests
- * that correspond to memory fences that are known to be side-effects
- * of the atomic operations, as determined by the bits of the masks
- * GASNETI_ATOMIC_FENCE_{SET,READ,RMW}.
  */
 
-/* Part 3A.  Default masks
- *	GASNETI_ATOMIC_FENCE_{SET,READ,RMW}
- *
- * If the per-platform atomics code has left any of these unset, then
- * they default to GASNETI_ATOMIC_NONE (0).
- */
-#ifndef GASNETI_ATOMIC_FENCE_SET
-  #define GASNETI_ATOMIC_FENCE_SET	GASNETI_ATOMIC_NONE
+#ifndef _gasneti_atomic_fence_before_set
+  #define _gasneti_atomic_fence_before_set(p,f)      _gasneti_atomic_fence_before(f)
 #endif
-#ifndef GASNETI_ATOMIC_FENCE_READ
-  #define GASNETI_ATOMIC_FENCE_READ	GASNETI_ATOMIC_NONE
+#ifndef _gasneti_atomic_fence_after_set
+  #define _gasneti_atomic_fence_after_set(p,f)       _gasneti_atomic_fence_after(f)
 #endif
-#ifndef GASNETI_ATOMIC_FENCE_RMW
-  #define GASNETI_ATOMIC_FENCE_RMW	GASNETI_ATOMIC_NONE
+#ifndef _gasneti_atomic_fence_before_read
+  #define _gasneti_atomic_fence_before_read(p,f)     _gasneti_atomic_fence_before(f)
 #endif
-
-/* Part 3B.  Compile away tests for fences that are side-effects of Set */
-#if defined(_gasneti_atomic_fence_before_set)
-  /* Use platform-specific definitions */
-#elif (GASNETI_ATOMIC_FENCE_SET & GASNETI_ATOMIC_MASK_PRE) == GASNETI_ATOMIC_MB_PRE
-  #define _gasneti_atomic_fence_before_set(p,f)	_gasneti_atomic_cf_before(f)
-#elif (GASNETI_ATOMIC_FENCE_SET & GASNETI_ATOMIC_MASK_PRE) == GASNETI_ATOMIC_RMB_PRE
-  #define _gasneti_atomic_fence_before_set(p,f)	_gasneti_atomic_mb_before(f)  \
-						_gasneti_atomic_wmb_before(f)
-#elif (GASNETI_ATOMIC_FENCE_SET & GASNETI_ATOMIC_MASK_PRE) == GASNETI_ATOMIC_WMB_PRE
-  #define _gasneti_atomic_fence_before_set(p,f)	_gasneti_atomic_mb_before(f)  \
-						_gasneti_atomic_rmb_before(f)
-#else
-  #define _gasneti_atomic_fence_before_set(p,f)	_gasneti_atomic_mb_before(f)  \
-						_gasneti_atomic_rmb_before(f) \
-						_gasneti_atomic_wmb_before(f)
+#ifndef _gasneti_atomic_fence_after_read
+  #define _gasneti_atomic_fence_after_read(p,f)      _gasneti_atomic_fence_after(f)
 #endif
-#if defined(_gasneti_atomic_fence_after_set)
-  /* Use platform-specific definitions */
-#elif (GASNETI_ATOMIC_FENCE_SET & GASNETI_ATOMIC_MASK_POST) == GASNETI_ATOMIC_MB_POST
-  #define _gasneti_atomic_fence_after_set(p,f)	_gasneti_atomic_cf_after(f)
-#elif (GASNETI_ATOMIC_FENCE_SET & GASNETI_ATOMIC_MASK_POST) == GASNETI_ATOMIC_RMB_POST
-  #define _gasneti_atomic_fence_after_set(p,f)	_gasneti_atomic_mb_after(f)  \
-						_gasneti_atomic_wmb_after(f)
-#elif (GASNETI_ATOMIC_FENCE_SET & GASNETI_ATOMIC_MASK_POST) == GASNETI_ATOMIC_WMB_POST
-  #define _gasneti_atomic_fence_after_set(p,f)	_gasneti_atomic_mb_after(f)  \
-						_gasneti_atomic_rmb_after(f)
-#else
-  #define _gasneti_atomic_fence_after_set(p,f)	_gasneti_atomic_mb_after(f)  \
-						_gasneti_atomic_rmb_after(f) \
-						_gasneti_atomic_wmb_after(f)
+#ifndef _gasneti_atomic_fence_before_rmw
+  #define _gasneti_atomic_fence_before_rmw(p,f)      _gasneti_atomic_fence_before(f)
 #endif
-
-/* Part 3C.  Compile away tests for fences that are side-effects of Read */
-#if defined(_gasneti_atomic_fence_before_read)
-  /* Use platform-specific definitions */
-#elif (GASNETI_ATOMIC_FENCE_READ & GASNETI_ATOMIC_MASK_PRE) == GASNETI_ATOMIC_MB_PRE
-  #define _gasneti_atomic_fence_before_read(p,f)	_gasneti_atomic_cf_before(f)
-#elif (GASNETI_ATOMIC_FENCE_READ & GASNETI_ATOMIC_MASK_PRE) == GASNETI_ATOMIC_RMB_PRE
-  #define _gasneti_atomic_fence_before_read(p,f)	_gasneti_atomic_mb_before(f)  \
-							_gasneti_atomic_wmb_before(f)
-#elif (GASNETI_ATOMIC_FENCE_READ & GASNETI_ATOMIC_MASK_PRE) == GASNETI_ATOMIC_WMB_PRE
-  #define _gasneti_atomic_fence_before_read(p,f)	_gasneti_atomic_mb_before(f)  \
-							_gasneti_atomic_rmb_before(f)
-#else
-  #define _gasneti_atomic_fence_before_read(p,f)	_gasneti_atomic_mb_before(f)  \
-							_gasneti_atomic_rmb_before(f) \
-							_gasneti_atomic_wmb_before(f)
+#ifndef _gasneti_atomic_fence_after_rmw
+  #define _gasneti_atomic_fence_after_rmw(p,f)       _gasneti_atomic_fence_after(f)
 #endif
-#if defined(_gasneti_atomic_fence_after_read)
-  /* Use platform-specific definitions */
-#elif (GASNETI_ATOMIC_FENCE_READ & GASNETI_ATOMIC_MASK_POST) == GASNETI_ATOMIC_MB_POST
-  #define _gasneti_atomic_fence_after_read(p,f)	_gasneti_atomic_cf_after(f)
-#elif (GASNETI_ATOMIC_FENCE_READ & GASNETI_ATOMIC_MASK_POST) == GASNETI_ATOMIC_RMB_POST
-  #define _gasneti_atomic_fence_after_read(p,f)	_gasneti_atomic_mb_after(f)  \
-						_gasneti_atomic_wmb_after(f)
-#elif (GASNETI_ATOMIC_FENCE_READ & GASNETI_ATOMIC_MASK_POST) == GASNETI_ATOMIC_WMB_POST
-  #define _gasneti_atomic_fence_after_read(p,f)	_gasneti_atomic_mb_after(f)  \
-						_gasneti_atomic_rmb_after(f)
-#else
-  #define _gasneti_atomic_fence_after_read(p,f)	_gasneti_atomic_mb_after(f)  \
-						_gasneti_atomic_rmb_after(f) \
-						_gasneti_atomic_wmb_after(f)
-#endif
-
-/* Part 3D.  Compile away tests for fences that are side-effects of Read-Modify-Write */
-#if defined(_gasneti_atomic_fence_before_rmw)
-  /* Use platform-specific definitions */
-#elif (GASNETI_ATOMIC_FENCE_RMW & GASNETI_ATOMIC_MASK_PRE) == GASNETI_ATOMIC_MB_PRE
-  #define _gasneti_atomic_fence_before_rmw(p,f)	_gasneti_atomic_cf_before(f)
-#elif (GASNETI_ATOMIC_FENCE_RMW & GASNETI_ATOMIC_MASK_PRE) == GASNETI_ATOMIC_RMB_PRE
-  #define _gasneti_atomic_fence_before_rmw(p,f)	_gasneti_atomic_mb_before(f)  \
-						_gasneti_atomic_wmb_before(f)
-#elif (GASNETI_ATOMIC_FENCE_RMW & GASNETI_ATOMIC_MASK_PRE) == GASNETI_ATOMIC_WMB_PRE
-  #define _gasneti_atomic_fence_before_rmw(p,f)	_gasneti_atomic_mb_before(f)  \
-						_gasneti_atomic_rmb_before(f)
-#else
-  #define _gasneti_atomic_fence_before_rmw(p,f)	_gasneti_atomic_mb_before(f)  \
-						_gasneti_atomic_rmb_before(f) \
-						_gasneti_atomic_wmb_before(f)
-#endif
-#if defined(_gasneti_atomic_fence_after_rmw) && defined(_gasneti_atomic_fence_after_bool)
-  /* Use platform-specific definitions */
-#elif defined(_gasneti_atomic_fence_after_rmw) || defined(_gasneti_atomic_fence_after_bool)
-  #error "Platform must define BOTH or NEITHER of _gasneti_atomic_fence_after_{rwm,bool}"
-#elif (GASNETI_ATOMIC_FENCE_RMW & GASNETI_ATOMIC_MASK_POST) == GASNETI_ATOMIC_MB_POST
-  #define _gasneti_atomic_fence_after_rmw(p,f)		_gasneti_atomic_cf_after(f)
-  #define _gasneti_atomic_fence_after_bool(p,f,v)	_gasneti_atomic_cf_bool(f)
-#elif (GASNETI_ATOMIC_FENCE_RMW & GASNETI_ATOMIC_MASK_POST) == GASNETI_ATOMIC_RMB_POST
-  #define _gasneti_atomic_fence_after_rmw(p,f)		_gasneti_atomic_mb_after(f)  \
-							_gasneti_atomic_wmb_after(f)
-  #define _gasneti_atomic_fence_after_bool(p,f,v)	_gasneti_atomic_mb_after(f)  \
-							_gasneti_atomic_wmb_after(f)
-#elif (GASNETI_ATOMIC_FENCE_RMW & GASNETI_ATOMIC_MASK_POST) == GASNETI_ATOMIC_WMB_POST
-  #define _gasneti_atomic_fence_after_rmw(p,f)		_gasneti_atomic_mb_after(f)  \
-							_gasneti_atomic_rmb_after(f)
-  #define _gasneti_atomic_fence_after_bool(p,f,v)	_gasneti_atomic_mb_after(f)  \
-							_gasneti_atomic_rmb_after(f) \
-							_gasneti_atomic_rmb_bool(f,v)
-#else
-  #define _gasneti_atomic_fence_after_rmw(p,f)		_gasneti_atomic_mb_after(f)  \
-							_gasneti_atomic_rmb_after(f) \
-							_gasneti_atomic_wmb_after(f)
-  #define _gasneti_atomic_fence_after_bool(p,f,v)	_gasneti_atomic_mb_after(f)  \
-							_gasneti_atomic_rmb_after(f) \
-							_gasneti_atomic_wmb_after(f) \
-							_gasneti_atomic_rmb_bool(f,v)
+#ifndef _gasneti_atomic_fence_after_bool
+  #define _gasneti_atomic_fence_after_bool(p,f,v)    _gasneti_atomic_fence_after(f)  \
+                                                     _gasneti_atomic_fence_bool(f,v)
 #endif
 
 /* ------------------------------------------------------------------------------------ */
@@ -916,16 +770,9 @@
   /* Fences for the generics */
   #ifndef GASNETI_GENATOMIC_LOCK
     /* Not locking, so use full fences */
-    #define _gasneti_genatomic_fence_before_rmw(p,f)	_gasneti_atomic_mb_before(f)  \
-							_gasneti_atomic_rmb_before(f) \
-							_gasneti_atomic_wmb_before(f)
-    #define _gasneti_genatomic_fence_after_rmw(p,f)	_gasneti_atomic_mb_after(f)   \
-							_gasneti_atomic_rmb_after(f)  \
-							_gasneti_atomic_wmb_after(f)
-    #define _gasneti_genatomic_fence_after_bool(p,f,v)	_gasneti_atomic_mb_after(f)   \
-							_gasneti_atomic_rmb_after(f)  \
-							_gasneti_atomic_wmb_after(f)  \
-							_gasneti_atomic_rmb_bool(f,v)
+    #define _gasneti_genatomic_fence_before_rmw(p,f)    _gasneti_atomic_fence_before(f)
+    #define _gasneti_genatomic_fence_after_rmw(p,f)     _gasneti_atomic_fence_after(f)
+    #define _gasneti_genatomic_fence_after_bool(p,f,v)  _gasneti_atomic_fence_bool(f,v)
     #define _GASNETI_GENATOMIC_DECL_AND_DEFN(_sz)                                     \
       typedef volatile uint##_sz##_t gasneti_genatomic##_sz##_t;                      \
       typedef uint##_sz##_t gasneti_genatomic##_sz##_val_t;                           \
@@ -957,16 +804,13 @@
   #else /* Mutex-based (HSL or pthread mutex) versions */
     /* The lock acquire includes RMB and release includes WMB */
     #define _gasneti_genatomic_fence_before_rmw(p,f)	GASNETI_GENATOMIC_LOCK_PREP(p); \
-							_gasneti_atomic_mb_before(f)    \
-							_gasneti_atomic_wmb_before(f)   \
+							_gasneti_atomic_fence_before(f&~GASNETI_ATOMIC_ACQ) \
 							GASNETI_GENATOMIC_LOCK();
     #define _gasneti_genatomic_fence_after_rmw(p,f)	GASNETI_GENATOMIC_UNLOCK();   \
-							_gasneti_atomic_mb_after(f)   \
-							_gasneti_atomic_rmb_after(f)
+							_gasneti_atomic_fence_after(f&~GASNETI_ATOMIC_REL)
     #define _gasneti_genatomic_fence_after_bool(p,f,v)	GASNETI_GENATOMIC_UNLOCK();   \
-							_gasneti_atomic_mb_after(f)   \
-							_gasneti_atomic_rmb_after(f)  \
-							_gasneti_atomic_rmb_bool(f,v)
+							_gasneti_atomic_fence_after(f&~GASNETI_ATOMIC_REL)\
+							_gasneti_atomic_fence_bool(f,v)
 
     /* Because HSL's are not yet available (bug 693: avoid header dependency cycle),
      * we don't define the lock-acquiring operations as inlines.
@@ -1023,12 +867,8 @@
   #define _gasneti_genatomic_fence_before_set		_gasneti_genatomic_fence_before_rmw
   #define _gasneti_genatomic_fence_after_set		_gasneti_genatomic_fence_after_rmw
   /* READ is almost always performed without the lock (if any) held */
-  #define _gasneti_genatomic_fence_before_read(p,f)	_gasneti_atomic_mb_before(f)  \
-							_gasneti_atomic_rmb_before(f) \
-							_gasneti_atomic_wmb_before(f)
-  #define _gasneti_genatomic_fence_after_read(p,f)	_gasneti_atomic_mb_after(f)   \
-							_gasneti_atomic_rmb_after(f)  \
-							_gasneti_atomic_wmb_after(f)
+  #define _gasneti_genatomic_fence_before_read(p,f)	_gasneti_atomic_fence_before(f)
+  #define _gasneti_genatomic_fence_after_read(p,f)	_gasneti_atomic_fence_after(f)
 
   /* Build the 32-bit generics if needed */
   #ifdef GASNETI_BUILD_GENERIC_ATOMIC32
@@ -1344,12 +1184,6 @@ typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
 #else
   #define GASNETI_ATOMIC64_CONFIG   atomic64_native
 #endif
-
-/* ------------------------------------------------------------------------------------ */
-/* The following are NOT for use outside this file: */
-#undef GASNETI_ATOMIC_FENCE_SET
-#undef GASNETI_ATOMIC_FENCE_READ
-#undef GASNETI_ATOMIC_FENCE_RMW
 
 /* ------------------------------------------------------------------------------------ */
 #endif

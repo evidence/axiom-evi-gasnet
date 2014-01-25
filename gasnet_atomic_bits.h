@@ -85,6 +85,11 @@
   #if PLATFORM_COMPILER_GNU /* XXX: work-alikes? */
     /* Generic implementation in terms of GCC's __sync atomics */
 
+    /* GCC documentation promises a full memory barrier */
+    #define _gasneti_atomic_fence_before_rmw(p,f)     /*empty*/
+    #define _gasneti_atomic_fence_after_rmw(p,f)      /*empty*/
+    #define _gasneti_atomic_fence_after_bool(p,f,v)   /*empty*/
+
     #define GASNETI_HAVE_ATOMIC32_T 1
     typedef struct { volatile uint32_t ctr; } gasneti_atomic32_t;
     #define _gasneti_atomic32_read(p)      ((p)->ctr)
@@ -182,6 +187,20 @@
    * provide our own based on the CPU and compiler support for inline assembly code
    * ------------------------------------------------------------------------------------ */
   #if PLATFORM_ARCH_X86 || PLATFORM_ARCH_X86_64 || PLATFORM_ARCH_MIC /* x86 and Athlon64/Opteron and MIC */
+    /* We have a full memory barrier in all read-modify-write operations,
+     * but NOT a compiler fence. */
+    #define _gasneti_atomic_fence_before_rmw(p,f)     _gasneti_atomic_cf_before(f)
+    #define _gasneti_atomic_fence_after_rmw(p,f)      _gasneti_atomic_cf_after(f)
+    #define _gasneti_atomic_fence_after_bool(p,f,v)   /*empty*/
+
+    /* We have NO fences in read or set, with one exception, and
+     * thus use the default fences.
+     *
+     * The exception is 64-bit read/set on ILP32, for which we just
+     * define fully fenced (no '_' prefix) variants since the logic
+     * for adding fencing does not (yet?) distinguish 32- vs 64-bit.
+     */
+
     #if PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_INTEL || \
         PLATFORM_COMPILER_PATHSCALE || GASNETI_PGI_ASM_THREADSAFE || \
         PLATFORM_COMPILER_TINY || PLATFORM_COMPILER_OPEN64 || \
@@ -368,7 +387,7 @@
 	 * 8-byte c-a-s instruction.  This is the only atomic 64-bit operation
 	 * available on this architecture.  Note that we need the lock prefix
 	 * even on a uniprocessor to ensure that we are signal safe.
-	 * Since we don't have separate GASNETI_ATOMIC_FENCE_* settings for the
+	 * Since we don't have separate _gasneti_atomic_fence_* macros for the
 	 * 64-bit types, we define the fully-fenced (non _-prefixed) versions
 	 * of read and set here, to avoid having them double fenced.
 	 *
@@ -599,9 +618,6 @@
 	}
 	#define gasneti_atomic64_read gasneti_atomic64_read
       #endif
-
-      /* x86 and x86_64 include full memory fence in locked RMW insns */
-      #define GASNETI_ATOMIC_FENCE_RMW (GASNETI_ATOMIC_MB_PRE | GASNETI_ATOMIC_MB_POST)
 
       /* Optionally build a 128-bit atomic type using 64-bit types for all args */
       #if GASNETI_HAVE_X86_CMPXCHG16B
@@ -834,9 +850,6 @@
 
       #define GASNETI_ATOMIC_SPECIALS   GASNETI_ATOMIC32_SPECIALS \
                                         GASNETI_ATOMIC64_SPECIALS
-
-      /* x86 and x86_64 include full memory fence in locked RMW insns */
-      #define GASNETI_ATOMIC_FENCE_RMW (GASNETI_ATOMIC_MB_PRE | GASNETI_ATOMIC_MB_POST)
     #elif PLATFORM_COMPILER_PGI_CXX
       /* pgCC w/o threadsafe GNU-style asm():
        * Here we must use the slow atomics since we don't know if the library has been
@@ -1042,7 +1055,9 @@
 	/* Nothing */
     #define _gasneti_atomic_fence_after_bool(p, flags, val) \
 	if (!(flags & (GASNETI_ATOMIC_MB_PRE | GASNETI_ATOMIC_MB_POST))) \
-	  { _gasneti_atomic_rmb_bool(flags, val) } 
+	  { if (((flags & GASNETI_ATOMIC_RMB_POST_IF_TRUE ) &&  val) || \
+                ((flags & GASNETI_ATOMIC_RMB_POST_IF_FALSE) && !val)) gasneti_local_rmb(); }
+
   /* ------------------------------------------------------------------------------------ */
   #elif PLATFORM_ARCH_SPARC
     #if defined(__sparcv9) || defined(__sparcv9cpu) || defined(GASNETI_ARCH_ULTRASPARC) /* SPARC v9 ISA */
@@ -1802,7 +1817,9 @@
        * However, we could potentially improve peformance on SGI machines
        * as follows:
        * #if PLATFORM_OS_IRIX
-       *   #define GASNETI_ATOMIC_FENCE_RMW (GASNETI_ATOMIC_MB_PRE | GASNETI_ATOMIC_MB_POST)
+       #   #define _gasneti_atomic_fence_before_rmw(p,f)     _gasneti_atomic_cf_before(f)
+       #   #define _gasneti_atomic_fence_after_rmw(p,f)      _gasneti_atomic_cf_after(f)
+       *   #define _gasneti_atomic_fence_after_bool(p,f,v)
        * #endif
        */
       /* No memory fences in our asm, so using default fences */
@@ -1905,8 +1922,11 @@
 	return !result;
       } 
 
-      /* Linux kernel sources say c-a-s "includes memory barriers as needed" */
-      #define GASNETI_ATOMIC_FENCE_RMW (GASNETI_ATOMIC_MB_PRE | GASNETI_ATOMIC_MB_POST)
+      /* Linux kernel sources say c-a-s "includes memory barriers as needed"
+       * and our code includes a "memory" clobber (compiler fence). */
+      #define _gasneti_atomic_fence_before_rmw(p,f)     /*empty*/
+      #define _gasneti_atomic_fence_after_rmw(p,f)      /*empty*/
+      #define _gasneti_atomic_fence_after_bool(p,f,v)   /*empty*/
     #else
       #error "unrecognized ARM compiler and/or OS - need to implement GASNet atomics (or #define GASNETI_USE_GENERIC_ATOMICOPS)"
     #endif
