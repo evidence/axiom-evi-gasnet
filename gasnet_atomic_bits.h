@@ -85,9 +85,6 @@
   #if PLATFORM_COMPILER_GNU /* XXX: work-alikes? */
     /* Generic implementation in terms of GCC's __sync atomics */
 
-    /* GCC documentation promises a full memory barrier */
-    #define GASNETI_ATOMIC_FENCE_RMW (GASNETI_ATOMIC_MB_PRE | GASNETI_ATOMIC_MB_POST)
-
     #define GASNETI_HAVE_ATOMIC32_T 1
     typedef struct { volatile uint32_t ctr; } gasneti_atomic32_t;
     #define _gasneti_atomic32_read(p)      ((p)->ctr)
@@ -95,12 +92,13 @@
     #define _gasneti_atomic32_init(v)      { (v) }
 
     /* Default impls of inc, dec, dec-and-test, add and sub */
-    #define _gasneti_atomic32_fetchadd(p,op) (__sync_fetch_and_add(&(p)->ctr, (uint32_t)(op)))
+    #define gasneti_atomic32_fetchadd(p,op,f) (__sync_fetch_and_add(&(p)->ctr, (uint32_t)(op)))
 
-    GASNETI_INLINE(_gasneti_atomic32_compare_and_swap)
-    int _gasneti_atomic32_compare_and_swap(gasneti_atomic32_t *p, int oldval, int newval) {
+    GASNETI_INLINE(gasneti_atomic32_compare_and_swap)
+    int gasneti_atomic32_compare_and_swap(gasneti_atomic32_t *p, int oldval, int newval, int flags) {
       return __sync_bool_compare_and_swap(&p->ctr, oldval, newval);
     }
+    #define gasneti_atomic32_compare_and_swap gasneti_atomic32_compare_and_swap
 
     #if PLATFORM_ARCH_64 /* TODO: on 32-bit platform should we still be able to use this? */
       #define GASNETI_HAVE_ATOMIC64_T 1
@@ -109,10 +107,11 @@
       #define _gasneti_atomic64_set(p,v)     do { (p)->ctr = (v); } while(0)
       #define _gasneti_atomic64_init(v)      { (v) }
 
-      GASNETI_INLINE(_gasneti_atomic64_compare_and_swap)
-      int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval) {
+      GASNETI_INLINE(gasneti_atomic64_compare_and_swap)
+      int gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval, int flags) {
         return __sync_bool_compare_and_swap(&p->ctr, oldval, newval);
       }
+      #define gasneti_atomic64_compare_and_swap gasneti_atomic64_compare_and_swap
     #endif
   #else 
     #error "GASNETI_USE_COMPILER_ATOMICOPS for unknown or unsupported compiler"
@@ -148,34 +147,31 @@
 
       #define GASNETI_HAVE_ATOMIC32_T 1
       typedef struct { volatile uint32_t ctr; } gasneti_atomic32_t;
-      #define _gasneti_atomic32_increment(p) InterlockedIncrement((LONG *)&((p)->ctr))
-      #define _gasneti_atomic32_decrement(p) InterlockedDecrement((LONG *)&((p)->ctr))
+      #define gasneti_atomic32_increment(p,f) InterlockedIncrement((LONG *)&((p)->ctr))
+      #define gasneti_atomic32_decrement(p,f) InterlockedDecrement((LONG *)&((p)->ctr))
       #define _gasneti_atomic32_read(p)      ((p)->ctr)
       #define _gasneti_atomic32_set(p,v)     ((p)->ctr = (v))
       #define _gasneti_atomic32_init(v)      { (v) }
-      #define _gasneti_atomic32_decrement_and_test(p) \
+      #define gasneti_atomic32_decrement_and_test(p,f) \
                                           (InterlockedDecrement((LONG *)&((p)->ctr)) == 0)
-      #define _gasneti_atomic32_compare_and_swap(p,oval,nval) \
+      #define gasneti_atomic32_compare_and_swap(p,oval,nval,f) \
 	   (InterlockedCompareExchange((LONG *)&((p)->ctr),nval,oval) == (LONG)(oval))
-      #define _gasneti_atomic32_fetchadd(p, op) InterlockedExchangeAdd((LONG *)&((p)->ctr), op)
+      #define gasneti_atomic32_fetchadd(p,op,f) InterlockedExchangeAdd((LONG *)&((p)->ctr), op)
 
       #if PLATFORM_ARCH_64 /* TODO: Identify ILP32 running on 64-bit CPU */
         #define GASNETI_HAVE_ATOMIC64_T 1
         typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
-        #define _gasneti_atomic64_increment(p) InterlockedIncrement64((LONGLONG *)&((p)->ctr))
-        #define _gasneti_atomic64_decrement(p) InterlockedDecrement64((LONGLONG *)&((p)->ctr))
+        #define gasneti_atomic64_increment(p,f) InterlockedIncrement64((LONGLONG *)&((p)->ctr))
+        #define gasneti_atomic64_decrement(p,f) InterlockedDecrement64((LONGLONG *)&((p)->ctr))
         #define _gasneti_atomic64_read(p)      ((p)->ctr)
         #define _gasneti_atomic64_set(p,v)     ((p)->ctr = (v))
         #define _gasneti_atomic64_init(v)      { (v) }
-        #define _gasneti_atomic64_decrement_and_test(p) \
+        #define gasneti_atomic64_decrement_and_test(p,f) \
                                           (InterlockedDecrement64((LONGLONG *)&((p)->ctr)) == 0)
-        #define _gasneti_atomic64_compare_and_swap(p,oval,nval) \
+        #define gasneti_atomic64_compare_and_swap(p,oval,nval,f) \
 	     (InterlockedCompareExchange64((LONGLONG *)&((p)->ctr),nval,oval) == (LONGLONG)(oval))
-        #define _gasneti_atomic64_fetchadd(p, op) InterlockedExchangeAdd64((LONGLONG *)&((p)->ctr), op)
+        #define gasneti_atomic64_fetchadd(p,op,f) InterlockedExchangeAdd64((LONGLONG *)&((p)->ctr), op)
       #endif
-
-      /* MSDN docs ensure memory fence in these calls, even on ia64 */
-      #define GASNETI_ATOMIC_FENCE_RMW (GASNETI_ATOMIC_MB_PRE | GASNETI_ATOMIC_MB_POST)
   /* ------------------------------------------------------------------------------------ */
   #else
     #error GASNETI_USE_OS_ATOMICS defined on unsupported OS - need to implement GASNet atomics (or #define GASNETI_USE_GENERIC_ATOMICOPS)
@@ -865,9 +861,9 @@
       #define _gasneti_atomic32_read(p)      ((p)->ctr)
       #define _gasneti_atomic32_set(p,v)     ((p)->ctr = (v))
       #define _gasneti_atomic32_init(v)      { (v) }
-      #define _gasneti_atomic32_fetchadd(p,op) \
+      #define gasneti_atomic32_fetchadd(p,op,f) \
               __sync_fetch_and_add(&((p)->ctr), (op))
-      #define _gasneti_atomic32_compare_and_swap(p,oval,nval) \
+      #define gasneti_atomic32_compare_and_swap(p,oval,nval,f) \
               (__sync_val_compare_and_swap(&((p)->ctr), (oval), (nval)) == (oval))
 
       #define GASNETI_HAVE_ATOMIC64_T 1
@@ -875,13 +871,10 @@
       #define _gasneti_atomic64_read(p)      ((p)->ctr)
       #define _gasneti_atomic64_set(p,v)     ((p)->ctr = (v))
       #define _gasneti_atomic64_init(v)      { (v) }
-      #define _gasneti_atomic64_fetchadd(p,op)\
+      #define gasneti_atomic64_fetchadd(p,op,f)\
               __sync_fetch_and_add(&((p)->ctr), (op))
-      #define _gasneti_atomic64_compare_and_swap(p,oval,nval) \
+      #define gasneti_atomic64_compare_and_swap(p,oval,nval,f) \
               (__sync_val_compare_and_swap(&((p)->ctr), (oval), (nval)) == (oval))
-
-      /* x86 and x86_64 include full memory fence in locked RMW insns */
-      #define GASNETI_ATOMIC_FENCE_RMW (GASNETI_ATOMIC_MB_PRE | GASNETI_ATOMIC_MB_POST)
     #else
       #error unrecognized x86 compiler - need to implement GASNet atomics (or #define GASNETI_USE_GENERIC_ATOMICOPS)
     #endif
