@@ -193,10 +193,17 @@
      #define GASNETI_HAVE_ATOMIC32_T 1
      typedef struct { volatile uint32_t ctr; } gasneti_atomic32_t;
      #define _gasneti_atomic32_init(v)      { (v) }
+     #define gasneti_atomic32_align 4
 
      #define GASNETI_HAVE_ATOMIC64_T 1
      typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
      #define _gasneti_atomic64_init(v)      { (v) }
+     #if PLATFORM_ARCH_64
+       #define gasneti_atomic64_align 8
+     #else
+       #define gasneti_atomic64_align 4
+     #endif
+
 
       #if PLATFORM_COMPILER_PATHSCALE || PLATFORM_COMPILER_OPEN64
         /* Pathscale optimizer is buggy and fails to clobber memory output location correctly
@@ -371,7 +378,6 @@
 	 *
 	 * See the following #elif/#else clauses for slight variants.
 	 */
-        #define gasneti_atomic64_align 4 /* only need 4-byte alignment, not the default 8 */
         GASNETI_INLINE(_gasneti_atomic64_compare_and_swap)
         int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval) {
 	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newlo = GASNETI_LOWORD(newval);
@@ -390,6 +396,7 @@
 	  GASNETI_ASM_REGISTER_KEYWORD uint64_t oldval = p->ctr;
 	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newlo = GASNETI_LOWORD(v);
 	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newhi = GASNETI_HIWORD(v);
+          _GASNETI_ATOMIC_CHECKALIGN(gasneti_atomic64_align, p);
           __asm__ __volatile__ (
 		    "0:				\n\t"
 		    "lock;			"
@@ -403,6 +410,7 @@
         GASNETI_INLINE(gasneti_atomic64_read)
         uint64_t gasneti_atomic64_read(gasneti_atomic64_t *p, int flags) {
 	  GASNETI_ASM_REGISTER_KEYWORD uint64_t retval;
+          _GASNETI_ATOMIC_CHECKALIGN(gasneti_atomic64_align, p);
           __asm__ __volatile__ (
 		    /* Set [a:d] = [b:c], thus preserving b and c */
 		    "movl	%%ebx, %%eax	\n\t"
@@ -421,7 +429,6 @@
          * Instead a "memory" clobber is used.
          * Read is identical to the Normal case.
          */
-        #define gasneti_atomic64_align 4 /* only need 4-byte alignment, not the default 8 */
         GASNETI_INLINE(_gasneti_atomic64_compare_and_swap)
         int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval) {
 	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newlo = GASNETI_LOWORD(newval);
@@ -440,6 +447,7 @@
 	  GASNETI_ASM_REGISTER_KEYWORD uint64_t oldval = p->ctr;
 	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newlo = GASNETI_LOWORD(v);
 	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newhi = GASNETI_HIWORD(v);
+          _GASNETI_ATOMIC_CHECKALIGN(gasneti_atomic64_align, p);
           __asm__ __volatile__ (
 		    "0:				\n\t"
 		    "lock;			"
@@ -453,6 +461,7 @@
         GASNETI_INLINE(gasneti_atomic64_read)
         uint64_t gasneti_atomic64_read(gasneti_atomic64_t *p, int flags) {
 	  GASNETI_ASM_REGISTER_KEYWORD uint64_t retval;
+          _GASNETI_ATOMIC_CHECKALIGN(gasneti_atomic64_align, p);
           __asm__ __volatile__ (
 		    /* Set [a:d] = [b:c], thus preserving b and c */
 		    "movl	%%ebx, %%eax	\n\t"
@@ -479,7 +488,6 @@
 	 * it needs to allocate another register for it.  Having none left, it gives
 	 * up at this point.  So, we need to list "memory" in the clobbers instead.
 	 */
-        #define gasneti_atomic64_align 4 /* only need 4-byte alignment, not the default 8 */
         GASNETI_INLINE(_gasneti_atomic64_compare_and_swap)
         int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval) {
 	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newlo = GASNETI_LOWORD(newval);
@@ -500,6 +508,7 @@
 	  GASNETI_ASM_REGISTER_KEYWORD uint64_t oldval = p->ctr;
 	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newlo = GASNETI_LOWORD(v);
 	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newhi = GASNETI_HIWORD(v);
+          _GASNETI_ATOMIC_CHECKALIGN(gasneti_atomic64_align, p);
           __asm__ __volatile__ (
 		    "xchgl	%1, %%ebx	\n\t"
 		    "0:				\n\t"
@@ -515,6 +524,7 @@
         GASNETI_INLINE(gasneti_atomic64_read)
         uint64_t gasneti_atomic64_read(gasneti_atomic64_t *p, int flags) {
 	  GASNETI_ASM_REGISTER_KEYWORD uint64_t retval;
+          _GASNETI_ATOMIC_CHECKALIGN(gasneti_atomic64_align, p);
           __asm__ __volatile__ (
 		    /* Set [a:d] = [b:c], thus preserving b and c */
 		    "movl	%%ebx, %%eax	\n\t"
@@ -535,7 +545,6 @@
 	 * This is used for older GCC that complain about too many reloads for the "normal" case.
 	 * Also to, appease older GCC, we use "+m" where "=m" is sufficient/correct (see bug 1790).
 	 */
-        #define gasneti_atomic64_align 4 /* only need 4-byte alignment, not the default 8 */
         GASNETI_INLINE(_gasneti_atomic64_compare_and_swap)
         int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval) {
 	  GASNETI_ASM_REGISTER_KEYWORD uint32_t oldlo = GASNETI_LOWORD(oldval);
@@ -558,6 +567,7 @@
 	  GASNETI_ASM_REGISTER_KEYWORD uint32_t oldhi = GASNETI_HIWORD(oldval);
 	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newlo = GASNETI_LOWORD(v);
 	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newhi = GASNETI_HIWORD(v);
+          _GASNETI_ATOMIC_CHECKALIGN(gasneti_atomic64_align, p);
           __asm__ __volatile__ (
 		    "0:				\n\t"
 		    "lock;			"
@@ -571,6 +581,7 @@
         GASNETI_INLINE(gasneti_atomic64_read)
         uint64_t gasneti_atomic64_read(gasneti_atomic64_t *p, int flags) {
 	  GASNETI_ASM_REGISTER_KEYWORD uint32_t retlo, rethi;
+          _GASNETI_ATOMIC_CHECKALIGN(gasneti_atomic64_align, p);
           __asm__ __volatile__ (
 		    /* Set [a:d] = [b:c], thus preserving b and c */
 		    "movl	%%ebx, %%eax	\n\t"
@@ -597,7 +608,7 @@
 	GASNETI_INLINE(gasneti_atomic128_compare_and_swap)
 	int gasneti_atomic128_compare_and_swap(gasneti_atomic128_t *p, uint64_t oldhi, uint64_t oldlo, uint64_t newhi, uint64_t newlo, int flags) {
 	  GASNETI_ASM_REGISTER_KEYWORD unsigned char retval;
-          gasneti_assert(!(((uintptr_t)p) & 0xF)); /* cmpxchg16b requires 16-byte alignment */
+          _GASNETI_ATOMIC_CHECKALIGN(16, p); /* cmpxchg16b requires 16-byte alignment */
 	  __asm__ __volatile__ (
 		"lock; "
 		"cmpxchg16b  %1   \n\t"
@@ -617,7 +628,7 @@
 	void gasneti_atomic128_set(gasneti_atomic128_t *p, uint64_t newhi, uint64_t newlo, int flags) {
 	  GASNETI_ASM_REGISTER_KEYWORD uint64_t oldlo = p->lo;
 	  GASNETI_ASM_REGISTER_KEYWORD uint64_t oldhi = p->hi;
-          gasneti_assert(!(((uintptr_t)p) & 0xF)); /* cmpxchg16b requires 16-byte alignment */
+          _GASNETI_ATOMIC_CHECKALIGN(16, p); /* cmpxchg16b requires 16-byte alignment */
 	  __asm__ __volatile__ (
 		"0:               \n\t"
 		"lock; "
@@ -632,7 +643,7 @@
 	GASNETI_INLINE(gasneti_atomic128_read)
 	void gasneti_atomic128_read(uint64_t *outhi, uint64_t *outlo, gasneti_atomic128_t *p, int flags) {
 	  GASNETI_ASM_REGISTER_KEYWORD uint64_t retlo, rethi;
-          gasneti_assert(!(((uintptr_t)p) & 0xF)); /* cmpxchg16b requires 16-byte alignment */
+          _GASNETI_ATOMIC_CHECKALIGN(16, p); /* cmpxchg16b requires 16-byte alignment */
 	  __asm__ __volatile__ (
 		"movq        %%rbx, %1 \n\t"
 		"movq        %%rcx, %2 \n\t"
