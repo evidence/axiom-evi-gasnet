@@ -262,35 +262,10 @@ typedef union {
  */
 #if GASNETC_ANY_PAR
   #define GASNETC_PARSEQ _PAR
-
-  typedef gasneti_atomic_t     gasnetc_atomic_t;
-  typedef gasneti_atomic_val_t gasnetc_atomic_val_t;
   #define gasnetc_cons_atomic(_id) _CONCAT(gasneti_atomic_,_id)
-  #if GASNETI_HAVE_ATOMIC_SWAP
-    #define gasnetc_atomic_swap    gasneti_atomic_swap
-  #else
-    GASNETI_INLINE(gasnetc_atomic_swap)
-    gasnetc_atomic_val_t gasnetc_atomic_swap(gasnetc_atomic_t *p, gasnetc_atomic_val_t newval, int flags) {
-      gasnetc_atomic_val_t oldval;
-      do {
-        oldval = gasnetc_atomic_read(p, 0);
-      } while ((oldval != newval) &&
-               !gasnetc_atomic_compare_and_swap(p, oldval, newval, flags));
-      return oldval;
-    }
-  #endif
 #else
   #define GASNETC_PARSEQ _SEQ
-
-  typedef gasneti_atomic_val_t gasnetc_atomic_t;
-  typedef gasneti_atomic_val_t gasnetc_atomic_val_t;
   #define gasnetc_cons_atomic(_id) _CONCAT(gasneti_nonatomic_,_id)
-  GASNETI_INLINE(gasnetc_atomic_swap)
-  gasnetc_atomic_val_t gasnetc_atomic_swap(gasnetc_atomic_t *p, gasnetc_atomic_val_t newval, int flags) {
-    gasnetc_atomic_val_t oldval = *p;
-    *p = newval;
-    return oldval;
-  }
 #endif
 
 #define GASNETC_SEMA_INITIALIZER  GASNETI_CONS_SEMA(GASNETC_PARSEQ,INITIALIZER)
@@ -310,12 +285,15 @@ typedef union {
 #define gasnetc_lifo_link         gasneti_lifo_link
 #define gasnetc_lifo_next         gasneti_lifo_next
 
+typedef gasnetc_cons_atomic(t)            gasnetc_atomic_t;
+typedef gasnetc_cons_atomic(val_t)        gasnetc_atomic_val_t;
 #define gasnetc_atomic_init               gasnetc_cons_atomic(init)
 #define gasnetc_atomic_read               gasnetc_cons_atomic(read)
 #define gasnetc_atomic_set                gasnetc_cons_atomic(set)
 #define gasnetc_atomic_increment          gasnetc_cons_atomic(increment)
 #define gasnetc_atomic_decrement_and_test gasnetc_cons_atomic(decrement_and_test)
 #define gasnetc_atomic_compare_and_swap   gasnetc_cons_atomic(compare_and_swap)
+#define gasnetc_atomic_swap               gasnetc_cons_atomic(swap)
 #define gasnetc_atomic_add                gasnetc_cons_atomic(add)
 #define gasnetc_atomic_subtract           gasnetc_cons_atomic(subtract)
 
