@@ -265,14 +265,7 @@ typedef union {
 
   typedef gasneti_atomic_t     gasnetc_atomic_t;
   typedef gasneti_atomic_val_t gasnetc_atomic_val_t;
-  #define gasnetc_atomic_init      gasneti_atomic_init
-  #define gasnetc_atomic_read      gasneti_atomic_read
-  #define gasnetc_atomic_set       gasneti_atomic_set
-  #define gasnetc_atomic_increment gasneti_atomic_increment
-  #define gasnetc_atomic_decrement_and_test \
-                                   gasneti_atomic_decrement_and_test
-  #define gasnetc_atomic_compare_and_swap \
-                                   gasneti_atomic_compare_and_swap
+  #define gasnetc_cons_atomic(_id) _CONCAT(gasneti_atomic_,_id)
   #if GASNETI_HAVE_ATOMIC_SWAP
     #define gasnetc_atomic_swap    gasneti_atomic_swap
   #else
@@ -286,52 +279,17 @@ typedef union {
       return oldval;
     }
   #endif
-  #define gasnetc_atomic_add       gasneti_atomic_add
-  #define gasnetc_atomic_subtract  gasneti_atomic_subtract
 #else
   #define GASNETC_PARSEQ _SEQ
 
   typedef gasneti_atomic_val_t gasnetc_atomic_t;
   typedef gasneti_atomic_val_t gasnetc_atomic_val_t;
-  #define gasnetc_atomic_init(v) (v)
-  GASNETI_INLINE(gasnetc_atomic_read)
-  gasnetc_atomic_val_t gasnetc_atomic_read(gasnetc_atomic_t *p, int flags) {
-    return *p;
-  }
-  GASNETI_INLINE(gasnetc_atomic_set)
-  void gasnetc_atomic_set(gasnetc_atomic_t *p, gasnetc_atomic_val_t val, int flags) {
-    *p = val;
-  }
-  GASNETI_INLINE(gasnetc_atomic_increment)
-  void gasnetc_atomic_increment(gasnetc_atomic_t *p, int flags) {
-    ++(*p);
-  }
-  GASNETI_INLINE(gasnetc_atomic_decrement_and_test)
-  int gasnetc_atomic_decrement_and_test(gasnetc_atomic_t *p, int flags) {
-    return (0 == --(*p));
-  }
-  GASNETI_INLINE(gasnetc_atomic_compare_and_swap)
-  int gasnetc_atomic_compare_and_swap(gasnetc_atomic_t *p, gasnetc_atomic_val_t oldval, gasnetc_atomic_val_t newval, int flags) {
-    if (*p == oldval) {
-      *p = newval;
-      return 1;
-    } else {
-      return 0;
-    }
-  }
+  #define gasnetc_cons_atomic(_id) _CONCAT(gasneti_nonatomic_,_id)
   GASNETI_INLINE(gasnetc_atomic_swap)
   gasnetc_atomic_val_t gasnetc_atomic_swap(gasnetc_atomic_t *p, gasnetc_atomic_val_t newval, int flags) {
     gasnetc_atomic_val_t oldval = *p;
     *p = newval;
     return oldval;
-  }
-  GASNETI_INLINE(gasnetc_atomic_add)
-  gasnetc_atomic_val_t gasnetc_atomic_add(gasnetc_atomic_t *p, gasnetc_atomic_val_t op, int flags) {
-    return ((*p) += op);
-  }
-  GASNETI_INLINE(gasnetc_atomic_subtract)
-  gasnetc_atomic_val_t gasnetc_atomic_subtract(gasnetc_atomic_t *p, gasnetc_atomic_val_t op, int flags) {
-    return ((*p) -= op);
   }
 #endif
 
@@ -351,6 +309,15 @@ typedef union {
 #define gasnetc_lifo_push_many    gasneti_cons_lifo(GASNETC_PARSEQ,push_many)
 #define gasnetc_lifo_link         gasneti_lifo_link
 #define gasnetc_lifo_next         gasneti_lifo_next
+
+#define gasnetc_atomic_init               gasnetc_cons_atomic(init)
+#define gasnetc_atomic_read               gasnetc_cons_atomic(read)
+#define gasnetc_atomic_set                gasnetc_cons_atomic(set)
+#define gasnetc_atomic_increment          gasnetc_cons_atomic(increment)
+#define gasnetc_atomic_decrement_and_test gasnetc_cons_atomic(decrement_and_test)
+#define gasnetc_atomic_compare_and_swap   gasnetc_cons_atomic(compare_and_swap)
+#define gasnetc_atomic_add                gasnetc_cons_atomic(add)
+#define gasnetc_atomic_subtract           gasnetc_cons_atomic(subtract)
 
 /* ------------------------------------------------------------------------------------ */
 /* Type and ops for rdma counters */
