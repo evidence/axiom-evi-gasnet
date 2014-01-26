@@ -286,23 +286,23 @@ typedef struct {
     _gasneti_semaphore_t	S;
     char			_pad[GASNETI_CACHE_PAD(sizeof(_gasneti_semaphore_t))];
   #endif
-} gasneti_semaphore_t;
+} gasneti_semaphore_t_PAR;
 
 #if GASNET_DEBUG
-  #define GASNETI_SEMAPHORE_INITIALIZER(N,L) {_GASNETI_SEMAPHORE_INITIALIZER(N), (L),}
+  #define GASNETI_SEMAPHORE_INITIALIZER_PAR(N,L) {_GASNETI_SEMAPHORE_INITIALIZER(N), (L),}
   #define GASNETI_SEMA_CHECK(_s)	do {                    \
       gasneti_atomic_val_t _tmp = _gasneti_semaphore_read(&(_s)->S); \
       gasneti_assert(_tmp <= GASNETI_SEMAPHORE_MAX);            \
       gasneti_assert((_tmp <= (_s)->limit) || !(_s)->limit);    \
     } while (0)
 #else
-  #define GASNETI_SEMAPHORE_INITIALIZER(N,L) {_GASNETI_SEMAPHORE_INITIALIZER(N),}
+  #define GASNETI_SEMAPHORE_INITIALIZER_PAR(N,L) {_GASNETI_SEMAPHORE_INITIALIZER(N),}
   #define GASNETI_SEMA_CHECK(_s)	do {} while(0)
 #endif
 
 /* gasneti_semaphore_init */
-GASNETI_INLINE(gasneti_semaphore_init)
-void gasneti_semaphore_init(gasneti_semaphore_t *s, int n, gasneti_atomic_val_t limit) {
+GASNETI_INLINE(gasneti_semaphore_init_PAR)
+void gasneti_semaphore_init_PAR(gasneti_semaphore_t_PAR *s, int n, gasneti_atomic_val_t limit) {
   gasneti_assert(limit <= GASNETI_SEMAPHORE_MAX);
   _gasneti_semaphore_init(&(s->S), n);
   #if GASNET_DEBUG
@@ -312,8 +312,8 @@ void gasneti_semaphore_init(gasneti_semaphore_t *s, int n, gasneti_atomic_val_t 
 }
 
 /* gasneti_semaphore_destroy */
-GASNETI_INLINE(gasneti_semaphore_destroy)
-void gasneti_semaphore_destroy(gasneti_semaphore_t *s) {
+GASNETI_INLINE(gasneti_semaphore_destroy_PAR)
+void gasneti_semaphore_destroy_PAR(gasneti_semaphore_t_PAR *s) {
   GASNETI_SEMA_CHECK(s);
   _gasneti_semaphore_destroy(&(s->S));
 }
@@ -322,8 +322,8 @@ void gasneti_semaphore_destroy(gasneti_semaphore_t *s) {
  *
  * Returns current value of the semaphore
  */
-GASNETI_INLINE(gasneti_semaphore_read)
-gasneti_atomic_val_t gasneti_semaphore_read(gasneti_semaphore_t *s) {
+GASNETI_INLINE(gasneti_semaphore_read_PAR)
+gasneti_atomic_val_t gasneti_semaphore_read_PAR(gasneti_semaphore_t_PAR *s) {
   GASNETI_SEMA_CHECK(s);
   return _gasneti_semaphore_read(&(s->S));
 }
@@ -333,8 +333,8 @@ gasneti_atomic_val_t gasneti_semaphore_read(gasneti_semaphore_t *s) {
  * Atomically increments the value of the semaphore.
  * Since this just a busy-waiting semaphore, no waking operations are required.
  */
-GASNETI_INLINE(gasneti_semaphore_up)
-void gasneti_semaphore_up(gasneti_semaphore_t *s) {
+GASNETI_INLINE(gasneti_semaphore_up_PAR)
+void gasneti_semaphore_up_PAR(gasneti_semaphore_t_PAR *s) {
   GASNETI_SEMA_CHECK(s);
   _gasneti_semaphore_up(&(s->S));
   GASNETI_SEMA_CHECK(s);
@@ -345,8 +345,8 @@ void gasneti_semaphore_up(gasneti_semaphore_t *s) {
  * If the value of the semaphore is non-zero, decrements it and returns non-zero.
  * If the value is zero, returns zero.  Otherwise returns 1;
  */
-GASNETI_INLINE(gasneti_semaphore_trydown) GASNETI_WARN_UNUSED_RESULT
-int gasneti_semaphore_trydown(gasneti_semaphore_t *s) {
+GASNETI_INLINE(gasneti_semaphore_trydown_PAR) GASNETI_WARN_UNUSED_RESULT
+int gasneti_semaphore_trydown_PAR(gasneti_semaphore_t_PAR *s) {
   int retval;
 
   GASNETI_SEMA_CHECK(s);
@@ -361,8 +361,8 @@ int gasneti_semaphore_trydown(gasneti_semaphore_t *s) {
  * Increases the value of the semaphore by the indicated count.
  * Since this just a busy-waiting semaphore, no waking operations are required.
  */
-GASNETI_INLINE(gasneti_semaphore_up_n)
-void gasneti_semaphore_up_n(gasneti_semaphore_t *s, gasneti_atomic_val_t n) {
+GASNETI_INLINE(gasneti_semaphore_up_n_PAR)
+void gasneti_semaphore_up_n_PAR(gasneti_semaphore_t_PAR *s, gasneti_atomic_val_t n) {
   GASNETI_SEMA_CHECK(s);
   _gasneti_semaphore_up_n(&(s->S), n);
   GASNETI_SEMA_CHECK(s);
@@ -373,8 +373,8 @@ void gasneti_semaphore_up_n(gasneti_semaphore_t *s, gasneti_atomic_val_t n) {
  * Decrements the semaphore by 'n' or fails.
  * If the "old" value is zero, returns zero.
  */
-GASNETI_INLINE(gasneti_semaphore_trydown_n) GASNETI_WARN_UNUSED_RESULT
-gasneti_atomic_val_t gasneti_semaphore_trydown_n(gasneti_semaphore_t *s, gasneti_atomic_val_t n) {
+GASNETI_INLINE(gasneti_semaphore_trydown_n_PAR) GASNETI_WARN_UNUSED_RESULT
+gasneti_atomic_val_t gasneti_semaphore_trydown_n_PAR(gasneti_semaphore_t_PAR *s, gasneti_atomic_val_t n) {
   gasneti_atomic_val_t retval;
 
   GASNETI_SEMA_CHECK(s);
@@ -391,8 +391,8 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_n(gasneti_semaphore_t *s, gasneti
  * and this value is returned.
  * If the "old" value is zero, returns zero.
  */
-GASNETI_INLINE(gasneti_semaphore_trydown_partial) GASNETI_WARN_UNUSED_RESULT
-gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, gasneti_atomic_val_t n) {
+GASNETI_INLINE(gasneti_semaphore_trydown_partial_PAR) GASNETI_WARN_UNUSED_RESULT
+gasneti_atomic_val_t gasneti_semaphore_trydown_partial_PAR(gasneti_semaphore_t_PAR *s, gasneti_atomic_val_t n) {
   gasneti_atomic_val_t retval;
 
   GASNETI_SEMA_CHECK(s);
@@ -401,6 +401,101 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
 
   return retval;
 }
+
+/* _SEQ implementation of semaphores */
+#define GASNETI_SEMAPHORE_MAX_SEQ GASNETI_ATOMIC_MAX
+#if GASNET_DEBUG
+  typedef struct {
+    gasneti_atomic_val_t count;
+    gasneti_atomic_val_t limit;
+  } gasneti_semaphore_t_SEQ;
+  #define GASNETI_SEMAPHORE_INITIALIZER_SEQ(count,limit) { (count), (limit) }
+  #define GASNETI_SEMA_CHECK_SEQ(_s)        do {             \
+    gasneti_assert((_s)->count <= GASNETI_SEMAPHORE_MAX_SEQ);     \
+    gasneti_assert(((_s)->count <= (_s)->limit) || !(_s)->limit); \
+  } while (0)
+#else
+  typedef struct {
+    gasneti_atomic_val_t count;
+  } gasneti_semaphore_t_SEQ;
+  #define GASNETI_SEMAPHORE_INITIALIZER_SEQ(count,limit) { (count) }
+  #define GASNETI_SEMA_CHECK_SEQ(_s) do { } while (0)
+#endif
+GASNETI_INLINE(gasneti_semaphore_init_SEQ)
+void gasneti_semaphore_init_SEQ(gasneti_semaphore_t_SEQ *s,
+                                gasneti_atomic_val_t value,
+                                gasneti_atomic_val_t limit) {
+  s->count = value;
+#if GASNET_DEBUG
+  s->limit = limit;
+#endif
+  GASNETI_SEMA_CHECK_SEQ(s);
+}
+GASNETI_INLINE(gasneti_semaphore_destroy_SEQ)
+void gasneti_semaphore_destroy_SEQ(gasneti_semaphore_t_SEQ *s) {
+  GASNETI_SEMA_CHECK_SEQ(s);
+  /* Nothing */
+}
+GASNETI_INLINE(gasneti_semaphore_read_SEQ)
+gasneti_atomic_val_t gasneti_semaphore_read_SEQ(gasneti_semaphore_t_SEQ *s) {
+  GASNETI_SEMA_CHECK_SEQ(s);
+  return s->count;
+}
+GASNETI_INLINE(gasneti_semaphore_up_SEQ)
+void gasneti_semaphore_up_SEQ(gasneti_semaphore_t_SEQ *s) {
+  GASNETI_SEMA_CHECK_SEQ(s);
+  s->count += 1;
+  GASNETI_SEMA_CHECK_SEQ(s);
+}
+GASNETI_INLINE(gasneti_semaphore_trydown_SEQ) GASNETI_WARN_UNUSED_RESULT
+int gasneti_semaphore_trydown_SEQ(gasneti_semaphore_t_SEQ *s) {
+  int retval;
+  GASNETI_SEMA_CHECK_SEQ(s);
+  retval = s->count;
+  if_pt (retval != 0)
+    s->count -= 1;
+  GASNETI_SEMA_CHECK_SEQ(s);
+  return retval;
+}
+GASNETI_INLINE(gasneti_semaphore_up_n_SEQ)
+void gasneti_semaphore_up_n_SEQ(gasneti_semaphore_t_SEQ *s, gasneti_atomic_val_t n) {
+  GASNETI_SEMA_CHECK_SEQ(s);
+  s->count += n;
+  GASNETI_SEMA_CHECK_SEQ(s);
+}
+GASNETI_INLINE(gasneti_semaphore_trydown_n_SEQ) GASNETI_WARN_UNUSED_RESULT
+gasneti_atomic_val_t gasneti_semaphore_trydown_n_SEQ(gasneti_semaphore_t_SEQ *s, gasneti_atomic_val_t n) {
+  GASNETI_SEMA_CHECK_SEQ(s);
+  if_pt (s->count >= n) {
+    s->count -= n;
+  } else {
+    n = 0;
+  }
+  GASNETI_SEMA_CHECK_SEQ(s);
+  return n;
+}
+GASNETI_INLINE(gasneti_semaphore_trydown_partial_SEQ) GASNETI_WARN_UNUSED_RESULT
+gasneti_atomic_val_t gasneti_semaphore_trydown_partial_SEQ(gasneti_semaphore_t_SEQ *s, gasneti_atomic_val_t n) {
+  GASNETI_SEMA_CHECK_SEQ(s);
+  n = MIN(s->count, n);
+  s->count -= n;
+  GASNETI_SEMA_CHECK_SEQ(s);
+  return n;
+}
+
+/* Finally define gasneti_semaphore in terms of either the _PAR or _SEQ variant */
+#define GASNETI_CONS_SEMA(_suff,_id)       _CONCAT(GASNETI_SEMAPHORE_,_CONCAT(_id,_suff))
+#define gasneti_cons_sema(_suff,_id)       _CONCAT(gasneti_semaphore_,_CONCAT(_id,_suff))
+#define GASNETI_SEMAPHORE_INITIALIZER      GASNETI_CONS_SEMA(_GASNETI_PARSEQ,INITIALIZER)
+#define gasneti_semaphore_t                gasneti_cons_sema(_GASNETI_PARSEQ,t)
+#define gasneti_semaphore_init             gasneti_cons_sema(_GASNETI_PARSEQ,init)
+#define gasneti_semaphore_destroy          gasneti_cons_sema(_GASNETI_PARSEQ,destroy)
+#define gasneti_semaphore_read             gasneti_cons_sema(_GASNETI_PARSEQ,read)
+#define gasneti_semaphore_up               gasneti_cons_sema(_GASNETI_PARSEQ,up)
+#define gasneti_semaphore_trydown          gasneti_cons_sema(_GASNETI_PARSEQ,trydown)
+#define gasneti_semaphore_up_n             gasneti_cons_sema(_GASNETI_PARSEQ,up_n)
+#define gasneti_semaphore_trydown_n        gasneti_cons_sema(_GASNETI_PARSEQ,trydown_n)
+#define gasneti_semaphore_trydown_partial  gasneti_cons_sema(_GASNETI_PARSEQ,trydown_partial)
 
 /* ------------------------------------------------------------------------------------ */
 /* Optional atomic operations for pointer-sized data.
@@ -614,10 +709,10 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
       char			_pad0[GASNETI_CACHE_LINE_BYTES];
       gasneti_atomic_ptr_t	head;
       char			_pad1[GASNETI_CACHE_LINE_BYTES];
-    } gasneti_lifo_head_t;
+    } gasneti_lifo_head_t_PAR;
 
     GASNETI_INLINE(_gasneti_lifo_push)
-    void _gasneti_lifo_push(gasneti_lifo_head_t *p, void **head, void **tail) {
+    void _gasneti_lifo_push(gasneti_lifo_head_t_PAR *p, void **head, void **tail) {
       /* RELEASE semantics */
       uintptr_t oldhead;
       do {
@@ -627,7 +722,7 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
     }
 
     GASNETI_INLINE(_gasneti_lifo_pop)
-    void *_gasneti_lifo_pop(gasneti_lifo_head_t *p) {
+    void *_gasneti_lifo_pop(gasneti_lifo_head_t_PAR *p) {
       /* ACQUIRE semantics: 'isync' between read of head and head->next */
       register uintptr_t addr = (uintptr_t)(&p->head);
       register uintptr_t head, next;
@@ -671,14 +766,14 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
       return (void *)head;
     }
     GASNETI_INLINE(_gasneti_lifo_init)
-    void _gasneti_lifo_init(gasneti_lifo_head_t *p) {
+    void _gasneti_lifo_init(gasneti_lifo_head_t_PAR *p) {
       gasneti_atomic_ptr_set(&p->head, 0);
     }
     GASNETI_INLINE(_gasneti_lifo_destroy)
-    void _gasneti_lifo_destroy(gasneti_lifo_head_t *p) {
+    void _gasneti_lifo_destroy(gasneti_lifo_head_t_PAR *p) {
       /* NOTHING */
     }
-    #define GASNETI_LIFO_INITIALIZER	{{0,}, gasneti_atomic_ptr_init(0), {0,}}
+    #define GASNETI_LIFO_INITIALIZER_PAR {{0,}, gasneti_atomic_ptr_init(0), {0,}}
     #define GASNETI_HAVE_ARCH_LIFO	1
   #elif PLATFORM_COMPILER_XLC
     typedef struct {
@@ -690,10 +785,10 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
       char			_pad0[128];
       gasneti_atomic_ptr_t	head;
       char			_pad1[128 - sizeof(void **)];
-    } gasneti_lifo_head_t;
+    } gasneti_lifo_head_t_PAR;
 
     GASNETI_INLINE(_gasneti_lifo_push)
-    void _gasneti_lifo_push(gasneti_lifo_head_t *p, void **head, void **tail) {
+    void _gasneti_lifo_push(gasneti_lifo_head_t_PAR *p, void **head, void **tail) {
       /* RELEASE semantics */
       uintptr_t oldhead;
       do {
@@ -702,7 +797,7 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
       } while (!gasneti_atomic_ptr_cas(&p->head, oldhead, (uintptr_t)head, GASNETI_ATOMIC_REL));
     }
 
-    static void *_gasneti_lifo_pop(gasneti_lifo_head_t *p);
+    static void *_gasneti_lifo_pop(gasneti_lifo_head_t_PAR *p);
     /* ARGS: r3 = p  LOCAL: r0 = next, r4 = head */
     #if PLATFORM_ARCH_32
       #pragma mc_func _gasneti_lifo_pop {\
@@ -742,14 +837,14 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
     #pragma reg_killed_by _gasneti_lifo_pop cr0, gr0, gr4
 
     GASNETI_INLINE(_gasneti_lifo_init)
-    void _gasneti_lifo_init(gasneti_lifo_head_t *p) {
+    void _gasneti_lifo_init(gasneti_lifo_head_t_PAR *p) {
       gasneti_atomic_ptr_set(&p->head, 0);
     }
     GASNETI_INLINE(_gasneti_lifo_destroy)
-    void _gasneti_lifo_destroy(gasneti_lifo_head_t *p) {
+    void _gasneti_lifo_destroy(gasneti_lifo_head_t_PAR *p) {
       /* NOTHING */
     }
-    #define GASNETI_LIFO_INITIALIZER	{{0,}, gasneti_atomic_ptr_init(0), {0,}}
+    #define GASNETI_LIFO_INITIALIZER_PAR {{0,}, gasneti_atomic_ptr_init(0), {0,}}
     #define GASNETI_HAVE_ARCH_LIFO	1
   #endif
 #elif defined(GASNETI_HAVE_ATOMIC_DBLPTR_CAS)
@@ -761,10 +856,10 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
       char		_pad0[GASNETI_CACHE_LINE_BYTES];
       gasneti_atomic_dblptr_t 	head_and_tag;
       char		_pad1[GASNETI_CACHE_LINE_BYTES];
-    } gasneti_lifo_head_t;
+    } gasneti_lifo_head_t_PAR;
 
     GASNETI_INLINE(_gasneti_lifo_push)
-    void _gasneti_lifo_push(gasneti_lifo_head_t *p, void **newhead, void **tail) {
+    void _gasneti_lifo_push(gasneti_lifo_head_t_PAR *p, void **newhead, void **tail) {
       uintptr_t tag, oldhead;
       do {
 	oldhead = gasneti_atomic_dblptr_read_lo(&p->head_and_tag);
@@ -773,7 +868,7 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
       } while (!gasneti_atomic_dblptr_cas2(&p->head_and_tag, tag, oldhead, tag+1, (uintptr_t)newhead, GASNETI_ATOMIC_REL));
     }
     GASNETI_INLINE(_gasneti_lifo_pop)
-    void *_gasneti_lifo_pop(gasneti_lifo_head_t *p) {
+    void *_gasneti_lifo_pop(gasneti_lifo_head_t_PAR *p) {
       uintptr_t tag, oldhead, newhead;
       do {
 	oldhead = gasneti_atomic_dblptr_read_lo(&p->head_and_tag);
@@ -784,14 +879,14 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
       return (void *)oldhead;
     }
     GASNETI_INLINE(_gasneti_lifo_init)
-    void _gasneti_lifo_init(gasneti_lifo_head_t *p) {
+    void _gasneti_lifo_init(gasneti_lifo_head_t_PAR *p) {
       gasneti_atomic_dblptr_set(&p->head_and_tag, 0, 0);
     }
     GASNETI_INLINE(_gasneti_lifo_destroy)
-    void _gasneti_lifo_destroy(gasneti_lifo_head_t *p) {
+    void _gasneti_lifo_destroy(gasneti_lifo_head_t_PAR *p) {
       /* NOTHING */
     }
-    #define GASNETI_LIFO_INITIALIZER	{{0,}, gasneti_atomic_dblptr_init(0,0), {0,}}
+    #define GASNETI_LIFO_INITIALIZER_PAR {{0,}, gasneti_atomic_dblptr_init(0,0), {0,}}
     #define GASNETI_HAVE_ARCH_LIFO	1
 #elif PLATFORM_ARCH_64 && defined(GASNETI_HAVE_ATOMIC128_T)
     /* Same algorithm as dblptr_cas, above, but with alignment worries added in */
@@ -799,11 +894,11 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
       char                _pad0[GASNETI_CACHE_LINE_BYTES + GASNETI_HAVE_ATOMIC128_T];
       gasneti_atomic128_t head_and_tag; /* Actually might be lower addr, in _pad0 */
       char                _pad1[GASNETI_CACHE_LINE_BYTES];
-    } gasneti_lifo_head_t;
+    } gasneti_lifo_head_t_PAR;
     #define _GASNETI_LIFO_ALIGN(p) ((uintptr_t)(&(p)->head_and_tag) & ~(GASNETI_HAVE_ATOMIC128_T - 1))
 
     GASNETI_INLINE(_gasneti_lifo_push)
-    void _gasneti_lifo_push(gasneti_lifo_head_t *p, void **newhead, void **tail) {
+    void _gasneti_lifo_push(gasneti_lifo_head_t_PAR *p, void **newhead, void **tail) {
       uintptr_t tag, oldhead;
       gasneti_atomic64_t *head = (gasneti_atomic64_t *)_GASNETI_LIFO_ALIGN(p);
       gasneti_atomic128_t *head_and_tag = (gasneti_atomic128_t *)head;
@@ -821,7 +916,7 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
   #endif
     }
     GASNETI_INLINE(_gasneti_lifo_pop)
-    void *_gasneti_lifo_pop(gasneti_lifo_head_t *p) {
+    void *_gasneti_lifo_pop(gasneti_lifo_head_t_PAR *p) {
       uintptr_t tag, oldhead, newhead;
       gasneti_atomic64_t *head = (gasneti_atomic64_t *)_GASNETI_LIFO_ALIGN(p);
       gasneti_atomic128_t *head_and_tag = (gasneti_atomic128_t *)head;
@@ -841,15 +936,15 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
       return (void *)oldhead;
     }
     GASNETI_INLINE(_gasneti_lifo_init)
-    void _gasneti_lifo_init(gasneti_lifo_head_t *p) {
+    void _gasneti_lifo_init(gasneti_lifo_head_t_PAR *p) {
       gasneti_atomic128_t *head_and_tag = (gasneti_atomic128_t *)_GASNETI_LIFO_ALIGN(p);
       gasneti_atomic128_set(head_and_tag, 0, 0, 0);
     }
     GASNETI_INLINE(_gasneti_lifo_destroy)
-    void _gasneti_lifo_destroy(gasneti_lifo_head_t *p) {
+    void _gasneti_lifo_destroy(gasneti_lifo_head_t_PAR *p) {
       /* NOTHING */
     }
-    #define GASNETI_LIFO_INITIALIZER    {{0,}, gasneti_atomic128_init(0,0), {0,}}
+    #define GASNETI_LIFO_INITIALIZER_PAR {{0,}, gasneti_atomic128_init(0,0), {0,}}
     #define GASNETI_HAVE_ARCH_LIFO      1
 #elif PLATFORM_ARCH_IA64 && PLATFORM_ARCH_64 && GASNETI_HAVE_IA64_CMP8XCHG16
     /* Use the SCDS (Single-compare, double-swap) cmp8xchg16 instruction added to
@@ -905,10 +1000,10 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
       typedef struct {
         void 			*array[3]; /* for 16-byte aligment use either 0+1 or 1+2 */
         char			_pad[GASNETI_CACHE_PAD(3*sizeof(void *))];
-      } gasneti_lifo_head_t;
+      } gasneti_lifo_head_t_PAR;
 
       GASNETI_INLINE(_gasneti_lifo_push)
-      void _gasneti_lifo_push(gasneti_lifo_head_t *p, void **head, void **tail) {
+      void _gasneti_lifo_push(gasneti_lifo_head_t_PAR *p, void **head, void **tail) {
         uint64_t tag, old_head;
         void *q = (void *)GASNETI_ALIGNUP(p, 16);
         do {
@@ -917,7 +1012,7 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
         } while (_gasneti_lifo_store16(q, tag, head));
       }
       GASNETI_INLINE(_gasneti_lifo_pop)
-      void *_gasneti_lifo_pop(gasneti_lifo_head_t *p) {
+      void *_gasneti_lifo_pop(gasneti_lifo_head_t_PAR *p) {
         uint64_t tag, old_head;
         void *q = (void *)GASNETI_ALIGNUP(p, 16);
         do {
@@ -927,15 +1022,15 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
         return (void *)old_head;
       }
       GASNETI_INLINE(_gasneti_lifo_init)
-      void _gasneti_lifo_init(gasneti_lifo_head_t *p) {
+      void _gasneti_lifo_init(gasneti_lifo_head_t_PAR *p) {
         void **q = (void **)GASNETI_ALIGNUP(p, 16);
         q[0] = q[1] = NULL;
       }
       GASNETI_INLINE(_gasneti_lifo_destroy)
-      void _gasneti_lifo_destroy(gasneti_lifo_head_t *p) {
+      void _gasneti_lifo_destroy(gasneti_lifo_head_t_PAR *p) {
         /* NOTHING */
       }
-      #define GASNETI_LIFO_INITIALIZER	{ { NULL, NULL, NULL} }
+      #define GASNETI_LIFO_INITIALIZE_PAR { { NULL, NULL, NULL} }
     #endif /* Compiler-independent portion of 64-bit ia64 support */
 #else
   /* The LL/SC algorithm used on the PPC will not work on the Alpha or MIPS, which don't
@@ -962,17 +1057,17 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
       gasneti_mutex_t		lock;
       void			**head;
       char			_pad[GASNETI_CACHE_PAD(sizeof(gasneti_mutex_t)+sizeof(void **))];
-    } gasneti_lifo_head_t;
+    } gasneti_lifo_head_t_PAR;
 
     GASNETI_INLINE(_gasneti_lifo_push)
-    void _gasneti_lifo_push(gasneti_lifo_head_t *p, void **head, void **tail) {
+    void _gasneti_lifo_push(gasneti_lifo_head_t_PAR *p, void **head, void **tail) {
       gasneti_mutex_lock(&(p->lock));
       *tail = p->head;
       p->head = head;
       gasneti_mutex_unlock(&(p->lock));
     }
     GASNETI_INLINE(_gasneti_lifo_pop)
-    void *_gasneti_lifo_pop(gasneti_lifo_head_t *p) {
+    void *_gasneti_lifo_pop(gasneti_lifo_head_t_PAR *p) {
       void **elem;
       gasneti_mutex_lock(&(p->lock));
       elem = p->head;
@@ -983,59 +1078,97 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
       return (void *)elem;
     }
     GASNETI_INLINE(_gasneti_lifo_init)
-    void _gasneti_lifo_init(gasneti_lifo_head_t *p) {
+    void _gasneti_lifo_init(gasneti_lifo_head_t_PAR *p) {
       gasneti_mutex_init(&(p->lock));
       p->head = NULL;
     }
     GASNETI_INLINE(_gasneti_lifo_destroy)
-    void _gasneti_lifo_destroy(gasneti_lifo_head_t *p) {
+    void _gasneti_lifo_destroy(gasneti_lifo_head_t_PAR *p) {
       gasneti_mutex_destroy(&(p->lock));
     }
-    #define GASNETI_LIFO_INITIALIZER	{ GASNETI_MUTEX_INITIALIZER, NULL, {0,} }
+    #define GASNETI_LIFO_INITIALIZER_PAR { GASNETI_MUTEX_INITIALIZER, NULL, {0,} }
     #define GASNETI_HAVE_ARCH_LIFO	0
     #define GASNETI_LIFOS_NOT_SIGNALSAFE 1
 #endif
     
+/* _SEQ variant of gasneti_lifo_head_t */
+typedef struct { void **head; } gasneti_lifo_head_t_SEQ;
+#define GASNETI_LIFO_INITIALIZER_SEQ  { NULL }
 
 /* Initializer for dynamically allocated lifo heads */
-GASNETI_INLINE(gasneti_lifo_init)
-void gasneti_lifo_init(gasneti_lifo_head_t *lifo) {
+GASNETI_INLINE(gasneti_lifo_init_PAR)
+void gasneti_lifo_init_PAR(gasneti_lifo_head_t_PAR *lifo) {
   gasneti_assert(lifo != NULL);
   _gasneti_lifo_init(lifo);
 }
+GASNETI_INLINE(gasneti_lifo_init_SEQ)
+void gasneti_lifo_init_SEQ(gasneti_lifo_head_t_SEQ *lifo) {
+  gasneti_assert(lifo != NULL);
+  lifo->head = NULL;
+}
 
 /* Destructor for dynamically allocated lifo heads */
-GASNETI_INLINE(gasneti_lifo_destroy)
-void gasneti_lifo_destroy(gasneti_lifo_head_t *lifo) {
+GASNETI_INLINE(gasneti_lifo_destroy_PAR)
+void gasneti_lifo_destroy_PAR(gasneti_lifo_head_t_PAR *lifo) {
   gasneti_assert(lifo != NULL);
   _gasneti_lifo_destroy(lifo);
 }
+GASNETI_INLINE(gasneti_lifo_destroy_SEQ)
+void gasneti_lifo_destroy_SEQ(gasneti_lifo_head_t_SEQ *lifo) {
+  gasneti_assert(lifo != NULL);
+  /* Nothing */
+}
 
 /* Get one element from the LIFO or NULL if it is empty */
-GASNETI_INLINE(gasneti_lifo_pop) GASNETI_MALLOC
-void *gasneti_lifo_pop(gasneti_lifo_head_t *lifo) {
+GASNETI_INLINE(gasneti_lifo_pop_PAR) GASNETI_MALLOC
+void *gasneti_lifo_pop_PAR(gasneti_lifo_head_t_PAR *lifo) {
   gasneti_assert(lifo != NULL);
   return _gasneti_lifo_pop(lifo);
 }
+GASNETI_INLINE(gasneti_lifo_pop_SEQ) GASNETI_MALLOC
+void *gasneti_lifo_pop_SEQ(gasneti_lifo_head_t_SEQ *lifo) {
+  void **elem;
+  gasneti_assert(lifo != NULL);
+  elem = lifo->head;
+  if_pt (elem != NULL) {
+    lifo->head = *elem;
+  }
+  return (void *)elem;
+}
 
 /* Push element on the LIFO */
-GASNETI_INLINE(gasneti_lifo_push)
-void gasneti_lifo_push(gasneti_lifo_head_t *lifo, void *elem) {
+GASNETI_INLINE(gasneti_lifo_push_PAR)
+void gasneti_lifo_push_PAR(gasneti_lifo_head_t_PAR *lifo, void *elem) {
   gasneti_assert(lifo != NULL);
   gasneti_assert(elem != NULL);
   _gasneti_lifo_push(lifo, elem, elem);
 }
+GASNETI_INLINE(gasneti_lifo_push_SEQ)
+void gasneti_lifo_push_SEQ(gasneti_lifo_head_t_SEQ *lifo, void *elem) {
+  gasneti_assert(lifo != NULL);
+  gasneti_assert(elem != NULL);
+  *(void**)elem = lifo->head;
+  lifo->head = (void**)elem;
+}
 
 /* Push a chain of linked elements on the LIFO */
-GASNETI_INLINE(gasneti_lifo_push_many)
-void gasneti_lifo_push_many(gasneti_lifo_head_t *lifo, void *head, void *tail) {
+GASNETI_INLINE(gasneti_lifo_push_many_PAR)
+void gasneti_lifo_push_many_PAR(gasneti_lifo_head_t_PAR *lifo, void *head, void *tail) {
   gasneti_assert(lifo != NULL);
   gasneti_assert(head != NULL);
   gasneti_assert(tail != NULL);
   _gasneti_lifo_push(lifo, head, tail);
 }
+GASNETI_INLINE(gasneti_lifo_push_many_SEQ)
+void gasneti_lifo_push_many_SEQ(gasneti_lifo_head_t_SEQ *lifo, void *head, void *tail) {
+  gasneti_assert(lifo != NULL);
+  gasneti_assert(head != NULL);
+  gasneti_assert(tail != NULL);
+  *(void**)tail = lifo->head;
+  lifo->head = (void**)head;
+}
 
-/* Build a chain (q follows p) for use with _lifo_push_many() */
+/* Build a chain (q follows p) for use with _lifo_push_many() (no PAR-vs-SEQ differences) */
 GASNETI_INLINE(gasneti_lifo_link)
 void gasneti_lifo_link(void *p, void *q) {
   gasneti_assert(p != NULL);
@@ -1043,12 +1176,23 @@ void gasneti_lifo_link(void *p, void *q) {
   *((void **)p) = q;
 }
 
-/* Get next element in a chain built with _lifo_link */
+/* Get next element in a chain built with _lifo_link (no PAR-vs-SEQ differences) */
 GASNETI_INLINE(gasneti_lifo_next)
 void *gasneti_lifo_next(void *elem) {
   gasneti_assert(elem != NULL);
   return *((void **)elem);
 }
+
+/* Finally define gasneti_lifo_head in terms of either the _PAR or _SEQ variant */
+#define GASNETI_CONS_LIFO(_suff,_id) _CONCAT(GASNETI_LIFO_,_CONCAT(_id,_suff))
+#define gasneti_cons_lifo(_suff,_id) _CONCAT(gasneti_lifo_,_CONCAT(_id,_suff))
+#define GASNETI_LIFO_INITIALIZER     GASNETI_CONS_LIFO(_GASNETI_PARSEQ,INITIALIZER)
+#define gasneti_lifo_head_t          gasneti_cons_lifo(_GASNETI_PARSEQ,head_t)
+#define gasneti_lifo_init            gasneti_cons_lifo(_GASNETI_PARSEQ,init)
+#define gasneti_lifo_destroy         gasneti_cons_lifo(_GASNETI_PARSEQ,destroy)
+#define gasneti_lifo_pop             gasneti_cons_lifo(_GASNETI_PARSEQ,pop)
+#define gasneti_lifo_push            gasneti_cons_lifo(_GASNETI_PARSEQ,push)
+#define gasneti_lifo_push_many       gasneti_cons_lifo(_GASNETI_PARSEQ,push_many)
 
 /* ------------------------------------------------------------------------------------ */
 GASNETI_END_EXTERNC

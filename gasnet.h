@@ -177,8 +177,11 @@
 */
 #if GASNETI_CLIENT_THREADS || GASNETI_CONDUIT_THREADS
   #define GASNETI_THREADS 1
+  #define _GASNETI_PARSEQ _PAR
 #elif defined(GASNETI_THREADS)
   #error bad defn of GASNETI_THREADS
+#else
+  #define _GASNETI_PARSEQ _SEQ
 #endif
 
 /* basic utilities used in the headers, which may require GASNETI_THREADS */
