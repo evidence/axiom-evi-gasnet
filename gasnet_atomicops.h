@@ -799,12 +799,12 @@
   #else /* Mutex-based (HSL or pthread mutex) versions */
     /* The lock acquire includes RMB and release includes WMB */
     #define _gasneti_genatomic_fence_before_rmw(p,f)	GASNETI_GENATOMIC_LOCK_PREP(p); \
-							_gasneti_atomic_fence_before(f&~GASNETI_ATOMIC_ACQ) \
+							_gasneti_atomic_fence_before((f&~GASNETI_ATOMIC_ACQ)) \
 							GASNETI_GENATOMIC_LOCK();
     #define _gasneti_genatomic_fence_after_rmw(p,f)	GASNETI_GENATOMIC_UNLOCK();   \
-							_gasneti_atomic_fence_after(f&~GASNETI_ATOMIC_REL)
+							_gasneti_atomic_fence_after((f&~GASNETI_ATOMIC_REL))
     #define _gasneti_genatomic_fence_after_bool(p,f,v)	GASNETI_GENATOMIC_UNLOCK();   \
-							_gasneti_atomic_fence_after(f&~GASNETI_ATOMIC_REL)\
+							_gasneti_atomic_fence_after((f&~GASNETI_ATOMIC_REL))\
 							_gasneti_atomic_fence_bool(f,v)
 
     /* Because HSL's are not yet available (bug 693: avoid header dependency cycle),
