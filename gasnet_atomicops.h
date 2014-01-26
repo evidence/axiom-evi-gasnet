@@ -1056,6 +1056,16 @@ typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
   #define GASNETI_NONATOMIC_SIGNED_MAX     ((gasneti_nonatomic_sval_t)0x7FFFFFFF)
 #endif
 
+#ifndef gasneti_nonatomic_align
+  #define gasneti_nonatomic_align       gasneti_atomic_align
+#endif
+#ifndef gasneti_nonatomic32_align
+  #define gasneti_nonatomic32_align     gasneti_atomic32_align
+#endif
+#ifndef gasneti_nonatomic64_align
+  #define gasneti_nonatomic64_align     gasneti_atomic64_align
+#endif
+
 #define gasneti_nonatomic_init            _gasneti_scalar_atomic_init
 #define gasneti_nonatomic_signed(v)       gasneti_atomic_signed(v)
 #define gasneti_nonatomic_set(p,v,f)      GASNETI_ATOMIC_FENCED_SET(nonatomic,_gasneti_scalar_atomic_set,gasneti_nonatomic_,p,v,f)
@@ -1090,15 +1100,6 @@ GASNETI_ATOMIC_FENCED_CAS_DEFN(nonatomic,gasneti_nonatomic64_compare_and_swap,_g
     thereby saving the overhead of unnecessary atomic-memory CPU instructions.
    Otherwise, they expand to regular gasneti_atomic_t's
  */
-#ifndef gasneti_weakatomic_align
-  #define gasneti_weakatomic_align       gasneti_atomic_align
-#endif
-#ifndef gasneti_weakatomic32_align
-  #define gasneti_weakatomic32_align     gasneti_atomic32_align
-#endif
-#ifndef gasneti_weakatomic64_align
-  #define gasneti_weakatomic64_align     gasneti_atomic64_align
-#endif
 #if GASNETI_THREADS || defined(GASNETI_FORCE_TRUE_WEAKATOMICS)
   #define _GASNETI_WEAKATOMIC_ID(_id)     _CONCAT(GASNETI_ATOMIC,_id)
   #define _gasneti_weakatomic_id(_id)     _CONCAT(gasneti_atomic,_id)

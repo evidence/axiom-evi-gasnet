@@ -1963,12 +1963,12 @@
 #if defined(GASNETI_USE_GENERIC_ATOMIC32)
   #define GASNETI_ATOMIC32_NOT_SIGNALSAFE	1
   #define GASNETI_BUILD_GENERIC_ATOMIC32	1	/* Build the 32-bit generics */
-  #define gasneti_weakatomic32_align		gasneti_genatomic32_align
+  #define gasneti_nonatomic32_align		gasneti_genatomic32_align
 #endif
 #if defined(GASNETI_USE_GENERIC_ATOMIC64) || defined(GASNETI_HYBRID_ATOMIC64)
   #define GASNETI_ATOMIC64_NOT_SIGNALSAFE	1
   #define GASNETI_BUILD_GENERIC_ATOMIC64	1	/* Build the 64-bit generics */
-  #define gasneti_weakatomic64_align		gasneti_genatomic64_align
+  #define gasneti_nonatomic64_align		gasneti_genatomic64_align
 #endif
 
 /* ------------------------------------------------------------------------------------ */
