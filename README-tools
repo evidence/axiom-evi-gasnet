@@ -268,6 +268,17 @@ the section on strong atomics below.
 
  GASNETT_HAVE_ATOMIC_CAS will be defined to 1 when this operation is available
 
+  gasnett_atomic_val_t gasnett_atomic_swap(gasnett_atomic_t *p,
+                                           gasnett_atomic_val_t newval,
+                                           int flags);
+
+   This operation is the atomic equivalent of:
+    gasnett_atomic_val_t oldval = *p;
+    *p = newval;
+    return oldval;
+
+ GASNETT_HAVE_ATOMIC_SWAP will be defined to 1 when this operation is available
+
  * Range of atomic type
 
  Internally a gasnett_atomic_t is an unsigned type of at least 24-bits.  No special
