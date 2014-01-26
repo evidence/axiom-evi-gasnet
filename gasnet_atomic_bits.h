@@ -248,7 +248,7 @@
                 : "cc", "memory" /* instead of listing (v->ctr) as an output */ );
         return x;
       }
-      #define _gasneti_atomic_swap _gasneti_atomic32_swap
+      #define _gasneti_atomic32_swap _gasneti_atomic32_swap
       #define GASNETI_HAVE_ATOMIC_SWAP 1
 
       #define _gasneti_atomic32_read(p)      ((p)->ctr)
@@ -728,6 +728,14 @@
 		       "sete  %cl					\n\t" \
 		       "movzbl  %cl, %eax" )
 
+      #define GASNETI_ATOMIC32_SWAP_BODY                                \
+          GASNETI_ASM_SPECIAL(                                          \
+                       _gasneti_atomic_load_arg0                        \
+                       _gasneti_atomic_load_arg1                        \
+                       GASNETI_X86_LOCK_PREFIX                          \
+                       "xchgl %eax, " _gasneti_atomic_addr  )
+      #define GASNETI_HAVE_ATOMIC_SWAP 1
+
     #if 1
       /* Fetch-add version is faster for calls that ignore the result and
        * for subtraction of constants.  In both cases because the "extra"
@@ -771,6 +779,8 @@
 				 GASNETI_ATOMIC32_DECREMENT_AND_TEST_BODY)     \
 	GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic32_compare_and_swap,   \
 				 GASNETI_ATOMIC32_COMPARE_AND_SWAP_BODY)       \
+        GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic32_swap,               \
+                                 GASNETI_ATOMIC32_SWAP_BODY)                   \
 	GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic32_fetchadd,           \
 				 GASNETI_ATOMIC32_FETCHADD_BODY)
 
@@ -866,6 +876,7 @@
       #define _gasneti_atomic64_init(v)      { (v) }
 
       #define GASNETI_HAVE_ATOMIC_CAS 1	/* Explicit */
+      #define GASNETI_HAVE_ATOMIC_SWAP 1 /* Explicit */
       #define GASNETI_HAVE_ATOMIC_ADD_SUB 1	/* Derived */
       #define GASNETI_USING_SLOW_ATOMICS 1
     #elif (PLATFORM_ARCH_X86_64 && PLATFORM_COMPILER_CRAY)
@@ -909,7 +920,7 @@
       #define _gasneti_atomic32_compare_and_swap(p,oval,nval) \
                     (_InterlockedCompareExchange_acq((volatile unsigned int *)&((p)->ctr),nval,oval) == (oval))
       /* xchg documented as ALWAYS _acq: */
-      #define _gasneti_atomic_swap(p,nval) \
+      #define _gasneti_atomic32_swap(p,nval) \
                     _InterlockedExchange((volatile unsigned int *)&((p)->ctr),nval)
       #define GASNETI_HAVE_ATOMIC_SWAP 1
 
@@ -1025,7 +1036,7 @@
       #define _gasneti_atomic32_decrement_and_test(p) (gasneti_atomic32_fetchanddec(&((p)->ctr)) == 1)
       #define _gasneti_atomic32_compare_and_swap(p,oval,nval) \
         (gasneti_atomic32_cmpxchg(&((p)->ctr),oval,nval) == (oval))
-      #define _gasneti_atomic_swap(p,nval)   (gasneti_atomic32_xchg(&((p)->ctr),nval))
+      #define _gasneti_atomic32_swap(p,nval) (gasneti_atomic32_xchg(&((p)->ctr),nval))
       #define GASNETI_HAVE_ATOMIC_SWAP 1
 
       #define GASNETI_HAVE_ATOMIC64_T 1
@@ -1077,7 +1088,7 @@
             : "+r" (val), "=m" (*addr) );
           return val;
         }
-        #define _gasneti_atomic_swap _gasneti_atomic32_swap
+        #define _gasneti_atomic32_swap _gasneti_atomic32_swap
         #define GASNETI_HAVE_ATOMIC_SWAP 1
 
         /* Default impls of inc, dec, dec-and-test, add and sub */
@@ -1307,7 +1318,7 @@
 	/* RETURN in r3 = value before swap */ \
       }
       #pragma reg_killed_by _gasneti_atomic32_swap cr0, gr0
-      #define _gasneti_atomic_swap _gasneti_atomic32_swap
+      #define _gasneti_atomic32_swap _gasneti_atomic32_swap
       #define GASNETI_HAVE_ATOMIC_SWAP 1
 
       /* XLC machine code functions are very rigid, thus we produce all
@@ -1524,7 +1535,7 @@
           : "cr0");
         return oldval;
       }
-      #define _gasneti_atomic_swap _gasneti_atomic32_swap
+      #define _gasneti_atomic32_swap _gasneti_atomic32_swap
       #define GASNETI_HAVE_ATOMIC_SWAP 1
 
       GASNETI_INLINE(_gasneti_atomic32_compare_and_swap)
@@ -1707,7 +1718,7 @@
 		: "r" (newval), "r" (p), "m" (p->ctr) );
 	return retval;
       }
-      #define _gasneti_atomic_swap _gasneti_atomic32_swap
+      #define _gasneti_atomic32_swap _gasneti_atomic32_swap
       #define GASNETI_HAVE_ATOMIC_SWAP 1
 
       GASNETI_INLINE(gasneti_atomic32_fetchadd)
@@ -1988,12 +1999,14 @@
     #define gasneti_genatomic32_decrement          gasneti_hsl_atomic32_decrement
     #define gasneti_genatomic32_decrement_and_test gasneti_hsl_atomic32_decrement_and_test
     #define gasneti_genatomic32_compare_and_swap   gasneti_hsl_atomic32_compare_and_swap
+    #define gasneti_genatomic32_swap               gasneti_hsl_atomic32_swap
     #define gasneti_genatomic32_addfetch           gasneti_hsl_atomic32_addfetch
     #define gasneti_genatomic64_set                gasneti_hsl_atomic64_set
     #define gasneti_genatomic64_increment          gasneti_hsl_atomic64_increment
     #define gasneti_genatomic64_decrement          gasneti_hsl_atomic64_decrement
     #define gasneti_genatomic64_decrement_and_test gasneti_hsl_atomic64_decrement_and_test
     #define gasneti_genatomic64_compare_and_swap   gasneti_hsl_atomic64_compare_and_swap
+    #define gasneti_genatomic64_swap               gasneti_hsl_atomic64_swap
     #define gasneti_genatomic64_addfetch           gasneti_hsl_atomic64_addfetch
     #if PLATFORM_ARCH_32 || defined(GASNETI_HYBRID_ATOMIC64) || defined(GASNETI_UNALIGNED_ATOMIC64)
       /* Need mutex on 64-bit read() to avoid word tearing */
@@ -2015,12 +2028,14 @@
     #define gasneti_genatomic32_decrement          gasneti_pthread_atomic32_decrement
     #define gasneti_genatomic32_decrement_and_test gasneti_pthread_atomic32_decrement_and_test
     #define gasneti_genatomic32_compare_and_swap   gasneti_pthread_atomic32_compare_and_swap
+    #define gasneti_genatomic32_swap               gasneti_pthread_atomic32_swap
     #define gasneti_genatomic32_addfetch           gasneti_pthread_atomic32_addfetch
     #define gasneti_genatomic64_set                gasneti_pthread_atomic64_set
     #define gasneti_genatomic64_increment          gasneti_pthread_atomic64_increment
     #define gasneti_genatomic64_decrement          gasneti_pthread_atomic64_decrement
     #define gasneti_genatomic64_decrement_and_test gasneti_pthread_atomic64_decrement_and_test
     #define gasneti_genatomic64_compare_and_swap   gasneti_pthread_atomic64_compare_and_swap
+    #define gasneti_genatomic64_swap               gasneti_pthread_atomic64_swap
     #define gasneti_genatomic64_addfetch           gasneti_pthread_atomic64_addfetch
     #if PLATFORM_ARCH_32 || defined(GASNETI_HYBRID_ATOMIC64) || defined(GASNETI_UNALIGNED_ATOMIC64)
       /* Need mutex on 64-bit read() to avoid word tearing */
@@ -2132,6 +2147,10 @@
 #ifdef GASNETI_ATOMIC32_COMPARE_AND_SWAP_BODY
   GASNETI_SPECIAL_ASM_DECL(_gasneti_special_atomic32_compare_and_swap);
   #define _gasneti_atomic32_compare_and_swap (*(int (*)(gasneti_atomic32_t *, uint32_t, uint32_t))(&_gasneti_special_atomic32_compare_and_swap))
+#endif
+#ifdef GASNETI_ATOMIC32_SWAP_BODY
+  GASNETI_SPECIAL_ASM_DECL(_gasneti_special_atomic32_swap);
+  #define _gasneti_atomic32_swap (*(uint32_t (*)(gasneti_atomic32_t *, uint32_t))(&_gasneti_special_atomic32_swap))
 #endif
 #ifdef GASNETI_ATOMIC32_ADD_BODY
   GASNETI_SPECIAL_ASM_DECL(_gasneti_special_atomic32_add);

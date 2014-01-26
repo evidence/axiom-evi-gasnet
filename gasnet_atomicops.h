@@ -96,6 +96,12 @@
 #define _gasneti_scalar_atomic_add(p,op)             (*(p) += (op))
 #define _gasneti_scalar_atomic_subtract(p,op)        (*(p) -= (op))
 
+/* Swap, as above, but not typless due to need for a temporary */
+#define GASNETI_SCALAR_ATOMIC_SWAP_DEFN(func,stem)                      \
+  GASNETI_INLINE(func) stem##val_t func(stem##t *p, stem##val_t val) {  \
+    const stem##val_t retval = *p; *p = val; return retval;             \
+  }
+
 /* ------------------------------------------------------------------------------------ */
 /* Define the fixed-width atomics in terms of the generic (mutex based) types if requested
  */
@@ -110,6 +116,7 @@
   #define gasneti_atomic32_decrement           gasneti_genatomic32_decrement
   #define gasneti_atomic32_decrement_and_test  gasneti_genatomic32_decrement_and_test
   #define gasneti_atomic32_compare_and_swap    gasneti_genatomic32_compare_and_swap
+  #define gasneti_atomic32_swap                gasneti_genatomic32_swap
   #define gasneti_atomic32_addfetch            gasneti_genatomic32_addfetch
 #endif
 
@@ -123,6 +130,7 @@
   #define gasneti_atomic64_decrement           gasneti_genatomic64_decrement
   #define gasneti_atomic64_decrement_and_test  gasneti_genatomic64_decrement_and_test
   #define gasneti_atomic64_compare_and_swap    gasneti_genatomic64_compare_and_swap
+  #define gasneti_atomic64_swap                gasneti_genatomic64_swap
   #define gasneti_atomic64_addfetch            gasneti_genatomic64_addfetch
 #endif
 
@@ -169,6 +177,11 @@
   #define GASNETI_HAVE_ATOMIC_CAS		1
 
   /* Optional parts: */
+  #if defined(gasneti_atomic32_swap)
+    #define gasneti_atomic_swap                 gasneti_atomic32_swap
+  #elif defined(_gasneti_atomic32_swap)
+    #define _gasneti_atomic_swap                _gasneti_atomic32_swap
+  #endif
   #if defined(gasneti_atomic32_increment)
     #define gasneti_atomic_increment		gasneti_atomic32_increment
   #elif defined(_gasneti_atomic32_increment)
@@ -211,6 +224,7 @@
       #define GASNETI_USE_GENERIC_ATOMICOPS 1
     #endif
     #define GASNETI_HAVE_ATOMIC_ADD_SUB 1
+    #define GASNETI_HAVE_ATOMIC_SWAP 1
   #endif
   #ifdef GASNETI_ATOMIC32_NOT_SIGNALSAFE
     #define GASNETI_ATOMICOPS_NOT_SIGNALSAFE 1
@@ -244,6 +258,11 @@
   #define GASNETI_HAVE_ATOMIC_CAS		1
 
   /* Optional parts: */
+  #if defined(gasneti_atomic64_swap)
+    #define gasneti_atomic_swap                 gasneti_atomic64_swap
+  #elif defined(_gasneti_atomic64_swap)
+    #define _gasneti_atomic_swap                _gasneti_atomic64_swap
+  #endif
   #if defined(gasneti_atomic64_increment)
     #define gasneti_atomic_increment		gasneti_atomic64_increment
   #elif defined(_gasneti_atomic64_increment)
@@ -286,6 +305,7 @@
       #define GASNETI_USE_GENERIC_ATOMICOPS 1
     #endif
     #define GASNETI_HAVE_ATOMIC_ADD_SUB 1
+    #define GASNETI_HAVE_ATOMIC_SWAP 1
   #endif
   #ifdef GASNETI_ATOMIC64_NOT_SIGNALSAFE
     #define GASNETI_ATOMICOPS_NOT_SIGNALSAFE 1
@@ -311,6 +331,10 @@
   #if defined(GASNETI_HAVE_ATOMIC_CAS)
     GASNETI_EXTERNC int gasneti_slow_atomic_compare_and_swap(gasneti_atomic_t *p, gasneti_atomic_val_t oldval, gasneti_atomic_val_t newval, const int flags);
     #define gasneti_atomic_compare_and_swap gasneti_slow_atomic_compare_and_swap
+  #endif
+  #if defined(GASNETI_HAVE_ATOMIC_SWAP)
+    GASNETI_EXTERNC gasneti_atomic_val_t gasneti_slow_atomic_swap(gasneti_atomic_t *p, gasneti_atomic_val_t val, const int flags);
+    #define gasneti_atomic_swap gasneti_slow_atomic_swap
   #endif
   #if defined(GASNETI_HAVE_ATOMIC_ADD_SUB)
     GASNETI_EXTERNC gasneti_atomic_val_t gasneti_slow_atomic_add(gasneti_atomic_t *p, gasneti_atomic_val_t op, const int flags);
@@ -460,11 +484,6 @@
 
 /* ------------------------------------------------------------------------------------ */
 /* Default atomic swap in terms of compare-and-swap.
- * XXX: DISABLED - this is NOT a uniformly supported atomic and algorithms that
- *      might productively use SWAP should be aware if they are using CAS instead.
- *
- * TODO: SWAP not defined yet for GENERIC or WEAK because the need for a temporary
- *       doesn't fit the established _gasneti_scalar_atomic_FOO pattern.
  */
 
 #if defined(GASNETI_HAVE_ATOMIC_SWAP)
@@ -473,11 +492,8 @@
   /* No default swap built when using "slow" atomics. */
 #elif defined(GASNETI_USE_GENERIC_ATOMICOPS)
   /* No default swap built when using "generic" atomics (at least not yet). */
-#elif 0 /* DISABLED */
-/*    defined (GASNETI_HAVE_ATOMIC_CAS) \
+#elif defined (GASNETI_HAVE_ATOMIC_CAS) \
    || defined(gasneti_atomic_compare_and_swap) || defined(_gasneti_atomic_compare_and_swap)
-*/
-    /* TODO: might need prototypes for read and cas? */
     /* If needed, build swap from compare-and-swap. */
     GASNETI_INLINE(_gasneti_atomic_swap)
     gasneti_atomic_val_t _gasneti_atomic_swap(gasneti_atomic_t *p, gasneti_atomic_val_t val) {
@@ -702,6 +718,15 @@
       return retval;                                                \
     }                                                               \
   }
+#define GASNETI_ATOMIC_FENCED_SWAP_DEFN_NOT_INLINE(group,func,_func,stem) \
+  stem##val_t func(stem##t *p, stem##val_t val, const int flags) {  \
+    GASNETI_ATOMIC_CHECKALIGN(stem,p);                              \
+    _gasneti_##group##_fence_before_rmw(p,flags)                    \
+    { const stem##val_t retval = _func(p, val);                     \
+      _gasneti_##group##_fence_after_rmw(p,flags)                   \
+      return retval;                                                \
+    }                                                               \
+  }
 #define GASNETI_ATOMIC_FENCED_ADDSUB_DEFN_NOT_INLINE(group,func,_func,stem) \
   stem##val_t func(stem##t *p, stem##val_t op, const int flags) {   \
     /* TODO: prohibit zero as well? */                              \
@@ -722,15 +747,6 @@
       return retval;                                                \
     }                                                               \
   }
-#define GASNETI_ATOMIC_FENCED_SWAP_DEFN_NOT_INLINE(group,func,_func,stem) \
-  stem##val_t func(stem##t *p, stem##sval_t val, const int flags) {  \
-    GASNETI_ATOMIC_CHECKALIGN(stem,p);                              \
-    _gasneti_##group##_fence_before_rmw(p,flags)                    \
-    { const stem##val_t retval = _func(p, val);                     \
-      _gasneti_##group##_fence_after_rmw(p,flags)                   \
-      return retval;                                                \
-    }                                                               \
-  }
 
 #define GASNETI_ATOMIC_FENCED_SET_DEFN(group,func,_func,stem)       \
 	GASNETI_INLINE(func)                                        \
@@ -747,15 +763,15 @@
 #define GASNETI_ATOMIC_FENCED_CAS_DEFN(group,func,_func,stem)       \
 	GASNETI_INLINE(func)                                        \
         GASNETI_ATOMIC_FENCED_CAS_DEFN_NOT_INLINE(group,func,_func,stem)
+#define GASNETI_ATOMIC_FENCED_SWAP_DEFN(group,func,_func,stem)      \
+        GASNETI_INLINE(func)                                        \
+        GASNETI_ATOMIC_FENCED_SWAP_DEFN_NOT_INLINE(group,func,_func,stem)
 #define GASNETI_ATOMIC_FENCED_ADDSUB_DEFN(group,func,_func,stem)    \
 	GASNETI_INLINE(func)                                        \
         GASNETI_ATOMIC_FENCED_ADDSUB_DEFN_NOT_INLINE(group,func,_func,stem)
 #define GASNETI_ATOMIC_FENCED_ADDFETCH_DEFN(group,func,_func,stem)  \
 	GASNETI_INLINE(func)                                        \
         GASNETI_ATOMIC_FENCED_ADDFETCH_DEFN_NOT_INLINE(group,func,_func,stem)
-#define GASNETI_ATOMIC_FENCED_SWAP_DEFN(group,func,_func,stem)      \
-	GASNETI_INLINE(func)                                        \
-        GASNETI_ATOMIC_FENCED_SWAP_DEFN_NOT_INLINE(group,func,_func,stem)
 
 /* ------------------------------------------------------------------------------------ */
 /* Fenced generic atomics, if needed, using per-platform defns and the macros of Part 4, above.
@@ -792,6 +808,12 @@
                                      gasneti_genatomic##_sz##_compare_and_swap,       \
                                      _gasneti_scalar_atomic_compare_and_swap,         \
                                      gasneti_genatomic##_sz##_)                       \
+      GASNETI_SCALAR_ATOMIC_SWAP_DEFN(_gasneti_genatomic##_sz##_swap,                 \
+                                      gasneti_genatomic##_sz##_)                      \
+      GASNETI_ATOMIC_FENCED_SWAP_DEFN(genatomic,                                      \
+                                      gasneti_genatomic##_sz##_swap,                  \
+                                      _gasneti_genatomic##_sz##_swap,                 \
+                                      gasneti_genatomic##_sz##_)                      \
       GASNETI_ATOMIC_FENCED_ADDFETCH_DEFN(genatomic,                                  \
                                           gasneti_genatomic##_sz##_addfetch,          \
                                           _gasneti_scalar_atomic_addfetch,            \
@@ -829,6 +851,9 @@
                                                            uint##_sz##_t oldval,             \
                                                            uint##_sz##_t newval,             \
                                                            int flags);                       \
+      extern uint##_sz##_t gasneti_genatomic##_sz##_swap(gasneti_genatomic##_sz##_t *p,      \
+                                                         uint##_sz##_t val,                  \
+                                                         int flags);                         \
       extern uint##_sz##_t gasneti_genatomic##_sz##_addfetch(gasneti_genatomic##_sz##_t *p,  \
                                                              int##_sz##_t op,                \
                                                              int flags);                     \
@@ -854,6 +879,12 @@
                                                 gasneti_genatomic##_sz##_compare_and_swap,       \
                                                 _gasneti_scalar_atomic_compare_and_swap,         \
                                                 gasneti_genatomic##_sz##_)                       \
+      GASNETI_SCALAR_ATOMIC_SWAP_DEFN(_gasneti_genatomic##_sz##_swap,                            \
+                                      gasneti_genatomic##_sz##_)                                 \
+      GASNETI_ATOMIC_FENCED_SWAP_DEFN_NOT_INLINE(genatomic,                                      \
+                                                 gasneti_genatomic##_sz##_swap,                  \
+                                                 _gasneti_genatomic##_sz##_swap,                 \
+                                                 gasneti_genatomic##_sz##_)                      \
       GASNETI_ATOMIC_FENCED_ADDFETCH_DEFN_NOT_INLINE(genatomic,                                  \
                                                      gasneti_genatomic##_sz##_addfetch,          \
                                                      _gasneti_scalar_atomic_addfetch,            \
@@ -1014,14 +1045,14 @@ typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
 #if defined(GASNETI_HAVE_ATOMIC_CAS) && !defined(gasneti_atomic_compare_and_swap)
   GASNETI_ATOMIC_FENCED_CAS_DEFN(atomic,gasneti_atomic_compare_and_swap,_gasneti_atomic_compare_and_swap,gasneti_atomic_)
 #endif
+#if defined(GASNETI_HAVE_ATOMIC_SWAP) && !defined(gasneti_atomic_swap)
+  GASNETI_ATOMIC_FENCED_SWAP_DEFN(atomic,gasneti_atomic_swap,_gasneti_atomic_swap,gasneti_atomic_)
+#endif
 #if defined(GASNETI_HAVE_ATOMIC_ADD_SUB) && !defined(gasneti_atomic_add)
   GASNETI_ATOMIC_FENCED_ADDSUB_DEFN(atomic,gasneti_atomic_add,_gasneti_atomic_add,gasneti_atomic_)
 #endif
 #if defined(GASNETI_HAVE_ATOMIC_ADD_SUB) && !defined(gasneti_atomic_subtract)
   GASNETI_ATOMIC_FENCED_ADDSUB_DEFN(atomic,gasneti_atomic_subtract,_gasneti_atomic_subtract,gasneti_atomic_)
-#endif
-#if defined(GASNETI_HAVE_ATOMIC_SWAP) && !defined(gasneti_atomic_swap)
-  GASNETI_ATOMIC_FENCED_SWAP_DEFN(atomic,gasneti_atomic_swap,_gasneti_atomic_swap,gasneti_atomic_)
 #endif
 #ifndef gasneti_atomic_signed
   #define gasneti_atomic_signed(val)	((gasneti_atomic_sval_t)(val))
@@ -1074,9 +1105,12 @@ typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
 GASNETI_ATOMIC_FENCED_READ_DEFN(nonatomic,gasneti_nonatomic_read,_gasneti_scalar_atomic_read,gasneti_nonatomic_)
 GASNETI_ATOMIC_FENCED_DECTEST_DEFN(nonatomic,gasneti_nonatomic_decrement_and_test,_gasneti_scalar_atomic_decrement_and_test,gasneti_nonatomic_)
 GASNETI_ATOMIC_FENCED_CAS_DEFN(nonatomic,gasneti_nonatomic_compare_and_swap,_gasneti_scalar_atomic_compare_and_swap,gasneti_nonatomic_)
+GASNETI_SCALAR_ATOMIC_SWAP_DEFN(_gasneti_scalar_atomic_swap, gasneti_nonatomic_)
+GASNETI_ATOMIC_FENCED_SWAP_DEFN(nonatomic,gasneti_nonatomic_swap,_gasneti_scalar_atomic_swap,gasneti_nonatomic_)
 GASNETI_ATOMIC_FENCED_ADDSUB_DEFN(nonatomic,gasneti_nonatomic_add,_gasneti_scalar_atomic_add,gasneti_nonatomic_)
 GASNETI_ATOMIC_FENCED_ADDSUB_DEFN(nonatomic,gasneti_nonatomic_subtract,_gasneti_scalar_atomic_subtract,gasneti_nonatomic_)
 #define GASNETI_HAVE_NONATOMIC_CAS 1
+#define GASNETI_HAVE_NONATOMIC_SWAP 1
 #define GASNETI_HAVE_NONATOMIC_ADD_SUB 1
 
 /* Build gasneti_nonatomic32_t */
@@ -1106,6 +1140,9 @@ GASNETI_ATOMIC_FENCED_CAS_DEFN(nonatomic,gasneti_nonatomic64_compare_and_swap,_g
   #ifdef GASNETI_HAVE_ATOMIC_CAS
     #define GASNETI_HAVE_WEAKATOMIC_CAS     1
   #endif
+  #ifdef GASNETI_HAVE_ATOMIC_SWAP
+    #define GASNETI_HAVE_WEAKATOMIC_SWAP    1
+  #endif
   #ifdef GASNETI_HAVE_ATOMIC_ADD_SUB
     #define GASNETI_HAVE_WEAKATOMIC_ADD_SUB 1
   #endif
@@ -1113,6 +1150,7 @@ GASNETI_ATOMIC_FENCED_CAS_DEFN(nonatomic,gasneti_nonatomic64_compare_and_swap,_g
   #define _GASNETI_WEAKATOMIC_ID(_id)     _CONCAT(GASNETI_NONATOMIC,_id)
   #define _gasneti_weakatomic_id(_id)     _CONCAT(gasneti_nonatomic,_id)
   #define GASNETI_HAVE_WEAKATOMIC_CAS     1
+  #define GASNETI_HAVE_WEAKATOMIC_SWAP    1
   #define GASNETI_HAVE_WEAKATOMIC_ADD_SUB 1
 #endif
 
@@ -1128,6 +1166,9 @@ typedef _gasneti_weakatomic_id(_sval_t)        gasneti_weakatomic_sval_t;
 #define gasneti_weakatomic_decrement_and_test  _gasneti_weakatomic_id(_decrement_and_test)
 #ifdef GASNETI_HAVE_WEAKATOMIC_CAS
   #define gasneti_weakatomic_compare_and_swap  _gasneti_weakatomic_id(_compare_and_swap)
+#endif
+#ifdef GASNETI_HAVE_WEAKATOMIC_SWAP
+  #define gasneti_weakatomic_swap              _gasneti_weakatomic_id(_swap)
 #endif
 #ifdef GASNETI_HAVE_WEAKATOMIC_ADD_SUB
   #define gasneti_weakatomic_add               _gasneti_weakatomic_id(_add)
