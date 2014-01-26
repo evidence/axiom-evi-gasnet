@@ -438,6 +438,16 @@ int main(int argc, char **argv) {
       }
     #endif
 
+    #if defined(GASNETT_HAVE_ATOMIC_SWAP)
+      gasnett_atomic_set(&var, 0, 0);
+      for (i=0;i<iters;i++) {
+        if (gasnett_atomic_swap(&var,i+1,0) != (gasnett_atomic_val_t)(i))
+          ERR("gasnett_atomic_swap test failed at iteration %i", i);
+      }
+      if (gasnett_atomic_read(&var,0) != (gasnett_atomic_val_t)(iters))
+        ERR("gasnett_atomic_swap test failed at iteration %i", i);
+    #endif
+
     #if defined(GASNETT_HAVE_ATOMIC_ADD_SUB)
       gasnett_atomic_set(&var, 1, 0);
       for (i=1;i<iters;i++) {
@@ -1094,6 +1104,59 @@ void * thread_fn(void *arg) {
       if (woncnt != share) 
         ERR("failed 64-bit compare-and-swap test: woncnt=%llu share=%llu", (unsigned long long)woncnt, (unsigned long long)share);
     }
+  }
+
+  TEST_HEADER("parallel swap test...") {
+    #if GASNETI_HAVE_ATOMIC_SWAP
+      const gasnett_atomic_val_t limit = MIN(GASNETT_ATOMIC_MAX, 8192);
+      static gasnett_atomic_t var;
+      static char *array;
+
+      if (0 == id) {
+        gasnett_atomic_set(&var, GASNETT_ATOMIC_MAX, 0);
+        array = (char *)test_calloc(sizeof(char), limit);
+      }
+
+      THREAD_BARRIER();
+
+      for (i = 0; i < iters; ++i) {
+        gasnett_atomic_val_t j;
+ 
+        /* Write all values in [0,limit) with each thread owning a share of the space.
+           The 'array' tracks which values have been seen and ensures no duplicates. */
+        for (j = id; j < limit; j += NUM_THREADS) {
+          gasnett_atomic_val_t idx = gasnett_atomic_swap(&var, j, 0);
+          if_pt (idx != GASNETI_ATOMIC_MAX) {
+            if (array[idx] != 0)
+              ERR("gasnett_atomic_swap produced a duplicate value %d", idx);
+            array[idx] = 1;
+          }
+        }
+
+        THREAD_BARRIER();
+
+        if (0 == id) {
+          /* One final swap to simplify the validation */
+          gasnett_atomic_val_t idx = gasnett_atomic_swap(&var, GASNETI_ATOMIC_MAX, 0);
+          if (array[idx] != 0)
+            ERR("gasnett_atomic_swap produced a duplicate value %d", i);
+          array[idx] = 1;
+
+          /* Now scan the array to ensure no values were missed */
+          for (idx = 0; idx < limit; ++idx) {
+            if (array[idx] != 1)
+              ERR("gasnett_atomic_swap missed an update at %d", idx);
+            array[idx] = 0; /* reset for next iteration */
+          }
+        }
+
+        THREAD_BARRIER();
+      }
+
+      if (0 == id) {
+        test_free(array);
+      }
+    #endif
   }
 
   TEST_HEADER("parallel atomic-op fence test...") {

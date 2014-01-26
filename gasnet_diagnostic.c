@@ -94,7 +94,6 @@ static void mutex_test(int id);
 static void spinlock_test(int id);
 static void cond_test(int id);
 static void semaphore_test(int id);
-static void atomicswap_test(int id);
 static void lifo_test(int id);
 static void atomic128_test(int id);
 static void malloc_test(int id);
@@ -152,9 +151,6 @@ extern int gasneti_run_diagnostics(int iter_cnt, int threadcnt, const char *test
 
   BARRIER();
   lifo_test(0);
-
-  BARRIER();
-  atomicswap_test(0);
 
   BARRIER();
   progressfns_test(0);
@@ -612,69 +608,6 @@ static void atomic128_test(int id) {
 }
 #endif
 /* ------------------------------------------------------------------------------------ */
-#if GASNETI_HAVE_ATOMIC_SWAP
-static void atomicswap_test(int id) {
-  static gasneti_atomic_t var;
-  static char *array;
-  gasneti_atomic_val_t limit;
-  int i;
-
-  TEST_HEADER("atomic SWAP test"); else return;
-
-  limit = MIN(GASNETI_ATOMIC_MAX, 8192);
-
-  if (0 == id) {
-    gasneti_atomic_set(&var, GASNETI_ATOMIC_MAX, 0);
-    array = gasneti_calloc(sizeof(char), limit);
-  }
-
-  PTHREAD_BARRIER(num_threads);
-
-  for (i = 0; i < iters0; ++i) {
-    gasneti_atomic_val_t j;
- 
-    /* Write all values in [0,limit) with each thread owning a share of the space.
-       The 'array' tracks which values have been seen and ensures no duplicates. */
-    for (j = id; j < limit; j += num_threads) {
-      gasneti_atomic_val_t idx = gasneti_atomic_swap(&var, j, 0);
-      if_pt (idx != GASNETI_ATOMIC_MAX) {
-        if (array[idx] != 0)
-          ERR("gasneti_atomic_swap produced a duplicate value %d", idx);
-        array[idx] = 1;
-      }
-    }
-
-    PTHREAD_BARRIER(num_threads);
-
-    if (0 == id) {
-      /* One final swap to simplify the validation */
-      gasneti_atomic_val_t idx = gasneti_atomic_swap(&var, GASNETI_ATOMIC_MAX, 0);
-      if (array[idx] != 0)
-        ERR("gasneti_atomic_swap produced a duplicate value %d", i);
-      array[idx] = 1;
-    
-      /* Now scan the array to ensure no values were missed */
-      for (idx = 0; idx < limit; ++idx) {
-        if (array[idx] != 1)
-          ERR("gasneti_atomic_swap missed an update at %d", idx);
-        array[idx] = 0; /* reset for next iteration */
-      }
-    }
-
-    PTHREAD_BARRIER(num_threads);
-  }
-
-  if (0 == id) {
-    gasneti_free(array);
-  }
-    
-}
-#else
-static void atomicswap_test(int id) {
-  TEST_HEADER("atomic swap test - SKIPPED");
-}
-#endif
-/* ------------------------------------------------------------------------------------ */
 static void lifo_test(int id) {
   static gasneti_lifo_head_t lifo1 = GASNETI_LIFO_INITIALIZER;
   static gasneti_lifo_head_t lifo2;
@@ -1089,9 +1022,6 @@ static void * thread_fn(void *arg) {
 
   PTHREAD_BARRIER(num_threads);
   lifo_test(id);
-
-  PTHREAD_BARRIER(num_threads);
-  atomicswap_test(id);
 
   PTHREAD_BARRIER(num_threads);
   TEST_HEADER("malloc test") malloc_test(id);

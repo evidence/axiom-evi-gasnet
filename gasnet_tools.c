@@ -174,6 +174,11 @@ extern void gasneti_mutex_cautious_init(/*gasneti_mutex_t*/void *_pl) {
       return gasneti_atomic_compare_and_swap(p,oldval,newval,flags);
     }
   #endif
+  #if defined(GASNETI_HAVE_ATOMIC_SWAP)
+    extern gasneti_atomic_val_t gasneti_slow_atomic_swap(gasneti_atomic_t *p, gasneti_atomic_val_t val, const int flags) {
+      return gasneti_atomic_swap(p,val,flags);
+    }
+  #endif
   #if defined(GASNETI_HAVE_ATOMIC_ADD_SUB)
     extern gasneti_atomic_val_t gasneti_slow_atomic_add(gasneti_atomic_t *p, gasneti_atomic_val_t op, const int flags) {
       return gasneti_atomic_add(p,op,flags);
