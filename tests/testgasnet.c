@@ -95,7 +95,7 @@ void doit5(int partner, int *partnerseg);
 #endif
 
 #if GASNET_PAR
-#if PLATFORM_OS_BGP
+#if (TEST_MAXTHREADS < 10)
   #define NUM_THREADS TEST_MAXTHREADS
 #else
   #define NUM_THREADS 10

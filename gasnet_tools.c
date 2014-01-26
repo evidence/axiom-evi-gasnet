@@ -1841,12 +1841,6 @@ extern int gasneti_cpu_count(void) {
         gasneti_assert_zeroret(sysctl(mib, 2, &hwprocs, &len, NULL, 0));
         if (hwprocs < 1) hwprocs = 0;
       }
-  #elif defined(GASNETI_HAVE_BGP_INLINES)
-      { 
-        register _BGP_SprgShMem sprg4;
-        GASNETI_BGP_SPR(sprg4.shmem, _BGP_SPRGRO_SHMem); /* SPRG4 28:29 = (cores in my process) - 1 */
-        hwprocs = sprg4.ShmNumCores + 1;
-      }
   #elif defined(GASNETI_HAVE_BGQ_INLINES) && 0 /* correct, but sysconf() gives same result */
       { 
         const uint64_t sprg7 = mfspr(SPRN_SPRG7RO);
@@ -2051,11 +2045,6 @@ void gasneti_set_affinity(int rank) {
 /* get MAXHOSTNAMELEN */ 
 #if PLATFORM_OS_SOLARIS 
 #include <netdb.h>
-#elif defined(GASNETI_HAVE_BGP_INLINES)
- #include <common/bgp_UCI.h>
- #include <common/bgp_personality.h>
- #undef MAXHOSTNAMELEN
- #define MAXHOSTNAMELEN 18
 #elif defined(GASNETI_HAVE_BGQ_INLINES)
  #ifdef GASNETI_DEFINE__INLINE__
    #define __INLINE__ GASNETI_DEFINE__INLINE__
@@ -2084,32 +2073,7 @@ const char *gasneti_gethostname(void) {
   static char hostname[MAXHOSTNAMELEN];
   gasneti_mutex_lock(&hnmutex);
     if (firsttime) {
-    #if GASNETI_HAVE_BGP_INLINES
-      _BGP_SprgShMem sprg4;
-      _BGP_SprgDST2 sprg5;
-      _BGP_UCI_ComputeCard_t cc_uci;
-      { /* Need entire Personality struct to extract the UCI  */
-        _BGP_Personality_t pers;
-        int rc;
-        GASNETI_BGP_SYSCALL2(rc, GET_PERSONALITY, (uintptr_t)&pers, (uint32_t)sizeof(pers));
-        if (rc)
-          gasnett_fatalerror("gasneti_gethostname() failed to get hostname: aborting");
-        cc_uci = ((_BGP_UniversalComponentIdentifier)
-                  pers.Kernel_Config.UniversalComponentIdentifier).ComputeCard;
-      }
-      gasneti_assert(cc_uci.Component == _BGP_UCI_Component_ComputeCard);
-      GASNETI_BGP_SPR(sprg4.shmem, _BGP_SPRGRO_SHMem); /* SPRG4 28:29 = (cores in my process) - 1 */
-      GASNETI_BGP_SPR(sprg5.dst2,  _BGP_SPRGRO_DST2);  /* SPRG5 30:31 = physical core ID */
-      /* Rrc-Mm-Nnn-Jjj-Pp.  All but "-Pp" is standard BG/P component naming.
-       */
-      snprintf(hostname, MAXHOSTNAMELEN, "R%1x%1x-M%1u-N%02u-J%02u-P%1u",
-               cc_uci.RackRow, cc_uci.RackColumn,
-               cc_uci.Midplane, cc_uci.NodeCard, cc_uci.ComputeCard,
-               /* Proc = myCore >> log_2_cores_per_proc
-                * where log_2_cores_per_proc expression is valid for 1,2,4 */
-               sprg5.CoreID >> ((sprg4.ShmNumCores + 1) >> 1)
-              );
-    #elif GASNETI_HAVE_BGQ_INLINES
+    #if GASNETI_HAVE_BGQ_INLINES
       uint64_t cc_uci;
       unsigned int proc;
       { /* Need entire Personality struct to extract the UCI  */

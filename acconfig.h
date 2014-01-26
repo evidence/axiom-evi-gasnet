@@ -307,9 +307,6 @@
 /* platform is a Linux cluster running IBM PE software */
 #undef GASNETI_ARCH_IBMPE
 
-/* platform is an IBM BlueGene/P multiprocessor */
-#undef GASNETI_ARCH_BGP
-
 /* platform is an IBM BlueGene/Q multiprocessor */
 #undef GASNETI_ARCH_BGQ
 
