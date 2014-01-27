@@ -490,8 +490,6 @@
   /* Platform-specific version has been provided */
 #elif defined(GASNETI_USING_SLOW_ATOMICS)
   /* No default swap built when using "slow" atomics. */
-#elif defined(GASNETI_USE_GENERIC_ATOMICOPS)
-  /* No default swap built when using "generic" atomics (at least not yet). */
 #elif defined (GASNETI_HAVE_ATOMIC_CAS) \
    || defined(gasneti_atomic_compare_and_swap) || defined(_gasneti_atomic_compare_and_swap)
     /* If needed, build swap from compare-and-swap. */
