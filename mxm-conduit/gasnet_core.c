@@ -1712,7 +1712,8 @@ static void gasnetc_exit_sighandler(int sig)
 {
     int exitcode = (int)gasneti_atomic_read(&gasnetc_exit_code, GASNETI_ATOMIC_RMB_PRE);
     static gasneti_atomic_t once = gasneti_atomic_init(1);
-#if GASNET_DEBUG
+
+    /* always print this */
     /* note - can't call trace macros here, or even sprintf */
     if (sig == SIGALRM) {
         static const char msg1[] = "gasnetc_exit_sighandler(): WARNING: timeout during exit... goodbye\n";
@@ -1734,7 +1735,6 @@ static void gasnetc_exit_sighandler(int sig)
 
         write(STDERR_FILENO, msg2, sizeof (msg2) - 1);
     }
-#endif
 
     if (gasneti_atomic_decrement_and_test(&once, 0)) {
         /* We ask the bootstrap support to kill us, but only once */
@@ -1935,8 +1935,8 @@ static void gasnetc_exit_body(void)
 
     GASNETI_TRACE_PRINTF(C, ("gasnet_exit(%i)\n", exitcode));
 
-    /* Try to flush out all the output, allowing upto 30s */
-    alarm(30);
+    /* Try to flush out all the output, allowing at least 30s */
+    alarm(MAX(30, (int)gasnetc_exittimeout));
     {
         gasneti_flush_streams();
         gasneti_trace_finish();
@@ -1948,7 +1948,7 @@ static void gasnetc_exit_body(void)
      * Determining our role (master or slave) in the
      * coordination of this shutdown.
      */
-    alarm(120);
+    alarm(MAX(120, (int)gasnetc_exittimeout));
     MXM_DEBUG_EXIT_FLOW("Determining node role in shutdown sequence...\n");
     role = gasnetc_get_exit_role();
     MXM_DEBUG_EXIT_FLOW("Role in shutdown sequence is %s\n",
@@ -1982,8 +1982,8 @@ static void gasnetc_exit_body(void)
                         (role == GASNETC_EXIT_ROLE_MASTER) ? "Master" : "Slave",
                         (graceful) ? "" : " NOT");
 
-    /* Clean up transport resources, allowing upto 30s */
-    alarm(30);
+    /* Clean up transport resources, allowing at least 30s */
+    alarm(MAX(30, (int)gasnetc_exittimeout));
     {
 #if defined(GASNET_SEGMENT_FAST)
         if (gasneti_attach_done &&
@@ -2015,8 +2015,8 @@ static void gasnetc_exit_body(void)
         gasneti_mxm_finalize();
     }
 
-    /* Try again to flush out any recent output, allowing upto 5s */
-    alarm(5);
+    /* Try again to flush out any recent output, allowing at least 5s */
+    alarm(MAX(5, (int)gasnetc_exittimeout));
     {
         gasneti_flush_streams();
 #if !GASNET_DEBUG_VERBOSE
@@ -2026,7 +2026,7 @@ static void gasnetc_exit_body(void)
 
     /* XXX potential problems here if exiting from the
      * "Wrong" thread, or from a signal handler */
-    alarm(60);
+    alarm(MAX(60, (int)gasnetc_exittimeout));
     {
         if (graceful) {
 #if GASNET_DEBUG_VERBOSE
