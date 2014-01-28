@@ -369,7 +369,7 @@
   /* No default atomics built when using "slow" atomics. */
 #elif defined(gasneti_atomic_addfetch)
   #ifndef gasneti_atomic_increment
-    #define gasneti_atomic_increment(p,f)	((void)gasneti_atomic_addfetch((p),1,(f))
+    #define gasneti_atomic_increment(p,f)	((void)gasneti_atomic_addfetch((p),1,(f)))
   #endif
   #ifndef gasneti_atomic_decrement
     #define gasneti_atomic_decrement(p,f)	((void)gasneti_atomic_addfetch((p),-1,(f)))
