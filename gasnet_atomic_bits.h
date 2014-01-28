@@ -1957,27 +1957,7 @@
 		gasnet_hsl_t * const lock = gasneti_hsl_atomic_hash_lookup((uintptr_t)ptr)
     #define GASNETI_GENATOMIC_LOCK()   gasnet_hsl_lock(lock)
     #define GASNETI_GENATOMIC_UNLOCK() gasnet_hsl_unlock(lock)
-
-    /* Name shift to avoid link conflicts between hsl and pthread versions */
-    #define gasneti_genatomic32_set                gasneti_hsl_atomic32_set
-    #define gasneti_genatomic32_increment          gasneti_hsl_atomic32_increment
-    #define gasneti_genatomic32_decrement          gasneti_hsl_atomic32_decrement
-    #define gasneti_genatomic32_decrement_and_test gasneti_hsl_atomic32_decrement_and_test
-    #define gasneti_genatomic32_compare_and_swap   gasneti_hsl_atomic32_compare_and_swap
-    #define gasneti_genatomic32_swap               gasneti_hsl_atomic32_swap
-    #define gasneti_genatomic32_addfetch           gasneti_hsl_atomic32_addfetch
-    #define gasneti_genatomic64_set                gasneti_hsl_atomic64_set
-    #define gasneti_genatomic64_increment          gasneti_hsl_atomic64_increment
-    #define gasneti_genatomic64_decrement          gasneti_hsl_atomic64_decrement
-    #define gasneti_genatomic64_decrement_and_test gasneti_hsl_atomic64_decrement_and_test
-    #define gasneti_genatomic64_compare_and_swap   gasneti_hsl_atomic64_compare_and_swap
-    #define gasneti_genatomic64_swap               gasneti_hsl_atomic64_swap
-    #define gasneti_genatomic64_addfetch           gasneti_hsl_atomic64_addfetch
-    #if PLATFORM_ARCH_32 || defined(GASNETI_HYBRID_ATOMIC64) || defined(GASNETI_UNALIGNED_ATOMIC64)
-      /* Need mutex on 64-bit read() to avoid word tearing */
-      /* NOTE: defining gasneti_genatomic_read triggers matching behavior in gasnet_atomicops.h */
-      #define gasneti_genatomic64_read             gasneti_hsl_atomic64_read
-    #endif
+    #define _gasneti_genatomic_cons(_id) gasneti_hsl_atomic##_id
   #elif defined(_INCLUDED_GASNET_H)
     /* Case II: Empty HSLs in a GASNET_SEQ or GASNET_PARSYNC client w/o conduit-internal threads */
   #elif GASNETI_USE_TRUE_MUTEXES /* thread-safe tools-only client OR forced true mutexes */
@@ -1986,32 +1966,35 @@
 		gasnett_mutex_t * const lock = gasneti_pthread_atomic_hash_lookup((uintptr_t)ptr)
     #define GASNETI_GENATOMIC_LOCK()   gasnett_mutex_lock(lock)
     #define GASNETI_GENATOMIC_UNLOCK() gasnett_mutex_unlock(lock)
-
-    /* Name shift to avoid link conflicts between hsl and pthread versions */
-    #define gasneti_genatomic32_set                gasneti_pthread_atomic32_set
-    #define gasneti_genatomic32_increment          gasneti_pthread_atomic32_increment
-    #define gasneti_genatomic32_decrement          gasneti_pthread_atomic32_decrement
-    #define gasneti_genatomic32_decrement_and_test gasneti_pthread_atomic32_decrement_and_test
-    #define gasneti_genatomic32_compare_and_swap   gasneti_pthread_atomic32_compare_and_swap
-    #define gasneti_genatomic32_swap               gasneti_pthread_atomic32_swap
-    #define gasneti_genatomic32_addfetch           gasneti_pthread_atomic32_addfetch
-    #define gasneti_genatomic64_set                gasneti_pthread_atomic64_set
-    #define gasneti_genatomic64_increment          gasneti_pthread_atomic64_increment
-    #define gasneti_genatomic64_decrement          gasneti_pthread_atomic64_decrement
-    #define gasneti_genatomic64_decrement_and_test gasneti_pthread_atomic64_decrement_and_test
-    #define gasneti_genatomic64_compare_and_swap   gasneti_pthread_atomic64_compare_and_swap
-    #define gasneti_genatomic64_swap               gasneti_pthread_atomic64_swap
-    #define gasneti_genatomic64_addfetch           gasneti_pthread_atomic64_addfetch
-    #if PLATFORM_ARCH_32 || defined(GASNETI_HYBRID_ATOMIC64) || defined(GASNETI_UNALIGNED_ATOMIC64)
-      /* Need mutex on 64-bit read() to avoid word tearing */
-      /* NOTE: defining gasneti_genatomic_read triggers matching behavior in gasnet_atomicops.h */
-      #define gasneti_genatomic64_read             gasneti_pthread_atomic64_read
-    #endif
+    #define _gasneti_genatomic_cons(_id) gasneti_pthread_atomic##_id
   #else
     /* Case IV: Serial gasnet tools client. */
     /* attempt to generate a compile error if pthreads actually are in use */
     #define PTHREAD_MUTEX_INITIALIZER ERROR_include_pthread_h_before_gasnet_tools_h
     extern int pthread_mutex_lock; 
+  #endif
+
+  /* Name shift to avoid link conflicts between hsl and pthread versions */
+  #ifdef _gasneti_genatomic_cons
+    #define gasneti_genatomic32_set                _gasneti_genatomic_cons(32_set)
+    #define gasneti_genatomic32_increment          _gasneti_genatomic_cons(32_increment)
+    #define gasneti_genatomic32_decrement          _gasneti_genatomic_cons(32_decrement)
+    #define gasneti_genatomic32_decrement_and_test _gasneti_genatomic_cons(32_decrement_and_test)
+    #define gasneti_genatomic32_compare_and_swap   _gasneti_genatomic_cons(32_compare_and_swap)
+    #define gasneti_genatomic32_swap               _gasneti_genatomic_cons(32_swap)
+    #define gasneti_genatomic32_addfetch           _gasneti_genatomic_cons(32_addfetch)
+    #define gasneti_genatomic64_set                _gasneti_genatomic_cons(64_set)
+    #define gasneti_genatomic64_increment          _gasneti_genatomic_cons(64_increment)
+    #define gasneti_genatomic64_decrement          _gasneti_genatomic_cons(64_decrement)
+    #define gasneti_genatomic64_decrement_and_test _gasneti_genatomic_cons(64_decrement_and_test)
+    #define gasneti_genatomic64_compare_and_swap   _gasneti_genatomic_cons(64_compare_and_swap)
+    #define gasneti_genatomic64_swap               _gasneti_genatomic_cons(64_swap)
+    #define gasneti_genatomic64_addfetch           _gasneti_genatomic_cons(64_addfetch)
+    #if PLATFORM_ARCH_32 || defined(GASNETI_HYBRID_ATOMIC64) || defined(GASNETI_UNALIGNED_ATOMIC64)
+      /* Need mutex on 64-bit read() to avoid word tearing */
+      /* NOTE: defining gasneti_genatomic_read triggers matching behavior in gasnet_atomicops.h */
+      #define gasneti_genatomic64_read             _gasneti_genatomic_cons(64_read)
+    #endif
   #endif
 
   #ifndef gasneti_genatomic32_align
