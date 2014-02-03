@@ -2127,11 +2127,11 @@
 #endif
 #ifdef GASNETI_ATOMIC32_FETCHADD_BODY
   GASNETI_SPECIAL_ASM_DECL(_gasneti_special_atomic32_fetchadd);
-  #define _gasneti_atomic32_fetchadd (*(uint32_t (*)(gasneti_atomic32_t *, uint32_t))(&_gasneti_special_atomic32_fetchadd))
+  #define _gasneti_atomic32_fetchadd (*(uint32_t (*)(gasneti_atomic32_t *, int32_t))(&_gasneti_special_atomic32_fetchadd))
 #endif
 #ifdef GASNETI_ATOMIC32_ADDFETCH_BODY
   GASNETI_SPECIAL_ASM_DECL(_gasneti_special_atomic32_addfetch);
-  #define _gasneti_atomic32_addfetch (*(uint32_t (*)(gasneti_atomic_t *, uint32_t))(&_gasneti_special_atomic_addfetch))
+  #define _gasneti_atomic32_addfetch (*(uint32_t (*)(gasneti_atomic32_t *, int32_t))(&_gasneti_special_atomic32_addfetch))
 #endif
 
 #ifdef GASNETI_ATOMIC64_READ_BODY
@@ -2168,11 +2168,11 @@
 #endif
 #ifdef GASNETI_ATOMIC64_FETCHADD_BODY
   GASNETI_SPECIAL_ASM_DECL(_gasneti_special_atomic64_fetchadd);
-  #define _gasneti_atomic64_fetchadd (*(uint64_t (*)(gasneti_atomic64_t *, uint64_t))(&_gasneti_special_atomic64_fetchadd))
+  #define _gasneti_atomic64_fetchadd (*(uint64_t (*)(gasneti_atomic64_t *, int64_t))(&_gasneti_special_atomic64_fetchadd))
 #endif
 #ifdef GASNETI_ATOMIC64_ADDFETCH_BODY
   GASNETI_SPECIAL_ASM_DECL(_gasneti_special_atomic64_addfetch);
-  #define _gasneti_atomic64_addfetch (*(uint64_t (*)(gasneti_atomic_t *, uint64_t))(&_gasneti_special_atomic_addfetch))
+  #define _gasneti_atomic64_addfetch (*(uint64_t (*)(gasneti_atomic64_t *, int64_t))(&_gasneti_special_atomic64_addfetch))
 #endif
 
 #ifdef GASNETI_ATOMIC_READ_BODY
