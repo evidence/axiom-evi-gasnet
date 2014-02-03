@@ -352,12 +352,8 @@ typedef union {
                   gasneti_atomic_set((_t),0,0)
   #define gasneti_pshmnet_tail_cas(_t,_o,_n)\
                   gasneti_atomic_compare_and_swap((_t),(_o),(_n),0)
- #if GASNETI_HAVE_ATOMIC_SWAP
   #define gasneti_pshmnet_tail_swap(_t,_v)\
                   gasneti_atomic_swap((_t),(_v),GASNETI_ATOMIC_REL)
- #else
-  #error "Platform has CAS but not swap !?"
- #endif /* HAVE_SWAP */
 #elif defined(GASNETI_HAVE_ATOMIC_ADD_SUB)
   typedef struct {
     gasneti_atomic_t last_ticket;

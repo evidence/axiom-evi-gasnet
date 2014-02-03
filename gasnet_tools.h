@@ -201,10 +201,6 @@ GASNETI_BEGIN_EXTERNC
   #define GASNETT_HAVE_STRONGATOMIC_CAS 1
   #define gasnett_strongatomic_compare_and_swap(p,oldval,newval,f)  \
                                        gasneti_atomic_compare_and_swap(p,oldval,newval,f)
-#endif
-
-#ifdef GASNETI_HAVE_ATOMIC_SWAP
-  #define GASNETT_HAVE_STRONGATOMIC_SWAP 1
   #define gasnett_strongatomic_swap(p,val,f) gasneti_atomic_swap(p,val,f)
 #endif
 
@@ -263,10 +259,6 @@ GASNETI_BEGIN_EXTERNC
     #define GASNETT_HAVE_ATOMIC_CAS 1
     #define gasnett_atomic_compare_and_swap(p,oldval,newval,f)  \
                                          gasneti_atomic_compare_and_swap(p,oldval,newval,f)
-  #endif
-
-  #ifdef GASNETI_HAVE_ATOMIC_SWAP
-    #define GASNETT_HAVE_ATOMIC_SWAP 1
     #define gasnett_atomic_swap(p,val,f) gasneti_atomic_swap(p,val,f)
   #endif
 
@@ -320,10 +312,6 @@ GASNETI_BEGIN_EXTERNC
     #define GASNETT_HAVE_ATOMIC_CAS 1
     #define gasnett_atomic_compare_and_swap(p,oldval,newval,f)  \
                                          gasneti_weakatomic_compare_and_swap(p,oldval,newval,f)
-  #endif
-
-  #ifdef GASNETI_HAVE_WEAKATOMIC_SWAP
-    #define GASNETT_HAVE_ATOMIC_SWAP 1
     #define gasnett_atomic_swap(p,val,f) gasneti_weakatomic_swap(p,val,f)
   #endif
 

@@ -436,9 +436,7 @@ int main(int argc, char **argv) {
         if (gasnett_atomic_read(&var,0) != (gasnett_atomic_val_t)(i+1))
           ERR("gasnett_atomic_compare_and_swap set wrong updated value at i=%i", i);
       }
-    #endif
 
-    #if defined(GASNETT_HAVE_ATOMIC_SWAP)
       gasnett_atomic_set(&var, 0, 0);
       for (i=0;i<iters;i++) {
         if (gasnett_atomic_swap(&var,i+1,0) != (gasnett_atomic_val_t)(i))
@@ -1197,7 +1195,7 @@ void * thread_fn(void *arg) {
   }
 
   TEST_HEADER("parallel swap test...") {
-    #if GASNETI_HAVE_ATOMIC_SWAP
+    #if GASNETI_HAVE_ATOMIC_CAS
       const gasnett_atomic_val_t limit = MIN(GASNETT_ATOMIC_MAX, 8192);
       static gasnett_atomic_t var;
       static char *array;
