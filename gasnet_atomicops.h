@@ -635,16 +635,24 @@ typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
   #define gasneti_atomic64_add(p,op,f)         ((uint64_t)gasneti_genatomic64_addfetch((p),(op),(f)))
   #define gasneti_atomic64_subtract(p,op,f)    ((uint64_t)gasneti_genatomic64_addfetch((p),-(op),(f)))
 #elif defined(GASNETI_HYBRID_ATOMIC64)
-  /* Hybrid: need to runtime select between native and generic, based on alignment. */
+  /* Hybrid: need to runtime select between native and generic, based on alignment.
+   *
+   * Note that this code is currently only used for ILP32 on PPC64 h/w on Darwin.
+   * Consequently, it is less general in its assumptions about what thas been
+   * implemented in the platform-specific code.  In particular we require the
+   * following in the current revision of "hybid" atomics support:
+   *     _gasneti_atomic64_{set,read,compare_and_swap,swap,addfetch}
+   */
+  
   #define __gasneti_atomic64_set(p,v,f) GASNETI_ATOMIC_FENCED_SET(atomic64,_gasneti_atomic64_set,gasneti_atomic64_,p,v,f)
   #define gasneti_atomic64_set(p,v,f) do {                                   \
-      const int __flags = (f);                                               \
-      const uint64_t __v = (v);                                              \
-      gasneti_atomic64_t * const __p = (p);                                  \
-      if_pt (!((uintptr_t)__p & 0x7)) {                                      \
-        __gasneti_atomic64_set(__p, __v, __flags);                           \
+      const int _f = (f);                                                    \
+      const uint64_t _v = (v);                                               \
+      gasneti_atomic64_t * const _p = (p);                                   \
+      if_pt (!((uintptr_t)_p & 0x7)) {                                       \
+        __gasneti_atomic64_set(_p,_v,_f);                                    \
       } else {                                                               \
-	gasneti_genatomic64_set((gasneti_genatomic64_t *)__p, __v, __flags); \
+	gasneti_genatomic64_set((gasneti_genatomic64_t *)_p,_v,_f);          \
       }                                                                      \
     } while (0)
   GASNETI_ATOMIC_FENCED_READ_DEFN(atomic64,__gasneti_atomic64_read,_gasneti_atomic64_read,gasneti_atomic64_)
@@ -666,16 +674,86 @@ typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
       return gasneti_genatomic64_compare_and_swap((gasneti_genatomic64_t *)p,oldval,newval,flags);
     }
   }
+  GASNETI_ATOMIC_FENCED_SWAP_DEFN(atomic64,__gasneti_atomic64_swap,_gasneti_atomic64_swap,gasneti_atomic64_)
+  GASNETI_INLINE(gasneti_atomic64_swap)
+  int gasneti_atomic64_swap(gasneti_atomic64_t *p, uint64_t op, const int flags) {
+    if_pt (!((uintptr_t)p & 0x7)) {
+      return __gasneti_atomic64_swap(p,op,flags);
+    } else {
+      return gasneti_genatomic64_swap((gasneti_genatomic64_t *)p,op,flags);
+    }
+  }
+  GASNETI_ATOMIC_FENCED_ADDFETCH_DEFN(atomic64,__gasneti_atomic64_addfetch,_gasneti_atomic64_addfetch,gasneti_atomic64_)
+  GASNETI_INLINE(gasneti_atomic64_addfetch)
+  int gasneti_atomic64_addfetch(gasneti_atomic64_t *p, uint64_t op, const int flags) {
+    if_pt (!((uintptr_t)p & 0x7)) {
+      return __gasneti_atomic64_addfetch(p,op,flags);
+    } else {
+      return gasneti_genatomic64_addfetch((gasneti_genatomic64_t *)p,op,flags);
+    }
+  }
+  #define gasneti_atomic64_increment(p,f) ((void)gasneti_atomic64_addfetch((p),1,(f)))
+  #define gasneti_atomic64_decrement(p,f) ((void)gasneti_atomic64_addfetch((p),-1,(f)))
+  #define gasneti_atomic64_decrement_and_test(p,f) (gasneti_atomic64_addfetch((p),-1,(f)) == 0)
+  #define gasneti_atomic64_add(p,op,f) ((uint64_t)gasneti_atomic64_addfetch((p),(op),(f)))
+  #define gasneti_atomic64_subtract(p,op,f) ((uint64_t)gasneti_atomic64_addfetch((p),-(op),(f)))
 #else
-  /* Define 64-bit width atomics in terms of un-fenced native atomics */
+  /* Define 64-bit fixed-width atomics in terms of un-fenced native atomics */
+
+  /* First define a fully-fenced addfetch if it appears to be needed */
+  #if defined(_gasneti_atomic64_addfetch)
+    GASNETI_ATOMIC_FENCED_ADDFETCH_DEFN(atomic64,                   \
+                                        gasneti_atomic64_addfetch,  \
+                                        _gasneti_atomic64_addfetch, \
+                                        gasneti_atomic64_)
+  #elif defined(_gasneti_atomic64_fetchadd)
+    GASNETI_ATOMIC_FENCED_ADDFETCH_DEFN(atomic64,                        \
+                                        gasneti_atomic64_addfetch,       \
+                                        op + _gasneti_atomic64_fetchadd, \
+                                        gasneti_atomic64_)
+  #elif defined(gasneti_atomic64_fetchadd)
+    GASNETI_INLINE(gasneti_atomic64_addfetch)
+    uint64_t gasneti_atomic64_addfetch(gasneti_atomic64_t *p, int64_t op, int f) {
+      return (uint64_t)(gasneti_atomic64_fetchadd(p,op,f) + op);
+    }
+  #endif
+
   #ifdef _gasneti_atomic64_set
     #define gasneti_atomic64_set(p,v,f) GASNETI_ATOMIC_FENCED_SET(atomic64,_gasneti_atomic64_set,gasneti_atomic64_,p,v,f)
   #endif
   #ifdef _gasneti_atomic64_read
     GASNETI_ATOMIC_FENCED_READ_DEFN(atomic64,gasneti_atomic64_read,_gasneti_atomic64_read,gasneti_atomic64_)
   #endif
+  #ifdef _gasneti_atomic64_increment
+    #define gasneti_atomic64_increment(p,f) GASNETI_ATOMIC_FENCED_INCDEC(atomic64,_gasneti_atomic64_increment,gasneti_atomic64_,p,f)
+  #elif !defined(gasneti_atomic64_increment)
+    #define gasneti_atomic64_increment(p,f) ((void)gasneti_atomic64_addfetch((p),1,(f)))
+  #endif
+  #ifdef _gasneti_atomic64_decrement
+    #define gasneti_atomic64_decrement(p,f) GASNETI_ATOMIC_FENCED_INCDEC(atomic64,_gasneti_atomic64_decrement,gasneti_atomic64_,p,f)
+  #elif !defined(gasneti_atomic64_decrement)
+    #define gasneti_atomic64_decrement(p,f) ((void)gasneti_atomic64_addfetch((p),-1,(f)))
+  #endif
+  #ifdef _gasneti_atomic64_decrement_and_test
+    GASNETI_ATOMIC_FENCED_DECTEST_DEFN(atomic64,gasneti_atomic64_decrement_and_test,_gasneti_atomic64_decrement_and_test,gasneti_atomic64_)
+  #elif !defined(gasneti_atomic64_decrement_and_test)
+    #define gasneti_atomic64_decrement_and_test(p,f) (gasneti_atomic64_addfetch((p),-1,(f)) == 0)
+  #endif
   #ifdef _gasneti_atomic64_compare_and_swap
     GASNETI_ATOMIC_FENCED_CAS_DEFN(atomic64,gasneti_atomic64_compare_and_swap,_gasneti_atomic64_compare_and_swap,gasneti_atomic64_)
+  #endif
+  #ifdef _gasneti_atomic64_swap
+    GASNETI_ATOMIC_FENCED_SWAP_DEFN(atomic64,gasneti_atomic64_swap,_gasneti_atomic64_swap,gasneti_atomic64_)
+  #endif
+  #ifdef _gasneti_atomic64_add
+    GASNETI_ATOMIC_FENCED_ADDSUB_DEFN(atomic64,gasneti_atomic64_add,_gasneti_atomic64_add,gasneti_atomic64_)
+  #elif !defined(gasneti_atomic64_add)
+    #define gasneti_atomic64_add(p,op,f) ((uint64_t)gasneti_atomic64_addfetch((p),(op),(f)))
+  #endif
+  #ifdef _gasneti_atomic64_subtract
+    GASNETI_ATOMIC_FENCED_ADDSUB_DEFN(atomic64,gasneti_atomic64_subtract,_gasneti_atomic64_subtract,gasneti_atomic64_)
+  #elif !defined(gasneti_atomic64_subtract)
+    #define gasneti_atomic64_subtract(p,op,f) ((uint64_t)gasneti_atomic64_addfetch((p),-(op),(f)))
   #endif
 #endif
 
