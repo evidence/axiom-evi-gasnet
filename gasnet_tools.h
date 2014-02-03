@@ -223,6 +223,13 @@ GASNETI_BEGIN_EXTERNC
 #define gasnett_strongatomic32_set(p,v,f)     gasneti_atomic32_set(p,v,f)
 #define gasnett_strongatomic32_compare_and_swap(p,oldval,newval,f)  \
                                         gasneti_atomic32_compare_and_swap(p,oldval,newval,f)
+#define gasnett_strongatomic32_swap(p,v,f)     gasneti_atomic32_swap(p,v,f)
+#define gasnett_strongatomic32_add(p,v,f)      gasneti_atomic32_add(p,v,f)
+#define gasnett_strongatomic32_subtract(p,v,f) gasneti_atomic32_subtract(p,v,f)
+#define gasnett_strongatomic32_increment(p,f)  gasneti_atomic32_increment(p,f)
+#define gasnett_strongatomic32_decrement(p,f)  gasneti_atomic32_decrement(p,f)
+#define gasnett_strongatomic32_decrement_and_test(p,f) \
+                                               gasneti_atomic32_decrement_and_test(p,f)
 
 #if GASNETI_ATOMIC64_NOT_SIGNALSAFE
   #define GASNETT_STRONGATOMIC64_NOT_SIGNALSAFE 1
@@ -233,6 +240,13 @@ GASNETI_BEGIN_EXTERNC
 #define gasnett_strongatomic64_set(p,v,f)     gasneti_atomic64_set(p,v,f)
 #define gasnett_strongatomic64_compare_and_swap(p,oldval,newval,f)  \
                                           gasneti_atomic64_compare_and_swap(p,oldval,newval,f)
+#define gasnett_strongatomic64_swap(p,v,f)     gasneti_atomic64_swap(p,v,f)
+#define gasnett_strongatomic64_add(p,v,f)      gasneti_atomic64_add(p,v,f)
+#define gasnett_strongatomic64_subtract(p,v,f) gasneti_atomic64_subtract(p,v,f)
+#define gasnett_strongatomic64_increment(p,f)  gasneti_atomic64_increment(p,f)
+#define gasnett_strongatomic64_decrement(p,f)  gasneti_atomic64_decrement(p,f)
+#define gasnett_strongatomic64_decrement_and_test(p,f) \
+                                               gasneti_atomic64_decrement_and_test(p,f)
 
 /* regular atomics map to either true atomics or sequential stubs, based on thread mode */
 #if GASNETI_THREADS
@@ -268,6 +282,13 @@ GASNETI_BEGIN_EXTERNC
   #define gasnett_atomic32_set(p,v,f)     gasneti_atomic32_set(p,v,f)
   #define gasnett_atomic32_compare_and_swap(p,oldval,newval,f)  \
                                           gasneti_atomic32_compare_and_swap(p,oldval,newval,f)
+  #define gasnett_atomic32_swap(p,v,f)    gasneti_atomic32_swap(p,v,f)
+  #define gasnett_atomic32_add(p,v,f)     gasneti_atomic32_add(p,v,f)
+  #define gasnett_atomic32_subtract(p,v,f) gasneti_atomic32_subtract(p,v,f)
+  #define gasnett_atomic32_increment(p,f) gasneti_atomic32_increment(p,f)
+  #define gasnett_atomic32_decrement(p,f) gasneti_atomic32_decrement(p,f)
+  #define gasnett_atomic32_decrement_and_test(p,f) \
+                                          gasneti_atomic32_decrement_and_test(p,f)
 
   #define gasnett_atomic64_t              gasneti_atomic64_t
   #define gasnett_atomic64_read(p,f)      gasneti_atomic64_read(p,f)
@@ -275,6 +296,13 @@ GASNETI_BEGIN_EXTERNC
   #define gasnett_atomic64_set(p,v,f)     gasneti_atomic64_set(p,v,f)
   #define gasnett_atomic64_compare_and_swap(p,oldval,newval,f)  \
                                             gasneti_atomic64_compare_and_swap(p,oldval,newval,f)
+  #define gasnett_atomic64_swap(p,v,f)    gasneti_atomic64_swap(p,v,f)
+  #define gasnett_atomic64_add(p,v,f)     gasneti_atomic64_add(p,v,f)
+  #define gasnett_atomic64_subtract(p,v,f) gasneti_atomic64_subtract(p,v,f)
+  #define gasnett_atomic64_increment(p,f) gasneti_atomic64_increment(p,f)
+  #define gasnett_atomic64_decrement(p,f) gasneti_atomic64_decrement(p,f)
+  #define gasnett_atomic64_decrement_and_test(p,f) \
+                                          gasneti_atomic64_decrement_and_test(p,f)
 #else /* GASNET_SEQ and non-thread-safe tools clients */
   /* safe to use weak atomics here, because the client is single-threaded and 
      should only be modifying atomics from the host CPU (using these calls). 
@@ -311,6 +339,13 @@ GASNETI_BEGIN_EXTERNC
   #define gasnett_atomic32_set(p,v,f)     gasneti_weakatomic32_set(p,v,f)
   #define gasnett_atomic32_compare_and_swap(p,oldval,newval,f)  \
                                           gasneti_weakatomic32_compare_and_swap(p,oldval,newval,f)
+  #define gasnett_atomic32_swap(p,v,f)    gasneti_weakatomic32_swap(p,v,f)
+  #define gasnett_atomic32_add(p,v,f)     gasneti_weakatomic32_add(p,v,f)
+  #define gasnett_atomic32_subtract(p,v,f) gasneti_weakatomic32_subtract(p,v,f)
+  #define gasnett_atomic32_increment(p,f) gasneti_weakatomic32_increment(p,f)
+  #define gasnett_atomic32_decrement(p,f) gasneti_weakatomic32_decrement(p,f)
+  #define gasnett_atomic32_decrement_and_test(p,f) \
+                                          gasneti_weakatomic32_decrement_and_test(p,f)
 
   #define gasnett_atomic64_t              gasneti_weakatomic64_t
   #define gasnett_atomic64_read(p,f)      gasneti_weakatomic64_read(p,f)
@@ -318,6 +353,13 @@ GASNETI_BEGIN_EXTERNC
   #define gasnett_atomic64_set(p,v,f)     gasneti_weakatomic64_set(p,v,f)
   #define gasnett_atomic64_compare_and_swap(p,oldval,newval,f)  \
                                           gasneti_weakatomic64_compare_and_swap(p,oldval,newval,f)
+  #define gasnett_atomic64_swap(p,v,f)    gasneti_weakatomic64_swap(p,v,f)
+  #define gasnett_atomic64_add(p,v,f)     gasneti_weakatomic64_add(p,v,f)
+  #define gasnett_atomic64_subtract(p,v,f) gasneti_weakatomic64_subtract(p,v,f)
+  #define gasnett_atomic64_increment(p,f) gasneti_weakatomic64_increment(p,f)
+  #define gasnett_atomic64_decrement(p,f) gasneti_weakatomic64_decrement(p,f)
+  #define gasnett_atomic64_decrement_and_test(p,f) \
+                                          gasneti_weakatomic64_decrement_and_test(p,f)
 #endif
 
 #ifdef GASNETI_USE_GENERIC_ATOMICOPS
