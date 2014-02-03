@@ -61,10 +61,8 @@
 #define GASNETI_ATOMIC_ACQ_IF_FALSE	GASNETI_ATOMIC_RMB_POST_IF_FALSE
 
 /* ------------------------------------------------------------------------------------ */
-/* Non-public definitions needed in the platform-specific parts */
-
-#define _GASNETI_ATOMIC_CHECKALIGN(_a,_p) \
-    gasneti_assert(!(_a) || !(((uintptr_t)(_p))&((_a)-1)))
+/* Uniform memory fences for GASNet atomics.
+ */
 
 #define GASNETI_ATOMIC_MASK_PRE         (GASNETI_ATOMIC_WMB_PRE | GASNETI_ATOMIC_RMB_PRE)
 #define GASNETI_ATOMIC_MASK_POST        (GASNETI_ATOMIC_WMB_POST | GASNETI_ATOMIC_RMB_POST)
@@ -75,15 +73,6 @@
 #define _gasneti_atomic_cf_before(f)	if (f & GASNETI_ATOMIC_MASK_PRE) gasneti_compiler_fence();
 #define _gasneti_atomic_cf_after(f)	if (f & GASNETI_ATOMIC_MASK_POST) gasneti_compiler_fence();
 #define _gasneti_atomic_cf_bool(f)	if (f & GASNETI_ATOMIC_MASK_BOOL) gasneti_compiler_fence();
-
-
-/* ------------------------------------------------------------------------------------ */
-/* All the platform-specific parts */
-#include <gasnet_atomic_bits.h>
-
-/* ------------------------------------------------------------------------------------ */
-/* Uniform memory fences for GASNet atomics.
- */
 
 /* Part 1.  Removal of fences which are redundant on a given platform
  *	_gasneti_atomic_fence_{before,after}(flags)
@@ -151,6 +140,36 @@
     if (((f & GASNETI_ATOMIC_RMB_POST_IF_TRUE ) &&  v) || \
         ((f & GASNETI_ATOMIC_RMB_POST_IF_FALSE) && !v)) gasneti_local_rmb();
 #endif
+
+/* Part 2. Fences for the platform-specific atomics, based on macros in Part 1.
+ *	_gasneti_atomic_prologue_{set,read,rmw}(p, flags)
+ *	_gasneti_atomic_fence_{before,after}_{set,read,rmw}(p, flags)
+ *	_gasneti_atomic_fence_after_bool(p, flags, value)
+ *
+ * These can/should be redefined by the platform-specific code if there are
+ * any fencing side-effects in the unfenced ("_" prefixed) implementaions.
+ */
+#define _gasneti_atomic_prologue_set(p,f)          /*empty*/
+#define _gasneti_atomic_fence_before_set(p,f)      _gasneti_atomic_fence_before(f)
+#define _gasneti_atomic_fence_after_set(p,f)       _gasneti_atomic_fence_after(f)
+#define _gasneti_atomic_prologue_read(p,f)         /*empty*/
+#define _gasneti_atomic_fence_before_read(p,f)     _gasneti_atomic_fence_before(f)
+#define _gasneti_atomic_fence_after_read(p,f)      _gasneti_atomic_fence_after(f)
+#define _gasneti_atomic_prologue_rmw(p,f)          /*empty*/
+#define _gasneti_atomic_fence_before_rmw(p,f)      _gasneti_atomic_fence_before(f)
+#define _gasneti_atomic_fence_after_rmw(p,f)       _gasneti_atomic_fence_after(f)
+#define _gasneti_atomic_fence_after_bool(p,f,v)    _gasneti_atomic_fence_after(f)  \
+                                                   _gasneti_atomic_fence_bool(f,v)
+
+/* ------------------------------------------------------------------------------------ */
+/* Misc non-public definitions needed in the platform-specific parts */
+
+#define _GASNETI_ATOMIC_CHECKALIGN(_a,_p) \
+    gasneti_assert(!(_a) || !(((uintptr_t)(_p))&((_a)-1)))
+
+/* ------------------------------------------------------------------------------------ */
+/* All the platform-specific parts */
+#include <gasnet_atomic_bits.h>
 
 /* ------------------------------------------------------------------------------------ */
 /* Fenced atomic templates, using the per-group fencing macros.
@@ -708,48 +727,8 @@
     #define GASNETI_HAVE_ATOMIC_SWAP 	1
 #endif
 
-/* Fences for the "normal" atomics.
- *	_gasneti_atomic_prologue_{set,read,rmw}(p, flags)
- *	_gasneti_atomic_fence_{before,after}_{set,read,rmw}(p, flags)
- *	_gasneti_atomic_fence_after_bool(p, flags, value)
- *
- * These should be overridden by the platform-specific code if there are
- * any fencing side-effects in the unfenced ("_" prefixed) implementaions.
- */
-#ifndef _gasneti_atomic_prologue_set
-  #define _gasneti_atomic_prologue_set(p,f)          /*empty*/
-#endif
-#ifndef _gasneti_atomic_fence_before_set
-  #define _gasneti_atomic_fence_before_set(p,f)      _gasneti_atomic_fence_before(f)
-#endif
-#ifndef _gasneti_atomic_fence_after_set
-  #define _gasneti_atomic_fence_after_set(p,f)       _gasneti_atomic_fence_after(f)
-#endif
-#ifndef _gasneti_atomic_prologue_read
-  #define _gasneti_atomic_prologue_read(p,f)         /*empty*/
-#endif
-#ifndef _gasneti_atomic_fence_before_read
-  #define _gasneti_atomic_fence_before_read(p,f)     _gasneti_atomic_fence_before(f)
-#endif
-#ifndef _gasneti_atomic_fence_after_read
-  #define _gasneti_atomic_fence_after_read(p,f)      _gasneti_atomic_fence_after(f)
-#endif
-#ifndef _gasneti_atomic_prologue_rmw
-  #define _gasneti_atomic_prologue_rmw(p,f)          /*empty*/
-#endif
-#ifndef _gasneti_atomic_fence_before_rmw
-  #define _gasneti_atomic_fence_before_rmw(p,f)      _gasneti_atomic_fence_before(f)
-#endif
-#ifndef _gasneti_atomic_fence_after_rmw
-  #define _gasneti_atomic_fence_after_rmw(p,f)       _gasneti_atomic_fence_after(f)
-#endif
-#ifndef _gasneti_atomic_fence_after_bool
-  #define _gasneti_atomic_fence_after_bool(p,f,v)    _gasneti_atomic_fence_after(f)  \
-                                                     _gasneti_atomic_fence_bool(f,v)
-#endif
-
 /* ------------------------------------------------------------------------------------ */
-/* Fenced generic atomics, if needed, using per-platform defns and the macros of Part 4, above.
+/* Fenced generic atomics, if needed, using per-platform defns and the macros above.
  */
 
 #if defined(GASNETI_BUILD_GENERIC_ATOMIC32) || defined(GASNETI_BUILD_GENERIC_ATOMIC64)
@@ -923,7 +902,7 @@
 #endif
 
 /* ------------------------------------------------------------------------------------ */
-/* Fenced fixed-width atomics, using per-platform defns and the macros of Part 4, above.
+/* Fenced fixed-width atomics, using per-platform defns and the macros above.
  */
 
 /* Fence the fixed-width (non-arithmetic) 32-bit atomic type */

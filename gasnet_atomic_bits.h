@@ -86,6 +86,9 @@
     /* Generic implementation in terms of GCC's __sync atomics */
 
     /* GCC documentation promises a full memory barrier */
+    #undef _gasneti_atomic_fence_before_rmw
+    #undef _gasneti_atomic_fence_after_rmw
+    #undef _gasneti_atomic_fence_after_bool
     #define _gasneti_atomic_fence_before_rmw(p,f)     /*empty*/
     #define _gasneti_atomic_fence_after_rmw(p,f)      /*empty*/
     #define _gasneti_atomic_fence_after_bool(p,f,v)   /*empty*/
@@ -189,6 +192,9 @@
   #if PLATFORM_ARCH_X86 || PLATFORM_ARCH_X86_64 || PLATFORM_ARCH_MIC /* x86 and Athlon64/Opteron and MIC */
     /* We have a full memory barrier in all read-modify-write operations,
      * but NOT a compiler fence. */
+    #undef _gasneti_atomic_fence_before_rmw
+    #undef _gasneti_atomic_fence_after_rmw
+    #undef _gasneti_atomic_fence_after_bool
     #define _gasneti_atomic_fence_before_rmw(p,f)     _gasneti_atomic_cf_before(f)
     #define _gasneti_atomic_fence_after_rmw(p,f)      _gasneti_atomic_cf_after(f)
     #define _gasneti_atomic_fence_after_bool(p,f,v)   /*empty*/
@@ -1025,6 +1031,9 @@
     /* Since supported compilers are generating r-m-w with .acq variants, we can customize
      * the atomic fencing implementation by noting that "mf;; foo.acq" is a full memory
      * barrier both before and after. */
+    #undef _gasneti_atomic_fence_before_rmw
+    #undef _gasneti_atomic_fence_after_rmw
+    #undef _gasneti_atomic_fence_after_bool
     #define _gasneti_atomic_fence_before_rmw(p, flags) \
 	if (flags & (GASNETI_ATOMIC_MB_PRE | GASNETI_ATOMIC_MB_POST)) gasneti_local_mb();
     #define _gasneti_atomic_fence_after_rmw(p, flags) \
@@ -1793,6 +1802,9 @@
        * However, we could potentially improve peformance on SGI machines
        * as follows:
        * #if PLATFORM_OS_IRIX
+       *   #undef _gasneti_atomic_fence_before_rmw
+       *   #undef _gasneti_atomic_fence_after_rmw
+       *   #undef _gasneti_atomic_fence_after_bool
        #   #define _gasneti_atomic_fence_before_rmw(p,f)     _gasneti_atomic_cf_before(f)
        #   #define _gasneti_atomic_fence_after_rmw(p,f)      _gasneti_atomic_cf_after(f)
        *   #define _gasneti_atomic_fence_after_bool(p,f,v)
@@ -1900,6 +1912,9 @@
 
       /* Linux kernel sources say c-a-s "includes memory barriers as needed"
        * and our code includes a "memory" clobber (compiler fence). */
+      #undef _gasneti_atomic_fence_before_rmw
+      #undef _gasneti_atomic_fence_after_rmw
+      #undef _gasneti_atomic_fence_after_bool
       #define _gasneti_atomic_fence_before_rmw(p,f)     /*empty*/
       #define _gasneti_atomic_fence_after_rmw(p,f)      /*empty*/
       #define _gasneti_atomic_fence_after_bool(p,f,v)   /*empty*/
