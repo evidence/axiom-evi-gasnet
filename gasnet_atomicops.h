@@ -590,39 +590,32 @@ typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
   #define gasneti_atomic64_subtract(p,op,f)    ((uint64_t)gasneti_genatomic64_addfetch((p),-(op),(f)))
 #elif defined(GASNETI_HYBRID_ATOMIC64)
   /* Hybrid: need to runtime select between native and generic, based on alignment. */
+  #define __gasneti_atomic64_set(p,v,f)	GASNETI_ATOMIC_FENCED_SET(atomic,_gasneti_atomic64_set,gasneti_atomic64_,p,v,f)
   #define gasneti_atomic64_set(p,v,f) do {                                   \
       const int __flags = (f);                                               \
       const uint64_t __v = (v);                                              \
       gasneti_atomic64_t * const __p = (p);                                  \
       if_pt (!((uintptr_t)__p & 0x7)) {                                      \
-        _gasneti_atomic_fence_before_set(__p,__flags)                        \
-        _gasneti_atomic64_set(__p,__v);                                      \
-        _gasneti_atomic_fence_after_set(__p,__flags)                         \
+        __gasneti_atomic64_set(__p, __v, __flags);                           \
       } else {                                                               \
 	gasneti_genatomic64_set((gasneti_genatomic64_t *)__p, __v, __flags); \
       }                                                                      \
     } while (0)
+  GASNETI_ATOMIC_FENCED_READ_DEFN(atomic,__gasneti_atomic64_read,_gasneti_atomic64_read,gasneti_atomic64_)
   GASNETI_INLINE(gasneti_atomic64_read)
   uint64_t gasneti_atomic64_read(gasneti_atomic64_t *p, const int flags) {
     if_pt (!((uintptr_t)p & 0x7)) {
-      _gasneti_atomic_fence_before_read(p, flags)
-      { const uint64_t retval = _gasneti_atomic64_read(p);
-        _gasneti_atomic_fence_after_read(p, flags)
-        return retval;
-      }
+      return __gasneti_atomic64_read(p, flags);
     } else {
       return gasneti_genatomic64_read((gasneti_genatomic64_t *)p, flags);
     }
   }
+  GASNETI_ATOMIC_FENCED_CAS_DEFN(atomic,__gasneti_atomic64_compare_and_swap,_gasneti_atomic64_compare_and_swap,gasneti_atomic64_)
   GASNETI_INLINE(gasneti_atomic64_compare_and_swap)
   int gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval,
 					uint64_t newval, const int flags) {
     if_pt (!((uintptr_t)p & 0x7)) {
-      _gasneti_atomic_fence_before_rmw(p, flags)
-      { const int retval = _gasneti_atomic64_compare_and_swap(p,oldval,newval);
-        _gasneti_atomic_fence_after_bool(p, flags, retval)
-        return retval;
-      }
+      return __gasneti_atomic64_compare_and_swap(p,oldval,newval,flags);
     } else {
       return gasneti_genatomic64_compare_and_swap((gasneti_genatomic64_t *)p,oldval,newval,flags);
     }
