@@ -304,7 +304,7 @@
 #ifdef GASNETI_USE_GENERIC_ATOMIC32
   /* Define 32-bit fixed-width atomics in terms of full-fenced generics */
   #define gasneti_atomic32_t                   gasneti_genatomic32_t
-  #define _gasneti_atomic32_init               _gasneti_genatomic32_init
+  #define gasneti_atomic32_init                gasneti_genatomic32_init
   #define gasneti_atomic32_set                 gasneti_genatomic32_set
   #define gasneti_atomic32_read                gasneti_genatomic32_read
   #define gasneti_atomic32_increment           gasneti_genatomic32_increment
@@ -318,7 +318,7 @@
 #ifdef GASNETI_USE_GENERIC_ATOMIC64
   /* Define 64-bit fixed-width atomics in terms of full-fenced generics */
   #define gasneti_atomic64_t                   gasneti_genatomic64_t
-  #define _gasneti_atomic64_init               _gasneti_genatomic64_init
+  #define gasneti_atomic64_init                gasneti_genatomic64_init
   #define gasneti_atomic64_set                 gasneti_genatomic64_set
   #define gasneti_atomic64_read                gasneti_genatomic64_read
   #define gasneti_atomic64_increment           gasneti_genatomic64_increment
@@ -353,7 +353,7 @@
 
   /* Required parts: */
   #define gasneti_atomic_t			gasneti_atomic32_t
-  #define _gasneti_atomic_init			_gasneti_atomic32_init
+  #define gasneti_atomic_init			gasneti_atomic32_init
   #ifdef gasneti_atomic32_set
     #define gasneti_atomic_set			gasneti_atomic32_set
   #else
@@ -434,7 +434,7 @@
 
   /* Required parts: */
   #define gasneti_atomic_t			gasneti_atomic64_t
-  #define _gasneti_atomic_init			_gasneti_atomic64_init
+  #define gasneti_atomic_init			gasneti_atomic64_init
   #ifdef gasneti_atomic64_set
     #define gasneti_atomic_set			gasneti_atomic64_set
   #else
@@ -879,7 +879,7 @@
   /* Build the 32-bit generics if needed */
   #ifdef GASNETI_BUILD_GENERIC_ATOMIC32
     _GASNETI_GENATOMIC_DECL_AND_DEFN(32)
-    #define _gasneti_genatomic32_init          _gasneti_scalar_atomic_init
+    #define gasneti_genatomic32_init          _gasneti_scalar_atomic_init
     GASNETI_ATOMIC_FENCED_READ_DEFN(genatomic,gasneti_genatomic32_read,
                                     _gasneti_scalar_atomic_read,gasneti_genatomic32_)
     #ifdef _GASNETI_GENATOMIC_DEFN
@@ -890,7 +890,7 @@
   /* Build the 64-bit generics if needed */
   #ifdef GASNETI_BUILD_GENERIC_ATOMIC64
     _GASNETI_GENATOMIC_DECL_AND_DEFN(64)
-    #define _gasneti_genatomic64_init          _gasneti_scalar_atomic_init
+    #define gasneti_genatomic64_init          _gasneti_scalar_atomic_init
     #ifdef gasneti_genatomic64_read	/* ILP32 or HYBRID for under-aligned ABIs */
       /* Mutex is needed in read to avoid word tearing.
        * Can't use the normal template w/o also forcing a mutex into the 32-bit generics.
@@ -929,9 +929,6 @@
 /* Fence the fixed-width (non-arithmetic) 32-bit atomic type */
 typedef uint32_t gasneti_atomic32_val_t;	/* For consistency in fencing macros */
 typedef int32_t gasneti_atomic32_sval_t;	/* For consistency in fencing macros */
-#ifndef gasneti_atomic32_init
-  #define gasneti_atomic32_init(v)	_gasneti_atomic32_init(v)
-#endif
 #ifndef gasneti_atomic32_set
   #define gasneti_atomic32_set(p,v,f)	GASNETI_ATOMIC_FENCED_SET(atomic,_gasneti_atomic32_set,gasneti_atomic32_,p,v,f)
 #endif
@@ -947,7 +944,6 @@ typedef uint64_t gasneti_atomic64_val_t;	/* For consistency in fencing macros */
 typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
 #ifdef GASNETI_HYBRID_ATOMIC64
   /* Hybrid: need to runtime select between native and generic, based on alignment. */
-  #define gasneti_atomic64_init(v)	_gasneti_atomic64_init(v)
   #define gasneti_atomic64_set(p,v,f) do {                                   \
       const int __flags = (f);                                               \
       const uint64_t __v = (v);                                              \
@@ -986,9 +982,6 @@ typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
     }
   }
 #else
-  #ifndef gasneti_atomic64_init
-    #define gasneti_atomic64_init(v)	_gasneti_atomic64_init(v)
-  #endif
   #ifndef gasneti_atomic64_set
     #define gasneti_atomic64_set(p,v,f)	GASNETI_ATOMIC_FENCED_SET(atomic,_gasneti_atomic64_set,gasneti_atomic64_,p,v,f)
   #endif
@@ -1006,9 +999,6 @@ typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
  * platform-specific fully-fenced definitions which may exisit.
  */
 
-#ifndef gasneti_atomic_init
-  #define gasneti_atomic_init(v)         _gasneti_atomic_init(v)
-#endif
 #ifndef gasneti_atomic_set
   #define gasneti_atomic_set(p,v,f)      GASNETI_ATOMIC_FENCED_SET(atomic,_gasneti_atomic_set,gasneti_atomic_,p,v,f)
 #endif
