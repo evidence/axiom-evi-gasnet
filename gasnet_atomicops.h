@@ -586,7 +586,8 @@ typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
   #define gasneti_atomic64_decrement_and_test  gasneti_genatomic64_decrement_and_test
   #define gasneti_atomic64_compare_and_swap    gasneti_genatomic64_compare_and_swap
   #define gasneti_atomic64_swap                gasneti_genatomic64_swap
-  #define gasneti_atomic64_addfetch            gasneti_genatomic64_addfetch
+  #define gasneti_atomic64_add(p,op,f)         ((uint64_t)gasneti_genatomic64_addfetch((p),(op),(f)))
+  #define gasneti_atomic64_subtract(p,op,f)    ((uint64_t)gasneti_genatomic64_addfetch((p),-(op),(f)))
 #elif defined(GASNETI_HYBRID_ATOMIC64)
   /* Hybrid: need to runtime select between native and generic, based on alignment. */
   #define gasneti_atomic64_set(p,v,f) do {                                   \
@@ -613,7 +614,6 @@ typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
       return gasneti_genatomic64_read((gasneti_genatomic64_t *)p, flags);
     }
   }
-  #define gasneti_atomic64_read gasneti_atomic64_read
   GASNETI_INLINE(gasneti_atomic64_compare_and_swap)
   int gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval,
 					uint64_t newval, const int flags) {
@@ -627,19 +627,16 @@ typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
       return gasneti_genatomic64_compare_and_swap((gasneti_genatomic64_t *)p,oldval,newval,flags);
     }
   }
-  #define gasneti_atomic64_compare_and_swap gasneti_atomic64_compare_and_swap
 #else
   /* Define 64-bit width atomics in terms of un-fenced native atomics */
-  #ifndef gasneti_atomic64_set
+  #ifdef _gasneti_atomic64_set
     #define gasneti_atomic64_set(p,v,f)	GASNETI_ATOMIC_FENCED_SET(atomic,_gasneti_atomic64_set,gasneti_atomic64_,p,v,f)
   #endif
-  #ifndef gasneti_atomic64_read
+  #ifdef _gasneti_atomic64_read
     GASNETI_ATOMIC_FENCED_READ_DEFN(atomic,gasneti_atomic64_read,_gasneti_atomic64_read,gasneti_atomic64_)
-    #define gasneti_atomic64_read gasneti_atomic64_read
   #endif
-  #ifndef gasneti_atomic64_compare_and_swap
+  #ifdef _gasneti_atomic64_compare_and_swap
     GASNETI_ATOMIC_FENCED_CAS_DEFN(atomic,gasneti_atomic64_compare_and_swap,_gasneti_atomic64_compare_and_swap,gasneti_atomic64_)
-    #define gasneti_atomic64_compare_and_swap gasneti_atomic64_compare_and_swap
   #endif
 #endif
 

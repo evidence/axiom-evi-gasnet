@@ -378,6 +378,7 @@
             return retval;
 	  #endif
           }
+          #define _gasneti_atomic64_compare_and_swap _gasneti_atomic64_compare_and_swap
         #endif
       #elif PLATFORM_COMPILER_OPEN64
         /* No known working 64-bit atomics for this compiler on ILP32.  See bug 2725. */
@@ -413,6 +414,7 @@
 		    : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
           return (uint8_t)oldval;
         }
+        #define _gasneti_atomic64_compare_and_swap _gasneti_atomic64_compare_and_swap
         GASNETI_INLINE(gasneti_atomic64_set)
         void gasneti_atomic64_set(gasneti_atomic64_t *p, uint64_t v, int flags) {
 	  GASNETI_ASM_REGISTER_KEYWORD uint64_t oldval = p->ctr;
@@ -466,6 +468,7 @@
 		    : "cc", "memory");
           return (uint8_t)oldval;
         }
+        #define _gasneti_atomic64_compare_and_swap _gasneti_atomic64_compare_and_swap
         GASNETI_INLINE(gasneti_atomic64_set)
         void gasneti_atomic64_set(gasneti_atomic64_t *p, uint64_t v, int flags) {
 	  GASNETI_ASM_REGISTER_KEYWORD uint64_t oldval = p->ctr;
@@ -529,6 +532,7 @@
 		    : "cc", "memory");
           return (uint8_t)oldval;
         }
+        #define _gasneti_atomic64_compare_and_swap _gasneti_atomic64_compare_and_swap
         GASNETI_INLINE(gasneti_atomic64_set)
         void gasneti_atomic64_set(gasneti_atomic64_t *p, uint64_t v, int flags) {
 	  GASNETI_ASM_REGISTER_KEYWORD uint64_t oldval = p->ctr;
@@ -588,6 +592,7 @@
 		    : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
           return (uint8_t)oldlo;
         }
+        #define _gasneti_atomic64_compare_and_swap _gasneti_atomic64_compare_and_swap
         GASNETI_INLINE(gasneti_atomic64_set)
         void gasneti_atomic64_set(gasneti_atomic64_t *p, uint64_t v, int flags) {
 	  uint64_t oldval = p->ctr;
@@ -1116,6 +1121,7 @@
               : "r"(oldval), "r"(addr), "m"(v->ctr) );
             return (int)(newval == oldval);
           }
+          #define _gasneti_atomic64_compare_and_swap _gasneti_atomic64_compare_and_swap
         #elif GASNETI_HAVE_SPARC32_64BIT_ASM /* compiler supports "U" and "h" constraints */
           /* ILP32 on a 64-bit CPU. */
           /* Note that the ldd/std instructions *are* atomic, even though they use 2 registers.
@@ -1151,6 +1157,7 @@
 		: "r"(addr), "m"(v->ctr), "r"(newval), "r"(oldval) );
             return retval;
           }
+          #define _gasneti_atomic64_compare_and_swap _gasneti_atomic64_compare_and_swap
         #else
           /* use generics, since fixed-register asm never did work right */
 	#endif
@@ -1436,6 +1443,7 @@
 	    /* RETURN in r3 = 1 iff swap took place */ \
           }
           #pragma reg_killed_by _gasneti_atomic64_compare_and_swap cr0, gr0, gr4, gr6, gr7
+          #define _gasneti_atomic64_compare_and_swap _gasneti_atomic64_compare_and_swap
         #else
           #pragma mc_func _gasneti_atomic64_set { \
             /* ARGS: r3 = p, r4 = hi32, r5 = lo32  LOCAL: r0 = tmp */ \
@@ -1467,6 +1475,7 @@
 	    /* RETURN in r3 = 1 iff swap took place */ \
           }
           #pragma reg_killed_by _gasneti_atomic64_compare_and_swap cr0, gr0, gr5, gr7, gr8
+          #define _gasneti_atomic64_compare_and_swap _gasneti_atomic64_compare_and_swap
 	#endif
       #else
 	/* 32-bit CPU - generics are the only option */
@@ -1555,6 +1564,7 @@
 		: "cr0");
           return (result == 0);
         } 
+        #define _gasneti_atomic64_compare_and_swap _gasneti_atomic64_compare_and_swap
       #elif defined(GASNETI_PPC64_ILP32_NATIVE_ATOMICS) /* ILP32 on 64-bit CPU */
 	#define GASNETI_HAVE_ATOMIC64_T 1
         typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
