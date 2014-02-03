@@ -86,12 +86,10 @@
     /* Generic implementation in terms of GCC's __sync atomics */
 
     /* GCC documentation promises a full memory barrier */
-    #undef _gasneti_atomic_fence_before_rmw
-    #undef _gasneti_atomic_fence_after_rmw
-    #undef _gasneti_atomic_fence_after_bool
-    #define _gasneti_atomic_fence_before_rmw(p,f)     /*empty*/
-    #define _gasneti_atomic_fence_after_rmw(p,f)      /*empty*/
-    #define _gasneti_atomic_fence_after_bool(p,f,v)   /*empty*/
+    #define _gasneti_atomic32_prologue_rmw(p,f)         /*empty*/
+    #define _gasneti_atomic32_fence_before_rmw(p,f)     /*empty*/
+    #define _gasneti_atomic32_fence_after_rmw(p,f)      /*empty*/
+    #define _gasneti_atomic32_fence_after_bool(p,f,v)   /*empty*/
 
     #define GASNETI_HAVE_ATOMIC32_T 1
     typedef struct { volatile uint32_t ctr; } gasneti_atomic32_t;
@@ -109,6 +107,11 @@
     #define gasneti_atomic32_compare_and_swap gasneti_atomic32_compare_and_swap
 
     #if PLATFORM_ARCH_64 /* TODO: on 32-bit platform should we still be able to use this? */
+      #define _gasneti_atomic64_prologue_rmw(p,f)         /*empty*/
+      #define _gasneti_atomic64_fence_before_rmw(p,f)     /*empty*/
+      #define _gasneti_atomic64_fence_after_rmw(p,f)      /*empty*/
+      #define _gasneti_atomic64_fence_after_bool(p,f,v)   /*empty*/
+
       #define GASNETI_HAVE_ATOMIC64_T 1
       typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
       #define gasneti_atomic64_init(v)       { (v) }
@@ -192,20 +195,26 @@
   #if PLATFORM_ARCH_X86 || PLATFORM_ARCH_X86_64 || PLATFORM_ARCH_MIC /* x86 and Athlon64/Opteron and MIC */
     /* We have a full memory barrier in all read-modify-write operations,
      * but NOT a compiler fence. */
-    #undef _gasneti_atomic_fence_before_rmw
-    #undef _gasneti_atomic_fence_after_rmw
-    #undef _gasneti_atomic_fence_after_bool
-    #define _gasneti_atomic_fence_before_rmw(p,f)     _gasneti_atomic_cf_before(f)
-    #define _gasneti_atomic_fence_after_rmw(p,f)      _gasneti_atomic_cf_after(f)
-    #define _gasneti_atomic_fence_after_bool(p,f,v)   /*empty*/
+    #define _gasneti_atomic32_prologue_rmw(p,f)         /*empty*/
+    #define _gasneti_atomic32_fence_before_rmw(p,f)     _gasneti_atomic_cf_before(f)
+    #define _gasneti_atomic32_fence_after_rmw(p,f)      _gasneti_atomic_cf_after(f)
+    #define _gasneti_atomic32_fence_after_bool(p,f,v)   _gasneti_atomic_cf_after(f)
 
-    /* We have NO fences in read or set, with one exception, and
-     * thus use the default fences.
-     *
-     * The exception is 64-bit read/set on ILP32, for which we just
-     * define fully fenced (no '_' prefix) variants since the logic
-     * for adding fencing does not (yet?) distinguish 32- vs 64-bit.
-     */
+    #define _gasneti_atomic64_prologue_rmw(p,f)         /*empty*/
+    #define _gasneti_atomic64_fence_before_rmw(p,f)     _gasneti_atomic_cf_before(f)
+    #define _gasneti_atomic64_fence_after_rmw(p,f)      _gasneti_atomic_cf_after(f)
+    #define _gasneti_atomic64_fence_after_bool(p,f,v)   _gasneti_atomic_cf_after(f)
+
+    /* The odd-ball is 64-bit read/set on ILP32, for which we have
+     * fully fenced read and set.  */
+    #if PLATFORM_ARCH_32
+      #define _gasneti_atomic64_prologue_set(p,f)       /*empty*/
+      #define _gasneti_atomic64_fence_before_set(p,f)   _gasneti_atomic_cf_before(f)
+      #define _gasneti_atomic64_fence_after_set(p,f)    _gasneti_atomic_cf_after(f)
+      #define _gasneti_atomic64_prologue_read(p,f)      /*empty*/
+      #define _gasneti_atomic64_fence_before_read(p,f)  _gasneti_atomic_cf_before(f)
+      #define _gasneti_atomic64_fence_after_read(p,f)   _gasneti_atomic_cf_after(f)
+    #endif
 
     #if PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_INTEL || \
         PLATFORM_COMPILER_PATHSCALE || GASNETI_PGI_ASM_THREADSAFE || \
@@ -395,9 +404,6 @@
 	 * 8-byte c-a-s instruction.  This is the only atomic 64-bit operation
 	 * available on this architecture.  Note that we need the lock prefix
 	 * even on a uniprocessor to ensure that we are signal safe.
-	 * Since we don't have separate _gasneti_atomic_fence_* macros for the
-	 * 64-bit types, we define the fully-fenced (non _-prefixed) versions
-	 * of read and set here, to avoid having them double fenced.
 	 *
 	 * See the following #elif/#else clauses for slight variants.
 	 */
@@ -415,8 +421,8 @@
           return (uint8_t)oldval;
         }
         #define _gasneti_atomic64_compare_and_swap _gasneti_atomic64_compare_and_swap
-        GASNETI_INLINE(gasneti_atomic64_set)
-        void gasneti_atomic64_set(gasneti_atomic64_t *p, uint64_t v, int flags) {
+        GASNETI_INLINE(_gasneti_atomic64_set)
+        void _gasneti_atomic64_set(gasneti_atomic64_t *p, uint64_t v) {
 	  GASNETI_ASM_REGISTER_KEYWORD uint64_t oldval = p->ctr;
 	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newlo = GASNETI_LOWORD(v);
 	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newhi = GASNETI_HIWORD(v);
@@ -430,12 +436,11 @@
 		    : "m" (p->ctr), "b" (newlo), "c" (newhi)
 		    : "cc", "memory");
 	}
-	#define gasneti_atomic64_set gasneti_atomic64_set
-        GASNETI_INLINE(gasneti_atomic64_read)
-        uint64_t gasneti_atomic64_read(gasneti_atomic64_t *p, const int flags) {
+	#define _gasneti_atomic64_set _gasneti_atomic64_set
+        GASNETI_INLINE(_gasneti_atomic64_read)
+        uint64_t _gasneti_atomic64_read(gasneti_atomic64_t *p) {
 	  GASNETI_ASM_REGISTER_KEYWORD uint64_t retval;
           _GASNETI_ATOMIC_CHECKALIGN(gasneti_atomic64_align, p);
-          _gasneti_atomic_cf_before(flags);
           __asm__ __volatile__ (
 		    /* Set [a:d] = [b:c], thus preserving b and c */
 		    "movl	%%ebx, %%eax	\n\t"
@@ -445,10 +450,9 @@
 		    : "=m" (p->ctr), "=&A" (retval)
 		    : "m" (p->ctr)
 		    : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
-          _gasneti_atomic_cf_after(flags);
 	  return retval;
 	}
-	#define gasneti_atomic64_read gasneti_atomic64_read
+	#define _gasneti_atomic64_read _gasneti_atomic64_read
       #elif (GASNETI_GCC_APPLE && defined(__llvm__)) /* bug 3071 */
         /* "Normal" ILP32 case except w/o "m" inputs or outputs to CAS and Set.
          * Such operands lead to "Ran out of registers during register allocation!"
@@ -469,8 +473,8 @@
           return (uint8_t)oldval;
         }
         #define _gasneti_atomic64_compare_and_swap _gasneti_atomic64_compare_and_swap
-        GASNETI_INLINE(gasneti_atomic64_set)
-        void gasneti_atomic64_set(gasneti_atomic64_t *p, uint64_t v, int flags) {
+        GASNETI_INLINE(_gasneti_atomic64_set)
+        void _gasneti_atomic64_set(gasneti_atomic64_t *p, uint64_t v) {
 	  GASNETI_ASM_REGISTER_KEYWORD uint64_t oldval = p->ctr;
 	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newlo = GASNETI_LOWORD(v);
 	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newhi = GASNETI_HIWORD(v);
@@ -484,12 +488,11 @@
 		    : "r" (&p->ctr), "b" (newlo), "c" (newhi)
 		    : "cc", "memory");
 	}
-	#define gasneti_atomic64_set gasneti_atomic64_set
-        GASNETI_INLINE(gasneti_atomic64_read)
-        uint64_t gasneti_atomic64_read(gasneti_atomic64_t *p, const int flags) {
+	#define _gasneti_atomic64_set _gasneti_atomic64_set
+        GASNETI_INLINE(_gasneti_atomic64_read)
+        uint64_t _gasneti_atomic64_read(gasneti_atomic64_t *p) {
 	  GASNETI_ASM_REGISTER_KEYWORD uint64_t retval;
           _GASNETI_ATOMIC_CHECKALIGN(gasneti_atomic64_align, p);
-          _gasneti_atomic_cf_before(flags);
           __asm__ __volatile__ (
 		    /* Set [a:d] = [b:c], thus preserving b and c */
 		    "movl	%%ebx, %%eax	\n\t"
@@ -499,10 +502,9 @@
 		    : "=m" (p->ctr), "=&A" (retval)
 		    : "m" (p->ctr)
 		    : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
-          _gasneti_atomic_cf_after(flags);
 	  return retval;
 	}
-	#define gasneti_atomic64_read gasneti_atomic64_read
+	#define _gasneti_atomic64_read _gasneti_atomic64_read
       #elif !GASNETI_USE_X86_EBX
 	/* Much the same as the "normal" ILP32 case, but w/ save and restore of EBX.
 	 * This is achieved by passing the "other" 64-bit value in ECX and a second
@@ -533,8 +535,8 @@
           return (uint8_t)oldval;
         }
         #define _gasneti_atomic64_compare_and_swap _gasneti_atomic64_compare_and_swap
-        GASNETI_INLINE(gasneti_atomic64_set)
-        void gasneti_atomic64_set(gasneti_atomic64_t *p, uint64_t v, int flags) {
+        GASNETI_INLINE(_gasneti_atomic64_set)
+        void _gasneti_atomic64_set(gasneti_atomic64_t *p, uint64_t v) {
 	  GASNETI_ASM_REGISTER_KEYWORD uint64_t oldval = p->ctr;
 	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newlo = GASNETI_LOWORD(v);
 	  GASNETI_ASM_REGISTER_KEYWORD uint32_t newhi = GASNETI_HIWORD(v);
@@ -550,12 +552,11 @@
 		    : "c" (newhi), "r" (&p->ctr)
 		    : "cc", "memory");
 	}
-	#define gasneti_atomic64_set gasneti_atomic64_set
-        GASNETI_INLINE(gasneti_atomic64_read)
-        uint64_t gasneti_atomic64_read(gasneti_atomic64_t *p, const int flags) {
+	#define _gasneti_atomic64_set _gasneti_atomic64_set
+        GASNETI_INLINE(_gasneti_atomic64_read)
+        uint64_t _gasneti_atomic64_read(gasneti_atomic64_t *p) {
 	  GASNETI_ASM_REGISTER_KEYWORD uint64_t retval;
           _GASNETI_ATOMIC_CHECKALIGN(gasneti_atomic64_align, p);
-          _gasneti_atomic_cf_before(flags);
           __asm__ __volatile__ (
 		    /* Set [a:d] = [b:c], thus preserving b and c */
 		    "movl	%%ebx, %%eax	\n\t"
@@ -565,10 +566,9 @@
 		    : "=m" (p->ctr), "=&A" (retval)
 		    : "r" (&p->ctr)
 		    : "cc");
-          _gasneti_atomic_cf_after(flags);
 	  return retval;
 	}
-	#define gasneti_atomic64_read gasneti_atomic64_read
+	#define _gasneti_atomic64_read _gasneti_atomic64_read
       #else /* Tiny CC, PGI and (GCC < 3.0.0) */
 	/* Everything here works like the "normal" ILP32 case, except that we break everything
 	 * down in to nice bite-sized (4-bytes actually) chunks and explictly assign
@@ -593,8 +593,8 @@
           return (uint8_t)oldlo;
         }
         #define _gasneti_atomic64_compare_and_swap _gasneti_atomic64_compare_and_swap
-        GASNETI_INLINE(gasneti_atomic64_set)
-        void gasneti_atomic64_set(gasneti_atomic64_t *p, uint64_t v, int flags) {
+        GASNETI_INLINE(_gasneti_atomic64_set)
+        void _gasneti_atomic64_set(gasneti_atomic64_t *p, uint64_t v) {
 	  uint64_t oldval = p->ctr;
 	  GASNETI_ASM_REGISTER_KEYWORD uint32_t oldlo = GASNETI_LOWORD(oldval);
 	  GASNETI_ASM_REGISTER_KEYWORD uint32_t oldhi = GASNETI_HIWORD(oldval);
@@ -610,12 +610,11 @@
 		    : "b" (newlo), "c" (newhi)
 		    : "cc", "memory");
 	}
-	#define gasneti_atomic64_set gasneti_atomic64_set
-        GASNETI_INLINE(gasneti_atomic64_read)
-        uint64_t gasneti_atomic64_read(gasneti_atomic64_t *p, const int flags) {
+	#define _gasneti_atomic64_set _gasneti_atomic64_set
+        GASNETI_INLINE(_gasneti_atomic64_read)
+        uint64_t _gasneti_atomic64_read(gasneti_atomic64_t *p) {
 	  GASNETI_ASM_REGISTER_KEYWORD uint32_t retlo, rethi;
           _GASNETI_ATOMIC_CHECKALIGN(gasneti_atomic64_align, p);
-          _gasneti_atomic_cf_before(flags);
           __asm__ __volatile__ (
 		    /* Set [a:d] = [b:c], thus preserving b and c */
 		    "movl	%%ebx, %%eax	\n\t"
@@ -625,10 +624,9 @@
 		    : "+m" (p->ctr), "=&a" (retlo),  "=&d" (rethi)
 		    : /* no inputs */
 		    : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
-          _gasneti_atomic_cf_after(flags);
 	  return GASNETI_MAKEWORD(rethi, retlo);
 	}
-	#define gasneti_atomic64_read gasneti_atomic64_read
+	#define _gasneti_atomic64_read _gasneti_atomic64_read
       #endif
 
       /* Optionally build a 128-bit atomic type using 64-bit types for all args */
@@ -1037,17 +1035,19 @@
     /* Since supported compilers are generating r-m-w with .acq variants, we can customize
      * the atomic fencing implementation by noting that "mf;; foo.acq" is a full memory
      * barrier both before and after. */
-    #undef _gasneti_atomic_fence_before_rmw
-    #undef _gasneti_atomic_fence_after_rmw
-    #undef _gasneti_atomic_fence_after_bool
-    #define _gasneti_atomic_fence_before_rmw(p, flags) \
+    #define _gasneti_atomic32_prologue_rmw(p,f) /*empty*/
+    #define _gasneti_atomic32_fence_before_rmw(p, flags) \
 	if (flags & (GASNETI_ATOMIC_MB_PRE | GASNETI_ATOMIC_MB_POST)) gasneti_local_mb();
-    #define _gasneti_atomic_fence_after_rmw(p, flags) \
+    #define _gasneti_atomic32_fence_after_rmw(p, flags) \
 	/* Nothing */
-    #define _gasneti_atomic_fence_after_bool(p, flags, val) \
+    #define _gasneti_atomic32_fence_after_bool(p, flags, val) \
 	if (!(flags & (GASNETI_ATOMIC_MB_PRE | GASNETI_ATOMIC_MB_POST))) \
 	  { if (((flags & GASNETI_ATOMIC_RMB_POST_IF_TRUE ) &&  val) || \
                 ((flags & GASNETI_ATOMIC_RMB_POST_IF_FALSE) && !val)) gasneti_local_rmb(); }
+    #define _gasneti_atomic64_prologue_rmw(p,f) /*empty*/
+    #define _gasneti_atomic64_fence_before_rmw  _gasneti_atomic32_fence_before_rmw
+    #define _gasneti_atomic64_fence_after_rmw   _gasneti_atomic32_fence_after_rmw
+    #define _gasneti_atomic64_fence_after_bool  _gasneti_atomic32_fence_after_bool
 
   /* ------------------------------------------------------------------------------------ */
   #elif PLATFORM_ARCH_SPARC
@@ -1816,12 +1816,10 @@
        * However, we could potentially improve peformance on SGI machines
        * as follows:
        * #if PLATFORM_OS_IRIX
-       *   #undef _gasneti_atomic_fence_before_rmw
-       *   #undef _gasneti_atomic_fence_after_rmw
-       *   #undef _gasneti_atomic_fence_after_bool
-       #   #define _gasneti_atomic_fence_before_rmw(p,f)     _gasneti_atomic_cf_before(f)
-       #   #define _gasneti_atomic_fence_after_rmw(p,f)      _gasneti_atomic_cf_after(f)
-       *   #define _gasneti_atomic_fence_after_bool(p,f,v)
+       *   #define _gasneti_atomic{32,64}_prologue_rmw(p,f)
+       #   #define _gasneti_atomic{32,64}_fence_before_rmw(p,f)     _gasneti_atomic_cf_before(f)
+       #   #define _gasneti_atomic{32,64}_fence_after_rmw(p,f)      _gasneti_atomic_cf_after(f)
+       *   #define _gasneti_atomic{32,64}_fence_after_bool(p,f,v)   _gasneti_atomic_cf_after(f)
        * #endif
        */
       /* No memory fences in our asm, so using default fences */
@@ -1927,12 +1925,10 @@
 
       /* Linux kernel sources say c-a-s "includes memory barriers as needed"
        * and our code includes a "memory" clobber (compiler fence). */
-      #undef _gasneti_atomic_fence_before_rmw
-      #undef _gasneti_atomic_fence_after_rmw
-      #undef _gasneti_atomic_fence_after_bool
-      #define _gasneti_atomic_fence_before_rmw(p,f)     /*empty*/
-      #define _gasneti_atomic_fence_after_rmw(p,f)      /*empty*/
-      #define _gasneti_atomic_fence_after_bool(p,f,v)   /*empty*/
+      #define _gasneti_atomic32_prologue_rmw(p,f)         /*empty*/
+      #define _gasneti_atomic32_fence_before_rmw(p,f)     /*empty*/
+      #define _gasneti_atomic32_fence_after_rmw(p,f)      /*empty*/
+      #define _gasneti_atomic32_fence_after_bool(p,f,v)   /*empty*/
     #else
       #error "unrecognized ARM compiler and/or OS - need to implement GASNet atomics (or #define GASNETI_USE_GENERIC_ATOMICOPS)"
     #endif

@@ -74,7 +74,7 @@
 #define _gasneti_atomic_cf_after(f)	if (f & GASNETI_ATOMIC_MASK_POST) gasneti_compiler_fence();
 #define _gasneti_atomic_cf_bool(f)	if (f & GASNETI_ATOMIC_MASK_BOOL) gasneti_compiler_fence();
 
-/* Part 1.  Removal of fences which are redundant on a given platform
+/* Fencing Part 1.  Removal of fences which are redundant on a given platform
  *	_gasneti_atomic_fence_{before,after}(flags)
  *	_gasneti_atomic_fence_bool(flags, value)
  *
@@ -141,26 +141,6 @@
         ((f & GASNETI_ATOMIC_RMB_POST_IF_FALSE) && !v)) gasneti_local_rmb();
 #endif
 
-/* Part 2. Fences for the platform-specific atomics, based on macros in Part 1.
- *	_gasneti_atomic_prologue_{set,read,rmw}(p, flags)
- *	_gasneti_atomic_fence_{before,after}_{set,read,rmw}(p, flags)
- *	_gasneti_atomic_fence_after_bool(p, flags, value)
- *
- * These can/should be redefined by the platform-specific code if there are
- * any fencing side-effects in the unfenced ("_" prefixed) implementaions.
- */
-#define _gasneti_atomic_prologue_set(p,f)          /*empty*/
-#define _gasneti_atomic_fence_before_set(p,f)      _gasneti_atomic_fence_before(f)
-#define _gasneti_atomic_fence_after_set(p,f)       _gasneti_atomic_fence_after(f)
-#define _gasneti_atomic_prologue_read(p,f)         /*empty*/
-#define _gasneti_atomic_fence_before_read(p,f)     _gasneti_atomic_fence_before(f)
-#define _gasneti_atomic_fence_after_read(p,f)      _gasneti_atomic_fence_after(f)
-#define _gasneti_atomic_prologue_rmw(p,f)          /*empty*/
-#define _gasneti_atomic_fence_before_rmw(p,f)      _gasneti_atomic_fence_before(f)
-#define _gasneti_atomic_fence_after_rmw(p,f)       _gasneti_atomic_fence_after(f)
-#define _gasneti_atomic_fence_after_bool(p,f,v)    _gasneti_atomic_fence_after(f)  \
-                                                   _gasneti_atomic_fence_bool(f,v)
-
 /* ------------------------------------------------------------------------------------ */
 /* Misc non-public definitions needed in the platform-specific parts */
 
@@ -170,6 +150,72 @@
 /* ------------------------------------------------------------------------------------ */
 /* All the platform-specific parts */
 #include <gasnet_atomic_bits.h>
+
+/* ------------------------------------------------------------------------------------ */
+/* Fencing Part 2. Fences for the platform-specific atomics, based on macros in Part 1.
+ *	_gasneti_atomic{,32,64}_prologue_{set,read,rmw}(p, flags)
+ *	_gasneti_atomic{,32,64}_fence_{before,after}_{set,read,rmw}(p, flags)
+ *	_gasneti_atomic{,32,64}_fence_after_bool(p, flags, value)
+ *
+ * These can/should be predefined by the platform-specific code if there are
+ * any fencing side-effects in the unfenced ("_" prefixed) implementaions.
+ * Such overrides must be applied to entire groups, as can be seen below.
+ *
+ * The "atomic_" are used if the platform defines GASNETI_HAVE_PRIVATE_ATOMIC_T.
+ * The "atomic32_" are used if the platform defines GASNETI_HAVE_ATOMIC32_T
+ * The "atomic64_" are used if the platform defines GASNETI_HAVE_ATOMIC64_T
+ */
+#ifndef _gasneti_atomic_prologue_set
+  #define _gasneti_atomic_prologue_set(p,f)          /*empty*/
+  #define _gasneti_atomic_fence_before_set(p,f)      _gasneti_atomic_fence_before(f)
+  #define _gasneti_atomic_fence_after_set(p,f)       _gasneti_atomic_fence_after(f)
+#endif
+#ifndef _gasneti_atomic32_prologue_set
+  #define _gasneti_atomic32_prologue_set(p,f)        /*empty*/
+  #define _gasneti_atomic32_fence_before_set(p,f)    _gasneti_atomic_fence_before(f)
+  #define _gasneti_atomic32_fence_after_set(p,f)     _gasneti_atomic_fence_after(f)
+#endif
+#ifndef _gasneti_atomic64_prologue_set
+  #define _gasneti_atomic64_prologue_set(p,f)        /*empty*/
+  #define _gasneti_atomic64_fence_before_set(p,f)    _gasneti_atomic_fence_before(f)
+  #define _gasneti_atomic64_fence_after_set(p,f)     _gasneti_atomic_fence_after(f)
+#endif
+#ifndef _gasneti_atomic_prologue_read
+  #define _gasneti_atomic_prologue_read(p,f)         /*empty*/
+  #define _gasneti_atomic_fence_before_read(p,f)     _gasneti_atomic_fence_before(f)
+  #define _gasneti_atomic_fence_after_read(p,f)      _gasneti_atomic_fence_after(f)
+#endif
+#ifndef _gasneti_atomic32_prologue_read
+  #define _gasneti_atomic32_prologue_read(p,f)       /*empty*/
+  #define _gasneti_atomic32_fence_before_read(p,f)   _gasneti_atomic_fence_before(f)
+  #define _gasneti_atomic32_fence_after_read(p,f)    _gasneti_atomic_fence_after(f)
+#endif
+#ifndef _gasneti_atomic64_prologue_read
+  #define _gasneti_atomic64_prologue_read(p,f)       /*empty*/
+  #define _gasneti_atomic64_fence_before_read(p,f)   _gasneti_atomic_fence_before(f)
+  #define _gasneti_atomic64_fence_after_read(p,f)    _gasneti_atomic_fence_after(f)
+#endif
+#ifndef _gasneti_atomic_prologue_rmw
+  #define _gasneti_atomic_prologue_rmw(p,f)          /*empty*/
+  #define _gasneti_atomic_fence_before_rmw(p,f)      _gasneti_atomic_fence_before(f)
+  #define _gasneti_atomic_fence_after_rmw(p,f)       _gasneti_atomic_fence_after(f)
+  #define _gasneti_atomic_fence_after_bool(p,f,v)    _gasneti_atomic_fence_after(f)  \
+                                                     _gasneti_atomic_fence_bool(f,v)
+#endif
+#ifndef _gasneti_atomic32_prologue_rmw
+  #define _gasneti_atomic32_prologue_rmw(p,f)        /*empty*/
+  #define _gasneti_atomic32_fence_before_rmw(p,f)    _gasneti_atomic_fence_before(f)
+  #define _gasneti_atomic32_fence_after_rmw(p,f)     _gasneti_atomic_fence_after(f)
+  #define _gasneti_atomic32_fence_after_bool(p,f,v)  _gasneti_atomic_fence_after(f)  \
+                                                     _gasneti_atomic_fence_bool(f,v)
+#endif
+#ifndef _gasneti_atomic64_prologue_rmw
+  #define _gasneti_atomic64_prologue_rmw(p,f)        /*empty*/
+  #define _gasneti_atomic64_fence_before_rmw(p,f)    _gasneti_atomic_fence_before(f)
+  #define _gasneti_atomic64_fence_after_rmw(p,f)     _gasneti_atomic_fence_after(f)
+  #define _gasneti_atomic64_fence_after_bool(p,f,v)  _gasneti_atomic_fence_after(f)  \
+                                                     _gasneti_atomic_fence_bool(f,v)
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 /* Fenced atomic templates, using the per-group fencing macros.
@@ -516,12 +562,12 @@ typedef int32_t gasneti_atomic32_sval_t;	/* For consistency in fencing macros */
 
   /* First define a fully-fenced addfetch if it appears to be needed */
   #if defined(_gasneti_atomic32_addfetch)
-    GASNETI_ATOMIC_FENCED_ADDFETCH_DEFN(atomic,                     \
+    GASNETI_ATOMIC_FENCED_ADDFETCH_DEFN(atomic32,                   \
                                         gasneti_atomic32_addfetch,  \
                                         _gasneti_atomic32_addfetch, \
                                         gasneti_atomic32_)
   #elif defined(_gasneti_atomic32_fetchadd)
-    GASNETI_ATOMIC_FENCED_ADDFETCH_DEFN(atomic,                          \
+    GASNETI_ATOMIC_FENCED_ADDFETCH_DEFN(atomic32,                        \
                                         gasneti_atomic32_addfetch,       \
                                         op + _gasneti_atomic32_fetchadd, \
                                         gasneti_atomic32_)
@@ -533,39 +579,39 @@ typedef int32_t gasneti_atomic32_sval_t;	/* For consistency in fencing macros */
   #endif
 
   #ifdef _gasneti_atomic32_set
-    #define gasneti_atomic32_set(p,v,f)	GASNETI_ATOMIC_FENCED_SET(atomic,_gasneti_atomic32_set,gasneti_atomic32_,p,v,f)
+    #define gasneti_atomic32_set(p,v,f) GASNETI_ATOMIC_FENCED_SET(atomic32,_gasneti_atomic32_set,gasneti_atomic32_,p,v,f)
   #endif
   #ifdef _gasneti_atomic32_read
-    GASNETI_ATOMIC_FENCED_READ_DEFN(atomic,gasneti_atomic32_read,_gasneti_atomic32_read,gasneti_atomic32_)
+    GASNETI_ATOMIC_FENCED_READ_DEFN(atomic32,gasneti_atomic32_read,_gasneti_atomic32_read,gasneti_atomic32_)
   #endif
   #ifdef _gasneti_atomic32_increment
-    #define gasneti_atomic32_increment(p,f) GASNETI_ATOMIC_FENCED_INCDEC(atomic,_gasneti_atomic32_increment,gasneti_atomic32_,p,f)
+    #define gasneti_atomic32_increment(p,f) GASNETI_ATOMIC_FENCED_INCDEC(atomic32,_gasneti_atomic32_increment,gasneti_atomic32_,p,f)
   #elif !defined(gasneti_atomic32_increment)
     #define gasneti_atomic32_increment(p,f) ((void)gasneti_atomic32_addfetch((p),1,(f)))
   #endif
   #ifdef _gasneti_atomic32_decrement
-    #define gasneti_atomic32_decrement(p,f) GASNETI_ATOMIC_FENCED_INCDEC(atomic,_gasneti_atomic32_decrement,gasneti_atomic32_,p,f)
+    #define gasneti_atomic32_decrement(p,f) GASNETI_ATOMIC_FENCED_INCDEC(atomic32,_gasneti_atomic32_decrement,gasneti_atomic32_,p,f)
   #elif !defined(gasneti_atomic32_decrement)
     #define gasneti_atomic32_decrement(p,f) ((void)gasneti_atomic32_addfetch((p),-1,(f)))
   #endif
   #ifdef _gasneti_atomic32_decrement_and_test
-    GASNETI_ATOMIC_FENCED_DECTEST_DEFN(atomic,gasneti_atomic32_decrement_and_test,_gasneti_atomic32_decrement_and_test,gasneti_atomic32_)
+    GASNETI_ATOMIC_FENCED_DECTEST_DEFN(atomic32,gasneti_atomic32_decrement_and_test,_gasneti_atomic32_decrement_and_test,gasneti_atomic32_)
   #elif !defined(gasneti_atomic32_decrement_and_test)
     #define gasneti_atomic32_decrement_and_test(p,f) (gasneti_atomic32_addfetch((p),-1,(f)) == 0)
   #endif
   #ifdef _gasneti_atomic32_compare_and_swap
-    GASNETI_ATOMIC_FENCED_CAS_DEFN(atomic,gasneti_atomic32_compare_and_swap,_gasneti_atomic32_compare_and_swap,gasneti_atomic32_)
+    GASNETI_ATOMIC_FENCED_CAS_DEFN(atomic32,gasneti_atomic32_compare_and_swap,_gasneti_atomic32_compare_and_swap,gasneti_atomic32_)
   #endif
   #ifdef _gasneti_atomic32_swap
-    GASNETI_ATOMIC_FENCED_SWAP_DEFN(atomic,gasneti_atomic32_swap,_gasneti_atomic32_swap,gasneti_atomic32_)
+    GASNETI_ATOMIC_FENCED_SWAP_DEFN(atomic32,gasneti_atomic32_swap,_gasneti_atomic32_swap,gasneti_atomic32_)
   #endif
   #ifdef _gasneti_atomic32_add
-    GASNETI_ATOMIC_FENCED_ADDSUB_DEFN(atomic,gasneti_atomic32_add,_gasneti_atomic32_add,gasneti_atomic32_)
+    GASNETI_ATOMIC_FENCED_ADDSUB_DEFN(atomic32,gasneti_atomic32_add,_gasneti_atomic32_add,gasneti_atomic32_)
   #elif !defined(gasneti_atomic32_add)
     #define gasneti_atomic32_add(p,op,f) ((uint32_t)gasneti_atomic32_addfetch((p),(op),(f)))
   #endif
   #ifdef _gasneti_atomic32_subtract
-    GASNETI_ATOMIC_FENCED_ADDSUB_DEFN(atomic,gasneti_atomic32_subtract,_gasneti_atomic32_subtract,gasneti_atomic32_)
+    GASNETI_ATOMIC_FENCED_ADDSUB_DEFN(atomic32,gasneti_atomic32_subtract,_gasneti_atomic32_subtract,gasneti_atomic32_)
   #elif !defined(gasneti_atomic32_subtract)
     #define gasneti_atomic32_subtract(p,op,f) ((uint32_t)gasneti_atomic32_addfetch((p),-(op),(f)))
   #endif
@@ -590,7 +636,7 @@ typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
   #define gasneti_atomic64_subtract(p,op,f)    ((uint64_t)gasneti_genatomic64_addfetch((p),-(op),(f)))
 #elif defined(GASNETI_HYBRID_ATOMIC64)
   /* Hybrid: need to runtime select between native and generic, based on alignment. */
-  #define __gasneti_atomic64_set(p,v,f)	GASNETI_ATOMIC_FENCED_SET(atomic,_gasneti_atomic64_set,gasneti_atomic64_,p,v,f)
+  #define __gasneti_atomic64_set(p,v,f) GASNETI_ATOMIC_FENCED_SET(atomic64,_gasneti_atomic64_set,gasneti_atomic64_,p,v,f)
   #define gasneti_atomic64_set(p,v,f) do {                                   \
       const int __flags = (f);                                               \
       const uint64_t __v = (v);                                              \
@@ -601,7 +647,7 @@ typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
 	gasneti_genatomic64_set((gasneti_genatomic64_t *)__p, __v, __flags); \
       }                                                                      \
     } while (0)
-  GASNETI_ATOMIC_FENCED_READ_DEFN(atomic,__gasneti_atomic64_read,_gasneti_atomic64_read,gasneti_atomic64_)
+  GASNETI_ATOMIC_FENCED_READ_DEFN(atomic64,__gasneti_atomic64_read,_gasneti_atomic64_read,gasneti_atomic64_)
   GASNETI_INLINE(gasneti_atomic64_read)
   uint64_t gasneti_atomic64_read(gasneti_atomic64_t *p, const int flags) {
     if_pt (!((uintptr_t)p & 0x7)) {
@@ -610,7 +656,7 @@ typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
       return gasneti_genatomic64_read((gasneti_genatomic64_t *)p, flags);
     }
   }
-  GASNETI_ATOMIC_FENCED_CAS_DEFN(atomic,__gasneti_atomic64_compare_and_swap,_gasneti_atomic64_compare_and_swap,gasneti_atomic64_)
+  GASNETI_ATOMIC_FENCED_CAS_DEFN(atomic64,__gasneti_atomic64_compare_and_swap,_gasneti_atomic64_compare_and_swap,gasneti_atomic64_)
   GASNETI_INLINE(gasneti_atomic64_compare_and_swap)
   int gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval,
 					uint64_t newval, const int flags) {
@@ -623,13 +669,13 @@ typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
 #else
   /* Define 64-bit width atomics in terms of un-fenced native atomics */
   #ifdef _gasneti_atomic64_set
-    #define gasneti_atomic64_set(p,v,f)	GASNETI_ATOMIC_FENCED_SET(atomic,_gasneti_atomic64_set,gasneti_atomic64_,p,v,f)
+    #define gasneti_atomic64_set(p,v,f) GASNETI_ATOMIC_FENCED_SET(atomic64,_gasneti_atomic64_set,gasneti_atomic64_,p,v,f)
   #endif
   #ifdef _gasneti_atomic64_read
-    GASNETI_ATOMIC_FENCED_READ_DEFN(atomic,gasneti_atomic64_read,_gasneti_atomic64_read,gasneti_atomic64_)
+    GASNETI_ATOMIC_FENCED_READ_DEFN(atomic64,gasneti_atomic64_read,_gasneti_atomic64_read,gasneti_atomic64_)
   #endif
   #ifdef _gasneti_atomic64_compare_and_swap
-    GASNETI_ATOMIC_FENCED_CAS_DEFN(atomic,gasneti_atomic64_compare_and_swap,_gasneti_atomic64_compare_and_swap,gasneti_atomic64_)
+    GASNETI_ATOMIC_FENCED_CAS_DEFN(atomic64,gasneti_atomic64_compare_and_swap,_gasneti_atomic64_compare_and_swap,gasneti_atomic64_)
   #endif
 #endif
 
