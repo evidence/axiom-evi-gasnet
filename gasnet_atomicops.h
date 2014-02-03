@@ -509,19 +509,65 @@ typedef int32_t gasneti_atomic32_sval_t;	/* For consistency in fencing macros */
   #define gasneti_atomic32_decrement_and_test  gasneti_genatomic32_decrement_and_test
   #define gasneti_atomic32_compare_and_swap    gasneti_genatomic32_compare_and_swap
   #define gasneti_atomic32_swap                gasneti_genatomic32_swap
-  #define gasneti_atomic32_addfetch            gasneti_genatomic32_addfetch
+  #define gasneti_atomic32_add(p,op,f)         ((uint32_t)gasneti_genatomic32_addfetch((p),(op),(f)))
+  #define gasneti_atomic32_subtract(p,op,f)    ((uint32_t)gasneti_genatomic32_addfetch((p),-(op),(f)))
 #else
   /* Define 32-bit fixed-width atomics in terms of un-fenced native atomics */
-  #ifndef gasneti_atomic32_set
+
+  /* First define a fully-fenced addfetch if it appears to be needed */
+  #if defined(_gasneti_atomic32_addfetch)
+    GASNETI_ATOMIC_FENCED_ADDFETCH_DEFN(atomic,                     \
+                                        gasneti_atomic32_addfetch,  \
+                                        _gasneti_atomic32_addfetch, \
+                                        gasneti_atomic32_)
+  #elif defined(_gasneti_atomic32_fetchadd)
+    GASNETI_ATOMIC_FENCED_ADDFETCH_DEFN(atomic,                          \
+                                        gasneti_atomic32_addfetch,       \
+                                        op + _gasneti_atomic32_fetchadd, \
+                                        gasneti_atomic32_)
+  #elif defined(gasneti_atomic32_fetchadd)
+    GASNETI_INLINE(gasneti_atomic32_addfetch)
+    uint32_t gasneti_atomic32_addfetch(gasneti_atomic32_t *p, int32_t op, int f) {
+      return (uint32_t)(gasneti_atomic32_fetchadd(p,op,f) + op);
+    }
+  #endif
+
+  #ifdef _gasneti_atomic32_set
     #define gasneti_atomic32_set(p,v,f)	GASNETI_ATOMIC_FENCED_SET(atomic,_gasneti_atomic32_set,gasneti_atomic32_,p,v,f)
   #endif
-  #ifndef gasneti_atomic32_read
+  #ifdef _gasneti_atomic32_read
     GASNETI_ATOMIC_FENCED_READ_DEFN(atomic,gasneti_atomic32_read,_gasneti_atomic32_read,gasneti_atomic32_)
-    #define gasneti_atomic32_read
   #endif
-  #ifndef gasneti_atomic32_compare_and_swap
+  #ifdef _gasneti_atomic32_increment
+    #define gasneti_atomic32_increment(p,f) GASNETI_ATOMIC_FENCED_INCDEC(atomic,_gasneti_atomic32_increment,gasneti_atomic32_,p,f)
+  #elif !defined(gasneti_atomic32_increment)
+    #define gasneti_atomic32_increment(p,f) ((void)gasneti_atomic32_addfetch((p),1,(f)))
+  #endif
+  #ifdef _gasneti_atomic32_decrement
+    #define gasneti_atomic32_decrement(p,f) GASNETI_ATOMIC_FENCED_INCDEC(atomic,_gasneti_atomic32_decrement,gasneti_atomic32_,p,f)
+  #elif !defined(gasneti_atomic32_decrement)
+    #define gasneti_atomic32_decrement(p,f) ((void)gasneti_atomic32_addfetch((p),-1,(f)))
+  #endif
+  #ifdef _gasneti_atomic32_decrement_and_test
+    GASNETI_ATOMIC_FENCED_DECTEST_DEFN(atomic,gasneti_atomic32_decrement_and_test,_gasneti_atomic32_decrement_and_test,gasneti_atomic32_)
+  #elif !defined(gasneti_atomic32_decrement_and_test)
+    #define gasneti_atomic32_decrement_and_test(p,f) (gasneti_atomic32_addfetch((p),-1,(f)) == 0)
+  #endif
+  #ifdef _gasneti_atomic32_compare_and_swap
     GASNETI_ATOMIC_FENCED_CAS_DEFN(atomic,gasneti_atomic32_compare_and_swap,_gasneti_atomic32_compare_and_swap,gasneti_atomic32_)
-    #define gasneti_atomic32_compare_and_swap gasneti_atomic32_compare_and_swap
+  #endif
+  #ifdef _gasneti_atomic32_swap
+    GASNETI_ATOMIC_FENCED_SWAP_DEFN(atomic,gasneti_atomic32_swap,_gasneti_atomic32_swap,gasneti_atomic32_)
+  #endif
+  #ifdef _gasneti_atomic32_add
+    GASNETI_ATOMIC_FENCED_ADDSUB_DEFN(atomic,gasneti_atomic32_add,_gasneti_atomic32_add,gasneti_atomic32_)
+  #elif !defined(gasneti_atomic32_add)
+    #define gasneti_atomic32_add(p,op,f) ((uint32_t)gasneti_atomic32_addfetch((p),(op),(f)))
+  #endif
+  #ifdef _gasneti_atomic32_subtract
+    GASNETI_ATOMIC_FENCED_ADDSUB_DEFN(atomic,gasneti_atomic32_subtract,_gasneti_atomic32_subtract,gasneti_atomic32_)
+  #elif !defined(gasneti_atomic32_subtract)
+    #define gasneti_atomic32_subtract(p,op,f) ((uint32_t)gasneti_atomic32_addfetch((p),-(op),(f)))
   #endif
 #endif
 
@@ -617,138 +663,53 @@ typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
   #define GASNETI_ATOMIC_MAX			((gasneti_atomic_val_t)0xFFFFFFFFU)
   #define GASNETI_ATOMIC_SIGNED_MIN		((gasneti_atomic_sval_t)0x80000000)
   #define GASNETI_ATOMIC_SIGNED_MAX		((gasneti_atomic_sval_t)0x7FFFFFFF)
-  #define gasneti_atomic_align			gasneti_atomic32_align
-
-  /* Required parts: */
-  #define gasneti_atomic_t			gasneti_atomic32_t
-  #define gasneti_atomic_init			gasneti_atomic32_init
-  #define gasneti_atomic_set                    gasneti_atomic32_set
-  #define gasneti_atomic_read                   gasneti_atomic32_read
-  #define gasneti_atomic_compare_and_swap       gasneti_atomic32_compare_and_swap
-  #define GASNETI_HAVE_ATOMIC_CAS		1
-
-  /* Optional parts: */
-  #if defined(gasneti_atomic32_swap)
-    #define gasneti_atomic_swap                 gasneti_atomic32_swap
-  #elif defined(_gasneti_atomic32_swap)
-    #define _gasneti_atomic_swap                _gasneti_atomic32_swap
-  #endif
-  #if defined(gasneti_atomic32_increment)
-    #define gasneti_atomic_increment		gasneti_atomic32_increment
-  #elif defined(_gasneti_atomic32_increment)
-    #define _gasneti_atomic_increment		_gasneti_atomic32_increment
-  #endif
-  #if defined(gasneti_atomic32_decrement)
-    #define gasneti_atomic_decrement		gasneti_atomic32_decrement
-  #elif defined(_gasneti_atomic32_decrement)
-    #define _gasneti_atomic_decrement		_gasneti_atomic32_decrement
-  #endif
-  #if defined(gasneti_atomic32_decrement_and_test)
-    #define gasneti_atomic_decrement_and_test	gasneti_atomic32_decrement_and_test
-  #elif defined(_gasneti_atomic32_decrement_and_test)
-    #define _gasneti_atomic_decrement_and_test	_gasneti_atomic32_decrement_and_test
-  #endif
-  #if defined(gasneti_atomic32_add)
-    #define gasneti_atomic_add			gasneti_atomic32_add
-  #elif defined(_gasneti_atomic32_add)
-    #define _gasneti_atomic_add			_gasneti_atomic32_add
-  #endif
-  #if defined(gasneti_atomic32_subtract)
-    #define gasneti_atomic_subtract		gasneti_atomic32_subtract
-  #elif defined(_gasneti_atomic32_subtract)
-    #define _gasneti_atomic_subtract		_gasneti_atomic32_subtract
-  #endif
-
-  /* Optional internal parts: */
-  #if defined(gasneti_atomic32_addfetch)
-    #define gasneti_atomic_addfetch		gasneti_atomic32_addfetch
-  #elif defined(gasneti_atomic32_fetchadd)
-    #define gasneti_atomic_fetchadd		gasneti_atomic32_fetchadd
-  #elif defined(_gasneti_atomic32_addfetch)
-    #define _gasneti_atomic_addfetch		_gasneti_atomic32_addfetch
-  #elif defined(_gasneti_atomic32_fetchadd)
-    #define _gasneti_atomic_fetchadd		_gasneti_atomic32_fetchadd
-  #endif
 
   #if defined(GASNETI_USE_GENERIC_ATOMIC32)
     #ifndef GASNETI_USE_GENERIC_ATOMICOPS
       #define GASNETI_USE_GENERIC_ATOMICOPS 1
     #endif
-    #define GASNETI_HAVE_ATOMIC_ADD_SUB 1
-    #define GASNETI_HAVE_ATOMIC_SWAP 1
   #endif
   #ifdef GASNETI_ATOMIC32_NOT_SIGNALSAFE
     #define GASNETI_ATOMICOPS_NOT_SIGNALSAFE 1
   #endif
+
+  #define _gasneti_atomic_by_sz(_id)    gasneti_atomic32_##_id
 #elif defined(GASNETI_USE_64BIT_ATOMICS)
   typedef uint64_t			gasneti_atomic_val_t;
   typedef int64_t			gasneti_atomic_sval_t;
   #define GASNETI_ATOMIC_MAX		((gasneti_atomic_val_t)0xFFFFFFFFFFFFFFFFLLU)
   #define GASNETI_ATOMIC_SIGNED_MIN	((gasneti_atomic_sval_t)0x8000000000000000LL)
   #define GASNETI_ATOMIC_SIGNED_MAX	((gasneti_atomic_sval_t)0x7FFFFFFFFFFFFFFFLL)
-  #define gasneti_atomic_align		gasneti_atomic64_align
-
-  /* Required parts: */
-  #define gasneti_atomic_t			gasneti_atomic64_t
-  #define gasneti_atomic_init			gasneti_atomic64_init
-  #define gasneti_atomic_set                    gasneti_atomic64_set
-  #define gasneti_atomic_read                   gasneti_atomic64_read
-  #define gasneti_atomic_compare_and_swap       gasneti_atomic64_compare_and_swap
-  #define GASNETI_HAVE_ATOMIC_CAS		1
-
-  /* Optional parts: */
-  #if defined(gasneti_atomic64_swap)
-    #define gasneti_atomic_swap                 gasneti_atomic64_swap
-  #elif defined(_gasneti_atomic64_swap)
-    #define _gasneti_atomic_swap                _gasneti_atomic64_swap
-  #endif
-  #if defined(gasneti_atomic64_increment)
-    #define gasneti_atomic_increment		gasneti_atomic64_increment
-  #elif defined(_gasneti_atomic64_increment)
-    #define _gasneti_atomic_increment		_gasneti_atomic64_increment
-  #endif
-  #if defined(gasneti_atomic64_decrement)
-    #define gasneti_atomic_decrement		gasneti_atomic64_decrement
-  #elif defined(_gasneti_atomic64_decrement)
-    #define _gasneti_atomic_decrement		_gasneti_atomic64_decrement
-  #endif
-  #if defined(gasneti_atomic64_decrement_and_test)
-    #define gasneti_atomic_decrement_and_test	gasneti_atomic64_decrement_and_test
-  #elif defined(_gasneti_atomic64_decrement_and_test)
-    #define _gasneti_atomic_decrement_and_test	_gasneti_atomic64_decrement_and_test
-  #endif
-  #if defined(gasneti_atomic64_add)
-    #define gasneti_atomic_add			gasneti_atomic64_add
-  #elif defined(_gasneti_atomic64_add)
-    #define _gasneti_atomic_add			_gasneti_atomic64_add
-  #endif
-  #if defined(gasneti_atomic64_subtract)
-    #define gasneti_atomic_subtract		gasneti_atomic64_subtract
-  #elif defined(_gasneti_atomic64_subtract)
-    #define _gasneti_atomic_subtract		_gasneti_atomic64_subtract
-  #endif
-
-  /* Optional internal parts: */
-  #if defined(gasneti_atomic64_addfetch)
-    #define gasneti_atomic_addfetch		gasneti_atomic64_addfetch
-  #elif defined(gasneti_atomic64_fetchadd)
-    #define gasneti_atomic_fetchadd		gasneti_atomic64_fetchadd
-  #elif defined(_gasneti_atomic64_addfetch)
-    #define _gasneti_atomic_addfetch		_gasneti_atomic64_addfetch
-  #elif defined(_gasneti_atomic64_fetchadd)
-    #define _gasneti_atomic_fetchadd		_gasneti_atomic64_fetchadd
-  #endif
 
   #if defined(GASNETI_USE_GENERIC_ATOMIC64)
     #ifndef GASNETI_USE_GENERIC_ATOMICOPS
       #define GASNETI_USE_GENERIC_ATOMICOPS 1
     #endif
-    #define GASNETI_HAVE_ATOMIC_ADD_SUB 1
-    #define GASNETI_HAVE_ATOMIC_SWAP 1
   #endif
   #ifdef GASNETI_ATOMIC64_NOT_SIGNALSAFE
     #define GASNETI_ATOMICOPS_NOT_SIGNALSAFE 1
   #endif
+
+  #define _gasneti_atomic_by_sz(_id)    gasneti_atomic64_##_id
+#endif
+
+#ifdef _gasneti_atomic_by_sz
+  #define gasneti_atomic_t			_gasneti_atomic_by_sz(t)
+  #define gasneti_atomic_align			_gasneti_atomic_by_sz(align)
+  #define gasneti_atomic_init			_gasneti_atomic_by_sz(init)
+  #define gasneti_atomic_set                    _gasneti_atomic_by_sz(set)
+  #define gasneti_atomic_read                   _gasneti_atomic_by_sz(read)
+  #define gasneti_atomic_compare_and_swap       _gasneti_atomic_by_sz(compare_and_swap)
+  #define gasneti_atomic_swap                   _gasneti_atomic_by_sz(swap)
+  #define gasneti_atomic_increment              _gasneti_atomic_by_sz(increment)
+  #define gasneti_atomic_decrement              _gasneti_atomic_by_sz(decrement)
+  #define gasneti_atomic_decrement_and_test     _gasneti_atomic_by_sz(decrement_and_test)
+  #define gasneti_atomic_add                    _gasneti_atomic_by_sz(add)
+  #define gasneti_atomic_subtract               _gasneti_atomic_by_sz(subtract)
+
+  #define GASNETI_HAVE_ATOMIC_CAS               1
+  #define GASNETI_HAVE_ATOMIC_SWAP              1
+  #define GASNETI_HAVE_ATOMIC_ADD_SUB           1
 #endif
 
 /* ------------------------------------------------------------------------------------ */
@@ -796,53 +757,6 @@ typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
     #define gasneti_atomic64_set gasneti_slow_atomic64_set
     GASNETI_EXTERNC int gasneti_slow_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval, const int flags);
     #define gasneti_atomic64_compare_and_swap gasneti_slow_atomic64_compare_and_swap
-  #endif
-#endif
-
-/* ------------------------------------------------------------------------------------ */
-/* Default increment, decrement, decrement-and-test, add and subtract atomics in
- * terms of addfetch, fetachadd or compare-and-swap.
- */
-
-#if defined(GASNETI_USING_SLOW_ATOMICS)
-  /* No default atomics built when using "slow" atomics. */
-#else
-  /* First define a fully-fenced addfetch if it appears to be needed */
-  #if defined(_gasneti_atomic_addfetch)
-    GASNETI_ATOMIC_FENCED_ADDFETCH_DEFN(atomic,                   \
-                                        gasneti_atomic_addfetch,  \
-                                        _gasneti_atomic_addfetch, \
-                                        gasneti_atomic_)
-  #elif defined(_gasneti_atomic_fetchadd)
-    GASNETI_ATOMIC_FENCED_ADDFETCH_DEFN(atomic,                        \
-                                        gasneti_atomic_addfetch,       \
-                                        op + _gasneti_atomic_fetchadd, \
-                                        gasneti_atomic_)
-  #elif defined(gasneti_atomic_fetchadd)
-    GASNETI_INLINE(gasneti_atomic_addfetch)
-    gasneti_atomic_val_t gasneti_atomic_addfetch(gasneti_atomic_t *p, gasneti_atomic_sval_t op, int f) {
-      return (gasneti_atomic_val_t)(gasneti_atomic_fetchadd(p,op,f) + op);
-    }
-  #endif
-
-  #ifndef gasneti_atomic_increment
-    #define gasneti_atomic_increment(p,f)	((void)gasneti_atomic_addfetch((p),1,(f)))
-  #endif
-  #ifndef gasneti_atomic_decrement
-    #define gasneti_atomic_decrement(p,f)	((void)gasneti_atomic_addfetch((p),-1,(f)))
-  #endif
-  #ifndef gasneti_atomic_decrement_and_test
-    #define gasneti_atomic_decrement_and_test(p,f) \
-						(gasneti_atomic_addfetch((p),-1,(f)) == 0)
-  #endif
-  #ifndef gasneti_atomic_add
-    #define gasneti_atomic_add(p,op,f)		((gasneti_atomic_val_t)(gasneti_atomic_addfetch((p),(op),(f))))
-  #endif
-  #ifndef gasneti_atomic_subtract
-    #define gasneti_atomic_subtract(p,op,f)	((gasneti_atomic_val_t)(gasneti_atomic_addfetch((p),-(op),(f))))
-  #endif
-  #ifndef GASNETI_HAVE_ATOMIC_ADD_SUB
-    #define GASNETI_HAVE_ATOMIC_ADD_SUB 	1
   #endif
 #endif
 

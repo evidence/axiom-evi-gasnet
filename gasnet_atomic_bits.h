@@ -320,6 +320,7 @@
           return retval;
 	#endif
       }
+      #define _gasneti_atomic32_compare_and_swap _gasneti_atomic32_compare_and_swap
 
       GASNETI_INLINE(_gasneti_atomic32_fetchadd)
       uint32_t _gasneti_atomic32_fetchadd(gasneti_atomic32_t *v, int32_t op) {
@@ -1098,6 +1099,7 @@
               : "r"(oldval), "r"(addr), "m"(v->ctr) );
           return (int)(newval == oldval);
         }
+        #define _gasneti_atomic32_compare_and_swap _gasneti_atomic32_compare_and_swap
 
         #if PLATFORM_ARCH_64
           #define GASNETI_HAVE_ATOMIC64_T 1
@@ -1529,6 +1531,7 @@
   
         return (result == 0);
       } 
+      #define _gasneti_atomic32_compare_and_swap _gasneti_atomic32_compare_and_swap
 
       #if PLATFORM_ARCH_64
 	#define GASNETI_HAVE_ATOMIC64_T 1
@@ -1768,6 +1771,7 @@
         __gasneti_atomic32_compare_and_swap_inner(retval, p, oldval, newval);
         return retval;
       }
+      #define _gasneti_atomic32_compare_and_swap _gasneti_atomic32_compare_and_swap
 
       #if defined(_MIPS_SIM) && (_MIPS_SIM >= 2) /* N32 or 64-bit ABI */
         #define GASNETI_HAVE_ATOMIC64_T 1
@@ -1909,6 +1913,7 @@
 
 	return !result;
       } 
+      #define _gasneti_atomic32_compare_and_swap _gasneti_atomic32_compare_and_swap
 
       /* Linux kernel sources say c-a-s "includes memory barriers as needed"
        * and our code includes a "memory" clobber (compiler fence). */
