@@ -317,10 +317,188 @@
   }
 
 /* ------------------------------------------------------------------------------------ */
-/* Define the fixed-width atomics in terms of the generic (mutex based) types if requested
+/* Fenced generic atomics, if needed, using per-platform defns and the macros above.
  */
 
-#ifdef GASNETI_USE_GENERIC_ATOMIC32
+#if defined(GASNETI_BUILD_GENERIC_ATOMIC32) || defined(GASNETI_BUILD_GENERIC_ATOMIC64)
+  /* Fences for the generics */
+  #ifndef GASNETI_GENATOMIC_LOCK
+    /* Not locking, so use full fences */
+    #define _gasneti_genatomic_prologue_set(p,f)        /*empty*/
+    #define _gasneti_genatomic_prologue_read(p,f)       /*empty*/
+    #define _gasneti_genatomic_prologue_rmw(p,f)        /*empty*/
+    #define _gasneti_genatomic_fence_before_rmw(p,f)    _gasneti_atomic_fence_before(f)
+    #define _gasneti_genatomic_fence_after_rmw(p,f)     _gasneti_atomic_fence_after(f)
+    #define _gasneti_genatomic_fence_after_bool(p,f,v)  _gasneti_atomic_fence_bool(f,v)
+    #define _GASNETI_GENATOMIC_DECL_AND_DEFN(_sz)                                     \
+      typedef volatile uint##_sz##_t gasneti_genatomic##_sz##_t;                      \
+      typedef uint##_sz##_t gasneti_genatomic##_sz##_val_t;                           \
+      typedef int##_sz##_t gasneti_genatomic##_sz##_sval_t;                           \
+      GASNETI_ATOMIC_FENCED_SET_DEFN(genatomic,                                       \
+                                     gasneti_genatomic##_sz##_set,                    \
+                                     _gasneti_scalar_atomic_set,                      \
+                                     gasneti_genatomic##_sz##_)                       \
+      GASNETI_ATOMIC_FENCED_INCDEC_DEFN(genatomic,                                    \
+                                        gasneti_genatomic##_sz##_increment,           \
+                                        _gasneti_scalar_atomic_increment,             \
+                                        gasneti_genatomic##_sz##_)                    \
+      GASNETI_ATOMIC_FENCED_INCDEC_DEFN(genatomic,                                    \
+                                        gasneti_genatomic##_sz##_decrement,           \
+                                        _gasneti_scalar_atomic_decrement,             \
+                                        gasneti_genatomic##_sz##_)                    \
+      GASNETI_ATOMIC_FENCED_DECTEST_DEFN(genatomic,                                   \
+                                         gasneti_genatomic##_sz##_decrement_and_test, \
+                                         _gasneti_scalar_atomic_decrement_and_test,   \
+                                         gasneti_genatomic##_sz##_)                   \
+      GASNETI_ATOMIC_FENCED_CAS_DEFN(genatomic,                                       \
+                                     gasneti_genatomic##_sz##_compare_and_swap,       \
+                                     _gasneti_scalar_atomic_compare_and_swap,         \
+                                     gasneti_genatomic##_sz##_)                       \
+      GASNETI_SCALAR_ATOMIC_SWAP_DEFN(_gasneti_genatomic##_sz##_swap,                 \
+                                      gasneti_genatomic##_sz##_)                      \
+      GASNETI_ATOMIC_FENCED_SWAP_DEFN(genatomic,                                      \
+                                      gasneti_genatomic##_sz##_swap,                  \
+                                      _gasneti_genatomic##_sz##_swap,                 \
+                                      gasneti_genatomic##_sz##_)                      \
+      GASNETI_ATOMIC_FENCED_ADDFETCH_DEFN(genatomic,                                  \
+                                          gasneti_genatomic##_sz##_addfetch,          \
+                                          _gasneti_scalar_atomic_addfetch,            \
+                                          gasneti_genatomic##_sz##_)
+  #else /* Mutex-based (HSL or pthread mutex) versions */
+    /* The lock acquire includes RMB and release includes WMB */
+    #define _gasneti_genatomic_prologue_set(p,f)        GASNETI_GENATOMIC_LOCK_PREP(p);
+    #define _gasneti_genatomic_prologue_read(p,f)       /*empty*/
+    #define _gasneti_genatomic_prologue_rmw(p,f)        GASNETI_GENATOMIC_LOCK_PREP(p);
+    #define _gasneti_genatomic_fence_before_rmw(p,f)	_gasneti_atomic_fence_before((f&~GASNETI_ATOMIC_RMB_PRE)) \
+							GASNETI_GENATOMIC_LOCK();
+    #define _gasneti_genatomic_fence_after_rmw(p,f)	GASNETI_GENATOMIC_UNLOCK();   \
+							_gasneti_atomic_fence_after((f&~GASNETI_ATOMIC_WMB_POST))
+    #define _gasneti_genatomic_fence_after_bool(p,f,v)	GASNETI_GENATOMIC_UNLOCK();   \
+							_gasneti_atomic_fence_after((f&~GASNETI_ATOMIC_WMB_POST))\
+							_gasneti_atomic_fence_bool(f,v)
+
+    /* Because HSL's are not yet available (bug 693: avoid header dependency cycle),
+     * we don't define the lock-acquiring operations as inlines.
+     * Therefore, we declared them here but define them in gasnet_{internal,tools}.c
+     */
+    #define _GASNETI_GENATOMIC_DECL_AND_DEFN(_sz)                                            \
+      typedef volatile uint##_sz##_t gasneti_genatomic##_sz##_t;                             \
+      typedef uint##_sz##_t gasneti_genatomic##_sz##_val_t;                                  \
+      typedef int##_sz##_t gasneti_genatomic##_sz##_sval_t;                                  \
+      GASNETI_BEGIN_EXTERNC                                                                  \
+      extern void gasneti_genatomic##_sz##_set(gasneti_genatomic##_sz##_t *p,                \
+                                               gasneti_genatomic##_sz##_val_t v,             \
+                                               const int flags);                             \
+      extern void gasneti_genatomic##_sz##_increment(gasneti_genatomic##_sz##_t *p,          \
+                                                     const int flags);                       \
+      extern void gasneti_genatomic##_sz##_decrement(gasneti_genatomic##_sz##_t *p,          \
+                                                     const int flags);                       \
+      extern int gasneti_genatomic##_sz##_decrement_and_test(gasneti_genatomic##_sz##_t *p,  \
+                                                             int flags);                     \
+      extern int gasneti_genatomic##_sz##_compare_and_swap(gasneti_genatomic##_sz##_t *p,    \
+                                                           uint##_sz##_t oldval,             \
+                                                           uint##_sz##_t newval,             \
+                                                           int flags);                       \
+      extern uint##_sz##_t gasneti_genatomic##_sz##_swap(gasneti_genatomic##_sz##_t *p,      \
+                                                         uint##_sz##_t val,                  \
+                                                         int flags);                         \
+      extern uint##_sz##_t gasneti_genatomic##_sz##_addfetch(gasneti_genatomic##_sz##_t *p,  \
+                                                             int##_sz##_t op,                \
+                                                             int flags);                     \
+      GASNETI_END_EXTERNC
+    #define _GASNETI_GENATOMIC_DEFN(_sz)                                                         \
+      GASNETI_ATOMIC_FENCED_SET_DEFN_NOT_INLINE(genatomic,                                       \
+                                                gasneti_genatomic##_sz##_set,                    \
+                                                _gasneti_scalar_atomic_set,                      \
+                                                gasneti_genatomic##_sz##_)                       \
+      GASNETI_ATOMIC_FENCED_INCDEC_DEFN_NOT_INLINE(genatomic,                                    \
+                                                   gasneti_genatomic##_sz##_increment,           \
+                                                   _gasneti_scalar_atomic_increment,             \
+                                                   gasneti_genatomic##_sz##_)                    \
+      GASNETI_ATOMIC_FENCED_INCDEC_DEFN_NOT_INLINE(genatomic,                                    \
+                                                   gasneti_genatomic##_sz##_decrement,           \
+                                                   _gasneti_scalar_atomic_decrement,             \
+                                                   gasneti_genatomic##_sz##_)                    \
+      GASNETI_ATOMIC_FENCED_DECTEST_DEFN_NOT_INLINE(genatomic,                                   \
+                                                    gasneti_genatomic##_sz##_decrement_and_test, \
+                                                    _gasneti_scalar_atomic_decrement_and_test,   \
+                                                    gasneti_genatomic##_sz##_)                   \
+      GASNETI_ATOMIC_FENCED_CAS_DEFN_NOT_INLINE(genatomic,                                       \
+                                                gasneti_genatomic##_sz##_compare_and_swap,       \
+                                                _gasneti_scalar_atomic_compare_and_swap,         \
+                                                gasneti_genatomic##_sz##_)                       \
+      GASNETI_SCALAR_ATOMIC_SWAP_DEFN(_gasneti_genatomic##_sz##_swap,                            \
+                                      gasneti_genatomic##_sz##_)                                 \
+      GASNETI_ATOMIC_FENCED_SWAP_DEFN_NOT_INLINE(genatomic,                                      \
+                                                 gasneti_genatomic##_sz##_swap,                  \
+                                                 _gasneti_genatomic##_sz##_swap,                 \
+                                                 gasneti_genatomic##_sz##_)                      \
+      GASNETI_ATOMIC_FENCED_ADDFETCH_DEFN_NOT_INLINE(genatomic,                                  \
+                                                     gasneti_genatomic##_sz##_addfetch,          \
+                                                     _gasneti_scalar_atomic_addfetch,            \
+                                                     gasneti_genatomic##_sz##_)
+  #endif
+  #define _gasneti_genatomic_fence_before_set		_gasneti_genatomic_fence_before_rmw
+  #define _gasneti_genatomic_fence_after_set		_gasneti_genatomic_fence_after_rmw
+  /* READ is almost always performed without the lock (if any) held */
+  #define _gasneti_genatomic_fence_before_read(p,f)	_gasneti_atomic_fence_before(f)
+  #define _gasneti_genatomic_fence_after_read(p,f)	_gasneti_atomic_fence_after(f)
+
+  /* Build the 32-bit generics if needed */
+  #ifdef GASNETI_BUILD_GENERIC_ATOMIC32
+    _GASNETI_GENATOMIC_DECL_AND_DEFN(32)
+    #define gasneti_genatomic32_init          _gasneti_scalar_atomic_init
+    GASNETI_ATOMIC_FENCED_READ_DEFN(genatomic,gasneti_genatomic32_read,
+                                    _gasneti_scalar_atomic_read,gasneti_genatomic32_)
+    #ifdef _GASNETI_GENATOMIC_DEFN
+      #define GASNETI_GENATOMIC32_DEFN        _GASNETI_GENATOMIC_DEFN(32)
+    #endif
+  #endif
+
+  /* Build the 64-bit generics if needed */
+  #ifdef GASNETI_BUILD_GENERIC_ATOMIC64
+    _GASNETI_GENATOMIC_DECL_AND_DEFN(64)
+    #define gasneti_genatomic64_init          _gasneti_scalar_atomic_init
+    #ifdef gasneti_genatomic64_read	/* ILP32 or HYBRID for under-aligned ABIs */
+      /* Mutex is needed in read to avoid word tearing.
+       * Can't use the normal template w/o also forcing a mutex into the 32-bit generics.
+       * Note that we use the "rmw" fencing macros here, since the "read" fencing macros
+       * assume no lock is taken and thus would potentially double fence.
+       */
+      GASNETI_EXTERNC uint64_t gasneti_genatomic64_read(gasneti_genatomic64_t *p, int flags);
+      #define _GASNETI_GENATOMIC64_DEFN_EXTRA \
+	uint64_t gasneti_genatomic64_read(gasneti_genatomic64_t *p, const int flags) { \
+          _gasneti_genatomic_prologue_rmw(p,flags)      /* rmw is NOT a typo here */ \
+          GASNETI_ATOMIC_CHECKALIGN(gasneti_genatomic64_,p);                         \
+	  _gasneti_genatomic_fence_before_rmw(p,flags)  /* rmw is NOT a typo here */ \
+	  { const uint64_t retval = _gasneti_scalar_atomic_read(p);                  \
+	    _gasneti_genatomic_fence_after_rmw(p,flags) /* rmw is NOT a typo here */ \
+	    return retval;                                                           \
+	  }                                                                          \
+	}
+    #else
+      /* Read is assumed naturally atomic due to word size, or it doesn't matter in a serial build. */
+      GASNETI_ATOMIC_FENCED_READ_DEFN(genatomic,gasneti_genatomic64_read,
+                                      _gasneti_scalar_atomic_read,gasneti_genatomic64_)
+      #define _GASNETI_GENATOMIC64_DEFN_EXTRA /* Empty */
+    #endif
+    #ifndef _GASNETI_GENATOMIC_DEFN
+      #define _GASNETI_GENATOMIC_DEFN(_sz) /* Empty */
+    #endif
+    #define GASNETI_GENATOMIC64_DEFN        _GASNETI_GENATOMIC_DEFN(64) \
+                                            _GASNETI_GENATOMIC64_DEFN_EXTRA
+  #endif
+#endif
+
+/* ------------------------------------------------------------------------------------ */
+/* Define the fully-fenced fixed-width atomics
+ */
+
+typedef uint32_t gasneti_atomic32_val_t;	/* For consistency in fencing macros */
+typedef int32_t gasneti_atomic32_sval_t;	/* For consistency in fencing macros */
+#if defined(GASNETI_USING_SLOW_ATOMICS)
+  /* XXX: need to move/split appropriate defs here */
+#elif defined(GASNETI_USE_GENERIC_ATOMIC32)
   /* Define 32-bit fixed-width atomics in terms of full-fenced generics */
   #define gasneti_atomic32_t                   gasneti_genatomic32_t
   #define gasneti_atomic32_init                gasneti_genatomic32_init
@@ -332,9 +510,26 @@
   #define gasneti_atomic32_compare_and_swap    gasneti_genatomic32_compare_and_swap
   #define gasneti_atomic32_swap                gasneti_genatomic32_swap
   #define gasneti_atomic32_addfetch            gasneti_genatomic32_addfetch
+#else
+  /* Define 32-bit fixed-width atomics in terms of un-fenced native atomics */
+  #ifndef gasneti_atomic32_set
+    #define gasneti_atomic32_set(p,v,f)	GASNETI_ATOMIC_FENCED_SET(atomic,_gasneti_atomic32_set,gasneti_atomic32_,p,v,f)
+  #endif
+  #ifndef gasneti_atomic32_read
+    GASNETI_ATOMIC_FENCED_READ_DEFN(atomic,gasneti_atomic32_read,_gasneti_atomic32_read,gasneti_atomic32_)
+    #define gasneti_atomic32_read
+  #endif
+  #ifndef gasneti_atomic32_compare_and_swap
+    GASNETI_ATOMIC_FENCED_CAS_DEFN(atomic,gasneti_atomic32_compare_and_swap,_gasneti_atomic32_compare_and_swap,gasneti_atomic32_)
+    #define gasneti_atomic32_compare_and_swap gasneti_atomic32_compare_and_swap
+  #endif
 #endif
 
-#ifdef GASNETI_USE_GENERIC_ATOMIC64
+typedef uint64_t gasneti_atomic64_val_t;	/* For consistency in fencing macros */
+typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
+#if defined(GASNETI_USING_SLOW_ATOMICS)
+  /* XXX: need to move/split appropriate defs here */
+#elif defined(GASNETI_USE_GENERIC_ATOMIC64)
   /* Define 64-bit fixed-width atomics in terms of full-fenced generics */
   #define gasneti_atomic64_t                   gasneti_genatomic64_t
   #define gasneti_atomic64_init                gasneti_genatomic64_init
@@ -346,6 +541,60 @@
   #define gasneti_atomic64_compare_and_swap    gasneti_genatomic64_compare_and_swap
   #define gasneti_atomic64_swap                gasneti_genatomic64_swap
   #define gasneti_atomic64_addfetch            gasneti_genatomic64_addfetch
+#elif defined(GASNETI_HYBRID_ATOMIC64)
+  /* Hybrid: need to runtime select between native and generic, based on alignment. */
+  #define gasneti_atomic64_set(p,v,f) do {                                   \
+      const int __flags = (f);                                               \
+      const uint64_t __v = (v);                                              \
+      gasneti_atomic64_t * const __p = (p);                                  \
+      if_pt (!((uintptr_t)__p & 0x7)) {                                      \
+        _gasneti_atomic_fence_before_set(__p,__flags)                        \
+        _gasneti_atomic64_set(__p,__v);                                      \
+        _gasneti_atomic_fence_after_set(__p,__flags)                         \
+      } else {                                                               \
+	gasneti_genatomic64_set((gasneti_genatomic64_t *)__p, __v, __flags); \
+      }                                                                      \
+    } while (0)
+  GASNETI_INLINE(gasneti_atomic64_read)
+  uint64_t gasneti_atomic64_read(gasneti_atomic64_t *p, const int flags) {
+    if_pt (!((uintptr_t)p & 0x7)) {
+      _gasneti_atomic_fence_before_read(p, flags)
+      { const uint64_t retval = _gasneti_atomic64_read(p);
+        _gasneti_atomic_fence_after_read(p, flags)
+        return retval;
+      }
+    } else {
+      return gasneti_genatomic64_read((gasneti_genatomic64_t *)p, flags);
+    }
+  }
+  #define gasneti_atomic64_read gasneti_atomic64_read
+  GASNETI_INLINE(gasneti_atomic64_compare_and_swap)
+  int gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval,
+					uint64_t newval, const int flags) {
+    if_pt (!((uintptr_t)p & 0x7)) {
+      _gasneti_atomic_fence_before_rmw(p, flags)
+      { const int retval = _gasneti_atomic64_compare_and_swap(p,oldval,newval);
+        _gasneti_atomic_fence_after_bool(p, flags, retval)
+        return retval;
+      }
+    } else {
+      return gasneti_genatomic64_compare_and_swap((gasneti_genatomic64_t *)p,oldval,newval,flags);
+    }
+  }
+  #define gasneti_atomic64_compare_and_swap gasneti_atomic64_compare_and_swap
+#else
+  /* Define 64-bit width atomics in terms of un-fenced native atomics */
+  #ifndef gasneti_atomic64_set
+    #define gasneti_atomic64_set(p,v,f)	GASNETI_ATOMIC_FENCED_SET(atomic,_gasneti_atomic64_set,gasneti_atomic64_,p,v,f)
+  #endif
+  #ifndef gasneti_atomic64_read
+    GASNETI_ATOMIC_FENCED_READ_DEFN(atomic,gasneti_atomic64_read,_gasneti_atomic64_read,gasneti_atomic64_)
+    #define gasneti_atomic64_read gasneti_atomic64_read
+  #endif
+  #ifndef gasneti_atomic64_compare_and_swap
+    GASNETI_ATOMIC_FENCED_CAS_DEFN(atomic,gasneti_atomic64_compare_and_swap,_gasneti_atomic64_compare_and_swap,gasneti_atomic64_)
+    #define gasneti_atomic64_compare_and_swap gasneti_atomic64_compare_and_swap
+  #endif
 #endif
 
 /* ------------------------------------------------------------------------------------ */
@@ -373,21 +622,9 @@
   /* Required parts: */
   #define gasneti_atomic_t			gasneti_atomic32_t
   #define gasneti_atomic_init			gasneti_atomic32_init
-  #ifdef gasneti_atomic32_set
-    #define gasneti_atomic_set			gasneti_atomic32_set
-  #else
-    #define _gasneti_atomic_set			_gasneti_atomic32_set
-  #endif
-  #ifdef gasneti_atomic32_read
-    #define gasneti_atomic_read			gasneti_atomic32_read
-  #else
-    #define _gasneti_atomic_read		_gasneti_atomic32_read
-  #endif
-  #ifdef gasneti_atomic32_compare_and_swap
-    #define gasneti_atomic_compare_and_swap	gasneti_atomic32_compare_and_swap
-  #else
-    #define _gasneti_atomic_compare_and_swap	_gasneti_atomic32_compare_and_swap
-  #endif
+  #define gasneti_atomic_set                    gasneti_atomic32_set
+  #define gasneti_atomic_read                   gasneti_atomic32_read
+  #define gasneti_atomic_compare_and_swap       gasneti_atomic32_compare_and_swap
   #define GASNETI_HAVE_ATOMIC_CAS		1
 
   /* Optional parts: */
@@ -454,21 +691,9 @@
   /* Required parts: */
   #define gasneti_atomic_t			gasneti_atomic64_t
   #define gasneti_atomic_init			gasneti_atomic64_init
-  #ifdef gasneti_atomic64_set
-    #define gasneti_atomic_set			gasneti_atomic64_set
-  #else
-    #define _gasneti_atomic_set			_gasneti_atomic64_set
-  #endif
-  #ifdef gasneti_atomic64_read
-    #define gasneti_atomic_read			gasneti_atomic64_read
-  #else
-    #define _gasneti_atomic_read		_gasneti_atomic64_read
-  #endif
-  #ifdef gasneti_atomic64_compare_and_swap
-    #define gasneti_atomic_compare_and_swap	gasneti_atomic64_compare_and_swap
-  #else
-    #define _gasneti_atomic_compare_and_swap	_gasneti_atomic64_compare_and_swap
-  #endif
+  #define gasneti_atomic_set                    gasneti_atomic64_set
+  #define gasneti_atomic_read                   gasneti_atomic64_read
+  #define gasneti_atomic_compare_and_swap       gasneti_atomic64_compare_and_swap
   #define GASNETI_HAVE_ATOMIC_CAS		1
 
   /* Optional parts: */
@@ -725,251 +950,6 @@
       return _old;
     }
     #define GASNETI_HAVE_ATOMIC_SWAP 	1
-#endif
-
-/* ------------------------------------------------------------------------------------ */
-/* Fenced generic atomics, if needed, using per-platform defns and the macros above.
- */
-
-#if defined(GASNETI_BUILD_GENERIC_ATOMIC32) || defined(GASNETI_BUILD_GENERIC_ATOMIC64)
-  /* Fences for the generics */
-  #ifndef GASNETI_GENATOMIC_LOCK
-    /* Not locking, so use full fences */
-    #define _gasneti_genatomic_prologue_set(p,f)        /*empty*/
-    #define _gasneti_genatomic_prologue_read(p,f)       /*empty*/
-    #define _gasneti_genatomic_prologue_rmw(p,f)        /*empty*/
-    #define _gasneti_genatomic_fence_before_rmw(p,f)    _gasneti_atomic_fence_before(f)
-    #define _gasneti_genatomic_fence_after_rmw(p,f)     _gasneti_atomic_fence_after(f)
-    #define _gasneti_genatomic_fence_after_bool(p,f,v)  _gasneti_atomic_fence_bool(f,v)
-    #define _GASNETI_GENATOMIC_DECL_AND_DEFN(_sz)                                     \
-      typedef volatile uint##_sz##_t gasneti_genatomic##_sz##_t;                      \
-      typedef uint##_sz##_t gasneti_genatomic##_sz##_val_t;                           \
-      typedef int##_sz##_t gasneti_genatomic##_sz##_sval_t;                           \
-      GASNETI_ATOMIC_FENCED_SET_DEFN(genatomic,                                       \
-                                     gasneti_genatomic##_sz##_set,                    \
-                                     _gasneti_scalar_atomic_set,                      \
-                                     gasneti_genatomic##_sz##_)                       \
-      GASNETI_ATOMIC_FENCED_INCDEC_DEFN(genatomic,                                    \
-                                        gasneti_genatomic##_sz##_increment,           \
-                                        _gasneti_scalar_atomic_increment,             \
-                                        gasneti_genatomic##_sz##_)                    \
-      GASNETI_ATOMIC_FENCED_INCDEC_DEFN(genatomic,                                    \
-                                        gasneti_genatomic##_sz##_decrement,           \
-                                        _gasneti_scalar_atomic_decrement,             \
-                                        gasneti_genatomic##_sz##_)                    \
-      GASNETI_ATOMIC_FENCED_DECTEST_DEFN(genatomic,                                   \
-                                         gasneti_genatomic##_sz##_decrement_and_test, \
-                                         _gasneti_scalar_atomic_decrement_and_test,   \
-                                         gasneti_genatomic##_sz##_)                   \
-      GASNETI_ATOMIC_FENCED_CAS_DEFN(genatomic,                                       \
-                                     gasneti_genatomic##_sz##_compare_and_swap,       \
-                                     _gasneti_scalar_atomic_compare_and_swap,         \
-                                     gasneti_genatomic##_sz##_)                       \
-      GASNETI_SCALAR_ATOMIC_SWAP_DEFN(_gasneti_genatomic##_sz##_swap,                 \
-                                      gasneti_genatomic##_sz##_)                      \
-      GASNETI_ATOMIC_FENCED_SWAP_DEFN(genatomic,                                      \
-                                      gasneti_genatomic##_sz##_swap,                  \
-                                      _gasneti_genatomic##_sz##_swap,                 \
-                                      gasneti_genatomic##_sz##_)                      \
-      GASNETI_ATOMIC_FENCED_ADDFETCH_DEFN(genatomic,                                  \
-                                          gasneti_genatomic##_sz##_addfetch,          \
-                                          _gasneti_scalar_atomic_addfetch,            \
-                                          gasneti_genatomic##_sz##_)
-  #else /* Mutex-based (HSL or pthread mutex) versions */
-    /* The lock acquire includes RMB and release includes WMB */
-    #define _gasneti_genatomic_prologue_set(p,f)        GASNETI_GENATOMIC_LOCK_PREP(p);
-    #define _gasneti_genatomic_prologue_read(p,f)       /*empty*/
-    #define _gasneti_genatomic_prologue_rmw(p,f)        GASNETI_GENATOMIC_LOCK_PREP(p);
-    #define _gasneti_genatomic_fence_before_rmw(p,f)	_gasneti_atomic_fence_before((f&~GASNETI_ATOMIC_RMB_PRE)) \
-							GASNETI_GENATOMIC_LOCK();
-    #define _gasneti_genatomic_fence_after_rmw(p,f)	GASNETI_GENATOMIC_UNLOCK();   \
-							_gasneti_atomic_fence_after((f&~GASNETI_ATOMIC_WMB_POST))
-    #define _gasneti_genatomic_fence_after_bool(p,f,v)	GASNETI_GENATOMIC_UNLOCK();   \
-							_gasneti_atomic_fence_after((f&~GASNETI_ATOMIC_WMB_POST))\
-							_gasneti_atomic_fence_bool(f,v)
-
-    /* Because HSL's are not yet available (bug 693: avoid header dependency cycle),
-     * we don't define the lock-acquiring operations as inlines.
-     * Therefore, we declared them here but define them in gasnet_{internal,tools}.c
-     */
-    #define _GASNETI_GENATOMIC_DECL_AND_DEFN(_sz)                                            \
-      typedef volatile uint##_sz##_t gasneti_genatomic##_sz##_t;                             \
-      typedef uint##_sz##_t gasneti_genatomic##_sz##_val_t;                                  \
-      typedef int##_sz##_t gasneti_genatomic##_sz##_sval_t;                                  \
-      GASNETI_BEGIN_EXTERNC                                                                  \
-      extern void gasneti_genatomic##_sz##_set(gasneti_genatomic##_sz##_t *p,                \
-                                               gasneti_genatomic##_sz##_val_t v,             \
-                                               const int flags);                             \
-      extern void gasneti_genatomic##_sz##_increment(gasneti_genatomic##_sz##_t *p,          \
-                                                     const int flags);                       \
-      extern void gasneti_genatomic##_sz##_decrement(gasneti_genatomic##_sz##_t *p,          \
-                                                     const int flags);                       \
-      extern int gasneti_genatomic##_sz##_decrement_and_test(gasneti_genatomic##_sz##_t *p,  \
-                                                             int flags);                     \
-      extern int gasneti_genatomic##_sz##_compare_and_swap(gasneti_genatomic##_sz##_t *p,    \
-                                                           uint##_sz##_t oldval,             \
-                                                           uint##_sz##_t newval,             \
-                                                           int flags);                       \
-      extern uint##_sz##_t gasneti_genatomic##_sz##_swap(gasneti_genatomic##_sz##_t *p,      \
-                                                         uint##_sz##_t val,                  \
-                                                         int flags);                         \
-      extern uint##_sz##_t gasneti_genatomic##_sz##_addfetch(gasneti_genatomic##_sz##_t *p,  \
-                                                             int##_sz##_t op,                \
-                                                             int flags);                     \
-      GASNETI_END_EXTERNC
-    #define _GASNETI_GENATOMIC_DEFN(_sz)                                                         \
-      GASNETI_ATOMIC_FENCED_SET_DEFN_NOT_INLINE(genatomic,                                       \
-                                                gasneti_genatomic##_sz##_set,                    \
-                                                _gasneti_scalar_atomic_set,                      \
-                                                gasneti_genatomic##_sz##_)                       \
-      GASNETI_ATOMIC_FENCED_INCDEC_DEFN_NOT_INLINE(genatomic,                                    \
-                                                   gasneti_genatomic##_sz##_increment,           \
-                                                   _gasneti_scalar_atomic_increment,             \
-                                                   gasneti_genatomic##_sz##_)                    \
-      GASNETI_ATOMIC_FENCED_INCDEC_DEFN_NOT_INLINE(genatomic,                                    \
-                                                   gasneti_genatomic##_sz##_decrement,           \
-                                                   _gasneti_scalar_atomic_decrement,             \
-                                                   gasneti_genatomic##_sz##_)                    \
-      GASNETI_ATOMIC_FENCED_DECTEST_DEFN_NOT_INLINE(genatomic,                                   \
-                                                    gasneti_genatomic##_sz##_decrement_and_test, \
-                                                    _gasneti_scalar_atomic_decrement_and_test,   \
-                                                    gasneti_genatomic##_sz##_)                   \
-      GASNETI_ATOMIC_FENCED_CAS_DEFN_NOT_INLINE(genatomic,                                       \
-                                                gasneti_genatomic##_sz##_compare_and_swap,       \
-                                                _gasneti_scalar_atomic_compare_and_swap,         \
-                                                gasneti_genatomic##_sz##_)                       \
-      GASNETI_SCALAR_ATOMIC_SWAP_DEFN(_gasneti_genatomic##_sz##_swap,                            \
-                                      gasneti_genatomic##_sz##_)                                 \
-      GASNETI_ATOMIC_FENCED_SWAP_DEFN_NOT_INLINE(genatomic,                                      \
-                                                 gasneti_genatomic##_sz##_swap,                  \
-                                                 _gasneti_genatomic##_sz##_swap,                 \
-                                                 gasneti_genatomic##_sz##_)                      \
-      GASNETI_ATOMIC_FENCED_ADDFETCH_DEFN_NOT_INLINE(genatomic,                                  \
-                                                     gasneti_genatomic##_sz##_addfetch,          \
-                                                     _gasneti_scalar_atomic_addfetch,            \
-                                                     gasneti_genatomic##_sz##_)
-  #endif
-  #define _gasneti_genatomic_fence_before_set		_gasneti_genatomic_fence_before_rmw
-  #define _gasneti_genatomic_fence_after_set		_gasneti_genatomic_fence_after_rmw
-  /* READ is almost always performed without the lock (if any) held */
-  #define _gasneti_genatomic_fence_before_read(p,f)	_gasneti_atomic_fence_before(f)
-  #define _gasneti_genatomic_fence_after_read(p,f)	_gasneti_atomic_fence_after(f)
-
-  /* Build the 32-bit generics if needed */
-  #ifdef GASNETI_BUILD_GENERIC_ATOMIC32
-    _GASNETI_GENATOMIC_DECL_AND_DEFN(32)
-    #define gasneti_genatomic32_init          _gasneti_scalar_atomic_init
-    GASNETI_ATOMIC_FENCED_READ_DEFN(genatomic,gasneti_genatomic32_read,
-                                    _gasneti_scalar_atomic_read,gasneti_genatomic32_)
-    #ifdef _GASNETI_GENATOMIC_DEFN
-      #define GASNETI_GENATOMIC32_DEFN        _GASNETI_GENATOMIC_DEFN(32)
-    #endif
-  #endif
-
-  /* Build the 64-bit generics if needed */
-  #ifdef GASNETI_BUILD_GENERIC_ATOMIC64
-    _GASNETI_GENATOMIC_DECL_AND_DEFN(64)
-    #define gasneti_genatomic64_init          _gasneti_scalar_atomic_init
-    #ifdef gasneti_genatomic64_read	/* ILP32 or HYBRID for under-aligned ABIs */
-      /* Mutex is needed in read to avoid word tearing.
-       * Can't use the normal template w/o also forcing a mutex into the 32-bit generics.
-       * Note that we use the "rmw" fencing macros here, since the "read" fencing macros
-       * assume no lock is taken and thus would potentially double fence.
-       */
-      GASNETI_EXTERNC uint64_t gasneti_genatomic64_read(gasneti_genatomic64_t *p, int flags);
-      #define _GASNETI_GENATOMIC64_DEFN_EXTRA \
-	uint64_t gasneti_genatomic64_read(gasneti_genatomic64_t *p, const int flags) { \
-          _gasneti_genatomic_prologue_rmw(p,flags)      /* rmw is NOT a typo here */ \
-          GASNETI_ATOMIC_CHECKALIGN(gasneti_genatomic64_,p);                         \
-	  _gasneti_genatomic_fence_before_rmw(p,flags)  /* rmw is NOT a typo here */ \
-	  { const uint64_t retval = _gasneti_scalar_atomic_read(p);                  \
-	    _gasneti_genatomic_fence_after_rmw(p,flags) /* rmw is NOT a typo here */ \
-	    return retval;                                                           \
-	  }                                                                          \
-	}
-    #else
-      /* Read is assumed naturally atomic due to word size, or it doesn't matter in a serial build. */
-      GASNETI_ATOMIC_FENCED_READ_DEFN(genatomic,gasneti_genatomic64_read,
-                                      _gasneti_scalar_atomic_read,gasneti_genatomic64_)
-      #define _GASNETI_GENATOMIC64_DEFN_EXTRA /* Empty */
-    #endif
-    #ifndef _GASNETI_GENATOMIC_DEFN
-      #define _GASNETI_GENATOMIC_DEFN(_sz) /* Empty */
-    #endif
-    #define GASNETI_GENATOMIC64_DEFN        _GASNETI_GENATOMIC_DEFN(64) \
-                                            _GASNETI_GENATOMIC64_DEFN_EXTRA
-  #endif
-#endif
-
-/* ------------------------------------------------------------------------------------ */
-/* Fenced fixed-width atomics, using per-platform defns and the macros above.
- */
-
-/* Fence the fixed-width (non-arithmetic) 32-bit atomic type */
-typedef uint32_t gasneti_atomic32_val_t;	/* For consistency in fencing macros */
-typedef int32_t gasneti_atomic32_sval_t;	/* For consistency in fencing macros */
-#ifndef gasneti_atomic32_set
-  #define gasneti_atomic32_set(p,v,f)	GASNETI_ATOMIC_FENCED_SET(atomic,_gasneti_atomic32_set,gasneti_atomic32_,p,v,f)
-#endif
-#ifndef gasneti_atomic32_read
-  GASNETI_ATOMIC_FENCED_READ_DEFN(atomic,gasneti_atomic32_read,_gasneti_atomic32_read,gasneti_atomic32_)
-#endif
-#ifndef gasneti_atomic32_compare_and_swap
-  GASNETI_ATOMIC_FENCED_CAS_DEFN(atomic,gasneti_atomic32_compare_and_swap,_gasneti_atomic32_compare_and_swap,gasneti_atomic32_)
-#endif
-
-/* Fence the fixed-width (non-arithmetic) 64-bit atomic type */
-typedef uint64_t gasneti_atomic64_val_t;	/* For consistency in fencing macros */
-typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
-#ifdef GASNETI_HYBRID_ATOMIC64
-  /* Hybrid: need to runtime select between native and generic, based on alignment. */
-  #define gasneti_atomic64_set(p,v,f) do {                                   \
-      const int __flags = (f);                                               \
-      const uint64_t __v = (v);                                              \
-      gasneti_atomic64_t * const __p = (p);                                  \
-      if_pt (!((uintptr_t)__p & 0x7)) {                                      \
-        _gasneti_atomic_fence_before_set(__p,__flags)                        \
-        _gasneti_atomic64_set(__p,__v);                                      \
-        _gasneti_atomic_fence_after_set(__p,__flags)                         \
-      } else {                                                               \
-	gasneti_genatomic64_set((gasneti_genatomic64_t *)__p, __v, __flags); \
-      }                                                                      \
-    } while (0)
-  GASNETI_INLINE(gasneti_atomic64_read)
-  uint64_t gasneti_atomic64_read(gasneti_atomic64_t *p, const int flags) {
-    if_pt (!((uintptr_t)p & 0x7)) {
-      _gasneti_atomic_fence_before_read(p, flags)
-      { const uint64_t retval = _gasneti_atomic64_read(p);
-        _gasneti_atomic_fence_after_read(p, flags)
-        return retval;
-      }
-    } else {
-      return gasneti_genatomic64_read((gasneti_genatomic64_t *)p, flags);
-    }
-  }
-  GASNETI_INLINE(gasneti_atomic64_compare_and_swap)
-  int gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval,
-					uint64_t newval, const int flags) {
-    if_pt (!((uintptr_t)p & 0x7)) {
-      _gasneti_atomic_fence_before_rmw(p, flags)
-      { const int retval = _gasneti_atomic64_compare_and_swap(p,oldval,newval);
-        _gasneti_atomic_fence_after_bool(p, flags, retval)
-        return retval;
-      }
-    } else {
-      return gasneti_genatomic64_compare_and_swap((gasneti_genatomic64_t *)p,oldval,newval,flags);
-    }
-  }
-#else
-  #ifndef gasneti_atomic64_set
-    #define gasneti_atomic64_set(p,v,f)	GASNETI_ATOMIC_FENCED_SET(atomic,_gasneti_atomic64_set,gasneti_atomic64_,p,v,f)
-  #endif
-  #ifndef gasneti_atomic64_read
-    GASNETI_ATOMIC_FENCED_READ_DEFN(atomic,gasneti_atomic64_read,_gasneti_atomic64_read,gasneti_atomic64_)
-  #endif
-  #ifndef gasneti_atomic64_compare_and_swap
-    GASNETI_ATOMIC_FENCED_CAS_DEFN(atomic,gasneti_atomic64_compare_and_swap,_gasneti_atomic64_compare_and_swap,gasneti_atomic64_)
-  #endif
 #endif
 
 /* ------------------------------------------------------------------------------------ */
