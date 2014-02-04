@@ -2,6 +2,28 @@ GASNet ChangeLog
 ----------------
 
 ----------------------------------------------------------------------
+02-03-2014 : Release 1.22.3
+
+* This is a SOURCE ONLY release of GASNet.
+  Its primary intent is to provide a stable version which can be
+  retreived from the new GASNet git repository:
+      https://bitbucket.org/berkeleylab/gasnet
+
+* The only significant changes relative to 1.22.2g:
+  - Don't add "g" suffix to the version number - it must be numeric.
+
+----------------------------------------------------------------------
+11-04-2013 : Release 1.22.2g
+
+* This is a SOURCE ONLY release of GASNet.
+  Its primary intent is to provide a stable version which can be
+  retreived from the new GASNet git repository:
+      https://bitbucket.org/berkeleylab/gasnet
+
+* The only significant changes relative to 1.22.1g:
+  - Fix some critical documentation errors
+
+----------------------------------------------------------------------
 11-03-2013 : Release 1.22.1g
 
 * This is a SOURCE ONLY release of GASNet.
