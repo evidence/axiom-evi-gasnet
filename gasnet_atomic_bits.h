@@ -821,7 +821,7 @@
 	  GASNETI_ASM_SPECIAL(                                          \
 		       "pushl     %edi					\n\t" \
 		       "movl      8(%ebp), %edi				\n\t" \
-		       "pushl     %ebx					\n" \
+		       "pushl     %ebx					\n\t" \
 		       "movl      0(%edi), %eax				\n\t" \
 		       "movl      4(%edi), %edx				\n\t" \
 		       "movl      12(%ebp), %ebx			\n\t" \
@@ -837,7 +837,7 @@
 	  GASNETI_ASM_SPECIAL(                                          \
 		       "pushl     %edi					\n\t" \
 		       "movl      8(%ebp), %edi				\n\t" \
-		       "pushl     %ebx					\n" \
+		       "pushl     %ebx					\n\t" \
 		       "movl      12(%ebp), %eax			\n\t" \
 		       "movl      16(%ebp), %edx			\n\t" \
 		       "movl      20(%ebp), %ebx			\n\t" \
