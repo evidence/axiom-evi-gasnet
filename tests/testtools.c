@@ -200,11 +200,11 @@ int main(int argc, char **argv) {
        in the last iteration, but need a non-trivial number of ticks
        to pass int each iteration. */
     uint64_t total = 20 * 1000000;
-    uint64_t us_delay = (0.75*total) / timeiters;
-    uint64_t min_delay = MAX(1, 50*granularity);
+    uint64_t us_delay = (uint64_t)((0.75*total) / timeiters);
+    uint64_t min_delay = (uint64_t)MAX(1, 50*granularity);
     if (us_delay < min_delay) {
        us_delay = min_delay;
-       timeiters = (0.75*total) / min_delay;
+       timeiters = (int)((0.75*total) / min_delay);
     }
 
     if (!(ticktimemin < ticktimemax)) ERR("!(min < max)");
