@@ -1,8 +1,9 @@
 ============================
 README file for GASNet tools
 ============================
-by: Dan Bonachea <bonachea@cs.berkeley.edu>
-GASNet tools specification version: 1.7
+Originally by: Dan Bonachea <bonachea@cs.berkeley.edu>
+Currently maintained by: Paul H. Hargrove <PHHargrove@lbl.gov>
+GASNet tools specification version: 1.8
 
 The GASNet tools are a set of communication-independent utilities that are used
 to implement GASNet, and constitute a useful portability tool for GASNet
@@ -236,7 +237,10 @@ the section on strong atomics below.
 
  * Semi-portable atomic operations
 
- These useful operations are available on most, but not all, platforms.
+ The following two groups of useful atomic operations are available on most
+ platforms, but not all.  Preprocessor definitions indicate what is available.
+
+ + Group 1: add and subtract
 
   gasnett_atomic_val_t gasnett_atomic_add(gasnett_atomic_t *p,
                                           gasnett_atomic_val_t op,
@@ -253,6 +257,8 @@ the section on strong atomics below.
  GASNETT_HAVE_ATOMIC_ADD_SUB will be defined to 1 when these operations are available.
  They are always either both available, or neither is available.
 
+ + Group 2: conditional and unconditional swap
+
   int gasnett_atomic_compare_and_swap(gasnett_atomic_t *p,
                                       gasnett_atomic_val_t oldval,
                                       gasnett_atomic_val_t newval,
@@ -266,8 +272,6 @@ the section on strong atomics below.
       return 0;
     }
 
- GASNETT_HAVE_ATOMIC_CAS will be defined to 1 when this operation is available
-
   gasnett_atomic_val_t gasnett_atomic_swap(gasnett_atomic_t *p,
                                            gasnett_atomic_val_t newval,
                                            int flags);
@@ -277,7 +281,8 @@ the section on strong atomics below.
     *p = newval;
     return oldval;
 
- GASNETT_HAVE_ATOMIC_SWAP will be defined to 1 when this operation is available
+ GASNETT_HAVE_ATOMIC_CAS will be defined to 1 when these operations are available.
+ They are always either both available, or neither is available.
 
  * Range of atomic type
 
@@ -361,7 +366,7 @@ the section on strong atomics below.
  use mutexes or lack signal-safety, even where gasnett_atomic_t does not.
  Additionally, unlike gasnett_atomic_t, the same set of operations is present
  on all platforms, even if that requires a mutex-based approach to support
- the compare-and-swap operation.
+ the full range of operations.
 
   gasnett_atomic32_t
   gasnett_atomic64_t
@@ -373,7 +378,7 @@ the section on strong atomics below.
 
   void gasnett_atomic32_set(gasnett_atomic32_t *p, uint32_t v, int flags);
   void gasnett_atomic64_set(gasnett_atomic64_t *p, uint64_t v, int flags);
-    Atomically sets *p to value v.
+    Atomically set *p to value v.
 
   uint32_t gasnett_atomic32_read(gasnett_atomic32_t *p, int flags);
   uint64_t gasnett_atomic64_read(gasnett_atomic64_t *p, int flags);
@@ -385,6 +390,31 @@ the section on strong atomics below.
                                         uint64_t newval, int flags);
     Atomic compare-and-swap of *p from oldval to newval.
 
+  uint32_t gasnett_atomic32_swap(gasnett_atomic32_t *p, uint32_t v, int flags);
+  uint64_t gasnett_atomic64_swap(gasnett_atomic64_t *p, uint64_t v, int flags);
+    Atomically set *p to value v, returning the previous value.
+
+  uint32_t gasnett_atomic32_add(gasnett_atomic32_t *p, uint32_t v, int flags);
+  uint64_t gasnett_atomic64_add(gasnett_atomic64_t *p, uint64_t v, int flags);
+    Atomically add value v to *p, returning the new value.
+
+  uint32_t gasnett_atomic32_subtract(gasnett_atomic32_t *p, uint32_t v,
+                                     int flags);
+  uint64_t gasnett_atomic64_subtract(gasnett_atomic64_t *p, uint64_t v,
+                                     int flags);
+    Atomically subtract value v from *p, returning the new value.
+
+  void gasnett_atomic32_increment(gasnett_atomic32_t *p, int flags);
+  void gasnett_atomic64_increment(gasnett_atomic64_t *p, int flags);
+    Atomically add 1 to *p.
+
+  void gasnett_atomic32_decrement(gasnett_atomic32_t *p, int flags);
+  void gasnett_atomic64_decrement(gasnett_atomic64_t *p, int flags);
+    Atomically subtract 1 from *p.
+
+  int gasnett_atomic32_decrement_and_test(gasnett_atomic32_t *p, int flags);
+  int gasnett_atomic64_decrement_and_test(gasnett_atomic64_t *p, int flags);
+    Atomically subtract 1 from *p, returning non-zero if *p becomes zero.
 
   While some platforms do not enforce the same alignment constraints for all
   types of a given width, the implementation of the fixed-width atomics
