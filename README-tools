@@ -666,7 +666,7 @@ void gasnett_cond_broadcast(gasnett_cond_t *pc)
 
     signal at least one / all current waiters on a gasnet_cond_t, while holding the associated mutex
 
-void gasneti_cond_wait(gasneti_cond_t *pc, gasneti_mutex_t *pl)
+void gasnett_cond_wait(gasnett_cond_t *pc, gasnett_mutex_t *pl)
 
     release gasnett_mutex_t pl (which must be held) and block WITHOUT POLLING 
     until gasnett_cond_t pc is signalled by another thread, or until the system
