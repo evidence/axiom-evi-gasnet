@@ -664,7 +664,7 @@ typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
    * Consequently, it is less general in its assumptions about what thas been
    * implemented in the platform-specific code.  In particular we require the
    * following in the current revision of "hybid" atomics support:
-   *     _gasneti_atomic64_{set,read,compare_and_swap,swap,addfetch}
+   *     _gasneti_atomic64_{set,read,compare_and_swap,swap,fetchadd}
    */
   
   #define __gasneti_atomic64_set(p,v,f) GASNETI_ATOMIC_FENCED_SET(atomic64,_gasneti_atomic64_set,gasneti_atomic64_,p,v,f)
@@ -699,18 +699,18 @@ typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
   }
   GASNETI_ATOMIC_FENCED_SWAP_DEFN(atomic64,__gasneti_atomic64_swap,_gasneti_atomic64_swap,gasneti_atomic64_)
   GASNETI_INLINE(gasneti_atomic64_swap)
-  int gasneti_atomic64_swap(gasneti_atomic64_t *p, uint64_t op, const int flags) {
+  uint64_t gasneti_atomic64_swap(gasneti_atomic64_t *p, uint64_t op, const int flags) {
     if_pt (!((uintptr_t)p & 0x7)) {
       return __gasneti_atomic64_swap(p,op,flags);
     } else {
       return gasneti_genatomic64_swap((gasneti_genatomic64_t *)p,op,flags);
     }
   }
-  GASNETI_ATOMIC_FENCED_ADDFETCH_DEFN(atomic64,__gasneti_atomic64_addfetch,_gasneti_atomic64_addfetch,gasneti_atomic64_)
+  GASNETI_ATOMIC_FENCED_ADDFETCH_DEFN(atomic64,__gasneti_atomic64_fetchadd,_gasneti_atomic64_fetchadd,gasneti_atomic64_)
   GASNETI_INLINE(gasneti_atomic64_addfetch)
-  int gasneti_atomic64_addfetch(gasneti_atomic64_t *p, uint64_t op, const int flags) {
+  uint64_t gasneti_atomic64_addfetch(gasneti_atomic64_t *p, uint64_t op, const int flags) {
     if_pt (!((uintptr_t)p & 0x7)) {
-      return __gasneti_atomic64_addfetch(p,op,flags);
+      return op + __gasneti_atomic64_fetchadd(p,op,flags);
     } else {
       return gasneti_genatomic64_addfetch((gasneti_genatomic64_t *)p,op,flags);
     }
