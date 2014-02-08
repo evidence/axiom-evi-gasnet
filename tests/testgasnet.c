@@ -647,30 +647,42 @@ void doit5(int partner, int *partnerseg) {
    * the atomics (especially from c++ when testgasnet is built as textcxx).
    * This is distinct from testtools, which checks that these "do the right thing".
    */
-  { gasnett_atomic_t val = gasnett_atomic_init(1);
-    gasnett_atomic_val_t utmp = gasnett_atomic_read(&val, 0);
-    gasnett_atomic_sval_t stmp = gasnett_atomic_signed(utmp);
-    gasnett_atomic_set(&val, stmp, 0);
-    gasnett_atomic_increment(&val, 0);
-    gasnett_atomic_decrement(&val, 0);
-    (void)gasnett_atomic_decrement_and_test(&val, 0);
-    #ifdef GASNETT_HAVE_ATOMIC_CAS
-      (void)gasnett_atomic_compare_and_swap(&val, 0, 1 ,0);
-    #endif
-    #ifdef GASNETT_HAVE_ATOMIC_ADD_SUB
-      (void)gasnett_atomic_add(&val, 2 ,0);
-      (void)gasnett_atomic_subtract(&val, 1 ,0);
-    #endif
-  }
-  { gasnett_atomic32_t val32 = gasnett_atomic32_init(1);
-    uint32_t tmp32 = gasnett_atomic32_read(&val32, 0);
-    gasnett_atomic32_set(&val32, tmp32, 0);
-    (void)gasnett_atomic32_compare_and_swap(&val32, 0, 1 ,0);
-  }
-  { gasnett_atomic64_t val64 = gasnett_atomic64_init(1);
-    uint64_t tmp64 = gasnett_atomic64_read(&val64, 0);
-    gasnett_atomic64_set(&val64, tmp64, 0);
-    (void)gasnett_atomic64_compare_and_swap(&val64, 0, 1 ,0);
+  #ifndef GASNETT_HAVE_ATOMIC_CAS
+    #define gasnett_atomic_compare_and_swap(a,b,c,d) /*empty*/
+    #define gasnett_atomic_swap(a,b,c)               /*empty*/
+  #endif
+  #ifndef GASNETT_HAVE_ATOMIC_ADD_SUB
+    #define gasnett_atomic_add(a,b,c)                /*empty*/
+    #define gasnett_atomic_subtract(a,b,c)           /*empty*/
+  #endif
+  #ifndef GASNETT_HAVE_STRONGATOMIC_CAS
+    #define gasnett_strongatomic_compare_and_swap(a,b,c,d) /*empty*/
+    #define gasnett_strongatomic_swap(a,b,c)               /*empty*/
+  #endif
+  #ifndef GASNETT_HAVE_STRONGATOMIC_ADD_SUB
+    #define gasnett_strongatomic_add(a,b,c)                /*empty*/
+    #define gasnett_strongatomic_subtract(a,b,c)           /*empty*/
+  #endif
+  #define TEST_ATOMICS(scalar,class) do { \
+    gasnett_##class##_t val = gasnett_##class##_init(1);             \
+    scalar tmp = gasnett_##class##_read(&val, 0);                    \
+    gasnett_##class##_set(&val, tmp, 0);                             \
+    gasnett_##class##_increment(&val, 0);                            \
+    gasnett_##class##_decrement(&val, 0);                            \
+    (void) gasnett_##class##_decrement_and_test(&val, 0);            \
+    (void) gasnett_##class##_compare_and_swap(&val, 0, 1 ,0);        \
+    (void) gasnett_##class##_swap(&val, 1 ,0);                       \
+    (void) gasnett_##class##_add(&val, tmp ,0);                      \
+    (void) gasnett_##class##_subtract(&val, tmp ,0);                 \
+  } while(0)
+  {
+    gasnett_atomic_sval_t stmp = gasnett_atomic_signed((gasnett_atomic_val_t)0);
+    TEST_ATOMICS(gasnett_atomic_val_t, atomic);
+    TEST_ATOMICS(gasnett_atomic_val_t, strongatomic);
+    TEST_ATOMICS(uint32_t, atomic32);
+    TEST_ATOMICS(uint32_t, strongatomic32);
+    TEST_ATOMICS(uint64_t, atomic64);
+    TEST_ATOMICS(uint64_t, strongatomic64);
   }
   { /* attempt to generate alignment problems: */
     gasnett_atomic32_t *ptr32;

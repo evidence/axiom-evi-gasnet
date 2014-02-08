@@ -173,8 +173,6 @@ extern void gasneti_mutex_cautious_init(/*gasneti_mutex_t*/void *_pl) {
     extern int gasneti_slow_atomic_compare_and_swap(gasneti_atomic_t *p, gasneti_atomic_val_t oldval, gasneti_atomic_val_t newval, const int flags) {
       return gasneti_atomic_compare_and_swap(p,oldval,newval,flags);
     }
-  #endif
-  #if defined(GASNETI_HAVE_ATOMIC_SWAP)
     extern gasneti_atomic_val_t gasneti_slow_atomic_swap(gasneti_atomic_t *p, gasneti_atomic_val_t val, const int flags) {
       return gasneti_atomic_swap(p,val,flags);
     }
@@ -197,8 +195,26 @@ extern void gasneti_mutex_cautious_init(/*gasneti_mutex_t*/void *_pl) {
   extern void gasneti_slow_atomic32_set(gasneti_atomic32_t *p, uint32_t v, const int flags) {
     gasneti_atomic32_set(p, v, flags);
   }
+  extern void gasneti_slow_atomic32_increment(gasneti_atomic32_t *p, const int flags) {
+    gasneti_atomic32_increment(p, flags);
+  }
+  extern void gasneti_slow_atomic32_decrement(gasneti_atomic32_t *p, const int flags) {
+    gasneti_atomic32_decrement(p, flags);
+  }
+  extern int gasneti_slow_atomic32_decrement_and_test(gasneti_atomic32_t *p, const int flags) {
+    return gasneti_atomic32_decrement_and_test(p, flags);
+  }
   extern int gasneti_slow_atomic32_compare_and_swap(gasneti_atomic32_t *p, uint32_t oldval, uint32_t newval, const int flags) {
     return gasneti_atomic32_compare_and_swap(p,oldval,newval,flags);
+  }
+  extern uint32_t gasneti_slow_atomic32_swap(gasneti_atomic32_t *p, uint32_t val, const int flags) {
+    return gasneti_atomic32_swap(p,val,flags);
+  }
+  extern uint32_t gasneti_slow_atomic32_add(gasneti_atomic32_t *p, uint32_t op, const int flags) {
+    return gasneti_atomic32_add(p,op,flags);
+  }
+  extern uint32_t gasneti_slow_atomic32_subtract(gasneti_atomic32_t *p, uint32_t op, const int flags) {
+    return gasneti_atomic32_subtract(p,op,flags);
   }
 #endif
 #ifdef GASNETI_USE_GENERIC_ATOMIC64
@@ -210,8 +226,26 @@ extern void gasneti_mutex_cautious_init(/*gasneti_mutex_t*/void *_pl) {
   extern void gasneti_slow_atomic64_set(gasneti_atomic64_t *p, uint64_t v, const int flags) {
     gasneti_atomic64_set(p, v, flags);
   }
+  extern void gasneti_slow_atomic64_increment(gasneti_atomic64_t *p, const int flags) {
+    gasneti_atomic64_increment(p, flags);
+  }
+  extern void gasneti_slow_atomic64_decrement(gasneti_atomic64_t *p, const int flags) {
+    gasneti_atomic64_decrement(p, flags);
+  }
+  extern int gasneti_slow_atomic64_decrement_and_test(gasneti_atomic64_t *p, const int flags) {
+    return gasneti_atomic64_decrement_and_test(p, flags);
+  }
   extern int gasneti_slow_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval, const int flags) {
     return gasneti_atomic64_compare_and_swap(p,oldval,newval,flags);
+  }
+  extern uint64_t gasneti_slow_atomic64_swap(gasneti_atomic64_t *p, uint64_t val, const int flags) {
+    return gasneti_atomic64_swap(p,val,flags);
+  }
+  extern uint64_t gasneti_slow_atomic64_add(gasneti_atomic64_t *p, uint64_t op, const int flags) {
+    return gasneti_atomic64_add(p,op,flags);
+  }
+  extern uint64_t gasneti_slow_atomic64_subtract(gasneti_atomic64_t *p, uint64_t op, const int flags) {
+    return gasneti_atomic64_subtract(p,op,flags);
   }
 #endif
 
