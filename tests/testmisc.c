@@ -241,6 +241,9 @@ void doit2(void) { GASNET_BEGIN_FUNCTION();
 			{ gasnett_atomic_compare_and_swap(&a,0,0,0); }, {});
     TIME_OPERATION_FULL("gasnett_atomic_compare_and_swap.acq (result=0)", { gasnett_atomic_set(&a,1,0); },
 			{ gasnett_atomic_compare_and_swap(&a,0,0,GASNETT_ATOMIC_ACQ); }, {});
+    TIME_OPERATION("gasnett_atomic_swap", gasnett_atomic_swap(&a,i,0));
+    TIME_OPERATION("gasnett_atomic_swap.acq", gasnett_atomic_swap(&a,i,GASNETT_ATOMIC_ACQ));
+    TIME_OPERATION("gasnett_atomic_swap.rel", gasnett_atomic_swap(&a,i,GASNETT_ATOMIC_REL));
 #endif
 
 #if defined(GASNETT_HAVE_ATOMIC_ADD_SUB)
@@ -253,18 +256,30 @@ void doit2(void) { GASNET_BEGIN_FUNCTION();
     TEST_SECTION_BEGIN();
     TIME_OPERATION("gasnett_atomic32_read", gasnett_atomic32_read(&a32,0));
     TIME_OPERATION("gasnett_atomic32_set", gasnett_atomic32_set(&a32,1,0));
+    TIME_OPERATION("gasnett_atomic32_increment", gasnett_atomic32_increment(&a32,0));
+    TIME_OPERATION("gasnett_atomic32_decrement", gasnett_atomic32_decrement(&a32,0));
+    TIME_OPERATION("gasnett_atomic32_decrement_and_test", gasnett_atomic32_decrement_and_test(&a32,0));
     TIME_OPERATION_FULL("gasnett_atomic32_compare_and_swap (result=1)", { gasnett_atomic32_set(&a32,0,0); },
 			{ gasnett_atomic32_compare_and_swap(&a32,0,0,0); }, {});
     TIME_OPERATION_FULL("gasnett_atomic32_compare_and_swap (result=0)", { gasnett_atomic32_set(&a32,1,0); },
 			{ gasnett_atomic32_compare_and_swap(&a32,0,0,0); }, {});
+    TIME_OPERATION("gasnett_atomic32_swap", gasnett_atomic32_swap(&a32,i,0));
+    TIME_OPERATION("gasnett_atomic32_add", gasnett_atomic32_add(&a32,i,0));
+    TIME_OPERATION("gasnett_atomic32_subtract", gasnett_atomic32_subtract(&a32,i,0));
 
     TEST_SECTION_BEGIN();
     TIME_OPERATION("gasnett_atomic64_read", gasnett_atomic64_read(&a64,0));
     TIME_OPERATION("gasnett_atomic64_set", gasnett_atomic64_set(&a64,1,0));
+    TIME_OPERATION("gasnett_atomic64_increment", gasnett_atomic64_increment(&a64,0));
+    TIME_OPERATION("gasnett_atomic64_decrement", gasnett_atomic64_decrement(&a64,0));
+    TIME_OPERATION("gasnett_atomic64_decrement_and_test", gasnett_atomic64_decrement_and_test(&a64,0));
     TIME_OPERATION_FULL("gasnett_atomic64_compare_and_swap (result=1)", { gasnett_atomic64_set(&a64,0,0); },
 			{ gasnett_atomic64_compare_and_swap(&a64,0,0,0); }, {});
     TIME_OPERATION_FULL("gasnett_atomic64_compare_and_swap (result=0)", { gasnett_atomic64_set(&a64,1,0); },
 			{ gasnett_atomic64_compare_and_swap(&a64,0,0,0); }, {});
+    TIME_OPERATION("gasnett_atomic64_swap", gasnett_atomic64_swap(&a64,i,0));
+    TIME_OPERATION("gasnett_atomic64_add", gasnett_atomic64_add(&a64,i,0));
+    TIME_OPERATION("gasnett_atomic64_subtract", gasnett_atomic64_subtract(&a64,i,0));
 
     doit3();
 }
