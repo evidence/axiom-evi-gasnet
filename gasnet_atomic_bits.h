@@ -1781,7 +1781,7 @@
         #define _gasneti_atomic64_compare_and_swap(p, oldval, newval) \
 					(gasneti_atomic64_swap_not(p, oldval, newval) == 0)
 
-        static int _gasneti_atomic64_swap(gasneti_atomic64_t *v, uint64_t newval);
+        static uint64_t _gasneti_atomic64_swap(gasneti_atomic64_t *v, uint64_t newval);
         #pragma mc_func _gasneti_atomic64_swap {\
 	  /* ARGS: r3 = v, r4=newval   LOCAL: r0 = tmp */ \
           "7c0018a8"    /*    ldarx   r0,0,r3   */ \
