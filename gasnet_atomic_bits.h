@@ -424,25 +424,31 @@
           #define _gasneti_atomic64_compare_and_swap _gasneti_atomic64_compare_and_swap
           GASNETI_INLINE(_gasneti_atomic64_swap)
           uint64_t _gasneti_atomic64_swap(gasneti_atomic64_t *v, uint64_t value) {
-            register uint64_t x = value;
+	  #if GASNETI_PGI_ASM_BUG2843 && GASNET_DEBUG
+            #pragma routine opt 1 /* pgcc miscompiles this code at -O0, so force -O1 */
+          #endif
+            GASNETI_ASM_REGISTER_KEYWORD uint64_t retval;
             __asm__ __volatile__(
                     GASNETI_X86_LOCK_PREFIX  /* 'lock' is implied, but is the fence? */
                     "xchgq %0, %1"
-                    : "=r" (x)
-                    : "m" (v->ctr), "0" (x)
-                    : "cc", "memory" /* instead of listing (v->ctr) as an output */ );
-            return x;
+                    : "=r" (retval), "=m" (v->ctr)
+                    : "m" (v->ctr), "0" (value)
+                    : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
+            return retval;
           }
           #define _gasneti_atomic64_swap _gasneti_atomic64_swap
           GASNETI_INLINE(_gasneti_atomic64_fetchadd)
           uint64_t _gasneti_atomic64_fetchadd(gasneti_atomic64_t *v, int64_t op) {
             /* CAUTION: see atomic32_fetchadd for note about PathScale and Intel compilers */
-            register uint64_t retval;
+	  #if GASNETI_PGI_ASM_BUG2843 && GASNET_DEBUG
+            #pragma routine opt 1 /* pgcc miscompiles this code at -O0, so force -O1 */
+          #endif
+            GASNETI_ASM_REGISTER_KEYWORD uint64_t retval;
             __asm__ __volatile__(
                     GASNETI_X86_LOCK_PREFIX
                     "xaddq %0, %1"
-                    : "=&r" (retval), "=m" (v->ctr)
-                    : "0" (op), "m" (v->ctr)
+                    : "=r" (retval), "=m" (v->ctr)
+                    : "m" (v->ctr), "0" (op)
                     : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
             return retval;
           }
