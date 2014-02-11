@@ -2241,7 +2241,6 @@
     #elif defined(GASNETI_HAVE_MIPS_REG_1)
       #define GASNETI_MIPS_AT "$1"
     #endif
-#undef GASNETI_MIPS_AT
 
     #if PLATFORM_COMPILER_GNU
       #define GASNETI_HAVE_ATOMIC32_T 1
