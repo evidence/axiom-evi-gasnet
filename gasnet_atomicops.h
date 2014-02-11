@@ -603,7 +603,13 @@ typedef int32_t gasneti_atomic32_sval_t;	/* For consistency in fencing macros */
   #ifdef _gasneti_atomic32_decrement_and_test
     GASNETI_ATOMIC_FENCED_DECTEST_DEFN(atomic32,gasneti_atomic32_decrement_and_test,_gasneti_atomic32_decrement_and_test,gasneti_atomic32_)
   #elif !defined(gasneti_atomic32_decrement_and_test)
-    #define gasneti_atomic32_decrement_and_test(p,f) (gasneti_atomic32_addfetch((p),-1,(f)) == 0)
+    GASNETI_INLINE(gasneti_atomic32_decrement_and_test)
+    int gasneti_atomic32_decrement_and_test(gasneti_atomic32_t *p, const int flags) {
+      const int result = (gasneti_atomic32_addfetch(p,-1,flags) == 0);
+      const int mask = (GASNETI_ATOMIC_RMB_POST_IF_TRUE|GASNETI_ATOMIC_RMB_POST_IF_FALSE);
+      _gasneti_atomic32_fence_after_bool(p,(flags&mask),result);
+      return result;
+    }
   #endif
   #ifdef _gasneti_atomic32_compare_and_swap
     GASNETI_ATOMIC_FENCED_CAS_DEFN(atomic32,gasneti_atomic32_compare_and_swap,_gasneti_atomic32_compare_and_swap,gasneti_atomic32_)
@@ -715,9 +721,21 @@ typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
       return gasneti_genatomic64_addfetch((gasneti_genatomic64_t *)p,op,flags);
     }
   }
+  GASNETI_INLINE(gasneti_atomic64_decrement_and_test)
+  int gasneti_atomic64_decrement_and_test(gasneti_atomic64_t *p, const int flags) {
+    const int mask = (GASNETI_ATOMIC_RMB_POST_IF_TRUE|GASNETI_ATOMIC_RMB_POST_IF_FALSE);
+    if_pt (!((uintptr_t)p & 0x7)) {
+      const int result = (1 == __gasneti_atomic64_fetchadd(p,-1,flags));
+      _gasneti_atomic64_fence_after_bool(p,(flags&mask),result);
+      return result;
+    } else {
+      const int result = (0 == gasneti_genatomic64_addfetch((gasneti_genatomic64_t *)p,-1,flags));
+      _gasneti_atomic_fence_after_bool(p,(flags&mask),result);
+      return result;
+    }
+  }
   #define gasneti_atomic64_increment(p,f) ((void)gasneti_atomic64_addfetch((p),1,(f)))
   #define gasneti_atomic64_decrement(p,f) ((void)gasneti_atomic64_addfetch((p),-1,(f)))
-  #define gasneti_atomic64_decrement_and_test(p,f) (gasneti_atomic64_addfetch((p),-1,(f)) == 0)
   #define gasneti_atomic64_add(p,op,f) ((uint64_t)gasneti_atomic64_addfetch((p),(op),(f)))
   #define gasneti_atomic64_subtract(p,op,f) ((uint64_t)gasneti_atomic64_addfetch((p),-(op),(f)))
 #else
@@ -760,7 +778,13 @@ typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
   #ifdef _gasneti_atomic64_decrement_and_test
     GASNETI_ATOMIC_FENCED_DECTEST_DEFN(atomic64,gasneti_atomic64_decrement_and_test,_gasneti_atomic64_decrement_and_test,gasneti_atomic64_)
   #elif !defined(gasneti_atomic64_decrement_and_test)
-    #define gasneti_atomic64_decrement_and_test(p,f) (gasneti_atomic64_addfetch((p),-1,(f)) == 0)
+    GASNETI_INLINE(gasneti_atomic64_decrement_and_test)
+    int gasneti_atomic64_decrement_and_test(gasneti_atomic64_t *p, const int flags) {
+      const int result = (gasneti_atomic64_addfetch(p,-1,flags) == 0);
+      const int mask = (GASNETI_ATOMIC_RMB_POST_IF_TRUE|GASNETI_ATOMIC_RMB_POST_IF_FALSE);
+      _gasneti_atomic64_fence_after_bool(p,(flags&mask),result);
+      return result;
+    }
   #endif
   #ifdef _gasneti_atomic64_compare_and_swap
     GASNETI_ATOMIC_FENCED_CAS_DEFN(atomic64,gasneti_atomic64_compare_and_swap,_gasneti_atomic64_compare_and_swap,gasneti_atomic64_)
