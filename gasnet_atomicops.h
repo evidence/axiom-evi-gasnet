@@ -567,15 +567,13 @@ typedef int32_t gasneti_atomic32_sval_t;	/* For consistency in fencing macros */
   /* Define 32-bit fixed-width atomics in terms of un-fenced native atomics */
 
   /* First define a fully-fenced addfetch if it appears to be needed */
-  #if defined(_gasneti_atomic32_addfetch)
+  #if defined(_gasneti_atomic32_addfetch) || defined(_gasneti_atomic32_fetchadd)
+    #ifndef _gasneti_atomic32_addfetch
+      #define _gasneti_atomic32_addfetch(p,op) ((op) + _gasneti_atomic32_fetchadd((p),(op)))
+    #endif
     GASNETI_ATOMIC_FENCED_ADDFETCH_DEFN(atomic32,                   \
                                         gasneti_atomic32_addfetch,  \
                                         _gasneti_atomic32_addfetch, \
-                                        gasneti_atomic32_)
-  #elif defined(_gasneti_atomic32_fetchadd)
-    GASNETI_ATOMIC_FENCED_ADDFETCH_DEFN(atomic32,                        \
-                                        gasneti_atomic32_addfetch,       \
-                                        op + _gasneti_atomic32_fetchadd, \
                                         gasneti_atomic32_)
   #elif defined(gasneti_atomic32_fetchadd)
     GASNETI_INLINE(gasneti_atomic32_addfetch)
@@ -600,16 +598,11 @@ typedef int32_t gasneti_atomic32_sval_t;	/* For consistency in fencing macros */
   #elif !defined(gasneti_atomic32_decrement)
     #define gasneti_atomic32_decrement(p,f) ((void)gasneti_atomic32_addfetch((p),-1,(f)))
   #endif
-  #ifdef _gasneti_atomic32_decrement_and_test
+  #ifndef gasneti_atomic32_decrement_and_test
+    #ifndef _gasneti_atomic32_decrement_and_test
+      #define _gasneti_atomic32_decrement_and_test(p) (0==_gasneti_atomic32_addfetch((p),-1))
+    #endif
     GASNETI_ATOMIC_FENCED_DECTEST_DEFN(atomic32,gasneti_atomic32_decrement_and_test,_gasneti_atomic32_decrement_and_test,gasneti_atomic32_)
-  #elif !defined(gasneti_atomic32_decrement_and_test)
-    GASNETI_INLINE(gasneti_atomic32_decrement_and_test)
-    int gasneti_atomic32_decrement_and_test(gasneti_atomic32_t *p, const int flags) {
-      const int result = (gasneti_atomic32_addfetch(p,-1,flags) == 0);
-      const int mask = (GASNETI_ATOMIC_RMB_POST_IF_TRUE|GASNETI_ATOMIC_RMB_POST_IF_FALSE);
-      _gasneti_atomic32_fence_after_bool(p,(flags&mask),result);
-      return result;
-    }
   #endif
   #ifdef _gasneti_atomic32_compare_and_swap
     GASNETI_ATOMIC_FENCED_CAS_DEFN(atomic32,gasneti_atomic32_compare_and_swap,_gasneti_atomic32_compare_and_swap,gasneti_atomic32_)
@@ -742,15 +735,13 @@ typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
   /* Define 64-bit fixed-width atomics in terms of un-fenced native atomics */
 
   /* First define a fully-fenced addfetch if it appears to be needed */
-  #if defined(_gasneti_atomic64_addfetch)
+  #if defined(_gasneti_atomic64_addfetch) || defined(_gasneti_atomic64_fetchadd)
+    #ifndef _gasneti_atomic64_addfetch
+      #define _gasneti_atomic64_addfetch(p,op) ((op) + _gasneti_atomic64_fetchadd((p),(op)))
+    #endif
     GASNETI_ATOMIC_FENCED_ADDFETCH_DEFN(atomic64,                   \
                                         gasneti_atomic64_addfetch,  \
                                         _gasneti_atomic64_addfetch, \
-                                        gasneti_atomic64_)
-  #elif defined(_gasneti_atomic64_fetchadd)
-    GASNETI_ATOMIC_FENCED_ADDFETCH_DEFN(atomic64,                        \
-                                        gasneti_atomic64_addfetch,       \
-                                        op + _gasneti_atomic64_fetchadd, \
                                         gasneti_atomic64_)
   #elif defined(gasneti_atomic64_fetchadd)
     GASNETI_INLINE(gasneti_atomic64_addfetch)
@@ -775,16 +766,11 @@ typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
   #elif !defined(gasneti_atomic64_decrement)
     #define gasneti_atomic64_decrement(p,f) ((void)gasneti_atomic64_addfetch((p),-1,(f)))
   #endif
-  #ifdef _gasneti_atomic64_decrement_and_test
+  #ifndef gasneti_atomic64_decrement_and_test
+    #ifndef _gasneti_atomic64_decrement_and_test
+      #define _gasneti_atomic64_decrement_and_test(p) (0==_gasneti_atomic64_addfetch((p),-1))
+    #endif
     GASNETI_ATOMIC_FENCED_DECTEST_DEFN(atomic64,gasneti_atomic64_decrement_and_test,_gasneti_atomic64_decrement_and_test,gasneti_atomic64_)
-  #elif !defined(gasneti_atomic64_decrement_and_test)
-    GASNETI_INLINE(gasneti_atomic64_decrement_and_test)
-    int gasneti_atomic64_decrement_and_test(gasneti_atomic64_t *p, const int flags) {
-      const int result = (gasneti_atomic64_addfetch(p,-1,flags) == 0);
-      const int mask = (GASNETI_ATOMIC_RMB_POST_IF_TRUE|GASNETI_ATOMIC_RMB_POST_IF_FALSE);
-      _gasneti_atomic64_fence_after_bool(p,(flags&mask),result);
-      return result;
-    }
   #endif
   #ifdef _gasneti_atomic64_compare_and_swap
     GASNETI_ATOMIC_FENCED_CAS_DEFN(atomic64,gasneti_atomic64_compare_and_swap,_gasneti_atomic64_compare_and_swap,gasneti_atomic64_)
