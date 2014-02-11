@@ -2384,7 +2384,7 @@
                   ".set      mips3           \n\t"
                   "1:                        \n\t"
                   "lld       %0,0(%3)        \n\t"
-                  "addu    " GASNETI_MIPS_AT ",%0,%2        \n\t"
+                  "daddu   " GASNETI_MIPS_AT ",%0,%2        \n\t"
                   "scd     " GASNETI_MIPS_AT ",0(%3)        \n\t"
                   GASNETI_MIPS_RETRY(GASNETI_MIPS_AT ",1b")
                   ".set      mips0           \n\t"
@@ -2398,7 +2398,7 @@
                   ".set      mips3           \n\t"
                   "1:                        \n\t"
                   "lld       %0,0(%4)        \n\t"
-                  "addu      %1,%0,%3        \n\t"
+                  "daddu     %1,%0,%3        \n\t"
                   "scd       %1,0(%4)        \n\t"
                   GASNETI_MIPS_RETRY("%1,1b")
                   ".set      mips0           \n\t"
