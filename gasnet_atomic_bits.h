@@ -97,8 +97,9 @@
     #define _gasneti_atomic32_read(p)      ((p)->ctr)
     #define _gasneti_atomic32_set(p,v)     do { (p)->ctr = (v); } while(0)
 
-    /* Default impls of inc, dec, dec-and-test, add and sub */
+    /* Default impls of inc, dec, add and sub */
     #define gasneti_atomic32_fetchadd(p,op,f) (__sync_fetch_and_add(&(p)->ctr, (uint32_t)(op)))
+    #define gasneti_atomic32_decrement_and_test(p,f) (1==gasneti_atomic32_fetchadd((p),-1,(f)))
 
     #define gasneti_atomic32_compare_and_swap(p,oval,nval,f) \
             (__sync_bool_compare_and_swap(&((p)->ctr), (oval), (nval)))
@@ -127,6 +128,7 @@
       #define _gasneti_atomic64_set(p,v)     do { (p)->ctr = (v); } while(0)
 
       #define gasneti_atomic64_fetchadd(p,op,f) (__sync_fetch_and_add(&(p)->ctr, (uint64_t)(op)))
+      #define gasneti_atomic64_decrement_and_test(p,f) (1==gasneti_atomic64_fetchadd((p),-1,(f)))
 
       #define gasneti_atomic64_compare_and_swap(p,oval,nval,f) \
               (__sync_bool_compare_and_swap(&((p)->ctr), (oval), (nval)))
@@ -1048,6 +1050,7 @@
       #define _gasneti_atomic32_set(p,v)     ((p)->ctr = (v))
       #define gasneti_atomic32_fetchadd(p,op,f) \
               __sync_fetch_and_add(&((p)->ctr), (op))
+      #define gasneti_atomic32_decrement_and_test(p,f) (1==gasneti_atomic32_fetchadd((p),-1,(f)))
       #define gasneti_atomic32_compare_and_swap(p,oval,nval,f) \
               (__sync_val_compare_and_swap(&((p)->ctr), (oval), (nval)) == (oval))
       GASNETI_INLINE(gasneti_atomic32_swap)
@@ -1068,6 +1071,7 @@
       #define _gasneti_atomic64_set(p,v)     ((p)->ctr = (v))
       #define gasneti_atomic64_fetchadd(p,op,f)\
               __sync_fetch_and_add(&((p)->ctr), (op))
+      #define gasneti_atomic64_decrement_and_test(p,f) (1==gasneti_atomic64_fetchadd((p),-1,(f)))
       #define gasneti_atomic64_compare_and_swap(p,oval,nval,f) \
               (__sync_val_compare_and_swap(&((p)->ctr), (oval), (nval)) == (oval))
       GASNETI_INLINE(gasneti_atomic64_swap)
