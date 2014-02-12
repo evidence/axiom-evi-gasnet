@@ -575,8 +575,6 @@ extern void gasnetc_unpin(gasnetc_hca_t *hca, gasnetc_memreg_t *reg) {
 }
 
 extern int gasnetc_pin(gasnetc_hca_t *hca, void *addr, size_t size, enum ibv_access_flags acl, gasnetc_memreg_t *reg) {
-  const int vstat = 0;
-
   gasneti_assert(((uintptr_t)addr % GASNET_PAGESIZE) == 0);
   gasneti_assert(((uintptr_t)size % GASNET_PAGESIZE) == 0);
 
@@ -591,7 +589,7 @@ extern int gasnetc_pin(gasnetc_hca_t *hca, void *addr, size_t size, enum ibv_acc
   gasnetc_pinned_bytes += reg->len;
 #endif
 
-  return vstat;
+  return 0;
 }
 
 static void *gasnetc_try_pin_inner(size_t size, gasnetc_memreg_t *reg) {
@@ -1966,10 +1964,12 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 
         for (j = 0, addr = gasnetc_seg_start, remain = segsize; remain != 0; ++j) {
 	  size_t len = (gasnetc_max_regs == 1) ? remain : MIN(remain, gasnetc_pin_maxsz);
-          vstat = gasnetc_pin(hca, (void *)addr, len,
+          if (0 != gasnetc_pin(hca, (void *)addr, len,
 			      (enum ibv_access_flags)(IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ),
-			      &memreg);
-          GASNETC_IBV_CHECK(vstat, "when registering the segment");
+			      &memreg)) {
+             gasneti_fatalerror("Unexpected error %s (errno=%d) when registering the segment",
+                                strerror(errno), errno);
+          }
 	  my_rkeys[j] = memreg.handle->rkey;
 	  hca->seg_lkeys[j] = memreg.handle->lkey;
 	  addr += len;
