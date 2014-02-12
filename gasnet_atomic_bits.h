@@ -12,6 +12,136 @@
 #define _GASNET_ATOMIC_BITS_H
 
 /* ------------------------------------------------------------------------------------ */
+/* Atomics HOW TO:
+
+   This file implements the platform-specific aspects of GASNet's atomic
+   operations, where "platform" is defined as (at least) OS, ABI and compiler.
+
+   The GASNet atomics provide a set of operations on 32-bit and 64-bit types,
+   which are implemented using mutexes if a platform cannot implement all of the
+   required operations "natively".  If that is the case, then a "private" atomic
+   type can be defined which may have either a reduced set of operations, a size
+   other than 4 or 8 bytes, or both.
+
+   If a platform can implement the 32- and/or 64-bit operations (enumerated
+   below) than it must provide the following items, where "??" is to be
+   replaced by "32" or "64".
+
+   + #define GASNETI_HAVE_ATOMIC??_T 1
+     This indicates that the given type is implemented natively, suppressing the
+     generation of the corresponding mutex-based version.
+
+   + typedef ... gasneti_atomic??_t;
+     This is most often implemented as
+         struct { volatile uint??_t ctr; }
+     Use of a struct prevent client code from accidentally treating it as a
+     scalar, while the volatile qualifier helps ensure correct code in the
+     implementation.
+
+   + #define gasneti_atomic??_init(v) ...
+     Static initializer for gasneti_atomic??_t.
+
+   + One must #define EITHER gasneti_atomic??_[OP] or _gasneti_atomic??_[OP],
+     for each OP in {set, read, compare_and_swap, swap}.
+
+     The first (no "_" prefix) form takes a "const int flags" argument as
+     described in README-tools and must implement the fences it requests.  In
+     the case of implementations of the atomic operations which include both a
+     compiler fence and full memory barrier, one can simply ignore the argument.
+     At present there are no platforms using this non-prefixed option EXCEPT
+     for fully-fenced ones which ignore the flags argument.
+
+     The form with the "_" prefix does NOT take a "flags" argument and the
+     atomics subsystem automatically implements the fences to produce the
+     non-prefixed version.  Because of the way these are used, it is safe to
+     define these as macros which evaluate their arguments multiple times
+     because the arguments will never have side-effects.
+
+     A #define must be used to allow the rest of the atomics subsystem to know
+     which is available.  However, the OP itself is often implemented as an
+     inline function and its name is #define'd to itself.
+
+   + The arithmetic operations {increment, decrement, add, subtract} can be
+     provided either explicitly or implicitly.  The choice between explicit or
+     implicit definition is independent - one may mix explicit and implicit
+     definitions of these four operations freely.
+
+     To provide the operations explicitly one #define's them, with or without a
+     "_" prefix as above.  If neither form is defined, the atomics subsystem
+     will construct them automatically provided one #defines any ONE of the
+     following:
+           uint??_t gasneti_atomic??_fetchadd(ptr, op, flags)
+           uint??_t gasneti_atomic??_addfetch(ptr, op, flags)
+           uint??_t _gasneti_atomic??_fetchadd(ptr, op)
+           uint??_t _gasneti_atomic??_addfetch(ptr, op)
+     A "fetchadd" returns the value before addition, while a "addfetch" returns
+     the value after.  Note that the "op" has an unsigned type (uint??_t) rather
+     than signed (int??_t) as in the add and subtract operations.  This does not
+     impact the results since we perform 2s-complement arithmetic on the 32- and
+     64-bit types.
+
+   + The decrement_and_test operation can either be #define'd explicitly (with
+     or without a "_" prefix) OR it can be constructed automatically from either
+     a "_"-prefixed fetchadd or addfetch.  However, it will NOT be constructed
+     automatically from the corresponding non-prefixed (fenced) operations
+     because there is currently no suitable mechanism to reconcile the fencing.
+
+   + Fences:
+     If you define any of the operations above with the "_" prefix, then the
+     non- version (with a flags argument) will be constructed automatically,
+     and this construction will implement the fences requested by this flags
+     argument.  By default this construction assumes that there are no fencing
+     side-effects (compiler fence or memory barriers) in the "_"-prefixed
+     operations.  When that is NOT the case, one can override this default
+     behavior by defining the appropriate fencing macros.  At present this is
+     done only for the x86/x86-64 and IA6464.
+
+     In the case of the x86/x86-64 all of the read-modify-write operations
+     include a full memory barrier but do NOT include a compiler fence.  So
+     the following definitions are used to replace the defaults:
+        #define _gasneti_atomic??_prologue_rmw(p,f)
+        #define _gasneti_atomic??_fence_before_rmw(p,f)   _gasneti_atomic_cf_before(f)
+        #define _gasneti_atomic??_fence_after_rmw(p,f)    _gasneti_atomic_cf_after(f)
+        #define _gasneti_atomic??_fence_after_bool(p,f,v) _gasneti_atomic_cf_after(f)
+     where "cf" stands for compiler fence and _gasneti_atomic_cf_before() and
+     ...after are defined in gasneti_atomicops.h along with several other macros
+     used to construct the default fences.
+
+   + Generic atomics:
+     The term "generic atomics" is used here and in gasnet_atomicops.h to refer
+     to the implementation of atomic operations via mutexes.  These will be
+     pthread mutexes in GASNet-tools code, and HSLs in a GASNet client.
+
+   + Hybrid 64-bit atomics:
+     With an ABI for which the alignment of 64-bit types is NOT sufficient to
+     allow free use of the CPU's native atomic operations, we have a "hybrid"
+     mechanism in which a run-time branch selects between native atomics for the
+     properly-aligned case and generic atomics for unaligned values.  A platform
+     requiring the hybrid implementation need only
+        #define GASNETI_HYBRID_ATOMIC64 1
+     and provide exactly the operations expected by the corresponding code in
+     gasnet_atomicops.h (search for GASNETI_HYBRID_ATOMIC64).
+
+
+   TODO: Fully document the macros used to override the default fences.
+         For now, the code for x86/86-64 is the only decent example.
+
+   TODO: Document definition of a "private" atomic type.
+         For now the MTA code is the only surviving example, but the SPARC7 and
+         PA-RISC code (removed after GASNet-1.22.0) were better examples.
+
+   TODO: Document definition of "special" and "slow" atomics.
+         In brief: "special" is for out-of-line asm available in some compilers,
+         while "slow" is for the one case we've had in which the C compiler has
+         asm support (either inline or "special") but the C++ compiler did not.
+         While "slow" is pretty straight-forward, the construction of "special"
+         atomics require specific macro names to trigger the proper
+         constructions elsewhere.
+
+   SEE ALSO: https://upc-bugs.lbl.gov/bugzilla/show_bug.cgi?id=1607
+ */
+
+/* ------------------------------------------------------------------------------------ */
 /* Identify special cases lacking native support */
 
 #if defined(GASNETI_FORCE_GENERIC_ATOMICOPS) || /* for debugging */                \
