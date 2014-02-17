@@ -7,6 +7,7 @@
 
 #include <gasnet_internal.h>
 #include <gasnet_core_internal.h>
+#include <gasnet_mxm_req.h>
 
 #include <errno.h>
 #include <unistd.h>
@@ -154,6 +155,17 @@ static void gasnetc_bootstrapBarrier(void) {
     /* using internal function instead */
     gasneti_bootstrapBarrier();
 }
+
+
+/* -------------------------------------------------------------------------- */
+
+size_t gasneti_AMMaxMedium(void)
+{
+    /*return gasnet_mxm_module.max_am_med -*/
+    /*          (sizeof(gasnet_handlerarg_t) * GASNETC_MAX_ARGS));*/
+    return gasnet_mxm_module.max_am_med;
+}
+
 /* -------------------------------------------------------------------------- */
 
 static int gasneti_bootstrapInit(
@@ -344,15 +356,6 @@ static int gasneti_load_settings(void)
                               GASNETC_DEFAULT_EXITTIMEOUT_FACTOR,
                               GASNETC_DEFAULT_EXITTIMEOUT_MIN);
     return GASNET_OK;
-}
-
-/* -------------------------------------------------------------------------- */
-
-size_t inline gasneti_AMMaxMedium(void)
-{
-    /*return gasnet_mxm_module.max_am_med -*/
-    /*          (sizeof(gasnet_handlerarg_t) * GASNETC_MAX_ARGS));*/
-    return gasnet_mxm_module.max_am_med;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -589,10 +592,10 @@ static void gasnetc_init_pin_info(int first_local, int ppn)
 
 /* -------------------------------------------------------------------------- */
 
-static inline int gasnetc_post_recv(void)
+static inline int gasnetc_post_recv(gasnet_mxm_recv_req_t *r_req)
 {
-    mxm_recv_req_t * p_req = &gasnet_mxm_module.recv_req;
-    mxm_req_base_t * p_base = &gasnet_mxm_module.recv_req.base;
+    mxm_recv_req_t * p_req = &r_req->mxm_rreq;
+    mxm_req_base_t * p_base = &r_req->mxm_rreq.base;
     p_req->tag = 0;
     p_req->tag_mask = 0; /* match any tag */
     p_base->completed_cb = NULL;
@@ -600,16 +603,14 @@ static inline int gasnetc_post_recv(void)
     p_base->mq = gasnet_mxm_module.mxm_mq;
     p_base->state = MXM_REQ_NEW;
     p_base->data_type = MXM_REQ_DATA_BUFFER;
-    p_base->data.buffer.ptr = (void *)gasnet_mxm_module.recv_reg.addr;
-    p_base->data.buffer.length = gasnet_mxm_module.recv_reg.len;
 #if MXM_API < MXM_VERSION(1,5)
     p_base->flags = 0;
-    p_base->data.buffer.mkey = gasnet_mxm_module.recv_reg.lkey;
+    p_base->data.buffer.mkey = MXM_MKEY_NONE;
 #elif MXM_API == MXM_VERSION(1,5)
     p_base->flags = 0;
-    p_base->data.buffer.memh = gasnet_mxm_module.recv_reg.memh;
+    p_base->data.buffer.memh = NULL;
 #endif
-    return mxm_req_recv(p_req);
+    return mxm_req_recv(&r_req->mxm_rreq);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -635,6 +636,7 @@ static int gasnetc_init(int *argc, char ***argv)
 
     uint32_t jobid = 0;
     unsigned long cur_ver;
+    gasnet_mxm_recv_req_t *r, *prev_r;
 
     /*  check system sanity */
     gasnetc_check_config();
@@ -823,22 +825,22 @@ static int gasnetc_init(int *argc, char ***argv)
                               gasnet_mxm_module.remote_eps);
 
     /*
-     * Allocate a single buffer for receive and register it.
-     * Its size should be up to max medium size message, but
-     * we also need to make sure that it is properly aligned.
+     * Allocate pool of receive requests
      */
-    {
-        size_t size = GASNETI_PAGE_ALIGNUP(gasneti_AMMaxMedium());
-        void * buf = gasneti_mmap(size);
-        if (buf == MAP_FAILED) {
-            fprintf(stderr, "Unable to allocate pinned memory for receive buffer\n");
-            return GASNET_ERR_RESOURCE;
-        }
-        if (gasnetc_pin(buf, size, &gasnet_mxm_module.recv_reg)) {
-            fprintf(stderr, "Unable to pin memory for receive buffer\n");
-            return GASNET_ERR_RESOURCE;
-        }
+
+    GASNETC_ENVINT(gasnet_mxm_module.am_max_depth, GASNET_NETWORKDEPTH, 16, 1, 1);
+
+    gasnet_mxm_module.am_recv_pool = gasneti_malloc(gasnet_mxm_module.am_max_depth*sizeof(gasnet_mxm_recv_req_t*));
+
+    prev_r = NULL;
+    for (i = 0; i < gasnet_mxm_module.am_max_depth; i++) {
+        r = gasnetc_alloc_recv_req();
+        gasnet_mxm_module.am_recv_pool[i] = r;
+        r->next = prev_r;
+        prev_r = r;
     }
+    gasnet_mxm_module.am_recv_tail = gasnet_mxm_module.am_recv_pool[0];
+    gasnet_mxm_module.am_recv_head = gasnet_mxm_module.am_recv_pool[gasnet_mxm_module.am_max_depth-1];
 
     /* (###) Add code here to determine which GASNet nodes may share memory.
     The collection of nodes sharing memory are known as a "supernode".
@@ -1003,11 +1005,13 @@ static int gasnetc_init(int *argc, char ***argv)
     }
 
     /*
-     * Post first receive request
+     * Post all receive requests
      */
-    if (gasnetc_post_recv()) {
-        fprintf(stderr, "Unable to post receive\n");
-        return GASNET_ERR_NOT_INIT;
+    for (r = gasnet_mxm_module.am_recv_head; r != NULL; r = r->next) {
+        if (gasnetc_post_recv(r)) {
+            MXM_ERROR("Unable to post receive\n");
+            return GASNET_ERR_NOT_INIT;
+        }
     }
 
     /*
@@ -1344,7 +1348,10 @@ static void gasneti_mxm_finalize(void)
     if (gasnet_mxm_module.mxm_ep)
         mxm_ep_destroy(gasnet_mxm_module.mxm_ep);
 
-    gasnetc_unpin(&gasnet_mxm_module.recv_reg);
+    for(i = 0; i < gasnet_mxm_module.am_max_depth; i++) {
+        gasnetc_free_recv_req(gasnet_mxm_module.am_recv_pool[i]);
+    }
+    gasneti_free(gasnet_mxm_module.am_recv_pool);
 
     if (gasneti_attach_done) {
         size_t remain = gasneti_seginfo[gasneti_mynode].size;
@@ -2144,7 +2151,7 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
     return GASNET_OK;
 }
 
-extern void gasnetc_ProcessRecv(void);
+extern void gasnetc_ProcessRecv(gasnet_mxm_recv_req_t *r);
 
 static int gasnetc_AMPoll_nocheckattach(void) {
 #ifdef MXM_MUTEX_AMPOLL_LOCK
@@ -2161,16 +2168,27 @@ static int gasnetc_AMPoll_nocheckattach(void) {
 #endif
             /* (###) add code here to run your AM progress engine */
             {
+                gasnet_mxm_recv_req_t *r;
+
+                r = gasnet_mxm_module.am_recv_head;
+                if (r == NULL) {
+                    gasneti_fatalerror("no posted reqs... oops");
+                    return GASNET_ERR_RESOURCE;
+                }
+
                 mxm_progress(gasnet_mxm_module.mxm_context);
 
-                if (mxm_req_test(&gasnet_mxm_module.recv_req.base)) {
-                    /* receive request is completed - process the message */
-                    gasnetc_ProcessRecv();
-                    /* post new receive request */
-                    if (gasnetc_post_recv()) {
-                        fprintf(stderr, "Unable to post receive\n");
-                        return GASNET_ERR_RESOURCE;
+                /* receive request is completed - process the message */
+                if (mxm_req_test(&r->mxm_rreq.base)) {
+                    gasnet_mxm_module.am_recv_head = r->next;
+                    gasnetc_ProcessRecv(r);
+                    gasnet_mxm_module.am_recv_tail->next = r;
+                    r->next = 0;
+                    gasnet_mxm_module.am_recv_tail = r;
+                    if (gasnet_mxm_module.am_recv_head == NULL) {
+                        gasnet_mxm_module.am_recv_head = r;
                     }
+                    gasnetc_post_recv(r);
                 }
 
             }
