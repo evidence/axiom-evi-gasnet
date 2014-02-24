@@ -59,6 +59,34 @@ gasnet_mxm_send_req_t * gasnetc_alloc_send_req(void)
 
 /* -------------------------------------------------------------------------- */
 
+extern gasnet_mxm_recv_req_t * gasnetc_alloc_recv_req(void)
+{
+    gasnet_mxm_recv_req_t * r;
+    size_t size = GASNETI_PAGE_ALIGNUP(gasneti_AMMaxMedium());
+    void * buf; 
+
+    r = gasneti_malloc(sizeof(*r));
+    gasneti_assert(r && "Out of memory");
+
+    buf = gasneti_mmap(size);
+    gasneti_assert(buf && "Out of memory");
+
+    r->mxm_rreq.base.data.buffer.ptr = buf;
+    r->mxm_rreq.base.data.buffer.length = size;
+
+    return r;
+}
+
+/* -------------------------------------------------------------------------- */
+
+void gasnetc_free_recv_req(gasnet_mxm_recv_req_t *p_rreq)
+{
+    gasneti_munmap(p_rreq->mxm_rreq.base.data.buffer.ptr, p_rreq->mxm_rreq.base.data.buffer.length);
+    gasneti_free(p_rreq);
+}
+
+/* -------------------------------------------------------------------------- */
+
 #if (1)
 #define GASNETC_LONG_ASYNC_REQ(category, is_req, is_sync) \
                     (((category) == gasnetc_Long) && (is_req) && !(is_sync))
@@ -856,7 +884,7 @@ static void gasnetc_HandleSystemMessage(gasnetc_am_token_t * token,
 
 /* -------------------------------------------------------------------------- */
 
-void gasnetc_ProcessRecv(void)
+void gasnetc_ProcessRecv(gasnet_mxm_recv_req_t *r)
 {
     gasnetc_am_token_t token;
     gasnetc_am_token_t * p_token = &token;
@@ -870,36 +898,51 @@ void gasnetc_ProcessRecv(void)
     size_t   args_len = 0;
     gasnet_handlerarg_t *args = NULL;
 
-    gasneti_assert(gasnet_mxm_module.recv_req.base.state == MXM_REQ_COMPLETED);
+    gasneti_assert(r->mxm_rreq.base.state == MXM_REQ_COMPLETED);
 
-    token.src_node        = (gasnet_node_t)gasnet_mxm_module.recv_req.completion.sender_tag;
-    token.is_request      = GASNETC_MSG_ISREQUEST(gasnet_mxm_module.recv_req.completion.sender_imm);
-    token.is_sync_request = GASNETC_MSG_ISSYNC(gasnet_mxm_module.recv_req.completion.sender_imm);
-    token.msg_num         = GASNETC_MSG_NUMBER(gasnet_mxm_module.recv_req.completion.sender_imm);
-    numargs               = GASNETC_MSG_NUMARGS(gasnet_mxm_module.recv_req.completion.sender_imm);
-    category              = GASNETC_MSG_CATEGORY(gasnet_mxm_module.recv_req.completion.sender_imm);
-    sys_msg_type          = GASNETC_MSG_TYPE_SYS(gasnet_mxm_module.recv_req.completion.sender_imm);
-    handler_id            = GASNETC_MSG_HANDLERID(gasnet_mxm_module.recv_req.completion.sender_imm);
+    token.src_node        = (gasnet_node_t)r->mxm_rreq.completion.sender_tag;
+    token.is_request      = GASNETC_MSG_ISREQUEST(r->mxm_rreq.completion.sender_imm);
+    token.is_sync_request = GASNETC_MSG_ISSYNC(r->mxm_rreq.completion.sender_imm);
+    token.msg_num         = GASNETC_MSG_NUMBER(r->mxm_rreq.completion.sender_imm);
+    numargs               = GASNETC_MSG_NUMARGS(r->mxm_rreq.completion.sender_imm);
+    category              = GASNETC_MSG_CATEGORY(r->mxm_rreq.completion.sender_imm);
+    sys_msg_type          = GASNETC_MSG_TYPE_SYS(r->mxm_rreq.completion.sender_imm);
+    handler_id            = GASNETC_MSG_HANDLERID(r->mxm_rreq.completion.sender_imm);
 
 #if GASNET_DEBUG_AM
     MXM_LOG("[msg 0x%02x%02x] [pid %d] RECV on node %d: source ID = %d, category = %s, handler_id = %d, numargs = %d, is_request = %d, is_sync_request = %d, sender len = %d, actual len = %d\n",
             (token.is_request) ?
-            (uint8_t)(gasnet_mxm_module.recv_req.completion.sender_tag) :
+            (uint8_t)(r->mxm_rreq.completion.sender_tag) :
             (uint8_t)gasneti_mynode,
             token.msg_num, getpid(), gasnet_mynode(),
-            gasnet_mxm_module.recv_req.completion.sender_tag,
+            r->mxm_rreq.completion.sender_tag,
             am_category_str[category],
             handler_id,
             numargs,
             token.is_request,
             token.is_sync_request,
-            (int)gasnet_mxm_module.recv_req.completion.sender_len,
-            (int)gasnet_mxm_module.recv_req.completion.actual_len);
+            (int)r->mxm_rreq.completion.sender_len,
+            (int)r->mxm_rreq.completion.actual_len);
+#endif
+#if 0
+    printf("[msg 0x%02x%02x] [pid %d] RECV on node %d: source ID = %d, category = %s, handler_id = %d, numargs = %d, is_request = %d, is_sync_request = %d, sender len = %d, actual len = %d\n",
+            (token.is_request) ?
+            (uint8_t)(r->mxm_rreq.completion.sender_tag) :
+            (uint8_t)gasneti_mynode,
+            token.msg_num, getpid(), gasnet_mynode(),
+            r->mxm_rreq.completion.sender_tag,
+            am_category_str[category],
+            handler_id,
+            numargs,
+            token.is_request,
+            token.is_sync_request,
+            (int)r->mxm_rreq.completion.sender_len,
+            (int)r->mxm_rreq.completion.actual_len);
 #endif
     handler_fn = gasnetc_handler[handler_id];
 
     if (numargs)
-        args = (gasnet_handlerarg_t *)gasnet_mxm_module.recv_req.base.data.buffer.ptr;
+        args = (gasnet_handlerarg_t *)r->mxm_rreq.base.data.buffer.ptr;
 
     switch (category) {
     case gasnetc_Short: {
@@ -921,9 +964,9 @@ void gasnetc_ProcessRecv(void)
         args_len = GASNETI_ALIGNUP(
                        numargs * sizeof(gasnet_handlerarg_t), GASNETI_MEDBUF_ALIGNMENT);
         med_data_len =
-            gasnet_mxm_module.recv_req.completion.actual_len - args_len;
+            r->mxm_rreq.completion.actual_len - args_len;
         med_data = med_data_len ? (void *)(
-                       (uintptr_t)gasnet_mxm_module.recv_req.base.data.buffer.ptr +
+                       (uintptr_t)r->mxm_rreq.base.data.buffer.ptr +
                        (uintptr_t)args_len) : NULL;
 
         GASNETI_RUN_HANDLER_MEDIUM(token.is_request,
@@ -942,7 +985,7 @@ void gasnetc_ProcessRecv(void)
         args_len = numargs * sizeof(gasnet_handlerarg_t);
 
         long_data = (void *)(
-                        (uintptr_t)gasnet_mxm_module.recv_req.base.data.buffer.ptr +
+                        (uintptr_t)r->mxm_rreq.base.data.buffer.ptr +
                         (uintptr_t)args_len);
 
         addr = (void *)((uint64_t *)long_data)[0];

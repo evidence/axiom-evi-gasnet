@@ -235,6 +235,9 @@ typedef struct gasnetc_mkey_ {
     uint32_t rkey;
 } gasnetc_mkey_t;
 
+struct gasnet_mxm_recv_req;
+typedef struct gasnet_mxm_recv_req gasnet_mxm_recv_req_t;
+
 typedef struct _gasnet_mxm_module {
     mxm_h                        mxm_context;
     mxm_ep_h                     mxm_ep;
@@ -246,8 +249,10 @@ typedef struct _gasnet_mxm_module {
     size_t                       zcopy_thresh;/* MXM threshold for using zcopy*/
     size_t                       max_am_med;  /* max size for medium AM */
     gasnetc_memreg_t           * reg;         /* registered segments */
-    mxm_recv_req_t               recv_req;    /* single recv request */
-    gasnetc_memreg_t             recv_reg;    /* buffer for receive request data */
+    int                          am_max_depth; 
+    gasnet_mxm_recv_req_t        **am_recv_pool; 
+    gasnet_mxm_recv_req_t        *am_recv_head; /*  receive requests */
+    gasnet_mxm_recv_req_t        *am_recv_tail; /* current posted recv req */
 } gasnet_mxm_module_t;
 
 typedef struct _gasnetc_am_token {
@@ -256,6 +261,12 @@ typedef struct _gasnetc_am_token {
     uint8_t is_sync_request;
     uint8_t msg_num;
 } gasnetc_am_token_t;
+
+/* -------------------------------------------------------------------------- */
+
+extern gasnet_mxm_module_t   gasnet_mxm_module;
+
+extern size_t gasneti_AMMaxMedium(void);
 
 #endif
 
