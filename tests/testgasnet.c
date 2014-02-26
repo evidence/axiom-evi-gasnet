@@ -648,20 +648,20 @@ void doit5(int partner, int *partnerseg) {
    * This is distinct from testtools, which checks that these "do the right thing".
    */
   #ifndef GASNETT_HAVE_ATOMIC_CAS
-    #define gasnett_atomic_compare_and_swap(a,b,c,d) /*empty*/
-    #define gasnett_atomic_swap(a,b,c)               /*empty*/
+    #define gasnett_atomic_compare_and_swap(a,b,c,d) ((void)0)
+    #define gasnett_atomic_swap(a,b,c)               ((void)0)
   #endif
   #ifndef GASNETT_HAVE_ATOMIC_ADD_SUB
-    #define gasnett_atomic_add(a,b,c)                /*empty*/
-    #define gasnett_atomic_subtract(a,b,c)           /*empty*/
+    #define gasnett_atomic_add(a,b,c)                ((void)0)
+    #define gasnett_atomic_subtract(a,b,c)           ((void)0)
   #endif
   #ifndef GASNETT_HAVE_STRONGATOMIC_CAS
-    #define gasnett_strongatomic_compare_and_swap(a,b,c,d) /*empty*/
-    #define gasnett_strongatomic_swap(a,b,c)               /*empty*/
+    #define gasnett_strongatomic_compare_and_swap(a,b,c,d) ((void)0)
+    #define gasnett_strongatomic_swap(a,b,c)               ((void)0)
   #endif
   #ifndef GASNETT_HAVE_STRONGATOMIC_ADD_SUB
-    #define gasnett_strongatomic_add(a,b,c)                /*empty*/
-    #define gasnett_strongatomic_subtract(a,b,c)           /*empty*/
+    #define gasnett_strongatomic_add(a,b,c)                ((void)0)
+    #define gasnett_strongatomic_subtract(a,b,c)           ((void)0)
   #endif
   #define TEST_ATOMICS(scalar,class) do { \
     gasnett_##class##_t val = gasnett_##class##_init(1);             \
