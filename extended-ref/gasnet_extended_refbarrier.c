@@ -331,6 +331,7 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
 
   /* Signal my own arrival */
 #if GASNETE_PSHM_BARR_U64
+  gasneti_local_wmb();
   pshm_bdata->private.mynode->u.u64 = GASNETE_PSHM_BARR_PACK(value, flags, two_to_phase);
 #else
   pshm_bdata->private.mynode->u.wmb.value = value;
