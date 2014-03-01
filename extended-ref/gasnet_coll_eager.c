@@ -103,13 +103,9 @@ static int gasnete_coll_pf_bcast_TreeEager(gasnete_coll_op_t *op GASNETE_THREAD_
       data->state = 1;
       
       case 1:	/* Optional IN barrier over the SAME tree */
-      if(op->flags & GASNET_COLL_IN_ALLSYNC) {
-    	if (gasneti_weakatomic_read(&data->p2p->counter[0], 0) != child_count) {
-	  break;
-	}
-        if (op->team->myrank != args->srcnode) {
-          gasnete_coll_p2p_advance(op, GASNETE_COLL_REL2ACT(op->team, GASNETE_COLL_TREE_GEOM_PARENT(tree->geom)),0);
-	}
+      if ((op->flags & GASNET_COLL_IN_ALLSYNC) &&
+          !gasnete_coll_generic_upsync_acq(op, args->srcnode, 0, child_count)) {
+        break;
       }
       data->state = 2;
       
@@ -150,7 +146,7 @@ static int gasnete_coll_pf_bcast_TreeEager(gasnete_coll_op_t *op GASNETE_THREAD_
 
 GASNETE_COLL_DECLARE_BCAST_ALG(TreeEager)
 {
-  int options = /*GASNETE_COLL_GENERIC_OPT_INSYNC_IF (flags & GASNET_COLL_IN_ALLSYNC)  |*/
+  int options =
   GASNETE_COLL_GENERIC_OPT_OUTSYNC_IF(flags & GASNET_COLL_OUT_ALLSYNC) |
   GASNETE_COLL_GENERIC_OPT_P2P;
   
@@ -242,21 +238,16 @@ static int gasnete_coll_pf_bcastM_TreeEager(gasnete_coll_op_t *op GASNETE_THREAD
   
   
   switch (data->state) {
-    case 0:	/* Optional IN barrier */
+    case 0:	/* thread barrier */
       if (!gasnete_coll_threads_ready1(op, args->dstlist GASNETE_THREAD_PASS)) {
         break;
       }
       data->state = 1;
       
-      case 1:
-      if((op->flags & GASNET_COLL_IN_ALLSYNC)) {
-        
-        if (gasneti_weakatomic_read(&(data->p2p->counter[0]), 0) != child_count) {
-          break;
-        }
-        if (op->team->myrank != args->srcnode) {
-          gasnete_coll_p2p_advance(op, GASNETE_COLL_REL2ACT(op->team, GASNETE_COLL_TREE_GEOM_PARENT(tree->geom)),0);
-        }
+      case 1:	/* Optional IN barrier over the SAME tree */
+      if ((op->flags & GASNET_COLL_IN_ALLSYNC) &&
+          !gasnete_coll_generic_upsync_acq(op, args->srcnode, 0, child_count)) {
+        break;
       }
       data->state = 2;
       
@@ -401,13 +392,9 @@ static int gasnete_coll_pf_scat_TreeEager(gasnete_coll_op_t *op GASNETE_THREAD_F
       data->state = 1;
       
     case 1:	/* Optional IN barrier over the SAME tree */
-      if(op->flags & GASNET_COLL_IN_ALLSYNC) {
-        if (gasneti_weakatomic_read(&data->p2p->counter[0], 0) != child_count) {
-          break;
-        }
-        if (op->team->myrank != args->srcnode) {
-          gasnete_coll_p2p_advance(op, GASNETE_COLL_REL2ACT(op->team, GASNETE_COLL_TREE_GEOM_PARENT(tree->geom)),0);
-        }
+      if ((op->flags & GASNET_COLL_IN_ALLSYNC) &&
+          !gasnete_coll_generic_upsync_acq(op, args->srcnode, 0, child_count)) {
+        break;
       }
       data->state = 2;
       
@@ -461,7 +448,7 @@ static int gasnete_coll_pf_scat_TreeEager(gasnete_coll_op_t *op GASNETE_THREAD_F
 
 GASNETE_COLL_DECLARE_SCATTER_ALG(TreeEager)
 {
-  int options = /*GASNETE_COLL_GENERIC_OPT_INSYNC_IF (flags & GASNET_COLL_IN_ALLSYNC)  |*/
+  int options =
   GASNETE_COLL_GENERIC_OPT_OUTSYNC_IF(flags & GASNET_COLL_OUT_ALLSYNC) |
   GASNETE_COLL_GENERIC_OPT_P2P;
   
@@ -611,13 +598,9 @@ static int gasnete_coll_pf_scatM_TreeEager(gasnete_coll_op_t *op GASNETE_THREAD_
       data->state = 1;
       
     case 1:	/* Optional IN barrier over the SAME tree */
-      if(op->flags & GASNET_COLL_IN_ALLSYNC) {
-        if (gasneti_weakatomic_read(&data->p2p->counter[0], 0) != child_count) {
-          break;
-        }
-        if (op->team->myrank != args->srcnode) {
-          gasnete_coll_p2p_advance(op, GASNETE_COLL_REL2ACT(op->team, GASNETE_COLL_TREE_GEOM_PARENT(tree->geom)),0);
-        }
+      if ((op->flags & GASNET_COLL_IN_ALLSYNC) &&
+          !gasnete_coll_generic_upsync_acq(op, args->srcnode, 0, child_count)) {
+        break;
       }
       data->state = 2;
       
@@ -679,7 +662,7 @@ static int gasnete_coll_pf_scatM_TreeEager(gasnete_coll_op_t *op GASNETE_THREAD_
 
 GASNETE_COLL_DECLARE_SCATTERM_ALG(TreeEager)
 {
-  int options = /*GASNETE_COLL_GENERIC_OPT_INSYNC_IF (flags & GASNET_COLL_IN_ALLSYNC)  |*/
+  int options =
   GASNETE_COLL_GENERIC_OPT_OUTSYNC_IF(flags & GASNET_COLL_OUT_ALLSYNC) |
   GASNETE_COLL_GENERIC_OPT_P2P;
   
