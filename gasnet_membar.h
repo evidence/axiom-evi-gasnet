@@ -175,25 +175,10 @@
 
    /* "lwsync" = "sync 1", executed as "sync" on older CPUs */
    #define GASNETI_PPC_WMB_ASM "7c2004ac"
-   #ifdef GASNETI_TUNE_PPC970
-     /* On PPC970 (and nowhere else so far) lwsync is faster than isync */
-     #define GASNETI_PPC_RMB_ASM GASNETI_PPC_WMB_ASM
-     #define GASNETI_RMB_IS_MB
-   #else
-     /* "isync" (instruction sync to squash speculative loads) */
-     #define GASNETI_PPC_RMB_ASM "4c00012c"
-   #endif
 
    #pragma mc_func _gasneti_do_wmb { GASNETI_PPC_WMB_ASM }
    #pragma reg_killed_by _gasneti_do_wmb
    #define gasneti_local_wmb() _gasneti_do_wmb()
-
-   #pragma mc_func _gasneti_do_rmb { GASNETI_PPC_RMB_ASM }
-   #pragma reg_killed_by _gasneti_do_rmb
-   #define gasneti_local_rmb() _gasneti_do_rmb()
-
-   #define gasneti_local_mb() _gasneti_do_wmb()
-   #define GASNETI_WMB_IS_MB
 
    #pragma mc_func _gasneti_do_compilerfence { "" }
    #pragma reg_killed_by _gasneti_do_compilerfence
@@ -202,29 +187,16 @@
    /* "lwsync" = "sync 1", executed as "sync" on older CPUs */
    /* XXX: Can't count on older assemblers to recognize "lwsync" mnemonic */
    #define GASNETI_PPC_WMB_ASM ".long 0x7c2004ac"
-   #ifdef GASNETI_TUNE_PPC970
-     /* On PPC970 (and nowhere else so far) lwsync is faster than isync */
-     #define GASNETI_PPC_RMB_ASM GASNETI_PPC_WMB_ASM
-     #define GASNETI_RMB_IS_MB
-   #else
-     /* "isync" (instruction sync to squash speculative loads) */
-     #define GASNETI_PPC_RMB_ASM "isync"
-   #endif
-
-   GASNETI_INLINE(gasneti_local_wmb)
-   void gasneti_local_wmb(void) {
-     GASNETI_ASM(GASNETI_PPC_WMB_ASM);
-   }
-
-   GASNETI_INLINE(_gasneti_local_rmb)
-   void _gasneti_local_rmb(void) {
-     GASNETI_ASM(GASNETI_PPC_RMB_ASM);
-   }
-   #define gasneti_local_rmb() _gasneti_local_rmb()
-
-   #define gasneti_local_mb() gasneti_local_wmb()
-   #define GASNETI_WMB_IS_MB
+   #define gasneti_local_wmb() GASNETI_ASM(GASNETI_PPC_WMB_ASM)
  #endif
+
+ #define GASNETI_PPC_RMB_ASM GASNETI_PPC_WMB_ASM
+ #define gasneti_local_rmb() gasneti_local_wmb()
+ #define GASNETI_RMB_IS_MB
+
+ /* TODO: 'lwsync' is LL+SS but not LS or SL barrier.  Is that enough? */
+ #define gasneti_local_mb()  gasneti_local_wmb()
+ #define GASNETI_WMB_IS_MB
 /* ------------------------------------------------------------------------------------ */
 #elif PLATFORM_ARCH_MTA
    #if 0 /* causes warnings */
