@@ -192,6 +192,7 @@ int main(int argc, char **argv) {
     int timeiters = MAX(1,iters / 10);
     gasnett_tick_t ticktimemin = GASNETT_TICK_MIN;
     gasnett_tick_t ticktimemax = GASNETT_TICK_MAX;
+    double slack = gasnett_getenv_dbl_withdefault("GASNET_TEST_TIME_SLACK", 0.01);
 
     double overhead = gasnett_tick_overheadus();
     double granularity = gasnett_tick_granularityus();
@@ -254,9 +255,10 @@ int main(int argc, char **argv) {
       time = gasnett_ticks_to_us(end) - gasnett_ticks_to_us(start);
       timeref = endref - startref;
 
-      if (abs(timeref - time) > 10000)
-        ERR("timer and reference differ by more than 0.01sec:\n"
-               "\ttime=%i  timeref=%i\n",time,timeref);
+      if (abs(timeref - time) > (int)(slack * 1.e6))
+        ERR("timer and reference differ by more than %g sec:\n"
+               "\ttime=%i  timeref=%i  delta=%g sec\n",
+               slack,time,timeref,1.e-6*abs(timeref - time));
 
       if (abs( (int)((gasnett_ticks_to_us(end) - gasnett_ticks_to_us(start)) - 
                       gasnett_ticks_to_us(end - start)) ) > 1)
