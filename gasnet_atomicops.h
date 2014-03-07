@@ -295,10 +295,8 @@
   }
 #define GASNETI_ATOMIC_FENCED_ADDSUB_DEFN_NOT_INLINE(group,func,_func,stem) \
   stem##val_t func(stem##t *p, stem##val_t op, const int flags) {   \
-    /* TODO: prohibit zero as well? */                              \
     _gasneti_##group##_prologue_rmw(p,flags)                        \
     GASNETI_ATOMIC_CHECKALIGN(stem,p);                              \
-    gasneti_assert((stem##sval_t)op >= 0);                          \
     _gasneti_##group##_fence_before_rmw(p,flags)                    \
     { const stem##val_t retval = _func(p, op);                      \
       _gasneti_##group##_fence_after_rmw(p,flags)                   \

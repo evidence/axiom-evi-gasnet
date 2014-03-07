@@ -249,9 +249,9 @@ the section on strong atomics below.
                                                gasnett_atomic_val_t op,
                                                int flags);
 
- These implement atomic addition and subtraction, where op must be non-negative.
- The result is platform dependent if the value of op is negative or out of the
- range of gasnett_atomic_val_t, or if the resulting value is out of range.
+ These implement atomic (unsigned) addition and subtraction.
+ If the result would lie outside the range of gasnett_atomic_val_t,
+ then the excess high-order bits of the exact result are truncated.
  Both return the value after the addition or subtraction.
 
  GASNETT_HAVE_ATOMIC_ADD_SUB will be defined to 1 when these operations are available.
