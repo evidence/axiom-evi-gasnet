@@ -858,7 +858,7 @@ void gasnetc_dump_cqs(struct ibv_wc *comp, gasnetc_hca_t *hca, const int is_snd)
       count = 1;
       status = comp->status;
     }
-  } while ((status != -1) && (count <= max_other_cq));
+  } while ((status != (enum ibv_wc_status)(-1)) && (count <= max_other_cq));
   if (count > max_other_cq) {
     fprintf(stderr, "@ %d> - %s CQ contains impossibly large WCE count with status %d\n", gasneti_mynode, label, status);
   }
