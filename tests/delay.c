@@ -1,6 +1,6 @@
 /*   $Source: bitbucket.org:berkeleylab/gasnet.git/tests/delay.c $
  * Description: 
- * Copyright 2004, Paul Hargrove <PHHargrove@lbl.gov>
+ * Copyright 2004, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
  */
 #include <float.h>
