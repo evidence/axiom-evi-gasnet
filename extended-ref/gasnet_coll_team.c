@@ -1,7 +1,7 @@
 /*   $Source: bitbucket.org:berkeleylab/gasnet.git/extended-ref/gasnet_coll_team.c $
  *
  * Description: GASNet generic team implementation for collectives 
- * Copyright 2009, E. O. Lawrence Berekely National Laboratory
+ * Copyright 2009, The Regents of the University of California
  * Terms of use are as specified in license.txt 
  */
 
