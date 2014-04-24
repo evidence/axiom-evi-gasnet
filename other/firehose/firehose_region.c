@@ -1,6 +1,6 @@
 /*   $Source: bitbucket.org:berkeleylab/gasnet.git/other/firehose/firehose_region.c $
  * Description: 
- * Copyright 2004, E. O. Lawrence Berekely National Laboratory
+ * Copyright 2004, The Regents of the University of California
  * Terms of use are as specified in license.txt
  */
 #include <firehose.h>
