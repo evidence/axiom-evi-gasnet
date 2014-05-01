@@ -2,7 +2,7 @@ GASNet ChangeLog
 ----------------
 
 ----------------------------------------------------------------------
-05-01-2014 : Release 1.22.4
+05-05-2014 : Release 1.22.4
 
 * Cray XE, XK and XC series (gemini- and aries-conduits)
   - Fix Bug 3200 - startup failures on Cray systems with craype-2.x
