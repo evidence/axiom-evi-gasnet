@@ -72,6 +72,9 @@ headers =                  	\
 
 EXTRA_DIST =              		\
 	README				\
+	README-devel			\
+	README-git			\
+	README-release			\
  	README-tools 			\
 	ChangeLog	  		\
 	license.txt       		\

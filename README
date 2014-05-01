@@ -15,6 +15,10 @@ Other documentation:
    see README-tools.
  * Additional information, including the GASNet specification and our bug
    tracking database, is available from http://gasnet.lbl.gov
+ * Anyone planning to modify or add to the GASNet code base should also read
+   + README-devel: rules developers are expected to follow when committing
+   + README-git: overview and examples of GASNet's recommended git workflow
+   README-git has instructions for obtaining the latest GASNet source code.
 
 Contents of this file:
  * Building and Installing GASNet
