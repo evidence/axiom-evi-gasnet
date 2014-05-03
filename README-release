@@ -211,6 +211,7 @@ See also:
 * If this GASNet release has a paired Berkeley UPC release, then one should
   apply a tag to mark the correlation:
     $ git tag berkeley-upc-2.34.0 master
+    $ git push origin berkeley-upc-2.34.0
   We avoid using an annotated tag here so that "git describe" won't use it.
 
 * On 'develop' advance the version numbers in configure.in (odd minor and patch
