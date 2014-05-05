@@ -54,6 +54,40 @@ See also:
   ensure your work meets these standards.  Anything on 'develop' is
   world-visible.
 
+* To ensure things work nicely with all of the git-related tools, log messages
+  should follow the format (without the leading 5 columns of indent) of the
+  canonical model below, taken from
+  http://tbaggery.com/2008/04/19/a-note-about-git-commit-messages.html
+  ---begin example---
+     Capitalized, short (50 chars or less) summary
+     
+     More detailed explanatory text, if necessary.  Wrap it to about 72
+     characters or so.  In some contexts, the first line is treated as the
+     subject of an email and the rest of the text as the body.  The blank
+     line separating the summary from the body is critical (unless you omit
+     the body entirely); tools like rebase can get confused if you run the
+     two together.
+     
+     Write your commit message in the imperative: "Fix bug" and not "Fixed bug"
+     or "Fixes bug."  This convention matches up with commit messages generated
+     by commands like git merge and git revert.
+     
+     Further paragraphs come after blank lines.
+     
+     - Bullet points are okay, too
+     
+     - Typically a hyphen or asterisk is used for the bullet, followed by a
+       single space, with blank lines in between, but conventions vary here
+     
+     - Use a hanging indent
+  ---end example---
+  In the case of a "Merge branch ..." commit, it is often helpful to to include
+  the 50-character summaries from the commits that comprise the branch.  The
+  message can be seeded with those summaries by passing "--log" to "git merge".
+  Similarly the commit message for a "git cherry-pick" can be seeded with the
+  SHA1 of the cherry-picked commit by passing "-x" (which should only be used
+  to reference commits which have been pushed to BitBucket).
+
 * Our git repository at BitBucket is configure to DENY any history re-writes on
   the 'develop' branch.  This means you cannot 'git amend' or otherwise make
   any modifications to history once you've pushed to 'origin/develop'.  Keep
@@ -63,6 +97,7 @@ See also:
 * You should only commit *working* code to 'develop' - do NOT commit untested or
   flagrantly broken code that could affect system stability.  The idea is to
   ensure the 'develop' branch of the repository is mostly-working at all times.
+  To do otherwise renders the powerful 'git bisect' command essentially useless.
   So, try to make sure your commits leave the repository in at least as working
   a state as you found it.  We understand that it may not be practical to test
   a given change on all platforms, but you should at least test it thoroughly on

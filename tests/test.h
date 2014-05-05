@@ -349,7 +349,7 @@ static int64_t test_calibrate_delay(int iters, int pollcnt, int64_t *time_p)
   #endif
   #define TEST_TITANIUM_BACKEND "sequential"
   #define TEST_CONFIG_STRING \
-    "RELEASE=x,SPEC=x,CONDUIT="_STRINGIFY(GASNETI_TOOLS_CONDUIT)"("_STRINGIFY(GASNETI_TOOLS_CONDUIT)"-x/REFERENCE-x),THREADMODEL=PAR,SEGMENT=FAST,PTR=x,align,nodebug,notrace,nostats"
+    "RELEASE=x,SPEC=x,CONDUIT=" _STRINGIFY(GASNETI_TOOLS_CONDUIT) "(" _STRINGIFY(GASNETI_TOOLS_CONDUIT) "-x/REFERENCE-x),THREADMODEL=PAR,SEGMENT=FAST,PTR=x,align,nodebug,notrace,nostats"
 #endif
 /* mimic Berkeley UPC build config strings, to allow running GASNet tests using upcrun */
 GASNETT_IDENT(GASNetT_IdentString_link_GASNetConfig, 
@@ -375,7 +375,7 @@ GASNETT_IDENT(GASNetT_IdentString_link_GASNetConfig,
   GASNETT_IDENT(GASNetT_IdentString_PthCnt, "$UPCRDefaultPthreadCount: 1 $");
 #endif
 GASNETT_IDENT(GASNetT_IdentString_link_UPCRConfig,
-   "$UPCRConfig: (<link>) " TEST_CONFIG_STRING ",SHMEM="TEST_SHMEM_CONFIG",SHAREDPTRREP=packed,dynamicthreads $");
+   "$UPCRConfig: (<link>) " TEST_CONFIG_STRING ",SHMEM=" TEST_SHMEM_CONFIG ",SHAREDPTRREP=packed,dynamicthreads $");
 GASNETT_IDENT(GASNetT_IdentString_link_upcver, 
  "$UPCVersion: (<link>) *** GASNet test *** $");
 GASNETT_IDENT(GASNetT_IdentString_link_compileline, 
@@ -406,7 +406,7 @@ GASNETT_IDENT(GASNetT_TiCompiler_IdentString,
    TEST_USE_PRIMORDIAL_THREAD can be defined to spawn only numthreads-1 new pthreads and run the last on this thread
  */
 #ifndef TEST_USE_PRIMORDIAL_THREAD
-  #if PLATFORM_OS_BGP || PLATFORM_OS_BGQ
+  #if PLATFORM_OS_BGQ
     /* some systems have strict limits on how many threads can exist */
     #define TEST_USE_PRIMORDIAL_THREAD 1
   #else
@@ -428,7 +428,7 @@ GASNETT_IDENT(GASNetT_TiCompiler_IdentString,
 static int test_thread_limit(int numthreads) {
     int limit = gasnett_getenv_int_withdefault("GASNET_TEST_THREAD_LIMIT", TEST_MAXTHREADS, 0);
     limit = MIN(limit, TEST_MAXTHREADS); /* Ignore attempt to raise above TEST_MAXTHREADS */
-  #if PLATFORM_OS_BGP || PLATFORM_OS_BGQ
+  #if PLATFORM_OS_BGQ
     { int cores = gasnett_cpu_count();
       int depth = gasnett_getenv_int_withdefault("BG_APPTHREADDEPTH", 1, 0); /* V1R4M0 and later */
       limit = MIN(limit, cores*depth);
@@ -875,7 +875,7 @@ static void _test_set_waitmode(int threads) {
     }
   }
 #endif
-#if PLATFORM_OS_BGP || PLATFORM_OS_BGQ
+#if PLATFORM_OS_BGQ
   /* assume no overcommit, since gasnett_cpu_count() reports cores per proc, NOT per node */
 #else
   threads *= local_procs;

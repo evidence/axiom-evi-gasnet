@@ -15,6 +15,10 @@ Other documentation:
    see README-tools.
  * Additional information, including the GASNet specification and our bug
    tracking database, is available from http://gasnet.lbl.gov
+ * Anyone planning to modify or add to the GASNet code base should also read
+   + README-devel: rules developers are expected to follow when committing
+   + README-git: overview and examples of GASNet's recommended git workflow
+   README-git has instructions for obtaining the latest GASNet source code.
 
 Contents of this file:
  * Building and Installing GASNet
@@ -99,11 +103,11 @@ compilers, including which GASNet conduits are supported.
 
   For cross-compilation support, look for an appropriate cross configure
 script in other/contrib/ and link it into your top-level source directory and
-invoke it in place of configure.  Example for the IBM BlueGene/P:
+invoke it in place of configure.  Example for the IBM BlueGene/Q:
      cd <path-to-gasnet-src>
-     ln -s other/contrib/cross-configure-bgp .
+     ln -s other/contrib/cross-configure-bgq .
      cd <your-build-dir>
-     <path-to-gasnet-src>/cross-configure-bgp (configure_options)
+     <path-to-gasnet-src>/cross-configure-bgq (configure_options)
 
   For cross-compilation support on platforms without scripts in other/contrib
 see the instructions in other/cross-configure-help.c.
@@ -196,50 +200,32 @@ Platforms where GASNet and Berkeley UPC have been successfully tested:
     * Linux/x86-Mellanox/gcc/32:     smp, mpi, udp, ibv
     * Linux/x86/IntelC/32:           smp, mpi, udp
     * Linux/x86/PortlandGroupC/32:   smp, mpi, udp
-    * Linux/Itanium/{gcc,IntelC}/64: smp, mpi, udp &
-    * Linux/Opteron-Ethernet/{gcc,PortlandGroup,SunC}/{32,64}: smp, mpi, udp
-    * Linux/Opteron-Mellanox/{gcc,PathScale,IntelC,SunC}/64: smp, mpi, udp, ibv, mxm
-    * Linux/Opteron/x86-Open64/64:   smp, udp, #
-    * Linux/Alpha/gcc/64:            smp, udp, #&
-    * Linux/PowerPC-Ethernet/gcc/64: smp, mpi, udp
-    * Linux/MIPS-SiCortex/{gcc,pathcc}/64: smp, mpi, udp
+    * Linux/x86_64-Ethernet/{gcc,PortlandGroup,SunC}/{32,64}: smp, mpi, udp
+    * Linux/x86_64-Mellanox/{gcc,PathScale,IntelC,SunC}/64: smp, mpi, udp, ibv, mxm
+    * Linux/x86_64/x86-Open64/64:   smp, udp, #
+    * Linux/PowerPC-Ethernet/gcc/{32,64}: smp, mpi, udp
+    * Linux/PowerPC-HFI/{xlc,gcc}/32: smp, mpi, udp, pami &
+    * Linux/MIPS/gcc/{32,64}:       smp, udp, #
 
-    * Linux/SGI-Altix-Itanium/{gcc,IntelC}/64: smp, mpi, udp, shmem
+    * Linux/SGI-Altix-IA64/{gcc,IntelC}/64: smp, mpi, udp, shmem &
+    * Linux/SGI-Altix-Xeon/{gcc,IntelC}/64: smp, mpi, udp, shmem
 
-    * FreeBSD/Alpha/64:       smp, udp, #&
-    * FreeBSD/x86/gcc/32,64:  smp, mpi
-    * OpenBSD/x86/gcc/32,64:  smp, mpi, udp
-    * NetBSD/x86/gcc/32,64:   smp, mpi, udp
+    * FreeBSD/{x86,amd64}/gcc/{32,64}: smp, mpi
+    * OpenBSD/{x86,amd64}/gcc/{32,64}: smp, mpi, udp
+    * NetBSD/{x86,amd64}/gcc/{32,64}:  smp, mpi, udp
 
-    * Tru64/Compaq-AlphaServer/Compaq C: smp, mpi, udp &
+    * Solaris10/SPARC/gcc,SunProC/{32,64}: smp, udp, mpi
+    * Solaris10/x86/gcc,SunProC/{32,64}:   smp, udp, mpi
+    * OpenSolaris/x86/gcc,SunStudio12/{32,64}: smp, udp, #
+    * Solaris11Express/x86/gcc,SunStudio12/{32,64}: smp, udp, mpi, ibv
+    * Solaris11/x86/gcc,SunStudio12/{32,64}: smp, udp, mpi, ibv
 
-    * AIX/IBM-SPPower3/VisualAgeC(xlc),gcc/32,64: smp, mpi, udp &
-    * AIX/IBM-SPPower4/VisualAgeC(xlc),gcc/32,64: smp, mpi, udp &
+    * MSWindows-Cygwin/x86/gcc/32: smp, udp, mpi (MPICH.NT,MPICH2)
 
-    * IRIX/Origin2000/gcc,MIPSProC/32,64: smp, mpi, udp &
+    * MacOSX/PowerPC/{gcc,xlc}/{32,64}: smp, udp, mpi
+    * MacOSX/{x86,x86_64}/{gcc,icc}/{32,64}: smp, udp, mpi
+    * MacOSX/{x86,x86_64}/{PGI}/{32,64}: smp, udp, #
 
-    * HPUX/PA-RISC/gcc/32: smp, udp, mpi &
-    * HPUX/PA-RISC/HPcc/32: smp, udp, mpi &
-    * HPUX/PA-RISC/HPcc/64: smp, mpi &
-    * HPUX/Itanium/gcc/64: smp, udp, mpi &
-    * HPUX/Itanium/HPcc/64: smp, mpi &
- 
-    * Solaris10/SPARC/gcc,SunProC/32,64: smp, udp, mpi
-    * Solaris10/x86/gcc,SunProC/32,64: smp, udp, mpi
-    * Solaris11Express/x86/gcc,SunStudio12/32,64: smp, udp, mpi, ibv
-    * OpenSolaris/x86/gcc,SunStudio12/32,64: smp, udp, #
-
-    * MSWindows-Cygwin/x86/gcc/32/: smp, udp, mpi (MPICH.NT,MPICH2)
-
-    * MacOSX/PowerPC/{gcc,xlc}/32,64: smp, udp, mpi
-    * MacOSX/x86/{gcc,icc}/32,64: smp, udp, mpi
-    * MacOSX/x86/{PGI}/32,64: smp, udp, #
-
-    * Unicos/Cray-T3e/CrayC/64: smp, udp, mpi %&
- 
-    * Unicos/Cray-X1/CrayC/64: smp, udp, mpi, shmem &
-
-    * Catamount/Cray-XT/{gcc,PGI}/64: smp, mpi %&
     * CNL/Cray-XT/{gcc,PGI,PathScale,Intel}/64: smp, mpi &
 
     * CNL/Cray-XE/{gcc,PGI,PathScale,Intel}/64: smp, mpi, gemini
@@ -249,13 +235,10 @@ Platforms where GASNet and Berkeley UPC have been successfully tested:
 
     * Linux/Cray-XD1/{gcc,PGI}/64: smp, mpi &
 
-    * BLRTS/IBM-BlueGeneL-PowerPC/{gcc,xlc}/32: smp, mpi %&
-    * BLRTS/IBM-BlueGeneP-PowerPC/{gcc,xlc}/32: smp, mpi, dcmf
+    * CNK/IBM-BlueGeneQ-PowerPC/{gcc,xlc}/64: smp, mpi, pami
  
     * MTX/Cray-MTA/CrayMTAC/64: smp, udp &
  
-    * SuperUX/SX-6/NEC-C/64: smp, udp, mpi %&
-
     * ucLinux/Microblaze/gcc/32: smp, udp, #%&
 
     * Linux/ARM/gcc/32: smp, udp, #	- EXPERIMENTAL (see bug 2116)

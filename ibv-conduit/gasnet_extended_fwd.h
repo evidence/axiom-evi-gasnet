@@ -61,5 +61,16 @@ typedef struct _gasnete_op_t *gasnet_handle_t;
 #define GASNETE_EOP_COUNTED 1
 #define GASNETE_EXTENDED_NEEDS_CORE 1
 
+/* Configure use of AM-based implementation of get/put/memset */
+/* NOTE: Barriers, Collectives, VIS may use GASNETE_USING_REF_* in algorithm selection */
+#define GASNETE_USING_REF_EXTENDED_MEMSET   1
+
+/* in order to use reference memset with our conduit-specific eop */
+#define GASNETE_AMREF_USE_MARKDONE          1
+
+/* Conduit implements memset directly via amref: */
+#define gasnete_amref_memset_nb     gasnete_memset_nb
+#define gasnete_amref_memset_nbi    gasnete_memset_nbi
+
 #endif
 

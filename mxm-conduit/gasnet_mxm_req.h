@@ -27,10 +27,19 @@ typedef struct gasnet_mxm_send_req {
     mxm_req_buffer_t     sendiov[2];
     gasnet_handlerarg_t  args_buf[GASNETC_MAX_ARGS];
     uint64_t             long_info[2];
+    gasneti_atomic_t     ref_count;    
 } gasnet_mxm_send_req_t;
 
-extern gasnet_mxm_module_t   gasnet_mxm_module;
 extern gasnet_mxm_send_req_t * gasnetc_alloc_send_req(void);
 extern void gasnetc_free_send_req(void * p_sreq);
+
+
+struct gasnet_mxm_recv_req {
+    struct gasnet_mxm_recv_req *next;
+    mxm_recv_req_t  mxm_rreq;
+};
+
+extern gasnet_mxm_recv_req_t * gasnetc_alloc_recv_req(void);
+extern void gasnetc_free_recv_req(gasnet_mxm_recv_req_t *p_rreq);
 
 #endif /* GASNET_MXM_REQ_H */

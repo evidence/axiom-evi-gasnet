@@ -42,7 +42,7 @@ GASNETI_BEGIN_EXTERNC
 #if PLATFORM_OS_MTA
    #include <machine/runtime.h>
    #define _gasneti_sched_yield() mta_yield()
-#elif defined(HAVE_SCHED_YIELD) && !PLATFORM_OS_BLRTS && !PLATFORM_OS_CATAMOUNT
+#elif defined(HAVE_SCHED_YIELD)
    #include <sched.h>
    #define _gasneti_sched_yield() sched_yield()
 #else
@@ -299,6 +299,13 @@ int gasneti_count0s_uint32_t(uint32_t x) {
 #endif
 
 #if GASNET_DEBUG || GASNETI_BUG2231_WORKAROUND || GASNETI_MUTEX_CAUTIOUS_INIT
+  /* NOTE: We are making an unfounded assumption that the pthread_t is
+   * an arithmetic type, but the standard allows it to be a struct (and
+   * provides pthread_equal() for that reason).
+   * Additionally, we've assumed '-1' will never be a valid id.
+   * If either assumption is ever wrong, then the most expedient solution
+   * would be to disable the debug checking entirely.
+   */
   #define GASNETI_MUTEX_NOOWNER         ((GASNETI_THREADID_T)(uintptr_t)-1)
   #ifndef GASNETI_THREADIDQUERY
     /* allow conduit override of thread-id query */
@@ -487,21 +494,10 @@ int gasneti_count0s_uint32_t(uint32_t x) {
   } while (0)
   #define gasneti_cond_destroy(pc)    gasneti_assert_zeroret(pthread_cond_destroy(&((pc)->cond)))
 
-  #if PLATFORM_ARCH_CRAYX1 /* bug 993 - workaround for buggy pthread library */
-    static gasneti_cond_t const gasneti_cond_staticinitialized = GASNETI_COND_INITIALIZER;
-    #define GASNETI_COND_INIT_CHECK(pc) \
-      (!memcmp(&(gasneti_cond_staticinitialized.cond),&((pc)->cond),sizeof(pthread_cond_t)) ? \
-        (void)pthread_cond_init(&((pc)->cond), NULL) : (void)0 )
-  #else
-    #define GASNETI_COND_INIT_CHECK(pc) ((void)0)
-  #endif
-
   #define gasneti_cond_signal(pc) do {                 \
-      GASNETI_COND_INIT_CHECK(pc);                     \
       gasneti_assert_zeroret(pthread_cond_signal(&((pc)->cond))); \
     } while (0)
   #define gasneti_cond_broadcast(pc) do {                 \
-      GASNETI_COND_INIT_CHECK(pc);                        \
       gasneti_assert_zeroret(pthread_cond_broadcast(&((pc)->cond))); \
     } while (0)
 
@@ -509,7 +505,6 @@ int gasneti_count0s_uint32_t(uint32_t x) {
     #define gasneti_cond_wait(pc,pl)  do {                          \
       gasneti_assert((pl)->owner == GASNETI_THREADIDQUERY());       \
       (pl)->owner = GASNETI_MUTEX_NOOWNER;                          \
-      GASNETI_COND_INIT_CHECK(pc);                                  \
       _GASNETI_MUTEX_CAUTIOUS_INIT_CHECK(pl);                       \
       gasneti_assert_zeroret(pthread_cond_wait(&((pc)->cond), &((pl)->lock))); \
       gasneti_assert((pl)->owner == GASNETI_MUTEX_NOOWNER);         \
@@ -517,7 +512,6 @@ int gasneti_count0s_uint32_t(uint32_t x) {
     } while (0)
   #else
     #define gasneti_cond_wait(pc,pl)  do {               \
-      GASNETI_COND_INIT_CHECK(pc);                       \
       gasneti_assert_zeroret(pthread_cond_wait(&((pc)->cond), pl)); \
     } while (0)
   #endif

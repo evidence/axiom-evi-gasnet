@@ -1,6 +1,6 @@
 /*   $Source: bitbucket.org:berkeleylab/gasnet.git/gasnet_pshm.c $
  * Description: GASNet infrastructure for shared memory communications
- * Copyright 2012, E. O. Lawrence Berekely National Laboratory
+ * Copyright 2012, The Regents of the University of California
  * Terms of use are as specified in license.txt
  */
 
@@ -352,20 +352,8 @@ typedef union {
                   gasneti_atomic_set((_t),0,0)
   #define gasneti_pshmnet_tail_cas(_t,_o,_n)\
                   gasneti_atomic_compare_and_swap((_t),(_o),(_n),0)
- #if GASNETI_HAVE_ATOMIC_SWAP
   #define gasneti_pshmnet_tail_swap(_t,_v)\
                   gasneti_atomic_swap((_t),(_v),GASNETI_ATOMIC_REL)
- #else
-  GASNETI_INLINE(gasneti_pshmnet_tail_swap)
-  gasneti_atomic_val_t gasneti_pshmnet_tail_swap(gasneti_atomic_t *t, gasneti_atomic_val_t val) {
-    gasneti_atomic_val_t old_val;
-    gasneti_local_wmb();
-    do {
-      old_val = gasneti_atomic_read(t, 0);
-    } while (!gasneti_atomic_compare_and_swap(t, old_val, val, 0));
-    return old_val;
-  }
- #endif /* HAVE_SWAP */
 #elif defined(GASNETI_HAVE_ATOMIC_ADD_SUB)
   typedef struct {
     gasneti_atomic_t last_ticket;
@@ -685,7 +673,7 @@ int gasneti_pshmnet_queue_peek(const gasneti_pshmnet_queue_t * const q)
 int gasneti_pshmnet_recv(gasneti_pshmnet_t *vnet, void **pbuf, size_t *psize, 
                          gasneti_pshm_rank_t *pfrom)
 {
-  gasneti_atomic_val_t head, next;
+  gasneti_atomic_val_t head;
   gasneti_pshmnet_payload_t *p = NULL;
   gasneti_pshmnet_queue_t *q = vnet->my_queue;
 
@@ -700,16 +688,19 @@ int gasneti_pshmnet_recv(gasneti_pshmnet_t *vnet, void **pbuf, size_t *psize,
       q->head = 0;
     }
     if_pt (head) {
+      register gasneti_atomic_val_t next;
       p = gasneti_pshm_addr(head);
-      next = p->next;
-      q->shead = next;
-      if (!next && !gasneti_pshmnet_tail_cas(&q->tail, head, 0)) {
-        while (0 == (next = p->next)) GASNETI_WAITHOOK(); /* waituntil() has excess RMB */
-        q->shead = next;
-      }
-    #if !GASNET_PAR
       gasneti_local_rmb(); /* ACQ */
-    #endif
+      /* NOTE: Unlike in the Nemesis paper, we loop on *both* p->next and
+       * cas(tail) to allow weaker memory models which may reorder their
+       * respective reads/writes.  This is preferred over adding any memory
+       * fence(s) to the race-free case.
+       */
+      while (GASNETT_PREDICT_FALSE(0 == (next = p->next)) &&
+             GASNETT_PREDICT_FALSE(!gasneti_pshmnet_tail_cas(&q->tail, head, 0))) {
+        GASNETI_WAITHOOK(); /* waituntil() has excess RMB */
+      }
+      q->shead = next;
     }
 #if GASNET_PAR
     gasneti_mutex_unlock(&vnet->lock);

@@ -185,17 +185,6 @@
 #ifndef GASNET_PAGESIZE
   #ifdef GASNETI_PAGESIZE
     #define GASNET_PAGESIZE GASNETI_PAGESIZE
-  #elif PLATFORM_ARCH_CRAYT3E
-    /* on Cray: shmemalign allocates mem aligned across nodes, 
-        but there seems to be no fixed page size (man pagesize)
-        this is probably because they don't support VM
-       actual page size is set separately for each linker section, 
-        ranging from 512KB(default) to 8MB
-       Here we return 8 to reflect the lack of page alignment constraints
-       (for basic sanity, we want page alignment >= MAX(cache line,reqd double alignment))
-   */
-
-    #define GASNET_PAGESIZE GASNETI_CACHE_LINE_BYTES
   #else
     #error GASNET_PAGESIZE unknown and not set by conduit
   #endif
@@ -214,13 +203,7 @@
   #define GASNETT_USE_GCC_ATTRIBUTE_ALWAYSINLINE 0
 #endif
 
-#if PLATFORM_COMPILER_SGI_CXX
-  #define GASNETI_PRAGMA(x) /* despite the docs, not supported in MIPSPro C++ */
-#elif PLATFORM_COMPILER_SGI && _SGI_COMPILER_VERSION < 742
-  #define GASNETI_PRAGMA(x) /* bug1555: broken in older versions (740 fails, 742 works) */
-#elif PLATFORM_COMPILER_COMPAQ_C && __DECC_VER < 60590207
-  #define GASNETI_PRAGMA(x) /* not supported in older versions (60490014) */
-#elif PLATFORM_COMPILER_SUN_C && __SUNPRO_C < 0x570
+#if PLATFORM_COMPILER_SUN_C && __SUNPRO_C < 0x570
   #define GASNETI_PRAGMA(x) /* not supported in older versions (550 fails, 570 works) */
 #else
   #define GASNETI_PRAGMA(x) _Pragma ( #x )
@@ -371,8 +354,6 @@
 /* pragma version of GASNETI_MALLOC */
 #if PLATFORM_COMPILER_SUN_C
   #define GASNETI_MALLOCP(fnname) GASNETI_PRAGMA(returns_new_memory(fnname))
-#elif PLATFORM_COMPILER_HP_C && !PLATFORM_ARCH_IA64
-  #define GASNETI_MALLOCP(fnname) GASNETI_PRAGMA(ALLOCS_NEW_MEMORY fnname)
 #else
   #define GASNETI_MALLOCP(fnname)
 #endif
@@ -415,10 +396,6 @@
 /* pragma version of GASNETI_NORETURN */
 #if PLATFORM_COMPILER_SUN_C
   #define GASNETI_NORETURNP(fnname) GASNETI_PRAGMA(does_not_return(fnname))
-#elif PLATFORM_COMPILER_SGI && _SGI_COMPILER_VERSION >= 720 && _MIPS_SIM != _ABIO32
-  #define GASNETI_NORETURNP(fnname) GASNETI_PRAGMA(mips_frequency_hint NEVER fnname)
-#elif PLATFORM_COMPILER_COMPAQ_C /* not Compaq C++ */
-  #define GASNETI_NORETURNP(fnname) GASNETI_PRAGMA(assert func_attrs(fnname) noreturn)
 #elif PLATFORM_COMPILER_XLC && 0
   /* this *should* work but it causes bizarre compile failures, so disable it */
   #define GASNETI_NORETURNP(fnname) GASNETI_PRAGMA(leaves(fnname))
@@ -442,13 +419,6 @@
 #if PLATFORM_COMPILER_XLC && \
    !(PLATFORM_OS_DARWIN && __xlC__ <= 0x0600) /* bug 1542 */
   #define GASNETI_PUREP(fnname) GASNETI_PRAGMA(isolated_call(fnname))
-#elif PLATFORM_COMPILER_SGI && _SGI_COMPILER_VERSION >= 710
-  #define GASNETI_PUREP(fnname) GASNETI_PRAGMA(no side effects (fnname))
-#elif PLATFORM_COMPILER_COMPAQ
-  #define GASNETI_PUREP(fnname) \
-          GASNETI_PRAGMA(assert func_attrs(fnname) noeffects file_scope_vars(nowrites))
-#elif PLATFORM_COMPILER_HP_C && !PLATFORM_ARCH_IA64
-  #define GASNETI_PUREP(fnname) GASNETI_PRAGMA(NO_SIDE_EFFECTS fnname)
 #else
   #define GASNETI_PUREP(fnname) 
 #endif
@@ -466,11 +436,6 @@
 /* pragma version of GASNETI_CONST */
 #if PLATFORM_COMPILER_SUN_C
   #define GASNETI_CONSTP(fnname) GASNETI_PRAGMA(no_side_effect(fnname))
-#elif PLATFORM_COMPILER_SGI && _SGI_COMPILER_VERSION >= 730
-  #define GASNETI_CONSTP(fnname) GASNETI_PRAGMA(pure (fnname))
-#elif PLATFORM_COMPILER_COMPAQ
-  #define GASNETI_CONSTP(fnname) \
-          GASNETI_PRAGMA(assert func_attrs(fnname) nostate noeffects file_scope_vars(none))
 #else
   #define GASNETI_CONSTP(fnname) GASNETI_PUREP(fnname)
 #endif
@@ -485,15 +450,6 @@
   #define _GASNETI_ALWAYS_INLINE(fnname) GASNETI_PRAGMA(_CRI inline fnname)
 #elif PLATFORM_COMPILER_MTA
   #define _GASNETI_ALWAYS_INLINE(fnname) GASNETI_PRAGMA(mta inline)
-#elif PLATFORM_COMPILER_SGI && _SGI_COMPILER_VERSION >= 710
-  #define _GASNETI_ALWAYS_INLINE(fnname) GASNETI_PRAGMA(inline global fnname)
-#elif PLATFORM_COMPILER_COMPAQ_C /* not Compaq C++ */
-  #define _GASNETI_ALWAYS_INLINE(fnname) GASNETI_PRAGMA(inline (fnname))
-#elif PLATFORM_COMPILER_HP_C && GASNET_NDEBUG /* avoid a warning */ \
-   && 0 /* unreliable behavior - Itanium optimizer crashes and 
-           PARISC syntax errors unless it appears on a line by itself */
-  #define _GASNETI_ALWAYS_INLINE(fnname) GASNETI_PRAGMA(INLINE fnname)
-  #undef STATIC_INLINE_WORKS
 #else
   #define _GASNETI_ALWAYS_INLINE(fnname)
 #endif
@@ -538,13 +494,6 @@
   #define GASNETI_NEVER_INLINE(fnname,declarator) declarator; GASNETI_PRAGMA(no_inline(fnname)) declarator
 #elif PLATFORM_COMPILER_CRAY
   #define GASNETI_NEVER_INLINE(fnname,declarator) GASNETI_PRAGMA(_CRI inline_never fnname) declarator
-#elif PLATFORM_COMPILER_SGI && _SGI_COMPILER_VERSION >= 710
-  #define GASNETI_NEVER_INLINE(fnname,declarator) GASNETI_PRAGMA(noinline global fnname) declarator
-#elif PLATFORM_COMPILER_COMPAQ
-  #define GASNETI_NEVER_INLINE(fnname,declarator) GASNETI_PRAGMA(noinline (fnname)) declarator
-#elif PLATFORM_COMPILER_HP_C && GASNET_NDEBUG /* avoid a warning */ \
-   && PLATFORM_ARCH_IA64 /* unreliable behavior on PARISC unless it appears on a line by itself */
-  #define GASNETI_NEVER_INLINE(fnname,declarator) GASNETI_PRAGMA(NOINLINE fnname) declarator
 #else
   #define GASNETI_NEVER_INLINE(fnname,declarator) declarator
 #endif
@@ -553,11 +502,6 @@
 #if GASNETT_USE_GCC_ATTRIBUTE_FORMAT
   #define GASNETI_FORMAT_PRINTF(fnname,fmtarg,firstvararg,declarator) \
           __attribute__((__format__ (__printf__, fmtarg, firstvararg))) declarator
-#elif PLATFORM_COMPILER_COMPAQ_C /* not Compaq C++ */
-  #define GASNETI_FORMAT_PRINTF(fnname,fmtarg,firstvararg,declarator)  \
-          declarator; /* declaration required before pragma */ \
-          GASNETI_PRAGMA(assert func_attrs(fnname) format (printf,fmtarg,firstvararg)) \
-          declarator
 #else
   #define GASNETI_FORMAT_PRINTF(fnname,fmtarg,firstvararg,declarator) declarator
 #endif
@@ -594,10 +538,6 @@
   #endif
   #define GASNETI_IDENT(identName, identText) \
     GASNETI_PRAGMA(_CRI ident identText) GASNETI_PRAGMA_SEMI     \
-    _GASNETI_IDENT(identName, identText)
-#elif PLATFORM_COMPILER_HP_C && PLATFORM_ARCH_IA64 /* bug 1490 */
-  #define GASNETI_IDENT(identName, identText) \
-    GASNETI_PRAGMA(VERSIONID identText);      \
     _GASNETI_IDENT(identName, identText)
 #elif PLATFORM_COMPILER_XLC
     /* #pragma comment(user,"text...") 
@@ -653,10 +593,6 @@
   #define GASNETT_MTA_PRAGMA_EXPECT_OVERRIDE GASNETT_MTA_PRAGMA_EXPECT_ENABLED
   #define if_pf(cond) GASNETT_MTA_PRAGMA_EXPECT_OVERRIDE("mta expect false") if (cond)
   #define if_pt(cond) GASNETT_MTA_PRAGMA_EXPECT_OVERRIDE("mta expect true")  if (cond)
-#elif PLATFORM_COMPILER_SGI && _SGI_COMPILER_VERSION >= 720 && _MIPS_SIM != _ABIO32
-  /* MIPSPro has a predict-false, but unfortunately no predict-true */
-  #define if_pf(cond) if (cond) GASNETI_PRAGMA(mips_frequency_hint NEVER)
-  #define if_pt(cond) if (GASNETT_PREDICT_TRUE(cond))
 #else
   #define if_pf(cond) if (GASNETT_PREDICT_FALSE(cond))
   #define if_pt(cond) if (GASNETT_PREDICT_TRUE(cond))

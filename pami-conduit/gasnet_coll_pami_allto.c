@@ -1,6 +1,6 @@
 /*   $Source: bitbucket.org:berkeleylab/gasnet.git/pami-conduit/gasnet_coll_pami_allto.c $
  * Description: GASNet extended collectives implementation on PAMI
- * Copyright 2012, E. O. Lawrence Berekely National Laboratory
+ * Copyright 2012, The Regents of the University of California
  * Terms of use are as specified in license.txt
  */
 

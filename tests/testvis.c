@@ -1120,14 +1120,6 @@ int main(int argc, char **argv) {
             " seed      seed offset for PRNG \n"
             );
 
-#if PLATFORM_OS_CATAMOUNT
-  if (! gasnett_getenv_yesno_withdefault("GASNET_FORCE_TESTVIS",0)) {
-    MSG0("testvis is disabled on Catamount (gasnet bug #2189)");
-    gasnet_exit(0);
-    return 0;
-  }
-#endif
-
   for (i = 1; i < argc; i++) {
     if (argv[i][0] == '-') {
       int j;

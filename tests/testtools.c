@@ -192,6 +192,7 @@ int main(int argc, char **argv) {
     int timeiters = MAX(1,iters / 10);
     gasnett_tick_t ticktimemin = GASNETT_TICK_MIN;
     gasnett_tick_t ticktimemax = GASNETT_TICK_MAX;
+    double slack = gasnett_getenv_dbl_withdefault("GASNET_TEST_TIME_SLACK", 0.01);
 
     double overhead = gasnett_tick_overheadus();
     double granularity = gasnett_tick_granularityus();
@@ -200,11 +201,11 @@ int main(int argc, char **argv) {
        in the last iteration, but need a non-trivial number of ticks
        to pass int each iteration. */
     uint64_t total = 20 * 1000000;
-    uint64_t us_delay = (0.75*total) / timeiters;
-    uint64_t min_delay = MAX(1, 50*granularity);
+    uint64_t us_delay = (uint64_t)((0.75*total) / timeiters);
+    uint64_t min_delay = (uint64_t)MAX(1, 50*granularity);
     if (us_delay < min_delay) {
        us_delay = min_delay;
-       timeiters = (0.75*total) / min_delay;
+       timeiters = (int)((0.75*total) / min_delay);
     }
 
     if (!(ticktimemin < ticktimemax)) ERR("!(min < max)");
@@ -254,9 +255,10 @@ int main(int argc, char **argv) {
       time = gasnett_ticks_to_us(end) - gasnett_ticks_to_us(start);
       timeref = endref - startref;
 
-      if (abs(timeref - time) > 10000)
-        ERR("timer and reference differ by more than 0.01sec:\n"
-               "\ttime=%i  timeref=%i\n",time,timeref);
+      if (abs(timeref - time) > (int)(slack * 1.e6))
+        ERR("timer and reference differ by more than %g sec:\n"
+               "\ttime=%i  timeref=%i  delta=%g sec\n",
+               slack,time,timeref,1.e-6*abs(timeref - time));
 
       if (abs( (int)((gasnett_ticks_to_us(end) - gasnett_ticks_to_us(start)) - 
                       gasnett_ticks_to_us(end - start)) ) > 1)
@@ -436,6 +438,14 @@ int main(int argc, char **argv) {
         if (gasnett_atomic_read(&var,0) != (gasnett_atomic_val_t)(i+1))
           ERR("gasnett_atomic_compare_and_swap set wrong updated value at i=%i", i);
       }
+
+      gasnett_atomic_set(&var, 0, 0);
+      for (i=0;i<iters;i++) {
+        if (gasnett_atomic_swap(&var,i+1,0) != (gasnett_atomic_val_t)(i))
+          ERR("gasnett_atomic_swap test failed at iteration %i", i);
+      }
+      if (gasnett_atomic_read(&var,0) != (gasnett_atomic_val_t)(iters))
+        ERR("gasnett_atomic_swap test failed at iteration %i", i);
     #endif
 
     #if defined(GASNETT_HAVE_ATOMIC_ADD_SUB)
@@ -587,6 +597,37 @@ int main(int argc, char **argv) {
         if (gasnett_atomic32_read(&var32,0) != (uint32_t)(i+1))
           ERR("gasnett_atomic32_compare_and_swap set wrong updated value at i=%i", i);
       }
+
+      /* TODO: Want more than this very simple test of SWAP and the arithmetic tests. */
+      gasnett_atomic32_set(&var32, 0, 0);
+      for (i=0;i<iters;i++) {
+        gasnett_atomic32_increment(&var32,0);
+        if (gasnett_atomic32_read(&var32,0) != (uint32_t)(i+1))
+          ERR("gasnett_atomic32_increment wrote wrong value");
+        if (gasnett_atomic32_add(&var32,4,0)  != (uint32_t)(i+5))
+          ERR("gasnett_atomic32_add returned wrong value");
+        if (gasnett_atomic32_read(&var32,0) != (uint32_t)(i+5))
+          ERR("gasnett_atomic32_add wrote wrong value");
+        gasnett_atomic32_decrement(&var32,0);
+        if (gasnett_atomic32_read(&var32,0) != (uint32_t)(i+4))
+          ERR("gasnett_atomic32_decrement wrote wrong value");
+        if (gasnett_atomic32_decrement_and_test(&var32,0))
+          ERR("gasnett_atomic32_decrement_and_test succeeded when expecting failure");
+        if (gasnett_atomic32_read(&var32,0) != (uint32_t)(i+3))
+          ERR("gasnett_atomic32_decrement_and_test wrote wrong value on failure");
+        if (gasnett_atomic32_subtract(&var32,(i+2),0) != (uint32_t)1)
+          ERR("gasnett_atomic32_subtract returned wrong value");
+        if (gasnett_atomic32_read(&var32,0) != (uint32_t)1)
+          ERR("gasnett_atomic32_subtract wrote wrong value");
+        if (! gasnett_atomic32_decrement_and_test(&var32,0))
+          ERR("gasnett_atomic32_decrement_and_test failed when expecting success");
+        if (gasnett_atomic32_read(&var32,0) != (uint32_t)0)
+          ERR("gasnett_atomic32_decrement_and_test wrote wrong value on sucess");
+        if (gasnett_atomic32_swap(&var32,i+1,0) != 0)
+          ERR("gasnett_atomic32_swap returned wrong value");
+        if (gasnett_atomic32_read(&var32,0) != (uint32_t)(i+1))
+          ERR("gasnett_atomic32_swap wrote wrong value");
+      }
     }
 
     {
@@ -637,6 +678,65 @@ int main(int argc, char **argv) {
           ERR("gasnett_atomic64_compare_and_swap failed at i=%i when it should have succeeded", i);
         if (gasnett_atomic64_read(&var64,0) != (uint64_t)(i+1))
           ERR("gasnett_atomic64_compare_and_swap set wrong updated value at i=%i", i);
+      }
+
+      /* TODO: Want more than this very simple test of SWAP and the arithmetic tests. */
+      gasnett_atomic64_set(&var64, 0, 0);
+      for (i=0;i<iters;i++) { /* Test in lo word */
+        gasnett_atomic64_increment(&var64,0);
+        if (gasnett_atomic64_read(&var64,0) != (uint64_t)(i+1))
+          ERR("gasnett_atomic64_increment wrote wrong value");
+        if (gasnett_atomic64_add(&var64,4,0) != (uint64_t)(i+5))
+          ERR("gasnett_atomic64_add returned wrong value");
+        if (gasnett_atomic64_read(&var64,0) != (uint64_t)(i+5))
+          ERR("gasnett_atomic64_add wrote wrong value");
+        gasnett_atomic64_decrement(&var64,0);
+        if (gasnett_atomic64_read(&var64,0) != (uint64_t)(i+4))
+          ERR("gasnett_atomic64_decrement wrote wrong value");
+        if (gasnett_atomic64_decrement_and_test(&var64,0))
+          ERR("gasnett_atomic64_decrement_and_test succeeded when expecting failure");
+        if (gasnett_atomic64_read(&var64,0) != (uint64_t)(i+3))
+          ERR("gasnett_atomic64_decrement_and_test wrote wrong value on failure");
+        if (gasnett_atomic64_subtract(&var64,(i+2),0) != (uint64_t)1)
+          ERR("gasnett_atomic64_subtract returned wrong value");
+        if (gasnett_atomic64_read(&var64,0) != (uint64_t)1)
+          ERR("gasnett_atomic64_subtract wrote wrong value");
+        if (! gasnett_atomic64_decrement_and_test(&var64,0))
+          ERR("gasnett_atomic64_decrement_and_test failed when expecting success");
+        if (gasnett_atomic64_read(&var64,0) != (uint64_t)0)
+          ERR("gasnett_atomic64_decrement_and_test wrote wrong value on sucess");
+        if (gasnett_atomic64_swap(&var64,i+1,0) != 0)
+          ERR("gasnett_atomic64_swap returned wrong value");
+        if (gasnett_atomic64_read(&var64,0) != (uint64_t)(i+1))
+          ERR("gasnett_atomic64_swap wrote wrong value");
+      }
+      gasnett_atomic64_set(&var64, 0, 0);
+      for (i=0;i<iters;i++) { /* Test in hi word */
+        const uint64_t j = (uint64_t)i << 32;
+        const uint64_t c1 = (uint64_t)1 << 32;
+        const uint64_t c2 = (uint64_t)2 << 32;
+        gasnett_atomic64_increment(&var64,0);
+        if (gasnett_atomic64_read(&var64,0) != (j+1))
+          ERR("gasnett_atomic64_increment wrote wrong value (hi)");
+        if (gasnett_atomic64_add(&var64,c2,0) != (j+c2+1))
+          ERR("gasnett_atomic64_add returned wrong value (hi)");
+        if (gasnett_atomic64_read(&var64,0) != (j+c2+1))
+          ERR("gasnett_atomic64_add wrote wrong value (hi)");
+        gasnett_atomic64_decrement(&var64,0);
+        if (gasnett_atomic64_read(&var64,0) != (j+c2))
+          ERR("gasnett_atomic64_decrement wrote wrong value (hi)");
+        if (gasnett_atomic64_decrement_and_test(&var64,0))
+          ERR("gasnett_atomic64_decrement_and_test succeeded when expecting failure (hi)");
+        if (gasnett_atomic64_read(&var64,0) != (j+c2-1))
+          ERR("gasnett_atomic64_decrement_and_test wrote wrong value on failure (hi)");
+        if (gasnett_atomic64_subtract(&var64,(j+c1+1),0) != (c1-2))
+          ERR("gasnett_atomic64_subtract returned wrong value (hi)");
+        if (gasnett_atomic64_read(&var64,0) != (c1-2))
+          ERR("gasnett_atomic64_subtract wrote wrong value (hi)");
+        if (gasnett_atomic64_swap(&var64,(j+c1),0) != (c1-2))
+          ERR("gasnett_atomic64_swap returned wrong value (hi)");
+        if (gasnett_atomic64_read(&var64,0) != (j+c1))
+          ERR("gasnett_atomic64_swap wrote wrong value (hi)");
       }
     }
   }
@@ -1094,6 +1194,59 @@ void * thread_fn(void *arg) {
       if (woncnt != share) 
         ERR("failed 64-bit compare-and-swap test: woncnt=%llu share=%llu", (unsigned long long)woncnt, (unsigned long long)share);
     }
+  }
+
+  TEST_HEADER("parallel swap test...") {
+    #if GASNETI_HAVE_ATOMIC_CAS
+      const gasnett_atomic_val_t limit = MIN(GASNETT_ATOMIC_MAX, 8192);
+      static gasnett_atomic_t var;
+      static char *array;
+
+      if (0 == id) {
+        gasnett_atomic_set(&var, GASNETT_ATOMIC_MAX, 0);
+        array = (char *)test_calloc(sizeof(char), limit);
+      }
+
+      THREAD_BARRIER();
+
+      for (i = 0; i < iters; ++i) {
+        gasnett_atomic_val_t j;
+ 
+        /* Write all values in [0,limit) with each thread owning a share of the space.
+           The 'array' tracks which values have been seen and ensures no duplicates. */
+        for (j = id; j < limit; j += NUM_THREADS) {
+          gasnett_atomic_val_t idx = gasnett_atomic_swap(&var, j, 0);
+          if_pt (idx != GASNETI_ATOMIC_MAX) {
+            if (array[idx] != 0)
+              ERR("gasnett_atomic_swap produced a duplicate value %d", idx);
+            array[idx] = 1;
+          }
+        }
+
+        THREAD_BARRIER();
+
+        if (0 == id) {
+          /* One final swap to simplify the validation */
+          gasnett_atomic_val_t idx = gasnett_atomic_swap(&var, GASNETI_ATOMIC_MAX, 0);
+          if (array[idx] != 0)
+            ERR("gasnett_atomic_swap produced a duplicate value %d", i);
+          array[idx] = 1;
+
+          /* Now scan the array to ensure no values were missed */
+          for (idx = 0; idx < limit; ++idx) {
+            if (array[idx] != 1)
+              ERR("gasnett_atomic_swap missed an update at %d", idx);
+            array[idx] = 0; /* reset for next iteration */
+          }
+        }
+
+        THREAD_BARRIER();
+      }
+
+      if (0 == id) {
+        test_free(array);
+      }
+    #endif
   }
 
   TEST_HEADER("parallel atomic-op fence test...") {

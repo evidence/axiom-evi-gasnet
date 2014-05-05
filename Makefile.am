@@ -30,8 +30,7 @@ CONDUITMODE_DIST_SUBDIRS =    	\
 	portals4-conduit        \
 	gemini-conduit          \
 	aries-conduit           \
-	pami-conduit            \
-	dcmf-conduit
+	pami-conduit
 CONDUITMODE_headers = 		\
 	gasnet.h           	\
 	gasnet_ammacros.h  	\
@@ -73,6 +72,9 @@ headers =                  	\
 
 EXTRA_DIST =              		\
 	README				\
+	README-devel			\
+	README-git			\
+	README-release			\
  	README-tools 			\
 	ChangeLog	  		\
 	license.txt       		\
@@ -91,6 +93,9 @@ include_HEADERS = $(headers)
 
 INSTALL_DOCS =			\
 	README			\
+	README-devel		\
+	README-git		\
+	README-release		\
 	README-tools		\
 	license.txt		\
 	docs/autotuner.txt	\
@@ -336,6 +341,11 @@ TESTDIST = `find . -print`
 endif
 
 dist-hook:
+	if test -d $(srcdir)/.git ; then \
+	  GASNET_DESC=`$${GIT=git} --git-dir=$(srcdir)/.git describe` || exit $$? ; \
+	  $(PERL) -pi -e "s/no-version-control-info/$$GASNET_DESC/;" -- $(distdir)/configure || exit $$? ; \
+	  echo $$GASNET_DESC > $(distdir)/version.git || exit $$? ; \
+	fi
 	if test -f $(distdir)/docs/Makefile ; then \
           cd $(distdir)/docs && $(MAKE) dist-hook || exit $$? ; \
         fi

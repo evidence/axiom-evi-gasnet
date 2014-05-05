@@ -1,6 +1,6 @@
 /*   $Source: bitbucket.org:berkeleylab/gasnet.git/ibv-conduit/gasnet_core_connect.c $
  * Description: Connection management code
- * Copyright 2011, E. O. Lawrence Berekely National Laboratory
+ * Copyright 2011, The Regents of the University of California
  * Terms of use are as specified in license.txt
  */
 
@@ -1686,7 +1686,14 @@ gasnetc_connect_to(gasnet_node_t node)
     gasnetc_sndrcv_poll(0);
     result = GASNETC_NODE2CEP(node);
   }
+#if 0
+  /* Alpha (no longer supported) was only CPU which failed to order
+   * dependent loads.  So, this RMB (originally meant to ensure any
+   * dereferences of *result will follow the read of result) is not
+   * needed on any currently supported platform.
+   */
   gasneti_local_rmb(); 
+#endif
 
   return result;
 }

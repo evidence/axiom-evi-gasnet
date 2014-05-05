@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: bitbucket.org:berkeleylab/gasnet.git/aries-conduit/Makefile.am $
 # Description: Makefile for GASNet aries conduit
-# Copyright 2013, E. O. Lawrence Berekely National Laboratory
+# Copyright 2013, The Regents of the University of California
 # Terms of use are as specified in license.txt
 
 AUTOMAKE_OPTIONS = foreign 1.4

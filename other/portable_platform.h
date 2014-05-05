@@ -82,7 +82,7 @@
   #define PLATFORM_COMPILER_VERSION \
           PLATFORM_COMPILER_VERSION_INT(_PLATFORM__INTEL_COMPILER/100, _PLATFORM__INTEL_COMPILER%100, _PLATFORM_INTEL_COMPILER_BUILD_DATE)
   #define PLATFORM_COMPILER_VERSION_STR \
-          _STRINGIFY(_PLATFORM__INTEL_COMPILER)"."_STRINGIFY(_PLATFORM_INTEL_COMPILER_BUILD_DATE)
+          _STRINGIFY(_PLATFORM__INTEL_COMPILER)"." _STRINGIFY(_PLATFORM_INTEL_COMPILER_BUILD_DATE)
 
 #elif defined(__PATHSCALE__)
   #define PLATFORM_COMPILER_PATHSCALE  1
@@ -115,7 +115,7 @@
     #define PLATFORM_COMPILER_VERSION \
             PLATFORM_COMPILER_VERSION_INT(__PGIC__,__PGIC_MINOR__,__PGIC_PATCHLEVEL__)
     #define PLATFORM_COMPILER_VERSION_STR \
-            _STRINGIFY(__PGIC__)"."_STRINGIFY(__PGIC_MINOR__)"-"_STRINGIFY(__PGIC_PATCHLEVEL__)
+            _STRINGIFY(__PGIC__)"." _STRINGIFY(__PGIC_MINOR__)"-" _STRINGIFY(__PGIC_PATCHLEVEL__)
   #else
     /* PGI before 6.1-4 lacks any version ID preprocessor macros - so use this filthy hack */
     #ifdef PLATFORM_PGI_IS_ANCIENT
@@ -342,7 +342,7 @@
   #define PLATFORM_COMPILER_VERSION \
           PLATFORM_COMPILER_VERSION_INT(__PCC__,__PCC_MINOR__,__PCC_MINORMINOR__)
   #define PLATFORM_COMPILER_VERSION_STR \
-      _STRINGIFY(__PCC__)"."_STRINGIFY(__PCC_MINOR__)"."_STRINGIFY(__PCC_MINORMINOR__)
+      _STRINGIFY(__PCC__)"." _STRINGIFY(__PCC_MINOR__)"." _STRINGIFY(__PCC_MINORMINOR__)
 
 #elif defined(__clang__)
   #define PLATFORM_COMPILER_CLANG  1
@@ -391,10 +391,10 @@
   /* gather any advertised GNU version number info, even for non-gcc compilers */
   #if defined(__GNUC_MINOR__) && defined(__GNUC_PATCHLEVEL__)
     #define __PLATFORM_COMPILER_GNU_VERSION_STR \
-      _STRINGIFY(__GNUC__)"."_STRINGIFY(__GNUC_MINOR__)"."_STRINGIFY(__GNUC_PATCHLEVEL__)
+      _STRINGIFY(__GNUC__)"." _STRINGIFY(__GNUC_MINOR__)"." _STRINGIFY(__GNUC_PATCHLEVEL__)
   #elif defined(__GNUC_MINOR__)
     #define __PLATFORM_COMPILER_GNU_VERSION_STR \
-      _STRINGIFY(__GNUC__)"."_STRINGIFY(__GNUC_MINOR__)".?"
+      _STRINGIFY(__GNUC__)"." _STRINGIFY(__GNUC_MINOR__)".?"
   #else
     #define __PLATFORM_COMPILER_GNU_VERSION_STR \
       _STRINGIFY(__GNUC__)".?.?"
@@ -446,30 +446,30 @@
   #define _PLATFORM_COMPILER_STD_STDC "-"
 #endif
 #ifdef __STDC_VERSION__
-  #define _PLATFORM_COMPILER_STD_STDC_VERSION ",__STDC_VERSION__="_STRINGIFY(__STDC_VERSION__)
+  #define _PLATFORM_COMPILER_STD_STDC_VERSION ",__STDC_VERSION__=" _STRINGIFY(__STDC_VERSION__)
 #else
   #define _PLATFORM_COMPILER_STD_STDC_VERSION
 #endif
 #ifdef __STDC_EXT__
-  #define _PLATFORM_COMPILER_STD_STDC_EXT ",__STDC_EXT__="_STRINGIFY(__STDC_EXT__)
+  #define _PLATFORM_COMPILER_STD_STDC_EXT ",__STDC_EXT__=" _STRINGIFY(__STDC_EXT__)
 #else
   #define _PLATFORM_COMPILER_STD_STDC_EXT 
 #endif
 #ifdef __cplusplus
-  #define _PLATFORM_COMPILER_STD_CPLUSPLUS ",__cplusplus="_STRINGIFY(__cplusplus)
+  #define _PLATFORM_COMPILER_STD_CPLUSPLUS ",__cplusplus=" _STRINGIFY(__cplusplus)
 #else
   #define _PLATFORM_COMPILER_STD_CPLUSPLUS 
 #endif
 
 #ifndef _PLATFORM_COMPILER_MISC_VERSION_STR
   #ifdef __VERSION__
-    #define _PLATFORM_COMPILER_MISC_VERSION_STR "|misc:"__VERSION__
+    #define _PLATFORM_COMPILER_MISC_VERSION_STR "|misc:" __VERSION__
   #else
     #define _PLATFORM_COMPILER_MISC_VERSION_STR
   #endif
 #endif
 #ifdef _PLATFORM_COMPILER_GNU_VERSION_STR
-    #define _PLATFORM_COMPILER_GNU_VERSION_STR_HELP "|GNU:"_PLATFORM_COMPILER_GNU_VERSION_STR
+    #define _PLATFORM_COMPILER_GNU_VERSION_STR_HELP "|GNU:" _PLATFORM_COMPILER_GNU_VERSION_STR
 #else
     #define _PLATFORM_COMPILER_GNU_VERSION_STR_HELP
 #endif
@@ -503,10 +503,6 @@
   #define PLATFORM_OS_CNL 1
   #define PLATFORM_OS_FAMILYNAME CNL
 
-#elif defined(__blrts) || defined(__blrts__) || defined(__gnu_blrts__)
-  #define PLATFORM_OS_BLRTS 1
-  #define PLATFORM_OS_FAMILYNAME BLRTS
-
 #elif defined(GASNETI_ARCH_BGP) || defined(__bgp__)
   #define PLATFORM_OS_BGP 1
   #define PLATFORM_OS_FAMILYNAME BGP
@@ -514,6 +510,10 @@
 #elif defined(GASNETI_ARCH_BGQ) || defined(__bgq__)
   #define PLATFORM_OS_BGQ 1
   #define PLATFORM_OS_FAMILYNAME BGQ
+
+#elif defined(__blrts) || defined(__blrts__) || defined(__gnu_blrts__)
+  #define PLATFORM_OS_BLRTS 1
+  #define PLATFORM_OS_FAMILYNAME BLRTS
 
 #elif defined(__K42)
   #define PLATFORM_OS_K42 1

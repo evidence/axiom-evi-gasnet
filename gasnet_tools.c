@@ -41,10 +41,6 @@
 #include <sys/resource.h>
 #endif
 
-#if PLATFORM_OS_IRIX
-#define signal(a,b) bsd_signal(a,b)
-#endif
-
 
 #if PLATFORM_COMPILER_SUN_C
   /* disable warnings triggerred by some macro idioms we use */
@@ -177,6 +173,9 @@ extern void gasneti_mutex_cautious_init(/*gasneti_mutex_t*/void *_pl) {
     extern int gasneti_slow_atomic_compare_and_swap(gasneti_atomic_t *p, gasneti_atomic_val_t oldval, gasneti_atomic_val_t newval, const int flags) {
       return gasneti_atomic_compare_and_swap(p,oldval,newval,flags);
     }
+    extern gasneti_atomic_val_t gasneti_slow_atomic_swap(gasneti_atomic_t *p, gasneti_atomic_val_t val, const int flags) {
+      return gasneti_atomic_swap(p,val,flags);
+    }
   #endif
   #if defined(GASNETI_HAVE_ATOMIC_ADD_SUB)
     extern gasneti_atomic_val_t gasneti_slow_atomic_add(gasneti_atomic_t *p, gasneti_atomic_val_t op, const int flags) {
@@ -196,8 +195,26 @@ extern void gasneti_mutex_cautious_init(/*gasneti_mutex_t*/void *_pl) {
   extern void gasneti_slow_atomic32_set(gasneti_atomic32_t *p, uint32_t v, const int flags) {
     gasneti_atomic32_set(p, v, flags);
   }
+  extern void gasneti_slow_atomic32_increment(gasneti_atomic32_t *p, const int flags) {
+    gasneti_atomic32_increment(p, flags);
+  }
+  extern void gasneti_slow_atomic32_decrement(gasneti_atomic32_t *p, const int flags) {
+    gasneti_atomic32_decrement(p, flags);
+  }
+  extern int gasneti_slow_atomic32_decrement_and_test(gasneti_atomic32_t *p, const int flags) {
+    return gasneti_atomic32_decrement_and_test(p, flags);
+  }
   extern int gasneti_slow_atomic32_compare_and_swap(gasneti_atomic32_t *p, uint32_t oldval, uint32_t newval, const int flags) {
     return gasneti_atomic32_compare_and_swap(p,oldval,newval,flags);
+  }
+  extern uint32_t gasneti_slow_atomic32_swap(gasneti_atomic32_t *p, uint32_t val, const int flags) {
+    return gasneti_atomic32_swap(p,val,flags);
+  }
+  extern uint32_t gasneti_slow_atomic32_add(gasneti_atomic32_t *p, uint32_t op, const int flags) {
+    return gasneti_atomic32_add(p,op,flags);
+  }
+  extern uint32_t gasneti_slow_atomic32_subtract(gasneti_atomic32_t *p, uint32_t op, const int flags) {
+    return gasneti_atomic32_subtract(p,op,flags);
   }
 #endif
 #ifdef GASNETI_USE_GENERIC_ATOMIC64
@@ -209,8 +226,26 @@ extern void gasneti_mutex_cautious_init(/*gasneti_mutex_t*/void *_pl) {
   extern void gasneti_slow_atomic64_set(gasneti_atomic64_t *p, uint64_t v, const int flags) {
     gasneti_atomic64_set(p, v, flags);
   }
+  extern void gasneti_slow_atomic64_increment(gasneti_atomic64_t *p, const int flags) {
+    gasneti_atomic64_increment(p, flags);
+  }
+  extern void gasneti_slow_atomic64_decrement(gasneti_atomic64_t *p, const int flags) {
+    gasneti_atomic64_decrement(p, flags);
+  }
+  extern int gasneti_slow_atomic64_decrement_and_test(gasneti_atomic64_t *p, const int flags) {
+    return gasneti_atomic64_decrement_and_test(p, flags);
+  }
   extern int gasneti_slow_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval, const int flags) {
     return gasneti_atomic64_compare_and_swap(p,oldval,newval,flags);
+  }
+  extern uint64_t gasneti_slow_atomic64_swap(gasneti_atomic64_t *p, uint64_t val, const int flags) {
+    return gasneti_atomic64_swap(p,val,flags);
+  }
+  extern uint64_t gasneti_slow_atomic64_add(gasneti_atomic64_t *p, uint64_t op, const int flags) {
+    return gasneti_atomic64_add(p,op,flags);
+  }
+  extern uint64_t gasneti_slow_atomic64_subtract(gasneti_atomic64_t *p, uint64_t op, const int flags) {
+    return gasneti_atomic64_subtract(p,op,flags);
   }
 #endif
 
@@ -300,18 +335,8 @@ extern const char *gasnett_performance_warning_str(void) {
 extern uint64_t gasneti_gettimeofday_us(void) {
   uint64_t retval;
   struct timeval tv;
-  #if PLATFORM_OS_UNICOS
-  retry:
-  #endif
   gasneti_assert_zeroret(gettimeofday(&tv, NULL));
   retval = ((uint64_t)tv.tv_sec) * 1000000 + (uint64_t)tv.tv_usec;
-  #if PLATFORM_OS_UNICOS
-    /* fix an empirically observed bug in UNICOS gettimeofday(),
-       which occasionally returns ridiculously incorrect values
-       SPR 728120, fixed in kernel 2.4.34 
-     */
-    if_pf(retval < (((uint64_t)3) << 48)) goto retry;
-  #endif
   return retval;
 }
 
@@ -380,8 +405,6 @@ extern void gasneti_filesystem_sync(void) {
   if ( gasneti_getenv_yesno_withdefault("GASNET_FS_SYNC",0) ) {
 #if PLATFORM_OS_MTA
     mta_sync();
-#elif PLATFORM_OS_CATAMOUNT
-    /* Empty */
 #else
     sync();
 #endif
@@ -803,7 +826,11 @@ static int gasneti_system_redirected_coprocess(const char *cmd, int stdout_fd) {
       if (retval) { /* system call failed - nuke the output */
         gasneti_bt_rc_unused = ftruncate(tmpfd, 0);
       } 
+#if 0 /* gasneti_filesystem_sync() is currenlty a no-op by default */
       gasneti_filesystem_sync(); /* flush output */
+#else
+      fsync(tmpfd); /* flush output */
+#endif
       kill(parentpid, GASNETI_UNFREEZE_SIGNAL); /* signal the parent of completion */
       gasneti_killmyprocess(0); /* die */
     } else { /* the parent - our debugger target */
@@ -813,6 +840,7 @@ static int gasneti_system_redirected_coprocess(const char *cmd, int stdout_fd) {
         gasneti_sched_yield(); /* sched_yield seems to be friendlier than sleep() for stack-walkers */
       }
       /* awakened */
+      gasneti_bt_complete_flag = 0;
       gasneti_reghandler(GASNETI_UNFREEZE_SIGNAL, old_sigh);
       if (fstat(tmpfd, &tmpstat)) rc = -1; /* never happens? */
       else if (tmpstat.st_size == 0) rc = -1; /* child process spawn failed */
@@ -1831,14 +1859,7 @@ int gasnett_maximize_rlimit(int res, const char *lim_desc) {
 
 /* ------------------------------------------------------------------------------------ */
 /* Physical CPU query */
-#if PLATFORM_OS_IRIX || PLATFORM_ARCH_CRAYX1
-#define _SC_NPROCESSORS_ONLN _SC_NPROC_ONLN
-#elif PLATFORM_ARCH_CRAYT3E
-#define _SC_NPROCESSORS_ONLN _SC_CRAY_MAXPES
-#elif PLATFORM_OS_HPUX
-#include <sys/param.h>
-#include <sys/pstat.h>
-#elif PLATFORM_OS_DARWIN || PLATFORM_OS_FREEBSD || PLATFORM_OS_NETBSD || PLATFORM_OS_OPENBSD
+#if PLATFORM_OS_DARWIN || PLATFORM_OS_FREEBSD || PLATFORM_OS_NETBSD || PLATFORM_OS_OPENBSD
 #include <sys/param.h>
 #include <sys/sysctl.h>
 #endif
@@ -1859,26 +1880,14 @@ extern int gasneti_cpu_count(void) {
         gasneti_assert_zeroret(sysctl(mib, 2, &hwprocs, &len, NULL, 0));
         if (hwprocs < 1) hwprocs = 0;
       }
-  #elif PLATFORM_OS_HPUX
-      {
-        struct pst_dynamic psd;
-        gasneti_assert_zeroret(pstat_getdynamic(&psd, sizeof(psd), (size_t)1, 0) == -1);
-        hwprocs = psd.psd_proc_cnt;
-      }
-  #elif defined(GASNETI_HAVE_BGP_INLINES)
-      { 
-        register _BGP_SprgShMem sprg4;
-        GASNETI_BGP_SPR(sprg4.shmem, _BGP_SPRGRO_SHMem); /* SPRG4 28:29 = (cores in my process) - 1 */
-        hwprocs = sprg4.ShmNumCores + 1;
-      }
   #elif defined(GASNETI_HAVE_BGQ_INLINES) && 0 /* correct, but sysconf() gives same result */
       { 
         const uint64_t sprg7 = mfspr(SPRN_SPRG7RO);
         const uint8_t ppn = (sprg7 >> 8) & 0xff; /* Byte 6 is processes per node: 1,2,4,8,16,32 or 64 */
         hwprocs = 64 / ppn; /* XXX: this counts all SMT threads as cpus */
       }
-  #elif PLATFORM_OS_SUPERUX || PLATFORM_OS_MTA
-      hwprocs = 0; /* appears to be no way to query CPU count on these */
+  #elif PLATFORM_OS_MTA
+      hwprocs = 0; /* appears to be no way to query CPU count */
   #else
       hwprocs = sysconf(_SC_NPROCESSORS_ONLN);
       if (hwprocs < 1) hwprocs = 0; /* catch failures on Solaris/Cygwin */
@@ -1903,15 +1912,6 @@ extern int gasneti_cpu_count(void) {
 #if PLATFORM_OS_DARWIN || PLATFORM_OS_FREEBSD || PLATFORM_OS_NETBSD || PLATFORM_OS_OPENBSD
   #include <sys/types.h>
   #include <sys/sysctl.h>
-#elif PLATFORM_OS_CATAMOUNT
-  #include <catamount/catmalloc.h>
-#elif PLATFORM_OS_HPUX
-  #include <sys/param.h>
-  #include <sys/pstat.h>
-#elif PLATFORM_OS_IRIX
-  #include <invent.h>
-#elif PLATFORM_OS_TRU64 && HAVE_SYS_TABLE_H
-  #include <sys/table.h>
 #endif
 extern uint64_t gasneti_getPhysMemSz(int failureIsFatal) {
   uint64_t retval = _gasneti_getPhysMemSysconf();
@@ -1963,53 +1963,6 @@ extern uint64_t gasneti_getPhysMemSz(int failureIsFatal) {
             (int)len, strerror(errno), errno);
       }
     }
-  #elif PLATFORM_OS_AIX
-    { /* returns amount of real memory in kilobytes */
-      long int val = sysconf(_SC_AIX_REALMEM);
-      if (val > 0) retval = (1024 * (uint64_t)val);
-    }
-  #elif PLATFORM_OS_CATAMOUNT
-    { static uint64_t result = 0; /* call is expensive, so amortize */
-      if (!result) {
-        size_t fragments;
-        unsigned long total_free, largest_free, total_used;
-        gasneti_assert_zeroret(heap_info(&fragments, &total_free, &largest_free, &total_used));
-        result = total_free + total_used;
-     }
-     retval = result;
-    }
-  #elif PLATFORM_OS_HPUX
-    { struct pst_static pst;
-      gasneti_assert_zeroret(pstat_getstatic(&pst, sizeof(pst), (size_t)1, 0) == -1);
-      retval = (uint64_t)(pst.physical_memory) * pst.page_size;
-    }
-  #elif PLATFORM_OS_IRIX
-    #if defined(INV_MEMORY) && defined(INV_MAIN_MB)
-    { static int result_mb = 0; /* amortize cost of table search */
-      /* Full result may exceed native word size and thus not be read/written atomically.
-       * So, we cache in units of MB (using the same type used by the OS interface). */
-      if (!result_mb) {
-        inv_state_t *st = NULL;
-        inventory_t *pinv;
-        gasneti_assert_zeroret(setinvent_r(&st)); /* Using thread-safe variant */
-        while (NULL != (pinv = getinvent_r(st))) {
-          if ((pinv->inv_class == INV_MEMORY) && (pinv->inv_type == INV_MAIN_MB)) {
-            result_mb = pinv->inv_state;
-            break;
-          }
-        }
-        endinvent_r(st);
-      }
-      retval = result_mb * (uint64_t)1048576;
-    }
-    #endif /* defined(INV_MEMORY) && defined(INV_MAIN_MB) */
-  #elif PLATFORM_OS_TRU64 && defined(TBL_PMEMSTATS)
-    {
-      struct tbl_pmemstats stats;
-      if (1 == table(TBL_PMEMSTATS, 0, &stats, 1, sizeof(stats))) {
-        retval = stats.physmem;
-      }
-    }
   #else  /* unknown OS */
     { }
   #endif
@@ -2022,8 +1975,6 @@ extern uint64_t gasneti_getPhysMemSz(int failureIsFatal) {
 /* CPU affinity control */
 #if HAVE_PLPA
   #include "plpa.h"
-#elif PLATFORM_OS_AIX
-  #include <sys/thread.h>
 #elif PLATFORM_OS_SOLARIS
   #include <sys/types.h>
   #include <sys/processor.h>
@@ -2064,13 +2015,6 @@ void gasneti_set_affinity_default(int rank) {
       PLPA_CPU_SET(local_rank, &mask);
       gasneti_assert_zeroret(gasneti_plpa_sched_setaffinity(0, sizeof(mask), &mask));
     }
-  }
-  #elif PLATFORM_OS_AIX
-  {
-    int cpus = gasneti_set_affinity_cpus();
-    int local_rank = rank % cpus;
-
-    gasneti_assert_zeroret(bindprocessor(BINDTHREAD, thread_self(), local_rank));
   }
   #elif PLATFORM_OS_SOLARIS
   {
@@ -2140,11 +2084,6 @@ void gasneti_set_affinity(int rank) {
 /* get MAXHOSTNAMELEN */ 
 #if PLATFORM_OS_SOLARIS 
 #include <netdb.h>
-#elif defined(GASNETI_HAVE_BGP_INLINES)
- #include <common/bgp_UCI.h>
- #include <common/bgp_personality.h>
- #undef MAXHOSTNAMELEN
- #define MAXHOSTNAMELEN 18
 #elif defined(GASNETI_HAVE_BGQ_INLINES)
  #ifdef GASNETI_DEFINE__INLINE__
    #define __INLINE__ GASNETI_DEFINE__INLINE__
@@ -2156,8 +2095,6 @@ void gasneti_set_affinity(int rank) {
  #endif
  #undef MAXHOSTNAMELEN
  #define MAXHOSTNAMELEN 19
-#elif PLATFORM_OS_CATAMOUNT
- #include <catamount/data.h>
 #else
 #include <sys/param.h>
 #endif 
@@ -2175,32 +2112,7 @@ const char *gasneti_gethostname(void) {
   static char hostname[MAXHOSTNAMELEN];
   gasneti_mutex_lock(&hnmutex);
     if (firsttime) {
-    #if GASNETI_HAVE_BGP_INLINES
-      _BGP_SprgShMem sprg4;
-      _BGP_SprgDST2 sprg5;
-      _BGP_UCI_ComputeCard_t cc_uci;
-      { /* Need entire Personality struct to extract the UCI  */
-        _BGP_Personality_t pers;
-        int rc;
-        GASNETI_BGP_SYSCALL2(rc, GET_PERSONALITY, (uintptr_t)&pers, (uint32_t)sizeof(pers));
-        if (rc)
-          gasnett_fatalerror("gasneti_gethostname() failed to get hostname: aborting");
-        cc_uci = ((_BGP_UniversalComponentIdentifier)
-                  pers.Kernel_Config.UniversalComponentIdentifier).ComputeCard;
-      }
-      gasneti_assert(cc_uci.Component == _BGP_UCI_Component_ComputeCard);
-      GASNETI_BGP_SPR(sprg4.shmem, _BGP_SPRGRO_SHMem); /* SPRG4 28:29 = (cores in my process) - 1 */
-      GASNETI_BGP_SPR(sprg5.dst2,  _BGP_SPRGRO_DST2);  /* SPRG5 30:31 = physical core ID */
-      /* Rrc-Mm-Nnn-Jjj-Pp.  All but "-Pp" is standard BG/P component naming.
-       */
-      snprintf(hostname, MAXHOSTNAMELEN, "R%1x%1x-M%1u-N%02u-J%02u-P%1u",
-               cc_uci.RackRow, cc_uci.RackColumn,
-               cc_uci.Midplane, cc_uci.NodeCard, cc_uci.ComputeCard,
-               /* Proc = myCore >> log_2_cores_per_proc
-                * where log_2_cores_per_proc expression is valid for 1,2,4 */
-               sprg5.CoreID >> ((sprg4.ShmNumCores + 1) >> 1)
-              );
-    #elif GASNETI_HAVE_BGQ_INLINES
+    #if GASNETI_HAVE_BGQ_INLINES
       uint64_t cc_uci;
       unsigned int proc;
       { /* Need entire Personality struct to extract the UCI  */
@@ -2228,9 +2140,6 @@ const char *gasneti_gethostname(void) {
                          (unsigned int)BG_UCI_GET_COMPUTE_CARD(cc_uci),
                          (unsigned int)proc
               );
-    #elif PLATFORM_OS_CATAMOUNT
-      /* TODO: can we do anything special for VN? */
-      snprintf(hostname, MAXHOSTNAMELEN, "nid%05u", _my_pnid);
     #else
       if (gethostname(hostname, MAXHOSTNAMELEN))
         gasnett_fatalerror("gasneti_gethostname() failed to get hostname: aborting");

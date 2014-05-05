@@ -95,7 +95,7 @@ void doit5(int partner, int *partnerseg);
 #endif
 
 #if GASNET_PAR
-#if PLATFORM_OS_BGP
+#if (TEST_MAXTHREADS < 10)
   #define NUM_THREADS TEST_MAXTHREADS
 #else
   #define NUM_THREADS 10
@@ -484,7 +484,7 @@ void doit5(int partner, int *partnerseg) {
 
   BARRIER();
 
-  /*  put/overwrite/get test */
+  /* NB and NBI put/overwrite/get tests */
   #define MAXVALS (1024)
   #define MAXSZ (MAXVALS*8)
   #define SEGSZ (MAXSZ*4)
@@ -539,14 +539,14 @@ void doit5(int partner, int *partnerseg) {
           ok = localpos[j] == val;
           if (sz < 8) ok = !memcmp(&(localpos[j]), &val, sz);
           if (!ok) {
-              MSG("*** ERROR - FAILED OUT-OF-SEG PUT/OVERWRITE TEST!!! sz=%i j=%i (got=%016llx expected=%016llx)", (sz), j,
+              MSG("*** ERROR - FAILED OUT-OF-SEG PUT_NB/OVERWRITE TEST!!! sz=%i j=%i (got=%016llx expected=%016llx)", (sz), j,
                   (unsigned long long)localpos[j], (unsigned long long)val);
               success = 0;
           }
           ok = segpos[j] == val;
           if (sz < 8) ok = !memcmp(&(segpos[j]), &val, sz);
           if (!ok) {
-              MSG("*** ERROR - FAILED IN-SEG PUT/OVERWRITE TEST!!! sz=%i j=%i (got=%016llx expected=%016llx)", (sz), j,
+              MSG("*** ERROR - FAILED IN-SEG PUT_NB/OVERWRITE TEST!!! sz=%i j=%i (got=%016llx expected=%016llx)", (sz), j,
                   (unsigned long long)segpos[j], (unsigned long long)val);
               success = 0;
           }
@@ -554,7 +554,75 @@ void doit5(int partner, int *partnerseg) {
       }
     }
     test_free(localvals);
-    if (success) MSG("*** passed put/overwrite test!!");
+    if (success) MSG("*** passed nb put/overwrite test!!");
+  }
+  { GASNET_BEGIN_FUNCTION();
+    uint64_t *localvals=(uint64_t *)test_malloc(SEGSZ);
+    int success = 1;
+    int i, sz;
+    for (i = 0; i < MAX(1,iters/10); i++) {
+      uint64_t *localpos=localvals;
+      uint64_t *segpos=(uint64_t *)TEST_MYSEG();
+      uint64_t *rsegpos=(uint64_t *)((char*)partnerseg+SEGSZ);
+      for (sz = 1; sz <= MAXSZ; sz*=2) {
+        int elems = sz/8;
+        int j;
+        uint64_t val = VAL(sz, i+91); /* setup known src value, different from NB test */
+        if (sz < 8) {
+          elems = 1;
+          memset(localpos, (val & 0xFF), sz);
+          memset(segpos, (val & 0xFF), sz);
+          memset(&val, (val & 0xFF), sz);
+        } else {
+          for (j=0; j < elems; j++) {
+            localpos[j] = val;
+            segpos[j] = val;
+          }
+        }
+        gasnet_put_nbi_bulk(partner, rsegpos, localpos, sz);
+        gasnet_wait_syncnbi_puts();
+
+        gasnet_put_nbi(partner, rsegpos+elems, localpos, sz);
+        memset(localpos, 0xCC, sz); /* clear */
+        gasnet_wait_syncnbi_puts();
+
+        gasnet_put_nbi_bulk(partner, rsegpos+2*elems, segpos, sz);
+        gasnet_wait_syncnbi_puts();
+
+        gasnet_put_nbi(partner, rsegpos+3*elems, segpos, sz);
+        memset(segpos, 0xCC, sz); /* clear */
+        gasnet_wait_syncnbi_puts();
+
+        gasnet_get_nbi(localpos, partner, rsegpos, sz);
+        gasnet_wait_syncnbi_gets();
+        gasnet_get_nbi_bulk(localpos+elems, partner, rsegpos+elems, sz);
+        gasnet_wait_syncnbi_gets();
+        gasnet_get_nbi(segpos, partner, rsegpos+2*elems, sz);
+        gasnet_wait_syncnbi_gets();
+        gasnet_get_nbi_bulk(segpos+elems, partner, rsegpos+3*elems, sz);
+        gasnet_wait_syncnbi_gets();
+
+        for (j=0; j < elems*2; j++) {
+          int ok;
+          ok = localpos[j] == val;
+          if (sz < 8) ok = !memcmp(&(localpos[j]), &val, sz);
+          if (!ok) {
+              MSG("*** ERROR - FAILED OUT-OF-SEG PUT_NBI/OVERWRITE TEST!!! sz=%i j=%i (got=%016llx expected=%016llx)", (sz), j,
+                  (unsigned long long)localpos[j], (unsigned long long)val);
+              success = 0;
+          }
+          ok = segpos[j] == val;
+          if (sz < 8) ok = !memcmp(&(segpos[j]), &val, sz);
+          if (!ok) {
+              MSG("*** ERROR - FAILED IN-SEG PUT_NBI/OVERWRITE TEST!!! sz=%i j=%i (got=%016llx expected=%016llx)", (sz), j,
+                  (unsigned long long)segpos[j], (unsigned long long)val);
+              success = 0;
+          }
+        }
+      }
+    }
+    test_free(localvals);
+    if (success) MSG("*** passed nbi put/overwrite test!!");
   }
 
   BARRIER();
@@ -579,30 +647,42 @@ void doit5(int partner, int *partnerseg) {
    * the atomics (especially from c++ when testgasnet is built as textcxx).
    * This is distinct from testtools, which checks that these "do the right thing".
    */
-  { gasnett_atomic_t val = gasnett_atomic_init(1);
-    gasnett_atomic_val_t utmp = gasnett_atomic_read(&val, 0);
-    gasnett_atomic_sval_t stmp = gasnett_atomic_signed(utmp);
-    gasnett_atomic_set(&val, stmp, 0);
-    gasnett_atomic_increment(&val, 0);
-    gasnett_atomic_decrement(&val, 0);
-    (void)gasnett_atomic_decrement_and_test(&val, 0);
-    #ifdef GASNETT_HAVE_ATOMIC_CAS
-      (void)gasnett_atomic_compare_and_swap(&val, 0, 1 ,0);
-    #endif
-    #ifdef GASNETT_HAVE_ATOMIC_ADD_SUB
-      (void)gasnett_atomic_add(&val, 2 ,0);
-      (void)gasnett_atomic_subtract(&val, 1 ,0);
-    #endif
-  }
-  { gasnett_atomic32_t val32 = gasnett_atomic32_init(1);
-    uint32_t tmp32 = gasnett_atomic32_read(&val32, 0);
-    gasnett_atomic32_set(&val32, tmp32, 0);
-    (void)gasnett_atomic32_compare_and_swap(&val32, 0, 1 ,0);
-  }
-  { gasnett_atomic64_t val64 = gasnett_atomic64_init(1);
-    uint64_t tmp64 = gasnett_atomic64_read(&val64, 0);
-    gasnett_atomic64_set(&val64, tmp64, 0);
-    (void)gasnett_atomic64_compare_and_swap(&val64, 0, 1 ,0);
+  #ifndef GASNETT_HAVE_ATOMIC_CAS
+    #define gasnett_atomic_compare_and_swap(a,b,c,d) ((void)0)
+    #define gasnett_atomic_swap(a,b,c)               ((void)0)
+  #endif
+  #ifndef GASNETT_HAVE_ATOMIC_ADD_SUB
+    #define gasnett_atomic_add(a,b,c)                ((void)0)
+    #define gasnett_atomic_subtract(a,b,c)           ((void)0)
+  #endif
+  #ifndef GASNETT_HAVE_STRONGATOMIC_CAS
+    #define gasnett_strongatomic_compare_and_swap(a,b,c,d) ((void)0)
+    #define gasnett_strongatomic_swap(a,b,c)               ((void)0)
+  #endif
+  #ifndef GASNETT_HAVE_STRONGATOMIC_ADD_SUB
+    #define gasnett_strongatomic_add(a,b,c)                ((void)0)
+    #define gasnett_strongatomic_subtract(a,b,c)           ((void)0)
+  #endif
+  #define TEST_ATOMICS(scalar,class) do { \
+    gasnett_##class##_t val = gasnett_##class##_init(1);             \
+    scalar tmp = gasnett_##class##_read(&val, 0);                    \
+    gasnett_##class##_set(&val, tmp, 0);                             \
+    gasnett_##class##_increment(&val, 0);                            \
+    gasnett_##class##_decrement(&val, 0);                            \
+    (void) gasnett_##class##_decrement_and_test(&val, 0);            \
+    (void) gasnett_##class##_compare_and_swap(&val, 0, 1 ,0);        \
+    (void) gasnett_##class##_swap(&val, 1 ,0);                       \
+    (void) gasnett_##class##_add(&val, tmp ,0);                      \
+    (void) gasnett_##class##_subtract(&val, tmp ,0);                 \
+  } while(0)
+  {
+    gasnett_atomic_sval_t stmp = gasnett_atomic_signed((gasnett_atomic_val_t)0);
+    TEST_ATOMICS(gasnett_atomic_val_t, atomic);
+    TEST_ATOMICS(gasnett_atomic_val_t, strongatomic);
+    TEST_ATOMICS(uint32_t, atomic32);
+    TEST_ATOMICS(uint32_t, strongatomic32);
+    TEST_ATOMICS(uint64_t, atomic64);
+    TEST_ATOMICS(uint64_t, strongatomic64);
   }
   { /* attempt to generate alignment problems: */
     gasnett_atomic32_t *ptr32;

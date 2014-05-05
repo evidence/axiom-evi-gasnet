@@ -7,7 +7,7 @@
 #ifndef _GASNET_EXTENDED_FWD_H
 #define _GASNET_EXTENDED_FWD_H
 
-#define GASNET_EXTENDED_VERSION      1.0
+#define GASNET_EXTENDED_VERSION      1.1
 #define GASNET_EXTENDED_VERSION_STR  _STRINGIFY(GASNET_EXTENDED_VERSION)
 #define GASNET_EXTENDED_NAME         MXM
 #define GASNET_EXTENDED_NAME_STR     _STRINGIFY(GASNET_EXTENDED_NAME)
@@ -35,6 +35,14 @@ typedef struct _gasnete_op_t *gasnet_handle_t;
 #define GASNETI_DIRECT_GET_NB   1
 #define GASNETI_DIRECT_GET_NBI  1
 #define GASNETI_DIRECT_PUT_NBI  1
+
+/* Configure use of AM-based implementation of get/put/memset */
+/* NOTE: Barriers, Collectives, VIS may use GASNETE_USING_REF_* in algorithm selection */
+#define GASNETE_USING_REF_EXTENDED_MEMSET   1
+
+/* Conduit implements memset directly via amref: */
+#define gasnete_amref_memset_nb     gasnete_memset_nb
+#define gasnete_amref_memset_nbi    gasnete_memset_nbi
 
 /* XXX: RDMADISSEM leads to error which need to be investigated! */
 #define GASNETE_BARRIER_DEFAULT "AMDISSEM"

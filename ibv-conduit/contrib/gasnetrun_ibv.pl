@@ -118,7 +118,7 @@ sub fullpath($)
     }
 
     $spawner = uc($spawner);
-    die "gasnetrun: $conduit-conduit was configure for PMI-based launch\n"
+    die "gasnetrun: $conduit-conduit was configured for PMI-based launch\n"
         if ($spawner eq 'PMI');
 
 # Validate flags

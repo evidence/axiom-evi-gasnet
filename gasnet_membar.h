@@ -27,7 +27,6 @@
 #include <gasnet_asm.h>
 
 #if PLATFORM_COMPILER_SUN_CXX || \
-   (PLATFORM_COMPILER_HP_CXX && PLATFORM_ARCH_PARISC) || \
    (PLATFORM_COMPILER_PGI_CXX && !GASNETI_PGI_ASM_GNU)
   /* no inline assembly in these C++ compilers, so pay a function call overhead */
   #define GASNETI_USING_SLOW_MEMBARS 1
@@ -57,24 +56,11 @@
       #define GASNETI_WMB_IS_MB
     #endif
   #else /* SPARC v7/8 */
-    GASNETI_INLINE(gasneti_local_wmb)
-    void gasneti_local_wmb(void) {
-      GASNETI_ASM("stbar"); /* SPARC store barrier */
-    }
+    #error "GASNet no longer supports SPARC prior to the v8+/v9 ABIs"
   #endif
 /* ------------------------------------------------------------------------------------ */
 #elif PLATFORM_ARCH_MIPS
-  #if PLATFORM_COMPILER_SGI
-    /* bug1534: issue a full architectural sync for the compiler fence - 
-       this is overkill, but the compiler seems to lack any stand-alone optimization
-       barrier, and the other synchronizing intrinsics (atomics) are even more expensive */
-    #define gasneti_compiler_fence() __synchronize()
-    #define gasneti_local_wmb() __synchronize()
-    #define gasneti_local_rmb() __synchronize()
-    #define gasneti_local_mb()  __synchronize()
-    #define GASNETI_WMB_IS_MB
-    #define GASNETI_RMB_IS_MB
-  #else
+  #if 1 /* All currently supported compilers (gnu and pathscale) */
     GASNETI_INLINE(_gasneti_local_mb)
     void _gasneti_local_mb(void) {
       GASNETI_ASM(".set mips2  \n\t"
@@ -87,26 +73,6 @@
     #define GASNETI_WMB_IS_MB
     #define GASNETI_RMB_IS_MB
   #endif
-/* ------------------------------------------------------------------------------------ */
-#elif PLATFORM_ARCH_PARISC /* HP PA-RISC */
-   GASNETI_INLINE(gasneti_local_wmb)
-   void gasneti_local_wmb(void) {
-     #if PLATFORM_COMPILER_HP_C
-       _flush_globals();
-     #endif
-     GASNETI_ASM("SYNC");  /* PA RISC load/store ordering */ 
-   }
-   #if PLATFORM_COMPILER_HP_C
-     #if 0
-       /* HP C doesn't like an empty asm statement */
-       #define gasneti_compiler_fence() _asm("OR",0,0,0) /* NOP */
-     #else
-       #define gasneti_compiler_fence() _flush_globals() /* compiler intrinsic forces spills */
-     #endif
-   #elif PLATFORM_COMPILER_GNU
-     /* Empty asm causes strange problems (bug 1735). */
-     #define gasneti_compiler_fence() GASNETI_ASM("NOP")
-   #endif
 /* ------------------------------------------------------------------------------------ */
 #elif PLATFORM_ARCH_X86
    GASNETI_INLINE(gasneti_local_wmb)
@@ -161,11 +127,13 @@
    #define gasneti_local_mb() _gasneti_local_mb()
  #endif
 /* ------------------------------------------------------------------------------------ */
-#elif PLATFORM_ARCH_MIC
-   GASNETI_INLINE(gasneti_local_wmb)
-   void gasneti_local_wmb(void) {
-     __asm__ __volatile__("":::"memory");
-   }
+#elif PLATFORM_ARCH_MIC /* MIC a.k.a. Xeon Phi */
+   /* in-order  -  only need a compiler fence */
+   #define gasneti_local_wmb() gasneti_compiler_fence()
+   #define gasneti_local_rmb() gasneti_compiler_fence()
+   #define gasneti_local_mb()  gasneti_compiler_fence()
+   #define GASNETI_RMB_IS_MB
+   #define GASNETI_WMB_IS_MB
 /* ------------------------------------------------------------------------------------ */
 #elif PLATFORM_ARCH_IA64 /* Itanium */
     /* Empirically observed that IA64 requires a full "mf" for both wmb and rmb (see bug 1000).
@@ -188,16 +156,6 @@
       #define gasneti_local_mb()  gasneti_local_wmb()
       #define GASNETI_RMB_IS_MB
       #define GASNETI_WMB_IS_MB
-   #elif PLATFORM_COMPILER_HP
-      #include <machine/sys/inline.h>
-      /* HP compilers have no inline assembly on Itanium - use intrinsics */
-      #define gasneti_compiler_fence() \
-         _Asm_sched_fence((_Asm_fence)(_UP_MEM_FENCE | _DOWN_MEM_FENCE)) 
-      #define gasneti_local_mb() _Asm_mf((_Asm_fence)(_UP_MEM_FENCE | _DOWN_MEM_FENCE))
-      #define gasneti_local_wmb gasneti_local_mb
-      #define gasneti_local_rmb gasneti_local_mb
-      #define GASNETI_RMB_IS_MB
-      #define GASNETI_WMB_IS_MB
    #else
       #define gasneti_local_wmb() GASNETI_ASM("mf")
       #define gasneti_local_rmb() gasneti_local_wmb()
@@ -217,25 +175,10 @@
 
    /* "lwsync" = "sync 1", executed as "sync" on older CPUs */
    #define GASNETI_PPC_WMB_ASM "7c2004ac"
-   #ifdef GASNETI_TUNE_PPC970
-     /* On PPC970 (and nowhere else so far) lwsync is faster than isync */
-     #define GASNETI_PPC_RMB_ASM GASNETI_PPC_WMB_ASM
-     #define GASNETI_RMB_IS_MB
-   #else
-     /* "isync" (instruction sync to squash speculative loads) */
-     #define GASNETI_PPC_RMB_ASM "4c00012c"
-   #endif
 
    #pragma mc_func _gasneti_do_wmb { GASNETI_PPC_WMB_ASM }
    #pragma reg_killed_by _gasneti_do_wmb
    #define gasneti_local_wmb() _gasneti_do_wmb()
-
-   #pragma mc_func _gasneti_do_rmb { GASNETI_PPC_RMB_ASM }
-   #pragma reg_killed_by _gasneti_do_rmb
-   #define gasneti_local_rmb() _gasneti_do_rmb()
-
-   #define gasneti_local_mb() _gasneti_do_wmb()
-   #define GASNETI_WMB_IS_MB
 
    #pragma mc_func _gasneti_do_compilerfence { "" }
    #pragma reg_killed_by _gasneti_do_compilerfence
@@ -244,105 +187,16 @@
    /* "lwsync" = "sync 1", executed as "sync" on older CPUs */
    /* XXX: Can't count on older assemblers to recognize "lwsync" mnemonic */
    #define GASNETI_PPC_WMB_ASM ".long 0x7c2004ac"
-   #ifdef GASNETI_TUNE_PPC970
-     /* On PPC970 (and nowhere else so far) lwsync is faster than isync */
-     #define GASNETI_PPC_RMB_ASM GASNETI_PPC_WMB_ASM
-     #define GASNETI_RMB_IS_MB
-   #else
-     /* "isync" (instruction sync to squash speculative loads) */
-     #define GASNETI_PPC_RMB_ASM "isync"
-   #endif
-
-   GASNETI_INLINE(gasneti_local_wmb)
-   void gasneti_local_wmb(void) {
-     GASNETI_ASM(GASNETI_PPC_WMB_ASM);
-   }
-
-   GASNETI_INLINE(_gasneti_local_rmb)
-   void _gasneti_local_rmb(void) {
-     GASNETI_ASM(GASNETI_PPC_RMB_ASM);
-   }
-   #define gasneti_local_rmb() _gasneti_local_rmb()
-
-   #define gasneti_local_mb() gasneti_local_wmb()
-   #define GASNETI_WMB_IS_MB
+   #define gasneti_local_wmb() GASNETI_ASM(GASNETI_PPC_WMB_ASM)
  #endif
-/* ------------------------------------------------------------------------------------ */
-#elif PLATFORM_ARCH_ALPHA
- #if 1 /* tested on OSF1, LINUX, FreeBSD */
-   GASNETI_INLINE(gasneti_local_wmb)
-   void gasneti_local_wmb(void) {
-     GASNETI_ASM("wmb");
-   }
-   GASNETI_INLINE(_gasneti_local_rmb)
-   void _gasneti_local_rmb(void) {
-     GASNETI_ASM("mb");
-   }
-   #define gasneti_local_rmb() _gasneti_local_rmb()
-   GASNETI_INLINE(_gasneti_local_mb)
-   void _gasneti_local_mb(void) {
-     GASNETI_ASM("mb");
-   }
-   #define gasneti_local_mb() _gasneti_local_mb()
-   #define GASNETI_RMB_IS_MB
- #elif PLATFORM_COMPILER_COMPAQ && 0
-   /* Use compaq C built-ins */
-   /* Note this is heavier weight than required */
-   #include <machine/builtins.h>
-   #define gasneti_local_wmb() __MB()
-   #define gasneti_local_rmb() __MB()
-   #define gasneti_local_mb() __MB()
-   #define GASNETI_RMB_IS_MB
-   #define GASNETI_WMB_IS_MB
- #endif
-/* ------------------------------------------------------------------------------------ */
-#elif PLATFORM_ARCH_CRAYT3E /* Takes care of e-regs also */
-   #include <intrinsics.h>
-   #define gasneti_local_wmb() _memory_barrier()
-   #define gasneti_local_rmb() _memory_barrier()
-   #define gasneti_local_mb() _memory_barrier()
-   #define gasneti_compiler_fence() do { int volatile x = 0; } while (0)
-   #define GASNETI_RMB_IS_MB
-   #define GASNETI_WMB_IS_MB
-/* ------------------------------------------------------------------------------------ */
-#elif PLATFORM_ARCH_CRAYX1
-  GASNETI_INLINE(_gasneti_compiler_fence)
-  void _gasneti_compiler_fence(void) {
-    static int volatile x;
-    x = 1;
-  }
-  #define gasneti_compiler_fence _gasneti_compiler_fence
-  #pragma _CRI suppress _gasneti_compiler_fence
-  /* bug1195: Many memory barrier intrinsics on the X1, but none seem to actually
-   * deliver what we need in a local (scalar-scalar) membar. Not even gsync is sufficient.
-   * shmem_quiet and pthread_mutex_lock/unlock are both sufficient, but shmem_quiet is cheaper.
-   */
-  #if 1
-    #include <mpp/shmem.h>
-    #define gasneti_local_mb() shmem_quiet()
-    #define gasneti_local_rmb  gasneti_local_mb
-    #define gasneti_local_wmb  gasneti_local_mb
-    #define GASNETI_RMB_IS_MB
-    #define GASNETI_WMB_IS_MB
-  #elif 1
-    #include <pthread.h>
-    GASNETI_INLINE(gasneti_local_wmb)
-    void gasneti_local_mb(void) {
-     #if 1
-      pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;
-      pthread_mutex_lock(&m);
-      pthread_mutex_unlock(&m);
-     #else
-      pthread_testcancel(); /* also seems to work */
-     #endif
-    }
-    #define gasneti_local_rmb gasneti_local_mb
-    #define gasneti_local_wmb gasneti_local_mb
-    #define GASNETI_RMB_IS_MB
-    #define GASNETI_WMB_IS_MB
-  #else /* NOT safe */
-    #define gasneti_local_wmb gasneti_compiler_fence
-  #endif
+
+ #define GASNETI_PPC_RMB_ASM GASNETI_PPC_WMB_ASM
+ #define gasneti_local_rmb() gasneti_local_wmb()
+ #define GASNETI_RMB_IS_MB
+
+ /* TODO: 'lwsync' is LL+SS but not LS or SL barrier.  Is that enough? */
+ #define gasneti_local_mb()  gasneti_local_wmb()
+ #define GASNETI_WMB_IS_MB
 /* ------------------------------------------------------------------------------------ */
 #elif PLATFORM_ARCH_MTA
    #if 0 /* causes warnings */
@@ -362,15 +216,6 @@
    #define gasneti_local_mb()  gasneti_compiler_fence()
    #define GASNETI_RMB_IS_MB
    #define GASNETI_WMB_IS_MB
-/* ------------------------------------------------------------------------------------ */
-#elif PLATFORM_ARCH_NECSX
-   GASNETI_INLINE(gasneti_local_wmb)
-   void gasneti_local_wmb(void) {
-     /* TODO: probably need more here */
-     static int volatile x;
-     x = 1;
-     /* GASNETI_ASM("nop"); - leads to "FATAL COMPILER ERROR, Unknown statement. c++: Internal Error: Please report." */
-   }
 /* ------------------------------------------------------------------------------------ */
 #elif PLATFORM_ARCH_MICROBLAZE
    /* no SMP support */

@@ -177,8 +177,11 @@
 */
 #if GASNETI_CLIENT_THREADS || GASNETI_CONDUIT_THREADS
   #define GASNETI_THREADS 1
+  #define _GASNETI_PARSEQ _PAR
 #elif defined(GASNETI_THREADS)
   #error bad defn of GASNETI_THREADS
+#else
+  #define _GASNETI_PARSEQ _SEQ
 #endif
 
 /* basic utilities used in the headers, which may require GASNETI_THREADS */
@@ -398,8 +401,8 @@ extern void (*gasnet_client_attach_hook)(void *, uintptr_t);
              "SPEC=" _STRINGIFY(GASNET_SPEC_VERSION_MAJOR) "."            \
              _STRINGIFY(GASNET_SPEC_VERSION_MINOR) ","                    \
              "CONDUIT=" GASNET_CONDUIT_NAME_STR "("                       \
-             GASNET_CORE_NAME_STR"-"GASNET_CORE_VERSION_STR "/"           \
-             GASNET_EXTENDED_NAME_STR"-"GASNET_EXTENDED_VERSION_STR "),"  \
+             GASNET_CORE_NAME_STR "-" GASNET_CORE_VERSION_STR "/"         \
+             GASNET_EXTENDED_NAME_STR "-" GASNET_EXTENDED_VERSION_STR "),"\
              "THREADMODEL=" _STRINGIFY(GASNETI_THREAD_MODEL) ","          \
              "SEGMENT=" _STRINGIFY(GASNETI_SEGMENT_CONFIG) ","            \
              "PTR=" _STRINGIFY(GASNETI_PTR_CONFIG) ","                    \

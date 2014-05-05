@@ -311,24 +311,7 @@ Status:
 ------
 * The entire GASNet and Berkeley UPC test suites are run on the platforms
   which support PSHM, and it is considered stable on Linux, AIX, Solaris,
-  {Free,Net,Open}BSD, BG/P and BG/Q.
-* IBM BG/P platform-specific notes:
-  - PSHM does not work at all in "SMP" mode, only "DUAL" or "VN"
-  - In "VN" mode one cannot run a hybrid GASNet+MPI code (appears that some
-    scarce resource is exhausted in this case, but we have no details).
-  - Currently one must manually set up a few things to use PSHM on BG/P
-    + Must set CROSS_HAVE_SHM_OPEN=1 on configure command line
-    + Shared segment size must be limited to a lower-than-default value
-    + BG_SHAREDMEMPOOLSIZE env var must be set to fit the shared segment plus
-      extra for Active Message buffers
-  - Example environment variable settings for 200MB shared heap in VN mode
-    when using Berkeley UPC's upcrun command:
-      UPC_SHARED_HEAP_SIZE=200M
-      BG_SHAREDMEMPOOLSIZE=820
-  - Example environment variable settings for 400MB shared heap in DUAL mode
-    when using Berkeley UPC's upcrun command:
-      UPC_SHARED_HEAP_SIZE=400M
-      BG_SHAREDMEMPOOLSIZE=810
+  {Free,Net,Open}BSD and BG/Q.
 * IBM BG/Q platform-specific notes:
   - The PAMI conduit supports PSHM, and the provided cross-configure script
     will --enable-pshm-gheap

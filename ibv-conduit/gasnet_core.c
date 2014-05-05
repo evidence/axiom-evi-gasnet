@@ -575,8 +575,6 @@ extern void gasnetc_unpin(gasnetc_hca_t *hca, gasnetc_memreg_t *reg) {
 }
 
 extern int gasnetc_pin(gasnetc_hca_t *hca, void *addr, size_t size, enum ibv_access_flags acl, gasnetc_memreg_t *reg) {
-  const int vstat = 0;
-
   gasneti_assert(((uintptr_t)addr % GASNET_PAGESIZE) == 0);
   gasneti_assert(((uintptr_t)size % GASNET_PAGESIZE) == 0);
 
@@ -591,7 +589,7 @@ extern int gasnetc_pin(gasnetc_hca_t *hca, void *addr, size_t size, enum ibv_acc
   gasnetc_pinned_bytes += reg->len;
 #endif
 
-  return vstat;
+  return 0;
 }
 
 static void *gasnetc_try_pin_inner(size_t size, gasnetc_memreg_t *reg) {
@@ -1030,11 +1028,16 @@ static int gasnetc_load_settings(void) {
 static int  gasneti_bootstrapInit(int *argc_p, char ***argv_p,
 				  gasnet_node_t *nodes_p, gasnet_node_t *mynode_p) {
   char *spawner = gasneti_getenv_withdefault("GASNET_IB_SPAWNER", "(not set)");
-  int result = GASNET_ERR_NOT_INIT;
+  int res = GASNET_ERR_NOT_INIT;
 
 #if HAVE_SSH_SPAWNER
-  /* Sigh.  We can't assume GASNET_IB_SPAWNER has been set except in the master */
-  if (GASNET_OK == (result = gasneti_bootstrapInit_ssh(argc_p, argv_p, nodes_p, mynode_p))) {
+  /* Sigh.  We can't assume GASNET_IB_SPAWNER has been set except in the master.
+   * However, gasneti_bootstrapInit_ssh() verifies the command line args and
+   * returns GASNET_ERR_NOT_INIT on failure witout any noise on stderr.
+   * So, we try ssh-based spawn first.
+   */
+  if (GASNET_OK != res &&
+      GASNET_OK == (res = gasneti_bootstrapInit_ssh(argc_p, argv_p, nodes_p, mynode_p))) {
     gasneti_bootstrapFini_p	= &gasneti_bootstrapFini_ssh;
     gasneti_bootstrapAbort_p	= &gasneti_bootstrapAbort_ssh;
     gasneti_bootstrapBarrier_p	= &gasneti_bootstrapBarrier_ssh;
@@ -1042,11 +1045,15 @@ static int  gasneti_bootstrapInit(int *argc_p, char ***argv_p,
     gasneti_bootstrapAlltoall_p	= &gasneti_bootstrapAlltoall_ssh;
     gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_ssh;
     gasneti_bootstrapCleanup_p  = &gasneti_bootstrapCleanup_ssh;
-  } else
+  }
 #endif
+
 #if HAVE_MPI_SPAWNER
-  if (!strcmp(spawner, "mpi")) {
-    result = gasneti_bootstrapInit_mpi(argc_p, argv_p, nodes_p, mynode_p);
+  /* Only try MPI-based spawn when spawner == "mpi".
+   * Otherwise things could hang or fail in "messy" ways here.
+   */
+  if (GASNET_OK != res && !strcmp(spawner, "mpi") && 
+      GASNET_OK == (res = gasneti_bootstrapInit_mpi(argc_p, argv_p, nodes_p, mynode_p))) {
     gasneti_bootstrapFini_p	= &gasneti_bootstrapFini_mpi;
     gasneti_bootstrapAbort_p	= &gasneti_bootstrapAbort_mpi;
     gasneti_bootstrapBarrier_p	= &gasneti_bootstrapBarrier_mpi;
@@ -1054,10 +1061,15 @@ static int  gasneti_bootstrapInit(int *argc_p, char ***argv_p,
     gasneti_bootstrapAlltoall_p	= &gasneti_bootstrapAlltoall_mpi;
     gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_mpi;
     gasneti_bootstrapCleanup_p  = &gasneti_bootstrapCleanup_mpi;
-  } else
+  }
 #endif
+
 #if HAVE_PMI_SPAWNER
-  if (GASNET_OK == (result = gasneti_bootstrapInit_pmi(argc_p, argv_p, nodes_p, mynode_p))) {
+  /* Don't expect GASNET_IB_SPAWNER set if launched directly by srun, mpirun, yod, etc.
+   * So, we try pmi-based spawn last.
+   */
+  if (GASNET_OK != res &&
+      GASNET_OK == (res = gasneti_bootstrapInit_pmi(argc_p, argv_p, nodes_p, mynode_p))) {
     gasneti_bootstrapFini_p	= &gasneti_bootstrapFini_pmi;
     gasneti_bootstrapAbort_p	= &gasneti_bootstrapAbort_pmi;
     gasneti_bootstrapBarrier_p	= &gasneti_bootstrapBarrier_pmi;
@@ -1065,13 +1077,25 @@ static int  gasneti_bootstrapInit(int *argc_p, char ***argv_p,
     gasneti_bootstrapAlltoall_p	= &gasneti_bootstrapAlltoall_pmi;
     gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_pmi;
     gasneti_bootstrapCleanup_p  = &gasneti_bootstrapCleanup_pmi;
-  } else
+  }
 #endif
+
+  if (GASNET_OK != res
+#if HAVE_SSH_SPAWNER
+      && strcmp(spawner, "ssh")
+#endif
+#if HAVE_MPI_SPAWNER
+      && strcmp(spawner, "mpi")
+#endif
+#if HAVE_PMI_SPAWNER
+      && strcmp(spawner, "pmi")
+#endif
+      )
   {
     gasneti_fatalerror("Requested spawner \"%s\" is unknown or not supported in this build", spawner);
   }
 
-  return result;
+  return res;
 }
 
 /* Info used while probing for HCAs/ports */
@@ -1940,10 +1964,12 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 
         for (j = 0, addr = gasnetc_seg_start, remain = segsize; remain != 0; ++j) {
 	  size_t len = (gasnetc_max_regs == 1) ? remain : MIN(remain, gasnetc_pin_maxsz);
-          vstat = gasnetc_pin(hca, (void *)addr, len,
+          if (0 != gasnetc_pin(hca, (void *)addr, len,
 			      (enum ibv_access_flags)(IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ),
-			      &memreg);
-          GASNETC_IBV_CHECK(vstat, "when registering the segment");
+			      &memreg)) {
+             gasneti_fatalerror("Unexpected error %s (errno=%d) when registering the segment",
+                                strerror(errno), errno);
+          }
 	  my_rkeys[j] = memreg.handle->rkey;
 	  hca->seg_lkeys[j] = memreg.handle->lkey;
 	  addr += len;

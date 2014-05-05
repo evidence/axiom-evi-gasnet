@@ -7,6 +7,7 @@
 
 #include <gasnet_internal.h>
 #include <gasnet_core_internal.h>
+#include <gasnet_mxm_req.h>
 
 #include <errno.h>
 #include <unistd.h>
@@ -154,6 +155,17 @@ static void gasnetc_bootstrapBarrier(void) {
     /* using internal function instead */
     gasneti_bootstrapBarrier();
 }
+
+
+/* -------------------------------------------------------------------------- */
+
+size_t gasneti_AMMaxMedium(void)
+{
+    /*return gasnet_mxm_module.max_am_med -*/
+    /*          (sizeof(gasnet_handlerarg_t) * GASNETC_MAX_ARGS));*/
+    return gasnet_mxm_module.max_am_med;
+}
+
 /* -------------------------------------------------------------------------- */
 
 static int gasneti_bootstrapInit(
@@ -165,9 +177,13 @@ static int gasneti_bootstrapInit(
     int res = GASNET_ERR_NOT_INIT;
 
 #if HAVE_SSH_SPAWNER
-    /* Sigh.  We can't assume GASNET_IB_SPAWNER has been set except in the master */
-    if (GASNET_OK == (res = gasneti_bootstrapInit_ssh(argc_p, argv_p, nodes_p, mynode_p))) {
-        gasneti_bootstrapInit_ssh(argc_p, argv_p, nodes_p, mynode_p);
+    /* Sigh.  We can't assume GASNET_IB_SPAWNER has been set except in the master.
+     * However, gasneti_bootstrapInit_ssh() verifies the command line args and
+     * returns GASNET_ERR_NOT_INIT on failure witout any noise on stderr.
+     * So, we try ssh-based spawn first.
+     */
+    if (GASNET_OK != res &&
+        GASNET_OK == (res = gasneti_bootstrapInit_ssh(argc_p, argv_p, nodes_p, mynode_p))) {
         gasneti_bootstrapFini_p     = &gasneti_bootstrapFini_ssh;
         gasneti_bootstrapAbort_p    = &gasneti_bootstrapAbort_ssh;
         gasneti_bootstrapBarrier_p  = &gasneti_bootstrapBarrier_ssh;
@@ -175,23 +191,31 @@ static int gasneti_bootstrapInit(
         gasneti_bootstrapAlltoall_p = &gasneti_bootstrapAlltoall_ssh;
         gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_ssh;
         gasneti_bootstrapCleanup_p  = &gasneti_bootstrapCleanup_ssh;
-    } else
+    }
 #endif
+
 #if HAVE_MPI_SPAWNER
-    if (!strcmp(spawner, "mpi")) {
-        res = gasneti_bootstrapInit_mpi(argc_p, argv_p, nodes_p, mynode_p);
-        gasneti_bootstrapInit_mpi(argc_p, argv_p, nodes_p, mynode_p);
-        gasneti_bootstrapFini_p	= &gasneti_bootstrapFini_mpi;
+    /* Only try MPI-based spawn when spawner == "mpi".
+     * Otherwise things could hang or fail in "messy" ways here.
+     */
+    if (GASNET_OK != res && !strcmp(spawner, "mpi") && 
+        GASNET_OK == (res = gasneti_bootstrapInit_mpi(argc_p, argv_p, nodes_p, mynode_p))) {
+        gasneti_bootstrapFini_p	    = &gasneti_bootstrapFini_mpi;
         gasneti_bootstrapAbort_p	= &gasneti_bootstrapAbort_mpi;
         gasneti_bootstrapBarrier_p	= &gasneti_bootstrapBarrier_mpi;
         gasneti_bootstrapExchange_p	= &gasneti_bootstrapExchange_mpi;
         gasneti_bootstrapAlltoall_p	= &gasneti_bootstrapAlltoall_mpi;
         gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_mpi;
         gasneti_bootstrapCleanup_p  = &gasneti_bootstrapCleanup_mpi;
-    } else
+    }
 #endif
+
 #if HAVE_PMI_SPAWNER
-    if (GASNET_OK == (res = gasneti_bootstrapInit_pmi(argc_p, argv_p, nodes_p, mynode_p))) {
+    /* Don't expect GASNET_IB_SPAWNER set if launched directly by srun, mpirun, yod, etc.
+     * So, we try pmi-based spawn last.
+     */
+    if (GASNET_OK != res &&
+        GASNET_OK == (res = gasneti_bootstrapInit_pmi(argc_p, argv_p, nodes_p, mynode_p))) {
         gasneti_bootstrapFini_p = &gasneti_bootstrapFini_pmi;
         gasneti_bootstrapAbort_p    = &gasneti_bootstrapAbort_pmi;
         gasneti_bootstrapBarrier_p  = &gasneti_bootstrapBarrier_pmi;
@@ -199,8 +223,20 @@ static int gasneti_bootstrapInit(
         gasneti_bootstrapAlltoall_p = &gasneti_bootstrapAlltoall_pmi;
         gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_pmi;
         gasneti_bootstrapCleanup_p  = &gasneti_bootstrapCleanup_pmi;
-    } else
+    }
 #endif
+
+    if (GASNET_OK != res
+#if HAVE_SSH_SPAWNER
+        && strcmp(spawner, "ssh")
+#endif
+#if HAVE_MPI_SPAWNER
+        && strcmp(spawner, "mpi")
+#endif
+#if HAVE_PMI_SPAWNER
+        && strcmp(spawner, "pmi")
+#endif
+        )
     {
         gasneti_fatalerror("Requested spawner \"%s\" is unknown or not supported in this build", spawner);
     }
@@ -320,15 +356,6 @@ static int gasneti_load_settings(void)
                               GASNETC_DEFAULT_EXITTIMEOUT_FACTOR,
                               GASNETC_DEFAULT_EXITTIMEOUT_MIN);
     return GASNET_OK;
-}
-
-/* -------------------------------------------------------------------------- */
-
-size_t inline gasneti_AMMaxMedium(void)
-{
-    /*return gasnet_mxm_module.max_am_med -*/
-    /*          (sizeof(gasnet_handlerarg_t) * GASNETC_MAX_ARGS));*/
-    return gasnet_mxm_module.max_am_med;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -565,10 +592,10 @@ static void gasnetc_init_pin_info(int first_local, int ppn)
 
 /* -------------------------------------------------------------------------- */
 
-static inline int gasnetc_post_recv(void)
+static inline int gasnetc_post_recv(gasnet_mxm_recv_req_t *r_req)
 {
-    mxm_recv_req_t * p_req = &gasnet_mxm_module.recv_req;
-    mxm_req_base_t * p_base = &gasnet_mxm_module.recv_req.base;
+    mxm_recv_req_t * p_req = &r_req->mxm_rreq;
+    mxm_req_base_t * p_base = &r_req->mxm_rreq.base;
     p_req->tag = 0;
     p_req->tag_mask = 0; /* match any tag */
     p_base->completed_cb = NULL;
@@ -576,16 +603,14 @@ static inline int gasnetc_post_recv(void)
     p_base->mq = gasnet_mxm_module.mxm_mq;
     p_base->state = MXM_REQ_NEW;
     p_base->data_type = MXM_REQ_DATA_BUFFER;
-    p_base->data.buffer.ptr = (void *)gasnet_mxm_module.recv_reg.addr;
-    p_base->data.buffer.length = gasnet_mxm_module.recv_reg.len;
 #if MXM_API < MXM_VERSION(1,5)
     p_base->flags = 0;
-    p_base->data.buffer.mkey = gasnet_mxm_module.recv_reg.lkey;
+    p_base->data.buffer.mkey = MXM_MKEY_NONE;
 #elif MXM_API == MXM_VERSION(1,5)
     p_base->flags = 0;
-    p_base->data.buffer.memh = gasnet_mxm_module.recv_reg.memh;
+    p_base->data.buffer.memh = NULL;
 #endif
-    return mxm_req_recv(p_req);
+    return mxm_req_recv(&r_req->mxm_rreq);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -611,6 +636,7 @@ static int gasnetc_init(int *argc, char ***argv)
 
     uint32_t jobid = 0;
     unsigned long cur_ver;
+    gasnet_mxm_recv_req_t *r, *prev_r;
 
     /*  check system sanity */
     gasnetc_check_config();
@@ -799,22 +825,22 @@ static int gasnetc_init(int *argc, char ***argv)
                               gasnet_mxm_module.remote_eps);
 
     /*
-     * Allocate a single buffer for receive and register it.
-     * Its size should be up to max medium size message, but
-     * we also need to make sure that it is properly aligned.
+     * Allocate pool of receive requests
      */
-    {
-        size_t size = GASNETI_PAGE_ALIGNUP(gasneti_AMMaxMedium());
-        void * buf = gasneti_mmap(size);
-        if (buf == MAP_FAILED) {
-            fprintf(stderr, "Unable to allocate pinned memory for receive buffer\n");
-            return GASNET_ERR_RESOURCE;
-        }
-        if (gasnetc_pin(buf, size, &gasnet_mxm_module.recv_reg)) {
-            fprintf(stderr, "Unable to pin memory for receive buffer\n");
-            return GASNET_ERR_RESOURCE;
-        }
+
+    GASNETC_ENVINT(gasnet_mxm_module.am_max_depth, GASNET_NETWORKDEPTH, 16, 1, 1);
+
+    gasnet_mxm_module.am_recv_pool = gasneti_malloc(gasnet_mxm_module.am_max_depth*sizeof(gasnet_mxm_recv_req_t*));
+
+    prev_r = NULL;
+    for (i = 0; i < gasnet_mxm_module.am_max_depth; i++) {
+        r = gasnetc_alloc_recv_req();
+        gasnet_mxm_module.am_recv_pool[i] = r;
+        r->next = prev_r;
+        prev_r = r;
     }
+    gasnet_mxm_module.am_recv_tail = gasnet_mxm_module.am_recv_pool[0];
+    gasnet_mxm_module.am_recv_head = gasnet_mxm_module.am_recv_pool[gasnet_mxm_module.am_max_depth-1];
 
     /* (###) Add code here to determine which GASNet nodes may share memory.
     The collection of nodes sharing memory are known as a "supernode".
@@ -979,11 +1005,13 @@ static int gasnetc_init(int *argc, char ***argv)
     }
 
     /*
-     * Post first receive request
+     * Post all receive requests
      */
-    if (gasnetc_post_recv()) {
-        fprintf(stderr, "Unable to post receive\n");
-        return GASNET_ERR_NOT_INIT;
+    for (r = gasnet_mxm_module.am_recv_head; r != NULL; r = r->next) {
+        if (gasnetc_post_recv(r)) {
+            MXM_ERROR("Unable to post receive\n");
+            return GASNET_ERR_NOT_INIT;
+        }
     }
 
     /*
@@ -1320,7 +1348,10 @@ static void gasneti_mxm_finalize(void)
     if (gasnet_mxm_module.mxm_ep)
         mxm_ep_destroy(gasnet_mxm_module.mxm_ep);
 
-    gasnetc_unpin(&gasnet_mxm_module.recv_reg);
+    for(i = 0; i < gasnet_mxm_module.am_max_depth; i++) {
+        gasnetc_free_recv_req(gasnet_mxm_module.am_recv_pool[i]);
+    }
+    gasneti_free(gasnet_mxm_module.am_recv_pool);
 
     if (gasneti_attach_done) {
         size_t remain = gasneti_seginfo[gasneti_mynode].size;
@@ -1688,7 +1719,8 @@ static void gasnetc_exit_sighandler(int sig)
 {
     int exitcode = (int)gasneti_atomic_read(&gasnetc_exit_code, GASNETI_ATOMIC_RMB_PRE);
     static gasneti_atomic_t once = gasneti_atomic_init(1);
-#if GASNET_DEBUG
+
+    /* always print this */
     /* note - can't call trace macros here, or even sprintf */
     if (sig == SIGALRM) {
         static const char msg1[] = "gasnetc_exit_sighandler(): WARNING: timeout during exit... goodbye\n";
@@ -1710,7 +1742,6 @@ static void gasnetc_exit_sighandler(int sig)
 
         write(STDERR_FILENO, msg2, sizeof (msg2) - 1);
     }
-#endif
 
     if (gasneti_atomic_decrement_and_test(&once, 0)) {
         /* We ask the bootstrap support to kill us, but only once */
@@ -1911,8 +1942,8 @@ static void gasnetc_exit_body(void)
 
     GASNETI_TRACE_PRINTF(C, ("gasnet_exit(%i)\n", exitcode));
 
-    /* Try to flush out all the output, allowing upto 30s */
-    alarm(30);
+    /* Try to flush out all the output, allowing at least 30s */
+    alarm(MAX(30, (int)gasnetc_exittimeout));
     {
         gasneti_flush_streams();
         gasneti_trace_finish();
@@ -1924,7 +1955,7 @@ static void gasnetc_exit_body(void)
      * Determining our role (master or slave) in the
      * coordination of this shutdown.
      */
-    alarm(120);
+    alarm(MAX(120, (int)gasnetc_exittimeout));
     MXM_DEBUG_EXIT_FLOW("Determining node role in shutdown sequence...\n");
     role = gasnetc_get_exit_role();
     MXM_DEBUG_EXIT_FLOW("Role in shutdown sequence is %s\n",
@@ -1958,8 +1989,8 @@ static void gasnetc_exit_body(void)
                         (role == GASNETC_EXIT_ROLE_MASTER) ? "Master" : "Slave",
                         (graceful) ? "" : " NOT");
 
-    /* Clean up transport resources, allowing upto 30s */
-    alarm(30);
+    /* Clean up transport resources, allowing at least 30s */
+    alarm(MAX(30, (int)gasnetc_exittimeout));
     {
 #if defined(GASNET_SEGMENT_FAST)
         if (gasneti_attach_done &&
@@ -1991,8 +2022,8 @@ static void gasnetc_exit_body(void)
         gasneti_mxm_finalize();
     }
 
-    /* Try again to flush out any recent output, allowing upto 5s */
-    alarm(5);
+    /* Try again to flush out any recent output, allowing at least 5s */
+    alarm(MAX(5, (int)gasnetc_exittimeout));
     {
         gasneti_flush_streams();
 #if !GASNET_DEBUG_VERBOSE
@@ -2002,7 +2033,7 @@ static void gasnetc_exit_body(void)
 
     /* XXX potential problems here if exiting from the
      * "Wrong" thread, or from a signal handler */
-    alarm(60);
+    alarm(MAX(60, (int)gasnetc_exittimeout));
     {
         if (graceful) {
 #if GASNET_DEBUG_VERBOSE
@@ -2120,7 +2151,7 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
     return GASNET_OK;
 }
 
-extern void gasnetc_ProcessRecv(void);
+extern void gasnetc_ProcessRecv(gasnet_mxm_recv_req_t *r);
 
 static int gasnetc_AMPoll_nocheckattach(void) {
 #ifdef MXM_MUTEX_AMPOLL_LOCK
@@ -2137,16 +2168,27 @@ static int gasnetc_AMPoll_nocheckattach(void) {
 #endif
             /* (###) add code here to run your AM progress engine */
             {
+                gasnet_mxm_recv_req_t *r;
+
+                r = gasnet_mxm_module.am_recv_head;
+                if (r == NULL) {
+                    gasneti_fatalerror("no posted reqs... oops");
+                    return GASNET_ERR_RESOURCE;
+                }
+
                 mxm_progress(gasnet_mxm_module.mxm_context);
 
-                if (mxm_req_test(&gasnet_mxm_module.recv_req.base)) {
-                    /* receive request is completed - process the message */
-                    gasnetc_ProcessRecv();
-                    /* post new receive request */
-                    if (gasnetc_post_recv()) {
-                        fprintf(stderr, "Unable to post receive\n");
-                        return GASNET_ERR_RESOURCE;
+                /* receive request is completed - process the message */
+                if (mxm_req_test(&r->mxm_rreq.base)) {
+                    gasnet_mxm_module.am_recv_head = r->next;
+                    gasnetc_ProcessRecv(r);
+                    gasnet_mxm_module.am_recv_tail->next = r;
+                    r->next = 0;
+                    gasnet_mxm_module.am_recv_tail = r;
+                    if (gasnet_mxm_module.am_recv_head == NULL) {
+                        gasnet_mxm_module.am_recv_head = r;
                     }
+                    gasnetc_post_recv(r);
                 }
 
             }

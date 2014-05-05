@@ -10,13 +10,12 @@ rm -Rf autom4te*.cache
 rm -f Makefile.in              \
       configure                \
       gasnet_config.h.in       \
+      gasnet_config.h.in~      \
       aclocal.m4               \
       config.status            \
       stamp-h.in               \
       config-aux/Makefile.in   \
       config-aux/Makefile      \
-      dcmf-conduit/Makefile.in   \
-      dcmf-conduit/contrib/Makefile.in   \
       ibv-conduit/Makefile.in  \
       ibv-conduit/contrib/Makefile.in \
       mpi-conduit/Makefile.in  \
