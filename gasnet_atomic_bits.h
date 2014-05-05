@@ -593,7 +593,7 @@
         /* left-over typedef of gasneti_atomic64_t will get hidden by a #define */
       #elif GASNETI_USE_X86_EBX && \
             !PLATFORM_COMPILER_TINY && !PLATFORM_COMPILER_PGI && \
-            !(GASNETI_GCC_APPLE && defined(__llvm__)) /* bug 3071 */ && \
+            !(__APPLE_CC__ && defined(__llvm__)) /* bug 3071 */ && \
             !(PLATFORM_COMPILER_GNU && PLATFORM_COMPILER_VERSION_LT(3,0,0)) /* bug 1790 */
 	/* "Normal" ILP32 case:
 	 *
@@ -665,7 +665,7 @@
           return oldval;
         }
 	#define _gasneti_atomic64_cas_val _gasneti_atomic64_cas_val
-      #elif (GASNETI_GCC_APPLE && defined(__llvm__)) /* bug 3071 */
+      #elif (__APPLE_CC__ && defined(__llvm__)) /* bug 3071 */
         /* "Normal" ILP32 case except w/o "m" inputs or outputs to CAS and Set.
          * Such operands lead to "Ran out of registers during register allocation!"
          * Instead a "memory" clobber is used.

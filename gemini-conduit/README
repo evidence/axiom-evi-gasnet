@@ -88,7 +88,7 @@ GASNET_GNI_MEMREG
   created as needed until uGNI returns GNI_RC_ERROR_RESOURCE.
   The default value is 16.
 
-GASNET_DEFAULT_PHYSMEM_PINNBLE_RATIO - default 0.80
+GASNET_PHYSMEM_PINNABLE_RATIO - default 0.80
 GASNET_PHYSMEM_MAX - default <size of physmem> * <pinnable ratio>
 GASNET_PHYSMEM_NOPROBE - default 0
   The logic for setting the maximum size of the segment is copied from

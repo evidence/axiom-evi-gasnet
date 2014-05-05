@@ -24,7 +24,9 @@ See also:
   If NOT using git-flow:
     $ git checkout -b release/9.8.0 develop
 
-[TODO: what if one wants to "publish" the release branch to BitBucket?]
+* To allow collaboration on the release work, one may optionally "publish"
+  the release branch on bitbucket:
+    $ git push -u origin release/9.8.0
 
 * Increment the version number for each item or software module that has
   changed since the last public release:
@@ -68,6 +70,9 @@ See also:
 * Unpack the archive and diff against the source tree to find missing files,
   especially documentation and auxiliary files.  Check that other/contrib
   contains any cross-configure scripts that are intended for distribution.
+  The following command may be used to list any files which have been
+  added to the Git repository since the previous release:
+    $ git diff --name-status [prevous-release-tag] | grep ^A
 
 * Verify that ./unBootstrap removes all generated files:
   In the repository directory:
@@ -182,31 +187,40 @@ See also:
     $ git tag --force -a gasnet-9.8.0 -m "GASNet release 9.8.0" master
   OR, just "--force" it without checking - this is perfectly safe.
 
-[TODO: extra cleanup if the release branch was "published" to BitBucket]
+* Check carefully that everything is exactly as you wish before you push:
+    $ git push origin master gasnet-9.8.0
+  This is the only step of this entire procedure that cannot be undone.
 
-* If the GASNet spec version has changed, it needs a tag too:
+* If you chose to "publish" the release branch on bitbucket, then use the
+  following command to delete the (now unused) release branch:
+    $ git push --delete origin release/9.8.0
+
+* Generate ("gmake dist") the GASNet and GASNet_Tools tarballs one more
+  time from a checkout of the tagged commit to embed the proper git version
+  info.  This must be done before any more annotated tags are generated
+  in the following steps, to ensure the git-describe output uses the new
+  release tag.
+
+* If the GASNet or tools spec versions have changed, they get tags too:
     $ git tag -a gasnetspec-2.1 -m "GASNet specification 2.1" master
+    $ git push origin gasnetspec-2.1
+  and/or
+    $ git tag -a gasnettools-1.32 -m "GASNet Tools specification 1.42" master
+    $ git push origin gasnettools-1.32
 
 * If this GASNet release has a paired Berkeley UPC release, then one should
   apply a tag to mark the correlation:
     $ git tag berkeley-upc-2.34.0 master
+    $ git push origin berkeley-upc-2.34.0
   We avoid using an annotated tag here so that "git describe" won't use it.
-
-* Check carefully that everything is exactly as you wish before you push:
-    $ git push --tags origin develop master
-  This is the only step of this entire procedure that cannot be undone.
-
-* Generate ("gmake dist") the GASNet and GASNet_Tools tarballs one more
-  time from a checkout of the tagged commit to embed the proper git version
-  info.
 
 * On 'develop' advance the version numbers in configure.in (odd minor and patch
   numbers for development), and apply a corresponding annotated tag for use by
   the "git describe" command:
     $ git checkout develop
-    [ edit GASNET_RELEASE_VERSION_* in configure.in ]
+    [ edit GASNET_RELEASE_VERSION_* in configure.in, and commit it ]
     $ git tag -a -m "GASNet development version 9.9.1" gasnet-9.9.1 develop
-    $ git push --tags origin develop
+    $ git push origin develop gasnet-9.9.1
   Please resist the urge to make this change right after creating the release
   branch.  While that might seem logical, it will cause an entirely unnecessary
   merge conflict at the "finish" step.

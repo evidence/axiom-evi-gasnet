@@ -1,6 +1,6 @@
 /*   $Source: bitbucket.org:berkeleylab/gasnet.git/gasnet_pshm.c $
  * Description: GASNet infrastructure for shared memory communications
- * Copyright 2012, E. O. Lawrence Berekely National Laboratory
+ * Copyright 2012, The Regents of the University of California
  * Terms of use are as specified in license.txt
  */
 

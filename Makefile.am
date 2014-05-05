@@ -72,6 +72,9 @@ headers =                  	\
 
 EXTRA_DIST =              		\
 	README				\
+	README-devel			\
+	README-git			\
+	README-release			\
  	README-tools 			\
 	ChangeLog	  		\
 	license.txt       		\
@@ -90,6 +93,9 @@ include_HEADERS = $(headers)
 
 INSTALL_DOCS =			\
 	README			\
+	README-devel		\
+	README-git		\
+	README-release		\
 	README-tools		\
 	license.txt		\
 	docs/autotuner.txt	\

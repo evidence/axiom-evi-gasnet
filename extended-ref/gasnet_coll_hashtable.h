@@ -1,6 +1,6 @@
 /*   $Source: bitbucket.org:berkeleylab/gasnet.git/extended-ref/gasnet_coll_hashtable.h $
  * Description: Reference implemetation of GASNet Collectives team
- * Copyright 2009, E. O. Lawrence Berekely National Laboratory
+ * Copyright 2009, The Regents of the University of California
  * Terms of use are as specified in license.txt
  */
 

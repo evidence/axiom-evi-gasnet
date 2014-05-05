@@ -1,6 +1,6 @@
 /*   $Source: bitbucket.org:berkeleylab/gasnet.git/ibv-conduit/gasnet_firehose.c $
  * Description: Client-specific firehose code
- * Copyright 2003, E. O. Lawrence Berekely National Laboratory
+ * Copyright 2003, The Regents of the University of California
  * Terms of use are as specified in license.txt
  */
 
