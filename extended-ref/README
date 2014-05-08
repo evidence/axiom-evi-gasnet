@@ -13,10 +13,12 @@ Optional compile-time settings:
 ------------------------------
 
 * GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD - size threshold where gets/puts stop
- using medium messages and start using longs
+ using medium messages and start using longs (if/when enabled, see below)
 
 * GASNETE_USE_LONG_GETS - true if we should try to use Long replies in gets
  (only possible if dest falls in segment)
+
+* GASNETE_USE_LONG_PUTS - true if we should try to use Long requests in puts
 
 * GASNETI_THREADINFO_OPT - optimize thread discovery using hidden local variable
  

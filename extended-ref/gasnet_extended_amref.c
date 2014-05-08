@@ -135,36 +135,45 @@
  * gasnet_get(_bulk) is translated to a gasnete_get_nb(_bulk) + sync
  *
  * gasnete_put_nb(_bulk) translates to
- *    if nbytes < GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD
+ *    if nbytes <= GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD
  *      AMMedium(payload)
+ *  #if GASNETE_USE_LONG_PUTS
  *    else if nbytes < AMMaxLongRequest
  *      AMLongRequest(payload)
+ *  #endif
  *    else
  *      gasnete_put_nbi(_bulk)(payload)
  *
  * gasnete_get_nb(_bulk) translates to
- *    if nbytes < GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD
+ *    if nbytes <= GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD
  *      AMSmall request + AMMedium(payload) reply
  *    else
  *      gasnete_get_nbi(_bulk)()
  *
  * gasnete_put_nbi(_bulk) translates to
- *    if nbytes < GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD
+ *    if nbytes <= GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD
  *      AMMedium(payload)
+ *  #if GASNETE_USE_LONG_PUTS
  *    else if nbytes < AMMaxLongRequest
  *      AMLongRequest(payload)
  *    else
  *      chunks of AMMaxLongRequest with AMLongRequest()
  *      AMLongRequestAsync is used instead of AMLongRequest for put_bulk
+ *  #else
+ *    else
+ *      chunks of AMMaxMedium with AMMediumRequest()
+ *  #endif
  *
  * gasnete_get_nbi(_bulk) translates to
- *    if nbytes < GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD
+ *    if nbytes <= GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD
  *      AMSmall request + AMMedium(payload) reply
  *    else
  *      chunks of AMMaxMedium with AMSmall request + AMMedium() reply
  *
  * The current implementation uses AMLongs for large puts because the 
  * destination is guaranteed to fall within the registered GASNet segment.
+ * This can be disabled by setting GASNETE_USE_LONG_PUTS to zero.
+ *
  * The spec allows gets to be received anywhere into the virtual memory space,
  * so we can only use AMLong when the destination happens to fall within the 
  * segment - GASNETE_USE_LONG_GETS indicates whether or not we should try to do this.
@@ -189,6 +198,11 @@
 /* true if we should try to use Long replies in gets (only possible if dest falls in segment) */
 #ifndef GASNETE_USE_LONG_GETS
 #define GASNETE_USE_LONG_GETS 1
+#endif
+
+/* true if we should try to use Long requests in puts */
+#ifndef GASNETE_USE_LONG_PUTS
+#define GASNETE_USE_LONG_PUTS 1
 #endif
 
 /* ------------------------------------------------------------------------------------ */
@@ -370,6 +384,7 @@ gasnet_handle_t gasnete_amref_put_nb_inner(gasnet_node_t node, void *dest, void 
                     PACK(dest), PACK_EOP_DONE(op))));
 
     return (gasnet_handle_t)op;
+#if GASNETE_USE_LONG_PUTS
   } else if (nbytes <= gasnet_AMMaxLongRequest()) {
     gasnete_eop_t *op = gasnete_eop_new(GASNETE_MYTHREAD);
 
@@ -386,6 +401,7 @@ gasnet_handle_t gasnete_amref_put_nb_inner(gasnet_node_t node, void *dest, void 
     }
 
     return (gasnet_handle_t)op;
+#endif
   } else { 
     /* TODO: don't need the iop for large xfers in the GASNETE_EOP_COUNTED case */
     /*  need many messages - use an access region to coalesce them into a single handle */
@@ -514,7 +530,9 @@ void gasnete_amref_put_nbi_inner(gasnet_node_t node, void *dest, void *src, size
                     src, nbytes,
                     PACK(dest), PACK_IOP_DONE(op,put))));
     return;
-  } else if (nbytes <= gasnet_AMMaxLongRequest()) {
+  } else
+#if GASNETE_USE_LONG_PUTS
+  if (nbytes <= gasnet_AMMaxLongRequest()) {
     op->initiated_put_cnt++;
 
     if (isbulk) {
@@ -531,7 +549,7 @@ void gasnete_amref_put_nbi_inner(gasnet_node_t node, void *dest, void *src, size
 
     return;
   } else {
-    size_t chunksz = gasnet_AMMaxLongRequest();
+    const size_t chunksz = gasnet_AMMaxLongRequest();
     uint8_t *psrc = src;
     uint8_t *pdest = dest;
     for (;;) {
@@ -568,6 +586,31 @@ void gasnete_amref_put_nbi_inner(gasnet_node_t node, void *dest, void *src, size
     }
     return;
   }
+#else /* ! GASNETE_USE_LONG_PUTS */
+  {
+    const size_t chunksz = gasnet_AMMaxMedium();
+    uint8_t *psrc = src;
+    uint8_t *pdest = dest;
+    for (;;) {
+      op->initiated_put_cnt++;
+      if (nbytes > chunksz) {
+        GASNETI_SAFE(
+          MEDIUM_REQ(2,4,(node, gasneti_handleridx(gasnete_amref_put_reqh),
+                          psrc, chunksz, PACK(pdest),
+                          PACK_IOP_DONE(op,put))));
+        nbytes -= chunksz;
+        psrc += chunksz;
+        pdest += chunksz;
+      } else {
+        GASNETI_SAFE(
+          MEDIUM_REQ(2,4,(node, gasneti_handleridx(gasnete_amref_put_reqh),
+                          psrc, nbytes, PACK(pdest),
+                          PACK_IOP_DONE(op,put))));
+        break;
+      }
+    }
+  }
+#endif /* GASNETE_USE_LONG_PUTS */
 }
 #endif /* GASNETE_BUILD_AMREF_PUT_BULK || GASNETE_BUILD_AMREF_PUT */
 
