@@ -252,15 +252,9 @@ void gasnete_iop_free(gasnete_iop_t *iop) {
 /* called at startup to check configuration sanity */
 static void gasnete_check_config(void) {
   gasneti_check_config_postattach();
+  gasnete_check_config_amref();
 
-#ifdef GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD
-  gasneti_assert_always(GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD <= gasnet_AMMaxMedium());
-#endif
   gasneti_assert_always(gasnete_eopaddr_isnil(EOPADDR_NIL));
-
-  /* The next two ensure nbytes in AM-based Gets will fit in handler_arg_t (bug 2770) */
-  gasneti_assert_always(gasnet_AMMaxMedium() <= (size_t)0xffffffff);
-  gasneti_assert_always(gasnet_AMMaxLongReply() <= (size_t)0xffffffff);
 }
 
 extern void gasnete_init(void) {

@@ -196,6 +196,10 @@ void SET_OPSTATE(gasnete_eop_t *op, uint8_t state) {
 #define GASNETE_SCATTER_EOPS_ACROSS_CACHELINES    1 
 
 /* ------------------------------------------------------------------------------------ */
+/* called at startup to check configuration sanity if using any portion of AMRef */
+extern void gasnete_check_config_amref(void);
+
+/* ------------------------------------------------------------------------------------ */
 
 #define GASNETE_HANDLER_BASE  64 /* reserve 64-127 for the extended API */
 #define _hidx_gasnete_amdbarrier_notify_reqh (GASNETE_HANDLER_BASE+0) 

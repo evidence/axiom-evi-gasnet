@@ -286,6 +286,7 @@ static void gasnete_valget_freeall(gasnete_threaddata_t *thread);
 /* called at startup to check configuration sanity */
 static void gasnete_check_config(void) {
   gasneti_check_config_postattach();
+  gasnete_check_config_amref();
 
   gasneti_assert_always(gasnete_eopaddr_isnil(EOPADDR_NIL));
 }

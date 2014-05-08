@@ -603,3 +603,18 @@ extern void gasnete_amref_memset_nbi   (gasnet_node_t node, void *dest, int val,
 #endif /* GASNETE_BUILD_AMREF_MEMSET */
 
 /* ------------------------------------------------------------------------------------ */
+
+void gasnete_check_config_amref(void) {
+#if GASNETE_BUILD_AMREF_GET_BULK || GASNETE_BUILD_AMREF_PUT_BULK || GASNETE_BUILD_AMREF_PUT
+  /* This ensures chunks sent as Medium payloads don't exceed the maximum */
+  gasneti_assert_always(GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD <= gasnet_AMMaxMedium());
+#endif
+
+#if GASNETE_BUILD_AMREF_GET_BULK
+  /* These ensure nbytes in AM-based Gets will fit in handler_arg_t (bug 2770) */
+  gasneti_assert_always(gasnet_AMMaxMedium() <= (size_t)0xffffffff);
+ #if GASNETE_USE_LONG_GETS
+  gasneti_assert_always(gasnet_AMMaxLongReply() <= (size_t)0xffffffff);
+ #endif
+#endif
+}
