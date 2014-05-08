@@ -8,6 +8,7 @@
 
 /* 
  * Guidance for conduit writers.
+ * (See also "Tuning Parameters", below).
  *
  * Conduits are NOT expected to clone this file.
  * Instead they may #include it or not at their discretion.
@@ -171,6 +172,24 @@
  * could improve on this through the use of this conduit-specific information).
  * 
  */
+
+/* ------------------------------------------------------------------------------------ */
+/*
+   Tuning Parameters
+   =================
+   Conduits may choose to override the default tuning parameters below by defining them
+   in their gasnet_core_fwd.h.  See the Design description above for how to use these.
+ */
+
+/* the size threshold where gets/puts stop using medium messages and start using longs */
+#ifndef GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD
+#define GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD   gasnet_AMMaxMedium()
+#endif
+
+/* true if we should try to use Long replies in gets (only possible if dest falls in segment) */
+#ifndef GASNETE_USE_LONG_GETS
+#define GASNETE_USE_LONG_GETS 1
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 /*

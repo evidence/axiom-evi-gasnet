@@ -17,16 +17,6 @@ extern void _gasnete_iop_check(gasnete_iop_t *iop) { gasnete_iop_check(iop); }
 
 /* ------------------------------------------------------------------------------------ */
 /*
-  Tuning Parameters
-  =================
-  Conduits may choose to override the default tuning parameters below by defining them
-  in their gasnet_core_fwd.h
-*/
-
-/* NONE */
-
-/* ------------------------------------------------------------------------------------ */
-/*
   Op management
   =============
 */
