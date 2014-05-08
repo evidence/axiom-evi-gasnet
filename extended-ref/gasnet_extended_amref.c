@@ -443,7 +443,7 @@ extern void gasnete_amref_get_nbi_bulk (void *dest, gasnet_node_t node, void *sr
                    (gasnet_handlerarg_t)nbytes, PACK(dest), PACK(src), PACK_IOP_DONE(op,get))));
     return;
   } else {
-    int chunksz;
+    size_t chunksz;
     gasnet_handler_t reqhandler;
     uint8_t *psrc = src;
     uint8_t *pdest = dest;
@@ -512,7 +512,7 @@ void gasnete_amref_put_nbi_inner(gasnet_node_t node, void *dest, void *src, size
 
     return;
   } else {
-    int chunksz = gasnet_AMMaxLongRequest();
+    size_t chunksz = gasnet_AMMaxLongRequest();
     uint8_t *psrc = src;
     uint8_t *pdest = dest;
     for (;;) {
