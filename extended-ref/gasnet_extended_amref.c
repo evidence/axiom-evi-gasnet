@@ -346,6 +346,17 @@ SHORT_HANDLER(gasnete_amref_markdone_reph,1,2,
   ==========================================================
 */
 
+/* Forward declarations of _nbi for (potential) use by _nb */
+#if GASNETE_BUILD_AMREF_GET_BULK
+extern void gasnete_amref_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG);
+#endif
+#if GASNETE_BUILD_AMREF_PUT_BULK
+extern void gasnete_amref_put_nbi_bulk (gasnet_node_t node, void *dest, void *src, size_t nbytes GASNETE_THREAD_FARG);
+#endif
+#if GASNETE_BUILD_AMREF_PUT
+extern void gasnete_amref_put_nbi      (gasnet_node_t node, void *dest, void *src, size_t nbytes GASNETE_THREAD_FARG);
+#endif
+
 /* ------------------------------------------------------------------------------------ */
 
 #if GASNETE_BUILD_AMREF_GET_BULK
