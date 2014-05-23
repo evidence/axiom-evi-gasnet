@@ -2,6 +2,12 @@ GASNet ChangeLog
 ----------------
 
 ----------------------------------------------------------------------
+05-22-2014 : Release 1.22.5 (minor bug fix release)
+
+* Cray XE, XK and XC series (gemini- and aries-conduits)
+  - Fix munmap failures when configured without PSHM support
+
+----------------------------------------------------------------------
 05-05-2014 : Release 1.22.4
 
 * Cray XE, XK and XC series (gemini- and aries-conduits)
