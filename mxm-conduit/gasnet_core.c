@@ -700,7 +700,11 @@ static int gasnetc_init(int *argc, char ***argv)
     mxm_opts.async_mode = MXM_ASYNC_MODE_THREAD;
     mxm_status = mxm_init(&mxm_opts, &gasnet_mxm_module.mxm_context);
 #else 
+#if MXM_API < MXM_VERSION(2,1)
     res = mxm_config_read_context_opts(&mxm_opts);
+#else
+    res = mxm_config_read_opts(&mxm_opts, &mxm_ep_opts, "GASNET", NULL, 0);
+#endif
     if_pf (res != MXM_OK) {
         MXM_ERROR("Failed to parse MXM configuration");
         return GASNET_ERR_NOT_INIT;
@@ -765,12 +769,14 @@ static int gasnetc_init(int *argc, char ***argv)
     mxm_status = mxm_ep_create(gasnet_mxm_module.mxm_context,
                                &mxm_ep_opts, &gasnet_mxm_module.mxm_ep);
 #else
+#if MXM_API < MXM_VERSION(2,1)
     mxm_status = mxm_config_read_ep_opts(&mxm_ep_opts);
     if (mxm_status != MXM_OK) {
         MXM_ERROR("Failed to parse MXM configuration (%s)\n",
                   mxm_error_string(mxm_status));
         return GASNET_ERR_NOT_INIT;
     }
+#endif
 #if MXM_API == MXM_VERSION(1,5)
     mxm_ep_opts->job_id = jobid;
     mxm_ep_opts->local_rank = gasneti_nodemap_local_rank;
