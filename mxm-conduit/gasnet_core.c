@@ -501,7 +501,7 @@ static void gasnetc_init_pin_info(int first_local, int ppn)
 {
     gasnetc_pin_info_t *all_info = gasneti_malloc(gasneti_nodes * sizeof(gasnetc_pin_info_t));
     unsigned long limit;
-    int do_probe = 1;
+    int do_probe = 0;
     int i;
     unsigned long tmp;
 
@@ -514,28 +514,30 @@ static void gasnetc_init_pin_info(int first_local, int ppn)
     limit = 2 * (gasneti_getPhysMemSz(1) / 3);
     MXM_LOG("Physical memory size: %lu, limit: %lu\n", gasneti_getPhysMemSz(1), limit);
 
+    if (!gasneti_getenv_yesno_withdefault("GASNET_PHYSMEM_NOPROBE", 1)) {
+        MXM_DEBUG("GASNET_PHYSMEM_NOPROBE is set\n");
+        do_probe = 1;
+    }
     /* Honor PHYSMEM_MAX if set */
     tmp = gasneti_getenv_int_withdefault("GASNET_PHYSMEM_MAX", 0, 1);
     if (tmp) {
         MXM_DEBUG("GASNET_PHYSMEM_MAX is set to %lu\n", tmp);
-        if_pf (gasneti_getenv_yesno_withdefault("GASNET_PHYSMEM_NOPROBE", 0)) {
-            MXM_DEBUG("GASNET_PHYSMEM_NOPROBE is set\n");
-            /* Force use of PHYSMEM_MAX w/o probing */
-            limit = tmp;
-            do_probe = 0;
-        }
-        else {
+        if (do_probe) {
             limit = MIN(limit, tmp);
-            MXM_DEBUG("Updated limit: %lu\n", limit);
+        } else {
+            limit = tmp;
         }
+        MXM_DEBUG("Updated limit: %lu\n", limit);
     } else {
         MXM_DEBUG("GASNET_PHYSMEM_MAX is not set\n");
     }
 
     limit = GASNETI_PAGE_ALIGNDOWN(limit);
     MXM_DEBUG("Limit aligned down to page size: %lu\n", limit);
-    if_pf (limit == 0)
-    gasneti_fatalerror("Failed to determine the available physical memory");
+    if (limit == 0) {
+        gasneti_fatalerror("Failed to determine the available physical memory");
+        return;
+    }
 
     gasnetc_pin_info.memory = ~((uintptr_t)0);
     gasnetc_pin_info.ppn = ppn;
