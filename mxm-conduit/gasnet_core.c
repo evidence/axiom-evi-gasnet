@@ -501,7 +501,6 @@ static void gasnetc_init_pin_info(int first_local, int ppn)
 {
     gasnetc_pin_info_t *all_info = gasneti_malloc(gasneti_nodes * sizeof(gasnetc_pin_info_t));
     unsigned long limit;
-    int do_probe = 0;
     int i;
     unsigned long tmp;
 
@@ -514,19 +513,11 @@ static void gasnetc_init_pin_info(int first_local, int ppn)
     limit = 2 * (gasneti_getPhysMemSz(1) / 3);
     MXM_LOG("Physical memory size: %lu, limit: %lu\n", gasneti_getPhysMemSz(1), limit);
 
-    if (!gasneti_getenv_yesno_withdefault("GASNET_PHYSMEM_NOPROBE", 1)) {
-        MXM_DEBUG("GASNET_PHYSMEM_NOPROBE is set\n");
-        do_probe = 1;
-    }
     /* Honor PHYSMEM_MAX if set */
     tmp = gasneti_getenv_int_withdefault("GASNET_PHYSMEM_MAX", 0, 1);
     if (tmp) {
         MXM_DEBUG("GASNET_PHYSMEM_MAX is set to %lu\n", tmp);
-        if (do_probe) {
-            limit = MIN(limit, tmp);
-        } else {
-            limit = tmp;
-        }
+        limit = tmp;
         MXM_DEBUG("Updated limit: %lu\n", limit);
     } else {
         MXM_DEBUG("GASNET_PHYSMEM_MAX is not set\n");
@@ -542,9 +533,10 @@ static void gasnetc_init_pin_info(int first_local, int ppn)
     gasnetc_pin_info.memory = ~((uintptr_t)0);
     gasnetc_pin_info.ppn = ppn;
 
-    if (do_probe) {
+    if (gasneti_getenv_yesno_withdefault("GASNET_PHYSMEM_PROBE", 0)) {
         /* Now search for largest pinnable memory, on one process per machine */
         unsigned long step = GASNETI_MMAP_GRANULARITY;
+        MXM_DEBUG("GASNET_PHYSMEM_NOPROBE is set\n");
         MXM_DEBUG("Step set to %lu (GASNETI_MMAP_GRANULARITY)\n", step);
 #if GASNET_SEGMENT_FAST
         if (step > gasnetc_pin_maxsz) {
