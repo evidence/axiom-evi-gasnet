@@ -472,21 +472,27 @@ static void *gasnetc_try_pin_inner(size_t size, gasnetc_memreg_t *reg)
 
 /* -------------------------------------------------------------------------- */
 
-/* Try to pin up to 'limit' in chunks of size 'step' */
+
+/* Try to pin up to 'limit' in chunks no larger than size 'step' */
 static uintptr_t gasnetc_trypin(uintptr_t limit, uintptr_t step)
 {
-    uintptr_t size = 0;
-
-    if (limit != 0) {
+    while (limit >= GASNETI_MMAP_GRANULARITY) {
         gasnetc_memreg_t reg;
-        step = MIN(limit, step);
-        if (gasnetc_try_pin_inner(step, &reg) != NULL) {
-            size = step + gasnetc_trypin(limit - step, step);
+        /* step non-zero means try linear growth, else bisection */
+        uintptr_t size = step ? MIN(limit, step) : limit;
+        uintptr_t half = GASNETI_PAGE_ALIGNDOWN(size / 2);
+        if (gasnetc_try_pin_inner(size, &reg) != NULL) {
+            /* Success - recurse to try another chunk */
+            size += gasnetc_trypin(step ? (limit - size) : half, step);
             gasnetc_unpin(&reg);
             gasnetc_unmap(&reg);
+            return size;
         }
+        limit = half;
+        step = 0;
     }
-    return size;
+
+    return 0;
 }
 
 /* -------------------------------------------------------------------------- */
