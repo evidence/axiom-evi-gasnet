@@ -15,6 +15,9 @@
 #  endif
 #elif HAVE_PMI_H
 #  include <pmi.h>
+#elif HAVE_PMI2_H
+#  include <pmi2.h>
+#  define USE_PMI2_API 1
 #else
 #  error "Unknown path to PMI header"
 #endif

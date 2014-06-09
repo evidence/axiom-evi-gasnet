@@ -3518,8 +3518,8 @@ elif test "$with_pmi" = yes; then
   with_pmi='/usr'
 fi
 
+have_pmi=no
 if test "$with_pmi" != 'no'; then
-  GASNET_PUSHVAR(LIBS,"$LIBS")
   GASNET_PUSHVAR(LDFLAGS,"$LDFLAGS")
   if test "$with_pmi" = '/usr'; then
     : # Nothing to do
@@ -3530,20 +3530,43 @@ if test "$with_pmi" != 'no'; then
   fi
   LDFLAGS="$LDFLAGS $PMI_SPAWNER_LIBDIR"
 
-  AC_CHECK_LIB(pmi, PMI_Init, [
-    have_pmi=yes
-    PMI_SPAWNER_LIBS="-lpmi"
-    LIBS="$LIBS $PMI_SPAWNER_LIBS"
-  ],[
-    have_pmi=no
+  # If user specifies one PMI version then disqualify the other
+  GASNET_WITH(pmi-version, [PMI version (1 or 2)] , [
+    case "$withval" in
+      1) use_pmi1=yes;;
+      2) use_pmi2=yes;;
+      *) GASNET_MSG_ERROR([Argument to --with-pmi-version must be '1' or '2']);;
+    esac
+    with_pmi_version="withval"
+  ], [
+    GASNET_MSG_WARN([Ignoring --without-pmi-version])
   ])
 
+  # Check for libs unless disqualifed by --with-pmi-version=
+  if test -z "${use_pmi1+set}"; then
+    AC_CHECK_LIB(pmi2, PMI2_Init, [
+      use_pmi2=yes
+      have_pmi=yes
+      pmi_suffix='2'
+      AC_DEFINE(HAVE_PMI2_H)
+      PMI_SPAWNER_LIBS='-lpmi2'
+    ])
+  fi
+  if test -z "${use_pmi2+set}"; then
+    AC_CHECK_LIB(pmi, PMI_Init, [
+      use_pmi1=yes
+      have_pmi=yes
+      pmi_suffix=''
+      AC_DEFINE(HAVE_PMI_H)
+      PMI_SPAWNER_LIBS='-lpmi'
+    ])
+  fi
+
+  # Check for header matching the selected lib
   if test "$have_pmi" = yes; then
-    if test -f "${with_pmi}/include/slurm/pmi.h"; then
-      AC_DEFINE(HAVE_PMI_H)
+    if test -f "${with_pmi}/include/slurm/pmi${pmi_suffix}.h"; then
       PMI_SPAWNER_INCLUDES="-I${with_pmi}/include/slurm"
-    elif test -f "${with_pmi}/include/pmi.h"; then
-      AC_DEFINE(HAVE_PMI_H)
+    elif test -f "${with_pmi}/include/pmi${pmi_suffix}.h"; then
       if test "$with_pmi" != '/usr'; then
         PMI_SPAWNER_INCLUDES="-I${with_pmi}/include"
       fi
@@ -3553,14 +3576,15 @@ if test "$with_pmi" != 'no'; then
   fi
 
   if test "$have_pmi" = yes; then
+    GASNET_PUSHVAR(LIBS,"$LIBS PMI_SPAWNER_LIBS")
     # Not seen outside of Cray PMI, but we can hope:
     AC_CHECK_FUNCS([PMI_Allgather PMI_Bcast])
+    GASNET_POPVAR(LIBS)
+  elif test -n "${with_pmi_version+set}" ; then
+    GASNET_MSG_ERROR([Requested PMI version $with_pmi_version could not be found])
   fi
 
   GASNET_POPVAR(LDFLAGS)
-  GASNET_POPVAR(LIBS)
-else
-  have_pmi=no
 fi
 
 if test "$have_pmi" = no; then

@@ -374,6 +374,7 @@
 
 /* Support for pmi-spawner */
 #undef HAVE_PMI_H
+#undef HAVE_PMI2_H
 
 @BOTTOM@
 
