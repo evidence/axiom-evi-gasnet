@@ -10,6 +10,9 @@
 #if HAVE_PMI_CRAY_H
 #  include <pmi_cray.h>
 #  define USE_PMI2_API 1
+#  ifndef PMI2_SUCCESS
+#    define PMI2_SUCCESS PMI_SUCCESS
+#  endif
 #elif HAVE_PMI_H
 #  include <pmi.h>
 #else
