@@ -798,7 +798,6 @@ static int gasnetc_init(int *argc, char ***argv)
     gasnet_mxm_module.zcopy_thresh = mxm_ep_opts->rdma.zcopy_thresh;
     mxm_config_free(mxm_ep_opts);
 #else
-    gasnet_mxm_module.zcopy_thresh = mxm_ep_opts->zcopy_thresh;
     mxm_config_free_ep_opts(mxm_ep_opts);
 #endif
 

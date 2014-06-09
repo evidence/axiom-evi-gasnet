@@ -246,7 +246,9 @@ typedef struct _gasnet_mxm_module {
     uint8_t                    * need_fence;
     uint8_t                      strict_api;
     mxm_mq_h                     mxm_mq;
+#if MXM_API < MXM_VERSION(2,0)
     size_t                       zcopy_thresh;/* MXM threshold for using zcopy*/
+#endif
     size_t                       max_am_med;  /* max size for medium AM */
     gasnetc_memreg_t           * reg;         /* registered segments */
     int                          am_max_depth; 
