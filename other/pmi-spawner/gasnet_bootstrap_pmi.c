@@ -287,7 +287,31 @@ void gasneti_bootstrapAbort_pmi(int exitcode) {
 /* gasneti_bootstrapBarrier
  */
 void gasneti_bootstrapBarrier_pmi(void) {
+#if USE_PMI2_API
+#if GASNETI_PMI2_FENCE_IS_BARRIER
+    PMI2_KVS_Fence();
+#else
+    static unsigned counter;
+    char v[16];
+    int i;
+
+    snprintf(kvs_key, max_key_len, "B%u-%u", counter, (unsigned)gasneti_mynode);
+    snprintf(v, sizeof(v), "%u", counter);
+
+    do_kvs_put(v, sizeof(v));
+    do_kvs_fence();
+
+    for (i = 0; i < gasneti_nodes; ++i) {
+        if (i == gasneti_mynode) continue;
+        snprintf(kvs_key, max_key_len, "B%u-%u", counter, (unsigned)i);
+        do_kvs_get(v, sizeof(v));
+        if (atoi(v) != counter) gasneti_fatalerror("barrier failed: exp %u got %s\n", counter, v);
+    }
+    counter++;
+#endif
+#else
     PMI_Barrier();
+#endif
 }
 
 #if HAVE_PMI_ALLGATHER

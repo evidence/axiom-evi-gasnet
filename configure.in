@@ -3550,6 +3550,8 @@ if test "$with_pmi" != 'no'; then
       pmi_suffix='2'
       AC_DEFINE(HAVE_PMI2_H)
       PMI_SPAWNER_LIBS='-lpmi2'
+      GASNET_IF_ENABLED(pmi2-fast-barrier, Use PMI2_KVS_fence as barrier. This may not work with all PMI2 implementations,
+                         [AC_DEFINE(GASNETI_PMI2_FENCE_IS_BARRIER,[1],[define to 1 if PMI2_KVS_fence() provides barrier functionality])], [] )
     ])
   fi
   if test -z "${use_pmi2+set}"; then
