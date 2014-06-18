@@ -3,6 +3,7 @@ dnl -*- m4 -*-
 #   $Source: bitbucket.org:berkeleylab/gasnet.git/configure.in $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
+# Copyright (c) 2014-2015 Intel Corporation. All rights reserved.
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
@@ -2854,6 +2855,135 @@ AM_CONDITIONAL(MXM_BOOTSTRAP_MPI, test "$have_mpi_compat" = yes)	# Option to omi
 CONDUIT_END([test "$have_mxm" = yes])
 
 #--------------------------------------------------------------------------------------------------------
+# PSM conduit
+#
+
+CONDUIT_BEGIN(psm,[Intel PSM conduit (psm)])
+have_psm=no
+    #
+    # Either PSM was required explicitly, or we just need to probe for its existence
+    #
+
+    user_psm_home=''
+    AC_MSG_CHECKING(for --with-psmhome)
+    GASNET_WITH(psmhome, [Specify a custom PSM install directory],
+                [if test "$withval" = 'yes'; then
+                   GASNET_MSG_ERROR(["--with-psmhome requires an argument (PSM install directory)"])
+                 fi
+                 user_psm_home="$withval"
+                 psm_user_provided=yes],
+                [psm_user_provided=no])
+    AC_MSG_RESULT($user_psm_home)
+
+    if test "$psm_user_provided" = yes; then
+        psm_home="$user_psm_home"
+    else
+        psm_home=/usr
+    fi
+
+    have_psm=yes  # assume success
+    psm_have_header=no
+    psm_have_lib=no
+    psm_in_path=no
+    psm_in_psm_home=no
+
+    if test "$psm_user_provided" != yes; then
+        # looking for PSM in standard locations only if user didn't provide its location
+        AC_CHECK_HEADERS(psm2.h, psm_have_header=yes)
+        if test "$psm_have_header" = yes; then
+            AC_CHECK_HEADERS(psm2_am.h, psm_have_header=yes)
+        fi
+
+        AC_CHECK_LIB(psm2, psm_init, psm_have_lib=yes)
+        AC_MSG_CHECKING(for PSM in standard locations)
+        if test "$psm_have_header$psm_have_lib" = yesyes; then
+            psm_in_path=yes
+        fi
+        AC_MSG_RESULT([$psm_in_path])
+    fi
+
+    if test "$psm_in_path" = yes; then
+      PSM_INCLUDE=''
+      PSM_LIBDIR=''
+    else
+      AC_MSG_CHECKING(for PSM in $psm_home)
+      if test -e "$psm_home/include/psm2_am.h" ; then
+        psm_have_header=yes
+      fi
+      if test -e "$psm_home/lib64/libpsm2.so" ; then
+        psm_have_lib=yes
+        psm_lib_path="$psm_home/lib64"
+      fi
+
+      if test "$psm_have_header$psm_have_lib" = yesyes; then
+        psm_in_psm_home=yes
+      fi
+      AC_MSG_RESULT([$psm_in_psm_home])
+
+      PSM_INCLUDE="-I$psm_home/include"
+      PSM_LIBDIR="-L$psm_lib_path"
+    fi
+
+    if test "$psm_user_provided$psm_in_psm_home" = yesno; then
+        GASNET_MSG_WARN(PSM files not found in user-specified $user_psm_home - disabling psm)
+        have_psm=no
+    elif test "$psm_in_path$psm_in_psm_home" = nono; then
+        have_psm=no
+    fi
+
+    PSM_LIBS='-lpsm2'
+
+	if test "$have_psm" = yes; then
+	  # Try to compile and link a basic PSM program
+	  GASNET_PUSHVAR(CFLAGS,"$CFLAGS $PSM_INCLUDE")
+	  GASNET_PUSHVAR(LIBS,"$LIBS $PSM_LIBDIR $PSM_LIBS")
+	  GASNET_TRY_CACHE_LINK(for working PSM configuration, psm_works, [
+            #include <psm2.h>
+            #include <psm2_mq.h>
+            #include <psm2_am.h>
+        ], [{
+               int major = PSM_VERNO_MAJOR;
+               int minor = PSM_VERNO_MINOR;
+               psm_error_t psm_status = psm_init(&major,&minor);
+            }], [ : ], [ have_psm=no; GASNET_ERR_SAVE() ] )
+      GASNET_POPVAR(CFLAGS)
+	  GASNET_POPVAR(LIBS)
+	fi
+
+  GASNET_WITH(psm-spawner,
+     [psm job spawner ("ssh" or "mpi", default is mpi when available)],
+     [case "$withval" in
+        ssh|mpi) gasnet_psm_spawner_conf=$withval
+             ;;
+        yes) AC_MSG_ERROR([--with-psm-spawner requires an argument ("ssh" or "mpi")])
+             ;;
+        *)   AC_MSG_ERROR([--with-psm-spawner argument must be "ssh" or "mpi"])
+             ;;
+      esac],
+     [AC_MSG_ERROR([--with-psm-spawner argument must be "ssh" or "mpi"])],
+     [if test "$have_mpi_compat" = yes; then
+        gasnet_psm_spawner_conf=mpi
+      else
+        gasnet_psm_spawner_conf=ssh
+      fi])
+  if test "$gasnet_psm_spawner_conf$have_mpi_compat" = mpino; then
+    AC_MSG_ERROR([--with-psm-spawner=mpi requires MPI compatibility support which $mpi_compat_reason])
+  fi
+  if test "$gasnet_psm_spawner_conf$have_fork" = sshno; then
+    AC_MSG_ERROR([--with-psm-spawner=ssh requires fork() support which $fork_reason])
+  fi
+  GASNET_PSM_SPAWNER_CONF=$gasnet_psm_spawner_conf
+  AC_SUBST(GASNET_PSM_SPAWNER_CONF)
+
+AC_SUBST(PSM_INCLUDE)
+AC_SUBST(PSM_LIBDIR)
+AC_SUBST(PSM_LIBS)
+AM_CONDITIONAL(USE_PSM_CONDUIT, test "$have_psm" = yes)
+AM_CONDITIONAL(PSM_BOOTSTRAP_SSH, test "$have_fork" = yes)
+AM_CONDITIONAL(PSM_BOOTSTRAP_MPI, test "$have_mpi_compat" = yes)	# Option to omit MPI support?
+CONDUIT_END([test "$have_psm" = yes])
+
+#--------------------------------------------------------------------------------------------------------
 # Portals4 Conduit
 
 CONDUIT_BEGIN(portals4,[Portals4 network conduit (portals4)])
@@ -4425,6 +4555,7 @@ dnl GASNET_TOOLSONLY_FALSE_END
 GASNET_FIX_EXEC(mpi-conduit/contrib/gasnetrun_mpi)
 GASNET_FIX_EXEC(ibv-conduit/contrib/gasnetrun_ibv)
 GASNET_FIX_EXEC(mxm-conduit/contrib/gasnetrun_mxm)
+GASNET_FIX_EXEC(psm-conduit/contrib/gasnetrun_psm)
 GASNET_FIX_EXEC(pami-conduit/contrib/gasnetrun_pami)
 GASNET_FIX_EXEC(gemini-conduit/contrib/gasnetrun_gemini)
 GASNET_FIX_EXEC(aries-conduit/contrib/gasnetrun_aries)
@@ -4491,6 +4622,11 @@ mxm-conduit/Makefile
 mxm-conduit/conduit.mak
 mxm-conduit/contrib/Makefile
 mxm-conduit/contrib/gasnetrun_mxm
+
+psm-conduit/Makefile
+psm-conduit/conduit.mak
+psm-conduit/contrib/Makefile
+psm-conduit/contrib/gasnetrun_psm
 
 shmem-conduit/Makefile
 shmem-conduit/conduit.mak
