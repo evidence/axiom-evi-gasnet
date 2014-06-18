@@ -58,13 +58,29 @@ static gasneti_atomic_t gasnetc_ampoll_atomic_lock = gasneti_atomic_init(1);
 
 /*
  * Exit flow suff.
+ * AlexM:
+ * Exit flow goes:
+ * Stage1: 
+ * master election. First node to contact ROOT node is nominated master. 
+ * Everyone else become slaves
+ *
+ * Stage2:
+ * master sends exit request to all nodes. If node still does not know its
+ * role it becomes slave node. 
+ * Master waits for acks from all nodes.
+ *
+ * Stage3:
+ * Master sends ALL_DONE message to the root node. Master and root node can exit
+ * This stage is needed because root node must be present to answer role requests
+ * (there is a race between node getting its role from root or from master)
  */
 
 enum {
     SYSTEM_EXIT_REQ = 0,
     SYSTEM_EXIT_REP = 2,
     SYSTEM_EXIT_ROLE_REQ = 3,
-    SYSTEM_EXIT_ROLE_REP = 4
+    SYSTEM_EXIT_ROLE_REP = 4,
+    SYSTEM_EXIT_ALL_DONE = 5,
 };
 
 /* root node for exit flow coordination */
@@ -114,6 +130,11 @@ static gasneti_atomic_t gasnetc_exit_reps = gasneti_atomic_init(0);
 static gasneti_atomic_t gasnetc_exit_done = gasneti_atomic_init(0);
 /* Exit role of the node (master or slave) */
 static gasneti_atomic_t gasnetc_exit_role = gasneti_atomic_init(GASNETC_EXIT_ROLE_UNKNOWN);
+
+/* exit roles requested vs received replies */
+static gasneti_atomic_t gasnetc_exit_role_rep_out = gasneti_atomic_init(0);
+/* notification to the root node from elected master */
+static gasneti_atomic_t gasnetc_exit_all_done = gasneti_atomic_init(0);
 
 /* -------------------------------------------------------------------------- */
 
@@ -1330,9 +1351,6 @@ static void gasneti_mxm_finalize(void)
     int i;
     mxm_error_t mxm_res;
 
-#if (0)
-    mxm_progress(gasnet_mxm_module.mxm_context);
-#endif
     MXM_LOG("Cleaning up MXM conduit resources\n");
 
     if (gasnet_mxm_module.connections) {
@@ -1456,6 +1474,12 @@ gasnetc_HandleSystemExitReq(gasnet_token_t token, gasnet_handlerarg_t exitcode)
     /* If we didn't already know, we are now certain our role is "slave" */
     (void) gasneti_atomic_compare_and_swap(&gasnetc_exit_role,
                                            GASNETC_EXIT_ROLE_UNKNOWN, GASNETC_EXIT_ROLE_SLAVE, 0);
+
+    /* Wait for reply from root node if we already requested our role */
+    MXM_DEBUG_EXIT_FLOW("Waiting for role rep before sending responce to master: current count=%d\n", gasneti_atomic_read(&gasnetc_exit_role_rep_out, 0));
+    while (gasneti_atomic_read(&gasnetc_exit_role_rep_out, 0) != 0) {
+        gasnetc_AMPoll_nocheckattach(); 
+    }
 
     MXM_DEBUG_EXIT_FLOW("Handling exit request - sending response to master\n");
     /* Send a reply so the master knows we are reachable */
@@ -1619,6 +1643,8 @@ gasnetc_HandleSystemExitRoleRep(gasnet_token_t token,
     (void) gasneti_atomic_compare_and_swap(&gasnetc_exit_role,
                                            GASNETC_EXIT_ROLE_UNKNOWN, role, 0);
     gasneti_assert(gasneti_atomic_read(&gasnetc_exit_role, 0) == role);
+    MXM_DEBUG_EXIT_FLOW("got exit role reply: current count=%d\n", gasneti_atomic_read(&gasnetc_exit_role_rep_out, 0));
+    gasneti_atomic_decrement(&gasnetc_exit_role_rep_out, 0);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1657,6 +1683,12 @@ void gasnetc_HandleSystemExitMessage(gasnetc_am_token_t * token,
         gasnetc_HandleSystemExitRoleRep(token, args[1]);
         break;
 
+    case SYSTEM_EXIT_ALL_DONE:
+        gasneti_assert(numargs == 1);
+        MXM_DEBUG_EXIT_FLOW("all done notification from master\n");
+        gasneti_atomic_increment(&gasnetc_exit_all_done, 0);
+        break;
+
     default:
         gasneti_fatalerror("invalid system message type - %d", args[0]);
     }
@@ -1686,6 +1718,7 @@ static int gasnetc_get_exit_role(void)
     int role;
 
     role = gasneti_atomic_read(&gasnetc_exit_role, 0);
+
     if (role == GASNETC_EXIT_ROLE_UNKNOWN) {
         int rc;
 
@@ -1698,6 +1731,9 @@ static int gasnetc_get_exit_role(void)
                                    (gasnet_handlerarg_t)SYSTEM_EXIT_ROLE_REQ);
 
         gasneti_assert(rc == GASNET_OK);
+        MXM_DEBUG_EXIT_FLOW("sending exit role request: current count=%d\n", gasneti_atomic_read(&gasnetc_exit_role_rep_out, 0));
+
+        gasneti_atomic_increment(&gasnetc_exit_role_rep_out, 0);
 
         /* Now spin until somebody tells us what our role is */
         do {
@@ -1834,6 +1870,12 @@ static int gasnetc_exit_master(int exitcode, int64_t timeout_us)
     MXM_DEBUG_EXIT_FLOW("Master received %d exit replies - done polling\n",
                         gasneti_nodes - 1);
 
+    rc = gasnetc_SystemRequest(GASNETC_EXIT_FLOW_ROOT_NODE, /* destination*/
+            1, /* nargs*/
+            (gasnet_handlerarg_t) SYSTEM_EXIT_ALL_DONE);
+    if (rc != GASNET_OK)
+        return -1;
+    MXM_DEBUG_EXIT_FLOW("Master sent ALL_DONE message to root node(%d)\n", GASNETC_EXIT_FLOW_ROOT_NODE);
     return 0;
 }
 
@@ -1855,15 +1897,44 @@ static int gasnetc_exit_slave(int64_t timeout_us)
     start_time = gasneti_ticks_now();
 
     /* wait until the exit request is received from the master */
-    MXM_DEBUG_EXIT_FLOW("Slave waiting for exit request from master...\n");
+    MXM_DEBUG_EXIT_FLOW("Slave waiting for exit request from master. Exit reqs=%d\n", gasneti_atomic_read(&gasnetc_exit_reqs, 0));
     while (gasneti_atomic_read(&gasnetc_exit_reqs, 0) == 0) {
-        if (gasneti_ticks_to_ns(gasneti_ticks_now() - start_time) / 1000 > timeout_us)
+        if (gasneti_ticks_to_ns(gasneti_ticks_now() - start_time) / 1000 > timeout_us) {
+            MXM_DEBUG_EXIT_FLOW("Slave exit by timeout on exit_reqs\n");
             return -1;
+        }
         gasnetc_AMPoll_nocheckattach(); /* works even before _attach */
     }
 
-    /* XXX: Best if we could wait until our reply has been placed on the wire */
+    /* wait till we get role replies from master. Else we will cause master to timeout on sending exit rep */
+    MXM_DEBUG_EXIT_FLOW("Slave waiting for role rep: current count=%d\n", gasneti_atomic_read(&gasnetc_exit_role_rep_out, 0));
+    while (gasneti_atomic_read(&gasnetc_exit_role_rep_out, 0) != 0) {
+        if (gasneti_ticks_to_ns(gasneti_ticks_now() - start_time) / 1000 > timeout_us) {
+            MXM_DEBUG_EXIT_FLOW("Slave exit by timeout on exit_role_count\n");
+            return -1;
+        }
+        gasnetc_AMPoll_nocheckattach(); /* works even before _attach */
+    }
 
+
+    return 0;
+}
+
+static int gasnetc_exit_root_node(int64_t timeout_us)
+{
+    gasneti_tick_t start_time;
+    gasneti_assert(timeout_us > 0);
+    start_time = gasneti_ticks_now();
+
+    /* wait until the exit request is received from the master */
+    MXM_DEBUG_EXIT_FLOW("root waiting for all done request from master. current=%d\n", gasneti_atomic_read(&gasnetc_exit_all_done, 0));
+    while (gasneti_atomic_read(&gasnetc_exit_all_done, 0) == 0) {
+        if (gasneti_ticks_to_ns(gasneti_ticks_now() - start_time) / 1000 > timeout_us) {
+            MXM_DEBUG_EXIT_FLOW("root node exit by timeout on exit_all_done\n");
+            return -1;
+        }
+        gasnetc_AMPoll_nocheckattach(); /* works even before _attach */
+    }
     return 0;
 }
 
@@ -1988,6 +2059,9 @@ static void gasnetc_exit_body(void)
 
     default:
         gasneti_fatalerror("invalid exit role");
+    }
+    if (gasneti_mynode == GASNETC_EXIT_FLOW_ROOT_NODE) {
+        graceful = (gasnetc_exit_root_node(timeout_us) == 0);
     }
 
     MXM_DEBUG_EXIT_FLOW("%s is exiting %sgracefully\n",
