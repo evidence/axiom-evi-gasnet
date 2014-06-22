@@ -1376,6 +1376,7 @@ static void gasneti_mxm_finalize(void)
     }
     gasneti_free(gasnet_mxm_module.am_recv_pool);
 
+#ifdef GASNET_SEGMENT_FAST
     if (gasneti_attach_done) {
         size_t remain = gasneti_seginfo[gasneti_mynode].size;
         int j = gasnetc_max_regs*gasneti_mynode;
@@ -1384,6 +1385,7 @@ static void gasneti_mxm_finalize(void)
             remain -= MIN(remain, gasnetc_pin_maxsz);
         }
     }
+#endif
 
     if (gasnet_mxm_module.mxm_context)
         mxm_cleanup(gasnet_mxm_module.mxm_context);
