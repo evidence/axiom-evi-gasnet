@@ -192,16 +192,27 @@ static int register_gasnet_fca_params(void){
 }
 int gasnet_fca_open(int my_rank)
 {
+    char *hpcx_fca_home = getenv("HPCX_FCA_DIR");
+    char *fca_home;
+    int path_len;
+
     gasnet_fca_component.fca_context = NULL;
-    gasnet_fca_component.fca_spec_file = (char *)GASNETI_FCA_HOME "/etc/fca_mpi_spec.ini";
+
+    fca_home = hpcx_fca_home? hpcx_fca_home : (char*)GASNETI_FCA_HOME;
+    /* / and \0 */
+    path_len = strlen(fca_home) + strlen(GASNETI_FCA_SPECFILE)+2;
+    gasnet_fca_component.fca_spec_file = gasneti_malloc(path_len);
+    snprintf(gasnet_fca_component.fca_spec_file, path_len, "%s/%s", fca_home, GASNETI_FCA_SPECFILE); 
 
     if (GASNET_FCA_SUCCESS != register_gasnet_fca_params()){
         FCA_ERROR("error: register_gasnet_fca_params failed!");
+        gasneti_free(gasnet_fca_component.fca_spec_file);
         return GASNET_FCA_ERROR;
     }
     if (gasnet_fca_component.fca_enable){
         if (GASNET_FCA_SUCCESS != gasnet_fca_get_fca_lib(my_rank)){
             FCA_ERROR("error: gasnet_fca_get_fca_lib failed!");
+            gasneti_free(gasnet_fca_component.fca_spec_file);
             return GASNET_FCA_ERROR;
         }
     }
@@ -210,6 +221,8 @@ int gasnet_fca_open(int my_rank)
 
 int gasnet_fca_close(void)
 {
+    if (gasnet_fca_component.fca_spec_file)
+        gasneti_free(gasnet_fca_component.fca_spec_file);
 
     if (!gasnet_fca_component.fca_context)
         return GASNET_FCA_SUCCESS;
