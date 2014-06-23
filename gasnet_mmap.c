@@ -414,6 +414,7 @@ extern void *gasneti_huge_mmap(void *addr, uintptr_t size) {
   int fd = gasneti_unlinked_huge_fd(pagesz);
   const int mmap_flags = MAP_SHARED | (addr ? GASNETI_MMAP_FIXED_FLAG : GASNETI_MMAP_NOTFIXED_FLAG);
   void *ptr = mmap(real_addr, size, (PROT_READ|PROT_WRITE), mmap_flags, fd, 0);
+  int save_errno = errno;
 
   (void) close(fd);
 
@@ -423,6 +424,7 @@ extern void *gasneti_huge_mmap(void *addr, uintptr_t size) {
     ptr = addr;
   }
 
+  errno = save_errno;
   return ptr;
 }
 
@@ -757,12 +759,12 @@ extern void *gasneti_mmap_shared(uintptr_t segsize) {
 
 extern void *gasneti_mmap_vnet(uintptr_t size, gasneti_bootstrapExchangefn_t exchangefn) {
   void *ptr = MAP_FAILED;
+  int save_errno = 0;
 
   #if defined(GASNETI_PSHM_SYSV) && PLATFORM_OS_CYGWIN
   /* Cygwin may raise SIGSYS when SysV support is absent.
      This will yield more informative error messages. */
   gasneti_sighandlerfn_t prev_handler = gasneti_reghandler(SIGSYS, SIG_IGN);
-  int save_errno;
   #endif
 
   #if defined(GASNETI_PSHM_FILE) || defined(GASNETI_PSHM_SYSV) || defined(GASNETI_PSHM_POSIX)
@@ -775,6 +777,7 @@ extern void *gasneti_mmap_vnet(uintptr_t size, gasneti_bootstrapExchangefn_t exc
       const char *tmp = gasneti_pshm_makeunique(NULL);
       memcpy(unique, tmp, GASNETI_PSHM_UNIQUE_LEN);
       ptr = gasneti_mmap_shared_internal(gasneti_pshm_nodes, NULL, size, 1);
+      save_errno = errno;
     }
 
     /* Conduit's exchangefn is used as a supernode-scoped bcast to
@@ -786,6 +789,7 @@ extern void *gasneti_mmap_vnet(uintptr_t size, gasneti_bootstrapExchangefn_t exc
     if (gasneti_pshm_mynode != 0) {
       (void)gasneti_pshm_makeunique((const char *)(exchg + gasneti_pshm_firstnode));
       ptr = gasneti_mmap_shared_internal(gasneti_pshm_nodes, NULL, size, 1);
+      save_errno = errno;
     }
 
     gasneti_free(exchg);
@@ -802,8 +806,10 @@ extern void *gasneti_mmap_vnet(uintptr_t size, gasneti_bootstrapExchangefn_t exc
     /* First in each supernode creates the segment */
     if (gasneti_pshm_mynode == 0) {
       ptr = gasneti_mmap_shared_internal(gasneti_pshm_nodes, NULL, size, 1);
+      save_errno = errno;
       if (ptr != MAP_FAILED) {
         segid = xpmem_make(ptr, size, XPMEM_PERMIT_MODE, (void *)(uintptr_t)0600);
+        save_errno = errno;
         if_pf (segid == (gasneti_xpmem_segid_t)(-1)) {
           fprintf(stderr, "xpmem_make() failed:%s\n", strerror(errno));
         }
@@ -820,6 +826,7 @@ extern void *gasneti_mmap_vnet(uintptr_t size, gasneti_bootstrapExchangefn_t exc
     /* Non-first nodes attach */
     if (gasneti_pshm_mynode != 0) {
       ptr = gasneti_mmap_shared_internal(gasneti_pshm_nodes, NULL, size, 1);
+      save_errno = errno;
     }
   }
   #elif defined(GASNETI_PSHM_GHEAP)
@@ -830,6 +837,7 @@ extern void *gasneti_mmap_vnet(uintptr_t size, gasneti_bootstrapExchangefn_t exc
     /* First in each supernode creates the segment */
     if (gasneti_pshm_mynode == 0) {
       ptr = gasneti_mmap_shared_internal(gasneti_pshm_nodes, NULL, size, 1);
+      save_errno = errno;
       if (ptr != MAP_FAILED) {
         memset(ptr, 0, size);
       }
@@ -846,6 +854,7 @@ extern void *gasneti_mmap_vnet(uintptr_t size, gasneti_bootstrapExchangefn_t exc
     /* Non-first nodes attach */
     if (gasneti_pshm_mynode != 0) {
       ptr = gasneti_mmap_shared_internal(gasneti_pshm_nodes, NULL, size, 1);
+      save_errno = errno;
     }
   }
   #else
@@ -853,10 +862,11 @@ extern void *gasneti_mmap_vnet(uintptr_t size, gasneti_bootstrapExchangefn_t exc
   #endif
 
   #if defined(GASNETI_PSHM_SYSV) && PLATFORM_OS_CYGWIN
-  save_errno = errno;
   gasneti_reghandler(SIGSYS, prev_handler);
-  errno = save_errno;
   #endif
+
+  /* restore the pertinent errno, if any */
+  errno = save_errno;
 
   return (ptr == MAP_FAILED) ? NULL : ptr;
 }
