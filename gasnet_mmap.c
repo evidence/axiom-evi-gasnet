@@ -505,7 +505,7 @@ static void * gasneti_pshm_mmap(int pshm_rank, void *segbase, size_t segsize) {
   }
 #elif defined(GASNETI_PSHM_XPMEM)
   if (create) {
-  #if HAVE_HUGETLBFS
+  #if GASNETI_USE_HUGETLBFS
     ptr = gasneti_huge_mmap(segbase, segsize);
   #else
     const int mmap_flags = GASNETI_MAP_ANONYMOUS | MAP_SHARED | \
@@ -551,7 +551,7 @@ static void gasneti_pshm_munmap(void *segbase, uintptr_t segsize) {
 #elif defined(GASNETI_PSHM_FILE) || defined(GASNETI_PSHM_POSIX)
   gasneti_munmap(segbase, segsize);
 #elif defined(GASNETI_PSHM_XPMEM)
- #if HAVE_HUGETLBFS
+ #if GASNETI_USE_HUGETLBFS
   gasneti_huge_munmap(segbase, segsize);
  #else
   gasneti_munmap(segbase, segsize);

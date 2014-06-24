@@ -1162,13 +1162,21 @@ AC_CHECK_LIB(thread, thr_create, have_solthread=yes, have_solthread=no)
 
 dnl GASNET_TOOLSONLY_FALSE_BEGIN
 have_hugetlbfs=no
-AC_CHECK_HEADERS(hugetlbfs.h, [
+GASNET_IF_ENABLED_WITH_AUTO(hugetlbfs,
+  [Enable/disable huegtlbfs support (default is system dependent)],
+  [enabled_hugetlbfs=yes], [enabled_hugetlbfs=no], [enabled_hugetlbfs=probe])
+if test "$enabled_hugetlbfs" != 'no'; then
+ AC_CHECK_HEADERS(hugetlbfs.h, [
   GASNET_PUSHVAR(LIBS,"$LIBS -lhugetlbfs")
   AC_CHECK_FUNCS([hugetlbfs_unlinked_fd_for_size hugetlbfs_unlinked_fd],
                  [have_hugetlbfs=yes
                   AC_DEFINE(HAVE_HUGETLBFS)])
   GASNET_POPVAR(LIBS)
-])
+ ])
+ if test "$enabled_hugetlbfs$have_hugetlbfs" = 'yesno'; then
+   GASNET_MSG_ERROR([User requested --enable-hugetlbfs but the header and/or library could not be found])
+ fi
+fi
 with_pshm=no
 GASNET_PSHM_LIBS=""
 GASNET_PSHM_ENABLED=no
@@ -3103,25 +3111,20 @@ if test ${gni_network}:${enabled_[]lowername} = lowername[]:yes; then
   AC_CHECK_HEADERS(pmi_cray.h, [have_pmi_cray_h=1], [have_[]lowername=no])
   AC_CHECK_HEADERS(gni_pub.h, [:], [have_[]lowername=no])
 
-  # PSHM must be XPMEM or none.  If none, then we still need hugetlbfs.
+  # PSHM must be XPMEM or none.  If none, then we still want hugetlbfs if available.
   if test $have_[]lowername = no; then
     : # empty
   elif test "$with_pshm" = no; then
-    AC_MSG_CHECKING(for hugetlbfs support required by $1)
     if test $have_hugetlbfs = yes; then
-      AC_MSG_RESULT(yes)
       GNI_LIBS="$GNI_LIBS -Wl,--whole-archive,-lhugetlbfs,--no-whole-archive"
       GNI_INCLUDES="$GNI_INCLUDES -DGASNETI_USE_HUGETLBFS"
-    else
-      $have_[]lowername=no
-      AC_MSG_RESULT(no)
     fi
   else
     AC_MSG_CHECKING(for pshm-over-xpmem support required by $1)
     if test "$with_pshm" = xpmem; then
       AC_MSG_RESULT(yes)
     else
-      $have_[]lowername=no
+      have_[]lowername=no
       AC_MSG_RESULT(no)
     fi
   fi

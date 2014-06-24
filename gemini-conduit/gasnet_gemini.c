@@ -824,9 +824,13 @@ uintptr_t gasnetc_init_messaging(void)
   /* TODO: remove MAX(1,) while still avoiding "issues" on single-(super)node runs */
   am_mmap_bytes = reply_region_length + MAX(1,remote_nodes) * peer_stride;
   
+#if defined(GASNETI_USE_HUGETLBFS)
   am_mmap_ptr = gasneti_huge_mmap(NULL, am_mmap_bytes);
+#else
+  am_mmap_ptr = gasneti_mmap(am_mmap_bytes);
+#endif
   if (am_mmap_ptr == (char *)MAP_FAILED) {
-    gasnetc_GNIT_Abort("hugepage mmap failed: ");
+    gasnetc_GNIT_Abort("am mmap failed: ");
   }
   
   {
@@ -982,7 +986,11 @@ void gasnetc_shutdown(void)
 #if GASNETC_USE_MULTI_DOMAIN
     if (didx == GASNETC_DEFAULT_DOMAIN) {
 #endif
+#if defined(GASNETI_USE_HUGETLBFS)
       gasneti_huge_munmap(am_mmap_ptr, am_mmap_bytes);
+#else
+      gasneti_munmap(am_mmap_ptr, am_mmap_bytes);
+#endif
 
       status = GNI_MemDeregister(nic_handle, &am_handle);
       if_pf (status != GNI_RC_SUCCESS) {

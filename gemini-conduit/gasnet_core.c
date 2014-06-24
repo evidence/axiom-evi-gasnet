@@ -475,10 +475,14 @@ static int try_pin(uintptr_t size) {
  * --------------------------------------------------------------------------------- */
 extern uintptr_t gasnetc_MaxPinMem(uintptr_t msgspace)
 {
-  uintptr_t granularity = gethugepagesize();
+  uintptr_t granularity = GASNETI_MMAP_GRANULARITY;
   uintptr_t limit;
   uintptr_t low;
   uintptr_t high;
+
+#ifdef GASNETI_USE_HUGETLBFS
+  granularity = MAX(granularity, gethugepagesize());
+#endif
 
   /* On CNL, if we try to pin beyond what the OS will allow, the job is killed.
    * So, there is really no way (that we know of) to determine the EXACT maximum
