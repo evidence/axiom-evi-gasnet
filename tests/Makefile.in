@@ -392,12 +392,12 @@ $(MPI_TESTS): mpi-check force
 # testcxx tests support for compiling a C++-based GASNet client 
 # this is unlikely to work on conduits requiring a special linker (eg mpi-conduit)
 testcxx: force
-	@if test -z "@CXX@"; then \
+	@if test -z "$(GASNET_CXX)"; then \
 		echo "ERROR: testcxx target requested, but no c++ compiler is configured"; \
 		exit 1; \
 	 fi
-	@CXX@ @CXXFLAGS@ @MISC_CXXFLAGS@ -I$(srcdir) $(GASNET_DEFINES) $(GASNET_INCLUDES) $(KEEPTMP_CFLAGS) $(MANUAL_CXXFLAGS) -c -o $@.o $(srcdir)/$@.cc
-	@CXX@ @CXXFLAGS@ $(GASNET_LDFLAGS) -o $@ $@.o $($@_extraobjs) $(GASNET_LIBS)
+	$(GASNET_CXX) -I$(srcdir) $(GASNET_CXXCPPFLAGS) $(KEEPTMP_CFLAGS) $(GASNET_CXXFLAGS) -c -o $@.o $(srcdir)/$@.cc
+	$(GASNET_CXX) $(GASNET_CXXFLAGS) $(GASNET_LDFLAGS) -o $@ $@.o $($@_extraobjs) $(GASNET_LIBS)
 	@test -n '$(KEEPTMPS)' || ( cmd="rm -f $@.o"; echo "$$cmd"; eval "$$cmd" )
 
 # This is a model for how GASNet clients should be built:
