@@ -2150,7 +2150,7 @@ fi
            ;;
        esac
        GASNET_GET_GNUWARNINGFLAGS(CXX)
-       MISC_CXXFLAGS="$MISC_CXXFLAGS $CXXFLAGS" 
+       CXXDEBUGFLAGS="$CXXFLAGS"
        GASNET_POPVAR(CXXFLAGS)
     ;;
     PGI)   MISC_CXXFLAGS="-w -Masmkeyword -Msignextend" # apparently has no way to indep control warnings
