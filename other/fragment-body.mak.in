@@ -35,6 +35,12 @@ GASNET_CFLAGS = $(GASNET_OPT_CFLAGS) $(GASNET_MISC_CFLAGS) $(MANUAL_CFLAGS)
 GASNET_CPPFLAGS = $(GASNET_MISC_CPPFLAGS) $(GASNET_DEFINES) $(GASNET_INCLUDES)
 
 # ----------------------------------------------------------------------
+# C++ compiler
+
+GASNET_CXX = @CXX@
+GASNET_CXXFLAGS = @CXXFLAGS@ @MISC_CXXFLAGS@ $(MANUAL_CXXFLAGS)
+
+# ----------------------------------------------------------------------
 # linker and options
 
 GASNET_LD = $(GASNET_LD_OVERRIDE)

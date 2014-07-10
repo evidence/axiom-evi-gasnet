@@ -2092,12 +2092,8 @@ echo " Portable conduits:" >> $CONDUIT_LIST
 echo " -----------------" >> $CONDUIT_LIST
 fi
 #---------------------------------------------------------------------------------------------------------------
-# UDP/AMUDP Configuration
 
-CONDUIT_BEGIN(udp,[portable UDP network conduit (udp)])
-if test $enabled_udp = yes; then
-
-  # Do C++ configuration
+# Do C++ configuration
   AC_LANG_SAVE
 
   # when called by Titanium configure, target C++ compiler will be in TARGET_CXX(FLAGS)
@@ -2112,7 +2108,7 @@ if test $enabled_udp = yes; then
 
   if test "$with_cxx" = no; then
     have_cxx=no
-    GASNET_MSG_WARN([C++ compiler disabled using --without-cxx. Disabling udp-conduit, which requires C++])
+    GASNET_MSG_WARN([C++ compiler disabled using --without-cxx])
   else
     # bug 1725: Run GASNET_PROG_CXX with care in case it drops dead (missing C++)
     # Temporary override of AC_MSG_ERROR is a dirty hack!  However, the previous approach
@@ -2122,7 +2118,7 @@ if test $enabled_udp = yes; then
     GASNET_PROG_CXX
     popdef([AC_MSG_ERROR])
     if test "$have_cxx" = no; then
-      GASNET_MSG_WARN([It appears you have no working C++ compiler. Disabling udp-conduit, which requires C++])
+      GASNET_MSG_WARN([It appears you have no working C++ compiler])
     fi
   fi
 
@@ -2269,7 +2265,7 @@ if test $enabled_udp = yes; then
   fi
   if test "$cxx_helper_worked" = no; then
     have_cxx=no
-    GASNET_MSG_WARN([It appears your C++ and C compilers are not link-compatible. Disabling udp-conduit, which requires C++])
+    GASNET_MSG_WARN([It appears your C++ and C compilers are not link-compatible])
   fi
   GASNET_LINKHELPER_CLEANUP()
 
@@ -2280,7 +2276,14 @@ if test $enabled_udp = yes; then
  fi
 
   AC_LANG_RESTORE
+AM_CONDITIONAL(HAVE_CXX, test "$have_cxx" = yes)
+if test "$have_cxx" = no; then
+  GASNET_MSG_WARN([Disabling udp-conduit, which requires C++])
+fi
 
+# UDP/AMUDP Configuration
+CONDUIT_BEGIN(udp,[portable UDP network conduit (udp)])
+if test $enabled_udp = yes; then
  if test "$have_cxx" = yes; then
   # detect libraries necessary for udp-* backends
   GASNET_PUSHVAR(LIBS,"")
@@ -2309,10 +2312,8 @@ if test $enabled_udp = yes; then
   GASNET_POPVAR(LIBS)
  else
   have_udp=no
-  udp_reason="no C++ support detected"
  fi
 fi
-AM_CONDITIONAL(HAVE_CXX, test "$have_cxx" = yes)
 AC_SUBST(GASNET_UDP_LIBS)
 AM_CONDITIONAL(USE_UDP_CONDUIT, test "$enabled_udp$have_udp" = yesyes)
 CONDUIT_END([test "$enabled_udp$have_udp" = yesyes])
