@@ -4167,6 +4167,19 @@ case "$target_os" in
     fi
   ;;
 
+  openbsd*)
+    # OpenBSD PIE-by-default breaks aligned segments and upcr linker segment (bug 3248)
+    extra_ldflags='-nopie'
+    GASNET_PUSHVAR(LDFLAGS,"$LDFLAGS $extra_ldflags")
+    GASNET_TRY_CACHE_LINK(if linker supports '$extra_ldflags', ld_has_nopie,
+        [], [],
+        [], [extra_ldflags=''])
+    GASNET_POPVAR(LDFLAGS)
+    if test -n "$extra_ldflags"; then
+      LDFLAGS="$LDFLAGS $extra_ldflags"
+    fi
+  ;;
+
 esac
 AC_SUBST(LDFLAGS)
 
