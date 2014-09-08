@@ -37,7 +37,11 @@ void *thread_main(void *arg) {
 
   MYBARRIER();
   if (td->mythread == 0) {
-      printf("Running barrier test with %i iterations...\n",iters);
+#if GASNET_PAR
+      printf("Running team barrier test with %i iterations and %i threads/proc...\n",iters,threads_per_node);
+#else
+      printf("Running team barrier test with %i iterations...\n",iters);
+#endif
       fflush(stdout);
   }
   
