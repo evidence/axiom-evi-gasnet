@@ -569,7 +569,7 @@ void gasnetc_init_segment(void *segment_start, size_t segment_size)
   }
   have_segment = 1;
 
-  gasneti_assert(status == GNI_RC_SUCCESS);
+  gasneti_assert_always (status == GNI_RC_SUCCESS);
 
   {
     gni_mem_handle_t *all_mem_handle = gasneti_malloc(gasneti_nodes * sizeof(gni_mem_handle_t));
@@ -675,7 +675,7 @@ void  gasnetc_create_parallel_domain(gasnete_threadidx_t tidx)
      }
    }
   }
-  gasneti_assert(status == GNI_RC_SUCCESS);
+  gasneti_assert_always(status == GNI_RC_SUCCESS);
   {
     gni_mem_handle_t *all_mem_handle = gasneti_malloc(gasneti_nodes * sizeof(gni_mem_handle_t));
     gasnet_node_t i;
