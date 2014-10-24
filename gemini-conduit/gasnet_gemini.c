@@ -722,8 +722,10 @@ uintptr_t gasnetc_init_messaging(void)
   for (i=1; i<gasnetc_domain_count; i<<=1) {
     gasnetc_poll_am_domain_mask  = (gasnetc_poll_am_domain_mask <<1) | 1;
   }
+ #if (GASNETC_DOMAIN_THREAD_DISTRIBUTION == GASNETC_DOMAIN_THREAD_DISTRIBUTION_BULK)
   gasnetc_threads_per_domain =  gasneti_getenv_int_withdefault("GASNET_GNI_PTHREADS_PER_DOMAIN",
                GASNETC_PTHREADS_PER_DOMAIN_DEFAULT,1);
+ #endif
   gasnetc_cdom_data = gasneti_malloc(gasnetc_domain_count * sizeof(communication_domain_struct_t));
   for(i=0;i<gasnetc_domain_count;i++)
     reset_comm_data(gasnetc_cdom_data+i);
