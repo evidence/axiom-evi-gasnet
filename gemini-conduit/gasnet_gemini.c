@@ -88,6 +88,9 @@ static size_t gasnetc_put_bounce_register_cutover;
 size_t gasnetc_max_get_unaligned;
 size_t gasnetc_max_put_lc;
 
+/* read-only: */
+static gni_mem_handle_t my_mem_handle;
+
 /* read-write: (should cache pad) */
 static gasneti_weakatomic_t gasnetc_reg_credit;
 
@@ -103,7 +106,6 @@ typedef struct {
   gni_cdm_handle_t cdm_handle;
   gni_cq_handle_t destination_cq_handle;
   gni_nic_handle_t nic_handle;
-  gni_mem_handle_t my_mem_handle;
   gni_cq_handle_t bound_cq_handle;
   gasneti_lifo_head_t post_descriptor_pool;
   peer_struct_t *peer_data;
@@ -177,7 +179,6 @@ static gni_cq_handle_t destination_cq_handle;
 
 /* read-only: */
 static gni_nic_handle_t nic_handle;
-static gni_mem_handle_t my_mem_handle;
 static gni_cq_handle_t bound_cq_handle;
 static peer_struct_t *peer_data;
 
@@ -448,7 +449,6 @@ void gasnetc_init_segment(void *segment_start, size_t segment_size)
   DOMAIN_SPECIFIC_VAR(gni_nic_handle_t, nic_handle);
   DOMAIN_SPECIFIC_VAR(peer_struct_t * const, peer_data);
   gni_cq_handle_t  destination_cq_handle = NULL;
-  gni_mem_handle_t my_mem_handle;
 #endif
   size_t bb_size = gasnetc_bounce_buffers.size / gasnetc_domain_count;
 
@@ -584,7 +584,6 @@ void gasnetc_init_segment(void *segment_start, size_t segment_size)
 
 #if GASNETC_USE_MULTI_DOMAIN
   DOMAIN_SPECIFIC_VAL(destination_cq_handle) = destination_cq_handle;
-  DOMAIN_SPECIFIC_VAL(my_mem_handle) = my_mem_handle;
   
  #if(GASNETC_DOMAIN_ALLOC_POLICY == GASNETC_STATIC_DOMAIN_ALLOC)
   {
@@ -643,7 +642,12 @@ void  gasnetc_create_parallel_domain(gasnete_threadidx_t tidx)
    status = GNI_EpCreate(DOMAIN_SPECIFIC_VAL(nic_handle), DOMAIN_SPECIFIC_VAL(bound_cq_handle), 
                         &DOMAIN_SPECIFIC_VAL(peer_data[i].ep_handle));
    gasneti_assert_always (status == GNI_RC_SUCCESS);
+#if 0 /* The following is the "proper" binding to "same-domain" peers... */
+   status = GNI_EpBind(DOMAIN_SPECIFIC_VAL(peer_data[i].ep_handle), all_addr[i],
+                                           i + GASNETC_DIDX * gasneti_nodes);
+#else /* ...but bind to remote domain=0 is insensitive to having fewer domains on some nodes */
    status = GNI_EpBind(DOMAIN_SPECIFIC_VAL(peer_data[i].ep_handle), all_addr[i], i);
+#endif
    gasneti_assert_always (status == GNI_RC_SUCCESS);
   }
 #if FIX_HT_ORDERING
@@ -656,36 +660,11 @@ void  gasnetc_create_parallel_domain(gasnete_threadidx_t tidx)
   DOMAIN_SPECIFIC_VAL(destination_cq_handle) = NULL;
 #endif
 
-  {
-    int count = 0;
-    for (;;) {
-      status = GNI_MemRegister(DOMAIN_SPECIFIC_VAL(nic_handle),
-                              (uint64_t) gasneti_seginfo[gasneti_mynode].addr,
-                              (uint64_t) gasneti_seginfo[gasneti_mynode].size,
-                              DOMAIN_SPECIFIC_VAL(destination_cq_handle),
-                              gasnetc_memreg_flags, -1,
-                              &DOMAIN_SPECIFIC_VAL(my_mem_handle));
-     if (status == GNI_RC_SUCCESS) break;
-     if (status == GNI_RC_ERROR_RESOURCE) {
-         gasnetc_GNIT_Log("MemRegister segment fault %d at  %p %lx, code %s",
-                    count, gasneti_seginfo[gasneti_mynode].addr, gasneti_seginfo[gasneti_mynode].size, gasnetc_gni_rc_string(status));
-         count += 1;
-         if (count >= 10) break;
-      } else {
-        break;
-     }
-   }
+  /* TODO: this replication is unnecessary, but cache-friendly: */
+  for (i = 0; i < gasneti_nodes; ++i) {
+    DOMAIN_SPECIFIC_VAL(peer_data[i]).mem_handle = gasnetc_cdom_data[0].peer_data[i].mem_handle;
   }
-  gasneti_assert_always(status == GNI_RC_SUCCESS);
-  {
-    gni_mem_handle_t *all_mem_handle = gasneti_malloc(gasneti_nodes * sizeof(gni_mem_handle_t));
-    gasnet_node_t i;
-    gasneti_bootstrapExchange_pmi(&DOMAIN_SPECIFIC_VAL(my_mem_handle), sizeof(gni_mem_handle_t), all_mem_handle);
-    for (i = 0; i < gasneti_nodes; ++i) {
-       DOMAIN_SPECIFIC_VAL(peer_data[i]).mem_handle = all_mem_handle[i];
-     }
-    gasneti_free(all_mem_handle);
-  }
+
   gasnetc_init_post_descriptor_pool(GASNETC_DIDX_PASS_ALONE);
   gasnetc_init_bounce_buffer_pool(GASNETC_DIDX_PASS_ALONE);
  /* This should remain as the last statement to indicate that the domain is initialized. */
@@ -979,13 +958,6 @@ void gasnetc_shutdown(void)
       gasnetc_GNIT_Log("at shutdown: %d endpoints left after 10 tries", left);
     }
 
-    if_pt (have_segment) {
-      status = GNI_MemDeregister(nic_handle, &DOMAIN_SPECIFIC_VAL(my_mem_handle));
-      if_pf (status != GNI_RC_SUCCESS) {
-        gasnetc_GNIT_Log("MemDeregister(segment) failed with %s", gasnetc_gni_rc_string(status));
-      }
-    }
-
 #if GASNETC_USE_MULTI_DOMAIN
     if (didx == GASNETC_DEFAULT_DOMAIN) {
 #endif
@@ -1003,6 +975,13 @@ void gasnetc_shutdown(void)
       status = GNI_CqDestroy(am_cq_handle);
       if_pf (status != GNI_RC_SUCCESS) {
         gasnetc_GNIT_Log("CqDestroy(am_cq) failed with %s", gasnetc_gni_rc_string(status));
+      }
+
+      if_pt (have_segment) {
+        status = GNI_MemDeregister(nic_handle, &my_mem_handle);
+        if_pf (status != GNI_RC_SUCCESS) {
+          gasnetc_GNIT_Log("MemDeregister(segment) failed with %s", gasnetc_gni_rc_string(status));
+        }
       }
 #if GASNETC_USE_MULTI_DOMAIN
     }
@@ -1694,7 +1673,6 @@ size_t gasnetc_rdma_put_bulk(gasnet_node_t node,
 		 size_t nbytes, gasnetc_post_descriptor_t *gpd)
 {
   GASNETC_DIDX_POST(gpd->domain_idx);
-  DOMAIN_SPECIFIC_VAR(gni_mem_handle_t, my_mem_handle);
   DOMAIN_SPECIFIC_VAR(peer_struct_t * const, peer_data);
   peer_struct_t * const peer = &peer_data[node];
   gni_post_descriptor_t * const pd = &gpd->pd;
@@ -1763,7 +1741,6 @@ gasnetc_rdma_put_lc(gasnet_node_t node,
 		 size_t nbytes, gasnetc_post_descriptor_t *gpd)
 {
   GASNETC_DIDX_POST(gpd->domain_idx);
-  DOMAIN_SPECIFIC_VAR(gni_mem_handle_t, my_mem_handle);
   DOMAIN_SPECIFIC_VAR(peer_struct_t * const, peer_data);
   peer_struct_t * const peer = &peer_data[node];
   gni_post_descriptor_t * const pd = &gpd->pd;
@@ -1900,7 +1877,6 @@ size_t gasnetc_rdma_get(gasnet_node_t node,
 		 size_t nbytes, gasnetc_post_descriptor_t *gpd)
 {
   GASNETC_DIDX_POST(gpd->domain_idx);
-  DOMAIN_SPECIFIC_VAR(gni_mem_handle_t, my_mem_handle);
   DOMAIN_SPECIFIC_VAR(peer_struct_t * const, peer_data);
   peer_struct_t * const peer = &peer_data[node];
   gni_post_descriptor_t * const pd = &gpd->pd;
@@ -1957,7 +1933,6 @@ void gasnetc_rdma_get_unaligned(gasnet_node_t node,
 		 size_t nbytes, gasnetc_post_descriptor_t *gpd)
 {
   GASNETC_DIDX_POST(gpd->domain_idx);
-  DOMAIN_SPECIFIC_VAR(gni_mem_handle_t, my_mem_handle);
   DOMAIN_SPECIFIC_VAR(peer_struct_t * const, peer_data);
   peer_struct_t * const peer = &peer_data[node];
   gni_post_descriptor_t * const pd = &gpd->pd;
@@ -2012,7 +1987,6 @@ int gasnetc_rdma_get_buff(gasnet_node_t node,
 		size_t nbytes, gasnetc_post_descriptor_t *gpd)
 {
   GASNETC_DIDX_POST(gpd->domain_idx);
-  DOMAIN_SPECIFIC_VAR(gni_mem_handle_t, my_mem_handle);
   DOMAIN_SPECIFIC_VAR(peer_struct_t * const, peer_data);
   peer_struct_t * const peer = &peer_data[node];
   gni_post_descriptor_t * const pd = &gpd->pd;
