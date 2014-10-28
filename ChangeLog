@@ -3,6 +3,7 @@ GASNet ChangeLog
 
 ----------------------------------------------------------------------
 10-28-2014 : Release 1.24.0
+
 * Cray XE, XK and XC series (gemini- and aries-conduits)
   - Fix to allow fork()/system() on Gemini and Aries conduits
   - Support new configuration option --disable-hugetlbfs to disable
@@ -23,7 +24,7 @@ GASNet ChangeLog
 
 * Portable UDP support (udp-conduit)
   - Remove arbitrary limit on command line length in udp-conduit
-    when using ssh-based spawning (GANET_SPAWNFN=S).
+    when using ssh-based spawning (GASNET_SPAWNFN=S).
 
 * Platform support/portability
   - Fix bug 3248 - must disable PIE by default on recent OpenBSD.
