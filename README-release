@@ -202,10 +202,10 @@ See also:
   release tag.
 
 * If the GASNet or tools spec versions have changed, they get tags too:
-    $ git tag -a gasnetspec-2.1 -m "GASNet specification 2.1" master
+    $ git tag gasnet-spec-2.1 master
     $ git push origin gasnetspec-2.1
   and/or
-    $ git tag -a gasnettools-1.32 -m "GASNet Tools specification 1.42" master
+    $ git tag gasnet-tools-spec-1.32 master
     $ git push origin gasnettools-1.32
 
 * If this GASNet release has a paired Berkeley UPC release, then one should

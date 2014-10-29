@@ -475,7 +475,12 @@ static int try_pin(uintptr_t size) {
  * --------------------------------------------------------------------------------- */
 extern uintptr_t gasnetc_MaxPinMem(uintptr_t msgspace)
 {
-  uintptr_t granularity = gethugepagesize();
+#ifdef GASNETI_USE_HUGETLBFS
+  uintptr_t granularity = MAX(GASNETI_MMAP_GRANULARITY, gethugepagesize());
+#else
+  uintptr_t granularity = GASNETI_MMAP_GRANULARITY;
+#endif
+
   uintptr_t limit;
   uintptr_t low;
   uintptr_t high;

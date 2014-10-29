@@ -31,19 +31,7 @@ extern mxm_mem_key_t *gasnetc_find_remote_mkey(void *addr, int nbytes, int rank)
 /*
   Tuning Parameters
   =================
-  Conduits may choose to override the default tuning parameters below by defining them
-  in their gasnet_core_fwd.h
 */
-
-/* the size threshold where gets/puts stop using medium messages and start using longs */
-#ifndef GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD
-#define GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD   gasnet_AMMaxMedium()
-#endif
-
-/* true if we should try to use Long replies in gets (only possible if dest falls in segment) */
-#ifndef GASNETE_USE_LONG_GETS
-#define GASNETE_USE_LONG_GETS 1
-#endif
 
 static int gasnete_mxm_max_outstanding_msgs;
 #define GASNETE_MXM_MAX_OUTSTANDING_MSGS gasnete_mxm_max_outstanding_msgs
@@ -293,13 +281,9 @@ void gasnete_iop_free(gasnete_iop_t *iop) {
 /* called at startup to check configuration sanity */
 static void gasnete_check_config(void) {
     gasneti_check_config_postattach();
+    gasnete_check_config_amref();
 
-    gasneti_assert_always(GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD <= gasnet_AMMaxMedium());
     gasneti_assert_always(gasnete_eopaddr_isnil(EOPADDR_NIL));
-
-    /* The next two ensure nbytes in AM-based Gets will fit in handler_arg_t (bug 2770) */
-    gasneti_assert_always(gasnet_AMMaxMedium() <= (size_t)0xffffffff);
-    gasneti_assert_always(gasnet_AMMaxLongReply() <= (size_t)0xffffffff);
 }
 
 extern void gasnete_init(void) {

@@ -553,7 +553,7 @@ int main(int argc, char **argv) {
       const uint32_t one32 = 1;
       uint32_t tmp32;
 
-      if (!gasnett_atomic32_read(&var32,0) != 0)
+      if (~gasnett_atomic32_read(&var32,0) != 0)
         ERR("gasnett_atomic32_init/gasnett_atomic32_read got wrong value");
 
       gasnett_atomic32_set(&var32, 2*iters, 0);

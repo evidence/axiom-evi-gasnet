@@ -17,16 +17,6 @@ extern void _gasnete_iop_check(gasnete_iop_t *iop) { gasnete_iop_check(iop); }
 
 /* ------------------------------------------------------------------------------------ */
 /*
-  Tuning Parameters
-  =================
-  Conduits may choose to override the default tuning parameters below by defining them
-  in their gasnet_core_fwd.h
-*/
-
-/* NONE */
-
-/* ------------------------------------------------------------------------------------ */
-/*
   Op management
   =============
 */
@@ -270,6 +260,7 @@ extern void gasnetc_new_threaddata_callback(void **core_threadinfo);
 /* called at startup to check configuration sanity */
 static void gasnete_check_config(void) {
   gasneti_check_config_postattach();
+  gasnete_check_config_amref();
 
   gasneti_assert_always(gasnete_eopaddr_isnil(EOPADDR_NIL));
 }

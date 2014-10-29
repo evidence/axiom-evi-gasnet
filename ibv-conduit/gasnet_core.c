@@ -617,24 +617,29 @@ static void *gasnetc_try_pin_inner(size_t size, gasnetc_memreg_t *reg) {
   return addr;
 }
 
-/* Try to pin up to 'limit' in chunks of size 'step' */
+/* Try to pin up to 'limit' in chunks no larger than size 'step' */
 static uintptr_t gasnetc_trypin(uintptr_t limit, uintptr_t step) {
-  uintptr_t size = 0;
+  gasnetc_memreg_t reg[GASNETC_IB_MAX_HCAS];
   int h;
 
-  if (limit != 0) {
-    gasnetc_memreg_t reg[GASNETC_IB_MAX_HCAS];
-    step = MIN(limit, step);
-    if (gasnetc_try_pin_inner(step, reg) != NULL) {
-      size = step + gasnetc_trypin(limit - step, step);
+  while (limit >= GASNETI_MMAP_GRANULARITY) {
+    /* step non-zero means try linear growth, else bisection */
+    uintptr_t size = step ? MIN(limit, step) : limit;
+    uintptr_t half = GASNETI_PAGE_ALIGNDOWN(size / 2);
+    if (gasnetc_try_pin_inner(size, reg) != NULL) {
+      /* Success - recurse to try another chunk */
+      size += gasnetc_trypin(step ? (limit - size) : half, step);
       GASNETC_FOR_ALL_HCA_INDEX(h) {
         gasnetc_unpin(&gasnetc_hca[h], &reg[h]);
       }
       gasnetc_unmap(&reg[0]);
+      return size;
     }
+    limit = half;
+    step = 0;
   }
 
-  return size;
+  return 0;
 }
 
 #if GASNET_ALIGNED_SEGMENTS  /* Unused otherwise */
@@ -720,10 +725,13 @@ static void gasnetc_init_pin_info(int first_local, int num_local) {
 
   if (do_probe) {
     /* Now search for largest pinnable memory, on one process per machine */
-    unsigned long step = GASNETI_MMAP_GRANULARITY;
+    uintptr_t step = ~(uintptr_t)0;
+    GASNETC_FOR_ALL_HCA_INDEX(i) {
+      step = MIN(step, gasnetc_hca[i].hca_cap.max_mr_size);
+    }
     #if GASNETC_PIN_SEGMENT
     if (gasnetc_pin_maxsz && (step > gasnetc_pin_maxsz)) {
-      step = gasnetc_pin_maxsz;
+      step = MIN(step, gasnetc_pin_maxsz);
     }
     #endif
     step = GASNETI_PAGE_ALIGNDOWN(step);

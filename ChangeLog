@@ -2,6 +2,40 @@ GASNet ChangeLog
 ----------------
 
 ----------------------------------------------------------------------
+10-28-2014 : Release 1.24.0
+
+* Cray XE, XK and XC series (gemini- and aries-conduits)
+  - Fix to allow fork()/system() on Gemini and Aries conduits
+  - Support new configuration option --disable-hugetlbfs to disable
+    use of hugepages, for instance to allow use of valgrind.
+
+* InfiniBand (ibv-conduit for OpenFabrics Verbs)
+  - Reduce startup time spent probing max pinnable memory
+
+* Mellanox ConnectX series HCAs (mxm-conduit)
+  - Fix compile failures under FAST and EVERYTHING segment modes
+  - Changes to exit flow to avoid hangs with mxm-2.0+
+  - Environment variable GASNET_PHYSMEM_NOPROBE now defaults to YES
+  - Reduce startup time (if any) spent probing max pinnable memory
+  - Support configuration namespaces in mxm-2.1+
+
+* Mellanox Fabric Collective Accelerator (FCA)
+  - Support running on the "hpcx" Linux distribution
+
+* Portable UDP support (udp-conduit)
+  - Remove arbitrary limit on command line length in udp-conduit
+    when using ssh-based spawning (GASNET_SPAWNFN=S).
+
+* Platform support/portability
+  - Fix bug 3248 - must disable PIE by default on recent OpenBSD.
+
+* General
+  - Better support for clients written in C++
+    + Probe CXX characteristics even when udp-conduit is disabled
+    + Add CXX-related settings to generated .mak files
+  - PMI-based spawning now supports PMI2 (ibv, mxm and portals4)
+
+----------------------------------------------------------------------
 05-22-2014 : Release 1.22.5 (minor bug fix release)
 
 * Cray XE, XK and XC series (gemini- and aries-conduits)

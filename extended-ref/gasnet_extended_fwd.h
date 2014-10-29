@@ -125,6 +125,13 @@ typedef struct _gasnete_op_t *gasnet_handle_t;
 #define GASNETE_USING_REF_EXTENDED_PUT      1
 #define GASNETE_USING_REF_EXTENDED_MEMSET   1
 
+/* These are the default tuning parameters for the AM-based get/put.
+ * Conduits cloning this file may want to override these: */
+#if 0
+#define GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD   gasnet_AMMaxMedium()
+#define GASNETE_USE_LONG_GETS 1
+#endif
+
 /* Implement all eight "base" operations directly via amref: */
 #define gasnete_amref_get_nb_bulk   gasnete_get_nb_bulk
 #define gasnete_amref_get_nbi_bulk  gasnete_get_nbi_bulk

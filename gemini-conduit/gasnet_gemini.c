@@ -19,9 +19,9 @@
 #endif
 
 #if GASNET_DEBUG
-  #define GASNETC_CDM_MODE GNI_CDM_MODE_ERR_NO_KILL
+  #define GASNETC_CDM_MODE GNI_CDM_MODE_FORK_FULLCOPY | GNI_CDM_MODE_ERR_NO_KILL
 #else
-  #define GASNETC_CDM_MODE 0
+  #define GASNETC_CDM_MODE GNI_CDM_MODE_FORK_FULLCOPY
 #endif
 
 int      gasnetc_dev_id;
@@ -569,7 +569,7 @@ void gasnetc_init_segment(void *segment_start, size_t segment_size)
   }
   have_segment = 1;
 
-  gasneti_assert(status == GNI_RC_SUCCESS);
+  gasneti_assert_always (status == GNI_RC_SUCCESS);
 
   {
     gni_mem_handle_t *all_mem_handle = gasneti_malloc(gasneti_nodes * sizeof(gni_mem_handle_t));
@@ -675,7 +675,7 @@ void  gasnetc_create_parallel_domain(gasnete_threadidx_t tidx)
      }
    }
   }
-  gasneti_assert(status == GNI_RC_SUCCESS);
+  gasneti_assert_always(status == GNI_RC_SUCCESS);
   {
     gni_mem_handle_t *all_mem_handle = gasneti_malloc(gasneti_nodes * sizeof(gni_mem_handle_t));
     gasnet_node_t i;
@@ -824,9 +824,13 @@ uintptr_t gasnetc_init_messaging(void)
   /* TODO: remove MAX(1,) while still avoiding "issues" on single-(super)node runs */
   am_mmap_bytes = reply_region_length + MAX(1,remote_nodes) * peer_stride;
   
+#if defined(GASNETI_USE_HUGETLBFS)
   am_mmap_ptr = gasneti_huge_mmap(NULL, am_mmap_bytes);
+#else
+  am_mmap_ptr = gasneti_mmap(am_mmap_bytes);
+#endif
   if (am_mmap_ptr == (char *)MAP_FAILED) {
-    gasnetc_GNIT_Abort("hugepage mmap failed: ");
+    gasnetc_GNIT_Abort("am mmap failed: ");
   }
   
   {
@@ -982,7 +986,11 @@ void gasnetc_shutdown(void)
 #if GASNETC_USE_MULTI_DOMAIN
     if (didx == GASNETC_DEFAULT_DOMAIN) {
 #endif
+#if defined(GASNETI_USE_HUGETLBFS)
       gasneti_huge_munmap(am_mmap_ptr, am_mmap_bytes);
+#else
+      gasneti_munmap(am_mmap_ptr, am_mmap_bytes);
+#endif
 
       status = GNI_MemDeregister(nic_handle, &am_handle);
       if_pf (status != GNI_RC_SUCCESS) {

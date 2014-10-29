@@ -31,8 +31,8 @@ AC_VALIDATE_CACHED_SYSTEM_TUPLE
 
 dnl Public release version packaging identifier:
 AC_DEFUN([GASNET_RELEASE_VERSION_MAJOR_D],[1])
-AC_DEFUN([GASNET_RELEASE_VERSION_MINOR_D],[22])
-AC_DEFUN([GASNET_RELEASE_VERSION_PATCH_D],[5])
+AC_DEFUN([GASNET_RELEASE_VERSION_MINOR_D],[24])
+AC_DEFUN([GASNET_RELEASE_VERSION_PATCH_D],[0])
 dnl GASNet spec version:
 AC_DEFUN([GASNET_SPEC_VERSION_MAJOR_D],[1])
 AC_DEFUN([GASNET_SPEC_VERSION_MINOR_D],[8])
@@ -1162,13 +1162,21 @@ AC_CHECK_LIB(thread, thr_create, have_solthread=yes, have_solthread=no)
 
 dnl GASNET_TOOLSONLY_FALSE_BEGIN
 have_hugetlbfs=no
-AC_CHECK_HEADERS(hugetlbfs.h, [
+GASNET_IF_ENABLED_WITH_AUTO(hugetlbfs,
+  [Enable/disable huegtlbfs support (default is system dependent)],
+  [enabled_hugetlbfs=yes], [enabled_hugetlbfs=no], [enabled_hugetlbfs=probe])
+if test "$enabled_hugetlbfs" != 'no'; then
+ AC_CHECK_HEADERS(hugetlbfs.h, [
   GASNET_PUSHVAR(LIBS,"$LIBS -lhugetlbfs")
   AC_CHECK_FUNCS([hugetlbfs_unlinked_fd_for_size hugetlbfs_unlinked_fd],
                  [have_hugetlbfs=yes
                   AC_DEFINE(HAVE_HUGETLBFS)])
   GASNET_POPVAR(LIBS)
-])
+ ])
+ if test "$enabled_hugetlbfs$have_hugetlbfs" = 'yesno'; then
+   GASNET_MSG_ERROR([User requested --enable-hugetlbfs but the header and/or library could not be found])
+ fi
+fi
 with_pshm=no
 GASNET_PSHM_LIBS=""
 GASNET_PSHM_ENABLED=no
@@ -2084,12 +2092,8 @@ echo " Portable conduits:" >> $CONDUIT_LIST
 echo " -----------------" >> $CONDUIT_LIST
 fi
 #---------------------------------------------------------------------------------------------------------------
-# UDP/AMUDP Configuration
 
-CONDUIT_BEGIN(udp,[portable UDP network conduit (udp)])
-if test $enabled_udp = yes; then
-
-  # Do C++ configuration
+# Do C++ configuration
   AC_LANG_SAVE
 
   # when called by Titanium configure, target C++ compiler will be in TARGET_CXX(FLAGS)
@@ -2104,7 +2108,7 @@ if test $enabled_udp = yes; then
 
   if test "$with_cxx" = no; then
     have_cxx=no
-    GASNET_MSG_WARN([C++ compiler disabled using --without-cxx. Disabling udp-conduit, which requires C++])
+    GASNET_MSG_WARN([C++ compiler disabled using --without-cxx])
   else
     # bug 1725: Run GASNET_PROG_CXX with care in case it drops dead (missing C++)
     # Temporary override of AC_MSG_ERROR is a dirty hack!  However, the previous approach
@@ -2114,7 +2118,7 @@ if test $enabled_udp = yes; then
     GASNET_PROG_CXX
     popdef([AC_MSG_ERROR])
     if test "$have_cxx" = no; then
-      GASNET_MSG_WARN([It appears you have no working C++ compiler. Disabling udp-conduit, which requires C++])
+      GASNET_MSG_WARN([It appears you have no working C++ compiler])
     fi
   fi
 
@@ -2146,7 +2150,7 @@ if test $enabled_udp = yes; then
            ;;
        esac
        GASNET_GET_GNUWARNINGFLAGS(CXX)
-       MISC_CXXFLAGS="$MISC_CXXFLAGS $CXXFLAGS" 
+       CXXDEBUGFLAGS="$CXXFLAGS"
        GASNET_POPVAR(CXXFLAGS)
     ;;
     PGI)   MISC_CXXFLAGS="-w -Masmkeyword -Msignextend" # apparently has no way to indep control warnings
@@ -2261,7 +2265,7 @@ if test $enabled_udp = yes; then
   fi
   if test "$cxx_helper_worked" = no; then
     have_cxx=no
-    GASNET_MSG_WARN([It appears your C++ and C compilers are not link-compatible. Disabling udp-conduit, which requires C++])
+    GASNET_MSG_WARN([It appears your C++ and C compilers are not link-compatible])
   fi
   GASNET_LINKHELPER_CLEANUP()
 
@@ -2272,7 +2276,14 @@ if test $enabled_udp = yes; then
  fi
 
   AC_LANG_RESTORE
+AM_CONDITIONAL(HAVE_CXX, test "$have_cxx" = yes)
+if test "$have_cxx" = no; then
+  GASNET_MSG_WARN([Disabling udp-conduit, which requires C++])
+fi
 
+# UDP/AMUDP Configuration
+CONDUIT_BEGIN(udp,[portable UDP network conduit (udp)])
+if test $enabled_udp = yes; then
  if test "$have_cxx" = yes; then
   # detect libraries necessary for udp-* backends
   GASNET_PUSHVAR(LIBS,"")
@@ -2301,10 +2312,8 @@ if test $enabled_udp = yes; then
   GASNET_POPVAR(LIBS)
  else
   have_udp=no
-  udp_reason="no C++ support detected"
  fi
 fi
-AM_CONDITIONAL(HAVE_CXX, test "$have_cxx" = yes)
 AC_SUBST(GASNET_UDP_LIBS)
 AM_CONDITIONAL(USE_UDP_CONDUIT, test "$enabled_udp$have_udp" = yesyes)
 CONDUIT_END([test "$enabled_udp$have_udp" = yesyes])
@@ -2633,205 +2642,7 @@ echo " " >> $CONDUIT_LIST
 echo " Native, high-performance conduits:" >> $CONDUIT_LIST
 echo " ---------------------------------" >> $CONDUIT_LIST
 fi
-#--------------------------------------------------------------------------------------------------------
-# IBV configuration
-
-CONDUIT_BEGIN(ibv,[OpenIB/OpenFabrics IB Verbs network conduit (ibv)])
-if test "$enabled_ibv$have_mpi_compat$have_fork" = yesnono; then
-  enabled_ibv=no
-  GASNET_MSG_WARN([ibv-conduit requires either MPI compatibility ($mpi_compat_reason) or fork() ($fork_reason) for startup - disabling ibv])
-fi
-if test "$enabled_ibv" = yes; then
-  # Start by assuming we do have IBV
-  have_ibv=yes
-
-  # Start by finding a reasonable default
-  AC_PATH_PROGS(ibv_devinfo, ibv_devinfo)
-  if test -n "$ibv_devinfo"; then
-    ibv_guess=`dirname \`dirname $ibv_devinfo\``
-  elif test -r /usr/local/ofed; then
-    ibv_guess=/usr/local/ofed
-  elif test -r /opt/ofed; then
-    ibv_guess=/opt/ofed
-  else
-    ibv_guess=/usr
-  fi
-  GASNET_ENV_DEFAULT(IBVHOME, $ibv_guess)
-
-  AC_MSG_CHECKING(if $IBVHOME is the IB Verbs install directory)
-  if test -r $IBVHOME/include/infiniband/verbs.h; then
-    # IBVHOME looks OK
-    AC_MSG_RESULT([yes])
-  elif test -r $IBVHOME/bin/ibv_devinfo; then
-    ibv_devinfo=$IBVHOME/bin/ibv_devinfo
-    GASNET_FOLLOWLINKS(ibv_devinfo)
-    IBVHOME=`dirname \`dirname $ibv_devinfo\``
-    AC_MSG_RESULT([no - followed symlink to $IBVHOME])
-  else
-    AC_MSG_RESULT([probably not])
-  fi
-
-  GASNET_ENV_DEFAULT(IBV_INCLUDE, $IBVHOME/include)
-  GASNET_ENV_DEFAULT(IBV_LIBS, -libverbs)
-  # Note 'test -d $foo/.' works even if $foo is a symlink
-  if test -d $IBVHOME/lib${GASNETI_PTR_BITS}/.; then
-    ibv_libdir_default=$IBVHOME/lib${GASNETI_PTR_BITS}
-  else
-    ibv_libdir_default=$IBVHOME/lib
-  fi
-  GASNET_ENV_DEFAULT(IBV_LIBDIR, $ibv_libdir_default)
-
-  # Assemble any extra flags needed at library build time
-  IBV_LIBCFLAGS='' # None yet
-
-  # Try to compile and link a basic IB Verbs program
-  GASNET_PUSHVAR(CFLAGS,"$CFLAGS -I$IBV_INCLUDE $GASNET_THREAD_DEFINES $IBV_LIBCFLAGS")
-  GASNET_PUSHVAR(LIBS,"$LIBS -L$IBV_LIBDIR $IBV_LIBS $GASNET_THREAD_LIBS")
-
-  GASNET_TRY_CACHE_LINK(for working IB Verbs configuration, ibv_works, [
-    #if defined(__GNUC__) && !defined(inline)
-      /* ANSI-ify the verbs headers */
-      #define inline __inline__
-      #include <infiniband/verbs.h>
-      #undef inline
-    #else
-      #include <infiniband/verbs.h>
-    #endif
-  ], [{
-    struct ibv_device device;
-    char *s = ibv_get_device_name(&device);
-  }], [ : ], [ have_ibv=no; GASNET_ERR_SAVE() ] )
-
-  if test "$have_ibv" = yes; then
-    GASNET_TRY_CACHE_LINK(for ibv_device.transport_type, ibv_transport_type, [
-      #if defined(__GNUC__) && !defined(inline)
-        /* ANSI-ify the verbs headers */
-        #define inline __inline__
-        #include <infiniband/verbs.h>
-        #undef inline
-      #else
-        #include <infiniband/verbs.h>
-      #endif
-    ], [
-      struct ibv_device device;
-      device.transport_type = IBV_TRANSPORT_IB;
-    ], [ AC_DEFINE(HAVE_IBV_TRANSPORT_TYPE) ] )
-  fi
-
-  GASNET_POPVAR(CFLAGS)
-  GASNET_POPVAR(LIBS)
-
-  if test "$have_ibv" = yes; then
-    # XXX: Need to support older (get_devices) interface at some point?
-    #GASNET_PUSHVAR(LIBS,"$LIBS -L$IBV_LIBDIR")
-    #AC_SEARCH_LIBS(ibv_get_device_list, ibverbs, AC_DEFINE(HAVE_IBV_GET_DEVICE_LIST))
-    #AC_SEARCH_LIBS(ibv_get_devices, ibverbs, AC_DEFINE(HAVE_IBV_GET_DEVICES))
-    #GASNET_POPVAR(LIBS)
-
-    # Since we are using firehose we need to disable certain optimizations.
-    # See bug #350 for an example of why firehose needs this.
-    # See bug #596 or #1031 for evidence that InfiniBand is affected by this.
-    # See bug #1052 for evidence that xlc is affected.
-    GASNET_FH_CFLAGS
-
-    # Collect IB-specifc configure options
-
-    GASNET_IF_ENABLED_WITH_AUTO(ibv-rcv-thread, [See ibv-conduit/README (enabled by default if pthreads available)], 
-      [enabled_ibv_rcv_thread=yes
-       if test "$have_pthread" = no; then
-         AC_MSG_ERROR([--enable-ibv-rcv-thread requires pthread support but pthreads $pthread_reason])
-       fi],
-      [enabled_ibv_rcv_thread=no],
-      [enabled_ibv_rcv_thread=$have_pthread])
-      if test "$enabled_ibv_rcv_thread" = yes; then
-        AC_DEFINE(GASNETC_IBV_RCV_THREAD)
-      fi
-
-    GASNET_IF_ENABLED_WITH_AUTO(ibv-conn-thread, [See ibv-conduit/README (enabled by default if pthreads available)], 
-      [enabled_ibv_conn_thread=yes
-       if test "$have_pthread" = no; then
-         AC_MSG_ERROR([--enable-ibv-conn-thread requires pthread support but pthreads $pthread_reason])
-       fi],
-      [enabled_ibv_conn_thread=no],
-      [enabled_ibv_conn_thread=$have_pthread])
-      if test "$enabled_ibv_conn_thread" = yes; then
-        AC_DEFINE(GASNETC_IBV_CONN_THREAD)
-      fi
-
-    GASNET_WITH(ibv-spawner,
-       [IBV job spawner ("ssh", "mpi" or "pmi", default is mpi when available)],
-       [case "$withval" in
-          ssh|mpi|pmi) gasnet_ibv_spawner_conf=$withval
-               ;;
-          yes) AC_MSG_ERROR([--with-ibv-spawner requires an argument ("ssh", "mpi" or "pmi")])
-               ;;
-          *)   AC_MSG_ERROR([--with-ibv-spawner argument must be "ssh", "mpi" or "pmi"])
-               ;;
-        esac],
-       [AC_MSG_ERROR([--with-ibv-spawner argument must be "ssh", "mpi" or "pmi"])],
-       [if test "$have_mpi_compat" = yes; then
-          gasnet_ibv_spawner_conf=mpi
-        else
-          gasnet_ibv_spawner_conf=ssh
-        fi])
-    if test "$gasnet_ibv_spawner_conf$have_mpi_compat" = mpino; then
-      AC_MSG_ERROR([--with-ibv-spawner=mpi requires MPI compatibility support which $mpi_compat_reason])
-    fi
-    if test "$gasnet_ibv_spawner_conf$have_fork" = sshno; then
-      AC_MSG_ERROR([--with-ibv-spawner=ssh requires fork() support which $fork_reason])
-    fi
-    GASNET_IBV_SPAWNER_CONF=$gasnet_ibv_spawner_conf
-    AC_SUBST(GASNET_IBV_SPAWNER_CONF)
-
-    gasnetc_ibv_max_hcas=2
-    GASNET_IF_DISABLED(ibv-multirail, [Disable IBV over multiple HCAs, see ibv-conduit/README (enabled by default)], enabled_ibv_multirail=no, enabled_ibv_multirail=yes)
-    GASNET_WITH(ibv-max-hcas,
-       [maximum number of IBV HCAs to open for multi-rail support (default is 2)],
-       [if expr "${withval}" : "[[1-9]][[0-9]]*" >/dev/null; then
-          gasnetc_ibv_max_hcas="$withval"
-        else
-          AC_MSG_ERROR([--with-ibv-max-hcas requires a postive integer argument])
-        fi],
-       [AC_MSG_ERROR([--with-ibv-max-hcas requires a postive integer argument])],
-       [:])
-    if test "$enabled_ibv_multirail" = yes; then
-      AC_DEFINE_UNQUOTED(GASNETC_IBV_MAX_HCAS, $gasnetc_ibv_max_hcas)
-    fi
-
-    GASNET_IF_DISABLED([ibv-srq],
-                       [Disable Shared Receive Queue (SRQ) support in ibv-conduit (enabled by default)],
-		       [enabled_ibv_srq=no], [AC_DEFINE(HAVE_IBV_SRQ)])
-
-    GASNET_IF_ENABLED_WITH_AUTO([ibv-xrc],
-        [Enable/disable eXtended Reliable Connection (XRC) support in ibv-conduit (default is to probe)],
-        [enabled_ibv_xrc="yes"; force_ibv_xrc="yes"],
-        [enabled_ibv_xrc="no"],
-        [enabled_ibv_xrc="yes"])
-    if test "x$enabled_ibv_srq" = xno; then
-      if test "x$force_ibv_xrc" = xyes; then
-        GASNET_MSG_ERROR([IBV XRC support was requested with --enable-ibv-xrc but requires SRQ support which has been disabled])
-      fi
-    elif test "$enabled_ibv_xrc" = yes; then
-      GASNET_PUSHVAR(LIBS,"$LIBS -L$IBV_LIBDIR $IBV_LIBS $GASNET_THREAD_LIBS")
-      AC_CHECK_FUNCS([ibv_create_xrc_rcv_qp], [have_ibv_xrc=yes], [have_ibv_xrc=no])
-      GASNET_POPVAR(LIBS)
-      if test "$have_ibv_xrc" = yes; then
-        AC_DEFINE(HAVE_IBV_XRC)
-      elif test "x$force_ibv_xrc" = xyes; then
-        GASNET_MSG_ERROR([IBV XRC support was requested with --enable-ibv-xrc but is not available])
-      fi
-    fi
-  fi
-fi
-AC_SUBST(IBV_INCLUDE)
-AC_SUBST(IBV_LIBDIR)
-AC_SUBST(IBV_LIBS)
-AC_SUBST(IBV_LIBCFLAGS)
-AM_CONDITIONAL(USE_IBV_CONDUIT, test "$have_ibv" = yes)
-AM_CONDITIONAL(IBV_BOOTSTRAP_SSH, test "$have_fork" = yes)
-AM_CONDITIONAL(IBV_BOOTSTRAP_MPI, test "$have_mpi_compat" = yes)	# Option to omit MPI support?
-AM_CONDITIONAL(IBV_RCV_THREAD,test "$enabled_ibv_rcv_thread" = yes)
-CONDUIT_END([test "$have_ibv" = yes])
+dnl Please order network probes from LOW to HIGH precedence for selection
 
 #--------------------------------------------------------------------------------------------------------
 # MXM configuration
@@ -3073,6 +2884,206 @@ AM_CONDITIONAL(USE_PORTALS4_CONDUIT, test "$have_portals4" = yes)
 CONDUIT_END([test "$have_portals4" = yes])
 
 #--------------------------------------------------------------------------------------------------------
+# IBV configuration
+
+CONDUIT_BEGIN(ibv,[OpenIB/OpenFabrics IB Verbs network conduit (ibv)])
+if test "$enabled_ibv$have_mpi_compat$have_fork" = yesnono; then
+  enabled_ibv=no
+  GASNET_MSG_WARN([ibv-conduit requires either MPI compatibility ($mpi_compat_reason) or fork() ($fork_reason) for startup - disabling ibv])
+fi
+if test "$enabled_ibv" = yes; then
+  # Start by assuming we do have IBV
+  have_ibv=yes
+
+  # Start by finding a reasonable default
+  AC_PATH_PROGS(ibv_devinfo, ibv_devinfo)
+  if test -n "$ibv_devinfo"; then
+    ibv_guess=`dirname \`dirname $ibv_devinfo\``
+  elif test -r /usr/local/ofed; then
+    ibv_guess=/usr/local/ofed
+  elif test -r /opt/ofed; then
+    ibv_guess=/opt/ofed
+  else
+    ibv_guess=/usr
+  fi
+  GASNET_ENV_DEFAULT(IBVHOME, $ibv_guess)
+
+  AC_MSG_CHECKING(if $IBVHOME is the IB Verbs install directory)
+  if test -r $IBVHOME/include/infiniband/verbs.h; then
+    # IBVHOME looks OK
+    AC_MSG_RESULT([yes])
+  elif test -r $IBVHOME/bin/ibv_devinfo; then
+    ibv_devinfo=$IBVHOME/bin/ibv_devinfo
+    GASNET_FOLLOWLINKS(ibv_devinfo)
+    IBVHOME=`dirname \`dirname $ibv_devinfo\``
+    AC_MSG_RESULT([no - followed symlink to $IBVHOME])
+  else
+    AC_MSG_RESULT([probably not])
+  fi
+
+  GASNET_ENV_DEFAULT(IBV_INCLUDE, $IBVHOME/include)
+  GASNET_ENV_DEFAULT(IBV_LIBS, -libverbs)
+  # Note 'test -d $foo/.' works even if $foo is a symlink
+  if test -d $IBVHOME/lib${GASNETI_PTR_BITS}/.; then
+    ibv_libdir_default=$IBVHOME/lib${GASNETI_PTR_BITS}
+  else
+    ibv_libdir_default=$IBVHOME/lib
+  fi
+  GASNET_ENV_DEFAULT(IBV_LIBDIR, $ibv_libdir_default)
+
+  # Assemble any extra flags needed at library build time
+  IBV_LIBCFLAGS='' # None yet
+
+  # Try to compile and link a basic IB Verbs program
+  GASNET_PUSHVAR(CFLAGS,"$CFLAGS -I$IBV_INCLUDE $GASNET_THREAD_DEFINES $IBV_LIBCFLAGS")
+  GASNET_PUSHVAR(LIBS,"$LIBS -L$IBV_LIBDIR $IBV_LIBS $GASNET_THREAD_LIBS")
+
+  GASNET_TRY_CACHE_LINK(for working IB Verbs configuration, ibv_works, [
+    #if defined(__GNUC__) && !defined(inline)
+      /* ANSI-ify the verbs headers */
+      #define inline __inline__
+      #include <infiniband/verbs.h>
+      #undef inline
+    #else
+      #include <infiniband/verbs.h>
+    #endif
+  ], [{
+    struct ibv_device device;
+    char *s = ibv_get_device_name(&device);
+  }], [ : ], [ have_ibv=no; GASNET_ERR_SAVE() ] )
+
+  if test "$have_ibv" = yes; then
+    GASNET_TRY_CACHE_LINK(for ibv_device.transport_type, ibv_transport_type, [
+      #if defined(__GNUC__) && !defined(inline)
+        /* ANSI-ify the verbs headers */
+        #define inline __inline__
+        #include <infiniband/verbs.h>
+        #undef inline
+      #else
+        #include <infiniband/verbs.h>
+      #endif
+    ], [
+      struct ibv_device device;
+      device.transport_type = IBV_TRANSPORT_IB;
+    ], [ AC_DEFINE(HAVE_IBV_TRANSPORT_TYPE) ] )
+  fi
+
+  GASNET_POPVAR(CFLAGS)
+  GASNET_POPVAR(LIBS)
+
+  if test "$have_ibv" = yes; then
+    # XXX: Need to support older (get_devices) interface at some point?
+    #GASNET_PUSHVAR(LIBS,"$LIBS -L$IBV_LIBDIR")
+    #AC_SEARCH_LIBS(ibv_get_device_list, ibverbs, AC_DEFINE(HAVE_IBV_GET_DEVICE_LIST))
+    #AC_SEARCH_LIBS(ibv_get_devices, ibverbs, AC_DEFINE(HAVE_IBV_GET_DEVICES))
+    #GASNET_POPVAR(LIBS)
+
+    # Since we are using firehose we need to disable certain optimizations.
+    # See bug #350 for an example of why firehose needs this.
+    # See bug #596 or #1031 for evidence that InfiniBand is affected by this.
+    # See bug #1052 for evidence that xlc is affected.
+    GASNET_FH_CFLAGS
+
+    # Collect IB-specifc configure options
+
+    GASNET_IF_ENABLED_WITH_AUTO(ibv-rcv-thread, [See ibv-conduit/README (enabled by default if pthreads available)], 
+      [enabled_ibv_rcv_thread=yes
+       if test "$have_pthread" = no; then
+         AC_MSG_ERROR([--enable-ibv-rcv-thread requires pthread support but pthreads $pthread_reason])
+       fi],
+      [enabled_ibv_rcv_thread=no],
+      [enabled_ibv_rcv_thread=$have_pthread])
+      if test "$enabled_ibv_rcv_thread" = yes; then
+        AC_DEFINE(GASNETC_IBV_RCV_THREAD)
+      fi
+
+    GASNET_IF_ENABLED_WITH_AUTO(ibv-conn-thread, [See ibv-conduit/README (enabled by default if pthreads available)], 
+      [enabled_ibv_conn_thread=yes
+       if test "$have_pthread" = no; then
+         AC_MSG_ERROR([--enable-ibv-conn-thread requires pthread support but pthreads $pthread_reason])
+       fi],
+      [enabled_ibv_conn_thread=no],
+      [enabled_ibv_conn_thread=$have_pthread])
+      if test "$enabled_ibv_conn_thread" = yes; then
+        AC_DEFINE(GASNETC_IBV_CONN_THREAD)
+      fi
+
+    GASNET_WITH(ibv-spawner,
+       [IBV job spawner ("ssh", "mpi" or "pmi", default is mpi when available)],
+       [case "$withval" in
+          ssh|mpi|pmi) gasnet_ibv_spawner_conf=$withval
+               ;;
+          yes) AC_MSG_ERROR([--with-ibv-spawner requires an argument ("ssh", "mpi" or "pmi")])
+               ;;
+          *)   AC_MSG_ERROR([--with-ibv-spawner argument must be "ssh", "mpi" or "pmi"])
+               ;;
+        esac],
+       [AC_MSG_ERROR([--with-ibv-spawner argument must be "ssh", "mpi" or "pmi"])],
+       [if test "$have_mpi_compat" = yes; then
+          gasnet_ibv_spawner_conf=mpi
+        else
+          gasnet_ibv_spawner_conf=ssh
+        fi])
+    if test "$gasnet_ibv_spawner_conf$have_mpi_compat" = mpino; then
+      AC_MSG_ERROR([--with-ibv-spawner=mpi requires MPI compatibility support which $mpi_compat_reason])
+    fi
+    if test "$gasnet_ibv_spawner_conf$have_fork" = sshno; then
+      AC_MSG_ERROR([--with-ibv-spawner=ssh requires fork() support which $fork_reason])
+    fi
+    GASNET_IBV_SPAWNER_CONF=$gasnet_ibv_spawner_conf
+    AC_SUBST(GASNET_IBV_SPAWNER_CONF)
+
+    gasnetc_ibv_max_hcas=2
+    GASNET_IF_DISABLED(ibv-multirail, [Disable IBV over multiple HCAs, see ibv-conduit/README (enabled by default)], enabled_ibv_multirail=no, enabled_ibv_multirail=yes)
+    GASNET_WITH(ibv-max-hcas,
+       [maximum number of IBV HCAs to open for multi-rail support (default is 2)],
+       [if expr "${withval}" : "[[1-9]][[0-9]]*" >/dev/null; then
+          gasnetc_ibv_max_hcas="$withval"
+        else
+          AC_MSG_ERROR([--with-ibv-max-hcas requires a postive integer argument])
+        fi],
+       [AC_MSG_ERROR([--with-ibv-max-hcas requires a postive integer argument])],
+       [:])
+    if test "$enabled_ibv_multirail" = yes; then
+      AC_DEFINE_UNQUOTED(GASNETC_IBV_MAX_HCAS, $gasnetc_ibv_max_hcas)
+    fi
+
+    GASNET_IF_DISABLED([ibv-srq],
+                       [Disable Shared Receive Queue (SRQ) support in ibv-conduit (enabled by default)],
+		       [enabled_ibv_srq=no], [AC_DEFINE(HAVE_IBV_SRQ)])
+
+    GASNET_IF_ENABLED_WITH_AUTO([ibv-xrc],
+        [Enable/disable eXtended Reliable Connection (XRC) support in ibv-conduit (default is to probe)],
+        [enabled_ibv_xrc="yes"; force_ibv_xrc="yes"],
+        [enabled_ibv_xrc="no"],
+        [enabled_ibv_xrc="yes"])
+    if test "x$enabled_ibv_srq" = xno; then
+      if test "x$force_ibv_xrc" = xyes; then
+        GASNET_MSG_ERROR([IBV XRC support was requested with --enable-ibv-xrc but requires SRQ support which has been disabled])
+      fi
+    elif test "$enabled_ibv_xrc" = yes; then
+      GASNET_PUSHVAR(LIBS,"$LIBS -L$IBV_LIBDIR $IBV_LIBS $GASNET_THREAD_LIBS")
+      AC_CHECK_FUNCS([ibv_create_xrc_rcv_qp], [have_ibv_xrc=yes], [have_ibv_xrc=no])
+      GASNET_POPVAR(LIBS)
+      if test "$have_ibv_xrc" = yes; then
+        AC_DEFINE(HAVE_IBV_XRC)
+      elif test "x$force_ibv_xrc" = xyes; then
+        GASNET_MSG_ERROR([IBV XRC support was requested with --enable-ibv-xrc but is not available])
+      fi
+    fi
+  fi
+fi
+AC_SUBST(IBV_INCLUDE)
+AC_SUBST(IBV_LIBDIR)
+AC_SUBST(IBV_LIBS)
+AC_SUBST(IBV_LIBCFLAGS)
+AM_CONDITIONAL(USE_IBV_CONDUIT, test "$have_ibv" = yes)
+AM_CONDITIONAL(IBV_BOOTSTRAP_SSH, test "$have_fork" = yes)
+AM_CONDITIONAL(IBV_BOOTSTRAP_MPI, test "$have_mpi_compat" = yes)	# Option to omit MPI support?
+AM_CONDITIONAL(IBV_RCV_THREAD,test "$enabled_ibv_rcv_thread" = yes)
+CONDUIT_END([test "$have_ibv" = yes])
+
+#--------------------------------------------------------------------------------------------------------
 # Gemini and Aries Conduits
 
 AC_DEFUN([GASNET_CHECK_GNI],[
@@ -3101,25 +3112,20 @@ if test ${gni_network}:${enabled_[]lowername} = lowername[]:yes; then
   AC_CHECK_HEADERS(pmi_cray.h, [have_pmi_cray_h=1], [have_[]lowername=no])
   AC_CHECK_HEADERS(gni_pub.h, [:], [have_[]lowername=no])
 
-  # PSHM must be XPMEM or none.  If none, then we still need hugetlbfs.
+  # PSHM must be XPMEM or none.  If none, then we still want hugetlbfs if available.
   if test $have_[]lowername = no; then
     : # empty
   elif test "$with_pshm" = no; then
-    AC_MSG_CHECKING(for hugetlbfs support required by $1)
     if test $have_hugetlbfs = yes; then
-      AC_MSG_RESULT(yes)
       GNI_LIBS="$GNI_LIBS -Wl,--whole-archive,-lhugetlbfs,--no-whole-archive"
       GNI_INCLUDES="$GNI_INCLUDES -DGASNETI_USE_HUGETLBFS"
-    else
-      $have_[]lowername=no
-      AC_MSG_RESULT(no)
     fi
   else
     AC_MSG_CHECKING(for pshm-over-xpmem support required by $1)
     if test "$with_pshm" = xpmem; then
       AC_MSG_RESULT(yes)
     else
-      $have_[]lowername=no
+      have_[]lowername=no
       AC_MSG_RESULT(no)
     fi
   fi
@@ -3516,8 +3522,8 @@ elif test "$with_pmi" = yes; then
   with_pmi='/usr'
 fi
 
+have_pmi=no
 if test "$with_pmi" != 'no'; then
-  GASNET_PUSHVAR(LIBS,"$LIBS")
   GASNET_PUSHVAR(LDFLAGS,"$LDFLAGS")
   if test "$with_pmi" = '/usr'; then
     : # Nothing to do
@@ -3528,20 +3534,45 @@ if test "$with_pmi" != 'no'; then
   fi
   LDFLAGS="$LDFLAGS $PMI_SPAWNER_LIBDIR"
 
-  AC_CHECK_LIB(pmi, PMI_Init, [
-    have_pmi=yes
-    PMI_SPAWNER_LIBS="-lpmi"
-    LIBS="$LIBS $PMI_SPAWNER_LIBS"
-  ],[
-    have_pmi=no
+  # If user specifies one PMI version then disqualify the other
+  GASNET_WITH(pmi-version, [PMI version (1 or 2)] , [
+    case "$withval" in
+      1) use_pmi1=yes;;
+      2) use_pmi2=yes;;
+      *) GASNET_MSG_ERROR([Argument to --with-pmi-version must be '1' or '2']);;
+    esac
+    with_pmi_version="withval"
+  ], [
+    GASNET_MSG_WARN([Ignoring --without-pmi-version])
   ])
 
+  # Check for libs unless disqualifed by --with-pmi-version=
+  if test -z "${use_pmi1+set}"; then
+    AC_CHECK_LIB(pmi2, PMI2_Init, [
+      use_pmi2=yes
+      have_pmi=yes
+      pmi_suffix='2'
+      AC_DEFINE(HAVE_PMI2_H)
+      PMI_SPAWNER_LIBS='-lpmi2'
+      GASNET_IF_ENABLED(pmi2-fast-barrier, Use PMI2_KVS_fence as barrier. This may not work with all PMI2 implementations,
+                         [AC_DEFINE(GASNETI_PMI2_FENCE_IS_BARRIER,[1],[define to 1 if PMI2_KVS_fence() provides barrier functionality])], [] )
+    ])
+  fi
+  if test -z "${use_pmi2+set}"; then
+    AC_CHECK_LIB(pmi, PMI_Init, [
+      use_pmi1=yes
+      have_pmi=yes
+      pmi_suffix=''
+      AC_DEFINE(HAVE_PMI_H)
+      PMI_SPAWNER_LIBS='-lpmi'
+    ])
+  fi
+
+  # Check for header matching the selected lib
   if test "$have_pmi" = yes; then
-    if test -f "${with_pmi}/include/slurm/pmi.h"; then
-      AC_DEFINE(HAVE_PMI_H)
+    if test -f "${with_pmi}/include/slurm/pmi${pmi_suffix}.h"; then
       PMI_SPAWNER_INCLUDES="-I${with_pmi}/include/slurm"
-    elif test -f "${with_pmi}/include/pmi.h"; then
-      AC_DEFINE(HAVE_PMI_H)
+    elif test -f "${with_pmi}/include/pmi${pmi_suffix}.h"; then
       if test "$with_pmi" != '/usr'; then
         PMI_SPAWNER_INCLUDES="-I${with_pmi}/include"
       fi
@@ -3551,14 +3582,15 @@ if test "$with_pmi" != 'no'; then
   fi
 
   if test "$have_pmi" = yes; then
+    GASNET_PUSHVAR(LIBS,"$LIBS PMI_SPAWNER_LIBS")
     # Not seen outside of Cray PMI, but we can hope:
     AC_CHECK_FUNCS([PMI_Allgather PMI_Bcast])
+    GASNET_POPVAR(LIBS)
+  elif test -n "${with_pmi_version+set}" ; then
+    GASNET_MSG_ERROR([Requested PMI version $with_pmi_version could not be found])
   fi
 
   GASNET_POPVAR(LDFLAGS)
-  GASNET_POPVAR(LIBS)
-else
-  have_pmi=no
 fi
 
 if test "$have_pmi" = no; then
@@ -4132,6 +4164,19 @@ case "$target_os" in
     tmp_ver=`expr "$target_os" : 'darwin\([[0-9]]*\)' 2>/dev/null`
     if expr $tmp_ver \>= 11 >/dev/null; then
       LDFLAGS="$LDFLAGS ${dash_Wl}-no_pie"
+    fi
+  ;;
+
+  openbsd*)
+    # OpenBSD PIE-by-default breaks aligned segments and upcr linker segment (bug 3248)
+    extra_ldflags='-nopie'
+    GASNET_PUSHVAR(LDFLAGS,"$LDFLAGS $extra_ldflags")
+    GASNET_TRY_CACHE_LINK(if linker supports '$extra_ldflags', ld_has_nopie,
+        [], [],
+        [], [extra_ldflags=''])
+    GASNET_POPVAR(LDFLAGS)
+    if test -n "$extra_ldflags"; then
+      LDFLAGS="$LDFLAGS $extra_ldflags"
     fi
   ;;
 

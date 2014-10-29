@@ -10,8 +10,14 @@
 #if HAVE_PMI_CRAY_H
 #  include <pmi_cray.h>
 #  define USE_PMI2_API 1
+#  ifndef PMI2_SUCCESS
+#    define PMI2_SUCCESS PMI_SUCCESS
+#  endif
 #elif HAVE_PMI_H
 #  include <pmi.h>
+#elif HAVE_PMI2_H
+#  include <pmi2.h>
+#  define USE_PMI2_API 1
 #else
 #  error "Unknown path to PMI header"
 #endif
@@ -150,10 +156,11 @@ void do_kvs_put(void *value, size_t sz) {
     do_encode(value, sz);
 #if USE_PMI2_API
     rc = PMI2_KVS_Put(kvs_key, kvs_value);
+    gasneti_assert(PMI2_SUCCESS == rc);
 #else
     rc = PMI_KVS_Put(kvs_name, kvs_key, kvs_value);
-#endif
     gasneti_assert(PMI_SUCCESS == rc);
+#endif
 }
 
 GASNETI_INLINE(do_kvs_get)
@@ -162,10 +169,11 @@ void do_kvs_get(void *value, size_t sz) {
 #if USE_PMI2_API
     int len;
     rc = PMI2_KVS_Get(kvs_name, PMI2_ID_NULL, kvs_key, kvs_value, max_val_len, &len);
+    gasneti_assert(PMI2_SUCCESS == rc);
 #else
     rc = PMI_KVS_Get(kvs_name, kvs_key, kvs_value, max_val_len);
-#endif
     gasneti_assert(PMI_SUCCESS == rc);
+#endif
     do_decode(value, sz);
 }
 
@@ -191,7 +199,7 @@ int gasneti_bootstrapInit_pmi(
 
 #if USE_PMI2_API
     int spawned, appnum;
-    if (PMI_SUCCESS != PMI2_Init(&spawned, &size, &rank, &appnum)) {
+    if (PMI2_SUCCESS != PMI2_Init(&spawned, &size, &rank, &appnum)) {
         return GASNET_ERR_NOT_INIT;
     }
 #else
@@ -240,7 +248,7 @@ int gasneti_bootstrapInit_pmi(
     max_val_bytes = 4 * (max_val_len / 5);
 
 #if USE_PMI2_API
-    if (PMI_SUCCESS != PMI2_Job_GetId(kvs_name, max_name_len)) {
+    if (PMI2_SUCCESS != PMI2_Job_GetId(kvs_name, max_name_len)) {
         gasneti_fatalerror("PMI2_Job_GetId() failed");
     }
 #else
@@ -279,7 +287,31 @@ void gasneti_bootstrapAbort_pmi(int exitcode) {
 /* gasneti_bootstrapBarrier
  */
 void gasneti_bootstrapBarrier_pmi(void) {
+#if USE_PMI2_API
+#if GASNETI_PMI2_FENCE_IS_BARRIER
+    PMI2_KVS_Fence();
+#else
+    static unsigned counter;
+    char v[16];
+    int i;
+
+    snprintf(kvs_key, max_key_len, "B%u-%u", counter, (unsigned)gasneti_mynode);
+    snprintf(v, sizeof(v), "%u", counter);
+
+    do_kvs_put(v, sizeof(v));
+    do_kvs_fence();
+
+    for (i = 0; i < gasneti_nodes; ++i) {
+        if (i == gasneti_mynode) continue;
+        snprintf(kvs_key, max_key_len, "B%u-%u", counter, (unsigned)i);
+        do_kvs_get(v, sizeof(v));
+        if (atoi(v) != counter) gasneti_fatalerror("barrier failed: exp %u got %s\n", counter, v);
+    }
+    counter++;
+#endif
+#else
     PMI_Barrier();
+#endif
 }
 
 #if HAVE_PMI_ALLGATHER

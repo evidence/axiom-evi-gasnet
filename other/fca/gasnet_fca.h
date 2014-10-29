@@ -16,6 +16,8 @@
 #define GASNET_FCA_ERROR -1
 #define GASNET_FCA_SUCCESS 0
 
+#define GASNETI_FCA_SPECFILE "/etc/fca_mpi_spec.ini"
+
 typedef struct gasnet_fca_component_ {
    int is_initialized;
 

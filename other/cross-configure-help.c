@@ -1,10 +1,11 @@
 /* Cross-compilation Instructions: 
   1. Build the program below using the target compiler (the one that builds
-     executables for your compute nodes). If compilation fails, try tweaking
-     one of the test control variables below (and you'll need to manually
-     indicate the result for that test). This program basically precomputes all the 
-     runtime values that configure will need and outputs a script that feeds the 
-     canned answers to configure.
+     executables for your compute nodes). It is best *not* to pass '-O' or
+     similar, because optimization can interfere with some tests. If compilation
+     fails, try tweaking one of the test control variables below (and you'll
+     need to manually indicate the result for that test). This program basically
+     precomputes all the runtime values that configure will need and outputs a
+     script that feeds the canned answers to configure.
   2. Run the built program on one of the compute nodes and save the output
      into a file in the top-level source directory named "cross-configure".
   3. Set the new script to be executable: chmod +x cross-configure
@@ -73,13 +74,14 @@ type name(void) { \
 #if CHECK_STACK
 int stack_check_help(volatile int *p, int x) {
     volatile int local = 1;
-    if (x < 100) return stack_check_help(p,x+1);
+    if (x == 0) return foo(&local,x+1);
+    else if (x < 100) return stack_check_help(p,x+1);
     else if (&local > p) return 1;
     else return 0;
 }
 int stack_check(void) { 
   volatile int local = 0;
-  return stack_check_help(&local, 0);
+  return stack_check_help(NULL, 0);
 }
 #else
 NOOP_CHECK(int,stack_check,"stack growth direction")
