@@ -1007,7 +1007,6 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
       // sanity checking on bootstrap info
       AMUDP_assert(AMUDP_SPMDNUMPROCS > 0 && AMUDP_SPMDNUMPROCS < AMUDP_MAX_SPMDPROCS);
       AMUDP_assert(AMUDP_SPMDMYPROC >= 0 && AMUDP_SPMDMYPROC < AMUDP_SPMDNUMPROCS);
-      AMUDP_assert(AMUDP_SPMDMYPROC >= 0 && AMUDP_SPMDMYPROC < AMUDP_SPMDNUMPROCS);
 
       en_t *tempTranslation_name = (en_t *)AMUDP_malloc(AMUDP_SPMDNUMPROCS*sizeof(en_t));
       tag_t *tempTranslation_tag = (tag_t *)AMUDP_malloc(AMUDP_SPMDNUMPROCS*sizeof(tag_t));
