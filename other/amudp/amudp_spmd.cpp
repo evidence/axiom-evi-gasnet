@@ -1195,7 +1195,7 @@ extern int AMUDP_SPMDHandleControlTraffic(int *controlMessagesServiced) {
         }
 
         case 'G': { // gather complete
-          AMUDP_assert(!AMUDP_SPMDBarrierDone && AMUDP_SPMDGatherLen > 0 && AMUDP_SPMDGatherData != NULL);
+          AMUDP_assert(!AMUDP_SPMDGatherDone && AMUDP_SPMDGatherLen > 0 && AMUDP_SPMDGatherData != NULL);
           try {
             int32_t len_nb = -1;
             recvAll(s, &len_nb, sizeof(int32_t));
