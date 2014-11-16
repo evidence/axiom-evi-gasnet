@@ -1728,14 +1728,14 @@ static int gasnetc_get_exit_role(void)
          * Don't know our role yet.
          * Send a system-category AM Request to determine our role.
          */
+        MXM_DEBUG_EXIT_FLOW("sending exit role request: current count=%d\n", gasneti_atomic_read(&gasnetc_exit_role_rep_out, 0));
+
+        gasneti_atomic_increment(&gasnetc_exit_role_rep_out, 0);
         rc = gasnetc_SystemRequest(GASNETC_EXIT_FLOW_ROOT_NODE, /* destination*/
                                    1,                           /* nargs*/
                                    (gasnet_handlerarg_t)SYSTEM_EXIT_ROLE_REQ);
 
         gasneti_assert(rc == GASNET_OK);
-        MXM_DEBUG_EXIT_FLOW("sending exit role request: current count=%d\n", gasneti_atomic_read(&gasnetc_exit_role_rep_out, 0));
-
-        gasneti_atomic_increment(&gasnetc_exit_role_rep_out, 0);
 
         /* Now spin until somebody tells us what our role is */
         do {
