@@ -241,7 +241,7 @@ Platforms where GASNet and Berkeley UPC have been successfully tested:
  
     * ucLinux/Microblaze/gcc/32: smp, udp, #%&
 
-    * Linux/ARM/gcc/32: smp, udp, #	- EXPERIMENTAL (see bug 2116)
+    * Linux/ARM/gcc/32: smp, udp, #
 
 # = No working MPI implementation available, although we have every
     reason to believe mpi conduit would work if one was available.
