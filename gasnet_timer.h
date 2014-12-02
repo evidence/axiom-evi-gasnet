@@ -290,20 +290,31 @@ GASNETI_BEGIN_EXTERNC
   #include <dirent.h>
   typedef uint64_t gasneti_tick_t;
  #if PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_CLANG
+  #if PLATFORM_COMPILER_CLANG /* or something to force? */
+    /* Clang's integrated assembler (correctly) warns that mftb* are deprecated */
+    #define GASNETI_MFTB(_reg)  "mfspr %" #_reg ",268"
+    #define GASNETI_MFTBL(_reg) "mfspr %" #_reg ",268"
+    #define GASNETI_MFTBU(_reg) "mfspr %" #_reg ",269"
+  #else
+    #define GASNETI_MFTB(_reg)  "mftb %" #_reg
+    #define GASNETI_MFTBL(_reg) "mftbl %" #_reg
+    #define GASNETI_MFTBU(_reg) "mftbu %" #_reg
+  #endif
+
   GASNETI_INLINE(gasneti_ticks_now)
   uint64_t gasneti_ticks_now(void) {
     uint64_t ret;
     #if PLATFORM_ARCH_64
-      __asm__ __volatile__("mftb %0"
+      __asm__ __volatile__(GASNETI_MFTB(0)
                            : "=r" (ret)
                            : /* no inputs */); 
     #else
       /* Note we must read hi twice to protect against wrap of lo */
       uint32_t o_hi, hi, lo;
       __asm__ __volatile__("0: \n\t"
-		           "mftbu %0\n\t"
-			   "mftbl %1\n\t"
-			   "mftbu %2\n\t"
+		           GASNETI_MFTBU(0) "\n\t"
+			   GASNETI_MFTBL(1) "\n\t"
+			   GASNETI_MFTBU(2) "\n\t"
 			   "cmpw  %0, %2\n\t"
 			   "bne- 0b\n\t"
                            : "=r" (o_hi), "=r" (lo), "=r" (hi)
@@ -312,6 +323,10 @@ GASNETI_BEGIN_EXTERNC
     #endif
     return ret;
   } 
+
+  #undef GASNETI_MFTB
+  #undef GASNETI_MFTBL
+  #undef GASNETI_MFTBU
  #elif PLATFORM_COMPILER_XLC
    #if PLATFORM_ARCH_64
       static uint64_t gasneti_ticks_now(void);
