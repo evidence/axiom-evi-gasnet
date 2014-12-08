@@ -245,7 +245,7 @@ Paul H. Hargrove <PHHargrove@lbl.gov>
       less than the number of entries in GASNET_IBV_PORTS, ports
       are opened in the order detected, regardless of their order
       in GASNET_IBV_PORTS
-    Note that in most IBV distributions the 'iv_devinfo' utility will list
+    Note that in most IBV distributions the 'ibv_devinfo' utility will list
     the available HCAs and the status of their ports.
     The default is no filter.
 
