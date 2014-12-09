@@ -189,7 +189,7 @@ extern gasneti_pshm_rank_t *gasneti_pshm_rankmap;
 /* Returns "local rank" if given node is in the callers supernode.
  * Otherwise returns an "impossible" value >= gasneti_pshm_nodes.
  */
-GASNETI_INLINE(gasneti_pshm_local_rank)
+GASNETI_INLINE(gasneti_pshm_local_rank) GASNETI_PURE
 unsigned int gasneti_pshm_local_rank(gasnet_node_t node) {
 #if GASNET_CONDUIT_SMP
   return node;
@@ -205,11 +205,12 @@ unsigned int gasneti_pshm_local_rank(gasnet_node_t node) {
   }
 #endif
 }
+GASNETI_PUREP(gasneti_pshm_local_rank)
 
 /* Returns 1 if given node is in the caller's supernode, or 0 if it's not.
  * NOTE: result is false before vnet initialization.
  */
-GASNETI_INLINE(gasneti_pshm_in_supernode)
+GASNETI_INLINE(gasneti_pshm_in_supernode) GASNETI_PURE
 int gasneti_pshm_in_supernode(gasnet_node_t node) {
 #if GASNET_CONDUIT_SMP
   return 1;
@@ -217,14 +218,16 @@ int gasneti_pshm_in_supernode(gasnet_node_t node) {
   return (gasneti_pshm_local_rank(node) < gasneti_pshm_nodes);
 #endif
 }
+GASNETI_PUREP(gasneti_pshm_in_supernode)
 
 /* Returns local version of remote in-supernode address.
  */
-GASNETI_INLINE(gasneti_pshm_addr2local)
+GASNETI_INLINE(gasneti_pshm_addr2local) GASNETI_PURE
 void *gasneti_pshm_addr2local(gasnet_node_t node, void *addr) {
   return  (void*)((uintptr_t)addr
                    + (uintptr_t)gasneti_nodeinfo[node].offset);
 } 
+GASNETI_PUREP(gasneti_pshm_addr2local)
 
 /* Returns amount of memory needed (rounded up to a multiple of the system
  * page size) needed for a new gasneti_pshmnet_t.
