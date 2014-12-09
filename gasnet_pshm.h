@@ -189,7 +189,7 @@ extern gasneti_pshm_rank_t *gasneti_pshm_rankmap;
 /* Returns "local rank" if given node is in the callers supernode.
  * Otherwise returns an "impossible" value >= gasneti_pshm_nodes.
  */
-GASNETI_INLINE(gasneti_pshmnet_local_rank)
+GASNETI_INLINE(gasneti_pshm_local_rank)
 unsigned int gasneti_pshm_local_rank(gasnet_node_t node) {
 #if GASNET_CONDUIT_SMP
   return node;
@@ -209,7 +209,7 @@ unsigned int gasneti_pshm_local_rank(gasnet_node_t node) {
 /* Returns 1 if given node is in the caller's supernode, or 0 if it's not.
  * NOTE: result is false before vnet initialization.
  */
-GASNETI_INLINE(gasneti_pshmnet_in_supernode)
+GASNETI_INLINE(gasneti_pshm_in_supernode)
 int gasneti_pshm_in_supernode(gasnet_node_t node) {
 #if GASNET_CONDUIT_SMP
   return 1;
