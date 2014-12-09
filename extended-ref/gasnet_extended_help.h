@@ -252,27 +252,29 @@ typedef union {
   } while(0)
 #else
 #define GASNETE_FAST_ALIGNED_MEMCPY(dest, src, nbytes) do { \
+  const void * const _src = (src);                          \
+  void * const _dst = (dest);                               \
   switch(nbytes) {                                          \
     case 0:                                                 \
       break;                                                \
-    case 1:  *((gasnete_anytype8_t *)(dest)) =              \
-             *((gasnete_anytype8_t *)(src));                \
+    case 1:  *((gasnete_anytype8_t *)_dst) =                \
+             *((gasnete_anytype8_t *)_src);                 \
       break;                                                \
   GASNETE_OMIT_WHEN_MISSING_16BIT(                          \
-    case 2:  *((gasnete_anytype16_t *)(dest)) =             \
-             *((gasnete_anytype16_t *)(src));               \
+    case 2:  *((gasnete_anytype16_t *)_dst) =               \
+             *((gasnete_anytype16_t *)_src);                \
       break;                                                \
   )                                                         \
-    case 4:  *((gasnete_anytype32_t *)(dest)) =             \
-             *((gasnete_anytype32_t *)(src));               \
+    case 4:  *((gasnete_anytype32_t *)_dst) =               \
+             *((gasnete_anytype32_t *)_src);                \
       break;                                                \
-    case 8:  *((gasnete_anytype64_t *)(dest)) =             \
-             *((gasnete_anytype64_t *)(src));               \
+    case 8:  *((gasnete_anytype64_t *)_dst) =               \
+             *((gasnete_anytype64_t *)_src);                \
       break;                                                \
     default:                                                \
-      memcpy(dest, src, nbytes);                            \
+      memcpy(_dst, _src, nbytes);                           \
   }                                                         \
-  } while(0)
+} while(0)
 #endif /* GASNETI_BUG1389_WORKAROUND */
 
 #define GASNETE_FAST_UNALIGNED_MEMCPY(dest, src, nbytes) memcpy(dest, src, nbytes)
