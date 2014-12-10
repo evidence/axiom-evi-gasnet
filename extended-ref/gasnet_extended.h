@@ -40,67 +40,6 @@ extern gasnet_handlerentry_t const *gasnete_get_handlertable(void);
 extern void gasnete_init(void);
 
 /* ------------------------------------------------------------------------------------ */
-/* helper macros */
-#define _GASNETI_RETURN_V  return
-#define _GASNETI_RETURN_H  return GASNET_INVALID_HANDLE
-#define GASNETI_CHECKZEROSZ_GET(variety, rt) do {            \
-    if_pf (nbytes == 0) {                                    \
-      GASNETI_TRACE_GET_LOCAL(variety,dest,node,src,nbytes); \
-      _GASNETI_RETURN_##rt;                                  \
-    } } while(0)
-#define GASNETI_CHECKZEROSZ_PUT(variety, rt) do {            \
-    if_pf (nbytes == 0) {                                    \
-      GASNETI_TRACE_PUT_LOCAL(variety,node,dest,src,nbytes); \
-      _GASNETI_RETURN_##rt;                                  \
-    } } while(0)
-#define GASNETI_CHECKZEROSZ_MEMSET(variety, rt) do {            \
-    if_pf (nbytes == 0) {                                       \
-      GASNETI_TRACE_MEMSET_LOCAL(variety,node,dest,val,nbytes); \
-      _GASNETI_RETURN_##rt;                                     \
-    } } while(0)
-#define GASNETI_CHECKZEROSZ_NAMED(tracecall, rt) do { \
-    if_pf (nbytes == 0) {                             \
-      tracecall;                                      \
-      _GASNETI_RETURN_##rt;                           \
-    } } while(0)
-#if GASNET_PSHM
-  #define GASNETI_CHECKPSHM_GET(align, rt) do { \
-    if (gasneti_pshm_in_supernode(node)) {      \
-      GASNETE_FAST_##align##_MEMCPY(dest, gasneti_pshm_addr2local(node, src), nbytes); \
-      gasnete_loopbackget_memsync();            \
-      _GASNETI_RETURN_##rt;                     \
-    }} while(0)
-  #define GASNETI_CHECKPSHM_PUT(align, rt) do { \
-    if (gasneti_pshm_in_supernode(node)) {      \
-      GASNETE_FAST_##align##_MEMCPY(gasneti_pshm_addr2local(node, dest), src, nbytes); \
-      gasnete_loopbackput_memsync();            \
-      _GASNETI_RETURN_##rt;                     \
-    }} while(0)
-  #define GASNETI_CHECKPSHM_GETVAL() do {     \
-    if (gasneti_pshm_in_supernode(node)) {      \
-      GASNETE_VALUE_RETURN(gasneti_pshm_addr2local(node, src), nbytes); \
-    }} while(0)
-  #define GASNETI_CHECKPSHM_PUTVAL(rt) do {     \
-    if (gasneti_pshm_in_supernode(node)) {      \
-      GASNETE_VALUE_ASSIGN(gasneti_pshm_addr2local(node, dest), value, nbytes); \
-      gasnete_loopbackput_memsync();            \
-      _GASNETI_RETURN_##rt;                     \
-    }} while(0)
-  #define GASNETI_CHECKPSHM_MEMSET(rt) do {     \
-    if (gasneti_pshm_in_supernode(node)) {      \
-      memset(gasneti_pshm_addr2local(node, dest), val, nbytes); \
-      gasnete_loopbackput_memsync();            \
-      _GASNETI_RETURN_##rt;                     \
-    }} while(0)
-#else
-  #define GASNETI_CHECKPSHM_GET(align, rt) ((void)0)
-  #define GASNETI_CHECKPSHM_PUT(align, rt) ((void)0)
-  #define GASNETI_CHECKPSHM_GETVAL()       ((void)0)
-  #define GASNETI_CHECKPSHM_PUTVAL(rt)     ((void)0)
-  #define GASNETI_CHECKPSHM_MEMSET(rt)     ((void)0)
-#endif
-
-/* ------------------------------------------------------------------------------------ */
 /*
   Non-blocking memory-to-memory transfers (explicit handle)
   ==========================================================
