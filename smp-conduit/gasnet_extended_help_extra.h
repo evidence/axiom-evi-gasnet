@@ -16,7 +16,7 @@
   =========================================================
  */
 
-GASNETI_INLINE(gasnete_get_nb_bulk)
+GASNETI_INLINE(gasnete_get_nb_bulk) GASNETI_WARN_UNUSED_RESULT
 gasnet_handle_t gasnete_get_nb_bulk(void *dest, gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG)
 {
   GASNETI_CHECKPSHM_GET(UNALIGNED,H);
@@ -25,7 +25,7 @@ gasnet_handle_t gasnete_get_nb_bulk(void *dest, gasnet_node_t node, void *src, s
 }
 #define gasnete_get_nb_bulk gasnete_get_nb_bulk
 
-GASNETI_INLINE(gasnete_put_nb)
+GASNETI_INLINE(gasnete_put_nb) GASNETI_WARN_UNUSED_RESULT
 gasnet_handle_t gasnete_put_nb(gasnet_node_t node, void *dest, void *src, size_t nbytes GASNETE_THREAD_FARG)
 {
   GASNETI_CHECKPSHM_PUT(ALIGNED,H);
@@ -34,7 +34,7 @@ gasnet_handle_t gasnete_put_nb(gasnet_node_t node, void *dest, void *src, size_t
 }
 #define gasnete_put_nb gasnete_put_nb
 
-GASNETI_INLINE(gasnete_put_nb_bulk)
+GASNETI_INLINE(gasnete_put_nb_bulk) GASNETI_WARN_UNUSED_RESULT
 gasnet_handle_t gasnete_put_nb_bulk(gasnet_node_t node, void *dest, void *src, size_t nbytes GASNETE_THREAD_FARG)
 {
   GASNETI_CHECKPSHM_PUT(UNALIGNED,H);
@@ -43,7 +43,7 @@ gasnet_handle_t gasnete_put_nb_bulk(gasnet_node_t node, void *dest, void *src, s
 }
 #define gasnete_put_nb_bulk gasnete_put_nb_bulk
 
-GASNETI_INLINE(gasnete_memset_nb)
+GASNETI_INLINE(gasnete_memset_nb) GASNETI_WARN_UNUSED_RESULT
 gasnet_handle_t gasnete_memset_nb(gasnet_node_t node, void *dest, int val, size_t nbytes GASNETE_THREAD_FARG)
 {
   GASNETI_CHECKPSHM_MEMSET(H);
