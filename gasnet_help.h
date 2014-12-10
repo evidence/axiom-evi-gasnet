@@ -774,6 +774,7 @@ extern int gasneti_wait_mode; /* current waitmode hint */
   #define gasnet_getNodeInfo(nodeinfo_table, numentries) \
           gasneti_getNodeInfo(nodeinfo_table, numentries)
 #endif
+extern gasnet_nodeinfo_t *gasneti_nodeinfo;
 
 #ifndef _GASNETI_SEGINFO
 #define _GASNETI_SEGINFO
@@ -802,6 +803,13 @@ extern int gasneti_wait_mode; /* current waitmode hint */
         gasneti_pthread_create(&gasneti_pthread_create_system, (thr), (attr), (fn), (arg))
   #endif
 #endif
+
+/* ------------------------------------------------------------------------------------ */
+/* Function types for bootstrap collective operations */
+typedef void (*gasneti_bootstrapExchangefn_t)(void *src, size_t len, void *dest);
+typedef void (*gasneti_bootstrapBroadcastfn_t)(void *src, size_t len, void *dest, int rootnode);
+typedef void (*gasneti_bootstrapBarrierfn_t)(void);
+
 /* ------------------------------------------------------------------------------------ */
 
 GASNETI_END_EXTERNC
