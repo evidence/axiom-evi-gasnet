@@ -23,6 +23,7 @@ struct _gasnete_op_t;
 typedef struct _gasnete_op_t *gasnet_handle_t;
 #define GASNET_INVALID_HANDLE ((gasnet_handle_t)0)
 #define GASNETI_EOP_IS_HANDLE 1
+#define GASNETI_DISABLE_EOP_INTERFACE 1
 
   /* if conduit-internal threads may call the Extended API and/or they may run
      progress functions, then define GASNETE_CONDUIT_THREADS_USING_TD to the
@@ -57,22 +58,14 @@ typedef struct _gasnete_op_t *gasnet_handle_t;
     extern gasneti_auxseg_request_t gasnete_barr_auxseg_alloc(gasnet_seginfo_t *auxseg_info);
 #define GASNETE_AUXSEG_FNS() gasnete_barr_auxseg_alloc, 
 
-/* Configure use of AM-based implementation of get/put/memset */
-/* NOTE: Barriers, Collectives, VIS may use GASNETE_USING_REF_* in algorithm selection */
-#define GASNETE_USING_REF_EXTENDED_GET_BULK 1
-#define GASNETE_USING_REF_EXTENDED_PUT_BULK 1
-#define GASNETE_USING_REF_EXTENDED_PUT      1
-#define GASNETE_USING_REF_EXTENDED_MEMSET   1
+/* NOT using the AM-based implementation of get/put/memset */
+#define GASNETE_USING_REF_EXTENDED_GET_BULK 0
+#define GASNETE_USING_REF_EXTENDED_PUT_BULK 0
+#define GASNETE_USING_REF_EXTENDED_PUT      0
+#define GASNETE_USING_REF_EXTENDED_MEMSET   0
 
-/* Implement all eight "base" operations directly via amref: */
-#define gasnete_amref_get_nb_bulk   gasnete_get_nb_bulk
-#define gasnete_amref_get_nbi_bulk  gasnete_get_nbi_bulk
-#define gasnete_amref_put_nb_bulk   gasnete_put_nb_bulk
-#define gasnete_amref_put_nbi_bulk  gasnete_put_nbi_bulk
-#define gasnete_amref_put_nb        gasnete_put_nb
-#define gasnete_amref_put_nbi       gasnete_put_nbi
-#define gasnete_amref_memset_nb     gasnete_memset_nb
-#define gasnete_amref_memset_nbi    gasnete_memset_nbi
+/* All the "real work" is in gasnet_extended_help_extra.h */
+#define GASNETE_HAVE_EXTENDED_HELP_EXTRA_H 1
 
 #endif
 
