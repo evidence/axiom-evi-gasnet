@@ -399,6 +399,7 @@ int gasnete_op_try_free_clear(gasnet_handle_t *handle_p) {
   return 0;
 }
 
+#ifndef gasnete_try_syncnb
 extern int  gasnete_try_syncnb(gasnet_handle_t handle) {
 #if 0
   /* polling now takes place in callers which needed and NOT in those which don't */
@@ -407,7 +408,9 @@ extern int  gasnete_try_syncnb(gasnet_handle_t handle) {
 
   return gasnete_op_try_free(handle) ? GASNET_OK : GASNET_ERR_NOT_READY;
 }
+#endif
 
+#ifndef gasnete_try_syncnb_some
 extern int  gasnete_try_syncnb_some (gasnet_handle_t *phandle, size_t numhandles) {
   int success = 0;
   int empty = 1;
@@ -429,7 +432,9 @@ extern int  gasnete_try_syncnb_some (gasnet_handle_t *phandle, size_t numhandles
 
   return (success || empty) ? GASNET_OK : GASNET_ERR_NOT_READY;
 }
+#endif
 
+#ifndef gasnete_try_syncnb_all
 extern int  gasnete_try_syncnb_all (gasnet_handle_t *phandle, size_t numhandles) {
   int success = 1;
 #if 0
@@ -449,6 +454,7 @@ extern int  gasnete_try_syncnb_all (gasnet_handle_t *phandle, size_t numhandles)
 
   return success ? GASNET_OK : GASNET_ERR_NOT_READY;
 }
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -470,6 +476,7 @@ extern int  gasnete_try_syncnb_all (gasnet_handle_t *phandle, size_t numhandles)
   ===========================================================
 */
 
+#ifndef gasnete_try_syncnbi_gets
 extern int  gasnete_try_syncnbi_gets(GASNETE_THREAD_FARG_ALONE) {
   #if 0
     /* polling for syncnbi now happens in header file to avoid duplication */
@@ -491,7 +498,9 @@ extern int  gasnete_try_syncnbi_gets(GASNETE_THREAD_FARG_ALONE) {
     } else return GASNET_ERR_NOT_READY;
   }
 }
+#endif
 
+#ifndef gasnete_try_syncnbi_puts
 extern int  gasnete_try_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
   #if 0
     /* polling for syncnbi now happens in header file to avoid duplication */
@@ -515,6 +524,7 @@ extern int  gasnete_try_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
     } else return GASNET_ERR_NOT_READY;
   }
 }
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -523,6 +533,7 @@ extern int  gasnete_try_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
 */
 /*  This implementation allows recursive access regions, although the spec does not require that */
 /*  operations are associated with the most immediately enclosing access region */
+#ifndef gasnete_begin_nbi_accessregion
 extern void            gasnete_begin_nbi_accessregion(int allowrecursion GASNETE_THREAD_FARG) {
   gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
   gasnete_iop_t *iop = gasnete_iop_new(mythread); /*  push an iop  */
@@ -534,7 +545,9 @@ extern void            gasnete_begin_nbi_accessregion(int allowrecursion GASNETE
   iop->next = mythread->current_iop;
   mythread->current_iop = iop;
 }
+#endif
 
+#ifndef gasnete_end_nbi_accessregion
 extern gasnet_handle_t gasnete_end_nbi_accessregion(GASNETE_THREAD_FARG_ALONE) {
   gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
   gasnete_iop_t *iop = mythread->current_iop; /*  pop an iop */
@@ -547,6 +560,7 @@ extern gasnet_handle_t gasnete_end_nbi_accessregion(GASNETE_THREAD_FARG_ALONE) {
   iop->next = NULL;
   return (gasnet_handle_t)iop;
 }
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 /*
