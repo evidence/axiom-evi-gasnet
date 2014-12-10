@@ -11,6 +11,8 @@
   #error "gasnet_pshm.h included in a non-PSHM build"
 #endif
 
+#include <stdarg.h>
+
 /* Must defined EXACTLY one */
 /* TO DO: add to GASNet's config string */
 #if defined(GASNETI_PSHM_POSIX) && !defined(GASNETI_PSHM_SYSV) && !defined(GASNETI_PSHM_FILE) && !defined(GASNETI_PSHM_XPMEM) && !defined(GASNETI_PSHM_GHEAP)
