@@ -292,6 +292,10 @@ void gasneti_defaultSignalHandler(int sig);
 #define GASNETI_USE_HIGHSEGMENT 1  /* use the high end of mmap segments */
 #endif
 
+typedef void (*gasneti_bootstrapExchangefn_t)(void *src, size_t len, void *dest);
+typedef void (*gasneti_bootstrapBroadcastfn_t)(void *src, size_t len, void *dest, int rootnode);
+typedef void (*gasneti_bootstrapBarrierfn_t)(void);
+
 #if !GASNET_SEGMENT_EVERYTHING
 #ifdef GASNETI_MMAP_OR_PSHM
 uintptr_t gasneti_mmapLimit(uintptr_t localLimit, uint64_t sharedLimit,

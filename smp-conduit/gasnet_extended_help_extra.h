@@ -10,10 +10,6 @@
 #ifndef _GASNET_EXTENDED_HELP_EXTRA_H
 #define _GASNET_EXTENDED_HELP_EXTRA_H
 
-#if GASNET_PSHM
-  #include <gasnet_pshm.h>
-#endif
-
 /* ------------------------------------------------------------------------------------ */
 /*
   Non-blocking memory-to-memory transfers (explicit handle)
