@@ -33,8 +33,8 @@ GASNETI_IDENT(gasnetc_IdentString_Name,    "$GASNetCoreLibraryName: " GASNET_COR
   ==============
 */
 
-/* Minimum number of pages to reserve for firehoses in SEGMENT_FAST: */
-#define GASNETC_MIN_FH_PAGES		4096
+/* Minimum memory to reserve for firehoses in SEGMENT_FAST: */
+#define GASNETC_MIN_FH_MEM		(16*1024*1024)
 
 /*
   The following values can be overridden by environment variables.
@@ -1679,7 +1679,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     /* Reserved memory needed by firehose on each node */
     /* NOTE: We reserve this memory even when firehose is disabled, since the disable
      * is only made available for debugging. */
-    size_t reserved_mem = GASNETC_MIN_FH_PAGES * GASNET_PAGESIZE;
+    size_t reserved_mem = GASNETC_MIN_FH_MEM;
 
     if_pf (gasnetc_pin_info.memory < reserved_mem) {
       gasneti_fatalerror("Pinnable memory (%lu) is less than reserved minimum %lu\n", (unsigned long)gasnetc_pin_info.memory, (unsigned long)reserved_mem);
