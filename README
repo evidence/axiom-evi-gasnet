@@ -189,6 +189,9 @@ For example:
 
 See tests/Makefile for another example of compiling GASNet client code.
 
+The variables GASNET_CXX, GASNET_CXXCPPFLAGS and GASNET_CXXFLAGS are also
+provided for compiling of C++ programs.
+
 Supported Platforms
 ===================
 
