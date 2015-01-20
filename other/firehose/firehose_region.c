@@ -1403,8 +1403,8 @@ fh_init_plugin(uintptr_t max_pinnable_memory,
 	 * Validate firehose parameters parameters 
 	 */ 
 	if ((fhi_InitFlags & FIREHOSE_INIT_FLAG_LOCAL_ONLY)) {
-		/* Want at least 4k buckets of victim FIFO */
-		unsigned long	VM_min = FH_BUCKET_SIZE * 4096;
+		/* Want at least 16MB worth of buckets in victim FIFO */
+		unsigned long	VM_min = (16*1024*1024) / FH_BUCKET_SIZE;
 
 		/* Want at least 32 regions of FIFO */
 		unsigned long	VR_min = 32;
