@@ -142,6 +142,10 @@ static void *gasneti_mmap_internal(void *segbase, uintptr_t segsize) {
                        (unsigned long)segsize, strerror(mmap_errno));
   }
 
+  if ((ptr != (void*)GASNETI_PAGE_ALIGNDOWN(ptr)) && (ptr != MAP_FAILED)) {
+      gasneti_fatalerror("mmap result "GASNETI_LADDRFMT" is not aligned to GASNET_PAGESIZE %lu (0x%lx)",
+              GASNETI_LADDRSTR(ptr), (unsigned long)GASNET_PAGESIZE, (unsigned long)GASNET_PAGESIZE);
+  }
   if (segbase && ptr == MAP_FAILED) {
       gasneti_fatalerror("mmap fixed failed at "GASNETI_LADDRFMT" for size %lu: %s\n",
 	      GASNETI_LADDRSTR(segbase), (unsigned long)segsize, strerror(mmap_errno));
@@ -735,6 +739,11 @@ static void *gasneti_mmap_shared_internal(int pshmnode, void *segbase, uintptr_t
     }
   }
 
+  if ((ptr != (void*)GASNETI_PAGE_ALIGNDOWN(ptr)) && (ptr != MAP_FAILED)) {
+    gasneti_cleanup_shm();
+    gasneti_fatalerror("mmap result "GASNETI_LADDRFMT" is not aligned to GASNET_PAGESIZE %lu (0x%lx)",
+              GASNETI_LADDRSTR(ptr), (unsigned long)GASNET_PAGESIZE, (unsigned long)GASNET_PAGESIZE);
+  }
 #if !GASNETI_PSHM_MAP_FIXED_IGNORED
   if (segbase && (segbase != ptr) && (ptr != MAP_FAILED)) {
     gasneti_cleanup_shm();
