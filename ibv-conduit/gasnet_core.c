@@ -1578,10 +1578,18 @@ static int gasnetc_init(int *argc, char ***argv) {
   gasneti_bootstrapExchange(local_lid, gasnetc_num_ports * sizeof(uint16_t), remote_lid);
   gasneti_free(local_lid);
 
+#if PLATFORM_ARCH_MIC
+  /* In the case of multiple MICs in a host, the LIDs will be the same.
+   * So, use the default nodemap.
+   * TODO: distinguish single-MIC and "self hosted" MIC systems.
+   */
+  gasneti_nodemapInit(&gasneti_bootstrapExchange, NULL, 0, 0);
+#else
   /* Derive nodemap from the LID info we have just exchanged */
   gasneti_nodemapInit(NULL, &remote_lid[0],
                       sizeof(remote_lid[0]),
                       sizeof(remote_lid[0]) * gasnetc_num_ports);
+#endif
 
   #if GASNET_PSHM
     gasneti_pshm_init(&gasneti_bootstrapExchange, 0);
