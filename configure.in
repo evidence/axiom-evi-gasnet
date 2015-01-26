@@ -1316,6 +1316,23 @@ if test "$enabled_pshm" != no; then
   with_pshm=gheap
  fi
 
+ # Next check is for mmap()ed file support on hugetlbfs
+ enabled_pshm_hugetlbfs=no
+ GASNET_IF_ENABLED(pshm-hugetlbfs,
+   [Enable use of hugetlbfs for inter-process shared memory support (default disabled)],
+   [enabled_pshm_hugetlbfs=yes])
+ if test "$enabled_pshm_hugetlbfs$with_pshm" = yesno; then
+  if test $enabled_hugetlbfs = no; then
+   GASNET_MSG_ERROR([User requested --enable-pshm-hugetlbfs but hugetlbfs support was disabled.])
+  elif test $have_hugetlbfs = no; then
+   GASNET_MSG_ERROR([User requested --enable-pshm-hugetlbfs but hugetlbfs support was not found.])
+  fi
+  AC_DEFINE(GASNETI_PSHM_FILE)
+  AC_DEFINE(GASNETI_USE_HUGETLBFS)
+  GASNET_PSHM_LIBS="-lhugetlbfs";
+  with_pshm=hugetlbfs
+ fi
+
  # Final check is for mmap()ed file support
  enabled_pshm_file=no
  GASNET_IF_ENABLED(pshm-file,

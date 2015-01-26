@@ -248,17 +248,26 @@ static const char *gasneti_pshm_makeunique(const char *unique) {
   static char prefix[] = "/GASNTXXXXXX";
 #if defined(GASNETI_PSHM_FILE) || defined(GASNETI_PSHM_SYSV)
   const char *tmpdir = gasneti_tmpdir();
-  const size_t tmpdir_len = strlen(tmpdir);
-#else
-  const size_t tmpdir_len = 0;
 #endif
+  size_t tmpdir_len = 0;
 #if !defined(GASNETI_PSHM_SYSV)
-  const size_t base_len = tmpdir_len + GASNETI_PSHM_PREFIX_LEN;
+  size_t base_len;
   char *allnames;
 #endif
   int i;
 
   gasneti_assert(strlen(prefix) == GASNETI_PSHM_PREFIX_LEN);
+
+#if defined(GASNETI_PSHM_FILE) && defined(GASNETI_USE_HUGETLBFS)
+  { const char *hugedir = hugetlbfs_find_path();
+    if (hugedir && !access(hugedir, R_OK|W_OK|X_OK)) {
+      tmpdir = hugedir;
+    }
+  }
+#endif
+#if defined(GASNETI_PSHM_FILE) || defined(GASNETI_PSHM_SYSV)
+  tmpdir_len = strlen(tmpdir);
+#endif
 
   if (!unique) { /* We get to pick the unique bits */
 #if defined(GASNETI_PSHM_FILE) || defined(GASNETI_PSHM_SYSV)
@@ -323,6 +332,7 @@ static const char *gasneti_pshm_makeunique(const char *unique) {
   memcpy(prefix + GASNETI_PSHM_PREFIX_LEN1, unique, GASNETI_PSHM_UNIQUE_LEN);
 
   gasneti_pshmname = (char **)gasneti_malloc((gasneti_pshm_nodes+1)*sizeof(char*));
+  base_len = tmpdir_len + GASNETI_PSHM_PREFIX_LEN;
   allnames = (char *)gasneti_malloc((gasneti_pshm_nodes+1)*(base_len + 4));
 
   for (i = 0; i <= gasneti_pshm_nodes; ++i) {
@@ -418,6 +428,9 @@ static void * gasneti_pshm_mmap(int pshm_rank, void *segbase, size_t segsize) {
 
   /* create or open */
   #if defined(GASNETI_PSHM_FILE)
+   #if defined(GASNETI_USE_HUGETLBFS)
+    segsize = huge_pagesz(segbase, segsize);
+   #endif
     fd = open(filename, flags, S_IRUSR | S_IWUSR);
   #elif defined(GASNETI_PSHM_POSIX)
     fd = shm_open(filename, flags, S_IRUSR | S_IWUSR);
