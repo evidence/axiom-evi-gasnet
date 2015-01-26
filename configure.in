@@ -3129,22 +3129,25 @@ if test ${gni_network}:${enabled_[]lowername} = lowername[]:yes; then
   AC_CHECK_HEADERS(pmi_cray.h, [have_pmi_cray_h=1], [have_[]lowername=no])
   AC_CHECK_HEADERS(gni_pub.h, [:], [have_[]lowername=no])
 
-  # PSHM must be XPMEM or none.  If none, then we still want hugetlbfs if available.
-  if test $have_[]lowername = no; then
-    : # empty
-  elif test "$with_pshm" = no; then
-    if test $have_hugetlbfs = yes; then
-      GNI_LIBS="$GNI_LIBS -Wl,--whole-archive,-lhugetlbfs,--no-whole-archive"
-      GNI_INCLUDES="$GNI_INCLUDES -DGASNETI_USE_HUGETLBFS"
-    fi
-  else
-    AC_MSG_CHECKING(for pshm-over-xpmem support required by $1)
-    if test "$with_pshm" = xpmem; then
-      AC_MSG_RESULT(yes)
-    else
-      have_[]lowername=no
-      AC_MSG_RESULT(no)
-    fi
+  if test $have_[]lowername = yes; then
+    # PSHM must be XPMEM, HUGETLBFS or none.
+    AC_MSG_CHECKING(for appropriate pshm support required by $1)
+    case "$with_pshm" in
+      no) # If none, then we still want hugetlbfs if available.
+        if test $have_hugetlbfs = yes; then
+          GNI_LIBS="$GNI_LIBS -Wl,--whole-archive,-lhugetlbfs,--no-whole-archive"
+          GNI_INCLUDES="$GNI_INCLUDES -DGASNETI_USE_HUGETLBFS"
+        fi
+        AC_MSG_RESULT(none)
+        ;;
+      xpmem|hugetlbfs)
+        AC_MSG_RESULT(yes - $with_pshm)
+        ;;
+      *)
+        have_[]lowername=no
+        AC_MSG_RESULT(no - have '$with_pshm' but require xpmem or hugetlbfs)
+        ;;
+    esac
   fi
 
   if test $have_[]lowername = yes; then
