@@ -552,14 +552,8 @@ static void gasneti_pshm_munmap(void *segbase, uintptr_t segsize) {
       gasneti_fatalerror("shmdt("GASNETI_LADDRFMT") failed: %s\n",
 	      GASNETI_LADDRSTR(segbase), strerror(errno));
   }
-#elif defined(GASNETI_PSHM_FILE) || defined(GASNETI_PSHM_POSIX)
+#elif defined(GASNETI_PSHM_FILE) || defined(GASNETI_PSHM_POSIX) || defined(GASNETI_PSHM_XPMEM)
   gasneti_munmap(segbase, segsize);
-#elif defined(GASNETI_PSHM_XPMEM)
- #if GASNETI_USE_HUGETLBFS
-  gasneti_huge_munmap(segbase, segsize);
- #else
-  gasneti_munmap(segbase, segsize);
- #endif
 #elif defined(GASNETI_PSHM_GHEAP)
   gasneti_pshm_vfree(segbase);
 #else
