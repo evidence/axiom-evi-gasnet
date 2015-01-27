@@ -53,13 +53,17 @@ There are also implementations which are specifc to certain platforms:
 
 For Cray XE, XK and XC systems, PSHM-over-XPMEM is enabled automatically
 by the corresponding cross-configure scripts.  However, one can also
-by the corresponding cross-configure scripts.  However, one can also
 optionally enable PSHM-over-XPMEM on an SGI Altix as follows:
         XPMEM: --enable-pshm --disable-pshm-posix --enable-pshm-xpmem
 
 For BlueGene/Q, PSHM via the "common heap" is enabled automatically by
 the corresponding cross-configure scripts.  However, one can also use:
         GHEAP: --enable-pshm --disable-pshm-posix --enable-pshm-gheap
+
+For Linux systems with libhugetlbfs and a hugetlbfs mount, there is also
+experimental support for mmap()ed files on hugetlbfs, which can be
+enabled with:
+    HUGETLBFS: --enable-pshm --disable-pshm-posix --enable-pshm-hugetlbfs
 
 PSHM includes an environment variable for controlling use of memory for
 intra-memory AM traffic:
@@ -179,6 +183,11 @@ In the mmap()ed file case, the allocated but not released shared memory files
 can be found in the directory pointed by the TMPDIR environment variable
 (default: /tmp). These files are named with the prefix GASNT (the lack of an
 'E' is not a typo), and can be deleted using the "rm" command.
+
+The case of mmap()ed file on hugetlbfs is like the regular mmap()ed file
+case except that the directory will be the hugetlbfs mount point.  This is
+typically something like /dev/hugepages.  If uncertain of the mount point,
+the command "mount|grep hugetlbfs" should locate it for you.
 
 In the case of POSIX shared memory, the implementation is system-specific.
 In the case of Linux and Solaris, POSIX shared memory objects are visible
