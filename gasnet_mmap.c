@@ -47,6 +47,15 @@
   #endif
  #endif
 
+ #ifdef GASNETI_USE_HUGETLBFS
+  #include <hugetlbfs.h>
+  /* Trim only from top to retain alignment: */
+  #undef GASNETI_USE_HIGHSEGMENT
+  #define GASNETI_USE_HIGHSEGMENT 0
+  /* Can't retain alignment while varying the page size: */
+  #undef HAVE_HUGETLBFS_UNLINKED_FD_FOR_SIZE
+ #endif
+
 #if !HAVE_MMAP
   /* Skip the following platform checks */
 #elif PLATFORM_OS_CYGWIN
@@ -345,7 +354,6 @@ static const char *gasneti_pshm_makeunique(const char *unique) {
 #endif /* GASNET_PSHM */
 
 #if defined(GASNETI_USE_HUGETLBFS)
-#include <hugetlbfs.h>
 
 #if defined(HAVE_HUGETLBFS_UNLINKED_FD_FOR_SIZE) && 0 /* Disabled pending further study */
 #define GASNETI_USE_HUGETLBFS_SIZES 1
@@ -361,12 +369,13 @@ static int compare_long(const void *a_p, const void *b_p) {
 
 /* Pick an available hugepage size for mapping of the requested size.
  * With older libhugetlbfs this will always pick the default size.
- * The given addr and size are adjusted for proper alignment.
+ * The given size is adjusted for proper alignment.
  */
-static long pick_pagesz(void **addr_p, uintptr_t *size_p) {
+static long pick_pagesz(void *addr, uintptr_t *size_p) {
   uintptr_t size = *size_p;
 
 #if defined(GASNETI_USE_HUGETLBFS_SIZES)
+  XXX - This code is not currently maintained.
   /* Currently pick largest size less than the rounded request.
    * Other possibilities exists, of course.
    */
@@ -399,41 +408,28 @@ static long pick_pagesz(void **addr_p, uintptr_t *size_p) {
   #error
 #endif
 
-  if (addr_p) {
-    uintptr_t addr = (uintptr_t)(*addr_p);
-    uintptr_t new_addr = GASNETI_ALIGNDOWN(addr, pagesz);
-    *addr_p = (void*)new_addr;
-    size = GASNETI_ALIGNUP(size + (addr - new_addr), pagesz);
-  } else {
-    size = GASNETI_ALIGNUP(size, pagesz);
-  }
-  *size_p = size;
+  gasneti_assert((uintptr_t)addr % pagesz == 0); /* alignment check */
+
+  *size_p = GASNETI_ALIGNUP(size, pagesz);
 
   return pagesz;
 }
 
 extern void *gasneti_huge_mmap(void *addr, uintptr_t size) {
-  void *real_addr = addr;
-  GASNETI_UNUSED long pagesz = pick_pagesz(&real_addr, &size);
+  GASNETI_UNUSED long pagesz = pick_pagesz(addr, &size);
   int fd = gasneti_unlinked_huge_fd(pagesz);
   const int mmap_flags = MAP_SHARED | (addr ? GASNETI_MMAP_FIXED_FLAG : GASNETI_MMAP_NOTFIXED_FLAG);
-  void *ptr = mmap(real_addr, size, (PROT_READ|PROT_WRITE), mmap_flags, fd, 0);
+  void *ptr = mmap(addr, size, (PROT_READ|PROT_WRITE), mmap_flags, fd, 0);
+
   int save_errno = errno;
-
   (void) close(fd);
-
-  /* If expanded a fixed mmap then be sure to return the requested fixed addr */
-  if (real_addr != addr) {
-    gasneti_assert(ptr == real_addr);
-    ptr = addr;
-  }
-
   errno = save_errno;
+
   return ptr;
 }
 
 extern void gasneti_huge_munmap(void *addr, uintptr_t size) {
-  (void)pick_pagesz(&addr, &size);
+  (void)pick_pagesz(addr, &size);
   if (munmap(addr, size) != 0) 
     gasneti_fatalerror("munmap("GASNETI_LADDRFMT",%lu) failed: %s\n",
                        GASNETI_LADDRSTR(addr), (unsigned long)size, strerror(errno));
@@ -1504,7 +1500,7 @@ void gasneti_segmentAttachLocal(uintptr_t segsize, uintptr_t minheapoffset,
   gasneti_memcheck(gasneti_segexch);
 
   #ifndef GASNETI_SEGMENT_DISALIGN_BIAS
-    #if GASNET_DEBUG && !GASNET_ALIGNED_SEGMENTS && (GASNET_PAGESIZE < 1024*1024)
+    #if GASNET_DEBUG && !GASNET_ALIGNED_SEGMENTS && !GASNET_PSHM && (GASNET_PAGESIZE < 1024*1024)
       /* force segment disalignment for debugging purposes */
       #define GASNETI_SEGMENT_DISALIGN_BIAS GASNET_PAGESIZE
     #else
