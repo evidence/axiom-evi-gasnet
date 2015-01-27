@@ -52,8 +52,6 @@
   /* Trim only from top to retain alignment: */
   #undef GASNETI_USE_HIGHSEGMENT
   #define GASNETI_USE_HIGHSEGMENT 0
-  /* Can't retain alignment while varying the page size: */
-  #undef HAVE_HUGETLBFS_UNLINKED_FD_FOR_SIZE
  #endif
 
 #if !HAVE_MMAP
@@ -355,71 +353,20 @@ static const char *gasneti_pshm_makeunique(const char *unique) {
 
 #if defined(GASNETI_USE_HUGETLBFS)
 
-#if defined(HAVE_HUGETLBFS_UNLINKED_FD_FOR_SIZE) && 0 /* Disabled pending further study */
-#define GASNETI_USE_HUGETLBFS_SIZES 1
-#endif
-
-#if defined(GASNETI_USE_HUGETLBFS_SIZES)
-static int compare_long(const void *a_p, const void *b_p) {
-  long a = *(long *)a_p;
-  long b = *(long *)b_p;
-  return (a==b) ? 0 : ((a<b) ? -1 : 1);
-}
-#endif
-
-/* Pick an available hugepage size for mapping of the requested size.
- * With older libhugetlbfs this will always pick the default size.
- * The given size is adjusted for proper alignment.
+/* Apply the default hugepage size for mapping of the requested size.
+ * The given size is adjusted for proper alignment and returned.
  */
-static long pick_pagesz(void *addr, uintptr_t *size_p) {
-  uintptr_t size = *size_p;
-
-#if defined(GASNETI_USE_HUGETLBFS_SIZES)
-  XXX - This code is not currently maintained.
-  /* Currently pick largest size less than the rounded request.
-   * Other possibilities exists, of course.
-   */
-  #define gasneti_unlinked_huge_fd(pgsz) hugetlbfs_unlinked_fd_for_size(pgsz)
-  static long *tbl = NULL;
-  static int count = 0;
-  long pagesz;
-  int i;
-
-  if (!tbl) {
-    long dflt = gethugepagesize();
-    count = gethugepagesizes(NULL, 0);
-    tbl = gasneti_calloc(count+1, sizeof(long)); /* final 0 marks end */
-    gethugepagesizes(tbl, count);
-    qsort(tbl, count, sizeof(long), compare_long);
-    /* remove from consideration any smaller than the default */
-    while (*tbl && (*tbl < dflt)) { ++tbl; --count; }
-  }
-
-  for (i=0; i<count; ++i) {
-    long next = tbl[i+1];
-    pagesz = tbl[i];
-    if (!next || (GASNETI_ALIGNUP(size, pagesz) < next)) break;
-  }
-#elif defined(HAVE_HUGETLBFS_UNLINKED_FD)
-  #define gasneti_unlinked_huge_fd(pgsz) hugetlbfs_unlinked_fd()
+static uintptr_t huge_pagesz(void *addr, uintptr_t size) {
   static long pagesz = 0;
   if (!pagesz) pagesz = gethugepagesize();
-#else
-  #error
-#endif
-
   gasneti_assert((uintptr_t)addr % pagesz == 0); /* alignment check */
-
-  *size_p = GASNETI_ALIGNUP(size, pagesz);
-
-  return pagesz;
+  return GASNETI_ALIGNUP(size, pagesz);
 }
 
 extern void *gasneti_huge_mmap(void *addr, uintptr_t size) {
-  GASNETI_UNUSED long pagesz = pick_pagesz(addr, &size);
-  int fd = gasneti_unlinked_huge_fd(pagesz);
+  int fd = hugetlbfs_unlinked_fd();
   const int mmap_flags = MAP_SHARED | (addr ? GASNETI_MMAP_FIXED_FLAG : GASNETI_MMAP_NOTFIXED_FLAG);
-  void *ptr = mmap(addr, size, (PROT_READ|PROT_WRITE), mmap_flags, fd, 0);
+  void *ptr = mmap(addr, huge_pagesz(addr, size), (PROT_READ|PROT_WRITE), mmap_flags, fd, 0);
 
   int save_errno = errno;
   (void) close(fd);
@@ -429,12 +376,12 @@ extern void *gasneti_huge_mmap(void *addr, uintptr_t size) {
 }
 
 extern void gasneti_huge_munmap(void *addr, uintptr_t size) {
-  (void)pick_pagesz(addr, &size);
-  if (munmap(addr, size) != 0) 
+  if (munmap(addr, huge_pagesz(addr, size)) != 0)
     gasneti_fatalerror("munmap("GASNETI_LADDRFMT",%lu) failed: %s\n",
                        GASNETI_LADDRSTR(addr), (unsigned long)size, strerror(errno));
 }
-#endif
+
+#endif /* defined(GASNETI_USE_HUGETLBFS) */
 
 #if GASNET_PSHM
 

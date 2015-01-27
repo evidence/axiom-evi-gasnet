@@ -1168,7 +1168,7 @@ GASNET_IF_ENABLED_WITH_AUTO(hugetlbfs,
 if test "$enabled_hugetlbfs" != 'no'; then
  AC_CHECK_HEADERS(hugetlbfs.h, [
   GASNET_PUSHVAR(LIBS,"$LIBS -lhugetlbfs")
-  AC_CHECK_FUNCS([hugetlbfs_unlinked_fd_for_size hugetlbfs_unlinked_fd],
+  AC_CHECK_FUNCS([hugetlbfs_unlinked_fd],
                  [have_hugetlbfs=yes
                   AC_DEFINE(HAVE_HUGETLBFS)])
   GASNET_POPVAR(LIBS)
