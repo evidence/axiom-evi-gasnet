@@ -2014,6 +2014,12 @@ static void gasnetc_exit_body(void)
     gasneti_reghandler(SIGFPE, gasnetc_exit_sighandler);
     gasneti_reghandler(SIGBUS, gasnetc_exit_sighandler);
 
+    /* attempt collective exit */
+    alarm(MAX(5, (int)gasnetc_exittimeout));
+    MXM_DEBUG_EXIT_FLOW("exit oob barrier\n");
+    gasneti_bootstrapBarrier();
+    alarm(0);
+
     /* Disable processing of AMs, except system-level ones */
     MXM_DEBUG_EXIT_FLOW("Disabling AM handlers\n");
     gasnetc_disable_AMs();
