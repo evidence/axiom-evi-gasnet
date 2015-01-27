@@ -1057,9 +1057,15 @@ int gasnett_maximize_rlimits();
 int gasnett_maximize_rlimit(int res, const char *lim_desc);
  
    Maximize an rlimit indicated by res (an RLIMIT_* constant from sys/resource.h), with
-   associated limit description. gasnett_maximize_rlimits() maximizes all the in-memory 
-   execution rlimits associated with the current process (does not affect file system 
-   related limits).
+   associated limit description. gasnett_maximize_rlimits() maximizes cpu time and all
+   the in-memory execution rlimits associated with the current process (does not affect
+   file system related limits). These functions return non-zero on success.
+
+   If the environment variable GASNET_MAXIMIZE_[desc] is set to a false value (as
+   defined by gasnett_getenv_yesno_withdefault()) then the corresponding limit will
+   NOT be maximized, though the result will still indicate success.  For instance,
+   setting GASNET_MAXIMIZE_RLIMIT_CPU=0 will suppress maximizing the limit on cpu
+   time, but will not (by itself) cause a zero (failure) return value.
   
 ---------------
 Feature control
