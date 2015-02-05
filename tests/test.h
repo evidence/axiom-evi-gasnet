@@ -48,6 +48,13 @@
 #include <assert.h>
 #undef assert
 
+/* Grumble... On Solaris-x86 /usr/include/sys/regset.h polutes the namespace */
+#if PLATFORM_OS_SOLARIS && (PLATFORM_ARCH_X86 || PLATFORM_ARCH_X86_64)
+  #if defined(_SYS_REGSET_H) && defined(ERR)
+    #undef ERR
+  #endif
+#endif
+
 GASNETT_BEGIN_EXTERNC
 
 #define assert_always(expr) \
