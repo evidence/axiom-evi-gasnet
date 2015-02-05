@@ -297,8 +297,10 @@ static void malloc_test(int id) {
     #else
       float tol = 0; /* we have all the threads, and nothing else should be allocating */
     #endif
-      if (labs((long long)stats_before.live_bytes - (long long)stats_after.live_bytes)/(double)stats_after.live_bytes > tol ||
-          labs((long long)stats_before.live_objects - (long long)stats_after.live_objects)/(double)stats_after.live_objects > tol) 
+      long delta_bytes = (long long)stats_before.live_bytes - (long long)stats_after.live_bytes;
+      long delta_objects = (long long)stats_before.live_objects - (long long)stats_after.live_objects;
+      if (labs(delta_bytes)/(double)stats_after.live_bytes > tol ||
+          labs(delta_objects)/(double)stats_after.live_objects > tol) 
         MSG("ERROR: unexpected heap size change:\n"
         "  stats_before.live_bytes=%llu stats_after.live_bytes=%llu\n"
         "  stats_before.live_objects=%llu stats_after.live_objects=%llu",
