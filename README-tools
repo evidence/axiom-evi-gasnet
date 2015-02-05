@@ -595,6 +595,12 @@ GASNETT_CONSTP(fnname)
   same restrictions, except additionally the return value must NOT
   depend on global variables or anything pointed to by the arguments
 
+GASNETT_DEPRECATED
+declarator
+
+  Declare a function as deprecated (subject to future removal).
+  Attempts to generate a warning if the function is called.
+
 GASNETT_WARN_UNUSED_RESULT   
 declarator
 
@@ -1119,6 +1125,8 @@ COMPILER.
       Compiler supports __attribute__((__pure__)) 
     GASNETT_USE_GCC_ATTRIBUTE_CONST
       Compiler supports __attribute__((__const__)) 
+    GASNETT_USE_GCC_ATTRIBUTE_DEPRECATED
+      Compiler supports __attribute__((__deprecated__))
     GASNETT_USE_GCC_ATTRIBUTE_FORMAT
       Compiler supports __attribute__((__format__ (...))) 
     GASNETT_USE_GCC_ATTRIBUTE_FORMAT_FUNCPTR
