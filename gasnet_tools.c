@@ -1820,7 +1820,7 @@ int gasnett_maximize_rlimit(int res, const char *lim_desc) {
 
   char ctrl_var[32] = "GASNET_MAXIMIZE_";
   gasneti_assert(strlen(ctrl_var) + strlen(lim_desc) < sizeof(ctrl_var));
-  if (!gasneti_getenv_yesno_withdefault(strncat(ctrl_var, lim_desc, sizeof(ctrl_var)), 1))
+  if (!gasneti_getenv_yesno_withdefault(strncat(ctrl_var, lim_desc, sizeof(ctrl_var)-1), 1))
     return 1;
 
   #define SET_RLIMITS(structname, getrlimit, setrlimit) do {                                    \
