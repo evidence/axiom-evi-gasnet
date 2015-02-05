@@ -167,7 +167,7 @@ gasnetc_spawn_progress_thread(gasnetc_progress_thread_t *pthr_p)
     const size_t stack_pad = gasneti_getenv_int_withdefault("GASNET_THREAD_STACK_PAD", 0, 1);
     size_t stack_dflt;
   #ifdef RLIMIT_STACK
-    gasnett_maximize_rlimit(RLIMIT_STACK);
+    gasnett_maximize_rlimit(RLIMIT_STACK, "RLIMIT_STACK");
   #endif
     gasneti_assert_zeroret(pthread_attr_getstacksize(&attr, &stack_dflt));
     stack_sz = MAX(stack_min, stack_dflt + stack_pad);
