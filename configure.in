@@ -1298,6 +1298,7 @@ if test "$enabled_pshm" != no; then
         AC_DEFINE(GASNETI_USE_HUGETLBFS)
       fi
       GASNET_PSHM_LIBS=$LIBS
+      AC_CHECK_FUNCS([xpmem_make_2])
       AC_DEFINE(GASNETI_PSHM_XPMEM)
       with_pshm=xpmem
     ])
