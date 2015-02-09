@@ -677,6 +677,8 @@ typedef struct gasneti_nodegrp_s {
   gasnet_node_t grp_rank;
 } gasneti_nodegrp_t;
 
+extern gasneti_nodegrp_t gasneti_myhost;
+
 extern gasneti_nodegrp_t gasneti_mysupernode;
 #define gasneti_nodemap_local         gasneti_mysupernode.nodes
 #define gasneti_nodemap_local_count   gasneti_mysupernode.node_count
