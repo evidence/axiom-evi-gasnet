@@ -783,11 +783,7 @@ static void gasneti_check_portable_conduit(void) { /* check for portable conduit
  */
 
 gasnet_node_t *gasneti_nodemap = NULL;
-gasnet_node_t *gasneti_nodemap_local = NULL;
-gasnet_node_t gasneti_nodemap_local_count = 0;
-gasnet_node_t gasneti_nodemap_local_rank = (gasnet_node_t)-1;
-gasnet_node_t gasneti_nodemap_global_count = 0;
-gasnet_node_t gasneti_nodemap_global_rank = (gasnet_node_t)-1;
+gasneti_nodegrp_t gasneti_mysupernode = {NULL,0,-1,0,-1};
 gasnet_nodeinfo_t *gasneti_nodeinfo = NULL;
 
 /* This code is "good" for all "sensible" process layouts, where "good"
@@ -992,14 +988,20 @@ static void gasneti_nodemap_dflt(gasneti_bootstrapExchangefn_t exchangefn) {
  * A conduit which builds a gasneti_nodemap[] w/o calling gasneti_nodemapInit()
  * should still call this function to perform the "common" work.
  *
- * Currently computes some local statistics:
- *   gasneti_nodemap_local_count = number of GASNet nodes collocated w/ gasneti_mynode
- *   gasneti_nodemap_local_rank  = rank of gasneti_mynode among gasneti_nodemap_local_count
- *   gasneti_nodemap_local[]     = array (length gasneti_nodemap_local_count) of local nodes
- *   gasneti_nodemap_global_count = number of unique values in the nodemap
- *   gasneti_nodemap_global_rank  = rank of gasneti_mynode among gasneti_nodemap_global_count
- * and constructs:
+ * Constructs:
  *   gasneti_nodeinfo[] = array of length gasneti_nodes of supernode ids and mmap offsets
+ * and fills in the fields in gasneti_mysupernode:
+ *   gasneti_mysupernode.nodes       array of nodes in my supernode
+ *   gasneti_mysupernode.node_count  count of nodes in my supernode (length of 'nodes' array)
+ *   gasneti_mysupernode.node_rank   my ranks in 'nodes' array
+ *   gasneti_mysupernode.grp_count   number of supernodes in the job
+ *   gasneti_mysupernode.grp_rank    my supernode's rank within all supernodes
+ * Those five quantities are also available via the following respective aliases:
+ *   gasneti_nodemap_local[]
+ *   gasneti_nodemap_local_count
+ *   gasneti_nodemap_local_rank
+ *   gasneti_nodemap_global_count
+ *   gasneti_nodemap_global_rank
  *
  * NOTE: may modify gasneti_nodemap[] if env var GASNET_SUPERNODE_MAXSIZE is set.
  * TODO: splitting by socket or other criteria for/with GASNET_SUPERNODE_MAXSIZE.
