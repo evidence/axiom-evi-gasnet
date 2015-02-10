@@ -1136,7 +1136,7 @@ conn_get_snd_desc(uint32_t flags)
 static uint32_t
 conn_get_srq_num(struct ibv_srq *srq)
 {
-  uint32_t result;
+  uint32_t result = 0;
 #if GASNETC_IBV_XRC_OFED
   int rc = ibv_get_srq_num(srq, &result);
   GASNETC_IBV_CHECK(rc, "from ibv_get_srq_num()");
