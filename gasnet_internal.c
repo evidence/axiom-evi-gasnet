@@ -1022,15 +1022,19 @@ extern void gasneti_nodemapParse(void) {
   gasneti_assert(gasneti_nodemap[gasneti_mynode] <= gasneti_mynode);
 
   /* Check for user-imposed limit: 0 (or negative) means no limit */
+#if GASNET_PSHM
   limit = gasneti_getenv_int_withdefault("GASNET_SUPERNODE_MAXSIZE", 0, 0);
-#if GASNET_CONDUIT_SMP && GASNET_PSHM
+ #if GASNET_CONDUIT_SMP
   if (limit && !gasneti_mynode) {
     fprintf(stderr, "WARNING: ignoring GASNET_SUPERNODE_MAXSIZE for smp-conduit with PSHM.\n");
     fflush(stderr);
   }
   limit = gasneti_nodes;
-#else
+ #else
   if (limit <= 0) limit = gasneti_nodes;
+ #endif
+#else
+  limit = 1; /* No PSHM */
 #endif
 
   gasneti_assert(!gasneti_nodeinfo);
