@@ -182,7 +182,8 @@ static uint32_t *gasnetc_xrc_rcv_qpn = NULL;
 
 /* Create one XRC rcv QP */
 static int
-gasnetc_xrc_create_qp(gasnetc_hca_t *hca, gasnet_node_t node, int qpi) {
+gasnetc_xrc_create_qp(gasnetc_cep_t *cep, gasnet_node_t node, int qpi) {
+  gasnetc_hca_t *hca = cep->hca;
   gasnetc_xrcd_t *xrc_domain = hca->xrc_domain;
   const int cep_idx = node * gasnetc_alloc_qps + qpi;
   gasneti_atomic32_t *rcv_qpn_p = (gasneti_atomic32_t *)(&gasnetc_xrc_rcv_qpn[cep_idx]);
@@ -221,7 +222,7 @@ gasnetc_xrc_create_qp(gasnetc_hca_t *hca, gasnet_node_t node, int qpi) {
     xrc_recv_qp = ibv_open_qp(hca->handle, &attr);
     GASNETC_IBV_CHECK_PTR(xrc_recv_qp, "from ibv_open_qp()");
   }
-  (GASNETC_NODE2CEP(node) + qpi)->rcv_qp = xrc_recv_qp;
+  cep->rcv_qp = xrc_recv_qp;
 #elif GASNETC_IBV_XRC_MLNX
   if (gasneti_atomic32_compare_and_swap(rcv_qpn_p, 0, 1, 0)) {
     struct ibv_qp_init_attr init_attr;
@@ -611,7 +612,7 @@ gasnetc_qp_create(gasnetc_conn_info_t *conn_info)
     #endif
     #if GASNETC_IBV_XRC
       if (gasnetc_use_xrc) {
-        gasnetc_xrc_create_qp(hca, node, qpi);
+        gasnetc_xrc_create_qp(cep, node, qpi);
 
         hndl = xrc_snd_qp[qpi].handle;
         if (hndl) {
