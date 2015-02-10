@@ -558,7 +558,7 @@ void gasneti_export_segment(void *segbase, uintptr_t segsize) {
 #if defined(GASNETI_PSHM_XPMEM)
   /* Create and supernode-exchange xpmem segment ids */
   gasneti_xpmem_segid_t segid =
-  #ifdef HAVE_XPMEM_MAKE_2
+  #if HAVE_XPMEM_MAKE_2
           xpmem_make_2(segbase, segsize, XPMEM_PERMIT_MODE, (void *)(uintptr_t)0600);
   #else
             xpmem_make(segbase, segsize, XPMEM_PERMIT_MODE, (void *)(uintptr_t)0600);
@@ -786,7 +786,7 @@ extern void *gasneti_mmap_vnet(uintptr_t size, gasneti_bootstrapExchangefn_t exc
       ptr = gasneti_mmap_shared_internal(gasneti_pshm_nodes, NULL, size, 1);
       save_errno = errno;
       if (ptr != MAP_FAILED) {
-      #ifdef HAVE_XPMEM_MAKE_2
+      #if HAVE_XPMEM_MAKE_2
         segid = xpmem_make_2(ptr, size, XPMEM_PERMIT_MODE, (void *)(uintptr_t)0600);
       #else
         segid =   xpmem_make(ptr, size, XPMEM_PERMIT_MODE, (void *)(uintptr_t)0600);
