@@ -24,7 +24,7 @@ HOST_CXXFLAGS='-g -O2' ; export HOST_CXXFLAGS
 MPI_CC='mpiicc -mmic' ; export MPI_CC     # MPI-enabled C compiler
 MPI_CFLAGS='' ; export MPI_CFLAGS  # flags for MPI_CC
 MPI_LIBS='' ; export MPI_LIBS      # libs for linking with MPI_CC
-MPIRUN_CMD='mpirun.mic -env GASNET_IB_SPAWNER mpi -n %N -hostfile %H %C' # User must set GASNET_NODEFILE
+MPIRUN_CMD='mpirun.mic -n %N -hostfile %H %C' # User must set GASNET_NODEFILE
 export MPIRUN_CMD  # launch command for MPI jobs
 EXTRA_CONFIGURE_ARGS='--disable-aligned-segments --enable-pshm' ; export EXTRA_CONFIGURE_ARGS  # misc configure args to pass
 
