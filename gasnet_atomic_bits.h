@@ -188,7 +188,7 @@
      */
   #if ((PLATFORM_COMPILER_GNU && !defined(__llvm__)) || \
        PLATFORM_COMPILER_PATHSCALE || PLATFORM_COMPILER_PGI) && \
-	(defined(__PIC__) || defined(GASNETI_FORCE_PIC))
+       ((defined(__PIC__) && !defined(GASNETI_CONFIGURED_PIC)) || defined(GASNETI_FORCE_PIC))
       /* Disable use of %ebx when building PIC, but only on affected compilers. */
       #define GASNETI_USE_X86_EBX 0
   #endif

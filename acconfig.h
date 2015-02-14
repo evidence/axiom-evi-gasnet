@@ -117,6 +117,9 @@
 /* Does CC support C99-type constructor expressions? */
 #undef HAVE_CONSTRUCTOR_EXPR
 
+/* Defined if __PIC__ defined at configure time */
+#undef GASNETI_CONFIGURED_PIC
+
 /* true iff GASNETI_RESTRICT may be applied to types which are not pointer types until after typedef expansion */
 #undef GASNETI_CC_RESTRICT_MAY_QUALIFY_TYPEDEFS
 #undef GASNETI_CXX_RESTRICT_MAY_QUALIFY_TYPEDEFS

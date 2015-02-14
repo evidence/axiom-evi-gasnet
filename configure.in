@@ -809,6 +809,8 @@ GASNET_TRY_CACHE_CHECK(for constructor expressions, constructor_expr,
     struct S s = ((struct S){(1,2)});
   ], [ AC_DEFINE(HAVE_CONSTRUCTOR_EXPR) ])
 
+GASNET_IFDEF([__PIC__],[AC_DEFINE(GASNETI_CONFIGURED_PIC)])
+
 ########################################################################
 # hunt for 16-, 32-, and 64-bit integer types
 
