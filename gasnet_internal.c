@@ -783,8 +783,8 @@ static void gasneti_check_portable_conduit(void) { /* check for portable conduit
  */
 
 gasnet_node_t *gasneti_nodemap = NULL;
-gasneti_nodegrp_t gasneti_myhost = {NULL,0,-1,0,-1};
-gasneti_nodegrp_t gasneti_mysupernode = {NULL,0,-1,0,-1};
+gasneti_nodegrp_t gasneti_myhost = {NULL,0,(gasnet_node_t)(-1),0,(gasnet_node_t)(-1)};
+gasneti_nodegrp_t gasneti_mysupernode = {NULL,0,(gasnet_node_t)(-1),0,(gasnet_node_t)(-1)};
 gasnet_nodeinfo_t *gasneti_nodeinfo = NULL;
 
 /* This code is "good" for all "sensible" process layouts, where "good"
