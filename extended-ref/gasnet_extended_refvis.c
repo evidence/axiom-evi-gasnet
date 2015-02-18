@@ -67,6 +67,10 @@ extern void gasnete_vis_init(void) {
   } while (0)
 
 extern void gasneti_vis_progressfn(void) { 
+#if PLATFORM_COMPILER_SUN_C
+  /* disable warnings triggered by nesting switch-inside-for */
+  #pragma error_messages(off, E_LOOP_NOT_ENTERED_AT_TOP)
+#endif
   GASNETE_THREAD_LOOKUP /* TODO: remove this lookup */
   gasnete_vis_threaddata_t *td = GASNETE_VIS_MYTHREAD; 
   gasneti_vis_op_t **lastp = &(td->active_ops);
@@ -137,6 +141,10 @@ extern void gasneti_vis_progressfn(void) {
     visop_removed: ;
   }
   td->progressfn_active = 0;
+#if PLATFORM_COMPILER_SUN_C
+  /* resume default treatment of the message we suppressed */
+  #pragma error_messages(default, E_LOOP_NOT_ENTERED_AT_TOP)
+#endif
 }
 
 /*---------------------------------------------------------------------------------*/
