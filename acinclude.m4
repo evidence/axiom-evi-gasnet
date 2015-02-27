@@ -2102,7 +2102,15 @@ dnl Set command for use in Makefile.am to install various files
 dnl This command should remove all the magic used to run from the build
 dnl directory, as well as deal with setting of the prefix at install time.
 AC_DEFUN([GASNET_SET_INSTALL_CMD],[
-GASNET_INSTALL_CMD="sed -e '/###NOINSTALL###/d' -e 's@###INSTALL_PREFIX###@\$(prefix)@g'"
+GASNET_INSTALL_CMD="sed -e '/###NOINSTALL###/d' \
+-e 's@###INSTALL_INCLUDE###@\$(includedir)@g' \
+-e 's@###INSTALL_LIBEXEC###@\$(libexecdir)@g' \
+-e 's@###INSTALL_DATA###@\$(datadir)@g' \
+-e 's@###INSTALL_LIB###@\$(libdir)@g' \
+-e 's@###INSTALL_BIN###@\$(bindir)@g' \
+-e 's@###INSTALL_MAN###@\$(mandir)@g' \
+-e 's@###INSTALL_ETC###@\$(sysconfdir)@g' \
+-e 's@###INSTALL_PREFIX###@\$(prefix)@g'"
 AC_SUBST(GASNET_INSTALL_CMD)
 ])
 
@@ -2308,7 +2316,7 @@ AC_DEFUN([GASNET_CHECK_OVERRIDE_PTHREADS], [
         AC_MSG_ERROR([failed to apply patch $PTHREADS_PATCHFILE to $PTHREADS_INCLUDE/pthread.h - try again without PTHREADS_PATCH option])
       PATCHED_HEADER="pthread.h"
       # PATCHED_HEADERS_DIR must precede PTHREADS_INCLUDE to override it
-      SYS_HEADER_INST="-I###INSTALL_PREFIX###/include/patched-headers $SYS_HEADER_INST"
+      SYS_HEADER_INST="-I###INSTALL_INCLUDE###/patched-headers $SYS_HEADER_INST"
       SYS_HEADER_BLD="-I$PATCHED_HEADERS_DIR $SYS_HEADER_BLD"
     fi
   fi

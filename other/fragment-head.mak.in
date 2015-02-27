@@ -8,10 +8,10 @@
 # GASNet client usage instructions:
 #
 # Clients should include this file in their Makefile, using: (no leading '#')
-#     include ###INSTALL_PREFIX###/include/#conduit_name#-conduit/#conduit_name#-#thread_model#.mak  
+#     include ###INSTALL_INCLUDE###/#conduit_name#-conduit/#conduit_name#-#thread_model#.mak
 # or alternatively, just:
 #     include #conduit_name#-#thread_model#.mak
-# and use a -I###INSTALL_PREFIX###/include/#conduit_name#-conduit 
+# and use a -I###INSTALL_INCLUDE###/#conduit_name#-conduit
 # command-line option when invoking make
 #
 # Then in the Makefile, use a compile line something like this:

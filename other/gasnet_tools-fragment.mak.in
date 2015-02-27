@@ -8,10 +8,10 @@
 # Usage instructions:
 #
 # Clients should include this file in their Makefile, using: (no leading '#')
-#     include ###INSTALL_PREFIX###/include/gasnet_tools-#thread_model#.mak  
+#     include ###INSTALL_INCLUDE###/gasnet_tools-#thread_model#.mak
 # or alternatively, just:
 #     include gasnet_tools-#thread_model#.mak  
-# and use a -I###INSTALL_PREFIX###/include
+# and use a -I###INSTALL_INCLUDE###
 # command-line option when invoking make
 #
 # Then in the Makefile, use a compile line something like this:
@@ -21,10 +21,10 @@
 #  $(GASNETTOOLS_LD) $(GASNETTOOLS_LDFLAGS) -o myfile myfile.o $(GASNETTOOLS_LIBS)
 # ----------------------------------------------------------------------
 
-GASNETTOOLS_INCLUDES = @SYS_HEADER_INST@ -I###INSTALL_PREFIX###/include
+GASNETTOOLS_INCLUDES = @SYS_HEADER_INST@ -I###INSTALL_INCLUDE###
 GASNETTOOLS_INCLUDES = @SYS_HEADER_BLD@ -I@TOP_SRCDIR@ -I@TOP_SRCDIR@/other -I@TOP_BUILDDIR@ ###NOINSTALL###
 
-GASNETTOOLS_LIBDIR = ###INSTALL_PREFIX###/lib
+GASNETTOOLS_LIBDIR = ###INSTALL_LIB###
 GASNETTOOLS_LIBDIR = @TOP_BUILDDIR@  ###NOINSTALL###
 
 @BUILDCONFIG_DEBUG_FALSE@GASNETTOOLS_DEBUGFLAGS = -DNDEBUG
