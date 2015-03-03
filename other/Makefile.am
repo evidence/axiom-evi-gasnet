@@ -66,7 +66,9 @@ all-local: $(CONDUITMODE_TARGETS) perlstart
 
 # GASNET_TOOLSONLY_FALSE_BEGIN
 ## Docs to install from any subdirs
+if NEED_DOCDIR
 docdir = $(datadir)/doc/gasnet
+endif
 install-data-local:
 	$(INSTALL_DATA) $(srcdir)/ssh-spawner/README $(DESTDIR)$(docdir)/README-ssh-spawner
 uninstall-local:

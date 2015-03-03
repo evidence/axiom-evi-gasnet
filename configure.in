@@ -58,6 +58,11 @@ GASNET_DEFINE_CONFIGURE_VARS([GASNETI])
 AM_CONDITIONAL(ALWAYS_TRUECOND, test -z "")
 AM_CONDITIONAL(ALWAYS_FALSECOND, test -n "")
 
+# Wish to define docdir in Makefiles if-and-only-if autoconf does not.
+# If/when we raise the mimumin required version of autoconf to 2.60,
+# then we can remove this and all uses of NEED_DOCDIR.
+AM_CONDITIONAL(NEED_DOCDIR, test -z "$docdir")
+
 # Don't warn about unknown configure options (which probably belong to client)
 GASNET_NO_CHECK_OPTS
 
