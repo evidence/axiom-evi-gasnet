@@ -12,7 +12,7 @@ AUTOMAKE_OPTIONS = foreign 1.4
 SUBDIRS = .
 
 if NEED_DOCDIR
-docdir = $(datadir)/doc/gasnet
+docdir = $(datadir)/doc/GASNet
 endif
 if FCA_ENABLED
 docs = README-fca.txt
