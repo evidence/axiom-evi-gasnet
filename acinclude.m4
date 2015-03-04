@@ -2105,7 +2105,7 @@ AC_DEFUN([GASNET_SET_INSTALL_CMD],[
 GASNET_INSTALL_CMD="sed -e '/###NOINSTALL###/d' \
 -e 's@###INSTALL_INCLUDE###@\$(includedir)@g' \
 -e 's@###INSTALL_LIBEXEC###@\$(libexecdir)@g' \
--e 's@###INSTALL_DATA###@\$(datadir)@g' \
+-e 's@###INSTALL_DOC###@\$(docdir)@g' \
 -e 's@###INSTALL_LIB###@\$(libdir)@g' \
 -e 's@###INSTALL_BIN###@\$(bindir)@g' \
 -e 's@###INSTALL_MAN###@\$(mandir)@g' \
