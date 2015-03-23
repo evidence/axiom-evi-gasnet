@@ -491,10 +491,10 @@ AC_CACHE_CHECK(for libgcc link flags, cv_prefix[]lib_gcc,
 [if test "$GCC" = yes; then
   #LIBGCC="`$CC -v 2>&1 | sed -n 's:^Reading specs from \(.*\)/specs$:-L\1 -lgcc:p'`"
   if test "$CC_SUBFAMILY" = 'NVIDIA'; then
-    rm -f "gasnet-conftest.$ac_ext"
-    echo 'int foo;' > "gasnet-conftest.$ac_ext"
-    LIBGCC="-L`$CC -c gasnet-conftest.$ac_ext -Xcompiler -print-libgcc-file-name | xargs dirname` -lgcc"
-    rm -f "gasnet-conftest.*"
+    rm -f conftest.c
+    echo 'int foo;' > conftest.c
+    LIBGCC="-L`$CC -c conftest.c -Xcompiler -print-libgcc-file-name | xargs dirname` -lgcc"
+    rm -rf conftest*
   else
     LIBGCC="-L`$CC -print-libgcc-file-name | xargs dirname` -lgcc"
   fi
@@ -979,16 +979,16 @@ AC_DEFUN([GASNET_TRY_CCOMPILE_WITHWARN],[
 dnl for internal use only
 AC_DEFUN([GASNET_TRY_CCOMPILE_WITHWARN_NORETRY],[
   GASNET_FUN_BEGIN([$0(...)])
-  gasnet_testname=gasnet-conftest
-  gasnet_testfile=${gasnet_testname}.c
-  gasnet_compile_cmd="${CC-cc} -c $CFLAGS $CPPFLAGS $gasnet_testfile"
-  cat > $gasnet_testfile <<EOF
+  gasnet_compile_cmd="${CC-cc} -c $CFLAGS $CPPFLAGS conftest.c"
+  cat > conftest.c <<EOF
 #include "confdefs.h"
 $1
 int main(void) {
 $2
 ; return 0; }
 EOF
+  gasnet_testfile=gasnet-conftest.c
+  cp conftest.c $gasnet_testfile
   GASNET_TRY_RUNCMD([$gasnet_compile_cmd], [$3], [
     echo "configure: warned program was:" >&5
     cat $gasnet_testfile >&5
@@ -998,7 +998,7 @@ EOF
     cat $gasnet_testfile >&5
     $5
     ])
-  rm -f ${gasnet_testname}.*
+  rm -f $gasnet_testfile
   GASNET_FUN_END([$0(...)])
 ])
 
@@ -1037,16 +1037,16 @@ AC_DEFUN([GASNET_TRY_CXXCOMPILE_WITHWARN],[
 dnl for internal use only
 AC_DEFUN([GASNET_TRY_CXXCOMPILE_WITHWARN_NORETRY],[
   GASNET_FUN_BEGIN([$0(...)])
-  gasnet_testname=gasnet-conftest
-  gasnet_testfile=${gasnet_testname}.cc
-  gasnet_compile_cmd="${CXX-c++} -c $CXXFLAGS $CPPFLAGS $gasnet_testfile"
-  cat > $gasnet_testfile <<EOF
+  gasnet_compile_cmd="${CXX-c++} -c $CXXFLAGS $CPPFLAGS conftest.c"
+  cat > conftest.c <<EOF
 #include "confdefs.h"
 $1
 int main(void) {
 $2
 ; return 0; }
 EOF
+  gasnet_testfile=gasnet-conftest.c
+  cp conftest.c $gasnet_testfile
   GASNET_TRY_RUNCMD([$gasnet_compile_cmd], [$3], [
     echo "configure: warned program was:" >&5
     cat $gasnet_testfile >&5
@@ -1056,7 +1056,7 @@ EOF
     cat $gasnet_testfile >&5
     $5
     ])
-  rm -f ${gasnet_testname}.*
+  rm -f $gasnet_testfile
   GASNET_FUN_END([$0(...)])
 ])
 
