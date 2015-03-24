@@ -246,6 +246,11 @@
    #define GASNETI_RMB_IS_MB
    #define GASNETI_WMB_IS_MB
 /* ------------------------------------------------------------------------------------ */
+#elif PLATFORM_ARCH_AARCH64 && PLATFORM_OS_LINUX && PLATFORM_COMPILER_GNU
+   #define gasneti_local_wmb() GASNETI_ASM("dmb ishst")
+   #define gasneti_local_rmb() GASNETI_ASM("dmb ishld")
+   #define gasneti_local_mb()  GASNETI_ASM("dmb ish")
+/* ------------------------------------------------------------------------------------ */
 #elif PLATFORM_ARCH_TILE && PLATFORM_COMPILER_GNU
    #define gasneti_local_mb() __sync_synchronize()
    #define gasneti_local_wmb() gasneti_local_mb()
