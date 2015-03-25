@@ -1037,8 +1037,8 @@ AC_DEFUN([GASNET_TRY_CXXCOMPILE_WITHWARN],[
 dnl for internal use only
 AC_DEFUN([GASNET_TRY_CXXCOMPILE_WITHWARN_NORETRY],[
   GASNET_FUN_BEGIN([$0(...)])
-  gasnet_compile_cmd="${CXX-c++} -c $CXXFLAGS $CPPFLAGS conftest.c"
-  cat > conftest.c <<EOF
+  gasnet_compile_cmd="${CXX-c++} -c $CXXFLAGS $CPPFLAGS conftest.cc"
+  cat > conftest.cc <<EOF
 #include "confdefs.h"
 $1
 int main(void) {
@@ -1046,7 +1046,7 @@ $2
 ; return 0; }
 EOF
   gasnet_testfile=gasnet-conftest.c
-  cp conftest.c $gasnet_testfile
+  cp conftest.cc $gasnet_testfile
   GASNET_TRY_RUNCMD([$gasnet_compile_cmd], [$3], [
     echo "configure: warned program was:" >&5
     cat $gasnet_testfile >&5
