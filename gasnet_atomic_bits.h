@@ -154,7 +154,9 @@
     PLATFORM_ARCH_MTA
   #define GASNETI_USE_OS_ATOMICOPS
 #elif defined(GASNETI_FORCE_COMPILER_ATOMICOPS) || /* for debugging */ \
+    PLATFORM_ARCH_AARCH64 || \
     PLATFORM_ARCH_TILE
+  /* TODO: can (should?) do TILE and AARCH64 natively */
   #define GASNETI_USE_COMPILER_ATOMICOPS
 #endif
 

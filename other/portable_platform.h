@@ -744,6 +744,15 @@
     #define PLATFORM_ARCH_LITTLE_ENDIAN 1
   #endif
 
+#elif defined(__aarch64__)
+  #define PLATFORM_ARCH_AARCH64 1
+  #define PLATFORM_ARCH_FAMILYNAME AARCH64
+  #if defined(__AARCH64EB__)
+    #define PLATFORM_ARCH_BIG_ENDIAN 1
+  #elif defined(__AARCH64EL__)
+    #define PLATFORM_ARCH_LITTLE_ENDIAN 1
+  #endif
+
 #elif defined(__tile__)
   #define PLATFORM_ARCH_TILE 1
   #define PLATFORM_ARCH_FAMILYNAME TILE
