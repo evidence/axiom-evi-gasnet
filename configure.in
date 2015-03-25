@@ -3574,6 +3574,110 @@ CONDUIT_END([test "$enabled_pami$have_pami" = yesyes])
 # build and install AMMPI
 AM_CONDITIONAL(USE_AMMPI, test "$have_ammpi" = yes)
 
+#--------------------------------------------------------------------------------------------------------
+# Libfabric Conduit
+
+CONDUIT_BEGIN(ofi,[Libfabric network conduit (ofi)])
+if test "$enabled_ofi" = yes; then
+  have_ofi=yes
+
+  AC_MSG_CHECKING(for --with-ofihome)
+  GASNET_WITH(ofihome, [Specify Libfabric install directory, default is /usr/local],
+			[ofi_guess="$withval"],
+			[have_ofi=no; GASNET_MSG_ERROR(["Libfabric network conduit is enabled while ofihome is set to no"])],
+			[ofi_guess=/usr/local])
+
+  GASNET_ENV_DEFAULT(OFIHOME, $ofi_guess)
+  if test -e $OFIHOME/include/rdma/fabric.h; then
+  	:
+  else
+  	GASNET_MSG_ERROR(["Libfabric is not found in $OFIHOME, please specify --with-ofihome with custom install directory"])
+  fi
+
+  GASNET_ENV_DEFAULT(OFI_INCLUDE, $OFIHOME/include)
+  GASNET_ENV_DEFAULT(OFI_LIBS, -lfabric)
+  ofi_lib_guess="$OFIHOME/lib${GASNETI_PTR_BITS}"
+  if test -e "$ofi_lib_guess/libfabric.so" -o -e "$ofi_lib_guess/libfabric.a"; then
+    : # keep lib32 or lib64 as default
+  else
+    ofi_lib_guess="$OFIHOME/lib"
+  fi
+  GASNET_ENV_DEFAULT(OFI_LIBDIR, $ofi_lib_guess)
+
+  OFI_LIBCFLAGS=''
+  if test "$with_ofispawner" = "pmi"; then
+    use_pmi=yes
+    OFI_LIBCFLAGS="-DHAVE_PMI_H"
+    if test -n "spawner-root"; then
+      GASNET_ENV_DEFAULT(OFISPAWNERROOT, $with_spawnerroot)
+      OFI_INCLUDE="$OFI_INCLUDE -I$OFISPAWNERROOT/include -I$OFISPAWNERROOT/include/portals4"
+      OFI_LIBDIR="$OFI_LIBDIR -L$OFISPAWNERROOT/lib"
+      AC_CHECK_PROGS([mpich], [mpiexec],0,$OFISPAWNERROOT/bin)
+      if test -n "$mpich"; then
+        OFI_LIBS="$OFI_LIBS -lmpich"
+      else
+        AC_CHECK_PROGS([yod], [yod],0,$OFISPAWNERROOT/bin)
+        if test -n "$yod"; then
+          OFI_LIBS="$OFI_LIBS -lportals_runtime"
+          OFI_INCLUDE="$OFI_INCLUDE -I$OFISPAWNERROOT/include/portals4"
+        fi
+      fi
+    fi
+  else
+    use_pmi=no
+  fi
+
+  GASNET_PUSHVAR(CFLAGS,"$CFLAGS -I$OFI_INCLUDE")
+  GASNET_PUSHVAR(LIBS,"$LIBS -L$OFI_LIBDIR $OFI_LIBS")
+  GASNET_TRY_CACHE_LINK(for working OFI GASNet bindings, ofi_works, [
+		#include <rdma/fabric.h>
+		  ], [{
+		  int *argc; char ***argv;
+		  int
+		  rc
+		  =
+		  fi_getinfo(FI_VERSION(FI_MAJOR_VERSION,FI_MINOR_VERSION),
+		  	  argc,
+			  argv,
+			  0, 0, 0);
+		  }], [ : ], [ have_ofi=no; GASNET_ERR_SAVE() ] )
+  GASNET_POPVAR(CFLAGS)
+  GASNET_POPVAR(LIBS)
+
+    GASNET_WITH(ofi-spawner,
+       [OFI job spawner ("ssh", "mpi" or "pmi", default is mpi when available)],
+       [case "$withval" in
+          ssh|mpi|pmi) gasnet_ofi_spawner_conf=$withval
+               ;;
+          yes) AC_MSG_ERROR([--with-ofi-spawner requires an argument ("ssh", "mpi" or "pmi")])
+               ;;
+          *)   AC_MSG_ERROR([--with-ofi-spawner argument must be "ssh", "mpi" or "pmi"])
+               ;;
+        esac],
+       [AC_MSG_ERROR([--with-ofi-spawner argument must be "ssh", "mpi" or "pmi"])],
+       [if test "$have_mpi_compat" = yes; then
+          gasnet_ofi_spawner_conf=mpi
+        else
+          gasnet_ofi_spawner_conf=ssh
+        fi])
+    if test "$gasnet_ofi_spawner_conf$have_mpi_compat" = mpino; then
+      AC_MSG_ERROR([--with-ofi-spawner=mpi requires MPI compatibility support which $mpi_compat_reason])
+    fi
+    if test "$gasnet_ofi_spawner_conf$have_fork" = sshno; then
+      AC_MSG_ERROR([--with-ofi-spawner=ssh requires fork() support which $fork_reason])
+    fi
+    GASNET_OFI_SPAWNER_CONF=$gasnet_ofi_spawner_conf
+    AC_SUBST(GASNET_OFI_SPAWNER_CONF)
+fi
+AC_SUBST(OFI_INCLUDE)
+AC_SUBST(OFI_LIBDIR)
+AC_SUBST(OFI_LIBS)
+AC_SUBST(OFI_LIBCFLAGS)
+AM_CONDITIONAL(USE_OFI_CONDUIT, test "$have_ofi" = yes)
+AM_CONDITIONAL(OFI_BOOTSTRAP_SSH, test "$have_fork" = yes)
+AM_CONDITIONAL(OFI_BOOTSTRAP_MPI, test "$have_mpi_compat" = yes)
+AM_CONDITIONAL(OFI_BOOTSTRAP_PMI, test "$use_pmi" = yes)
+CONDUIT_END([test "$have_ofi" = yes])
 #---------------------------------------------------------------------------------------------------------------
 # CONDUIT CONFIGURATIONS FINISH
 #---------------------------------------------------------------------------------------------------------------
@@ -4559,6 +4663,7 @@ GASNET_FIX_EXEC(psm-conduit/contrib/gasnetrun_psm)
 GASNET_FIX_EXEC(pami-conduit/contrib/gasnetrun_pami)
 GASNET_FIX_EXEC(gemini-conduit/contrib/gasnetrun_gemini)
 GASNET_FIX_EXEC(aries-conduit/contrib/gasnetrun_aries)
+GASNET_FIX_EXEC(ofi-conduit/contrib/gasnetrun_ofi)
 GASNET_FIX_EXEC(other/contrib/gasnet_trace)
 
 if test "$gasnet_toolsonly_mode" = "no" ; then
@@ -4643,6 +4748,11 @@ aries-conduit/Makefile
 aries-conduit/conduit.mak
 aries-conduit/contrib/Makefile
 aries-conduit/contrib/gasnetrun_aries
+
+ofi-conduit/Makefile
+ofi-conduit/conduit.mak
+ofi-conduit/contrib/Makefile
+ofi-conduit/contrib/gasnetrun_ofi
 
 other/Makefile-conduit.mak
 other/fragment-head.mak

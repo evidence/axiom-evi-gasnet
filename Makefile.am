@@ -31,7 +31,8 @@ CONDUITMODE_DIST_SUBDIRS =    	\
 	portals4-conduit        \
 	gemini-conduit          \
 	aries-conduit           \
-	pami-conduit
+	pami-conduit			\
+	ofi-conduit
 CONDUITMODE_headers = 		\
 	gasnet.h           	\
 	gasnet_ammacros.h  	\
