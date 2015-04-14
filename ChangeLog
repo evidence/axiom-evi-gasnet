@@ -2,6 +2,40 @@ GASNet ChangeLog
 ----------------
 
 ----------------------------------------------------------------------
+04-13-2015 :  Release 1.24.2-rc1
+
+* This ChangeLog is for 1.24.2 Release Candidate 1
+  - There are changes that are not yet listed here.
+
+* InfiniBand (ibv-conduit for OpenFabrics Verbs)
+  - Updated for OFED's XRC interfaces.
+
+* Mellanox ConnectX series HCAs (mxm-conduit)
+  - Fix race condition in exit flow.
+
+* IBM BG/Q (pami-conduit)
+  - Now fully support building with "bgclang".
+
+* Shared-memory (smp-conduit)
+  - Extended API implementation is now fully inlinable.
+
+* PSHM (intra-node shared memory)
+  - Update PSHM-over-XPMEM for SGI's "xpmem_2" APIs.
+  - Add new optional PSHM implementation based on hugetlbfs.
+
+* Platform support/portability
+  - Eliminate many warnings from recent clang compilers.
+  - Several fixes for improved Xeon Phi support.
+  - Initial (experimental) support for AARCH64 (aka ARM64 or ARMv8).
+
+* GASNet Tools
+  - Implement GASNET_MAXIMIZE_RLIMIT_* env vars.
+  - Implement and document GASNETT_DEPRECATED function decoration.
+
+* General
+  - Fixed bug3153: problems with lib vs lib64 on SUSE Linux distributions.
+
+----------------------------------------------------------------------
 10-28-2014 : Release 1.24.0
 
 * Cray XE, XK and XC series (gemini- and aries-conduits)
