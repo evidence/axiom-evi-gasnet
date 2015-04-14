@@ -2,16 +2,22 @@ GASNet ChangeLog
 ----------------
 
 ----------------------------------------------------------------------
-04-13-2015 :  Release 1.24.2-rc1
+04-14-2015 :  Release 1.24.2-rc2
 
-* This ChangeLog is for 1.24.2 Release Candidate 1
-  - There are changes that are not yet listed here.
+* This ChangeLog entry is for 1.24.2 Release Candidate 2
+  - The entry for the final 1.24.2 release may differ.
+
+* Cray XE, XK and XC series (gemini- and aries-conduits)
+  - Implemented PSHM-over-hugeltbfs as alternative to XPMEM, when
+    configured with "--disable-pshm-xpmem --enable-pshm-hugetlbfs".
 
 * InfiniBand (ibv-conduit for OpenFabrics Verbs)
-  - Updated for OFED's XRC interfaces.
+  - Updated ibv-conduit code for the new OFED XRC interfaces.
+  - Added advertisment of supported spawners to Makefile frgaments.
 
 * Mellanox ConnectX series HCAs (mxm-conduit)
-  - Fix race condition in exit flow.
+  - Fixed a race in gasnet_exit().
+  - Added advertisment of supported spawners to Makefile frgaments.
 
 * IBM BG/Q (pami-conduit)
   - Now fully support building with "bgclang".
@@ -20,17 +26,24 @@ GASNet ChangeLog
   - Extended API implementation is now fully inlinable.
 
 * PSHM (intra-node shared memory)
-  - Update PSHM-over-XPMEM for SGI's "xpmem_2" APIs.
-  - Add new optional PSHM implementation based on hugetlbfs.
+  - Updated PSHM-over-XPMEM for SGI's "xpmem_2" APIs.
+  - Added new optional PSHM implementation based on hugetlbfs.
+  - Made corrections to behavior when PSHM is not enabled:
+    + Coordinate mmapLimit probe per-host (not per-supernode).
+    + Correctly initialize gasnet_nodeinfo_t.supernode (all singletons).
 
 * Platform support/portability
-  - Eliminate many warnings from recent clang compilers.
-  - Several fixes for improved Xeon Phi support.
-  - Initial (experimental) support for AARCH64 (aka ARM64 or ARMv8).
+  - Updated to far more recent config.guess and config.sub.
+  - Fixed support for gcc-5 on Mac OSX / Darwin.
+  - Eliminated many warnings from recent clang compilers.
+  - Made several fixes for improved Xeon Phi support.
+  - Support for ARMv5, v6 and v7 is no longer "experimental"
+  - Added initial (experimental) support for ARMv8 (aka AARCH64 or ARM64).
+  - Improved support for compiler wrappers like distcc and ccache.
 
 * GASNet Tools
-  - Implement GASNET_MAXIMIZE_RLIMIT_* env vars.
-  - Implement and document GASNETT_DEPRECATED function decoration.
+  - Implemented GASNET_MAXIMIZE_RLIMIT_* env vars.
+  - Implemented GASNETT_DEPRECATED function decoration.
 
 * General
   - Fixed bug3153: problems with lib vs lib64 on SUSE Linux distributions.
