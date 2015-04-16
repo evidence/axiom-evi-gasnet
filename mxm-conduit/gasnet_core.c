@@ -1311,7 +1311,9 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     /* ensure extended API is initialized across nodes */
     gasnetc_bootstrapBarrier();
 
+  #if 0 /* Cleanup would prevent use of gasneti_bootstrapBarrier for "oob exit barrier" */
     gasneti_bootstrapCleanup();
+  #endif
 
     return GASNET_OK;
 }
