@@ -2633,7 +2633,7 @@ static void gasnetc_exit_body(void) {
 
   GASNETI_TRACE_PRINTF(C,("gasnet_exit(%i)\n", exitcode));
 
-  /* Timed MIN(exitcode) reduction to clearly distinguish collective exit */
+  /* Timed MAX(exitcode) reduction to clearly distinguish collective exit */
   alarm(2 + (int)gasnetc_exittimeout);
   graceful = (gasnetc_exit_reduce(exitcode, timeout_us) == 0);
   alarm(0);
