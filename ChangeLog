@@ -2,9 +2,9 @@ GASNet ChangeLog
 ----------------
 
 ----------------------------------------------------------------------
-04-15-2015 :  Release 1.24.2-rc3
+04-16-2015 :  Release 1.24.2-rc4
 
-* This ChangeLog entry is for 1.24.2 Release Candidate 3
+* This ChangeLog entry is for 1.24.2 Release Candidate 4
   - The entry for the final 1.24.2 release may differ.
 
 * Cray XE, XK and XC series (gemini- and aries-conduits)
