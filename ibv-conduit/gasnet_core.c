@@ -2566,7 +2566,11 @@ static int gasnetc_exit_slave(int64_t timeout_us) {
 /* gasnetc_exit_body
  *
  * This code is common to all the exit paths and is used to perform a hopefully graceful exit in
- * all cases.  To coordinate a graceful shutdown gasnetc_get_exit_role() will select one node as
+ * all cases.  In the normal case of a collective call to gasnet_exit() (or return from main()),
+ * we perform a MAX() reduction over the exitcodes and all processes will exit with the result.
+ * If the exitcode reduction does not complete within gasnetc_exittimeout seconds, then we
+ * assume that this is a NON-collective exit and that additional coordination is needed.  In that
+ * case, to coordinate a graceful shutdown gasnetc_get_exit_role() will select one node as
  * the "master".  That master node will then send a remote exit request to each of its peers to
  * ensure they know that it is time to exit.  If we fail to coordinate the shutdown, we ask the
  * bootstrap to shut us down agressively.  Otherwise we return to our caller.  Unless our caller
@@ -2574,7 +2578,7 @@ static int gasnetc_exit_slave(int64_t timeout_us) {
  * the actual termination.  Note also that this function will block all calling threads other than
  * the first until the shutdown code has been completed.
  *
- * XXX: timeouts contained here are entirely arbitrary
+ * XXX: timeouts other than gasnetc_exittimeout are hard-coded and entirely arbitrary
  */
 static void gasnetc_exit_body(void) {
   int role, exitcode;
