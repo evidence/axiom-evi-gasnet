@@ -784,6 +784,8 @@
 #elif _PLATFORM_ARCH_LITTLE_ENDIAN
   #define PLATFORM_ARCH_LITTLE_ENDIAN 1
 #endif
+#undef _PLATFORM_ARCH_BIG_ENDIAN
+#undef _PLATFORM_ARCH_LITTLE_ENDIAN
 
 #if defined(PLATFORM_ARCH_BIG_ENDIAN) && defined(PLATFORM_ARCH_LITTLE_ENDIAN)
   #error conflicting endianness information
@@ -813,6 +815,8 @@
 #elif _PLATFORM_ARCH_32
   #define PLATFORM_ARCH_32 1
 #endif
+#undef _PLATFORM_ARCH_64
+#undef _PLATFORM_ARCH_32
 
 #if defined(PLATFORM_ARCH_64) && defined(PLATFORM_ARCH_32)
   #error conflicting bit width information
