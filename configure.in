@@ -1397,29 +1397,6 @@ AM_CONDITIONAL(USE_PSHM, test "$with_pshm" != no)
 ########################################################################
 ## CPU feature checks
 
-## Look for PPC970/PPC970FX (aka G5)
-# Both false positives and false negatives are safe, but getting this
-# wrong may hurt performance.
-GASNET_IF_ENABLED_WITH_AUTO(tune-ppc970, Enable/disable tuning for PPC970 (aka G5) (auto-detected),
-  enabled_ppc970=yes, enabled_ppc970=no, enabled_ppc970=probe)
-if expr "$enabled_ppc970@$cross_compiling@$target_cpu" : "probe@no@powerpc" >/dev/null; then
-  AC_MSG_CHECKING(whether to tune for PPC970/G5)
-  case "$target_os" in
-   linux*) if grep -i PPC970 /proc/cpuinfo >/dev/null 2>&1; then
-             enabled_ppc970=yes
-           fi ;;
-  darwin*) if test `/usr/sbin/sysctl hw.cpusubtype | cut '-d ' -f2` = '100'; then
-             enabled_ppc970=yes
-           fi ;;
-  esac
-  if test "$enabled_ppc970" = yes; then
-    AC_DEFINE(GASNETI_TUNE_PPC970)
-    AC_MSG_RESULT(yes)
-  else
-    AC_MSG_RESULT(no)
-  fi
-fi
-
 ## Look for potentially buggy MIPS R10k systems
 # There is a processor erratum to work-around in our atomics :-(
 # The only SGI products w/ the bad cpus are the "IP27" platforms (Origin 200, Origin 2000, and Onyx 2)
