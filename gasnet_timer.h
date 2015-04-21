@@ -395,6 +395,9 @@ GASNETI_BEGIN_EXTERNC
       if (!fp) gasneti_fatalerror("*** ERROR: Failure in fopen('%s','r'): %s\n",fname,strerror(errno));
       if (fread((void *)(&freq), sizeof(uint32_t), 1, fp) != 1) 
         gasneti_fatalerror("*** ERROR: Failure to read timebase frequency from '%s': %s", fname, strerror(errno));
+     #if PLATFORM_ARCH_LITTLE_ENDIAN
+      freq = __builtin_bswap32(freq); /* value is always big-endian */
+     #endif
       fclose(fp);
       if (freq == 0) { /* Playstation3 */
         char input[255];
