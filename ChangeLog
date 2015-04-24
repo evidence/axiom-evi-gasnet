@@ -2,22 +2,19 @@ GASNet ChangeLog
 ----------------
 
 ----------------------------------------------------------------------
-04-21-2015 :  Release 1.24.2-rc6
-
-* This ChangeLog entry is for 1.24.2 Release Candidate 6
-  - The entry for the final 1.24.2 release may differ.
+04-27-2015 :  Release 1.24.2
 
 * Cray XE, XK and XC series (gemini- and aries-conduits)
-  - Implemented PSHM-over-hugeltbfs as alternative to XPMEM, when
+  - Implemented PSHM-over-hugetlbfs as alternative to XPMEM, when
     configured with "--disable-pshm-xpmem --enable-pshm-hugetlbfs".
 
 * InfiniBand (ibv-conduit for OpenFabrics Verbs)
   - Updated ibv-conduit code for the new OFED XRC interfaces.
-  - Added advertisment of supported spawners to Makefile frgaments.
+  - Added advertisement of supported spawners to Makefile fragments.
 
 * Mellanox ConnectX series HCAs (mxm-conduit)
   - Fixed a race in gasnet_exit().
-  - Added advertisment of supported spawners to Makefile frgaments.
+  - Added advertisement of supported spawners to Makefile fragments.
 
 * IBM BG/Q (pami-conduit)
   - Now fully support building with "bgclang".
@@ -42,7 +39,7 @@ GASNet ChangeLog
   - Improved support for compiler wrappers like distcc and ccache.
 
 * GASNet Tools
-  - Implemented GASNET_MAXIMIZE_RLIMIT_* env vars.
+  - Implemented GASNET_MAXIMIZE_RLIMIT_* environment variables.
   - Implemented GASNETT_DEPRECATED function decoration.
 
 * General
