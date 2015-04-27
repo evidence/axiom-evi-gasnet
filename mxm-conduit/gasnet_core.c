@@ -135,6 +135,8 @@ static gasneti_atomic_t gasnetc_exit_role = gasneti_atomic_init(GASNETC_EXIT_ROL
 static gasneti_atomic_t gasnetc_exit_role_rep_out = gasneti_atomic_init(0);
 /* notification to the root node from elected master */
 static gasneti_atomic_t gasnetc_exit_all_done = gasneti_atomic_init(0);
+/* set to deal with deferred replies */
+static gasnet_node_t gasnetc_exit_master_needs_reply = (gasnet_node_t)(-1);
 
 /* -------------------------------------------------------------------------- */
 
@@ -1311,7 +1313,9 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     /* ensure extended API is initialized across nodes */
     gasnetc_bootstrapBarrier();
 
+  #if 0 /* Cleanup would prevent use of gasneti_bootstrapBarrier for "oob exit barrier" */
     gasneti_bootstrapCleanup();
+  #endif
 
     return GASNET_OK;
 }
@@ -1477,10 +1481,17 @@ gasnetc_HandleSystemExitReq(gasnet_token_t token, gasnet_handlerarg_t exitcode)
     (void) gasneti_atomic_compare_and_swap(&gasnetc_exit_role,
                                            GASNETC_EXIT_ROLE_UNKNOWN, GASNETC_EXIT_ROLE_SLAVE, 0);
 
-    /* Wait for reply from root node if we already requested our role */
-    MXM_DEBUG_EXIT_FLOW("Waiting for role rep before sending responce to master: current count=%d\n", gasneti_atomic_read(&gasnetc_exit_role_rep_out, 0));
-    while (gasneti_atomic_read(&gasnetc_exit_role_rep_out, 0) != 0) {
-        gasnetc_AMPoll_nocheckattach(); 
+    /* We must wait for reply from root node if we already requested our role,
+     * but we cannot spin-poll here in the handler without risking deadlock.
+     */
+    if (gasneti_atomic_read(&gasnetc_exit_role_rep_out, 0) != 0) {
+        MXM_DEBUG_EXIT_FLOW("Waiting for role rep before sending responce to master: current count=%d\n", gasneti_atomic_read(&gasnetc_exit_role_rep_out, 0));
+        rc = gasnet_AMGetMsgSource(token, &gasnetc_exit_master_needs_reply);
+        gasneti_assert(rc == GASNET_OK);
+        /* Since we sent the role req, the "IFF this is the first" code below
+         * is guaranteed to be unreachable from here.  So, just return now.
+         */
+        return;
     }
 
     MXM_DEBUG_EXIT_FLOW("Handling exit request - sending response to master\n");
@@ -1918,6 +1929,14 @@ static int gasnetc_exit_slave(int64_t timeout_us)
         gasnetc_AMPoll_nocheckattach(); /* works even before _attach */
     }
 
+    /* handle a deferred response to the master so it knows we are reachable */
+    if (gasnetc_exit_master_needs_reply != (gasnet_node_t)(-1)) {
+        int rc;
+        MXM_DEBUG_EXIT_FLOW("Sending deferred response to master\n");
+        rc = gasnetc_SystemRequest(gasnetc_exit_master_needs_reply, 1,
+                                    (gasnet_handlerarg_t) SYSTEM_EXIT_REP);
+        gasneti_assert(rc == GASNET_OK);
+    }
 
     return 0;
 }
@@ -2581,7 +2600,7 @@ int gasnetc_SystemReply(gasnet_token_t token,
   No-interrupt sections
   =====================
   This section is only required for conduits that may use interrupt-based handler dispatch
-  See the GASNet spec and http://www.cs.berkeley.edu/~bonachea/upc/gasnet.html for
+  See the GASNet spec and http://gasnet.lbl.gov/dist/docs/gasnet.html for
     philosophy and hints on efficiently implementing no-interrupt sections
   Note: the extended-ref implementation provides a thread-specific void* within the
     gasnete_threaddata_t data structure which is reserved for use by the core
