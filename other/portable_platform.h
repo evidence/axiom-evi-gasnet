@@ -597,10 +597,6 @@
    PLATFORM_ARCH_FAMILYNAME:
      unquoted token which provides the CPU family name
 
-   PLATFORM_ARCH_BIG_ENDIAN 
-   PLATFORM_ARCH_LITTLE_ENDIAN:
-     defined to positive value if CPU is known to be big/little endian, undef otherwise
-
    PLATFORM_ARCH_32              - 32-bit pointers
    PLATFORM_ARCH_64              - 64-bit pointers
    PLATFORM_ARCH_BIG_ENDIAN      - big-endian word order
@@ -614,7 +610,7 @@
   #define PLATFORM_ARCH_POWERPC 1
   #define PLATFORM_ARCH_FAMILYNAME POWERPC
   #define _PLATFORM_ARCH_64 1
-  #define PLATFORM_ARCH_BIG_ENDIAN 1
+  #define _PLATFORM_ARCH_BIG_ENDIAN 1
 
 #elif defined(_POWER) || \
       defined(__PPC)  || defined(__PPC__) || \
@@ -624,18 +620,18 @@
   #define PLATFORM_ARCH_POWERPC 1
   #define PLATFORM_ARCH_FAMILYNAME POWERPC
   #define _PLATFORM_ARCH_32 1
-  #define PLATFORM_ARCH_BIG_ENDIAN 1
+  #define _PLATFORM_ARCH_BIG_ENDIAN 1
 
 #elif defined(_ARCH_PPC) || defined(_ARCH_PPC64)
   #define PLATFORM_ARCH_POWERPC 1
   #define PLATFORM_ARCH_FAMILYNAME POWERPC
-  #define PLATFORM_ARCH_BIG_ENDIAN 1
+  #define _PLATFORM_ARCH_BIG_ENDIAN 1
 
 #elif defined(__KNC__) || defined(__MIC__)
   #define PLATFORM_ARCH_MIC 1
   #define PLATFORM_ARCH_FAMILYNAME MIC
   #define _PLATFORM_ARCH_64 1
-  #define PLATFORM_ARCH_LITTLE_ENDIAN 1
+  #define _PLATFORM_ARCH_LITTLE_ENDIAN 1
 
 #elif defined(__x86_64) || defined(__x86_64__) || \
     defined(__athlon) || defined(__athlon__) || \
@@ -643,16 +639,16 @@
   #define PLATFORM_ARCH_X86_64 1
   #define PLATFORM_ARCH_FAMILYNAME X86_64
   #define _PLATFORM_ARCH_64 1
-  #define PLATFORM_ARCH_LITTLE_ENDIAN 1
+  #define _PLATFORM_ARCH_LITTLE_ENDIAN 1
 
 #elif defined(__ia64__) || defined(__ia64)
   #define PLATFORM_ARCH_IA64 1
   #define PLATFORM_ARCH_FAMILYNAME IA64
   #define _PLATFORM_ARCH_64 1
   #if defined(PLATFORM_OS_LINUX) || defined(PLATFORM_OS_FREEBSD)
-    #define PLATFORM_ARCH_LITTLE_ENDIAN 1
+    #define _PLATFORM_ARCH_LITTLE_ENDIAN 1
   #elif defined(PLATFORM_OS_HPUX)
-    #define PLATFORM_ARCH_BIG_ENDIAN 1
+    #define _PLATFORM_ARCH_BIG_ENDIAN 1
   #else
     /* Unknown.  Hope one of the other mechanisms can sort it out. */
   #endif
@@ -666,13 +662,13 @@
   #define PLATFORM_ARCH_X86 1
   #define PLATFORM_ARCH_FAMILYNAME X86
   #define _PLATFORM_ARCH_32 1
-  #define PLATFORM_ARCH_LITTLE_ENDIAN 1
+  #define _PLATFORM_ARCH_LITTLE_ENDIAN 1
 
 #elif defined(__alpha) || defined(__alpha__)
   #define PLATFORM_ARCH_ALPHA 1
   #define PLATFORM_ARCH_FAMILYNAME ALPHA
   #define _PLATFORM_ARCH_64 1
-  #define PLATFORM_ARCH_LITTLE_ENDIAN 1
+  #define _PLATFORM_ARCH_LITTLE_ENDIAN 1
 
 #elif defined(_mips) || defined(__mips) || defined(__mips__) || \
     defined(__host_mips) || defined(__host_mips__) || \
@@ -681,10 +677,10 @@
   #define PLATFORM_ARCH_FAMILYNAME MIPS
   #ifdef _MIPSEL /* MIPS cores support both little and big endian modes */
     /* SiCortex */
-    #define PLATFORM_ARCH_LITTLE_ENDIAN 1
+    #define _PLATFORM_ARCH_LITTLE_ENDIAN 1
   #else
     /* IRIX */
-    #define PLATFORM_ARCH_BIG_ENDIAN 1
+    #define _PLATFORM_ARCH_BIG_ENDIAN 1
   #endif
   #ifdef _MIPS_SZPTR
     #if _MIPS_SZPTR == 32
@@ -699,25 +695,25 @@
     defined(__sparcv8) || defined(__sparcv9)
   #define PLATFORM_ARCH_SPARC 1
   #define PLATFORM_ARCH_FAMILYNAME SPARC
-  #define PLATFORM_ARCH_BIG_ENDIAN 1
+  #define _PLATFORM_ARCH_BIG_ENDIAN 1
 
 #elif defined(__hppa) || defined(__hppa__) || \
     defined(__parisc) || defined(__parisc__) || \
     defined(_PA_RISC1_1) || defined(_PA_RISC2_0)
   #define PLATFORM_ARCH_PARISC 1
   #define PLATFORM_ARCH_FAMILYNAME PARISC
-  #define PLATFORM_ARCH_BIG_ENDIAN 1
+  #define _PLATFORM_ARCH_BIG_ENDIAN 1
 
 #elif defined(__crayx1)
   #define PLATFORM_ARCH_CRAYX1 1
   #define PLATFORM_ARCH_FAMILYNAME CRAYX1
-  #define PLATFORM_ARCH_BIG_ENDIAN 1
+  #define _PLATFORM_ARCH_BIG_ENDIAN 1
   #define _PLATFORM_ARCH_64 1
 
 #elif defined(_CRAYT3E)
   #define PLATFORM_ARCH_CRAYT3E 1
   #define PLATFORM_ARCH_FAMILYNAME CRAYT3E
-  #define PLATFORM_ARCH_BIG_ENDIAN 1
+  #define _PLATFORM_ARCH_BIG_ENDIAN 1
   #define _PLATFORM_ARCH_64 1
 
 #elif defined(__MTA__)
@@ -731,7 +727,7 @@
 #elif defined(__MICROBLAZE__)
   #define PLATFORM_ARCH_MICROBLAZE 1
   #define PLATFORM_ARCH_FAMILYNAME MICROBLAZE
-  #define PLATFORM_ARCH_BIG_ENDIAN 1
+  #define _PLATFORM_ARCH_BIG_ENDIAN 1
   #define _PLATFORM_ARCH_32 1
 
 #elif defined(__arm__)
@@ -739,24 +735,24 @@
   #define PLATFORM_ARCH_FAMILYNAME ARM
   #define _PLATFORM_ARCH_32 1
   #if defined(__ARMEB__)
-    #define PLATFORM_ARCH_BIG_ENDIAN 1
+    #define _PLATFORM_ARCH_BIG_ENDIAN 1
   #elif defined(__ARMEL__)
-    #define PLATFORM_ARCH_LITTLE_ENDIAN 1
+    #define _PLATFORM_ARCH_LITTLE_ENDIAN 1
   #endif
 
 #elif defined(__aarch64__)
   #define PLATFORM_ARCH_AARCH64 1
   #define PLATFORM_ARCH_FAMILYNAME AARCH64
   #if defined(__AARCH64EB__)
-    #define PLATFORM_ARCH_BIG_ENDIAN 1
+    #define _PLATFORM_ARCH_BIG_ENDIAN 1
   #elif defined(__AARCH64EL__)
-    #define PLATFORM_ARCH_LITTLE_ENDIAN 1
+    #define _PLATFORM_ARCH_LITTLE_ENDIAN 1
   #endif
 
 #elif defined(__tile__)
   #define PLATFORM_ARCH_TILE 1
   #define PLATFORM_ARCH_FAMILYNAME TILE
-  #define PLATFORM_ARCH_LITTLE_ENDIAN 1
+  #define _PLATFORM_ARCH_LITTLE_ENDIAN 1
   #if defined(__tilegx__)
     #define _PLATFORM_ARCH_64 1
   #else
@@ -770,11 +766,26 @@
 
 /* generic chip properties */
 
-#if !defined(PLATFORM_ARCH_BIG_ENDIAN) && !defined(PLATFORM_ARCH_LITTLE_ENDIAN)
-  #if defined(_BIG_ENDIAN) || defined(__BIG_ENDIAN__) || defined(WORDS_BIGENDIAN)
-    #define PLATFORM_ARCH_BIG_ENDIAN 1
-  #endif
+#if defined(PLATFORM_ARCH_BIG_ENDIAN) || defined(PLATFORM_ARCH_LITTLE_ENDIAN)
+  #error internal error in endianness configuration
 #endif
+
+/* PLATFORM_ARCH_{BIG,LITTLE}_ENDIAN:
+    first detect common preprocessor defines
+    then default to any arch-specific value provided
+ */
+
+#if defined(_BIG_ENDIAN) || defined(__BIG_ENDIAN__) || defined(WORDS_BIGENDIAN)
+  #define PLATFORM_ARCH_BIG_ENDIAN 1
+#elif defined(_LITTLE_ENDIAN) || defined(__LITTLE_ENDIAN__) || defined(WORDS_LITTLEENDIAN)
+  #define PLATFORM_ARCH_LITTLE_ENDIAN 1
+#elif _PLATFORM_ARCH_BIG_ENDIAN
+  #define PLATFORM_ARCH_BIG_ENDIAN 1
+#elif _PLATFORM_ARCH_LITTLE_ENDIAN
+  #define PLATFORM_ARCH_LITTLE_ENDIAN 1
+#endif
+#undef _PLATFORM_ARCH_BIG_ENDIAN
+#undef _PLATFORM_ARCH_LITTLE_ENDIAN
 
 #if defined(PLATFORM_ARCH_BIG_ENDIAN) && defined(PLATFORM_ARCH_LITTLE_ENDIAN)
   #error conflicting endianness information
@@ -804,6 +815,8 @@
 #elif _PLATFORM_ARCH_32
   #define PLATFORM_ARCH_32 1
 #endif
+#undef _PLATFORM_ARCH_64
+#undef _PLATFORM_ARCH_32
 
 #if defined(PLATFORM_ARCH_64) && defined(PLATFORM_ARCH_32)
   #error conflicting bit width information

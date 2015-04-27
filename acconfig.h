@@ -324,8 +324,6 @@
 
 /* Have working PPC64 ISA (lacks an associated builtin preprocessor macro) */
 #undef GASNETI_ARCH_PPC64
-/* Tune for a PPC970 cpu (should not crash other PPCs) */
-#undef GASNETI_TUNE_PPC970
 
 /* Type to use as socklen_t */
 #undef GASNET_SOCKLEN_T
