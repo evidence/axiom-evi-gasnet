@@ -225,7 +225,8 @@
    #define GASNETI_RMB_IS_MB
    #define GASNETI_WMB_IS_MB
 /* ------------------------------------------------------------------------------------ */
-#elif PLATFORM_ARCH_ARM && PLATFORM_OS_LINUX && PLATFORM_COMPILER_GNU
+#elif PLATFORM_ARCH_ARM && PLATFORM_OS_LINUX && \
+      (PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_CLANG)
    #if defined(GASNETI_UNI_BUILD)
      /* On a uniprocessor build avoid performing what reduces to an expensive no-op */
      #define gasneti_local_mb()  gasneti_compiler_fence()
@@ -246,7 +247,8 @@
    #define GASNETI_RMB_IS_MB
    #define GASNETI_WMB_IS_MB
 /* ------------------------------------------------------------------------------------ */
-#elif PLATFORM_ARCH_AARCH64 && PLATFORM_OS_LINUX && PLATFORM_COMPILER_GNU
+#elif PLATFORM_ARCH_AARCH64 && PLATFORM_OS_LINUX && \
+      (PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_CLANG)
    #define gasneti_local_wmb() GASNETI_ASM("dmb ishst")
    #define gasneti_local_rmb() GASNETI_ASM("dmb ishld")
    #define gasneti_local_mb()  GASNETI_ASM("dmb ish")

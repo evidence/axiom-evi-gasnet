@@ -214,7 +214,7 @@
   /* Use a very slow but portable implementation of atomic ops using mutexes */
   /* This case exists only to prevent the following cases from matching. */
 #elif defined(GASNETI_USE_COMPILER_ATOMICOPS)
-  #if PLATFORM_COMPILER_GNU /* XXX: work-alikes? */
+  #if PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_CLANG /* XXX: more work-alikes? */
     /* Generic implementation in terms of GCC's __sync atomics */
 
     /* GCC documentation promises a full memory barrier */
@@ -2576,7 +2576,7 @@
     #endif
   /* ------------------------------------------------------------------------------------ */
   #elif PLATFORM_ARCH_ARM && defined(GASNETI_HAVE_ARM_CMPXCHG)
-    #if PLATFORM_COMPILER_GNU && PLATFORM_OS_LINUX
+    #if PLATFORM_OS_LINUX && (PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_CLANG)
       #define GASNETI_HAVE_ATOMIC32_T 1
 
       typedef struct { volatile unsigned int ctr; } gasneti_atomic32_t;
