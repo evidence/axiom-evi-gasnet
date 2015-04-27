@@ -10,11 +10,11 @@ GASNet ChangeLog
 
 * InfiniBand (ibv-conduit for OpenFabrics Verbs)
   - Updated ibv-conduit code for the new OFED XRC interfaces.
-  - Added advertisement of supported spawners to Makefile fragments.
+  - Added enumeration of supported spawners to Makefile fragments.
 
 * Mellanox ConnectX series HCAs (mxm-conduit)
   - Fixed a race in gasnet_exit().
-  - Added advertisement of supported spawners to Makefile fragments.
+  - Added enumeration of supported spawners to Makefile fragments.
 
 * IBM BG/Q (pami-conduit)
   - Now fully support building with "bgclang".
