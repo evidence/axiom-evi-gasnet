@@ -60,7 +60,7 @@
   #endif
 /* ------------------------------------------------------------------------------------ */
 #elif PLATFORM_ARCH_MIPS
-  #if 1 /* All currently supported compilers (gnu and pathscale) */
+  #if PLATFORM_COMPILER_GNU
     GASNETI_INLINE(_gasneti_local_mb)
     void _gasneti_local_mb(void) {
       GASNETI_ASM(".set mips2  \n\t"

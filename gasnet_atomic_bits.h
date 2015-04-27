@@ -2378,7 +2378,7 @@
       #define GASNETI_MIPS_AT "$1"
     #endif
 
-    #if PLATFORM_COMPILER_GNU
+    #if PLATFORM_OS_LINUX && PLATFORM_COMPILER_GNU
       #define GASNETI_HAVE_ATOMIC32_T 1
       typedef struct { volatile uint32_t ctr; } gasneti_atomic32_t;
       #define gasneti_atomic32_init(v)       { (v) }
@@ -2386,7 +2386,7 @@
       #define _gasneti_atomic32_set(p,v)     ((p)->ctr = (v))
 
       /* We can't assume GNU as, so no push/pop. */
-      #if PLATFORM_COMPILER_GNU
+      #if 1 /* Only gcc supported currently */
         /* Default is at,reorder,macro */
         #define GASNETI_MIPS_START_NOAT        ".set   noat\n\t"
         #define GASNETI_MIPS_END_NOAT          ".set   at\n\t"
