@@ -3676,11 +3676,9 @@ void gasnete_coll_implementation_print(gasnete_coll_implementation_t impl, FILE 
   fprintf(fp, "tree_type: %s\n", str_buf);
 
   fprintf(fp, "Num of params: %d; ", impl->num_params);
-  if (impl->param_list != NULL) {
     for (i=0; i<impl->num_params; i++) {
       fprintf(fp, "params[%d]=%u ", i, (unsigned int)impl->param_list[i]);
     }
-  }
   fprintf(fp, "\n\n");
   fflush(fp);
 }

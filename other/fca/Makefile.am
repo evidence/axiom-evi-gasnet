@@ -11,7 +11,9 @@ AUTOMAKE_OPTIONS = foreign 1.4
 
 SUBDIRS = .
 
-docdir = $(datadir)/doc/gasnet
+if NEED_DOCDIR
+docdir = $(datadir)/doc/GASNet
+endif
 if FCA_ENABLED
 docs = README-fca.txt
 install-data-local:

@@ -491,10 +491,10 @@ AC_CACHE_CHECK(for libgcc link flags, cv_prefix[]lib_gcc,
 [if test "$GCC" = yes; then
   #LIBGCC="`$CC -v 2>&1 | sed -n 's:^Reading specs from \(.*\)/specs$:-L\1 -lgcc:p'`"
   if test "$CC_SUBFAMILY" = 'NVIDIA'; then
-    rm -f "gasnet-conftest.$ac_ext"
-    echo 'int foo;' > "gasnet-conftest.$ac_ext"
-    LIBGCC="-L`$CC -c gasnet-conftest.$ac_ext -Xcompiler -print-libgcc-file-name | xargs dirname` -lgcc"
-    rm -f "gasnet-conftest.*"
+    rm -f conftest.c
+    echo 'int foo;' > conftest.c
+    LIBGCC="-L`$CC -c conftest.c -Xcompiler -print-libgcc-file-name | xargs dirname` -lgcc"
+    rm -rf conftest*
   else
     LIBGCC="-L`$CC -print-libgcc-file-name | xargs dirname` -lgcc"
   fi
@@ -979,16 +979,16 @@ AC_DEFUN([GASNET_TRY_CCOMPILE_WITHWARN],[
 dnl for internal use only
 AC_DEFUN([GASNET_TRY_CCOMPILE_WITHWARN_NORETRY],[
   GASNET_FUN_BEGIN([$0(...)])
-  gasnet_testname=gasnet-conftest
-  gasnet_testfile=${gasnet_testname}.c
-  gasnet_compile_cmd="${CC-cc} -c $CFLAGS $CPPFLAGS $gasnet_testfile"
-  cat > $gasnet_testfile <<EOF
+  gasnet_compile_cmd="${CC-cc} -c $CFLAGS $CPPFLAGS conftest.c"
+  cat > conftest.c <<EOF
 #include "confdefs.h"
 $1
 int main(void) {
 $2
 ; return 0; }
 EOF
+  gasnet_testfile=gasnet-conftest.c
+  cp conftest.c $gasnet_testfile
   GASNET_TRY_RUNCMD([$gasnet_compile_cmd], [$3], [
     echo "configure: warned program was:" >&5
     cat $gasnet_testfile >&5
@@ -998,7 +998,7 @@ EOF
     cat $gasnet_testfile >&5
     $5
     ])
-  rm -f ${gasnet_testname}.*
+  rm -f $gasnet_testfile
   GASNET_FUN_END([$0(...)])
 ])
 
@@ -1037,16 +1037,16 @@ AC_DEFUN([GASNET_TRY_CXXCOMPILE_WITHWARN],[
 dnl for internal use only
 AC_DEFUN([GASNET_TRY_CXXCOMPILE_WITHWARN_NORETRY],[
   GASNET_FUN_BEGIN([$0(...)])
-  gasnet_testname=gasnet-conftest
-  gasnet_testfile=${gasnet_testname}.cc
-  gasnet_compile_cmd="${CXX-c++} -c $CXXFLAGS $CPPFLAGS $gasnet_testfile"
-  cat > $gasnet_testfile <<EOF
+  gasnet_compile_cmd="${CXX-c++} -c $CXXFLAGS $CPPFLAGS conftest.cc"
+  cat > conftest.cc <<EOF
 #include "confdefs.h"
 $1
 int main(void) {
 $2
 ; return 0; }
 EOF
+  gasnet_testfile=gasnet-conftest.c
+  cp conftest.cc $gasnet_testfile
   GASNET_TRY_RUNCMD([$gasnet_compile_cmd], [$3], [
     echo "configure: warned program was:" >&5
     cat $gasnet_testfile >&5
@@ -1056,7 +1056,7 @@ EOF
     cat $gasnet_testfile >&5
     $5
     ])
-  rm -f ${gasnet_testname}.*
+  rm -f $gasnet_testfile
   GASNET_FUN_END([$0(...)])
 ])
 
@@ -1309,6 +1309,8 @@ AC_DEFUN([GASNET_GET_GNU_ATTRIBUTES],[
             [char c; char *x = dummy(&c);])
   GASNET_CHECK_GNU_ATTRIBUTE([$1], [$2], [__pure__],
             [__attribute__((__pure__)) int dummy(int x) { return x+1; }])
+  GASNET_CHECK_GNU_ATTRIBUTE([$1], [$2], [__deprecated__],
+            [__attribute__((__deprecated__)) int dummy(void) { return 0; }])
   GASNET_CHECK_GNU_ATTRIBUTE([$1], [$2], [__format__],
             [#include <stdarg.h>
              __attribute__((__format__ (__printf__, 1, 2)))
@@ -2100,7 +2102,15 @@ dnl Set command for use in Makefile.am to install various files
 dnl This command should remove all the magic used to run from the build
 dnl directory, as well as deal with setting of the prefix at install time.
 AC_DEFUN([GASNET_SET_INSTALL_CMD],[
-GASNET_INSTALL_CMD="sed -e '/###NOINSTALL###/d' -e 's@###INSTALL_PREFIX###@\$(prefix)@g'"
+GASNET_INSTALL_CMD="sed -e '/###NOINSTALL###/d' \
+-e 's@###INSTALL_INCLUDE###@\$(includedir)@g' \
+-e 's@###INSTALL_LIBEXEC###@\$(libexecdir)@g' \
+-e 's@###INSTALL_DOC###@\$(docdir)@g' \
+-e 's@###INSTALL_LIB###@\$(libdir)@g' \
+-e 's@###INSTALL_BIN###@\$(bindir)@g' \
+-e 's@###INSTALL_MAN###@\$(mandir)@g' \
+-e 's@###INSTALL_ETC###@\$(sysconfdir)@g' \
+-e 's@###INSTALL_PREFIX###@\$(prefix)@g'"
 AC_SUBST(GASNET_INSTALL_CMD)
 ])
 
@@ -2306,7 +2316,7 @@ AC_DEFUN([GASNET_CHECK_OVERRIDE_PTHREADS], [
         AC_MSG_ERROR([failed to apply patch $PTHREADS_PATCHFILE to $PTHREADS_INCLUDE/pthread.h - try again without PTHREADS_PATCH option])
       PATCHED_HEADER="pthread.h"
       # PATCHED_HEADERS_DIR must precede PTHREADS_INCLUDE to override it
-      SYS_HEADER_INST="-I###INSTALL_PREFIX###/include/patched-headers $SYS_HEADER_INST"
+      SYS_HEADER_INST="-I###INSTALL_INCLUDE###/patched-headers $SYS_HEADER_INST"
       SYS_HEADER_BLD="-I$PATCHED_HEADERS_DIR $SYS_HEADER_BLD"
     fi
   fi

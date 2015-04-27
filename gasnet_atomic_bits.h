@@ -154,7 +154,9 @@
     PLATFORM_ARCH_MTA
   #define GASNETI_USE_OS_ATOMICOPS
 #elif defined(GASNETI_FORCE_COMPILER_ATOMICOPS) || /* for debugging */ \
+    PLATFORM_ARCH_AARCH64 || \
     PLATFORM_ARCH_TILE
+  /* TODO: can (should?) do TILE and AARCH64 natively */
   #define GASNETI_USE_COMPILER_ATOMICOPS
 #endif
 
@@ -188,7 +190,7 @@
      */
   #if ((PLATFORM_COMPILER_GNU && !defined(__llvm__)) || \
        PLATFORM_COMPILER_PATHSCALE || PLATFORM_COMPILER_PGI) && \
-	(defined(__PIC__) || defined(GASNETI_FORCE_PIC))
+       ((defined(__PIC__) && !defined(GASNETI_CONFIGURED_PIC)) || defined(GASNETI_FORCE_PIC))
       /* Disable use of %ebx when building PIC, but only on affected compilers. */
       #define GASNETI_USE_X86_EBX 0
   #endif
@@ -740,7 +742,7 @@
 	 * We also need to take care that the cmpxchg8b intruction won't get a
 	 * GOT-relative address argument - since EBX doesn't hold the GOT pointer
 	 * at the time it is executed.  This is done by loading the address into
-	 * a register rather than giving it as an "m".
+	 * an available register (but not EBX) rather than giving it as an "m".
 	 *
 	 * Alas, if we try to add an "m" output for the target location, gcc thinks
 	 * it needs to allocate another register for it.  Having none left, it gives
@@ -757,7 +759,7 @@
 		    "sete	%b0		\n\t"
 		    "movl	%1, %%ebx	"
 		    : "+&A" (oldval), "+&r" (newlo)
-		    : "c" (newhi), "r" (&p->ctr)
+		    : "c" (newhi), "DS" (&p->ctr) /* "DS" = EDI or ESI, but not EBX */
 		    : "cc", "memory");
           return (uint8_t)oldval;
         }
@@ -776,7 +778,7 @@
 		    "jnz	0b		\n\t"
 		    "movl	%1, %%ebx	"
 		    : "+&A" (oldval), "+&r" (newlo)
-		    : "c" (newhi), "r" (&p->ctr)
+		    : "c" (newhi), "DS" (&p->ctr) /* "DS" = EDI or ESI, but not EBX */
 		    : "cc", "memory");
           return oldval;
 	}
@@ -808,7 +810,7 @@
 		    "cmpxchg8b	(%3)		\n\t"
 		    "movl	%1, %%ebx	"
 		    : "+&A" (oldval), "+&r" (newlo)
-		    : "c" (newhi), "r" (&p->ctr)
+		    : "c" (newhi), "DS" (&p->ctr) /* "DS" = EDI or ESI, but not EBX */
 		    : "cc", "memory");
           return oldval;
         }

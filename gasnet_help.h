@@ -774,6 +774,7 @@ extern int gasneti_wait_mode; /* current waitmode hint */
   #define gasnet_getNodeInfo(nodeinfo_table, numentries) \
           gasneti_getNodeInfo(nodeinfo_table, numentries)
 #endif
+extern gasnet_nodeinfo_t *gasneti_nodeinfo;
 
 #ifndef _GASNETI_SEGINFO
 #define _GASNETI_SEGINFO
@@ -802,6 +803,85 @@ extern int gasneti_wait_mode; /* current waitmode hint */
         gasneti_pthread_create(&gasneti_pthread_create_system, (thr), (attr), (fn), (arg))
   #endif
 #endif
+
+/* ------------------------------------------------------------------------------------ */
+/* PSHM support */
+#if GASNET_PSHM
+
+/* Max number of processes supported per node */
+#ifndef GASNETI_PSHM_MAX_NODES
+  #ifdef GASNETI_CONFIG_PSHM_MAX_NODES
+    #define GASNETI_PSHM_MAX_NODES GASNETI_CONFIG_PSHM_MAX_NODES
+  #else
+    #define GASNETI_PSHM_MAX_NODES 255
+  #endif
+#endif
+
+#if GASNETI_PSHM_MAX_NODES < 256
+  typedef uint8_t gasneti_pshm_rank_t;
+#elif GASNETI_PSHM_MAX_NODES < 65536
+  typedef uint16_t gasneti_pshm_rank_t;
+#else
+  #error "GASNETI_PSHM_MAX_NODES too large"
+#endif
+
+extern gasneti_pshm_rank_t gasneti_pshm_nodes;  /* # nodes in my supernode */
+extern gasneti_pshm_rank_t gasneti_pshm_mynode; /* my 0-based rank in supernode */
+extern gasnet_node_t gasneti_pshm_firstnode;    /* lowest node # in supernode */
+
+/* # of supernodes */
+#define gasneti_pshm_supernodes (0+gasneti_nodemap_global_count)
+/* my supernode's 0-based rank among supernodes */
+#define gasneti_pshm_mysupernode (0+gasneti_nodemap_global_rank)
+/* vector of first node within each supernode */
+extern gasnet_node_t *gasneti_pshm_firsts;
+
+/* Non-NULL only when supernode members are non-contiguous */
+extern gasneti_pshm_rank_t *gasneti_pshm_rankmap;
+
+/* Returns "local rank" if given node is in the callers supernode.
+ * Otherwise returns an "impossible" value >= gasneti_pshm_nodes.
+ */
+GASNETI_INLINE(gasneti_pshm_local_rank) GASNETI_PURE
+unsigned int gasneti_pshm_local_rank(gasnet_node_t node) {
+#if GASNET_CONDUIT_SMP
+  return node;
+#else
+  if_pt (gasneti_pshm_rankmap == NULL) {
+    /* NOTE: gasnet_node_t is an unsigned type, so in the case of
+     * (node < gasneti_pshm_firstnode), the subtraction will wrap to
+     * a "large" value.
+     */
+    return (node - gasneti_pshm_firstnode);
+  } else {
+    return gasneti_pshm_rankmap[node];
+  }
+#endif
+}
+GASNETI_PUREP(gasneti_pshm_local_rank)
+
+/* Returns 1 if given node is in the caller's supernode, or 0 if it's not.
+ * NOTE: result is false before vnet initialization.
+ */
+GASNETI_INLINE(gasneti_pshm_in_supernode) GASNETI_PURE
+int gasneti_pshm_in_supernode(gasnet_node_t node) {
+#if GASNET_CONDUIT_SMP
+  return 1;
+#else
+  return (gasneti_pshm_local_rank(node) < gasneti_pshm_nodes);
+#endif
+}
+GASNETI_PUREP(gasneti_pshm_in_supernode)
+
+/* Returns local version of remote in-supernode address.
+ */
+GASNETI_INLINE(gasneti_pshm_addr2local) GASNETI_PURE
+void *gasneti_pshm_addr2local(gasnet_node_t node, void *addr) {
+  return  (void*)((uintptr_t)addr
+                   + (uintptr_t)gasneti_nodeinfo[node].offset);
+} 
+GASNETI_PUREP(gasneti_pshm_addr2local)
+#endif /* GASNET_PSHM */
 /* ------------------------------------------------------------------------------------ */
 
 GASNETI_END_EXTERNC

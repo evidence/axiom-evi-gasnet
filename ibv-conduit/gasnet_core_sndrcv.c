@@ -1761,7 +1761,9 @@ void gasnetc_snd_post_common(gasnetc_sreq_t *sreq, struct ibv_send_wr *sr_desc, 
     struct ibv_send_wr *bad_wr;
     sr_desc->next = NULL;
     sr_desc->send_flags = is_inline ? IBV_SEND_INLINE : (enum ibv_send_flags)0;
-  #if GASNETC_IBV_XRC
+  #if GASNETC_IBV_XRC_OFED
+    sr_desc->qp_type.xrc.remote_srqn = cep->xrc_remote_srq_num; /* Even if unused */
+  #elif GASNETC_IBV_XRC_MLNX
     sr_desc->xrc_remote_srq_num = cep->xrc_remote_srq_num; /* Even if unused */
   #endif
     vstat = ibv_post_send(cep->qp_handle, sr_desc, &bad_wr);
@@ -3181,6 +3183,43 @@ extern int gasnetc_sndrcv_limits(void) {
   return GASNET_OK;
 }
 
+#if GASNETC_IBV_SRQ
+static struct ibv_srq * gasnetc_create_srq(gasnetc_hca_t *hca, const int max_wr) {
+  struct ibv_srq *result = NULL;
+  #if GASNETC_IBV_XRC_OFED
+    if (gasnetc_use_xrc) {
+      struct ibv_srq_init_attr_ex attr;
+      memset(&attr, 0, sizeof(struct ibv_srq_init_attr_ex));
+      attr.attr.max_wr = max_wr;
+      attr.attr.max_sge = 1;
+      attr.comp_mask = IBV_SRQ_INIT_ATTR_TYPE | IBV_SRQ_INIT_ATTR_XRCD |
+                       IBV_SRQ_INIT_ATTR_CQ | IBV_SRQ_INIT_ATTR_PD;
+      attr.srq_type = IBV_SRQT_XRC;
+      attr.xrcd = hca->xrc_domain;
+      attr.cq = hca->rcv_cq;
+      attr.pd = hca->pd;
+      result = ibv_create_srq_ex(hca->handle, &attr);
+    } else
+  #elif GASNETC_IBV_XRC_MLNX
+    if (gasnetc_use_xrc) {
+      struct ibv_srq_init_attr attr;
+      memset(&attr, 0, sizeof(attr));
+      attr.attr.max_wr = max_wr;
+      attr.attr.max_sge = 1;
+      result = ibv_create_xrc_srq(hca->pd, hca->xrc_domain, hca->rcv_cq, &attr);
+    } else
+  #endif
+    {
+      struct ibv_srq_init_attr attr;
+      memset(&attr, 0, sizeof(attr));
+      attr.attr.max_wr = max_wr;
+      attr.attr.max_sge = 1;
+      result = ibv_create_srq(hca->pd, &attr);
+    }
+    return result;
+}
+#endif
+
 extern int gasnetc_sndrcv_init(void) {
   gasnetc_hca_t		*hca;
   int	act_size;
@@ -3250,35 +3289,12 @@ extern int gasnetc_sndrcv_init(void) {
       if (gasnetc_use_srq) {
         const int rqst_count = hca->qps * gasnetc_am_rqst_per_qp;
         const int repl_count = hca->qps * gasnetc_am_repl_per_qp;
-        struct ibv_srq_init_attr attr;
 
-        memset(&attr, 0, sizeof(attr));
-        attr.attr.max_wr = rqst_count;
-        attr.attr.max_sge = 1;
-  #if GASNETC_IBV_XRC
-        if (gasnetc_use_xrc) {
-          hca->rqst_srq = ibv_create_xrc_srq(hca->pd, hca->xrc_domain, hca->rcv_cq, &attr);
-          GASNETC_IBV_CHECK_PTR(hca->rqst_srq, "from ibv_create_xrc_srq(Request)");
-        } else
-  #endif
-        {
-          hca->rqst_srq = ibv_create_srq(hca->pd, &attr);
-          GASNETC_IBV_CHECK_PTR(hca->rqst_srq, "from ibv_create_srq(Request)");
-        }
+        hca->rqst_srq = gasnetc_create_srq(hca, rqst_count);
+        GASNETC_IBV_CHECK_PTR(hca->rqst_srq, "from gasnetc_create_srq(Request)");
 
-        memset(&attr, 0, sizeof(attr));
-        attr.attr.max_wr = repl_count;
-        attr.attr.max_sge = 1;
-  #if GASNETC_IBV_XRC
-        if (gasnetc_use_xrc) {
-          hca->repl_srq = ibv_create_xrc_srq(hca->pd, hca->xrc_domain, hca->rcv_cq, &attr);
-          GASNETC_IBV_CHECK_PTR(hca->repl_srq, "from ibv_create_xrc_srq(Reply)");
-        } else
-  #endif
-        {
-          hca->repl_srq = ibv_create_srq(hca->pd, &attr);
-          GASNETC_IBV_CHECK_PTR(hca->repl_srq, "from ibv_create_srq(Reply)");
-        }
+        hca->repl_srq = gasnetc_create_srq(hca, repl_count);
+        GASNETC_IBV_CHECK_PTR(hca->repl_srq, "from gasnetc_create_srq(Reply)");
 
         gasnetc_sema_init(&hca->am_sema, rqst_count, rqst_count);
       }

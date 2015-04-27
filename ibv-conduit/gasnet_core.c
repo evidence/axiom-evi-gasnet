@@ -33,8 +33,8 @@ GASNETI_IDENT(gasnetc_IdentString_Name,    "$GASNetCoreLibraryName: " GASNET_COR
   ==============
 */
 
-/* Minimum number of pages to reserve for firehoses in SEGMENT_FAST: */
-#define GASNETC_MIN_FH_PAGES		4096
+/* Minimum memory to reserve for firehoses in SEGMENT_FAST: */
+#define GASNETC_MIN_FH_MEM		(16*1024*1024)
 
 /*
   The following values can be overridden by environment variables.
@@ -1578,10 +1578,18 @@ static int gasnetc_init(int *argc, char ***argv) {
   gasneti_bootstrapExchange(local_lid, gasnetc_num_ports * sizeof(uint16_t), remote_lid);
   gasneti_free(local_lid);
 
+#if PLATFORM_ARCH_MIC
+  /* In the case of multiple MICs in a host, the LIDs will be the same.
+   * So, use the default nodemap.
+   * TODO: distinguish single-MIC and "self hosted" MIC systems.
+   */
+  gasneti_nodemapInit(&gasneti_bootstrapExchange, NULL, 0, 0);
+#else
   /* Derive nodemap from the LID info we have just exchanged */
   gasneti_nodemapInit(NULL, &remote_lid[0],
                       sizeof(remote_lid[0]),
                       sizeof(remote_lid[0]) * gasnetc_num_ports);
+#endif
 
   #if GASNET_PSHM
     gasneti_pshm_init(&gasneti_bootstrapExchange, 0);
@@ -1679,7 +1687,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     /* Reserved memory needed by firehose on each node */
     /* NOTE: We reserve this memory even when firehose is disabled, since the disable
      * is only made available for debugging. */
-    size_t reserved_mem = GASNETC_MIN_FH_PAGES * GASNET_PAGESIZE;
+    size_t reserved_mem = GASNETC_MIN_FH_MEM;
 
     if_pf (gasnetc_pin_info.memory < reserved_mem) {
       gasneti_fatalerror("Pinnable memory (%lu) is less than reserved minimum %lu\n", (unsigned long)gasnetc_pin_info.memory, (unsigned long)reserved_mem);
@@ -3060,7 +3068,7 @@ extern int gasnetc_AMReplyLongM(
   No-interrupt sections
   =====================
   This section is only required for conduits that may use interrupt-based handler dispatch
-  See the GASNet spec and http://www.cs.berkeley.edu/~bonachea/upc/gasnet.html for
+  See the GASNet spec and http://gasnet.lbl.gov/dist/docs/gasnet.html for
     philosophy and hints on efficiently implementing no-interrupt sections
   Note: the extended-ref implementation provides a thread-specific void* within the 
     gasnete_threaddata_t data structure which is reserved for use by the core 

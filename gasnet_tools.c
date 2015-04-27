@@ -1802,6 +1802,7 @@ int gasnett_maximize_rlimits(void) {
 }
 int gasnett_maximize_rlimit(int res, const char *lim_desc) {
   int success = 0;
+
   #ifdef __USE_GNU
     /* workaround an annoying glibc header bug, which erroneously declares get/setrlimit to take 
        the enum type __rlimit_resource_t, instead of int as required by POSIX */
@@ -1816,6 +1817,11 @@ int gasnett_maximize_rlimit(int res, const char *lim_desc) {
   #else
     #define RLIM_CALL(fnname,structname) fnname
   #endif
+
+  char ctrl_var[32] = "GASNET_MAXIMIZE_";
+  gasneti_assert(strlen(ctrl_var) + strlen(lim_desc) < sizeof(ctrl_var));
+  if (!gasneti_getenv_yesno_withdefault(strncat(ctrl_var, lim_desc, sizeof(ctrl_var)-1), 1))
+    return 1;
 
   #define SET_RLIMITS(structname, getrlimit, setrlimit) do {                                    \
     structname oldval,newval;                                                                   \

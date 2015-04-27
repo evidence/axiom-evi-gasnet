@@ -56,7 +56,9 @@ DIST_SUBDIRS = $(SUBDIRS) $(CONDUITMODE_DIST_SUBDIRS)
 
 configdir = $(includedir)
 config_DATA = $(CONFIG_HEADER)
-docdir = $(datadir)/doc/gasnet
+if NEED_DOCDIR
+docdir = $(datadir)/doc/GASNet
+endif
 
 headers =                  	\
         $(CONDUITMODE_headers) 	\

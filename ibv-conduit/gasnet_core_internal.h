@@ -29,8 +29,14 @@
 /* TODO: flatten these? */
   #if HAVE_IBV_SRQ
     #define GASNETC_IBV_SRQ 1
-    #if HAVE_IBV_XRC
+    #if HAVE_IBV_CMD_OPEN_XRCD
       #define GASNETC_IBV_XRC 1
+      #define GASNETC_IBV_XRC_OFED 1
+      typedef struct ibv_xrcd gasnetc_xrcd_t;
+    #elif HAVE_IBV_OPEN_XRC_DOMAIN
+      #define GASNETC_IBV_XRC 1
+      #define GASNETC_IBV_XRC_MLNX 1
+      typedef struct ibv_xrc_domain gasnetc_xrcd_t;
     #endif
   #endif
 
@@ -454,7 +460,7 @@ typedef struct {
 #endif
   gasnetc_sema_t	*snd_cq_sema_p;
 #if GASNETC_IBV_XRC
-  struct ibv_xrc_domain *xrc_domain;
+  gasnetc_xrcd_t *xrc_domain;
 #endif
   struct ibv_cq *	rcv_cq;
   struct ibv_cq *	snd_cq; /* Includes Reply AMs when SRQ in use */
@@ -562,6 +568,9 @@ struct gasnetc_cep_t_ {
 #if GASNETC_IBV_SRQ
   struct ibv_srq        *srq;
   uint32_t              rcv_qpn;
+#endif
+#if GASNETC_IBV_XRC_OFED
+  struct ibv_qp         *rcv_qp;
 #endif
 #if GASNETC_IBV_XRC
   uint32_t		xrc_remote_srq_num;

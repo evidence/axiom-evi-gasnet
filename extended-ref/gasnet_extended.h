@@ -40,67 +40,6 @@ extern gasnet_handlerentry_t const *gasnete_get_handlertable(void);
 extern void gasnete_init(void);
 
 /* ------------------------------------------------------------------------------------ */
-/* helper macros */
-#define _GASNETI_RETURN_V  return
-#define _GASNETI_RETURN_H  return GASNET_INVALID_HANDLE
-#define GASNETI_CHECKZEROSZ_GET(variety, rt) do {            \
-    if_pf (nbytes == 0) {                                    \
-      GASNETI_TRACE_GET_LOCAL(variety,dest,node,src,nbytes); \
-      _GASNETI_RETURN_##rt;                                  \
-    } } while(0)
-#define GASNETI_CHECKZEROSZ_PUT(variety, rt) do {            \
-    if_pf (nbytes == 0) {                                    \
-      GASNETI_TRACE_PUT_LOCAL(variety,node,dest,src,nbytes); \
-      _GASNETI_RETURN_##rt;                                  \
-    } } while(0)
-#define GASNETI_CHECKZEROSZ_MEMSET(variety, rt) do {            \
-    if_pf (nbytes == 0) {                                       \
-      GASNETI_TRACE_MEMSET_LOCAL(variety,node,dest,val,nbytes); \
-      _GASNETI_RETURN_##rt;                                     \
-    } } while(0)
-#define GASNETI_CHECKZEROSZ_NAMED(tracecall, rt) do { \
-    if_pf (nbytes == 0) {                             \
-      tracecall;                                      \
-      _GASNETI_RETURN_##rt;                           \
-    } } while(0)
-#if GASNET_PSHM
-  #define GASNETI_CHECKPSHM_GET(align, rt) do { \
-    if (gasneti_pshm_in_supernode(node)) {      \
-      GASNETE_FAST_##align##_MEMCPY(dest, gasneti_pshm_addr2local(node, src), nbytes); \
-      gasnete_loopbackget_memsync();            \
-      _GASNETI_RETURN_##rt;                     \
-    }} while(0)
-  #define GASNETI_CHECKPSHM_PUT(align, rt) do { \
-    if (gasneti_pshm_in_supernode(node)) {      \
-      GASNETE_FAST_##align##_MEMCPY(gasneti_pshm_addr2local(node, dest), src, nbytes); \
-      gasnete_loopbackput_memsync();            \
-      _GASNETI_RETURN_##rt;                     \
-    }} while(0)
-  #define GASNETI_CHECKPSHM_GETVAL() do {     \
-    if (gasneti_pshm_in_supernode(node)) {      \
-      GASNETE_VALUE_RETURN(gasneti_pshm_addr2local(node, src), nbytes); \
-    }} while(0)
-  #define GASNETI_CHECKPSHM_PUTVAL(rt) do {     \
-    if (gasneti_pshm_in_supernode(node)) {      \
-      GASNETE_VALUE_ASSIGN(gasneti_pshm_addr2local(node, dest), value, nbytes); \
-      gasnete_loopbackput_memsync();            \
-      _GASNETI_RETURN_##rt;                     \
-    }} while(0)
-  #define GASNETI_CHECKPSHM_MEMSET(rt) do {     \
-    if (gasneti_pshm_in_supernode(node)) {      \
-      memset(gasneti_pshm_addr2local(node, dest), val, nbytes); \
-      gasnete_loopbackput_memsync();            \
-      _GASNETI_RETURN_##rt;                     \
-    }} while(0)
-#else
-  #define GASNETI_CHECKPSHM_GET(align, rt) ((void)0)
-  #define GASNETI_CHECKPSHM_PUT(align, rt) ((void)0)
-  #define GASNETI_CHECKPSHM_GETVAL()       ((void)0)
-  #define GASNETI_CHECKPSHM_PUTVAL(rt)     ((void)0)
-  #define GASNETI_CHECKPSHM_MEMSET(rt)     ((void)0)
-#endif
-
-/* ------------------------------------------------------------------------------------ */
 /*
   Non-blocking memory-to-memory transfers (explicit handle)
   ==========================================================
@@ -226,10 +165,13 @@ gasnet_handle_t   _gasnet_memset_nb   (gasnet_node_t node, void *dest, int val, 
   ===========================================================
 */
 
+#ifndef gasnete_try_syncnb
 extern int gasnete_try_syncnb(gasnet_handle_t handle);
+#endif
+#ifndef gasnete_try_syncnb_some
 extern int gasnete_try_syncnb_some(gasnet_handle_t *phandle, size_t numhandles);
-
-#if !defined(gasnete_try_syncnb_all)
+#endif
+#ifndef gasnete_try_syncnb_all
 extern int gasnete_try_syncnb_all (gasnet_handle_t *phandle, size_t numhandles);
 #endif
 
@@ -305,7 +247,7 @@ void gasnet_wait_syncnb(gasnet_handle_t handle) {
 
 #if GASNETI_DIRECT_WAIT_SYNCNB_SOME
   extern void gasnete_wait_syncnb_some(gasnet_handle_t *phandle, size_t numhandles);
-#else
+#elif !defined(gasnete_wait_syncnb_some)
   #define gasnete_wait_syncnb_some(phandle, numhandles) do {                                   \
       gasneti_AMPoll(); /* Ensure at least one poll - TODO: remove? */                         \
       gasneti_pollwhile(gasnete_try_syncnb_some(phandle, numhandles) == GASNET_ERR_NOT_READY); \
@@ -321,7 +263,7 @@ void gasnet_wait_syncnb_some(gasnet_handle_t *phandle, size_t numhandles) {
 
 #if GASNETI_DIRECT_WAIT_SYNCNB_ALL
   extern void gasnete_wait_syncnb_all(gasnet_handle_t *phandle, size_t numhandles);
-#else
+#elif !defined(gasnete_wait_syncnb_all)
   #define gasnete_wait_syncnb_all(phandle, numhandles) do {                                   \
       gasneti_AMPoll(); /* Ensure at least one poll - TODO: remove? */                        \
       gasneti_pollwhile(gasnete_try_syncnb_all(phandle, numhandles) == GASNET_ERR_NOT_READY); \
@@ -486,7 +428,7 @@ int _gasnet_try_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
 
 #if GASNETI_DIRECT_TRY_SYNCNBI_ALL
   extern int gasnete_try_syncnbi_all(GASNETE_THREAD_FARG_ALONE);
-#else
+#elif !defined(gasnete_try_syncnbi_all)
   #define gasnete_try_syncnbi_all                                               \
    (gasnete_try_syncnbi_gets(GASNETE_THREAD_PASS_ALONE) == GASNET_OK ?          \
     gasnete_try_syncnbi_puts(GASNETE_THREAD_PASS_ALONE) : GASNET_ERR_NOT_READY) \
@@ -506,7 +448,7 @@ int _gasnet_try_syncnbi_all(GASNETE_THREAD_FARG_ALONE) {
 
 #if GASNETI_DIRECT_WAIT_SYNCNBI_GETS
   extern void gasnete_wait_syncnbi_gets(GASNETE_THREAD_FARG_ALONE);
-#else
+#elif !defined(gasnete_wait_syncnbi_puts)
   #define gasnete_wait_syncnbi_gets \
     gasneti_pollwhile(gasnete_try_syncnbi_gets(GASNETE_THREAD_GET_ALONE) == GASNET_ERR_NOT_READY) \
     GASNETE_THREAD_SWALLOW
@@ -521,7 +463,7 @@ int _gasnet_try_syncnbi_all(GASNETE_THREAD_FARG_ALONE) {
 
 #if GASNETI_DIRECT_WAIT_SYNCNBI_PUTS
   extern void gasnete_wait_syncnbi_puts(GASNETE_THREAD_FARG_ALONE);
-#else
+#elif !defined(gasnete_wait_syncnbi_puts)
   #define gasnete_wait_syncnbi_puts \
     gasneti_pollwhile(gasnete_try_syncnbi_puts(GASNETE_THREAD_GET_ALONE) == GASNET_ERR_NOT_READY) \
     GASNETE_THREAD_SWALLOW
@@ -536,7 +478,7 @@ int _gasnet_try_syncnbi_all(GASNETE_THREAD_FARG_ALONE) {
 
 #if GASNETI_DIRECT_WAIT_SYNCNBI_ALL
   extern void gasnete_wait_syncnbi_all(GASNETE_THREAD_FARG_ALONE);
-#else
+#elif !defined(gasnete_wait_syncnbi_all)
   #define gasnete_wait_syncnbi_all do {                                                     \
     gasneti_pollwhile(gasnete_try_syncnbi_gets(GASNETE_THREAD_GET_ALONE) == GASNET_ERR_NOT_READY); \
     gasneti_pollwhile(gasnete_try_syncnbi_puts(GASNETE_THREAD_GET_ALONE) == GASNET_ERR_NOT_READY); \
@@ -555,8 +497,12 @@ int _gasnet_try_syncnbi_all(GASNETE_THREAD_FARG_ALONE) {
   Implicit access region synchronization
   ======================================
 */
+#ifndef gasnete_begin_nbi_accessregion
 extern void            gasnete_begin_nbi_accessregion(int allowrecursion GASNETE_THREAD_FARG);
+#endif
+#ifndef gasnete_end_nbi_accessregion
 extern gasnet_handle_t gasnete_end_nbi_accessregion(GASNETE_THREAD_FARG_ALONE) GASNETI_WARN_UNUSED_RESULT;
+#endif
 
 #define gasnet_begin_nbi_accessregion() gasnete_begin_nbi_accessregion(0 GASNETE_THREAD_GET)
 #define gasnet_end_nbi_accessregion()   gasnete_end_nbi_accessregion(GASNETE_THREAD_GET_ALONE)

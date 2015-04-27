@@ -74,7 +74,7 @@ type name(void) { \
 #if CHECK_STACK
 int stack_check_help(volatile int *p, int x) {
     volatile int local = 1;
-    if (x == 0) return foo(&local,x+1);
+    if (x == 0) return stack_check_help(&local,x+1);
     else if (x < 100) return stack_check_help(p,x+1);
     else if (&local > p) return 1;
     else return 0;

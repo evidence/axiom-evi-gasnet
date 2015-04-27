@@ -21,7 +21,9 @@ CONDUIT_FILELIST =           \
       gasnet_core_help.h     \
       gasnet_core_internal.h \
       gasnet_coll_fwd.h      \
+      gasnet_extended.c      \
       gasnet_extended_fwd.h  \
+      gasnet_extended_help_extra.h  \
       gasnet_extended_coll.c
 
 # list of conduit core and extended .c source files 
@@ -29,7 +31,7 @@ CONDUIT_FILELIST =           \
 CONDUIT_SOURCELIST =          \
       $(srcdir)/gasnet_core.c \
       $(srcdir)/gasnet_extended_coll.c \
-      $(top_srcdir)/extended-ref/gasnet_extended.c
+      $(srcdir)/gasnet_extended.c
 
 # additional -I or -D directives needed by this specific conduit
 # other than the standard GASNet includes and flags

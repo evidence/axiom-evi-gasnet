@@ -1034,6 +1034,8 @@ static void build_nodelist(void)
     nodelist = parse_nodefile(env_string);
   } else if ((env_string = my_getenv(ENV_PREFIX "SSH_SERVERS")) != NULL) {
     nodelist = parse_servers(env_string);
+  } else if ((env_string = my_getenv(ENV_PREFIX "NODEFILE")) != NULL) {
+    nodelist = parse_nodefile(env_string);
   } else if ((env_string = my_getenv("PBS_NODEFILE")) != NULL) {
     nodelist = parse_nodefile(env_string);
   } else if ((env_string = my_getenv("PE_HOSTFILE")) != NULL) {
@@ -1045,7 +1047,7 @@ static void build_nodelist(void)
   } else if (my_getenv("SLURM_JOB_ID") != NULL) {
     nodelist = parse_nodepipe("scontrol show hostname");
   } else {
-    die(1, "No " ENV_PREFIX "SSH_NODEFILE or " ENV_PREFIX "SSH_SERVERS in environment");
+    die(1, "No " ENV_PREFIX "SSH_NODEFILE, " ENV_PREFIX "SSH_SERVERS, or " ENV_PREFIX "NODEFILE in environment");
   }
 }
 

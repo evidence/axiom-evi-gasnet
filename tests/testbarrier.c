@@ -116,6 +116,7 @@ int main(int argc, char **argv) {
 #else
   MSG0("Running%s barrier test with %i iterations and %i extra polling threads...\n",kind,iters,pollers);
 
+  TEST_SET_WAITMODE(pollers+1);
   if (pollers)
       test_createandjoin_pthreads(pollers+1,doTest,NULL,0);
   else

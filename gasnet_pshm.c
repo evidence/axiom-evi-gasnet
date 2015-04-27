@@ -129,6 +129,7 @@ void *gasneti_pshm_init(gasneti_bootstrapExchangefn_t exchangefn, size_t aux_sz)
   /* setup vnet shared memory region for AM infrastructure and supernode barrier.
    */
   gasnetc_pshmnet_region = gasneti_mmap_vnet(mmapsz, exchangefn);
+  gasneti_assert_always((((uintptr_t)gasnetc_pshmnet_region) % GASNETI_PSHMNET_PAGESIZE) == 0);
   if (gasnetc_pshmnet_region == NULL) {
     const int save_errno = errno;
     char buf[16];
@@ -579,22 +580,18 @@ size_t gasneti_pshmnet_memory_needed(gasneti_pshm_rank_t nodes)
 /* Initializes the pshmnet region. Called from each node twice: 
  * to initialize pshmnet_request and pshmnet_reply */
 gasneti_pshmnet_t *
-gasneti_pshmnet_init(void *start, size_t nbytes, gasneti_pshm_rank_t pshmnodes)
+gasneti_pshmnet_init(void *region, size_t regionlen, gasneti_pshm_rank_t pshmnodes)
 {
   gasneti_pshmnet_t *vnet;
-  size_t szonce, szpernode, regionlen;
-  void *region, *myregion;
+  size_t szonce, szpernode;
+  void *myregion;
 
   /* make sure that our max buffer size fits all possible AMs */
   gasneti_assert(sizeof(gasneti_AMPSHM_maxmsg_t) <= GASNETI_PSHMNET_MAX_PAYLOAD);
 
-  region = start;
-  region = (void *)round_up_to_pshmpage(region);
-
   szpernode = gasneti_pshmnet_memory_needed_pernode(pshmnodes);
   szonce = gasneti_pshmnet_memory_needed_once(pshmnodes);
 
-  regionlen = nbytes - ( ((uintptr_t)region)-((uintptr_t)start));
   if (regionlen < (szonce + szpernode * pshmnodes))
     gasneti_fatalerror("Internal error: not enough memory for pshmnet: \n"
                        " given %lu effective bytes, but need %lu", 

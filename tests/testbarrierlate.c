@@ -172,9 +172,9 @@ int main(int argc, char **argv) {
   avg_time /= nodes;
 
   if (mynode == 0) {
-    printf("Total difference: %8.3f sec  Late notify() Anon. Barrier net latency, minimum: %8.3f us (%6.2f%%)\n", ((float)min_time)/1000000, ((float)min_time)/iters, ((float)min_time * 100.)/baseline_us);
-    printf("Total difference: %8.3f sec  Late notify() Anon. Barrier net latency, maximum: %8.3f us (%6.2f%%)\n", ((float)max_time)/1000000, ((float)max_time)/iters, ((float)max_time * 100.)/baseline_us);
-    printf("Total difference: %8.3f sec  Late notify() Anon. Barrier net latency, average: %8.3f us (%6.2f%%)\n", ((float)avg_time)/1000000, ((float)avg_time)/iters, ((float)avg_time * 100.)/baseline_us);
+    printf("Total difference: %8.3f sec  Late wait() Anon. Barrier net latency, minimum: %8.3f us (%6.2f%%)\n", ((float)min_time)/1000000, ((float)min_time)/iters, ((float)min_time * 100.)/baseline_us);
+    printf("Total difference: %8.3f sec  Late wait() Anon. Barrier net latency, maximum: %8.3f us (%6.2f%%)\n", ((float)max_time)/1000000, ((float)max_time)/iters, ((float)max_time * 100.)/baseline_us);
+    printf("Total difference: %8.3f sec  Late wait() Anon. Barrier net latency, average: %8.3f us (%6.2f%%)\n", ((float)avg_time)/1000000, ((float)avg_time)/iters, ((float)avg_time * 100.)/baseline_us);
     fflush(stdout);
   }
 

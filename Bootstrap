@@ -14,6 +14,7 @@ NOTOOLCHECK=0
 TOOLSONLYMODE=0
 autofilter="perl -0 -pe 's/^(autoheader.*?: )?WARN.+auxiliary files(.|\n)+WARN.+documentation.\n//m' \
                  | perl -pe 's/^.*?AC_PROG_LEX invoked multiple times.*?\n?$//g' \
+                 | perl -pe 's/^.*docdir.*y defined (in condition TRUE|here).*?\n?$//' \
                  | perl -0 -pe 's/^((.*?AC_CONFIG_SUBDIRS.*?\n)+([^ ]* the top level\n)?)*//g'"
 
 for arg in "$@"; do

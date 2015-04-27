@@ -37,7 +37,7 @@ include $(top_builddir)/other/Makefile-libgasnet.mak
 
 EXTRA_DIST = $(CONDUIT_FILELIST) README
 
-docdir = $(datadir)/doc/gasnet
+@NEED_DOCDIR_TRUE@docdir = $(datadir)/doc/GASNet
 
 # convenience aliases
 seq par parsync: force

@@ -595,6 +595,12 @@ GASNETT_CONSTP(fnname)
   same restrictions, except additionally the return value must NOT
   depend on global variables or anything pointed to by the arguments
 
+GASNETT_DEPRECATED
+declarator
+
+  Declare a function as deprecated (subject to future removal).
+  Attempts to generate a warning if the function is called.
+
 GASNETT_WARN_UNUSED_RESULT   
 declarator
 
@@ -1057,9 +1063,15 @@ int gasnett_maximize_rlimits();
 int gasnett_maximize_rlimit(int res, const char *lim_desc);
  
    Maximize an rlimit indicated by res (an RLIMIT_* constant from sys/resource.h), with
-   associated limit description. gasnett_maximize_rlimits() maximizes all the in-memory 
-   execution rlimits associated with the current process (does not affect file system 
-   related limits).
+   associated limit description. gasnett_maximize_rlimits() maximizes cpu time and all
+   the in-memory execution rlimits associated with the current process (does not affect
+   file system related limits). These functions return non-zero on success.
+
+   If the environment variable GASNET_MAXIMIZE_[desc] is set to a false value (as
+   defined by gasnett_getenv_yesno_withdefault()) then the corresponding limit will
+   NOT be maximized, though the result will still indicate success.  For instance,
+   setting GASNET_MAXIMIZE_RLIMIT_CPU=0 will suppress maximizing the limit on cpu
+   time, but will not (by itself) cause a zero (failure) return value.
   
 ---------------
 Feature control
@@ -1113,6 +1125,8 @@ COMPILER.
       Compiler supports __attribute__((__pure__)) 
     GASNETT_USE_GCC_ATTRIBUTE_CONST
       Compiler supports __attribute__((__const__)) 
+    GASNETT_USE_GCC_ATTRIBUTE_DEPRECATED
+      Compiler supports __attribute__((__deprecated__))
     GASNETT_USE_GCC_ATTRIBUTE_FORMAT
       Compiler supports __attribute__((__format__ (...))) 
     GASNETT_USE_GCC_ATTRIBUTE_FORMAT_FUNCPTR

@@ -2,6 +2,50 @@ GASNet ChangeLog
 ----------------
 
 ----------------------------------------------------------------------
+04-27-2015 :  Release 1.24.2
+
+* Cray XE, XK and XC series (gemini- and aries-conduits)
+  - Implemented PSHM-over-hugetlbfs as alternative to XPMEM, when
+    configured with "--disable-pshm-xpmem --enable-pshm-hugetlbfs".
+
+* InfiniBand (ibv-conduit for OpenFabrics Verbs)
+  - Updated ibv-conduit code for the new OFED XRC interfaces.
+  - Added enumeration of supported spawners to Makefile fragments.
+
+* Mellanox ConnectX series HCAs (mxm-conduit)
+  - Fixed a race in gasnet_exit().
+  - Added enumeration of supported spawners to Makefile fragments.
+
+* IBM BG/Q (pami-conduit)
+  - Now fully support building with "bgclang".
+
+* Shared-memory (smp-conduit)
+  - Extended API implementation is now fully inlinable.
+
+* PSHM (intra-node shared memory)
+  - Updated PSHM-over-XPMEM for SGI's "xpmem_2" APIs.
+  - Added new optional PSHM implementation based on hugetlbfs.
+  - Made corrections to behavior when PSHM is not enabled:
+    + Coordinate mmapLimit probe per-host (not per-supernode).
+    + Correctly initialize gasnet_nodeinfo_t.supernode (all singletons).
+
+* Platform support/portability
+  - Updated to far more recent config.guess and config.sub.
+  - Fixed support for gcc-5 on Mac OSX / Darwin.
+  - Eliminated many warnings from recent clang compilers.
+  - Made several fixes for improved Xeon Phi support.
+  - Support for ARMv5, v6 and v7 is no longer "experimental"
+  - Added initial (experimental) support for ARMv8 (aka AARCH64 or ARM64).
+  - Improved support for compiler wrappers like distcc and ccache.
+
+* GASNet Tools
+  - Implemented GASNET_MAXIMIZE_RLIMIT_* environment variables.
+  - Implemented GASNETT_DEPRECATED function decoration.
+
+* General
+  - Fixed bug3153: problems with lib vs lib64 on SUSE Linux distributions.
+
+----------------------------------------------------------------------
 10-28-2014 : Release 1.24.0
 
 * Cray XE, XK and XC series (gemini- and aries-conduits)
