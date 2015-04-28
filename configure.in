@@ -1359,7 +1359,7 @@ if test "$with_pshm" != no; then
     netbsd*)
         # XXX: We know this is required for decent performance, but WHY?!?
         #      What magic does libpthread perform at library init time?
-        GASNET_PSHM_LIBS="$GASNET_PSHM_LIBS $GASNET_THREAD_LIBS"
+        GASNET_PSHM_LIBS="$GASNET_PSHM_LIBS -pthread" # Even if --disable-pthreads
         ;;
   esac
 
