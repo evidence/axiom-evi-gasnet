@@ -1445,31 +1445,31 @@ static void gasnetc_exit_init(void) {
 #if GASNET_PSHM
     const gasnet_node_t size = gasneti_nodemap_global_count;
     const gasnet_node_t rank = gasneti_nodemap_global_rank;
-
-    if (gasneti_nodemap_local_rank) goto no_dissem;
+    const int i_am_leader = (0 == gasneti_nodemap_local_rank);
 #else
     const gasnet_node_t size = gasneti_nodes;
     const gasnet_node_t rank = gasneti_mynode;
+    const int i_am_leader = 1;
 #endif
-    if (size == 1) goto no_dissem;
 
     /* Vector of dissemination peers, if any */
-    for (i = 1; i < size; i *= 2) {
-        ++gasnetc_dissem_peers;
-    }
-    gasnetc_dissem_peer = gasneti_malloc(gasnetc_dissem_peers * sizeof(gasnet_node_t));
-    gasneti_leak(gasnetc_dissem_peer);
-    for (i = 0; i < gasnetc_dissem_peers; ++i) {
-        const gasnet_node_t distance = 1 << i;
-        const gasnet_node_t peer = (distance <= rank) ? (rank - distance) : (rank + (size - distance));
+    if (i_am_leader && (size != 1)) {
+        for (i = 1; i < size; i *= 2) {
+            ++gasnetc_dissem_peers;
+        }
+        gasnetc_dissem_peer = gasneti_malloc(gasnetc_dissem_peers * sizeof(gasnet_node_t));
+        gasneti_leak(gasnetc_dissem_peer);
+        for (i = 0; i < gasnetc_dissem_peers; ++i) {
+            const gasnet_node_t distance = 1 << i;
+            const gasnet_node_t peer = (distance <= rank) ? (rank - distance) : (rank + (size - distance));
 #if GASNET_PSHM
-        /* Convert supernode numbers to node numbers */
-        gasnetc_dissem_peer[i] = gasneti_pshm_firsts[peer];
+            /* Convert supernode numbers to node numbers */
+            gasnetc_dissem_peer[i] = gasneti_pshm_firsts[peer];
 #else
-        gasnetc_dissem_peer[i] = peer;
+            gasnetc_dissem_peer[i] = peer;
 #endif
+        }
     }
-no_dissem:
 
 #if GASNET_PSHM
     /* List of local "children" (since only one communicating process per PSHM domain) */
