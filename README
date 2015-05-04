@@ -199,23 +199,26 @@ Platforms where GASNet and Berkeley UPC have been successfully tested:
 
       OS/Architecture/compiler/ABI: network conduits
       ----------------------------------------------
-    * Linux/x86-Ethernet/gcc/32:     smp, mpi, udp
+    * Linux/x86-Ethernet/{gcc,clang}32: smp, mpi, udp
     * Linux/x86-Mellanox/gcc/32:     smp, mpi, udp, ibv
     * Linux/x86/IntelC/32:           smp, mpi, udp
     * Linux/x86/PortlandGroupC/32:   smp, mpi, udp
     * Linux/x86_64-Ethernet/{gcc,PortlandGroup,SunC}/{32,64}: smp, mpi, udp
     * Linux/x86_64-Mellanox/{gcc,PathScale,IntelC,SunC}/64: smp, mpi, udp, ibv, mxm
     * Linux/x86_64/x86-Open64/64:   smp, udp, #
-    * Linux/PowerPC-Ethernet/gcc/{32,64}: smp, mpi, udp
+
+    * Linux/PowerPC-Ethernet/{gcc,xlc,clang}/{32,64}: smp, mpi, udp
     * Linux/PowerPC-HFI/{xlc,gcc}/32: smp, mpi, udp, pami &
+    * Linux/PPC64le/gcc/{32,64}:     smp, udp, #
+
     * Linux/MIPS/gcc/{32,64}:       smp, udp, #
 
     * Linux/SGI-Altix-IA64/{gcc,IntelC}/64: smp, mpi, udp, shmem &
     * Linux/SGI-Altix-Xeon/{gcc,IntelC}/64: smp, mpi, udp, shmem
 
-    * FreeBSD/{x86,amd64}/gcc/{32,64}: smp, mpi
-    * OpenBSD/{x86,amd64}/gcc/{32,64}: smp, mpi, udp
-    * NetBSD/{x86,amd64}/gcc/{32,64}:  smp, mpi, udp
+    * FreeBSD/{x86,amd64}/{gcc,clang}/{32,64}: smp, mpi
+    * OpenBSD/{x86,amd64}/{gcc,clang}/{32,64}: smp, mpi, udp
+    * NetBSD/{x86,amd64}/{gcc,clang}/{32,64}:  smp, mpi, udp
 
     * Solaris10/SPARC/gcc,SunProC/{32,64}: smp, udp, mpi
     * Solaris10/x86/gcc,SunProC/{32,64}:   smp, udp, mpi
@@ -226,7 +229,7 @@ Platforms where GASNet and Berkeley UPC have been successfully tested:
     * MSWindows-Cygwin/x86/gcc/32: smp, udp, mpi (MPICH.NT,MPICH2)
 
     * MacOSX/PowerPC/{gcc,xlc}/{32,64}: smp, udp, mpi
-    * MacOSX/{x86,x86_64}/{gcc,icc}/{32,64}: smp, udp, mpi
+    * MacOSX/{x86,x86_64}/{gcc,icc,clang}/{32,64}: smp, udp, mpi
     * MacOSX/{x86,x86_64}/{PGI}/{32,64}: smp, udp, #
 
     * CNL/Cray-XT/{gcc,PGI,PathScale,Intel}/64: smp, mpi &
@@ -244,7 +247,8 @@ Platforms where GASNet and Berkeley UPC have been successfully tested:
  
     * ucLinux/Microblaze/gcc/32: smp, udp, #%&
 
-    * Linux/ARM/gcc/32: smp, udp, #
+    * Linux/ARM/gcc/32:               smp, udp, #
+    * Linux/AARCH64/{gcc,clang}/64:   smp, udp, #
 
 # = No working MPI implementation available, although we have every
     reason to believe mpi conduit would work if one was available.
@@ -252,6 +256,7 @@ Platforms where GASNet and Berkeley UPC have been successfully tested:
 & = System has not been tested in recent releases due to lack of access.
     Reports of success or failure on this system are strongly encouraged.
 
+This list is not meant to be exhaustive.
 Other combinations of the platforms above are likely to also work, these are
 just the systems we've personally tested. Several of the systems listed using a
 vendor-specific C compiler can also use gcc as the underlying C compiler,
