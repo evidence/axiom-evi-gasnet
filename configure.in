@@ -3631,6 +3631,8 @@ AC_CHECK_FUNCS(sigprocmask)
 
 AC_CHECK_HEADERS([sn/mmtimer.h linux/mmtimer.h])
 
+AC_CHECK_FUNCS(srand_deterministic)
+
 ########################################################################
 # On various systems, the headers are missing certain functions
 # or only declare them under some condition we don't satisfy.
