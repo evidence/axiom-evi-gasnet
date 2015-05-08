@@ -481,10 +481,10 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
         SockAddr dnsAddr = DNSLookup(getMyHostName());
         masterAddr = SockAddr(dnsAddr.IP(), masterAddr.port());
       } catch (xBase &exn) {
-        AMUDP_RETURN_ERRFR(RESOURCE, AMUDP_SPMDStartup, exn.why());
         AMUDP_Warn("Master %s failed to resolve its own hostname: %s%s",
           getMyHostName(),exn.why(),
           (USE_NUMERIC_MASTER_ADDR?"\nTry setting AMUDP_MASTERIP":"")); 
+        AMUDP_RETURN_ERRFR(RESOURCE, AMUDP_SPMDStartup, exn.why());
       }
     }
 
