@@ -45,8 +45,6 @@ volatile int gasnetc_AMLockYield = 0;
 #if defined(GASNET_CSPAWN_CMD)
   #define GASNETC_DEFAULT_SPAWNFN C
   GASNETI_IDENT(gasnetc_IdentString_Default_CSpawnCommand, "$GASNetCSpawnCommand: " GASNET_CSPAWN_CMD " $");
-#elif defined(REXEC)
-  #define GASNETC_DEFAULT_SPAWNFN R
 #else /* AMUDP implicit ssh startup */
   #define GASNETC_DEFAULT_SPAWNFN S
 #endif

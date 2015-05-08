@@ -218,14 +218,6 @@ Similarly, one can use the srun command in SLURM:
 $ setenv GASNET_SPAWNFN 'C'
 $ setenv GASNET_CSPAWN_CMD 'srun -n %N %C'  
 
-* GASNET_SPAWNFN='R'  (Berkeley rexec spawner)
-
-Deprecated spawn mechanism for Berkeley rexec facility (http://www.theether.org/rexec/)
-
-* GASNET_SPAWNFN='G'  (Berkeley GLUNIX spawner)
-
-Deprecated spawn mechanism for Berkeley GLUNIX (http://now.cs.berkeley.edu/)
-
 ==============================================================================
 
 Design Overview:
@@ -275,7 +267,7 @@ compiler should configure with --disable-udp.
 wrinkles, especially for acquiring node names. However, AMUDP offers a number
 of job spawning options (the most portable being ssh-based spawn), and it's
 successfully been deployed on a number of systems. There is also spawner
-support for Glunix, Rexec, Localhost/fork (for debugging), and a "custom
+support for Localhost/fork (for debugging), and a "custom
 command" option for extensibility.
 
 * AMUDP supports a maximum of 16384 nodes. However, the current 

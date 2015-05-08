@@ -101,8 +101,6 @@ extern int AMUDP_SPMDAllGather(void *source, void *dest, size_t len);
  */
 extern int AMUDP_SPMDLocalSpawn(int nproc, int argc, char **argv); /* fork/exec the worker processes on this machine */
 extern int AMUDP_SPMDSshSpawn(int nproc, int argc, char **argv);   /* call ssh remote shell */
-extern int AMUDP_SPMDRexecSpawn(int nproc, int argc, char **argv); /* call rexec spawning tool */
-extern int AMUDP_SPMDGlunixSpawn(int nproc, int argc, char **argv); /* requires -DGLUNIX when compiling library */
 extern int AMUDP_SPMDCustomSpawn(int nproc, int argc, char **argv);
 
 typedef struct {

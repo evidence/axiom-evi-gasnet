@@ -31,9 +31,6 @@ ranlib = @RANLIB@
 ar = @AR@
 
 # paths to platform-dependent helpers
-glunix_includes  = @TIC_GLUNIX_DEFINES@ @TIC_GLUNIX_INCLUDES@
-glunix_libraries = @TIC_GLUNIX_LIBS@
-rexec_includes   = @TIC_REXEC_DEFINES@
 ueth_includes 	 = @TIC_UETH_DEFINES@
 
 # stuff normally set by the pre-baked makefiles

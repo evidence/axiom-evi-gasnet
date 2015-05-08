@@ -26,14 +26,6 @@ amudp_spawnfn_desc_t const AMUDP_Spawnfn_Desc[] = {
     (amudp_spawnfn_t)AMUDP_SPMDSshSpawn },
   { 'L',  "Spawn jobs using fork()/exec() on the local machine (good for SMP's)", 
     (amudp_spawnfn_t)AMUDP_SPMDLocalSpawn },
-#ifdef REXEC
-  { 'R',  "Spawn jobs using rexec (Berkeley Millennium only)", 
-    (amudp_spawnfn_t)AMUDP_SPMDRexecSpawn },
-#endif
-#ifdef GLUNIX
-  { 'G',  "Spawn jobs using GLUNIX (Berkeley NOW only)", 
-    (amudp_spawnfn_t)AMUDP_SPMDGlunixSpawn },
-#endif
   { 'C',  "Spawn jobs using custom job spawner (" AMUDP_ENV_PREFIX_STR"_CSPAWN_CMD)", 
     (amudp_spawnfn_t)AMUDP_SPMDCustomSpawn },
   { '\0', NULL, (amudp_spawnfn_t)NULL }
@@ -88,123 +80,6 @@ extern int AMUDP_SPMDLocalSpawn(int nproc, int argc, char **argv) {
   }
   return TRUE;
 }
-/* ------------------------------------------------------------------------------------ 
- *  spawn jobs using Glunix (requires GLUNIX be defined when library is built)
- * ------------------------------------------------------------------------------------ */
-#ifdef GLUNIX
-  #include <glib.h>
-  extern int AMUDP_SPMDGlunixSpawn(int nproc, int argc, char **argv) {
-    /* GLUNIX has good built-in facilities for remote spawn */
-    int forkRet;
-
-    if (!AMUDP_SPMDSpawnRunning) {
-      AMUDP_Err("Spawn functions should never be run directly - only passed to AMUDP_SPMDStartup()"); 
-      return FALSE;
-    }
-
-    forkRet = fork();
-    if (forkRet == -1) {
-      perror("fork");
-      return FALSE;
-    } else if (forkRet != 0) {
-      AMUDP_SPMDRedirectStdsockets = FALSE; /* GLUNIX has it's own console redirection facilities */
-      return TRUE;  
-    } else {  /*  this is the child - exec the new process */
-      if (!Glib_Initialize())
-        AMUDP_FatalErr("failed to Glib_Initialize()")
-      /*AMUDP_assert(Glib_AmIStartup() > 0);*/
-      Glib_Spawn(nproc, argv[0], argv); /* should never return */
-      AMUDP_FatalErr("failed to Glib_Spawn()")
-      return FALSE;
-    }
-  }
-#else
-  extern int AMUDP_SPMDGlunixSpawn(int nproc, int argc, char **argv) {
-    AMUDP_Err("AMUDP_SPMDGlunixSpawn() cannot be called because the AMUDP library was compiled without -DGLUNIX.\n"
-             "  Please recompile libAMUDP.a with -DGLUNIX, relink your application and try again.");
-    return FALSE;
-  }
-#endif
-/* ------------------------------------------------------------------------------------ 
- *  spawn jobs using REXEC utility (Berkeley Millennium project)
- * ------------------------------------------------------------------------------------ */
-/* rexec provides decent support for remote spawn
- * see http://www.millennium.berkeley.edu/rexec/ for instructions on setting up your environment
- */
-/* rexec spawn uses the following environment variables:
- *
- *  option         default       description
- * --------------------------------------------------
- * REXEC_SVRS      none          list of servers to use
- * REXEC_CMD       "rexec"       rexec command to use
- * REXEC_OPTIONS   "-q"            additional options to give rexec 
- * (any environment variable may be specified with an optional prefix 
- *  of AMUDP_ or AMUDP_ENV_PREFIX##_)
- */
-#ifdef REXEC
-  int AMUDP_SPMDRexecSpawn(int nproc, int argc, char **argv) {
-    int i;
-    char *rexec_cmd;
-    char *rexec_options;
-    char cmd1[1024],cmd2[1024];
-    int pid;
-
-    if (!AMUDP_SPMDSpawnRunning) {
-      AMUDP_Err("Spawn functions should never be run directly - only passed to AMUDP_SPMDStartup()"); 
-      return FALSE;
-    }
-
-    pid = getpid();
-
-    rexec_cmd = AMUDP_getenv_prefixed_withdefault("REXEC_CMD", "rexec");
-    rexec_options = AMUDP_getenv_prefixed_withdefault("REXEC_OPTIONS", "-q");
-
-    cmd1[0] = '\0';
-    for (i = 0; i < argc; i++) {
-      AMUDP_assert(argv[i]);
-      strcat(cmd1,"'");
-      strcat(cmd1,argv[i]);
-      strcat(cmd1,"' ");
-    }
-    AMUDP_assert(!argv[i]);
-
-    /* build the rexec command */
-    sprintf(cmd2, "%s %s -n %i /bin/sh -c \"%s%s\" " /* shell wrapper required because of crappy rexec implementation */
-     " || ( echo \"rexec spawn failed.\" ; kill %i ) ",
-      rexec_cmd, rexec_options, nproc,
-
-      (AMUDP_SilentMode?"":"echo connected to \\`uname -n\\`... ; "),
-
-      cmd1, pid
-
-    );
-
-    { int forkRet;
-      forkRet = fork(); /* fork a new process to hold rexec master */
-
-      if (forkRet == -1) {
-        perror("fork");
-        return FALSE;
-      } else if (forkRet != 0) {
-        AMUDP_SPMDRedirectStdsockets = FALSE; /* REXEC has it's own console redirection facilities */
-        return TRUE;  
-      } else {  /*  this is the child - exec the new process */
-        if (!AMUDP_SilentMode) 
-          printf("system(%s)\n", cmd2); fflush(stdout);
-        if (system(cmd2) == -1)
-           AMUDP_FatalErr("Failed to call system() to spawn rexec");
-        exit(0);
-      }
-    }
-    return TRUE;
-}
-#else
-  extern int AMUDP_SPMDRexecSpawn(int nproc, int argc, char **argv) {
-    AMUDP_Err("AMUDP_SPMDRexecSpawn() cannot be called because the AMUDP library was compiled without -DREXEC.\n"
-             "  Please recompile libAMUDP.a with -DREXEC, relink your application and try again.");
-    return FALSE;
-  }
-#endif
 /* ------------------------------------------------------------------------------------ 
  *  spawn jobs using ssh remote shell
  * ------------------------------------------------------------------------------------ */

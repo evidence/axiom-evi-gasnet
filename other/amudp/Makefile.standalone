@@ -24,8 +24,8 @@ set_opt_ccflags    = -DAMUDP_NDEBUG=1 $(ccoptflags)   $(MANUAL_CFLAGS) $(apputil
 set_opt_cxxflags   = -DAMUDP_NDEBUG=1 $(cxxoptflags)  $(MANUAL_CXXFLAGS)
 
 VPATH = $(srcdir)
-includes = -I$(srcdir) -I$(altincdir) $(glunix_includes) $(rexec_includes) $(ueth_includes)
-libraries = $(glunix_libraries) $(ueth_libraries) $(platform_libraries)
+includes = -I$(srcdir) -I$(altincdir) $(ueth_includes)
+libraries = $(ueth_libraries) $(platform_libraries)
 Ccompile = $(CC) -c $(ccflags) $(platform_defines) $(MANUAL_DEFINES) $(includes)
 CXXcompile = $(CXX) -c $(cxxflags) $(platform_defines) $(MANUAL_DEFINES) $(includes)
 link = $(CXX) $(cxxflags) $(platform_ldflags) $(MANUAL_LDFLAGS) $(platform_defines) $(includes) 

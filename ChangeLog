@@ -6,6 +6,10 @@ GASNet ChangeLog
 
 * PLACEHOLDER
 
+* Portable UDP support (udp-conduit)
+  - Remove long-deprecated support for job spawning via Berkeley Millennium
+    "rexec" and Berkeley NOW "gexec" (GASNET_SPAWNFN values "R" and "G").
+
 * Platform support/portability
   - Added initial (experimental) support for ppc64el (little-endian POWER)
 
