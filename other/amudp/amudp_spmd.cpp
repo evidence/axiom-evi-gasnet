@@ -73,8 +73,7 @@ static void freezeForDebugger() {
   #define DEBUG_MASTER(msg) do {} while(0)
 #endif
 
-#define AMUDP_SPMDSLAVE_FLAG "__AMUDP_SLAVE_PROCESS__"
-#define AMUDP_SPMDSLAVE_FLAG_VERBOSE "__AMUDP_SLAVE_PROCESS_VERBOSE__"
+#define AMUDP_SPMDSLAVE_ARGS "AMUDP_SLAVE_ARGS"
 
 static int AMUDP_SPMDShutdown(int exitcode);
 
@@ -287,9 +286,8 @@ extern int AMUDP_SPMDMyProc() {
 extern int AMUDP_SPMDIsWorker(char **argv) {
   if (AMUDP_SPMDStartupCalled) return 1; 
   else {
-    AMUDP_assert(argv != NULL);
-    return (argv[1] && 
-       (!strcmp(argv[1], AMUDP_SPMDSLAVE_FLAG) || !strcmp(argv[1], AMUDP_SPMDSLAVE_FLAG_VERBOSE) ));
+    const char *env_val = getenv(AMUDP_SPMDSLAVE_ARGS);
+    return (env_val && (0 != atoi(env_val)));
   }
 }
 /* ------------------------------------------------------------------------------------ */
@@ -300,19 +298,22 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
                              eb_t *eb, ep_t *ep) {
   
   if (AMUDP_SPMDStartupCalled) AMUDP_RETURN_ERR(RESOURCE);
-  if (!argc || !argv) AMUDP_RETURN_ERR(BAD_ARG);
   /* we need a separate socklibinit for master 
      and to prevent AM_Terminate from murdering all our control sockets */
   if (!socklibinit()) AMUDP_RETURN_ERRFR(RESOURCE, AMUDP_SPMDStartup, "socklibinit() failed");
 
+  const char *env_var = getenv(AMUDP_SPMDSLAVE_ARGS);
+  const int slave_flag = env_var ? atoi(env_var) : 0;
+
   /* ------------------------------------------------------------------------------------ 
    *  I'm a master 
    * ------------------------------------------------------------------------------------ */
-  if ((*argc) < 2 || 
-    (strcmp((*argv)[1], AMUDP_SPMDSLAVE_FLAG) && strcmp((*argv)[1], AMUDP_SPMDSLAVE_FLAG_VERBOSE))) { 
+  if (! slave_flag) {
     int usingdefaultdegree = 0;
     uint64_t npid;
     if (nproc < 0 || nproc > AMUDP_MAX_SPMDPROCS) AMUDP_RETURN_ERR(BAD_ARG);
+
+    if (!argc || !argv) AMUDP_RETURN_ERR(BAD_ARG);
 
     #if AMUDP_DEBUG_VERBOSE
       AMUDP_SilentMode = 0;
@@ -363,7 +364,7 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
       }
     }
 
-    if (!spawnfn && *argc > 1 && strlen((*argv)[1]) == 1) {
+    if (argv && !spawnfn && *argc > 1 && strlen((*argv)[1]) == 1) {
       for (int i=0; AMUDP_Spawnfn_Desc[i].abbrev; i++) {
         if (toupper((*argv)[1][0]) == toupper(AMUDP_Spawnfn_Desc[i].abbrev)) {
           spawnfn = AMUDP_Spawnfn_Desc[i].fnptr;
@@ -488,40 +489,44 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
       }
     }
 
-    // setup a slave argv
-    const char **slaveargv = (const char**)AMUDP_malloc(sizeof(const char*)*((*argc)+3));
-    int slaveargc = (*argc)+2;
-    slaveargv[0] = (*argv)[0];
-    slaveargv[1] = (AMUDP_SilentMode?AMUDP_SPMDSLAVE_FLAG:AMUDP_SPMDSLAVE_FLAG_VERBOSE);
-    if (*masterIPstr) slaveargv[2] = masterAddr.FTPStr();
+    // setup NULL-terminated array of extra environment vars for slave
+    // Currently have only one such variable, "AMUDP_SLAVE_ARGS":
+    //          flag[,master[,network]]
+    //     flag: zero = this is not a slave
+    //           non-zero = this *is* a slave and value is verbosity (1 = not verbose)
+    //   master: IP or hostname of the master node (require if flag != 0)
+    //  network: value of [PREFIX]_WORKERIP if given
+    char slave_env[1024] = AMUDP_SPMDSLAVE_ARGS "=";
+    strncat(slave_env, (AMUDP_SilentMode ? "1," : "2,"), sizeof(slave_env) - 1);
+    ssize_t remain = sizeof(slave_env) - (strlen(slave_env) + 1);
+    if (*masterIPstr) {
+      strncat(slave_env, masterAddr.FTPStr(), remain);
+    }
     else {
       #if USE_NUMERIC_MASTER_ADDR
-        slaveargv[2] = masterAddr.FTPStr();
+        strncat(slave_env, masterAddr.FTPStr(), remain);
       #else
-        char masteraddrstr[1024];
-        sprintf(masteraddrstr, "%s:%i", masterHostname, masterAddr.port());
-        slaveargv[2] = masteraddrstr;
+        char *tmp = slave_env + strlen(slave_env);
+        snprintf(tmp, remain, "%s:%i", masterHostname, masterAddr.port());
       #endif
     }
+    remain = sizeof(slave_env) - (strlen(slave_env) + 1);
     // append WORKERIP which it is needed before the master env is sent
     { char *network = AMUDP_getenv_prefixed_withdefault("WORKERIP","");
       if (network && network[0]) {
         #if HAVE_GETIFADDRS
-          char *tmp = (char*)AMUDP_malloc(2+strlen(network)+strlen(slaveargv[2]));
-          strcpy(tmp, slaveargv[2]);
-          strcat(tmp,"@");
-          strcat(tmp,network);
-          slaveargv[2] = tmp;
+          strncat(slave_env, ",", remain);
+          strncat(slave_env, network, remain-1);
         #else
           fprintf(stderr,"AMUDP: Warning: WORKERIP set in the environment, but your platform "
                          "lacks the required getifaddrs() support.  Ignoring WORKERIP.\n");
         #endif
       }
     }
-    for (int k = 1; k < (*argc); k++) {
-      slaveargv[k+2] = (*argv)[k];
+    if (!remain) { // ran out of space!
+      AMUDP_FatalErr("Error assembling arguments to SPMD worker threads. Exiting...");
     }
-    slaveargv[slaveargc] = NULL;
+    char *extra_env[2] = { slave_env, NULL };
 
     { int masterpid = getpid();
       uint32_t masterIP = masterAddr.IP();
@@ -543,7 +548,7 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
 
     // call system-specific spawning routine
     AMUDP_SPMDSpawnRunning = TRUE;
-    if (!spawnfn(AMUDP_SPMDNUMPROCS, slaveargc, (char **)slaveargv))
+    if (!spawnfn(AMUDP_SPMDNUMPROCS, *argc, *argv, extra_env))
       AMUDP_FatalErr("Error spawning SPMD worker threads. Exiting...");
     AMUDP_SPMDSpawnRunning = FALSE;
 
@@ -880,7 +885,7 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
     int temp;
 
     /* propagate verbosity setting from master */
-    AMUDP_SilentMode = !strcmp((*argv)[1], AMUDP_SPMDSLAVE_FLAG);
+    AMUDP_SilentMode = (1 == slave_flag); // TODO: values >2 for more verbose
 
     #if FREEZE_SLAVE
       freezeForDebugger();
@@ -895,34 +900,39 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
       AMUDP_RETURN_ERRFR(RESOURCE, AMUDP_SPMDStartup, "AM_Init() failed");
     }
 
-    // parse special args 
+    // parse special env var with our arguments
+    char * slave_args = strdup(env_var);
     SockAddr masterAddr;
-    #if HAVE_GETIFADDRS
-      const char *network = "";
-    #endif
-    if ((*argc) < 3) AMUDP_Err("Missing arguments to slave process");
-    {
-      #if HAVE_GETIFADDRS
-        // extract appended WORKERIP which it is needed before the master env is sent
-        char *delimiter = strchr((*argv)[2],'@');
-        if (delimiter != NULL) {
-          network = delimiter+1;
-          *delimiter = '\0';
-        }
-      #endif
-      if (strchr((*argv)[2],',')) {
-        masterAddr = SockAddr((*argv)[2]);
+    { // Strip required "flag," off beginning
+      char *endptr;
+      (void) strtol(slave_args, &endptr, 0);
+      if (! endptr || (',' != endptr[0])) AMUDP_Err("Malformed arguments '%s' to slave process", env_var);
+      slave_args = endptr + 1;
+    }
+  #if HAVE_GETIFADDRS
+    // extract appended WORKERIP which it is needed before the master env is sent
+    const char *network = "";
+    { char *delimiter = strrchr(slave_args,',');
+      if (delimiter != NULL) {
+        network = delimiter+1;
+        *delimiter = '\0';
+      }
+    }
+  #endif
+    { // extract master's address
+      if (strchr(slave_args,',')) {
+        masterAddr = SockAddr(slave_args);
       } else {
-        char *IPStr = (char *)AMUDP_malloc(strlen((*argv)[2])+10);
-        strcpy(IPStr, (*argv)[2]);
+        char *IPStr = (char *)AMUDP_malloc(strlen(slave_args)+10);
+        strcpy(IPStr, slave_args);
         char *portStr = strchr(IPStr, ':');
         if (!portStr) {
-          AMUDP_Err("Malformed address argument passed to slave:'%s' (missing port)", (*argv)[2]);
+          AMUDP_Err("Malformed address argument passed to slave:'%s' (missing port)", slave_args);
           AMUDP_RETURN_ERR(BAD_ARG);
         }
         int masterPort = atoi(portStr+1);
         if (masterPort < 1 || masterPort > 65535) {
-          AMUDP_Err("Malformed address argument passed to slave:'%s' (bad port=%i)", (*argv)[2], masterPort);
+          AMUDP_Err("Malformed address argument passed to slave:'%s' (bad port=%i)", slave_args, masterPort);
           AMUDP_RETURN_ERR(BAD_ARG);
         }
         (*portStr) = '\0';
@@ -933,9 +943,6 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
         }
         AMUDP_free(IPStr);
       }
-      (*argv)[2] = (*argv)[0]; // strip off our special args
-      (*argv) += 2;
-      (*argc) -= 2;
     }
 
     try {
@@ -1118,6 +1125,13 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
     *eb = AMUDP_SPMDBundle;
     *ep = AMUDP_SPMDEndpoint;
     AMUDP_SPMDStartupCalled = 1;
+
+    /* Ensure that any children we fork() won't appear to be slaves */
+    #if 1
+      unsetenv(AMUDP_SPMDSLAVE_ARGS);
+    #else
+      putenv((char*)AMUDP_SPMDSLAVE_ARGS "=0");
+    #endif
 
     #if USE_ASYNC_TCP_CONTROL
       // enable async notification

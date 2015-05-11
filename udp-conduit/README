@@ -48,6 +48,11 @@ Recognized environment variables:
   interface used to connect to the master node (see GASNET_MASTERIP, above).
   Example: GASNET_WORKERIP=192.168.0.0
 
+* GASNET_ENV_CMD
+  Specify the full path to the "env" command on the worker nodes.  By default
+  the value "env" is used, which is sufficient as long as the command can be
+  found in the default search path.
+
 Optional compile-time settings:
 ------------------------------
 
