@@ -128,7 +128,8 @@ extern int gasnete_maxthreadidx;
 #elif defined(GASNETE_PUTGET_ALWAYSREMOTE)
   #define gasnete_islocal(nodeid) (0) /* always remote */
 #else
-  #define gasnete_islocal(nodeid) (nodeid == gasneti_mynode)
+  /* "0 != " avoids warnings from some compilers about assign-vs-compare ambiguity */
+  #define gasnete_islocal(nodeid) (0 != (nodeid == gasneti_mynode))
 #endif
 
 /* ------------------------------------------------------------------------------------ */

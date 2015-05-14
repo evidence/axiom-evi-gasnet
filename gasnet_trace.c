@@ -780,7 +780,7 @@ extern void gasneti_trace_init(int *pargc, char ***pargv) {
   #if GASNET_NDEBUG
   { const char *NDEBUG_warning =
      "WARNING: tracing/statistical collection may adversely affect application performance.";
-    gasneti_tracestats_printf(NDEBUG_warning);
+    gasneti_tracestats_printf("%s",NDEBUG_warning);
     if (gasneti_tracefile != stdout && gasneti_tracefile != stderr &&
         gasneti_statsfile != stdout && gasneti_statsfile != stderr) {
       fputs(NDEBUG_warning,stderr);
