@@ -670,7 +670,7 @@ extern void gasneti_trace_updatemask(const char *newmask, char *maskstr, char *t
   }
 }
 
-char gasneti_exename[PATH_MAX];
+char gasneti_exename[PATH_MAX] = "[unknown]";
 #if GASNET_DEBUGMALLOC
 static const char *gasneti_mallocreport_filename = NULL;
 #endif
@@ -678,10 +678,16 @@ static const char *gasneti_mallocreport_filename = NULL;
 extern void gasneti_trace_init(int *pargc, char ***pargv) {
   gasneti_free(gasneti_malloc(1)); /* touch the malloc system to ensure it's intialized */
 
-  /* ensure the arguments have been decoded */
-  gasneti_decode_args(pargc, pargv); 
+  /* TODO: try to get substitute argv (or at least argv[0]) when passed NULL
+   * For instance Linux has NUL-delimited argv in /proc/self/cmdline
+   */
 
-  gasneti_qualify_path(gasneti_exename, (*pargv)[0]);
+  if (pargc && pargv) {
+    /* ensure the arguments have been decoded */
+    gasneti_decode_args(pargc, pargv);
+
+    gasneti_qualify_path(gasneti_exename, (*pargv)[0]);
+  }
 
  #if GASNETI_STATS_OR_TRACE
   starttime = gasneti_ticks_now();
@@ -738,15 +744,17 @@ extern void gasneti_trace_init(int *pargc, char ***pargv) {
   }
 
   { time_t ltime;
-    int i;
     char temp[1024];
-    char *p;
     time(&ltime); 
     strcpy(temp, ctime(&ltime));
     if (temp[strlen(temp)-1] == '\n') temp[strlen(temp)-1] = '\0';
     gasneti_tracestats_printf("Program %s (pid=%i) starting on %s at: %s", 
       gasneti_exename, (int)getpid(), gasnett_gethostname(), temp);
-    p = temp;
+   }
+   if (pargv && pargv) {
+    char temp[1024];
+    char *p = temp;
+    int i;
     for (i=0; i < *pargc; i++) { 
       char *q = (*pargv)[i];
       int hasspace = 0;
