@@ -98,7 +98,7 @@ static int gasnetc_init(int *argc, char ***argv) {
   gasnetc_check_config();
 
   /* --------- begin Master code ------------ */
-  if (!AMUDP_SPMDIsWorker(*argv)) { 
+  if (!AMUDP_SPMDIsWorker(argv?*argv:NULL)) {
     /* assume we're an implicit master 
        (we don't currently support explicit workers spawned 
         without using the AMUDP SPMD API)   
@@ -107,6 +107,10 @@ static int gasnetc_init(int *argc, char ***argv) {
     int i;
     char spawnfn;
     amudp_spawnfn_t fp = (amudp_spawnfn_t)NULL;
+
+    if (!argv) {
+      gasneti_fatalerror("implicit-master without argv not supported - use amudprun");
+    }
 
     /* pretend we're node 0, for purposes of verbose env reporting */
     gasneti_init_done = 1;
