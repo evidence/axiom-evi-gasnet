@@ -174,12 +174,14 @@ extern int AMMPI_SPMDStartup(int *argc, char ***argv,
   tag_t mytag;
   
   if (AMMPI_SPMDStartupCalled) AMMPI_RETURN_ERR(RESOURCE);
-  if (!argc || !argv) AMMPI_RETURN_ERR(BAD_ARG);
 
   { /* initialize MPI, if necessary */
     int initialized = 0;
     MPI_SAFE(MPI_Initialized(&initialized));
     if (!initialized) {
+  #if MPI_VERSION < 2
+      if (!argc || !argv) AMMPI_RETURN_ERR(BAD_ARG);
+  #endif
       MPI_SAFE(MPI_Init(argc, argv));
     }
   }
