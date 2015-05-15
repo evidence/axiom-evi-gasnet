@@ -35,6 +35,9 @@ int gasneti_bootstrapInit_mpi(int *argc, char ***argv, gasnet_node_t *nodes, gas
   err = MPI_Initialized(&gasnetc_mpi_preinitialized);
   if (MPI_SUCCESS != err) return GASNET_ERR_NOT_INIT;
   if (!gasnetc_mpi_preinitialized) {
+#if MPI_VERSION < 2
+    if (!argc || !argv) return GASNET_ERR_BAD_ARG;
+#endif
     err = MPI_Init(argc, argv);
     if (MPI_SUCCESS != err) return GASNET_ERR_NOT_INIT;
   }
