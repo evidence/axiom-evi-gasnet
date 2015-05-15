@@ -5,6 +5,9 @@
 
 require 5.004;
 use strict;
+use Fcntl;
+use IO::File;
+use POSIX qw(tmpnam);
 
 # Globals
 my @mpi_args = ();
@@ -196,15 +199,26 @@ sub fullpath($)
 					     map { s/'/'\\''/g; "'".$_."'"; }
 						 splice @ARGV, 0, $exeindex-1
 				      : undef;
-	my @extra_args = grep { defined($_); } ('-GASNET-SPAWN-master',
-						$verbose ? '-v' : undef,
-						$wrapper ? ('-W'.$wrapper) : undef,
-						"$numproc" . ($numnode ? ":$numnode" : ''),
-						'--');
-	my @cmd = @ARGV;
-	splice @cmd, 1, 0, @extra_args;
-	print("gasnetrun: running: ", join(' ', @cmd), "\n") if ($verbose);
-	unless ($dryrun) { exec(@cmd) or die "failed to exec $exebase\n"; }
+        my $fh;
+        { # Create an unlinked temp file containing the entire command line
+          my $filename;
+          do { $filename = tmpnam(); }
+            until $fh = IO::File->new($filename, O_RDWR|O_CREAT|O_EXCL, 0600);
+          unlink($filename);
+          binmode($fh);
+          my $flags = fcntl($fh, F_GETFD, 0) or die "fcntl F_GETFD: $!";
+          fcntl($fh, F_SETFD, $flags & ~FD_CLOEXEC) or die "fcntl F_SETFD: $!";
+          foreach (@ARGV) {
+            syswrite($fh, $_);
+            syswrite($fh, chr(0));
+          }
+          sysseek($fh, 0, SEEK_SET);
+        }
+        $ENV{'GASNET_SPAWN_ARGS'} = join(',', ($verbose ? 'Mv' : 'M'),
+                                         fileno($fh), $numproc, $numnode, $wrapper);
+        print("gasnetrun: set GASNET_SPAWN_ARGS=|$ENV{GASNET_SPAWN_ARGS}|\n") if ($verbose);
+        print("gasnetrun: running: ", join(' ', @ARGV), "\n") if ($verbose);
+        unless ($dryrun) { exec(@ARGV) or die "failed to exec $exebase\n"; }
     } else {
         die "Unknown spawner '$spawner' requested\n";
     }
