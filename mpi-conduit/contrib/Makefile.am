@@ -14,7 +14,9 @@ dotpldir = $(bindir)
 # This ensures we can run from the build directory if needed.
 $(top_builddir)/other/perlstart: $(top_srcdir)/other/perlstart.in
 	@cd $(top_builddir)/other && $(MAKE) perlstart
-$(target): $(top_builddir)/other/perlstart
+$(top_builddir)/other/mpirun_common: $(top_srcdir)/other/mpirun_common.in
+	@cd $(top_builddir)/other && $(MAKE) mpirun_common
+$(target): $(top_builddir)/other/perlstart $(top_builddir)/other/mpirun_common
 if USE_MPI
 all_targets = $(target).pl $(target)
 endif

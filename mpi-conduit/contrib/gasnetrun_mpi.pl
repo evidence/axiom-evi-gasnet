@@ -118,7 +118,7 @@ sub gasnet_encode($) {
     my $is_srun    = ($mpirun_help =~ m|srun: invalid option|);
     my $is_prun    = ($mpirun_help =~ m|railmask|);
     my $is_pam     = ($mpirun_help =~ m|TaskStarter|);
-    my $envprog = $ENV{'ENVCMD'};
+    my $envprog = $ENV{'GASNET_ENVCMD'};
     if (! -x $envprog) { # SuperUX has broken "which" implementation, so avoid if possible
       $envprog = `which env`;
       chomp $envprog;

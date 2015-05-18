@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 #   $Source: bitbucket.org:berkeleylab/gasnet.git/ibv-conduit/contrib/gasnetrun_ibv.pl $
-# Description: GASNet VAPI, IBV and MXM spawner
+# Description: GASNet spawner script for (at least) ibv and mxm conduit
 # Terms of use are as specified in license.txt
 
 require 5.004;
@@ -19,8 +19,8 @@ my $exeindex = undef;
 my $envlist = undef;
 my $nodefile = $ENV{'GASNET_NODEFILE'} || $ENV{'PBS_NODEFILE'};
 my @tmpfiles = (defined($nodefile) && $ENV{'GASNET_RM_NODEFILE'}) ? ("$nodefile") : ();
-my $spawner = $ENV{'GASNET_IB_SPAWNER'};
-my $conduit = $ENV{'GASNET_IB_CONDUIT'};
+my $spawner = $ENV{'GASNET_SPAWNER'};
+my $conduit = $ENV{'GASNET_SPAWN_CONDUIT'};
 
 sub usage
 {
@@ -128,7 +128,7 @@ sub fullpath($)
     if (!defined($spawner)) {
         usage "Option -spawner was not given and no default is set\n"
     }
-    if (($spawner eq 'MPI') && !$ENV{GASNET_IB_BOOTSTRAP_MPI}) {
+    if (($spawner eq 'MPI') && !$ENV{GASNET_SPAWN_HAVE_MPI}) {
         usage "Spawner is set to MPI, but MPI support was not compiled in\n"
     }
 
@@ -137,7 +137,7 @@ sub fullpath($)
         foreach (split(',', $envlist)) {
             unshift @ARGV, "$_=$ENV{$_}";
         }
-        unshift @ARGV, $ENV{'ENVCMD'};
+        unshift @ARGV, $ENV{'GASNET_ENVCMD'};
     }
 
 # Find the program (possibly a wrapper)
@@ -181,7 +181,7 @@ sub fullpath($)
 
 # Run it which ever way makes sense
     $ENV{"GASNET_VERBOSEENV"} = "1" if ($verbose);
-    $ENV{'GASNET_IB_SPAWNER'} = lc($spawner);
+    $ENV{'GASNET_SPAWNER'} = lc($spawner);
     if ($spawner eq 'MPI') {
         print("gasnetrun: forwarding to mpi-based spawner\n") if ($verbose);
         @ARGV = (@mpi_args, @ARGV);

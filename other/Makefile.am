@@ -62,7 +62,7 @@ dist-hook:
 	rm -f $(distdir)/plpa/config/acinclude.m4
 	cp -pR $(srcdir)/plpa $(distdir)/
 
-all-local: $(CONDUITMODE_TARGETS) perlstart
+all-local: $(CONDUITMODE_TARGETS) perlstart mpirun_common
 
 # GASNET_TOOLSONLY_FALSE_BEGIN
 ## Docs to install from any subdirs

@@ -3402,6 +3402,14 @@ dnl GASNET_TOOLSONLY_FALSE_BEGIN
 ########################################################################
 # Configure conduit-independent spawners
 
+# Things needed by mpi spawner
+
+# All the env var settings (or other common logic) needed by the
+# various conduit-specific gasnetrun_* scripts that do (or may)
+# resolve to invoking gasnetrun_mpi.pl.
+MPIRUN_COMMON=$TOP_BUILDDIR/other/mpirun_common
+AC_SUBST_FILE(MPIRUN_COMMON)
+
 # Things needed by ssh spawner
 SSH_SPAWNER_LIBS=""
 AC_CHECK_HEADERS(sys/socket.h sys/sockio.h sys/uio.h netinet/tcp.h)
@@ -4369,6 +4377,8 @@ Makefile
 other/perlstart dnl must precede files that use it
 
 dnl GASNET_TOOLSONLY_FALSE_BEGIN
+other/mpirun_common dnl must precede files that use it
+
 mpi-conduit/Makefile
 mpi-conduit/conduit.mak
 mpi-conduit/contrib/Makefile

@@ -196,11 +196,11 @@ static int gasneti_bootstrapInit(
     gasnet_node_t *mynode_p)
 {
     const char *not_set = "(not set)";
-    char *spawner = gasneti_getenv_withdefault("GASNET_IB_SPAWNER", not_set);
+    char *spawner = gasneti_getenv_withdefault("GASNET_SPAWNER", not_set);
     int res = GASNET_ERR_NOT_INIT;
 
 #if HAVE_SSH_SPAWNER
-    /* Sigh.  We can't assume GASNET_IB_SPAWNER has been set except in the master.
+    /* Sigh.  We can't assume GASNET_SPAWNER has been set except in the master.
      * However, gasneti_bootstrapInit_ssh() verifies the command line args and
      * returns GASNET_ERR_NOT_INIT on failure witout any noise on stderr.
      * So, when the env var is not set, we try ssh-based spawn first.
@@ -234,7 +234,7 @@ static int gasneti_bootstrapInit(
 #endif
 
 #if HAVE_PMI_SPAWNER
-    /* Don't really expect GASNET_IB_SPAWNER set if launched directly by srun, mpirun, yod, etc.
+    /* Don't really expect GASNET_SPAWNER set if launched directly by srun, mpirun, yod, etc.
      * So, when the env var is not set, we try pmi-based spawn last.
      */
     if (GASNET_OK != res && (!strcmp(spawner, "pmi") || (spawner == not_set)) &&
