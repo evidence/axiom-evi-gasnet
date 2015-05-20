@@ -736,6 +736,9 @@ extern void gasneti_qualify_path(char *path_out, const char *path_in) {
 #if defined(GSTACK_PATH) && !GASNETI_NO_FORK
   #define GASNETI_BT_GSTACK	&gasneti_bt_gstack
 #endif
+#if defined(PSTACK_PATH) && !GASNETI_NO_FORK
+  #define GASNETI_BT_PSTACK	&gasneti_bt_pstack
+#endif
 #if defined(GDB_PATH) && !GASNETI_NO_FORK
   #define GASNETI_BT_GDB	&gasneti_bt_gdb
 #endif
@@ -965,6 +968,16 @@ static int gasneti_bt_mkstemp(char *filename, int limit) {
   }
 #endif
 
+#ifdef GASNETI_BT_PSTACK
+  static int gasneti_bt_pstack(int fd) {
+    static char cmd[12 + GASNETI_BT_PATHSZ];
+    const char *pstack = (access(PSTACK_PATH, X_OK) ? "pstack" : PSTACK_PATH);
+    int rc = snprintf(cmd, sizeof(cmd), "%s %i", pstack, (int)getpid());
+    if ((rc < 0) || (rc >= sizeof(cmd))) return -1;
+    return gasneti_system_redirected_coprocess(cmd, fd);
+  }
+#endif
+
 #ifdef GASNETI_BT_GDB
   static int gasneti_bt_gdb(int fd) {
     /* Change "backtrace" to "backtrace full" to also see local vars from each frame */
@@ -1089,6 +1102,9 @@ static gasnett_backtrace_type_t gasneti_backtrace_mechanisms[] = {
   #endif
   #ifdef GASNETI_BT_GSTACK
   { "GSTACK", GASNETI_BT_GSTACK, 1 },
+  #endif
+  #ifdef GASNETI_BT_PSTACK
+  { "PSTACK", GASNETI_BT_PSTACK, 1 },
   #endif
   #ifdef GASNETI_BT_GDB
   { "GDB", GASNETI_BT_GDB, 1 },

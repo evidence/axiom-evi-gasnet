@@ -204,6 +204,7 @@
 #undef ADDR2LINE_PATH
 #undef GDB_PATH
 #undef GSTACK_PATH
+#undef PSTACK_PATH
 #undef PGDBG_PATH
 #undef IDB_PATH
 #undef LADEBUG_PATH

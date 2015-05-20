@@ -3750,6 +3750,17 @@ if test "$use_gstack" != no; then
   fi
 fi
 
+GASNET_IF_ENABLED_WITH_AUTO(backtrace-pstack, support backtrace via pstack (auto-detected),
+                 [use_pstack="yes"], [use_pstack="no"], [use_pstack="$use_backtrace"])
+if test "$use_pstack" != no; then
+  AC_PATH_PROGS(PSTACK_PATH, $PSTACK pstack, , /usr/bin:${PATH})
+  if test -n "$PSTACK_PATH"; then
+    AC_DEFINE_UNQUOTED(PSTACK_PATH,"$PSTACK_PATH")
+  elif test "$use_pstack" = yes; then
+    AC_MSG_ERROR(User requested --enable-backtrace-pstack but pstack was not found.  Perhaps you need to set \$PSTACK?)
+  fi
+fi
+
 GASNET_IF_ENABLED_WITH_AUTO(backtrace-pgdbg, support backtrace via pgdbg (auto-detected),
                  [use_pgdbg="yes"], [use_pgdbg="no"], [use_pgdbg="$use_backtrace"])
 if test "$use_pgdbg" != no; then
