@@ -630,7 +630,6 @@ extern void gasneti_decode_args(int *argc, char ***argv) {
       }
     }
   }
-  gasneti_backtrace_init((*argv)[0]);
 }
 
 /* Process environment for exittimeout.
