@@ -101,6 +101,7 @@
 #undef GASNETI_PLATFORM_MPI_CC_FAMILYID
 #undef GASNETI_PLATFORM_MPI_CC_ID
 #undef GASNETI_PLATFORM_MPI_CC_VERSION
+#undef GASNETI_MPI_VERSION
 
 /* Defined to be the inline function modifier supported by the C
    compilers (if supported), prefixed by 'static' (if permitted) */

@@ -31,6 +31,10 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 extern void gasnetc_exit(int exitcode) GASNETI_NORETURN;
 GASNETI_NORETURNP(gasnetc_exit)
 #define gasnet_exit gasnetc_exit
+
+/* Some conduits permit gasnet_init(NULL,NULL).
+   Define to 1 if this conduit supports this extension, or to 0 otherwise.  */
+#define GASNET_NULL_ARGV_OK 1
 /* ------------------------------------------------------------------------------------ */
 /*
   No-interrupt sections

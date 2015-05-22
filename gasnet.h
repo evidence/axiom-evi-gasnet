@@ -359,6 +359,12 @@ extern void (*gasnet_client_attach_hook)(void *, uintptr_t);
 
 /* ------------------------------------------------------------------------------------ */
 
+#if !defined(GASNET_NULL_ARGV_OK) || \
+    (defined(GASNET_NULL_ARGV_OK) && GASNET_NULL_ARGV_OK != 0 && GASNET_NULL_ARGV_OK != 1)
+  /*  defined to be 1 if gasnet_init(NULL,NULL) is supported. defined to 0 otherwise */
+  #error GASNet core failed to define GASNET_NULL_ARGV_OK to 0 or 1
+#endif
+
 #ifndef GASNET_BEGIN_FUNCTION
   #error GASNet extended API failed to define GASNET_BEGIN_FUNCTION
 #endif
