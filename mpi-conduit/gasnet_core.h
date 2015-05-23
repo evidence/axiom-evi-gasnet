@@ -37,6 +37,13 @@ extern void gasnetc_exit(int exitcode) GASNETI_NORETURN;
 GASNETI_NORETURNP(gasnetc_exit)
 #define gasnet_exit gasnetc_exit
 
+/* Some conduits permit gasnet_init(NULL,NULL).
+   Define to 1 if this conduit supports this extension, or to 0 otherwise.  */
+#if (GASNETI_MPI_VERSION >= 2)
+  #define GASNET_NULL_ARGV_OK 1
+#else
+  #define GASNET_NULL_ARGV_OK 0
+#endif
 /* ------------------------------------------------------------------------------------ */
 /*
   No-interrupt sections

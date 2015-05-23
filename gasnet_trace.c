@@ -11,6 +11,9 @@
 
 #include <time.h>
 #include <sys/time.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -670,18 +673,322 @@ extern void gasneti_trace_updatemask(const char *newmask, char *maskstr, char *t
   }
 }
 
-char gasneti_exename[PATH_MAX];
+char gasneti_exename[PATH_MAX] = "[unknown]";
 #if GASNET_DEBUGMALLOC
 static const char *gasneti_mallocreport_filename = NULL;
 #endif
 
+#if PLATFORM_OS_LINUX || PLATFORM_OS_CNL || PLATFORM_OS_CYGWIN || \
+    PLATFORM_OS_FREEBSD || PLATFORM_OS_NETBSD || PLATFORM_OS_OPENBSD
+#define GASNETI_HAVE_ARGV_FROM_PROC 1
+/* Try to get substitute argv from /proc, if available.
+ * Note that /proc is not mounted by default on many/most BSD systems.
+ */
+static void gasneti_argv_from_proc(int **ppargc, char ****ppargv) {
+  static int argc = 0;
+  static char **argv = NULL;
+
+#if PLATFORM_OS_LINUX || PLATFORM_OS_CNL || PLATFORM_OS_CYGWIN
+  const char *filename = "/proc/self/cmdline";
+#elif PLATFORM_OS_FREEBSD || PLATFORM_OS_NETBSD || PLATFORM_OS_OPENBSD
+  const char *filename = "/proc/curproc/cmdline";
+#endif
+  int fd;
+  size_t len = 0;
+  char *cmdline;
+
+  if_pf (argc) { /* duplicate call */
+    *ppargc = &argc;
+    *ppargv = &argv;
+    return;
+  }
+
+  if ((fd = open(filename, O_RDONLY)) < 0) return;
+
+  /* Read the whole file, made harder because stat() yields st_size=0 */
+  {
+    ssize_t rc;
+    size_t asize = 32;
+    cmdline = gasneti_malloc(asize);
+    while (1) {
+      rc = read(fd, cmdline+len, asize-len);
+      if (rc == 0) {
+        break; /* Normal termination */
+      } else if (rc < 0) {
+        if (errno == EINTR) continue;
+        gasneti_free(cmdline);
+        (void) close(fd);
+        return; /* Fail silently (non-fatal) */
+      }
+      len += rc;
+      if (len == asize) {
+        asize += MIN(asize,1024); /* double up to 1k and linear after */
+        cmdline = gasneti_realloc(cmdline, asize);
+      }
+    }
+    (void) close(fd);
+  }
+  cmdline = gasneti_realloc(cmdline, len);
+  gasneti_leak(cmdline);
+
+  /* Parse the cmdline on '\0' separators */
+  {
+    char *p;
+    int i;
+
+    for (p = cmdline, argc = 0; p < (cmdline+len); ++argc) {
+      p += strlen(p) + 1;
+    }
+
+    argv = gasneti_malloc((argc+1) * sizeof(char*));
+    for (p = cmdline, i = 0; i < argc; ++i) {
+      argv[i] = p;
+      p += strlen(p) + 1;
+    }
+    argv[argc] = NULL;
+  }
+  gasneti_leak(argv);
+
+  *ppargc = &argc;
+  *ppargv = &argv;
+}
+#endif
+
+#if PLATFORM_OS_SOLARIS
+#include <procfs.h>
+#define GASNETI_HAVE_ARGV_FROM_PROC 1
+/* Try to get address of true original argv from /proc, if available. */
+static void gasneti_argv_from_proc(int **ppargc, char ****ppargv) {
+  static int argc = 0;
+  static char **argv = NULL;
+
+  int fd;
+  size_t len = 0;
+  psinfo_t psi;
+
+  if_pf (argc) { /* duplicate call */
+    *ppargc = &argc;
+    *ppargv = &argv;
+    return;
+  }
+
+  if ((fd = open("/proc/self/psinfo", O_RDONLY)) < 0) return;
+
+  /* Read the whole file */
+  {
+    ssize_t rc;
+    char *p = &psi;
+    do {
+      rc = read(fd, p + len, sizeof(psi) - len);
+      if (rc < 0) {
+        if (errno == EINTR) continue;
+        (void) close(fd);
+        return; /* Fail silently (non-fatal) */
+      }
+      len += rc;
+    } while (len != sizeof(psi));
+    (void) close(fd);
+  }
+
+  /* Extract argc and (shallow) copy argv */
+  argc = psi.pr_argc;
+  len = (argc+1) * sizeof(char*);
+  argv = memcpy(gasneti_malloc(len), (void*)(psi.pr_argv), len);
+  gasneti_leak(argv);
+
+  *ppargc = &argc;
+  *ppargv = &argv;
+}
+#endif
+
+#if PLATFORM_OS_DARWIN
+#include <sys/sysctl.h>
+#if defined(CTL_KERN) && defined(KERN_PROCARGS2)
+#define GASNETI_HAVE_ARGV_FROM_SYSCTL 1
+/* Try to get substitute argv from the memory above our stack.  */
+static void gasneti_argv_from_sysctl(int **ppargc, char ****ppargv) {
+  static int argc = 0;
+  static char **argv = NULL;
+
+  int i, mib[3];
+  char *argv0, *buf;
+  size_t len;
+
+  if_pf (argc) { /* duplicate call */
+    *ppargc = &argc;
+    *ppargv = &argv;
+    return;
+  }
+
+  mib[0] = CTL_KERN;
+  mib[1] = KERN_PROCARGS2;
+  mib[2] = getpid();
+
+  /* Query for length and allocate space */
+  len = 0;
+  if (sysctl(mib, 3, NULL, &len, NULL, 0) < 0) return;
+  len += 8; /* Empirically determined that we must add at least 1 */
+  buf = gasneti_malloc(len);
+
+  /* Actual sysctl() query */
+  if (sysctl(mib, 3, buf, &len, NULL, 0) < 0) {
+    gasneti_free(buf);
+    return;
+  }
+
+  /* Extract argc and the argv array from buf */
+  { char *start, *end;
+
+    argc = *(int*)buf; /* argc is first int */
+
+    /* Skip over argc, execpath and any trailing '\0' to find argv[0] */
+    start = buf + sizeof(int);
+    start += strlen(start) + 1;
+    while (! *start) start++;
+    gasneti_assert(start - buf < len);
+
+    /* Skip over the args to find end */
+    for (end = start, i = 0; i < argc; ++i) {
+      end += strlen(end) + 1;
+      gasneti_assert(end - buf < len);
+    }
+
+    /* Keep a copy of only what we need */
+    len = end - start;
+    argv0 = memcpy(gasneti_malloc(len), start, len);
+    gasneti_leak(argv0);
+    gasneti_free(buf);
+  }
+
+  /* Build the argv array */
+  argv = gasneti_malloc((argc+1) * sizeof(char*));
+  gasneti_leak(argv);
+  { char *p = argv0;
+    for (i = 0; i < argc; ++i) {
+      argv[i] = p;
+      p += strlen(p) + 1;
+    }
+    argv[argc] = NULL;
+  }
+
+  *ppargc = &argc;
+  *ppargv = &argv;
+}
+#endif
+#endif
+
+#if PLATFORM_OS_FREEBSD || PLATFORM_OS_NETBSD || PLATFORM_OS_OPENBSD
+#include <sys/sysctl.h>
+#if (PLATFORM_OS_FREEBSD && defined(CTL_KERN) && defined(KERN_PROC) && defined(KERN_PROC_ARGS)) || \
+    (PLATFORM_OS_NETBSD && defined(CTL_KERN) && defined(KERN_PROC_ARGS) && defined(KERN_PROC_ARGV)) || \
+    (PLATFORM_OS_OPENBSD && defined(CTL_KERN) && defined(KERN_PROC_ARGS) && defined(KERN_PROC_ARGV))
+#define GASNETI_HAVE_ARGV_FROM_SYSCTL 1
+static void gasneti_argv_from_sysctl(int **ppargc, char ****ppargv) {
+  static int argc = 0;
+  static char **argv = NULL;
+
+  int mib[4];
+  char *buf;
+  size_t len;
+
+  if_pf (argc) { /* duplicate call */
+    *ppargc = &argc;
+    *ppargv = &argv;
+    return;
+  }
+
+  mib[0] = CTL_KERN;
+#if PLATFORM_OS_FREEBSD
+  mib[1] = KERN_PROC;
+  mib[2] = KERN_PROC_ARGS;
+  mib[3] = getpid();
+#elif PLATFORM_OS_NETBSD || PLATFORM_OS_OPENBSD
+  mib[1] = KERN_PROC_ARGS;
+  mib[2] = getpid();
+  mib[3] = KERN_PROC_ARGV;
+#else
+  #error
+#endif
+
+  /* Query for length and allocate space */
+  len = 0;
+  if (sysctl(mib, 4, NULL, &len, NULL, 0) < 0) return;
+  buf = gasneti_malloc(len);
+
+  /* Actual sysctl() query */
+  if (sysctl(mib, 4, buf, &len, NULL, 0) < 0) {
+    gasneti_free(buf);
+    return;
+  }
+
+#if PLATFORM_OS_FREEBSD || PLATFORM_OS_NETBSD
+  /* Extract argc and the argv array from buf */
+  { char *p;
+    int i;
+    gasneti_leak(buf = gasneti_realloc(buf, len));
+    for (argc = 0, p = buf ; p - buf < len; ++argc) {
+      p += strlen(p) + 1;
+    }
+    argv = gasneti_malloc((argc+1) * sizeof(char*));
+    gasneti_leak(argv);
+    for (i = 0, p = buf; i < argc; ++i) {
+      argv[i] = p;
+      p += strlen(p) + 1;
+    }
+    argv[argc] = NULL;
+  }
+#elif PLATFORM_OS_OPENBSD
+  /* Count and relocate (due to realloc) argv[] array already in buf */
+  gasneti_leak(argv = gasneti_realloc(buf, len));
+  for (argc = 0; argv[argc]; ++argc) {
+    argv[argc] += ((uintptr_t)argv - (uintptr_t)buf);
+  }
+#else
+  #error
+#endif
+
+  *ppargc = &argc;
+  *ppargv = &argv;
+}
+#endif
+#endif
+
 extern void gasneti_trace_init(int *pargc, char ***pargv) {
+  char *exename = NULL;
+
   gasneti_free(gasneti_malloc(1)); /* touch the malloc system to ensure it's intialized */
 
-  /* ensure the arguments have been decoded */
-  gasneti_decode_args(pargc, pargv); 
+  /* If we didn't receive argc and argv from caller, try to get the full
+   * command line from the system.  Some systems may support multiple
+   * mechanisms and we try them all until we get something.
+   */
+ #ifdef GASNETI_HAVE_ARGV_FROM_SYSCTL
+  if (!pargc || !pargv) gasneti_argv_from_sysctl(&pargc,&pargv);
+ #endif
+ #ifdef GASNETI_HAVE_ARGV_FROM_PROC
+  if (!pargc || !pargv) gasneti_argv_from_proc(&pargc,&pargv);
+ #endif
 
-  gasneti_qualify_path(gasneti_exename, (*pargv)[0]);
+  if (pargc && pargv) {
+    /* ensure the arguments have been decoded */
+    gasneti_decode_args(pargc, pargv);
+    exename = (*pargv)[0];
+  }
+
+#if 0 /* TODO: none of the following is/are implemented yet */
+  /* If we don't yet have a FULL cmdline, perhaps we can find an argv[0] */
+ #ifdef GASNETI_HAVE_EXENAME_FROM_SYSCTL
+  if (!exename) exename = gasneti_exename_from_proc();
+ #endif
+ #ifdef GASNETI_HAVE_EXENAME_FROM_PROC
+  if (!exename) exename = gasneti_exename_from_proc();
+ #endif
+#endif
+
+  if (exename) {
+    gasneti_qualify_path(gasneti_exename, exename);
+    gasneti_backtrace_init(gasneti_exename);
+  }
 
  #if GASNETI_STATS_OR_TRACE
   starttime = gasneti_ticks_now();
@@ -738,15 +1045,17 @@ extern void gasneti_trace_init(int *pargc, char ***pargv) {
   }
 
   { time_t ltime;
-    int i;
     char temp[1024];
-    char *p;
     time(&ltime); 
     strcpy(temp, ctime(&ltime));
     if (temp[strlen(temp)-1] == '\n') temp[strlen(temp)-1] = '\0';
     gasneti_tracestats_printf("Program %s (pid=%i) starting on %s at: %s", 
       gasneti_exename, (int)getpid(), gasnett_gethostname(), temp);
-    p = temp;
+   }
+   if (pargv && pargv) {
+    char temp[1024];
+    char *p = temp;
+    int i;
     for (i=0; i < *pargc; i++) { 
       char *q = (*pargv)[i];
       int hasspace = 0;

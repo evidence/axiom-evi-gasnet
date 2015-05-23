@@ -34,13 +34,29 @@ amudp_spawnfn_desc_t const AMUDP_Spawnfn_Desc[] = {
 /* ------------------------------------------------------------------------------------ 
  *  spawn jobs on local machine
  * ------------------------------------------------------------------------------------ */
-extern int AMUDP_SPMDLocalSpawn(int nproc, int argc, char **argv) {
+extern int AMUDP_SPMDLocalSpawn(int nproc, int argc, char **argv, char **extra_env) {
   /* just a simple fork/exec */
   int i;
 
   if (!AMUDP_SPMDSpawnRunning) {
     AMUDP_Err("Spawn functions should never be run directly - only passed to AMUDP_SPMDStartup()"); 
     return FALSE;
+  }
+
+  /* Temporarily assume values from extra_env[] (which we modify in-place) */
+  char **save_env = NULL;
+  int envc = 0;
+  if (extra_env && extra_env[0]) {
+    for (envc=0; extra_env[envc]; ++envc) {/*empty*/}
+    save_env = (char **)AMUDP_malloc(sizeof(char *)*envc);
+    for (i=0;i<envc;++i) {
+      char *var = extra_env[i];
+      char *delim = strchr(var,'=');
+      AMUDP_assert(delim);
+      *delim = '\0';
+      save_env[i] = getenv(var);
+      setenv(var,delim+1,1);
+    }
   }
 
   for (i = 0; i < nproc; i++) {
@@ -78,6 +94,20 @@ extern int AMUDP_SPMDLocalSpawn(int nproc, int argc, char **argv) {
       } /*  child */
     #endif
   }
+
+  /* Restore saved environment var(s) */
+  for (i=0;i<envc;++i) {
+    char *name = extra_env[i];
+    if (save_env[i]) {
+      setenv(name,save_env[i],1);
+    } else {
+      unsetenv(name);
+    }
+    /* Revert our in-place modification of extra_env[]: */
+    name[strlen(name)] = '=';
+  }
+  AMUDP_free(save_env);
+
   return TRUE;
 }
 /* ------------------------------------------------------------------------------------ 
@@ -105,7 +135,7 @@ extern int AMUDP_SPMDLocalSpawn(int nproc, int argc, char **argv) {
  *  of AMUDP_ or AMUDP_ENV_PREFIX##_)
  */
 
-int AMUDP_SPMDSshSpawn(int nproc, int argc, char **argv) {
+int AMUDP_SPMDSshSpawn(int nproc, int argc, char **argv, char **extra_env) {
   int i;
   const char *ssh_servers;
   const char *ssh_cmd;
@@ -168,12 +198,26 @@ int AMUDP_SPMDSshSpawn(int nproc, int argc, char **argv) {
     else p = end;
   } 
 
+  const char *envcmd = AMUDP_getenv_prefixed_withdefault("ENV_CMD", "env");
+
   cmd1_sz = 1; /* terminating nul */
+  if (extra_env && extra_env[0]) {
+    cmd1_sz += 1 + strlen(envcmd); // "env "
+    for (i=0; extra_env[i]; ++i) {
+      cmd1_sz += strlen(extra_env[i]) + 3; // "'%s' "
+    }
+  }
   for (i = 0; i < argc; i++) {
     cmd1_sz += strlen(argv[i]) + 3; /* "'%s' " */
   }
   cmd1 = (char *)AMUDP_malloc(cmd1_sz);
   { char *tmp = cmd1;
+    if (extra_env && extra_env[0]) {
+      tmp += sprintf(tmp, "%s ", envcmd);
+      for (i=0; extra_env[i]; ++i) {
+        tmp += sprintf(tmp, "'%s' ", extra_env[i]);
+      }
+    }
     for (i = 0; i < argc; i++) {
       AMUDP_assert(argv[i]);
       tmp += sprintf(tmp, "'%s' ", argv[i]);
@@ -264,7 +308,7 @@ int AMUDP_SPMDSshSpawn(int nproc, int argc, char **argv) {
  *  of AMUDP_ or AMUDP_ENV_PREFIX##_)
  */
 
-int AMUDP_SPMDCustomSpawn(int nproc, int argc, char **argv) {
+int AMUDP_SPMDCustomSpawn(int nproc, int argc, char **argv, char **extra_env) {
   int i;
   char *spawn_cmd = NULL;
   char *spawn_servers = NULL;
@@ -334,8 +378,18 @@ int AMUDP_SPMDCustomSpawn(int nproc, int argc, char **argv) {
   }
 
     /* build the worker command */
-  { char temp[1024];
+  { char temp[2048]; // TODO: allocate dynamically
     temp[0] = '\0';
+    if (extra_env && extra_env[0]) {
+      const char *envcmd = AMUDP_getenv_prefixed_withdefault("ENV_CMD", "env");
+      strcat(temp,envcmd);
+      strcat(temp," ");
+      for (i=0; extra_env[i]; ++i) {
+        strcat(temp,"'");
+        strcat(temp,extra_env[i]);
+        strcat(temp,"' ");
+      }
+    }
     for (i = 0; i < argc; i++) {
       AMUDP_assert(argv[i] != NULL);
       strcat(temp,"'");
