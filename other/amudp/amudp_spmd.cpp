@@ -830,6 +830,7 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
                 exitCode = ntoh32(exitCode_nb);
                 // tell all other slaves to terminate
                 // TODO: perhaps use an active message for this? for now, just rely on coord socket dying
+                exitCode_nb = hton32(0);
                 for (int i=0; i < (int)coordList.getCount(); i++) {
                   sendAll(coordList[i], "E");
                   sendAll(coordList[i], &exitCode_nb, sizeof(int32_t));
@@ -1555,8 +1556,8 @@ extern int AMUDP_SPMDExit(int exitcode) {
 
   AMUDP_SPMDStartupCalled = 0;
   DEBUG_SLAVE("AMUDP_SPMDShutdown..");
-  /* exit this proc */
-  AMUDP_SPMDShutdown(exitcode);
+  /* exit this proc gracefully */
+  AMUDP_SPMDShutdown(0);
   AMUDP_FatalErr("AMUDP_SPMDShutdown failed");
   return AM_OK;
 }
