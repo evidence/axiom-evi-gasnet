@@ -777,7 +777,7 @@ static void gasneti_argv_from_proc(int **ppargc, char ****ppargv) {
   /* Read the whole file */
   {
     ssize_t rc;
-    char *p = &psi;
+    char *p = (char *)&psi;
     do {
       rc = read(fd, p + len, sizeof(psi) - len);
       if (rc < 0) {
