@@ -1842,14 +1842,15 @@ static void do_slave(const char *spawn_args, int *argc_p, char ***argv_p, gasnet
      *  port is the positive integer TCP port number
      *  host is the parent's hostname, address or 'localhost' (everything after the last delimiter)
      */
+    long ltmp;
     const char *p = spawn_args;
     char *endptr;
 
     gasneti_assert(p && *p);
 
     /* Required non-negative child_id */
-    child_id = strtol(p,&endptr,0);
-    if ((endptr == p) || (child_id < 0)) {
+    child_id = ltmp = strtol(p,&endptr,0);
+    if ((endptr == p) || (ltmp < 0) || ((long)child_id != ltmp)) {
       die(1, "Unable to parse child_id in " ENV_PREFIX "SPAWN_ARGS");
     }
     if (*endptr != args_delim) {
@@ -1858,8 +1859,8 @@ static void do_slave(const char *spawn_args, int *argc_p, char ***argv_p, gasnet
     p = endptr + 1;
 
     /* Required non-negative port */
-    parent_port = strtol(p,&endptr,0);
-    if ((endptr == p) || (parent_port < 0)) {
+    parent_port = ltmp = strtol(p,&endptr,0);
+    if ((endptr == p) || (ltmp < 0) || ((long)parent_port != ltmp)) {
       die(1, "Unable to parse port number in " ENV_PREFIX "SPAWN_ARGS");
     }
     if (*endptr != args_delim) {
