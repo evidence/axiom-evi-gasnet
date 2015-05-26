@@ -1531,7 +1531,8 @@ static void do_master(const char *spawn_args, int *argc_p, char ***argv_p) GASNE
 static void do_master(const char *spawn_args, int *argc_p, char ***argv_p) {
   int argc    = *argc_p;
   char **argv = *argv_p;
-  long lnproc, lnnodes;
+  long lnproc = 0;
+  long lnnodes = 0;
 
   is_master = 1;
   gasneti_reghandler(SIGURG, &sigurg_handler);
