@@ -55,7 +55,7 @@ use Getopt::Long;
 my $version = "2.0";
 
 my ($opt_sort, $opt_output, $opt_help, $opt_report);
-my ($opt_internal, $opt_full, $opt_thread, $opt_filter);
+my ($opt_internal, $opt_full, $opt_peer, $opt_thread, $opt_filter);
 
 my (%data, %report, %heapstats);
 my (%threads); # maps thread pidstring => global thread num
@@ -98,6 +98,8 @@ GetOptions (
     'd'			=> \$opt_debug,
     'sort=s'		=> \$opt_sort,
     'o=s'		=> \$opt_output,
+    'p'			=> \$opt_peer,
+    'peer!'		=> \$opt_peer,
     'report=s'		=> \$opt_report,
     't'			=> \$opt_thread,
     'thread!'		=> \$opt_thread,
@@ -192,6 +194,7 @@ Options:
                         spent in barrier).  Default: sort by SRC 
     -filter [t1],[t2].. Filter out output by one or more types:
     			LOCAL, GLOBAL, WAIT, WAITNOTIFY.  
+    -p -[no]peer        Output per-peer break down for PUT and GET.
     -t -[no]thread      Output detailed information for each thread.
     -i -[no]internal    Show internal events (such as the initial and final
                         barriers) which do not correspond to user source code. 
@@ -397,6 +400,7 @@ sub parse_tracefile
 	        $type = ($type =~ /_LOCAL$/) ? "LOCAL" : "GLOBAL";
             	# filter by type to increase performance
             	next if $filters{$type}; 
+            	if ($opt_peer && /node = (\d+)/) { $type .= '@' . $1; }
             } elsif ($pgb =~ /^BARRIER/) {
 	        $type =~ s/^_//;
                 next unless ($type =~ /^(?:NOTIFYWAIT|WAIT)/);	# discard unknowns
