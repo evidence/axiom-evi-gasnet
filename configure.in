@@ -786,9 +786,36 @@ popdef([uppername])
 popdef([lowername])
 ])
 
+dnl Check for compilers with varying support for inline asm
+dnl GASNET_CHECK_ASM_SUPPORT(compiler-display-name, compiler-type)
+dnl Where compiler-type is CC|CXX|MPI_CC
+AC_DEFUN([GASNET_CHECK_ASM_SUPPORT],[
+GASNET_FUN_BEGIN([$0($1,$2)])
+pushdef([lowername],translit($2,'A-Z','a-z'))
+pushdef([uppername],translit($2,'a-z','A-Z'))
+case "$[]uppername[]_FAMILY" in
+XLC)
+    GASNET_TRY_CACHE_LINK([$1 for XLC mc_func support], lowername[]_mc_func, [
+        #pragma mc_func _gasneti_do_sync { "7c2004ac" }
+        #pragma reg_killed_by _gasneti_do_sync
+        #define gasneti_local_sync() _gasneti_do_sync()
+      ],
+      [ gasneti_local_sync(); ],
+      [ AC_DEFINE(GASNETI_HAVE_[]uppername[]_XLC_ASM) ])
+    GASNET_TRY_CACHE_LINK([$1 for GCC inline asm support], lowername[]_gcc_asm, [],
+      [ __asm__ __volatile__ ("sync"); ],
+      [ AC_DEFINE(GASNETI_HAVE_[]uppername[]_GCC_ASM) ])
+  ;;
+esac
+popdef([uppername])
+popdef([lowername])
+GASNET_FUN_END([$0])
+])
+
 GASNET_LIBGCC
 GASNET_PUSHVAR(CFLAGS,"$CFLAGS $MISC_CPPFLAGS $MISC_CFLAGS")
 GASNET_CHECK_RESTRICT([GASNETI_CC])
+GASNET_CHECK_ASM_SUPPORT([C compiler],[CC])
 GASNET_INLINE_MODIFIER([C compiler],[CC])
 GASNET_GET_GNU_ATTRIBUTES([GASNETI_HAVE_CC])
 GASNET_GET_PLATFORM_ID([COMPILER])
@@ -2245,6 +2272,7 @@ fi
   ], [ "I can\'t figure out how to build and run a program that uses C++ exceptions" ] )  
 
   GASNET_CHECK_RESTRICT([GASNETI_CXX],[C++ compiler])
+  GASNET_CHECK_ASM_SUPPORT([C++ compiler],[CXX])
   GASNET_GET_GNU_ATTRIBUTES([GASNETI_HAVE_CXX],[C++ compiler])
 
   # we link in an object compiled with CC that uses libc, to ensure that's working
@@ -2478,6 +2506,7 @@ if test "$enabled_mpi" = yes || test "$enabled_mpi_compat" = yes; then
     if test "$mpi_test_worked" = yes ; then
       GASNET_ID_OTHER_COMPILER([MPI_CC], [MPI])
       GASNET_CHECK_RESTRICT([GASNETI_MPI_CC],[MPI_CC])
+      GASNET_CHECK_ASM_SUPPORT([MPI_CC],[MPI_CC])
       GASNET_INLINE_MODIFIER([MPI_CC],[MPI_CC])
       GASNET_GET_GNU_ATTRIBUTES([GASNETI_HAVE_MPI_CC],[MPI_CC])
       if test "$cross_compiling" = "yes" ; then
