@@ -350,8 +350,9 @@ static void kill_one(const char *rem_host, pid_t rem_pid) {
       gasneti_fatalerror("execlp(kill) failed");
     } else {
       ssh_argv[ssh_argc] = (/* noconst */ char *)rem_host;
-      ssh_argv[ssh_argc+1] = sappendf(NULL, "cd %s; exec %s " ENV_PREFIX "SPAWNER=ssh %s %s",
-                                      quote_arg(cwd), envcmd, spawn_args, quote_arg(argv0));
+      ssh_argv[ssh_argc+1] = sappendf(NULL, "cd %s; exec %s %s " ENV_PREFIX "SPAWNER=ssh %s %s",
+                                      quote_arg(cwd), (wrapper ? wrapper : ""),
+                                      envcmd, spawn_args, quote_arg(argv0));
       execvp(ssh_argv[0], ssh_argv);
       gasneti_fatalerror("execvp(ssh kill) failed");
     }
