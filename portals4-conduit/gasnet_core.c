@@ -69,7 +69,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     /* node map set in gasnetc_p4_init */
 
 #if GASNET_PSHM
-    gasneti_pshm_init(&gasnetc_bootstrapExchange, 0);
+    gasneti_pshm_init(&gasnetc_bootstrapSNodeBroadcast, 0);
 #endif
 
 #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE

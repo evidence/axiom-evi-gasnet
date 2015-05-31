@@ -407,14 +407,16 @@ static void gasnetc_join_children(void) {
   alarm(0);
 }
 
-/* Broadcast from node0 to peers
-   This is a sufficient substitute for full Exchange in gasneti_pshm_init() */
-static void gasnet_bootstrap_bcast0(void *src, size_t len, void *dest)
+#if GASNET_PSHM
+/* Broadcast usable prior to bring-up of PSHM
+   This is used for the SNodeBcast fn in gasneti_pshm_init() */
+static void gasnetc_bootstrapSNodeBroadcast(void *src, size_t len, void *dest, int root)
 {
   ssize_t rc;
   int i;
 
   gasneti_assert(gasnetc_fds != NULL);
+  gasneti_assert(root == 0);
 
   if (gasneti_mynode == 0) {
     for (i = 1; i < gasneti_nodes; ++i) {
@@ -437,6 +439,7 @@ static void gasnet_bootstrap_bcast0(void *src, size_t len, void *dest)
     gasneti_assert(rc == len);
   }
 }
+#endif
 
 static int gasnetc_get_pshm_nodecount(void)
 {
@@ -536,7 +539,7 @@ static int gasnetc_init(int *argc, char ***argv) {
   {
     struct gasnetc_exit_data *tmp;
 
-    tmp = gasneti_pshm_init(&gasnet_bootstrap_bcast0, GASNETC_EXIT_DATA_SZ);
+    tmp = gasneti_pshm_init(&gasnetc_bootstrapSNodeBroadcast, GASNETC_EXIT_DATA_SZ);
     if (!gasneti_mynode) {
       /* Relocate the pid table to shared space */
       memcpy(tmp, gasnetc_exit_data, GASNETC_EXIT_DATA_SZ);

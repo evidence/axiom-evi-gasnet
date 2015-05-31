@@ -54,7 +54,7 @@ static struct gasneti_pshm_info {
 #define pshmnet_get_struct_addr_from_field_addr(structname, fieldname, fieldaddr) \
         ((structname*)(((uintptr_t)fieldaddr) - offsetof(structname,fieldname)))
 
-void *gasneti_pshm_init(gasneti_bootstrapExchangefn_t exchangefn, size_t aux_sz) {
+void *gasneti_pshm_init(gasneti_bootstrapBroadcastfn_t snodebcastfn, size_t aux_sz) {
   size_t vnetsz, mmapsz;
   int discontig = 0;
   gasneti_pshm_rank_t *pshm_max_nodes;
@@ -63,7 +63,7 @@ void *gasneti_pshm_init(gasneti_bootstrapExchangefn_t exchangefn, size_t aux_sz)
   gasnet_node_t j;
 #endif
 
-  gasneti_assert(exchangefn != NULL);  /* NULL exchangefn no longer supported */
+  gasneti_assert(snodebcastfn != NULL);  /* NULL snodebcastfn no longer supported */
 
   /* Testing if the number of PSHM nodes is always smaller than GASNETI_PSHM_MAX_NODES */
   pshm_max_nodes = gasneti_calloc(gasneti_nodes, sizeof(gasneti_pshm_rank_t));
@@ -128,7 +128,7 @@ void *gasneti_pshm_init(gasneti_bootstrapExchangefn_t exchangefn, size_t aux_sz)
 
   /* setup vnet shared memory region for AM infrastructure and supernode barrier.
    */
-  gasnetc_pshmnet_region = gasneti_mmap_vnet(mmapsz, exchangefn);
+  gasnetc_pshmnet_region = gasneti_mmap_vnet(mmapsz, snodebcastfn);
   gasneti_assert_always((((uintptr_t)gasnetc_pshmnet_region) % GASNETI_PSHMNET_PAGESIZE) == 0);
   if (gasnetc_pshmnet_region == NULL) {
     const int save_errno = errno;

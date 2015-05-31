@@ -145,6 +145,7 @@ void (*gasneti_bootstrapBarrier_p)(void) = NULL;
 void (*gasneti_bootstrapExchange_p)(void *src, size_t len, void *dest) = NULL;
 void (*gasneti_bootstrapAlltoall_p)(void *src, size_t len, void *dest) = NULL;
 void (*gasneti_bootstrapBroadcast_p)(void *src, size_t len, void *dest, int rootnode) = NULL;
+void (*gasneti_bootstrapSNodeCast_p)(void *src, size_t len, void *dest, int rootnode) = NULL;
 void (*gasneti_bootstrapCleanup_p)(void) = NULL;
 
 #if GASNET_TRACE
@@ -178,6 +179,18 @@ static void gasnetc_bootstrapBarrier(void) {
     gasneti_bootstrapBarrier();
 }
 
+#if GASNET_PSHM /* Used only in call to gasneti_pshm_init() */
+/* Naive (poorly scaling) "reference" implementation via in-place gasnetc_bootstrapExchange() */
+static void gasnetc_bootstrapSNodeBroadcast(void *src, size_t len, void *dest, int rootnode) {
+    void *tmp = gasneti_malloc(len * gasneti_nodes);
+    void *self = (void*)((uintptr_t)tmp + (len * gasneti_mynode));
+    void *root = (void*)((uintptr_t)tmp + (len * rootnode));
+    if (gasneti_mynode == rootnode) memcpy(self, src, len);
+    gasneti_bootstrapExchange(self, len, tmp);
+    memcpy(dest, root, len);
+    gasneti_free(tmp);
+}
+#endif
 
 /* -------------------------------------------------------------------------- */
 
@@ -213,6 +226,7 @@ static int gasneti_bootstrapInit(
         gasneti_bootstrapExchange_p = &gasneti_bootstrapExchange_ssh;
         gasneti_bootstrapAlltoall_p = &gasneti_bootstrapAlltoall_ssh;
         gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_ssh;
+        gasneti_bootstrapSNodeCast_p= &gasnetc_bootstrapSNodeBroadcast;
         gasneti_bootstrapCleanup_p  = &gasneti_bootstrapCleanup_ssh;
     }
 #endif
@@ -229,6 +243,7 @@ static int gasneti_bootstrapInit(
         gasneti_bootstrapExchange_p	= &gasneti_bootstrapExchange_mpi;
         gasneti_bootstrapAlltoall_p	= &gasneti_bootstrapAlltoall_mpi;
         gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_mpi;
+        gasneti_bootstrapSNodeCast_p= &gasnetc_bootstrapSNodeBroadcast;
         gasneti_bootstrapCleanup_p  = &gasneti_bootstrapCleanup_mpi;
     }
 #endif
@@ -245,6 +260,7 @@ static int gasneti_bootstrapInit(
         gasneti_bootstrapExchange_p = &gasneti_bootstrapExchange_pmi;
         gasneti_bootstrapAlltoall_p = &gasneti_bootstrapAlltoall_pmi;
         gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_pmi;
+        gasneti_bootstrapSNodeCast_p= &gasnetc_bootstrapSNodeBroadcast;
         gasneti_bootstrapCleanup_p  = &gasneti_bootstrapCleanup_pmi;
     }
 #endif
@@ -894,7 +910,7 @@ static int gasnetc_init(int *argc, char ***argv)
 
 #if GASNET_PSHM
     /* (###) If your conduit will support PSHM, you should initialize it here.
-     * The 1st argument is normally "&gasnetc_bootstrapExchange" (described below).
+     * The 1st argument is normally "&gasnetc_bootstrapSNodeBroadcast" or equivalent
      * The 2nd argument is the amout of shared memory space needed for any
      * conduit-specific uses.  The return value is a pointer to the space
      * requested by the 2nd argument.
@@ -902,7 +918,7 @@ static int gasnetc_init(int *argc, char ***argv)
     /*
      * ### = gasneti_pshm_init(###, ###);
      */
-    gasneti_pshm_init(&gasneti_bootstrapExchange, 0);
+    gasneti_pshm_init(&gasneti_bootstrapSNodeBroadcast, 0);
 #endif
 
     /*

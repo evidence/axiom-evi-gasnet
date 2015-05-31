@@ -81,6 +81,19 @@ void gasnetc_bootstrapExchange(void *src, size_t len, void *dest) {
   if_pf (retval) gasneti_fatalerror("failure in gasnetc_bootstrapExchange()");
 }
 
+#if GASNET_PSHM /* Used only in call to gasneti_pshm_init() */
+/* Naive (poorly scaling) "reference" implementation via in-place gasnetc_bootstrapExchange() */
+static void gasnetc_bootstrapSNodeBroadcast(void *src, size_t len, void *dest, int rootnode) {
+  void *tmp = gasneti_malloc(len * gasneti_nodes);
+  void *self = (void*)((uintptr_t)tmp + (len * gasneti_mynode));
+  void *root = (void*)((uintptr_t)tmp + (len * rootnode));
+  if (gasneti_mynode == rootnode) memcpy(self, src, len);
+  gasnetc_bootstrapExchange(self, len, tmp);
+  memcpy(dest, root, len);
+  gasneti_free(tmp);
+}
+#endif
+
 #define INITERR(type, reason) do {                                      \
    if (gasneti_VerboseErrors) {                                         \
      fprintf(stderr, "GASNet initialization encountered an error: %s\n" \
@@ -234,7 +247,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     gasneti_nodemapInit(&gasnetc_bootstrapExchange, NULL, 0, 0);
 
     #if GASNET_PSHM
-      gasneti_pshm_init(&gasnetc_bootstrapExchange, 0);
+      gasneti_pshm_init(&gasnetc_bootstrapSNodeBroadcast, 0);
     #endif
 
     #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE

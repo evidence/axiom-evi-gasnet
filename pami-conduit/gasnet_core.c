@@ -151,12 +151,12 @@ static int gasnetc_init(int *argc, char ***argv) {
 
   #if GASNET_PSHM
     /* (###) If your conduit will support PSHM, you should initialize it here.
-     * The 1st argument is normally "&gasnetc_bootstrapExchange" (described below).
+     * The 1st argument is normally "&gasnetc_bootstrapSNodeBroadcast" or equivalent
      * The 2nd argument is the amount of shared memory space needed for any
      * conduit-specific uses.  The return value is a pointer to the space
      * requested by the 2nd argument.
      */
-    (void) gasneti_pshm_init(&gasnetc_bootstrapExchange, 0);
+    (void) gasneti_pshm_init(&gasnetc_bootstrapSNodeBroadcast, 0);
   #endif
 
   /* TODO: when PSHM support is enabled, consider moving table to shared mem */

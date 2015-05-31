@@ -183,5 +183,6 @@ extern void gasnetc_fast_barrier(void);
 /* The Boostrap collective operations: */
 extern void gasnetc_bootstrapBarrier(void);
 extern void gasnetc_bootstrapExchange(void *src, size_t len, void *dst);
+extern void gasnetc_bootstrapSNodeBroadcast(void *src, size_t len, void *dst, int rootnode);
 
 #endif
