@@ -1696,14 +1696,95 @@ gasnetc_bootstrapExchange(void *src, size_t len, void *dest)
 }
 
 #if GASNET_PSHM /* Used only in call to gasneti_pshm_init() */
-/* Naive (poorly scaling) "reference" implementation via in-place gasnetc_bootstrapExchange() */
 void gasnetc_bootstrapSNodeBroadcast(void *src, size_t len, void *dest, int rootnode) {
-  void *tmp = gasneti_malloc(len * gasneti_nodes);
-  void *self = (void*)((uintptr_t)tmp + (len * gasneti_mynode));
-  void *root = (void*)((uintptr_t)tmp + (len * rootnode));
-  if (gasneti_mynode == rootnode) memcpy(self, src, len);
-  gasnetc_bootstrapExchange(self, len, tmp);
-  memcpy(dest, root, len);
-  gasneti_free(tmp);
+    ptl_md_t md;
+    ptl_me_t me;
+    ptl_handle_me_t me_h;
+    ptl_handle_md_t md_h;
+    ptl_event_t ev;
+    const int isroot = (gasneti_mynode == rootnode);
+    int ret;
+
+    GASNETI_TRACE_PRINTF(C,("bootGrpBcast with len = %d, src = %p dest = %p",(int)len,src,dest));
+
+    if (isroot) {
+      /* MD for src */
+      md.start = src;
+      md.length = len;
+      md.options = PTL_MD_UNORDERED;
+      md.eq_handle = coll_eq_h;
+      md.ct_handle = PTL_CT_NONE;
+      ret = PtlMDBind(matching_ni_h, &md, &md_h);
+      if_pf (PTL_OK != ret) p4_fatalerror(ret, "gasnetc_bootstrapGrpBcast() PtlMDBind()");
+    } else {
+      /* ME for dest */
+      me.start = dest;
+      me.length = len;
+      me.ct_handle = PTL_CT_NONE;
+      me.uid = uid;
+      me.options = PTL_ME_OP_PUT;
+      me.match_id.rank = rootnode;
+      me.match_bits = BOOTSTRAP_GRPBCAST_MB;
+      me.ignore_bits = 0;
+      me.min_free = 0;
+      ret = PtlMEAppend(matching_ni_h, bootstrap_idx, &me, PTL_PRIORITY_LIST, NULL, &me_h);
+      if_pf (PTL_OK != ret) p4_fatalerror(ret, "gasnetc_bootstrapGrpBcast() PtlMEAppend()");
+      /* ensure ME is linked before the barrier */
+      ret = PtlEQWait(coll_eq_h, &ev);
+      if (ret != PTL_OK) p4_fatalerror(ret, "gasnetc_bootstrapGrpBcast() PtlEQWait(link)");
+      gasneti_assert( ev.type == PTL_EVENT_LINK );
+    }
+
+    gasnetc_bootstrapBarrier();
+
+    if (isroot) {
+      int i;
+
+      memmove(dest, src, len);
+
+      for (i = 0; i < gasneti_nodemap_local_count; ++i) {
+        ptl_process_t proc;
+        if (i == gasneti_nodemap_local_rank) continue;
+        proc.rank = gasneti_nodemap_local[i];
+        ret = PtlPut(md_h, 
+                     0, 
+                     len, 
+                     PTL_NO_ACK_REQ, 
+                     proc,
+                     bootstrap_idx,
+                     BOOTSTRAP_GRPBCAST_MB,
+                     0,
+                     NULL,
+                     0);
+        if_pf (PTL_OK != ret) p4_fatalerror(ret, "gasnetc_bootstrapGrpBcast() PtlPut()");
+      }
+
+      for (i = 1; i < gasneti_nodemap_local_count; ++i) { /* NOTE: start at 1 to skip self */
+        ret = PtlEQWait(coll_eq_h, &ev);
+        if_pf (PTL_OK != ret) p4_fatalerror(ret, "gasnetc_bootstrapGrpBcast() PtlEQWait(final)");
+        gasneti_assert(ev.type == PTL_EVENT_SEND);
+      }
+
+      ret = PtlMDRelease(md_h);
+      if_pf (PTL_OK != ret) p4_fatalerror(ret, "gasnetc_bootstrapGrpBcast() PtlMDRelease()");
+    } else {
+      ret = PtlEQWait(coll_eq_h, &ev);
+      if_pf (PTL_OK != ret) p4_fatalerror(ret, "gasnetc_bootstrapGrpBcast() PtlEQWait(final)");
+      gasneti_assert(ev.type == PTL_EVENT_PUT);
+      gasneti_assert(ev.rlength == ev.mlength);
+      gasneti_assert(ev.rlength == len);
+#if 1 /* see "portals4 issue #28" node in gasnetc_bootstrapExchange */
+      do {
+        ret = PtlMEUnlink(me_h);
+        if (PTL_IN_USE == ret) sleep(1);
+      } while (PTL_IN_USE == ret);
+#else
+      ret = PtlMEUnlink(me_h);
+#endif
+      if_pf (PTL_OK != ret) p4_fatalerror(ret, "gasnetc_bootstrapGrpBcast() PtlMEUnlink()");
+    }
+
+    /* should not need a barrier here */
+    GASNETI_TRACE_PRINTF(C,("bootGrpBcast exit"));
 }
 #endif
