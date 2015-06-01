@@ -179,19 +179,6 @@ static void gasnetc_bootstrapBarrier(void) {
     gasneti_bootstrapBarrier();
 }
 
-#if GASNET_PSHM /* Used only in call to gasneti_pshm_init() */
-/* Naive (poorly scaling) "reference" implementation via in-place gasnetc_bootstrapExchange() */
-static void gasnetc_bootstrapSNodeBroadcast(void *src, size_t len, void *dest, int rootnode) {
-    void *tmp = gasneti_malloc(len * gasneti_nodes);
-    void *self = (void*)((uintptr_t)tmp + (len * gasneti_mynode));
-    void *root = (void*)((uintptr_t)tmp + (len * rootnode));
-    if (gasneti_mynode == rootnode) memcpy(self, src, len);
-    gasneti_bootstrapExchange(self, len, tmp);
-    memcpy(dest, root, len);
-    gasneti_free(tmp);
-}
-#endif
-
 /* -------------------------------------------------------------------------- */
 
 size_t gasneti_AMMaxMedium(void)
@@ -226,7 +213,7 @@ static int gasneti_bootstrapInit(
         gasneti_bootstrapExchange_p = &gasneti_bootstrapExchange_ssh;
         gasneti_bootstrapAlltoall_p = &gasneti_bootstrapAlltoall_ssh;
         gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_ssh;
-        gasneti_bootstrapSNodeCast_p= &gasnetc_bootstrapSNodeBroadcast;
+        gasneti_bootstrapSNodeCast_p= &gasneti_bootstrapSNodeBroadcast_ssh;
         gasneti_bootstrapCleanup_p  = &gasneti_bootstrapCleanup_ssh;
     }
 #endif
@@ -243,7 +230,7 @@ static int gasneti_bootstrapInit(
         gasneti_bootstrapExchange_p	= &gasneti_bootstrapExchange_mpi;
         gasneti_bootstrapAlltoall_p	= &gasneti_bootstrapAlltoall_mpi;
         gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_mpi;
-        gasneti_bootstrapSNodeCast_p= &gasnetc_bootstrapSNodeBroadcast;
+        gasneti_bootstrapSNodeCast_p= &gasneti_bootstrapSNodeBroadcast_mpi;
         gasneti_bootstrapCleanup_p  = &gasneti_bootstrapCleanup_mpi;
     }
 #endif
@@ -260,7 +247,7 @@ static int gasneti_bootstrapInit(
         gasneti_bootstrapExchange_p = &gasneti_bootstrapExchange_pmi;
         gasneti_bootstrapAlltoall_p = &gasneti_bootstrapAlltoall_pmi;
         gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_pmi;
-        gasneti_bootstrapSNodeCast_p= &gasnetc_bootstrapSNodeBroadcast;
+        gasneti_bootstrapSNodeCast_p= &gasneti_bootstrapSNodeBroadcast_pmi;
         gasneti_bootstrapCleanup_p  = &gasneti_bootstrapCleanup_pmi;
     }
 #endif

@@ -408,19 +408,6 @@ static void gasnetc_sys_coll_fini(void)
 #endif
 }
 
-#if GASNET_PSHM /* Used only in call to gasneti_pshm_init() */
-/* Naive (poorly scaling) "reference" implementation via in-place gasnetc_bootstrapExchange() */
-static void gasnetc_bootstrapSNodeBroadcast(void *src, size_t len, void *dest, int rootnode) {
-  void *tmp = gasneti_malloc(len * gasneti_nodes);
-  void *self = (void*)((uintptr_t)tmp + (len * gasneti_mynode));
-  void *root = (void*)((uintptr_t)tmp + (len * rootnode));
-  if (gasneti_mynode == rootnode) memcpy(self, src, len);
-  gasneti_bootstrapExchange_pmi(self, len, tmp);
-  memcpy(dest, root, len);
-  gasneti_free(tmp);
-}
-#endif
-
 /* ------------------------------------------------------------------------------------ */
 
 #if 0 /* Currently unused */
@@ -632,7 +619,7 @@ static int gasnetc_init(int *argc, char ***argv) {
      * conduit-specific uses.  The return value is a pointer to the space
      * requested by the 2nd argument.
      */
-    gasnetc_exitcodes = gasneti_pshm_init(&gasnetc_bootstrapSNodeBroadcast,
+    gasnetc_exitcodes = gasneti_pshm_init(&gasnetc_bootstrapSNodeBroadcast_pmi,
                                           gasneti_nodemap_local_count * sizeof(gasnetc_exitcode_t));
     gasnetc_exitcodes[gasneti_nodemap_local_rank].present = 0;
   #endif
