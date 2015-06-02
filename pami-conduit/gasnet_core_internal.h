@@ -52,6 +52,9 @@ enum {
   GASNETC_DISP_MED,
   GASNETC_DISP_LONG,
   GASNETC_DISP_DISSEM_BARR,
+#if GASNET_PSHM
+  GASNETC_DISP_SNODE_BCAST,
+#endif
   GASNETC_NUM_DISP
 };
 
@@ -183,6 +186,5 @@ extern void gasnetc_fast_barrier(void);
 /* The Boostrap collective operations: */
 extern void gasnetc_bootstrapBarrier(void);
 extern void gasnetc_bootstrapExchange(void *src, size_t len, void *dst);
-extern void gasnetc_bootstrapSNodeBroadcast(void *src, size_t len, void *dst, int rootnode);
 
 #endif

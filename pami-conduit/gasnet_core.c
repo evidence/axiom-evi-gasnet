@@ -47,6 +47,7 @@ static pami_context_t gasnetc_exit_context;
 
 static int gasnetc_exit_init(int use_exit_geom);
 static int gasnetc_am_init(void);
+static void gasnetc_bootstrapSNodeBroadcast(void *src, size_t len, void *dst, int rootnode);
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -594,6 +595,69 @@ extern void gasnetc_exit(int exitcode) {
 }
 
 /* ------------------------------------------------------------------------------------ */
+/* SNodeBroadcast for gasneti_pshm_init() */
+
+#if GASNET_PSHM
+#define gasneti_snodebcast_sz MAX(SIZEOF_VOID_P,GASNETI_PSHM_UNIQUE_LEN)
+
+static uint8_t SNodeBcast_result[gasneti_snodebcast_sz];
+static int SNodeBcast_done = 0;
+
+static void SNodeBcast_dispatch(pami_context_t context, void *cookie,
+                                const void *head_addr, size_t head_size,
+                                const void *pipe_addr, size_t pipe_size,
+                                pami_endpoint_t origin, pami_recv_t *recv)
+{
+  gasneti_assert(!SNodeBcast_done);
+  gasneti_assert(head_size <= gasneti_snodebcast_sz);
+  gasneti_assert(!recv); /* Never use payload */
+
+  memcpy(SNodeBcast_result, head_addr, head_size);
+  gasneti_sync_writes();
+  SNodeBcast_done = 1;
+}
+
+static void gasnetc_bootstrapSNodeBroadcast(void *src, size_t len, void *dest, int rootnode) {
+#if 0 /* Exchange in gasneti_nodemapInit() is sufficient to ensure Dispatch set */
+  gasnetc_bootstrapBarrier();
+#endif
+
+  if (rootnode == gasneti_mynode) {
+    pami_send_immediate_t cmd;
+    pami_result_t rc;
+    int i;
+
+    memmove(dest, src, len);
+
+    memset(&cmd, 0, sizeof(cmd));
+    cmd.header.iov_base = src;
+    cmd.header.iov_len = len;
+    cmd.data.iov_base = NULL;
+    cmd.data.iov_len = 0;
+    cmd.dispatch = GASNETC_DISP_SNODE_BCAST;
+    cmd.hints.use_shmem = PAMI_HINT_ENABLE;
+
+    for (i = 0; i < gasneti_nodemap_local_count; ++i) {
+      if (i == gasneti_nodemap_local_rank) continue;
+      PAMI_Endpoint_create(gasnetc_pami_client, gasneti_nodemap_local[i], 0, &cmd.dest);
+      rc = PAMI_Send_immediate(gasnetc_context, &cmd);
+      GASNETC_PAMI_CHECK(rc, "from PAMI_Send_immediate(SNodeBcast)");
+      rc = PAMI_Context_advance(gasnetc_context, 1);
+      GASNETC_PAMI_CHECK_ADVANCE(rc, "advancing SNnodeBcast");
+    }
+  } else {
+    while (!SNodeBcast_done) {
+      int rc = PAMI_Context_advance(gasnetc_context, 1);
+      GASNETC_PAMI_CHECK_ADVANCE(rc, "advancing SNnodeBcast");
+      gasneti_spinloop_hint();
+    }
+    gasneti_sync_reads();
+    memcpy(dest, SNodeBcast_result, len);
+  }
+}
+#endif
+
+/* ------------------------------------------------------------------------------------ */
 /*
   Misc. Active Message Functions
   ==============================
@@ -962,6 +1026,17 @@ static int gasnetc_am_init(void) {
     depth = MAX(depth, 4); /* Min value is 4 */
     gasneti_semaphore_init(&gasnetc_requests_oust, depth, depth);
   }
+
+#if GASNET_PSHM
+  hints.use_shmem = PAMI_HINT_ENABLE;
+  hints.long_header = (gasnetc_recv_imm_max >= gasneti_snodebcast_sz)
+                      ? PAMI_HINT_DISABLE : PAMI_HINT_ENABLE;
+  hints.recv_immediate = (gasnetc_recv_imm_max >= gasneti_snodebcast_sz)
+                         ? PAMI_HINT_ENABLE : PAMI_HINT_DEFAULT;
+  fn.p2p = &SNodeBcast_dispatch;
+  rc = PAMI_Dispatch_set(gasnetc_context, GASNETC_DISP_SNODE_BCAST, fn, NULL, hints);
+  GASNETC_PAMI_CHECK(rc, "registering GASNETC_DISP_SNODE_BCAST");
+#endif
 
   return GASNET_OK;
 }
