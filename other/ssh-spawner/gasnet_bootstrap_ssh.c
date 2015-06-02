@@ -2506,6 +2506,19 @@ void gasneti_bootstrapBroadcast_ssh(void *src, size_t len, void *dest, int rootn
 #endif
 }
 
+#if GASNET_PSHM /* Used only in call to gasneti_pshm_init() */
+/* Naive (poorly scaling) "reference" implementation via in-place gasnetc_bootstrapExchange() */
+void gasneti_bootstrapSNodeBroadcast_ssh(void *src, size_t len, void *dest, int rootnode) {
+  void *tmp = gasneti_malloc(len * gasneti_nodes);
+  void *self = (void*)((uintptr_t)tmp + (len * gasneti_mynode));
+  void *root = (void*)((uintptr_t)tmp + (len * rootnode));
+  if (gasneti_mynode == rootnode) memcpy(self, src, len);
+  gasneti_bootstrapExchange_ssh(self, len, tmp);
+  memcpy(dest, root, len);
+  gasneti_free(tmp);
+}
+#endif
+
 void gasneti_bootstrapCleanup_ssh(void) {
   /* TODO: anything we can free at end of bootstrap collectives? */
 }

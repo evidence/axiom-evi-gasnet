@@ -614,12 +614,12 @@ static int gasnetc_init(int *argc, char ***argv) {
 
   #if GASNET_PSHM
     /* If your conduit will support PSHM, you should initialize it here.
-     * The 1st argument is normally "&gasnetc_bootstrapExchange" (described below).
+     * The 1st argument is normally "&gasnetc_bootstrapSNodeBroadcast" or equivalent
      * The 2nd argument is the amount of shared memory space needed for any
      * conduit-specific uses.  The return value is a pointer to the space
      * requested by the 2nd argument.
      */
-    gasnetc_exitcodes = gasneti_pshm_init(&gasnetc_bootstrapExchange,
+    gasnetc_exitcodes = gasneti_pshm_init(&gasnetc_bootstrapSNodeBroadcast_pmi,
                                           gasneti_nodemap_local_count * sizeof(gasnetc_exitcode_t));
     gasnetc_exitcodes[gasneti_nodemap_local_rank].present = 0;
   #endif

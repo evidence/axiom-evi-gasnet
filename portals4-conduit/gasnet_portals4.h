@@ -18,6 +18,7 @@
 #define BOOTSTRAP_BARRIER_MB    0x00001
 #define BOOTSTRAP_BCAST_MB      0x00002
 #define BOOTSTRAP_EXCHANGE_MB   0x00003
+#define BOOTSTRAP_GRPBCAST_MB   0x00004
 
 /*
  * match bits used on the active message PT
@@ -139,6 +140,7 @@ int gasnetc_p4_TransferGeneric(int category, ptl_match_bits_t req_type,
 
 void gasnetc_bootstrapBarrier(void);
 void gasnetc_bootstrapExchange(void *src, size_t len, void *dest);
+void gasnetc_bootstrapSNodeBroadcast(void *src, size_t len, void *dest, int rootnode);
 
 /* Use alloca()?  (e.g. to work-around bug 2079) */
 #ifdef GASNETI_USE_ALLOCA

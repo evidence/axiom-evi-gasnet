@@ -171,6 +171,7 @@ void (*gasneti_bootstrapFini_p)(void) = NULL;
 void (*gasneti_bootstrapAbort_p)(int exitcode) = NULL;
 void (*gasneti_bootstrapAlltoall_p)(void *src, size_t len, void *dest) = NULL;
 void (*gasneti_bootstrapBroadcast_p)(void *src, size_t len, void *dest, int rootnode) = NULL;
+void (*gasneti_bootstrapSNodeCast_p)(void *src, size_t len, void *dest, int rootnode) = NULL;
 void (*gasneti_bootstrapCleanup_p)(void) = NULL;
 
 static int gasneti_bootstrap_native_coll = 0;
@@ -1053,6 +1054,7 @@ static int  gasneti_bootstrapInit(int *argc_p, char ***argv_p,
     gasneti_bootstrapExchange_p	= &gasneti_bootstrapExchange_ssh;
     gasneti_bootstrapAlltoall_p	= &gasneti_bootstrapAlltoall_ssh;
     gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_ssh;
+    gasneti_bootstrapSNodeCast_p= &gasneti_bootstrapSNodeBroadcast_ssh;
     gasneti_bootstrapCleanup_p  = &gasneti_bootstrapCleanup_ssh;
   }
 #endif
@@ -1069,6 +1071,7 @@ static int  gasneti_bootstrapInit(int *argc_p, char ***argv_p,
     gasneti_bootstrapExchange_p	= &gasneti_bootstrapExchange_mpi;
     gasneti_bootstrapAlltoall_p	= &gasneti_bootstrapAlltoall_mpi;
     gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_mpi;
+    gasneti_bootstrapSNodeCast_p= &gasneti_bootstrapSNodeBroadcast_mpi;
     gasneti_bootstrapCleanup_p  = &gasneti_bootstrapCleanup_mpi;
   }
 #endif
@@ -1085,6 +1088,7 @@ static int  gasneti_bootstrapInit(int *argc_p, char ***argv_p,
     gasneti_bootstrapExchange_p	= &gasneti_bootstrapExchange_pmi;
     gasneti_bootstrapAlltoall_p	= &gasneti_bootstrapAlltoall_pmi;
     gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_pmi;
+    gasneti_bootstrapSNodeCast_p= &gasneti_bootstrapSNodeBroadcast_pmi;
     gasneti_bootstrapCleanup_p  = &gasneti_bootstrapCleanup_pmi;
   }
 #endif
@@ -1593,7 +1597,7 @@ static int gasnetc_init(int *argc, char ***argv) {
 #endif
 
   #if GASNET_PSHM
-    gasneti_pshm_init(&gasneti_bootstrapExchange, 0);
+    gasneti_pshm_init(&gasneti_bootstrapSNodeBroadcast, 0);
   #endif
 
   /* early registration of core API handlers */

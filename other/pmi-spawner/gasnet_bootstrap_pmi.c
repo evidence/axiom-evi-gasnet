@@ -315,7 +315,17 @@ void gasneti_bootstrapBarrier_pmi(void) {
 }
 
 #if HAVE_PMI_ALLGATHER
-static gasnet_node_t *gasnetc_pmi_exchange_order = NULL;
+static gasnet_node_t *gasnetc_pmi_allgather_order = NULL;
+GASNETI_INLINE(gasnetc_pmi_allgather_init)
+void gasnetc_pmi_allgather_init(void) {
+    /* perform (just once) an Allgather of node number to establish the order */
+    if_pf (!gasnetc_pmi_allgather_order) {
+        int rc;
+        gasnetc_pmi_allgather_order = gasneti_malloc(gasneti_nodes * sizeof(gasnet_node_t));
+        rc = PMI_Allgather(&gasneti_mynode, gasnetc_pmi_allgather_order, sizeof(gasnet_node_t));
+        gasneti_assert(PMI_SUCCESS == rc);
+    }
+}
 #endif
 
 /* gasneti_bootstrapExchange
@@ -326,20 +336,14 @@ void gasneti_bootstrapExchange_pmi(void *src, size_t len, void *dest) {
     gasnet_node_t i;
     int rc;
 
-    /* perform (just once) an Allgather of node number to establish the order */
-    if_pf (!gasnetc_pmi_exchange_order) {
-      gasnetc_pmi_exchange_order = gasneti_malloc(gasneti_nodes * sizeof(gasnet_node_t));
-      rc = PMI_Allgather(&gasneti_mynode, gasnetc_pmi_exchange_order, sizeof(gasnet_node_t));
-      gasneti_assert(PMI_SUCCESS == rc);
-    }
-
     /* Allgather the callers data to a temporary array */
+    gasnetc_pmi_allgather_init();
     rc = PMI_Allgather(src, unsorted, len);
     gasneti_assert(PMI_SUCCESS == rc);
 
     /* extract the records from the unsorted array by using the 'order' array */
     for (i = 0; i < gasneti_nodes; i += 1) {
-      gasnet_node_t peer = gasnetc_pmi_exchange_order[i];
+      gasnet_node_t peer = gasnetc_pmi_allgather_order[i];
       gasneti_assert(peer < gasneti_nodes);
       memcpy((void *) ((uintptr_t) dest + (peer * len)), &unsorted[i * len], len);
     }
@@ -448,10 +452,38 @@ void gasneti_bootstrapBroadcast_pmi(void *src, size_t len, void *dest, int rootn
 #endif
 }
 
+void gasneti_bootstrapSNodeBroadcast_pmi(void *src, size_t len, void *dest, int rootnode) {
+#if HAVE_PMI_ALLGATHER
+    /* TODO: test our assumption that PMI_Allgather it better than the Put/Get code below */
+    uint8_t *tmp = gasneti_malloc(len * gasneti_nodes);
+    int rc, i;
+
+    /* Allgather the data to the temporary array */
+    gasnetc_pmi_allgather_init();
+    rc = PMI_Allgather(src ? src : dest, tmp, len);
+    gasneti_assert(PMI_SUCCESS == rc);
+
+    /* Find the right piece */
+    for (i = 0; i < gasneti_nodes; i += 1) {
+        gasnet_node_t peer = gasnetc_pmi_allgather_order[i];
+        if (peer == rootnode) {
+            memcpy(dest, &tmp[i * len], len);
+            break;
+        }
+    }
+
+    gasneti_free(tmp);
+#elif HAVE_PMI_BCAST && 0
+    /* TODO - Need something here if Broadcast is ever implemented in terms of PMI_Bcast */
+#else
+    gasneti_bootstrapBroadcast_pmi(src, len, dest, rootnode);
+#endif
+}
+
 void gasneti_bootstrapCleanup_pmi(void) {
   #if HAVE_PMI_ALLGATHER
-    gasneti_free(gasnetc_pmi_exchange_order);
-    gasnetc_pmi_exchange_order = NULL;
+    gasneti_free(gasnetc_pmi_allgather_order);
+    gasnetc_pmi_allgather_order = NULL;
   #endif
     gasneti_free(kvs_name);  kvs_name = NULL;
     gasneti_free(kvs_key);   kvs_key = NULL;

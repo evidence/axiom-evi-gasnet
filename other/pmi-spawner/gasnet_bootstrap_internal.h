@@ -15,6 +15,7 @@ extern void gasneti_bootstrapBarrier_pmi(void);
 extern void gasneti_bootstrapExchange_pmi(void *src, size_t len, void *dest);
 extern void gasneti_bootstrapAlltoall_pmi(void *src, size_t len, void *dest);
 extern void gasneti_bootstrapBroadcast_pmi(void *src, size_t len, void *dest, int rootnode);
+extern void gasneti_bootstrapSNodeBroadcast_pmi(void *src, size_t len, void *dest, int rootnode);
 extern void gasneti_bootstrapCleanup_pmi(void);
 
 #endif

@@ -148,6 +148,30 @@ void gasneti_bootstrapBroadcast_mpi(void *src, size_t len, void *dest, int rootn
   err = MPI_Bcast(dest, len, MPI_BYTE, rootnode, gasnetc_mpi_comm);
 }
 
+void gasneti_bootstrapSNodeBroadcast_mpi(void *src, size_t len, void *dest, int rootnode) {
+  int err;
+
+  if (gasnetc_mpi_rank == rootnode) {
+    const int count = gasneti_nodemap_local_count - 1;
+    MPI_Request *reqs, *r;
+    int i;
+
+    memmove(dest, src, len);
+    reqs = gasneti_malloc(count * sizeof(MPI_Request));
+    for (i = 0, r = reqs; i < gasneti_nodemap_local_count; ++i) {
+      if (i == gasneti_nodemap_local_rank) continue;
+      err = MPI_Isend(src,len,MPI_BYTE,gasneti_nodemap_local[i],0,gasnetc_mpi_comm,r++);
+      gasneti_assert(err == MPI_SUCCESS);
+    }
+    err = MPI_Waitall(count,reqs,MPI_STATUSES_IGNORE);
+    gasneti_assert(err == MPI_SUCCESS);
+    gasneti_free(reqs);
+  } else {
+    err = MPI_Recv(dest,len,MPI_BYTE,rootnode,0,gasnetc_mpi_comm,MPI_STATUS_IGNORE);
+    gasneti_assert(err == MPI_SUCCESS);
+  }
+}
+
 void gasneti_bootstrapCleanup_mpi(void) {
   /* Nothing to do here */
 }

@@ -15,6 +15,7 @@ extern void gasneti_bootstrapBarrier_ssh(void);
 extern void gasneti_bootstrapExchange_ssh(void *src, size_t len, void *dest);
 extern void gasneti_bootstrapAlltoall_ssh(void *src, size_t len, void *dest);
 extern void gasneti_bootstrapBroadcast_ssh(void *src, size_t len, void *dest, int rootnode);
+extern void gasneti_bootstrapSNodeBroadcast_ssh(void *src, size_t len, void *dest, int rootnode);
 extern void gasneti_bootstrapCleanup_ssh(void);
 
 #endif
