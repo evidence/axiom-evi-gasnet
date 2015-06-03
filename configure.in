@@ -786,13 +786,14 @@ popdef([uppername])
 popdef([lowername])
 ])
 
-dnl Check for compilers with varying support for inline asm
+dnl Check for compilers with varying support for inline asm and atomics
 dnl GASNET_CHECK_ASM_SUPPORT(compiler-display-name, compiler-type)
 dnl Where compiler-type is CC|CXX|MPI_CC
 AC_DEFUN([GASNET_CHECK_ASM_SUPPORT],[
 GASNET_FUN_BEGIN([$0($1,$2)])
 pushdef([lowername],translit($2,'A-Z','a-z'))
 pushdef([uppername],translit($2,'a-z','A-Z'))
+pushdef([flagsvar],ifelse(index([$2],[CXX]),[-1],[C],[CXX])[]FLAGS)
 case "$[]uppername[]_FAMILY" in
 XLC)
     GASNET_TRY_CACHE_LINK([$1 for XLC mc_func support], lowername[]_mc_func, [
@@ -807,6 +808,37 @@ XLC)
       [ AC_DEFINE(GASNETI_HAVE_[]uppername[]_GCC_ASM) ])
   ;;
 esac
+GASNET_PUSHVAR(flagsvar,"$flagsvar -I$TOP_SRCDIR/other")
+dnl  TODO: factor this and loop over "32" and "64" ?
+dnl  TODO: we should probe if test-and-set is swap
+GASNET_TRY_CACHE_LINK([$1 for 32-bit __sync atomics support], lowername[]_sync_atomics_32, [
+    #include "portable_inttypes.h"
+  ],[
+    struct { volatile uint32_t ctr; } x = { 2 };
+    uint32_t op = 1;
+    uint32_t oval = 2;
+    uint32_t nval = 3;
+    volatile uint32_t result;
+
+    result = __sync_bool_compare_and_swap(&(x.ctr), oval, nval)
+           + __sync_val_compare_and_swap(&(x.ctr), nval, oval)
+           + __sync_fetch_and_add(&(x.ctr), op);
+  ],[ AC_DEFINE(GASNETI_HAVE_[]uppername[]_SYNC_ATOMICS_32) ])
+GASNET_TRY_CACHE_LINK([$1 for 64-bit __sync atomics support], lowername[]_sync_atomics_64, [
+    #include "portable_inttypes.h"
+  ],[
+    struct { volatile uint64_t ctr; } x = { 2 };
+    uint64_t op = 1;
+    uint64_t oval = 2;
+    uint64_t nval = 3;
+    volatile uint64_t result;
+
+    result = __sync_bool_compare_and_swap(&(x.ctr), oval, nval)
+           + __sync_val_compare_and_swap(&(x.ctr), nval, oval)
+           + __sync_fetch_and_add(&(x.ctr), op);
+  ],[ AC_DEFINE(GASNETI_HAVE_[]uppername[]_SYNC_ATOMICS_64) ])
+GASNET_POPVAR(flagsvar)
+popdef([flagsvar])
 popdef([uppername])
 popdef([lowername])
 GASNET_FUN_END([$0])

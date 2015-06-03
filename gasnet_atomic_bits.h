@@ -214,7 +214,7 @@
   /* Use a very slow but portable implementation of atomic ops using mutexes */
   /* This case exists only to prevent the following cases from matching. */
 #elif defined(GASNETI_USE_COMPILER_ATOMICOPS)
-  #if PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_CLANG /* XXX: more work-alikes? */
+  #if GASNETI_HAVE_SYNC_ATOMICS_32
     /* Generic implementation in terms of GCC's __sync atomics */
 
     /* GCC documentation promises a full memory barrier */
@@ -247,7 +247,7 @@
         return oval;
     }
 
-    #if PLATFORM_ARCH_64 /* TODO: on 32-bit platform should we still be able to use this? */
+    #if GASNETI_HAVE_SYNC_ATOMICS_64
       #define _gasneti_atomic64_prologue_rmw(p,f)         /*empty*/
       #define _gasneti_atomic64_fence_before_rmw(p,f)     /*empty*/
       #define _gasneti_atomic64_fence_after_rmw(p,f)      /*empty*/
@@ -275,7 +275,7 @@
           } while (oval != (tmp = __sync_val_compare_and_swap(p64,oval,nval)));
           return oval;
       }
-    #endif
+    #endif /* GASNETI_HAVE_SYNC_ATOMICS_64 */
   #else 
     #error "GASNETI_USE_COMPILER_ATOMICOPS for unknown or unsupported compiler"
   #endif
