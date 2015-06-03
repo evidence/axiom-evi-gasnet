@@ -154,9 +154,11 @@
     PLATFORM_ARCH_MTA
   #define GASNETI_USE_OS_ATOMICOPS
 #elif defined(GASNETI_FORCE_COMPILER_ATOMICOPS) || /* for debugging */ \
+    (PLATFORM_COMPILER_XLC && !GASNETI_HAVE_XLC_ASM && GASNETI_HAVE_SYNC_ATOMICS_32) || \
     PLATFORM_ARCH_AARCH64 || \
     PLATFORM_ARCH_TILE
   /* TODO: can (should?) do TILE and AARCH64 natively */
+  /* TODO: probe for an XLC version with non-broken gcc inline asm support? */
   #define GASNETI_USE_COMPILER_ATOMICOPS
 #endif
 
