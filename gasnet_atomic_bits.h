@@ -1817,7 +1817,7 @@
       #endif
     #endif
 
-    #if PLATFORM_COMPILER_XLC
+    #if PLATFORM_COMPILER_XLC && GASNETI_HAVE_XLC_ASM
       #define GASNETI_HAVE_ATOMIC32_T 1
       typedef struct { volatile uint32_t ctr; } gasneti_atomic32_t;
       #define gasneti_atomic32_init(v)       { (v) }
@@ -2111,7 +2111,7 @@
       #endif
 
       /* Using default fences as we have none in our asms */
-    #elif PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_CLANG
+    #elif GASNETI_HAVE_GCC_ASM
       #define GASNETI_HAVE_ATOMIC32_T 1
       typedef struct { volatile uint32_t ctr; } gasneti_atomic32_t;
       #define gasneti_atomic32_init(v)       { (v) }
