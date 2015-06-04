@@ -1323,7 +1323,8 @@ AC_DEFUN([GASNET_GET_GNU_ATTRIBUTES],[
   pushdef([cachevar],cv_prefix[]translit([$1],'A-Z','a-z')[]_attr_format_funcptr)
   AC_CACHE_CHECK($2 for __attribute__((__format__)) on function pointers, cachevar,
     GASNET_TRY_COMPILE_WITHWARN(GASNETI_C_OR_CXX([$1]), [
-          __attribute__((__format__ (__printf__, 1, 2))) extern void (*dummy)(const char *fmt,...);
+          __attribute__((__format__ (__printf__, 1, 2))) extern void (*dummy1)(const char *fmt,...);
+          __attribute__((__format__ (__printf__, 1, 2)))        void (*dummy2)(const char *fmt,...);
       ], [], [ cachevar='yes' ],[ cachevar='no/warning' ],[ cachevar='no/error' ])
   )
   if test "$cachevar" = yes; then
