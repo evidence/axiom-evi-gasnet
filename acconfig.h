@@ -113,6 +113,23 @@
 #undef GASNETI_CXX_RESTRICT
 #undef GASNETI_MPI_CC_RESTRICT
 
+/* Which inline asm style(s) are supported - these are defined only
+   where we use configure to determine what a compiler supports */
+#undef GASNETI_HAVE_CC_XLC_ASM
+#undef GASNETI_HAVE_CXX_XLC_ASM
+#undef GASNETI_HAVE_MPI_CC_XLC_ASM
+#undef GASNETI_HAVE_CC_GCC_ASM
+#undef GASNETI_HAVE_CXX_GCC_ASM
+#undef GASNETI_HAVE_MPI_CC_GCC_ASM
+
+/* Which non-native atomics are available */
+#undef GASNETI_HAVE_CC_SYNC_ATOMICS_32
+#undef GASNETI_HAVE_CXX_SYNC_ATOMICS_32
+#undef GASNETI_HAVE_MPI_CC_SYNC_ATOMICS_32
+#undef GASNETI_HAVE_CC_SYNC_ATOMICS_64
+#undef GASNETI_HAVE_CXX_SYNC_ATOMICS_64
+#undef GASNETI_HAVE_MPI_CC_SYNC_ATOMICS_64
+
 /* Does CC support C99-type non-constant initializers for structs? */
 #undef HAVE_NONCONST_STRUCT_INIT
 /* Does CC support C99-type constructor expressions? */

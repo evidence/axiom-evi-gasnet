@@ -696,11 +696,12 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial_SEQ(gasneti_semaphore_t_S
   /* No threads, so we use the mutex code that compiles away. */
 #elif defined(GASNETI_USE_GENERIC_ATOMICOPS)
   /* If using mutexes, then just use the mutex code */
-#elif PLATFORM_ARCH_POWERPC && GASNETI_HAVE_ATOMIC_PTR_CAS
+#elif PLATFORM_ARCH_POWERPC && GASNETI_HAVE_ATOMIC_PTR_CAS && \
+      (GASNETI_HAVE_GCC_ASM || GASNETI_HAVE_XLC_ASM)
   /* Among the platforms we currently support, PPC is unique in having an LL/SC
    * construct which allows a load between the LL and the SC.
    */
-  #if PLATFORM_COMPILER_GNU
+  #if GASNETI_HAVE_GCC_ASM && !(PLATFORM_COMPILER_XLC && GASNETI_HAVE_XLC_ASM)
     typedef struct {
       /* Ensure list head pointer is the only item on its cache line.
        * This prevents a live-lock which would result if a list element fell
@@ -775,7 +776,7 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial_SEQ(gasneti_semaphore_t_S
     }
     #define GASNETI_LIFO_INITIALIZER_PAR {{0,}, gasneti_atomic_ptr_init(0), {0,}}
     #define GASNETI_HAVE_ARCH_LIFO	1
-  #elif PLATFORM_COMPILER_XLC
+  #elif GASNETI_HAVE_XLC_ASM
     typedef struct {
       /* Ensure list head pointer is the only item on its cache line.
        * This prevents a live-lock which would result if a list element fell

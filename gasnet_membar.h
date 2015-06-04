@@ -165,7 +165,7 @@
    #endif
 /* ------------------------------------------------------------------------------------ */
 #elif PLATFORM_ARCH_POWERPC
- #if PLATFORM_COMPILER_XLC
+ #if PLATFORM_COMPILER_XLC && GASNETI_HAVE_XLC_ASM
    /* VisualAge C compiler (mpcc_r) has no support for inline symbolic assembly
     * you have to hard-code the opcodes in a pragma that defines an assembly 
     * function - see /usr/include/sys/atomic_op.h on AIX for examples

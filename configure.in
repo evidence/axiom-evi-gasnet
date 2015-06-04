@@ -573,15 +573,18 @@ case "$CC_FAMILY" in
        fi
        MISC_CFLAGS="$MISC_CFLAGS -errtags" ;; # show warning tag ids in warnings
   XLC) GASNET_GET_PPC64_FLAGS(C)
-       MISC_CFLAGS="$MISC_CFLAGS -qsuppress=1500-010:1506-229"
-        # 1500-010 = infinite loop (such as in our tests)
-	# 1506-229 = empty source file (some linux headers)
+       # Try to suppress certain warnings:
+       # 1500-010 = infinite loop (such as in our tests)
+       # 1506-229 = empty source file (some linux headers)
+       GASNET_TRY_CFLAG([-qsuppress=1500-010:1506-229],
+                        [MISC_CFLAGS="$MISC_CFLAGS -qsuppress=1500-010:1506-229"])
        ;;
   *)   MISC_CFLAGS="" ;;
 esac
 
 case "$CC_FAMILY" in
-  XLC) MISC_CPPFLAGS="-qcpluscmt" ;; # tell preprocessor to allow C++-style comments
+  XLC) # tell preprocessor to allow C++-style comments
+       GASNET_TRY_CFLAG([-qcpluscmt], [MISC_CPPFLAGS="$MISC_CPPFLAGS -qcpluscmt"]);;
   PGI) MISC_CPPFLAGS="-B" ;; # C++ comments
   Sun) MISC_CPPFLAGS="-xCC" ;; # C++ comments
   GNU)
@@ -786,9 +789,68 @@ popdef([uppername])
 popdef([lowername])
 ])
 
+dnl Check for compilers with varying support for inline asm and atomics
+dnl GASNET_CHECK_ASM_SUPPORT(compiler-display-name, compiler-type)
+dnl Where compiler-type is CC|CXX|MPI_CC
+AC_DEFUN([GASNET_CHECK_ASM_SUPPORT],[
+GASNET_FUN_BEGIN([$0($1,$2)])
+pushdef([lowername],translit($2,'A-Z','a-z'))
+pushdef([uppername],translit($2,'a-z','A-Z'))
+pushdef([flagsvar],ifelse(index([$2],[CXX]),[-1],[C],[CXX])[]FLAGS)
+case "$[]uppername[]_FAMILY" in
+XLC)
+    GASNET_TRY_CACHE_LINK([$1 for XLC mc_func support], lowername[]_mc_func, [
+        #pragma mc_func _gasneti_do_sync { "7c2004ac" }
+        #pragma reg_killed_by _gasneti_do_sync
+        #define gasneti_local_sync() _gasneti_do_sync()
+      ],
+      [ gasneti_local_sync(); ],
+      [ AC_DEFINE(GASNETI_HAVE_[]uppername[]_XLC_ASM) ])
+    GASNET_TRY_CACHE_LINK([$1 for GCC inline asm support], lowername[]_gcc_asm, [],
+      [ __asm__ __volatile__ ("sync"); ],
+      [ AC_DEFINE(GASNETI_HAVE_[]uppername[]_GCC_ASM) ])
+  ;;
+esac
+GASNET_PUSHVAR(flagsvar,"$flagsvar -I$TOP_SRCDIR/other")
+dnl  TODO: factor this and loop over "32" and "64" ?
+dnl  TODO: we should probe if test-and-set is swap
+GASNET_TRY_CACHE_LINK([$1 for 32-bit __sync atomics support], lowername[]_sync_atomics_32, [
+    #include "portable_inttypes.h"
+  ],[
+    struct { volatile uint32_t ctr; } x = { 2 };
+    uint32_t op = 1;
+    uint32_t oval = 2;
+    uint32_t nval = 3;
+    volatile uint32_t result;
+
+    result = __sync_bool_compare_and_swap(&(x.ctr), oval, nval)
+           + __sync_val_compare_and_swap(&(x.ctr), nval, oval)
+           + __sync_fetch_and_add(&(x.ctr), op);
+  ],[ AC_DEFINE(GASNETI_HAVE_[]uppername[]_SYNC_ATOMICS_32) ])
+GASNET_TRY_CACHE_LINK([$1 for 64-bit __sync atomics support], lowername[]_sync_atomics_64, [
+    #include "portable_inttypes.h"
+  ],[
+    struct { volatile uint64_t ctr; } x = { 2 };
+    uint64_t op = 1;
+    uint64_t oval = 2;
+    uint64_t nval = 3;
+    volatile uint64_t result;
+
+    result = __sync_bool_compare_and_swap(&(x.ctr), oval, nval)
+           + __sync_val_compare_and_swap(&(x.ctr), nval, oval)
+           + __sync_fetch_and_add(&(x.ctr), op);
+  ],[ AC_DEFINE(GASNETI_HAVE_[]uppername[]_SYNC_ATOMICS_64) ])
+GASNET_POPVAR(flagsvar)
+popdef([flagsvar])
+popdef([uppername])
+popdef([lowername])
+GASNET_FUN_END([$0])
+])
+
 GASNET_LIBGCC
 GASNET_PUSHVAR(CFLAGS,"$CFLAGS $MISC_CPPFLAGS $MISC_CFLAGS")
 GASNET_CHECK_RESTRICT([GASNETI_CC])
+GASNET_CHECK_ASM_SUPPORT([C compiler],[CC])
 GASNET_INLINE_MODIFIER([C compiler],[CC])
 GASNET_GET_GNU_ATTRIBUTES([GASNETI_HAVE_CC])
 GASNET_GET_PLATFORM_ID([COMPILER])
@@ -2173,7 +2235,8 @@ fi
            ;;
     XLC)
      GASNET_GET_PPC64_FLAGS(CXX)
-     MISC_CXXFLAGS="$MISC_CXXFLAGS -qsuppress=1540-0809" # 1540-0809 = empty source file (some linux headers)
+     GASNET_TRY_CXXFLAG([-qsuppress=1540-0809], # 1540-0809 = empty source file (some linux headers)
+                        [MISC_CXXFLAGS="$MISC_CXXFLAGS -qsuppress=1540-0809"])
      MISC_CXXFLAGS="$MISC_CXXFLAGS -qeh" ;;
     Sun) if test "$target_cpu" = "sparc"; then 
            GASNET_GET_ULTRASPARC_FLAGS(CXX,["-xarch=v8plusb" "-xarch=v8plusa" "-xarch=v8plus" "-xarch=sparcvis2" "-xarch=sparcvis" "-xarch=sparc"])
@@ -2245,6 +2308,7 @@ fi
   ], [ "I can\'t figure out how to build and run a program that uses C++ exceptions" ] )  
 
   GASNET_CHECK_RESTRICT([GASNETI_CXX],[C++ compiler])
+  GASNET_CHECK_ASM_SUPPORT([C++ compiler],[CXX])
   GASNET_GET_GNU_ATTRIBUTES([GASNETI_HAVE_CXX],[C++ compiler])
 
   # we link in an object compiled with CC that uses libc, to ensure that's working
@@ -2478,6 +2542,7 @@ if test "$enabled_mpi" = yes || test "$enabled_mpi_compat" = yes; then
     if test "$mpi_test_worked" = yes ; then
       GASNET_ID_OTHER_COMPILER([MPI_CC], [MPI])
       GASNET_CHECK_RESTRICT([GASNETI_MPI_CC],[MPI_CC])
+      GASNET_CHECK_ASM_SUPPORT([MPI_CC],[MPI_CC])
       GASNET_INLINE_MODIFIER([MPI_CC],[MPI_CC])
       GASNET_GET_GNU_ATTRIBUTES([GASNETI_HAVE_MPI_CC],[MPI_CC])
       if test "$cross_compiling" = "yes" ; then

@@ -289,7 +289,8 @@ GASNETI_BEGIN_EXTERNC
   #include <sys/types.h>
   #include <dirent.h>
   typedef uint64_t gasneti_tick_t;
- #if PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_CLANG
+ #if PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_CLANG || \
+     (PLATFORM_COMPILER_XLC && GASNETI_HAVE_GCC_ASM && !GASNETI_HAVE_XLC_ASM)
   #if PLATFORM_COMPILER_CLANG /* or something to force? */
     /* Clang's integrated assembler (correctly) warns that mftb* are deprecated */
     #define GASNETI_MFTB(_reg)  "mfspr %" #_reg ",268"
@@ -327,7 +328,7 @@ GASNETI_BEGIN_EXTERNC
   #undef GASNETI_MFTB
   #undef GASNETI_MFTBL
   #undef GASNETI_MFTBU
- #elif PLATFORM_COMPILER_XLC
+ #elif GASNETI_HAVE_XLC_ASM
    #if PLATFORM_ARCH_64
       static uint64_t gasneti_ticks_now(void);
       #pragma mc_func gasneti_ticks_now {  \
