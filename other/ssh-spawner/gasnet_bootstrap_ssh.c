@@ -2510,7 +2510,7 @@ void gasneti_bootstrapBroadcast_ssh(void *src, size_t len, void *dest, int rootn
 void gasneti_bootstrapSNodeBroadcast_ssh(void *src, size_t len, void *dest, int rootnode) {
   void *tmp = gasneti_malloc(len * gasneti_nodes);
   gasneti_assert(NULL != src);
-  gasnetc_bootstrapExchange_ssh(src, len, tmp);
+  gasneti_bootstrapExchange_ssh(src, len, tmp);
   memcpy(dest, (void*)((uintptr_t)tmp + (len * rootnode)), len);
   gasneti_free(tmp);
 }
