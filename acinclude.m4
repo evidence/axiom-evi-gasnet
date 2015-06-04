@@ -144,9 +144,9 @@ if test "$ac_cv_header_[]lowername" = "yes"; then
   AC_MSG_CHECKING(for location of $1)
   echo "#include <$1>" > conftest.c
   header_pathname=
-  if test "$GASNET_FIND_HEADER_CPP"; then
+  if test -n "$GASNET_FIND_HEADER_CPP"; then
     echo "$GASNET_FIND_HEADER_CPP conftest.c" >&5
-    header_pathname=`$GASNET_FIND_HEADER_CPP conftest.c 2>&5 | grep $1 | head -1`
+    header_pathname=`eval "$GASNET_FIND_HEADER_CPP conftest.c 2>&5" | grep $1 | head -1`
     header_pathname=`echo $header_pathname | $AWK '{ printf("%s",[$]3); }'`
   fi
   if test -z "$header_pathname"; then
