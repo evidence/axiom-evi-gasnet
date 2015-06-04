@@ -511,10 +511,6 @@
   #define PLATFORM_OS_BGQ 1
   #define PLATFORM_OS_FAMILYNAME BGQ
 
-#elif defined(__blrts) || defined(__blrts__) || defined(__gnu_blrts__)
-  #define PLATFORM_OS_BLRTS 1
-  #define PLATFORM_OS_FAMILYNAME BLRTS
-
 #elif defined(__K42)
   #define PLATFORM_OS_K42 1
   #define PLATFORM_OS_FAMILYNAME K42
@@ -526,6 +522,10 @@
 #elif defined(__linux) || defined(__linux__) || defined(__gnu_linux__)
   #define PLATFORM_OS_LINUX 1
   #define PLATFORM_OS_FAMILYNAME LINUX
+
+#elif defined(__blrts) || defined(__blrts__) || defined(__gnu_blrts__)
+  #define PLATFORM_OS_BLRTS 1
+  #define PLATFORM_OS_FAMILYNAME BLRTS
 
 #elif defined(__CYGWIN__)
   #define PLATFORM_OS_CYGWIN 1
