@@ -575,9 +575,10 @@ case "$CC_FAMILY" in
   XLC) GASNET_GET_PPC64_FLAGS(C)
        # Try to suppress certain warnings:
        # 1500-010 = infinite loop (such as in our tests)
+       # 1500-029 = could not inline (e.g. varargs, alloc, etc.)
        # 1506-229 = empty source file (some linux headers)
-       GASNET_TRY_CFLAG([-qsuppress=1500-010:1506-229],
-                        [MISC_CFLAGS="$MISC_CFLAGS -qsuppress=1500-010:1506-229"])
+       GASNET_TRY_CFLAG([-qsuppress=1500-010:1500-029:1506-229],
+                        [MISC_CFLAGS="$MISC_CFLAGS -qsuppress=1500-010:1500-029:1506-229"])
        ;;
   *)   MISC_CFLAGS="" ;;
 esac
