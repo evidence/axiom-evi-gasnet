@@ -87,6 +87,7 @@ int gasnetc_ofi_init(int *argc, char ***argv,
   struct fi_av_attr   	av_attr 	= {0};
   char   sockname[128], *alladdrs;
   size_t socknamelen = sizeof(sockname);
+  size_t optlen;
   conn_entry_t *mapped_table;
 
   const char *not_set = "(not set)";
@@ -225,7 +226,7 @@ int gasnetc_ofi_init(int *argc, char ***argv,
 
   /* Low-water mark for shared receive buffer */
   min_multi_recv = OFI_AM_MAX_DATA_LENGTH + offsetof(ofi_am_send_buf_t,data);
-  size_t optlen = min_multi_recv;
+  optlen = min_multi_recv;
   ret	 = fi_setopt(&ofi_am_epfd->fid, FI_OPT_ENDPOINT, FI_OPT_MIN_MULTI_RECV,
 		  &optlen,
 		  sizeof(optlen));
@@ -356,9 +357,9 @@ static inline void gasnetc_ofi_handle_local_am(ofi_am_buf_t *buf)
 	gasneti_handler_fn_t handler_fn = gasnetc_handler[handler];
 	gasnetc_ofi_token_t token; 
 	gasnetc_ofi_token_t *token_p = &token; 
-	token.sourceid = header->sourceid;
 	gasnet_handlerarg_t *args = (gasnet_handlerarg_t *)header->data;
 	int numargs = header->argnum;
+	token.sourceid = header->sourceid;
 
 	switch(header->type) {
 		case OFI_AM_SHORT:
@@ -399,9 +400,9 @@ static inline void gasnetc_ofi_handle_am(struct fi_cq_data_entry *re, void *buf)
 	gasneti_handler_fn_t handler_fn = gasnetc_handler[handler];
 	gasnetc_ofi_token_t token; 
 	gasnetc_ofi_token_t *token_p = &token; 
-	token.sourceid = header->sourceid;
 	gasnet_handlerarg_t *args = (gasnet_handlerarg_t *)header->data;
 	int numargs = header->argnum;
+	token.sourceid = header->sourceid;
 
 	switch(header->type) {
 		case OFI_AM_SHORT:
@@ -606,10 +607,12 @@ int gasnetc_ofi_am_send_short(gasnet_node_t dest, gasnet_handler_t handler,
 	int ret = GASNET_OK;
 	gasnet_handlerarg_t *arglist;
 	int i, len;
+	ofi_am_buf_t *header;
+	ofi_am_send_buf_t *sendbuf;
 
 	/* Get a send buffer */
 	/* If no available buffer, blocking poll */
-	ofi_am_buf_t *header = gasneti_lifo_pop(&ofi_am_pool);
+	header = gasneti_lifo_pop(&ofi_am_pool);
 	if (NULL == header) {
 		header = gasneti_malloc(sizeof(ofi_am_buf_t) + OFI_AM_MAX_DATA_LENGTH);
 		header->callback = gasnetc_ofi_release_am;
@@ -617,7 +620,7 @@ int gasnetc_ofi_am_send_short(gasnet_node_t dest, gasnet_handler_t handler,
 	}
 
 	/* Fill in the arguments */
-	ofi_am_send_buf_t *sendbuf = &header->sendbuf;
+	sendbuf = &header->sendbuf;
 	sendbuf->len = 0;
 	arglist = (gasnet_handlerarg_t*) sendbuf->data;
 	for (i = 0 ; i < numargs ; ++i) {
@@ -667,12 +670,14 @@ int gasnetc_ofi_am_send_medium(gasnet_node_t dest, gasnet_handler_t handler,
 	int ret = GASNET_OK;
 	gasnet_handlerarg_t *arglist;
 	int i, len;
+	ofi_am_buf_t *header;
+	ofi_am_send_buf_t *sendbuf;
 
 	gasneti_assert (nbytes <= gasnet_AMMaxMedium());
 
 	/* Get a send buffer */
 	/* If no available buffer, blocking poll */
-	ofi_am_buf_t *header = gasneti_lifo_pop(&ofi_am_pool);
+	header = gasneti_lifo_pop(&ofi_am_pool);
 	if (NULL == header) {
 		header = gasneti_malloc(sizeof(ofi_am_buf_t) + OFI_AM_MAX_DATA_LENGTH);
 		header->callback = gasnetc_ofi_release_am;
@@ -680,7 +685,7 @@ int gasnetc_ofi_am_send_medium(gasnet_node_t dest, gasnet_handler_t handler,
 	}
 
 	/* Fill in the arguments */
-	ofi_am_send_buf_t *sendbuf = &header->sendbuf;
+	sendbuf = &header->sendbuf;
 	sendbuf->len = 0;
 	arglist = (gasnet_handlerarg_t*) sendbuf->data;
 	for (i = 0 ; i < numargs ; ++i) {
@@ -735,6 +740,8 @@ int gasnetc_ofi_am_send_long(gasnet_node_t dest, gasnet_handler_t handler,
 	int ret = GASNET_OK;
 	gasnet_handlerarg_t *arglist;
 	int i, len;
+	ofi_am_buf_t *header;
+	ofi_am_send_buf_t *sendbuf;
 
 	if(isreq)
 		gasneti_assert (nbytes <= gasnet_AMMaxLongRequest());
@@ -743,7 +750,7 @@ int gasnetc_ofi_am_send_long(gasnet_node_t dest, gasnet_handler_t handler,
 
 	/* Get a send buffer */
 	/* If no available buffer, blocking poll */
-	ofi_am_buf_t *header = gasneti_lifo_pop(&ofi_am_pool);
+	header = gasneti_lifo_pop(&ofi_am_pool);
 	if (NULL == header) {
 		header = gasneti_malloc(sizeof(ofi_am_buf_t) + OFI_AM_MAX_DATA_LENGTH);
 		header->callback = gasnetc_ofi_release_am;
@@ -751,7 +758,7 @@ int gasnetc_ofi_am_send_long(gasnet_node_t dest, gasnet_handler_t handler,
 	}
 
 	/* Fill in the arguments */
-	ofi_am_send_buf_t *sendbuf = &header->sendbuf;
+	sendbuf = &header->sendbuf;
 	sendbuf->len = 0;
 	arglist = (gasnet_handlerarg_t*) sendbuf->data;
 	for (i = 0 ; i < numargs ; ++i) {
