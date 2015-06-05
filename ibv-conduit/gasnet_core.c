@@ -2456,28 +2456,28 @@ static void gasnetc_exit_sighandler(int sig) {
   if (sig == SIGALRM) {
     static const char msg[] = "gasnet_exit(): WARNING: timeout during exit... goodbye.  [";
     const char * state = gasnetc_exit_state;
-    write(STDERR_FILENO, msg, sizeof(msg) - 1);
-    write(STDERR_FILENO, state, strlen(state));
-    write(STDERR_FILENO, "]\n", 2);
+    (void) write(STDERR_FILENO, msg, sizeof(msg) - 1);
+    (void) write(STDERR_FILENO, state, strlen(state));
+    (void) write(STDERR_FILENO, "]\n", 2);
   } else {
     static const char msg1[] = "gasnet_exit(): ERROR: signal ";
     static const char msg2[] = " received during exit... goodbye.  [";
     const char * state = gasnetc_exit_state;
     char digit;
 
-    write(STDERR_FILENO, msg1, sizeof(msg1) - 1);
+    (void) write(STDERR_FILENO, msg1, sizeof(msg1) - 1);
 
     /* assume sig < 100 */
     if (sig > 9) {
       digit = '0' + ((sig / 10) % 10);
-      write(STDERR_FILENO, &digit, 1);
+      (void) write(STDERR_FILENO, &digit, 1);
     }
     digit = '0' + (sig % 10);
-    write(STDERR_FILENO, &digit, 1);
+    (void) write(STDERR_FILENO, &digit, 1);
     
-    write(STDERR_FILENO, msg2, sizeof(msg2) - 1);
-    write(STDERR_FILENO, state, strlen(state));
-    write(STDERR_FILENO, "]\n", 2);
+    (void) write(STDERR_FILENO, msg2, sizeof(msg2) - 1);
+    (void) write(STDERR_FILENO, state, strlen(state));
+    (void) write(STDERR_FILENO, "]\n", 2);
   }
   #endif
 

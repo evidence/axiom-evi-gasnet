@@ -1924,23 +1924,23 @@ static void gasnetc_exit_sighandler(int sig)
     /* note - can't call trace macros here, or even sprintf */
     if (sig == SIGALRM) {
         static const char msg1[] = "gasnetc_exit_sighandler(): WARNING: timeout during exit... goodbye\n";
-        write(STDERR_FILENO, msg1, sizeof (msg1) - 1);
+        (void) write(STDERR_FILENO, msg1, sizeof (msg1) - 1);
     } else {
         static const char msg1[] = "gasnetc_exit_sighandler(): ERROR: signal ";
         static const char msg2[] = " received during exit... goodbye\n";
         char digit;
 
-        write(STDERR_FILENO, msg1, sizeof (msg1) - 1);
+        (void) write(STDERR_FILENO, msg1, sizeof (msg1) - 1);
 
         /* assume sig < 100 */
         if (sig > 9) {
             digit = '0' + ((sig / 10) % 10);
-            write(STDERR_FILENO, &digit, 1);
+            (void) write(STDERR_FILENO, &digit, 1);
         }
         digit = '0' + (sig % 10);
-        write(STDERR_FILENO, &digit, 1);
+        (void) write(STDERR_FILENO, &digit, 1);
 
-        write(STDERR_FILENO, msg2, sizeof (msg2) - 1);
+        (void) write(STDERR_FILENO, msg2, sizeof (msg2) - 1);
     }
 
     if (gasneti_atomic_decrement_and_test(&once, 0)) {
