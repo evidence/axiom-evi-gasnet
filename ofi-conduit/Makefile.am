@@ -67,26 +67,26 @@ CONDUIT_SOURCELIST =          \
       $(srcdir)/gasnet_core.c \
       $(srcdir)/gasnet_extended.c \
       $(srcdir)/gasnet_ofi.c \
-      $(fca_sourcelist) $(fh_sourcelist) $(ssh_sources) $(pmi_sources)
+      $(ssh_sources) $(pmi_sources)
 
 # additional -I or -D directives needed by this specific conduit
 # other than the standard GASNet includes and flags
-CONDUIT_EXTRALIBCFLAGS = -I@OFI_INCLUDE@ $(fh_extralibcflags) $(ssh_defines) $(mpi_defines) $(pmi_defines) $(pmi_cppflags) $(fca_extralibcflags) @OFI_LIBCFLAGS@
+CONDUIT_EXTRALIBCFLAGS = -I@OFI_INCLUDE@ $(ssh_defines) $(mpi_defines) $(pmi_defines) $(pmi_cppflags) @OFI_LIBCFLAGS@
 
 # additional conduit header files to install from external, non-standard directories
-CONDUIT_EXTRAHEADERS = $(fh_extraheaders)
+CONDUIT_EXTRAHEADERS =
 
 # headers selected by default rules that should NOT be installed
 CONDUIT_PRIVATEHEADERS =
 
 # additional file dependencies not mentioned elsewhere 
 # that should force libgasnet rebuild on update
-CONDUIT_EXTRADEPS = $(fh_extradeps) $(ssh_deps) $(mpi_deps) $(pmi_deps) $(fca_extradeps)
+CONDUIT_EXTRADEPS = $(ssh_deps) $(mpi_deps) $(pmi_deps)
 
 # additional object files to be included in libgasnet that need to be compiled 
 # using a special, conduit-specific command. These should also be included as
 # forced targets in this file, and should probably use LIBINCLUDES/LIBDEFINES
-CONDUIT_SPECIAL_OBJS = $(mpi_special_objs) $(fh_special_objs)
+CONDUIT_SPECIAL_OBJS = $(mpi_special_objs)
 
 # the default job spawn command to be used for "make run-tests"
 # The following substitutions are performed:
