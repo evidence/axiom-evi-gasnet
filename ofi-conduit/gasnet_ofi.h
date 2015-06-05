@@ -75,7 +75,7 @@ typedef struct ofi_am_send_buf {
   uint8_t 				argnum;
   void 					*dest_ptr;
   size_t 				nbytes;
-  char 					data[] __attribute__((aligned(GASNETI_MEDBUF_ALIGNMENT)));
+  uint8_t 				data[] __attribute__((aligned(GASNETI_MEDBUF_ALIGNMENT)));
 } ofi_am_send_buf_t;
 
 typedef struct ofi_am_buf {
