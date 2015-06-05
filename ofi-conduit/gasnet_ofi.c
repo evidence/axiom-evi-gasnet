@@ -56,6 +56,7 @@ extern void (*gasneti_bootstrapFini_p)(void);
 extern void (*gasneti_bootstrapAbort_p)(int exitcode);
 extern void (*gasneti_bootstrapAlltoall_p)(void *src, size_t len, void *dest);
 extern void (*gasneti_bootstrapBroadcast_p)(void *src, size_t len, void *dest, int rootnode);
+extern void (*gasneti_bootstrapSNodeCast_p)(void *src, size_t len, void *dest, int rootnode);
 extern void (*gasneti_bootstrapCleanup_p)(void);
 
 struct iovec *am_iov;
@@ -88,17 +89,20 @@ int gasnetc_ofi_init(int *argc, char ***argv,
   size_t socknamelen = sizeof(sockname);
   conn_entry_t *mapped_table;
 
-  char *spawner = gasneti_getenv_withdefault("GASNET_OFI_SPAWNER", "(not set)");
+  const char *not_set = "(not set)";
+  char *spawner = gasneti_getenv_withdefault("GASNET_SPAWNER", not_set);
 
   /* Bootstrapinit */
 #if HAVE_SSH_SPAWNER
-  if (GASNET_OK == (result = gasneti_bootstrapInit_ssh(argc, argv, nodes_p, mynode_p))) {
+  if ((!strcmp(spawner, "ssh") || (spawner == not_set)) &&
+      GASNET_OK == (result = gasneti_bootstrapInit_ssh(argc, argv, nodes_p, mynode_p))) {
     gasneti_bootstrapFini_p     = &gasneti_bootstrapFini_ssh;
     gasneti_bootstrapAbort_p    = &gasneti_bootstrapAbort_ssh;
     gasneti_bootstrapBarrier_p  = &gasneti_bootstrapBarrier_ssh;
     gasneti_bootstrapExchange_p = &gasneti_bootstrapExchange_ssh;
     gasneti_bootstrapAlltoall_p = &gasneti_bootstrapAlltoall_ssh;
     gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_ssh;
+    gasneti_bootstrapSNodeCast_p= &gasneti_bootstrapSNodeBroadcast_ssh;
     gasneti_bootstrapCleanup_p  = &gasneti_bootstrapCleanup_ssh;
   } else
 #endif
@@ -111,17 +115,20 @@ int gasnetc_ofi_init(int *argc, char ***argv,
     gasneti_bootstrapExchange_p = &gasneti_bootstrapExchange_mpi;
     gasneti_bootstrapAlltoall_p = &gasneti_bootstrapAlltoall_mpi;
     gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_mpi;
+    gasneti_bootstrapSNodeCast_p= &gasneti_bootstrapSNodeBroadcast_mpi;
     gasneti_bootstrapCleanup_p  = &gasneti_bootstrapCleanup_mpi;
   } else
 #endif
 #if HAVE_PMI_SPAWNER
-  if (GASNET_OK == (result = gasneti_bootstrapInit_pmi(argc, argv, nodes_p, mynode_p))) {
+  if ((!strcmp(spawner, "pmi") || (spawner == not_set)) &&
+      GASNET_OK == (result = gasneti_bootstrapInit_pmi(argc, argv, nodes_p, mynode_p))) {
     gasneti_bootstrapFini_p     = &gasneti_bootstrapFini_pmi;
     gasneti_bootstrapAbort_p    = &gasneti_bootstrapAbort_pmi;
     gasneti_bootstrapBarrier_p  = &gasneti_bootstrapBarrier_pmi;
     gasneti_bootstrapExchange_p = &gasneti_bootstrapExchange_pmi;
     gasneti_bootstrapAlltoall_p = &gasneti_bootstrapAlltoall_pmi;
     gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_pmi;
+    gasneti_bootstrapSNodeCast_p= &gasneti_bootstrapSNodeBroadcast_pmi;
     gasneti_bootstrapCleanup_p  = &gasneti_bootstrapCleanup_pmi;
   } else
 #endif

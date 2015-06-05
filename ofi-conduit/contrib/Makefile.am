@@ -25,25 +25,14 @@ dotpldir = $(bindir)
 # This ensures we can run from the build directory if needed.
 $(top_builddir)/other/perlstart: $(top_srcdir)/other/perlstart.in
 	@cd $(top_builddir)/other && $(MAKE) perlstart
-$(target): $(top_builddir)/other/perlstart
-all-local: $(target).pl $(target) $(mpi_target_pl)
+$(top_builddir)/other/mpirun_common: $(top_srcdir)/other/mpirun_common.in
+	@cd $(top_builddir)/other && $(MAKE) mpirun_common
+$(target): $(top_builddir)/other/perlstart $(top_builddir)/other/mpirun_common
+$(target).pl: $(top_srcdir)/ibv-conduit/contrib/gasnetrun_ibv.pl
+	cp -f "$?" $@
+all-local: $(target) $(target).pl $(mpi_target_pl)
 
-# Files to copy from srcdir to builddir if they differ
-if BUILD_IS_SRC
-files_we_copy =
-else
-files_we_copy = $(target).pl
-$(files_we_copy): force
-	@srcfile="$(srcdir)/`basename $@`" ; \
-         if test ! -f "$@" -o "`find $$srcfile -newer '$@' 2>&1`" ; then \
-          echo cp -f "$$srcfile" . ;         \
-          cp -f "$$srcfile" . ;              \
-         fi
-endif
-DISTCLEANFILES = $(files_we_copy) $(mpi_target_pl)
-
-# Ensure the .pl is distributed, even if not installed
-EXTRA_DIST = $(target).pl
+DISTCLEANFILES = $(target) $(target).pl $(mpi_target_pl)
 
 # Conditionally install the .pl and its wrapper
 if USE_OFI_CONDUIT

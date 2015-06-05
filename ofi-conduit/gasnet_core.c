@@ -21,10 +21,21 @@ void (*gasneti_bootstrapFini_p)(void) = NULL;
 void (*gasneti_bootstrapAbort_p)(int exitcode) = NULL;
 void (*gasneti_bootstrapAlltoall_p)(void *src, size_t len, void *dest) = NULL;
 void (*gasneti_bootstrapBroadcast_p)(void *src, size_t len, void *dest, int rootnode) = NULL;
+void (*gasneti_bootstrapSNodeCast_p)(void *src, size_t len, void *dest, int rootnode) = NULL;
 void (*gasneti_bootstrapCleanup_p)(void) = NULL;
 
 GASNETI_IDENT(gasnetc_IdentString_Version, "$GASNetCoreLibraryVersion: " GASNET_CORE_VERSION_STR " $");
 GASNETI_IDENT(gasnetc_IdentString_Name,    "$GASNetCoreLibraryName: " GASNET_CORE_NAME_STR " $");
+
+#if HAVE_SSH_SPAWNER
+  GASNETI_IDENT(gasnetc_IdentString_HaveSSHSpawner, "$GASNetSSHSpawner: 1 $");
+#endif
+#if HAVE_MPI_SPAWNER
+  GASNETI_IDENT(gasnetc_IdentString_HaveMPISpawner, "$GASNetMPISpawner: 1 $");
+#endif
+#if HAVE_PMI_SPAWNER
+  GASNETI_IDENT(gasnetc_IdentString_HavePMISpawner, "$GASNetPMISpawner: 1 $");
+#endif
 
 gasnet_handlerentry_t const *gasnetc_get_handlertable(void);
 #if HAVE_ON_EXIT
@@ -71,7 +82,7 @@ static int gasnetc_init(int *argc, char ***argv)
   #endif
 
   #if GASNET_PSHM
-  gasneti_pshm_init(gasneti_bootstrapExchange_p, 0);
+  gasneti_pshm_init(gasneti_bootstrapSNodeCast_p, 0);
   #endif
 
   #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
