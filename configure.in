@@ -3039,6 +3039,7 @@ if test "$enabled_portals4" = yes; then
   }], [ : ], [ have_portals4=no; GASNET_ERR_SAVE() ] )
 
   # Try to compile and link Portals 4 PMI support
+  # TODO: this could be integrated with the conduit-independent PMI probe -PHH
   LIBS="$LIBS -lportals_runtime"
   GASNET_TRY_CACHE_LINK(for PMI support in Portals4 runtime library, portals4_pmi_works, [
       #include <stddef.h>
@@ -3607,29 +3608,6 @@ if test "$enabled_ofi" = yes; then
     fi
   fi
 
-  OFI_LIBCFLAGS=''
-  if test "$with_ofispawner" = "pmi"; then
-    use_pmi=yes
-    OFI_LIBCFLAGS="-DHAVE_PMI_H"
-    if test -n "spawner-root"; then
-      GASNET_ENV_DEFAULT(OFISPAWNERROOT, $with_spawnerroot)
-      OFI_INCLUDE="$OFI_INCLUDE -I$OFISPAWNERROOT/include -I$OFISPAWNERROOT/include/portals4"
-      OFI_LIBDIR="$OFI_LIBDIR -L$OFISPAWNERROOT/lib"
-      AC_CHECK_PROGS([mpich], [mpiexec],0,$OFISPAWNERROOT/bin)
-      if test -n "$mpich"; then
-        OFI_LIBS="$OFI_LIBS -lmpich"
-      else
-        AC_CHECK_PROGS([yod], [yod],0,$OFISPAWNERROOT/bin)
-        if test -n "$yod"; then
-          OFI_LIBS="$OFI_LIBS -lportals_runtime"
-          OFI_INCLUDE="$OFI_INCLUDE -I$OFISPAWNERROOT/include/portals4"
-        fi
-      fi
-    fi
-  else
-    use_pmi=no
-  fi
-
   if test "$have_ofi" = yes; then
     GASNET_ENV_DEFAULT(OFI_INCLUDE, $OFIHOME/include)
     GASNET_ENV_DEFAULT(OFI_LIBS, -lfabric)
@@ -3689,7 +3667,6 @@ AC_SUBST(OFI_LIBCFLAGS)
 AM_CONDITIONAL(USE_OFI_CONDUIT, test "$have_ofi" = yes)
 AM_CONDITIONAL(OFI_BOOTSTRAP_SSH, test "$have_fork" = yes)
 AM_CONDITIONAL(OFI_BOOTSTRAP_MPI, test "$have_mpi_compat" = yes)
-AM_CONDITIONAL(OFI_BOOTSTRAP_PMI, test "$use_pmi" = yes)
 CONDUIT_END([test "$have_ofi" = yes])
 #---------------------------------------------------------------------------------------------------------------
 # CONDUIT CONFIGURATIONS FINISH
@@ -3881,31 +3858,36 @@ if test "$with_pmi" != 'no'; then
   ])
 
   # Check for libs unless disqualifed by --with-pmi-version=
+  GASNET_PUSHVAR(LIBS,"")
   if test -z "${use_pmi1+set}"; then
-    AC_CHECK_LIB(pmi2, PMI2_Init, [
+    AC_SEARCH_LIBS(PMI2_Init, [pmi2 mpich], [
       use_pmi2=yes
       have_pmi=yes
       pmi_suffix='2'
       AC_DEFINE(HAVE_PMI2_H)
-      PMI_SPAWNER_LIBS='-lpmi2'
+      PMI_SPAWNER_LIBS="$LIBS"
       GASNET_IF_ENABLED(pmi2-fast-barrier, Use PMI2_KVS_fence as barrier. This may not work with all PMI2 implementations,
                          [AC_DEFINE(GASNETI_PMI2_FENCE_IS_BARRIER,[1],[define to 1 if PMI2_KVS_fence() provides barrier functionality])], [] )
     ])
   fi
   if test -z "${use_pmi2+set}"; then
-    AC_CHECK_LIB(pmi, PMI_Init, [
+    AC_SEARCH_LIBS(PMI_Init, [pmi mpich portals_runtime], [
       use_pmi1=yes
       have_pmi=yes
       pmi_suffix=''
       AC_DEFINE(HAVE_PMI_H)
-      PMI_SPAWNER_LIBS='-lpmi'
+      PMI_SPAWNER_LIBS="$LIBS"
     ])
   fi
+  GASNET_POPVAR(LIBS)
 
   # Check for header matching the selected lib
+  # TODO: fragile if multiple PMI libs are installed
   if test "$have_pmi" = yes; then
     if test -f "${with_pmi}/include/slurm/pmi${pmi_suffix}.h"; then
       PMI_SPAWNER_INCLUDES="-I${with_pmi}/include/slurm"
+    elif test -f "${with_pmi}/include/portals4/pmi${pmi_suffix}.h"; then
+      PMI_SPAWNER_INCLUDES="-I${with_pmi}/include/portals4"
     elif test -f "${with_pmi}/include/pmi${pmi_suffix}.h"; then
       if test "$with_pmi" != '/usr'; then
         PMI_SPAWNER_INCLUDES="-I${with_pmi}/include"
@@ -3916,7 +3898,7 @@ if test "$with_pmi" != 'no'; then
   fi
 
   if test "$have_pmi" = yes; then
-    GASNET_PUSHVAR(LIBS,"$LIBS PMI_SPAWNER_LIBS")
+    GASNET_PUSHVAR(LIBS,"$LIBS $PMI_SPAWNER_LIBS")
     # Not seen outside of Cray PMI, but we can hope:
     AC_CHECK_FUNCS([PMI_Allgather PMI_Bcast])
     GASNET_POPVAR(LIBS)
