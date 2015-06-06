@@ -347,7 +347,8 @@ void gasnetc_ofi_exit(void)
  * ----------------------------------------------*/
 
 /* Handle Active Messages from self */
-static inline void gasnetc_ofi_handle_local_am(ofi_am_buf_t *buf)
+GASNETI_INLINE(gasnetc_ofi_handle_local_am)
+void gasnetc_ofi_handle_local_am(ofi_am_buf_t *buf)
 {
 	ofi_am_send_buf_t *header = &buf->sendbuf;
 	uint8_t *addr;
@@ -390,7 +391,8 @@ static inline void gasnetc_ofi_handle_local_am(ofi_am_buf_t *buf)
 }
 
 /* Handle incoming Active Messages */
-static inline void gasnetc_ofi_handle_am(struct fi_cq_data_entry *re, void *buf)
+GASNETI_INLINE(gasnetc_ofi_handle_am)
+void gasnetc_ofi_handle_am(struct fi_cq_data_entry *re, void *buf)
 {
 	ofi_am_send_buf_t *header = (ofi_am_send_buf_t*)re->buf;
 	uint8_t *addr;
@@ -431,7 +433,8 @@ static inline void gasnetc_ofi_handle_am(struct fi_cq_data_entry *re, void *buf)
 }
 
 /* Handle RDMA completion as the initiator */
-static inline void gasnetc_ofi_handle_rdma(void *buf)
+GASNETI_INLINE(gasnetc_ofi_handle_rdma)
+void gasnetc_ofi_handle_rdma(void *buf)
 {
 	ofi_op_ctxt_t *ptr = (ofi_op_ctxt_t*)buf;
 
@@ -467,7 +470,8 @@ static inline void gasnetc_ofi_handle_rdma(void *buf)
 }
 
 /* Release ACKed send buffer */
-static inline void gasnetc_ofi_release_am(struct fi_cq_data_entry *re, void *buf)
+GASNETI_INLINE(gasnetc_ofi_release_am)
+void gasnetc_ofi_release_am(struct fi_cq_data_entry *re, void *buf)
 {
 	ofi_am_buf_t *header = (ofi_am_buf_t*)buf;
 	gasneti_lifo_push(&ofi_am_pool, header);
