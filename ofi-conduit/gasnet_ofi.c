@@ -346,11 +346,10 @@ void gasnetc_ofi_exit(void)
  * OFI conduit callback functions
  * ----------------------------------------------*/
 
-/* Handle Active Messages from self */
-GASNETI_INLINE(gasnetc_ofi_handle_local_am)
-void gasnetc_ofi_handle_local_am(ofi_am_buf_t *buf)
+/* Handle Active Messages */
+GASNETI_INLINE(gasnetc_ofi_handle_am_common)
+void gasnetc_ofi_handle_am_common(ofi_am_send_buf_t *header)
 {
-	ofi_am_send_buf_t *header = &buf->sendbuf;
 	uint8_t *addr;
 	int nbytes;
 	int isreq = header->isreq;
@@ -383,53 +382,24 @@ void gasnetc_ofi_handle_local_am(ofi_am_buf_t *buf)
 			GASNETI_RUN_HANDLER_LONG(isreq, handler, handler_fn, token_p, args, numargs, addr, nbytes);
 			break;
 		default:
-			gasneti_fatalerror("undefined header type in gasnetc_ofi_handle_local_am: %d\n", 
+			gasneti_fatalerror("undefined header type in gasnetc_ofi_handle_am: %d\n",
 					header->type);
 	}
+}
 
-	gasneti_lifo_push(&ofi_am_pool, buf);
+/* Handle Active Messages from self */
+GASNETI_INLINE(gasnetc_ofi_handle_local_am)
+void gasnetc_ofi_handle_local_am(ofi_am_buf_t *buf)
+{
+    gasnetc_ofi_handle_am_common(&buf->sendbuf);
+    gasneti_lifo_push(&ofi_am_pool, buf);
 }
 
 /* Handle incoming Active Messages */
 GASNETI_INLINE(gasnetc_ofi_handle_am)
 void gasnetc_ofi_handle_am(struct fi_cq_data_entry *re, void *buf)
 {
-	ofi_am_send_buf_t *header = (ofi_am_send_buf_t*)re->buf;
-	uint8_t *addr;
-	int nbytes;
-	int isreq = header->isreq;
-	int handler = header->handler;
-	gasneti_handler_fn_t handler_fn = gasnetc_handler[handler];
-	gasnetc_ofi_token_t token; 
-	gasnetc_ofi_token_t *token_p = &token; 
-	gasnet_handlerarg_t *args = (gasnet_handlerarg_t *)header->data;
-	int numargs = header->argnum;
-	token.sourceid = header->sourceid;
-
-	switch(header->type) {
-		case OFI_AM_SHORT:
-			GASNETI_RUN_HANDLER_SHORT(isreq, handler, handler_fn, token_p, args, numargs);
-			break;
-		case OFI_AM_MEDIUM:
-			nbytes = header->nbytes;
-			addr = header->data + header->len - nbytes;
-			GASNETI_RUN_HANDLER_MEDIUM(isreq, handler, handler_fn, token_p, args, numargs, addr, nbytes);
-			break;
-		case OFI_AM_LONG:
-			addr = header->dest_ptr;
-			nbytes = header->nbytes;
-			GASNETI_RUN_HANDLER_LONG(isreq, handler, handler_fn, token_p, args, numargs, addr, nbytes);
-			break;
-		case OFI_AM_LONG_MEDIUM:
-			addr = header->dest_ptr;
-			nbytes = header->nbytes;
-			memcpy(addr, header->data+header->len-nbytes, nbytes);
-			GASNETI_RUN_HANDLER_LONG(isreq, handler, handler_fn, token_p, args, numargs, addr, nbytes);
-			break;
-		default:
-			gasneti_fatalerror("undefined header type in gasnetc_ofi_handle_am: %d\n", 
-					header->type);
-	}
+    gasnetc_ofi_handle_am_common((ofi_am_send_buf_t*)re->buf);
 }
 
 /* Handle RDMA completion as the initiator */
