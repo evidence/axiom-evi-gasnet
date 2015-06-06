@@ -780,7 +780,7 @@ int gasnetc_ofi_am_send_long(gasnet_node_t dest, gasnet_handler_t handler,
 	} else {
 		/* Launch the long data payload transfer with RMA operation */
 		if (dest == gasneti_mynode) {
-			memcpy((void *)GET_DSTADDR(dest_addr, dest), source_addr, nbytes);
+			memcpy(dest_addr, source_addr, nbytes);
 		} else {
 			ofi_op_ctxt_t lam_ctxt;
 			lam_ctxt.type = OFI_TYPE_AM_DATA;
