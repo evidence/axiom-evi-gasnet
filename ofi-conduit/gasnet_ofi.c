@@ -387,13 +387,15 @@ void gasnetc_ofi_handle_am_common(ofi_am_send_buf_t *header)
 	}
 }
 
-/* Handle Active Messages from self */
+#if !GASNET_PSHM
+/* Handle Active Messages from self (not necessary if PSHM is enabled) */
 GASNETI_INLINE(gasnetc_ofi_handle_local_am)
 void gasnetc_ofi_handle_local_am(ofi_am_buf_t *buf)
 {
     gasnetc_ofi_handle_am_common(&buf->sendbuf);
     gasneti_lifo_push(&ofi_am_pool, buf);
 }
+#endif
 
 /* Handle incoming Active Messages */
 GASNETI_INLINE(gasnetc_ofi_handle_am)
@@ -611,10 +613,12 @@ int gasnetc_ofi_am_send_short(gasnet_node_t dest, gasnet_handler_t handler,
 
 	len = GASNETI_ALIGNUP(sendbuf->len + offsetof(ofi_am_send_buf_t, data), GASNETI_MEDBUF_ALIGNMENT);
 
+#if !GASNET_PSHM
 	if (dest == gasneti_mynode) {
 		gasnetc_ofi_handle_local_am(header);
 		return 0;
 	}
+#endif
 
 	if(len < max_buffered_send) {
 		ret = fi_inject(ofi_am_epfd, sendbuf, len, GET_DEST(dest));
@@ -681,10 +685,12 @@ int gasnetc_ofi_am_send_medium(gasnet_node_t dest, gasnet_handler_t handler,
 
 	len = GASNETI_ALIGNUP(sendbuf->len + offsetof(ofi_am_send_buf_t, data), GASNETI_MEDBUF_ALIGNMENT);
 
+#if !GASNET_PSHM
 	if (dest == gasneti_mynode) {
 		gasnetc_ofi_handle_local_am(header);
 		return 0;
 	}
+#endif
 
 	if(len < max_buffered_send) {
 		ret = fi_inject(ofi_am_epfd, sendbuf, len, GET_DEST(dest));
@@ -741,6 +747,12 @@ int gasnetc_ofi_am_send_long(gasnet_node_t dest, gasnet_handler_t handler,
 	}
 	sendbuf->len = GASNETI_ALIGNUP(sendbuf->len, GASNETI_MEDBUF_ALIGNMENT);
 
+#if !GASNET_PSHM
+	if(dest == gasneti_mynode) {
+		memcpy(dest_addr, source_addr, nbytes);
+		sendbuf->type = OFI_AM_LONG;
+	} else
+#endif
 	if(sendbuf->len + nbytes < OFI_AM_MAX_DATA_LENGTH)
 	{
 		/* Pack the payload if it's small enough */
@@ -749,9 +761,6 @@ int gasnetc_ofi_am_send_long(gasnet_node_t dest, gasnet_handler_t handler,
 		sendbuf->type = OFI_AM_LONG_MEDIUM;
 	} else {
 		/* Launch the long data payload transfer with RMA operation */
-		if (dest == gasneti_mynode) {
-			memcpy(dest_addr, source_addr, nbytes);
-		} else {
 			ofi_op_ctxt_t lam_ctxt;
 			lam_ctxt.type = OFI_TYPE_AM_DATA;
 			lam_ctxt.data_sent = 0;
@@ -780,7 +789,6 @@ int gasnetc_ofi_am_send_long(gasnet_node_t dest, gasnet_handler_t handler,
 #endif
 				gasnetc_ofi_rdma_poll(0);
 			}
-		}
 		sendbuf->type = OFI_AM_LONG;
 	}
 
@@ -795,10 +803,12 @@ int gasnetc_ofi_am_send_long(gasnet_node_t dest, gasnet_handler_t handler,
 	len = GASNETI_ALIGNUP(sendbuf->len + offsetof(ofi_am_send_buf_t, data), 
 			GASNETI_MEDBUF_ALIGNMENT);
 
+#if !GASNET_PSHM
 	if (dest == gasneti_mynode) {
 		gasnetc_ofi_handle_local_am(header);
 		return 0;
 	}
+#endif
 
 	if(len < max_buffered_send) {
 		ret = fi_inject(ofi_am_epfd, sendbuf, len, GET_DEST(dest));
