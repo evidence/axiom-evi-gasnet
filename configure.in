@@ -1038,15 +1038,13 @@ case "$target_os" in
         GASNET_THREAD_LIBS="-pthread" # bug 1205: do not explicitly select threading lib
 	;;
   openbsd*) 
-	case "$CC_FAMILY" in
-  	GNU)  GASNET_THREAD_DEFINES="-pthread -D_REENTRANT" # _REENTRANT probably redundant
-	      GASNET_THREAD_LIBS="-pthread" # bug 1205: do not explicitly select threading lib
-	      ;;
-	*) # Why can't clang accept -pthread as it does on the other BSDs?
-              GASNET_THREAD_DEFINES="-D_POSIX_THREADS -D_REENTRANT"
-	      GASNET_THREAD_LIBS="-lpthread"
-	      ;;
-	esac
+        # Probe because at some point clang didn't accept -pthread as it does on the other BSDs
+        # Otherwise same as netbsd, above, including the comments.
+        GASNET_TRY_CFLAG([-pthread],
+                         [GASNET_THREAD_DEFINES="-pthread -D_REENTRANT"
+                          GASNET_THREAD_LIBS="-pthread"],
+                         [GASNET_THREAD_DEFINES="-D_POSIX_THREADS -D_REENTRANT"
+                          GASNET_THREAD_LIBS="-lpthread"])
 	;;
   cygwin*) 
 	GASNET_THREAD_DEFINES="-D_REENTRANT"
