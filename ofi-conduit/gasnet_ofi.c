@@ -518,6 +518,11 @@ static void gasnetc_ofi_rdma_poll(int blocking_poll)
 			/* got a RDMA ACK message, update handler */
 			ofi_op_ctxt_t *ptr = (ofi_op_ctxt_t *)re.op_context;
 			ptr->callback(re.op_context);
+#ifdef GASNET_PAR
+			gasneti_weakatomic_decrement(&pending_rdma,0);
+#else
+			pending_rdma--;
+#endif
 			rdma_empty_poll = 0;
 		}
 	}
