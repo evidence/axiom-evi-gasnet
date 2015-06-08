@@ -15,6 +15,22 @@
 #include <rdma/fi_cm.h>
 #include <rdma/fi_errno.h>
 
+/* Want true atomic operations only in PAR mode, not PARSYNC or SEQ.
+   However, "weak" atomics treat PARSYNC the same as PAR.  So, we
+   "roll our own" set of "paratomic" ops using the provided sets of
+   "gasneti_atomic_" and "gasneti_nonatomic_" operations and types.
+*/
+#if GASNET_PAR
+  #define gasnetc_paratomic(_id) _CONCAT(gasneti_atomic_,_id)
+#else
+  #define gasnetc_paratomic(_id) _CONCAT(gasneti_nonatomic_,_id)
+#endif
+typedef gasnetc_paratomic(t)         gasnetc_paratomic_t;
+#define gasnetc_paratomic_init       gasnetc_paratomic(init)
+#define gasnetc_paratomic_read       gasnetc_paratomic(read)
+#define gasnetc_paratomic_increment  gasnetc_paratomic(increment)
+#define gasnetc_paratomic_decrement  gasnetc_paratomic(decrement)
+
 /* Typedefs */
 typedef struct fid_ep*            fid_ep_t;
 typedef struct fid_fabric*        fid_fabric_t;

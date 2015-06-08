@@ -63,11 +63,7 @@ struct iovec *am_iov;
 struct fi_msg *am_buff_msg;
 ofi_ctxt_t *am_buff_ctxt = NULL;
 
-#ifdef GASNET_PAR
-static gasneti_weakatomic_t pending_rdma;
-#else
-static int pending_rdma = 0;
-#endif
+static gasnetc_paratomic_t pending_rdma = gasnetc_paratomic_init(0);
 static int rdma_empty_poll = 0;
 
 #define OFI_CONDUIT_VERSION FI_VERSION(1, 0)
@@ -271,10 +267,6 @@ int gasnetc_ofi_init(int *argc, char ***argv,
   	gasneti_fatalerror("fi_av_insert failed: %d\n", ret);
   }
   gasneti_free(alladdrs);
-
-#ifdef GASNET_PAR
-  gasneti_weakatomic_set(&pending_rdma, 0, 0);
-#endif
 
   fi_freeinfo(rdma_hints);
   fi_freeinfo(am_hints);
@@ -518,11 +510,7 @@ static void gasnetc_ofi_rdma_poll(int blocking_poll)
 			/* got a RDMA ACK message, update handler */
 			ofi_op_ctxt_t *ptr = (ofi_op_ctxt_t *)re.op_context;
 			ptr->callback(re.op_context);
-#ifdef GASNET_PAR
-			gasneti_weakatomic_decrement(&pending_rdma,0);
-#else
-			pending_rdma--;
-#endif
+			gasnetc_paratomic_decrement(&pending_rdma,0);
 			rdma_empty_poll = 0;
 		}
 	}
@@ -565,11 +553,7 @@ static void gasnetc_ofi_am_poll(int blocking_poll)
 void gasnetc_ofi_poll(int blocking_poll)
 {
        rdma_empty_poll = 0;
-#ifdef GASNET_PAR
-       while(gasneti_weakatomic_read(&pending_rdma,0) && !rdma_empty_poll)
-#else
-       while(pending_rdma && !rdma_empty_poll)
-#endif
+       while(gasnetc_paratomic_read(&pending_rdma,0) && !rdma_empty_poll)
 		gasnetc_ofi_rdma_poll(blocking_poll);
 
 	gasnetc_ofi_am_poll(blocking_poll);
@@ -779,11 +763,7 @@ int gasnetc_ofi_am_send_long(gasnet_node_t dest, gasnet_handler_t handler,
 			}
 			if (GASNET_OK != ret) 
 				gasneti_fatalerror("fi_rdma_writememto failed for AM long: %d\n", ret);
-#ifdef GASNET_PAR
-			gasneti_weakatomic_increment(&pending_rdma,0);
-#else
-			pending_rdma++;
-#endif
+			gasnetc_paratomic_increment(&pending_rdma,0);
 
 			/* Because the order is not guaranteed between different ep, */
 			/* we send the am part after confirming the large rdma operation */
@@ -855,11 +835,7 @@ gasnetc_rdma_put(gasnet_node_t dest, void *dest_addr, void *src_addr, size_t nby
 	}
 	if (GASNET_OK != ret) 
 		gasneti_fatalerror("fi_rdma_write for normal message failed: %d\n", ret);
-#ifdef GASNET_PAR
-	gasneti_weakatomic_increment(&pending_rdma,0);
-#else
-	pending_rdma++;
-#endif
+	gasnetc_paratomic_increment(&pending_rdma,0);
 }
 
 void
@@ -879,11 +855,7 @@ gasnetc_rdma_get(void *dest_addr, gasnet_node_t dest, void * src_addr, size_t nb
 	if (GASNET_OK != ret) 
 		gasneti_fatalerror("fi_rdma_readmemfrom failed: %d\n", ret);
 
-#ifdef GASNET_PAR
-	gasneti_weakatomic_increment(&pending_rdma,0);
-#else
-	pending_rdma++;
-#endif
+	gasnetc_paratomic_increment(&pending_rdma,0);
 }
 
 void
