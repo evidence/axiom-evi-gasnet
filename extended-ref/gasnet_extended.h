@@ -813,7 +813,8 @@ extern gasnet_team_handle_t gasnete_coll_team_all;
 #endif
 
 /*intialize the barriers for a given team*/
-extern void gasnete_coll_barrier_init(gasnete_coll_team_t team, int barrier_type);
+extern void gasnete_coll_barrier_init(gasnete_coll_team_t team, int barrier_type,
+                                      gasnet_node_t *nodes, gasnet_node_t *supernodes);
 
 /*initialize the barriers for GASNET_TEAM_ALL*/
 extern void gasnete_barrier_init(void);

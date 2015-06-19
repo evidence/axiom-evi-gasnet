@@ -1073,8 +1073,9 @@ static void gasnete_gdbarrier_init(gasnete_coll_team_t team);
     gasnete_coll_default_barrier_type = GASNETE_COLL_BARRIER_GNIDISSEM;  \
 } while (0)
 
-#define GASNETE_BARRIER_INIT(TEAM, BARRIER_TYPE) do {                                  \
-    if ((BARRIER_TYPE) == GASNETE_COLL_BARRIER_GNIDISSEM && (TEAM)==GASNET_TEAM_ALL) { \
+#define GASNETE_BARRIER_INIT(TEAM, TYPE, NODES, SUPERNODES) do { \
+    if ((TYPE) == GASNETE_COLL_BARRIER_GNIDISSEM &&              \
+        (TEAM) == GASNET_TEAM_ALL) {                             \
       gasnete_gdbarrier_init(TEAM);                              \
     }                                                            \
   } while (0)
@@ -1445,11 +1446,11 @@ static void gasnete_gdbarrier_init(gasnete_coll_team_t team) {
   int steps;
   int total_ranks = team->total_ranks;
   int myrank = team->myrank;
+  gasnete_coll_peer_list_t *peers = &team->peers;
+
 #if GASNETI_PSHM_BARRIER_HIER
-  gasnet_node_t *supernode_reps = NULL;
-  PSHM_BDATA_DECL(pshm_bdata, gasnete_pshmbarrier_init_hier(team, &total_ranks, &myrank, &supernode_reps));
+  PSHM_BDATA_DECL(pshm_bdata, gasnete_pshmbarrier_init_hier(team, &total_ranks, &myrank, &peers));
 #endif
-  int64_t j;
 
   barrier_data = gasneti_malloc_aligned(GASNETI_CACHE_LINE_BYTES, sizeof(gasnete_coll_gdbarrier_t));
   gasneti_leak_aligned(barrier_data);
@@ -1467,16 +1468,11 @@ static void gasnete_gdbarrier_init(gasnete_coll_team_t team) {
 
   gasnete_gdbarrier_lock_init(&barrier_data->barrier_lock);
 
-  /* determine barrier size (number of steps) */
-  for (steps=0, j=1; j < total_ranks; ++steps, j*=2) ;
-
+  steps = peers->num;
   barrier_data->barrier_size = steps;
   barrier_data->barrier_goal = steps << 1;
 
   if (steps) {
-#if GASNETI_PSHM_BARRIER_HIER
-    gasnet_node_t *nodes = supernode_reps ? supernode_reps : gasneti_pshm_firsts;
-#endif
     int step;
 
     gasneti_assert(gasnete_rdmabarrier_auxseg);
@@ -1486,22 +1482,7 @@ static void gasnete_gdbarrier_init(gasnete_coll_team_t team) {
     gasneti_leak(barrier_data->barrier_peers);
   
     for (step = 0; step < steps; ++step) {
-      gasnet_node_t distance, tmp, peer, node;
-
-      distance = (1 << step);
-      tmp = total_ranks - myrank;
-      peer = (distance < tmp) ? (distance + myrank) : (distance - tmp); /* mod N w/o overflow */
-      gasneti_assert(peer < total_ranks);
-
-#if GASNETI_PSHM_BARRIER_HIER
-      if (pshm_bdata) {
-        node = nodes[peer];
-      } else
-#endif
-      {
-        node = GASNETE_COLL_REL2ACT(team, peer);
-      }
-
+      gasnet_node_t node = peers->fwd[step];
       barrier_data->barrier_peers[step].node = node;
       barrier_data->barrier_peers[step].addr = gasnete_rdmabarrier_auxseg[node].addr;
     }
@@ -1512,8 +1493,6 @@ static void gasnete_gdbarrier_init(gasnete_coll_team_t team) {
   gasneti_free(gasnete_rdmabarrier_auxseg);
 
 #if GASNETI_PSHM_BARRIER_HIER
-  gasneti_free(supernode_reps);
-
   if (pshm_bdata && (pshm_bdata->shared->size == 1)) {
     /* With singleton proc on local supernode we can short-cut the PSHM code.
      * This does not require alteration of the barrier_peers[] contructed above

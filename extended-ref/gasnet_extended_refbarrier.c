@@ -420,28 +420,8 @@ gasnete_pshmbarrier_init_inner(gasnete_coll_team_t team) {
   }
 
   if (shared_data) {
-    int size, rank;
-
-    /* Find size/rank w/i my supernode, but limited to team members */
-#if !GASNET_DEBUG
-    if (team == GASNET_TEAM_ALL) {
-      size = gasneti_nodemap_local_count;
-      rank = gasneti_nodemap_local_rank;
-    } else
-#endif
-    {
-      size = 0; rank = -1;
-      for (i=0; i < team->total_ranks; i++) {
-        gasnet_node_t n = GASNETE_COLL_REL2ACT(team, i);
-        if (gasneti_pshm_in_supernode(n)) {
-          if (n == gasneti_mynode) rank = size;
-          ++size;
-	  if (size == gasneti_nodemap_local_count) break;
-        }
-      }
-      gasneti_assert((size >  0) && (size <= gasneti_nodemap_local_count));
-      gasneti_assert((rank >= 0) && (rank <  gasneti_nodemap_local_count));
-    }
+    const int size = team->supernode.node_count;
+    const int rank = team->supernode.node_rank;
 
     pshm_bdata = gasneti_malloc(sizeof(gasnete_pshmbarrier_data_t));
     gasneti_leak(pshm_bdata);
@@ -557,80 +537,14 @@ static void gasnete_pshmbarrier_fini_inner(gasnete_pshmbarrier_data_t *pshm_bdat
   gasneti_free(pshm_bdata);
 }
 
-static int gasnete_node_pair_sort_fn(const void *a_p, const void *b_p) {
-  const int a0 = ((const gasnet_node_t *)a_p)[0];
-  const int b0 = ((const gasnet_node_t *)b_p)[0];
-  const int d0 = (a0 - b0); /* sort first by supernode */
-  if (d0) return d0;
-  else {
-    const int a1 = ((const gasnet_node_t *)a_p)[1];
-    const int b1 = ((const gasnet_node_t *)b_p)[1];
-    /* break ties by node - must be increasing order because
-     * we use local rank to determine the active node
-     */
-    return (a1 - b1);
-  }
-}
-
 static gasnete_pshmbarrier_data_t *
-gasnete_pshmbarrier_init_hier(gasnete_coll_team_t team, int *size_p, int *rank_p, gasnet_node_t **reps_p) {
+gasnete_pshmbarrier_init_hier(gasnete_coll_team_t team, int *size_p, int *rank_p, gasnete_coll_peer_list_t **peers_p) {
   gasnete_pshmbarrier_data_t * const pshm_bdata = gasnete_pshmbarrier_init_inner(team);
 
   if (pshm_bdata) {
-    const int total_ranks = team->total_ranks;
-    int size, rank;
-    gasnet_node_t *reps;
-
-#if !GASNET_DEBUG
-    if (team == GASNET_TEAM_ALL) {
-      size = gasneti_nodemap_global_count;
-      rank = gasneti_nodemap_global_rank;
-      reps = NULL;
-    } else
-#endif
-    {
-      gasnet_node_t *node_vector = gasneti_malloc(2 * total_ranks * sizeof(gasnet_node_t));
-      int i;
-
-      /* Created a sorted vector of (supernode,node) for members of this team */
-      for (i = 0; i < total_ranks; ++i) {
-        gasnet_node_t n = GASNETE_COLL_REL2ACT(team, i);
-        node_vector[2*i+0] = gasneti_node2supernode(n);
-        node_vector[2*i+1] = n;
-      }
-      qsort(node_vector, total_ranks, 2*sizeof(gasnet_node_t), &gasnete_node_pair_sort_fn);
-
-      /* Count unique entries and find my supernode's rank */
-      size = 1; rank = 0;
-      for (i = 1; i < total_ranks; ++i) {
-        if (node_vector[2*i] != node_vector[2*(i-1)]) {
-          if (node_vector[2*i] == gasneti_pshm_mysupernode) rank = size;
-          ++size;
-          /* dirty (clever?) hack warning:
-           * To avoid a second pass after counting, we overwrite node_vector
-           * with the node numbers of representatives.  Note that initially
-           * node_vector[1] already contains the first representative.
-           */
-          gasneti_assert(size <= 2*i);
-          node_vector[size] = node_vector[2*i+1];
-        }
-      }
-      gasneti_assert((size >  0) && (size <= gasneti_nodemap_global_count));
-      gasneti_assert((rank >= 0) && (rank <  gasneti_nodemap_global_count));
-
-      /* Extract from node_vector a representative for each supernode */
-      {
-        size_t alloc_size = size * sizeof(gasnet_node_t); 
-        reps = gasneti_malloc(alloc_size);
-        memcpy(reps, node_vector+1, alloc_size);
-      }
-
-      gasneti_free(node_vector);
-    }
-
-    *size_p = size;
-    *rank_p = rank;
-    *reps_p = reps;
+    *size_p = team->supernode.grp_count;
+    *rank_p = team->supernode.grp_rank;
+    if (peers_p) *peers_p = &team->supernode_peers;
   }
 
   return pshm_bdata;
@@ -1055,11 +969,10 @@ static void gasnete_amdbarrier_init(gasnete_coll_team_t team) {
   int steps;
   int total_ranks = team->total_ranks;
   int myrank = team->myrank;
-  int64_t j;
+  gasnete_coll_peer_list_t *peers = &team->peers;
 
 #if GASNETI_PSHM_BARRIER_HIER
-  gasnet_node_t *supernode_reps = NULL;
-  PSHM_BDATA_DECL(pshm_bdata, gasnete_pshmbarrier_init_hier(team, &total_ranks, &myrank, &supernode_reps));
+  PSHM_BDATA_DECL(pshm_bdata, gasnete_pshmbarrier_init_hier(team, &total_ranks, &myrank, &peers));
 
   if (pshm_bdata) {
     barrier_data->amdbarrier_passive = (pshm_bdata->private.rank != 0) ? 2 : 0; /* precompute shift */
@@ -1074,45 +987,16 @@ static void gasnete_amdbarrier_init(gasnete_coll_team_t team) {
   barrier_data->amdbarrier_recv_flags[0] = GASNET_BARRIERFLAG_ANONYMOUS;
   barrier_data->amdbarrier_recv_flags[1] = GASNET_BARRIERFLAG_ANONYMOUS;
 
-  /* determine barrier size (number of steps) */
-  for (steps=0, j=1; j < total_ranks; ++steps, j*=2) ;
-
+  steps = peers->num;
   barrier_data->amdbarrier_size = steps;
   gasneti_assert(barrier_data->amdbarrier_size <= GASNETE_AMDBARRIER_MAXSTEP);
 
-  if (steps) {
-#if GASNETI_PSHM_BARRIER_HIER
-    gasnet_node_t *nodes = supernode_reps ? supernode_reps : gasneti_pshm_firsts;
-#endif
-    int step;
-
-    barrier_data->amdbarrier_peers = gasneti_calloc(steps, sizeof(gasnet_node_t));
-    gasneti_leak(barrier_data->amdbarrier_peers);
-  
-    for (step = 0; step < steps; ++step) {
-      gasnet_node_t distance, tmp, peer;
-
-      distance = (1 << step);
-      tmp = total_ranks - myrank;
-      peer = (distance < tmp) ? (distance + myrank) : (distance - tmp); /* mod N w/o overflow */
-      gasneti_assert(peer < total_ranks);
+  /* list of log(P) peers we will communicate with */
+  barrier_data->amdbarrier_peers = peers->fwd;
 
 #if GASNETI_PSHM_BARRIER_HIER
-      if (pshm_bdata) {
-        barrier_data->amdbarrier_peers[step] = nodes[peer];
-      } else
-#endif
-      barrier_data->amdbarrier_peers[step] = GASNETE_COLL_REL2ACT(team, peer);
-    }
-  }
-
-#if GASNETI_PSHM_BARRIER_HIER
-  gasneti_free(supernode_reps);
-
   if (pshm_bdata && (pshm_bdata->shared->size == 1)) {
-    /* With singleton proc on local supernode we can short-cut the PSHM code.
-     * This does not require alteration of the amdbarrier_peers[] contructed above
-     */
+    /* With singleton proc on local supernode we can short-cut the PSHM code.  */
     gasnete_pshmbarrier_fini_inner(pshm_bdata);
     barrier_data->amdbarrier_pshm = NULL;
   }
@@ -1551,11 +1435,11 @@ static void gasnete_rmdbarrier_init(gasnete_coll_team_t team) {
   int steps;
   int total_ranks = team->total_ranks;
   int myrank = team->myrank;
+  gasnete_coll_peer_list_t *peers = &team->peers;
+
 #if GASNETI_PSHM_BARRIER_HIER
-  gasnet_node_t *supernode_reps = NULL;
-  PSHM_BDATA_DECL(pshm_bdata, gasnete_pshmbarrier_init_hier(team, &total_ranks, &myrank, &supernode_reps));
+  PSHM_BDATA_DECL(pshm_bdata, gasnete_pshmbarrier_init_hier(team, &total_ranks, &myrank, &peers));
 #endif
-  int64_t j;
 
   barrier_data = gasneti_malloc_aligned(GASNETI_CACHE_LINE_BYTES, sizeof(gasnete_coll_rmdbarrier_t));
   gasneti_leak_aligned(barrier_data);
@@ -1574,15 +1458,11 @@ static void gasnete_rmdbarrier_init(gasnete_coll_team_t team) {
   gasnete_rmdbarrier_lock_init(&barrier_data->barrier_lock);
 
   /* determine barrier size (number of steps) */
-  for (steps=0, j=1; j < total_ranks; ++steps, j*=2) ;
-
+  steps = peers->num;
   barrier_data->barrier_size = steps;
   barrier_data->barrier_goal = steps << 1;
 
   if (steps) {
-#if GASNETI_PSHM_BARRIER_HIER
-    gasnet_node_t *nodes = supernode_reps ? supernode_reps : gasneti_pshm_firsts;
-#endif
     int step;
 
 #if !GASNETI_THREADS
@@ -1597,22 +1477,7 @@ static void gasnete_rmdbarrier_init(gasnete_coll_team_t team) {
     gasneti_leak(barrier_data->barrier_peers);
   
     for (step = 0; step < steps; ++step) {
-      gasnet_node_t distance, tmp, peer, node;
-
-      distance = (1 << step);
-      tmp = total_ranks - myrank;
-      peer = (distance < tmp) ? (distance + myrank) : (distance - tmp); /* mod N w/o overflow */
-      gasneti_assert(peer < total_ranks);
-
-#if GASNETI_PSHM_BARRIER_HIER
-      if (pshm_bdata) {
-        node = nodes[peer];
-      } else
-#endif
-      {
-        node = GASNETE_COLL_REL2ACT(team, peer);
-      }
-
+      gasnet_node_t node = peers->fwd[step];
       barrier_data->barrier_peers[step].node = node;
       barrier_data->barrier_peers[step].addr = (uintptr_t)gasnete_rdmabarrier_auxseg[node].addr;
     }
@@ -1627,8 +1492,6 @@ static void gasnete_rmdbarrier_init(gasnete_coll_team_t team) {
   gasneti_free(gasnete_rdmabarrier_auxseg);
 
 #if GASNETI_PSHM_BARRIER_HIER
-  gasneti_free(supernode_reps);
-
   if (pshm_bdata && (pshm_bdata->shared->size == 1)) {
     /* With singleton proc on local supernode we can short-cut the PSHM code.
      * This does not require alteration of the barrier_peers[] contructed above
@@ -1671,12 +1534,12 @@ typedef struct {
   int volatile amcbarrier_response_flags[2];    /*  consensus ambarrier flags */
   int volatile amcbarrier_response_value[2];    /*  consensus ambarrier value */
   
-  int           amcbarrier_max;
+  int           amcbarrier_max;    /* length of amcbarrier_active */
   gasnet_node_t amcbarrier_master; /* ACT, not REL */
+  gasnet_node_t *amcbarrier_active;/* nodes (ACT) that need to recv broadcast */
 
 #if GASNETI_PSHM_BARRIER_HIER
   gasnete_pshmbarrier_data_t *amcbarrier_pshm; /* non-NULL if using hierarchical code */
-  gasnet_node_t *amcbarrier_active;/* nodes (ACT) that need to recv broadcast */
   int amcbarrier_passive;          /* 2 if some other node makes progress for me, 0 otherwise */
 #endif
   /*  global state on master */
@@ -1760,20 +1623,11 @@ void gasnete_amcbarrier_kick(gasnete_coll_team_t team) {
 
       gasnete_barrier_pf_disable(team);
 
-      /*  inform the nodes */
-#if GASNETI_PSHM_BARRIER_HIER
-      if (barrier_data->amcbarrier_active) {
-        for (i=0; i < barrier_data->amcbarrier_max; i++) {
-          GASNETI_SAFE(
-            gasnet_AMRequestShort4(barrier_data->amcbarrier_active[i],
-                                   gasneti_handleridx(gasnete_amcbarrier_done_reqh), 
-                                   team->team_id, phase, flags, value));
-        }
-      } else
-#endif
-      for (i=0; i < team->total_ranks; i++) {
+      /*  inform the active nodes */
+      for (i=0; i < barrier_data->amcbarrier_max; i++) {
         GASNETI_SAFE(
-          gasnet_AMRequestShort4(GASNETE_COLL_REL2ACT(team, i), gasneti_handleridx(gasnete_amcbarrier_done_reqh), 
+          gasnet_AMRequestShort4(barrier_data->amcbarrier_active[i],
+                                 gasneti_handleridx(gasnete_amcbarrier_done_reqh),
                                  team->team_id, phase, flags, value));
       }
     }
@@ -1918,18 +1772,19 @@ void gasnete_amcbarrier_kick_team_all(void) {
   gasnete_amcbarrier_kick(GASNET_TEAM_ALL);
 }
 
-static void gasnete_amcbarrier_init(gasnete_coll_team_t team) {
+static void gasnete_amcbarrier_init(gasnete_coll_team_t team, gasnet_node_t *nodes, gasnet_node_t *supernodes) {
   gasnete_coll_amcbarrier_t *barrier_data = gasneti_calloc(1,sizeof(gasnete_coll_amcbarrier_t));
   int total_ranks = team->total_ranks;
+  gasnet_node_t *active = nodes;
 
 #if GASNETI_PSHM_BARRIER_HIER
   int myrank = team->myrank;
-  gasnet_node_t *supernode_reps = NULL;
-  PSHM_BDATA_DECL(pshm_bdata, gasnete_pshmbarrier_init_hier(team, &total_ranks, &myrank, &supernode_reps));
+  PSHM_BDATA_DECL(pshm_bdata, gasnete_pshmbarrier_init_hier(team, &total_ranks, &myrank, NULL));
 
   if (pshm_bdata) {
     barrier_data->amcbarrier_passive = (pshm_bdata->private.rank != 0) ? 2 : 0; /* precompute shift */
     barrier_data->amcbarrier_pshm = pshm_bdata;
+    active = supernodes;
   }
 #endif
 
@@ -1940,14 +1795,16 @@ static void gasnete_amcbarrier_init(gasnete_coll_team_t team) {
   barrier_data->amcbarrier_consensus_flags[1] = GASNET_BARRIERFLAG_ANONYMOUS;
 
   barrier_data->amcbarrier_max = total_ranks;
-#if GASNETI_PSHM_BARRIER_HIER
-  if (pshm_bdata) {
-    gasnet_node_t *nodes = supernode_reps ? supernode_reps : gasneti_pshm_firsts;
-    barrier_data->amcbarrier_master = nodes[total_ranks-1];
-    barrier_data->amcbarrier_active = nodes;
-  } else
-#endif
-  barrier_data->amcbarrier_master = GASNETE_COLL_REL2ACT(team, (total_ranks - 1));
+
+  /* Choice of last active node as "master" is arbitrary (as long as all agree) */
+  barrier_data->amcbarrier_master = active[total_ranks-1];
+
+  /* Only master needs the vector of active nodes */
+  if (gasneti_mynode == barrier_data->amcbarrier_master) {
+    size_t alloc_size = total_ranks * sizeof(gasnet_node_t);
+    gasneti_leak(barrier_data->amcbarrier_active = gasneti_malloc(alloc_size));
+    memcpy(barrier_data->amcbarrier_active, active, alloc_size);
+  }
 
 #if GASNETI_PSHM_BARRIER_HIER
   if (pshm_bdata && (pshm_bdata->shared->size == 1)) {
@@ -2181,7 +2038,8 @@ int gasnete_barrier_default(gasnete_coll_team_t team, int id, int flags) {
 
 static gasnete_coll_barrier_type_t gasnete_coll_default_barrier_type=GASNETE_COLL_BARRIER_ENVDEFAULT;
 
-extern void gasnete_coll_barrier_init(gasnete_coll_team_t team,  int barrier_type_in) {
+extern void gasnete_coll_barrier_init(gasnete_coll_team_t team, int barrier_type_in,
+                                      gasnet_node_t *nodes, gasnet_node_t *supernodes) {
   gasnete_coll_barrier_type_t barrier_type= (gasnete_coll_barrier_type_t) barrier_type_in;
   static int envdefault_set = 0;
   
@@ -2224,7 +2082,7 @@ extern void gasnete_coll_barrier_init(gasnete_coll_team_t team,  int barrier_typ
   /* conduit plugin to select a barrier - 
      should use GASNETE_ISBARRIER("whatever") to check if enabled, and then set the
      barrier function pointers */
-  #define GASNETE_BARRIER_INIT(team, barrier_type)
+  #define GASNETE_BARRIER_INIT(team, barrier_type, nodes, supernodes)
   #endif
   /*reset the barrier types*/
   team->barrier_data = NULL;
@@ -2234,14 +2092,14 @@ extern void gasnete_coll_barrier_init(gasnete_coll_team_t team,  int barrier_typ
   team->barrier = &gasnete_barrier_default;
   team->barrier_result = NULL;
   GASNETE_SPLITSTATE_LEAVE(team);
-  GASNETE_BARRIER_INIT(team, barrier_type);
+  GASNETE_BARRIER_INIT(team, barrier_type, nodes, supernodes);
   if (team->barrier_notify) { /* conduit has identified a barrier mechanism */
     /*make sure that wait and try were also defined*/
     gasneti_assert(team->barrier_wait && team->barrier_try);
     return;
   } else if (barrier_type == GASNETE_COLL_BARRIER_AMCENTRAL) {
     /*we explicitly specify that we want an AM CENTRAL Barrier*/
-    gasnete_amcbarrier_init(team);
+    gasnete_amcbarrier_init(team, nodes, supernodes);
   } else if (barrier_type == GASNETE_COLL_BARRIER_AMDISSEM) {
     /*we explicitly specify that we want an AM DISSEM Barrier*/
     gasnete_amdbarrier_init(team);
@@ -2271,6 +2129,7 @@ extern void gasnete_coll_barrier_init(gasnete_coll_team_t team,  int barrier_typ
 }
 
 void gasnete_barrier_init(void) {
+  gasnet_node_t *supernodes = NULL;
   gasnete_coll_team_t team;
   int i;
 
@@ -2283,9 +2142,41 @@ void gasnete_barrier_init(void) {
   team->rel2act_map = (gasnet_node_t *)gasneti_malloc(sizeof(gasnet_node_t)*gasneti_nodes);
   for (i=0; i<gasneti_nodes; i++)
     team->rel2act_map[i] = i;
+  if (gasneti_nodes > 1) {
+    unsigned int count = 0;
+    for (i=1; i<gasneti_nodes; i*=2) ++count;
+    team->peers.num = count;
+    team->peers.fwd = gasneti_malloc(sizeof(gasnet_node_t) * count);
+    for (i=0; i<count; i++) {
+      unsigned int dist = 1 << i;
+      team->peers.fwd[i] = (gasneti_mynode + dist) % gasneti_nodes;
+    }
+  }
+
+#if GASNET_PSHM
+  if (gasneti_nodemap_global_count > 1) {
+    unsigned int count = 0;
+    for (i=1; i<gasneti_nodemap_global_count; i*=2) ++count;
+    team->supernode_peers.num = count;
+    team->supernode_peers.fwd = gasneti_malloc(sizeof(gasnet_node_t) * count);
+    for (i=0; i<count; i++) {
+      unsigned int dist = 1 << i;
+      unsigned int peer = (gasneti_nodemap_global_rank + dist) % gasneti_nodemap_global_count;
+      team->supernode_peers.fwd[i] = gasneti_pshm_firsts[peer];
+    }
+  }
+
+  team->supernode.node_count = gasneti_mysupernode.node_count;
+  team->supernode.node_rank  = gasneti_mysupernode.node_rank;
+  team->supernode.grp_count  = gasneti_mysupernode.grp_count;
+  team->supernode.grp_rank   = gasneti_mysupernode.grp_rank;
+
+  supernodes = gasneti_pshm_firsts;
+#endif
 
   GASNET_TEAM_ALL = team;
-  gasnete_coll_barrier_init(team, 0);
+
+  gasnete_coll_barrier_init(team, 0, team->rel2act_map, supernodes);
 }
 
 /* ------------------------------------------------------------------------------------ */

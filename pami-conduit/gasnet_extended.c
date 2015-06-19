@@ -941,11 +941,11 @@ static void gasnete_pdbarrier_init(gasnete_coll_team_t team);
     gasnete_coll_default_barrier_type = GASNETE_COLL_BARRIER_PAMIDISSEM;    \
 } while (0)
 
-#define GASNETE_BARRIER_INIT(TEAM, BARRIER_TYPE) do {            \
-    if ((BARRIER_TYPE) == GASNETE_COLL_BARRIER_PAMIALLREDUCE) {  \
+#define GASNETE_BARRIER_INIT(TEAM, TYPE, NODES, SUPERNODES) do { \
+    if ((TYPE) == GASNETE_COLL_BARRIER_PAMIALLREDUCE) {          \
       gasnete_parbarrier_init(TEAM);                             \
     } else                                                       \
-    if ((BARRIER_TYPE) == GASNETE_COLL_BARRIER_PAMIDISSEM) {     \
+    if ((TYPE) == GASNETE_COLL_BARRIER_PAMIDISSEM) {             \
       gasnete_pdbarrier_init(TEAM);                              \
     }                                                            \
   } while (0)
@@ -1130,6 +1130,7 @@ static void gasnete_parbarrier_init(gasnete_coll_team_t team) {
 
 typedef struct {
   gasnet_node_t *peer_list;
+  gasnet_node_t peer_count;
   volatile int phase;
 #if GASNETI_PSHM_BARRIER_HIER
   gasnete_pshmbarrier_data_t *pshm_data; /* non-NULL if using hierarchical code */
@@ -1230,17 +1231,15 @@ static void gasnete_pdbarr_advance(
 
     /* Note: state->{arrived,value,flags} may change within each send */
     while (state->arrived & distance) {
-      const gasnet_node_t peer = barr->peer_list[index];
-
-      if (peer == gasneti_nodes) {
+      if (index == barr->peer_count) {
         gasneti_sync_writes();
         index = -1; /* DONE! */
         break;
+      } else {
+        const gasnet_node_t peer = barr->peer_list[index];
+        gasnete_pdbarr_send(peer, teamid, state->value, state->flags, msg_phase, ++index);
+        distance <<= 1;
       }
-
-      gasnete_pdbarr_send(peer, teamid, state->value, state->flags, msg_phase, ++index);
-
-      distance <<= 1;
     }
 
     state->next = index;
@@ -1416,9 +1415,10 @@ static void gasnete_pdbarrier_init(gasnete_coll_team_t team) {
   static int is_init = 0;
   int total_ranks = team->total_ranks;
   int myrank = team->myrank;
+  gasnete_coll_peer_list_t *peers = &team->peers;
+
 #if GASNETI_PSHM_BARRIER_HIER
-  gasnet_node_t *supernode_reps = NULL;
-  PSHM_BDATA_DECL(pshm_bdata, gasnete_pshmbarrier_init_hier(team, &total_ranks, &myrank, &supernode_reps));
+  PSHM_BDATA_DECL(pshm_bdata, gasnete_pshmbarrier_init_hier(team, &total_ranks, &myrank, &peers));
 #endif
 
   /* Allocate memory */
@@ -1450,31 +1450,9 @@ static void gasnete_pdbarrier_init(gasnete_coll_team_t team) {
   }
 #endif
 
-  /* Build the peer list */
-  { int step, steps;
-    uint64_t distance;
-#if GASNETI_PSHM_BARRIER_HIER
-    gasnet_node_t *nodes = supernode_reps ? supernode_reps : gasneti_pshm_firsts;
-#endif
-
-    for (steps=0, distance=1; distance < total_ranks; ++steps, distance*=2) { /* empty */ }
-
-    barr->peer_list = gasneti_calloc(steps+1, sizeof(gasnet_node_t));
-    gasneti_leak(barr->peer_list);
-
-    for (step=0, distance=1; step < steps; ++step, distance*=2) {
-      gasnet_node_t peer = (myrank < distance)
-                              ? (myrank + (total_ranks - distance))
-                              : (myrank - distance);
-#if GASNETI_PSHM_BARRIER_HIER
-      if (pshm_bdata) {
-        barr->peer_list[step] = nodes[peer];
-      } else
-#endif
-      barr->peer_list[step] = GASNETE_COLL_REL2ACT(team, peer);
-    }
-    barr->peer_list[steps] = gasneti_nodes; /* sentinel */
-  }
+  /* The peer list */
+  barr->peer_list = peers->fwd;
+  barr->peer_count = peers->num;
 
   /* TODO: Anything we should hint here? */
   memset(&gasnete_pdbarrier_send_hint, 0, sizeof(pami_send_hint_t));

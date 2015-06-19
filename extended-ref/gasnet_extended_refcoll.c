@@ -1146,7 +1146,7 @@ extern void gasnete_coll_init(const gasnet_image_t images[], gasnet_image_t my_i
 #endif
 
     /* setup information for the global team */
-    gasnete_coll_team_init(GASNET_TEAM_ALL, 0, gasneti_nodes, gasneti_mynode, NULL, gasnete_coll_auxseg_save, images GASNETE_THREAD_PASS);
+    gasnete_coll_team_init(GASNET_TEAM_ALL, 0, gasneti_nodes, gasneti_mynode, GASNET_TEAM_ALL->rel2act_map, gasnete_coll_auxseg_save, images GASNETE_THREAD_PASS);
 
     /* This barrier, together with the thread barrier that follows, ensures all global
        collectives initialization is complete before any collectives can be called. */
