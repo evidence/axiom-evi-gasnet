@@ -2217,13 +2217,18 @@ extern void gasnete_coll_barrier_init(gasnete_coll_team_t team,  int barrier_typ
     }
     
   }
-  if(team==NULL) { /*global barrier hasn't been initialized yet so take care of it*/
+
+  /* Partially initialize TEAM_ALL to avoid circular dependency */
+  if (team==NULL) {
+    int i;
     team = GASNET_TEAM_ALL = (gasnete_coll_team_t) gasneti_calloc(1,sizeof(struct gasnete_coll_team_t_));
     gasneti_leak(team);
     team->team_id=0;
     team->myrank = gasneti_mynode;
     team->total_ranks = gasneti_nodes;
-    team->team_id=0; 
+    team->rel2act_map = (gasnet_node_t *)gasneti_malloc(sizeof(gasnet_node_t)*gasneti_nodes);
+    for (i=0; i<gasneti_nodes; i++)
+      team->rel2act_map[i] = i;
   }
   
   

@@ -180,12 +180,14 @@ void gasnete_coll_team_init(gasnet_team_handle_t team,
 #ifdef GASNETI_USE_FCA
   team->use_fca = 0;
 #endif
-  if (team->rel2act_map == NULL)
-    team->rel2act_map = (gasnet_node_t *)gasneti_malloc(sizeof(gasnet_node_t)*total_ranks);
 
-  for (i=0; i<total_ranks; i++) 
-    team->rel2act_map[i] = rel2act_map[i];
-  
+  /* Build rel2act map (unless already constructed) */
+  if (team->rel2act_map == NULL) {
+    team->rel2act_map = (gasnet_node_t *)gasneti_malloc(sizeof(gasnet_node_t)*total_ranks);
+    for (i=0; i<total_ranks; i++)
+      team->rel2act_map[i] = rel2act_map[i];
+  }
+
   /* lock the team directory (team_dir) */
   /* add the new team to the directory */
   if (team_dir == NULL) {
