@@ -2218,20 +2218,6 @@ extern void gasnete_coll_barrier_init(gasnete_coll_team_t team,  int barrier_typ
     
   }
 
-  /* Partially initialize TEAM_ALL to avoid circular dependency */
-  if (team==NULL) {
-    int i;
-    team = GASNET_TEAM_ALL = (gasnete_coll_team_t) gasneti_calloc(1,sizeof(struct gasnete_coll_team_t_));
-    gasneti_leak(team);
-    team->team_id=0;
-    team->myrank = gasneti_mynode;
-    team->total_ranks = gasneti_nodes;
-    team->rel2act_map = (gasnet_node_t *)gasneti_malloc(sizeof(gasnet_node_t)*gasneti_nodes);
-    for (i=0; i<gasneti_nodes; i++)
-      team->rel2act_map[i] = i;
-  }
-  
-  
   if(barrier_type == 0) barrier_type = gasnete_coll_default_barrier_type;
   
   #ifndef GASNETE_BARRIER_INIT
@@ -2282,6 +2268,24 @@ extern void gasnete_coll_barrier_init(gasnete_coll_team_t team,  int barrier_typ
     /* fallback to AM DISSEM */
     gasnete_amdbarrier_init(team);
   }
+}
+
+void gasnete_barrier_init(void) {
+  gasnete_coll_team_t team;
+  int i;
+
+  /* Partially initialize GASNET_TEAM_ALL to avoid circular dependency */
+  team = (gasnete_coll_team_t) gasneti_calloc(1,sizeof(struct gasnete_coll_team_t_));
+  gasneti_leak(team);
+  team->team_id = 0;
+  team->myrank = gasneti_mynode;
+  team->total_ranks = gasneti_nodes;
+  team->rel2act_map = (gasnet_node_t *)gasneti_malloc(sizeof(gasnet_node_t)*gasneti_nodes);
+  for (i=0; i<gasneti_nodes; i++)
+    team->rel2act_map[i] = i;
+
+  GASNET_TEAM_ALL = team;
+  gasnete_coll_barrier_init(team, 0);
 }
 
 /* ------------------------------------------------------------------------------------ */

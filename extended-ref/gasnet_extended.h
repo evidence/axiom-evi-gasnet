@@ -815,9 +815,8 @@ extern gasnet_team_handle_t gasnete_coll_team_all;
 /*intialize the barriers for a given team*/
 extern void gasnete_coll_barrier_init(gasnete_coll_team_t team, int barrier_type);
 
-/*initialize the barriers forGASNET_TEAM_ALL*/
-/*note that here partially constructed GASNET_TEAM_ALL is created and used until coll_init is called*/
-#define gasnete_barrier_init() gasnete_coll_barrier_init(GASNET_TEAM_ALL, 0)
+/*initialize the barriers for GASNET_TEAM_ALL*/
+extern void gasnete_barrier_init(void);
 
 
 #if GASNETI_STATS_OR_TRACE
