@@ -491,7 +491,7 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
 
     // setup NULL-terminated array of extra environment vars for slave
     // Currently have only one such variable, "AMUDP_SLAVE_ARGS":
-    //          flag[,master[,network]]
+    //          flag[,master,[network]]
     //     flag: zero = this is not a slave
     //           non-zero = this *is* a slave and value is verbosity (1 = not verbose)
     //   master: IP or hostname of the master node (require if flag != 0)
@@ -511,11 +511,11 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
       #endif
     }
     remain = sizeof(slave_env) - (strlen(slave_env) + 1);
+    strncat(slave_env, ",", remain);
     // append WORKERIP which it is needed before the master env is sent
     { char *network = AMUDP_getenv_prefixed_withdefault("WORKERIP","");
       if (network && network[0]) {
         #if HAVE_GETIFADDRS
-          strncat(slave_env, ",", remain);
           strncat(slave_env, network, remain-1);
         #else
           fprintf(stderr,"AMUDP: Warning: WORKERIP set in the environment, but your platform "
