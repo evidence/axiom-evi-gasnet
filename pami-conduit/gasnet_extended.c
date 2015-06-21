@@ -1133,7 +1133,6 @@ typedef struct {
   volatile int phase;
 #if GASNETI_PSHM_BARRIER_HIER
   gasnete_pshmbarrier_data_t *pshm_data; /* non-NULL if using hierarchical code */
-  gasnet_node_t pshm_rep;                /* the "representative" member of my supernode */
   int pshm_shift;                        /* "shift" if this node is not the representative */
 #endif
   volatile int prev_value, prev_flags;   /* for gasnet_barrier_result() */
@@ -1448,11 +1447,6 @@ static void gasnete_pdbarrier_init(gasnete_coll_team_t team) {
   if (pshm_bdata) {
     barr->pshm_data = pshm_bdata;
     barr->pshm_shift = pshm_bdata->private.rank ? 2 : 0;
-    if (supernode_reps) {
-      barr->pshm_rep = supernode_reps[myrank];
-    } else {
-      barr->pshm_rep = gasneti_pshm_firsts[myrank];
-    }
   }
 #endif
 
