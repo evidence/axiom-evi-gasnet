@@ -1035,6 +1035,10 @@ static int gasnetc_am_init(void) {
                          ? PAMI_HINT_ENABLE : PAMI_HINT_DEFAULT;
   fn.p2p = &SNodeBcast_dispatch;
   rc = PAMI_Dispatch_set(gasnetc_context, GASNETC_DISP_SNODE_BCAST, fn, NULL, hints);
+  if (rc != PAMI_SUCCESS) { /* On failure retry w/o use_shmem hint */
+    hints.use_shmem = PAMI_HINT_DISABLE;
+    rc = PAMI_Dispatch_set(gasnetc_context, GASNETC_DISP_SNODE_BCAST, fn, NULL, hints);
+  }
   GASNETC_PAMI_CHECK(rc, "registering GASNETC_DISP_SNODE_BCAST");
 #endif
 
