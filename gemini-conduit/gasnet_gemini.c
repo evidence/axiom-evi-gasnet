@@ -358,6 +358,7 @@ first:
       ++trial;
     } else if (status == GNI_RC_INVALID_PARAM) {
       /* Registration failed (e.g. memory imported by XPMEM), but not fatal. */
+      if (gasnetc_reg_credit_max) gasneti_weakatomic_increment(&gasnetc_reg_credit, 0);
       return 0;
     } else {
       /* Unknown failure is fatal */
