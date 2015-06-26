@@ -112,8 +112,7 @@ static int gasneti_bootstrapInit(
 
 #if HAVE_SSH_SPAWNER
     if ((!strcmp(spawner, "ssh") || (spawner == not_set)) &&
-            GASNET_OK == (res = gasneti_bootstrapInit_ssh(argc, argv, nodes_p, mynode_p))) {
-        gasneti_bootstrapInit_ssh(argc_p, argv_p, nodes_p, mynode_p);
+            GASNET_OK == (res = gasneti_bootstrapInit_ssh(argc_p, argv_p, nodes_p, mynode_p))) {
         gasneti_bootstrapFini_p     = &gasneti_bootstrapFini_ssh;
         gasneti_bootstrapAbort_p    = &gasneti_bootstrapAbort_ssh;
         gasneti_bootstrapBarrier_p  = &gasneti_bootstrapBarrier_ssh;
@@ -126,7 +125,7 @@ static int gasneti_bootstrapInit(
 #endif
 #if HAVE_MPI_SPAWNER
     if ((!strcmp(spawner, "mpi") || (spawner == not_set)) &&
-            GASNET_OK == (res = gasneti_bootstrapInit_mpi(argc, argv, nodes_p, mynode_p))) {
+            GASNET_OK == (res = gasneti_bootstrapInit_mpi(argc_p, argv_p, nodes_p, mynode_p))) {
         gasneti_bootstrapFini_p    = &gasneti_bootstrapFini_mpi;
         gasneti_bootstrapAbort_p    = &gasneti_bootstrapAbort_mpi;
         gasneti_bootstrapBarrier_p    = &gasneti_bootstrapBarrier_mpi;

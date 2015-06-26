@@ -22,7 +22,7 @@ GASNETI_BEGIN_EXTERNC
 /*
    Initialization
    ==============
-   */
+*/
 /* gasnet_init not inlined or renamed because we use redef-name trick on
    it to ensure proper version linkage */
 extern int gasnet_init(int *argc, char ***argv);
@@ -34,11 +34,21 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 extern void gasnetc_exit(int exitcode) GASNETI_NORETURN;
 GASNETI_NORETURNP(gasnetc_exit)
 #define gasnet_exit gasnetc_exit
-    /* ------------------------------------------------------------------------------------ */
-    /*
-       No-interrupt sections
-       =====================
-       */
+
+/* Some conduits permit gasnet_init(NULL,NULL).
+   Define to 1 if this conduit supports this extension, or to 0 otherwise.
+*/
+#if !HAVE_MPI_SPAWNER || (GASNETI_MPI_VERSION >= 2)
+  #define GASNET_NULL_ARGV_OK 1
+#else
+  #define GASNET_NULL_ARGV_OK 0
+#endif
+
+/* ------------------------------------------------------------------------------------ */
+/*
+   No-interrupt sections
+   =====================
+*/
     /* conduit may or may not need this based on whether interrupts are used for running handlers */
 #if GASNETC_USE_INTERRUPTS
     extern void gasnetc_hold_interrupts(void);
@@ -51,23 +61,23 @@ GASNETI_NORETURNP(gasnetc_exit)
 #define gasnet_resume_interrupts()
 #endif
 
-    /* ------------------------------------------------------------------------------------ */
-    /*
-       Handler-safe locks
-       ==================
-       */
-    typedef struct _gasnet_hsl_t {
-        gasneti_mutex_t lock;
+/* ------------------------------------------------------------------------------------ */
+/*
+   Handler-safe locks
+   ==================
+*/
+typedef struct _gasnet_hsl_t {
+    gasneti_mutex_t lock;
 
 #if GASNETI_STATS_OR_TRACE
-        gasneti_tick_t acquiretime;
+    gasneti_tick_t acquiretime;
 #endif
 
 #if GASNETC_USE_INTERRUPTS
-        /* more state may be required for conduits using interrupts */
+    /* more state may be required for conduits using interrupts */
 #error interrupts not implemented
 #endif
-    } gasnet_hsl_t GASNETI_THREAD_TYPEDEF;
+} gasnet_hsl_t GASNETI_THREAD_TYPEDEF;
 
 #if GASNETI_STATS_OR_TRACE
 #define GASNETC_LOCK_STAT_INIT ,0
@@ -122,27 +132,27 @@ extern int  gasnetc_hsl_trylock(gasnet_hsl_t *hsl) GASNETI_WARN_UNUSED_RESULT;
 /*
    Active Message Size Limits
    ==========================
-   */
+*/
 
 #define gasnet_AMMaxArgs()          ((size_t)16)
 extern size_t gasnet_AMMaxMedium(void);
 extern size_t gasnet_AMMaxLongRequest(void);
 extern size_t gasnet_AMMaxLongReply(void);
 
-    /* ------------------------------------------------------------------------------------ */
-    /*
-       Misc. Active Message Functions
-       ==============================
-       */
-    extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex);
+/* ------------------------------------------------------------------------------------ */
+/*
+   Misc. Active Message Functions
+   ==============================
+*/
+extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex);
 
 #define gasnet_AMGetMsgSource  gasnetc_AMGetMsgSource
 
 #define GASNET_BLOCKUNTIL(cond) gasneti_polluntil(cond)
 
-    /* ------------------------------------------------------------------------------------ */
+/* ------------------------------------------------------------------------------------ */
 
-    GASNETI_END_EXTERNC
+GASNETI_END_EXTERNC
 
 #endif
 
