@@ -5,6 +5,15 @@
 
 AUTOMAKE_OPTIONS = foreign 1.4
 
+# Use of the MPI spawning support is optional
+if PSM_BOOTSTRAP_MPI
+mpi_target_pl = gasnetrun_psm-mpi.pl
+$(mpi_target_pl): $(top_srcdir)/mpi-conduit/contrib/gasnetrun_mpi.pl
+	cp -f "$?" $@
+else
+mpi_target_pl =
+endif
+
 target = gasnetrun_psm
 
 # Need a bin_DATA rule, but automake disallows that.  So, fake it.
@@ -14,17 +23,19 @@ dotpldir = $(bindir)
 # This ensures we can run from the build directory if needed.
 $(top_builddir)/other/perlstart: $(top_srcdir)/other/perlstart.in
 	@cd $(top_builddir)/other && $(MAKE) perlstart
-$(target): $(top_builddir)/other/perlstart
-$(target).pl: $(top_srcdir)/mpi-conduit/contrib/gasnetrun_mpi.pl
+$(top_builddir)/other/mpirun_common: $(top_srcdir)/other/mpirun_common.in
+	@cd $(top_builddir)/other && $(MAKE) mpirun_common
+$(target): $(top_builddir)/other/perlstart $(top_builddir)/other/mpirun_common
+$(target).pl: $(top_srcdir)/ibv-conduit/contrib/gasnetrun_ibv.pl
 	cp -f "$?" $@
-all-local: $(target) $(target).pl
+all-local: $(target) $(target).pl $(mpi_target_pl)
 
-DISTCLEANFILES = $(target) $(target).pl
+DISTCLEANFILES = $(target) $(target).pl $(mpi_target_pl)
 
 # Conditionally install the .pl and its wrapper
 if USE_PSM_CONDUIT
 scripts = $(target)
-data = $(target).pl
+data = $(target).pl $(mpi_target_pl)
 else
 scripts =
 data =

@@ -46,6 +46,7 @@ void (*gasneti_bootstrapBarrier_p)(void) = NULL;
 void (*gasneti_bootstrapExchange_p)(void *src, size_t len, void *dest) = NULL;
 void (*gasneti_bootstrapAlltoall_p)(void *src, size_t len, void *dest) = NULL;
 void (*gasneti_bootstrapBroadcast_p)(void *src, size_t len, void *dest, int rootnode) = NULL;
+void (*gasneti_bootstrapSNodeCast_p)(void *src, size_t len, void *dest, int rootnode) = NULL;
 void (*gasneti_bootstrapCleanup_p)(void) = NULL;
 
 
@@ -104,22 +105,14 @@ static int gasneti_bootstrapInit(
     gasnet_node_t *nodes_p,
     gasnet_node_t *mynode_p)
 {
-#if HAVE_MPI_SPAWNER
-    const char* default_spawner = "mpi";
-#elif HAVE_SSH_SPAWNER
-    const char* default_spawner = "ssh";
-#elif HAVE_PMI_SPAWNER
-    const char* default_spawner = "pmi";
-#else
-    const char* default_spawner = "(not set)";
-#endif
-    char *spawner =
-        gasneti_getenv_withdefault("GASNET_PSM_SPAWNER", default_spawner);
+    const char *not_set = "(not set)";
+    char *spawner = gasneti_getenv_withdefault("GASNET_SPAWNER", not_set);
+
     int res = GASNET_ERR_NOT_INIT;
 
 #if HAVE_SSH_SPAWNER
-    /* Sigh.  We can't assume GASNET_IB_SPAWNER has been set except in the master */
-    if (GASNET_OK == (res = gasneti_bootstrapInit_ssh(argc_p, argv_p, nodes_p, mynode_p))) {
+    if ((!strcmp(spawner, "ssh") || (spawner == not_set)) &&
+            GASNET_OK == (res = gasneti_bootstrapInit_ssh(argc, argv, nodes_p, mynode_p))) {
         gasneti_bootstrapInit_ssh(argc_p, argv_p, nodes_p, mynode_p);
         gasneti_bootstrapFini_p     = &gasneti_bootstrapFini_ssh;
         gasneti_bootstrapAbort_p    = &gasneti_bootstrapAbort_ssh;
@@ -127,30 +120,33 @@ static int gasneti_bootstrapInit(
         gasneti_bootstrapExchange_p = &gasneti_bootstrapExchange_ssh;
         gasneti_bootstrapAlltoall_p = &gasneti_bootstrapAlltoall_ssh;
         gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_ssh;
+        gasneti_bootstrapSNodeCast_p= &gasneti_bootstrapSNodeBroadcast_ssh;
         gasneti_bootstrapCleanup_p  = &gasneti_bootstrapCleanup_ssh;
     } else
 #endif
 #if HAVE_MPI_SPAWNER
-    if (!strcmp(spawner, "mpi")) {
-        res = gasneti_bootstrapInit_mpi(argc_p, argv_p, nodes_p, mynode_p);
-
+    if ((!strcmp(spawner, "mpi") || (spawner == not_set)) &&
+            GASNET_OK == (res = gasneti_bootstrapInit_mpi(argc, argv, nodes_p, mynode_p))) {
         gasneti_bootstrapFini_p    = &gasneti_bootstrapFini_mpi;
         gasneti_bootstrapAbort_p    = &gasneti_bootstrapAbort_mpi;
         gasneti_bootstrapBarrier_p    = &gasneti_bootstrapBarrier_mpi;
         gasneti_bootstrapExchange_p    = &gasneti_bootstrapExchange_mpi;
         gasneti_bootstrapAlltoall_p    = &gasneti_bootstrapAlltoall_mpi;
         gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_mpi;
+        gasneti_bootstrapSNodeCast_p= &gasneti_bootstrapSNodeBroadcast_mpi;
         gasneti_bootstrapCleanup_p  = &gasneti_bootstrapCleanup_mpi;
     } else
 #endif
 #if HAVE_PMI_SPAWNER
-    if (GASNET_OK == (res = gasneti_bootstrapInit_pmi(argc_p, argv_p, nodes_p, mynode_p))) {
+    if ((!strcmp(spawner, "pmi") || (spawner == not_set)) &&
+            GASNET_OK == (res = gasneti_bootstrapInit_pmi(argc, argv, nodes_p, mynode_p))) {
         gasneti_bootstrapFini_p = &gasneti_bootstrapFini_pmi;
         gasneti_bootstrapAbort_p    = &gasneti_bootstrapAbort_pmi;
         gasneti_bootstrapBarrier_p  = &gasneti_bootstrapBarrier_pmi;
         gasneti_bootstrapExchange_p = &gasneti_bootstrapExchange_pmi;
         gasneti_bootstrapAlltoall_p = &gasneti_bootstrapAlltoall_pmi;
         gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_pmi;
+        gasneti_bootstrapSNodeCast_p= &gasneti_bootstrapSNodeBroadcast_pmi;
         gasneti_bootstrapCleanup_p  = &gasneti_bootstrapCleanup_pmi;
     } else
 #endif
@@ -337,7 +333,7 @@ static int gasnetc_init(int *argc, char ***argv) {
      * space requested by the 2nd argument.
      */
 
-    gasneti_pshm_init(&gasneti_bootstrapExchange, 0);
+    gasneti_pshm_init(gasneti_bootstrapSNodeCast_p, 0);
 #endif
 
 #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
