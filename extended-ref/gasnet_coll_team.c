@@ -433,7 +433,7 @@ gasnet_team_handle_t gasnete_coll_team_split(gasnet_team_handle_t team,
   gasnet_node_t *colors; /* gasnet_image_t for PAR mode*/
   gasnet_node_t *relranks; /* gasnet_image_t for PAR mode */
   gasnet_node_t *rel2act_map;
-  gasnet_seginfo_t *allsegs;
+  gasnet_seginfo_t *allsegs, *segments;
   uint32_t i;
 #ifdef DEBUG_TEAM
   fprintf(stderr, "gasnete_coll_team_split: team rank %u, parent team handle %p, mycolor %u, myrank %u\n",
@@ -458,12 +458,18 @@ gasnet_team_handle_t gasnete_coll_team_split(gasnet_team_handle_t team,
 
   new_total_ranks = 0;
   rel2act_map = (gasnet_node_t *)gasneti_malloc(team->total_ranks*sizeof(gasnet_node_t));
+  segments = (gasnet_seginfo_t *)gasneti_malloc(team->total_ranks*sizeof(gasnet_seginfo_t));
   for (i=0; i<team->total_ranks; i++) {
     if (mycolor == colors[i]) {
       rel2act_map[relranks[i]] = team->rel2act_map[i];
+      segments[relranks[i]] = allsegs[i];
       new_total_ranks++;
     }
   }
+  gasneti_free(allsegs);
+
+  rel2act_map = (gasnet_node_t *)gasneti_realloc(rel2act_map, new_total_ranks*sizeof(gasnet_node_t));
+  segments = (gasnet_node_t *)gasneti_realloc(segments, new_total_ranks*sizeof(gasnet_seginfo_t));
   
   /* It would be better to add some sanity check for team correctness here. */
   
@@ -478,7 +484,7 @@ gasnet_team_handle_t gasnete_coll_team_split(gasnet_team_handle_t team,
   fflush(stderr);
 #endif
 
-  newteam = gasnete_coll_team_create(new_total_ranks, myrelrank, rel2act_map, allsegs GASNETE_THREAD_PASS);
+  newteam = gasnete_coll_team_create(new_total_ranks, myrelrank, rel2act_map, segments GASNETE_THREAD_PASS);
   
   gasneti_free(rel2act_map);
   gasnete_coll_barrier(team, 0, GASNET_BARRIERFLAG_UNNAMED GASNETE_THREAD_PASS);
