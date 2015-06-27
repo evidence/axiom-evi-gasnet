@@ -456,20 +456,23 @@ gasnet_team_handle_t gasnete_coll_team_split(gasnet_team_handle_t team,
   gasnet_coll_gather_all(team, relranks, &myrelrank, sizeof(gasnet_node_t), GASNET_COLL_LOCAL|GASNET_COLL_IN_MYSYNC | GASNET_COLL_OUT_MYSYNC);
 
 
+  /* pass 1: just count */
   new_total_ranks = 0;
-  rel2act_map = (gasnet_node_t *)gasneti_malloc(team->total_ranks*sizeof(gasnet_node_t));
-  segments = (gasnet_seginfo_t *)gasneti_malloc(team->total_ranks*sizeof(gasnet_seginfo_t));
+  for (i=0; i<team->total_ranks; i++) {
+    new_total_ranks += (mycolor == colors[i]);
+  }
+
+  /* pass 2: collect members */
+  rel2act_map = (gasnet_node_t *)gasneti_malloc(new_total_ranks*sizeof(gasnet_node_t));
+  segments = (gasnet_seginfo_t *)gasneti_malloc(new_total_ranks*sizeof(gasnet_seginfo_t));
   for (i=0; i<team->total_ranks; i++) {
     if (mycolor == colors[i]) {
       rel2act_map[relranks[i]] = team->rel2act_map[i];
       segments[relranks[i]] = allsegs[i];
-      new_total_ranks++;
     }
   }
   gasneti_free(allsegs);
 
-  rel2act_map = (gasnet_node_t *)gasneti_realloc(rel2act_map, new_total_ranks*sizeof(gasnet_node_t));
-  segments = (gasnet_node_t *)gasneti_realloc(segments, new_total_ranks*sizeof(gasnet_seginfo_t));
   
   /* It would be better to add some sanity check for team correctness here. */
   
