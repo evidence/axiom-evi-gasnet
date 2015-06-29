@@ -810,7 +810,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
         ret = psm_ep_connect(gasnetc_psm_state.ep, gasneti_nodes,
                 peer_epids, peer_mask, peer_errs,
                 gasnetc_psm_state.peer_epaddrs,
-                gasnetc_psm_state.exit_timeout);
+                (int64_t)(gasnetc_psm_state.exit_timeout*1e9));
         if(ret != PSM_OK) {
             char s[255] = {0};
             snprintf(s, sizeof(s), "psm_ep_connect failure: %s",
