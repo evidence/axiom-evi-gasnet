@@ -237,10 +237,10 @@ static int gasnetc_init(int *argc, char ***argv) {
          * correctly. */
         {
             char s[255] = {0};
-            snprintf(s, sizeof(s), "%d", gasneti_nodemap_local_rank);
+            snprintf(s, sizeof(s), "%d", gasneti_myhost.node_rank);
             setenv("MPI_LOCALRANKID", s, 0);
 
-            snprintf(s, sizeof(s), "%d", gasneti_nodemap_local_count);
+            snprintf(s, sizeof(s), "%d", gasneti_myhost.node_count);
             setenv("MPI_LOCALNRANKS", s, 0);
         }
 
