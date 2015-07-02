@@ -689,6 +689,7 @@ AC_SUBST(MISC_CPPFLAGS)	      # misc preprocessor flags
 
 case "$CC_FAMILY" in
   GNU) KEEPTMP_CFLAGS="-save-temps" ;;
+  Clang) KEEPTMP_CFLAGS="-save-temps" ;;
   Pathscale) KEEPTMP_CFLAGS="-keep" ;;
   Open64) KEEPTMP_CFLAGS="-keep" ;;
   XLC) KEEPTMP_CFLAGS="-qlist" ;; # XXX: generates .lst w/ asm.  Can't find a way to preserve .i
