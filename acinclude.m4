@@ -1309,6 +1309,10 @@ AC_DEFUN([GASNET_GET_GNU_ATTRIBUTES],[
             [char c; char *x = dummy(&c);])
   GASNET_CHECK_GNU_ATTRIBUTE([$1], [$2], [__pure__],
             [__attribute__((__pure__)) int dummy(int x) { return x+1; }])
+  GASNET_CHECK_GNU_ATTRIBUTE([$1], [$2], [__hot__],
+            [__attribute__((__hot__)) int dummy(void) { return 1; }])
+  GASNET_CHECK_GNU_ATTRIBUTE([$1], [$2], [__cold__],
+            [__attribute__((__cold__)) int dummy(void) { return 1; }])
   GASNET_CHECK_GNU_ATTRIBUTE([$1], [$2], [__deprecated__],
             [__attribute__((__deprecated__)) int dummy(void) { return 0; }])
   GASNET_CHECK_GNU_ATTRIBUTE([$1], [$2], [__format__],

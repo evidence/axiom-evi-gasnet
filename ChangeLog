@@ -13,6 +13,9 @@ GASNet ChangeLog
 * Platform support/portability
   - Added initial (experimental) support for ppc64el (little-endian POWER)
 
+* GASNet Tools
+  - Implemented GASNETT_{HOT,COLD} function decorations.
+
 ----------------------------------------------------------------------
 04-27-2015 :  Release 1.24.2
 
