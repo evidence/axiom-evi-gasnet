@@ -1245,6 +1245,11 @@ if test "$enabled_hugetlbfs" != 'no'; then
  if test "$enabled_hugetlbfs$have_hugetlbfs" = 'yesno'; then
    GASNET_MSG_ERROR([User requested --enable-hugetlbfs but the header and/or library could not be found])
  fi
+ if test "$have_hugetlbfs" = 'yes'; then
+   GASNET_IF_ENABLED(hugetlbfs-whole-archive, [Use --whole-archive with libhugetlbfs],
+                     [HUGETLBFS_LIBS='-Wl,--whole-archive,-lhugetlbfs,--no-whole-archive'],
+                     [HUGETLBFS_LIBS='-lhugetlbfs'])
+ fi
 fi
 with_pshm=no
 GASNET_PSHM_LIBS=""
@@ -1360,10 +1365,7 @@ if test "$enabled_pshm" != no; then
   AC_SEARCH_LIBS(xpmem_get, xpmem, [
     AC_CHECK_HEADERS([xpmem.h sn/xpmem.h], [
       if test $have_hugetlbfs = yes; then
-        case "$target" in
-          *-cnl-*) LIBS="$LIBS -Wl,--whole-archive,-lhugetlbfs,--no-whole-archive" ;;
-                *) LIBS="$LIBS -lhugetlbfs" ;;
-        esac
+        LIBS="$LIBS $HUGETLBFS_LIBS"
         AC_DEFINE(GASNETI_USE_HUGETLBFS)
       fi
       GASNET_PSHM_LIBS=$LIBS
@@ -1399,7 +1401,7 @@ if test "$enabled_pshm" != no; then
   fi
   AC_DEFINE(GASNETI_PSHM_FILE)
   AC_DEFINE(GASNETI_USE_HUGETLBFS)
-  GASNET_PSHM_LIBS="-lhugetlbfs";
+  GASNET_PSHM_LIBS="$HUGETLBFS_LIBS"
   with_pshm=hugetlbfs
  fi
 
@@ -3192,7 +3194,7 @@ if test ${gni_network}:${enabled_[]lowername} = lowername[]:yes; then
     case "$with_pshm" in
       no) # If none, then we still want hugetlbfs if available.
         if test $have_hugetlbfs = yes; then
-          GNI_LIBS="$GNI_LIBS -Wl,--whole-archive,-lhugetlbfs,--no-whole-archive"
+          GNI_LIBS="$GNI_LIBS $HUGETLBFS_LIBS"
           GNI_INCLUDES="$GNI_INCLUDES -DGASNETI_USE_HUGETLBFS"
         fi
         AC_MSG_RESULT(none)
