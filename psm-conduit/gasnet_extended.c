@@ -594,7 +594,7 @@ static void gasnete_put_nbi_inner (gasnet_node_t node, void *dest, void *src,
     psm_handler_t handler = gasnetc_psm_state.am_handlers[AM_HANDLER_PUT];
     psm_error_t ret;
 
-    gasneti_assert(node >= 0 && node < gasneti_nodes);
+    gasneti_assert(node < gasneti_nodes);
 
     if(nbytes >= gasnetc_psm_state.long_msg_threshold) {
             op->initiated_put_cnt++;
@@ -657,7 +657,7 @@ extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, siz
     psm_error_t ret;
 
     GASNETI_CHECKPSHM_GET(UNALIGNED,V);
-    gasneti_assert(node >= 0 && node < gasneti_nodes);
+    gasneti_assert(node < gasneti_nodes);
 
     if(nbytes >= gasnetc_psm_state.long_msg_threshold) {
         op->initiated_get_cnt++;
@@ -739,7 +739,7 @@ extern gasnet_handle_t gasnete_put_nb_inner(gasnet_node_t node, void *dest,
     uintptr_t dest_addr = (uintptr_t)dest;
     psm_error_t ret;
 
-    gasneti_assert(node >= 0 && node < gasneti_nodes);
+    gasneti_assert(node < gasneti_nodes);
 
     if(nbytes >= gasnetc_psm_state.long_msg_threshold) {
         gasnete_put_long(node, dest, src, nbytes,
@@ -801,7 +801,7 @@ extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void
     psm_error_t ret;
 
     GASNETI_CHECKPSHM_GET(UNALIGNED,H);
-    gasneti_assert(node >= 0 && node < gasneti_nodes);
+    gasneti_assert(node < gasneti_nodes);
 
     op = gasnete_eop_new(GASNETE_MYTHREAD);
     mtu_size = gasnetc_psm_max_reply_len;
