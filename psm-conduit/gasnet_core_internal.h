@@ -56,8 +56,6 @@ typedef enum {
  * PSM is not thread-safe, so all PSM calls must be wrapped by a lock.
  */
 
-extern gasneti_atomic_t gasnetc_psm_lock;
-
 #define GASNETC_PSM_LOCK() gasneti_spinlock_lock(&gasnetc_psm_state.psm_lock)
 #define GASNETC_PSM_TRYLOCK() gasneti_spinlock_trylock(&gasnetc_psm_state.psm_lock)
 #define GASNETC_PSM_UNLOCK() gasneti_spinlock_unlock(&gasnetc_psm_state.psm_lock)
