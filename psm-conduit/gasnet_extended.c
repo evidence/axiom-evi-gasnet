@@ -524,12 +524,14 @@ static void gasnete_put_getreq(gasnete_getreq_t *req)
             (gasnetc_item_t *)req);
 }
 
-static inline uint32_t gasnete_getreq_to_offset(gasnete_getreq_t *req)
+GASNETI_INLINE(gasnete_getreq_to_offset)
+uint32_t gasnete_getreq_to_offset(gasnete_getreq_t *req)
 {
     return (uintptr_t)req - (uintptr_t)gasnetc_psm_state.getreq_slab;
 }
 
-static inline gasnete_getreq_t *gasnete_offset_to_getreq(uint32_t offset)
+GASNETI_INLINE(gasnete_offset_to_getreq)
+gasnete_getreq_t *gasnete_offset_to_getreq(uint32_t offset)
 {
     return (gasnete_getreq_t *)
         ((uintptr_t)gasnetc_psm_state.getreq_slab + offset);

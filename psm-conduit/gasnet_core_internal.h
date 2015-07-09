@@ -189,7 +189,8 @@ static gasnetc_item_t *gasnetc_list_remove_alloc_inner(gasnetc_list_t *list,
 
 /* Try to remove an item from the list.  If the list is empty, allocate
    a slab of num_items and return a new item. */
-static inline gasnetc_item_t *gasnetc_list_remove_alloc(gasnetc_list_t *list,
+GASNETI_INLINE(gasnetc_list_remove_alloc)
+gasnetc_item_t *gasnetc_list_remove_alloc(gasnetc_list_t *list,
         unsigned int num_items, size_t item_size)
 {
     gasnetc_item_t *item;
@@ -212,7 +213,8 @@ static inline gasnetc_item_t *gasnetc_list_remove_alloc(gasnetc_list_t *list,
     return item;
 }
 
-static inline void gasnetc_list_add_head(gasnetc_list_t *list,
+GASNETI_INLINE(gasnetc_list_add_head)
+void gasnetc_list_add_head(gasnetc_list_t *list,
         gasnetc_item_t *item)
 {
     gasneti_spinlock_lock(&list->lock);
@@ -223,7 +225,8 @@ static inline void gasnetc_list_add_head(gasnetc_list_t *list,
     gasneti_spinlock_unlock(&list->lock);
 }
 
-static inline void gasnetc_list_add_tail(gasnetc_list_t *list,
+GASNETI_INLINE(gasnetc_list_add_tail)
+void gasnetc_list_add_tail(gasnetc_list_t *list,
         gasnetc_item_t *item)
 {
     item->next = NULL;
@@ -234,7 +237,8 @@ static inline void gasnetc_list_add_tail(gasnetc_list_t *list,
     gasneti_spinlock_unlock(&list->lock);
 }
 
-static inline gasnetc_item_t *gasnetc_list_remove(gasnetc_list_t *list)
+GASNETI_INLINE(gasnetc_list_remove)
+gasnetc_item_t *gasnetc_list_remove(gasnetc_list_t *list)
 {
     gasnetc_item_t *item;
 
@@ -255,7 +259,8 @@ static inline gasnetc_item_t *gasnetc_list_remove(gasnetc_list_t *list)
     return item;
 }
 
-static inline gasnetc_item_t *gasnetc_list_drain(gasnetc_list_t* list)
+GASNETI_INLINE(gasnetc_list_drain)
+gasnetc_item_t *gasnetc_list_drain(gasnetc_list_t* list)
 {
     gasnetc_item_t *head;
 
@@ -344,7 +349,7 @@ typedef struct _gasnetc_token {
    the choice of once every 32 calls.
 */
 GASNETI_HOT
-static inline
+GASNETI_INLINE(gasnetc_psm_poll_periodic)
 void gasnetc_psm_poll_periodic(void)
 {
     gasnetc_psm_state.periodic_poll += 1;
