@@ -213,7 +213,8 @@ void SET_OPSTATE(gasnete_eop_t *op, uint8_t state) {
 #define _hidx_gasnete_amref_markdone_reph    (GASNETE_HANDLER_BASE+10)
 /* add new extended API handlers here and to the bottom of gasnet_extended.c */
 
-/* -------------------------------------------------------------------------- *//* PSM-specific extended API */
+/* -------------------------------------------------------------------------- */
+/* PSM-specific extended API */
 
 /*
   Op management
