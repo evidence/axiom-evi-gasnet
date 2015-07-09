@@ -57,6 +57,7 @@ CONDUIT_FILELIST =           \
       gasnet_core_fwd.h      \
       gasnet_core_help.h     \
       gasnet_core_internal.h \
+      gasnet_core_list.h     \
       gasnet_extended_internal.h \
       gasnet_extended.c      \
       gasnet_extended_fwd.h  \

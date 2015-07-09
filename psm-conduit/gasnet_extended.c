@@ -8,6 +8,7 @@
 
 #include <gasnet_internal.h>
 #include <gasnet_core_internal.h>
+#include <gasnet_core_list.h>
 #include <gasnet_extended_internal.h>
 
 #include <psm.h>
