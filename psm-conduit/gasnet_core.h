@@ -1,6 +1,5 @@
-/*   $Source: /var/local/cvs/gasnet/template-conduit/gasnet_core.h,v $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/portals4-conduit/gasnet_core.h $
  *     $Date: 2013/07/30 07:39:27 $
- * $Revision: 1.28 $
  * Description: GASNet header for psm conduit core
  * Copyright (c) 2013-2015 Intel Corporation. All rights reserved.
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>

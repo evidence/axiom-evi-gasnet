@@ -1,7 +1,6 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-#   $Source: /var/local/cvs/gasnet/template-conduit/Makefile.am,v $
+#   $Source: bitbucket.org:berkeleylab/gasnet.git/psm-conduit/Makefile.am $
 #     $Date: 2010/06/26 21:14:00 $
-# $Revision: 1.36 $
 # Description: Makefile for GASNet psm conduit
 # Copyright (c) 2014 Intel Corporation. All rights reserved.
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>

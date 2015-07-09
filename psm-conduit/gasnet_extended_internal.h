@@ -1,4 +1,4 @@
-/*   $Source: bitbucket.org:berkeleylab/gasnet.git/extended-ref/gasnet_extended_internal.h $
+/*   $Source: bitbucket.org:berkeleylab/gasnet.git/psm-conduit/gasnet_extended_internal.h $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright (c) 2015 Intel Corporation. All rights reserved.
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
