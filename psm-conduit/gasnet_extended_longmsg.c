@@ -79,7 +79,7 @@ static int gasnete_get_transfer(void)
 }
 
 
-__cold
+GASNETI_COLD
 int gasnete_long_msg_init(void)
 {
     int i;
@@ -116,7 +116,7 @@ int gasnete_long_msg_init(void)
     return GASNET_OK;
 }
 
-__hot
+GASNETI_HOT
 void gasnete_post_pending_mq_ops(void)
 {
     gasnetc_item_t *head;
@@ -163,7 +163,7 @@ void gasnete_post_pending_mq_ops(void)
 }
 
 /* This routine assumes that psm_poll() has recently been called. */
-__hot
+GASNETI_HOT
 void gasnete_finish_mq_reqs(void)
 {
     psm_error_t ret;

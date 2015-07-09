@@ -10,7 +10,7 @@
 static int64_t gasnetc_rcv_thread_rate = 1000;
 
 
-__cold
+GASNETI_COLD
 void gasnetc_do_exit(void)
 {
     {  /* ensure only one thread ever continues past this point */
@@ -25,7 +25,7 @@ void gasnetc_do_exit(void)
     gasneti_killmyprocess(gasnetc_psm_state.exit_code);
 }
 
-__hot
+GASNETI_HOT
 extern int gasnetc_AMPoll(void)
 {
     int ret;
@@ -60,7 +60,7 @@ extern int gasnetc_AMPoll(void)
     return GASNET_OK;
 }
 
-__hot
+GASNETI_HOT
 void *gasnetc_progress_thread(void * arg)
 {
     char* env_val;
@@ -101,7 +101,7 @@ void *gasnetc_progress_thread(void * arg)
 }
 
 
-__cold
+GASNETI_COLD
 int gasnetc_progress_thread_init(void)
 {
     pthread_t gasnetc_pthread;

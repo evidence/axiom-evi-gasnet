@@ -77,7 +77,7 @@ int gasnete_handler_long_get(psm_am_token_t token,
    ==============
    */
 /* called at startup to check configuration sanity */
-__cold
+GASNETI_COLD
 static void gasnetc_check_config(void) {
     gasneti_check_config_preinit();
 
@@ -85,7 +85,7 @@ static void gasnetc_check_config(void) {
      * and/or segment sizes */
 }
 
-__cold
+GASNETI_COLD
 static void gasnetc_bootstrapBarrier(void) {
     /* (###) add code here to implement an external barrier
        this barrier should not rely on AM or the GASNet API because it's used
@@ -99,7 +99,7 @@ static void gasnetc_bootstrapBarrier(void) {
 }
 
 
-__cold
+GASNETI_COLD
 static int gasneti_bootstrapInit(
     int *argc_p, char ***argv_p,
     gasnet_node_t *nodes_p,
@@ -157,7 +157,7 @@ static int gasneti_bootstrapInit(
 }
 
 
-__cold
+GASNETI_COLD
 static int gasnetc_init(int *argc, char ***argv) {
     uint32_t res;
     psm_error_t ret;
@@ -389,7 +389,7 @@ static int gasnetc_init(int *argc, char ***argv) {
 
 
 /* ------------------------------------------------------------------------------------ */
-__cold
+GASNETI_COLD
 extern int gasnet_init(int *argc, char ***argv) {
     int retval = gasnetc_init(argc, argv);
     if (retval != GASNET_OK) GASNETI_RETURN(retval);
@@ -402,7 +402,7 @@ extern int gasnet_init(int *argc, char ***argv) {
 
 static char checkuniqhandler[256] = { 0 };
 
-__cold
+GASNETI_COLD
 static int gasnetc_reghandlers(gasnet_handlerentry_t *table, int numentries,
         int lowlimit, int highlimit,
         int dontcare, int *numregistered) {
@@ -601,7 +601,7 @@ int gasnetc_psm_request_barrier_all(int value)
 
 
 /* -------------------------------------------------------------------------- */
-__cold
+GASNETI_COLD
 extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
         uintptr_t segsize, uintptr_t minheapoffset) {
     void *segbase = NULL;
@@ -876,14 +876,14 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 static int gasnetc_exit_in_progress = 0;
 
 #if HAVE_ON_EXIT
-__cold
+GASNETI_COLD
 static void gasnetc_on_exit(int exitcode, void *arg) {
     if(gasnetc_exit_in_progress == 0) {
         gasnetc_exit(exitcode);
     }
 }
 #else
-__cold
+GASNETI_COLD
 static void gasnetc_atexit(void) {
     if(gasnetc_exit_in_progress == 0) {
         gasnetc_exit(0);
@@ -891,7 +891,7 @@ static void gasnetc_atexit(void) {
 }
 #endif
 
-__cold
+GASNETI_COLD
 extern void gasnetc_exit(int exitcode) {
     int i;
     psm_amarg_t psm_args;
@@ -1460,7 +1460,7 @@ extern void gasnetc_resume_interrupts(void) {
    ==================
    */
 #if !GASNETC_NULL_HSL
-__cold
+GASNETI_COLD
 extern void gasnetc_hsl_init   (gasnet_hsl_t *hsl) {
     GASNETI_CHECKATTACH();
     gasneti_mutex_init(&(hsl->lock));
@@ -1471,7 +1471,7 @@ extern void gasnetc_hsl_init   (gasnet_hsl_t *hsl) {
 #endif
 }
 
-__cold
+GASNETI_COLD
 extern void gasnetc_hsl_destroy(gasnet_hsl_t *hsl) {
     GASNETI_CHECKATTACH();
     gasneti_mutex_destroy(&(hsl->lock));

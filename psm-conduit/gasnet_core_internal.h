@@ -18,13 +18,6 @@
 #include <psm2_mq.h>
 
 
-/* These macros are used to separate performance-critical (hot) code paths from
-   infrequent (cold) paths such as initialization.  Doing so helps the compiler
-   optimize code and reduces the affects of I$ misses due to code layout. */
-#define __hot __attribute__((hot))
-#define __cold __attribute__((cold))
-
-
 /*  whether or not to use spin-locking for HSL's */
 #define GASNETC_HSL_SPINLOCK 1
 
@@ -350,7 +343,7 @@ typedef struct _gasnetc_token {
    strikes a balance between these two tradeoffs.  Informal testing resulted in
    the choice of once every 32 calls.
 */
-__hot
+GASNETI_HOT
 static inline
 void gasnetc_psm_poll_periodic(void)
 {
@@ -364,7 +357,8 @@ void gasnetc_psm_poll_periodic(void)
 
 int gasnetc_progress_thread_init(void);
 
-void gasnetc_do_exit(void) __attribute__((noreturn, cold));
+GASNETI_COLD GASNETI_NORETURN
+void gasnetc_do_exit(void);
 
 int gasnete_long_msg_init(void);
 

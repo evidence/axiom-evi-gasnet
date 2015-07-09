@@ -287,7 +287,7 @@ void gasnete_iop_free(gasnete_iop_t *iop) {
   ==============
 */
 /* called at startup to check configuration sanity */
-__cold
+GASNETI_COLD
 static void gasnete_check_config(void) {
   gasneti_check_config_postattach();
 
@@ -299,7 +299,7 @@ static void gasnete_check_config(void) {
   gasneti_assert_always(gasnet_AMMaxLongReply() <= (size_t)0xffffffff);
 }
 
-__cold
+GASNETI_COLD
 extern void gasnete_init(void) {
   GASNETI_UNUSED_UNLESS_DEBUG
   static int firstcall = 1;
