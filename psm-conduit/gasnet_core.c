@@ -37,6 +37,9 @@ static void gasnetc_atexit(void);
 
 gasneti_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS]; /* handler table (recommended impl) */
 
+size_t gasnetc_psm_max_request_len;
+size_t gasnetc_psm_max_reply_len;
+
 gasnetc_psm_state_t gasnetc_psm_state;
 
 
@@ -291,8 +294,8 @@ static int gasnetc_init(int *argc, char ***argv) {
             GASNETI_RETURN_ERRR(NOT_INIT, s);
         }
 
-        gasnetc_psm_state.max_request_len = params.max_request_short;
-        gasnetc_psm_state.max_reply_len = params.max_reply_short;
+        gasnetc_psm_max_request_len = params.max_request_short;
+        gasnetc_psm_max_reply_len = params.max_reply_short;
     }
 
     {
@@ -949,30 +952,6 @@ extern void gasnetc_exit(int exitcode) {
 
     gasnetc_psm_state.exit_code = exitcode;
     gasnetc_do_exit();
-}
-
-
-/* -------------------------------------------------------------------------- */
-/*
-   Active Message Size Limits
-   ==========================
-   */
-
-extern size_t gasnet_AMMaxMedium(void)
-{
-    return gasnetc_psm_state.max_request_len;
-}
-
-
-extern size_t gasnet_AMMaxLongRequest(void)
-{
-    return gasnetc_psm_state.max_request_len;
-}
-
-
-extern size_t gasnet_AMMaxLongReply(void)
-{
-    return gasnetc_psm_state.max_request_len;
 }
 
 

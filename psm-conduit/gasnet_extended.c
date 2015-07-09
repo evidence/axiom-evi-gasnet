@@ -547,7 +547,7 @@ int gasnete_handler_get_request(psm_am_token_t token,
        args[1].u32w0 is the initiator's packed getreq handle (return it back)
        args[1].u32w1 is the data length (one MTU max) */
     gasneti_assert(nargs == 2);
-    gasneti_assert(args[1].u32w1 <= gasnetc_psm_state.max_reply_len);
+    gasneti_assert(args[1].u32w1 <= gasnetc_psm_max_reply_len);
 
     /* Return the second argument as-is back to the initiator. */
     ret = psm_am_reply_short(token,
@@ -601,7 +601,7 @@ static void gasnete_put_nbi_inner (gasnet_node_t node, void *dest, void *src,
     gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
     gasnete_iop_t * const op = mythread->current_iop;
 
-    size_t mtu_size = gasnetc_psm_state.max_request_len;
+    size_t mtu_size = gasnetc_psm_max_request_len;
     size_t bytes_remaining = nbytes;
     uintptr_t src_addr = (uintptr_t)src;
     uintptr_t dest_addr = (uintptr_t)dest;
@@ -671,7 +671,7 @@ extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, siz
     gasnete_iop_t * const op = mythread->current_iop;
     uintptr_t src_addr = (uintptr_t)src;
     uintptr_t dest_addr = (uintptr_t)dest;
-    size_t mtu_size = gasnetc_psm_state.max_reply_len;
+    size_t mtu_size = gasnetc_psm_max_reply_len;
     size_t bytes_remaining = nbytes;
     psm_amarg_t args[2];
     gasnete_getreq_t* req;
@@ -759,7 +759,7 @@ extern gasnet_handle_t gasnete_put_nb_inner(gasnet_node_t node, void *dest,
                                void *src, size_t nbytes GASNETE_THREAD_FARG)
 {
     gasnete_eop_t* op = gasnete_eop_new(GASNETE_MYTHREAD);
-    size_t mtu_size = gasnetc_psm_state.max_request_len;
+    size_t mtu_size = gasnetc_psm_max_request_len;
     size_t bytes_remaining = nbytes;
     uintptr_t src_addr = (uintptr_t)src;
     uintptr_t dest_addr = (uintptr_t)dest;
@@ -836,7 +836,7 @@ extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void
     gasneti_assert(node >= 0 && node < gasneti_nodes);
 
     op = gasnete_eop_new(GASNETE_MYTHREAD);
-    mtu_size = gasnetc_psm_state.max_reply_len;
+    mtu_size = gasnetc_psm_max_reply_len;
 
     if(nbytes >= gasnetc_psm_state.long_msg_threshold) {
         gasnete_get_long(dest, node, src, nbytes,

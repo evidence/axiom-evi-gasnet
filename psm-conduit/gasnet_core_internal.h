@@ -289,8 +289,6 @@ typedef struct _gasnetc_psm_state {
 
     gasneti_atomic_t psm_lock;
 
-    uint32_t max_request_len;
-    uint32_t max_reply_len;
     int periodic_poll;
     uint32_t long_msg_threshold;
 

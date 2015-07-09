@@ -134,10 +134,13 @@ extern int  gasnetc_hsl_trylock(gasnet_hsl_t *hsl) GASNETI_WARN_UNUSED_RESULT;
    ==========================
 */
 
+extern size_t gasnetc_psm_max_request_len;
+extern size_t gasnetc_psm_max_reply_len;
+
 #define gasnet_AMMaxArgs()          ((size_t)16)
-extern size_t gasnet_AMMaxMedium(void);
-extern size_t gasnet_AMMaxLongRequest(void);
-extern size_t gasnet_AMMaxLongReply(void);
+#define gasnet_AMMaxMedium()        ((size_t)gasnetc_psm_max_request_len)
+#define gasnet_AMMaxLongRequest()   ((size_t)gasnetc_psm_max_request_len)
+#define gasnet_AMMaxLongReply()     ((size_t)gasnetc_psm_max_reply_len)
 
 /* ------------------------------------------------------------------------------------ */
 /*
