@@ -88,8 +88,6 @@ int gasnete_long_msg_init(void)
 
     threshold = gasneti_getenv_int_withdefault(
             "GASNET_LONG_MSG_THRESHOLD", threshold, 0);
-    gasneti_envint_display("GASNET_LONG_MSG_THRESHOLD",
-            threshold, threshold == 16384, 0);
     gasnetc_psm_state.long_msg_threshold = threshold;
 
     gasnetc_list_init(&gasnetc_psm_state.avail_mq_ops, GASNETE_MQOPS_INIT,

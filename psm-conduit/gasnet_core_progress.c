@@ -114,16 +114,12 @@ int gasnetc_progress_thread_init(void)
 
     int enabled =
         gasneti_getenv_yesno_withdefault("GASNET_RCV_THREAD", 1);
-    gasneti_envint_display("GASNET_RCV_THREAD", enabled, enabled, 0);
 
     if(!enabled)
         return GASNET_OK;
 
     gasnetc_rcv_thread_rate = gasneti_getenv_int_withdefault(
             "GASNET_RCV_THREAD_RATE", gasnetc_rcv_thread_rate, 0);
-    gasneti_envint_display("GASNET_RCV_THREAD_RATE",
-            gasnetc_rcv_thread_rate,
-            gasnetc_rcv_thread_rate == 1000, 0);
 
 
     pthread_attr_init(&attr);
@@ -134,11 +130,6 @@ int gasnetc_progress_thread_init(void)
             "GASNET_THREAD_STACK_MIN", 0, 1);
     env_stack_pad = gasneti_getenv_int_withdefault(
             "GASNET_THREAD_STACK_PAD", 0, 1);
-
-    gasneti_envint_display("GASNET_THREAD_STACK_MIN", env_stack_min,
-            env_stack_min == 0, 1);
-    gasneti_envint_display("GASNET_THREAD_STACK_PAD", env_stack_pad,
-            env_stack_pad == 0, 1);
 
     stacksize = MAX(env_stack_min, env_stack_pad + def_stacksize);
 
