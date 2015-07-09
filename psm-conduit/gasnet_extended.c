@@ -31,19 +31,6 @@ void gasnete_get_long (void *dest, gasnet_node_t node, void *src,
   in their gasnet_core_fwd.h
 */
 
-
-/* the size threshold where gets/puts stop using medium messages and start using longs */
-/* AWF - setting this to 0 appears to break gasnet_testinternal test..
-   something in the get reference implementation. */
-#ifndef GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD
-#define GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD   gasnet_AMMaxMedium()
-#endif
-
-/* true if we should try to use Long replies in gets (only possible if dest falls in segment) */
-#ifndef GASNETE_USE_LONG_GETS
-#define GASNETE_USE_LONG_GETS 1
-#endif
-
 #define GASNETE_GETREQS_INCR 256
 
 /* -------------------------------------------------------------------------- */
@@ -291,7 +278,6 @@ GASNETI_COLD
 static void gasnete_check_config(void) {
   gasneti_check_config_postattach();
 
-  gasneti_assert_always(GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD <= gasnet_AMMaxMedium());
   gasneti_assert_always(gasnete_eopaddr_isnil(EOPADDR_NIL));
 
   /* The next two ensure nbytes in AM-based Gets will fit in handler_arg_t (bug 2770) */
@@ -594,7 +580,6 @@ int gasnete_handler_get_reply(psm_am_token_t token,
   source tries to synchronize
 */
 
-#if !GASNETE_USING_REF_EXTENDED_PUT || !GASNETE_USING_REF_EXTENDED_PUT_BULK
 static void gasnete_put_nbi_inner (gasnet_node_t node, void *dest, void *src,
                              size_t nbytes GASNETE_THREAD_FARG)
 {
@@ -646,26 +631,20 @@ static void gasnete_put_nbi_inner (gasnet_node_t node, void *dest, void *src,
     op->initiated_put_cnt++;
     gasnetc_psm_poll_periodic();
 }
-#endif
 
-#if !GASNETE_USING_REF_EXTENDED_PUT
 extern void gasnete_put_nbi (gasnet_node_t node, void *dest, void *src,
                              size_t nbytes GASNETE_THREAD_FARG)
 {
     GASNETI_CHECKPSHM_PUT(ALIGNED,V);
     gasnete_put_nbi_inner(node, dest, src, nbytes GASNETE_THREAD_PASS);
 }
-#endif /* GASNETE_USING_REF_EXTENDED_PUT */
 
-#if !GASNETE_USING_REF_EXTENDED_PUT_BULK
 extern void gasnete_put_nbi_bulk (gasnet_node_t node, void *dest, void *src,
                               size_t nbytes GASNETE_THREAD_FARG) {
     GASNETI_CHECKPSHM_PUT(UNALIGNED,V);
     gasnete_put_nbi_inner(node, dest, src, nbytes GASNETE_THREAD_PASS);
 }
-#endif /* GASNETE_USING_REF_EXTENDED_PUT_BULK */
 
-#if !GASNETE_USING_REF_EXTENDED_GET_BULK
 extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG) {
     gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
     gasnete_iop_t * const op = mythread->current_iop;
@@ -735,10 +714,6 @@ extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, siz
     op->initiated_get_cnt++;
     gasnetc_psm_poll_periodic();
 }
-#endif /* GASNETE_USING_REF_EXTENDED_GET_BULK */
-
-
-
 
 
 /*
@@ -754,7 +729,6 @@ extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, siz
      gasnete_memset_nb
 */
 
-#if !GASNETE_USING_REF_EXTENDED_PUT || !GASNETE_USING_REF_EXTENDED_PUT_BULK
 extern gasnet_handle_t gasnete_put_nb_inner(gasnet_node_t node, void *dest,
                                void *src, size_t nbytes GASNETE_THREAD_FARG)
 {
@@ -803,25 +777,19 @@ extern gasnet_handle_t gasnete_put_nb_inner(gasnet_node_t node, void *dest,
     gasnetc_psm_poll_periodic();
     return (gasnet_handle_t)op;
 }
-#endif /* GASNETE_USING_REF_EXTENDED_PUT */
 
-#if !GASNETE_USING_REF_EXTENDED_PUT
 extern gasnet_handle_t gasnete_put_nb(gasnet_node_t node, void *dest, void *src, size_t nbytes GASNETE_THREAD_FARG)
 {
     GASNETI_CHECKPSHM_PUT(ALIGNED,H);
     return gasnete_put_nb_inner(node, dest, src, nbytes GASNETE_THREAD_PASS);
 }
-#endif /* GASNETE_USING_REF_EXTENDED_PUT */
 
-#if !GASNETE_USING_REF_EXTENDED_PUT_BULK
 extern gasnet_handle_t gasnete_put_nb_bulk (gasnet_node_t node, void *dest, void *src, size_t nbytes GASNETE_THREAD_FARG) {
     GASNETI_CHECKPSHM_PUT(UNALIGNED,H);
     return gasnete_put_nb_inner(node, dest, src, nbytes GASNETE_THREAD_PASS);
 }
-#endif /* GASNETE_USING_REF_EXTENDED_PUT_BULK */
 
 
-#if !GASNETE_USING_REF_EXTENDED_GET_BULK
 extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG) {
     gasnete_eop_t* op;
     uintptr_t src_addr = (uintptr_t)src;
@@ -892,7 +860,6 @@ extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void
     gasnetc_psm_poll_periodic();
     return (gasnet_handle_t)op;
 }
-#endif /* GASNETE_USING_REF_EXTENDED_GET_BULK */
 
 /* -------------------------------------------------------------------------- */
 /*
