@@ -27,6 +27,7 @@ CONDUITMODE_DIST_SUBDIRS =    	\
 	udp-conduit  		\
 	ibv-conduit 		\
 	mxm-conduit		\
+	psm-conduit		\
 	portals4-conduit        \
 	gemini-conduit          \
 	aries-conduit           \
