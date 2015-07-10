@@ -1,5 +1,4 @@
 /*   $Source: bitbucket.org:berkeleylab/gasnet.git/psm-conduit/gasnet_core.c $
- *     $Date: 2013/04/23 21:30:04 $
  * Description: GASNet psm conduit Implementation
  * Copyright (c) 2013-2015 Intel Corporation. All rights reserved.
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>

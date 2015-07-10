@@ -1,5 +1,4 @@
 /*   $Source: bitbucket.org:berkeleylab/gasnet.git/psm-conduit/gasnet_extended_fwd.h $
- *     $Date: 2012/09/14 01:06:47 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright (c) 2013-2015 Intel Corporation. All rights reserved.
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>

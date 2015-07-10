@@ -1,5 +1,4 @@
 /*   $Source: bitbucket.org:berkeleylab/gasnet.git/psm-conduit/gasnet_core_internal.h $
- *     $Date: 2009/09/18 23:33:48 $
  * Description: GASNet psm conduit header for internal definitions in Core API
  * Copyright (c) 2013-2015 Intel Corporation. All rights reserved.
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>

@@ -1,5 +1,4 @@
 /*   $Source: bitbucket.org:berkeleylab/gasnet.git/psm-conduit/gasnet_extended.c $
- *     $Date: 2013/06/30 22:27:14 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright (c) 2013-2015 Intel Corporation. All rights reserved.
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>

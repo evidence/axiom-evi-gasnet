@@ -1,5 +1,4 @@
 /*   $Source: bitbucket.org:berkeleylab/gasnet.git/psm-conduit/gasnet_core_fwd.h $
- *     $Date: 2012/08/10 23:04:20 $
  * Description: GASNet header for psm conduit core (forward definitions)
  * Copyright (c) 2013-2015 Intel Corporation. All rights reserved.
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
