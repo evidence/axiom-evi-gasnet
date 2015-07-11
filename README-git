@@ -325,7 +325,7 @@ using this approach it is helpful to suffix the names of the new branches
 with either a sequence number or the date of the rebase.  Example:
     $ git checkout -b feature/pub-example-2 feature/pub-example
     $ git rebase develop
-    $ git push origin :feature/pub-example-2
+    $ git push -u origin feature/pub-example-2
 Of course you will want to delete all of these branches when the feature is
 finally merged into 'develop', if not sooner than that.
 
