@@ -616,7 +616,7 @@ Note that "finish" requires "mg", defined above.
 
 + "git switch <name>"
 In the same spirit as start and finish, this is a short-cut for checking
-out a contentionally-named feature branch with less typing:
+out a conventionally-named feature branch with less typing:
     switch = !sh -c 'git checkout feature/$1' --
 
 
