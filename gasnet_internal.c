@@ -1667,7 +1667,9 @@ ssize_t gasneti_getline(char **buf_p, size_t *n_p, FILE *fp) {
       memcpy(ret, ptr, MIN(nbytes, sz));
       _gasneti_free(ptr, curloc);
     }
-    _gasneti_memcheck(ret,curloc,0);
+    if (sz) {
+      _gasneti_memcheck(ret,curloc,0);
+    }
     return ret;
   }
   extern void _gasneti_leak(void *ptr, const char *curloc) {
