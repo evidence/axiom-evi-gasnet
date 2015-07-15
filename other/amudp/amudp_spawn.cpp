@@ -20,6 +20,7 @@
   #include <sys/prctl.h>
   extern char **environ; 
 #endif
+#include <string.h>
 
 amudp_spawnfn_desc_t const AMUDP_Spawnfn_Desc[] = {
   { 'S',  "Spawn jobs using ssh remote shells", 
@@ -30,6 +31,89 @@ amudp_spawnfn_desc_t const AMUDP_Spawnfn_Desc[] = {
     (amudp_spawnfn_t)AMUDP_SPMDCustomSpawn },
   { '\0', NULL, (amudp_spawnfn_t)NULL }
 };
+
+/* Utility functions */
+// Apply single quotes to prevent shell from evaluating special chars
+char *quote_for_remote(const char *arg) {
+  const char *p;
+  int c;
+
+  for (p=arg, c=0; NULL != (p = strchr(p, '\'')); ++c, ++p) { /*empty*/ }
+
+  size_t old_len = strlen(arg);
+  size_t new_len = old_len + 2 + 3 * c;
+  char *result = (char *)AMUDP_malloc(1 + new_len);
+  result[0] = '\'';
+  result[1] = '\0';
+  char *end = result+1;
+
+  if (c) {
+    char *dup = (char *)AMUDP_malloc(1 + old_len);
+    p = strcpy(dup, arg);
+    while (c--) {
+      char *q = strchr((char *)p, '\'');
+      *q = '\0';
+      strcpy(end, p);       end += q-p;
+      strcpy(end, "'\\''"); end += 4;
+      p = q + 1;
+    }
+    AMUDP_free(dup);
+  } else {
+    p = arg;
+  }
+  strcpy(end, p);
+
+  AMUDP_assert(strlen(result) == new_len-1);
+  result[new_len-1] = '\'';
+  result[new_len]   = '\0';
+
+  return result;
+}
+// Apply quotes to protect against the shell spawned by system()
+// Note this is for use *inside* the double quotes we place around a command run by system.
+// shell docs tells us:
+//   Inside double-quotes, '$' and '`' remain special unconditionally,
+//   and '\' remains special only if followed by another special
+char *quote_for_local(const char *arg) {
+  const char specials[] = "$`\\\"";
+
+  char *tmp = quote_for_remote(arg);
+
+  // count specials (assume every backslash is special)
+  const char *p;
+  int c;
+  for (p=tmp, c=0; NULL != (p = strpbrk(p, specials)); ++c, ++p) { /*empty*/ }
+
+  if (!c) return tmp; // Nothing to protect from local shell
+
+  size_t old_len = strlen(tmp);
+  size_t new_len = old_len + c;
+  char *result = (char *)AMUDP_malloc(1 + new_len);
+  char *end = result;
+
+  if (c) {
+    char *q, *dup = (char *)AMUDP_malloc(1 + old_len);
+    p = strcpy(dup, tmp);
+    while (NULL != (q = strpbrk((char *)p, specials))) {
+      size_t len = q-p;
+      strncpy(end, p, len);   end += len;
+      end[0] = '\\';          end += 1;
+      if (q[0] != '\\' || strchr(specials, q[1])) {
+        end[0] = q[0];        end += 1;
+      }
+      p = q + 1;
+    }
+    AMUDP_free(dup);
+  } else {
+    p = tmp;
+  }
+  strcpy(end, p);
+  AMUDP_free(tmp);
+
+  AMUDP_assert(strlen(result) <= new_len);
+
+  return result;
+}
 
 /* ------------------------------------------------------------------------------------ 
  *  spawn jobs on local machine
@@ -207,8 +291,11 @@ int AMUDP_SPMDSshSpawn(int nproc, int argc, char **argv, char **extra_env) {
       cmd1_sz += strlen(extra_env[i]) + 3; // "'%s' "
     }
   }
+  char **quoted_args = (char**)AMUDP_malloc(argc * sizeof(char*));
   for (i = 0; i < argc; i++) {
-    cmd1_sz += strlen(argv[i]) + 3; /* "'%s' " */
+    AMUDP_assert(argv[i]);
+    quoted_args[i] = quote_for_local(argv[i]);
+    cmd1_sz += strlen(quoted_args[i]) + 1; // +1 for trailing space
   }
   cmd1 = (char *)AMUDP_malloc(cmd1_sz);
   { char *tmp = cmd1;
@@ -219,9 +306,11 @@ int AMUDP_SPMDSshSpawn(int nproc, int argc, char **argv, char **extra_env) {
       }
     }
     for (i = 0; i < argc; i++) {
-      AMUDP_assert(argv[i]);
-      tmp += sprintf(tmp, "'%s' ", argv[i]);
+      AMUDP_assert(quoted_args[i]);
+      tmp += sprintf(tmp, "%s ", quoted_args[i]);
+      AMUDP_free(quoted_args[i]);
     }
+    AMUDP_free(quoted_args);
     AMUDP_assert(!argv[i]);
     *tmp = '\0';
     AMUDP_assert(strlen(cmd1) == cmd1_sz - 1);
@@ -392,9 +481,10 @@ int AMUDP_SPMDCustomSpawn(int nproc, int argc, char **argv, char **extra_env) {
     }
     for (i = 0; i < argc; i++) {
       AMUDP_assert(argv[i] != NULL);
-      strcat(temp,"'");
-      strcat(temp,argv[i]);
-      strcat(temp,"' ");
+      char *qarg = quote_for_local(argv[i]);
+      strcat(temp,qarg);
+      strcat(temp," ");
+      AMUDP_free(qarg);
     }
     AMUDP_assert(!argv[i]);
 
