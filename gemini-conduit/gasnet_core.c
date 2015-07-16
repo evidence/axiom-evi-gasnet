@@ -128,13 +128,13 @@ static int gasnetc_bootstrapInit(int *argc, char ***argv) {
   #endif
   #if 1   /* Option 2) If GASNet is initialized first enable this: */
   { char cookie[10];
-    snprintf(cookie, "%u", gasnetc_cookie + 1);
+    sprintf(cookie, "%u", gasnetc_cookie + 1);
     gasnett_setenv("PMI_GNI_COOKIE", cookie);
   }
   #endif
   #if 0   /* Option 3) Copy this variant into your code between the initializations */
   { char cookie[10];
-    snprintf(cookie, "%u", (1 + atoi(getenv("PMI_GNI_COOKIE"))));
+    sprintf(cookie, "%u", (1 + atoi(getenv("PMI_GNI_COOKIE"))));
     gasnett_setenv("PMI_GNI_COOKIE", cookie);
   }
   #endif
