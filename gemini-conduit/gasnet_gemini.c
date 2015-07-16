@@ -216,7 +216,7 @@ enum notify_type {
 
 /*------ Convience functions for printing error messages ------*/
 
-static const char *gni_return_string(gni_return_t status)
+static const char *gasnetc_gni_rc_string(gni_return_t status)
 {
   if (status == GNI_RC_SUCCESS) return ("GNI_RC_SUCCESS");
   if (status == GNI_RC_NOT_DONE) return ("GNI_RC_NOT_DONE");
@@ -362,7 +362,7 @@ first:
       return 0;
     } else {
       /* Unknown failure is fatal */
-      gasnetc_GNIT_Abort("MemRegister failed with %s", gni_return_string(status));
+      gasnetc_GNIT_Abort("MemRegister failed with %s", gasnetc_gni_rc_string(status));
       break; /* NOT REACHED */
     }
   }
@@ -424,7 +424,7 @@ static uint32_t *gather_nic_addresses(void)
     gasnetc_dev_id  = 0;
     status = GNI_CdmGetNicAddress(gasnetc_dev_id, &gasnetc_address, &cpu_id);
     if (status != GNI_RC_SUCCESS) {
-      gasnetc_GNIT_Abort("GNI_CdmGetNicAddress failed: %s", gni_return_string(status));
+      gasnetc_GNIT_Abort("GNI_CdmGetNicAddress failed: %s", gasnetc_gni_rc_string(status));
     }
   } else {
     /* use gasnetc_address taken from the environment */
@@ -560,7 +560,7 @@ void gasnetc_init_segment(void *segment_start, size_t segment_size)
       if (status == GNI_RC_SUCCESS) break;
       if (status == GNI_RC_ERROR_RESOURCE) {
 	gasnetc_GNIT_Log("MemRegister segment fault %d at  %p %lx, code %s", 
-		count, segment_start, segment_size, gni_return_string(status));
+		count, segment_start, segment_size, gasnetc_gni_rc_string(status));
 	count += 1;
 	if (count >= 10) break;
       } else {
@@ -668,7 +668,7 @@ void  gasnetc_create_parallel_domain(gasnete_threadidx_t tidx)
      if (status == GNI_RC_SUCCESS) break;
      if (status == GNI_RC_ERROR_RESOURCE) {
          gasnetc_GNIT_Log("MemRegister segment fault %d at  %p %lx, code %s",
-                    count, gasneti_seginfo[gasneti_mynode].addr, gasneti_seginfo[gasneti_mynode].size, gni_return_string(status));
+                    count, gasneti_seginfo[gasneti_mynode].addr, gasneti_seginfo[gasneti_mynode].size, gasnetc_gni_rc_string(status));
          count += 1;
          if (count >= 10) break;
       } else {
@@ -813,7 +813,7 @@ uintptr_t gasnetc_init_messaging(void)
   i = gasnetc_log2_remote + 2*remote_nodes*am_maxcredit; /* 2 = Request + Reply */
   status = GNI_CqCreate(nic_handle,i,0,GNI_CQ_NOBLOCK,NULL,NULL,&smsg_cq_handle);
   if (status != GNI_RC_SUCCESS) {
-    gasnetc_GNIT_Abort("GNI_CqCreate returned error %s", gni_return_string(status));
+    gasnetc_GNIT_Abort("GNI_CqCreate returned error %s", gasnetc_gni_rc_string(status));
   }
   
   /*
@@ -849,7 +849,7 @@ uintptr_t gasnetc_init_messaging(void)
       if (status == GNI_RC_SUCCESS) break;
       if (status == GNI_RC_ERROR_RESOURCE) {
 	gasnetc_GNIT_Log("MemRegister smsg fault %d at  %p %lx, code %s", 
-		count, am_mmap_ptr, am_mmap_bytes, gni_return_string(status));
+		count, am_mmap_ptr, am_mmap_bytes, gasnetc_gni_rc_string(status));
 	count += 1;
 	if (count >= 10) break;
       } else {
@@ -858,7 +858,7 @@ uintptr_t gasnetc_init_messaging(void)
     }
   }
   if (status != GNI_RC_SUCCESS) {
-    gasnetc_GNIT_Abort("GNI_MemRegister returned error %s",gni_return_string(status));
+    gasnetc_GNIT_Abort("GNI_MemRegister returned error %s",gasnetc_gni_rc_string(status));
   }
 
   local_reply_base = am_mmap_ptr;
@@ -982,7 +982,7 @@ void gasnetc_shutdown(void)
     if_pt (have_segment) {
       status = GNI_MemDeregister(nic_handle, &DOMAIN_SPECIFIC_VAL(my_mem_handle));
       if_pf (status != GNI_RC_SUCCESS) {
-        gasnetc_GNIT_Log("MemDeregister(segment) failed with %s", gni_return_string(status));
+        gasnetc_GNIT_Log("MemDeregister(segment) failed with %s", gasnetc_gni_rc_string(status));
       }
     }
 
@@ -997,12 +997,12 @@ void gasnetc_shutdown(void)
 
       status = GNI_MemDeregister(nic_handle, &am_handle);
       if_pf (status != GNI_RC_SUCCESS) {
-        gasnetc_GNIT_Log("MemDeregister(smsg_mem) failed with %s", gni_return_string(status));
+        gasnetc_GNIT_Log("MemDeregister(smsg_mem) failed with %s", gasnetc_gni_rc_string(status));
       }
 
       status = GNI_CqDestroy(smsg_cq_handle);
       if_pf (status != GNI_RC_SUCCESS) {
-        gasnetc_GNIT_Log("CqDestroy(smsg_cq) failed with %s", gni_return_string(status));
+        gasnetc_GNIT_Log("CqDestroy(smsg_cq) failed with %s", gasnetc_gni_rc_string(status));
       }
 #if GASNETC_USE_MULTI_DOMAIN
     }
@@ -1011,18 +1011,18 @@ void gasnetc_shutdown(void)
     if (destination_cq_handle) {
       status = GNI_CqDestroy(destination_cq_handle);
       if_pf (status != GNI_RC_SUCCESS) {
-        gasnetc_GNIT_Log("CqDestroy(dest_cq) failed with %s", gni_return_string(status));
+        gasnetc_GNIT_Log("CqDestroy(dest_cq) failed with %s", gasnetc_gni_rc_string(status));
       }
     }
 
     status = GNI_CqDestroy(bound_cq_handle);
     if_pf (status != GNI_RC_SUCCESS) {
-      gasnetc_GNIT_Log("CqDestroy(bound_cq) failed with %s", gni_return_string(status));
+      gasnetc_GNIT_Log("CqDestroy(bound_cq) failed with %s", gasnetc_gni_rc_string(status));
     }
 
     status = GNI_CdmDestroy(cdm_handle);
     if_pf (status != GNI_RC_SUCCESS) {
-      gasnetc_GNIT_Log("CdmDestroy(bound_cq) failed with %s", gni_return_string(status));
+      gasnetc_GNIT_Log("CdmDestroy(bound_cq) failed with %s", gasnetc_gni_rc_string(status));
     }
 #if GASNETC_USE_MULTI_DOMAIN
   }
@@ -1089,7 +1089,7 @@ int gasnetc_send_am_common(peer_struct_t *peer, gni_post_descriptor_t *pd)
     }
 
     if_pf (status != GNI_RC_ERROR_RESOURCE) {
-      gasnetc_GNIT_Abort("PostFma for AM returned error %s", gni_return_string(status));
+      gasnetc_GNIT_Abort("PostFma for AM returned error %s", gasnetc_gni_rc_string(status));
     }
 
     if_pf (++trial == max_trials) {
@@ -1517,10 +1517,10 @@ gasnetc_post_descriptor_t *gasnetc_poll_bound_cq(GASNETC_DIDX_FARG_ALONE)
     status = GNI_GetCompleted(bound_cq_handle, event_data, &result);
     if_pf (status != GNI_RC_SUCCESS) {
       gasnetc_GNIT_Abort("GetCompleted(%p) failed %s",
-                         (void *) event_data, gni_return_string(status));
+                         (void *) event_data, gasnetc_gni_rc_string(status));
     }
   } else if (!gasnetc_shutdownInProgress) {
-    gasnetc_GNIT_Abort("bound CqGetEvent %s", gni_return_string(status));
+    gasnetc_GNIT_Abort("bound CqGetEvent %s", gasnetc_gni_rc_string(status));
   }
   GASNETC_UNLOCK_GNI();
 
@@ -1742,7 +1742,7 @@ size_t gasnetc_rdma_put_bulk(gasnet_node_t node,
 
   if_pf (status != GNI_RC_SUCCESS) {
     print_post_desc("Put", pd);
-    gasnetc_GNIT_Abort("Put failed with %s", gni_return_string(status));
+    gasnetc_GNIT_Abort("Put failed with %s", gasnetc_gni_rc_string(status));
   }
 
   return nbytes;
@@ -1822,7 +1822,7 @@ gasnetc_rdma_put_lc(gasnet_node_t node,
 
   if_pf (status != GNI_RC_SUCCESS) {
     print_post_desc("Put", pd);
-    gasnetc_GNIT_Abort("Put failed with %s", gni_return_string(status));
+    gasnetc_GNIT_Abort("Put failed with %s", gasnetc_gni_rc_string(status));
   }
 }
 
@@ -1859,7 +1859,7 @@ void gasnetc_rdma_put_buff(gasnet_node_t node,
 
   if_pf (status != GNI_RC_SUCCESS) {
     print_post_desc("Put", pd);
-    gasnetc_GNIT_Abort("Put failed with %s", gni_return_string(status));
+    gasnetc_GNIT_Abort("Put failed with %s", gasnetc_gni_rc_string(status));
   }
 }
 
@@ -1881,7 +1881,7 @@ void gasnetc_post_get(gni_ep_handle_t ep, gasnetc_post_descriptor_t *gpd)
 
   if_pf (status != GNI_RC_SUCCESS) {
     print_post_desc("Get", pd);
-    gasnetc_GNIT_Abort("Get failed with %s", gni_return_string(status));
+    gasnetc_GNIT_Abort("Get failed with %s", gasnetc_gni_rc_string(status));
   }
 }
 
@@ -2037,7 +2037,7 @@ int gasnetc_rdma_get_buff(gasnet_node_t node,
 
   if_pf (status != GNI_RC_SUCCESS) {
     print_post_desc("Get", pd);
-    gasnetc_GNIT_Abort("Get failed with %s", gni_return_string(status));
+    gasnetc_GNIT_Abort("Get failed with %s", gasnetc_gni_rc_string(status));
   }
 
   return pre;
