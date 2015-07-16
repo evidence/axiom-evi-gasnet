@@ -108,6 +108,37 @@ static int gasnetc_bootstrapInit(int *argc, char ***argv) {
   gasnetc_ptag    = (uint8_t)  atoi(getenv("PMI_GNI_PTAG"));
   gasnetc_cookie  = (uint32_t) atoi(getenv("PMI_GNI_COOKIE"));
 
+  /* In GASNet+MPI hybrid applications in each lib must have a distinct cookie.
+   * There are three choice:
+   * 1) If MPI is always initialized first, then enable the first variant below
+   *    and (re)build the GASNet library.
+   * 2) If GASNet is always initialized first, then enable the second variant
+   *    below and (re)build the GASNet library.
+   * 3) If you don't want a build of GASNet that assumes the order the two
+   *    libaries will be initialized, then clone the third variant into the
+   *    application, to run between the two initializations.
+   *
+   * NOTE: by default we have enabled "Option 2" which advances the cookie
+   * value in the environment after GASNet has read it.  In the event that
+   * MPI is initialized second, this probably "just works".  In the event
+   * that MPI is not used (a non-hybrid application) then this is harmless.
+   */
+  #if 0   /* Option 1) If MPI is initialized first enable this: */
+    gasnetc_cookie += 1;
+  #endif
+  #if 1   /* Option 2) If GASNet is initialized first enable this: */
+  { char cookie[10];
+    snprintf(cookie, "%u", gasnetc_cookie + 1);
+    gasnett_setenv("PMI_GNI_COOKIE", cookie);
+  }
+  #endif
+  #if 0   /* Option 3) Copy this variant into your code between the initializations */
+  { char cookie[10];
+    snprintf(cookie, "%u", (1 + atoi(getenv("PMI_GNI_COOKIE"))));
+    gasnett_setenv("PMI_GNI_COOKIE", cookie);
+  }
+  #endif
+
   /* As good a place as any for this: */
   if (0 == gasneti_mynode) {
     static const char *old_vars[][3] = {
