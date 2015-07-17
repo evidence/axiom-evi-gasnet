@@ -51,19 +51,21 @@ the desired mechanism:
 
 There are also implementations which are specifc to certain platforms:
 
-For Cray XE, XK and XC systems, PSHM-over-XPMEM is enabled automatically
-by the corresponding cross-configure scripts.  However, one can also
-optionally enable PSHM-over-XPMEM on an SGI Altix as follows:
+For Linux systems with libhugetlbfs and a hugetlbfs mount, there is also
+support for mmap()ed files on hugetlbfs, which can be enabled with:
+    HUGETLBFS: --enable-pshm --disable-pshm-posix --enable-pshm-hugetlbfs
+
+For Cray XE, XK and XC systems, PSHM-over-hugetlbfs is enabled automatically
+by the corresponding cross-configure scripts.  However, one can alternatively
+choose PSHM-over-XPMEM as follows:
+        XPMEM: --enable-pshm --disable-pshm-hugetlbfs --enable-pshm-xpmem
+
+One can also optionally enable PSHM-over-XPMEM on an SGI Altix as follows:
         XPMEM: --enable-pshm --disable-pshm-posix --enable-pshm-xpmem
 
 For BlueGene/Q, PSHM via the "common heap" is enabled automatically by
 the corresponding cross-configure scripts.  However, one can also use:
         GHEAP: --enable-pshm --disable-pshm-posix --enable-pshm-gheap
-
-For Linux systems with libhugetlbfs and a hugetlbfs mount, there is also
-experimental support for mmap()ed files on hugetlbfs, which can be
-enabled with:
-    HUGETLBFS: --enable-pshm --disable-pshm-posix --enable-pshm-hugetlbfs
 
 PSHM includes an environment variable for controlling use of memory for
 intra-memory AM traffic:
