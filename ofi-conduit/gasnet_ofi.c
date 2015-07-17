@@ -64,7 +64,9 @@ struct fi_msg *am_buff_msg;
 ofi_ctxt_t *am_buff_ctxt = NULL;
 
 static gasnetc_paratomic_t pending_rdma = gasnetc_paratomic_init(0);
+static gasnetc_paratomic_t pending_am = gasnetc_paratomic_init(0);
 static int rdma_empty_poll = 0;
+static int am_empty_poll = 0;
 
 #define OFI_CONDUIT_VERSION FI_VERSION(1, 0)
 #define NUM_CQ_ENTRIES 2
@@ -207,18 +209,23 @@ int gasnetc_ofi_init(int *argc, char ***argv,
   ret = fi_cq_open(ofi_domainfd, &cq_attr, &ofi_rdma_cqfd, NULL);
   if (GASNET_OK != ret) gasneti_fatalerror("fi_cq_open for rdma_eqfd failed: %d\n", ret);
 
-  /* Allocate a new completion queue for AM operations */
+  /* Allocate send/recv completion queues for AM operations */
   memset(&cq_attr, 0, sizeof(cq_attr));
   cq_attr.format    = FI_CQ_FORMAT_DATA;
-  ret = fi_cq_open(ofi_domainfd, &cq_attr, &ofi_am_cqfd, NULL);
-  if (GASNET_OK != ret) gasneti_fatalerror("fi_cq_open for am_eqfd failed: %d\n", ret);
+  ret = fi_cq_open(ofi_domainfd, &cq_attr, &ofi_am_scqfd, NULL);
+  if (GASNET_OK != ret) gasneti_fatalerror("fi_cq_open for am send cq faled: %d\n", ret);
+  ret = fi_cq_open(ofi_domainfd, &cq_attr, &ofi_am_rcqfd, NULL);
+  if (GASNET_OK != ret) gasneti_fatalerror("fi_cq_open for am recv cq failed: %d\n", ret);
 
   /* Bind CQs to endpoints */
   ret = fi_ep_bind(ofi_rdma_epfd, &ofi_rdma_cqfd->fid, FI_SEND);
   if (GASNET_OK != ret) gasneti_fatalerror("fi_ep_bind for rdma_cqfd to rdma_epfd failed: %d\n", ret);
 
-  ret = fi_ep_bind(ofi_am_epfd, &ofi_am_cqfd->fid, FI_SEND | FI_RECV);
-  if (GASNET_OK != ret) gasneti_fatalerror("fi_ep_bind for am_cqfd to am_epfd failed: %d\n", ret);
+  ret = fi_ep_bind(ofi_am_epfd, &ofi_am_scqfd->fid, FI_SEND);
+  if (GASNET_OK != ret) gasneti_fatalerror("fi_ep_bind for am_scqfd to am_epfd failed: %d\n", ret);
+
+  ret = fi_ep_bind(ofi_am_epfd, &ofi_am_rcqfd->fid, FI_RECV);
+  if (GASNET_OK != ret) gasneti_fatalerror("fi_ep_bind for am_rcqfd to am_epfd failed: %d\n", ret);
 
   /* Low-water mark for shared receive buffer */
   min_multi_recv = OFI_AM_MAX_DATA_LENGTH + offsetof(ofi_am_send_buf_t,data);
@@ -283,7 +290,7 @@ void gasnetc_ofi_exit(void)
   int ret = GASNET_OK;
   /* Drain up CQ before cancel the multi-recv requests */
   struct fi_cq_data_entry re = {0};
-  while(fi_cq_read(ofi_am_cqfd, (void *)&re, 1) != -FI_EAGAIN);
+  while(fi_cq_read(ofi_am_rcqfd, (void *)&re, 1) != -FI_EAGAIN);
 
   if(am_buff_ctxt) {
     for(i = 0; i < OFI_AM_NUM_BLOCK; i++) {
@@ -309,8 +316,12 @@ void gasnetc_ofi_exit(void)
     gasneti_fatalerror("close rdma epfd failed\n");
   }
 
-  if(fi_close(&ofi_am_cqfd->fid)!=GASNET_OK) {
-    gasneti_fatalerror("close am eqfd failed\n");
+  if(fi_close(&ofi_am_scqfd->fid)!=GASNET_OK) {
+    gasneti_fatalerror("close am scqfd failed\n");
+  }
+
+  if(fi_close(&ofi_am_rcqfd->fid)!=GASNET_OK) {
+    gasneti_fatalerror("close am rcqfd failed\n");
   }
 
   if(fi_close(&ofi_rdma_cqfd->fid)!=GASNET_OK) {
@@ -517,18 +528,42 @@ static void gasnetc_ofi_rdma_poll(int blocking_poll)
 }
 
 /* AM progress function */
-static void gasnetc_ofi_am_poll(int blocking_poll)
+static void gasnetc_ofi_am_send_poll(int blocking_poll)
+{
+	int ret = 0;
+	struct fi_cq_data_entry re = {0};
+	struct fi_cq_err_entry e = {0};
+	am_empty_poll = 1;
+
+	/* Read from Completion Queue */
+	ret = fi_cq_read(ofi_am_scqfd, (void *)&re, 1);
+	if (ret != -FI_EAGAIN)
+	{
+		if (ret < 0) {
+			fi_cq_readerr(ofi_am_scqfd, &e ,0);
+			gasneti_fatalerror("fi_cq_read for am_ep failed with error: %s\n", fi_strerror(e.err));
+		} else {
+			ofi_am_buf_t *header;
+			header = (ofi_am_buf_t *)re.op_context;
+			header->callback(&re, header);
+			gasnetc_paratomic_decrement(&pending_am, 0);
+			am_empty_poll = 0;
+		}
+	}
+}
+
+static void gasnetc_ofi_am_recv_poll(int blocking_poll)
 {
 	int ret = 0;
 	struct fi_cq_data_entry re = {0};
 	struct fi_cq_err_entry e = {0};
 
 	/* Read from Completion Queue */
-	ret = fi_cq_read(ofi_am_cqfd, (void *)&re, 1);
+	ret = fi_cq_read(ofi_am_rcqfd, (void *)&re, 1);
 	if (ret != -FI_EAGAIN)
 	{
 		if (ret < 0) {
-			fi_cq_readerr(ofi_am_cqfd, &e ,0);
+			fi_cq_readerr(ofi_am_rcqfd, &e ,0);
 			gasneti_fatalerror("fi_cq_read for am_ep failed with error: %s\n", fi_strerror(e.err));
 		} else {
 			if(re.flags & FI_MULTI_RECV)
@@ -552,11 +587,15 @@ static void gasnetc_ofi_am_poll(int blocking_poll)
 /* General progress function */
 void gasnetc_ofi_poll(int blocking_poll)
 {
-       rdma_empty_poll = 0;
-       while(gasnetc_paratomic_read(&pending_rdma,0) && !rdma_empty_poll)
+	rdma_empty_poll = 0;
+	while(gasnetc_paratomic_read(&pending_rdma,0) && !rdma_empty_poll)
 		gasnetc_ofi_rdma_poll(blocking_poll);
 
-	gasnetc_ofi_am_poll(blocking_poll);
+	am_empty_poll = 0;
+	while(gasnetc_paratomic_read(&pending_am,0) && !am_empty_poll)
+		gasnetc_ofi_am_send_poll(blocking_poll);
+
+	gasnetc_ofi_am_recv_poll(blocking_poll);
 
 	return;
 }
@@ -612,7 +651,7 @@ int gasnetc_ofi_am_send_short(gasnet_node_t dest, gasnet_handler_t handler,
 	if(len < max_buffered_send) {
 		ret = fi_inject(ofi_am_epfd, sendbuf, len, GET_DEST(dest));
 		while (ret == -FI_EAGAIN) {
-			gasnetc_ofi_am_poll(0);
+			gasnetc_ofi_am_send_poll(0);
 			ret = fi_inject(ofi_am_epfd, sendbuf, len, GET_DEST(dest));
 		}
 		if (GASNET_OK != ret) gasneti_fatalerror("fi_inject for short ashort failed: %d\n", ret);
@@ -622,10 +661,11 @@ int gasnetc_ofi_am_send_short(gasnet_node_t dest, gasnet_handler_t handler,
 	} else {
 		ret = fi_send(ofi_am_epfd, sendbuf, len, NULL, GET_DEST(dest), &header->ctxt);
 		while (ret == -FI_EAGAIN) {
-			gasnetc_ofi_am_poll(0);
+			gasnetc_ofi_am_send_poll(0);
 			ret = fi_send(ofi_am_epfd, sendbuf, len, NULL, GET_DEST(dest), &header->ctxt);
 		}
 		if (GASNET_OK != ret) gasneti_fatalerror("fi_send for short am failed: %d\n", ret);
+		gasnetc_paratomic_increment(&pending_am,0);
 	}
 	return ret;
 }
@@ -684,7 +724,7 @@ int gasnetc_ofi_am_send_medium(gasnet_node_t dest, gasnet_handler_t handler,
 	if(len < max_buffered_send) {
 		ret = fi_inject(ofi_am_epfd, sendbuf, len, GET_DEST(dest));
 		while (ret == -FI_EAGAIN) {
-			gasnetc_ofi_am_poll(0);
+			gasnetc_ofi_am_send_poll(0);
 			ret = fi_inject(ofi_am_epfd, sendbuf, len, GET_DEST(dest));
 		}
 		if (GASNET_OK != ret) gasneti_fatalerror("fi_inject for medium ashort failed: %d\n", ret);
@@ -692,10 +732,11 @@ int gasnetc_ofi_am_send_medium(gasnet_node_t dest, gasnet_handler_t handler,
 	} else {
 		ret = fi_send(ofi_am_epfd, sendbuf, len, NULL, GET_DEST(dest), &header->ctxt);
 		while (ret == -FI_EAGAIN) {
-			gasnetc_ofi_am_poll(0);
+			gasnetc_ofi_am_send_poll(0);
 			ret = fi_send(ofi_am_epfd, sendbuf, len, NULL, GET_DEST(dest), &header->ctxt);
 		}
 		if (GASNET_OK != ret) gasneti_fatalerror("fi_send for meduim am failed: %d\n", ret);
+		gasnetc_paratomic_increment(&pending_am,0);
 	}
 
 	return ret;
@@ -798,7 +839,7 @@ int gasnetc_ofi_am_send_long(gasnet_node_t dest, gasnet_handler_t handler,
 	if(len < max_buffered_send) {
 		ret = fi_inject(ofi_am_epfd, sendbuf, len, GET_DEST(dest));
 		while (ret == -FI_EAGAIN) {
-			gasnetc_ofi_am_poll(0);
+			gasnetc_ofi_am_send_poll(0);
 			ret = fi_inject(ofi_am_epfd, sendbuf, len, GET_DEST(dest));
 		}
 		if (GASNET_OK != ret) gasneti_fatalerror("fi_inject for long ashort failed: %d\n", ret);
@@ -806,10 +847,11 @@ int gasnetc_ofi_am_send_long(gasnet_node_t dest, gasnet_handler_t handler,
 	} else {
 		ret = fi_send(ofi_am_epfd, sendbuf, len, NULL, GET_DEST(dest), &header->ctxt);
 		while (ret == -FI_EAGAIN) {
-			gasnetc_ofi_am_poll(0);
+			gasnetc_ofi_am_send_poll(0);
 			ret = fi_send(ofi_am_epfd, sendbuf, len, NULL, GET_DEST(dest), &header->ctxt);
 		}
 		if (GASNET_OK != ret) gasneti_fatalerror("fi_send for long am failed: %d\n", ret);
+		gasnetc_paratomic_increment(&pending_am,0);
 	}
 
 	return ret;

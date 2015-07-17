@@ -48,7 +48,8 @@ fid_cq_t		ofi_rdma_cqfd;
 fid_mr_t		ofi_rdma_mrfd;
 
 fid_ep_t		ofi_am_epfd;
-fid_cq_t		ofi_am_cqfd;
+fid_cq_t		ofi_am_scqfd;
+fid_cq_t		ofi_am_rcqfd;
 
 /* Address table data */
 typedef void*                     conn_entry_t;
