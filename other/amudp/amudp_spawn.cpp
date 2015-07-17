@@ -249,7 +249,7 @@ int AMUDP_SPMDSshSpawn(int nproc, int argc, char **argv, char **extra_env) {
     printf("Error calling getcwd()\n");
     return FALSE;
   }
-  ssh_remote_path = AMUDP_getenv_prefixed_withdefault("SSH_REMOTE_PATH", cwd);
+  ssh_remote_path = quote_for_local(AMUDP_getenv_prefixed_withdefault("SSH_REMOTE_PATH", cwd));
   ssh_cmd = AMUDP_getenv_prefixed_withdefault("SSH_CMD", "ssh");
 
   int isOpenSSH = 0; /* figure out if we're using OpenSSH */
@@ -315,7 +315,7 @@ int AMUDP_SPMDSshSpawn(int nproc, int argc, char **argv, char **extra_env) {
     *tmp = '\0';
     AMUDP_assert(strlen(cmd1) == cmd1_sz - 1);
   }
-  cmd2_sz = cmd1_sz + 1024; /* estimated */
+  cmd2_sz = cmd1_sz + strlen(ssh_remote_path) + 1024; /* estimated */
   cmd2 =  (char *)AMUDP_malloc(cmd2_sz);
 
   p = ssh_servers;
@@ -330,7 +330,7 @@ int AMUDP_SPMDSshSpawn(int nproc, int argc, char **argv, char **extra_env) {
     ssh_server[end-p] = '\0'; 
 
     /* build the ssh command */
-    snprintf(cmd2, cmd2_sz, "%s %s %s %s %s %s \" %s cd '%s' ; %s\" "
+    snprintf(cmd2, cmd2_sz, "%s %s %s %s %s %s \" %s cd %s ; %s\" "
       " || ( echo \"connection to %s failed.\" ; kill %i ) "
       "%s", 
       ssh_cmd,
