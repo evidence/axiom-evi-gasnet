@@ -25,9 +25,11 @@
 #define USE_AV_MAP 0
 addr_table_t  *addr_table;
 #if USE_AV_MAP
-#define GET_DEST(dest) (fi_addr_t)(addr_table->table[dest].dest)
+#define GET_AM_DEST(dest) (fi_addr_t)(addr_table->table[dest*2].dest)
+#define GET_RDMA_DEST(dest) (fi_addr_t)(addr_table->table[dest*2+1].dest)
 #else
-#define GET_DEST(dest) (fi_addr_t)dest
+#define GET_AM_DEST(dest) (fi_addr_t)(dest*2)
+#define GET_RDMA_DEST(dest) (fi_addr_t)(dest*2+1)
 #endif
 
 #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
@@ -83,8 +85,8 @@ int gasnetc_ofi_init(int *argc, char ***argv,
   struct fi_info		*rdma_hints, *am_hints, *rdma_info, *am_info;
   struct fi_cq_attr   	cq_attr 	= {0};
   struct fi_av_attr   	av_attr 	= {0};
-  char   sockname[128], *alladdrs;
-  size_t socknamelen = sizeof(sockname);
+  char   sockname[256], *alladdrs;
+  size_t socknamelen = sizeof(sockname)/2;
   size_t optlen;
   conn_entry_t *mapped_table;
 
@@ -238,8 +240,8 @@ int gasnetc_ofi_init(int *argc, char ***argv,
   /* Open Address Vector and bind the AV to the domain */
 #if USE_AV_MAP
   av_attr.type        = FI_AV_MAP;
-  addr_table          = (addr_table_t*)gasneti_malloc(gasneti_nodes * sizeof(conn_entry_t) + sizeof(addr_table_t));
-  addr_table->size    = gasneti_nodes;
+  addr_table          = (addr_table_t*)gasneti_malloc(gasneti_nodes * 2 * sizeof(conn_entry_t) + sizeof(addr_table_t));
+  addr_table->size    = gasneti_nodes * 2;
   mapped_table        = (conn_entry_t*)addr_table->table;
 #else
   av_attr.type        = FI_AV_TABLE;
@@ -266,10 +268,11 @@ int gasnetc_ofi_init(int *argc, char ***argv,
   /* Get the address of AM endpoint and publish to other nodes through bootstrap
    * exchange function */
   ret = fi_getname(&ofi_am_epfd->fid, sockname, &socknamelen);
+  ret = fi_getname(&ofi_rdma_epfd->fid, sockname+socknamelen, &socknamelen);
   if (GASNET_OK != ret) gasneti_fatalerror("fi_getepname failed: %d\n", ret);
-  alladdrs = gasneti_malloc(gasneti_nodes*socknamelen);
-  (*gasneti_bootstrapExchange_p)(&sockname, socknamelen, alladdrs);
-  if (gasneti_nodes != fi_av_insert(ofi_avfd, alladdrs, gasneti_nodes,
+  alladdrs = gasneti_malloc(gasneti_nodes*socknamelen*2);
+  (*gasneti_bootstrapExchange_p)(&sockname, socknamelen*2, alladdrs);
+  if (gasneti_nodes*2 != fi_av_insert(ofi_avfd, alladdrs, gasneti_nodes*2,
 			  (fi_addr_t*)mapped_table, 0ULL, NULL)) {
   	gasneti_fatalerror("fi_av_insert failed: %d\n", ret);
   }
@@ -649,20 +652,20 @@ int gasnetc_ofi_am_send_short(gasnet_node_t dest, gasnet_handler_t handler,
 #endif
 
 	if(len < max_buffered_send) {
-		ret = fi_inject(ofi_am_epfd, sendbuf, len, GET_DEST(dest));
+		ret = fi_inject(ofi_am_epfd, sendbuf, len, GET_AM_DEST(dest));
 		while (ret == -FI_EAGAIN) {
 			gasnetc_ofi_am_send_poll(0);
-			ret = fi_inject(ofi_am_epfd, sendbuf, len, GET_DEST(dest));
+			ret = fi_inject(ofi_am_epfd, sendbuf, len, GET_AM_DEST(dest));
 		}
 		if (GASNET_OK != ret) gasneti_fatalerror("fi_inject for short ashort failed: %d\n", ret);
 
 		/* Data buffer is ready for reuse, handle it by callback function */
 		header->callback(NULL, header);
 	} else {
-		ret = fi_send(ofi_am_epfd, sendbuf, len, NULL, GET_DEST(dest), &header->ctxt);
+		ret = fi_send(ofi_am_epfd, sendbuf, len, NULL, GET_AM_DEST(dest), &header->ctxt);
 		while (ret == -FI_EAGAIN) {
 			gasnetc_ofi_am_send_poll(0);
-			ret = fi_send(ofi_am_epfd, sendbuf, len, NULL, GET_DEST(dest), &header->ctxt);
+			ret = fi_send(ofi_am_epfd, sendbuf, len, NULL, GET_AM_DEST(dest), &header->ctxt);
 		}
 		if (GASNET_OK != ret) gasneti_fatalerror("fi_send for short am failed: %d\n", ret);
 		gasnetc_paratomic_increment(&pending_am,0);
@@ -722,18 +725,18 @@ int gasnetc_ofi_am_send_medium(gasnet_node_t dest, gasnet_handler_t handler,
 #endif
 
 	if(len < max_buffered_send) {
-		ret = fi_inject(ofi_am_epfd, sendbuf, len, GET_DEST(dest));
+		ret = fi_inject(ofi_am_epfd, sendbuf, len, GET_AM_DEST(dest));
 		while (ret == -FI_EAGAIN) {
 			gasnetc_ofi_am_send_poll(0);
-			ret = fi_inject(ofi_am_epfd, sendbuf, len, GET_DEST(dest));
+			ret = fi_inject(ofi_am_epfd, sendbuf, len, GET_AM_DEST(dest));
 		}
 		if (GASNET_OK != ret) gasneti_fatalerror("fi_inject for medium ashort failed: %d\n", ret);
 		header->callback(NULL, header);
 	} else {
-		ret = fi_send(ofi_am_epfd, sendbuf, len, NULL, GET_DEST(dest), &header->ctxt);
+		ret = fi_send(ofi_am_epfd, sendbuf, len, NULL, GET_AM_DEST(dest), &header->ctxt);
 		while (ret == -FI_EAGAIN) {
 			gasnetc_ofi_am_send_poll(0);
-			ret = fi_send(ofi_am_epfd, sendbuf, len, NULL, GET_DEST(dest), &header->ctxt);
+			ret = fi_send(ofi_am_epfd, sendbuf, len, NULL, GET_AM_DEST(dest), &header->ctxt);
 		}
 		if (GASNET_OK != ret) gasneti_fatalerror("fi_send for meduim am failed: %d\n", ret);
 		gasnetc_paratomic_increment(&pending_am,0);
@@ -796,11 +799,11 @@ int gasnetc_ofi_am_send_long(gasnet_node_t dest, gasnet_handler_t handler,
 			lam_ctxt.data_sent = 0;
 			lam_ctxt.callback = gasnetc_ofi_handle_rdma;
 			ret = fi_write(ofi_rdma_epfd, source_addr, nbytes, NULL, 
-					GET_DEST(dest), GET_DSTADDR(dest_addr, dest), 0, &lam_ctxt.ctxt);
+					GET_RDMA_DEST(dest), GET_DSTADDR(dest_addr, dest), 0, &lam_ctxt.ctxt);
 			while (ret == -FI_EAGAIN) {
 				gasnetc_ofi_rdma_poll(0);
 				ret = fi_write(ofi_rdma_epfd, source_addr, nbytes, NULL, 
-						GET_DEST(dest), GET_DSTADDR(dest_addr, dest), 0, &lam_ctxt.ctxt);
+						GET_RDMA_DEST(dest), GET_DSTADDR(dest_addr, dest), 0, &lam_ctxt.ctxt);
 			}
 			if (GASNET_OK != ret) 
 				gasneti_fatalerror("fi_rdma_writememto failed for AM long: %d\n", ret);
@@ -837,18 +840,18 @@ int gasnetc_ofi_am_send_long(gasnet_node_t dest, gasnet_handler_t handler,
 #endif
 
 	if(len < max_buffered_send) {
-		ret = fi_inject(ofi_am_epfd, sendbuf, len, GET_DEST(dest));
+		ret = fi_inject(ofi_am_epfd, sendbuf, len, GET_AM_DEST(dest));
 		while (ret == -FI_EAGAIN) {
 			gasnetc_ofi_am_send_poll(0);
-			ret = fi_inject(ofi_am_epfd, sendbuf, len, GET_DEST(dest));
+			ret = fi_inject(ofi_am_epfd, sendbuf, len, GET_AM_DEST(dest));
 		}
 		if (GASNET_OK != ret) gasneti_fatalerror("fi_inject for long ashort failed: %d\n", ret);
 		header->callback(NULL, header);
 	} else {
-		ret = fi_send(ofi_am_epfd, sendbuf, len, NULL, GET_DEST(dest), &header->ctxt);
+		ret = fi_send(ofi_am_epfd, sendbuf, len, NULL, GET_AM_DEST(dest), &header->ctxt);
 		while (ret == -FI_EAGAIN) {
 			gasnetc_ofi_am_send_poll(0);
-			ret = fi_send(ofi_am_epfd, sendbuf, len, NULL, GET_DEST(dest), &header->ctxt);
+			ret = fi_send(ofi_am_epfd, sendbuf, len, NULL, GET_AM_DEST(dest), &header->ctxt);
 		}
 		if (GASNET_OK != ret) gasneti_fatalerror("fi_send for long am failed: %d\n", ret);
 		gasnetc_paratomic_increment(&pending_am,0);
@@ -868,11 +871,11 @@ gasnetc_rdma_put(gasnet_node_t dest, void *dest_addr, void *src_addr, size_t nby
 	int ret = GASNET_OK;
 
 	((ofi_op_ctxt_t *)ctxt_ptr)->callback = gasnetc_ofi_handle_rdma;
-	ret = fi_write(ofi_rdma_epfd, src_addr, nbytes, NULL, GET_DEST(dest), 
+	ret = fi_write(ofi_rdma_epfd, src_addr, nbytes, NULL, GET_RDMA_DEST(dest), 
 			GET_DSTADDR(dest_addr, dest), 0, ctxt_ptr);
 	while (ret == -FI_EAGAIN) {
 		gasnetc_ofi_rdma_poll(0);
-		ret = fi_write(ofi_rdma_epfd, src_addr, nbytes, NULL, GET_DEST(dest), 
+		ret = fi_write(ofi_rdma_epfd, src_addr, nbytes, NULL, GET_RDMA_DEST(dest), 
 				GET_DSTADDR(dest_addr, dest), 0, ctxt_ptr);
 	}
 	if (GASNET_OK != ret) 
@@ -887,11 +890,11 @@ gasnetc_rdma_get(void *dest_addr, gasnet_node_t dest, void * src_addr, size_t nb
 	int ret = GASNET_OK;
 
 	((ofi_op_ctxt_t *)ctxt_ptr)->callback = gasnetc_ofi_handle_rdma;
-	ret = fi_read(ofi_rdma_epfd, dest_addr, nbytes, NULL, GET_DEST(dest), 
+	ret = fi_read(ofi_rdma_epfd, dest_addr, nbytes, NULL, GET_RDMA_DEST(dest), 
 			GET_SRCADDR(src_addr, dest), 0, ctxt_ptr);
 	while (ret == -FI_EAGAIN) {
 		gasnetc_ofi_rdma_poll(0);
-		ret = fi_read(ofi_rdma_epfd, dest_addr, nbytes, NULL, GET_DEST(dest), 
+		ret = fi_read(ofi_rdma_epfd, dest_addr, nbytes, NULL, GET_RDMA_DEST(dest), 
 				GET_SRCADDR(src_addr, dest), 0, ctxt_ptr);
 	}
 	if (GASNET_OK != ret) 
