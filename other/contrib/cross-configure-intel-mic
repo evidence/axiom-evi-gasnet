@@ -10,6 +10,9 @@
 ##
 ## If your interest is in runs on a single Phi, then compile for smp-conduit
 ## and launch jobs using the gasnetrun_mic script in GASNet's contrib directory.
+## To use (assuming it is in your PATH), for instance
+##  smp-conduit$ export SMP_RUNCMD="env GASNET_PSHM_NODES=%N gasnetrun_mic -E %L -- %C"
+##  smp-conduit$ make run-tests-seq
 
 ################################################
 # Usage Instructions: 
