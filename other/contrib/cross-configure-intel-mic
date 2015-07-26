@@ -2,6 +2,15 @@
 
 ## Cross configure script for Intel MIC
 
+## Target specific NOTES:
+##
+## This script is tailored for a system which runs appltication across multiple
+## Phi coprocessors (pontentially on multiple hosts), and therefore expects to
+## use an "mpirun.mpic" script for launching on ibv-conduit (InifiniBand).
+##
+## If your interest is in runs on a single Phi, then compile for smp-conduit
+## and launch jobs using the gasnetrun_mic script in GASNet's contrib directory.
+
 ################################################
 # Usage Instructions: 
 #  1. fill in the following values to point to the target and host compilers:

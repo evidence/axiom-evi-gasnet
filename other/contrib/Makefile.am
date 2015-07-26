@@ -9,6 +9,7 @@ AUTOMAKE_OPTIONS = foreign 1.4
 SUBDIRS = .
 
 EXTRA_DIST = $(dotpl_DATA) $(vg_DATA) \
+	gasnetrun_mic \
 	gasnet_ibrun \
  	cross-configure-bgq \
 	cross-configure-crayxt-linux \
