@@ -291,6 +291,11 @@ void gasnetc_ofi_exit(void)
 {
   int i;
   int ret = GASNET_OK;
+
+  while(gasnetc_paratomic_read(&pending_am,0) ||
+      gasnetc_paratomic_read(&pending_rdma,0))
+    gasnetc_ofi_poll(0);
+
   /* Drain up CQ before cancel the multi-recv requests */
   struct fi_cq_data_entry re = {0};
   while(fi_cq_read(ofi_am_rcqfd, (void *)&re, 1) != -FI_EAGAIN);
