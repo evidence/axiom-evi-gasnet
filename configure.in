@@ -3039,6 +3039,7 @@ if test "$enabled_portals4" = yes; then
   }], [ : ], [ have_portals4=no; GASNET_ERR_SAVE() ] )
 
   # Try to compile and link Portals 4 PMI support
+  # TODO: this could be integrated with the conduit-independent PMI probe -PHH
   LIBS="$LIBS -lportals_runtime"
   GASNET_TRY_CACHE_LINK(for PMI support in Portals4 runtime library, portals4_pmi_works, [
       #include <stddef.h>
@@ -3574,6 +3575,99 @@ CONDUIT_END([test "$enabled_pami$have_pami" = yesyes])
 # build and install AMMPI
 AM_CONDITIONAL(USE_AMMPI, test "$have_ammpi" = yes)
 
+#--------------------------------------------------------------------------------------------------------
+# Libfabric Conduit
+
+CONDUIT_BEGIN(ofi,[Libfabric network conduit (ofi)])
+if test "$enabled_ofi" = yes; then
+  have_ofi=yes
+
+  GASNET_ENV_DEFAULT(OFIHOME, /usr/local)
+  AC_MSG_CHECKING(for --with-ofihome)
+  GASNET_WITH(ofihome, [Specify Libfabric install directory, default is /usr/local],
+              [if test "$withval" = 'yes'; then
+                 GASNET_MSG_ERROR(["--with-ofihome requires an argument (libfabric install directory)"])
+               fi
+               OFIHOME="$withval"
+               ofihome_set=1
+               AC_MSG_RESULT($withval)],
+              [AC_MSG_RESULT(no)
+               have_ofi=no],
+              [AC_MSG_RESULT([$OFIHOME (default)])])
+
+  if test "$have_ofi" = yes; then
+    AC_MSG_CHECKING(if $OFIHOME is a Libfabric install directory)
+    if test -e $OFIHOME/include/rdma/fabric.h; then
+      AC_MSG_RESULT(yes)
+    else
+      AC_MSG_RESULT(no)
+      if test -n "$ofihome_set" ; then
+        GASNET_MSG_WARN([Libfabric not found in user-specified --with-ofihome='$OFIHOME' - disabling ofi-conduit])
+      fi
+      have_ofi=no
+    fi
+  fi
+
+  if test "$have_ofi" = yes; then
+    GASNET_ENV_DEFAULT(OFI_INCLUDE, $OFIHOME/include)
+    GASNET_ENV_DEFAULT(OFI_LIBS, -lfabric)
+    ofi_lib_guess="$OFIHOME/lib${GASNETI_PTR_BITS}"
+    if test -e "$ofi_lib_guess/libfabric.so" -o -e "$ofi_lib_guess/libfabric.a"; then
+      : # keep lib32 or lib64 as default
+    else
+      ofi_lib_guess="$OFIHOME/lib"
+    fi
+    GASNET_ENV_DEFAULT(OFI_LIBDIR, $ofi_lib_guess)
+
+    GASNET_PUSHVAR(CFLAGS,"$CFLAGS -I$OFI_INCLUDE")
+    GASNET_PUSHVAR(LIBS,"$LIBS -L$OFI_LIBDIR $OFI_LIBS")
+    GASNET_TRY_CACHE_LINK(for working OFI GASNet bindings, ofi_works, [
+            #include <rdma/fabric.h>
+        ], [{
+              int argc; char **argv;
+              int rc;
+              rc = fi_getinfo(FI_VERSION(FI_MAJOR_VERSION,FI_MINOR_VERSION),
+                              &argc, &argv, 0, 0, 0);
+            }], [ : ], [ have_ofi=no; GASNET_ERR_SAVE() ] )
+    GASNET_POPVAR(CFLAGS)
+    GASNET_POPVAR(LIBS)
+  fi
+
+  if test "$have_ofi" = yes; then
+    GASNET_WITH(ofi-spawner,
+       [OFI job spawner ("ssh", "mpi" or "pmi", default is mpi when available)],
+       [case "$withval" in
+          ssh|mpi|pmi) gasnet_ofi_spawner_conf=$withval
+               ;;
+          yes) AC_MSG_ERROR([--with-ofi-spawner requires an argument ("ssh", "mpi" or "pmi")])
+               ;;
+          *)   AC_MSG_ERROR([--with-ofi-spawner argument must be "ssh", "mpi" or "pmi"])
+               ;;
+        esac],
+       [AC_MSG_ERROR([--with-ofi-spawner argument must be "ssh", "mpi" or "pmi"])],
+       [if test "$have_mpi_compat" = yes; then
+          gasnet_ofi_spawner_conf=mpi
+        else
+          gasnet_ofi_spawner_conf=ssh
+        fi])
+    if test "$gasnet_ofi_spawner_conf$have_mpi_compat" = mpino; then
+      AC_MSG_ERROR([--with-ofi-spawner=mpi requires MPI compatibility support which $mpi_compat_reason])
+    fi
+    if test "$gasnet_ofi_spawner_conf$have_fork" = sshno; then
+      AC_MSG_ERROR([--with-ofi-spawner=ssh requires fork() support which $fork_reason])
+    fi
+    GASNET_OFI_SPAWNER_CONF=$gasnet_ofi_spawner_conf
+    AC_SUBST(GASNET_OFI_SPAWNER_CONF)
+  fi
+fi
+AC_SUBST(OFI_INCLUDE)
+AC_SUBST(OFI_LIBDIR)
+AC_SUBST(OFI_LIBS)
+AC_SUBST(OFI_LIBCFLAGS)
+AM_CONDITIONAL(USE_OFI_CONDUIT, test "$have_ofi" = yes)
+AM_CONDITIONAL(OFI_BOOTSTRAP_SSH, test "$have_fork" = yes)
+AM_CONDITIONAL(OFI_BOOTSTRAP_MPI, test "$have_mpi_compat" = yes)
+CONDUIT_END([test "$have_ofi" = yes])
 #---------------------------------------------------------------------------------------------------------------
 # CONDUIT CONFIGURATIONS FINISH
 #---------------------------------------------------------------------------------------------------------------
@@ -3764,31 +3858,36 @@ if test "$with_pmi" != 'no'; then
   ])
 
   # Check for libs unless disqualifed by --with-pmi-version=
+  GASNET_PUSHVAR(LIBS,"")
   if test -z "${use_pmi1+set}"; then
-    AC_CHECK_LIB(pmi2, PMI2_Init, [
+    AC_SEARCH_LIBS(PMI2_Init, [pmi2 mpich], [
       use_pmi2=yes
       have_pmi=yes
       pmi_suffix='2'
       AC_DEFINE(HAVE_PMI2_H)
-      PMI_SPAWNER_LIBS='-lpmi2'
+      PMI_SPAWNER_LIBS="$LIBS"
       GASNET_IF_ENABLED(pmi2-fast-barrier, Use PMI2_KVS_fence as barrier. This may not work with all PMI2 implementations,
                          [AC_DEFINE(GASNETI_PMI2_FENCE_IS_BARRIER,[1],[define to 1 if PMI2_KVS_fence() provides barrier functionality])], [] )
     ])
   fi
   if test -z "${use_pmi2+set}"; then
-    AC_CHECK_LIB(pmi, PMI_Init, [
+    AC_SEARCH_LIBS(PMI_Init, [pmi mpich portals_runtime], [
       use_pmi1=yes
       have_pmi=yes
       pmi_suffix=''
       AC_DEFINE(HAVE_PMI_H)
-      PMI_SPAWNER_LIBS='-lpmi'
+      PMI_SPAWNER_LIBS="$LIBS"
     ])
   fi
+  GASNET_POPVAR(LIBS)
 
   # Check for header matching the selected lib
+  # TODO: fragile if multiple PMI libs are installed
   if test "$have_pmi" = yes; then
     if test -f "${with_pmi}/include/slurm/pmi${pmi_suffix}.h"; then
       PMI_SPAWNER_INCLUDES="-I${with_pmi}/include/slurm"
+    elif test -f "${with_pmi}/include/portals4/pmi${pmi_suffix}.h"; then
+      PMI_SPAWNER_INCLUDES="-I${with_pmi}/include/portals4"
     elif test -f "${with_pmi}/include/pmi${pmi_suffix}.h"; then
       if test "$with_pmi" != '/usr'; then
         PMI_SPAWNER_INCLUDES="-I${with_pmi}/include"
@@ -3799,7 +3898,7 @@ if test "$with_pmi" != 'no'; then
   fi
 
   if test "$have_pmi" = yes; then
-    GASNET_PUSHVAR(LIBS,"$LIBS PMI_SPAWNER_LIBS")
+    GASNET_PUSHVAR(LIBS,"$LIBS $PMI_SPAWNER_LIBS")
     # Not seen outside of Cray PMI, but we can hope:
     AC_CHECK_FUNCS([PMI_Allgather PMI_Bcast])
     GASNET_POPVAR(LIBS)
@@ -4559,6 +4658,7 @@ GASNET_FIX_EXEC(psm-conduit/contrib/gasnetrun_psm)
 GASNET_FIX_EXEC(pami-conduit/contrib/gasnetrun_pami)
 GASNET_FIX_EXEC(gemini-conduit/contrib/gasnetrun_gemini)
 GASNET_FIX_EXEC(aries-conduit/contrib/gasnetrun_aries)
+GASNET_FIX_EXEC(ofi-conduit/contrib/gasnetrun_ofi)
 GASNET_FIX_EXEC(other/contrib/gasnet_trace)
 
 if test "$gasnet_toolsonly_mode" = "no" ; then
@@ -4643,6 +4743,11 @@ aries-conduit/Makefile
 aries-conduit/conduit.mak
 aries-conduit/contrib/Makefile
 aries-conduit/contrib/gasnetrun_aries
+
+ofi-conduit/Makefile
+ofi-conduit/conduit.mak
+ofi-conduit/contrib/Makefile
+ofi-conduit/contrib/gasnetrun_ofi
 
 other/Makefile-conduit.mak
 other/fragment-head.mak
