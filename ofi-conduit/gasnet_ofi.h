@@ -39,17 +39,17 @@ typedef struct fid_cq*            fid_cq_t;
 typedef struct fid_av*            fid_av_t;
 typedef struct fid_mr*            fid_mr_t;
 
-fid_fabric_t 	ofi_fabricfd;
-fid_domain_t	ofi_domainfd;
-fid_av_t		ofi_avfd;
+fid_fabric_t    gasnetc_ofi_fabricfd;
+fid_domain_t    gasnetc_ofi_domainfd;
+fid_av_t        gasnetc_ofi_avfd;
 
-fid_ep_t		ofi_rdma_epfd;
-fid_cq_t		ofi_rdma_cqfd;
-fid_mr_t		ofi_rdma_mrfd;
+fid_ep_t        gasnetc_ofi_rdma_epfd;
+fid_cq_t        gasnetc_ofi_rdma_cqfd;
+fid_mr_t        gasnetc_ofi_rdma_mrfd;
 
-fid_ep_t		ofi_am_epfd;
-fid_cq_t		ofi_am_scqfd;
-fid_cq_t		ofi_am_rcqfd;
+fid_ep_t        gasnetc_ofi_am_epfd;
+fid_cq_t        gasnetc_ofi_am_scqfd;
+fid_cq_t        gasnetc_ofi_am_rcqfd;
 
 /* Address table data */
 typedef void*                     conn_entry_t;
