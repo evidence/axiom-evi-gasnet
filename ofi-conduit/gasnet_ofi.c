@@ -167,7 +167,7 @@ int gasnetc_ofi_init(int *argc, char ***argv,
 	  							= FI_AV_TABLE; /* type AV index */
 
   ret = fi_getinfo(OFI_CONDUIT_VERSION, NULL, NULL, 0ULL, rdma_hints, &rdma_info);
-  if (GASNET_OK != ret) gasneti_fatalerror("fi_getinfo failed: %d\n", ret);
+  if (FI_SUCCESS != ret) gasneti_fatalerror("fi_getinfo failed: %d\n", ret);
   if (rdma_info == NULL) gasneti_fatalerror("fi_getinfo didn't find any providers for rdma\n");
 
   /* Hints for Active Message requirements */
@@ -186,48 +186,48 @@ int gasnetc_ofi_init(int *argc, char ***argv,
   am_hints->domain_attr->av_type			= FI_AV_TABLE; /* type AV index */
 
   ret = fi_getinfo(OFI_CONDUIT_VERSION, NULL, NULL, 0ULL, am_hints, &am_info);
-  if (GASNET_OK != ret) gasneti_fatalerror("fi_getinfo failed: %d\n", ret);
+  if (FI_SUCCESS != ret) gasneti_fatalerror("fi_getinfo failed: %d\n", ret);
   if (am_info == NULL) gasneti_fatalerror("fi_getinfo didn't find any providers for active message\n");
 
   /* Open the fabric provider */
   ret = fi_fabric(rdma_info->fabric_attr, &gasnetc_ofi_fabricfd, NULL);
-  if (GASNET_OK != ret) gasneti_fatalerror("fi_fabric failed: %d\n", ret);
+  if (FI_SUCCESS != ret) gasneti_fatalerror("fi_fabric failed: %d\n", ret);
 
   /* Open a fabric access domain, also referred to as a resource domain */
   ret = fi_domain(gasnetc_ofi_fabricfd, rdma_info, &gasnetc_ofi_domainfd, NULL);
-  if (GASNET_OK != ret) gasneti_fatalerror("fi_domain failed: %d\n", ret);
+  if (FI_SUCCESS != ret) gasneti_fatalerror("fi_domain failed: %d\n", ret);
 
   /* Allocate a new active endpoint for RDMA operations */
   ret = fi_endpoint(gasnetc_ofi_domainfd, rdma_info, &gasnetc_ofi_rdma_epfd, NULL);
-  if (GASNET_OK != ret) gasneti_fatalerror("fi_endpoint for rdma failed: %d\n", ret);
+  if (FI_SUCCESS != ret) gasneti_fatalerror("fi_endpoint for rdma failed: %d\n", ret);
 
   /* Allocate a new active endpoint for AM operations */
   ret = fi_endpoint(gasnetc_ofi_domainfd, am_info, &gasnetc_ofi_am_epfd, NULL);
-  if (GASNET_OK != ret) gasneti_fatalerror("fi_endpoint for am failed: %d\n", ret);
+  if (FI_SUCCESS != ret) gasneti_fatalerror("fi_endpoint for am failed: %d\n", ret);
 
   /* Allocate a new completion queue for RDMA operations */
   memset(&cq_attr, 0, sizeof(cq_attr));
   cq_attr.format    = FI_CQ_FORMAT_DATA; /* Provides data associated with a completion */
   ret = fi_cq_open(gasnetc_ofi_domainfd, &cq_attr, &gasnetc_ofi_rdma_cqfd, NULL);
-  if (GASNET_OK != ret) gasneti_fatalerror("fi_cq_open for rdma_eqfd failed: %d\n", ret);
+  if (FI_SUCCESS != ret) gasneti_fatalerror("fi_cq_open for rdma_eqfd failed: %d\n", ret);
 
   /* Allocate send/recv completion queues for AM operations */
   memset(&cq_attr, 0, sizeof(cq_attr));
   cq_attr.format    = FI_CQ_FORMAT_DATA;
   ret = fi_cq_open(gasnetc_ofi_domainfd, &cq_attr, &gasnetc_ofi_am_scqfd, NULL);
-  if (GASNET_OK != ret) gasneti_fatalerror("fi_cq_open for am send cq faled: %d\n", ret);
+  if (FI_SUCCESS != ret) gasneti_fatalerror("fi_cq_open for am send cq faled: %d\n", ret);
   ret = fi_cq_open(gasnetc_ofi_domainfd, &cq_attr, &gasnetc_ofi_am_rcqfd, NULL);
-  if (GASNET_OK != ret) gasneti_fatalerror("fi_cq_open for am recv cq failed: %d\n", ret);
+  if (FI_SUCCESS != ret) gasneti_fatalerror("fi_cq_open for am recv cq failed: %d\n", ret);
 
   /* Bind CQs to endpoints */
   ret = fi_ep_bind(gasnetc_ofi_rdma_epfd, &gasnetc_ofi_rdma_cqfd->fid, FI_SEND);
-  if (GASNET_OK != ret) gasneti_fatalerror("fi_ep_bind for rdma_cqfd to rdma_epfd failed: %d\n", ret);
+  if (FI_SUCCESS != ret) gasneti_fatalerror("fi_ep_bind for rdma_cqfd to rdma_epfd failed: %d\n", ret);
 
   ret = fi_ep_bind(gasnetc_ofi_am_epfd, &gasnetc_ofi_am_scqfd->fid, FI_SEND);
-  if (GASNET_OK != ret) gasneti_fatalerror("fi_ep_bind for am_scqfd to am_epfd failed: %d\n", ret);
+  if (FI_SUCCESS != ret) gasneti_fatalerror("fi_ep_bind for am_scqfd to am_epfd failed: %d\n", ret);
 
   ret = fi_ep_bind(gasnetc_ofi_am_epfd, &gasnetc_ofi_am_rcqfd->fid, FI_RECV);
-  if (GASNET_OK != ret) gasneti_fatalerror("fi_ep_bind for am_rcqfd to am_epfd failed: %d\n", ret);
+  if (FI_SUCCESS != ret) gasneti_fatalerror("fi_ep_bind for am_rcqfd to am_epfd failed: %d\n", ret);
 
   /* Low-water mark for shared receive buffer */
   min_multi_recv = OFI_AM_MAX_DATA_LENGTH + offsetof(ofi_am_send_buf_t,data);
@@ -235,7 +235,7 @@ int gasnetc_ofi_init(int *argc, char ***argv,
   ret	 = fi_setopt(&gasnetc_ofi_am_epfd->fid, FI_OPT_ENDPOINT, FI_OPT_MIN_MULTI_RECV,
 		  &optlen,
 		  sizeof(optlen));
-  if (GASNET_OK != ret) gasneti_fatalerror("fi_setopt for am_epfd failed: %d\n", ret);
+  if (FI_SUCCESS != ret) gasneti_fatalerror("fi_setopt for am_epfd failed: %d\n", ret);
 
   /* Open Address Vector and bind the AV to the domain */
 #if USE_AV_MAP
@@ -248,20 +248,20 @@ int gasnetc_ofi_init(int *argc, char ***argv,
   mapped_table        = NULL;
 #endif
   ret = fi_av_open(gasnetc_ofi_domainfd, &av_attr, &gasnetc_ofi_avfd, NULL);
-  if (GASNET_OK != ret) gasneti_fatalerror("fi_av_open failed: %d\n", ret);
+  if (FI_SUCCESS != ret) gasneti_fatalerror("fi_av_open failed: %d\n", ret);
 
   /* Bind AV to endpoints, both RDMA/AM endpoints share the same AV object */
   ret = fi_ep_bind(gasnetc_ofi_rdma_epfd, &gasnetc_ofi_avfd->fid, 0);
-  if (GASNET_OK != ret) gasneti_fatalerror("fi_ep_bind for avfd to rdma_epfd failed: %d\n", ret);
+  if (FI_SUCCESS != ret) gasneti_fatalerror("fi_ep_bind for avfd to rdma_epfd failed: %d\n", ret);
 
   ret = fi_ep_bind(gasnetc_ofi_am_epfd, &gasnetc_ofi_avfd->fid, 0);
-  if (GASNET_OK != ret) gasneti_fatalerror("fi_ep_bind for avfd to am_epfd failed: %d\n", ret);
+  if (FI_SUCCESS != ret) gasneti_fatalerror("fi_ep_bind for avfd to am_epfd failed: %d\n", ret);
 
   /* Enable endpoints */
   ret = fi_enable(gasnetc_ofi_rdma_epfd);
-  if (GASNET_OK != ret) gasneti_fatalerror("fi_enable for rdma failed: %d\n", ret);
+  if (FI_SUCCESS != ret) gasneti_fatalerror("fi_enable for rdma failed: %d\n", ret);
   ret = fi_enable(gasnetc_ofi_am_epfd);
-  if (GASNET_OK != ret) gasneti_fatalerror("fi_enable for am failed: %d\n", ret);
+  if (FI_SUCCESS != ret) gasneti_fatalerror("fi_enable for am failed: %d\n", ret);
 
   gasneti_nodemapInit(gasneti_bootstrapExchange_p, NULL, 0, 0);
 
@@ -269,7 +269,7 @@ int gasnetc_ofi_init(int *argc, char ***argv,
    * exchange function */
   ret = fi_getname(&gasnetc_ofi_am_epfd->fid, sockname, &socknamelen);
   ret = fi_getname(&gasnetc_ofi_rdma_epfd->fid, sockname+socknamelen, &socknamelen);
-  if (GASNET_OK != ret) gasneti_fatalerror("fi_getepname failed: %d\n", ret);
+  if (FI_SUCCESS != ret) gasneti_fatalerror("fi_getepname failed: %d\n", ret);
   alladdrs = gasneti_malloc(gasneti_nodes*socknamelen*2);
   (*gasneti_bootstrapExchange_p)(&sockname, socknamelen*2, alladdrs);
   if (gasneti_nodes*2 != fi_av_insert(gasnetc_ofi_avfd, alladdrs, gasneti_nodes*2,
@@ -290,7 +290,7 @@ int gasnetc_ofi_init(int *argc, char ***argv,
 void gasnetc_ofi_exit(void)
 {
   int i;
-  int ret = GASNET_OK;
+  int ret = FI_SUCCESS;
 
   while(gasnetc_paratomic_read(&pending_am,0) ||
       gasnetc_paratomic_read(&pending_rdma,0))
@@ -305,7 +305,7 @@ void gasnetc_ofi_exit(void)
     for(i = 0; i < OFI_AM_NUM_BLOCK; i++) {
       /* cancel the multi-recv */
       ret = fi_cancel(&gasnetc_ofi_am_epfd->fid, &am_buff_ctxt[i].ctxt);
-      if (GASNET_OK != ret) gasneti_fatalerror("failed fi_cancel the %d am_buff_msg\n", i);
+      if (FI_SUCCESS != ret) gasneti_fatalerror("failed fi_cancel the %d am_buff_msg\n", i);
       gasneti_free(am_iov[i].iov_base);
     }
     gasneti_free(am_buff_ctxt);
@@ -313,39 +313,39 @@ void gasnetc_ofi_exit(void)
     gasneti_free(am_buff_msg);
   }
 
-  if(fi_close(&gasnetc_ofi_rdma_mrfd->fid)!=GASNET_OK) {
+  if(fi_close(&gasnetc_ofi_rdma_mrfd->fid)!=FI_SUCCESS) {
     gasneti_fatalerror("close mrfd failed\n");
   }
 
-  if(fi_close(&gasnetc_ofi_am_epfd->fid)!=GASNET_OK) {
+  if(fi_close(&gasnetc_ofi_am_epfd->fid)!=FI_SUCCESS) {
     gasneti_fatalerror("close am epfd failed\n");
   }
 
-  if(fi_close(&gasnetc_ofi_rdma_epfd->fid)!=GASNET_OK) {
+  if(fi_close(&gasnetc_ofi_rdma_epfd->fid)!=FI_SUCCESS) {
     gasneti_fatalerror("close rdma epfd failed\n");
   }
 
-  if(fi_close(&gasnetc_ofi_am_scqfd->fid)!=GASNET_OK) {
+  if(fi_close(&gasnetc_ofi_am_scqfd->fid)!=FI_SUCCESS) {
     gasneti_fatalerror("close am scqfd failed\n");
   }
 
-  if(fi_close(&gasnetc_ofi_am_rcqfd->fid)!=GASNET_OK) {
+  if(fi_close(&gasnetc_ofi_am_rcqfd->fid)!=FI_SUCCESS) {
     gasneti_fatalerror("close am rcqfd failed\n");
   }
 
-  if(fi_close(&gasnetc_ofi_rdma_cqfd->fid)!=GASNET_OK) {
+  if(fi_close(&gasnetc_ofi_rdma_cqfd->fid)!=FI_SUCCESS) {
     gasneti_fatalerror("close write eqfd failed\n");
   }
 
-  if(fi_close(&gasnetc_ofi_avfd->fid)!=GASNET_OK) {
+  if(fi_close(&gasnetc_ofi_avfd->fid)!=FI_SUCCESS) {
     gasneti_fatalerror("close av failed\n");
   }
 
-  if(fi_close(&gasnetc_ofi_domainfd->fid)!=GASNET_OK) {
+  if(fi_close(&gasnetc_ofi_domainfd->fid)!=FI_SUCCESS) {
     gasneti_fatalerror("close domainfd failed\n");
   }
 
-  if(fi_close(&gasnetc_ofi_fabricfd->fid)!=GASNET_OK) {
+  if(fi_close(&gasnetc_ofi_fabricfd->fid)!=FI_SUCCESS) {
     gasneti_fatalerror("close fabricfd failed\n");
   }
 
@@ -466,7 +466,7 @@ void gasnetc_ofi_release_am(struct fi_cq_data_entry *re, void *buf)
  * ----------------------------------------------*/
 void gasnetc_ofi_attach(void *segbase, uintptr_t segsize)
 {
-	int ret = GASNET_OK;
+	int ret = FI_SUCCESS;
 	int i;
 	int iov_len = OFI_AM_BLOCK_SIZE;
 	int num_iov = OFI_AM_NUM_BLOCK;
@@ -480,11 +480,11 @@ void gasnetc_ofi_attach(void *segbase, uintptr_t segsize)
 #else
 	ret = fi_mr_reg(gasnetc_ofi_domainfd, (void *)0, UINT64_MAX, FI_REMOTE_READ | FI_REMOTE_WRITE, 0ULL, 0ULL, FI_MR_SCALABLE, &gasnetc_ofi_rdma_mrfd, NULL);
 #endif
-	if (GASNET_OK != ret) gasneti_fatalerror("fi_mr_reg for rdma failed: %d\n", ret);
+	if (FI_SUCCESS != ret) gasneti_fatalerror("fi_mr_reg for rdma failed: %d\n", ret);
 
 	/* Bind MR to RMA endpoint */
 	ret = fi_ep_bind(gasnetc_ofi_rdma_epfd, &gasnetc_ofi_rdma_mrfd->fid, FI_REMOTE_READ | FI_REMOTE_WRITE);
-	if (GASNET_OK != ret) gasneti_fatalerror("fi_ep_bind for rdma_epfd and rdma_mrfd failed: %d\n", ret);
+	if (FI_SUCCESS != ret) gasneti_fatalerror("fi_ep_bind for rdma_epfd and rdma_mrfd failed: %d\n", ret);
 
 	for(i = 0; i < num_iov; i++) {
 		am_iov[i].iov_base		= gasneti_malloc(iov_len);
@@ -499,7 +499,7 @@ void gasnetc_ofi_attach(void *segbase, uintptr_t segsize)
 		am_buff_ctxt[i].index		= i;
 		/* Post buffers for Active Messages */
 		ret = fi_recvmsg(gasnetc_ofi_am_epfd, &am_buff_msg[i], FI_MULTI_RECV);
-		if (GASNET_OK != ret) gasneti_fatalerror("fi_recvmsg failed: %d\n", ret);
+		if (FI_SUCCESS != ret) gasneti_fatalerror("fi_recvmsg failed: %d\n", ret);
 	}
 
 }
@@ -583,7 +583,7 @@ static void gasnetc_ofi_am_recv_poll(int blocking_poll)
 				if (re.len < min_multi_recv && re.len != 0)
 					header->callback(&re, header);
 				ret = fi_recvmsg(gasnetc_ofi_am_epfd, &(am_buff_msg[header->index]), FI_MULTI_RECV);
-				if (GASNET_OK != ret) gasneti_fatalerror("fi_recvmsg failed inside am_poll: %d\n", ret);
+				if (FI_SUCCESS != ret) gasneti_fatalerror("fi_recvmsg failed inside am_poll: %d\n", ret);
 			} else {
 				ofi_am_buf_t *header;
 				header = (ofi_am_buf_t *)re.op_context;
@@ -617,7 +617,7 @@ void gasnetc_ofi_poll(int blocking_poll)
 int gasnetc_ofi_am_send_short(gasnet_node_t dest, gasnet_handler_t handler,
                      int numargs, va_list argptr, int isreq)
 {
-	int ret = GASNET_OK;
+	int ret = FI_SUCCESS;
 	gasnet_handlerarg_t *arglist;
 	int i, len;
 	ofi_am_buf_t *header;
@@ -663,7 +663,7 @@ int gasnetc_ofi_am_send_short(gasnet_node_t dest, gasnet_handler_t handler,
 			gasnetc_ofi_am_send_poll(0);
 			ret = fi_inject(gasnetc_ofi_am_epfd, sendbuf, len, GET_AM_DEST(dest));
 		}
-		if (GASNET_OK != ret) gasneti_fatalerror("fi_inject for short ashort failed: %d\n", ret);
+		if (FI_SUCCESS != ret) gasneti_fatalerror("fi_inject for short ashort failed: %d\n", ret);
 
 		/* Data buffer is ready for reuse, handle it by callback function */
 		header->callback(NULL, header);
@@ -673,7 +673,7 @@ int gasnetc_ofi_am_send_short(gasnet_node_t dest, gasnet_handler_t handler,
 			gasnetc_ofi_am_send_poll(0);
 			ret = fi_send(gasnetc_ofi_am_epfd, sendbuf, len, NULL, GET_AM_DEST(dest), &header->ctxt);
 		}
-		if (GASNET_OK != ret) gasneti_fatalerror("fi_send for short am failed: %d\n", ret);
+		if (FI_SUCCESS != ret) gasneti_fatalerror("fi_send for short am failed: %d\n", ret);
 		gasnetc_paratomic_increment(&pending_am,0);
 	}
 	return ret;
@@ -683,7 +683,7 @@ int gasnetc_ofi_am_send_medium(gasnet_node_t dest, gasnet_handler_t handler,
                      void *source_addr, size_t nbytes,   /* data payload */
                      int numargs, va_list argptr, int isreq)
 {
-	int ret = GASNET_OK;
+	int ret = FI_SUCCESS;
 	gasnet_handlerarg_t *arglist;
 	int i, len;
 	ofi_am_buf_t *header;
@@ -736,7 +736,7 @@ int gasnetc_ofi_am_send_medium(gasnet_node_t dest, gasnet_handler_t handler,
 			gasnetc_ofi_am_send_poll(0);
 			ret = fi_inject(gasnetc_ofi_am_epfd, sendbuf, len, GET_AM_DEST(dest));
 		}
-		if (GASNET_OK != ret) gasneti_fatalerror("fi_inject for medium ashort failed: %d\n", ret);
+		if (FI_SUCCESS != ret) gasneti_fatalerror("fi_inject for medium ashort failed: %d\n", ret);
 		header->callback(NULL, header);
 	} else {
 		ret = fi_send(gasnetc_ofi_am_epfd, sendbuf, len, NULL, GET_AM_DEST(dest), &header->ctxt);
@@ -744,7 +744,7 @@ int gasnetc_ofi_am_send_medium(gasnet_node_t dest, gasnet_handler_t handler,
 			gasnetc_ofi_am_send_poll(0);
 			ret = fi_send(gasnetc_ofi_am_epfd, sendbuf, len, NULL, GET_AM_DEST(dest), &header->ctxt);
 		}
-		if (GASNET_OK != ret) gasneti_fatalerror("fi_send for meduim am failed: %d\n", ret);
+		if (FI_SUCCESS != ret) gasneti_fatalerror("fi_send for meduim am failed: %d\n", ret);
 		gasnetc_paratomic_increment(&pending_am,0);
 	}
 
@@ -756,7 +756,7 @@ int gasnetc_ofi_am_send_long(gasnet_node_t dest, gasnet_handler_t handler,
 		               void *dest_addr,
 		               int numargs, va_list argptr, int isreq, int isasync)
 {
-	int ret = GASNET_OK;
+	int ret = FI_SUCCESS;
 	gasnet_handlerarg_t *arglist;
 	int i, len;
 	ofi_am_buf_t *header;
@@ -811,7 +811,7 @@ int gasnetc_ofi_am_send_long(gasnet_node_t dest, gasnet_handler_t handler,
 				ret = fi_write(gasnetc_ofi_rdma_epfd, source_addr, nbytes, NULL, 
 						GET_RDMA_DEST(dest), GET_DSTADDR(dest_addr, dest), 0, &lam_ctxt.ctxt);
 			}
-			if (GASNET_OK != ret) 
+			if (FI_SUCCESS != ret) 
 				gasneti_fatalerror("fi_rdma_writememto failed for AM long: %d\n", ret);
 			gasnetc_paratomic_increment(&pending_rdma,0);
 
@@ -851,7 +851,7 @@ int gasnetc_ofi_am_send_long(gasnet_node_t dest, gasnet_handler_t handler,
 			gasnetc_ofi_am_send_poll(0);
 			ret = fi_inject(gasnetc_ofi_am_epfd, sendbuf, len, GET_AM_DEST(dest));
 		}
-		if (GASNET_OK != ret) gasneti_fatalerror("fi_inject for long ashort failed: %d\n", ret);
+		if (FI_SUCCESS != ret) gasneti_fatalerror("fi_inject for long ashort failed: %d\n", ret);
 		header->callback(NULL, header);
 	} else {
 		ret = fi_send(gasnetc_ofi_am_epfd, sendbuf, len, NULL, GET_AM_DEST(dest), &header->ctxt);
@@ -859,7 +859,7 @@ int gasnetc_ofi_am_send_long(gasnet_node_t dest, gasnet_handler_t handler,
 			gasnetc_ofi_am_send_poll(0);
 			ret = fi_send(gasnetc_ofi_am_epfd, sendbuf, len, NULL, GET_AM_DEST(dest), &header->ctxt);
 		}
-		if (GASNET_OK != ret) gasneti_fatalerror("fi_send for long am failed: %d\n", ret);
+		if (FI_SUCCESS != ret) gasneti_fatalerror("fi_send for long am failed: %d\n", ret);
 		gasnetc_paratomic_increment(&pending_am,0);
 	}
 
@@ -874,7 +874,7 @@ void
 gasnetc_rdma_put(gasnet_node_t dest, void *dest_addr, void *src_addr, size_t nbytes,
 		void *ctxt_ptr)
 {
-	int ret = GASNET_OK;
+	int ret = FI_SUCCESS;
 
 	((ofi_op_ctxt_t *)ctxt_ptr)->callback = gasnetc_ofi_handle_rdma;
 	ret = fi_write(gasnetc_ofi_rdma_epfd, src_addr, nbytes, NULL, GET_RDMA_DEST(dest), 
@@ -884,7 +884,7 @@ gasnetc_rdma_put(gasnet_node_t dest, void *dest_addr, void *src_addr, size_t nby
 		ret = fi_write(gasnetc_ofi_rdma_epfd, src_addr, nbytes, NULL, GET_RDMA_DEST(dest), 
 				GET_DSTADDR(dest_addr, dest), 0, ctxt_ptr);
 	}
-	if (GASNET_OK != ret) 
+	if (FI_SUCCESS != ret)
 		gasneti_fatalerror("fi_rdma_write for normal message failed: %d\n", ret);
 	gasnetc_paratomic_increment(&pending_rdma,0);
 }
@@ -893,7 +893,7 @@ void
 gasnetc_rdma_get(void *dest_addr, gasnet_node_t dest, void * src_addr, size_t nbytes,
 		void *ctxt_ptr)
 {
-	int ret = GASNET_OK;
+	int ret = FI_SUCCESS;
 
 	((ofi_op_ctxt_t *)ctxt_ptr)->callback = gasnetc_ofi_handle_rdma;
 	ret = fi_read(gasnetc_ofi_rdma_epfd, dest_addr, nbytes, NULL, GET_RDMA_DEST(dest), 
@@ -903,7 +903,7 @@ gasnetc_rdma_get(void *dest_addr, gasnet_node_t dest, void * src_addr, size_t nb
 		ret = fi_read(gasnetc_ofi_rdma_epfd, dest_addr, nbytes, NULL, GET_RDMA_DEST(dest), 
 				GET_SRCADDR(src_addr, dest), 0, ctxt_ptr);
 	}
-	if (GASNET_OK != ret) 
+	if (FI_SUCCESS != ret)
 		gasneti_fatalerror("fi_rdma_readmemfrom failed: %d\n", ret);
 
 	gasnetc_paratomic_increment(&pending_rdma,0);
