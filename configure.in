@@ -3825,17 +3825,16 @@ GASNET_WITH(ssh-topology,
 # Things for pmi-spawner
 
 GASNET_WITH(pmi, [path to PMI headers and libs],
-            [with_pmi="$withval"], [with_pmi=no], [with_pmi='/usr'])
+            [with_pmi="$withval"; force_pmi=yes], [with_pmi=no], [with_pmi='/usr'])
+have_pmi=no
 if test -n "$have_pmi_cray_h" ; then
-  AC_CHECK_FUNCS([PMI_Allgather PMI_Bcast])
   with_pmi='no'
+  have_pmi='yes'
 elif test "$with_pmi" = yes; then
   with_pmi='/usr'
 fi
 
-have_pmi=no
 if test "$with_pmi" != 'no'; then
-  GASNET_PUSHVAR(LDFLAGS,"$LDFLAGS")
   if test "$with_pmi" = '/usr'; then
     : # Nothing to do
   elif test -d "${with_pmi}/lib${GASNETI_PTR_BITS}/."; then
@@ -3843,7 +3842,6 @@ if test "$with_pmi" != 'no'; then
   elif test -d "${with_pmi}/lib/."; then
     PMI_SPAWNER_LIBDIR="-L${with_pmi}/lib"
   fi
-  LDFLAGS="$LDFLAGS $PMI_SPAWNER_LIBDIR"
 
   # If user specifies one PMI version then disqualify the other
   GASNET_WITH(pmi-version, [PMI version (1 or 2)] , [
@@ -3858,6 +3856,7 @@ if test "$with_pmi" != 'no'; then
   ])
 
   # Check for libs unless disqualifed by --with-pmi-version=
+  GASNET_PUSHVAR(LDFLAGS,"$LDFLAGS $PMI_SPAWNER_LIBDIR")
   GASNET_PUSHVAR(LIBS,"")
   if test -z "${use_pmi1+set}"; then
     AC_SEARCH_LIBS(PMI2_Init, [pmi2 mpich], [
@@ -3880,6 +3879,7 @@ if test "$with_pmi" != 'no'; then
     ])
   fi
   GASNET_POPVAR(LIBS)
+  GASNET_POPVAR(LDFLAGS)
 
   # Check for header matching the selected lib
   # TODO: fragile if multiple PMI libs are installed
@@ -3896,23 +3896,23 @@ if test "$with_pmi" != 'no'; then
       have_pmi=no
     fi
   fi
-
-  if test "$have_pmi" = yes; then
-    GASNET_PUSHVAR(LIBS,"$LIBS $PMI_SPAWNER_LIBS")
-    # Not seen outside of Cray PMI, but we can hope:
-    AC_CHECK_FUNCS([PMI_Allgather PMI_Bcast])
-    GASNET_POPVAR(LIBS)
-  elif test -n "${with_pmi_version+set}" ; then
-    GASNET_MSG_ERROR([Requested PMI version $with_pmi_version could not be found])
-  fi
-
-  GASNET_POPVAR(LDFLAGS)
 fi
 
-if test "$have_pmi" = no; then
+if test "$have_pmi" = yes; then
+  # These have not bee seen outside of Cray PMI, but we can hope:
+  GASNET_PUSHVAR(LDFLAGS,"$LDFLAGS $PMI_SPAWNER_LIBDIR")
+  GASNET_PUSHVAR(LIBS,"$LIBS $PMI_SPAWNER_LIBS")
+  AC_CHECK_FUNCS([PMI_Allgather PMI_Bcast])
+  GASNET_POPVAR(LIBS)
+  GASNET_POPVAR(LDFLAGS)
+elif test -z "$force_pmi"; then
   PMI_SPAWNER_LIBS=""
   PMI_SPAWNER_LIBDIR=""
   PMI_SPAWNER_INCLUDES=""
+elif test -n "${with_pmi_version+set}"; then
+  GASNET_MSG_ERROR([Requested PMI version $with_pmi_version could not be found])
+else
+  GASNET_MSG_ERROR([Requested PMI support could not be found])
 fi
 
 AC_SUBST(PMI_SPAWNER_LIBS)
