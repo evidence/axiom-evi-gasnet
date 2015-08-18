@@ -115,7 +115,8 @@ sub gasnet_encode($) {
     my $is_elan_mpi  = ($mpirun_help =~ m|MPIRUN_ELANIDMAP_FILE|);
     my $is_jacquard = ($mpirun_help =~ m| \[-noenv\] |) && !$is_elan_mpi;
     my $is_infinipath = ($mpirun_help =~ m|InfiniPath |);
-    my $is_srun    = ($mpirun_help =~ m|srun: invalid option|);
+    my $is_srun    = ($mpirun_help =~ m|srun: invalid option| ||
+                      $mpirun_help =~ m|Usage: srun |);
     my $is_prun    = ($mpirun_help =~ m|railmask|);
     my $is_pam     = ($mpirun_help =~ m|TaskStarter|);
     my $envprog = $ENV{'GASNET_ENVCMD'};
