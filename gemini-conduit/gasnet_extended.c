@@ -1189,13 +1189,20 @@ void gasnete_gdbarrier_send(gasnete_coll_gdbarrier_t *barrier_data,
   for (i = 0; i < numsteps; ++i, slot += 2, step += 1) {
     const gasnet_node_t node = barrier_data->barrier_peers[step].node;
     uint64_t * const dst = GASNETE_GDBARRIER_INBOX_REMOTE(barrier_data, step, slot);
-    GASNETC_DIDX_POST((gasnete_mythread())->domain_idx);
-    gasnetc_post_descriptor_t * const gpd = gasnetc_alloc_post_descriptor(GASNETC_DIDX_PASS_ALONE);
-    uint64_t * const src = (uint64_t *)GASNETE_STARTOFBITS(gpd->u.immediate, sizeof(uint64_t));
+#if GASNET_PSHM && !GASNETI_PSHM_BARRIER_HIER
+    if (gasneti_pshm_in_supernode(node)) {
+      *(uint64_t*)gasneti_pshm_addr2local(node, dst) = payload;
+    } else
+#endif
+    {
+      GASNETC_DIDX_POST((gasnete_mythread())->domain_idx);
+      gasnetc_post_descriptor_t * const gpd = gasnetc_alloc_post_descriptor(GASNETC_DIDX_PASS_ALONE);
+      uint64_t * const src = (uint64_t *)GASNETE_STARTOFBITS(gpd->u.immediate, sizeof(uint64_t));
 
-    gpd->flags = 0; /* fire and forget */
-    *src = payload;
-    gasnetc_rdma_put_buff(node, dst, src, sizeof(*src), gpd);
+      gpd->flags = 0; /* fire and forget */
+      *src = payload;
+      gasnetc_rdma_put_buff(node, dst, src, sizeof(*src), gpd);
+    }
   }
 }
 

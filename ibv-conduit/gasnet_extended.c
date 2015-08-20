@@ -792,9 +792,10 @@ void gasnete_ibdbarrier_send(gasnete_coll_ibdbarrier_t *barrier_data,
    * This has sufficient lifetime for bulk and sufficient alignment for non-bulk.
    * Use of opposite phase prevents cacheline contention with arrivals.
    */
+  const uint64_t msg = GASNETE_IBDBARRIER_BUILD(value, flags);
   volatile uint64_t *payload = GASNETE_IBDBARRIER_INBOX(barrier_data, (slot^1))
                                     + (GASNETE_IBDBARRIER_INBOX_WORDS/2);
-  *payload = GASNETE_IBDBARRIER_BUILD(value, flags);
+  *payload = msg;
 
   /* TODO:
    *   Reduce latency by pre-computing sr_desc and rkey_index at init time
@@ -804,6 +805,11 @@ void gasnete_ibdbarrier_send(gasnete_coll_ibdbarrier_t *barrier_data,
   for (i = 0; i < numsteps; ++i, slot += 2, step += 1) {
     const gasnet_node_t node = barrier_data->barrier_peers[step].node;
     uint64_t * const dst = GASNETE_IBDBARRIER_INBOX_REMOTE(barrier_data, step, slot);
+#if GASNET_PSHM && !GASNETI_PSHM_BARRIER_HIER
+    if (gasneti_pshm_in_supernode(node)) {
+      *(uint64_t*)gasneti_pshm_addr2local(node, dst) = msg;
+    } else
+#endif
     (void) gasnetc_rdma_put(node, (void*)payload, dst, sizeof(*payload), NULL, NULL, NULL GASNETE_THREAD_PASS);
   }
 }
