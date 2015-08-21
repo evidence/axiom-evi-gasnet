@@ -1448,10 +1448,15 @@ void gasnetc_poll_am_queue(void)
   GASNETC_DIDX_POST(GASNETC_DEFAULT_DOMAIN);
   DOMAIN_SPECIFIC_VAR(peer_struct_t * const, peer_data);
   gni_cq_entry_t event_data[AM_BURST];
-  int count;
+  int count = 0;
   int i;
 
   /* Reap Cq entries until our queue is full, or Cq is empty */
+#if GASNET_PAR
+  /* Cray has assured us that GNI_CqTestEvent() requires no serialization */
+  if (GNI_RC_NOT_DONE != GNI_CqTestEvent(am_cq_handle))
+#endif
+  {
   GASNETC_LOCK_GNI();
     for (count = 0; count < AM_BURST; ++count) {
       gni_return_t status = GNI_CqGetEvent(am_cq_handle, &event_data[count]);
@@ -1459,6 +1464,7 @@ void gasnetc_poll_am_queue(void)
       gasneti_assert(!GNI_CQ_OVERRUN(event_data[count]));
     }
   GASNETC_UNLOCK_GNI();
+  }
 
   if (count) {
     /* Must take the lock to process new events */
