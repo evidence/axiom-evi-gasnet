@@ -812,7 +812,7 @@ int gasnetc_ofi_am_send_long(gasnet_node_t dest, gasnet_handler_t handler,
 						GET_RDMA_DEST(dest), GET_DSTADDR(dest_addr, dest), 0, &lam_ctxt.ctxt);
 			}
 			if (FI_SUCCESS != ret) 
-				gasneti_fatalerror("fi_rdma_writememto failed for AM long: %d\n", ret);
+				gasneti_fatalerror("fi_write failed for AM long: %d\n", ret);
 			gasnetc_paratomic_increment(&pending_rdma,0);
 
 			/* Because the order is not guaranteed between different ep, */
@@ -885,7 +885,7 @@ gasnetc_rdma_put(gasnet_node_t dest, void *dest_addr, void *src_addr, size_t nby
 				GET_DSTADDR(dest_addr, dest), 0, ctxt_ptr);
 	}
 	if (FI_SUCCESS != ret)
-		gasneti_fatalerror("fi_rdma_write for normal message failed: %d\n", ret);
+		gasneti_fatalerror("fi_write for normal message failed: %d\n", ret);
 	gasnetc_paratomic_increment(&pending_rdma,0);
 }
 
@@ -904,8 +904,7 @@ gasnetc_rdma_get(void *dest_addr, gasnet_node_t dest, void * src_addr, size_t nb
 				GET_SRCADDR(src_addr, dest), 0, ctxt_ptr);
 	}
 	if (FI_SUCCESS != ret)
-		gasneti_fatalerror("fi_rdma_readmemfrom failed: %d\n", ret);
-
+		gasneti_fatalerror("fi_read failed: %d\n", ret);
 	gasnetc_paratomic_increment(&pending_rdma,0);
 }
 
