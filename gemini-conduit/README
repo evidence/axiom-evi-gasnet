@@ -178,8 +178,8 @@ in gemini-conduit/gasnet_gemini.c:
 
 int gasnetc_poll_burst = 10;   /* number of rdma completions to get at once */
 
-Sets the number of events for arriving short messages taken at once
-#define SMSG_BURST 20
+Sets the number of events for arriving active messages taken at once
+#define AM_BURST 20
 
 Known problems:
 ---------------

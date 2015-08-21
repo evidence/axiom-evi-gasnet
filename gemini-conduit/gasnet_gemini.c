@@ -76,7 +76,7 @@ static uint32_t notify_ring_mask; /* ring size minus 1 */
 
 static int have_segment = 0;
 
-static gni_cq_handle_t smsg_cq_handle;
+static gni_cq_handle_t am_cq_handle;
 static int gasnetc_poll_burst = 10;
 #if FIX_HT_ORDERING
 static uint16_t gasnetc_fma_put_cq_mode = GNI_CQMODE_GLOBAL_EVENT;
@@ -389,9 +389,9 @@ void gasnetc_deregister_gpd(gasnetc_post_descriptor_t *gpd)
   #define node_is_local(_i) ((_i) == gasneti_mynode)
 #endif
 
-/* From point-of-view of a remote node, what is MY index as an Smsg peer? */
-GASNETI_INLINE(my_smsg_index)
-int my_smsg_index(gasnet_node_t remote_node) {
+/* From point-of-view of a remote node, what is MY index in the mailbox array */
+GASNETI_INLINE(my_mb_index)
+int my_mb_index(gasnet_node_t remote_node) {
 #if GASNET_PSHM
   int i, result = 0;
 
@@ -811,7 +811,7 @@ uintptr_t gasnetc_init_messaging(void)
    * include logarithmic space for shutdown messaging
    */
   i = gasnetc_log2_remote + 2*remote_nodes*am_maxcredit; /* 2 = Request + Reply */
-  status = GNI_CqCreate(nic_handle,i,0,GNI_CQ_NOBLOCK,NULL,NULL,&smsg_cq_handle);
+  status = GNI_CqCreate(nic_handle,i,0,GNI_CQ_NOBLOCK,NULL,NULL,&am_cq_handle);
   if (status != GNI_RC_SUCCESS) {
     gasnetc_GNIT_Abort("GNI_CqCreate returned error %s", gasnetc_gni_rc_string(status));
   }
@@ -842,13 +842,13 @@ uintptr_t gasnetc_init_messaging(void)
       status = GNI_MemRegister(nic_handle, 
 			       (unsigned long)am_mmap_ptr, 
 			       am_mmap_bytes,
-			       smsg_cq_handle,
+			       am_cq_handle,
 			       GNI_MEM_STRICT_PI_ORDERING | GNI_MEM_PI_FLUSH | GNI_MEM_READWRITE,
 			       -1,
 			       &am_handle);
       if (status == GNI_RC_SUCCESS) break;
       if (status == GNI_RC_ERROR_RESOURCE) {
-	gasnetc_GNIT_Log("MemRegister smsg fault %d at  %p %lx, code %s", 
+	gasnetc_GNIT_Log("MemRegister am fault %d at  %p %lx, code %s",
 		count, am_mmap_ptr, am_mmap_bytes, gasnetc_gni_rc_string(status));
 	count += 1;
 	if (count >= 10) break;
@@ -870,25 +870,25 @@ uintptr_t gasnetc_init_messaging(void)
     gasnetc_reply_pool = m;
   }
 
-  /* exchange peer data and initialize smsg */
-  { struct smsg_exchange { uint8_t *addr; gni_mem_handle_t handle;};
-    struct smsg_exchange my_smsg_exchg = { am_mmap_ptr, am_handle};
-    struct smsg_exchange *all_smsg_exchg = gasneti_malloc(gasneti_nodes * sizeof(struct smsg_exchange));
+  /* exchange peer data and initialize am */
+  { struct am_exchange { uint8_t *addr; gni_mem_handle_t handle;};
+    struct am_exchange my_am_exchg = { am_mmap_ptr, am_handle};
+    struct am_exchange *all_am_exchg = gasneti_malloc(gasneti_nodes * sizeof(struct am_exchange));
     uint8_t *local_peer_base = (uint8_t *)am_mmap_ptr + reply_region_length;
 
-    gasnetc_bootstrapExchange(&my_smsg_exchg, sizeof(struct smsg_exchange), all_smsg_exchg);
+    gasnetc_bootstrapExchange(&my_am_exchg, sizeof(struct am_exchange), all_am_exchg);
   
-    /* At this point all_smsg_exchg has the required information for everyone */
+    /* At this point all_am_exchg has the required information for everyone */
     for (i = 0; i < gasneti_nodes; i += 1) {
       if (!node_is_local(i)){ /* no connection to self or PSHM-reachable peers */
         peer_struct_t * const peer = &peer_data[i];
-        uint8_t *remote_peer_base = all_smsg_exchg[i].addr + peer_stride * my_smsg_index(i) + reply_region_length;
+        uint8_t *remote_peer_base = all_am_exchg[i].addr + peer_stride * my_mb_index(i) + reply_region_length;
 
         peer_data[i].pe = i;
         peer_data[i].event_count = 0;
 
-        peer->am_handle = all_smsg_exchg[i].handle;
-        peer->remote_reply_base = (gasnetc_mailbox_t *)all_smsg_exchg[i].addr;
+        peer->am_handle = all_am_exchg[i].handle;
+        peer->remote_reply_base = (gasnetc_mailbox_t *)all_am_exchg[i].addr;
         peer->local_request_base = (gasnetc_mailbox_t*) local_peer_base;
         peer->remote_request_base = (gasnetc_mailbox_t*) remote_peer_base;
         peer->remote_notify_base = (gasnetc_notify_t *)(remote_peer_base + request_region_length);
@@ -898,7 +898,7 @@ uintptr_t gasnetc_init_messaging(void)
         local_peer_base += peer_stride;
       }
     }
-    gasneti_free(all_smsg_exchg);
+    gasneti_free(all_am_exchg);
   }
 
   /* Create a temporary pool of post descriptors for uses prior to the aux seg attach.
@@ -997,12 +997,12 @@ void gasnetc_shutdown(void)
 
       status = GNI_MemDeregister(nic_handle, &am_handle);
       if_pf (status != GNI_RC_SUCCESS) {
-        gasnetc_GNIT_Log("MemDeregister(smsg_mem) failed with %s", gasnetc_gni_rc_string(status));
+        gasnetc_GNIT_Log("MemDeregister(am_mem) failed with %s", gasnetc_gni_rc_string(status));
       }
 
-      status = GNI_CqDestroy(smsg_cq_handle);
+      status = GNI_CqDestroy(am_cq_handle);
       if_pf (status != GNI_RC_SUCCESS) {
-        gasnetc_GNIT_Log("CqDestroy(smsg_cq) failed with %s", gasnetc_gni_rc_string(status));
+        gasnetc_GNIT_Log("CqDestroy(am_cq) failed with %s", gasnetc_gni_rc_string(status));
       }
 #if GASNETC_USE_MULTI_DOMAIN
     }
@@ -1101,7 +1101,7 @@ int gasnetc_send_am_common(peer_struct_t *peer, gni_post_descriptor_t *pd)
     GASNETC_LOCK_GNI();
   }
 
-  if_pf (trial) GASNETC_STAT_EVENT_VAL(SMSG_SEND_RETRY, trial);
+  if_pf (trial) GASNETC_STAT_EVENT_VAL(AM_SEND_RETRY, trial);
   return GASNET_OK;
 }
 
@@ -1440,21 +1440,21 @@ int poll_for_message(peer_struct_t * const peer, int is_slow)
 /* Max number of times to poll the AM mailboxes per entry */
 /* TODO: control via env var */
 /* TODO: distinct value for CQ events reaped vs service limit on "slow" list? */
-#define SMSG_BURST 20
+#define AM_BURST 20
 
 static
-void gasnetc_poll_smsg_queue(void)
+void gasnetc_poll_am_queue(void)
 {
   GASNETC_DIDX_POST(GASNETC_DEFAULT_DOMAIN);
   DOMAIN_SPECIFIC_VAR(peer_struct_t * const, peer_data);
-  gni_cq_entry_t event_data[SMSG_BURST];
+  gni_cq_entry_t event_data[AM_BURST];
   int count;
   int i;
 
   /* Reap Cq entries until our queue is full, or Cq is empty */
   GASNETC_LOCK_GNI();
-    for (count = 0; count < SMSG_BURST; ++count) {
-      gni_return_t status = GNI_CqGetEvent(smsg_cq_handle, &event_data[count]);
+    for (count = 0; count < AM_BURST; ++count) {
+      gni_return_t status = GNI_CqGetEvent(am_cq_handle, &event_data[count]);
       if (status != GNI_RC_SUCCESS) break; /* TODO: check for fatal errors */
       gasneti_assert(!GNI_CQ_OVERRUN(event_data[count]));
     }
@@ -1483,7 +1483,7 @@ void gasnetc_poll_smsg_queue(void)
   }
 
   /* Poll "slow" sources, starting with the oldest */
-  for (i = 0; ampoll_head && (i < SMSG_BURST); ++i) {
+  for (i = 0; ampoll_head && (i < AM_BURST); ++i) {
     peer_struct_t * const peer = ampoll_head;
     if (!poll_for_message(peer, 1)) {
       if (peer == ampoll_tail) break; /* don't spin on singleton peer */
@@ -1585,7 +1585,7 @@ void gasnetc_poll(GASNETC_DIDX_FARG_ALONE)
  #else
   if_pf (GASNETC_DIDX == GASNETC_ALL_DOMAINS) {
     int d;
-    gasnetc_poll_smsg_queue();
+    gasnetc_poll_am_queue();
     for (d = 0; d < gasnetc_domain_count; d++) {
       gasnetc_poll_local_queue(d);
     }
@@ -1595,12 +1595,12 @@ void gasnetc_poll(GASNETC_DIDX_FARG_ALONE)
     if ((GASNETC_DIDX == GASNETC_DEFAULT_DOMAIN) ||
         /* Every now and then poll for AMs even from non-default domains: */
         GASNETT_PREDICT_FALSE((DOMAIN_SPECIFIC_VAL(poll_idx)++ & gasnetc_poll_am_domain_mask) == 0)) {
-       gasnetc_poll_smsg_queue();
+       gasnetc_poll_am_queue();
     }
     gasnetc_poll_local_queue(GASNETC_DIDX_PASS_ALONE);
   }
 #else
-  gasnetc_poll_smsg_queue();
+  gasnetc_poll_am_queue();
   gasnetc_poll_local_queue(GASNETC_DIDX_PASS_ALONE);
 #endif
 }

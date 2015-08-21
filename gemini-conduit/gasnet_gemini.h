@@ -176,13 +176,13 @@ typedef union gasnetc_packet_u {
 #define GASNETC_HEADLEN(cat,nargs) \
         GASNETC_HEADLEN_AUX(gasnetc_am_##cat##_packet_t,(nargs))
 
-/* maximum SMSG size: */
+/* maximum message size: */
 #define GASNETC_CACHELINE_SIZE 64
 #define GASNETC_MSG_MAXSIZE \
         GASNETI_ALIGNUP_NOASSERT((GASNETC_HEADLEN(medium, gasnet_AMMaxArgs()) \
                           + gasnet_AMMaxMedium()), GASNETC_CACHELINE_SIZE)
 
-/* max data one can pack into SMSG with a long header: */
+/* max data one can pack into a message with a long header: */
 /* TODO: runtime control of cut-off via an env var */
 #if GASNET_CONDUIT_GEMINI
 /* On Gemini it doesn't pay to pack more than 128 bytes or so */
