@@ -213,8 +213,11 @@ void gasnetc_init_bounce_buffer_pool(GASNETC_DIDX_FARG_ALONE);
 /* space for immediate bounce buffer in the post descriptor */
 #define GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE 128
 /* how many concurrent dynamic memory registrations to allow */
-#define GASNETC_GNI_MEMREG_DEFAULT 16 /* 0 = unbounded.  TODO: tune/probe? */
-
+#if GASNET_CONDUIT_GEMINI
+#define GASNETC_GNI_MEMREG_DEFAULT 16 /* TODO: tune/probe? */
+#else
+#define GASNETC_GNI_MEMREG_DEFAULT 0  /* 0 = unbounded */
+#endif
 
 /* largest get that can be handled by gasnetc_rdma_get_unaligned() */
 extern size_t gasnetc_max_get_unaligned;
