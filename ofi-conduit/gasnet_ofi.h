@@ -142,5 +142,6 @@ void gasnetc_rdma_get(void *dest, gasnet_node_t node, void * src, size_t nbytes,
 void gasnetc_rdma_put_wait(gasnet_handle_t op);
 void gasnetc_rdma_get_wait(gasnet_handle_t op);
 
+int gasnetc_exit_in_progress;
 
 #endif /*GASNET_OFI_H*/

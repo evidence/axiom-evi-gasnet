@@ -73,6 +73,13 @@ static int am_empty_poll = 0;
 #define OFI_CONDUIT_VERSION FI_VERSION(1, 0)
 #define NUM_CQ_ENTRIES 2
 
+#if GASNET_PAR
+static inline int gasnetc_is_exiting(void) {
+    gasneti_sync_reads();
+    return gasnetc_exit_in_progress;
+}
+#endif
+
 /*------------------------------------------------
  * Initialize OFI conduit
  * ----------------------------------------------*/
@@ -524,6 +531,11 @@ static void gasnetc_ofi_rdma_poll(int blocking_poll)
 		if (ret < 0) {
 			int err_sz = 0;
 			err_sz = fi_cq_readerr(gasnetc_ofi_rdma_cqfd, &e ,0);
+#if GASNET_PAR
+                        if (gasnetc_is_exiting() && (e.err == FI_SUCCESS || e.err == FI_ECANCELED)) {
+                                return;
+                        }
+#endif
 			gasneti_fatalerror("fi_cq_read for rdma_ep failed with error: %s, err_sz %d\n", 
 					fi_strerror(e.err), err_sz);
 		} else {
@@ -550,7 +562,12 @@ static void gasnetc_ofi_am_send_poll(int blocking_poll)
 	{
 		if (ret < 0) {
 			fi_cq_readerr(gasnetc_ofi_am_scqfd, &e ,0);
-			gasneti_fatalerror("fi_cq_read for am_ep failed with error: %s\n", fi_strerror(e.err));
+#if GASNET_PAR
+                        if (gasnetc_is_exiting() && (e.err == FI_SUCCESS || e.err == FI_ECANCELED)) {
+                                return;
+                        }
+#endif
+			gasneti_fatalerror("fi_cq_read for am_send_poll failed with error: %s\n", fi_strerror(e.err));
 		} else {
 			ofi_am_buf_t *header;
 			header = (ofi_am_buf_t *)re.op_context;
@@ -573,7 +590,12 @@ static void gasnetc_ofi_am_recv_poll(int blocking_poll)
 	{
 		if (ret < 0) {
 			fi_cq_readerr(gasnetc_ofi_am_rcqfd, &e ,0);
-			gasneti_fatalerror("fi_cq_read for am_ep failed with error: %s\n", fi_strerror(e.err));
+#if GASNET_PAR
+                        if (gasnetc_is_exiting() && (e.err == FI_SUCCESS || e.err == FI_ECANCELED)) {
+                                return;
+                        }
+#endif
+			gasneti_fatalerror("fi_cq_read for am_recv_poll failed with error: %s\n", fi_strerror(e.err));
 		} else {
 			if(re.flags & FI_MULTI_RECV)
 			{

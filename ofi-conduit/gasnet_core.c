@@ -295,7 +295,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   return GASNET_OK;
 }
 /* ------------------------------------------------------------------------------------ */
-static int gasnetc_exit_in_progress = 0;
+int gasnetc_exit_in_progress = 0;
 
 #if HAVE_ON_EXIT
 static void gasnetc_on_exit(int exitcode, void *arg) {
@@ -311,6 +311,8 @@ static void gasnetc_atexit(void) {
 
 extern void gasnetc_exit(int exitcode) {
   gasnetc_exit_in_progress = 1;
+  gasneti_sync_writes();
+
   /* once we start a shutdown, ignore all future SIGQUIT signals or we risk reentrancy */
   gasneti_reghandler(SIGQUIT, SIG_IGN);
 
