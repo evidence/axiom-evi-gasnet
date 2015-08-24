@@ -697,7 +697,8 @@ static int gasnete_conduit_rdmabarrier(const char *barrier, gasneti_auxseg_reque
     /* TODO: could keep the full space and allocate some to additional teams */
     size_t request;
 #if GASNETI_PSHM_BARRIER_HIER
-    const int size = gasneti_nodemap_global_count;
+    const int is_hier = gasneti_getenv_yesno_withdefault("GASNET_PSHM_BARRIER_HIER", 1);
+    const int size = is_hier ? gasneti_nodemap_global_count : gasneti_nodes;
 #else
     const int size = gasneti_nodes;
 #endif
@@ -805,7 +806,7 @@ void gasnete_ibdbarrier_send(gasnete_coll_ibdbarrier_t *barrier_data,
   for (i = 0; i < numsteps; ++i, slot += 2, step += 1) {
     const gasnet_node_t node = barrier_data->barrier_peers[step].node;
     uint64_t * const dst = GASNETE_IBDBARRIER_INBOX_REMOTE(barrier_data, step, slot);
-#if GASNET_PSHM && !GASNETI_PSHM_BARRIER_HIER
+#if GASNET_PSHM
     if (gasneti_pshm_in_supernode(node)) {
       *(uint64_t*)gasneti_pshm_addr2local(node, dst) = msg;
     } else

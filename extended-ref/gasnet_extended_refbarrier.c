@@ -539,8 +539,14 @@ static void gasnete_pshmbarrier_fini_inner(gasnete_pshmbarrier_data_t *pshm_bdat
 
 static gasnete_pshmbarrier_data_t *
 gasnete_pshmbarrier_init_hier(gasnete_coll_team_t team, int *size_p, int *rank_p, gasnete_coll_peer_list_t **peers_p) {
-  gasnete_pshmbarrier_data_t * const pshm_bdata = gasnete_pshmbarrier_init_inner(team);
+  gasnete_pshmbarrier_data_t * pshm_bdata;
+  
+  if (! gasneti_getenv_yesno_withdefault("GASNET_PSHM_BARRIER_HIER", 1)) {
+    /* User has disabled at runtime */
+    return NULL;
+  }
 
+  pshm_bdata = gasnete_pshmbarrier_init_inner(team);
   if (pshm_bdata) {
     *size_p = team->supernode.grp_count;
     *rank_p = team->supernode.grp_rank;

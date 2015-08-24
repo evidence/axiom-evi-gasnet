@@ -317,6 +317,12 @@ application-specific support.
  into a shared-memory "supernode", as reported by gasnet_getNodeInfo() and used
  by shared-memory communication (PSHM).  A value of zero means no limit.
 
+* GASNET_PSHM_BARRIER_HIER - enable/disable hierarchical shared-memory barrier.
+ When shared-memory communication (PSHM) is enabled, the default behavior of
+ most of GASNet's barrier implementations is to use a two-stage barrier which
+ coordinates within each supernode before communicating across the network.
+ This variable can be set to 0 to disable this optimization.
+
 * GASNET_NO_CATCH_SIGNAL - specify a comma separated list of signals
  to exclude from GASNet default signal handling. Formats "SIGSEGV",
  "SEGV", "sigsegv", "segv", and "11" are accepted. If the value of
