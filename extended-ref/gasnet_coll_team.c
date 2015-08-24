@@ -188,9 +188,6 @@ void gasnete_coll_team_init(gasnet_team_handle_t team,
   }
 #endif
   
-#if GASNET_PSHM
-  gasnet_node_t *node_vector = NULL;
-#endif
   gasnet_node_t *supernodes = NULL;
   uint32_t i;
   initialize_team_fields(team, images, myrank, total_ranks, scratch_segs GASNETE_THREAD_PASS); 
@@ -223,7 +220,11 @@ void gasnete_coll_team_init(gasnet_team_handle_t team,
 #if GASNET_PSHM
   /* Build supernode stats (unless already constructed) */
   if (!team->supernode.node_count) {
+    gasnet_node_t *node_vector;
     int count, rank;
+
+    /* A list with a representative for each supernode (needed by some barriers) */
+    supernodes = gasneti_malloc(gasneti_nodemap_global_count * sizeof(gasnet_node_t));
 
     /* Created a sorted vector of (supernode,node) for members of this team
      * while finding size of and rank in local supernode in the same pass
@@ -246,29 +247,22 @@ void gasnete_coll_team_init(gasnet_team_handle_t team,
     team->supernode.node_count = count;
     team->supernode.node_rank  = rank;
 
-    /* Count unique entries and find my supernode's rank */
+    /* Count and enumerate unique supernodes and find my supernode's rank */
     count = 1; rank = 0;
+    supernodes[0] = node_vector[1];
     for (i = 1; i < total_ranks; ++i) {
       if (node_vector[2*i] != node_vector[2*(i-1)]) {
         if (node_vector[2*i] == gasneti_pshm_mysupernode) rank = count;
+        supernodes[count] = node_vector[2*i+1];
         ++count;
-        /* dirty (clever?) hack warning:
-         * To avoid a second pass after counting, we overwrite node_vector
-         * with the node numbers of representatives.  Note that initially
-         * node_vector[1] already contains the first representative.
-         */
-        gasneti_assert(count <= 2*i);
-        node_vector[count] = node_vector[2*i+1];
       }
     }
+    gasneti_free(node_vector);
 
     gasneti_assert((count >  0) && (count <= gasneti_nodemap_global_count));
     gasneti_assert((rank  >= 0) && (rank  <  gasneti_nodemap_global_count));
     team->supernode.grp_count = count;
     team->supernode.grp_rank  = rank;
-
-    /* A list with a representative for each supernode (needed by some barriers) */
-    supernodes = node_vector + 1;
 
     /* Construct a list of log(P) representatives at distance +2^i */
     /* NOTE: 'count' and 'rank' are in the supernode space */
@@ -309,7 +303,7 @@ void gasnete_coll_team_init(gasnet_team_handle_t team,
   }
 
 #if GASNET_PSHM
-  gasneti_free(node_vector);
+  gasneti_free(supernodes);
 #endif
 }
 
