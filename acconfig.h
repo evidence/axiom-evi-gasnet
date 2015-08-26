@@ -381,6 +381,7 @@
 /* GASNet {gemini,aries}-conduit settings */
 #undef GASNETC_GNI_MAX_MEDIUM
 #undef GASNETC_GNI_MULTI_DOMAIN
+#undef GASNETC_GNI_FIREHOSE
 
 /* GASNet ibv-conduit features and bug work-arounds */
 #undef HAVE_IBV_SRQ

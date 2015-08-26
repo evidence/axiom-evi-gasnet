@@ -12,6 +12,9 @@
 #include "gasnet_internal.h"
 #include "gasnet_core_internal.h"
 #include <gasnet_extended_internal.h>
+#if GASNETC_GNI_FIREHOSE
+#include <firehose.h>
+#endif
 
 #define GASNETC_STRICT_MEM_CONSISTENCY  1 /* use GNI_MEM_STRICT_PI_ORDERING */
 #define GASNETC_RELAXED_MEM_CONSISTENCY 2 /* use GNI_MEM_RELAXED_PI_ORDERING */
@@ -113,6 +116,14 @@ typedef struct {
   int need_reply;
   gasnetc_notify_t notify;  
 } gasnetc_token_t;
+
+#if GASNETC_GNI_FIREHOSE
+extern size_t gasnetc_fh_align;
+extern size_t gasnetc_fh_align_mask;
+extern int gasnetc_use_firehose;
+#else
+#define gasnetc_use_firehose 0
+#endif
 
 /* Control messages */
 enum {
@@ -225,15 +236,16 @@ extern size_t gasnetc_max_get_unaligned;
 /* largest put that gasnetc_rdma_put_lc() will accept */
 extern size_t gasnetc_max_put_lc;
 
-/* send/copy, unbounce/unregister, flag/eop are each mutually exclusive pairs */
+/* send/copy, unbounce/unregister/firhose, flag/cntr/send are each mutually exclusive groups */
 #define GC_POST_COPY_TRIM 7 /* up to 6 bytes of overfetch to achive 4-byte aligned Gets */
-#define GC_POST_COPY 8
-#define GC_POST_COMPLETION_SEND 16
-#define GC_POST_UNBOUNCE 32
-#define GC_POST_UNREGISTER 64
-#define GC_POST_COMPLETION_FLAG 128
-#define GC_POST_COMPLETION_CNTR 256
-#define GC_POST_KEEP_GPD 512
+#define GC_POST_COPY            (1 <<  3)
+#define GC_POST_UNBOUNCE        (1 <<  4)
+#define GC_POST_UNREGISTER      (1 <<  5)
+#define GC_POST_FIREHOSE        (1 <<  6)
+#define GC_POST_COMPLETION_FLAG (1 <<  7)
+#define GC_POST_COMPLETION_CNTR (1 <<  8)
+#define GC_POST_COMPLETION_SEND (1 <<  9)
+#define GC_POST_KEEP_GPD        (1 << 10)
 
 /* WARNING: if sizeof(gasnetc_post_descriptor_t) changes, then
  * you must update the value in gasneti_pd_auxseg_IdentString */
@@ -249,6 +261,9 @@ typedef struct gasnetc_post_descriptor {
     uint8_t immediate[GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE];
     gasneti_weakatomic_t counter;
     gasnetc_notify_t notify;
+  #if GASNETC_GNI_FIREHOSE
+    firehose_request_t fh_req;
+  #endif
   } u;
   uint32_t flags;
 #if GASNETC_USE_MULTI_DOMAIN
@@ -308,6 +323,16 @@ void gasnetc_rdma_get_unaligned(gasnet_node_t node,
 int gasnetc_rdma_get_buff(gasnet_node_t node,
 		 void *dest_addr, void *source_addr,
 		 size_t nbytes, gasnetc_post_descriptor_t *gpd);
+
+#if GASNETC_GNI_FIREHOSE
+size_t gasnetc_rdma_put_fh(gasnet_node_t node,
+		 void *dest_addr, void *source_addr,
+		 size_t nbytes, gasnetc_post_descriptor_t *gpd) GASNETI_WARN_UNUSED_RESULT;
+
+size_t gasnetc_rdma_get_fh(gasnet_node_t node,
+		 void *dest_addr, void *source_addr,
+		 size_t nbytes, gasnetc_post_descriptor_t *gpd) GASNETI_WARN_UNUSED_RESULT;
+#endif
 
 /* returns 1 if-and-only-if value was decremented. */
 /* based on gasneti_semaphore_trydown() w/o padding or rmb */

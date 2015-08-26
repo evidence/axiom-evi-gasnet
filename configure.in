@@ -3341,9 +3341,6 @@ if test ${gni_network}:${enabled_[]lowername} = lowername[]:yes; then
   fi
 
   if test $have_[]lowername = yes; then
-    # If/when we use firehose we need to disable certain optimizations.
-    #GASNET_FH_CFLAGS
-
     GASNET_TRY_CACHE_LINK(for working $1 configuration, lowername[]_works, [
       #include <stddef.h>
       #include <stdint.h>
@@ -3379,6 +3376,16 @@ if test ${gni_network}:${enabled_[]lowername} = lowername[]:yes; then
 
   GASNET_IF_ENABLED(gni-multi-domain, [Use experimental multi-domain support in PAR builds of Gemini and Aries conduits], [AC_DEFINE(GASNETC_GNI_MULTI_DOMAIN)])
 
+  GASNET_IF_ENABLED(gni-firehose,
+    [Use firehose for local memory registration caching in Aries conduit (experimental, disabled by default)],
+    [ if test "$have_aries" = yes; then
+        AC_DEFINE(GASNETC_GNI_FIREHOSE)
+        GASNET_FH_CFLAGS
+      elif test "$have_gemini" = yes; then
+        GASNET_MSG_WARN([Ignoring --enable-gni-firehose - not supported with Gemini conduit])
+      fi
+    ])
+
   AC_SUBST(GNI_LIBS)
   AC_SUBST(GNI_INCLUDES)
 fi
@@ -3409,7 +3416,9 @@ if test "$enabled_aries" = yes; then
   GASNET_CHECK_GNI(Aries)
 fi
 AM_CONDITIONAL(USE_ARIES_CONDUIT, test "$have_aries" = yes)
+AM_CONDITIONAL(GNI_FIREHOSE_ENABLED, test "$have_aries$enable_gni_firehose" = yesyes)
 CONDUIT_END([test "$have_aries" = yes])
+
 
 #--------------------------------------------------------------------------------------------------------
 # SHMEM configuration

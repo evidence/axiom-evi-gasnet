@@ -88,6 +88,12 @@ GASNET_GNI_MEMREG
   created as needed until uGNI returns GNI_RC_ERROR_RESOURCE.
   The default value is 16.
 
+GASNET_USE_FIREHOSE
+  This gives a boolean: "0" to disable or "1" to enable the use
+  of the firehose dynamic pinning library for local memory
+  registration, and is intended primarily for debugging purposes.
+  The default is enabled.
+
 GASNET_PHYSMEM_PINNABLE_RATIO - default 0.80
 GASNET_PHYSMEM_MAX - default <size of physmem> * <pinnable ratio>
 GASNET_PHYSMEM_NOPROBE - default 0
