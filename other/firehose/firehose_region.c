@@ -88,6 +88,8 @@ static size_t fhi_MaxRegionSize;
 		FH_CP_CLIENT((reg), (priv));			\
 	} while(0)
 
+static void fh_destroy_priv(firehose_private_t *priv);
+
 /* ##################################################################### */
 /* VARIOUS HELPER FUNCTIONS                                              */
 /* ##################################################################### */
@@ -179,6 +181,10 @@ fh_hash_t *fh_BucketTable2;
 #define fh_bucket_uncover(B)	do { ((B)->priv)->visible += 1; } while(0)
 #define fh_bucket_cover(B)	do { ((B)->priv)->visible -= 1; } while(0)
 
+#ifdef FH_CLEAN_COVERED_AGGRESSIVE
+  /* Since we search full FIFO there is no need to move covered to head */
+  #define fh_bucket_cover_and_check(B) fh_bucket_cover(B)
+#else
 GASNETI_INLINE(fh_bucket_cover_and_check)
 void fh_bucket_cover_and_check(fh_bucket_t *bucket)
 {
@@ -206,6 +212,7 @@ void fh_bucket_cover_and_check(fh_bucket_t *bucket)
     }
   }
 }
+#endif
 
 static fh_bucket_t
 *fh_bucket_lookup(gasnet_node_t node, uintptr_t addr)
@@ -355,12 +362,20 @@ GASNETI_INLINE(fh_clean_covered)
 int fh_clean_covered(int limit, firehose_region_t *reg, fh_fifoq_t *fifo_head) {
   firehose_private_t *priv = FH_TAILQ_FIRST(fifo_head);
   int count = 0;
-  while ((count < limit) && priv && !priv->visible) {
-    ++count;
-    priv =  FH_TAILQ_NEXT(priv);
-  }
-  if (count) {
-    fh_FreeVictim(count, reg, fifo_head);
+  FH_TABLE_ASSERT_LOCKED;
+  while ((count < limit) && priv) {
+    firehose_private_t *next = FH_TAILQ_NEXT(priv);
+    if (!priv->visible) {
+      FH_TAILQ_REMOVE(fifo_head, priv);
+      CP_PRIV_TO_REG(reg+count, priv);
+      FH_TRACE_BUCKET(priv, REMFIFO);
+      fh_destroy_priv(priv);
+      ++count;
+    }
+#ifndef FH_CLEAN_COVERED_AGGRESSIVE
+    else break; /* Stop search at first visible region */
+#endif
+    priv = next;
   }
   return count;
 }
