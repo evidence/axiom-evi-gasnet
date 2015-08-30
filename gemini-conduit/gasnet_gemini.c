@@ -1927,7 +1927,7 @@ size_t gasnetc_rdma_get(gasnet_node_t node,
     /* if (nbytes <= gasnetc_get_bounce_register_cutover)  then use bounce buffer
      * else mem-register
      */
-    if (nbytes < GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE) {
+    if (nbytes <= GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE) {
       gpd->flags |= GC_POST_COPY;
       gpd->gpd_get_src = pd->local_addr = (uint64_t) gpd->u.immediate;
       gpd->gpd_get_dst = (uint64_t) dest_addr;
@@ -1986,7 +1986,7 @@ void gasnetc_rdma_get_unaligned(gasnet_node_t node,
   gasneti_boundscheck(node, (void*)pd->remote_addr, pd->length);
 
   /* must always use immediate or bounce buffer */
-  if (length < GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE) {
+  if (length <= GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE) {
     buffer = gpd->u.immediate;
   } else {
     gasneti_assert(length <= gasnetc_get_bounce_register_cutover);
