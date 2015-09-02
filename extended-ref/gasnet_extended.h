@@ -535,7 +535,7 @@ extern gasnet_handle_t gasnete_end_nbi_accessregion(GASNETE_THREAD_FARG_ALONE) G
 #elif !defined(gasnete_put)
   /* only valid because this is blocking put */
   #define gasnete_put   gasnete_put_bulk
-  #ifdef GASNETI_THREADINFO_OPT
+  #if GASNETI_THREADINFO_OPT
     #define gasnete_putTI(node,dest,src,nbytes,ti) gasnete_put_bulk(node,dest,src,nbytes GASNETE_THREAD_PASS)
   #else
     #define gasnete_putTI gasnete_put_bulk

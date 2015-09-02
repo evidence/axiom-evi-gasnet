@@ -34,7 +34,7 @@ GASNETI_BEGIN_EXTERNC
 
 #if defined(GASNET_PAR) && GASNETC_GNI_MULTI_DOMAIN 
   /* Too early to use GASNETE_THREAD_*, though GASNETI_THREADINFO_OPT is defined when applicable */
-  #ifdef GASNETI_THREADINFO_OPT
+  #if GASNETI_THREADINFO_OPT
     #define GASNETC_AM_POLL_FARG void *_threadinfo
     #define GASNETC_AM_POLL_PASS _threadinfo
   #else

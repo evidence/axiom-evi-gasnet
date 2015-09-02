@@ -419,7 +419,7 @@ typedef union {
 
 /* ------------------------------------------------------------------------------------ */
 /* thread-id optimization support */
-#ifdef GASNETI_THREADINFO_OPT
+#if GASNETI_THREADINFO_OPT
   #if GASNETI_RESTRICT_MAY_QUALIFY_TYPEDEFS
     #define GASNETE_THREAD_FARG_ALONE   gasnet_threadinfo_t const GASNETI_RESTRICT _threadinfo
   #else
