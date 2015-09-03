@@ -155,5 +155,10 @@ typedef struct _gasnete_valget_op_t *gasnet_valget_handle_t;
 /* Use counter-based eop: */
 #define GASNETE_EOP_COUNTED 1
 
+/* Extensions: */
+#if GASNETC_GNI_FETCHOP
+#define GASNETE_HAVE_EXTENDED_HELP_EXTRA_H 1
+#endif
+
 #endif
 

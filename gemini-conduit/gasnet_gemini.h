@@ -353,6 +353,14 @@ size_t gasnetc_rdma_get_fh(gasnet_node_t node,
 		 size_t nbytes, gasnetc_post_descriptor_t *gpd) GASNETI_WARN_UNUSED_RESULT;
 #endif
 
+/* Extensions: */
+#if GASNETC_GNI_FETCHOP
+void gasnetc_fetchop_u64(gasnet_node_t node,
+                 void *source_addr, gni_fma_cmd_type_t cmd, uint64_t operand,
+                 gasnetc_post_descriptor_t *gpd);
+#endif
+
+
 /* returns 1 if-and-only-if value was decremented. */
 /* based on gasneti_semaphore_trydown() w/o padding or rmb */
 GASNETI_INLINE(gasnetc_weakatomic_dec_if_positive)

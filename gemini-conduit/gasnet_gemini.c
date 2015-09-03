@@ -663,7 +663,9 @@ void  gasnetc_create_parallel_domain(gasnete_threadidx_t tidx)
   DOMAIN_SPECIFIC_VAL(peer_data) = gasneti_malloc(gasneti_nodes * sizeof(peer_struct_t));
 #endif
   for (i = 0; i < gasneti_nodes; i += 1) {
+  #if !GASNETC_GNI_FETCHOP
     if (node_is_local(i)) continue; /* no connection to self or PSHM-reachable peers */
+  #endif
    status = GNI_EpCreate(DOMAIN_SPECIFIC_VAL(nic_handle), DOMAIN_SPECIFIC_VAL(bound_cq_handle), 
                         &DOMAIN_SPECIFIC_VAL(peer_data[i].ep_handle));
    gasneti_assert_always (status == GNI_RC_SUCCESS);
@@ -792,7 +794,9 @@ uintptr_t gasnetc_init_messaging(void)
 #endif
  
   for (i = 0; i < gasneti_nodes; i += 1) {
+  #if !GASNETC_GNI_FETCHOP
     if (node_is_local(i)) continue; /* no connection to self or PSHM-reachable peers */
+  #endif
     status = GNI_EpCreate(nic_handle, bound_cq_handle, &peer_data[i].ep_handle);
     gasneti_assert_always (status == GNI_RC_SUCCESS);
     status = GNI_EpBind(peer_data[i].ep_handle, all_addr[i], i);
@@ -965,7 +969,9 @@ void gasnetc_shutdown(void)
     left = gasneti_nodes - (GASNET_PSHM ? gasneti_nodemap_local_count : 1);
     for (tries=0; tries<10; ++tries) {
       for (i = 0; i < gasneti_nodes; i += 1) {
-        if_pf (node_is_local(i)) continue; /* no connection to self or PSHM-reachable peers */
+      #if !GASNETC_GNI_FETCHOP
+          if_pf (node_is_local(i)) continue; /* no connection to self or PSHM-reachable peers */
+      #endif
           if_pt (peer_data[i].ep_handle != NULL) {
             status = GNI_EpUnbind( peer_data[i].ep_handle);
             status = GNI_EpDestroy( peer_data[i].ep_handle);
@@ -2166,6 +2172,40 @@ int gasnetc_rdma_get_buff(gasnet_node_t node,
 
   return pre;
 }
+
+#if GASNETC_GNI_FETCHOP
+/* Perform an 8-byte fetch-and-op */
+void gasnetc_fetchop_u64(
+                gasnet_node_t node, void *source_addr,
+                gni_fma_cmd_type_t cmd, uint64_t operand,
+                gasnetc_post_descriptor_t *gpd)
+{
+  GASNETC_DIDX_POST(gpd->domain_idx);
+  DOMAIN_SPECIFIC_VAR(peer_struct_t * const, peer_data);
+  peer_struct_t * const peer = &peer_data[node];
+  gni_post_descriptor_t * const pd = &gpd->pd;
+  gni_return_t status;
+
+  gasneti_boundscheck(node, source_addr, 8);
+
+  pd->type = GNI_POST_AMO;
+  pd->amo_cmd = cmd;
+  pd->first_operand = operand;
+  pd->cq_mode = GNI_CQMODE_GLOBAL_EVENT;
+  pd->dlvr_mode = GNI_DLVMODE_PERFORMANCE;
+  pd->remote_addr = (uint64_t) source_addr;
+  pd->remote_mem_hndl = peer->mem_handle;
+  pd->local_addr = (uint64_t) gpd->u.immediate;
+  pd->local_mem_hndl = my_mem_handle;
+  pd->length = 8;
+
+  status = myPostFma(peer->ep_handle, gpd);
+  if_pf (status != GNI_RC_SUCCESS) {
+    gasnetc_GNIT_Abort("FADD failed with %s", gasnetc_gni_rc_string(status));
+  }
+}
+#endif
+
 
 /* Needs no lock because it is called only from the init code */
 void gasnetc_init_post_descriptor_pool(GASNETC_DIDX_FARG_ALONE) 
