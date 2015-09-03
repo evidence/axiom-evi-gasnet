@@ -362,8 +362,15 @@ extern uint64_t gasnet_max_segsize; /* client-overrideable max segment size */
 /* public threadinfo support */
 
 #if GASNETI_CLIENT_THREADS
-  #ifndef GASNETI_THREADINFO_OPT
-  #define GASNETI_THREADINFO_OPT      1
+  #if defined GASNETI_THREADINFO_OPT_CONFIGURE
+    /* take user-specified value, if any*/
+    #undef GASNETI_THREADINFO_OPT
+    #define GASNETI_THREADINFO_OPT GASNETI_THREADINFO_OPT_CONFIGURE
+  #elif defined GASNETI_THREADINFO_OPT
+    /* keep conduit-specified value */
+  #else
+    /* platform-specific defaults should ge here */
+    #define GASNETI_THREADINFO_OPT      1
   #endif
   #ifndef GASNETI_LAZY_BEGINFUNCTION
   #define GASNETI_LAZY_BEGINFUNCTION  1

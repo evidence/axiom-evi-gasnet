@@ -246,6 +246,9 @@
 /* has __thread thread-local-storage support */
 #undef GASNETI_HAVE_TLS_SUPPORT
 
+/* force threadinfo optimization ON or OFF */
+#undef GASNETI_THREADINFO_OPT_CONFIGURE
+
 /* pause instruction, if any */
 #undef GASNETI_PAUSE_INSTRUCTION
 

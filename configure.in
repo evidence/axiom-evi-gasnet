@@ -1163,6 +1163,11 @@ else
      GASNET_MSG_ERROR([--enable-tls passed but no working tls support found])
   fi
 
+  GASNET_IF_ENABLED_WITH_AUTO(threadinfo-opt,
+    [Enable/disable threadinfo passing optimization (default is system dependent)],
+    [AC_DEFINE_UNQUOTED(GASNETI_THREADINFO_OPT_CONFIGURE, 1)],
+    [AC_DEFINE_UNQUOTED(GASNETI_THREADINFO_OPT_CONFIGURE, 0)])
+
  if test "$cross_compiling" = "no"; then
   case "$target_os" in
     darwin*)
