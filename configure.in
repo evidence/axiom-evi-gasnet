@@ -1149,15 +1149,10 @@ else
   GASNET_IF_ENABLED_WITH_AUTO(tls, Enable/disable use of thread-local storage extensions (ie __thread) (auto-detected),
     enabled_tls=yes, enabled_tls=no, enabled_tls=probe)
   if test "$enabled_tls" != "no" ; then
-    case "$CC_FAMILY-$target_cpu" in
-      Sun-i*86) have_tls=no ;; # __thread causes sunC 5.7 for x86 to crash on libgasnet-par
-      *) 
       GASNET_CHECK_TLS_SUPPORT([ 
     	AC_DEFINE(GASNETI_HAVE_TLS_SUPPORT, 1) 
 	have_tls=yes
       ],[ have_tls=no ]) 
-      ;;
-    esac
   fi
   if test "$enabled_tls$have_tls" = "yesno"; then
      GASNET_MSG_ERROR([--enable-tls passed but no working tls support found])
