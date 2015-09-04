@@ -183,14 +183,25 @@ For example:
   .c.o:
 	  $(GASNET_CC) $(GASNET_CPPFLAGS) $(GASNET_CFLAGS) -c -o $@ $<
 
+  .cxx.o:
+	  $(GASNET_CXX) $(GASNET_CXXCPPFLAGS) $(GASNET_CXXFLAGS) -c -o $@ $<
+
   myprog: myprog.o
 	  $(GASNET_LD) $(GASNET_LDFLAGS) -o $@ $< $(GASNET_LIBS)
   ----------------------------
 
 See tests/Makefile for another example of compiling GASNet client code.
 
-The variables GASNET_CXX, GASNET_CXXCPPFLAGS and GASNET_CXXFLAGS are also
-provided for compiling of C++ programs.
+For more fine-grained control, the flags variables break-down as follows:
+  GASNET_CFLAGS is an alias for:
+     $(GASNET_OPT_CFLAGS) $(GASNET_MISC_CFLAGS)
+  GASNET_CPPFLAGS is an alias for:
+     $(GASNET_MISC_CPPFLAGS) $(GASNET_DEFINES) $(GASNET_INCLUDES)
+  GASNET_CXXFLAGS is an alias for:
+     $(GASNET_OPT_CXXFLAGS) $(GASNET_MISC_CXXFLAGS)
+  GASNET_CXXCPPFLAGS is an alias for:
+     $(GASNET_MISC_CXXCPPFLAGS) $(GASNET_DEFINES) $(GASNET_INCLUDES)
+
 
 Supported Platforms
 ===================
