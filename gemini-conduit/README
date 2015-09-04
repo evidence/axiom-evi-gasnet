@@ -160,12 +160,11 @@ Optional configure-time settings:
    one thread will increase lock contention, but a total lack of
    polling by threads in other domains can lead to deadlock in some
    circumstances.
-   A value of 0 will result in the most frequent polling for Active
-   Messages by threads outside the first domain (on average every
-   second polling operation will include a poll for AM arrivals).
+   A value of 0 will result in polling for Active Messages on every
+   call (explicit or implict) to gasnet_AMPoll().
    Values of 1, 3, 7, 15, etc. will result in progressively lower
-   average frequencies (1 in 2*(n+1)).
-   The default is 127 (1 in every 256 polls by threads outside the
+   average frequencies (1 in (n+1)).
+   The default is 255 (1 in every 256 polls by threads outside the
    first domain will poll for AM arrivals).
 
 Optional compile-time settings:

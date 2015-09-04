@@ -724,8 +724,10 @@ uintptr_t gasnetc_init_messaging(void)
                GASNETC_DOMAIN_COUNT_DEFAULT,1);
   gasnetc_poll_am_domain_mask = gasneti_getenv_int_withdefault("GASNET_AM_DOMAIN_POLL_MASK",
                GASNETC_AM_DOMAIN_POLL_MASK_DEFAULT,1);
-  for (i=1; i<gasnetc_domain_count; i<<=1) {
-    gasnetc_poll_am_domain_mask  = (gasnetc_poll_am_domain_mask <<1) | 1;
+  if (gasnetc_poll_am_domain_mask) {
+    for (i=2; i<gasnetc_domain_count; i<<=1) {
+      gasnetc_poll_am_domain_mask = (gasnetc_poll_am_domain_mask << 1) | 1;
+    }
   }
  #if (GASNETC_DOMAIN_THREAD_DISTRIBUTION == GASNETC_DOMAIN_THREAD_DISTRIBUTION_BULK)
   gasnetc_threads_per_domain =  gasneti_getenv_int_withdefault("GASNET_GNI_PTHREADS_PER_DOMAIN",
