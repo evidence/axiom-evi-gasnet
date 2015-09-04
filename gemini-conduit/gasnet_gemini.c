@@ -54,10 +54,10 @@ typedef struct peer_struct {
   gasnetc_mailbox_t *remote_request_base;
 
   uint64_t remote_request_map;    
-  uint32_t remote_notify_write; //covered by the gni lock, unbounded
-  uint32_t local_notify_read;   //covered by the ampoll lock, bounded [0..notify_ring_size)
-  struct peer_struct *next; //covered by the ampoll lock
-  unsigned int event_count; //covered by the ampoll lock
+  uint32_t remote_notify_write; /* covered by the gni lock, unbounded */
+  uint32_t local_notify_read;   /* covered by the ampoll lock, bounded [0..notify_ring_size) */
+  struct peer_struct *next;     /* covered by the ampoll lock */
+  unsigned int event_count;     /* covered by the ampoll lock */
 } peer_struct_t;
 
 static gni_mem_handle_t am_handle;
@@ -1161,7 +1161,7 @@ int gasnetc_send_credit(peer_struct_t * const peer, gasnetc_notify_t notify)
 {
   GASNETI_TRACE_PRINTF(D, ("msg to %d type AM_CREDIT\n", peer->pe));
   gasneti_assert(notify_get_type(notify) == notify_request);
-  notify += build_notify((notify_credit - notify_request),0,0); // just modify the notify type
+  notify += build_notify((notify_credit - notify_request),0,0); /* just modify the notify type */
   return(gasnetc_send_notify(peer, notify));
 }
 
@@ -1207,10 +1207,10 @@ gasnetc_post_descriptor_t *gasnetc_alloc_reply_post_descriptor(gasnet_token_t t,
   gasnetc_notify_t notify = token->notify;
   gasnetc_packet_t *packet;
 
-  // reuse the request buffer for the reply (any/all data has been copied out)
+  /* reuse the request buffer for the reply (any/all data has been copied out) */
   packet = &(peer->local_request_base + notify_get_target_slot(notify))->packet;
 
-  // modify the notify type and clear its AM header bits */
+  /* modify the notify type and clear its AM header bits */
   gasneti_assert(notify_get_type(notify) == notify_request);
   pd->sync_flag_value = (notify & 0xffffffffUL) + build_notify((notify_reply - notify_request),0,0);
   
