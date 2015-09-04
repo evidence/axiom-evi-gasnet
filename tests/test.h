@@ -421,6 +421,9 @@ GASNETT_IDENT(GASNetT_TiCompiler_IdentString,
   #if PLATFORM_OS_BGQ
     /* some systems have strict limits on how many threads can exist */
     #define TEST_USE_PRIMORDIAL_THREAD 1
+  #elif PLATFORM_OS_CNL
+    /* some do default thread pinning that can mess with our results */
+    #define TEST_USE_PRIMORDIAL_THREAD 1
   #else
     #define TEST_USE_PRIMORDIAL_THREAD 0
   #endif
