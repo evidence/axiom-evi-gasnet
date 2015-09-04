@@ -1027,11 +1027,9 @@ typedef struct _gasnete_valget_op_t {
   gasnete_threadidx_t threadidx;  /*  thread that owns me */
 } gasnete_valget_op_t;
 
-extern gasnet_valget_handle_t gasnete_get_nb_val(gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG) {
-  gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
+GASNETI_INLINE(gasnete_new_valget_handle)
+gasnet_valget_handle_t gasnete_new_valget_handle(gasnete_threaddata_t * const mythread) {
   gasnet_valget_handle_t retval;
-  gasneti_assert(nbytes > 0 && nbytes <= sizeof(gasnet_register_value_t));
-  gasneti_boundscheck(node, src, nbytes);
   if (mythread->valget_free) {
     retval = mythread->valget_free;
     mythread->valget_free = retval->next;
@@ -1041,8 +1039,17 @@ extern gasnet_valget_handle_t gasnete_get_nb_val(gasnet_node_t node, void *src, 
     gasneti_leak(retval);
     retval->threadidx = mythread->threadidx;
   }
-
   retval->val = 0;
+  return retval;
+}
+
+extern gasnet_valget_handle_t gasnete_get_nb_val(gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG) {
+  gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
+  gasnet_valget_handle_t retval = gasnete_new_valget_handle(mythread);
+
+  gasneti_assert(nbytes > 0 && nbytes <= sizeof(gasnet_register_value_t));
+  gasneti_boundscheck(node, src, nbytes);
+
 #if GASNET_PSHM
   if (gasneti_pshm_in_supernode(node)) {
     /* Assume that addr2local on local node is cheaper than an extra branch */
