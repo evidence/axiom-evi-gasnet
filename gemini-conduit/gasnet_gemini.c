@@ -1554,6 +1554,10 @@ void gasnetc_poll_local_queue(GASNETC_DIDX_FARG_ALONE))
       const uint32_t flags = gpd->flags; /* see note w/ GC_POST_COMPLETION_FLAG */
 
       /* handle remaining work */
+      if (flags & GC_POST_COPY_IMM) {
+        memcpy((void *) gpd->gpd_get_dst, (void *) gpd->u.immediate, gpd->pd.length);
+        gasneti_sync_writes(); /* sync memcpy */
+      } else
       if (flags & GC_POST_COPY) {
         const size_t length = gpd->pd.length - (flags & GC_POST_COPY_TRIM);
         memcpy((void *) gpd->gpd_get_dst, (void *) gpd->gpd_get_src, length);
@@ -1990,8 +1994,8 @@ size_t gasnetc_rdma_get_fh(gasnet_node_t node,
   */
   if (nbytes < GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE) {
     pd->local_mem_hndl = my_mem_handle;
-    gpd->flags |= GC_POST_COPY;
-    gpd->gpd_get_src = pd->local_addr = (uint64_t) gpd->u.immediate;
+    gpd->flags |= GC_POST_COPY_IMM;
+    pd->local_addr = (uint64_t) gpd->u.immediate;
     gpd->gpd_get_dst = (uint64_t) dest_addr;
   } else
 #endif
@@ -2044,8 +2048,8 @@ size_t gasnetc_rdma_get(gasnet_node_t node,
      */
     gasneti_assert(!gasnetc_use_firehose);
     if (nbytes <= GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE) {
-      gpd->flags |= GC_POST_COPY;
-      gpd->gpd_get_src = pd->local_addr = (uint64_t) gpd->u.immediate;
+      gpd->flags |= GC_POST_COPY_IMM;
+      pd->local_addr = (uint64_t) gpd->u.immediate;
       gpd->gpd_get_dst = (uint64_t) dest_addr;
     } else if ((nbytes <= gasnetc_get_bounce_register_cutover) ||
                /* Also use bounce buffer (setting nbytes to max size) if MemRegister fails: */

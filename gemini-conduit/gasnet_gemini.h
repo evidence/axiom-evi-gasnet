@@ -239,8 +239,9 @@ extern size_t gasnetc_max_put_lc;
 /* completion actions: */
 enum {
   _gc_post_reserved = 2,  /* Bits 0-2 hold offset for trimmed copy operations */
-  /* optional data-movement */
+  /* mutually-exclusive data-movement actions */
   _gc_post_copy,
+  _gc_post_copy_imm,
   /* mutually-exclusive resource recovery actions */
   _gc_post_unbounce,
   _gc_post_unregister,
@@ -255,6 +256,7 @@ enum {
 #define GC_POST_COPY_TRIM 7 /* up to 6 bytes of overfetch to achive 4-byte aligned Gets */
 #define GC_POST(name)           ((uint32_t)1 << _gc_post_##name)
 #define GC_POST_COPY            GC_POST(copy)
+#define GC_POST_COPY_IMM        GC_POST(copy_imm)
 #define GC_POST_SEND            GC_POST(send)
 #define GC_POST_UNBOUNCE        GC_POST(unbounce)
 #define GC_POST_UNREGISTER      GC_POST(unregister)
