@@ -236,16 +236,33 @@ extern size_t gasnetc_max_get_unaligned;
 /* largest put that gasnetc_rdma_put_lc() will accept */
 extern size_t gasnetc_max_put_lc;
 
-/* send/copy, unbounce/unregister/firhose, flag/cntr/send are each mutually exclusive groups */
+/* completion actions: */
+enum {
+  _gc_post_reserved = 2,  /* Bits 0-2 hold offset for trimmed copy operations */
+  /* optional data-movement */
+  _gc_post_copy,
+  /* mutually-exclusive resource recovery actions */
+  _gc_post_unbounce,
+  _gc_post_unregister,
+  _gc_post_firehose,
+  /* mutually-exclusive signaling actions */
+  _gc_post_completion_flag,
+  _gc_post_completion_cntr,
+  _gc_post_completion_send,
+  /* optionally suppress free of the gpd */
+  _gc_post_keep_gpd,
+};
 #define GC_POST_COPY_TRIM 7 /* up to 6 bytes of overfetch to achive 4-byte aligned Gets */
-#define GC_POST_COPY            (1 <<  3)
-#define GC_POST_UNBOUNCE        (1 <<  4)
-#define GC_POST_UNREGISTER      (1 <<  5)
-#define GC_POST_FIREHOSE        (1 <<  6)
-#define GC_POST_COMPLETION_FLAG (1 <<  7)
-#define GC_POST_COMPLETION_CNTR (1 <<  8)
-#define GC_POST_COMPLETION_SEND (1 <<  9)
-#define GC_POST_KEEP_GPD        (1 << 10)
+#define GC_POST(name)           ((uint32_t)1 << _gc_post_##name)
+#define GC_POST_COPY            GC_POST(copy)
+#define GC_POST_SEND            GC_POST(send)
+#define GC_POST_UNBOUNCE        GC_POST(unbounce)
+#define GC_POST_UNREGISTER      GC_POST(unregister)
+#define GC_POST_FIREHOSE        GC_POST(firehose)
+#define GC_POST_COMPLETION_FLAG GC_POST(completion_flag)
+#define GC_POST_COMPLETION_CNTR GC_POST(completion_cntr)
+#define GC_POST_COMPLETION_SEND GC_POST(completion_send)
+#define GC_POST_KEEP_GPD        GC_POST(keep_gpd)
 
 /* WARNING: if sizeof(gasnetc_post_descriptor_t) changes, then
  * you must update the value in gasneti_pd_auxseg_IdentString */
