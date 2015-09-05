@@ -229,6 +229,10 @@
   /* UNNAMED includes ANONYMOUS to yield a trivial default implementation: */
   #define GASNETE_BARRIERFLAG_UNNAMED 8
   #define GASNET_BARRIERFLAG_UNNAMED (GASNET_BARRIERFLAG_ANONYMOUS|GASNETE_BARRIERFLAG_UNNAMED)
+
+  /* reserve bits for use by conduit-specific implementations */
+  #define GASNETE_BARRIERFLAG_CONDUIT0 0x80000000
+  #define GASNETE_BARRIERFLAG_CONDUIT1 0x40000000
 #endif
 
 /* Errors: GASNET_OK must be zero */

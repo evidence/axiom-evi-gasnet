@@ -764,7 +764,7 @@ typedef struct {
 /* Unlike the extended-ref version we CAN assume that a 64-bit write
  * will be atomic, and so can use a "present" bit in flags.
  */
-#define GASNETE_IBDBARRIER_PRESENT 0x80000000
+#define GASNETE_IBDBARRIER_PRESENT GASNETE_BARRIERFLAG_CONDUIT0
 #define GASNETE_IBDBARRIER_VALUE(_u64) GASNETI_HIWORD(_u64)
 #define GASNETE_IBDBARRIER_FLAGS(_u64) GASNETI_LOWORD(_u64)
 #define GASNETE_IBDBARRIER_BUILD(_value,_flags) \
