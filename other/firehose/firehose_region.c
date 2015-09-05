@@ -625,31 +625,25 @@ fhi_merge_regions(firehose_region_t *pin_region)
     gasneti_assert(len <= fhi_MaxRegionSize);
 
     /* Look to merge w/ successor */
-    if_pt (space_avail && (addr + len != 0) /* avoid wrap around */) {
+    if (space_avail && GASNETT_PREDICT_TRUE(addr + len != 0) /* avoid wrap around */) {
 	uintptr_t next_addr = addr + len;
 	bd = fh_bucket_lookup(gasneti_mynode, next_addr);
 	if (bd != NULL) {
 	    uintptr_t end_addr = fh_priv_end(bd->priv) + 1;
 	    gasneti_assert(end_addr > next_addr);
 
-#if 1
 	    extend = end_addr - next_addr;
 	    if (extend <= space_avail) {
 	        /* We cover the other region fully */
 		len += extend;
 		space_avail -= extend;
 	    }
-#else
-	    extend = MIN(end_addr - next_addr, space_avail);
-	    len += extend;
-	    space_avail -= extend;
-#endif
 	}
 	gasneti_assert(len <= fhi_MaxRegionSize);
     }
 
     /* Look to merge w/ predecessor */
-    if_pt (space_avail && (addr != 0) /* avoid wrap around */) {
+    if (space_avail && GASNETT_PREDICT_TRUE(addr != 0) /* avoid wrap around */) {
 	bd = fh_bucket_lookup(gasneti_mynode, addr - FH_BUCKET_SIZE);
 	if (bd != NULL) {
 	    const firehose_private_t *priv = bd->priv;
@@ -658,7 +652,6 @@ fhi_merge_regions(firehose_region_t *pin_region)
 	    gasneti_assert(fh_priv_end(priv) >= (addr - 1));
 	    gasneti_assert(fh_priv_end(priv) < (addr + (len - 1)));
 
-#if 1
 	    extend = addr - FH_BADDR(priv);
 	    if (extend <= space_avail) {
 	        /* We cover the other region fully */
@@ -666,12 +659,6 @@ fhi_merge_regions(firehose_region_t *pin_region)
 	        len += extend;
 	        space_avail -= extend;
 	    }
-#else
-	    extend = MIN(addr - FH_BADDR(priv), space_avail);
-	    addr -= extend;
-	    len += extend;
-	    space_avail -= extend;
-#endif
 	}
 	gasneti_assert(len <= fhi_MaxRegionSize);
     }
