@@ -2201,7 +2201,7 @@ void gasnetc_fetchop_u64(
 
   status = myPostFma(peer->ep_handle, gpd);
   if_pf (status != GNI_RC_SUCCESS) {
-    gasnetc_GNIT_Abort("FADD failed with %s", gasnetc_gni_rc_string(status));
+    gasnetc_GNIT_Abort("GNI_POST_AMO failed with %s", gasnetc_gni_rc_string(status));
   }
 }
 #endif
