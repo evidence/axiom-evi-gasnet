@@ -14,6 +14,12 @@
 /* ------------------------------------------------------------------------------------ */
 /* state shared between barrier implementations */
 
+/* Flags bits that are valid for use by the client */
+#define GASNETE_BARRIERFLAGS_CLIENT_ALL \
+    (GASNET_BARRIERFLAG_MISMATCH | GASNET_BARRIERFLAG_ANONYMOUS | GASNET_BARRIERFLAG_UNNAMED)
+#define GASNETE_BARRIERFLAGS_CLIENT_COLL \
+    (GASNETE_BARRIERFLAGS_CLIENT_ALL | GASNET_BARRIERFLAG_IMAGES)
+
 #ifndef GASNETE_BARRIER_DEFAULT
 /* conduit plugin for default barrier mechanism */
 #define GASNETE_BARRIER_DEFAULT "DISSEM"
@@ -1876,6 +1882,7 @@ int gasnete_barrier_result_common(gasnete_coll_team_t team, int *id) {
  */
 
 void gasnete_coll_barrier_notify(gasnete_coll_team_t team, int id, int flags GASNETE_THREAD_FARG) {
+  gasneti_assert(flags == (flags & GASNETE_BARRIERFLAGS_CLIENT_COLL));
 #if GASNET_PAR
   if(flags & GASNET_BARRIERFLAG_IMAGES) {
     gasnete_coll_threaddata_t *td = GASNETE_COLL_MYTHREAD;
@@ -1888,6 +1895,7 @@ void gasnete_coll_barrier_notify(gasnete_coll_team_t team, int id, int flags GAS
 }
 
 int gasnete_coll_barrier_try(gasnete_coll_team_t team, int id, int flags GASNETE_THREAD_FARG) {
+  gasneti_assert(flags == (flags & GASNETE_BARRIERFLAGS_CLIENT_COLL));
   /* currently there's no try version of the smp_coll_barriers*/
   /* so the try is not yet supported over the images*/
 #if GASNET_PAR && 0
@@ -1909,6 +1917,7 @@ int gasnete_coll_barrier_try(gasnete_coll_team_t team, int id, int flags GASNETE
 }
 
 int gasnete_coll_barrier_wait(gasnete_coll_team_t team, int id, int flags GASNETE_THREAD_FARG) {
+  gasneti_assert(flags == (flags & GASNETE_BARRIERFLAGS_CLIENT_COLL));
 #if GASNET_PAR 
   if(flags & GASNET_BARRIERFLAG_IMAGES){
     int ret;
@@ -1925,6 +1934,7 @@ int gasnete_coll_barrier_wait(gasnete_coll_team_t team, int id, int flags GASNET
 }
 
 int gasnete_coll_barrier(gasnete_coll_team_t team, int id, int flags GASNETE_THREAD_FARG) {
+  gasneti_assert(flags == (flags & GASNETE_BARRIERFLAGS_CLIENT_COLL));
 #if GASNET_PAR 
   if(flags & GASNET_BARRIERFLAG_IMAGES) {
     gasnete_coll_threaddata_t *td = GASNETE_COLL_MYTHREAD;
@@ -1956,7 +1966,7 @@ void gasnet_barrier_notify(int id, int flags) {
   #endif
 
   gasneti_assert(GASNET_TEAM_ALL->barrier_notify);
-  gasneti_assert(!(flags & GASNET_BARRIERFLAG_IMAGES));
+  gasneti_assert(flags == (flags & GASNETE_BARRIERFLAGS_CLIENT_ALL));
   gasnete_barrier_notify_common(GASNET_TEAM_ALL, id, flags);
 }
 
@@ -1968,7 +1978,7 @@ int gasnet_barrier_wait(int id, int flags) {
   GASNETI_TRACE_EVENT_TIME(B,BARRIER_NOTIFYWAIT,GASNETI_TICKS_NOW_IFENABLED(B)-gasnete_barrier_notifytime);
   
   gasneti_assert(GASNET_TEAM_ALL->barrier_wait);
-  gasneti_assert(!(flags & GASNET_BARRIERFLAG_IMAGES));
+  gasneti_assert(flags == (flags & GASNETE_BARRIERFLAGS_CLIENT_ALL));
   retval = gasnete_barrier_wait_common(GASNET_TEAM_ALL, id, flags);
  
   GASNETI_TRACE_EVENT_TIME(B,BARRIER_WAIT,GASNETI_TICKS_NOW_IFENABLED(B)-wait_start);
@@ -1979,7 +1989,7 @@ int gasnet_barrier_try(int id, int flags) {
   int retval;
 
   gasneti_assert(GASNET_TEAM_ALL->barrier_try);
-  gasneti_assert(!(flags & GASNET_BARRIERFLAG_IMAGES));
+  gasneti_assert(flags == (flags & GASNETE_BARRIERFLAGS_CLIENT_ALL));
   retval = gasnete_barrier_try_common(GASNET_TEAM_ALL, id, flags);
 
   GASNETI_TRACE_EVENT_VAL(B,BARRIER_TRY,(retval != GASNET_ERR_NOT_READY));
@@ -1990,7 +2000,7 @@ int gasnet_barrier(int id, int flags) {
   GASNETI_TRACE_PRINTF(B, ("BARRIER(team=GASNET_TEAM_ALL,id=%i,flags=%i)", id, flags));
 
   gasneti_assert(GASNET_TEAM_ALL->barrier);
-  gasneti_assert(!(flags & GASNET_BARRIERFLAG_IMAGES));
+  gasneti_assert(flags == (flags & GASNETE_BARRIERFLAGS_CLIENT_ALL));
   return gasnete_barrier_common(GASNET_TEAM_ALL, id, flags);
 }
 
