@@ -723,9 +723,9 @@ uintptr_t gasnetc_init_messaging(void)
   peer_struct_t *peer_data;
   gasneti_lifo_head_t post_descriptor_pool = GASNETI_LIFO_INITIALIZER;
   gasnetc_domain_count = gasneti_getenv_int_withdefault("GASNET_DOMAIN_COUNT",
-               GASNETC_DOMAIN_COUNT_DEFAULT,1);
+               GASNETC_DOMAIN_COUNT_DEFAULT,0);
   gasnetc_poll_am_domain_mask = gasneti_getenv_int_withdefault("GASNET_AM_DOMAIN_POLL_MASK",
-               GASNETC_AM_DOMAIN_POLL_MASK_DEFAULT,1);
+               GASNETC_AM_DOMAIN_POLL_MASK_DEFAULT,0);
   if (gasnetc_poll_am_domain_mask) {
     for (i=2; i<gasnetc_domain_count; i<<=1) {
       gasnetc_poll_am_domain_mask = (gasnetc_poll_am_domain_mask << 1) | 1;
@@ -733,7 +733,7 @@ uintptr_t gasnetc_init_messaging(void)
   }
  #if (GASNETC_DOMAIN_THREAD_DISTRIBUTION == GASNETC_DOMAIN_THREAD_DISTRIBUTION_BULK)
   gasnetc_threads_per_domain =  gasneti_getenv_int_withdefault("GASNET_GNI_PTHREADS_PER_DOMAIN",
-               GASNETC_PTHREADS_PER_DOMAIN_DEFAULT,1);
+               GASNETC_PTHREADS_PER_DOMAIN_DEFAULT,0);
  #endif
   gasnetc_cdom_data = gasneti_malloc(gasnetc_domain_count * sizeof(communication_domain_struct_t));
   for(i=0;i<gasnetc_domain_count;i++)
