@@ -596,6 +596,8 @@ static int gasnete_pshmbarrier_try(gasnete_coll_team_t team, int id, int flags) 
   gasneti_sync_reads(); /* ensure we read up-to-date phase, etc */
   GASNETE_SPLITSTATE_TRY(team);
 
+  GASNETI_SAFE(gasneti_AMPoll());
+
   {
     const gasneti_atomic_sval_t state = gasnete_pshmbarrier_try_inner(team->barrier_data, 0);
     int result;
