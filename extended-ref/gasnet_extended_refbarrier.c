@@ -178,6 +178,7 @@ typedef struct gasnete_coll_pshmbarrier_s {
       #endif
     } *children;
     int rank, num_children;
+    int remain, value, flags; /* Partial state between notify and completion */
     int volatile two_to_phase; /* Local var alternates between 2^0 and 2^1 */
   } private;
   gasneti_pshm_barrier_t *shared;
@@ -202,14 +203,35 @@ typedef struct gasnete_coll_pshmbarrier_s {
     gasneti_atomic_set(&(_bdata)->shared->state, _state, GASNETI_ATOMIC_REL);  \
   } while(0)
 
-GASNETI_ALWAYS_INLINE(gasnete_pshmbarrier_notify_inner)
-int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bdata, int value, int flags) {
-  gasneti_pshm_barrier_t * const shared_data = pshm_bdata->shared;
-  struct gasneti_pshm_barrier_node * const nodes = shared_data->node;
 
-  /* Start a new phase */
-  const int two_to_phase = (pshm_bdata->private.two_to_phase ^= 3); /* alternates between 01 and 10 base-2 */
+GASNETI_ALWAYS_INLINE(gasnete_pshmbarrier_arrive)
+void gasnete_pshmbarrier_arrive(gasnete_pshmbarrier_data_t * const pshm_bdata, int value, int flags, int two_to_phase) {
+  /* Signal my own arrival */
+#if GASNETE_PSHM_BARR_U64
+  gasneti_local_wmb();
+  pshm_bdata->private.mynode->u.u64 = GASNETE_PSHM_BARR_PACK(value, flags, two_to_phase);
+#else
+  pshm_bdata->private.mynode->u.wmb.value = value;
+  pshm_bdata->private.mynode->u.wmb.flags = flags;
+  gasneti_local_wmb();
+  pshm_bdata->private.mynode->u.wmb.phase = two_to_phase;
+#endif
 
+  /* Root (rank == 0) must publish the results and signal the barrier w/ phase and result */
+  if (! pshm_bdata->private.rank) {
+    gasneti_pshm_barrier_t * const shared_data = pshm_bdata->shared;
+    int result;
+    shared_data->value = value;
+    shared_data->flags = flags;
+    result = (flags & GASNET_BARRIERFLAG_MISMATCH) ? GASNET_ERR_BARRIER_MISMATCH : GASNET_OK;
+    PSHM_BSTATE_SIGNAL(pshm_bdata, result, two_to_phase);
+  }
+}
+
+/* TODO: to inline or not? */
+/* TODO: what about thread safety? */
+static
+int gasnete_pshmbarrier_kick(gasnete_pshmbarrier_data_t * const pshm_bdata) {
     /* The algorithm:
      * 
      * This is basically a tree-based reduction, except that by default we will
@@ -260,15 +282,21 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
      *       that every parent reads only from memory with local affinity.
      */
 
-  if (pshm_bdata->private.children) {
+  int n = pshm_bdata->private.remain;
+  if (n) {
+      gasneti_pshm_barrier_t * const shared_data = pshm_bdata->shared;
+      struct gasneti_pshm_barrier_node * const nodes = shared_data->node;
+      const int two_to_phase = pshm_bdata->private.two_to_phase;
+      int value = pshm_bdata->private.value;
+      int flags = pshm_bdata->private.flags;
+
     #if GASNETE_PSHM_BARR_U64
       const uint64_t goal = GASNETE_PSHM_BARR_PACK(0, 0, two_to_phase);
     #endif
       struct gasnete_pshmbarrier_children * const children = pshm_bdata->private.children;
-      int n = pshm_bdata->private.num_children;
 
-      /* Poll until children's phase fields indicate arrival, processing in batches */
-      for (;;) {
+      /* Poll for children's phase fields to indicate arrival, processing in batches */
+      {
         int arrivals = 0;
         int i;
 
@@ -294,7 +322,7 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
             children[i] = tmp;
             ++arrivals;
           } else {
-            /* We don't reread until after the name-matching and an AMPoll */
+            /* We don't reread until the next kick */
             ++i;
           }
         }
@@ -325,41 +353,45 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
               flags = GASNET_BARRIERFLAG_MISMATCH;
             }
           }
-
-          if (!n) break; /* Quit now if all nodes have Notified */
         }
-
-        /* 4. Take our compulsory delay(s) before issuing next batch of reads */
-        GASNETI_WAITHOOK();
-        GASNETI_SAFE(gasneti_AMPoll());
       }
-    }
 
-  /* Signal my own arrival */
-#if GASNETE_PSHM_BARR_U64
-  gasneti_local_wmb();
-  pshm_bdata->private.mynode->u.u64 = GASNETE_PSHM_BARR_PACK(value, flags, two_to_phase);
-#else
-  pshm_bdata->private.mynode->u.wmb.value = value;
-  pshm_bdata->private.mynode->u.wmb.flags = flags;
-  gasneti_local_wmb();
-  pshm_bdata->private.mynode->u.wmb.phase = two_to_phase;
-#endif
+      pshm_bdata->private.remain = n;
+      if (n) { /* Not done - save state and return */
+        pshm_bdata->private.value = value;
+        pshm_bdata->private.flags = flags;
+        return 0;
+      }
 
-  /* Only the root (rank == 0) node continues past this point */
-  if_pf (pshm_bdata->private.rank) return 0;
-
-  /* Publish the results */
-  shared_data->value = value;
-  shared_data->flags = flags;
-
-  /* Signal the barrier w/ phase and result */
-  {
-    int result = (flags & GASNET_BARRIERFLAG_MISMATCH) ? GASNET_ERR_BARRIER_MISMATCH : GASNET_OK;
-    PSHM_BSTATE_SIGNAL(pshm_bdata, result, two_to_phase);
+      /* Can finally signal my own arrival */
+      gasnete_pshmbarrier_arrive(pshm_bdata, value, flags, two_to_phase);
   }
 
   return 1;
+}
+
+/* Returns 0 IFF barrier is locally "incomplete", requiring further kicks to progress */
+GASNETI_ALWAYS_INLINE(gasnete_pshmbarrier_notify_inner)
+int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bdata, int value, int flags) {
+  /* Start a new phase */
+  int two_to_phase = (pshm_bdata->private.two_to_phase ^= 3); /* alternates between 01 and 10 base-2 */
+
+  int num_children = pshm_bdata->private.num_children;
+  if (num_children) {
+    pshm_bdata->private.remain = num_children;
+    pshm_bdata->private.value = value;
+    pshm_bdata->private.flags = flags;
+  #if GASNETI_PSHM_BARRIER_HIER
+    /* TODO: fix network barriers not to require us to block in notify like this */
+    GASNET_BLOCKUNTIL(gasnete_pshmbarrier_kick(pshm_bdata));
+    return 1;
+  #else
+    return gasnete_pshmbarrier_kick(pshm_bdata);
+  #endif
+  } else {
+    gasnete_pshmbarrier_arrive(pshm_bdata, value, flags, two_to_phase);
+    return 1;
+  }
 }
 
 GASNETI_ALWAYS_INLINE(finish_pshm_barrier)
@@ -382,12 +414,18 @@ int finish_pshm_barrier(const gasnete_pshmbarrier_data_t * const pshm_bdata, int
  * Returns GASNET_{OK,ERR_BARRIER_MISMATCH}
  */
 GASNETI_ALWAYS_INLINE(gasnete_pshmbarrier_wait_inner)
-int gasnete_pshmbarrier_wait_inner(const gasnete_pshmbarrier_data_t * const pshm_bdata, int id, int flags, int shift) {
+int gasnete_pshmbarrier_wait_inner(gasnete_pshmbarrier_data_t * const pshm_bdata, int id, int flags, int shift) {
   const gasneti_atomic_sval_t goal = pshm_bdata->private.two_to_phase << shift;
   gasneti_atomic_t * const state_p = &pshm_bdata->shared->state;
   gasneti_atomic_sval_t state;
 
-  gasneti_polluntil(goal & (state = gasneti_atomic_read(state_p, 0)));
+#if GASNETI_PSHM_BARRIER_HIER
+  /* No kick needed since notify blocks */
+  gasneti_polluntil((goal & (state = gasneti_atomic_read(state_p, 0))));
+#else
+  gasneti_polluntil((gasnete_pshmbarrier_kick(pshm_bdata),
+                     (goal & (state = gasneti_atomic_read(state_p, 0)))));
+#endif
 
   return finish_pshm_barrier(pshm_bdata, id, flags, state);
 }
@@ -396,15 +434,19 @@ int gasnete_pshmbarrier_wait_inner(const gasnete_pshmbarrier_data_t * const pshm
  * Returns zero or non-zero (the state in pure-SMP case)
  */
 GASNETI_ALWAYS_INLINE(gasnete_pshmbarrier_try_inner)
-gasneti_atomic_sval_t gasnete_pshmbarrier_try_inner(const gasnete_pshmbarrier_data_t * const pshm_bdata, int shift) { 
+gasneti_atomic_sval_t gasnete_pshmbarrier_try_inner(gasnete_pshmbarrier_data_t * const pshm_bdata, int shift) {
   const gasneti_atomic_sval_t goal = pshm_bdata->private.two_to_phase << shift;
   gasneti_atomic_t * const state_p = &pshm_bdata->shared->state;
-  const gasneti_atomic_sval_t state = gasneti_atomic_read(state_p, GASNETI_ATOMIC_ACQ);
+  gasneti_atomic_sval_t state;
 
-#if !GASNETI_PSHM_BARRIER_HIER
-  return (goal & state) ? state : 0;
-#else
+#if GASNETI_PSHM_BARRIER_HIER
+  /* No kick needed since notify blocks */
+  state = gasneti_atomic_read(state_p, GASNETI_ATOMIC_ACQ);
   return (goal & state);
+#else
+  gasnete_pshmbarrier_kick(pshm_bdata);
+  state = gasneti_atomic_read(state_p, GASNETI_ATOMIC_ACQ);
+  return (goal & state) ? state : 0;
 #endif
 }
 
@@ -448,6 +490,7 @@ gasnete_pshmbarrier_init_inner(gasnete_coll_team_t team) {
 
     pshm_bdata->private.children = NULL;
     pshm_bdata->private.num_children = 0;
+    pshm_bdata->private.remain = 0;
 
     if (size == 1) {
       /* Nothing to do */
@@ -633,6 +676,8 @@ static void gasnete_pshmbarrier_init(gasnete_coll_team_t team) {
   team->barrier_wait =   &gasnete_pshmbarrier_wait;
   team->barrier_try =    &gasnete_pshmbarrier_try;
   team->barrier_result = &gasnete_pshmbarrier_result;
+
+  /* TODO: progress via kick (once thread safety is ensured) */
 }
 #endif /* !GASNETI_PSHM_BARRIER_HIER */
 
@@ -855,7 +900,7 @@ static void gasnete_amdbarrier_notify_singleton(gasnete_coll_team_t team, int id
 static int gasnete_amdbarrier_wait(gasnete_coll_team_t team, int id, int flags) {
   gasnete_coll_amdbarrier_t *barrier_data = team->barrier_data;
 #if GASNETI_PSHM_BARRIER_HIER
-  const PSHM_BDATA_DECL(pshm_bdata, barrier_data->amdbarrier_pshm);
+  PSHM_BDATA_DECL(pshm_bdata, barrier_data->amdbarrier_pshm);
 #endif
   int retval = GASNET_OK;
   int i;
@@ -1314,7 +1359,7 @@ static void gasnete_rmdbarrier_notify_singleton(gasnete_coll_team_t team, int id
 static int gasnete_rmdbarrier_wait(gasnete_coll_team_t team, int id, int flags) {
   gasnete_coll_rmdbarrier_t *barrier_data = team->barrier_data;
 #if GASNETI_PSHM_BARRIER_HIER
-  const PSHM_BDATA_DECL(pshm_bdata, barrier_data->barrier_pshm);
+  PSHM_BDATA_DECL(pshm_bdata, barrier_data->barrier_pshm);
 #endif
   int retval = GASNET_OK;
 
@@ -1689,7 +1734,7 @@ static void gasnete_amcbarrier_notify(gasnete_coll_team_t team, int id, int flag
 static int gasnete_amcbarrier_wait(gasnete_coll_team_t team, int id, int flags) {
   gasnete_coll_amcbarrier_t *barrier_data = team->barrier_data;
 #if GASNETI_PSHM_BARRIER_HIER
- const PSHM_BDATA_DECL(pshm_bdata, barrier_data->amcbarrier_pshm);
+ PSHM_BDATA_DECL(pshm_bdata, barrier_data->amcbarrier_pshm);
 #endif
   int retval = GASNET_OK;
   int phase;

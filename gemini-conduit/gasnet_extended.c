@@ -1533,7 +1533,7 @@ static void gasnete_gdbarrier_notify_singleton(gasnete_coll_team_t team, int id,
 static int gasnete_gdbarrier_wait(gasnete_coll_team_t team, int id, int flags) {
   gasnete_coll_gdbarrier_t *barrier_data = team->barrier_data;
 #if GASNETI_PSHM_BARRIER_HIER
-  const PSHM_BDATA_DECL(pshm_bdata, barrier_data->barrier_pshm);
+  PSHM_BDATA_DECL(pshm_bdata, barrier_data->barrier_pshm);
 #endif
   int retval = GASNET_OK;
 
