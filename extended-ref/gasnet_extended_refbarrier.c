@@ -229,7 +229,6 @@ void gasnete_pshmbarrier_arrive(gasnete_pshmbarrier_data_t * const pshm_bdata, i
 }
 
 /* TODO: to inline or not? */
-/* TODO: what about thread safety? */
 static
 int gasnete_pshmbarrier_kick(gasnete_pshmbarrier_data_t * const pshm_bdata) {
     /* The algorithm:
@@ -370,7 +369,7 @@ int gasnete_pshmbarrier_kick(gasnete_pshmbarrier_data_t * const pshm_bdata) {
   return 1;
 }
 
-/* Returns 0 IFF barrier is locally "incomplete", requiring further kicks to progress */
+/* Returns non-zero IFF barrier is "locally complete" == does NOT require further kicks to progress */
 GASNETI_ALWAYS_INLINE(gasnete_pshmbarrier_notify_inner)
 int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bdata, int value, int flags) {
   /* Start a new phase */
@@ -381,18 +380,22 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
     pshm_bdata->private.remain = num_children;
     pshm_bdata->private.value = value;
     pshm_bdata->private.flags = flags;
-  #if GASNETI_PSHM_BARRIER_HIER
-    /* TODO: fix network barriers not to require us to block in notify like this */
-    GASNET_BLOCKUNTIL(gasnete_pshmbarrier_kick(pshm_bdata));
-    return 1;
-  #else
     return gasnete_pshmbarrier_kick(pshm_bdata);
-  #endif
   } else {
     gasnete_pshmbarrier_arrive(pshm_bdata, value, flags, two_to_phase);
     return 1;
   }
 }
+
+#if GASNETI_PSHM_BARRIER_HIER
+/* TODO: fix network barriers not to require us to block in notify like this */
+GASNETI_ALWAYS_INLINE(gasnete_pshmbarrier_blocking_notify)
+void gasnete_pshmbarrier_blocking_notify(gasnete_pshmbarrier_data_t * const pshm_bdata, int value, int flags) {
+  if (!gasnete_pshmbarrier_notify_inner(pshm_bdata, value, flags)) {
+    GASNET_BLOCKUNTIL(gasnete_pshmbarrier_kick(pshm_bdata));
+  }
+}
+#endif
 
 GASNETI_ALWAYS_INLINE(finish_pshm_barrier)
 int finish_pshm_barrier(const gasnete_pshmbarrier_data_t * const pshm_bdata, int id, int flags, gasneti_atomic_sval_t state) {
@@ -419,13 +422,8 @@ int gasnete_pshmbarrier_wait_inner(gasnete_pshmbarrier_data_t * const pshm_bdata
   gasneti_atomic_t * const state_p = &pshm_bdata->shared->state;
   gasneti_atomic_sval_t state;
 
-#if GASNETI_PSHM_BARRIER_HIER
-  /* No kick needed since notify blocks */
-  gasneti_polluntil((goal & (state = gasneti_atomic_read(state_p, 0))));
-#else
   gasneti_polluntil((gasnete_pshmbarrier_kick(pshm_bdata),
                      (goal & (state = gasneti_atomic_read(state_p, 0)))));
-#endif
 
   return finish_pshm_barrier(pshm_bdata, id, flags, state);
 }
@@ -439,14 +437,13 @@ gasneti_atomic_sval_t gasnete_pshmbarrier_try_inner(gasnete_pshmbarrier_data_t *
   gasneti_atomic_t * const state_p = &pshm_bdata->shared->state;
   gasneti_atomic_sval_t state;
 
-#if GASNETI_PSHM_BARRIER_HIER
-  /* No kick needed since notify blocks */
-  state = gasneti_atomic_read(state_p, GASNETI_ATOMIC_ACQ);
-  return (goal & state);
-#else
   gasnete_pshmbarrier_kick(pshm_bdata);
   state = gasneti_atomic_read(state_p, GASNETI_ATOMIC_ACQ);
+
+#if !GASNETI_PSHM_BARRIER_HIER
   return (goal & state) ? state : 0;
+#else
+  return (goal & state);
 #endif
 }
 
@@ -831,7 +828,7 @@ static void gasnete_amdbarrier_notify(gasnete_coll_team_t team, int id, int flag
 #if GASNETI_PSHM_BARRIER_HIER
   if (barrier_data->amdbarrier_pshm) {
     PSHM_BDATA_DECL(pshm_bdata, barrier_data->amdbarrier_pshm);
-    (void)gasnete_pshmbarrier_notify_inner(pshm_bdata, id, flags);
+    gasnete_pshmbarrier_blocking_notify(pshm_bdata, id, flags);
     do_send = !barrier_data->amdbarrier_passive;
     id = pshm_bdata->shared->value;
     flags = pshm_bdata->shared->flags;
@@ -872,7 +869,7 @@ static void gasnete_amdbarrier_notify_singleton(gasnete_coll_team_t team, int id
 #if GASNETI_PSHM_BARRIER_HIER
   if (barrier_data->amdbarrier_pshm) {
     PSHM_BDATA_DECL(pshm_bdata, barrier_data->amdbarrier_pshm);
-    (void)gasnete_pshmbarrier_notify_inner(pshm_bdata, id, flags);
+    gasnete_pshmbarrier_blocking_notify(pshm_bdata, id, flags);
     id = pshm_bdata->shared->value;
     flags = pshm_bdata->shared->flags;
   }
@@ -1311,7 +1308,7 @@ static void gasnete_rmdbarrier_notify(gasnete_coll_team_t team, int id, int flag
 #if GASNETI_PSHM_BARRIER_HIER
   if (barrier_data->barrier_pshm) {
     PSHM_BDATA_DECL(pshm_bdata, barrier_data->barrier_pshm);
-    (void)gasnete_pshmbarrier_notify_inner(pshm_bdata, id, flags);
+    gasnete_pshmbarrier_blocking_notify(pshm_bdata, id, flags);
     do_send = !barrier_data->barrier_passive;
     id = pshm_bdata->shared->value;
     flags = pshm_bdata->shared->flags;
@@ -1343,7 +1340,7 @@ static void gasnete_rmdbarrier_notify_singleton(gasnete_coll_team_t team, int id
 #if GASNETI_PSHM_BARRIER_HIER
   if (barrier_data->barrier_pshm) {
     PSHM_BDATA_DECL(pshm_bdata, barrier_data->barrier_pshm);
-    (void)gasnete_pshmbarrier_notify_inner(pshm_bdata, id, flags);
+    gasnete_pshmbarrier_blocking_notify(pshm_bdata, id, flags);
     id = pshm_bdata->shared->value;
     flags = pshm_bdata->shared->flags;
   }
@@ -1707,7 +1704,7 @@ static void gasnete_amcbarrier_notify(gasnete_coll_team_t team, int id, int flag
 #if GASNETI_PSHM_BARRIER_HIER
   if (barrier_data->amcbarrier_pshm) {
     PSHM_BDATA_DECL(pshm_bdata, barrier_data->amcbarrier_pshm);
-    (void)gasnete_pshmbarrier_notify_inner(pshm_bdata, id, flags);
+    gasnete_pshmbarrier_blocking_notify(pshm_bdata, id, flags);
     do_send = !barrier_data->amcbarrier_passive;
     id = pshm_bdata->shared->value;
     flags = pshm_bdata->shared->flags;

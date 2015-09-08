@@ -1485,7 +1485,7 @@ static void gasnete_gdbarrier_notify(gasnete_coll_team_t team, int id, int flags
 #if GASNETI_PSHM_BARRIER_HIER
   if (barrier_data->barrier_pshm) {
     PSHM_BDATA_DECL(pshm_bdata, barrier_data->barrier_pshm);
-    (void)gasnete_pshmbarrier_notify_inner(pshm_bdata, id, flags);
+    gasnete_pshmbarrier_blocking_notify(pshm_bdata, id, flags);
     do_send = !barrier_data->barrier_passive;
     id = pshm_bdata->shared->value;
     flags = pshm_bdata->shared->flags;
@@ -1517,7 +1517,7 @@ static void gasnete_gdbarrier_notify_singleton(gasnete_coll_team_t team, int id,
 #if GASNETI_PSHM_BARRIER_HIER
   if (barrier_data->barrier_pshm) {
     PSHM_BDATA_DECL(pshm_bdata, barrier_data->barrier_pshm);
-    (void)gasnete_pshmbarrier_notify_inner(pshm_bdata, id, flags);
+    gasnete_pshmbarrier_blocking_notify(pshm_bdata, id, flags);
     id = pshm_bdata->shared->value;
     flags = pshm_bdata->shared->flags;
   }

@@ -1276,7 +1276,7 @@ static void gasnete_pdbarrier_notify(gasnete_coll_team_t team, int id, int flags
 #if GASNETI_PSHM_BARRIER_HIER
   if (barr->pshm_data && !is_unnamed) {
     PSHM_BDATA_DECL(pshm_bdata, barr->pshm_data);
-    (void)gasnete_pshmbarrier_notify_inner(pshm_bdata, id, flags);
+    gasnete_pshmbarrier_blocking_notify(pshm_bdata, id, flags);
     do_send = !barr->pshm_shift;
     id = pshm_bdata->shared->value;
     flags = pshm_bdata->shared->flags;
