@@ -1617,6 +1617,8 @@ static void do_master(const char *spawn_args, int *argc_p, char ***argv_p) {
       /* Not present */
     } else if ((endptr == p) || (*endptr != args_delim)) {
       die(1, "Failed to parse " ENV_PREFIX "SPAWN_ARGS");
+    } else {
+      nnodes_set = 1;
     }
     p = endptr + 1;
 
