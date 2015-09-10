@@ -216,7 +216,7 @@ do-install-data-local: force $(headers) $(makefile_fragments)
 	@list='$(makefile_fragments)'; for p in $$list; do \
 	  if test -f $$p; then \
 	    filename=`basename $$p`; \
-	    echo "@GASNET_INSTALL_CMD@ < $$p > $(DESTDIR)$(includedir)/$(CONDUIT_NAME)-conduit/$$filename"; \
+	    echo @GASNET_INSTALL_CMD@ " < $$p > $(DESTDIR)$(includedir)/$(CONDUIT_NAME)-conduit/$$filename"; \
 	    @GASNET_INSTALL_CMD@ < $$p > $(DESTDIR)$(includedir)/$(CONDUIT_NAME)-conduit/$$filename || exit $$? ; \
 	  else :; fi; \
 	done

@@ -279,7 +279,7 @@ install-data-local:
 	@list='$(fragments)'; for p in $$list; do \
           if test -f $$p; then \
             filename=`basename $$p`; \
-            echo "@GASNET_INSTALL_CMD@ < $$p > $(DESTDIR)$(includedir)/$$filename"; \
+            echo @GASNET_INSTALL_CMD@ " < $$p > $(DESTDIR)$(includedir)/$$filename"; \
             @GASNET_INSTALL_CMD@ < $$p > $(DESTDIR)$(includedir)/$$filename || exit $$? ; \
           else :; fi; \
         done
