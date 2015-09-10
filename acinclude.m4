@@ -2103,9 +2103,10 @@ AC_DEFUN([GASNET_FUNC_ALLOCA],[
   GASNET_FUNC_ALLOCA_HELPER(AC_FUNC_ALLOCA)
 ])
 
-dnl Set command for use in Makefile.am to install various files
+dnl Set command for use in Makefile.am to install makefile fragments
 dnl This command should remove all the magic used to run from the build
 dnl directory, as well as deal with setting of the prefix at install time.
+dnl All expansions except '###INSTALL_PREFIX###' are relative to $(prefix).
 AC_DEFUN([GASNET_SET_INSTALL_CMD],[
 GASNET_INSTALL_CMD="sed -e '/###NOINSTALL###/d' \
 -e 's@###INSTALL_INCLUDE###@\$(includedir)@g' \
@@ -2115,6 +2116,7 @@ GASNET_INSTALL_CMD="sed -e '/###NOINSTALL###/d' \
 -e 's@###INSTALL_BIN###@\$(bindir)@g' \
 -e 's@###INSTALL_MAN###@\$(mandir)@g' \
 -e 's@###INSTALL_ETC###@\$(sysconfdir)@g' \
+-e 's@\$(prefix)/@\$\$(GASNET_PREFIX)/@g' \
 -e 's@###INSTALL_PREFIX###@\$(prefix)@g'"
 AC_SUBST(GASNET_INSTALL_CMD)
 ])
