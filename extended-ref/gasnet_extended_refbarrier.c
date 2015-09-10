@@ -1112,8 +1112,8 @@ typedef struct {
   int barrier_passive;        /*  2 if some other node makes progress for me, 0 otherwise */
 #endif
   int barrier_size;           /*  ceil(lg(nodes)) */
-  int barrier_goal;           /*  (ceil(lg(nodes)) << 1) */
-  int volatile barrier_slot;  /*  (step << 1) | phase */
+  int barrier_goal;           /*  (1+ceil(lg(nodes)) << 1) == final barrier_state for phase=0 */
+  int volatile barrier_state; /*  (step << 1) | phase, where step is 1-based (0 is pshm notify) */
   int volatile barrier_value; /*  barrier value (evolves from local value) */
   int volatile barrier_flags; /*  barrier flags (evolves from local value) */
   void *barrier_inbox;        /*  in-segment memory to recv notifications */
@@ -1142,24 +1142,24 @@ typedef struct gasnete_coll_rmdbarrier_inbox_s {
   
 /* Pad struct to a specfic size and interleave */
 #define GASNETE_RDMABARRIER_INBOX_SZ 64 /* requires max 4K total space */
-#define GASNETE_RDMABARRIER_INBOX(_bd,_slot)     \
+#define GASNETE_RDMABARRIER_INBOX(_bd,_state)     \
             ((gasnete_coll_rmdbarrier_inbox_t *)        \
              ((uintptr_t)((_bd)->barrier_inbox)         \
-                       + (unsigned)(_slot) * GASNETE_RDMABARRIER_INBOX_SZ))
-#define GASNETE_RDMABARRIER_INBOX_REMOTE(_bd,_step,_slot)  \
+                       + (unsigned)((_state)-2) * GASNETE_RDMABARRIER_INBOX_SZ))
+#define GASNETE_RDMABARRIER_INBOX_REMOTE(_bd,_step,_state)  \
             ((gasnete_coll_rmdbarrier_inbox_t *)            \
              ((_bd)->barrier_peers[(unsigned)(_step)].addr    \
-                       + (unsigned)(_slot) * GASNETE_RDMABARRIER_INBOX_SZ))
+                       + (unsigned)((_state)-2) * GASNETE_RDMABARRIER_INBOX_SZ))
 #define GASNETE_RDMABARRIER_INBOX_NEXT(_addr)    \
             ((gasnete_coll_rmdbarrier_inbox_t *) \
              ((uintptr_t)(_addr) + 2U * GASNETE_RDMABARRIER_INBOX_SZ))
 
 GASNETI_INLINE(gasnete_rmdbarrier_send)
 void gasnete_rmdbarrier_send(gasnete_coll_rmdbarrier_t *barrier_data,
-                             int numsteps, unsigned int slot,
+                             int numsteps, unsigned int state,
                              gasnet_handlerarg_t value, gasnet_handlerarg_t flags) {
   GASNETE_THREAD_LOOKUP /* XXX: can we remove/avoid this lookup? */
-  unsigned int step = slot >> 1;
+  unsigned int step = state >> 1;
   gasnet_handle_t handle;
   gasnete_coll_rmdbarrier_inbox_t *payload;
   int i;
@@ -1169,7 +1169,7 @@ void gasnete_rmdbarrier_send(gasnete_coll_rmdbarrier_t *barrier_data,
    * Use of opposite phase prevents cacheline contention with arrivals.
    */
   const unsigned int stride = GASNETE_RDMABARRIER_INBOX_SZ / sizeof(gasnete_coll_rmdbarrier_inbox_t);
-  payload = (stride/2) + GASNETE_RDMABARRIER_INBOX(barrier_data, (slot^1));
+  payload = (stride/2) + GASNETE_RDMABARRIER_INBOX(barrier_data, (state^1));
   payload->value  = value;
   payload->flags  = flags;
   payload->flags2 = ~flags;
@@ -1180,9 +1180,9 @@ void gasnete_rmdbarrier_send(gasnete_coll_rmdbarrier_t *barrier_data,
    */
 
   gasnete_begin_nbi_accessregion(1 GASNETE_THREAD_PASS);
-  for (i = 0; i < numsteps; ++i, slot += 2, step += 1) {
+  for (i = 0; i < numsteps; ++i, state += 2, step += 1) {
     const gasnet_node_t node = barrier_data->barrier_peers[step].node;
-    void * const addr = GASNETE_RDMABARRIER_INBOX_REMOTE(barrier_data, step, slot);
+    void * const addr = GASNETE_RDMABARRIER_INBOX_REMOTE(barrier_data, step, state);
     gasnete_put_nbi_bulk(node, addr, payload, sizeof(*payload) GASNETE_THREAD_PASS);
   }
   handle = gasnete_end_nbi_accessregion(GASNETE_THREAD_PASS_ALONE);
@@ -1192,11 +1192,44 @@ void gasnete_rmdbarrier_send(gasnete_coll_rmdbarrier_t *barrier_data,
   gasnete_wait_syncnb(handle);
 #else
   /* save the new ops to sync after the barrier is complete */
-  step -= numsteps;
+  step -= (numsteps + 1);
   gasneti_assert(barrier_data->barrier_handles[step] == GASNET_INVALID_HANDLE);
   barrier_data->barrier_handles[step] = handle;
 #endif
 }
+
+#if GASNETI_PSHM_BARRIER_HIER
+static int gasnete_rmdbarrier_kick_pshm(gasnete_coll_team_t team) {
+  gasnete_coll_rmdbarrier_t *barrier_data = team->barrier_data;
+  int done = (barrier_data->barrier_state > 1);
+
+  if (!done && !gasnete_rmdbarrier_trylock(&barrier_data->barrier_lock)) {
+    const int state = barrier_data->barrier_state;
+    done = (state > 1);
+    if (!done) {
+      PSHM_BDATA_DECL(pshm_bdata, barrier_data->barrier_pshm);
+      if (gasnete_pshmbarrier_kick(pshm_bdata)) {
+        const int value = pshm_bdata->shared->value;
+        const int flags = pshm_bdata->shared->flags;
+        barrier_data->barrier_value = value;
+        barrier_data->barrier_flags = flags;
+        gasneti_sync_writes();
+        barrier_data->barrier_state = state + 2;
+        gasnete_rmdbarrier_unlock(&barrier_data->barrier_lock); /* Cannot send while holding HSL */
+        if (barrier_data->barrier_size && !barrier_data->barrier_passive) {
+          gasnete_rmdbarrier_send(barrier_data, 1, state+2, value, flags);
+        } else {
+          gasnete_barrier_pf_disable(team);
+        }
+        return 1;
+      }
+    }
+    gasnete_rmdbarrier_unlock(&barrier_data->barrier_lock);
+  }
+
+  return done;
+}
+#endif
 
 GASNETI_INLINE(gasnete_rmdbarrier_poll)
 int gasnete_rmdbarrier_poll(gasnete_coll_rmdbarrier_inbox_t *inbox) {
@@ -1207,26 +1240,43 @@ void gasnete_rmdbarrier_kick(gasnete_coll_team_t team) {
   gasnete_coll_rmdbarrier_t *barrier_data = team->barrier_data;
   gasnete_coll_rmdbarrier_inbox_t *inbox;
   int numsteps = 0;
-  int slot, cursor;
+  int state, new_state;
   int flags, value;
 
   /* early unlocked read: */
-  slot = barrier_data->barrier_slot;
-
-  if (slot >= barrier_data->barrier_goal ||
-      !gasnete_rmdbarrier_poll(GASNETE_RDMABARRIER_INBOX(barrier_data, slot)))
+  state = barrier_data->barrier_state;
+  if (state >= barrier_data->barrier_goal)
     return; /* nothing to do */
 
-  gasneti_assert(team->total_ranks > 1); /* singleton should have matched (slot >= goal), above */
+  gasneti_assert(team->total_ranks > 1); /* singleton should have matched (state >= goal), above */
 
-#if GASNETI_THREADS
+#if GASNETI_PSHM_BARRIER_HIER
+  if (barrier_data->barrier_pshm) {
+    /* Cannot begin to probe until local notify is complete */
+    if (!gasnete_rmdbarrier_kick_pshm(team)) return;
+  }
+#endif
+
   if (gasnete_rmdbarrier_trylock(&barrier_data->barrier_lock))
     return; /* another thread is currently in kick */
 
-  /* reread w/ lock held: */
-  slot = barrier_data->barrier_slot;
+  /* reread w/ lock held and/or because kick_pshm may have advanced it */
+  state = barrier_data->barrier_state;
 
-  if_pf (slot < 2) {/* need to pick up value/flags from notify */
+#if GASNETI_PSHM_BARRIER_HIER
+  if_pf (state < 2) { /* local notify has not completed */
+    gasnete_rmdbarrier_unlock(&barrier_data->barrier_lock);
+    return;
+  } else if (barrier_data->barrier_passive) {
+    gasnete_barrier_pf_disable(team);
+    gasnete_rmdbarrier_unlock(&barrier_data->barrier_lock);
+    return;
+  }
+  gasneti_assert(!barrier_data->barrier_passive);
+#endif
+
+#if GASNETI_THREADS
+  if_pf (state < 4) {/* need to pick up value/flags from notify */
     gasneti_sync_reads(); /* value/flags were written by the non-locked notify */
   }
 #endif
@@ -1235,8 +1285,8 @@ void gasnete_rmdbarrier_kick(gasnete_coll_team_t team) {
   flags = barrier_data->barrier_flags;
 
   /* process all consecutive steps which have arrived since we last ran */
-  inbox = GASNETE_RDMABARRIER_INBOX(barrier_data, slot);
-  for (cursor = slot; cursor < barrier_data->barrier_goal && gasnete_rmdbarrier_poll(inbox); cursor+=2) {
+  inbox = GASNETE_RDMABARRIER_INBOX(barrier_data, state);
+  for (new_state = state; new_state < barrier_data->barrier_goal && gasnete_rmdbarrier_poll(inbox); new_state+=2) {
     const int step_value = inbox->value;
     const int step_flags = inbox->flags;
 
@@ -1279,53 +1329,55 @@ void gasnete_rmdbarrier_kick(gasnete_coll_team_t team) {
     barrier_data->barrier_flags = flags; 
     barrier_data->barrier_value = value; 
 
-    if (cursor >= barrier_data->barrier_goal) { /* We got the last recv - barrier locally complete */
+    if (new_state >= barrier_data->barrier_goal) { /* We got the last recv - barrier locally complete */
       gasnete_barrier_pf_disable(team);
-      gasneti_sync_writes(); /* flush state before the write to barrier_slot below */
+      gasneti_sync_writes(); /* flush state before the write to barrier_state below */
       numsteps -= 1; /* no send at last step */
     } 
     /* notify all threads of the step increase - 
        this may allow other local threads to proceed on the barrier and even indicate
        barrier completion while we overlap outgoing notifications to other nodes
     */
-    barrier_data->barrier_slot = cursor;
+    barrier_data->barrier_state = new_state;
   } 
 
   gasnete_rmdbarrier_unlock(&barrier_data->barrier_lock);
 
   if (numsteps) { /* need to issue one or more Puts */
-    gasnete_rmdbarrier_send(barrier_data, numsteps, slot+2, value, flags);
+    gasnete_rmdbarrier_send(barrier_data, numsteps, state+2, value, flags);
   }
 }
 
 static void gasnete_rmdbarrier_notify(gasnete_coll_team_t team, int id, int flags) {
   gasnete_coll_rmdbarrier_t *barrier_data = team->barrier_data;
+  int state = 2 + ((barrier_data->barrier_state & 1) ^ 1); /* enter new phase */
   int do_send = 1;
-  int slot;
+  int want_pf = 1;
 
   GASNETE_SPLITSTATE_NOTIFY_ENTER(team);
 
 #if GASNETI_PSHM_BARRIER_HIER
   if (barrier_data->barrier_pshm) {
     PSHM_BDATA_DECL(pshm_bdata, barrier_data->barrier_pshm);
-    gasnete_pshmbarrier_blocking_notify(pshm_bdata, id, flags);
-    do_send = !barrier_data->barrier_passive;
-    id = pshm_bdata->shared->value;
-    flags = pshm_bdata->shared->flags;
+    if (gasnete_pshmbarrier_notify_inner(pshm_bdata, id, flags)) {
+      id = pshm_bdata->shared->value;
+      flags = pshm_bdata->shared->flags;
+      want_pf = do_send = !barrier_data->barrier_passive;
+    } else {
+      do_send = 0;
+      state -= 2;
+    }
   }
 #endif
 
   barrier_data->barrier_value = id;
   barrier_data->barrier_flags = flags;
 
-  slot = ((barrier_data->barrier_slot & 1) ^ 1); /* enter new phase */
   gasneti_sync_writes();
-  barrier_data->barrier_slot = slot;
+  barrier_data->barrier_state = state;
 
-  if (do_send) {
-    gasnete_rmdbarrier_send(barrier_data, 1, slot, id, flags);
-    gasnete_barrier_pf_enable(team);
-  }
+  if (do_send) gasnete_rmdbarrier_send(barrier_data, 1, state, id, flags);
+  if (want_pf) gasnete_barrier_pf_enable(team);
 
   /*  update state */
   gasneti_sync_writes(); /* ensure all state changes committed before return */
@@ -1334,20 +1386,32 @@ static void gasnete_rmdbarrier_notify(gasnete_coll_team_t team, int id, int flag
 /* Notify specialized to one (super)node case (reduced branches in BOTH variants) */
 static void gasnete_rmdbarrier_notify_singleton(gasnete_coll_team_t team, int id, int flags) {
   gasnete_coll_rmdbarrier_t *barrier_data = team->barrier_data;
+#if GASNETI_PSHM_BARRIER_HIER
+  int state = 2;
+#endif
 
   GASNETE_SPLITSTATE_NOTIFY_ENTER(team);
 
 #if GASNETI_PSHM_BARRIER_HIER
   if (barrier_data->barrier_pshm) {
     PSHM_BDATA_DECL(pshm_bdata, barrier_data->barrier_pshm);
-    gasnete_pshmbarrier_blocking_notify(pshm_bdata, id, flags);
-    id = pshm_bdata->shared->value;
-    flags = pshm_bdata->shared->flags;
+    if (gasnete_pshmbarrier_notify_inner(pshm_bdata, id, flags)) {
+      id = pshm_bdata->shared->value;
+      flags = pshm_bdata->shared->flags;
+    } else {
+      state = 0;
+    }
   }
 #endif
 
   barrier_data->barrier_value = id;
   barrier_data->barrier_flags = flags;
+
+#if GASNETI_PSHM_BARRIER_HIER
+  gasneti_sync_writes();
+  barrier_data->barrier_state = state;
+  if (!state) gasnete_barrier_pf_enable(team);
+#endif
 
   /*  update state */
   gasneti_sync_writes(); /* ensure all state changes committed before return */
@@ -1366,6 +1430,7 @@ static int gasnete_rmdbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
 #if GASNETI_PSHM_BARRIER_HIER
   if (pshm_bdata) {
     const int passive_shift = barrier_data->barrier_passive;
+    gasneti_polluntil(gasnete_rmdbarrier_kick_pshm(team));
     retval = gasnete_pshmbarrier_wait_inner(pshm_bdata, id, flags, passive_shift);
     if (passive_shift) {
       /* Once the active peer signals done, we can return */
@@ -1377,14 +1442,14 @@ static int gasnete_rmdbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
   }
 #endif
 
-  if (barrier_data->barrier_slot >= barrier_data->barrier_goal) {
+  if (barrier_data->barrier_state >= barrier_data->barrier_goal) {
     /* completed asynchronously before wait (via progressfns or try) */
     GASNETI_TRACE_EVENT_TIME(B,BARRIER_ASYNC_COMPLETION,GASNETI_TICKS_NOW_IFENABLED(B)-gasnete_barrier_notifytime);
   } else {
     /* kick once, and if still necessary, wait for a response */
     gasnete_rmdbarrier_kick(team);
     /* cannot BLOCKUNTIL since progess may occur on non-AM events */
-    while (barrier_data->barrier_slot < barrier_data->barrier_goal) {
+    while (barrier_data->barrier_state < barrier_data->barrier_goal) {
       GASNETI_WAITHOOK();
       GASNETI_SAFE(gasneti_AMPoll());
       gasnete_rmdbarrier_kick(team);
@@ -1436,7 +1501,8 @@ static int gasnete_rmdbarrier_try(gasnete_coll_team_t team, int id, int flags) {
 #if GASNETI_PSHM_BARRIER_HIER
   if (barrier_data->barrier_pshm) {
     const int passive_shift = barrier_data->barrier_passive;
-    if (!gasnete_pshmbarrier_try_inner(barrier_data->barrier_pshm, passive_shift))
+    if (!gasnete_rmdbarrier_kick_pshm(team) ||
+        !gasnete_pshmbarrier_try_inner(barrier_data->barrier_pshm, passive_shift))
       return GASNET_ERR_NOT_READY;
     if (passive_shift)
       return gasnete_rmdbarrier_wait(team, id, flags);
@@ -1445,7 +1511,8 @@ static int gasnete_rmdbarrier_try(gasnete_coll_team_t team, int id, int flags) {
 #endif
     gasnete_rmdbarrier_kick(team);
 
-  if (barrier_data->barrier_slot >= barrier_data->barrier_goal) return gasnete_rmdbarrier_wait(team, id, flags);
+  if (barrier_data->barrier_state >= barrier_data->barrier_goal)
+    return gasnete_rmdbarrier_wait(team, id, flags);
   else return GASNET_ERR_NOT_READY;
 }
 
@@ -1516,7 +1583,7 @@ static void gasnete_rmdbarrier_init(gasnete_coll_team_t team) {
   /* determine barrier size (number of steps) */
   steps = peers->num;
   barrier_data->barrier_size = steps;
-  barrier_data->barrier_goal = steps << 1;
+  barrier_data->barrier_goal = (1+steps) << 1;
 
   if (steps) {
     int step;
@@ -1529,16 +1596,16 @@ static void gasnete_rmdbarrier_init(gasnete_coll_team_t team) {
     gasneti_assert_always(2 * sizeof(gasnete_coll_rmdbarrier_inbox_t) <= GASNETE_RDMABARRIER_INBOX_SZ);
     barrier_data->barrier_inbox = gasnete_rdmabarrier_auxseg[gasneti_mynode].addr;
 
-    barrier_data->barrier_peers = gasneti_malloc(steps * sizeof(* barrier_data->barrier_peers));
+    barrier_data->barrier_peers = gasneti_malloc((1+steps) * sizeof(* barrier_data->barrier_peers));
     gasneti_leak(barrier_data->barrier_peers);
   
     for (step = 0; step < steps; ++step) {
       gasnet_node_t node = peers->fwd[step];
-      barrier_data->barrier_peers[step].node = node;
-      barrier_data->barrier_peers[step].addr = (uintptr_t)gasnete_rdmabarrier_auxseg[node].addr;
+      barrier_data->barrier_peers[1+step].node = node;
+      barrier_data->barrier_peers[1+step].addr = (uintptr_t)gasnete_rdmabarrier_auxseg[node].addr;
     }
   } else {
-    barrier_data->barrier_slot = barrier_data->barrier_goal;
+    barrier_data->barrier_state = barrier_data->barrier_goal;
 #if !GASNETI_THREADS
     /* simplifies the sync path(s) */
     barrier_data->barrier_handles = gasneti_calloc(1, sizeof(gasnet_handle_t));
