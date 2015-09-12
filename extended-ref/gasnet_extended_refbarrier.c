@@ -387,16 +387,6 @@ int gasnete_pshmbarrier_notify_inner(gasnete_pshmbarrier_data_t * const pshm_bda
   }
 }
 
-#if GASNETI_PSHM_BARRIER_HIER
-/* TODO: fix network barriers not to require us to block in notify like this */
-GASNETI_ALWAYS_INLINE(gasnete_pshmbarrier_blocking_notify)
-void gasnete_pshmbarrier_blocking_notify(gasnete_pshmbarrier_data_t * const pshm_bdata, int value, int flags) {
-  if (!gasnete_pshmbarrier_notify_inner(pshm_bdata, value, flags)) {
-    GASNET_BLOCKUNTIL(gasnete_pshmbarrier_kick(pshm_bdata));
-  }
-}
-#endif
-
 GASNETI_ALWAYS_INLINE(finish_pshm_barrier)
 int finish_pshm_barrier(const gasnete_pshmbarrier_data_t * const pshm_bdata, int id, int flags, gasneti_atomic_sval_t state) {
   const struct gasneti_pshm_barrier_node * const mynode = pshm_bdata->private.mynode;
