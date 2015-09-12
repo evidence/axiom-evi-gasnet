@@ -1032,6 +1032,18 @@ extern void gasneti_nodemapParse(void) {
   /* Check for user-imposed limit: 0 (or negative) means no limit */
 #if GASNET_PSHM
   limit = gasneti_getenv_int_withdefault("GASNET_SUPERNODE_MAXSIZE", 0, 0);
+ #ifdef GASNETI_PSHM_GHEAP
+  if (limit != 1) {
+    char *envval = getenv("BG_MAPCOMMONHEAP"); /* Yes, plain getenv is intended here */
+    if (!envval || atoi(envval) != 1) {
+      if (!gasneti_mynode) {
+        fprintf(stderr, "WARNING: BG_MAPCOMMONHEAP is not '1' - disabing PSHM-over-gheap.\n");
+        fflush(stderr);
+      }
+      limit = 1;
+    }
+  }
+ #endif
  #if GASNET_CONDUIT_SMP
   if (limit && !gasneti_mynode) {
     fprintf(stderr, "WARNING: ignoring GASNET_SUPERNODE_MAXSIZE for smp-conduit with PSHM.\n");
