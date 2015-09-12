@@ -1597,6 +1597,7 @@ typedef struct {
 #if GASNETI_PSHM_BARRIER_HIER
   gasnete_pshmbarrier_data_t *amcbarrier_pshm; /* non-NULL if using hierarchical code */
   int amcbarrier_passive;          /* 2 if some other node makes progress for me, 0 otherwise */
+  int amcbarrier_pshm_notify_done; /* must kick the pshm barrier while zero */
 #endif
   /*  global state on master */
   gasnet_hsl_t amcbarrier_lock;
@@ -1651,14 +1652,69 @@ static void gasnete_amcbarrier_done_reqh(gasnet_token_t token,
   barrier_data->amcbarrier_response_done[phase] = 1;
 }
 
+GASNETI_INLINE(gasnete_amcbarrier_send)
+void gasnete_amcbarrier_send(gasnete_coll_team_t team, int phase, int value, int flags) {
+  gasnete_coll_amcbarrier_t *barrier_data = team->barrier_data;
+
+  if (barrier_data->amcbarrier_max == 1) {
+    barrier_data->amcbarrier_response_value[phase] = (gasnet_handlerarg_t)value;
+    barrier_data->amcbarrier_response_flags[phase] = flags;
+    barrier_data->amcbarrier_response_done[phase] = 1;
+  } else {
+    /*  send notify msg to master */
+#if GASNETI_PSHM_BARRIER_HIER
+    if (!barrier_data->amcbarrier_passive)
+#endif
+    GASNETI_SAFE(
+      gasnet_AMRequestShort4(barrier_data->amcbarrier_master,
+                             gasneti_handleridx(gasnete_amcbarrier_notify_reqh),
+                             team->team_id, phase, value, flags));
+  }
+
+  if (gasneti_mynode == barrier_data->amcbarrier_master) gasnete_barrier_pf_enable(team);
+}
+
+#if GASNETI_PSHM_BARRIER_HIER
+static int gasnete_amcbarrier_kick_pshm(gasnete_coll_team_t team) {
+  gasnete_coll_amcbarrier_t *barrier_data = team->barrier_data;
+  int done = barrier_data->amcbarrier_pshm_notify_done;
+
+  if (!done && !gasnet_hsl_trylock(&barrier_data->amcbarrier_lock)) {
+    done = barrier_data->amcbarrier_pshm_notify_done;
+    if (!done) {
+      PSHM_BDATA_DECL(pshm_bdata, barrier_data->amcbarrier_pshm);
+      if (gasnete_pshmbarrier_kick(pshm_bdata)) {
+        barrier_data->amcbarrier_pshm_notify_done = 1;
+        gasnet_hsl_unlock(&barrier_data->amcbarrier_lock); /* Cannot send while holding HSL */
+        gasnete_amcbarrier_send(team,
+                                barrier_data->amcbarrier_phase,
+                                pshm_bdata->shared->value,
+                                pshm_bdata->shared->flags);
+        return 1;
+      }
+    }
+    gasnet_hsl_unlock(&barrier_data->amcbarrier_lock);
+  }
+
+  return done;
+}
+#endif
+
 /*  make some progress on the ambarrier */
 void gasnete_amcbarrier_kick(gasnete_coll_team_t team) {
   gasnete_coll_amcbarrier_t *barrier_data = team->barrier_data;
   int phase = barrier_data->amcbarrier_phase;
 
+#if GASNETI_PSHM_BARRIER_HIER
+  PSHM_BDATA_DECL(pshm_bdata, barrier_data->amcbarrier_pshm);
+  if (pshm_bdata) {
+    gasnete_amcbarrier_kick_pshm(team);
+  }
+#endif
+
+  /*  master does all the remaining work */
   if (gasneti_mynode != barrier_data->amcbarrier_master) return;
 
-  /*  master does all the work */
   if (barrier_data->amcbarrier_count[phase] == barrier_data->amcbarrier_max) {
     int gotit = 0;
     int flags = 0;
@@ -1704,25 +1760,14 @@ static void gasnete_amcbarrier_notify(gasnete_coll_team_t team, int id, int flag
 #if GASNETI_PSHM_BARRIER_HIER
   if (barrier_data->amcbarrier_pshm) {
     PSHM_BDATA_DECL(pshm_bdata, barrier_data->amcbarrier_pshm);
-    gasnete_pshmbarrier_blocking_notify(pshm_bdata, id, flags);
-    do_send = !barrier_data->amcbarrier_passive;
+    do_send = barrier_data->amcbarrier_pshm_notify_done =
+            gasnete_pshmbarrier_notify_inner(pshm_bdata, id, flags);
     id = pshm_bdata->shared->value;
     flags = pshm_bdata->shared->flags;
   }
 #endif
 
-  if (barrier_data->amcbarrier_max > 1) {
-    /*  send notify msg to master */
-    if (do_send) GASNETI_SAFE(
-      gasnet_AMRequestShort4(barrier_data->amcbarrier_master,
-                             gasneti_handleridx(gasnete_amcbarrier_notify_reqh), 
-                             team->team_id, phase, id, flags));
-    if (gasneti_mynode == barrier_data->amcbarrier_master) gasnete_barrier_pf_enable(team);
-  } else {
-    barrier_data->amcbarrier_response_value[phase] = (gasnet_handlerarg_t)id;
-    barrier_data->amcbarrier_response_flags[phase] = flags;
-    barrier_data->amcbarrier_response_done[phase] = 1;
-  }
+  if (do_send) gasnete_amcbarrier_send(team, phase, id, flags);
 
   /*  update state */
   gasneti_sync_writes(); /* ensure all state changes committed before return */
@@ -1743,6 +1788,7 @@ static int gasnete_amcbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
 #if GASNETI_PSHM_BARRIER_HIER
   if (pshm_bdata) {
     const int passive_shift = barrier_data->amcbarrier_passive;
+    gasneti_polluntil(gasnete_amcbarrier_kick_pshm(team));
     retval = gasnete_pshmbarrier_wait_inner(pshm_bdata, id, flags, passive_shift);
     if (passive_shift) {
       /* Once the active peer signals done, we can return */
@@ -1800,7 +1846,8 @@ static int gasnete_amcbarrier_try(gasnete_coll_team_t team, int id, int flags) {
 #if GASNETI_PSHM_BARRIER_HIER
   if (barrier_data->amcbarrier_pshm) {
     const int passive_shift = barrier_data->amcbarrier_passive;
-    if (!gasnete_pshmbarrier_try_inner(barrier_data->amcbarrier_pshm, passive_shift))
+    if (!gasnete_amcbarrier_kick_pshm(team) ||
+        !gasnete_pshmbarrier_try_inner(barrier_data->amcbarrier_pshm, passive_shift))
       return GASNET_ERR_NOT_READY;
     if (passive_shift)
       return gasnete_amcbarrier_wait(team, id, flags);
@@ -1877,7 +1924,8 @@ static void gasnete_amcbarrier_init(gasnete_coll_team_t team, gasnet_node_t *nod
   team->barrier_wait =   &gasnete_amcbarrier_wait;
   team->barrier_try =    &gasnete_amcbarrier_try;
   team->barrier_result = &gasnete_amcbarrier_result;
-  team->barrier_pf =     (team == GASNET_TEAM_ALL) ? &gasnete_amcbarrier_kick_team_all : NULL;
+  team->barrier_pf =     ((team == GASNET_TEAM_ALL) && (total_ranks > 1))
+                             ? &gasnete_amcbarrier_kick_team_all : NULL;
 }
 
 #define GASNETE_AMCBARRIER_HANDLERS()                                 \
