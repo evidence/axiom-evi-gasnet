@@ -1149,9 +1149,9 @@ typedef struct {
 typedef struct {
   uint32_t teamid;
   uint32_t value;
-#if ((GASNET_BARRIERFLAG_MISMATCH|GASNET_BARRIERFLAG_ANONYMOUS|0xff) == 0xff)
+#if ((GASNETE_BARRIERFLAGS_CLIENT_ALL|0xff) == 0xff)
   uint8_t  flags;
-#elif ((GASNET_BARRIERFLAG_MISMATCH|GASNET_BARRIERFLAG_ANONYMOUS|0xffff) == 0xffff)
+#elif ((GASNETE_BARRIERFLAGS_CLIENT_ALL|0xffff) == 0xffff)
   uint16_t flags;
 #else
   uint32_t flags;
@@ -1161,6 +1161,9 @@ typedef struct {
   uint8_t  end;
 } gasnete_pdbarrier_msg_t;
 #define GASNETE_PDBARRIER_MSG_T offsetof(gasnete_pdbarrier_msg_t, end)
+
+#define GASNETE_PDBARRIER_UNNAMED(_flags,_barr) \
+  (((_flags) & GASNETE_BARRIERFLAG_UNNAMED) && (_barr)->barrier_op.cb_done)
 
 static pami_send_hint_t gasnete_pdbarrier_send_hint;
 
@@ -1262,7 +1265,7 @@ static void gasnete_pdbarr_dispatch(
 
 static void gasnete_pdbarrier_notify(gasnete_coll_team_t team, int id, int flags) {
   gasnete_pdbarrier_t *barr = team->barrier_data;
-  const int is_unnamed = ((flags & GASNETE_BARRIERFLAG_UNNAMED) && barr->barrier_op.cb_done);
+  const int is_unnamed = GASNETE_PDBARRIER_UNNAMED(flags, barr);
   int do_send = 1;
   int phase;
   
@@ -1328,7 +1331,7 @@ int gasnete_pdbarrier_finish(
   GASNETE_SPLITSTATE_LEAVE(team);
 
 #if GASNETI_PSHM_BARRIER_HIER
-  if (barr->pshm_data && !((flags & GASNETE_BARRIERFLAG_UNNAMED) && barr->barrier_op.cb_done)) {
+  if (barr->pshm_data && !GASNETE_PDBARRIER_UNNAMED(flags, barr)) {
     /* Signal any passive peers w/ the final result */
     const PSHM_BDATA_DECL(pshm_bdata, barr->pshm_data);
     pshm_bdata->shared->value = final_value;
@@ -1351,7 +1354,7 @@ static int gasnete_pdbarrier_wait(gasnete_coll_team_t team, int id, int flags) {
   GASNETE_SPLITSTATE_WAIT(team);
 
 #if GASNETI_PSHM_BARRIER_HIER
-  if (barr->pshm_data && !((flags & GASNETE_BARRIERFLAG_UNNAMED) && barr->barrier_op.cb_done)) {
+  if (barr->pshm_data && !GASNETE_PDBARRIER_UNNAMED(flags, barr)) {
     const int passive_shift = barr->pshm_shift;
     retval = gasnete_pshmbarrier_wait_inner(barr->pshm_data, id, flags, passive_shift);
     if (passive_shift) {
@@ -1383,7 +1386,7 @@ static int gasnete_pdbarrier_try(gasnete_coll_team_t team, int id, int flags) {
   GASNETI_SAFE(gasneti_AMPoll());
 
 #if GASNETI_PSHM_BARRIER_HIER
-  if (barr->pshm_data && !((flags & GASNETE_BARRIERFLAG_UNNAMED) && barr->barrier_op.cb_done)) {
+  if (barr->pshm_data && !GASNETE_PDBARRIER_UNNAMED(flags, barr)) {
     const int pshm_shift = barr->pshm_shift;
     if (!gasnete_pshmbarrier_try_inner(barr->pshm_data, pshm_shift))
       return GASNET_ERR_NOT_READY;
