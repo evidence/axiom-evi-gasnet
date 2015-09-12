@@ -1444,8 +1444,8 @@ static void gasnete_pdbarrier_init(gasnete_coll_team_t team) {
   }
 
 #if GASNETI_PSHM_BARRIER_HIER
+  barr->pshm_data = pshm_bdata;
   if (pshm_bdata) {
-    barr->pshm_data = pshm_bdata;
     barr->pshm_shift = pshm_bdata->private.rank ? 2 : 0;
   }
 #endif
