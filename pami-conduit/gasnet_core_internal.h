@@ -121,9 +121,11 @@ extern size_t             gasnetc_recv_imm_max;
 #if GASNET_PAR
   #define GASNETC_PAMI_LOCK(context)   PAMI_Context_lock(context)
   #define GASNETC_PAMI_UNLOCK(context) PAMI_Context_unlock(context)
+  #define GASNETC_PAMI_TRYLOCK(context) (PAMI_SUCCESS != PAMI_Context_trylock(context)) /* 0 on success */
 #else
   #define GASNETC_PAMI_LOCK(context)   do { } while (0)
   #define GASNETC_PAMI_UNLOCK(context) do { } while (0)
+  #define GASNETC_PAMI_TRYLOCK(context) (0)
 #endif
 
 /* ------------------------------------------------------------------------------------ */
