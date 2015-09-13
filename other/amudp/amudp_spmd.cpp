@@ -177,11 +177,21 @@ static void flushStreams(const char *context) {
   }
   fsync(STDOUT_FILENO); /* ignore errors for output is a console */
   fsync(STDERR_FILENO); /* ignore errors for output is a console */
+
+  static int do_sync = -1;
+  if (do_sync < 0) {
+    /* Approximate match to GASNet's acceptance of 'Y|YES|y|yes|1' */
+    char *envval = AMUDP_getenv_prefixed_withdefault("FS_SYNC", "NO");
+    char c = envval[0];
+    do_sync = ((c == '1') || (c == 'y') || (c == 'Y'));
+  }
+  if (do_sync) {
   #if PLATFORM_OS_MTA
     mta_sync();
   #elif !PLATFORM_OS_CATAMOUNT
     sync();
   #endif
+  }
   sched_yield();
 }
 //------------------------------------------------------------------------------------
