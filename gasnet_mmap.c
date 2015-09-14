@@ -1465,7 +1465,7 @@ void gasneti_segmentAttachLocal(uintptr_t segsize, uintptr_t minheapoffset,
   gasneti_memcheck(gasneti_segexch);
 
   #ifndef GASNETI_SEGMENT_DISALIGN_BIAS
-    #if GASNET_DEBUG && !GASNET_ALIGNED_SEGMENTS && !GASNET_PSHM && (GASNET_PAGESIZE < 1024*1024)
+    #if GASNET_DEBUG && !GASNET_ALIGNED_SEGMENTS && !GASNET_PSHM && !GASNETI_USE_HUGETLBFS && (GASNET_PAGESIZE < 1024*1024)
       /* force segment disalignment for debugging purposes */
       #define GASNETI_SEGMENT_DISALIGN_BIAS GASNET_PAGESIZE
     #else
