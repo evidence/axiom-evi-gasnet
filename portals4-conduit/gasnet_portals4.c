@@ -542,7 +542,7 @@ gasnetc_p4_attach(void *segbase, uintptr_t segsize)
 #elif GASNET_SEGMENT_EVERYTHING
     gasneti_assert((void*) 0 == segbase && (uintptr_t)-1 == segsize);
     me.start = le.start = 0;
-    me.length = le.start = PTL_SIZE_MAX;
+    me.length = le.length = PTL_SIZE_MAX;
 #endif
 
     me.min_free = 0;
