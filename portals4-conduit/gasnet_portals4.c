@@ -1120,8 +1120,10 @@ p4_poll(const ptl_handle_eq_t *eq_handles, unsigned int size, unsigned int limit
                        been processed.  Therefore, we need to wait
                        until the other thread finishes processing the
                        events associated with this ME */
+  #ifdef P4_DEBUG
                     fprintf(stderr, "%03d: spinning waiting for block to finish %ld, %ld\n",
                             gasneti_mynode, ct.success + ct.failure, (long)val);
+  #endif
                     GASNETI_WAITHOOK();
                     val = gasneti_weakatomic_read(&block->op_count, 0);
                 }
