@@ -100,7 +100,7 @@ sub gasnet_encode($) {
     my $is_crayt3e_mpi = ($uname =~ m|cray t3e|i );
     my $is_sgi_mpi = ($mpirun_help =~ m|\[-miser\]|);
     my $is_poe      = ($mpirun_help =~ m|Parallel Operating Environment|);
-    my $is_aprun    = ($mpirun_help =~ m|aprunwrapper\|rchitecture type.*?xt|i);
+    my $is_aprun    = ($mpirun_help =~ m|aprunwrapper\|aprun_version\|rchitecture type.*?xt|i);
     my $is_yod      = ($mpirun_help =~ m| yod |);
     my $is_bgl_mpi   = ($platform eq 'bgl' && $mpirun_help =~ m|COprocessor or VirtualNode mode|);
     my $is_bgl_cqsub = ($platform eq 'bgl' && $mpirun_help =~ m| cqsub .*?co/vn|s);
@@ -713,8 +713,8 @@ if ($is_aprun || $is_yod) {
             $numnode = $pbs_nodes;
         } elsif (defined($pbs_jobid) && open(QSTAT, "qstat -f $pbs_jobid |")) {
             while (<QSTAT>) {
-                if (/mppnodect\s*=\s*([0-9]+)/) {
-                    $numnode = $1;
+                if (/\.(mpp)?nodect\s*=\s*([0-9]+)/) {
+                    $numnode = $2;
                     last;
                 }
             }
