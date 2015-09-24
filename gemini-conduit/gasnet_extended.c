@@ -1246,7 +1246,12 @@ GASNETX_FETCHOP_DEFNS(xor,u64,uint64_t,GNI_FMA_ATOMIC_FXOR)
   "gd" = GNI Dissemination
 */
 
+#if !PLATFORM_COMPILER_CRAY
+/* Don't trust GNIDISSEM barrier with CCE - see bug 3191 */
+#define GASNETE_BARRIER_DEFAULT "RDMADISSEM"
+#else
 #define GASNETE_BARRIER_DEFAULT "GNIDISSEM"
+#endif
 
 /* Forward decls for init function(s): */
 static void gasnete_gdbarrier_init(gasnete_coll_team_t team);
