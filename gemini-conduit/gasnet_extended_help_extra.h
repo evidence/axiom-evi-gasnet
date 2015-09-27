@@ -14,7 +14,11 @@
   Extensions:
   ==============================
 */
+
 #if GASNETC_GNI_FETCHOP
+/* Proof-of-concept GNI uint64_t fetch-and-op.
+ * Not supported, and subject to change or removal.
+ */
 
 #define GASNETX_FETCHOP_DECLS(_name,_type)                        \
     extern void _gasnetX_fetch##_name(                            \

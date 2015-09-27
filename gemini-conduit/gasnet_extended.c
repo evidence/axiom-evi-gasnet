@@ -1101,13 +1101,15 @@ static void gasnete_valget_freeall(gasnete_threaddata_t *thread) {
   }
 }
 /* ------------------------------------------------------------------------------------ */
+
+#if GASNETC_GNI_FETCHOP
 /*
   Memory-to-register fetch-and-op (experimental extension)
   ========================================================
+  Proof-of-concept GNI uint64_t fetch-and-op.
+  Not supported, and subject to change or removal.
 */
-/* ------------------------------------------------------------------------------------ */
 
-#if GASNETC_GNI_FETCHOP
 static gasnet_handle_t gasnete_fetchop_u64_nb(
         uint64_t *dest, gasnet_node_t node, uint64_t *src,
         gni_fma_cmd_type_t cmd, uint64_t operand GASNETE_THREAD_FARG)
@@ -1237,7 +1239,7 @@ GASNETX_FETCHOP_DEFNS(and,u64,uint64_t,GNI_FMA_ATOMIC_FAND)
 GASNETX_FETCHOP_DEFNS( or,u64,uint64_t,GNI_FMA_ATOMIC_FOR )
 GASNETX_FETCHOP_DEFNS(xor,u64,uint64_t,GNI_FMA_ATOMIC_FXOR)
 
-#endif
+#endif /* GASNETC_GNI_FETCHOP */
 
 /* ------------------------------------------------------------------------------------ */
 /*
