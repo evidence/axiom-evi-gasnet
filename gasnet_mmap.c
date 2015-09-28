@@ -47,9 +47,29 @@
   #endif
  #endif
 
+ /* TODO:
+    Below are a couple cases where we want to use the lower portion of the O/S-provided
+    mmap()ed region to create our segment because one must ensure some alignment which
+    is greater than the page size.  Instead of forcing the use of the bottom portion,
+    we *could* change the trimming logic to use a chosen granularity other than that of
+    GASNETI_PAGESIZE (such as the huge page size).
+  */
+
  #ifdef GASNETI_USE_HUGETLBFS
   #include <hugetlbfs.h>
   /* Trim only from top to retain alignment: */
+  #undef GASNETI_USE_HIGHSEGMENT
+  #define GASNETI_USE_HIGHSEGMENT 0
+ #endif
+
+ #if GASNET_PSHM && PLATFORM_ARCH_SPARC
+  /* On SPARC, shared mappings must be L1 data-cache color-aligned.
+     The easiest way to ensure that is to trim only from top to preserve
+     the alignment which the O/S gave to the original (untrimmed) mapping.
+   Possible TODO:
+     Since we only support 64-bit SPARC CPUs the alignment will always be MAX(16K, PAGESIZE).
+     So we could just use that for GASNETI_PAGESIZE.
+   */
   #undef GASNETI_USE_HIGHSEGMENT
   #define GASNETI_USE_HIGHSEGMENT 0
  #endif
