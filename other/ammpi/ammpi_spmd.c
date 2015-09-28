@@ -93,9 +93,10 @@ static void flushStreams(const char *context) {
 
   if (do_sync < 0) {
     /* Approximate match to GASNet's acceptance of 'Y|YES|y|yes|1' */
-    char * envval = getenv("GASNET_FS_SYNC");
+    char c, *envval;
+    envval = getenv("GASNET_FS_SYNC");
     if (NULL == envval) envval = getenv("AMMPI_FS_SYNC");
-    char c = envval ? envval[0] : '0';
+    c = envval ? envval[0] : '0';
     do_sync = ((c == '1') || (c == 'y') || (c == 'Y'));
   }
   if (do_sync) {
