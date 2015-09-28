@@ -1429,7 +1429,8 @@
 
   /* ------------------------------------------------------------------------------------ */
   #elif PLATFORM_ARCH_SPARC
-    #if defined(__sparcv9) || defined(__sparcv9cpu) || defined(GASNETI_ARCH_ULTRASPARC) /* SPARC v9 ISA */
+    #if defined(__sparcv9) || defined(__sparcv9cpu) || \
+        defined(__sparc_v9__) || defined(GASNETI_ARCH_ULTRASPARC) /* SPARC v9 ISA */
       #if PLATFORM_COMPILER_GNU
         #define GASNETI_HAVE_ATOMIC32_T 1
         typedef struct { volatile int32_t ctr; } gasneti_atomic32_t;

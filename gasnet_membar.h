@@ -32,7 +32,8 @@
   #define GASNETI_USING_SLOW_MEMBARS 1
 /* ------------------------------------------------------------------------------------ */
 #elif PLATFORM_ARCH_SPARC
-  #if defined(__sparcv9) || defined(__sparcv9cpu) || defined(GASNETI_ARCH_ULTRASPARC) /* SPARC v9 ISA */
+  #if defined(__sparcv9) || defined(__sparcv9cpu) || \
+      defined(__sparc_v9__) || defined(GASNETI_ARCH_ULTRASPARC) /* SPARC v9 ISA */
     GASNETI_INLINE(gasneti_local_wmb)
     void gasneti_local_wmb(void) {
       /* For TSO SPARCs this is technically oversynced, but costs us nothing extra. */
