@@ -904,6 +904,13 @@ uintptr_t gasnetc_init_messaging(void)
         peer->remote_notify_base = (gasnetc_notify_t *)(remote_peer_base + request_region_length);
         peer->local_notify_base = (gasnetc_notify_t *)(local_peer_base + request_region_length);
 
+      #if PLATFORM_COMPILER_CRAY
+        /* Sigh.  Work around an apparent bug in cce-8.4.0.x.
+         * This reference appears to prevent the compiler from discarding the initialization.
+         */
+        gasneti_assert_always (peer->local_notify_base);
+      #endif
+
         peer->remote_request_map = request_map;
         local_peer_base += peer_stride;
       }
