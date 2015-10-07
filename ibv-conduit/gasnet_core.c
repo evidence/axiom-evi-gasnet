@@ -301,7 +301,9 @@ static void gasnetc_sys_coll_init(void)
 
 done:
   gasneti_bootstrap_native_coll = 1;
+#if !GASNETC_IBV_SHUTDOWN
   gasneti_bootstrapCleanup(); /* No futher use of ssh/mpi/pmi collectives */
+#endif
 }
 
 static void gasnetc_sys_coll_fini(void)
@@ -2111,6 +2113,36 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   return GASNET_OK;
 }
 /* ------------------------------------------------------------------------------------ */
+/* Shutdown code - not used by default */
+
+#if GASNETC_IBV_SHUTDOWN
+/* TODO: 
+ * + Deregister all memory
+ * + Destroy PD
+ * + Close HCA
+ */
+void
+gasnetc_shutdown(void) {
+  gasnetc_hca_t *hca;
+
+  (*gasneti_bootstrapBarrier_p)(); /* Don't use the QPs! */
+    
+  gasnetc_connect_shutdown();
+
+  GASNETC_FOR_ALL_HCA(hca) {
+  #if GASNETC_IBV_SRQ
+    if (gasnetc_use_srq) {
+      (void) ibv_destroy_srq(hca->rqst_srq);
+      (void) ibv_destroy_srq(hca->repl_srq);
+    }
+  #endif
+    (void) ibv_destroy_cq(hca->rcv_cq);
+    (void) ibv_destroy_cq(hca->snd_cq);
+  }
+}
+#endif
+
+/* ------------------------------------------------------------------------------------ */
 /*
   Exit handling code
 */
@@ -2722,6 +2754,10 @@ static void gasnetc_exit_body(void) {
       gasneti_fatalerror("invalid exit role");
   }
  }
+
+#if GASNETC_IBV_SHUTDOWN
+  gasnetc_shutdown();
+#endif
 
   /* Try again to flush out any recent output, allowing upto 30s */
   GASNETC_EXIT_STATE("closing output");

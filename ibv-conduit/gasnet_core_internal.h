@@ -83,6 +83,18 @@ extern gasneti_atomic_t gasnetc_exit_running;
 /* May eventually be a hash? */
 #define GASNETC_NODE2CEP(_node) (gasnetc_node2cep[_node])
 
+
+/*
+ * In theory all resources should be recovered automatically at process exit.
+ * However, a least Solaris 11.2 has been seen to eventually begin returning
+ * ENOSPC from ibv_create_cq() after a few thousand tests have run.
+ * So, we will make a best-effort to at least destroy QPs and CQs.
+ */
+#if PLATFORM_OS_SOLARIS
+  #define GASNETC_IBV_SHUTDOWN 1
+  extern void gasnetc_connect_shutdown(void);
+#endif
+
 /* ------------------------------------------------------------------------------------ */
 /* Core handlers.
  * These are registered early and are available even before _attach()
