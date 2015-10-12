@@ -53,7 +53,7 @@ tests tests-clean run-tests check-exports:
 	@list='$(testdirs)'; for dir in $$list ; do \
 	  ( cd "$$dir" && $(MAKE) $@ ) || exit $$?; \
 	done
-CONDUITMODE_TARGETS = Makefile-conduit.mak
+CONDUITMODE_TARGETS = Makefile-conduit.mak mpirun_common
 endif
 
 # If we add plpa to EXTRA_DIST, then automake-1.9 tries to package
@@ -62,7 +62,7 @@ dist-hook:
 	rm -f $(distdir)/plpa/config/acinclude.m4
 	cp -pR $(srcdir)/plpa $(distdir)/
 
-all-local: $(CONDUITMODE_TARGETS) perlstart mpirun_common
+all-local: $(CONDUITMODE_TARGETS) perlstart
 
 # GASNET_TOOLSONLY_FALSE_BEGIN
 ## Docs to install from any subdirs
