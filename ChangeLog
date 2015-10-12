@@ -2,9 +2,9 @@ GASNet ChangeLog
 ----------------
 
 ----------------------------------------------------------------------
-10-??-2015 :  Release 1.26.0
+10-??-2015 :  Release 1.26.0-rc0
 
-* PLACEHOLDER
+* THIS DOCUMENTATION IS NOT COMPLETE
 
 * Portable UDP support (udp-conduit)
   - Remove long-deprecated support for job spawning via Berkeley Millennium
