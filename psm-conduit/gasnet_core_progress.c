@@ -1,5 +1,5 @@
 /*
- * Description: PSM progress polling code
+ * Description: psm2 progress polling code
  * Copyright (c) 2014-2015 Intel Corporation. All rights reserved.
  * Terms of use are as specified in license.txt
  */
@@ -18,9 +18,9 @@ void gasnetc_do_exit(void)
         gasneti_mutex_lock(&exit_lock);
     }
 
-    psm_ep_close(gasnetc_psm_state.ep, PSM_EP_CLOSE_GRACEFUL,
+    psm2_ep_close(gasnetc_psm_state.ep, PSM2_EP_CLOSE_GRACEFUL,
              (int64_t)(gasnetc_psm_state.exit_timeout * 1000000000L));
-    psm_finalize();
+    psm2_finalize();
     gasneti_bootstrapFini();
     gasneti_killmyprocess(gasnetc_psm_state.exit_code);
 }
@@ -38,7 +38,7 @@ extern int gasnetc_AMPoll(void)
 
     ret = GASNETC_PSM_TRYLOCK();
     if(ret == 0) {
-        psm_poll(gasnetc_psm_state.ep);
+        psm2_poll(gasnetc_psm_state.ep);
 
         /* The branches protecting these calls are an optimization:
            if there is no progress to be done, avoid a function call. */
@@ -88,7 +88,7 @@ void *gasnetc_progress_thread(void * arg)
         if(gasnetc_psm_state.pending_mq_ops.head.next != NULL &&
             GASNETC_PSM_TRYLOCK() == 0) {
             /* This progress thread needs to post pending MQ ops.
-               The PSM-level thread will run handlers that queue
+               The psm2-level thread will run handlers that queue
                ops, but cannot actually post them.  The app thread
                can post them, but doing it here provides passive
                progress. */

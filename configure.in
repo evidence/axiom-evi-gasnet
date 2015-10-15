@@ -2898,7 +2898,7 @@ have_psm=no
             AC_CHECK_HEADERS(psm2_am.h, psm_have_header=yes)
         fi
 
-        AC_CHECK_LIB(psm2, psm_init, psm_have_lib=yes)
+        AC_CHECK_LIB(psm2, psm2_init, psm_have_lib=yes)
         AC_MSG_CHECKING(for PSM in standard locations)
         if test "$psm_have_header$psm_have_lib" = yesyes; then
             psm_in_path=yes
@@ -2946,9 +2946,9 @@ have_psm=no
             #include <psm2_mq.h>
             #include <psm2_am.h>
         ], [{
-               int major = PSM_VERNO_MAJOR;
-               int minor = PSM_VERNO_MINOR;
-               psm_error_t psm_status = psm_init(&major,&minor);
+               int major = PSM2_VERNO_MAJOR;
+               int minor = PSM2_VERNO_MINOR;
+               psm2_error_t psm_status = psm2_init(&major,&minor);
             }], [ : ], [ have_psm=no; GASNET_ERR_SAVE() ] )
       GASNET_POPVAR(CFLAGS)
 	  GASNET_POPVAR(LIBS)
