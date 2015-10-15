@@ -51,25 +51,25 @@ void (*gasneti_bootstrapSNodeCast_p)(void *src, size_t len, void *dest, int root
 void (*gasneti_bootstrapCleanup_p)(void) = NULL;
 
 
-/* Core API PSM-level handlers */
-int gasnetc_handler_short(psm_am_token_t token,
-        psm_amarg_t* args, int nargs, void* addr, uint32_t len);
-int gasnetc_handler_med(psm_am_token_t token,
-        psm_amarg_t* args, int nargs, void* addr, uint32_t len);
-int gasnetc_handler_long(psm_am_token_t token,
-        psm_amarg_t* args, int nargs, void* addr, uint32_t len);
+/* Core API psm2-level handlers */
+int gasnetc_handler_short(psm2_am_token_t token,
+        psm2_amarg_t* args, int nargs, void* addr, uint32_t len);
+int gasnetc_handler_med(psm2_am_token_t token,
+        psm2_amarg_t* args, int nargs, void* addr, uint32_t len);
+int gasnetc_handler_long(psm2_am_token_t token,
+        psm2_amarg_t* args, int nargs, void* addr, uint32_t len);
 
-/* Extended API PSM-level handlers */
-int gasnete_handler_put(psm_am_token_t token,
-        psm_amarg_t* args, int nargs, void* addr, uint32_t len);
-int gasnete_handler_get_request(psm_am_token_t token,
-        psm_amarg_t* args, int nargs, void* addr, uint32_t len);
-int gasnete_handler_get_reply(psm_am_token_t token,
-        psm_amarg_t* args, int nargs, void* addr, uint32_t len);
-int gasnete_handler_long_put(psm_am_token_t token,
-        psm_amarg_t* args, int nargs, void* addr, uint32_t len);
-int gasnete_handler_long_get(psm_am_token_t token,
-        psm_amarg_t* args, int nargs, void* addr, uint32_t len);
+/* Extended API psm2-level handlers */
+int gasnete_handler_put(psm2_am_token_t token,
+        psm2_amarg_t* args, int nargs, void* addr, uint32_t len);
+int gasnete_handler_get_request(psm2_am_token_t token,
+        psm2_amarg_t* args, int nargs, void* addr, uint32_t len);
+int gasnete_handler_get_reply(psm2_am_token_t token,
+        psm2_amarg_t* args, int nargs, void* addr, uint32_t len);
+int gasnete_handler_long_put(psm2_am_token_t token,
+        psm2_amarg_t* args, int nargs, void* addr, uint32_t len);
+int gasnete_handler_long_get(psm2_am_token_t token,
+        psm2_amarg_t* args, int nargs, void* addr, uint32_t len);
 
 
 /* -------------------------------------------------------------------------- */
@@ -161,7 +161,7 @@ static int gasneti_bootstrapInit(
 GASNETI_COLD
 static int gasnetc_init(int *argc, char ***argv) {
     uint32_t res;
-    psm_error_t ret;
+    psm2_error_t ret;
 
     /*  check system sanity */
     gasnetc_check_config();
@@ -210,7 +210,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     gasneti_nodemapInit(&gasneti_bootstrapExchange, NULL, 0, 0);
 
 
-    /* PSM initialization */
+    /* psm2 initialization */
     memset(&gasnetc_psm_state, 0, sizeof(gasnetc_psm_state_t));
 
     gasneti_spinlock_init(&gasnetc_psm_state.psm_lock);
@@ -224,17 +224,17 @@ static int gasnetc_init(int *argc, char ***argv) {
         gasneti_get_exittimeout(300.0, 5.0, 0.01, 5.0);
 
     {
-        int ver_major = PSM_VERNO_MAJOR;
-        int ver_minor = PSM_VERNO_MINOR;
-        psm_uuid_t uuid;
+        int ver_major = PSM2_VERNO_MAJOR;
+        int ver_minor = PSM2_VERNO_MINOR;
+        psm2_uuid_t uuid;
 
 #if GASNET_PSHM
-        /* Save memory (and maybe performance?) by disabling PSM's self and
+        /* Save memory (and maybe performance?) by disabling psm2's self and
            shared-memory communication models.  PSHM will be used instead. */
-        setenv("PSM_DEVICES", "hfi", 1);
+        setenv("PSM2_DEVICES", "hfi", 1);
 #endif
 
-        /* Set environment variables so PSM allocates hardware contexts
+        /* Set environment variables so psm2 allocates hardware contexts
          * correctly. */
         {
             char s[255] = {0};
@@ -245,43 +245,43 @@ static int gasnetc_init(int *argc, char ***argv) {
             setenv("MPI_LOCALNRANKS", s, 0);
         }
 
-        ret = psm_init(&ver_major, &ver_minor);
-        if(ret != PSM_OK) {
+        ret = psm2_init(&ver_major, &ver_minor);
+        if(ret != PSM2_OK) {
             char s[255] = {0};
-            snprintf(s, sizeof(s), "psm_init failure: %s\n",
-                    psm_error_get_string(ret));
+            snprintf(s, sizeof(s), "psm2_init failure: %s\n",
+                    psm2_error_get_string(ret));
             GASNETI_RETURN_ERRR(NOT_INIT, s);
         }
 
         if(gasneti_mynode == 0) {
-            psm_uuid_generate(uuid);
+            psm2_uuid_generate(uuid);
         }
 
-        gasneti_bootstrapBroadcast_p(&uuid, sizeof(psm_uuid_t), &uuid, 0);
+        gasneti_bootstrapBroadcast_p(&uuid, sizeof(psm2_uuid_t), &uuid, 0);
 
-        ret = psm_ep_open(uuid, NULL,
+        ret = psm2_ep_open(uuid, NULL,
                 &gasnetc_psm_state.ep, &gasnetc_psm_state.epid);
-        if(ret != PSM_OK) {
+        if(ret != PSM2_OK) {
             char s[255] = {0};
-            snprintf(s, sizeof(s), "psm_ep_open failure: %s\n",
-                    psm_error_get_string(ret));
+            snprintf(s, sizeof(s), "psm2_ep_open failure: %s\n",
+                    psm2_error_get_string(ret));
             GASNETI_RETURN_ERRR(NOT_INIT, s);
         }
 
-    ret = psm_mq_init(gasnetc_psm_state.ep, PSM_MQ_ORDERMASK_NONE,
+    ret = psm2_mq_init(gasnetc_psm_state.ep, PSM2_MQ_ORDERMASK_NONE,
             NULL, 0, &gasnetc_psm_state.mq);
     }
 
     {
-        struct psm_am_parameters params = {0};
+        struct psm2_am_parameters params = {0};
         size_t size = 0;
 
-        ret = psm_am_get_parameters(gasnetc_psm_state.ep, &params,
-                sizeof(struct psm_am_parameters), &size);
-        if(ret != PSM_OK) {
+        ret = psm2_am_get_parameters(gasnetc_psm_state.ep, &params,
+                sizeof(struct psm2_am_parameters), &size);
+        if(ret != PSM2_OK) {
             char s[255] = {0};
-            snprintf(s, sizeof(s), "psm_am_get_parameters failure: %s\n",
-                    psm_error_get_string(ret));
+            snprintf(s, sizeof(s), "psm2_am_get_parameters failure: %s\n",
+                    psm2_error_get_string(ret));
             GASNETI_RETURN_ERRR(NOT_INIT, s);
         }
 
@@ -298,7 +298,7 @@ static int gasnetc_init(int *argc, char ***argv) {
 
     {
         int i;
-        psm_am_handler_fn_t handlers[AM_HANDLER_NUM];
+        psm2_am_handler_fn_t handlers[AM_HANDLER_NUM];
 
         handlers[AM_HANDLER_SHORT]   = gasnetc_handler_short;
         handlers[AM_HANDLER_MED]     = gasnetc_handler_med;
@@ -309,12 +309,12 @@ static int gasnetc_init(int *argc, char ***argv) {
         handlers[AM_HANDLER_LONG_PUT] = gasnete_handler_long_put;
         handlers[AM_HANDLER_LONG_GET] = gasnete_handler_long_get;
 
-        ret = psm_am_register_handlers(gasnetc_psm_state.ep,
+        ret = psm2_am_register_handlers(gasnetc_psm_state.ep,
                 handlers, AM_HANDLER_NUM, gasnetc_psm_state.am_handlers);
-        if(ret != PSM_OK) {
+        if(ret != PSM2_OK) {
             char s[255] = {0};
-            snprintf(s, sizeof(s), "psm_am_register_handlers failure: %s",
-                    psm_error_get_string(ret));
+            snprintf(s, sizeof(s), "psm2_am_register_handlers failure: %s",
+                    psm2_error_get_string(ret));
             GASNETI_RETURN_ERRR(BAD_ARG, s);
         }
     }
@@ -454,8 +454,8 @@ static int gasnetc_reghandlers(gasnet_handlerentry_t *table, int numentries,
 
 /* -------------------------------------------------------------------------- */
 
-int gasnetc_handler_short(psm_am_token_t token,
-        psm_amarg_t* args, int nargs, void* addr, uint32_t len)
+int gasnetc_handler_short(psm2_am_token_t token,
+        psm2_amarg_t* args, int nargs, void* addr, uint32_t len)
 {
     int is_request;
     int handler_idx;
@@ -482,8 +482,8 @@ int gasnetc_handler_short(psm_am_token_t token,
 }
 
 
-int gasnetc_handler_med(psm_am_token_t token,
-        psm_amarg_t* args, int nargs, void* addr, uint32_t len)
+int gasnetc_handler_med(psm2_am_token_t token,
+        psm2_amarg_t* args, int nargs, void* addr, uint32_t len)
 {
     int is_request;
     int handler_idx;
@@ -500,7 +500,7 @@ int gasnetc_handler_med(psm_am_token_t token,
     gasneti_assert((nargs - 1) * 2 >= gasnet_nargs);
     gasneti_assert(handler_idx >= 0 && handler_idx < 256);
 
-    /* The payload buffer handed up from PSM is read-only.
+    /* The payload buffer handed up from psm2 is read-only.
        GASNet handlers must be able to modify the buffer, so copy the data. */
     if(len > 0) {
         userload = alloca(len);
@@ -520,8 +520,8 @@ int gasnetc_handler_med(psm_am_token_t token,
 }
 
 
-int gasnetc_handler_long(psm_am_token_t token,
-        psm_amarg_t* args, int nargs, void* addr, uint32_t len)
+int gasnetc_handler_long(psm2_am_token_t token,
+        psm2_amarg_t* args, int nargs, void* addr, uint32_t len)
 {
     int is_request;
     int handler_idx;
@@ -560,8 +560,8 @@ static void gasnetc_handler_exit2(gasnet_token_t token,
         gasnet_handlerarg_t arg0)
 {
     /* Store the provided exit code and indicate this process should exit.
-       PSM can't be finalized in an AM handler, so the actual exit must
-       be handled outside the PSM progress path. */
+       psm2 can't be finalized in an AM handler, so the actual exit must
+       be handled outside the psm2 progress path. */
     gasnetc_psm_state.exit_code = arg0;
     gasnetc_psm_state.should_exit = 1;
 }
@@ -580,10 +580,10 @@ static void gasnetc_handler_barrier2(gasnet_token_t token,
 
 
 /* Call to increment or decrement the counter on all nodes. */
-/* This barrier assumes all nodes are reachable via PSM. */
+/* This barrier assumes all nodes are reachable via psm2. */
 int gasnetc_psm_request_barrier_all(int value)
 {
-    psm_error_t ret;
+    psm2_error_t ret;
     int i;
 
     for(i = 0; i < gasneti_nodes; i++) {
@@ -593,7 +593,7 @@ int gasnetc_psm_request_barrier_all(int value)
                 gasneti_handleridx(gasnetc_handler_barrier2), 1, value);
         if (ret != GASNET_OK) {
             gasneti_fatalerror("AMRequestShortM (from barrier) failure: %s\n",
-                    psm_error_get_string(ret));
+                    psm2_error_get_string(ret));
         }
     }
 
@@ -773,26 +773,26 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     gasneti_attach_done = 1;
 
     /* ---------------------------------------------------------------------- */
-    /*  establish PSM connections with peers */
+    /*  establish psm2 connections with peers */
 
     /* Exchange epids */
     {
-        psm_epid_t *peer_epids;
-        psm_error_t *peer_errs;
+        psm2_epid_t *peer_epids;
+        psm2_error_t *peer_errs;
         int *peer_mask = NULL;
-        psm_error_t ret;
+        psm2_error_t ret;
         uintptr_t i;
 
         gasnetc_psm_state.peer_epaddrs =
-                gasneti_malloc(sizeof(psm_epaddr_t) * gasneti_nodes);
+                gasneti_malloc(sizeof(psm2_epaddr_t) * gasneti_nodes);
         gasneti_leak(gasnetc_psm_state.peer_epaddrs);
 
-        peer_epids = gasneti_malloc(sizeof(psm_epid_t) * gasneti_nodes);
+        peer_epids = gasneti_malloc(sizeof(psm2_epid_t) * gasneti_nodes);
         peer_errs =
-                gasneti_malloc(sizeof(psm_error_t) * gasneti_nodes);
+                gasneti_malloc(sizeof(psm2_error_t) * gasneti_nodes);
 
         gasneti_bootstrapExchange(
-                &gasnetc_psm_state.epid, sizeof(psm_epid_t), peer_epids);
+                &gasnetc_psm_state.epid, sizeof(psm2_epid_t), peer_epids);
 
 #if GASNET_PSHM
         /* If PSHM is enabled, don't connect to procs in the same node. */
@@ -808,21 +808,21 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
         }
 #endif
 
-        ret = psm_ep_connect(gasnetc_psm_state.ep, gasneti_nodes,
+        ret = psm2_ep_connect(gasnetc_psm_state.ep, gasneti_nodes,
                 peer_epids, peer_mask, peer_errs,
                 gasnetc_psm_state.peer_epaddrs,
                 (int64_t)(gasnetc_psm_state.exit_timeout*1e9));
-        if(ret != PSM_OK) {
+        if(ret != PSM2_OK) {
             char s[255] = {0};
-            snprintf(s, sizeof(s), "psm_ep_connect failure: %s",
-                    psm_error_get_string(ret));
+            snprintf(s, sizeof(s), "psm2_ep_connect failure: %s",
+                    psm2_error_get_string(ret));
             GASNETI_RETURN_ERRR(BAD_ARG, s);
         }
 
         /* Stuff the GASNet node ID for each epaddr into the context pointer.
            This is used by GetMsgSource to convert an epaddr into a node ID. */
         for(i = 0; i < gasneti_nodes; i++) {
-            psm_epaddr_setctxt(gasnetc_psm_state.peer_epaddrs[i], (void*)i);
+            psm2_epaddr_setctxt(gasnetc_psm_state.peer_epaddrs[i], (void*)i);
         }
 
         gasneti_free(peer_epids);
@@ -895,8 +895,8 @@ static void gasnetc_atexit(void) {
 GASNETI_COLD
 extern void gasnetc_exit(int exitcode) {
     int i;
-    psm_amarg_t psm_args;
-    psm_error_t ret;
+    psm2_amarg_t psm2_args;
+    psm2_error_t ret;
     time_t t_start;
     time_t t_cur;
 
@@ -920,24 +920,24 @@ extern void gasnetc_exit(int exitcode) {
 
     /* If called from a handler, there is no way gasnetc_exit can notify other
      * processes to exit (except the one that invoked this handler).  Cleaning
-     * up properly will also be difficult due to PSM already holding locks at
+     * up properly will also be difficult due to psm2 already holding locks at
      * this point.  So, just abort. */
     if (gasnetc_psm_state.handler_running) {
-        gasneti_fatalerror("GASNet PSM conduit cannot support gasnet_exit called from a handler\n");
+        gasneti_fatalerror("GASNet psm conduit cannot support gasnet_exit called from a handler\n");
     }
 
     /* (###) add code here to terminate the job across _all_ nodes
        with gasneti_killmyprocess(exitcode) (not regular exit()), preferably
        after raising a SIGQUIT to inform the client of the exit
        */
-    psm_args.u32w0 = exitcode;
+    psm2_args.u32w0 = exitcode;
 
     for(i = 0; i < gasneti_nodes; i++) {
         ret = gasnetc_AMRequestShortM(i,
                 gasneti_handleridx(gasnetc_handler_exit2), 1, exitcode);
         if (ret != GASNET_OK) {
             gasneti_fatalerror("AMRequestShortM (from gasnetc_exit) failure: %s\n",
-                    psm_error_get_string(ret));
+                    psm2_error_get_string(ret));
         }
     }
 
@@ -993,10 +993,10 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
     if (gasneti_AMPSHMGetMsgSource(token, &sourceid) != GASNET_OK)
 #endif
     {
-        psm_epaddr_t source_addr = NULL;
-        psm_am_get_source((psm_am_token_t)token, &source_addr);
+        psm2_epaddr_t source_addr = NULL;
+        psm2_am_get_source((psm2_am_token_t)token, &source_addr);
 
-        *srcindex = (int)(uintptr_t)psm_epaddr_getctxt(source_addr);
+        *srcindex = (int)(uintptr_t)psm2_epaddr_getctxt(source_addr);
         return GASNET_OK;
     }
 
@@ -1036,15 +1036,15 @@ extern int gasnetc_AMRequestShortM(
 #endif
     {
         int i;
-        psm_amarg_t psm_args[9];
-        psm_error_t ret;
+        psm2_amarg_t psm2_args[9];
+        psm2_error_t ret;
 
         /* Pack args into an array. */
-        gasnet_handlerarg_t* int_args = (gasnet_handlerarg_t*)&psm_args[1];
+        gasnet_handlerarg_t* int_args = (gasnet_handlerarg_t*)&psm2_args[1];
 
         /* This is a request, so set the request bit */
-        psm_args[0].u32w0 = handler | REQUEST_BIT;
-        psm_args[0].u32w1 = numargs;
+        psm2_args[0].u32w0 = handler | REQUEST_BIT;
+        psm2_args[0].u32w1 = numargs;
 
         for(i = 0; i < numargs; i++) {
             int_args[i] = va_arg(argptr, gasnet_handlerarg_t);
@@ -1054,14 +1054,14 @@ extern int gasnetc_AMRequestShortM(
         /* numargs + 3 because two are used above, and 1 to round up for an
            odd number of user arguments. */
         GASNETC_PSM_LOCK();
-        ret = psm_am_request_short(gasnetc_psm_state.peer_epaddrs[dest],
+        ret = psm2_am_request_short(gasnetc_psm_state.peer_epaddrs[dest],
                 gasnetc_psm_state.am_handlers[AM_HANDLER_SHORT],
-                psm_args, (numargs + 3) >> 1, NULL, 0, PSM_AM_FLAG_NONE,
+                psm2_args, (numargs + 3) >> 1, NULL, 0, PSM2_AM_FLAG_NONE,
                 NULL, NULL);
         GASNETC_PSM_UNLOCK();
-        if(ret != PSM_OK) {
-            gasneti_fatalerror("psm_am_request_short failure: %s\n",
-                    psm_error_get_string(ret));
+        if(ret != PSM2_OK) {
+            gasneti_fatalerror("psm2_am_request_short failure: %s\n",
+                    psm2_error_get_string(ret));
         }
 
         retval = GASNET_OK;
@@ -1097,16 +1097,16 @@ extern int gasnetc_AMRequestMediumM(
     } else
 #endif
     {
-        psm_amarg_t psm_args[9];
-        psm_error_t ret;
+        psm2_amarg_t psm2_args[9];
+        psm2_error_t ret;
         int i;
 
         /* Pack args into an array. */
-        gasnet_handlerarg_t* int_args = (gasnet_handlerarg_t*)&psm_args[1];
+        gasnet_handlerarg_t* int_args = (gasnet_handlerarg_t*)&psm2_args[1];
 
         /* This is a request, so set the request bit */
-        psm_args[0].u32w0 = handler | REQUEST_BIT;
-        psm_args[0].u32w1 = numargs;
+        psm2_args[0].u32w0 = handler | REQUEST_BIT;
+        psm2_args[0].u32w1 = numargs;
 
         for(i = 0; i < numargs; i++) {
             int_args[i] = va_arg(argptr, gasnet_handlerarg_t);
@@ -1115,15 +1115,15 @@ extern int gasnetc_AMRequestMediumM(
         /* numargs + 3 because two are used above, and 1 to round up for an
            odd number of user arguments. */
         GASNETC_PSM_LOCK();
-        ret = psm_am_request_short(gasnetc_psm_state.peer_epaddrs[dest],
+        ret = psm2_am_request_short(gasnetc_psm_state.peer_epaddrs[dest],
                 gasnetc_psm_state.am_handlers[AM_HANDLER_MED],
-                psm_args, (numargs + 3) >> 1, source_addr, nbytes,
-                PSM_AM_FLAG_NONE,
+                psm2_args, (numargs + 3) >> 1, source_addr, nbytes,
+                PSM2_AM_FLAG_NONE,
                 NULL, NULL);
         GASNETC_PSM_UNLOCK();
-        if(ret != PSM_OK) {
-            gasneti_fatalerror("psm_am_request_short failure: %s\n",
-                    psm_error_get_string(ret));
+        if(ret != PSM2_OK) {
+            gasneti_fatalerror("psm2_am_request_short failure: %s\n",
+                    psm2_error_get_string(ret));
         }
 
         retval = GASNET_OK;
@@ -1159,31 +1159,31 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
     } else
 #endif
     {
-        psm_amarg_t psm_args[10];
-        psm_error_t ret;
+        psm2_amarg_t psm2_args[10];
+        psm2_error_t ret;
         int i;
 
         /* Pack args into an array. */
-        gasnet_handlerarg_t* int_args = (gasnet_handlerarg_t*)&psm_args[2];
+        gasnet_handlerarg_t* int_args = (gasnet_handlerarg_t*)&psm2_args[2];
 
         /* This is a request, so set the request bit */
-        psm_args[0].u32w0 = handler | REQUEST_BIT;
-        psm_args[0].u32w1 = numargs;
-        psm_args[1].u64w0 = (uintptr_t)dest_addr;
+        psm2_args[0].u32w0 = handler | REQUEST_BIT;
+        psm2_args[0].u32w1 = numargs;
+        psm2_args[1].u64w0 = (uintptr_t)dest_addr;
 
         for(i = 0; i < numargs; i++) {
             int_args[i] = va_arg(argptr, gasnet_handlerarg_t);
         }
 
         GASNETC_PSM_LOCK();
-        ret = psm_am_request_short(gasnetc_psm_state.peer_epaddrs[dest],
+        ret = psm2_am_request_short(gasnetc_psm_state.peer_epaddrs[dest],
                 gasnetc_psm_state.am_handlers[AM_HANDLER_LONG],
-                psm_args, (numargs + 5) >> 1, source_addr, nbytes,
-                PSM_AM_FLAG_NONE, NULL, NULL);
+                psm2_args, (numargs + 5) >> 1, source_addr, nbytes,
+                PSM2_AM_FLAG_NONE, NULL, NULL);
         GASNETC_PSM_UNLOCK();
-        if(ret != PSM_OK) {
-            gasneti_fatalerror("psm_am_request_short failure: %s\n",
-                    psm_error_get_string(ret));
+        if(ret != PSM2_OK) {
+            gasneti_fatalerror("psm2_am_request_short failure: %s\n",
+                    psm2_error_get_string(ret));
         }
 
         retval = GASNET_OK;
@@ -1219,31 +1219,31 @@ extern int gasnetc_AMRequestLongAsyncM(gasnet_node_t dest, /* dest node */
     } else
 #endif
     {
-        psm_amarg_t psm_args[10];
-        psm_error_t ret;
+        psm2_amarg_t psm2_args[10];
+        psm2_error_t ret;
         int i;
 
         /* Pack args into an array. */
-        gasnet_handlerarg_t* int_args = (gasnet_handlerarg_t*)&psm_args[2];
+        gasnet_handlerarg_t* int_args = (gasnet_handlerarg_t*)&psm2_args[2];
 
         /* This is a request, so set the request bit */
-        psm_args[0].u32w0 = handler | REQUEST_BIT;
-        psm_args[0].u32w1 = numargs;
-        psm_args[1].u64w0 = (uintptr_t)dest_addr;
+        psm2_args[0].u32w0 = handler | REQUEST_BIT;
+        psm2_args[0].u32w1 = numargs;
+        psm2_args[1].u64w0 = (uintptr_t)dest_addr;
 
         for(i = 0; i < numargs; i++) {
             int_args[i] = va_arg(argptr, gasnet_handlerarg_t);
         }
 
         GASNETC_PSM_LOCK();
-        ret = psm_am_request_short(gasnetc_psm_state.peer_epaddrs[dest],
+        ret = psm2_am_request_short(gasnetc_psm_state.peer_epaddrs[dest],
                 gasnetc_psm_state.am_handlers[AM_HANDLER_LONG],
-                psm_args, (numargs + 5) >> 1, source_addr, nbytes, PSM_AM_FLAG_NONE,
+                psm2_args, (numargs + 5) >> 1, source_addr, nbytes, PSM2_AM_FLAG_NONE,
                 NULL, NULL);
         GASNETC_PSM_UNLOCK();
-        if(ret != PSM_OK) {
-            gasneti_fatalerror("psm_am_request_short failure: %s\n",
-                    psm_error_get_string(ret));
+        if(ret != PSM2_OK) {
+            gasneti_fatalerror("psm2_am_request_short failure: %s\n",
+                    psm2_error_get_string(ret));
         }
 
         retval = GASNET_OK;
@@ -1273,15 +1273,15 @@ extern int gasnetc_AMReplyShortM(
     } else
 #endif
     {
-        psm_amarg_t psm_args[9];
-        psm_error_t ret;
+        psm2_amarg_t psm2_args[9];
+        psm2_error_t ret;
         int i;
 
         /* Pack args into an array. */
-        gasnet_handlerarg_t* int_args = (gasnet_handlerarg_t*)&psm_args[1];
+        gasnet_handlerarg_t* int_args = (gasnet_handlerarg_t*)&psm2_args[1];
 
-        psm_args[0].u32w0 = handler;
-        psm_args[0].u32w1 = numargs;
+        psm2_args[0].u32w0 = handler;
+        psm2_args[0].u32w1 = numargs;
 
         for(i = 0; i < numargs; i++) {
             int_args[i] = va_arg(argptr, gasnet_handlerarg_t);
@@ -1289,13 +1289,13 @@ extern int gasnetc_AMReplyShortM(
 
         /* numargs + 3 because two are used above, and 1 to round up for an
            odd number of user arguments. */
-        ret = psm_am_reply_short((psm_am_token_t)token,
+        ret = psm2_am_reply_short((psm2_am_token_t)token,
                 gasnetc_psm_state.am_handlers[AM_HANDLER_SHORT],
-                psm_args, (numargs + 3) >> 1, NULL, 0, PSM_AM_FLAG_NONE,
+                psm2_args, (numargs + 3) >> 1, NULL, 0, PSM2_AM_FLAG_NONE,
                 NULL, NULL);
-        if(ret != PSM_OK) {
-            gasneti_fatalerror("psm_am_reply_short failure: %s\n",
-                    psm_error_get_string(ret));
+        if(ret != PSM2_OK) {
+            gasneti_fatalerror("psm2_am_reply_short failure: %s\n",
+                    psm2_error_get_string(ret));
         }
 
         retval = GASNET_OK;
@@ -1325,15 +1325,15 @@ extern int gasnetc_AMReplyMediumM(
     } else
 #endif
     {
-        psm_amarg_t psm_args[9];
-        psm_error_t ret;
+        psm2_amarg_t psm2_args[9];
+        psm2_error_t ret;
         int i;
 
         /* Pack args into an array. */
-        gasnet_handlerarg_t* int_args = (gasnet_handlerarg_t*)&psm_args[1];
+        gasnet_handlerarg_t* int_args = (gasnet_handlerarg_t*)&psm2_args[1];
 
-        psm_args[0].u32w0 = handler;
-        psm_args[0].u32w1 = numargs;
+        psm2_args[0].u32w0 = handler;
+        psm2_args[0].u32w1 = numargs;
 
         for(i = 0; i < numargs; i++) {
             int_args[i] = va_arg(argptr, gasnet_handlerarg_t);
@@ -1341,14 +1341,14 @@ extern int gasnetc_AMReplyMediumM(
 
         /* numargs + 3 because two are used above, and 1 to round up for an
            odd number of user arguments. */
-        ret = psm_am_reply_short((psm_am_token_t)token,
+        ret = psm2_am_reply_short((psm2_am_token_t)token,
                 gasnetc_psm_state.am_handlers[AM_HANDLER_MED],
-                psm_args, (numargs + 3) >> 1, source_addr, nbytes,
-                PSM_AM_FLAG_NONE,
+                psm2_args, (numargs + 3) >> 1, source_addr, nbytes,
+                PSM2_AM_FLAG_NONE,
                 NULL, NULL);
-        if(ret != PSM_OK) {
-            gasneti_fatalerror("psm_am_reply_short failure: %s\n",
-                    psm_error_get_string(ret));
+        if(ret != PSM2_OK) {
+            gasneti_fatalerror("psm2_am_reply_short failure: %s\n",
+                    psm2_error_get_string(ret));
         }
         retval = GASNET_OK;
     }
@@ -1376,16 +1376,16 @@ extern int gasnetc_AMReplyLongM(
     } else
 #endif
     {
-        psm_amarg_t psm_args[10];
-        psm_error_t ret;
+        psm2_amarg_t psm2_args[10];
+        psm2_error_t ret;
         int i;
 
         /* Pack args into an array. */
-        gasnet_handlerarg_t* int_args = (gasnet_handlerarg_t*)&psm_args[2];
+        gasnet_handlerarg_t* int_args = (gasnet_handlerarg_t*)&psm2_args[2];
 
-        psm_args[0].u32w0 = handler;
-        psm_args[0].u32w1 = numargs;
-        psm_args[1].u64w0 = (uintptr_t)dest_addr;
+        psm2_args[0].u32w0 = handler;
+        psm2_args[0].u32w1 = numargs;
+        psm2_args[1].u64w0 = (uintptr_t)dest_addr;
 
         for(i = 0; i < numargs; i++) {
             int_args[i] = va_arg(argptr, gasnet_handlerarg_t);
@@ -1393,13 +1393,13 @@ extern int gasnetc_AMReplyLongM(
 
         /* numargs + 3 because two are used above, and 1 to round up for an
            odd number of user arguments. */
-        ret = psm_am_reply_short((psm_am_token_t)token,
+        ret = psm2_am_reply_short((psm2_am_token_t)token,
                 gasnetc_psm_state.am_handlers[AM_HANDLER_LONG],
-                psm_args, (numargs + 5) >> 1, source_addr, nbytes,
-                PSM_AM_FLAG_NONE, NULL, NULL);
-        if(ret != PSM_OK) {
-            gasneti_fatalerror("psm_am_reply_short failure: %s\n",
-                    psm_error_get_string(ret));
+                psm2_args, (numargs + 5) >> 1, source_addr, nbytes,
+                PSM2_AM_FLAG_NONE, NULL, NULL);
+        if(ret != PSM2_OK) {
+            gasneti_fatalerror("psm2_am_reply_short failure: %s\n",
+                    psm2_error_get_string(ret));
         }
 
         retval = GASNET_OK;
