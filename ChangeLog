@@ -2,7 +2,7 @@ GASNet ChangeLog
 ----------------
 
 ----------------------------------------------------------------------
-10-??-2015 :  Release 1.26.0-rcN
+10-??-2015 :  Release 1.26.0-rc3
 
 * New conduits (network APIs) added:
   This is the first public release of two new conduits: OFI and PSM.
