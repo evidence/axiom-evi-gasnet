@@ -2,7 +2,7 @@ GASNet ChangeLog
 ----------------
 
 ----------------------------------------------------------------------
-10-??-2015 :  Release 1.26.0-rc3
+10-27-2015 :  Release 1.26.0
 
 * New conduits (network APIs) added:
   This is the first public release of two new conduits: OFI and PSM.
@@ -59,7 +59,7 @@ GASNet ChangeLog
   - Eliminate blocking in gasnet_barrier_notify() by shared memory barrier
     (a behavior which is prohibited by the GASNet specification)
   - Add environment variable GASNET_PSHM_BARRIER_HIER which can be used to
-    disable the shared memory barrier at runtime if desired
+    disable the hierarchical shared memory barrier at runtime
   - Fix bug that prevented use of hugetlbfs without PSHM
   - Enhance BlueGene/Q PSHM support to no longer crash if BG_MAPCOMMONHEAP
     has not been set to 1 (instead GASNet will warn and continue w/o PSHM)
@@ -73,7 +73,7 @@ GASNet ChangeLog
   - Intel Xeon Phi (a.k.a. MIC)
     + Add contributed "gasnetrun_mic" for use of Phi without an mpirun
   - ARM and AARCH64
-    + Enable support for clang C and C++ compilers
+    + Enable support (inline asm, etc.) for clang C and C++ compilers
   - OpenBSD
     + Update to pthreads support for more-recent clang versions
     + Update tests to work with OpenBSD's rand() implementation
