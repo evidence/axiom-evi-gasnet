@@ -86,7 +86,7 @@ GASNET_GNI_MEMREG
   outside of the GASNet segment.
   The value of 0 imposes no bound and memory registrations are
   created as needed until uGNI returns GNI_RC_ERROR_RESOURCE.
-  The default value is 16.
+  The default value is 16 on Gemini, and 0 (no limit) on Aries.
 
 GASNET_USE_FIREHOSE
   This gives a boolean: "0" to disable or "1" to enable the use

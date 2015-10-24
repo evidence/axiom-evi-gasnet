@@ -10,8 +10,8 @@
 #include <gasnet_core_list.h>
 #include <gasnet_extended_internal.h>
 
-#include <psm.h>
-#include <psm_am.h>
+#include <psm2.h>
+#include <psm2_am.h>
 
 static const gasnete_eopaddr_t EOPADDR_NIL = { { 0xFF, 0xFF } };
 extern void _gasnete_iop_check(gasnete_iop_t *iop) { gasnete_iop_check(iop); }
@@ -215,7 +215,7 @@ int gasnete_iop_isdone(gasnete_iop_t *iop) {
 }
 
 /*  mark an op done - isget ignored for explicit ops */
-/* This routine is now used (via PSM_MARK_DONE) by long message code as well. */
+/* This routine is now used (via psm2_MARK_DONE) by long message code as well. */
 /*static*/
 void gasnete_op_markdone(gasnete_op_t *op, int isget) {
   if (OPTYPE(op) == OPTYPE_EXPLICIT) {
@@ -318,7 +318,7 @@ extern void gasnete_init(void) {
   /* Initialize VIS subsystem */
   gasnete_vis_init();
 
-  /* Initialize PSM-specific stuff */
+  /* Initialize psm2-specific stuff */
   gasnetc_list_init(&gasnetc_psm_state.getreqs, 0, 0);
   gasnetc_psm_state.getreq_slab = NULL;
   gasnetc_psm_state.getreq_alloc = 0;
@@ -409,7 +409,7 @@ void gasneti_iop_markdone(gasneti_iop_t *iop, unsigned int noperations, int isge
 
 /* -------------------------------------------------------------------------- */
 
-/* Internal PSM/AM message handlers */
+/* Internal psm2/AM message handlers */
 
 /* Completion handler used by PUT routines to mark an op as done. */
 static void gasnete_complete_markdone_put(void* op)
@@ -418,8 +418,8 @@ static void gasnete_complete_markdone_put(void* op)
 }
 
 /* Service a put request: write provided data to memory */
-int gasnete_handler_put(psm_am_token_t token,
-    psm_amarg_t* args, int nargs, void* addr, uint32_t len)
+int gasnete_handler_put(psm2_am_token_t token,
+    psm2_amarg_t* args, int nargs, void* addr, uint32_t len)
 {
     void* dest_addr;
 
@@ -439,7 +439,7 @@ int gasnete_handler_put(psm_am_token_t token,
    (getreqs).  The GET reply handler can use the integer offset to look up
    the destination address and op handle stored by the original get request.
 
-   Passing <= 2 AM arguments allows messages to fit entirely in the PSM packet
+   Passing <= 2 AM arguments allows messages to fit entirely in the psm2 packet
    header, resulting in lower latency.  Thus this is an important optimization.
 
    A slab, or array of get requests is maintained.  The integer offset value
@@ -523,10 +523,10 @@ gasnete_getreq_t *gasnete_offset_to_getreq(uint32_t offset)
 }
 
 /* Service a get request: send data back to the initiator */
-int gasnete_handler_get_request(psm_am_token_t token,
-    psm_amarg_t* args, int nargs, void* addr, uint32_t len)
+int gasnete_handler_get_request(psm2_am_token_t token,
+    psm2_amarg_t* args, int nargs, void* addr, uint32_t len)
 {
-    psm_error_t ret;
+    psm2_error_t ret;
 
     /* args[0] is the target's source address
        args[1].u32w0 is the initiator's packed getreq handle (return it back)
@@ -535,21 +535,21 @@ int gasnete_handler_get_request(psm_am_token_t token,
     gasneti_assert(args[1].u32w1 <= gasnetc_psm_max_reply_len);
 
     /* Return the second argument as-is back to the initiator. */
-    ret = psm_am_reply_short(token,
+    ret = psm2_am_reply_short(token,
             gasnetc_psm_state.am_handlers[AM_HANDLER_GET_REPLY],
             &args[1], 1, (void *)args[0].u64w0, args[1].u32w1,
-            PSM_AM_FLAG_NONE, NULL, NULL);
-    if(ret != PSM_OK) {
-        gasneti_fatalerror("psm_am_reply_short failure: %s\n",
-                psm_error_get_string(ret));
+            PSM2_AM_FLAG_NONE, NULL, NULL);
+    if(ret != PSM2_OK) {
+        gasneti_fatalerror("psm2_am_reply_short failure: %s\n",
+                psm2_error_get_string(ret));
     }
 
     return 0;
 }
 
 /* Complete a get request: receive data from source */
-int gasnete_handler_get_reply(psm_am_token_t token,
-    psm_amarg_t* args, int nargs, void* addr, uint32_t len)
+int gasnete_handler_get_reply(psm2_am_token_t token,
+    psm2_amarg_t* args, int nargs, void* addr, uint32_t len)
 {
     gasnete_getreq_t *req;
 
@@ -589,9 +589,9 @@ static void gasnete_put_nbi_inner (gasnet_node_t node, void *dest, void *src,
     size_t bytes_remaining = nbytes;
     uintptr_t src_addr = (uintptr_t)src;
     uintptr_t dest_addr = (uintptr_t)dest;
-    psm_epaddr_t epaddr = gasnetc_psm_state.peer_epaddrs[node];
-    psm_handler_t handler = gasnetc_psm_state.am_handlers[AM_HANDLER_PUT];
-    psm_error_t ret;
+    psm2_epaddr_t epaddr = gasnetc_psm_state.peer_epaddrs[node];
+    psm2_handler_t handler = gasnetc_psm_state.am_handlers[AM_HANDLER_PUT];
+    psm2_error_t ret;
 
     gasneti_assert(node < gasneti_nodes);
 
@@ -604,12 +604,12 @@ static void gasnete_put_nbi_inner (gasnet_node_t node, void *dest, void *src,
 
     GASNETC_PSM_LOCK();
     while(bytes_remaining > mtu_size) {
-        ret = psm_am_request_short(epaddr, handler,
-                (psm_amarg_t*)&dest_addr, 1, (void*)src_addr, mtu_size,
-                PSM_AM_FLAG_NOREPLY, NULL, NULL);
-        if_pf (ret != PSM_OK) {
-            gasneti_fatalerror("psm_am_request_short failure: %s\n",
-                psm_error_get_string(ret));
+        ret = psm2_am_request_short(epaddr, handler,
+                (psm2_amarg_t*)&dest_addr, 1, (void*)src_addr, mtu_size,
+                PSM2_AM_FLAG_NOREPLY, NULL, NULL);
+        if_pf (ret != PSM2_OK) {
+            gasneti_fatalerror("psm2_am_request_short failure: %s\n",
+                psm2_error_get_string(ret));
         }
 
         src_addr += mtu_size;
@@ -617,14 +617,14 @@ static void gasnete_put_nbi_inner (gasnet_node_t node, void *dest, void *src,
         bytes_remaining -= mtu_size;
     }
 
-    ret = psm_am_request_short(epaddr, handler,
-            (psm_amarg_t*)&dest_addr, 1, (void*)src_addr, bytes_remaining,
-            PSM_AM_FLAG_NOREPLY,
+    ret = psm2_am_request_short(epaddr, handler,
+            (psm2_amarg_t*)&dest_addr, 1, (void*)src_addr, bytes_remaining,
+            PSM2_AM_FLAG_NOREPLY,
             gasnete_complete_markdone_put, PSM_PACK_IOP_DONE(op,put));
     GASNETC_PSM_UNLOCK();
-    if_pf (ret != PSM_OK) {
-        gasneti_fatalerror("psm_am_request_short failure: %s\n",
-                psm_error_get_string(ret));
+    if_pf (ret != PSM2_OK) {
+        gasneti_fatalerror("psm2_am_request_short failure: %s\n",
+                psm2_error_get_string(ret));
     }
 
     op->initiated_put_cnt++;
@@ -651,9 +651,9 @@ extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, siz
     uintptr_t dest_addr = (uintptr_t)dest;
     size_t mtu_size = gasnetc_psm_max_reply_len;
     size_t bytes_remaining = nbytes;
-    psm_amarg_t args[2];
+    psm2_amarg_t args[2];
     gasnete_getreq_t* req;
-    psm_error_t ret;
+    psm2_error_t ret;
 
     GASNETI_CHECKPSHM_GET(UNALIGNED,V);
     gasneti_assert(node < gasneti_nodes);
@@ -679,12 +679,12 @@ extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, siz
         args[0].u64w0 = src_addr;
         args[1].u32w0 = gasnete_getreq_to_offset(req);
 
-        ret = psm_am_request_short(gasnetc_psm_state.peer_epaddrs[node],
+        ret = psm2_am_request_short(gasnetc_psm_state.peer_epaddrs[node],
                 gasnetc_psm_state.am_handlers[AM_HANDLER_GET_REQUEST],
-                args, 2, NULL, 0, PSM_AM_FLAG_NONE, NULL, NULL);
-        if_pf (ret != PSM_OK) {
-            gasneti_fatalerror("psm_am_request_short failure: %s\n",
-                    psm_error_get_string(ret));
+                args, 2, NULL, 0, PSM2_AM_FLAG_NONE, NULL, NULL);
+        if_pf (ret != PSM2_OK) {
+            gasneti_fatalerror("psm2_am_request_short failure: %s\n",
+                    psm2_error_get_string(ret));
         }
 
         src_addr += mtu_size;
@@ -701,13 +701,13 @@ extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, siz
     args[1].u32w0 = gasnete_getreq_to_offset(req);
     args[1].u32w1 = bytes_remaining;
 
-    ret = psm_am_request_short(gasnetc_psm_state.peer_epaddrs[node],
+    ret = psm2_am_request_short(gasnetc_psm_state.peer_epaddrs[node],
             gasnetc_psm_state.am_handlers[AM_HANDLER_GET_REQUEST],
-            args, 2, NULL, 0, PSM_AM_FLAG_NONE, NULL, NULL);
+            args, 2, NULL, 0, PSM2_AM_FLAG_NONE, NULL, NULL);
     GASNETC_PSM_UNLOCK();
-    if_pf (ret != PSM_OK) {
-        gasneti_fatalerror("psm_am_request_short failure: %s\n",
-                psm_error_get_string(ret));
+    if_pf (ret != PSM2_OK) {
+        gasneti_fatalerror("psm2_am_request_short failure: %s\n",
+                psm2_error_get_string(ret));
     }
 
     op->initiated_get_cnt++;
@@ -736,7 +736,7 @@ extern gasnet_handle_t gasnete_put_nb_inner(gasnet_node_t node, void *dest,
     size_t bytes_remaining = nbytes;
     uintptr_t src_addr = (uintptr_t)src;
     uintptr_t dest_addr = (uintptr_t)dest;
-    psm_error_t ret;
+    psm2_error_t ret;
 
     gasneti_assert(node < gasneti_nodes);
 
@@ -748,13 +748,13 @@ extern gasnet_handle_t gasnete_put_nb_inner(gasnet_node_t node, void *dest,
 
     GASNETC_PSM_LOCK();
     while(bytes_remaining > mtu_size) {
-        ret = psm_am_request_short(gasnetc_psm_state.peer_epaddrs[node],
+        ret = psm2_am_request_short(gasnetc_psm_state.peer_epaddrs[node],
                 gasnetc_psm_state.am_handlers[AM_HANDLER_PUT],
-                (psm_amarg_t*)&dest_addr, 1, (void*)src_addr, mtu_size,
-                PSM_AM_FLAG_NOREPLY, NULL, NULL);
-        if_pf (ret != PSM_OK) {
-            gasneti_fatalerror("psm_am_request_short failure: %s\n",
-                    psm_error_get_string(ret));
+                (psm2_amarg_t*)&dest_addr, 1, (void*)src_addr, mtu_size,
+                PSM2_AM_FLAG_NOREPLY, NULL, NULL);
+        if_pf (ret != PSM2_OK) {
+            gasneti_fatalerror("psm2_am_request_short failure: %s\n",
+                    psm2_error_get_string(ret));
         }
 
         src_addr += mtu_size;
@@ -762,15 +762,15 @@ extern gasnet_handle_t gasnete_put_nb_inner(gasnet_node_t node, void *dest,
         bytes_remaining -= mtu_size;
     }
 
-    ret = psm_am_request_short(gasnetc_psm_state.peer_epaddrs[node],
+    ret = psm2_am_request_short(gasnetc_psm_state.peer_epaddrs[node],
             gasnetc_psm_state.am_handlers[AM_HANDLER_PUT],
-            (psm_amarg_t*)&dest_addr, 1, (void*)src_addr, bytes_remaining,
-            PSM_AM_FLAG_NONE,
+            (psm2_amarg_t*)&dest_addr, 1, (void*)src_addr, bytes_remaining,
+            PSM2_AM_FLAG_NONE,
             gasnete_complete_markdone_put, PSM_PACK_EOP_DONE(op));
     GASNETC_PSM_UNLOCK();
-    if_pf (ret != PSM_OK) {
-        gasneti_fatalerror("psm_am_request_short failure: %s\n",
-                psm_error_get_string(ret));
+    if_pf (ret != PSM2_OK) {
+        gasneti_fatalerror("psm2_am_request_short failure: %s\n",
+                psm2_error_get_string(ret));
     }
 
     gasnetc_psm_poll_periodic();
@@ -795,9 +795,9 @@ extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void
     uintptr_t dest_addr = (uintptr_t)dest;
     size_t mtu_size;
     size_t bytes_remaining = nbytes;
-    psm_amarg_t args[2];
+    psm2_amarg_t args[2];
     gasnete_getreq_t* req;
-    psm_error_t ret;
+    psm2_error_t ret;
 
     GASNETI_CHECKPSHM_GET(UNALIGNED,H);
     gasneti_assert(node < gasneti_nodes);
@@ -825,12 +825,12 @@ extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void
         args[0].u64w0 = src_addr;
         args[1].u32w0 = gasnete_getreq_to_offset(req);
 
-        ret = psm_am_request_short(gasnetc_psm_state.peer_epaddrs[node],
+        ret = psm2_am_request_short(gasnetc_psm_state.peer_epaddrs[node],
                 gasnetc_psm_state.am_handlers[AM_HANDLER_GET_REQUEST],
-                args, 2, NULL, 0, PSM_AM_FLAG_NONE, NULL, NULL);
-        if_pf (ret != PSM_OK) {
-            gasneti_fatalerror("psm_am_request_short failure: %s\n",
-                    psm_error_get_string(ret));
+                args, 2, NULL, 0, PSM2_AM_FLAG_NONE, NULL, NULL);
+        if_pf (ret != PSM2_OK) {
+            gasneti_fatalerror("psm2_am_request_short failure: %s\n",
+                    psm2_error_get_string(ret));
         }
 
         src_addr += mtu_size;
@@ -847,13 +847,13 @@ extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void
     args[1].u32w0 = gasnete_getreq_to_offset(req);
     args[1].u32w1 = bytes_remaining;
 
-    ret = psm_am_request_short(gasnetc_psm_state.peer_epaddrs[node],
+    ret = psm2_am_request_short(gasnetc_psm_state.peer_epaddrs[node],
             gasnetc_psm_state.am_handlers[AM_HANDLER_GET_REQUEST],
-            args, 2, NULL, 0, PSM_AM_FLAG_NONE, NULL, NULL);
+            args, 2, NULL, 0, PSM2_AM_FLAG_NONE, NULL, NULL);
     GASNETC_PSM_UNLOCK();
-    if_pf (ret != PSM_OK) {
-        gasneti_fatalerror("psm_am_request_short failure: %s\n",
-                psm_error_get_string(ret));
+    if_pf (ret != PSM2_OK) {
+        gasneti_fatalerror("psm2_am_request_short failure: %s\n",
+                psm2_error_get_string(ret));
     }
 
     gasnetc_psm_poll_periodic();

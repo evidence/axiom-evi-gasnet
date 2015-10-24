@@ -52,7 +52,7 @@ typedef enum {
 
 /*
  * Multi-thread support
- * PSM is not thread-safe, so all PSM calls must be wrapped by a lock.
+ * psm2 is not thread-safe, so all psm2 calls must be wrapped by a lock.
  */
 
 #define GASNETC_PSM_LOCK() gasneti_spinlock_lock(&gasnetc_psm_state.psm_lock)
@@ -119,12 +119,12 @@ typedef struct _gasnete_transfer {
 } gasnete_transfer_t;
 
 /* -------------------------------------------------------------------------- */
-/* General PSM conduit state */
+/* General psm conduit state */
 
 typedef struct _gasnetc_psm_state {
-    psm_ep_t ep;
-    psm_mq_t mq;
-    psm_epid_t epid;
+    psm2_ep_t ep;
+    psm2_mq_t mq;
+    psm2_epid_t epid;
 
     gasneti_atomic_t psm_lock;
 
@@ -140,7 +140,7 @@ typedef struct _gasnetc_psm_state {
     gasnetc_list_t pending_mq_ops;
 
     /* List of outstanding MQ requests to be completed */
-    psm_mq_req_t *posted_reqs;
+    psm2_mq_req_t *posted_reqs;
     int posted_reqs_length;
     int posted_reqs_alloc;
 
@@ -151,7 +151,7 @@ typedef struct _gasnetc_psm_state {
 
     uint64_t mq_op_id;
     int am_handlers[AM_HANDLER_NUM];
-    psm_epaddr_t* peer_epaddrs;
+    psm2_epaddr_t* peer_epaddrs;
 
     /* Core AM handler wrappers set this for gasnetc_exit */
     int handler_running;
@@ -168,8 +168,8 @@ typedef struct _gasnetc_psm_state {
 extern gasnetc_psm_state_t gasnetc_psm_state;
 
 typedef struct _gasnetc_token {
-    psm_am_token_t token;
-    psm_epaddr_t source;
+    psm2_am_token_t token;
+    psm2_epaddr_t source;
 } gasnetc_token_t;
 
 
@@ -177,11 +177,11 @@ typedef struct _gasnetc_token {
 /* Internal progress routines */
 
 /* Periodic polling:
-   PSM should be called to process incoming messages, but not too frequently
-   nor too infrequently.  If PSM is polled too frequently, the poll calls just
+   psm2 should be called to process incoming messages, but not too frequently
+   nor too infrequently.  If psm2 is polled too frequently, the poll calls just
    become overhead when there are rarely messages waiting to be processed.  On
    the other hand, not polling often enough can result in long delays for
-   waiting peers.  Calling PSM only once for every so many RMA operations
+   waiting peers.  Calling psm2 only once for every so many RMA operations
    strikes a balance between these two tradeoffs.  Informal testing resulted in
    the choice of once every 32 calls.
 */
@@ -206,7 +206,7 @@ int gasnete_long_msg_init(void);
 
 void gasnete_post_pending_mq_ops(void);
 
-/* This routine assumes that psm_poll() has recently been called. */
+/* This routine assumes that psm2_poll() has recently been called. */
 void gasnete_finish_mq_reqs(void);
 
 #endif
