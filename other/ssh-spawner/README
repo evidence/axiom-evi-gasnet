@@ -76,7 +76,7 @@ Environment Variables: (may be controlled by a wrapper script)
   single and double) and backslash as most shells.  A default
   value may be configured using --with-ssh-options=<VALUE>.
 
-+ The environment variable GASNET_SSH_REMOTE_RATE can be set to
++ The environment variable GASNET_SSH_RATE can be set to
   limit the number of ssh connections per second to any given
   host. The value 0 means no limit is imposed.
   Default value is 20.

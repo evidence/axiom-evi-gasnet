@@ -60,6 +60,11 @@ static gasneti_atomic_t gasnetc_ampoll_atomic_lock = gasneti_atomic_init(1);
  * Exit flow suff.
  * AlexM:
  * Exit flow goes:
+ * Stage0:
+ * exitcode reduction. Begin with an AM-based reduction over the exitcodes.
+ * If the reduction finishes before a timeout, then the exit is collective and
+ * the remaining three Stages are skipped.
+ *
  * Stage1: 
  * master election. First node to contact ROOT node is nominated master. 
  * Everyone else become slaves
@@ -80,7 +85,7 @@ enum {
     SYSTEM_EXIT_REP = 2,
     SYSTEM_EXIT_ROLE_REQ = 3,
     SYSTEM_EXIT_ROLE_REP = 4,
-    SYSTEM_EXIT_ALL_DONE = 5,
+    SYSTEM_EXIT_REDUCE = 6,
 };
 
 /* root node for exit flow coordination */
@@ -92,6 +97,7 @@ enum {
     GASNETC_EXIT_ROLE_SLAVE
 };
 
+static void gasnetc_exit_init(void);
 static int gasnetc_exit_head(int exitcode);
 static void gasnetc_exit_body(void);
 static void gasnetc_exit_tail(void) GASNETI_NORETURN;
@@ -131,13 +137,6 @@ static gasneti_atomic_t gasnetc_exit_done = gasneti_atomic_init(0);
 /* Exit role of the node (master or slave) */
 static gasneti_atomic_t gasnetc_exit_role = gasneti_atomic_init(GASNETC_EXIT_ROLE_UNKNOWN);
 
-/* exit roles requested vs received replies */
-static gasneti_atomic_t gasnetc_exit_role_rep_out = gasneti_atomic_init(0);
-/* notification to the root node from elected master */
-static gasneti_atomic_t gasnetc_exit_all_done = gasneti_atomic_init(0);
-/* set to deal with deferred replies */
-static gasnet_node_t gasnetc_exit_master_needs_reply = (gasnet_node_t)(-1);
-
 /* -------------------------------------------------------------------------- */
 
 void (*gasneti_bootstrapFini_p)(void) = NULL;
@@ -146,6 +145,7 @@ void (*gasneti_bootstrapBarrier_p)(void) = NULL;
 void (*gasneti_bootstrapExchange_p)(void *src, size_t len, void *dest) = NULL;
 void (*gasneti_bootstrapAlltoall_p)(void *src, size_t len, void *dest) = NULL;
 void (*gasneti_bootstrapBroadcast_p)(void *src, size_t len, void *dest, int rootnode) = NULL;
+void (*gasneti_bootstrapSNodeCast_p)(void *src, size_t len, void *dest, int rootnode) = NULL;
 void (*gasneti_bootstrapCleanup_p)(void) = NULL;
 
 #if GASNET_TRACE
@@ -179,7 +179,6 @@ static void gasnetc_bootstrapBarrier(void) {
     gasneti_bootstrapBarrier();
 }
 
-
 /* -------------------------------------------------------------------------- */
 
 size_t gasneti_AMMaxMedium(void)
@@ -196,16 +195,17 @@ static int gasneti_bootstrapInit(
     gasnet_node_t *nodes_p,
     gasnet_node_t *mynode_p)
 {
-    char *spawner = gasneti_getenv_withdefault("GASNET_IB_SPAWNER", "(not set)");
+    const char *not_set = "(not set)";
+    char *spawner = gasneti_getenv_withdefault("GASNET_SPAWNER", not_set);
     int res = GASNET_ERR_NOT_INIT;
 
 #if HAVE_SSH_SPAWNER
-    /* Sigh.  We can't assume GASNET_IB_SPAWNER has been set except in the master.
+    /* Sigh.  We can't assume GASNET_SPAWNER has been set except in the master.
      * However, gasneti_bootstrapInit_ssh() verifies the command line args and
      * returns GASNET_ERR_NOT_INIT on failure witout any noise on stderr.
-     * So, we try ssh-based spawn first.
+     * So, when the env var is not set, we try ssh-based spawn first.
      */
-    if (GASNET_OK != res &&
+    if (GASNET_OK != res && (!strcmp(spawner, "ssh") || (spawner == not_set)) &&
         GASNET_OK == (res = gasneti_bootstrapInit_ssh(argc_p, argv_p, nodes_p, mynode_p))) {
         gasneti_bootstrapFini_p     = &gasneti_bootstrapFini_ssh;
         gasneti_bootstrapAbort_p    = &gasneti_bootstrapAbort_ssh;
@@ -213,6 +213,7 @@ static int gasneti_bootstrapInit(
         gasneti_bootstrapExchange_p = &gasneti_bootstrapExchange_ssh;
         gasneti_bootstrapAlltoall_p = &gasneti_bootstrapAlltoall_ssh;
         gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_ssh;
+        gasneti_bootstrapSNodeCast_p= &gasneti_bootstrapSNodeBroadcast_ssh;
         gasneti_bootstrapCleanup_p  = &gasneti_bootstrapCleanup_ssh;
     }
 #endif
@@ -229,15 +230,16 @@ static int gasneti_bootstrapInit(
         gasneti_bootstrapExchange_p	= &gasneti_bootstrapExchange_mpi;
         gasneti_bootstrapAlltoall_p	= &gasneti_bootstrapAlltoall_mpi;
         gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_mpi;
+        gasneti_bootstrapSNodeCast_p= &gasneti_bootstrapSNodeBroadcast_mpi;
         gasneti_bootstrapCleanup_p  = &gasneti_bootstrapCleanup_mpi;
     }
 #endif
 
 #if HAVE_PMI_SPAWNER
-    /* Don't expect GASNET_IB_SPAWNER set if launched directly by srun, mpirun, yod, etc.
-     * So, we try pmi-based spawn last.
+    /* Don't really expect GASNET_SPAWNER set if launched directly by srun, mpirun, yod, etc.
+     * So, when the env var is not set, we try pmi-based spawn last.
      */
-    if (GASNET_OK != res &&
+    if (GASNET_OK != res && (!strcmp(spawner, "pmi") || (spawner == not_set)) &&
         GASNET_OK == (res = gasneti_bootstrapInit_pmi(argc_p, argv_p, nodes_p, mynode_p))) {
         gasneti_bootstrapFini_p = &gasneti_bootstrapFini_pmi;
         gasneti_bootstrapAbort_p    = &gasneti_bootstrapAbort_pmi;
@@ -245,6 +247,7 @@ static int gasneti_bootstrapInit(
         gasneti_bootstrapExchange_p = &gasneti_bootstrapExchange_pmi;
         gasneti_bootstrapAlltoall_p = &gasneti_bootstrapAlltoall_pmi;
         gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_pmi;
+        gasneti_bootstrapSNodeCast_p= &gasneti_bootstrapSNodeBroadcast_pmi;
         gasneti_bootstrapCleanup_p  = &gasneti_bootstrapCleanup_pmi;
     }
 #endif
@@ -894,7 +897,7 @@ static int gasnetc_init(int *argc, char ***argv)
 
 #if GASNET_PSHM
     /* (###) If your conduit will support PSHM, you should initialize it here.
-     * The 1st argument is normally "&gasnetc_bootstrapExchange" (described below).
+     * The 1st argument is normally "&gasnetc_bootstrapSNodeBroadcast" or equivalent
      * The 2nd argument is the amout of shared memory space needed for any
      * conduit-specific uses.  The return value is a pointer to the space
      * requested by the 2nd argument.
@@ -902,7 +905,7 @@ static int gasnetc_init(int *argc, char ***argv)
     /*
      * ### = gasneti_pshm_init(###, ###);
      */
-    gasneti_pshm_init(&gasneti_bootstrapExchange, 0);
+    gasneti_pshm_init(&gasneti_bootstrapSNodeBroadcast, 0);
 #endif
 
     /*
@@ -1192,12 +1195,18 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
      *        (e.g. to support interrupt-based messaging)
      */
 
+    /* ------------------------------------------------------------------------------------ */
+    /*  prepare exit handling */
+
     /* Handler for non-collective returns from main() */
 #if HAVE_ON_EXIT
     on_exit(gasnetc_on_exit, NULL);
 #else
     atexit(gasnetc_atexit);
 #endif
+
+    /* Extract info from nodemap that we'll need at exit */
+    gasnetc_exit_init();
 
     /* ------------------------------------------------------------------------------------ */
     /*  register segment  */
@@ -1424,6 +1433,161 @@ static void gasnetc_disable_AMs(void)
 
 /* -------------------------------------------------------------------------- */
 
+static gasneti_atomic_t gasnetc_exit_reds = gasneti_atomic_init(0); /* count of reduce requests */
+static gasneti_atomic_t gasnetc_exit_dist = gasneti_atomic_init(0); /* OR of reduce distances */
+static gasnet_node_t gasnetc_dissem_peers = 0;
+static gasnet_node_t *gasnetc_dissem_peer = NULL;
+
+#if GASNET_PSHM
+static gasnet_node_t *gasnetc_exit_child = NULL;
+static gasnet_node_t gasnetc_exit_children = 0;
+static gasnet_node_t gasnetc_exit_parent = 0;
+#endif
+
+static void gasnetc_exit_init(void) {
+    int i;
+#if GASNET_PSHM
+    const gasnet_node_t size = gasneti_nodemap_global_count;
+    const gasnet_node_t rank = gasneti_nodemap_global_rank;
+    const int i_am_leader = (0 == gasneti_nodemap_local_rank);
+#else
+    const gasnet_node_t size = gasneti_nodes;
+    const gasnet_node_t rank = gasneti_mynode;
+    const int i_am_leader = 1;
+#endif
+
+    /* Vector of dissemination peers, if any */
+    if (i_am_leader && (size != 1)) {
+        for (i = 1; i < size; i *= 2) {
+            ++gasnetc_dissem_peers;
+        }
+        gasnetc_dissem_peer = gasneti_malloc(gasnetc_dissem_peers * sizeof(gasnet_node_t));
+        gasneti_leak(gasnetc_dissem_peer);
+        for (i = 0; i < gasnetc_dissem_peers; ++i) {
+            const gasnet_node_t distance = 1 << i;
+            const gasnet_node_t peer = (distance <= rank) ? (rank - distance) : (rank + (size - distance));
+#if GASNET_PSHM
+            /* Convert supernode numbers to node numbers */
+            gasnetc_dissem_peer[i] = gasneti_pshm_firsts[peer];
+#else
+            gasnetc_dissem_peer[i] = peer;
+#endif
+        }
+    }
+
+#if GASNET_PSHM
+    /* List of local "children" (since only one communicating process per PSHM domain) */
+    if (gasneti_nodemap_local_rank) {
+        gasnetc_exit_parent = gasneti_nodemap[gasneti_mynode];
+        gasnetc_exit_children = gasneti_nodes; /* flags value for "I-am-leaf" */
+    } else {
+        const gasnet_node_t children = gasneti_nodemap_local_count - 1;
+        if (children) {
+            const size_t len = children * sizeof(gasnet_node_t);
+            gasnetc_exit_children = children;
+            gasnetc_exit_child = gasneti_malloc(len);
+            gasneti_leak(gasnetc_exit_child);
+            memcpy(gasnetc_exit_child, gasneti_nodemap_local+1, len);
+        }
+    }
+#endif
+}
+
+static int gasnetc_exit_reduce(int exitcode, int64_t timeout_us)
+{
+    gasneti_tick_t start_time = gasneti_ticks_now();
+    int rc, i;
+
+    gasneti_assert(timeout_us > 0);
+
+    /* If the remote request has arrived then we've already failed */
+    if (gasneti_atomic_read(&gasnetc_exit_reqs, 0)) return -1;
+
+#if GASNET_PSHM
+    if (gasnetc_exit_children == gasneti_nodes) { /* Non-lead node */
+        rc = gasnetc_SystemRequest(gasnetc_exit_parent, 3,
+                                   SYSTEM_EXIT_REDUCE,
+                                   exitcode, 0);
+        if (rc != GASNET_OK) return -1;
+        if (gasneti_atomic_read(&gasnetc_exit_reqs, 0)) return -1;
+
+        do {
+            if (gasneti_ticks_to_ns(gasneti_ticks_now() - start_time) / 1000 > timeout_us) return -1;
+            gasnetc_AMPoll_nocheckattach();
+            if (gasneti_atomic_read(&gasnetc_exit_reqs, 0)) return -1;
+        } while (gasneti_atomic_read(&gasnetc_exit_reds, 0) == 0);
+        return 0;
+    } else { /* Lead node */
+        while (gasneti_atomic_read(&gasnetc_exit_reds, 0) < gasnetc_exit_children) {
+            if (gasneti_ticks_to_ns(gasneti_ticks_now() - start_time) / 1000 > timeout_us) return -1;
+            gasnetc_AMPoll_nocheckattach();
+            if (gasneti_atomic_read(&gasnetc_exit_reqs, 0)) return -1;
+        }
+        exitcode = gasneti_atomic_read(&gasnetc_exit_code, GASNETI_ATOMIC_RMB_PRE);
+    }
+#endif
+
+    for (i = 0; i < gasnetc_dissem_peers; ++i) {
+        const uint32_t distance = 1 << i;
+        rc = gasnetc_SystemRequest(gasnetc_dissem_peer[i], 3,
+                                   SYSTEM_EXIT_REDUCE,
+                                   exitcode, distance);
+        if (rc != GASNET_OK) return -1;
+        do { /* wait for completion of the proper receive, which might arrive out of order */
+            if (gasneti_ticks_to_ns(gasneti_ticks_now() - start_time) / 1000 > timeout_us) return -1;
+            gasnetc_AMPoll_nocheckattach();
+            if (gasneti_atomic_read(&gasnetc_exit_reqs, 0)) return -1;
+        } while (!(distance & gasneti_atomic_read(&gasnetc_exit_dist, 0)));
+        exitcode = gasneti_atomic_read(&gasnetc_exit_code, GASNETI_ATOMIC_RMB_PRE);
+    }
+
+#if GASNET_PSHM
+    for (i = 0; i < gasnetc_exit_children; ++i) {
+        rc = gasnetc_SystemRequest(gasnetc_exit_child[i], 3,
+                                   SYSTEM_EXIT_REDUCE,
+                                   exitcode, 0);
+        if (rc != GASNET_OK) return -1;
+        gasnetc_AMPoll_nocheckattach();
+        if (gasneti_atomic_read(&gasnetc_exit_reqs, 0)) return -1;
+        if (gasneti_ticks_to_ns(gasneti_ticks_now() - start_time) / 1000 > timeout_us) return -1;
+    }
+#endif
+
+    return 0;
+}
+
+/* Handle reduction on exitcode */
+static void
+gasnetc_HandleSystemExitReduceReq(gasnet_token_t token, gasneti_atomic_val_t exitcode, gasneti_atomic_val_t distance)
+{
+    gasneti_atomic_val_t prevcode;
+    do {
+        prevcode = gasneti_atomic_read(&gasnetc_exit_code, 0);
+    } while ((exitcode > prevcode) &&
+             !gasneti_atomic_compare_and_swap(&gasnetc_exit_code, prevcode, exitcode, 0));
+    if (distance) {
+#if defined(GASNETI_HAVE_ATOMIC_ADD_SUB)
+        /* atomic OR via ADD since no bit will be set more than once */
+        gasneti_assert(GASNETI_POWEROFTWO(distance));
+        gasneti_atomic_add(&gasnetc_exit_dist, distance, GASNETI_ATOMIC_REL);
+#elif defined(GASNETI_HAVE_ATOMIC_CAS)
+        /* atomic OR via C-A-S */
+        uint32_t old_val;
+        do {
+            old_val = gasneti_atomic32_read(&gasnetc_exit_dist, 0);
+        } while (!gasneti_atomic_compare_and_swap(&gasnetc_exit_dist,
+                                                   old_val, old_val|distance,
+                                                   GASNETI_ATOMIC_REL));
+#else
+#       error "required atomic compare-and-swap is not yet implemented for your CPU/OS/compiler"
+#endif
+    } else {
+        gasneti_atomic_increment(&gasnetc_exit_reds, GASNETI_ATOMIC_REL);
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
 /* gasnetc_exit_now
  *
  * First we set the atomic variable gasnetc_exit_done to allow
@@ -1480,19 +1644,6 @@ gasnetc_HandleSystemExitReq(gasnet_token_t token, gasnet_handlerarg_t exitcode)
     /* If we didn't already know, we are now certain our role is "slave" */
     (void) gasneti_atomic_compare_and_swap(&gasnetc_exit_role,
                                            GASNETC_EXIT_ROLE_UNKNOWN, GASNETC_EXIT_ROLE_SLAVE, 0);
-
-    /* We must wait for reply from root node if we already requested our role,
-     * but we cannot spin-poll here in the handler without risking deadlock.
-     */
-    if (gasneti_atomic_read(&gasnetc_exit_role_rep_out, 0) != 0) {
-        MXM_DEBUG_EXIT_FLOW("Waiting for role rep before sending responce to master: current count=%d\n", gasneti_atomic_read(&gasnetc_exit_role_rep_out, 0));
-        rc = gasnet_AMGetMsgSource(token, &gasnetc_exit_master_needs_reply);
-        gasneti_assert(rc == GASNET_OK);
-        /* Since we sent the role req, the "IFF this is the first" code below
-         * is guaranteed to be unreachable from here.  So, just return now.
-         */
-        return;
-    }
 
     MXM_DEBUG_EXIT_FLOW("Handling exit request - sending response to master\n");
     /* Send a reply so the master knows we are reachable */
@@ -1656,8 +1807,6 @@ gasnetc_HandleSystemExitRoleRep(gasnet_token_t token,
     (void) gasneti_atomic_compare_and_swap(&gasnetc_exit_role,
                                            GASNETC_EXIT_ROLE_UNKNOWN, role, 0);
     gasneti_assert(gasneti_atomic_read(&gasnetc_exit_role, 0) == role);
-    MXM_DEBUG_EXIT_FLOW("got exit role reply: current count=%d\n", gasneti_atomic_read(&gasnetc_exit_role_rep_out, 0));
-    gasneti_atomic_decrement(&gasnetc_exit_role_rep_out, 0);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1667,7 +1816,7 @@ void gasnetc_HandleSystemExitMessage(gasnetc_am_token_t * token,
 {
 
     /*
-     * System exit message has to have one or two args
+     * System exit message has to have one, two or three args
      * First argument is always the exit message type.
      */
     gasneti_assert(numargs);
@@ -1696,10 +1845,10 @@ void gasnetc_HandleSystemExitMessage(gasnetc_am_token_t * token,
         gasnetc_HandleSystemExitRoleRep(token, args[1]);
         break;
 
-    case SYSTEM_EXIT_ALL_DONE:
-        gasneti_assert(numargs == 1);
-        MXM_DEBUG_EXIT_FLOW("all done notification from master\n");
-        gasneti_atomic_increment(&gasnetc_exit_all_done, 0);
+    case SYSTEM_EXIT_REDUCE:
+        /* second and third arguments are exit code and distance */
+        gasneti_assert(numargs == 3);
+        gasnetc_HandleSystemExitReduceReq(token, args[1], args[2]);
         break;
 
     default:
@@ -1739,9 +1888,6 @@ static int gasnetc_get_exit_role(void)
          * Don't know our role yet.
          * Send a system-category AM Request to determine our role.
          */
-        MXM_DEBUG_EXIT_FLOW("sending exit role request: current count=%d\n", gasneti_atomic_read(&gasnetc_exit_role_rep_out, 0));
-
-        gasneti_atomic_increment(&gasnetc_exit_role_rep_out, 0);
         rc = gasnetc_SystemRequest(GASNETC_EXIT_FLOW_ROOT_NODE, /* destination*/
                                    1,                           /* nargs*/
                                    (gasnet_handlerarg_t)SYSTEM_EXIT_ROLE_REQ);
@@ -1778,23 +1924,23 @@ static void gasnetc_exit_sighandler(int sig)
     /* note - can't call trace macros here, or even sprintf */
     if (sig == SIGALRM) {
         static const char msg1[] = "gasnetc_exit_sighandler(): WARNING: timeout during exit... goodbye\n";
-        write(STDERR_FILENO, msg1, sizeof (msg1) - 1);
+        (void) write(STDERR_FILENO, msg1, sizeof (msg1) - 1);
     } else {
         static const char msg1[] = "gasnetc_exit_sighandler(): ERROR: signal ";
         static const char msg2[] = " received during exit... goodbye\n";
         char digit;
 
-        write(STDERR_FILENO, msg1, sizeof (msg1) - 1);
+        (void) write(STDERR_FILENO, msg1, sizeof (msg1) - 1);
 
         /* assume sig < 100 */
         if (sig > 9) {
             digit = '0' + ((sig / 10) % 10);
-            write(STDERR_FILENO, &digit, 1);
+            (void) write(STDERR_FILENO, &digit, 1);
         }
         digit = '0' + (sig % 10);
-        write(STDERR_FILENO, &digit, 1);
+        (void) write(STDERR_FILENO, &digit, 1);
 
-        write(STDERR_FILENO, msg2, sizeof (msg2) - 1);
+        (void) write(STDERR_FILENO, msg2, sizeof (msg2) - 1);
     }
 
     if (gasneti_atomic_decrement_and_test(&once, 0)) {
@@ -1883,12 +2029,6 @@ static int gasnetc_exit_master(int exitcode, int64_t timeout_us)
     MXM_DEBUG_EXIT_FLOW("Master received %d exit replies - done polling\n",
                         gasneti_nodes - 1);
 
-    rc = gasnetc_SystemRequest(GASNETC_EXIT_FLOW_ROOT_NODE, /* destination*/
-            1, /* nargs*/
-            (gasnet_handlerarg_t) SYSTEM_EXIT_ALL_DONE);
-    if (rc != GASNET_OK)
-        return -1;
-    MXM_DEBUG_EXIT_FLOW("Master sent ALL_DONE message to root node(%d)\n", GASNETC_EXIT_FLOW_ROOT_NODE);
     return 0;
 }
 
@@ -1919,43 +2059,6 @@ static int gasnetc_exit_slave(int64_t timeout_us)
         gasnetc_AMPoll_nocheckattach(); /* works even before _attach */
     }
 
-    /* wait till we get role replies from master. Else we will cause master to timeout on sending exit rep */
-    MXM_DEBUG_EXIT_FLOW("Slave waiting for role rep: current count=%d\n", gasneti_atomic_read(&gasnetc_exit_role_rep_out, 0));
-    while (gasneti_atomic_read(&gasnetc_exit_role_rep_out, 0) != 0) {
-        if (gasneti_ticks_to_ns(gasneti_ticks_now() - start_time) / 1000 > timeout_us) {
-            MXM_DEBUG_EXIT_FLOW("Slave exit by timeout on exit_role_count\n");
-            return -1;
-        }
-        gasnetc_AMPoll_nocheckattach(); /* works even before _attach */
-    }
-
-    /* handle a deferred response to the master so it knows we are reachable */
-    if (gasnetc_exit_master_needs_reply != (gasnet_node_t)(-1)) {
-        int rc;
-        MXM_DEBUG_EXIT_FLOW("Sending deferred response to master\n");
-        rc = gasnetc_SystemRequest(gasnetc_exit_master_needs_reply, 1,
-                                    (gasnet_handlerarg_t) SYSTEM_EXIT_REP);
-        gasneti_assert(rc == GASNET_OK);
-    }
-
-    return 0;
-}
-
-static int gasnetc_exit_root_node(int64_t timeout_us)
-{
-    gasneti_tick_t start_time;
-    gasneti_assert(timeout_us > 0);
-    start_time = gasneti_ticks_now();
-
-    /* wait until the exit request is received from the master */
-    MXM_DEBUG_EXIT_FLOW("root waiting for all done request from master. current=%d\n", gasneti_atomic_read(&gasnetc_exit_all_done, 0));
-    while (gasneti_atomic_read(&gasnetc_exit_all_done, 0) == 0) {
-        if (gasneti_ticks_to_ns(gasneti_ticks_now() - start_time) / 1000 > timeout_us) {
-            MXM_DEBUG_EXIT_FLOW("root node exit by timeout on exit_all_done\n");
-            return -1;
-        }
-        gasnetc_AMPoll_nocheckattach(); /* works even before _attach */
-    }
     return 0;
 }
 
@@ -1977,14 +2080,14 @@ static int gasnetc_exit_root_node(int64_t timeout_us)
  * Note also that this function will block all calling threads other than
  * the first until the shutdown code has been completed.
  *
- * XXX: timeouts contained here are entirely arbitrary
+ * XXX: timeouts other than gasnetc_exittimeout are entirely arbitrary
  */
 static void gasnetc_exit_body(void)
 {
     int role, exitcode;
     int graceful = 0;
     int tok_drain = 0;
-    int64_t timeout_us;
+    int64_t timeout_us = gasnetc_exittimeout * 1.0e6;
 
     /*
      * Once we start a shutdown, ignore all future
@@ -2033,11 +2136,9 @@ static void gasnetc_exit_body(void)
     gasneti_reghandler(SIGFPE, gasnetc_exit_sighandler);
     gasneti_reghandler(SIGBUS, gasnetc_exit_sighandler);
 
-    /* attempt collective exit */
-    alarm(MAX(5, (int)gasnetc_exittimeout));
-    MXM_DEBUG_EXIT_FLOW("exit oob barrier\n");
-    gasneti_bootstrapBarrier();
-    alarm(0);
+    /* Timed MAX(exitcode) reduction to clearly distinguish collective exit */
+    alarm(2 + (int)gasnetc_exittimeout);
+    graceful = (gasnetc_exit_reduce(exitcode, timeout_us) == 0);
 
     /* Disable processing of AMs, except system-level ones */
     MXM_DEBUG_EXIT_FLOW("Disabling AM handlers\n");
@@ -2054,46 +2155,47 @@ static void gasnetc_exit_body(void)
         gasneti_sched_yield();
     }
 
-    /*
-     * Determining our role (master or slave) in the
-     * coordination of this shutdown.
-     */
-    alarm(MAX(120, (int)gasnetc_exittimeout));
-    MXM_DEBUG_EXIT_FLOW("Determining node role in shutdown sequence...\n");
-    role = gasnetc_get_exit_role();
-    MXM_DEBUG_EXIT_FLOW("Role in shutdown sequence is %s\n",
-                        (role == GASNETC_EXIT_ROLE_MASTER) ? "MASTER" : "SLAVE");
-
-    /* Attempt a coordinated shutdown */
-    timeout_us = gasnetc_exittimeout * 1.0e6;
-    alarm(1 + (int) gasnetc_exittimeout);
-    switch (role) {
-    case GASNETC_EXIT_ROLE_MASTER:
-        /* send all the remote exit requests and wait for the replies */
-        graceful = (gasnetc_exit_master(exitcode, timeout_us) == 0);
-        break;
-
-    case GASNETC_EXIT_ROLE_SLAVE:
-        /* wait for the exit request and reply before proceeding */
-        graceful = (gasnetc_exit_slave(timeout_us) == 0);
+    if (!graceful) {
         /*
-         * A sleep is insufficient to rely on our reply being out on
-         * the wire.  We must actually verify that we have drained
-         * enough tokens before deregistering pinned buffers.
+         * Determining our role (master or slave) in the
+         * coordination of this NON-collective shutdown.
          */
-        alarm(0);
-        break;
+        alarm(MAX(120, (int)gasnetc_exittimeout));
+        MXM_DEBUG_EXIT_FLOW("Determining node role in shutdown sequence...\n");
+        role = gasnetc_get_exit_role();
+        MXM_DEBUG_EXIT_FLOW("Role in shutdown sequence is %s\n",
+                            (role == GASNETC_EXIT_ROLE_MASTER) ? "MASTER" : "SLAVE");
 
-    default:
-        gasneti_fatalerror("invalid exit role");
-    }
-    if (gasneti_mynode == GASNETC_EXIT_FLOW_ROOT_NODE) {
-        graceful = (gasnetc_exit_root_node(timeout_us) == 0);
+        /* Attempt a coordinated shutdown */
+        alarm(1 + (int) gasnetc_exittimeout);
+        switch (role) {
+        case GASNETC_EXIT_ROLE_MASTER:
+            /* send all the remote exit requests and wait for the replies */
+            graceful = (gasnetc_exit_master(exitcode, timeout_us) == 0);
+            break;
+
+        case GASNETC_EXIT_ROLE_SLAVE:
+            /* wait for the exit request and reply before proceeding */
+            graceful = (gasnetc_exit_slave(timeout_us) == 0);
+            break;
+
+        default:
+            gasneti_fatalerror("invalid exit role");
+        }
+
+        MXM_DEBUG_EXIT_FLOW("%s is exiting %sgracefully\n",
+                            (role == GASNETC_EXIT_ROLE_MASTER) ? "Master" : "Slave",
+                            (graceful) ? "" : "NOT ");
+    } else {
+        MXM_DEBUG_EXIT_FLOW("Collective exit detected\n");
     }
 
-    MXM_DEBUG_EXIT_FLOW("%s is exiting %sgracefully\n",
-                        (role == GASNETC_EXIT_ROLE_MASTER) ? "Master" : "Slave",
-                        (graceful) ? "" : " NOT");
+    if (graceful) {
+        /* ensure mxm receives are drained prior to shutdown */
+        alarm(MAX(5, (int)gasnetc_exittimeout));
+        MXM_DEBUG_EXIT_FLOW("exit oob barrier\n");
+        gasneti_bootstrapBarrier();
+    }
 
     /* Clean up transport resources, allowing at least 30s */
     alarm(MAX(30, (int)gasnetc_exittimeout));

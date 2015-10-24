@@ -415,7 +415,25 @@ gasnete_get_bulk_inner(void *dest, gasnet_node_t node, void *src, size_t nbytes,
                        gasneti_weakatomic_t * const completed_p
                        GASNETC_DIDX_FARG)
 {
-  size_t chunksz = gasneti_in_segment(gasneti_mynode, dest, nbytes) ? GC_MAXRDMA_IN : GC_MAXRDMA_OUT;
+  size_t chunksz;
+
+#if GASNETC_GNI_FIREHOSE
+  /* Let registration boundaries drive the xfer for out-of-segment case */
+  if (gasnetc_use_firehose && !gasneti_in_segment(gasneti_mynode, dest, nbytes)) {
+    gasneti_assert(nbytes);
+    do {
+      gasnetc_post_descriptor_t *gpd = gasnete_cntr_gpd(initiated_p, completed_p GASNETC_DIDX_PASS);
+      chunksz = gasnetc_rdma_get_fh(node, dest, src, nbytes, gpd);
+      dest = (char *) dest + chunksz;
+      src  = (char *) src  + chunksz;
+      nbytes -= chunksz;
+    } while (nbytes);
+    return;
+  }
+  chunksz = GC_MAXRDMA_IN;
+#else
+  chunksz = gasneti_in_segment(gasneti_mynode, dest, nbytes) ? GC_MAXRDMA_IN : GC_MAXRDMA_OUT;
+#endif
 
   if (nbytes > 2*chunksz) {
     /* If need more than 2 chunks, then size first one to achieve page alignment of remainder */
@@ -432,6 +450,7 @@ retry:
 
     if_pf (tmp != xfer_len) { /* MemRegister failed */
       gasneti_assert(chunksz == GC_MAXRDMA_OUT); /* out-of-seg and not looping */
+      gasneti_assert(!gasnetc_use_firehose);
       chunksz = tmp; /* Will avoid more MemRegister failures */
       goto retry;
     }
@@ -510,7 +529,25 @@ gasnete_put_bulk_inner(gasnet_node_t node, void *dest, void *src, size_t nbytes,
                        gasneti_weakatomic_t * const completed_p
                        GASNETC_DIDX_FARG)
 {
-  size_t chunksz = gasneti_in_segment(gasneti_mynode, src, nbytes) ? GC_MAXRDMA_IN : GC_MAXRDMA_OUT;
+  size_t chunksz;
+
+#if GASNETC_GNI_FIREHOSE
+  /* Let registration boundaries drive the xfer for out-of-segment case */
+  if (gasnetc_use_firehose && !gasneti_in_segment(gasneti_mynode, src, nbytes)) {
+    gasneti_assert(nbytes);
+    do {
+      gasnetc_post_descriptor_t *gpd = gasnete_cntr_gpd(initiated_p, completed_p GASNETC_DIDX_PASS);
+      chunksz = gasnetc_rdma_put_fh(node, dest, src, nbytes, gpd);
+      dest = (char *) dest + chunksz;
+      src  = (char *) src  + chunksz;
+      nbytes -= chunksz;
+    } while (nbytes);
+    return;
+  }
+  chunksz = GC_MAXRDMA_IN;
+#else
+  chunksz = gasneti_in_segment(gasneti_mynode, src, nbytes) ? GC_MAXRDMA_IN : GC_MAXRDMA_OUT;
+#endif
 
   if (nbytes > 2*chunksz) {
     /* If need more than 2 chunks, then size first one to achieve page alignment of remainder */
@@ -527,6 +564,7 @@ retry:
 
     if_pf (tmp != xfer_len) { /* MemRegister failed */
       gasneti_assert(chunksz == GC_MAXRDMA_OUT); /* out-of-seg and not looping */
+      gasneti_assert(!gasnetc_use_firehose);
       chunksz = tmp; /* Will avoid more MemRegister failures */
       goto retry;
     }
@@ -989,11 +1027,9 @@ typedef struct _gasnete_valget_op_t {
   gasnete_threadidx_t threadidx;  /*  thread that owns me */
 } gasnete_valget_op_t;
 
-extern gasnet_valget_handle_t gasnete_get_nb_val(gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG) {
-  gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
+GASNETI_INLINE(gasnete_new_valget_handle)
+gasnet_valget_handle_t gasnete_new_valget_handle(gasnete_threaddata_t * const mythread) {
   gasnet_valget_handle_t retval;
-  gasneti_assert(nbytes > 0 && nbytes <= sizeof(gasnet_register_value_t));
-  gasneti_boundscheck(node, src, nbytes);
   if (mythread->valget_free) {
     retval = mythread->valget_free;
     mythread->valget_free = retval->next;
@@ -1003,8 +1039,17 @@ extern gasnet_valget_handle_t gasnete_get_nb_val(gasnet_node_t node, void *src, 
     gasneti_leak(retval);
     retval->threadidx = mythread->threadidx;
   }
-
   retval->val = 0;
+  return retval;
+}
+
+extern gasnet_valget_handle_t gasnete_get_nb_val(gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG) {
+  gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
+  gasnet_valget_handle_t retval = gasnete_new_valget_handle(mythread);
+
+  gasneti_assert(nbytes > 0 && nbytes <= sizeof(gasnet_register_value_t));
+  gasneti_boundscheck(node, src, nbytes);
+
 #if GASNET_PSHM
   if (gasneti_pshm_in_supernode(node)) {
     /* Assume that addr2local on local node is cheaper than an extra branch */
@@ -1055,6 +1100,146 @@ static void gasnete_valget_freeall(gasnete_threaddata_t *thread) {
     vg = next;
   }
 }
+/* ------------------------------------------------------------------------------------ */
+
+#if GASNETC_GNI_FETCHOP
+/*
+  Memory-to-register fetch-and-op (experimental extension)
+  ========================================================
+  Proof-of-concept GNI uint64_t fetch-and-op.
+  Not supported, and subject to change or removal.
+*/
+
+static gasnet_handle_t gasnete_fetchop_u64_nb(
+        uint64_t *dest, gasnet_node_t node, uint64_t *src,
+        gni_fma_cmd_type_t cmd, uint64_t operand GASNETE_THREAD_FARG)
+{
+  gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
+  GASNETC_DIDX_POST(mythread->domain_idx);
+  gasnete_eop_t * const eop = _gasnete_eop_new(mythread);
+  gasnetc_post_descriptor_t *gpd;
+
+  gasneti_suspend_spinpollers();
+  gpd = gasnete_cntr_gpd(GASNETE_EOP_CNTRS(eop) GASNETC_DIDX_PASS);
+  gpd->gpd_get_dst = (uintptr_t) dest;
+  gpd->flags |= GC_POST_COPY_IMM;
+  gasnetc_fetchop_u64(node, src, cmd, operand, gpd);
+  gasneti_resume_spinpollers();
+
+  return (gasnet_handle_t) eop;
+}
+
+static void gasnete_fetchop_u64_nbi(
+        uint64_t *dest, gasnet_node_t node, uint64_t *src,
+        gni_fma_cmd_type_t cmd, uint64_t operand GASNETE_THREAD_FARG)
+{
+  gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
+  GASNETC_DIDX_POST(mythread->domain_idx);
+  gasnete_iop_t * const iop = mythread->current_iop;
+  gasnetc_post_descriptor_t *gpd;
+
+  gasneti_suspend_spinpollers();
+  gpd = gasnete_cntr_gpd(GASNETE_IOP_CNTRS(iop, get) GASNETC_DIDX_PASS);
+  gpd->gpd_get_dst = (uintptr_t) dest;
+  gpd->flags |= GC_POST_COPY_IMM;
+  gasnetc_fetchop_u64(node, src, cmd, operand, gpd);
+  gasneti_resume_spinpollers();
+}
+
+static uint64_t gasnete_fetchop_u64_val(
+        gasnet_node_t node, void *src, gni_fma_cmd_type_t cmd,
+        uint64_t operand GASNETE_THREAD_FARG)
+{
+  uint64_t result;
+  GASNETC_DIDX_POST(GASNETE_MYTHREAD->domain_idx);
+  gasnetc_post_descriptor_t *gpd;
+  volatile int done = 0;
+
+  gasneti_suspend_spinpollers();
+  gpd = gasnetc_alloc_post_descriptor(GASNETC_DIDX_PASS_ALONE);
+  gpd->gpd_completion = (uintptr_t) &done;
+  gpd->flags = GC_POST_COMPLETION_FLAG | GC_POST_KEEP_GPD;
+  gasnetc_fetchop_u64(node, src, cmd, operand, gpd);
+  gasneti_resume_spinpollers();
+
+  gasneti_polluntil(done);
+  result = * (uint64_t *) gpd->u.immediate;
+  gasnetc_free_post_descriptor(gpd);
+  return result;
+}
+
+static gasnet_valget_handle_t gasnete_fetchop_u64_nb_val(
+        gasnet_node_t node, void *src, gni_fma_cmd_type_t cmd,
+        uint64_t operand GASNETE_THREAD_FARG)
+{
+  gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
+  GASNETC_DIDX_POST(mythread->domain_idx);
+  gasnetc_post_descriptor_t *gpd;
+
+  gasnet_valget_handle_t retval = gasnete_new_valget_handle(mythread);
+  retval->done = 0;
+
+  gasneti_suspend_spinpollers();
+  gpd = gasnetc_alloc_post_descriptor(GASNETC_DIDX_PASS_ALONE);
+  gpd->gpd_completion = (uintptr_t) &retval->done;
+  gpd->gpd_get_dst = (uintptr_t) &retval->val;
+  gpd->flags = GC_POST_COMPLETION_FLAG | GC_POST_COPY_IMM;
+  gasnetc_fetchop_u64(node, src, cmd, operand, gpd);
+  gasneti_resume_spinpollers();
+
+  return retval;
+}
+
+
+#define GASNETX_FETCHOP_DEFNS(_op,_suff,_type,_cmd)                       \
+    extern void                                                           \
+    _gasnetX_fetch##_op##_##_suff(                                        \
+                _type *dest, gasnet_node_t node, _type *src,              \
+                _type operand GASNETE_THREAD_FARG)                        \
+    {                                                                     \
+        *dest = gasnete_fetchop_##_suff##_val(node, src, _cmd, operand GASNETE_THREAD_PASS); \
+        gasneti_sync_writes();                                            \
+    }                                                                     \
+    extern gasnet_handle_t                                                \
+    _gasnetX_fetch##_op##_##_suff##_nb(                                   \
+                _type *dest, gasnet_node_t node, _type *src,              \
+                _type operand GASNETE_THREAD_FARG)                        \
+    {                                                                     \
+        return gasnete_fetchop_##_suff##_nb(dest, node, src, _cmd, operand GASNETE_THREAD_PASS); \
+    }                                                                     \
+    extern void                                                           \
+    _gasnetX_fetch##_op##_##_suff##_nbi(                                  \
+                _type *dest, gasnet_node_t node, _type *src,              \
+                _type operand GASNETE_THREAD_FARG)                        \
+    {                                                                     \
+        gasnete_fetchop_##_suff##_nbi(dest, node, src, _cmd, operand GASNETE_THREAD_PASS); \
+    }                                                                     \
+    extern _type                                                          \
+    _gasnetX_fetch##_op##_##_suff##_val(                                  \
+                gasnet_node_t node, _type *src,                           \
+                _type operand GASNETE_THREAD_FARG)                        \
+    {                                                                     \
+        return gasnete_fetchop_##_suff##_val(node, src, _cmd, operand GASNETE_THREAD_PASS); \
+    }                                                                     \
+    extern gasnet_valget_handle_t                                         \
+    _gasnetX_fetch##_op##_##_suff##_nb_val(                               \
+                gasnet_node_t node, _type *src,                           \
+                _type operand GASNETE_THREAD_FARG)                        \
+    {                                                                     \
+        return gasnete_fetchop_##_suff##_nb_val(node, src, _cmd, operand GASNETE_THREAD_PASS); \
+    }                                                                     \
+
+/* protect against iso646.h */
+#undef and
+#undef or
+#undef xor
+
+GASNETX_FETCHOP_DEFNS(add,u64,uint64_t,GNI_FMA_ATOMIC_FADD)
+GASNETX_FETCHOP_DEFNS(and,u64,uint64_t,GNI_FMA_ATOMIC_FAND)
+GASNETX_FETCHOP_DEFNS( or,u64,uint64_t,GNI_FMA_ATOMIC_FOR )
+GASNETX_FETCHOP_DEFNS(xor,u64,uint64_t,GNI_FMA_ATOMIC_FXOR)
+
+#endif /* GASNETC_GNI_FETCHOP */
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -1063,7 +1248,12 @@ static void gasnete_valget_freeall(gasnete_threaddata_t *thread) {
   "gd" = GNI Dissemination
 */
 
+#if defined(GASNET_CONDUIT_GEMINI) && PLATFORM_COMPILER_CRAY
+/* Don't trust GNIDISSEM barrier with CCE - see bug 3191 */
+#define GASNETE_BARRIER_DEFAULT "RDMADISSEM"
+#else
 #define GASNETE_BARRIER_DEFAULT "GNIDISSEM"
+#endif
 
 /* Forward decls for init function(s): */
 static void gasnete_gdbarrier_init(gasnete_coll_team_t team);
@@ -1073,8 +1263,9 @@ static void gasnete_gdbarrier_init(gasnete_coll_team_t team);
     gasnete_coll_default_barrier_type = GASNETE_COLL_BARRIER_GNIDISSEM;  \
 } while (0)
 
-#define GASNETE_BARRIER_INIT(TEAM, BARRIER_TYPE) do {                                  \
-    if ((BARRIER_TYPE) == GASNETE_COLL_BARRIER_GNIDISSEM && (TEAM)==GASNET_TEAM_ALL) { \
+#define GASNETE_BARRIER_INIT(TEAM, TYPE, NODES, SUPERNODES) do { \
+    if ((TYPE) == GASNETE_COLL_BARRIER_GNIDISSEM &&              \
+        (TEAM) == GASNET_TEAM_ALL) {                             \
       gasnete_gdbarrier_init(TEAM);                              \
     }                                                            \
   } while (0)
@@ -1093,7 +1284,8 @@ static int gasnete_conduit_rdmabarrier(const char *barrier, gasneti_auxseg_reque
     /* TODO: could keep the full space and allocate some to additional teams */
     size_t request;
 #if GASNETI_PSHM_BARRIER_HIER
-    const int size = gasneti_nodemap_global_count;
+    const int is_hier = gasneti_getenv_yesno_withdefault("GASNET_PSHM_BARRIER_HIER", 1);
+    const int size = is_hier ? gasneti_nodemap_global_count : gasneti_nodes;
 #else
     const int size = gasneti_nodes;
 #endif
@@ -1147,9 +1339,8 @@ typedef struct {
   gasnete_pshmbarrier_data_t *barrier_pshm; /* non-NULL if using hierarchical code */
   int barrier_passive;        /*  2 if some other node makes progress for me, 0 otherwise */
 #endif
-  int barrier_size;           /*  ceil(lg(nodes)) */
-  int barrier_goal;           /*  (ceil(lg(nodes)) << 1) */
-  int volatile barrier_slot;  /*  (step << 1) | phase */
+  int barrier_goal;           /*  (1+ceil(lg(nodes)) << 1) == final barrier_state for phase=0 */
+  int volatile barrier_state; /*  (step << 1) | phase, where step is 1-based (0 is pshm notify) */
   int volatile barrier_value; /*  barrier value (evolves from local value) */
   int volatile barrier_flags; /*  barrier flags (evolves from local value) */
   volatile uint64_t *barrier_inbox; /*  in-segment memory to recv notifications */
@@ -1158,7 +1349,7 @@ typedef struct {
 /* Unlike the extended-ref version we CAN assume that a 64-bit write
  * will be atomic, and so can use a "present" bit in flags.
  */
-#define GASNETE_GDBARRIER_PRESENT 0x80000000
+#define GASNETE_GDBARRIER_PRESENT GASNETE_BARRIERFLAG_CONDUIT0
 #define GASNETE_GDBARRIER_VALUE(_u64) GASNETI_HIWORD(_u64)
 #define GASNETE_GDBARRIER_FLAGS(_u64) GASNETI_LOWORD(_u64)
 #define GASNETE_GDBARRIER_BUILD(_value,_flags) \
@@ -1166,62 +1357,120 @@ typedef struct {
   
 /* Pad struct to a specfic size and interleave */
 #define GASNETE_GDBARRIER_INBOX_WORDS (GASNETE_RDMABARRIER_INBOX_SZ/sizeof(uint64_t))
-#define GASNETE_GDBARRIER_INBOX(_bd,_slot)     \
+#define GASNETE_GDBARRIER_INBOX(_bd,_state)     \
             (((_bd)->barrier_inbox) \
-                       + (unsigned)(_slot) * GASNETE_GDBARRIER_INBOX_WORDS)
-#define GASNETE_GDBARRIER_INBOX_REMOTE(_bd,_step,_slot)  \
+                       + (unsigned)((_state)-2) * GASNETE_GDBARRIER_INBOX_WORDS)
+#define GASNETE_GDBARRIER_INBOX_REMOTE(_bd,_step,_state)  \
             (((_bd)->barrier_peers[(unsigned)(_step)].addr \
-                       + (unsigned)(_slot) * GASNETE_GDBARRIER_INBOX_WORDS))
+                       + (unsigned)((_state)-2) * GASNETE_GDBARRIER_INBOX_WORDS))
 #define GASNETE_GDBARRIER_INBOX_NEXT(_addr)    \
             ((_addr) + 2U * GASNETE_GDBARRIER_INBOX_WORDS)
 
 GASNETI_INLINE(gasnete_gdbarrier_send)
 void gasnete_gdbarrier_send(gasnete_coll_gdbarrier_t *barrier_data,
-                             int numsteps, unsigned int slot,
+                             int numsteps, unsigned int state,
                              gasnet_handlerarg_t value, gasnet_handlerarg_t flags) {
-  unsigned int step = slot >> 1;
+  unsigned int step = state >> 1;
   const uint64_t payload = GASNETE_GDBARRIER_BUILD(value, flags);
   int i;
 
   gasneti_assert(sizeof(payload) <= sizeof(gasnet_register_value_t));
 
-  for (i = 0; i < numsteps; ++i, slot += 2, step += 1) {
+  for (i = 0; i < numsteps; ++i, state += 2, step += 1) {
     const gasnet_node_t node = barrier_data->barrier_peers[step].node;
-    uint64_t * const dst = GASNETE_GDBARRIER_INBOX_REMOTE(barrier_data, step, slot);
-    GASNETC_DIDX_POST((gasnete_mythread())->domain_idx);
-    gasnetc_post_descriptor_t * const gpd = gasnetc_alloc_post_descriptor(GASNETC_DIDX_PASS_ALONE);
-    uint64_t * const src = (uint64_t *)GASNETE_STARTOFBITS(gpd->u.immediate, sizeof(uint64_t));
+    uint64_t * const dst = GASNETE_GDBARRIER_INBOX_REMOTE(barrier_data, step, state);
+#if GASNET_PSHM
+    if (gasneti_pshm_in_supernode(node)) {
+      *(uint64_t*)gasneti_pshm_addr2local(node, dst) = payload;
+    } else
+#endif
+    {
+      GASNETC_DIDX_POST((gasnete_mythread())->domain_idx);
+      gasnetc_post_descriptor_t * const gpd = gasnetc_alloc_post_descriptor(GASNETC_DIDX_PASS_ALONE);
+      uint64_t * const src = (uint64_t *)GASNETE_STARTOFBITS(gpd->u.immediate, sizeof(uint64_t));
 
-    gpd->flags = 0; /* fire and forget */
-    *src = payload;
-    gasnetc_rdma_put_buff(node, dst, src, sizeof(*src), gpd);
+      gpd->flags = 0; /* fire and forget */
+      *src = payload;
+      gasnetc_rdma_put_buff(node, dst, src, sizeof(*src), gpd);
+    }
   }
 }
+
+#if GASNETI_PSHM_BARRIER_HIER
+static int gasnete_gdbarrier_kick_pshm(gasnete_coll_team_t team) {
+  gasnete_coll_gdbarrier_t *barrier_data = team->barrier_data;
+  int done = (barrier_data->barrier_state > 1);
+
+  if (!done && !gasnete_gdbarrier_trylock(&barrier_data->barrier_lock)) {
+    const int state = barrier_data->barrier_state;
+    done = (state > 1);
+    if (!done) {
+      PSHM_BDATA_DECL(pshm_bdata, barrier_data->barrier_pshm);
+      if (gasnete_pshmbarrier_kick(pshm_bdata)) {
+        const int value = pshm_bdata->shared->value;
+        const int flags = pshm_bdata->shared->flags;
+        barrier_data->barrier_value = value;
+        barrier_data->barrier_flags = flags;
+        gasneti_sync_writes();
+        barrier_data->barrier_state = state + 2;
+        gasnete_gdbarrier_unlock(&barrier_data->barrier_lock); /* Cannot send while holding HSL */
+        if ((barrier_data->barrier_goal > 2) && !barrier_data->barrier_passive) {
+          gasnete_gdbarrier_send(barrier_data, 1, state+2, value, flags);
+        } else {
+          gasnete_barrier_pf_disable(team);
+        }
+        return 1;
+      }
+    }
+    gasnete_gdbarrier_unlock(&barrier_data->barrier_lock);
+  }
+
+  return done;
+}
+#endif
 
 void gasnete_gdbarrier_kick(gasnete_coll_team_t team) {
   gasnete_coll_gdbarrier_t *barrier_data = team->barrier_data;
   volatile uint64_t *inbox;
   uint64_t result;
   int numsteps = 0;
-  int slot, cursor;
+  int state, new_state;
   int flags, value;
 
   /* early unlocked read: */
-  slot = barrier_data->barrier_slot;
-
-  if (slot >= barrier_data->barrier_goal)
+  state = barrier_data->barrier_state;
+  if (state >= barrier_data->barrier_goal)
     return; /* nothing to do */
 
-  gasneti_assert(team->total_ranks > 1); /* singleton should have matched (slot >= goal), above */
+  gasneti_assert(team->total_ranks > 1); /* singleton should have matched (state >= goal), above */
 
-#if GASNETI_THREADS
+#if GASNETI_PSHM_BARRIER_HIER
+  if (barrier_data->barrier_pshm) {
+    /* Cannot begin to probe until local notify is complete */
+    if (!gasnete_gdbarrier_kick_pshm(team)) return;
+  }
+#endif
+
   if (gasnete_gdbarrier_trylock(&barrier_data->barrier_lock))
     return; /* another thread is currently in kick */
 
-  /* reread w/ lock held: */
-  slot = barrier_data->barrier_slot;
+  /* reread w/ lock held and/or because kick_pshm may have advanced it */
+  state = barrier_data->barrier_state;
 
-  if_pf (slot < 2) {/* need to pick up value/flags from notify */
+#if GASNETI_PSHM_BARRIER_HIER
+  if_pf (state < 2) { /* local notify has not completed */
+    gasnete_gdbarrier_unlock(&barrier_data->barrier_lock);
+    return;
+  } else if (barrier_data->barrier_passive) {
+    gasnete_barrier_pf_disable(team);
+    gasnete_gdbarrier_unlock(&barrier_data->barrier_lock);
+    return;
+  }
+  gasneti_assert(!barrier_data->barrier_passive);
+#endif
+
+#if GASNETI_THREADS
+  if_pf (state < 4) {/* need to pick up value/flags from notify */
     gasneti_sync_reads(); /* value/flags were written by the non-locked notify */
   }
 #endif
@@ -1230,8 +1479,8 @@ void gasnete_gdbarrier_kick(gasnete_coll_team_t team) {
   flags = barrier_data->barrier_flags;
 
   /* process all consecutive steps which have arrived since we last ran */
-  inbox = GASNETE_GDBARRIER_INBOX(barrier_data, slot);
-  for (cursor = slot; cursor < barrier_data->barrier_goal && (0 != (result = *inbox)); cursor+=2) {
+  inbox = GASNETE_GDBARRIER_INBOX(barrier_data, state);
+  for (new_state = state; new_state < barrier_data->barrier_goal && (0 != (result = *inbox)); new_state+=2) {
     const int step_value = GASNETE_GDBARRIER_VALUE(result);
     const int step_flags = GASNETE_GDBARRIER_FLAGS(result);
 
@@ -1264,53 +1513,55 @@ void gasnete_gdbarrier_kick(gasnete_coll_team_t team) {
     barrier_data->barrier_flags = flags; 
     barrier_data->barrier_value = value; 
 
-    if (cursor >= barrier_data->barrier_goal) { /* We got the last recv - barrier locally complete */
+    if (new_state >= barrier_data->barrier_goal) { /* We got the last recv - barrier locally complete */
       gasnete_barrier_pf_disable(team);
-      gasneti_sync_writes(); /* flush state before the write to barrier_slot below */
+      gasneti_sync_writes(); /* flush state before the write to barrier_state below */
       numsteps -= 1; /* no send at last step */
     } 
     /* notify all threads of the step increase - 
        this may allow other local threads to proceed on the barrier and even indicate
        barrier completion while we overlap outgoing notifications to other nodes
     */
-    barrier_data->barrier_slot = cursor;
+    barrier_data->barrier_state = new_state;
   } 
 
   gasnete_gdbarrier_unlock(&barrier_data->barrier_lock);
 
   if (numsteps) { /* need to issue one or more Puts */
-    gasnete_gdbarrier_send(barrier_data, numsteps, slot+2, value, flags);
+    gasnete_gdbarrier_send(barrier_data, numsteps, state+2, value, flags);
   }
 }
 
 static void gasnete_gdbarrier_notify(gasnete_coll_team_t team, int id, int flags) {
   gasnete_coll_gdbarrier_t *barrier_data = team->barrier_data;
+  int state = 2 + ((barrier_data->barrier_state & 1) ^ 1); /* enter new phase */
   int do_send = 1;
-  int slot;
+  int want_pf = 1;
 
   GASNETE_SPLITSTATE_NOTIFY_ENTER(team);
 
 #if GASNETI_PSHM_BARRIER_HIER
   if (barrier_data->barrier_pshm) {
     PSHM_BDATA_DECL(pshm_bdata, barrier_data->barrier_pshm);
-    (void)gasnete_pshmbarrier_notify_inner(pshm_bdata, id, flags);
-    do_send = !barrier_data->barrier_passive;
-    id = pshm_bdata->shared->value;
-    flags = pshm_bdata->shared->flags;
+    if (gasnete_pshmbarrier_notify_inner(pshm_bdata, id, flags)) {
+      id = pshm_bdata->shared->value;
+      flags = pshm_bdata->shared->flags;
+      want_pf = do_send = !barrier_data->barrier_passive;
+    } else {
+      do_send = 0;
+      state -= 2;
+    }
   }
 #endif
 
   barrier_data->barrier_value = id;
   barrier_data->barrier_flags = flags;
 
-  slot = ((barrier_data->barrier_slot & 1) ^ 1); /* enter new phase */
   gasneti_sync_writes();
-  barrier_data->barrier_slot = slot;
+  barrier_data->barrier_state = state;
 
-  if (do_send) {
-    gasnete_gdbarrier_send(barrier_data, 1, slot, id, flags);
-    gasnete_barrier_pf_enable(team);
-  }
+  if (do_send) gasnete_gdbarrier_send(barrier_data, 1, state, id, flags);
+  if (want_pf) gasnete_barrier_pf_enable(team);
 
   /*  update state */
   gasneti_sync_writes(); /* ensure all state changes committed before return */
@@ -1319,20 +1570,32 @@ static void gasnete_gdbarrier_notify(gasnete_coll_team_t team, int id, int flags
 /* Notify specialized to one (super)node case (reduced branches in BOTH variants) */
 static void gasnete_gdbarrier_notify_singleton(gasnete_coll_team_t team, int id, int flags) {
   gasnete_coll_gdbarrier_t *barrier_data = team->barrier_data;
+#if GASNETI_PSHM_BARRIER_HIER
+  int state = 2;
+#endif
 
   GASNETE_SPLITSTATE_NOTIFY_ENTER(team);
 
 #if GASNETI_PSHM_BARRIER_HIER
   if (barrier_data->barrier_pshm) {
     PSHM_BDATA_DECL(pshm_bdata, barrier_data->barrier_pshm);
-    (void)gasnete_pshmbarrier_notify_inner(pshm_bdata, id, flags);
-    id = pshm_bdata->shared->value;
-    flags = pshm_bdata->shared->flags;
+    if (gasnete_pshmbarrier_notify_inner(pshm_bdata, id, flags)) {
+      id = pshm_bdata->shared->value;
+      flags = pshm_bdata->shared->flags;
+    } else {
+      state = 0;
+    }
   }
 #endif
 
   barrier_data->barrier_value = id;
   barrier_data->barrier_flags = flags;
+
+#if GASNETI_PSHM_BARRIER_HIER
+  gasneti_sync_writes();
+  barrier_data->barrier_state = state;
+  if (!state) gasnete_barrier_pf_enable(team);
+#endif
 
   /*  update state */
   gasneti_sync_writes(); /* ensure all state changes committed before return */
@@ -1341,7 +1604,7 @@ static void gasnete_gdbarrier_notify_singleton(gasnete_coll_team_t team, int id,
 static int gasnete_gdbarrier_wait(gasnete_coll_team_t team, int id, int flags) {
   gasnete_coll_gdbarrier_t *barrier_data = team->barrier_data;
 #if GASNETI_PSHM_BARRIER_HIER
-  const PSHM_BDATA_DECL(pshm_bdata, barrier_data->barrier_pshm);
+  PSHM_BDATA_DECL(pshm_bdata, barrier_data->barrier_pshm);
 #endif
   int retval = GASNET_OK;
 
@@ -1351,6 +1614,7 @@ static int gasnete_gdbarrier_wait(gasnete_coll_team_t team, int id, int flags) {
 #if GASNETI_PSHM_BARRIER_HIER
   if (pshm_bdata) {
     const int passive_shift = barrier_data->barrier_passive;
+    gasneti_polluntil(gasnete_gdbarrier_kick_pshm(team));
     retval = gasnete_pshmbarrier_wait_inner(pshm_bdata, id, flags, passive_shift);
     if (passive_shift) {
       /* Once the active peer signals done, we can return */
@@ -1362,14 +1626,14 @@ static int gasnete_gdbarrier_wait(gasnete_coll_team_t team, int id, int flags) {
   }
 #endif
 
-  if (barrier_data->barrier_slot >= barrier_data->barrier_goal) {
+  if (barrier_data->barrier_state >= barrier_data->barrier_goal) {
     /* completed asynchronously before wait (via progressfns or try) */
     GASNETI_TRACE_EVENT_TIME(B,BARRIER_ASYNC_COMPLETION,GASNETI_TICKS_NOW_IFENABLED(B)-gasnete_barrier_notifytime);
   } else {
     /* kick once, and if still necessary, wait for a response */
     gasnete_gdbarrier_kick(team);
     /* cannot BLOCKUNTIL since progess may occur on non-AM events */
-    while (barrier_data->barrier_slot < barrier_data->barrier_goal) {
+    while (barrier_data->barrier_state < barrier_data->barrier_goal) {
       GASNETI_WAITHOOK();
       GASNETI_SAFE(gasneti_AMPoll());
       gasnete_gdbarrier_kick(team);
@@ -1413,7 +1677,8 @@ static int gasnete_gdbarrier_try(gasnete_coll_team_t team, int id, int flags) {
 #if GASNETI_PSHM_BARRIER_HIER
   if (barrier_data->barrier_pshm) {
     const int passive_shift = barrier_data->barrier_passive;
-    if (!gasnete_pshmbarrier_try_inner(barrier_data->barrier_pshm, passive_shift))
+    if (!gasnete_gdbarrier_kick_pshm(team) ||
+        !gasnete_pshmbarrier_try_inner(barrier_data->barrier_pshm, passive_shift))
       return GASNET_ERR_NOT_READY;
     if (passive_shift)
       return gasnete_gdbarrier_wait(team, id, flags);
@@ -1422,7 +1687,8 @@ static int gasnete_gdbarrier_try(gasnete_coll_team_t team, int id, int flags) {
 #endif
     gasnete_gdbarrier_kick(team);
 
-  if (barrier_data->barrier_slot >= barrier_data->barrier_goal) return gasnete_gdbarrier_wait(team, id, flags);
+  if (barrier_data->barrier_state >= barrier_data->barrier_goal)
+    return gasnete_gdbarrier_wait(team, id, flags);
   else return GASNET_ERR_NOT_READY;
 }
 
@@ -1445,11 +1711,11 @@ static void gasnete_gdbarrier_init(gasnete_coll_team_t team) {
   int steps;
   int total_ranks = team->total_ranks;
   int myrank = team->myrank;
+  gasnete_coll_peer_list_t *peers = &team->peers;
+
 #if GASNETI_PSHM_BARRIER_HIER
-  gasnet_node_t *supernode_reps = NULL;
-  PSHM_BDATA_DECL(pshm_bdata, gasnete_pshmbarrier_init_hier(team, &total_ranks, &myrank, &supernode_reps));
+  PSHM_BDATA_DECL(pshm_bdata, gasnete_pshmbarrier_init_hier(team, &total_ranks, &myrank, &peers));
 #endif
-  int64_t j;
 
   barrier_data = gasneti_malloc_aligned(GASNETI_CACHE_LINE_BYTES, sizeof(gasnete_coll_gdbarrier_t));
   gasneti_leak_aligned(barrier_data);
@@ -1467,53 +1733,30 @@ static void gasnete_gdbarrier_init(gasnete_coll_team_t team) {
 
   gasnete_gdbarrier_lock_init(&barrier_data->barrier_lock);
 
-  /* determine barrier size (number of steps) */
-  for (steps=0, j=1; j < total_ranks; ++steps, j*=2) ;
-
-  barrier_data->barrier_size = steps;
-  barrier_data->barrier_goal = steps << 1;
+  steps = peers->num;
+  barrier_data->barrier_goal = (1+steps) << 1;
 
   if (steps) {
-#if GASNETI_PSHM_BARRIER_HIER
-    gasnet_node_t *nodes = supernode_reps ? supernode_reps : gasneti_pshm_firsts;
-#endif
     int step;
 
     gasneti_assert(gasnete_rdmabarrier_auxseg);
     barrier_data->barrier_inbox = gasnete_rdmabarrier_auxseg[gasneti_mynode].addr;
 
-    barrier_data->barrier_peers = gasneti_malloc(steps * sizeof(* barrier_data->barrier_peers));
+    barrier_data->barrier_peers = gasneti_malloc((1+steps) * sizeof(* barrier_data->barrier_peers));
     gasneti_leak(barrier_data->barrier_peers);
   
     for (step = 0; step < steps; ++step) {
-      gasnet_node_t distance, tmp, peer, node;
-
-      distance = (1 << step);
-      tmp = total_ranks - myrank;
-      peer = (distance < tmp) ? (distance + myrank) : (distance - tmp); /* mod N w/o overflow */
-      gasneti_assert(peer < total_ranks);
-
-#if GASNETI_PSHM_BARRIER_HIER
-      if (pshm_bdata) {
-        node = nodes[peer];
-      } else
-#endif
-      {
-        node = GASNETE_COLL_REL2ACT(team, peer);
-      }
-
-      barrier_data->barrier_peers[step].node = node;
-      barrier_data->barrier_peers[step].addr = gasnete_rdmabarrier_auxseg[node].addr;
+      gasnet_node_t node = peers->fwd[step];
+      barrier_data->barrier_peers[1+step].node = node;
+      barrier_data->barrier_peers[1+step].addr = gasnete_rdmabarrier_auxseg[node].addr;
     }
   } else {
-    barrier_data->barrier_slot = barrier_data->barrier_goal;
+    barrier_data->barrier_state = barrier_data->barrier_goal;
   }
 
   gasneti_free(gasnete_rdmabarrier_auxseg);
 
 #if GASNETI_PSHM_BARRIER_HIER
-  gasneti_free(supernode_reps);
-
   if (pshm_bdata && (pshm_bdata->shared->size == 1)) {
     /* With singleton proc on local supernode we can short-cut the PSHM code.
      * This does not require alteration of the barrier_peers[] contructed above

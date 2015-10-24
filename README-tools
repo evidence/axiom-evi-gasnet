@@ -595,6 +595,18 @@ GASNETT_CONSTP(fnname)
   same restrictions, except additionally the return value must NOT
   depend on global variables or anything pointed to by the arguments
 
+GASNETT_HOT
+declarator
+
+  Declare a function as frequently called.
+  Compilers may do many different things with this information.
+
+GASNETT_COLD
+declarator
+
+  Declare a function as infrequently called.
+  Compilers may do many different things with this information.
+
 GASNETT_DEPRECATED
 declarator
 

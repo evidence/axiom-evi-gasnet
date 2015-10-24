@@ -511,10 +511,6 @@
   #define PLATFORM_OS_BGQ 1
   #define PLATFORM_OS_FAMILYNAME BGQ
 
-#elif defined(__blrts) || defined(__blrts__) || defined(__gnu_blrts__)
-  #define PLATFORM_OS_BLRTS 1
-  #define PLATFORM_OS_FAMILYNAME BLRTS
-
 #elif defined(__K42)
   #define PLATFORM_OS_K42 1
   #define PLATFORM_OS_FAMILYNAME K42
@@ -526,6 +522,10 @@
 #elif defined(__linux) || defined(__linux__) || defined(__gnu_linux__)
   #define PLATFORM_OS_LINUX 1
   #define PLATFORM_OS_FAMILYNAME LINUX
+
+#elif defined(__blrts) || defined(__blrts__) || defined(__gnu_blrts__)
+  #define PLATFORM_OS_BLRTS 1
+  #define PLATFORM_OS_FAMILYNAME BLRTS
 
 #elif defined(__CYGWIN__)
   #define PLATFORM_OS_CYGWIN 1
@@ -784,6 +784,8 @@
 #elif _PLATFORM_ARCH_LITTLE_ENDIAN
   #define PLATFORM_ARCH_LITTLE_ENDIAN 1
 #endif
+#undef _PLATFORM_ARCH_BIG_ENDIAN
+#undef _PLATFORM_ARCH_LITTLE_ENDIAN
 
 #if defined(PLATFORM_ARCH_BIG_ENDIAN) && defined(PLATFORM_ARCH_LITTLE_ENDIAN)
   #error conflicting endianness information
@@ -813,6 +815,8 @@
 #elif _PLATFORM_ARCH_32
   #define PLATFORM_ARCH_32 1
 #endif
+#undef _PLATFORM_ARCH_64
+#undef _PLATFORM_ARCH_32
 
 #if defined(PLATFORM_ARCH_64) && defined(PLATFORM_ARCH_32)
   #error conflicting bit width information

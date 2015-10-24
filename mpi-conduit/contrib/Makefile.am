@@ -1,6 +1,7 @@
 ## Process this file with automake to produce Makefile.in       -*- makefile -*-
 #   $Source: bitbucket.org:berkeleylab/gasnet.git/mpi-conduit/contrib/Makefile.am $
 # Description: Makefile for GASNet MPI spawner
+# Copyright (c) 2015 Intel Corporation. All rights reserved.
 # Terms of use are as specified in license.txt
 
 AUTOMAKE_OPTIONS = foreign 1.4
@@ -14,7 +15,9 @@ dotpldir = $(bindir)
 # This ensures we can run from the build directory if needed.
 $(top_builddir)/other/perlstart: $(top_srcdir)/other/perlstart.in
 	@cd $(top_builddir)/other && $(MAKE) perlstart
-$(target): $(top_builddir)/other/perlstart
+$(top_builddir)/other/mpirun_common: $(top_srcdir)/other/mpirun_common.in
+	@cd $(top_builddir)/other && $(MAKE) mpirun_common
+$(target): $(top_builddir)/other/perlstart $(top_builddir)/other/mpirun_common
 if USE_MPI
 all_targets = $(target).pl $(target)
 endif
@@ -38,7 +41,7 @@ DISTCLEANFILES = $(files_we_copy)
 EXTRA_DIST = $(target).pl
 
 # Conditionally install the .pl and its wrapper
-if USE_MPI
+if USE_MPI_CONDUIT
 scripts = $(target)
 data = $(target).pl
 else

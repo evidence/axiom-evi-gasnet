@@ -8,6 +8,6 @@
 #INSTRUCTIONS# or $(top_srcdir)/other/fragment-head.mak.in for usage info.
 
 CONDUIT_INCLUDES = -DGASNET_CONDUIT_ARIES
-CONDUIT_INCLUDES = -DGASNET_CONDUIT_ARIES -I@TOP_SRCDIR@/gemini-conduit ###NOINSTALL###
+CONDUIT_INCLUDES = -DGASNET_CONDUIT_ARIES -I@TOP_SRCDIR@/other/firehose -I@TOP_SRCDIR@/gemini-conduit ###NOINSTALL###
 
 CONDUIT_LIBS = @GNI_LIBS@

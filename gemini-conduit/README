@@ -86,7 +86,13 @@ GASNET_GNI_MEMREG
   outside of the GASNet segment.
   The value of 0 imposes no bound and memory registrations are
   created as needed until uGNI returns GNI_RC_ERROR_RESOURCE.
-  The default value is 16.
+  The default value is 16 on Gemini, and 0 (no limit) on Aries.
+
+GASNET_USE_FIREHOSE
+  This gives a boolean: "0" to disable or "1" to enable the use
+  of the firehose dynamic pinning library for local memory
+  registration, and is intended primarily for debugging purposes.
+  The default is enabled.
 
 GASNET_PHYSMEM_PINNABLE_RATIO - default 0.80
 GASNET_PHYSMEM_MAX - default <size of physmem> * <pinnable ratio>
@@ -154,12 +160,11 @@ Optional configure-time settings:
    one thread will increase lock contention, but a total lack of
    polling by threads in other domains can lead to deadlock in some
    circumstances.
-   A value of 0 will result in the most frequent polling for Active
-   Messages by threads outside the first domain (on average every
-   second polling operation will include a poll for AM arrivals).
+   A value of 0 will result in polling for Active Messages on every
+   call (explicit or implict) to gasnet_AMPoll().
    Values of 1, 3, 7, 15, etc. will result in progressively lower
-   average frequencies (1 in 2*(n+1)).
-   The default is 127 (1 in every 256 polls by threads outside the
+   average frequencies (1 in (n+1)).
+   The default is 255 (1 in every 256 polls by threads outside the
    first domain will poll for AM arrivals).
 
 Optional compile-time settings:
@@ -178,8 +183,8 @@ in gemini-conduit/gasnet_gemini.c:
 
 int gasnetc_poll_burst = 10;   /* number of rdma completions to get at once */
 
-Sets the number of events for arriving short messages taken at once
-#define SMSG_BURST 20
+Sets the number of events for arriving active messages taken at once
+#define AM_BURST 20
 
 Known problems:
 ---------------
@@ -251,6 +256,8 @@ is needed for each rank of the job.  Each endpoint is associated with
 a Completion Queue (CQ) which signals when locally originated
 operations to a particular endpoint have finished.  Cqs may be used by
 multiple endpoints.
+
+NOTE: The next paragraph is no longer accurate - we no longer use SMSG
 
 To use the short message system (SMSG), the application allocates
 buffer space, and assigns a completion queue to be used to announce
@@ -436,6 +443,8 @@ are checked and post-completion activities performed:
 
 ===smsg_cq_handle===
 
+NOTE: This section no longer accurate - we no longer use SMSG
+
 When a short message arrives, an event is sent to the completion queue
 associated with the endpoint of the message source.  The receiver
 looks at the event to figure out which endpoint signaled, then calls
@@ -454,7 +463,7 @@ waiting.
 The work starts in gasnetc_poll_smsg_queue.
 
 First a call is make to gasnetc_poll_smsg_completion_queue, which reads up
-to SMSG_BURST events from the completion queue and quickly adds the
+to AM_BURST events from the completion queue and quickly adds the
 relevant endpoints to a temporary array.  Then, after releasing the
 GNI big lock, the array is scanned, and any peers which are not
 already on the smsg_work_queue are added to it.  The smsg_work_queue
@@ -479,6 +488,8 @@ average rate of retiring completion events is equal to the rate of
 processing messages, and prevents completion queue overflow.
 
 ==Exit protocol==
+
+NOTE: This section no longer accurate - we do more than is described here.
 
 The exit algorithm is borrowed from the portals-conduit.  The Cray
 runtime system ALPS (Application Layout and Placement System) is

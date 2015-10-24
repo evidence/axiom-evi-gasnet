@@ -2,6 +2,96 @@ GASNet ChangeLog
 ----------------
 
 ----------------------------------------------------------------------
+10-27-2015 :  Release 1.26.0
+
+* New conduits (network APIs) added:
+  This is the first public release of two new conduits: OFI and PSM.
+  Both are believed to be complete and correct, but have not yet been
+  subjected to as thorough testing and tuning as other conduits.
+  - ofi-conduit
+    OpenFabrics Interfaces (OFI) is not a vendor or hardware-specific API.
+    It is a framework focused on exporting fabric communication services
+    to applications.  OFI is best described as a collection of libraries
+    and applications used to export fabric services.
+    The ofi-conduit code was contributed by Intel Corporation.
+    See ofi-conduit/README for additional details.
+  - psm-conduit
+    This conduit runs over the PSM 2.0 API supported by Intel's Omni-Path
+    fabric.  There is no support for the PSM 1.x API.
+    The psm-conduit code was contributed by Intel Corporation.
+    See psm-conduit/README for additional details.
+
+* InfiniBand Verbs (ibv-conduit)
+  - Updates for Solaris-11.2
+
+* IBM PAMI (pami-conduit)
+  - Eliminate start-up failures when PSHM is enabled but only one process
+    is running per compute node
+
+* Cray uGNI (gemini- and aries-conduits)
+  - Eliminate a rare deadlock
+  - Reduce thread contention when polling in PAR builds
+  - Reduce resource usage when configured with --enable-gni-multi-domain
+  - Aries only: GASNET_GNI_MEMREG is now zero by default (unbounded)
+
+* Portals-4 (portals4-conduit)
+  - Fix broken support for --enable-segment-everything
+
+* Portable UDP (udp-conduit)
+  - Remove long-deprecated support for job spawning via Berkeley Millennium
+    "rexec" and Berkeley NOW "gexec" (GASNET_SPAWNFN values "R" and "G")
+  - Reduce start-up and shutdown times (significantly on some systems)
+  - Fix issues with quoting by spawner of arguments and working directory
+  - Fix unclean exits when client passes non-zero to gasnet_exit()
+
+* Portable MPI (mpi-conduit)
+  - Reduce start-up and shutdown times (significantly on some systems)
+  - Eliminate use of deprecated MPI_Errhandler_set() with MPI-2 or higher
+
+* PMI-based job-launch (pmi-spawner)
+  - Improve configure script to auto-detect more PMI implementations
+
+* SSH-based job-launch (ssh-spawner)
+  - Correct a misspelled environment variable name in the documentation
+  - Eliminate orphaned processes under certain abnormal exit conditions
+
+* Intra-node Shared Memory (PSHM)
+  - Eliminate blocking in gasnet_barrier_notify() by shared memory barrier
+    (a behavior which is prohibited by the GASNet specification)
+  - Add environment variable GASNET_PSHM_BARRIER_HIER which can be used to
+    disable the hierarchical shared memory barrier at runtime
+  - Fix bug that prevented use of hugetlbfs without PSHM
+  - Enhance BlueGene/Q PSHM support to no longer crash if BG_MAPCOMMONHEAP
+    has not been set to 1 (instead GASNet will warn and continue w/o PSHM)
+
+* Platform support/portability
+  - Power/PowerPC
+    + Add initial (experimental) support for ppc64el (little-endian POWER)
+    + Add support for XLC for little-endian POWER (uses clang front-end)
+  - SPARC64
+    + Fix for Linux/SPARC64 support, which had ceased to work some time ago
+  - Intel Xeon Phi (a.k.a. MIC)
+    + Add contributed "gasnetrun_mic" for use of Phi without an mpirun
+  - ARM and AARCH64
+    + Enable support (inline asm, etc.) for clang C and C++ compilers
+  - OpenBSD
+    + Update to pthreads support for more-recent clang versions
+    + Update tests to work with OpenBSD's rand() implementation
+  - Cray Compilers
+    + Add work-arounds for certain known bugs in CCE 8.3 and 8.4 compilers
+
+* General and Misc.
+  - Support calling gasnet_init(NULL,NULL) for clients without access to argv
+  - Improve support for C++ clients in Makefile fragments
+  - Use relative paths in Makefile fragments to support relocatable clients
+  - Disable "threadinfo-opt" on many platforms with good native TLS support
+  - Add '-peer' option to gasnet_trace script to bin output by remote node
+
+* GASNet Tools
+  - Implement GASNETT_{HOT,COLD} function decorations
+  - Add support for obtaining backtraces via the "pstack" utility
+
+----------------------------------------------------------------------
 04-27-2015 :  Release 1.24.2
 
 * Cray XE, XK and XC series (gemini- and aries-conduits)

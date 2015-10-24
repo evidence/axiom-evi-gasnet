@@ -171,6 +171,7 @@ void (*gasneti_bootstrapFini_p)(void) = NULL;
 void (*gasneti_bootstrapAbort_p)(int exitcode) = NULL;
 void (*gasneti_bootstrapAlltoall_p)(void *src, size_t len, void *dest) = NULL;
 void (*gasneti_bootstrapBroadcast_p)(void *src, size_t len, void *dest, int rootnode) = NULL;
+void (*gasneti_bootstrapSNodeCast_p)(void *src, size_t len, void *dest, int rootnode) = NULL;
 void (*gasneti_bootstrapCleanup_p)(void) = NULL;
 
 static int gasneti_bootstrap_native_coll = 0;
@@ -300,7 +301,9 @@ static void gasnetc_sys_coll_init(void)
 
 done:
   gasneti_bootstrap_native_coll = 1;
+#if !GASNETC_IBV_SHUTDOWN
   gasneti_bootstrapCleanup(); /* No futher use of ssh/mpi/pmi collectives */
+#endif
 }
 
 static void gasnetc_sys_coll_fini(void)
@@ -1035,16 +1038,17 @@ static int gasnetc_load_settings(void) {
 
 static int  gasneti_bootstrapInit(int *argc_p, char ***argv_p,
 				  gasnet_node_t *nodes_p, gasnet_node_t *mynode_p) {
-  char *spawner = gasneti_getenv_withdefault("GASNET_IB_SPAWNER", "(not set)");
+  const char *not_set = "(not set)";
+  char *spawner = gasneti_getenv_withdefault("GASNET_SPAWNER", not_set);
   int res = GASNET_ERR_NOT_INIT;
 
 #if HAVE_SSH_SPAWNER
-  /* Sigh.  We can't assume GASNET_IB_SPAWNER has been set except in the master.
+  /* Sigh.  We can't assume GASNET_SPAWNER has been set except in the master.
    * However, gasneti_bootstrapInit_ssh() verifies the command line args and
    * returns GASNET_ERR_NOT_INIT on failure witout any noise on stderr.
-   * So, we try ssh-based spawn first.
+   * So, when the env var is not set, we try ssh-based spawn first.
    */
-  if (GASNET_OK != res &&
+  if (GASNET_OK != res && (!strcmp(spawner, "ssh") || (spawner == not_set)) &&
       GASNET_OK == (res = gasneti_bootstrapInit_ssh(argc_p, argv_p, nodes_p, mynode_p))) {
     gasneti_bootstrapFini_p	= &gasneti_bootstrapFini_ssh;
     gasneti_bootstrapAbort_p	= &gasneti_bootstrapAbort_ssh;
@@ -1052,6 +1056,7 @@ static int  gasneti_bootstrapInit(int *argc_p, char ***argv_p,
     gasneti_bootstrapExchange_p	= &gasneti_bootstrapExchange_ssh;
     gasneti_bootstrapAlltoall_p	= &gasneti_bootstrapAlltoall_ssh;
     gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_ssh;
+    gasneti_bootstrapSNodeCast_p= &gasneti_bootstrapSNodeBroadcast_ssh;
     gasneti_bootstrapCleanup_p  = &gasneti_bootstrapCleanup_ssh;
   }
 #endif
@@ -1068,15 +1073,16 @@ static int  gasneti_bootstrapInit(int *argc_p, char ***argv_p,
     gasneti_bootstrapExchange_p	= &gasneti_bootstrapExchange_mpi;
     gasneti_bootstrapAlltoall_p	= &gasneti_bootstrapAlltoall_mpi;
     gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_mpi;
+    gasneti_bootstrapSNodeCast_p= &gasneti_bootstrapSNodeBroadcast_mpi;
     gasneti_bootstrapCleanup_p  = &gasneti_bootstrapCleanup_mpi;
   }
 #endif
 
 #if HAVE_PMI_SPAWNER
-  /* Don't expect GASNET_IB_SPAWNER set if launched directly by srun, mpirun, yod, etc.
-   * So, we try pmi-based spawn last.
+  /* Don't really expect GASNET_SPAWNER set if launched directly by srun, mpirun, yod, etc.
+   * So, when the env var is not set, we try pmi-based spawn last.
    */
-  if (GASNET_OK != res &&
+  if (GASNET_OK != res && (!strcmp(spawner, "pmi") || (spawner == not_set)) &&
       GASNET_OK == (res = gasneti_bootstrapInit_pmi(argc_p, argv_p, nodes_p, mynode_p))) {
     gasneti_bootstrapFini_p	= &gasneti_bootstrapFini_pmi;
     gasneti_bootstrapAbort_p	= &gasneti_bootstrapAbort_pmi;
@@ -1084,6 +1090,7 @@ static int  gasneti_bootstrapInit(int *argc_p, char ***argv_p,
     gasneti_bootstrapExchange_p	= &gasneti_bootstrapExchange_pmi;
     gasneti_bootstrapAlltoall_p	= &gasneti_bootstrapAlltoall_pmi;
     gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_pmi;
+    gasneti_bootstrapSNodeCast_p= &gasneti_bootstrapSNodeBroadcast_pmi;
     gasneti_bootstrapCleanup_p  = &gasneti_bootstrapCleanup_pmi;
   }
 #endif
@@ -1592,7 +1599,7 @@ static int gasnetc_init(int *argc, char ***argv) {
 #endif
 
   #if GASNET_PSHM
-    gasneti_pshm_init(&gasneti_bootstrapExchange, 0);
+    gasneti_pshm_init(&gasneti_bootstrapSNodeBroadcast, 0);
   #endif
 
   /* early registration of core API handlers */
@@ -2106,6 +2113,36 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   return GASNET_OK;
 }
 /* ------------------------------------------------------------------------------------ */
+/* Shutdown code - not used by default */
+
+#if GASNETC_IBV_SHUTDOWN
+/* TODO: 
+ * + Deregister all memory
+ * + Destroy PD
+ * + Close HCA
+ */
+void
+gasnetc_shutdown(void) {
+  gasnetc_hca_t *hca;
+
+  (*gasneti_bootstrapBarrier_p)(); /* Don't use the QPs! */
+    
+  gasnetc_connect_shutdown();
+
+  GASNETC_FOR_ALL_HCA(hca) {
+  #if GASNETC_IBV_SRQ
+    if (gasnetc_use_srq) {
+      (void) ibv_destroy_srq(hca->rqst_srq);
+      (void) ibv_destroy_srq(hca->repl_srq);
+    }
+  #endif
+    (void) ibv_destroy_cq(hca->rcv_cq);
+    (void) ibv_destroy_cq(hca->snd_cq);
+  }
+}
+#endif
+
+/* ------------------------------------------------------------------------------------ */
 /*
   Exit handling code
 */
@@ -2451,28 +2488,28 @@ static void gasnetc_exit_sighandler(int sig) {
   if (sig == SIGALRM) {
     static const char msg[] = "gasnet_exit(): WARNING: timeout during exit... goodbye.  [";
     const char * state = gasnetc_exit_state;
-    write(STDERR_FILENO, msg, sizeof(msg) - 1);
-    write(STDERR_FILENO, state, strlen(state));
-    write(STDERR_FILENO, "]\n", 2);
+    (void) write(STDERR_FILENO, msg, sizeof(msg) - 1);
+    (void) write(STDERR_FILENO, state, strlen(state));
+    (void) write(STDERR_FILENO, "]\n", 2);
   } else {
     static const char msg1[] = "gasnet_exit(): ERROR: signal ";
     static const char msg2[] = " received during exit... goodbye.  [";
     const char * state = gasnetc_exit_state;
     char digit;
 
-    write(STDERR_FILENO, msg1, sizeof(msg1) - 1);
+    (void) write(STDERR_FILENO, msg1, sizeof(msg1) - 1);
 
     /* assume sig < 100 */
     if (sig > 9) {
       digit = '0' + ((sig / 10) % 10);
-      write(STDERR_FILENO, &digit, 1);
+      (void) write(STDERR_FILENO, &digit, 1);
     }
     digit = '0' + (sig % 10);
-    write(STDERR_FILENO, &digit, 1);
+    (void) write(STDERR_FILENO, &digit, 1);
     
-    write(STDERR_FILENO, msg2, sizeof(msg2) - 1);
-    write(STDERR_FILENO, state, strlen(state));
-    write(STDERR_FILENO, "]\n", 2);
+    (void) write(STDERR_FILENO, msg2, sizeof(msg2) - 1);
+    (void) write(STDERR_FILENO, state, strlen(state));
+    (void) write(STDERR_FILENO, "]\n", 2);
   }
   #endif
 
@@ -2566,7 +2603,11 @@ static int gasnetc_exit_slave(int64_t timeout_us) {
 /* gasnetc_exit_body
  *
  * This code is common to all the exit paths and is used to perform a hopefully graceful exit in
- * all cases.  To coordinate a graceful shutdown gasnetc_get_exit_role() will select one node as
+ * all cases.  In the normal case of a collective call to gasnet_exit() (or return from main()),
+ * we perform a MAX() reduction over the exitcodes and all processes will exit with the result.
+ * If the exitcode reduction does not complete within gasnetc_exittimeout seconds, then we
+ * assume that this is a NON-collective exit and that additional coordination is needed.  In that
+ * case, to coordinate a graceful shutdown gasnetc_get_exit_role() will select one node as
  * the "master".  That master node will then send a remote exit request to each of its peers to
  * ensure they know that it is time to exit.  If we fail to coordinate the shutdown, we ask the
  * bootstrap to shut us down agressively.  Otherwise we return to our caller.  Unless our caller
@@ -2574,7 +2615,7 @@ static int gasnetc_exit_slave(int64_t timeout_us) {
  * the actual termination.  Note also that this function will block all calling threads other than
  * the first until the shutdown code has been completed.
  *
- * XXX: timeouts contained here are entirely arbitrary
+ * XXX: timeouts other than gasnetc_exittimeout are hard-coded and entirely arbitrary
  */
 static void gasnetc_exit_body(void) {
   int role, exitcode;
@@ -2629,7 +2670,7 @@ static void gasnetc_exit_body(void) {
 
   GASNETI_TRACE_PRINTF(C,("gasnet_exit(%i)\n", exitcode));
 
-  /* Timed MIN(exitcode) reduction to clearly distinguish collective exit */
+  /* Timed MAX(exitcode) reduction to clearly distinguish collective exit */
   alarm(2 + (int)gasnetc_exittimeout);
   graceful = (gasnetc_exit_reduce(exitcode, timeout_us) == 0);
   alarm(0);
@@ -2713,6 +2754,10 @@ static void gasnetc_exit_body(void) {
       gasneti_fatalerror("invalid exit role");
   }
  }
+
+#if GASNETC_IBV_SHUTDOWN
+  gasnetc_shutdown();
+#endif
 
   /* Try again to flush out any recent output, allowing upto 30s */
   GASNETC_EXIT_STATE("closing output");

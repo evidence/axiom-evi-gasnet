@@ -207,8 +207,9 @@ static void gasnete_shmembarrier_init(gasnete_coll_team_t team);
   if(GASNETE_ISBARRIER("SHMEM")) gasnete_coll_default_barrier_type = GASNETE_COLL_BARRIER_SHMEM; \
 } while (0)
 
-#define GASNETE_BARRIER_INIT(TEAM, BARRIER_TYPE) do {        \
-    if ((BARRIER_TYPE) == GASNETE_COLL_BARRIER_SHMEM && (TEAM)==GASNET_TEAM_ALL) { \
+#define GASNETE_BARRIER_INIT(TEAM, TYPE, NODES, SUPERNODES) do { \
+    if ((TYPE) == GASNETE_COLL_BARRIER_SHMEM &&              \
+        (TEAM) == GASNET_TEAM_ALL) {                         \
       gasnete_shmembarrier_init(TEAM);                       \
     }                                                        \
   } while (0)

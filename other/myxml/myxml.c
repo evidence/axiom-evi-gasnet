@@ -153,13 +153,13 @@ void myxml_printTreeXML(FILE *outstream, myxml_node_t *node, const char *whitesp
 }
 
 #ifndef htonl
-#define MYHTONL(IN) IN 
+#define MYHTONL(IN) ((uint32_t)(IN)) /* cast avoids self-assigment warnings */
 #else
 #define MYHTONL(IN) htonl(IN)
 #endif
 
 #ifndef ntohl
-#define MYNTOHL(IN) IN 
+#define MYNTOHL(IN) ((uint32_t)(IN)) /* cast avoids self-assigment warnings */
 #else
 #define MYNTOHL(IN) ntohl(IN)
 #endif

@@ -2596,3 +2596,49 @@ gasnetc_connect_fini(void)
 
   return GASNET_OK;
 } /* gasnetc_connect_fini */
+
+/* ------------------------------------------------------------------------------------ */
+
+#if GASNETC_IBV_SHUTDOWN
+/* Shutdown destroys all QPs
+   It must be called (confusingly enough) after Fini. */
+extern void 
+gasnetc_connect_shutdown(void) {
+  int retries = 5;
+
+  do { /* TODO: try to actually DRAIN sends instead of looping */
+    int failed = 0;
+    int node, qpi;
+
+    for (node = 0; node < gasneti_nodes; ++node) {
+      gasnetc_cep_t *cep = GASNETC_NODE2CEP(node);
+      if (!cep) continue;
+
+      for (qpi = 0; qpi < gasnetc_alloc_qps; ++qpi, ++cep) {
+        if (cep->qp_handle) {
+          if (0 == ibv_destroy_qp(cep->qp_handle)) {
+            cep->qp_handle = NULL;
+          } else {
+            failed = 1;
+          }
+        }
+      }
+    }
+
+    if (conn_ud_qp) {
+      if (0 == ibv_destroy_qp(conn_ud_qp)) {
+        conn_ud_qp = NULL;
+      } else {
+        failed = 1;
+      }
+    }
+
+#if GASNETC_IBV_XRC
+#error "Do not yet support GASNETC_IBV_SHUTDOWN && GASNETC_IBV_XRC"
+#endif
+
+    if (!failed) break;
+    else sleep(1);
+  } while (--retries);
+} /* gasnetc_connect_shutdown */
+#endif  /* GASNETC_IBV_SHUTDOWN */

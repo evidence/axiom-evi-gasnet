@@ -100,7 +100,7 @@ sub gasnet_encode($) {
     my $is_crayt3e_mpi = ($uname =~ m|cray t3e|i );
     my $is_sgi_mpi = ($mpirun_help =~ m|\[-miser\]|);
     my $is_poe      = ($mpirun_help =~ m|Parallel Operating Environment|);
-    my $is_aprun    = ($mpirun_help =~ m|aprunwrapper\|rchitecture type.*?xt|i);
+    my $is_aprun    = ($mpirun_help =~ m|aprunwrapper\|aprun_version\|rchitecture type.*?xt|i);
     my $is_yod      = ($mpirun_help =~ m| yod |);
     my $is_bgl_mpi   = ($platform eq 'bgl' && $mpirun_help =~ m|COprocessor or VirtualNode mode|);
     my $is_bgl_cqsub = ($platform eq 'bgl' && $mpirun_help =~ m| cqsub .*?co/vn|s);
@@ -115,10 +115,11 @@ sub gasnet_encode($) {
     my $is_elan_mpi  = ($mpirun_help =~ m|MPIRUN_ELANIDMAP_FILE|);
     my $is_jacquard = ($mpirun_help =~ m| \[-noenv\] |) && !$is_elan_mpi;
     my $is_infinipath = ($mpirun_help =~ m|InfiniPath |);
-    my $is_srun    = ($mpirun_help =~ m|srun: invalid option|);
+    my $is_srun    = ($mpirun_help =~ m|srun: invalid option| ||
+                      $mpirun_help =~ m|Usage: srun |);
     my $is_prun    = ($mpirun_help =~ m|railmask|);
     my $is_pam     = ($mpirun_help =~ m|TaskStarter|);
-    my $envprog = $ENV{'ENVCMD'};
+    my $envprog = $ENV{'GASNET_ENVCMD'};
     if (! -x $envprog) { # SuperUX has broken "which" implementation, so avoid if possible
       $envprog = `which env`;
       chomp $envprog;
@@ -712,12 +713,14 @@ if ($is_aprun || $is_yod) {
             $numnode = $pbs_nodes;
         } elsif (defined($pbs_jobid) && open(QSTAT, "qstat -f $pbs_jobid |")) {
             while (<QSTAT>) {
-                if (/mppnodect\s*=\s*([0-9]+)/) {
-                    $numnode = $1;
+                if (/\.(mpp)?nodect\s*=\s*([0-9]+)/) {
+                    $numnode = $2;
                     last;
                 }
             }
             close(QSTAT);
+        } elsif (exists($ENV{'SLURM_JOB_ID'}) && exists($ENV{'SLURM_NNODES'})) {
+            $numnode = $ENV{'SLURM_NNODES'};
         }
   }
 

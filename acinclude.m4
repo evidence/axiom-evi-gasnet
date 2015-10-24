@@ -144,9 +144,9 @@ if test "$ac_cv_header_[]lowername" = "yes"; then
   AC_MSG_CHECKING(for location of $1)
   echo "#include <$1>" > conftest.c
   header_pathname=
-  if test "$GASNET_FIND_HEADER_CPP"; then
+  if test -n "$GASNET_FIND_HEADER_CPP"; then
     echo "$GASNET_FIND_HEADER_CPP conftest.c" >&5
-    header_pathname=`$GASNET_FIND_HEADER_CPP conftest.c 2>&5 | grep $1 | head -1`
+    header_pathname=`eval "$GASNET_FIND_HEADER_CPP conftest.c 2>&5" | grep $1 | head -1`
     header_pathname=`echo $header_pathname | $AWK '{ printf("%s",[$]3); }'`
   fi
   if test -z "$header_pathname"; then
@@ -1309,6 +1309,10 @@ AC_DEFUN([GASNET_GET_GNU_ATTRIBUTES],[
             [char c; char *x = dummy(&c);])
   GASNET_CHECK_GNU_ATTRIBUTE([$1], [$2], [__pure__],
             [__attribute__((__pure__)) int dummy(int x) { return x+1; }])
+  GASNET_CHECK_GNU_ATTRIBUTE([$1], [$2], [__hot__],
+            [__attribute__((__hot__)) int dummy(void) { return 1; }])
+  GASNET_CHECK_GNU_ATTRIBUTE([$1], [$2], [__cold__],
+            [__attribute__((__cold__)) int dummy(void) { return 1; }])
   GASNET_CHECK_GNU_ATTRIBUTE([$1], [$2], [__deprecated__],
             [__attribute__((__deprecated__)) int dummy(void) { return 0; }])
   GASNET_CHECK_GNU_ATTRIBUTE([$1], [$2], [__format__],
@@ -1323,7 +1327,8 @@ AC_DEFUN([GASNET_GET_GNU_ATTRIBUTES],[
   pushdef([cachevar],cv_prefix[]translit([$1],'A-Z','a-z')[]_attr_format_funcptr)
   AC_CACHE_CHECK($2 for __attribute__((__format__)) on function pointers, cachevar,
     GASNET_TRY_COMPILE_WITHWARN(GASNETI_C_OR_CXX([$1]), [
-          __attribute__((__format__ (__printf__, 1, 2))) extern void (*dummy)(const char *fmt,...);
+          __attribute__((__format__ (__printf__, 1, 2))) extern void (*dummy1)(const char *fmt,...);
+          __attribute__((__format__ (__printf__, 1, 2)))        void (*dummy2)(const char *fmt,...);
       ], [], [ cachevar='yes' ],[ cachevar='no/warning' ],[ cachevar='no/error' ])
   )
   if test "$cachevar" = yes; then
@@ -2098,9 +2103,10 @@ AC_DEFUN([GASNET_FUNC_ALLOCA],[
   GASNET_FUNC_ALLOCA_HELPER(AC_FUNC_ALLOCA)
 ])
 
-dnl Set command for use in Makefile.am to install various files
+dnl Set command for use in Makefile.am to install makefile fragments
 dnl This command should remove all the magic used to run from the build
 dnl directory, as well as deal with setting of the prefix at install time.
+dnl All expansions except '###INSTALL_PREFIX###' are relative to $(prefix).
 AC_DEFUN([GASNET_SET_INSTALL_CMD],[
 GASNET_INSTALL_CMD="sed -e '/###NOINSTALL###/d' \
 -e 's@###INSTALL_INCLUDE###@\$(includedir)@g' \
@@ -2110,6 +2116,7 @@ GASNET_INSTALL_CMD="sed -e '/###NOINSTALL###/d' \
 -e 's@###INSTALL_BIN###@\$(bindir)@g' \
 -e 's@###INSTALL_MAN###@\$(mandir)@g' \
 -e 's@###INSTALL_ETC###@\$(sysconfdir)@g' \
+-e 's@\$(prefix)/@\$\$(GASNET_PREFIX)/@g' \
 -e 's@###INSTALL_PREFIX###@\$(prefix)@g'"
 AC_SUBST(GASNET_INSTALL_CMD)
 ])

@@ -21,6 +21,8 @@
 #  $(GASNETTOOLS_LD) $(GASNETTOOLS_LDFLAGS) -o myfile myfile.o $(GASNETTOOLS_LIBS)
 # ----------------------------------------------------------------------
 
+GASNET_PREFIX = ###INSTALL_PREFIX###
+
 GASNETTOOLS_INCLUDES = @SYS_HEADER_INST@ -I###INSTALL_INCLUDE###
 GASNETTOOLS_INCLUDES = @SYS_HEADER_BLD@ -I@TOP_SRCDIR@ -I@TOP_SRCDIR@/other -I@TOP_BUILDDIR@ ###NOINSTALL###
 

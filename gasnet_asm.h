@@ -13,10 +13,34 @@
 
 #include "portable_platform.h"
 
+/* Sort out the per-compiler support for asm and atomics */
+#if (GASNETI_COMPILER_IS_CC     && GASNETI_HAVE_CC_GCC_ASM)     || \
+    (GASNETI_COMPILER_IS_CXX    && GASNETI_HAVE_CXX_GCC_ASM)    || \
+    (GASNETI_COMPILER_IS_MPI_CC && GASNETI_HAVE_MPI_CC_GCC_ASM)
+  #define GASNETI_HAVE_GCC_ASM 1
+#endif
+#if (GASNETI_COMPILER_IS_CC     && GASNETI_HAVE_CC_XLC_ASM)     || \
+    (GASNETI_COMPILER_IS_CXX    && GASNETI_HAVE_CXX_XLC_ASM)    || \
+    (GASNETI_COMPILER_IS_MPI_CC && GASNETI_HAVE_MPI_CC_XLC_ASM)
+  #define GASNETI_HAVE_XLC_ASM 1
+#endif
+#if (GASNETI_COMPILER_IS_CC     && GASNETI_HAVE_CC_SYNC_ATOMICS_32)     || \
+    (GASNETI_COMPILER_IS_CXX    && GASNETI_HAVE_CXX_SYNC_ATOMICS_32)    || \
+    (GASNETI_COMPILER_IS_MPI_CC && GASNETI_HAVE_MPI_CC_SYNC_ATOMICS_32)
+  #define GASNETI_HAVE_SYNC_ATOMICS_32 1
+#endif
+#if (GASNETI_COMPILER_IS_CC     && GASNETI_HAVE_CC_SYNC_ATOMICS_64)     || \
+    (GASNETI_COMPILER_IS_CXX    && GASNETI_HAVE_CXX_SYNC_ATOMICS_64)    || \
+    (GASNETI_COMPILER_IS_MPI_CC && GASNETI_HAVE_MPI_CC_SYNC_ATOMICS_64)
+  #define GASNETI_HAVE_SYNC_ATOMICS_64 1
+#endif
+
 #define GASNETI_ASM_AVAILABLE 1
-#if PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_INTEL || PLATFORM_COMPILER_PATHSCALE || \
-    PLATFORM_COMPILER_TINY || PLATFORM_COMPILER_OPEN64 || PLATFORM_COMPILER_CLANG
-  #define GASNETI_ASM(mnemonic) __asm__ __volatile__ (mnemonic : : : "memory")
+#if GASNETI_HAVE_GCC_ASM
+  /* Configure detected support for GCC-style inline asm */
+#elif PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_INTEL || PLATFORM_COMPILER_PATHSCALE || \
+      PLATFORM_COMPILER_TINY || PLATFORM_COMPILER_OPEN64 || PLATFORM_COMPILER_CLANG
+  #define GASNETI_HAVE_GCC_ASM 1
 #elif PLATFORM_COMPILER_PGI 
   /* Some definitions:
    *
@@ -76,7 +100,7 @@
   #if (PLATFORM_COMPILER_PGI_C && PLATFORM_COMPILER_VERSION_GE(6,1,1)) || \
       (PLATFORM_COMPILER_PGI_CXX && PLATFORM_COMPILER_VERSION_GE(6,2,2))
     #define GASNETI_PGI_ASM_GNU 1
-    #define GASNETI_ASM(mnemonic) __asm__ __volatile__ (mnemonic : : : "memory")
+    #define GASNETI_HAVE_GCC_ASM 1
   #else /* note this requires compiler flag -Masmkeyword */
     #define GASNETI_ASM(mnemonic) asm(mnemonic)
   #endif
@@ -117,6 +141,10 @@
   #endif
 #else
   #error "Don't know how to use inline assembly for your compiler"
+#endif
+
+#if GASNETI_HAVE_GCC_ASM
+  #define GASNETI_ASM(mnemonic) __asm__ __volatile__ (mnemonic : : : "memory")
 #endif
 
 #ifndef GASNETI_ASM_SPECIAL

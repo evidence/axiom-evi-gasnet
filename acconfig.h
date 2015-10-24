@@ -43,6 +43,8 @@
 #undef GASNETI_HAVE_CC_ATTRIBUTE_NORETURN
 #undef GASNETI_HAVE_CC_ATTRIBUTE_PURE
 #undef GASNETI_HAVE_CC_ATTRIBUTE_CONST
+#undef GASNETI_HAVE_CC_ATTRIBUTE_HOT
+#undef GASNETI_HAVE_CC_ATTRIBUTE_COLD
 #undef GASNETI_HAVE_CC_ATTRIBUTE_DEPRECATED
 #undef GASNETI_HAVE_CC_ATTRIBUTE_FORMAT
 #undef GASNETI_HAVE_CC_ATTRIBUTE_FORMAT_FUNCPTR
@@ -61,6 +63,8 @@
 #undef GASNETI_HAVE_CXX_ATTRIBUTE_NORETURN
 #undef GASNETI_HAVE_CXX_ATTRIBUTE_PURE
 #undef GASNETI_HAVE_CXX_ATTRIBUTE_CONST
+#undef GASNETI_HAVE_CXX_ATTRIBUTE_HOT
+#undef GASNETI_HAVE_CXX_ATTRIBUTE_COLD
 #undef GASNETI_HAVE_CXX_ATTRIBUTE_DEPRECATED
 #undef GASNETI_HAVE_CXX_ATTRIBUTE_FORMAT
 #undef GASNETI_HAVE_CXX_ATTRIBUTE_FORMAT_FUNCPTR
@@ -79,6 +83,8 @@
 #undef GASNETI_HAVE_MPI_CC_ATTRIBUTE_NORETURN
 #undef GASNETI_HAVE_MPI_CC_ATTRIBUTE_PURE
 #undef GASNETI_HAVE_MPI_CC_ATTRIBUTE_CONST
+#undef GASNETI_HAVE_MPI_CC_ATTRIBUTE_HOT
+#undef GASNETI_HAVE_MPI_CC_ATTRIBUTE_COLD
 #undef GASNETI_HAVE_MPI_CC_ATTRIBUTE_DEPRECATED
 #undef GASNETI_HAVE_MPI_CC_ATTRIBUTE_FORMAT
 #undef GASNETI_HAVE_MPI_CC_ATTRIBUTE_FORMAT_FUNCPTR
@@ -101,6 +107,7 @@
 #undef GASNETI_PLATFORM_MPI_CC_FAMILYID
 #undef GASNETI_PLATFORM_MPI_CC_ID
 #undef GASNETI_PLATFORM_MPI_CC_VERSION
+#undef GASNETI_MPI_VERSION
 
 /* Defined to be the inline function modifier supported by the C
    compilers (if supported), prefixed by 'static' (if permitted) */
@@ -111,6 +118,23 @@
 #undef GASNETI_CC_RESTRICT
 #undef GASNETI_CXX_RESTRICT
 #undef GASNETI_MPI_CC_RESTRICT
+
+/* Which inline asm style(s) are supported - these are defined only
+   where we use configure to determine what a compiler supports */
+#undef GASNETI_HAVE_CC_XLC_ASM
+#undef GASNETI_HAVE_CXX_XLC_ASM
+#undef GASNETI_HAVE_MPI_CC_XLC_ASM
+#undef GASNETI_HAVE_CC_GCC_ASM
+#undef GASNETI_HAVE_CXX_GCC_ASM
+#undef GASNETI_HAVE_MPI_CC_GCC_ASM
+
+/* Which non-native atomics are available */
+#undef GASNETI_HAVE_CC_SYNC_ATOMICS_32
+#undef GASNETI_HAVE_CXX_SYNC_ATOMICS_32
+#undef GASNETI_HAVE_MPI_CC_SYNC_ATOMICS_32
+#undef GASNETI_HAVE_CC_SYNC_ATOMICS_64
+#undef GASNETI_HAVE_CXX_SYNC_ATOMICS_64
+#undef GASNETI_HAVE_MPI_CC_SYNC_ATOMICS_64
 
 /* Does CC support C99-type non-constant initializers for structs? */
 #undef HAVE_NONCONST_STRUCT_INIT
@@ -204,6 +228,7 @@
 #undef ADDR2LINE_PATH
 #undef GDB_PATH
 #undef GSTACK_PATH
+#undef PSTACK_PATH
 #undef PGDBG_PATH
 #undef IDB_PATH
 #undef LADEBUG_PATH
@@ -220,6 +245,9 @@
 
 /* has __thread thread-local-storage support */
 #undef GASNETI_HAVE_TLS_SUPPORT
+
+/* force threadinfo optimization ON or OFF */
+#undef GASNETI_THREADINFO_OPT_CONFIGURE
 
 /* pause instruction, if any */
 #undef GASNETI_PAUSE_INSTRUCTION
@@ -324,8 +352,6 @@
 
 /* Have working PPC64 ISA (lacks an associated builtin preprocessor macro) */
 #undef GASNETI_ARCH_PPC64
-/* Tune for a PPC970 cpu (should not crash other PPCs) */
-#undef GASNETI_TUNE_PPC970
 
 /* Type to use as socklen_t */
 #undef GASNET_SOCKLEN_T
@@ -355,6 +381,7 @@
 /* GASNet {gemini,aries}-conduit settings */
 #undef GASNETC_GNI_MAX_MEDIUM
 #undef GASNETC_GNI_MULTI_DOMAIN
+#undef GASNETC_GNI_FIREHOSE
 
 /* GASNet ibv-conduit features and bug work-arounds */
 #undef HAVE_IBV_SRQ

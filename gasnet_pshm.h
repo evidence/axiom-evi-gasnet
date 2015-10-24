@@ -44,7 +44,7 @@
 /* In gasnet_mmap.c */
 #define GASNETI_PSHM_UNIQUE_LEN 6
 
-extern void *gasneti_mmap_vnet(uintptr_t segsize, gasneti_bootstrapExchangefn_t exchangefn);
+extern void *gasneti_mmap_vnet(uintptr_t segsize, gasneti_bootstrapBroadcastfn_t localbcastfn);
 extern void gasneti_unlink_vnet(void);
 
 /* Virtual network between processes within a shared
@@ -57,7 +57,7 @@ typedef struct gasneti_pshmnet gasneti_pshmnet_t;
 
 /* Initialize pshm request and reply networks given a conduit-specific exchange function.
    Returns pointer to shared memory of length "aux_sz" available for conduit-specific use */
-extern void *gasneti_pshm_init(gasneti_bootstrapExchangefn_t exchangefn, size_t aux_sz);
+extern void *gasneti_pshm_init(gasneti_bootstrapBroadcastfn_t localbcastfn, size_t aux_sz);
 
 /*  PSHMnets needed for PSHM active messages.
  *

@@ -12,6 +12,9 @@
 #include "gasnet_internal.h"
 #include "gasnet_core_internal.h"
 #include <gasnet_extended_internal.h>
+#if GASNETC_GNI_FIREHOSE
+#include <firehose.h>
+#endif
 
 #define GASNETC_STRICT_MEM_CONSISTENCY  1 /* use GNI_MEM_STRICT_PI_ORDERING */
 #define GASNETC_RELAXED_MEM_CONSISTENCY 2 /* use GNI_MEM_RELAXED_PI_ORDERING */
@@ -39,7 +42,7 @@
 #define GASNETC_DOMAIN_COUNT_DEFAULT 1
 #define GASNETC_PTHREADS_PER_DOMAIN_DEFAULT 1
 
-#define GASNETC_AM_DOMAIN_POLL_MASK_DEFAULT (0x7f)
+#define GASNETC_AM_DOMAIN_POLL_MASK_DEFAULT (0xff)
 
 #define GASNETC_DIDX_POST(_val) const int _domain_idx = (_val)
 
@@ -114,6 +117,14 @@ typedef struct {
   gasnetc_notify_t notify;  
 } gasnetc_token_t;
 
+#if GASNETC_GNI_FIREHOSE
+extern size_t gasnetc_fh_align;
+extern size_t gasnetc_fh_align_mask;
+extern int gasnetc_use_firehose;
+#else
+#define gasnetc_use_firehose 0
+#endif
+
 /* Control messages */
 enum {
     GC_CTRL_SHUTDOWN 
@@ -176,13 +187,13 @@ typedef union gasnetc_packet_u {
 #define GASNETC_HEADLEN(cat,nargs) \
         GASNETC_HEADLEN_AUX(gasnetc_am_##cat##_packet_t,(nargs))
 
-/* maximum SMSG size: */
+/* maximum message size: */
 #define GASNETC_CACHELINE_SIZE 64
 #define GASNETC_MSG_MAXSIZE \
         GASNETI_ALIGNUP_NOASSERT((GASNETC_HEADLEN(medium, gasnet_AMMaxArgs()) \
                           + gasnet_AMMaxMedium()), GASNETC_CACHELINE_SIZE)
 
-/* max data one can pack into SMSG with a long header: */
+/* max data one can pack into a message with a long header: */
 /* TODO: runtime control of cut-off via an env var */
 #if GASNET_CONDUIT_GEMINI
 /* On Gemini it doesn't pay to pack more than 128 bytes or so */
@@ -213,8 +224,11 @@ void gasnetc_init_bounce_buffer_pool(GASNETC_DIDX_FARG_ALONE);
 /* space for immediate bounce buffer in the post descriptor */
 #define GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE 128
 /* how many concurrent dynamic memory registrations to allow */
-#define GASNETC_GNI_MEMREG_DEFAULT 16 /* 0 = unbounded.  TODO: tune/probe? */
-
+#if GASNET_CONDUIT_GEMINI
+#define GASNETC_GNI_MEMREG_DEFAULT 16 /* TODO: tune/probe? */
+#else
+#define GASNETC_GNI_MEMREG_DEFAULT 0  /* 0 = unbounded */
+#endif
 
 /* largest get that can be handled by gasnetc_rdma_get_unaligned() */
 extern size_t gasnetc_max_get_unaligned;
@@ -222,15 +236,35 @@ extern size_t gasnetc_max_get_unaligned;
 /* largest put that gasnetc_rdma_put_lc() will accept */
 extern size_t gasnetc_max_put_lc;
 
-/* send/copy, unbounce/unregister, flag/eop are each mutually exclusive pairs */
+/* completion actions: */
+enum {
+  _gc_post_reserved = 2,  /* Bits 0-2 hold offset for trimmed copy operations */
+  /* mutually-exclusive data-movement actions */
+  _gc_post_copy,
+  _gc_post_copy_imm,
+  /* mutually-exclusive resource recovery actions */
+  _gc_post_unbounce,
+  _gc_post_unregister,
+  _gc_post_firehose,
+  /* mutually-exclusive signaling actions */
+  _gc_post_completion_flag,
+  _gc_post_completion_cntr,
+  _gc_post_completion_send,
+  /* optionally suppress free of the gpd */
+  _gc_post_keep_gpd,
+};
 #define GC_POST_COPY_TRIM 7 /* up to 6 bytes of overfetch to achive 4-byte aligned Gets */
-#define GC_POST_COPY 8
-#define GC_POST_COMPLETION_SEND 16
-#define GC_POST_UNBOUNCE 32
-#define GC_POST_UNREGISTER 64
-#define GC_POST_COMPLETION_FLAG 128
-#define GC_POST_COMPLETION_CNTR 256
-#define GC_POST_KEEP_GPD 512
+#define GC_POST(name)           ((uint32_t)1 << _gc_post_##name)
+#define GC_POST_COPY            GC_POST(copy)
+#define GC_POST_COPY_IMM        GC_POST(copy_imm)
+#define GC_POST_SEND            GC_POST(send)
+#define GC_POST_UNBOUNCE        GC_POST(unbounce)
+#define GC_POST_UNREGISTER      GC_POST(unregister)
+#define GC_POST_FIREHOSE        GC_POST(firehose)
+#define GC_POST_COMPLETION_FLAG GC_POST(completion_flag)
+#define GC_POST_COMPLETION_CNTR GC_POST(completion_cntr)
+#define GC_POST_COMPLETION_SEND GC_POST(completion_send)
+#define GC_POST_KEEP_GPD        GC_POST(keep_gpd)
 
 /* WARNING: if sizeof(gasnetc_post_descriptor_t) changes, then
  * you must update the value in gasneti_pd_auxseg_IdentString */
@@ -246,6 +280,9 @@ typedef struct gasnetc_post_descriptor {
     uint8_t immediate[GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE];
     gasneti_weakatomic_t counter;
     gasnetc_notify_t notify;
+  #if GASNETC_GNI_FIREHOSE
+    firehose_request_t fh_req;
+  #endif
   } u;
   uint32_t flags;
 #if GASNETC_USE_MULTI_DOMAIN
@@ -305,6 +342,24 @@ void gasnetc_rdma_get_unaligned(gasnet_node_t node,
 int gasnetc_rdma_get_buff(gasnet_node_t node,
 		 void *dest_addr, void *source_addr,
 		 size_t nbytes, gasnetc_post_descriptor_t *gpd);
+
+#if GASNETC_GNI_FIREHOSE
+size_t gasnetc_rdma_put_fh(gasnet_node_t node,
+		 void *dest_addr, void *source_addr,
+		 size_t nbytes, gasnetc_post_descriptor_t *gpd) GASNETI_WARN_UNUSED_RESULT;
+
+size_t gasnetc_rdma_get_fh(gasnet_node_t node,
+		 void *dest_addr, void *source_addr,
+		 size_t nbytes, gasnetc_post_descriptor_t *gpd) GASNETI_WARN_UNUSED_RESULT;
+#endif
+
+/* Extensions: */
+#if GASNETC_GNI_FETCHOP
+void gasnetc_fetchop_u64(gasnet_node_t node,
+                 void *source_addr, gni_fma_cmd_type_t cmd, uint64_t operand,
+                 gasnetc_post_descriptor_t *gpd);
+#endif
+
 
 /* returns 1 if-and-only-if value was decremented. */
 /* based on gasneti_semaphore_trydown() w/o padding or rmb */

@@ -362,8 +362,25 @@ extern uint64_t gasnet_max_segsize; /* client-overrideable max segment size */
 /* public threadinfo support */
 
 #if GASNETI_CLIENT_THREADS
+  #if defined GASNETI_THREADINFO_OPT_CONFIGURE
+    /* take user-specified value, if any*/
+    #undef GASNETI_THREADINFO_OPT
+    #define GASNETI_THREADINFO_OPT GASNETI_THREADINFO_OPT_CONFIGURE
+  #elif defined GASNETI_THREADINFO_OPT
+    /* keep conduit-specified value */
+  #elif defined GASNETI_HAVE_TLS_SUPPORT
+    /* Default to OFF on some common ABIs with good TLS support */
+    #if (PLATFORM_ARCH_X86_64 || PLATFORM_ARCH_MIC) && \
+        (PLATFORM_OS_DARWIN || PLATFORM_OS_SOLARIS || PLATFORM_OS_LINUX || PLATFORM_OS_CNL)
+      #define GASNETI_THREADINFO_OPT    0
+    #elif PLATFORM_ARCH_POWERPC && \
+         (PLATFORM_OS_LINUX || PLATFORM_OS_BGQ)
+      #define GASNETI_THREADINFO_OPT    0
+    #endif
+  #endif
   #ifndef GASNETI_THREADINFO_OPT
-  #define GASNETI_THREADINFO_OPT      1
+    /* Default to ON if not set anywhere above */
+    #define GASNETI_THREADINFO_OPT      1
   #endif
   #ifndef GASNETI_LAZY_BEGINFUNCTION
   #define GASNETI_LAZY_BEGINFUNCTION  1

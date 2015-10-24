@@ -83,6 +83,18 @@ extern gasneti_atomic_t gasnetc_exit_running;
 /* May eventually be a hash? */
 #define GASNETC_NODE2CEP(_node) (gasnetc_node2cep[_node])
 
+
+/*
+ * In theory all resources should be recovered automatically at process exit.
+ * However, a least Solaris 11.2 has been seen to eventually begin returning
+ * ENOSPC from ibv_create_cq() after a few thousand tests have run.
+ * So, we will make a best-effort to at least destroy QPs and CQs.
+ */
+#if PLATFORM_OS_SOLARIS
+  #define GASNETC_IBV_SHUTDOWN 1
+  extern void gasnetc_connect_shutdown(void);
+#endif
+
 /* ------------------------------------------------------------------------------------ */
 /* Core handlers.
  * These are registered early and are available even before _attach()
@@ -658,11 +670,13 @@ extern void (*gasneti_bootstrapFini_p)(void);
 extern void (*gasneti_bootstrapAbort_p)(int exitcode);
 extern void (*gasneti_bootstrapAlltoall_p)(void *src, size_t len, void *dest);
 extern void (*gasneti_bootstrapBroadcast_p)(void *src, size_t len, void *dest, int rootnode);
+extern void (*gasneti_bootstrapSNodeCast_p)(void *src, size_t len, void *dest, int rootnode);
 extern void (*gasneti_bootstrapCleanup_p)(void);
 #define gasneti_bootstrapFini           (*gasneti_bootstrapFini_p)
 #define gasneti_bootstrapAbort          (*gasneti_bootstrapAbort_p)
 #define gasneti_bootstrapAlltoall       (*gasneti_bootstrapAlltoall_p)
 #define gasneti_bootstrapBroadcast      (*gasneti_bootstrapBroadcast_p)
+#define gasneti_bootstrapSNodeBroadcast (*gasneti_bootstrapSNodeCast_p)
 #define gasneti_bootstrapCleanup        (*gasneti_bootstrapCleanup_p)
 extern void gasneti_bootstrapBarrier(void);
 extern void gasneti_bootstrapExchange(void *src, size_t len, void *dest);

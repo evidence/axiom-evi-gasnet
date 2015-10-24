@@ -150,4 +150,45 @@ gasnet_handle_t gasnete_end_nbi_accessregion(GASNETE_THREAD_FARG_ALONE)
 { return GASNET_INVALID_HANDLE; }
 #define gasnete_end_nbi_accessregion gasnete_end_nbi_accessregion
 
+/* ------------------------------------------------------------------------------------ */
+/*
+  Value Put
+  =========
+*/
+
+GASNETI_INLINE(gasnete_put_val)
+void gasnete_put_val(gasnet_node_t node, void *dest, gasnet_register_value_t value, size_t nbytes GASNETE_THREAD_FARG)
+{
+  GASNETI_CHECKPSHM_PUTVAL(V);
+  gasneti_assert(0 && "Unreachable");
+}
+#define gasnete_put_val gasnete_put_val
+
+GASNETI_INLINE(gasnete_put_nb_val) GASNETI_WARN_UNUSED_RESULT
+gasnet_handle_t gasnete_put_nb_val(gasnet_node_t node, void *dest, gasnet_register_value_t value, size_t nbytes GASNETE_THREAD_FARG)
+{
+  GASNETI_CHECKPSHM_PUTVAL(H);
+  gasneti_assert(0 && "Unreachable");
+  return GASNET_INVALID_HANDLE;
+}
+#define gasnete_put_nb_val gasnete_put_nb_val
+
+/* nbi is trivially identical to blocking */
+#define gasnete_put_nbi_val gasnete_put_val
+
+/* ------------------------------------------------------------------------------------ */
+/*
+  Blocking Value Get
+  ==================
+*/
+
+GASNETI_INLINE(gasnete_get_val)
+gasnet_register_value_t gasnete_get_val(gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG)
+{
+  GASNETI_CHECKPSHM_GETVAL();
+  gasneti_assert(0 && "Unreachable");
+  return 0;
+}
+#define gasnete_get_val gasnete_get_val
+
 #endif

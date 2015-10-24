@@ -27,10 +27,12 @@ CONDUITMODE_DIST_SUBDIRS =    	\
 	udp-conduit  		\
 	ibv-conduit 		\
 	mxm-conduit		\
+	psm-conduit		\
 	portals4-conduit        \
 	gemini-conduit          \
 	aries-conduit           \
-	pami-conduit
+	pami-conduit			\
+	ofi-conduit
 CONDUITMODE_headers = 		\
 	gasnet.h           	\
 	gasnet_ammacros.h  	\
@@ -277,7 +279,7 @@ install-data-local:
 	@list='$(fragments)'; for p in $$list; do \
           if test -f $$p; then \
             filename=`basename $$p`; \
-            echo "@GASNET_INSTALL_CMD@ < $$p > $(DESTDIR)$(includedir)/$$filename"; \
+            echo @GASNET_INSTALL_CMD@ " < $$p > $(DESTDIR)$(includedir)/$$filename"; \
             @GASNET_INSTALL_CMD@ < $$p > $(DESTDIR)$(includedir)/$$filename || exit $$? ; \
           else :; fi; \
         done

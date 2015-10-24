@@ -535,7 +535,7 @@ extern gasnet_handle_t gasnete_end_nbi_accessregion(GASNETE_THREAD_FARG_ALONE) G
 #elif !defined(gasnete_put)
   /* only valid because this is blocking put */
   #define gasnete_put   gasnete_put_bulk
-  #ifdef GASNETI_THREADINFO_OPT
+  #if GASNETI_THREADINFO_OPT
     #define gasnete_putTI(node,dest,src,nbytes,ti) gasnete_put_bulk(node,dest,src,nbytes GASNETE_THREAD_PASS)
   #else
     #define gasnete_putTI gasnete_put_bulk
@@ -813,11 +813,11 @@ extern gasnet_team_handle_t gasnete_coll_team_all;
 #endif
 
 /*intialize the barriers for a given team*/
-extern void gasnete_coll_barrier_init(gasnete_coll_team_t team, int barrier_type);
+extern void gasnete_coll_barrier_init(gasnete_coll_team_t team, int barrier_type,
+                                      gasnet_node_t *nodes, gasnet_node_t *supernodes);
 
-/*initialize the barriers forGASNET_TEAM_ALL*/
-/*note that here partially constructed GASNET_TEAM_ALL is created and used until coll_init is called*/
-#define gasnete_barrier_init() gasnete_coll_barrier_init(GASNET_TEAM_ALL, 0)
+/*initialize the barriers for GASNET_TEAM_ALL*/
+extern void gasnete_barrier_init(void);
 
 
 #if GASNETI_STATS_OR_TRACE

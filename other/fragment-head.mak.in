@@ -14,17 +14,22 @@
 # and use a -I###INSTALL_INCLUDE###/#conduit_name#-conduit
 # command-line option when invoking make
 #
-# Then in the Makefile, use a compile line something like this:
-#  $(GASNET_CC) $(GASNET_CPPFLAGS) $(GASNET_CFLAGS) -c myfile.c
+# Then in the Makefile, use a compile line something like one of these:
+#  $(GASNET_CC)  $(GASNET_CPPFLAGS)    $(GASNET_CFLAGS)   -c myfile.c
+#  $(GASNET_CXX) $(GASNET_CXXCPPFLAGS) $(GASNET_CXXFLAGS) -c myfile.cxx
 #
 # and a link line something like this:
 #  $(GASNET_LD) $(GASNET_LDFLAGS) -o myfile myfile.o $(GASNET_LIBS)
 # 
-# For GASNet clients who need finer-grained control over C compiler options, 
+# For GASNet clients who need finer-grained control over compiler options,
 #  GASNET_CFLAGS is an alias for: 
 #     $(GASNET_OPT_CFLAGS) $(GASNET_MISC_CFLAGS)
 #  GASNET_CPPFLAGS is an alias for: 
 #     $(GASNET_MISC_CPPFLAGS) $(GASNET_DEFINES) $(GASNET_INCLUDES)
+#  GASNET_CXXFLAGS is an alias for:
+#     $(GASNET_OPT_CXXFLAGS) $(GASNET_MISC_CXXFLAGS)
+#  GASNET_CXXCPPFLAGS is an alias for:
+#     $(GASNET_MISC_CXXCPPFLAGS) $(GASNET_DEFINES) $(GASNET_INCLUDES)
 # and those finer-grained variables can be used rather than the convenience aliases
 #
 # ----------------------------------------------------------------------
@@ -54,6 +59,8 @@
 #   complicates GASNet framework maintenance.
 #
 # ----------------------------------------------------------------------
+
+GASNET_PREFIX = ###INSTALL_PREFIX###
 
 # ----------------------------------------------------------------------
 # conduit-overridable variables 

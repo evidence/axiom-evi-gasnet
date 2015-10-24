@@ -32,7 +32,8 @@
   #define GASNETI_USING_SLOW_MEMBARS 1
 /* ------------------------------------------------------------------------------------ */
 #elif PLATFORM_ARCH_SPARC
-  #if defined(__sparcv9) || defined(__sparcv9cpu) || defined(GASNETI_ARCH_ULTRASPARC) /* SPARC v9 ISA */
+  #if defined(__sparcv9) || defined(__sparcv9cpu) || \
+      defined(__sparc_v9__) || defined(GASNETI_ARCH_ULTRASPARC) /* SPARC v9 ISA */
     GASNETI_INLINE(gasneti_local_wmb)
     void gasneti_local_wmb(void) {
       /* For TSO SPARCs this is technically oversynced, but costs us nothing extra. */
@@ -60,7 +61,7 @@
   #endif
 /* ------------------------------------------------------------------------------------ */
 #elif PLATFORM_ARCH_MIPS
-  #if 1 /* All currently supported compilers (gnu and pathscale) */
+  #if PLATFORM_COMPILER_GNU
     GASNETI_INLINE(_gasneti_local_mb)
     void _gasneti_local_mb(void) {
       GASNETI_ASM(".set mips2  \n\t"
@@ -165,7 +166,7 @@
    #endif
 /* ------------------------------------------------------------------------------------ */
 #elif PLATFORM_ARCH_POWERPC
- #if PLATFORM_COMPILER_XLC
+ #if PLATFORM_COMPILER_XLC && GASNETI_HAVE_XLC_ASM
    /* VisualAge C compiler (mpcc_r) has no support for inline symbolic assembly
     * you have to hard-code the opcodes in a pragma that defines an assembly 
     * function - see /usr/include/sys/atomic_op.h on AIX for examples
@@ -225,7 +226,8 @@
    #define GASNETI_RMB_IS_MB
    #define GASNETI_WMB_IS_MB
 /* ------------------------------------------------------------------------------------ */
-#elif PLATFORM_ARCH_ARM && PLATFORM_OS_LINUX && PLATFORM_COMPILER_GNU
+#elif PLATFORM_ARCH_ARM && PLATFORM_OS_LINUX && \
+      (PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_CLANG)
    #if defined(GASNETI_UNI_BUILD)
      /* On a uniprocessor build avoid performing what reduces to an expensive no-op */
      #define gasneti_local_mb()  gasneti_compiler_fence()
@@ -246,7 +248,8 @@
    #define GASNETI_RMB_IS_MB
    #define GASNETI_WMB_IS_MB
 /* ------------------------------------------------------------------------------------ */
-#elif PLATFORM_ARCH_AARCH64 && PLATFORM_OS_LINUX && PLATFORM_COMPILER_GNU
+#elif PLATFORM_ARCH_AARCH64 && PLATFORM_OS_LINUX && \
+      (PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_CLANG)
    #define gasneti_local_wmb() GASNETI_ASM("dmb ishst")
    #define gasneti_local_rmb() GASNETI_ASM("dmb ishld")
    #define gasneti_local_mb()  GASNETI_ASM("dmb ish")

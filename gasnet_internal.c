@@ -70,6 +70,10 @@ GASNETI_IDENT(gasneti_IdentString_SegConfig, "$GASNetSegment: GASNET_SEGMENT_" G
   GASNETI_IDENT(gasneti_IdentString_ConservativeLocalCopy, "$GASNetConservativeLocalCopy: 1 $");
 #endif
 
+#if GASNETI_CLIENT_THREADS
+  GASNETI_IDENT(gasneti_IdentString_ThreadInfoOpt, "$GASNetThreadInfoOpt: " _STRINGIFY(GASNETI_THREADINFO_OPT) " $");
+#endif
+
 /* embed a string with complete configuration info to support versioning checks */
 GASNETI_IDENT(gasneti_IdentString_libraryConfig, "$GASNetConfig: (libgasnet.a) " GASNET_CONFIG_STRING " $");
 /* the canonical conduit name */
@@ -106,6 +110,7 @@ int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_MEMBAR_CONFIG) = 1;
 int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_ATOMIC_CONFIG) = 1;
 int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_ATOMIC32_CONFIG) = 1;
 int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_ATOMIC64_CONFIG) = 1;
+int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_TIOPT_CONFIG) = 1;
 int GASNETI_LINKCONFIG_IDIOTCHECK(_CONCAT(CORE_,GASNET_CORE_NAME)) = 1;
 int GASNETI_LINKCONFIG_IDIOTCHECK(_CONCAT(EXTENDED_,GASNET_EXTENDED_NAME)) = 1;
 
@@ -630,7 +635,6 @@ extern void gasneti_decode_args(int *argc, char ***argv) {
       }
     }
   }
-  gasneti_backtrace_init((*argv)[0]);
 }
 
 /* Process environment for exittimeout.
@@ -1028,6 +1032,18 @@ extern void gasneti_nodemapParse(void) {
   /* Check for user-imposed limit: 0 (or negative) means no limit */
 #if GASNET_PSHM
   limit = gasneti_getenv_int_withdefault("GASNET_SUPERNODE_MAXSIZE", 0, 0);
+ #ifdef GASNETI_PSHM_GHEAP
+  if (limit != 1) {
+    char *envval = getenv("BG_MAPCOMMONHEAP"); /* Yes, plain getenv is intended here */
+    if (!envval || atoi(envval) != 1) {
+      if (!gasneti_mynode) {
+        fprintf(stderr, "WARNING: BG_MAPCOMMONHEAP is not '1' - disabing PSHM-over-gheap.\n");
+        fflush(stderr);
+      }
+      limit = 1;
+    }
+  }
+ #endif
  #if GASNET_CONDUIT_SMP
   if (limit && !gasneti_mynode) {
     fprintf(stderr, "WARNING: ignoring GASNET_SUPERNODE_MAXSIZE for smp-conduit with PSHM.\n");
@@ -1668,7 +1684,9 @@ ssize_t gasneti_getline(char **buf_p, size_t *n_p, FILE *fp) {
       memcpy(ret, ptr, MIN(nbytes, sz));
       _gasneti_free(ptr, curloc);
     }
-    _gasneti_memcheck(ret,curloc,0);
+    if (sz) {
+      _gasneti_memcheck(ret,curloc,0);
+    }
     return ret;
   }
   extern void _gasneti_leak(void *ptr, const char *curloc) {

@@ -233,6 +233,15 @@ typedef enum {
 } gasnete_coll_barrier_type_t;
 
 
+/* "peers" are sets of nodes at distances +/- powers of two, taken from some parent set */
+typedef struct {
+  unsigned int   num; /* ceil(log_2(ranks)) */
+  gasnet_node_t *fwd; /* fwd[i] is global rank of member (myrank + 2^i) */
+#if 0 /* Not used yet */
+  gasnet_node_t *bwd; /* bwd[i] is global rank of member (myrank - 2^i) */
+#endif
+} gasnete_coll_peer_list_t;
+
 /* Type for collective teams: */
 struct gasnete_coll_team_t_ {
   /* read-only fields: */
@@ -262,6 +271,20 @@ struct gasnete_coll_team_t_ {
   /* ranks of the processes in the team */
   gasnet_node_t *rel2act_map; /* need to be initialized */
 
+  /* nodes in the team at distances +/- powers of two */
+  gasnete_coll_peer_list_t peers;
+
+#if GASNET_PSHM
+  /* Info about the supernode(s) */
+  struct {
+    gasnet_node_t node_count;
+    gasnet_node_t node_rank;
+    gasnet_node_t grp_count;
+    gasnet_node_t grp_rank;
+  } supernode;
+  /* supernode-reps in the team at distances +/- powers of two in supernode space */
+  gasnete_coll_peer_list_t supernode_peers;
+#endif
 
   /* scratch segments allocated on team creation*/
   gasnet_seginfo_t *scratch_segs;

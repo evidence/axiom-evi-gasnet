@@ -197,7 +197,7 @@ gasnetc_spawn_progress_thread(gasnetc_progress_thread_t *pthr_p)
   gasneti_mutex_unlock(&init_lock);
 
   (void)pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM); /* ignore failures */
-  gasneti_assert_zeroret(pthread_attr_setstacksize(&attr, stack_sz));
+  if (stack_sz) gasneti_assert_zeroret(pthread_attr_setstacksize(&attr, stack_sz));
   gasneti_assert_zeroret(pthread_create(&pthr_p->thread_id, &attr, gasnetc_progress_thread, pthr_p));
   gasneti_assert_zeroret(pthread_attr_destroy(&attr));
   GASNETI_TRACE_PRINTF(I, ("Spawned progress thread with id 0x%lx",

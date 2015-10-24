@@ -12,6 +12,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
@@ -173,16 +174,19 @@ static const int c_zero = 0;
 /* Master & slaves */
   static int is_master = 0;
   static int is_verbose = 0;
+  static char args_delim = ':';
   static gasnet_node_t nproc = 0;
   static char cwd[1024];
   static int devnull = -1;
   static int listener = -1;
   static int listen_port = -1;
-  static const char *argv0;
+  static const char *argv0 = "[unknown]";
+  static int null_init = 0;
   static char **nodelist;
   static char **ssh_argv = NULL;
   static int ssh_argc = 0;
   static const char *wrapper = NULL;
+  static const char *envcmd = "env";
   static char *master_env = NULL;
   static size_t master_env_len = 0;
   static struct child {
@@ -266,10 +270,7 @@ static char *quote_arg(const char *arg) {
   char *p, *q, *tmp;
   char *result;
 
-  result = gasneti_malloc(3 + strlen(arg)); /* Minumum required length */
-  result[0] = '\'';
-  result[1] = '\0';
-
+  result = gasneti_strdup("'");
   p = tmp = gasneti_strdup(arg);
   while ((q = strchr(p, '\'')) != NULL) {
     *q = '\0';
@@ -333,20 +334,25 @@ static void kill_one(const char *rem_host, pid_t rem_pid) {
   if (pid < 0) {
     gasneti_fatalerror("fork() failed");
   } else if (pid == 0) {
+    const char *spawn_args;
+
     (void)dup2(STDIN_FILENO, devnull);
 #if !GASNET_DEBUG
     (void)dup2(STDOUT_FILENO, devnull);
     (void)dup2(STDERR_FILENO, devnull);
 #endif
 
+    spawn_args = sappendf(NULL, ENV_PREFIX "SPAWN_ARGS=K%s%c%d",
+                                (is_verbose ? "v" : ""), args_delim, (int)rem_pid);
+
     if (is_local) {
-      execlp(argv0, argv0, "-GASNET-SPAWN-kill",
-             sappendf(NULL, "%d", (int)rem_pid), NULL);
+      execlp(envcmd, envcmd, ENV_PREFIX "SPAWNER=ssh", spawn_args, argv0, NULL);
       gasneti_fatalerror("execlp(kill) failed");
     } else {
       ssh_argv[ssh_argc] = (/* noconst */ char *)rem_host;
-      ssh_argv[ssh_argc+1] = sappendf(NULL, "cd %s; exec %s -GASNET-SPAWN-kill %d",
-				      quote_arg(cwd), quote_arg(argv0), (int)rem_pid);
+      ssh_argv[ssh_argc+1] = sappendf(NULL, "cd %s; exec %s %s " ENV_PREFIX "SPAWNER=ssh %s %s",
+                                      quote_arg(cwd), (wrapper ? wrapper : ""),
+                                      envcmd, spawn_args, quote_arg(argv0));
       execvp(ssh_argv[0], ssh_argv);
       gasneti_fatalerror("execvp(ssh kill) failed");
     }
@@ -1157,7 +1163,7 @@ static void recv_argv(int s, int *argc_p, char ***argv_p) {
   char **argv;
 
   do_read(s, &argc, sizeof(int));
-  argv = gasneti_calloc(argc+1, sizeof(char **));
+  argv = gasneti_malloc((argc+1) * sizeof(char*));
   gasneti_leak(argv);
   for (i = 0; i < argc; ++i) {
     argv[i] = do_read_string(s);
@@ -1167,6 +1173,7 @@ static void recv_argv(int s, int *argc_p, char ***argv_p) {
 
   *argc_p = argc;
   *argv_p = argv;
+  argv0 = argv[0];
 }
 
 static void pre_spawn(int count) {
@@ -1335,7 +1342,7 @@ static void do_connect(gasnet_node_t child_id, const char *parent_name, int pare
   BOOTSTRAP_VERBOSE(("[%d] connected\n", myproc));
 }
 
-static void spawn_one(gasnet_node_t child_id, char *myhost) {
+static void spawn_one(gasnet_node_t child_id, char *myhost, const char *cmdline) {
   const char *host = child[child_id].nodelist ? child[child_id].nodelist[0] : nodelist[0];
   pid_t pid;
   int is_local = (GASNETI_BOOTSTRAP_LOCAL_SPAWN && (!host || !strcmp(host, myhost)));
@@ -1373,13 +1380,17 @@ static void spawn_one(gasnet_node_t child_id, char *myhost) {
         gasneti_fatalerror("dup2(STDIN_FILENO, /dev/null) failed");
       }
     }
-    cmd = sappendf(NULL, "cd %s; exec %s %s -GASNET-SPAWN-slave %s %d %d%s",
+    cmd = sappendf(NULL, "cd %s; exec %s %s " ENV_PREFIX "SPAWNER=ssh "
+                                              ENV_PREFIX "SPAWN_ARGS='W%s%c%d%c%d%c%s' "
+                                              "%s",
                                       quote_arg(cwd),
                                       (wrapper ? wrapper : ""),
-                                      quote_arg(argv0),
+                                      envcmd,
+                                      (is_verbose ? "v" : ""), args_delim,
+                                      (int)child_id, args_delim,
+                                      listen_port, args_delim,
                                       (is_local ? "localhost" : myhost),
-                                      listen_port, (int)child_id,
-                                      (is_verbose ? " -v" : ""));
+                                      cmdline);
     if (is_local) {
       /* XXX: if we are clever enough, we might be able to "unwind" w/o the exec() */
       BOOTSTRAP_VERBOSE(("[%d] spawning process %d on %s via fork()\n",
@@ -1420,26 +1431,48 @@ static void init_child_fds(void) {
 
 static void do_spawn(int argc, char **argv, char *myhost) {
   int j;
+  char *cmdline = quote_arg(argv[0]);
+
+  /* Before we began to support gasnet_init(NULL,NULL) the workers were spawned
+   * with no arguments, and the gasnet_init() call actual *populated* the passed
+   * argc_p and argv_p with the command line sent over the control socket.
+   * NOW if we see a NULL-init, then we need to use the full command line in order
+   * to be certain that main() will see the arguments.
+   */
+  if (null_init) {
+    for (j = 1; j < argc; ++j) {
+      char *tmp = quote_arg(argv[j]);
+      cmdline = sappendf(cmdline, " %s", tmp);
+      gasneti_free(tmp);
+    }
+  }
 
   pre_spawn(children);
   for (j = 0; j < children; ++j) {
-    spawn_one(j, myhost);
+    spawn_one(j, myhost, cmdline);
   }
   post_spawn(children, argc, argv);
   init_child_fds();
+
+  gasneti_free(cmdline);
 }
 
 static void usage(const char *argv0) {
   die(1, "usage: %s [-GASNET-SPAWN-master] [-v] NPROC[:NODES] [--] [ARGS...]", argv0);
 }
 
-static void do_kill(int argc, char **argv) GASNETI_NORETURN;
-static void do_kill(int argc, char **argv) {
+static void do_kill(const char *spawn_args) GASNETI_NORETURN;
+static void do_kill(const char *spawn_args) {
   int pid;
   int rc;
   int loops = 30;
 
-  if ((argc != 3) || ((pid = atoi(argv[2])) < 1)) {
+  /* Format of spawn_args: "pid"
+   *  pid is an integer pid to kill
+   */
+
+  pid = atoi(spawn_args);
+  if (pid < 1) {
     _exit(-1);
   }
 
@@ -1495,59 +1528,151 @@ static int next_child(fd_set *fds)
 
 extern int (*gasneti_verboseenv_fn)(void);
 
-static void do_master(int argc, char **argv) GASNETI_NORETURN;
-static void do_master(int argc, char **argv) {
-  char *p;
-  int argi=1;
+static void do_master(const char *spawn_args, int *argc_p, char ***argv_p) GASNETI_NORETURN;
+static void do_master(const char *spawn_args, int *argc_p, char ***argv_p) {
+  int argc    = *argc_p;
+  char **argv = *argv_p;
+  long lnproc = 0;
+  long lnnodes = 0;
 
   is_master = 1;
   gasneti_reghandler(SIGURG, &sigurg_handler);
 
-  if ((argi < argc) && (strcmp(argv[argi], "-GASNET-SPAWN-master") == 0)) {
-    argi++;
-  }
-  if ((argi < argc) && (strcmp(argv[argi], "-v") == 0)) {
-    is_verbose = 1;
-    argi++;
-  }
-  if ((argi < argc) && (strncmp(argv[argi], "-W", 2) == 0)) {
-    wrapper = &argv[argi][2];
-    argi++;
-  }
-  if (argi >= argc) usage(argv[0]); /* ran out of args */
+  if (NULL == spawn_args) { /* Explicit-master support */
+    int argi=2;
 
-  { 
-    int ltmp = atoi(argv[argi]);
-    nproc = ltmp;
-    if ((int)nproc != ltmp) { /* Overflow! */
-      die(1, "value %s is out-of-range of gasnet_node_t", argv[argi]);
+    gasneti_assert(argc && argv);
+    gasneti_assert(0 == strcmp(argv[1], "-GASNET-SPAWN-master"));
+
+    /* Optional "-v" */
+    if ((argi < argc) && (strcmp(argv[argi], "-v") == 0)) {
+      is_verbose = 1;
+      argi++;
     }
+
+    /* Optional "-W....." */
+    if ((argi < argc) && (strncmp(argv[argi], "-W", 2) == 0)) {
+      wrapper = &argv[argi][2];
+      argi++;
+    }
+
+    /* Required "nproc" optionally followed by ":nnodes" */
+    if (argi >= argc) {
+      usage(argv0); /* ran out of args */
+    } else {
+      const char *p = argv[argi];
+      char *endptr;
+      lnproc = strtol(p,&endptr,0);
+      if ((endptr != p) && (':' == *endptr)) {
+        const char *q = endptr + 1;
+        lnnodes = strtol(q,&endptr,0);
+        nnodes_set = (endptr != q);
+      }
+      if ((endptr == p) || *endptr) {
+        die(1, "Unable to parse process and node count in '%s'", p);
+      }
+    }
+    argi++;
+
+    /* Optional "--" */
+    if ((argi < argc) && (strcmp(argv[argi], "--") == 0)) {
+      argi++;
+    }
+
+    /* Splice out all the args we consumed above */
+    argv[argi-1] = argv[0];
+    argc -= argi-1;
+    argv += argi-1;
+  } else {
+    /* Format of spawn_args: "fd:N:[M]:[W]"
+     *  :   indicates the delimiter character
+     *  fd  is an integer file descriptor to provide he command line
+     *  N   is the positive integer process count
+     *  M   is the positive node count, or empty
+     *  W   is the "wrapper" and is everything (possibly empty) after the last delimiter
+     */
+    const char *p = spawn_args;
+    char *endptr;
+    int argv_fd;
+
+    gasneti_assert(p && *p);
+
+    /* Required non-negative fd number */
+    argv_fd = strtol(p,&endptr,0);
+    if ((endptr == p) || (*endptr != args_delim) || (argv_fd < 0)) {
+      die(1, "Failed to parse " ENV_PREFIX "SPAWN_ARGS");
+    }
+    p = endptr + 1;
+
+    /* Required process count */
+    lnproc = strtol(p,&endptr,0);
+    if ((endptr == p) || (*endptr != args_delim)) {
+      die(1, "Failed to parse " ENV_PREFIX "SPAWN_ARGS");
+    }
+    p = endptr + 1;
+
+    /* Optional node count */
+    lnnodes = strtol(p,&endptr,0);
+    if ((endptr == p) && (*p == args_delim)) {
+      /* Not present */
+    } else if ((endptr == p) || (*endptr != args_delim)) {
+      die(1, "Failed to parse " ENV_PREFIX "SPAWN_ARGS");
+    } else {
+      nnodes_set = 1;
+    }
+    p = endptr + 1;
+
+    /* Wrapper is whatever remains */
+    wrapper = p;
+
+    /* Load the command line from argv_fd if necessary */
+    if (NULL == argv) {
+      size_t len;
+      char *q, *cmdline;
+      int i;
+      { struct stat s;
+        if (fstat(argv_fd, &s) < 0) {
+          die(1, "Unable to read command line from file %d(%s)", errno, strerror(errno));
+        }
+        len = s.st_size;
+      }
+      gasneti_leak(cmdline = gasneti_malloc(len));
+      do_read(argv_fd, cmdline, len);
+      for (q = cmdline, argc = 0; q < (cmdline+len); ++argc) {
+        q += strlen(q) + 1;
+      }
+      argv = gasneti_malloc((argc+1) * sizeof(char*));
+      gasneti_leak((void*)argv);
+      for (q = cmdline, i = 0; i < argc; ++i) {
+        argv[i] = q;
+        q += strlen(q) + 1;
+      }
+      argv[argc] = NULL;
+      argv0 = argv[0];
+    }
+    (void)close(argv_fd);
   }
-  if (nproc < 1) usage(argv[0]); /* bad argument */
-  p = strchr(argv[argi], ':');
-  if (p) {
-    nnodes = atoi(p+1);
-    nnodes_set = 1;
-    if (nnodes < 1) usage(argv[0]); /* bad argument */
-    if (nproc < nnodes) {
-      fprintf(stderr, "WARNING: requested node count reduced from %d to process count of %d\n", (int)nnodes, (int)nproc);
+
+  nproc = lnproc;
+  if ((lnproc < 1) || ((long)nproc != lnproc)) { /* Non-positive or Overflow */
+    die(1, "Process count %ld is out-of-range of gasnet_node_t", lnproc);
+  }
+  if (nnodes_set) {
+    nnodes = lnnodes;
+    if ((lnnodes < 1) || ((long)nnodes != lnnodes)) { /* Non-positive or Overflow */
+      die(1, "Node count %ld is out-of-range of gasnet_node_t", lnnodes);
+    }
+    if (nnodes > nproc) {
+      fprintf(stderr, "WARNING: requested node count reduced from %d to process count of %d\n",
+                      (int)nnodes, (int)nproc);
       fflush(stderr);
       nnodes = nproc;
     }
-    BOOTSTRAP_VERBOSE(("Spawning '%s': %d processes on %d nodes\n", argv[0], (int)nproc, (int)nnodes));
+    BOOTSTRAP_VERBOSE(("Spawning '%s': %d processes on %d nodes\n", argv0, (int)nproc, (int)nnodes));
   } else {
     nnodes = nproc;
-    BOOTSTRAP_VERBOSE(("Spawning '%s': %d processes\n", argv[0], (int)nproc));
+    BOOTSTRAP_VERBOSE(("Spawning '%s': %d processes\n", argv0, (int)nproc));
   }
-  argi++;
-
-  if ((argi < argc) && (strcmp(argv[argi], "--") == 0)) {
-    argi++;
-  }
-
-  argv[argi-1] = argv[0];
-  argc -= argi-1;
-  argv += argi-1;
 
   if (gethostname(master_host, sizeof(master_host)) < 0) {
     die(1, "gethostname() failed");
@@ -1698,10 +1823,8 @@ static int cmp_by_dec_weight(const void *a, const void *b)
 }
 #endif
 
-static void do_slave(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet_node_t *mynode_p)
+static void do_slave(const char *spawn_args, int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet_node_t *mynode_p)
 {
-  int argc = *argc_p;
-  char **argv = *argv_p;
   gasnet_node_t child_id;
   const char *parent_name;
   int parent_port;
@@ -1716,15 +1839,41 @@ static void do_slave(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet
   }
   #endif
 
-  if ((argc < 5) || (argc > 6)){
-    gasneti_fatalerror("Invalid command line in slave process");
-  }
-  parent_name = argv[2];
-  parent_port = atoi(argv[3]);
-  child_id = atoi(argv[4]);
-  if (argc == 6) {
-    gasneti_assert(!strcmp("-v",argv[5]));
-    is_verbose = 1;
+  {
+    /* Format of spawn_args: "id:port:host"
+     *  :    indicates the delimiter character
+     *  id   is the non-negative integer child_id (rank among my parent's children)
+     *  port is the positive integer TCP port number
+     *  host is the parent's hostname, address or 'localhost' (everything after the last delimiter)
+     */
+    long ltmp;
+    const char *p = spawn_args;
+    char *endptr;
+
+    gasneti_assert(p && *p);
+
+    /* Required non-negative child_id */
+    child_id = ltmp = strtol(p,&endptr,0);
+    if ((endptr == p) || (ltmp < 0) || ((long)child_id != ltmp)) {
+      die(1, "Unable to parse child_id in " ENV_PREFIX "SPAWN_ARGS");
+    }
+    if (*endptr != args_delim) {
+      die(1, "Unable to parse " ENV_PREFIX "SPAWN_ARGS");
+    }
+    p = endptr + 1;
+
+    /* Required non-negative port */
+    parent_port = ltmp = strtol(p,&endptr,0);
+    if ((endptr == p) || (ltmp < 0) || ((long)parent_port != ltmp)) {
+      die(1, "Unable to parse port number in " ENV_PREFIX "SPAWN_ARGS");
+    }
+    if (*endptr != args_delim) {
+      die(1, "Unable to parse " ENV_PREFIX "SPAWN_ARGS");
+    }
+    p = endptr + 1;
+
+    /* Parent_name is everything that remains */
+    parent_name = p;
   }
 
   mypid = getpid();
@@ -1924,14 +2073,34 @@ static void gather_pids(void) {
  * with the spawning.
  */
 int gasneti_bootstrapInit_ssh(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet_node_t *mynode_p) {
-  int argc = *argc_p;
-  char **argv = *argv_p;
+  const char *spawner, *spawn_args;
+  int explicit_master = 0;
 
-  if ((*argc_p < 2) || strncmp((*argv_p)[1], "-GASNET-SPAWN-", 14)) {
-    return GASNET_ERR_NOT_INIT;
+  null_init = !(argc_p && argv_p);
+
+  if (!null_init && (*argc_p > 1) && !strcmp((*argv_p)[1], "-GASNET-SPAWN-master")) {
+    /* Force legacy explict-master support: */
+    explicit_master = 1;
+  } else {
+    spawner    = my_getenv(ENV_PREFIX "SPAWNER");
+    spawn_args = my_getenv(ENV_PREFIX "SPAWN_ARGS");
+    if (!spawner || !spawn_args || strcmp(spawner, "ssh") || (strlen(spawn_args) < 2)) {
+      return GASNET_ERR_NOT_INIT;
+    }
+    gasnett_unsetenv(ENV_PREFIX "SPAWN_ARGS");
   }
 
-  argv0 = argv[0];
+  /* Use a "shadow" cmdline if necessary to have a place to receive them */
+  if (null_init) {
+    static int dummy_argc = 0;
+    static char **dummy_argv = NULL;
+    argc_p = &dummy_argc;
+    argv_p = &dummy_argv;
+  } else {
+    argv0 = (*argv_p)[0];
+  }
+
+  envcmd = my_getenv_withdefault(ENV_PREFIX "ENVCMD", "env");
 
   { /* set O_APPEND on stdout and stderr (see bug 2136) */
     int tmp;
@@ -1955,12 +2124,35 @@ int gasneti_bootstrapInit_ssh(int *argc_p, char ***argv_p, gasnet_node_t *nodes_
   }
   #endif
 
-  if (strcmp(argv[1], "-GASNET-SPAWN-slave") == 0) {
-    do_slave(argc_p, argv_p, nodes_p, mynode_p);
-  } else if (strcmp(argv[1], "-GASNET-SPAWN-kill") == 0) {
-    do_kill(argc, argv); /* Does not return */
+  if (explicit_master) {
+    do_master(NULL, argc_p, argv_p); /* Does not return */
   } else {
-    do_master(argc, argv); /* Does not return */
+    /* Common processing:
+     * Format of leading portion of spawn_args is 2 or 3 charachters: "C[v]d"
+     *   C = single command character used to dispatch switch() below
+     *   v = optional 'v' to enable verbose operation
+     *   d = delimiter - the single character in this position will separate the per-command args
+     * The commands are passes the portion starting at the delimiter character
+     * See do_[foo]() for the per-command arguments
+     */
+    char spawn_cmd = spawn_args[0];
+    is_verbose = (spawn_args[1] == 'v');
+    args_delim = spawn_args[1 + is_verbose];
+    spawn_args += (2 + is_verbose);
+
+    switch (spawn_cmd) {
+      case 'W':
+        do_slave(spawn_args, argc_p, argv_p, nodes_p, mynode_p);
+        break;
+      case 'M':
+        do_master(spawn_args, argc_p, argv_p); /* Does not return */
+        break;
+      case 'K':
+        do_kill(spawn_args); /* Does not return */
+        break;
+      default:
+        return GASNET_ERR_NOT_INIT;
+    }
   }
 
   return GASNET_OK;
@@ -2314,6 +2506,15 @@ void gasneti_bootstrapBroadcast_ssh(void *src, size_t len, void *dest, int rootn
 #else
   #error
 #endif
+}
+
+/* Naive (poorly scaling) "reference" implementation via gasnetc_bootstrapExchange() */
+void gasneti_bootstrapSNodeBroadcast_ssh(void *src, size_t len, void *dest, int rootnode) {
+  void *tmp = gasneti_malloc(len * gasneti_nodes);
+  gasneti_assert(NULL != src);
+  gasneti_bootstrapExchange_ssh(src, len, tmp);
+  memcpy(dest, (void*)((uintptr_t)tmp + (len * rootnode)), len);
+  gasneti_free(tmp);
 }
 
 void gasneti_bootstrapCleanup_ssh(void) {

@@ -45,8 +45,6 @@ volatile int gasnetc_AMLockYield = 0;
 #if defined(GASNET_CSPAWN_CMD)
   #define GASNETC_DEFAULT_SPAWNFN C
   GASNETI_IDENT(gasnetc_IdentString_Default_CSpawnCommand, "$GASNetCSpawnCommand: " GASNET_CSPAWN_CMD " $");
-#elif defined(REXEC)
-  #define GASNETC_DEFAULT_SPAWNFN R
 #else /* AMUDP implicit ssh startup */
   #define GASNETC_DEFAULT_SPAWNFN S
 #endif
@@ -83,6 +81,17 @@ void gasnetc_bootstrapExchange(void *src, size_t len, void *dest) {
   if_pf (retval) gasneti_fatalerror("failure in gasnetc_bootstrapExchange()");
 }
 
+#if GASNET_PSHM /* Used only in call to gasneti_pshm_init() */
+/* Naive (poorly scaling) "reference" implementation via gasnetc_bootstrapExchange() */
+static void gasnetc_bootstrapSNodeBroadcast(void *src, size_t len, void *dest, int rootnode) {
+  void *tmp = gasneti_malloc(len * gasneti_nodes);
+  gasneti_assert(NULL != src);
+  gasnetc_bootstrapExchange(src, len, tmp);
+  memcpy(dest, (void*)((uintptr_t)tmp + (len * rootnode)), len);
+  gasneti_free(tmp);
+}
+#endif
+
 #define INITERR(type, reason) do {                                      \
    if (gasneti_VerboseErrors) {                                         \
      fprintf(stderr, "GASNet initialization encountered an error: %s\n" \
@@ -100,7 +109,7 @@ static int gasnetc_init(int *argc, char ***argv) {
   gasnetc_check_config();
 
   /* --------- begin Master code ------------ */
-  if (!AMUDP_SPMDIsWorker(*argv)) { 
+  if (!AMUDP_SPMDIsWorker(argv?*argv:NULL)) {
     /* assume we're an implicit master 
        (we don't currently support explicit workers spawned 
         without using the AMUDP SPMD API)   
@@ -109,6 +118,10 @@ static int gasnetc_init(int *argc, char ***argv) {
     int i;
     char spawnfn;
     amudp_spawnfn_t fp = (amudp_spawnfn_t)NULL;
+
+    if (!argv) {
+      gasneti_fatalerror("implicit-master without argv not supported - use amudprun");
+    }
 
     /* pretend we're node 0, for purposes of verbose env reporting */
     gasneti_init_done = 1;
@@ -232,7 +245,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     gasneti_nodemapInit(&gasnetc_bootstrapExchange, NULL, 0, 0);
 
     #if GASNET_PSHM
-      gasneti_pshm_init(&gasnetc_bootstrapExchange, 0);
+      gasneti_pshm_init(&gasnetc_bootstrapSNodeBroadcast, 0);
     #endif
 
     #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE

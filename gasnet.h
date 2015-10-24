@@ -229,6 +229,10 @@
   /* UNNAMED includes ANONYMOUS to yield a trivial default implementation: */
   #define GASNETE_BARRIERFLAG_UNNAMED 8
   #define GASNET_BARRIERFLAG_UNNAMED (GASNET_BARRIERFLAG_ANONYMOUS|GASNETE_BARRIERFLAG_UNNAMED)
+
+  /* reserve bits for use by conduit-specific implementations */
+  #define GASNETE_BARRIERFLAG_CONDUIT0 0x80000000
+  #define GASNETE_BARRIERFLAG_CONDUIT1 0x40000000
 #endif
 
 /* Errors: GASNET_OK must be zero */
@@ -357,7 +361,19 @@ extern void (*gasnet_client_attach_hook)(void *, uintptr_t);
 /* Main extended header */
 #include <gasnet_extended.h>
 
+#if GASNETI_THREADINFO_OPT
+  #define GASNETI_TIOPT_CONFIG tiopt
+#else
+  #define GASNETI_TIOPT_CONFIG notiopt
+#endif
+
 /* ------------------------------------------------------------------------------------ */
+
+#if !defined(GASNET_NULL_ARGV_OK) || \
+    (defined(GASNET_NULL_ARGV_OK) && GASNET_NULL_ARGV_OK != 0 && GASNET_NULL_ARGV_OK != 1)
+  /*  defined to be 1 if gasnet_init(NULL,NULL) is supported. defined to 0 otherwise */
+  #error GASNet core failed to define GASNET_NULL_ARGV_OK to 0 or 1
+#endif
 
 #ifndef GASNET_BEGIN_FUNCTION
   #error GASNet extended API failed to define GASNET_BEGIN_FUNCTION
@@ -444,6 +460,7 @@ extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_MEMBAR_CONFIG);
 extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_ATOMIC_CONFIG);
 extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_ATOMIC32_CONFIG);
 extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_ATOMIC64_CONFIG);
+extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_TIOPT_CONFIG);
 extern int GASNETI_LINKCONFIG_IDIOTCHECK(_CONCAT(CORE_,GASNET_CORE_NAME));
 extern int GASNETI_LINKCONFIG_IDIOTCHECK(_CONCAT(EXTENDED_,GASNET_EXTENDED_NAME));
 
@@ -468,6 +485,7 @@ static int *gasneti_linkconfig_idiotcheck(void) {
         + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_ATOMIC_CONFIG)
         + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_ATOMIC32_CONFIG)
         + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_ATOMIC64_CONFIG)
+        + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_TIOPT_CONFIG)
         + GASNETI_LINKCONFIG_IDIOTCHECK(_CONCAT(CORE_,GASNET_CORE_NAME))
         + GASNETI_LINKCONFIG_IDIOTCHECK(_CONCAT(EXTENDED_,GASNET_EXTENDED_NAME))
         ;

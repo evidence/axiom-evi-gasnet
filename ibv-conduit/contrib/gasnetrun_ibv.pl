@@ -1,10 +1,13 @@
 #!/usr/bin/env perl
 #   $Source: bitbucket.org:berkeleylab/gasnet.git/ibv-conduit/contrib/gasnetrun_ibv.pl $
-# Description: GASNet VAPI, IBV and MXM spawner
+# Description: GASNet spawner script for (at least) ibv and mxm conduit
 # Terms of use are as specified in license.txt
 
 require 5.004;
 use strict;
+use Fcntl;
+use IO::File;
+use POSIX qw(tmpnam);
 
 # Globals
 my @mpi_args = ();
@@ -19,8 +22,8 @@ my $exeindex = undef;
 my $envlist = undef;
 my $nodefile = $ENV{'GASNET_NODEFILE'} || $ENV{'PBS_NODEFILE'};
 my @tmpfiles = (defined($nodefile) && $ENV{'GASNET_RM_NODEFILE'}) ? ("$nodefile") : ();
-my $spawner = $ENV{'GASNET_IB_SPAWNER'};
-my $conduit = $ENV{'GASNET_IB_CONDUIT'};
+my $spawner = $ENV{'GASNET_SPAWNER'};
+my $conduit = $ENV{'GASNET_SPAWN_CONDUIT'};
 
 sub usage
 {
@@ -128,7 +131,7 @@ sub fullpath($)
     if (!defined($spawner)) {
         usage "Option -spawner was not given and no default is set\n"
     }
-    if (($spawner eq 'MPI') && !$ENV{GASNET_IB_BOOTSTRAP_MPI}) {
+    if (($spawner eq 'MPI') && !$ENV{GASNET_SPAWN_HAVE_MPI}) {
         usage "Spawner is set to MPI, but MPI support was not compiled in\n"
     }
 
@@ -137,7 +140,7 @@ sub fullpath($)
         foreach (split(',', $envlist)) {
             unshift @ARGV, "$_=$ENV{$_}";
         }
-        unshift @ARGV, $ENV{'ENVCMD'};
+        unshift @ARGV, $ENV{'GASNET_ENVCMD'};
     }
 
 # Find the program (possibly a wrapper)
@@ -181,7 +184,7 @@ sub fullpath($)
 
 # Run it which ever way makes sense
     $ENV{"GASNET_VERBOSEENV"} = "1" if ($verbose);
-    $ENV{'GASNET_IB_SPAWNER'} = lc($spawner);
+    $ENV{'GASNET_SPAWNER'} = lc($spawner);
     if ($spawner eq 'MPI') {
         print("gasnetrun: forwarding to mpi-based spawner\n") if ($verbose);
         @ARGV = (@mpi_args, @ARGV);
@@ -196,15 +199,26 @@ sub fullpath($)
 					     map { s/'/'\\''/g; "'".$_."'"; }
 						 splice @ARGV, 0, $exeindex-1
 				      : undef;
-	my @extra_args = grep { defined($_); } ('-GASNET-SPAWN-master',
-						$verbose ? '-v' : undef,
-						$wrapper ? ('-W'.$wrapper) : undef,
-						"$numproc" . ($numnode ? ":$numnode" : ''),
-						'--');
-	my @cmd = @ARGV;
-	splice @cmd, 1, 0, @extra_args;
-	print("gasnetrun: running: ", join(' ', @cmd), "\n") if ($verbose);
-	unless ($dryrun) { exec(@cmd) or die "failed to exec $exebase\n"; }
+        my $fh;
+        { # Create an unlinked temp file containing the entire command line
+          my $filename;
+          do { $filename = tmpnam(); }
+            until $fh = IO::File->new($filename, O_RDWR|O_CREAT|O_EXCL, 0600);
+          unlink($filename);
+          binmode($fh);
+          my $flags = fcntl($fh, F_GETFD, 0) or die "fcntl F_GETFD: $!";
+          fcntl($fh, F_SETFD, $flags & ~FD_CLOEXEC) or die "fcntl F_SETFD: $!";
+          foreach (@ARGV) {
+            syswrite($fh, $_);
+            syswrite($fh, chr(0));
+          }
+          sysseek($fh, 0, SEEK_SET);
+        }
+        $ENV{'GASNET_SPAWN_ARGS'} = join(',', ($verbose ? 'Mv' : 'M'),
+                                         fileno($fh), $numproc, $numnode, $wrapper);
+        print("gasnetrun: set GASNET_SPAWN_ARGS=|$ENV{GASNET_SPAWN_ARGS}|\n") if ($verbose);
+        print("gasnetrun: running: ", join(' ', @ARGV), "\n") if ($verbose);
+        unless ($dryrun) { exec(@ARGV) or die "failed to exec $exebase\n"; }
     } else {
         die "Unknown spawner '$spawner' requested\n";
     }

@@ -289,7 +289,8 @@ GASNETI_BEGIN_EXTERNC
   #include <sys/types.h>
   #include <dirent.h>
   typedef uint64_t gasneti_tick_t;
- #if PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_CLANG
+ #if PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_CLANG || \
+     (PLATFORM_COMPILER_XLC && GASNETI_HAVE_GCC_ASM && !GASNETI_HAVE_XLC_ASM)
   #if PLATFORM_COMPILER_CLANG /* or something to force? */
     /* Clang's integrated assembler (correctly) warns that mftb* are deprecated */
     #define GASNETI_MFTB(_reg)  "mfspr %" #_reg ",268"
@@ -327,7 +328,7 @@ GASNETI_BEGIN_EXTERNC
   #undef GASNETI_MFTB
   #undef GASNETI_MFTBL
   #undef GASNETI_MFTBU
- #elif PLATFORM_COMPILER_XLC
+ #elif GASNETI_HAVE_XLC_ASM
    #if PLATFORM_ARCH_64
       static uint64_t gasneti_ticks_now(void);
       #pragma mc_func gasneti_ticks_now {  \
@@ -395,6 +396,9 @@ GASNETI_BEGIN_EXTERNC
       if (!fp) gasneti_fatalerror("*** ERROR: Failure in fopen('%s','r'): %s\n",fname,strerror(errno));
       if (fread((void *)(&freq), sizeof(uint32_t), 1, fp) != 1) 
         gasneti_fatalerror("*** ERROR: Failure to read timebase frequency from '%s': %s", fname, strerror(errno));
+     #if PLATFORM_ARCH_LITTLE_ENDIAN
+      freq = __builtin_bswap32(freq); /* value is always big-endian */
+     #endif
       fclose(fp);
       if (freq == 0) { /* Playstation3 */
         char input[255];

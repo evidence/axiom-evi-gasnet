@@ -48,6 +48,25 @@ static void gasnetc_bootstrapBarrier(void) {
    */
 }
 
+#if GASNET_PSHM /* Used only in call to gasneti_pshm_init() */
+  /* (###) add code here to perform a supernode scoped broadcast.
+     This call performs an independent broadcast within each supernode.
+     The implementation can identify the supernode using the variables
+     initialized by gasneti_nodemapInit(), or by the identical values
+     passed for "rootnode".
+     The implementation cannot use pshmnet.
+     This is called collectively (currently exactly once in gasneti_pshm_init()).
+   */
+/* Naive (poorly scaling) "reference" implementation via gasnetc_bootstrapExchange() */
+static void gasnetc_bootstrapSNodeBroadcast(void *src, size_t len, void *dest, int rootnode) {
+  void *tmp = gasneti_malloc(len * gasneti_nodes);
+  gasneti_assert(NULL != src);
+  gasnetc_bootstrapExchange(src, len, tmp);
+  memcpy(dest, (void*)((uintptr_t)tmp + (len * rootnode)), len);
+  gasneti_free(tmp);
+}
+#endif
+
 static int gasnetc_init(int *argc, char ***argv) {
   /*  check system sanity */
   gasnetc_check_config();
@@ -95,7 +114,7 @@ static int gasnetc_init(int *argc, char ***argv) {
 
   #if GASNET_PSHM
     /* (###) If your conduit will support PSHM, you should initialize it here.
-     * The 1st argument is normally "&gasnetc_bootstrapExchange" (described below).
+     * The 1st argument is normally "&gasnetc_bootstrapSNodeBroadcast" or equivalent
      * The 2nd argument is the amount of shared memory space needed for any
      * conduit-specific uses.  The return value is a pointer to the space
      * requested by the 2nd argument.

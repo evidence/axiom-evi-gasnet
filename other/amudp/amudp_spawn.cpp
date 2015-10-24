@@ -27,14 +27,6 @@ amudp_spawnfn_desc_t const AMUDP_Spawnfn_Desc[] = {
     (amudp_spawnfn_t)AMUDP_SPMDSshSpawn },
   { 'L',  "Spawn jobs using fork()/exec() on the local machine (good for SMP's)", 
     (amudp_spawnfn_t)AMUDP_SPMDLocalSpawn },
-#ifdef REXEC
-  { 'R',  "Spawn jobs using rexec (Berkeley Millennium only)", 
-    (amudp_spawnfn_t)AMUDP_SPMDRexecSpawn },
-#endif
-#ifdef GLUNIX
-  { 'G',  "Spawn jobs using GLUNIX (Berkeley NOW only)", 
-    (amudp_spawnfn_t)AMUDP_SPMDGlunixSpawn },
-#endif
   { 'C',  "Spawn jobs using custom job spawner (" AMUDP_ENV_PREFIX_STR"_CSPAWN_CMD)", 
     (amudp_spawnfn_t)AMUDP_SPMDCustomSpawn },
   { '\0', NULL, (amudp_spawnfn_t)NULL }
@@ -126,13 +118,29 @@ char *quote_for_local(const char *arg) {
 /* ------------------------------------------------------------------------------------ 
  *  spawn jobs on local machine
  * ------------------------------------------------------------------------------------ */
-extern int AMUDP_SPMDLocalSpawn(int nproc, int argc, char **argv) {
+extern int AMUDP_SPMDLocalSpawn(int nproc, int argc, char **argv, char **extra_env) {
   /* just a simple fork/exec */
   int i;
 
   if (!AMUDP_SPMDSpawnRunning) {
     AMUDP_Err("Spawn functions should never be run directly - only passed to AMUDP_SPMDStartup()"); 
     return FALSE;
+  }
+
+  /* Temporarily assume values from extra_env[] (which we modify in-place) */
+  char **save_env = NULL;
+  int envc = 0;
+  if (extra_env && extra_env[0]) {
+    for (envc=0; extra_env[envc]; ++envc) {/*empty*/}
+    save_env = (char **)AMUDP_malloc(sizeof(char *)*envc);
+    for (i=0;i<envc;++i) {
+      char *var = extra_env[i];
+      char *delim = strchr(var,'=');
+      AMUDP_assert(delim);
+      *delim = '\0';
+      save_env[i] = getenv(var);
+      setenv(var,delim+1,1);
+    }
   }
 
   for (i = 0; i < nproc; i++) {
@@ -170,125 +178,22 @@ extern int AMUDP_SPMDLocalSpawn(int nproc, int argc, char **argv) {
       } /*  child */
     #endif
   }
+
+  /* Restore saved environment var(s) */
+  for (i=0;i<envc;++i) {
+    char *name = extra_env[i];
+    if (save_env[i]) {
+      setenv(name,save_env[i],1);
+    } else {
+      unsetenv(name);
+    }
+    /* Revert our in-place modification of extra_env[]: */
+    name[strlen(name)] = '=';
+  }
+  AMUDP_free(save_env);
+
   return TRUE;
 }
-/* ------------------------------------------------------------------------------------ 
- *  spawn jobs using Glunix (requires GLUNIX be defined when library is built)
- * ------------------------------------------------------------------------------------ */
-#ifdef GLUNIX
-  #include <glib.h>
-  extern int AMUDP_SPMDGlunixSpawn(int nproc, int argc, char **argv) {
-    /* GLUNIX has good built-in facilities for remote spawn */
-    int forkRet;
-
-    if (!AMUDP_SPMDSpawnRunning) {
-      AMUDP_Err("Spawn functions should never be run directly - only passed to AMUDP_SPMDStartup()"); 
-      return FALSE;
-    }
-
-    forkRet = fork();
-    if (forkRet == -1) {
-      perror("fork");
-      return FALSE;
-    } else if (forkRet != 0) {
-      AMUDP_SPMDRedirectStdsockets = FALSE; /* GLUNIX has it's own console redirection facilities */
-      return TRUE;  
-    } else {  /*  this is the child - exec the new process */
-      if (!Glib_Initialize())
-        AMUDP_FatalErr("failed to Glib_Initialize()")
-      /*AMUDP_assert(Glib_AmIStartup() > 0);*/
-      Glib_Spawn(nproc, argv[0], argv); /* should never return */
-      AMUDP_FatalErr("failed to Glib_Spawn()")
-      return FALSE;
-    }
-  }
-#else
-  extern int AMUDP_SPMDGlunixSpawn(int nproc, int argc, char **argv) {
-    AMUDP_Err("AMUDP_SPMDGlunixSpawn() cannot be called because the AMUDP library was compiled without -DGLUNIX.\n"
-             "  Please recompile libAMUDP.a with -DGLUNIX, relink your application and try again.");
-    return FALSE;
-  }
-#endif
-/* ------------------------------------------------------------------------------------ 
- *  spawn jobs using REXEC utility (Berkeley Millennium project)
- * ------------------------------------------------------------------------------------ */
-/* rexec provides decent support for remote spawn
- * see http://www.millennium.berkeley.edu/rexec/ for instructions on setting up your environment
- */
-/* rexec spawn uses the following environment variables:
- *
- *  option         default       description
- * --------------------------------------------------
- * REXEC_SVRS      none          list of servers to use
- * REXEC_CMD       "rexec"       rexec command to use
- * REXEC_OPTIONS   "-q"            additional options to give rexec 
- * (any environment variable may be specified with an optional prefix 
- *  of AMUDP_ or AMUDP_ENV_PREFIX##_)
- */
-#ifdef REXEC
-  int AMUDP_SPMDRexecSpawn(int nproc, int argc, char **argv) {
-    int i;
-    char *rexec_cmd;
-    char *rexec_options;
-    char cmd1[1024],cmd2[1024];
-    int pid;
-
-    if (!AMUDP_SPMDSpawnRunning) {
-      AMUDP_Err("Spawn functions should never be run directly - only passed to AMUDP_SPMDStartup()"); 
-      return FALSE;
-    }
-
-    pid = getpid();
-
-    rexec_cmd = AMUDP_getenv_prefixed_withdefault("REXEC_CMD", "rexec");
-    rexec_options = AMUDP_getenv_prefixed_withdefault("REXEC_OPTIONS", "-q");
-
-    cmd1[0] = '\0';
-    for (i = 0; i < argc; i++) {
-      AMUDP_assert(argv[i]);
-      strcat(cmd1,"'");
-      strcat(cmd1,argv[i]);
-      strcat(cmd1,"' ");
-    }
-    AMUDP_assert(!argv[i]);
-
-    /* build the rexec command */
-    sprintf(cmd2, "%s %s -n %i /bin/sh -c \"%s%s\" " /* shell wrapper required because of crappy rexec implementation */
-     " || ( echo \"rexec spawn failed.\" ; kill %i ) ",
-      rexec_cmd, rexec_options, nproc,
-
-      (AMUDP_SilentMode?"":"echo connected to \\`uname -n\\`... ; "),
-
-      cmd1, pid
-
-    );
-
-    { int forkRet;
-      forkRet = fork(); /* fork a new process to hold rexec master */
-
-      if (forkRet == -1) {
-        perror("fork");
-        return FALSE;
-      } else if (forkRet != 0) {
-        AMUDP_SPMDRedirectStdsockets = FALSE; /* REXEC has it's own console redirection facilities */
-        return TRUE;  
-      } else {  /*  this is the child - exec the new process */
-        if (!AMUDP_SilentMode) 
-          printf("system(%s)\n", cmd2); fflush(stdout);
-        if (system(cmd2) == -1)
-           AMUDP_FatalErr("Failed to call system() to spawn rexec");
-        exit(0);
-      }
-    }
-    return TRUE;
-}
-#else
-  extern int AMUDP_SPMDRexecSpawn(int nproc, int argc, char **argv) {
-    AMUDP_Err("AMUDP_SPMDRexecSpawn() cannot be called because the AMUDP library was compiled without -DREXEC.\n"
-             "  Please recompile libAMUDP.a with -DREXEC, relink your application and try again.");
-    return FALSE;
-  }
-#endif
 /* ------------------------------------------------------------------------------------ 
  *  spawn jobs using ssh remote shell
  * ------------------------------------------------------------------------------------ */
@@ -314,7 +219,7 @@ extern int AMUDP_SPMDLocalSpawn(int nproc, int argc, char **argv) {
  *  of AMUDP_ or AMUDP_ENV_PREFIX##_)
  */
 
-int AMUDP_SPMDSshSpawn(int nproc, int argc, char **argv) {
+int AMUDP_SPMDSshSpawn(int nproc, int argc, char **argv, char **extra_env) {
   int i;
   const char *ssh_servers;
   const char *ssh_cmd;
@@ -344,7 +249,7 @@ int AMUDP_SPMDSshSpawn(int nproc, int argc, char **argv) {
     printf("Error calling getcwd()\n");
     return FALSE;
   }
-  ssh_remote_path = AMUDP_getenv_prefixed_withdefault("SSH_REMOTE_PATH", cwd);
+  ssh_remote_path = quote_for_local(AMUDP_getenv_prefixed_withdefault("SSH_REMOTE_PATH", cwd));
   ssh_cmd = AMUDP_getenv_prefixed_withdefault("SSH_CMD", "ssh");
 
   int isOpenSSH = 0; /* figure out if we're using OpenSSH */
@@ -377,7 +282,15 @@ int AMUDP_SPMDSshSpawn(int nproc, int argc, char **argv) {
     else p = end;
   } 
 
+  const char *envcmd = AMUDP_getenv_prefixed_withdefault("ENV_CMD", "env");
+
   cmd1_sz = 1; /* terminating nul */
+  if (extra_env && extra_env[0]) {
+    cmd1_sz += 1 + strlen(envcmd); // "env "
+    for (i=0; extra_env[i]; ++i) {
+      cmd1_sz += strlen(extra_env[i]) + 3; // "'%s' "
+    }
+  }
   char **quoted_args = (char**)AMUDP_malloc(argc * sizeof(char*));
   for (i = 0; i < argc; i++) {
     AMUDP_assert(argv[i]);
@@ -386,6 +299,12 @@ int AMUDP_SPMDSshSpawn(int nproc, int argc, char **argv) {
   }
   cmd1 = (char *)AMUDP_malloc(cmd1_sz);
   { char *tmp = cmd1;
+    if (extra_env && extra_env[0]) {
+      tmp += sprintf(tmp, "%s ", envcmd);
+      for (i=0; extra_env[i]; ++i) {
+        tmp += sprintf(tmp, "'%s' ", extra_env[i]);
+      }
+    }
     for (i = 0; i < argc; i++) {
       AMUDP_assert(quoted_args[i]);
       tmp += sprintf(tmp, "%s ", quoted_args[i]);
@@ -396,7 +315,7 @@ int AMUDP_SPMDSshSpawn(int nproc, int argc, char **argv) {
     *tmp = '\0';
     AMUDP_assert(strlen(cmd1) == cmd1_sz - 1);
   }
-  cmd2_sz = cmd1_sz + 1024; /* estimated */
+  cmd2_sz = cmd1_sz + strlen(ssh_remote_path) + 1024; /* estimated */
   cmd2 =  (char *)AMUDP_malloc(cmd2_sz);
 
   p = ssh_servers;
@@ -411,7 +330,7 @@ int AMUDP_SPMDSshSpawn(int nproc, int argc, char **argv) {
     ssh_server[end-p] = '\0'; 
 
     /* build the ssh command */
-    snprintf(cmd2, cmd2_sz, "%s %s %s %s %s %s \" %s cd '%s' ; %s\" "
+    snprintf(cmd2, cmd2_sz, "%s %s %s %s %s %s \" %s cd %s ; %s\" "
       " || ( echo \"connection to %s failed.\" ; kill %i ) "
       "%s", 
       ssh_cmd,
@@ -478,7 +397,7 @@ int AMUDP_SPMDSshSpawn(int nproc, int argc, char **argv) {
  *  of AMUDP_ or AMUDP_ENV_PREFIX##_)
  */
 
-int AMUDP_SPMDCustomSpawn(int nproc, int argc, char **argv) {
+int AMUDP_SPMDCustomSpawn(int nproc, int argc, char **argv, char **extra_env) {
   int i;
   char *spawn_cmd = NULL;
   char *spawn_servers = NULL;
@@ -548,8 +467,18 @@ int AMUDP_SPMDCustomSpawn(int nproc, int argc, char **argv) {
   }
 
     /* build the worker command */
-  { char temp[1024];
+  { char temp[2048]; // TODO: allocate dynamically
     temp[0] = '\0';
+    if (extra_env && extra_env[0]) {
+      const char *envcmd = AMUDP_getenv_prefixed_withdefault("ENV_CMD", "env");
+      strcat(temp,envcmd);
+      strcat(temp," ");
+      for (i=0; extra_env[i]; ++i) {
+        strcat(temp,"'");
+        strcat(temp,extra_env[i]);
+        strcat(temp,"' ");
+      }
+    }
     for (i = 0; i < argc; i++) {
       AMUDP_assert(argv[i] != NULL);
       char *qarg = quote_for_local(argv[i]);

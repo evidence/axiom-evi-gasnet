@@ -84,9 +84,21 @@ extern int gasnetc_pthread_create(gasnetc_pthread_create_fn_t *create_fn, pthrea
    gasnetc_pthread_create(create_fn, thread, attr, start_routine, arg)
 #endif
 
+#if GASNETC_GNI_FIREHOSE
+  #include <firehose_trace.h>
+  #define GASNETC_FH_STATS(CNT,VAL,TIME) \
+        GASNETI_FIREHOSE_STATS(CNT,VAL,TIME)      \
+        TIME(C, FIREHOSE_MOVE, processing time)   \
+        VAL(C, FIREHOSE_PIN, pages)               \
+        VAL(C, FIREHOSE_UNPIN, pages)
+#else
+  #define GASNETC_FH_STATS(CNT,VAL,TIME) /*empty*/
+#endif
+
   /* this can be used to add conduit-specific 
      statistical collection values (see gasnet_trace.h) */
 #define GASNETC_CONDUIT_STATS(CNT,VAL,TIME)       \
+        GASNETC_FH_STATS(CNT,VAL,TIME) \
         TIME(C, GET_AM_REM_BUFFER_STALL, stalled time) \
         TIME(C, GET_AM_LOC_BUFFER_STALL, stalled time) \
         TIME(C, ALLOC_PD_STALL, stalled time) \
@@ -94,8 +106,11 @@ extern int gasnetc_pthread_create(gasnetc_pthread_create_fn_t *create_fn, pthrea
         TIME(C, MEM_REG_STALL, stalled time) \
         VAL(C, POST_FMA_RETRY, retries) \
         VAL(C, POST_RDMA_RETRY, retries) \
-        VAL(C, SMSG_SEND_RETRY, retries) \
+        VAL(C, AM_SEND_RETRY, retries) \
         VAL(C, MEM_REG_RETRY, retries) \
         /* blank */
+
+extern void gasnetc_fatalsignal_callback(int sig);
+#define GASNETC_FATALSIGNAL_CALLBACK(sig) gasnetc_fatalsignal_callback(sig)
 
 #endif

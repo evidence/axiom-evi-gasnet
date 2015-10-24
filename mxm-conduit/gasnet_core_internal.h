@@ -211,6 +211,7 @@ extern void (*gasneti_bootstrapBarrier_p)(void);
 extern void (*gasneti_bootstrapExchange_p)(void *src, size_t len, void *dest);
 extern void (*gasneti_bootstrapAlltoall_p)(void *src, size_t len, void *dest);
 extern void (*gasneti_bootstrapBroadcast_p)(void *src, size_t len, void *dest, int rootnode);
+extern void (*gasneti_bootstrapSNodeCast_p)(void *src, size_t len, void *dest, int rootnode);
 extern void (*gasneti_bootstrapCleanup_p)(void);
 #define gasneti_bootstrapFini           (*gasneti_bootstrapFini_p)
 #define gasneti_bootstrapAbort          (*gasneti_bootstrapAbort_p)
@@ -218,6 +219,7 @@ extern void (*gasneti_bootstrapCleanup_p)(void);
 #define gasneti_bootstrapExchange       (*gasneti_bootstrapExchange_p)
 #define gasneti_bootstrapAlltoall       (*gasneti_bootstrapAlltoall_p)
 #define gasneti_bootstrapBroadcast      (*gasneti_bootstrapBroadcast_p)
+#define gasneti_bootstrapSNodeBroadcast (*gasneti_bootstrapSNodeCast_p)
 #define gasneti_bootstrapCleanup        (*gasneti_bootstrapCleanup_p)
 
 #define MXM_MAX_ADDR_LEN 1024

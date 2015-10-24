@@ -88,6 +88,8 @@ static size_t fhi_MaxRegionSize;
 		FH_CP_CLIENT((reg), (priv));			\
 	} while(0)
 
+static void fh_destroy_priv(firehose_private_t *priv);
+
 /* ##################################################################### */
 /* VARIOUS HELPER FUNCTIONS                                              */
 /* ##################################################################### */
@@ -179,6 +181,10 @@ fh_hash_t *fh_BucketTable2;
 #define fh_bucket_uncover(B)	do { ((B)->priv)->visible += 1; } while(0)
 #define fh_bucket_cover(B)	do { ((B)->priv)->visible -= 1; } while(0)
 
+#ifdef FH_CLEAN_COVERED_AGGRESSIVE
+  /* Since we search full FIFO there is no need to move covered to head */
+  #define fh_bucket_cover_and_check(B) fh_bucket_cover(B)
+#else
 GASNETI_INLINE(fh_bucket_cover_and_check)
 void fh_bucket_cover_and_check(fh_bucket_t *bucket)
 {
@@ -206,6 +212,7 @@ void fh_bucket_cover_and_check(fh_bucket_t *bucket)
     }
   }
 }
+#endif
 
 static fh_bucket_t
 *fh_bucket_lookup(gasnet_node_t node, uintptr_t addr)
@@ -355,12 +362,20 @@ GASNETI_INLINE(fh_clean_covered)
 int fh_clean_covered(int limit, firehose_region_t *reg, fh_fifoq_t *fifo_head) {
   firehose_private_t *priv = FH_TAILQ_FIRST(fifo_head);
   int count = 0;
-  while ((count < limit) && priv && !priv->visible) {
-    ++count;
-    priv =  FH_TAILQ_NEXT(priv);
-  }
-  if (count) {
-    fh_FreeVictim(count, reg, fifo_head);
+  FH_TABLE_ASSERT_LOCKED;
+  while ((count < limit) && priv) {
+    firehose_private_t *next = FH_TAILQ_NEXT(priv);
+    if (!priv->visible) {
+      FH_TAILQ_REMOVE(fifo_head, priv);
+      CP_PRIV_TO_REG(reg+count, priv);
+      FH_TRACE_BUCKET(priv, REMFIFO);
+      fh_destroy_priv(priv);
+      ++count;
+    }
+#ifndef FH_CLEAN_COVERED_AGGRESSIVE
+    else break; /* Stop search at first visible region */
+#endif
+    priv = next;
   }
   return count;
 }
@@ -610,31 +625,25 @@ fhi_merge_regions(firehose_region_t *pin_region)
     gasneti_assert(len <= fhi_MaxRegionSize);
 
     /* Look to merge w/ successor */
-    if_pt (space_avail && (addr + len != 0) /* avoid wrap around */) {
+    if (space_avail && GASNETT_PREDICT_TRUE(addr + len != 0) /* avoid wrap around */) {
 	uintptr_t next_addr = addr + len;
 	bd = fh_bucket_lookup(gasneti_mynode, next_addr);
 	if (bd != NULL) {
 	    uintptr_t end_addr = fh_priv_end(bd->priv) + 1;
 	    gasneti_assert(end_addr > next_addr);
 
-#if 1
 	    extend = end_addr - next_addr;
 	    if (extend <= space_avail) {
 	        /* We cover the other region fully */
 		len += extend;
 		space_avail -= extend;
 	    }
-#else
-	    extend = MIN(end_addr - next_addr, space_avail);
-	    len += extend;
-	    space_avail -= extend;
-#endif
 	}
 	gasneti_assert(len <= fhi_MaxRegionSize);
     }
 
     /* Look to merge w/ predecessor */
-    if_pt (space_avail && (addr != 0) /* avoid wrap around */) {
+    if (space_avail && GASNETT_PREDICT_TRUE(addr != 0) /* avoid wrap around */) {
 	bd = fh_bucket_lookup(gasneti_mynode, addr - FH_BUCKET_SIZE);
 	if (bd != NULL) {
 	    const firehose_private_t *priv = bd->priv;
@@ -643,7 +652,6 @@ fhi_merge_regions(firehose_region_t *pin_region)
 	    gasneti_assert(fh_priv_end(priv) >= (addr - 1));
 	    gasneti_assert(fh_priv_end(priv) < (addr + (len - 1)));
 
-#if 1
 	    extend = addr - FH_BADDR(priv);
 	    if (extend <= space_avail) {
 	        /* We cover the other region fully */
@@ -651,12 +659,6 @@ fhi_merge_regions(firehose_region_t *pin_region)
 	        len += extend;
 	        space_avail -= extend;
 	    }
-#else
-	    extend = MIN(addr - FH_BADDR(priv), space_avail);
-	    addr -= extend;
-	    len += extend;
-	    space_avail -= extend;
-#endif
 	}
 	gasneti_assert(len <= fhi_MaxRegionSize);
     }

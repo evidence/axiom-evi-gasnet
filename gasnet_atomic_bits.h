@@ -154,9 +154,11 @@
     PLATFORM_ARCH_MTA
   #define GASNETI_USE_OS_ATOMICOPS
 #elif defined(GASNETI_FORCE_COMPILER_ATOMICOPS) || /* for debugging */ \
+    (PLATFORM_COMPILER_XLC && !GASNETI_HAVE_XLC_ASM && GASNETI_HAVE_SYNC_ATOMICS_32) || \
     PLATFORM_ARCH_AARCH64 || \
     PLATFORM_ARCH_TILE
   /* TODO: can (should?) do TILE and AARCH64 natively */
+  /* TODO: probe for an XLC version with non-broken gcc inline asm support? */
   #define GASNETI_USE_COMPILER_ATOMICOPS
 #endif
 
@@ -214,7 +216,7 @@
   /* Use a very slow but portable implementation of atomic ops using mutexes */
   /* This case exists only to prevent the following cases from matching. */
 #elif defined(GASNETI_USE_COMPILER_ATOMICOPS)
-  #if PLATFORM_COMPILER_GNU /* XXX: work-alikes? */
+  #if GASNETI_HAVE_SYNC_ATOMICS_32
     /* Generic implementation in terms of GCC's __sync atomics */
 
     /* GCC documentation promises a full memory barrier */
@@ -247,7 +249,7 @@
         return oval;
     }
 
-    #if PLATFORM_ARCH_64 /* TODO: on 32-bit platform should we still be able to use this? */
+    #if GASNETI_HAVE_SYNC_ATOMICS_64
       #define _gasneti_atomic64_prologue_rmw(p,f)         /*empty*/
       #define _gasneti_atomic64_fence_before_rmw(p,f)     /*empty*/
       #define _gasneti_atomic64_fence_after_rmw(p,f)      /*empty*/
@@ -275,7 +277,7 @@
           } while (oval != (tmp = __sync_val_compare_and_swap(p64,oval,nval)));
           return oval;
       }
-    #endif
+    #endif /* GASNETI_HAVE_SYNC_ATOMICS_64 */
   #else 
     #error "GASNETI_USE_COMPILER_ATOMICOPS for unknown or unsupported compiler"
   #endif
@@ -1427,7 +1429,8 @@
 
   /* ------------------------------------------------------------------------------------ */
   #elif PLATFORM_ARCH_SPARC
-    #if defined(__sparcv9) || defined(__sparcv9cpu) || defined(GASNETI_ARCH_ULTRASPARC) /* SPARC v9 ISA */
+    #if defined(__sparcv9) || defined(__sparcv9cpu) || \
+        defined(__sparc_v9__) || defined(GASNETI_ARCH_ULTRASPARC) /* SPARC v9 ISA */
       #if PLATFORM_COMPILER_GNU
         #define GASNETI_HAVE_ATOMIC32_T 1
         typedef struct { volatile int32_t ctr; } gasneti_atomic32_t;
@@ -1817,7 +1820,7 @@
       #endif
     #endif
 
-    #if PLATFORM_COMPILER_XLC
+    #if PLATFORM_COMPILER_XLC && GASNETI_HAVE_XLC_ASM
       #define GASNETI_HAVE_ATOMIC32_T 1
       typedef struct { volatile uint32_t ctr; } gasneti_atomic32_t;
       #define gasneti_atomic32_init(v)       { (v) }
@@ -2111,7 +2114,7 @@
       #endif
 
       /* Using default fences as we have none in our asms */
-    #elif PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_CLANG
+    #elif GASNETI_HAVE_GCC_ASM
       #define GASNETI_HAVE_ATOMIC32_T 1
       typedef struct { volatile uint32_t ctr; } gasneti_atomic32_t;
       #define gasneti_atomic32_init(v)       { (v) }
@@ -2378,7 +2381,7 @@
       #define GASNETI_MIPS_AT "$1"
     #endif
 
-    #if PLATFORM_COMPILER_GNU
+    #if PLATFORM_OS_LINUX && PLATFORM_COMPILER_GNU
       #define GASNETI_HAVE_ATOMIC32_T 1
       typedef struct { volatile uint32_t ctr; } gasneti_atomic32_t;
       #define gasneti_atomic32_init(v)       { (v) }
@@ -2386,7 +2389,7 @@
       #define _gasneti_atomic32_set(p,v)     ((p)->ctr = (v))
 
       /* We can't assume GNU as, so no push/pop. */
-      #if PLATFORM_COMPILER_GNU
+      #if 1 /* Only gcc supported currently */
         /* Default is at,reorder,macro */
         #define GASNETI_MIPS_START_NOAT        ".set   noat\n\t"
         #define GASNETI_MIPS_END_NOAT          ".set   at\n\t"
@@ -2576,7 +2579,7 @@
     #endif
   /* ------------------------------------------------------------------------------------ */
   #elif PLATFORM_ARCH_ARM && defined(GASNETI_HAVE_ARM_CMPXCHG)
-    #if PLATFORM_COMPILER_GNU && PLATFORM_OS_LINUX
+    #if PLATFORM_OS_LINUX && (PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_CLANG)
       #define GASNETI_HAVE_ATOMIC32_T 1
 
       typedef struct { volatile unsigned int ctr; } gasneti_atomic32_t;

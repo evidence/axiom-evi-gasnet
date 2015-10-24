@@ -193,8 +193,14 @@ static int AMMPI_AllocateEndpointResource(ep_t ep) {
   MPI_SAFE(MPI_Comm_rank(currentComm, &procnum));
   ep->name.mpirank = procnum;
   ep->name.mpitag = mpitag;
+
+#if MPI_VERSION >= 2
+  MPI_SAFE(MPI_Comm_set_errhandler(*ep->Req.mpicomm, MPI_ERRORS_RETURN));
+  MPI_SAFE(MPI_Comm_set_errhandler(*ep->Rep.mpicomm, MPI_ERRORS_RETURN));
+#else
   MPI_SAFE(MPI_Errhandler_set(*ep->Req.mpicomm, MPI_ERRORS_RETURN));
   MPI_SAFE(MPI_Errhandler_set(*ep->Rep.mpicomm, MPI_ERRORS_RETURN));
+#endif
 
   return AM_OK;
 }

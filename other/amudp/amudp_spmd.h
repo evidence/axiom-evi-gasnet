@@ -17,7 +17,7 @@ SOCK_BEGIN_EXTERNC
 /* ------------------------------------------------------------------------------------ */
 /* AMUDP SPMD Entry Points */
 
-typedef int (*amudp_spawnfn_t)(int nproc, int argc, char **argv);
+typedef int (*amudp_spawnfn_t)(int nproc, int argc, char **argv, char **extra_env);
 /* return non-zero if successful */
 
 extern int AMUDP_SPMDStartup(int *argc, char ***argv,
@@ -99,11 +99,9 @@ extern int AMUDP_SPMDAllGather(void *source, void *dest, size_t len);
  * you can always write your own to suit your environment, of course
  * (see amudp_spawn.c for several examples)
  */
-extern int AMUDP_SPMDLocalSpawn(int nproc, int argc, char **argv); /* fork/exec the worker processes on this machine */
-extern int AMUDP_SPMDSshSpawn(int nproc, int argc, char **argv);   /* call ssh remote shell */
-extern int AMUDP_SPMDRexecSpawn(int nproc, int argc, char **argv); /* call rexec spawning tool */
-extern int AMUDP_SPMDGlunixSpawn(int nproc, int argc, char **argv); /* requires -DGLUNIX when compiling library */
-extern int AMUDP_SPMDCustomSpawn(int nproc, int argc, char **argv);
+extern int AMUDP_SPMDLocalSpawn(int nproc, int argc, char **argv, char **extra_env); /* fork/exec the worker processes on this machine */
+extern int AMUDP_SPMDSshSpawn(int nproc, int argc, char **argv, char **extra_env);   /* call ssh remote shell */
+extern int AMUDP_SPMDCustomSpawn(int nproc, int argc, char **argv, char **extra_env);
 
 typedef struct {
   char abbrev;

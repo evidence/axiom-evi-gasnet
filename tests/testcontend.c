@@ -33,6 +33,9 @@ gasnett_atomic_t pong;
 volatile int signal_done = 0;
 #define thread_barrier() PTHREAD_BARRIER(threads)
 
+int revthreads = 0;
+#define ARG2THREAD(arg) (revthreads?(threads-1)-(int)(intptr_t)args:(int)(intptr_t)args)
+
 typedef void * (*threadmain_t)(void *args);
 
 /* AM Handlers */
@@ -84,7 +87,7 @@ void report(gasnett_tick_t ticks) {
 
 #define AMPINGPONG(fnname, POLLUNTIL)                                                   \
   void * fnname(void *args) {                                                           \
-    int mythread = (int)(intptr_t)args;                                                 \
+    int mythread = ARG2THREAD(args);                                                    \
     static int nonzero_present = 0;                                                     \
     gasnett_tick_t start, end;                                                          \
     signal_done = 0;                                                                    \
@@ -123,7 +126,7 @@ AMPINGPONG(ampingpong_barrier_active, BARRIER_UNTIL)
 #define PUTGETPINGPONG(fnname, POLLUNTIL, putgetstmt)                                   \
   void * fnname(void *args) {                                                           \
     int64_t tmp = 0;                                                                    \
-    int mythread = (int)(intptr_t)args;                                                 \
+    int mythread = ARG2THREAD(args);                                                    \
     static int nonzero_present = 0;                                                     \
     gasnett_tick_t start, end;                                                          \
     signal_done = 0;                                                                    \
@@ -164,7 +167,7 @@ PUTGETPINGPONG(get_barrier_active, BARRIER_UNTIL, gasnet_get(&tmp, peer, peerseg
 #define PGFIGHT(fnname, putgetstmt_loner, putgetstmt_rest)                              \
   void * fnname(void *args) {                                                           \
     int64_t tmp = 0;                                                                    \
-    int mythread = (int)(intptr_t)args;                                                 \
+    int mythread = ARG2THREAD(args);                                                    \
     gasnett_tick_t start, end;                                                          \
     signal_done = 0;                                                                    \
     thread_barrier();                                                                   \
@@ -194,7 +197,7 @@ PGFIGHT(get_get_active, gasnet_get(&tmp, peer, peerseg, 8), gasnet_get(&tmp, pee
 
 void * poll_passive(void *args) {
   GASNETI_UNUSED
-  int mythread = (int)(intptr_t)args;
+  int mythread = ARG2THREAD(args);
   signal_done = 0;
   thread_barrier();
   while (!signal_done) gasnet_AMPoll();
@@ -203,7 +206,7 @@ void * poll_passive(void *args) {
 }
 void * block_passive(void *args) {
   GASNETI_UNUSED
-  int mythread = (int)(intptr_t)args;
+  int mythread = ARG2THREAD(args);
   signal_done = 0;
   thread_barrier();
   GASNET_BLOCKUNTIL(signal_done);
@@ -211,7 +214,7 @@ void * block_passive(void *args) {
   return NULL;
 }
 void * barrier_passive(void *args) {
-  int mythread = (int)(intptr_t)args;
+  int mythread = ARG2THREAD(args);
   signal_done = 0;
   thread_barrier();
   while (!signal_done) gasnet_AMPoll();
@@ -250,17 +253,27 @@ threadcnt_t *tcount;
 
 void *workerthread(void *args) {
   int fnidx;
-  int mythread = (int)(intptr_t)args;
+  int mythread = ARG2THREAD(args);
   for (fnidx = 0; fnidx < NUM_FUNC; fnidx++) {
     int tcountpos;
 
+    if (mythread == 0) TEST_SECTION_BEGIN();
     thread_barrier();
+    if (!TEST_SECTION_ENABLED()) {
+      thread_barrier();
+      continue;
+    }
+
     if (mythread == 0 && gasnet_mynode() == 0) {
-        MSG("--------------------------------------------------------------------------");
-        MSG("Running test %s", fntable[fnidx].desc);
-        MSG("--------------------------------------------------------------------------");
-        MSG(" Active-end threads\tPassive-end threads\tIterTime\tTotalTime");
-        MSG("--------------------------------------------------------------------------");
+        MSG("%c: --------------------------------------------------------------------------",
+            TEST_SECTION_NAME());
+        MSG("%c: Running test %s", TEST_SECTION_NAME(), fntable[fnidx].desc);
+        MSG("%c: --------------------------------------------------------------------------",
+            TEST_SECTION_NAME());
+        MSG("%c: Active-end threads\tPassive-end threads\t  IterTime\tTotalTime",
+            TEST_SECTION_NAME());
+        MSG("%c: --------------------------------------------------------------------------",
+            TEST_SECTION_NAME());
     }
 
     for (tcountpos = 0; tcountpos < tcountentries; tcountpos++) {
@@ -275,7 +288,7 @@ void *workerthread(void *args) {
       thread_barrier();
       if (mythread == 0 && amactive) { 
         const char *rpt = getreport();
-        if (rpt) MSG("\t   %d\t\t\t  %d\t\t%s", 
+        if (rpt) MSG("%c:\t   %d\t\t\t  %d\t\t%s", TEST_SECTION_NAME(),
           tcount[tcountpos].activecnt, tcount[tcountpos].passivecnt, rpt);
       }
     }
@@ -285,15 +298,29 @@ void *workerthread(void *args) {
 int main(int argc, char **argv) {
 	int maxthreads = 4;
 	int i;
+	int arg;
+	int help = 0;
         threadcnt_t *ptcount;
 
 	GASNET_Safe(gasnet_init(&argc, &argv));
     	GASNET_Safe(gasnet_attach(htable, HANDLER_TABLE_SIZE, TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
-	test_init("testcontend",1,"(maxthreads) (iters)");
+	test_init("testcontend",1,"[options] (maxthreads) (iters) (test_sections)\n"
+                  "  The -rev option reverses thread numbering");
 
-	if (argc >= 2) maxthreads = atoi(argv[1]);
-	if (argc >= 3) iters = atoi(argv[2]);
-        if (argc > 3) test_usage();
+        arg = 1;
+        while (argc > arg) {
+          if (!strcmp(argv[arg], "-rev")) {
+            revthreads = 1;
+            ++arg;
+          } else if (argv[arg][0] == '-') {
+            help = 1;
+            ++arg;
+          } else break;
+        }
+        if (argc > arg) { maxthreads = atoi(argv[arg]); ++arg; }
+        if (argc > arg) { iters = atoi(argv[arg]); ++arg; }
+        if (argc > arg) { TEST_SECTION_PARSE(argv[arg]); ++arg; }
+        if (argc > arg || help) test_usage();
 
 	if (maxthreads > TEST_MAXTHREADS || maxthreads < 1) {
 	  printf("Threads must be between 1 and %i\n", TEST_MAXTHREADS);

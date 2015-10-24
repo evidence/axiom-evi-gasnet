@@ -11,12 +11,11 @@
 #include <gasnet_coll.h>
 #include <gasnet_coll_team.h>
 
+#define MAX_SIZE 8192
 #define SCRATCH_SIZE (4*1024*1024)
-#define COLL_BUFF_SIZE (16*1024*1024)
-#define SEG_PER_THREAD (SCRATCH_SIZE+2*COLL_BUFF_SIZE)
-#define TEST_SEGSZ_EXPR (SEG_PER_THREAD)
+#define COLL_BUFF_SIZE (SIZEOF_INT * MAX_SIZE)
+#define TEST_SEGSZ_EXPR (SCRATCH_SIZE + 2*COLL_BUFF_SIZE)
 
-#define MAX_SIZE 16384
 #include <test.h>
 
 int main(int argc, char **argv) 
@@ -34,7 +33,6 @@ int main(int argc, char **argv)
   
   gasnet_seginfo_t teamA_scratch;
   gasnet_seginfo_t teamB_scratch;
-  gasnet_seginfo_t const * test_segs;
   GASNET_Safe(gasnet_init(&argc, &argv));
 #if !GASNET_SEQ
   MSG0("WARNING: This test does not work for NON-SEQ builds yet.. skipping test\n");
@@ -45,7 +43,7 @@ int main(int argc, char **argv)
   
   A = TEST_MYSEG();
   B = A + SCRATCH_SIZE;
-  C = B + SCRATCH_SIZE;
+  C = B + COLL_BUFF_SIZE;
   B_int = (int*) B;
   C_int = (int*) C;
   gasnet_coll_init(NULL, 0, NULL, 0, 0);
@@ -54,13 +52,12 @@ int main(int argc, char **argv)
 
   mynode = gasnet_mynode();
   nodes = gasnet_nodes();
-  test_segs = TEST_SEGINFO();
   
-  teamA_scratch.addr = test_segs[mynode].addr;
+  teamA_scratch.addr = A;
   teamA_scratch.size = SCRATCH_SIZE/2;
   
-  teamB_scratch.addr = (uint8_t*)teamA_scratch.addr + SCRATCH_SIZE/2;
-  teamB_scratch.size = teamA_scratch.size;
+  teamB_scratch.addr = A + SCRATCH_SIZE/2;
+  teamB_scratch.size = SCRATCH_SIZE/2;
 
   if (argc > 4)
     test_usage();
@@ -142,7 +139,7 @@ int main(int argc, char **argv)
   BARRIER();
   
   /*first do team all broadcast*/
-  for (sz = 1; sz<MAX_SIZE; sz=sz*2) {
+  for (sz = 1; sz<=MAX_SIZE; sz=sz*2) {
     int root = 0;
     for(i=0; i<sz; i++) {
       B_int[i] = mynode*sz+42+i;
@@ -177,7 +174,7 @@ int main(int argc, char **argv)
   BARRIER();
 
   /*next do row broadcasts*/
-  for (sz = 1; sz<MAX_SIZE; sz=sz*2) {
+  for (sz = 1; sz<=MAX_SIZE; sz=sz*2) {
     for(i=0; i<sz; i++) {
       B_int[i] = mynode*sz+42+i;
       C_int[i] = -1;
@@ -210,7 +207,7 @@ int main(int argc, char **argv)
   }
   BARRIER();
   /*next do col broadcasts*/
-  for (sz = 1; sz<MAX_SIZE; sz=sz*2) {
+  for (sz = 1; sz<=MAX_SIZE; sz=sz*2) {
     for(i=0; i<sz; i++) {
       B_int[i] = mynode*sz+42+i;
       C_int[i] = -1;
