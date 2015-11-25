@@ -66,7 +66,7 @@ static size_t fhi_MaxRegionSize;
 #ifdef FIREHOSE_CLIENT_T
   #define FH_CP_CLIENT(A,B) (A)->client = (B)->client
 #else
-  #define FH_CP_CLIENT(A,B)
+  #define FH_CP_CLIENT(A,B) ((void)0)
 #endif
 
 /* Assumes node field is correct */
