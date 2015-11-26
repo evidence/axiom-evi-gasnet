@@ -395,8 +395,12 @@ size_t gasnetc_firehose_acquire(gasnetc_post_descriptor_t *gpd)
   fh_loc = firehose_local_pin(loc_addr, MIN(pd->length, aligned), &gpd->u.fh_req);
   gasneti_assert(fh_loc == &gpd->u.fh_req);
   pd->local_mem_hndl = gpd->u.fh_req.client;
-  pd->length = MIN(pd->length, fh_loc->addr + fh_loc->len - loc_addr);
-  return pd->length;
+  if_pf (! gasneti_valid_client_t(& pd->local_mem_hndl)) {
+    /* Failed memory registration */
+    firehose_release(&fh_loc, 1);
+    return 0;
+  }
+  return MIN(pd->length, fh_loc->addr + fh_loc->len - loc_addr);
 }
 
 /* Release firehose linked to gpd */
@@ -1753,8 +1757,18 @@ size_t gasnetc_rdma_put_fh(gasnet_node_t node,
   } else {
     /* TODO: look at ibv-conduit logic which works to align registrations for better reuse */
     pd->type = GNI_POST_RDMA_PUT;
-    gpd->flags |= GC_POST_FIREHOSE;
     nbytes = gasnetc_firehose_acquire(gpd);
+    if_pt (nbytes) {
+      gpd->flags |= GC_POST_FIREHOSE;
+    } else {
+      /* Memory could not be registered - fall back to bounce buffers */
+      pd->local_addr = (uint64_t) gasnetc_alloc_bounce_buffer(GASNETC_DIDX_PASS_ALONE);
+      pd->local_mem_hndl = my_mem_handle;
+      gpd->flags |= GC_POST_UNBOUNCE;
+      nbytes = MIN(pd->length, gasnetc_put_bounce_register_cutover);
+      memcpy((void *) pd->local_addr, source_addr, nbytes);
+    }
+    pd->length = nbytes;
     status = myPostRdma(peer->ep_handle, gpd);
   }
 
@@ -2015,8 +2029,19 @@ size_t gasnetc_rdma_get_fh(gasnet_node_t node,
 #endif
   {
     pd->local_addr = (uint64_t) dest_addr;
-    gpd->flags |= GC_POST_FIREHOSE;
     nbytes = gasnetc_firehose_acquire(gpd);
+    if_pt (nbytes) {
+      gpd->flags |= GC_POST_FIREHOSE;
+    } else {
+      /* Memory could not be registered - fall back to bounce buffers */
+      pd->local_addr = (uint64_t) gasnetc_alloc_bounce_buffer(GASNETC_DIDX_PASS_ALONE);
+      pd->local_mem_hndl = my_mem_handle;
+      gpd->flags |= GC_POST_UNBOUNCE | GC_POST_COPY;
+      gpd->gpd_get_src = pd->local_addr;
+      gpd->gpd_get_dst = (uint64_t) dest_addr;
+      nbytes = MIN(pd->length, gasnetc_get_bounce_register_cutover);
+    }
+    pd->length = nbytes;
   }
 
   gasnetc_post_get(peer->ep_handle, gpd);
@@ -2573,9 +2598,12 @@ firehose_move_callback(gasnet_node_t node,
   {
     /* Take care of any unpins first */
     for (i = 0; i < unpin_num; i++) {
-      gni_mem_handle_t handle = unpin_list[i].client; /* Copy due to const */
-      status = GNI_MemDeregister(nic_handle, &handle);
-      gasneti_assert_always(status == GNI_RC_SUCCESS);
+      const firehose_region_t *region = unpin_list + i;
+      if_pt (gasneti_valid_client_t(&region->client)) {
+        gni_mem_handle_t handle = region->client; /* Copy due to const */
+        status = GNI_MemDeregister(nic_handle, &handle);
+        gasneti_assert_always(status == GNI_RC_SUCCESS);
+      }
       GASNETC_TRACE_UNPIN(&unpin_list[i]);
     }
 
@@ -2583,8 +2611,18 @@ firehose_move_callback(gasnet_node_t node,
     for (i = 0; i < pin_num; i++) {
       firehose_region_t *region = pin_list + i;
       status = GNI_MemRegister(nic_handle, region->addr, region->len, NULL,
-                               gasnetc_memreg_flags, -1, &region->client);
-      gasneti_assert_always(status == GNI_RC_SUCCESS);
+                               gasnetc_memreg_flags|GNI_MEM_READWRITE, -1, &region->client);
+      if_pf (GNI_RC_SUCCESS != status) {
+        if (GNI_RC_INVALID_PARAM == status || GNI_RC_PERMISSION_ERROR == status) {
+          /* Memory could not be registered (e.g. memory imported by XPMEM or r/o data). */
+          gasneti_invalidate_client_t(&region->client);
+        } else {
+          /* Any other failure mode is fatal */
+          gasnetc_GNIT_Abort("MemRegister failed at %p + %p with %s",
+                             region->addr, (void*)region->len,
+                             gasnetc_gni_rc_string(status));
+        }
+      }
       GASNETC_TRACE_PIN(&pin_list[i]);
     }
   }
