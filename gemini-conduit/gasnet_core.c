@@ -601,10 +601,6 @@ static int gasnetc_init(int *argc, char ***argv) {
   if (gasneti_init_done) 
     GASNETI_RETURN_ERRR(NOT_INIT, "GASNet already initialized");
 
-  gasneti_init_done = 1; /* enable early to allow tracing */
-
-  gasneti_freezeForDebugger();
-
 #if GASNET_DEBUG_VERBOSE
     /* note - can't call trace macros during gasnet_init because trace system not yet initialized */
     fprintf(stderr,"gasnetc_init(): about to call gasnetc_init...\n"); fflush(stderr);
@@ -612,6 +608,13 @@ static int gasnetc_init(int *argc, char ***argv) {
 
   ret = gasnetc_bootstrapInit(argc, argv);
   if (ret != GASNET_OK) return ret;
+
+  gasneti_init_done = 1; /* enable early to allow tracing */
+
+  gasneti_freezeForDebugger();
+
+  /* Now enable tracing of all the following steps */
+  gasneti_trace_init(argc, argv);
 
   #if GASNET_DEBUG_VERBOSE
     fprintf(stderr,"gasnetc_init(): gasnetc_init done - node %i/%i starting...\n", 
@@ -721,7 +724,10 @@ extern int gasnet_init(int *argc, char ***argv) {
   /* after this, ams should work, but the segments aren't registered yet */
   int retval = gasnetc_init(argc, argv);
   if (retval != GASNET_OK) GASNETI_RETURN(retval);
+  #if 0
+  /* Already done in gasnetc_init() to allow tracing of init steps */
   gasneti_trace_init(argc, argv);
+  #endif
   return GASNET_OK;
 }
 /* ------------------------------------------------------------------------------------ */
