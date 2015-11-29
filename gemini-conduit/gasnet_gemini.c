@@ -270,7 +270,7 @@ int gasnetc_try_pin(void *addr, uintptr_t size)
     gni_return_t status;
 
     status = GNI_MemRegister(nic_handle, (uint64_t)addr, size, NULL,
-                             gasnetc_memreg_flags, -1, &mem_handle);
+                             gasnetc_memreg_flags|GNI_MEM_READWRITE, -1, &mem_handle);
     if_pt (status == GNI_RC_SUCCESS) {
       status = GNI_MemDeregister(nic_handle, &mem_handle);
       gasneti_assert(status == GNI_RC_SUCCESS);
@@ -319,7 +319,7 @@ static gasneti_weakatomic_val_t gasnetc_reg_credit_max;
 
 /* Register local side of a pd, with unbounded retry on ERR_RESOURCE.
    Returns 1 on success, or 0 on ERR_INVAL_PARAM */
-static int gasnetc_register_gpd(gasnetc_post_descriptor_t *gpd)
+static int gasnetc_register_gpd(gasnetc_post_descriptor_t *gpd, uint32_t flags)
 {
   GASNETC_DIDX_POST(gpd->domain_idx);
   DOMAIN_SPECIFIC_VAR(gni_nic_handle_t, nic_handle);
@@ -345,10 +345,11 @@ first:
     if_pf (stall) GASNETC_TRACE_WAIT_END(MEM_REG_STALL);
   }
 
+  flags |= gasnetc_memreg_flags;
   for (;;) {
     GASNETC_LOCK_GNI();
     status = GNI_MemRegister(nic_handle, addr, nbytes, NULL,
-                             gasnetc_memreg_flags, -1, &pd->local_mem_hndl);
+                             flags, -1, &pd->local_mem_hndl);
     GASNETC_UNLOCK_GNI();
     if_pt (status == GNI_RC_SUCCESS) {
       if (trial) GASNETC_STAT_EVENT_VAL(MEM_REG_RETRY, trial);
@@ -363,7 +364,8 @@ first:
       return 0;
     } else {
       /* Unknown failure is fatal */
-      gasnetc_GNIT_Abort("MemRegister failed with %s", gasnetc_gni_rc_string(status));
+      gasnetc_GNIT_Abort("MemRegister failed at %p + %p with %s",
+                         addr, (void*)nbytes, gasnetc_gni_rc_string(status));
       break; /* NOT REACHED */
     }
   }
@@ -562,7 +564,6 @@ void gasnetc_init_segment(void *segment_start, size_t segment_size)
       gasnetc_memreg_flags = 0;
       break;
   }
-  gasnetc_memreg_flags |= GNI_MEM_READWRITE;
 
 #if FIX_HT_ORDERING
   if (gasnetc_mem_consistency != GASNETC_STRICT_MEM_CONSISTENCY) {
@@ -580,7 +581,7 @@ void gasnetc_init_segment(void *segment_start, size_t segment_size)
     for (;;) {
       status = GNI_MemRegister(nic_handle, (uint64_t) segment_start, 
 			       (uint64_t) segment_size, destination_cq_handle,
-			       gasnetc_memreg_flags, -1, 
+			       gasnetc_memreg_flags|GNI_MEM_READWRITE, -1,
 			       &my_mem_handle);
       if (status == GNI_RC_SUCCESS) break;
       if (status == GNI_RC_ERROR_RESOURCE) {
@@ -1813,7 +1814,7 @@ size_t gasnetc_rdma_put_bulk(gasnet_node_t node,
       gasneti_assert(!gasnetc_use_firehose);
       if ((nbytes <= gasnetc_put_bounce_register_cutover) ||
           /* Also use bounce buffer (setting nbytes to max size) if MemRegister fails: */
-          (!gasnetc_register_gpd(gpd) &&
+          (!gasnetc_register_gpd(gpd, GNI_MEM_READ_ONLY) &&
            ((pd->length = nbytes = gasnetc_put_bounce_register_cutover),
             (pd->local_mem_hndl = my_mem_handle),1))) {
         void * const buffer = gasnetc_alloc_bounce_buffer(GASNETC_DIDX_PASS_ALONE);
@@ -2066,7 +2067,7 @@ size_t gasnetc_rdma_get(gasnet_node_t node,
       gpd->gpd_get_dst = (uint64_t) dest_addr;
     } else if ((nbytes <= gasnetc_get_bounce_register_cutover) ||
                /* Also use bounce buffer (setting nbytes to max size) if MemRegister fails: */
-               (!gasnetc_register_gpd(gpd) &&
+               (!gasnetc_register_gpd(gpd, GNI_MEM_READWRITE) &&
                 ((pd->length = nbytes = gasnetc_get_bounce_register_cutover),
                  (pd->local_mem_hndl = my_mem_handle),1))) {
       gpd->flags |= GC_POST_UNBOUNCE | GC_POST_COPY;
