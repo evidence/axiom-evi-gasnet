@@ -365,7 +365,7 @@ first:
     } else {
       /* Unknown failure is fatal */
       gasnetc_GNIT_Abort("MemRegister failed at %p + %p with %s",
-                         addr, (void*)nbytes, gasnetc_gni_rc_string(status));
+                         (void*)addr, (void*)nbytes, gasnetc_gni_rc_string(status));
       break; /* NOT REACHED */
     }
   }
