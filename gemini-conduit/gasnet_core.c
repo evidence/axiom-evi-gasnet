@@ -606,33 +606,12 @@ static int gasnetc_init(int *argc, char ***argv) {
       gasneti_mynode, gasneti_nodes); fflush(stderr);
   #endif
 
-  /* determine which GASNet nodes may share memory.
-   * build gasneti_nodemap[]
-   *  call gasneti_nodemapParse() after constructing it.
-   */
-  gasneti_nodemap = gasneti_malloc(gasneti_nodes * sizeof(uint32_t));
-  gasneti_assert(gasneti_nodemap);
-  /* PMI uses int, gni and gasnet use uint32_t */
-  gasneti_assert(sizeof(int32_t) == sizeof(gasnett_atomic_t));
-  gasneti_assert(sizeof(int) == sizeof(uint32_t));
-  ret = PMI_Get_numpes_on_smp(&localranks);
-  gasneti_assert(ret == PMI_SUCCESS);
-  gasneti_assert(localranks <= gasneti_nodes);
-  /* OK to use the base of gasneti_nodemap as a temp because it isn't filled in */
-  ret = PMI_Get_pes_on_smp((int *) gasneti_nodemap, localranks);
-  gasneti_assert(ret == PMI_SUCCESS);
-  /* find minimum rank on local supernode */
-  minlocalrank = gasneti_nodes;  /* one larger than largest possible */
-  for (i = 0; i < localranks; i += 1) {
-    if (gasneti_nodemap[i] < minlocalrank) minlocalrank = gasneti_nodemap[i];
+  /* Retreive the nidlist to construct the gasneti_nodemap[]  */
+  { int *nidlist;
+    ret = PMI_Get_nidlist_ptr((void**) &nidlist);
+    gasneti_assert(ret == PMI_SUCCESS);
+    gasneti_nodemapInit(NULL, nidlist, sizeof(int), sizeof(int));
   }
-  gasneti_bootstrapExchange_pmi(&minlocalrank, sizeof(uint32_t), gasneti_nodemap);
-  for (i = 0; i < gasneti_nodes; i += 1) {
-    /* gasneti_assert(gasneti_nodemap[i] >= 0);  type is unsigned, so this is moot */
-    gasneti_assert(gasneti_nodemap[i] < gasneti_nodes);
-  }
-
-  gasneti_nodemapParse();
 
   #if GASNET_PSHM
     /* If your conduit will support PSHM, you should initialize it here.
