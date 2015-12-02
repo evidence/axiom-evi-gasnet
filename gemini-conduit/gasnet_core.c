@@ -422,11 +422,7 @@ done:
   gasnetc_handler[_hidx_gasnetc_sys_exchange_reqh] = (gasneti_handler_fn_t)&gasnetc_sys_exchange_reqh;
 
   gasnetc_bootstrap_am_coll = 1;
-#if GASNETC_USE_MULTI_DOMAIN
-  /* Need to use PMI exchange at each pthread spawn */
-#else
   gasneti_bootstrapCleanup_pmi(); /* No further use of PMI-based colelctives */
-#endif
 }
 
 static void gasnetc_sys_coll_fini(void)
