@@ -605,7 +605,7 @@ void gasnetc_init_segment(void *segment_start, size_t segment_size)
   {
     gni_mem_handle_t *all_mem_handle = gasneti_malloc(gasneti_nodes * sizeof(gni_mem_handle_t));
     gasnet_node_t i;
-    gasnetc_bootstrapExchange(&my_mem_handle, sizeof(gni_mem_handle_t), all_mem_handle);
+    gasnetc_bootstrapExchange_gni(&my_mem_handle, sizeof(gni_mem_handle_t), all_mem_handle);
     for (i = 0; i < gasneti_nodes; ++i) {
       peer_data[i].mem_handle = all_mem_handle[i];
     }
@@ -891,7 +891,7 @@ uintptr_t gasnetc_init_messaging(void)
     struct am_exchange *all_am_exchg = gasneti_malloc(gasneti_nodes * sizeof(struct am_exchange));
     uint8_t *local_peer_base = (uint8_t *)am_mmap_ptr + reply_region_length;
 
-    gasnetc_bootstrapExchange(&my_am_exchg, sizeof(struct am_exchange), all_am_exchg);
+    gasneti_bootstrapExchange_pmi(&my_am_exchg, sizeof(struct am_exchange), all_am_exchg);
   
     /* At this point all_am_exchg has the required information for everyone */
     for (i = 0; i < gasneti_nodes; i += 1) {

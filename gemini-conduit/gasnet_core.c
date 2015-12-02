@@ -178,8 +178,6 @@ static int gasnetc_bootstrapInit(int *argc, char ***argv) {
  * Taken from vapi-conduit w/o the thread safetly complications 
  */
 
-static int gasnetc_bootstrap_am_coll = 0;
-
 static gasnet_node_t gasnetc_dissem_peers = 0;
 static gasnet_node_t *gasnetc_dissem_peer = NULL;
 static gasnet_node_t *gasnetc_exchange_rcvd = NULL;
@@ -191,10 +189,9 @@ static void gasnetc_sys_barrier_reqh(gasnet_token_t token, uint32_t arg)
     gasnetc_sys_barrier_rcvd[arg&1] |= arg;
 }
 
-GASNETI_NEVER_INLINE(gasnetc_bootstrapBarrier,
-void gasnetc_bootstrapBarrier(void))
+GASNETI_NEVER_INLINE(gasnetc_bootstrapBarrier_gni,
+void gasnetc_bootstrapBarrier_gni(void))
 {
-  if (gasnetc_bootstrap_am_coll) {
     static int phase = 0;
     int pre_attach = !gasneti_attach_done;
     int i;
@@ -229,9 +226,6 @@ void gasnetc_bootstrapBarrier(void))
     /* reset for next barrier */
     gasnetc_sys_barrier_rcvd[phase] = 0;
     phase ^= 1;
-  } else {
-    gasneti_bootstrapBarrier_pmi();
-  }
 }
 
 #define GASNETC_SYS_EXCHANGE_MAX GASNETC_GNI_MAX_MEDIUM
@@ -261,10 +255,9 @@ static void gasnetc_sys_exchange_reqh(gasnet_token_t token, void *buf,
   ++gasnetc_sys_exchange_rcvd[phase][step];
 }
 
-GASNETI_NEVER_INLINE(gasnetc_bootstrapExchange,
-void gasnetc_bootstrapExchange(void *src, size_t len, void *dest))
+GASNETI_NEVER_INLINE(gasnetc_bootstrapExchange_gni,
+void gasnetc_bootstrapExchange_gni(void *src, size_t len, void *dest))
 {
-  if (gasnetc_bootstrap_am_coll) {
     static int phase = 0;
 
     const int pre_attach = !gasneti_attach_done;
@@ -330,9 +323,6 @@ end_network_comms:
     gasneti_free(temp);
     gasnetc_sys_exchange_buf[phase] = NULL;
     phase ^= 1;
-  } else {
-    gasneti_bootstrapExchange_pmi(src, len, dest);
-  }
 
 #if GASNET_DEBUG
   /* verify own data as a sanity check */
@@ -421,7 +411,6 @@ done:
   gasnetc_handler[_hidx_gasnetc_sys_barrier_reqh]  = (gasneti_handler_fn_t)&gasnetc_sys_barrier_reqh;
   gasnetc_handler[_hidx_gasnetc_sys_exchange_reqh] = (gasneti_handler_fn_t)&gasnetc_sys_exchange_reqh;
 
-  gasnetc_bootstrap_am_coll = 1;
   gasneti_bootstrapCleanup_pmi(); /* No further use of PMI-based colelctives */
 }
 
@@ -542,8 +531,8 @@ extern uintptr_t gasnetc_MaxPinMem(uintptr_t msgspace)
   pm_limit -= msgspace;
 
   limit = gasneti_mmapLimit((uintptr_t)-1, pm_limit,
-                            &gasnetc_bootstrapExchange,
-                            &gasnetc_bootstrapBarrier);
+                            &gasnetc_bootstrapExchange_gni,
+                            &gasnetc_bootstrapBarrier_gni);
 
 
   if_pf (gasneti_getenv_yesno_withdefault("GASNET_PHYSMEM_NOPROBE", 0)) {
@@ -637,7 +626,7 @@ static int gasnetc_init(int *argc, char ***argv) {
   for (i = 0; i < localranks; i += 1) {
     if (gasneti_nodemap[i] < minlocalrank) minlocalrank = gasneti_nodemap[i];
   }
-  gasnetc_bootstrapExchange(&minlocalrank, sizeof(uint32_t), gasneti_nodemap);
+  gasneti_bootstrapExchange_pmi(&minlocalrank, sizeof(uint32_t), gasneti_nodemap);
   for (i = 0; i < gasneti_nodes; i += 1) {
     /* gasneti_assert(gasneti_nodemap[i] >= 0);  type is unsigned, so this is moot */
     gasneti_assert(gasneti_nodemap[i] < gasneti_nodes);
@@ -677,7 +666,7 @@ static int gasnetc_init(int *argc, char ***argv) {
       /* localSegmentLimit provides a conduit-specific limit on the max segment size.
        * can use (uintptr_t)-1 as unlimited.
        */
-      gasneti_segmentInit( max_pin, &gasnetc_bootstrapExchange);
+      gasneti_segmentInit( max_pin, &gasnetc_bootstrapExchange_gni);
 
 
     }
@@ -886,7 +875,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
     if (segsize == 0) segbase = NULL; /* no segment */
     else {
-      gasneti_segmentAttach(segsize, minheapoffset, gasneti_seginfo, &gasnetc_bootstrapExchange);
+      gasneti_segmentAttach(segsize, minheapoffset, gasneti_seginfo, &gasnetc_bootstrapExchange_gni);
       segbase = gasneti_seginfo[gasneti_mynode].addr;
       segsize = gasneti_seginfo[gasneti_mynode].size;
       gasnetc_assert_aligned(segbase, GASNET_PAGESIZE);
@@ -950,7 +939,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   /* ------------------------------------------------------------------------------------ */
   /*  primary attach complete */
   gasneti_attach_done = 1;
-  gasnetc_bootstrapBarrier();
+  gasnetc_bootstrapBarrier_gni();
 
   GASNETI_TRACE_PRINTF(C,("gasnetc_attach(): primary attach complete"));
 
@@ -969,7 +958,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   gasneti_nodemapFini();
 
   /* ensure extended API is initialized across nodes */
-  gasnetc_bootstrapBarrier();
+  gasnetc_bootstrapBarrier_gni();
   gasnetc_sys_coll_fini();
 
   GASNETI_TRACE_PRINTF(C,("gasnetc_attach: done\n"));
