@@ -681,6 +681,10 @@ extern void (*gasneti_bootstrapCleanup_p)(void);
 extern void gasneti_bootstrapBarrier(void);
 extern void gasneti_bootstrapExchange(void *src, size_t len, void *dest);
 
+/* Explicitly native Barrier and Exchange: */
+extern void gasnetc_bootstrapBarrier_ib(void);
+extern void gasnetc_bootstrapExchange_ib(void *src, size_t len, void *dest);
+
 /* Global configuration variables */
 extern int		gasnetc_op_oust_limit;
 extern int		gasnetc_op_oust_pp;

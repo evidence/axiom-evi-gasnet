@@ -292,7 +292,8 @@ gasnetc_supernode_bcast(void *src, size_t len, void *dst) {
   #else
     /* Need global Exchange when PSHM is not available */
     /* TODO: If/when is one Bcast per supernode cheaper than 1 Exchange? */
-    /* TODO: Push this case down to the Bootstrap support? */
+    /* TODO: Use gasneti_bootstrapSNodeBroadcast()? */
+    /* NOTE: This is code is currently not even reachable (!PSHM -> no XRC) */
     void *all_data = gasneti_malloc(gasneti_nodes * len);
     void *my_dst = (void *)((uintptr_t )all_data + (len * gasneti_nodemap_local[0]));
     gasneti_bootstrapExchange(src, len, all_data);

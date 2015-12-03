@@ -362,9 +362,8 @@ static void gasnetc_sys_barrier_reqh(gasnet_token_t token, uint32_t arg)
 #endif
 }
 
-extern void gasneti_bootstrapBarrier(void)
+extern void gasnetc_bootstrapBarrier_ib(void)
 {
-  if (gasneti_bootstrap_native_coll) {
     static int phase = 0;
     int i;
 
@@ -390,6 +389,18 @@ extern void gasneti_bootstrapBarrier(void)
     /* reset for next barrier */
     gasnetc_sys_barrier_reset(phase);
     phase ^= 1;
+}
+
+extern void gasneti_bootstrapBarrier(void)
+{
+  if (gasneti_bootstrap_native_coll) {
+  #if GASNET_DEBUG
+    if (!gasneti_mynode) {
+      fprintf(stderr, "@ DEVWARN: Indirect native Barrier\n");
+      /* gasnett_print_backtrace(2); */
+    }
+  #endif
+    gasnetc_bootstrapBarrier_ib();
   } else {
     (*gasneti_bootstrapBarrier_p)();
   }
@@ -469,9 +480,8 @@ static void gasnetc_sys_exchange_reqh(gasnet_token_t token, void *buf,
   gasnetc_sys_exchange_inc(phase, step);
 }
 
-extern void gasneti_bootstrapExchange(void *src, size_t len, void *dest)
+extern void gasnetc_bootstrapExchange_ib(void *src, size_t len, void *dest)
 {
-  if (gasneti_bootstrap_native_coll) {
     static int phase = 0;
 
     uint8_t *temp = gasnetc_sys_exchange_addr(phase, len);
@@ -543,9 +553,6 @@ end_network_comms:
     gasnetc_sys_exchange_buf[phase] = NULL;
     gasneti_sync_writes();
     phase ^= 1;
-  } else {
-    (*gasneti_bootstrapExchange_p)(src, len, dest);
-  }
 
 #if GASNET_DEBUG
   /* verify own data as a sanity check */
@@ -553,6 +560,21 @@ end_network_comms:
     gasneti_fatalerror("exchange failed: self data on node %d is incorrect", gasneti_mynode);
   }
 #endif
+}
+
+extern void gasneti_bootstrapExchange(void *src, size_t len, void *dest)
+{
+  if (gasneti_bootstrap_native_coll) {
+  #if GASNET_DEBUG
+    if (!gasneti_mynode) {
+      fprintf(stderr, "@ DEVWARN: Indirect native Exchange\n");
+      /* gasnett_print_backtrace(2); */
+    }
+  #endif
+    gasnetc_bootstrapExchange_ib(src, len, dest);
+  } else {
+    (*gasneti_bootstrapExchange_p)(src, len, dest);
+  }
 }
 
 /* ------------------------------------------------------------------------------------ */
@@ -745,18 +767,18 @@ static void gasnetc_init_pin_info(int first_local, int num_local) {
       }
       gasnetc_pin_info.memory = size;
     }
-    gasneti_bootstrapExchange(&gasnetc_pin_info, sizeof(gasnetc_pin_info_t), all_info);
+    gasnetc_bootstrapExchange_ib(&gasnetc_pin_info, sizeof(gasnetc_pin_info_t), all_info);
 #if GASNET_ALIGNED_SEGMENTS  /* Just a waste of time otherwise */
     if (gasneti_mynode != first_local) {
       /* Extra mmap traffic to ensure compatible VM spaces */
       gasnetc_fakepin(all_info[first_local].memory, step);
     }
-    gasneti_bootstrapBarrier(); /* Ensure fakepin completes unmap before continuing */
+    gasnetc_bootstrapBarrier_ib(); /* Ensure fakepin completes unmap before continuing */
 #endif
   } else {
     /* Note that README says PHYSMEM_NOPROBE must be equal on all nodes */
     gasnetc_pin_info.memory = limit;
-    gasneti_bootstrapExchange(&gasnetc_pin_info, sizeof(gasnetc_pin_info_t), all_info);
+    gasnetc_bootstrapExchange_ib(&gasnetc_pin_info, sizeof(gasnetc_pin_info_t), all_info);
   }
 
   /* Determine the global values (min of maxes) from the local values */
@@ -1699,14 +1721,14 @@ static int gasnetc_init(int *argc, char ***argv) {
     if_pf (gasnetc_pin_info.memory < reserved_mem) {
       gasneti_fatalerror("Pinnable memory (%lu) is less than reserved minimum %lu\n", (unsigned long)gasnetc_pin_info.memory, (unsigned long)reserved_mem);
     }
-    gasneti_segmentInit((gasnetc_pin_info.memory - reserved_mem), &gasneti_bootstrapExchange);
+    gasneti_segmentInit((gasnetc_pin_info.memory - reserved_mem), &gasnetc_bootstrapExchange_ib);
   }
   #elif GASNET_SEGMENT_LARGE
   {
     uintptr_t limit = gasneti_mmapLimit((uintptr_t)-1, (uint64_t)-1,
-                                  &gasneti_bootstrapExchange,
-                                  &gasneti_bootstrapBarrier);
-    gasneti_segmentInit(limit, &gasneti_bootstrapExchange);
+                                  &gasnetc_bootstrapExchange_ib,
+                                  &gasnetc_bootstrapBarrier_ib);
+    gasneti_segmentInit(limit, &gasnetc_bootstrapExchange_ib);
   }
   #elif GASNET_SEGMENT_EVERYTHING
     /* segment is everything - nothing to do */
@@ -1718,7 +1740,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     /* Done earlier to allow tracing */
     gasneti_init_done = 1;  
   #endif
-  gasneti_bootstrapBarrier();
+  gasnetc_bootstrapBarrier_ib();
 
   gasneti_auxseg_init(); /* adjust max seg values based on auxseg */
 
@@ -1908,7 +1930,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   #elif GASNETC_PIN_SEGMENT
   {
     /* allocate the segment and exchange seginfo */
-    gasneti_segmentAttach(segsize, minheapoffset, gasneti_seginfo, &gasneti_bootstrapExchange);
+    gasneti_segmentAttach(segsize, minheapoffset, gasneti_seginfo, &gasnetc_bootstrapExchange_ib);
     segbase = gasneti_seginfo[gasneti_mynode].addr;
     segsize = gasneti_seginfo[gasneti_mynode].size;
 
@@ -2006,7 +2028,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
          * + When using PSHM we could store rkeys just once per supernode
          * + When not fully connected, we could utilize sparse storage
          */
-        gasneti_bootstrapExchange(my_rkeys, gasnetc_max_regs*sizeof(uint32_t), hca->rkeys);
+        gasnetc_bootstrapExchange_ib(my_rkeys, gasnetc_max_regs*sizeof(uint32_t), hca->rkeys);
       }
       gasneti_free(my_rkeys);
     }
@@ -2014,7 +2036,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   #else	/* just allocate the segment but don't pin it */
   {
     /* allocate the segment and exchange seginfo */
-    gasneti_segmentAttach(segsize, minheapoffset, gasneti_seginfo, gasneti_bootstrapExchange);
+    gasneti_segmentAttach(segsize, minheapoffset, gasneti_seginfo, gasnetc_bootstrapExchange_ib);
     segbase = gasneti_seginfo[gasneti_mynode].addr;
     segsize = gasneti_seginfo[gasneti_mynode].size;
   }
@@ -2088,7 +2110,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   /* ------------------------------------------------------------------------------------ */
   /*  primary attach complete */
   gasneti_attach_done = 1;
-  gasneti_bootstrapBarrier();
+  gasnetc_bootstrapBarrier_ib();
 
   GASNETI_TRACE_PRINTF(C,("gasnetc_attach(): primary attach complete"));
 
@@ -2107,7 +2129,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 #endif
 
   /* ensure extended API is initialized across nodes */
-  gasneti_bootstrapBarrier();
+  gasnetc_bootstrapBarrier_ib();
   gasnetc_sys_coll_fini();
 
   return GASNET_OK;
