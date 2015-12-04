@@ -2605,6 +2605,7 @@ void gasneti_bootstrapSNodeBroadcast_ssh(void *src, size_t len, void *dest, int 
   const size_t data_sz = sizeof(gasnet_node_t) + len;
   void *work = gasneti_malloc(data_sz * tree_procs);
   size_t *child_len = gasneti_malloc(sizeof(size_t) * children);
+  gasnet_node_t total_roots = 0;
   fd_set fds;
   int j, k;
 
@@ -2614,15 +2615,22 @@ void gasneti_bootstrapSNodeBroadcast_ssh(void *src, size_t len, void *dest, int 
   READ_EACH_CHILD(j,k,fds) {
     gasnet_node_t delta = child[k].rank - myproc;
     void *p = (void *)((uintptr_t)work + data_sz*delta);
-    do_read(child[k].sock, &child_len[k], sizeof(size_t));
+    gasnet_node_t roots;
+    do_read(child[k].sock, &roots, sizeof(roots));
+    child_len[k] = roots * len + child[k].procs * sizeof(gasnet_node_t);
     do_read(child[k].sock, p, child_len[k]);
+    total_roots += roots;
   }
 
   if (myproc) {
     /* Pack own data with that from children (in 'work') and send to parent */
-    size_t pack_len = (rootnode == myproc) ? data_sz : sizeof(gasnet_node_t); /* variable length */
+    size_t pack_len = sizeof(gasnet_node_t);
     memcpy(work, &rootnode, sizeof(gasnet_node_t));
-    if (rootnode == myproc) memcpy((void *)((intptr_t)work + sizeof(gasnet_node_t)), src, len);
+    if (rootnode == myproc) {
+      memcpy((void *)((intptr_t)work + sizeof(gasnet_node_t)), src, len);
+      pack_len += len;
+      total_roots += 1;
+    }
     for (j = 0; j < children; ++j) {
       gasnet_node_t delta = child[j].rank - myproc;
       gasneti_assert(pack_len <= data_sz*delta);
@@ -2631,7 +2639,7 @@ void gasneti_bootstrapSNodeBroadcast_ssh(void *src, size_t len, void *dest, int 
               child_len[j]);
       pack_len += child_len[j];
     }
-    do_write(parent, &pack_len, sizeof(pack_len));
+    do_write(parent, &total_roots, sizeof(total_roots));
     do_write(parent, work, pack_len);
   } else {
     /* Index the received data in-place */
