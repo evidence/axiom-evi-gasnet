@@ -2531,11 +2531,12 @@ void gasneti_bootstrapBroadcast_ssh(void *src, size_t len, void *dest, int rootn
 #endif
 }
 
-void gasneti_bootstrapSNodeBroadcast_ssh(void *src, size_t len, void *dest, int rootnode) {
+void gasneti_bootstrapSNodeBroadcast_ssh(void *src, size_t len, void *dest, int rootnode_arg) {
+  const gasnet_node_t rootnode = rootnode_arg;
 #if GASNETI_SSH_TOPO_FLAT
   if (is_master) {
     struct snbcast_data {
-      int rootnode;
+      gasnet_node_t root;
       void *data;
     } *tmp = gasneti_calloc(children, sizeof(struct snbcast_data));
     fd_set fds;
@@ -2550,8 +2551,8 @@ void gasneti_bootstrapSNodeBroadcast_ssh(void *src, size_t len, void *dest, int 
 	break;
       }
       gasneti_assert(cmd == BOOTSTRAP_CMD_SNBCAST || in_abort);
-      do_read(child[k].sock, &tmp[k].rootnode, sizeof(rootnode));
-      if (tmp[k].rootnode == k) {
+      do_read(child[k].sock, &tmp[k].root, sizeof(gasnet_node_t));
+      if (tmp[k].root == k) {
         do_read(child[k].sock, &len, sizeof(len));
         tmp[k].data = gasneti_malloc(len);
         do_read(child[k].sock, tmp[k].data, len);
@@ -2559,7 +2560,7 @@ void gasneti_bootstrapSNodeBroadcast_ssh(void *src, size_t len, void *dest, int 
     }
     if (in_abort) return;
     for (j = 0; j < children; ++j) {
-      k = tmp[j].rootnode;
+      k = tmp[j].root;
       if (j != k) {
         do_write(child[j].sock, tmp[k].data, len);
       }
@@ -2575,7 +2576,7 @@ void gasneti_bootstrapSNodeBroadcast_ssh(void *src, size_t len, void *dest, int 
     iov[0].iov_len  = sizeof(cmd);
     iov[1].iov_base = (void *)&rootnode;
     iov[1].iov_len  = sizeof(rootnode);
-    if (gasneti_mynode == rootnode) {
+    if (myproc == rootnode) {
       iov[2].iov_base = (void *)&len;
       iov[2].iov_len  = sizeof(len);
       iov[3].iov_base = src;
@@ -2601,7 +2602,7 @@ void gasneti_bootstrapSNodeBroadcast_ssh(void *src, size_t len, void *dest, int 
    * However, there is some overhead from gathering the rootnode values.
    */
 
-  const size_t data_sz = sizeof(int) + len;
+  const size_t data_sz = sizeof(gasnet_node_t) + len;
   void *work = gasneti_malloc(data_sz * tree_procs);
   size_t *child_len = gasneti_malloc(sizeof(size_t) * children);
   fd_set fds;
@@ -2619,9 +2620,9 @@ void gasneti_bootstrapSNodeBroadcast_ssh(void *src, size_t len, void *dest, int 
 
   if (myproc) {
     /* Pack own data with that from children (in 'work') and send to parent */
-    size_t pack_len = (rootnode == myproc) ? data_sz : sizeof(int); /* variable length */
-    memcpy(work, &rootnode, sizeof(int));
-    if (rootnode == myproc) memcpy((void *)((intptr_t)work + sizeof(int)), src, len);
+    size_t pack_len = (rootnode == myproc) ? data_sz : sizeof(gasnet_node_t); /* variable length */
+    memcpy(work, &rootnode, sizeof(gasnet_node_t));
+    if (rootnode == myproc) memcpy((void *)((intptr_t)work + sizeof(gasnet_node_t)), src, len);
     for (j = 0; j < children; ++j) {
       gasnet_node_t delta = child[j].rank - myproc;
       gasneti_assert(pack_len <= data_sz*delta);
@@ -2637,7 +2638,7 @@ void gasneti_bootstrapSNodeBroadcast_ssh(void *src, size_t len, void *dest, int 
     void *tmp;
     gasnet_node_t rank;
     struct snbcast_data {
-      int root;
+      gasnet_node_t root;
       void *data; /* pointer into 'work', or to 'src' */
     } *index = gasneti_malloc(nproc * sizeof(struct snbcast_data));
     index[0].root = rootnode;
@@ -2647,9 +2648,9 @@ void gasneti_bootstrapSNodeBroadcast_ssh(void *src, size_t len, void *dest, int 
       void *p = (void *)((uintptr_t)work + data_sz*rank);
       for (k = 0; k < procs; ++k, ++rank) {
         size_t elem_len;
-        memcpy(&index[rank].root, p, sizeof(int));  /* Can't assume alignment */
-        index[rank].data = (void *)((uintptr_t)p + sizeof(int)); /* Safe, even if unused */
-        p = (void *)((uintptr_t)p + ((index[rank].root == rank) ? data_sz : sizeof(int)));
+        memcpy(&index[rank].root, p, sizeof(gasnet_node_t));  /* Can't assume alignment */
+        index[rank].data = (void *)((uintptr_t)p + sizeof(gasnet_node_t)); /* Safe, even if unused */
+        p = (void *)((uintptr_t)p + ((index[rank].root == rank) ? data_sz : sizeof(gasnet_node_t)));
       }
     }
     /* Use the index to construct the dense data to scatter */
