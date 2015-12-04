@@ -1470,6 +1470,9 @@ static int gasnetc_hca_report(void) {
 }
 
 static int gasnetc_init(int *argc, char ***argv) {
+#if GASNET_PSHM
+  void                  *shared_mem;
+#endif
   gasnetc_hca_t		*hca;
   uint16_t		*local_lid;
   uint16_t		*remote_lid;
@@ -1621,7 +1624,10 @@ static int gasnetc_init(int *argc, char ***argv) {
 #endif
 
   #if GASNET_PSHM
-    gasneti_pshm_init(&gasneti_bootstrapSNodeBroadcast, 0);
+  {
+    size_t shared_size = gasnetc_num_ports * gasneti_nodes * sizeof(uint16_t);
+    shared_mem = gasneti_pshm_init(&gasneti_bootstrapSNodeBroadcast, shared_size);
+  }
   #endif
 
   /* early registration of core API handlers */
@@ -1639,7 +1645,22 @@ static int gasnetc_init(int *argc, char ***argv) {
     gasneti_assert(numreg == len);
   }
 
-  /* record remote lids */
+  /* transpose remote lids into port_tbl */
+#if GASNET_PSHM
+  {
+    uint16_t *tmp = shared_mem;
+    for (i = 0; i < gasnetc_num_ports; ++i) {
+      gasnetc_port_tbl[i].remote_lids = tmp;
+      if (0 == gasneti_nodemap_local_rank) {
+        for (node = 0; node < gasneti_nodes; ++node) {
+          *(tmp++) = remote_lid[node * gasnetc_num_ports + i];
+        }
+      } else {
+        tmp += gasneti_nodes;
+      }
+    }
+  }
+#else
   for (i = 0; i < gasnetc_num_ports; ++i) {
     gasnetc_port_tbl[i].remote_lids = gasneti_malloc(gasneti_nodes * sizeof(uint16_t));
     gasneti_leak(gasnetc_port_tbl[i].remote_lids);
@@ -1648,6 +1669,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     }
   }
   gasneti_free(remote_lid);
+#endif
 
   /* compute various snd/rcv resource limits */
   i = gasnetc_sndrcv_limits();
