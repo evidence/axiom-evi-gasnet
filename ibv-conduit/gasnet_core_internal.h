@@ -29,7 +29,9 @@
 /* TODO: flatten these? */
   #if HAVE_IBV_SRQ
     #define GASNETC_IBV_SRQ 1
-    #if HAVE_IBV_CMD_OPEN_XRCD
+    #if !GASNET_PSHM
+      #undef GASNETC_IBV_XRC
+    #elif HAVE_IBV_CMD_OPEN_XRCD
       #define GASNETC_IBV_XRC 1
       #define GASNETC_IBV_XRC_OFED 1
       typedef struct ibv_xrcd gasnetc_xrcd_t;

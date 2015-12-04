@@ -3484,14 +3484,7 @@ extern void gasnetc_sndrcv_init_peer(gasnet_node_t node, gasnetc_cep_t *cep) {
     for (i = 0; i < gasnetc_alloc_qps; ++i, ++cep) {
       cep->epid = gasnetc_epid(node, i);
     #if GASNETC_IBV_XRC
-     #if !GASNET_PSHM
-      if (gasnetc_use_xrc && (gasneti_nodemap_local_count != 1)) {
-        gasneti_assert(GASNETC_CEP_SQ_SEMA(cep) != NULL);
-      } else
-     #endif
-      {
-        gasneti_assert(GASNETC_CEP_SQ_SEMA(cep) == NULL);
-      }
+      gasneti_assert(GASNETC_CEP_SQ_SEMA(cep) == NULL);
     #else
       gasnetc_sema_init(GASNETC_CEP_SQ_SEMA(cep), 0, 0);
     #endif

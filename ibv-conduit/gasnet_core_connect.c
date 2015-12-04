@@ -280,37 +280,6 @@ gasnetc_xrc_modify_qp(
   return retval;
 }
 
-/* Perform a supernode-scoped broadcast from first node of the supernode.
-   Note that 'src' must be a valid address on ALL callers.
- */
-static void
-gasnetc_supernode_bcast(void *src, size_t len, void *dst) {
-  #if GASNET_PSHM
-    /* Can do w/ just supernode-scoped broadcast */
-    gasneti_assert(gasneti_request_pshmnet != NULL);
-    gasneti_pshmnet_bootstrapBroadcast(gasneti_request_pshmnet, src, len, dst, 0);
-  #else
-    /* Need global Exchange when PSHM is not available */
-    /* TODO: If/when is one Bcast per supernode cheaper than 1 Exchange? */
-    /* TODO: Use gasneti_bootstrapSNodeBroadcast()? */
-    /* NOTE: This is code is currently not even reachable (!PSHM -> no XRC) */
-    void *all_data = gasneti_malloc(gasneti_nodes * len);
-    void *my_dst = (void *)((uintptr_t )all_data + (len * gasneti_nodemap_local[0]));
-    gasneti_bootstrapExchange(src, len, all_data);
-    memcpy(dst, my_dst, len);
-    gasneti_free(all_data);
-  #endif
-}
-
-static void
-gasnetc_supernode_barrier(void) {
-  #if GASNET_PSHM
-    gasneti_pshmnet_bootstrapBarrier();
-  #else
-    gasneti_bootstrapBarrier();
-  #endif
-}
-
 /* XXX: Requires that at least the first call is collective */
 static char*
 gasnetc_xrc_tmpname(uint16_t mylid, int index) {
@@ -333,7 +302,7 @@ gasnetc_xrc_tmpname(uint16_t mylid, int index) {
 
     /* Get PID of first proc per supernode */
     pid = getpid(); /* Redundant, but harmless on other processes */
-    gasnetc_supernode_bcast(&pid, sizeof(pid), &pid);
+    gasneti_pshmnet_bootstrapBroadcast(gasneti_request_pshmnet, &pid, sizeof(pid), &pid, 0);
   }
 
   filename = gasneti_malloc(tmpdir_len + filename_len);
@@ -401,7 +370,7 @@ gasnetc_xrc_init(void) {
   (void) close(fd);
 
   /* Clean up once everyone is done w/ all files */
-  gasnetc_supernode_barrier();
+  gasneti_pshmnet_bootstrapBarrier();
   GASNETC_FOR_ALL_HCA_INDEX(index) {
     (void)unlink(filename[index]); gasneti_free(filename[index]);
   }

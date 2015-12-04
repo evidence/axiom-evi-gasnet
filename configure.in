@@ -3274,6 +3274,10 @@ if test "$enabled_ibv" = yes; then
       if test "x$force_ibv_xrc" = xyes; then
         GASNET_MSG_ERROR([IBV XRC support was requested with --enable-ibv-xrc but requires SRQ support which has been disabled])
       fi
+    elif test "x$with_pshm" = xno; then
+      if test "x$force_ibv_xrc" = xyes; then
+        GASNET_MSG_ERROR([IBV XRC support was requested with --enable-ibv-xrc but requires PSHM support which is not enabled])
+      fi
     elif test "$enabled_ibv_xrc" = yes; then
       GASNET_PUSHVAR(LIBS,"$LIBS -L$IBV_LIBDIR $IBV_LIBS $GASNET_THREAD_LIBS")
       AC_CHECK_FUNCS([ibv_open_xrc_domain ibv_cmd_open_xrcd], [have_ibv_xrc=yes], [have_ibv_xrc=no])
