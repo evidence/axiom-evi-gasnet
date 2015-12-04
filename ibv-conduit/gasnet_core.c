@@ -1623,9 +1623,33 @@ static int gasnetc_init(int *argc, char ***argv) {
                       sizeof(remote_lid[0]) * gasnetc_num_ports);
 #endif
 
+  /* compute various snd/rcv resource limits (requires node map) */
+  i = gasnetc_sndrcv_limits();
+  if (i != GASNET_OK) {
+    return i;
+  }
+#if GASNETC_IBV_XRC
+  if ((gasneti_nodemap_global_count == 1) ||
+      (gasneti_nodemap_global_count == gasneti_nodes)) {
+    /* No warning.  Eliminates case(s) that would SEGV otherwise */
+    gasnetc_use_xrc = 0;
+  }
+#endif
+
   #if GASNET_PSHM
   {
-    size_t shared_size = gasnetc_num_ports * gasneti_nodes * sizeof(uint16_t);
+    size_t shared_size = 0;
+
+    /* global lid table: */
+    shared_size += gasneti_nodes * gasnetc_num_ports * sizeof(uint16_t);
+    shared_size = GASNETI_ALIGNUP(shared_size, GASNETI_CACHE_LINE_BYTES);
+
+#if GASNETC_IBV_XRC
+    /* shared qpn table: */
+    shared_size += gasneti_nodes * gasnetc_alloc_qps * sizeof(uint32_t);
+    shared_size = GASNETI_ALIGNUP(shared_size, GASNETI_CACHE_LINE_BYTES);
+#endif
+
     shared_mem = gasneti_pshm_init(&gasneti_bootstrapSNodeBroadcast, shared_size);
   }
   #endif
@@ -1648,7 +1672,7 @@ static int gasnetc_init(int *argc, char ***argv) {
   /* transpose remote lids into port_tbl */
 #if GASNET_PSHM
   {
-    uint16_t *tmp = shared_mem;
+    uint16_t *tmp = (uint16_t *)shared_mem;
     for (i = 0; i < gasnetc_num_ports; ++i) {
       gasnetc_port_tbl[i].remote_lids = tmp;
       if (0 == gasneti_nodemap_local_rank) {
@@ -1659,6 +1683,7 @@ static int gasnetc_init(int *argc, char ***argv) {
         tmp += gasneti_nodes;
       }
     }
+    shared_mem = (void *)GASNETI_ALIGNUP(tmp, GASNETI_CACHE_LINE_BYTES);
   }
 #else
   for (i = 0; i < gasnetc_num_ports; ++i) {
@@ -1671,21 +1696,10 @@ static int gasnetc_init(int *argc, char ***argv) {
   gasneti_free(remote_lid);
 #endif
 
-  /* compute various snd/rcv resource limits */
-  i = gasnetc_sndrcv_limits();
-  if (i != GASNET_OK) {
-    return i;
-  }
-  
 #if GASNETC_IBV_XRC
   /* allocate/initialize XRC resources, if any */
-  if ((gasneti_nodemap_global_count == 1) ||
-      (gasneti_nodemap_global_count == gasneti_nodes)) {
-    /* No warning.  Includs case(s) that would SEGV otherwise */
-    gasnetc_use_xrc = 0;
-  } else
   if (gasnetc_use_xrc) {
-    i = gasnetc_xrc_init();
+    i = gasnetc_xrc_init(&shared_mem);
     if (i != GASNET_OK) {
       return i;
     }

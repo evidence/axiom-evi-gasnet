@@ -317,13 +317,12 @@ gasnetc_xrc_tmpname(uint16_t mylid, int index) {
   return filename;
 }
 
-/* Create an XRC domain per HCA (once per supernode) and a shared memory file */
+/* Create an XRC domain per HCA (once per supernode) and a shared RCV QPN table */
 /* XXX: Requires that the call is collective */
 extern int
-gasnetc_xrc_init(void) {
+gasnetc_xrc_init(void **shared_mem_p) {
   const uint16_t mylid = gasnetc_port_tbl[0].port.lid;
-  char *filename[GASNETC_IB_MAX_HCAS+1];
-  size_t flen;
+  char *filename[GASNETC_IB_MAX_HCAS];
   int index, fd;
 
   /* Use per-supernode filename to create common XRC domain once per HCA */
@@ -350,32 +349,15 @@ gasnetc_xrc_init(void) {
     (void) close(fd);
   }
 
-  /* Use one more per-supernode filename to create common shared memory file */
-  /* TODO: Should PSHM combine this w/ the AM segment? */
-  gasneti_assert(index == gasnetc_num_hcas);
-  filename[index] = gasnetc_xrc_tmpname(mylid, index);
-  fd = open(filename[index], O_CREAT|O_RDWR, S_IWUSR|S_IRUSR);
-  if (fd < 0) {
-    gasneti_fatalerror("failed to create xrc shared memory file '%s': %d:%s", filename[index], errno, strerror(errno));
-  }
-  flen = GASNETI_PAGE_ALIGNUP(sizeof(uint32_t) * gasneti_nodes * gasnetc_alloc_qps);
-  if (ftruncate(fd, flen) < 0) {
-    gasneti_fatalerror("failed to resize xrc shared memory file '%s': %d:%s", filename[index], errno, strerror(errno));
-  }
-  /* XXX: Is there anything else that can/should be packed into the same shared memory file? */
-  gasnetc_xrc_rcv_qpn = (uint32_t *)mmap(NULL, flen, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
-  if (gasnetc_xrc_rcv_qpn == MAP_FAILED) {
-    gasneti_fatalerror("failed to mmap xrc shared memory file '%s': %d:%s", filename[index], errno, strerror(errno));
-  }
-  (void) close(fd);
-
   /* Clean up once everyone is done w/ all files */
   gasneti_pshmnet_bootstrapBarrier();
   GASNETC_FOR_ALL_HCA_INDEX(index) {
     (void)unlink(filename[index]); gasneti_free(filename[index]);
   }
-  gasneti_assert(index == gasnetc_num_hcas);
-  (void)unlink(filename[index]); gasneti_free(filename[index]);
+
+  /* Place RCV QPN table in shared memory */
+  gasnetc_xrc_rcv_qpn = (uint32_t *)(*shared_mem_p);
+  *shared_mem_p = (void *)GASNETI_ALIGNUP(gasnetc_xrc_rcv_qpn + gasneti_nodes * gasnetc_alloc_qps, GASNETI_CACHE_LINE_BYTES);
 
   /* Allocate SND QP table */
   gasnetc_xrc_snd_qp = gasneti_calloc(gasneti_nodemap_global_count * gasnetc_alloc_qps,

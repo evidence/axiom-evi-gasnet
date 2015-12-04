@@ -606,7 +606,7 @@ typedef struct {
 
 /* Routines in gasnet_core_connect.c */
 #if GASNETC_IBV_XRC
-extern int gasnetc_xrc_init(void);
+extern int gasnetc_xrc_init(void **shared_mem_p);
 #endif
 extern int gasnetc_connect_init(void);
 extern int gasnetc_connect_fini(void);
