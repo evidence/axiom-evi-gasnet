@@ -645,8 +645,8 @@ static void *gasnetc_try_pin_inner(size_t size, gasnetc_memreg_t *reg) {
   void *addr;
   int h;
 
-  addr = gasneti_mmap(size);
-  if (addr != MAP_FAILED) {
+  addr = gasnetc_mmap(size);
+  if (addr != GASNETC_MMAP_FAILED) {
     GASNETC_FOR_ALL_HCA_INDEX(h) {
       gasnetc_hca_t *hca = &gasnetc_hca[h];
       vstat = gasnetc_pin(hca, addr, size, (enum ibv_access_flags)0, &reg[h]);
@@ -654,7 +654,7 @@ static void *gasnetc_try_pin_inner(size_t size, gasnetc_memreg_t *reg) {
 	for (h -= 1; h >= 0; --h) {
           gasnetc_unpin(&gasnetc_hca[h], &reg[h]);
 	}
-        gasneti_munmap(addr, size);
+        gasnetc_munmap(addr, size);
         return NULL;
       }
     }
@@ -696,10 +696,10 @@ static void gasnetc_fakepin(uintptr_t limit, uintptr_t step) {
   if (limit != 0) {
     void *addr;
     step = MIN(limit, step);
-    addr = gasneti_mmap(step);
-    if (addr != MAP_FAILED) {
+    addr = gasnetc_mmap(step);
+    if (addr != GASNETC_MMAP_FAILED) {
       gasnetc_fakepin(limit - step, step);
-      gasneti_munmap(addr, step);
+      gasnetc_munmap(addr, step);
     }
   }
 }
@@ -3814,7 +3814,7 @@ gasnet_handlerentry_t const *gasnetc_get_handlertable(void) {
        * XXX: Coalescing doesn't matter yet, since we aren't doing
        * a firehose_local_invalidate() on them (we leak them instead).
        */
-      stackaddr = gasneti_mmap(stacksize + 2 * GASNET_PAGESIZE);
+      stackaddr = gasnetc_mmap(stacksize + 2 * GASNET_PAGESIZE);
       gasneti_assert_zeroret(mprotect(stackaddr, GASNET_PAGESIZE, PROT_NONE));
       gasneti_assert_zeroret(mprotect((void *)((uintptr_t)stackaddr + stacksize + GASNET_PAGESIZE), GASNET_PAGESIZE, PROT_NONE));
       #if (GASNETC_PTHREAD_STACK_DIR < 0)	/* stack grows down */
@@ -3841,4 +3841,16 @@ gasnet_handlerentry_t const *gasnetc_get_handlertable(void) {
     return (*create_fn)(thread, &my_attr, &gasnetc_pthread_start_fn, args);
   }
 #endif /* defined(GASNETC_PTHREAD_CREATE_OVERRIDE) */
+
+/* ------------------------------------------------------------------------------------ */
+/* If operating w/o mmap() we need access to a non-wraped free() */
+
+#if !HAVE_MMAP
+#undef free
+extern int gasnetc_munmap(void *addr, size_t size) {
+  free(addr);
+  return 0;
+}
+#endif
+
 /* ------------------------------------------------------------------------------------ */

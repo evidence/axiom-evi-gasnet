@@ -3282,13 +3282,13 @@ extern int gasnetc_sndrcv_init(void) {
     if (gasnetc_remote_nodes) {
       /* Allocated pinned memory for receive buffers */
       size = GASNETI_PAGE_ALIGNUP(rcv_count * sizeof(gasnetc_buffer_t));
-      buf = gasneti_mmap(size);
-      if_pf (buf == MAP_FAILED) {
+      buf = gasnetc_mmap(size);
+      if_pf (buf == GASNETC_MMAP_FAILED) {
         buf = NULL;
       } else {
         vstat = gasnetc_pin(hca, buf, size, IBV_ACCESS_LOCAL_WRITE, &hca->rcv_reg);
         if (vstat != 0) {
-	  gasneti_munmap(buf, size);
+	  gasnetc_munmap(buf, size);
           buf = NULL;
         }
       }
@@ -3350,14 +3350,14 @@ extern int gasnetc_sndrcv_init(void) {
       if (gasnetc_amrdma_max_peers && hca->max_qps) {
 	const int max_peers = hca->amrdma_rcv.max_peers = MIN(gasnetc_amrdma_max_peers, hca->max_qps);
 	size_t alloc_size = GASNETI_PAGE_ALIGNUP(max_peers * (gasnetc_amrdma_depth << GASNETC_AMRDMA_SZ_LG2) + GASNETC_AMRDMA_PAD);
-	void *buf = gasneti_mmap(alloc_size);
+	void *buf = gasnetc_mmap(alloc_size);
 
-        if_pf (buf == MAP_FAILED) {
+        if_pf (buf == GASNETC_MMAP_FAILED) {
           buf = NULL;
         } else {
           vstat = gasnetc_pin(hca, buf, alloc_size, (enum ibv_access_flags)(IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE), &hca->amrdma_reg);
           if (vstat != 0) {
-	    gasneti_munmap(buf, size);
+	    gasnetc_munmap(buf, size);
             buf = NULL;
           }
         }
@@ -3417,8 +3417,8 @@ extern int gasnetc_sndrcv_init(void) {
    * TODO: Can/should we *USE* any extra allocated due to rounding-up? */
  if (gasnetc_bbuf_limit) {
   size = GASNETI_PAGE_ALIGNUP(gasnetc_bbuf_limit * sizeof(gasnetc_buffer_t));
-  buf = gasneti_mmap(size);
-  if_pf (buf == MAP_FAILED) {
+  buf = gasnetc_mmap(size);
+  if_pf (buf == GASNETC_MMAP_FAILED) {
     buf = NULL;
   } else {
     GASNETC_FOR_ALL_HCA_INDEX(h) {
@@ -3428,7 +3428,7 @@ extern int gasnetc_sndrcv_init(void) {
 	for (h -= 1; h >= 0; --h) {
 	  gasnetc_unpin(&gasnetc_hca[h], &gasnetc_hca[h].snd_reg);
 	}
-        gasneti_munmap(buf, size);
+        gasnetc_munmap(buf, size);
         buf = NULL;
 	break;
       }

@@ -1289,8 +1289,8 @@ gasnetc_qp_setup_ud(gasnetc_port_info_t *port, int fully_connected)
     /* Allocate pinned memory */
     { const size_t size = GASNETI_PAGE_ALIGNUP((max_send_wr * send_sz) + /* XXX: Omit send if inline */
                                                (max_recv_wr * recv_sz));
-      void *buf = gasneti_mmap(size);
-      if_pf (MAP_FAILED == buf) {
+      void *buf = gasnetc_mmap(size);
+      if_pf (GASNETC_MMAP_FAILED == buf) {
         gasneti_fatalerror("Failed to allocate memory for dynamic connection setup");
       }
 

@@ -42,10 +42,6 @@
     #endif
   #endif
 
-#if HAVE_MMAP
-  #include <sys/mman.h> /* For MAP_FAILED */
-#endif
-
 /*  whether or not to use spin-locking for HSL's */
 #define GASNETC_HSL_SPINLOCK 1
 
@@ -321,6 +317,26 @@ typedef gasnetc_cons_atomic(val_t)        gasnetc_atomic_val_t;
 #define gasnetc_atomic_swap               gasnetc_cons_atomic(swap)
 #define gasnetc_atomic_add                gasnetc_cons_atomic(add)
 #define gasnetc_atomic_subtract           gasnetc_cons_atomic(subtract)
+
+/* ------------------------------------------------------------------------------------ */
+/* Wrap mmap and munmap so we can do without them if required */
+
+#if HAVE_MMAP
+  #include <sys/mman.h> /* For MAP_FAILED */
+  #define GASNETC_MMAP_FAILED        MAP_FAILED
+  #define gasnetc_mmap(_size)        gasneti_mmap(_size)
+  #define gasnetc_munmap(_ptr,_size) gasneti_munmap(_ptr,_size)
+#else
+  #define GASNETI_MMAP_GRANULARITY   (((size_t)1)<<22)  /* 4 MB */
+  #define GASNETI_MMAP_LIMIT         (((size_t)1)<<31)  /* 2 GB */
+  #define GASNETC_MMAP_FAILED        NULL
+  extern int gasnetc_munmap(void *addr, size_t size); 
+  GASNETI_INLINE(gasnetc_mmap)
+  void *gasnetc_mmap(size_t size) {
+    void *result;
+    return posix_memalign(&result, GASNET_PAGESIZE, size) ? GASNETC_MMAP_FAILED : result;
+  }
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 /* Type and ops for rdma counters */
@@ -691,7 +707,7 @@ extern void gasnetc_stop_progress_thread(gasnetc_progress_thread_t *pthr, int bl
 /* General routines in gasnet_core.c */
 extern int gasnetc_pin(gasnetc_hca_t *hca, void *addr, size_t size, enum ibv_access_flags acl, gasnetc_memreg_t *reg);
 extern void gasnetc_unpin(gasnetc_hca_t *hca, gasnetc_memreg_t *reg);
-#define gasnetc_unmap(reg)	gasneti_munmap((void *)((reg)->addr), (reg)->len)
+#define gasnetc_unmap(reg)	gasnetc_munmap((void *)((reg)->addr), (reg)->len)
 
 /* Bootstrap support */
 extern void (*gasneti_bootstrapFini_p)(void);
