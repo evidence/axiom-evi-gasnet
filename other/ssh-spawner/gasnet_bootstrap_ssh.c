@@ -2593,78 +2593,71 @@ void gasneti_bootstrapSNodeBroadcast_ssh(void *src, size_t len, void *dest, int 
 #elif GASNETI_SSH_TOPO_NARY
   /* Gather/index/scatter implementation.
    *
-   * Step 1: Gather (packed) data to root
-   * Step 2: Use 'rootnode' values to index into the gathered data
+   * Step 1: GatherV (sparse) data to root
+   * Step 2: Use gasneti_nodemap[] to index into the gathered data
    * Step 3: Scatter the vector constructed in Step 2.
    *
    * Relative to the Exchange-based version this reduces the communication of
    * the final step by scattering the indexed array, rather broadcasting it.
-   * However, there is some overhead from gathering the rootnode values.
+   * However, this is not yet optimal because the Scatter step includes data
+   * with *computable* repetitions that could be eliminated.
    */
 
-  const size_t data_sz = sizeof(gasnet_node_t) + len;
-  void *work = gasneti_malloc(data_sz * tree_procs);
+  void *work;
   size_t *child_len = gasneti_malloc(sizeof(size_t) * children);
-  gasnet_node_t total_roots = 0;
+  void **child_base = gasneti_malloc(sizeof(void *) * children);
+  size_t length = (rootnode == myproc) ? len : 0;
   fd_set fds;
+  int empty;
   int j, k;
 
   gasneti_assert(!is_master);
 
-  /* Gather up the tree, assembling variable-length pieces at fixed offsets in 'work' */
-  READ_EACH_CHILD(j,k,fds) {
-    gasnet_node_t delta = child[k].rank - myproc;
-    void *p = (void *)((uintptr_t)work + data_sz*delta);
-    gasnet_node_t roots;
-    do_read(child[k].sock, &roots, sizeof(roots));
-    child_len[k] = roots * len + child[k].procs * sizeof(gasnet_node_t);
-    do_read(child[k].sock, p, child_len[k]);
-    total_roots += roots;
+  /* Compute lengths and receive offsets for a GatherV operation */
+  empty = 0;
+  for (j = 0; j < children; ++j) {
+    int rank = child[j].rank;
+    int procs = child[j].procs;
+    int roots = 0;
+    for (k = 0; k < procs; ++k, ++rank) {
+      roots += (rank == gasneti_nodemap[rank]);
+    }
+    empty += !roots;
+    child_base[j] = (void *)(uintptr_t)length;
+    child_len[j] = roots * len;
+    length += child_len[j];
+  }
+  work = gasneti_malloc(MAX(length,tree_procs*len));
+  for (j = 0; j < children; ++j) {
+    child_base[j] = (void *)((uintptr_t)work + (uintptr_t)child_base[j]);
+  }
+
+  /* GatherV up the tree, receiving only from children w/ non-empty contributions */
+  fds = child_fds;
+  for (j = empty; j < children; ++j) {
+    k = next_child(&fds);
+    do_read(child[k].sock, child_base[k], child_len[k]);
   }
 
   if (myproc) {
-    /* Pack own data with that from children (in 'work') and send to parent */
-    size_t pack_len = sizeof(gasnet_node_t);
-    memcpy(work, &rootnode, sizeof(gasnet_node_t));
-    if (rootnode == myproc) {
-      memcpy((void *)((intptr_t)work + sizeof(gasnet_node_t)), src, len);
-      pack_len += len;
-      total_roots += 1;
-    }
-    for (j = 0; j < children; ++j) {
-      gasnet_node_t delta = child[j].rank - myproc;
-      gasneti_assert(pack_len <= data_sz*delta);
-      memmove((void *)((uintptr_t)work + pack_len), 
-              (void *)((uintptr_t)work + data_sz*delta),
-              child_len[j]);
-      pack_len += child_len[j];
-    }
-    do_write(parent, &total_roots, sizeof(total_roots));
-    do_write(parent, work, pack_len);
+    /* Send own data and that from children (in 'work') to parent */
+    if (rootnode == myproc) memcpy(work, src, len);
+    do_write(parent, work, length);
   } else {
     /* Index the received data in-place */
-    void *tmp;
-    gasnet_node_t rank;
-    struct snbcast_data {
-      gasnet_node_t root;
-      void *data; /* pointer into 'work', or to 'src' */
-    } *index = gasneti_malloc(nproc * sizeof(struct snbcast_data));
-    index[0].root = rootnode;
-    index[0].data = src; /* Safe, even if unused */
-    for (j = 0, rank = 1; j < children; ++j) {
-      const gasnet_node_t procs = child[j].procs;
-      void *p = (void *)((uintptr_t)work + data_sz*rank);
-      for (k = 0; k < procs; ++k, ++rank) {
-        size_t elem_len;
-        memcpy(&index[rank].root, p, sizeof(gasnet_node_t));  /* Can't assume alignment */
-        index[rank].data = (void *)((uintptr_t)p + sizeof(gasnet_node_t)); /* Safe, even if unused */
-        p = (void *)((uintptr_t)p + ((index[rank].root == rank) ? data_sz : sizeof(gasnet_node_t)));
+    void **index = gasneti_malloc(nproc * sizeof(void *));
+    void *tmp = child_base[0];
+    index[0] = src;
+    for (j = 1; j < nproc; ++j) {
+      if (gasneti_nodemap[j] == j) {
+        index[j] = tmp;
+        tmp = (void *)((uintptr_t)tmp + len);
       }
     }
     /* Use the index to construct the dense data to scatter */
-    tmp = gasneti_malloc(len * nproc); /* Cannot safely work in-place */
+    tmp = gasneti_malloc(len * nproc);
     for (j = 0; j < nproc; ++j) {
-      memcpy((void *)((intptr_t)tmp + len*j), index[index[j].root].data, len);
+      memcpy((void *)((intptr_t)tmp + len*j), index[gasneti_nodemap[j]], len);
     }
     gasneti_free(index);
     gasneti_free(work);
@@ -2674,8 +2667,9 @@ void gasneti_bootstrapSNodeBroadcast_ssh(void *src, size_t len, void *dest, int 
   /* Now scatter down the tree */
   do_scat0(work, len, dest);
 
-  gasneti_free(work);
   gasneti_free(child_len);
+  gasneti_free(child_base);
+  gasneti_free(work);
 #else
   #error
 #endif
