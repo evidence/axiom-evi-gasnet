@@ -1694,7 +1694,6 @@ void gasneti_segmentAttach(uintptr_t segsize, uintptr_t minheapoffset,
 #endif
 
     gasneti_segmentAttachLocal(segsize, minheapoffset, seginfo, exchangefn);
-    (*exchangefn)(&gasneti_segment, sizeof(gasnet_seginfo_t), seginfo);
 
 #if GASNET_PSHM
     gasneti_export_segment(gasneti_segment.addr, gasneti_segment.size);
