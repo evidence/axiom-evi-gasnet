@@ -1093,8 +1093,10 @@ static gasnet_seginfo_t *gasneti_remote_segments;
 
 typedef struct {
   gasnet_seginfo_t seginfo;
-  uintptr_t heapend;
-  uintptr_t segsize_request; /* during attach only */
+  union {
+    uintptr_t heapend; /* during init only */
+    uintptr_t segsize_request; /* during attach only */
+  } u;
 } gasneti_segexch_t;
 static gasneti_segexch_t *gasneti_segexch = NULL; /* exchanged segment information */
 
@@ -1338,8 +1340,7 @@ void gasneti_segmentInit(uintptr_t localSegmentLimit,
     if (gasneti_myheapend == (uintptr_t)-1) gasneti_fatalerror("Failed to sbrk(0):%s",strerror(errno));
     gasneti_myheapend = GASNETI_PAGE_ALIGNUP(gasneti_myheapend);
   #endif
-    se.heapend = gasneti_myheapend;
-    se.segsize_request = 0;
+    se.u.heapend = gasneti_myheapend;
 
     /* gather the sbrk info and mmap segment location */
     (*exchangefn)(&se, sizeof(gasneti_segexch_t), gasneti_segexch);
@@ -1369,8 +1370,8 @@ void gasneti_segmentInit(uintptr_t localSegmentLimit,
       char segstats[255];
       /* compute various stats across nodes */
       for (i=0;i < gasneti_nodes; i++) {
-        if (gasneti_segexch[i].heapend > maxheapend)
-          maxheapend = gasneti_segexch[i].heapend;
+        if (gasneti_segexch[i].u.heapend > maxheapend)
+          maxheapend = gasneti_segexch[i].u.heapend;
         if (((uintptr_t)gasneti_segexch[i].seginfo.addr) > maxbase)
           maxbase = (uintptr_t)gasneti_segexch[i].seginfo.addr;
         if (gasneti_segexch[i].seginfo.size > maxsize)
@@ -1432,7 +1433,7 @@ void gasneti_segmentInit(uintptr_t localSegmentLimit,
                       GASNETI_LADDRSTR(gasneti_segexch[i].seginfo.addr), 
                       GASNETI_LADDRSTR(((uintptr_t)gasneti_segexch[i].seginfo.addr)+gasneti_segexch[i].seginfo.size), 
                       (unsigned long)gasneti_segexch[i].seginfo.size,
-                      GASNETI_LADDRSTR(gasneti_segexch[i].heapend));
+                      GASNETI_LADDRSTR(gasneti_segexch[i].u.heapend));
               fflush(stderr);
             }
           }
@@ -1498,15 +1499,14 @@ void gasneti_segmentAttachLocal(uintptr_t segsize, uintptr_t minheapoffset,
 
           /* gather the segsize info again */
           se.seginfo = gasneti_segment;
-          se.heapend = gasneti_myheapend;
-          se.segsize_request = segsize;
+          se.u.segsize_request = segsize;
           (*exchangefn)(&se, sizeof(gasneti_segexch_t), gasneti_segexch);
 
           for (i=0;i<gasneti_nodes;i++) {
             uintptr_t segstart = 
                 ((uintptr_t)gasneti_segexch[i].seginfo.addr + gasneti_segexch[i].seginfo.size) - 
-                 gasneti_segexch[i].segsize_request;
-            /*gasneti_assert(gasneti_segexch[i].segsize_request >= 0); True by typing */
+                 gasneti_segexch[i].u.segsize_request;
+            /*gasneti_assert(gasneti_segexch[i].u.segsize_request >= 0); True by typing */
             gasneti_assert(segstart >= gasneti_maxbase);
             if (segstart < minsegstart) minsegstart = segstart;
           }
