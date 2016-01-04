@@ -1009,7 +1009,8 @@ static void gasneti_nodemap_dflt(gasneti_bootstrapExchangefn_t exchangefn) {
  *   gasneti_nodemap_global_count
  *   gasneti_nodemap_global_rank
  *
- * NOTE: may modify gasneti_nodemap[] if env var GASNET_SUPERNODE_MAXSIZE is set.
+ * NOTE: may modify gasneti_nodemap[] if env var GASNET_SUPERNODE_MAXSIZE is set,
+ *        or if gasneti_nodemap_local_count would exceed GASNETI_PSHM_MAX_NODES.
  * TODO: splitting by socket or other criteria for/with GASNET_SUPERNODE_MAXSIZE.
  * TODO: keep widths around for conduits to use? (ibv and gemini both use)
  */
@@ -1031,7 +1032,7 @@ extern void gasneti_nodemapParse(void) {
 
   /* Check for user-imposed limit: 0 (or negative) means no limit */
 #if GASNET_PSHM
-  limit = gasneti_getenv_int_withdefault("GASNET_SUPERNODE_MAXSIZE", 0, 0);
+  limit = gasneti_getenv_int_withdefault("GASNET_SUPERNODE_MAXSIZE", GASNETI_PSHM_MAX_NODES, 0);
  #ifdef GASNETI_PSHM_GHEAP
   if (limit != 1) {
     char *envval = getenv("BG_MAPCOMMONHEAP"); /* Yes, plain getenv is intended here */
