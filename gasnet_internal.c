@@ -1032,7 +1032,7 @@ extern void gasneti_nodemapParse(void) {
 
   /* Check for user-imposed limit: 0 (or negative) means no limit */
 #if GASNET_PSHM
-  limit = gasneti_getenv_int_withdefault("GASNET_SUPERNODE_MAXSIZE", GASNETI_PSHM_MAX_NODES, 0);
+  limit = gasneti_getenv_int_withdefault("GASNET_SUPERNODE_MAXSIZE", 0, 0);
  #ifdef GASNETI_PSHM_GHEAP
   if (limit != 1) {
     char *envval = getenv("BG_MAPCOMMONHEAP"); /* Yes, plain getenv is intended here */
@@ -1052,7 +1052,11 @@ extern void gasneti_nodemapParse(void) {
   }
   limit = gasneti_nodes;
  #else
-  if (limit <= 0) limit = gasneti_nodes;
+  if (limit <= 0) {
+     limit = GASNETI_PSHM_MAX_NODES;
+  } else if (limit > GASNETI_PSHM_MAX_NODES) {
+     gasneti_fatalerror("GASNET_SUPERNODE_MAXSIZE %d exceeds GASNETI_PSHM_MAX_NODES (%d)", limit, GASNETI_PSHM_MAX_NODES);
+  }
  #endif
 #else
   limit = 1; /* No PSHM */
