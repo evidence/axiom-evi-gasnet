@@ -876,7 +876,7 @@ static void configure_ssh(void) {
 
   /* Check for OpenSSH */
   {
-    char *cmd = sappendf(NULL, "%s -v 2>&1 | grep OpenSSH >/dev/null 2>/dev/null", ssh_argv0);
+    char *cmd = sappendf(NULL, "%s -V 2>&1 | grep OpenSSH >/dev/null 2>/dev/null", ssh_argv0);
     is_openssh = (0 == system(cmd));
     gasneti_free(cmd);
     BOOTSTRAP_VERBOSE(("Configuring for OpenSSH\n"));
