@@ -2607,7 +2607,7 @@ firehose_move_callback(gasnet_node_t node,
         } else {
           /* Any other failure mode is fatal */
           gasnetc_GNIT_Abort("MemRegister failed at %p + %p with %s",
-                             region->addr, (void*)region->len,
+                             (void*)region->addr, (void*)region->len,
                              gasnetc_gni_rc_string(status));
         }
       }
