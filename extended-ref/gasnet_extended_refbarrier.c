@@ -809,6 +809,7 @@ void gasnete_amdbarrier_kick(gasnete_coll_team_t team) {
   if (gasnet_hsl_trylock(&barrier_data->amdbarrier_lock))
     return; /* another thread is currently in kick */
 
+  {
     step = barrier_data->amdbarrier_step;
     phase = barrier_data->amdbarrier_phase;
 
@@ -865,6 +866,8 @@ void gasnete_amdbarrier_kick(gasnete_coll_team_t team) {
       */
       barrier_data->amdbarrier_step = cursor;
     } 
+  }
+
   gasnet_hsl_unlock(&barrier_data->amdbarrier_lock);
 
   for ( ; numsteps; numsteps--) {
