@@ -2643,7 +2643,7 @@ void gasneti_bootstrapSNodeBroadcast_ssh(void *src, size_t len, void *dest, int 
     /* Send own data and that from children (in 'work') to parent */
     if (rootnode == myproc) memcpy(work, src, len);
     do_write(parent, work, length);
-  } else {
+  } else if (children) {
     /* Index the received data in-place */
     void **index = gasneti_malloc(nproc * sizeof(void *));
     void *tmp = child_base[0];
