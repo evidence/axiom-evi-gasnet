@@ -843,6 +843,7 @@ static gasnetc_sema_t *conn_ud_sema_p = NULL;
 
 /* TODO: group the following into a UD-endpoint struct */
 static struct ibv_qp * conn_ud_qp = NULL;
+static gasnetc_memreg_t conn_ud_reg;
 static gasnetc_port_info_t *conn_ud_port = NULL;
 static gasnetc_hca_t *conn_ud_hca = NULL;
 static int conn_ud_msg_sz = -1;
@@ -1177,7 +1178,6 @@ gasnetc_qp_setup_ud(gasnetc_port_info_t *port, int fully_connected)
     uint32_t gasnetc_conn_qpn = 0;
     struct ibv_qp_attr qp_attr;
     enum ibv_qp_attr_mask qp_mask;
-    gasnetc_memreg_t mem_reg;
     struct ibv_cq *send_cq, *recv_cq;
     uint32_t my_qkey = 0;
     uintptr_t addr;
@@ -1291,7 +1291,7 @@ gasnetc_qp_setup_ud(gasnetc_port_info_t *port, int fully_connected)
       }
 
       rc = gasnetc_pin(conn_ud_hca, buf, size,
-                       IBV_ACCESS_LOCAL_WRITE, &mem_reg);
+                       IBV_ACCESS_LOCAL_WRITE, &conn_ud_reg);
       GASNETC_IBV_CHECK(rc, "while pinning memory for dynamic connection setup");
 
       addr = (uintptr_t)buf;
@@ -1319,7 +1319,7 @@ gasnetc_qp_setup_ud(gasnetc_port_info_t *port, int fully_connected)
         desc->wr.next    = NULL;
         desc->sg.length  = recv_sz;
         desc->sg.addr    = addr;
-        desc->sg.lkey    = mem_reg.handle->lkey;
+        desc->sg.lkey    = conn_ud_reg.handle->lkey;
         gasnetc_rcv_post_ud(desc);
       }
     }
@@ -1355,7 +1355,7 @@ gasnetc_qp_setup_ud(gasnetc_port_info_t *port, int fully_connected)
         desc->sg.length = ~0;
       #endif  
         desc->sg.addr   = addr;
-        desc->sg.lkey   = mem_reg.handle->lkey;
+        desc->sg.lkey   = conn_ud_reg.handle->lkey;
         gasneti_lifo_push(&conn_snd_freelist, desc);
       }
     }
@@ -2556,9 +2556,11 @@ gasnetc_connect_fini(void)
    It must be called (confusingly enough) after Fini. */
 extern void 
 gasnetc_connect_shutdown(void) {
-  int retries = 5;
+  const int retries = 5;
+  int trial;
 
-  do { /* TODO: try to actually DRAIN sends instead of looping */
+  /* TODO: try to actually DRAIN sends instead of looping */
+  for (trial = 0; trial < retries; ++trial) {
     int failed = 0;
     int node, qpi;
 
@@ -2567,6 +2569,18 @@ gasnetc_connect_shutdown(void) {
       if (!cep) continue;
 
       for (qpi = 0; qpi < gasnetc_alloc_qps; ++qpi, ++cep) {
+      #if GASNETC_IBV_XRC
+        if (gasnetc_use_xrc) {
+          gasnetc_xrc_snd_qp_t *xrc_snd_qp = qpi + GASNETC_NODE2SND_QP(node);
+          if (xrc_snd_qp->handle) {
+            if (0 == ibv_destroy_qp(xrc_snd_qp->handle)) {
+              xrc_snd_qp->handle = NULL;
+            } else {
+              failed = 1;
+            }
+          }
+        } else
+      #endif
         if (cep->qp_handle) {
           if (0 == ibv_destroy_qp(cep->qp_handle)) {
             cep->qp_handle = NULL;
@@ -2577,20 +2591,46 @@ gasnetc_connect_shutdown(void) {
       }
     }
 
+  #if GASNETC_IBV_XRC
+    if (gasnetc_use_xrc) {
+      for (node = 0; node < gasneti_nodes; ++node) {
+        gasnetc_cep_t *cep = GASNETC_NODE2CEP(node);
+        if (cep) {
+          const int cep_idx = node * gasnetc_alloc_qps;
+          gasneti_atomic32_t *rcv_qpn_p = (gasneti_atomic32_t *)(&gasnetc_xrc_rcv_qpn[cep_idx]);
+          for (qpi = 0; qpi < gasnetc_alloc_qps; ++qpi, ++cep, ++rcv_qpn_p) {
+            uint32_t rcv_qpn = gasneti_atomic32_read(rcv_qpn_p,  0);
+            if (rcv_qpn > 1) {
+            #if GASNETC_IBV_XRC_OFED
+              int ret = ibv_destroy_qp(cep->rcv_qp);
+              GASNETC_IBV_CHECK(ret, "from ibv_destroy_qp(rcv_qp)");
+            #elif GASNETC_IBV_XRC_MLNX
+              int ret = ibv_unreg_xrc_rcv_qp(cep->hca->xrc_domain, rcv_qpn);
+              GASNETC_IBV_CHECK(ret, "ibv_unreg_xrc_rcv_qp(rcv_qpn)");
+            #endif
+            }
+          }
+        }
+      }
+    }
+  #endif
+
     if (conn_ud_qp) {
       if (0 == ibv_destroy_qp(conn_ud_qp)) {
         conn_ud_qp = NULL;
+        gasnetc_unpin(conn_ud_hca, &conn_ud_reg);
       } else {
         failed = 1;
       }
     }
 
-#if GASNETC_IBV_XRC
-#error "Do not yet support GASNETC_IBV_SHUTDOWN && GASNETC_IBV_XRC"
-#endif
-
     if (!failed) break;
-    else sleep(1);
-  } while (--retries);
+
+    GASNETI_TRACE_PRINTF(C, ("Connection shutdown attempt %d failed.  Sleeping 1 second.", trial));
+    sleep(1);
+  }
+  if (trial == retries) {
+    GASNETI_TRACE_PRINTF(C, ("Connection shutdown failed after %d attempts.", retries));
+  }
 } /* gasnetc_connect_shutdown */
 #endif  /* GASNETC_IBV_SHUTDOWN */

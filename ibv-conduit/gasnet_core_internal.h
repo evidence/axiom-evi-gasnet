@@ -92,7 +92,7 @@ extern gasneti_atomic_t gasnetc_exit_running;
  * ENOSPC from ibv_create_cq() after a few thousand tests have run.
  * So, we will make a best-effort to at least destroy QPs and CQs.
  */
-#if PLATFORM_OS_SOLARIS
+#if PLATFORM_OS_SOLARIS || GASNET_DEBUG
   #define GASNETC_IBV_SHUTDOWN 1
   extern void gasnetc_connect_shutdown(void);
 #endif
@@ -466,6 +466,9 @@ typedef struct {
 #if GASNETC_PIN_SEGMENT
   uint32_t        *seg_lkeys;
   uint32_t	*rkeys;	/* RKey(s) registered at attach time */
+  #if GASNETC_IBV_SHUTDOWN
+    gasnetc_memreg_t    *seg_regs;
+  #endif
 #endif
 #if GASNETC_IBV_SRQ
   struct ibv_srq	*rqst_srq;

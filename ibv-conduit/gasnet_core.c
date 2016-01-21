@@ -123,6 +123,7 @@ int                      gasnetc_num_ports = 0;
   uint64_t 		gasnetc_pin_maxsz;
   uint64_t 		gasnetc_pin_maxsz_mask;
   unsigned int		gasnetc_pin_maxsz_shift;
+  static int            gasnetc_seg_regs = 0;
 #endif
 firehose_info_t	gasnetc_firehose_info;
 
@@ -2011,6 +2012,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
       gasnetc_pin_maxsz_mask = 0;
       gasnetc_pin_maxsz = gasnetc_max_msg_sz;
       gasnetc_max_regs = 1;
+      gasnetc_seg_regs = 1;
     } else {
       /* Multiple registration */
       size_t size = MIN(gasnetc_pin_maxsz, gasnetc_max_msg_sz);
@@ -2020,6 +2022,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
       gasnetc_pin_maxsz = ((uint64_t)1) << gasnetc_pin_maxsz_shift;
       gasnetc_pin_maxsz_mask = (gasnetc_pin_maxsz - 1);
       gasnetc_max_regs = (maxsize + gasnetc_pin_maxsz - 1) >> gasnetc_pin_maxsz_shift;
+      gasnetc_seg_regs = (segsize + gasnetc_pin_maxsz - 1) >> gasnetc_pin_maxsz_shift;
     }
     { uint64_t value = gasnetc_pin_maxsz_mask ? gasnetc_pin_maxsz : maxsize;
       char valstr[16];
@@ -2042,6 +2045,10 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
         hca->seg_lkeys = gasnett_malloc_aligned(GASNETI_CACHE_LINE_BYTES,
                                                 gasnetc_max_regs * sizeof(uint32_t));
         gasneti_leak_aligned(hca->seg_lkeys);
+      #if GASNETC_IBV_SHUTDOWN
+        hca->seg_regs = gasneti_calloc(gasnetc_seg_regs, sizeof(gasnetc_memreg_t));
+        gasneti_leak(hca->seg_regs);
+      #endif
 
         for (j = 0, addr = gasnetc_seg_start, remain = segsize; remain != 0; ++j) {
 	  size_t len = (gasnetc_max_regs == 1) ? remain : MIN(remain, gasnetc_pin_maxsz);
@@ -2056,6 +2063,10 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 	  addr += len;
 	  remain -= len;
           gasneti_assert(j <= gasnetc_max_regs);
+        #if GASNETC_IBV_SHUTDOWN
+          gasneti_assert(j <= gasnetc_seg_regs);
+          hca->seg_regs[j] = memreg;
+        #endif
         }
         GASNETI_TRACE_PRINTF(I, ("Attach registered %p bytes in %d regions",
                                  (void*)segsize, (int)gasnetc_max_regs));
@@ -2121,7 +2132,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 
 	flags |= FIREHOSE_INIT_FLAG_LOCAL_ONLY;
       #endif
-      #if PLATFORM_OS_DARWIN
+      #if PLATFORM_OS_DARWIN || GASNETC_IBV_SHUTDOWN
 	flags |= FIREHOSE_INIT_FLAG_UNPIN_ON_FINI;
       #endif
 
@@ -2174,28 +2185,54 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 /* Shutdown code - not used by default */
 
 #if GASNETC_IBV_SHUTDOWN
-/* TODO: 
- * + Deregister all memory
- * + Destroy PD
- * + Close HCA
- */
+static void gasnetc_unpin_check(gasnetc_hca_t *hca, gasnetc_memreg_t *reg) {
+  if (reg->len) {
+    gasnetc_unpin(hca, reg);
+  }
+}
+
 void
 gasnetc_shutdown(void) {
   gasnetc_hca_t *hca;
+  int rc;
 
   (*gasneti_bootstrapBarrier_p)(); /* Don't use the QPs! */
-    
+
   gasnetc_connect_shutdown();
 
   GASNETC_FOR_ALL_HCA(hca) {
   #if GASNETC_IBV_SRQ
-    if (gasnetc_use_srq) {
-      (void) ibv_destroy_srq(hca->rqst_srq);
-      (void) ibv_destroy_srq(hca->repl_srq);
+    if (gasnetc_use_srq && gasnetc_remote_nodes) {
+      rc = ibv_destroy_srq(hca->rqst_srq);
+      GASNETC_IBV_CHECK(rc, "from ibv_destroy_srq(request)");
+      rc = ibv_destroy_srq(hca->repl_srq);
+      GASNETC_IBV_CHECK(rc, "from ibv_destroy_srq(reply)");
     }
   #endif
-    (void) ibv_destroy_cq(hca->rcv_cq);
-    (void) ibv_destroy_cq(hca->snd_cq);
+
+    rc = ibv_destroy_cq(hca->rcv_cq);
+    GASNETC_IBV_CHECK(rc, "from ibv_destroy_cq(rcv_cq)");
+    rc = ibv_destroy_cq(hca->snd_cq);
+    GASNETC_IBV_CHECK(rc, "from ibv_destroy_cq(snd_cq)");
+
+  #if GASNETC_PIN_SEGMENT
+    if (hca->seg_regs) {
+      int i;
+      for (i=0; i<gasnetc_seg_regs; ++i) {
+        gasnetc_unpin(hca, &hca->seg_regs[i]);
+      }
+    }
+  #endif
+
+    gasnetc_unpin_check(hca, &hca->snd_reg);
+    gasnetc_unpin_check(hca, &hca->rcv_reg);
+    gasnetc_unpin_check(hca, &hca->amrdma_reg);
+
+    rc = ibv_dealloc_pd(hca->pd);
+    GASNETC_IBV_CHECK(rc, "from ibv_dealloc_pd()");
+
+    rc = ibv_close_device(hca->handle);
+    GASNETC_IBV_CHECK(rc, "from ibv_close_device()");
   }
 }
 #endif
@@ -2814,7 +2851,10 @@ static void gasnetc_exit_body(void) {
  }
 
 #if GASNETC_IBV_SHUTDOWN
-  gasnetc_shutdown();
+  if (!gasnetc_exit_in_signal) {
+    GASNETC_EXIT_STATE("ibv shutdown");
+    gasnetc_shutdown();
+  }
 #endif
 
   /* Try again to flush out any recent output, allowing upto 30s */
