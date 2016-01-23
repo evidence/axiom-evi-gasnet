@@ -130,7 +130,12 @@ typedef struct _gasnet_hsl_t {
   ==========================
 */
 
-#define GASNETC_BUFSZ		4096
+/* If you change GASNETC_BUFSZ then you probably want to also
+ * adjust GASNETC_PUTINMOVE_LIMIT_MAX in firehose_fwd.h
+ */
+#ifndef GASNETC_BUFSZ
+  #define GASNETC_BUFSZ         4096
+#endif
 
 #if GASNETI_STATS_OR_TRACE
   #define GASNETC_HDR_TIMESTAMP	8

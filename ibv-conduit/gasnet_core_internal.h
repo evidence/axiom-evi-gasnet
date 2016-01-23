@@ -412,11 +412,25 @@ typedef struct {
 	uint32_t	immediate_data;
 } gasnetc_amrdma_hdr_t;
 
+/* GASNETC_AMRDMA_SZ must a power-of-2, and GASNETC_AMRDMA_SZ_LG2 its base-2 logarithm.
+ * GASNETC_AMRDMA_SZ can safely be smaller or larger than GASNETC_BUFSZ.
+ * However space is wasted if larger than 2^ceil(log_2(GASNETC_BUFSZ)).
+ */
+#if defined(GASNETC_AMRDMA_SZ)
+  /* Keep existing defn */
+#elif (GASNETC_BUFSZ >  2048)
+  #define GASNETC_AMRDMA_SZ     4096
+  #define GASNETC_AMRDMA_SZ_LG2 12
+#elif (GASNETC_BUFSZ >  1024)
+  #define GASNETC_AMRDMA_SZ     2048
+  #define GASNETC_AMRDMA_SZ_LG2 11
+#else /* GASNETC_BUFSZ is never less than 512 */
+  #define GASNETC_AMRDMA_SZ     1024
+  #define GASNETC_AMRDMA_SZ_LG2 10
+#endif
 #define GASNETC_AMRDMA_HDRSZ    sizeof(gasnetc_amrdma_hdr_t)
-#define GASNETC_AMRDMA_SZ	4096 /* Keep to a power-of-2 */  /* XXX: should determine automatically */
-#define GASNETC_AMRDMA_SZ_LG2	12 /* log-base-2(GASNETC_AMRDMA_SZ) */
 #define GASNETC_AMRDMA_PAD      (GASNETI_ALIGNUP(GASNETC_AMRDMA_HDRSZ,SIZEOF_VOID_P) - GASNETC_AMRDMA_HDRSZ)
-#define GASNETC_AMRDMA_LIMIT_MAX (GASNETC_AMRDMA_SZ - GASNETC_AMRDMA_HDRSZ - GASNETC_AMRDMA_PAD)
+#define GASNETC_AMRDMA_LIMIT_MAX (MIN(GASNETC_BUFSZ,GASNETC_AMRDMA_SZ) - GASNETC_AMRDMA_HDRSZ - GASNETC_AMRDMA_PAD)
 typedef char gasnetc_amrdma_buf_t[GASNETC_AMRDMA_SZ];
 
 #define GASNETC_DEFAULT_AMRDMA_MAX_PEERS 32

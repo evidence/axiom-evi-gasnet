@@ -1867,6 +1867,7 @@ size_t gasnetc_encode_amrdma(gasnetc_cep_t *cep, struct ibv_send_wr *sr_desc, in
     sr_desc->wr.rdma.rkey = cep->amrdma_send->rkey;
 
     gasneti_assert(new_len <= GASNETC_AMRDMA_SZ);
+    gasneti_assert(new_len <= GASNETC_BUFSZ);
     return (size_t)new_len;
   }
 }
