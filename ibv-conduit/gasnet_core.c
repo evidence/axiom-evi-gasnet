@@ -301,6 +301,7 @@ static void gasnetc_sys_coll_init(void)
   }
 
 done:
+  gasneti_assert(! gasneti_bootstrap_native_coll);
   gasneti_bootstrap_native_coll = 1;
 #if !GASNETC_IBV_SHUTDOWN
   gasneti_bootstrapCleanup(); /* No futher use of ssh/mpi/pmi collectives */
@@ -322,6 +323,9 @@ static void gasnetc_sys_coll_fini(void)
   gasnetc_exchange_permute = NULL;
  #endif
 #endif
+
+  gasnetc_dissem_peers = 0;
+  gasneti_bootstrap_native_coll = 0;
 }
 
 #if GASNETC_USE_RCV_THREAD
