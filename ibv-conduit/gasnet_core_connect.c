@@ -2502,19 +2502,12 @@ dump_conn_done(int fd)
 
 /* ------------------------------------------------------------------------------------ */
 
-/* Fini currently stops the progress thread
-   and optionally dumps the connection table. */
+/* Fini optionally dumps the connection table and connect stats. */
 extern int
 gasnetc_connect_fini(void)
 {
   gasnet_node_t n, count = 0;
   int fd = -1;
-
-#if GASNETC_USE_CONN_THREAD
-  if (conn_thread.fn == gasnetc_conn_thread) {
-    gasnetc_stop_progress_thread(&conn_thread, 1);
-  }
-#endif
 
   /* Open file replacing any '%' in filename with node number */
   { const char *envstr = gasnetc_connectfile_out;
@@ -2567,12 +2560,18 @@ gasnetc_connect_fini(void)
 /* ------------------------------------------------------------------------------------ */
 
 #if GASNETC_IBV_SHUTDOWN
-/* Shutdown destroys all QPs
-   It must be called (confusingly enough) after Fini. */
+/* Shutdown stops the progress thread (if any) and destroys all QPs. */
 extern void 
 gasnetc_connect_shutdown(void) {
   const int retries = 5;
   int trial;
+
+  /* Stop progress thread */
+#if GASNETC_USE_CONN_THREAD
+  if (conn_thread.fn == gasnetc_conn_thread) {
+    gasnetc_stop_progress_thread(&conn_thread, 1);
+  }
+#endif
 
   /* Drain any outstanding sends */
   #if GASNETC_USE_CONN_THREAD
