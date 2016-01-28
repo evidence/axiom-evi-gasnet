@@ -3295,7 +3295,7 @@ AC_SUBST(IBV_LIBCFLAGS)
 AM_CONDITIONAL(USE_IBV_CONDUIT, test "$have_ibv" = yes)
 AM_CONDITIONAL(IBV_BOOTSTRAP_SSH, test "$have_fork" = yes)
 AM_CONDITIONAL(IBV_BOOTSTRAP_MPI, test "$have_mpi_compat" = yes)	# Option to omit MPI support?
-AM_CONDITIONAL(IBV_RCV_THREAD,test "$enabled_ibv_rcv_thread" = yes)
+AM_CONDITIONAL(IBV_SEQ_THREADS, test "$enabled_ibv_rcv_thread$enabled_ibv_conn_thread" != nono)
 CONDUIT_END([test "$have_ibv" = yes])
 
 #--------------------------------------------------------------------------------------------------------

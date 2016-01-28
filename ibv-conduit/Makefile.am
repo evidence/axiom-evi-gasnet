@@ -53,11 +53,11 @@ pmi_deps = $(pmi_srcdir)/*.h
 endif
 
 ##
-## IBV AM receiver thead support (optional)
+## IBV AM receiver and/or connection thread support (optional)
 ##
-if IBV_RCV_THREAD
-# IBV conduit needs GASNET_THREAD_DEFINES even for SEQ mode
-rcv_thread_defines = @GASNET_THREAD_DEFINES@
+if IBV_SEQ_THREADS
+# Conduit threads require GASNET_THREAD_DEFINES even for SEQ mode
+ibv_thread_defines = @GASNET_THREAD_DEFINES@
 endif
 
 # any conduit-specific subdirectories containing Makefile.am's
@@ -96,7 +96,7 @@ CONDUIT_SOURCELIST =                 \
 # additional -I or -D directives needed by this specific conduit
 # other than the standard GASNet includes and flags
 CONDUIT_EXTRALIBCFLAGS = -I@IBV_INCLUDE@ $(fh_extralibcflags) $(ssh_defines) $(mpi_defines) $(pmi_cppflags) $(fca_extralibcflags)\
-			 @IBV_LIBCFLAGS@ $(rcv_thread_defines)
+			 @IBV_LIBCFLAGS@ $(ibv_thread_defines)
 
 # additional conduit header files to install from external, non-standard directories
 CONDUIT_EXTRAHEADERS = $(fh_extraheaders) $(fca_extraheaders)
