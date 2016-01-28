@@ -1694,8 +1694,8 @@ static int gasnetc_init(int *argc, char ***argv) {
       gasnetc_port_tbl[i].remote_lids[node] = remote_lid[node * gasnetc_num_ports + i];
     }
   }
-  gasneti_free(remote_lid);
 #endif
+  gasneti_free(remote_lid);
 
 #if GASNETC_IBV_XRC
   /* allocate/initialize XRC resources, if any */
