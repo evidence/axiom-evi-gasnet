@@ -2200,8 +2200,6 @@ gasnetc_shutdown(void) {
   gasnetc_hca_t *hca;
   int rc;
 
-  (*gasneti_bootstrapBarrier_p)(); /* Don't use the QPs! */
-
   gasnetc_connect_shutdown();
 
   GASNETC_FOR_ALL_HCA(hca) {
@@ -2857,6 +2855,8 @@ static void gasnetc_exit_body(void) {
 #if GASNETC_IBV_SHUTDOWN
   if (!gasnetc_exit_in_signal) {
     GASNETC_EXIT_STATE("ibv shutdown");
+    alarm(30);
+    gasneti_bootstrapBarrier();
     gasnetc_shutdown();
   }
 #endif
