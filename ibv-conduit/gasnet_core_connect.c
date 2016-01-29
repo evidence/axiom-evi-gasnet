@@ -2624,6 +2624,30 @@ gasnetc_connect_shutdown(void) {
       }
     }
 
+  #if GASNETC_USE_CONN_THREAD
+    if (conn_ud_snd_cq) {
+      if (0 == ibv_destroy_cq(conn_ud_snd_cq)) {
+        conn_ud_snd_cq = NULL;
+      } else {
+        failed = 1;
+      }
+    }
+    if (conn_ud_rcv_cq) {
+      if (0 == ibv_destroy_cq(conn_ud_rcv_cq)) {
+        conn_ud_rcv_cq = NULL;
+      } else {
+        failed = 1;
+      }
+    }
+    if (conn_thread.compl) {
+      if (0 == ibv_destroy_comp_channel(conn_thread.compl)) {
+        conn_thread.compl = NULL;
+      } else {
+        failed = 1;
+      }
+    }
+  #endif
+
     if (!failed) break;
 
     GASNETI_TRACE_PRINTF(C, ("Connection shutdown attempt %d failed.  Sleeping 1 second.", trial));

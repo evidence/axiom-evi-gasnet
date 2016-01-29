@@ -2217,6 +2217,13 @@ gasnetc_shutdown(void) {
     rc = ibv_destroy_cq(hca->snd_cq);
     GASNETC_IBV_CHECK(rc, "from ibv_destroy_cq(snd_cq)");
 
+  #if GASNETC_USE_RCV_THREAD
+    if (gasnetc_use_rcv_thread) {
+      rc = ibv_destroy_comp_channel(hca->rcv_thread.compl);
+      GASNETC_IBV_CHECK(rc, "from ibv_destroy_comp_chanel(rcv_thread)");
+    }
+  #endif
+
   #if GASNETC_PIN_SEGMENT
     if (hca->seg_regs) {
       int i;
