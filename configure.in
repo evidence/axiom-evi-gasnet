@@ -3789,6 +3789,12 @@ else
   AC_DEFINE_UNQUOTED(GASNET_SOCKLEN_T, $gasnet_cv_socklen_t)
 fi
 
+# Prefer setpgid(), but unless cross-compiling we can use setpgrp()
+AC_CHECK_FUNCS(setpgid)
+if test "$cross_compiling" = "no" ; then
+  AC_CHECK_FUNCS(setpgrp, [AC_FUNC_SETPGRP()])
+fi
+
 GASNET_WITH(ssh-cmd,
    [default value for GASNET_SSH_CMD environment variable (default "ssh")],
    [case "$withval" in
@@ -3819,39 +3825,20 @@ GASNET_WITH(ssh-nodefile,
    [gasnet_ssh_nodefile=""])
 AC_DEFINE_UNQUOTED(GASNETI_DEFAULT_SSH_NODEFILE, "$gasnet_ssh_nodefile")
 
-GASNET_WITH(ssh-rate,
-   [default value for GASNET_SSH_RATE environment variable (defaults to 0 - no rate limit)],
+GASNET_WITH(ssh-out-degree,
+   [default value for GASNET_SSH_OUT_DEGREE environment variable (defaults to 32)],
    [case "$withval" in
-      yes|no) AC_MSG_ERROR([--with-ssh-rate requires an argument]) ;;
-           *) if expr "$withval" : '[[0-9]]*$' >/dev/null; then
-                gasnet_ssh_rate="$withval"
-              else
-                AC_MSG_ERROR([--with-ssh-rate argument "$withval" is not a non-negative integer])
-              fi
-              ;;
-    esac],
-   [AC_MSG_ERROR([--with-ssh-rate requires an argument])],
-   [gasnet_ssh_rate="0"])
-AC_DEFINE_UNQUOTED(GASNETI_DEFAULT_SSH_RATE, "$gasnet_ssh_rate")
-    
-GASNET_WITH(ssh-topology,
-   [connection topology when using ssh-spawner ("flat" or "nary[[:N]]", where default is "flat")],
-   [case "$withval" in
-         flat) AC_DEFINE(GASNETI_SSH_TOPO_FLAT) ;;
-         nary) AC_DEFINE(GASNETI_SSH_TOPO_NARY) ;;
-       nary:*) tmpval=`echo $withval | cut -d: -f2-`
-               if expr "${tmpval}" : '[[1-9]][[0-9]]*$' >/dev/null; then
-                 AC_DEFINE(GASNETI_SSH_TOPO_NARY)
-                 AC_DEFINE_UNQUOTED(GASNETI_SSH_NARY_DEGREE, $tmpval)
-               else
-                 AC_MSG_ERROR([--with-ssh-topology nary: suffix "$tmpval" is not a positive integer])
-               fi
-               ;;
-          yes) AC_MSG_ERROR([--with-ssh-topology requires an argument]) ;;
-            *) AC_MSG_ERROR([--with-ssh-topology argument "$withval" is not a valid choice]) ;;
-    esac],
-   [AC_MSG_ERROR([--with-ssh-topology requires an argument])],
-   [AC_DEFINE(GASNETI_SSH_TOPO_FLAT)])
+      yes|no) AC_MSG_ERROR([--with-ssh-out-degree requires a non-negative integer argument]) ;;
+    esac
+    if expr "${withval}" : "[[0-9]][[0-9]]*" >/dev/null; then
+      gasnet_ssh_out_degree="$withval"
+    else
+      AC_MSG_ERROR([--with-ssh-out-degree requires a non-negative integer argument])
+    fi],
+   [AC_MSG_ERROR([--with-ssh-out-degree requires a non-negative  integer argument])],
+   [gasnet_ssh_out_degree=32])
+AC_DEFINE_UNQUOTED(GASNETI_DEFAULT_SSH_OUT_DEGREE, $gasnet_ssh_out_degree)
+
 
 # Things for pmi-spawner
 
