@@ -1177,6 +1177,34 @@ static void recv_argv(int s, int *argc_p, char ***argv_p) {
   argv0 = argv[0];
 }
 
+static int fcntl_setfl(int fd, int flag) {
+  int rc;
+  rc = fcntl(fd, F_GETFL, 0);
+  if (rc >= 0) rc = fcntl(fd, F_SETFL, rc | flag);
+  return rc;
+}
+
+static int fcntl_clrfl(int fd, int flag) {
+  int rc;
+  rc = fcntl(fd, F_GETFL, 0);
+  if (rc >= 0) rc = fcntl(fd, F_SETFL, rc & ~flag);
+  return rc;
+}
+
+static int fcntl_setfd(int fd, int flag) {
+  int rc;
+  rc = fcntl(fd, F_GETFD, 0);
+  if (rc >= 0) rc = fcntl(fd, F_SETFD, rc | flag);
+  return rc;
+}
+
+static int fcntl_clrfd(int fd, int flag) {
+  int rc;
+  rc = fcntl(fd, F_GETFD, 0);
+  if (rc >= 0) rc = fcntl(fd, F_SETFD, rc & ~flag);
+  return rc;
+}
+
 static void pre_spawn(int count) {
   struct sockaddr_in sock_addr;
   GASNET_SOCKLEN_T addr_len;
@@ -1194,13 +1222,13 @@ static void pre_spawn(int count) {
   if (devnull < 0) {
     gasneti_fatalerror("open(/dev/null) failed");
   }
-  (void)fcntl(devnull, F_SETFD, FD_CLOEXEC);
+  (void)fcntl_setfd(devnull, FD_CLOEXEC);
 
   /* Create listening socket */
   if ((listener = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
     gasneti_fatalerror("listener = socket() failed");
   }
-  (void)fcntl(listener, F_SETFD, FD_CLOEXEC);
+  (void)fcntl_setfd(listener, FD_CLOEXEC);
   sock_addr.sin_family = AF_INET;
   sock_addr.sin_port = 0;
   sock_addr.sin_addr.s_addr = INADDR_ANY;
@@ -1232,7 +1260,7 @@ static void post_spawn(int count, int argc, char * const *argv) {
     }
     reaper(0); /* Disarm signal handler */
 
-    (void)fcntl(s, F_SETFD, FD_CLOEXEC);
+    (void)fcntl_setfd(s, FD_CLOEXEC);
     (void)ioctl(s, SIOCSPGRP, &mypid); /* Enable SIGURG delivery on OOB data */
 #ifdef TCP_CORK
     (void)setsockopt(s, IPPROTO_TCP, TCP_CORK, (char *) &c_one, sizeof(c_one));
@@ -1317,7 +1345,7 @@ static void do_connect(gasnet_node_t child_id, const char *parent_name, int pare
       --retry;
     }
   }
-  (void)fcntl(parent, F_SETFD, FD_CLOEXEC);
+  (void)fcntl_setfd(parent, FD_CLOEXEC);
   (void)ioctl(parent, SIOCSPGRP, &mypid); /* Enable SIGURG delivery on OOB data */
 #ifdef TCP_NODELAY
   (void)setsockopt(parent, IPPROTO_TCP, TCP_NODELAY, (char *) &c_one, sizeof(c_one));
@@ -2125,13 +2153,9 @@ int gasneti_bootstrapInit_ssh(int *argc_p, char ***argv_p, gasnet_node_t *nodes_
 
   envcmd = my_getenv_withdefault(ENV_PREFIX "ENVCMD", "env");
 
-  { /* set O_APPEND on stdout and stderr (see bug 2136) */
-    int tmp;
-    tmp = fcntl(STDOUT_FILENO, F_GETFL, 0);
-    if (tmp >= 0) (void)fcntl(STDOUT_FILENO, F_SETFL, tmp | O_APPEND);
-    tmp = fcntl(STDERR_FILENO, F_GETFL, 0);
-    if (tmp >= 0) (void)fcntl(STDERR_FILENO, F_SETFL, tmp | O_APPEND);
-  }
+  /* set O_APPEND on stdout and stderr (see bug 2136) */
+  (void)fcntl_setfl(STDOUT_FILENO, O_APPEND);
+  (void)fcntl_setfl(STDERR_FILENO, O_APPEND);
 
   #ifdef HAVE_PR_SET_PDEATHSIG
   { /* check safety of prctl(PR_SET_PDEATHSIG, ...) */
