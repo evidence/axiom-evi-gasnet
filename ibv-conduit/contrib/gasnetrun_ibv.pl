@@ -8,7 +8,7 @@ use strict;
 use Fcntl;
 use IO::File;
 use POSIX qw(tmpnam);
-use Cwd qw(abs_path);
+use Cwd qw(cwd);
 
 # Globals
 my @mpi_args = ();
@@ -52,7 +52,7 @@ sub fullpath($)
 	$result = $file;
     } elsif ($file =~ m|/| || -x $file) {
 	# has directory components or exists in cwd
-	$result = abs_path($file);
+	$result = cwd() . "/$file";
     } else {
 	# search PATH
 	foreach (split(':', $ENV{PATH})) {
