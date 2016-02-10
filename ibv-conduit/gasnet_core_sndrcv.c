@@ -3472,8 +3472,13 @@ extern void gasnetc_sndrcv_init_peer(gasnet_node_t node, gasnetc_cep_t *cep) {
 
       /* Setup semaphores/counters */
       /* sq_sema now set when QP is created */
-      gasnetc_sema_init(&cep->am_rem, gasnetc_am_oust_pp, gasnetc_am_oust_pp);
-      gasnetc_sema_init(&cep->am_loc, 0, gasnetc_am_oust_pp);
+      if (gasnetc_use_srq && (i < gasnetc_num_qps)) {
+        gasnetc_sema_init(&cep->am_rem, 0, 0);
+        gasnetc_sema_init(&cep->am_loc, 0, 0);
+      } else {
+        gasnetc_sema_init(&cep->am_rem, gasnetc_am_oust_pp, gasnetc_am_oust_pp);
+        gasnetc_sema_init(&cep->am_loc, 0, gasnetc_am_oust_pp);
+      }
       gasnetc_atomic_set(&cep->am_flow.credit, 0, 0);
       gasnetc_atomic_set(&cep->am_flow.ack, 0, 0);
       cep->snd_cq_sema_p = &gasnetc_cq_semas[GASNETC_HCA_IDX(cep)];
