@@ -7,8 +7,12 @@ require 5.004;
 use strict;
 use Fcntl;
 use IO::File;
-use POSIX qw(tmpnam);
 use Cwd qw(cwd);
+BEGIN {
+  eval 'use File::Temp qw(:POSIX);';
+  eval 'use POSIX qw(tmpnam);' if $!;
+  die if $!;
+}
 
 # Globals
 my @mpi_args = ();
