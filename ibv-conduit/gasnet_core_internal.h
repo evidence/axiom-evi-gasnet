@@ -379,32 +379,6 @@ void gasnetc_counter_wait(gasnetc_counter_t *counter, int handler_context) {
 } 
 
 /* ------------------------------------------------------------------------------------ */
-/* System AM Request/Reply Functions
- * These can be called between init and attach.
- * They have an optional counter allowing one to test/block for local completion.
- */
-
-extern int gasnetc_RequestSysShort(gasnet_node_t dest,
-                                   gasnetc_atomic_t *completed, /* counter for local completion */
-                                   gasnet_handler_t handler,
-                                   int numargs, ...);
-extern int gasnetc_RequestSysMedium(gasnet_node_t dest,
-                                    gasnetc_atomic_t *completed, /* counter for local completion */
-                                    gasnet_handler_t handler,
-                                    void *source_addr, size_t nbytes,
-                                    int numargs, ...);
-
-extern int gasnetc_ReplySysShort(gasnet_token_t token,
-                                 gasnetc_atomic_t *completed, /* counter for local completion */
-                                 gasnet_handler_t handler,
-                                 int numargs, ...);
-extern int gasnetc_ReplySysMedium(gasnet_token_t token,
-                                  gasnetc_atomic_t *completed, /* counter for local completion */
-                                  gasnet_handler_t handler,
-                                  void *source_addr, size_t nbytes,
-                                  int numargs, ...);
-
-/* ------------------------------------------------------------------------------------ */
 
 #if (GASNETC_IB_MAX_HCAS > 1)
   #define GASNETC_FOR_ALL_HCA_INDEX(h)	for (h = 0; h < gasnetc_num_hcas; ++h)
@@ -803,5 +777,32 @@ extern gasnet_node_t            gasnetc_remote_nodes;
 #if GASNETC_DYNAMIC_CONNECT
   extern gasnetc_sema_t         gasnetc_zero_sema;
 #endif
+
+/* ------------------------------------------------------------------------------------ */
+/* System AM Request/Reply Functions
+ * These can be called between init and attach.
+ * They have an optional counter allowing one to test/block for local completion,
+ * and take an epid a dest to optionally allow selection of a specific QP.
+ */
+
+extern int gasnetc_RequestSysShort(gasnetc_epid_t dest,
+                                   gasnetc_atomic_t *completed, /* counter for local completion */
+                                   gasnet_handler_t handler,
+                                   int numargs, ...);
+extern int gasnetc_RequestSysMedium(gasnetc_epid_t dest,
+                                    gasnetc_atomic_t *completed, /* counter for local completion */
+                                    gasnet_handler_t handler,
+                                    void *source_addr, size_t nbytes,
+                                    int numargs, ...);
+
+extern int gasnetc_ReplySysShort(gasnet_token_t token,
+                                 gasnetc_atomic_t *completed, /* counter for local completion */
+                                 gasnet_handler_t handler,
+                                 int numargs, ...);
+extern int gasnetc_ReplySysMedium(gasnet_token_t token,
+                                  gasnetc_atomic_t *completed, /* counter for local completion */
+                                  gasnet_handler_t handler,
+                                  void *source_addr, size_t nbytes,
+                                  int numargs, ...);
 
 #endif

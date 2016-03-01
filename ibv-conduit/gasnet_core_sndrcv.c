@@ -1875,14 +1875,21 @@ size_t gasnetc_encode_amrdma(gasnetc_cep_t *cep, struct ibv_send_wr *sr_desc, in
 
 GASNETI_INLINE(gasnetc_ReqRepGeneric)
 int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
-			  int dest, gasnet_handler_t handler,
+			  gasnetc_epid_t dest, gasnet_handler_t handler,
 			  void *src_addr, int nbytes, void *dst_addr,
 			  int numargs, gasnetc_counter_t *mem_oust,
 			  gasnetc_atomic_t *completed, va_list argptr) {
-#if GASNET_PSHM /* PSHM code handles all "local" AMs including the loopback case */
-  gasneti_assert(!gasneti_pshm_in_supernode(dest));
+#if GASNETC_IBV_SHUTDOWN
+  /* Currently only the shutdown code uses dest to specify a "bound" value */
+  const gasnet_node_t node = gasnetc_epid2node(dest);
 #else
-  if_pt (dest == gasneti_mynode) {
+  const gasnet_node_t node = dest;
+  gasneti_assert(gasnetc_epid2qpi(dest) == 0);
+#endif
+#if GASNET_PSHM /* PSHM code handles all "local" AMs including the loopback case */
+  gasneti_assert(!gasneti_pshm_in_supernode(node));
+#else
+  if_pt (node == gasneti_mynode) {
     /* Local Case */
     gasnet_handlerarg_t *args;
     int i;
@@ -1968,10 +1975,12 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
       cep = token->cep;
       epid = cep->epid;
     } else {
+      /* TODO: could bind by largest avail credits (or at least favor non-zero over zero) */
       const int qp_offset = gasnetc_use_srq ? gasnetc_num_qps : 0;
       int qpi;
       cep = gasnetc_get_cep(dest) + qp_offset;
 #if 0
+      TODO: this code is not up-to-date for the case 'dest' is already bound
       /* Bind to a specific queue pair, selecting by largest credits */
       qpi = 0;
       if (gasnetc_num_qps > 1) {
@@ -4134,7 +4143,7 @@ extern int gasnetc_ReplyGeneric(gasnetc_category_t category,
   return retval;
 }
 
-extern int gasnetc_RequestSysShort(gasnet_node_t dest,
+extern int gasnetc_RequestSysShort(gasnetc_epid_t dest,
                                  gasnetc_atomic_t *completed,
                                  gasnet_handler_t handler,
                                  int numargs, ...) {
@@ -4151,7 +4160,7 @@ extern int gasnetc_RequestSysShort(gasnet_node_t dest,
   return retval;
 }
 
-extern int gasnetc_RequestSysMedium(gasnet_node_t dest,
+extern int gasnetc_RequestSysMedium(gasnetc_epid_t dest,
                                     gasnetc_atomic_t *completed,
                                     gasnet_handler_t handler,
                                     void *source_addr, size_t nbytes,
