@@ -1308,8 +1308,11 @@ void gasnetc_recv_am(peer_struct_t * const peer, gasnetc_mailbox_t * const mb, g
       const size_t nbytes = gasnetc_am_nbytes(notify);
       uint8_t * data = &mb->raw[head_len];
       if (is_req) {
-          /* Reply reuses the buffer.  So, Request cannot run with payload in-place. */
-          /* TODO: special case for non-replying requests (internal only for now) */
+          /* Reply allows the peer to over-write this buffer with another Request.
+           * So, Request cannot run with payload in-place.
+           * The up-side is that we can use it to construct the Reply.
+           * TODO: special case for non-replying requests (internal only for now).
+           */
           data = memcpy(&buffer, data, nbytes);
       }
       gasneti_assert(0 == (((uintptr_t) data) % GASNETI_MEDBUF_ALIGNMENT));
