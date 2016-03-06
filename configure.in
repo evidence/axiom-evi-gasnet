@@ -3367,7 +3367,7 @@ if test ${gni_network}:${enabled_[]lowername} = lowername[]:yes; then
   GASNET_POPVAR(CPPFLAGS)
 
   GASNET_WITH(gni-max-medium,
-     [gasnet_AMMaxMedium() for Gemini and Aries conduits (default 960)],
+     [gasnet_AMMaxMedium() for Gemini and Aries conduits (default 4096)],
      [if expr "$withval" : '[[0-9]]*$' >/dev/null 2>&1 && \
          expr \( "$withval" / 64 \) \* 64 = "$withval" >/dev/null 2>&1 &&
          expr "$withval" '>=' 512  >/dev/null 2>&1 ; then
@@ -3379,7 +3379,7 @@ if test ${gni_network}:${enabled_[]lowername} = lowername[]:yes; then
      ],
      [GASNET_ERR_SAVE()
       AC_MSG_ERROR([--with-gni-max-medium must be a multiple of 64 and no smaller than 512])],
-     [gni_max_medium=960])
+     [gni_max_medium=4096])
   AC_DEFINE_UNQUOTED(GASNETC_GNI_MAX_MEDIUM, [$gni_max_medium])
 
   GASNET_IF_ENABLED(gni-multi-domain, [Use experimental multi-domain support in PAR builds of Gemini and Aries conduits], [AC_DEFINE(GASNETC_GNI_MULTI_DOMAIN)])
