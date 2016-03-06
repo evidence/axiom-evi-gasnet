@@ -1231,8 +1231,8 @@ gasnetc_post_descriptor_t *gasnetc_alloc_reply_post_descriptor(gasnet_token_t t,
     if_pf (_condition) {                     \
       GASNETC_TRACE_WAIT_BEGIN();            \
       do {                                   \
-        GASNETI_WAITHOOK();                  \
         GASNETC_UNLOCK_AM_BUFFER();          \
+        GASNETI_WAITHOOK();                  \
         _poll();                             \
         GASNETC_LOCK_AM_BUFFER();            \
       } while (_condition);                  \
