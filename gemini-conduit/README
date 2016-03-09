@@ -51,8 +51,8 @@ GASNET_GNI_PUT_FMA_RDMA_CUTOVER - default 4096 max 16384
   involvement by the CPU (and thus less potential, for instance, for
   overlap of non-blocking communication with computation).
 
-GASNET_GNI_GET_BOUNCE_REGISTER_CUTOVER  - default 8192, max 32768
-GASNET_GNI_PUT_BOUNCE_REGISTER_CUTOVER  - default 8192, max 32768
+GASNET_GNI_GET_BOUNCE_REGISTER_CUTOVER  - default 4096, max 32768
+GASNET_GNI_PUT_BOUNCE_REGISTER_CUTOVER  - default 4096, max 32768
   Every Post Descriptor has a small bounce buffer (128 bytes) for
   handling out-of-segment transfers (normally FMAs) with the least
   overhead.  Beyond that size out-of-segment can be performed using
@@ -60,7 +60,7 @@ GASNET_GNI_PUT_BOUNCE_REGISTER_CUTOVER  - default 8192, max 32768
   to and including these sizes will be conducted using bounce buffers.
   Beyond these sizes, temporary memory registration is used.
   The minimum allowed is GASNET_PAGESIZE (normally 4K) and lower values
-  will be silently ignored.
+  will be silently replaced by this value.
   
 GASNET_GNI_BOUNCE_SIZE      - default 256K, space for bounce buffers
   There is a pool of bounce buffers, each of a fixed size determined by the
@@ -87,9 +87,7 @@ GASNET_GNI_MEMREG
   This controls the maximum number of concurrent temporary memory
   registrations, used for RDMA transfers to and from addresses
   outside of the GASNet segment.
-  The value of 0 imposes no bound and memory registrations are
-  created as needed until uGNI returns GNI_RC_ERROR_RESOURCE.
-  The default value is 16 on Gemini, and 0 (no limit) on Aries.
+  The default value is 16 on Gemini, and is 4096 on Aries.
 
 GASNET_USE_FIREHOSE
   This gives a boolean: "0" to disable or "1" to enable the use

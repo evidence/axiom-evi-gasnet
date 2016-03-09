@@ -15,6 +15,9 @@
 #if GASNETC_GNI_FIREHOSE
 #include <firehose.h>
 #endif
+#if GASNETC_GNI_UDREG
+#include <udreg_pub.h>
+#endif
 
 #define GASNETC_STRICT_MEM_CONSISTENCY  1 /* use GNI_MEM_STRICT_PI_ORDERING */
 #define GASNETC_RELAXED_MEM_CONSISTENCY 2 /* use GNI_MEM_RELAXED_PI_ORDERING */
@@ -214,8 +217,13 @@ void gasnetc_init_bounce_buffer_pool(GASNETC_DIDX_FARG_ALONE);
 /* we want this much space for bounce buffers */
 #define GASNETC_GNI_BOUNCE_SIZE_DEFAULT (65536 * 4)
 /* a particular get or put <= this size goes via bounce */
+#if GASNETC_GNI_UDREG
+#define GASNETC_GNI_GET_BOUNCE_REGISTER_CUTOVER_DEFAULT 4096
+#define GASNETC_GNI_PUT_BOUNCE_REGISTER_CUTOVER_DEFAULT 4096
+#else
 #define GASNETC_GNI_GET_BOUNCE_REGISTER_CUTOVER_DEFAULT 8192
 #define GASNETC_GNI_PUT_BOUNCE_REGISTER_CUTOVER_DEFAULT 8192
+#endif
 #define GASNETC_GNI_BOUNCE_REGISTER_CUTOVER_MAX 32768
 /* a particular get or put <= this size goes via fma */
 #define GASNETC_GNI_GET_FMA_RDMA_CUTOVER_DEFAULT 4096
@@ -227,7 +235,7 @@ void gasnetc_init_bounce_buffer_pool(GASNETC_DIDX_FARG_ALONE);
 #if GASNET_CONDUIT_GEMINI
 #define GASNETC_GNI_MEMREG_DEFAULT 16 /* TODO: tune/probe? */
 #else
-#define GASNETC_GNI_MEMREG_DEFAULT 0  /* 0 = unbounded */
+#define GASNETC_GNI_MEMREG_DEFAULT 4096
 #endif
 
 /* largest get that can be handled by gasnetc_rdma_get_unaligned() */
@@ -282,6 +290,9 @@ typedef struct gasnetc_post_descriptor {
     gasnetc_notify_t notify;
   #if GASNETC_GNI_FIREHOSE
     firehose_request_t fh_req;
+  #endif
+  #if GASNETC_GNI_UDREG
+    udreg_entry_t *udreg_entry;
   #endif
   } u;
   uint32_t flags;

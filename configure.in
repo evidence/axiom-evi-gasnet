@@ -3363,6 +3363,20 @@ if test ${gni_network}:${enabled_[]lowername} = lowername[]:yes; then
     ], [ : ], [ have_gemini=no; GASNET_ERR_SAVE() ] )
   fi
 
+  GASNET_IF_ENABLED_WITH_AUTO(gni-udreg,
+     [Use Cray's UDREG to cache memory registration on Aries and Gemini (enabled by default if available)],
+     [gni_udreg=yes], [gni_udreg=no], [gni_udreg=probe])
+  if test $gni_udreg != no; then
+    AC_CHECK_HEADERS(udreg_pub.h, [
+        AC_DEFINE(GASNETC_GNI_UDREG)
+      ],[
+        if test "$gni_udreg" = yes; then
+          GASNET_ERR_SAVE()
+          AC_MSG_ERROR([--enable-gni-udreg was passed but udreg_pub.h header was not found])
+        fi
+      ])
+  fi
+
   GASNET_POPVAR(LIBS)
   GASNET_POPVAR(CPPFLAGS)
 

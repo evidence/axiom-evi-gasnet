@@ -113,4 +113,7 @@ extern int gasnetc_pthread_create(gasnetc_pthread_create_fn_t *create_fn, pthrea
 extern void gasnetc_fatalsignal_callback(int sig);
 #define GASNETC_FATALSIGNAL_CALLBACK(sig) gasnetc_fatalsignal_callback(sig)
 
+extern void gasnetc_trace_finish(void);
+#define GASNETC_TRACE_FINISH() gasnetc_trace_finish()
+
 #endif

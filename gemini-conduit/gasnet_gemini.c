@@ -99,9 +99,6 @@ size_t gasnetc_max_put_lc;
 /* read-only: */
 static gni_mem_handle_t my_mem_handle;
 
-/* read-write: (should cache pad) */
-static gasneti_weakatomic_t gasnetc_reg_credit;
-
 #if GASNETC_USE_MULTI_DOMAIN
 static unsigned int gasnetc_domain_count;
 static unsigned int gasnetc_poll_am_domain_mask;
@@ -310,6 +307,9 @@ int gasnetc_try_pin(void *addr, uintptr_t size)
   #define GASNETC_INITLOCK_AM_BUFFER() gasneti_spinlock_init(&gasnetc_am_buffer_lock)
   #define GASNETC_LOCK_AM_BUFFER()     gasneti_spinlock_lock(&gasnetc_am_buffer_lock)
   #define GASNETC_UNLOCK_AM_BUFFER()   gasneti_spinlock_unlock(&gasnetc_am_buffer_lock)
+  #define GASNETC_INITLOCK_UDREG()     gasneti_spinlock_init(&gasnetc_udreg_lock)
+  #define GASNETC_LOCK_UDREG_()        gasneti_spinlock_lock(&gasnetc_udreg_lock)
+  #define GASNETC_UNLOCK_UDREG()       gasneti_spinlock_unlock(&gasnetc_udreg_lock)
 #else
   #define GASNETC_INITLOCK_GNI() gasneti_mutex_init(&DOMAIN_SPECIFIC_VAL(gasnetc_gni_lock))
   #define GASNETC_LOCK_GNI()     gasneti_mutex_lock(&DOMAIN_SPECIFIC_VAL(gasnetc_gni_lock))
@@ -317,9 +317,163 @@ int gasnetc_try_pin(void *addr, uintptr_t size)
   #define GASNETC_INITLOCK_AM_BUFFER() gasneti_mutex_init(&gasnetc_am_buffer_lock)
   #define GASNETC_LOCK_AM_BUFFER()     gasneti_mutex_lock(&gasnetc_am_buffer_lock)
   #define GASNETC_UNLOCK_AM_BUFFER()   gasneti_mutex_unlock(&gasnetc_am_buffer_lock)
+  #define GASNETC_INITLOCK_UDREG()     gasneti_mutex_init(&gasnetc_udreg_lock)
+  #define GASNETC_LOCK_UDREG_()        gasneti_mutex_lock(&gasnetc_udreg_lock)
+  #define GASNETC_UNLOCK_UDREG()       gasneti_mutex_unlock(&gasnetc_udreg_lock)
 #endif
 
 /*------ Functions for dynamic memory registration ------*/
+
+#if GASNETC_GNI_UDREG
+typedef union gasnetc_reg_data_{
+  union gasnetc_reg_data_ *next;
+  gni_mem_handle_t mem_handle;
+} gasnetc_reg_data_t;
+static gasnetc_reg_data_t *mem_reg_data_pool = NULL;
+
+GASNETI_INLINE(mem_reg_data_alloc)
+GASNETI_MALLOC gasnetc_reg_data_t *mem_reg_data_alloc(void)
+{
+  gasnetc_reg_data_t *result = mem_reg_data_pool;
+  if_pf (NULL == result) {
+    const int count = GASNET_PAGESIZE / sizeof(gasnetc_reg_data_t); /* TODO: env var to tune? */
+    int i;
+    result = gasneti_malloc(count * sizeof(gasnetc_reg_data_t));
+    gasneti_leak(result);
+    for (i = 0; i < count - 1; ++i) {
+      result[i].next = &result[i + 1];
+    }
+    result[i].next = NULL;
+  }
+  mem_reg_data_pool = result->next;
+  return result;
+}
+
+GASNETI_INLINE(mem_reg_data_free)
+void mem_reg_data_free(gasnetc_reg_data_t *p)
+{
+  p->next = mem_reg_data_pool;
+  mem_reg_data_pool = p;
+}
+
+static udreg_cache_handle_t gasnetc_udreg_hndl;
+static gasnetc_gni_lock_t gasnetc_udreg_lock;
+
+#if GASNETC_USE_MULTI_DOMAIN
+  static int gasnetc_udreg_domain;
+  #define GASNETC_LOCK_UDREG() do {                        \
+      GASNETC_LOCK_UDREG_();                               \
+      gasnetc_udreg_domain = GASNETC_DIDX_PASS_ALONE;      \
+    } while (0)
+#else
+  #define GASNETC_LOCK_UDREG() GASNETC_LOCK_UDREG_()
+#endif
+
+/* Called w/ UDREG lock held */
+static void *
+gasnetc_udreg_register(void *addr, uint64_t len, void *context) {
+  GASNETC_DIDX_POST(gasnetc_udreg_domain);
+  DOMAIN_SPECIFIC_VAR(gni_nic_handle_t, nic_handle);
+  gasnetc_reg_data_t *data = mem_reg_data_alloc();
+  gni_return_t status;
+
+  GASNETC_LOCK_GNI();
+  status = GNI_MemRegister(nic_handle, (uint64_t)addr, len, NULL,
+                           gasnetc_memreg_flags|GNI_MEM_READWRITE,
+                           -1, &(data->mem_handle));
+  GASNETC_UNLOCK_GNI();
+
+  if_pf (GNI_RC_SUCCESS != status) {
+    mem_reg_data_free(data);
+    data = (GNI_RC_ERROR_RESOURCE == status) ? NULL : UDREG_DEVICE_REG_FAILED;
+  }
+
+  return data;
+}
+
+/* Called w/ UDREG lock held */
+static uint32_t
+gasnetc_udreg_deregister(void *data_arg, void *context) {
+  GASNETC_DIDX_POST(gasnetc_udreg_domain);
+  DOMAIN_SPECIFIC_VAR(gni_nic_handle_t, nic_handle);
+  gasnetc_reg_data_t *data = (gasnetc_reg_data_t*)data_arg;
+  gni_return_t status;
+  GASNETC_LOCK_GNI();
+  status = GNI_MemDeregister(nic_handle, &data->mem_handle);
+  GASNETC_UNLOCK_GNI();
+  gasneti_assert_always (status == GNI_RC_SUCCESS);
+  mem_reg_data_free(data);
+  return 0; /* TODO: what else might be returned, and when/why? */
+}
+
+/* Register local side of a pd, with unbounded retry on resource shortage.
+   Returns 1 on success, or 0 on INVAL_PARAM */
+static int gasnetc_register_gpd(gasnetc_post_descriptor_t *gpd, uint32_t flags)
+{
+  GASNETC_DIDX_POST(gpd->domain_idx);
+  gni_post_descriptor_t * const pd = &gpd->pd;
+  const uint64_t addr = pd->local_addr;
+  const size_t nbytes = pd->length;
+  udreg_entry_t *entry;
+  udreg_return_t rc;
+  GASNETC_TRACE_WAIT_BEGIN();
+  int stall = 0;
+
+  GASNETC_LOCK_UDREG();
+  for (;;) {
+    rc = UDREG_Register(gasnetc_udreg_hndl, (void*)addr, nbytes, &entry);
+    if_pt (UDREG_RC_SUCCESS == rc) {
+      GASNETC_UNLOCK_UDREG();
+      if (stall) GASNETC_TRACE_WAIT_END(MEM_REG_STALL);
+      gpd->u.udreg_entry = entry;
+      pd->local_mem_hndl = ((gasnetc_reg_data_t*)(entry->device_data))->mem_handle;
+      return 1;
+    } else if (UDREG_RC_INVALID_PARAM == rc) {
+      GASNETC_UNLOCK_UDREG();
+      if (stall) GASNETC_TRACE_WAIT_END(MEM_REG_STALL);
+      return 0;
+    } else if (UDREG_RC_NO_SPACE == rc) {
+      stall = 1;
+      rc = UDREG_Evict(gasnetc_udreg_hndl);
+      if_pt (UDREG_RC_SUCCESS == rc) {
+        continue;
+      } else if (UDREG_RC_NO_MATCH == rc) {
+        GASNETC_UNLOCK_UDREG();
+        GASNETI_WAITHOOK();
+        gasnetc_poll_local_queue(GASNETC_DIDX_PASS_ALONE);
+        GASNETC_LOCK_UDREG();
+      } else {
+        gasnetc_GNIT_Abort("UDREG_Evict failed with rc = %d", rc);
+        break; /* NOT REACHED */
+      }
+    } else {
+      /* Unknown failure is fatal */
+      gasnetc_GNIT_Abort("UDREG_Register failed at %p + %p with rc = %d",
+                         (void*)addr, (void*)nbytes, rc);
+      break; /* NOT REACHED */
+    }
+  }
+  /* NOT REACHED */
+  GASNETC_UNLOCK_UDREG();
+  return 0;
+}
+
+/* Deregister local side of a pd */
+GASNETI_INLINE(gasnetc_deregister_gpd)
+void gasnetc_deregister_gpd(gasnetc_post_descriptor_t *gpd)
+{
+  GASNETC_DIDX_POST(gpd->domain_idx);
+  udreg_return_t rc;
+  GASNETC_LOCK_UDREG();
+  rc = UDREG_DecrRefcount(gasnetc_udreg_hndl, gpd->u.udreg_entry);
+  GASNETC_UNLOCK_UDREG();
+  gasneti_assert_always (UDREG_RC_SUCCESS == rc);
+}
+
+#else /* !GASNETC_GNI_UDREG */
+
+/* read-write: (should cache pad) */
+static gasneti_weakatomic_t gasnetc_reg_credit;
 
 static gasneti_weakatomic_val_t gasnetc_reg_credit_max;
 #define gasnetc_init_reg_credit(_val) \
@@ -390,6 +544,7 @@ void gasnetc_deregister_gpd(gasnetc_post_descriptor_t *gpd)
   gasneti_assert_always (status == GNI_RC_SUCCESS);
   if (gasnetc_reg_credit_max) gasneti_weakatomic_increment(&gasnetc_reg_credit, 0);
 }
+#endif /* !GASNETC_GNI_UDREG */
 
 #if GASNETC_GNI_FIREHOSE
 /* Acquire firehose covering (at least some leading portion of) the xfer given by gdp */
@@ -518,9 +673,41 @@ void gasnetc_init_segment(void *segment_start, size_t segment_size)
                            gasnetc_put_bounce_register_cutover);
 #endif
 
-  { int envval = gasneti_getenv_int_withdefault("GASNET_GNI_MEMREG", GASNETC_GNI_MEMREG_DEFAULT, 0);
-    if (envval < 0) envval = 0;
-    gasnetc_init_reg_credit(envval);
+  {
+    int max_memreg = gasneti_getenv_int_withdefault("GASNET_GNI_MEMREG", GASNETC_GNI_MEMREG_DEFAULT, 0);
+    max_memreg = MAX(max_memreg, 0);
+  #if GASNETC_GNI_UDREG
+    char name[] = "gasnet";
+    struct udreg_cache_attr attr;
+    udreg_return_t rc;
+
+    GASNETC_INITLOCK_UDREG();
+
+    strncpy (attr.cache_name, name, UDREG_MAX_CACHENAME_LEN);
+    attr.max_entries = max_memreg;
+    attr.modes = UDREG_CC_MODE_USE_KERNEL_CACHE |
+                 UDREG_CC_MODE_USE_LAZY_DEREG;
+    attr.debug_mode = 0;
+    attr.debug_rank = 0;
+    attr.reg_context         = NULL;
+    attr.dreg_context        = NULL;
+    attr.destructor_context  = NULL;
+    attr.device_reg_func     = gasnetc_udreg_register;
+    attr.device_dereg_func   = gasnetc_udreg_deregister;
+    attr.destructor_callback = NULL;
+
+    rc = UDREG_CacheCreate(&attr); /* TODO: error detect/recover? */
+    if (UDREG_RC_SUCCESS != rc) {
+      gasnetc_GNIT_Abort("UDREG_CacheCreate() failed with rc=%d", rc);
+    }
+
+    rc = UDREG_CacheAccess(name, &gasnetc_udreg_hndl);
+    if (UDREG_RC_SUCCESS != rc) {
+      gasnetc_GNIT_Abort("UDREG_CacheAccess() failed with rc=%d", rc);
+    }
+  #else /* !GASNETC_GNI_UDREG */
+    gasnetc_init_reg_credit(max_memreg);
+  #endif
   }
 
   gasnetc_mem_consistency = GASNETC_DEFAULT_RDMA_MEM_CONSISTENCY;
@@ -968,6 +1155,20 @@ void gasnetc_shutdown(void)
      release resources in the reverse order of acquisition
    */
 
+#if GASNETC_GNI_UDREG
+  if (have_segment) {
+    udreg_return_t rc;
+    rc = UDREG_CacheRelease(gasnetc_udreg_hndl);
+    if (UDREG_RC_SUCCESS != rc) {
+      gasnetc_GNIT_Log("UDREG_CacheRelease() failed with rc=%d", rc);
+    }
+    rc = UDREG_CacheDestroy(gasnetc_udreg_hndl);
+    if (UDREG_RC_SUCCESS != rc) {
+      gasnetc_GNIT_Log("UDREG_CacheDestroy() failed with rc=%d", rc);
+    }
+  }
+#endif
+
   /* seize gni lock and hold it  */
   {  GASNETC_DIDX_POST(GASNETC_DEFAULT_DOMAIN);
      GASNETC_LOCK_GNI();
@@ -1064,6 +1265,20 @@ void gasnetc_shutdown(void)
   {  GASNETC_DIDX_POST(GASNETC_DEFAULT_DOMAIN);
      GASNETC_UNLOCK_GNI();
   }
+}
+
+extern void gasnetc_trace_finish(void) {
+#if GASNETC_GNI_UDREG
+  if (GASNETI_STATS_ENABLED(C)) {
+    int max_memreg = MAX(0,gasneti_getenv_int_withdefault("GASNET_GNI_MEMREG", GASNETC_GNI_MEMREG_DEFAULT, 0));
+    uint64_t hit = 0, miss = 0, evict = 0;
+    (void)UDREG_GetStat(gasnetc_udreg_hndl, UDREG_STAT_CACHE_HIT, &hit);
+    (void)UDREG_GetStat(gasnetc_udreg_hndl, UDREG_STAT_CACHE_MISS, &miss);
+    (void)UDREG_GetStat(gasnetc_udreg_hndl, UDREG_STAT_CACHE_EVICTED, &evict);
+    GASNETI_STATS_PRINTF(C,("UDREG size=%d hit/miss/evict: %lu/%lu/%lu\n", max_memreg,
+                            (unsigned long)hit, (unsigned long)miss, (unsigned long)evict));
+  }
+#endif
 }
 
 static GASNETI_MALLOC
