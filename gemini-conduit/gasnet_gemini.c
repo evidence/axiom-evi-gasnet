@@ -81,6 +81,7 @@ unsigned int gasnetc_log2_remote;
 static unsigned int num_pd;
 static uint32_t notify_ring_mask; /* ring size minus 1 */
 static unsigned int am_slotsz;
+static unsigned int am_slot_bits;
 
 static int have_segment = 0;
 
@@ -933,17 +934,17 @@ uintptr_t gasnetc_init_messaging(void)
   /* Determine space for AM Requests: GASNET_NETWORKDEPTH_SPACE */
   request_region_length = gasneti_getenv_int_withdefault("GASNET_NETWORKDEPTH_SPACE",
                                            GASNETC_NETWORKDEPTH_SPACE_DEFAULT, 1);
-  { size_t minsz = GASNETI_ALIGNUP(2*GASNETC_MSG_MAXSIZE, 64*GASNETC_CACHELINE_SIZE);
-    if (request_region_length < minsz) {
-      gasneti_fatalerror("GASNET_NETWORKDEPTH_SPACE must be %zd or larger", minsz);
-    }
-  }
-  request_region_length = GASNETI_ALIGNDOWN(request_region_length, 64*GASNETC_CACHELINE_SIZE);
-  am_maxcredit = 64; /* NOTE: may change in future to be more flexible w.r.t. request_region_length */
-  am_slotsz = request_region_length / am_maxcredit;
-  gasnetc_assert_aligned(am_slotsz, GASNETC_CACHELINE_SIZE);
+  request_region_length = GASNETI_ALIGNUP(request_region_length, 64);
+  request_region_length = MAX(request_region_length,  2*GASNETC_MSG_MAXSIZE);
+  request_region_length = MIN(request_region_length, 64*GASNETC_MSG_MAXSIZE);
+  am_slotsz = gasnetc_next_power_of_2(request_region_length / 64);
+  am_slot_bits = ffs(am_slotsz) - 1;
+  am_maxcredit = request_region_length / am_slotsz;
+  request_region_length = am_maxcredit * am_slotsz;
 
   /* NOTE: 1<<64 is undefined and indeed icc yields 1.  So, we special case 64 credits */
+  gasneti_assert(am_maxcredit >= 32);
+  gasneti_assert(am_maxcredit <= 64);
   request_map = (am_maxcredit == 64) ? ~(uint64_t)0 : (((uint64_t)1 << am_maxcredit) - 1);
  
   /* Determine number of Reply buffers */
@@ -1461,7 +1462,7 @@ gasnetc_post_descriptor_t *gasnetc_alloc_reply_post_descriptor(gasnet_token_t t,
     /* Try to reuse the request buffer for the reply (any/all data has been copied out) */
     const int numargs = gasnetc_am_numargs(notify);
     uint32_t target_slot = notify_get_target_slot(notify);
-    gasnetc_mailbox_t *mb = (gasnetc_mailbox_t *)(peer->local_request_base + target_slot * am_slotsz);
+    gasnetc_mailbox_t *mb = (gasnetc_mailbox_t *)(peer->local_request_base + (target_slot << am_slot_bits));
     unsigned int req_len = 0;
     packet = &mb->packet;
 
@@ -1531,7 +1532,7 @@ gasnetc_post_descriptor_t *gasnetc_alloc_request_post_descriptor(gasnet_node_t d
   gni_post_descriptor_t *pd = &gpd->pd;
   unsigned int my_slot;
   unsigned int remote_slot;
-  const unsigned int slots = MAX(1, (length + am_slotsz - 1) / am_slotsz);
+  const unsigned int slots = MAX(1, ((length + am_slotsz - 1) >> am_slot_bits));
   uint64_t mask = (slots == 64) ? ~(uint64_t)0 : (((uint64_t)1 << slots) - 1);
   gasnetc_mailbox_t *m;
 
@@ -1565,7 +1566,7 @@ gasnetc_post_descriptor_t *gasnetc_alloc_request_post_descriptor(gasnet_node_t d
 
   peer->remote_request_bits[remote_slot] = mask;
   my_slot = m->freelist.reply_slot;
-  pd->remote_addr = (uint64_t) peer->remote_request_base + remote_slot * am_slotsz;
+  pd->remote_addr = (uint64_t) peer->remote_request_base + (remote_slot << am_slot_bits);
   pd->sync_flag_value = build_notify(notify_request,
                                      my_slot,
                                      remote_slot);
@@ -1722,7 +1723,7 @@ int poll_for_message(peer_struct_t * const peer, int is_slow)
     gasneti_compiler_fence(); /* prevent compiler from prefetching over dependency on n!=0 */
     
     if (type == notify_request) {
-      gasnetc_mailbox_t *mb = (gasnetc_mailbox_t *)(peer->local_request_base + target_slot * am_slotsz);
+      gasnetc_mailbox_t *mb = (gasnetc_mailbox_t *)(peer->local_request_base + (target_slot << am_slot_bits));
       gasnetc_recv_am(peer, mb, n);
     } else if_pf (type == notify_ctrl) {
       dispatch_ctrl(peer, n);
