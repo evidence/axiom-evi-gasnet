@@ -55,13 +55,8 @@ fid_cq_t        gasnetc_ofi_am_rcqfd;
 typedef void*                     conn_entry_t;
 typedef struct
 {
-  conn_entry_t dest;
-}addr_entry_t;
-
-typedef struct
-{
   int               	size;
-  addr_entry_t 			table[0];
+  conn_entry_t 			table[];
 }addr_table_t;
 
 typedef enum OFI_OP_TYPE {
@@ -98,7 +93,7 @@ typedef struct ofi_am_send_buf {
 typedef struct ofi_am_buf {
   struct fi_context 	ctxt;
   event_callback_fn 	callback;
-  ofi_am_send_buf_t 	sendbuf;
+  ofi_am_send_buf_t 	sendbuf; /* NOTE: C99 does not allow struct with flexible array member as a member */
 } ofi_am_buf_t;
 
 typedef struct ofi_ctxt {

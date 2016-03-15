@@ -234,7 +234,7 @@ int gasnetc_ofi_init(int *argc, char ***argv,
   av_attr.type        = FI_AV_MAP;
   addr_table          = (addr_table_t*)gasneti_malloc(gasneti_nodes * 2 * sizeof(conn_entry_t) + sizeof(addr_table_t));
   addr_table->size    = gasneti_nodes * 2;
-  mapped_table        = (conn_entry_t*)addr_table->table;
+  mapped_table        = addr_table->table;
 #else
   av_attr.type        = FI_AV_TABLE;
   mapped_table        = NULL;
