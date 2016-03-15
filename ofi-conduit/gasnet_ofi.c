@@ -42,10 +42,6 @@ static addr_table_t  *addr_table;
 
 static gasneti_lifo_head_t ofi_am_pool = GASNETI_LIFO_INITIALIZER;
 
-#define OFI_AM_MAX_DATA_LENGTH                                        \
-  GASNETI_ALIGNUP(GASNETI_ALIGNUP(sizeof(gasnet_handlerarg_t) *		  \
-			  gasnet_AMMaxArgs(), GASNETI_MEDBUF_ALIGNMENT) +		  \
-		  	  gasnet_AMMaxMedium(), GASNETI_MEDBUF_ALIGNMENT)
 #define OFI_AM_NUM_BLOCK 	8
 #define OFI_AM_BLOCK_SIZE 	1*1024*1024
 
@@ -633,7 +629,7 @@ int gasnetc_ofi_am_send_short(gasnet_node_t dest, gasnet_handler_t handler,
 	/* If no available buffer, blocking poll */
 	header = gasneti_lifo_pop(&ofi_am_pool);
 	if (NULL == header) {
-		header = gasneti_malloc(sizeof(ofi_am_buf_t) + OFI_AM_MAX_DATA_LENGTH);
+		header = gasneti_malloc(sizeof(ofi_am_buf_t));
 		header->callback = gasnetc_ofi_release_am;
 		gasneti_leak(header);
 	}
@@ -701,7 +697,7 @@ int gasnetc_ofi_am_send_medium(gasnet_node_t dest, gasnet_handler_t handler,
 	/* If no available buffer, blocking poll */
 	header = gasneti_lifo_pop(&ofi_am_pool);
 	if (NULL == header) {
-		header = gasneti_malloc(sizeof(ofi_am_buf_t) + OFI_AM_MAX_DATA_LENGTH);
+		header = gasneti_malloc(sizeof(ofi_am_buf_t));
 		header->callback = gasnetc_ofi_release_am;
 		gasneti_leak(header);
 	}
@@ -777,7 +773,7 @@ int gasnetc_ofi_am_send_long(gasnet_node_t dest, gasnet_handler_t handler,
 	/* If no available buffer, blocking poll */
 	header = gasneti_lifo_pop(&ofi_am_pool);
 	if (NULL == header) {
-		header = gasneti_malloc(sizeof(ofi_am_buf_t) + OFI_AM_MAX_DATA_LENGTH);
+		header = gasneti_malloc(sizeof(ofi_am_buf_t));
 		header->callback = gasnetc_ofi_release_am;
 		gasneti_leak(header);
 	}
