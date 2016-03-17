@@ -448,6 +448,19 @@ void gasnetc_ofi_release_am(struct fi_cq_data_entry *re, void *buf)
 	gasneti_lifo_push(&ofi_am_pool, header);
 }
 
+/* Get a send buffer */
+GASNETI_INLINE(gasnetc_ofi_am_header)
+ofi_am_buf_t *gasnetc_ofi_am_header(void)
+{
+	ofi_am_buf_t *header = gasneti_lifo_pop(&ofi_am_pool);
+	if_pf (NULL == header) {
+		header = gasneti_malloc(sizeof(ofi_am_buf_t));
+		header->callback = gasnetc_ofi_release_am;
+		gasneti_leak(header);
+	}
+    return header;
+}
+
 /*------------------------------------------------
  * Pre-post or pin-down memory
  * ----------------------------------------------*/
@@ -626,13 +639,7 @@ int gasnetc_ofi_am_send_short(gasnet_node_t dest, gasnet_handler_t handler,
 	ofi_am_send_buf_t *sendbuf;
 
 	/* Get a send buffer */
-	/* If no available buffer, blocking poll */
-	header = gasneti_lifo_pop(&ofi_am_pool);
-	if (NULL == header) {
-		header = gasneti_malloc(sizeof(ofi_am_buf_t));
-		header->callback = gasnetc_ofi_release_am;
-		gasneti_leak(header);
-	}
+	header = gasnetc_ofi_am_header();
 
 	/* Fill in the arguments */
 	sendbuf = &header->sendbuf;
@@ -694,13 +701,7 @@ int gasnetc_ofi_am_send_medium(gasnet_node_t dest, gasnet_handler_t handler,
 	gasneti_assert (nbytes <= gasnet_AMMaxMedium());
 
 	/* Get a send buffer */
-	/* If no available buffer, blocking poll */
-	header = gasneti_lifo_pop(&ofi_am_pool);
-	if (NULL == header) {
-		header = gasneti_malloc(sizeof(ofi_am_buf_t));
-		header->callback = gasnetc_ofi_release_am;
-		gasneti_leak(header);
-	}
+	header = gasnetc_ofi_am_header();
 
 	/* Fill in the arguments */
 	sendbuf = &header->sendbuf;
@@ -770,13 +771,7 @@ int gasnetc_ofi_am_send_long(gasnet_node_t dest, gasnet_handler_t handler,
 		gasneti_assert (nbytes <= gasnet_AMMaxLongReply());
 
 	/* Get a send buffer */
-	/* If no available buffer, blocking poll */
-	header = gasneti_lifo_pop(&ofi_am_pool);
-	if (NULL == header) {
-		header = gasneti_malloc(sizeof(ofi_am_buf_t));
-		header->callback = gasnetc_ofi_release_am;
-		gasneti_leak(header);
-	}
+	header = gasnetc_ofi_am_header();
 
 	/* Fill in the arguments */
 	sendbuf = &header->sendbuf;
