@@ -9,7 +9,7 @@
 #include <string.h>
 
 #define GASNETC_NETWORKDEPTH_SPACE_DEFAULT (12*1024)
-#define GASNETC_NETWORKDEPTH_TOTAL_DEFAULT 50
+#define GASNETC_NETWORKDEPTH_TOTAL_DEFAULT 64
 
 #ifdef GASNET_CONDUIT_GEMINI
   /* Use remote event + PI_FLUSH to get "proper" ordering w/ relaxed and default PI ordering */
@@ -32,24 +32,15 @@ uint8_t  gasnetc_ptag;
 static uint32_t gasnetc_memreg_flags;
 static int gasnetc_mem_consistency;
 
-typedef union {
-  gasnetc_packet_t packet;
-  uint8_t raw[GASNETC_MSG_MAXSIZE];
-  struct {
-    void *linkage;
-    uint32_t reply_slot;
-  } freelist;
-} gasnetc_mailbox_t;
-
 typedef struct peer_struct {
   unsigned int pe;
   gni_ep_handle_t ep_handle;
   gni_mem_handle_t mem_handle;
   gni_mem_handle_t am_handle;
 
-  gasnetc_mailbox_t *remote_reply_base;
   gasnetc_notify_t *remote_notify_base;
   gasnetc_notify_t *local_notify_base;
+  uint8_t *remote_reply_base;
   uint8_t *local_request_base;
   uint8_t *remote_request_base;
 
@@ -57,7 +48,6 @@ typedef struct peer_struct {
   volatile int remote_request_lock;
 #endif
   uint64_t remote_request_map;    
-  uint64_t remote_request_bits[64];
   uint32_t remote_notify_write; /* covered by the gni lock, unbounded */
   uint32_t local_notify_read;   /* covered by the ampoll lock, bounded [0..notify_ring_size) */
   struct peer_struct *next;     /* covered by the ampoll lock */
@@ -71,8 +61,17 @@ static gni_mem_handle_t am_handle;
 
 static void *am_mmap_ptr;
 static size_t am_mmap_bytes;
-static gasnetc_mailbox_t *local_reply_base;
-static gasnetc_mailbox_t *gasnetc_reply_pool = NULL;
+
+typedef struct reply_pool {
+  gasnetc_packet_t  *packet;         /* Corresponding mailbox */
+  union {
+    struct reply_pool *next;         /* Next when on reply_freelist */
+    uint64_t           request_bits; /* Request slots to be restored upon Reply */
+  } u;
+} reply_pool_t;
+
+static reply_pool_t *reply_pool = NULL;
+static reply_pool_t *reply_freelist = NULL;
 
 static gasnet_seginfo_t gasnetc_bounce_buffers;
 static gasnet_seginfo_t gasnetc_pd_buffers;
@@ -994,7 +993,7 @@ uintptr_t gasnetc_init_messaging(void)
    * Set up an mmap region to contain all of my mailboxes.
    */
 
-  reply_region_length = reply_count * sizeof(gasnetc_mailbox_t);
+  reply_region_length = reply_count * GASNETC_MSG_MAXSIZE;
   peer_stride = request_region_length + notify_ring_size * sizeof(gasnetc_notify_t);
 
   /* TODO: remove MAX(1,) while still avoiding "issues" on single-(super)node runs */
@@ -1034,14 +1033,13 @@ uintptr_t gasnetc_init_messaging(void)
     gasnetc_GNIT_Abort("GNI_MemRegister returned error %s",gasnetc_gni_rc_string(status));
   }
 
-  local_reply_base = am_mmap_ptr;
-
-  for(i = 0; i < reply_count; i++) {
-    gasnetc_mailbox_t *m = local_reply_base + i;
-    m->freelist.reply_slot = i;
-    m->freelist.linkage = gasnetc_reply_pool;
-    gasnetc_reply_pool = m;
+  reply_pool = gasneti_malloc(reply_count * sizeof(reply_pool_t));
+  for (i = 0; i < reply_count; i++) {
+    reply_pool[i].u.next = &reply_pool[i + 1];
+    reply_pool[i].packet = (gasnetc_packet_t *)((uintptr_t)am_mmap_ptr + i * GASNETC_MSG_MAXSIZE);
   }
+  reply_freelist = reply_pool;
+  reply_pool[reply_count - 1].next = NULL;
 
 #if GASNET_DEBUG
   peer_data = gasneti_calloc(gasneti_nodes, sizeof(peer_struct_t));
@@ -1095,7 +1093,7 @@ uintptr_t gasnetc_init_messaging(void)
         peer->event_count = 0;
 
         peer->am_handle = all_am_exchg[i].handle;
-        peer->remote_reply_base = (gasnetc_mailbox_t *)all_am_exchg[i].addr;
+        peer->remote_reply_base = all_am_exchg[i].addr;
         peer->local_request_base = local_peer_base;
         peer->remote_request_base = remote_peer_base;
         peer->remote_notify_base = (gasnetc_notify_t *)(remote_peer_base + request_region_length);
@@ -1462,9 +1460,8 @@ gasnetc_post_descriptor_t *gasnetc_alloc_reply_post_descriptor(gasnet_token_t t,
     /* Try to reuse the request buffer for the reply (any/all data has been copied out) */
     const int numargs = gasnetc_am_numargs(notify);
     uint32_t target_slot = notify_get_target_slot(notify);
-    gasnetc_mailbox_t *mb = (gasnetc_mailbox_t *)(peer->local_request_base + (target_slot << am_slot_bits));
     unsigned int req_len = 0;
-    packet = &mb->packet;
+    packet = (gasnetc_packet_t *) (peer->local_request_base + (target_slot << am_slot_bits));
 
     switch (gasnetc_am_command(notify)) {
       case GC_CMD_AM_SHORT:
@@ -1491,7 +1488,8 @@ gasnetc_post_descriptor_t *gasnetc_alloc_reply_post_descriptor(gasnet_token_t t,
   gasneti_assert(notify_get_type(notify) == notify_request);
   pd->sync_flag_value = (notify & 0xffffffffUL) + build_notify((notify_reply - notify_request),0,0);
   
-  pd->remote_addr = (uint64_t) (peer->remote_reply_base + notify_get_initiator_slot(notify));
+  pd->remote_addr = (uint64_t) (peer->remote_reply_base +
+                                GASNETC_MSG_MAXSIZE * notify_get_initiator_slot(notify));
   gasnetc_format_am_gpd(gpd, packet, peer, length, flags);
   gasneti_assert(token->need_reply);
   token->need_reply = 0;
@@ -1534,7 +1532,7 @@ gasnetc_post_descriptor_t *gasnetc_alloc_request_post_descriptor(gasnet_node_t d
   unsigned int remote_slot;
   const unsigned int slots = MAX(1, ((length + am_slotsz - 1) >> am_slot_bits));
   uint64_t mask = (slots == 64) ? ~(uint64_t)0 : (((uint64_t)1 << slots) - 1);
-  gasnetc_mailbox_t *m;
+  reply_pool_t *r;
 
   GASNETC_LOCK_AM_BUFFER();
 
@@ -1557,27 +1555,25 @@ gasnetc_post_descriptor_t *gasnetc_alloc_request_post_descriptor(gasnet_node_t d
   peer->remote_request_lock = 0;
 #endif
 
-  BUSYWAIT(((m = gasnetc_reply_pool) == NULL), 
+  BUSYWAIT(((r = reply_freelist) == NULL), 
            gasnetc_AMPoll,
            GET_AM_LOC_BUFFER_STALL);
-  gasnetc_reply_pool = gasnetc_reply_pool->freelist.linkage;
+  reply_freelist = r->next;
 
   GASNETC_UNLOCK_AM_BUFFER();
 
-  peer->remote_request_bits[remote_slot] = mask;
-  my_slot = m->freelist.reply_slot;
+  r->u.request_bits = mask;
+
   pd->remote_addr = (uint64_t) peer->remote_request_base + (remote_slot << am_slot_bits);
-  pd->sync_flag_value = build_notify(notify_request,
-                                     my_slot,
-                                     remote_slot);
+  pd->sync_flag_value = build_notify(notify_request, r - reply_pool, remote_slot);
   
-  gasnetc_format_am_gpd(gpd, &m->packet, peer, length, 0);
+  gasnetc_format_am_gpd(gpd, r->packet, peer, length, 0);
   
   return(gpd);
 }
 
 /* Choice to inline or not is left to the compiler */
-void gasnetc_recv_am(peer_struct_t * const peer, gasnetc_mailbox_t * const mb, gasnetc_notify_t notify)
+void gasnetc_recv_am(peer_struct_t * const peer, gasnetc_packet_t * const packet, gasnetc_notify_t notify)
 {
   int is_req = (notify_get_type(notify) == notify_request);
   const int numargs = gasnetc_am_numargs(notify);
@@ -1596,14 +1592,14 @@ void gasnetc_recv_am(peer_struct_t * const peer, gasnetc_mailbox_t * const mb, g
   switch (gasnetc_am_command(notify)) {
   case GC_CMD_AM_SHORT:
       GASNETI_RUN_HANDLER_SHORT(is_req, handlerindex, handler,
-                                token, mb->packet.gasp.args, numargs);
+                                token, packet->gasp.args, numargs);
       break;
       
   case GC_CMD_AM_MEDIUM: {
       uint8_t buffer[gasnet_AMMaxMedium()];
       const size_t head_len = GASNETC_HEADLEN(medium, numargs);
       const size_t nbytes = gasnetc_am_nbytes(notify);
-      uint8_t * data = &mb->raw[head_len];
+      uint8_t * data = &packet->raw[head_len];
       if (is_req) {
           /* Reply allows the peer to over-write this buffer with another Request.
            * So, Request cannot run with payload in-place.
@@ -1615,7 +1611,7 @@ void gasnetc_recv_am(peer_struct_t * const peer, gasnetc_mailbox_t * const mb, g
       gasneti_assert(0 == (((uintptr_t) data) % GASNETI_MEDBUF_ALIGNMENT));
       gasneti_assert(nbytes <= gasnet_AMMaxMedium());
       GASNETI_RUN_HANDLER_MEDIUM(is_req, handlerindex, handler,
-                                 token, mb->packet.gamp.args, numargs,
+                                 token, packet->gamp.args, numargs,
                                  data, nbytes);
       break;
   }
@@ -1623,14 +1619,14 @@ void gasnetc_recv_am(peer_struct_t * const peer, gasnetc_mailbox_t * const mb, g
   case GC_CMD_AM_LONG_PACKED:
       { /* payload follows args - copy it into place */
           const size_t head_len = GASNETC_HEADLEN(long, numargs);
-          gasneti_assert(mb->packet.galp.data_length <= GASNETC_MAX_PACKED_LONG(numargs));
-          memcpy(mb->packet.galp.data, &mb->raw[head_len], mb->packet.galp.data_length);
+          gasneti_assert(packet->galp.data_length <= GASNETC_MAX_PACKED_LONG(numargs));
+          memcpy(packet->galp.data, &packet->raw[head_len], packet->galp.data_length);
       }
       /* fall through... */
   case GC_CMD_AM_LONG:
       GASNETI_RUN_HANDLER_LONG(is_req, handlerindex, handler,
-                               token, mb->packet.galp.args, numargs,
-                               mb->packet.galp.data, mb->packet.galp.data_length);
+                               token, packet->galp.args, numargs,
+                               packet->galp.data, packet->galp.data_length);
       break;
       
 #if GASNET_DEBUG
@@ -1723,26 +1719,24 @@ int poll_for_message(peer_struct_t * const peer, int is_slow)
     gasneti_compiler_fence(); /* prevent compiler from prefetching over dependency on n!=0 */
     
     if (type == notify_request) {
-      gasnetc_mailbox_t *mb = (gasnetc_mailbox_t *)(peer->local_request_base + (target_slot << am_slot_bits));
-      gasnetc_recv_am(peer, mb, n);
+      gasnetc_packet_t *packet = (gasnetc_packet_t *) (peer->local_request_base + (target_slot << am_slot_bits));
+      gasnetc_recv_am(peer, packet, n);
     } else if_pf (type == notify_ctrl) {
       dispatch_ctrl(peer, n);
     } else {
-      gasnetc_mailbox_t *mb = local_reply_base + initiator_slot;
+      reply_pool_t *reply = reply_pool + initiator_slot;
 
       if (type == notify_reply) {
-        gasnetc_recv_am(peer, mb, n);
+        gasnetc_recv_am(peer, reply->packet, n);
       } else {
         gasneti_assert(type == notify_credit);
         GASNETI_TRACE_PRINTF(D, ("msg from %d type AM_CREDIT\n", peer->pe));
       }
 
-      mb->freelist.reply_slot = initiator_slot;
-
       GASNETC_LOCK_AM_BUFFER();
-      mb->freelist.linkage = gasnetc_reply_pool;
-      gasnetc_reply_pool = mb;
-      peer->remote_request_map |= peer->remote_request_bits[target_slot];
+      peer->remote_request_map |= reply->u.request_bits;
+      reply->u.next = reply_freelist;
+      reply_freelist = reply;
       GASNETC_UNLOCK_AM_BUFFER();
     }
     return 1;
