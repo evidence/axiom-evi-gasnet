@@ -220,6 +220,10 @@
 #undef GASNET_FCA_ENABLED
 #undef GASNETI_FCA_HOME
 
+/* BLCR support, path and features */
+#undef GASNETI_BLCR_ENABLED
+#undef GASNETI_BLCR_BINDIR
+
 /* support for backtracing */
 #undef HAVE_EXECINFO_H
 #undef HAVE_BACKTRACE
@@ -398,12 +402,7 @@
 #undef GASNETI_DEFAULT_SSH_CMD
 #undef GASNETI_DEFAULT_SSH_OPTIONS
 #undef GASNETI_DEFAULT_SSH_NODEFILE
-#undef GASNETI_DEFAULT_SSH_RATE
-
-/* Settings for ssh-spawner */
-#undef GASNETI_SSH_TOPO_FLAT
-#undef GASNETI_SSH_TOPO_NARY
-#undef GASNETI_SSH_NARY_DEGREE
+#undef GASNETI_DEFAULT_SSH_OUT_DEGREE
 
 /* Support for pmi-spawner */
 #undef HAVE_PMI_H

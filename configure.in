@@ -3789,6 +3789,12 @@ else
   AC_DEFINE_UNQUOTED(GASNET_SOCKLEN_T, $gasnet_cv_socklen_t)
 fi
 
+# Prefer setpgid(), but unless cross-compiling we can use setpgrp()
+AC_CHECK_FUNCS(setpgid)
+if test "$cross_compiling" = "no" ; then
+  AC_CHECK_FUNCS(setpgrp, [AC_FUNC_SETPGRP()])
+fi
+
 GASNET_WITH(ssh-cmd,
    [default value for GASNET_SSH_CMD environment variable (default "ssh")],
    [case "$withval" in
@@ -3819,39 +3825,20 @@ GASNET_WITH(ssh-nodefile,
    [gasnet_ssh_nodefile=""])
 AC_DEFINE_UNQUOTED(GASNETI_DEFAULT_SSH_NODEFILE, "$gasnet_ssh_nodefile")
 
-GASNET_WITH(ssh-rate,
-   [default value for GASNET_SSH_RATE environment variable (defaults to 0 - no rate limit)],
+GASNET_WITH(ssh-out-degree,
+   [default value for GASNET_SSH_OUT_DEGREE environment variable (defaults to 32)],
    [case "$withval" in
-      yes|no) AC_MSG_ERROR([--with-ssh-rate requires an argument]) ;;
-           *) if expr "$withval" : '[[0-9]]*$' >/dev/null; then
-                gasnet_ssh_rate="$withval"
-              else
-                AC_MSG_ERROR([--with-ssh-rate argument "$withval" is not a non-negative integer])
-              fi
-              ;;
-    esac],
-   [AC_MSG_ERROR([--with-ssh-rate requires an argument])],
-   [gasnet_ssh_rate="0"])
-AC_DEFINE_UNQUOTED(GASNETI_DEFAULT_SSH_RATE, "$gasnet_ssh_rate")
-    
-GASNET_WITH(ssh-topology,
-   [connection topology when using ssh-spawner ("flat" or "nary[[:N]]", where default is "flat")],
-   [case "$withval" in
-         flat) AC_DEFINE(GASNETI_SSH_TOPO_FLAT) ;;
-         nary) AC_DEFINE(GASNETI_SSH_TOPO_NARY) ;;
-       nary:*) tmpval=`echo $withval | cut -d: -f2-`
-               if expr "${tmpval}" : '[[1-9]][[0-9]]*$' >/dev/null; then
-                 AC_DEFINE(GASNETI_SSH_TOPO_NARY)
-                 AC_DEFINE_UNQUOTED(GASNETI_SSH_NARY_DEGREE, $tmpval)
-               else
-                 AC_MSG_ERROR([--with-ssh-topology nary: suffix "$tmpval" is not a positive integer])
-               fi
-               ;;
-          yes) AC_MSG_ERROR([--with-ssh-topology requires an argument]) ;;
-            *) AC_MSG_ERROR([--with-ssh-topology argument "$withval" is not a valid choice]) ;;
-    esac],
-   [AC_MSG_ERROR([--with-ssh-topology requires an argument])],
-   [AC_DEFINE(GASNETI_SSH_TOPO_FLAT)])
+      yes|no) AC_MSG_ERROR([--with-ssh-out-degree requires a non-negative integer argument]) ;;
+    esac
+    if expr "${withval}" : "[[0-9]][[0-9]]*" >/dev/null; then
+      gasnet_ssh_out_degree="$withval"
+    else
+      AC_MSG_ERROR([--with-ssh-out-degree requires a non-negative integer argument])
+    fi],
+   [AC_MSG_ERROR([--with-ssh-out-degree requires a non-negative  integer argument])],
+   [gasnet_ssh_out_degree=32])
+AC_DEFINE_UNQUOTED(GASNETI_DEFAULT_SSH_OUT_DEGREE, $gasnet_ssh_out_degree)
+
 
 # Things for pmi-spawner
 
@@ -4587,6 +4574,9 @@ GASNET_WITH(tool-prefix, [Naming prefix to use for contributed tools],
 AC_SUBST(TOOL_PREFIX)
 
 dnl GASNET_TOOLSONLY_FALSE_BEGIN
+########################################################################
+# Optional "third-party" libraries
+
 ##                        FCA SUPPORT
 GASNET_IF_ENABLED_WITH_AUTO(fca, [Enable/disable FCA for acceleration of collectives (auto-detected)],
   [enable_fca=yes;force_fca=yes],
@@ -4675,6 +4665,88 @@ AC_SUBST([FCA_INCLUDES])
 AC_SUBST([FCA_LIBDIR])
 AC_SUBST([FCA_LIBS])
 AM_CONDITIONAL(FCA_ENABLED, test "$have_fca" = "yes")
+
+GASNET_IF_ENABLED_WITH_AUTO(blcr, [Enable/disable BLCR for process checkpoints (auto-detected)],
+  [enable_blcr=yes;force_blcr=yes],
+  [enable_blcr=no],
+  [enable_blcr=probe])
+case "$target_os" in
+  linux*) ;;
+  *) if test "x$force_blcr" = 'xyes'; then
+       GASNET_MSG_WARN([Ignoring --enable-blcr on a non-linux platform])
+       unset force_blcr
+     fi
+     enable_blcr=no
+     ;;
+esac
+if test "$enable_blcr" != 'no'; then
+  have_blcr=yes
+  GASNET_WITH(blcr, [Specify the BLCR install directory],
+        [if test "$withval" = 'yes'; then
+           GASNET_MSG_ERROR(["--with-blcr requires an argument (BLCR install directory)"])
+         fi
+         blcrdir="$withval"
+        ])
+
+  AC_MSG_CHECKING([for BLCR include directory])
+  blcrinc=${blcrdir:-/usr}/include
+  if test -r "${blcrinc}/libcr.h"; then
+    AC_MSG_RESULT([$blcrinc])
+  else
+    AC_MSG_RESULT([not found])
+    have_blcr=no
+  fi
+
+  AC_MSG_CHECKING([for BLCR lib directory])
+  blcrlib1=${blcrdir:-/usr}/lib${GASNETI_PTR_BITS}
+  blcrlib2=${blcrdir:-/usr}/lib
+  if test -r "${blcrlib1}/libcr.a" || test -r "${blcrlib1}/libcr.so"; then
+    blcrlib="$blcrlib1"
+  elif test -r "${blcrlib2}/libcr.a" || test -r "${blcrlib2}/libcr.so"; then
+    blcrlib="$blcrlib2"
+  else
+    blcrlib='not found'
+    have_blcr=no
+  fi
+  AC_MSG_RESULT([$blcrlib])
+
+  AC_MSG_CHECKING([for BLCR bin directory])
+  blcrbin=${blcrdir:-/usr}/bin
+  if test -x "${blcrbin}/cr_checkpoint"; then
+    : # OK
+  else
+    blcrbin='not found'
+    have_blcr=no
+  fi
+  AC_MSG_RESULT([$blcrbin])
+
+  if test "$force_blcr$have_blcr" = yesno; then
+    if test "${blcrdir+set}" = set ; then
+      GASNET_MSG_ERROR([User requested --enable-blcr but BLCR support could not be found in $blcrdir])
+    else
+      GASNET_MSG_ERROR([User requested --enable-blcr but BLCR support could not be found.  Perhaps you need to pass --with-blcr=DIRECTORY ?])
+    fi
+  elif test "$have_blcr" = yes; then
+    if test "${blcrinc+set}" = set ; then
+      BLCR_CPPFLAGS="-I${blcrinc}"
+    fi
+    if test "${blcrdir+set}" = set ; then
+      BLCR_LIBDIR="-L${blcrlib}"
+    fi
+    BLCR_BINDIR="${blcrbin}"
+    AC_DEFINE_UNQUOTED(GASNETI_BLCR_BINDIR,"$blcrbin")
+    BLCR_LIBS='-lcr'
+    AC_DEFINE(GASNETI_BLCR_ENABLED)
+  fi
+else
+  have_blcr=no
+fi
+AC_SUBST(BLCR_CPPFLAGS)
+AC_SUBST(BLCR_LIBDIR)
+AC_SUBST(BLCR_LIBS)
+AC_SUBST(BLCR_BINDIR)
+AM_CONDITIONAL(BLCR_ENABLED, test "$have_blcr" = "yes")
+
 dnl GASNET_TOOLSONLY_FALSE_END
 
 ########################################################################
@@ -4706,6 +4778,7 @@ cat >>$CONDUIT_LIST <<EOF
   Segment config:         $segconfig
   PSHM support:           $with_pshm
   FCA support:            $have_fca
+  BLCR support:           $have_blcr
 EOF
 else
 cat >>$CONDUIT_LIST <<EOF
@@ -4792,6 +4865,8 @@ other/firehose/Makefile
 other/firehose/firehose.mak
 other/fca/Makefile
 other/fca/fca.mak
+other/blcr/Makefile
+other/blcr/blcr.mak
 dnl GASNET_TOOLSONLY_FALSE_END
 
 other/Makefile
