@@ -1039,7 +1039,7 @@ uintptr_t gasnetc_init_messaging(void)
     reply_pool[i].packet = (gasnetc_packet_t *)((uintptr_t)am_mmap_ptr + i * GASNETC_MSG_MAXSIZE);
   }
   reply_freelist = reply_pool;
-  reply_pool[reply_count - 1].next = NULL;
+  reply_pool[reply_count - 1].u.next = NULL;
 
 #if GASNET_DEBUG
   peer_data = gasneti_calloc(gasneti_nodes, sizeof(peer_struct_t));
@@ -1558,7 +1558,7 @@ gasnetc_post_descriptor_t *gasnetc_alloc_request_post_descriptor(gasnet_node_t d
   BUSYWAIT(((r = reply_freelist) == NULL), 
            gasnetc_AMPoll,
            GET_AM_LOC_BUFFER_STALL);
-  reply_freelist = r->next;
+  reply_freelist = r->u.next;
 
   GASNETC_UNLOCK_AM_BUFFER();
 
