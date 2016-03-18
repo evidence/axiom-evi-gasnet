@@ -126,7 +126,11 @@ typedef struct _gasnet_hsl_t {
 */
 
 #define gasnet_AMMaxArgs()          ((size_t)16)
-#define GASNETC_MAX_LONG          0x100000
+#ifdef GASNET_CONDUIT_ARIES
+  #define GASNETC_MAX_LONG 0x800000
+#else
+  #define GASNETC_MAX_LONG 0x100000
+#endif
 #if GASNET_PSHM
   /* (###) If supporting PSHM a conduit must "negotiate" the maximum size of a
    * Medium message.  This can either be done by lowering the conduit's value to

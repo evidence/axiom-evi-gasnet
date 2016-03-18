@@ -30,6 +30,7 @@ extern void _gasnete_iop_check(gasnete_iop_t *iop) { gasnete_iop_check(iop); }
 
 /* Maximum length of an RDMA op with local address OUTside the segment.
    Choice determines length of dynamic memory registrations
+   These should be no smaller than AMMaxLong{Request,Reply}().
  */
 #ifndef GC_MAXRDMA_OUT 
   #ifdef GASNET_CONDUIT_ARIES
