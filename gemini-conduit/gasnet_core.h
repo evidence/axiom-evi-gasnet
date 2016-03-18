@@ -126,9 +126,6 @@ typedef struct _gasnet_hsl_t {
 */
 
 #define gasnet_AMMaxArgs()          ((size_t)16)
-#ifndef GASNETC_GNI_MAX_MEDIUM
-  #define GASNETC_GNI_MAX_MEDIUM    960
-#endif
 #define GASNETC_MAX_LONG          0x100000
 #if GASNET_PSHM
   /* (###) If supporting PSHM a conduit must "negotiate" the maximum size of a
