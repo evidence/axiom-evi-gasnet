@@ -151,7 +151,7 @@ enum {
 #define gasnetc_am_command(n) (((n) >> 61) & 0x7)     /* using only 2 of 3 bits */
 #define gasnetc_am_numargs(n) (((n) >> 56) & 0x1f)
 #define gasnetc_am_handler(n) (((n) >> 48) & 0xff)
-#define gasnetc_am_nbytes(n)  (((n) >> 32) & 0xffff)  /* using only 10 of 16 bits */
+#define gasnetc_am_nbytes(n)  (((n) >> 32) & 0xffff)  /* default uses only 12 of 16 bits */
 
 /* This type is used by an AMShort request or reply */
 typedef struct {
