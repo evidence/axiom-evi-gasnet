@@ -1455,9 +1455,9 @@ gasnetc_post_descriptor_t *gasnetc_alloc_reply_post_descriptor(gasnet_token_t t,
    */
   if (length <= GASNETC_GNI_IMMEDIATE_BOUNCE_SIZE) {
     /* Use in-gpd buffer */
-     packet = (gasnetc_packet_t *) gpd->u.immediate;
+    packet = (gasnetc_packet_t *) gpd->u.immediate;
   } else {
-    /* Try to reuse the request buffer for the reply (any/all data has been copied out) */
+    /* Try to reuse the Request buffer for the Reply */
     const int numargs = gasnetc_am_numargs(notify);
     uint32_t target_slot = notify_get_target_slot(notify);
     unsigned int req_len = 0;
@@ -1466,10 +1466,17 @@ gasnetc_post_descriptor_t *gasnetc_alloc_reply_post_descriptor(gasnet_token_t t,
     switch (gasnetc_am_command(notify)) {
       case GC_CMD_AM_SHORT:
         req_len = GASNETC_HEADLEN(short, numargs);
+        req_len = req_len ? req_len : 1; /* request never allocates zero */
         break;
-      case GC_CMD_AM_MEDIUM:
-        req_len = GASNETC_HEADLEN(medium, numargs) + gasnetc_am_nbytes(notify);
+      case GC_CMD_AM_MEDIUM: {
+        if_pt (0 != gasnetc_am_nbytes(notify)) {
+          /* We can reuse the Request buffer, since the Medium had no payload */
+          /* TODO: also safe for "TAIL_REPLY" when implemented */
+          req_len = GASNETC_HEADLEN(medium, numargs);
+          req_len = req_len ? req_len : 1; /* request never allocates zero */
+        }
         break;
+      }
       case GC_CMD_AM_LONG:
         req_len = GASNETC_HEADLEN(long, numargs);
         break;
@@ -1477,6 +1484,8 @@ gasnetc_post_descriptor_t *gasnetc_alloc_reply_post_descriptor(gasnet_token_t t,
         req_len = GASNETC_HEADLEN(long, numargs) + packet->galp.data_length;
         break;
     }
+    req_len = GASNETI_ALIGNUP(req_len, am_slotsz);
+
     if (length > req_len) {
       /* need a bounce buffer */
       packet = (gasnetc_packet_t *) gasnetc_alloc_bounce_buffer(GASNETC_DIDX_PASS_ALONE);
@@ -1493,6 +1502,11 @@ gasnetc_post_descriptor_t *gasnetc_alloc_reply_post_descriptor(gasnet_token_t t,
   gasnetc_format_am_gpd(gpd, packet, peer, length, flags);
   gasneti_assert(token->need_reply);
   token->need_reply = 0;
+  /* If Medium payload is in-use, then defer sending Reply until Request returns (avoids overwrite race) */
+  if (0 != gasnetc_am_nbytes(notify)) {
+    gasneti_assert(GC_CMD_AM_MEDIUM == gasnetc_am_command(notify));
+    token->deferred_reply = gpd;
+  }
   return(gpd);
 }
 
@@ -1579,7 +1593,7 @@ void gasnetc_recv_am(peer_struct_t * const peer, gasnetc_packet_t * const packet
   const int numargs = gasnetc_am_numargs(notify);
   const int handlerindex = gasnetc_am_handler(notify);
   gasneti_handler_fn_t handler = gasnetc_handler[handlerindex];
-  gasnetc_token_t the_token = { peer->pe, is_req, notify};
+  gasnetc_token_t the_token = { peer->pe, is_req, notify, NULL };
   gasnet_token_t token = (gasnet_token_t)&the_token; /* RUN macros need an lvalue */
 
   gasneti_mutex_unlock(&ampoll_lock);
@@ -1596,23 +1610,13 @@ void gasnetc_recv_am(peer_struct_t * const peer, gasnetc_packet_t * const packet
       break;
       
   case GC_CMD_AM_MEDIUM: {
-      uint8_t buffer[gasnet_AMMaxMedium()];
       const size_t head_len = GASNETC_HEADLEN(medium, numargs);
-      const size_t nbytes = gasnetc_am_nbytes(notify);
       uint8_t * data = &packet->raw[head_len];
-      if (is_req) {
-          /* Reply allows the peer to over-write this buffer with another Request.
-           * So, Request cannot run with payload in-place.
-           * The up-side is that we can use it to construct the Reply.
-           * TODO: special case for non-replying requests (internal only for now).
-           */
-          data = memcpy(&buffer, data, nbytes);
-      }
       gasneti_assert(0 == (((uintptr_t) data) % GASNETI_MEDBUF_ALIGNMENT));
-      gasneti_assert(nbytes <= gasnet_AMMaxMedium());
+      gasneti_assert(gasnetc_am_nbytes(notify) <= gasnet_AMMaxMedium());
       GASNETI_RUN_HANDLER_MEDIUM(is_req, handlerindex, handler,
                                  token, packet->gamp.args, numargs,
-                                 data, nbytes);
+                                 data, gasnetc_am_nbytes(notify));
       break;
   }
       
@@ -1635,8 +1639,12 @@ void gasnetc_recv_am(peer_struct_t * const peer, gasnetc_packet_t * const packet
 #endif
   }
 
-  if (the_token.need_reply) 
+  /* TODO: gasneti_suspend_spinpollers()? */
+  if (the_token.need_reply) {
       gasnetc_send_credit(peer, notify);
+  } else if (the_token.deferred_reply) {
+      gasnetc_send_am(the_token.deferred_reply);
+  }
 
   gasneti_mutex_lock(&ampoll_lock);
 }

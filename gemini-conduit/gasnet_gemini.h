@@ -113,11 +113,13 @@ extern gasnetc_gni_lock_t gasnetc_gni_lock;
 extern gasnetc_gni_lock_t gasnetc_am_buffer_lock;
 
 typedef uint64_t gasnetc_notify_t;
+typedef struct gasnetc_post_descriptor gasnetc_post_descriptor_t;
 
 typedef struct {
   gasnet_node_t source;
   int need_reply;
   gasnetc_notify_t notify;  
+  gasnetc_post_descriptor_t *deferred_reply;
 } gasnetc_token_t;
 
 #if GASNETC_GNI_FIREHOSE
@@ -277,7 +279,7 @@ enum {
 
 /* WARNING: if sizeof(gasnetc_post_descriptor_t) changes, then
  * you must update the value in gasneti_pd_auxseg_IdentString */
-typedef struct gasnetc_post_descriptor {
+struct gasnetc_post_descriptor {
   gni_post_descriptor_t pd; /* must be first */
   #define gpd_completion pd.post_id
   #define gpd_get_src    pd.first_operand
@@ -300,7 +302,7 @@ typedef struct gasnetc_post_descriptor {
 #if GASNETC_USE_MULTI_DOMAIN
   int domain_idx;
 #endif
-} gasnetc_post_descriptor_t;
+};
 
 gasnetc_post_descriptor_t *gasnetc_alloc_post_descriptor(GASNETC_DIDX_FARG_ALONE) GASNETI_MALLOC;
 
