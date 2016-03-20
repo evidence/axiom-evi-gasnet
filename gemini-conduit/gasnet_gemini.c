@@ -1610,7 +1610,7 @@ void gasnetc_recv_am(peer_struct_t * const peer, gasnetc_packet_t * const packet
       
   case GC_CMD_AM_MEDIUM: {
       const size_t head_len = GASNETC_HEADLEN(medium, numargs);
-      uint8_t * data = &packet->raw[head_len];
+      uint8_t * data = (uint8_t *)packet + head_len;
       gasneti_assert(0 == (((uintptr_t) data) % GASNETI_MEDBUF_ALIGNMENT));
       gasneti_assert(gasnetc_am_nbytes(notify) <= gasnet_AMMaxMedium());
       GASNETI_RUN_HANDLER_MEDIUM(is_req, handlerindex, handler,
@@ -1622,8 +1622,9 @@ void gasnetc_recv_am(peer_struct_t * const peer, gasnetc_packet_t * const packet
   case GC_CMD_AM_LONG_PACKED:
       { /* payload follows args - copy it into place */
           const size_t head_len = GASNETC_HEADLEN(long, numargs);
+          uint8_t * data = (uint8_t *)packet + head_len;
           gasneti_assert(packet->galp.data_length <= GASNETC_MAX_PACKED_LONG(numargs));
-          memcpy(packet->galp.data, &packet->raw[head_len], packet->galp.data_length);
+          memcpy(packet->galp.data, data, packet->galp.data_length);
       }
       /* fall through... */
   case GC_CMD_AM_LONG:

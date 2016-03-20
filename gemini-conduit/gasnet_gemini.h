@@ -184,7 +184,6 @@ typedef union gasnetc_packet_u {
   gasnetc_am_short_packet_t gasp;
   gasnetc_am_medium_packet_t gamp;
   gasnetc_am_long_packet_t galp;
-  char raw[];
 } gasnetc_packet_t;
   
 /* compute header len, padded to multiple of 8-bytes */
