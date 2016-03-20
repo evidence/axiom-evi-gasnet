@@ -675,7 +675,6 @@ void gasnetc_init_segment(void *segment_start, size_t segment_size)
 
   {
     int max_memreg = gasneti_getenv_int_withdefault("GASNET_GNI_MEMREG", GASNETC_GNI_MEMREG_DEFAULT, 0);
-    max_memreg = MAX(max_memreg, 0);
   #if GASNETC_GNI_UDREG
     char name[] = "gasnet";
     struct udreg_cache_attr attr;
@@ -684,7 +683,7 @@ void gasnetc_init_segment(void *segment_start, size_t segment_size)
     GASNETC_INITLOCK_UDREG();
 
     strncpy (attr.cache_name, name, UDREG_MAX_CACHENAME_LEN);
-    attr.max_entries = max_memreg;
+    attr.max_entries = MAX(max_memreg, 0);
     attr.modes = UDREG_CC_MODE_USE_KERNEL_CACHE |
                  UDREG_CC_MODE_USE_LAZY_DEREG;
     attr.debug_mode = 0;
@@ -706,7 +705,7 @@ void gasnetc_init_segment(void *segment_start, size_t segment_size)
       gasnetc_GNIT_Abort("UDREG_CacheAccess() failed with rc=%d", rc);
     }
   #else /* !GASNETC_GNI_UDREG */
-    gasnetc_init_reg_credit(max_memreg);
+    gasnetc_init_reg_credit(MAX(max_memreg, 0));
   #endif
   }
 
