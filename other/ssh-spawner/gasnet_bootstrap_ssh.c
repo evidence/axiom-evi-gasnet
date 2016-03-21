@@ -448,7 +448,7 @@ static void do_oob(unsigned char byte) {
 /* master forwards fatal signals if possible */
 static void sigforward(int sig)
 {
-  gasneti_assert(is_root);
+  gasneti_assert(is_control);
 
   {
     gasneti_sighandlerfn_t fp;
@@ -466,8 +466,9 @@ static void sigforward(int sig)
     }
   }
 
-  BOOTSTRAP_VERBOSE(("[-1] Forwarding signal %d\n", sig));
+  BOOTSTRAP_VERBOSE(("[%d] Forwarding signal %d\n", myname, sig));
   do_oob(sig | 0x80);
+  signal_rank_procs(sig);
 }
 
 static void signal_forward(int enable) {
@@ -505,11 +506,8 @@ static void do_abort(unsigned char exitcode) {
     in_abort = 1;
   }
 
-  if (is_root) {
-    signal_forward(0);
-  }
-
   if (is_control) {
+    signal_forward(0);
     do_oob(exitcode & 0x7f);
     kill_all_ranks();
   } else {
@@ -1648,6 +1646,7 @@ static void spawn_rank(int argc, char **argv) {
         (void)close(parent);
         parent = sv[0];
 
+        signal_forward(0);
         is_control = 0;
         myrank = child[j].rank;
         myname = -911;
@@ -2349,6 +2348,9 @@ static void do_common(int argc, char **argv)
 {
   gasnet_node_t rank_children;
 
+  /* Arrange to forward various signals */
+  signal_forward(1);
+
   /* Layout children: */
   {
     char **sublist;
@@ -2588,9 +2590,6 @@ static void do_master(const char *spawn_args, int *argc_p, char ***argv_p) {
   configure_ssh();
 
   build_nodelist(); /* May reduce nnodes */
-
-  /* Arrange to forward various signals */
-  signal_forward(1);
 
   tree_ranks = nranks;
   tree_nodes = nnodes;
