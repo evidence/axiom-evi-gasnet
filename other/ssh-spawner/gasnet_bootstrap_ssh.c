@@ -405,6 +405,9 @@ static void kill_all_ranks(void)
   gasneti_reghandler(SIGHUP,  SIG_DFL);
   gasneti_reghandler(SIGPIPE, SIG_DFL);
 
+  /* First try to ensure that processes are not stopped */
+  (void) signal_rank_procs(SIGCONT);
+
   /* First try the polite signal */
   done = !signal_rank_procs(SIGTERM);
 
@@ -505,6 +508,13 @@ static void do_abort(unsigned char exitcode) {
   } else {
     in_abort = 1;
   }
+
+#if HAVE_PR_SET_PDEATHSIG
+  /* disarm signal, if any, for termination of our parent */
+  if (use_pdeathsig) {
+    (void)prctl(PR_SET_PDEATHSIG, 0);
+  }
+#endif
 
   if (is_control) {
     signal_forward(0);
@@ -1544,7 +1554,7 @@ static void spawn_one_control(gasnet_node_t child_id, const char *cmdline, const
     } else {
       #if HAVE_PR_SET_PDEATHSIG
       if (use_pdeathsig) {
-	/* If parent exits before us (an abnormal condition) then we exit too */
+	/* If its parent exits early (an abnormal condition) then we want ssh to exit too */
 	(void)prctl(PR_SET_PDEATHSIG, SIGHUP);
       }
       #endif
@@ -1592,6 +1602,13 @@ static int do_worker(void) {
   tree_ranks = -1;
 
   (void)fcntl_setfd(parent, FD_CLOEXEC);
+
+#if HAVE_PR_SET_PDEATHSIG
+  if (use_pdeathsig) {
+    /* If our parent exits early (an abnormal condition) then we should too */
+    (void)prctl(PR_SET_PDEATHSIG, SIGHUP);
+  }
+#endif
 
   BOOTSTRAP_VERBOSE(("[r%d] Connected via fd=%d\n", myrank, parent));
 
