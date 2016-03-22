@@ -1882,6 +1882,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
 #if GASNETC_IBV_SHUTDOWN
   /* Currently only the shutdown code uses dest to specify a "bound" value */
   const gasnet_node_t node = gasnetc_epid2node(dest);
+  const gasnetc_epid_t dest_qpi = gasnetc_epid2qpi(dest);
 #else
   const gasnet_node_t node = dest;
   gasneti_assert(gasnetc_epid2qpi(dest) == 0);
@@ -1974,13 +1975,17 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
     if (token) {
       cep = token->cep;
       epid = cep->epid;
+#if GASNETC_IBV_SHUTDOWN /* Currently only the shutdown code uses dest to specify a "bound" value */
+    } else if (dest_qpi) {
+      epid = dest;
+      cep = gasnetc_get_cep(node) + (dest_qpi - 1);
+#endif
     } else {
       /* TODO: could bind by largest avail credits (or at least favor non-zero over zero) */
       const int qp_offset = gasnetc_use_srq ? gasnetc_num_qps : 0;
       int qpi;
-      cep = gasnetc_get_cep(dest) + qp_offset;
+      cep = gasnetc_get_cep(node) + qp_offset;
 #if 0
-      TODO: this code is not up-to-date for the case 'dest' is already bound
       /* Bind to a specific queue pair, selecting by largest credits */
       qpi = 0;
       if (gasnetc_num_qps > 1) {
@@ -2001,10 +2006,10 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
         qpi = gasnetc_epid_select_qpi(cep, dest, IBV_WR_SEND_WITH_IMM, rough_len);
       }
 #endif
-      epid = gasnetc_epid(dest, qpi + qp_offset);
+      epid = gasnetc_epid(node, qpi + qp_offset);
       cep += qpi;
-      gasneti_assert(epid == cep->epid);
     }
+    gasneti_assert(epid == cep->epid);
   
     /* Reserve space for extra arguments if we *might* carry flow control
      * data.  We need to know numargs before we allocate a large enough
