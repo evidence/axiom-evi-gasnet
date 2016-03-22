@@ -3148,12 +3148,7 @@ static void gasnetc_exit_body(void) {
   }
  #endif
 #endif
-  gasnetc_connect_fini();
-  if (gasnetc_did_firehose_init && !gasnetc_exit_in_signal) {
-    /* Note we skip firehose_fini() on exit via a signal */
-    GASNETC_EXIT_STATE("in firehose_fini()");
-    firehose_fini();
-  }
+  gasnetc_connect_fini(); /* just stats reporting */
   alarm(0);
 
   /* Try to flush out all the output, allowing upto 60s */
@@ -3197,15 +3192,26 @@ static void gasnetc_exit_body(void) {
   }
  }
 
-#if GASNETC_IBV_SHUTDOWN
-  if (!gasnetc_exit_in_signal) {
-    GASNETC_EXIT_STATE("ibv shutdown");
+  /* Note we skip cleanly shutdown on non-colective exit or exit via signal */
+  if (graceful && !gasnetc_exit_in_signal) {
+  #if GASNETC_IBV_SHUTDOWN
+    GASNETC_EXIT_STATE("ibv quiesce");
     alarm(30);
     gasneti_bootstrapBarrier();
     gasnetc_sndrcv_quiesce();
+  #endif
+    if (gasnetc_did_firehose_init) {
+      GASNETC_EXIT_STATE("in firehose_fini()");
+      alarm(10);
+      firehose_fini();
+    }
+  #if GASNETC_IBV_SHUTDOWN
+    GASNETC_EXIT_STATE("ibv shutdown");
+    alarm(30);
     gasnetc_shutdown();
+  #endif
+    alarm(0);
   }
-#endif
 
   /* Try again to flush out any recent output, allowing upto 30s */
   GASNETC_EXIT_STATE("closing output");
