@@ -554,19 +554,7 @@ static void gasnetc_amrdma_grant(gasnetc_hca_t *hca, gasnetc_cep_t *cep) {
   }
 }
 
-void gasnetc_amrdma_eligable(gasnetc_cep_t *cep) {
-  gasnetc_hca_t * const hca = cep->hca;
-  gasnetc_atomic_val_t interval = gasnetc_atomic_add(&hca->amrdma_balance.count, 1, 0);
-
-  gasnetc_atomic_increment(&cep->amrdma_eligable, 0);
-
-#if GASNETC_ANY_PAR
-  #define GASNETC_TRY_BALANCE_LOCK(_hca) gasneti_spinlock_trylock(&(_hca)->amrdma_balance.lock)
-#else
-  #define GASNETC_TRY_BALANCE_LOCK(_hca) 0
-#endif
-
-  if_pf (!(interval & hca->amrdma_balance.mask) && !GASNETC_TRY_BALANCE_LOCK(hca)) {
+void gasnetc_amrdma_balance_one(gasnetc_hca_t *hca) {
     /* GASNETC_AMRDMA_REDUCE(X) is amount by which ALL counts X are reduced each round */
     #define GASNETC_AMRDMA_REDUCE(X)		((X)>>1)
     /* GASNETC_AMRDMA_BOOST(FLOOR) is amount by which SELECTED counts X are boosted */
@@ -581,8 +569,8 @@ void gasnetc_amrdma_eligable(gasnetc_cep_t *cep) {
      */
     for (i = 0; i < hca->num_qps; ++i) {
       gasnetc_atomic_val_t x, y;
+      gasnetc_cep_t *cep = hca->cep[i];
 
-      cep = hca->cep[i];
       x = gasnetc_atomic_read(&cep->amrdma_eligable, 0);
       y = GASNETC_AMRDMA_REDUCE(x);
       gasnetc_atomic_subtract(&cep->amrdma_eligable, y, 0);
@@ -620,7 +608,7 @@ void gasnetc_amrdma_eligable(gasnetc_cep_t *cep) {
     {
       gasnetc_atomic_val_t boost = GASNETC_AMRDMA_BOOST(hca->amrdma_balance.floor);
       for (i = 0; i < tbl_size; ++i) {
-        cep = tbl[i].cep;
+        gasnetc_cep_t *cep = tbl[i].cep;
         if (!cep->amrdma_recv) {
           gasnetc_amrdma_grant(hca, cep);
         }
@@ -629,13 +617,43 @@ void gasnetc_amrdma_eligable(gasnetc_cep_t *cep) {
     }
 
     if (gasnetc_atomic_read(&hca->amrdma_rcv.count, 0) == hca->amrdma_rcv.max_peers) {
-      /* Disable this logic if the limit has been reached (since we lack REVOKE)*/
-      return; /* YES - we really mean to return w/o unlocking */
+      /* Disable additional balancing if the limit has been reached (since we lack REVOKE) */
+      hca->amrdma_balance.mask = ~(gasnetc_atomic_val_t)0;
     }
+}
 
-#if GASNETC_ANY_PAR
-    gasneti_spinlock_unlock(&hca->amrdma_balance.lock);
-#endif
+enum {
+  GASNETC_AMRDMA_STATE_RUN = 0, /* normal state */
+  GASNETC_AMRDMA_STATE_PENDING, /* balance requested */
+  GASNETC_AMRDMA_STATE_LOCKED  /* balance in progress */
+};
+
+void gasnetc_amrdma_balance(void) {
+  gasnetc_hca_t *hca;
+  GASNETC_FOR_ALL_HCA(hca) {
+    if (gasnetc_atomic_compare_and_swap(&hca->amrdma_balance.state,
+                                        GASNETC_AMRDMA_STATE_PENDING,
+                                        GASNETC_AMRDMA_STATE_LOCKED,
+                                        GASNETI_ATOMIC_ACQ_IF_TRUE)) {
+      GASNETI_PROGRESSFNS_DISABLE(gasnetc_pf_amrdma, COUNTED);
+      gasnetc_amrdma_balance_one(hca);
+      gasnetc_atomic_set(&hca->amrdma_balance.state, GASNETC_AMRDMA_STATE_RUN, GASNETI_ATOMIC_REL);
+    }
+  }
+}
+
+void gasnetc_amrdma_eligable(gasnetc_cep_t *cep) {
+  gasnetc_hca_t * const hca = cep->hca;
+  gasnetc_atomic_val_t interval = gasnetc_atomic_add(&hca->amrdma_balance.count, 1, 0);
+
+  gasnetc_atomic_increment(&cep->amrdma_eligable, 0);
+
+  if_pf (0 == (interval & hca->amrdma_balance.mask)) {
+    if (gasnetc_atomic_compare_and_swap(&hca->amrdma_balance.state,
+                                        GASNETC_AMRDMA_STATE_RUN,
+                                        GASNETC_AMRDMA_STATE_PENDING, 0)) {
+      GASNETI_PROGRESSFNS_ENABLE(gasnetc_pf_amrdma, COUNTED);
+    }
   }
 }
 
@@ -3392,9 +3410,7 @@ extern int gasnetc_sndrcv_init(void) {
 
         gasnetc_atomic_set(&hca->amrdma_balance.count, 0, 0);
         hca->amrdma_balance.mask = gasnetc_amrdma_cycle ? (gasnetc_amrdma_cycle - 1) : 0;
-#if GASNETC_ANY_PAR
-        gasneti_spinlock_init(&hca->amrdma_balance.lock);
-#endif
+        gasnetc_atomic_set(&hca->amrdma_balance.state, GASNETC_AMRDMA_STATE_RUN, 0);
         hca->amrdma_balance.floor = 1;
         if (NULL == hca->amrdma_balance.table) {
           hca->amrdma_balance.table = gasneti_calloc(hca->max_qps, sizeof(gasnetc_amrdma_balance_tbl_t));
