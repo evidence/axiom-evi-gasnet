@@ -3702,11 +3702,12 @@ gasnetc_sndrcv_quiesce(void) {
         /* BLCR-TODO: this might be a problem between init and attach? */
         gasnet_AMRequestShort0(peer, gasneti_handleridx(gasnetc_sys_close_reqh));
       } else {
+        static gasnetc_atomic_t dummy = gasnetc_atomic_init(0); /* So PFs don't run */
         const int qp_offset = gasnetc_use_srq ? gasnetc_num_qps : 0;
         gasnetc_cep_t *cep = gasnetc_get_cep(peer) + qp_offset;
         gasnetc_sema_up(&cep->am_rem);
         /* OK if some other AM Request gets in this gap; we'll block for the reply. */
-        gasnetc_RequestSysShort(cep->epid, NULL, gasneti_handleridx(gasnetc_sys_close_reqh), 0);
+        gasnetc_RequestSysShort(cep->epid, &dummy, gasneti_handleridx(gasnetc_sys_close_reqh), 0);
       }
       while (! gasnetc_close_recvd[shift]) {
         GASNETI_WAITHOOK();
@@ -4090,7 +4091,10 @@ extern int gasnetc_RequestGeneric(gasnetc_category_t category,
 				  gasnetc_atomic_t *completed, va_list argptr) {
   /* ensure progress */
   gasnetc_poll_rcv();
-  GASNETI_PROGRESSFNS_RUN();
+  if (! completed) {
+    /* "blocking" System Requests will choose to run PFs or not */
+    GASNETI_PROGRESSFNS_RUN();
+  }
 
 #if GASNET_PSHM
   if_pt (gasneti_pshm_in_supernode(dest)) {
