@@ -683,7 +683,7 @@ void gasnetc_init_segment(void *segment_start, size_t segment_size)
     GASNETC_INITLOCK_UDREG();
 
     strncpy (attr.cache_name, name, UDREG_MAX_CACHENAME_LEN);
-    attr.max_entries = MAX(max_memreg, 0);
+    attr.max_entries = MAX(max_memreg, 1);
     attr.modes = UDREG_CC_MODE_USE_KERNEL_CACHE |
                  UDREG_CC_MODE_USE_LAZY_DEREG;
     attr.debug_mode = 0;
