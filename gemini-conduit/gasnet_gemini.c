@@ -408,7 +408,7 @@ gasnetc_udreg_deregister(void *data_arg, void *context) {
 
 /* Register local side of a pd, with unbounded retry on resource shortage.
    Returns 1 on success, or 0 on INVAL_PARAM */
-static int gasnetc_register_gpd(gasnetc_post_descriptor_t *gpd, uint32_t flags)
+static int gasnetc_register_udreg(gasnetc_post_descriptor_t *gpd, uint32_t flags)
 {
   GASNETC_DIDX_POST(gpd->domain_idx);
   gni_post_descriptor_t * const pd = &gpd->pd;
@@ -459,8 +459,8 @@ static int gasnetc_register_gpd(gasnetc_post_descriptor_t *gpd, uint32_t flags)
 }
 
 /* Deregister local side of a pd */
-GASNETI_INLINE(gasnetc_deregister_gpd)
-void gasnetc_deregister_gpd(gasnetc_post_descriptor_t *gpd)
+GASNETI_INLINE(gasnetc_deregister_udreg)
+void gasnetc_deregister_udreg(gasnetc_post_descriptor_t *gpd)
 {
   GASNETC_DIDX_POST(gpd->domain_idx);
   udreg_return_t rc;
@@ -469,8 +469,7 @@ void gasnetc_deregister_gpd(gasnetc_post_descriptor_t *gpd)
   GASNETC_UNLOCK_UDREG();
   gasneti_assert_always (UDREG_RC_SUCCESS == rc);
 }
-
-#else /* !GASNETC_GNI_UDREG */
+#endif /* GASNETC_GNI_UDREG */
 
 /* read-write: (should cache pad) */
 static gasneti_weakatomic_t gasnetc_reg_credit;
@@ -481,7 +480,7 @@ static gasneti_weakatomic_val_t gasnetc_reg_credit_max;
 
 /* Register local side of a pd, with unbounded retry on ERR_RESOURCE.
    Returns 1 on success, or 0 on ERR_INVAL_PARAM */
-static int gasnetc_register_gpd(gasnetc_post_descriptor_t *gpd, uint32_t flags)
+static int gasnetc_register_gni(gasnetc_post_descriptor_t *gpd, uint32_t flags)
 {
   GASNETC_DIDX_POST(gpd->domain_idx);
   DOMAIN_SPECIFIC_VAR(gni_nic_handle_t, nic_handle);
@@ -535,8 +534,8 @@ first:
 }
 
 /* Deregister local side of a pd */
-GASNETI_INLINE(gasnetc_deregister_gpd)
-void gasnetc_deregister_gpd(gasnetc_post_descriptor_t *gpd)
+GASNETI_INLINE(gasnetc_deregister_gni)
+void gasnetc_deregister_gni(gasnetc_post_descriptor_t *gpd)
 {
   GASNETC_DIDX_POST(gpd->domain_idx);
   DOMAIN_SPECIFIC_VAR(gni_nic_handle_t, nic_handle);
@@ -544,7 +543,30 @@ void gasnetc_deregister_gpd(gasnetc_post_descriptor_t *gpd)
   gasneti_assert_always (status == GNI_RC_SUCCESS);
   if (gasnetc_reg_credit_max) gasneti_weakatomic_increment(&gasnetc_reg_credit, 0);
 }
-#endif /* !GASNETC_GNI_UDREG */
+
+/* Register local side of a pd */
+GASNETI_INLINE(gasnetc_register_gpd)
+int gasnetc_register_gpd(gasnetc_post_descriptor_t *gpd, uint32_t flags)
+{
+#if GASNETC_GNI_UDREG
+  if_pt (gasnetc_udreg_hndl) {
+    return gasnetc_register_udreg(gpd, flags);
+  } else
+#endif
+  return gasnetc_register_gni(gpd, flags);
+}
+
+/* Deregister local side of a pd */
+GASNETI_INLINE(gasnetc_deregister_gpd)
+void gasnetc_deregister_gpd(gasnetc_post_descriptor_t *gpd)
+{
+#if GASNETC_GNI_UDREG
+  if_pt (gasnetc_udreg_hndl) {
+    gasnetc_deregister_udreg(gpd);
+  } else
+#endif
+  gasnetc_deregister_gni(gpd);
+}
 
 #if GASNETC_GNI_FIREHOSE
 /* Acquire firehose covering (at least some leading portion of) the xfer given by gdp */
@@ -617,6 +639,7 @@ void gasnetc_init_segment(void *segment_start, size_t segment_size)
   gni_cq_handle_t  destination_cq_handle = NULL;
 #endif
   size_t bb_size = gasnetc_bounce_buffers.size / gasnetc_domain_count;
+  int max_memreg = gasneti_getenv_int_withdefault("GASNET_GNI_MEMREG", GASNETC_GNI_MEMREG_DEFAULT, 0);
 
   if (bb_size < GASNET_PAGESIZE) {
     gasneti_fatalerror("GASNET_GNI_BOUNCE_SIZE must be %d or larger", (int)GASNET_PAGESIZE);
@@ -673,9 +696,8 @@ void gasnetc_init_segment(void *segment_start, size_t segment_size)
                            gasnetc_put_bounce_register_cutover);
 #endif
 
-  {
-    int max_memreg = gasneti_getenv_int_withdefault("GASNET_GNI_MEMREG", GASNETC_GNI_MEMREG_DEFAULT, 0);
-  #if GASNETC_GNI_UDREG
+#if GASNETC_GNI_UDREG
+  if (gasneti_getenv_yesno_withdefault("GASNET_USE_UDREG", 1)) {
     char name[] = "gasnet";
     struct udreg_cache_attr attr;
     udreg_return_t rc;
@@ -704,9 +726,10 @@ void gasnetc_init_segment(void *segment_start, size_t segment_size)
     if (UDREG_RC_SUCCESS != rc) {
       gasnetc_GNIT_Abort("UDREG_CacheAccess() failed with rc=%d", rc);
     }
-  #else /* !GASNETC_GNI_UDREG */
+  } else
+#endif
+  {
     gasnetc_init_reg_credit(MAX(max_memreg, 0));
-  #endif
   }
 
   gasnetc_mem_consistency = GASNETC_DEFAULT_RDMA_MEM_CONSISTENCY;
@@ -1154,7 +1177,7 @@ void gasnetc_shutdown(void)
    */
 
 #if GASNETC_GNI_UDREG
-  if (have_segment) {
+  if (have_segment && gasnetc_udreg_hndl) {
     udreg_return_t rc;
     rc = UDREG_CacheRelease(gasnetc_udreg_hndl);
     if (UDREG_RC_SUCCESS != rc) {
@@ -1267,8 +1290,8 @@ void gasnetc_shutdown(void)
 
 extern void gasnetc_trace_finish(void) {
 #if GASNETC_GNI_UDREG
-  if (GASNETI_STATS_ENABLED(C)) {
-    int max_memreg = MAX(0,gasneti_getenv_int_withdefault("GASNET_GNI_MEMREG", GASNETC_GNI_MEMREG_DEFAULT, 0));
+  if (GASNETI_STATS_ENABLED(C) && gasnetc_udreg_hndl) {
+    int max_memreg = MAX(1,gasneti_getenv_int_withdefault("GASNET_GNI_MEMREG", GASNETC_GNI_MEMREG_DEFAULT, 0));
     uint64_t hit = 0, miss = 0, evict = 0;
     (void)UDREG_GetStat(gasnetc_udreg_hndl, UDREG_STAT_CACHE_HIT, &hit);
     (void)UDREG_GetStat(gasnetc_udreg_hndl, UDREG_STAT_CACHE_MISS, &miss);

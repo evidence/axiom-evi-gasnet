@@ -99,6 +99,13 @@ GASNET_PHYSMEM_NOPROBE - default 0
   and PHYSMEM_MAX, and PHYSMEM_NOPROBE you will bypass all the checking.
   Of course mmap might fail, or you might be swapping the segment...
 
+GASNET_USE_UDREG
+  AVAILABLE UNLESS CONFIGURED WITH --disable-gni-udreg.
+  This gives a boolean: "0" to disable or "1" to enable the use of the
+  UDREG library for caching of local memory registrations, and is
+  intended primarily for debugging purposes.
+  The default is enabled.
+
 GASNET_USE_FIREHOSE
   AVAILABLE ONLY IF CONFIGURED WITH --enable-gni-firehose.
   This gives a boolean: "0" to disable or "1" to enable the use
