@@ -197,6 +197,40 @@ AC_SUBST(GASNETI_PTR_BITS)
 GASNET_IF_ENABLED_NOHELP(arch-altix, [force_arch_altix=yes])
 GASNET_IF_ENABLED_NOHELP(arch-ibmpe, [force_arch_ibmpe=yes])
 
+##
+# Look for a Cray-provided header allowing for the possibility we are not using Cray's wrapper compiler
+# There are two distinct "success" cases:
+# 1) The header is found w/o any extra CPPFLAGS
+# 2) The system is a Cray and the header is found only when the env var named by the 2nd arg is appended to CPPFLAGS
+# GASNET_CHECK_CRAY_HEADER(header, includes_var [, action-on-success-1] [, action-on-success-2] [, action-on-failure])
+AC_DEFUN([GASNET_CHECK_CRAY_HEADER],[
+  pushdef([cvname],ac_cv_header_[]translit($1,'.-','__'))  dnl Any others?
+  AC_CHECK_HEADERS([$1], [$3], [
+    if expr "$target" : ".*-cnl-" >/dev/null; then
+      AC_MSG_CHECKING([for [\$]$2 in the environment])
+      if test "${$2+set}" = set; then
+        AC_MSG_RESULT([yes (rechecking there for $1)])
+        unset cvname
+        GASNET_PUSHVAR(CPPFLAGS,"$CPPFLAGS ${$2}")
+        AC_CHECK_HEADERS([$1]) dnl Any action passed here could not set CPPFLAGS
+        GASNET_POPVAR(CPPFLAGS)
+        if test $cvname = yes; then
+          :
+          $4
+        fi
+      else
+        AC_MSG_RESULT(no)
+      fi
+    fi
+    if test $cvname = no; then
+      :
+      $5
+    fi
+    cvname=no  dnl Otherwise recheck makes wrong choice
+  ])
+  popdef([cvname])
+])
+
 ### 
 #
 # choose the default CC flags
@@ -1363,19 +1397,33 @@ if test "$enabled_pshm" != no; then
    [enabled_pshm_xpmem=yes])
  if test "$enabled_pshm_xpmem$with_pshm" = yesno; then
   GASNET_PUSHVAR(LIBS,"")
-  AC_SEARCH_LIBS(xpmem_get, xpmem, [
-    AC_CHECK_HEADERS([xpmem.h sn/xpmem.h], [
+  GASNET_PUSHVAR(LDFLAGS,"")
+  GASNET_PUSHVAR(CPPFLAGS,"")
+  GASNET_CHECK_CRAY_HEADER([xpmem.h], [CRAY_XPMEM_INCLUDE_OPTS], [
+      found_xpmem_h=yes
+    ],[
+      found_xpmem_h=yes
+      CPPFLAGS="$CRAY_XPMEM_INCLUDE_OPTS "  dnl The trailing space is required
+      LDFLAGS="$CRAY_XPMEM_POST_LINK_OPTS " dnl The trailing space is required
+    ],[
+      AC_CHECK_HEADERS([sn/xpmem.h], [found_xpmem_h=yes], [found_xpmem_h=no])
+    ])
+  if test $found_xpmem_h = yes; then
+    AC_SEARCH_LIBS(xpmem_get, xpmem, [
       if test $have_hugetlbfs = yes; then
         LIBS="$LIBS $HUGETLBFS_LIBS"
         AC_DEFINE(GASNETI_USE_HUGETLBFS)
       fi
-      GASNET_PSHM_LIBS=$LIBS
+      SYS_HEADER_BLD="$CPPFLAGS$SYS_HEADER_BLD"
+      GASNET_PSHM_LIBS="$LDFLAGS$LIBS"
       AC_CHECK_FUNCS([xpmem_make_2])
       AC_DEFINE(GASNETI_PSHM_XPMEM)
       with_pshm=xpmem
     ])
-  ])
+  fi
   GASNET_POPVAR(LIBS)
+  GASNET_POPVAR(LDFLAGS)
+  GASNET_POPVAR(CPPFLAGS)
  fi
 
  # Fourth check is for gloal heap
@@ -3321,11 +3369,21 @@ if test ${gni_network}:${enabled_[]lowername} = lowername[]:yes; then
   GASNET_PUSHVAR(CPPFLAGS,"$CPPFLAGS ${GNI_INCLUDES}")
   GASNET_PUSHVAR(LIBS,"$LIBS ${GNI_LIBS}")
 
-  # These duplicate part of the "working Gemini/Aries configuration" probe.
-  # However, failing on these can help distinguish which module is missing/broken.
-  # Also $have_pmi_cray_h squashes later probe for pmi.h
-  AC_CHECK_HEADERS(pmi_cray.h, [have_pmi_cray_h=1], [have_[]lowername=no])
-  AC_CHECK_HEADERS(gni_pub.h, [:], [have_[]lowername=no])
+  # Look for pmi_cray.h, allowing for the possibility we are not using the wrapper compiler
+  # Setting $have_pmi_cray squashes a later probe for pmi.h:
+  GASNET_CHECK_CRAY_HEADER([pmi_cray.h],[CRAY_PMI_INCLUDE_OPTS],[
+      have_pmi_cray_h=yes
+    ],[
+      have_pmi_cray_h=yes
+      GNI_INCLUDES="$GNI_INCLUDES $CRAY_PMI_INCLUDE_OPTS"
+      GNI_LIBS="$GNI_LIBS $CRAY_PMI_POST_LINK_OPTS -lpmi"
+    ])
+
+  # Look for gni_pub.h, allowing for the possibility we are not using the wrapper compiler
+  GASNET_CHECK_CRAY_HEADER([gni_pub.h],[CRAY_GNI_HEADERS_INCLUDE_OPTS],[:],[
+      GNI_INCLUDES="$GNI_INCLUDES $CRAY_GNI_HEADERS_INCLUDE_OPTS"
+      GNI_LIBS="$GNI_LIBS $CRAY_UGNI_POST_LINK_OPTS -lugni"
+    ])
 
   if test $have_[]lowername = yes; then
     # PSHM must be XPMEM, HUGETLBFS or none.
@@ -3348,7 +3406,12 @@ if test ${gni_network}:${enabled_[]lowername} = lowername[]:yes; then
     esac
   fi
 
+  GASNET_POPVAR(LIBS)
+  GASNET_POPVAR(CPPFLAGS)
+
   if test $have_[]lowername = yes; then
+    GASNET_PUSHVAR(LIBS,"$LIBS ${GNI_LIBS}")
+    GASNET_PUSHVAR(CPPFLAGS,"$CPPFLAGS ${GNI_INCLUDES}")
     GASNET_TRY_CACHE_LINK(for working $1 configuration, lowername[]_works, [
       #include <stddef.h>
       #include <stdint.h>
@@ -3361,14 +3424,23 @@ if test ${gni_network}:${enabled_[]lowername} = lowername[]:yes; then
       int localranks;
       int ret = PMI_Get_numpes_on_smp(&localranks); /* Cray extension */
     ], [ : ], [ have_[]lowername=no; GASNET_ERR_SAVE() ] )
+    AC_SUBST(GNI_LIBS)
+    AC_SUBST(GNI_INCLUDES)
+    GASNET_POPVAR(LIBS)
+    GASNET_POPVAR(CPPFLAGS)
   fi
 
   GASNET_IF_ENABLED_WITH_AUTO(gni-udreg,
      [Use Cray's UDREG to cache memory registration on Aries and Gemini (enabled by default if available)],
      [gni_udreg=yes], [gni_udreg=no], [gni_udreg=probe])
   if test $gni_udreg != no; then
-    AC_CHECK_HEADERS(udreg_pub.h, [
+    # Look for udreg_pub.h, allowing for the possibility we are not using the wrapper compiler
+    GASNET_CHECK_CRAY_HEADER([udreg_pub.h],[CRAY_UDREG_INCLUDE_OPTS],[
         AC_DEFINE(GASNETC_GNI_UDREG)
+      ],[
+        AC_DEFINE(GASNETC_GNI_UDREG)
+        GNI_INCLUDES="$GNI_INCLUDES $CRAY_UDREG_INCLUDE_OPTS"
+        GNI_LIBS="$GNI_LIBS $CRAY_UDREG_POST_LINK_OPTS -ludreg"
       ],[
         if test "$gni_udreg" = yes; then
           GASNET_ERR_SAVE()
@@ -3376,9 +3448,6 @@ if test ${gni_network}:${enabled_[]lowername} = lowername[]:yes; then
         fi
       ])
   fi
-
-  GASNET_POPVAR(LIBS)
-  GASNET_POPVAR(CPPFLAGS)
 
   GASNET_WITH(gni-max-medium,
      [gasnet_AMMaxMedium() for Gemini and Aries conduits (default 4032)],
@@ -3846,7 +3915,7 @@ AC_DEFINE_UNQUOTED(GASNETI_DEFAULT_SSH_OUT_DEGREE, $gasnet_ssh_out_degree)
 GASNET_WITH(pmi, [path to PMI headers and libs],
             [with_pmi="$withval"; force_pmi=yes], [with_pmi=no], [with_pmi='/usr'])
 have_pmi=no
-if test -n "$have_pmi_cray_h" ; then
+if test -n "$have_pmi_cray_h"; then
   with_pmi='no'
   have_pmi='yes'
 elif test "$with_pmi" = yes; then
