@@ -3360,7 +3360,7 @@ if test ${gni_network}:${enabled_[]lowername} = lowername[]:yes; then
 
       int localranks;
       int ret = PMI_Get_numpes_on_smp(&localranks); /* Cray extension */
-    ], [ : ], [ have_gemini=no; GASNET_ERR_SAVE() ] )
+    ], [ : ], [ have_[]lowername=no; GASNET_ERR_SAVE() ] )
   fi
 
   GASNET_IF_ENABLED_WITH_AUTO(gni-udreg,
