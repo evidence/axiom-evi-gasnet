@@ -278,6 +278,9 @@
 /* gcc support for "U" and "h" register classes on SPARC32 */
 #undef GASNETI_HAVE_SPARC32_64BIT_ASM
 
+/* has _builtin_ctz */
+#undef HAVE_BUILTIN_CTZ
+
 /* has __builtin_expect */
 #undef HAVE_BUILTIN_EXPECT
 

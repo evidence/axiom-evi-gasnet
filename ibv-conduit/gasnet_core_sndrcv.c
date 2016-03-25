@@ -1459,13 +1459,13 @@ int gasnetc_rcv_amrdma(gasnetc_cep_t *cep) {
 
     gasneti_assert(bits != 0);
 
-  #if 1
+  #if HAVE_BUILTIN_CTZ
+    count = __builtin_ctz(~bits);
+    bits >>= count;
+  #else
     for (count = 0; bits & 1; ++count) {
       bits >>= 1;
     }
-  #else /* XXX: Use ffs() if/when we are sure it is faster (and available). */
-    count = ffs(~bits);
-    bits >>= count;
   #endif
 
     recv_state->ack_bits = bits;
