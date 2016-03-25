@@ -86,9 +86,22 @@ GASNET_GNI_MEM_CONSISTENCY
 
 GASNET_GNI_MEMREG
   This controls the maximum number of concurrent temporary memory
-  registrations, used for RDMA transfers to and from addresses
-  outside of the GASNet segment.
-  The default value is 16 on Gemini, and is 4096 on Aries.
+  registrations, used for RDMA transfers to and from addresses outside of
+  the GASNet segment.
+  The default value is 16 on Gemini, and is 3072 on Aries.
+
+  If this vale is too large (possibly due to competition with MPI or
+  another runtime library) you will see a fatal error at startup.  If
+  GASNet detects the resource exhaustion, the message includes the
+  following text:
+      UDREG_CacheCreate() failed with rc=2
+  Alternatively, if the resource exhaustion is detected by the MPI runtime
+  you may see a message including the following text:
+      UDREG_CacheCreate unknown error return 2
+  Other runtimes may include similar failure messages.
+  If you encounter these failures you should reduce the value of this
+  parameter, or in the extreme you may wish to set GASNET_USE_UDREG=0 to
+  disable use of UDREG by GASNet.
 
 GASNET_PHYSMEM_PINNABLE_RATIO - default 0.80
 GASNET_PHYSMEM_MAX - default <size of physmem> * <pinnable ratio>

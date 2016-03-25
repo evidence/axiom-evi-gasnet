@@ -237,7 +237,7 @@ void gasnetc_init_bounce_buffer_pool(GASNETC_DIDX_FARG_ALONE);
 #if GASNET_CONDUIT_GEMINI
 #define GASNETC_GNI_MEMREG_DEFAULT 16 /* TODO: tune/probe? */
 #else
-#define GASNETC_GNI_MEMREG_DEFAULT 4096
+#define GASNETC_GNI_MEMREG_DEFAULT 3072
 #endif
 
 /* largest get that can be handled by gasnetc_rdma_get_unaligned() */
