@@ -2280,7 +2280,7 @@ static void event_loop(void)
 
       /* Use select to find a fd w/ available work or EOF */
       {
-        static int next = -1; /* fairness: start search after prev result */
+        static int next = 0; /* fairness: start search after prev result */
         int n = all_fds.max + 1;
         fd_set read_fds = all_fds.set;
         int j;
@@ -2289,7 +2289,7 @@ static void event_loop(void)
         if (in_abort) break;
 
         for (j = 0, k = next; j <= children; ++j, ++k) {
-          if (k == children) k = -1;
+          if (k == children) k = is_root ? 0 : -1;
           if (FD_ISSET(child[k].sock, &read_fds)) {
             break;
           }
