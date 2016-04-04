@@ -649,10 +649,13 @@ void gasnetc_amrdma_eligable(gasnetc_cep_t *cep) {
   gasnetc_atomic_increment(&cep->amrdma_eligable, 0);
 
   if_pf (0 == (interval & hca->amrdma_balance.mask)) {
-    if (gasnetc_atomic_compare_and_swap(&hca->amrdma_balance.state,
-                                        GASNETC_AMRDMA_STATE_RUN,
-                                        GASNETC_AMRDMA_STATE_PENDING, 0)) {
-      GASNETI_PROGRESSFNS_ENABLE(gasnetc_pf_amrdma, COUNTED);
+    GASNETI_PROGRESSFNS_ENABLE(gasnetc_pf_amrdma, COUNTED);
+    if (! gasnetc_atomic_compare_and_swap(&hca->amrdma_balance.state,
+                                          GASNETC_AMRDMA_STATE_RUN,
+                                          GASNETC_AMRDMA_STATE_PENDING,
+                                          GASNETI_ATOMIC_REL)) {
+      /* Lost race on change of amrdma_balance.state */
+      GASNETI_PROGRESSFNS_DISABLE(gasnetc_pf_amrdma, COUNTED);
     }
   }
 }
