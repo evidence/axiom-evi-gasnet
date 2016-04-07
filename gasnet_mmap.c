@@ -79,7 +79,7 @@
 #elif PLATFORM_OS_CYGWIN
   #error mmap not supported on Cygwin - it doesnt work properly
 #elif PLATFORM_ARCH_MIC
-  #define GASNETI_MMAP_FLAGS (MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE | MAP_HUGETLB)
+  #define GASNETI_MMAP_FLAGS (MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE)
 #endif
 
 #ifndef GASNETI_MMAP_FLAGS
