@@ -3929,7 +3929,16 @@ elif test "$with_pmi" = yes; then
 fi
 
 if test "$with_pmi" != 'no'; then
+  GASNET_WITH(pmi-libdir, [PMI library directory (if not in default location)],
+   [case "$withval" in
+      yes|no) AC_MSG_ERROR([--with-pmi-libdir requires an argument]) ;;
+           *) PMI_SPAWNER_LIBDIR="-L$withval" ;;
+    esac],
+   [AC_MSG_ERROR([--with-pmi-libdir requires an argument])]
+  )
   if test "$with_pmi" = '/usr'; then
+    : # Nothing to do
+  elif test -n "${PMI_SPAWNER_LIBDIR+set}" ; then
     : # Nothing to do
   elif test -d "${with_pmi}/lib${GASNETI_PTR_BITS}/."; then
     PMI_SPAWNER_LIBDIR="-L${with_pmi}/lib${GASNETI_PTR_BITS}"
