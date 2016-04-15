@@ -1083,7 +1083,7 @@ case "$target_os" in
                           GASNET_THREAD_LIBS="-lpthread"])
 	;;
   cygwin*) 
-	GASNET_THREAD_DEFINES="-D_REENTRANT"
+	GASNET_THREAD_DEFINES="-D_REENTRANT -D_XOPEN_SOURCE=500 -D_DEFAULT_SOURCE"
         GASNET_THREAD_LIBS=""
 	;;
   darwin*) 
