@@ -181,7 +181,15 @@ static int _test_rand(int low, int high) {
   int result;
   assert(low <= high);
   assert(low <= high+1); /* We will overflow otherwise */
+#ifndef TEST_NO_FP_RAND
   result = low+(int)(((double)(high-low+1))*rand()/(RAND_MAX+1.0));
+#else
+  { int bin_count = high - low + 1;
+    unsigned int bin_width = ((unsigned int)RAND_MAX + 1) / (unsigned int)bin_count;
+    do { result = rand() / bin_width; } while (result == bin_count);
+    result += low;
+  }
+#endif
   assert(result >= low && result <= high);
   return result;
 }
