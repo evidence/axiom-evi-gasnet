@@ -186,7 +186,7 @@ static int _test_rand(int low, int high) {
 #else
   { int bin_count = high - low + 1;
     unsigned int bin_width = ((unsigned int)RAND_MAX + 1) / (unsigned int)bin_count;
-    do { result = rand() / bin_width; } while (result == bin_count);
+    do { result = rand() / bin_width; } while (result >= bin_count);
     result += low;
   }
 #endif
