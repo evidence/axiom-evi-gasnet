@@ -690,7 +690,7 @@ fhi_wait_for_one(const firehose_private_t *priv) {
 	    gasneti_assert(num_unpin == 1);
 	    num_unpin += fh_clean_covered_local(FH_MAX_UNPIN_LOC - num_unpin, unpin_regions + num_unpin);
 	    FH_TABLE_UNLOCK;
-	    firehose_move_callback(gasneti_mynode, unpin_regions, 1, NULL, 0);
+	    firehose_move_callback(gasneti_mynode, unpin_regions, num_unpin, NULL, 0);
 	    FH_TABLE_LOCK;
 	}
 #ifdef DEBUG_LOCAL_TABLE
