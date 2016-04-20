@@ -1697,6 +1697,10 @@ static int gasnetc_init(int *argc, char ***argv) {
       gasnetc_handler[i] = (gasneti_handler_fn_t)&gasneti_defaultAMHandler;
   }
   {
+  #if !GASNETC_PIN_SEGMENT
+    gasnet_handlerentry_t *ftable = (gasnet_handlerentry_t *)firehose_get_handlertable();
+    int flen = 0;
+  #endif
     gasnet_handlerentry_t *ctable = (gasnet_handlerentry_t *)gasnetc_get_handlertable();
     int len = 0;
     int numreg = 0;
@@ -1705,6 +1709,13 @@ static int gasnetc_init(int *argc, char ***argv) {
     if (gasnetc_reghandlers(ctable, len, 1, 63, 0, &numreg) != GASNET_OK)
       GASNETI_RETURN_ERRR(RESOURCE,"Error registering core API handlers");
     gasneti_assert(numreg == len);
+  #if !GASNETC_PIN_SEGMENT
+    gasneti_assert(ftable);
+    while (ftable[flen].fnptr) flen++; /* calc len */
+    if (gasnetc_reghandlers(ftable, flen, len+1, 63, 1, &numreg) != GASNET_OK)
+      GASNETI_RETURN_ERRR(RESOURCE, "Error registering firehose handlers");
+    gasneti_assert(numreg == flen);
+  #endif
   }
 
   /* transpose remote lids into port_tbl */
@@ -1964,22 +1975,6 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
       GASNETI_RETURN_ERRR(RESOURCE,"Error registering extended API handlers");
     gasneti_assert(numreg == len);
   }
-
-  #if GASNETC_PIN_SEGMENT
-    /* No firehose AMs should ever be sent in this configuration */
-  #else
-  { /* firehose handlers */
-    gasnet_handlerentry_t *ftable = (gasnet_handlerentry_t *)firehose_get_handlertable();
-    int len = 0;
-    int base = GASNETE_HANDLER_BASE + numreg;	/* start right after etable */
-    gasneti_assert(ftable);
-    while (ftable[len].fnptr) len++; /* calc len */
-    gasneti_assert(base + len <= 128);	/* enough space remaining after etable? */
-    if (gasnetc_reghandlers(ftable, len, base, 127, 1, &numreg) != GASNET_OK)
-      GASNETI_RETURN_ERRR(RESOURCE, "Error registering firehose handlers");
-    gasneti_assert(numreg == len);
-  }
-  #endif
 
   if (table) { /*  client handlers */
     int numreg1 = 0;
