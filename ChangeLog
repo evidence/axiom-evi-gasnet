@@ -2,6 +2,11 @@ GASNet ChangeLog
 ----------------
 
 ----------------------------------------------------------------------
+05-??-2016 :  Release 1.26.2-rc0
+
+* PLACEHOLDER - this will be completed prior to the final 1.26.2 release
+
+----------------------------------------------------------------------
 10-27-2015 :  Release 1.26.0
 
 * New conduits (network APIs) added:
