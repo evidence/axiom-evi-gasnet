@@ -401,6 +401,13 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
                              eb_t *eb, ep_t *ep) {
   
   if (AMUDP_SPMDStartupCalled) AMUDP_RETURN_ERR(RESOURCE);
+
+  char *linebuf = AMUDP_getenv_prefixed("LINEBUFFERSZ");
+  if (!linebuf || atoi(linebuf) > 0) { // ensure we line-buffer early output
+    setvbuf(stdout, NULL, _IOLBF, BUFSIZ);
+    setvbuf(stderr, NULL, _IOLBF, BUFSIZ);
+  }
+
   /* we need a separate socklibinit for master 
      and to prevent AM_Terminate from murdering all our control sockets */
   if (!socklibinit()) AMUDP_RETURN_ERRFR(RESOURCE, AMUDP_SPMDStartup, "socklibinit() failed");
@@ -1198,52 +1205,6 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
       AMUDP_assert(ntoh64(tempTranslation_tag[AMUDP_SPMDMYPROC]) == ntoh64(bootstrapinfo.tag));
       AMUDP_assert(enEqual(tempTranslation_name[AMUDP_SPMDMYPROC], AMUDP_SPMDName));
 
-      // setup translation table
-      for (int i = 0; i < AMUDP_SPMDNUMPROCS; i++) {
-        temp = AM_Map(AMUDP_SPMDEndpoint, i, tempTranslation_name[i], ntoh64(tempTranslation_tag[i]));
-        if (temp != AM_OK) {
-          AMUDP_Err("Failed to AM_Map() in AMUDP_SPMDStartup");
-          AMUDP_RETURN(temp);
-        }
-      }
-
-      AMUDP_free(tempTranslation_name);
-      tempTranslation_name = NULL;
-      AMUDP_free(tempTranslation_tag);
-      tempTranslation_tag = NULL;
-
-      // receive snapshot of master environment
-      int environtablesz = ntoh32(bootstrapinfo.environtablesz);
-      char *tempEnvironment = (char *)AMUDP_malloc(environtablesz);
-      AMUDP_assert(tempEnvironment != NULL);
-      recvAll(AMUDP_SPMDControlSocket, tempEnvironment, environtablesz);
-      if (doFullBoostrap) {
-        AMUDP_SPMDMasterEnvironment = tempEnvironment;
-      } else  {
-        // On restart we keep the environment from the initial run
-        AMUDP_assert(AMUDP_SPMDMasterEnvironment != NULL);
-        AMUDP_free(tempEnvironment);
-      }
-      
-      /* allocate network buffers */
-      if (doFullBoostrap) networkdepth = ntoh32(bootstrapinfo.depth);
-      temp = AM_SetExpectedResources(AMUDP_SPMDEndpoint, AMUDP_SPMDNUMPROCS, networkdepth);
-      if (temp != AM_OK) {
-        AMUDP_Err("Failed to AM_SetExpectedResources() in AMUDP_SPMDStartup");
-        AMUDP_RETURN(temp);
-      }
-      #ifdef AMUDP_BLCR_ENABLED
-        AMUDP_SPMDNetworkDepth = networkdepth;
-      #endif
-      
-      // set tag
-      temp = AM_SetTag(AMUDP_SPMDEndpoint, ntoh64(bootstrapinfo.tag));
-      if (temp != AM_OK) {
-        AMUDP_Err("Failed to AM_SetTag() in AMUDP_SPMDStartup");
-        AMUDP_RETURN(temp);
-      }
-
-      // BLCR-TODO: problems if we change spawner?
       #if !DISABLE_STDSOCKET_REDIRECT
         if (bootstrapinfo.stdinMaster) {
             // perform stdin/out/err redirection
@@ -1295,6 +1256,51 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
             #endif
         }
      #endif
+
+      // setup translation table
+      for (int i = 0; i < AMUDP_SPMDNUMPROCS; i++) {
+        temp = AM_Map(AMUDP_SPMDEndpoint, i, tempTranslation_name[i], ntoh64(tempTranslation_tag[i]));
+        if (temp != AM_OK) {
+          AMUDP_Err("Failed to AM_Map() in AMUDP_SPMDStartup");
+          AMUDP_RETURN(temp);
+        }
+      }
+
+      AMUDP_free(tempTranslation_name);
+      tempTranslation_name = NULL;
+      AMUDP_free(tempTranslation_tag);
+      tempTranslation_tag = NULL;
+
+      // receive snapshot of master environment
+      int environtablesz = ntoh32(bootstrapinfo.environtablesz);
+      char *tempEnvironment = (char *)AMUDP_malloc(environtablesz);
+      AMUDP_assert(tempEnvironment != NULL);
+      recvAll(AMUDP_SPMDControlSocket, tempEnvironment, environtablesz);
+      if (doFullBoostrap) {
+        AMUDP_SPMDMasterEnvironment = tempEnvironment;
+      } else  {
+        // On restart we keep the environment from the initial run
+        AMUDP_assert(AMUDP_SPMDMasterEnvironment != NULL);
+        AMUDP_free(tempEnvironment);
+      }
+      
+      /* allocate network buffers */
+      if (doFullBoostrap) networkdepth = ntoh32(bootstrapinfo.depth);
+      temp = AM_SetExpectedResources(AMUDP_SPMDEndpoint, AMUDP_SPMDNUMPROCS, networkdepth);
+      if (temp != AM_OK) {
+        AMUDP_Err("Failed to AM_SetExpectedResources() in AMUDP_SPMDStartup");
+        AMUDP_RETURN(temp);
+      }
+      #ifdef AMUDP_BLCR_ENABLED
+        AMUDP_SPMDNetworkDepth = networkdepth;
+      #endif
+      
+      // set tag
+      temp = AM_SetTag(AMUDP_SPMDEndpoint, ntoh64(bootstrapinfo.tag));
+      if (temp != AM_OK) {
+        AMUDP_Err("Failed to AM_SetTag() in AMUDP_SPMDStartup");
+        AMUDP_RETURN(temp);
+      }
 
       AMUDP_FaultInjectionRate = bootstrapinfo.faultInjectionRate;
       ntoh64a(&AMUDP_FaultInjectionRate);
