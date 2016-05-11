@@ -34,16 +34,7 @@
 
 /* AMUDP system configuration parameters */
 #ifndef DISABLE_STDSOCKET_REDIRECT
-#if PLATFORM_OS_SUPERUX || PLATFORM_OS_HPUX
-  /* broken on SuperUX due to a bad FIONREAD implementation, which causes numBytesWaiting to fail
-     also seems to possibly be some issue with a redirected stdout always triggering select, even when
-     no output is waiting
-     This also seems the only reliable way to get good output on HPUX, especially in 64-bit mode
-   */
-  #define DISABLE_STDSOCKET_REDIRECT  1 
-#else
-  #define DISABLE_STDSOCKET_REDIRECT  0   /* disable redirection of slave stdin/stdout/stderr to master */
-#endif
+#define DISABLE_STDSOCKET_REDIRECT  0   /* disable redirection of slave stdin/stdout/stderr to master */
 #endif
 #ifndef USE_SOCKET_RECVBUFFER_GROW
 #define USE_SOCKET_RECVBUFFER_GROW  1   /* grow RCVBUF on UDP sockets */

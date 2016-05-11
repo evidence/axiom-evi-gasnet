@@ -249,35 +249,108 @@ static void setupStdSocket(SOCKET& ls, SocketList& list, SocketList& allList) {
 }
 //------------------------------------------------------------------------------------
 static void handleStdOutput(FILE *fd, fd_set *psockset, SocketList& list, SocketList& allList, int nproc) {
+  static size_t bufsz;
+  static uint8_t *sbuf;
+  static struct S_linebuf {
+    size_t  len;
+    uint8_t *buf;
+  } *linebuf;
+  static size_t linebufcnt;
+  static SOCKET *tempSockArr;
+  #ifndef AMUDP_STD_BUFSZ
+  #define AMUDP_STD_BUFSZ 1024  // recv buffer size, should be large enough for decent bandwidth on multi-line chunks
+  #endif
+  #ifndef AMUDP_MAX_LINEBUFSZ
+  #define AMUDP_MAX_LINEBUFSZ 1024*1024  // sanity limit for environment knob
+  #endif
+
+  if (!tempSockArr) { // first call, setup data structures
+    tempSockArr = (SOCKET *)AMUDP_malloc(sizeof(SOCKET)*nproc);
+    bufsz = atoi( AMUDP_getenv_prefixed_withdefault("LINEBUFFERSZ", _STRINGIFY(AMUDP_STD_BUFSZ)) );
+    if (bufsz == 0) { // line buffering disabled, use a static buffer
+      bufsz = AMUDP_STD_BUFSZ;
+      sbuf = (uint8_t *)AMUDP_malloc(bufsz);
+    } else if (bufsz > AMUDP_MAX_LINEBUFSZ) {
+      bufsz = AMUDP_MAX_LINEBUFSZ; 
+    }
+  }
+
   int numset;
-  static SOCKET *tempSockArr = NULL;
-  if (!tempSockArr) tempSockArr = (SOCKET *)AMUDP_malloc(sizeof(SOCKET)*nproc);
   if ((numset = list.getIntersection(psockset, tempSockArr, nproc))) { // we have some active std sockets
     for (int i=0; i < numset; i++) {
       SOCKET s = tempSockArr[i];
       AMUDP_assert(FD_ISSET(s, psockset));
-      #ifndef AMUDP_STD_BUFSZ
-      #define AMUDP_STD_BUFSZ 1024
-      #endif
-      static char buf[AMUDP_STD_BUFSZ+1];
-      ssize_t sz = recv(s, buf, AMUDP_STD_BUFSZ, MSG_NOSIGNAL);
-      AMUDP_assert(sz <= AMUDP_STD_BUFSZ);
-      if (sz == SOCKET_ERROR) {
-        DEBUG_MASTER("recv error in handleStdOutput, closing.");
-        close_socket(s);
-      } else if (sz == 0) { // socket closed
-        DEBUG_MASTER("dropping a std output socket...");
-        list.remove(s);
-        allList.remove(s);
-      } else {
-        AMUDP_assert(sz > 0);
-        buf[sz] = '\0';
-        #if AMUDP_DEBUG_VERBOSE
-          fprintf(fd, "got some output: %s%s", buf, (buf[sz-1]=='\n'?"":"\n"));
-        #else
-          fwrite(buf, 1, sz, fd);
-        #endif
-        fflush(fd);
+      if (sbuf) { // static buffering
+        ssize_t rsz = recv(s, sbuf, bufsz, MSG_NOSIGNAL);
+        if (rsz == SOCKET_ERROR) {
+          DEBUG_MASTER("recv error in handleStdOutput, closing.");
+          close_socket(s);
+        } else if (rsz == 0) { // socket closed
+          DEBUG_MASTER("dropping a std output socket...");
+          list.remove(s);
+          allList.remove(s);
+        } else {
+          AMUDP_assert(rsz > 0 && rsz <= (ssize_t)bufsz);
+          fwrite(sbuf, 1, rsz, fd);
+          fflush(fd);
+        }
+      } else { // line buffering
+        if ((size_t)s >= linebufcnt) { // grow directory
+          void *newdir = AMUDP_calloc((size_t)s+1,sizeof(struct S_linebuf));
+          if (linebufcnt > 0) {
+            memcpy(newdir, linebuf, linebufcnt*sizeof(struct S_linebuf));
+            AMUDP_free(linebuf);
+          }
+          linebuf = (struct S_linebuf*)newdir;
+          linebufcnt = (size_t)s+1;
+        }
+        struct S_linebuf * const e = &linebuf[s];
+        if (!e->buf) { // first use
+          e->buf = (uint8_t *)AMUDP_malloc(bufsz);
+        }
+        AMUDP_assert(e->len < bufsz);
+        ssize_t rsz = recv(s, e->buf+e->len, bufsz-e->len, MSG_NOSIGNAL);
+        if (rsz == SOCKET_ERROR) {
+          DEBUG_MASTER("recv error in handleStdOutput, closing.");
+          close_socket(s);
+        } else if (rsz == 0) { // socket closed
+          if (e->len) { // drain buffer
+            fwrite(e->buf, 1, e->len, fd);
+            fflush(fd);
+            e->len = 0; 
+          }
+          DEBUG_MASTER("dropping a std output socket...");
+          list.remove(s);
+          allList.remove(s);
+        } else {
+          AMUDP_assert(rsz > 0);
+          e->len += rsz;
+          AMUDP_assert(e->len <= bufsz);
+          size_t len = e->len;
+          uint8_t *bol = e->buf;
+          int wrote = 0;
+          // could use memrchr here if it ever makes it into the standard..
+          for (uint8_t *eol = bol+len-1; eol >= bol; eol--) {
+            if (*eol == '\n') {
+              size_t llen = eol-bol+1;
+              AMUDP_assert(llen <= len);
+              fwrite(bol, 1, llen, fd);
+              wrote = 1;
+              len -= llen;
+              bol = eol+1;
+              break;
+            }
+          } 
+          if (len == bufsz) { // full buffer with no breaks, drain it
+            fwrite(e->buf, 1, bufsz, fd);
+            wrote = 1;
+            e->len = 0;
+          } else { // save partial-line tail
+            if (len > 0) memmove(e->buf, bol, len);
+            e->len = len;
+          }
+          if (wrote) fflush(fd);
+        }
       }
     }
   }
