@@ -38,7 +38,7 @@ GASNet ChangeLog
 * Berkeley Lab Checkpoint/Restart (BLCR)
   This release is the first to include (experimental) support for
   system-level checkpoint and restart using BLCR
-  - Support is currently only available in ibv- and upd-conduits
+  - Support is currently only available in ibv- and udp-conduits
   - See other/blcr/README-blcr for more information
 
 * General and Misc.
