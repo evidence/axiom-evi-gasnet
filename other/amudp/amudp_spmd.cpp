@@ -274,19 +274,14 @@ static void handleStdOutput(FILE *fd, fd_set *psockset, SocketList& list, Socket
     for (int i=0; i < numset; i++) {
       SOCKET s = tempSockArr[i];
       AMUDP_assert(FD_ISSET(s, psockset));
+      ssize_t rsz = SOCKET_ERROR;
       if (sbuf) { // static buffering
-        ssize_t rsz = recv(s, sbuf, bufsz, MSG_NOSIGNAL);
-        if (rsz == SOCKET_ERROR) {
-          DEBUG_MASTER("recv error in handleStdOutput, closing.");
-          close_socket(s);
-        } else if (rsz == 0) { // socket closed
-          DEBUG_MASTER("dropping a std output socket...");
-          list.remove(s);
-          allList.remove(s);
-        } else {
-          AMUDP_assert(rsz > 0 && rsz <= (ssize_t)bufsz);
+        rsz = recv(s, sbuf, bufsz, MSG_NOSIGNAL);
+        if (rsz > 0) { // other cases handled below
+          AMUDP_assert(rsz <= (ssize_t)bufsz);
           fwrite(sbuf, 1, rsz, fd);
           fflush(fd);
+          continue;
         }
       } else { // line buffering
         if ((size_t)s >= linebufcnt) { // grow directory
@@ -303,21 +298,15 @@ static void handleStdOutput(FILE *fd, fd_set *psockset, SocketList& list, Socket
           e->buf = (uint8_t *)AMUDP_malloc(bufsz);
         }
         AMUDP_assert(e->len < bufsz);
-        ssize_t rsz = recv(s, e->buf+e->len, bufsz-e->len, MSG_NOSIGNAL);
-        if (rsz == SOCKET_ERROR) {
-          DEBUG_MASTER("recv error in handleStdOutput, closing.");
-          close_socket(s);
-        } else if (rsz == 0) { // socket closed
+        rsz = recv(s, e->buf+e->len, bufsz-e->len, MSG_NOSIGNAL);
+        if (rsz == 0) { // socket closed
           if (e->len) { // drain buffer
             fwrite(e->buf, 1, e->len, fd);
             fflush(fd);
             e->len = 0; 
           }
-          DEBUG_MASTER("dropping a std output socket...");
-          list.remove(s);
-          allList.remove(s);
-        } else {
-          AMUDP_assert(rsz > 0);
+          // close handled below
+        } else if (rsz > 0) {
           e->len += rsz;
           AMUDP_assert(e->len <= bufsz);
           size_t len = e->len;
@@ -344,7 +333,19 @@ static void handleStdOutput(FILE *fd, fd_set *psockset, SocketList& list, Socket
             e->len = len;
           }
           if (wrote) fflush(fd);
+          continue;
         }
+      } // line buffering
+
+      // handle recv errors
+      if (rsz == SOCKET_ERROR) {
+        DEBUG_MASTER("recv error in handleStdOutput, closing.");
+        close_socket(s);
+      } else if (rsz == 0) { // socket closed
+        DEBUG_MASTER("dropping a std output socket...");
+        close_socket(s);
+        list.remove(s);
+        allList.remove(s);
       }
     }
   }
