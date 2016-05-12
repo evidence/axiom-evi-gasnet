@@ -14,6 +14,8 @@
   #include <process.h>
   #include <io.h>
   #include <direct.h>
+#elif PLATFORM_OS_CYGWIN
+  #include <windows.h>  // CreateProcess
 #endif
 #if PLATFORM_ARCH_CRAYX1
   #include <unistd.h>

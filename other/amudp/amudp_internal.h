@@ -472,10 +472,13 @@ typedef enum {
 
 
 //------------------------------------------------------------------------------------
-#ifndef AMUDP_ENV_PREFIX
-  #define AMUDP_ENV_PREFIX AMUDP
+#ifndef AMUDP_ENV_PREFIX_STR // AMUDP_ENV_PREFIX_STR is the safest define, to avoid conflicting defns
+  #ifdef AMUDP_ENV_PREFIX
+    #define AMUDP_ENV_PREFIX_STR _STRINGIFY(AMUDP_ENV_PREFIX)
+  #else
+    #define AMUDP_ENV_PREFIX_STR "AMUDP"
+  #endif
 #endif
-#define AMUDP_ENV_PREFIX_STR _STRINGIFY(AMUDP_ENV_PREFIX)
 
 /* return the first environment variable matching one of:
     AMUDP_ENV_PREFIX_STR##_##basekey
