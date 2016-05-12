@@ -1,6 +1,9 @@
 BLCR support in GASNet
 ======================
 
+BLCR is "Berkeley Lab Checkpoint/Restart", a system-level checkpointer for
+Linux.  For more information on BLCR, visit http://ftg.lbl.gov/checkpoint
+
 Currently there is support for BLCR-based process checkpoints with the
 following GASNet conduits under the proper conditions:
   udp-conduit
