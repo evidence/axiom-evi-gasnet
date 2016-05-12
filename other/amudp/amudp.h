@@ -22,7 +22,7 @@
 #define _STRINGIFY_HELPER(x) #x
 #define _STRINGIFY(x) _STRINGIFY_HELPER(x)
 
-#define AMUDP_LIBRARY_VERSION      3.9
+#define AMUDP_LIBRARY_VERSION      3.10
 #define AMUDP_LIBRARY_VERSION_STR  _STRINGIFY(AMUDP_LIBRARY_VERSION)
 
 /* naming policy:
@@ -59,6 +59,9 @@
 #ifndef AMUDP_COLLECT_LATENCY_STATS
 #define AMUDP_COLLECT_LATENCY_STATS   1
 #endif
+
+#define AMUDP_PROCID_NEXT -1  /* Use next unallocated procid */
+#define AMUDP_PROCID_ALLOC -2 /* Allocate and return next procis, but do not bootstrap */
 /* ------------------------------------------------------------------------------------ */
 /* Simple user-visible types */
 
