@@ -84,9 +84,7 @@ static int AMUDP_SPMDShutdown(int exitcode);
 
 /* master only */
   static SOCKET AMUDP_SPMDListenSocket = INVALID_SOCKET; /* TCP bootstrapping listener */
-  static SOCKET AMUDP_SPMDStdinListenSocket = INVALID_SOCKET; 
-  static SOCKET AMUDP_SPMDStdoutListenSocket = INVALID_SOCKET; 
-  static SOCKET AMUDP_SPMDStderrListenSocket = INVALID_SOCKET; 
+  static SOCKET AMUDP_SPMDStdListenSocket[3];
   static SOCKET *AMUDP_SPMDSlaveSocket = NULL; /* table of TCP control sockets */
   static en_t *AMUDP_SPMDTranslation_name = NULL; 
   static tag_t *AMUDP_SPMDTranslation_tag = NULL; /* network byte order */
@@ -99,9 +97,7 @@ static int AMUDP_SPMDShutdown(int exitcode);
   static eb_t AMUDP_SPMDBundle = NULL;
   static en_t AMUDP_SPMDName = {0};
   volatile int AMUDP_SPMDIsActiveControlSocket = 0; 
-  static SOCKET newstdin = INVALID_SOCKET;
-  static SOCKET newstdout = INVALID_SOCKET;
-  static SOCKET newstderr = INVALID_SOCKET;
+  static SOCKET newstd[3] = { INVALID_SOCKET, INVALID_SOCKET, INVALID_SOCKET };
   static int AMUDP_SPMDMYPROC = AMUDP_PROCID_NEXT; /* -1 requests next avail procid */
   static volatile int AMUDP_SPMDBarrierDone = 0; /* flag barrier as complete */
   static volatile int AMUDP_SPMDGatherDone = 0;  /* flag gather as complete */
@@ -139,9 +135,7 @@ typedef struct {
   int32_t depth;        // network depth
   uint32_t environtablesz; // size of environment table we're about to send
 
-  uint16_t stdinMaster; // address of stdin listener
-  uint16_t stdoutMaster; // address of stdout listener
-  uint16_t stderrMaster; // address of stderr listener
+  uint16_t stdMaster[3]; // address of std listeners
   uint16_t _pad1; // ensure platform-independent table size
 
 } AMUDP_SPMDBootstrapInfo_t;
@@ -192,8 +186,8 @@ static void flushStreams(const char *context) {
     perror("fflush");
     AMUDP_FatalErr("failed to flush stderr in %s", context); 
   }
-  fsync(STDOUT_FILENO); /* ignore errors for output is a console */
-  fsync(STDERR_FILENO); /* ignore errors for output is a console */
+  fsync(FD_STDOUT); /* ignore errors for output is a console */
+  fsync(FD_STDERR); /* ignore errors for output is a console */
 
   static int do_sync = -1;
   if (do_sync < 0) {
@@ -536,26 +530,30 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
     SocketList stdinList(AMUDP_SPMDNUMPROCS);    // a list of all stdin routing sockets
     SocketList stdoutList(AMUDP_SPMDNUMPROCS);   // a list of all stdout routing sockets
     SocketList stderrList(AMUDP_SPMDNUMPROCS);   // a list of all stderr routing sockets
+    SocketList * const stdList[3] = { &stdinList, &stdoutList, &stderrList };
+    FILE       *stdFILE[3] = { stdin, stdout, stderr };
     AMUDP_SPMDSlaveSocket = (SOCKET*)AMUDP_malloc(AMUDP_SPMDNUMPROCS * sizeof(SOCKET));
 
     try {
       // create our TCP listen ports 
       unsigned short anyport = 0;
       AMUDP_SPMDListenSocket = listen_socket(anyport, false);
-      AMUDP_SPMDStdinListenSocket = listen_socket(anyport, false);
-      AMUDP_SPMDStdoutListenSocket = listen_socket(anyport, false);
-      AMUDP_SPMDStderrListenSocket = listen_socket(anyport, false);
-      bootstrapinfo.stdinMaster = hton16(getsockname(AMUDP_SPMDStdinListenSocket).port());
-      bootstrapinfo.stdoutMaster = hton16(getsockname(AMUDP_SPMDStdoutListenSocket).port());
-      bootstrapinfo.stderrMaster = hton16(getsockname(AMUDP_SPMDStderrListenSocket).port());
+      allList.insert(AMUDP_SPMDListenSocket);
+
+      for (int i=0; i <= 2; i++) {
+        if (i == FD_STDIN) {  // disable stdin forwarding, for now
+          AMUDP_SPMDStdListenSocket[i] = INVALID_SOCKET;
+          bootstrapinfo.stdMaster[i] = hton16(0);
+        } else {
+          SOCKET s = listen_socket(anyport, false);
+          AMUDP_SPMDStdListenSocket[i] = s;
+          allList.insert(s);
+          bootstrapinfo.stdMaster[i] = hton16(getsockname(s).port());
+        }
+      }
     } catch (xBase &exn) {
       AMUDP_RETURN_ERRFR(RESOURCE, AMUDP_SPMDStartup, exn.why());
     }
-
-    allList.insert(AMUDP_SPMDListenSocket);
-    allList.insert(AMUDP_SPMDStdinListenSocket);
-    allList.insert(AMUDP_SPMDStdoutListenSocket);
-    allList.insert(AMUDP_SPMDStderrListenSocket);
 
     { /* flatten a snapshot of the master's environment for transmission to slaves
        * here we assume the standard representation where a pointer to the environment 
@@ -667,20 +665,9 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
 
     if (!AMUDP_SPMDRedirectStdsockets) {
       // spawn function disabled our stdsocket redirect - signal the slaves of this fact
-      bootstrapinfo.stdinMaster = hton16(0);
-      bootstrapinfo.stdoutMaster = hton16(0);
-      bootstrapinfo.stderrMaster = hton16(0);
+      for (int i=0; i <= 2; i++)
+        bootstrapinfo.stdMaster[i] = hton16(0);
     }
-#if !PLATFORM_OS_MSWINDOWS
-    else {
-      // Insurance against strangely intermixed stdout/stderr
-      int rc;
-      rc = fcntl(STDOUT_FILENO, F_GETFL, 0);
-      if (rc >= 0) (void)fcntl(STDOUT_FILENO, F_SETFL, rc | O_APPEND);
-      rc = fcntl(STDERR_FILENO, F_GETFL, 0);
-      if (rc >= 0) (void)fcntl(STDERR_FILENO, F_SETFL, rc | O_APPEND);
-    }
-#endif 
 
     // main communication loop for master
     try {
@@ -691,6 +678,7 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
       int numset; // helpers for coord socket
       SOCKET *tempSockArr = (SOCKET*)AMUDP_malloc(sizeof(SOCKET)*AMUDP_SPMDNUMPROCS);
       while (1) {
+pollentry:
        #ifdef FD_SETSIZE /* Should always be present, but just in case */
         if (allList.getMaxFd() >= FD_SETSIZE)
           AMUDP_FatalErr("Open sockets exceed FD_SETSIZE. Exiting...");
@@ -703,16 +691,14 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
         }
         //------------------------------------------------------------------------------------
         // stdin/stderr/stdout listeners - incoming connections
-        // must continue to re-select after accepting a connection that might alias a closed listener socket id
-        if (AMUDP_SPMDStdinListenSocket != INVALID_SOCKET &&
-            FD_ISSET(AMUDP_SPMDStdinListenSocket, psockset))  
-           { setupStdSocket(AMUDP_SPMDStdinListenSocket, stdinList, allList); continue; }
-        if (AMUDP_SPMDStdoutListenSocket != INVALID_SOCKET &&
-            FD_ISSET(AMUDP_SPMDStdoutListenSocket, psockset)) 
-           { setupStdSocket(AMUDP_SPMDStdoutListenSocket, stdoutList, allList); continue; }
-        if (AMUDP_SPMDStderrListenSocket != INVALID_SOCKET &&
-            FD_ISSET(AMUDP_SPMDStderrListenSocket, psockset)) 
-           { setupStdSocket(AMUDP_SPMDStderrListenSocket, stderrList, allList); continue; }
+        for (int i=0; i<=2; i++) {
+          SOCKET &s = AMUDP_SPMDStdListenSocket[i];
+          if (s != INVALID_SOCKET && FD_ISSET(s, psockset))  {
+             setupStdSocket(s, *stdList[i], allList); 
+             // must re-select after accepting a connection that might alias a closed listener socket id
+             goto pollentry; 
+          }
+        }
         //------------------------------------------------------------------------------------
         // stdout/err sockets - must come before possible exit to drain output
         handleStdOutput(stdout, psockset, stdoutList, allList, AMUDP_SPMDNUMPROCS);
@@ -722,15 +708,10 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
           for (int i=0; i < numset; i++) {
             SOCKET s = tempSockArr[i];
             AMUDP_assert(FD_ISSET(s, psockset));
-            if (isClosed(s)) {
-              DEBUG_MASTER("dropping a stdinList socket...");
-              stdinList.remove(s);
-              allList.remove(s);
-            } else {
-              AMUDP_Err("Master got illegal input on a stdin socket");
-              stdinList.remove(s); // prevent subsequent warnings
-              allList.remove(s);
-            }
+            if (isClosed(s)) DEBUG_MASTER("dropping a stdinList socket...");
+            else AMUDP_Err("Master got illegal input on a stdin socket");
+            stdinList.remove(s);
+            allList.remove(s);
           }
         }
         //------------------------------------------------------------------------------------
@@ -976,13 +957,11 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
                     printf("Awaiting final slave outputs...\n");
                     fflush(stdout);
                   }
-                  if (stdoutList.getCount()) {
-                    stdoutList.makeFD_SET(psockset);
-                    handleStdOutput(stdout, psockset, stdoutList, allList, stdoutList.getCount());
-                  }
-                  if (stderrList.getCount()) {
-                    stderrList.makeFD_SET(psockset);
-                    handleStdOutput(stderr, psockset, stderrList, allList, stderrList.getCount());
+                  for (int i=1; i <= 2; i++) {
+                    if (stdList[i]->getCount()) {
+                      stdList[i]->makeFD_SET(psockset);
+                      handleStdOutput(stdFILE[i], psockset, *stdList[i], allList, stdList[i]->getCount());
+                    }
                   }
                   sched_yield();
                 }
@@ -1206,16 +1185,13 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
       AMUDP_assert(enEqual(tempTranslation_name[AMUDP_SPMDMYPROC], AMUDP_SPMDName));
 
       #if !DISABLE_STDSOCKET_REDIRECT
-        if (bootstrapinfo.stdinMaster) {
+      for (int fd=0; fd <= 2; fd++) {
+        if (bootstrapinfo.stdMaster[fd]) {
             // perform stdin/out/err redirection
-            newstdin  = connect_socket(SockAddr(masterAddr.IP(),ntoh16(bootstrapinfo.stdinMaster)));
-            newstdout = connect_socket(SockAddr(masterAddr.IP(),ntoh16(bootstrapinfo.stdoutMaster)));
-            newstderr = connect_socket(SockAddr(masterAddr.IP(),ntoh16(bootstrapinfo.stderrMaster)));
+            newstd[fd]  = connect_socket(SockAddr(masterAddr.IP(),ntoh16(bootstrapinfo.stdMaster[fd])));
             #if 0
               // disable buffering
-              setvbuf(stdin, NULL, _IONBF, 0);
-              setvbuf(stdout, NULL, _IONBF, 0);
-              setvbuf(stderr, NULL, _IONBF, 0);
+              setvbuf(stdFILE[fd], NULL, _IONBF, 0);
             #endif
             #if PLATFORM_OS_MSWINDOWS
               #if 0
@@ -1241,20 +1217,13 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
               #endif
             #else
               /* UNIX */
-              if (dup2(newstdin, FD_STDIN) < 0) { // redirect stdout to socket
-                perror("dup2(stdin)");
-                _exit(1); 
-              }
-              if (dup2(newstdout, FD_STDOUT) < 0) { // redirect stdout to socket
-                perror("dup2(stdout)");
-                _exit(1); 
-              }
-              if (dup2(newstderr, FD_STDERR) < 0) { // redirect stdout to socket
-                perror("dup2(stderr)");
+              if (dup2(newstd[fd], fd) < 0) { // redirect std FD to socket
+                perror("dup2(std)");
                 _exit(1); 
               }
             #endif
         }
+     }
      #endif
 
       // setup translation table
@@ -1686,17 +1655,12 @@ static int AMUDP_SPMDShutdown(int exitcode) {
   }
 
   /* use normal shutdown and closesocket to ignore errors */
-  if (newstdin != INVALID_SOCKET) {
-    shutdown(newstdin, SHUT_RDWR);
-    closesocket(newstdin); 
-  }
-  if (newstdout != INVALID_SOCKET) {
-    shutdown(newstdout, SHUT_RDWR);
-    closesocket(newstdout); 
-  }
-  if (newstderr != INVALID_SOCKET) {
-    shutdown(newstderr, SHUT_RDWR);
-    closesocket(newstderr);
+  for (int i=0; i <= 2; i++) {
+    SOCKET s = newstd[i];
+    if (s != INVALID_SOCKET) {
+      shutdown(s, SHUT_RDWR);
+      closesocket(s); 
+    }
   }
 
   sched_yield();
