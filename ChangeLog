@@ -2,7 +2,7 @@ GASNet ChangeLog
 ----------------
 
 ----------------------------------------------------------------------
-05-1?-2016 :  Release 1.26.2-rc1
+05-1?-2016 :  Release 1.26.2-rc2
 
 * Cray uGNI (gemini- and aries-conduits)
   - Allow configure and build without use of the Cray wrapper compilers
