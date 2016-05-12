@@ -2,7 +2,7 @@ GASNet ChangeLog
 ----------------
 
 ----------------------------------------------------------------------
-05-1?-2016 :  Release 1.26.2-rc2
+05-12-2016 :  Release 1.26.2
 
 * Cray uGNI (gemini- and aries-conduits)
   - Allow configure and build without use of the Cray wrapper compilers
@@ -10,7 +10,7 @@ GASNet ChangeLog
   - Maximum supported process count doubled to 2^24 (16 million)
   - Maximum AM Medium payload increased from 960 to 4032 bytes without
     a corresponding increase in the buffer allocation footprint
-  - Maximum AM Long payload raised to 8MB on Aries (still 1M on Gemini)
+  - Maximum AM Long payload raised to 8MB on Aries (still 1MB on Gemini)
   - Multiple changes to reduce startup overheads
   - Fixes for C99 code compilance
 
