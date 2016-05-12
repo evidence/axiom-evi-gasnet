@@ -36,11 +36,11 @@ int main(int argc, char **argv) {
   if (argc > 2) maxwidth = atoi(argv[2]);
   if (maxwidth < 1) maxwidth = 80;
 
-  buf = malloc(maxwidth+1);
+  buf = malloc(maxwidth+4);
   if (myproc < 10) sym = '0'+myproc;
   else if (myproc < 36) sym = 'A'+(myproc-10);
   else sym = '*';
-  memset(buf, sym, maxwidth);
+  memset(buf, sym, maxwidth+4);
 
   AM_Safe(AMX_SPMDBarrier());
 
