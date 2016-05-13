@@ -1035,8 +1035,9 @@ pollentry:
       if (! endptr || (',' != endptr[0])) AMUDP_Err("Malformed arguments '%s' to slave process", env_var);
       slave_args = endptr + 1;
     }
-  #if HAVE_GETIFADDRS
+    
     // extract appended WORKERIP which it is needed before the master env is sent
+    // must extract this field even without HAVE_GETIFADDRS
     const char *network = "";
     { char *delimiter = strrchr(slave_args,',');
       if (delimiter != NULL) {
@@ -1044,7 +1045,7 @@ pollentry:
         *delimiter = '\0';
       }
     }
-  #endif
+
     { // extract master's address
       if (strchr(slave_args,',')) {
         masterAddr = SockAddr(slave_args);
