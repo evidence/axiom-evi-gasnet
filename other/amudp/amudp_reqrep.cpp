@@ -26,6 +26,12 @@ static int AMUDP_ReplyGeneric(amudp_category_t category,
                           void *source_addr, int nbytes, uintptr_t dest_offset, 
                           int numargs, va_list argptr,
                           uint8_t systemType, uint8_t systemArg);
+
+#if AMUDP_EXTRA_CHECKSUM
+  static void AMUDP_SetChecksum(amudp_msg_t *m, size_t len);
+  static void AMUDP_ValidateChecksum(amudp_msg_t *m, size_t len);
+#endif
+
 /*------------------------------------------------------------------------------------
  * Private helpers
  *------------------------------------------------------------------------------------ */
@@ -55,6 +61,10 @@ static int sendPacket(ep_t ep, amudp_buf_t *packet, int packetlength, en_t desta
         fprintf(stderr, "sending packet to (%s)\n", AMUDP_enStr(destaddress, temp)); fflush(stderr);
       }
     }
+  #endif
+
+  #if AMUDP_EXTRA_CHECKSUM
+    AMUDP_SetChecksum(&(packet->Msg), packetlength);
   #endif
 
   #ifdef UETH
@@ -326,6 +336,10 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
         #endif
         destbuf->status.bulkBuffer = NULL;
 
+        #if AMUDP_EXTRA_CHECKSUM && AMUDP_DEBUG
+          memset((char *)destbuf, 0xCC, destbufsz); // init recv buffer to a known value
+        #endif
+
         retval = myrecvfrom(ep->s, (char *)destbuf, destbufsz, 0, 
                           &sa, &sz);
 
@@ -342,6 +356,14 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
           fprintf(stderr, "bytesAvail=%i  recvfrom returned:%i  ioctl() is probably broken\n", (int)bytesAvail, retval); fflush(stderr);
         }
         #endif
+
+        #if AMUDP_EXTRA_CHECKSUM
+          //memset(((char*)destbuf)+retval-8, 0, 8);
+          //destbuf->Msg.chk2 = 4;
+          //destbuf->Msg.packetlen = 4;
+          AMUDP_ValidateChecksum(&(destbuf->Msg), retval);
+        #endif
+
         totalBytesDrained += retval;
         if (sz != sizeof(en_t))
           AMUDP_RETURN_ERRFR(RESOURCE, "AMUDP_DrainNetwork: recvfrom() returned wrong sockaddr size", sockErrDesc());
@@ -1817,3 +1839,75 @@ extern void AMUDP_DefaultReturnedMsg_Handler(int status, op_t opcode, void *toke
   }
 }
 /* ------------------------------------------------------------------------------------ */
+#if AMUDP_EXTRA_CHECKSUM
+static uint16_t checksum(uint8_t *data, size_t len) {
+  uint8_t *p = data;
+  uint16_t val = 0;
+  for (size_t i=0; i < len; i++) { // a simple, fast, non-secure checksum
+    uint8_t stir = (uint8_t)(i & 0xFF);
+    val = (val << 8) | 
+          ( ((val >> 8) & 0xFF) ^ data[i] ^ stir );
+  }
+  return val;
+}
+static void AMUDP_SetChecksum(amudp_msg_t *m, size_t len) {
+  AMUDP_assert(len > 0 && len <= AMUDP_MAXBULK_NETWORK_MSG);
+  m->packetlen = (uint32_t)len;
+  uint8_t *data = (uint8_t *)&(m->packetlen); 
+  uint16_t chk = checksum(data, len - 4); // checksum includes chk* fields
+  m->chk1 = chk;
+  m->chk2 = chk;
+}
+static void AMUDP_ValidateChecksum(amudp_msg_t *m, size_t len) {
+  static char report[512];
+  int failed = 0;
+
+  #if AMUDP_DEBUG_VERBOSE
+  { static int firstcall = 1;
+    if (firstcall) {
+       fprintf(stderr, "AMUDP_EXTRA_CHECKSUM is enabled.\n"); fflush(stderr);
+    }
+    firstcall = 0;
+  }
+  #endif
+
+  if_pf (m->chk1 != m->chk2) {
+    strcat(report, " : Checksum field corrupted");
+    failed = 1;
+  }
+  if_pf (len != m->packetlen) {
+    strcat(report, " : Length mismatch");
+    failed = 1;
+  }
+  if_pf (len < AMUDP_MIN_NETWORK_MSG || len > AMUDP_MAXBULK_NETWORK_MSG) {
+    strcat(report, " : Packet length illegal");
+    failed = 1;
+  }
+
+  uint8_t *data = (uint8_t *)&(m->packetlen); 
+  size_t datalen = len-4;
+  uint16_t recvchk = checksum(data, datalen);
+
+  if_pf (recvchk != m->chk1) {
+    strcat(report, " : Checksum mismatch on data");
+    failed = 1;
+  }
+
+  if_pf (failed) {
+    // further analysis
+    uint8_t val = data[datalen-1];
+    int rep = 0;
+    for (int i=datalen-1; i >= 0; i--) {
+      if (data[i] == val) rep++;
+      else break;
+    }
+    if (rep > 1) {
+      char tmp[80];
+      sprintf(tmp," : Final %d bytes are 0x%02x",rep,val);
+      strcat(report,tmp);
+    }
+    AMUDP_FatalErr("UDP packet failed checksum!\n  recvLen: %d  packetlen: %d\n  chk1:0x%04x  chk2:0x%04x  recvchk:0x%04x\n  Analysis%s\n",
+                    (int)len, (int)m->packetlen, m->chk1, m->chk2, recvchk, report);
+  }
+}
+#endif
