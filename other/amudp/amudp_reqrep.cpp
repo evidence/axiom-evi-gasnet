@@ -756,7 +756,7 @@ void AMUDP_processPacket(amudp_buf_t *basicbuf, int isloopback) {
       amudp_bufdesc_t *desc = GET_REP_DESC(ep, sourceID, instance);
       if_pf (seqnum != desc->seqNum) { 
         if_pf (AMUDP_SEQNUM_INC(seqnum) != desc->seqNum && OOOwarn) {
-          AMUDP_Warn(OOOwarn, "reply");
+          AMUDP_Warn(OOOwarn, "request");
           OOOwarn = NULL;
         }
         /*  request resent or reply got dropped - resend reply */
