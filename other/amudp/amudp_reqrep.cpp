@@ -257,11 +257,16 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
     int totalBytesDrained = 0;
     while (1) {
       IOCTL_FIONREAD_ARG_T bytesAvail = 0;
-      if_pf (SOCK_ioctlsocket(ep->s, _FIONREAD, &bytesAvail) == SOCKET_ERROR)
-        AMUDP_RETURN_ERRFR(RESOURCE, "ioctlsocket()", sockErrDesc());
+      #if PLATFORM_OS_CYGWIN
+        // bug 3284: ioctl(FIONREAD) always returns error on Cygwin 2.5
+        if (inputWaiting(ep->s)) bytesAvail = AMUDP_MAXBULK_NETWORK_MSG;
+      #else
+        if_pf (SOCK_ioctlsocket(ep->s, _FIONREAD, &bytesAvail) == SOCKET_ERROR)
+          AMUDP_RETURN_ERRFR(RESOURCE, "ioctlsocket()", sockErrDesc());
+      #endif
       if (bytesAvail == 0) break; 
 
-      #if BROKEN_IOCTL && USE_TRUE_BULK_XFERS
+      #if BROKEN_IOCTL && USE_TRUE_BULK_XFERS && !PLATFORM_OS_CYGWIN
         if ((int)bytesAvail > AMUDP_MAX_NETWORK_MSG) { 
           /* this workaround is a HACK that lets us decide if we truly have a bulk message */
           static char *junk = NULL;
