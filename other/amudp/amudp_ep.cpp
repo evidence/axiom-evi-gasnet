@@ -264,16 +264,17 @@ extern int AMUDP_growSocketBufferSize(ep_t ep, int targetsize,
 static int AMUDP_AllocateEndpointResource(ep_t ep) {
   AMUDP_assert(ep != NULL);
   #ifdef UETH
-    if (AMUDP_UETH_endpoint) return FALSE; /* only one endpoint per process */
-    if (ueth_init() != UETH_OK) return FALSE;
+    if (AMUDP_UETH_endpoint) 
+      AMUDP_RETURN_ERRFR(RESOURCE, AMUDP_AllocateEndpointResource, "UETH only supports one endpoint per process");
+    if (ueth_init() != UETH_OK) AMUDP_RETURN_ERRF(RESOURCE, ueth_init);
     if (ueth_getaddress(&ep->name) != UETH_OK) {
       ueth_terminate();
-      return FALSE;
+      AMUDP_RETURN_ERRF(RESOURCE, ueth_getaddress);
     }
     /*  TODO this doesn't handle apps that dont use SPMD extensions */
     if (ueth_setaddresshook(&AMUDP_SPMDAddressChangeCallback) != UETH_OK) {
       ueth_terminate();
-      return FALSE;
+      AMUDP_RETURN_ERRF(RESOURCE, ueth_setaddresshook);
     }
     AMUDP_UETH_endpoint = ep;
   #else
@@ -286,10 +287,14 @@ static int AMUDP_AllocateEndpointResource(ep_t ep) {
     { /* check transport message size - UNIX doesn't seem to have a way for doing this */
       unsigned int maxmsg;
       GETSOCKOPT_LENGTH_T sz = sizeof(unsigned int);
-      if (SOCK_getsockopt(ep->s, SOL_SOCKET, SO_MAX_MSG_SIZE, (char*)&maxmsg, &sz) == SOCKET_ERROR)
+      if (SOCK_getsockopt(ep->s, SOL_SOCKET, SO_MAX_MSG_SIZE, (char*)&maxmsg, &sz) == SOCKET_ERROR) {
+        closesocket(ep->s);
         AMUDP_RETURN_ERRFR(RESOURCE, getsockopt, sockErrDesc());
-      if (maxmsg < AMUDP_MAX_NETWORK_MSG) 
+      }
+      if (maxmsg < AMUDP_MAX_NETWORK_MSG) {
+        closesocket(ep->s);
         AMUDP_RETURN_ERRFR(RESOURCE, AMUDP_AllocateEndpointResource, "max datagram size of UDP provider is too small");
+      }
     }
     #endif
 
@@ -300,22 +305,24 @@ static int AMUDP_AllocateEndpointResource(ep_t ep) {
 
     if (bind(ep->s, (struct sockaddr*)&ep->name, sizeof(struct sockaddr)) == SOCKET_ERROR) {
       closesocket(ep->s);
-      return FALSE;
+      AMUDP_RETURN_ERRFR(RESOURCE, bind, sockErrDesc());
     }
     { /*  danger: this might fail on multi-homed hosts if AMUDP_currentUDPInterface was not set*/
       GETSOCKNAME_LENGTH_T sz = sizeof(en_t);
       if (SOCK_getsockname(ep->s, (struct sockaddr*)&ep->name, &sz) == SOCKET_ERROR) {
         closesocket(ep->s);
-        return FALSE;
+        AMUDP_RETURN_ERRFR(RESOURCE, getsockname, sockErrDesc());
       }
       /* can't determine interface address */
       if (ep->name.sin_addr.s_addr == INADDR_ANY) {
-        AMUDP_Err("AMUDP_AllocateEndpointResource failed to determine UDP endpoint interface address");
-        return FALSE;
+        closesocket(ep->s);
+        AMUDP_RETURN_ERRFR(RESOURCE, AMUDP_AllocateEndpointResource,
+                           "AMUDP_AllocateEndpointResource failed to determine UDP endpoint interface address");
       }
       if (ep->name.sin_port == 0) {
-        AMUDP_Err("AMUDP_AllocateEndpointResource failed to determine UDP endpoint interface port");
-        return FALSE; 
+        closesocket(ep->s);
+        AMUDP_RETURN_ERRFR(RESOURCE, AMUDP_AllocateEndpointResource,
+                           "AMUDP_AllocateEndpointResource failed to determine UDP endpoint interface port");
       }
     }
   #endif

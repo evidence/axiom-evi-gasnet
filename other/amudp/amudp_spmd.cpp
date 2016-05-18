@@ -1117,8 +1117,9 @@ pollentry:
         #if HAVE_GETIFADDRS // allow user to override our same-interface assumption
           if (network && network[0]) {
             SockAddr networkaddr(network, 0);
-            if (! getIfaceAddr(networkaddr, myinterface)) {
-              AMUDP_Err("Failed to find interface on requested subnet %s", network);
+            char subnets[1024];
+            if (! getIfaceAddr(networkaddr, myinterface, subnets)) {
+              AMUDP_Err("Failed to find interface on requested subnet %s. Available subnets: %s", network, subnets);
               AMUDP_RETURN(AM_ERR_RESOURCE);
             }
           }
