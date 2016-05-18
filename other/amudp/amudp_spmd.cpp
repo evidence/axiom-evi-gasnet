@@ -1176,15 +1176,6 @@ pollentry:
       AMUDP_assert(AMUDP_SPMDNUMPROCS > 0 && AMUDP_SPMDNUMPROCS < AMUDP_MAX_SPMDPROCS);
       AMUDP_assert(AMUDP_SPMDMYPROC >= 0 && AMUDP_SPMDMYPROC < AMUDP_SPMDNUMPROCS);
 
-      en_t *tempTranslation_name = (en_t *)AMUDP_malloc(AMUDP_SPMDNUMPROCS*sizeof(en_t));
-      tag_t *tempTranslation_tag = (tag_t *)AMUDP_malloc(AMUDP_SPMDNUMPROCS*sizeof(tag_t));
-      AMUDP_assert(tempTranslation_name && tempTranslation_tag);
-      recvAll(AMUDP_SPMDControlSocket, tempTranslation_name, AMUDP_SPMDNUMPROCS*sizeof(en_t));
-      recvAll(AMUDP_SPMDControlSocket, tempTranslation_tag, AMUDP_SPMDNUMPROCS*sizeof(tag_t));
-
-      AMUDP_assert(ntoh64(tempTranslation_tag[AMUDP_SPMDMYPROC]) == ntoh64(bootstrapinfo.tag));
-      AMUDP_assert(enEqual(tempTranslation_name[AMUDP_SPMDMYPROC], AMUDP_SPMDName));
-
       #if !DISABLE_STDSOCKET_REDIRECT
       for (int fd=0; fd <= 2; fd++) {
         if (bootstrapinfo.stdMaster[fd]) {
@@ -1226,6 +1217,17 @@ pollentry:
         }
      }
      #endif
+
+      // retrieve translation table
+      en_t *tempTranslation_name = (en_t *)AMUDP_malloc(AMUDP_SPMDNUMPROCS*sizeof(en_t));
+      tag_t *tempTranslation_tag = (tag_t *)AMUDP_malloc(AMUDP_SPMDNUMPROCS*sizeof(tag_t));
+      AMUDP_assert(tempTranslation_name && tempTranslation_tag);
+      recvAll(AMUDP_SPMDControlSocket, tempTranslation_name, AMUDP_SPMDNUMPROCS*sizeof(en_t));
+      recvAll(AMUDP_SPMDControlSocket, tempTranslation_tag, AMUDP_SPMDNUMPROCS*sizeof(tag_t));
+
+      AMUDP_assert(ntoh64(tempTranslation_tag[AMUDP_SPMDMYPROC]) == ntoh64(bootstrapinfo.tag));
+      AMUDP_assert(enEqual(tempTranslation_name[AMUDP_SPMDMYPROC], AMUDP_SPMDName));
+
 
       // setup translation table
       for (int i = 0; i < AMUDP_SPMDNUMPROCS; i++) {
