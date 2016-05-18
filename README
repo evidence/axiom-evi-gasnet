@@ -374,7 +374,7 @@ application-specific support.
  backtrace for a "hung" process.
 
 * GASNET_BACKTRACE_TYPE - set to a comma-delimited, ordered list of mechanisms 
- (e.g. different debugger tools) to try when generating a backtrace for
+ (i.e. different debugger tools) to try when generating a backtrace for
  GASNET_BACKTRACE. The default value (visible via GASNET_VERBOSEENV) includes
  all mechanisms detected as supported on the current platform.
 
@@ -393,7 +393,7 @@ application-specific support.
   RDMADISSEM - uses Put operations to implement the Dissemination algorithm.
   DISSEM - auto-selects either AMDISSEM or RDMADISSEM
    The AMDISSEM or RDMADISSEM algorithm is selected automatically based on
-   conduit-specific critera.  In general RDMADISSEM is favored when the GASNet
+   conduit-specific criteria.  In general RDMADISSEM is favored when the GASNet
    Extended API is implemented natively.
  In addition to those choices, many conduits have additional network-specific
  barrier algorithms documented in the corresponding conduit READMEs.
@@ -405,7 +405,7 @@ application-specific support.
  is the radix of the tree-based intra-node (shared-memory) barrier.
    If zero (default) then radix = size - 1, resulting in a "flat tree" (linear time)
    If positive, then the given value is the out-degree of an N-ary tree.
-   If negative, then a tree is build with the processes in groups of size = -radix.
+   If negative, then a tree is built with the processes in groups of size = -radix.
      The first process in each group is the parent of the others in that group.
      The rank==0 process is the parent of the other group-representatives (in
      addition to being the parent of the others in its own group).
@@ -763,7 +763,7 @@ There are a few other important caveats to be aware of when mixing GASNet and MP
  blocking calls will generally not ensure progress of MPI communication. This
  means that arbitrarily interleaving blocking MPI calls with GASNet calls
  (e.g. UPC shared accesses) can easily lead to deadlock. In order to ensure
- safety and portably correct operation on across networks, GASNet communication
+ safety and portably correct operation across networks, GASNet communication
  operations and user MPI calls should be isolated from each other by barriers, 
  by strictly adhering to the following protocol:
 
