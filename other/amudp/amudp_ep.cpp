@@ -805,16 +805,20 @@ extern int AM_SetExpectedResources(ep_t ea, int n_endpoints, int n_outstanding_r
 
   if (firsttime) { /* set transfer parameters */
     #define ENVINT_WITH_DEFAULT(var, name, validate) do { \
-        long val;                                         \
         char defval[80];                                  \
         const char *valstr;                               \
         snprintf(defval, sizeof(defval), "%u", (unsigned int)var); \
         valstr = AMUDP_getenv_prefixed_withdefault(name,defval); \
-        if (valstr) {                                     \
-           val = atol(valstr);                            \
-           if ((int64_t)val != (int64_t)(int32_t)val)     \
-            AMUDP_FatalErr(name" setting too large!");    \
-           var = val;                                     \
+        if (valstr) {                                            \
+           char *end = (char *)valstr;                           \
+           long val = strtol(valstr, &end, 0);                   \
+           if (end == valstr) {                                  \
+            AMUDP_Warn(name" may not be empty! Using default."); \
+            val = (long)var;                                     \
+           } else if ((int64_t)val != (int64_t)(int32_t)val) {   \
+            AMUDP_Warn(name" too large! Using default.");        \
+            val = (long)var;                                     \
+           } else var = (uint32_t)val;                           \
            validate;                                      \
         }                                                 \
       } while (0)
@@ -827,8 +831,10 @@ extern int AM_SetExpectedResources(ep_t ea, int n_endpoints, int n_outstanding_r
                         { if (val <= 1) AMUDP_FatalErr("REQUESTTIMEOUT_BACKOFF must be > 1"); });
     ENVINT_WITH_DEFAULT(AMUDP_ExpectedBandwidth, "EXPECTED_BANDWIDTH",
                         { if (val < 1) AMUDP_FatalErr("EXPECTED_BANDWIDTH must be >= 1"); });
-    if (AMUDP_InitialRequestTimeout_us > AMUDP_MaxRequestTimeout_us) 
-       AMUDP_FatalErr("INITIAL_REQUESTTIMEOUT must not exceed MAX_REQUESTTIMEOUT");
+    if (AMUDP_InitialRequestTimeout_us > AMUDP_MaxRequestTimeout_us) {
+       AMUDP_Warn("REQUESTTIMEOUT_INITIAL must not exceed REQUESTTIMEOUT_MAX. Raising MAX...");
+       AMUDP_MaxRequestTimeout_us = MAX(AMUDP_InitialRequestTimeout_us, AMUDP_InitialRequestTimeout_us*2);
+    }
     #if 0
       printf("AMUDP_MaxRequestTimeout_us=%08x\n",AMUDP_MaxRequestTimeout_us);
       printf("AMUDP_InitialRequestTimeout_us=%08x\n",AMUDP_InitialRequestTimeout_us);

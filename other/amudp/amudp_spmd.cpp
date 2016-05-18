@@ -1115,7 +1115,6 @@ pollentry:
            one to be used for UDP endpoints */
         SockAddr myinterface = getsockname(AMUDP_SPMDControlSocket);
         #if HAVE_GETIFADDRS // allow user to override our same-interface assumption
-          network = AMUDP_getenv_prefixed_withdefault("WORKERIP",network);
           if (network && network[0]) {
             SockAddr networkaddr(network, 0);
             if (! getIfaceAddr(networkaddr, myinterface)) {
@@ -1810,12 +1809,11 @@ extern int AMUDP_SPMDAllGather(void *source, void *dest, size_t len) {
  *  global getenv()
  * ------------------------------------------------------------------------------------ */
 extern const char* AMUDP_SPMDgetenvMaster(const char *keyname) {
-  if (!AMUDP_SPMDStartupCalled) {
+  if (!AMUDP_SPMDMasterEnvironment) {
     AMUDP_Err("called AMUDP_SPMDgetenvMaster before AMUDP_SPMDStartup()");
     return NULL;
   }
 
-  AMUDP_assert(AMUDP_SPMDMasterEnvironment != NULL);
   char *p = AMUDP_SPMDMasterEnvironment;
   if (!keyname) return NULL;
   int keylen = strlen(keyname);
@@ -1833,7 +1831,7 @@ extern char *AMUDP_getenv_prefixed(const char *basekey) {
   const char *val[3];
   int winner = -1;
   char *(*getfn)(const char *) = NULL;
-  if (AMUDP_SPMDStartupCalled && AMUDP_SPMDMasterEnvironment != NULL) getfn = (char *(*)(const char *))AMUDP_SPMDgetenvMaster;
+  if (AMUDP_SPMDMasterEnvironment) getfn = (char *(*)(const char *))AMUDP_SPMDgetenvMaster;
   else getfn = (char *(*)(const char *))getenv;
 
   if (basekey == NULL || !*basekey) return NULL;
