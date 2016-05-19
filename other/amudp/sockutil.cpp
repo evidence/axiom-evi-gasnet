@@ -696,21 +696,31 @@ extern int myrecvfrom(SOCKET s, char * buf, int len, int flags,
 #if HAVE_IFADDRS_H
 #include <ifaddrs.h>
 #endif
-bool getIfaceAddr(SockAddr ipnet_sa, SockAddr &ret) {
+#include <net/if.h>
+bool getIfaceAddr(SockAddr ipnet_sa, SockAddr &ret, char *subnets) {
   struct sockaddr_in *net = (sockaddr_in*)ipnet_sa;
   struct sockaddr_in *result = (sockaddr_in*)ret;
   bool found = false;
   struct ifaddrs *ifas;
+  if (subnets) subnets[0] = '\0';
 
   if (getifaddrs(&ifas) != -1) {
     for (struct ifaddrs *ifa = ifas; ifa != NULL; ifa = ifa->ifa_next) {
-      if (!ifa->ifa_addr || (ifa->ifa_addr->sa_family != AF_INET))
-        continue;
-      
+      if (!ifa->ifa_addr 
+          || (ifa->ifa_addr->sa_family != AF_INET)  
+          || !(ifa->ifa_flags & IFF_RUNNING) // ignore disabled interfaces
+       ) continue;
+    
       struct sockaddr_in *if_addr = (sockaddr_in*)ifa->ifa_addr;
       struct sockaddr_in *if_mask = (sockaddr_in*)ifa->ifa_netmask;
+      unsigned long subnet = if_addr->sin_addr.s_addr & if_mask->sin_addr.s_addr;
 
-      if ((if_addr->sin_addr.s_addr & if_mask->sin_addr.s_addr) == net->sin_addr.s_addr) {
+      if (if_addr->sin_addr.s_addr == INADDR_ANY) continue; // can't use a wildcard interface (0.0.0.0)
+
+      sprintf(subnets,"%s ",SockAddr((unsigned long)ntohl(subnet),0).IPStr());
+      subnets = subnets + strlen(subnets);
+
+      if (subnet == net->sin_addr.s_addr) {
         memcpy(result, if_addr, sizeof(struct sockaddr_in));
         result->sin_port = 0;
         found = true;

@@ -264,16 +264,17 @@ extern int AMUDP_growSocketBufferSize(ep_t ep, int targetsize,
 static int AMUDP_AllocateEndpointResource(ep_t ep) {
   AMUDP_assert(ep != NULL);
   #ifdef UETH
-    if (AMUDP_UETH_endpoint) return FALSE; /* only one endpoint per process */
-    if (ueth_init() != UETH_OK) return FALSE;
+    if (AMUDP_UETH_endpoint) 
+      AMUDP_RETURN_ERRFR(RESOURCE, AMUDP_AllocateEndpointResource, "UETH only supports one endpoint per process");
+    if (ueth_init() != UETH_OK) AMUDP_RETURN_ERRF(RESOURCE, ueth_init);
     if (ueth_getaddress(&ep->name) != UETH_OK) {
       ueth_terminate();
-      return FALSE;
+      AMUDP_RETURN_ERRF(RESOURCE, ueth_getaddress);
     }
     /*  TODO this doesn't handle apps that dont use SPMD extensions */
     if (ueth_setaddresshook(&AMUDP_SPMDAddressChangeCallback) != UETH_OK) {
       ueth_terminate();
-      return FALSE;
+      AMUDP_RETURN_ERRF(RESOURCE, ueth_setaddresshook);
     }
     AMUDP_UETH_endpoint = ep;
   #else
@@ -286,10 +287,14 @@ static int AMUDP_AllocateEndpointResource(ep_t ep) {
     { /* check transport message size - UNIX doesn't seem to have a way for doing this */
       unsigned int maxmsg;
       GETSOCKOPT_LENGTH_T sz = sizeof(unsigned int);
-      if (SOCK_getsockopt(ep->s, SOL_SOCKET, SO_MAX_MSG_SIZE, (char*)&maxmsg, &sz) == SOCKET_ERROR)
+      if (SOCK_getsockopt(ep->s, SOL_SOCKET, SO_MAX_MSG_SIZE, (char*)&maxmsg, &sz) == SOCKET_ERROR) {
+        closesocket(ep->s);
         AMUDP_RETURN_ERRFR(RESOURCE, getsockopt, sockErrDesc());
-      if (maxmsg < AMUDP_MAX_NETWORK_MSG) 
+      }
+      if (maxmsg < AMUDP_MAX_NETWORK_MSG) {
+        closesocket(ep->s);
         AMUDP_RETURN_ERRFR(RESOURCE, AMUDP_AllocateEndpointResource, "max datagram size of UDP provider is too small");
+      }
     }
     #endif
 
@@ -300,22 +305,24 @@ static int AMUDP_AllocateEndpointResource(ep_t ep) {
 
     if (bind(ep->s, (struct sockaddr*)&ep->name, sizeof(struct sockaddr)) == SOCKET_ERROR) {
       closesocket(ep->s);
-      return FALSE;
+      AMUDP_RETURN_ERRFR(RESOURCE, bind, sockErrDesc());
     }
     { /*  danger: this might fail on multi-homed hosts if AMUDP_currentUDPInterface was not set*/
       GETSOCKNAME_LENGTH_T sz = sizeof(en_t);
       if (SOCK_getsockname(ep->s, (struct sockaddr*)&ep->name, &sz) == SOCKET_ERROR) {
         closesocket(ep->s);
-        return FALSE;
+        AMUDP_RETURN_ERRFR(RESOURCE, getsockname, sockErrDesc());
       }
       /* can't determine interface address */
       if (ep->name.sin_addr.s_addr == INADDR_ANY) {
-        AMUDP_Err("AMUDP_AllocateEndpointResource failed to determine UDP endpoint interface address");
-        return FALSE;
+        closesocket(ep->s);
+        AMUDP_RETURN_ERRFR(RESOURCE, AMUDP_AllocateEndpointResource,
+                           "AMUDP_AllocateEndpointResource failed to determine UDP endpoint interface address");
       }
       if (ep->name.sin_port == 0) {
-        AMUDP_Err("AMUDP_AllocateEndpointResource failed to determine UDP endpoint interface port");
-        return FALSE; 
+        closesocket(ep->s);
+        AMUDP_RETURN_ERRFR(RESOURCE, AMUDP_AllocateEndpointResource,
+                           "AMUDP_AllocateEndpointResource failed to determine UDP endpoint interface port");
       }
     }
   #endif
@@ -805,16 +812,20 @@ extern int AM_SetExpectedResources(ep_t ea, int n_endpoints, int n_outstanding_r
 
   if (firsttime) { /* set transfer parameters */
     #define ENVINT_WITH_DEFAULT(var, name, validate) do { \
-        long val;                                         \
         char defval[80];                                  \
         const char *valstr;                               \
         snprintf(defval, sizeof(defval), "%u", (unsigned int)var); \
         valstr = AMUDP_getenv_prefixed_withdefault(name,defval); \
-        if (valstr) {                                     \
-           val = atol(valstr);                            \
-           if ((int64_t)val != (int64_t)(int32_t)val)     \
-            AMUDP_FatalErr(name" setting too large!");    \
-           var = val;                                     \
+        if (valstr) {                                            \
+           char *end = (char *)valstr;                           \
+           long val = strtol(valstr, &end, 0);                   \
+           if (end == valstr) {                                  \
+            AMUDP_Warn(name" may not be empty! Using default."); \
+            val = (long)var;                                     \
+           } else if ((int64_t)val != (int64_t)(int32_t)val) {   \
+            AMUDP_Warn(name" too large! Using default.");        \
+            val = (long)var;                                     \
+           } else var = (uint32_t)val;                           \
            validate;                                      \
         }                                                 \
       } while (0)
@@ -827,8 +838,10 @@ extern int AM_SetExpectedResources(ep_t ea, int n_endpoints, int n_outstanding_r
                         { if (val <= 1) AMUDP_FatalErr("REQUESTTIMEOUT_BACKOFF must be > 1"); });
     ENVINT_WITH_DEFAULT(AMUDP_ExpectedBandwidth, "EXPECTED_BANDWIDTH",
                         { if (val < 1) AMUDP_FatalErr("EXPECTED_BANDWIDTH must be >= 1"); });
-    if (AMUDP_InitialRequestTimeout_us > AMUDP_MaxRequestTimeout_us) 
-       AMUDP_FatalErr("INITIAL_REQUESTTIMEOUT must not exceed MAX_REQUESTTIMEOUT");
+    if (AMUDP_InitialRequestTimeout_us > AMUDP_MaxRequestTimeout_us) {
+       AMUDP_Warn("REQUESTTIMEOUT_INITIAL must not exceed REQUESTTIMEOUT_MAX. Raising MAX...");
+       AMUDP_MaxRequestTimeout_us = MAX(AMUDP_InitialRequestTimeout_us, AMUDP_InitialRequestTimeout_us*2);
+    }
     #if 0
       printf("AMUDP_MaxRequestTimeout_us=%08x\n",AMUDP_MaxRequestTimeout_us);
       printf("AMUDP_InitialRequestTimeout_us=%08x\n",AMUDP_InitialRequestTimeout_us);

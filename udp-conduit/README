@@ -36,6 +36,15 @@ Recognized environment variables:
   is left up to the underlying system and job spawner.  The default is
   system-dependent.
 
+* GASNET_LINEBUFFERSZ
+  The size (in bytes) of the buffer used for line buffering of stdin/stdout.
+  Should be large enough for decent bandwidth on multi-line chunks, but 
+  scales master-side memory utilization linearly with workers that generate output.
+  Default 1024.  Set to 0 to disable line buffering, which allows partial
+  lines to be displayed sooner, but may result in concurrent output from
+  multiple workers being interleaved on a single line.
+  Has no effect if GASNET_ROUTE_OUTPUT is disabled.
+
 * GASNET_MASTERIP
   Specify the exact IP address which the worker nodes should use to connect
   to the master (spawning) node.  By default the master node will pass the
@@ -201,9 +210,10 @@ CSPAWN_CMD          none     the custom command to be called for spawning,
 CSPAWN_SERVERS      none     space-delimited list of servers to use - 
                              only required if %M is used in CSPAWN_CMD
 
-CSPAWN_ROUTE_OUTPUT <not set>   set this variable to request built-in stdout/stderr 
-                                routing from worker processes to the console, if your
-				CSPAWN_CMD doesn't automatically provide that capability
+CSPAWN_ROUTE_OUTPUT  0       set this variable to request built-in stdout/stderr 
+                             routing from worker processes to the console, if your 
+			     CSPAWN_CMD doesn't automatically provide that capability.
+			     Note GASNET_ROUTE_OUTPUT is ignored for this spawner.
 
 (these variables may also optionally be prefixed with "AMUDP_" or "GASNET_")
 

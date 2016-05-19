@@ -118,9 +118,9 @@ SockAddr DNSLookup(const char *hostnameOrIPStr);
   // don't call on a local hostname, because there may be several interfaces 
   // and we may get the wrong one
 
-bool getIfaceAddr(SockAddr ipnet_sa, SockAddr &ret);
+bool getIfaceAddr(SockAddr ipnet_sa, SockAddr &ret, char *subnets);
   // returns true, and sets *ret, if we have a local interface on the subnet
-  // given by ipnet_sa
+  // given by ipnet_sa. Otherwise, fills in a textual list of suitable subnets.
 
 #ifdef __cplusplus
   extern "C" {

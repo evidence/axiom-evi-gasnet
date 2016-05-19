@@ -114,6 +114,7 @@ testprograms =    		\
     testlatencyM   		\
     testping      		\
     testreduce			\
+    testoutput      		\
     $(testprograms_ILP32only)
 
 tests: apputils.o $(testprograms)

@@ -14,6 +14,8 @@
   #include <process.h>
   #include <io.h>
   #include <direct.h>
+#elif PLATFORM_OS_CYGWIN
+  #include <windows.h>  // CreateProcess
 #endif
 #if PLATFORM_ARCH_CRAYX1
   #include <unistd.h>
@@ -392,7 +394,7 @@ int AMUDP_SPMDSshSpawn(int nproc, int argc, char **argv, char **extra_env) {
  *                              %C => AMUDP command that should be run by each worker node
  *                              %D => the current working directory
  *                              %% => %
- * CSPAWN_ROUTE_OUTPUT <not set>   set this variable to request stdout/stderr routing of workers
+ * CSPAWN_ROUTE_OUTPUT 0   set this variable to request stdout/stderr routing of workers
  * (any environment variable may be specified with an optional prefix 
  *  of AMUDP_ or AMUDP_ENV_PREFIX##_)
  */

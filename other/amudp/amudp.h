@@ -19,11 +19,59 @@
 #include <stddef.h>
 
 /* miscellaneous macro helpers */
+#ifndef _STRINGIFY
 #define _STRINGIFY_HELPER(x) #x
 #define _STRINGIFY(x) _STRINGIFY_HELPER(x)
+#endif
+
+#ifndef _CONCAT
+#define _CONCAT_HELPER(a,b) a ## b
+#define _CONCAT(a,b) _CONCAT_HELPER(a,b)
+#endif
+
+#ifndef AMUDP
+#define AMUDP 1
+#endif
 
 #define AMUDP_LIBRARY_VERSION      3.10
 #define AMUDP_LIBRARY_VERSION_STR  _STRINGIFY(AMUDP_LIBRARY_VERSION)
+
+#if !defined(AMUDP_DEBUG) && !defined(AMUDP_NDEBUG)
+  #if defined(GASNET_DEBUG) || defined(AMX_DEBUG)
+    #define AMUDP_DEBUG 1
+  #elif defined(GASNET_NDEBUG) || defined(AMX_NDEBUG)
+    #define AMUDP_NDEBUG 1
+  #endif
+#endif
+#if defined(AMUDP_DEBUG) && !defined(AMUDP_NDEBUG)
+  #undef AMUDP_DEBUG
+  #define AMUDP_DEBUG 1
+#elif !defined(AMUDP_DEBUG) && defined(AMUDP_NDEBUG)
+  #undef AMUDP_NDEBUG
+  #define AMUDP_NDEBUG 1
+#else
+  #error bad defns of AMUDP_DEBUG and AMUDP_NDEBUG
+#endif
+
+#undef AMX_DEBUG
+#undef AMX_NDEBUG
+
+#ifdef AMUDP_DEBUG
+  #define AMX_DEBUG AMUDP_DEBUG
+  #define AMUDP_DEBUG_CONFIG _DEBUG
+#endif
+#ifdef AMUDP_NDEBUG
+  #define AMX_NDEBUG AMUDP_NDEBUG
+  #define AMUDP_DEBUG_CONFIG _NDEBUG
+#endif
+
+/* idiot proofing */
+#if defined(AMUDP_DEBUG) && (defined(__OPTIMIZE__) || defined(NDEBUG))
+  #if !defined(AMUDP_ALLOW_OPTIMIZED_DEBUG) && !defined(GASNET_ALLOW_OPTIMIZED_DEBUG)
+    #error Tried to compile AMUDP client code with optimization enabled but also AMUDP_DEBUG (which seriously hurts performance). Disable C and C++ compiler optimization or reconfigure/rebuild without --enable-debug
+  #endif
+#endif
+
 
 /* naming policy:
   AM-defined things start with AM_
@@ -62,6 +110,10 @@
 
 #define AMUDP_PROCID_NEXT -1  /* Use next unallocated procid */
 #define AMUDP_PROCID_ALLOC -2 /* Allocate and return next procis, but do not bootstrap */
+
+#ifndef AMUDP_EXTRA_CHECKSUM
+#define AMUDP_EXTRA_CHECKSUM 0
+#endif
 /* ------------------------------------------------------------------------------------ */
 /* Simple user-visible types */
 
@@ -127,6 +179,12 @@ typedef enum {
 
 /* active message header & meta info fields */
 typedef struct {
+  #if AMUDP_EXTRA_CHECKSUM
+    uint16_t chk1;  // these fields must come first in amudp_msg_t
+    uint16_t chk2;
+    uint32_t packetlen;
+  #endif
+
   tag_t         tag;
 
   uint16_t      _instance; /* instance and seqnum */
@@ -451,10 +509,6 @@ extern int AMUDP_SetHandlerCallbacks(ep_t ep, AMUDP_preHandlerCallback_t preHand
 #endif
 
 /* standardized AM-2 extensions */
-#ifndef AMUDP
-#define AMUDP 1
-#endif
-
 #define AMX_VerboseErrors         AMUDP_VerboseErrors
 #define AMX_GetEndpointStatistics AMUDP_GetEndpointStatistics
 #define AMX_DumpStatistics        AMUDP_DumpStatistics
@@ -463,47 +517,6 @@ extern int AMUDP_SetHandlerCallbacks(ep_t ep, AMUDP_preHandlerCallback_t preHand
 #define amx_stats_t               amudp_stats_t
 #define amx_handler_fn_t          amudp_handler_fn_t
 #define AMX_FatalErr            AMUDP_FatalErr
-
-#if !defined(AMUDP_DEBUG) && !defined(AMUDP_NDEBUG)
-  #if defined(GASNET_DEBUG) || defined(AMX_DEBUG)
-    #define AMUDP_DEBUG 1
-  #elif defined(GASNET_NDEBUG) || defined(AMX_NDEBUG)
-    #define AMUDP_NDEBUG 1
-  #endif
-#endif
-#if defined(AMUDP_DEBUG) && !defined(AMUDP_NDEBUG)
-  #undef AMUDP_DEBUG
-  #define AMUDP_DEBUG 1
-#elif !defined(AMUDP_DEBUG) && defined(AMUDP_NDEBUG)
-  #undef AMUDP_NDEBUG
-  #define AMUDP_NDEBUG 1
-#else
-  #error bad defns of AMUDP_DEBUG and AMUDP_NDEBUG
-#endif
-
-#undef AMX_DEBUG
-#undef AMX_NDEBUG
-
-#ifdef AMUDP_DEBUG
-  #define AMX_DEBUG AMUDP_DEBUG
-  #define AMUDP_DEBUG_CONFIG _DEBUG
-#endif
-#ifdef AMUDP_NDEBUG
-  #define AMX_NDEBUG AMUDP_NDEBUG
-  #define AMUDP_DEBUG_CONFIG _NDEBUG
-#endif
-
-/* idiot proofing */
-#if defined(AMUDP_DEBUG) && (defined(__OPTIMIZE__) || defined(NDEBUG))
-  #if !defined(AMUDP_ALLOW_OPTIMIZED_DEBUG) && !defined(GASNET_ALLOW_OPTIMIZED_DEBUG)
-    #error Tried to compile AMUDP client code with optimization enabled but also AMUDP_DEBUG (which seriously hurts performance). Disable C and C++ compiler optimization or reconfigure/rebuild without --enable-debug
-  #endif
-#endif
-
-#ifndef _CONCAT
-#define _CONCAT_HELPER(a,b) a ## b
-#define _CONCAT(a,b) _CONCAT_HELPER(a,b)
-#endif
 
 #undef AM_Init
 #define AM_Init _CONCAT(AM_Init_AMUDP,AMUDP_DEBUG_CONFIG)
