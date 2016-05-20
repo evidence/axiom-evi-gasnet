@@ -276,7 +276,7 @@ static void handleStdOutput(FILE *fd, fd_set *psockset, SocketList& list, Socket
       AMUDP_assert(FD_ISSET(s, psockset));
       ssize_t rsz = SOCKET_ERROR;
       if (sbuf) { // static buffering
-        rsz = recv(s, sbuf, bufsz, MSG_NOSIGNAL);
+        rsz = recv(s, sbuf, bufsz, 0);
         if (rsz > 0) { // other cases handled below
           AMUDP_assert(rsz <= (ssize_t)bufsz);
           fwrite(sbuf, 1, rsz, fd);
@@ -298,7 +298,7 @@ static void handleStdOutput(FILE *fd, fd_set *psockset, SocketList& list, Socket
           e->buf = (uint8_t *)AMUDP_malloc(bufsz);
         }
         AMUDP_assert(e->len < bufsz);
-        rsz = recv(s, e->buf+e->len, bufsz-e->len, MSG_NOSIGNAL);
+        rsz = recv(s, e->buf+e->len, bufsz-e->len, 0);
         if (rsz == 0) { // socket closed
           if (e->len) { // drain buffer
             fwrite(e->buf, 1, e->len, fd);
