@@ -260,7 +260,7 @@ static void handleStdOutput(FILE *fd, fd_set *psockset, SocketList& list, Socket
       #define AMUDP_STD_BUFSZ 1024
       #endif
       static char buf[AMUDP_STD_BUFSZ+1];
-      ssize_t sz = recv(s, buf, AMUDP_STD_BUFSZ, MSG_NOSIGNAL);
+      ssize_t sz = recv(s, buf, AMUDP_STD_BUFSZ, 0);
       AMUDP_assert(sz <= AMUDP_STD_BUFSZ);
       if (sz == SOCKET_ERROR) {
         DEBUG_MASTER("recv error in handleStdOutput, closing.");
