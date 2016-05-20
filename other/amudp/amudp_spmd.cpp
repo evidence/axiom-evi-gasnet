@@ -256,25 +256,28 @@ static void handleStdOutput(FILE *fd, fd_set *psockset, SocketList& list, Socket
     for (int i=0; i < numset; i++) {
       SOCKET s = tempSockArr[i];
       AMUDP_assert(FD_ISSET(s, psockset));
-      if (isClosed(s)) {
+      #ifndef AMUDP_STD_BUFSZ
+      #define AMUDP_STD_BUFSZ 1024
+      #endif
+      static char buf[AMUDP_STD_BUFSZ+1];
+      ssize_t sz = recv(s, buf, AMUDP_STD_BUFSZ, 0);
+      AMUDP_assert(sz <= AMUDP_STD_BUFSZ);
+      if (sz == SOCKET_ERROR) {
+        DEBUG_MASTER("recv error in handleStdOutput, closing.");
+        close_socket(s);
+      } else if (sz == 0) { // socket closed
         DEBUG_MASTER("dropping a std output socket...");
         list.remove(s);
         allList.remove(s);
-        continue;
-      }
-      // TODO: line-by-line buffering
-      int sz = numBytesWaiting(s);
-      if (sz > 0) { // sometimes actually get a zero here, at least on Solaris and UNICOS
-        char *buf = (char *)AMUDP_malloc(sz+2);
-        recvAll(s, buf, sz);
+      } else {
+        AMUDP_assert(sz > 0);
         buf[sz] = '\0';
         #if AMUDP_DEBUG_VERBOSE
           fprintf(fd, "got some output: %s%s", buf, (buf[sz-1]=='\n'?"":"\n"));
         #else
-          fwrite(buf, sz, 1, fd);
+          fwrite(buf, 1, sz, fd);
         #endif
-          fflush(fd);
-          AMUDP_free(buf);
+        fflush(fd);
       }
     }
   }
@@ -620,15 +623,16 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
         }
         //------------------------------------------------------------------------------------
         // stdin/stderr/stdout listeners - incoming connections
+        // must continue to re-select after accepting a connection that might alias a closed listener socket id
         if (AMUDP_SPMDStdinListenSocket != INVALID_SOCKET &&
             FD_ISSET(AMUDP_SPMDStdinListenSocket, psockset))  
-          setupStdSocket(AMUDP_SPMDStdinListenSocket, stdinList, allList);
+           { setupStdSocket(AMUDP_SPMDStdinListenSocket, stdinList, allList); continue; }
         if (AMUDP_SPMDStdoutListenSocket != INVALID_SOCKET &&
             FD_ISSET(AMUDP_SPMDStdoutListenSocket, psockset)) 
-          setupStdSocket(AMUDP_SPMDStdoutListenSocket, stdoutList, allList);
+           { setupStdSocket(AMUDP_SPMDStdoutListenSocket, stdoutList, allList); continue; }
         if (AMUDP_SPMDStderrListenSocket != INVALID_SOCKET &&
             FD_ISSET(AMUDP_SPMDStderrListenSocket, psockset)) 
-          setupStdSocket(AMUDP_SPMDStderrListenSocket, stderrList, allList);
+           { setupStdSocket(AMUDP_SPMDStderrListenSocket, stderrList, allList); continue; }
         //------------------------------------------------------------------------------------
         // stdout/err sockets - must come before possible exit to drain output
         handleStdOutput(stdout, psockset, stdoutList, allList, AMUDP_SPMDNUMPROCS);
