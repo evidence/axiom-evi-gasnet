@@ -1118,7 +1118,7 @@ pollentry:
           if (network && network[0]) {
             SockAddr networkaddr(network, 0);
             char subnets[1024];
-            if (! getIfaceAddr(networkaddr, myinterface, subnets)) {
+            if (! getIfaceAddr(networkaddr, myinterface, subnets, sizeof(subnets))) {
               AMUDP_Err("Failed to find interface on requested subnet %s. Available subnets: %s", network, subnets);
               AMUDP_RETURN(AM_ERR_RESOURCE);
             }

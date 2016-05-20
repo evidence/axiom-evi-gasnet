@@ -697,7 +697,7 @@ extern int myrecvfrom(SOCKET s, char * buf, int len, int flags,
 #include <ifaddrs.h>
 #endif
 #include <net/if.h>
-bool getIfaceAddr(SockAddr ipnet_sa, SockAddr &ret, char *subnets) {
+bool getIfaceAddr(SockAddr ipnet_sa, SockAddr &ret, char *subnets, size_t subnetsz) {
   struct sockaddr_in *net = (sockaddr_in*)ipnet_sa;
   struct sockaddr_in *result = (sockaddr_in*)ret;
   bool found = false;
@@ -717,8 +717,12 @@ bool getIfaceAddr(SockAddr ipnet_sa, SockAddr &ret, char *subnets) {
 
       if (if_addr->sin_addr.s_addr == INADDR_ANY) continue; // can't use a wildcard interface (0.0.0.0)
 
-      sprintf(subnets,"%s ",SockAddr((unsigned long)ntohl(subnet),0).IPStr());
-      subnets = subnets + strlen(subnets);
+      if (subnets && subnetsz > 0) {
+        snprintf(subnets, subnetsz, "%s ",SockAddr((unsigned long)ntohl(subnet),0).IPStr());
+        size_t len = strlen(subnets);
+        subnets += len;
+        subnetsz -= len;
+      }
 
       if (subnet == net->sin_addr.s_addr) {
         memcpy(result, if_addr, sizeof(struct sockaddr_in));
