@@ -1868,14 +1868,10 @@ static void AMUDP_ValidateChecksum(amudp_msg_t *m, size_t len) {
   static char report[512];
   int failed = 0;
 
-  #if AMUDP_DEBUG_VERBOSE
   { static int firstcall = 1;
-    if (firstcall) {
-       fprintf(stderr, "AMUDP_EXTRA_CHECKSUM is enabled.\n"); fflush(stderr);
-    }
+    if (firstcall) AMUDP_Warn("AMUDP_EXTRA_CHECKSUM is enabled. This mode is ONLY intended for debugging system problems.");
     firstcall = 0;
   }
-  #endif
 
   if_pf (m->chk1 != m->chk2) {
     strcat(report, " : Checksum field corrupted");
