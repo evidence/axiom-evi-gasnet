@@ -31,6 +31,9 @@ SOCKET connect_socket(struct sockaddr* saddr);
 SOCKET connect_socket(char* addr);
   // create a socket and connect it to a remote host/port (throw exn on err)
 
+bool disable_sigpipe(SOCKET s);
+  // disable SIGPIPE on manually-created stream sockets, if supported by the OS
+
 void recvAll(SOCKET s, void* buffer, int numbytes);
   // blocks until it can receive numbytes on s into buffer
   // (throws xSocket on close)

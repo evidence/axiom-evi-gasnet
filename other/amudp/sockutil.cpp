@@ -86,13 +86,34 @@ SOCKET accept_socket(SOCKET listener, struct sockaddr* calleraddr) {
       xsocket(listener, "accept() failed on listener socket");
     }
 
+    disable_sigpipe(newsock);
+
     return newsock;
   }
 }
 //-------------------------------------------------------------------------------------
+bool disable_sigpipe(SOCKET s) {
+  #ifdef SO_NOSIGPIPE
+    // Some OSs (eg BSD) allow SIGPIPE generation to be blocked at the socket level
+    #ifndef SIGPIPE_BLOCKED
+    #define SIGPIPE_BLOCKED 1
+    #endif
+    int set = 1;
+    if (setsockopt(s, SOL_SOCKET, SO_NOSIGPIPE, (char *)&set, sizeof(set)) == -1) {
+      closesocket(s);
+      xsocket(s, "setsockopt() failed to set SO_NOSIGPIPE");
+    }
+    return true;
+  #else // flag doesn't exist
+    return false;
+  #endif
+} 
+//-------------------------------------------------------------------------------------
 SOCKET connect_socket(struct sockaddr* saddr) {
   SOCKET s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
   if (s == INVALID_SOCKET) xsocket(s, "socket() failed while creating a connect socket");
+
+  disable_sigpipe(s);
 
   if (connect(s, saddr, sizeof(struct sockaddr)) == SOCKET_ERROR) {
     closesocket(s);
@@ -131,6 +152,8 @@ SOCKET connect_socket(char* addr) {
   SOCKET s = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
   if (s == INVALID_SOCKET) xsocket(s, "socket() failed while creating a connect socket");
 
+  disable_sigpipe(s);
+
   if (connect(s, (struct sockaddr*)&saddr, sizeof(struct sockaddr_in)) == SOCKET_ERROR) {
     closesocket(s);
     xsocket(s, "connect() failed while creating a connect socket");
@@ -159,20 +182,31 @@ void recvAll(SOCKET s, void* buffer, int numbytes) {
   }
 }
 //-------------------------------------------------------------------------------------
+#ifdef MSG_NOSIGNAL
+  // POSIX mandates a SIGPIPE on send() to a disconnected stream socket
+  // but it's more efficient and less disruptive to clients to handle this via return code
+  // Linux and a few others allow this to be disabled via send flag
+  #define SEND_FLAGS MSG_NOSIGNAL 
+  #ifndef SIGPIPE_BLOCKED
+  #define SIGPIPE_BLOCKED 1
+  #endif
+#else
+  #define SEND_FLAGS 0
+#endif
 void sendAll(SOCKET s, const void* buffer, int numbytes, int dothrow) {
   // blocks until it can send numbytes on s from buffer
   // (throws xSocket on close by default)
-  #if !PLATFORM_OS_MSWINDOWS
+  #if !PLATFORM_OS_MSWINDOWS && !SIGPIPE_BLOCKED
+    // must use heavyweight method to block SIGPIPE errors
     LPSIGHANDLER oldsighandler = reghandler(SIGPIPE, (LPSIGHANDLER)SIG_IGN); 
-    // ignore broken pipes, because we get that when we write to a socket after other side reset
   #endif
   char *buf = (char*)buffer;
   while (numbytes) {
     int retval;
-    retval = send(s, buf, numbytes, 0);
+    retval = send(s, buf, numbytes, SEND_FLAGS);
     if (retval == SOCKET_ERROR) {
       closesocket(s);
-      #if !PLATFORM_OS_MSWINDOWS
+      #if !PLATFORM_OS_MSWINDOWS && !SIGPIPE_BLOCKED
         reghandler(SIGPIPE, oldsighandler); // restore handler
       #endif
       if (dothrow) xsocket(s, "error in sendAll() - connection closed");
@@ -183,7 +217,7 @@ void sendAll(SOCKET s, const void* buffer, int numbytes, int dothrow) {
     buf += retval;
     numbytes -= retval;
   }
-  #if !PLATFORM_OS_MSWINDOWS
+  #if !PLATFORM_OS_MSWINDOWS && !SIGPIPE_BLOCKED
     reghandler(SIGPIPE, oldsighandler); // restore handler
   #endif
 }
