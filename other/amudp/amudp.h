@@ -9,11 +9,7 @@
 #include <portable_inttypes.h>
 #include <portable_platform.h>
 
-#ifdef UETH
-  #include <ueth.h>
-#else
-  #include <socket.h>
-#endif
+#include <socket.h>
 
 #include <stdarg.h>
 #include <stddef.h>
@@ -82,9 +78,8 @@
 /* Internal constants */
 #define AMUDP_MAX_SHORT    16    /* max number of handler arguments, >=8 */
 #define AMUDP_MAX_MEDIUM   512   /* max. data transmission unit for medium messages, >= 512 */
-#ifdef UETH
-  #define AMUDP_MAX_LONG     (AMUDP_MAX_MEDIUM*256)  /* max. data size for xfer and get operations >= 8192 */
-#elif PLATFORM_OS_IRIX
+
+#if PLATFORM_OS_IRIX
   #define AMUDP_MAX_LONG     61000  /* max. UDP datagram on IRIX is apparently 61412 */
 #elif PLATFORM_OS_TRU64 || PLATFORM_OS_FREEBSD || PLATFORM_OS_NETBSD || \
       PLATFORM_OS_DARWIN || PLATFORM_OS_AIX
@@ -126,11 +121,7 @@ typedef uint8_t handler_t;
 /* #define AMUDP_BADHANDLERVAL(h) (h < 0 || h >= AMUDP_MAX_NUMHANDLERS) */
 
 /* Endpoint name */
-#ifdef UETH
-  typedef ueth_addr_t en_t;
-#else
-  typedef struct sockaddr_in en_t;
-#endif
+typedef struct sockaddr_in en_t;
 
 struct amudp_ep; /* forward decls */
 struct amudp_buf;
@@ -213,9 +204,6 @@ typedef struct {
 
 /* active message buffer, including message and space for data payload */
 typedef struct amudp_buf {
-  #ifdef UETH
-    char ueth_header[UETH_HEADERLENGTH];
-  #endif
 
   amudp_msg_t	Msg;
   uint8_t     _Data[(4*AMUDP_MAX_SHORT)+AMUDP_MAX_MEDIUM]; /* holds args and data */
@@ -224,12 +212,6 @@ typedef struct amudp_buf {
     (NOT valid inside bulk buffers, and only the bulkBuffer field is valid in send buffers) */
   amudp_bufstatus_t status;
 
-  #ifdef UETH
-   /* this bufhandle allows us to query UETH on the status of whether this send buffer has
-      left the NIC yet, or is still waiting in the memory FIFO
-      this could go in descriptor, but need 4-bytes of pad here anyhow for correct alignment */
-   int32_t bufhandle; 
-  #endif
 } amudp_buf_t;
 
 #define AMUDP_MIN_NETWORK_MSG     ((int)(uintptr_t)&((amudp_buf_t *)NULL)->_Data[0])
@@ -324,11 +306,11 @@ typedef struct amudp_ep {
   amudp_handler_fn_t  handler[AMUDP_MAX_NUMHANDLERS]; /* handler table */
 
   /* internal structures */
-  #ifndef UETH 
-    SOCKET s; /* UDP socket */
-    int socketRecvBufferSize; /* only used if USE_SOCKET_RECVBUFFER_GROW */
-    int socketRecvBufferMaxedOut;
-  #endif
+
+  SOCKET s; /* UDP socket */
+  int socketRecvBufferSize; /* only used if USE_SOCKET_RECVBUFFER_GROW */
+  int socketRecvBufferMaxedOut;
+
   int P;     /* the number of endpoints we communicate with - also number of translations currently in use */
   int depth; /* network depth, -1 until AM_SetExpectedResources is called */
   int PD; /* cached value of P * depth */
@@ -348,16 +330,14 @@ typedef struct amudp_ep {
   amudp_buf_t* temporaryBuf; /* a single extra buffer used for temporary operations */
 
   /* buffers for inbound messages */
-  #ifndef UETH
-    /* invariant: buffer empty when rxFreeIdx == rxReadyIdx
-     *            buffer full when (rxFreeIdx + 1) % rxNumBufs == rxReadyIdx
-     * active buffers are rxReadyIdx ... rxFreeIdx-1 (with circular wrap-around)
-     */
-    amudp_buf_t* rxBuf;  /* circular buffer */
-    uint32_t rxNumBufs;  /* size of circular buffer */
-    uint32_t rxReadyIdx; /* oldest unserviced, received message */
-    uint32_t rxFreeIdx;  /* beginning of free list */
-  #endif
+  /* invariant: buffer empty when rxFreeIdx == rxReadyIdx
+   *            buffer full when (rxFreeIdx + 1) % rxNumBufs == rxReadyIdx
+   * active buffers are rxReadyIdx ... rxFreeIdx-1 (with circular wrap-around)
+   */
+  amudp_buf_t* rxBuf;  /* circular buffer */
+  uint32_t rxNumBufs;  /* size of circular buffer */
+  uint32_t rxReadyIdx; /* oldest unserviced, received message */
+  uint32_t rxFreeIdx;  /* beginning of free list */
 
   AMUDP_preHandlerCallback_t preHandlerCallback; /* client hooks for statistical/debugging usage */
   AMUDP_postHandlerCallback_t postHandlerCallback;

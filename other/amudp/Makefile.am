@@ -69,9 +69,7 @@ headers = \
 	sockaddr.h		\
 	socket.h		\
 	socklist.h		\
-	sockutil.h		\
-	ueth.h			\
-	ufxp.h
+	sockutil.h		
 
 libamudp_a_SOURCES = \
 	$(headers)		\

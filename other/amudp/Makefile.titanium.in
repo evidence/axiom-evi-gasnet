@@ -30,9 +30,6 @@ cxxoptflags = -O @GENERIC_CXXFLAGS@ @CXXFLAGSE@ @CXXFLAGSDIAG@ $(otherflags)
 ranlib = @RANLIB@
 ar = @AR@
 
-# paths to platform-dependent helpers
-ueth_includes 	 = @TIC_UETH_DEFINES@
-
 # stuff normally set by the pre-baked makefiles
 platform_defines = @TIC_MACHINE_DEFINES@ @INTTYPES_DEFINES@ -DUNIX -DAMUDP_ENV_PREFIX=TI
 platform_libraries = @TIC_UDP_LIBS@ @LIBS@

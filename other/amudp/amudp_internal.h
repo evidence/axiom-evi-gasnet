@@ -43,22 +43,14 @@
 #define USE_SOCKET_SENDBUFFER_GROW  1   /* grow SNDBUF on UDP sockets */
 #endif
 #define AMUDP_RECVBUFFER_MAX  4194304   /* never exceed 4 MB (huge) */
-#ifdef UETH
-  #define USE_TRUE_BULK_XFERS       0   /* bulk xfers use long packets rather than segmentation */
-#else
-  #define USE_TRUE_BULK_XFERS       1   /* bulk xfers use long packets rather than segmentation */
+#ifndef USE_TRUE_BULK_XFERS
+#define USE_TRUE_BULK_XFERS       1   /* bulk xfers use long packets rather than segmentation */
 #endif
-#define AMUDP_SIGIO                39  
-                                        /* signal used for async IO operations - 
+#define AMUDP_SIGIO                39   /* signal used for async IO operations - 
                                          * avoid SIGIO to prevent conflicts with application using library
-                                         * also, ueth uses 38
                                          */
-#ifdef UETH
-  #define AMUDP_INITIAL_REQUESTTIMEOUT_MICROSEC   10000  /* usec until first retransmit */
-  #define UETH_RECVPOOLFUDGEFACTOR                    1  /* scale up the recv buffer */
-#else
-  #define AMUDP_INITIAL_REQUESTTIMEOUT_MICROSEC   10000  /* usec until first retransmit */
-#endif
+
+#define AMUDP_INITIAL_REQUESTTIMEOUT_MICROSEC   10000  /* usec until first retransmit */
 #define AMUDP_REQUESTTIMEOUT_BACKOFF_MULTIPLIER     2  /* timeout exponential backoff factor */
 #define AMUDP_MAX_REQUESTTIMEOUT_MICROSEC    30000000  /* max timeout before considered undeliverable */
 #define AMUDP_DEFAULT_EXPECTED_BANDWIDTH         1220  /* expected Kbytes/sec bandwidth: 1220 = 10Mbit LAN */
@@ -333,13 +325,9 @@ static const char *AMUDP_curr_function(const char *arg) {
 
 extern const char *sockErrDesc();
 
-#ifdef UETH
-  #define enEqual(en1,en2) (!memcmp(&en1, &en2, sizeof(en_t)))
-#else
-  #define enEqual(en1,en2)                  \
+#define enEqual(en1,en2)                    \
     ((en1).sin_port == (en2).sin_port       \
   && (en1).sin_addr.s_addr == (en2).sin_addr.s_addr)
-#endif
 
 //------------------------------------------------------------------------------------
 // global data
@@ -349,9 +337,6 @@ extern eb_t AMUDP_bundles[AMUDP_MAX_BUNDLES];
 extern double AMUDP_FaultInjectionRate;
 extern double AMUDP_FaultInjectionEnabled;
 
-#ifdef UETH
-  extern ep_t AMUDP_UETH_endpoint; /* the one-and-only UETH endpoint */
-#endif
 extern int amudp_Initialized;
 #define AMUDP_CHECKINIT() AMUDP_CHECK_ERR((!amudp_Initialized),NOT_INIT)
 /* ------------------------------------------------------------------------------------ */
@@ -400,7 +385,7 @@ extern int AMUDP_Block(eb_t eb);
 extern amudp_buf_t *AMUDP_AcquireBulkBuffer(ep_t ep); // get a bulk buffer
 extern void AMUDP_ReleaseBulkBuffer(ep_t ep, amudp_buf_t *buf); // release a bulk buffer
 
-#if !defined(UETH) && USE_SOCKET_RECVBUFFER_GROW
+#if USE_SOCKET_RECVBUFFER_GROW
   extern int AMUDP_growSocketBufferSize(ep_t ep, int targetsize, int szparam, const char *paramname);
 #endif
 
@@ -414,9 +399,6 @@ extern void AMUDP_DefaultReturnedMsg_Handler(int status, op_t opcode, void *toke
 //------------------------------------------------------------------------------------
 /* SPMD control information that has to be shared */
 extern SOCKET AMUDP_SPMDControlSocket; /* SPMD TCP control socket */
-#ifdef UETH
-  extern void AMUDP_SPMDAddressChangeCallback(ueth_addr_t *address);
-#endif
 extern int AMUDP_SPMDHandleControlTraffic(int *controlMessagesServiced);
 extern int AMUDP_SPMDSpawnRunning; /* true while spawn is active */
 extern int AMUDP_SPMDRedirectStdsockets; /* true if stdin/stdout/stderr should be redirected */
@@ -547,13 +529,6 @@ extern int myrecvfrom(SOCKET s, char * buf, int len, int flags,
     ((amudp_cputick_t)(us) * \
      (amudp_cputick_t)(1000000000.0 / gasnett_ticks_to_us((gasnett_tick_t)1000000000)))
   #define tickspersec               us2ticks(1000000)  
-#elif defined(UETH)
-  /* Ticks == CPU cycles for UETH */
-  #define getMicrosecondTimeStamp() ueth_getustime()
-  #define getCPUTicks()             ((amudp_cputick_t)ueth_getcputime())
-  #define ticks2us(ticks)           (ueth_ticks_to_us(ticks))
-  #define us2ticks(us)              ((amudp_cputick_t)(ueth_us_to_ticks(us)))
-  #define tickspersec               ueth_ticks_per_second
 #else
   #if PLATFORM_OS_MSWINDOWS
     static int64_t getMicrosecondTimeStamp(void) {
