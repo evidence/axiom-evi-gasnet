@@ -6,11 +6,9 @@
 #include <stdarg.h>
 #include <math.h>
 #include <time.h>
-#ifndef WIN32
-  #include <sys/time.h>
-  #include <unistd.h>
-  #include <fcntl.h>
-#endif
+#include <sys/time.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 
 /* forward decls */
@@ -35,44 +33,14 @@ static int intpow(int val, int exp) {
   return retval;
 }
 /* ------------------------------------------------------------------------------------ */
-#ifdef WIN32
-  extern int64_t AMMPI_getMicrosecondTimeStamp(void) {
-    static int status = -1;
-    static double multiplier;
-    if (status == -1) { /*  first time run */
-      LARGE_INTEGER freq;
-      if (!QueryPerformanceFrequency(&freq)) status = 0; /*  don't have high-perf counter */
-      else {
-        multiplier = 1000000 / (double)freq.QuadPart;
-        status = 1;
-      }
-    }
-    if (status) { /*  we have a high-performance counter */
-      LARGE_INTEGER count;
-      QueryPerformanceCounter(&count);
-      return (int64_t)(multiplier * count.QuadPart);
-    } else { /*  no high-performance counter */
-      /*  this is a millisecond-granularity timer that wraps every 50 days */
-      return (GetTickCount() * 1000);
-    }
-  }
-/* #elif PLATFORM_ARCH_X86
- * TODO: it would be nice to take advantage of the Pentium's "rdtsc" instruction,
- * which reads a fast counter incremented on each cycle. Unfortunately, that
- * requires a way to convert cycles to microseconds, and there doesn't appear to 
- * be a way to directly query the cycle speed
- */
-
-#else /* unknown processor - use generic UNIX call */
-  extern int64_t AMMPI_getMicrosecondTimeStamp(void) {
+extern int64_t AMMPI_getMicrosecondTimeStamp(void) {
     int64_t retval;
     struct timeval tv;
     if (gettimeofday(&tv, NULL))
       AMMPI_FatalErr("gettimeofday failed: %s",strerror(errno));
     retval = ((int64_t)tv.tv_sec) * 1000000 + tv.tv_usec;
     return retval;
-  }
-#endif
+}
 /* ------------------------------------------------------------------------------------ */
 /* mpihandle points to the MPI_Request to receive the non-blocking send handle, 
  * or null to use a blocking send

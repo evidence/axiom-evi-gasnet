@@ -8,34 +8,28 @@
 
 #include <errno.h>
 #include <stdio.h>
-#if PLATFORM_OS_MSWINDOWS
+#include <unistd.h>
+#if PLATFORM_ARCH_CRAYT3E || PLATFORM_OS_SUPERUX || PLATFORM_OS_NETBSD || \
+    PLATFORM_OS_MTA || PLATFORM_OS_BLRTS || PLATFORM_OS_CATAMOUNT || PLATFORM_OS_OPENBSD
+  /* these implement sched_yield() in libpthread only, which we may not want */
   #undef sched_yield
-  #define sched_yield() Sleep(0)
-  #define sleep(x) Sleep(x*1000)
-  #include <process.h>
+  #define sched_yield() sleep(0)
 #else
+  #include <sched.h>
+#endif
+#if (PLATFORM_OS_LINUX || PLATFORM_OS_UCLINUX) && !defined(__USE_GNU)
+  /* some Linuxes need this to pull in F_SETSIG */
+  #define __USE_GNU
+  #include <fcntl.h>
+  #undef __USE_GNU
+#else
+  #include <fcntl.h>
+#endif
+
+#ifdef AMUDP_BLCR_ENABLED
+  #include <sys/types.h>
+  #include <sys/stat.h>
   #include <unistd.h>
-  #if PLATFORM_ARCH_CRAYT3E || PLATFORM_OS_SUPERUX || PLATFORM_OS_NETBSD || \
-      PLATFORM_OS_MTA || PLATFORM_OS_BLRTS || PLATFORM_OS_CATAMOUNT || PLATFORM_OS_OPENBSD
-    /* these implement sched_yield() in libpthread only, which we may not want */
-    #undef sched_yield
-    #define sched_yield() sleep(0)
-  #else
-    #include <sched.h>
-  #endif
-  #if (PLATFORM_OS_LINUX || PLATFORM_OS_UCLINUX) && !defined(__USE_GNU)
-    /* some Linuxes need this to pull in F_SETSIG */
-    #define __USE_GNU
-    #include <fcntl.h>
-    #undef __USE_GNU
-  #else
-    #include <fcntl.h>
-  #endif
-  #ifdef AMUDP_BLCR_ENABLED
-    #include <sys/types.h>
-    #include <sys/stat.h>
-    #include <unistd.h>
-  #endif
 #endif
 
 extern char **environ; 
@@ -218,9 +212,6 @@ extern char *AMUDP_tagStr(tag_t tag, char *buf) {
     (int)(uint32_t)(tag >> 32), 
     (int)(uint32_t)(tag & 0xFFFFFFFF));
   return buf;
-}
-extern const char *sockErrDesc() {
-  return errorCodeString(getSocketErrorCode());
 }
 //------------------------------------------------------------------------------------
 static void setupStdSocket(SOCKET& ls, SocketList& list, SocketList& allList) {
@@ -1124,35 +1115,10 @@ pollentry:
               // disable buffering
               setvbuf(stdFILE[fd], NULL, _IONBF, 0);
             #endif
-            #if PLATFORM_OS_MSWINDOWS
-              #if 0
-              // not sure how to do this on Win32 yet - maybe use _fdopen() and/or _fileno()
-              { FILE* newf;
-                if( ( newf = fopen( "c:\\data", "w" ) ) == NULL ) {
-                  puts( "Can't open file 'data'\n" );
-                  exit( 1 );
-                }
-                if( ( newf = _fdopen( newstdout, "w" ) ) == NULL ) {
-                  puts( "fdopen failed\n" );
-                  exit( 1 );
-                }
-                if (dup2(_fileno(newf), FD_STDOUT) < 0) { // redirect stdout to socket
-                  perror("dup2(stdout)");
-                  _exit(1); 
-                }
-                printf("yomama\n");
-                fflush(stdout);
-                fclose(newf);
-                exit(0);
-              }
-              #endif
-            #else
-              /* UNIX */
-              if (dup2(newstd[fd], fd) < 0) { // redirect std FD to socket
-                perror("dup2(std)");
-                _exit(1); 
-              }
-            #endif
+            if (dup2(newstd[fd], fd) < 0) { // redirect std FD to socket
+              perror("dup2(std)");
+              _exit(1); 
+            }
         }
      }
      #endif

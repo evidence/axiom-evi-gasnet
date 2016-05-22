@@ -9,21 +9,6 @@
 #include <portable_inttypes.h>
 #include <portable_platform.h>
 
-/*  ------------- win32 -------------------- */
-#if PLATFORM_OS_MSWINDOWS && !PLATFORM_OS_CYGWIN
-#define WINSOCK 1
-#include <winsock2.h>    /*  sockets */
-#include <windows.h>  
-    
-#define SHUT_RD   SD_RECEIVE 
-#define SHUT_WR   SD_SEND 
-#define SHUT_RDWR SD_BOTH 
-
-#define _FIONREAD FIONREAD
-
-/*  ------------ unix ------------------ */
-#else
-
 #include <sys/types.h>     /*  Solaris 2.5.1 fix: u_short, required by sys/socket.h */
 #include <sys/socket.h>    /*  sockets */
 #include <sys/time.h>      /*  timeval */
@@ -119,7 +104,6 @@ extern "C" {
 
 typedef unsigned int SOCKET;
 typedef fd_set FD_SET;
-#endif
 
 #ifdef __cplusplus
   #define SOCK_BEGIN_EXTERNC extern "C" {
@@ -144,7 +128,7 @@ typedef fd_set FD_SET;
 #  define GETSOCKOPT_LENGTH_T int
 #endif
 
-#if PLATFORM_OS_MSWINDOWS || PLATFORM_OS_CYGWIN || PLATFORM_OS_AIX || PLATFORM_OS_SOLARIS || \
+#if PLATFORM_OS_CYGWIN || PLATFORM_OS_AIX || PLATFORM_OS_SOLARIS || \
     PLATFORM_OS_LINUX || PLATFORM_OS_UCLINUX || PLATFORM_OS_TRU64 || PLATFORM_OS_SUPERUX || \
     PLATFORM_ARCH_CRAYX1 /* X1 docs claim it's a size_t, they lie */
   #define IOCTL_FIONREAD_ARG_T unsigned int

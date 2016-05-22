@@ -7,20 +7,7 @@
 #include <ammpi_spmd.h>
 
 #include <stdio.h>
-#ifdef WIN32
-  #include <process.h>
-#else
-  #include <unistd.h>
-  #if (PLATFORM_OS_LINUX || PLATFORM_OS_UCLINUX) && !defined(__USE_GNU)
-    /* some Linuxes need this to pull in F_SETSIG */
-    #define __USE_GNU
-    #include <fcntl.h>
-    #undef __USE_GNU
-  #else
-    #include <fcntl.h>
-  #endif
-#endif
-
+#include <unistd.h>
 
 #define FD_STDIN 0
 #define FD_STDOUT 1

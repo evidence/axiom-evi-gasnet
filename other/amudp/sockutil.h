@@ -91,18 +91,6 @@ void close_socket(SOCKET s);
 void closeGracefully(SOCKET s); // close a socket gracefully, blocking until everything is sent
  // note: does NOT throw exn, even though it closed it
 
-// ------ error determination ------
-char const *errorCodeString(int socket_error_code);
-  // map an error code into a human-readable string, null-terminated but
-  // with no newline, or NULL if the code is not understood; the returned
-  // pointer must be treated as a pointer to a static area that will be
-  // overwritten by the next call, even that is not necessarily true on
-  // some systems
-
-int getSocketErrorCode();
-  // return the error code for use with errorCodeString; only defined after
-  // a socket function returns an error code (usually either SOCKET_ERROR
-  // or INVALID_SOCKET)
 
 SockAddr getsockname(SOCKET s);
 SockAddr getpeername(SOCKET s);

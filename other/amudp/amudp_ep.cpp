@@ -261,22 +261,7 @@ static int AMUDP_AllocateEndpointResource(ep_t ep) {
     /* allocate socket */
     ep->s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (ep->s == INVALID_SOCKET) 
-      AMUDP_RETURN_ERRFR(RESOURCE, socket, sockErrDesc());
-
-    #ifdef WINSOCK
-    { /* check transport message size - UNIX doesn't seem to have a way for doing this */
-      unsigned int maxmsg;
-      GETSOCKOPT_LENGTH_T sz = sizeof(unsigned int);
-      if (SOCK_getsockopt(ep->s, SOL_SOCKET, SO_MAX_MSG_SIZE, (char*)&maxmsg, &sz) == SOCKET_ERROR) {
-        closesocket(ep->s);
-        AMUDP_RETURN_ERRFR(RESOURCE, getsockopt, sockErrDesc());
-      }
-      if (maxmsg < AMUDP_MAX_NETWORK_MSG) {
-        closesocket(ep->s);
-        AMUDP_RETURN_ERRFR(RESOURCE, AMUDP_AllocateEndpointResource, "max datagram size of UDP provider is too small");
-      }
-    }
-    #endif
+      AMUDP_RETURN_ERRFR(RESOURCE, socket, strerror(errno));
 
     ep->name.sin_family = AF_INET;
     ep->name.sin_port = 0; /* any port */
@@ -285,13 +270,13 @@ static int AMUDP_AllocateEndpointResource(ep_t ep) {
 
     if (bind(ep->s, (struct sockaddr*)&ep->name, sizeof(struct sockaddr)) == SOCKET_ERROR) {
       closesocket(ep->s);
-      AMUDP_RETURN_ERRFR(RESOURCE, bind, sockErrDesc());
+      AMUDP_RETURN_ERRFR(RESOURCE, bind, strerror(errno));
     }
     { /*  danger: this might fail on multi-homed hosts if AMUDP_currentUDPInterface was not set*/
       GETSOCKNAME_LENGTH_T sz = sizeof(en_t);
       if (SOCK_getsockname(ep->s, (struct sockaddr*)&ep->name, &sz) == SOCKET_ERROR) {
         closesocket(ep->s);
-        AMUDP_RETURN_ERRFR(RESOURCE, getsockname, sockErrDesc());
+        AMUDP_RETURN_ERRFR(RESOURCE, getsockname, strerror(errno));
       }
       /* can't determine interface address */
       if (ep->name.sin_addr.s_addr == INADDR_ANY) {
@@ -417,18 +402,6 @@ extern int AM_Init() {
 
     AMUDP_assert(sizeof(uintptr_t) >= sizeof(void *));
 
-    #ifdef WINSOCK
-    { WSADATA wsa;
-      #if 1
-        WORD wVersionRequested = MAKEWORD( 1, 1 );
-      #else
-        WORD wVersionRequested = MAKEWORD( 2, 2 );
-      #endif
-
-      if (WSAStartup(wVersionRequested, &wsa)) AMUDP_RETURN_ERR(RESOURCE);
-    }
-    #endif
-
     { char *faultRate = AMUDP_getenv_prefixed("FAULT_RATE");
       if (faultRate && (AMUDP_FaultInjectionRate = atof(faultRate)) != 0.0) {
         AMUDP_FaultInjectionEnabled = 1;
@@ -454,9 +427,6 @@ extern int AM_Terminate() {
         retval = AM_ERR_RESOURCE;
     }
     AMUDP_numBundles = 0;
-    #ifdef WINSOCK
-      if (WSACleanup()) retval = AM_ERR_RESOURCE;
-    #endif
   }
 
   amudp_Initialized--;

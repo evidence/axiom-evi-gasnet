@@ -12,11 +12,8 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
-
-#if !PLATFORM_OS_MSWINDOWS
-  #include <unistd.h>
-  #include <errno.h>
-#endif
+#include <unistd.h>
+#include <errno.h>
 #include <sockutil.h> /* for SPMD TCP stuff */
 #include <amudp.h>
 #ifdef HAVE_GASNET_TOOLS 
@@ -323,8 +320,6 @@ static const char *AMUDP_curr_function(const char *arg) {
         AMUDP_curr_function(__CURR_FUNCTION), __FILE__, __LINE__, #expr))
 #endif
 
-extern const char *sockErrDesc();
-
 #define enEqual(en1,en2)                    \
     ((en1).sin_port == (en2).sin_port       \
   && (en1).sin_addr.s_addr == (en2).sin_addr.s_addr)
@@ -530,51 +525,21 @@ extern int myrecvfrom(SOCKET s, char * buf, int len, int flags,
      (amudp_cputick_t)(1000000000.0 / gasnett_ticks_to_us((gasnett_tick_t)1000000000)))
   #define tickspersec               us2ticks(1000000)  
 #else
-  #if PLATFORM_OS_MSWINDOWS
-    static int64_t getMicrosecondTimeStamp(void) {
-      static int status = -1;
-      static double multiplier;
-      if (status == -1) { /*  first time run */
-        LARGE_INTEGER freq;
-        if (!QueryPerformanceFrequency(&freq)) status = 0; /*  don't have high-perf counter */
-        else {
-          multiplier = 1000000 / (double)freq.QuadPart;
-          status = 1;
-        }
-      }
-      if (status) { /*  we have a high-performance counter */
-        LARGE_INTEGER count;
-        QueryPerformanceCounter(&count);
-        return (int64_t)(multiplier * count.QuadPart);
-      } else { /*  no high-performance counter */
-        /*  this is a millisecond-granularity timer that wraps every 50 days */
-        return (GetTickCount() * 1000);
-      }
-    }
-  /* #elif PLATFORM_ARCH_X86
-   * TODO: it would be nice to take advantage of the Pentium's "rdtsc" instruction,
-   * which reads a fast counter incremented on each cycle. Unfortunately, that
-   * requires a way to convert cycles to microseconds, and there doesn't appear to 
-   * be a way to directly query the cycle speed
-   */
-
-  #else /* unknown processor - use generic UNIX call */
-    static int64_t getMicrosecondTimeStamp(void) {
-      int64_t retval;
-      struct timeval tv;
-      retry:
-      if (gettimeofday(&tv, NULL))
-        AMUDP_FatalErr("gettimeofday failed: %s",strerror(errno));
-      retval = ((int64_t)tv.tv_sec) * 1000000 + tv.tv_usec;
-      #if PLATFORM_OS_UNICOS
-        /* fix an empirically observed bug in UNICOS gettimeofday(),
-           which occasionally returns ridiculously incorrect values
-         */
-        if_pf(retval < (((int64_t)3) << 48)) goto retry;
-      #endif
-      return retval;
-    }
-  #endif
+  static int64_t getMicrosecondTimeStamp(void) {
+    int64_t retval;
+    struct timeval tv;
+    retry:
+    if (gettimeofday(&tv, NULL))
+      AMUDP_FatalErr("gettimeofday failed: %s",strerror(errno));
+    retval = ((int64_t)tv.tv_sec) * 1000000 + tv.tv_usec;
+    #if PLATFORM_OS_UNICOS
+      /* fix an empirically observed bug in UNICOS gettimeofday(),
+         which occasionally returns ridiculously incorrect values
+       */
+      if_pf(retval < (((int64_t)3) << 48)) goto retry;
+    #endif
+    return retval;
+  }
   /* Ticks == us for gettimeofday */
   #define getCPUTicks()             ((amudp_cputick_t)getMicrosecondTimeStamp())
   #define ticks2us(ticks)           (ticks)

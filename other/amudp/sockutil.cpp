@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <ctype.h>
+#include <errno.h>
 #include "sockutil.h"
 #include "sig.h"
 #include "sockaddr.h"
@@ -16,29 +17,12 @@ bool endianconvert = false;
 static int isinit = 0;
 static bool nh_cvt = false;
 #define CHECKINIT() assert(isinit > 0)
-#ifdef WINSOCK
-  bool socklibinit(){
-    WSADATA d;
-    if (!WSAStartup(MAKEWORD(1,1), &d)) {
-      nh_cvt = isLittleEndian();
-      isinit++;
-      return true;
-    } else return false;
-  }
-  bool socklibend() {
-    WSACleanup();
-    isinit--;
-    return true;
-  }
-#else
-  #include <errno.h>      // errno, strerror
-  bool socklibinit(){ 
-    nh_cvt = isLittleEndian();
-    isinit++; 
-    return true; 
-  }
-  bool socklibend(){ isinit--; return true; }
-#endif
+bool socklibinit(){ 
+  nh_cvt = isLittleEndian();
+  isinit++; 
+  return true; 
+}
+bool socklibend(){ isinit--; return true; }
 //-------------------------------------------------------------------------------------
 SOCKET listen_socket(unsigned short port, bool allowshared) {
   // create a socket to listen to a specific port
@@ -79,9 +63,7 @@ SOCKET accept_socket(SOCKET listener, struct sockaddr* calleraddr) {
   while (1) {
     SOCKET newsock;
     if ((newsock = SOCK_accept(listener, calleraddr, &sz)) == INVALID_SOCKET) {
-      #ifndef WINSOCK
-        if (errno == EINTR) continue; // ignore signal interruptions - keep blocking
-      #endif
+      if (errno == EINTR) continue; // ignore signal interruptions - keep blocking
       closesocket(listener);
       xsocket(listener, "accept() failed on listener socket");
     }
@@ -196,7 +178,7 @@ void recvAll(SOCKET s, void* buffer, int numbytes) {
 void sendAll(SOCKET s, const void* buffer, int numbytes, int dothrow) {
   // blocks until it can send numbytes on s from buffer
   // (throws xSocket on close by default)
-  #if !PLATFORM_OS_MSWINDOWS && !SIGPIPE_BLOCKED
+  #if !SIGPIPE_BLOCKED
     // must use heavyweight method to block SIGPIPE errors
     LPSIGHANDLER oldsighandler = reghandler(SIGPIPE, (LPSIGHANDLER)SIG_IGN); 
   #endif
@@ -206,7 +188,7 @@ void sendAll(SOCKET s, const void* buffer, int numbytes, int dothrow) {
     retval = send(s, buf, numbytes, SEND_FLAGS);
     if (retval == SOCKET_ERROR) {
       closesocket(s);
-      #if !PLATFORM_OS_MSWINDOWS && !SIGPIPE_BLOCKED
+      #if !SIGPIPE_BLOCKED
         reghandler(SIGPIPE, oldsighandler); // restore handler
       #endif
       if (dothrow) xsocket(s, "error in sendAll() - connection closed");
@@ -217,7 +199,7 @@ void sendAll(SOCKET s, const void* buffer, int numbytes, int dothrow) {
     buf += retval;
     numbytes -= retval;
   }
-  #if !PLATFORM_OS_MSWINDOWS && !SIGPIPE_BLOCKED
+  #if !SIGPIPE_BLOCKED
     reghandler(SIGPIPE, oldsighandler); // restore handler
   #endif
 }
@@ -548,26 +530,16 @@ bool isClosed(SOCKET s) {
   int len = recv(s, &c, 1, MSG_PEEK); // something is waiting -> never blocks
   if (len == 0) return true; // socket closed
   else if (len == SOCKET_ERROR) {
-    int err = getSocketErrorCode();
-    #ifdef WINSOCK
-      if (err == WSAECONNRESET ||
-          err == WSAENOTCONN ||
-          err == WSAENETRESET ||
-          err == WSAECONNABORTED ||
-          err == WSAESHUTDOWN ||
-          err == WSAENOTSOCK ||
-          err == WSAETIMEDOUT) return true;
-    #else
-      if (err == ECONNRESET ||
-          err == ENOTCONN ||
-          err == ENETRESET ||
-          err == ECONNABORTED ||
-          err == ESHUTDOWN ||
-          err == EPIPE ||
-          err == ENOTSOCK ||
-          err == EBADF ||
-          err == ETIMEDOUT) return true;
-    #endif
+    int err = errno;
+    if (err == ECONNRESET ||
+        err == ENOTCONN ||
+        err == ENETRESET ||
+        err == ECONNABORTED ||
+        err == ESHUTDOWN ||
+        err == EPIPE ||
+        err == ENOTSOCK ||
+        err == EBADF ||
+        err == ETIMEDOUT) return true;
     else xsocket(s, "recv(MSG_PEEK) within isClosed()"); // some error
   }
 
@@ -589,114 +561,20 @@ bool hasOOBdata(SOCKET s) {
   return false;
 }
 //------------------------------------------------------------------------------------
-#ifdef WINSOCK
-// return string associated with a given code
-#define MAKEERRSTRING(code, desc)  { code, #code ": " desc }
-char const *errorCodeString(int code) {
-  static struct {
-    int code;
-    char const *message;
-  } const arr[] = {
-    MAKEERRSTRING(  WSAEACCES,          "Broadcast address requested, proper flags not set" ),
-    MAKEERRSTRING(  WSAEADDRINUSE,      "Specified address already in use" ),
-    MAKEERRSTRING(  WSAEADDRNOTAVAIL,   "Address not available or accessible" ),
-    MAKEERRSTRING(  WSAEAFNOSUPPORT,    "Address format not supported" ),
-    MAKEERRSTRING(  WSAEALREADY,        "\"already\" something (?)" ),    // already what?
-    MAKEERRSTRING(  WSAEBADF,           "Bad file number" ),
-    MAKEERRSTRING(  WSAECONNABORTED,    "Connection aborted, possibly due to timeout" ),
-    MAKEERRSTRING(  WSAECONNREFUSED,    "Connection refused" ),
-    MAKEERRSTRING(  WSAECONNRESET,      "Connection reset by remote side" ),
-    MAKEERRSTRING(  WSAEDESTADDRREQ,    "Destination address required" ),
-    MAKEERRSTRING(  WSAEDISCON,         "Socket disconnected" ),
-    MAKEERRSTRING(  WSAEDQUOT,          "\"DQUOT\" (?)" ),     // what does this mean?
-    MAKEERRSTRING(  WSAEFAULT,          "Memory buffer too small" ),
-    MAKEERRSTRING(  WSAEHOSTDOWN,       "Remote host is down" ),
-    MAKEERRSTRING(  WSAEHOSTUNREACH,    "Remote host is unreachable" ),
-    MAKEERRSTRING(  WSAEINPROGRESS,     "Blocking call in progress" ),
-    MAKEERRSTRING(  WSAEINTR,           "Blocking call interrupted" ),
-    MAKEERRSTRING(  WSAEINVAL,          "Invalid parameter" ),
-    MAKEERRSTRING(  WSAEISCONN,         "Socket already connected" ),
-    MAKEERRSTRING(  WSAELOOP,           "Routing loop discovered (?)" ),
-    MAKEERRSTRING(  WSAEMFILE,          "No more file descriptors available" ),
-    MAKEERRSTRING(  WSAEMSGSIZE,        "Message size exceeds maximum datagram size" ),
-    MAKEERRSTRING(  WSAENAMETOOLONG,    "Name too long" ),
-    MAKEERRSTRING(  WSAENETDOWN,        "Network subsystem failure detected" ),
-    MAKEERRSTRING(  WSAENETRESET,       "Connection was reset" ),
-    MAKEERRSTRING(  WSAENETUNREACH,     "Network is unreachable" ),
-    MAKEERRSTRING(  WSAENOBUFS,         "Insufficient buffer space available" ),
-    MAKEERRSTRING(  WSAENOPROTOOPT,     "Invalid protocol option" ),
-    MAKEERRSTRING(  WSAENOTCONN,        "Socket is not connected" ),
-    MAKEERRSTRING(  WSAENOTEMPTY,       "Buffer not empty" ),
-    MAKEERRSTRING(  WSAENOTSOCK,        "Connection is already closed" ),
-    MAKEERRSTRING(  WSAEOPNOTSUPP,      "Operation not supported (e.g. OOB)" ),
-    MAKEERRSTRING(  WSAEPFNOSUPPORT,    "Protocol family not supported" ),
-    MAKEERRSTRING(  WSAEPROCLIM,        "\"PROCLIM\" (?)" ),    // anyone know what this means?
-    MAKEERRSTRING(  WSAEPROTONOSUPPORT, "The specified protocol is not supported" ),
-    MAKEERRSTRING(  WSAEPROTOTYPE,      "Specified protocol is wrong type" ),
-    MAKEERRSTRING(  WSAEREMOTE,         "Error at remote host" ),
-    MAKEERRSTRING(  WSAESHUTDOWN,       "Socket has been shut down" ),
-    MAKEERRSTRING(  WSAESOCKTNOSUPPORT, "Socket type not supported" ),
-    MAKEERRSTRING(  WSAESTALE,          "Stale handle" ),
-    MAKEERRSTRING(  WSAETIMEDOUT,       "Connection timed out" ),
-    MAKEERRSTRING(  WSAETOOMANYREFS,    "Too many references" ),
-    MAKEERRSTRING(  WSAEUSERS,          "Too many users" ),
-    MAKEERRSTRING(  WSAEWOULDBLOCK,     "Asynchronous operation cannot be scheduled" ),
-    MAKEERRSTRING(  WSAHOST_NOT_FOUND,  "Authoritative Answer Host not found" ),
-    MAKEERRSTRING(  WSANO_ADDRESS,      "No address, look for MX record (?)" ),
-    MAKEERRSTRING(  WSANO_DATA,         "Valid name, no data record of requested type" ),
-    MAKEERRSTRING(  WSANO_RECOVERY,     "Non-recoverable error" ),
-    MAKEERRSTRING(  WSANOTINITIALISED,  "Winsock not initialized" ),
-    MAKEERRSTRING(  WSASYSNOTREADY,     "Network subsystem not ready" ),
-    MAKEERRSTRING(  WSATRY_AGAIN,       "Non-Authoritative Host not found" ),
-    MAKEERRSTRING(  WSAVERNOTSUPPORTED, "Winsock version not supported" ),
 
-    MAKEERRSTRING(  0,                  "No error" )
-    };
-
-  for (int i=0; i < sizeof(arr)/sizeof(arr[0]); i++) {
-    if (arr[i].code == code) {
-      return arr[i].message;
-    }
-  }
-
-  // unknown code
-  return NULL;
-}
-
-int getSocketErrorCode() {
-  return WSAGetLastError();
-}
-//------------------------------------------------------------------------------------
-#else //    ^^ win32    unix vv
-
-
-char const *errorCodeString(int code){
-  return strerror(code);
-}
-
-int getSocketErrorCode() {
-  return errno;
-}
-
-#endif
-//------------------------------------------------------------------------------------
 #undef select
 extern int myselect(int  n,  fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
             struct timeval *timeout) {
   #ifdef FD_SETSIZE
     assert((unsigned int)n <= (unsigned int)FD_SETSIZE);
   #endif
-  #if PLATFORM_OS_MSWINDOWS
-    return select(n, readfds, writefds, exceptfds, timeout);
-  #else
-    /* a select that ignores UNIX's ridiculously inconvenient interrupt signals */
-    int retval;
-    do {
-      retval = select(n, readfds, writefds, exceptfds, timeout);
-    } while (retval == SOCKET_ERROR && errno == EINTR);
-    return retval;
-  #endif
 
+  /* a select that ignores UNIX's ridiculously inconvenient interrupt signals */
+  int retval;
+  do {
+      retval = select(n, readfds, writefds, exceptfds, timeout);
+  } while (retval == SOCKET_ERROR && errno == EINTR);
+  return retval;
 }
 /* ------------------------------------------------------------------------------------ */
 extern int myrecvfrom(SOCKET s, char * buf, int len, int flags,                  
@@ -709,19 +587,8 @@ extern int myrecvfrom(SOCKET s, char * buf, int len, int flags,
     int retval = SOCK_recvfrom(s, buf, len, flags, from, psz);
     if (fromlen) *fromlen = (int)sz;
 
-    #ifdef WINSOCK
-     /* winsock returns WSAECONNRESET from recvfrom on UDP sockets to 
-      * indicate the receipt of an ICMP "Port Unreachable" message 
-      * caused by a previous sendto()
-      * this probably means the remote node crashed, but may just 
-      * indicate a network partition or congestion
-      */
-     if (retval == SOCKET_ERROR && WSAGetLastError() == WSAECONNRESET) 
-       continue; /* ignore it */
-    #else
-     if (retval == SOCKET_ERROR && errno == EINTR) 
-       continue;
-    #endif
+    if (retval == SOCKET_ERROR && errno == EINTR) continue;
+
     return retval;
   }
 }

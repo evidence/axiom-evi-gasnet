@@ -9,11 +9,9 @@
 #include <stdarg.h>
 #include <math.h>
 #include <time.h>
-#if !PLATFORM_OS_MSWINDOWS
-  #include <sys/time.h>
-  #include <unistd.h>
-  #include <fcntl.h>
-#endif
+#include <sys/time.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 /* forward decls */
 static int AMUDP_RequestGeneric(amudp_category_t category, 
@@ -88,7 +86,7 @@ static int sendPacket(ep_t ep, amudp_buf_t *packet, int packetlength, en_t desta
       AMUDP_Warn("Got a '%s'(%i) on sendto(%i), ignoring...", strerror(err), err,packetlength); 
       goto success;
     }
-    AMUDP_RETURN_ERRFR(RESOURCE, sendPacket, sockErrDesc());
+    AMUDP_RETURN_ERRFR(RESOURCE, sendPacket, strerror(errno));
     success: ;
   }
 
@@ -191,7 +189,7 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
  * This works on Linux, but Win2K seems to botch it (despite the 
  * fact their own Winsock spec says it returns the next message size)
  */
-#if PLATFORM_OS_MSWINDOWS || PLATFORM_OS_CYGWIN
+#if PLATFORM_OS_CYGWIN
   #define BROKEN_IOCTL 1
 #elif PLATFORM_OS_AIX || PLATFORM_OS_IRIX || PLATFORM_OS_HPUX || PLATFORM_OS_MTA || \
       PLATFORM_OS_TRU64 || PLATFORM_OS_DARWIN || PLATFORM_OS_SUPERUX || \
@@ -213,7 +211,7 @@ static int AMUDP_DrainNetwork(ep_t ep) {
         if (inputWaiting(ep->s)) bytesAvail = AMUDP_MAXBULK_NETWORK_MSG;
       #else
         if_pf (SOCK_ioctlsocket(ep->s, _FIONREAD, &bytesAvail) == SOCKET_ERROR)
-          AMUDP_RETURN_ERRFR(RESOURCE, "ioctlsocket()", sockErrDesc());
+          AMUDP_RETURN_ERRFR(RESOURCE, "ioctlsocket()", strerror(errno));
       #endif
       if (bytesAvail == 0) break; 
 
@@ -228,12 +226,8 @@ static int AMUDP_DrainNetwork(ep_t ep) {
           if_pf (!junk) junk = (char *)AMUDP_malloc(AMUDP_MAXBULK_NETWORK_MSG);
           retval = recvfrom(ep->s, junk, AMUDP_MAXBULK_NETWORK_MSG, MSG_PEEK, NULL, NULL);
           if (retval == SOCKET_ERROR && 
-            #ifdef WINSOCK
-              WSAGetLastError() != WSAEMSGSIZE)
-            #else
               errno != EFAULT) /* AIX */
-            #endif
-            AMUDP_RETURN_ERRFR(RESOURCE, "recv(MSG_PEEK) - broken ioctl Hack", sockErrDesc());
+            AMUDP_RETURN_ERRFR(RESOURCE, "recv(MSG_PEEK) - broken ioctl Hack", strerror(errno));
           if (retval < (int)bytesAvail) bytesAvail = retval; /* the true next message size */
         }
         /* TODO: another possible workaround for BROKEN_IOCTL && USE_TRUE_BULK_XFERS:
@@ -268,7 +262,7 @@ static int AMUDP_DrainNetwork(ep_t ep) {
               char x;
               int retval = recvfrom(ep->s, (char *)&x, 1, MSG_PEEK, NULL, NULL);
               fprintf(stderr, "bytesAvail=%lu  recvfrom(MSG_PEEK)=%i\n", (unsigned long)bytesAvail, retval); fflush(stderr);
-              AMUDP_RETURN_ERRFR(RESOURCE, "AMUDP_DrainNetwork: received message that was too long", sockErrDesc());
+              AMUDP_RETURN_ERRFR(RESOURCE, "AMUDP_DrainNetwork: received message that was too long", strerror(errno));
             }
           #endif
           if ((int)bytesAvail > AMUDP_MAX_NETWORK_MSG) { /* this is a true bulk buffer */
@@ -290,13 +284,13 @@ static int AMUDP_DrainNetwork(ep_t ep) {
                           &sa, &sz);
 
         if_pf (retval == SOCKET_ERROR)
-          AMUDP_RETURN_ERRFR(RESOURCE, "AMUDP_DrainNetwork: recvfrom()", sockErrDesc());
+          AMUDP_RETURN_ERRFR(RESOURCE, "AMUDP_DrainNetwork: recvfrom()", strerror(errno));
         else if_pf (retval == 0)
-          AMUDP_RETURN_ERRFR(RESOURCE, "AMUDP_DrainNetwork: recvfrom() returned zero", sockErrDesc());
+          AMUDP_RETURN_ERRFR(RESOURCE, "AMUDP_DrainNetwork: recvfrom() returned zero", strerror(errno));
         else if_pf (retval < AMUDP_MIN_NETWORK_MSG) 
-          AMUDP_RETURN_ERRFR(RESOURCE, "AMUDP_DrainNetwork: incomplete message received in recvfrom()", sockErrDesc());
+          AMUDP_RETURN_ERRFR(RESOURCE, "AMUDP_DrainNetwork: incomplete message received in recvfrom()", strerror(errno));
         else if_pf (retval > destbufsz) 
-            AMUDP_RETURN_ERRFR(RESOURCE, "AMUDP_DrainNetwork: buffer overrun in recvfrom()", sockErrDesc());
+            AMUDP_RETURN_ERRFR(RESOURCE, "AMUDP_DrainNetwork: buffer overrun in recvfrom()", strerror(errno));
         #if AMUDP_DEBUG && !BROKEN_IOCTL
         else if_pf (retval != (int)bytesAvail) { /* detect other broken ioctl implementations */
           fprintf(stderr, "bytesAvail=%i  recvfrom returned:%i  ioctl() is probably broken\n", (int)bytesAvail, retval); fflush(stderr);
@@ -312,7 +306,7 @@ static int AMUDP_DrainNetwork(ep_t ep) {
 
         totalBytesDrained += retval;
         if (sz != sizeof(en_t))
-          AMUDP_RETURN_ERRFR(RESOURCE, "AMUDP_DrainNetwork: recvfrom() returned wrong sockaddr size", sockErrDesc());
+          AMUDP_RETURN_ERRFR(RESOURCE, "AMUDP_DrainNetwork: recvfrom() returned wrong sockaddr size", strerror(errno));
         freebuf->status.sourceAddr = *(en_t *)&sa;
         freebuf->status.handlerRunning = FALSE;
         ep->rxFreeIdx = (ep->rxFreeIdx + 1) % ep->rxNumBufs; /* mark in use */
@@ -382,7 +376,7 @@ static int AMUDP_WaitForEndpointActivity(eb_t eb, struct timeval *tv) {
       { int retval = select(maxfd+1, psockset, NULL, NULL, tv);
         if (AMUDP_SPMDControlSocket != INVALID_SOCKET) ASYNC_TCP_ENABLE();
         if_pf (retval == SOCKET_ERROR) { 
-          AMUDP_RETURN_ERRFR(RESOURCE, "AMUDP_Block: select()", sockErrDesc());
+          AMUDP_RETURN_ERRFR(RESOURCE, "AMUDP_Block: select()", strerror(errno));
         }
         else if (retval == 0) return -1; /* time limit expired */
       }
