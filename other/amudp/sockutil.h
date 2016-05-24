@@ -31,6 +31,9 @@ SOCKET connect_socket(struct sockaddr* saddr);
 SOCKET connect_socket(char* addr);
   // create a socket and connect it to a remote host/port (throw exn on err)
 
+bool disable_sigpipe(SOCKET s);
+  // disable SIGPIPE on manually-created stream sockets, if supported by the OS
+
 void recvAll(SOCKET s, void* buffer, int numbytes);
   // blocks until it can receive numbytes on s into buffer
   // (throws xSocket on close)
@@ -88,18 +91,6 @@ void close_socket(SOCKET s);
 void closeGracefully(SOCKET s); // close a socket gracefully, blocking until everything is sent
  // note: does NOT throw exn, even though it closed it
 
-// ------ error determination ------
-char const *errorCodeString(int socket_error_code);
-  // map an error code into a human-readable string, null-terminated but
-  // with no newline, or NULL if the code is not understood; the returned
-  // pointer must be treated as a pointer to a static area that will be
-  // overwritten by the next call, even that is not necessarily true on
-  // some systems
-
-int getSocketErrorCode();
-  // return the error code for use with errorCodeString; only defined after
-  // a socket function returns an error code (usually either SOCKET_ERROR
-  // or INVALID_SOCKET)
 
 SockAddr getsockname(SOCKET s);
 SockAddr getpeername(SOCKET s);

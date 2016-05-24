@@ -130,10 +130,7 @@
 #include <ammpi.h>
 #include <mpi.h>
 
-#if PLATFORM_OS_MSWINDOWS
-  #define ammpi_sched_yield() Sleep(0)
-  #define ammpi_usleep(x) Sleep(x)
-#elif PLATFORM_ARCH_CRAYT3E || PLATFORM_OS_SUPERUX || PLATFORM_OS_NETBSD || \
+#if PLATFORM_ARCH_CRAYT3E || PLATFORM_OS_SUPERUX || PLATFORM_OS_NETBSD || \
     PLATFORM_OS_MTA || PLATFORM_OS_BLRTS || PLATFORM_OS_CATAMOUNT
   /* these implement sched_yield() in libpthread only, which we may not want */
   #include <unistd.h>

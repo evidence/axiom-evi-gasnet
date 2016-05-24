@@ -7,14 +7,7 @@
 #include <amudp_spmd.h>
 
 #include <errno.h>
-#if PLATFORM_OS_MSWINDOWS
-  #include <winsock2.h>
-  #include <windows.h>  
-  #define sleep(x) Sleep(1000*x)
-  #include <process.h>
-  #include <io.h>
-  #include <direct.h>
-#elif PLATFORM_OS_CYGWIN
+#if PLATFORM_OS_CYGWIN
   #include <windows.h>  // CreateProcess
 #endif
 #if PLATFORM_ARCH_CRAYX1
@@ -146,10 +139,7 @@ extern int AMUDP_SPMDLocalSpawn(int nproc, int argc, char **argv, char **extra_e
   }
 
   for (i = 0; i < nproc; i++) {
-    #if PLATFORM_OS_MSWINDOWS && !PLATFORM_OS_CYGWIN
-      if (_spawnv(_P_NOWAIT, argv[0], argv) == -1)
-        AMUDP_FatalErr("failed _spawnv()");
-    #elif PLATFORM_ARCH_CRAYX1
+    #if PLATFORM_ARCH_CRAYX1
       { char **nargv = (char **)AMUDP_malloc(sizeof(char *)*(argc+2));
         nargv[0] = argv[0];
         memcpy(nargv+1,argv,argc*sizeof(char *));
@@ -408,7 +398,7 @@ int AMUDP_SPMDCustomSpawn(int nproc, int argc, char **argv, char **extra_env) {
   char nproc_str[10];
   char cwd[1024];
   char cmd[1024];
-#if PLATFORM_OS_MSWINDOWS || PLATFORM_OS_CYGWIN
+#if PLATFORM_OS_CYGWIN
   int spawn_use_create_process;
 #endif
   int spawn_route_output;
@@ -430,7 +420,7 @@ int AMUDP_SPMDCustomSpawn(int nproc, int argc, char **argv, char **extra_env) {
   if (!strlen(spawn_servers)) spawn_servers = NULL;
   spawn_route_output = 
     strcmp(AMUDP_getenv_prefixed_withdefault("CSPAWN_ROUTE_OUTPUT","0"),"0");
-#if PLATFORM_OS_MSWINDOWS || PLATFORM_OS_CYGWIN
+#if PLATFORM_OS_CYGWIN
   spawn_use_create_process =
     strcmp(AMUDP_getenv_prefixed_withdefault("CSPAWN_USE_CREATE_PROCESS","0"),"0");
 #endif
@@ -490,14 +480,16 @@ int AMUDP_SPMDCustomSpawn(int nproc, int argc, char **argv, char **extra_env) {
     }
     AMUDP_assert(!argv[i]);
 
-  #if PLATFORM_OS_MSWINDOWS || PLATFORM_OS_CYGWIN
-    strcpy(workercmd, temp);
-  #else
+  #if PLATFORM_OS_CYGWIN
+    if (spawn_use_create_process) strcpy(workercmd, temp);
+    else
+  #endif
+   {
     sprintf(workercmd, "/bin/sh -c \"%s%s\" || ( echo \"spawn failed.\" ; kill %i ) ",
       (AMUDP_SilentMode?"":"echo connected to `uname -n`... ; "),
       temp, pid
     );
-  #endif
+   }
   }
 
   strcpy(cmd, spawn_cmd);
@@ -532,7 +524,6 @@ int AMUDP_SPMDCustomSpawn(int nproc, int argc, char **argv, char **extra_env) {
   AMUDP_SPMDRedirectStdsockets = spawn_route_output; 
 
   {
-  #if !PLATFORM_OS_MSWINDOWS
     int forkRet;
     forkRet = fork(); /* fork a new process to hold cmd master */
 
@@ -544,11 +535,10 @@ int AMUDP_SPMDCustomSpawn(int nproc, int argc, char **argv, char **extra_env) {
       return TRUE;  
     }
     else 
-  #endif
     {  /*  this is the child - exec the new process */
       if (!AMUDP_SilentMode) 
         printf("system(%s)\n", cmd); fflush(stdout);
-    #if PLATFORM_OS_MSWINDOWS || PLATFORM_OS_CYGWIN
+    #if PLATFORM_OS_CYGWIN
       if (spawn_use_create_process) {
         STARTUPINFO si;
         PROCESS_INFORMATION pi;

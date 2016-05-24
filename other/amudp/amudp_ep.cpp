@@ -25,9 +25,6 @@ uint32_t AMUDP_InitialRequestTimeout_us = AMUDP_INITIAL_REQUESTTIMEOUT_MICROSEC;
 
 int AMUDP_SilentMode = 0; 
 AMUDP_IDENT(AMUDP_IdentString_Version, "$AMUDPLibraryVersion: " AMUDP_LIBRARY_VERSION_STR " $")
-#ifdef UETH
-  ep_t AMUDP_UETH_endpoint = NULL; /* the one-and-only UETH endpoint */
-#endif
 
 double AMUDP_FaultInjectionRate = 0.0;
 double AMUDP_FaultInjectionEnabled = 0;
@@ -192,13 +189,11 @@ extern int AMUDP_SetUDPInterface(uint32_t IPAddress) {
   return AM_OK;
 }
 /* ------------------------------------------------------------------------------------ */
-#if !defined(UETH) && USE_SOCKET_RECVBUFFER_GROW
-  #if 0
-  #if PLATFORM_OS_LINUX || PLATFORM_OS_UCLINUX
+#if USE_SOCKET_RECVBUFFER_GROW
+  #if 0 && (PLATFORM_OS_LINUX || PLATFORM_OS_UCLINUX)
     #include <linux/unistd.h>
     #include <linux/sysctl.h>
   #endif
-#endif
 extern int AMUDP_growSocketBufferSize(ep_t ep, int targetsize, 
                                        int szparam, const char *paramname) {
   int initialsize; /* original socket recv size */
@@ -262,41 +257,11 @@ extern int AMUDP_growSocketBufferSize(ep_t ep, int targetsize,
 #endif
 /* ------------------------------------------------------------------------------------ */
 static int AMUDP_AllocateEndpointResource(ep_t ep) {
-  AMUDP_assert(ep != NULL);
-  #ifdef UETH
-    if (AMUDP_UETH_endpoint) 
-      AMUDP_RETURN_ERRFR(RESOURCE, AMUDP_AllocateEndpointResource, "UETH only supports one endpoint per process");
-    if (ueth_init() != UETH_OK) AMUDP_RETURN_ERRF(RESOURCE, ueth_init);
-    if (ueth_getaddress(&ep->name) != UETH_OK) {
-      ueth_terminate();
-      AMUDP_RETURN_ERRF(RESOURCE, ueth_getaddress);
-    }
-    /*  TODO this doesn't handle apps that dont use SPMD extensions */
-    if (ueth_setaddresshook(&AMUDP_SPMDAddressChangeCallback) != UETH_OK) {
-      ueth_terminate();
-      AMUDP_RETURN_ERRF(RESOURCE, ueth_setaddresshook);
-    }
-    AMUDP_UETH_endpoint = ep;
-  #else
+    AMUDP_assert(ep != NULL);
     /* allocate socket */
     ep->s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (ep->s == INVALID_SOCKET) 
-      AMUDP_RETURN_ERRFR(RESOURCE, socket, sockErrDesc());
-
-    #ifdef WINSOCK
-    { /* check transport message size - UNIX doesn't seem to have a way for doing this */
-      unsigned int maxmsg;
-      GETSOCKOPT_LENGTH_T sz = sizeof(unsigned int);
-      if (SOCK_getsockopt(ep->s, SOL_SOCKET, SO_MAX_MSG_SIZE, (char*)&maxmsg, &sz) == SOCKET_ERROR) {
-        closesocket(ep->s);
-        AMUDP_RETURN_ERRFR(RESOURCE, getsockopt, sockErrDesc());
-      }
-      if (maxmsg < AMUDP_MAX_NETWORK_MSG) {
-        closesocket(ep->s);
-        AMUDP_RETURN_ERRFR(RESOURCE, AMUDP_AllocateEndpointResource, "max datagram size of UDP provider is too small");
-      }
-    }
-    #endif
+      AMUDP_RETURN_ERRFR(RESOURCE, socket, strerror(errno));
 
     ep->name.sin_family = AF_INET;
     ep->name.sin_port = 0; /* any port */
@@ -305,13 +270,13 @@ static int AMUDP_AllocateEndpointResource(ep_t ep) {
 
     if (bind(ep->s, (struct sockaddr*)&ep->name, sizeof(struct sockaddr)) == SOCKET_ERROR) {
       closesocket(ep->s);
-      AMUDP_RETURN_ERRFR(RESOURCE, bind, sockErrDesc());
+      AMUDP_RETURN_ERRFR(RESOURCE, bind, strerror(errno));
     }
     { /*  danger: this might fail on multi-homed hosts if AMUDP_currentUDPInterface was not set*/
       GETSOCKNAME_LENGTH_T sz = sizeof(en_t);
       if (SOCK_getsockname(ep->s, (struct sockaddr*)&ep->name, &sz) == SOCKET_ERROR) {
         closesocket(ep->s);
-        AMUDP_RETURN_ERRFR(RESOURCE, getsockname, sockErrDesc());
+        AMUDP_RETURN_ERRFR(RESOURCE, getsockname, strerror(errno));
       }
       /* can't determine interface address */
       if (ep->name.sin_addr.s_addr == INADDR_ANY) {
@@ -325,8 +290,7 @@ static int AMUDP_AllocateEndpointResource(ep_t ep) {
                            "AMUDP_AllocateEndpointResource failed to determine UDP endpoint interface port");
       }
     }
-  #endif
-  return AM_OK;
+    return AM_OK;
 }
 /* ------------------------------------------------------------------------------------ */
 static int AMUDP_AllocateEndpointBuffers(ep_t ep) {
@@ -338,46 +302,33 @@ static int AMUDP_AllocateEndpointBuffers(ep_t ep) {
   AMUDP_assert(ep->P > 0 && ep->P <= AMUDP_MAX_NUMTRANSLATIONS);
   AMUDP_assert(ep->PD == ep->P * ep->depth);
 
-  #ifdef UETH
-    AMUDP_assert(sizeof(amudp_buf_t) <= UETH_MAXPACKETSIZE);
-    AMUDP_assert(sizeof(amudp_buf_t) % UETH_ALIGNMENT == 0);
-    /* one extra for temporary buffer */
-    if (ueth_allocatepool((void**)&pool, sizeof(amudp_buf_t), 
-                          2*PD + 1, UETH_RECVPOOLFUDGEFACTOR * (2*PD + 1)) 
-                          != UETH_OK) return FALSE;
-    ep->requestBuf = pool;
-    ep->replyBuf = &pool[PD];
-    ep->temporaryBuf = &pool[2*PD];
-    /*if (ueth_setrecvpool(&pool[2*PD], 2*PD, sizeof(amudp_buf_t));*/
-  #else
-    AMUDP_assert(sizeof(amudp_buf_t) % sizeof(int) == 0); /* assume word-addressable machine */
-    if (2*PD+1 > 65535) return FALSE; /* would overflow rxNumBufs */
-    /* one extra rx buffer for ease of implementing circular rx buf
-     * one for temporary buffer
-     * allocate using calloc to prevent valgrind warnings for sending phantom padding argument
-     */
-    pool = (amudp_buf_t *)AMUDP_calloc((4 * PD + 2), sizeof(amudp_buf_t));
-    if (!pool) return FALSE;
-    ep->requestBuf = pool;
-    ep->replyBuf = &pool[PD];
-    ep->rxBuf = &pool[2*PD];
-    ep->rxNumBufs = (uint16_t)(2*PD + 1);
-    ep->rxFreeIdx = 0;
-    ep->rxReadyIdx = 0;
-    ep->temporaryBuf = &pool[4*PD+1];
-  
-    { int HPAMsize = 2*PD*AMUDP_MAX_NETWORK_MSG; /* theoretical max required by plain-vanilla HPAM */
-      int padsize = 2*AMUDP_MAXBULK_NETWORK_MSG; /* some pad for non-HPAM true bulk xfers & retransmissions */
-    
-      #if USE_SOCKET_RECVBUFFER_GROW
-          ep->socketRecvBufferMaxedOut = AMUDP_growSocketBufferSize(ep, HPAMsize+padsize, SO_RCVBUF, "SO_RCVBUF");
-      #endif
-      #if USE_SOCKET_SENDBUFFER_GROW
-          AMUDP_growSocketBufferSize(ep, HPAMsize+padsize, SO_SNDBUF, "SO_SNDBUF");
-      #endif
-    }
+  AMUDP_assert(sizeof(amudp_buf_t) % sizeof(int) == 0); /* assume word-addressable machine */
+  if (2*PD+1 > 65535) return FALSE; /* would overflow rxNumBufs */
+  /* one extra rx buffer for ease of implementing circular rx buf
+   * one for temporary buffer
+   * allocate using calloc to prevent valgrind warnings for sending phantom padding argument
+   */
+  pool = (amudp_buf_t *)AMUDP_calloc((4 * PD + 2), sizeof(amudp_buf_t));
+  if (!pool) return FALSE;
+  ep->requestBuf = pool;
+  ep->replyBuf = &pool[PD];
+  ep->rxBuf = &pool[2*PD];
+  ep->rxNumBufs = (uint16_t)(2*PD + 1);
+  ep->rxFreeIdx = 0;
+  ep->rxReadyIdx = 0;
+  ep->temporaryBuf = &pool[4*PD+1];
 
-  #endif
+  { int HPAMsize = 2*PD*AMUDP_MAX_NETWORK_MSG; /* theoretical max required by plain-vanilla HPAM */
+    int padsize = 2*AMUDP_MAXBULK_NETWORK_MSG; /* some pad for non-HPAM true bulk xfers & retransmissions */
+  
+    #if USE_SOCKET_RECVBUFFER_GROW
+        ep->socketRecvBufferMaxedOut = AMUDP_growSocketBufferSize(ep, HPAMsize+padsize, SO_RCVBUF, "SO_RCVBUF");
+    #endif
+    #if USE_SOCKET_SENDBUFFER_GROW
+        AMUDP_growSocketBufferSize(ep, HPAMsize+padsize, SO_SNDBUF, "SO_SNDBUF");
+    #endif
+  }
+
   ep->requestDesc = (amudp_bufdesc_t*)AMUDP_malloc(2 * PD * sizeof(amudp_bufdesc_t));
   ep->replyDesc = &ep->requestDesc[PD];
   /* init descriptor tables */
@@ -405,28 +356,19 @@ static int AMUDP_AllocateEndpointBuffers(ep_t ep) {
 /* ------------------------------------------------------------------------------------ */
 static int AMUDP_FreeEndpointResource(ep_t ep) {
   AMUDP_assert(ep != NULL);
-  #ifdef UETH
-    if (!AMUDP_UETH_endpoint) return FALSE;
-    if (ueth_terminate() != UETH_OK) return FALSE;
-    AMUDP_UETH_endpoint = NULL;
-  #else
-    /*  close UDP port */
-   #ifdef AMUDP_BLCR_ENABLED
+  /*  close UDP port */
+  #ifdef AMUDP_BLCR_ENABLED
     if (AMUDP_SPMDRestartActive) { /* it is already gone */ } else
-   #endif
-    if (closesocket(ep->s) == SOCKET_ERROR) return FALSE;
   #endif
+  if (closesocket(ep->s) == SOCKET_ERROR) return FALSE;
   return TRUE;
 }
 /* ------------------------------------------------------------------------------------ */
 static int AMUDP_FreeEndpointBuffers(ep_t ep) {
   AMUDP_assert(ep != NULL);
-  #ifdef UETH
-    /* no explicit free required - handled by ueth_terminate */
-  #else
-    AMUDP_free(ep->requestBuf);
-    ep->rxBuf = NULL;
-  #endif
+
+  AMUDP_free(ep->requestBuf);
+  ep->rxBuf = NULL;
   ep->requestBuf = NULL;
   ep->replyBuf = NULL;
 
@@ -460,18 +402,6 @@ extern int AM_Init() {
 
     AMUDP_assert(sizeof(uintptr_t) >= sizeof(void *));
 
-    #ifdef WINSOCK
-    { WSADATA wsa;
-      #if 1
-        WORD wVersionRequested = MAKEWORD( 1, 1 );
-      #else
-        WORD wVersionRequested = MAKEWORD( 2, 2 );
-      #endif
-
-      if (WSAStartup(wVersionRequested, &wsa)) AMUDP_RETURN_ERR(RESOURCE);
-    }
-    #endif
-
     { char *faultRate = AMUDP_getenv_prefixed("FAULT_RATE");
       if (faultRate && (AMUDP_FaultInjectionRate = atof(faultRate)) != 0.0) {
         AMUDP_FaultInjectionEnabled = 1;
@@ -481,13 +411,6 @@ extern int AM_Init() {
         srand( (unsigned)time( NULL ) ); /* TODO: we should really be using a private rand num generator */
       }
     }
-
-    #ifdef UETH
-    { int retval = ueth_kill_link_on_signal(SIGUSR2);
-      if (retval != UETH_OK)
-        AMUDP_RETURN_ERRFR(RESOURCE, AM_Init, "ueth_kill_link_on_signal() failed");
-    }
-    #endif
   }
   amudp_Initialized++;
   return AM_OK;
@@ -504,9 +427,6 @@ extern int AM_Terminate() {
         retval = AM_ERR_RESOURCE;
     }
     AMUDP_numBundles = 0;
-    #ifdef WINSOCK
-      if (WSACleanup()) retval = AM_ERR_RESOURCE;
-    #endif
   }
 
   amudp_Initialized--;
@@ -795,21 +715,6 @@ extern int AM_SetExpectedResources(ep_t ea, int n_endpoints, int n_outstanding_r
     }
   }
 
-  #ifdef UETH
-  { /* need to init the request/reply destinations */
-    for (int inst = 0; inst < ea->depth; inst++) {
-      for (int procid = 0; procid < ea->P; procid++) {
-        amudp_buf_t *reqbuf = GET_REQ_BUF(ea, procid, inst);
-        amudp_buf_t *repbuf = GET_REP_BUF(ea, procid, inst);
-        if (ueth_set_packet_destination(reqbuf, &ea->perProcInfo[procid].remoteName) != UETH_OK)
-          AMUDP_RETURN_ERRFR(RESOURCE, AM_SetExpectedResources, "ueth_set_packet_destination failed");
-        if (ueth_set_packet_destination(repbuf, &ea->perProcInfo[procid].remoteName) != UETH_OK)
-          AMUDP_RETURN_ERRFR(RESOURCE, AM_SetExpectedResources, "ueth_set_packet_destination failed");
-      }
-    }
-  }
-  #endif
-
   if (firsttime) { /* set transfer parameters */
     #define ENVINT_WITH_DEFAULT(var, name, validate) do { \
         char defval[80];                                  \
@@ -1094,18 +999,13 @@ extern const char *AMUDP_DumpStatistics(void *_fp, amudp_stats_t *stats, int glo
       ((double)(stats->TotalBytesSent)) / ((double)packetssent)
       : 0.0);
 
-  #ifdef UETH 
-    reqUDPIPheaderbytes = 0; /* n/a- all headers already included */
-    repUDPIPheaderbytes = 0; /* n/a- all headers already included */
-  #else
-    { int packetoverhead = (20 /* IP header */ + 8  /* UDP header*/);
-      reqUDPIPheaderbytes = (requestsSent + requestsRetransmitted) * packetoverhead;
-      repUDPIPheaderbytes = (repliesSent + repliesRetransmitted) * packetoverhead;
-      avgreqpacket += packetoverhead;
-      avgreppacket += packetoverhead;
-      avgpacket += packetoverhead;
-    }
-  #endif
+  { int packetoverhead = (20 /* IP header */ + 8  /* UDP header*/);
+    reqUDPIPheaderbytes = (requestsSent + requestsRetransmitted) * packetoverhead;
+    repUDPIPheaderbytes = (repliesSent + repliesRetransmitted) * packetoverhead;
+    avgreqpacket += packetoverhead;
+    avgreppacket += packetoverhead;
+    avgpacket += packetoverhead;
+  }
 
   /* batch lines together to improve chance of output together */
   snprintf(msg, sizeof(msg),

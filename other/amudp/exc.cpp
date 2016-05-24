@@ -80,7 +80,8 @@ xSocket::~xSocket()
 
 void xsocket(SOCKET s, char const *msg) { // creates and throws an xsocket
   char tmp[MAX_EXC_MSG];
-  sprintf(tmp, "%s (%i:%s)", msg, getSocketErrorCode(), errorCodeString(getSocketErrorCode()));
+  int err = errno;
+  sprintf(tmp, "%s (%i:%s)", msg, err, strerror(err));
   THROW(xSocket(s, tmp));
 }
 

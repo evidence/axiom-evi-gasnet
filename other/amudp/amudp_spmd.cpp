@@ -8,34 +8,28 @@
 
 #include <errno.h>
 #include <stdio.h>
-#if PLATFORM_OS_MSWINDOWS
+#include <unistd.h>
+#if PLATFORM_ARCH_CRAYT3E || PLATFORM_OS_SUPERUX || PLATFORM_OS_NETBSD || \
+    PLATFORM_OS_MTA || PLATFORM_OS_BLRTS || PLATFORM_OS_CATAMOUNT || PLATFORM_OS_OPENBSD
+  /* these implement sched_yield() in libpthread only, which we may not want */
   #undef sched_yield
-  #define sched_yield() Sleep(0)
-  #define sleep(x) Sleep(x*1000)
-  #include <process.h>
+  #define sched_yield() sleep(0)
 #else
+  #include <sched.h>
+#endif
+#if (PLATFORM_OS_LINUX || PLATFORM_OS_UCLINUX) && !defined(__USE_GNU)
+  /* some Linuxes need this to pull in F_SETSIG */
+  #define __USE_GNU
+  #include <fcntl.h>
+  #undef __USE_GNU
+#else
+  #include <fcntl.h>
+#endif
+
+#ifdef AMUDP_BLCR_ENABLED
+  #include <sys/types.h>
+  #include <sys/stat.h>
   #include <unistd.h>
-  #if PLATFORM_ARCH_CRAYT3E || PLATFORM_OS_SUPERUX || PLATFORM_OS_NETBSD || \
-      PLATFORM_OS_MTA || PLATFORM_OS_BLRTS || PLATFORM_OS_CATAMOUNT || PLATFORM_OS_OPENBSD
-    /* these implement sched_yield() in libpthread only, which we may not want */
-    #undef sched_yield
-    #define sched_yield() sleep(0)
-  #else
-    #include <sched.h>
-  #endif
-  #if (PLATFORM_OS_LINUX || PLATFORM_OS_UCLINUX) && !defined(__USE_GNU)
-    /* some Linuxes need this to pull in F_SETSIG */
-    #define __USE_GNU
-    #include <fcntl.h>
-    #undef __USE_GNU
-  #else
-    #include <fcntl.h>
-  #endif
-  #ifdef AMUDP_BLCR_ENABLED
-    #include <sys/types.h>
-    #include <sys/stat.h>
-    #include <unistd.h>
-  #endif
 #endif
 
 extern char **environ; 
@@ -208,12 +202,8 @@ static void flushStreams(const char *context) {
 //------------------------------------------------------------------------------------
 extern char *AMUDP_enStr(en_t en, char *buf) {
   AMUDP_assert(buf != NULL);
-  #ifdef UETH
-    sprintf(buf, "(fixed: %i variable: %i)", en.fixed, en.variable.index);
-  #else
-    SockAddr tmp((sockaddr*)&en);
-    sprintf(buf, "(%s:%i)", tmp.IPStr(), tmp.port());
-  #endif
+  SockAddr tmp((sockaddr*)&en);
+  sprintf(buf, "(%s:%i)", tmp.IPStr(), tmp.port());
   return buf;
 }
 extern char *AMUDP_tagStr(tag_t tag, char *buf) {
@@ -222,9 +212,6 @@ extern char *AMUDP_tagStr(tag_t tag, char *buf) {
     (int)(uint32_t)(tag >> 32), 
     (int)(uint32_t)(tag & 0xFFFFFFFF));
   return buf;
-}
-extern const char *sockErrDesc() {
-  return errorCodeString(getSocketErrorCode());
 }
 //------------------------------------------------------------------------------------
 static void setupStdSocket(SOCKET& ls, SocketList& list, SocketList& allList) {
@@ -877,62 +864,6 @@ pollentry:
                 break;
               }
 
-            #ifdef UETH
-              case 'F': { // NIC fail-over
-                // get relevant en_t's
-                en_t olden;
-                en_t newen;
-                int failedidx=-1;
-                int32_t failedidx_nb=-1;
-                try {
-                  recvAll(s, &failedidx_nb, sizeof(int32_t));
-                  recvAll(s, &olden, sizeof(en_t));
-                  recvAll(s, &newen, sizeof(en_t));
-                } catch (xSocket& exn) {
-                  AMUDP_Err("got exn while reading fail-over addresses: %s", exn.why());
-                }
-                failedidx = ntoh32(failedidx_nb);
-                if (failedidx < 0 || failedidx >= AMUDP_SPMDNUMPROCS)
-                  AMUDP_Err("unrecognized endpoint received in fail-over message");
-                if (!enEqual(AMUDP_SPMDTranslation_name[failedidx], olden)) 
-                  AMUDP_Err("mismatched slaveid in fail-over message");
-                // update our local table 
-                AMUDP_SPMDTranslation_name[failedidx] = newen;
-                // tell all slaves about the change
-                for (int i=0; i < (int)coordList.getCount(); i++) {
-                  sendAll(coordList[i], "F");
-                  sendAll(coordList[i], failedidx_nb, sizeof(int32_t));
-                  sendAll(coordList[i], &olden, sizeof(en_t));
-                  sendAll(coordList[i], &newen, sizeof(en_t));
-                }
-                if (!AMUDP_SilentMode) {
-                  char temp[80];
-                  printf("master: processed NIC failover on slave %i: ", failedidx);
-                  printf("%s ->", AMUDP_enStr(olden, temp));
-                  printf(" %s\n", AMUDP_enStr(newen, temp));
-                }
-                break;
-              }
-
-              case 'A': { // NIC fail-over acknowledgement - bounce to slave
-                // get relevant en_t's
-                int failedidx=-1;
-                int32_t failedidx_nb=-1;
-                try {
-                  recvAll(s, &failedidx_nb, sizeof(int32_t));
-                  failedidx = ntoh32(failedidx_nb);
-
-                  AMUDP_assert(failedidx > 0 && failedidx < AMUDP_SPMDNUMPROCS);
-
-                  sendAll(coordList[failedidx], "A");
-                  sendAll(coordList[failedidx], &failedidx_nb, sizeof(int32_t));
-                } catch (xSocket& exn) {
-                  AMUDP_Err("got exn while handling fail-over ack: %s", exn.why());
-                }
-                break;
-              }
-            #endif
-
               case 'E': { // exit code
                 // get slave terminate code
                 int32_t exitCode_nb = -1;
@@ -1110,26 +1041,24 @@ pollentry:
         }
       #endif // AMUDP_BLCR_ENABLED
 
-      #ifndef UETH
-        /* here we assume the interface used to contact the master is the same 
-           one to be used for UDP endpoints */
-        SockAddr myinterface = getsockname(AMUDP_SPMDControlSocket);
-        #if HAVE_GETIFADDRS // allow user to override our same-interface assumption
-          if (network && network[0]) {
-            SockAddr networkaddr(network, 0);
-            char subnets[1024];
-            if (! getIfaceAddr(networkaddr, myinterface, subnets, sizeof(subnets))) {
-              AMUDP_Err("Failed to find interface on requested subnet %s. Available subnets: %s", network, subnets);
-              AMUDP_RETURN(AM_ERR_RESOURCE);
-            }
+      /* here we assume the interface used to contact the master is the same 
+         one to be used for UDP endpoints */
+      SockAddr myinterface = getsockname(AMUDP_SPMDControlSocket);
+      #if HAVE_GETIFADDRS // allow user to override our same-interface assumption
+        if (network && network[0]) {
+          SockAddr networkaddr(network, 0);
+          char subnets[1024];
+          if (! getIfaceAddr(networkaddr, myinterface, subnets, sizeof(subnets))) {
+            AMUDP_Err("Failed to find interface on requested subnet %s. Available subnets: %s", network, subnets);
+            AMUDP_RETURN(AM_ERR_RESOURCE);
           }
-        #endif
-        if (!AMUDP_SilentMode) {
-          fprintf(stderr, "slave using IP %s\n", myinterface.IPStr());
-          fflush(stderr);
         }
-        AMUDP_SetUDPInterface(myinterface.IP());
       #endif
+      if (!AMUDP_SilentMode) {
+        fprintf(stderr, "slave using IP %s\n", myinterface.IPStr());
+        fflush(stderr);
+      }
+      AMUDP_SetUDPInterface(myinterface.IP());
         
       /* create endpoint and get name */
       temp = AM_AllocateBundle(AM_SEQ, &AMUDP_SPMDBundle);
@@ -1186,35 +1115,10 @@ pollentry:
               // disable buffering
               setvbuf(stdFILE[fd], NULL, _IONBF, 0);
             #endif
-            #if PLATFORM_OS_MSWINDOWS
-              #if 0
-              // not sure how to do this on Win32 yet - maybe use _fdopen() and/or _fileno()
-              { FILE* newf;
-                if( ( newf = fopen( "c:\\data", "w" ) ) == NULL ) {
-                  puts( "Can't open file 'data'\n" );
-                  exit( 1 );
-                }
-                if( ( newf = _fdopen( newstdout, "w" ) ) == NULL ) {
-                  puts( "fdopen failed\n" );
-                  exit( 1 );
-                }
-                if (dup2(_fileno(newf), FD_STDOUT) < 0) { // redirect stdout to socket
-                  perror("dup2(stdout)");
-                  _exit(1); 
-                }
-                printf("yomama\n");
-                fflush(stdout);
-                fclose(newf);
-                exit(0);
-              }
-              #endif
-            #else
-              /* UNIX */
-              if (dup2(newstd[fd], fd) < 0) { // redirect std FD to socket
-                perror("dup2(std)");
-                _exit(1); 
-              }
-            #endif
+            if (dup2(newstd[fd], fd) < 0) { // redirect std FD to socket
+              perror("dup2(std)");
+              _exit(1); 
+            }
         }
      }
      #endif
@@ -1388,110 +1292,6 @@ extern int AMUDP_SPMDHandleControlTraffic(int *controlMessagesServiced) {
           break;
         }
 
-      #ifdef UETH
-        case 'F': { // NIC fail-over
-          // get relevant en_t's
-          en_t olden;
-          en_t newen;
-          int32_t failidx_nb = -1;
-          int failidx = -1;
-          try {
-            recvAll(s, &failidx_nb, sizeof(int32_t));
-            recvAll(s, &olden, sizeof(en_t));
-            recvAll(s, &newen, sizeof(en_t));
-          } catch (xSocket& exn) {
-            AMUDP_FatalErr("got exn while reading fail-over addresses: %s", exn.why());
-          }
-          failidx = ntoh32(failidx_nb);
-
-          // this update could be rather slow, but we expect it to run extremely infrequently
-          DEBUG_SLAVE("Received a NIC fail-over notification. Updating tables...");
-
-          // update all translation tables
-          for (int i = 0; i < AMUDP_SPMDBundle->n_endpoints; i++) {
-            ep_t ep = AMUDP_SPMDBundle->endpoints[i];
-            AMUDP_assert(ep);
-
-            for (int j = 0; j < AMUDP_MAX_NUMTRANSLATIONS; j++) {
-              if (ep->translation[j].inuse) {
-                if (enEqual(ep->translation[j].name, olden)) { // need to re-map
-                  ep->translation[j].name = newen;
-                }
-              }
-            }
-            for (int procid = 0; procid < ep->P; procid++) {
-              if (enEqual(ep->perProcInfo[procid].remoteName, olden)) { // need to re-map
-                AMUDP_assert(procid == failidx);
-                ep->perProcInfo[procid].remoteName = newen;
-                /* need to remap the preset request/reply destinations */
-                for (int inst = 0; inst < ep->depth; inst++) {
-                  amudp_bufdesc_t *reqdesc = GET_REQ_DESC(ep, procid, inst);
-                  amudp_bufdesc_t *repdesc = GET_REP_DESC(ep, procid, inst);
-                  amudp_buf_t *reqbuf = GET_REQ_BUF(ep, procid, inst);
-                  amudp_buf_t *repbuf = GET_REP_BUF(ep, procid, inst);
-
-                  if (reqdesc->transmitCount > 0)
-                    ueth_cancel_send(reqbuf, reqbuf->bufhandle);
-                  if (ueth_set_packet_destination(reqbuf, &newen) != UETH_OK)
-                    AMUDP_Err("ueth_set_packet_destination failed on NIC fail-over");
-
-                  if (repdesc->transmitCount > 0)
-                    ueth_cancel_send(repbuf, repbuf->bufhandle);
-                  if (ueth_set_packet_destination(repbuf, &newen) != UETH_OK)
-                    AMUDP_Err("ueth_set_packet_destination failed on NIC fail-over");
-                }
-              }
-            }
-
-            #ifndef UETH
-              // update any messages already accepted into the rx buffers from this guy
-              // this currently never runs because UETH has no explicit receive buffers we can see
-              for (int i = 0; i < AMUDP_SPMDBundle->n_endpoints; i++) {
-                ep_t ep = AMUDP_SPMDBundle->endpoints[i];
-                AMUDP_assert(ep);
-
-                for (int j = ep->rxReadyIdx; j != ep->rxFreeIdx; j = (j+1)%ep->rxNumBufs) {
-                  if (enEqual(ep->rxBuf[j].source, olden) {
-                    ep->rxBuf[j].source = newen;
-                  }
-                }
-              }
-            #endif
-          }
-          DEBUG_SLAVE("Update complete.");
-          if (!AMUDP_SilentMode) {
-            char temp[80];
-            printf("slave: handled NIC failover: ");
-            printf("%s ->", AMUDP_enStr(olden, temp));
-            printf(" %s\n", AMUDP_enStr(newen, temp));
-          }
-
-          try { // send acknowledgement to master
-            sendAll(s, "A");
-            sendAll(s, &failidx_nb, sizeof(int32_t));
-          } catch (xSocket& exn) {
-            AMUDP_Err("Slave got an xSocket sending failure ACK: %s. Exiting...", exn.why());
-            AMUDP_SPMDShutdown(1);
-          }
-          break;
-        }
-        case 'A': { // NIC fail-over acknowledgement - record an ACK
-          int32_t failedidx_nb = -1;
-          int failedidx = -1;
-          try {
-            recvAll(s, &failedidx_nb, sizeof(int32_t));
-            failedidx = ntoh32(failedidx_nb);
-            AMUDP_assert(failedidx == AMUDP_SPMDMYPROC);
-            AMUDP_assert(AMUDP_FailoverAcksOutstanding > 0);
-
-            AMUDP_FailoverAcksOutstanding--;
-          } catch (xSocket& exn) {
-            AMUDP_Err("got exn while handling fail-over ack: %s", exn.why());
-          }
-          break;
-        }
-      #endif
-
         case 'E': { // exit code
           // get slave terminate code
           int32_t exitCode_nb = -1;
@@ -1523,91 +1323,6 @@ extern int AMUDP_SPMDHandleControlTraffic(int *controlMessagesServiced) {
     if (controlMessagesServiced) (*controlMessagesServiced)++;
   }
 }
-/* ------------------------------------------------------------------------------------ 
- *  handler for NIC fail-over
- * ------------------------------------------------------------------------------------ */
-#ifdef UETH
-extern void AMUDP_SPMDAddressChangeCallback(ueth_addr_t *address) {
-  DEBUG_SLAVE("AMUDP_SPMDAddressChangeCallback() called.. Fail-over starting...");
-  AMUDP_assert(AMUDP_UETH_endpoint);
-  AMUDP_assert(address);
-  int32_t failid_nb = hton32(AMUDP_SPMDMYPROC);
-  en_t olden = AMUDP_UETH_endpoint->name;
-  en_t newen = *address;
-
-  AMUDP_UETH_endpoint->name = newen;
-  AMUDP_SPMDName = newen;
-
-  // send change to master, who will propagate new address info to peers and back to us
-  // we update our translation table on recieving the reflection from the master
-  AMUDP_FailoverAcksOutstanding = AMUDP_SPMDNUMPROCS;
-  try {
-    ASYNC_TCP_DISABLE();
-    sendAll(AMUDP_SPMDControlSocket, "F");
-    sendAll(AMUDP_SPMDControlSocket, &failid_nb, sizeof(int));
-    sendAll(AMUDP_SPMDControlSocket, &olden, sizeof(en_t));
-    sendAll(AMUDP_SPMDControlSocket, &newen, sizeof(en_t));
-    ASYNC_TCP_ENABLE();
-  } catch (xSocket& exn) {
-    AMUDP_Err("Slave got an xSocket: %s. Exiting...", exn.why());
-    AMUDP_SPMDShutdown(1);
-  } catch (xBase& exn) {
-    AMUDP_Err("Slave got an xBase: %s. Exiting...", exn.why());
-    AMUDP_SPMDShutdown(1);
-  }
-
-  ep_t ep = AMUDP_UETH_endpoint;
-  /* need to remap all preset request/reply destinations for failed node */
-  for (int inst = 0; inst < ep->depth; inst++) {
-    for (int procid = 0; procid < ep->P; procid++) {
-      amudp_bufdesc_t *reqdesc = GET_REQ_DESC(ep, procid, inst);
-      amudp_bufdesc_t *repdesc = GET_REP_DESC(ep, procid, inst);
-      amudp_buf_t *reqbuf = GET_REQ_BUF(ep, procid, inst);
-      amudp_buf_t *repbuf = GET_REP_BUF(ep, procid, inst);
-
-      if (reqdesc->transmitCount > 0)
-        ueth_cancel_send(reqbuf, reqbuf->bufhandle);
-      if (ueth_set_packet_destination(reqbuf, &ep->perProcInfo[procid].remoteName) != UETH_OK)
-        AMUDP_Err("ueth_set_packet_destination failed on NIC fail-over");
-
-      if (repdesc->transmitCount > 0)
-        ueth_cancel_send(repbuf, repbuf->bufhandle);
-      if (ueth_set_packet_destination(repbuf, &ep->perProcInfo[procid].remoteName) != UETH_OK)
-        AMUDP_Err("ueth_set_packet_destination failed on NIC fail-over");
-    }
-  }
-
-  // update any messages already accepted into the rx buffers
-  #ifdef UETH
-    int packetschanged = ueth_fixup_recv(&olden, &newen);
-    if (packetschanged < 0)
-      AMUDP_Err("ueth_fixup_recv failed on NIC fail-over");
-  #else
-    // this currently never runs because UETH has no explicit receive buffers we can see
-    for (int i = 0; i < AMUDP_SPMDBundle->n_endpoints; i++) {
-      ep_t ep = AMUDP_SPMDBundle->endpoints[i];
-      AMUDP_assert(ep);
-
-      for (int j = ep->rxReadyIdx; j != ep->rxFreeIdx; j = (j+1)%ep->rxNumBufs) {
-        if (enEqual(ep->rxBuf[j].dest, olden) {
-          ep->rxBuf[j].dest = newen;
-        }
-      }
-    }
-  #endif
-
-  // wait until all the slaves recieve the failover notification and acknowledge
-  // before we allow this node to continue transmitting on the new NIC
-  // can't use a regular barrier here because it may cause us to poll
-  while (AMUDP_FailoverAcksOutstanding > 0) {
-    int junk=0;
-    AMUDP_SPMDHandleControlTraffic(&junk);
-    sched_yield();
-  }
-
-  DEBUG_SLAVE("Fail-over complete.");
-}
-#endif
 /* ------------------------------------------------------------------------------------ 
  *  process termination
  * ------------------------------------------------------------------------------------ */

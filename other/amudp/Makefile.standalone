@@ -18,14 +18,14 @@ include Makefile.$(HOSTSYSTEM)
 #-------------------------------------------------------------------------------------
 # You should never need to change things below this line
 
-set_debug_ccflags  = -DAMUDP_DEBUG=1 $(ccdebugflags)  $(MANUAL_CFLAGS) $(apputils_flags)
-set_debug_cxxflags = -DAMUDP_DEBUG=1 $(cxxdebugflags) $(MANUAL_CXXFLAGS)
-set_opt_ccflags    = -DAMUDP_NDEBUG=1 $(ccoptflags)   $(MANUAL_CFLAGS) $(apputils_flags)
-set_opt_cxxflags   = -DAMUDP_NDEBUG=1 $(cxxoptflags)  $(MANUAL_CXXFLAGS)
+set_debug_ccflags  = -DAMUDP_DEBUG=1  $(MANUAL_DEFINES) $(ccdebugflags)  $(MANUAL_CFLAGS) $(apputils_flags)
+set_debug_cxxflags = -DAMUDP_DEBUG=1  $(MANUAL_DEFINES) $(cxxdebugflags) $(MANUAL_CXXFLAGS)
+set_opt_ccflags    = -DAMUDP_NDEBUG=1 $(MANUAL_DEFINES) $(ccoptflags)    $(MANUAL_CFLAGS) $(apputils_flags)
+set_opt_cxxflags   = -DAMUDP_NDEBUG=1 $(MANUAL_DEFINES) $(cxxoptflags)   $(MANUAL_CXXFLAGS)
 
 VPATH = $(srcdir)
-includes = -I$(srcdir) -I$(altincdir) $(ueth_includes)
-libraries = $(ueth_libraries) $(platform_libraries)
+includes = -I$(srcdir) -I$(altincdir)
+libraries = $(platform_libraries)
 Ccompile = $(CC) -c $(ccflags) $(platform_defines) $(MANUAL_DEFINES) $(includes)
 CXXcompile = $(CXX) -c $(cxxflags) $(platform_defines) $(MANUAL_DEFINES) $(includes)
 link = $(CXX) $(cxxflags) $(platform_ldflags) $(MANUAL_LDFLAGS) $(platform_defines) $(includes) 
@@ -97,7 +97,7 @@ veryclean: clean
 	@echo Done verycleaning.
 
 # ---------- test programs -------------
-test% : test%.o apputils.o libamudp.a $(ueth_libraries)
+test% : test%.o apputils.o libamudp.a
 	$(link) -o $@ $< apputils.o -L. -lamudp $(linkend)
 
 include $(srcdir)/Makefile.tests

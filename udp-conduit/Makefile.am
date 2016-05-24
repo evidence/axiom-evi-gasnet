@@ -41,8 +41,7 @@ CONDUIT_EXTRALIBCFLAGS = -I$(top_srcdir)/other/amudp $(blcr_extralibcflags)
 CONDUIT_EXTRAHEADERS = \
 	$(blcr_extraheaders)               \
 	$(top_srcdir)/other/amudp/amudp.h  \
-	$(top_srcdir)/other/amudp/socket.h \
-	$(top_srcdir)/other/amudp/ueth.h
+	$(top_srcdir)/other/amudp/socket.h 
 
 # headers selected by default rules that should NOT be installed
 CONDUIT_PRIVATEHEADERS = \
