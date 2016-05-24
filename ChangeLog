@@ -2,6 +2,19 @@ GASNet ChangeLog
 ----------------
 
 ----------------------------------------------------------------------
+05-23-2016 :  Release 1.26.3
+
+* This release fixes three significant bugs affecting udp-conduit:
+  - Out-of-order delivery of UDP messages (which can occur on networks
+    with multiple paths) was going undetected and could lead to silent
+    loss and/or erroneous redelivery of AMs in the presence of
+    retransmissions (caused by packet loss or high network load).
+  - On Cygwin 2.5 (2016-04-11 and later), ioctl(FIONREAD) always returns
+    failure, rendering udp-conduit entirely unusable on that platform.
+  - On FreeBSD, ioctl(FIONREAD) may truncate long datagrams to around
+    600 bytes, rendering udp-conduit unusable on that platform.
+
+----------------------------------------------------------------------
 05-12-2016 :  Release 1.26.2
 
 * Cray uGNI (gemini- and aries-conduits)
