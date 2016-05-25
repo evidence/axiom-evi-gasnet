@@ -983,6 +983,9 @@ static int gasneti_bt_mkstemp(char *filename, int limit) {
     /* Change "backtrace" to "backtrace full" to also see local vars from each frame */
     #if GASNETI_THREADS
       const char commands[] = "\ninfo threads\nthread apply all backtrace 50\ndetach\nquit\n";
+    #elif PLATFORM_OS_CYGWIN 
+      /* bug1848: cygwin is always multi-threaded, user thread is usually (always?) #1 */
+      const char commands[] = "\nthread 1\nbacktrace 50\ndetach\nquit\n";
     #else
       const char commands[] = "\nbacktrace 50\ndetach\nquit\n";
     #endif
