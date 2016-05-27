@@ -5,11 +5,11 @@ srcdir = .
 include $(srcdir)/Makefile.common # leave this line alone
 
 # Uncomment one set of lines below to get debug or release configuration 
-#ccflags = $(set_debug_ccflags)
-#cxxflags = $(set_debug_cxxflags)
-
 ccflags = $(set_opt_ccflags)
 cxxflags = $(set_opt_cxxflags)
+
+#ccflags = $(set_debug_ccflags)
+#cxxflags = $(set_debug_cxxflags)
 
 # Set host system to the appropriate value to get the right prebaked Makefile
 HOSTSYSTEM=generic
