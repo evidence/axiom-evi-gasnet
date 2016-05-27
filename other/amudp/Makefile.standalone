@@ -57,7 +57,7 @@ banner:
            MACHTYPE="$${MACHTYPE:-MACHTYPE}" ; export MACHTYPE ;                                     \
            echo "WARNING: Using Makefile.generic. " ;                                                \
            echo " If this build fails, try selecting one of the platform-specific makefiles, eg: " ; \
-           echo " $(MAKE) HOSTSYSTEM=$$OSTYPE.$$MACHTYPE" ;                                          \
+           echo " $(MAKE) HOSTSYSTEM=$$OSTYPE" ;                                                     \
 	 fi
 
 # ---------- AMUDP library -------------
