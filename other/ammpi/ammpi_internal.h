@@ -137,9 +137,6 @@
 
 #include <mpi.h>
 
-#ifdef __AMMPI_H
-#error AMMPI library files should not include ammpi.h directly
-#endif
 #include <ammpi.h>
 
 
