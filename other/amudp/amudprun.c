@@ -3,9 +3,6 @@
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
 
-#include <amudp.h>
-#include <amudp_spmd.h>
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,6 +18,9 @@
 #else
 #include <ctype.h>
 #endif
+
+#include <amudp.h>
+#include <amudp_spmd.h>
 
 static const char *argvzero;
 static void Usage(const char *msg) {

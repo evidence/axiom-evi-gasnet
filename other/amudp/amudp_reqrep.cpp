@@ -3,8 +3,6 @@
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
 
-#include <amudp_internal.h>
-
 #include <errno.h>
 #include <stdarg.h>
 #include <math.h>
@@ -12,6 +10,8 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <fcntl.h>
+
+#include "amudp_internal.h" // must come after any other headers
 
 /* forward decls */
 static int AMUDP_RequestGeneric(amudp_category_t category, 

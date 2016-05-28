@@ -2,11 +2,11 @@
 // Description: Exception handlers for fserver
 // Copyright 1999, Dan Bonachea & Scott McPeak
 
-#include "exc.h"          // this module
-#include "sockutil.h"
-
 #include <stdio.h>
 #include <string.h>       // strlen, strcpy
+
+#include "exc.h"          // this module
+#include "sockutil.h"
 
 //------------------------------------------------------------------------------------
 void ackackack(int*) {}

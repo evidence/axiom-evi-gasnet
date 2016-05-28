@@ -6,10 +6,17 @@
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
+#include <portable_inttypes.h>
+#include "sockaddr.h" // for gasnet_tools/gasnet_config.h
+#if HAVE_GETIFADDRS
+  #if HAVE_IFADDRS_H
+    #include <ifaddrs.h>
+  #endif
+  #include <net/if.h>
+#endif
+
 #include "sockutil.h"
 #include "sig.h"
-#include "sockaddr.h"
-#include "portable_inttypes.h"
 
 bool endianconvert = false;
 
@@ -594,10 +601,6 @@ extern int myrecvfrom(SOCKET s, char * buf, int len, int flags,
 }
 /* ------------------------------------------------------------------------------------ */
 #if HAVE_GETIFADDRS
-#if HAVE_IFADDRS_H
-#include <ifaddrs.h>
-#endif
-#include <net/if.h>
 bool getIfaceAddr(SockAddr ipnet_sa, SockAddr &ret, char *subnets, size_t subnetsz) {
   struct sockaddr_in *net = (sockaddr_in*)ipnet_sa;
   struct sockaddr_in *result = (sockaddr_in*)ret;

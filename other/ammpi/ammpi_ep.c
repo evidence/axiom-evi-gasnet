@@ -3,10 +3,11 @@
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
 
-#include <ammpi_internal.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+
+#include "ammpi_internal.h" /* must come after any other headers */
 
 /* definitions for internal declarations */
 int ammpi_Initialized = 0;

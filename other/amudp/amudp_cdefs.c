@@ -4,8 +4,8 @@
  */
 
 #include <stddef.h>
+
 #include <amudp.h>
-#include <socket.h>
 
 #if AMUDP_DEBUG
   /* use the gasnet debug malloc functions if a debug libgasnet is linked

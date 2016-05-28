@@ -14,8 +14,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
-#include <sockutil.h> /* for SPMD TCP stuff */
-#include <amudp.h>
 #ifdef HAVE_GASNET_TOOLS 
   #ifndef GASNETT_LITE_MODE
   #define GASNETT_LITE_MODE /* use lite mode, to preserve AMUDP's threading neutrality */
@@ -28,6 +26,8 @@
 #else
   #define AMUDP_FORMAT_PRINTF(fnname,fmtarg,firstvararg,declarator) declarator
 #endif
+#include <amudp.h>
+#include "sockutil.h" /* for SPMD TCP stuff */
 
 /* AMUDP system configuration parameters */
 #ifndef DISABLE_STDSOCKET_REDIRECT

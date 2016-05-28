@@ -6,13 +6,13 @@
 #ifndef __AMUDP_H
 #define __AMUDP_H
 
+#include <stdarg.h>
+#include <stddef.h>
+
 #include <portable_inttypes.h>
 #include <portable_platform.h>
 
-#include <socket.h>
-
-#include <stdarg.h>
-#include <stddef.h>
+#include "socket.h"
 
 /* miscellaneous macro helpers */
 #ifndef _STRINGIFY

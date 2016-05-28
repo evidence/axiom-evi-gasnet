@@ -2,7 +2,6 @@
  * Description: AMMPI Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
-#include <ammpi_internal.h>
 #include <stdarg.h>
 #include <math.h>
 #include <time.h>
@@ -10,6 +9,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 
+#include "ammpi_internal.h" /* must come after any other headers */
 
 /* forward decls */
 static int AMMPI_RequestGeneric(ammpi_category_t category, 

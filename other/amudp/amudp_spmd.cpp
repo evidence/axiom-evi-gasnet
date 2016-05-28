@@ -3,8 +3,7 @@
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
 
-#include <amudp_internal.h>
-#include <amudp_spmd.h>
+#include <portable_platform.h>
 
 #include <errno.h>
 #include <stdio.h>
@@ -30,13 +29,18 @@
   #include <sys/types.h>
   #include <sys/stat.h>
   #include <unistd.h>
+  #include "libcr.h"
 #endif
 
 extern char **environ; 
 
+#include <amudp_spmd.h>
+
 #include "sockutil.h"
 #include "socklist.h"
 #include "sig.h"
+
+#include "amudp_internal.h" // must come after any other headers
 
 #define FD_STDIN 0
 #define FD_STDOUT 1
@@ -1684,7 +1688,6 @@ static int AMUDP_SPMDReStartup(int fd, eb_t *eb, ep_t *ep) {
   return temp;
 }
 /* ------------------------------------------------------------------------------------ */
-#include "libcr.h"
 int AMUDP_SPMDCheckpoint(eb_t *eb, ep_t *ep, const char *dir) {
   AMUDP_assert(dir != NULL);
 

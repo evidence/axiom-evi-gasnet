@@ -124,12 +124,6 @@
 #include <time.h>
 #include <sys/time.h>
 
-#ifdef __AMMPI_H
-#error AMMPI library files should not include ammpi.h directly
-#endif
-#include <ammpi.h>
-#include <mpi.h>
-
 #if PLATFORM_ARCH_CRAYT3E || PLATFORM_OS_SUPERUX || PLATFORM_OS_NETBSD || \
     PLATFORM_OS_MTA || PLATFORM_OS_BLRTS || PLATFORM_OS_CATAMOUNT
   /* these implement sched_yield() in libpthread only, which we may not want */
@@ -140,6 +134,14 @@
   #include <sched.h>
   #define ammpi_sched_yield() sched_yield()
 #endif
+
+#include <mpi.h>
+
+#ifdef __AMMPI_H
+#error AMMPI library files should not include ammpi.h directly
+#endif
+#include <ammpi.h>
+
 
 #if PLATFORM_OS_BLRTS || PLATFORM_OS_CATAMOUNT
   /* lack working select */

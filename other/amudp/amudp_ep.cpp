@@ -3,13 +3,13 @@
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
 
-#include <amudp_internal.h>
-
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <signal.h>
+
+#include "amudp_internal.h" // must come after any other headers
 
 /* definitions for internal declarations */
 int amudp_Initialized = 0;
@@ -190,10 +190,6 @@ extern int AMUDP_SetUDPInterface(uint32_t IPAddress) {
 }
 /* ------------------------------------------------------------------------------------ */
 #if USE_SOCKET_RECVBUFFER_GROW
-  #if 0 && (PLATFORM_OS_LINUX || PLATFORM_OS_UCLINUX)
-    #include <linux/unistd.h>
-    #include <linux/sysctl.h>
-  #endif
 extern int AMUDP_growSocketBufferSize(ep_t ep, int targetsize, 
                                        int szparam, const char *paramname) {
   int initialsize; /* original socket recv size */
@@ -209,7 +205,8 @@ extern int AMUDP_growSocketBufferSize(ep_t ep, int targetsize,
 
   targetsize = MAX(initialsize, targetsize); /* never shrink buffer */
 
-  #if 0 /* it appears this max means nothing */
+  #if 0 && (PLATFORM_OS_LINUX || PLATFORM_OS_UCLINUX) /* it appears this max means nothing */
+  // this code requires <linux/unistd.h> and <linux/sysctl.h>
   { int maxsize;
     #if PLATFORM_OS_LINUX || PLATFORM_OS_UCLINUX
     { /*  try to determine the max we can use (reading /proc/sys/net/core/rmem_max may be more reliable) */

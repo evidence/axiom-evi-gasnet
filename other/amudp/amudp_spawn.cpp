@@ -3,8 +3,7 @@
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
 
-#include <amudp_internal.h>
-#include <amudp_spmd.h>
+#include <portable_platform.h>
 
 #include <errno.h>
 #if PLATFORM_OS_CYGWIN
@@ -16,6 +15,10 @@
   extern char **environ; 
 #endif
 #include <string.h>
+
+#include <amudp_spmd.h>
+
+#include "amudp_internal.h" // must come after any other headers
 
 amudp_spawnfn_desc_t const AMUDP_Spawnfn_Desc[] = {
   { 'S',  "Spawn jobs using ssh remote shells", 

@@ -3,15 +3,11 @@
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
 
-#include <ammpi_internal.h>
-#include <ammpi_spmd.h>
-
 #include <stdio.h>
 #include <unistd.h>
 
-#define FD_STDIN 0
-#define FD_STDOUT 1
-#define FD_STDERR 2
+#include <ammpi_spmd.h>
+#include "ammpi_internal.h" /* must come after any other headers */
 
 #ifndef FREEZE_SLAVE
   #define FREEZE_SLAVE  0
