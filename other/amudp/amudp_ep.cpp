@@ -133,44 +133,66 @@ static void AMUDP_RemoveEndpoint(eb_t eb, ep_t ep) {
   }
 }
 /*------------------------------------------------------------------------------------
- * Endpoint bulk buffer management
+ * Endpoint buffer management
  *------------------------------------------------------------------------------------ */
-extern amudp_buf_t *AMUDP_AcquireBulkBuffer(ep_t ep) { // get a bulk buffer
-  AMUDP_assert(ep != NULL);
-  AMUDP_assert(ep->bulkBufferPoolFreeCnt <= ep->bulkBufferPoolSz);
-  if (ep->bulkBufferPoolFreeCnt == 0) {
-    // grow the pool
-    int oldsz = ep->bulkBufferPoolSz;
-    amudp_buf_t **temp = (amudp_buf_t **)AMUDP_malloc((oldsz+1)*sizeof(amudp_buf_t *));
-    temp[0] = (amudp_buf_t *)AMUDP_malloc(AMUDP_MAXBULK_NETWORK_MSG);
-    temp[0]->status.bulkBuffer = NULL;
-    if (ep->bulkBufferPool) {
-      memcpy(temp+1, ep->bulkBufferPool, sizeof(amudp_buf_t *)*oldsz);
-      AMUDP_free(ep->bulkBufferPool);
-    }
-    ep->bulkBufferPool = temp;
-    ep->bulkBufferPoolSz = oldsz + 1;
-    ep->bulkBufferPoolFreeCnt = 1;
+/* internally, buffers have a header:
+ *   while allocated: pool points to the bufferpool
+ *   while freed: next pointer in free list
+ */
+#define AMUDP_BUFFERPOOL_MAGIC ((uint64_t)0x1001feedbac31001llu)
+extern amudp_buf_t *AMUDP_AcquireBuffer(ep_t ep, size_t sz) {
+  AMUDP_assert(ep);
+  AMUDP_assert(sz >= AMUDP_MIN_NETWORK_MSG);
+  amudp_bufferpool_t *pool;
+  if (sz == AMUDP_MIN_NETWORK_MSG) {
+    pool = &ep->bufferPool[0];
+  } else {
+    pool = &ep->bufferPool[1];
   }
-  return ep->bulkBufferPool[--ep->bulkBufferPoolFreeCnt];
+  size_t poolsz = pool->buffersz;
+  AMUDP_assert(sz <= poolsz);
+  AMUDP_assert(pool->magic == AMUDP_BUFFERPOOL_MAGIC);
+
+  amudp_bufferheader_t *bh;
+  if (pool->free) {
+    bh = pool->free;
+    pool->free = bh->next;
+  } else {
+    bh = (amudp_bufferheader_t *)AMUDP_malloc(sizeof(amudp_bufferheader_t) + poolsz);
+  }
+  bh->pool = pool;
+
+  AMUDP_memcheck(bh);
+
+  amudp_buf_t *buf = (amudp_buf_t *)(bh+1);
+  AMUDP_assert(!((uintptr_t)buf & 0x7)); // 8-byte alignment
+  return buf;
 }
 /* ------------------------------------------------------------------------------------ */
-extern void AMUDP_ReleaseBulkBuffer(ep_t ep, amudp_buf_t *buf) { // release a bulk buffer
-  int i; // this is non-optimal, but the list should never get too long, so it won't matter
-  AMUDP_assert(ep != NULL);
-  AMUDP_assert(ep->bulkBufferPoolFreeCnt <= ep->bulkBufferPoolSz);
-  for (i = ep->bulkBufferPoolFreeCnt; i < ep->bulkBufferPoolSz; i++) {
-    if (ep->bulkBufferPool[i] == buf) {
-      ep->bulkBufferPool[i] = ep->bulkBufferPool[ep->bulkBufferPoolFreeCnt];
-      ep->bulkBufferPool[ep->bulkBufferPoolFreeCnt] = buf;
-      ep->bulkBufferPoolFreeCnt++;
-      return;
-    }
+extern void AMUDP_ReleaseBuffer(ep_t ep, amudp_buf_t *buf) {
+  AMUDP_assert(ep);
+  AMUDP_assert(buf);
+  amudp_bufferheader_t *bh = ((amudp_bufferheader_t *)buf) - 1;
+  AMUDP_memcheck(bh);
+  amudp_bufferpool_t *pool = bh->pool;
+  AMUDP_assert(pool->magic == AMUDP_BUFFERPOOL_MAGIC);
+  bh->next = pool->free;
+  pool->free = bh;
+}
+/* ------------------------------------------------------------------------------------ */
+static void AMUDP_InitBuffers(ep_t ep) {
+  for (int i=0; i < AMUDP_NUMBUFFERPOOLS; i++) {
+    ep->bufferPool[i].free = NULL;
+    #if AMUDP_DEBUG
+      ep->bufferPool[i].magic = AMUDP_BUFFERPOOL_MAGIC;
+    #endif
   }
-  AMUDP_FatalErr("Internal error in AMUDP_ReleaseBulkBuffer()");
+  ep->bufferPool[0].buffersz = AMUDP_MIN_NETWORK_MSG;
+  ep->bufferPool[1].buffersz = AMUDP_MAXBULK_NETWORK_MSG;
 }
 /* ------------------------------------------------------------------------------------ */
 static void AMUDP_FreeAllBulkBuffers(ep_t ep) {
+/*
   int i;
   AMUDP_assert(ep != NULL);
   AMUDP_assert(ep->bulkBufferPoolFreeCnt <= ep->bulkBufferPoolSz);
@@ -179,6 +201,8 @@ static void AMUDP_FreeAllBulkBuffers(ep_t ep) {
   ep->bulkBufferPool = NULL;
   ep->bulkBufferPoolFreeCnt = 0;
   ep->bulkBufferPoolSz = 0;
+  */
+  AMUDP_memcheck_all();
 }
 /*------------------------------------------------------------------------------------
  * Endpoint resource management
@@ -345,9 +369,8 @@ static int AMUDP_AllocateEndpointBuffers(ep_t ep) {
     for (i = 0; i < PD; i++) ep->replyBuf[i].status.bulkBuffer = NULL;
   }
 
-  ep->bulkBufferPool = NULL;
-  ep->bulkBufferPoolSz = 0;
-  ep->bulkBufferPoolFreeCnt = 0;
+  AMUDP_InitBuffers(ep);
+
   return TRUE;
 }
 /* ------------------------------------------------------------------------------------ */

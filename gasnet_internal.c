@@ -1802,15 +1802,28 @@ extern char *_gasneti_extern_strndup(const char *s, size_t n GASNETI_CURLOCFARG)
 }
 
 #if GASNET_DEBUGMALLOC
-  extern void *(*gasnett_debug_malloc_fn)(size_t sz GASNETI_CURLOCFARG);
-  extern void *(*gasnett_debug_calloc_fn)(size_t N, size_t S GASNETI_CURLOCFARG);
-  extern void (*gasnett_debug_free_fn)(void *ptr GASNETI_CURLOCFARG);
-  void *(*gasnett_debug_malloc_fn)(size_t sz GASNETI_CURLOCFARG) =
+  extern void *(*gasnett_debug_malloc_fn)(size_t sz, const char *curloc);
+  extern void *(*gasnett_debug_calloc_fn)(size_t N, size_t S, const char *curloc);
+  extern void (*gasnett_debug_free_fn)(void *ptr, const char *curloc);
+  void *(*gasnett_debug_malloc_fn)(size_t sz, const char *curloc) =
          &_gasneti_extern_malloc;
-  void *(*gasnett_debug_calloc_fn)(size_t N, size_t S GASNETI_CURLOCFARG) =
+  void *(*gasnett_debug_calloc_fn)(size_t N, size_t S, const char *curloc) =
          &_gasneti_extern_calloc;
-  void (*gasnett_debug_free_fn)(void *ptr GASNETI_CURLOCFARG) =
+  void (*gasnett_debug_free_fn)(void *ptr, const char *curloc) =
          &_gasneti_extern_free;
+  /* these only exist with debug malloc */
+  extern void (*gasnett_debug_memcheck_fn)(void *ptr, const char *curloc);
+  extern void (*gasnett_debug_memcheck_one_fn)(const char *curloc);
+  extern void (*gasnett_debug_memcheck_all_fn)(const char *curloc);
+  extern void _gasneti_extern_memcheck(void *ptr, const char *curloc) {
+    _gasneti_memcheck(ptr, curloc, 0);
+  }
+  void (*gasnett_debug_memcheck_fn)(void *ptr, const char *curloc) = 
+        &_gasneti_extern_memcheck;
+  void (*gasnett_debug_memcheck_one_fn)(const char *curloc) = 
+        &_gasneti_memcheck_one;
+  void (*gasnett_debug_memcheck_all_fn)(const char *curloc) =
+        &_gasneti_memcheck_all;
 #endif
 
 /* don't put anything here - malloc stuff must come last */

@@ -142,6 +142,27 @@ typedef struct {
 } amudp_bufdesc_t;
 
 /* ------------------------------------------------------------------------------------ */
+/* Buffer pools */
+
+struct amudp_bufferpool;
+
+typedef union amudp_bufferheader {
+  struct amudp_bufferpool *pool; 
+  union amudp_bufferheader *next;
+  uint64_t _pad[1]; // maintain 8-byte alignment
+} amudp_bufferheader_t;
+
+typedef struct amudp_bufferpool { 
+  #if AMUDP_DEBUG
+    uint64_t magic;
+  #endif
+  amudp_bufferheader_t *free;
+  size_t buffersz;
+} amudp_bufferpool_t;
+
+#define AMUDP_NUMBUFFERPOOLS 2
+
+/* ------------------------------------------------------------------------------------ */
 /* Complex user-visible types */
 
 /* statistical collection 
@@ -240,6 +261,8 @@ typedef struct amudp_ep {
   amudp_buf_t* replyBuf;
   amudp_buf_t* temporaryBuf; /* a single extra buffer used for temporary operations */
 
+  amudp_bufferpool_t bufferPool[AMUDP_NUMBUFFERPOOLS];
+
   /* buffers for inbound messages */
   /* invariant: buffer empty when rxFreeIdx == rxReadyIdx
    *            buffer full when (rxFreeIdx + 1) % rxNumBufs == rxReadyIdx
@@ -254,10 +277,6 @@ typedef struct amudp_ep {
   AMUDP_postHandlerCallback_t postHandlerCallback;
 
   amudp_stats_t stats;  /* statistical collection */
-
-  amudp_buf_t **bulkBufferPool; /* list of all bulk buffers */
-  int bulkBufferPoolSz;     /* length of list */
-  int bulkBufferPoolFreeCnt; /* number of those that are free (which appear first in list) */
 
 } *ep_t;
 

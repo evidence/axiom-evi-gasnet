@@ -168,6 +168,9 @@ GASNETT_NORETURNP(AMUDP_FatalErr)
   extern void *(*gasnett_debug_malloc_fn)(size_t sz, const char *curloc);
   extern void *(*gasnett_debug_calloc_fn)(size_t N, size_t S, const char *curloc);
   extern void (*gasnett_debug_free_fn)(void *ptr, const char *curloc);
+  extern void (*gasnett_debug_memcheck_fn)(void *ptr, const char *curloc);
+  extern void (*gasnett_debug_memcheck_one_fn)(const char *curloc);
+  extern void (*gasnett_debug_memcheck_all_fn)(const char *curloc);
   static void *_AMUDP_malloc(size_t sz, const char *curloc) {
     void *ret = malloc(sz);
     if_pf(!ret) AMUDP_FatalErr("Failed to malloc(%lu) at %s", (unsigned long)sz, curloc);
@@ -194,6 +197,19 @@ GASNETT_NORETURNP(AMUDP_FatalErr)
     ( (PREDICT_FALSE(gasnett_debug_free_fn==NULL) ?      \
         gasnett_debug_free_fn = &_AMUDP_free : 0), \
       (*gasnett_debug_free_fn)(ptr, AMUDP_curloc))
+  #define AMUDP_memcheck(ptr) do {                          \
+    AMUDP_assert(ptr);                                      \
+    if (gasnett_debug_memcheck_fn)                          \
+       (*gasnett_debug_memcheck_fn)(ptr, AMUDP_curloc);     \
+  } while (0)
+  #define AMUDP_memcheck_one() do {                         \
+    if (gasnett_debug_memcheck_one_fn)                      \
+       (*gasnett_debug_memcheck_one_fn)(AMUDP_curloc);      \
+  } while (0)
+  #define AMUDP_memcheck_all() do {                         \
+    if (gasnett_debug_memcheck_all_fn)                      \
+       (*gasnett_debug_memcheck_all_fn)(AMUDP_curloc);      \
+  } while (0)
 
   #undef malloc
   #define malloc(x)   ERROR_use_AMUDP_malloc
@@ -205,6 +221,9 @@ GASNETT_NORETURNP(AMUDP_FatalErr)
   #define AMUDP_malloc(sz)  malloc(sz)
   #define AMUDP_calloc(N,S) calloc((N),(S))
   #define AMUDP_free(ptr)   free(ptr)
+  #define AMUDP_memcheck(ptr)   ((void)0)
+  #define AMUDP_memcheck_one()  ((void)0)
+  #define AMUDP_memcheck_all()  ((void)0)
 #endif
 
 /*------------------------------------------------------------------------------------
@@ -382,9 +401,13 @@ extern int AMUDP_Block(eb_t eb);
   /* block until receive buffer becomes non-empty
    * does not poll, but does handle SPMD control socket events
    */
-// bulk buffers
-extern amudp_buf_t *AMUDP_AcquireBulkBuffer(ep_t ep); // get a bulk buffer
-extern void AMUDP_ReleaseBulkBuffer(ep_t ep, amudp_buf_t *buf); // release a bulk buffer
+
+// buffer management
+extern amudp_buf_t *AMUDP_AcquireBuffer(ep_t ep, size_t sz);
+extern void AMUDP_ReleaseBuffer(ep_t ep, amudp_buf_t *buf);
+
+#define AMUDP_AcquireBulkBuffer(ep)      AMUDP_AcquireBuffer(ep, AMUDP_MAXBULK_NETWORK_MSG)
+#define AMUDP_ReleaseBulkBuffer(ep, buf) AMUDP_ReleaseBuffer(ep, buf) 
 
 #if USE_SOCKET_RECVBUFFER_GROW
   extern int AMUDP_growSocketBufferSize(ep_t ep, int targetsize, int szparam, const char *paramname);
