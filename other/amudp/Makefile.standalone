@@ -45,7 +45,7 @@ testprograms =                  \
 
 # all the library objects and headers
 objects=amudp_cdefs.o amudp_ep.o amudp_reqrep.o amudp_spmd.o amudp_spawn.o exc.o sig.o socklist.o sockutil.o
-headers=Makefile* amudp.h amudp_internal.h amudp_spmd.h socket.h exc.h sig.h sockaddr.h socklist.h sockutil.h
+headers=Makefile* amudp.h amudp_const.h amudp_internal.h amudp_spmd.h socket.h exc.h sig.h sockaddr.h socklist.h sockutil.h
 
 .PHONY: all banner tests clean veryclean dist
 

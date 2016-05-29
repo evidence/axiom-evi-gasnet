@@ -53,7 +53,7 @@ run-tests: tests
 # make a distribution
 amxdist:
 	@bash -x -c ' \
-         VERSION=`grep "#define AMUDP_LIBRARY_VERSION" $(srcdir)/amudp.h | head -1 | awk '"'"'{ print $$3 }'"'"'` \
+         VERSION=`grep "#define AMUDP_LIBRARY_VERSION" $(srcdir)/amudp_const.h | head -1 | awk '"'"'{ print $$3 }'"'"'` \
          export VERSION ; \
          echo "+++ Building distribution for AMUDP version $${VERSION} +++" && \
 	 rm -Rf amudp$${VERSION}.tar.gz amudp$${VERSION} && \

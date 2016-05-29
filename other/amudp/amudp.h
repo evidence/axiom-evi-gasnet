@@ -10,105 +10,16 @@
 #include <stddef.h>
 
 #include <portable_inttypes.h>
-#include <portable_platform.h>
+
+#include <amudp_const.h>
 
 #include "socket.h"
-
-/* miscellaneous macro helpers */
-#ifndef _STRINGIFY
-#define _STRINGIFY_HELPER(x) #x
-#define _STRINGIFY(x) _STRINGIFY_HELPER(x)
-#endif
-
-#ifndef _CONCAT
-#define _CONCAT_HELPER(a,b) a ## b
-#define _CONCAT(a,b) _CONCAT_HELPER(a,b)
-#endif
-
-#ifndef AMUDP
-#define AMUDP 1
-#endif
-
-#define AMUDP_LIBRARY_VERSION      3.12
-#define AMUDP_LIBRARY_VERSION_STR  _STRINGIFY(AMUDP_LIBRARY_VERSION)
-
-#if !defined(AMUDP_DEBUG) && !defined(AMUDP_NDEBUG)
-  #if defined(GASNET_DEBUG) || defined(AMX_DEBUG)
-    #define AMUDP_DEBUG 1
-  #elif defined(GASNET_NDEBUG) || defined(AMX_NDEBUG)
-    #define AMUDP_NDEBUG 1
-  #endif
-#endif
-#if defined(AMUDP_DEBUG) && !defined(AMUDP_NDEBUG)
-  #undef AMUDP_DEBUG
-  #define AMUDP_DEBUG 1
-#elif !defined(AMUDP_DEBUG) && defined(AMUDP_NDEBUG)
-  #undef AMUDP_NDEBUG
-  #define AMUDP_NDEBUG 1
-#else
-  #error bad defns of AMUDP_DEBUG and AMUDP_NDEBUG
-#endif
-
-#undef AMX_DEBUG
-#undef AMX_NDEBUG
-
-#ifdef AMUDP_DEBUG
-  #define AMX_DEBUG AMUDP_DEBUG
-  #define AMUDP_DEBUG_CONFIG _DEBUG
-#endif
-#ifdef AMUDP_NDEBUG
-  #define AMX_NDEBUG AMUDP_NDEBUG
-  #define AMUDP_DEBUG_CONFIG _NDEBUG
-#endif
-
-/* idiot proofing */
-#if defined(AMUDP_DEBUG) && (defined(__OPTIMIZE__) || defined(NDEBUG))
-  #if !defined(AMUDP_ALLOW_OPTIMIZED_DEBUG) && !defined(GASNET_ALLOW_OPTIMIZED_DEBUG)
-    #error Tried to compile AMUDP client code with optimization enabled but also AMUDP_DEBUG (which seriously hurts performance). Disable C and C++ compiler optimization or reconfigure/rebuild without --enable-debug
-  #endif
-#endif
-
 
 /* naming policy:
   AM-defined things start with AM_
   internal things start with amudp_ or AMUDP_
   */
 
-/* ------------------------------------------------------------------------------------ */
-/* Internal constants */
-#define AMUDP_MAX_SHORT    16    /* max number of handler arguments, >=8 */
-#define AMUDP_MAX_MEDIUM   512   /* max. data transmission unit for medium messages, >= 512 */
-
-#if PLATFORM_OS_IRIX
-  #define AMUDP_MAX_LONG     61000  /* max. UDP datagram on IRIX is apparently 61412 */
-#elif PLATFORM_OS_TRU64 || PLATFORM_OS_FREEBSD || PLATFORM_OS_NETBSD || \
-      PLATFORM_OS_DARWIN || PLATFORM_OS_AIX
-  #define AMUDP_MAX_LONG     9000   /* max UDP datagram on OSF/FREEBSD/DARWIN is apparently 9196 */
-#else
-  #define AMUDP_MAX_LONG     65000  /* default max. UDP datagram */
-#endif
-
-#define AMUDP_MAX_NUMHANDLERS      256  /* max. handler-table entries >= 256 */
-#define AMUDP_MAX_NUMTRANSLATIONS  16384 /* max. translation-table entries >= 256 */
-#define AMUDP_MAX_SEGLENGTH  ((uintptr_t)-1) /* max. dest_offset */
-
-#define AMUDP_MAX_BUNDLES          255  /* max bundles that can be allocated */
-#define AMUDP_MAX_NETWORKDEPTH     1024 /* max depth we ever allow user to ask for (constrained by instance bits) */
-#define AMUDP_MAX_SPMDPROCS        AMUDP_MAX_NUMTRANSLATIONS  /* max SPMD procs we support */
-
-#ifndef AMUDP_COLLECT_STATS
-#define AMUDP_COLLECT_STATS   1
-#endif
-#ifndef AMUDP_COLLECT_LATENCY_STATS
-#define AMUDP_COLLECT_LATENCY_STATS   1
-#endif
-
-#define AMUDP_PROCID_NEXT -1  /* Use next unallocated procid */
-#define AMUDP_PROCID_ALLOC -2 /* Allocate and return next procis, but do not bootstrap */
-
-#ifndef AMUDP_EXTRA_CHECKSUM
-#define AMUDP_EXTRA_CHECKSUM 0
-#endif
 /* ------------------------------------------------------------------------------------ */
 /* Simple user-visible types */
 
@@ -350,35 +261,10 @@ typedef struct amudp_ep {
 
 } *ep_t;
 
-/* ------------------------------------------------------------------------------------ */
-/* User-visible constants */
-
-#define AM_ALL     1    /* Deliver all messages to endpoint */
-#define AM_NONE    0    /* Deliver no messages to endpoint */
-
-typedef enum {
-  AM_NOEVENTS,   /* No endpoint state transition generates an event */
-  AM_NOTEMPTY,   /* A nonempty receive pool or a receive pool that has 
-                    a message delivered to it generates an event */
-  /* AM_CANSEND, */ /* TODO: can send without blocking */
-  AM_NUMEVENTMASKS
-} amudp_eventmask_t;
-
-typedef enum {
-  AM_SEQ,             /* Sequential bundle/endpoint access */
-  AM_PAR,             /* Concurrent bundle/endpoint access */
-  AM_NUM_BUNDLE_MODES
-} amudp_bundle_mode_t;
-
 /*
- * Return values to Active Message and Endpoint/Bundle API functions
+ * Op codes for the AM error handler (opcode).
  */
-#define AM_OK           0       /* Function completed successfully */
-#define AM_ERR_NOT_INIT 1       /* Active message layer not initialized */
-#define AM_ERR_BAD_ARG  2       /* Invalid function parameter passed */
-#define AM_ERR_RESOURCE 3       /* Problem with requested resource */
-#define AM_ERR_NOT_SENT 4       /* Synchronous message not sent */
-#define AM_ERR_IN_USE   5       /* Resource currently in use */
+typedef int op_t;
 
 /*
  * Error codes for the AM error handler (status).
@@ -386,7 +272,7 @@ typedef enum {
 #define EBADARGS          1     /* Arguments to request or reply function invalid    */
 #define EBADENTRY         2     /* X-lation table index selected unbound table entry */
 #define EBADTAG           3     /* Sender's tag did not match the receiver's EP tag  */ 
-#define EBADHANDLER       4     /* Invalid index into the recv.'s handler table      */ 
+#define EBADHANDLER       4     /* Invalid index into the recv.'s handler table      */
 #define EBADSEGOFF        5     /* Offset into the dest-memory VM segment invalid    */
 #define EBADLENGTH        6     /* Bulk xfer length goes beyond a segment's end      */
 #define EBADENDPOINT      7     /* Destination endpoint does not exist               */
@@ -394,17 +280,6 @@ typedef enum {
 #define EUNREACHABLE      9     /* Destination endpoint unreachable                  */
 #define EREPLYREJECTED    10    /* Destination endpoint refused reply message        */
 
-
-/*
- * Op codes for the AM error handler (opcode).
- */
-typedef int op_t;
-#define AM_REQUEST_M      1
-#define AM_REQUEST_IM     2
-#define AM_REQUEST_XFER_M 3
-#define AM_REPLY_M        4
-#define AM_REPLY_IM       5
-#define AM_REPLY_XFER_M   6
 
 /* ------------------------------------------------------------------------------------ */
 
@@ -499,15 +374,9 @@ extern int AMUDP_SetHandlerCallbacks(ep_t ep, AMUDP_preHandlerCallback_t preHand
 #define AMX_FatalErr            AMUDP_FatalErr
 
 #undef AM_Init
-#define AM_Init _CONCAT(AM_Init_AMUDP,AMUDP_DEBUG_CONFIG)
+#define AM_Init AMUDP_CONCAT(AM_Init_AMUDP,AMUDP_DEBUG_CONFIG)
 
 /* System parameters */
-#define AM_MaxShort()   AMUDP_MAX_SHORT
-#define AM_MaxMedium()  AMUDP_MAX_MEDIUM
-#define AM_MaxLong()    AMUDP_MAX_LONG
-
-#define AM_MaxNumHandlers()               AMUDP_MAX_NUMHANDLERS
-#define AM_MaxNumTranslations(trans)      (*(trans) = AMUDP_MAX_NUMTRANSLATIONS,AM_OK)
 extern int AM_MaxSegLength(uintptr_t* nbytes);
 
 /* System initialization/termination */
@@ -533,10 +402,6 @@ extern int AM_UnMap(ep_t ea, int index);
 extern int AM_GetTranslationInuse(ep_t ea, int i);
 extern int AM_GetTranslationTag(ep_t ea, int i, tag_t *tag);
 extern int AM_GetTranslationName(ep_t ea, int i, en_t *gan);
-#define AM_GetNumTranslations(ep, pntrans)  \
-  ((ep) ? ((*(pntrans) = AMUDP_MAX_NUMTRANSLATIONS), AM_OK) : AM_ERR_BAD_ARG)
-#define AM_SetNumTranslations(ep, ntrans)  \
-  ((ep) ? ((ntrans) == AMUDP_MAX_NUMTRANSLATIONS ? AM_OK : AM_ERR_RESOURCE) : AM_ERR_BAD_ARG)
 extern int AM_SetExpectedResources(ep_t ea, int n_endpoints, int n_outstanding_requests);
 
 /* Handler table */
@@ -544,10 +409,6 @@ extern int _AM_SetHandler(ep_t ea, handler_t handler, amudp_handler_fn_t functio
 #define AM_SetHandler(ea, handler, function) _AM_SetHandler((ea), (handler), (amudp_handler_fn_t)(function)) 
 extern int _AM_SetHandlerAny(ep_t ea, handler_t *handler, amudp_handler_fn_t function);
 #define AM_SetHandlerAny(ea, handler, function) _AM_SetHandlerAny((ea), (handler), (amudp_handler_fn_t)(function))
-#define AM_GetNumHandlers(ep, pnhandlers)  \
-  ((ep) ? ((*(pnhandlers) = AMUDP_MAX_NUMHANDLERS), AM_OK) : AM_ERR_BAD_ARG) : AM_ERR_BAD_ARG)
-#define AM_SetNumHandlers(ep, nhandlers)  \
-  ((ep) ? ((nhandlers) == AMUDP_MAX_NUMHANDLERS ? AM_OK : AM_ERR_RESOURCE)
 
 /* Events */
 extern int AM_GetEventMask(eb_t eb, int *mask);

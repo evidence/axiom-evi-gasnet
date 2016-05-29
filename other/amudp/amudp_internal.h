@@ -89,6 +89,12 @@ extern uint32_t AMUDP_ExpectedBandwidth; /* expected half-duplex bandwidth in KB
   #endif
 #endif
 
+#undef _STRINGIFY
+#define _STRINGIFY AMUDP_STRINGIFY
+
+#undef _CONCAT
+#define _CONCAT    AMUDP_CONCAT
+
 #ifndef TRUE
 #define TRUE 1
 #endif
