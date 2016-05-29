@@ -7,6 +7,8 @@
 
 #include <amudp.h>
 
+#include "socket.h"
+
 #if AMUDP_DEBUG
   /* use the gasnet debug malloc functions if a debug libgasnet is linked
    * these *must* be tentative definitions for this linker trick to work, 

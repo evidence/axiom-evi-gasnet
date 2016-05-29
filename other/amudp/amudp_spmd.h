@@ -8,7 +8,7 @@
 
 #include <amudp.h>
 
-SOCK_BEGIN_EXTERNC
+AMUDP_BEGIN_EXTERNC
 
 /* idiot proofing */
 #undef  AMUDP_SPMDStartup
@@ -53,11 +53,11 @@ extern int AMUDP_SPMDExit(int exitcode);
   /* adding extern C for these versions fails with "multiple storage classes in 
      declaration of `amudp_exitcallback_t'" */
 #else
-  SOCK_EXTERNC 
+  AMUDP_EXTERNC 
 #endif
 typedef void (*amudp_exitcallback_t)(int);
 
-SOCK_EXTERNC int AMUDP_SPMDSetExitCallback(amudp_exitcallback_t);
+AMUDP_EXTERNC int AMUDP_SPMDSetExitCallback(amudp_exitcallback_t);
   /* register a function to be called when AMUDP_SPMDExit is called by any node
    * exit code is passed
    */
@@ -135,6 +135,6 @@ extern int  AMUDP_SPMDCheckpoint(eb_t *eb, ep_t *ep, const char *dir);
 extern void AMUDP_SPMDRunRestart(char *argv0, char *dir, int nproc);
 extern int  AMUDP_SPMDRestartProcId(int *argc, char ***argv);
 
-SOCK_END_EXTERNC
+AMUDP_END_EXTERNC
 
 #endif

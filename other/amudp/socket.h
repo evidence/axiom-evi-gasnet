@@ -105,16 +105,6 @@ extern "C" {
 typedef unsigned int SOCKET;
 typedef fd_set FD_SET;
 
-#ifdef __cplusplus
-  #define SOCK_BEGIN_EXTERNC extern "C" {
-  #define SOCK_END_EXTERNC }
-  #define SOCK_EXTERNC extern "C"
-#else
-  #define SOCK_BEGIN_EXTERNC 
-  #define SOCK_END_EXTERNC 
-  #define SOCK_EXTERNC
-#endif
-
 /*  resolve disagreements about types of arguments to misc. functions */
 #if PLATFORM_OS_LINUX || PLATFORM_OS_UCLINUX || PLATFORM_OS_FREEBSD || PLATFORM_OS_NETBSD || \
     PLATFORM_OS_SOLARIS || (PLATFORM_OS_AIX && defined(_AIX51))
@@ -157,14 +147,18 @@ typedef fd_set FD_SET;
 #endif
 
 #if SOCK_USE_C_BYPASS
-  SOCK_BEGIN_EXTERNC
+ #ifdef __cplusplus
+  extern "C" {
+ #endif
   extern int SOCK_getsockopt(int  s, int level, int optname, void *optval, GETSOCKOPT_LENGTH_T *optlen);
   extern int SOCK_getsockname(int s, struct sockaddr *name, GETSOCKNAME_LENGTH_T *namelen);
   extern int SOCK_getpeername(int s, struct sockaddr *name, GETSOCKNAME_LENGTH_T *namelen);
   extern int SOCK_ioctlsocket(int d, int request, IOCTL_FIONREAD_ARG_T *val);
   extern int SOCK_accept(SOCKET listener, struct sockaddr* calleraddr, LENGTH_PARAM *sz);
   extern int SOCK_recvfrom(SOCKET s, char * buf, int len, int flags, struct sockaddr *from, LENGTH_PARAM *sz);
-  SOCK_END_EXTERNC
+ #ifdef __cplusplus
+  } /* extern C */
+ #endif
 #else
   #define SOCK_getsockopt   getsockopt
   #define SOCK_getsockname  getsockname

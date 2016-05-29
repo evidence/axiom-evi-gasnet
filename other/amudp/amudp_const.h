@@ -92,13 +92,6 @@
 #define AMUDP_COLLECT_LATENCY_STATS   1
 #endif
 
-#define AMUDP_PROCID_NEXT -1  /* Use next unallocated procid */
-#define AMUDP_PROCID_ALLOC -2 /* Allocate and return next procis, but do not bootstrap */
-
-#ifndef AMUDP_EXTRA_CHECKSUM
-#define AMUDP_EXTRA_CHECKSUM 0
-#endif
-
 /* ------------------------------------------------------------------------------------ */
 /* User-visible constants */
 
