@@ -59,7 +59,7 @@ typedef enum {
  *  changes here need to also be reflected in the initialization vector AMUDP_initial_stats
  */
 typedef struct {
-  uint64_t RequestsSent[amudp_NumCategories]; /* counts fragments for amudp_Long && !USE_TRUE_BULK_XFERS */
+  uint64_t RequestsSent[amudp_NumCategories]; 
   uint64_t RepliesSent[amudp_NumCategories];
   uint64_t RequestsRetransmitted[amudp_NumCategories];
   uint64_t RepliesRetransmitted[amudp_NumCategories];

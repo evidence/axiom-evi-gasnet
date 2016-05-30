@@ -42,9 +42,6 @@ AMUDP_BEGIN_EXTERNC
 #define USE_SOCKET_SENDBUFFER_GROW  1   /* grow SNDBUF on UDP sockets */
 #endif
 #define AMUDP_RECVBUFFER_MAX  4194304   /* never exceed 4 MB (huge) */
-#ifndef USE_TRUE_BULK_XFERS
-#define USE_TRUE_BULK_XFERS       1   /* bulk xfers use long packets rather than segmentation */
-#endif
 #ifndef AMUDP_EXTRA_CHECKSUM
 #define AMUDP_EXTRA_CHECKSUM 0 /* add extra checksums to each message to detect buggy IP */
 #endif
@@ -283,18 +280,9 @@ typedef struct {
 } amudp_translation_t;
 
 typedef struct {
-  uintptr_t minDestOffset;   /* smallest destOffset seen in this xfer */
-  uint32_t runningLength;    /* number of bytes copied thus far */
-  uint8_t  packetsRemaining; /* number of packets left to be recieved (0 = notinuse)*/
-  uint8_t  numargs;          /* cache number of args */
-  uint32_t args[AMUDP_MAX_SHORT]; /* cache the args (sent in a single fragment) */
-} bulkslot_t;
-
-typedef struct {
   uint16_t  instanceHint; /* instance hint pointer for request buffer allocation */
   en_t      remoteName;   /* gives us a compacted version of the translation table */
   tag_t     tag;
-  bulkslot_t inboundBulkSlot[16]; /* slots for maintaining inbound bulk transfer status */
 } amudp_perproc_info_t;
 
 /* Endpoint bundle object */
@@ -685,7 +673,6 @@ typedef void (*AMUDP_HandlerReturned)(int status, op_t opcode, void *token);
 typedef enum {
   amudp_system_user=0,      // not a system message
   amudp_system_autoreply,   // automatically generated reply
-  amudp_system_bulkxferfragment, // arg is total number of other packets in transfer (totalpackets - 1)
   amudp_system_returnedmessage, // arg is reason code, req/rep represents the type of message refused
 
   amudp_system_numtypes

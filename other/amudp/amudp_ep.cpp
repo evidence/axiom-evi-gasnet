@@ -362,13 +362,6 @@ static int AMUDP_AllocateEndpointBuffers(ep_t ep) {
   ep->perProcInfo = (amudp_perproc_info_t *)AMUDP_malloc(ep->P * sizeof(amudp_perproc_info_t));
   memset(ep->perProcInfo, 0, ep->P * sizeof(amudp_perproc_info_t));
 
-  { int i; /* need to init the reply bulk buffer ptrs */
-    /* must do this regardless of USE_TRUE_BULK_XFERS, because we check it later even
-     * if USE_TRUE_BULK_XFERS is off
-     * */
-    for (i = 0; i < PD; i++) ep->replyBuf[i].status.bulkBuffer = NULL;
-  }
-
   AMUDP_InitBuffers(ep);
 
   return TRUE;
@@ -1040,13 +1033,10 @@ extern const char *AMUDP_DumpStatistics(void *_fp, amudp_stats_t *stats, int glo
   #endif
 
     "Message Breakdown:        Requests     Replies   Avg data sz (Req/Rep/Both)\n"
-    " Small  (<=%5i bytes)   %8lu    %8lu  %9.*f/%.*f/%.*f bytes\n"
+    " Short  (<=%5i bytes)   %8lu    %8lu  %9.*f/%.*f/%.*f bytes\n"
     " Medium (<=%5i bytes)   %8lu    %8lu  %9.*f/%.*f/%.*f bytes\n"
-    " Large  (<=%5i bytes)   %8lu    %8lu  %9.*f/%.*f/%.*f bytes\n"
+    " Long   (<=%5i bytes)   %8lu    %8lu  %9.*f/%.*f/%.*f bytes\n"
 
-  #if !USE_TRUE_BULK_XFERS
-    " ^^^^^ (Statistics for Large refer to internal fragments)\n"
-  #endif
     " Total                                          %9.*f/%.*f/%.*f bytes\n"
 
     "Data bytes sent:      %lu/%lu/%lu bytes\n"
@@ -1074,11 +1064,7 @@ extern const char *AMUDP_DumpStatistics(void *_fp, amudp_stats_t *stats, int glo
       AMUDP_StatPrecision(reqavgpayload[amudp_Medium]), reqavgpayload[amudp_Medium], 
       AMUDP_StatPrecision(repavgpayload[amudp_Medium]), repavgpayload[amudp_Medium], 
       AMUDP_StatPrecision(avgpayload[amudp_Medium]), avgpayload[amudp_Medium], 
-  #if USE_TRUE_BULK_XFERS
     (int)(AMUDP_MAX_SHORT*sizeof(int) + AMUDP_MAX_LONG),
-  #else
-    (int)(AMUDP_MAX_SHORT*sizeof(int) + AMUDP_MAX_MEDIUM),
-  #endif
       (unsigned long)stats->RequestsSent[amudp_Long], (unsigned long)stats->RepliesSent[amudp_Long], 
       AMUDP_StatPrecision(reqavgpayload[amudp_Long]), reqavgpayload[amudp_Long], 
       AMUDP_StatPrecision(repavgpayload[amudp_Long]), repavgpayload[amudp_Long], 
