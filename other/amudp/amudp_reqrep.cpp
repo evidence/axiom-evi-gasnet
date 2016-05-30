@@ -178,21 +178,19 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
   _RUN_HANDLER_MEDLONG((AMUDP_HandlerLong)phandlerfn, (void *)token, pArgs, numargs, (void *)pData, (int)datalen)
 /* ------------------------------------------------------------------------------------ */
 /* ioctl UDP fiasco:
- * ioctlsocket(FIONREAD) on a SOCK_DGRAM should return 
- * the size of the next message waiting, not the total data
- * available on the socket. We need this to decide whether 
- * or not we have an incoming bulk message next on the queue
- * This works on Linux, but Win2K seems to botch it (despite the 
- * fact their own Winsock spec says it returns the next message size)
+ * According to POSIX, ioctl(I_NREAD) on a SOCK_DGRAM should report the EXACT size of
+ * the next message waiting (or 0), not the number of bytes available on the socket. 
+ * We can use this as an optimization in choosing the recv buffer size.
+ * Linux (FIONREAD) and Solaris (I_NREAD) get this right, 
+ * but all other systems seem to get it wrong, one way or another.
+ * Cygwin: (bug 3284) not implemented
+ * FreeBSD: (bug 2827) returns raw byte count, which can over or under-report
+ * others: over-report by returning total bytes in all messages waiting
  */
-#if PLATFORM_OS_CYGWIN
-  #define BROKEN_IOCTL 1
-#elif PLATFORM_OS_AIX || PLATFORM_OS_IRIX || PLATFORM_OS_HPUX || PLATFORM_OS_MTA || \
-      PLATFORM_OS_TRU64 || PLATFORM_OS_DARWIN || PLATFORM_OS_SUPERUX || \
-      PLATFORM_OS_FREEBSD || PLATFORM_OS_NETBSD || PLATFORM_OS_OPENBSD || PLATFORM_OS_UNICOS
-  #define BROKEN_IOCTL 1 /*  seems these are broken too...  */
+#if PLATFORM_OS_LINUX || PLATFORM_OS_SOLARIS
+  #define IOCTL_WORKS 1
 #else 
-  #define BROKEN_IOCTL 0 /*  at least Linux and Solaris work as documented */
+  #define IOCTL_WORKS 0
 #endif
 
 /* ------------------------------------------------------------------------------------ */
@@ -201,32 +199,23 @@ static int AMUDP_DrainNetwork(ep_t ep) {
     int totalBytesDrained = 0;
     while (1) {
       IOCTL_FIONREAD_ARG_T bytesAvail = 0;
-      #if PLATFORM_OS_CYGWIN || PLATFORM_OS_FREEBSD
-        // bug 3284: ioctl(FIONREAD) always returns error on Cygwin 2.5
-        // bug 2827: and it permanently truncates datagrams over 600 bytes on FreeBSD
-        if (inputWaiting(ep->s)) bytesAvail = AMUDP_MAXBULK_NETWORK_MSG;
-      #else
+      #if IOCTL_WORKS
         if_pf (SOCK_ioctlsocket(ep->s, _FIONREAD, &bytesAvail) == SOCKET_ERROR)
           AMUDP_RETURN_ERRFR(RESOURCE, "ioctlsocket()", strerror(errno));
+
+        // sanity check
+        if_pf ((int)bytesAvail > AMUDP_MAXBULK_NETWORK_MSG) {
+          char x;
+          int retval = recvfrom(ep->s, (char *)&x, 1, MSG_PEEK, NULL, NULL);
+          fprintf(stderr, "bytesAvail=%lu  recvfrom(MSG_PEEK)=%i\n", (unsigned long)bytesAvail, retval); fflush(stderr);
+          AMUDP_RETURN_ERRFR(RESOURCE, "AMUDP_DrainNetwork: received message that was too long", strerror(errno));
+        }
+      #else
+        if (inputWaiting(ep->s)) bytesAvail = AMUDP_MAXBULK_NETWORK_MSG;
       #endif
       if (bytesAvail == 0) break; 
 
-      #if BROKEN_IOCTL && !PLATFORM_OS_CYGWIN && !PLATFORM_OS_FREEBSD
-        if ((int)bytesAvail > AMUDP_MAX_NETWORK_MSG) { 
-          /* this workaround is a HACK that lets us decide if we truly have a bulk message */
-          static char *junk = NULL;
-          int retval;
-          /* MUST use AMUDP_MAXBULK_NETWORK_MSG here, because some OS's blatently ignore
-             the message buffer len and happily overflow the input buffer in recvfrom()
-           */
-          if_pf (!junk) junk = (char *)AMUDP_malloc(AMUDP_MAXBULK_NETWORK_MSG);
-          retval = recvfrom(ep->s, junk, AMUDP_MAXBULK_NETWORK_MSG, MSG_PEEK, NULL, NULL);
-          if (retval == SOCKET_ERROR && 
-              errno != EFAULT) /* AIX */
-            AMUDP_RETURN_ERRFR(RESOURCE, "recv(MSG_PEEK) - broken ioctl Hack", strerror(errno));
-          if (retval < (int)bytesAvail) bytesAvail = retval; /* the true next message size */
-        }
-        /* TODO: another possible workaround for BROKEN_IOCTL:
+        /* TODO: another possible workaround for !IOCTL_WORKS:
           use non-peek recvmsg(), with an iovec pointing first to a non-bulk buffer
           (with length AMUDP_MAX_NETWORK_MSG) and the second entry pointing to 
           offset AMUDP_MAX_NETWORK_MSG in the middle of a bulk buffer 
@@ -234,7 +223,6 @@ static int AMUDP_DrainNetwork(ep_t ep) {
           Then if we have a true bulk message (based on return value), 
           just copy the initial portion into the bulk buffer and release the normal buf
          */
-      #endif
 
       /* something waiting, acquire a buffer for it */
       { amudp_buf_t *freebuf;
@@ -251,21 +239,13 @@ static int AMUDP_DrainNetwork(ep_t ep) {
           break;
         }
         freebuf = &ep->rxBuf[ep->rxFreeIdx];
-          #if !BROKEN_IOCTL
-            /* can't do this check when ioctl is broken */
-            if_pf ((int)bytesAvail > AMUDP_MAXBULK_NETWORK_MSG) {
-              char x;
-              int retval = recvfrom(ep->s, (char *)&x, 1, MSG_PEEK, NULL, NULL);
-              fprintf(stderr, "bytesAvail=%lu  recvfrom(MSG_PEEK)=%i\n", (unsigned long)bytesAvail, retval); fflush(stderr);
-              AMUDP_RETURN_ERRFR(RESOURCE, "AMUDP_DrainNetwork: received message that was too long", strerror(errno));
-            }
-          #endif
-          if ((int)bytesAvail > AMUDP_MAX_NETWORK_MSG) { /* this is a true bulk buffer */
-            destbuf = AMUDP_AcquireBulkBuffer(ep);
+
+        if ((int)bytesAvail > AMUDP_MAX_NETWORK_MSG) { /* this is a true bulk buffer */
+            destbuf = AMUDP_AcquireBuffer(ep, (size_t)bytesAvail);
             freebuf->status.bulkBuffer = destbuf;
             destbufsz = AMUDP_MAXBULK_NETWORK_MSG;
-          }
-          else destbuf = freebuf;
+        }
+        else destbuf = freebuf;
 
         destbuf->status.bulkBuffer = NULL;
 
@@ -276,7 +256,12 @@ static int AMUDP_DrainNetwork(ep_t ep) {
         retval = myrecvfrom(ep->s, (char *)destbuf, destbufsz, 0, 
                           &sa, &sz);
 
-        if_pf (retval == SOCKET_ERROR)
+      #if IOCTL_WORKS
+        if_pt (retval == (int)bytesAvail) ; // success
+      #else
+        if_pt (retval <= (int)bytesAvail) ; // success
+      #endif
+        else if_pf (retval == SOCKET_ERROR)
           AMUDP_RETURN_ERRFR(RESOURCE, "AMUDP_DrainNetwork: recvfrom()", strerror(errno));
         else if_pf (retval == 0)
           AMUDP_RETURN_ERRFR(RESOURCE, "AMUDP_DrainNetwork: recvfrom() returned zero", strerror(errno));
@@ -284,11 +269,10 @@ static int AMUDP_DrainNetwork(ep_t ep) {
           AMUDP_RETURN_ERRFR(RESOURCE, "AMUDP_DrainNetwork: incomplete message received in recvfrom()", strerror(errno));
         else if_pf (retval > destbufsz) 
             AMUDP_RETURN_ERRFR(RESOURCE, "AMUDP_DrainNetwork: buffer overrun in recvfrom()", strerror(errno));
-        #if AMUDP_DEBUG && !BROKEN_IOCTL
-        else if_pf (retval != (int)bytesAvail) { /* detect other broken ioctl implementations */
-          fprintf(stderr, "bytesAvail=%i  recvfrom returned:%i  ioctl() is probably broken\n", (int)bytesAvail, retval); fflush(stderr);
+        else { /* detect broken ioctl implementations */
+          AMUDP_assert(IOCTL_WORKS && retval != (int)bytesAvail);
+          AMUDP_Warn("ioctl() is probably broken: bytesAvail=%i  recvfrom returned=%i", (int)bytesAvail, retval);
         }
-        #endif
 
         #if AMUDP_EXTRA_CHECKSUM
           //memset(((char*)destbuf)+retval-8, 0, 8);
