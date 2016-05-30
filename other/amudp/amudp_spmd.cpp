@@ -11,8 +11,7 @@
 #if PLATFORM_ARCH_CRAYT3E || PLATFORM_OS_SUPERUX || PLATFORM_OS_NETBSD || \
     PLATFORM_OS_MTA || PLATFORM_OS_BLRTS || PLATFORM_OS_CATAMOUNT || PLATFORM_OS_OPENBSD
   /* these implement sched_yield() in libpthread only, which we may not want */
-  #undef sched_yield
-  #define sched_yield() sleep(0)
+  #define UNUSABLE_SCHED_YIELD 1
 #else
   #include <sched.h>
 #endif
@@ -41,6 +40,11 @@ extern char **environ;
 #include "sig.h"
 
 #include "amudp_internal.h" // must come after any other headers
+
+#if UNUSABLE_SCHED_YIELD // must come after system header includes
+  #undef sched_yield
+  #define sched_yield() sleep(0)
+#endif
 
 #define FD_STDIN 0
 #define FD_STDOUT 1
