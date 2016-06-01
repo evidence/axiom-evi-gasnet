@@ -83,6 +83,7 @@
 
 #define AMUDP_MAX_BUNDLES          255  /* max bundles that can be allocated */
 #define AMUDP_MAX_NETWORKDEPTH     1024 /* max depth we ever allow user to ask for (constrained by instance bits) */
+#define AMUDP_MAX_RECVDEPTH        65534 /* max length of recv queue we ever allow user to ask for (2^16-2) */
 #define AMUDP_MAX_SPMDPROCS        AMUDP_MAX_NUMTRANSLATIONS  /* max SPMD procs we support */
 
 #ifndef AMUDP_COLLECT_STATS

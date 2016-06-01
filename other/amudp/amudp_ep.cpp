@@ -192,17 +192,16 @@ static void AMUDP_InitBuffers(ep_t ep) {
 }
 /* ------------------------------------------------------------------------------------ */
 static void AMUDP_FreeAllBulkBuffers(ep_t ep) {
-/*
-  int i;
-  AMUDP_assert(ep != NULL);
-  AMUDP_assert(ep->bulkBufferPoolFreeCnt <= ep->bulkBufferPoolSz);
-  for (i=0; i < ep->bulkBufferPoolSz; i++) AMUDP_free(ep->bulkBufferPool[i]);
-  if (ep->bulkBufferPool) AMUDP_free(ep->bulkBufferPool);
-  ep->bulkBufferPool = NULL;
-  ep->bulkBufferPoolFreeCnt = 0;
-  ep->bulkBufferPoolSz = 0;
-  */
   AMUDP_memcheck_all();
+
+  for (int i=0; i < AMUDP_NUMBUFFERPOOLS; i++) {
+    amudp_bufferpool_t *pool = &ep->bufferPool[i];
+    for (amudp_bufferheader_t *bh = pool->free; bh; ) {
+      amudp_bufferheader_t *next = bh->next;
+      AMUDP_free(bh);
+      bh = next;
+    }
+  }
 }
 /*------------------------------------------------------------------------------------
  * Endpoint resource management
@@ -322,31 +321,39 @@ static int AMUDP_AllocateEndpointBuffers(ep_t ep) {
   AMUDP_assert(ep->depth >= 1);
   AMUDP_assert(ep->P > 0 && ep->P <= AMUDP_MAX_NUMTRANSLATIONS);
   AMUDP_assert(ep->PD == ep->P * ep->depth);
+  AMUDP_assert(ep->recvDepth <= AMUDP_MAX_RECVDEPTH);
 
   AMUDP_assert(sizeof(amudp_buf_t) % sizeof(int) == 0); /* assume word-addressable machine */
-  if (2*PD+1 > 65535) return FALSE; /* would overflow rxNumBufs */
-  /* one extra rx buffer for ease of implementing circular rx buf
-   * one for temporary buffer
-   * allocate using calloc to prevent valgrind warnings for sending phantom padding argument
+
+  uint32_t rxBufs = ep->recvDepth + 1;
+  ep->rxNumBufs = (uint16_t)rxBufs;
+  AMUDP_assert(rxBufs == (uint32_t)ep->rxNumBufs); // check overflow
+
+  /* Static buffer allocation:
+   * 2 * PD for request and reply send buffers
+   * recvDepth for recv, plus one extra for ease of implementing circular rx buf
+   * two for temporary buffers
    */
-  pool = (amudp_buf_t *)AMUDP_calloc((4 * PD + 2), sizeof(amudp_buf_t));
+
+  ep->totalBufs = 2 * PD + ep->rxNumBufs + 2;
+  pool = (amudp_buf_t *)AMUDP_calloc(ep->totalBufs, sizeof(amudp_buf_t));
   if (!pool) return FALSE;
   ep->requestBuf = pool;
   ep->replyBuf = &pool[PD];
   ep->rxBuf = &pool[2*PD];
-  ep->rxNumBufs = (uint16_t)(2*PD + 1);
   ep->rxFreeIdx = 0;
   ep->rxReadyIdx = 0;
-  ep->temporaryBuf = &pool[4*PD+1];
+  ep->temporaryBuf = &ep->rxBuf[ep->rxNumBufs];
 
   { int HPAMsize = 2*PD*AMUDP_MAX_NETWORK_MSG; /* theoretical max required by plain-vanilla HPAM */
     int padsize = 2*AMUDP_MAXBULK_NETWORK_MSG; /* some pad for non-HPAM true bulk xfers & retransmissions */
-  
+    int sz = MIN(HPAMsize+padsize, AMUDP_SOCKETBUFFER_MAX);
+     
     #if USE_SOCKET_RECVBUFFER_GROW
-        ep->socketRecvBufferMaxedOut = AMUDP_growSocketBufferSize(ep, HPAMsize+padsize, SO_RCVBUF, "SO_RCVBUF");
+        ep->socketRecvBufferMaxedOut = AMUDP_growSocketBufferSize(ep, sz, SO_RCVBUF, "SO_RCVBUF");
     #endif
     #if USE_SOCKET_SENDBUFFER_GROW
-        AMUDP_growSocketBufferSize(ep, HPAMsize+padsize, SO_SNDBUF, "SO_SNDBUF");
+        AMUDP_growSocketBufferSize(ep, sz, SO_SNDBUF, "SO_SNDBUF");
     #endif
   }
 
@@ -380,7 +387,13 @@ static int AMUDP_FreeEndpointResource(ep_t ep) {
 static int AMUDP_FreeEndpointBuffers(ep_t ep) {
   AMUDP_assert(ep != NULL);
 
-  AMUDP_free(ep->requestBuf);
+  for (uint32_t i=0; i < ep->totalBufs; i++) { // release bulk buffers in use
+    amudp_buf_t *bulkbuffer = ep->requestBuf[i].status.bulkBuffer;
+    if (bulkbuffer) AMUDP_ReleaseBulkBuffer(ep, bulkbuffer);
+  }
+  AMUDP_FreeAllBulkBuffers(ep);
+
+  AMUDP_free(ep->requestBuf); // this frees all the static buffers
   ep->rxBuf = NULL;
   ep->requestBuf = NULL;
   ep->replyBuf = NULL;
@@ -391,8 +404,6 @@ static int AMUDP_FreeEndpointBuffers(ep_t ep) {
 
   AMUDP_free(ep->perProcInfo);
   ep->perProcInfo = NULL;
-
-  AMUDP_FreeAllBulkBuffers(ep);
 
   return TRUE;
 }
@@ -712,23 +723,6 @@ extern int AM_SetExpectedResources(ep_t ea, int n_endpoints, int n_outstanding_r
   ea->depth = n_outstanding_requests;
   ea->PD = ea->P * ea->depth;
 
-  if (!AMUDP_AllocateEndpointBuffers(ea)) AMUDP_RETURN_ERR(RESOURCE);
-
-  /*  compact a copy of the translation table into our perproc info array */
-  { int procid = 0;
-    int i;
-    for (i=0; i < AMUDP_MAX_NUMTRANSLATIONS; i++) {
-      if (ea->translation[i].inuse) {
-        ea->perProcInfo[procid].remoteName = ea->translation[i].name;
-        ea->perProcInfo[procid].tag = ea->translation[i].tag;
-        ea->translation[i].id = (uint16_t)procid;
-        procid++;
-        if (procid == ea->P) break; /*  should have all of them now */
-      }
-    }
-  }
-
-  if (firsttime) { /* set transfer parameters */
     #define ENVINT_WITH_DEFAULT(var, name, validate) do { \
         char defval[80];                                  \
         const char *valstr;                               \
@@ -748,6 +742,14 @@ extern int AM_SetExpectedResources(ep_t ea, int n_endpoints, int n_outstanding_r
         }                                                 \
       } while (0)
 
+  // default recv depth is enough for full-bandwidth comms with up to 4 neighbors
+  ea->recvDepth = 2 *  ea->depth * MIN(MAX(1,ea->P-1),4); 
+  ENVINT_WITH_DEFAULT(ea->recvDepth, "RECVDEPTH", { 
+    if (val <= 0 || val > AMUDP_MAX_RECVDEPTH) 
+      AMUDP_FatalErr("RECVDEPTH must be in 1..%d", AMUDP_MAX_RECVDEPTH);
+    });
+
+  if (firsttime) { /* set transfer parameters */
     ENVINT_WITH_DEFAULT(AMUDP_MaxRequestTimeout_us, "REQUESTTIMEOUT_MAX",
                         { if (val <= 0) AMUDP_MaxRequestTimeout_us = AMUDP_TIMEOUT_INFINITE; });
     ENVINT_WITH_DEFAULT(AMUDP_InitialRequestTimeout_us, "REQUESTTIMEOUT_INITIAL",
@@ -768,6 +770,23 @@ extern int AM_SetExpectedResources(ep_t ea, int n_endpoints, int n_outstanding_r
     #endif
     firsttime = 0;
   }
+
+  if (!AMUDP_AllocateEndpointBuffers(ea)) AMUDP_RETURN_ERR(RESOURCE);
+
+  /*  compact a copy of the translation table into our perproc info array */
+  { int procid = 0;
+    int i;
+    for (i=0; i < AMUDP_MAX_NUMTRANSLATIONS; i++) {
+      if (ea->translation[i].inuse) {
+        ea->perProcInfo[procid].remoteName = ea->translation[i].name;
+        ea->perProcInfo[procid].tag = ea->translation[i].tag;
+        ea->translation[i].id = (uint16_t)procid;
+        procid++;
+        if (procid == ea->P) break; /*  should have all of them now */
+      }
+    }
+  }
+
   return AM_OK;
 }
 /*------------------------------------------------------------------------------------

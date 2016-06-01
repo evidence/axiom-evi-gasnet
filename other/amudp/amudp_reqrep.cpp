@@ -234,7 +234,7 @@ static int AMUDP_DrainNetwork(ep_t ep) {
         if (((ep->rxFreeIdx + 1) % ep->rxNumBufs) == ep->rxReadyIdx) { 
           /* out of buffers - postpone draining */
           #if AMUDP_DEBUG
-            AMUDP_Warn("Receive buffer full - unable to drain network (this is usually caused by retransmissions)");
+            AMUDP_Warn("Receive buffer full - unable to drain network. Consider raising RECVDEPTH or polling more often.");
           #endif
           break;
         }
@@ -297,9 +297,9 @@ static int AMUDP_DrainNetwork(ep_t ep) {
           /* TODO: we may want to add some hysterisis here to prevent artifical inflation
            * due to retransmits after a long period of no polling 
            */
+          const int sanitymax = AMUDP_SOCKETBUFFER_MAX;
           /*int newsize = ep->socketRecvBufferSize + AMUDP_MAXBULK_NETWORK_MSG; - too slow */
           int newsize = 2 * ep->socketRecvBufferSize;
-          int sanitymax = AMUDP_RECVBUFFER_MAX;
 
           if (newsize > sanitymax) { /* create a semi-sane upper bound */
             AMUDP_growSocketBufferSize(ep, sanitymax, SO_RCVBUF, "SO_RCVBUF");

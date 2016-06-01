@@ -41,7 +41,7 @@ AMUDP_BEGIN_EXTERNC
 #ifndef USE_SOCKET_SENDBUFFER_GROW
 #define USE_SOCKET_SENDBUFFER_GROW  1   /* grow SNDBUF on UDP sockets */
 #endif
-#define AMUDP_RECVBUFFER_MAX  4194304   /* never exceed 4 MB (huge) */
+#define AMUDP_SOCKETBUFFER_MAX  4194304   /* socket *BUF max to never exceed: 4 MB (huge) */
 #ifndef AMUDP_EXTRA_CHECKSUM
 #define AMUDP_EXTRA_CHECKSUM 0 /* add extra checksums to each message to detect buggy IP */
 #endif
@@ -314,6 +314,7 @@ struct amudp_ep {
   int P;     /* the number of endpoints we communicate with - also number of translations currently in use */
   int depth; /* network depth, -1 until AM_SetExpectedResources is called */
   int PD; /* cached value of P * depth */
+  int recvDepth; /* recv depth */
 
   /* buffer descriptor tables */
   amudp_bufdesc_t* requestDesc;
@@ -329,6 +330,9 @@ struct amudp_ep {
   amudp_buf_t* replyBuf;
   amudp_buf_t* temporaryBuf; /* a single extra buffer used for temporary operations */
 
+  uint32_t totalBufs; /* total number of static buffers */
+
+  /* pools for dynamic allocation of bulkbuffers */
   amudp_bufferpool_t bufferPool[AMUDP_NUMBUFFERPOOLS];
 
   /* buffers for inbound messages */

@@ -428,6 +428,9 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
         AMUDP_getenv_prefixed_withdefault("NETWORKDEPTH", _STRINGIFY(AMUDP_DEFAULT_NETWORKDEPTH)));
       if (networkdepth <= 0) networkdepth = AMUDP_DEFAULT_NETWORKDEPTH;
     }
+    if (networkdepth > AMUDP_MAX_NETWORKDEPTH) { // provide useful error message
+      AMUDP_FatalErr("NETWORKDEPTH must be <= %d", AMUDP_MAX_NETWORKDEPTH);
+    }
 
     if (nproc == 0) { /* default to read from args */
       if (*argc > 1) nproc = atoi((*argv)[1]);
@@ -677,7 +680,7 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
 pollentry:
        #ifdef FD_SETSIZE /* Should always be present, but just in case */
         if (allList.getMaxFd() >= FD_SETSIZE)
-          AMUDP_FatalErr("Open sockets exceed FD_SETSIZE. Exiting...");
+          AMUDP_FatalErr("Open sockets exceed FD_SETSIZE=%d. Exiting...",FD_SETSIZE);
        #endif
         allList.makeFD_SET(psockset);
 
