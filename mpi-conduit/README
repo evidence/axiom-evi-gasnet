@@ -126,7 +126,7 @@ Design Overview:
 
 The core API implementation is a very thin wrapper around the AMMPI
 implementation by Dan Bonachea. See documentation in the other/ammpi directory
-or the AMMPI webpage (http://www.cs.berkeley.edu/~bonachea/ammpi) for details.
+or the AMMPI webpage (http://gasnet.lbl.gov/ammpi) for details.
 AMMPI requires an MPI 1.1 or newer compliant MPI implementation, and performance 
 varies widely across MPI implementations (based primarily on their performance
 for non-blocking sends and recvs - MPI_ISend/MPI_IRecv).

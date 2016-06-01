@@ -254,7 +254,7 @@ Design Overview:
 
 The core API implementation is a very thin wrapper around the AMUDP
 implementation by Dan Bonachea. See documentation in the other/amudp directory
-or the AMUDP webpage (http://www.cs.berkeley.edu/~bonachea/amudp) for details.
+or the AMUDP webpage (http://gasnet.lbl.gov/amudp) for details.
 
 The udp-conduit directly uses the extended-ref implementation for the extended
 API - see the extended-ref directory for details.
