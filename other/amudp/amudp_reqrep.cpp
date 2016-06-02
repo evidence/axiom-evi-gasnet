@@ -914,7 +914,6 @@ static int AMUDP_RequestGeneric(amudp_category_t category,
                           void *source_addr, int nbytes, uintptr_t dest_offset, 
                           int numargs, va_list argptr, 
                           uint8_t systemType, uint8_t systemArg) {
-  static char _stagingbuf[sizeof(amudp_buf_t)+8]; /* for loopback */
   int instance;
   amudp_buf_t *basicbuf;
   amudp_buf_t *outgoingbuf;
@@ -927,7 +926,7 @@ static int AMUDP_RequestGeneric(amudp_category_t category,
   AM_Poll(request_endpoint->eb);
 
   if (isloopback) {
-    outgoingbuf = (amudp_buf_t *)AMUDP_ALIGNUP(&_stagingbuf,8);
+    outgoingbuf = &request_endpoint->temporaryBuf[0];
     basicbuf = outgoingbuf;
     basicbuf->status.bulkBuffer = NULL;
     outgoingdesc = NULL; /* not used */
@@ -1095,7 +1094,6 @@ static int AMUDP_ReplyGeneric(amudp_category_t category,
                           void *source_addr, int nbytes, uintptr_t dest_offset, 
                           int numargs, va_list argptr,
                           uint8_t systemType, uint8_t systemArg) {
-  static char _stagingbuf[sizeof(amudp_buf_t)+8]; /* for loopback */
   amudp_buf_t *basicbuf;
   amudp_buf_t *outgoingbuf;
   amudp_bufdesc_t *outgoingdesc;
@@ -1109,8 +1107,8 @@ static int AMUDP_ReplyGeneric(amudp_category_t category,
   /*  we don't poll within a reply because by definition we are already polling somewhere in the call chain */
 
   if (isloopback) {
-    basicbuf = (amudp_buf_t *)AMUDP_ALIGNUP(&_stagingbuf,8);
-    outgoingbuf = basicbuf;
+    outgoingbuf = &ep->temporaryBuf[1];
+    basicbuf = outgoingbuf;
     basicbuf->status.bulkBuffer = NULL;
     outgoingdesc = NULL; /* not used */
     instance = 0; /* not used */
