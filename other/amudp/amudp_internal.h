@@ -41,51 +41,75 @@ AMUDP_BEGIN_EXTERNC
 #ifndef USE_SOCKET_SENDBUFFER_GROW
 #define USE_SOCKET_SENDBUFFER_GROW  1   /* grow SNDBUF on UDP sockets */
 #endif
+#ifndef AMUDP_SOCKETBUFFER_MAX
 #define AMUDP_SOCKETBUFFER_MAX  4194304   /* socket *BUF max to never exceed: 4 MB (huge) */
+#endif
 #ifndef AMUDP_EXTRA_CHECKSUM
 #define AMUDP_EXTRA_CHECKSUM 0 /* add extra checksums to each message to detect buggy IP */
 #endif
 
-#define AMUDP_SIGIO                39   /* signal used for async IO operations - 
-                                         * avoid SIGIO to prevent conflicts with application using library
-                                         */
-
 #define AMUDP_PROCID_NEXT -1  /* Use next unallocated procid */
 #define AMUDP_PROCID_ALLOC -2 /* Allocate and return next procis, but do not bootstrap */
 
+#ifndef AMUDP_INITIAL_REQUESTTIMEOUT_MICROSEC
 #define AMUDP_INITIAL_REQUESTTIMEOUT_MICROSEC   10000  /* usec until first retransmit */
+#endif
+#ifndef AMUDP_REQUESTTIMEOUT_BACKOFF_MULTIPLIER
 #define AMUDP_REQUESTTIMEOUT_BACKOFF_MULTIPLIER     2  /* timeout exponential backoff factor */
+#endif
+#ifndef AMUDP_MAX_REQUESTTIMEOUT_MICROSEC
 #define AMUDP_MAX_REQUESTTIMEOUT_MICROSEC    30000000  /* max timeout before considered undeliverable */
+#endif
+#ifndef AMUDP_DEFAULT_EXPECTED_BANDWIDTH
 #define AMUDP_DEFAULT_EXPECTED_BANDWIDTH         1220  /* expected Kbytes/sec bandwidth: 1220 = 10Mbit LAN */
+#endif
 #define AMUDP_TIMEOUT_INFINITE ((uint32_t)-1)
 extern uint32_t AMUDP_MaxRequestTimeout_us;
 extern uint32_t AMUDP_InitialRequestTimeout_us;
 extern uint32_t AMUDP_RequestTimeoutBackoff;
 extern uint32_t AMUDP_ExpectedBandwidth; /* expected half-duplex bandwidth in KBytes/sec */
 
-
+#ifndef AMUDP_TIMEOUTS_CHECKED_EACH_POLL
 #define AMUDP_TIMEOUTS_CHECKED_EACH_POLL            1  /* number of timeout values we check upon each poll */
-#define AMUDP_MAX_RECVMSGS_PER_POLL                10  /* max number of waiting messages serviced per poll (0 for unlimited) 
-                                                          we actually service up to MAX(AMUDP_MAX_RECVMSGS_PER_POLL, network_depth)
+#endif
+#ifndef AMUDP_MAX_RECVMSGS_PER_POLL
+#define AMUDP_MAX_RECVMSGS_PER_POLL                10  /* max number of waiting messages serviced per poll (0 for unlimited) */
+#endif                                                 /* we actually service up to MAX(AMUDP_MAX_RECVMSGS_PER_POLL, network_depth)
                                                           to prevent unnecessary retransmits (where the awaited reply is sitting in recv buffer) */
-#if AMUDP_DEBUG
+#if !defined(USE_CLEAR_UNUSED_SPACE) && AMUDP_DEBUG
 #define USE_CLEAR_UNUSED_SPACE 1  /* clear any padding sent in AMs, to prevent valgrind warnings */
 #endif
 
+#ifndef AMUDP_INITIAL_NUMENDPOINTS
 #define AMUDP_INITIAL_NUMENDPOINTS 1    /* initial size of bundle endpoint table */
+#endif
 
+#ifndef AMUDP_DEFAULT_NETWORKDEPTH
 #define AMUDP_DEFAULT_NETWORKDEPTH 4    /* default depth if none specified */
+#endif
 
 /* AMUDP-SPMD system configuration parameters */
+#ifndef USE_NUMERIC_MASTER_ADDR
 #define USE_NUMERIC_MASTER_ADDR     0   /* pass a numeric IP on slave command line */
-#define USE_COORD_KEEPALIVE         1   /* set SO_KEEPALIVE on TCP coord sockets */
-#define ABORT_JOB_ON_NODE_FAILURE   1   /* kill everyone if any slave drops the TCP coord */
-#define USE_BLOCKING_SPMD_BARRIER   1   /* use blocking AM calls in SPMDBarrier() */
-#if defined( LINUX )
-  #define USE_ASYNC_TCP_CONTROL     1   /* use O_ASYNC and signals to stat TCP coord sockets */
-#else
-  #define USE_ASYNC_TCP_CONTROL     0
 #endif
+#ifndef USE_COORD_KEEPALIVE
+#define USE_COORD_KEEPALIVE         1   /* set SO_KEEPALIVE on TCP coord sockets */
+#endif
+#ifndef ABORT_JOB_ON_NODE_FAILURE
+#define ABORT_JOB_ON_NODE_FAILURE   1   /* kill everyone if any slave drops the TCP coord */
+#endif
+#ifndef USE_BLOCKING_SPMD_BARRIER
+#define USE_BLOCKING_SPMD_BARRIER   1   /* use blocking AM calls in SPMDBarrier() */
+#endif
+
+#if !defined(USE_ASYNC_TCP_CONTROL) && \
+   ( PLATFORM_OS_LINUX )
+  #define USE_ASYNC_TCP_CONTROL     1   /* use O_ASYNC and signals to stat TCP coord sockets, saves overhead on AMPoll */
+#endif
+#ifndef AMUDP_SIGIO
+#define AMUDP_SIGIO                39   /* signal used for async IO operations */
+#endif                                  /* avoid SIGIO to prevent conflicts with application using library */
+
 
 #ifndef AMUDP_DEBUG_VERBOSE
   #if GASNET_DEBUG_VERBOSE
@@ -731,7 +755,7 @@ extern int myrecvfrom(SOCKET s, char * buf, int len, int flags,
         AMUDP_FatalErr("Failed to fcntl(F_SETFL, O_ASYNC|O_NONBLOCK) on TCP control socket" \
                    " - try disabling USE_ASYNC_TCP_CONTROL");                           \
       } else ASYNC_CHECK(1);                                                            \
-      if (inputWaiting(AMUDP_SPMDControlSocket)) /* check for arrived messages */       \
+      if (inputWaiting(AMUDP_SPMDControlSocket,false)) /* check for arrived messages */ \
         AMUDP_SPMDIsActiveControlSocket = 1;                                            \
     } while(0)
 

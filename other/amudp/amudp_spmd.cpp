@@ -1254,20 +1254,17 @@ pollentry:
 extern int AMUDP_SPMDHandleControlTraffic(int *controlMessagesServiced) {
   if (AMUDP_SPMDControlSocket == INVALID_SOCKET) return AM_OK; // not running in SPMD mode
   #if USE_ASYNC_TCP_CONTROL
-    if (!AMUDP_SPMDIsActiveControlSocket) return AM_OK; // nothing to do
+    ASYNC_CHECK(1);
+    if_pt (!AMUDP_SPMDIsActiveControlSocket) return AM_OK; // nothing to do
     ASYNC_TCP_DISABLE();
     AMUDP_SPMDIsActiveControlSocket = FALSE; 
   #endif 
   if (controlMessagesServiced) *controlMessagesServiced = 0;
   
   while (1) { // service everything waiting
-    try {
-      if (!inputWaiting(AMUDP_SPMDControlSocket)) {
-        ASYNC_TCP_ENABLE();
-        return AM_OK; // nothing more to do
-      }
-    } catch (xBase &exn) {
-      AMUDP_Err("Error checking AMUDP_SPMDControlSocket: %s", exn.why()); // probably conn reset
+    if_pt (!inputWaiting(AMUDP_SPMDControlSocket,false)) {
+      ASYNC_TCP_ENABLE();
+      return AM_OK; // nothing more to do
     }
 
     try {
