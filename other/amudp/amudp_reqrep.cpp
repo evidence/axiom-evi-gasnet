@@ -187,10 +187,12 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
  * FreeBSD: (bug 2827) returns raw byte count, which can over or under-report
  * others: over-report by returning total bytes in all messages waiting
  */
-#if PLATFORM_OS_LINUX || PLATFORM_OS_SOLARIS
+#ifndef IOCTL_WORKS
+ #if PLATFORM_OS_LINUX || PLATFORM_OS_SOLARIS || PLATFORM_OS_DARWIN
   #define IOCTL_WORKS 1
-#else 
+ #else
   #define IOCTL_WORKS 0
+ #endif
 #endif
 
 /* ------------------------------------------------------------------------------------ */
@@ -200,8 +202,14 @@ static int AMUDP_DrainNetwork(ep_t ep) {
     while (1) {
       IOCTL_FIONREAD_ARG_T bytesAvail = 0;
       #if IOCTL_WORKS
-        if_pf (SOCK_ioctlsocket(ep->s, _FIONREAD, &bytesAvail) == SOCKET_ERROR)
-          AMUDP_RETURN_ERRFR(RESOURCE, "ioctlsocket()", strerror(errno));
+        #if PLATFORM_OS_DARWIN // Apple-specific getsockopt(SO_NREAD) returns what we need
+          GETSOCKOPT_LENGTH_T junk = sizeof(bytesAvail);
+          if_pf (SOCK_getsockopt(ep->s, SOL_SOCKET, SO_NREAD, &bytesAvail, &junk) == SOCKET_ERROR)
+            AMUDP_RETURN_ERRFR(RESOURCE, "getsockopt(SO_NREAD)", strerror(errno));
+        #else
+          if_pf (SOCK_ioctlsocket(ep->s, _FIONREAD, &bytesAvail) == SOCKET_ERROR)
+            AMUDP_RETURN_ERRFR(RESOURCE, "ioctl(FIONREAD)", strerror(errno));
+        #endif
 
         // sanity check
         if_pf ((int)bytesAvail > AMUDP_MAXBULK_NETWORK_MSG) {
