@@ -295,13 +295,7 @@ static int AMMPI_FreeEndpointBuffers(ep_t ep) {
           if (*rxh != MPI_REQUEST_NULL) {
             MPI_Status mpistatus;
             retval &= MPI_SAFE_NORETURN(MPI_Cancel(rxh));
-            #if PLATFORM_ARCH_CRAYT3E
-              /* Cray MPI implementation sometimes hangs forever if you cancel-wait */
-              retval &= MPI_SAFE_NORETURN(MPI_Request_free(rxh));
-            #elif PLATFORM_OS_CATAMOUNT && MPI_VERSION == 1
-              /* Sandia MPI implementation hangs on cancel-wait */
-              retval &= MPI_SAFE_NORETURN(MPI_Request_free(rxh));
-            #elif PLATFORM_OS_AIX
+            #if PLATFORM_OS_AIX
               /* AIX 5.2 32-bit MPI implementation is unreliable for cancel-wait
                  (frequent crashes observed for Titanium shutdown on 
                   MPI-over-LAPI 3.5.0.15, for 2 or more nodes) */
@@ -411,12 +405,7 @@ static int AMMPI_freeSendBufferPool(ammpi_sendbuffer_pool_t* pool) {
            * implementations screw this up
            */
           retval &= MPI_SAFE_NORETURN(MPI_Cancel(&pool->txHandle[i]));
-          #if PLATFORM_ARCH_CRAYT3E
-            /* Cray MPI implementation sometimes hangs forever if you cancel-wait */
-            retval &= MPI_SAFE_NORETURN(MPI_Request_free(&pool->txHandle[i]));
-          #else
-            retval &= MPI_SAFE_NORETURN(MPI_Wait(&pool->txHandle[i], &mpistatus));
-          #endif
+          retval &= MPI_SAFE_NORETURN(MPI_Wait(&pool->txHandle[i], &mpistatus));
         #else
           #if 0
             /* better to simply wait and hope the remote node hasn't crashed 

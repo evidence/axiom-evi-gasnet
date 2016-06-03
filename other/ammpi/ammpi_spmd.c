@@ -83,11 +83,7 @@ static void flushStreams(const char *context) {
     do_sync = ((c == '1') || (c == 'y') || (c == 'Y'));
   }
   if (do_sync) {
-  #if PLATFORM_OS_MTA
-    mta_sync();
-  #elif !PLATFORM_OS_CATAMOUNT
     sync();
-  #endif
   }
   ammpi_sched_yield();
 }

@@ -124,8 +124,8 @@
 #include <time.h>
 #include <sys/time.h>
 
-#if PLATFORM_ARCH_CRAYT3E || PLATFORM_OS_SUPERUX || PLATFORM_OS_NETBSD || \
-    PLATFORM_OS_MTA || PLATFORM_OS_BLRTS || PLATFORM_OS_CATAMOUNT
+#if PLATFORM_OS_SUPERUX || PLATFORM_OS_NETBSD || \
+    PLATFORM_OS_BLRTS
   /* these implement sched_yield() in libpthread only, which we may not want */
   #include <unistd.h>
   #define ammpi_sched_yield() sleep(0)
@@ -140,7 +140,7 @@
 #include <ammpi.h>
 
 
-#if PLATFORM_OS_BLRTS || PLATFORM_OS_CATAMOUNT
+#if PLATFORM_OS_BLRTS
   /* lack working select */
   #define ammpi_usleep(timeoutusec) sleep(timeoutusec/1000000)
 #endif

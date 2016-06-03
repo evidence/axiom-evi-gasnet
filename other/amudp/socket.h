@@ -86,22 +86,6 @@
 #  include <unistd.h>         /*  close */
 #endif
 
-/* ioctlsocket */
-#if PLATFORM_OS_MTA
-#define ioctlsocket(a,b,c) ioctl((a),(b),(caddr_t)(c))
-/* these are missing on MTA for some reason */
-#ifdef __cplusplus
-extern "C" {
-#endif
-  ssize_t      recv(int, void *, size_t, int); 
-  ssize_t      send(int, const void *, size_t, int);
-#ifdef __cplusplus
-}
-#endif
-#else
-#define ioctlsocket ioctl
-#endif
-
 typedef unsigned int SOCKET;
 typedef fd_set FD_SET;
 
@@ -118,14 +102,15 @@ typedef fd_set FD_SET;
 #  define GETSOCKOPT_LENGTH_T int
 #endif
 
+/* ioctlsocket */
+#define ioctlsocket ioctl
+
 #if PLATFORM_OS_CYGWIN || PLATFORM_OS_AIX || PLATFORM_OS_SOLARIS || \
     PLATFORM_OS_LINUX || PLATFORM_OS_UCLINUX || PLATFORM_OS_TRU64 || PLATFORM_OS_SUPERUX || \
     PLATFORM_OS_DARWIN || /* bug 2428 */ \
     PLATFORM_ARCH_CRAYX1 /* X1 docs claim it's a size_t, they lie */
   #define IOCTL_FIONREAD_ARG_T unsigned int
 #elif PLATFORM_OS_IRIX
-  #define IOCTL_FIONREAD_ARG_T size_t
-#elif PLATFORM_OS_MTA
   #define IOCTL_FIONREAD_ARG_T size_t
 #else
   #define IOCTL_FIONREAD_ARG_T unsigned long

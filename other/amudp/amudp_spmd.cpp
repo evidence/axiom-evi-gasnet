@@ -8,8 +8,8 @@
 #include <errno.h>
 #include <stdio.h>
 #include <unistd.h>
-#if PLATFORM_ARCH_CRAYT3E || PLATFORM_OS_SUPERUX || PLATFORM_OS_NETBSD || \
-    PLATFORM_OS_MTA || PLATFORM_OS_BLRTS || PLATFORM_OS_CATAMOUNT || PLATFORM_OS_OPENBSD
+#if PLATFORM_OS_SUPERUX || PLATFORM_OS_NETBSD || \
+    PLATFORM_OS_BLRTS || PLATFORM_OS_OPENBSD
   /* these implement sched_yield() in libpthread only, which we may not want */
   #define UNUSABLE_SCHED_YIELD 1
 #else
@@ -199,11 +199,7 @@ static void flushStreams(const char *context) {
     do_sync = ((c == '1') || (c == 'y') || (c == 'Y'));
   }
   if (do_sync) {
-  #if PLATFORM_OS_MTA
-    mta_sync();
-  #elif !PLATFORM_OS_CATAMOUNT
     sync();
-  #endif
   }
   sched_yield();
 }
