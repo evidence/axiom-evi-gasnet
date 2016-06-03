@@ -211,7 +211,7 @@ static int AMUDP_DrainNetwork(ep_t ep) {
           AMUDP_RETURN_ERRFR(RESOURCE, "AMUDP_DrainNetwork: received message that was too long", strerror(errno));
         }
       #else
-        if (inputWaiting(ep->s)) bytesAvail = AMUDP_MAXBULK_NETWORK_MSG;
+        if (inputWaiting(ep->s, false)) bytesAvail = AMUDP_MAXBULK_NETWORK_MSG;
       #endif
       if (bytesAvail == 0) break; 
 

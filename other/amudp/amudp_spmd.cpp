@@ -1430,8 +1430,8 @@ extern int AMUDP_SPMDExit(int exitcode) {
   // GASNet calls here when handling a fatal or termination signal.
   /* try */ {
     int exitcode_nb = hton32(exitcode);
-    sendAll(AMUDP_SPMDControlSocket, "E", -1, 0);
-    sendAll(AMUDP_SPMDControlSocket, &exitcode_nb, sizeof(int32_t), 0);
+    sendAll(AMUDP_SPMDControlSocket, "E", -1, false);
+    sendAll(AMUDP_SPMDControlSocket, &exitcode_nb, sizeof(int32_t), false);
     while (1) { // swallow everything and wait for master to close
       char temp;
       int retval = recv(AMUDP_SPMDControlSocket, &temp, 1, 0); 
