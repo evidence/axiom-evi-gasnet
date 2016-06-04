@@ -1804,11 +1804,14 @@ extern char *_gasneti_extern_strndup(const char *s, size_t n GASNETI_CURLOCFARG)
 #if GASNET_DEBUGMALLOC
   extern void *(*gasnett_debug_malloc_fn)(size_t sz, const char *curloc);
   extern void *(*gasnett_debug_calloc_fn)(size_t N, size_t S, const char *curloc);
+  extern void *(*gasnett_debug_realloc_fn)(void *ptr, size_t sz, const char *curloc);
   extern void (*gasnett_debug_free_fn)(void *ptr, const char *curloc);
   void *(*gasnett_debug_malloc_fn)(size_t sz, const char *curloc) =
          &_gasneti_extern_malloc;
   void *(*gasnett_debug_calloc_fn)(size_t N, size_t S, const char *curloc) =
          &_gasneti_extern_calloc;
+  void *(*gasnett_debug_realloc_fn)(void *ptr, size_t sz, const char *curloc) =
+        &_gasneti_extern_realloc;
   void (*gasnett_debug_free_fn)(void *ptr, const char *curloc) =
          &_gasneti_extern_free;
   /* these only exist with debug malloc */

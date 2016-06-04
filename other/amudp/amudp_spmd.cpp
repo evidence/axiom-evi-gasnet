@@ -407,7 +407,7 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
   if (! slave_flag) {
     int usingdefaultdegree = 0;
     uint64_t npid;
-    if (nproc < 0 || nproc > AMUDP_MAX_SPMDPROCS) AMUDP_RETURN_ERR(BAD_ARG);
+    if (nproc < 0 || nproc > (int)AMUDP_MAX_SPMDPROCS) AMUDP_RETURN_ERR(BAD_ARG);
 
     if (!argc || !argv) AMUDP_RETURN_ERR(BAD_ARG);
 
@@ -1110,8 +1110,8 @@ pollentry:
       if (networkpid) *networkpid = ntoh64(bootstrapinfo.networkpid);
 
       // sanity checking on bootstrap info
-      AMUDP_assert(AMUDP_SPMDNUMPROCS > 0 && AMUDP_SPMDNUMPROCS < AMUDP_MAX_SPMDPROCS);
-      AMUDP_assert(AMUDP_SPMDMYPROC >= 0 && AMUDP_SPMDMYPROC < AMUDP_SPMDNUMPROCS);
+      AMUDP_assert(AMUDP_SPMDNUMPROCS > 0 && AMUDP_SPMDNUMPROCS < (int)AMUDP_MAX_SPMDPROCS);
+      AMUDP_assert(AMUDP_SPMDMYPROC >= 0 && AMUDP_SPMDMYPROC < (int)AMUDP_SPMDNUMPROCS);
 
       #if !DISABLE_STDSOCKET_REDIRECT
       for (int fd=0; fd <= 2; fd++) {
@@ -1142,6 +1142,11 @@ pollentry:
 
 
       // setup translation table
+      temp = AM_SetNumTranslations(AMUDP_SPMDEndpoint, AMUDP_SPMDNUMPROCS);
+      if (temp != AM_OK) {
+        AMUDP_Err("Failed to AM_SetNumTranslations() in AMUDP_SPMDStartup");
+        AMUDP_RETURN(temp);
+      }
       for (int i = 0; i < AMUDP_SPMDNUMPROCS; i++) {
         temp = AM_Map(AMUDP_SPMDEndpoint, i, tempTranslation_name[i], ntoh64(tempTranslation_tag[i]));
         if (temp != AM_OK) {

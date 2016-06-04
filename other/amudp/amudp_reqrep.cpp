@@ -15,7 +15,7 @@
 
 /* forward decls */
 static int AMUDP_RequestGeneric(amudp_category_t category, 
-                          ep_t request_endpoint, int reply_endpoint, handler_t handler, 
+                          ep_t request_endpoint, amudp_node_t reply_endpoint, handler_t handler, 
                           void *source_addr, int nbytes, uintptr_t dest_offset, 
                           int numargs, va_list argptr,
                           uint8_t systemType, uint8_t systemArg);
@@ -109,7 +109,7 @@ static int AMUDP_GetOpcode(int isrequest, amudp_category_t cat) {
 static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
   /*  return source id in ep perproc table of this remote addr, or -1 for not found */
   int i; /*  TODO: make this more efficient */
-  for (i = 0; i < ep->P; i++) {
+  for (i = 0; i < (int)ep->P; i++) {
     if (enEqual(ep->perProcInfo[i].remoteName, sourceAddr))
       return i;
   }
@@ -440,7 +440,7 @@ static int AMUDP_HandleRequestTimeouts(ep_t ep, int numtocheck) {
          * although it doesn't really matter because the AM2 spec is too vague
          * about the argblock returned message argument for it to be of any use to anyone
          */
-        outgoingstatus->sourceId = (uint16_t)destP; 
+        outgoingstatus->sourceId = destP; 
         outgoingstatus->sourceAddr = ep->perProcInfo[destP].remoteName;
         outgoingstatus->dest = ep;
 
@@ -851,7 +851,7 @@ static int AMUDP_ServiceIncomingMessages(ep_t ep) {
         RESOURCE, AMUDP_ServiceIncomingMessages, "user caused a poll to occur while handler on the same bundle was running");
 
       status->dest = ep; /* remember which ep recvd this message */
-      status->sourceId = (uint16_t)sourceAddrToId(ep, status->sourceAddr);
+      status->sourceId = (amudp_node_t)sourceAddrToId(ep, status->sourceAddr);
 
       if (AMUDP_FaultInjectionEnabled) { /* allow fault injection to drop some revcd messages */
         double randval = rand() / (double)RAND_MAX;
@@ -918,7 +918,7 @@ extern int AM_Poll(eb_t eb) {
  * Generic Request/Reply
  *------------------------------------------------------------------------------------ */
 static int AMUDP_RequestGeneric(amudp_category_t category, 
-                          ep_t request_endpoint, int reply_endpoint, handler_t handler, 
+                          ep_t request_endpoint, amudp_node_t reply_endpoint, handler_t handler, 
                           void *source_addr, int nbytes, uintptr_t dest_offset, 
                           int numargs, va_list argptr, 
                           uint8_t systemType, uint8_t systemArg) {
@@ -926,7 +926,7 @@ static int AMUDP_RequestGeneric(amudp_category_t category,
   amudp_buf_t *basicbuf;
   amudp_buf_t *outgoingbuf;
   amudp_bufdesc_t *outgoingdesc;
-  int const destP = request_endpoint->translation[reply_endpoint].id;
+  amudp_node_t const destP = request_endpoint->translation[reply_endpoint].id;
   en_t const destaddress = request_endpoint->translation[reply_endpoint].name;
   const int isloopback = enEqual(destaddress, request_endpoint->name);
 
@@ -1107,7 +1107,7 @@ static int AMUDP_ReplyGeneric(amudp_category_t category,
   amudp_bufdesc_t *outgoingdesc;
   amudp_buf_t * const requestbasicbuf = requestbuf;
   ep_t const ep = requestbasicbuf->status.dest;
-  int const destP = requestbasicbuf->status.sourceId;
+  amudp_node_t const destP = requestbasicbuf->status.sourceId;
   const int isloopback = enEqual(requestbuf->status.sourceAddr, ep->name);
   int instance;
   requestbuf = (requestbasicbuf->status.bulkBuffer ? requestbasicbuf->status.bulkBuffer : requestbasicbuf);
@@ -1208,13 +1208,13 @@ static int AMUDP_ReplyGeneric(amudp_category_t category,
 /*------------------------------------------------------------------------------------
  * Request
  *------------------------------------------------------------------------------------ */
-extern int AMUDP_RequestVA(ep_t request_endpoint, int reply_endpoint, handler_t handler, 
+extern int AMUDP_RequestVA(ep_t request_endpoint, amudp_node_t reply_endpoint, handler_t handler, 
                          int numargs, va_list argptr) {
   AMUDP_CHECKINIT();
-  AMUDP_CHECK_ERR((!request_endpoint || reply_endpoint < 0),BAD_ARG);
+  AMUDP_CHECK_ERR(!request_endpoint,BAD_ARG);
   AMUDP_CHECK_ERR((AMUDP_BADHANDLERVAL(handler)),BAD_ARG);
   AMUDP_CHECK_ERR((request_endpoint->depth == -1),NOT_INIT); /* it's an error to call before AM_SetExpectedResources */
-  AMUDP_CHECK_ERR((reply_endpoint >= AMUDP_MAX_NUMTRANSLATIONS ||
+  AMUDP_CHECK_ERR((reply_endpoint >= request_endpoint->translationsz ||
      !request_endpoint->translation[reply_endpoint].inuse),BAD_ARG);
   AMUDP_assert(numargs >= 0 && numargs <= AMUDP_MAX_SHORT);
 
@@ -1225,7 +1225,7 @@ extern int AMUDP_RequestVA(ep_t request_endpoint, int reply_endpoint, handler_t 
                                   amudp_system_user, 0);
 
 }
-extern int AMUDP_Request(ep_t request_endpoint, int reply_endpoint, handler_t handler, 
+extern int AMUDP_Request(ep_t request_endpoint, amudp_node_t reply_endpoint, handler_t handler, 
                          int numargs, ...) {
     int retval;
     va_list argptr;
@@ -1236,14 +1236,14 @@ extern int AMUDP_Request(ep_t request_endpoint, int reply_endpoint, handler_t ha
     return retval;
 }
 /* ------------------------------------------------------------------------------------ */
-extern int AMUDP_RequestIVA(ep_t request_endpoint, int reply_endpoint, handler_t handler, 
+extern int AMUDP_RequestIVA(ep_t request_endpoint, amudp_node_t reply_endpoint, handler_t handler, 
                           void *source_addr, int nbytes,
                           int numargs, va_list argptr) {
   AMUDP_CHECKINIT();
   AMUDP_CHECK_ERR((!request_endpoint || reply_endpoint < 0),BAD_ARG);
   AMUDP_CHECK_ERR((AMUDP_BADHANDLERVAL(handler)),BAD_ARG);
   AMUDP_CHECK_ERR((request_endpoint->depth == -1),NOT_INIT); /* it's an error to call before AM_SetExpectedResources */
-  AMUDP_CHECK_ERR((reply_endpoint >= AMUDP_MAX_NUMTRANSLATIONS ||
+  AMUDP_CHECK_ERR((reply_endpoint >= request_endpoint->translationsz ||
      !request_endpoint->translation[reply_endpoint].inuse),BAD_ARG);
   AMUDP_CHECK_ERR((!source_addr),BAD_ARG);
   AMUDP_CHECK_ERR((nbytes < 0 || nbytes > AMUDP_MAX_MEDIUM),BAD_ARG);
@@ -1255,7 +1255,7 @@ extern int AMUDP_RequestIVA(ep_t request_endpoint, int reply_endpoint, handler_t
                                   numargs, argptr,
                                   amudp_system_user, 0);
 }
-extern int AMUDP_RequestI(ep_t request_endpoint, int reply_endpoint, handler_t handler, 
+extern int AMUDP_RequestI(ep_t request_endpoint, amudp_node_t reply_endpoint, handler_t handler, 
                           void *source_addr, int nbytes,
                           int numargs, ...) {
     int retval;
@@ -1268,7 +1268,7 @@ extern int AMUDP_RequestI(ep_t request_endpoint, int reply_endpoint, handler_t h
     return retval; 
 }
 /* ------------------------------------------------------------------------------------ */
-extern int AMUDP_RequestXferVA(ep_t request_endpoint, int reply_endpoint, handler_t handler, 
+extern int AMUDP_RequestXferVA(ep_t request_endpoint, amudp_node_t reply_endpoint, handler_t handler, 
                           void *source_addr, int nbytes, uintptr_t dest_offset, 
                           int async, 
                           int numargs, va_list argptr) {
@@ -1276,7 +1276,7 @@ extern int AMUDP_RequestXferVA(ep_t request_endpoint, int reply_endpoint, handle
   AMUDP_CHECK_ERR((!request_endpoint || reply_endpoint < 0),BAD_ARG);
   AMUDP_CHECK_ERR((AMUDP_BADHANDLERVAL(handler)),BAD_ARG);
   AMUDP_CHECK_ERR((request_endpoint->depth == -1),NOT_INIT); /* it's an error to call before AM_SetExpectedResources */
-  AMUDP_CHECK_ERR((reply_endpoint >= AMUDP_MAX_NUMTRANSLATIONS ||
+  AMUDP_CHECK_ERR((reply_endpoint >= request_endpoint->translationsz ||
      !request_endpoint->translation[reply_endpoint].inuse),BAD_ARG);
   AMUDP_CHECK_ERR((!source_addr),BAD_ARG);
   AMUDP_CHECK_ERR((nbytes < 0 || nbytes > AMUDP_MAX_LONG),BAD_ARG);
@@ -1310,7 +1310,7 @@ extern int AMUDP_RequestXferVA(ep_t request_endpoint, int reply_endpoint, handle
                                   numargs, argptr,
                                   amudp_system_user, 0);
 }
-extern int AMUDP_RequestXfer(ep_t request_endpoint, int reply_endpoint, handler_t handler, 
+extern int AMUDP_RequestXfer(ep_t request_endpoint, amudp_node_t reply_endpoint, handler_t handler, 
                           void *source_addr, int nbytes, uintptr_t dest_offset, 
                           int async, 
                           int numargs, ...) {

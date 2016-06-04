@@ -127,10 +127,7 @@ static void AMMPI_InsertEndpoint(eb_t eb, ep_t ep) {
   AMMPI_assert(eb->endpoints);
   if (eb->n_endpoints == eb->cursize) { /* need to grow array */
     int newsize = eb->cursize * 2;
-    ep_t *newendpoints = (ep_t *)AMMPI_malloc(sizeof(ep_t)*newsize);
-    memcpy(newendpoints, eb->endpoints, sizeof(ep_t)*eb->n_endpoints);
-    AMMPI_free(eb->endpoints);
-    eb->endpoints = newendpoints;
+    eb->endpoints = (ep_t *)AMMPI_realloc(eb->endpoints, sizeof(ep_t)*newsize);
     eb->cursize = newsize;
   }
   eb->endpoints[eb->n_endpoints] = ep;
@@ -219,9 +216,7 @@ static int AMMPI_AllocateEndpointBuffers(ep_t ep) {
   numBufs = 2*ep->depth; /* 2x to match small/large split in send pool */
 
   /* compressed translation table */
-  ep->perProcInfo = (ammpi_perproc_info_t *)AMMPI_malloc(ep->totalP * sizeof(ammpi_perproc_info_t));
-  if (ep->perProcInfo == NULL) return FALSE;
-  memset(ep->perProcInfo, 0, ep->totalP * sizeof(ammpi_perproc_info_t));
+  ep->perProcInfo = (ammpi_perproc_info_t *)AMMPI_calloc(ep->totalP, sizeof(ammpi_perproc_info_t));
 
   #if AMMPI_PREPOST_RECVS 
     /* setup recv buffers */
@@ -828,7 +823,9 @@ extern int AM_FreeEndpoint(ep_t ea) {
   if (!AMMPI_ContainsEndpoint(ea->eb, ea)) AMMPI_RETURN_ERR(RESOURCE);
 
   if (!AMMPI_FreeEndpointResource(ea)) retval = AM_ERR_RESOURCE;
-  if (!AMMPI_FreeEndpointBuffers(ea)) retval = AM_ERR_RESOURCE;
+  if (ea->depth != -1) {
+    if (!AMMPI_FreeEndpointBuffers(ea)) retval = AM_ERR_RESOURCE;
+  }
 
   AMMPI_RemoveEndpoint(ea->eb, ea);
   AMMPI_free(ea);
@@ -960,28 +957,25 @@ extern int AM_GetNumTranslations(ep_t ea, int *pntrans) {
 }
 /* ------------------------------------------------------------------------------------ */
 extern int AM_SetNumTranslations(ep_t ea, int ntrans) {
-  ammpi_translation_t *temp;
+  ammpi_node_t newsz = (ammpi_node_t)ntrans;
   ammpi_node_t i;
   AMMPI_CHECKINIT();
   if (!ea) AMMPI_RETURN_ERR(BAD_ARG);
-  if (ntrans < 0 || ntrans > AMMPI_MAX_NUMTRANSLATIONS) AMMPI_RETURN_ERR(RESOURCE);
-  if (ntrans < AMMPI_INIT_NUMTRANSLATIONS) /* don't shrink beyond min value */
-    ntrans = AMMPI_INIT_NUMTRANSLATIONS;
-  if (ntrans == ea->translationsz) return AM_OK; /* no change */
+  if (ntrans < 0 || newsz > AMMPI_MAX_NUMTRANSLATIONS) AMMPI_RETURN_ERR(RESOURCE);
+  if (newsz < AMMPI_INIT_NUMTRANSLATIONS) /* don't shrink beyond min value */
+    newsz = AMMPI_INIT_NUMTRANSLATIONS;
+  if (newsz == ea->translationsz) return AM_OK; /* no change */
   if (ea->depth != -1) AMMPI_RETURN_ERR(RESOURCE); /* it's an error to change translationsz after call to AM_SetExpectedResources */
 
-  for (i = ntrans; i < ea->translationsz; i++) {
+  for (i = newsz; i < ea->translationsz; i++) {
     if (ea->translation[i].inuse) 
       AMMPI_RETURN_ERR(RESOURCE); /* it's an error to truncate away live maps */
   }
-  temp = AMMPI_calloc(sizeof(ammpi_translation_t), ntrans);
-  if (!temp) AMMPI_RETURN_ERR(RESOURCE);
+  ea->translation = (ammpi_translation_t *)AMMPI_realloc(ea->translation, newsz * sizeof(ammpi_translation_t));
   /* we may be growing or truncating the table */
-  memcpy(temp, ea->translation, 
-         sizeof(ammpi_translation_t)*MIN(ea->translationsz,ntrans));
-  AMMPI_free(ea->translation);
-  ea->translation = temp;
-  ea->translationsz = ntrans;
+  if (newsz > ea->translationsz)
+    memset(&(ea->translation[ea->translationsz]), 0, (newsz - ea->translationsz) * sizeof(ammpi_translation_t));
+  ea->translationsz = newsz;
 
   return AM_OK;
 }

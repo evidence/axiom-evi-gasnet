@@ -16,6 +16,7 @@
    */
   void *(*gasnett_debug_malloc_fn)(size_t sz, const char *curloc);
   void *(*gasnett_debug_calloc_fn)(size_t N, size_t S, const char *curloc);
+  void *(*gasnett_debug_realloc_fn)(void *ptr, size_t sz, const char *curloc);
   void (*gasnett_debug_free_fn)(void *ptr, const char *curloc);
   void (*gasnett_debug_memcheck_fn)(void *ptr, const char *curloc);
   void (*gasnett_debug_memcheck_one_fn)(const char *curloc);

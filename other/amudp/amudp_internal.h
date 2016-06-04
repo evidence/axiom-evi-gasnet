@@ -237,7 +237,7 @@ typedef struct {
 typedef struct {
   int8_t handlerRunning;
   int8_t replyIssued;
-  uint16_t sourceId;      /* 0-based endpoint id of remote */
+  amudp_node_t sourceId;      /* 0-based endpoint id of remote */
   en_t sourceAddr;        /* address of remote */
   struct amudp_ep *dest;  /* ep_t of endpoint that received this message */
   struct amudp_buf *bulkBuffer; /* if non-NULL, points to a bulk buffer 
@@ -300,7 +300,7 @@ typedef struct {
   char inuse; /*  entry in use */
   en_t name;  /*  remote address */
   tag_t tag;  /*  remote tag */
-  uint16_t id; /*  id in compressed table */
+  amudp_node_t id;/*  id in compressed table */
 } amudp_translation_t;
 
 typedef struct {
@@ -326,7 +326,9 @@ struct amudp_ep {
   void *segAddr;        /* Start address of EP VM segment */
   uintptr_t segLength;  /* Length of EP VM segment    */
 
-  amudp_translation_t translation[AMUDP_MAX_NUMTRANSLATIONS]; /* translation table */
+  amudp_translation_t *translation; /* translation table */
+  amudp_node_t         translationsz;
+
   amudp_handler_fn_t  handler[AMUDP_MAX_NUMHANDLERS]; /* handler table */
 
   /* internal structures */
@@ -335,7 +337,7 @@ struct amudp_ep {
   int socketRecvBufferSize; /* only used if USE_SOCKET_RECVBUFFER_GROW */
   int socketRecvBufferMaxedOut;
 
-  int P;     /* the number of endpoints we communicate with - also number of translations currently in use */
+  amudp_node_t P;     /* the number of endpoints we communicate with - also number of translations currently in use */
   int depth; /* network depth, -1 until AM_SetExpectedResources is called */
   int PD; /* cached value of P * depth */
   int recvDepth; /* recv depth */
@@ -394,39 +396,49 @@ GASNETT_NORETURNP(AMUDP_FatalErr)
 #endif
 
 /* memory allocation */
+static void *_AMUDP_malloc(size_t sz, const char *curloc) {
+  void *ret = malloc(sz);
+  if_pf(!ret) AMUDP_FatalErr("Failed to malloc(%lu) at %s", (unsigned long)sz, curloc);
+  return ret;
+}
+static void *_AMUDP_calloc(size_t N, size_t S, const char *curloc) {
+  void *ret = calloc(N,S);
+  if_pf(!ret) AMUDP_FatalErr("Failed to calloc(%lu,%lu) at %s", (unsigned long)N, (unsigned long)S, curloc);
+  return ret;
+}
+static void *_AMUDP_realloc(void *ptr, size_t S, const char *curloc) {
+  void *ret = realloc(ptr,S);
+  if_pf(!ret) AMUDP_FatalErr("Failed to realloc(%lu) at %s", (unsigned long)S, curloc);
+  return ret;
+}
+static void _AMUDP_free(void *ptr, const char *curloc) {
+  free(ptr);
+}
+#define AMUDP_curloc __FILE__ ":" _STRINGIFY(__LINE__)
 #if AMUDP_DEBUG
   /* use the gasnet debug malloc functions if a debug libgasnet is linked */
   extern void *(*gasnett_debug_malloc_fn)(size_t sz, const char *curloc);
   extern void *(*gasnett_debug_calloc_fn)(size_t N, size_t S, const char *curloc);
+  extern void *(*gasnett_debug_realloc_fn)(void *ptr, size_t sz, const char *curloc);
   extern void (*gasnett_debug_free_fn)(void *ptr, const char *curloc);
   extern void (*gasnett_debug_memcheck_fn)(void *ptr, const char *curloc);
   extern void (*gasnett_debug_memcheck_one_fn)(const char *curloc);
   extern void (*gasnett_debug_memcheck_all_fn)(const char *curloc);
-  static void *_AMUDP_malloc(size_t sz, const char *curloc) {
-    void *ret = malloc(sz);
-    if_pf(!ret) AMUDP_FatalErr("Failed to malloc(%lu) at %s", (unsigned long)sz, curloc);
-    return ret;
-  }
-  static void *_AMUDP_calloc(size_t N, size_t S, const char *curloc) {
-    void *ret = calloc(N,S);
-    if_pf(!ret) AMUDP_FatalErr("Failed to calloc(%lu,%lu) at %s", (unsigned long)N, (unsigned long)S, curloc);
-    return ret;
-  }
-  static void _AMUDP_free(void *ptr, const char *curloc) {
-    free(ptr);
-  }
-  #define AMUDP_curloc __FILE__ ":" _STRINGIFY(__LINE__)
   #define AMUDP_malloc(sz)                                   \
     ( (PREDICT_FALSE(gasnett_debug_malloc_fn==NULL) ?        \
-        gasnett_debug_malloc_fn = &_AMUDP_malloc : 0), \
+        gasnett_debug_malloc_fn = &_AMUDP_malloc : 0),       \
       (*gasnett_debug_malloc_fn)(sz, AMUDP_curloc))
   #define AMUDP_calloc(N,S)                                  \
     ( (PREDICT_FALSE(gasnett_debug_calloc_fn==NULL) ?        \
-        gasnett_debug_calloc_fn = &_AMUDP_calloc : 0), \
+        gasnett_debug_calloc_fn = &_AMUDP_calloc : 0),       \
       (*gasnett_debug_calloc_fn)((N),(S), AMUDP_curloc))
-  #define AMUDP_free(ptr)                                \
-    ( (PREDICT_FALSE(gasnett_debug_free_fn==NULL) ?      \
-        gasnett_debug_free_fn = &_AMUDP_free : 0), \
+  #define AMUDP_realloc(ptr,S)                               \
+    ( (PREDICT_FALSE(gasnett_debug_realloc_fn==NULL) ?       \
+        gasnett_debug_realloc_fn = &_AMUDP_realloc : 0),     \
+      (*gasnett_debug_realloc_fn)((ptr),(S), AMUDP_curloc))
+  #define AMUDP_free(ptr)                                    \
+    ( (PREDICT_FALSE(gasnett_debug_free_fn==NULL) ?          \
+        gasnett_debug_free_fn = &_AMUDP_free : 0),           \
       (*gasnett_debug_free_fn)(ptr, AMUDP_curloc))
   #define AMUDP_memcheck(ptr) do {                          \
     AMUDP_assert(ptr);                                      \
@@ -446,12 +458,15 @@ GASNETT_NORETURNP(AMUDP_FatalErr)
   #define malloc(x)   ERROR_use_AMUDP_malloc
   #undef calloc
   #define calloc(n,s) ERROR_use_AMUDP_calloc
+  #undef realloc
+  #define realloc(n,s) ERROR_use_AMUDP_realloc
   #undef free
   #define free(x)     ERROR_use_AMUDP_free
 #else
-  #define AMUDP_malloc(sz)  malloc(sz)
-  #define AMUDP_calloc(N,S) calloc((N),(S))
-  #define AMUDP_free(ptr)   free(ptr)
+  #define AMUDP_malloc(sz)     _AMUDP_malloc((sz),AMUDP_curloc)
+  #define AMUDP_calloc(N,S)    _AMUDP_calloc((N),(S),AMUDP_curloc)
+  #define AMUDP_realloc(ptr,S) _AMUDP_realloc((ptr),(S),AMUDP_curloc)
+  #define AMUDP_free(ptr)      _AMUDP_free(ptr,AMUDP_curloc)
   #define AMUDP_memcheck(ptr)   ((void)0)
   #define AMUDP_memcheck_one()  ((void)0)
   #define AMUDP_memcheck_all()  ((void)0)

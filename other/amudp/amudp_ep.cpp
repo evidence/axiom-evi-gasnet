@@ -108,9 +108,7 @@ static void AMUDP_InsertEndpoint(eb_t eb, ep_t ep) {
   AMUDP_assert(eb->endpoints != NULL);
   if (eb->n_endpoints == eb->cursize) { /* need to grow array */
     int newsize = eb->cursize * 2;
-    ep_t *newendpoints = (ep_t *)AMUDP_malloc(sizeof(ep_t)*newsize);
-    memcpy(newendpoints, eb->endpoints, sizeof(ep_t)*eb->n_endpoints);
-    eb->endpoints = newendpoints;
+    eb->endpoints = (ep_t *)AMUDP_realloc(eb->endpoints, sizeof(ep_t)*newsize);
     eb->cursize = newsize;
   }
   eb->endpoints[eb->n_endpoints] = ep;
@@ -310,6 +308,10 @@ static int AMUDP_AllocateEndpointResource(ep_t ep) {
                            "AMUDP_AllocateEndpointResource failed to determine UDP endpoint interface port");
       }
     }
+
+    ep->translationsz = AMUDP_INIT_NUMTRANSLATIONS;
+    ep->translation = (amudp_translation_t *)AMUDP_calloc(ep->translationsz, sizeof(amudp_translation_t));
+
     return AM_OK;
 }
 /* ------------------------------------------------------------------------------------ */
@@ -320,7 +322,7 @@ static int AMUDP_AllocateEndpointBuffers(ep_t ep) {
   AMUDP_assert(ep != NULL);
   AMUDP_assert(ep->depth >= 1);
   AMUDP_assert(ep->P > 0 && ep->P <= AMUDP_MAX_NUMTRANSLATIONS);
-  AMUDP_assert(ep->PD == ep->P * ep->depth);
+  AMUDP_assert(ep->PD == (int)ep->P * ep->depth);
   AMUDP_assert(ep->recvDepth <= AMUDP_MAX_RECVDEPTH);
 
   AMUDP_assert(sizeof(amudp_buf_t) % sizeof(int) == 0); /* assume word-addressable machine */
@@ -357,17 +359,14 @@ static int AMUDP_AllocateEndpointBuffers(ep_t ep) {
     #endif
   }
 
-  ep->requestDesc = (amudp_bufdesc_t*)AMUDP_malloc(2 * PD * sizeof(amudp_bufdesc_t));
+  ep->requestDesc = (amudp_bufdesc_t*)AMUDP_calloc(2 * PD, sizeof(amudp_bufdesc_t));
   ep->replyDesc = &ep->requestDesc[PD];
   /* init descriptor tables */
-  memset(ep->requestDesc, 0, PD * sizeof(amudp_bufdesc_t));
-  memset(ep->replyDesc,   0, PD * sizeof(amudp_bufdesc_t));
   ep->outstandingRequests = 0;
   ep->timeoutCheckPosn = 0;
 
   /* instance hint pointers & compressed translation table */
-  ep->perProcInfo = (amudp_perproc_info_t *)AMUDP_malloc(ep->P * sizeof(amudp_perproc_info_t));
-  memset(ep->perProcInfo, 0, ep->P * sizeof(amudp_perproc_info_t));
+  ep->perProcInfo = (amudp_perproc_info_t *)AMUDP_calloc(ep->P, sizeof(amudp_perproc_info_t));
 
   AMUDP_InitBuffers(ep);
 
@@ -380,6 +379,9 @@ static int AMUDP_FreeEndpointResource(ep_t ep) {
   #ifdef AMUDP_BLCR_ENABLED
     if (AMUDP_SPMDRestartActive) { /* it is already gone */ } else
   #endif
+
+  AMUDP_free(ep->translation);
+
   if (closesocket(ep->s) == SOCKET_ERROR) return FALSE;
   return TRUE;
 }
@@ -512,7 +514,7 @@ extern int AM_AllocateEndpoint(eb_t bundle, ep_t *endp, en_t *endpoint_name) {
   AMUDP_CHECKINIT();
   if (!bundle || !endp || !endpoint_name) AMUDP_RETURN_ERR(BAD_ARG);
 
-  ep = (ep_t)AMUDP_malloc(sizeof(struct amudp_ep));
+  ep = (ep_t)AMUDP_calloc(1, sizeof(struct amudp_ep));
   retval = AMUDP_AllocateEndpointResource(ep);
   if (retval != AM_OK) {
     AMUDP_free(ep);
@@ -523,13 +525,9 @@ extern int AM_AllocateEndpoint(eb_t bundle, ep_t *endp, en_t *endpoint_name) {
   AMUDP_InsertEndpoint(bundle, ep);
   ep->eb = bundle;
 
-  /* initialize ep data */
-  { int i;
-    for (i = 0; i < AMUDP_MAX_NUMTRANSLATIONS; i++) {
-      ep->translation[i].inuse = FALSE;
-    }
+  { /* initialize ep data */
     ep->handler[0] = amudp_defaultreturnedmsg_handler;
-    for (i = 1; i < AMUDP_MAX_NUMHANDLERS; i++) {
+    for (int i = 1; i < AMUDP_MAX_NUMHANDLERS; i++) {
       ep->handler[i] = amudp_unused_handler;
     }
     ep->tag = AM_NONE;
@@ -556,7 +554,9 @@ extern int AM_FreeEndpoint(ep_t ea) {
   if (!AMUDP_ContainsEndpoint(ea->eb, ea)) AMUDP_RETURN_ERR(RESOURCE);
 
   if (!AMUDP_FreeEndpointResource(ea)) retval = AM_ERR_RESOURCE;
-  if (!AMUDP_FreeEndpointBuffers(ea)) retval = AM_ERR_RESOURCE;
+  if (ea->depth != -1) {
+    if (!AMUDP_FreeEndpointBuffers(ea)) retval = AM_ERR_RESOURCE;
+  }
 
   AMUDP_RemoveEndpoint(ea->eb, ea);
   AMUDP_free(ea);
@@ -624,7 +624,7 @@ extern int AM_MaxSegLength(uintptr_t* nbytes) {
 extern int AM_Map(ep_t ea, int index, en_t name, tag_t tag) {
   AMUDP_CHECKINIT();
   if (!ea) AMUDP_RETURN_ERR(BAD_ARG);
-  if (index < 0 || index >= AMUDP_MAX_NUMTRANSLATIONS) AMUDP_RETURN_ERR(BAD_ARG);
+  if (index < 0 || (amudp_node_t)index >= ea->translationsz) AMUDP_RETURN_ERR(BAD_ARG);
   if (ea->translation[index].inuse) AMUDP_RETURN_ERR(RESOURCE); /* it's an error to re-map */
   if (ea->depth != -1) AMUDP_RETURN_ERR(RESOURCE); /* it's an error to map after call to AM_SetExpectedResources */
 
@@ -640,25 +640,22 @@ extern int AM_MapAny(ep_t ea, int *index, en_t name, tag_t tag) {
   if (!ea || !index) AMUDP_RETURN_ERR(BAD_ARG);
   if (ea->depth != -1) AMUDP_RETURN_ERR(RESOURCE); /* it's an error to map after call to AM_SetExpectedResources */
 
-  { int i;
-    for (i = 0; i < AMUDP_MAX_NUMTRANSLATIONS; i++) {
-      if (!ea->translation[i].inuse) { /* use this one */
-        ea->translation[i].inuse = TRUE;
-        ea->translation[i].name = name;
-        ea->translation[i].tag = tag;
-        ea->P++;  /* track num of translations */
-        *index = i;
-        return AM_OK;
-      }
-    }
-    AMUDP_RETURN_ERR(RESOURCE); /* none available */
+  amudp_node_t i;
+  for (i = 0; i < ea->translationsz; i++) { /* find a free entry, possibly a middle hole */
+    if (!ea->translation[i].inuse) break; /* use this one */
   }
+  if (i == ea->translationsz) AMUDP_RETURN_ERR(RESOURCE); /* none available */
+
+  int retval = AM_Map(ea, i, name, tag);
+
+  if (retval == AM_OK) *index = i;
+  return retval;
 }
 /* ------------------------------------------------------------------------------------ */
 extern int AM_UnMap(ep_t ea, int index) {
   AMUDP_CHECKINIT();
   if (!ea) AMUDP_RETURN_ERR(BAD_ARG);
-  if (index < 0 || index >= AMUDP_MAX_NUMTRANSLATIONS) AMUDP_RETURN_ERR(BAD_ARG);
+  if (index < 0 || (amudp_node_t)index >= ea->translationsz) AMUDP_RETURN_ERR(BAD_ARG);
   if (!ea->translation[index].inuse) AMUDP_RETURN_ERR(RESOURCE); /* not mapped */
   if (ea->depth != -1) AMUDP_RETURN_ERR(RESOURCE); /* it's an error to unmap after call to AM_SetExpectedResources */
 
@@ -667,10 +664,41 @@ extern int AM_UnMap(ep_t ea, int index) {
   return AM_OK;
 }
 /* ------------------------------------------------------------------------------------ */
+extern int AM_GetNumTranslations(ep_t ea, int *pntrans) {
+  AMUDP_CHECKINIT();
+  if (!ea) AMUDP_RETURN_ERR(BAD_ARG);
+  AMUDP_assert(ea->translationsz <= AMUDP_MAX_NUMTRANSLATIONS);
+  *(pntrans) = ea->translationsz;
+  return AM_OK;
+}
+/* ------------------------------------------------------------------------------------ */
+extern int AM_SetNumTranslations(ep_t ea, int ntrans) {
+  amudp_node_t newsz = (amudp_node_t)ntrans;
+  AMUDP_CHECKINIT();
+  if (!ea) AMUDP_RETURN_ERR(BAD_ARG);
+  if (ntrans < 0 || newsz > AMUDP_MAX_NUMTRANSLATIONS) AMUDP_RETURN_ERR(RESOURCE);
+  if (newsz < AMUDP_INIT_NUMTRANSLATIONS) /* don't shrink beyond min value */
+    newsz = AMUDP_INIT_NUMTRANSLATIONS;
+  if (newsz == ea->translationsz) return AM_OK; /* no change */
+  if (ea->depth != -1) AMUDP_RETURN_ERR(RESOURCE); /* it's an error to change translationsz after call to AM_SetExpectedResources */
+
+  for (amudp_node_t i = newsz; i < ea->translationsz; i++) {
+    if (ea->translation[i].inuse)
+      AMUDP_RETURN_ERR(RESOURCE); /* it's an error to truncate away live maps */
+  }
+  ea->translation = (amudp_translation_t *)AMUDP_realloc(ea->translation, newsz * sizeof(amudp_translation_t));
+  /* we may be growing or truncating the table */
+  if (newsz > ea->translationsz) 
+    memset(&(ea->translation[ea->translationsz]), 0, (newsz - ea->translationsz) * sizeof(amudp_translation_t));
+  ea->translationsz = newsz;
+
+  return AM_OK;
+}
+/* ------------------------------------------------------------------------------------ */
 extern int AM_GetTranslationInuse(ep_t ea, int i) {
   AMUDP_CHECKINIT();
   if (!ea) AMUDP_RETURN_ERR(BAD_ARG);
-  if (i < 0 || i >= AMUDP_MAX_NUMTRANSLATIONS) AMUDP_RETURN_ERR(BAD_ARG);
+  if (i < 0 || (amudp_node_t)i >= ea->translationsz) AMUDP_RETURN_ERR(BAD_ARG);
 
   if (ea->translation[i].inuse) return AM_OK; /* in use */
   else return AM_ERR_RESOURCE; /* don't complain here - it's a common case */
@@ -679,7 +707,7 @@ extern int AM_GetTranslationInuse(ep_t ea, int i) {
 extern int AM_GetTranslationTag(ep_t ea, int i, tag_t *tag) {
   AMUDP_CHECKINIT();
   if (!ea || !tag) AMUDP_RETURN_ERR(BAD_ARG);
-  if (i < 0 || i >= AMUDP_MAX_NUMTRANSLATIONS) AMUDP_RETURN_ERR(BAD_ARG);
+  if (i < 0 || (amudp_node_t)i >= ea->translationsz) AMUDP_RETURN_ERR(BAD_ARG);
   if (!ea->translation[i].inuse) AMUDP_RETURN_ERR(RESOURCE);
 
   (*tag) = ea->translation[i].tag;
@@ -689,7 +717,7 @@ extern int AM_GetTranslationTag(ep_t ea, int i, tag_t *tag) {
 extern int AMUDP_SetTranslationTag(ep_t ea, int index, tag_t tag) {
   AMUDP_CHECKINIT();
   if (!ea) AMUDP_RETURN_ERR(BAD_ARG);
-  if (index < 0 || index >= AMUDP_MAX_NUMTRANSLATIONS) AMUDP_RETURN_ERR(BAD_ARG);
+  if (index < 0 || (amudp_node_t)index >= ea->translationsz) AMUDP_RETURN_ERR(BAD_ARG);
   if (!ea->translation[index].inuse) AMUDP_RETURN_ERR(RESOURCE); /* can't change tag if not mapped */
 
   ea->translation[index].tag = tag;
@@ -704,7 +732,7 @@ extern int AMUDP_SetTranslationTag(ep_t ea, int index, tag_t tag) {
 extern int AM_GetTranslationName(ep_t ea, int i, en_t *gan) {
   AMUDP_CHECKINIT();
   if (!ea || !gan) AMUDP_RETURN_ERR(BAD_ARG);
-  if (i < 0 || i >= AMUDP_MAX_NUMTRANSLATIONS) AMUDP_RETURN_ERR(BAD_ARG);
+  if (i < 0 || (amudp_node_t)i >= ea->translationsz) AMUDP_RETURN_ERR(BAD_ARG);
   if (!ea->translation[i].inuse) AMUDP_RETURN_ERR(RESOURCE);
 
   (*gan) = ea->translation[i].name; 
@@ -774,13 +802,12 @@ extern int AM_SetExpectedResources(ep_t ea, int n_endpoints, int n_outstanding_r
   if (!AMUDP_AllocateEndpointBuffers(ea)) AMUDP_RETURN_ERR(RESOURCE);
 
   /*  compact a copy of the translation table into our perproc info array */
-  { int procid = 0;
-    int i;
-    for (i=0; i < AMUDP_MAX_NUMTRANSLATIONS; i++) {
+  { amudp_node_t procid = 0;
+    for (amudp_node_t i=0; i < ea->translationsz; i++) {
       if (ea->translation[i].inuse) {
         ea->perProcInfo[procid].remoteName = ea->translation[i].name;
         ea->perProcInfo[procid].tag = ea->translation[i].tag;
-        ea->translation[i].id = (uint16_t)procid;
+        ea->translation[i].id = procid;
         procid++;
         if (procid == ea->P) break; /*  should have all of them now */
       }
@@ -869,7 +896,7 @@ extern int AMUDP_GetSourceId(void *token, int *srcid) {
   AMUDP_CHECKINIT();
   AMUDP_CHECK_ERR((!token || !srcid),BAD_ARG);
 
-  *srcid = ((amudp_buf_t *)token)->status.sourceId;
+  *srcid = (int)((amudp_buf_t *)token)->status.sourceId;
   return AM_OK;
 }
 /* ------------------------------------------------------------------------------------ */

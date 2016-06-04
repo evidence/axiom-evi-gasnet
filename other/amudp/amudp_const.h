@@ -78,7 +78,8 @@
 #endif
 
 #define AMUDP_MAX_NUMHANDLERS      256  /* max. handler-table entries >= 256 */
-#define AMUDP_MAX_NUMTRANSLATIONS  16384 /* max. translation-table entries >= 256 */
+#define AMUDP_INIT_NUMTRANSLATIONS 256
+#define AMUDP_MAX_NUMTRANSLATIONS  (1U<<20) /* max. translation-table entries. Ensure P*D cannnt overflow int32 */
 #define AMUDP_MAX_SEGLENGTH  ((uintptr_t)-1) /* max. dest_offset */
 
 #define AMUDP_MAX_BUNDLES          255  /* max bundles that can be allocated */
@@ -146,10 +147,6 @@ typedef enum {
   ((ep) ? ((nhandlers) == AMUDP_MAX_NUMHANDLERS ? AM_OK : AM_ERR_RESOURCE)
 
 #define AM_MaxNumTranslations(trans)      (*(trans) = AMUDP_MAX_NUMTRANSLATIONS,AM_OK)
-#define AM_GetNumTranslations(ep, pntrans)  \
-  ((ep) ? ((*(pntrans) = AMUDP_MAX_NUMTRANSLATIONS), AM_OK) : AM_ERR_BAD_ARG)
-#define AM_SetNumTranslations(ep, ntrans)  \
-  ((ep) ? ((ntrans) == AMUDP_MAX_NUMTRANSLATIONS ? AM_OK : AM_ERR_RESOURCE) : AM_ERR_BAD_ARG)
 
 /* ------------------------------------------------------------------------------------ */
 

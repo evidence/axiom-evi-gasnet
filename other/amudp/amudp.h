@@ -43,6 +43,7 @@ typedef uint8_t handler_t;
 /* #define AMUDP_BADHANDLERVAL(h) (h < 0 || h >= AMUDP_MAX_NUMHANDLERS) */
 
 /* Endpoint name */
+typedef uint32_t amudp_node_t;
 typedef struct sockaddr_in en_t;
 
 /* CPU ticks */
@@ -178,6 +179,8 @@ extern int AMUDP_SetHandlerCallbacks(ep_t ep, AMUDP_preHandlerCallback_t preHand
   #define AM_Map                  AMUDP_Map
   #define AM_MapAny               AMUDP_MapAny
   #define AM_UnMap                AMUDP_UnMap
+  #define AM_GetNumTranslations   AMUDP_GetNumTranslations
+  #define AM_SetNumTranslations   AMUDP_SetNumTranslations
   #define AM_GetTranslationInuse  AMUDP_GetTranslationInuse
   #define AM_GetTranslationTag    AMUDP_GetTranslationTag
   #define AM_GetTranslationName   AMUDP_GetTranslationName
@@ -232,6 +235,8 @@ extern int AM_UnMap(ep_t ea, int index);
 extern int AM_GetTranslationInuse(ep_t ea, int i);
 extern int AM_GetTranslationTag(ep_t ea, int i, tag_t *tag);
 extern int AM_GetTranslationName(ep_t ea, int i, en_t *gan);
+extern int AM_GetNumTranslations(ep_t ep, int *pntrans);
+extern int AM_SetNumTranslations(ep_t ep, int ntrans);
 extern int AM_SetExpectedResources(ep_t ea, int n_endpoints, int n_outstanding_requests);
 
 /* Handler table */
@@ -259,12 +264,12 @@ extern int AM_Poll(eb_t bundle);
    These six functions do all requests and replies.
    Macros below expand all the variants */
 
-extern int AMUDP_Request(ep_t request_endpoint, int reply_endpoint, handler_t handler, 
+extern int AMUDP_Request(ep_t request_endpoint, amudp_node_t reply_endpoint, handler_t handler, 
                          int numargs, ...);
-extern int AMUDP_RequestI (ep_t request_endpoint, int reply_endpoint, handler_t handler, 
+extern int AMUDP_RequestI (ep_t request_endpoint, amudp_node_t reply_endpoint, handler_t handler, 
                           void *source_addr, int nbytes,
                           int numargs, ...);
-extern int AMUDP_RequestXfer(ep_t request_endpoint, int reply_endpoint, handler_t handler, 
+extern int AMUDP_RequestXfer(ep_t request_endpoint, amudp_node_t reply_endpoint, handler_t handler, 
                           void *source_addr, int nbytes, uintptr_t dest_offset, 
                           int async,
                           int numargs, ...);
@@ -279,12 +284,12 @@ extern int AMUDP_ReplyXfer(void *token, handler_t handler,
                           int numargs, ...);
 
 /* alternate forms that take va_list ptr to support GASNet */
-extern int AMUDP_RequestVA(ep_t request_endpoint, int reply_endpoint, handler_t handler, 
+extern int AMUDP_RequestVA(ep_t request_endpoint, amudp_node_t reply_endpoint, handler_t handler, 
                          int numargs, va_list argptr);
-extern int AMUDP_RequestIVA(ep_t request_endpoint, int reply_endpoint, handler_t handler, 
+extern int AMUDP_RequestIVA(ep_t request_endpoint, amudp_node_t reply_endpoint, handler_t handler, 
                           void *source_addr, int nbytes,
                           int numargs, va_list argptr);
-extern int AMUDP_RequestXferVA(ep_t request_endpoint, int reply_endpoint, handler_t handler, 
+extern int AMUDP_RequestXferVA(ep_t request_endpoint, amudp_node_t reply_endpoint, handler_t handler, 
                           void *source_addr, int nbytes, uintptr_t dest_offset, 
                           int async,
                           int numargs, va_list argptr);
