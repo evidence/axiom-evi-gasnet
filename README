@@ -228,7 +228,7 @@ Platforms where GASNet and Berkeley UPC have been successfully tested:
     * Linux/SGI-Altix-IA64/{gcc,IntelC}/64: smp, mpi, udp, shmem
     * Linux/SGI-Altix-Xeon/{gcc,IntelC}/64: smp, mpi, udp, shmem
 
-    * FreeBSD/{x86,amd64}/{gcc,clang}/{32,64}: smp, mpi
+    * FreeBSD/{x86,amd64}/{gcc,clang}/{32,64}: smp, mpi, udp
     * OpenBSD/{x86,amd64}/{gcc,clang}/{32,64}: smp, mpi, udp
     * NetBSD/{x86,amd64}/{gcc,clang}/{32,64}:  smp, mpi, udp
 
