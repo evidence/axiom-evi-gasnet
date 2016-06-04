@@ -15,7 +15,7 @@
 
 /* forward decls */
 static int AMUDP_RequestGeneric(amudp_category_t category, 
-                          ep_t request_endpoint, int reply_endpoint, handler_t handler, 
+                          ep_t request_endpoint, amudp_node_t reply_endpoint, handler_t handler, 
                           void *source_addr, int nbytes, uintptr_t dest_offset, 
                           int numargs, va_list argptr,
                           uint8_t systemType, uint8_t systemArg);
@@ -44,11 +44,7 @@ static int intpow(int val, int exp) {
 typedef enum { REQUESTREPLY_PACKET, RETRANSMISSION_PACKET, REFUSAL_PACKET } packet_type;
 static int sendPacket(ep_t ep, amudp_buf_t *packet, int packetlength, en_t destaddress, packet_type packettype) {
   AMUDP_assert(ep && packet && packetlength > 0);
-  #if USE_TRUE_BULK_XFERS
-    AMUDP_assert(packetlength <= AMUDP_MAXBULK_NETWORK_MSG);
-  #else
-    AMUDP_assert(packetlength <= AMUDP_MAX_NETWORK_MSG);
-  #endif
+  AMUDP_assert(packetlength <= AMUDP_MAXBULK_NETWORK_MSG);
 
   #if AMUDP_DEBUG_VERBOSE
     { static int firsttime = 1;
@@ -113,7 +109,7 @@ static int AMUDP_GetOpcode(int isrequest, amudp_category_t cat) {
 static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
   /*  return source id in ep perproc table of this remote addr, or -1 for not found */
   int i; /*  TODO: make this more efficient */
-  for (i = 0; i < ep->P; i++) {
+  for (i = 0; i < (int)ep->P; i++) {
     if (enEqual(ep->perProcInfo[i].remoteName, sourceAddr))
       return i;
   }
@@ -182,21 +178,21 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
   _RUN_HANDLER_MEDLONG((AMUDP_HandlerLong)phandlerfn, (void *)token, pArgs, numargs, (void *)pData, (int)datalen)
 /* ------------------------------------------------------------------------------------ */
 /* ioctl UDP fiasco:
- * ioctlsocket(FIONREAD) on a SOCK_DGRAM should return 
- * the size of the next message waiting, not the total data
- * available on the socket. We need this to decide whether 
- * or not we have an incoming bulk message next on the queue
- * This works on Linux, but Win2K seems to botch it (despite the 
- * fact their own Winsock spec says it returns the next message size)
+ * According to POSIX, ioctl(I_NREAD) on a SOCK_DGRAM should report the EXACT size of
+ * the next message waiting (or 0), not the number of bytes available on the socket. 
+ * We can use this as an optimization in choosing the recv buffer size.
+ * Linux (FIONREAD) and Solaris (I_NREAD) get this right, 
+ * but all other systems seem to get it wrong, one way or another.
+ * Cygwin: (bug 3284) not implemented
+ * FreeBSD: (bug 2827) returns raw byte count, which can over or under-report
+ * others: over-report by returning total bytes in all messages waiting
  */
-#if PLATFORM_OS_CYGWIN
-  #define BROKEN_IOCTL 1
-#elif PLATFORM_OS_AIX || PLATFORM_OS_IRIX || PLATFORM_OS_HPUX || PLATFORM_OS_MTA || \
-      PLATFORM_OS_TRU64 || PLATFORM_OS_DARWIN || PLATFORM_OS_SUPERUX || \
-      PLATFORM_OS_FREEBSD || PLATFORM_OS_NETBSD || PLATFORM_OS_OPENBSD || PLATFORM_OS_UNICOS
-  #define BROKEN_IOCTL 1 /*  seems these are broken too...  */
-#else 
-  #define BROKEN_IOCTL 0 /*  at least Linux and Solaris work as documented */
+#ifndef IOCTL_WORKS
+ #if PLATFORM_OS_LINUX || PLATFORM_OS_SOLARIS || PLATFORM_OS_DARWIN
+  #define IOCTL_WORKS 1
+ #else
+  #define IOCTL_WORKS 0
+ #endif
 #endif
 
 /* ------------------------------------------------------------------------------------ */
@@ -205,32 +201,29 @@ static int AMUDP_DrainNetwork(ep_t ep) {
     int totalBytesDrained = 0;
     while (1) {
       IOCTL_FIONREAD_ARG_T bytesAvail = 0;
-      #if PLATFORM_OS_CYGWIN || PLATFORM_OS_FREEBSD
-        // bug 3284: ioctl(FIONREAD) always returns error on Cygwin 2.5
-        // bug 2827: and it permanently truncates datagrams over 600 bytes on FreeBSD
-        if (inputWaiting(ep->s)) bytesAvail = AMUDP_MAXBULK_NETWORK_MSG;
+      #if IOCTL_WORKS
+        #if PLATFORM_OS_DARWIN // Apple-specific getsockopt(SO_NREAD) returns what we need
+          GETSOCKOPT_LENGTH_T junk = sizeof(bytesAvail);
+          if_pf (SOCK_getsockopt(ep->s, SOL_SOCKET, SO_NREAD, &bytesAvail, &junk) == SOCKET_ERROR)
+            AMUDP_RETURN_ERRFR(RESOURCE, "getsockopt(SO_NREAD)", strerror(errno));
+        #else
+          if_pf (SOCK_ioctlsocket(ep->s, _FIONREAD, &bytesAvail) == SOCKET_ERROR)
+            AMUDP_RETURN_ERRFR(RESOURCE, "ioctl(FIONREAD)", strerror(errno));
+        #endif
+
+        // sanity check
+        if_pf ((int)bytesAvail > AMUDP_MAXBULK_NETWORK_MSG) {
+          char x;
+          int retval = recvfrom(ep->s, (char *)&x, 1, MSG_PEEK, NULL, NULL);
+          fprintf(stderr, "bytesAvail=%lu  recvfrom(MSG_PEEK)=%i\n", (unsigned long)bytesAvail, retval); fflush(stderr);
+          AMUDP_RETURN_ERRFR(RESOURCE, "AMUDP_DrainNetwork: received message that was too long", strerror(errno));
+        }
       #else
-        if_pf (SOCK_ioctlsocket(ep->s, _FIONREAD, &bytesAvail) == SOCKET_ERROR)
-          AMUDP_RETURN_ERRFR(RESOURCE, "ioctlsocket()", strerror(errno));
+        if (inputWaiting(ep->s, false)) bytesAvail = AMUDP_MAXBULK_NETWORK_MSG;
       #endif
       if (bytesAvail == 0) break; 
 
-      #if BROKEN_IOCTL && USE_TRUE_BULK_XFERS && !PLATFORM_OS_CYGWIN && !PLATFORM_OS_FREEBSD
-        if ((int)bytesAvail > AMUDP_MAX_NETWORK_MSG) { 
-          /* this workaround is a HACK that lets us decide if we truly have a bulk message */
-          static char *junk = NULL;
-          int retval;
-          /* MUST use AMUDP_MAXBULK_NETWORK_MSG here, because some OS's blatently ignore
-             the message buffer len and happily overflow the input buffer in recvfrom()
-           */
-          if_pf (!junk) junk = (char *)AMUDP_malloc(AMUDP_MAXBULK_NETWORK_MSG);
-          retval = recvfrom(ep->s, junk, AMUDP_MAXBULK_NETWORK_MSG, MSG_PEEK, NULL, NULL);
-          if (retval == SOCKET_ERROR && 
-              errno != EFAULT) /* AIX */
-            AMUDP_RETURN_ERRFR(RESOURCE, "recv(MSG_PEEK) - broken ioctl Hack", strerror(errno));
-          if (retval < (int)bytesAvail) bytesAvail = retval; /* the true next message size */
-        }
-        /* TODO: another possible workaround for BROKEN_IOCTL && USE_TRUE_BULK_XFERS:
+        /* TODO: another possible workaround for !IOCTL_WORKS:
           use non-peek recvmsg(), with an iovec pointing first to a non-bulk buffer
           (with length AMUDP_MAX_NETWORK_MSG) and the second entry pointing to 
           offset AMUDP_MAX_NETWORK_MSG in the middle of a bulk buffer 
@@ -238,7 +231,6 @@ static int AMUDP_DrainNetwork(ep_t ep) {
           Then if we have a true bulk message (based on return value), 
           just copy the initial portion into the bulk buffer and release the normal buf
          */
-      #endif
 
       /* something waiting, acquire a buffer for it */
       { amudp_buf_t *freebuf;
@@ -250,30 +242,19 @@ static int AMUDP_DrainNetwork(ep_t ep) {
         if (((ep->rxFreeIdx + 1) % ep->rxNumBufs) == ep->rxReadyIdx) { 
           /* out of buffers - postpone draining */
           #if AMUDP_DEBUG
-            AMUDP_Warn("Receive buffer full - unable to drain network (this is usually caused by retransmissions)");
+            AMUDP_Warn("Receive buffer full - unable to drain network. Consider raising RECVDEPTH or polling more often.");
           #endif
           break;
         }
         freebuf = &ep->rxBuf[ep->rxFreeIdx];
-        #if USE_TRUE_BULK_XFERS
-          #if !BROKEN_IOCTL
-            /* can't do this check when ioctl is broken */
-            if_pf ((int)bytesAvail > AMUDP_MAXBULK_NETWORK_MSG) {
-              char x;
-              int retval = recvfrom(ep->s, (char *)&x, 1, MSG_PEEK, NULL, NULL);
-              fprintf(stderr, "bytesAvail=%lu  recvfrom(MSG_PEEK)=%i\n", (unsigned long)bytesAvail, retval); fflush(stderr);
-              AMUDP_RETURN_ERRFR(RESOURCE, "AMUDP_DrainNetwork: received message that was too long", strerror(errno));
-            }
-          #endif
-          if ((int)bytesAvail > AMUDP_MAX_NETWORK_MSG) { /* this is a true bulk buffer */
-            destbuf = AMUDP_AcquireBulkBuffer(ep);
+
+        if ((int)bytesAvail > AMUDP_MAX_NETWORK_MSG) { /* this is a true bulk buffer */
+            destbuf = AMUDP_AcquireBuffer(ep, (size_t)bytesAvail);
             freebuf->status.bulkBuffer = destbuf;
             destbufsz = AMUDP_MAXBULK_NETWORK_MSG;
-          }
-          else destbuf = freebuf;
-        #else
-          destbuf = freebuf;
-        #endif
+        }
+        else destbuf = freebuf;
+
         destbuf->status.bulkBuffer = NULL;
 
         #if AMUDP_EXTRA_CHECKSUM && AMUDP_DEBUG
@@ -283,7 +264,12 @@ static int AMUDP_DrainNetwork(ep_t ep) {
         retval = myrecvfrom(ep->s, (char *)destbuf, destbufsz, 0, 
                           &sa, &sz);
 
-        if_pf (retval == SOCKET_ERROR)
+      #if IOCTL_WORKS
+        if_pt (retval == (int)bytesAvail) ; // success
+      #else
+        if_pt (retval <= (int)bytesAvail) ; // success
+      #endif
+        else if_pf (retval == SOCKET_ERROR)
           AMUDP_RETURN_ERRFR(RESOURCE, "AMUDP_DrainNetwork: recvfrom()", strerror(errno));
         else if_pf (retval == 0)
           AMUDP_RETURN_ERRFR(RESOURCE, "AMUDP_DrainNetwork: recvfrom() returned zero", strerror(errno));
@@ -291,11 +277,10 @@ static int AMUDP_DrainNetwork(ep_t ep) {
           AMUDP_RETURN_ERRFR(RESOURCE, "AMUDP_DrainNetwork: incomplete message received in recvfrom()", strerror(errno));
         else if_pf (retval > destbufsz) 
             AMUDP_RETURN_ERRFR(RESOURCE, "AMUDP_DrainNetwork: buffer overrun in recvfrom()", strerror(errno));
-        #if AMUDP_DEBUG && !BROKEN_IOCTL
-        else if_pf (retval != (int)bytesAvail) { /* detect other broken ioctl implementations */
-          fprintf(stderr, "bytesAvail=%i  recvfrom returned:%i  ioctl() is probably broken\n", (int)bytesAvail, retval); fflush(stderr);
+        else { /* detect broken ioctl implementations */
+          AMUDP_assert(IOCTL_WORKS && retval != (int)bytesAvail);
+          AMUDP_Warn("ioctl() is probably broken: bytesAvail=%i  recvfrom returned=%i", (int)bytesAvail, retval);
         }
-        #endif
 
         #if AMUDP_EXTRA_CHECKSUM
           //memset(((char*)destbuf)+retval-8, 0, 8);
@@ -320,9 +305,9 @@ static int AMUDP_DrainNetwork(ep_t ep) {
           /* TODO: we may want to add some hysterisis here to prevent artifical inflation
            * due to retransmits after a long period of no polling 
            */
+          const int sanitymax = AMUDP_SOCKETBUFFER_MAX;
           /*int newsize = ep->socketRecvBufferSize + AMUDP_MAXBULK_NETWORK_MSG; - too slow */
           int newsize = 2 * ep->socketRecvBufferSize;
-          int sanitymax = AMUDP_RECVBUFFER_MAX;
 
           if (newsize > sanitymax) { /* create a semi-sane upper bound */
             AMUDP_growSocketBufferSize(ep, sanitymax, SO_RCVBUF, "SO_RCVBUF");
@@ -455,7 +440,7 @@ static int AMUDP_HandleRequestTimeouts(ep_t ep, int numtocheck) {
          * although it doesn't really matter because the AM2 spec is too vague
          * about the argblock returned message argument for it to be of any use to anyone
          */
-        outgoingstatus->sourceId = (uint16_t)destP; 
+        outgoingstatus->sourceId = destP; 
         outgoingstatus->sourceAddr = ep->perProcInfo[destP].remoteName;
         outgoingstatus->dest = ep;
 
@@ -680,13 +665,8 @@ void AMUDP_processPacket(amudp_buf_t *basicbuf, int isloopback) {
       break;
     case amudp_Long: 
       /* check segment limits */
-      #if USE_TRUE_BULK_XFERS
-        if_pf (msg->nBytes > AMUDP_MAX_LONG)
-          AMUDP_REFUSEMESSAGE(EBADLENGTH);
-      #else
-        if_pf (msg->nBytes > AMUDP_MAX_MEDIUM)
-          AMUDP_REFUSEMESSAGE(EBADLENGTH);
-      #endif
+      if_pf (msg->nBytes > AMUDP_MAX_LONG)
+        AMUDP_REFUSEMESSAGE(EBADLENGTH);
       if_pf ( ep->segLength == 0 || /* empty seg */
               ((uintptr_t)ep->segAddr + msg->destOffset) == 0) /* NULL target */
         AMUDP_REFUSEMESSAGE(EBADSEGOFF);
@@ -793,51 +773,6 @@ void AMUDP_processPacket(amudp_buf_t *basicbuf, int isloopback) {
           AMUDP_assert(!isloopback);
           /*  do nothing, already taken care of */
           break;
-        case amudp_system_bulkxferfragment:
-          /*  perform bulk copy of fragment */
-          AMUDP_assert(!isloopback);
-          memcpy(((int8_t *)ep->segAddr) + msg->destOffset, GET_PACKET_DATA(buf), msg->nBytes);
-          { /* update our slot info and see if bulk xfer is complete */
-            int slotnum = msg->systemMessageType >> 4;
-            bulkslot_t *slot = &ep->perProcInfo[sourceID].inboundBulkSlot[slotnum];
-            if (slot->packetsRemaining == 0) {
-              /*  this is the first packet of bulk xfer */
-              AMUDP_assert(msg->systemMessageArg > 0);
-              slot->packetsRemaining = msg->systemMessageArg;
-              slot->minDestOffset = msg->destOffset;
-              slot->runningLength = msg->nBytes;
-
-              if (numargs > 0) { /* arguments arrived with this fragment - cache them */
-                slot->numargs = numargs;
-                memcpy(slot->args, GET_PACKET_ARGS(buf), numargs*4);
-              } else slot->numargs = 0;
-            } else { /*  not first, but possibly last  */
-              AMUDP_assert(slot->packetsRemaining <= msg->systemMessageArg);
-              slot->packetsRemaining--;
-              if (msg->destOffset < slot->minDestOffset) slot->minDestOffset = msg->destOffset;
-              slot->runningLength += msg->nBytes;
-              if (slot->packetsRemaining == 0) { /*  just processed last message, now run handler */
-                /*  mark it as a user message before running handler */
-                buf->Msg.systemMessageType = amudp_system_user; 
-                buf->Msg.systemMessageArg = 0;
-
-                int tmpnumargs=0;
-                uint32_t *tmpargs=NULL;
-                if (numargs > 0) /* args arrived in final fragment */
-                  { tmpnumargs = numargs; tmpargs = GET_PACKET_ARGS(buf); }
-                else /* args were cached by a previous fragment */
-                  { tmpnumargs = slot->numargs; tmpargs = slot->args; }
-                
-                RUN_HANDLER_LONG(ep->handler[msg->handlerId], basicbuf,
-                  tmpargs, tmpnumargs,  
-                  (((int8_t *)ep->segAddr) + slot->minDestOffset), slot->runningLength);
-              } else if (numargs > 0) { /* arguments arrived with this fragment - cache them */
-                slot->numargs = numargs;
-                memcpy(slot->args, GET_PACKET_ARGS(buf), numargs*4);
-              }
-            }
-          }
-          break;
         default: AMUDP_FatalErr("bad AM type");
       }
     } else { /* a user message */
@@ -916,7 +851,7 @@ static int AMUDP_ServiceIncomingMessages(ep_t ep) {
         RESOURCE, AMUDP_ServiceIncomingMessages, "user caused a poll to occur while handler on the same bundle was running");
 
       status->dest = ep; /* remember which ep recvd this message */
-      status->sourceId = (uint16_t)sourceAddrToId(ep, status->sourceAddr);
+      status->sourceId = (amudp_node_t)sourceAddrToId(ep, status->sourceAddr);
 
       if (AMUDP_FaultInjectionEnabled) { /* allow fault injection to drop some revcd messages */
         double randval = rand() / (double)RAND_MAX;
@@ -983,16 +918,15 @@ extern int AM_Poll(eb_t eb) {
  * Generic Request/Reply
  *------------------------------------------------------------------------------------ */
 static int AMUDP_RequestGeneric(amudp_category_t category, 
-                          ep_t request_endpoint, int reply_endpoint, handler_t handler, 
+                          ep_t request_endpoint, amudp_node_t reply_endpoint, handler_t handler, 
                           void *source_addr, int nbytes, uintptr_t dest_offset, 
                           int numargs, va_list argptr, 
                           uint8_t systemType, uint8_t systemArg) {
-  static char _stagingbuf[sizeof(amudp_buf_t)+8]; /* for loopback */
   int instance;
   amudp_buf_t *basicbuf;
   amudp_buf_t *outgoingbuf;
   amudp_bufdesc_t *outgoingdesc;
-  int const destP = request_endpoint->translation[reply_endpoint].id;
+  amudp_node_t const destP = request_endpoint->translation[reply_endpoint].id;
   en_t const destaddress = request_endpoint->translation[reply_endpoint].name;
   const int isloopback = enEqual(destaddress, request_endpoint->name);
 
@@ -1000,7 +934,7 @@ static int AMUDP_RequestGeneric(amudp_category_t category,
   AM_Poll(request_endpoint->eb);
 
   if (isloopback) {
-    outgoingbuf = (amudp_buf_t *)AMUDP_ALIGNUP(&_stagingbuf,8);
+    outgoingbuf = &request_endpoint->temporaryBuf[0];
     basicbuf = outgoingbuf;
     basicbuf->status.bulkBuffer = NULL;
     outgoingdesc = NULL; /* not used */
@@ -1049,7 +983,7 @@ static int AMUDP_RequestGeneric(amudp_category_t category,
     request_endpoint->outstandingRequests++;
 
     if (nbytes > AMUDP_MAX_MEDIUM) {
-      AMUDP_assert(category == amudp_Long && USE_TRUE_BULK_XFERS);
+      AMUDP_assert(category == amudp_Long);
       outgoingbuf = AMUDP_AcquireBulkBuffer(request_endpoint);
       basicbuf->status.bulkBuffer = outgoingbuf;
     } else {
@@ -1168,13 +1102,12 @@ static int AMUDP_ReplyGeneric(amudp_category_t category,
                           void *source_addr, int nbytes, uintptr_t dest_offset, 
                           int numargs, va_list argptr,
                           uint8_t systemType, uint8_t systemArg) {
-  static char _stagingbuf[sizeof(amudp_buf_t)+8]; /* for loopback */
   amudp_buf_t *basicbuf;
   amudp_buf_t *outgoingbuf;
   amudp_bufdesc_t *outgoingdesc;
   amudp_buf_t * const requestbasicbuf = requestbuf;
   ep_t const ep = requestbasicbuf->status.dest;
-  int const destP = requestbasicbuf->status.sourceId;
+  amudp_node_t const destP = requestbasicbuf->status.sourceId;
   const int isloopback = enEqual(requestbuf->status.sourceAddr, ep->name);
   int instance;
   requestbuf = (requestbasicbuf->status.bulkBuffer ? requestbasicbuf->status.bulkBuffer : requestbasicbuf);
@@ -1182,8 +1115,8 @@ static int AMUDP_ReplyGeneric(amudp_category_t category,
   /*  we don't poll within a reply because by definition we are already polling somewhere in the call chain */
 
   if (isloopback) {
-    basicbuf = (amudp_buf_t *)AMUDP_ALIGNUP(&_stagingbuf,8);
-    outgoingbuf = basicbuf;
+    outgoingbuf = &ep->temporaryBuf[1];
+    basicbuf = outgoingbuf;
     basicbuf->status.bulkBuffer = NULL;
     outgoingdesc = NULL; /* not used */
     instance = 0; /* not used */
@@ -1200,7 +1133,7 @@ static int AMUDP_ReplyGeneric(amudp_category_t category,
     }
 
     if (nbytes > AMUDP_MAX_MEDIUM) {
-      AMUDP_assert(category == amudp_Long && USE_TRUE_BULK_XFERS);
+      AMUDP_assert(category == amudp_Long);
       outgoingbuf = AMUDP_AcquireBulkBuffer(ep);
       basicbuf->status.bulkBuffer = outgoingbuf;
     } else {
@@ -1275,13 +1208,13 @@ static int AMUDP_ReplyGeneric(amudp_category_t category,
 /*------------------------------------------------------------------------------------
  * Request
  *------------------------------------------------------------------------------------ */
-extern int AMUDP_RequestVA(ep_t request_endpoint, int reply_endpoint, handler_t handler, 
+extern int AMUDP_RequestVA(ep_t request_endpoint, amudp_node_t reply_endpoint, handler_t handler, 
                          int numargs, va_list argptr) {
   AMUDP_CHECKINIT();
-  AMUDP_CHECK_ERR((!request_endpoint || reply_endpoint < 0),BAD_ARG);
+  AMUDP_CHECK_ERR(!request_endpoint,BAD_ARG);
   AMUDP_CHECK_ERR((AMUDP_BADHANDLERVAL(handler)),BAD_ARG);
   AMUDP_CHECK_ERR((request_endpoint->depth == -1),NOT_INIT); /* it's an error to call before AM_SetExpectedResources */
-  AMUDP_CHECK_ERR((reply_endpoint >= AMUDP_MAX_NUMTRANSLATIONS ||
+  AMUDP_CHECK_ERR((reply_endpoint >= request_endpoint->translationsz ||
      !request_endpoint->translation[reply_endpoint].inuse),BAD_ARG);
   AMUDP_assert(numargs >= 0 && numargs <= AMUDP_MAX_SHORT);
 
@@ -1292,7 +1225,7 @@ extern int AMUDP_RequestVA(ep_t request_endpoint, int reply_endpoint, handler_t 
                                   amudp_system_user, 0);
 
 }
-extern int AMUDP_Request(ep_t request_endpoint, int reply_endpoint, handler_t handler, 
+extern int AMUDP_Request(ep_t request_endpoint, amudp_node_t reply_endpoint, handler_t handler, 
                          int numargs, ...) {
     int retval;
     va_list argptr;
@@ -1303,14 +1236,14 @@ extern int AMUDP_Request(ep_t request_endpoint, int reply_endpoint, handler_t ha
     return retval;
 }
 /* ------------------------------------------------------------------------------------ */
-extern int AMUDP_RequestIVA(ep_t request_endpoint, int reply_endpoint, handler_t handler, 
+extern int AMUDP_RequestIVA(ep_t request_endpoint, amudp_node_t reply_endpoint, handler_t handler, 
                           void *source_addr, int nbytes,
                           int numargs, va_list argptr) {
   AMUDP_CHECKINIT();
   AMUDP_CHECK_ERR((!request_endpoint || reply_endpoint < 0),BAD_ARG);
   AMUDP_CHECK_ERR((AMUDP_BADHANDLERVAL(handler)),BAD_ARG);
   AMUDP_CHECK_ERR((request_endpoint->depth == -1),NOT_INIT); /* it's an error to call before AM_SetExpectedResources */
-  AMUDP_CHECK_ERR((reply_endpoint >= AMUDP_MAX_NUMTRANSLATIONS ||
+  AMUDP_CHECK_ERR((reply_endpoint >= request_endpoint->translationsz ||
      !request_endpoint->translation[reply_endpoint].inuse),BAD_ARG);
   AMUDP_CHECK_ERR((!source_addr),BAD_ARG);
   AMUDP_CHECK_ERR((nbytes < 0 || nbytes > AMUDP_MAX_MEDIUM),BAD_ARG);
@@ -1322,7 +1255,7 @@ extern int AMUDP_RequestIVA(ep_t request_endpoint, int reply_endpoint, handler_t
                                   numargs, argptr,
                                   amudp_system_user, 0);
 }
-extern int AMUDP_RequestI(ep_t request_endpoint, int reply_endpoint, handler_t handler, 
+extern int AMUDP_RequestI(ep_t request_endpoint, amudp_node_t reply_endpoint, handler_t handler, 
                           void *source_addr, int nbytes,
                           int numargs, ...) {
     int retval;
@@ -1335,43 +1268,7 @@ extern int AMUDP_RequestI(ep_t request_endpoint, int reply_endpoint, handler_t h
     return retval; 
 }
 /* ------------------------------------------------------------------------------------ */
-static int getFreeBulkSlot(ep_t ep, int destP, uint8_t *slotnum, int allowblock) { 
-  /* find a free bulk slot number, possibly blocking if allowblock=TRUE
-   * returns AM_OK (with slot set), AM_ERR_XXX on error, or -1 for timeout if allowblock=FALSE
-   */
-  AMUDP_assert(ep && slotnum);
-  AMUDP_assert(destP >= 0 && destP < ep->P);
-  while(1) {
-    uint8_t slot;
-    for (slot = 0; slot < 16; slot++) {
-      int inst;
-      for (inst = 0; inst < ep->depth; inst++) {
-        if (GET_REQ_DESC(ep, destP, inst)->inuse) { 
-          amudp_system_messagetype_t systype =
-            (amudp_system_messagetype_t)(GET_REQ_BUF(ep, destP, inst)->Msg.systemMessageType & 0xF);
-          uint8_t thisslot = (uint8_t)((GET_REQ_BUF(ep, destP, inst)->Msg.systemMessageType >> 4) & 0xF);
-          if (systype == amudp_system_bulkxferfragment && thisslot == slot) break; /*  already taken */
-        }
-      }
-      if (inst == ep->depth) {
-        *slotnum = slot;
-        return AM_OK;
-      }
-    }
-
-    /*  wait for some slots to become free */
-    if (allowblock) { 
-      int retval;
-      retval = AMUDP_Block(ep->eb);
-      if (retval != AM_OK) AMUDP_RETURN(retval);
-      retval = AM_Poll(ep->eb);
-      if (retval != AM_OK) AMUDP_RETURN(retval);
-      }
-    else return -1; /*  timed out - non-blocking */
-  }
-}
-/* ------------------------------------------------------------------------------------ */
-extern int AMUDP_RequestXferVA(ep_t request_endpoint, int reply_endpoint, handler_t handler, 
+extern int AMUDP_RequestXferVA(ep_t request_endpoint, amudp_node_t reply_endpoint, handler_t handler, 
                           void *source_addr, int nbytes, uintptr_t dest_offset, 
                           int async, 
                           int numargs, va_list argptr) {
@@ -1379,7 +1276,7 @@ extern int AMUDP_RequestXferVA(ep_t request_endpoint, int reply_endpoint, handle
   AMUDP_CHECK_ERR((!request_endpoint || reply_endpoint < 0),BAD_ARG);
   AMUDP_CHECK_ERR((AMUDP_BADHANDLERVAL(handler)),BAD_ARG);
   AMUDP_CHECK_ERR((request_endpoint->depth == -1),NOT_INIT); /* it's an error to call before AM_SetExpectedResources */
-  AMUDP_CHECK_ERR((reply_endpoint >= AMUDP_MAX_NUMTRANSLATIONS ||
+  AMUDP_CHECK_ERR((reply_endpoint >= request_endpoint->translationsz ||
      !request_endpoint->translation[reply_endpoint].inuse),BAD_ARG);
   AMUDP_CHECK_ERR((!source_addr),BAD_ARG);
   AMUDP_CHECK_ERR((nbytes < 0 || nbytes > AMUDP_MAX_LONG),BAD_ARG);
@@ -1389,8 +1286,7 @@ extern int AMUDP_RequestXferVA(ep_t request_endpoint, int reply_endpoint, handle
   int destP = request_endpoint->translation[reply_endpoint].id;
   const int isloopback = enEqual(request_endpoint->translation[reply_endpoint].name, request_endpoint->name);
 
-  #if USE_TRUE_BULK_XFERS
-    if (async && !isloopback) { /*  decide if we can satisfy request without blocking */
+  if (async && !isloopback) { /*  decide if we can satisfy request without blocking */
       int i;
       /* it's unclear from the spec whether we should poll before an async failure,
        * but by definition the app must be prepared for handlers to run when calling this 
@@ -1405,99 +1301,16 @@ extern int AMUDP_RequestXferVA(ep_t request_endpoint, int reply_endpoint, handle
       if (i == request_endpoint->depth)         
         AMUDP_RETURN_ERRFR(IN_USE, AMUDP_RequestXferAsync, 
           "Request can't be satisfied without blocking right now");
-    }
+  }
 
-    /* perform the send */
-    return AMUDP_RequestGeneric(amudp_Long, 
+  /* perform the send */
+  return AMUDP_RequestGeneric(amudp_Long, 
                                   request_endpoint, reply_endpoint, handler, 
                                   source_addr, nbytes, dest_offset,
                                   numargs, argptr,
                                   amudp_system_user, 0);
-  #else
-  { /* segmented bulk transfers - break large xfers into chunks */
-    int numchunks = ((nbytes-1) / AMUDP_MAX_MEDIUM)+1; /*  number of chunks required for data */
-    if (async && !isloopback) { /*  decide if we can satisfy request without blocking */
-      int i, freecnt=0;
-
-      if (numchunks > request_endpoint->depth) 
-        AMUDP_RETURN_ERRFR(RESOURCE, AMUDP_RequestXferAsync, 
-          "Request too large to EVER be satisfied without blocking");
-
-      /* it's unclear from the spec whether we should poll before an async failure,
-       * but by definition the app must be prepared for handlers to run when calling this 
-       * request, so it shouldn't cause anything to break, and the async request is more likely
-       * to succeed if we do. so:
-       */
-      AM_Poll(request_endpoint->eb);
-
-      /*  see how many buffers are free */
-      #if 1
-        freecnt = request_endpoint->depth - request_endpoint->outstandingRequests;
-      #else
-        for (i = 0; i < request_endpoint->depth; i++) {
-          if (!request_endpoint->requestDesc[destP].inuse) freecnt++;
-          }
-        AMUDP_assert(freecnt == request_endpoint->depth - request_endpoint->outstandingRequests);
-      #endif
-      if (numchunks > freecnt) 
-        AMUDP_RETURN_ERRFR(IN_USE, AMUDP_RequestXferAsync, 
-          "Request too large to be satisfied without blocking right now");
-      { uint8_t slotnum; /*  see if we have a free slot */
-        int retval = getFreeBulkSlot(request_endpoint, destP, &slotnum, FALSE);
-        if (retval == -1)
-          AMUDP_RETURN_ERRFR(IN_USE, AMUDP_RequestXferAsync, 
-            "Request can't be satisfied without blocking right now - out of bulk xfer slots");
-      }
-    }
-    if (numchunks == 1 || isloopback) { /*  single-message bulk xfer, just a user message */
-      /*  call the generic requestor */
-      return AMUDP_RequestGeneric(amudp_Long, 
-                                    request_endpoint, reply_endpoint, handler, 
-                                    source_addr, nbytes, dest_offset,
-                                    numargs, argptr,
-                                    amudp_system_user, 0);
-    } else { 
-      int fragidx;
-      char *chunk_source_addr = (char*)source_addr;
-      uintptr_t chunk_dest_offset = dest_offset;
-      uint8_t slotnum;
-
-      /*  get a slot (possibly poll-blocking) */
-      uint8_t systype;
-      int retval = getFreeBulkSlot(request_endpoint, destP, &slotnum, TRUE);
-      if (retval != AM_OK) AMUDP_RETURN(retval);
-      AMUDP_assert(slotnum < 16);
-      systype = (slotnum << 4) | ((uint8_t)amudp_system_bulkxferfragment);
-
-      for (fragidx = 0; fragidx < numchunks; fragidx++) {
-        int retval;
-        int tmpnumargs = 0;
-        uint16_t chunk_nbytes = fragidx < numchunks - 1 ? 
-                                AMUDP_MAX_MEDIUM :
-                                ( nbytes % AMUDP_MAX_MEDIUM == 0 ? 
-                                  AMUDP_MAX_MEDIUM : 
-                                  nbytes % AMUDP_MAX_MEDIUM );
-        if (fragidx == numchunks - 1) /* send args with last fragment */
-          tmpnumargs = numargs;
-        /* could use va_copy here, but not really necessary - 
-           argptr will only be used at most once, when tmpnumargs > 0
-         */
-        retval = AMUDP_RequestGeneric(amudp_Long, 
-                                      request_endpoint, reply_endpoint, handler, 
-                                      chunk_source_addr, chunk_nbytes, chunk_dest_offset,
-                                      tmpnumargs, argptr,
-                                      systype, (uint8_t)(numchunks-1));
-        if_pf (retval != AM_OK) /*  recovery here would suck, so errors here are fatal */
-          AMUDP_FatalErr("Network failure in the middle of a bulk transfer");
-        chunk_source_addr += chunk_nbytes;
-        chunk_dest_offset += chunk_nbytes;
-      }
-      return AM_OK;
-    }
-  }
-  #endif
 }
-extern int AMUDP_RequestXfer(ep_t request_endpoint, int reply_endpoint, handler_t handler, 
+extern int AMUDP_RequestXfer(ep_t request_endpoint, amudp_node_t reply_endpoint, handler_t handler, 
                           void *source_addr, int nbytes, uintptr_t dest_offset, 
                           int async, 
                           int numargs, ...) {
@@ -1606,10 +1419,6 @@ extern int AMUDP_ReplyXferVA(void *token, handler_t handler,
   AMUDP_CHECK_ERR((nbytes < 0 || nbytes > AMUDP_MAX_LONG),BAD_ARG);
   AMUDP_CHECK_ERR((dest_offset > AMUDP_MAX_SEGLENGTH),BAD_ARG);
   AMUDP_assert(numargs >= 0 && numargs <= AMUDP_MAX_SHORT);
-
-  AMUDP_CHECK_ERRFR((nbytes > AMUDP_MAX_MEDIUM && !USE_TRUE_BULK_XFERS), 
-    RESOURCE, AMUDP_ReplyXfer, 
-      "ReplyXfer() exceeding AM_Medium()=" _STRINGIFY(AMUDP_MAX_MEDIUM) " bytes not implemented.");
 
   { /*  semantic checking on reply (are we in a handler, is this the first reply, etc.) */
     basicbuf = (amudp_buf_t *)token;

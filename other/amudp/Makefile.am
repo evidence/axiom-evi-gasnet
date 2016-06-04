@@ -62,6 +62,7 @@ bin_PROGRAMS = amudprun
 endif
 headers = \
 	amudp.h			\
+	amudp_const.h		\
 	amudp_internal.h	\
 	amudp_spmd.h		\
 	exc.h			\

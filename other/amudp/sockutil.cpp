@@ -182,7 +182,7 @@ void recvAll(SOCKET s, void* buffer, int numbytes) {
 #else
   #define SEND_FLAGS 0
 #endif
-void sendAll(SOCKET s, const void* buffer, int numbytes, int dothrow) {
+void sendAll(SOCKET s, const void* buffer, int numbytes, bool dothrow) {
   // blocks until it can send numbytes on s from buffer
   // (throws xSocket on close by default)
   #if !SIGPIPE_BLOCKED
@@ -211,7 +211,7 @@ void sendAll(SOCKET s, const void* buffer, int numbytes, int dothrow) {
   #endif
 }
 //-------------------------------------------------------------------------------------
-void sendAll(SOCKET s, const char* buffer, int numbytes, int dothrow) {
+void sendAll(SOCKET s, const char* buffer, int numbytes, bool dothrow) {
   if (numbytes == -1) numbytes = strlen(buffer);
   sendAll(s, (void *)buffer, numbytes, dothrow);
 }
@@ -422,14 +422,16 @@ SockAddr DNSLookup(const char *hostnameOrIPStr) {
   }
 }
 //-------------------------------------------------------------------------------------
-bool inputWaiting(SOCKET s) { // returns true if input or close conn is waiting
+bool inputWaiting(SOCKET s, bool dothrow) { // returns true if input or close conn is waiting
   fd_set sockset;
   timeval tm = {0, 0};
   FD_ZERO(&sockset);
   FD_SET(s, &sockset);
   int retval = select(s+1, &sockset, NULL, NULL, &tm);
-  if (retval == SOCKET_ERROR) xsocket(s, "select");
-  else if (retval > 0) return true; // new input or closed conn
+  if_pf (retval == SOCKET_ERROR) {
+    if (dothrow) xsocket(s, "select");
+    else return true; // error waiting
+  } else if (retval > 0) return true; // new input or closed conn
   
   return false;
 }

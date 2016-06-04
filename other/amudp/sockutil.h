@@ -43,8 +43,8 @@ int recvLine(SOCKET s, char* buf, int bufsiz);
   // returns size with CRLF removed
   // may throw exception if bufsiz is too small
 
-void sendAll(SOCKET s, const void* buffer, int numbytes, int dothrow=1);
-void sendAll(SOCKET s, const char* buffer, int numbytes=-1, int dothrow=1);
+void sendAll(SOCKET s, const void* buffer, int numbytes, bool dothrow=true);
+void sendAll(SOCKET s, const char* buffer, int numbytes=-1, bool dothrow=true);
   // blocks until it can send numbytes on s from buffer
   // (throws xSocket on close by default)
 void sendEOL(SOCKET s); // send CR LF
@@ -75,7 +75,7 @@ char recvch(SOCKET s); // get one character
 
 void waitForClose(SOCKET s); // blocks until close - throw exn if data received
 
-bool inputWaiting(SOCKET s); // returns true if input or close conn is waiting
+bool inputWaiting(SOCKET s, bool dothrow=true); // returns true if input or close conn is waiting
 
 bool waitForActivity(SOCKET s, struct timeval* tv=NULL); // block until data arrives or close posts
 

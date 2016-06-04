@@ -34,7 +34,7 @@ static void Usage(const char *msg) {
     "  -depth D  Use network depth D\n"
     "  -v        Enable verbose mode spawn\n"
     "  -h        Show this help\n\n"
-    , argvzero, _STRINGIFY(AMUDP_LIBRARY_VERSION), argvzero);
+    , argvzero, AMUDP_LIBRARY_VERSION_STR, argvzero);
 #ifdef AMUDP_BLCR_ENABLED
   fprintf(stderr, 
     "Usage: %s -restart <checkpoint_directory>\n\n"

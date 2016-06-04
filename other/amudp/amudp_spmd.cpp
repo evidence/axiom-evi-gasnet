@@ -8,8 +8,8 @@
 #include <errno.h>
 #include <stdio.h>
 #include <unistd.h>
-#if PLATFORM_ARCH_CRAYT3E || PLATFORM_OS_SUPERUX || PLATFORM_OS_NETBSD || \
-    PLATFORM_OS_MTA || PLATFORM_OS_BLRTS || PLATFORM_OS_CATAMOUNT || PLATFORM_OS_OPENBSD
+#if PLATFORM_OS_SUPERUX || PLATFORM_OS_NETBSD || \
+    PLATFORM_OS_BLRTS || PLATFORM_OS_OPENBSD
   /* these implement sched_yield() in libpthread only, which we may not want */
   #define UNUSABLE_SCHED_YIELD 1
 #else
@@ -199,11 +199,7 @@ static void flushStreams(const char *context) {
     do_sync = ((c == '1') || (c == 'y') || (c == 'Y'));
   }
   if (do_sync) {
-  #if PLATFORM_OS_MTA
-    mta_sync();
-  #elif !PLATFORM_OS_CATAMOUNT
     sync();
-  #endif
   }
   sched_yield();
 }
@@ -411,7 +407,7 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
   if (! slave_flag) {
     int usingdefaultdegree = 0;
     uint64_t npid;
-    if (nproc < 0 || nproc > AMUDP_MAX_SPMDPROCS) AMUDP_RETURN_ERR(BAD_ARG);
+    if (nproc < 0 || nproc > (int)AMUDP_MAX_SPMDPROCS) AMUDP_RETURN_ERR(BAD_ARG);
 
     if (!argc || !argv) AMUDP_RETURN_ERR(BAD_ARG);
 
@@ -427,6 +423,9 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
       networkdepth = atoi(
         AMUDP_getenv_prefixed_withdefault("NETWORKDEPTH", _STRINGIFY(AMUDP_DEFAULT_NETWORKDEPTH)));
       if (networkdepth <= 0) networkdepth = AMUDP_DEFAULT_NETWORKDEPTH;
+    }
+    if (networkdepth > AMUDP_MAX_NETWORKDEPTH) { // provide useful error message
+      AMUDP_FatalErr("NETWORKDEPTH must be <= %d", AMUDP_MAX_NETWORKDEPTH);
     }
 
     if (nproc == 0) { /* default to read from args */
@@ -677,7 +676,7 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
 pollentry:
        #ifdef FD_SETSIZE /* Should always be present, but just in case */
         if (allList.getMaxFd() >= FD_SETSIZE)
-          AMUDP_FatalErr("Open sockets exceed FD_SETSIZE. Exiting...");
+          AMUDP_FatalErr("Open sockets exceed FD_SETSIZE=%d. Exiting...",FD_SETSIZE);
        #endif
         allList.makeFD_SET(psockset);
 
@@ -1111,8 +1110,8 @@ pollentry:
       if (networkpid) *networkpid = ntoh64(bootstrapinfo.networkpid);
 
       // sanity checking on bootstrap info
-      AMUDP_assert(AMUDP_SPMDNUMPROCS > 0 && AMUDP_SPMDNUMPROCS < AMUDP_MAX_SPMDPROCS);
-      AMUDP_assert(AMUDP_SPMDMYPROC >= 0 && AMUDP_SPMDMYPROC < AMUDP_SPMDNUMPROCS);
+      AMUDP_assert(AMUDP_SPMDNUMPROCS > 0 && AMUDP_SPMDNUMPROCS < (int)AMUDP_MAX_SPMDPROCS);
+      AMUDP_assert(AMUDP_SPMDMYPROC >= 0 && AMUDP_SPMDMYPROC < (int)AMUDP_SPMDNUMPROCS);
 
       #if !DISABLE_STDSOCKET_REDIRECT
       for (int fd=0; fd <= 2; fd++) {
@@ -1143,6 +1142,11 @@ pollentry:
 
 
       // setup translation table
+      temp = AM_SetNumTranslations(AMUDP_SPMDEndpoint, AMUDP_SPMDNUMPROCS);
+      if (temp != AM_OK) {
+        AMUDP_Err("Failed to AM_SetNumTranslations() in AMUDP_SPMDStartup");
+        AMUDP_RETURN(temp);
+      }
       for (int i = 0; i < AMUDP_SPMDNUMPROCS; i++) {
         temp = AM_Map(AMUDP_SPMDEndpoint, i, tempTranslation_name[i], ntoh64(tempTranslation_tag[i]));
         if (temp != AM_OK) {
@@ -1251,20 +1255,17 @@ pollentry:
 extern int AMUDP_SPMDHandleControlTraffic(int *controlMessagesServiced) {
   if (AMUDP_SPMDControlSocket == INVALID_SOCKET) return AM_OK; // not running in SPMD mode
   #if USE_ASYNC_TCP_CONTROL
-    if (!AMUDP_SPMDIsActiveControlSocket) return AM_OK; // nothing to do
+    ASYNC_CHECK(1);
+    if_pt (!AMUDP_SPMDIsActiveControlSocket) return AM_OK; // nothing to do
     ASYNC_TCP_DISABLE();
     AMUDP_SPMDIsActiveControlSocket = FALSE; 
   #endif 
   if (controlMessagesServiced) *controlMessagesServiced = 0;
   
   while (1) { // service everything waiting
-    try {
-      if (!inputWaiting(AMUDP_SPMDControlSocket)) {
-        ASYNC_TCP_ENABLE();
-        return AM_OK; // nothing more to do
-      }
-    } catch (xBase &exn) {
-      AMUDP_Err("Error checking AMUDP_SPMDControlSocket: %s", exn.why()); // probably conn reset
+    if_pt (!inputWaiting(AMUDP_SPMDControlSocket,false)) {
+      ASYNC_TCP_ENABLE();
+      return AM_OK; // nothing more to do
     }
 
     try {
@@ -1427,8 +1428,8 @@ extern int AMUDP_SPMDExit(int exitcode) {
   // GASNet calls here when handling a fatal or termination signal.
   /* try */ {
     int exitcode_nb = hton32(exitcode);
-    sendAll(AMUDP_SPMDControlSocket, "E", -1, 0);
-    sendAll(AMUDP_SPMDControlSocket, &exitcode_nb, sizeof(int32_t), 0);
+    sendAll(AMUDP_SPMDControlSocket, "E", -1, false);
+    sendAll(AMUDP_SPMDControlSocket, &exitcode_nb, sizeof(int32_t), false);
     while (1) { // swallow everything and wait for master to close
       char temp;
       int retval = recv(AMUDP_SPMDControlSocket, &temp, 1, 0); 

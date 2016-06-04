@@ -11,7 +11,7 @@
 #ifndef _GASNET_CORE_H
 #define _GASNET_CORE_H
 
-#include <amudp.h>
+#include <amudp_const.h>
 
 #include <gasnet_core_help.h>
 

@@ -108,9 +108,7 @@ static void AMUDP_InsertEndpoint(eb_t eb, ep_t ep) {
   AMUDP_assert(eb->endpoints != NULL);
   if (eb->n_endpoints == eb->cursize) { /* need to grow array */
     int newsize = eb->cursize * 2;
-    ep_t *newendpoints = (ep_t *)AMUDP_malloc(sizeof(ep_t)*newsize);
-    memcpy(newendpoints, eb->endpoints, sizeof(ep_t)*eb->n_endpoints);
-    eb->endpoints = newendpoints;
+    eb->endpoints = (ep_t *)AMUDP_realloc(eb->endpoints, sizeof(ep_t)*newsize);
     eb->cursize = newsize;
   }
   eb->endpoints[eb->n_endpoints] = ep;
@@ -133,52 +131,75 @@ static void AMUDP_RemoveEndpoint(eb_t eb, ep_t ep) {
   }
 }
 /*------------------------------------------------------------------------------------
- * Endpoint bulk buffer management
+ * Endpoint buffer management
  *------------------------------------------------------------------------------------ */
-extern amudp_buf_t *AMUDP_AcquireBulkBuffer(ep_t ep) { // get a bulk buffer
-  AMUDP_assert(ep != NULL);
-  AMUDP_assert(ep->bulkBufferPoolFreeCnt <= ep->bulkBufferPoolSz);
-  if (ep->bulkBufferPoolFreeCnt == 0) {
-    // grow the pool
-    int oldsz = ep->bulkBufferPoolSz;
-    amudp_buf_t **temp = (amudp_buf_t **)AMUDP_malloc((oldsz+1)*sizeof(amudp_buf_t *));
-    temp[0] = (amudp_buf_t *)AMUDP_malloc(AMUDP_MAXBULK_NETWORK_MSG);
-    temp[0]->status.bulkBuffer = NULL;
-    if (ep->bulkBufferPool) {
-      memcpy(temp+1, ep->bulkBufferPool, sizeof(amudp_buf_t *)*oldsz);
-      AMUDP_free(ep->bulkBufferPool);
-    }
-    ep->bulkBufferPool = temp;
-    ep->bulkBufferPoolSz = oldsz + 1;
-    ep->bulkBufferPoolFreeCnt = 1;
+/* internally, buffers have a header:
+ *   while allocated: pool points to the bufferpool
+ *   while freed: next pointer in free list
+ */
+#define AMUDP_BUFFERPOOL_MAGIC ((uint64_t)0x1001feedbac31001llu)
+extern amudp_buf_t *AMUDP_AcquireBuffer(ep_t ep, size_t sz) {
+  AMUDP_assert(ep);
+  AMUDP_assert(sz >= AMUDP_MIN_NETWORK_MSG);
+  amudp_bufferpool_t *pool;
+  if (sz == AMUDP_MIN_NETWORK_MSG) {
+    pool = &ep->bufferPool[0];
+  } else {
+    pool = &ep->bufferPool[1];
   }
-  return ep->bulkBufferPool[--ep->bulkBufferPoolFreeCnt];
+  size_t poolsz = pool->buffersz;
+  AMUDP_assert(sz <= poolsz);
+  AMUDP_assert(pool->magic == AMUDP_BUFFERPOOL_MAGIC);
+
+  amudp_bufferheader_t *bh;
+  if (pool->free) {
+    bh = pool->free;
+    pool->free = bh->next;
+  } else {
+    bh = (amudp_bufferheader_t *)AMUDP_malloc(sizeof(amudp_bufferheader_t) + poolsz);
+  }
+  bh->pool = pool;
+
+  AMUDP_memcheck(bh);
+
+  amudp_buf_t *buf = (amudp_buf_t *)(bh+1);
+  AMUDP_assert(!((uintptr_t)buf & 0x7)); // 8-byte alignment
+  return buf;
 }
 /* ------------------------------------------------------------------------------------ */
-extern void AMUDP_ReleaseBulkBuffer(ep_t ep, amudp_buf_t *buf) { // release a bulk buffer
-  int i; // this is non-optimal, but the list should never get too long, so it won't matter
-  AMUDP_assert(ep != NULL);
-  AMUDP_assert(ep->bulkBufferPoolFreeCnt <= ep->bulkBufferPoolSz);
-  for (i = ep->bulkBufferPoolFreeCnt; i < ep->bulkBufferPoolSz; i++) {
-    if (ep->bulkBufferPool[i] == buf) {
-      ep->bulkBufferPool[i] = ep->bulkBufferPool[ep->bulkBufferPoolFreeCnt];
-      ep->bulkBufferPool[ep->bulkBufferPoolFreeCnt] = buf;
-      ep->bulkBufferPoolFreeCnt++;
-      return;
-    }
+extern void AMUDP_ReleaseBuffer(ep_t ep, amudp_buf_t *buf) {
+  AMUDP_assert(ep);
+  AMUDP_assert(buf);
+  amudp_bufferheader_t *bh = ((amudp_bufferheader_t *)buf) - 1;
+  AMUDP_memcheck(bh);
+  amudp_bufferpool_t *pool = bh->pool;
+  AMUDP_assert(pool->magic == AMUDP_BUFFERPOOL_MAGIC);
+  bh->next = pool->free;
+  pool->free = bh;
+}
+/* ------------------------------------------------------------------------------------ */
+static void AMUDP_InitBuffers(ep_t ep) {
+  for (int i=0; i < AMUDP_NUMBUFFERPOOLS; i++) {
+    ep->bufferPool[i].free = NULL;
+    #if AMUDP_DEBUG
+      ep->bufferPool[i].magic = AMUDP_BUFFERPOOL_MAGIC;
+    #endif
   }
-  AMUDP_FatalErr("Internal error in AMUDP_ReleaseBulkBuffer()");
+  ep->bufferPool[0].buffersz = AMUDP_MIN_NETWORK_MSG;
+  ep->bufferPool[1].buffersz = AMUDP_MAXBULK_NETWORK_MSG;
 }
 /* ------------------------------------------------------------------------------------ */
 static void AMUDP_FreeAllBulkBuffers(ep_t ep) {
-  int i;
-  AMUDP_assert(ep != NULL);
-  AMUDP_assert(ep->bulkBufferPoolFreeCnt <= ep->bulkBufferPoolSz);
-  for (i=0; i < ep->bulkBufferPoolSz; i++) AMUDP_free(ep->bulkBufferPool[i]);
-  if (ep->bulkBufferPool) AMUDP_free(ep->bulkBufferPool);
-  ep->bulkBufferPool = NULL;
-  ep->bulkBufferPoolFreeCnt = 0;
-  ep->bulkBufferPoolSz = 0;
+  AMUDP_memcheck_all();
+
+  for (int i=0; i < AMUDP_NUMBUFFERPOOLS; i++) {
+    amudp_bufferpool_t *pool = &ep->bufferPool[i];
+    for (amudp_bufferheader_t *bh = pool->free; bh; ) {
+      amudp_bufferheader_t *next = bh->next;
+      AMUDP_free(bh);
+      bh = next;
+    }
+  }
 }
 /*------------------------------------------------------------------------------------
  * Endpoint resource management
@@ -287,6 +308,10 @@ static int AMUDP_AllocateEndpointResource(ep_t ep) {
                            "AMUDP_AllocateEndpointResource failed to determine UDP endpoint interface port");
       }
     }
+
+    ep->translationsz = AMUDP_INIT_NUMTRANSLATIONS;
+    ep->translation = (amudp_translation_t *)AMUDP_calloc(ep->translationsz, sizeof(amudp_translation_t));
+
     return AM_OK;
 }
 /* ------------------------------------------------------------------------------------ */
@@ -297,57 +322,54 @@ static int AMUDP_AllocateEndpointBuffers(ep_t ep) {
   AMUDP_assert(ep != NULL);
   AMUDP_assert(ep->depth >= 1);
   AMUDP_assert(ep->P > 0 && ep->P <= AMUDP_MAX_NUMTRANSLATIONS);
-  AMUDP_assert(ep->PD == ep->P * ep->depth);
+  AMUDP_assert(ep->PD == (int)ep->P * ep->depth);
+  AMUDP_assert(ep->recvDepth <= AMUDP_MAX_RECVDEPTH);
 
   AMUDP_assert(sizeof(amudp_buf_t) % sizeof(int) == 0); /* assume word-addressable machine */
-  if (2*PD+1 > 65535) return FALSE; /* would overflow rxNumBufs */
-  /* one extra rx buffer for ease of implementing circular rx buf
-   * one for temporary buffer
-   * allocate using calloc to prevent valgrind warnings for sending phantom padding argument
+
+  uint32_t rxBufs = ep->recvDepth + 1;
+  ep->rxNumBufs = (uint16_t)rxBufs;
+  AMUDP_assert(rxBufs == (uint32_t)ep->rxNumBufs); // check overflow
+
+  /* Static buffer allocation:
+   * 2 * PD for request and reply send buffers
+   * recvDepth for recv, plus one extra for ease of implementing circular rx buf
+   * two for temporary buffers
    */
-  pool = (amudp_buf_t *)AMUDP_calloc((4 * PD + 2), sizeof(amudp_buf_t));
+
+  ep->totalBufs = 2 * PD + ep->rxNumBufs + 2;
+  pool = (amudp_buf_t *)AMUDP_calloc(ep->totalBufs, sizeof(amudp_buf_t));
   if (!pool) return FALSE;
   ep->requestBuf = pool;
   ep->replyBuf = &pool[PD];
   ep->rxBuf = &pool[2*PD];
-  ep->rxNumBufs = (uint16_t)(2*PD + 1);
   ep->rxFreeIdx = 0;
   ep->rxReadyIdx = 0;
-  ep->temporaryBuf = &pool[4*PD+1];
+  ep->temporaryBuf = &ep->rxBuf[ep->rxNumBufs];
 
   { int HPAMsize = 2*PD*AMUDP_MAX_NETWORK_MSG; /* theoretical max required by plain-vanilla HPAM */
     int padsize = 2*AMUDP_MAXBULK_NETWORK_MSG; /* some pad for non-HPAM true bulk xfers & retransmissions */
-  
+    int sz = MIN(HPAMsize+padsize, AMUDP_SOCKETBUFFER_MAX);
+     
     #if USE_SOCKET_RECVBUFFER_GROW
-        ep->socketRecvBufferMaxedOut = AMUDP_growSocketBufferSize(ep, HPAMsize+padsize, SO_RCVBUF, "SO_RCVBUF");
+        ep->socketRecvBufferMaxedOut = AMUDP_growSocketBufferSize(ep, sz, SO_RCVBUF, "SO_RCVBUF");
     #endif
     #if USE_SOCKET_SENDBUFFER_GROW
-        AMUDP_growSocketBufferSize(ep, HPAMsize+padsize, SO_SNDBUF, "SO_SNDBUF");
+        AMUDP_growSocketBufferSize(ep, sz, SO_SNDBUF, "SO_SNDBUF");
     #endif
   }
 
-  ep->requestDesc = (amudp_bufdesc_t*)AMUDP_malloc(2 * PD * sizeof(amudp_bufdesc_t));
+  ep->requestDesc = (amudp_bufdesc_t*)AMUDP_calloc(2 * PD, sizeof(amudp_bufdesc_t));
   ep->replyDesc = &ep->requestDesc[PD];
   /* init descriptor tables */
-  memset(ep->requestDesc, 0, PD * sizeof(amudp_bufdesc_t));
-  memset(ep->replyDesc,   0, PD * sizeof(amudp_bufdesc_t));
   ep->outstandingRequests = 0;
   ep->timeoutCheckPosn = 0;
 
   /* instance hint pointers & compressed translation table */
-  ep->perProcInfo = (amudp_perproc_info_t *)AMUDP_malloc(ep->P * sizeof(amudp_perproc_info_t));
-  memset(ep->perProcInfo, 0, ep->P * sizeof(amudp_perproc_info_t));
+  ep->perProcInfo = (amudp_perproc_info_t *)AMUDP_calloc(ep->P, sizeof(amudp_perproc_info_t));
 
-  { int i; /* need to init the reply bulk buffer ptrs */
-    /* must do this regardless of USE_TRUE_BULK_XFERS, because we check it later even
-     * if USE_TRUE_BULK_XFERS is off
-     * */
-    for (i = 0; i < PD; i++) ep->replyBuf[i].status.bulkBuffer = NULL;
-  }
+  AMUDP_InitBuffers(ep);
 
-  ep->bulkBufferPool = NULL;
-  ep->bulkBufferPoolSz = 0;
-  ep->bulkBufferPoolFreeCnt = 0;
   return TRUE;
 }
 /* ------------------------------------------------------------------------------------ */
@@ -357,6 +379,9 @@ static int AMUDP_FreeEndpointResource(ep_t ep) {
   #ifdef AMUDP_BLCR_ENABLED
     if (AMUDP_SPMDRestartActive) { /* it is already gone */ } else
   #endif
+
+  AMUDP_free(ep->translation);
+
   if (closesocket(ep->s) == SOCKET_ERROR) return FALSE;
   return TRUE;
 }
@@ -364,7 +389,13 @@ static int AMUDP_FreeEndpointResource(ep_t ep) {
 static int AMUDP_FreeEndpointBuffers(ep_t ep) {
   AMUDP_assert(ep != NULL);
 
-  AMUDP_free(ep->requestBuf);
+  for (uint32_t i=0; i < ep->totalBufs; i++) { // release bulk buffers in use
+    amudp_buf_t *bulkbuffer = ep->requestBuf[i].status.bulkBuffer;
+    if (bulkbuffer) AMUDP_ReleaseBulkBuffer(ep, bulkbuffer);
+  }
+  AMUDP_FreeAllBulkBuffers(ep);
+
+  AMUDP_free(ep->requestBuf); // this frees all the static buffers
   ep->rxBuf = NULL;
   ep->requestBuf = NULL;
   ep->replyBuf = NULL;
@@ -375,8 +406,6 @@ static int AMUDP_FreeEndpointBuffers(ep_t ep) {
 
   AMUDP_free(ep->perProcInfo);
   ep->perProcInfo = NULL;
-
-  AMUDP_FreeAllBulkBuffers(ep);
 
   return TRUE;
 }
@@ -485,7 +514,7 @@ extern int AM_AllocateEndpoint(eb_t bundle, ep_t *endp, en_t *endpoint_name) {
   AMUDP_CHECKINIT();
   if (!bundle || !endp || !endpoint_name) AMUDP_RETURN_ERR(BAD_ARG);
 
-  ep = (ep_t)AMUDP_malloc(sizeof(struct amudp_ep));
+  ep = (ep_t)AMUDP_calloc(1, sizeof(struct amudp_ep));
   retval = AMUDP_AllocateEndpointResource(ep);
   if (retval != AM_OK) {
     AMUDP_free(ep);
@@ -496,13 +525,9 @@ extern int AM_AllocateEndpoint(eb_t bundle, ep_t *endp, en_t *endpoint_name) {
   AMUDP_InsertEndpoint(bundle, ep);
   ep->eb = bundle;
 
-  /* initialize ep data */
-  { int i;
-    for (i = 0; i < AMUDP_MAX_NUMTRANSLATIONS; i++) {
-      ep->translation[i].inuse = FALSE;
-    }
+  { /* initialize ep data */
     ep->handler[0] = amudp_defaultreturnedmsg_handler;
-    for (i = 1; i < AMUDP_MAX_NUMHANDLERS; i++) {
+    for (int i = 1; i < AMUDP_MAX_NUMHANDLERS; i++) {
       ep->handler[i] = amudp_unused_handler;
     }
     ep->tag = AM_NONE;
@@ -529,7 +554,9 @@ extern int AM_FreeEndpoint(ep_t ea) {
   if (!AMUDP_ContainsEndpoint(ea->eb, ea)) AMUDP_RETURN_ERR(RESOURCE);
 
   if (!AMUDP_FreeEndpointResource(ea)) retval = AM_ERR_RESOURCE;
-  if (!AMUDP_FreeEndpointBuffers(ea)) retval = AM_ERR_RESOURCE;
+  if (ea->depth != -1) {
+    if (!AMUDP_FreeEndpointBuffers(ea)) retval = AM_ERR_RESOURCE;
+  }
 
   AMUDP_RemoveEndpoint(ea->eb, ea);
   AMUDP_free(ea);
@@ -597,7 +624,7 @@ extern int AM_MaxSegLength(uintptr_t* nbytes) {
 extern int AM_Map(ep_t ea, int index, en_t name, tag_t tag) {
   AMUDP_CHECKINIT();
   if (!ea) AMUDP_RETURN_ERR(BAD_ARG);
-  if (index < 0 || index >= AMUDP_MAX_NUMTRANSLATIONS) AMUDP_RETURN_ERR(BAD_ARG);
+  if (index < 0 || (amudp_node_t)index >= ea->translationsz) AMUDP_RETURN_ERR(BAD_ARG);
   if (ea->translation[index].inuse) AMUDP_RETURN_ERR(RESOURCE); /* it's an error to re-map */
   if (ea->depth != -1) AMUDP_RETURN_ERR(RESOURCE); /* it's an error to map after call to AM_SetExpectedResources */
 
@@ -613,25 +640,22 @@ extern int AM_MapAny(ep_t ea, int *index, en_t name, tag_t tag) {
   if (!ea || !index) AMUDP_RETURN_ERR(BAD_ARG);
   if (ea->depth != -1) AMUDP_RETURN_ERR(RESOURCE); /* it's an error to map after call to AM_SetExpectedResources */
 
-  { int i;
-    for (i = 0; i < AMUDP_MAX_NUMTRANSLATIONS; i++) {
-      if (!ea->translation[i].inuse) { /* use this one */
-        ea->translation[i].inuse = TRUE;
-        ea->translation[i].name = name;
-        ea->translation[i].tag = tag;
-        ea->P++;  /* track num of translations */
-        *index = i;
-        return AM_OK;
-      }
-    }
-    AMUDP_RETURN_ERR(RESOURCE); /* none available */
+  amudp_node_t i;
+  for (i = 0; i < ea->translationsz; i++) { /* find a free entry, possibly a middle hole */
+    if (!ea->translation[i].inuse) break; /* use this one */
   }
+  if (i == ea->translationsz) AMUDP_RETURN_ERR(RESOURCE); /* none available */
+
+  int retval = AM_Map(ea, i, name, tag);
+
+  if (retval == AM_OK) *index = i;
+  return retval;
 }
 /* ------------------------------------------------------------------------------------ */
 extern int AM_UnMap(ep_t ea, int index) {
   AMUDP_CHECKINIT();
   if (!ea) AMUDP_RETURN_ERR(BAD_ARG);
-  if (index < 0 || index >= AMUDP_MAX_NUMTRANSLATIONS) AMUDP_RETURN_ERR(BAD_ARG);
+  if (index < 0 || (amudp_node_t)index >= ea->translationsz) AMUDP_RETURN_ERR(BAD_ARG);
   if (!ea->translation[index].inuse) AMUDP_RETURN_ERR(RESOURCE); /* not mapped */
   if (ea->depth != -1) AMUDP_RETURN_ERR(RESOURCE); /* it's an error to unmap after call to AM_SetExpectedResources */
 
@@ -640,10 +664,41 @@ extern int AM_UnMap(ep_t ea, int index) {
   return AM_OK;
 }
 /* ------------------------------------------------------------------------------------ */
+extern int AM_GetNumTranslations(ep_t ea, int *pntrans) {
+  AMUDP_CHECKINIT();
+  if (!ea) AMUDP_RETURN_ERR(BAD_ARG);
+  AMUDP_assert(ea->translationsz <= AMUDP_MAX_NUMTRANSLATIONS);
+  *(pntrans) = ea->translationsz;
+  return AM_OK;
+}
+/* ------------------------------------------------------------------------------------ */
+extern int AM_SetNumTranslations(ep_t ea, int ntrans) {
+  amudp_node_t newsz = (amudp_node_t)ntrans;
+  AMUDP_CHECKINIT();
+  if (!ea) AMUDP_RETURN_ERR(BAD_ARG);
+  if (ntrans < 0 || newsz > AMUDP_MAX_NUMTRANSLATIONS) AMUDP_RETURN_ERR(RESOURCE);
+  if (newsz < AMUDP_INIT_NUMTRANSLATIONS) /* don't shrink beyond min value */
+    newsz = AMUDP_INIT_NUMTRANSLATIONS;
+  if (newsz == ea->translationsz) return AM_OK; /* no change */
+  if (ea->depth != -1) AMUDP_RETURN_ERR(RESOURCE); /* it's an error to change translationsz after call to AM_SetExpectedResources */
+
+  for (amudp_node_t i = newsz; i < ea->translationsz; i++) {
+    if (ea->translation[i].inuse)
+      AMUDP_RETURN_ERR(RESOURCE); /* it's an error to truncate away live maps */
+  }
+  ea->translation = (amudp_translation_t *)AMUDP_realloc(ea->translation, newsz * sizeof(amudp_translation_t));
+  /* we may be growing or truncating the table */
+  if (newsz > ea->translationsz) 
+    memset(&(ea->translation[ea->translationsz]), 0, (newsz - ea->translationsz) * sizeof(amudp_translation_t));
+  ea->translationsz = newsz;
+
+  return AM_OK;
+}
+/* ------------------------------------------------------------------------------------ */
 extern int AM_GetTranslationInuse(ep_t ea, int i) {
   AMUDP_CHECKINIT();
   if (!ea) AMUDP_RETURN_ERR(BAD_ARG);
-  if (i < 0 || i >= AMUDP_MAX_NUMTRANSLATIONS) AMUDP_RETURN_ERR(BAD_ARG);
+  if (i < 0 || (amudp_node_t)i >= ea->translationsz) AMUDP_RETURN_ERR(BAD_ARG);
 
   if (ea->translation[i].inuse) return AM_OK; /* in use */
   else return AM_ERR_RESOURCE; /* don't complain here - it's a common case */
@@ -652,7 +707,7 @@ extern int AM_GetTranslationInuse(ep_t ea, int i) {
 extern int AM_GetTranslationTag(ep_t ea, int i, tag_t *tag) {
   AMUDP_CHECKINIT();
   if (!ea || !tag) AMUDP_RETURN_ERR(BAD_ARG);
-  if (i < 0 || i >= AMUDP_MAX_NUMTRANSLATIONS) AMUDP_RETURN_ERR(BAD_ARG);
+  if (i < 0 || (amudp_node_t)i >= ea->translationsz) AMUDP_RETURN_ERR(BAD_ARG);
   if (!ea->translation[i].inuse) AMUDP_RETURN_ERR(RESOURCE);
 
   (*tag) = ea->translation[i].tag;
@@ -662,7 +717,7 @@ extern int AM_GetTranslationTag(ep_t ea, int i, tag_t *tag) {
 extern int AMUDP_SetTranslationTag(ep_t ea, int index, tag_t tag) {
   AMUDP_CHECKINIT();
   if (!ea) AMUDP_RETURN_ERR(BAD_ARG);
-  if (index < 0 || index >= AMUDP_MAX_NUMTRANSLATIONS) AMUDP_RETURN_ERR(BAD_ARG);
+  if (index < 0 || (amudp_node_t)index >= ea->translationsz) AMUDP_RETURN_ERR(BAD_ARG);
   if (!ea->translation[index].inuse) AMUDP_RETURN_ERR(RESOURCE); /* can't change tag if not mapped */
 
   ea->translation[index].tag = tag;
@@ -677,7 +732,7 @@ extern int AMUDP_SetTranslationTag(ep_t ea, int index, tag_t tag) {
 extern int AM_GetTranslationName(ep_t ea, int i, en_t *gan) {
   AMUDP_CHECKINIT();
   if (!ea || !gan) AMUDP_RETURN_ERR(BAD_ARG);
-  if (i < 0 || i >= AMUDP_MAX_NUMTRANSLATIONS) AMUDP_RETURN_ERR(BAD_ARG);
+  if (i < 0 || (amudp_node_t)i >= ea->translationsz) AMUDP_RETURN_ERR(BAD_ARG);
   if (!ea->translation[i].inuse) AMUDP_RETURN_ERR(RESOURCE);
 
   (*gan) = ea->translation[i].name; 
@@ -696,23 +751,6 @@ extern int AM_SetExpectedResources(ep_t ea, int n_endpoints, int n_outstanding_r
   ea->depth = n_outstanding_requests;
   ea->PD = ea->P * ea->depth;
 
-  if (!AMUDP_AllocateEndpointBuffers(ea)) AMUDP_RETURN_ERR(RESOURCE);
-
-  /*  compact a copy of the translation table into our perproc info array */
-  { int procid = 0;
-    int i;
-    for (i=0; i < AMUDP_MAX_NUMTRANSLATIONS; i++) {
-      if (ea->translation[i].inuse) {
-        ea->perProcInfo[procid].remoteName = ea->translation[i].name;
-        ea->perProcInfo[procid].tag = ea->translation[i].tag;
-        ea->translation[i].id = (uint16_t)procid;
-        procid++;
-        if (procid == ea->P) break; /*  should have all of them now */
-      }
-    }
-  }
-
-  if (firsttime) { /* set transfer parameters */
     #define ENVINT_WITH_DEFAULT(var, name, validate) do { \
         char defval[80];                                  \
         const char *valstr;                               \
@@ -732,6 +770,14 @@ extern int AM_SetExpectedResources(ep_t ea, int n_endpoints, int n_outstanding_r
         }                                                 \
       } while (0)
 
+  // default recv depth is enough for full-bandwidth comms with up to 4 neighbors
+  ea->recvDepth = 2 *  ea->depth * MIN(MAX(1,ea->P-1),4); 
+  ENVINT_WITH_DEFAULT(ea->recvDepth, "RECVDEPTH", { 
+    if (val <= 0 || val > AMUDP_MAX_RECVDEPTH) 
+      AMUDP_FatalErr("RECVDEPTH must be in 1..%d", AMUDP_MAX_RECVDEPTH);
+    });
+
+  if (firsttime) { /* set transfer parameters */
     ENVINT_WITH_DEFAULT(AMUDP_MaxRequestTimeout_us, "REQUESTTIMEOUT_MAX",
                         { if (val <= 0) AMUDP_MaxRequestTimeout_us = AMUDP_TIMEOUT_INFINITE; });
     ENVINT_WITH_DEFAULT(AMUDP_InitialRequestTimeout_us, "REQUESTTIMEOUT_INITIAL",
@@ -752,6 +798,22 @@ extern int AM_SetExpectedResources(ep_t ea, int n_endpoints, int n_outstanding_r
     #endif
     firsttime = 0;
   }
+
+  if (!AMUDP_AllocateEndpointBuffers(ea)) AMUDP_RETURN_ERR(RESOURCE);
+
+  /*  compact a copy of the translation table into our perproc info array */
+  { amudp_node_t procid = 0;
+    for (amudp_node_t i=0; i < ea->translationsz; i++) {
+      if (ea->translation[i].inuse) {
+        ea->perProcInfo[procid].remoteName = ea->translation[i].name;
+        ea->perProcInfo[procid].tag = ea->translation[i].tag;
+        ea->translation[i].id = procid;
+        procid++;
+        if (procid == ea->P) break; /*  should have all of them now */
+      }
+    }
+  }
+
   return AM_OK;
 }
 /*------------------------------------------------------------------------------------
@@ -834,7 +896,7 @@ extern int AMUDP_GetSourceId(void *token, int *srcid) {
   AMUDP_CHECKINIT();
   AMUDP_CHECK_ERR((!token || !srcid),BAD_ARG);
 
-  *srcid = ((amudp_buf_t *)token)->status.sourceId;
+  *srcid = (int)((amudp_buf_t *)token)->status.sourceId;
   return AM_OK;
 }
 /* ------------------------------------------------------------------------------------ */
@@ -1017,13 +1079,10 @@ extern const char *AMUDP_DumpStatistics(void *_fp, amudp_stats_t *stats, int glo
   #endif
 
     "Message Breakdown:        Requests     Replies   Avg data sz (Req/Rep/Both)\n"
-    " Small  (<=%5i bytes)   %8lu    %8lu  %9.*f/%.*f/%.*f bytes\n"
+    " Short  (<=%5i bytes)   %8lu    %8lu  %9.*f/%.*f/%.*f bytes\n"
     " Medium (<=%5i bytes)   %8lu    %8lu  %9.*f/%.*f/%.*f bytes\n"
-    " Large  (<=%5i bytes)   %8lu    %8lu  %9.*f/%.*f/%.*f bytes\n"
+    " Long   (<=%5i bytes)   %8lu    %8lu  %9.*f/%.*f/%.*f bytes\n"
 
-  #if !USE_TRUE_BULK_XFERS
-    " ^^^^^ (Statistics for Large refer to internal fragments)\n"
-  #endif
     " Total                                          %9.*f/%.*f/%.*f bytes\n"
 
     "Data bytes sent:      %lu/%lu/%lu bytes\n"
@@ -1051,11 +1110,7 @@ extern const char *AMUDP_DumpStatistics(void *_fp, amudp_stats_t *stats, int glo
       AMUDP_StatPrecision(reqavgpayload[amudp_Medium]), reqavgpayload[amudp_Medium], 
       AMUDP_StatPrecision(repavgpayload[amudp_Medium]), repavgpayload[amudp_Medium], 
       AMUDP_StatPrecision(avgpayload[amudp_Medium]), avgpayload[amudp_Medium], 
-  #if USE_TRUE_BULK_XFERS
     (int)(AMUDP_MAX_SHORT*sizeof(int) + AMUDP_MAX_LONG),
-  #else
-    (int)(AMUDP_MAX_SHORT*sizeof(int) + AMUDP_MAX_MEDIUM),
-  #endif
       (unsigned long)stats->RequestsSent[amudp_Long], (unsigned long)stats->RepliesSent[amudp_Long], 
       AMUDP_StatPrecision(reqavgpayload[amudp_Long]), reqavgpayload[amudp_Long], 
       AMUDP_StatPrecision(repavgpayload[amudp_Long]), repavgpayload[amudp_Long], 

@@ -8,109 +8,31 @@
 
 #include <stdarg.h>
 #include <stddef.h>
+#include <netinet/in.h> /* for sockaddr_in */
 
 #include <portable_inttypes.h>
-#include <portable_platform.h>
 
-#include "socket.h"
-
-/* miscellaneous macro helpers */
-#ifndef _STRINGIFY
-#define _STRINGIFY_HELPER(x) #x
-#define _STRINGIFY(x) _STRINGIFY_HELPER(x)
-#endif
-
-#ifndef _CONCAT
-#define _CONCAT_HELPER(a,b) a ## b
-#define _CONCAT(a,b) _CONCAT_HELPER(a,b)
-#endif
-
-#ifndef AMUDP
-#define AMUDP 1
-#endif
-
-#define AMUDP_LIBRARY_VERSION      3.12
-#define AMUDP_LIBRARY_VERSION_STR  _STRINGIFY(AMUDP_LIBRARY_VERSION)
-
-#if !defined(AMUDP_DEBUG) && !defined(AMUDP_NDEBUG)
-  #if defined(GASNET_DEBUG) || defined(AMX_DEBUG)
-    #define AMUDP_DEBUG 1
-  #elif defined(GASNET_NDEBUG) || defined(AMX_NDEBUG)
-    #define AMUDP_NDEBUG 1
-  #endif
-#endif
-#if defined(AMUDP_DEBUG) && !defined(AMUDP_NDEBUG)
-  #undef AMUDP_DEBUG
-  #define AMUDP_DEBUG 1
-#elif !defined(AMUDP_DEBUG) && defined(AMUDP_NDEBUG)
-  #undef AMUDP_NDEBUG
-  #define AMUDP_NDEBUG 1
-#else
-  #error bad defns of AMUDP_DEBUG and AMUDP_NDEBUG
-#endif
-
-#undef AMX_DEBUG
-#undef AMX_NDEBUG
-
-#ifdef AMUDP_DEBUG
-  #define AMX_DEBUG AMUDP_DEBUG
-  #define AMUDP_DEBUG_CONFIG _DEBUG
-#endif
-#ifdef AMUDP_NDEBUG
-  #define AMX_NDEBUG AMUDP_NDEBUG
-  #define AMUDP_DEBUG_CONFIG _NDEBUG
-#endif
-
-/* idiot proofing */
-#if defined(AMUDP_DEBUG) && (defined(__OPTIMIZE__) || defined(NDEBUG))
-  #if !defined(AMUDP_ALLOW_OPTIMIZED_DEBUG) && !defined(GASNET_ALLOW_OPTIMIZED_DEBUG)
-    #error Tried to compile AMUDP client code with optimization enabled but also AMUDP_DEBUG (which seriously hurts performance). Disable C and C++ compiler optimization or reconfigure/rebuild without --enable-debug
-  #endif
-#endif
-
+#include <amudp_const.h>
 
 /* naming policy:
   AM-defined things start with AM_
   internal things start with amudp_ or AMUDP_
   */
 
-/* ------------------------------------------------------------------------------------ */
-/* Internal constants */
-#define AMUDP_MAX_SHORT    16    /* max number of handler arguments, >=8 */
-#define AMUDP_MAX_MEDIUM   512   /* max. data transmission unit for medium messages, >= 512 */
-
-#if PLATFORM_OS_IRIX
-  #define AMUDP_MAX_LONG     61000  /* max. UDP datagram on IRIX is apparently 61412 */
-#elif PLATFORM_OS_TRU64 || PLATFORM_OS_FREEBSD || PLATFORM_OS_NETBSD || \
-      PLATFORM_OS_DARWIN || PLATFORM_OS_AIX
-  #define AMUDP_MAX_LONG     9000   /* max UDP datagram on OSF/FREEBSD/DARWIN is apparently 9196 */
+#ifdef __cplusplus
+  #define AMUDP_BEGIN_EXTERNC extern "C" {
+  #define AMUDP_END_EXTERNC }
+  #define AMUDP_EXTERNC extern "C"
 #else
-  #define AMUDP_MAX_LONG     65000  /* default max. UDP datagram */
+  #define AMUDP_BEGIN_EXTERNC 
+  #define AMUDP_END_EXTERNC 
+  #define AMUDP_EXTERNC
 #endif
 
-#define AMUDP_MAX_NUMHANDLERS      256  /* max. handler-table entries >= 256 */
-#define AMUDP_MAX_NUMTRANSLATIONS  16384 /* max. translation-table entries >= 256 */
-#define AMUDP_MAX_SEGLENGTH  ((uintptr_t)-1) /* max. dest_offset */
+AMUDP_BEGIN_EXTERNC
 
-#define AMUDP_MAX_BUNDLES          255  /* max bundles that can be allocated */
-#define AMUDP_MAX_NETWORKDEPTH     1024 /* max depth we ever allow user to ask for (constrained by instance bits) */
-#define AMUDP_MAX_SPMDPROCS        AMUDP_MAX_NUMTRANSLATIONS  /* max SPMD procs we support */
-
-#ifndef AMUDP_COLLECT_STATS
-#define AMUDP_COLLECT_STATS   1
-#endif
-#ifndef AMUDP_COLLECT_LATENCY_STATS
-#define AMUDP_COLLECT_LATENCY_STATS   1
-#endif
-
-#define AMUDP_PROCID_NEXT -1  /* Use next unallocated procid */
-#define AMUDP_PROCID_ALLOC -2 /* Allocate and return next procis, but do not bootstrap */
-
-#ifndef AMUDP_EXTRA_CHECKSUM
-#define AMUDP_EXTRA_CHECKSUM 0
-#endif
 /* ------------------------------------------------------------------------------------ */
-/* Simple user-visible types */
+/* User-visible types */
 
 /* Endpoint tag */
 typedef uint64_t tag_t;
@@ -121,123 +43,24 @@ typedef uint8_t handler_t;
 /* #define AMUDP_BADHANDLERVAL(h) (h < 0 || h >= AMUDP_MAX_NUMHANDLERS) */
 
 /* Endpoint name */
+typedef uint32_t amudp_node_t;
 typedef struct sockaddr_in en_t;
-
-struct amudp_ep; /* forward decls */
-struct amudp_buf;
 
 /* CPU ticks */
 typedef uint64_t amudp_cputick_t; 
 
-/* ------------------------------------------------------------------------------------ */
-/* Internal types */
-
-/* message flags:
- * 0-1: category
- * 2:   request vs. reply 
- * 3-7: numargs
- * message instance:
- * 0-5:  sequence number
- * 6-15: instance number
- */
-typedef unsigned char amudp_flag_t;
 typedef enum {
-  amudp_Short=0, 
-  amudp_Medium=1, 
+  amudp_Short=0,
+  amudp_Medium=1,
   amudp_Long=2,
   amudp_NumCategories=3
 } amudp_category_t;
-
-#define AMUDP_SEQNUM_BITS         6
-#define AMUDP_SEQNUM_MASK         0x3F
-#define AMUDP_SEQNUM_INC(v)       ((uint8_t)( (((uint8_t)(v))+1) & AMUDP_SEQNUM_MASK))
-#define AMUDP_MSG_SETFLAGS(pmsg, isreq, cat, numargs, seqnum, instance) do { \
-   (pmsg)->flags = (amudp_flag_t) (                                          \
-                   (((numargs) & 0x1F) << 3)                                 \
-                 | (((isreq) & 0x1) << 2)                                    \
-                 |  ((cat) & 0x3)                                            \
-                 );                                                          \
-   (pmsg)->_instance = (uint16_t) (                                          \
-                   ((seqnum) & AMUDP_SEQNUM_MASK)                            \
-                 | (((instance) & 0x3FF) << AMUDP_SEQNUM_BITS)               \
-                 );                                                          \
-  } while (0)
-#define AMUDP_MSG_NUMARGS(pmsg)   ( ( ((unsigned char)(pmsg)->flags) >> 3 ) & 0x1F)
-#define AMUDP_MSG_ISREQUEST(pmsg) (!!(((unsigned char)(pmsg)->flags) & 0x4))
-#define AMUDP_MSG_CATEGORY(pmsg)  ((amudp_category_t)((pmsg)->flags & 0x3))
-#define AMUDP_MSG_SEQNUM(pmsg)    (((uint8_t)(pmsg)->_instance) & AMUDP_SEQNUM_MASK)
-#define AMUDP_MSG_INSTANCE(pmsg)  ((uint16_t)((pmsg)->_instance >> AMUDP_SEQNUM_BITS))
-
-/* active message header & meta info fields */
-typedef struct {
-  #if AMUDP_EXTRA_CHECKSUM
-    uint16_t chk1;  // these fields must come first in amudp_msg_t
-    uint16_t chk2;
-    uint32_t packetlen;
-  #endif
-
-  tag_t         tag;
-
-  uint16_t      _instance; /* instance and seqnum */
-  amudp_flag_t  flags;
-  handler_t     handlerId;
-
-  uint16_t      nBytes;
-  uint8_t       systemMessageType;
-  uint8_t       systemMessageArg;
-
-  uintptr_t	destOffset;
-} amudp_msg_t;
-
-/* non-transmitted amudp buffer bookkeeping info -
- * this data must be kept to a bare minimum because it constrains packet size 
- */
-typedef struct {
-  int8_t handlerRunning;
-  int8_t replyIssued;
-  uint16_t sourceId;      /* 0-based endpoint id of remote */
-  en_t sourceAddr;        /* address of remote */
-  struct amudp_ep *dest;  /* ep_t of endpoint that received this message */
-  struct amudp_buf *bulkBuffer; /* if non-NULL, points to a bulk buffer 
-                              holding the transmitted data fields for this buffer */
-} amudp_bufstatus_t;
-
-/* active message buffer, including message and space for data payload */
-typedef struct amudp_buf {
-
-  amudp_msg_t	Msg;
-  uint8_t     _Data[(4*AMUDP_MAX_SHORT)+AMUDP_MAX_MEDIUM]; /* holds args and data */
-
-  /* received requests & replies only 
-    (NOT valid inside bulk buffers, and only the bulkBuffer field is valid in send buffers) */
-  amudp_bufstatus_t status;
-
-} amudp_buf_t;
-
-#define AMUDP_MIN_NETWORK_MSG     ((int)(uintptr_t)&((amudp_buf_t *)NULL)->_Data[0])
-#define AMUDP_MAX_NETWORK_MSG     (AMUDP_MIN_NETWORK_MSG+(4*AMUDP_MAX_SHORT)+AMUDP_MAX_MEDIUM)
-#define AMUDP_MAXBULK_NETWORK_MSG (AMUDP_MIN_NETWORK_MSG+(4*AMUDP_MAX_SHORT)+AMUDP_MAX_LONG)
-
-/* message buffer descriptor */
-typedef struct {
-  amudp_cputick_t timestamp; 
-  #if AMUDP_COLLECT_LATENCY_STATS
-    amudp_cputick_t firstSendTime; /* for statistical purposes only */
-  #endif
-  uint8_t retryCount; /* where we are in the retransmit backoff */
-  uint8_t transmitCount; /* how many times we've actually transmitted */
-  uint8_t inuse;
-  uint8_t seqNum; /* seq number for next message to be sent/recv'd on this desc */
-} amudp_bufdesc_t;
-
-/* ------------------------------------------------------------------------------------ */
-/* Complex user-visible types */
 
 /* statistical collection 
  *  changes here need to also be reflected in the initialization vector AMUDP_initial_stats
  */
 typedef struct {
-  uint64_t RequestsSent[amudp_NumCategories]; /* counts fragments for amudp_Long && !USE_TRUE_BULK_XFERS */
+  uint64_t RequestsSent[amudp_NumCategories]; 
   uint64_t RepliesSent[amudp_NumCategories];
   uint64_t RequestsRetransmitted[amudp_NumCategories];
   uint64_t RepliesRetransmitted[amudp_NumCategories];
@@ -259,126 +82,19 @@ typedef void *amudp_handler_fn_t;
 #else
 typedef void (*amudp_handler_fn_t)();  /* prototype for handler function */
 #endif
-typedef struct {
-  char inuse; /*  entry in use */
-  en_t name;  /*  remote address */
-  tag_t tag;  /*  remote tag */
-  uint16_t id; /*  id in compressed table */
-} amudp_translation_t;
-
-typedef struct {
-  uintptr_t minDestOffset;   /* smallest destOffset seen in this xfer */
-  uint32_t runningLength;    /* number of bytes copied thus far */
-  uint8_t  packetsRemaining; /* number of packets left to be recieved (0 = notinuse)*/
-  uint8_t  numargs;          /* cache number of args */
-  uint32_t args[AMUDP_MAX_SHORT]; /* cache the args (sent in a single fragment) */
-} bulkslot_t;
-
-typedef struct {
-  uint16_t  instanceHint; /* instance hint pointer for request buffer allocation */
-  en_t      remoteName;   /* gives us a compacted version of the translation table */
-  tag_t     tag;
-  bulkslot_t inboundBulkSlot[16]; /* slots for maintaining inbound bulk transfer status */
-} amudp_perproc_info_t;
-
-typedef void (*AMUDP_preHandlerCallback_t)(amudp_category_t cat, int isReq, int handlerId, void *token, 
-                                         void *buf, size_t nbytes, int numargs, uint32_t *args);
-typedef void (*AMUDP_postHandlerCallback_t)(amudp_category_t cat, int isReq);
 
 /* Endpoint bundle object */
-typedef struct amudp_eb {
-  struct amudp_ep **endpoints;   /* dynamically-grown array of endpoints in bundle */
-  int	  n_endpoints;           /* Number of EPs in the bundle */
-  int	  cursize;               /* size of the array */
-  uint8_t event_mask;            /* Event Mask for blocking ops */
-} *eb_t;
+struct amudp_eb;
+typedef struct amudp_eb *eb_t;
 
 /* Endpoint object */
-typedef struct amudp_ep {
-  en_t name;            /* Endpoint name */
-  tag_t tag;            /* current tag */
-  eb_t eb;              /* Bundle of endpoint */
-
-  void *segAddr;        /* Start address of EP VM segment */
-  uintptr_t segLength;  /* Length of EP VM segment    */
-
-  amudp_translation_t translation[AMUDP_MAX_NUMTRANSLATIONS]; /* translation table */
-  amudp_handler_fn_t  handler[AMUDP_MAX_NUMHANDLERS]; /* handler table */
-
-  /* internal structures */
-
-  SOCKET s; /* UDP socket */
-  int socketRecvBufferSize; /* only used if USE_SOCKET_RECVBUFFER_GROW */
-  int socketRecvBufferMaxedOut;
-
-  int P;     /* the number of endpoints we communicate with - also number of translations currently in use */
-  int depth; /* network depth, -1 until AM_SetExpectedResources is called */
-  int PD; /* cached value of P * depth */
-
-  /* buffer descriptor tables */
-  amudp_bufdesc_t* requestDesc;
-  amudp_bufdesc_t* replyDesc;
-
-  int outstandingRequests; /* number of requests awaiting a reply, does NOT include loopback */
-  int timeoutCheckPosn; /* current position of the timeout-checking circular walk */
-
-  amudp_perproc_info_t *perProcInfo; 
-
-  /* buffers for outbound messages */
-  amudp_buf_t* requestBuf;
-  amudp_buf_t* replyBuf;
-  amudp_buf_t* temporaryBuf; /* a single extra buffer used for temporary operations */
-
-  /* buffers for inbound messages */
-  /* invariant: buffer empty when rxFreeIdx == rxReadyIdx
-   *            buffer full when (rxFreeIdx + 1) % rxNumBufs == rxReadyIdx
-   * active buffers are rxReadyIdx ... rxFreeIdx-1 (with circular wrap-around)
-   */
-  amudp_buf_t* rxBuf;  /* circular buffer */
-  uint32_t rxNumBufs;  /* size of circular buffer */
-  uint32_t rxReadyIdx; /* oldest unserviced, received message */
-  uint32_t rxFreeIdx;  /* beginning of free list */
-
-  AMUDP_preHandlerCallback_t preHandlerCallback; /* client hooks for statistical/debugging usage */
-  AMUDP_postHandlerCallback_t postHandlerCallback;
-
-  amudp_stats_t stats;  /* statistical collection */
-
-  amudp_buf_t **bulkBufferPool; /* list of all bulk buffers */
-  int bulkBufferPoolSz;     /* length of list */
-  int bulkBufferPoolFreeCnt; /* number of those that are free (which appear first in list) */
-
-} *ep_t;
-
-/* ------------------------------------------------------------------------------------ */
-/* User-visible constants */
-
-#define AM_ALL     1    /* Deliver all messages to endpoint */
-#define AM_NONE    0    /* Deliver no messages to endpoint */
-
-typedef enum {
-  AM_NOEVENTS,   /* No endpoint state transition generates an event */
-  AM_NOTEMPTY,   /* A nonempty receive pool or a receive pool that has 
-                    a message delivered to it generates an event */
-  /* AM_CANSEND, */ /* TODO: can send without blocking */
-  AM_NUMEVENTMASKS
-} amudp_eventmask_t;
-
-typedef enum {
-  AM_SEQ,             /* Sequential bundle/endpoint access */
-  AM_PAR,             /* Concurrent bundle/endpoint access */
-  AM_NUM_BUNDLE_MODES
-} amudp_bundle_mode_t;
+struct amudp_ep;
+typedef struct amudp_ep *ep_t;
 
 /*
- * Return values to Active Message and Endpoint/Bundle API functions
+ * Op codes for the AM error handler (opcode).
  */
-#define AM_OK           0       /* Function completed successfully */
-#define AM_ERR_NOT_INIT 1       /* Active message layer not initialized */
-#define AM_ERR_BAD_ARG  2       /* Invalid function parameter passed */
-#define AM_ERR_RESOURCE 3       /* Problem with requested resource */
-#define AM_ERR_NOT_SENT 4       /* Synchronous message not sent */
-#define AM_ERR_IN_USE   5       /* Resource currently in use */
+typedef int op_t;
 
 /*
  * Error codes for the AM error handler (status).
@@ -386,7 +102,7 @@ typedef enum {
 #define EBADARGS          1     /* Arguments to request or reply function invalid    */
 #define EBADENTRY         2     /* X-lation table index selected unbound table entry */
 #define EBADTAG           3     /* Sender's tag did not match the receiver's EP tag  */ 
-#define EBADHANDLER       4     /* Invalid index into the recv.'s handler table      */ 
+#define EBADHANDLER       4     /* Invalid index into the recv.'s handler table      */
 #define EBADSEGOFF        5     /* Offset into the dest-memory VM segment invalid    */
 #define EBADLENGTH        6     /* Bulk xfer length goes beyond a segment's end      */
 #define EBADENDPOINT      7     /* Destination endpoint does not exist               */
@@ -395,22 +111,9 @@ typedef enum {
 #define EREPLYREJECTED    10    /* Destination endpoint refused reply message        */
 
 
-/*
- * Op codes for the AM error handler (opcode).
- */
-typedef int op_t;
-#define AM_REQUEST_M      1
-#define AM_REQUEST_IM     2
-#define AM_REQUEST_XFER_M 3
-#define AM_REPLY_M        4
-#define AM_REPLY_IM       5
-#define AM_REPLY_XFER_M   6
-
 /* ------------------------------------------------------------------------------------ */
-
-SOCK_BEGIN_EXTERNC
-
 /* AMUDP-specific user entry points */
+
 extern int AMUDP_VerboseErrors; /* set to non-zero for verbose error reporting */
 extern int AMUDP_PoliteSync; /* set to non-zero for polite blocking while awaiting send resources */
 extern int AMUDP_SilentMode; /* set to non-zero to silence any non-error output */
@@ -442,6 +145,9 @@ extern const amudp_stats_t AMUDP_initial_stats; /* the "empty" values for counte
    (callback fns may _NOT_ make any AMMPI calls, directly or indirectly)
    set to NULL for none
 */
+typedef void (*AMUDP_preHandlerCallback_t)(amudp_category_t cat, int isReq, int handlerId, void *token, 
+                                         void *buf, size_t nbytes, int numargs, uint32_t *args);
+typedef void (*AMUDP_postHandlerCallback_t)(amudp_category_t cat, int isReq);
 extern int AMUDP_SetHandlerCallbacks(ep_t ep, AMUDP_preHandlerCallback_t preHandlerCallback, 
                                               AMUDP_postHandlerCallback_t postHandlerCallback);
 
@@ -473,6 +179,8 @@ extern int AMUDP_SetHandlerCallbacks(ep_t ep, AMUDP_preHandlerCallback_t preHand
   #define AM_Map                  AMUDP_Map
   #define AM_MapAny               AMUDP_MapAny
   #define AM_UnMap                AMUDP_UnMap
+  #define AM_GetNumTranslations   AMUDP_GetNumTranslations
+  #define AM_SetNumTranslations   AMUDP_SetNumTranslations
   #define AM_GetTranslationInuse  AMUDP_GetTranslationInuse
   #define AM_GetTranslationTag    AMUDP_GetTranslationTag
   #define AM_GetTranslationName   AMUDP_GetTranslationName
@@ -499,15 +207,9 @@ extern int AMUDP_SetHandlerCallbacks(ep_t ep, AMUDP_preHandlerCallback_t preHand
 #define AMX_FatalErr            AMUDP_FatalErr
 
 #undef AM_Init
-#define AM_Init _CONCAT(AM_Init_AMUDP,AMUDP_DEBUG_CONFIG)
+#define AM_Init AMUDP_CONCAT(AM_Init_AMUDP,AMUDP_DEBUG_CONFIG)
 
 /* System parameters */
-#define AM_MaxShort()   AMUDP_MAX_SHORT
-#define AM_MaxMedium()  AMUDP_MAX_MEDIUM
-#define AM_MaxLong()    AMUDP_MAX_LONG
-
-#define AM_MaxNumHandlers()               AMUDP_MAX_NUMHANDLERS
-#define AM_MaxNumTranslations(trans)      (*(trans) = AMUDP_MAX_NUMTRANSLATIONS,AM_OK)
 extern int AM_MaxSegLength(uintptr_t* nbytes);
 
 /* System initialization/termination */
@@ -533,10 +235,8 @@ extern int AM_UnMap(ep_t ea, int index);
 extern int AM_GetTranslationInuse(ep_t ea, int i);
 extern int AM_GetTranslationTag(ep_t ea, int i, tag_t *tag);
 extern int AM_GetTranslationName(ep_t ea, int i, en_t *gan);
-#define AM_GetNumTranslations(ep, pntrans)  \
-  ((ep) ? ((*(pntrans) = AMUDP_MAX_NUMTRANSLATIONS), AM_OK) : AM_ERR_BAD_ARG)
-#define AM_SetNumTranslations(ep, ntrans)  \
-  ((ep) ? ((ntrans) == AMUDP_MAX_NUMTRANSLATIONS ? AM_OK : AM_ERR_RESOURCE) : AM_ERR_BAD_ARG)
+extern int AM_GetNumTranslations(ep_t ep, int *pntrans);
+extern int AM_SetNumTranslations(ep_t ep, int ntrans);
 extern int AM_SetExpectedResources(ep_t ea, int n_endpoints, int n_outstanding_requests);
 
 /* Handler table */
@@ -544,10 +244,6 @@ extern int _AM_SetHandler(ep_t ea, handler_t handler, amudp_handler_fn_t functio
 #define AM_SetHandler(ea, handler, function) _AM_SetHandler((ea), (handler), (amudp_handler_fn_t)(function)) 
 extern int _AM_SetHandlerAny(ep_t ea, handler_t *handler, amudp_handler_fn_t function);
 #define AM_SetHandlerAny(ea, handler, function) _AM_SetHandlerAny((ea), (handler), (amudp_handler_fn_t)(function))
-#define AM_GetNumHandlers(ep, pnhandlers)  \
-  ((ep) ? ((*(pnhandlers) = AMUDP_MAX_NUMHANDLERS), AM_OK) : AM_ERR_BAD_ARG) : AM_ERR_BAD_ARG)
-#define AM_SetNumHandlers(ep, nhandlers)  \
-  ((ep) ? ((nhandlers) == AMUDP_MAX_NUMHANDLERS ? AM_OK : AM_ERR_RESOURCE)
 
 /* Events */
 extern int AM_GetEventMask(eb_t eb, int *mask);
@@ -568,12 +264,12 @@ extern int AM_Poll(eb_t bundle);
    These six functions do all requests and replies.
    Macros below expand all the variants */
 
-extern int AMUDP_Request(ep_t request_endpoint, int reply_endpoint, handler_t handler, 
+extern int AMUDP_Request(ep_t request_endpoint, amudp_node_t reply_endpoint, handler_t handler, 
                          int numargs, ...);
-extern int AMUDP_RequestI (ep_t request_endpoint, int reply_endpoint, handler_t handler, 
+extern int AMUDP_RequestI (ep_t request_endpoint, amudp_node_t reply_endpoint, handler_t handler, 
                           void *source_addr, int nbytes,
                           int numargs, ...);
-extern int AMUDP_RequestXfer(ep_t request_endpoint, int reply_endpoint, handler_t handler, 
+extern int AMUDP_RequestXfer(ep_t request_endpoint, amudp_node_t reply_endpoint, handler_t handler, 
                           void *source_addr, int nbytes, uintptr_t dest_offset, 
                           int async,
                           int numargs, ...);
@@ -588,12 +284,12 @@ extern int AMUDP_ReplyXfer(void *token, handler_t handler,
                           int numargs, ...);
 
 /* alternate forms that take va_list ptr to support GASNet */
-extern int AMUDP_RequestVA(ep_t request_endpoint, int reply_endpoint, handler_t handler, 
+extern int AMUDP_RequestVA(ep_t request_endpoint, amudp_node_t reply_endpoint, handler_t handler, 
                          int numargs, va_list argptr);
-extern int AMUDP_RequestIVA(ep_t request_endpoint, int reply_endpoint, handler_t handler, 
+extern int AMUDP_RequestIVA(ep_t request_endpoint, amudp_node_t reply_endpoint, handler_t handler, 
                           void *source_addr, int nbytes,
                           int numargs, va_list argptr);
-extern int AMUDP_RequestXferVA(ep_t request_endpoint, int reply_endpoint, handler_t handler, 
+extern int AMUDP_RequestXferVA(ep_t request_endpoint, amudp_node_t reply_endpoint, handler_t handler, 
                           void *source_addr, int nbytes, uintptr_t dest_offset, 
                           int async,
                           int numargs, va_list argptr);
@@ -861,6 +557,6 @@ extern int AMUDP_ReplyXferVA(void *token, handler_t handler,
    AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 16, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13, (int32_t)a14, (int32_t)a15)
 
 
-SOCK_END_EXTERNC
+AMUDP_END_EXTERNC
 
 #endif

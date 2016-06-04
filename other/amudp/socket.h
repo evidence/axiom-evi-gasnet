@@ -86,34 +86,8 @@
 #  include <unistd.h>         /*  close */
 #endif
 
-/* ioctlsocket */
-#if PLATFORM_OS_MTA
-#define ioctlsocket(a,b,c) ioctl((a),(b),(caddr_t)(c))
-/* these are missing on MTA for some reason */
-#ifdef __cplusplus
-extern "C" {
-#endif
-  ssize_t      recv(int, void *, size_t, int); 
-  ssize_t      send(int, const void *, size_t, int);
-#ifdef __cplusplus
-}
-#endif
-#else
-#define ioctlsocket ioctl
-#endif
-
 typedef unsigned int SOCKET;
 typedef fd_set FD_SET;
-
-#ifdef __cplusplus
-  #define SOCK_BEGIN_EXTERNC extern "C" {
-  #define SOCK_END_EXTERNC }
-  #define SOCK_EXTERNC extern "C"
-#else
-  #define SOCK_BEGIN_EXTERNC 
-  #define SOCK_END_EXTERNC 
-  #define SOCK_EXTERNC
-#endif
 
 /*  resolve disagreements about types of arguments to misc. functions */
 #if PLATFORM_OS_LINUX || PLATFORM_OS_UCLINUX || PLATFORM_OS_FREEBSD || PLATFORM_OS_NETBSD || \
@@ -128,14 +102,15 @@ typedef fd_set FD_SET;
 #  define GETSOCKOPT_LENGTH_T int
 #endif
 
+/* ioctlsocket */
+#define ioctlsocket ioctl
+
 #if PLATFORM_OS_CYGWIN || PLATFORM_OS_AIX || PLATFORM_OS_SOLARIS || \
     PLATFORM_OS_LINUX || PLATFORM_OS_UCLINUX || PLATFORM_OS_TRU64 || PLATFORM_OS_SUPERUX || \
     PLATFORM_OS_DARWIN || /* bug 2428 */ \
     PLATFORM_ARCH_CRAYX1 /* X1 docs claim it's a size_t, they lie */
   #define IOCTL_FIONREAD_ARG_T unsigned int
 #elif PLATFORM_OS_IRIX
-  #define IOCTL_FIONREAD_ARG_T size_t
-#elif PLATFORM_OS_MTA
   #define IOCTL_FIONREAD_ARG_T size_t
 #else
   #define IOCTL_FIONREAD_ARG_T unsigned long
@@ -157,14 +132,18 @@ typedef fd_set FD_SET;
 #endif
 
 #if SOCK_USE_C_BYPASS
-  SOCK_BEGIN_EXTERNC
+ #ifdef __cplusplus
+  extern "C" {
+ #endif
   extern int SOCK_getsockopt(int  s, int level, int optname, void *optval, GETSOCKOPT_LENGTH_T *optlen);
   extern int SOCK_getsockname(int s, struct sockaddr *name, GETSOCKNAME_LENGTH_T *namelen);
   extern int SOCK_getpeername(int s, struct sockaddr *name, GETSOCKNAME_LENGTH_T *namelen);
   extern int SOCK_ioctlsocket(int d, int request, IOCTL_FIONREAD_ARG_T *val);
   extern int SOCK_accept(SOCKET listener, struct sockaddr* calleraddr, LENGTH_PARAM *sz);
   extern int SOCK_recvfrom(SOCKET s, char * buf, int len, int flags, struct sockaddr *from, LENGTH_PARAM *sz);
-  SOCK_END_EXTERNC
+ #ifdef __cplusplus
+  } /* extern C */
+ #endif
 #else
   #define SOCK_getsockopt   getsockopt
   #define SOCK_getsockname  getsockname
