@@ -229,46 +229,63 @@ typedef struct {
   uint8_t       systemMessageArg;
 
   uintptr_t     destOffset;
+
+  uint8_t     data[]; /* args and data: up to (4*AMUDP_MAX_SHORT)+AMUDP_MAX_LONG */
+
 } amudp_msg_t;
 
-/* non-transmitted amudp buffer bookkeeping info -
- * this data must be kept to a bare minimum because it constrains packet size 
+/* non-transmitted amudp buffer bookkeeping info
  */
-typedef struct {
-  int8_t handlerRunning;
-  int8_t replyIssued;
-  amudp_node_t sourceId;      /* 0-based endpoint id of remote */
-  en_t sourceAddr;        /* address of remote */
-  struct amudp_ep *dest;  /* ep_t of endpoint that received this message */
-  struct amudp_buf *bulkBuffer; /* if non-NULL, points to a bulk buffer 
-                              holding the transmitted data fields for this buffer */
+typedef union {
+
+  struct amudp_rx_status { // Status for receive buffers
+    en_t sourceAddr;        // address of remote (16-byte)
+    struct amudp_buf *next; // recv queue
+    struct amudp_ep *dest;  /* ep_t of endpoint that received this message */
+    amudp_node_t sourceId;  /* 0-based endpoint id of remote */
+    int8_t handlerRunning;
+    int8_t replyIssued;
+  } rx;
+
+  struct amudp_tx_status { // Status for transmit buffers
+    /* Request tx fields */
+    struct amudp_buf *next; // retransmit ring
+    struct amudp_buf *prev;
+    amudp_cputick_t timestamp;
+    #if AMUDP_COLLECT_LATENCY_STATS
+      amudp_cputick_t firstSendTime; /* for statistical purposes only */
+    #endif
+    amudp_node_t destId;  /* 0-based endpoint id of remote */
+    uint8_t retryCount; /* where we are in the retransmit backoff */
+    /* Request and Reply tx fields */
+    uint8_t transmitCount; /* how many times we've actually transmitted */
+  } tx;
+
+  uint64_t _pad[5];
+
 } amudp_bufstatus_t;
 
 /* active message buffer, including message and space for data payload */
 typedef struct amudp_buf {
 
-  amudp_msg_t   Msg;
-  uint8_t     _Data[(4*AMUDP_MAX_SHORT)+AMUDP_MAX_MEDIUM]; /* holds args and data */
-
-  /* received requests & replies only 
-    (NOT valid inside bulk buffers, and only the bulkBuffer field is valid in send buffers) */
   amudp_bufstatus_t status;
+
+  amudp_msg_t   msg;
 
 } amudp_buf_t;
 
-#define AMUDP_MIN_NETWORK_MSG     ((int)(uintptr_t)&((amudp_buf_t *)NULL)->_Data[0])
-#define AMUDP_MAX_NETWORK_MSG     (AMUDP_MIN_NETWORK_MSG+(4*AMUDP_MAX_SHORT)+AMUDP_MAX_MEDIUM)
-#define AMUDP_MAXBULK_NETWORK_MSG (AMUDP_MIN_NETWORK_MSG+(4*AMUDP_MAX_SHORT)+AMUDP_MAX_LONG)
+/* limits for msg (wire packet) and buffer (in-memory rep) */
+#define AMUDP_MIN_MSG           (sizeof(amudp_msg_t))
+#define AMUDP_MAX_SHORT_MSG     (AMUDP_MIN_MSG+(4*AMUDP_MAX_SHORT))
+#define AMUDP_MAX_MSG           (AMUDP_MIN_MSG+(4*AMUDP_MAX_SHORT)+AMUDP_MAX_LONG)
+#define AMUDP_MIN_BUFFER        (sizeof(amudp_buf_t))
+#define AMUDP_MAX_SHORT_BUFFER  (AMUDP_MIN_BUFFER+(4*AMUDP_MAX_SHORT))
+#define AMUDP_MAX_BUFFER        (AMUDP_MIN_BUFFER+(4*AMUDP_MAX_SHORT)+AMUDP_MAX_LONG)
+#define MSGSZ_TO_BUFFERSZ(sz)   (offsetof(amudp_buf_t,msg)+(size_t)(sz))
 
-/* message buffer descriptor */
+/* message buffer descriptor - the minimal persistent state, kept to a minimum for scalability */
 typedef struct {
-  amudp_cputick_t timestamp;
-  #if AMUDP_COLLECT_LATENCY_STATS
-    amudp_cputick_t firstSendTime; /* for statistical purposes only */
-  #endif
-  uint8_t retryCount; /* where we are in the retransmit backoff */
-  uint8_t transmitCount; /* how many times we've actually transmitted */
-  uint8_t inuse;
+  amudp_buf_t *buffer;  /* active buffer, NULL for not in use */
   uint8_t seqNum; /* seq number for next message to be sent/recv'd on this desc */
 } amudp_bufdesc_t;
 
@@ -304,9 +321,11 @@ typedef struct {
 } amudp_translation_t;
 
 typedef struct {
+  amudp_bufdesc_t* requestDesc; // on-demand alloc
+  amudp_bufdesc_t* replyDesc;   // on-demand alloc
+  tag_t     tag;          /* compacted from the translation table */
+  en_t      remoteName;   /* compacted from the translation table */
   uint16_t  instanceHint; /* instance hint pointer for request buffer allocation */
-  en_t      remoteName;   /* gives us a compacted version of the translation table */
-  tag_t     tag;
 } amudp_perproc_info_t;
 
 /* Endpoint bundle object */
@@ -334,7 +353,7 @@ struct amudp_ep {
   /* internal structures */
 
   SOCKET s; /* UDP socket */
-  int socketRecvBufferSize; /* only used if USE_SOCKET_RECVBUFFER_GROW */
+  size_t socketRecvBufferSize; /* only used if USE_SOCKET_RECVBUFFER_GROW */
   int socketRecvBufferMaxedOut;
 
   amudp_node_t P;     /* the number of endpoints we communicate with - also number of translations currently in use */
@@ -342,34 +361,17 @@ struct amudp_ep {
   int PD; /* cached value of P * depth */
   int recvDepth; /* recv depth */
 
-  /* buffer descriptor tables */
-  amudp_bufdesc_t* requestDesc;
-  amudp_bufdesc_t* replyDesc;
-
   int outstandingRequests; /* number of requests awaiting a reply, does NOT include loopback */
-  int timeoutCheckPosn; /* current position of the timeout-checking circular walk */
+  amudp_buf_t *timeoutCheckPosn; /* current position of the timeout-checking circular walk */
 
   amudp_perproc_info_t *perProcInfo;
 
-  /* buffers for outbound messages */
-  amudp_buf_t* requestBuf;
-  amudp_buf_t* replyBuf;
-  amudp_buf_t* temporaryBuf; /* a single extra buffer used for temporary operations */
-
-  uint32_t totalBufs; /* total number of static buffers */
-
-  /* pools for dynamic allocation of bulkbuffers */
+  /* pools for dynamic allocation of buffers */
   amudp_bufferpool_t bufferPool[AMUDP_NUMBUFFERPOOLS];
 
-  /* buffers for inbound messages */
-  /* invariant: buffer empty when rxFreeIdx == rxReadyIdx
-   *            buffer full when (rxFreeIdx + 1) % rxNumBufs == rxReadyIdx
-   * active buffers are rxReadyIdx ... rxFreeIdx-1 (with circular wrap-around)
-   */
-  amudp_buf_t* rxBuf;  /* circular buffer */
-  uint32_t rxNumBufs;  /* size of circular buffer */
-  uint32_t rxReadyIdx; /* oldest unserviced, received message */
-  uint32_t rxFreeIdx;  /* beginning of free list */
+  amudp_buf_t *rxHead; /* inbound messages queue */
+  amudp_buf_t *rxTail;
+  int rxCnt; // length of the queue
 
   AMUDP_preHandlerCallback_t preHandlerCallback; /* client hooks for statistical/debugging usage */
   AMUDP_postHandlerCallback_t postHandlerCallback;
@@ -539,7 +541,7 @@ static const char *AMUDP_curr_function(const char *arg) {
   } while (0)
 /* return a possible error */
 #define AMUDP_RETURN(val) do {                                           \
-  if (AMUDP_VerboseErrors && val != AM_OK) {                             \
+  if_pf (AMUDP_VerboseErrors && val != AM_OK) {                          \
     fprintf(stderr, "AMUDP %s returning an error code: %s (%s)\n"        \
       "  at %s:%i\n"                                                     \
       , AMUDP_curr_function(__CURR_FUNCTION)                             \
@@ -565,18 +567,21 @@ static const char *AMUDP_curr_function(const char *arg) {
 
 #if AMUDP_DEBUG || AMUDP_ENABLE_ERRCHECKS
   #define AMUDP_CHECK_ERR(errcond, type) \
-    if_pf (errcond) AMUDP_RETURN_ERR(type)
+    do { if_pf (errcond) AMUDP_RETURN_ERR(type); } while(0)
   #define AMUDP_CHECK_ERRF(errcond, type, fromfn) \
-    if_pf (errcond) AMUDP_RETURN_ERRF(type, fromfn)
+    do { if_pf (errcond) AMUDP_RETURN_ERRF(type, fromfn); } while(0)
   #define AMUDP_CHECK_ERRR(errcond, type, reason) \
-    if_pf (errcond) AMUDP_RETURN_ERRR(type, reason)
+    do { if_pf (errcond) AMUDP_RETURN_ERRR(type, reason); } while(0)
   #define AMUDP_CHECK_ERRFR(errcond, type, fromfn, reason) \
-    if_pf (errcond) AMUDP_RETURN_ERRFR(type, fromfn, reason)
+    do { if_pf (errcond) AMUDP_RETURN_ERRFR(type, fromfn, reason); } while(0)
+  #define AMUDP_CHECK_ERRFRC(errcond, type, fromfn, reason, cleanup) \
+    do { if_pf (errcond) { { cleanup; } AMUDP_RETURN_ERRFR(type, fromfn, reason); } } while(0)
 #else
   #define AMUDP_CHECK_ERR(errcond, type)                    ((void)0)
   #define AMUDP_CHECK_ERRF(errcond, type, fromfn)           ((void)0)
   #define AMUDP_CHECK_ERRR(errcond, type, reason)           ((void)0)
   #define AMUDP_CHECK_ERRFR(errcond, type, fromfn, reason)  ((void)0)
+  #define AMUDP_CHECK_ERRFRC(errcond, type, fromfn, reason, cleanup) ((void)0)
 #endif
 
 #include <assert.h>
@@ -606,41 +611,43 @@ extern double AMUDP_FaultInjectionEnabled;
 extern int amudp_Initialized;
 #define AMUDP_CHECKINIT() AMUDP_CHECK_ERR((!amudp_Initialized),NOT_INIT)
 /* ------------------------------------------------------------------------------------ */
-/* these handle indexing into our 2-D array of desriptors and buffers */
-#define GET_REQ_DESC(ep, remoteProc, inst) \
-  (&((ep)->requestDesc[inst * (ep)->P + remoteProc]))
-#define GET_REQ_BUF(ep, remoteProc, inst) \
-  (&((ep)->requestBuf[inst * (ep)->P + remoteProc]))
-#define GET_REP_DESC(ep, remoteProc, inst) \
-  (&((ep)->replyDesc[inst * (ep)->P + remoteProc]))
-#define GET_REP_BUF(ep, remoteProc, inst) \
-  (&((ep)->replyBuf[inst * (ep)->P + remoteProc]))
-/* these recover the processor and instance indexes from an entry offset into the 2-D arrays */
-#define GET_REMOTEPROC_FROM_POS(ep, curpos) \
-  (curpos % (ep)->P)
-#define GET_INST_FROM_POS(ep, curpos) \
-  (curpos / (ep)->P)
+// Buffer descriptor accessors
+static inline amudp_bufdesc_t *AMUDP_get_desc(ep_t ep, amudp_node_t proc, int inst, int isrequest, int allocate) {
+  AMUDP_assert(ep);
+  AMUDP_assert(ep->perProcInfo);
+  AMUDP_assert(ep->depth > 0);
+  AMUDP_assert(proc <= ep->P);
+  AMUDP_assert(inst <= ep->depth);
+  amudp_perproc_info_t * const pinfo = &ep->perProcInfo[proc];
+  amudp_bufdesc_t ** const pdesc = (isrequest ? &pinfo->requestDesc : &pinfo->replyDesc);
+  if_pf (allocate && !*pdesc) { // first touch allocate
+    *pdesc = (amudp_bufdesc_t *)AMUDP_calloc(ep->depth, sizeof(amudp_bufdesc_t));
+  }
+  AMUDP_assert(*pdesc);
+  return *pdesc + inst;
+}
+#define GET_REQ_DESC(ep, proc, inst)       AMUDP_get_desc(ep, proc, inst, 1, 0)
+#define GET_REP_DESC(ep, proc, inst)       AMUDP_get_desc(ep, proc, inst, 0, 0)
+#define GET_REQ_DESC_ALLOC(ep, proc, inst) AMUDP_get_desc(ep, proc, inst, 1, 1)
+#define GET_REP_DESC_ALLOC(ep, proc, inst) AMUDP_get_desc(ep, proc, inst, 0, 1)
 /* ------------------------------------------------------------------------------------ */
 /* accessors for packet args, data and length
  * the only complication here is we want data to be double-word aligned, so we may add
  * an extra unused 4-byte argument to make sure the data lands on a double-word boundary
  */
-#if 0
-  #define HEADER_EVEN_WORDLENGTH  (((int)(uintptr_t)((&((amudp_buf_t *)NULL)->_Data)-1))%8==0?1:0)
-#else
-  #define HEADER_EVEN_WORDLENGTH \
-    ( ( (((uint8_t *)&(((amudp_buf_t *)NULL)->_Data)) - ((uint8_t *)NULL)) & 0x7) == 0 ? 1 : 0)
-#endif
-#define ACTUAL_NUM_ARGS(pMsg) (AMUDP_MSG_NUMARGS(pMsg)%2==0?       \
-                            AMUDP_MSG_NUMARGS(pMsg)+!HEADER_EVEN_WORDLENGTH:  \
-                            AMUDP_MSG_NUMARGS(pMsg)+HEADER_EVEN_WORDLENGTH)
+#define HEADER_EVEN_WORDLENGTH ( (offsetof(amudp_msg_t,data) & 0x7) == 0 ? 1 : 0)
+#define ACTUAL_NUM_ARGS(args) ( ((args) & 0x1) ?                    \
+                                (args) +  HEADER_EVEN_WORDLENGTH :  \
+                                (args) + !HEADER_EVEN_WORDLENGTH    )
 
-#define GET_PACKET_LENGTH(pbuf)                                       \
-  (((char *)&pbuf->_Data[4*ACTUAL_NUM_ARGS(&pbuf->Msg) + pbuf->Msg.nBytes]) - ((char *)pbuf))
-#define GET_PACKET_DATA(pbuf)                                         \
-  (&pbuf->_Data[4*ACTUAL_NUM_ARGS(&pbuf->Msg)])
-#define GET_PACKET_ARGS(pbuf)                                         \
-  ((uint32_t *)pbuf->_Data)
+#define COMPUTE_MSG_SZ(args, nbytes) \
+  ( offsetof(amudp_msg_t, data) + 4*ACTUAL_NUM_ARGS(args) + (nbytes) )
+#define GET_MSG_SZ(pmsg) \
+  COMPUTE_MSG_SZ(AMUDP_MSG_NUMARGS(pmsg), (pmsg)->nBytes)
+#define GET_MSG_DATA(pmsg) \
+  (&(pmsg)->data[4*ACTUAL_NUM_ARGS(AMUDP_MSG_NUMARGS(pmsg))])
+#define GET_MSG_ARGS(pmsg) \
+  ((uint32_t *)&(pmsg)->data)
 //------------------------------------------------------------------------------------
 // global helper functions
 extern int AMUDP_Block(eb_t eb); 
@@ -651,9 +658,6 @@ extern int AMUDP_Block(eb_t eb);
 // buffer management
 extern amudp_buf_t *AMUDP_AcquireBuffer(ep_t ep, size_t sz);
 extern void AMUDP_ReleaseBuffer(ep_t ep, amudp_buf_t *buf);
-
-#define AMUDP_AcquireBulkBuffer(ep)      AMUDP_AcquireBuffer(ep, AMUDP_MAXBULK_NETWORK_MSG)
-#define AMUDP_ReleaseBulkBuffer(ep, buf) AMUDP_ReleaseBuffer(ep, buf) 
 
 #if USE_SOCKET_RECVBUFFER_GROW
   extern int AMUDP_growSocketBufferSize(ep_t ep, int targetsize, int szparam, const char *paramname);
@@ -743,13 +747,6 @@ extern char *AMUDP_getenv_prefixed_withdefault(const char *basekey, const char *
 
 //------------------------------------------------------------------------------------
 // socket support
-extern int myselect(int n, fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
-            struct timeval *timeout);
-#define select myselect
-
-extern int myrecvfrom(SOCKET s, char * buf, int len, int flags,                  
-  struct sockaddr *from, int *fromlen);
- 
 
 #if USE_ASYNC_TCP_CONTROL
   #if AMUDP_DEBUG

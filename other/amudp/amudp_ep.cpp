@@ -16,7 +16,11 @@ int amudp_Initialized = 0;
 static void AMUDP_defaultAMHandler(void * token);
 amudp_handler_fn_t amudp_unused_handler = (amudp_handler_fn_t)&AMUDP_defaultAMHandler;
 amudp_handler_fn_t amudp_defaultreturnedmsg_handler = (amudp_handler_fn_t)&AMUDP_DefaultReturnedMsg_Handler;
-int AMUDP_VerboseErrors = 0;
+#if AMUDP_DEBUG_VERBOSE
+  int AMUDP_VerboseErrors = 1;
+#else
+  int AMUDP_VerboseErrors = 0;
+#endif
 int AMUDP_PoliteSync = 0;
 uint32_t AMUDP_ExpectedBandwidth = AMUDP_DEFAULT_EXPECTED_BANDWIDTH;
 uint32_t AMUDP_RequestTimeoutBackoff = AMUDP_REQUESTTIMEOUT_BACKOFF_MULTIPLIER;
@@ -32,7 +36,7 @@ double AMUDP_FaultInjectionEnabled = 0;
 const amudp_stats_t AMUDP_initial_stats = /* the initial state for stats type */
         { {0,0,0}, {0,0,0}, {0,0,0}, 
           {0,0,0}, {0,0,0}, {0,0,0}, 
-          0,
+          0,0,0,
           (amudp_cputick_t)-1, 0, 0,
           {0,0,0}, {0,0,0}, 
           {0,0,0}, {0,0,0}, 
@@ -140,9 +144,10 @@ static void AMUDP_RemoveEndpoint(eb_t eb, ep_t ep) {
 #define AMUDP_BUFFERPOOL_MAGIC ((uint64_t)0x1001feedbac31001llu)
 extern amudp_buf_t *AMUDP_AcquireBuffer(ep_t ep, size_t sz) {
   AMUDP_assert(ep);
-  AMUDP_assert(sz >= AMUDP_MIN_NETWORK_MSG);
+  AMUDP_assert(sz >= AMUDP_MIN_BUFFER);
+  AMUDP_assert(sz <= AMUDP_MAX_BUFFER);
   amudp_bufferpool_t *pool;
-  if (sz == AMUDP_MIN_NETWORK_MSG) {
+  if (sz <= AMUDP_MAX_SHORT_BUFFER) {
     pool = &ep->bufferPool[0];
   } else {
     pool = &ep->bufferPool[1];
@@ -185,11 +190,11 @@ static void AMUDP_InitBuffers(ep_t ep) {
       ep->bufferPool[i].magic = AMUDP_BUFFERPOOL_MAGIC;
     #endif
   }
-  ep->bufferPool[0].buffersz = AMUDP_MIN_NETWORK_MSG;
-  ep->bufferPool[1].buffersz = AMUDP_MAXBULK_NETWORK_MSG;
+  ep->bufferPool[0].buffersz = AMUDP_MAX_SHORT_BUFFER;
+  ep->bufferPool[1].buffersz = AMUDP_MAX_BUFFER;
 }
 /* ------------------------------------------------------------------------------------ */
-static void AMUDP_FreeAllBulkBuffers(ep_t ep) {
+static void AMUDP_FreeAllBuffers(ep_t ep) {
   AMUDP_memcheck_all();
 
   for (int i=0; i < AMUDP_NUMBUFFERPOOLS; i++) {
@@ -327,29 +332,9 @@ static int AMUDP_AllocateEndpointBuffers(ep_t ep) {
 
   AMUDP_assert(sizeof(amudp_buf_t) % sizeof(int) == 0); /* assume word-addressable machine */
 
-  uint32_t rxBufs = ep->recvDepth + 1;
-  ep->rxNumBufs = (uint16_t)rxBufs;
-  AMUDP_assert(rxBufs == (uint32_t)ep->rxNumBufs); // check overflow
-
-  /* Static buffer allocation:
-   * 2 * PD for request and reply send buffers
-   * recvDepth for recv, plus one extra for ease of implementing circular rx buf
-   * two for temporary buffers
-   */
-
-  ep->totalBufs = 2 * PD + ep->rxNumBufs + 2;
-  pool = (amudp_buf_t *)AMUDP_calloc(ep->totalBufs, sizeof(amudp_buf_t));
-  if (!pool) return FALSE;
-  ep->requestBuf = pool;
-  ep->replyBuf = &pool[PD];
-  ep->rxBuf = &pool[2*PD];
-  ep->rxFreeIdx = 0;
-  ep->rxReadyIdx = 0;
-  ep->temporaryBuf = &ep->rxBuf[ep->rxNumBufs];
-
-  { int HPAMsize = 2*PD*AMUDP_MAX_NETWORK_MSG; /* theoretical max required by plain-vanilla HPAM */
-    int padsize = 2*AMUDP_MAXBULK_NETWORK_MSG; /* some pad for non-HPAM true bulk xfers & retransmissions */
-    int sz = MIN(HPAMsize+padsize, AMUDP_SOCKETBUFFER_MAX);
+  // setup initial socket OS buffer size
+  { /* theoretical max required by HPAM is 2*PD*AMUDP_MAX_MSG, but that scales poorly */
+    int sz = MIN(ep->recvDepth*AMUDP_MAX_MSG, AMUDP_SOCKETBUFFER_MAX);
      
     #if USE_SOCKET_RECVBUFFER_GROW
         ep->socketRecvBufferMaxedOut = AMUDP_growSocketBufferSize(ep, sz, SO_RCVBUF, "SO_RCVBUF");
@@ -358,12 +343,6 @@ static int AMUDP_AllocateEndpointBuffers(ep_t ep) {
         AMUDP_growSocketBufferSize(ep, sz, SO_SNDBUF, "SO_SNDBUF");
     #endif
   }
-
-  ep->requestDesc = (amudp_bufdesc_t*)AMUDP_calloc(2 * PD, sizeof(amudp_bufdesc_t));
-  ep->replyDesc = &ep->requestDesc[PD];
-  /* init descriptor tables */
-  ep->outstandingRequests = 0;
-  ep->timeoutCheckPosn = 0;
 
   /* instance hint pointers & compressed translation table */
   ep->perProcInfo = (amudp_perproc_info_t *)AMUDP_calloc(ep->P, sizeof(amudp_perproc_info_t));
@@ -389,20 +368,31 @@ static int AMUDP_FreeEndpointResource(ep_t ep) {
 static int AMUDP_FreeEndpointBuffers(ep_t ep) {
   AMUDP_assert(ep != NULL);
 
-  for (uint32_t i=0; i < ep->totalBufs; i++) { // release bulk buffers in use
-    amudp_buf_t *bulkbuffer = ep->requestBuf[i].status.bulkBuffer;
-    if (bulkbuffer) AMUDP_ReleaseBulkBuffer(ep, bulkbuffer);
+  for (amudp_node_t proc=0; proc < ep->P; proc++) { // release tx buffers in use
+    for (int t=0; t < 2; t++) {
+      amudp_bufdesc_t *desc = (t ? ep->perProcInfo[proc].requestDesc : ep->perProcInfo[proc].replyDesc );
+      if (desc) {
+        for (int i=0; i < ep->depth; i++) { 
+          amudp_buf_t *buf = desc[i].buffer;
+          if (buf) AMUDP_ReleaseBuffer(ep, buf);
+        }
+        AMUDP_free(desc);
+      }
+    }
   }
-  AMUDP_FreeAllBulkBuffers(ep);
+  ep->timeoutCheckPosn = NULL;
+  ep->outstandingRequests = 0;
 
-  AMUDP_free(ep->requestBuf); // this frees all the static buffers
-  ep->rxBuf = NULL;
-  ep->requestBuf = NULL;
-  ep->replyBuf = NULL;
+  for (amudp_buf_t *buf = ep->rxHead; buf; ) { // release rx buffers in use
+    amudp_buf_t *tmp = buf->status.rx.next;
+    AMUDP_ReleaseBuffer(ep, buf);
+    buf = tmp;
+  }
+  ep->rxHead = NULL;
+  ep->rxTail = NULL;
+  ep->rxCnt = 0;
 
-  AMUDP_free(ep->requestDesc);
-  ep->requestDesc = NULL;
-  ep->replyDesc = NULL;
+  AMUDP_FreeAllBuffers(ep);
 
   AMUDP_free(ep->perProcInfo);
   ep->perProcInfo = NULL;
@@ -531,13 +521,7 @@ extern int AM_AllocateEndpoint(eb_t bundle, ep_t *endp, en_t *endpoint_name) {
       ep->handler[i] = amudp_unused_handler;
     }
     ep->tag = AM_NONE;
-    ep->segAddr = NULL;
-    ep->segLength = 0;
-    ep->P = 0; 
     ep->depth = -1;
-    ep->PD = 0;
-    ep->preHandlerCallback = NULL; 
-    ep->postHandlerCallback = NULL;
 
     ep->stats = AMUDP_initial_stats;
   }
@@ -888,7 +872,7 @@ extern int AM_GetSourceEndpoint(void *token, en_t *gan) {
   AMUDP_CHECKINIT();
   AMUDP_CHECK_ERR((!token || !gan),BAD_ARG);
 
-  *gan = ((amudp_buf_t *)token)->status.sourceAddr;
+  *gan = ((amudp_buf_t *)token)->status.rx.sourceAddr;
   return AM_OK;
 }
 /* ------------------------------------------------------------------------------------ */
@@ -896,7 +880,7 @@ extern int AMUDP_GetSourceId(void *token, int *srcid) {
   AMUDP_CHECKINIT();
   AMUDP_CHECK_ERR((!token || !srcid),BAD_ARG);
 
-  *srcid = (int)((amudp_buf_t *)token)->status.sourceId;
+  *srcid = (int)((amudp_buf_t *)token)->status.rx.sourceId;
   return AM_OK;
 }
 /* ------------------------------------------------------------------------------------ */
@@ -904,7 +888,7 @@ extern int AM_GetDestEndpoint(void *token, ep_t *endp) {
   AMUDP_CHECKINIT();
   AMUDP_CHECK_ERR((!token || !endp),BAD_ARG);
 
-  *endp = ((amudp_buf_t *)token)->status.dest;
+  *endp = ((amudp_buf_t *)token)->status.rx.dest;
   return AM_OK;
 }
 /* ------------------------------------------------------------------------------------ */
@@ -912,9 +896,7 @@ extern int AM_GetMsgTag(void *token, tag_t *tagp) {
   AMUDP_CHECKINIT();
   AMUDP_CHECK_ERR((!token || !tagp),BAD_ARG);
   
-  if (((amudp_buf_t *)token)->status.bulkBuffer)
-    *tagp = ((amudp_buf_t *)token)->status.bulkBuffer->Msg.tag;
-  else *tagp = ((amudp_buf_t *)token)->Msg.tag;
+  *tagp = ((amudp_buf_t *)token)->msg.tag;
   return AM_OK;
 }
 /* ------------------------------------------------------------------------------------ */
@@ -1070,7 +1052,8 @@ extern const char *AMUDP_DumpStatistics(void *_fp, amudp_stats_t *stats, int glo
   snprintf(msg, sizeof(msg),
     " Requests: %8lu sent, %4lu retransmitted, %8lu received\n"
     " Replies:  %8lu sent, %4lu retransmitted, %8lu received\n"
-    " Returned messages:  %8lu\n"
+    " Returned messages:   %8lu\n"
+    " Misordered receipt:  %8lu/%lu\n"
   #if AMUDP_COLLECT_LATENCY_STATS
     "Latency (request sent to reply received): \n"
     " min: %8i microseconds\n"
@@ -1093,6 +1076,8 @@ extern const char *AMUDP_DumpStatistics(void *_fp, amudp_stats_t *stats, int glo
     (unsigned long)requestsSent, (unsigned long)requestsRetransmitted, (unsigned long)requestsReceived,
     (unsigned long)repliesSent, (unsigned long)repliesRetransmitted, (unsigned long)repliesReceived,
     (unsigned long)stats->ReturnedMessages,
+    (unsigned long)stats->OutOfOrderRequests,
+    (unsigned long)stats->OutOfOrderReplies,
   #if AMUDP_COLLECT_LATENCY_STATS
     (stats->RequestMinLatency == (amudp_cputick_t)-1?(int)-1:(int)ticks2us(stats->RequestMinLatency)),
     (int)ticks2us(stats->RequestMaxLatency),

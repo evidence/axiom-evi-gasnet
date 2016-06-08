@@ -67,6 +67,8 @@ typedef struct {
   uint64_t RequestsReceived[amudp_NumCategories];   /*  includes retransmits */
   uint64_t RepliesReceived[amudp_NumCategories];    /*  includes retransmits */
   uint64_t ReturnedMessages;
+  uint64_t OutOfOrderRequests;
+  uint64_t OutOfOrderReplies;
   amudp_cputick_t RequestMinLatency;  /* in CPU ticks, only if AMUDP_COLLECT_LATENCY_STATS */
   amudp_cputick_t RequestMaxLatency;  /* in CPU ticks, only if AMUDP_COLLECT_LATENCY_STATS */
   amudp_cputick_t RequestSumLatency;  /* in CPU ticks, only if AMUDP_COLLECT_LATENCY_STATS */

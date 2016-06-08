@@ -66,7 +66,7 @@
 /* ------------------------------------------------------------------------------------ */
 /* Internal constants */
 #define AMUDP_MAX_SHORT    16    /* max number of handler arguments, >=8 */
-#define AMUDP_MAX_MEDIUM   512   /* max. data transmission unit for medium messages, >= 512 */
+#define AMUDP_MAX_MEDIUM   AMUDP_MAX_LONG  /* max. data transmission unit for medium messages, >= 512 */
 
 #if PLATFORM_OS_IRIX
   #define AMUDP_MAX_LONG     61000  /* max. UDP datagram on IRIX is apparently 61412 */
