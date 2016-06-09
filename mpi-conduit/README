@@ -31,6 +31,14 @@ Recognized environment variables:
   few platforms. 0 means always use synchronous sends, -1 means never use them
   (the default on most platforms).
 
+* AMMPI_MPI_THREAD - can be set to one of the values:
+    "SINGLE", "FUNNELED", "SERIALIZED" or "MULTIPLE" 
+  to request the MPI library be initialized with a specific threading support
+  level, for use in mixed-mode threaded applications that directly call MPI. 
+  mpi-conduit itself requires at least "SINGLE" when built in GASNET_SEQ mode,
+  and at least "SERIALIZED" to ensure correctness when built in GASNET_PAR mode.
+  See MPI documentation for detailed explanation of the threading levels.
+
 Configuration-time variables:
 ---------------------------------
 
