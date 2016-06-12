@@ -22,6 +22,7 @@ amudp_handler_fn_t amudp_defaultreturnedmsg_handler = (amudp_handler_fn_t)&AMUDP
   int AMUDP_VerboseErrors = 0;
 #endif
 int AMUDP_PoliteSync = 0;
+const char *AMUDP_ProcessLabel = NULL;
 uint32_t AMUDP_ExpectedBandwidth = AMUDP_DEFAULT_EXPECTED_BANDWIDTH;
 uint32_t AMUDP_RequestTimeoutBackoff = AMUDP_REQUESTTIMEOUT_BACKOFF_MULTIPLIER;
 uint32_t AMUDP_MaxRequestTimeout_us = AMUDP_MAX_REQUESTTIMEOUT_MICROSEC;
@@ -47,23 +48,36 @@ const amudp_stats_t AMUDP_initial_stats = /* the initial state for stats type */
 /* error handling */
 AMUDP_FORMAT_PRINTF(AMUDP_Msg,2,0,
 static int AMUDP_Msg(const char *prefix, const char *msg, va_list argptr)) {
-  const size_t len = strlen(msg)+strlen(prefix)+50;
-  char *expandedmsg = (char *)AMUDP_malloc(len);
-  int retval;
+  static char _expandedmsg[255]; // use static storage when possible for robustness in panic-mode
+  static char plabel[80];
 
-  snprintf(expandedmsg, len, "*** %s: %s\n", prefix, msg);
-  retval = vfprintf(stderr, expandedmsg, argptr);
+  if (AMUDP_ProcessLabel && !*plabel) snprintf(plabel, sizeof(plabel), "(%s)", AMUDP_ProcessLabel);
+  char *expandedmsg = _expandedmsg;
+  size_t sz = strlen(prefix) + strlen(plabel) + strlen(msg) + 8;
+  if (sz > sizeof(_expandedmsg)) expandedmsg = (char *)AMUDP_malloc(sz);
+  int chk = snprintf(expandedmsg, sz, "%s%s: %s\n", prefix, plabel, msg);
+  AMUDP_assert(chk < (int)sz); // truncation should not occur
+  int retval = vfprintf(stderr, expandedmsg, argptr);
   fflush(stderr);
-  AMUDP_free(expandedmsg);
-
+  if (expandedmsg != _expandedmsg) AMUDP_free(expandedmsg);
+  
   return retval; 
+}
+
+extern int AMUDP_Info(const char *msg, ...) {
+  va_list argptr;
+  int retval;
+  va_start(argptr, msg); // pass in last argument
+    retval = AMUDP_Msg(AMUDP_ENV_PREFIX_STR, msg, argptr);
+  va_end(argptr);
+  return retval;
 }
 
 extern int AMUDP_Warn(const char *msg, ...) {
   va_list argptr;
   int retval;
   va_start(argptr, msg); // pass in last argument
-    retval = AMUDP_Msg("AMUDP WARNING", msg, argptr);
+    retval = AMUDP_Msg("*** " AMUDP_ENV_PREFIX_STR " WARNING", msg, argptr);
   va_end(argptr);
   return retval;
 }
@@ -72,7 +86,7 @@ extern int AMUDP_Err(const char *msg, ...) {
   va_list argptr;
   int retval;
   va_start(argptr, msg); // pass in last argument
-    retval = AMUDP_Msg("AMUDP ERROR", msg, argptr);
+    retval = AMUDP_Msg("*** " AMUDP_ENV_PREFIX_STR " ERROR", msg, argptr);
   va_end(argptr);
   return retval;
 }
@@ -81,7 +95,7 @@ extern void AMUDP_FatalErr(const char *msg, ...) {
   va_list argptr;
   int retval;
   va_start(argptr, msg); // pass in last argument
-    retval = AMUDP_Msg("FATAL ERROR", msg, argptr);
+    retval = AMUDP_Msg("*** FATAL ERROR", msg, argptr);
   va_end(argptr);
   abort();
 }
@@ -222,12 +236,11 @@ extern int AMUDP_growSocketBufferSize(ep_t ep, int targetsize,
   int maxedout = 0;
   GETSOCKOPT_LENGTH_T junk = sizeof(int);
   if (SOCK_getsockopt(ep->s, SOL_SOCKET, szparam, (char *)&initialsize, &junk) == SOCKET_ERROR) {
-    #if AMUDP_DEBUG
-      AMUDP_Warn("getsockopt(SOL_SOCKET, %s) on UDP socket failed: %s",paramname,strerror(errno));
-    #endif
+    AMUDP_DEBUG_WARN(("getsockopt(SOL_SOCKET, %s) on UDP socket failed: %s",paramname,strerror(errno)));
     initialsize = 65535;
   } 
-  ep->socketRecvBufferSize = initialsize; /* ensure ep->socketRecvBufferSize is always initialized */
+  if (szparam == SO_RCVBUF)
+    ep->socketRecvBufferSize = initialsize; /* ensure ep->socketRecvBufferSize is always initialized */
 
   targetsize = MAX(initialsize, targetsize); /* never shrink buffer */
 
@@ -253,22 +266,16 @@ extern int AMUDP_growSocketBufferSize(ep_t ep, int targetsize,
   while (targetsize > initialsize) {
     int sz = targetsize; /* prevent OS from tampering */
     if (setsockopt(ep->s, SOL_SOCKET, szparam, (char *)&sz, sizeof(int)) == SOCKET_ERROR) {
-      #if AMUDP_DEBUG
-        AMUDP_Warn("setsockopt(SOL_SOCKET, %s, %i) on UDP socket failed: %s", paramname, targetsize, strerror(errno));
-      #endif
+      AMUDP_DEBUG_WARN(("setsockopt(SOL_SOCKET, %s, %i) on UDP socket failed: %s", paramname, targetsize, strerror(errno)));
     } else {
       int temp = targetsize;
       junk = sizeof(int);
       if (SOCK_getsockopt(ep->s, SOL_SOCKET, szparam, (char *)&temp, &junk) == SOCKET_ERROR) {
-        #if AMUDP_DEBUG
-          AMUDP_Warn("getsockopt(SOL_SOCKET, %s) on UDP socket failed: %s", paramname, strerror(errno));
-        #endif
+        AMUDP_DEBUG_WARN(("getsockopt(SOL_SOCKET, %s) on UDP socket failed: %s", paramname, strerror(errno)));
       }
       if (temp >= targetsize) {
-        if (!AMUDP_SilentMode) {
-          fprintf(stderr, "UDP %s buffer successfully set to %i bytes\n", paramname, targetsize); fflush(stderr);
-        }
-        ep->socketRecvBufferSize = temp;
+        if (!AMUDP_SilentMode) AMUDP_Info("UDP %s buffer successfully set to %i bytes", paramname, targetsize);
+        if (szparam == SO_RCVBUF) ep->socketRecvBufferSize = temp;
         break; /* success */
       }
     }
@@ -417,16 +424,6 @@ extern int AM_Init() {
     AMUDP_assert(sizeof(uint64_t) == 8);
 
     AMUDP_assert(sizeof(uintptr_t) >= sizeof(void *));
-
-    { char *faultRate = AMUDP_getenv_prefixed("FAULT_RATE");
-      if (faultRate && (AMUDP_FaultInjectionRate = atof(faultRate)) != 0.0) {
-        AMUDP_FaultInjectionEnabled = 1;
-        fprintf(stderr, "*** Warning: AMUDP running with fault injection enabled. Rate = %6.2f %%\n",
-          100.0 * AMUDP_FaultInjectionRate);
-        fflush(stderr);
-        srand( (unsigned)time( NULL ) ); /* TODO: we should really be using a private rand num generator */
-      }
-    }
   }
   amudp_Initialized++;
   return AM_OK;
@@ -723,17 +720,24 @@ extern int AM_GetTranslationName(ep_t ea, int i, en_t *gan) {
   return AM_OK;
 }
 /* ------------------------------------------------------------------------------------ */
-extern int AM_SetExpectedResources(ep_t ea, int n_endpoints, int n_outstanding_requests) {
+static void AMUDP_InitParameters(ep_t ep) {
   static int firsttime = 1;
-  AMUDP_CHECKINIT();
-  if (!ea) AMUDP_RETURN_ERR(BAD_ARG);
-  if (ea->depth != -1) AMUDP_RETURN_ERR(RESOURCE); /* it's an error to call AM_SetExpectedResources again */
-  /* n_endpoints ignored : P is set as we Map translations */
-  /*if (n_endpoints < 1 || n_endpoints >= AMUDP_MAX_NUMTRANSLATIONS) AMUDP_RETURN_ERR(BAD_ARG);*/
-  if (n_outstanding_requests < 1 || n_outstanding_requests > AMUDP_MAX_NETWORKDEPTH) AMUDP_RETURN_ERR(BAD_ARG);
 
-  ea->depth = n_outstanding_requests;
-  ea->PD = ea->P * ea->depth;
+  static int recvDepth;
+
+  if (firsttime) { // only consult the environment once per process
+    // transfer defaults are based on first endpoint
+
+    // default recv depth is enough for full-bandwidth comms with up to 4 neighbors
+    recvDepth = 2 * ep->depth * MIN(MAX(1,ep->P-1),4);
+
+
+    char *faultRate = AMUDP_getenv_prefixed_withdefault("FAULT_RATE","0.0");
+    if (faultRate && (AMUDP_FaultInjectionRate = atof(faultRate)) != 0.0) {
+      AMUDP_FaultInjectionEnabled = 1;
+      AMUDP_Warn("Running with fault injection enabled. Rate = %6.2f %%", 100.0 * AMUDP_FaultInjectionRate);
+      srand( (unsigned)time( NULL ) ); /* TODO: we should really be using a private rand num generator */
+    }
 
     #define ENVINT_WITH_DEFAULT(var, name, validate) do { \
         char defval[80];                                  \
@@ -754,14 +758,11 @@ extern int AM_SetExpectedResources(ep_t ea, int n_endpoints, int n_outstanding_r
         }                                                 \
       } while (0)
 
-  // default recv depth is enough for full-bandwidth comms with up to 4 neighbors
-  ea->recvDepth = 2 *  ea->depth * MIN(MAX(1,ea->P-1),4); 
-  ENVINT_WITH_DEFAULT(ea->recvDepth, "RECVDEPTH", { 
-    if (val <= 0 || val > AMUDP_MAX_RECVDEPTH) 
-      AMUDP_FatalErr("RECVDEPTH must be in 1..%d", AMUDP_MAX_RECVDEPTH);
+    ENVINT_WITH_DEFAULT(recvDepth, "RECVDEPTH", { 
+      if (val <= 0 || val > AMUDP_MAX_RECVDEPTH) 
+        AMUDP_FatalErr("RECVDEPTH must be in 1..%d", AMUDP_MAX_RECVDEPTH);
     });
 
-  if (firsttime) { /* set transfer parameters */
     ENVINT_WITH_DEFAULT(AMUDP_MaxRequestTimeout_us, "REQUESTTIMEOUT_MAX",
                         { if (val <= 0) AMUDP_MaxRequestTimeout_us = AMUDP_TIMEOUT_INFINITE; });
     ENVINT_WITH_DEFAULT(AMUDP_InitialRequestTimeout_us, "REQUESTTIMEOUT_INITIAL",
@@ -772,16 +773,27 @@ extern int AM_SetExpectedResources(ep_t ea, int n_endpoints, int n_outstanding_r
                         { if (val < 1) AMUDP_FatalErr("EXPECTED_BANDWIDTH must be >= 1"); });
     if (AMUDP_InitialRequestTimeout_us > AMUDP_MaxRequestTimeout_us) {
        AMUDP_Warn("REQUESTTIMEOUT_INITIAL must not exceed REQUESTTIMEOUT_MAX. Raising MAX...");
-       AMUDP_MaxRequestTimeout_us = MAX(AMUDP_InitialRequestTimeout_us, AMUDP_InitialRequestTimeout_us*2);
+       AMUDP_MaxRequestTimeout_us = MAX(AMUDP_InitialRequestTimeout_us, AMUDP_InitialRequestTimeout_us*AMUDP_RequestTimeoutBackoff);
     }
-    #if 0
-      printf("AMUDP_MaxRequestTimeout_us=%08x\n",AMUDP_MaxRequestTimeout_us);
-      printf("AMUDP_InitialRequestTimeout_us=%08x\n",AMUDP_InitialRequestTimeout_us);
-      printf("AMUDP_RequestTimeoutBackoff=%08x\n",AMUDP_RequestTimeoutBackoff);
-      printf("AMUDP_ExpectedBandwidth=%08x\n",AMUDP_ExpectedBandwidth);
-    #endif
     firsttime = 0;
   }
+
+  ep->recvDepth = recvDepth;
+
+}
+/* ------------------------------------------------------------------------------------ */
+extern int AM_SetExpectedResources(ep_t ea, int n_endpoints, int n_outstanding_requests) {
+  AMUDP_CHECKINIT();
+  if (!ea) AMUDP_RETURN_ERR(BAD_ARG);
+  if (ea->depth != -1) AMUDP_RETURN_ERR(RESOURCE); /* it's an error to call AM_SetExpectedResources again */
+  /* n_endpoints ignored : P is set as we Map translations */
+  /*if (n_endpoints < 1 || n_endpoints >= AMUDP_MAX_NUMTRANSLATIONS) AMUDP_RETURN_ERR(BAD_ARG);*/
+  if (n_outstanding_requests < 1 || n_outstanding_requests > AMUDP_MAX_NETWORKDEPTH) AMUDP_RETURN_ERR(BAD_ARG);
+
+  ea->depth = n_outstanding_requests;
+  ea->PD = ea->P * ea->depth;
+
+  AMUDP_InitParameters(ea);
 
   if (!AMUDP_AllocateEndpointBuffers(ea)) AMUDP_RETURN_ERR(RESOURCE);
 

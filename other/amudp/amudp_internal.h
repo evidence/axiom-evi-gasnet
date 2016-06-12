@@ -388,6 +388,34 @@ extern int AMUDP_Err(const char *msg, ...));
 AMUDP_FORMAT_PRINTF(AMUDP_Warn,1,2,
 extern int AMUDP_Warn(const char *msg, ...));
 
+AMUDP_FORMAT_PRINTF(AMUDP_Info,1,2,
+extern int AMUDP_Info(const char *msg, ...));
+
+// verbose debug messages (double-parens)
+#if AMUDP_DEBUG_VERBOSE
+  #define AMUDP_VERBOSE_INFO(args)    AMUDP_Info args
+  #define AMUDP_DEBUG_INFO(args)      AMUDP_Info args
+  #define AMUDP_DEBUG_WARN(args)      AMUDP_Warn args
+  #define AMUDP_DEBUG_WARN_TH(msg)    AMUDP_Warn(msg)
+#elif AMUDP_DEBUG
+  #define AMUDP_VERBOSE_INFO(args)    ((void)0)
+  #define AMUDP_DEBUG_INFO(args)      AMUDP_Info args
+  #define AMUDP_DEBUG_WARN(args)      AMUDP_Warn args
+  // throttled debug-only warning
+  #define AMUDP_DEBUG_WARN_TH(msg) do {                                 \
+    static uint64_t _cnt = 0;                                           \
+    _cnt++;                                                             \
+    if_pf (!(_cnt & (_cnt-1))) {                                        \
+      AMUDP_Warn("%s (%llu occurences)",msg,(unsigned long long)_cnt);  \
+    }                                                                   \
+  } while (0)
+#else
+  #define AMUDP_VERBOSE_INFO(args)    ((void)0)
+  #define AMUDP_DEBUG_INFO(args)      ((void)0)
+  #define AMUDP_DEBUG_WARN(args)      ((void)0)
+  #define AMUDP_DEBUG_WARN_TH(msg)    ((void)0)
+#endif
+
 #ifdef GASNETT_NORETURN
 GASNETT_NORETURN
 #endif

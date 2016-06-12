@@ -119,6 +119,7 @@ typedef int op_t;
 extern int AMUDP_VerboseErrors; /* set to non-zero for verbose error reporting */
 extern int AMUDP_PoliteSync; /* set to non-zero for polite blocking while awaiting send resources */
 extern int AMUDP_SilentMode; /* set to non-zero to silence any non-error output */
+extern const char *AMUDP_ProcessLabel; /* human-readable label for this process */
 
 #ifdef __GNUC__
 __attribute__((__format__ (__printf__, 1, 2)))

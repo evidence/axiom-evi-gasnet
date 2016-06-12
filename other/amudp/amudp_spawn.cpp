@@ -235,13 +235,13 @@ int AMUDP_SPMDSshSpawn(int nproc, int argc, char **argv, char **extra_env) {
 
   ssh_servers = AMUDP_getenv_prefixed_withdefault("SSH_SERVERS","");
   if (!strlen(ssh_servers)) {
-    printf("Environment variable SSH_SERVERS is missing.\n");
+    AMUDP_Err("Environment variable SSH_SERVERS is missing.");
     return FALSE;
   }
 
 
   if (!getcwd(cwd, 1024)) {
-    printf("Error calling getcwd()\n");
+    AMUDP_Err("Error calling getcwd()");
     return FALSE;
   }
   ssh_remote_path = quote_for_local(AMUDP_getenv_prefixed_withdefault("SSH_REMOTE_PATH", cwd));
@@ -249,7 +249,7 @@ int AMUDP_SPMDSshSpawn(int nproc, int argc, char **argv, char **extra_env) {
 
   int isOpenSSH = 0; /* figure out if we're using OpenSSH */
   { char cmdtmp[1024];
-    sprintf(cmdtmp,"%s -v 2>&1 | grep OpenSSH", ssh_cmd);
+    sprintf(cmdtmp,"%s -V 2>&1 | grep OpenSSH", ssh_cmd);
     FILE *pop = popen(cmdtmp,"r");
     while (!feof(pop) && !ferror(pop)) {
       int next = fgetc(pop);
@@ -269,8 +269,8 @@ int AMUDP_SPMDSshSpawn(int nproc, int argc, char **argv, char **extra_env) {
     while (*p && strchr(SSH_SERVERS_DELIM_CHARS, *p)) p++;
     end = p + strcspn(p, SSH_SERVERS_DELIM_CHARS);
     if (p == end) {
-      printf("Not enough machines in environment variable SSH_SERVERS to satisfy request for (%i).\n"
-       "Only (%i) machines available: %s\n", nproc, i, ssh_servers);
+      AMUDP_Err("Not enough machines in environment variable SSH_SERVERS to satisfy request for (%i).\n"
+       "Only (%i) machines available: %s", nproc, i, ssh_servers);
       return FALSE;
     }
     if (*end) p = end+1;
@@ -325,28 +325,28 @@ int AMUDP_SPMDSshSpawn(int nproc, int argc, char **argv, char **extra_env) {
     ssh_server[end-p] = '\0'; 
 
     /* build the ssh command */
-    snprintf(cmd2, cmd2_sz, "%s %s %s %s %s %s \" %s cd %s ; %s\" "
+    snprintf(cmd2, cmd2_sz, "%s %s%s%s%s %s \"%scd %s ; %s\" "
       " || ( echo \"connection to %s failed.\" ; kill %i ) "
       "%s", 
       ssh_cmd,
 
-      (isOpenSSH?"-f":""),    /* go into background and nullify stdin */
+      (isOpenSSH?"-f ":""),    /* go into background and nullify stdin */
 
       #if SSH_SUPRESSNEWKEYPROMPT
-        (isOpenSSH?"-o 'StrictHostKeyChecking no'":""),
+        (isOpenSSH?"-o 'StrictHostKeyChecking no' ":""),
       #else 
         "",
       #endif
 
       #if SSH_PREVENTRSHFALLBACK
-        (isOpenSSH?"-o 'FallBackToRsh no'":""),
+        (isOpenSSH?"-o 'FallBackToRsh no' ":""),
       #else 
         "",
       #endif
 
       ssh_options, ssh_server, 
       
-      (AMUDP_SilentMode?"":"echo connected to \\$HOST... ;"),
+      (AMUDP_SilentMode?"":"echo connected to \\$HOST... ; "),
 
       ssh_remote_path, cmd1, ssh_server, pid,
 
@@ -358,9 +358,9 @@ int AMUDP_SPMDSshSpawn(int nproc, int argc, char **argv, char **extra_env) {
     );
 
     if (!AMUDP_SilentMode) 
-      printf("system(%s)\n", cmd2); fflush(stdout);
+      AMUDP_Info("system(%s)", cmd2);
     if (system(cmd2) == -1) {
-      printf("Failed to call system() to spawn");
+      AMUDP_Err("Failed to call system() to spawn");
       AMUDP_free(cmd1);
       AMUDP_free(cmd2);
       return FALSE;
@@ -440,8 +440,8 @@ int AMUDP_SPMDCustomSpawn(int nproc, int argc, char **argv, char **extra_env) {
       while (*p && strchr(SSH_SERVERS_DELIM_CHARS, *p)) p++;
       end = p + strcspn(p, SSH_SERVERS_DELIM_CHARS);
       if (p == end) {
-        printf("Not enough machines in environment variable " AMUDP_ENV_PREFIX_STR"_CSPAWN_SERVERS to satisfy request for (%i).\n"
-          "Only (%i) machines available: %s\n", nproc, i, spawn_servers);
+        AMUDP_Err("Not enough machines in environment variable " AMUDP_ENV_PREFIX_STR"_CSPAWN_SERVERS to satisfy request for (%i).\n"
+          "Only (%i) machines available: %s", nproc, i, spawn_servers);
         return FALSE;
       }
       strncpy(servername, p, end-p);
@@ -457,7 +457,7 @@ int AMUDP_SPMDCustomSpawn(int nproc, int argc, char **argv, char **extra_env) {
   sprintf(nproc_str, "%i", nproc);
 
   if (!getcwd(cwd, 1024)) {
-    printf("Error calling getcwd()\n");
+    AMUDP_Err("Error calling getcwd()");
     return FALSE;
   }
 
@@ -540,7 +540,7 @@ int AMUDP_SPMDCustomSpawn(int nproc, int argc, char **argv, char **extra_env) {
     else 
     {  /*  this is the child - exec the new process */
       if (!AMUDP_SilentMode) 
-        printf("system(%s)\n", cmd); fflush(stdout);
+        AMUDP_Info("system(%s)\n", cmd);
     #if PLATFORM_OS_CYGWIN
       if (spawn_use_create_process) {
         STARTUPINFO si;
