@@ -291,6 +291,9 @@ typedef struct {
 
 /* ------------------------------------------------------------------------------------ */
 /* Buffer pools */
+#ifndef AMUDP_BUFFER_STATS
+#define AMUDP_BUFFER_STATS AMUDP_DEBUG_VERBOSE
+#endif
 
 struct amudp_bufferpool;
 
@@ -303,6 +306,12 @@ typedef union amudp_bufferheader {
 typedef struct amudp_bufferpool {
   #if AMUDP_DEBUG
     uint64_t magic;
+    struct {
+      uint64_t alloc_curr;
+      uint64_t alloc_peak;
+      uint64_t alloc_total;
+      uint64_t buffer_bytes;
+    } stats;
   #endif
   amudp_bufferheader_t *free;
   size_t buffersz;

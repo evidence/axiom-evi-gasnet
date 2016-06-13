@@ -181,6 +181,13 @@ extern amudp_buf_t *AMUDP_AcquireBuffer(ep_t ep, size_t sz) {
 
   AMUDP_memcheck(bh);
 
+  #if AMUDP_BUFFER_STATS
+    pool->stats.alloc_curr++;
+    pool->stats.alloc_total++;
+    pool->stats.buffer_bytes += sz;
+    pool->stats.alloc_peak = MAX(pool->stats.alloc_curr,pool->stats.alloc_peak);
+  #endif
+
   amudp_buf_t *buf = (amudp_buf_t *)(bh+1);
   AMUDP_assert(!((uintptr_t)buf & 0x7)); // 8-byte alignment
   return buf;
@@ -195,6 +202,9 @@ extern void AMUDP_ReleaseBuffer(ep_t ep, amudp_buf_t *buf) {
   AMUDP_assert(pool->magic == AMUDP_BUFFERPOOL_MAGIC);
   bh->next = pool->free;
   pool->free = bh;
+  #if AMUDP_BUFFER_STATS
+    pool->stats.alloc_curr--;
+  #endif
 }
 /* ------------------------------------------------------------------------------------ */
 static void AMUDP_InitBuffers(ep_t ep) {
@@ -218,6 +228,15 @@ static void AMUDP_FreeAllBuffers(ep_t ep) {
       AMUDP_free(bh);
       bh = next;
     }
+    #if AMUDP_BUFFER_STATS
+      AMUDP_Info("Buffer pool %5i: %7.1fb avg\t%6llu alloc\t%4llu peak\t%2llu leaked",
+                 (int)pool->buffersz, 
+                 pool->stats.buffer_bytes/(double)pool->stats.alloc_total,
+                 (unsigned long long)pool->stats.alloc_total,
+                 (unsigned long long)pool->stats.alloc_peak,
+                 (unsigned long long)pool->stats.alloc_curr
+                 );
+    #endif
   }
 }
 /*------------------------------------------------------------------------------------
