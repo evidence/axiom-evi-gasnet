@@ -392,6 +392,7 @@ static void AMUDP_EnqueueTxBuffer(ep_t ep, amudp_buf_t *buf) {
     ep->timeoutCheckPosn->status.tx.prev = buf;
     buf->status.tx.prev->status.tx.next = buf;
     ep->outstandingRequests++;
+    AMUDP_assert(ep->outstandingRequests <= ep->sendDepth);
   }
 }
 static void AMUDP_DequeueTxBuffer(ep_t ep, amudp_buf_t *buf) {
@@ -906,6 +907,19 @@ extern int AM_Poll(eb_t eb) {
 
   return AM_OK;
 }
+// poll/block eb while awaiting resource cond
+// upon error, execute cleanup and return it
+#define BLOCKUNTIL(eb, cond, cleanup) while (!(cond)) { \
+   int _retval = AM_OK;                                 \
+   if (AMUDP_PoliteSync) {                              \
+      _retval = AMUDP_Block(eb);                        \
+   }                                                    \
+   if_pt (_retval == AM_OK) _retval = AM_Poll(eb);      \
+   if_pf (_retval != AM_OK) {                           \
+     cleanup;                                           \
+     AMUDP_RETURN(_retval);                             \
+   }                                                    \
+  }
 /*------------------------------------------------------------------------------------
  * Generic Request/Reply
  *------------------------------------------------------------------------------------ */
@@ -942,7 +956,7 @@ static int AMUDP_RequestGeneric(amudp_category_t category,
     amudp_bufdesc_t * const descs = GET_REQ_DESC_ALLOC(ep, destP, 0);
     perProcInfo = &ep->perProcInfo[destP];
 
-    while(1) { // send resource acquisition loop
+    while(1) { // send descriptor acquisition loop
       uint16_t const hint = perProcInfo->instanceHint;
       AMUDP_assert(hint <= depth);
       amudp_bufdesc_t * const hintdesc = &descs[hint];
@@ -967,22 +981,19 @@ static int AMUDP_RequestGeneric(amudp_category_t category,
         /*  no buffers available - wait until one is open 
          *  (hint will point to a free buffer) 
          */
-        do {
-          int retval = AM_OK;
-          if (AMUDP_PoliteSync) {
-            retval = AMUDP_Block(ep->eb);
-          }
-          if_pt (retval == AM_OK) retval = AM_Poll(ep->eb);
-          if_pf (retval != AM_OK) {
-            AMUDP_ReleaseBuffer(ep, outgoingbuf); // prevent leak
-            AMUDP_RETURN(retval);
-          }
-        } while (descs[perProcInfo->instanceHint].buffer);
+        BLOCKUNTIL(ep->eb, descs[perProcInfo->instanceHint].buffer == NULL,
+                  AMUDP_ReleaseBuffer(ep, outgoingbuf)); // prevent leak on error return
       }
     } 
 
   gotinstance:
     AMUDP_assert(outgoingdesc);
+    AMUDP_assert(!outgoingdesc->buffer);
+
+    // wait for sendDepth, if necessary
+    BLOCKUNTIL(ep->eb, ep->outstandingRequests < ep->sendDepth, 
+                  AMUDP_ReleaseBuffer(ep, outgoingbuf)); // prevent leak on error return
+
     AMUDP_assert(!outgoingdesc->buffer);
     outgoingdesc->buffer = outgoingbuf; // claim desc
   }
@@ -1280,6 +1291,10 @@ extern int AMUDP_RequestXferVA(ep_t request_endpoint, amudp_node_t reply_endpoin
        * to succeed if we do. so:
        */
       AM_Poll(request_endpoint->eb);
+
+      /* check senddepth */
+      if (request_endpoint->outstandingRequests >= request_endpoint->sendDepth)
+        AMUDP_RETURN_ERRFR(IN_USE, AMUDP_RequestXferAsync, "Request can't be satisfied without blocking right now");
 
       /* see if there's a free buffer */
       amudp_bufdesc_t * const desc = GET_REQ_DESC_ALLOC(request_endpoint, destP, 0);

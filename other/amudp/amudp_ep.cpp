@@ -354,7 +354,8 @@ static int AMUDP_AllocateEndpointBuffers(ep_t ep) {
   AMUDP_assert(ep->depth >= 1);
   AMUDP_assert(ep->P > 0 && ep->P <= AMUDP_MAX_NUMTRANSLATIONS);
   AMUDP_assert(ep->PD == (int)ep->P * ep->depth);
-  AMUDP_assert(ep->recvDepth <= AMUDP_MAX_RECVDEPTH);
+  AMUDP_assert(ep->recvDepth > 0 && ep->recvDepth <= AMUDP_MAX_RECVDEPTH);
+  AMUDP_assert(ep->sendDepth > 0 && ep->sendDepth <= (int)MAX(1,ep->P - 1) * ep->depth);
 
   AMUDP_assert(sizeof(amudp_buf_t) % sizeof(int) == 0); /* assume word-addressable machine */
 
@@ -743,12 +744,14 @@ static void AMUDP_InitParameters(ep_t ep) {
   static int firsttime = 1;
 
   static int recvDepth;
+  static int sendDepth;
 
   if (firsttime) { // only consult the environment once per process
     // transfer defaults are based on first endpoint
 
-    // default recv depth is enough for full-bandwidth comms with up to 4 neighbors
+    // default depths enough for full-bandwidth comms with up to 4 neighbors
     recvDepth = 2 * ep->depth * MIN(MAX(1,ep->P-1),4);
+    sendDepth = ep->depth * MIN(MAX(1,ep->P-1),4);
 
 
     char *faultRate = AMUDP_getenv_prefixed_withdefault("FAULT_RATE","0.0");
@@ -782,6 +785,9 @@ static void AMUDP_InitParameters(ep_t ep) {
         AMUDP_FatalErr("RECVDEPTH must be in 1..%d", AMUDP_MAX_RECVDEPTH);
     });
 
+    ENVINT_WITH_DEFAULT(sendDepth, "SENDDEPTH",
+                        { if (!val) AMUDP_FatalErr("SENDDEPTH must be non-zero"); });
+
     ENVINT_WITH_DEFAULT(AMUDP_MaxRequestTimeout_us, "REQUESTTIMEOUT_MAX",
                         { if (val <= 0) AMUDP_MaxRequestTimeout_us = AMUDP_TIMEOUT_INFINITE; });
     ENVINT_WITH_DEFAULT(AMUDP_InitialRequestTimeout_us, "REQUESTTIMEOUT_INITIAL",
@@ -799,6 +805,14 @@ static void AMUDP_InitParameters(ep_t ep) {
 
   ep->recvDepth = recvDepth;
 
+  ep->sendDepth = sendDepth;
+  int maxsendDepth = ep->depth * MAX(1,ep->P-1);
+  if (ep->sendDepth < 0 || ep->sendDepth > maxsendDepth) // silently cap, since the max is P-dependent
+    ep->sendDepth = maxsendDepth;
+  if (ep->sendDepth < ep->depth) {
+    AMUDP_Warn("SENDDEPTH may not be less than DEPTH. Raising SENDDEPTH...");
+    ep->sendDepth = ep->depth;
+  }
 }
 /* ------------------------------------------------------------------------------------ */
 extern int AM_SetExpectedResources(ep_t ea, int n_endpoints, int n_outstanding_requests) {

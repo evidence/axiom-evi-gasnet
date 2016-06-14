@@ -369,6 +369,7 @@ struct amudp_ep {
   int depth; /* network depth, -1 until AM_SetExpectedResources is called */
   int PD; /* cached value of P * depth */
   int recvDepth; /* recv depth */
+  int sendDepth; /* send depth: max outstandingRequests (to all peers) */
 
   int outstandingRequests; /* number of requests awaiting a reply, does NOT include loopback */
   amudp_buf_t *timeoutCheckPosn; /* current position of the timeout-checking circular walk */
