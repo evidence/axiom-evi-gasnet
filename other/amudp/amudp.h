@@ -64,6 +64,7 @@ typedef struct {
   uint64_t RepliesSent[amudp_NumCategories];
   uint64_t RequestsRetransmitted[amudp_NumCategories];
   uint64_t RepliesRetransmitted[amudp_NumCategories];
+  uint64_t RepliesSquashed[amudp_NumCategories];
   uint64_t RequestsReceived[amudp_NumCategories];   /*  includes retransmits */
   uint64_t RepliesReceived[amudp_NumCategories];    /*  includes retransmits */
   uint64_t ReturnedMessages;

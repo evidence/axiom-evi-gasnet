@@ -251,14 +251,12 @@ typedef union {
     /* Request tx fields */
     struct amudp_buf *next; // retransmit ring
     struct amudp_buf *prev;
-    amudp_cputick_t timestamp;
+    amudp_cputick_t timestamp; // request expiration, reply last retransmit
     #if AMUDP_COLLECT_LATENCY_STATS
       amudp_cputick_t firstSendTime; /* for statistical purposes only */
     #endif
     amudp_node_t destId;  /* 0-based endpoint id of remote */
     uint8_t retryCount; /* where we are in the retransmit backoff */
-    /* Request and Reply tx fields */
-    uint8_t transmitCount; /* how many times we've actually transmitted */
   } tx;
 
   uint64_t _pad[5];
@@ -373,6 +371,8 @@ struct amudp_ep {
 
   int outstandingRequests; /* number of requests awaiting a reply, does NOT include loopback */
   amudp_buf_t *timeoutCheckPosn; /* current position of the timeout-checking circular walk */
+
+  amudp_cputick_t replyEpoch; /* timestamp of the first non-loopback reply sent during the current AMPoll */
 
   amudp_perproc_info_t *perProcInfo;
 

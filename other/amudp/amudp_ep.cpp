@@ -36,7 +36,7 @@ double AMUDP_FaultInjectionEnabled = 0;
 
 const amudp_stats_t AMUDP_initial_stats = /* the initial state for stats type */
         { {0,0,0}, {0,0,0}, {0,0,0}, 
-          {0,0,0}, {0,0,0}, {0,0,0}, 
+          {0,0,0}, {0,0,0}, {0,0,0}, {0,0,0},
           0,0,0,
           (amudp_cputick_t)-1, 0, 0,
           {0,0,0}, {0,0,0}, 
@@ -980,6 +980,7 @@ extern int AMUDP_AggregateStatistics(amudp_stats_t *runningsum, amudp_stats_t *n
     runningsum->RequestsReceived[category] += newvalues->RequestsReceived[category];
     runningsum->RepliesSent[category] += newvalues->RepliesSent[category];
     runningsum->RepliesRetransmitted[category] += newvalues->RepliesRetransmitted[category];
+    runningsum->RepliesSquashed[category] += newvalues->RepliesSquashed[category];
     runningsum->RepliesReceived[category] += newvalues->RepliesReceived[category];
 
     runningsum->RequestDataBytesSent[category] += newvalues->RequestDataBytesSent[category];
@@ -1015,6 +1016,7 @@ extern const char *AMUDP_DumpStatistics(void *_fp, amudp_stats_t *stats, int glo
   int64_t requestsReceived = 0; 
   int64_t repliesSent = 0; 
   int64_t repliesRetransmitted = 0; 
+  int64_t repliesSquashed = 0; 
   int64_t repliesReceived = 0; 
   int64_t reqdataBytesSent = 0; 
   int64_t repdataBytesSent = 0; 
@@ -1042,6 +1044,7 @@ extern const char *AMUDP_DumpStatistics(void *_fp, amudp_stats_t *stats, int glo
     requestsReceived += stats->RequestsReceived[category];
     repliesSent += stats->RepliesSent[category];
     repliesRetransmitted += stats->RepliesRetransmitted[category];
+    repliesSquashed += stats->RepliesSquashed[category];
     repliesReceived += stats->RepliesReceived[category];
     reqdataBytesSent += stats->RequestDataBytesSent[category];
     repdataBytesSent += stats->ReplyDataBytesSent[category];
@@ -1095,10 +1098,10 @@ extern const char *AMUDP_DumpStatistics(void *_fp, amudp_stats_t *stats, int glo
 
   /* batch lines together to improve chance of output together */
   snprintf(msg, sizeof(msg),
-    " Requests: %8lu sent, %4lu retransmitted, %8lu received\n"
-    " Replies:  %8lu sent, %4lu retransmitted, %8lu received\n"
-    " Returned messages:   %8lu\n"
-    " Misordered receipt:  %8lu/%lu\n"
+    " Requests: %8llu sent, %4llu retransmitted, %8llu received\n"
+    " Replies:  %8llu sent, %4llu retransmitted, %8llu received, %4llu squashed\n"
+    " Returned messages:   %8llu\n"
+    " Misordered receipt:  %8llu/%llu\n"
   #if AMUDP_COLLECT_LATENCY_STATS
     "Latency (request sent to reply received): \n"
     " min: %8i microseconds\n"
@@ -1107,22 +1110,22 @@ extern const char *AMUDP_DumpStatistics(void *_fp, amudp_stats_t *stats, int glo
   #endif
 
     "Message Breakdown:        Requests     Replies   Avg data sz (Req/Rep/Both)\n"
-    " Short  (<=%5i bytes)   %8lu    %8lu  %9.*f/%.*f/%.*f bytes\n"
-    " Medium (<=%5i bytes)   %8lu    %8lu  %9.*f/%.*f/%.*f bytes\n"
-    " Long   (<=%5i bytes)   %8lu    %8lu  %9.*f/%.*f/%.*f bytes\n"
+    " Short  (<=%5i bytes)   %8llu    %8llu  %9.*f/%.*f/%.*f bytes\n"
+    " Medium (<=%5i bytes)   %8llu    %8llu  %9.*f/%.*f/%.*f bytes\n"
+    " Long   (<=%5i bytes)   %8llu    %8llu  %9.*f/%.*f/%.*f bytes\n"
 
     " Total                                          %9.*f/%.*f/%.*f bytes\n"
 
-    "Data bytes sent:      %lu/%lu/%lu bytes\n"
-    "Total bytes sent:     %lu/%lu/%lu bytes (incl. AM overhead)\n"
+    "Data bytes sent:      %llu/%llu/%llu bytes\n"
+    "Total bytes sent:     %llu/%llu/%llu bytes (incl. AM overhead)\n"
     "Bandwidth overhead:   %.2f%%/%.2f%%/%.2f%%\n"        
     "Average packet size:  %.*f/%.*f/%.*f bytes (incl. AM & transport-layer overhead)\n"
     , 
-    (unsigned long)requestsSent, (unsigned long)requestsRetransmitted, (unsigned long)requestsReceived,
-    (unsigned long)repliesSent, (unsigned long)repliesRetransmitted, (unsigned long)repliesReceived,
-    (unsigned long)stats->ReturnedMessages,
-    (unsigned long)stats->OutOfOrderRequests,
-    (unsigned long)stats->OutOfOrderReplies,
+    (unsigned long long)requestsSent, (unsigned long long)requestsRetransmitted, (unsigned long long)requestsReceived,
+    (unsigned long long)repliesSent, (unsigned long long)repliesRetransmitted, (unsigned long long)repliesReceived, (unsigned long long)repliesSquashed,
+    (unsigned long long)stats->ReturnedMessages,
+    (unsigned long long)stats->OutOfOrderRequests,
+    (unsigned long long)stats->OutOfOrderReplies,
   #if AMUDP_COLLECT_LATENCY_STATS
     (stats->RequestMinLatency == (amudp_cputick_t)-1?(int)-1:(int)ticks2us(stats->RequestMinLatency)),
     (int)ticks2us(stats->RequestMaxLatency),
@@ -1131,17 +1134,17 @@ extern const char *AMUDP_DumpStatistics(void *_fp, amudp_stats_t *stats, int glo
 
     /* Message breakdown */
     (int)(AMUDP_MAX_SHORT*sizeof(int)),
-      (unsigned long)stats->RequestsSent[amudp_Short], (unsigned long)stats->RepliesSent[amudp_Short], 
+      (unsigned long long)stats->RequestsSent[amudp_Short], (unsigned long long)stats->RepliesSent[amudp_Short], 
       AMUDP_StatPrecision(reqavgpayload[amudp_Short]), reqavgpayload[amudp_Short], 
       AMUDP_StatPrecision(repavgpayload[amudp_Short]), repavgpayload[amudp_Short], 
       AMUDP_StatPrecision(avgpayload[amudp_Short]), avgpayload[amudp_Short], 
     (int)(AMUDP_MAX_SHORT*sizeof(int) + AMUDP_MAX_MEDIUM),
-      (unsigned long)stats->RequestsSent[amudp_Medium], (unsigned long)stats->RepliesSent[amudp_Medium], 
+      (unsigned long long)stats->RequestsSent[amudp_Medium], (unsigned long long)stats->RepliesSent[amudp_Medium], 
       AMUDP_StatPrecision(reqavgpayload[amudp_Medium]), reqavgpayload[amudp_Medium], 
       AMUDP_StatPrecision(repavgpayload[amudp_Medium]), repavgpayload[amudp_Medium], 
       AMUDP_StatPrecision(avgpayload[amudp_Medium]), avgpayload[amudp_Medium], 
     (int)(AMUDP_MAX_SHORT*sizeof(int) + AMUDP_MAX_LONG),
-      (unsigned long)stats->RequestsSent[amudp_Long], (unsigned long)stats->RepliesSent[amudp_Long], 
+      (unsigned long long)stats->RequestsSent[amudp_Long], (unsigned long long)stats->RepliesSent[amudp_Long], 
       AMUDP_StatPrecision(reqavgpayload[amudp_Long]), reqavgpayload[amudp_Long], 
       AMUDP_StatPrecision(repavgpayload[amudp_Long]), repavgpayload[amudp_Long], 
       AMUDP_StatPrecision(avgpayload[amudp_Long]), avgpayload[amudp_Long], 
@@ -1151,9 +1154,9 @@ extern const char *AMUDP_DumpStatistics(void *_fp, amudp_stats_t *stats, int glo
     AMUDP_StatPrecision(avgrepdata), avgrepdata,
     AMUDP_StatPrecision(avgdata), avgdata,
 
-    (unsigned long)reqdataBytesSent, (unsigned long)repdataBytesSent, (unsigned long)dataBytesSent,
+    (unsigned long long)reqdataBytesSent, (unsigned long long)repdataBytesSent, (unsigned long long)dataBytesSent,
 
-    (unsigned long)reqTotalBytesSent, (unsigned long)repTotalBytesSent, (unsigned long)stats->TotalBytesSent,
+    (unsigned long long)reqTotalBytesSent, (unsigned long long)repTotalBytesSent, (unsigned long long)stats->TotalBytesSent,
     /* bandwidth overhead */
     (reqTotalBytesSent > 0 ?
       100.0*((double)(reqTotalBytesSent + reqUDPIPheaderbytes - reqdataBytesSent)) / 
@@ -1179,18 +1182,24 @@ extern const char *AMUDP_DumpStatistics(void *_fp, amudp_stats_t *stats, int glo
     int64_t repsent = repliesSent + repliesRetransmitted;
     int64_t replost = repsent - repliesReceived;
     int64_t packetslost = reqlost + replost;
-    int64_t extra_rexmits = requestsRetransmitted - reqlost;
-    #define APPEND_PERCENT(num, denom)                                           \
-      if (num > 0) sprintf(msg+strlen(msg), "  (%6.3f%%)\n", (100.0*num)/denom); \
-      else strcat(msg, "\n")
-    sprintf(msg+strlen(msg), "Requests lost:        %9i", (int)reqlost);
-    APPEND_PERCENT(reqlost, reqsent);
-    sprintf(msg+strlen(msg), "Replies lost:         %9i", (int)replost);
-    APPEND_PERCENT(replost, repsent);
-    sprintf(msg+strlen(msg), "Total packets lost:   %9i", (int)packetslost);
-    APPEND_PERCENT(packetslost, packetssent);
-    sprintf(msg+strlen(msg), "Useless retransmits:  %9i", (int)extra_rexmits);
-    APPEND_PERCENT(extra_rexmits, requestsRetransmitted);
+    int64_t extra_rereq = requestsRetransmitted - reqlost - replost;
+    int64_t extra_rerep = repliesRetransmitted - replost;
+    int64_t extra_reboth = extra_rereq + extra_rerep;
+    #define APPEND_PERCENT(num, denom, eol)                                               \
+      if (num > 0) sprintf(msg+strlen(msg), "  (%6.3f%%)%s", (100.0*(num))/(denom), eol); \
+      else strcat(msg, eol)
+    sprintf(msg+strlen(msg), "Requests lost:        %9lli", (long long)reqlost);
+    APPEND_PERCENT(reqlost, reqsent, "\n");
+    sprintf(msg+strlen(msg), "Replies lost:         %9lli", (long long)replost);
+    APPEND_PERCENT(replost, repsent, "\n");
+    sprintf(msg+strlen(msg), "Total packets lost:   %9lli", (long long)packetslost);
+    APPEND_PERCENT(packetslost, packetssent, "\n");
+    sprintf(msg+strlen(msg), "Useless retransmits:  %lli", (long long)extra_rereq);
+    APPEND_PERCENT(extra_rereq, requestsRetransmitted, " / ");
+    sprintf(msg+strlen(msg), "%lli", (long long)extra_rerep);
+    APPEND_PERCENT(extra_rerep, repliesRetransmitted, " / ");
+    sprintf(msg+strlen(msg), "%lli", (long long)extra_reboth);
+    APPEND_PERCENT(extra_reboth, requestsRetransmitted+repliesRetransmitted, "\n");
   } 
 
   if (fp != NULL) fprintf(fp, "%s", msg);

@@ -498,7 +498,6 @@ static int AMUDP_HandleRequestTimeouts(ep_t ep, int numtocheck) {
         AMUDP_VERBOSE_INFO(("Retransmitting a request..."));
         int retval = sendPacket(ep, msg, msgsz, destaddress, RETRANSMISSION_PACKET);
         if (retval != AM_OK) AMUDP_RETURN(retval);        
-        buf->status.tx.transmitCount++;
         AMUDP_STATS(ep->stats.RequestsRetransmitted[cat]++);
         AMUDP_STATS(ep->stats.RequestTotalBytesSent[cat] += msgsz);
 
@@ -707,24 +706,38 @@ void AMUDP_processPacket(amudp_buf_t * const buf, int isloopback) {
     if (isrequest) {
       if_pf (seqnum != desc->seqNum) { 
         if_pf (AMUDP_SEQNUM_INC(seqnum) != desc->seqNum) {
-          AMUDP_STATS(ep->stats.OutOfOrderRequests++);
           if (OOOwarn) {
             AMUDP_Warn(OOOwarn, "request");
             OOOwarn = NULL;
           }
+          // Out-of-order message can only be a "slow" copy from a previously-completed instance 
+          // that included retransmits. Hence, should always be discarded.
+          AMUDP_STATS(ep->stats.OutOfOrderRequests++);
+          AMUDP_VERBOSE_INFO(("Ignoring an Out-of-order request."));
+          return;
         }
         /* request resent or reply got dropped - resend reply */
         amudp_buf_t * const replybuf = desc->buffer;
         AMUDP_assert(replybuf);
         amudp_msg_t * const replymsg = &replybuf->msg;
+        int cat = AMUDP_MSG_CATEGORY(replymsg);
+       
+        if (!ep->replyEpoch) ep->replyEpoch = getCPUTicks();
+        if (replybuf->status.tx.timestamp == ep->replyEpoch) {
+          // optimization: don't retransmit a reply more than once per epoch 
+          // This prevents request retransmit storms that built up while we were inattentive
+          // from being exacerbated into reply retransmit storms
+          AMUDP_VERBOSE_INFO(("Got a same-epoch duplicate request - squashing reply retransmit."));
+          AMUDP_STATS(ep->stats.RepliesSquashed[cat]++);
+          return;
+        }
+        replybuf->status.tx.timestamp = ep->replyEpoch;
 
         size_t msgsz = GET_MSG_SZ(replymsg);
         AMUDP_VERBOSE_INFO(("Got a duplicate request - resending previous reply."));
         int retval = sendPacket(ep, replymsg, msgsz,
             ep->perProcInfo[sourceID].remoteName, RETRANSMISSION_PACKET);
         if (retval != AM_OK) AMUDP_Err("sendPacket failed while resending a reply");
-        replybuf->status.tx.transmitCount++;
-        int cat = AMUDP_MSG_CATEGORY(replymsg);
         AMUDP_STATS(ep->stats.RepliesRetransmitted[cat]++);
         AMUDP_STATS(ep->stats.ReplyTotalBytesSent[cat] += msgsz);
         return;
@@ -732,11 +745,15 @@ void AMUDP_processPacket(amudp_buf_t * const buf, int isloopback) {
     } else {
       if (seqnum != desc->seqNum) { /*  duplicate reply, we already ran handler - ignore it */
         if_pf (AMUDP_SEQNUM_INC(seqnum) != desc->seqNum) {
-          AMUDP_STATS(ep->stats.OutOfOrderReplies++);
           if (OOOwarn) {
             AMUDP_Warn(OOOwarn, "reply");
             OOOwarn = NULL;
           }
+          // Out-of-order message can only be a "slow" copy from a previously-completed instance 
+          // that included retransmits. Hence, should always be discarded.
+          AMUDP_STATS(ep->stats.OutOfOrderReplies++);
+          AMUDP_VERBOSE_INFO(("Ignoring an Out-of-order reply."));
+          return;
         }
         AMUDP_VERBOSE_INFO(("Ignoring a duplicate reply."));
         return;
@@ -841,6 +858,8 @@ static int AMUDP_ServiceIncomingMessages(ep_t ep) {
   /* drain network */
   int retval = AMUDP_DrainNetwork(ep);
   if (retval != AM_OK) AMUDP_RETURN(retval);
+
+  ep->replyEpoch = 0;
 
   for (int i = 0; AMUDP_MAX_RECVMSGS_PER_POLL == 0 || i < MAX(AMUDP_MAX_RECVMSGS_PER_POLL, ep->depth); i++) {
       amudp_buf_t * const buf = ep->rxHead;
@@ -1086,7 +1105,6 @@ static int AMUDP_RequestGeneric(amudp_category_t category,
       outgoingbuf->status.tx.timestamp = now + (((amudp_cputick_t)ustimeout)*ticksperus);
       outgoingbuf->status.tx.retryCount = retryCount;
      }
-     outgoingbuf->status.tx.transmitCount = 1;
      #if AMUDP_COLLECT_LATENCY_STATS
        outgoingbuf->status.tx.firstSendTime = now;
      #endif
@@ -1192,7 +1210,8 @@ static int AMUDP_ReplyGeneric(amudp_category_t category,
     int retval = sendPacket(ep, msg, msgsz, destaddress, REQUESTREPLY_PACKET);
     if_pf (retval != AM_OK) AMUDP_RETURN(retval);
 
-    outgoingbuf->status.tx.transmitCount = 1;
+    if (!ep->replyEpoch) ep->replyEpoch = getCPUTicks();
+    outgoingbuf->status.tx.timestamp = ep->replyEpoch;
     AMUDP_STATS(ep->stats.RepliesSent[category]++);
     AMUDP_STATS(ep->stats.ReplyDataBytesSent[category] += sizeof(int) * numargs + nbytes);
     AMUDP_STATS(ep->stats.ReplyTotalBytesSent[category] += msgsz);
