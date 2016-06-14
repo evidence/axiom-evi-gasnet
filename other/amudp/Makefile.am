@@ -8,11 +8,7 @@
 
 AUTOMAKE_OPTIONS = foreign 1.4 no-dependencies
 
-if PLATFORM_ILP32
-  apputils_flags =
-else
-  apputils_flags = -DAPPUTILS_OMIT_READWRITE
-endif
+apputils_flags = 
 
 if BUILDCONFIG_DEBUG
   BUILDCONFIG_DEFINES = -DAMUDP_DEBUG=1
@@ -97,13 +93,6 @@ EXTRA_DIST = \
 
 # ---------- test programs -------------
 # all the test executables
-if PLATFORM_ILP32
-  testprograms_ILP32only = 	\
-    testgetput    		\
-    testreadwrite 
-else
-  testprograms_ILP32only = 
-endif
 
 testprograms =    		\
     testam        		\
@@ -114,7 +103,8 @@ testprograms =    		\
     testping      		\
     testreduce			\
     testoutput      		\
-    $(testprograms_ILP32only)
+    testgetput    		\
+    testreadwrite 
 
 tests: apputils.o $(testprograms)
 

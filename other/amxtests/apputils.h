@@ -130,7 +130,6 @@ extern void outputTimerStats(void);
     }                                                                  \
   } while(0)
 
-#ifndef APPUTILS_OMIT_READWRITE
 uint32_t getWord(int proc, void *addr);
 void putWord(int proc, void *addr, uint32_t val);
 
@@ -139,14 +138,6 @@ void readSync(void);
 
 void writeWord(int proc, void *addr, uint32_t val);
 void writeSync(void);
-#else
-  #define getWord(a,b)     (AMX_FatalErr("APPUTILS_OMIT_READWRITE violation"),0)
-  #define putWord(a,b,c)   AMX_FatalErr("APPUTILS_OMIT_READWRITE violation")
-  #define readWord(a,b,c)  AMX_FatalErr("APPUTILS_OMIT_READWRITE violation")
-  #define readSync()       AMX_FatalErr("APPUTILS_OMIT_READWRITE violation")
-  #define writeWord(a,b,c) AMX_FatalErr("APPUTILS_OMIT_READWRITE violation")
-  #define writeSync()      AMX_FatalErr("APPUTILS_OMIT_READWRITE violation")
-#endif
 
 #ifdef __cplusplus
   }
