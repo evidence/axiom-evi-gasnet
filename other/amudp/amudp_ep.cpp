@@ -284,7 +284,7 @@ extern int AMUDP_growSocketBufferSize(ep_t ep, int targetsize,
   while (targetsize > initialsize) {
     int sz = targetsize; /* prevent OS from tampering */
     if (setsockopt(ep->s, SOL_SOCKET, szparam, (char *)&sz, sizeof(int)) == SOCKET_ERROR) {
-      AMUDP_DEBUG_WARN(("setsockopt(SOL_SOCKET, %s, %i) on UDP socket failed: %s", paramname, targetsize, strerror(errno)));
+      AMUDP_VERBOSE_INFO(("setsockopt(SOL_SOCKET, %s, %i) on UDP socket failed: %s", paramname, targetsize, strerror(errno)));
     } else {
       int temp = targetsize;
       junk = sizeof(int);
