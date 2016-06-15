@@ -212,9 +212,14 @@ static void malloc_test(int id) {
     PTHREAD_LOCALBARRIER(num_threads);
   }
 
+  // bug 2788: try to isolate this test from conduit allocations that may take place during global barrier
+  sleep(1);
+  gasnet_AMPoll();
+  PTHREAD_LOCALBARRIER(num_threads);
+
   if (!id) gasneti_getheapstats(&stats_before);
     
-  PTHREAD_BARRIER(num_threads);
+  PTHREAD_LOCALBARRIER(num_threads);
 
   gasneti_memcheck_all();
   ptrs = gasneti_malloc_allowfail(8);
@@ -225,7 +230,7 @@ static void malloc_test(int id) {
   gasneti_free(ptrs);
   gasneti_free(NULL);
 
-  PTHREAD_BARRIER(num_threads);
+  PTHREAD_LOCALBARRIER(num_threads);
   
   maxobjs = MIN(iters0,10000/num_threads);
   ptrs = gasneti_calloc(maxobjs,sizeof(void*));
@@ -268,7 +273,7 @@ static void malloc_test(int id) {
   gasneti_free(ptrs);
   gasneti_memcheck_all();
 
-  PTHREAD_BARRIER(num_threads);
+  PTHREAD_LOCALBARRIER(num_threads);
 
   for (i = 0; i < iters/num_threads; i++) {
     int alignsz;
@@ -286,7 +291,7 @@ static void malloc_test(int id) {
   }
   gasneti_memcheck_all();
 
-  PTHREAD_BARRIER(num_threads);
+  PTHREAD_LOCALBARRIER(num_threads);
 
   if (!id) {
     gasneti_getheapstats(&stats_after);
@@ -309,6 +314,9 @@ static void malloc_test(int id) {
     }
     #endif
   }
+
+  sleep(1);
+
   PTHREAD_BARRIER(num_threads);
 }
 /* ------------------------------------------------------------------------------------ */
