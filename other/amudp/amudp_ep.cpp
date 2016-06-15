@@ -835,6 +835,7 @@ extern int AM_SetExpectedResources(ep_t ea, int n_endpoints, int n_outstanding_r
         ea->perProcInfo[procid].remoteName = ea->translation[i].name;
         ea->perProcInfo[procid].tag = ea->translation[i].tag;
         ea->translation[i].id = procid;
+        if (enEqual(ea->perProcInfo[procid].remoteName, ea->name)) ea->idHint = procid;
         procid++;
         if (procid == ea->P) break; /*  should have all of them now */
       }

@@ -132,14 +132,23 @@ static int AMUDP_GetOpcode(int isrequest, amudp_category_t cat) {
   }
 }
 /* ------------------------------------------------------------------------------------ */
-static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
-  /*  return source id in ep perproc table of this remote addr, or -1 for not found */
-  /*  TODO: make this more efficient */
-  for (int i = 0; i < (int)ep->P; i++) {
-    if (enEqual(ep->perProcInfo[i].remoteName, sourceAddr))
-      return i;
+#define INVALID_NODE ((amudp_node_t)-1)
+//  return source id in ep perproc table of this remote addr, or INVALID_NODE for not found 
+//  optional hint optimizes lookup
+static amudp_node_t sourceAddrToId(ep_t ep, en_t sourceAddr, amudp_node_t hint) {
+  amudp_perproc_info_t * const pinfo = ep->perProcInfo;
+  // hint values are 8-bit, try all the matching entries
+  for (amudp_node_t i = hint; i < ep->P; i += 256) {
+    register en_t const name = pinfo[i].remoteName;
+    if (enEqual(name, sourceAddr)) return i;
   }
-  return -1;
+  AMUDP_VERBOSE_INFO(("sourceAddrToId hint missed: hint=%i",(int)hint));
+  // hint may be wrong with non-uniform translation tables, brute-force scan
+  for (amudp_node_t i = 0; i < ep->P; i++) {
+    register en_t const name = pinfo[i].remoteName;
+    if (enEqual(name, sourceAddr)) return i;
+  }
+  return INVALID_NODE;
 }
 /* ------------------------------------------------------------------------------------ */
 #define RUN_HANDLER_SHORT(phandlerfn, token, pArgs, numargs) do {                       \
@@ -306,6 +315,8 @@ static int AMUDP_DrainNetwork(ep_t ep) {
       #endif
 
       destbuf->status.rx.sourceAddr = *(en_t *)&sa;
+      destbuf->status.rx.dest = ep; /* remember which ep recvd this message */
+      destbuf->status.rx.sourceId = sourceAddrToId(ep, *(en_t *)&sa, destbuf->msg.systemMessageArg);
 
       // add it to the recv queue
       destbuf->status.rx.next = NULL;
@@ -631,7 +642,7 @@ extern int AMUDP_Block(eb_t eb) {
 void AMUDP_processPacket(amudp_buf_t * const buf, int isloopback) {
   amudp_msg_t * const msg = &buf->msg;
   ep_t const ep = buf->status.rx.dest;
-  int const sourceID = buf->status.rx.sourceId;
+  amudp_node_t const sourceID = buf->status.rx.sourceId;
   int const numargs = AMUDP_MSG_NUMARGS(msg);
   uint8_t const seqnum = AMUDP_MSG_SEQNUM(msg);
   uint16_t const instance = AMUDP_MSG_INSTANCE(msg);
@@ -642,9 +653,9 @@ void AMUDP_processPacket(amudp_buf_t * const buf, int isloopback) {
   /* handle returned messages */
   if_pf (issystemmsg) { 
     amudp_system_messagetype_t type = ((amudp_system_messagetype_t)msg->systemMessageType);
-    if (type == amudp_system_returnedmessage) { 
+    if_pf (type == amudp_system_returnedmessage) { 
       AMUDP_HandlerReturned handlerfn = (AMUDP_HandlerReturned)ep->handler[0];
-      if (sourceID < 0) return; /*  unknown source, ignore message */
+      if (sourceID == INVALID_NODE) return; /*  unknown source, ignore message */
       if (isrequest && !isloopback) { /*  the returned message is a request, so free that request buffer */
         amudp_bufdesc_t * const desc = GET_REQ_DESC(ep, sourceID, instance);
         amudp_buf_t *reqbuf = desc->buffer;
@@ -711,7 +722,7 @@ void AMUDP_processPacket(amudp_buf_t * const buf, int isloopback) {
   }
 
   /*  check the source id */
-  if_pf (sourceID < 0) AMUDP_REFUSEMESSAGE(EBADENDPOINT);
+  if_pf (sourceID == INVALID_NODE) AMUDP_REFUSEMESSAGE(EBADENDPOINT);
 
   // fetch the descriptor relevant to this network message
   amudp_bufdesc_t * const desc = (isloopback ? NULL :
@@ -897,9 +908,6 @@ static int AMUDP_ServiceIncomingMessages(ep_t ep) {
         ep->rxTail = NULL;
       }
 
-      buf->status.rx.dest = ep; /* remember which ep recvd this message */
-      buf->status.rx.sourceId = (amudp_node_t)sourceAddrToId(ep, buf->status.rx.sourceAddr);
-
       if (AMUDP_FaultInjectionEnabled) { /* allow fault injection to drop some revcd messages */
         double randval = rand() / (double)RAND_MAX;
         AMUDP_assert(randval >= 0.0 && AMUDP_FaultInjectionRate >= 0.0);
@@ -1046,8 +1054,10 @@ static int AMUDP_RequestGeneric(amudp_category_t category,
   msg->destOffset = dest_offset;
   msg->handlerId = handler;
   msg->nBytes = (uint16_t)nbytes;
+  AMUDP_assert(systemType == amudp_system_user);
+  AMUDP_assert(systemArg == 0);
   msg->systemMessageType = systemType;
-  msg->systemMessageArg = systemArg;
+  msg->systemMessageArg = (uint8_t)ep->idHint;
   msg->tag = trans->tag;
   AMUDP_assert(GET_MSG_SZ(msg) == msgsz);
 
@@ -1163,8 +1173,10 @@ static int AMUDP_ReplyGeneric(amudp_category_t category,
   msg->destOffset = dest_offset;
   msg->handlerId = handler;
   msg->nBytes = (uint16_t)nbytes;
+  AMUDP_assert(systemType == amudp_system_user || systemType == amudp_system_autoreply);
+  AMUDP_assert(systemArg == 0);
   msg->systemMessageType = systemType;
-  msg->systemMessageArg = systemArg;
+  msg->systemMessageArg = (uint8_t)ep->idHint;
   msg->tag = perProcInfo->tag;
   AMUDP_assert(GET_MSG_SZ(msg) == msgsz);
 
@@ -1299,7 +1311,7 @@ extern int AMUDP_RequestXferVA(ep_t request_endpoint, amudp_node_t reply_endpoin
   AMUDP_assert(numargs >= 0 && numargs <= AMUDP_MAX_SHORT);
 
   amudp_translation_t const * const trans = &request_endpoint->translation[reply_endpoint];
-  amudp_node_t destP = trans->id;
+  amudp_node_t const destP = trans->id;
   const int isloopback = enEqual(trans->name, request_endpoint->name);
 
   if (async && !isloopback) { /*  decide if we can satisfy request without blocking */

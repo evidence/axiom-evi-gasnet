@@ -373,6 +373,8 @@ struct amudp_ep {
 
   amudp_perproc_info_t *perProcInfo;
 
+  amudp_node_t idHint; /* hint of my loopback id */
+
   /* pools for dynamic allocation of buffers */
   amudp_bufferpool_t bufferPool[AMUDP_NUMBUFFERPOOLS];
 
