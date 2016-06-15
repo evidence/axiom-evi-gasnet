@@ -82,7 +82,7 @@ extern void AMUDP_InitRetryCache();
 #endif
 
 #ifndef AMUDP_DEFAULT_NETWORKDEPTH
-#define AMUDP_DEFAULT_NETWORKDEPTH 4    /* default depth if none specified */
+#define AMUDP_DEFAULT_NETWORKDEPTH 128    /* default depth if none specified */
 #endif
 
 /* AMUDP-SPMD system configuration parameters */
