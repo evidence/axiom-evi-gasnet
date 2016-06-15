@@ -33,12 +33,38 @@ static int AMUDP_ReplyGeneric(amudp_category_t category,
 /*------------------------------------------------------------------------------------
  * Private helpers
  *------------------------------------------------------------------------------------ */
-static int intpow(int val, int exp) {
-  int retval = 1;
-  int i;
+static uint64_t intpow(uint64_t val, uint64_t exp) {
+  uint64_t retval = 1;
   AMUDP_assert(exp >= 0);
-  for (i = 0; i < exp; i++) retval *= val;
+  for ( ; exp ; exp--) retval *= val;
   return retval;
+}
+#ifndef STATIC_RETRIES
+#define STATIC_RETRIES 30
+#endif
+static amudp_cputick_t retryToticks[STATIC_RETRIES];
+#define REQUEST_TIMEOUT_TICKS(retrycnt) (                              \
+  AMUDP_assert(retryToticks[0]),                                       \
+  (PREDICT_TRUE((retrycnt) < STATIC_RETRIES) ?                         \
+    retryToticks[(retrycnt)] :                                         \
+    retryToticks[0] * intpow(AMUDP_RequestTimeoutBackoff,(retrycnt)))  \
+  )
+extern void AMUDP_InitRetryCache() {
+  AMUDP_assert(!retryToticks[0]);
+  if (AMUDP_InitialRequestTimeout_us == AMUDP_TIMEOUT_INFINITE) return;
+  amudp_cputick_t tickout = us2ticks(AMUDP_InitialRequestTimeout_us);
+  amudp_cputick_t maxticks = us2ticks(AMUDP_MaxRequestTimeout_us);
+  for (int i=0; i < STATIC_RETRIES; i++) {
+    AMUDP_assert(tickout > 0 && tickout <= maxticks);
+    retryToticks[i] = tickout;
+    tickout = MIN(tickout * AMUDP_RequestTimeoutBackoff, maxticks);
+  }
+  #if 0  // for debugging retry calc
+    for (int i=0; i < STATIC_RETRIES*2; i++) {
+      amudp_cputick_t tick = REQUEST_TIMEOUT_TICKS(i);
+      printf("Timeout %2i: %9llu us, %9llu ticks\n",i,(unsigned long long)tick/us2ticks(1),(unsigned long long)tick);
+    }
+  #endif
 }
 /* ------------------------------------------------------------------------------------ */
 typedef enum { REQUESTREPLY_PACKET, RETRANSMISSION_PACKET, REFUSAL_PACKET } packet_type;
@@ -437,24 +463,20 @@ static int AMUDP_HandleRequestTimeouts(ep_t ep, int numtocheck) {
   if (numtocheck == -1) numtocheck = ep->outstandingRequests;
   else numtocheck = MIN(numtocheck, ep->outstandingRequests);
   for (int i = 0; i < numtocheck; i++) {
-    if_pf (buf->status.tx.timestamp <= now && 
-           AMUDP_InitialRequestTimeout_us != AMUDP_TIMEOUT_INFINITE) {
+    if_pf (buf->status.tx.timestamp <= now) {
+      AMUDP_assert(AMUDP_InitialRequestTimeout_us != AMUDP_TIMEOUT_INFINITE);
 
-      static amudp_cputick_t initial_requesttimeout_cputicks = 0;
       static uint32_t max_retryCount = 0;
-      static int firsttime = 1;
-      if_pf (firsttime) { // init precomputed values
+      if_pf (!max_retryCount) { // init precomputed values
         if (AMUDP_MaxRequestTimeout_us == AMUDP_TIMEOUT_INFINITE) {
           max_retryCount = (uint32_t)-1;
         } else {
-          uint32_t temp = AMUDP_InitialRequestTimeout_us;
+          uint64_t temp = AMUDP_InitialRequestTimeout_us;
           while (temp <= AMUDP_MaxRequestTimeout_us) {
             temp *= AMUDP_RequestTimeoutBackoff;
             max_retryCount++;
           }
         }
-        initial_requesttimeout_cputicks = us2ticks(AMUDP_InitialRequestTimeout_us);
-        firsttime = 0;
       }
 
       amudp_msg_t * const msg = &buf->msg;
@@ -489,8 +511,6 @@ static int AMUDP_HandleRequestTimeouts(ep_t ep, int numtocheck) {
         AMUDP_ReleaseBuffer(ep, buf);
         AMUDP_STATS(ep->stats.ReturnedMessages++);
       } else {
-        buf->status.tx.retryCount++;
-      
         /* retransmit */
         size_t msgsz = GET_MSG_SZ(msg);
         en_t destaddress = ep->perProcInfo[destP].remoteName;
@@ -498,13 +518,15 @@ static int AMUDP_HandleRequestTimeouts(ep_t ep, int numtocheck) {
         AMUDP_VERBOSE_INFO(("Retransmitting a request..."));
         int retval = sendPacket(ep, msg, msgsz, destaddress, RETRANSMISSION_PACKET);
         if (retval != AM_OK) AMUDP_RETURN(retval);        
-        AMUDP_STATS(ep->stats.RequestsRetransmitted[cat]++);
-        AMUDP_STATS(ep->stats.RequestTotalBytesSent[cat] += msgsz);
+
+        uint32_t const retry = buf->status.tx.retryCount + 1;
+        buf->status.tx.retryCount = retry;
 
         now = getCPUTicks(); // may have blocked in send
-        amudp_cputick_t timetowait = initial_requesttimeout_cputicks * 
-           intpow(AMUDP_RequestTimeoutBackoff, buf->status.tx.retryCount);
-        buf->status.tx.timestamp = now + timetowait;
+        buf->status.tx.timestamp = now + REQUEST_TIMEOUT_TICKS(retry);
+
+        AMUDP_STATS(ep->stats.RequestsRetransmitted[cat]++);
+        AMUDP_STATS(ep->stats.RequestTotalBytesSent[cat] += msgsz);
       }
     } // time expired
 
@@ -1075,40 +1097,17 @@ static int AMUDP_RequestGeneric(amudp_category_t category,
       AMUDP_RETURN(retval);
     }
 
-    { amudp_cputick_t now = getCPUTicks();
-      uint32_t ustimeout = AMUDP_InitialRequestTimeout_us;
-      /* we carefully use 32-bit datatypes here to avoid 64-bit multiply/divide */
-      static uint32_t expectedusperbyte = 0; /* cache precomputed value */
-      static amudp_cputick_t ticksperus = 0;
-      static int firsttime = 1;
-      if_pf (firsttime) {
-        ticksperus = us2ticks(1);
-        expectedusperbyte = /* allow 2x of slop for reply */
-          (uint32_t)((2 * 1000000.0 / 1024.0) / AMUDP_ExpectedBandwidth);
-        firsttime = 0;
-      }
-     if (AMUDP_InitialRequestTimeout_us == AMUDP_TIMEOUT_INFINITE) { // never timeout
-       outgoingbuf->status.tx.timestamp = (amudp_cputick_t)-1;
-       outgoingbuf->status.tx.retryCount = 0;
-     } else {
-      uint32_t expectedus = (msgsz * expectedusperbyte);
-      /* bulk transfers may have a noticeable wire delay, so we grow the initial timeout
-       * accordingly to allow time for the transfer to arrive and be serviced
-       * These are the transfers that are really expensive to retransmit, 
-       * so we want to avoid that until we're relatively certain they've really been lost
-       */
-      int retryCount = 0;
-      while (ustimeout < expectedus && ustimeout < AMUDP_MaxRequestTimeout_us) {
-        ustimeout *= AMUDP_RequestTimeoutBackoff;
-        retryCount++;
-      }
-      outgoingbuf->status.tx.timestamp = now + (((amudp_cputick_t)ustimeout)*ticksperus);
-      outgoingbuf->status.tx.retryCount = retryCount;
-     }
-     #if AMUDP_COLLECT_LATENCY_STATS
-       outgoingbuf->status.tx.firstSendTime = now;
-     #endif
+    amudp_cputick_t now = getCPUTicks();
+    if (AMUDP_InitialRequestTimeout_us == AMUDP_TIMEOUT_INFINITE) { // never timeout
+      outgoingbuf->status.tx.timestamp = (amudp_cputick_t)-1;
+    } else {
+      outgoingbuf->status.tx.timestamp = now + REQUEST_TIMEOUT_TICKS(0);
     }
+    #if AMUDP_COLLECT_LATENCY_STATS
+      outgoingbuf->status.tx.firstSendTime = now;
+    #endif
+
+    outgoingbuf->status.tx.retryCount = 0;
     outgoingbuf->status.tx.destId = destP;
     AMUDP_EnqueueTxBuffer(ep, outgoingbuf);
 

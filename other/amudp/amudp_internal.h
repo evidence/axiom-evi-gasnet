@@ -52,7 +52,7 @@ AMUDP_BEGIN_EXTERNC
 #define AMUDP_PROCID_ALLOC -2 /* Allocate and return next procis, but do not bootstrap */
 
 #ifndef AMUDP_INITIAL_REQUESTTIMEOUT_MICROSEC
-#define AMUDP_INITIAL_REQUESTTIMEOUT_MICROSEC   10000  /* usec until first retransmit */
+#define AMUDP_INITIAL_REQUESTTIMEOUT_MICROSEC  100000  /* usec until first retransmit */
 #endif
 #ifndef AMUDP_REQUESTTIMEOUT_BACKOFF_MULTIPLIER
 #define AMUDP_REQUESTTIMEOUT_BACKOFF_MULTIPLIER     2  /* timeout exponential backoff factor */
@@ -60,14 +60,11 @@ AMUDP_BEGIN_EXTERNC
 #ifndef AMUDP_MAX_REQUESTTIMEOUT_MICROSEC
 #define AMUDP_MAX_REQUESTTIMEOUT_MICROSEC    30000000  /* max timeout before considered undeliverable */
 #endif
-#ifndef AMUDP_DEFAULT_EXPECTED_BANDWIDTH
-#define AMUDP_DEFAULT_EXPECTED_BANDWIDTH         1220  /* expected Kbytes/sec bandwidth: 1220 = 10Mbit LAN */
-#endif
 #define AMUDP_TIMEOUT_INFINITE ((uint32_t)-1)
 extern uint32_t AMUDP_MaxRequestTimeout_us;
 extern uint32_t AMUDP_InitialRequestTimeout_us;
 extern uint32_t AMUDP_RequestTimeoutBackoff;
-extern uint32_t AMUDP_ExpectedBandwidth; /* expected half-duplex bandwidth in KBytes/sec */
+extern void AMUDP_InitRetryCache();
 
 #ifndef AMUDP_TIMEOUTS_CHECKED_EACH_POLL
 #define AMUDP_TIMEOUTS_CHECKED_EACH_POLL            1  /* number of timeout values we check upon each poll */

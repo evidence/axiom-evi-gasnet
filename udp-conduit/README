@@ -38,9 +38,12 @@ Recognized environment variables:
   Can be set to 0 for infinite timeout, which can be useful when freezing 
   processes for long periods of time during debugging sessions.
 
-* GASNET_REQUESTTIMEOUT_INITIAL, GASNET_REQUESTTIMEOUT_BACKOFF, GASNET_EXPECTED_BANDWIDTH
+* GASNET_REQUESTTIMEOUT_INITIAL, GASNET_REQUESTTIMEOUT_BACKOFF
   Advanced options for tweaking the retransmission algorithm (initial timeout in us, 
-  timeout backoff multiplier and expected min one-way bandwidth in KB/s).
+  and timeout backoff multiplier). Larger timeouts allow more tolerance for 
+  network congestion and inattentiveness of remote nodes.  Shorter timeouts
+  provide faster recovery from packet loss (which is uncommon in most LANs),
+  at a potential overhead cost of more useless retransmissions.
   Most users should probably leave these alone.
 
 * GASNET_ROUTE_OUTPUT
