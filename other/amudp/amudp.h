@@ -201,6 +201,7 @@ extern int AMUDP_SetHandlerCallbacks(ep_t ep, AMUDP_preHandlerCallback_t preHand
 #endif
 
 /* standardized AM-2 extensions */
+#define AMX_SetTranslationTag     AMUDP_SetTranslationTag
 #define AMX_VerboseErrors         AMUDP_VerboseErrors
 #define AMX_GetEndpointStatistics AMUDP_GetEndpointStatistics
 #define AMX_DumpStatistics        AMUDP_DumpStatistics
@@ -242,6 +243,7 @@ extern int AM_GetTranslationName(ep_t ea, int i, en_t *gan);
 extern int AM_GetNumTranslations(ep_t ep, int *pntrans);
 extern int AM_SetNumTranslations(ep_t ep, int ntrans);
 extern int AM_SetExpectedResources(ep_t ea, int n_endpoints, int n_outstanding_requests);
+extern int AMUDP_SetTranslationTag(ep_t ea, int index, tag_t tag); /* extension: legal after AM_SetExpectedResources */
 
 /* Handler table */
 extern int _AM_SetHandler(ep_t ea, handler_t handler, amudp_handler_fn_t function);
@@ -259,7 +261,7 @@ extern int AM_WaitSema(eb_t eb);
 extern int AM_GetSourceEndpoint(void *token, en_t *gan);
 extern int AM_GetDestEndpoint(void *token, ep_t *endp);
 extern int AM_GetMsgTag(void *token, tag_t *tagp);
-extern int AMUDP_GetSourceId(void *token, int *srcid);
+extern int AMUDP_GetSourceId(void *token, int *srcid); /* srcid retrieves a compressed id */
 
 /* Poll */
 extern int AM_Poll(eb_t bundle);

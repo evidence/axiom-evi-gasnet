@@ -252,6 +252,7 @@ extern const ammpi_stats_t AMMPI_initial_stats; /* the "empty" values for counte
 #define AMMPI 1
 #endif
 
+#define AMX_SetTranslationTag     AMMPI_SetTranslationTag
 #define AMX_VerboseErrors         AMMPI_VerboseErrors
 #define AMX_GetEndpointStatistics AMMPI_GetEndpointStatistics
 #define AMX_DumpStatistics        AMMPI_DumpStatistics
@@ -345,6 +346,7 @@ extern int AM_GetTranslationName(ep_t ea, int i, en_t *gan);
 extern int AM_GetNumTranslations(ep_t ep, int *pntrans);
 extern int AM_SetNumTranslations(ep_t ep, int ntrans);
 extern int AM_SetExpectedResources(ep_t ea, int n_endpoints, int n_outstanding_requests);
+extern int AMMPI_SetTranslationTag(ep_t ea, int index, tag_t tag); /* extension: legal after AM_SetExpectedResources */
 
 /* Handler table */
 extern int _AM_SetHandler(ep_t ea, handler_t handler, ammpi_handler_fn_t function);

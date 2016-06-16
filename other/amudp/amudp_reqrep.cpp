@@ -15,7 +15,7 @@
 
 /* forward decls */
 static int AMUDP_RequestGeneric(amudp_category_t category, 
-                          ep_t request_endpoint, amudp_node_t reply_endpoint, handler_t handler, 
+                          ep_t ep, amudp_node_t reply_endpoint, handler_t handler, 
                           void *source_addr, int nbytes, uintptr_t dest_offset, 
                           int numargs, va_list argptr,
                           uint8_t systemType, uint8_t systemArg);
@@ -969,6 +969,12 @@ extern int AM_Poll(eb_t eb) {
      AMUDP_RETURN(_retval);                             \
    }                                                    \
   }
+#define TRANSID_TO_NODEID(ep, transid) (                       \
+  PREDICT_TRUE(!(ep)->translation) ? (amudp_node_t)(transid) : \
+    (AMUDP_assert((transid) < (ep)->translationsz),            \
+     (ep)->translation[transid].id)                            \
+  )
+
 /*------------------------------------------------------------------------------------
  * Generic Request/Reply
  *------------------------------------------------------------------------------------ */
@@ -978,13 +984,12 @@ static int AMUDP_RequestGeneric(amudp_category_t category,
                           int numargs, va_list argptr, 
                           uint8_t systemType, uint8_t systemArg) {
 
-  amudp_translation_t const * const trans = &ep->translation[reply_endpoint];
-  amudp_node_t const destP = trans->id;
-  en_t const destaddress = trans->name;
+  amudp_node_t const destP = TRANSID_TO_NODEID(ep, reply_endpoint);
+  amudp_perproc_info_t * const perProcInfo = &ep->perProcInfo[destP];
+  en_t const destaddress = perProcInfo->remoteName;
   const int isloopback = enEqual(destaddress, ep->name);
 
   uint16_t instance;
-  amudp_perproc_info_t *perProcInfo;
   amudp_bufdesc_t *outgoingdesc = NULL;
 
   /*  always poll before sending a request */
@@ -998,12 +1003,10 @@ static int AMUDP_RequestGeneric(amudp_category_t category,
   if (isloopback) {
     #if AMUDP_DEBUG
       instance = 0; /* not used */
-      perProcInfo = NULL;
     #endif
   } else { /*  acquire a free request buffer */
     int const depth = ep->depth;
     amudp_bufdesc_t * const descs = GET_REQ_DESC_ALLOC(ep, destP, 0);
-    perProcInfo = &ep->perProcInfo[destP];
 
     while(1) { // send descriptor acquisition loop
       uint16_t const hint = perProcInfo->instanceHint;
@@ -1058,7 +1061,7 @@ static int AMUDP_RequestGeneric(amudp_category_t category,
   AMUDP_assert(systemArg == 0);
   msg->systemMessageType = systemType;
   msg->systemMessageArg = (uint8_t)ep->idHint;
-  msg->tag = trans->tag;
+  msg->tag = perProcInfo->tag;
   AMUDP_assert(GET_MSG_SZ(msg) == msgsz);
 
   { /*  setup args */
@@ -1137,7 +1140,7 @@ static int AMUDP_ReplyGeneric(amudp_category_t category,
   ep_t const ep = requestbuf->status.rx.dest;
   amudp_node_t const destP = requestbuf->status.rx.sourceId;
   const int isloopback = enEqual(requestbuf->status.rx.sourceAddr, ep->name);
-  amudp_perproc_info_t * const perProcInfo = &ep->perProcInfo[destP];
+  amudp_perproc_info_t const * const perProcInfo = &ep->perProcInfo[destP];
 
   /*  we don't poll within a reply because by definition we are already polling somewhere in the call chain */
 
@@ -1241,8 +1244,9 @@ extern int AMUDP_RequestVA(ep_t request_endpoint, amudp_node_t reply_endpoint, h
   AMUDP_CHECK_ERR(!request_endpoint, BAD_ARG);
   AMUDP_CHECK_ERR(AMUDP_BADHANDLERVAL(handler), BAD_ARG);
   AMUDP_CHECK_ERR(request_endpoint->depth == -1, NOT_INIT); /* it's an error to call before AM_SetExpectedResources */
-  AMUDP_CHECK_ERR(reply_endpoint >= request_endpoint->translationsz ||
-     !request_endpoint->translation[reply_endpoint].inuse, BAD_ARG);
+  AMUDP_CHECK_ERR(reply_endpoint >= request_endpoint->translationsz, BAD_ARG);
+  AMUDP_CHECK_ERR(request_endpoint->translation && !request_endpoint->translation[reply_endpoint].inuse, BAD_ARG);
+  AMUDP_CHECK_ERR(!request_endpoint->translation && reply_endpoint >= request_endpoint->P, BAD_ARG);
   AMUDP_assert(numargs >= 0 && numargs <= AMUDP_MAX_SHORT);
 
   return AMUDP_RequestGeneric(amudp_Short, 
@@ -1270,8 +1274,9 @@ extern int AMUDP_RequestIVA(ep_t request_endpoint, amudp_node_t reply_endpoint, 
   AMUDP_CHECK_ERR(!request_endpoint, BAD_ARG);
   AMUDP_CHECK_ERR(AMUDP_BADHANDLERVAL(handler), BAD_ARG);
   AMUDP_CHECK_ERR(request_endpoint->depth == -1, NOT_INIT); /* it's an error to call before AM_SetExpectedResources */
-  AMUDP_CHECK_ERR(reply_endpoint >= request_endpoint->translationsz ||
-     !request_endpoint->translation[reply_endpoint].inuse, BAD_ARG);
+  AMUDP_CHECK_ERR(reply_endpoint >= request_endpoint->translationsz, BAD_ARG);
+  AMUDP_CHECK_ERR(request_endpoint->translation && !request_endpoint->translation[reply_endpoint].inuse, BAD_ARG);
+  AMUDP_CHECK_ERR(!request_endpoint->translation && reply_endpoint >= request_endpoint->P, BAD_ARG);
   AMUDP_CHECK_ERR(!source_addr, BAD_ARG);
   AMUDP_CHECK_ERR(nbytes < 0 || nbytes > AMUDP_MAX_MEDIUM, BAD_ARG);
   AMUDP_assert(numargs >= 0 && numargs <= AMUDP_MAX_SHORT);
@@ -1303,16 +1308,17 @@ extern int AMUDP_RequestXferVA(ep_t request_endpoint, amudp_node_t reply_endpoin
   AMUDP_CHECK_ERR(!request_endpoint, BAD_ARG);
   AMUDP_CHECK_ERR(AMUDP_BADHANDLERVAL(handler), BAD_ARG);
   AMUDP_CHECK_ERR(request_endpoint->depth == -1, NOT_INIT); /* it's an error to call before AM_SetExpectedResources */
-  AMUDP_CHECK_ERR(reply_endpoint >= request_endpoint->translationsz ||
-     !request_endpoint->translation[reply_endpoint].inuse, BAD_ARG);
+  AMUDP_CHECK_ERR(reply_endpoint >= request_endpoint->translationsz, BAD_ARG);
+  AMUDP_CHECK_ERR(request_endpoint->translation && !request_endpoint->translation[reply_endpoint].inuse, BAD_ARG);
+  AMUDP_CHECK_ERR(!request_endpoint->translation && reply_endpoint >= request_endpoint->P, BAD_ARG);
   AMUDP_CHECK_ERR(!source_addr, BAD_ARG);
   AMUDP_CHECK_ERR(nbytes < 0 || nbytes > AMUDP_MAX_LONG, BAD_ARG);
   AMUDP_CHECK_ERR(dest_offset > AMUDP_MAX_SEGLENGTH, BAD_ARG);
   AMUDP_assert(numargs >= 0 && numargs <= AMUDP_MAX_SHORT);
 
-  amudp_translation_t const * const trans = &request_endpoint->translation[reply_endpoint];
-  amudp_node_t const destP = trans->id;
-  const int isloopback = enEqual(trans->name, request_endpoint->name);
+  amudp_node_t const destP = TRANSID_TO_NODEID(request_endpoint, reply_endpoint);
+  amudp_perproc_info_t const * const perProcInfo = &request_endpoint->perProcInfo[destP];
+  const int isloopback = enEqual(perProcInfo->remoteName, request_endpoint->name);
 
   if (async && !isloopback) { /*  decide if we can satisfy request without blocking */
       /* it's unclear from the spec whether we should poll before an async failure,
@@ -1328,7 +1334,7 @@ extern int AMUDP_RequestXferVA(ep_t request_endpoint, amudp_node_t reply_endpoin
 
       /* see if there's a free buffer */
       amudp_bufdesc_t * const desc = GET_REQ_DESC_ALLOC(request_endpoint, destP, 0);
-      uint16_t const hint = request_endpoint->perProcInfo[destP].instanceHint;
+      uint16_t const hint = perProcInfo->instanceHint;
       int const depth = request_endpoint->depth;
       int i = hint;
       AMUDP_assert(i >= 0 && i < depth);

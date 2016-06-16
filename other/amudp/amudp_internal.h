@@ -318,10 +318,10 @@ typedef struct amudp_bufferpool {
 /* Endpoints */
 
 typedef struct {
-  char inuse; /*  entry in use */
   en_t name;  /*  remote address */
   tag_t tag;  /*  remote tag */
   amudp_node_t id;/*  id in compressed table */
+  char inuse; /*  entry in use */
 } amudp_translation_t;
 
 typedef struct {

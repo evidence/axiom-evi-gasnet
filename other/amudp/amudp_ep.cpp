@@ -385,7 +385,7 @@ static int AMUDP_FreeEndpointResource(ep_t ep) {
     if (AMUDP_SPMDRestartActive) { /* it is already gone */ } else
   #endif
 
-  AMUDP_free(ep->translation);
+  if (ep->translation) AMUDP_free(ep->translation);
 
   if (closesocket(ep->s) == SOCKET_ERROR) return FALSE;
   return TRUE;
@@ -624,9 +624,9 @@ extern int AM_MaxSegLength(uintptr_t* nbytes) {
 extern int AM_Map(ep_t ea, int index, en_t name, tag_t tag) {
   AMUDP_CHECKINIT();
   if (!ea) AMUDP_RETURN_ERR(BAD_ARG);
+  if (ea->depth != -1) AMUDP_RETURN_ERR(RESOURCE); /* it's an error to map after call to AM_SetExpectedResources */
   if (index < 0 || (amudp_node_t)index >= ea->translationsz) AMUDP_RETURN_ERR(BAD_ARG);
   if (ea->translation[index].inuse) AMUDP_RETURN_ERR(RESOURCE); /* it's an error to re-map */
-  if (ea->depth != -1) AMUDP_RETURN_ERR(RESOURCE); /* it's an error to map after call to AM_SetExpectedResources */
 
   ea->translation[index].inuse = TRUE;
   ea->translation[index].name = name;
@@ -655,9 +655,9 @@ extern int AM_MapAny(ep_t ea, int *index, en_t name, tag_t tag) {
 extern int AM_UnMap(ep_t ea, int index) {
   AMUDP_CHECKINIT();
   if (!ea) AMUDP_RETURN_ERR(BAD_ARG);
+  if (ea->depth != -1) AMUDP_RETURN_ERR(RESOURCE); /* it's an error to unmap after call to AM_SetExpectedResources */
   if (index < 0 || (amudp_node_t)index >= ea->translationsz) AMUDP_RETURN_ERR(BAD_ARG);
   if (!ea->translation[index].inuse) AMUDP_RETURN_ERR(RESOURCE); /* not mapped */
-  if (ea->depth != -1) AMUDP_RETURN_ERR(RESOURCE); /* it's an error to unmap after call to AM_SetExpectedResources */
 
   ea->translation[index].inuse = FALSE;
   ea->P--;  /* track num of translations */
@@ -700,7 +700,8 @@ extern int AM_GetTranslationInuse(ep_t ea, int i) {
   if (!ea) AMUDP_RETURN_ERR(BAD_ARG);
   if (i < 0 || (amudp_node_t)i >= ea->translationsz) AMUDP_RETURN_ERR(BAD_ARG);
 
-  if (ea->translation[i].inuse) return AM_OK; /* in use */
+  if (ea->translation && ea->translation[i].inuse) return AM_OK; /* in use */
+  else if (!ea->translation && (amudp_node_t)i < ea->P) return AM_OK; /* in use, after AM_SetExpectedResources */
   else return AM_ERR_RESOURCE; /* don't complain here - it's a common case */
 }
 /* ------------------------------------------------------------------------------------ */
@@ -708,9 +709,11 @@ extern int AM_GetTranslationTag(ep_t ea, int i, tag_t *tag) {
   AMUDP_CHECKINIT();
   if (!ea || !tag) AMUDP_RETURN_ERR(BAD_ARG);
   if (i < 0 || (amudp_node_t)i >= ea->translationsz) AMUDP_RETURN_ERR(BAD_ARG);
-  if (!ea->translation[i].inuse) AMUDP_RETURN_ERR(RESOURCE);
+  if (AM_GetTranslationInuse(ea,i) != AM_OK) AMUDP_RETURN_ERR(RESOURCE); /* not mapped */
 
-  (*tag) = ea->translation[i].tag;
+  if (ea->translation) (*tag) = ea->translation[i].tag;
+  else                 (*tag) = ea->perProcInfo[i].tag;
+
   return AM_OK;
 }
 /* ------------------------------------------------------------------------------------ */
@@ -718,12 +721,16 @@ extern int AMUDP_SetTranslationTag(ep_t ea, int index, tag_t tag) {
   AMUDP_CHECKINIT();
   if (!ea) AMUDP_RETURN_ERR(BAD_ARG);
   if (index < 0 || (amudp_node_t)index >= ea->translationsz) AMUDP_RETURN_ERR(BAD_ARG);
-  if (!ea->translation[index].inuse) AMUDP_RETURN_ERR(RESOURCE); /* can't change tag if not mapped */
+  if (AM_GetTranslationInuse(ea,index) != AM_OK) AMUDP_RETURN_ERR(RESOURCE); /* can't change tag if not mapped */
 
-  ea->translation[index].tag = tag;
+  amudp_node_t id;
+  if (ea->translation) { 
+    ea->translation[index].tag = tag;
+    id = ea->translation[index].id;
+  } else id = (amudp_node_t)index;
 
   if (ea->depth != -1) { /* after call to AM_SetExpectedResources we must update compressed table */
-    ea->perProcInfo[ea->translation[index].id].tag = tag;
+    ea->perProcInfo[id].tag = tag;
   }
 
   return AM_OK;
@@ -733,9 +740,11 @@ extern int AM_GetTranslationName(ep_t ea, int i, en_t *gan) {
   AMUDP_CHECKINIT();
   if (!ea || !gan) AMUDP_RETURN_ERR(BAD_ARG);
   if (i < 0 || (amudp_node_t)i >= ea->translationsz) AMUDP_RETURN_ERR(BAD_ARG);
-  if (!ea->translation[i].inuse) AMUDP_RETURN_ERR(RESOURCE);
+  if (AM_GetTranslationInuse(ea,i) != AM_OK) AMUDP_RETURN_ERR(RESOURCE); /* not mapped */
 
-  (*gan) = ea->translation[i].name; 
+  if (ea->translation) (*gan) = ea->translation[i].name;
+  else                 (*gan) = ea->perProcInfo[i].remoteName;
+
   return AM_OK;
 }
 /* ------------------------------------------------------------------------------------ */
@@ -830,7 +839,8 @@ extern int AM_SetExpectedResources(ep_t ea, int n_endpoints, int n_outstanding_r
 
   /*  compact a copy of the translation table into our perproc info array */
   { amudp_node_t procid = 0;
-    for (amudp_node_t i=0; i < ea->translationsz; i++) {
+    amudp_node_t i;
+    for (i=0; i < ea->translationsz; i++) {
       if (ea->translation[i].inuse) {
         ea->perProcInfo[procid].remoteName = ea->translation[i].name;
         ea->perProcInfo[procid].tag = ea->translation[i].tag;
@@ -839,6 +849,18 @@ extern int AM_SetExpectedResources(ep_t ea, int n_endpoints, int n_outstanding_r
         procid++;
         if (procid == ea->P) break; /*  should have all of them now */
       }
+    }
+    #if AMUDP_DEBUG
+      for (amudp_node_t j=i+1; j < ea->translationsz; j++) 
+        AMUDP_assert(!ea->translation[j].inuse);
+    #endif
+    if (i+1 == ea->P) { 
+      // common case: dense translation table
+      // improve scalability by freeing the now-redundant data structure
+      AMUDP_free(ea->translation);
+      ea->translation = NULL;
+    } else {
+      AMUDP_DEBUG_WARN(("Translation table is sparse. Memory utilization will be slightly less scalable."));
     }
   }
 
