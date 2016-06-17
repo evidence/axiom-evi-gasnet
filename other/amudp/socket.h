@@ -40,8 +40,12 @@
   #define _FIONREAD FIONREAD
 #endif
 
-#if PLATFORM_OS_SUPERUX
-  #include <sys/select.h>
+#include <sys/select.h>
+
+#if PLATFORM_COMPILER_CRAY && (PLATFORM_OS_CNL || PLATFORM_OS_LINUX)
+  /* Cray CC botches the inline assembly implementing FD_ZERO in Linux */
+  #undef FD_ZERO
+  #define FD_ZERO(pfd_set) (memset(pfd_set, 0, sizeof(*(pfd_set))))
 #endif
 
 /*  these constants are useful, but appear to be specific to */

@@ -35,7 +35,6 @@ static int AMUDP_ReplyGeneric(amudp_category_t category,
  *------------------------------------------------------------------------------------ */
 static uint64_t intpow(uint64_t val, uint64_t exp) {
   uint64_t retval = 1;
-  AMUDP_assert(exp >= 0);
   for ( ; exp ; exp--) retval *= val;
   return retval;
 }
