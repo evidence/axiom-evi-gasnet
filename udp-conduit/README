@@ -21,19 +21,29 @@ Recognized environment variables:
 
 * GASNET_SPAWNFN - job spawn mechanism to use (see below)
 
-* GASNET_RECVDEPTH - depth in messages of the shared AM receive queue (shared
+* GASNET_RECVDEPTH - max depth in messages of the shared AM receive queue (shared
   by all incoming Requests and Replies from any peer). This limits the number
   of messages that can be received during a single Poll.  Defaults to a
   reasonable value based on job size and GASNET_NETWORKDEPTH.
+
+* GASNET_SENDDEPTH - max number of AMRequests that each node can have outstanding,
+  combined across ALL peers (as opposed to NETWORKDEPTH which is a per-peer limit). 
+  This can be used to limit AMRequest send buffer utilization in jobs where nodes
+  communicate with a large number of distinct peers.  
+  Set to -1 to specify unlimited, which amounts to NETWORKDEPTH*jobsize.
+  Defaults to a reasonable value based on job size and GASNET_NETWORKDEPTH.
 
 * GASNET_REQUESTTIMEOUT_MAX - max timeout in microseconds before a request
   is considered undeliverable (a fatal error). Defaults to 30000000 (30 seconds).
   Can be set to 0 for infinite timeout, which can be useful when freezing 
   processes for long periods of time during debugging sessions.
 
-* GASNET_REQUESTTIMEOUT_INITIAL, GASNET_REQUESTTIMEOUT_BACKOFF, GASNET_EXPECTED_BANDWIDTH
+* GASNET_REQUESTTIMEOUT_INITIAL, GASNET_REQUESTTIMEOUT_BACKOFF
   Advanced options for tweaking the retransmission algorithm (initial timeout in us, 
-  timeout backoff multiplier and expected min one-way bandwidth in KB/s).
+  and timeout backoff multiplier). Larger timeouts allow more tolerance for 
+  network congestion and inattentiveness of remote nodes.  Shorter timeouts
+  provide faster recovery from packet loss (which is uncommon in most LANs),
+  at a potential overhead cost of more useless retransmissions.
   Most users should probably leave these alone.
 
 * GASNET_ROUTE_OUTPUT

@@ -16,9 +16,13 @@ int amudp_Initialized = 0;
 static void AMUDP_defaultAMHandler(void * token);
 amudp_handler_fn_t amudp_unused_handler = (amudp_handler_fn_t)&AMUDP_defaultAMHandler;
 amudp_handler_fn_t amudp_defaultreturnedmsg_handler = (amudp_handler_fn_t)&AMUDP_DefaultReturnedMsg_Handler;
-int AMUDP_VerboseErrors = 0;
+#if AMUDP_DEBUG_VERBOSE
+  int AMUDP_VerboseErrors = 1;
+#else
+  int AMUDP_VerboseErrors = 0;
+#endif
 int AMUDP_PoliteSync = 0;
-uint32_t AMUDP_ExpectedBandwidth = AMUDP_DEFAULT_EXPECTED_BANDWIDTH;
+const char *AMUDP_ProcessLabel = NULL;
 uint32_t AMUDP_RequestTimeoutBackoff = AMUDP_REQUESTTIMEOUT_BACKOFF_MULTIPLIER;
 uint32_t AMUDP_MaxRequestTimeout_us = AMUDP_MAX_REQUESTTIMEOUT_MICROSEC;
 uint32_t AMUDP_InitialRequestTimeout_us = AMUDP_INITIAL_REQUESTTIMEOUT_MICROSEC;
@@ -31,8 +35,8 @@ double AMUDP_FaultInjectionEnabled = 0;
 
 const amudp_stats_t AMUDP_initial_stats = /* the initial state for stats type */
         { {0,0,0}, {0,0,0}, {0,0,0}, 
-          {0,0,0}, {0,0,0}, {0,0,0}, 
-          0,
+          {0,0,0}, {0,0,0}, {0,0,0}, {0,0,0},
+          0,0,0,
           (amudp_cputick_t)-1, 0, 0,
           {0,0,0}, {0,0,0}, 
           {0,0,0}, {0,0,0}, 
@@ -43,23 +47,36 @@ const amudp_stats_t AMUDP_initial_stats = /* the initial state for stats type */
 /* error handling */
 AMUDP_FORMAT_PRINTF(AMUDP_Msg,2,0,
 static int AMUDP_Msg(const char *prefix, const char *msg, va_list argptr)) {
-  const size_t len = strlen(msg)+strlen(prefix)+50;
-  char *expandedmsg = (char *)AMUDP_malloc(len);
-  int retval;
+  static char _expandedmsg[255]; // use static storage when possible for robustness in panic-mode
+  static char plabel[80];
 
-  snprintf(expandedmsg, len, "*** %s: %s\n", prefix, msg);
-  retval = vfprintf(stderr, expandedmsg, argptr);
+  if (AMUDP_ProcessLabel && !*plabel) snprintf(plabel, sizeof(plabel), "(%s)", AMUDP_ProcessLabel);
+  char *expandedmsg = _expandedmsg;
+  size_t sz = strlen(prefix) + strlen(plabel) + strlen(msg) + 8;
+  if (sz > sizeof(_expandedmsg)) expandedmsg = (char *)AMUDP_malloc(sz);
+  int chk = snprintf(expandedmsg, sz, "%s%s: %s\n", prefix, plabel, msg);
+  AMUDP_assert(chk < (int)sz); // truncation should not occur
+  int retval = vfprintf(stderr, expandedmsg, argptr);
   fflush(stderr);
-  AMUDP_free(expandedmsg);
-
+  if (expandedmsg != _expandedmsg) AMUDP_free(expandedmsg);
+  
   return retval; 
+}
+
+extern int AMUDP_Info(const char *msg, ...) {
+  va_list argptr;
+  int retval;
+  va_start(argptr, msg); // pass in last argument
+    retval = AMUDP_Msg(AMUDP_ENV_PREFIX_STR, msg, argptr);
+  va_end(argptr);
+  return retval;
 }
 
 extern int AMUDP_Warn(const char *msg, ...) {
   va_list argptr;
   int retval;
   va_start(argptr, msg); // pass in last argument
-    retval = AMUDP_Msg("AMUDP WARNING", msg, argptr);
+    retval = AMUDP_Msg("*** " AMUDP_ENV_PREFIX_STR " WARNING", msg, argptr);
   va_end(argptr);
   return retval;
 }
@@ -68,7 +85,7 @@ extern int AMUDP_Err(const char *msg, ...) {
   va_list argptr;
   int retval;
   va_start(argptr, msg); // pass in last argument
-    retval = AMUDP_Msg("AMUDP ERROR", msg, argptr);
+    retval = AMUDP_Msg("*** " AMUDP_ENV_PREFIX_STR " ERROR", msg, argptr);
   va_end(argptr);
   return retval;
 }
@@ -77,7 +94,7 @@ extern void AMUDP_FatalErr(const char *msg, ...) {
   va_list argptr;
   int retval;
   va_start(argptr, msg); // pass in last argument
-    retval = AMUDP_Msg("FATAL ERROR", msg, argptr);
+    retval = AMUDP_Msg("*** FATAL ERROR", msg, argptr);
   va_end(argptr);
   abort();
 }
@@ -140,9 +157,10 @@ static void AMUDP_RemoveEndpoint(eb_t eb, ep_t ep) {
 #define AMUDP_BUFFERPOOL_MAGIC ((uint64_t)0x1001feedbac31001llu)
 extern amudp_buf_t *AMUDP_AcquireBuffer(ep_t ep, size_t sz) {
   AMUDP_assert(ep);
-  AMUDP_assert(sz >= AMUDP_MIN_NETWORK_MSG);
+  AMUDP_assert(sz >= AMUDP_MIN_BUFFER);
+  AMUDP_assert(sz <= AMUDP_MAX_BUFFER);
   amudp_bufferpool_t *pool;
-  if (sz == AMUDP_MIN_NETWORK_MSG) {
+  if (sz <= AMUDP_MAX_SHORT_BUFFER) {
     pool = &ep->bufferPool[0];
   } else {
     pool = &ep->bufferPool[1];
@@ -162,6 +180,13 @@ extern amudp_buf_t *AMUDP_AcquireBuffer(ep_t ep, size_t sz) {
 
   AMUDP_memcheck(bh);
 
+  #if AMUDP_BUFFER_STATS
+    pool->stats.alloc_curr++;
+    pool->stats.alloc_total++;
+    pool->stats.buffer_bytes += sz;
+    pool->stats.alloc_peak = MAX(pool->stats.alloc_curr,pool->stats.alloc_peak);
+  #endif
+
   amudp_buf_t *buf = (amudp_buf_t *)(bh+1);
   AMUDP_assert(!((uintptr_t)buf & 0x7)); // 8-byte alignment
   return buf;
@@ -176,6 +201,9 @@ extern void AMUDP_ReleaseBuffer(ep_t ep, amudp_buf_t *buf) {
   AMUDP_assert(pool->magic == AMUDP_BUFFERPOOL_MAGIC);
   bh->next = pool->free;
   pool->free = bh;
+  #if AMUDP_BUFFER_STATS
+    pool->stats.alloc_curr--;
+  #endif
 }
 /* ------------------------------------------------------------------------------------ */
 static void AMUDP_InitBuffers(ep_t ep) {
@@ -185,11 +213,11 @@ static void AMUDP_InitBuffers(ep_t ep) {
       ep->bufferPool[i].magic = AMUDP_BUFFERPOOL_MAGIC;
     #endif
   }
-  ep->bufferPool[0].buffersz = AMUDP_MIN_NETWORK_MSG;
-  ep->bufferPool[1].buffersz = AMUDP_MAXBULK_NETWORK_MSG;
+  ep->bufferPool[0].buffersz = AMUDP_MAX_SHORT_BUFFER;
+  ep->bufferPool[1].buffersz = AMUDP_MAX_BUFFER;
 }
 /* ------------------------------------------------------------------------------------ */
-static void AMUDP_FreeAllBulkBuffers(ep_t ep) {
+static void AMUDP_FreeAllBuffers(ep_t ep) {
   AMUDP_memcheck_all();
 
   for (int i=0; i < AMUDP_NUMBUFFERPOOLS; i++) {
@@ -199,6 +227,15 @@ static void AMUDP_FreeAllBulkBuffers(ep_t ep) {
       AMUDP_free(bh);
       bh = next;
     }
+    #if AMUDP_BUFFER_STATS
+      AMUDP_Info("Buffer pool %5i: %7.1fb avg\t%6llu alloc\t%4llu peak\t%2llu leaked",
+                 (int)pool->buffersz, 
+                 pool->stats.buffer_bytes/(double)pool->stats.alloc_total,
+                 (unsigned long long)pool->stats.alloc_total,
+                 (unsigned long long)pool->stats.alloc_peak,
+                 (unsigned long long)pool->stats.alloc_curr
+                 );
+    #endif
   }
 }
 /*------------------------------------------------------------------------------------
@@ -217,12 +254,11 @@ extern int AMUDP_growSocketBufferSize(ep_t ep, int targetsize,
   int maxedout = 0;
   GETSOCKOPT_LENGTH_T junk = sizeof(int);
   if (SOCK_getsockopt(ep->s, SOL_SOCKET, szparam, (char *)&initialsize, &junk) == SOCKET_ERROR) {
-    #if AMUDP_DEBUG
-      AMUDP_Warn("getsockopt(SOL_SOCKET, %s) on UDP socket failed: %s",paramname,strerror(errno));
-    #endif
+    AMUDP_DEBUG_WARN(("getsockopt(SOL_SOCKET, %s) on UDP socket failed: %s",paramname,strerror(errno)));
     initialsize = 65535;
   } 
-  ep->socketRecvBufferSize = initialsize; /* ensure ep->socketRecvBufferSize is always initialized */
+  if (szparam == SO_RCVBUF)
+    ep->socketRecvBufferSize = initialsize; /* ensure ep->socketRecvBufferSize is always initialized */
 
   targetsize = MAX(initialsize, targetsize); /* never shrink buffer */
 
@@ -248,22 +284,16 @@ extern int AMUDP_growSocketBufferSize(ep_t ep, int targetsize,
   while (targetsize > initialsize) {
     int sz = targetsize; /* prevent OS from tampering */
     if (setsockopt(ep->s, SOL_SOCKET, szparam, (char *)&sz, sizeof(int)) == SOCKET_ERROR) {
-      #if AMUDP_DEBUG
-        AMUDP_Warn("setsockopt(SOL_SOCKET, %s, %i) on UDP socket failed: %s", paramname, targetsize, strerror(errno));
-      #endif
+      AMUDP_VERBOSE_INFO(("setsockopt(SOL_SOCKET, %s, %i) on UDP socket failed: %s", paramname, targetsize, strerror(errno)));
     } else {
       int temp = targetsize;
       junk = sizeof(int);
       if (SOCK_getsockopt(ep->s, SOL_SOCKET, szparam, (char *)&temp, &junk) == SOCKET_ERROR) {
-        #if AMUDP_DEBUG
-          AMUDP_Warn("getsockopt(SOL_SOCKET, %s) on UDP socket failed: %s", paramname, strerror(errno));
-        #endif
+        AMUDP_DEBUG_WARN(("getsockopt(SOL_SOCKET, %s) on UDP socket failed: %s", paramname, strerror(errno)));
       }
       if (temp >= targetsize) {
-        if (!AMUDP_SilentMode) {
-          fprintf(stderr, "UDP %s buffer successfully set to %i bytes\n", paramname, targetsize); fflush(stderr);
-        }
-        ep->socketRecvBufferSize = temp;
+        if (!AMUDP_SilentMode) AMUDP_Info("UDP %s buffer successfully set to %i bytes", paramname, targetsize);
+        if (szparam == SO_RCVBUF) ep->socketRecvBufferSize = temp;
         break; /* success */
       }
     }
@@ -323,33 +353,14 @@ static int AMUDP_AllocateEndpointBuffers(ep_t ep) {
   AMUDP_assert(ep->depth >= 1);
   AMUDP_assert(ep->P > 0 && ep->P <= AMUDP_MAX_NUMTRANSLATIONS);
   AMUDP_assert(ep->PD == (int)ep->P * ep->depth);
-  AMUDP_assert(ep->recvDepth <= AMUDP_MAX_RECVDEPTH);
+  AMUDP_assert(ep->recvDepth > 0 && ep->recvDepth <= AMUDP_MAX_RECVDEPTH);
+  AMUDP_assert(ep->sendDepth > 0 && ep->sendDepth <= (int)MAX(1,ep->P - 1) * ep->depth);
 
   AMUDP_assert(sizeof(amudp_buf_t) % sizeof(int) == 0); /* assume word-addressable machine */
 
-  uint32_t rxBufs = ep->recvDepth + 1;
-  ep->rxNumBufs = (uint16_t)rxBufs;
-  AMUDP_assert(rxBufs == (uint32_t)ep->rxNumBufs); // check overflow
-
-  /* Static buffer allocation:
-   * 2 * PD for request and reply send buffers
-   * recvDepth for recv, plus one extra for ease of implementing circular rx buf
-   * two for temporary buffers
-   */
-
-  ep->totalBufs = 2 * PD + ep->rxNumBufs + 2;
-  pool = (amudp_buf_t *)AMUDP_calloc(ep->totalBufs, sizeof(amudp_buf_t));
-  if (!pool) return FALSE;
-  ep->requestBuf = pool;
-  ep->replyBuf = &pool[PD];
-  ep->rxBuf = &pool[2*PD];
-  ep->rxFreeIdx = 0;
-  ep->rxReadyIdx = 0;
-  ep->temporaryBuf = &ep->rxBuf[ep->rxNumBufs];
-
-  { int HPAMsize = 2*PD*AMUDP_MAX_NETWORK_MSG; /* theoretical max required by plain-vanilla HPAM */
-    int padsize = 2*AMUDP_MAXBULK_NETWORK_MSG; /* some pad for non-HPAM true bulk xfers & retransmissions */
-    int sz = MIN(HPAMsize+padsize, AMUDP_SOCKETBUFFER_MAX);
+  // setup initial socket OS buffer size
+  { /* theoretical max required by HPAM is 2*PD*AMUDP_MAX_MSG, but that scales poorly */
+    int sz = MIN(ep->recvDepth*AMUDP_MAX_MSG, AMUDP_SOCKETBUFFER_MAX);
      
     #if USE_SOCKET_RECVBUFFER_GROW
         ep->socketRecvBufferMaxedOut = AMUDP_growSocketBufferSize(ep, sz, SO_RCVBUF, "SO_RCVBUF");
@@ -358,12 +369,6 @@ static int AMUDP_AllocateEndpointBuffers(ep_t ep) {
         AMUDP_growSocketBufferSize(ep, sz, SO_SNDBUF, "SO_SNDBUF");
     #endif
   }
-
-  ep->requestDesc = (amudp_bufdesc_t*)AMUDP_calloc(2 * PD, sizeof(amudp_bufdesc_t));
-  ep->replyDesc = &ep->requestDesc[PD];
-  /* init descriptor tables */
-  ep->outstandingRequests = 0;
-  ep->timeoutCheckPosn = 0;
 
   /* instance hint pointers & compressed translation table */
   ep->perProcInfo = (amudp_perproc_info_t *)AMUDP_calloc(ep->P, sizeof(amudp_perproc_info_t));
@@ -380,7 +385,7 @@ static int AMUDP_FreeEndpointResource(ep_t ep) {
     if (AMUDP_SPMDRestartActive) { /* it is already gone */ } else
   #endif
 
-  AMUDP_free(ep->translation);
+  if (ep->translation) AMUDP_free(ep->translation);
 
   if (closesocket(ep->s) == SOCKET_ERROR) return FALSE;
   return TRUE;
@@ -389,20 +394,31 @@ static int AMUDP_FreeEndpointResource(ep_t ep) {
 static int AMUDP_FreeEndpointBuffers(ep_t ep) {
   AMUDP_assert(ep != NULL);
 
-  for (uint32_t i=0; i < ep->totalBufs; i++) { // release bulk buffers in use
-    amudp_buf_t *bulkbuffer = ep->requestBuf[i].status.bulkBuffer;
-    if (bulkbuffer) AMUDP_ReleaseBulkBuffer(ep, bulkbuffer);
+  for (amudp_node_t proc=0; proc < ep->P; proc++) { // release tx buffers in use
+    for (int t=0; t < 2; t++) {
+      amudp_bufdesc_t *desc = (t ? ep->perProcInfo[proc].requestDesc : ep->perProcInfo[proc].replyDesc );
+      if (desc) {
+        for (int i=0; i < ep->depth; i++) { 
+          amudp_buf_t *buf = desc[i].buffer;
+          if (buf) AMUDP_ReleaseBuffer(ep, buf);
+        }
+        AMUDP_free(desc);
+      }
+    }
   }
-  AMUDP_FreeAllBulkBuffers(ep);
+  ep->timeoutCheckPosn = NULL;
+  ep->outstandingRequests = 0;
 
-  AMUDP_free(ep->requestBuf); // this frees all the static buffers
-  ep->rxBuf = NULL;
-  ep->requestBuf = NULL;
-  ep->replyBuf = NULL;
+  for (amudp_buf_t *buf = ep->rxHead; buf; ) { // release rx buffers in use
+    amudp_buf_t *tmp = buf->status.rx.next;
+    AMUDP_ReleaseBuffer(ep, buf);
+    buf = tmp;
+  }
+  ep->rxHead = NULL;
+  ep->rxTail = NULL;
+  ep->rxCnt = 0;
 
-  AMUDP_free(ep->requestDesc);
-  ep->requestDesc = NULL;
-  ep->replyDesc = NULL;
+  AMUDP_FreeAllBuffers(ep);
 
   AMUDP_free(ep->perProcInfo);
   ep->perProcInfo = NULL;
@@ -428,15 +444,7 @@ extern int AM_Init() {
 
     AMUDP_assert(sizeof(uintptr_t) >= sizeof(void *));
 
-    { char *faultRate = AMUDP_getenv_prefixed("FAULT_RATE");
-      if (faultRate && (AMUDP_FaultInjectionRate = atof(faultRate)) != 0.0) {
-        AMUDP_FaultInjectionEnabled = 1;
-        fprintf(stderr, "*** Warning: AMUDP running with fault injection enabled. Rate = %6.2f %%\n",
-          100.0 * AMUDP_FaultInjectionRate);
-        fflush(stderr);
-        srand( (unsigned)time( NULL ) ); /* TODO: we should really be using a private rand num generator */
-      }
-    }
+    AMUDP_assert(sizeof(amudp_msg_t) % 4 == 0); // may be required for correct argument alignment
   }
   amudp_Initialized++;
   return AM_OK;
@@ -531,13 +539,7 @@ extern int AM_AllocateEndpoint(eb_t bundle, ep_t *endp, en_t *endpoint_name) {
       ep->handler[i] = amudp_unused_handler;
     }
     ep->tag = AM_NONE;
-    ep->segAddr = NULL;
-    ep->segLength = 0;
-    ep->P = 0; 
     ep->depth = -1;
-    ep->PD = 0;
-    ep->preHandlerCallback = NULL; 
-    ep->postHandlerCallback = NULL;
 
     ep->stats = AMUDP_initial_stats;
   }
@@ -624,9 +626,9 @@ extern int AM_MaxSegLength(uintptr_t* nbytes) {
 extern int AM_Map(ep_t ea, int index, en_t name, tag_t tag) {
   AMUDP_CHECKINIT();
   if (!ea) AMUDP_RETURN_ERR(BAD_ARG);
+  if (ea->depth != -1) AMUDP_RETURN_ERR(RESOURCE); /* it's an error to map after call to AM_SetExpectedResources */
   if (index < 0 || (amudp_node_t)index >= ea->translationsz) AMUDP_RETURN_ERR(BAD_ARG);
   if (ea->translation[index].inuse) AMUDP_RETURN_ERR(RESOURCE); /* it's an error to re-map */
-  if (ea->depth != -1) AMUDP_RETURN_ERR(RESOURCE); /* it's an error to map after call to AM_SetExpectedResources */
 
   ea->translation[index].inuse = TRUE;
   ea->translation[index].name = name;
@@ -655,9 +657,9 @@ extern int AM_MapAny(ep_t ea, int *index, en_t name, tag_t tag) {
 extern int AM_UnMap(ep_t ea, int index) {
   AMUDP_CHECKINIT();
   if (!ea) AMUDP_RETURN_ERR(BAD_ARG);
+  if (ea->depth != -1) AMUDP_RETURN_ERR(RESOURCE); /* it's an error to unmap after call to AM_SetExpectedResources */
   if (index < 0 || (amudp_node_t)index >= ea->translationsz) AMUDP_RETURN_ERR(BAD_ARG);
   if (!ea->translation[index].inuse) AMUDP_RETURN_ERR(RESOURCE); /* not mapped */
-  if (ea->depth != -1) AMUDP_RETURN_ERR(RESOURCE); /* it's an error to unmap after call to AM_SetExpectedResources */
 
   ea->translation[index].inuse = FALSE;
   ea->P--;  /* track num of translations */
@@ -700,7 +702,8 @@ extern int AM_GetTranslationInuse(ep_t ea, int i) {
   if (!ea) AMUDP_RETURN_ERR(BAD_ARG);
   if (i < 0 || (amudp_node_t)i >= ea->translationsz) AMUDP_RETURN_ERR(BAD_ARG);
 
-  if (ea->translation[i].inuse) return AM_OK; /* in use */
+  if (ea->translation && ea->translation[i].inuse) return AM_OK; /* in use */
+  else if (!ea->translation && (amudp_node_t)i < ea->P) return AM_OK; /* in use, after AM_SetExpectedResources */
   else return AM_ERR_RESOURCE; /* don't complain here - it's a common case */
 }
 /* ------------------------------------------------------------------------------------ */
@@ -708,9 +711,11 @@ extern int AM_GetTranslationTag(ep_t ea, int i, tag_t *tag) {
   AMUDP_CHECKINIT();
   if (!ea || !tag) AMUDP_RETURN_ERR(BAD_ARG);
   if (i < 0 || (amudp_node_t)i >= ea->translationsz) AMUDP_RETURN_ERR(BAD_ARG);
-  if (!ea->translation[i].inuse) AMUDP_RETURN_ERR(RESOURCE);
+  if (AM_GetTranslationInuse(ea,i) != AM_OK) AMUDP_RETURN_ERR(RESOURCE); /* not mapped */
 
-  (*tag) = ea->translation[i].tag;
+  if (ea->translation) (*tag) = ea->translation[i].tag;
+  else                 (*tag) = ea->perProcInfo[i].tag;
+
   return AM_OK;
 }
 /* ------------------------------------------------------------------------------------ */
@@ -718,12 +723,16 @@ extern int AMUDP_SetTranslationTag(ep_t ea, int index, tag_t tag) {
   AMUDP_CHECKINIT();
   if (!ea) AMUDP_RETURN_ERR(BAD_ARG);
   if (index < 0 || (amudp_node_t)index >= ea->translationsz) AMUDP_RETURN_ERR(BAD_ARG);
-  if (!ea->translation[index].inuse) AMUDP_RETURN_ERR(RESOURCE); /* can't change tag if not mapped */
+  if (AM_GetTranslationInuse(ea,index) != AM_OK) AMUDP_RETURN_ERR(RESOURCE); /* can't change tag if not mapped */
 
-  ea->translation[index].tag = tag;
+  amudp_node_t id;
+  if (ea->translation) { 
+    ea->translation[index].tag = tag;
+    id = ea->translation[index].id;
+  } else id = (amudp_node_t)index;
 
   if (ea->depth != -1) { /* after call to AM_SetExpectedResources we must update compressed table */
-    ea->perProcInfo[ea->translation[index].id].tag = tag;
+    ea->perProcInfo[id].tag = tag;
   }
 
   return AM_OK;
@@ -733,23 +742,34 @@ extern int AM_GetTranslationName(ep_t ea, int i, en_t *gan) {
   AMUDP_CHECKINIT();
   if (!ea || !gan) AMUDP_RETURN_ERR(BAD_ARG);
   if (i < 0 || (amudp_node_t)i >= ea->translationsz) AMUDP_RETURN_ERR(BAD_ARG);
-  if (!ea->translation[i].inuse) AMUDP_RETURN_ERR(RESOURCE);
+  if (AM_GetTranslationInuse(ea,i) != AM_OK) AMUDP_RETURN_ERR(RESOURCE); /* not mapped */
 
-  (*gan) = ea->translation[i].name; 
+  if (ea->translation) (*gan) = ea->translation[i].name;
+  else                 (*gan) = ea->perProcInfo[i].remoteName;
+
   return AM_OK;
 }
 /* ------------------------------------------------------------------------------------ */
-extern int AM_SetExpectedResources(ep_t ea, int n_endpoints, int n_outstanding_requests) {
+static void AMUDP_InitParameters(ep_t ep) {
   static int firsttime = 1;
-  AMUDP_CHECKINIT();
-  if (!ea) AMUDP_RETURN_ERR(BAD_ARG);
-  if (ea->depth != -1) AMUDP_RETURN_ERR(RESOURCE); /* it's an error to call AM_SetExpectedResources again */
-  /* n_endpoints ignored : P is set as we Map translations */
-  /*if (n_endpoints < 1 || n_endpoints >= AMUDP_MAX_NUMTRANSLATIONS) AMUDP_RETURN_ERR(BAD_ARG);*/
-  if (n_outstanding_requests < 1 || n_outstanding_requests > AMUDP_MAX_NETWORKDEPTH) AMUDP_RETURN_ERR(BAD_ARG);
 
-  ea->depth = n_outstanding_requests;
-  ea->PD = ea->P * ea->depth;
+  static int recvDepth;
+  static int sendDepth;
+
+  if (firsttime) { // only consult the environment once per process
+    // transfer defaults are based on first endpoint
+
+    // default depths enough for full-bandwidth comms with up to 4 neighbors
+    recvDepth = 2 * ep->depth * MIN(MAX(1,ep->P-1),4);
+    sendDepth = ep->depth * MIN(MAX(1,ep->P-1),4);
+
+
+    char *faultRate = AMUDP_getenv_prefixed_withdefault("FAULT_RATE","0.0");
+    if (faultRate && (AMUDP_FaultInjectionRate = atof(faultRate)) != 0.0) {
+      AMUDP_FaultInjectionEnabled = 1;
+      AMUDP_Warn("Running with fault injection enabled. Rate = %6.2f %%", 100.0 * AMUDP_FaultInjectionRate);
+      srand( (unsigned)time( NULL ) ); /* TODO: we should really be using a private rand num generator */
+    }
 
     #define ENVINT_WITH_DEFAULT(var, name, validate) do { \
         char defval[80];                                  \
@@ -770,47 +790,79 @@ extern int AM_SetExpectedResources(ep_t ea, int n_endpoints, int n_outstanding_r
         }                                                 \
       } while (0)
 
-  // default recv depth is enough for full-bandwidth comms with up to 4 neighbors
-  ea->recvDepth = 2 *  ea->depth * MIN(MAX(1,ea->P-1),4); 
-  ENVINT_WITH_DEFAULT(ea->recvDepth, "RECVDEPTH", { 
-    if (val <= 0 || val > AMUDP_MAX_RECVDEPTH) 
-      AMUDP_FatalErr("RECVDEPTH must be in 1..%d", AMUDP_MAX_RECVDEPTH);
+    ENVINT_WITH_DEFAULT(recvDepth, "RECVDEPTH", { 
+      if (val <= 0 || val > AMUDP_MAX_RECVDEPTH) 
+        AMUDP_FatalErr("RECVDEPTH must be in 1..%d", AMUDP_MAX_RECVDEPTH);
     });
 
-  if (firsttime) { /* set transfer parameters */
+    ENVINT_WITH_DEFAULT(sendDepth, "SENDDEPTH",
+                        { if (!val) AMUDP_FatalErr("SENDDEPTH must be non-zero"); });
+
     ENVINT_WITH_DEFAULT(AMUDP_MaxRequestTimeout_us, "REQUESTTIMEOUT_MAX",
                         { if (val <= 0) AMUDP_MaxRequestTimeout_us = AMUDP_TIMEOUT_INFINITE; });
     ENVINT_WITH_DEFAULT(AMUDP_InitialRequestTimeout_us, "REQUESTTIMEOUT_INITIAL",
                         { if (val <= 0) AMUDP_InitialRequestTimeout_us = AMUDP_TIMEOUT_INFINITE; });
     ENVINT_WITH_DEFAULT(AMUDP_RequestTimeoutBackoff, "REQUESTTIMEOUT_BACKOFF",
                         { if (val <= 1) AMUDP_FatalErr("REQUESTTIMEOUT_BACKOFF must be > 1"); });
-    ENVINT_WITH_DEFAULT(AMUDP_ExpectedBandwidth, "EXPECTED_BANDWIDTH",
-                        { if (val < 1) AMUDP_FatalErr("EXPECTED_BANDWIDTH must be >= 1"); });
     if (AMUDP_InitialRequestTimeout_us > AMUDP_MaxRequestTimeout_us) {
        AMUDP_Warn("REQUESTTIMEOUT_INITIAL must not exceed REQUESTTIMEOUT_MAX. Raising MAX...");
-       AMUDP_MaxRequestTimeout_us = MAX(AMUDP_InitialRequestTimeout_us, AMUDP_InitialRequestTimeout_us*2);
+       AMUDP_MaxRequestTimeout_us = MAX(AMUDP_InitialRequestTimeout_us, AMUDP_InitialRequestTimeout_us*AMUDP_RequestTimeoutBackoff);
     }
-    #if 0
-      printf("AMUDP_MaxRequestTimeout_us=%08x\n",AMUDP_MaxRequestTimeout_us);
-      printf("AMUDP_InitialRequestTimeout_us=%08x\n",AMUDP_InitialRequestTimeout_us);
-      printf("AMUDP_RequestTimeoutBackoff=%08x\n",AMUDP_RequestTimeoutBackoff);
-      printf("AMUDP_ExpectedBandwidth=%08x\n",AMUDP_ExpectedBandwidth);
-    #endif
+    AMUDP_InitRetryCache();
     firsttime = 0;
   }
+
+  ep->recvDepth = recvDepth;
+
+  ep->sendDepth = sendDepth;
+  int maxsendDepth = ep->depth * MAX(1,ep->P-1);
+  if (ep->sendDepth < 0 || ep->sendDepth > maxsendDepth) // silently cap, since the max is P-dependent
+    ep->sendDepth = maxsendDepth;
+  if (ep->sendDepth < ep->depth) {
+    AMUDP_Warn("SENDDEPTH may not be less than DEPTH. Raising SENDDEPTH...");
+    ep->sendDepth = ep->depth;
+  }
+}
+/* ------------------------------------------------------------------------------------ */
+extern int AM_SetExpectedResources(ep_t ea, int n_endpoints, int n_outstanding_requests) {
+  AMUDP_CHECKINIT();
+  if (!ea) AMUDP_RETURN_ERR(BAD_ARG);
+  if (ea->depth != -1) AMUDP_RETURN_ERR(RESOURCE); /* it's an error to call AM_SetExpectedResources again */
+  /* n_endpoints ignored : P is set as we Map translations */
+  /*if (n_endpoints < 1 || n_endpoints >= AMUDP_MAX_NUMTRANSLATIONS) AMUDP_RETURN_ERR(BAD_ARG);*/
+  if (n_outstanding_requests < 1 || n_outstanding_requests > AMUDP_MAX_NETWORKDEPTH) AMUDP_RETURN_ERR(BAD_ARG);
+
+  ea->depth = n_outstanding_requests;
+  ea->PD = ea->P * ea->depth;
+
+  AMUDP_InitParameters(ea);
 
   if (!AMUDP_AllocateEndpointBuffers(ea)) AMUDP_RETURN_ERR(RESOURCE);
 
   /*  compact a copy of the translation table into our perproc info array */
   { amudp_node_t procid = 0;
-    for (amudp_node_t i=0; i < ea->translationsz; i++) {
+    amudp_node_t i;
+    for (i=0; i < ea->translationsz; i++) {
       if (ea->translation[i].inuse) {
         ea->perProcInfo[procid].remoteName = ea->translation[i].name;
         ea->perProcInfo[procid].tag = ea->translation[i].tag;
         ea->translation[i].id = procid;
+        if (enEqual(ea->perProcInfo[procid].remoteName, ea->name)) ea->idHint = procid;
         procid++;
         if (procid == ea->P) break; /*  should have all of them now */
       }
+    }
+    #if AMUDP_DEBUG
+      for (amudp_node_t j=i+1; j < ea->translationsz; j++) 
+        AMUDP_assert(!ea->translation[j].inuse);
+    #endif
+    if (i+1 == ea->P) { 
+      // common case: dense translation table
+      // improve scalability by freeing the now-redundant data structure
+      AMUDP_free(ea->translation);
+      ea->translation = NULL;
+    } else {
+      AMUDP_DEBUG_WARN(("Translation table is sparse. Memory utilization will be slightly less scalable."));
     }
   }
 
@@ -888,7 +940,7 @@ extern int AM_GetSourceEndpoint(void *token, en_t *gan) {
   AMUDP_CHECKINIT();
   AMUDP_CHECK_ERR((!token || !gan),BAD_ARG);
 
-  *gan = ((amudp_buf_t *)token)->status.sourceAddr;
+  *gan = ((amudp_buf_t *)token)->status.rx.sourceAddr;
   return AM_OK;
 }
 /* ------------------------------------------------------------------------------------ */
@@ -896,7 +948,7 @@ extern int AMUDP_GetSourceId(void *token, int *srcid) {
   AMUDP_CHECKINIT();
   AMUDP_CHECK_ERR((!token || !srcid),BAD_ARG);
 
-  *srcid = (int)((amudp_buf_t *)token)->status.sourceId;
+  *srcid = (int)((amudp_buf_t *)token)->status.rx.sourceId;
   return AM_OK;
 }
 /* ------------------------------------------------------------------------------------ */
@@ -904,7 +956,7 @@ extern int AM_GetDestEndpoint(void *token, ep_t *endp) {
   AMUDP_CHECKINIT();
   AMUDP_CHECK_ERR((!token || !endp),BAD_ARG);
 
-  *endp = ((amudp_buf_t *)token)->status.dest;
+  *endp = ((amudp_buf_t *)token)->status.rx.dest;
   return AM_OK;
 }
 /* ------------------------------------------------------------------------------------ */
@@ -912,9 +964,7 @@ extern int AM_GetMsgTag(void *token, tag_t *tagp) {
   AMUDP_CHECKINIT();
   AMUDP_CHECK_ERR((!token || !tagp),BAD_ARG);
   
-  if (((amudp_buf_t *)token)->status.bulkBuffer)
-    *tagp = ((amudp_buf_t *)token)->status.bulkBuffer->Msg.tag;
-  else *tagp = ((amudp_buf_t *)token)->Msg.tag;
+  *tagp = ((amudp_buf_t *)token)->msg.tag;
   return AM_OK;
 }
 /* ------------------------------------------------------------------------------------ */
@@ -953,6 +1003,7 @@ extern int AMUDP_AggregateStatistics(amudp_stats_t *runningsum, amudp_stats_t *n
     runningsum->RequestsReceived[category] += newvalues->RequestsReceived[category];
     runningsum->RepliesSent[category] += newvalues->RepliesSent[category];
     runningsum->RepliesRetransmitted[category] += newvalues->RepliesRetransmitted[category];
+    runningsum->RepliesSquashed[category] += newvalues->RepliesSquashed[category];
     runningsum->RepliesReceived[category] += newvalues->RepliesReceived[category];
 
     runningsum->RequestDataBytesSent[category] += newvalues->RequestDataBytesSent[category];
@@ -988,6 +1039,7 @@ extern const char *AMUDP_DumpStatistics(void *_fp, amudp_stats_t *stats, int glo
   int64_t requestsReceived = 0; 
   int64_t repliesSent = 0; 
   int64_t repliesRetransmitted = 0; 
+  int64_t repliesSquashed = 0; 
   int64_t repliesReceived = 0; 
   int64_t reqdataBytesSent = 0; 
   int64_t repdataBytesSent = 0; 
@@ -1015,6 +1067,7 @@ extern const char *AMUDP_DumpStatistics(void *_fp, amudp_stats_t *stats, int glo
     requestsReceived += stats->RequestsReceived[category];
     repliesSent += stats->RepliesSent[category];
     repliesRetransmitted += stats->RepliesRetransmitted[category];
+    repliesSquashed += stats->RepliesSquashed[category];
     repliesReceived += stats->RepliesReceived[category];
     reqdataBytesSent += stats->RequestDataBytesSent[category];
     repdataBytesSent += stats->ReplyDataBytesSent[category];
@@ -1068,9 +1121,10 @@ extern const char *AMUDP_DumpStatistics(void *_fp, amudp_stats_t *stats, int glo
 
   /* batch lines together to improve chance of output together */
   snprintf(msg, sizeof(msg),
-    " Requests: %8lu sent, %4lu retransmitted, %8lu received\n"
-    " Replies:  %8lu sent, %4lu retransmitted, %8lu received\n"
-    " Returned messages:  %8lu\n"
+    " Requests: %8llu sent, %4llu retransmitted, %8llu received\n"
+    " Replies:  %8llu sent, %4llu retransmitted, %8llu received, %4llu squashed\n"
+    " Returned messages:   %8llu\n"
+    " Misordered receipt:  %8llu/%llu\n"
   #if AMUDP_COLLECT_LATENCY_STATS
     "Latency (request sent to reply received): \n"
     " min: %8i microseconds\n"
@@ -1079,20 +1133,22 @@ extern const char *AMUDP_DumpStatistics(void *_fp, amudp_stats_t *stats, int glo
   #endif
 
     "Message Breakdown:        Requests     Replies   Avg data sz (Req/Rep/Both)\n"
-    " Short  (<=%5i bytes)   %8lu    %8lu  %9.*f/%.*f/%.*f bytes\n"
-    " Medium (<=%5i bytes)   %8lu    %8lu  %9.*f/%.*f/%.*f bytes\n"
-    " Long   (<=%5i bytes)   %8lu    %8lu  %9.*f/%.*f/%.*f bytes\n"
+    " Short  (<=%5i bytes)   %8llu    %8llu  %9.*f/%.*f/%.*f bytes\n"
+    " Medium (<=%5i bytes)   %8llu    %8llu  %9.*f/%.*f/%.*f bytes\n"
+    " Long   (<=%5i bytes)   %8llu    %8llu  %9.*f/%.*f/%.*f bytes\n"
 
     " Total                                          %9.*f/%.*f/%.*f bytes\n"
 
-    "Data bytes sent:      %lu/%lu/%lu bytes\n"
-    "Total bytes sent:     %lu/%lu/%lu bytes (incl. AM overhead)\n"
+    "Data bytes sent:      %llu/%llu/%llu bytes\n"
+    "Total bytes sent:     %llu/%llu/%llu bytes (incl. AM overhead)\n"
     "Bandwidth overhead:   %.2f%%/%.2f%%/%.2f%%\n"        
     "Average packet size:  %.*f/%.*f/%.*f bytes (incl. AM & transport-layer overhead)\n"
     , 
-    (unsigned long)requestsSent, (unsigned long)requestsRetransmitted, (unsigned long)requestsReceived,
-    (unsigned long)repliesSent, (unsigned long)repliesRetransmitted, (unsigned long)repliesReceived,
-    (unsigned long)stats->ReturnedMessages,
+    (unsigned long long)requestsSent, (unsigned long long)requestsRetransmitted, (unsigned long long)requestsReceived,
+    (unsigned long long)repliesSent, (unsigned long long)repliesRetransmitted, (unsigned long long)repliesReceived, (unsigned long long)repliesSquashed,
+    (unsigned long long)stats->ReturnedMessages,
+    (unsigned long long)stats->OutOfOrderRequests,
+    (unsigned long long)stats->OutOfOrderReplies,
   #if AMUDP_COLLECT_LATENCY_STATS
     (stats->RequestMinLatency == (amudp_cputick_t)-1?(int)-1:(int)ticks2us(stats->RequestMinLatency)),
     (int)ticks2us(stats->RequestMaxLatency),
@@ -1101,17 +1157,17 @@ extern const char *AMUDP_DumpStatistics(void *_fp, amudp_stats_t *stats, int glo
 
     /* Message breakdown */
     (int)(AMUDP_MAX_SHORT*sizeof(int)),
-      (unsigned long)stats->RequestsSent[amudp_Short], (unsigned long)stats->RepliesSent[amudp_Short], 
+      (unsigned long long)stats->RequestsSent[amudp_Short], (unsigned long long)stats->RepliesSent[amudp_Short], 
       AMUDP_StatPrecision(reqavgpayload[amudp_Short]), reqavgpayload[amudp_Short], 
       AMUDP_StatPrecision(repavgpayload[amudp_Short]), repavgpayload[amudp_Short], 
       AMUDP_StatPrecision(avgpayload[amudp_Short]), avgpayload[amudp_Short], 
     (int)(AMUDP_MAX_SHORT*sizeof(int) + AMUDP_MAX_MEDIUM),
-      (unsigned long)stats->RequestsSent[amudp_Medium], (unsigned long)stats->RepliesSent[amudp_Medium], 
+      (unsigned long long)stats->RequestsSent[amudp_Medium], (unsigned long long)stats->RepliesSent[amudp_Medium], 
       AMUDP_StatPrecision(reqavgpayload[amudp_Medium]), reqavgpayload[amudp_Medium], 
       AMUDP_StatPrecision(repavgpayload[amudp_Medium]), repavgpayload[amudp_Medium], 
       AMUDP_StatPrecision(avgpayload[amudp_Medium]), avgpayload[amudp_Medium], 
     (int)(AMUDP_MAX_SHORT*sizeof(int) + AMUDP_MAX_LONG),
-      (unsigned long)stats->RequestsSent[amudp_Long], (unsigned long)stats->RepliesSent[amudp_Long], 
+      (unsigned long long)stats->RequestsSent[amudp_Long], (unsigned long long)stats->RepliesSent[amudp_Long], 
       AMUDP_StatPrecision(reqavgpayload[amudp_Long]), reqavgpayload[amudp_Long], 
       AMUDP_StatPrecision(repavgpayload[amudp_Long]), repavgpayload[amudp_Long], 
       AMUDP_StatPrecision(avgpayload[amudp_Long]), avgpayload[amudp_Long], 
@@ -1121,9 +1177,9 @@ extern const char *AMUDP_DumpStatistics(void *_fp, amudp_stats_t *stats, int glo
     AMUDP_StatPrecision(avgrepdata), avgrepdata,
     AMUDP_StatPrecision(avgdata), avgdata,
 
-    (unsigned long)reqdataBytesSent, (unsigned long)repdataBytesSent, (unsigned long)dataBytesSent,
+    (unsigned long long)reqdataBytesSent, (unsigned long long)repdataBytesSent, (unsigned long long)dataBytesSent,
 
-    (unsigned long)reqTotalBytesSent, (unsigned long)repTotalBytesSent, (unsigned long)stats->TotalBytesSent,
+    (unsigned long long)reqTotalBytesSent, (unsigned long long)repTotalBytesSent, (unsigned long long)stats->TotalBytesSent,
     /* bandwidth overhead */
     (reqTotalBytesSent > 0 ?
       100.0*((double)(reqTotalBytesSent + reqUDPIPheaderbytes - reqdataBytesSent)) / 
@@ -1149,18 +1205,24 @@ extern const char *AMUDP_DumpStatistics(void *_fp, amudp_stats_t *stats, int glo
     int64_t repsent = repliesSent + repliesRetransmitted;
     int64_t replost = repsent - repliesReceived;
     int64_t packetslost = reqlost + replost;
-    int64_t extra_rexmits = requestsRetransmitted - reqlost;
-    #define APPEND_PERCENT(num, denom)                                           \
-      if (num > 0) sprintf(msg+strlen(msg), "  (%6.3f%%)\n", (100.0*num)/denom); \
-      else strcat(msg, "\n")
-    sprintf(msg+strlen(msg), "Requests lost:        %9i", (int)reqlost);
-    APPEND_PERCENT(reqlost, reqsent);
-    sprintf(msg+strlen(msg), "Replies lost:         %9i", (int)replost);
-    APPEND_PERCENT(replost, repsent);
-    sprintf(msg+strlen(msg), "Total packets lost:   %9i", (int)packetslost);
-    APPEND_PERCENT(packetslost, packetssent);
-    sprintf(msg+strlen(msg), "Useless retransmits:  %9i", (int)extra_rexmits);
-    APPEND_PERCENT(extra_rexmits, requestsRetransmitted);
+    int64_t extra_rereq = requestsRetransmitted - reqlost - replost;
+    int64_t extra_rerep = repliesRetransmitted - replost;
+    int64_t extra_reboth = extra_rereq + extra_rerep;
+    #define APPEND_PERCENT(num, denom, eol)                                               \
+      if (num > 0) sprintf(msg+strlen(msg), "  (%6.3f%%)%s", (100.0*(num))/(denom), eol); \
+      else strcat(msg, eol)
+    sprintf(msg+strlen(msg), "Requests lost:        %9lli", (long long)reqlost);
+    APPEND_PERCENT(reqlost, reqsent, "\n");
+    sprintf(msg+strlen(msg), "Replies lost:         %9lli", (long long)replost);
+    APPEND_PERCENT(replost, repsent, "\n");
+    sprintf(msg+strlen(msg), "Total packets lost:   %9lli", (long long)packetslost);
+    APPEND_PERCENT(packetslost, packetssent, "\n");
+    sprintf(msg+strlen(msg), "Useless retransmits:  %lli", (long long)extra_rereq);
+    APPEND_PERCENT(extra_rereq, requestsRetransmitted, " / ");
+    sprintf(msg+strlen(msg), "%lli", (long long)extra_rerep);
+    APPEND_PERCENT(extra_rerep, repliesRetransmitted, " / ");
+    sprintf(msg+strlen(msg), "%lli", (long long)extra_reboth);
+    APPEND_PERCENT(extra_reboth, requestsRetransmitted+repliesRetransmitted, "\n");
   } 
 
   if (fp != NULL) fprintf(fp, "%s", msg);

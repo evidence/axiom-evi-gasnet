@@ -34,5 +34,3 @@ ar = @AR@
 platform_defines = @TIC_MACHINE_DEFINES@ @INTTYPES_DEFINES@ -DUNIX -DAMUDP_ENV_PREFIX=TI
 platform_libraries = @TIC_UDP_LIBS@ @LIBS@
 
-@PLATFORM_ILP32_FALSE@  testprograms_ILP32only =
-@PLATFORM_ILP32_FALSE@  apputils_flags = -DAPPUTILS_OMIT_READWRITE

@@ -64,9 +64,12 @@ typedef struct {
   uint64_t RepliesSent[amudp_NumCategories];
   uint64_t RequestsRetransmitted[amudp_NumCategories];
   uint64_t RepliesRetransmitted[amudp_NumCategories];
+  uint64_t RepliesSquashed[amudp_NumCategories];
   uint64_t RequestsReceived[amudp_NumCategories];   /*  includes retransmits */
   uint64_t RepliesReceived[amudp_NumCategories];    /*  includes retransmits */
   uint64_t ReturnedMessages;
+  uint64_t OutOfOrderRequests;
+  uint64_t OutOfOrderReplies;
   amudp_cputick_t RequestMinLatency;  /* in CPU ticks, only if AMUDP_COLLECT_LATENCY_STATS */
   amudp_cputick_t RequestMaxLatency;  /* in CPU ticks, only if AMUDP_COLLECT_LATENCY_STATS */
   amudp_cputick_t RequestSumLatency;  /* in CPU ticks, only if AMUDP_COLLECT_LATENCY_STATS */
@@ -117,6 +120,7 @@ typedef int op_t;
 extern int AMUDP_VerboseErrors; /* set to non-zero for verbose error reporting */
 extern int AMUDP_PoliteSync; /* set to non-zero for polite blocking while awaiting send resources */
 extern int AMUDP_SilentMode; /* set to non-zero to silence any non-error output */
+extern const char *AMUDP_ProcessLabel; /* human-readable label for this process */
 
 #ifdef __GNUC__
 __attribute__((__format__ (__printf__, 1, 2)))
@@ -197,6 +201,7 @@ extern int AMUDP_SetHandlerCallbacks(ep_t ep, AMUDP_preHandlerCallback_t preHand
 #endif
 
 /* standardized AM-2 extensions */
+#define AMX_SetTranslationTag     AMUDP_SetTranslationTag
 #define AMX_VerboseErrors         AMUDP_VerboseErrors
 #define AMX_GetEndpointStatistics AMUDP_GetEndpointStatistics
 #define AMX_DumpStatistics        AMUDP_DumpStatistics
@@ -238,6 +243,7 @@ extern int AM_GetTranslationName(ep_t ea, int i, en_t *gan);
 extern int AM_GetNumTranslations(ep_t ep, int *pntrans);
 extern int AM_SetNumTranslations(ep_t ep, int ntrans);
 extern int AM_SetExpectedResources(ep_t ea, int n_endpoints, int n_outstanding_requests);
+extern int AMUDP_SetTranslationTag(ep_t ea, int index, tag_t tag); /* extension: legal after AM_SetExpectedResources */
 
 /* Handler table */
 extern int _AM_SetHandler(ep_t ea, handler_t handler, amudp_handler_fn_t function);
@@ -255,7 +261,7 @@ extern int AM_WaitSema(eb_t eb);
 extern int AM_GetSourceEndpoint(void *token, en_t *gan);
 extern int AM_GetDestEndpoint(void *token, ep_t *endp);
 extern int AM_GetMsgTag(void *token, tag_t *tagp);
-extern int AMUDP_GetSourceId(void *token, int *srcid);
+extern int AMUDP_GetSourceId(void *token, int *srcid); /* srcid retrieves a compressed id */
 
 /* Poll */
 extern int AM_Poll(eb_t bundle);

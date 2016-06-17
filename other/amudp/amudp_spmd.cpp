@@ -68,16 +68,19 @@ static void _freezeForDebugger(int depth) {
 static void freezeForDebugger() {
   char name[255];
   gethostname(name, 255);
-  fprintf(stderr,"slave frozen for debugger: host=%s  pid=%i\n", name, (int)getpid()); fflush(stderr);
+  AMUDP_Warn("slave frozen for debugger: host=%s  pid=%i", name, (int)getpid());
   _freezeForDebugger(0);
 }
 
 #if AMUDP_DEBUG_VERBOSE
-  #define DEBUG_SLAVE(msg)  do { fprintf(stderr,"slave %i: %s\n", AMUDP_SPMDMYPROC, msg); fflush(stderr); } while(0)
-  #define DEBUG_MASTER(msg) do { fprintf(stderr,"master: %s\n", msg); fflush(stderr); } while(0)
+  #define DEBUG_SLAVE(msg)  do {                             \
+     if (AMUDP_ProcessLabel) AMUDP_Info("%s", msg);          \
+     else AMUDP_Info("slave %i: %s", AMUDP_SPMDMYPROC, msg); \
+  } while (0)
+  #define DEBUG_MASTER(msg) AMUDP_Info("master: %s", msg)
 #else
-  #define DEBUG_SLAVE(msg)  do {} while(0) /* prevent silly warnings about empty statements */
-  #define DEBUG_MASTER(msg) do {} while(0)
+  #define DEBUG_SLAVE(msg)  ((void)0)
+  #define DEBUG_MASTER(msg) ((void)0)
 #endif
 
 #define AMUDP_SPMDSLAVE_ARGS "AMUDP_SLAVE_ARGS"
@@ -125,8 +128,6 @@ static int AMUDP_SPMDShutdown(int exitcode);
 // used to pass info - always stored in network byte order
 // fields carefully ordered by size to avoid cross-platform struct packing differences
 typedef struct {
-  double faultInjectionRate; // AMUDP_FaultInjectionRate
-
   uint64_t networkpid;  // globally unique pid
 
   tag_t tag;            // tag for this processor
@@ -343,11 +344,9 @@ static void handleStdOutput(FILE *fd, fd_set *psockset, SocketList& list, Socket
 }
 //------------------------------------------------------------------------------------
 #if USE_ASYNC_TCP_CONTROL
-  static void AMUDP_SPMDControlSocketCallback(int sig) {
+  extern "C" void AMUDP_SPMDControlSocketCallback(int sig) {
     AMUDP_SPMDIsActiveControlSocket = TRUE;
-    #if AMUDP_DEBUG_VERBOSE
-      fprintf(stderr, "got an AMUDP_SIGIO signal\n");fflush(stderr);
-    #endif
+    AMUDP_VERBOSE_INFO("got an AMUDP_SIGIO signal");
     reghandler(AMUDP_SIGIO, AMUDP_SPMDControlSocketCallback);
   }
 #endif
@@ -508,16 +507,8 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
     bootstrapinfo.numprocs = hton32(AMUDP_SPMDNUMPROCS);
     bootstrapinfo.depth = hton32(networkdepth);
 
-    { char *faultRate = AMUDP_getenv_prefixed_withdefault("FAULT_RATE", "0.0");
-      if (faultRate && atof(faultRate) != 0.0) {      
-        bootstrapinfo.faultInjectionRate = atof(faultRate);
-      } else bootstrapinfo.faultInjectionRate = 0.0;
-      hton64a(&bootstrapinfo.faultInjectionRate);
-    }
-
     const char *masterHostname = getMyHostName();
-    if (!AMUDP_SilentMode) 
-      printf("master host name: %s\n", masterHostname); fflush(stdout);
+    if (!AMUDP_SilentMode) AMUDP_Info("master host name: %s", masterHostname);
 
     // TCP socket lists
     SocketList allList(AMUDP_SPMDNUMPROCS*4+10); // a list of all active sockets
@@ -624,8 +615,7 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
         #if HAVE_GETIFADDRS
           strncat(slave_env, network, remain-1);
         #else
-          fprintf(stderr,"AMUDP: Warning: WORKERIP set in the environment, but your platform "
-                         "lacks the required getifaddrs() support.  Ignoring WORKERIP.\n");
+          AMUDP_Warn("WORKERIP set in the environment, but your platform lacks the required getifaddrs() support.  Ignoring WORKERIP.");
         #endif
       }
     }
@@ -772,13 +762,13 @@ pollentry:
                 sendAll(AMUDP_SPMDSlaveSocket[i], AMUDP_SPMDMasterEnvironment, ntoh32(bootstrapinfo.environtablesz));
               }
               if (!AMUDP_SilentMode) {
-                printf("Endpoint table (nproc=%i):\n", AMUDP_SPMDNUMPROCS);
+                AMUDP_Info("Endpoint table (nproc=%i):", AMUDP_SPMDNUMPROCS);
                 for (int j=0; j < AMUDP_SPMDNUMPROCS; j++) {
-                  char temp[80];
-                  printf(" P#%i:\t%s", j, AMUDP_enStr(AMUDP_SPMDTranslation_name[j], temp));
-                  printf("\ttag: %s\n", AMUDP_tagStr(ntoh64(AMUDP_SPMDTranslation_tag[j]), temp));
+                  char temp1[80], temp2[80];
+                  AMUDP_Info(" P#%i:\t%s\ttag: %s", j, 
+                             AMUDP_enStr(AMUDP_SPMDTranslation_name[j], temp1),
+                             AMUDP_tagStr(ntoh64(AMUDP_SPMDTranslation_tag[j]), temp2));
                 }
-                fflush(stdout);
               }
             }
           } else AMUDP_Err("master detected some unrecognized activity on AMUDP_SPMDListenSocket");
@@ -791,7 +781,7 @@ pollentry:
             SOCKET s = tempSockArr[i];
             AMUDP_assert(FD_ISSET(s, psockset));
             if (isClosed(s)) {
-              DEBUG_MASTER("dropping a coordList socket...\n");
+              DEBUG_MASTER("dropping a coordList socket...");
               coordList.remove(s);
               allList.remove(s);
 
@@ -892,10 +882,7 @@ pollentry:
                 /* bug 2029 - wait for any final stdout/stderr to arrive before shutdown */
                 uint64_t wait_iter = 0;
                 while (stdoutList.getCount() || stderrList.getCount()) { // await final output
-                  if (!AMUDP_SilentMode && (!wait_iter++)) {
-                    printf("Awaiting final slave outputs...\n");
-                    fflush(stdout);
-                  }
+                  if (!AMUDP_SilentMode && (!wait_iter++)) AMUDP_Info("Awaiting final slave outputs...");
                   for (int i=1; i <= 2; i++) {
                     if (stdList[i]->getCount()) {
                       stdList[i]->makeFD_SET(psockset);
@@ -905,10 +892,7 @@ pollentry:
                   sched_yield();
                 }
                 if (!socklibend()) AMUDP_Err("master failed to socklibend()");
-                if (!AMUDP_SilentMode) {
-                  printf("Exiting after AMUDP_SPMDExit(%i)...\n", exitCode);
-                  fflush(stdout);
-                }
+                if (!AMUDP_SilentMode) AMUDP_Info("Exiting after AMUDP_SPMDExit(%i)...", exitCode);
                 exit(exitCode);
                 break;
               }
@@ -918,7 +902,7 @@ pollentry:
             }
           }
           if (coordList.getCount() == 0) {
-            DEBUG_MASTER("Exiting after losing all worker slave connections (noone called AMUDP_Exit())\n");
+            DEBUG_MASTER("Exiting after losing all worker slave connections (noone called AMUDP_Exit())");
             exit(0); // program exit, noone called terminate
           }
         }
@@ -1011,10 +995,7 @@ pollentry:
     }
 
     try {
-      if (!AMUDP_SilentMode) {
-        fprintf(stderr, "slave connecting to %s:%i\n", masterAddr.IPStr(), masterAddr.port());
-        fflush(stderr);
-      }
+      if (!AMUDP_SilentMode) AMUDP_Info("slave connecting to %s:%i", masterAddr.IPStr(), masterAddr.port());
 
       AMUDP_SPMDControlSocket = connect_socket(masterAddr);
 
@@ -1061,10 +1042,7 @@ pollentry:
           }
         }
       #endif
-      if (!AMUDP_SilentMode) {
-        fprintf(stderr, "slave using IP %s\n", myinterface.IPStr());
-        fflush(stderr);
-      }
+      if (!AMUDP_SilentMode) AMUDP_Info("slave using IP %s", myinterface.IPStr());
       AMUDP_SetUDPInterface(myinterface.IP());
         
       /* create endpoint and get name */
@@ -1155,6 +1133,12 @@ pollentry:
         }
       }
 
+      if (!AMUDP_ProcessLabel) {
+        static char label[80];
+        sprintf(label,"Node %i",AMUDP_SPMDMYPROC);
+        AMUDP_ProcessLabel = label;
+      }
+
       AMUDP_free(tempTranslation_name);
       tempTranslation_name = NULL;
       AMUDP_free(tempTranslation_tag);
@@ -1191,14 +1175,6 @@ pollentry:
         AMUDP_RETURN(temp);
       }
 
-      AMUDP_FaultInjectionRate = bootstrapinfo.faultInjectionRate;
-      ntoh64a(&AMUDP_FaultInjectionRate);
-      if (AMUDP_FaultInjectionRate != 0.0) {
-        AMUDP_FaultInjectionEnabled = 1;
-        fprintf(stderr, "*** Warning: AMUDP running with fault injection enabled. Rate = %6.2f %%\n",
-          100.0 * AMUDP_FaultInjectionRate);
-        fflush(stderr);
-      }
     } catch (xSocket& exn) {
       AMUDP_FatalErr("Got an xSocket while spawning slave process: %s", exn.why());
     }
@@ -1231,13 +1207,14 @@ pollentry:
       }
     #endif
 
+    flushStreams("AMUDP_SPMDStartup"); // to get ENV FS_SYNC 
+
     if (!AMUDP_SilentMode) {
       char temp[80];
       tag_t tag;
       AM_GetTag(AMUDP_SPMDEndpoint, &tag);
-      fprintf(stderr, "Slave %i/%i starting (tag=%s)...\n", 
+      AMUDP_Info("Slave %i/%i starting (tag=%s)...", 
         AMUDP_SPMDMyProc(), AMUDP_SPMDNumProcs(), AMUDP_tagStr(tag, temp));
-      fflush(stderr);
     }
 
     return AM_OK;
@@ -1272,7 +1249,7 @@ extern int AMUDP_SPMDHandleControlTraffic(int *controlMessagesServiced) {
       SOCKET s = AMUDP_SPMDControlSocket;
 
       if (isClosed(s)) {
-        DEBUG_SLAVE("master control socket slammed shut. Exiting...\n");
+        DEBUG_SLAVE("master control socket slammed shut. Exiting...");
         AMUDP_SPMDShutdown(1);
       }
 
@@ -1311,10 +1288,7 @@ extern int AMUDP_SPMDHandleControlTraffic(int *controlMessagesServiced) {
           } catch (xSocket& exn) {
             AMUDP_Err("got exn while reading exit code: %s", exn.why());
           }
-          if (!AMUDP_SilentMode) {
-            printf("Exiting after exit signal from master (%i)...\n", exitCode);
-            fflush(stdout);
-          }
+          if (!AMUDP_SilentMode) AMUDP_Info("Exiting after exit signal from master (%i)...", exitCode);
           AMUDP_SPMDShutdown(exitCode);
           break;
         }
@@ -1363,24 +1337,9 @@ static int AMUDP_SPMDShutdown(int exitcode) {
 
   flushStreams("AMUDP_SPMDShutdown");
 
-  if (fclose(stdin)) {
-    #if AMUDP_DEBUG_VERBOSE
-      AMUDP_Warn("failed to fclose stdin in AMUDP_SPMDExit()"); 
-      perror("fclose");
-    #endif
-  }
-  if (fclose(stdout)) {
-    #if AMUDP_DEBUG_VERBOSE
-      AMUDP_Warn("failed to fclose stdout in AMUDP_SPMDExit()"); 
-      perror("fclose");
-    #endif
-  }
-  if (fclose(stderr)) {
-    #if AMUDP_DEBUG_VERBOSE
-      AMUDP_Warn("failed to fclose stderr in AMUDP_SPMDExit()"); 
-      perror("fclose");
-    #endif
-  }
+  if (fclose(stdin))  AMUDP_VERBOSE_INFO(("failed to fclose stdin in AMUDP_SPMDExit(): %s(%i)",strerror(errno),errno)); 
+  if (fclose(stdout)) AMUDP_VERBOSE_INFO(("failed to fclose stdout in AMUDP_SPMDExit(): %s(%i)",strerror(errno),errno)); 
+  if (fclose(stderr)) AMUDP_VERBOSE_INFO(("failed to fclose stderr in AMUDP_SPMDExit(): %s(%i)",strerror(errno),errno)); 
 
   /* use normal shutdown and closesocket to ignore errors */
   for (int i=0; i <= 2; i++) {
@@ -1572,7 +1531,7 @@ extern char *AMUDP_getenv_prefixed(const char *basekey) {
     if (val[i] != NULL) {
       if (winner == -1) winner = i;
       else if (strcmp(val[winner], val[i])) {
-        fprintf(stderr,"AMUDP: Warning: both $%s and $%s are set, to different values. Using the former.\n",
+        AMUDP_Warn("Both $%s and $%s are set, to different values. Using the former.",
           key[winner], key[i]);
       }
     }
@@ -1717,7 +1676,7 @@ int AMUDP_SPMDCheckpoint(eb_t *eb, ep_t *ep, const char *dir) {
     const int mode = S_IRUSR;
     contextFd = open(buf, flags, mode); // BLCR-TODO: error checking
     if (contextFd < 0) {
-      fprintf(stderr, "Failed to create '%s' errno=%d(%s)\n", buf, errno, strerror(errno));
+      AMUDP_Err("Failed to create '%s' errno=%d(%s)", buf, errno, strerror(errno));
       AMUDP_free(buf);
       return -1;
     }
