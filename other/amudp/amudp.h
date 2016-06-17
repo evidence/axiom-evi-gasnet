@@ -303,7 +303,7 @@ extern int AMUDP_ReplyXferVA(void *token, handler_t handler,
                           void *source_addr, int nbytes, uintptr_t dest_offset, 
                           int numargs, va_list argptr);
 
-/* we cast to int32_t here to simluate function call - AM says these functions take 32-bit int args, 
+/* we cast to int32_t here to simulate function call - AM says these functions take 32-bit int args, 
  * so this cast accomplishes the conversion to integral type for floating-point actuals, and
  * the truncation which might happen to long integer actuals
  * note the C compiler will subsequently apply default argument promotion to these arguments 
@@ -314,247 +314,247 @@ extern int AMUDP_ReplyXferVA(void *token, handler_t handler,
 #define AM_Request0(ep, destep, hnum) \
    AMUDP_Request(ep, destep, hnum, 0)
 #define AM_Request1(ep, destep, hnum, a0) \
-   AMUDP_Request(ep, destep, hnum, 1, (int32_t)a0)
+   AMUDP_Request(ep, destep, hnum, 1, (int32_t)(a0))
 #define AM_Request2(ep, destep, hnum, a0, a1) \
-   AMUDP_Request(ep, destep, hnum, 2, (int32_t)a0, (int32_t)a1)
+   AMUDP_Request(ep, destep, hnum, 2, (int32_t)(a0), (int32_t)(a1))
 #define AM_Request3(ep, destep, hnum, a0, a1, a2) \
-   AMUDP_Request(ep, destep, hnum, 3, (int32_t)a0, (int32_t)a1, (int32_t)a2)
+   AMUDP_Request(ep, destep, hnum, 3, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2))
 #define AM_Request4(ep, destep, hnum, a0, a1, a2, a3) \
-   AMUDP_Request(ep, destep, hnum, 4, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3)
+   AMUDP_Request(ep, destep, hnum, 4, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3))
 #define AM_Request5(ep, destep, hnum, a0, a1, a2, a3, a4) \
-   AMUDP_Request(ep, destep, hnum, 5, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4)
+   AMUDP_Request(ep, destep, hnum, 5, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4))
 #define AM_Request6(ep, destep, hnum, a0, a1, a2, a3, a4, a5) \
-   AMUDP_Request(ep, destep, hnum, 6, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5)
+   AMUDP_Request(ep, destep, hnum, 6, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5))
 #define AM_Request7(ep, destep, hnum, a0, a1, a2, a3, a4, a5, a6) \
-   AMUDP_Request(ep, destep, hnum, 7, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6)
+   AMUDP_Request(ep, destep, hnum, 7, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6))
 #define AM_Request8(ep, destep, hnum, a0, a1, a2, a3, a4, a5, a6, a7) \
-   AMUDP_Request(ep, destep, hnum, 8, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7)
+   AMUDP_Request(ep, destep, hnum, 8, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7))
 #define AM_Request9(ep, destep, hnum, a0, a1, a2, a3, a4, a5, a6, a7, a8) \
-   AMUDP_Request(ep, destep, hnum, 9, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8)
+   AMUDP_Request(ep, destep, hnum, 9, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8))
 #define AM_Request10(ep, destep, hnum, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) \
-   AMUDP_Request(ep, destep, hnum, 10, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9)
+   AMUDP_Request(ep, destep, hnum, 10, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9))
 #define AM_Request11(ep, destep, hnum, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10) \
-   AMUDP_Request(ep, destep, hnum, 11, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10)
+   AMUDP_Request(ep, destep, hnum, 11, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10))
 #define AM_Request12(ep, destep, hnum, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11) \
-   AMUDP_Request(ep, destep, hnum, 12, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11)
+   AMUDP_Request(ep, destep, hnum, 12, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10), (int32_t)(a11))
 #define AM_Request13(ep, destep, hnum, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12) \
-   AMUDP_Request(ep, destep, hnum, 13, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12)
+   AMUDP_Request(ep, destep, hnum, 13, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10), (int32_t)(a11), (int32_t)(a12))
 #define AM_Request14(ep, destep, hnum, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13) \
-   AMUDP_Request(ep, destep, hnum, 14, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13)
+   AMUDP_Request(ep, destep, hnum, 14, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10), (int32_t)(a11), (int32_t)(a12), (int32_t)(a13))
 #define AM_Request15(ep, destep, hnum, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14) \
-   AMUDP_Request(ep, destep, hnum, 15, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13, (int32_t)a14)
+   AMUDP_Request(ep, destep, hnum, 15, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10), (int32_t)(a11), (int32_t)(a12), (int32_t)(a13), (int32_t)(a14))
 #define AM_Request16(ep, destep, hnum, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15) \
-   AMUDP_Request(ep, destep, hnum, 16, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13, (int32_t)a14, (int32_t)a15)
+   AMUDP_Request(ep, destep, hnum, 16, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10), (int32_t)(a11), (int32_t)(a12), (int32_t)(a13), (int32_t)(a14), (int32_t)(a15))
 
 #define AM_RequestI0(ep, destep, hnum, sa, cnt) \
    AMUDP_RequestI(ep, destep, hnum, sa, cnt, 0)
 #define AM_RequestI1(ep, destep, hnum, sa, cnt, a0) \
-   AMUDP_RequestI(ep, destep, hnum, sa, cnt, 1, (int32_t)a0)
+   AMUDP_RequestI(ep, destep, hnum, sa, cnt, 1, (int32_t)(a0))
 #define AM_RequestI2(ep, destep, hnum, sa, cnt, a0, a1) \
-   AMUDP_RequestI(ep, destep, hnum, sa, cnt, 2, (int32_t)a0, (int32_t)a1)
+   AMUDP_RequestI(ep, destep, hnum, sa, cnt, 2, (int32_t)(a0), (int32_t)(a1))
 #define AM_RequestI3(ep, destep, hnum, sa, cnt, a0, a1, a2) \
-   AMUDP_RequestI(ep, destep, hnum, sa, cnt, 3, (int32_t)a0, (int32_t)a1, (int32_t)a2)
+   AMUDP_RequestI(ep, destep, hnum, sa, cnt, 3, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2))
 #define AM_RequestI4(ep, destep, hnum, sa, cnt, a0, a1, a2, a3) \
-   AMUDP_RequestI(ep, destep, hnum, sa, cnt, 4, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3)
+   AMUDP_RequestI(ep, destep, hnum, sa, cnt, 4, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3))
 #define AM_RequestI5(ep, destep, hnum, sa, cnt, a0, a1, a2, a3, a4) \
-   AMUDP_RequestI(ep, destep, hnum, sa, cnt, 5, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4)
+   AMUDP_RequestI(ep, destep, hnum, sa, cnt, 5, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4))
 #define AM_RequestI6(ep, destep, hnum, sa, cnt, a0, a1, a2, a3, a4, a5) \
-   AMUDP_RequestI(ep, destep, hnum, sa, cnt, 6, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5)
+   AMUDP_RequestI(ep, destep, hnum, sa, cnt, 6, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5))
 #define AM_RequestI7(ep, destep, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6) \
-   AMUDP_RequestI(ep, destep, hnum, sa, cnt, 7, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6)
+   AMUDP_RequestI(ep, destep, hnum, sa, cnt, 7, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6))
 #define AM_RequestI8(ep, destep, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7) \
-   AMUDP_RequestI(ep, destep, hnum, sa, cnt, 8, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7)
+   AMUDP_RequestI(ep, destep, hnum, sa, cnt, 8, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7))
 #define AM_RequestI9(ep, destep, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8) \
-   AMUDP_RequestI(ep, destep, hnum, sa, cnt, 9, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8)
+   AMUDP_RequestI(ep, destep, hnum, sa, cnt, 9, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8))
 #define AM_RequestI10(ep, destep, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) \
-   AMUDP_RequestI(ep, destep, hnum, sa, cnt, 10, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9)
+   AMUDP_RequestI(ep, destep, hnum, sa, cnt, 10, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9))
 #define AM_RequestI11(ep, destep, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10) \
-   AMUDP_RequestI(ep, destep, hnum, sa, cnt, 11, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10)
+   AMUDP_RequestI(ep, destep, hnum, sa, cnt, 11, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10))
 #define AM_RequestI12(ep, destep, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11) \
-   AMUDP_RequestI(ep, destep, hnum, sa, cnt, 12, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11)
+   AMUDP_RequestI(ep, destep, hnum, sa, cnt, 12, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10), (int32_t)(a11))
 #define AM_RequestI13(ep, destep, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12) \
-   AMUDP_RequestI(ep, destep, hnum, sa, cnt, 13, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12)
+   AMUDP_RequestI(ep, destep, hnum, sa, cnt, 13, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10), (int32_t)(a11), (int32_t)(a12))
 #define AM_RequestI14(ep, destep, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13) \
-   AMUDP_RequestI(ep, destep, hnum, sa, cnt, 14, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13)
+   AMUDP_RequestI(ep, destep, hnum, sa, cnt, 14, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10), (int32_t)(a11), (int32_t)(a12), (int32_t)(a13))
 #define AM_RequestI15(ep, destep, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14) \
-   AMUDP_RequestI(ep, destep, hnum, sa, cnt, 15, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13, (int32_t)a14)
+   AMUDP_RequestI(ep, destep, hnum, sa, cnt, 15, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10), (int32_t)(a11), (int32_t)(a12), (int32_t)(a13), (int32_t)(a14))
 #define AM_RequestI16(ep, destep, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15) \
-   AMUDP_RequestI(ep, destep, hnum, sa, cnt, 16, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13, (int32_t)a14, (int32_t)a15)
+   AMUDP_RequestI(ep, destep, hnum, sa, cnt, 16, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10), (int32_t)(a11), (int32_t)(a12), (int32_t)(a13), (int32_t)(a14), (int32_t)(a15))
 
 #define AM_RequestXfer0(ep, destep, desto, hnum, sa, cnt) \
    AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 0)
 #define AM_RequestXfer1(ep, destep, desto, hnum, sa, cnt, a0) \
-   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 1, (int32_t)a0)
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 1, (int32_t)(a0))
 #define AM_RequestXfer2(ep, destep, desto, hnum, sa, cnt, a0, a1) \
-   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 2, (int32_t)a0, (int32_t)a1)
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 2, (int32_t)(a0), (int32_t)(a1))
 #define AM_RequestXfer3(ep, destep, desto, hnum, sa, cnt, a0, a1, a2) \
-   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 3, (int32_t)a0, (int32_t)a1, (int32_t)a2)
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 3, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2))
 #define AM_RequestXfer4(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3) \
-   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 4, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3)
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 4, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3))
 #define AM_RequestXfer5(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4) \
-   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 5, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4)
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 5, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4))
 #define AM_RequestXfer6(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5) \
-   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 6, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5)
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 6, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5))
 #define AM_RequestXfer7(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6) \
-   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 7, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6)
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 7, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6))
 #define AM_RequestXfer8(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7) \
-   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 8, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7)
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 8, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7))
 #define AM_RequestXfer9(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8) \
-   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 9, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8)
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 9, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8))
 #define AM_RequestXfer10(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) \
-   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 10, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9)
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 10, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9))
 #define AM_RequestXfer11(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10) \
-   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 11, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10)
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 11, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10))
 #define AM_RequestXfer12(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11) \
-   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 12, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11)
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 12, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10), (int32_t)(a11))
 #define AM_RequestXfer13(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12) \
-   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 13, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12)
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 13, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10), (int32_t)(a11), (int32_t)(a12))
 #define AM_RequestXfer14(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13) \
-   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 14, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13)
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 14, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10), (int32_t)(a11), (int32_t)(a12), (int32_t)(a13))
 #define AM_RequestXfer15(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14) \
-   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 15, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13, (int32_t)a14)
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 15, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10), (int32_t)(a11), (int32_t)(a12), (int32_t)(a13), (int32_t)(a14))
 #define AM_RequestXfer16(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15) \
-   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 16, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13, (int32_t)a14, (int32_t)a15)
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 16, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10), (int32_t)(a11), (int32_t)(a12), (int32_t)(a13), (int32_t)(a14), (int32_t)(a15))
 
 #define AM_RequestXferAsync0(ep, destep, desto, hnum, sa, cnt) \
    AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 0)
 #define AM_RequestXferAsync1(ep, destep, desto, hnum, sa, cnt, a0) \
-   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 1, (int32_t)a0)
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 1, (int32_t)(a0))
 #define AM_RequestXferAsync2(ep, destep, desto, hnum, sa, cnt, a0, a1) \
-   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 2, (int32_t)a0, (int32_t)a1)
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 2, (int32_t)(a0), (int32_t)(a1))
 #define AM_RequestXferAsync3(ep, destep, desto, hnum, sa, cnt, a0, a1, a2) \
-   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 3, (int32_t)a0, (int32_t)a1, (int32_t)a2)
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 3, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2))
 #define AM_RequestXferAsync4(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3) \
-   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 4, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3)
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 4, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3))
 #define AM_RequestXferAsync5(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4) \
-   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 5, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4)
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 5, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4))
 #define AM_RequestXferAsync6(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5) \
-   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 6, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5)
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 6, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5))
 #define AM_RequestXferAsync7(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6) \
-   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 7, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6)
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 7, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6))
 #define AM_RequestXferAsync8(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7) \
-   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 8, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7)
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 8, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7))
 #define AM_RequestXferAsync9(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8) \
-   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 9, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8)
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 9, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8))
 #define AM_RequestXferAsync10(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) \
-   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 10, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9)
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 10, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9))
 #define AM_RequestXferAsync11(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10) \
-   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 11, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10)
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 11, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10))
 #define AM_RequestXferAsync12(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11) \
-   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 12, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11)
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 12, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10), (int32_t)(a11))
 #define AM_RequestXferAsync13(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12) \
-   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 13, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12)
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 13, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10), (int32_t)(a11), (int32_t)(a12))
 #define AM_RequestXferAsync14(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13) \
-   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 14, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13)
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 14, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10), (int32_t)(a11), (int32_t)(a12), (int32_t)(a13))
 #define AM_RequestXferAsync15(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14) \
-   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 15, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13, (int32_t)a14)
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 15, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10), (int32_t)(a11), (int32_t)(a12), (int32_t)(a13), (int32_t)(a14))
 #define AM_RequestXferAsync16(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15) \
-   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 16, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13, (int32_t)a14, (int32_t)a15)
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 16, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10), (int32_t)(a11), (int32_t)(a12), (int32_t)(a13), (int32_t)(a14), (int32_t)(a15))
 
 #define AM_Reply0(token, hnum) \
    AMUDP_Reply(token, hnum, 0)
 #define AM_Reply1(token, hnum, a0) \
-   AMUDP_Reply(token, hnum, 1, (int32_t)a0)
+   AMUDP_Reply(token, hnum, 1, (int32_t)(a0))
 #define AM_Reply2(token, hnum, a0, a1) \
-   AMUDP_Reply(token, hnum, 2, (int32_t)a0, (int32_t)a1)
+   AMUDP_Reply(token, hnum, 2, (int32_t)(a0), (int32_t)(a1))
 #define AM_Reply3(token, hnum, a0, a1, a2) \
-   AMUDP_Reply(token, hnum, 3, (int32_t)a0, (int32_t)a1, (int32_t)a2)
+   AMUDP_Reply(token, hnum, 3, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2))
 #define AM_Reply4(token, hnum, a0, a1, a2, a3) \
-   AMUDP_Reply(token, hnum, 4, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3)
+   AMUDP_Reply(token, hnum, 4, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3))
 #define AM_Reply5(token, hnum, a0, a1, a2, a3, a4) \
-   AMUDP_Reply(token, hnum, 5, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4)
+   AMUDP_Reply(token, hnum, 5, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4))
 #define AM_Reply6(token, hnum, a0, a1, a2, a3, a4, a5) \
-   AMUDP_Reply(token, hnum, 6, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5)
+   AMUDP_Reply(token, hnum, 6, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5))
 #define AM_Reply7(token, hnum, a0, a1, a2, a3, a4, a5, a6) \
-   AMUDP_Reply(token, hnum, 7, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6)
+   AMUDP_Reply(token, hnum, 7, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6))
 #define AM_Reply8(token, hnum, a0, a1, a2, a3, a4, a5, a6, a7) \
-   AMUDP_Reply(token, hnum, 8, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7)
+   AMUDP_Reply(token, hnum, 8, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7))
 #define AM_Reply9(token, hnum, a0, a1, a2, a3, a4, a5, a6, a7, a8) \
-   AMUDP_Reply(token, hnum, 9, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8)
+   AMUDP_Reply(token, hnum, 9, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8))
 #define AM_Reply10(token, hnum, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) \
-   AMUDP_Reply(token, hnum, 10, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9)
+   AMUDP_Reply(token, hnum, 10, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9))
 #define AM_Reply11(token, hnum, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10) \
-   AMUDP_Reply(token, hnum, 11, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10)
+   AMUDP_Reply(token, hnum, 11, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10))
 #define AM_Reply12(token, hnum, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11) \
-   AMUDP_Reply(token, hnum, 12, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11)
+   AMUDP_Reply(token, hnum, 12, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10), (int32_t)(a11))
 #define AM_Reply13(token, hnum, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12) \
-   AMUDP_Reply(token, hnum, 13, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12)
+   AMUDP_Reply(token, hnum, 13, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10), (int32_t)(a11), (int32_t)(a12))
 #define AM_Reply14(token, hnum, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13) \
-   AMUDP_Reply(token, hnum, 14, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13)
+   AMUDP_Reply(token, hnum, 14, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10), (int32_t)(a11), (int32_t)(a12), (int32_t)(a13))
 #define AM_Reply15(token, hnum, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14) \
-   AMUDP_Reply(token, hnum, 15, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13, (int32_t)a14)
+   AMUDP_Reply(token, hnum, 15, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10), (int32_t)(a11), (int32_t)(a12), (int32_t)(a13), (int32_t)(a14))
 #define AM_Reply16(token, hnum, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15) \
-   AMUDP_Reply(token, hnum, 16, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13, (int32_t)a14, (int32_t)a15)
+   AMUDP_Reply(token, hnum, 16, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10), (int32_t)(a11), (int32_t)(a12), (int32_t)(a13), (int32_t)(a14), (int32_t)(a15))
 
 #define AM_ReplyI0(token, hnum, sa, cnt) \
    AMUDP_ReplyI(token, hnum, sa, cnt, 0)
 #define AM_ReplyI1(token, hnum, sa, cnt, a0) \
-   AMUDP_ReplyI(token, hnum, sa, cnt, 1, (int32_t)a0)
+   AMUDP_ReplyI(token, hnum, sa, cnt, 1, (int32_t)(a0))
 #define AM_ReplyI2(token, hnum, sa, cnt, a0, a1) \
-   AMUDP_ReplyI(token, hnum, sa, cnt, 2, (int32_t)a0, (int32_t)a1)
+   AMUDP_ReplyI(token, hnum, sa, cnt, 2, (int32_t)(a0), (int32_t)(a1))
 #define AM_ReplyI3(token, hnum, sa, cnt, a0, a1, a2) \
-   AMUDP_ReplyI(token, hnum, sa, cnt, 3, (int32_t)a0, (int32_t)a1, (int32_t)a2)
+   AMUDP_ReplyI(token, hnum, sa, cnt, 3, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2))
 #define AM_ReplyI4(token, hnum, sa, cnt, a0, a1, a2, a3) \
-   AMUDP_ReplyI(token, hnum, sa, cnt, 4, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3)
+   AMUDP_ReplyI(token, hnum, sa, cnt, 4, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3))
 #define AM_ReplyI5(token, hnum, sa, cnt, a0, a1, a2, a3, a4) \
-   AMUDP_ReplyI(token, hnum, sa, cnt, 5, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4)
+   AMUDP_ReplyI(token, hnum, sa, cnt, 5, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4))
 #define AM_ReplyI6(token, hnum, sa, cnt, a0, a1, a2, a3, a4, a5) \
-   AMUDP_ReplyI(token, hnum, sa, cnt, 6, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5)
+   AMUDP_ReplyI(token, hnum, sa, cnt, 6, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5))
 #define AM_ReplyI7(token, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6) \
-   AMUDP_ReplyI(token, hnum, sa, cnt, 7, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6)
+   AMUDP_ReplyI(token, hnum, sa, cnt, 7, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6))
 #define AM_ReplyI8(token, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7) \
-   AMUDP_ReplyI(token, hnum, sa, cnt, 8, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7)
+   AMUDP_ReplyI(token, hnum, sa, cnt, 8, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7))
 #define AM_ReplyI9(token, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8) \
-   AMUDP_ReplyI(token, hnum, sa, cnt, 9, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8)
+   AMUDP_ReplyI(token, hnum, sa, cnt, 9, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8))
 #define AM_ReplyI10(token, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) \
-   AMUDP_ReplyI(token, hnum, sa, cnt, 10, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9)
+   AMUDP_ReplyI(token, hnum, sa, cnt, 10, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9))
 #define AM_ReplyI11(token, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10) \
-   AMUDP_ReplyI(token, hnum, sa, cnt, 11, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10)
+   AMUDP_ReplyI(token, hnum, sa, cnt, 11, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10))
 #define AM_ReplyI12(token, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11) \
-   AMUDP_ReplyI(token, hnum, sa, cnt, 12, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11)
+   AMUDP_ReplyI(token, hnum, sa, cnt, 12, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10), (int32_t)(a11))
 #define AM_ReplyI13(token, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12) \
-   AMUDP_ReplyI(token, hnum, sa, cnt, 13, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12)
+   AMUDP_ReplyI(token, hnum, sa, cnt, 13, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10), (int32_t)(a11), (int32_t)(a12))
 #define AM_ReplyI14(token, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13) \
-   AMUDP_ReplyI(token, hnum, sa, cnt, 14, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13)
+   AMUDP_ReplyI(token, hnum, sa, cnt, 14, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10), (int32_t)(a11), (int32_t)(a12), (int32_t)(a13))
 #define AM_ReplyI15(token, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14) \
-   AMUDP_ReplyI(token, hnum, sa, cnt, 15, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13, (int32_t)a14)
+   AMUDP_ReplyI(token, hnum, sa, cnt, 15, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10), (int32_t)(a11), (int32_t)(a12), (int32_t)(a13), (int32_t)(a14))
 #define AM_ReplyI16(token, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15) \
-   AMUDP_ReplyI(token, hnum, sa, cnt, 16, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13, (int32_t)a14, (int32_t)a15)
+   AMUDP_ReplyI(token, hnum, sa, cnt, 16, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10), (int32_t)(a11), (int32_t)(a12), (int32_t)(a13), (int32_t)(a14), (int32_t)(a15))
 
 #define AM_ReplyXfer0(token, desto, hnum, sa, cnt) \
    AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 0)
 #define AM_ReplyXfer1(token, desto, hnum, sa, cnt, a0) \
-   AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 1, (int32_t)a0)
+   AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 1, (int32_t)(a0))
 #define AM_ReplyXfer2(token, desto, hnum, sa, cnt, a0, a1) \
-   AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 2, (int32_t)a0, (int32_t)a1)
+   AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 2, (int32_t)(a0), (int32_t)(a1))
 #define AM_ReplyXfer3(token, desto, hnum, sa, cnt, a0, a1, a2) \
-   AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 3, (int32_t)a0, (int32_t)a1, (int32_t)a2)
+   AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 3, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2))
 #define AM_ReplyXfer4(token, desto, hnum, sa, cnt, a0, a1, a2, a3) \
-   AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 4, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3)
+   AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 4, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3))
 #define AM_ReplyXfer5(token, desto, hnum, sa, cnt, a0, a1, a2, a3, a4) \
-   AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 5, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4)
+   AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 5, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4))
 #define AM_ReplyXfer6(token, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5) \
-   AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 6, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5)
+   AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 6, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5))
 #define AM_ReplyXfer7(token, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6) \
-   AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 7, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6)
+   AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 7, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6))
 #define AM_ReplyXfer8(token, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7) \
-   AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 8, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7)
+   AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 8, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7))
 #define AM_ReplyXfer9(token, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8) \
-   AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 9, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8)
+   AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 9, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8))
 #define AM_ReplyXfer10(token, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) \
-   AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 10, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9)
+   AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 10, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9))
 #define AM_ReplyXfer11(token, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10) \
-   AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 11, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10)
+   AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 11, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10))
 #define AM_ReplyXfer12(token, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11) \
-   AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 12, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11)
+   AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 12, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10), (int32_t)(a11))
 #define AM_ReplyXfer13(token, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12) \
-   AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 13, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12)
+   AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 13, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10), (int32_t)(a11), (int32_t)(a12))
 #define AM_ReplyXfer14(token, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13) \
-   AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 14, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13)
+   AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 14, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10), (int32_t)(a11), (int32_t)(a12), (int32_t)(a13))
 #define AM_ReplyXfer15(token, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14) \
-   AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 15, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13, (int32_t)a14)
+   AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 15, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10), (int32_t)(a11), (int32_t)(a12), (int32_t)(a13), (int32_t)(a14))
 #define AM_ReplyXfer16(token, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15) \
-   AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 16, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13, (int32_t)a14, (int32_t)a15)
+   AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 16, (int32_t)(a0), (int32_t)(a1), (int32_t)(a2), (int32_t)(a3), (int32_t)(a4), (int32_t)(a5), (int32_t)(a6), (int32_t)(a7), (int32_t)(a8), (int32_t)(a9), (int32_t)(a10), (int32_t)(a11), (int32_t)(a12), (int32_t)(a13), (int32_t)(a14), (int32_t)(a15))
 
 
 AMUDP_END_EXTERNC
