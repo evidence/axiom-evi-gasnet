@@ -443,6 +443,8 @@ extern int AM_Init() {
     AMUDP_assert(sizeof(uint64_t) == 8);
 
     AMUDP_assert(sizeof(uintptr_t) >= sizeof(void *));
+
+    AMUDP_assert(sizeof(amudp_msg_t) % 4 == 0); // may be required for correct argument alignment
   }
   amudp_Initialized++;
   return AM_OK;

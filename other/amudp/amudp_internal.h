@@ -227,7 +227,8 @@ typedef struct {
 
   uintptr_t     destOffset;
 
-  uint8_t     data[]; /* args and data: up to (4*AMUDP_MAX_SHORT)+AMUDP_MAX_LONG */
+  // uint8_t     data[]; /* args and data: up to (4*AMUDP_MAX_SHORT)+AMUDP_MAX_LONG */
+  // this would be a flexible array member if C++ provided that feature.
 
 } amudp_msg_t;
 
@@ -672,19 +673,19 @@ static inline amudp_bufdesc_t *AMUDP_get_desc(ep_t ep, amudp_node_t proc, int in
  * the only complication here is we want data to be double-word aligned, so we may add
  * an extra unused 4-byte argument to make sure the data lands on a double-word boundary
  */
-#define HEADER_EVEN_WORDLENGTH ( (offsetof(amudp_msg_t,data) & 0x7) == 0 ? 1 : 0)
+#define HEADER_EVEN_WORDLENGTH ( (sizeof(amudp_msg_t) & 0x7) == 0 ? 1 : 0)
 #define ACTUAL_NUM_ARGS(args) ( ((args) & 0x1) ?                    \
                                 (args) +  HEADER_EVEN_WORDLENGTH :  \
                                 (args) + !HEADER_EVEN_WORDLENGTH    )
 
 #define COMPUTE_MSG_SZ(args, nbytes) \
-  ( offsetof(amudp_msg_t, data) + 4*ACTUAL_NUM_ARGS(args) + (nbytes) )
+  ( sizeof(amudp_msg_t) + 4*ACTUAL_NUM_ARGS(args) + (nbytes) )
 #define GET_MSG_SZ(pmsg) \
   COMPUTE_MSG_SZ(AMUDP_MSG_NUMARGS(pmsg), (pmsg)->nBytes)
 #define GET_MSG_DATA(pmsg) \
-  (&(pmsg)->data[4*ACTUAL_NUM_ARGS(AMUDP_MSG_NUMARGS(pmsg))])
-#define GET_MSG_ARGS(pmsg) \
-  ((uint32_t *)&(pmsg)->data)
+  ((uint8_t*)((pmsg)+1) + 4*ACTUAL_NUM_ARGS(AMUDP_MSG_NUMARGS(pmsg)))
+#define GET_MSG_ARGS(pmsg) ( (pmsg)->_instance, /* typecheck pmsg */ \
+  ((uint32_t *)((pmsg)+1)) )
 //------------------------------------------------------------------------------------
 // global helper functions
 extern int AMUDP_Block(eb_t eb); 
