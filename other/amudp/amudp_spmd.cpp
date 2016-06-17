@@ -344,7 +344,7 @@ static void handleStdOutput(FILE *fd, fd_set *psockset, SocketList& list, Socket
 }
 //------------------------------------------------------------------------------------
 #if USE_ASYNC_TCP_CONTROL
-  static void AMUDP_SPMDControlSocketCallback(int sig) {
+  extern "C" void AMUDP_SPMDControlSocketCallback(int sig) {
     AMUDP_SPMDIsActiveControlSocket = TRUE;
     AMUDP_VERBOSE_INFO("got an AMUDP_SIGIO signal");
     reghandler(AMUDP_SIGIO, AMUDP_SPMDControlSocketCallback);
