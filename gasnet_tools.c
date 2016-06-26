@@ -81,7 +81,7 @@ extern void gasneti_mutex_cautious_init(/*gasneti_mutex_t*/void *_pl) {
   gasneti_atomic32_t *initstep = (gasneti_atomic32_t *)&(pl->initstep);
   while (1) {
     /* check if initialization is complete */
-    if (gasneti_atomic32_read(initstep,GASNETI_ATOMIC_RMB_POST) == 2) return;
+    if_pt (gasneti_atomic32_read(initstep,GASNETI_ATOMIC_RMB_POST) == 2) return;
     /* mutex needs initialization, try to acquire that job */
     if (gasneti_atomic32_compare_and_swap(initstep, 0, 1,
                                            GASNETI_ATOMIC_ACQ_IF_TRUE)) break;

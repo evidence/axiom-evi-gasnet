@@ -530,6 +530,42 @@ int gasneti_count0s_uint32_t(uint32_t x) {
 #endif
 
 /* ------------------------------------------------------------------------------------ */
+/* Reader-writer lock support */
+#if !GASNETI_USE_TRUE_MUTEXES ||  /* mutexes compile away to nothing */ \
+    !GASNETI_HAVE_PTHREAD_RWLOCK || /* OS rwlocks missing, use standard mutex (no read concurrency) */ \
+    GASNETI_MUTEX_CAUTIOUS_INIT     /* assume pthread_rwlocks are also broken */
+  #define gasneti_rwlock_t              gasneti_mutex_t
+  #define gasneti_rwlock_init           gasneti_mutex_init
+  #define gasneti_rwlock_destroy        gasneti_mutex_destroy
+  #define gasneti_rwlock_rdlock         gasneti_mutex_lock
+  #define gasneti_rwlock_wrlock         gasneti_mutex_lock
+  #define gasneti_rwlock_tryrdlock      gasneti_mutex_trylock
+  #define gasneti_rwlock_trywrlock      gasneti_mutex_trylock
+  #define gasneti_rwlock_unlock         gasneti_mutex_unlock    
+  #define GASNETI_RWLOCK_INITIALIZER    GASNETI_MUTEX_INITIALIZER
+  #define gasneti_rwlock_assertlocked   gasneti_mutex_assertlocked
+  #define gasneti_rwlock_assertrdlocked gasneti_mutex_assertlocked
+  #define gasneti_rwlock_assertwrlocked gasneti_mutex_assertlocked
+  #define gasneti_rwlock_assertunlocked gasneti_mutex_assertunlocked   
+#elif 0 && GASNET_DEBUG 
+  /* TODO: debug checking rwlocks */
+#else /* using real, OS-provided rwlocks */
+  #define gasneti_rwlock_t            pthread_rwlock_t
+  #define gasneti_rwlock_init(pl)     pthread_rwlock_init(pl,NULL)
+  #define gasneti_rwlock_destroy      pthread_rwlock_destroy
+  #define gasneti_rwlock_rdlock(pl)   /* mask too-many-readers failure */ \
+    while (GASNETT_PREDICT_FALSE(pthread_rwlock_rdlock(pl) == EAGAIN)) gasneti_sched_yield()
+  #define gasneti_rwlock_wrlock       pthread_rwlock_wrlock
+  #define gasneti_rwlock_tryrdlock    pthread_rwlock_tryrdlock
+  #define gasneti_rwlock_trywrlock    pthread_rwlock_trywrlock
+  #define gasneti_rwlock_unlock       pthread_rwlock_unlock    
+  #define GASNETI_RWLOCK_INITIALIZER  PTHREAD_RWLOCK_INITIALIZER
+  #define gasneti_rwlock_assertlocked(pl)   ((void)0)
+  #define gasneti_rwlock_assertrdlocked(pl) ((void)0)
+  #define gasneti_rwlock_assertwrlocked(pl) ((void)0)
+  #define gasneti_rwlock_assertunlocked(pl) ((void)0)
+#endif
+/* ------------------------------------------------------------------------------------ */
 /* Wrappers for thread-local data storage
    See README-tools for usage information.
 */

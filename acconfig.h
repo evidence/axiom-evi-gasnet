@@ -247,6 +247,9 @@
 /* has pthread_kill_other_threads_np() */
 #undef HAVE_PTHREAD_KILL_OTHER_THREADS_NP
 
+/* has pthread rwlock support */
+#undef GASNETI_HAVE_PTHREAD_RWLOCK
+
 /* has __thread thread-local-storage support */
 #undef GASNETI_HAVE_TLS_SUPPORT
 
