@@ -531,6 +531,13 @@ int gasneti_count0s_uint32_t(uint32_t x) {
 
 /* ------------------------------------------------------------------------------------ */
 /* Reader-writer lock support */
+
+typedef enum {
+  _GASNETI_RWLOCK_UNLOCKED=0,
+  _GASNETI_RWLOCK_RDLOCKED,
+  _GASNETI_RWLOCK_WRLOCKED
+} _gasneti_rwlock_state; /* must always be defined for gasnet_tools-par */
+
 #if !GASNETI_USE_TRUE_MUTEXES ||  /* mutexes compile away to nothing */ \
     !GASNETI_HAVE_PTHREAD_RWLOCK || /* OS rwlocks missing, use standard mutex (no read concurrency) */ \
     GASNETI_MUTEX_CAUTIOUS_INIT     /* assume pthread_rwlocks are also broken */
@@ -552,15 +559,6 @@ int gasneti_count0s_uint32_t(uint32_t x) {
   #define gasneti_rwlock_t            pthread_rwlock_t
   #define GASNETI_RWLOCK_INITIALIZER  PTHREAD_RWLOCK_INITIALIZER
 
-  /* Use a thread-specific list of locks held, to avoid the need for extra synchronization.
-   * If a thread exits with locks held we currently leak this list, although if it ever matters
-   * this could be fixed using a destructor function in pthread_key_create.
-   */
-  typedef enum {
-    _GASNETI_RWLOCK_UNLOCKED=0,
-    _GASNETI_RWLOCK_RDLOCKED,
-    _GASNETI_RWLOCK_WRLOCKED
-  } _gasneti_rwlock_state;
   extern _gasneti_rwlock_state _gasneti_rwlock_query(gasneti_rwlock_t const *l);
   extern void _gasneti_rwlock_insert(gasneti_rwlock_t const *l, _gasneti_rwlock_state state);
   extern void _gasneti_rwlock_remove(gasneti_rwlock_t const *l);

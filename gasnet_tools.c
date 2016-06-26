@@ -102,7 +102,8 @@ extern void gasneti_mutex_cautious_init(/*gasneti_mutex_t*/void *_pl) {
 
 /* ------------------------------------------------------------------------------------ */
 /* rwlock support */
-#if GASNET_DEBUG
+
+#if GASNET_DEBUG || GASNETT_BUILDING_TOOLS
   /* Use a thread-specific list of locks held, to avoid the need for extra synchronization.
    * If a thread exits with locks held we currently leak this list, although if it ever matters
    * this could be fixed using a destructor function in pthread_key_create.

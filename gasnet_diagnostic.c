@@ -515,7 +515,7 @@ static void rwlock_test(int id) {
         gasneti_rwlock_assertrdlocked(&lock1);
       }
       { /* read-only check */
-        const int val = check[0]; /* try to detect a concurrent writer */
+        const unsigned int val = check[0]; /* try to detect a concurrent writer */
         int k;
         for (j=0; j < 10; j++) {
           for (k=0; k < NUMCHECK; k++) {
