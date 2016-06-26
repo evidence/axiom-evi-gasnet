@@ -819,8 +819,8 @@ Automatically handles the hassle of pthread key creation if required.
 
 A thread-specific data pointer (mykey) must be declared as:
 
-  GASNETI_THREADKEY_DEFINE(mykey); - must be defined in exactly one C file at global scope
-  GASNETI_THREADKEY_DECLARE(mykey); - optional, use in headers to reference externally-defined key
+  GASNETT_THREADKEY_DEFINE(mykey); - must be defined in exactly one C file at global scope
+  GASNETT_THREADKEY_DECLARE(mykey); - optional, use in headers to reference externally-defined key
 
 and then can be used as:
 

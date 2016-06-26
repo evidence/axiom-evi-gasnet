@@ -101,6 +101,59 @@ extern void gasneti_mutex_cautious_init(/*gasneti_mutex_t*/void *_pl) {
 #endif
 
 /* ------------------------------------------------------------------------------------ */
+/* rwlock support */
+#if GASNET_DEBUG
+  /* Use a thread-specific list of locks held, to avoid the need for extra synchronization.
+   * If a thread exits with locks held we currently leak this list, although if it ever matters
+   * this could be fixed using a destructor function in pthread_key_create.
+   */
+  GASNETI_THREADKEY_DEFINE(_gasneti_rwlock_list);
+
+  typedef struct _S_gasnet_rwlocklist {
+     gasneti_rwlock_t const *l;
+     struct _S_gasnet_rwlocklist *next;
+     _gasneti_rwlock_state state;
+  } _gasneti_rwlocklist_t GASNETI_THREAD_TYPEDEF;
+
+  extern _gasneti_rwlock_state _gasneti_rwlock_query(gasneti_rwlock_t const *l) {
+    _gasneti_rwlocklist_t const *list = gasneti_threadkey_get(_gasneti_rwlock_list);
+    gasneti_assert(l);
+    while (list) {
+      if (list->l == l) return list->state;
+      list = list->next;
+    }
+    return _GASNETI_RWLOCK_UNLOCKED;
+  }
+
+  extern void _gasneti_rwlock_insert(gasneti_rwlock_t const *l, _gasneti_rwlock_state state) {
+    _gasneti_rwlocklist_t *list = gasneti_threadkey_get(_gasneti_rwlock_list);
+    _gasneti_rwlocklist_t *elem = malloc(sizeof(_gasneti_rwlocklist_t));
+    gasneti_assert(l);
+    gasneti_assert(state);
+    elem->l = l;
+    elem->state = state;
+    elem->next = list;
+    gasneti_threadkey_set(_gasneti_rwlock_list, elem);
+  }
+
+  extern void _gasneti_rwlock_remove(gasneti_rwlock_t const *l) {
+    _gasneti_rwlocklist_t *list = gasneti_threadkey_get(_gasneti_rwlock_list);
+    _gasneti_rwlocklist_t **p = &list;
+    gasneti_assert(l);
+    while (*p) {
+      if ((*p)->l == l) {
+        _gasneti_rwlocklist_t *elem = *p;
+        *p = elem->next;
+        free(elem);
+        break;
+      }
+      p = &(*p)->next;
+    }
+    gasneti_threadkey_set(_gasneti_rwlock_list, list);
+  }
+#endif
+
+/* ------------------------------------------------------------------------------------ */
 /* call-based atomic support for C compilers with limited inline assembly */
 
 #ifdef GASNETI_ATOMIC_SPECIALS

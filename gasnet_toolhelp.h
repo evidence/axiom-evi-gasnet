@@ -547,8 +547,76 @@ int gasneti_count0s_uint32_t(uint32_t x) {
   #define gasneti_rwlock_assertrdlocked gasneti_mutex_assertlocked
   #define gasneti_rwlock_assertwrlocked gasneti_mutex_assertlocked
   #define gasneti_rwlock_assertunlocked gasneti_mutex_assertunlocked   
-#elif 0 && GASNET_DEBUG 
-  /* TODO: debug checking rwlocks */
+
+#elif GASNET_DEBUG /* debug checking rwlocks */
+  #define gasneti_rwlock_t            pthread_rwlock_t
+  #define GASNETI_RWLOCK_INITIALIZER  PTHREAD_RWLOCK_INITIALIZER
+
+  /* Use a thread-specific list of locks held, to avoid the need for extra synchronization.
+   * If a thread exits with locks held we currently leak this list, although if it ever matters
+   * this could be fixed using a destructor function in pthread_key_create.
+   */
+  typedef enum {
+    _GASNETI_RWLOCK_UNLOCKED=0,
+    _GASNETI_RWLOCK_RDLOCKED,
+    _GASNETI_RWLOCK_WRLOCKED
+  } _gasneti_rwlock_state;
+  extern _gasneti_rwlock_state _gasneti_rwlock_query(gasneti_rwlock_t const *l);
+  extern void _gasneti_rwlock_insert(gasneti_rwlock_t const *l, _gasneti_rwlock_state state);
+  extern void _gasneti_rwlock_remove(gasneti_rwlock_t const *l);
+
+  #define gasneti_rwlock_assertlocked(pl)   \
+          gasneti_assert(_gasneti_rwlock_query(pl))
+  #define gasneti_rwlock_assertrdlocked(pl) \
+          gasneti_assert(_gasneti_rwlock_query(pl) == _GASNETI_RWLOCK_RDLOCKED)
+  #define gasneti_rwlock_assertwrlocked(pl) \
+          gasneti_assert(_gasneti_rwlock_query(pl) == _GASNETI_RWLOCK_WRLOCKED)
+  #define gasneti_rwlock_assertunlocked(pl) \
+          gasneti_assert(!_gasneti_rwlock_query(pl)) 
+
+  #define gasneti_rwlock_init(pl) \
+          gasneti_assert_zeroret(pthread_rwlock_init(pl,NULL))
+  #define gasneti_rwlock_destroy(pl) do {                                      \
+    gasneti_rwlock_assertunlocked(pl);                                         \
+    gasneti_assert_zeroret(pthread_rwlock_destroy(pl));                        \
+  } while (0)
+
+  #define gasneti_rwlock_rdlock(pl) do {                                       \
+    int _ret;                                                                  \
+    gasneti_rwlock_assertunlocked(pl);                                         \
+    while ((_ret = pthread_rwlock_rdlock(pl)) == EAGAIN)                       \
+      gasneti_sched_yield(); /* too many readers */                            \
+    if (_ret) gasneti_fatalerror("pthread_rwlock_rdlock()=%s",strerror(_ret)); \
+    _gasneti_rwlock_insert(pl, _GASNETI_RWLOCK_RDLOCKED);                      \
+  } while (0)
+
+  #define gasneti_rwlock_wrlock(pl) do {                                       \
+    gasneti_rwlock_assertunlocked(pl);                                         \
+    gasneti_assert_zeroret(pthread_rwlock_wrlock(pl));                         \
+    _gasneti_rwlock_insert(pl, _GASNETI_RWLOCK_WRLOCKED);                      \
+  } while (0)
+
+  #define gasneti_rwlock_unlock(pl) do {                                       \
+    gasneti_rwlock_assertlocked(pl);                                           \
+    gasneti_assert_zeroret(pthread_rwlock_unlock(pl));                         \
+    _gasneti_rwlock_remove(pl);                                                \
+  } while (0)
+
+  GASNETI_INLINE(_gasneti_rwlock_trylock)
+  int _gasneti_rwlock_trylock(gasneti_rwlock_t *pl, int writer) {
+    int ret;
+    gasneti_rwlock_assertunlocked(pl);
+    if (writer) ret = pthread_rwlock_trywrlock(pl);
+    else        ret = pthread_rwlock_tryrdlock(pl);
+    if (ret == EBUSY) return EBUSY;
+    if (ret) gasneti_fatalerror("pthread_rwlock_trylock()=%s",strerror(ret));
+    _gasneti_rwlock_insert(pl, 
+      (writer ? _GASNETI_RWLOCK_WRLOCKED : _GASNETI_RWLOCK_RDLOCKED));
+    return 0;
+  }
+  #define gasneti_rwlock_tryrdlock(pl)  _gasneti_rwlock_trylock(pl,0)
+  #define gasneti_rwlock_trywrlock(pl)  _gasneti_rwlock_trylock(pl,1)
+
 #else /* using real, OS-provided rwlocks */
   #define gasneti_rwlock_t            pthread_rwlock_t
   #define gasneti_rwlock_init(pl)     pthread_rwlock_init(pl,NULL)
