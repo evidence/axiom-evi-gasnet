@@ -279,8 +279,11 @@ int gasneti_count0s_uint32_t(uint32_t x) {
 #endif
 
 #if GASNETI_USE_TRUE_MUTEXES && PLATFORM_OS_CYGWIN
-  /* bug1847: Cygwin mutexes initialized using PTHREAD_MUTEX_INITIALIZER are unsafe upon first acquire */
-  #define GASNETI_MUTEX_CAUTIOUS_INIT 1
+  #include <cygwin/version.h>
+  /* bug1847: Until Cygwin 1.7-3, mutexes initialized using PTHREAD_MUTEX_INITIALIZER were unsafe upon first acquire */
+  #if CYGWIN_VERSION_DLL_MAJOR < 1007 || (CYGWIN_VERSION_DLL_MAJOR == 1007 && CYGWIN_VERSION_DLL_MINOR < 3)
+    #define GASNETI_MUTEX_CAUTIOUS_INIT 1
+  #endif
 #endif
 
 #if GASNETI_MUTEX_CAUTIOUS_INIT
