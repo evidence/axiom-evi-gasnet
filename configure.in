@@ -1052,6 +1052,7 @@ case "$target_os" in
         # Defining _GNU_SOURCE gives us accesss to the "adaptive"
         # implementation of pthread_mutex_t, which is faster then
         # the default implementation for our purposes.
+	# Also enables pthread_rwlock_t support.
 	GASNET_THREAD_DEFINES="-D_REENTRANT -D_GNU_SOURCE"
         GASNET_THREAD_LIBS="-lpthread"
 	;;
@@ -1175,10 +1176,28 @@ else
   # define HAVE_PTHREAD_H
   AC_CHECK_HEADERS(pthread.h)
 
+  # libraries that may be required for some POSIX thread features
+  opt_pthread_libs="pthread pthreads c_r"
+
   # look for optional pthreads entry points and features
-  AC_SEARCH_LIBS(pthread_setconcurrency, pthread pthreads c_r, AC_DEFINE(HAVE_PTHREAD_SETCONCURRENCY))
-  AC_SEARCH_LIBS(pthread_kill, pthread pthreads, AC_DEFINE(HAVE_PTHREAD_KILL))
-  AC_SEARCH_LIBS(pthread_kill_other_threads_np, pthread pthreads, AC_DEFINE(HAVE_PTHREAD_KILL_OTHER_THREADS_NP))
+  AC_SEARCH_LIBS(pthread_setconcurrency, $opt_pthread_libs, AC_DEFINE(HAVE_PTHREAD_SETCONCURRENCY))
+  AC_SEARCH_LIBS(pthread_kill, $opt_pthread_libs, AC_DEFINE(HAVE_PTHREAD_KILL))
+  AC_SEARCH_LIBS(pthread_kill_other_threads_np, $opt_pthread_libs, AC_DEFINE(HAVE_PTHREAD_KILL_OTHER_THREADS_NP))
+
+  GASNET_IF_ENABLED_WITH_AUTO(rwlock, Enable/disable use of pthread_rwlock_t (auto-detected),
+    enabled_rwlock=yes, enabled_rwlock=no, enabled_rwlock=probe)
+  if test "$enabled_rwlock" != "no" ; then
+    have_rwlock="yes"
+    AC_SEARCH_LIBS(pthread_rwlock_tryrdlock, $opt_pthread_libs, [], have_rwlock=no)
+    AC_SEARCH_LIBS(pthread_rwlock_wrlock, $opt_pthread_libs, [], have_rwlock=no)
+
+    if test "$have_rwlock" = "yes" ; then
+      AC_DEFINE(GASNETI_HAVE_PTHREAD_RWLOCK)
+    fi
+    if test "$enabled_rwlock$have_rwlock" = "yesno"; then
+     GASNET_MSG_ERROR([--enable-rwlock passed but no working pthread_rwlock_t support found])
+    fi
+  fi
 
   GASNET_IF_ENABLED_WITH_AUTO(tls, Enable/disable use of thread-local storage extensions (ie __thread) (auto-detected),
     enabled_tls=yes, enabled_tls=no, enabled_tls=probe)

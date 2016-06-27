@@ -195,8 +195,14 @@ void doit2(void) { GASNET_BEGIN_FUNCTION();
 
     #if defined(GASNET_PAR) || defined (GASNET_PARSYNC)
       { static gasnett_mutex_t mutex = GASNETT_MUTEX_INITIALIZER;
-        TIME_OPERATION("lock/unlock uncontended pthread mutex",
+        TIME_OPERATION("lock/unlock uncontended gasnet mutex",
           { gasnett_mutex_lock(&mutex); gasnett_mutex_unlock(&mutex); });
+      }
+      { static gasnett_rwlock_t rwlock = GASNETT_RWLOCK_INITIALIZER;
+        TIME_OPERATION("rdlock/unlock uncontended gasnet rwlock",
+          { gasnett_rwlock_rdlock(&rwlock); gasnett_rwlock_unlock(&rwlock); });
+        TIME_OPERATION("wrlock/unlock uncontended gasnet rwlock",
+          { gasnett_rwlock_wrlock(&rwlock); gasnett_rwlock_unlock(&rwlock); });
       }
     #endif
 

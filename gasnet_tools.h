@@ -384,6 +384,20 @@ extern const char *gasnett_performance_warning_str(void);
 #define gasnett_mutex_assertlocked    gasneti_mutex_assertlocked
 #define gasnett_mutex_assertunlocked  gasneti_mutex_assertunlocked
 
+#define gasnett_rwlock_t              gasneti_rwlock_t
+#define gasnett_rwlock_init           gasneti_rwlock_init
+#define gasnett_rwlock_destroy        gasneti_rwlock_destroy
+#define gasnett_rwlock_rdlock         gasneti_rwlock_rdlock
+#define gasnett_rwlock_wrlock         gasneti_rwlock_wrlock
+#define gasnett_rwlock_tryrdlock      gasneti_rwlock_tryrdlock
+#define gasnett_rwlock_trywrlock      gasneti_rwlock_trywrlock
+#define gasnett_rwlock_unlock         gasneti_rwlock_unlock
+#define GASNETT_RWLOCK_INITIALIZER    GASNETI_RWLOCK_INITIALIZER
+#define gasnett_rwlock_assertlocked   gasneti_rwlock_assertlocked 
+#define gasnett_rwlock_assertrdlocked gasneti_rwlock_assertrdlocked
+#define gasnett_rwlock_assertwrlocked gasneti_rwlock_assertwrlocked
+#define gasnett_rwlock_assertunlocked gasneti_rwlock_assertunlocked
+
 #define gasnett_cond_t               gasneti_cond_t
 #define gasnett_cond_init            gasneti_cond_init
 #define gasnett_cond_destroy         gasneti_cond_destroy
