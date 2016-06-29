@@ -1193,18 +1193,9 @@ int gasnetc_AMPSHM_ReqRepGeneric(int category, int isReq, gasnet_node_t dest,
       msg = (void*)((uintptr_t)tmp + (offset ? (8-offset) : 0));
     }
   } else {
-  #if GASNET_PAR || GASNETI_CONDUIT_THREADS
     static gasneti_mutex_t req_lock = GASNETI_MUTEX_INITIALIZER;
-    static int req_stalled = 0;
     static gasneti_mutex_t rep_lock = GASNETI_MUTEX_INITIALIZER;
-    static int rep_stalled = 0;
-
-    /* These variables serialize allocation so small messages can't starve large ones,
-       while allowing the excluded threads to still poll for incomming AMs */
-    gasneti_mutex_t *lock = isReq ? &req_lock : &rep_lock;
-    int *stalled = isReq ? &req_stalled : &rep_stalled;
-    int i_am_stalled = 0;
-  #endif
+    gasneti_mutex_t *lock;
 
     /* calculate size of buffer needed */
     switch (category) {
@@ -1222,29 +1213,17 @@ int gasnetc_AMPSHM_ReqRepGeneric(int category, int isReq, gasnet_node_t dest,
     }
     gasneti_assert(msgsz <= sizeof(gasneti_AMPSHM_maxmsg_t)); 
 
-    /* Get buffer, poll if busy. */
-    while (1) { /* TODO: trace/stats for stalls */
-    #if GASNET_PAR || GASNETI_CONDUIT_THREADS
-      gasneti_mutex_lock(lock);
-      if (i_am_stalled || !*stalled) {
-        msg = gasneti_pshmnet_get_send_buffer(vnet, msgsz, target);
-        if (msg) {
-          *stalled = 0;
-          gasneti_mutex_unlock(lock);
-          break;
-        }
-        i_am_stalled = *stalled = 1;
-      }
-      gasneti_mutex_unlock(lock);
-    #else
-      msg = gasneti_pshmnet_get_send_buffer(vnet, msgsz, target);
-      if (msg) break;
-    #endif
+    /* Get buffer, poll if busy.
+       Lock serializes allocation so small messages can't starve large ones */
+    lock = isReq ? &req_lock : &rep_lock;
+    gasneti_mutex_lock(lock);
+    while (!(msg = gasneti_pshmnet_get_send_buffer(vnet, msgsz, target))) {
       /* If reply, only poll reply network: avoids deadlock  */
       if (isReq) gasnetc_AMPoll(); /* No progress functions */
       else gasneti_AMPSHMPoll(1);
       GASNETI_WAITHOOK();
     }
+    gasneti_mutex_unlock(lock);
   }
 
   /* Fill in message */
