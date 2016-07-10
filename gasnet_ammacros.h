@@ -11,8 +11,6 @@
 #ifndef _GASNET_AMMACROS_H
 #define _GASNET_AMMACROS_H
 
-GASNETI_BEGIN_EXTERNC
-
 /* ------------------------------------------------------------------------------------ */
 /*
   Active Message Request/Reply Functions
@@ -69,8 +67,6 @@ extern int gasnetc_AMReplyLongM(
                             void *source_addr, size_t nbytes,   /* data payload */
                             void *dest_addr,                    /* data destination on destination node */
                             int numargs, ...);
-
-GASNETI_END_EXTERNC
 
 /* ------------------------------------------------------------------------------------ */
 /*

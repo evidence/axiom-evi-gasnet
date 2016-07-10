@@ -30,6 +30,8 @@
   #include <pthread.h>
 #endif
 
+GASNETT_BEGIN_EXTERNC
+
 #if !defined(DEBUG) && !defined(NDEBUG)
   #ifdef GASNET_DEBUG
     #define DEBUG 1
@@ -59,8 +61,6 @@
   /* OpenBSD "breaks" rand() by design */
   #define srand(seed) srand_deterministic(seed)
 #endif
-
-GASNETT_BEGIN_EXTERNC
 
 #define assert_always(expr) \
     ((expr) ? (void)0 : (void)FATALERR("Assertion failure: %s", #expr))
@@ -1051,7 +1051,6 @@ static void _test_init(const char *testname, int reports_performance, int early,
 #define TEST_BACKTRACE_DECLS()                              \
   static int test_my_backtrace = 0;                         \
   static volatile int test_my_backtrace_ran = 0;            \
-  GASNETT_BEGIN_EXTERNC                                     \
   static int test_my_backtrace_fn(int fd) {                 \
     if (test_my_backtrace_ran != -1) {                      \
       /* Indicate FAILURE if we were not testing */         \
@@ -1061,7 +1060,6 @@ static void _test_init(const char *testname, int reports_performance, int early,
     test_my_backtrace_ran = 1;                              \
     return 0;                                               \
   }                                                         \
-  GASNETT_END_EXTERNC                                       \
   gasnett_backtrace_type_t gasnett_backtrace_user = {       \
     "USER", &test_my_backtrace_fn, 1                        \
   }
