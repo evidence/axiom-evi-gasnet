@@ -590,7 +590,7 @@ case "$CC_FAMILY" in
     ;;
   Cray) 
     case "$target_cpu" in
-      x86_64)   MISC_CFLAGS="-hnomessage=236" ;; # XT, XE, XK, XC, etc.
+      x86_64)   MISC_CFLAGS="-hnomessage=236:3185" ;; # XT, XE, XK, XC, etc. 3185=bug 3306
       *)        AC_MSG_ERROR(Cray C compiler for unknown target CPU) ;;
     esac ;;
   Intel) MISC_CFLAGS="-std=c99 -wd177 -wd279" 
@@ -2331,7 +2331,7 @@ fi
       ;;
     Cray)
      case "$target_cpu" in
-      x86_64)   MISC_CXXFLAGS="-hnomessage=236 -hexceptions -hnew_for_init" ;; # XT, XE, XK, XC, etc.
+      x86_64)   MISC_CXXFLAGS="-hnomessage=236:3185 -hexceptions -hnew_for_init" ;; # XT, XE, XK, XC, etc. 3185=bug 3306
       *)        AC_MSG_ERROR(Cray C++ compiler for unknown target CPU) ;;
      esac ;;
     Pathscale)  CXXDEBUGFLAGS="-g3 -O0" ;; # consistent with CCDEBUGFLAGS
