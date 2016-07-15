@@ -482,10 +482,6 @@ void gasnetc_ofi_attach(void *segbase, uintptr_t segsize)
 #endif
 	if (FI_SUCCESS != ret) gasneti_fatalerror("fi_mr_reg for rdma failed: %d\n", ret);
 
-	/* Bind MR to RMA endpoint */
-	ret = fi_ep_bind(gasnetc_ofi_rdma_epfd, &gasnetc_ofi_rdma_mrfd->fid, FI_REMOTE_READ | FI_REMOTE_WRITE);
-	if (FI_SUCCESS != ret) gasneti_fatalerror("fi_ep_bind for rdma_epfd and rdma_mrfd failed: %d\n", ret);
-
 	for(i = 0; i < num_iov; i++) {
 		am_iov[i].iov_base		= gasneti_malloc(iov_len);
 		am_iov[i].iov_len		= iov_len;
