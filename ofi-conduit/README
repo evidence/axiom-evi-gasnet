@@ -35,3 +35,21 @@ to specify which job launcher to use.
 At runtime the environment variable GASNET_OFI_SPAWNER (set to "mpi" or "ssh")
 can override the value set at configuration time, but the command line option
 will override the environment variable.
+
+Where this conduit runs:
+-----------------------
+
+The GASNet OFI conduit can run on any OFI provider that supports its requirements. At this
+point in time, it is known to work on the Sockets provider, Intel Truescale provider (psm),
+and Intel Omni-Path provider (psm2).
+
+The OFI conduit can be considered as a tech-preview for next generation fabrics. We are
+in the process of tuning its performance on Intel Omni-Path fabric. If you are looking to
+obtain the best performance on Intel Omni-Path fabric, please continue to use the PSM
+conduit until we complete our performance optimizations.
+
+
+Future work:
+------------
+
+The OFI community is working on increasing the number of providers that can support GASNet.

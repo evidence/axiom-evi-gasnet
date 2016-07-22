@@ -68,6 +68,8 @@ static ofi_ctxt_t *am_buff_ctxt = NULL;
 static gasnetc_paratomic_t pending_rdma = gasnetc_paratomic_init(0);
 static gasnetc_paratomic_t pending_am = gasnetc_paratomic_init(0);
 
+static int gasnetc_ofi_inited = 0;
+
 gasnetc_ofi_state_t gasnetc_ofi_state;
 
 #define OFI_CONDUIT_VERSION FI_VERSION(1, 0)
@@ -96,6 +98,8 @@ int gasnetc_ofi_init(int *argc, char ***argv,
   size_t socknamelen = sizeof(sockname)/2;
   size_t optlen;
   conn_entry_t *mapped_table;
+  int high_perf_prov = 0;
+  int suppress_warning = 0;
 
   const char *not_set = "(not set)";
   char *spawner = gasneti_getenv_withdefault("GASNET_SPAWNER", not_set);
@@ -176,8 +180,31 @@ int gasnetc_ofi_init(int *argc, char ***argv,
   hints->domain_attr->av_type			= FI_AV_TABLE; /* type AV index */
 
   ret = fi_getinfo(OFI_CONDUIT_VERSION, NULL, NULL, 0ULL, hints, &info);
-  if (FI_SUCCESS != ret) gasneti_fatalerror("fi_getinfo failed: %d\n", ret);
-  if (info == NULL) gasneti_fatalerror("fi_getinfo didn't find any providers for rdma\n");
+  if (FI_SUCCESS != ret) {
+	  GASNETI_RETURN_ERRR(RESOURCE,
+			  "No OFI providers found that could support the OFI conduit");
+  }
+
+  /* FIXME: walk list of providers and implement some
+   * selection logic */
+
+  if (!strncmp(info->fabric_attr->prov_name, "psm", 7) ||
+		  !strncmp(info->fabric_attr->prov_name, "psm2", 3))
+	  high_perf_prov = 1;
+
+  if (!high_perf_prov) {
+	  suppress_warning =
+		  gasneti_getenv_int_withdefault("GASNET_OFI_SUPPRESS_WARNINGS",
+				  0, 1);
+	  if (!suppress_warning)
+		  fprintf(stderr, "WARNING: using OFI provider (%s) that"
+				  " we have not tested performance with,"
+				  " likely you will see reduced performance"
+				  " See gasnet/ofi-conduit/README."
+				  " Set GASNET_OFI_SUPPRESS_WARNINGS=1 to hush"
+				  " this warning\n",
+				  info->fabric_attr->prov_name);
+  }
 
   /* Open the fabric provider */
   ret = fi_fabric(info->fabric_attr, &gasnetc_ofi_fabricfd, NULL);
@@ -276,6 +303,8 @@ int gasnetc_ofi_init(int *argc, char ***argv,
 
   fi_freeinfo(hints);
 
+  gasnetc_ofi_inited = 1;
+
   return ret;
 }
 
@@ -286,6 +315,9 @@ void gasnetc_ofi_exit(void)
 {
   int i;
   int ret = FI_SUCCESS;
+
+  if (!gasnetc_ofi_inited)
+	  return;
 
   while(gasnetc_paratomic_read(&pending_am,0) ||
       gasnetc_paratomic_read(&pending_rdma,0))
