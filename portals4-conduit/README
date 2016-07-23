@@ -1,5 +1,6 @@
 GASNet portals4-conduit documentation -*- text -*-
-Brian Barrett <bwbarre@sandia.gov>
+Original Author: Brian Barrett <bwbarre@sandia.gov>
+Contact info: Portals Dev Team <ng-portals@sandia.gov>
 
 User Information:
 -----------------
@@ -14,15 +15,20 @@ the specification,  can be found at the Sandia Portals page:
 A reference implementation of Portals 4.0 which runs over InfiniBand and
 UDP is available at:
 
-  https://code.google.com/p/portals4/
+  https://github.com/Portals4/portals4
 
 Where this conduit runs:
 -----------------------
 
-### Explain the hardware/systems where your conduit runs. Be sure to use
-### high-level marketing names that should be understandable to any end-user.
-### Include any software/driver/firmware/hw requirements or limitations.
-### Mention any situation where a different GASNet conduit should be preferred.
+portals4-conduit is a portable conduit that should run anywhere with a 
+working implementation of the Portals 4 API. See the Portals documentation
+for more information on current implementations.
+
+Users with InfiniBand hardware are encouraged to use ibv-conduit instead, 
+which implements GASNet directly over IB verbs.
+
+Users with Ethernet hardware are encouraged to use udp-conduit instead, 
+which implements GASNet directly over UDP.
 
 Recognized environment variables:
 ---------------------------------
