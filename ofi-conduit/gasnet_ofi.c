@@ -99,7 +99,6 @@ int gasnetc_ofi_init(int *argc, char ***argv,
   size_t optlen;
   conn_entry_t *mapped_table;
   int high_perf_prov = 0;
-  int suppress_warning = 0;
 
   const char *not_set = "(not set)";
   char *spawner = gasneti_getenv_withdefault("GASNET_SPAWNER", not_set);
@@ -192,18 +191,13 @@ int gasnetc_ofi_init(int *argc, char ***argv,
 		  !strncmp(info->fabric_attr->prov_name, "psm2", 3))
 	  high_perf_prov = 1;
 
-  if (!high_perf_prov) {
-	  suppress_warning =
-		  gasneti_getenv_int_withdefault("GASNET_OFI_SUPPRESS_WARNINGS",
-				  0, 1);
-	  if (!suppress_warning)
-		  fprintf(stderr, "WARNING: using OFI provider (%s) that"
-				  " we have not tested performance with,"
-				  " likely you will see reduced performance"
-				  " See gasnet/ofi-conduit/README."
-				  " Set GASNET_OFI_SUPPRESS_WARNINGS=1 to hush"
-				  " this warning\n",
-				  info->fabric_attr->prov_name);
+  if (!high_perf_prov && !*mynode_p) {
+          const char * msg = 
+          "WARNING: Using OFI provider (%s), which has not been validated to provide\n"
+          "WARNING: acceptable GASNet performance. You should consider using a more\n"
+          "WARNING: hardware-appropriate GASNet conduit. See ofi-conduit/README.\n";
+	  if (!gasneti_getenv_int_withdefault("GASNET_QUIET", 0, 1))
+		  fprintf(stderr, msg, info->fabric_attr->prov_name);
   }
 
   /* Open the fabric provider */
