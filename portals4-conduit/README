@@ -19,10 +19,10 @@ UDP is available at:
 Where this conduit runs:
 -----------------------
 
-### Explain the hardware/systems where your conduit runs. Be sure to use
-### high-level marketing names that should be understandable to any end-user.
-### Include any software/driver/firmware/hw requirements or limitations.
-### Mention any situation where a different GASNet conduit should be preferred.
+portals4-conduit runs over the reference implementation of Portals 4 (see
+above) and is intended to be portable to any conforming implementation.
+However, users of Ethernet or InfiniBand networks should instead be using
+the udp- and ibv-conduits, respectively.
 
 Recognized environment variables:
 ---------------------------------
