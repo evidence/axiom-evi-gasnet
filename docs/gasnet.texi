@@ -253,7 +253,7 @@ window.location.assign(result);
 <br>Editor: <a href="javascript:emailto('bonachea','cs.berkeley.edu')">Dan Bonachea</a>
 @end html
 @end ifhtml
-@*@uref{http://www.cs.berkeley.edu/~bonachea/gasnet}
+@*@uref{http://gasnet.lbl.gov}
 @*@uref{http://upc.lbl.gov/}
 @HR
 @COPYRIGHTTEXT
