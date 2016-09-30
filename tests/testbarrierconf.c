@@ -113,6 +113,9 @@ int main(int argc, char **argv) {
 
   MSG("done.");
 
+  // if no exit barrier node 0 can exit before node 1 causing a sigterm on node 1 and a exit value of 1
+  BARRIER();
+
   gasnet_exit(0);
   return 0;
 }
