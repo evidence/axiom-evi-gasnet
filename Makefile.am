@@ -24,6 +24,7 @@ CONDUITMODE_DIST_SUBDIRS =    	\
 	mpi-conduit  		\
 	shmem-conduit  		\
 	smp-conduit  		\
+	axiom-conduit		\
 	udp-conduit  		\
 	ibv-conduit 		\
 	mxm-conduit		\
@@ -79,7 +80,7 @@ EXTRA_DIST =              		\
 	README-devel			\
 	README-git			\
 	README-release			\
- 	README-tools 			\
+	README-tools 			\
 	ChangeLog	  		\
 	license.txt       		\
 	.autom4te.cfg     		\

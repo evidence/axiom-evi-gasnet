@@ -3151,6 +3151,70 @@ AM_CONDITIONAL(USE_PORTALS4_CONDUIT, test "$have_portals4" = yes)
 CONDUIT_END([test "$have_portals4" = yes])
 
 #--------------------------------------------------------------------------------------------------------
+# AXIOM configuration
+CONDUIT_BEGIN(axiom,[AXIOM network conduit (axiom)])
+if test "$enabled_axiom" = yes; then
+  AC_MSG_CHECKING(if PSHM is enabled 1 $with_pshm 2 $enabled_pshm 3 $use_pshm 4 $enable_pshm )
+  if test "$with_pshm" != "no"; then
+    AC_MSG_RESULT([yes, disabling axiom conduit])
+    enabled_axiom=no
+    have_axiom=no    
+  else
+    AC_MSG_RESULT([no])
+  fi
+fi
+if test "$enabled_axiom" = yes; then
+  # Start by assuming we do have AXIOM
+  have_axiom=yes
+  GASNET_ENV_DEFAULT(AXIOMHOME, "$HOME/axiom-evi")
+  AC_MSG_CHECKING(if $AXIOMHOME is the AXIOM install directory)
+  if test -r $AXIOMHOME/axiom-evi-nic/include/axiom_nic_api_user.h; then
+    AC_MSG_RESULT([yes])
+  else
+    have_axiom=no
+    AC_MSG_RESULT([probably not, AXIOM conduit disabled])
+  fi
+  GASNET_ENV_DEFAULT(AXIOM_INCLUDE, $AXIOMHOME/axiom-evi-nic/include)
+  GASNET_ENV_DEFAULT(AXIOM_APPS_INCLUDE, $AXIOMHOME/axiom-evi-apps/include)
+  GASNET_ENV_DEFAULT(AXIOM_LIBS, -laxiom_user_api -laxiom_run_api)
+  GASNET_ENV_DEFAULT(AXIOM_LIBDIR, $AXIOMHOME/axiom-evi-nic/axiom_user_library)
+  GASNET_ENV_DEFAULT(AXIOM_APPS_LIBDIR, $AXIOMHOME/axiom-evi-apps/axiom-run/lib)
+  # Assemble any extra flags needed at library build time
+  AXIOM_LIBCFLAGS=''
+  #
+  if test "$have_axiom" = yes; then
+    AC_MSG_CHECKING(if a simple program with AXIOM user library can compile)
+    have_axiom=no
+    GASNET_PUSHVAR(CFLAGS,"$CFLAGS -I$AXIOM_INCLUDE -I$AXIOM_APPS_INCLUDE $AXIOM_LIBCFLAGS")
+    GASNET_PUSHVAR(LIBS,"$LIBS -L$AXIOM_LIBDIR -L$AXIOM_APPS_LIBDIR $AXIOM_LIBS $GASNET_THREAD_LIBS")
+    GASNET_TRY_CCOMPILE_WITHWARN(
+      [#include <stdio.h>
+       #include <stdint.h>
+       #include <stdlib.h>
+       #include <unistd.h>
+       #include "axiom_nic_types.h"
+       #include "axiom_nic_api_user.h"
+       #include "axiom_nic_regs.h"],
+      [axiom_dev_t *dev = NULL;
+       dev = axiom_open(NULL);
+       axiom_close(dev);],
+      [have_axiom=yes])
+   GASNET_POPVAR(LIBS)
+   GASNET_POPVAR(CFLAGS)
+  fi
+fi
+AC_SUBST(AXIOM_INCLUDE)
+AC_SUBST(AXIOM_APPS_INCLUDE)
+AC_SUBST(AXIOM_LIBDIR)
+AC_SUBST(AXIOM_APPS_LIBDIR)
+GASNET_AXIOM_LIBS="$AXIOM_LIBS"
+AC_SUBST(AXIOM_LIBS)
+AC_SUBST(GASNET_AXIOM_LIBS)
+AC_SUBST(AXIOM_LIBCFLAGS)
+AM_CONDITIONAL(USE_AXIOM_CONDUIT, test "$have_axiom" = yes)
+CONDUIT_END([test "$have_axiom" = yes])
+
+#--------------------------------------------------------------------------------------------------------
 # IBV configuration
 
 CONDUIT_BEGIN(ibv,[OpenIB/OpenFabrics IB Verbs network conduit (ibv)])
@@ -4894,6 +4958,9 @@ mpi-conduit/contrib/gasnetrun_mpi
 udp-conduit/Makefile
 udp-conduit/conduit.mak
 
+axiom-conduit/Makefile
+axiom-conduit/conduit.mak
+
 smp-conduit/Makefile
 smp-conduit/conduit.mak
 
@@ -4943,6 +5010,7 @@ other/fragment-head.mak
 other/fragment-body.mak
 other/ammpi/Makefile
 other/amudp/Makefile
+dnl #other/amaxiom/Makefile
 other/contrib/Makefile
 other/contrib/gasnet_trace
 other/testspawn/Makefile

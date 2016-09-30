@@ -5,3 +5,5 @@ Makefile.in
 /gasnet_config.h.in~
 /config-aux/compile
 /stamp-h.in
+/nbproject
+/build*

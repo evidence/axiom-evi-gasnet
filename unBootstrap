@@ -36,6 +36,7 @@ rm -f Makefile.in              \
       ofi-conduit/contrib/Makefile.in   \
       smp-conduit/Makefile.in  \
       udp-conduit/Makefile.in  \
+      axiom-conduit/Makefile.in  \
       shmem-conduit/Makefile.in \
       template-conduit/Makefile.in \
       other/Makefile.in        \
