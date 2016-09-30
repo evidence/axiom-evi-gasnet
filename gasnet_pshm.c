@@ -6,7 +6,7 @@
 
 #include <gasnet_internal.h>
 
-#if GASNET_PSHM /* Otherwise file is empty */
+#ifndef GASNET_PSHM /* Otherwise file is empty */
 
 #include <gasnet_core_internal.h> /* for gasnetc_{Short,Medium,Long} and gasnetc_handler[] */
 
