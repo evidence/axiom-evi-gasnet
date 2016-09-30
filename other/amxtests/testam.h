@@ -27,7 +27,8 @@
   #define ReplyShort(num,args)                  GASNET_Safe(gasnet_AMReplyShort##num args)
   #define ReplyMedium(num,args)                 GASNET_Safe(gasnet_AMReplyMedium##num args)
   #define ReplyLong(num,AMargs,GASNETargs)      GASNET_Safe(gasnet_AMReplyLong##num GASNETargs)
-  #define NUMHANDLERS_PER_TYPE     (gasnet_AMMaxArgs()+1)
+  //#define NUMHANDLERS_PER_TYPE     (gasnet_AMMaxArgs()+1)
+  #define NUMHANDLERS_PER_TYPE     17
   #define MYPROC                   (gasnet_mynode())
   #define NUMPROCS                 (gasnet_nodes())
   #define MYSEG                    (TEST_MYSEG())
@@ -53,7 +54,8 @@
   #define ReplyShort(num,args)                  AM_Safe(AM_Reply##num args)
   #define ReplyMedium(num,args)                 AM_Safe(AM_ReplyI##num args)
   #define ReplyLong(num,AMargs,GASNETargs)      AM_Safe(AM_ReplyXfer##num AMargs)
-  #define NUMHANDLERS_PER_TYPE     (AM_MaxShort()+1)
+  //#define NUMHANDLERS_PER_TYPE     (AM_MaxShort()+1)
+  #define NUMHANDLERS_PER_TYPE     17
   #define MYPROC                   (AMX_SPMDMyProc())
   #define NUMPROCS                 (AMX_SPMDNumProcs())
   void *VMseg;
