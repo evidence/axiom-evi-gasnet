@@ -409,7 +409,7 @@ static void init_signal_manager() {
     struct sigaction sa;
     memset(&sa, 0, sizeof (sa));
     sa.sa_handler = my_signal_handler;
-    if_pf(sigaction(SIGQUIT, &sa, NULL) != 0) gasneti_fatalerror("Installing %s signal handler!", "SIGSEGV");
+    //if_pf(sigaction(SIGQUIT, &sa, NULL) != 0) gasneti_fatalerror("Installing %s signal handler!", "SIGSEGV");
 }
 
 /* ------------------------------------------------------------------------------------ */
@@ -1084,7 +1084,7 @@ extern void gasnetc_exit(int exitcode) {
 
 static void my_signal_handler(int sig) {
     if (sig == SIGQUIT) {
-        gasnet_exit(1);
+        gasnet_exit(42);
     } else {
         struct sigaction sa;
         memset(&sa, 0, sizeof (sa));
