@@ -14,8 +14,8 @@ AXIOMEVI_BR_TRG_DIR=$AXIOMEVI_BR_DIR/output/target
 # Usage Instructions: 
 #  1. fill in the following values to point to the target and host compilers:
 
-CC="$AXIOMEVI_BR_HOST_DIR/usr/bin/aarch64-buildroot-linux-gnu-gcc" ; export CC
-CXX="$AXIOMEVI_BR_HOST_DIR/usr/bin/aarch64-buildroot-linux-gnu-g++" ; export CXX
+CC="$AXIOMEVI_BR_HOST_DIR/usr/bin/aarch64-buildroot-linux-gnu-gcc -fPIC" ; export CC
+CXX="$AXIOMEVI_BR_HOST_DIR/usr/bin/aarch64-buildroot-linux-gnu-g++ -fPIC" ; export CXX
 
 # Host C compiler
 # NOTE: you may need to set GCC_EXEC_PREFIX=/usr/bin/
@@ -122,12 +122,14 @@ fi
 
 # Now that everything is setup, run the actual configure script
 $SRCDIR/configure \
+    --prefix="$(pwd)/../output" \
     --enable-cross-compile $HOST_APPEND \
     --build=$TARGET_ID \
     --target=$TARGET_ID \
     --program-prefix='' \
     --enable-debug --disable-trace --disable-stats --disable-debug-malloc --disable-system-debug-malloc \
-    $EXTRA_CONFIGURE_ARGS \
+    --disable-seq --disable-parsync \
     --disable-smp \
     --disable-udp \
+    $EXTRA_CONFIGURE_ARGS \
     "$@"
