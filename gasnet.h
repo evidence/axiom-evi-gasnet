@@ -117,6 +117,8 @@
 /* basic utilities used in the headers */
 #include <gasnet_basic.h>
 
+GASNETI_BEGIN_NOWARN
+
 /* ------------------------------------------------------------------------------------ */
 /* check segment configuration */
 
@@ -518,7 +520,7 @@ extern int gasneti_internal_idiotcheck(gasnet_handlerentry_t *table, int numentr
 #endif
 
 /* ------------------------------------------------------------------------------------ */
-
+GASNETI_END_NOWARN
 GASNETI_END_EXTERNC
 
 #undef _IN_GASNET_H
