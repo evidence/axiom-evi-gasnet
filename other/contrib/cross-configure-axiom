@@ -1,8 +1,11 @@
 #!/bin/sh
 
 [ -z "$AXIOMHOME" ] && AXIOMHOME=$HOME/axiom-evi
+LIBTYPE="debug"
 for arg in "$@";do
   echo "$arg" | grep -q '^--with-axiomhome=' && AXIOMHOME=$(echo "$arg" | sed 's#^--with-axiomhome=##')
+  echo "$arg" | grep -q '^--enable-debug' && LIBTYPE="debug"
+  echo "$arg" | grep -q '^--disable-debug' && LIBTYPE="performance"
 done
 
 AXIOMEVI_DIR=$AXIOMHOME
@@ -90,8 +93,8 @@ CROSS_SIGKILL='9' ; export CROSS_SIGKILL
 CROSS_SIGTERM='15' ; export CROSS_SIGTERM
 CROSS_SIGUSR1='10' ; export CROSS_SIGUSR1
 
-
 SRCDIR=`dirname $0`
+SRCDIR=`realpath $SRCDIR`
 if test ! -f "$SRCDIR/configure" ; then
   echo "ERROR: The $0 script should be placed in the same directory as the configure script before execution"
   exit 1
@@ -122,7 +125,9 @@ fi
 
 # Now that everything is setup, run the actual configure script
 $SRCDIR/configure \
-    --prefix="$(pwd)/../output" \
+    --prefix=$SRCDIR/../output \
+    --libdir=$SRCDIR/../output/lib/$LIBTYPE \
+    --includedir=$SRCDIR/../output/include/$LIBTYPE \
     --enable-cross-compile $HOST_APPEND \
     --build=$TARGET_ID \
     --target=$TARGET_ID \
