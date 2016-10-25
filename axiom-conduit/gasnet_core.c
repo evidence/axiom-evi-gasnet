@@ -31,29 +31,79 @@
 //#undef _BLOCKING_MODE
 
 // enable/disable internal conduit logging
-#if 0
+#ifdef GASNET_DEBUG
 #include <sys/time.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <string.h>
 typedef enum { LOG_NOLOG = -1, LOG_FATAL = 0, LOG_ERROR = 1, LOG_WARN = 2, LOG_INFO = 3,  LOG_DEBUG = 4, LOG_TRACE = 5  } logmsg_level_t;
 static const char *logmsg_name[] = {"FATAL", "ERROR", "WARN", "INFO", "DEBUG", "TRACE"};
-static const logmsg_level_t logmsg_level=LOG_TRACE;
+static logmsg_level_t logmsg_level=LOG_ERROR;
+static FILE *logmsg_fout=NULL;
+static time_t logmsg_sec;
+static long logmsg_micros;
 #define logmsg_is_enabled(lvl) ((lvl)<=logmsg_level)
+#define logmsgOLD(lvl, msg, ...) {\
+  if (logmsg_is_enabled(lvl)) {\
+    struct timespec _t1;\
+    time_t _secs;\
+    long _micros;\
+    clock_gettime(CLOCK_REALTIME_COARSE,&_t1);\
+    _micros=_t1.tv_nsec/1000-logmsg_micros;\
+    _secs=_t1.tv_sec-logmsg_sec;\
+    if (_micros<0) { _micros+=1000000;_secs--;}\
+    _logmsg("[%5d.%06d] %5s{%d}: " msg "\n", (int)_secs, (int)_micros, logmsg_name[lvl], (int)getpid(), ##__VA_ARGS__);\
+  }\
+}
 #define logmsg(lvl, msg, ...) {\
   if (logmsg_is_enabled(lvl)) {\
-    struct timespec _t0;\
-    clock_gettime(CLOCK_REALTIME_COARSE,&_t0);\
-    _logmsg("[%5d.%06d] %5s{%d}: " msg "\n", (int)(_t0.tv_sec % 10000), (int)_t0.tv_nsec/1000, logmsg_name[lvl], (int)getpid(), ##__VA_ARGS__);\
+    struct timespec _t1;\
+    time_t _secs,_min;\
+    clock_gettime(CLOCK_REALTIME_COARSE,&_t1);\
+    _secs=_t1.tv_sec%60;\
+    _min=(_t1.tv_sec/60)%60;\
+    _logmsg("[%02d:%02d.%06d] %5s{%d}: " msg "\n", (int)_min, (int)_secs, (int)(_t1.tv_nsec/1000), logmsg_name[lvl], (int)getpid(), ##__VA_ARGS__);\
   }\
 }
 static void _logmsg(const char *msg, ...) __attribute__((format(printf, 1, 2)));
 static inline void _logmsg(const char *msg, ...) {
     va_list list;
     va_start(list, msg);
-    vfprintf(stderr, msg, list);
+    vfprintf(logmsg_fout, msg, list);
     va_end(list);
 }
+static inline void logmsg_init() {
+    struct timespec t0;
+    char buf[MAXPATHLEN];
+    char *value;
+    //
+    clock_gettime(CLOCK_REALTIME_COARSE,&t0);
+    logmsg_micros=t0.tv_nsec/1000;
+    logmsg_sec=t0.tv_sec;
+    //
+    value = getenv("GASNET_AXIOM_LOG_LEVEL");
+    if (value != NULL) {
+        int i;
+        for (i = 0; i<sizeof (logmsg_name) / sizeof (char*); i++)
+            if (strcasecmp(logmsg_name[i], value) == 0) {
+                logmsg_level = i;
+                break;
+            }
+    }
+    //    
+    value = getenv("GASNET_AXIOM_LOG_FILE");
+    if (value!=NULL&&strstr(value,"%ld")!=NULL) {
+        snprintf(buf,sizeof(buf),value,(long)getpid());
+        value=buf;
+    }
+    if (value != NULL) {
+        logmsg_fout=fopen(value,"w+");
+    } else {
+        logmsg_fout = stderr;
+    }
+}
 #else
+#define logmsg_init()
 #define logmsg_is_enabled(lvl) 0
 #define logmsg(lvl,msg,...) 
 #endif
@@ -527,6 +577,9 @@ static int gasnetc_init(int *argc, char ***argv) {
 
     axiom_err_t ret;
     int res;
+
+    // debug logging message activation
+    logmsg_init();
 
     /*  check system sanity */
     gasnetc_check_config();
