@@ -35,11 +35,14 @@ SUBDIRS = $(CONDUITMODE_SUBDIRS)
 EXTRA_DIST =        			\
         $(CONDUITMODE_EXTRADIST) 	\
 	detect-cachesz.c 		\
+	check-pp.c                      \
+	check-header-erase.pl           \
 	tools-toggle.pl
 
 include_HEADERS = \
 	portable_inttypes.h \
-	portable_platform.h
+	portable_platform.h \
+	gasnet_portable_platform.h
 
 if CONDUIT_MODE
 if USE_UDP_CONDUIT                           
@@ -56,6 +59,32 @@ tests tests-clean run-tests check-exports:
 	done
 CONDUITMODE_TARGETS = Makefile-conduit.mak mpirun_common
 endif
+
+# Automated correctness checks for portable_platform.h
+#
+CHECK_PP_C = $(srcdir)/check-pp.c
+$(CHECK_PP_C): gasnet_portable_platform.h portable_platform.h
+
+check-pp-tgt: $(CHECK_PP_C)
+	@CC@ @CFLAGS@ @LDFLAGS@ -I$(srcdir) $(MANUAL_DEFINES) $(MANUAL_CFLAGS) $(MANUAL_LDFLAGS) -o $@ $< @LIBS@ $(MANUAL_LIBS)
+
+# Disabled until we have a more compelling need for configure detection of HOST_CC
+#check-pp-host: $(CHECK_PP_C)
+#	@HOST_CC@ @HOST_CFLAGS@ @HOST_LDFLAGS@ -I$(srcdir) $(MANUAL_DEFINES) $(MANUAL_CFLAGS) $(MANUAL_LDFLAGS) -o $@ $< @HOST_LIBS@ $(MANUAL_LIBS)
+
+if CROSS_COMPILING
+check-pp-run: check-pp-tgt
+else
+check-pp-run: check-pp-tgt
+	./check-pp-tgt
+endif
+.PHONY: check-pp-run
+CLEANFILES = check-pp-tgt$(EXESUFFIX)
+
+check-pp: check-pp-run
+	@PERL@ $(srcdir)/check-header-erase.pl $(srcdir)/gasnet_portable_platform.h 1
+
+check-local: check-pp
 
 # If we add plpa to EXTRA_DIST, then automake-1.9 tries to package
 # plpa/config/acinclude.m4 more than once.
