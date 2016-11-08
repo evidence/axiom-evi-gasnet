@@ -1272,7 +1272,8 @@ ge_put(nbr_t *nb, int type, int dir, int axis, int *flag)
 	    }
 	    break;
 	default:
-	    break;
+            FATALERR("Unrecognized axis in ge_put");
+	    abort(); // just to satisfy compiler analysis
     }
 
     if (type == GHOST_TYPE_AMLONG) {
