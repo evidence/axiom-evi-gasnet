@@ -327,7 +327,6 @@ void gasnete_puti_AMPipeline_reqh_inner(gasnet_token_t token,
   gasnet_handlerarg_t dstlen, gasnet_handlerarg_t firstoffset, gasnet_handlerarg_t lastlen) {
   void * const * const rlist = addr;
   uint8_t * const data = (uint8_t *)(&rlist[rnum]);
-  GASNETI_UNUSED_UNLESS_DEBUG /* but still need side-effects */
   uint8_t * const end = gasnete_addrlist_unpack(rnum, rlist, dstlen, data, firstoffset, lastlen);
   gasneti_assert(end - (uint8_t *)addr <= gasnet_AMMaxMedium());
   gasneti_sync_writes();
@@ -435,8 +434,7 @@ void gasnete_geti_AMPipeline_reph_inner(gasnet_token_t token,
   size_t const lnum = lpacket->lastidx - lpacket->firstidx + 1;
   gasneti_assert(visop->type == GASNETI_VIS_CAT_GETI_AMPIPELINE);
   gasneti_assert(lpacket->lastidx < visop->count);
-  { GASNETI_UNUSED_UNLESS_DEBUG /* but still need side-effects */
-    uint8_t * const end = gasnete_addrlist_unpack(lnum, savedlst+lpacket->firstidx, visop->len, addr, lpacket->firstoffset, lpacket->lastlen);
+  { uint8_t * const end = gasnete_addrlist_unpack(lnum, savedlst+lpacket->firstidx, visop->len, addr, lpacket->firstoffset, lpacket->lastlen);
     gasneti_assert(end - (uint8_t *)addr == nbytes);
   }
   if (gasneti_weakatomic_decrement_and_test(&(visop->packetcnt), 
