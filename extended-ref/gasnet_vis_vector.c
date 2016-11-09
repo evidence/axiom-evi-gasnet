@@ -52,7 +52,6 @@ void *gasnete_memvec_unpack(size_t count, gasnet_memvec_t const *list, void cons
 extern void gasnete_packetize_verify(gasnete_packetdesc_t *pt, size_t ptidx, int lastpacket,
                               size_t count, size_t len, gasnet_memvec_t const *list) {
   size_t firstidx = pt[ptidx].firstidx;
-  GASNETI_UNUSED_UNLESS_DEBUG
   size_t firstoffset = pt[ptidx].firstoffset;
   size_t lastidx = pt[ptidx].lastidx;
   size_t lastlen = pt[ptidx].lastlen;
@@ -103,6 +102,7 @@ size_t gasnete_packetize_memvec(size_t remotecount, gasnet_memvec_t const remote
   size_t ridx = 0, roffset = 0, lidx = 0, loffset = 0;
   size_t const metadatasz = sizeof(gasnet_memvec_t);
   size_t ptsz = 4; /* initial size guess - no fast way to know for sure */
+  gasneti_assert(maxpayload > metadatasz);
   gasnete_packetdesc_t *remotept = gasneti_malloc(ptsz*sizeof(gasnete_packetdesc_t));
   gasnete_packetdesc_t *localpt = gasneti_malloc(ptsz*sizeof(gasnete_packetdesc_t));
   gasneti_assert(premotept && plocalpt && remotecount && localcount);
@@ -112,7 +112,8 @@ size_t gasnete_packetize_memvec(size_t remotecount, gasnet_memvec_t const remote
   for (ptidx = 0; ; ptidx++) {
     ssize_t packetremain = maxpayload;
     ssize_t packetdata = 0;
-    size_t rdatasz, ldatasz; 
+    size_t ldatasz; 
+    size_t rdatasz = 0; // init to avoid a warning on gcc -O3 -Wall
 
     if (ptidx == ptsz) { /* grow the packet tables */
       ptsz *= 2;
@@ -348,7 +349,6 @@ void gasnete_putv_AMPipeline_reqh_inner(gasnet_token_t token,
   void *iop, gasnet_handlerarg_t rnum) {
   gasnet_memvec_t * const rlist = addr;
   uint8_t * const data = (uint8_t *)(&rlist[rnum]);
-  GASNETI_UNUSED_UNLESS_DEBUG /* but still need side-effects */
   uint8_t * const end = gasnete_memvec_unpack(rnum, rlist, data, 0, (size_t)-1);
   gasneti_assert(end - (uint8_t *)addr <= gasnet_AMMaxMedium());
   gasneti_sync_writes();
@@ -474,8 +474,7 @@ void gasnete_getv_AMPipeline_reph_inner(gasnet_token_t token,
   size_t const lnum = lpacket->lastidx - lpacket->firstidx + 1;
   gasneti_assert(visop->type == GASNETI_VIS_CAT_GETV_AMPIPELINE);
   gasneti_assert(lpacket->lastidx < visop->count);
-  { GASNETI_UNUSED_UNLESS_DEBUG /* but still need side-effects */
-    uint8_t *end = gasnete_memvec_unpack(lnum, savedlst+lpacket->firstidx, addr, lpacket->firstoffset, lpacket->lastlen);
+  { uint8_t *end = gasnete_memvec_unpack(lnum, savedlst+lpacket->firstidx, addr, lpacket->firstoffset, lpacket->lastlen);
     gasneti_assert(end - (uint8_t *)addr == nbytes);
   }
   if (gasneti_weakatomic_decrement_and_test(&(visop->packetcnt), 

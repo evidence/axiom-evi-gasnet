@@ -231,19 +231,77 @@ AC_DEFUN([GASNET_CHECK_CRAY_HEADER],[
   popdef([cvname])
 ])
 
+dnl GASNET_TRY_WNO_FLAG(type,flag,action-on-success,action-on-failure)  type=C or CXX
+dnl As per bug 2718 gcc might silently ignore -Wno-such-flag, but not -Wsuch-flag
+dnl XXX: Probably sufficient to just probe for -Wsuch-flag (but lie in AC_MSG_CHECKING)
+AC_DEFUN([GASNET_TRY_WNO_FLAG],[
+        ]GASNET_TRY_[$1]FLAG[([$2],
+            ]GASNET_TRY_[$1]FLAG[(patsubst([$2],[Wno-],[W]),[$3],[$4]),[$4])])
+
+dnl GASNET_GET_GNUWARNINGFLAGS(type, flagprefix)  type=C or CXX 
+AC_DEFUN([GASNET_GET_GNUWARNINGFLAGS],[
+  if test "$enabled_dev_warnings" = "yes" ; then
+    # enable additional supported warnings
+        ]GASNET_TRY_[$1]FLAG[([$3-Wall],
+                              [[$1]FLAGS="$[$1]FLAGS $3-Wall"])
+        ]GASNET_TRY_[$1]FLAG[([$3-Wpointer-arith],
+                              [[$1]FLAGS="$[$1]FLAGS $3-Wpointer-arith"])
+        ]GASNET_TRY_[$1]FLAG[([$3-Wnested-externs],
+                              [[$1]FLAGS="$[$1]FLAGS $3-Wnested-externs"])
+        ]GASNET_TRY_[$1]FLAG[([$3-Wwrite-strings],
+                              [[$1]FLAGS="$[$1]FLAGS $3-Wwrite-strings"])
+        ]GASNET_TRY_[$1]FLAG[([$3-Wmissing-format-attribute],
+                              [[$1]FLAGS="$[$1]FLAGS $3-Wmissing-format-attribute"])
+  fi
+         # disable warnings that should always be off (not supported by our headers)
+         GASNET_TRY_WNO_FLAG([$1],[$3-Wno-unused],
+                             [[$1]FLAGS="$[$1]FLAGS $3-Wno-unused"],
+         [ # -Wno-unused meta disable failed, try to disable the problematic sub-options individually
+           GASNET_TRY_WNO_FLAG([$1],[$3-Wno-unused-function],
+                               [[$1]FLAGS="$[$1]FLAGS $3-Wno-unused-function"])
+           GASNET_TRY_WNO_FLAG([$1],[$3-Wno-unused-value],
+                               [[$1]FLAGS="$[$1]FLAGS $3-Wno-unused-value"])
+           GASNET_TRY_WNO_FLAG([$1],[$3-Wno-unused-variable],
+                               [[$1]FLAGS="$[$1]FLAGS $3-Wno-unused-variable"])
+	 ])
+	 # -Wno-unused is not enough to ignore unused params on clang -Wall -Wextra (clang 3.8.1)
+         GASNET_TRY_WNO_FLAG([$1],[$3-Wno-unused-parameter],
+                             [[$1]FLAGS="$[$1]FLAGS $3-Wno-unused-parameter"])
+         GASNET_TRY_WNO_FLAG([$1],[$3-Wno-address],
+                             [[$1]FLAGS="$[$1]FLAGS $3-Wno-address"])
+	if test "$use_pthreads" != "no" ; then
+        # some crappy pthread mutex implementations generate warnings without -Wno-missing-braces
+	AC_MSG_CHECKING(for buggy pthread.h mutex initializers)
+        old[$1]FLAGS="$[$1]FLAGS"
+        # FREEBSD requires the -pthread compiler flag when including pthread.h
+        case "$target_os" in 
+          freebsd*) [$1]FLAGS="-pthread $[$1]FLAGS" ;;
+        esac 
+        ]GASNET_TRY_[$1]COMPILE_WITHWARN[([#include <pthread.h>],
+          [pthread_mutex_t fastmutex = PTHREAD_MUTEX_INITIALIZER;],
+          [AC_MSG_RESULT(ok)], [AC_MSG_RESULT(buggy)
+           GASNET_TRY_WNO_FLAG([$1],[$3-Wno-missing-braces],
+                               [old[$1]FLAGS="$old[$1]FLAGS $3-Wno-missing-braces"])],
+          [#bug611: ignore failures here, which may be due to broken/missing pthreads support
+           #AC_MSG_ERROR(failure while checking for buggy pthread.h mutexes)
+	   AC_MSG_RESULT(failure - ignored)
+          ]
+        )
+        [$1]FLAGS="$old[$1]FLAGS"
+	fi
+        case "$target_os" in 
+          solaris*) # hide pragma warnings in system header files included by absolute path
+            GASNET_TRY_WNO_FLAG([$1],[$3-Wno-unknown-pragmas],[[$1]FLAGS="$[$1]FLAGS $3-Wno-unknown-pragmas"])
+        esac
+        #]GASNET_TRY_[$1]FLAG[([-ansi -U__STRICT_ANSI__],[[$1]FLAGS="$[$1]FLAGS -ansi -U__STRICT_ANSI__"])
+])
+
 ### 
 #
 # choose the default CC flags
 # NOTE: we intentionally *overwrite* CFLAGS with reasonable, well-tested values, 
 # to avoid picking up bad default flags from AC_PROG_CC or the default user environment
 # Users who want to insert a specific compiler flag for all builds should append it to $CC
-
-dnl GASNET_TRY_WNO_FLAG(type,flag,action-on-success)  type=C or CXX
-dnl As per bug 2718 gcc might silently ignore -Wno-such-flag, but not -Wsuch-flag
-dnl XXX: Probably sufficient to just probe for -Wsuch-flag (but lie in AC_MSG_CHECKING)
-AC_DEFUN([GASNET_TRY_WNO_FLAG],[
-        ]GASNET_TRY_[$1]FLAG[([$2],
-            ]GASNET_TRY_[$1]FLAG[(patsubst([$2],[Wno-],[W]),[$3]))])
 
 case "$CC_FAMILY" in
   GNU)  GASNET_PUSHVAR(CFLAGS,"-O3")
@@ -260,6 +318,7 @@ case "$CC_FAMILY" in
                          [CFLAGS="$CFLAGS ${gcc_flag_prefix}--param${gcc_flag_delim}inline-unit-growth=10000"])
         GASNET_TRY_CFLAG([${gcc_flag_prefix}--param${gcc_flag_delim}large-function-growth=200000],
                          [CFLAGS="$CFLAGS ${gcc_flag_prefix}--param${gcc_flag_delim}large-function-growth=200000"])
+
         # We'd like to use -Winline to detect call sites where the optimizer
         # ignores our inline function modifier (usually due to technical limitations)
   	# However, some versions of gcc issue spurious warnings with -Winline
@@ -362,58 +421,10 @@ case "$CC_FAMILY" in
         CCOPTFLAGS="-O3 -OPT:wrap_around_unsafe=off"
     fi
   ;;
-  Clang) GASNET_PUSHVAR(CFLAGS,"-O3")
-         GASNET_TRY_WNO_FLAG([C],[-Wno-empty-body],[CFLAGS="$CFLAGS -Wno-empty-body"])
-         GASNET_TRY_WNO_FLAG([C],[-Wno-unused-value],[CFLAGS="$CFLAGS -Wno-unused-value"])
-         CCOPTFLAGS="$CFLAGS"
-         GASNET_POPVAR(CFLAGS)
-  ;;
+  Clang) CCOPTFLAGS="-O3" ;;
   *)    CCOPTFLAGS="-O" ;;
 esac
 AC_SUBST(SEPARATE_CC)
-
-dnl GASNET_GET_GNUWARNINGFLAGS(type)  type=C or CXX
-AC_DEFUN([GASNET_GET_GNUWARNINGFLAGS],[
-        ]GASNET_TRY_[$1]FLAG[([${gcc_flag_prefix}-Wall],
-                              [[$1]FLAGS="$[$1]FLAGS ${gcc_flag_prefix}-Wall"])
-         GASNET_TRY_WNO_FLAG([$1],[${gcc_flag_prefix}-Wno-unused],
-                             [[$1]FLAGS="$[$1]FLAGS ${gcc_flag_prefix}-Wno-unused"])
-         GASNET_TRY_WNO_FLAG([$1],[${gcc_flag_prefix}-Wno-address],
-                             [[$1]FLAGS="$[$1]FLAGS ${gcc_flag_prefix}-Wno-address"])
-        ]GASNET_TRY_[$1]FLAG[([${gcc_flag_prefix}-Wpointer-arith],
-                              [[$1]FLAGS="$[$1]FLAGS ${gcc_flag_prefix}-Wpointer-arith"])
-        ]GASNET_TRY_[$1]FLAG[([${gcc_flag_prefix}-Wnested-externs],
-                              [[$1]FLAGS="$[$1]FLAGS ${gcc_flag_prefix}-Wnested-externs"])
-        ]GASNET_TRY_[$1]FLAG[([${gcc_flag_prefix}-Wwrite-strings],
-                              [[$1]FLAGS="$[$1]FLAGS ${gcc_flag_prefix}-Wwrite-strings"])
-        ]GASNET_TRY_[$1]FLAG[([${gcc_flag_prefix}-Wmissing-format-attribute],
-                              [[$1]FLAGS="$[$1]FLAGS ${gcc_flag_prefix}-Wmissing-format-attribute"])
-	if test "$use_pthreads" != "no" ; then
-        # some crappy pthread mutex implementations generate warnings without -Wno-missing-braces
-	AC_MSG_CHECKING(for buggy pthread.h mutex initializers)
-        old[$1]FLAGS="$[$1]FLAGS"
-        # FREEBSD requires the -pthread compiler flag when including pthread.h
-        case "$target_os" in 
-          freebsd*) [$1]FLAGS="-pthread $[$1]FLAGS" ;;
-        esac 
-        ]GASNET_TRY_[$1]COMPILE_WITHWARN[([#include <pthread.h>],
-          [pthread_mutex_t fastmutex = PTHREAD_MUTEX_INITIALIZER;],
-          [AC_MSG_RESULT(ok)], [AC_MSG_RESULT(buggy)
-           GASNET_TRY_WNO_FLAG([$1],[${gcc_flag_prefix}-Wno-missing-braces],
-                               [old[$1]FLAGS="$old[$1]FLAGS ${gcc_flag_prefix}-Wno-missing-braces"])],
-          [#bug611: ignore failures here, which may be due to broken/missing pthreads support
-           #AC_MSG_ERROR(failure while checking for buggy pthread.h mutexes)
-	   AC_MSG_RESULT(failure - ignored)
-          ]
-        )
-        [$1]FLAGS="$old[$1]FLAGS"
-	fi
-        case "$target_os" in 
-          solaris*) # hide pragma warnings in system header files included by absolute path
-            GASNET_TRY_WNO_FLAG([$1],[-Wno-unknown-pragmas],[[$1]FLAGS="$[$1]FLAGS -Wno-unknown-pragmas"])
-        esac
-        #]GASNET_TRY_[$1]FLAG[([-ansi -U__STRICT_ANSI__],[[$1]FLAGS="$[$1]FLAGS -ansi -U__STRICT_ANSI__"])
-])
 
 case "$CC_FAMILY" in
   GNU)  GASNET_PUSHVAR(CFLAGS,"${gcc_flag_prefix}-g3")
@@ -422,28 +433,14 @@ case "$CC_FAMILY" in
             GASNET_TRY_CFLAG([${gcc_flag_prefix}-gstabs+], [CFLAGS="${gcc_flag_prefix}-gstabs+"])
             ;;
         esac
-        GASNET_GET_GNUWARNINGFLAGS(C)
         CCDEBUGFLAGS="$CFLAGS"
         GASNET_POPVAR(CFLAGS)
   ;;
   MTA)  CCDEBUGFLAGS="-g2" ;; # need +ESdbgasm to use -g with _asm()
-  Pathscale) GASNET_PUSHVAR(CFLAGS,"-g3 -O0") # need to explicitly disable optimization
-        GASNET_GET_GNUWARNINGFLAGS(C)
-        CCDEBUGFLAGS="$CFLAGS"
-        GASNET_POPVAR(CFLAGS)
-  ;;
-  Open64) GASNET_PUSHVAR(CFLAGS,"-g3")
-          GASNET_GET_GNUWARNINGFLAGS(C)
-          CCDEBUGFLAGS="$CFLAGS"
-          GASNET_POPVAR(CFLAGS)
-  ;;
-  Clang)  GASNET_PUSHVAR(CFLAGS,"-g -O0")
-          GASNET_GET_GNUWARNINGFLAGS(C)
-          GASNET_TRY_WNO_FLAG([C],[-Wno-empty-body],[CFLAGS="$CFLAGS -Wno-empty-body"])
-          CCDEBUGFLAGS="$CFLAGS"
-          GASNET_POPVAR(CFLAGS)
-  ;;
-  *)    CCDEBUGFLAGS="-g" ;;
+  Pathscale) CCDEBUGFLAGS="-g3 -O0" ;; # need to explicitly disable optimization
+  Open64)    CCDEBUGFLAGS="-g3" ;;
+  Clang)     CCDEBUGFLAGS="-g -O0" ;;
+  *)         CCDEBUGFLAGS="-g" ;;
 esac
 
 dnl GASNET_GET_ULTRASPARC_FLAGS(type,flags)  type=C or CXX
@@ -574,11 +571,18 @@ AC_DEFUN([GASNET_GET_PPC64_FLAGS],[
 dnl GASNET_SET_MISCFLAGS(CC|MPI_CC, compliancecode)
 AC_DEFUN([GASNET_SET_MISCFLAGS],[
 # Set MISC_CFLAGS: flags to be used by all C compilations, regardless of optimization/debugging level
-# This should include architectural/CPU flags and anything required for C99 conformance
+# This should include architectural/CPU flags, warning flags, and anything required for C99 conformance
 # We do not currently allow a user override of MISC_C(PP)FLAGS
 MISC_CFLAGS=""
+misc_flag_prefix=''
+misc_flag_delim=' '
 case "$CC_FAMILY" in
   GNU)
+    case "$CC_SUBFAMILY" in
+      NVIDIA) misc_flag_prefix='-Xcompiler '
+              misc_flag_delim=','
+      ;;
+    esac
     case "$target_cpu" in
       sparc) GASNET_GET_ULTRASPARC_FLAGS(C,["-mcpu=ultrasparc3 -mtune=ultrasparc3" "-mcpu=ultrasparc -mtune=ultrasparc"]);;
       rs6000|powerpc*) GASNET_GET_PPC64_FLAGS(C,["-force_cpusubtype_ALL" "-Wa,-mppc64"]);;
@@ -586,8 +590,8 @@ case "$CC_FAMILY" in
     esac
     case "$target_os" in
       darwin*) 
-        GASNET_TRY_WNO_FLAG([C],[${gcc_flag_prefix}-Wno-long-double],
-                            [MISC_CFLAGS="$MISC_CFLAGS ${gcc_flag_prefix}-Wno-long-double"])
+        GASNET_TRY_WNO_FLAG([C],[${misc_flag_prefix}-Wno-long-double],
+                            [MISC_CFLAGS="$MISC_CFLAGS ${misc_flag_prefix}-Wno-long-double"])
       ;; 
     esac
     ;;
@@ -630,6 +634,17 @@ case "$CC_FAMILY" in
   *)  ;;
 esac
 
+# Add warning enable/suppression flags to MISC_CFLAGS
+case "$CC_FAMILY" in
+  GNU | Pathscale | Open64 | Clang)
+    GASNET_PUSHVAR(CFLAGS,"$MISC_CFLAGS")
+    GASNET_GET_GNUWARNINGFLAGS(C,[${misc_flag_prefix}])
+    MISC_CFLAGS="$CFLAGS"
+    GASNET_POPVAR(CFLAGS)
+  ;;
+  *) ;;
+esac
+
 # Set MISC_CPPFLAGS: flags to be used by all C preprocesses and compilations
 # Note this is ALSO used for C++ compilation, so only generic language-independent options should go in here
 # We do not currently allow a user override of MISC_C(PP)FLAGS
@@ -638,8 +653,8 @@ case "$CC_FAMILY" in
   GNU)
     case "$target_os" in
       darwin*) # add some options which are specific to the Apple Inc version of gcc
-        GASNET_TRY_CFLAG([${gcc_flag_prefix}-no-cpp-precomp],
-                         [MISC_CPPFLAGS="$MISC_CPPFLAGS ${gcc_flag_prefix}-no-cpp-precomp"])
+        GASNET_TRY_CFLAG([${misc_flag_prefix}-no-cpp-precomp],
+                         [MISC_CPPFLAGS="$MISC_CPPFLAGS ${misc_flag_prefix}-no-cpp-precomp"])
       ;; 
     esac ;;
   *)  ;;
@@ -667,7 +682,7 @@ case "$CC_FAMILY" in
   # All GASNet code should adhere to the subset of strict C99 in the README coding standards,
   # (a subset of std=c99), however these flags are also used to compile network API headers
   # and client code that may require more general support. Therefore std=gnu99 is default.
-     *) gasnet_c99_flags="${gcc_flag_prefix}-std=gnu99 ${gcc_flag_prefix}-c99 ${gcc_flag_prefix}-std=c99";;
+     *) gasnet_c99_flags="${misc_flag_prefix}-std=gnu99 ${misc_flag_prefix}-c99 ${misc_flag_prefix}-std=c99";;
 esac
 # NOTE: We do not currently cache this check because it is expanded in multiple contexts
 GASNET_C99_FLAG=unknown
@@ -714,8 +729,6 @@ AC_DEFUN([GASNET_VA_ARGS_TEST],[
     int d[[GASNETI_AMNUMARGS(1,2,3)+1]];
 ])
 
-GASNET_SET_MISCFLAGS(CC,[ GASNET_VA_ARGS_TEST GASNET_C99_TEST ])
-
 GASNET_IF_ENABLED(debug, Build GASNet in a debugging mode, 
   [ 
     if test -z "$GASNET_SUPPRESS_DEBUG_WARNING" ; then
@@ -740,6 +753,11 @@ GASNET_MSG_WARN([
     BUILDCONFIG="optimize"
     enabled_debug=no])
 AM_CONDITIONAL(BUILDCONFIG_DEBUG, test "$enabled_debug" = yes)
+
+GASNET_IF_ENABLED_WITH_AUTO(dev-warnings, Build GASNet with developer compiler warnings (enabled by default with --enable-debug), 
+  enabled_dev_warnings=yes, enabled_dev_warnings=no, enabled_dev_warnings=$enabled_debug)
+
+GASNET_SET_MISCFLAGS(CC,[ GASNET_VA_ARGS_TEST GASNET_C99_TEST ])
 
 # MISC_C(PP)FLAGS are added to C(PP)FLAGS here to ensure they are used for the remaining configure tests,
 # but they retain a separate identity post-configure
@@ -2322,11 +2340,11 @@ AC_DEFUN([GASNET_LINKHELPER_TRY_RUN],[GASNET_LINKHELPER_TRY_INNER([RUN_WITHCC],$
   CXXDEBUGFLAGS="-g"
   CXXOPTFLAGS="-O2"
   GASNET_UDP_LIBS=""
+  gxx_flag_prefix=''
+  gxx_flag_delim=' '
   case "$CXX_FAMILY" in
     GNU) 
        GASNET_GCC_VERSION_CHECK(CXX)
-       gxx_flag_prefix=''
-       gxx_flag_delim=' '
        case "$CC_SUBFAMILY" in
           NVIDIA) gxx_flag_prefix='-Xcompiler '
                   gxx_flag_delim=','
@@ -2337,13 +2355,13 @@ AC_DEFUN([GASNET_LINKHELPER_TRY_RUN],[GASNET_LINKHELPER_TRY_INNER([RUN_WITHCC],$
          rs6000|powerpc*) GASNET_GET_PPC64_FLAGS(CXX,["-force_cpusubtype_ALL" "-Wa,-mppc64"]);;
          ia64) GASNET_TRY_CXXFLAG([-mtls-size=64], [MISC_CXXFLAGS="$MISC_CXXFLAGS -mtls-size=64"]);;
        esac
+       # set CXXDEBUGFLAGS
        GASNET_PUSHVAR(CXXFLAGS,"${gxx_flag_prefix}-g3")
        case "$target_os" in
          darwin*) # Want -gstabs+ instead of -g3, if supported
            GASNET_TRY_CXXFLAG([${gxx_flag_prefix}-gstabs+], [CXXFLAGS="${gxx_flag_prefix}-gstabs+"])
            ;;
        esac
-       GASNET_GET_GNUWARNINGFLAGS(CXX)
        CXXDEBUGFLAGS="$CXXFLAGS"
        GASNET_POPVAR(CXXFLAGS)
     ;;
@@ -2386,21 +2404,11 @@ AC_DEFUN([GASNET_LINKHELPER_TRY_RUN],[GASNET_LINKHELPER_TRY_INNER([RUN_WITHCC],$
        else
          CXXOPTFLAGS="-O3 -OPT:wrap_around_unsafe=off"
        fi
-       GASNET_PUSHVAR(CXXFLAGS,"-g3")
-       GASNET_GET_GNUWARNINGFLAGS(CXX)
-       CXXDEBUGFLAGS="$CXXFLAGS" 
-       GASNET_POPVAR(CXXFLAGS)
+       CXXDEBUGFLAGS="-g3"
     ;;
     Clang)
-       GASNET_TRY_WNO_FLAG([CXX],[-Wno-empty-body],[MISC_CXXFLAGS="$MISC_CXXFLAGS -Wno-empty-body"])
-       GASNET_PUSHVAR(CXXFLAGS,"-O3")
-       GASNET_TRY_WNO_FLAG([CXX],[-Wno-unused-value],[CXXFLAGS="$CXXFLAGS -Wno-unused-value"])
-       CXXOPTFLAGS="$CXXFLAGS"
-       GASNET_POPVAR(CXXFLAGS)
-       GASNET_PUSHVAR(CXXFLAGS,"-g")
-       GASNET_GET_GNUWARNINGFLAGS(CXX)
-       CXXDEBUGFLAGS="$CXXFLAGS" 
-       GASNET_POPVAR(CXXFLAGS)
+       CXXOPTFLAGS="-O3"
+       CXXDEBUGFLAGS="-g" 
     ;;
   esac  
   if test "$BUILDCONFIG" = "optimize" ; then
@@ -2409,6 +2417,18 @@ AC_DEFUN([GASNET_LINKHELPER_TRY_RUN],[GASNET_LINKHELPER_TRY_INNER([RUN_WITHCC],$
     GASNET_OPT_CXXFLAGS="$CXXDEBUGFLAGS"
   fi
   AC_SUBST(GASNET_OPT_CXXFLAGS)
+
+  # Add GNU-style warning enable/suppression flags to MISC_CXXFLAGS
+  case "$CXX_FAMILY" in
+    GNU | Pathscale | Open64 | Clang)
+      GASNET_PUSHVAR(CXXFLAGS,"$MISC_CXXFLAGS")
+      GASNET_GET_GNUWARNINGFLAGS(CXX,[${gxx_flag_prefix}])
+      MISC_CXXFLAGS="$CXXFLAGS"
+      GASNET_POPVAR(CXXFLAGS)
+    ;;
+    *) ;;
+  esac
+
   # MISC_CXXFLAGS are added to CXXFLAGS here to ensure they are used for the remaining configure tests,
   # but they retain a separate identity post-configure
   CXXFLAGS="$GASNET_OPT_CXXFLAGS $MISC_CXXFLAGS"
