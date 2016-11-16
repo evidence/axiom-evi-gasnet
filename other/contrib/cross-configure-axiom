@@ -123,6 +123,17 @@ if test "$HOST_ARG" = ""; then
   CC="$oldCC"
 fi
 
+export PKG_CONFIG_PATH=$SRCDIR/../output/lib/pkgconfig
+if pkg-config --exists ompi; then
+    export MPI_CFLAGS="$(pkg-config --cflags ompi) -fPIC"
+    export MPI_LIBS="$(pkg-config --libs ompi)"
+    #export MPI_CC="$(pkg-config --variable=exec_prefix ompi)/bin/aarch64-buildroot-linux-gnu-gcc"
+    #MPI_CC="$(pkg-config --variable=exec_prefix ompi)/bin/mpicc"
+    EXTRA_CONFIGURE_ARGS="$EXTRA_CONFIGURE_ARGS --enable-mpi"
+fi
+#    EXTRA_CONFIGURE_ARGS="$EXTRA_CONFIGURE_ARGS --enable-mpi --with-mpi-cc=$MPI_CC \"--with-mpi-cflags=$MPI_CFLAGS\" \"--with-mpi-libs=$MPI_LIBS\""
+
+
 # Now that everything is setup, run the actual configure script
 $SRCDIR/configure \
     --prefix=$SRCDIR/../output \
