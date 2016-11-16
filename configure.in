@@ -4639,6 +4639,20 @@ AC_SUBST(READLINK)
 AC_SUBST(TIMECMD)
 AC_SUBST(ENVCMD)
 
+#### PKGCONFIG files
+
+AM_CONDITIONAL(BUILD_DEBUG_LIBS, test "$enable_debug" = "yes")
+AM_CONDITIONAL(BUILD_PERFORMANCE_LIBS, test "$enable_debug" != "yes")
+if test "$enabled_debug" = yes; then
+AC_CONFIG_FILES([
+                 gasnet-debug.pc:gasnet-debug.pc.in
+],[],[])
+else
+AC_CONFIG_FILES([
+                 gasnet-performance.pc:gasnet-performance.pc.in
+],[],[])
+fi
+
 ########################################################################
 
 # complete linker setup

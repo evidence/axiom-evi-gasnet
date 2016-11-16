@@ -110,6 +110,20 @@ INSTALL_DOCS =			\
 	docs/gasnet.pdf		\
 	docs/gasnet.ps	
 
+### start PKGCONFIG
+
+pkgconfigdir = $(prefix)/lib/pkgconfig
+if BUILD_DEBUG_LIBS
+pkgconfig_DATA = gasnet-debug.pc
+else
+pkgconfig_DATA = gasnet-performance.pc
+endif
+
+DISTCLEANFILES = $(pkgconfig_DATA)
+EXTRA_DIST += gasnet-debug.pc.in gasnet-performance.pc.in
+
+### end PKGCONFIG
+
 force:
 
 #-------------------------------------------------------
