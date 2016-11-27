@@ -59,10 +59,10 @@
 #endif
 
 /* define these to 1 if your conduit cannot use the default implementation
-   of gasnetc_reghandler() (in gasnet_internal.c)
+   of gasnetc_amregister() (in gasnet_internal.c)
  */
 #if (0)
-#define GASNETC_REGHANDLER 1
+#define GASNETC_AMREGISTER 1
 #endif
 
 /* define these to 1 if your conduit supports PSHM, but cannot use the

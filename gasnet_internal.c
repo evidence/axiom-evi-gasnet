@@ -302,20 +302,20 @@ extern void gasneti_defaultAMHandler(gasnet_token_t token) {
                      (int)gasnet_mynode(), (int)gasnet_nodes(), (int)srcnode);
 }
 /* ------------------------------------------------------------------------------------ */
-#if GASNETC_REGHANDLER
+#if GASNETC_AMREGISTER
   /* Use conduit-specific impl */
-  extern int gasnetc_reghandler(gasnet_handler_t, gasneti_handler_fn_t);
+  extern int gasnetc_amregister(gasnet_handler_t, gasneti_handler_fn_t);
 #else
   /* Use default/recommended impl */
   extern gasneti_handler_fn_t gasnetc_handler[];
-  static int gasnetc_reghandler(gasnet_handler_t index, gasneti_handler_fn_t fnptr) {
+  static int gasnetc_amregister(gasnet_handler_t index, gasneti_handler_fn_t fnptr) {
     /* register a single handler */
     gasneti_assert(gasnetc_handler[index] == gasneti_defaultAMHandler);
     gasnetc_handler[index] = fnptr;
     return GASNET_OK;
   }
 #endif
-extern int gasneti_reghandlers(gasnet_handlerentry_t *table, int numentries,
+extern int gasneti_amregister(gasnet_handlerentry_t *table, int numentries,
                                int lowlimit, int highlimit,
                                int dontcare, int *numregistered) {
   static char checkuniqhandler[256] = { 0 };
@@ -351,7 +351,7 @@ extern int gasneti_reghandlers(gasnet_handlerentry_t *table, int numentries,
     checkuniqhandler[newindex] = 1;
 
     /* register the handler */
-    int rc = gasnetc_reghandler((gasnet_handler_t)newindex, (gasneti_handler_fn_t)table[i].fnptr);
+    int rc = gasnetc_amregister((gasnet_handler_t)newindex, (gasneti_handler_fn_t)table[i].fnptr);
     if (GASNET_OK != rc) return rc;
 
     /* The check below for !table[i].index is redundant and present
