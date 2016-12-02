@@ -138,9 +138,9 @@ int gasnetc_ofi_am_send_long(gasnet_node_t dest, gasnet_handler_t handler,
 
 /* One-siede PUT/GET Functions */
 void gasnetc_rdma_put(gasnet_node_t node, void *dest, void * src, size_t nbytes,
-		void *ctxt_ptr);
+		ofi_op_ctxt_t *ctxt_ptr);
 void gasnetc_rdma_get(void *dest, gasnet_node_t node, void * src, size_t nbytes,
-		void *ctxt_ptr);
+		ofi_op_ctxt_t *ctxt_ptr);
 void gasnetc_rdma_put_wait(gasnet_handle_t op);
 void gasnetc_rdma_get_wait(gasnet_handle_t op);
 

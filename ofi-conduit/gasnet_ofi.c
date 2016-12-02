@@ -930,7 +930,7 @@ int gasnetc_ofi_am_send_long(gasnet_node_t dest, gasnet_handler_t handler,
 
 void
 gasnetc_rdma_put(gasnet_node_t dest, void *dest_addr, void *src_addr, size_t nbytes,
-		void *ctxt_ptr)
+		ofi_op_ctxt_t *ctxt_ptr)
 {
 	int ret = FI_SUCCESS;
 
@@ -953,7 +953,7 @@ gasnetc_rdma_put(gasnet_node_t dest, void *dest_addr, void *src_addr, size_t nby
 
 void
 gasnetc_rdma_get(void *dest_addr, gasnet_node_t dest, void * src_addr, size_t nbytes,
-		void *ctxt_ptr)
+		ofi_op_ctxt_t *ctxt_ptr)
 {
 	int ret = FI_SUCCESS;
 

@@ -386,7 +386,7 @@ extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void
 	{
 		gasnete_eop_t *op = _gasnete_eop_new(GASNETE_MYTHREAD);
 		op->ofi.type = OFI_TYPE_EGET;
-		gasnetc_rdma_get(dest, node, src, nbytes, (void *) &op->ofi);
+		gasnetc_rdma_get(dest, node, src, nbytes, &op->ofi);
 		return (gasnet_handle_t)op;
 	}
 }
@@ -397,7 +397,7 @@ extern gasnet_handle_t gasnete_put_nb      (gasnet_node_t node, void *dest, void
 	{
 		gasnete_eop_t *op = _gasnete_eop_new(GASNETE_MYTHREAD);
 		op->ofi.type = OFI_TYPE_EPUT;
-		gasnetc_rdma_put(node, dest, src, nbytes, (void *) &op->ofi);
+		gasnetc_rdma_put(node, dest, src, nbytes, &op->ofi);
 		gasnetc_rdma_put_wait((gasnet_handle_t) op);
 		return (gasnet_handle_t)op;
 	}
@@ -409,7 +409,7 @@ extern gasnet_handle_t gasnete_put_nb_bulk (gasnet_node_t node, void *dest, void
 	{
 		gasnete_eop_t *op = _gasnete_eop_new(GASNETE_MYTHREAD);
 		op->ofi.type = OFI_TYPE_EPUT;
-		gasnetc_rdma_put(node, dest, src, nbytes, (void *) &op->ofi);
+		gasnetc_rdma_put(node, dest, src, nbytes, &op->ofi);
 		return (gasnet_handle_t)op;
 	}
 }
@@ -538,7 +538,7 @@ extern void gasnete_put_nbi      (gasnet_node_t node, void *dest, void *src, siz
 		gasnete_iop_t *op = mythread->current_iop;
 		op->initiated_put_cnt++;
 		op->put_ofi.type = OFI_TYPE_IPUT;
-		gasnetc_rdma_put(node, dest, src, nbytes, (void *) &op->put_ofi);
+		gasnetc_rdma_put(node, dest, src, nbytes, &op->put_ofi);
 		gasnetc_rdma_put_wait((gasnet_handle_t) op);
 	}
 }
@@ -551,7 +551,7 @@ extern void gasnete_put_nbi_bulk (gasnet_node_t node, void *dest, void *src, siz
 		gasnete_iop_t *op = mythread->current_iop;
 		op->initiated_put_cnt++;
 		op->put_ofi.type = OFI_TYPE_IPUT;
-		gasnetc_rdma_put(node, dest, src, nbytes, (void *) &op->put_ofi);
+		gasnetc_rdma_put(node, dest, src, nbytes, &op->put_ofi);
 	}
 }
 
@@ -666,7 +666,7 @@ extern void gasnete_put_bulk (gasnet_node_t node, void* dest, void *src,
 		gasnete_iop_t *op = mythread->current_iop;
 		op->initiated_put_cnt++;
 		op->put_ofi.type = OFI_TYPE_IPUT;
-		gasnetc_rdma_put(node, dest, src, nbytes, (void *) &op->put_ofi);
+		gasnetc_rdma_put(node, dest, src, nbytes, &op->put_ofi);
 		gasnetc_rdma_put_wait((gasnet_handle_t) op);
 	}
 }
