@@ -461,7 +461,7 @@ extern int gasnetc_AMPoll(void) {
 
   /* add code here to run your AM progress engine */
   /* should be a generic polling */
-  gasnetc_ofi_poll(0);
+  gasnetc_ofi_poll();
 
   return GASNET_OK;
 }
