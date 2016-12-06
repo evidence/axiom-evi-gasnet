@@ -641,38 +641,6 @@ extern gasnet_handle_t gasnete_end_nbi_accessregion(GASNETE_THREAD_FARG_ALONE) {
 
 /* ------------------------------------------------------------------------------------ */
 /*
-  Blocking memory-to-memory transfers
-  ===================================
-*/
-
-extern void gasnete_get_bulk (void *dest, gasnet_node_t node, void *src,
-		size_t nbytes GASNETE_THREAD_FARG) {
-	GASNETI_CHECKPSHM_GET(UNALIGNED,V);
-	{
-		gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
-		gasnete_iop_t *op = mythread->current_iop;
-		op->initiated_get_cnt++;
-		op->get_ofi.type = OFI_TYPE_IGET;
-		gasnetc_rdma_get(dest, node, src, nbytes, (void *) &op->get_ofi);
-		gasnetc_rdma_get_wait((gasnet_handle_t) op);
-	}
-}
-
-extern void gasnete_put_bulk (gasnet_node_t node, void* dest, void *src,
-		size_t nbytes GASNETE_THREAD_FARG) {
-	GASNETI_CHECKPSHM_PUT(UNALIGNED,V);
-	{
-		gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
-		gasnete_iop_t *op = mythread->current_iop;
-		op->initiated_put_cnt++;
-		op->put_ofi.type = OFI_TYPE_IPUT;
-		gasnetc_rdma_put(node, dest, src, nbytes, &op->put_ofi);
-		gasnetc_rdma_put_wait((gasnet_handle_t) op);
-	}
-}
-
-/* ------------------------------------------------------------------------------------ */
-/*
   Barriers:
   =========
 */
