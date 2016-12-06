@@ -302,17 +302,19 @@ int gasnetc_ofi_init(int *argc, char ***argv,
   if (FI_SUCCESS != ret) gasneti_fatalerror("fi_getepname failed: %d\n", ret);
   alladdrs = gasneti_malloc(gasneti_nodes*socknamelen*2);
   (*gasneti_bootstrapExchange_p)(&sockname, socknamelen*2, alladdrs);
-  if (gasneti_nodes*2 != fi_av_insert(gasnetc_ofi_avfd, alladdrs, gasneti_nodes*2,
-			  (fi_addr_t*)mapped_table, 0ULL, NULL)) {
-  	gasneti_fatalerror("fi_av_insert failed: %d\n", ret);
-  }
+
+  ret = fi_av_insert(gasnetc_ofi_avfd, alladdrs, gasneti_nodes*2, (fi_addr_t*)mapped_table,
+          0ULL, NULL);
+  if (gasneti_nodes*2 != ret) 
+      gasneti_fatalerror("fi_av_insert failed. Expected: %d Actual: %d\n", gasneti_nodes*2, ret);
+  
   gasneti_free(alladdrs);
 
   fi_freeinfo(hints);
 
   gasnetc_ofi_inited = 1;
 
-  return ret;
+  return GASNET_OK;
 }
 
 /*------------------------------------------------
