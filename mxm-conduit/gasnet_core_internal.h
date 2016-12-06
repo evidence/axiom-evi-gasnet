@@ -127,7 +127,7 @@ enum {
 
 #ifdef GASNETI_USE_ALLOCA
 /* Keep defined */
-#elif !PLATFORM_COMPILER_PGI
+#else
 #define GASNETI_USE_ALLOCA 1
 #endif
 
