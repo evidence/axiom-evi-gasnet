@@ -3887,6 +3887,20 @@ if test "$enabled_ofi" = yes; then
     fi
     GASNET_OFI_SPAWNER_CONF=$gasnet_ofi_spawner_conf
     AC_SUBST(GASNET_OFI_SPAWNER_CONF)
+
+    GASNET_WITH(ofi-num-completions,
+                [Max number of completions for ofi-conduit to read from a CQ at one time (default 64)],
+                [if expr "$withval" : '[[0-9]]*$' >/dev/null 2>&1 && \
+                    expr "$withval" '>' 0  >/dev/null 2>&1 ; then
+                    ofi_num_completions="$withval"
+                else
+                    AC_MSG_ERROR([--with-ofi-num-completions="$withval" is not legal.  Value must be greater than 0])
+                fi
+                ],
+                [ AC_MSG_ERROR([--with-ofi-num-completions must be greater than 0])],
+                 [ofi_num_completions=64])
+    AC_DEFINE_UNQUOTED(GASNETC_OFI_NUM_COMPLETIONS, [$ofi_num_completions])
+
   fi
 fi
 AC_SUBST(OFI_INCLUDES)

@@ -51,13 +51,12 @@ typedef struct fid_mr*            fid_mr_t;
 fid_fabric_t    gasnetc_ofi_fabricfd;
 fid_domain_t    gasnetc_ofi_domainfd;
 fid_av_t        gasnetc_ofi_avfd;
+fid_cq_t        gasnetc_ofi_tx_cqfd; /* CQ for both AM and RDMA tx ops */
 
 fid_ep_t        gasnetc_ofi_rdma_epfd;
-fid_cq_t        gasnetc_ofi_rdma_cqfd;
 fid_mr_t        gasnetc_ofi_rdma_mrfd;
 
 fid_ep_t        gasnetc_ofi_am_epfd;
-fid_cq_t        gasnetc_ofi_am_scqfd;
 fid_cq_t        gasnetc_ofi_am_rcqfd;
 
 /* Address table data */

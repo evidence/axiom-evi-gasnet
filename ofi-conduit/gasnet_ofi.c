@@ -231,26 +231,24 @@ int gasnetc_ofi_init(int *argc, char ***argv,
   ret = fi_endpoint(gasnetc_ofi_domainfd, info, &gasnetc_ofi_am_epfd, NULL);
   if (FI_SUCCESS != ret) gasneti_fatalerror("fi_endpoint for am failed: %d\n", ret);
 
-  /* Allocate a new completion queue for RDMA operations */
+  /* Allocate a CQ that will be shared for both RDMA and AM tx ops */
   memset(&cq_attr, 0, sizeof(cq_attr));
   cq_attr.format    = FI_CQ_FORMAT_DATA; /* Provides data associated with a completion */
-  ret = fi_cq_open(gasnetc_ofi_domainfd, &cq_attr, &gasnetc_ofi_rdma_cqfd, NULL);
+  ret = fi_cq_open(gasnetc_ofi_domainfd, &cq_attr, &gasnetc_ofi_tx_cqfd, NULL);
   if (FI_SUCCESS != ret) gasneti_fatalerror("fi_cq_open for rdma_eqfd failed: %d\n", ret);
 
-  /* Allocate send/recv completion queues for AM operations */
+  /* Allocate recv completion queues for AMs */
   memset(&cq_attr, 0, sizeof(cq_attr));
   cq_attr.format    = FI_CQ_FORMAT_DATA;
-  ret = fi_cq_open(gasnetc_ofi_domainfd, &cq_attr, &gasnetc_ofi_am_scqfd, NULL);
-  if (FI_SUCCESS != ret) gasneti_fatalerror("fi_cq_open for am send cq faled: %d\n", ret);
   ret = fi_cq_open(gasnetc_ofi_domainfd, &cq_attr, &gasnetc_ofi_am_rcqfd, NULL);
   if (FI_SUCCESS != ret) gasneti_fatalerror("fi_cq_open for am recv cq failed: %d\n", ret);
 
   /* Bind CQs to endpoints */
-  ret = fi_ep_bind(gasnetc_ofi_rdma_epfd, &gasnetc_ofi_rdma_cqfd->fid, FI_SEND);
-  if (FI_SUCCESS != ret) gasneti_fatalerror("fi_ep_bind for rdma_cqfd to rdma_epfd failed: %d\n", ret);
+  ret = fi_ep_bind(gasnetc_ofi_rdma_epfd, &gasnetc_ofi_tx_cqfd->fid, FI_TRANSMIT);
+  if (FI_SUCCESS != ret) gasneti_fatalerror("fi_ep_bind for tx_cq to rdma_epfd failed: %d\n", ret);
 
-  ret = fi_ep_bind(gasnetc_ofi_am_epfd, &gasnetc_ofi_am_scqfd->fid, FI_SEND);
-  if (FI_SUCCESS != ret) gasneti_fatalerror("fi_ep_bind for am_scqfd to am_epfd failed: %d\n", ret);
+  ret = fi_ep_bind(gasnetc_ofi_am_epfd, &gasnetc_ofi_tx_cqfd->fid, FI_TRANSMIT);
+  if (FI_SUCCESS != ret) gasneti_fatalerror("fi_ep_bind for tx_cq to am_epfd failed: %d\n", ret);
 
   ret = fi_ep_bind(gasnetc_ofi_am_epfd, &gasnetc_ofi_am_rcqfd->fid, FI_RECV);
   if (FI_SUCCESS != ret) gasneti_fatalerror("fi_ep_bind for am_rcqfd to am_epfd failed: %d\n", ret);
@@ -369,16 +367,12 @@ void gasnetc_ofi_exit(void)
     gasneti_fatalerror("close rdma epfd failed\n");
   }
 
-  if(fi_close(&gasnetc_ofi_am_scqfd->fid)!=FI_SUCCESS) {
+  if(fi_close(&gasnetc_ofi_tx_cqfd->fid)!=FI_SUCCESS) {
     gasneti_fatalerror("close am scqfd failed\n");
   }
 
   if(fi_close(&gasnetc_ofi_am_rcqfd->fid)!=FI_SUCCESS) {
     gasneti_fatalerror("close am rcqfd failed\n");
-  }
-
-  if(fi_close(&gasnetc_ofi_rdma_cqfd->fid)!=FI_SUCCESS) {
-    gasneti_fatalerror("close write eqfd failed\n");
   }
 
   if(fi_close(&gasnetc_ofi_avfd->fid)!=FI_SUCCESS) {
@@ -565,60 +559,47 @@ void gasnetc_ofi_attach(void *segbase, uintptr_t segsize)
  * OFI conduit network poll function
  * ----------------------------------------------*/
 
-/* RDMA progress function */
-GASNETI_PLEASE_INLINE(gasnetc_ofi_rdma_poll)
-void gasnetc_ofi_rdma_poll()
+/* TX progress function: Handles both AM and RDMA outgoing operations */
+void gasnetc_ofi_tx_poll()
 {
 	int ret = 0;
-	struct fi_cq_data_entry re = {0};
-	struct fi_cq_err_entry e = {0};
+    int i;
+	struct fi_cq_data_entry re[GASNETC_OFI_NUM_COMPLETIONS];
+	struct fi_cq_err_entry e;
 
 	/* Read from Completion Queue */
 	GASNETC_OFI_LOCK();
-	ret = fi_cq_read(gasnetc_ofi_rdma_cqfd, (void *)&re, 1);
+	ret = fi_cq_read(gasnetc_ofi_tx_cqfd, (void *)&re, GASNETC_OFI_NUM_COMPLETIONS);
 	GASNETC_OFI_UNLOCK();
 	if (ret != -FI_EAGAIN)
 	{
 		if_pf (ret < 0) {
-			int err_sz = 0;
-			err_sz = fi_cq_readerr(gasnetc_ofi_rdma_cqfd, &e ,0);
-                        if_pf (gasnetc_is_exit_error(e)) return;
-			gasneti_fatalerror("fi_cq_read for rdma_ep failed with error: %s, err_sz %d\n", 
-					fi_strerror(e.err), err_sz);
-		} else {
-			/* got a RDMA ACK message, update handler */
-			ofi_op_ctxt_t *ptr = (ofi_op_ctxt_t *)re.op_context;
-			ptr->callback(re.op_context);
-			gasnetc_paratomic_decrement(&pending_rdma,0);
-		}
-	}
-}
-
-/* AM progress function */
-GASNETI_PLEASE_INLINE(gasnetc_ofi_am_send_poll)
-void gasnetc_ofi_am_send_poll()
-{
-	int ret = 0;
-	struct fi_cq_data_entry re = {0};
-	struct fi_cq_err_entry e = {0};
-
-	/* Read from Completion Queue */
-	GASNETC_OFI_LOCK();
-	ret = fi_cq_read(gasnetc_ofi_am_scqfd, (void *)&re, 1);
-	GASNETC_OFI_UNLOCK();
-	if (ret != -FI_EAGAIN)
-	{
-		if_pf (ret < 0) {
-			fi_cq_readerr(gasnetc_ofi_am_scqfd, &e ,0);
-                        if_pf (gasnetc_is_exit_error(e)) return;
-			gasneti_fatalerror("fi_cq_read for am_send_poll failed with error: %s\n", fi_strerror(e.err));
-		} else {
-			ofi_am_buf_t *header;
-			header = (ofi_am_buf_t *)re.op_context;
-			header->callback(&re, header);
-			gasnetc_paratomic_decrement(&pending_am, 0);
-		}
-	}
+            if (-FI_EAVAIL == ret) {
+                fi_cq_readerr(gasnetc_ofi_tx_cqfd, &e ,0);
+                if_pf (gasnetc_is_exit_error(e)) return;
+                gasneti_fatalerror("fi_cq_read for tx_poll failed with error: %s\n", fi_strerror(e.err));
+            } 
+            else
+                gasneti_fatalerror("fi_cq_read for tx_poll returned unexpected error code: %d\n", ret);
+        } 
+        else {
+            for (i = 0; i < ret; i++) {
+                if (re[i].flags & FI_SEND) {
+                    ofi_am_buf_t *header = (ofi_am_buf_t *)re[i].op_context;
+                    header->callback(&re[i], header);
+                    gasnetc_paratomic_decrement(&pending_am, 0);
+                }
+                else if(re[i].flags & FI_WRITE || re[i].flags & FI_READ) {
+                    ofi_op_ctxt_t *header = (ofi_op_ctxt_t *)re[i].op_context;
+                    header->callback(header);
+                    gasnetc_paratomic_decrement(&pending_rdma, 0);
+                }
+                else {
+                    gasneti_fatalerror("Unknown completion type received for gasnetc_ofi_tx_poll\n");
+                }
+            }
+        }
+    }
 }
 
 GASNETI_PLEASE_INLINE(gasnetc_ofi_am_recv_poll)
@@ -671,10 +652,8 @@ void gasnetc_ofi_am_recv_poll()
 void gasnetc_ofi_poll()
 {
     /* These poll functions should be inlined by the compiler */
-    if(gasnetc_paratomic_read(&pending_rdma,0))
-        gasnetc_ofi_rdma_poll();
-    if(gasnetc_paratomic_read(&pending_am,0))
-        gasnetc_ofi_am_send_poll();
+    if(gasnetc_paratomic_read(&pending_rdma,0) || gasnetc_paratomic_read(&pending_am,0))
+        gasnetc_ofi_tx_poll();
 
     /* We always need to check for incoming AMs */
     gasnetc_ofi_am_recv_poll();
