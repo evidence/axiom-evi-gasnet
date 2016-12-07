@@ -73,7 +73,6 @@ static int gasnetc_ofi_inited = 0;
 gasnetc_ofi_state_t gasnetc_ofi_state;
 
 #define OFI_CONDUIT_VERSION FI_VERSION(1, 0)
-#define NUM_CQ_ENTRIES 2
 
 #if GASNET_PSHM
 #define GASNETC_OFI_POLL_EVERYTHING() do { gasnetc_ofi_poll(); gasneti_AMPSHMPoll(0);} while (0)
@@ -101,7 +100,6 @@ int gasnetc_ofi_init(int *argc, char ***argv,
 {
   int ret = GASNET_OK;
   int result = GASNET_ERR_NOT_INIT;
-  int i;
   struct fi_info		*hints, *info;
   struct fi_cq_attr   	cq_attr 	= {0};
   struct fi_av_attr   	av_attr 	= {0};
@@ -692,7 +690,8 @@ int gasnetc_ofi_am_send_short(gasnet_node_t dest, gasnet_handler_t handler,
 {
 	int ret = FI_SUCCESS;
 	gasnet_handlerarg_t *arglist;
-	int i, len;
+	int i;
+    unsigned int len;
 	ofi_am_buf_t *header;
 	ofi_am_send_buf_t *sendbuf;
 
@@ -758,7 +757,8 @@ int gasnetc_ofi_am_send_medium(gasnet_node_t dest, gasnet_handler_t handler,
 {
 	int ret = FI_SUCCESS;
 	gasnet_handlerarg_t *arglist;
-	int i, len;
+	int i;
+    unsigned int len;
 	ofi_am_buf_t *header;
 	ofi_am_send_buf_t *sendbuf;
 
@@ -833,7 +833,8 @@ int gasnetc_ofi_am_send_long(gasnet_node_t dest, gasnet_handler_t handler,
 {
 	int ret = FI_SUCCESS;
 	gasnet_handlerarg_t *arglist;
-	int i, len;
+	int i;
+    unsigned int len;
 	ofi_am_buf_t *header;
 	ofi_am_send_buf_t *sendbuf;
 
@@ -993,7 +994,6 @@ gasnetc_rdma_get(void *dest_addr, gasnet_node_t dest, void * src_addr, size_t nb
 void
 gasnetc_rdma_put_wait(gasnet_handle_t oph)
 {
-	int ret;
 	gasnete_op_t *op = (gasnete_op_t*) oph;
 
 	if (OPTYPE(op) == OPTYPE_EXPLICIT) {
@@ -1012,7 +1012,6 @@ gasnetc_rdma_put_wait(gasnet_handle_t oph)
 void
 gasnetc_rdma_get_wait(gasnet_handle_t oph)
 {
-	int ret;
 	gasnete_op_t *op = (gasnete_op_t*) oph;
 
 	if (OPTYPE(op) == OPTYPE_EXPLICIT) {
