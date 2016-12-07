@@ -33,9 +33,12 @@
 #endif
 typedef gasnetc_paratomic(t)         gasnetc_paratomic_t;
 #define gasnetc_paratomic_init       gasnetc_paratomic(init)
+#define gasnetc_paratomic_set        gasnetc_paratomic(set)
 #define gasnetc_paratomic_read       gasnetc_paratomic(read)
 #define gasnetc_paratomic_increment  gasnetc_paratomic(increment)
+#define gasnetc_paratomic_add        gasnetc_paratomic(add)
 #define gasnetc_paratomic_decrement  gasnetc_paratomic(decrement)
+#define gasnetc_paratomic_decrement_and_test  gasnetc_paratomic(decrement_and_test)
 
 /* Typedefs */
 typedef struct fid_ep*            fid_ep_t;
@@ -107,6 +110,12 @@ typedef struct ofi_ctxt {
   struct fi_context 	ctxt;
   event_callback_fn		callback;
   int 					index;
+  char _pad0[GASNETI_CACHE_PAD(sizeof(int))];
+  gasnetc_paratomic_t   consumed_cntr;
+  char _pad1[GASNETI_CACHE_PAD(sizeof(gasnetc_paratomic_t))];
+  uint64_t final_cntr;
+  char _pad2[GASNETI_CACHE_PAD(sizeof(uint64_t))];
+  uint64_t event_cntr;
 } ofi_ctxt_t;
 
 typedef struct ofi_op_ctxt {

@@ -101,6 +101,7 @@ int gasnetc_ofi_init(int *argc, char ***argv,
 {
   int ret = GASNET_OK;
   int result = GASNET_ERR_NOT_INIT;
+  int i;
   struct fi_info		*hints, *info;
   struct fi_cq_attr   	cq_attr 	= {0};
   struct fi_av_attr   	av_attr 	= {0};
@@ -549,8 +550,11 @@ void gasnetc_ofi_attach(void *segbase, uintptr_t segsize)
 		am_buff_msg[i].desc	  	= NULL;
 		am_buff_msg[i].context 		= &am_buff_ctxt[i].ctxt;
 		am_buff_msg[i].data 		= 0;
-		am_buff_ctxt[i].callback	= gasnetc_ofi_handle_am;
-		am_buff_ctxt[i].index		= i;
+        am_buff_ctxt[i].callback	= gasnetc_ofi_handle_am;
+        am_buff_ctxt[i].index		= i;
+        am_buff_ctxt[i].final_cntr = 0;
+        am_buff_ctxt[i].event_cntr = 0;
+        gasnetc_paratomic_set(&am_buff_ctxt[i].consumed_cntr, 0, 0);
 		/* Post buffers for Active Messages */
 		ret = fi_recvmsg(gasnetc_ofi_am_epfd, &am_buff_msg[i], FI_MULTI_RECV);
 		if (FI_SUCCESS != ret) gasneti_fatalerror("fi_recvmsg failed: %d\n", ret);
@@ -623,36 +627,46 @@ GASNETI_PLEASE_INLINE(gasnetc_ofi_am_recv_poll)
 void gasnetc_ofi_am_recv_poll()
 {
 	int ret = 0;
+    int post_ret = 0;
 	struct fi_cq_data_entry re = {0};
 	struct fi_cq_err_entry e = {0};
 
 	/* Read from Completion Queue */
 	GASNETC_OFI_LOCK();
 	ret = fi_cq_read(gasnetc_ofi_am_rcqfd, (void *)&re, 1);
-	GASNETC_OFI_UNLOCK();
-	if (ret != -FI_EAGAIN)
-	{
-		if_pf (ret < 0) {
-			fi_cq_readerr(gasnetc_ofi_am_rcqfd, &e ,0);
-            if_pf (gasnetc_is_exit_error(e)) return;
-			gasneti_fatalerror("fi_cq_read for am_recv_poll failed with error: %s\n", fi_strerror(e.err));
-		} else {
-			if_pf(re.flags & FI_MULTI_RECV)
-			{
-				/* One pre-post buffer is used up, re-link it */
-				ofi_ctxt_t *header;
-				header = (ofi_ctxt_t *)re.op_context;
-				if (re.len < min_multi_recv && re.len != 0)
-					header->callback(&re, header);
-				ret = fi_recvmsg(gasnetc_ofi_am_epfd, &(am_buff_msg[header->index]), FI_MULTI_RECV);
-				if (FI_SUCCESS != ret) gasneti_fatalerror("fi_recvmsg failed inside am_poll: %d\n", ret);
-			} else {
-				ofi_am_buf_t *header;
-				header = (ofi_am_buf_t *)re.op_context;
-				header->callback(&re, header);
-			}
-		}
-	}
+    if (ret == -FI_EAGAIN) {
+        GASNETC_OFI_UNLOCK();
+        return;
+    } 
+    if_pf (ret < 0) {
+        fi_cq_readerr(gasnetc_ofi_am_rcqfd, &e ,0);
+        GASNETC_OFI_UNLOCK();
+        if_pf (gasnetc_is_exit_error(e)) return;
+        gasneti_fatalerror("fi_cq_read for am_recv_poll failed with error: %s\n", fi_strerror(e.err));
+    }
+
+    ofi_ctxt_t *header;
+    header = (ofi_ctxt_t *)re.op_context;
+    /* Count number of completions read for this posted buffer */
+    header->event_cntr++;
+
+    /* Record the total number of completions read */
+    if_pf (re.flags & FI_MULTI_RECV) {
+        header->final_cntr = header->event_cntr;
+    }
+    GASNETC_OFI_UNLOCK();
+
+    if_pt (re.flags & FI_RECV) header->callback(&re, header);
+
+    /* The atomic here ensures that the buffer is not reposted while an AM handler is
+     * still running. */
+    uint64_t tmp = gasnetc_paratomic_add(&header->consumed_cntr, 1, GASNETI_ATOMIC_ACQ);
+    if_pf (tmp == (GASNETI_ATOMIC_MAX & header->final_cntr)) {
+        GASNETC_OFI_LOCK();
+        post_ret = fi_recvmsg(gasnetc_ofi_am_epfd, &(am_buff_msg[header->index]), FI_MULTI_RECV);
+        if_pf (FI_SUCCESS != post_ret) gasneti_fatalerror("fi_recvmsg failed inside am_recv_poll: %d\n", ret);
+        GASNETC_OFI_UNLOCK();
+    }
 }
 
 /* General progress function */
