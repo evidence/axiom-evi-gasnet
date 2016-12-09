@@ -89,6 +89,12 @@ static inline int gasnetc_is_exiting(void) {
 #define gasnetc_is_exit_error(e) 0
 #endif
 
+/*-------------------------------------------------
+ * Function Declarations
+ *-------------------------------------------------*/
+GASNETI_INLINE(gasnetc_ofi_handle_am)
+void gasnetc_ofi_handle_am(struct fi_cq_data_entry *re, void *buf);
+
 /*------------------------------------------------
  * Initialize OFI conduit
  * ----------------------------------------------*/
@@ -106,6 +112,9 @@ int gasnetc_ofi_init(int *argc, char ***argv,
   size_t optlen;
   int num_locks; 
   int i;
+  int iov_len = OFI_AM_BLOCK_SIZE;
+  int num_iov = OFI_AM_NUM_BLOCK;
+  
   conn_entry_t *mapped_table;
   int high_perf_prov = 0;
 
@@ -316,6 +325,30 @@ int gasnetc_ofi_init(int *argc, char ***argv,
 
   fi_freeinfo(hints);
 
+  /* Receive buffers to post */
+  am_iov = (struct iovec *) gasneti_malloc(sizeof(struct iovec)*num_iov);
+  am_buff_msg = (struct fi_msg *) gasneti_malloc(sizeof(struct fi_msg)*num_iov);
+  am_buff_ctxt = (ofi_ctxt_t *) gasneti_malloc(sizeof(ofi_ctxt_t)*num_iov);
+
+  for(i = 0; i < num_iov; i++) {
+		am_iov[i].iov_base		= gasneti_malloc(iov_len);
+		am_iov[i].iov_len		= iov_len;
+		am_buff_msg[i].msg_iov		= &am_iov[i];
+		am_buff_msg[i].iov_count 	= 1;
+		am_buff_msg[i].addr 		= FI_ADDR_UNSPEC;
+		am_buff_msg[i].desc	  	= NULL;
+		am_buff_msg[i].context 		= &am_buff_ctxt[i].ctxt;
+		am_buff_msg[i].data 		= 0;
+        am_buff_ctxt[i].callback	= gasnetc_ofi_handle_am;
+        am_buff_ctxt[i].index		= i;
+        am_buff_ctxt[i].final_cntr = 0;
+        am_buff_ctxt[i].event_cntr = 0;
+        gasnetc_paratomic_set(&am_buff_ctxt[i].consumed_cntr, 0, 0);
+		/* Post buffers for Active Messages */
+		ret = fi_recvmsg(gasnetc_ofi_am_epfd, &am_buff_msg[i], FI_MULTI_RECV);
+		if (FI_SUCCESS != ret) gasneti_fatalerror("fi_recvmsg failed: %d\n", ret);
+	}
+
   gasnetc_ofi_inited = 1;
 
   return GASNET_OK;
@@ -525,12 +558,6 @@ ofi_am_buf_t *gasnetc_ofi_am_header(void)
 void gasnetc_ofi_attach(void *segbase, uintptr_t segsize)
 {
 	int ret = FI_SUCCESS;
-	int i;
-	int iov_len = OFI_AM_BLOCK_SIZE;
-	int num_iov = OFI_AM_NUM_BLOCK;
-	am_iov = (struct iovec *) gasneti_malloc(sizeof(struct iovec)*num_iov);
-	am_buff_msg = (struct fi_msg *) gasneti_malloc(sizeof(struct fi_msg)*num_iov);
-	am_buff_ctxt = (ofi_ctxt_t *) gasneti_malloc(sizeof(ofi_ctxt_t)*num_iov);
 
 	/* Pin-down Memory Region */
 #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
@@ -539,25 +566,6 @@ void gasnetc_ofi_attach(void *segbase, uintptr_t segsize)
 	ret = fi_mr_reg(gasnetc_ofi_domainfd, (void *)0, UINT64_MAX, FI_REMOTE_READ | FI_REMOTE_WRITE, 0ULL, 0ULL, FI_MR_SCALABLE, &gasnetc_ofi_rdma_mrfd, NULL);
 #endif
 	if (FI_SUCCESS != ret) gasneti_fatalerror("fi_mr_reg for rdma failed: %d\n", ret);
-
-	for(i = 0; i < num_iov; i++) {
-		am_iov[i].iov_base		= gasneti_malloc(iov_len);
-		am_iov[i].iov_len		= iov_len;
-		am_buff_msg[i].msg_iov		= &am_iov[i];
-		am_buff_msg[i].iov_count 	= 1;
-		am_buff_msg[i].addr 		= FI_ADDR_UNSPEC;
-		am_buff_msg[i].desc	  	= NULL;
-		am_buff_msg[i].context 		= &am_buff_ctxt[i].ctxt;
-		am_buff_msg[i].data 		= 0;
-        am_buff_ctxt[i].callback	= gasnetc_ofi_handle_am;
-        am_buff_ctxt[i].index		= i;
-        am_buff_ctxt[i].final_cntr = 0;
-        am_buff_ctxt[i].event_cntr = 0;
-        gasnetc_paratomic_set(&am_buff_ctxt[i].consumed_cntr, 0, 0);
-		/* Post buffers for Active Messages */
-		ret = fi_recvmsg(gasnetc_ofi_am_epfd, &am_buff_msg[i], FI_MULTI_RECV);
-		if (FI_SUCCESS != ret) gasneti_fatalerror("fi_recvmsg failed: %d\n", ret);
-	}
 
 }
 
