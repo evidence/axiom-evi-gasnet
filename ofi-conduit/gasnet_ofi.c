@@ -196,7 +196,7 @@ int gasnetc_ofi_init(int *argc, char ***argv,
   hints->ep_attr->type		= FI_EP_RDM; /* Reliable datagram */
   hints->domain_attr->threading			= FI_THREAD_FID;
 
-  hints->domain_attr->control_progress	= FI_PROGRESS_AUTO;
+  hints->domain_attr->control_progress	= FI_PROGRESS_MANUAL;
   /* resource_mgmt: FI_RM_ENABLED - provider protects against overrunning 
 	 local and remote resources. */
   hints->domain_attr->resource_mgmt		= FI_RM_ENABLED;
