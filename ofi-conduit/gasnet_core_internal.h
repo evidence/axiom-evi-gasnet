@@ -32,13 +32,12 @@
 extern gasneti_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS];
 
 #if GASNET_PAR
-#define GASNETC_OFI_LOCK() gasneti_spinlock_lock(&gasnetc_ofi_state.lock);
-#define GASNETC_OFI_TRYLOCK() gasneti_spinlock_trylock(&gasnetc_ofi_state.lock);
-#define GASNETC_OFI_UNLOCK() gasneti_spinlock_unlock(&gasnetc_ofi_state.lock);
+#define GASNETC_OFI_LOCK_EXPR(lock, expr) do { gasneti_spinlock_lock(lock); \
+                                               expr; \
+                                               gasneti_spinlock_unlock(lock); \
+                                          } while(0)
 #else
-#define GASNETC_OFI_LOCK()
-#define GASNETC_OFI_TRYLOCK()
-#define GASNETC_OFI_UNLOCK()
+#define GASNETC_OFI_LOCK_EXPR(lock, expr) do { expr; } while (0)
 #endif
 
 /* ------------------------------------------------------------------------------------ */
@@ -49,11 +48,19 @@ typedef enum {
   gasnetc_Long=2
 } gasnetc_category_t;
 
-typedef struct _gasnetc_ofi_state {
-	gasneti_atomic_t	lock;
-	/* more stuff will be migrated here */
-} gasnetc_ofi_state_t;
-
-extern gasnetc_ofi_state_t gasnetc_ofi_state;
+/* Unnamed struct to hold all the locks needed */
+struct {
+    gasneti_atomic_t rx_cq;
+    char _pad0[GASNETI_CACHE_PAD(sizeof(gasneti_atomic_t))];
+    gasneti_atomic_t tx_cq;
+    char _pad1[GASNETI_CACHE_PAD(sizeof(gasneti_atomic_t))];
+    gasneti_atomic_t rdma_tx;
+    char _pad2[GASNETI_CACHE_PAD(sizeof(gasneti_atomic_t))];
+    gasneti_atomic_t rdma_rx;
+    char _pad3[GASNETI_CACHE_PAD(sizeof(gasneti_atomic_t))];
+    gasneti_atomic_t am_tx;
+    char _pad4[GASNETI_CACHE_PAD(sizeof(gasneti_atomic_t))];
+    gasneti_atomic_t am_rx;
+} gasnetc_ofi_locks;
 
 #endif
