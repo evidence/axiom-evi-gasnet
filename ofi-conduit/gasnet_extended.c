@@ -373,9 +373,14 @@ extern gasnet_handle_t gasnete_put_nb      (gasnet_node_t node, void *dest, void
 	{
 		gasnete_eop_t *op = _gasnete_eop_new(GASNETE_MYTHREAD);
 		op->ofi.type = OFI_TYPE_EPUT;
-		gasnetc_rdma_put(node, dest, src, nbytes, &op->ofi);
-		gasnetc_rdma_put_wait((gasnet_handle_t) op);
-		return (gasnet_handle_t)op;
+        /* Try to submit this in a non-blocking way. If we can't, block for 
+         * it for correctness */
+		if (gasnetc_rdma_put_non_bulk(node, dest, src, nbytes, &op->ofi)) {
+		    gasnetc_rdma_put_wait((gasnet_handle_t) op);
+            gasnete_eop_free (op);
+            return GASNET_INVALID_HANDLE;
+        }
+        return (gasnet_handle_t)op;
 	}
 }
 
@@ -510,12 +515,26 @@ extern void gasnete_put_nbi      (gasnet_node_t node, void *dest, void *src, siz
 {
 	GASNETI_CHECKPSHM_PUT(ALIGNED,V);
 	{
+        /* If we know we will definitely submit this non-blocking op as
+         * a blocking one, simply call the put function to avoid messing
+         * with eops and iops. Note that if this branch is not taken, that
+         * doesn't mean that gasnetc_rdma_put_non_bulk will not still block.
+         * See below. */
+        if (gasnetc_rdma_put_will_block(nbytes)) {
+            gasnete_put(node, dest, src, nbytes);
+            return;
+        }
+
 		gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
 		gasnete_iop_t *op = mythread->current_iop;
 		op->initiated_put_cnt++;
 		op->put_ofi.type = OFI_TYPE_IPUT;
-		gasnetc_rdma_put(node, dest, src, nbytes, &op->put_ofi);
-		gasnetc_rdma_put_wait((gasnet_handle_t) op);
+        /* Try to submit this in a non-blocking way. If we can't, block for 
+         * it for correctness. Note that the blocking case will only be hit
+         * if there are not enough available boucne buffers. In that case,
+         * we may oversynchronize by finishing all iops prior to this one. */
+		if_pf (gasnetc_rdma_put_non_bulk(node, dest, src, nbytes, &op->put_ofi))
+		    gasnetc_rdma_put_wait((gasnet_handle_t) op);
 	}
 }
 

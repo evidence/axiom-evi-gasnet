@@ -59,6 +59,8 @@ fid_mr_t        gasnetc_ofi_rdma_mrfd;
 fid_ep_t        gasnetc_ofi_am_epfd;
 fid_cq_t        gasnetc_ofi_am_rcqfd;
 
+/* The cut off of when to fully block for a non-blocking put*/
+size_t gasnetc_ofi_bbuf_threshold; 
 /* Address table data */
 typedef void*                     conn_entry_t;
 typedef struct
@@ -124,6 +126,27 @@ typedef struct ofi_op_ctxt {
   int					data_sent;
 } ofi_op_ctxt_t;
 
+
+/* The following struct is for storing certain dynamically allocated
+ * objects in pools. The GASNet headers state that the first sizeof(void*)
+ * bytes of objects used in its pool functions need to be unused for list
+ * linkage. */
+typedef struct ofi_bounce_buf {
+    uintptr_t linkage;
+    void* buf;
+} ofi_bounce_buf_t;
+
+typedef struct ofi_bounce_op_ctxt {
+    struct fi_context 	ctxt;
+    rdma_callback_fn		callback;
+    /* bounce buffers to return to the pool */
+    gasneti_lifo_head_t bbuf_list;
+    /* Pointer to the original context for the "big" request */
+    ofi_op_ctxt_t*      orig_op;
+    /* Counter to determine when the bbuf transfers are done */
+    gasnetc_paratomic_t cntr;
+} ofi_bounce_op_ctxt_t;
+
 typedef struct gasnetc_ofi_token {
   gasnet_node_t 		sourceid;
 } gasnetc_ofi_token_t;
@@ -149,6 +172,14 @@ void gasnetc_rdma_put(gasnet_node_t node, void *dest, void * src, size_t nbytes,
 		ofi_op_ctxt_t *ctxt_ptr);
 void gasnetc_rdma_get(void *dest, gasnet_node_t node, void * src, size_t nbytes,
 		ofi_op_ctxt_t *ctxt_ptr);
+
+GASNETI_INLINE(gasnetc_rdma_put_will_block)
+int gasnetc_rdma_put_will_block (size_t nbytes) {
+    return nbytes > gasnetc_ofi_bbuf_threshold ? 1 : 0;
+} 
+
+int gasnetc_rdma_put_non_bulk(gasnet_node_t dest, void* dest_addr, void* src_addr, 
+        size_t nbytes, ofi_op_ctxt_t* ctxt_ptr);
 void gasnetc_rdma_put_wait(gasnet_handle_t op);
 void gasnetc_rdma_get_wait(gasnet_handle_t op);
 

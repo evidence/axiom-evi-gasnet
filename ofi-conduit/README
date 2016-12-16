@@ -17,7 +17,7 @@ Where this conduit runs:
 
 The GASNet OFI conduit can run on any OFI provider that supports its requirements. At this
 point in time, it is known to work on the Sockets provider, Intel Truescale provider (psm),
-and Intel Omni-Path provider (psm2).  The fi_info command installed with libfabrics can be 
+and Intel Omni-Path provider (psm2).  The fi_info command installed with libfabric can be 
 used to query the available OFI providers.
 
 The OFI conduit can be considered as a tech-preview for next generation fabrics. We are
@@ -61,7 +61,41 @@ Recognized environment variables:
 
 * All the environment variables provided by libfabric (see `fi_info -e`)
 
+* The environment variables described in the "Non-bulk, Non-blocking Put Functions" 
+  section of this file.
+
 * All the standard GASNet environment variables (see top-level README)
+
+
+Non-bulk, Non-blocking Put Functions
+------------------------------------
+GASNet requires the source buffer used in the gasnet_put_{nb,nbi} functions to be able to be reused as
+soon as the function returns. The ofi-conduit implements this by a hybrid approach that uses
+the FI_INJECT flag, bounce buffers, and blocking operations.
+
+* If the nbytes parameter is less than or equal to the chosen provider's inject_size (see the 
+  fi_endpoint(3) man page), the FI_INJECT flag will be used.
+* If the nbytes parameter is greater than the inject size but less than or equal to a user specifiable
+  threshold (default is 4 times the bounce buffer size) then bounce buffers will be used.
+* If the nbytes parameter is greater than the threshold, the operation will be implemented as a 
+  fully-blocking operation.
+
+The following GASNet statistics counters show the number of times each of these code paths are enterred:
+NB_PUT_INJECT, NB_PUT_BOUNCE, NB_PUT_BLOCK.
+
+The following environment variables may be used to tune this behavior:
+* GASNET_OFI_BBUF_SIZE - The size of each bounce buffer. Default is GASNET_PAGESIZE.
+* GASNET_OFI_NUM_BBUFS - The number of bounce buffers to be allocated at initialization. Default: 64
+* GASNET_OFI_BBUF_THRESHOLD - Payload sizes of (GASNET_OFI_BBUF_THRESHOLD + 1) will be transferred
+  as a blocking operation. This is useful for when the overheads of bounce buffering become too great.
+  Default: (4 * GASNET_OFI_BBUF_SIZE).
+* The following condition must hold: GASNET_OFI_NUM_BBUFS >= GASNET_OFI_BBUF_THRESHOLD/GASNET_OFI_BBUF_SIZE
+* These defaults are chosen to optimize for a 256K L2 cache, assuming 4K pages. It is recommended to 
+  modify these variables so that GASNET_PAGESIZE * GASNET_OFI_NUM_BBUFS == L2-cache-size. However,
+  these tuning parameters only apply to gasnet_put_{nb,nbi}(). They do not apply to get functions, blocking
+  functions, or bulk put functions.
+
+
 
 Known problems:
 ---------------

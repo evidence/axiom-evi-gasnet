@@ -48,6 +48,22 @@ typedef enum {
   gasnetc_Long=2
 } gasnetc_category_t;
 
+#if GASNETI_STATS_OR_TRACE
+#define GASNETC_TRACE_WAIT_BEGIN() \
+    gasneti_tick_t _waitstart = GASNETI_TICKS_NOW_IFENABLED(C)
+#else
+#define GASNETC_TRACE_WAIT_BEGIN() \
+    static char _dummy = (char)sizeof(_dummy)
+#endif
+
+#define GASNETC_TRACE_WAIT_END(name) \
+    GASNETI_TRACE_EVENT_TIME(C,name,gasneti_ticks_now() - _waitstart)
+
+#define GASNETC_STAT_EVENT(name) \
+    _GASNETI_STAT_EVENT(C,name)
+#define GASNETC_STAT_EVENT_VAL(name,val) \
+    _GASNETI_STAT_EVENT_VAL(C,name,val)
+
 /* Unnamed struct to hold all the locks needed */
 struct {
     gasneti_atomic_t rx_cq;

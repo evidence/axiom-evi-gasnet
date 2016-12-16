@@ -4,11 +4,10 @@
  * Copyright 2015, Intel Corporation
  * Terms of use are as specified in license.txt
  */
-#include <gasnet_internal.h>
+#include <gasnet_core_internal.h>
 #include <gasnet_ofi.h>
 #include <gasnet_extended_internal.h>
 #include <gasnet_handler.h>
-#include <gasnet_core_internal.h>
 
 #include <pmi-spawner/gasnet_bootstrap_internal.h>
 #include <ssh-spawner/gasnet_bootstrap_internal.h>
@@ -45,9 +44,20 @@ static addr_table_t  *addr_table;
 #endif
 
 static gasneti_lifo_head_t ofi_am_pool = GASNETI_LIFO_INITIALIZER;
+static gasneti_lifo_head_t ofi_bbuf_pool = GASNETI_LIFO_INITIALIZER;
+static gasneti_lifo_head_t ofi_bbuf_ctxt_pool = GASNETI_LIFO_INITIALIZER;
 
 #define OFI_AM_NUM_BLOCK 	8
 #define OFI_AM_BLOCK_SIZE 	1*1024*1024
+
+/* Variables for bounce buffering of non-blocking, non-bulk puts.
+ * The gasnetc_ofi_bbuf_threshold variable is defined in gasnet_ofi.h
+ * as it is needed in other files */
+static void* bounce_region_start = NULL;
+static size_t bounce_region_size = 0;
+static size_t ofi_num_bbufs; 
+static size_t ofi_bbuf_size;
+#define OFI_MAX_NUM_BOUNCE_BUFFERS 32
 
 static uint64_t             	max_buffered_send;
 static uint64_t             	min_multi_recv;
@@ -98,7 +108,6 @@ void gasnetc_ofi_handle_am(struct fi_cq_data_entry *re, void *buf);
 /*------------------------------------------------
  * Initialize OFI conduit
  * ----------------------------------------------*/
-
 int gasnetc_ofi_init(int *argc, char ***argv, 
                      gasnet_node_t *nodes_p, gasnet_node_t *mynode_p)
 {
@@ -349,8 +358,37 @@ int gasnetc_ofi_init(int *argc, char ***argv,
 		if (FI_SUCCESS != ret) gasneti_fatalerror("fi_recvmsg failed: %d\n", ret);
 	}
 
-  gasnetc_ofi_inited = 1;
+  /* Allocate bounce buffers*/
+  ofi_num_bbufs = gasneti_getenv_int_withdefault("GASNET_OFI_NUM_BBUFS", 64, 0);
+  ofi_bbuf_size = gasneti_getenv_int_withdefault("GASNET_OFI_BBUF_SIZE", GASNET_PAGESIZE, 1);
+  gasnetc_ofi_bbuf_threshold = gasneti_getenv_int_withdefault("GASNET_gasnetc_ofi_bbuf_threshold", 4*ofi_bbuf_size, 1);
 
+  if (ofi_num_bbufs < gasnetc_ofi_bbuf_threshold/ofi_bbuf_size)
+      gasneti_fatalerror("The number of bounce buffers must be greater than or equal to the bounce\n"
+              "buffer threshold divided by the bounce buffer size. See the ofi-conduit README.\n");
+
+  if (gasnetc_ofi_bbuf_threshold/ofi_bbuf_size > OFI_MAX_NUM_BOUNCE_BUFFERS) {
+      gasneti_fatalerror("The ofi-conduit limits the max number of bounce buffers used in the non-blocking\n"
+              "put path to %d. Your selections for the bounce buffer tuning parameters exceed this. If you\n" 
+              "truly need more than %d bounce buffers, edit the OFI_MAX_NUM_BOUNCE_BUFFERS macro in\n" 
+              "gasnet_ofi.c and recompile.\n", OFI_MAX_NUM_BOUNCE_BUFFERS, OFI_MAX_NUM_BOUNCE_BUFFERS);
+  }
+
+  bounce_region_size = GASNETI_PAGE_ALIGNUP(ofi_num_bbufs * ofi_bbuf_size);
+  bounce_region_start = gasneti_malloc_aligned(GASNETI_PAGESIZE, bounce_region_size);
+
+  gasneti_leak_aligned(bounce_region_start);
+  /* Progress backwards so that when these buffers are added to the stack, they
+   * will come off of it in order by address */
+  char* buf = (char*)bounce_region_start + (ofi_num_bbufs-1)*ofi_bbuf_size;
+  for (i = 0; i < (int)ofi_num_bbufs; i++) {
+      gasneti_assert(buf);
+      ofi_bounce_buf_t* container = gasneti_malloc(sizeof(ofi_bounce_op_ctxt_t));
+      container->buf = buf;
+      gasneti_lifo_push(&ofi_bbuf_pool, container);
+      buf -= ofi_bbuf_size;
+  }
+  gasnetc_ofi_inited = 1;
   return GASNET_OK;
 }
 
@@ -498,6 +536,7 @@ void gasnetc_ofi_handle_am(struct fi_cq_data_entry *re, void *buf)
 GASNETI_INLINE(gasnetc_ofi_handle_rdma)
 void gasnetc_ofi_handle_rdma(void *buf)
 {
+
 	ofi_op_ctxt_t *ptr = (ofi_op_ctxt_t*)buf;
 
 	switch (ptr->type) {
@@ -550,6 +589,32 @@ ofi_am_buf_t *gasnetc_ofi_am_header(void)
 		gasneti_leak(header);
 	}
     return header;
+}
+
+GASNETI_INLINE(gasnetc_ofi_get_bounce_ctxt)
+ofi_bounce_op_ctxt_t* gasnetc_ofi_get_bounce_ctxt(void)
+{
+    ofi_bounce_op_ctxt_t* ctxt = gasneti_lifo_pop(&ofi_bbuf_ctxt_pool);
+    if (NULL == ctxt) {
+        ctxt = gasneti_calloc(1,sizeof(ofi_bounce_op_ctxt_t));
+        gasneti_lifo_init(&ctxt->bbuf_list);
+        gasneti_leak(ctxt);
+    }
+    return ctxt;
+}
+
+void gasnetc_ofi_handle_bounce_rdma(void *buf)
+{
+    ofi_bounce_op_ctxt_t* op = (ofi_bounce_op_ctxt_t*) buf;
+    if (gasnetc_paratomic_decrement_and_test(&op->cntr, 0)) {
+        ofi_op_ctxt_t* orig_op = op->orig_op;
+        ofi_bounce_buf_t * bbuf_to_return;
+        while (NULL != (bbuf_to_return = gasneti_lifo_pop(&op->bbuf_list)))
+            gasneti_lifo_push(&ofi_bbuf_pool, bbuf_to_return);
+        /* These completions will always be RDMA, so call the callback directly */
+        gasnetc_ofi_handle_rdma(orig_op); 
+        gasneti_lifo_push(&ofi_bbuf_ctxt_pool, op);
+    }
 }
 
 /*------------------------------------------------
@@ -928,9 +993,158 @@ int gasnetc_ofi_am_send_long(gasnet_node_t dest, gasnet_handler_t handler,
 	return ret;
 }
 
+GASNETI_INLINE(get_bounce_bufs)
+int get_bounce_bufs(int n, ofi_bounce_buf_t ** arr) {
+    int i,j;
+    ofi_bounce_buf_t* buf_container;
+
+    for (i = 0; i < n; i++) {
+        buf_container = gasneti_lifo_pop(&ofi_bbuf_pool);
+        if (!buf_container) {
+            for (j = i -1; j >= 0; j--) {
+                gasneti_lifo_push(&ofi_bbuf_pool, arr[j]);
+            }
+            return 0;
+        }
+        arr[i] = buf_container;
+    }
+    return 1;
+}
+
 /*------------------------------------------------
  * OFI conduit one-sided put/get functions
  * ----------------------------------------------*/
+
+/* There is not a good semantic match between GASNet and OFI in the non-blocking,
+ * non-bulk puts due to local completion requirements. This function handles this 
+ * special case. 
+ *
+ * Returns non-zero if a wait is needed for remote completion. Returns 0 if the
+ * buffer may be safely returned to the app */
+int gasnetc_rdma_put_non_bulk(gasnet_node_t dest, void* dest_addr, void* src_addr, 
+        size_t nbytes, ofi_op_ctxt_t* ctxt_ptr)
+{
+    struct fi_msg_rma msg;
+    msg.desc = 0;
+    msg.addr = GET_RDMA_DEST(dest);
+
+    int i;
+    int ret = FI_SUCCESS;
+    uintptr_t src_ptr = (uintptr_t)src_addr;
+    uintptr_t dest_ptr = GET_DSTADDR(dest_addr, dest);
+
+    ((ofi_op_ctxt_t *)ctxt_ptr)->callback = gasnetc_ofi_handle_rdma;
+
+    /* The payload can be injected without need for a bounce buffer */
+    if (nbytes <= max_buffered_send) {
+        struct iovec iovec;
+        struct fi_rma_iov rma_iov;
+        iovec.iov_base = src_addr;
+        iovec.iov_len = nbytes;
+        rma_iov.addr = GET_DSTADDR(dest_addr, dest);
+        rma_iov.len = nbytes;
+        rma_iov.key = 0;
+
+        msg.context = ctxt_ptr;
+        msg.msg_iov = &iovec;
+        msg.iov_count = 1;
+        msg.rma_iov = &rma_iov;
+        msg.rma_iov_count = 1;
+                
+        GASNETC_OFI_LOCK_EXPR(&gasnetc_ofi_locks.rdma_tx, 
+                ret = fi_writemsg(gasnetc_ofi_rdma_epfd, &msg, FI_INJECT | FI_DELIVERY_COMPLETE ));
+        while (-FI_EAGAIN == ret) {
+            GASNETC_OFI_POLL_EVERYTHING();
+            GASNETC_OFI_LOCK_EXPR(&gasnetc_ofi_locks.rdma_tx, 
+                    ret = fi_writemsg(gasnetc_ofi_rdma_epfd, &msg, FI_INJECT | FI_DELIVERY_COMPLETE));
+        }
+        if_pf (FI_SUCCESS != ret)
+            gasneti_fatalerror("fi_writemsg with FI_INJECT failed: %d\n", ret);
+
+        gasnetc_paratomic_increment(&pending_rdma,0);
+        GASNETC_STAT_EVENT(NB_PUT_INJECT);
+        return 0;
+    } 
+    /* Bounce buffers are needed */
+    else if (nbytes <= gasnetc_ofi_bbuf_threshold) {
+        /* Using the iovec style fi_writemsg() allows us to call into OFI only
+         * once, even if multiple bounce buffers are needed. It also removes the
+         * need to track how many operations completed. */
+        int num_bufs_needed = nbytes / ofi_bbuf_size;
+        struct fi_rma_iov rma_iov;
+        size_t bytes_to_copy;
+        
+        if(num_bufs_needed == 0) num_bufs_needed = 1;
+        struct iovec iov;
+        ofi_bounce_buf_t* buffs[OFI_MAX_NUM_BOUNCE_BUFFERS];
+
+        /* If there are not enough bounce buffers available, simply block as
+         * we don't know when more will become available */
+        ret = get_bounce_bufs(num_bufs_needed, buffs);
+        if (!ret) goto block_anyways;
+
+        ofi_bounce_op_ctxt_t * bbuf_ctxt = gasnetc_ofi_get_bounce_ctxt();
+        bbuf_ctxt->orig_op = ctxt_ptr;
+        bbuf_ctxt->callback = gasnetc_ofi_handle_bounce_rdma;
+        gasnetc_paratomic_set(&bbuf_ctxt->cntr, num_bufs_needed, 0);
+        rma_iov.key = 0;
+
+        msg.msg_iov = &iov;
+        msg.iov_count = 1;
+        msg.rma_iov = &rma_iov;
+        msg.rma_iov_count = 1;
+        msg.context = bbuf_ctxt;
+        msg.addr = GET_RDMA_DEST(dest);
+        msg.desc = 0;
+
+        i = 0;
+        ofi_bounce_buf_t* buf_container;
+
+        while (num_bufs_needed > 0) {
+            bytes_to_copy = num_bufs_needed != 1 ? ofi_bbuf_size : nbytes;
+            buf_container = buffs[i];
+            gasneti_lifo_push(&bbuf_ctxt->bbuf_list, buf_container);
+            memcpy(buf_container->buf, (void*)src_ptr, bytes_to_copy);
+
+            /* Add bounce buffer to SGL */
+            iov.iov_base = buf_container->buf;
+            iov.iov_len =  bytes_to_copy;
+            rma_iov.addr = dest_ptr;
+            rma_iov.len = bytes_to_copy;
+
+            GASNETC_OFI_LOCK_EXPR(&gasnetc_ofi_locks.rdma_tx,
+                    ret = fi_writemsg(gasnetc_ofi_rdma_epfd, &msg, FI_COMPLETION));
+            while (-FI_EAGAIN == ret) {
+                GASNETC_OFI_POLL_EVERYTHING();
+                GASNETC_OFI_LOCK_EXPR(&gasnetc_ofi_locks.rdma_tx,
+                        ret = fi_writemsg(gasnetc_ofi_rdma_epfd, &msg, FI_COMPLETION));
+            }
+
+            gasnetc_paratomic_increment(&pending_rdma,0);
+
+            /* Update our pointers to locations in memory */
+            nbytes -= ofi_bbuf_size; 
+            dest_ptr += ofi_bbuf_size;
+            src_ptr += ofi_bbuf_size;
+            num_bufs_needed--;
+            i++;
+        }
+
+        if_pf (FI_SUCCESS != ret)
+            gasneti_fatalerror("fi_writemsg for bounce buffered data failed: %d\n", ret);
+
+        GASNETC_STAT_EVENT(NB_PUT_BOUNCE);
+        return 0;
+    }
+    /* We tried our best to optimize this. Just wait for remote completion */
+    else {
+block_anyways:
+        gasnetc_rdma_put(dest, dest_addr, src_addr, nbytes, ctxt_ptr);
+        GASNETC_STAT_EVENT(NB_PUT_BLOCK);
+        return 1;
+    }
+
+}
 
 void
 gasnetc_rdma_put(gasnet_node_t dest, void *dest_addr, void *src_addr, size_t nbytes,
