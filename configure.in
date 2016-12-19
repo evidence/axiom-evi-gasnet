@@ -3901,6 +3901,18 @@ if test "$enabled_ofi" = yes; then
                  [ofi_num_completions=64])
     AC_DEFINE_UNQUOTED(GASNETC_OFI_NUM_COMPLETIONS, [$ofi_num_completions])
 
+    GASNET_WITH(ofi-max-medium,
+                [gasnet_AMMaxMedium() for the ofi-conduit (default 8192)],
+                [if expr "$withval" : '[[0-9]]*$' >/dev/null 2>&1 && \
+                    expr "$withval" '>=' 512  >/dev/null 2>&1 ; then
+                ofi_max_medium="$withval"
+            else
+                AC_MSG_ERROR([--with-ofi-max-medium="$withval" is not legal.  Value must be no smaller than 512.])
+                fi
+                ],
+                [AC_MSG_ERROR([--with-ofi-max-medium must be no smaller than 512])],
+                 [ofi_max_medium=8192])
+  AC_DEFINE_UNQUOTED(GASNETC_OFI_MAX_MEDIUM, [$ofi_max_medium])
   fi
 fi
 AC_SUBST(OFI_INCLUDES)

@@ -398,7 +398,10 @@
 #undef GASNETC_GNI_UDREG
 #undef GASNETC_GNI_FIREHOSE
 
+/* GASNet ofi-conduit settings */
+#undef GASNETC_OFI_MAX_MEDIUM
 #undef GASNETC_OFI_NUM_COMPLETIONS
+
 /* GASNet ibv-conduit features and bug work-arounds */
 #undef HAVE_IBV_SRQ
 #undef HAVE_IBV_TRANSPORT_TYPE
