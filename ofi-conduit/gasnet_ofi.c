@@ -665,14 +665,14 @@ void gasnetc_ofi_tx_poll()
         else {
             for (i = 0; i < ret; i++) {
                 if (re[i].flags & FI_SEND) {
+                    gasnetc_paratomic_decrement(&pending_am, 0);
                     ofi_am_buf_t *header = (ofi_am_buf_t *)re[i].op_context;
                     header->callback(&re[i], header);
-                    gasnetc_paratomic_decrement(&pending_am, 0);
                 }
                 else if(re[i].flags & FI_WRITE || re[i].flags & FI_READ) {
+                    gasnetc_paratomic_decrement(&pending_rdma, 0);
                     ofi_op_ctxt_t *header = (ofi_op_ctxt_t *)re[i].op_context;
                     header->callback(header);
-                    gasnetc_paratomic_decrement(&pending_rdma, 0);
                 }
                 else {
                     gasneti_fatalerror("Unknown completion type received for gasnetc_ofi_tx_poll\n");
