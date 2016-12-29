@@ -782,7 +782,7 @@ int gasnetc_ofi_am_send_short(gasnet_node_t dest, gasnet_handler_t handler,
 	}
 #endif
 
-	if(len < max_buffered_send) {
+	if(len <= max_buffered_send) {
         GASNETC_OFI_LOCK_EXPR(&gasnetc_ofi_locks.am_tx, 
 		    ret = fi_inject(gasnetc_ofi_am_epfd, sendbuf, len, GET_AM_DEST(dest)));
 		while (ret == -FI_EAGAIN) {
@@ -854,7 +854,7 @@ int gasnetc_ofi_am_send_medium(gasnet_node_t dest, gasnet_handler_t handler,
 	}
 #endif
 
-	if(len < max_buffered_send) {
+	if(len <= max_buffered_send) {
         GASNETC_OFI_LOCK_EXPR(&gasnetc_ofi_locks.am_tx, 
 		    ret = fi_inject(gasnetc_ofi_am_epfd, sendbuf, len, GET_AM_DEST(dest)));
 		while (ret == -FI_EAGAIN) {
@@ -968,7 +968,7 @@ int gasnetc_ofi_am_send_long(gasnet_node_t dest, gasnet_handler_t handler,
 	}
 #endif
 
-	if(len < max_buffered_send) {
+	if(len <= max_buffered_send) {
         GASNETC_OFI_LOCK_EXPR(&gasnetc_ofi_locks.am_tx,
 		    ret = fi_inject(gasnetc_ofi_am_epfd, sendbuf, len, GET_AM_DEST(dest)));
 		while (ret == -FI_EAGAIN) {
