@@ -3152,6 +3152,16 @@ CONDUIT_END([test "$have_portals4" = yes])
 
 #--------------------------------------------------------------------------------------------------------
 # AXIOM configuration
+
+AXIOM_SYSROOT="`pwd`/../../output/staging"
+AC_ARG_WITH([axiom-sysroot],
+            AS_HELP_STRING([--with-axiom-sysroot=dir], [Sysroot directory for AXIOM (where libraries reside)]),      
+            [AXIOM_SYSROOT="$withval"])
+AXIOM_HOST="`pwd`/../../output/host"
+AC_ARG_WITH([axiom-host],
+            AS_HELP_STRING([--with-axiom-host=dir], [Host directory for AXIOM (where tools for cross-compilation reside)]),      
+            [AXIOM_HOST="$withval"])
+
 CONDUIT_BEGIN(axiom,[AXIOM network conduit (axiom)])
 if test "$enabled_axiom" = yes; then
   AC_MSG_CHECKING(if PSHM is enabled 1 $with_pshm 2 $enabled_pshm 3 $use_pshm 4 $enable_pshm )
@@ -3164,53 +3174,32 @@ if test "$enabled_axiom" = yes; then
   fi
 fi
 if test "$enabled_axiom" = yes; then
-  # Start by assuming we do have AXIOM
+
+  # using the system pkg-config with env variables to simulate a chroot...
+  AC_SUBST([AXIOM_SYSROOT])
+  export PKG_CONFIG_PATH=
+  AC_SUBST([PKG_CONFIG_PATH])
+  export PKG_CONFIG_LIBDIR="$AXIOM_SYSROOT/usr/lib/pkgconfig:$AXIOM_SYSROOT/usr/share/pkgconfig"
+  AC_SUBST([PKG_CONFIG_LIBDIR])
+  export PKG_CONFIG_SYSROOT_DIR="$AXIOM_SYSROOT"
+  AC_SUBST([PKG_CONFIG_SYSROOT_DIR])
+  PKG_PROG_PKG_CONFIG([0.28])
+
+  # debug :-)
+  #echo AXIOM_SYSROOT=${AXIOM_SYSROOT}
+  #echo PKG_CONFIG_PATH=${PKG_CONFIG_PATH}
+  #echo PKG_CONFIG_LIBDIR=${PKG_CONFIG_LIBDIR}
+  #echo PKG_CONFIG_SYSROOT_DIR=${PKG_CONFIG_SYSROOT_DIR}
+
+  # assume that we have axiom libraries...
   have_axiom=yes
-  GASNET_ENV_DEFAULT(AXIOMHOME, "$HOME/axiom-evi")
-  AC_MSG_CHECKING(if $AXIOMHOME is the AXIOM install directory)
-  if test -r $AXIOMHOME/axiom-evi-nic/include/axiom_nic_api_user.h; then
-    AC_MSG_RESULT([yes])
-  else
-    have_axiom=no
-    AC_MSG_RESULT([probably not, AXIOM conduit disabled])
-  fi
-  GASNET_ENV_DEFAULT(AXIOM_INCLUDE, $AXIOMHOME/axiom-evi-nic/include)
-  GASNET_ENV_DEFAULT(AXIOM_APPS_INCLUDE, $AXIOMHOME/axiom-evi-apps/include)
-  GASNET_ENV_DEFAULT(AXIOM_LIBS, -laxiom_user_api -laxiom_run_api)
-  GASNET_ENV_DEFAULT(AXIOM_LIBDIR, $AXIOMHOME/axiom-evi-nic/axiom_user_library)
-  GASNET_ENV_DEFAULT(AXIOM_APPS_LIBDIR, $AXIOMHOME/axiom-evi-apps/axiom-run/lib)
-  # Assemble any extra flags needed at library build time
-  AXIOM_LIBCFLAGS=''
-  #
-  if test "$have_axiom" = yes; then
-    AC_MSG_CHECKING(if a simple program with AXIOM user library can compile)
-    have_axiom=no
-    GASNET_PUSHVAR(CFLAGS,"$CFLAGS -I$AXIOM_INCLUDE -I$AXIOM_APPS_INCLUDE $AXIOM_LIBCFLAGS")
-    GASNET_PUSHVAR(LIBS,"$LIBS -L$AXIOM_LIBDIR -L$AXIOM_APPS_LIBDIR $AXIOM_LIBS $GASNET_THREAD_LIBS")
-    GASNET_TRY_CCOMPILE_WITHWARN(
-      [#include <stdio.h>
-       #include <stdint.h>
-       #include <stdlib.h>
-       #include <unistd.h>
-       #include "axiom_nic_types.h"
-       #include "axiom_nic_api_user.h"
-       #include "axiom_nic_regs.h"],
-      [axiom_dev_t *dev = NULL;
-       dev = axiom_open(NULL);
-       axiom_close(dev);],
-      [have_axiom=yes])
-   GASNET_POPVAR(LIBS)
-   GASNET_POPVAR(CFLAGS)
-  fi
+
+  # then we check for all the libraries...
+  PKG_CHECK_MODULES([axiom_libraries],[axiom_run_api >= 0.9 axiom_init_api >= 0.9 axiom_user_api >= 0.9],,have_axiom=no)
+  PKG_CHECK_MODULES([axiom_allocator],[axiom_allocator >= 0.8],,have_axiom=no)
+  PKG_CHECK_MODULES([evidence_lmm],[evi_lmm >= 0.1],,have_axiom=no)
+
 fi
-AC_SUBST(AXIOM_INCLUDE)
-AC_SUBST(AXIOM_APPS_INCLUDE)
-AC_SUBST(AXIOM_LIBDIR)
-AC_SUBST(AXIOM_APPS_LIBDIR)
-GASNET_AXIOM_LIBS="$AXIOM_LIBS"
-AC_SUBST(AXIOM_LIBS)
-AC_SUBST(GASNET_AXIOM_LIBS)
-AC_SUBST(AXIOM_LIBCFLAGS)
 AM_CONDITIONAL(USE_AXIOM_CONDUIT, test "$have_axiom" = yes)
 CONDUIT_END([test "$have_axiom" = yes])
 

@@ -7,8 +7,16 @@
 #INSTRUCTIONS# See the conduit-writer instructions in the generated fragments
 #INSTRUCTIONS# or $(top_srcdir)/other/fragment-head.mak.in for usage info.
 
-CONDUIT_LIBS = @AXIOM_LIBS@
+#CONDUIT_LIBS = @AXIOM_LIBS@
+CONDUIT_LIBS =
 
 # hooks for using AXIOM user library from within build tree ###NOINSTALL###
-CONDUIT_INCLUDES = -I@AXIOM_INCLUDE@ -I@AXIOM_APPS_INCLUDE@ ###NOINSTALL###
-CONDUIT_LIBDIRS = -L@AXIOM_LIBDIR@ -L@AXIOM_APPS_LIBDIR@    ###NOINSTALL###
+##CONDUIT_INCLUDES = -I@AXIOM_INCLUDE@ -I@AXIOM_APPS_INCLUDE@ ###NOINSTALL###
+##CONDUIT_LIBDIRS = -L@AXIOM_LIBDIR@ -L@AXIOM_APPS_LIBDIR@ -L@AXIOM_ALLOCATOR_LIBDIR@ ###NOINSTALL###
+##CONDUIT_LDFLAGS = -Wl,-T@AXIOM_ALLOC_LDS@ ###NOINSTALL###
+
+CONDUIT_INCLUDES = @axiom_libraries_CFLAGS@ @evidence_lmm_CFLAGS@ ###NOINSTALL###
+CONDUIT_LIBDIRS = ###NOINSTALL###
+CONDUIT_LDFLAGS = @axiom_libraries_LIBS@ @evidence_lmm_LIBS@ @axiom_allocator_LIBS@ ###NOINSTALL###
+
+

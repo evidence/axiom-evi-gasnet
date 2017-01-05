@@ -29,14 +29,20 @@ CONDUIT_SOURCELIST =          \
 
 # additional -I or -D directives needed by this specific conduit
 # other than the standard GASNet includes and flags
-CONDUIT_EXTRALIBCFLAGS = -I$(AXIOM_INCLUDE) -I$(AXIOM_APPS_INCLUDE)
+#CONDUIT_EXTRALIBCFLAGS = -I$(AXIOM_INCLUDE) -I$(AXIOM_INCLUDE_ALLOCATOR) -I$(AXIOM_APPS_INCLUDE)
+CONDUIT_EXTRALIBCFLAGS = @axiom_libraries_CFLAGS@ @evidence_lmm_CFLAGS@
 
 # additional conduit header files to install from external, non-standard directories
-CONDUIT_EXTRAHEADERS = $(AXIOM_INCLUDE)/axiom_nic_api_user.h \
-       $(AXIOM_INCLUDE)/axiom_nic_packets.h \
-       $(AXIOM_INCLUDE)/axiom_nic_init.h \
-       $(AXIOM_INCLUDE)/axiom_nic_limits.h \
-       $(AXIOM_APPS_INCLUDE)/axiom_init_api.h
+#CONDUIT_EXTRAHEADERS = $(AXIOM_INCLUDE)/axiom_nic_api_user.h \
+#       $(AXIOM_INCLUDE)/axiom_nic_packets.h \
+#       $(AXIOM_INCLUDE)/axiom_nic_init.h \
+#       $(AXIOM_INCLUDE)/axiom_nic_limits.h \
+#       $(AXIOM_APPS_INCLUDE)/axiom_init_api.h \
+#       $(AXIOM_INCLUDE_ALLOCATOR)/axiom_allocator.h \
+#       $(AXIOM_INCLUDE_ALLOCATOR)/axiom_allocator_l1.h \
+#       $(AXIOM_INCLUDE_ALLOCATOR)/axiom_allocator_l2.h \
+#       $(AXIOM_INCLUDE_ALLOCATOR)/axiom_allocator_protocol.h
+CONDUIT_EXTRAHEADERS =
 
 # headers selected by default rules that should NOT be installed
 CONDUIT_PRIVATEHEADERS =
@@ -65,7 +71,8 @@ CONDUIT_TESTS =
 
 # disable MPI tests for udp-*, because we probably don't have an MPI-capable C++ linker
 # add AXIOM_INCLUDE
-CONDUIT_TEST_MAKEARGS = MPI_TESTS="" MPI_TESTS_SEQ="" MPI_TESTS_PAR="" -I$(AXIOM_INCLUDE)
+#CONDUIT_TEST_MAKEARGS = MPI_TESTS="" MPI_TESTS_SEQ="" MPI_TESTS_PAR="" -I$(AXIOM_INCLUDE) -I$(AXIOM_INCLUDE_ALLOCATOR)
+CONDUIT_TEST_MAKEARGS = MPI_TESTS="" MPI_TESTS_SEQ="" MPI_TESTS_PAR="" @axiom_libraries_CFLAGS@ @evidence_lmm_CFLAGS@
 
 # -------- Do not modify anything below this line --------
 
