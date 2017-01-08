@@ -18,6 +18,7 @@
 #include "axiom_nic_init.h"
 #include "axiom_nic_types.h"
 #include "axiom_run_api.h"
+#include "axiom_allocator.h"
 
 /*
  * if defined _BLOCKING_MODE (safest)
@@ -32,6 +33,7 @@
 
 // enable/disable internal conduit logging
 #ifdef GASNET_DEBUG
+#define GASNET_DEBUG_SIMPLE_OUTPUT
 #include <sys/time.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -55,6 +57,13 @@ static long logmsg_micros;
     _logmsg("[%5d.%06d] %5s{%d}: " msg "\n", (int)_secs, (int)_micros, logmsg_name[lvl], (int)getpid(), ##__VA_ARGS__);\
   }\
 }
+#ifdef GASNET_DEBUG_SIMPLE_OUTPUT
+#define logmsg(lvl, msg, ...) {\
+  if (logmsg_is_enabled(lvl)) {\
+    _logmsg("%5s: " msg "\n", logmsg_name[lvl], ##__VA_ARGS__);\
+  }\
+}
+#else
 #define logmsg(lvl, msg, ...) {\
   if (logmsg_is_enabled(lvl)) {\
     struct timespec _t1;\
@@ -65,6 +74,8 @@ static long logmsg_micros;
     _logmsg("[%02d:%02d.%06d] %5s{%d}: " msg "\n", (int)_min, (int)_secs, (int)(_t1.tv_nsec/1000), logmsg_name[lvl], (int)getpid(), ##__VA_ARGS__);\
   }\
 }
+#endif
+
 static void _logmsg(const char *msg, ...) __attribute__((format(printf, 1, 2)));
 static inline void _logmsg(const char *msg, ...) {
     va_list list;
@@ -249,7 +260,7 @@ static inline axiom_node_id_t node_log2phy(gasnet_node_t node) {
 }
 
 static inline gasnet_node_t node_phy2log(axiom_node_id_t node) {
-    gasneti_assert(node >= 0 && node < num_phy_nodes);
+    gasneti_assert(node > 0 && node <= num_phy_nodes);
     gasneti_assert(gasnetc_nodes_phy2log[node] != INVALID_LOGICAL_NODE);
     return gasnetc_nodes_phy2log[node];
 }
@@ -445,10 +456,12 @@ static inline axiom_msg_id_t _recv(axiom_dev_t *dev, gasnet_node_t *node_id, axi
     return id;
 }
 
-static inline axiom_err_t _rdma_write(axiom_dev_t *dev, gasnet_node_t node_id, axiom_rdma_payload_size_t size, void *source_addr, void *dest_addr) {
+static inline axiom_err_t _rdma_write(axiom_dev_t *dev, gasnet_node_t node_id, size_t size, void *source_addr, void *dest_addr) {
     gasneti_assert((uintptr_t) source_addr >= (uintptr_t) gasneti_seginfo[gasneti_mynode].rdma);
     gasneti_assert((uintptr_t) dest_addr >= (uintptr_t) gasneti_seginfo[node_id].rdma);
-    return axiom_rdma_write(axiom_dev, node_log2phy(node_id), 0, size, (uintptr_t) source_addr - (uintptr_t) gasneti_seginfo[gasneti_mynode].rdma, (uintptr_t) dest_addr - (uintptr_t) gasneti_seginfo[node_id].rdma);
+    //return axiom_rdma_write(axiom_dev, node_log2phy(node_id), 0, size, (uintptr_t) source_addr - (uintptr_t) gasneti_seginfo[gasneti_mynode].rdma, (uintptr_t) dest_addr - (uintptr_t) gasneti_seginfo[node_id].rdma);
+    logmsg(LOG_TRACE,"_rdma_write(): from node %d(phy:%d) %p:%p to node %d(phy:%d) %p:%p for %lu (%lu MiB)",gasneti_mynode,node_log2phy(gasneti_mynode),source_addr,((uint8_t*)source_addr)+size,node_id,node_log2phy(node_id),dest_addr,((uint8_t*)dest_addr)+size-1,(unsigned long)size,(unsigned long)size/1024/1024);
+    return axiom_rdma_write(axiom_dev, node_log2phy(node_id), size, source_addr, dest_addr, NULL);
 }
 
 #endif
@@ -541,7 +554,7 @@ static int gasneti_bootstrapInit(int *argc_p, char ***argv_p) {
     job_nodes = strtol(s, NULL, 0);
     gasnetc_nodes_log2phy = (axiom_node_id_t*) gasneti_malloc(sizeof (axiom_node_id_t) * num_job_nodes);
     gasneti_assert(gasnetc_nodes_log2phy != NULL);
-    num_phy_nodes = axiom_get_num_nodes(axiom_dev);
+    num_phy_nodes = axiom_get_num_nodes(axiom_dev)+1;
     gasnetc_nodes_phy2log = (gasnet_node_t*) gasneti_malloc(sizeof (gasnet_node_t) * num_phy_nodes);
     gasneti_assert(gasnetc_nodes_log2phy != NULL);
     for (i = 0; i < num_phy_nodes; i++) gasnetc_nodes_phy2log[i] = INVALID_LOGICAL_NODE;
@@ -550,7 +563,7 @@ static int gasneti_bootstrapInit(int *argc_p, char ***argv_p) {
         if (job_nodes & 0x1) {
             gasneti_assert(nl < num_job_nodes);
             gasnetc_nodes_log2phy[nl] = nf;
-            gasneti_assert(nf < num_phy_nodes);
+            gasneti_assert(nf <= num_phy_nodes);
             gasnetc_nodes_phy2log[nf] = nl;
             nl++;
         }
@@ -564,6 +577,18 @@ static int gasneti_bootstrapInit(int *argc_p, char ***argv_p) {
     gasneti_mynode = gasnetc_nodes_phy2log[axiom_get_node_id(axiom_dev)];
     gasneti_assert(gasneti_mynode != INVALID_LOGICAL_NODE);
 
+    if (logmsg_is_enabled(LOG_DEBUG)) {
+        int n;
+        logmsg(LOG_DEBUG,"phy2log table");
+        for (n=1;n<num_phy_nodes;n++) {
+            logmsg(LOG_DEBUG,"  phy: %2d -> log: %2d",n,node_phy2log(n));
+        }
+        logmsg(LOG_DEBUG,"log2phy table");
+        for (n=0;n<num_job_nodes;n++) {
+            logmsg(LOG_DEBUG,"  log: %2d -> phy: %2d",n,node_log2phy(n));
+        }
+    }
+        
     return GASNET_OK;
 }
 
@@ -571,7 +596,7 @@ static int gasneti_bootstrapInit(int *argc_p, char ***argv_p) {
 static MUTEX_t poll_mutex;
 #endif
 
-static int gasnetc_mmap_done=0;
+static int gasnetc_rdma_allocation_done=0;
 
 static int gasnetc_init(int *argc, char ***argv) {
 
@@ -580,6 +605,7 @@ static int gasnetc_init(int *argc, char ***argv) {
 
     // debug logging message activation
     logmsg_init();
+    logmsg(LOG_INFO,"gasnetc_init() start");
 
     /*  check system sanity */
     gasnetc_check_config();
@@ -689,10 +715,12 @@ static int gasnetc_init(int *argc, char ***argv) {
 #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
     {
         /* (###) Add code here to determine optimistic maximum segment size */
-        gasneti_MaxLocalSegmentSize = AXIOM_MAX_SEGMENT_SIZE;
+        //gasneti_MaxLocalSegmentSize = AXIOM_MAX_SEGMENT_SIZE;
+        gasneti_MaxLocalSegmentSize = (256L*1024*1024);
 
         /* (###) Add code here to find the MIN(MaxLocalSegmentSize) over all nodes */
-        gasneti_MaxGlobalSegmentSize = AXIOM_MAX_SEGMENT_SIZE;
+        //gasneti_MaxGlobalSegmentSize = AXIOM_MAX_SEGMENT_SIZE;
+        gasneti_MaxGlobalSegmentSize = (256L*1024*1024);
 
         /* it may be appropriate to use gasneti_segmentInit() here to set 
            gasneti_MaxLocalSegmentSize and gasneti_MaxGlobalSegmentSize,
@@ -736,6 +764,8 @@ static int gasnetc_init(int *argc, char ***argv) {
     gasneti_init_done = 1;
 
     gasneti_auxseg_init(); /* adjust max seg values based on auxseg */
+
+    logmsg(LOG_INFO,"gasnetc_init() end (without error)");
 
     return GASNET_OK;
 }
@@ -903,6 +933,8 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
         uintptr_t segsize, uintptr_t minheapoffset) {
     void *segbase = NULL;
 
+    logmsg(LOG_DEBUG,"gasnetc_attach() start");
+
     GASNETI_TRACE_PRINTF(C, ("gasnetc_attach(table (%i entries), segsize=%lu, minheapoffset=%lu)",
             numentries, (unsigned long) segsize, (unsigned long) minheapoffset));
 
@@ -910,6 +942,8 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
         GASNETI_RETURN_ERRR(NOT_INIT, "GASNet attach called before init");
     if (gasneti_attach_done)
         GASNETI_RETURN_ERRR(NOT_INIT, "GASNet already attached");
+
+    logmsg(LOG_INFO,"gasnet_attach(): requested by user %lu (%lu MiB)",segsize,segsize/1024/1024);
 
     /*  check argument sanity */
 #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
@@ -999,17 +1033,26 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
            (ensuring alignment across all nodes if this conduit sets GASNET_ALIGNED_SEGMENTS==1) 
            you can use gasneti_segmentAttach() here if you used gasneti_segmentInit() above
          */
-        uint64_t mysize;
-        int delta;
+        size_t mysize,mysizereq,sharedsize;
+        int delta, ret;
         gasnet_node_t i;
         void *rdmabase;
 
         // MG
         gasneti_assert(GASNET_PAGESIZE % GASNETC_ALIGN_SIZE == 0);
-        rdmabase = segbase = axiom_rdma_mmap(axiom_dev, &mysize);
-        if (segbase == NULL)
-            gasneti_fatalerror("axiom_rdma_mmap() return NULL");
-        gasnetc_mmap_done=1;
+        mysizereq=mysize=segsize+GASNET_PAGESIZE+GASNETC_RESERVED_SPACE;
+        sharedsize=0;
+        ret = axiom_allocator_init(&mysize, &sharedsize, AXAL_SW);
+        logmsg(LOG_INFO,"gasnet_attach(): request by conduit %lu (%lu MiB)",mysizereq,mysizereq/1024/1024);
+        logmsg(LOG_INFO,"gasnet_attach(): initialized %lu (%lu MiB) requested %lu (%lu MiB)",mysize,mysize/1024/1024,mysizereq,mysizereq/1024/1024);
+        mysize=mysize-GASNET_PAGESIZE;
+        if (ret) 
+            gasneti_fatalerror("axiom_allocator_init return %d",ret);
+        rdmabase = segbase = axiom_private_malloc(mysize);
+        if (!rdmabase) 
+            gasneti_fatalerror("axiom_private_malloc error addr:%p size:%ld",rdmabase,mysize);
+        logmsg(LOG_INFO,"gasnet_attach(): malloc %lu (%lu MiB) at %p",mysize,mysize/1024/1024,rdmabase);
+        gasnetc_rdma_allocation_done=1;
         delta = 0;
         if (((unsigned long) segbase) % GASNET_PAGESIZE != 0) {
             uint8_t *newbase = (uint8_t*) ((((unsigned long) segbase) | (GASNET_PAGESIZE - 1)) + 1);
@@ -1017,6 +1060,13 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
             segbase = newbase;
         }
         segsize = (mysize - delta)&(~(uint64_t) (GASNET_PAGESIZE - 1));
+
+        logmsg(LOG_INFO,"gasnet_attach(): aligned by %u now at %p for %lu (%lu MiB)",delta,segbase,segsize,segsize/1024/1024);
+        logmsg(LOG_INFO,"gasnet_attach(): user space at %p:%p for %lu (%lu MiB)",
+                ((uint8_t*) segbase + GASNETC_RESERVED_SPACE),
+                ((uint8_t*) segbase + GASNETC_RESERVED_SPACE)+segsize - GASNETC_RESERVED_SPACE-1,
+                segsize - GASNETC_RESERVED_SPACE,
+                (segsize - GASNETC_RESERVED_SPACE)/1024/1024);
 
         gasneti_assert(segsize > GASNETC_RESERVED_SPACE);
         for (i = 0; i < gasneti_nodes; i++) {
@@ -1066,6 +1116,8 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     gasneti_attach_done = 1;
     gasnetc_bootstrapBarrier();
 
+    logmsg(LOG_DEBUG,"gasnetc_attach() primary attach complete");
+    
     GASNETI_TRACE_PRINTF(C, ("gasnetc_attach(): primary attach complete"));
 
     gasneti_assert((uint8_t*) gasneti_seginfo[gasneti_mynode].addr == (uint8_t*) segbase + GASNETC_RESERVED_SPACE &&
@@ -1079,6 +1131,8 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 
     /* ensure extended API is initialized across nodes */
     gasnetc_bootstrapBarrier();
+
+    logmsg(LOG_DEBUG,"gasnetc_attach() end (without errror)");
 
     return GASNET_OK;
 }
@@ -1120,8 +1174,9 @@ extern void gasnetc_exit(int exitcode) {
              after raising a SIGQUIT to inform the client of the exit
      */
     // MG TODO:
-    if (gasnetc_mmap_done)
-        axiom_rdma_munmap(axiom_dev);
+    if (gasnetc_rdma_allocation_done)
+        axiom_private_free(gasneti_seginfo[gasneti_mynode].rdma);
+        //axiom_rdma_munmap(axiom_dev);
     /*
         if (!received_exit_message) {
             gasnetc_axiom_msg_t msg;
@@ -1290,13 +1345,7 @@ extern int gasnetc_AMPoll(void) {
                     args = payload->am.args;
                     data = NULL;
                     nbytes = 0;
-                    
-                    logmsg(LOG_DEBUG,"received %s category=%s handler=%d",
-                            payload->gen.command==GASNETC_AM_REQ_MESSAGE?"AM_REQ_MESSAGE":"AM_REPLY_MESSAGE",
-                            category==gasnetc_Short?"Short":(category==gasnetc_Medium?"Medium":"Long"),
-                            handler_id
-                            );
-                    
+
                     if (logmsg_is_enabled(LOG_TRACE)) {
                         char mybuf[5*128+1];
                         char num[6];
@@ -1308,12 +1357,19 @@ extern int gasnetc_AMPoll(void) {
                         }
                         logmsg(LOG_TRACE,"packet dump: %s",mybuf);
                     }
-                    
+
                     gasneti_assert((category == gasnetc_Short) || (category == gasnetc_Medium) || (category == gasnetc_Long));
 
                     switch (category) {
                         case gasnetc_Short:
                         {
+                            logmsg(LOG_INFO,"AMPoll %s category=Short handler=%d from %d(phy:%d) numargs=%d",
+                                    payload->gen.command==GASNETC_AM_REQ_MESSAGE?"AM_REQ_MESSAGE":"AM_REPLY_MESSAGE",
+                                    handler_id,
+                                    info.node,
+                                    node_log2phy(info.node),
+                                    numargs
+                                    );
                             GASNETC_ENTERING_HANDLER_HOOK(category, isReq, handler_id, token, data, nbytes, numargs, args);
                             GASNETI_RUN_HANDLER_SHORT(isReq, handler_id, handler_fn, token, args, numargs);
                         }
@@ -1321,7 +1377,15 @@ extern int gasnetc_AMPoll(void) {
                         case gasnetc_Medium:
                         {
                             void * data = payload->buffer+compute_aligned_payload_size(payload->am.head.numargs);
-                            size_t nbytes = payload->am.head.size;
+                            nbytes = payload->am.head.size;
+                            logmsg(LOG_INFO,"AMPoll %s category=Medium handler=%d from %d(phy:%d) numargs=%d size=%u",
+                                    payload->gen.command==GASNETC_AM_REQ_MESSAGE?"AM_REQ_MESSAGE":"AM_REPLY_MESSAGE",
+                                    handler_id,
+                                    info.node,
+                                    node_log2phy(info.node),
+                                    numargs,
+                                    nbytes
+                                    );
                             GASNETC_ENTERING_HANDLER_HOOK(category, isReq, handler_id, token, data, nbytes, numargs, args);
                             GASNETI_RUN_HANDLER_MEDIUM(isReq, handler_id, handler_fn, token, args, numargs, data, nbytes);
                         }
@@ -1330,6 +1394,15 @@ extern int gasnetc_AMPoll(void) {
                         {
                             data = (uint8_t*) gasneti_seginfo[gasneti_mynode].rdma + payload->am.head.offset;
                             nbytes = payload->am.head.size;
+                            logmsg(LOG_INFO,"AMPoll %s category=Long handler=%d from %d(phy:%d) numargs=%d size=%u to=%p",
+                                    payload->gen.command==GASNETC_AM_REQ_MESSAGE?"AM_REQ_MESSAGE":"AM_REPLY_MESSAGE",
+                                    handler_id,
+                                    info.node,
+                                    node_log2phy(info.node),
+                                    numargs,
+                                    nbytes,
+                                    data
+                                    );
                             if (nbytes & (GASNETC_ALIGN_SIZE - 1)) {
                                 int rest = nbytes & (GASNETC_ALIGN_SIZE - 1);
                                 void *ptr = (uint8_t*) data + (nbytes & (~(GASNETC_ALIGN_SIZE - 1)));
@@ -1373,7 +1446,7 @@ extern int gasnetc_AMRequestShortM(gasnet_node_t dest, gasnet_handler_t handler,
     int retval;
     int i;
 
-    logmsg(LOG_INFO,"AMRequestShort dest=%d handler=%d",dest,handler);
+    logmsg(LOG_INFO,"AMRequestShort dest=%d(phy:%d) handler=%d",dest,node_log2phy(dest),handler);
     GASNETI_COMMON_AMREQUESTSHORT(dest, handler, numargs);
     gasneti_AMPoll();
     va_start(argptr, numargs);
@@ -1414,7 +1487,7 @@ extern int gasnetc_AMRequestMediumM(
     int retval;
     int i;
 
-    logmsg(LOG_INFO,"AMRequestMedium dest=%d handler=%d buf[0]=0x%02x",dest,handler,nbytes>0?*(uint8_t*)source_addr:255);
+    logmsg(LOG_INFO,"AMRequestMedium dest=%d(phy:%d) handler=%d src=%p sz=%lu buf[0]=0x%02x",dest,node_log2phy(dest),handler,source_addr,nbytes,nbytes>0?*(uint8_t*)source_addr:255);
     GASNETI_COMMON_AMREQUESTMEDIUM(dest, handler, source_addr, nbytes, numargs);
     gasneti_AMPoll(); /* (###) poll at least once, to assure forward progress */
     va_start(argptr, numargs); /*  pass in last argument */
@@ -1462,10 +1535,10 @@ extern int gasnetc_AMRequestMediumM(
  * @param numargs Number of arguments
  * @param argptr Variable list of uint32_t arguments
  * @param rdma_token rdma token received (or zero if no token present)
- * @param async one if this is an asynchronous call else zero
+ * @param type zero=normal, one=async, two=reply
  * @return GASNET_OK if succesfull otherwise an error code
  */
-static int _requestOrReplyLong(gasnet_node_t dest, gasnet_handler_t handler, void *source_addr, size_t nbytes, void *dest_addr, int numargs, va_list argptr, uint32_t rdma_token, int async) {
+static int _requestOrReplyLong(gasnet_node_t dest, gasnet_handler_t handler, void *source_addr, size_t nbytes, void *dest_addr, int numargs, va_list argptr, uint32_t rdma_token, int type) {
     int ret = AXIOM_RET_OK;
     int retval = GASNET_ERR_RDMA;
     gasnetc_axiom_am_msg_t payload;
@@ -1498,7 +1571,7 @@ static int _requestOrReplyLong(gasnet_node_t dest, gasnet_handler_t handler, voi
         memcpy(payload.head.data, ptr, rest);
     }
 
-    if (nbytes / GASNETC_ALIGN_SIZE > 0) {
+    if (nbytes >= GASNETC_ALIGN_SIZE) {
         if (out) {
             void *buf = alloca_rdma_buf();
             uint8_t *srcp = source_addr, *dstp = dest_addr;
@@ -1508,9 +1581,9 @@ static int _requestOrReplyLong(gasnet_node_t dest, gasnet_handler_t handler, voi
                 sz = totras > GASNETC_BUFFER_SIZE ? GASNETC_BUFFER_SIZE : totras;
                 memcpy(buf, srcp, sz);
 #ifdef _BLOCKING_MODE
-                ret = _rdma_write(axiom_dev, dest, sz / GASNETC_ALIGN_SIZE, buf, dstp);
+                ret = _rdma_write(axiom_dev, dest, sz, buf, dstp);
 #else
-                ret = _rdma_write(axiom_dev_blocking, dest, sz / GASNETC_ALIGN_SIZE, buf, dstp);
+                ret = _rdma_write(axiom_dev_blocking, dest, sz, buf, dstp);
 #endif
                 if (!AXIOM_RET_IS_OK(ret)) break;
                 totras -= sz;
@@ -1521,19 +1594,19 @@ static int _requestOrReplyLong(gasnet_node_t dest, gasnet_handler_t handler, voi
             free_rdma_buf(buf);
         } else {
 #ifdef _BLOCKING_MODE
-            ret = _rdma_write(axiom_dev, dest, nbytes / GASNETC_ALIGN_SIZE, source_addr, dest_addr);
+            ret = _rdma_write(axiom_dev, dest, nbytes &(~(GASNETC_ALIGN_SIZE - 1)), source_addr, dest_addr);
 #else
-            ret = _rdma_write(async?axiom_dev:axiom_dev_blocking, dest, nbytes / GASNETC_ALIGN_SIZE, source_addr, dest_addr);
+            ret = _rdma_write(async?axiom_dev:axiom_dev_blocking, dest, nbytes, source_addr, dest_addr);
 #endif
         }
     }
-
+    
     if (AXIOM_RET_IS_OK(ret)) {
 
         axiom_err_t ret2;
         int i;
 
-        payload.head.command = GASNETC_AM_REQ_MESSAGE;
+        payload.head.command = type==2?GASNETC_AM_REPLY_MESSAGE:GASNETC_AM_REQ_MESSAGE;
         payload.head.category = gasnetc_Long;
         payload.head.handler_id = handler;
         payload.head.numargs = numargs;
@@ -1555,6 +1628,8 @@ static int _requestOrReplyLong(gasnet_node_t dest, gasnet_handler_t handler, voi
         }
         ret2 = _send_raw(axiom_dev, dest, AXIOM_BIND_PORT, compute_payload_size(numargs), &payload);
         retval = AXIOM_RET_IS_OK(ret2) ? GASNET_OK : GASNET_ERR_RAW_MSG;
+    } else {
+        logmsg(LOG_WARN,"Error %d calling axiom_rdma_write()",ret);
     }
 
     return retval;
@@ -1565,7 +1640,7 @@ extern int gasnetc_AMRequestLongM(gasnet_node_t dest, gasnet_handler_t handler, 
     va_list argptr;
     int retval;
 
-    logmsg(LOG_INFO,"AMRequestLong dest=%d handler=%d",dest,handler);
+    logmsg(LOG_INFO,"AMRequestLong dest=%d(phy:%d) handler=%d src=%p dst=%p sz=%lu",dest,node_log2phy(dest),handler,source_addr,dest_addr,nbytes);
     GASNETI_COMMON_AMREQUESTLONG(dest, handler, source_addr, nbytes, dest_addr, numargs);
     gasneti_AMPoll();
     va_start(argptr, numargs);
@@ -1589,7 +1664,7 @@ extern int gasnetc_AMRequestLongAsyncM(gasnet_node_t dest, gasnet_handler_t hand
     int retval;
     va_list argptr;
 
-    logmsg(LOG_INFO,"AMRequestLongAsync dest=%d handler=%d",dest,handler);
+    logmsg(LOG_INFO,"AMRequestLongAsync dest=%d(phy:%d) handler=%d src=%p dst=%p sz=%lu",dest,node_log2phy(dest),handler,source_addr,dest_addr,nbytes);
     GASNETI_COMMON_AMREQUESTLONGASYNC(dest, handler, source_addr, nbytes, dest_addr, numargs);
     gasneti_AMPoll(); /* (###) poll at least once, to assure forward progress */
     va_start(argptr, numargs); /*  pass in last argument */
@@ -1616,7 +1691,7 @@ extern int gasnetc_AMReplyShortM(gasnet_token_t token, gasnet_handler_t handler,
     int retval;
     int i;
 
-    logmsg(LOG_INFO,"AMReplyShort token=%p dest_node=%d handler=%d",(void*)token,info->node,handler);
+    logmsg(LOG_INFO,"AMReplyShort token=%p dest_node=%d(phy:%d) handler=%d",(void*)token,info->node,node_log2phy(info->node),handler);
     GASNETI_COMMON_AMREPLYSHORT(token, handler, numargs);
     gasneti_assert_always(info->isReq);
     //GASNETI_CHECK_ERRR((info == NULL), BAD_ARG, "AMReplyXXX() called from a reply handler!");
@@ -1664,7 +1739,7 @@ extern int gasnetc_AMReplyMediumM(
     int retval;
     int i;
     
-    logmsg(LOG_INFO,"AMReplyMedium token=%p dest_node=%d handler=%d buf[0]=0x%02x",(void*)token,info->node,handler,nbytes>0?*(uint8_t*)source_addr:255);
+    logmsg(LOG_INFO,"AMReplyMedium token=%p dest_node=%d(phy:%d) handler=%d src=%p sz=%lu buf[0]=0x%02x",(void*)token,info->node,node_log2phy(info->node),handler,source_addr,nbytes,nbytes>0?*(uint8_t*)source_addr:255);
     GASNETI_COMMON_AMREPLYMEDIUM(token, handler, source_addr, nbytes, numargs);
     gasneti_assert_always(info->isReq);
     va_start(argptr, numargs); /*  pass in last argument */
@@ -1709,7 +1784,7 @@ extern int gasnetc_AMReplyLongM(gasnet_token_t token, gasnet_handler_t handler, 
     int retval;
     va_list argptr;
 
-    logmsg(LOG_INFO,"AMReplyLong token=%p dest_node=%d handler=%d",(void*)token,info->node,handler);
+    logmsg(LOG_INFO,"AMReplyLong token=%p dest_node=%d(phy:%d) handler=%d src=%p dst=%p sz=%lu",(void*)token,info->node,node_log2phy(info->node),handler,source_addr,dest_addr,nbytes);
     GASNETI_COMMON_AMREPLYLONG(token, handler, source_addr, nbytes, dest_addr, numargs);
     //GASNETI_CHECK_ERRR((info == NULL), BAD_ARG, "AMReplyXXX() called from a reply handler!");
     gasneti_assert_always(info->isReq);
@@ -1723,7 +1798,7 @@ extern int gasnetc_AMReplyLongM(gasnet_token_t token, gasnet_handler_t handler, 
     } else
 #endif
     {
-        retval = _requestOrReplyLong(info->node, handler, source_addr, nbytes, dest_addr, numargs, argptr, info->rdma_token, 0);
+        retval = _requestOrReplyLong(info->node, handler, source_addr, nbytes, dest_addr, numargs, argptr, info->rdma_token, 2);
     }
     va_end(argptr);
     GASNETI_RETURN(retval);
