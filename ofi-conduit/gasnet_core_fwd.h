@@ -76,6 +76,9 @@ typedef ### gasnetc_handler_t;
 
   /* this can be used to add conduit-specific 
      statistical collection values (see gasnet_trace.h) */
-#define GASNETC_CONDUIT_STATS(CNT,VAL,TIME) 
+#define GASNETC_CONDUIT_STATS(CNT,VAL,TIME)  \
+    CNT(C, NB_PUT_INJECT, cnt)               \
+    CNT(C, NB_PUT_BOUNCE, cnt)               \
+    CNT(C, NB_PUT_BLOCK, cnt)                   
 
 #endif

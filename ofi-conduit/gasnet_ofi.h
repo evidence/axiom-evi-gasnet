@@ -33,9 +33,12 @@
 #endif
 typedef gasnetc_paratomic(t)         gasnetc_paratomic_t;
 #define gasnetc_paratomic_init       gasnetc_paratomic(init)
+#define gasnetc_paratomic_set        gasnetc_paratomic(set)
 #define gasnetc_paratomic_read       gasnetc_paratomic(read)
 #define gasnetc_paratomic_increment  gasnetc_paratomic(increment)
+#define gasnetc_paratomic_add        gasnetc_paratomic(add)
 #define gasnetc_paratomic_decrement  gasnetc_paratomic(decrement)
+#define gasnetc_paratomic_decrement_and_test  gasnetc_paratomic(decrement_and_test)
 
 /* Typedefs */
 typedef struct fid_ep*            fid_ep_t;
@@ -48,15 +51,16 @@ typedef struct fid_mr*            fid_mr_t;
 fid_fabric_t    gasnetc_ofi_fabricfd;
 fid_domain_t    gasnetc_ofi_domainfd;
 fid_av_t        gasnetc_ofi_avfd;
+fid_cq_t        gasnetc_ofi_tx_cqfd; /* CQ for both AM and RDMA tx ops */
 
 fid_ep_t        gasnetc_ofi_rdma_epfd;
-fid_cq_t        gasnetc_ofi_rdma_cqfd;
 fid_mr_t        gasnetc_ofi_rdma_mrfd;
 
 fid_ep_t        gasnetc_ofi_am_epfd;
-fid_cq_t        gasnetc_ofi_am_scqfd;
 fid_cq_t        gasnetc_ofi_am_rcqfd;
 
+/* The cut off of when to fully block for a non-blocking put*/
+size_t gasnetc_ofi_bbuf_threshold; 
 /* Address table data */
 typedef void*                     conn_entry_t;
 typedef struct
@@ -107,6 +111,12 @@ typedef struct ofi_ctxt {
   struct fi_context 	ctxt;
   event_callback_fn		callback;
   int 					index;
+  char _pad0[GASNETI_CACHE_PAD(sizeof(int))];
+  gasnetc_paratomic_t   consumed_cntr;
+  char _pad1[GASNETI_CACHE_PAD(sizeof(gasnetc_paratomic_t))];
+  uint64_t final_cntr;
+  char _pad2[GASNETI_CACHE_PAD(sizeof(uint64_t))];
+  uint64_t event_cntr;
 } ofi_ctxt_t;
 
 typedef struct ofi_op_ctxt {
@@ -116,13 +126,34 @@ typedef struct ofi_op_ctxt {
   int					data_sent;
 } ofi_op_ctxt_t;
 
+
+/* The following struct is for storing certain dynamically allocated
+ * objects in pools. The GASNet headers state that the first sizeof(void*)
+ * bytes of objects used in its pool functions need to be unused for list
+ * linkage. */
+typedef struct ofi_bounce_buf {
+    uintptr_t linkage;
+    void* buf;
+} ofi_bounce_buf_t;
+
+typedef struct ofi_bounce_op_ctxt {
+    struct fi_context 	ctxt;
+    rdma_callback_fn		callback;
+    /* bounce buffers to return to the pool */
+    gasneti_lifo_head_t bbuf_list;
+    /* Pointer to the original context for the "big" request */
+    ofi_op_ctxt_t*      orig_op;
+    /* Counter to determine when the bbuf transfers are done */
+    gasnetc_paratomic_t cntr;
+} ofi_bounce_op_ctxt_t;
+
 typedef struct gasnetc_ofi_token {
   gasnet_node_t 		sourceid;
 } gasnetc_ofi_token_t;
 
 int gasnetc_ofi_init(int *argc, char ***argv,
 		gasnet_node_t *nodes_p, gasnet_node_t *mynode_p);
-void gasnetc_ofi_poll(int blocking_polling);
+void gasnetc_ofi_poll();
 void gasnetc_ofi_attach(void *segbase, uintptr_t segsize);
 void gasnetc_ofi_exit(void);
 
@@ -138,9 +169,17 @@ int gasnetc_ofi_am_send_long(gasnet_node_t dest, gasnet_handler_t handler,
 
 /* One-siede PUT/GET Functions */
 void gasnetc_rdma_put(gasnet_node_t node, void *dest, void * src, size_t nbytes,
-		void *ctxt_ptr);
+		ofi_op_ctxt_t *ctxt_ptr);
 void gasnetc_rdma_get(void *dest, gasnet_node_t node, void * src, size_t nbytes,
-		void *ctxt_ptr);
+		ofi_op_ctxt_t *ctxt_ptr);
+
+GASNETI_INLINE(gasnetc_rdma_put_will_block)
+int gasnetc_rdma_put_will_block (size_t nbytes) {
+    return nbytes > gasnetc_ofi_bbuf_threshold ? 1 : 0;
+} 
+
+int gasnetc_rdma_put_non_bulk(gasnet_node_t dest, void* dest_addr, void* src_addr, 
+        size_t nbytes, ofi_op_ctxt_t* ctxt_ptr);
 void gasnetc_rdma_put_wait(gasnet_handle_t op);
 void gasnetc_rdma_get_wait(gasnet_handle_t op);
 

@@ -239,6 +239,13 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 
   gasnetc_ofi_attach(segbase, segsize);
 
+  /* After local segment is attached, call optional client-provided hook
+     (###) should call BEFORE any conduit-specific pinning/registration of the segment
+   */
+  if (gasnet_client_attach_hook) {
+    gasnet_client_attach_hook(segbase, segsize);
+  }
+
   /* ------------------------------------------------------------------------------------ */
   /*  primary attach complete */
   gasneti_attach_done = 1;
@@ -461,7 +468,7 @@ extern int gasnetc_AMPoll(void) {
 
   /* add code here to run your AM progress engine */
   /* should be a generic polling */
-  gasnetc_ofi_poll(0);
+  gasnetc_ofi_poll();
 
   return GASNET_OK;
 }
