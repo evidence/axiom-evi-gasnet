@@ -521,7 +521,7 @@ extern void gasnete_put_nbi      (gasnet_node_t node, void *dest, void *src, siz
          * doesn't mean that gasnetc_rdma_put_non_bulk will not still block.
          * See below. */
         if (gasnetc_rdma_put_will_block(nbytes)) {
-            gasnete_put(node, dest, src, nbytes);
+            gasnete_put(node, dest, src, nbytes GASNETE_THREAD_PASS);
             return;
         }
 
