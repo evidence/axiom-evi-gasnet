@@ -58,6 +58,9 @@ typedef uint16_t gasnet_node_t;
    */
 /* #define GASNETC_USE_INTERRUPTS 1 */
 
+/* udp-conduit supports top-level poll throttling */
+#define GASNETC_USING_SUSPEND_RESUME 1
+
 /*  override default error values to use those defined by AMUDP */
 #define _GASNET_ERRORS
 #define _GASNET_ERR_BASE 10000
