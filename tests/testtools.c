@@ -211,13 +211,15 @@ int main(int argc, char **argv) {
     if (!(ticktimemin < ticktimemax)) ERR("!(min < max)");
     if (!(gasnett_ticks_now() > ticktimemin)) ERR("!(now > min)");
     if (!(gasnett_ticks_now() < ticktimemax)) ERR("!(now < max)");
-
+            
+#if GASNET_CORE_NAME!=AXIOM
     if (granularity <= 0.0 || overhead <= 0.0 ||
         (granularity+0.1) < 0.5*overhead) 
         /* allow some leeway for noise at granularities approaching cycle speed */
         /*granularity < 0.5*overhead)*/
         ERR("nonsensical timer overhead/granularity measurements:\n"
              "  overhead: %.3fus  granularity: %.3fus\n",overhead, granularity);
+#endif
 
     begin = gasnett_ticks_now();  /* outer time point */
     beginref = gasnett_gettimeofday_us();
