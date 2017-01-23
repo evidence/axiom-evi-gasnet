@@ -51,6 +51,8 @@ int gasnete_handler_long_put(psm2_am_token_t token,
         psm2_amarg_t* args, int nargs, void* addr, uint32_t len);
 int gasnete_handler_long_get(psm2_am_token_t token,
         psm2_amarg_t* args, int nargs, void* addr, uint32_t len);
+int gasnete_handler_long_put_reply(psm2_am_token_t token,
+        psm2_amarg_t* args, int nargs, void* addr, uint32_t len);
 
 
 /* -------------------------------------------------------------------------- */
@@ -282,6 +284,7 @@ static int gasnetc_init(int *argc, char ***argv) {
         handlers[AM_HANDLER_GET_REPLY] = gasnete_handler_get_reply;
         handlers[AM_HANDLER_LONG_PUT] = gasnete_handler_long_put;
         handlers[AM_HANDLER_LONG_GET] = gasnete_handler_long_get;
+        handlers[AM_HANDLER_LONG_PUT_REPLY] = gasnete_handler_long_put_reply;
 
         ret = psm2_am_register_handlers(gasnetc_psm_state.ep,
                 handlers, AM_HANDLER_NUM, gasnetc_psm_state.am_handlers);
