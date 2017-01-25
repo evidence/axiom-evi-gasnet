@@ -268,10 +268,6 @@ void gasnete_finish_mq_reqs(void)
     int transfer_id;
 
     for (i = 0; i < gasnetc_psm_state.posted_reqs_length; i++) {
-        gasneti_assert(gasnetc_psm_state.posted_mq_reqs[i].posted_reqs !=
-                PSM2_MQ_REQINVALID);
-
-
         if (0 == gasnetc_psm_state.posted_mq_reqs[i].completion) {
             ret = psm2_mq_test2(&gasnetc_psm_state.posted_mq_reqs[i].posted_reqs, &stat);
         } else {
