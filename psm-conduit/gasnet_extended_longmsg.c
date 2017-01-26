@@ -416,7 +416,7 @@ int gasnete_handler_long_get(psm2_am_token_t token,
 gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread);
 
 void gasnete_put_long(gasnet_node_t node, void *dest, void *src,
-        size_t nbytes, gasnet_handle_t op GASNETE_THREAD_FARG)
+        size_t nbytes, gasnet_handle_t op, uint8_t isbulk GASNETE_THREAD_FARG)
 {
     psm2_epaddr_t epaddr = gasnetc_psm_state.peer_epaddrs[node];
     psm2_mq_tag_t tag;
@@ -465,8 +465,14 @@ void gasnete_put_long(gasnet_node_t node, void *dest, void *src,
         req->optype = GASNETE_MQ_SEND_LOCAL_OP;
         req->transfer_id = transfer_index;
 
-        ret = psm2_mq_isend2(gasnetc_psm_state.mq, epaddr, 0, &tag, (void *)srcptr,
-                    fraglen, NULL, &req->posted_reqs);
+        if(isbulk) {
+            ret = psm2_mq_isend2(gasnetc_psm_state.mq, epaddr, 0, &tag, (void *)srcptr,
+                        fraglen, NULL, &req->posted_reqs);
+
+        }else {
+            ret = psm2_mq_send2(gasnetc_psm_state.mq, epaddr, 0, &tag, (void *)srcptr,
+                        fraglen);
+        }
         if (ret != PSM2_OK) {
             goto fail;
         }
