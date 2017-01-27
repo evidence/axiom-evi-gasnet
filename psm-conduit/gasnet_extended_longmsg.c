@@ -465,17 +465,21 @@ void gasnete_put_long(gasnet_node_t node, void *dest, void *src,
         req->optype = GASNETE_MQ_SEND_LOCAL_OP;
         req->transfer_id = transfer_index;
 
-        if(isbulk) {
-            ret = psm2_mq_isend2(gasnetc_psm_state.mq, epaddr, 0, &tag, (void *)srcptr,
+        ret = psm2_mq_isend2(gasnetc_psm_state.mq, epaddr, 0, &tag, (void *)srcptr,
                         fraglen, NULL, &req->posted_reqs);
 
-        }else {
-            ret = psm2_mq_send2(gasnetc_psm_state.mq, epaddr, 0, &tag, (void *)srcptr,
-                        fraglen);
-        }
         if (ret != PSM2_OK) {
             goto fail;
         }
+
+        if(!isbulk) {
+            while(0 == req->completion) {
+                GASNETC_PSM_UNLOCK();
+                gasnetc_AMPoll(); 
+                GASNETC_PSM_LOCK();
+            }
+        }
+
 
         srcptr += fraglen;
         destptr += fraglen;
