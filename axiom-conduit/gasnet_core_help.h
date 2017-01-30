@@ -1,5 +1,10 @@
 /*   $Source: bitbucket.org:berkeleylab/gasnet.git/template-conduit/gasnet_core_help.h $
- * Description: GASNet axiom conduit core Header Helpers (Internal code, not for client use)
+ * Description: GASNet AXIOM conduit core Header Helpers
+ * (Internal code, not for client use)
+ *
+ * Copyright (C) 2016, Evidence Srl.
+ * Terms of use are as specified in COPYING
+ *
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  */

@@ -1,5 +1,9 @@
 /*   $Source: bitbucket.org:berkeleylab/gasnet.git/template-conduit/gasnet_core.h $
- * Description: GASNet header for axiom conduit core
+ * Description: GASNet header for AXIOM conduit core
+ *
+ * Copyright (C) 2016, Evidence Srl.
+ * Terms of use are as specified in COPYING
+ *
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  */

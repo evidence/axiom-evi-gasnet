@@ -1,5 +1,9 @@
 /*   $Source: bitbucket.org:berkeleylab/gasnet.git/template-conduit/gasnet_core.c $
- * Description: GASNet axiom conduit Implementation
+ * Description: GASNet AXIOM conduit Implementation
+ *
+ * Copyright (C) 2016, Evidence Srl.
+ * Terms of use are as specified in COPYING
+ *
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  */
