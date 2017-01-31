@@ -16,6 +16,7 @@ typedef enum _gasnete_psm_mq_op {
     GASNETE_MQ_RECV_LOCAL_OP = 1,   /* Posted as irecvs on local node */
     GASNETE_MQ_SEND_OP = 2,    /* Posted as isend on remote node */
     GASNETE_MQ_RECV_OP = 3,    /* Posted as irecvs on remote node */
+    GASNETE_MQ_EARLY_ACK_RECVD_OP = 4,    /* ACK received before local completion is marked */
     GASNETE_MQ_MAX_OP
 } gasnete_mq_optype_t;
 
@@ -158,47 +159,49 @@ void gasnete_post_pending_ack(void)
                (ack->peer  == gasnetc_psm_state.posted_mq_reqs[i].peer) &&
                (GASNETE_MQ_SEND_LOCAL_OP == gasnetc_psm_state.posted_mq_reqs[i].optype)) {
 
-                gasneti_assert(gasnetc_psm_state.posted_mq_reqs[i].optype == GASNETE_MQ_SEND_LOCAL_OP);
+                if(1 == gasnetc_psm_state.posted_mq_reqs[i].completion) {
 
-                /* This is an op, mark it done. */
-                int transfer_id = gasnetc_psm_state.posted_mq_reqs[i].transfer_id;
-                gasneti_assert(transfer_id < gasnetc_psm_state.transfers_alloc);
-                gasnetc_psm_state.transfers[transfer_id].frags_remaining--;
-                if (gasnetc_psm_state.transfers[transfer_id].frags_remaining == 0){
-                    PSM_MARK_DONE(gasnetc_psm_state.transfers[transfer_id].context, gasnetc_psm_state.transfers[transfer_id].optype);
-                    gasnetc_psm_state.transfers[transfer_id].context = NULL;
-                    gasnetc_psm_state.transfers_count--;
+                    /* This is an op, mark it done. */
+                    int transfer_id = gasnetc_psm_state.posted_mq_reqs[i].transfer_id;
+                    gasneti_assert(transfer_id < gasnetc_psm_state.transfers_alloc);
+                    gasnetc_psm_state.transfers[transfer_id].frags_remaining--;
+                    if (gasnetc_psm_state.transfers[transfer_id].frags_remaining == 0){
+                        PSM_MARK_DONE(gasnetc_psm_state.transfers[transfer_id].context, gasnetc_psm_state.transfers[transfer_id].optype);
+                        gasnetc_psm_state.transfers[transfer_id].context = NULL;
+                        gasnetc_psm_state.transfers_count--;
+                    }
+
+                    /* Fill this slot with an active req. */
+                    int length = gasnetc_psm_state.posted_reqs_length;
+
+                    gasneti_assert(length > 0);
+                    gasnetc_psm_state.posted_mq_reqs[i].posted_reqs =
+                            gasnetc_psm_state.posted_mq_reqs[length - 1].posted_reqs;
+                    gasnetc_psm_state.posted_mq_reqs[i].label =
+                            gasnetc_psm_state.posted_mq_reqs[length - 1].label;
+                    gasnetc_psm_state.posted_mq_reqs[i].completion =
+                            gasnetc_psm_state.posted_mq_reqs[length - 1].completion;
+                    gasnetc_psm_state.posted_mq_reqs[i].peer =
+                            gasnetc_psm_state.posted_mq_reqs[length - 1].peer;
+                    gasnetc_psm_state.posted_mq_reqs[i].transfer_id =
+                            gasnetc_psm_state.posted_mq_reqs[length - 1].transfer_id;
+                    gasnetc_psm_state.posted_mq_reqs[i].optype =
+                            gasnetc_psm_state.posted_mq_reqs[length - 1].optype;
+
+                    gasnetc_psm_state.posted_mq_reqs[length - 1].posted_reqs = PSM2_MQ_REQINVALID;
+                    gasnetc_psm_state.posted_mq_reqs[length - 1].label = 0;
+                    gasnetc_psm_state.posted_mq_reqs[length - 1].completion = 0;
+                    gasnetc_psm_state.posted_mq_reqs[length - 1].optype = GASNETE_MQ_MAX_OP;
+                    gasnetc_psm_state.posted_mq_reqs[length - 1].peer = 0;
+                    gasnetc_psm_state.posted_mq_reqs[length - 1].transfer_id = GASNETE_TRANSFER_ID_INIT;
+
+                    gasnetc_psm_state.posted_reqs_length -= 1;
+                    i -= 1;
+                } else {
+                    gasnetc_psm_state.posted_mq_reqs[i].optype = GASNETE_MQ_EARLY_ACK_RECVD_OP;
                 }
-
-                /* Fill this slot with an active req. */
-                int length = gasnetc_psm_state.posted_reqs_length;
-
-                gasneti_assert(length > 0);
-                gasnetc_psm_state.posted_mq_reqs[i].posted_reqs =
-                        gasnetc_psm_state.posted_mq_reqs[length - 1].posted_reqs;
-                gasnetc_psm_state.posted_mq_reqs[i].label =
-                        gasnetc_psm_state.posted_mq_reqs[length - 1].label;
-                gasnetc_psm_state.posted_mq_reqs[i].completion =
-                        gasnetc_psm_state.posted_mq_reqs[length - 1].completion;
-                gasnetc_psm_state.posted_mq_reqs[i].peer =
-                        gasnetc_psm_state.posted_mq_reqs[length - 1].peer;
-                gasnetc_psm_state.posted_mq_reqs[i].transfer_id =
-                        gasnetc_psm_state.posted_mq_reqs[length - 1].transfer_id;
-                gasnetc_psm_state.posted_mq_reqs[i].optype =
-                        gasnetc_psm_state.posted_mq_reqs[length - 1].optype;
-
-                gasnetc_psm_state.posted_mq_reqs[length - 1].posted_reqs = PSM2_MQ_REQINVALID;
-                gasnetc_psm_state.posted_mq_reqs[length - 1].label = 0;
-                gasnetc_psm_state.posted_mq_reqs[length - 1].completion = 0;
-                gasnetc_psm_state.posted_mq_reqs[length - 1].optype = GASNETE_MQ_MAX_OP;
-                gasnetc_psm_state.posted_mq_reqs[length - 1].peer = 0;
-                gasnetc_psm_state.posted_mq_reqs[length - 1].transfer_id = GASNETE_TRANSFER_ID_INIT;
-
-                gasnetc_psm_state.posted_reqs_length -= 1;
-                i -= 1;
             }
         }
-
         prev = cur;
         cur = cur->next;
         gasneti_free(prev);
@@ -262,14 +265,13 @@ GASNETI_HOT
 void gasnete_finish_mq_reqs(void)
 {
     psm2_error_t ret;
-    psm2_mq_status2_t stat;
     int i;
     int length;
     int transfer_id;
 
     for (i = 0; i < gasnetc_psm_state.posted_reqs_length; i++) {
         if (0 == gasnetc_psm_state.posted_mq_reqs[i].completion) {
-            ret = psm2_mq_test2(&gasnetc_psm_state.posted_mq_reqs[i].posted_reqs, &stat);
+            ret = psm2_mq_test2(&gasnetc_psm_state.posted_mq_reqs[i].posted_reqs, NULL);
         } else {
             continue;
         }
@@ -292,7 +294,8 @@ void gasnete_finish_mq_reqs(void)
                            psm2_error_get_string(ret));
             }
 
-        } else if (GASNETE_MQ_RECV_LOCAL_OP == gasnetc_psm_state.posted_mq_reqs[i].optype){
+        } else if (GASNETE_MQ_RECV_LOCAL_OP == gasnetc_psm_state.posted_mq_reqs[i].optype ||
+                   GASNETE_MQ_EARLY_ACK_RECVD_OP == gasnetc_psm_state.posted_mq_reqs[i].optype) {
 
             /* This is an op, mark it done. */
             transfer_id = gasnetc_psm_state.posted_mq_reqs[i].transfer_id;
@@ -428,6 +431,7 @@ void gasnete_put_long(gasnet_node_t node, void *dest, void *src,
     int transfer_index;
     uintptr_t srcptr = (uintptr_t)src;
     uintptr_t destptr = (uintptr_t)dest;
+    psm2_mq_req_t non_bulk_reqs;
     GASNETC_PSM_LOCK();
 
     transfer_index = gasnete_get_transfer();
@@ -465,18 +469,26 @@ void gasnete_put_long(gasnet_node_t node, void *dest, void *src,
         req->optype = GASNETE_MQ_SEND_LOCAL_OP;
         req->transfer_id = transfer_index;
 
-        ret = psm2_mq_isend2(gasnetc_psm_state.mq, epaddr, 0, &tag, (void *)srcptr,
-                        fraglen, NULL, &req->posted_reqs);
+        if(isbulk) {
+            ret = psm2_mq_isend2(gasnetc_psm_state.mq, epaddr, 0, &tag, (void *)srcptr,
+                            fraglen, NULL, &req->posted_reqs);
+            if (ret != PSM2_OK) {
+                goto fail;
+            }
+        } else {
+           ret = psm2_mq_isend2(gasnetc_psm_state.mq, epaddr, 0, &tag, (void *)srcptr,
+                        fraglen, NULL, &non_bulk_reqs);
+            if (ret != PSM2_OK) {
+                goto fail;
+            }
 
-        if (ret != PSM2_OK) {
-            goto fail;
-        }
-
-        if(!isbulk) {
-            while(0 == req->completion) {
-                GASNETC_PSM_UNLOCK();
-                gasnetc_AMPoll(); 
-                GASNETC_PSM_LOCK();
+            req->completion = 1;
+            ret = -1;
+            while(ret != PSM2_OK) {
+               ret = psm2_mq_test2(&non_bulk_reqs, NULL);
+               GASNETC_PSM_UNLOCK();
+               gasnetc_AMPoll();
+               GASNETC_PSM_LOCK();
             }
         }
 
