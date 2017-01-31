@@ -483,10 +483,9 @@ void gasnete_put_long(gasnet_node_t node, void *dest, void *src,
             }
 
             req->completion = 1;
-            ret = -1;
-            while(ret != PSM2_OK) {
-               ret = psm2_mq_test2(&non_bulk_reqs, NULL);
+            while(psm2_mq_test2(&non_bulk_reqs, NULL) != PSM2_OK) {
                GASNETC_PSM_UNLOCK();
+               GASNETI_WAITHOOK();
                gasnetc_AMPoll();
                GASNETC_PSM_LOCK();
             }
