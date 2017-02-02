@@ -79,4 +79,18 @@ struct {
     gasneti_atomic_t am_rx;
 } gasnetc_ofi_locks;
 
+/* ------------------------------------------------------------------------------------ */
+/* Job Spawn / Bootstrap */
+
+extern gasneti_spawnerfn_t const *gasneti_spawner;
+
+#define gasneti_bootstrapBarrier        (*(gasneti_spawner->Barrier))
+#define gasneti_bootstrapExchange       (*(gasneti_spawner->Exchange))
+#define gasneti_bootstrapBroadcast      (*(gasneti_spawner->Broadcast))
+#define gasneti_bootstrapSNodeBroadcast (*(gasneti_spawner->SNodeBroadcast))
+#define gasneti_bootstrapAlltoall       (*(gasneti_spawner->Alltoall))
+#define gasneti_bootstrapAbort          (*(gasneti_spawner->Abort))
+#define gasneti_bootstrapCleanup        (*(gasneti_spawner->Cleanup))
+#define gasneti_bootstrapFini           (*(gasneti_spawner->Fini))
+
 #endif
