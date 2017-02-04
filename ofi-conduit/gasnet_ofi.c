@@ -662,8 +662,11 @@ void gasnetc_ofi_tx_poll()
 	struct fi_cq_err_entry e;
 
 	/* Read from Completion Queue */
-	GASNETC_OFI_LOCK_EXPR(&gasnetc_ofi_locks.tx_cq, 
-		ret = fi_cq_read(gasnetc_ofi_tx_cqfd, (void *)&re, GASNETC_OFI_NUM_COMPLETIONS));
+    /* If another thread already has the queue lock, return as it is already
+     * processing the queue */
+    if(EBUSY == gasneti_spinlock_trylock(&gasnetc_ofi_locks.tx_cq)) return;
+    ret = fi_cq_read(gasnetc_ofi_tx_cqfd, (void *)&re, GASNETC_OFI_NUM_COMPLETIONS);
+    gasneti_spinlock_unlock(&gasnetc_ofi_locks.tx_cq);
 	if (ret != -FI_EAGAIN)
 	{
 		if_pf (ret < 0) {
@@ -704,9 +707,11 @@ void gasnetc_ofi_am_recv_poll()
 	struct fi_cq_data_entry re = {0};
 	struct fi_cq_err_entry e = {0};
 
-	/* Read from Completion Queue */
-	gasneti_spinlock_lock(&gasnetc_ofi_locks.rx_cq);
-	ret = fi_cq_read(gasnetc_ofi_am_rcqfd, (void *)&re, 1);
+    /* Read from Completion Queue */
+    /* If another thread already holds this lock, return as it is already
+     * processing the queue */
+    if(EBUSY == gasneti_spinlock_trylock(&gasnetc_ofi_locks.rx_cq)) return;
+    ret = fi_cq_read(gasnetc_ofi_am_rcqfd, (void *)&re, 1);
     if (ret == -FI_EAGAIN) {
         gasneti_spinlock_unlock(&gasnetc_ofi_locks.rx_cq);
         return;
