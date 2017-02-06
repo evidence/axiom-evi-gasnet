@@ -33,6 +33,7 @@
  * all the axiom api calls are not blocking and so if the operation can not be execute immedialty a resource_not_available error is returned (and internally managed by the conduit implementation)
  */
 #define _BLOCKING_MODE
+//#define _NOT_BLOCKING_MODE
 
 
 #if defined(_BLOCKING_MODE)
@@ -46,20 +47,64 @@
 #endif
 #endif
 
-// enable/disable internal conduit logging
+/*
+ *
+ *
+ * enable/disable internal conduit logging
+ *
+ *
+ *
+ */
+
+/* PS: if enabled the overhead is only an integer comparison for every message in the code (plus, eventually, the time spent to display the message).  */
+
 #ifdef GASNET_DEBUG
+
+// if defined does not output system time
 #define GASNET_DEBUG_SIMPLE_OUTPUT
+
 #include <sys/time.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
-typedef enum { LOG_NOLOG = -1, LOG_FATAL = 0, LOG_ERROR = 1, LOG_WARN = 2, LOG_INFO = 3,  LOG_DEBUG = 4, LOG_TRACE = 5  } logmsg_level_t;
+
+/**
+ * Logs levels.
+ * Lower level include upper level.
+ */
+typedef enum {
+    /** No logging. */
+    LOG_NOLOG = -1,
+    /** Fatal error logging. */
+    LOG_FATAL = 0,
+    /** Error logging. */
+    LOG_ERROR = 1,
+    /** Warning logging. */
+    LOG_WARN = 2,
+    /** Informational logging. */
+    LOG_INFO = 3,
+    /** Debug logging. */
+    LOG_DEBUG = 4,
+    /** Trace logging. */
+    LOG_TRACE = 5
+} logmsg_level_t;
+
+/** Name to log level mapping. */
 static const char *logmsg_name[] = {"FATAL", "ERROR", "WARN", "INFO", "DEBUG", "TRACE"};
+/** Actual log level. Default to LOG_ERROR. */
 static logmsg_level_t logmsg_level=LOG_ERROR;
+/** Logging output FILE. */
 static FILE *logmsg_fout=NULL;
+/** Start logging time. Seconds. */
 static time_t logmsg_sec;
+/** Start logging time. Microsencods. */
 static long logmsg_micros;
+
+/** Test if a message of a specific log level is enabled. */
 #define logmsg_is_enabled(lvl) ((lvl)<=logmsg_level)
+
+/*
+ * OLD, do not remove!
 #define logmsgOLD(lvl, msg, ...) {\
   if (logmsg_is_enabled(lvl)) {\
     struct timespec _t1;\
@@ -72,13 +117,29 @@ static long logmsg_micros;
     _logmsg("[%5d.%06d] %5s{%d}: " msg "\n", (int)_secs, (int)_micros, logmsg_name[lvl], (int)getpid(), ##__VA_ARGS__);\
   }\
 }
+ */
+
 #ifdef GASNET_DEBUG_SIMPLE_OUTPUT
+/**
+ * Log a message.
+ * Without time.
+ * @param lvl the log level.
+ * @param msg the message.
+ * @param ... the parameter of the message (printf stype).
+ */
 #define logmsg(lvl, msg, ...) {\
   if (logmsg_is_enabled(lvl)) {\
     _logmsg("%5s: " msg "\n", logmsg_name[lvl], ##__VA_ARGS__);\
   }\
 }
 #else
+/**
+ * Log a message.
+ * With time.
+ * @param lvl the log level.
+ * @param msg the message.
+ * @param ... the parameter of the message (printf stype).
+ */
 #define logmsg(lvl, msg, ...) {\
   if (logmsg_is_enabled(lvl)) {\
     struct timespec _t1;\
@@ -92,12 +153,25 @@ static long logmsg_micros;
 #endif
 
 static void _logmsg(const char *msg, ...) __attribute__((format(printf, 1, 2)));
+
+/**
+ * Write a log message on output stream.
+ * @param msg the message.
+ * @param ... the messages's parameters (printf style).
+ */
 static inline void _logmsg(const char *msg, ...) {
     va_list list;
     va_start(list, msg);
     vfprintf(logmsg_fout, msg, list);
     va_end(list);
 }
+
+/**
+ * Logging initialization.
+ * Some enviroment variable are used to initialize the logging subsystem.
+ * GASNET_AXIOM_LOG_LEVEL if present must contains the name of the logging level required (otherwise a default of LOG_ERROR will be used).
+ * GASNET_AXIOM_LOG_FILE if present contains the name of the outputfile (otherwise stderr is used).
+ */
 static inline void logmsg_init() {
     struct timespec t0;
     char buf[MAXPATHLEN];
@@ -128,11 +202,25 @@ static inline void logmsg_init() {
         logmsg_fout = stderr;
     }
 }
+
 #else
+
+// if this is a 'performance' build remove all logging functions.
+
 #define logmsg_init()
 #define logmsg_is_enabled(lvl) 0
 #define logmsg(lvl,msg,...) 
+
 #endif
+
+/*
+ *
+ *
+ * gasnet conduit misc definitions
+ *
+ *
+ *
+ */
 
 #if GASNET_PSHM
 // paranoia
@@ -143,6 +231,7 @@ static inline void logmsg_init() {
 #error AXIOM conduit does not support SEGMENT_EVERYTHING
 #endif
 
+/* Conduit identification. */
 GASNETI_IDENT(gasnetc_IdentString_Version, "$GASNetCoreLibraryVersion: " GASNET_CORE_VERSION_STR " $");
 #ifdef _BLOCKING_MODE
 GASNETI_IDENT(gasnetc_IdentString_Name, "$GASNetCoreLibraryName: " GASNET_CORE_NAME_STR " $");
@@ -150,31 +239,70 @@ GASNETI_IDENT(gasnetc_IdentString_Name, "$GASNetCoreLibraryName: " GASNET_CORE_N
 GASNETI_IDENT(gasnetc_IdentString_Name, "$GASNetCoreLibraryName: " GASNET_CORE_NAME_STR " (NB mode)$");
 #endif
 
+/* The message handler table */
 gasnet_handlerentry_t const *gasnetc_get_handlertable(void);
+
+/* Exit functions. */
 #if HAVE_ON_EXIT
 static void gasnetc_on_exit(int, void*);
 #else
 static void gasnetc_atexit(void);
 #endif
 
+/** Gasnet conduit handler table. */
 gasneti_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS]; /* handler table (recommended impl) */
 
+/*
+ *
+ *
+ * Internal axiom messages
+ *
+ *
+ *
+ */
+
+/** Default axiom port to use. */
+#define AXIOM_BIND_PORT 7
+
+/** Axiom device. */
+static axiom_dev_t *axiom_dev=NULL;
+
+/*
+#ifndef _BLOCKING_MODE
+static axiom_dev_t *axiom_dev_blocking=NULL;
+#endif
+*/
+
 // commands (for axiom raw messages)
+/** This is a Active Message request. */
 #define GASNETC_AM_REQ_MESSAGE 128
+/** This is a Active message reply. */
 #define GASNETC_AM_REPLY_MESSAGE 129
+/** This is a RDMA message. */
 #define GASNETC_RDMA_MESSAGE 130
 
+/**
+ * Axiom raw header message structure.
+ */
 typedef struct gasnetc_axiom_am_header {
+    /** Command. A GASNET_XXXX_MESSAGE constant. */
     uint8_t command;
+    /** Message catagory. On of the gasnetc_Short, gasnetc_Medium or gasnetc_Long constant. */
     uint8_t category;
+    /** Remote handler identification. */
     uint8_t handler_id;
+    /** Number of arguments. The arguments are located after this message header.*/
     uint8_t numargs;
+    /** RDMA offset. Used for 'data' below.*/
     uint32_t offset;
+    /** RDMA size. Used for 'data' below. */
     uint32_t size;
-    //uint32_t rdma_token;
+    /** RDMA residual data to transfert. AXIOM RDMA can transfert only a multiple of GASNETC_ALIGN_SIZE bytes so this array containt the residual data.*/
     uint8_t data[GASNETC_ALIGN_SIZE]; // need if not using rdma_message!!!!
 } __attribute__((__packed__)) gasnetc_axiom_am_header_t;
 
+// Size of the raw message header.
+// This size implies the maximum number of Short message argument so it must known externally.
 #ifndef GASNET_AXIOM_AM_MSG_HEADER_SIZE
 #define GASNET_AXIOM_AM_MSG_HEADER_SIZE sizeof(gasnetc_axiom_am_header_t)
 #endif
@@ -182,39 +310,79 @@ typedef struct gasnetc_axiom_am_header {
 #error GASNET_AXIOM_AM_MSG_HEADER_SIZE defined into gasnet_core.c must be equal to gasnet_core.h
 #endif
 
+/**
+ * Axiom message structure.
+ */
 typedef struct gasnetc_axiom_am_msg {
+    /** The header. */
     gasnetc_axiom_am_header_t head;
+    /** The parameters of the active message. */
     gasnet_handlerarg_t args[GASNET_AXIOM_AM_MAX_NUM_ARGS];
 } __attribute__((__packed__)) gasnetc_axiom_am_msg_t;
 
-        
+
+/** Compute the size of the payload. If using a specific number of argument. */
 #define compute_payload_size(numargs) (GASNET_AXIOM_AM_MSG_HEADER_SIZE+sizeof(gasnet_handlerarg_t)*(numargs))
-//#define compute_aligned_payload_size(numargs) (compute_payload_size(numargs)+((numargs&0x1)?0:4))    
+
+//#define compute_aligned_payload_size(numargs) (compute_payload_size(numargs)+((numargs&0x1)?0:4))
+
+/**
+ * Compute the size of the aligned payload.
+ * A size needed if the 'real' payload size is not GASNETI_MEDBUF_ALIGNMENT bytes aligned.
+ *
+ * @param numargs Number of argument.
+ * @return The size.
+ */
 static inline size_t compute_aligned_payload_size(int numargs) {
     register size_t sz=compute_payload_size(numargs);
     return ((sz&(GASNETI_MEDBUF_ALIGNMENT-1))==0)?sz:((sz&~(GASNETI_MEDBUF_ALIGNMENT-1))+GASNETI_MEDBUF_ALIGNMENT);
 }
 
+/**
+ * Axiom generic message structure.
+ * Only the command is needed.
+ */
 typedef struct gasnetc_axiom_generic_msg {
+    /** Command. A GASNET_XXXX_MESSAGE constant. */
     uint8_t command;
 } __attribute__((__packed__)) gasnetc_axiom_generic_msg_t;
 
+/**
+ * An axiom buffer for a received message.
+ */
 typedef struct gasnetc_axiom_msg {
     union {
+        /** The generic message. */
         gasnetc_axiom_generic_msg_t gen;
+        /** The active message. */
         gasnetc_axiom_am_msg_t am;
+        /** The Gasnet Long message. */
         uint8_t buffer[AXIOM_LONG_PAYLOAD_MAX_SIZE];
     } __attribute__((__packed__));
 } __attribute__((__packed__)) gasnetc_axiom_msg_t;
 
+/**
+ * Axiom internal information for build a gasnet replay.
+ */
 typedef struct gasnetc_axiom_am_info {
+    /** Source axiom node. */
     gasnet_node_t node;
+    /** Source axiom port */
     axiom_port_t port;
-    //uint32_t rdma_token;
+    /** If true this is a request (otherwise a reply). */
     int isReq;
 } gasnetc_axiom_am_info_t;
 
+/**
+ * Get hadler.
+ * Default implementation using an array.
+ * 
+ * @param h the handler id.
+ * @return the handelr information.
+ */
 #define gasnetc_get_handler(_h) (gasnetc_handler[(_h)])
+
+// maps gasnet HSL (High Speed Lock) to friendly name
 
 //#if GASNETC_HSL_SPINLOCK
 #if 0
@@ -232,59 +400,93 @@ typedef struct gasnetc_axiom_am_info {
         }\
     } while (0)
 #else
+/** Lock a mutex. */
 #define LOCK(x) \
     gasneti_mutex_lock(&((x).lock))
 #endif
+/** Unlock a mutes. */
 #define UNLOCK(x) \
     gasneti_mutex_unlock(&((x).lock))
+/** Initialize a mutex. */
 #define INIT_MUTEX(x) \
     gasneti_mutex_init(&((x).lock))
+/** Mutex definition. */
 #define MUTEX_t gasnet_hsl_t
 
+/** Init a condition variable. */
 #define INIT_COND(x) \
     gasneti_cond_init(&(x))
+/** Signal a condition variable. */
 #define SIGNAL_COND(x) \
     gasneti_cond_signal(&(x))
+/** Wait a condition variable. */
 #define WAIT_COND(x,m) \
     gasneti_cond_wait(&(x),&(m.lock))
+/** Condition variable definition. */
 #define COND_t gasneti_cond_t
 
 /*
-  Initialization
-  ==============
+ *
+ *
+ * Node management
+ *
+ *
+ * 
  */
 
-#define AXIOM_BIND_PORT 7
+// to map AXIOM nodes to GASNET nodes
+// PHYSICAL means AXIOM
+// LOGICAL means GASNET
 
-static axiom_dev_t *axiom_dev=NULL;
-/*
-#ifndef _BLOCKING_MODE
-static axiom_dev_t *axiom_dev_blocking=NULL;
-#endif
-*/
-
+/** Invalid axiom node number. */
 #define INVALID_PHYSICAL_NODE 255
+/** Invalid gasnet node number. */
 #define INVALID_LOGICAL_NODE -1
 
+/** Table for gasnet to axiom node mapping. */
 static axiom_node_id_t *gasnetc_nodes_log2phy = NULL;
+/** Table for gasnet to axiom node mapping. */
 static gasnet_node_t *gasnetc_nodes_phy2log = NULL;
+/** Number of gasnet nodes. Note that num_jobs_nodes must be less or equal to num_phy_nodes */
 static int num_job_nodes;
+/** Number of axiom nodes. */
 static int num_phy_nodes;
 
+/**
+ * Map a gasnet node to a axiom node.
+ * @param node The gasnet node.
+ * @return The axiom node.
+ */
 static inline axiom_node_id_t node_log2phy(gasnet_node_t node) {
     gasneti_assert(node >= 0 && node < num_job_nodes);
     return gasnetc_nodes_log2phy[node];
 }
 
+/**
+ * Map a axiom node to a gasnet node.
+ * @param node The axiom node.
+ * @return The gasnet node.
+ */
 static inline gasnet_node_t node_phy2log(axiom_node_id_t node) {
     gasneti_assert(node > 0 && node <= num_phy_nodes);
     gasneti_assert(gasnetc_nodes_phy2log[node] != INVALID_LOGICAL_NODE);
     return gasnetc_nodes_phy2log[node];
 }
 
+/*
+ *
+ *
+ * Low levels axiom API wrappers.
+ *
+ *
+ *
+ */
+
 #ifndef _BLOCKING_MODE
 
 /*
+ * OLD implementation: do not remove.
+ *
 //
 #define SEND_RETRY 42
 // usec
@@ -320,6 +522,7 @@ static inline axiom_msg_id_t axiom_recv_raw(axiom_dev_t *dev, axiom_node_id_t *s
 }
 */
 
+/** Spinloop in case of polling. */
 #define SPINLOOP_FOR(res) {\
   if (res!=AXIOM_RET_NOTAVAIL) break;\
   gasneti_compiler_fence();\
@@ -644,8 +847,35 @@ static inline axiom_err_t _rdma_write(axiom_dev_t *dev, gasnet_node_t node_id, s
 
 #endif
 
-static void my_signal_handler(int sig);
+/*
+ *
+ *
+ * signal handlers
+ *
+ *
+ *
+ */
 
+/**
+ * Termination signal handler.
+ *
+ * @param sig Signal number.
+ */
+static void my_signal_handler(int sig) {
+    if (sig == SIGQUIT) {
+        gasnet_exit(42);
+    } else {
+        struct sigaction sa;
+        memset(&sa, 0, sizeof (sa));
+        sa.sa_handler = SIG_DFL;
+        sigaction(sig, &sa, NULL);
+    }
+    raise(sig);
+}
+
+/**
+ * Initialize signal handlers.
+ */
 static void init_signal_manager() {
     struct sigaction sa;
     memset(&sa, 0, sizeof (sa));
@@ -653,10 +883,22 @@ static void init_signal_manager() {
     //if_pf(sigaction(SIGQUIT, &sa, NULL) != 0) gasneti_fatalerror("Installing %s signal handler!", "SIGSEGV");
 }
 
-/* ------------------------------------------------------------------------------------ */
+/*
+ *
+ *
+ * gasnet initialization
+ *
+ *
+ *
+ */
 
+/** Default axiom barrier identification. */
 #define BARRIER_ID 7
 
+/**
+ * Internal gasnet initial barrier.
+ * To synchornize jobs nodes.
+ */
 static void gasnetc_bootstrapBarrier(void) {
     int res;
     res = axrun_sync(BARRIER_ID, 1);
@@ -665,7 +907,9 @@ static void gasnetc_bootstrapBarrier(void) {
     }
 }
 
-/* called at startup to check configuration sanity */
+/**
+ * Called at startup to check configuration sanity.
+ */
 static void gasnetc_check_config(void) {
     gasneti_check_config_preinit();
 
@@ -693,8 +937,6 @@ static void gasnetc_bootstrapSNodeBroadcast(void *src, size_t len, void *dest, i
 }
 #endif
 
-extern char **environ;
-
 /**
  * Send a RAW message to all nodes (of the gasnet application).
  * The first error abort the transmission.
@@ -717,14 +959,35 @@ static int send_to_all(void *packet, axiom_port_t port, axiom_raw_payload_size_t
     return AXIOM_RET_IS_OK(ret)? GASNET_OK : -1;
 }
 
+/**
+ * strncpy() with \0 termination.
+ * @param dest Destination string.
+ * @param src Source string.
+ * @param n Destination max size.
+ * @return Destination string.
+ */
 static inline char *_strncpy(char *dest, const char *src, size_t n) {
     char *res = strncpy(dest, src, n);
     dest[n - 1] = '\0';
     return res;
 }
 
+/**
+ * BSD strlcpy.
+ * @param dst Destination string.
+ * @param src Source string.
+ * @param size Size of destination string.
+ * @return Destination string.
+ */
 extern size_t strlcpy(char *dst, const char *src, size_t size);
 
+/**
+ * Gasnet internal initialization bootstrap.
+ *
+ * @param argc_p main() argc pointer.
+ * @param argv_p main() *argv[] pointer.
+ * @return GASNET_OK in case of success otherwise another values.
+ */
 static int gasneti_bootstrapInit(int *argc_p, char ***argv_p) {
     char *s;
     uint64_t job_nodes;
@@ -782,12 +1045,26 @@ static int gasneti_bootstrapInit(int *argc_p, char ***argv_p) {
 }
 
 #ifdef _BLOCKING_MODE
+/** A mutex for synchronization for blocking mode.*/
 static MUTEX_t poll_mutex;
 #endif
 
+/** Indicate if the rdma allocation has been done. */
 static int gasnetc_rdma_allocation_done=0;
+
+/**
+ * Initialization for async request.
+ */
 static void async_init();
 
+/**
+ * Axion conduit initialization.
+ *
+ * @param argc main() argc pointer.
+ * @param argv main() *argv[] pointer.
+ * 
+ * @return GASNET_OK in case of success otherwise another value.
+ */
 static int gasnetc_init(int *argc, char ***argv) {
 
     axiom_err_t ret;
@@ -964,7 +1241,14 @@ static int gasnetc_init(int *argc, char ***argv) {
     return GASNET_OK;
 }
 
-/* ------------------------------------------------------------------------------------ */
+/**
+ * Gasnet initialization.
+ *
+ * @param argc main() argc pointer.
+ * @param argv main() *argv[] pointer.
+ *
+ * @return GASNET_OK on success.
+ */
 extern int gasnet_init(int *argc, char ***argv) {
     int retval = gasnetc_init(argc, argv);
     if (retval != GASNET_OK) GASNETI_RETURN(retval);
@@ -972,9 +1256,24 @@ extern int gasnet_init(int *argc, char ***argv) {
 
     return GASNET_OK;
 }
-/* ------------------------------------------------------------------------------------ */
+
+/** 
+ * Used to check for unique handler id.
+ * If ZERO the id is not used. If ONE the handler id is already used.
+ */
 static char checkuniqhandler[256] = {0};
 
+/**
+ * Default handler registration.
+ *
+ * @param table Handler table.
+ * @param numentries Num entries.
+ * @param lowlimit Low handler id.
+ * @param highlimit High handler id.
+ * @param dontcare If ONE then if a handler is not specified into handler table then assign a internal generated handler id.
+ * @param numregistered Num handler registered.
+ * @return GASNET_OK is success.
+ */
 static int gasnetc_reghandlers(gasnet_handlerentry_t *table, int numentries,
         int lowlimit, int highlimit,
         int dontcare, int *numregistered) {
@@ -1022,10 +1321,28 @@ static int gasnetc_reghandlers(gasnet_handlerentry_t *table, int numentries,
     return GASNET_OK;
 }
 
+/*
+ *
+ *
+ * DMA buffers
+ *
+ *
+ *
+ */
+
+// used when a user request an Active Long message from an area outside RDMA mapped memory
+
+// is using less than 32 buffers then a uint32_t is used
 #if GASNETC_NUM_BUFFERS<=32
 
+/**
+ * Buffer state.
+ * The n-th bit specifies state on n-th buffer.
+ * ONE free or ZERO allocated.
+ */
 static volatile uint32_t rdma_buf_state = 0xffffffff;
 
+/** One costant. */
 #define ONE ((uint32_t)1)
 
 /**
@@ -1048,10 +1365,17 @@ static inline int __ctz(register uint32_t n) {
     return __builtin_ctz(n);
 }
 
+// is using less than 64 buffers then a uint64_t is used
 #elif GASNETC_NUM_BUFFERS<=64
 
+/**
+ * Buffer state.
+ * The n-th bit specifies state on n-th buffer.
+ * ONE free or ZERO allocated.
+ */
 static volatile uint64_t rdma_buf_state = 0xffffffffffffffff;
 
+/** One costant. */
 #define ONE ((uint64_t)1)
 
 /**
@@ -1089,17 +1413,28 @@ static inline int __ctz(register uint64_t n) {
 }
 
 #else
+// is using MORE than 64 buffers no implementation
 #error GASNETC_NUM_BUFFERS must be <=64
 #endif
 
+/** A mutex for buffer management. (need in PAR mode). */
 static MUTEX_t rdma_buf_mutex;
+/** A condition variable for buffer management. (need in PAR mode). */
 static COND_t rdma_buf_cond;
 
+/**
+ * Initialize DMA buffer management.
+ */
 static void init_rdma_buf() {
     INIT_MUTEX(rdma_buf_mutex);
     INIT_COND(rdma_buf_cond);
 }
 
+/**
+ * Allocate a DMA buffer.
+ * Note tha this function can block (into a polling state) the caller.
+ * @return The buffer allocated.
+ */
 static void *alloca_rdma_buf() {
     int idx;
     LOCK(rdma_buf_mutex);
@@ -1114,6 +1449,10 @@ static void *alloca_rdma_buf() {
     return (uint8_t*) gasneti_seginfo[gasneti_mynode].base + idx*GASNETC_BUFFER_SIZE;
 }
 
+/**
+ * Free a DMA buffer.
+ * @param buf The buffer already allocated.
+ */
 static void free_rdma_buf(void *buf) {
     int idx = ((uint8_t*) buf - (uint8_t*) gasneti_seginfo[gasneti_mynode].base) / GASNETC_BUFFER_SIZE;
     LOCK(rdma_buf_mutex);
@@ -1122,7 +1461,25 @@ static void free_rdma_buf(void *buf) {
     UNLOCK(rdma_buf_mutex);
 }
 
-/* ------------------------------------------------------------------------------------ */
+/*
+ *
+ *
+ * Conduit attach
+ *
+ *
+ *
+ */
+
+/**
+ * Axiom conduit attach.
+ * Note tha some parameter are pointer because this function can increase the values.
+ * 
+ * @param table Handler table.
+ * @param numentries Num entries into handler table.
+ * @param segsize Requested memory segment size.
+ * @param minheapoffset Requested minmum heap offest.
+ * @return GASNET_OK in success.
+ */
 extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
         uintptr_t segsize, uintptr_t minheapoffset) {
     void *segbase = NULL;
@@ -1330,15 +1687,33 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 
     return GASNET_OK;
 }
-/* ------------------------------------------------------------------------------------ */
+
+/*
+ *
+ *
+ * conduit exit
+ *
+ *
+ *
+ */
 
 #if HAVE_ON_EXIT
 
+/**
+ * Conduit exit function called on_exit.
+ *
+ * @param exitcode exit code.
+ * @param arg ???.
+ */
 static void gasnetc_on_exit(int exitcode, void *arg) {
     gasnetc_exit(exitcode);
 }
 #else
 
+/**
+ * Conduit exit function called on_exit.
+ * @param exitcode Exit code.
+ */
 static void gasnetc_atexit(void) {
 
     gasnetc_exit(0);
@@ -1347,6 +1722,11 @@ static void gasnetc_atexit(void) {
 
 //static int received_exit_message = 0;
 
+/**
+ * Conduit exit function.
+ * This funtion never return.
+ * @param exitcode The exit code
+ */
 extern void gasnetc_exit(int exitcode) {
     /* once we start a shutdown, ignore all future SIGQUIT signals or we risk reentrancy */
     gasneti_reghandler(SIGQUIT, SIG_IGN);
@@ -1384,107 +1764,59 @@ extern void gasnetc_exit(int exitcode) {
     gasneti_fatalerror("gasnetc_exit failed! killmyprocess() return!");
 }
 
-static void my_signal_handler(int sig) {
-    if (sig == SIGQUIT) {
-        gasnet_exit(42);
-    } else {
-        struct sigaction sa;
-        memset(&sa, 0, sizeof (sa));
-        sa.sa_handler = SIG_DFL;
-        sigaction(sig, &sa, NULL);
-    }
-    raise(sig);
-}
-
-/* ------------------------------------------------------------------------------------ */
 /*
-  Misc. Active Message Functions
-  ==============================
- */
-#if GASNET_PSHM
-/* (###) GASNETC_GET_HANDLER
- *   If your conduit will support PSHM, then there needs to be a way
- *   for PSHM to see your handler table.  If you use the recommended
- *   implementation (gasnetc_handler[]) then you don't need to do
- *   anything special.  Othwerwise, #define GASNETC_GET_HANDLER in
- *   gasnet_core_fwd.h and implement gasnetc_get_handler() here, or
- *   as a macro or inline in gasnet_core_internal.h
  *
- * (###) GASNETC_TOKEN_CREATE
- *   If your conduit will support PSHM, then there needs to be a way
- *   for the conduit-specific and PSHM token spaces to co-exist.
- *   The default PSHM implementation produces tokens with the least-
- *   significant bit set and assumes the conduit never will.  If that
- *   is true, you don't need to do anything special here.
- *   If your conduit cannot use the default PSHM token code, then
- *   #define GASNETC_TOKEN_CREATE in gasnet_core_fwd.h and implement
- *   the associated routines described in gasnet_pshm.h.  That code
- *   could be functions located here, or could be macros or inlines
- *   in gasnet_core_internal.h.
+ *
+ * Async request manager
+ *
+ *
+ *
  */
-#endif
 
-extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex) {
-    gasnet_node_t sourceid;
-    GASNETI_CHECKATTACH();
-    GASNETI_CHECK_ERRR((!token), BAD_ARG, "bad token");
-    GASNETI_CHECK_ERRR((!srcindex), BAD_ARG, "bad src ptr");
-
-#if GASNET_PSHM
-    /* (###) If your conduit will support PSHM, let the PSHM code
-     * have a chance to recognize the token first, as shown here. */
-    if (gasneti_AMPSHMGetMsgSource(token, &sourceid) != GASNET_OK)
-#endif
-    {
-        gasnetc_axiom_am_info_t *info = (gasnetc_axiom_am_info_t*) token;
-        sourceid = info->node;
-    }
-
-    gasneti_assert(sourceid < gasneti_nodes);
-    *srcindex = sourceid;
-
-    return GASNET_OK;
-}
-
-#ifndef GASNETC_ENTERING_HANDLER_HOOK
-/* extern void enterHook(int cat, int isReq, int handlerId, gasnet_token_t *token,
- *                       void *buf, size_t nbytes, int numargs, gasnet_handlerarg_t *args);
- */
-#define GASNETC_ENTERING_HANDLER_HOOK(cat,isReq,handlerId,token,buf,nbytes,numargs,args) ((void)0)
-#endif
-#ifndef GASNETC_LEAVING_HANDLER_HOOK
-/* extern void leaveHook(int cat, int isReq);
- */
-#define GASNETC_LEAVING_HANDLER_HOOK(cat,isReq) ((void)0)
-#endif
-
+// only usefull in NOT BLOCKING MODE....
+// rationale: why more arrays (and not an array of structur)? because the axiom api will change to check for tokens with one ioctl (passing an array of rdma tokens)
 
 #ifndef __BLOCKING_MODE
 
+/** Max pending async reqeust. */
 #define ASYNC_MAX_PENDING_REQ 64
+/** Masq for pending request. (So MAX_PENDING must be a power of two). */
 #define ASYNC_MASQ 0x3f
 
-/* rationale: why more arrays? because the axiom api will change to check for tokens with one ioctl (passing an array of rdma tokens)*/
-
+/** Invalid token. */
 #define INVALID_TOKEN 0
 
+/** Buffer for storing pending raw message. */
 static gasnetc_axiom_am_msg_t async_buf[ASYNC_MAX_PENDING_REQ];
+/** Array to store axiom rmda tokes. */
 static axiom_token_t async_tok[ASYNC_MAX_PENDING_REQ];
 
+/** Array of information for a pending async request. */
 static struct {
+    /** FREE or USED or a number that indicate a group. */
     int state;
+    /** Destination node. */
     gasnet_node_t dest;
+    /** Payload size. */
     axiom_long_payload_size_t size;
 } async_info[ASYNC_MAX_PENDING_REQ];
 
+/** State FREE. */
 #define ASYNC_FREE 0
+/** State USED. */
 #define ASYNC_USED -1
+/** Check for free state. */
 #define ASYNC_IS_FREE(idx) (async_info[idx].state==ASYNC_FREE)
+/** Check for used state. */
 #define ASYNC_IS_USED(idx)  (async_info[idx].state==ASYNC_USED)
+/** Check for elaboration state. the buffer is own by a group. */
 #define ASYNC_IS_ELAB(idx) (async_info[idx].state!=ASYNC_USED&&async_info[idx].state!=ASYNC_FREE)
 
+/** Number of buffe used. */
 static int async_used=0;
+/** Next buffer to use. circular buffer. */
 static int async_next=0;
+/** Mutex for PAR mode. */
 static MUTEX_t async_mutex;
 
 /**
@@ -1536,6 +1868,7 @@ static void async_free_buffer(int num_free) {
     UNLOCK(async_mutex);
 }
 
+/** Maxium number of pendig request to elaborate per gasnet poll request. */
 /* to check: if ASYNC_MAX_NUM_PER_CHECK < ASYNC_MAX_PENDING_REQ starvation?*/
 #define ASYNC_MAX_NUM_PER_CHECK ASYNC_MAX_PENDING_REQ
 
@@ -1574,11 +1907,88 @@ static void async_check_buffers(int *id, int *num) {
 
 #endif
 
+/*
+ *
+ *
+ * Active message functions
+ *
+ *
+ *
+ */
+
+#if GASNET_PSHM
+/* (###) GASNETC_GET_HANDLER
+ *   If your conduit will support PSHM, then there needs to be a way
+ *   for PSHM to see your handler table.  If you use the recommended
+ *   implementation (gasnetc_handler[]) then you don't need to do
+ *   anything special.  Othwerwise, #define GASNETC_GET_HANDLER in
+ *   gasnet_core_fwd.h and implement gasnetc_get_handler() here, or
+ *   as a macro or inline in gasnet_core_internal.h
+ *
+ * (###) GASNETC_TOKEN_CREATE
+ *   If your conduit will support PSHM, then there needs to be a way
+ *   for the conduit-specific and PSHM token spaces to co-exist.
+ *   The default PSHM implementation produces tokens with the least-
+ *   significant bit set and assumes the conduit never will.  If that
+ *   is true, you don't need to do anything special here.
+ *   If your conduit cannot use the default PSHM token code, then
+ *   #define GASNETC_TOKEN_CREATE in gasnet_core_fwd.h and implement
+ *   the associated routines described in gasnet_pshm.h.  That code
+ *   could be functions located here, or could be macros or inlines
+ *   in gasnet_core_internal.h.
+ */
+#endif
+
+/**
+ * The source node of an active message.
+ * @param token The token received.
+ * @param srcindex The source node (output information).
+ * @return GASNET_OK if success.
+ */
+extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex) {
+    gasnet_node_t sourceid;
+    GASNETI_CHECKATTACH();
+    GASNETI_CHECK_ERRR((!token), BAD_ARG, "bad token");
+    GASNETI_CHECK_ERRR((!srcindex), BAD_ARG, "bad src ptr");
+
+#if GASNET_PSHM
+    /* (###) If your conduit will support PSHM, let the PSHM code
+     * have a chance to recognize the token first, as shown here. */
+    if (gasneti_AMPSHMGetMsgSource(token, &sourceid) != GASNET_OK)
+#endif
+    {
+        gasnetc_axiom_am_info_t *info = (gasnetc_axiom_am_info_t*) token;
+        sourceid = info->node;
+    }
+
+    gasneti_assert(sourceid < gasneti_nodes);
+    *srcindex = sourceid;
+
+    return GASNET_OK;
+}
+
+#ifndef GASNETC_ENTERING_HANDLER_HOOK
+/* extern void enterHook(int cat, int isReq, int handlerId, gasnet_token_t *token,
+ *                       void *buf, size_t nbytes, int numargs, gasnet_handlerarg_t *args);
+ */
+#define GASNETC_ENTERING_HANDLER_HOOK(cat,isReq,handlerId,token,buf,nbytes,numargs,args) ((void)0)
+#endif
+#ifndef GASNETC_LEAVING_HANDLER_HOOK
+/* extern void leaveHook(int cat, int isReq);
+ */
+#define GASNETC_LEAVING_HANDLER_HOOK(cat,isReq) ((void)0)
+#endif
+
+/** Maximum remote messages elabotated for gasnet poll request. */
 // do not use ONE !!!!!!!!!!! errors on "testgasnet" (bulk monothread send))
 #define MAX_MSG_PER_POLL 3
 
 //int _counter=0;
 
+/**
+ * Conduit internal poll request.
+ * @return GASNET_OK if success.
+ */
 extern int gasnetc_AMPoll(void) {
     uint8_t buffer[sizeof(gasnetc_axiom_msg_t)+GASNETI_MEDBUF_ALIGNMENT];
     gasnetc_axiom_msg_t* payload;
@@ -1771,13 +2181,14 @@ extern int gasnetc_AMPoll(void) {
     return GASNET_OK;
 }
 
-/* ------------------------------------------------------------------------------------ */
-
-/*
-  Active Message Request Functions
-  ================================
+/**
+ * Short active message request.
+ * @param dest Destination node.
+ * @param handler Remote handler id.
+ * @param numargs Number of arguments.
+ * @param ... Arguments.
+ * @return AXIOM_OK if success.
  */
-
 extern int gasnetc_AMRequestShortM(gasnet_node_t dest, gasnet_handler_t handler, int numargs, ...) {
     gasnetc_axiom_am_msg_t payload;
     axiom_err_t ret;
@@ -1814,6 +2225,16 @@ extern int gasnetc_AMRequestShortM(gasnet_node_t dest, gasnet_handler_t handler,
     GASNETI_RETURN(retval);
 }
 
+/**
+ * Medium active message request.
+ * @param dest Destination node.
+ * @param handler Remote handler id.
+ * @param Source address.
+ * @param Size of source memory block.
+ * @param numargs Number of arguments.
+ * @param ... Arguments.
+ * @return AXIOM_OK if success.
+ */
 extern int gasnetc_AMRequestMediumM(
         gasnet_node_t dest, /* destination node */
         gasnet_handler_t handler, /* index into destination endpoint's handler table */
@@ -1863,8 +2284,14 @@ extern int gasnetc_AMRequestMediumM(
     GASNETI_RETURN(retval);
 }
 
+/** Long message type.*/
 typedef enum {
-  NORMAL_REQUEST=0, ASYNC_REQUEST=1, REPLAY=2
+  /** Active long message. */
+  NORMAL_REQUEST=0, 
+  /** Async active long message. */
+  ASYNC_REQUEST=1,
+  /** Long reply message.*/
+  REPLAY=2
 } type_enum;
 
 /**
@@ -2024,6 +2451,18 @@ static int _requestOrReplyLong(gasnet_node_t dest, gasnet_handler_t handler, voi
     return retval;
 }
 
+/**
+ * Long active message request.
+ *
+ * @param dest Destination node
+ * @param handler Requested remote handler id
+ * @param source_addr Source memory address
+ * @param nbytes Source memory buffer size
+ * @param dest_addr Destination memory address (on remote node)
+ * @param numargs Number of arguments
+ * @param ... Arguments.
+ * @return GASNET_OK if succesfull otherwise an error code
+ */
 extern int gasnetc_AMRequestLongM(gasnet_node_t dest, gasnet_handler_t handler, void *source_addr, size_t nbytes, void *dest_addr, int numargs, ...) {
     axiom_err_t ret;
     va_list argptr;
@@ -2048,6 +2487,18 @@ extern int gasnetc_AMRequestLongM(gasnet_node_t dest, gasnet_handler_t handler, 
     GASNETI_RETURN(retval);
 }
 
+/**
+ * Async long active message request.
+ *
+ * @param dest Destination node
+ * @param handler Requested remote handler id
+ * @param source_addr Source memory address
+ * @param nbytes Source memory buffer size
+ * @param dest_addr Destination memory address (on remote node)
+ * @param numargs Number of arguments
+ * @param ... Arguments.
+ * @return GASNET_OK if succesfull otherwise an error code
+ */
 extern int gasnetc_AMRequestLongAsyncM(gasnet_node_t dest, gasnet_handler_t handler, void *source_addr, size_t nbytes, void *dest_addr, int numargs, ...) {
     int retval;
     va_list argptr;
@@ -2116,6 +2567,17 @@ extern int gasnetc_AMReplyShortM(gasnet_token_t token, gasnet_handler_t handler,
     GASNETI_RETURN(retval);
 }
 
+/**
+ * Active medium replay.
+ *
+ * @param token To identify the request.
+ * @param handler Remote handler to call.
+ * @param source_addr Source address.
+ * @param nbytes Size of source memory block.
+ * @param numargs Number of arguments.
+ * @param ... Arguments.
+ * @return GASNET_OK in success.
+ */
 extern int gasnetc_AMReplyMediumM(
         gasnet_token_t token, /* token provided on handler entry */
         gasnet_handler_t handler, /* index into destination endpoint's handler table */
@@ -2171,6 +2633,18 @@ extern int gasnetc_AMReplyMediumM(
     GASNETI_RETURN(retval);
 }
 
+/**
+ *  Active long reply.
+ *
+ * @param token To identify the request.
+ * @param handler Remote handler to call.
+ * @param source_addr Source address.
+ * @param nbytes Size of source memory block.
+ * @param dest_addr Destination address.
+ * @param numargs Number of arguments.
+ * @param ... Arguments.
+ * @return GASNET_OK in success.
+ */
 extern int gasnetc_AMReplyLongM(gasnet_token_t token, gasnet_handler_t handler, void *source_addr, size_t nbytes, void *dest_addr, int numargs, ...) {
     gasnetc_axiom_am_info_t *info = (gasnetc_axiom_am_info_t*) token;
     int retval;
@@ -2196,7 +2670,6 @@ extern int gasnetc_AMReplyLongM(gasnet_token_t token, gasnet_handler_t handler, 
     GASNETI_RETURN(retval);
 }
 
-/* ------------------------------------------------------------------------------------ */
 /*
   No-interrupt sections
   =====================
@@ -2223,13 +2696,22 @@ extern void gasnetc_resume_interrupts(void) {
 }
 #endif
 
-/* ------------------------------------------------------------------------------------ */
 /*
-  Handler-safe locks
-  ==================
+ *
+ *
+ * Handler-safe locks
+ *
+ *
+ *
  */
+
 #if !GASNETC_NULL_HSL
 
+/**
+ * HSL init.
+ * Default implementation.
+ * @param hsl The HSL.
+ */
 extern void gasnetc_hsl_init(gasnet_hsl_t *hsl) {
 
     GASNETI_CHECKATTACH();
@@ -2241,6 +2723,11 @@ extern void gasnetc_hsl_init(gasnet_hsl_t *hsl) {
 #endif
 }
 
+/**
+ * HSL destroy.
+ * Default implementation.
+ * @param hsl The HSL.
+ */
 extern void gasnetc_hsl_destroy(gasnet_hsl_t *hsl) {
 
     GASNETI_CHECKATTACH();
@@ -2252,6 +2739,11 @@ extern void gasnetc_hsl_destroy(gasnet_hsl_t *hsl) {
 #endif
 }
 
+/**
+ * HSL lock.
+ * Default implementation.
+ * @param hsl The HSL.
+ */
 extern void gasnetc_hsl_lock(gasnet_hsl_t *hsl) {
     GASNETI_CHECKATTACH();
 
@@ -2290,6 +2782,11 @@ extern void gasnetc_hsl_lock(gasnet_hsl_t *hsl) {
 #endif
 }
 
+/**
+ * HSL unkock.
+ * Default implementaion.
+ * @param hsl The HSL.
+ */
 extern void gasnetc_hsl_unlock(gasnet_hsl_t *hsl) {
 
     GASNETI_CHECKATTACH();
@@ -2307,6 +2804,12 @@ extern void gasnetc_hsl_unlock(gasnet_hsl_t *hsl) {
     gasneti_mutex_unlock(&(hsl->lock));
 }
 
+/**
+ * HSL try lock.
+ * Default implementation.
+ * @param hsl The HSL.
+ * @return GASNET_OK on success
+ */
 extern int gasnetc_hsl_trylock(gasnet_hsl_t *hsl) {
     GASNETI_CHECKATTACH();
 
@@ -2332,7 +2835,15 @@ extern int gasnetc_hsl_trylock(gasnet_hsl_t *hsl) {
     }
 }
 #endif
-/* ------------------------------------------------------------------------------------ */
+
+/*
+ *
+ *
+ * axiom conduit private handlers
+ *
+ *
+ *
+ */
 
 /*
   Private Handlers:
@@ -2340,6 +2851,8 @@ extern int gasnetc_hsl_trylock(gasnet_hsl_t *hsl) {
   see mpi-conduit and extended-ref for examples on how to declare AM handlers here
   (for internal conduit use in bootstrapping, job management, etc.)
  */
+
+/** Private handler table. */
 static gasnet_handlerentry_t const gasnetc_handlers[] = {
 #ifdef GASNETC_AUXSEG_HANDLERS
     GASNETC_AUXSEG_HANDLERS(),
@@ -2351,8 +2864,11 @@ static gasnet_handlerentry_t const gasnetc_handlers[] = {
     }
 };
 
+/**
+ * Return the handler table.
+ * @return The handler table.
+ */
 gasnet_handlerentry_t const *gasnetc_get_handlertable(void) {
     return gasnetc_handlers;
 }
 
-/* ------------------------------------------------------------------------------------ */
