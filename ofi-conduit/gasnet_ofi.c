@@ -77,6 +77,17 @@ static uint64_t* gasnetc_ofi_target_keys;
         }\
     } while(0)
 
+/* Poll periodically on RMA injection to ensure efficient progress.
+ * This is a data race, but it is safe as polling here is unnecessary, it
+ * simply improves performance in case of floods of RMA requests*/
+static int rdma_poll_frequency = 0;
+static int rdma_periodic_poll_threshold; /* Set via environment variable in init() */
+#define PERIODIC_RMA_POLL() do{\
+    if_pf(rdma_poll_frequency++ >= rdma_periodic_poll_threshold){\
+        rdma_poll_frequency=0;\
+        gasnetc_ofi_tx_poll();\
+    }} while(0)
+
 
 static gasneti_lifo_head_t ofi_am_pool = GASNETI_LIFO_INITIALIZER;
 static gasneti_lifo_head_t ofi_bbuf_pool = GASNETI_LIFO_INITIALIZER;
@@ -356,6 +367,9 @@ int gasnetc_ofi_init(int *argc, char ***argv,
 		ret = fi_recvmsg(gasnetc_ofi_am_epfd, &am_buff_msg[i], FI_MULTI_RECV);
 		if (FI_SUCCESS != ret) gasneti_fatalerror("fi_recvmsg failed: %d\n", ret);
 	}
+
+  /* The number of RMA requests to be issued before a tx_poll takes place */
+  rdma_periodic_poll_threshold = gasneti_getenv_int_withdefault("GASNET_OFI_RMA_POLL_FREQ", 32, 0);
 
   /* Allocate bounce buffers*/
   ofi_num_bbufs = gasneti_getenv_int_withdefault("GASNET_OFI_NUM_BBUFS", 64, 0);
@@ -809,7 +823,7 @@ int gasnetc_ofi_am_send_short(gasnet_node_t dest, gasnet_handler_t handler,
             GASNETC_OFI_LOCK_EXPR(&gasnetc_ofi_locks.am_tx, 
                 ret = fi_inject(gasnetc_ofi_am_epfd, sendbuf, len, GET_AM_DEST(dest)));
 		}
-		if (FI_SUCCESS != ret) gasneti_fatalerror("fi_inject for short ashort failed: %d\n", ret);
+		if (FI_SUCCESS != ret) gasneti_fatalerror("fi_inject for short am failed: %d\n", ret);
 
 		/* Data buffer is ready for reuse, handle it by callback function */
 		header->callback(NULL, header);
@@ -1049,6 +1063,8 @@ int gasnetc_rdma_put_non_bulk(gasnet_node_t dest, void* dest_addr, void* src_add
 
     ((gasnetc_ofi_op_ctxt_t *)ctxt_ptr)->callback = gasnetc_ofi_handle_rdma;
 
+    PERIODIC_RMA_POLL();
+
     /* The payload can be injected without need for a bounce buffer */
     if (nbytes <= max_buffered_send) {
         uintptr_t dest_ptr = GET_REMOTEADDR_PER_MR_MODE(dest_addr, dest);
@@ -1153,6 +1169,8 @@ gasnetc_rdma_put(gasnet_node_t dest, void *dest_addr, void *src_addr, size_t nby
 
 	((gasnetc_ofi_op_ctxt_t *)ctxt_ptr)->callback = gasnetc_ofi_handle_rdma;
 
+    PERIODIC_RMA_POLL();
+
     GASNETC_OFI_LOCK_EXPR(&gasnetc_ofi_locks.rdma_tx,
         OFI_WRITE(gasnetc_ofi_rdma_epfd, src_addr, nbytes, dest, dest_addr, ctxt_ptr));
 	while (ret == -FI_EAGAIN) {
@@ -1172,6 +1190,8 @@ gasnetc_rdma_get(void *dest_addr, gasnet_node_t dest, void * src_addr, size_t nb
 	int ret = FI_SUCCESS;
 
 	((gasnetc_ofi_op_ctxt_t *)ctxt_ptr)->callback = gasnetc_ofi_handle_rdma;
+
+    PERIODIC_RMA_POLL();
 
     GASNETC_OFI_LOCK_EXPR(&gasnetc_ofi_locks.rdma_rx,
         OFI_READ(gasnetc_ofi_rdma_epfd, dest_addr, nbytes, dest, src_addr, ctxt_ptr));
