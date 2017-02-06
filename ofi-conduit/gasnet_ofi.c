@@ -88,6 +88,18 @@ static int rdma_periodic_poll_threshold; /* Set via environment variable in init
         gasnetc_ofi_tx_poll();\
     }} while(0)
 
+/* In this case, inject means "inject into the network". It is not specific
+ * to the fi_inject/fi_inject_write functions. fxn must assign a return value
+ * to an int named "ret" in the scope in which it is called.*/
+#define OFI_INJECT_RETRY(lock, fxn)\
+    do {\
+        GASNETC_OFI_LOCK_EXPR(lock, fxn);\
+        while (ret == -FI_EAGAIN) {\
+            GASNETI_WAITHOOK();\
+            GASNETC_OFI_POLL_EVERYTHING();\
+            GASNETC_OFI_LOCK_EXPR(lock, fxn);\
+        }\
+    }while(0)
 
 static gasneti_lifo_head_t ofi_am_pool = GASNETI_LIFO_INITIALIZER;
 static gasneti_lifo_head_t ofi_bbuf_pool = GASNETI_LIFO_INITIALIZER;
@@ -816,25 +828,15 @@ int gasnetc_ofi_am_send_short(gasnet_node_t dest, gasnet_handler_t handler,
 #endif
 
 	if(len <= max_buffered_send) {
-        GASNETC_OFI_LOCK_EXPR(&gasnetc_ofi_locks.am_tx, 
-		    ret = fi_inject(gasnetc_ofi_am_epfd, sendbuf, len, GET_AM_DEST(dest)));
-		while (ret == -FI_EAGAIN) {
-			GASNETC_OFI_POLL_EVERYTHING();
-            GASNETC_OFI_LOCK_EXPR(&gasnetc_ofi_locks.am_tx, 
+            OFI_INJECT_RETRY(&gasnetc_ofi_locks.am_tx,
                 ret = fi_inject(gasnetc_ofi_am_epfd, sendbuf, len, GET_AM_DEST(dest)));
-		}
 		if (FI_SUCCESS != ret) gasneti_fatalerror("fi_inject for short am failed: %d\n", ret);
 
 		/* Data buffer is ready for reuse, handle it by callback function */
 		header->callback(NULL, header);
 	} else {
-        GASNETC_OFI_LOCK_EXPR(&gasnetc_ofi_locks.am_tx, 
-		    ret = fi_send(gasnetc_ofi_am_epfd, sendbuf, len, NULL, GET_AM_DEST(dest), &header->ctxt));
-		while (ret == -FI_EAGAIN) {
-			GASNETC_OFI_POLL_EVERYTHING();
-			GASNETC_OFI_LOCK_EXPR(&gasnetc_ofi_locks.am_tx, 
-		        ret = fi_send(gasnetc_ofi_am_epfd, sendbuf, len, NULL, GET_AM_DEST(dest), &header->ctxt));		
-        }
+            OFI_INJECT_RETRY(&gasnetc_ofi_locks.am_tx,
+                ret = fi_send(gasnetc_ofi_am_epfd, sendbuf, len, NULL, GET_AM_DEST(dest), &header->ctxt));
 		if (FI_SUCCESS != ret) gasneti_fatalerror("fi_send for short am failed: %d\n", ret);
 		gasnetc_paratomic_increment(&pending_am,0);
 	}
@@ -888,24 +890,14 @@ int gasnetc_ofi_am_send_medium(gasnet_node_t dest, gasnet_handler_t handler,
 #endif
 
 	if(len <= max_buffered_send) {
-        GASNETC_OFI_LOCK_EXPR(&gasnetc_ofi_locks.am_tx, 
-		    ret = fi_inject(gasnetc_ofi_am_epfd, sendbuf, len, GET_AM_DEST(dest)));
-		while (ret == -FI_EAGAIN) {
-			GASNETC_OFI_POLL_EVERYTHING();
-            GASNETC_OFI_LOCK_EXPR(&gasnetc_ofi_locks.am_tx, 
-			ret = fi_inject(gasnetc_ofi_am_epfd, sendbuf, len, GET_AM_DEST(dest)));
-		}
+            OFI_INJECT_RETRY(&gasnetc_ofi_locks.am_tx,
+                ret = fi_inject(gasnetc_ofi_am_epfd, sendbuf, len, GET_AM_DEST(dest)));
 		if (FI_SUCCESS != ret) gasneti_fatalerror("fi_inject for medium ashort failed: %d\n", ret);
 		header->callback(NULL, header);
 	} else {
-		GASNETC_OFI_LOCK_EXPR(&gasnetc_ofi_locks.am_tx,
-            ret = fi_send(gasnetc_ofi_am_epfd, sendbuf, len, NULL, GET_AM_DEST(dest), &header->ctxt));
-		while (ret == -FI_EAGAIN) {
-			GASNETC_OFI_POLL_EVERYTHING();
-            GASNETC_OFI_LOCK_EXPR(&gasnetc_ofi_locks.am_tx,
-				ret = fi_send(gasnetc_ofi_am_epfd, sendbuf, len, NULL, GET_AM_DEST(dest), &header->ctxt));
-		}
-		if (FI_SUCCESS != ret) gasneti_fatalerror("fi_send for meduim am failed: %d\n", ret);
+            OFI_INJECT_RETRY(&gasnetc_ofi_locks.am_tx,
+                ret = fi_send(gasnetc_ofi_am_epfd, sendbuf, len, NULL, GET_AM_DEST(dest), &header->ctxt));
+		if (FI_SUCCESS != ret) gasneti_fatalerror("fi_send for medium am failed: %d\n", ret);
 		gasnetc_paratomic_increment(&pending_am,0);
 	}
 
@@ -1000,23 +992,14 @@ int gasnetc_ofi_am_send_long(gasnet_node_t dest, gasnet_handler_t handler,
 #endif
 
 	if(len <= max_buffered_send) {
-        GASNETC_OFI_LOCK_EXPR(&gasnetc_ofi_locks.am_tx,
-		    ret = fi_inject(gasnetc_ofi_am_epfd, sendbuf, len, GET_AM_DEST(dest)));
-		while (ret == -FI_EAGAIN) {
-			GASNETC_OFI_POLL_EVERYTHING();
-			GASNETC_OFI_LOCK_EXPR(&gasnetc_ofi_locks.am_tx,
-		        ret = fi_inject(gasnetc_ofi_am_epfd, sendbuf, len, GET_AM_DEST(dest)));
-		}
+        OFI_INJECT_RETRY(&gasnetc_ofi_locks.am_tx,
+            ret = fi_inject(gasnetc_ofi_am_epfd, sendbuf, len, GET_AM_DEST(dest)));
 		if (FI_SUCCESS != ret) gasneti_fatalerror("fi_inject for long ashort failed: %d\n", ret);
 		header->callback(NULL, header);
 	} else {
-        GASNETC_OFI_LOCK_EXPR(&gasnetc_ofi_locks.am_tx,
-		    ret = fi_send(gasnetc_ofi_am_epfd, sendbuf, len, NULL, GET_AM_DEST(dest), &header->ctxt));
-		while (ret == -FI_EAGAIN) {
-			GASNETC_OFI_POLL_EVERYTHING();
-            GASNETC_OFI_LOCK_EXPR(&gasnetc_ofi_locks.am_tx,
-			    ret = fi_send(gasnetc_ofi_am_epfd, sendbuf, len, NULL, GET_AM_DEST(dest), &header->ctxt));
-		}
+        OFI_INJECT_RETRY(&gasnetc_ofi_locks.am_tx,
+            ret = fi_send(gasnetc_ofi_am_epfd, sendbuf, len, NULL, GET_AM_DEST(dest), &header->ctxt));
+
 		if (FI_SUCCESS != ret) gasneti_fatalerror("fi_send for long am failed: %d\n", ret);
 		gasnetc_paratomic_increment(&pending_am,0);
 	}
@@ -1084,14 +1067,9 @@ int gasnetc_rdma_put_non_bulk(gasnet_node_t dest, void* dest_addr, void* src_add
         msg.iov_count = 1;
         msg.rma_iov = &rma_iov;
         msg.rma_iov_count = 1;
-                
-        GASNETC_OFI_LOCK_EXPR(&gasnetc_ofi_locks.rdma_tx, 
-                ret = fi_writemsg(gasnetc_ofi_rdma_epfd, &msg, FI_INJECT | FI_DELIVERY_COMPLETE ));
-        while (-FI_EAGAIN == ret) {
-            GASNETC_OFI_POLL_EVERYTHING();
-            GASNETC_OFI_LOCK_EXPR(&gasnetc_ofi_locks.rdma_tx, 
-                    ret = fi_writemsg(gasnetc_ofi_rdma_epfd, &msg, FI_INJECT | FI_DELIVERY_COMPLETE));
-        }
+        
+        OFI_INJECT_RETRY(&gasnetc_ofi_locks.rdma_tx,
+             ret = fi_writemsg(gasnetc_ofi_rdma_epfd, &msg, FI_INJECT | FI_DELIVERY_COMPLETE ));
         if_pf (FI_SUCCESS != ret)
             gasneti_fatalerror("fi_writemsg with FI_INJECT failed: %d\n", ret);
 
@@ -1126,14 +1104,8 @@ int gasnetc_rdma_put_non_bulk(gasnet_node_t dest, void* dest_addr, void* src_add
             gasneti_lifo_push(&bbuf_ctxt->bbuf_list, buf_container);
             memcpy(buf_container->buf, (void*)src_ptr, bytes_to_copy);
 
-
-            GASNETC_OFI_LOCK_EXPR(&gasnetc_ofi_locks.rdma_tx,
+            OFI_INJECT_RETRY(&gasnetc_ofi_locks.rdma_tx,
                 OFI_WRITE(gasnetc_ofi_rdma_epfd, buf_container->buf, nbytes, dest, dest_ptr, bbuf_ctxt));
-            while (-FI_EAGAIN == ret) {
-                GASNETC_OFI_POLL_EVERYTHING();
-                GASNETC_OFI_LOCK_EXPR(&gasnetc_ofi_locks.rdma_tx,
-                    OFI_WRITE(gasnetc_ofi_rdma_epfd, buf_container->buf, nbytes, dest, dest_ptr, bbuf_ctxt));
-            }
 
             if_pf (FI_SUCCESS != ret)
                 gasneti_fatalerror("fi_writemsg for bounce buffered data failed: %d\n", ret);
@@ -1170,14 +1142,8 @@ gasnetc_rdma_put(gasnet_node_t dest, void *dest_addr, void *src_addr, size_t nby
 	((gasnetc_ofi_op_ctxt_t *)ctxt_ptr)->callback = gasnetc_ofi_handle_rdma;
 
     PERIODIC_RMA_POLL();
-
-    GASNETC_OFI_LOCK_EXPR(&gasnetc_ofi_locks.rdma_tx,
+    OFI_INJECT_RETRY(&gasnetc_ofi_locks.rdma_tx,
         OFI_WRITE(gasnetc_ofi_rdma_epfd, src_addr, nbytes, dest, dest_addr, ctxt_ptr));
-	while (ret == -FI_EAGAIN) {
-		GASNETC_OFI_POLL_EVERYTHING();
-        GASNETC_OFI_LOCK_EXPR(&gasnetc_ofi_locks.rdma_tx,
-		    OFI_WRITE(gasnetc_ofi_rdma_epfd, src_addr, nbytes, dest, dest_addr, ctxt_ptr));
-	}
 	if (FI_SUCCESS != ret)
 		gasneti_fatalerror("fi_write for normal message failed: %d\n", ret);
 	gasnetc_paratomic_increment(&pending_rdma,0);
@@ -1193,13 +1159,9 @@ gasnetc_rdma_get(void *dest_addr, gasnet_node_t dest, void * src_addr, size_t nb
 
     PERIODIC_RMA_POLL();
 
-    GASNETC_OFI_LOCK_EXPR(&gasnetc_ofi_locks.rdma_rx,
-        OFI_READ(gasnetc_ofi_rdma_epfd, dest_addr, nbytes, dest, src_addr, ctxt_ptr));
-	while (ret == -FI_EAGAIN) {
-		GASNETC_OFI_POLL_EVERYTHING();
-        GASNETC_OFI_LOCK_EXPR(&gasnetc_ofi_locks.rdma_rx,
-		    OFI_READ(gasnetc_ofi_rdma_epfd, dest_addr, nbytes, dest, src_addr, ctxt_ptr));
-    }
+    OFI_INJECT_RETRY(&gasnetc_ofi_locks.rdma_tx,
+                     OFI_READ(gasnetc_ofi_rdma_epfd, dest_addr, nbytes, dest, src_addr, ctxt_ptr));
+
 	if (FI_SUCCESS != ret)
 		gasneti_fatalerror("fi_read failed: %d\n", ret);
 	gasnetc_paratomic_increment(&pending_rdma,0);
