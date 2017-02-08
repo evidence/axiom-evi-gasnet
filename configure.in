@@ -3804,6 +3804,62 @@ if test "$enabled_ofi" = yes; then
     GASNET_OFI_SPAWNER_CONF=$gasnet_ofi_spawner_conf
     AC_SUBST(GASNET_OFI_SPAWNER_CONF)
 
+    ofi_provider=""
+    ofi_define_mr_scalable="no"
+    detected_ofi_provider=""
+    # List of supported providers in order of preference.
+    supported_providers="psm2 psm gni sockets"
+    
+    GASNET_WITH(ofi-provider, [Statically configure ofi-conduit for the given provider],
+        ofi_provider="$withval", )
+    # Don't autodetect if the user knows which provider they want
+    if test -z "$ofi_provider"; then
+        if command -v fi_info > /dev/null 2>&1; then # Only do this if fi_info is in the $PATH
+            for word in $supported_providers 
+            do
+                if fi_info --provider=$word > /dev/null 2>&1; then
+                    detected_ofi_provider="$word"
+                    break
+                fi
+            done
+            ofi_provider="$detected_ofi_provider"
+        fi
+
+    fi
+    case "$ofi_provider" in
+        psm|psm2)
+            ofi_define_mr_scalable=1
+        ;;
+        gni)
+            ofi_define_mr_scalable=0
+        ;;
+        sockets)
+            ofi_define_mr_scalable=1
+        ;;
+        default|"")
+        ;;
+        *)
+        GASNET_MSG_WARN([
+WARNING: Invalid or unsupported OFI provider specified via the --with-ofi-provider flag. 
+Defaulting to runtime provider feature detection for ofi-conduit.])
+        ;;
+    esac
+
+    GASNET_IF_ENABLED_WITH_AUTO(ofi-mr-scalable, [Indicates if the conduit should statically compile FI_MR_SCALABLE support into ofi-conduit (advanced users only)],
+                 [ofi_define_mr_scalable="1"], [ofi_define_mr_scalable="0"], [])
+
+    # Inform the user that settings were autodetected
+    if test -n "$detected_ofi_provider" -a "$ofi_define_mr_scalable" != "no"; then
+            GASNET_MSG_WARN([
+The $detected_ofi_provider OFI provider was detected on your system and the ofi-conduit has been
+configured for that provider. If that is not your desired provider, override this by using the
+--with-ofi-provider=<provider name> configure flag. See the ofi-conduit README for details.])
+    fi
+
+    if test "$ofi_define_mr_scalable" != "no"; then
+        AC_DEFINE_UNQUOTED(GASNETC_OFI_HAS_MR_SCALABLE, [$ofi_define_mr_scalable])
+    fi
+
     GASNET_WITH(ofi-num-completions,
                 [Max number of completions for ofi-conduit to read from a CQ at one time (default 64)],
                 [if expr "$withval" : '[[0-9]]*$' >/dev/null 2>&1 && \
@@ -3828,7 +3884,7 @@ if test "$enabled_ofi" = yes; then
                 ],
                 [AC_MSG_ERROR([--with-ofi-max-medium must be no smaller than 512])],
                  [ofi_max_medium=8192])
-  AC_DEFINE_UNQUOTED(GASNETC_OFI_MAX_MEDIUM, [$ofi_max_medium])
+    AC_DEFINE_UNQUOTED(GASNETC_OFI_MAX_MEDIUM, [$ofi_max_medium])
   fi
 fi
 AC_SUBST(OFI_INCLUDES)

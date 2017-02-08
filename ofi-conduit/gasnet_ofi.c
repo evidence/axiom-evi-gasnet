@@ -222,7 +222,10 @@ int gasnetc_ofi_init(int *argc, char ***argv,
   }
   if (GASNETC_OFI_HAS_MR_SCALABLE != has_mr_scalable) {
       gasneti_fatalerror("ERROR: The manually overriden value for GASNETC_OFI_HAS_MR_SCALABLE does\n"
-                         "not match the memory registration mode that the provider reported supporting.\n");
+                         "not match the memory registration mode that the provider reported supporting.\n"
+                         "This could happen if a provider that previously only supported FI_MR_BASIC\n"
+                         "added support for FI_MR_SCALABLE. Use --{enable,disable}-ofi-mr-scalable to\n"
+                         "correct this.\n");
   }
 
   /* Open the fabric provider */
