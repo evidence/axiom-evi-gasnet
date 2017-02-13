@@ -51,6 +51,8 @@ void init_chunk(uint8_t *buf, size_t sz, int iter, int chunkidx) {
   }
 }
 
+#define ONLY_FIRST_ERROR
+
 void validate_chunk(const char *context, uint8_t *buf, size_t sz, int iter, int chunkidx) {
   size_t elemidx;
   int errcnt = 0;
@@ -66,6 +68,9 @@ retry:
            (unsigned int)actual,(unsigned int)expected,
            context);
       errcnt++;
+#ifdef ONLY_FIRST_ERROR
+      break;
+#endif
     }
   }
   if (errcnt && allowretry && !doretry) {
