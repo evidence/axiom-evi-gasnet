@@ -32,8 +32,8 @@
  * if defined _NOT_BLOCKING_MODE
  * all the axiom api calls are not blocking and so if the operation can not be execute immedialty a resource_not_available error is returned (and internally managed by the conduit implementation)
  */
-#define _BLOCKING_MODE
-//#define _NOT_BLOCKING_MODE
+//#define _BLOCKING_MODE
+#define _NOT_BLOCKING_MODE
 
 
 #if defined(_BLOCKING_MODE)
@@ -402,16 +402,16 @@ typedef struct gasnetc_axiom_am_info {
 #else
 /** Lock a mutex. */
 #define LOCK(x) \
-    gasneti_mutex_lock(&((x).lock))
+    gasneti_mutex_lock(&(x))
 #endif
 /** Unlock a mutes. */
 #define UNLOCK(x) \
-    gasneti_mutex_unlock(&((x).lock))
+    gasneti_mutex_unlock(&(x))
 /** Initialize a mutex. */
 #define INIT_MUTEX(x) \
-    gasneti_mutex_init(&((x).lock))
+    gasneti_mutex_init(&(x))
 /** Mutex definition. */
-#define MUTEX_t gasnet_hsl_t
+#define MUTEX_t gasneti_mutex_t
 
 /** Init a condition variable. */
 #define INIT_COND(x) \
@@ -421,7 +421,7 @@ typedef struct gasnetc_axiom_am_info {
     gasneti_cond_signal(&(x))
 /** Wait a condition variable. */
 #define WAIT_COND(x,m) \
-    gasneti_cond_wait(&(x),&(m.lock))
+    gasneti_cond_wait(&(x),&(m))
 /** Condition variable definition. */
 #define COND_t gasneti_cond_t
 
@@ -680,7 +680,7 @@ static inline axiom_err_t _recv(axiom_dev_t *dev, gasnet_node_t *node_id, axiom_
  * @param dest_addr The destination address (node_id node).
  * @return The exit status (see axiom_rdma_write).
  */
-static inline axiom_err_t _rdma_write(axiom_dev_t *dev, gasnet_node_t node_id, axiom_rdma_payload_size_t size, void *source_addr, void *dest_addr, axiom_token_t *token) {
+static inline axiom_err_t _rdma_write(axiom_dev_t *dev, gasnet_node_t node_id, size_t size, void *source_addr, void *dest_addr, axiom_token_t *token) {
     axiom_err_t res;
     gasneti_assert((uintptr_t) source_addr >= (uintptr_t) gasneti_seginfo[gasneti_mynode].rdma);
     gasneti_assert((uintptr_t) dest_addr >= (uintptr_t) gasneti_seginfo[node_id].rdma);
@@ -1791,6 +1791,14 @@ static gasnetc_axiom_am_msg_t async_buf[ASYNC_MAX_PENDING_REQ];
 /** Array to store axiom rmda tokes. */
 static axiom_token_t async_tok[ASYNC_MAX_PENDING_REQ];
 
+// if defined use a copy of async_tok to store outqued token
+// (only for informational purpose)
+#define USE_ASYNC_TOK2
+
+#ifdef USE_ASYNC_TOK2
+static axiom_token_t async_tok2[ASYNC_MAX_PENDING_REQ];
+#endif
+
 /** Array of information for a pending async request. */
 static struct {
     /** FREE or USED or a number that indicate a group. */
@@ -1828,6 +1836,7 @@ static void async_init() {
         async_info[idx].state=ASYNC_FREE;
         async_tok[idx].raw=INVALID_TOKEN;
     }
+    INIT_MUTEX(async_mutex);
 }
 
 /**
@@ -1851,8 +1860,12 @@ static int async_allocate_buffer() {
         }
     }
     UNLOCK(async_mutex);
-    if (logmsg_is_enabled(LOG_DEBUG)&&idx==-1) {
-        logmsg(LOG_DEBUG,"async buffers full!");
+    if (logmsg_is_enabled(LOG_DEBUG)) {
+        if (idx==-1) {
+            logmsg(LOG_DEBUG,"async buffers: full!");
+        } else {
+            logmsg(LOG_DEBUG,"async buffers: allocated idx=%d",idx);
+        }
     }
     return idx;
 }
@@ -1879,12 +1892,16 @@ static void async_free_buffer(int num_free) {
  * @param num Number of request done.
  */
 static void async_check_buffers(int *id, int *num) {
+    static volatile int first_message=1;
     axiom_err_t ret;
     int idx;
     *num=0;
     *id=0;
     LOCK(async_mutex);
     if (async_used!=0) {
+        if (logmsg_is_enabled(LOG_DEBUG)&&__sync_fetch_and_or(&first_message,1)==0) {
+            logmsg(LOG_DEBUG,"async buffers: pending request into queue");
+        }
         for (idx=0;idx<ASYNC_MAX_PENDING_REQ;idx++) {
             if (ASYNC_IS_USED(idx)) {
                 ret=axiom_rdma_check(axiom_dev,async_tok+idx);
@@ -1892,14 +1909,23 @@ static void async_check_buffers(int *id, int *num) {
                 if (!AXIOM_RET_IS_OK(ret)) {
                     continue;
                 }
-                if (ret==0) {
+                if (*id==0) {
                     *id=pthread_self();
+                    gasneti_assert(*id!=0);
                 }
-                *num++;
+                logmsg(LOG_DEBUG,"async buffers: freeing idx=%d",idx);
+                (*num)=(*num)+1;
                 async_info[idx].state=*id;
+#ifdef USE_ASYNC_TOK2
+                async_tok2[idx].raw=async_tok[idx].raw;
+#endif
                 async_tok[idx].raw=INVALID_TOKEN;
                 if (*num>=ASYNC_MAX_NUM_PER_CHECK) break;
             }
+        }
+    } else {
+        if (logmsg_is_enabled(LOG_DEBUG)&&__sync_fetch_and_and(&first_message,0)==1) {
+            logmsg(LOG_DEBUG,"async buffers: no request into queue");
         }
     }
     UNLOCK(async_mutex);
@@ -1985,11 +2011,16 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
 
 //int _counter=0;
 
+#define MAX_MSG_RETRANSMIT 16
+
 /**
  * Conduit internal poll request.
  * @return GASNET_OK if success.
  */
 extern int gasnetc_AMPoll(void) {
+#ifndef _BLOCKING_MODE
+    static volatile int first_message=1;
+#endif
     uint8_t buffer[sizeof(gasnetc_axiom_msg_t)+GASNETI_MEDBUF_ALIGNMENT];
     gasnetc_axiom_msg_t* payload;
     gasnetc_axiom_am_info_t info;
@@ -2019,6 +2050,11 @@ extern int gasnetc_AMPoll(void) {
 #ifndef _BLOCKING_MODE
     if (async_used!=0) {
         int id,num;
+        if (logmsg_is_enabled(LOG_DEBUG)) {
+            if (__sync_fetch_and_or(&first_message,1)==0) {
+                logmsg(LOG_DEBUG,"AMPoll: async RDMA request pending");
+            }
+        }
         logmsg(LOG_TRACE,"AMPoll: checking async RDMA request completition");
         async_check_buffers(&id,&num);
         if (num!=0) {
@@ -2027,13 +2063,38 @@ extern int gasnetc_AMPoll(void) {
             logmsg(LOG_DEBUG,"AMPoll: %d async RDMA request completed",counter);
             for (idx=0;idx<ASYNC_MAX_PENDING_REQ;idx++) {
                 if (async_info[idx].state==id) {
+#ifdef USE_ASYNC_TOK2
+                    logmsg(LOG_DEBUG,"AMPoll: outqueue RDMA token 0x%016lx",async_tok2[idx].raw);
+#else
+                    logmsg(LOG_DEBUG,"AMPoll: outqueue RDMA token");
+#endif
                     ret= _send_raw(axiom_dev, async_info[idx].dest, AXIOM_BIND_PORT, async_info[idx].size, async_buf+idx);
+                    if (!AXIOM_RET_IS_OK(ret)) {
+                        // what to do now???
+                        logmsg(LOG_WARN,"AMPoll: error sending raw message for pending RDMA request...");
+                        if (ret==AXIOM_RET_NOTAVAIL) {
+                            int loopc=MAX_MSG_RETRANSMIT;
+                            while (loopc-->0) {
+                                ret= _send_raw(axiom_dev, async_info[idx].dest, AXIOM_BIND_PORT, async_info[idx].size, async_buf+idx);
+                                if (ret!=AXIOM_RET_NOTAVAIL) break;
+                                gasneti_sched_yield();
+                            }
+                        }
+                    }
+                    if (!AXIOM_RET_IS_OK(ret))
+                        gasneti_fatalerror("AMPoll: pending RDMA request sending to phy:%d error! (ret=%d)",node_log2phy(async_info[idx].dest),ret);
                     async_info[idx].state=ASYNC_FREE;
                     counter--;
                     if (counter==0) break;
                 }
             }
             async_free_buffer(num);
+        }
+    } else {
+        if (logmsg_is_enabled(LOG_DEBUG)) {
+            if (__sync_fetch_and_and(&first_message,0)!=0) {
+                logmsg(LOG_DEBUG,"AMPoll: NO async RDMA request in queue");
+            }
         }
     }
 #endif
@@ -2367,7 +2428,7 @@ static int _requestOrReplyLong(gasnet_node_t dest, gasnet_handler_t handler, voi
             ret = _rdma_write(axiom_dev, dest, nbytes &(~(GASNETC_ALIGN_SIZE - 1)), source_addr, dest_addr);
 #else
             axiom_token_t token;
-            ret = _rdma_write(axiom_dev, dest, nbytes, source_addr, dest_addr, &token);
+            ret = _rdma_write(axiom_dev, dest, nbytes &(~(GASNETC_ALIGN_SIZE - 1)), source_addr, dest_addr, &token);
             if (AXIOM_RET_IS_OK(ret)) {
                 if (type==ASYNC_REQUEST) {
                     int idx=async_allocate_buffer(ret);
