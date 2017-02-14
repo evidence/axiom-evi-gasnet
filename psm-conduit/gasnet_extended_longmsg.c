@@ -98,6 +98,30 @@ static int gasnete_get_transfer(void)
 }
 
 
+uint32_t get_cpu_model(void)
+{
+    cpuid_t id;
+    uint32_t cpu_model = CPUID_MODEL_UNDEFINED;
+
+    /* First check to ensure Genuine Intel */
+    get_cpuid(0x0, 0, &id);
+    if(id.ebx == CPUID_GENUINE_INTEL_EBX &&
+       id.ecx == CPUID_GENUINE_INTEL_ECX &&
+       id.edx == CPUID_GENUINE_INTEL_EDX)
+    {
+        /* Use cpuid with EAX=1 to get processor info */
+        get_cpuid(0x1, 0, &id);
+        if((id.eax & CPUID_FAMILY_MASK) == CPUID_FAMILY_XEON)
+        {
+            cpu_model = ((id.eax & CPUID_MODEL_MASK) >> 4) |
+                         ((id.eax & CPUID_EXMODEL_MASK) >> 12);
+        }
+    }
+
+    return cpu_model;
+}
+
+
 GASNETI_COLD
 int gasnete_long_msg_init(void)
 {
@@ -108,6 +132,10 @@ int gasnete_long_msg_init(void)
     threshold = gasneti_getenv_int_withdefault(
             "GASNET_LONG_MSG_THRESHOLD", threshold, 0);
     gasnetc_psm_state.long_msg_threshold = threshold;
+
+    if(CPUID_MODEL_PHI_GEN2 == get_cpu_model()) {
+        setenv("PSM2_MQ_RNDV_HFI_WINDOW", str(DEFAULT_PSM2_MQ_RNDV_HFI_WINDOW_SIZE),0);
+    }
 
     gasnetc_list_init(&gasnetc_psm_state.avail_mq_ops, GASNETE_MQOPS_INIT,
             sizeof(gasnete_mq_op_t));
