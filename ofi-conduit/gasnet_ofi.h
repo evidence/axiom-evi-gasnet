@@ -40,24 +40,16 @@ typedef gasnetc_paratomic(t)         gasnetc_paratomic_t;
 #define gasnetc_paratomic_decrement  gasnetc_paratomic(decrement)
 #define gasnetc_paratomic_decrement_and_test  gasnetc_paratomic(decrement_and_test)
 
-/* Typedefs */
-typedef struct fid_ep*            fid_ep_t;
-typedef struct fid_fabric*        fid_fabric_t;
-typedef struct fid_domain*        fid_domain_t;
-typedef struct fid_cq*            fid_cq_t;
-typedef struct fid_av*            fid_av_t;
-typedef struct fid_mr*            fid_mr_t;
+struct fid_fabric*    gasnetc_ofi_fabricfd;
+struct fid_domain*    gasnetc_ofi_domainfd;
+struct fid_av*        gasnetc_ofi_avfd;
+struct fid_cq*        gasnetc_ofi_tx_cqfd; /* CQ for both AM and RDMA tx ops */
 
-fid_fabric_t    gasnetc_ofi_fabricfd;
-fid_domain_t    gasnetc_ofi_domainfd;
-fid_av_t        gasnetc_ofi_avfd;
-fid_cq_t        gasnetc_ofi_tx_cqfd; /* CQ for both AM and RDMA tx ops */
+struct fid_ep*        gasnetc_ofi_rdma_epfd;
+struct fid_mr*        gasnetc_ofi_rdma_mrfd;
 
-fid_ep_t        gasnetc_ofi_rdma_epfd;
-fid_mr_t        gasnetc_ofi_rdma_mrfd;
-
-fid_ep_t        gasnetc_ofi_am_epfd;
-fid_cq_t        gasnetc_ofi_am_rcqfd;
+struct fid_ep*        gasnetc_ofi_am_epfd;
+struct fid_cq*        gasnetc_ofi_am_rcqfd;
 
 /* The cut off of when to fully block for a non-blocking put*/
 size_t gasnetc_ofi_bbuf_threshold; 
@@ -69,27 +61,27 @@ typedef struct
   conn_entry_t 			table[];
 }addr_table_t;
 
-typedef enum OFI_OP_TYPE {
-  OFI_TYPE_AM = 1,
+typedef enum GASNETC_OFI_OP_TYPE {
+  OFI_TYPE_AM = 0,
   OFI_TYPE_AM_DATA,
   OFI_TYPE_EGET,
   OFI_TYPE_EPUT,
   OFI_TYPE_IGET,
   OFI_TYPE_IPUT
-} ofi_op_type;
+} gasnetc_ofi_op_type;
 
-typedef enum OFI_AM_TYPE {
-  OFI_AM_SHORT = 1,
+typedef enum GASNETC_OFI_AM_TYPE {
+  OFI_AM_SHORT = 0,
   OFI_AM_MEDIUM,
   OFI_AM_LONG,
   OFI_AM_LONG_MEDIUM
-} ofi_am_type;
+} gasnetc_ofi_am_type;
 
 typedef  void (*event_callback_fn) (struct fi_cq_data_entry *re, void *buf);
 typedef  void (*rdma_callback_fn) (void *buf);
 
-typedef struct ofi_am_send_buf {
-  ofi_am_type			type;
+typedef struct gasnetc_ofi_am_send_buf {
+  gasnetc_ofi_am_type   type;
   int 					len;
   int 					isreq;
   uint8_t 				handler;
@@ -99,15 +91,15 @@ typedef struct ofi_am_send_buf {
   size_t 				nbytes;
   uint8_t 				data[OFI_AM_MAX_DATA_LENGTH]
                             __attribute__((aligned(GASNETI_MEDBUF_ALIGNMENT)));
-} ofi_am_send_buf_t;
+} gasnetc_ofi_am_send_buf_t;
 
-typedef struct ofi_am_buf {
+typedef struct gasnetc_ofi_am_buf {
   struct fi_context 	ctxt;
   event_callback_fn 	callback;
-  ofi_am_send_buf_t 	sendbuf;
-} ofi_am_buf_t;
+  gasnetc_ofi_am_send_buf_t 	sendbuf;
+} gasnetc_ofi_am_buf_t;
 
-typedef struct ofi_ctxt {
+typedef struct gasnetc_ofi_ctxt {
   struct fi_context 	ctxt;
   event_callback_fn		callback;
   int 					index;
@@ -117,35 +109,35 @@ typedef struct ofi_ctxt {
   uint64_t final_cntr;
   char _pad2[GASNETI_CACHE_PAD(sizeof(uint64_t))];
   uint64_t event_cntr;
-} ofi_ctxt_t;
+} gasnetc_ofi_ctxt_t;
 
-typedef struct ofi_op_ctxt {
+typedef struct gasnetc_ofi_op_ctxt {
   struct fi_context 	ctxt;
   rdma_callback_fn		callback;
-  ofi_op_type			type;
+  gasnetc_ofi_op_type   type;
   int					data_sent;
-} ofi_op_ctxt_t;
+} gasnetc_ofi_op_ctxt_t;
 
 
 /* The following struct is for storing certain dynamically allocated
  * objects in pools. The GASNet headers state that the first sizeof(void*)
  * bytes of objects used in its pool functions need to be unused for list
  * linkage. */
-typedef struct ofi_bounce_buf {
+typedef struct gasnetc_ofi_bounce_buf {
     uintptr_t linkage;
     void* buf;
-} ofi_bounce_buf_t;
+} gasnetc_ofi_bounce_buf_t;
 
-typedef struct ofi_bounce_op_ctxt {
+typedef struct gasnetc_ofi_bounce_op_ctxt {
     struct fi_context 	ctxt;
     rdma_callback_fn		callback;
     /* bounce buffers to return to the pool */
     gasneti_lifo_head_t bbuf_list;
     /* Pointer to the original context for the "big" request */
-    ofi_op_ctxt_t*      orig_op;
+    gasnetc_ofi_op_ctxt_t*      orig_op;
     /* Counter to determine when the bbuf transfers are done */
     gasnetc_paratomic_t cntr;
-} ofi_bounce_op_ctxt_t;
+} gasnetc_ofi_bounce_op_ctxt_t;
 
 typedef struct gasnetc_ofi_token {
   gasnet_node_t 		sourceid;
@@ -169,9 +161,9 @@ int gasnetc_ofi_am_send_long(gasnet_node_t dest, gasnet_handler_t handler,
 
 /* One-siede PUT/GET Functions */
 void gasnetc_rdma_put(gasnet_node_t node, void *dest, void * src, size_t nbytes,
-		ofi_op_ctxt_t *ctxt_ptr);
+		gasnetc_ofi_op_ctxt_t *ctxt_ptr);
 void gasnetc_rdma_get(void *dest, gasnet_node_t node, void * src, size_t nbytes,
-		ofi_op_ctxt_t *ctxt_ptr);
+		gasnetc_ofi_op_ctxt_t *ctxt_ptr);
 
 GASNETI_INLINE(gasnetc_rdma_put_will_block)
 int gasnetc_rdma_put_will_block (size_t nbytes) {
@@ -179,7 +171,7 @@ int gasnetc_rdma_put_will_block (size_t nbytes) {
 } 
 
 int gasnetc_rdma_put_non_bulk(gasnet_node_t dest, void* dest_addr, void* src_addr, 
-        size_t nbytes, ofi_op_ctxt_t* ctxt_ptr);
+        size_t nbytes, gasnetc_ofi_op_ctxt_t* ctxt_ptr);
 void gasnetc_rdma_put_wait(gasnet_handle_t op);
 void gasnetc_rdma_get_wait(gasnet_handle_t op);
 

@@ -131,10 +131,10 @@ typedef struct _gasnete_op_t *gasnet_handle_t;
 
 /* Additions to default eop and iop types */
 #define GASNETE_CONDUIT_EOP_FIELDS \
-                ofi_op_ctxt_t ofi;
+                gasnetc_ofi_op_ctxt_t ofi;
 #define GASNETE_CONDUIT_IOP_FIELDS      \
-                ofi_op_ctxt_t get_ofi;  \
-                ofi_op_ctxt_t put_ofi;
+                gasnetc_ofi_op_ctxt_t get_ofi;  \
+                gasnetc_ofi_op_ctxt_t put_ofi;
 
 #endif
 
