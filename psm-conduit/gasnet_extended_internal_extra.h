@@ -38,7 +38,7 @@
  * CPUID return values
  */
 #define CPUID_FAMILY_XEON       0x00000600
-#define CPUID_MODEL_PHI_GEN2    87
+#define CPUID_MODEL_PHI_GEN2    0x57
 /*
  * cpuid function 0, returns "GeniuneIntel" in EBX,ECX,EDX
  * due to Little Endian and Hex it is not so obvious
