@@ -10,6 +10,41 @@ library Application Programming Interface (API). Mainly intended to use the
 Active Messaging PSM2 API, but will use PSM2 matched queues for long messages
 (review GASNET_LONG_MSG_THRESHOLD below).
 
+In PSM2, Matched Queues (MQ) present a queue-based communication model with
+the distinction that queue consumers use a 3-tuple of metadata to match
+incoming messages against a list of preposted receive buffers.  On the other
+hand, the Active Message (AM) component presents a request/reply model where
+the arrival of a message triggers the execution of consumer-provided handler
+code. This can be used to implement many one-sided and two-sided
+communications paradigms. More information regarding AM and different
+protocols employed under MQ can be found in PSM2 documentation.
+
+PSM2 environment variable PSM2_MQ_RNDV_HFI_THRESH provides the switch over
+point from MQ Eager to MQ Rendezvous protocol. This is an internal PSM2
+protocol switch. Currently by the default switch over point is 64000B for
+Intel(R) Xeon(R) processor and 200000B on Intel(R) Xeon Phi(TM) processor.
+GASNet environment variable GASNET_LONG_MSG_THRESHOLD provides the message size
+at which the psm-conduit will switch over from AM to MQ. The default value for
+GASNET_LONG_MSG_THRESHOLD is 16384B. The below table shows the different
+protocols used by the psm-conduit and PSM2 for different message sizes:
+  Intel(R) Xeon(R) processor:
+  Lower limit  <  message size < upper limit    : PSM2 API used by the psm-conduit (PSM2 internal protocol)
+           0B  <  message size <= 16000B        : AM API (Eager PIO protocol)
+       16000B  <  message size <  16384B        : AM API (Eager SDMA protocol)
+       16000B  <= message size <= 64000B        : MQ API (Eager SDMA protocol)
+       64000B  <  message size <= PSM2_MQ_RNDV_HFI_WINDOW : MQ API (RNDV SDMA protocol)
+
+  Intel(R) Xeon Phi(TM) processor:
+  Lower limit  <  message size < upper limit    : PSM2 API used by the psm-conduit (PSM2 internal protocol)
+           0B  <  message size <  16384B        : AM API (Eager PIO protocol)
+       16384B  <= message size <= 65536B        : MQ API (Eager PIO protocol)
+       65536B  <  message size <= 200000B       : MQ API (Eager SDMA protocol)
+      200000B  <  message size <= PSM2_MQ_RNDV_HFI_WINDOW : MQ API (RNDV SDMA protocol)
+
+For optimal performance it is recommended to keep the defaults. However, it is
+possible to force the MQ path to use only RNDV protocol by setting
+PSM2_MQ_RNDV_HFI_THRESH to the same value as GASNET_LONG_MSG_THRESHOLD.
+
 Where this conduit runs:
 -----------------------
 
@@ -22,9 +57,9 @@ PSM has a restriction in which only one endpoint may be opened per process.
 For users of this conduit, this means that if an MPI is used for process
 spawning, that MPI must NOT also attempt to use PSM for communication.
 
-If compiled with PSM support (such as the openmpi_gcc_hfi RPM package 
-distributed with Intel Fabric Suite package), Open MPI will try to use 
-PSM by default.  To override, set the MPIRUN_CMD variable.  
+If compiled with PSM support (such as the openmpi_gcc_hfi RPM package
+distributed with Intel Fabric Suite package), Open MPI will try to use
+PSM by default.  To override, set the MPIRUN_CMD variable.
 With Open MPI, for example:
 
 export MPIRUN_CMD="mpirun -np %N -mca mtl ^psm,psm2 %P %A"
@@ -110,6 +145,19 @@ Known problems:
   consider use of ofi-conduit (with libfabric's psm2 provider) as an
   alternative to psm-conduit if performance of Puts over 16KB is critical
   to your application.
+
+* The default limit for number of inflight isends and irecvs MQ requests in
+  PSM2 is 1048576. If the user encounters exhaustion of the isend or irecv
+  descriptors (see error message below), it is possible to extend the MQ size by
+  setting the environment variable as "PSM2_MEMORY=large". This will increase the
+  inflight isend and irecvs to 16777216.
+  A different way to way to independently configure the number of sends or
+  receives inflight is by setting the PSM2_MQ_{SEND,RECV}REQS_MAX environment
+  variables (PSM2_MEMORY internally sets both).
+  Example error message:
+  `Exhausted 1048576 MQ isend request descriptors, which usually indicates a user
+  program error or insufficient request descriptors (PSM2_MQ_SENDREQS_MAX=1048576)`
+
 
 Future work:
 ------------
