@@ -389,7 +389,7 @@ int gasnetc_ofi_init(int *argc, char ***argv,
   /* Allocate bounce buffers*/
   ofi_num_bbufs = gasneti_getenv_int_withdefault("GASNET_OFI_NUM_BBUFS", 64, 0);
   ofi_bbuf_size = gasneti_getenv_int_withdefault("GASNET_OFI_BBUF_SIZE", GASNET_PAGESIZE, 1);
-  gasnetc_ofi_bbuf_threshold = gasneti_getenv_int_withdefault("GASNET_gasnetc_ofi_bbuf_threshold", 4*ofi_bbuf_size, 1);
+  gasnetc_ofi_bbuf_threshold = gasneti_getenv_int_withdefault("GASNET_OFI_BBUF_THRESHOLD", 4*ofi_bbuf_size, 1);
 
   if (ofi_num_bbufs < gasnetc_ofi_bbuf_threshold/ofi_bbuf_size)
       gasneti_fatalerror("The number of bounce buffers must be greater than or equal to the bounce\n"
@@ -1108,7 +1108,8 @@ int gasnetc_rdma_put_non_bulk(gasnet_node_t dest, void* dest_addr, void* src_add
             memcpy(buf_container->buf, (void*)src_ptr, bytes_to_copy);
 
             OFI_INJECT_RETRY(&gasnetc_ofi_locks.rdma_tx,
-                OFI_WRITE(gasnetc_ofi_rdma_epfd, buf_container->buf, nbytes, dest, dest_ptr, bbuf_ctxt));
+                OFI_WRITE(gasnetc_ofi_rdma_epfd, buf_container->buf, bytes_to_copy, 
+                    dest, dest_ptr, bbuf_ctxt));
 
             if_pf (FI_SUCCESS != ret)
                 gasneti_fatalerror("fi_writemsg for bounce buffered data failed: %d\n", ret);
