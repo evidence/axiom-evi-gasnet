@@ -132,6 +132,15 @@ Known problems:
   PSM2, or if you apply a patch (in the bug report) that works-around the
   problem (at the cost of reduced performance).
 
+* Bug 3419
+  At the time of this release, there is a known issue in which nodes may
+  report different values for the maximum size of a psm2 active message.
+  The psm-conduit is not currently able to deal with this situation, and
+  under those conditions you will receive an error message which directs
+  you here.
+  The most up-to-date information on this bug is maintained at:
+    http://upc-bugs.lbl.gov/bugzilla/show_bug.cgi?id=3419
+
 * The default limit for number of inflight isends and irecvs MQ requests in
   PSM2 is 1048576. If the user encounters exhaustion of the isend or irecv
   descriptors (see error message below), it is possible to extend the MQ size by

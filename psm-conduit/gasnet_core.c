@@ -541,6 +541,25 @@ int gasnetc_psm_request_barrier_all(int value)
 
 /* -------------------------------------------------------------------------- */
 GASNETI_COLD
+static void gasneti_check_bug3419(void) {
+    if (GASNET_OK != gasnet_barrier(gasnetc_psm_max_request_len, 0)) {
+        if (!gasneti_mynode) {
+            fprintf(stderr,
+"***********************************************************************\n"
+"* ERROR: The nodes in this run are reporting unequal values of PSM2's *\n"
+"* max_request_short.  Please see \"Bug 3419\" in psm-conduit/README     *\n"
+"* (source) or README-psm (installed) for more information.            *\n"
+"***********************************************************************\n"
+);
+            fflush(stderr);
+        }
+        gasneti_bootstrapBarrier();
+        gasneti_bootstrapFini();
+        _exit(1);
+    }
+}
+
+GASNETI_COLD
 extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
         uintptr_t segsize, uintptr_t minheapoffset) {
     void *segbase = NULL;
@@ -804,6 +823,9 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 
     /* ensure extended API is initialized across nodes */
     gasneti_bootstrapBarrier();
+
+    /* Detection for bug 3419 */
+    gasneti_check_bug3419();
 
     return GASNET_OK;
 }
