@@ -24,9 +24,6 @@
                                       } while (0)
 #endif
 
-#define strexp(x)  #x
-#define str(x) strexp(x)
-
 /*
  * Internal CPUID detection
  */

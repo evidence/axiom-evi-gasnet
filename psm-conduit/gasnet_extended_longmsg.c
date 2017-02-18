@@ -134,7 +134,8 @@ int gasnete_long_msg_init(void)
     gasnetc_psm_state.long_msg_threshold = threshold;
 
     if(CPUID_MODEL_PHI_GEN2 == get_cpu_model()) {
-        setenv("PSM2_MQ_RNDV_HFI_WINDOW", str(DEFAULT_PSM2_MQ_RNDV_HFI_WINDOW_SIZE),0);
+        setenv("PSM2_MQ_RNDV_HFI_WINDOW",
+               _STRINGIFY(DEFAULT_PSM2_MQ_RNDV_HFI_WINDOW_SIZE),0);
     }
 
     gasnetc_list_init(&gasnetc_psm_state.avail_mq_ops, GASNETE_MQOPS_INIT,
