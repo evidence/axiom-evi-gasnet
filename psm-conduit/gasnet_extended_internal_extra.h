@@ -55,7 +55,8 @@ typedef struct cpuid {
     unsigned eax, ebx, ecx, edx;
 } cpuid_t;
 
-static __inline__ void
+GASNETI_INLINE(get_cpuid)
+void
 get_cpuid(const unsigned func, const unsigned subfunc, cpuid_t *id)
 {
     unsigned a = 0;

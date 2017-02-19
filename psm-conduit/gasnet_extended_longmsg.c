@@ -98,6 +98,7 @@ static int gasnete_get_transfer(void)
 }
 
 
+static
 uint32_t get_cpu_model(void)
 {
     cpuid_t id;
