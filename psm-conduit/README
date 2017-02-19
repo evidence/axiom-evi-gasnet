@@ -124,7 +124,7 @@ Known problems:
   by setting GASNET_SUPERNODE_MAXSIZE.  Under those conditions, you will
   receive an error message which directs you here.
   The most up-to-date information on this bug is maintained at:
-    http://upc-bugs.lbl.gov/bugzilla/show_bug.cgi?id=3333
+    http://gasnet-bugs.lbl.gov/bugzilla/show_bug.cgi?id=3333
   If, after reviewing that bug report, you wish to run psm-conduit over the
   PSM2 shared-memory device, please set GASNET_PSM_ENABLE_SHM=1 in your
   environment to disable the error message.  We strongly recommend you set
@@ -139,7 +139,7 @@ Known problems:
   under those conditions you will receive an error message which directs
   you here.
   The most up-to-date information on this bug is maintained at:
-    http://upc-bugs.lbl.gov/bugzilla/show_bug.cgi?id=3419
+    http://gasnet-bugs.lbl.gov/bugzilla/show_bug.cgi?id=3419
 
 * The default limit for number of inflight isends and irecvs MQ requests in
   PSM2 is 1048576. If the user encounters exhaustion of the isend or irecv
