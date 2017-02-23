@@ -35,6 +35,15 @@
 //#define _BLOCKING_MODE
 #define _NOT_BLOCKING_MODE
 
+/*
+ * if defined _ASYNC_RDMA_MODE
+ * activate the async rdma request so AMRequestLongSync use a async request
+ *
+ * if defined _NOT_ASYNC_RDMA_MODE (safest)
+ * the AMRequestLongSync is not used and a AMRequestLong is used instead
+ */
+#define _ASYNC_RDMA_MODE
+//#define _NOT_ASYNC_RDMA_MODE
 
 #if defined(_BLOCKING_MODE)
 #if defined(_NOT_BLOCKING_MODE)
@@ -44,6 +53,17 @@
 #if !defined(_NOT_BLOCKING_MODE)
 #warning No _BLOCKING_MODE or _NOT_BLOCKING_MODE defined! _BLOCKING_MODE will be used!
 #define _BLOCKING_MODE
+#endif
+#endif
+
+#if defined(_ASYNC_RDMA_MODE)
+#if defined(_NOT_ASYNC_RDMA_MODE)
+#error Defined both _ASYNC_RDMA_MODE and _NOT_ASYNC_RDMA_MODE
+#endif
+#else
+#if !defined(_NOT_ASYNC_RDMA_MODE)
+#warning No _ASYNC_RDMA_MODE or _NOT_ASYNC_RDMA_MODE defined! _NOT_ASYNC_RDMA_MODE will be used!
+#define _NOT_ASYNC_RDMA_MODE
 #endif
 #endif
 
@@ -67,6 +87,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
+#include <axiom/axiom_nic_types.h>
 
 /**
  * Logs levels.
@@ -198,6 +219,7 @@ static inline void logmsg_init() {
     }
     if (value != NULL) {
         logmsg_fout=fopen(value,"w+");
+        setvbuf(logmsg_fout, NULL, _IONBF, 0);
     } else {
         logmsg_fout = stderr;
     }
@@ -234,9 +256,17 @@ static inline void logmsg_init() {
 /* Conduit identification. */
 GASNETI_IDENT(gasnetc_IdentString_Version, "$GASNetCoreLibraryVersion: " GASNET_CORE_VERSION_STR " $");
 #ifdef _BLOCKING_MODE
-GASNETI_IDENT(gasnetc_IdentString_Name, "$GASNetCoreLibraryName: " GASNET_CORE_NAME_STR " $");
+#ifdef _ASYNC_RDMA_MODE
+GASNETI_IDENT(gasnetc_IdentString_Name, "$GASNetCoreLibraryName: " GASNET_CORE_NAME_STR " (flags: BLOCK, ASYNC)$");
 #else
-GASNETI_IDENT(gasnetc_IdentString_Name, "$GASNetCoreLibraryName: " GASNET_CORE_NAME_STR " (NB mode)$");
+GASNETI_IDENT(gasnetc_IdentString_Name, "$GASNetCoreLibraryName: " GASNET_CORE_NAME_STR " (flags: BLOCK, NO ASYNC$");
+#endif
+#else
+#ifdef _ASYNC_RDMA_MODE
+GASNETI_IDENT(gasnetc_IdentString_Name, "$GASNetCoreLibraryName: " GASNET_CORE_NAME_STR " (flags; NO BLOCK, ASYNC)$");
+#else
+GASNETI_IDENT(gasnetc_IdentString_Name, "$GASNetCoreLibraryName: " GASNET_CORE_NAME_STR " (flags: NO BLOCK, NO ASYNC)$");
+#endif
 #endif
 
 /* The message handler table */
@@ -482,7 +512,7 @@ static inline gasnet_node_t node_phy2log(axiom_node_id_t node) {
  *
  */
 
-#ifndef _BLOCKING_MODE
+#ifdef _NOT_BLOCKING_MODE
 
 /*
  * OLD implementation: do not remove.
@@ -537,10 +567,12 @@ static inline axiom_msg_id_t axiom_recv_raw(axiom_dev_t *dev, axiom_node_id_t *s
  */
 static inline int _recv_avail(axiom_dev_t *dev) {
     int res;
+    logmsg(LOG_TRACE,"_recv_avail(): start");
     res = axiom_recv_raw_avail(axiom_dev);
     if (!res) {
         res = axiom_recv_long_avail(axiom_dev);
     }
+    logmsg(LOG_TRACE,"_recv_avail(): end");
     return res;
 }
 
@@ -557,10 +589,12 @@ static inline int _recv_avail(axiom_dev_t *dev) {
  */
 static inline axiom_err_t _send_raw(axiom_dev_t *dev, gasnet_node_t node_id, axiom_port_t port, axiom_raw_payload_size_t payload_size, void *payload) {
     axiom_err_t res;
+    logmsg(LOG_TRACE,"_send_raw(): start");
     for (;;) {
         res=axiom_send_raw(axiom_dev, node_log2phy(node_id), port, AXIOM_TYPE_RAW_DATA, payload_size, payload);
         SPINLOOP_FOR(res);
     }
+    logmsg(LOG_TRACE,"_send_raw(): end");
     return res;
 }
 
@@ -578,10 +612,12 @@ static inline axiom_err_t _send_raw(axiom_dev_t *dev, gasnet_node_t node_id, axi
 static inline axiom_err_t _send_long(axiom_dev_t *dev, gasnet_node_t node_id, axiom_port_t port, axiom_long_payload_size_t payload_size, void *payload)
 {
     axiom_err_t res;
+    logmsg(LOG_TRACE,"_send_long(): start");
     for (;;) {
         res=axiom_send_long(axiom_dev, node_log2phy(node_id), port, payload_size, payload);
         SPINLOOP_FOR(res);
     }
+    logmsg(LOG_TRACE,"_send_long(): end");
     return res;
 }
 
@@ -601,12 +637,14 @@ static inline axiom_err_t _send_long_iov(axiom_dev_t *dev, gasnet_node_t node_id
     axiom_long_payload_size_t payload_size=0;
     axiom_err_t res;
     register int i;
+    logmsg(LOG_TRACE,"_send_long_iov(): start");
     for (i=0;i<iovcnt;i++)
         payload_size+=iov[i].iov_len;
     for (;;) {
         res=axiom_send_iov_long(axiom_dev, node_log2phy(node_id), port, payload_size, iov,iovcnt);
         SPINLOOP_FOR(res);
     }
+    logmsg(LOG_TRACE,"_send_long_iov(): end");
     return res;
 }
 
@@ -623,9 +661,15 @@ static inline axiom_err_t _send_long_iov(axiom_dev_t *dev, gasnet_node_t node_id
 static inline axiom_err_t _recv_raw(axiom_dev_t *dev, gasnet_node_t *node_id, axiom_port_t *port, axiom_raw_payload_size_t *payload_size, void *payload) {
     axiom_type_t type = AXIOM_TYPE_RAW_DATA;
     axiom_node_id_t src_id;
-    axiom_err_t res = axiom_recv_raw(axiom_dev, &src_id, port, &type, payload_size, payload);
-    if (res==AXIOM_RET_NOTAVAIL) return res;
+    axiom_err_t res;
+    logmsg(LOG_TRACE,"_recv_raw(): start");
+    res = axiom_recv_raw(axiom_dev, &src_id, port, &type, payload_size, payload);
+    if (res==AXIOM_RET_NOTAVAIL) {
+        logmsg(LOG_TRACE,"_recv_raw(): end");
+        return res;
+    }
     if_pt(AXIOM_RET_IS_OK(res)) *node_id = node_phy2log(src_id);
+    logmsg(LOG_TRACE,"_recv_raw(): end");
     return res;
 }
 
@@ -642,9 +686,15 @@ static inline axiom_err_t _recv_raw(axiom_dev_t *dev, gasnet_node_t *node_id, ax
 static inline axiom_err_t _recv_long(axiom_dev_t *dev, gasnet_node_t *node_id, axiom_port_t *port, axiom_long_payload_size_t *payload_size, void *payload)
 {
     axiom_node_id_t src_id;
-    axiom_err_t res = axiom_recv_long(axiom_dev, &src_id, port, payload_size, payload);
-    if (res==AXIOM_RET_NOTAVAIL) return res;
+    axiom_err_t res;
+    logmsg(LOG_TRACE,"_recv_long(): start");
+    res = axiom_recv_long(axiom_dev, &src_id, port, payload_size, payload);
+    if (res==AXIOM_RET_NOTAVAIL) {
+        logmsg(LOG_TRACE,"_recv_long(): end");
+        return res;
+    }
     if_pt(AXIOM_RET_IS_OK(res)) *node_id = node_phy2log(src_id);
+    logmsg(LOG_TRACE,"_recv_long(): end");
     return res;
 }
 
@@ -662,22 +712,29 @@ static inline axiom_err_t _recv(axiom_dev_t *dev, gasnet_node_t *node_id, axiom_
 {
     axiom_type_t type;
     axiom_node_id_t src_id;
-    axiom_err_t res = axiom_recv(axiom_dev, &src_id, port, &type, payload_size, payload);
-    if (res==AXIOM_RET_NOTAVAIL) return res;
+    axiom_err_t res;
+    logmsg(LOG_TRACE,"_recv(): start");
+    res = axiom_recv(axiom_dev, &src_id, port, &type, payload_size, payload);
+    if (res==AXIOM_RET_NOTAVAIL) {
+    logmsg(LOG_TRACE,"_recv(): end");
+        return res;
+    }
     if (AXIOM_RET_IS_OK(res)) *node_id = node_phy2log(src_id);
+    logmsg(LOG_TRACE,"_recv(): end");
     return res;
 }
 
 /**
  * Axiom RDMA request.
  * In case of resource not available resend the message until done (yielding the processor core).
- * Note that this is a not blocking request: when the function return the DMA may not be completed yet.
+ * Note that this is a ASYNC request: when the function return the DMA may not be completed yet.
  *
  * @param dev The AXIOM device.
  * @param node_id The destination node.
  * @param size The size of the request.
  * @param source_addr The soruce address (current node).
  * @param dest_addr The destination address (node_id node).
+ * @param token token that can be used to check rdma progress.
  * @return The exit status (see axiom_rdma_write).
  */
 static inline axiom_err_t _rdma_write(axiom_dev_t *dev, gasnet_node_t node_id, size_t size, void *source_addr, void *dest_addr, axiom_token_t *token) {
@@ -688,9 +745,35 @@ static inline axiom_err_t _rdma_write(axiom_dev_t *dev, gasnet_node_t node_id, s
     for (;;) {
         //res=axiom_rdma_write(axiom_dev, node_log2phy(node_id), size, (uintptr_t) source_addr - (uintptr_t) gasneti_seginfo[gasneti_mynode].rdma, (uintptr_t) dest_addr - (uintptr_t) gasneti_seginfo[node_id].rdma);
         res=axiom_rdma_write(axiom_dev, node_log2phy(node_id), size, source_addr, dest_addr, token);
-        if (res!=AXIOM_RET_NOTAVAIL) break;
         SPINLOOP_FOR(res);
     }
+    logmsg(LOG_TRACE,"_rdma_write(): end");
+    return res;
+}
+
+/**
+ * Axiom SYNC RDMA request.
+ * In case of resource not available resend the message until done (yielding the processor core).
+ * Note that this is a SYNC request: when the function return the DMA should be completed.
+ *
+ * @param dev The AXIOM device.
+ * @param node_id The destination node.
+ * @param size The size of the request.
+ * @param source_addr The soruce address (current node).
+ * @param dest_addr The destination address (node_id node).
+ * @return The exit status (see axiom_rdma_write).
+ */
+static inline axiom_err_t _rdma_write_sync(axiom_dev_t *dev, gasnet_node_t node_id, size_t size, void *source_addr, void *dest_addr) {
+    axiom_err_t res;
+    gasneti_assert((uintptr_t) source_addr >= (uintptr_t) gasneti_seginfo[gasneti_mynode].rdma);
+    gasneti_assert((uintptr_t) dest_addr >= (uintptr_t) gasneti_seginfo[node_id].rdma);
+    logmsg(LOG_TRACE,"_rdma_write(): from node %d(phy:%d) %p:%p to node %d(phy:%d) %p:%p for %lu (%lu MiB)",gasneti_mynode,node_log2phy(gasneti_mynode),source_addr,((uint8_t*)source_addr)+size,node_id,node_log2phy(node_id),dest_addr,((uint8_t*)dest_addr)+size-1,(unsigned long)size,(unsigned long)size/1024/1024);
+    for (;;) {
+        //res=axiom_rdma_write(axiom_dev, node_log2phy(node_id), size, (uintptr_t) source_addr - (uintptr_t) gasneti_seginfo[gasneti_mynode].rdma, (uintptr_t) dest_addr - (uintptr_t) gasneti_seginfo[node_id].rdma);
+        res=axiom_rdma_write_sync(axiom_dev, node_log2phy(node_id), size, source_addr, dest_addr, NULL);
+        SPINLOOP_FOR(res);
+    }
+    logmsg(LOG_TRACE,"_rdma_write_sync(): end");
     return res;
 }
 
@@ -829,6 +912,27 @@ static inline axiom_msg_id_t _recv(axiom_dev_t *dev, gasnet_node_t *node_id, axi
 
 /**
  * Axiom RDMA request.
+ * Note that this is a ASYNC request: when the function return the DMA may not be completed yet.
+ *
+ * @param dev The AXIOM device.
+ * @param node_id The destination node.
+ * @param size The size of the request.
+ * @param source_addr The soruce address (current node).
+ * @param dest_addr The destination address (node_id node).
+ * @param token token that can be used to check rdma progress.
+ * @return The exit status (see axiom_rdma_write).
+ */
+static inline axiom_err_t _rdma_write(axiom_dev_t *dev, gasnet_node_t node_id, size_t size, void *source_addr, void *dest_addr, axiom_token_t *token) {
+    gasneti_assert((uintptr_t) source_addr >= (uintptr_t) gasneti_seginfo[gasneti_mynode].rdma);
+    gasneti_assert((uintptr_t) dest_addr >= (uintptr_t) gasneti_seginfo[node_id].rdma);
+    //return axiom_rdma_write(axiom_dev, node_log2phy(node_id), 0, size, (uintptr_t) source_addr - (uintptr_t) gasneti_seginfo[gasneti_mynode].rdma, (uintptr_t) dest_addr - (uintptr_t) gasneti_seginfo[node_id].rdma);
+    logmsg(LOG_TRACE,"_rdma_write(): from node %d(phy:%d) %p:%p to node %d(phy:%d) %p:%p for %lu (%lu MiB)",gasneti_mynode,node_log2phy(gasneti_mynode),source_addr,((uint8_t*)source_addr)+size,node_id,node_log2phy(node_id),dest_addr,((uint8_t*)dest_addr)+size-1,(unsigned long)size,(unsigned long)size/1024/1024);
+    return axiom_rdma_write(axiom_dev, node_log2phy(node_id), size, source_addr, dest_addr, token);
+}
+
+/**
+ * Axiom SYNC RDMA request.
+ * Note that this is a SYNC request: when the function return the DMA should be completed.
  *
  * @param dev The AXIOM device.
  * @param node_id The destination node.
@@ -837,12 +941,12 @@ static inline axiom_msg_id_t _recv(axiom_dev_t *dev, gasnet_node_t *node_id, axi
  * @param dest_addr The destination address (node_id node).
  * @return The exit status (see axiom_rdma_write).
  */
-static inline axiom_err_t _rdma_write(axiom_dev_t *dev, gasnet_node_t node_id, size_t size, void *source_addr, void *dest_addr) {
+static inline axiom_err_t _rdma_write_sync(axiom_dev_t *dev, gasnet_node_t node_id, size_t size, void *source_addr, void *dest_addr) {
     gasneti_assert((uintptr_t) source_addr >= (uintptr_t) gasneti_seginfo[gasneti_mynode].rdma);
     gasneti_assert((uintptr_t) dest_addr >= (uintptr_t) gasneti_seginfo[node_id].rdma);
     //return axiom_rdma_write(axiom_dev, node_log2phy(node_id), 0, size, (uintptr_t) source_addr - (uintptr_t) gasneti_seginfo[gasneti_mynode].rdma, (uintptr_t) dest_addr - (uintptr_t) gasneti_seginfo[node_id].rdma);
     logmsg(LOG_TRACE,"_rdma_write(): from node %d(phy:%d) %p:%p to node %d(phy:%d) %p:%p for %lu (%lu MiB)",gasneti_mynode,node_log2phy(gasneti_mynode),source_addr,((uint8_t*)source_addr)+size,node_id,node_log2phy(node_id),dest_addr,((uint8_t*)dest_addr)+size-1,(unsigned long)size,(unsigned long)size/1024/1024);
-    return axiom_rdma_write(axiom_dev, node_log2phy(node_id), size, source_addr, dest_addr, NULL);
+    return axiom_rdma_write_sync(axiom_dev, node_log2phy(node_id), size, source_addr, dest_addr, NULL);
 }
 
 #endif
@@ -1045,7 +1149,7 @@ static int gasneti_bootstrapInit(int *argc_p, char ***argv_p) {
 }
 
 #ifdef _BLOCKING_MODE
-/** A mutex for synchronization for blocking mode.*/
+/** A mutex for synchronization for blocking mode during poll.*/
 static MUTEX_t poll_mutex;
 #endif
 
@@ -1095,12 +1199,16 @@ static int gasnetc_init(int *argc, char ***argv) {
 #ifdef _BLOCKING_MODE
         INIT_MUTEX(poll_mutex);
         axiom_dev = axiom_open(NULL);
+#ifdef _ASYNC_RDMA_MODE
+        async_init();
+#endif
 #else
         struct axiom_args openargs;
         openargs.flags = AXIOM_FLAG_NOBLOCK;
         axiom_dev = axiom_open(&openargs);
-
+#ifdef _ASYNC_RDMA_MODE
         async_init();
+#endif
 /*
         axiom_dev_blocking=axiom_open(NULL);
         if_pf(axiom_dev_blocking == NULL) {
@@ -1728,6 +1836,7 @@ static void gasnetc_atexit(void) {
  * @param exitcode The exit code
  */
 extern void gasnetc_exit(int exitcode) {
+    logmsg(LOG_INFO,"gasnetc_exit(): called");
     /* once we start a shutdown, ignore all future SIGQUIT signals or we risk reentrancy */
     gasneti_reghandler(SIGQUIT, SIG_IGN);
 
@@ -1737,11 +1846,15 @@ extern void gasnetc_exit(int exitcode) {
         gasneti_mutex_lock(&exit_lock);
     }
 
+    logmsg(LOG_INFO,"gasnetc_exit(): shutdown sequence in progress");
     GASNETI_TRACE_PRINTF(C, ("gasnet_exit(%i)\n", exitcode));
 
     gasneti_flush_streams();
+    logmsg(LOG_DEBUG,"gasnetc_exit(): stream flushed");
     gasneti_trace_finish();
+    logmsg(LOG_DEBUG,"gasnetc_exit(): trace finished");
     gasneti_sched_yield();
+    logmsg(LOG_DEBUG,"gasnetc_exit(): sched yeld :-)");
 
     /* (###) add code here to terminate the job across _all_ nodes 
              with gasneti_killmyprocess(exitcode) (not regular exit()), preferably
@@ -1750,6 +1863,7 @@ extern void gasnetc_exit(int exitcode) {
     // MG TODO:
     if (gasnetc_rdma_allocation_done)
         axiom_private_free(gasneti_seginfo[gasneti_mynode].rdma);
+    logmsg(LOG_DEBUG,"gasnetc_exit(): free rdma memory done");
         //axiom_rdma_munmap(axiom_dev);
     /*
         if (!received_exit_message) {
@@ -1773,18 +1887,14 @@ extern void gasnetc_exit(int exitcode) {
  *
  */
 
-// only usefull in NOT BLOCKING MODE....
-// rationale: why more arrays (and not an array of structur)? because the axiom api will change to check for tokens with one ioctl (passing an array of rdma tokens)
-
-#ifndef __BLOCKING_MODE
+#ifdef _ASYNC_RDMA_MODE
 
 /** Max pending async reqeust. */
 #define ASYNC_MAX_PENDING_REQ 64
 /** Masq for pending request. (So MAX_PENDING must be a power of two). */
 #define ASYNC_MASQ 0x3f
 
-/** Invalid token. */
-#define INVALID_TOKEN 0
+// rationale: why more arrays (and not an array of structur)? because the axiom api will change to check for tokens with one ioctl (passing an array of rdma tokens)
 
 /** Buffer for storing pending raw message. */
 static gasnetc_axiom_am_msg_t async_buf[ASYNC_MAX_PENDING_REQ];
@@ -1834,7 +1944,8 @@ static void async_init() {
     int idx;
     for (idx=0;idx<ASYNC_MAX_PENDING_REQ;idx++) {
         async_info[idx].state=ASYNC_FREE;
-        async_tok[idx].raw=INVALID_TOKEN;
+        //async_tok[idx].raw=INVALID_TOKEN;
+        AXIOM_TOKEN_INVALIDATE(async_tok+idx);
     }
     INIT_MUTEX(async_mutex);
 }
@@ -1883,7 +1994,7 @@ static void async_free_buffer(int num_free) {
 
 /** Maxium number of pendig request to elaborate per gasnet poll request. */
 /* to check: if ASYNC_MAX_NUM_PER_CHECK < ASYNC_MAX_PENDING_REQ starvation?*/
-#define ASYNC_MAX_NUM_PER_CHECK ASYNC_MAX_PENDING_REQ
+//#define ASYNC_MAX_NUM_PER_CHECK ASYNC_MAX_PENDING_REQ
 
 /**
  * Check if async RDMA request are done.
@@ -1897,38 +2008,73 @@ static void async_check_buffers(int *id, int *num) {
     int idx;
     *num=0;
     *id=0;
-    LOCK(async_mutex);
+
     if (async_used!=0) {
-        if (logmsg_is_enabled(LOG_DEBUG)&&__sync_fetch_and_or(&first_message,1)==0) {
-            logmsg(LOG_DEBUG,"async buffers: pending request into queue");
-        }
-        for (idx=0;idx<ASYNC_MAX_PENDING_REQ;idx++) {
-            if (ASYNC_IS_USED(idx)) {
-                ret=axiom_rdma_check(axiom_dev,async_tok+idx);
-                if (ret==AXIOM_RET_NOTAVAIL) continue;
-                if (!AXIOM_RET_IS_OK(ret)) {
-                    continue;
-                }
-                if (*id==0) {
+
+        LOCK(async_mutex);
+        if (async_used!=0) {
+            if (logmsg_is_enabled(LOG_DEBUG)&&__sync_fetch_and_or(&first_message,1)==0) {
+                logmsg(LOG_DEBUG,"async buffers: pending request into queue");
+            }
+            ret=axiom_rdma_check(axiom_dev,async_tok,ASYNC_MAX_PENDING_REQ);
+            if (AXIOM_RET_IS_OK(ret)) {
+                if (ret>0) {
                     *id=pthread_self();
                     gasneti_assert(*id!=0);
-                }
-                logmsg(LOG_DEBUG,"async buffers: freeing idx=%d",idx);
-                (*num)=(*num)+1;
-                async_info[idx].state=*id;
+                    for (idx=0;idx<ASYNC_MAX_PENDING_REQ;idx++) {
+                        if (AXIOM_TOKEN_IS_ACKED(async_tok+idx)) {
+                            if (ASYNC_IS_USED(idx)) {
+                                logmsg(LOG_DEBUG,"async buffers: freeing idx=%d",idx);
+                                (*num)=(*num)+1;
+                                async_info[idx].state=*id;
 #ifdef USE_ASYNC_TOK2
-                async_tok2[idx].raw=async_tok[idx].raw;
+                                async_tok2[idx].raw=async_tok[idx].raw;
 #endif
-                async_tok[idx].raw=INVALID_TOKEN;
-                if (*num>=ASYNC_MAX_NUM_PER_CHECK) break;
+                                AXIOM_TOKEN_INVALIDATE(async_tok+idx);
+                            } else {
+                                // when a token is acked we invalidate and set info to ELAB so it can be acked again and NOT used (it must be in elab)
+                                // i.e. the ASYNC_IS_USED is a paranoia check!!!
+                                gasneti_fatalerror("INTERNAL axiom conduit ERROR: rdma tok is ack but not used!!!");
+                            }
+                            if (--ret<=0) break;
+                        }
+                    }
+                }
+            } else {
+                if (ret!=AXIOM_RET_NOTAVAIL)
+                    logmsg(LOG_WARN,"async buffers: axiom_rdma_check() error (ret=%d)",ret);
+            }
+            /*
+             *         for (idx=0;idx<ASYNC_MAX_PENDING_REQ;idx++) {
+             *             if (ASYNC_IS_USED(idx)) {
+             *                 ret=axiom_rdma_check(axiom_dev,async_tok+idx);
+             *                 if (ret==AXIOM_RET_NOTAVAIL) continue;
+             *                 if (!AXIOM_RET_IS_OK(ret)) {
+             *                     continue;
+             *                 }
+             *                 if (*id==0) {
+             *                     *id=pthread_self();
+             *                     gasneti_assert(*id!=0);
+             *                 }
+             *                 logmsg(LOG_DEBUG,"async buffers: freeing idx=%d",idx);
+             *                 (*num)=(*num)+1;
+             *                 async_info[idx].state=*id;
+             * #ifdef USE_ASYNC_TOK2
+             *                 async_tok2[idx].raw=async_tok[idx].raw;
+             * #endif
+             *                 async_tok[idx].raw=INVALID_TOKEN;
+             *                 if (*num>=ASYNC_MAX_NUM_PER_CHECK) break;
+               *                                    }
+               *              }
+               *         */
+        } else {
+            if (logmsg_is_enabled(LOG_DEBUG)&&__sync_fetch_and_and(&first_message,0)==1) {
+                logmsg(LOG_DEBUG,"async buffers: no request into queue");
             }
         }
-    } else {
-        if (logmsg_is_enabled(LOG_DEBUG)&&__sync_fetch_and_and(&first_message,0)==1) {
-            logmsg(LOG_DEBUG,"async buffers: no request into queue");
-        }
+        UNLOCK(async_mutex);
+
     }
-    UNLOCK(async_mutex);
 }
 
 #endif
@@ -2018,7 +2164,7 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
  * @return GASNET_OK if success.
  */
 extern int gasnetc_AMPoll(void) {
-#ifndef _BLOCKING_MODE
+#ifdef _ASYNC_RDMA_MODE
     static volatile int first_message=1;
 #endif
     uint8_t buffer[sizeof(gasnetc_axiom_msg_t)+GASNETI_MEDBUF_ALIGNMENT];
@@ -2047,7 +2193,7 @@ extern int gasnetc_AMPoll(void) {
     gasneti_AMPSHMPoll(0);
 #endif
 
-#ifndef _BLOCKING_MODE
+#ifdef _ASYNC_RDMA_MODE
     if (async_used!=0) {
         int id,num;
         if (logmsg_is_enabled(LOG_DEBUG)) {
@@ -2281,6 +2427,9 @@ extern int gasnetc_AMRequestShortM(gasnet_node_t dest, gasnet_handler_t handler,
         }
         ret = _send_raw(axiom_dev, dest, AXIOM_BIND_PORT, compute_payload_size(numargs), &payload);
         retval = AXIOM_RET_IS_OK(ret) ? GASNET_OK : -1;
+        if (retval!=GASNET_OK) {
+            logmsg(LOG_WARN,"AMRequestShort failed during axiom_send_raw() with ret=%d",ret);
+        }
     }
     va_end(argptr);
     GASNETI_RETURN(retval);
@@ -2340,6 +2489,9 @@ extern int gasnetc_AMRequestMediumM(
         ret = _send_long_iov(axiom_dev, dest, AXIOM_BIND_PORT, v, 2);
         //fprintf(stderr, "SENT ID (req) %d\n", ret);
         retval = AXIOM_RET_IS_OK(ret) ? GASNET_OK : -1;
+        if (retval!=GASNET_OK) {
+            logmsg(LOG_WARN,"AMRequestMedium failed during axiom_send_long_iov() with ret=%d",ret);
+        }
     }
     va_end(argptr);
     GASNETI_RETURN(retval);
@@ -2377,7 +2529,7 @@ static int _requestOrReplyLong(gasnet_node_t dest, gasnet_handler_t handler, voi
     gasnetc_axiom_am_msg_t *payload=&payload_buffer;
     int out;
 
-#ifdef _BLOCKING_MODE
+#ifdef _NOT_ASYNC_RDMA_MODE
     // no async request in blocking mode
     if (type==ASYNC_REQUEST) type=NORMAL_REQUEST;
 #endif
@@ -2406,13 +2558,13 @@ static int _requestOrReplyLong(gasnet_node_t dest, gasnet_handler_t handler, voi
             for (;;) {
                 sz = totras > GASNETC_BUFFER_SIZE ? GASNETC_BUFFER_SIZE : totras;
                 memcpy(buf, srcp, sz);
-#ifdef _BLOCKING_MODE
-                ret = _rdma_write(axiom_dev, dest, sz, buf, dstp);
-#else
-                ret = _rdma_write(axiom_dev, dest, sz, buf, dstp, &token);
-                if (AXIOM_RET_IS_OK(ret))
-                    ret=axiom_rdma_wait(axiom_dev,&token);
-#endif
+//#ifdef _NOT_ASYNC_RDMA_MODE
+//                ret = _rdma_write_sync(axiom_dev, dest, sz, buf, dstp);
+//#else
+                ret = _rdma_write_sync(axiom_dev, dest, sz, buf, dstp);
+//                if (AXIOM_RET_IS_OK(ret))
+//                    ret=axiom_rdma_wait(axiom_dev,&token);
+//#endif
                 if (!AXIOM_RET_IS_OK(ret)) {
                     logmsg(LOG_WARN,"Sync/AsyncReq: _rdma_write/wait error (ret=%d)",ret);
                     break;
@@ -2424,13 +2576,15 @@ static int _requestOrReplyLong(gasnet_node_t dest, gasnet_handler_t handler, voi
             }
             free_rdma_buf(buf);
         } else {
-#ifdef _BLOCKING_MODE
-            ret = _rdma_write(axiom_dev, dest, nbytes &(~(GASNETC_ALIGN_SIZE - 1)), source_addr, dest_addr);
+#ifdef _NOT_ASYNC_RDMA_MODE
+            ret = _rdma_write_sync(axiom_dev, dest, nbytes &(~(GASNETC_ALIGN_SIZE - 1)), source_addr, dest_addr);
 #else
             axiom_token_t token;
-            ret = _rdma_write(axiom_dev, dest, nbytes &(~(GASNETC_ALIGN_SIZE - 1)), source_addr, dest_addr, &token);
-            if (AXIOM_RET_IS_OK(ret)) {
-                if (type==ASYNC_REQUEST) {
+            if (type!=ASYNC_REQUEST) {
+                ret = _rdma_write_sync(axiom_dev, dest, nbytes &(~(GASNETC_ALIGN_SIZE - 1)), source_addr, dest_addr);
+            } else {
+                ret = _rdma_write(axiom_dev, dest, nbytes &(~(GASNETC_ALIGN_SIZE - 1)), source_addr, dest_addr, &token);
+                if (AXIOM_RET_IS_OK(ret)) {
                     int idx=async_allocate_buffer(ret);
                     if (idx==-1) {
                         // no buffer available... switch to sync mode...
@@ -2445,11 +2599,8 @@ static int _requestOrReplyLong(gasnet_node_t dest, gasnet_handler_t handler, voi
                         payload=async_buf+idx;
                     }
                 } else {
-                    logmsg(LOG_DEBUG,"SyncReq: wait RDMA");
-                    ret=axiom_rdma_wait(axiom_dev,&token);
+                    logmsg(LOG_WARN,"AsyncReq; _rdma_write() error (ret=%d)",ret);
                 }
-            } else {
-                logmsg(LOG_WARN,"Sync/AsyncReq; _rdma_write() error (ret=%d)",ret);
             }
 #endif
         }
@@ -2622,6 +2773,9 @@ extern int gasnetc_AMReplyShortM(gasnet_token_t token, gasnet_handler_t handler,
         }
         ret = _send_raw(axiom_dev, info->node, info->port, compute_payload_size(numargs), &payload);
         retval = AXIOM_RET_IS_OK(ret) ? GASNET_OK : GASNET_ERR_RAW_MSG;
+        if (retval!=GASNET_OK) {
+            logmsg(LOG_WARN,"AMReplyShort failed during axiom_send_raw() with ret=%d",ret);
+        }
     }
     va_end(argptr);
 
@@ -2689,6 +2843,9 @@ extern int gasnetc_AMReplyMediumM(
         ret = _send_long_iov(axiom_dev, info->node, info->port, v, 2);
         //fprintf(stderr, "SENT ID (rep) %d\n", ret);
         retval = AXIOM_RET_IS_OK(ret) ? GASNET_OK : GASNET_ERR_RAW_MSG;
+        if (retval!=GASNET_OK) {
+            logmsg(LOG_WARN,"AMReplyMedium failed during axiom_send_long_iov() with ret=%d",ret);
+        }
     }
     va_end(argptr);
     GASNETI_RETURN(retval);
