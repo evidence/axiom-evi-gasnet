@@ -31,14 +31,26 @@
 #define GASNETC_MAX_NUMHANDLERS   256
 extern gasneti_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS];
 
-#if GASNET_PAR
-#define GASNETC_OFI_LOCK_EXPR(lock, expr) do { gasneti_spinlock_lock(lock); \
-                                               expr; \
-                                               gasneti_spinlock_unlock(lock); \
-                                          } while(0)
-#else
-#define GASNETC_OFI_LOCK_EXPR(lock, expr) do { expr; } while (0)
+/* The following macros are intended to allow the conduit to use fine-grained locks throughout
+ * the code, but to actually compile to the locking mode that the configured provider supports */
+#if GASNET_PAR && GASNETC_OFI_USE_THREAD_DOMAIN
+    #define GASNETC_OFI_TRYLOCK(lock) gasneti_spinlock_trylock(&gasnetc_ofi_locks.big_lock)
+    #define GASNETC_OFI_LOCK(lock) gasneti_spinlock_lock(&gasnetc_ofi_locks.big_lock)
+    #define GASNETC_OFI_UNLOCK(lock) gasneti_spinlock_unlock(&gasnetc_ofi_locks.big_lock)
+#elif GASNET_PAR
+    #define GASNETC_OFI_TRYLOCK(lock) gasneti_spinlock_trylock(lock)
+    #define GASNETC_OFI_LOCK(lock) gasneti_spinlock_lock(lock)
+    #define GASNETC_OFI_UNLOCK(lock) gasneti_spinlock_unlock(lock)
+#else /* GASNET_SEQ or GASNET_PARSYNC */
+    #define GASNETC_OFI_TRYLOCK(lock) 0
+    #define GASNETC_OFI_LOCK(lock) do{} while(0) 
+    #define GASNETC_OFI_UNLOCK(lock) do{} while(0) 
 #endif
+
+#define GASNETC_OFI_LOCK_EXPR(lock, expr) do { GASNETC_OFI_LOCK(lock); \
+                                               expr; \
+                                               GASNETC_OFI_UNLOCK(lock); \
+                                          } while(0)
 
 /* ------------------------------------------------------------------------------------ */
 /* AM category (recommended impl if supporting PSHM) */
@@ -65,6 +77,11 @@ typedef enum {
     _GASNETI_STAT_EVENT_VAL(C,name,val)
 
 /* Unnamed struct to hold all the locks needed */
+#if GASNET_PAR && GASNETC_OFI_USE_THREAD_DOMAIN
+struct {
+    gasneti_atomic_t big_lock;
+} gasnetc_ofi_locks;
+#elif GASNET_PAR && !GASNETC_OFI_USE_THREAD_DOMAIN
 struct {
     gasneti_atomic_t rx_cq;
     char _pad0[GASNETI_CACHE_PAD(sizeof(gasneti_atomic_t))];
@@ -78,6 +95,7 @@ struct {
     char _pad4[GASNETI_CACHE_PAD(sizeof(gasneti_atomic_t))];
     gasneti_atomic_t am_rx;
 } gasnetc_ofi_locks;
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 /* Job Spawn / Bootstrap */
