@@ -183,14 +183,15 @@ int gasnetc_ofi_init(int *argc, char ***argv,
   gasneti_spawner = gasneti_spawnerInit(argc, argv, NULL, &gasneti_nodes, &gasneti_mynode);
   if (!gasneti_spawner) GASNETI_RETURN_ERRR(NOT_INIT, "GASNet job spawn failed");
 
-  /* Initialize locks. If using the psm/psm2 providers, one big lock and
-   * FI_THREAD_DOMAIN will be used. Otherwise, fine-grained locks and FI_THREAD_FID
-   * will be used. */
 #if GASNETC_OFI_USE_THREAD_DOMAIN && GASNET_PAR
   gasneti_spinlock_init(&gasnetc_ofi_locks.big_lock);
-#elif GASNET_PAR
-  gasneti_spinlock_init(&gasnetc_ofi_locks.tx_cq);
+#endif
+#if GASNET_PAR
+  /* This lock is always needed in PAR mode to protect the AM reference counting */
   gasneti_spinlock_init(&gasnetc_ofi_locks.rx_cq);
+#endif
+#if 0
+  gasneti_spinlock_init(&gasnetc_ofi_locks.tx_cq);
   gasneti_spinlock_init(&gasnetc_ofi_locks.am_rx);
   gasneti_spinlock_init(&gasnetc_ofi_locks.am_tx);
   gasneti_spinlock_init(&gasnetc_ofi_locks.rdma_rx);
@@ -217,11 +218,11 @@ int gasnetc_ofi_init(int *argc, char ***argv,
   hints->rx_attr->op_flags	= FI_MULTI_RECV|FI_COMPLETION;
   hints->ep_attr->type		= FI_EP_RDM; /* Reliable datagram */
   /* Threading mode is set by the configure script to FI_THREAD_DOMAIN if
-   * using the psm or psm2 provider and FI_THREAD_FID otherwise*/
+   * using the psm or psm2 provider and FI_THREAD_SAFE otherwise*/
 #if GASNETC_OFI_USE_THREAD_DOMAIN || !GASNET_PAR
   hints->domain_attr->threading			= FI_THREAD_DOMAIN;
 #else
-  hints->domain_attr->threading			= FI_THREAD_FID;
+  hints->domain_attr->threading			= FI_THREAD_SAFE;
 #endif
 
   hints->domain_attr->control_progress	= FI_PROGRESS_MANUAL;
@@ -251,21 +252,12 @@ int gasnetc_ofi_init(int *argc, char ***argv,
   if(!*mynode_p) {
       if (!using_psm_provider && GASNETC_OFI_USE_THREAD_DOMAIN) {
           const char * msg =
-              "WARNING: Using OFI provider \"%s\" when the ofi-conduit was configured for\n"
-              "  the psm or psm2 providers. In GASNET_PAR mode, this has the effect of using\n"
-              "  a global lock instead of fine-grained locking. If this causes undesirable\n"
-              "  performance in PAR, reconfigure GASNet with the --with-ofi-provider=%s flag\n";
+            "WARNING: Using OFI provider \"%s\" when the ofi-conduit was configured for FI_THREAD_DOMAIN\n"
+            "(possibly because the psm or psm2 provider was detected at configure time). In GASNET_PAR mode,\n"
+            "this has the effect of using a global lock instead of fine-grained locking. If this causes \n"
+            "undesirable performance in PAR, reconfigure GASNet using: --with-ofi-provider=%s --disable-thread-domain\n";
           if (!quiet)
               fprintf(stderr, msg, info->fabric_attr->prov_name, info->fabric_attr->prov_name);
-      }
-      else if (using_psm_provider && !GASNETC_OFI_USE_THREAD_DOMAIN) {
-          gasneti_fatalerror(
-              "  Using OFI provider \"%s\" in PAR mode when the ofi-conduit was not configured\n"
-              "  statically for this provider. This will cause the conduit to use an OFI threading\n"
-              "  mode that is known to have bugs with the psm and psm2 providers (see bug 3417\n"
-              "  for details). To fix this, either use GASNet in SEQ mode or reconfigure with the\n"
-              "  --with-ofi-provider=%s configure flag.\n", info->fabric_attr->prov_name,
-              info->fabric_attr->prov_name);
       }
   }
 #endif
@@ -783,17 +775,23 @@ void gasnetc_ofi_am_recv_poll()
 	struct fi_cq_err_entry e = {0};
 
     /* Read from Completion Queue */
-    /* If another thread already holds this lock, return as it is already
-     * processing the queue */
-    if(EBUSY == GASNETC_OFI_TRYLOCK(&gasnetc_ofi_locks.rx_cq)) return;
-    ret = fi_cq_read(gasnetc_ofi_am_rcqfd, (void *)&re, 1);
+
+    /* If another thread already has the queue lock, return as it is already
+     * processing the queue. The purpose of this lock is to protect the header
+     * reference counting. */
+    if(EBUSY == GASNETC_OFI_PAR_TRYLOCK(&gasnetc_ofi_locks.rx_cq)) return;
+
+    /* The below call only acquires the big lock if FI_THREAD_DOMAIN is used */
+    GASNETC_OFI_LOCK_EXPR(&gasnetc_ofi_locks.big_lock, 
+            ret = fi_cq_read(gasnetc_ofi_am_rcqfd, (void *)&re, 1));
+
     if (ret == -FI_EAGAIN) {
-        GASNETC_OFI_UNLOCK(&gasnetc_ofi_locks.rx_cq);
+        GASNETC_OFI_PAR_UNLOCK(&gasnetc_ofi_locks.rx_cq);
         return;
     } 
     if_pf (ret < 0) {
         fi_cq_readerr(gasnetc_ofi_am_rcqfd, &e ,0);
-        GASNETC_OFI_UNLOCK(&gasnetc_ofi_locks.rx_cq);
+        GASNETC_OFI_PAR_UNLOCK(&gasnetc_ofi_locks.rx_cq);
         if_pf (gasnetc_is_exit_error(e)) return;
         gasneti_fatalerror("fi_cq_read for am_recv_poll failed with error: %s\n", fi_strerror(e.err));
     }
@@ -807,7 +805,7 @@ void gasnetc_ofi_am_recv_poll()
     if_pf (re.flags & FI_MULTI_RECV) {
         header->final_cntr = header->event_cntr;
     }
-    GASNETC_OFI_UNLOCK(&gasnetc_ofi_locks.rx_cq);
+    GASNETC_OFI_PAR_UNLOCK(&gasnetc_ofi_locks.rx_cq);
 
     if_pt (re.flags & FI_RECV) header->callback(&re, header);
 

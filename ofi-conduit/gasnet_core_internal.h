@@ -31,20 +31,38 @@
 #define GASNETC_MAX_NUMHANDLERS   256
 extern gasneti_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS];
 
-/* The following macros are intended to allow the conduit to use fine-grained locks throughout
- * the code, but to actually compile to the locking mode that the configured provider supports */
+/* FI_THREAD_DOMAIN providers in PAR mode */
 #if GASNET_PAR && GASNETC_OFI_USE_THREAD_DOMAIN
     #define GASNETC_OFI_TRYLOCK(lock) gasneti_spinlock_trylock(&gasnetc_ofi_locks.big_lock)
     #define GASNETC_OFI_LOCK(lock) gasneti_spinlock_lock(&gasnetc_ofi_locks.big_lock)
     #define GASNETC_OFI_UNLOCK(lock) gasneti_spinlock_unlock(&gasnetc_ofi_locks.big_lock)
-#elif GASNET_PAR
+    #define GASNETC_OFI_PAR_TRYLOCK(lock) gasneti_spinlock_trylock(lock)
+    #define GASNETC_OFI_PAR_LOCK(lock) gasneti_spinlock_lock(lock)
+    #define GASNETC_OFI_PAR_UNLOCK(lock) gasneti_spinlock_unlock(lock)
+/* This is left here for the purpose of supporting future providers that require fine
+ * grained locking. For now, all supported providers either support FI_THREAD_DOMAIN or
+ * FI_THREAD_SAFE */
+#elif 0 && GASNET_PAR
     #define GASNETC_OFI_TRYLOCK(lock) gasneti_spinlock_trylock(lock)
     #define GASNETC_OFI_LOCK(lock) gasneti_spinlock_lock(lock)
     #define GASNETC_OFI_UNLOCK(lock) gasneti_spinlock_unlock(lock)
+    #define GASNETC_OFI_PAR_TRYLOCK(lock) gasneti_spinlock_trylock(lock)
+    #define GASNETC_OFI_PAR_LOCK(lock) gasneti_spinlock_lock(lock)
+    #define GASNETC_OFI_PAR_UNLOCK(lock) gasneti_spinlock_unlock(lock)
+#elif GASNET_PAR /* For FI_THREAD_SAFE providers in PAR mode*/
+#define GASNETC_OFI_TRYLOCK(lock) 0
+    #define GASNETC_OFI_LOCK(lock) do{} while(0) 
+    #define GASNETC_OFI_UNLOCK(lock) do{} while(0) 
+    #define GASNETC_OFI_PAR_TRYLOCK(lock) gasneti_spinlock_trylock(lock)
+    #define GASNETC_OFI_PAR_LOCK(lock) gasneti_spinlock_lock(lock)
+    #define GASNETC_OFI_PAR_UNLOCK(lock) gasneti_spinlock_unlock(lock)
 #else /* GASNET_SEQ or GASNET_PARSYNC */
     #define GASNETC_OFI_TRYLOCK(lock) 0
     #define GASNETC_OFI_LOCK(lock) do{} while(0) 
     #define GASNETC_OFI_UNLOCK(lock) do{} while(0) 
+    #define GASNETC_OFI_PAR_TRYLOCK(lock) 0
+    #define GASNETC_OFI_PAR_LOCK(lock) do{} while(0) 
+    #define GASNETC_OFI_PAR_UNLOCK(lock) do{} while(0) 
 #endif
 
 #define GASNETC_OFI_LOCK_EXPR(lock, expr) do { GASNETC_OFI_LOCK(lock); \
@@ -80,8 +98,16 @@ typedef enum {
 #if GASNET_PAR && GASNETC_OFI_USE_THREAD_DOMAIN
 struct {
     gasneti_atomic_t big_lock;
+    gasneti_atomic_t rx_cq;
 } gasnetc_ofi_locks;
-#elif GASNET_PAR && !GASNETC_OFI_USE_THREAD_DOMAIN
+/* This is left here for the purpose of supporting future providers that require fine
+ * grained locking. For now, all supported providers either support FI_THREAD_DOMAIN or
+ * FI_THREAD_SAFE */
+#elif GASNET_PAR
+struct {
+    gasneti_atomic_t rx_cq;
+} gasnetc_ofi_locks;
+#elif 0 && GASNET_PAR && !GASNETC_OFI_USE_THREAD_DOMAIN
 struct {
     gasneti_atomic_t rx_cq;
     char _pad0[GASNETI_CACHE_PAD(sizeof(gasneti_atomic_t))];
