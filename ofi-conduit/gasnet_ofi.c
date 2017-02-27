@@ -120,6 +120,8 @@ static size_t ofi_bbuf_size;
 static uint64_t             	max_buffered_send;
 static uint64_t             	min_multi_recv;
 
+static int using_psm_provider = 0;
+
 gasneti_spawnerfn_t const *gasneti_spawner = NULL;
 
 static struct iovec *am_iov;
@@ -181,14 +183,19 @@ int gasnetc_ofi_init(int *argc, char ***argv,
   gasneti_spawner = gasneti_spawnerInit(argc, argv, NULL, &gasneti_nodes, &gasneti_mynode);
   if (!gasneti_spawner) GASNETI_RETURN_ERRR(NOT_INIT, "GASNet job spawn failed");
 
-  /* Initialize locks that protect individual resources */
-  gasneti_spinlock_init(&gasnetc_ofi_locks.tx_cq);
+#if GASNETC_OFI_USE_THREAD_DOMAIN && GASNET_PAR
+  gasneti_spinlock_init(&gasnetc_ofi_locks.big_lock);
+#elif GASNET_PAR
+  /* This lock is needed in PAR mode to protect the AM reference counting */
   gasneti_spinlock_init(&gasnetc_ofi_locks.rx_cq);
+#endif
+#if 0
+  gasneti_spinlock_init(&gasnetc_ofi_locks.tx_cq);
   gasneti_spinlock_init(&gasnetc_ofi_locks.am_rx);
   gasneti_spinlock_init(&gasnetc_ofi_locks.am_tx);
   gasneti_spinlock_init(&gasnetc_ofi_locks.rdma_rx);
   gasneti_spinlock_init(&gasnetc_ofi_locks.rdma_tx);
-  
+#endif
 
   /* OFI initialization */
 
@@ -209,7 +216,13 @@ int gasnetc_ofi_init(int *argc, char ***argv,
   hints->tx_attr->op_flags	= FI_DELIVERY_COMPLETE|FI_COMPLETION;
   hints->rx_attr->op_flags	= FI_MULTI_RECV|FI_COMPLETION;
   hints->ep_attr->type		= FI_EP_RDM; /* Reliable datagram */
-  hints->domain_attr->threading			= FI_THREAD_FID;
+  /* Threading mode is set by the configure script to FI_THREAD_DOMAIN if
+   * using the psm or psm2 provider and FI_THREAD_SAFE otherwise*/
+#if GASNETC_OFI_USE_THREAD_DOMAIN || !GASNET_PAR
+  hints->domain_attr->threading			= FI_THREAD_DOMAIN;
+#else
+  hints->domain_attr->threading			= FI_THREAD_SAFE;
+#endif
 
   hints->domain_attr->control_progress	= FI_PROGRESS_MANUAL;
   /* resource_mgmt: FI_RM_ENABLED - provider protects against overrunning 
@@ -227,16 +240,33 @@ int gasnetc_ofi_init(int *argc, char ***argv,
   /* FIXME: walk list of providers and implement some
    * selection logic */
 
-  if (!strncmp(info->fabric_attr->prov_name, "psm", 7) ||
-		  !strncmp(info->fabric_attr->prov_name, "psm2", 3))
+  if (!strcmp(info->fabric_attr->prov_name, "psm") ||
+		  !strcmp(info->fabric_attr->prov_name, "psm2")){
 	  high_perf_prov = 1;
+      using_psm_provider = 1;
+  }
+
+  int quiet = gasneti_getenv_yesno_withdefault("GASNET_QUIET", 0);
+#if GASNET_PAR
+  if(!*mynode_p) {
+      if (!using_psm_provider && GASNETC_OFI_USE_THREAD_DOMAIN) {
+          const char * msg =
+            "WARNING: Using OFI provider \"%s\" when the ofi-conduit was configured for FI_THREAD_DOMAIN\n"
+            "(possibly because the psm or psm2 provider was detected at configure time). In GASNET_PAR mode,\n"
+            "this has the effect of using a global lock instead of fine-grained locking. If this causes \n"
+            "undesirable performance in PAR, reconfigure GASNet using: --with-ofi-provider=%s --disable-thread-domain\n";
+          if (!quiet)
+              fprintf(stderr, msg, info->fabric_attr->prov_name, info->fabric_attr->prov_name);
+      }
+  }
+#endif
 
   if (!high_perf_prov && !*mynode_p) {
           const char * msg = 
           "WARNING: Using OFI provider (%s), which has not been validated to provide\n"
           "WARNING: acceptable GASNet performance. You should consider using a more\n"
           "WARNING: hardware-appropriate GASNet conduit. See ofi-conduit/README.\n";
-	  if (!gasneti_getenv_int_withdefault("GASNET_QUIET", 0, 1))
+	  if (!quiet)
 		  fprintf(stderr, msg, info->fabric_attr->prov_name);
   }
 
@@ -691,11 +721,18 @@ void gasnetc_ofi_tx_poll()
 	struct fi_cq_err_entry e;
 
 	/* Read from Completion Queue */
+    /* In the case of using one global lock, a try-lock could prevent progress from
+     * occurring if the big lock is being held often by another thread. Just lock in
+     * this case */
+#if GASNETC_OFI_USE_THREAD_DOMAIN
+    GASNETC_OFI_LOCK(&gasnetc_ofi_locks.tx_cq);
+#else
     /* If another thread already has the queue lock, return as it is already
      * processing the queue */
-    if(EBUSY == gasneti_spinlock_trylock(&gasnetc_ofi_locks.tx_cq)) return;
+    if(EBUSY == GASNETC_OFI_TRYLOCK(&gasnetc_ofi_locks.tx_cq)) return;
+#endif
     ret = fi_cq_read(gasnetc_ofi_tx_cqfd, (void *)&re, GASNETC_OFI_NUM_COMPLETIONS);
-    gasneti_spinlock_unlock(&gasnetc_ofi_locks.tx_cq);
+    GASNETC_OFI_UNLOCK(&gasnetc_ofi_locks.tx_cq);
 	if (ret != -FI_EAGAIN)
 	{
 		if_pf (ret < 0) {
@@ -737,17 +774,18 @@ void gasnetc_ofi_am_recv_poll()
 	struct fi_cq_err_entry e = {0};
 
     /* Read from Completion Queue */
-    /* If another thread already holds this lock, return as it is already
-     * processing the queue */
-    if(EBUSY == gasneti_spinlock_trylock(&gasnetc_ofi_locks.rx_cq)) return;
+
+    if(EBUSY == GASNETC_OFI_PAR_TRYLOCK(&gasnetc_ofi_locks.rx_cq)) return;
+
     ret = fi_cq_read(gasnetc_ofi_am_rcqfd, (void *)&re, 1);
+
     if (ret == -FI_EAGAIN) {
-        gasneti_spinlock_unlock(&gasnetc_ofi_locks.rx_cq);
+        GASNETC_OFI_PAR_UNLOCK(&gasnetc_ofi_locks.rx_cq);
         return;
     } 
     if_pf (ret < 0) {
         fi_cq_readerr(gasnetc_ofi_am_rcqfd, &e ,0);
-        gasneti_spinlock_unlock(&gasnetc_ofi_locks.rx_cq);
+        GASNETC_OFI_PAR_UNLOCK(&gasnetc_ofi_locks.rx_cq);
         if_pf (gasnetc_is_exit_error(e)) return;
         gasneti_fatalerror("fi_cq_read for am_recv_poll failed with error: %s\n", fi_strerror(e.err));
     }
@@ -761,7 +799,7 @@ void gasnetc_ofi_am_recv_poll()
     if_pf (re.flags & FI_MULTI_RECV) {
         header->final_cntr = header->event_cntr;
     }
-    gasneti_spinlock_unlock(&gasnetc_ofi_locks.rx_cq);
+    GASNETC_OFI_PAR_UNLOCK(&gasnetc_ofi_locks.rx_cq);
 
     if_pt (re.flags & FI_RECV) header->callback(&re, header);
 
@@ -769,10 +807,10 @@ void gasnetc_ofi_am_recv_poll()
      * still running. */
     uint64_t tmp = gasnetc_paratomic_add(&header->consumed_cntr, 1, GASNETI_ATOMIC_ACQ);
     if_pf (tmp == (GASNETI_ATOMIC_MAX & header->final_cntr)) {
-        gasneti_spinlock_lock(&gasnetc_ofi_locks.am_rx);
+        GASNETC_OFI_LOCK(&gasnetc_ofi_locks.am_rx);
         post_ret = fi_recvmsg(gasnetc_ofi_am_epfd, &(am_buff_msg[header->index]), FI_MULTI_RECV);
+        GASNETC_OFI_UNLOCK(&gasnetc_ofi_locks.am_rx);
         if_pf (FI_SUCCESS != post_ret) gasneti_fatalerror("fi_recvmsg failed inside am_recv_poll: %d\n", ret);
-        gasneti_spinlock_unlock(&gasnetc_ofi_locks.am_rx);
     }
 }
 
