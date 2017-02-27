@@ -185,9 +185,8 @@ int gasnetc_ofi_init(int *argc, char ***argv,
 
 #if GASNETC_OFI_USE_THREAD_DOMAIN && GASNET_PAR
   gasneti_spinlock_init(&gasnetc_ofi_locks.big_lock);
-#endif
-#if GASNET_PAR
-  /* This lock is always needed in PAR mode to protect the AM reference counting */
+#elif GASNET_PAR
+  /* This lock is needed in PAR mode to protect the AM reference counting */
   gasneti_spinlock_init(&gasnetc_ofi_locks.rx_cq);
 #endif
 #if 0
@@ -776,14 +775,9 @@ void gasnetc_ofi_am_recv_poll()
 
     /* Read from Completion Queue */
 
-    /* If another thread already has the queue lock, return as it is already
-     * processing the queue. The purpose of this lock is to protect the header
-     * reference counting. */
     if(EBUSY == GASNETC_OFI_PAR_TRYLOCK(&gasnetc_ofi_locks.rx_cq)) return;
 
-    /* The below call only acquires the big lock if FI_THREAD_DOMAIN is used */
-    GASNETC_OFI_LOCK_EXPR(&gasnetc_ofi_locks.big_lock, 
-            ret = fi_cq_read(gasnetc_ofi_am_rcqfd, (void *)&re, 1));
+    ret = fi_cq_read(gasnetc_ofi_am_rcqfd, (void *)&re, 1);
 
     if (ret == -FI_EAGAIN) {
         GASNETC_OFI_PAR_UNLOCK(&gasnetc_ofi_locks.rx_cq);

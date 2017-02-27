@@ -36,9 +36,10 @@ extern gasneti_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS];
     #define GASNETC_OFI_TRYLOCK(lock) gasneti_spinlock_trylock(&gasnetc_ofi_locks.big_lock)
     #define GASNETC_OFI_LOCK(lock) gasneti_spinlock_lock(&gasnetc_ofi_locks.big_lock)
     #define GASNETC_OFI_UNLOCK(lock) gasneti_spinlock_unlock(&gasnetc_ofi_locks.big_lock)
-    #define GASNETC_OFI_PAR_TRYLOCK(lock) gasneti_spinlock_trylock(lock)
-    #define GASNETC_OFI_PAR_LOCK(lock) gasneti_spinlock_lock(lock)
-    #define GASNETC_OFI_PAR_UNLOCK(lock) gasneti_spinlock_unlock(lock)
+    /* When using DOMAIN, all locks use the centralized big_lock */
+    #define GASNETC_OFI_PAR_TRYLOCK(lock) GASNETC_OFI_TRYLOCK(lock)
+    #define GASNETC_OFI_PAR_LOCK(lock) GASNETC_OFI_LOCK(lock)
+    #define GASNETC_OFI_PAR_UNLOCK(lock) GASNETC_OFI_UNLOCK(lock)
 /* This is left here for the purpose of supporting future providers that require fine
  * grained locking. For now, all supported providers either support FI_THREAD_DOMAIN or
  * FI_THREAD_SAFE */
@@ -98,15 +99,14 @@ typedef enum {
 #if GASNET_PAR && GASNETC_OFI_USE_THREAD_DOMAIN
 struct {
     gasneti_atomic_t big_lock;
+} gasnetc_ofi_locks;
+#elif GASNET_PAR
+struct {
     gasneti_atomic_t rx_cq;
 } gasnetc_ofi_locks;
 /* This is left here for the purpose of supporting future providers that require fine
  * grained locking. For now, all supported providers either support FI_THREAD_DOMAIN or
  * FI_THREAD_SAFE */
-#elif GASNET_PAR
-struct {
-    gasneti_atomic_t rx_cq;
-} gasnetc_ofi_locks;
 #elif 0 && GASNET_PAR && !GASNETC_OFI_USE_THREAD_DOMAIN
 struct {
     gasneti_atomic_t rx_cq;
