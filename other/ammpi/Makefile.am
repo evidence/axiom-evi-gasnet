@@ -8,11 +8,7 @@
 
 AUTOMAKE_OPTIONS = foreign 1.4 no-dependencies
 
-if PLATFORM_ILP32
-  apputils_flags =
-else
-  apputils_flags = -DAPPUTILS_OMIT_READWRITE
-endif
+apputils_flags =
 
 if BUILDCONFIG_DEBUG
   BUILDCONFIG_DEFINES = -DAMMPI_DEBUG=1
@@ -27,7 +23,7 @@ else
 endif
 
 CC = @MPI_CC@
-CFLAGS = @MPI_CFLAGS@ $(MANUAL_CFLAGS) $(apputils_flags) $(strict_proto_flags)
+CFLAGS = @MPI_CFLAGS@ $(MANUAL_MPICFLAGS) $(apputils_flags) $(strict_proto_flags)
 LDFLAGS = @LDFLAGS@ $(MANUAL_LDFLAGS)
 
 PERL = @PERL@
@@ -61,23 +57,12 @@ libammpi_a_SOURCES = \
 libammpi_a_DEPENDENCIES = $(libammpi_a_SOURCES:%.c=%.o)
 
 EXTRA_DIST = \
-	Makefile.common 	\
-	Makefile.generic 	\
-	Makefile.standalone 	\
 	Makefile.tests  	\
 	Makefile.titanium.in	\
 	license.txt
 
 # ---------- test programs -------------
 # all the test executables
-if PLATFORM_ILP32
-  testprograms_ILP32only = 	\
-    testgetput    		\
-    testreadwrite 
-else
-  testprograms_ILP32only = 
-endif
-
 testprograms =    		\
     testam       		\
     testbounce    		\
@@ -86,7 +71,8 @@ testprograms =    		\
     testlatencyM   		\
     testping      		\
     testreduce			\
-    $(testprograms_ILP32only)
+    testgetput    		\
+    testreadwrite 
 
 tests: apputils.o $(testprograms)
 
@@ -113,9 +99,15 @@ if GNU_NM
 check-exports: libammpi.a
 	@echo Checking libammpi exports...
 	@lib=libammpi.a ; \
+	    if test x$(CHECK_EXPORTS) = x0; then                                    \
+	      echo Skipped by user request ;                                        \
+	      exit 0 ;                                                              \
+	    fi ;                                                                    \
             @NM@ --defined-only $$lib |                                             \
+	    @PERL@ -pe 's/ \.refptr\.//' |                                          \
             grep -v -e ' [\._]*ammpi_' -e ' [\._]*AMMPI_' -e ' [\._]*AM_'           \
                     -e ' [\._]*gasnett_' -e ' [\._]*gasneti_'                       \
+                    -e 'get_pc_thunk'                                               \
                     -e __FUNCTION__ -e __PRETTY_FUNCTION__ -e debug_info_seg |      \
             @PERL@ -n -e 'print if /^[0-9a-fA-F]+\s+[A-Z]\s+/' > .$$lib.exp;        \
           if test -s .$$lib.exp ; then                                              \

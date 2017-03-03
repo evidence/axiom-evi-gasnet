@@ -19,8 +19,6 @@ int main(int argc, char **argv) {
 
   TEST_STARTUP(argc, argv, networkpid, eb, ep, 1, 1, "iters");
 
-  TEST_32BIT_ONLY();
-
   /* setup handlers */
   setupUtilHandlers(ep, eb);
 
@@ -34,6 +32,8 @@ int main(int argc, char **argv) {
     printf("Running %i iterations of get/put test...\n", iters);
     fflush(stdout);
   }
+  printf("%i: WARNING: The correctness of this test relies upon uniform loading for the static data segment. "
+         "It may not run correctly on platforms with address space randomization. %p\n",myproc,&vals[0]); fflush(stdout);
 
   for (k=0;k < iters; k++) {
     /* set just my val */

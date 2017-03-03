@@ -17,10 +17,9 @@ int main(int argc, char **argv) {
   int numprocs;
   int k;
   int iters = 0;
+  int errs = 0;
 
   TEST_STARTUP(argc, argv, networkpid, eb, ep, 1, 1, "iters");
-
-  TEST_32BIT_ONLY();
 
   /* setup handlers */
   setupUtilHandlers(ep, eb);
@@ -35,6 +34,9 @@ int main(int argc, char **argv) {
     printf("Running %i iterations of read/write test...\n", iters);
     fflush(stdout);
   }
+  printf("%i: WARNING: The correctness of this test relies upon uniform loading for the static data segment. "
+         "It may not run correctly on platforms with address space randomization. %p\n",myproc,&vals[0]); fflush(stdout);
+
 
   for (k=0;k < iters; k++) {
     /* set left neighbor's array */
@@ -57,21 +59,21 @@ int main(int argc, char **argv) {
       /* verify */
       for (i=0;i<MAX_PROCS;i++) {
         if (((int)readarray[i]) != k) {
-          printf("Proc %i READ/WRITE TEST FAILED : readarray[%i] = %i   k = %i\n", myproc, i, (int)readarray[i], k);
+          printf("ERROR: Proc %i READ/WRITE TEST FAILED : readarray[%i] = %i   k = %i\n", myproc, i, (int)readarray[i], k);
           fflush(stdout);
+          errs++;
           break;
         }
       }
-      #if DEBUG
-        if (i != MAX_PROCS) {
-          printf("Proc %i verified.\n", myproc);
-          fflush(stdout);
-          }
-      #endif
     }
 
     AM_Safe(AMX_SPMDBarrier()); /* barrier */
 
+  }
+
+  if (!errs) {
+    printf("Proc %i verified.\n", myproc);
+    fflush(stdout);
   }
 
   /* dump stats */
