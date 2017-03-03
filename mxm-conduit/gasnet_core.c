@@ -576,6 +576,9 @@ static int gasnetc_init(int *argc, char ***argv)
     gasneti_spawner = gasneti_spawnerInit(argc, argv, NULL, &gasneti_nodes, &gasneti_mynode);
     if (!gasneti_spawner) GASNETI_RETURN_ERRR(NOT_INIT, "GASNet job spawn failed");
 
+    /* Ensure uniform MXM_* env vars */
+    gasneti_propagate_env("MXM_", GASNETI_PROPAGATE_ENV_PREFIX);
+
     gasneti_init_done = 1; /* enable early to allow tracing */
 
     /* Now enable tracing of all the following steps */
