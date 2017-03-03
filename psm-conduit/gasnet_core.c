@@ -157,6 +157,9 @@ static int gasnetc_init(int *argc, char ***argv) {
     gasneti_spawner = gasneti_spawnerInit(argc, argv, NULL, &gasneti_nodes, &gasneti_mynode);
     if (!gasneti_spawner) GASNETI_RETURN_ERRR(NOT_INIT, "GASNet job spawn failed");
 
+    /* Ensure uniform PSM2_* env vars */
+    gasneti_propagate_env("PSM2_", GASNETI_PROPAGATE_ENV_PREFIX);
+
     /* (###) Add code here to determine which GASNet nodes may share memory.
        The collection of nodes sharing memory are known as a "supernode".  The
        (first) data structure to describe this is gasneti_nodemap[]: For all i:

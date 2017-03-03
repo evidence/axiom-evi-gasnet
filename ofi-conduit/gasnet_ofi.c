@@ -183,6 +183,10 @@ int gasnetc_ofi_init(int *argc, char ***argv,
   gasneti_spawner = gasneti_spawnerInit(argc, argv, NULL, &gasneti_nodes, &gasneti_mynode);
   if (!gasneti_spawner) GASNETI_RETURN_ERRR(NOT_INIT, "GASNet job spawn failed");
 
+  /* Ensure uniform FI_* env vars */
+  /* TODO: what about provider-specific env vars? */
+  gasneti_propagate_env("FI_", GASNETI_PROPAGATE_ENV_PREFIX);
+
 #if GASNETC_OFI_USE_THREAD_DOMAIN && GASNET_PAR
   gasneti_spinlock_init(&gasnetc_ofi_locks.big_lock);
 #elif GASNET_PAR
