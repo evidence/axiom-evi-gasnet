@@ -3947,6 +3947,7 @@ CONDUIT_OUTPUT(psm)
 CONDUIT_OUTPUT(gemini)
 CONDUIT_OUTPUT(aries)
 CONDUIT_OUTPUT(shmem)
+CONDUIT_OUTPUT(axiom)
 
 #--------------------------------------------------------------------------------------------------------
 

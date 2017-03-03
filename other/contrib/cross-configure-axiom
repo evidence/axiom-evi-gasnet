@@ -140,6 +140,7 @@ echo $SRCDIR/configure \
     --disable-seq --disable-parsync \
     --disable-smp \
     --disable-udp \
+    --enable-axiom \
     $EXTRA_CONFIGURE_ARGS \
     "$@"
 $SRCDIR/configure \
@@ -154,5 +155,6 @@ $SRCDIR/configure \
     --disable-seq --disable-parsync \
     --disable-smp \
     --disable-udp \
+    --enable-axiom \
     $EXTRA_CONFIGURE_ARGS \
     "$@"
