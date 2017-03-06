@@ -669,6 +669,7 @@ typedef void (*gasneti_progressfn_t)(void);
  * reads will not observe values that were prefeteched or are otherwise out
  * of date.
  */
+#ifndef GASNETI_WAITHOOK
 extern int gasneti_wait_mode; /* current waitmode hint */
 #define GASNETI_WAITHOOK() do {                                       \
     if (gasneti_wait_mode != GASNET_WAIT_SPIN) gasneti_sched_yield(); \
@@ -678,6 +679,7 @@ extern int gasneti_wait_mode; /* current waitmode hint */
     gasneti_compiler_fence();                                         \
     gasneti_spinloop_hint();                                          \
   } while (0)
+#endif
 
 /* busy-waits, with no implicit polling (cnd should include an embedded poll)
    differs from GASNET_BLOCKUNTIL because it may be waiting for an event
