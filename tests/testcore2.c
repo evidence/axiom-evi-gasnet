@@ -272,10 +272,13 @@ int main(int argc, char **argv) {
 void *doit(void *id) {
   gasnett_threadkey_set(mythread,id); 
   if ((uintptr_t)id != 0) { /* additional threads polling, to encourage handler concurrency */
+    /*
     while (!done) {
       gasnet_AMPoll();
       gasnett_sched_yield();
     }
+    */
+    GASNET_BLOCKUNTIL(done);
     return 0;
   } 
 
@@ -370,8 +373,8 @@ void *doit(void *id) {
     }
   }
 
-  BARRIER();
   done = 1;
+  BARRIER();
 
   return(0);
 }
