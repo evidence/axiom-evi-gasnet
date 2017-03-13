@@ -34,10 +34,12 @@ struct _threaddata_t {
 
 	volatile int	flag;
 	char _pad[GASNETT_CACHE_LINE_BYTES];
+
+	unsigned int initial_seed; /* initial random seed for the thread */
 } 
 threaddata_t;
 
-typedef void (*testfunc_t)(threaddata_t *);
+typedef void (*testfunc_t)(threaddata_t *,unsigned int *);
 typedef gasnet_handlerarg_t harg_t;
 
 /* configurable parameters */
@@ -74,7 +76,7 @@ int	sizes[] = { 0, /* gasnet_AMMaxMedium()-1      */
                     16384, 30326, TEST_SEGZ_PER_THREAD };
 
 #define	SIZES_NUM	(sizeof(sizes)/sizeof(int))
-#define RANDOM_SIZE()	(sizes[ (rand() % SIZES_NUM)])
+#define RANDOM_SIZE(seedptr)	(sizes[ (rand_r(seedptr) % SIZES_NUM)])
 
 int		AM_loopback = 0;
 #if GASNET_PAR
@@ -97,12 +99,12 @@ void	free_thread_data(void);
 void *	threadmain(void *args);
 
 /* GASNet Test functions */
-void	test_sleep(threaddata_t *tdata);
-void	test_put(threaddata_t *tdata);
-void	test_get(threaddata_t *tdata);
-void	test_amshort(threaddata_t *tdata);
-void	test_ammedium(threaddata_t *tdata);
-void	test_amlong(threaddata_t *tdata);
+void	test_sleep(threaddata_t *tdata,unsigned int *seedptr);
+void	test_put(threaddata_t *tdata,unsigned int *seedptr);
+void	test_get(threaddata_t *tdata,unsigned int *seedptr);
+void	test_amshort(threaddata_t *tdata,unsigned int *seedptr);
+void	test_ammedium(threaddata_t *tdata,unsigned int *seedptr);
+void	test_amlong(threaddata_t *tdata,unsigned int *seedptr);
 #if TEST_MPI
 void init_test_mpi(int *argc, char ***argv);
 void attach_test_mpi(void);
@@ -317,6 +319,12 @@ main(int argc, char **argv)
 	return 0;
 }
 
+static int MY_TEST_RAND(int low, int high, unsigned int *seedptr) {
+    int result = low+(int)(((double)(high-low+1))*rand_r(seedptr)/(RAND_MAX+1.0));
+    assert(result >= low && result <= high);
+    return result;
+}
+
 void *
 threadmain(void *args)
 {
@@ -325,18 +333,21 @@ threadmain(void *args)
 	testfunc_t	func;
 	threaddata_t	*td = (threaddata_t *) args;
 
-	TEST_SRAND(((int)TIME()) * td->tid);
+        unsigned int seed;
+        seed=td->initial_seed;
+	//TEST_SRAND(((int)TIME()) * td->tid);
 
 	thread_barrier();
 
 	if (!threadstress) MSG("tid=%3d> starting.", td->tid);
 
 	for (i = 0; i < iters; i++) {
-		idx = TEST_RAND(0,functions_num-1);
+		//idx = TEST_RAND(0,functions_num-1);
+		idx = MY_TEST_RAND(0,functions_num-1,&seed);
 		func = test_functions[idx];
 		assert(func != NULL);
 
-		func(td);
+		func(td,&seed);
                 if (td->ltid == 0 && !threadstress) TEST_PROGRESS_BAR(i, iters);
 	}
 
@@ -388,6 +399,15 @@ alloc_thread_data(int threads)
 			}
 		}
 	}
+
+        {
+            // initialize random seed for every threads
+            int j;
+            for (j=0;j<threads;j++) {
+                tt_thread_data[j].initial_seed=gasnet_mynode()*17+j;
+            }
+        }
+
 }
 
 
@@ -509,10 +529,10 @@ pong_longhandler(gasnet_token_t token, void *buf, size_t nbytes, harg_t idx) {
 /* GASNet testers */
 
 void
-test_sleep(threaddata_t *tdata)
+test_sleep(threaddata_t *tdata, unsigned int *seedptr)
 {
 	unsigned	usecs = (unsigned) sleep_min_us + 
-				(rand() % (sleep_max_us - sleep_min_us));
+				(rand_r(seedptr) % (sleep_max_us - sleep_min_us));
 	ACTION_PRINTF("tid=%3d> sleeping %.3f millisecs", tdata->tid, usecs/1000.0);
         { uint64_t goal = gasnett_ticks_to_us(gasnett_ticks_now()) + usecs;
           while (gasnett_ticks_to_us(gasnett_ticks_now()) < goal) 
@@ -522,7 +542,7 @@ test_sleep(threaddata_t *tdata)
 }
 
 void
-test_put(threaddata_t *tdata)
+test_put(threaddata_t *tdata, unsigned int *seedptr)
 {
 	int	peer = tdata->tid_peer;
 	int	node = tt_thread_map[peer];
@@ -530,7 +550,7 @@ test_put(threaddata_t *tdata)
 	void	*raddr = tt_addr_map[peer];
 	int	 len;
 	do {
-		len = RANDOM_SIZE();
+		len = RANDOM_SIZE(seedptr);
 	} while (len > TEST_SEGZ_PER_THREAD);
 
 	ACTION_PRINTF("tid=%3d> put (%p,%8d) -> tid=%3d,node=%d,addr=%p",
@@ -540,7 +560,7 @@ test_put(threaddata_t *tdata)
 }
 
 void
-test_get(threaddata_t *tdata)
+test_get(threaddata_t *tdata, unsigned int *seedptr)
 {
 	int	peer = tdata->tid_peer;
 	int	node = tt_thread_map[peer];
@@ -548,7 +568,7 @@ test_get(threaddata_t *tdata)
 	void	*raddr = tt_addr_map[peer];
 	int	 len;
 	do {
-		len = RANDOM_SIZE();
+		len = RANDOM_SIZE(seedptr);
 	} while (len > TEST_SEGZ_PER_THREAD);
 
 	ACTION_PRINTF("tid=%3d> get (%p,%8d) <- tid=%3d,node=%d,addr=%p",
@@ -557,16 +577,16 @@ test_get(threaddata_t *tdata)
 	gasnet_get(laddr, node, raddr, len);
 }
 
-#define RANDOM_PEER(tdata)					\
+#define RANDOM_PEER(tdata,seedptr)					\
 	(AM_loopback ? 						\
-		(rand() % 2 == 0 ? tdata->tid_peer		\
+		(rand_r(seedptr) % 2 == 0 ? tdata->tid_peer		\
 				 : tdata->tid_peer_local)	\
 	: tdata->tid_peer)
 
 void
-test_amshort(threaddata_t *tdata)
+test_amshort(threaddata_t *tdata,unsigned *seedptr)
 {
-	int 	 	peer = RANDOM_PEER(tdata);
+	int 	 	peer = RANDOM_PEER(tdata,seedptr);
 	int		node = tt_thread_map[peer];
 
 	ACTION_PRINTF("tid=%3d> AMShortRequest to tid=%3d", tdata->tid, peer);
@@ -581,15 +601,15 @@ test_amshort(threaddata_t *tdata)
 }
 
 void
-test_ammedium(threaddata_t *tdata)
+test_ammedium(threaddata_t *tdata,unsigned *seedptr)
 {
-	int 	 	peer = RANDOM_PEER(tdata);
+	int 	 	peer = RANDOM_PEER(tdata,seedptr);
 	int		node = tt_thread_map[peer];
 	void		*laddr = tt_addr_map[tdata->tid];
 	size_t	 	len;
 
 	do {
-		len = RANDOM_SIZE();
+		len = RANDOM_SIZE(seedptr);
 	} while (len > gasnet_AMMaxMedium());
 		
 	ACTION_PRINTF("tid=%3d> AMMediumRequest (sz=%7d) to tid=%3d", tdata->tid, (int)len, peer);
@@ -606,16 +626,16 @@ test_ammedium(threaddata_t *tdata)
 
 
 void
-test_amlong(threaddata_t *tdata)
+test_amlong(threaddata_t *tdata,unsigned *seedptr)
 {
-	int 	 	peer = RANDOM_PEER(tdata);
+	int 	 	peer = RANDOM_PEER(tdata,seedptr);
 	int		node = tt_thread_map[peer];
 	void		*laddr = tt_addr_map[tdata->tid];
 	void		*raddr = tt_addr_map[peer];
 	size_t	 	len;
 
 	do {
-		len = RANDOM_SIZE();
+		len = RANDOM_SIZE(seedptr);
 	} while ((len > gasnet_AMMaxLongRequest()) || (len > gasnet_AMMaxLongReply()) 
               || (len > TEST_SEGZ_PER_THREAD));
 		
