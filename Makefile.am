@@ -93,6 +93,7 @@ EXTRA_DIST =              		\
 
 include_HEADERS = $(headers)
 
+# deliberately omitted git-only docs: README-devel README-git README-release
 INSTALL_DOCS =			\
 	README			\
 	README-tools		\
