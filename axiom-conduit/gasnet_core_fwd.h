@@ -71,6 +71,8 @@ typedef struct gasneti_seginfo_s {
 #define GASNET_ERR_BARRIER_MISMATCH     (_GASNET_ERR_BASE+5)
 #define GASNET_ERR_RDMA                 (_GASNET_ERR_BASE+6)
 #define GASNET_ERR_RAW_MSG              (_GASNET_ERR_BASE+7)
+// similar to errno EGAIN
+#define GASNET_ERR_AGAIN                -42
 
   /* conduits should define GASNETI_CONDUIT_THREADS to 1 if they have one or more 
      "private" threads which may be used to run AM handlers, even under GASNET_SEQ

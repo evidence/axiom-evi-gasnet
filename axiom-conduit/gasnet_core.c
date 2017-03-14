@@ -12,6 +12,8 @@
 #include <gasnet_handler.h>
 #include <gasnet_core_internal.h>
 
+#include <sys/select.h>
+#include <sys/epoll.h>
 #include <errno.h>
 #include <unistd.h>
 #include <signal.h>
@@ -42,8 +44,30 @@
  * if defined _NOT_ASYNC_RDMA_MODE (safest)
  * the AMRequestLongSync is not used and a AMRequestLong is used instead
  */
-#define _ASYNC_RDMA_MODE
-//#define _NOT_ASYNC_RDMA_MODE
+//#define _ASYNC_RDMA_MODE
+#define _NOT_ASYNC_RDMA_MODE
+
+/*
+ * if defined _NOT_BLOCK_ON_LOOP
+ * the standard behaviour of GASNET_BLOCKUNTIL/gasneti_pollwhile is used
+ *
+ * if define _BLOCK_ON_LOOP_CONDWAIT
+ * the gasneti_pollwhile id modified to block using pthread_condwait (and a fast internal polling/blocking thread)
+ *
+ * if define _BLOCK_ON_LOOP_EPOLL
+ * the gasneti_pollwhile id modified to block using linux epoll and eventfd
+ *
+ * PS: this are definde into gasnet_core_help.h
+ */
+//#define _NOT_BLOCK_ON_LOOP
+//#define _BLOCK_ON_LOOP_CONDWAIT
+//#define _BLOCK_ON_LOOP_EPOLL
+
+/*
+ *
+ * checks DEFINEs
+ *
+ */
 
 #if defined(_BLOCKING_MODE)
 #if defined(_NOT_BLOCKING_MODE)
@@ -67,6 +91,23 @@
 #endif
 #endif
 
+#if defined(_NOT_BLOCK_ON_LOOP)
+#if defined(_BLOCK_ON_LOOP_CONDWAIT)||defined(_BLOCK_ON_LOOP_EPOLL)
+#error Defined too much _NOT_BLOCK_ON_LOOP _BLOCK_ON_LOOP_CONDWAIT _BLOCK_ON_LOOP_EPOLL
+#endif
+#elif defined(_BLOCK_ON_LOOP_CONDWAIT)
+#if defined(_NOT_BLOCK_ON_LOOP)||defined(_BLOCK_ON_LOOP_EPOLL)
+#error Defined too much _NOT_BLOCK_ON_LOOP _BLOCK_ON_LOOP_CONDWAIT _BLOCK_ON_LOOP_EPOLL
+#endif
+#elif defined(_BLOCK_ON_LOOP_EPOLL)
+#if defined(_NOT_BLOCK_ON_LOOP)||defined(_BLOCK_ON_LOOP_CONDWAIT)
+#error Defined too much _NOT_BLOCK_ON_LOOP _BLOCK_ON_LOOP_CONDWAIT _BLOCK_ON_LOOP_EPOLL
+#endif
+#else
+#warning No _NOT_BLOCK_ON_LOOP or _BLOCK_ON_LOOP_CONDWAIT or _BLOCK_ON_LOOP_EPOLL defined! _NOT_BLOCK_ON_LOOP will be used!
+#define _NOT_BLOCK_ON_LOOP
+#endif
+
 /*
  *
  *
@@ -83,11 +124,15 @@
 // if defined does not output system time
 #define GASNET_DEBUG_SIMPLE_OUTPUT
 
+// if defined emit a thread id on evry log message
+#define GASNET_DEBUG_EMIT_THREAD
+
 #include <sys/time.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
 #include <axiom/axiom_nic_types.h>
+#include <axiom/axiom_nic_api_user.h>
 
 /**
  * Logs levels.
@@ -148,11 +193,19 @@ static long logmsg_micros;
  * @param msg the message.
  * @param ... the parameter of the message (printf stype).
  */
+#ifdef GASNET_DEBUG_EMIT_THREAD
+#define logmsg(lvl, msg, ...) {\
+  if (logmsg_is_enabled(lvl)) {\
+    _logmsg("%5s{%05x}: " msg "\n", logmsg_name[lvl], (int)(pthread_self()&0xfffff),##__VA_ARGS__);\
+  }\
+}
+#else
 #define logmsg(lvl, msg, ...) {\
   if (logmsg_is_enabled(lvl)) {\
     _logmsg("%5s: " msg "\n", logmsg_name[lvl], ##__VA_ARGS__);\
   }\
 }
+#endif
 #else
 /**
  * Log a message.
@@ -161,6 +214,7 @@ static long logmsg_micros;
  * @param msg the message.
  * @param ... the parameter of the message (printf stype).
  */
+#ifdef GASNET_DEBUG_EMIT_THREAD
 #define logmsg(lvl, msg, ...) {\
   if (logmsg_is_enabled(lvl)) {\
     struct timespec _t1;\
@@ -168,9 +222,21 @@ static long logmsg_micros;
     clock_gettime(CLOCK_REALTIME_COARSE,&_t1);\
     _secs=_t1.tv_sec%60;\
     _min=(_t1.tv_sec/60)%60;\
-    _logmsg("[%02d:%02d.%06d] %5s{%d}: " msg "\n", (int)_min, (int)_secs, (int)(_t1.tv_nsec/1000), logmsg_name[lvl], (int)getpid(), ##__VA_ARGS__);\
+    _logmsg("[%02d:%02d.%06d] %5s{%05x}: " msg "\n", (int)_min, (int)_secs, (int)(_t1.tv_nsec/1000), logmsg_name[lvl], (int)(pthread_self()&0xfffff), ##__VA_ARGS__);\
   }\
 }
+#else
+#define logmsg(lvl, msg, ...) {\
+  if (logmsg_is_enabled(lvl)) {\
+    struct timespec _t1;\
+    time_t _secs,_min;\
+    clock_gettime(CLOCK_REALTIME_COARSE,&_t1);\
+    _secs=_t1.tv_sec%60;\
+    _min=(_t1.tv_sec/60)%60;\
+    _logmsg("[%02d:%02d.%06d] %5s: " msg "\n", (int)_min, (int)_secs, (int)(_t1.tv_nsec/1000), logmsg_name[lvl], ##__VA_ARGS__);\
+  }\
+}
+#endif
 #endif
 
 static void _logmsg(const char *msg, ...) __attribute__((format(printf, 1, 2)));
@@ -552,12 +618,57 @@ static inline axiom_msg_id_t axiom_recv_raw(axiom_dev_t *dev, axiom_node_id_t *s
 }
 */
 
+/** SPINLOOP_FOR() iterations before slowing spin. */
+#define WRN_SPINLOOP_FOR 65536
+/** SPINLOOP_FOR() max interactions before return an error. */
+#define MAX_SPINLOOP_FOR (WRN_SPINLOOP_FOR+1024)
+/** SPINLOOP_FOR() comulative max delay after WRN_SPINLOOP iterations. */
+#define MAX_SPINLOOP_FOR_MSEC 5000
+
+/** Sleeping time after WRN_SPINLOOP_FOR iterations (usec for every iteration). */
+#define SPINLOOP_FOR_STEP ((MAX_SPINLOOP_FOR_MSEC)*1000/(MAX_SPINLOOP_FOR-WRN_SPINLOOP_FOR))
+
+// safety...
+#if SPINLOOP_FOR_STEP<100
+#error usleep() step can not be < 100usec
+#endif
+
+#if 0
 /** Spinloop in case of polling. */
 #define SPINLOOP_FOR(res) {\
   if (res!=AXIOM_RET_NOTAVAIL) break;\
+  gasneti_sched_yield();\
   gasneti_compiler_fence();\
   gasneti_spinloop_hint();\
+}
+
+/** Spinloop in case of polling. */
+#define SPINLOOP_FOR(res) {\
+  if (++counter>MAX_SPINLOOP_FOR||res!=AXIOM_RET_NOTAVAIL) break;\
   gasneti_sched_yield();\
+  gasneti_compiler_fence();\
+  gasneti_spinloop_hint();\
+}
+#endif
+
+/** Spinloop in case of polling. */
+/*
+ * this macro is used during the axiom_send_SOMETHING()
+ * if there is no low level resource available retry for WRN_SPINLOOP_FOR (using a sched_yield between calls)
+ * then retries for MAX_SPINLOOP_FOR more times (sleeping for SPINLOOP_FOR_STEP usec between calls)
+ * then return an error
+ */
+#define SPINLOOP_FOR(res) {\
+  if (res!=AXIOM_RET_NOTAVAIL) break;\
+  if (++counter>=WRN_SPINLOOP_FOR) {\
+     if (counter==WRN_SPINLOOP_FOR) logmsg(LOG_WARN,"SPINLOOP_FOR: > %d! switch to slow spinning for safety!",WRN_SPINLOOP_FOR);\
+     if (counter>MAX_SPINLOOP_FOR) break;\
+     usleep(SPINLOOP_FOR_STEP);\
+  } else {\
+     gasneti_sched_yield();\
+  }\
+  gasneti_compiler_fence();\
+  gasneti_spinloop_hint();\
 }
 
 /**
@@ -568,10 +679,7 @@ static inline axiom_msg_id_t axiom_recv_raw(axiom_dev_t *dev, axiom_node_id_t *s
 static inline int _recv_avail(axiom_dev_t *dev) {
     int res;
     logmsg(LOG_TRACE,"_recv_avail(): start");
-    res = axiom_recv_raw_avail(axiom_dev);
-    if (!res) {
-        res = axiom_recv_long_avail(axiom_dev);
-    }
+    res = axiom_recv_raw_avail(axiom_dev)+axiom_recv_long_avail(axiom_dev);
     logmsg(LOG_TRACE,"_recv_avail(): end");
     return res;
 }
@@ -588,11 +696,15 @@ static inline int _recv_avail(axiom_dev_t *dev) {
  * @return The return status (see axiom_send_raw).
  */
 static inline axiom_err_t _send_raw(axiom_dev_t *dev, gasnet_node_t node_id, axiom_port_t port, axiom_raw_payload_size_t payload_size, void *payload) {
-    axiom_err_t res;
+    register axiom_err_t res;
     logmsg(LOG_TRACE,"_send_raw(): start");
-    for (;;) {
-        res=axiom_send_raw(axiom_dev, node_log2phy(node_id), port, AXIOM_TYPE_RAW_DATA, payload_size, payload);
-        SPINLOOP_FOR(res);
+    res=axiom_send_raw(axiom_dev, node_log2phy(node_id), port, AXIOM_TYPE_RAW_DATA, payload_size, payload);
+    if (res==AXIOM_RET_NOTAVAIL) {
+        register int counter=0; // used by SPINLOOP_FOR()!
+        for (;;) {
+            res=axiom_send_raw(axiom_dev, node_log2phy(node_id), port, AXIOM_TYPE_RAW_DATA, payload_size, payload);
+            SPINLOOP_FOR(res);
+        }
     }
     logmsg(LOG_TRACE,"_send_raw(): end");
     return res;
@@ -611,11 +723,15 @@ static inline axiom_err_t _send_raw(axiom_dev_t *dev, gasnet_node_t node_id, axi
  */
 static inline axiom_err_t _send_long(axiom_dev_t *dev, gasnet_node_t node_id, axiom_port_t port, axiom_long_payload_size_t payload_size, void *payload)
 {
-    axiom_err_t res;
+    register axiom_err_t res;
     logmsg(LOG_TRACE,"_send_long(): start");
-    for (;;) {
-        res=axiom_send_long(axiom_dev, node_log2phy(node_id), port, payload_size, payload);
-        SPINLOOP_FOR(res);
+    res=axiom_send_long(axiom_dev, node_log2phy(node_id), port, payload_size, payload);
+    if (res==AXIOM_RET_NOTAVAIL) {
+        register int counter=0; // used by SPINLOOP_FOR()!
+        for (;;) {
+            res=axiom_send_long(axiom_dev, node_log2phy(node_id), port, payload_size, payload);
+            SPINLOOP_FOR(res);
+        }
     }
     logmsg(LOG_TRACE,"_send_long(): end");
     return res;
@@ -635,14 +751,18 @@ static inline axiom_err_t _send_long(axiom_dev_t *dev, gasnet_node_t node_id, ax
 static inline axiom_err_t _send_long_iov(axiom_dev_t *dev, gasnet_node_t node_id, axiom_port_t port, struct iovec *iov, int iovcnt)
 {
     axiom_long_payload_size_t payload_size=0;
-    axiom_err_t res;
+    register axiom_err_t res;
     register int i;
     logmsg(LOG_TRACE,"_send_long_iov(): start");
     for (i=0;i<iovcnt;i++)
         payload_size+=iov[i].iov_len;
-    for (;;) {
-        res=axiom_send_iov_long(axiom_dev, node_log2phy(node_id), port, payload_size, iov,iovcnt);
-        SPINLOOP_FOR(res);
+    res=axiom_send_iov_long(axiom_dev, node_log2phy(node_id), port, payload_size, iov,iovcnt);
+    if (res==AXIOM_RET_NOTAVAIL) {
+        register int counter=0; // used by SPINLOOP_FOR()!
+        for (;;) {
+            res=axiom_send_iov_long(axiom_dev, node_log2phy(node_id), port, payload_size, iov,iovcnt);
+            SPINLOOP_FOR(res);
+        }
     }
     logmsg(LOG_TRACE,"_send_long_iov(): end");
     return res;
@@ -738,14 +858,18 @@ static inline axiom_err_t _recv(axiom_dev_t *dev, gasnet_node_t *node_id, axiom_
  * @return The exit status (see axiom_rdma_write).
  */
 static inline axiom_err_t _rdma_write(axiom_dev_t *dev, gasnet_node_t node_id, size_t size, void *source_addr, void *dest_addr, axiom_token_t *token) {
-    axiom_err_t res;
+    register axiom_err_t res;
     gasneti_assert((uintptr_t) source_addr >= (uintptr_t) gasneti_seginfo[gasneti_mynode].rdma);
     gasneti_assert((uintptr_t) dest_addr >= (uintptr_t) gasneti_seginfo[node_id].rdma);
     logmsg(LOG_TRACE,"_rdma_write(): from node %d(phy:%d) %p:%p to node %d(phy:%d) %p:%p for %lu (%lu MiB)",gasneti_mynode,node_log2phy(gasneti_mynode),source_addr,((uint8_t*)source_addr)+size,node_id,node_log2phy(node_id),dest_addr,((uint8_t*)dest_addr)+size-1,(unsigned long)size,(unsigned long)size/1024/1024);
-    for (;;) {
-        //res=axiom_rdma_write(axiom_dev, node_log2phy(node_id), size, (uintptr_t) source_addr - (uintptr_t) gasneti_seginfo[gasneti_mynode].rdma, (uintptr_t) dest_addr - (uintptr_t) gasneti_seginfo[node_id].rdma);
-        res=axiom_rdma_write(axiom_dev, node_log2phy(node_id), size, source_addr, dest_addr, token);
-        SPINLOOP_FOR(res);
+    res=axiom_rdma_write(axiom_dev, node_log2phy(node_id), size, source_addr, dest_addr, token);
+    if (res==AXIOM_RET_NOTAVAIL) {
+        register int counter=0; // used into SPINLOOP_FOR()!
+        for (;;) {
+            //res=axiom_rdma_write(axiom_dev, node_log2phy(node_id), size, (uintptr_t) source_addr - (uintptr_t) gasneti_seginfo[gasneti_mynode].rdma, (uintptr_t) dest_addr - (uintptr_t) gasneti_seginfo[node_id].rdma);
+            res=axiom_rdma_write(axiom_dev, node_log2phy(node_id), size, source_addr, dest_addr, token);
+            SPINLOOP_FOR(res);
+        }
     }
     logmsg(LOG_TRACE,"_rdma_write(): end");
     return res;
@@ -764,14 +888,18 @@ static inline axiom_err_t _rdma_write(axiom_dev_t *dev, gasnet_node_t node_id, s
  * @return The exit status (see axiom_rdma_write).
  */
 static inline axiom_err_t _rdma_write_sync(axiom_dev_t *dev, gasnet_node_t node_id, size_t size, void *source_addr, void *dest_addr) {
-    axiom_err_t res;
+    register axiom_err_t res;
     gasneti_assert((uintptr_t) source_addr >= (uintptr_t) gasneti_seginfo[gasneti_mynode].rdma);
     gasneti_assert((uintptr_t) dest_addr >= (uintptr_t) gasneti_seginfo[node_id].rdma);
     logmsg(LOG_TRACE,"_rdma_write(): from node %d(phy:%d) %p:%p to node %d(phy:%d) %p:%p for %lu (%lu MiB)",gasneti_mynode,node_log2phy(gasneti_mynode),source_addr,((uint8_t*)source_addr)+size,node_id,node_log2phy(node_id),dest_addr,((uint8_t*)dest_addr)+size-1,(unsigned long)size,(unsigned long)size/1024/1024);
-    for (;;) {
-        //res=axiom_rdma_write(axiom_dev, node_log2phy(node_id), size, (uintptr_t) source_addr - (uintptr_t) gasneti_seginfo[gasneti_mynode].rdma, (uintptr_t) dest_addr - (uintptr_t) gasneti_seginfo[node_id].rdma);
-        res=axiom_rdma_write_sync(axiom_dev, node_log2phy(node_id), size, source_addr, dest_addr, NULL);
-        SPINLOOP_FOR(res);
+    res=axiom_rdma_write_sync(axiom_dev, node_log2phy(node_id), size, source_addr, dest_addr, NULL);
+    if (res==AXIOM_RET_NOTAVAIL) {
+        register int counter=0; // used into SPINLOOP_FOR()!
+        for (;;) {
+            //res=axiom_rdma_write(axiom_dev, node_log2phy(node_id), size, (uintptr_t) source_addr - (uintptr_t) gasneti_seginfo[gasneti_mynode].rdma, (uintptr_t) dest_addr - (uintptr_t) gasneti_seginfo[node_id].rdma);
+            res=axiom_rdma_write_sync(axiom_dev, node_log2phy(node_id), size, source_addr, dest_addr, NULL);
+            SPINLOOP_FOR(res);
+        }
     }
     logmsg(LOG_TRACE,"_rdma_write_sync(): end");
     return res;
@@ -947,6 +1075,93 @@ static inline axiom_err_t _rdma_write_sync(axiom_dev_t *dev, gasnet_node_t node_
     //return axiom_rdma_write(axiom_dev, node_log2phy(node_id), 0, size, (uintptr_t) source_addr - (uintptr_t) gasneti_seginfo[gasneti_mynode].rdma, (uintptr_t) dest_addr - (uintptr_t) gasneti_seginfo[node_id].rdma);
     logmsg(LOG_TRACE,"_rdma_write(): from node %d(phy:%d) %p:%p to node %d(phy:%d) %p:%p for %lu (%lu MiB)",gasneti_mynode,node_log2phy(gasneti_mynode),source_addr,((uint8_t*)source_addr)+size,node_id,node_log2phy(node_id),dest_addr,((uint8_t*)dest_addr)+size-1,(unsigned long)size,(unsigned long)size/1024/1024);
     return axiom_rdma_write_sync(axiom_dev, node_log2phy(node_id), size, source_addr, dest_addr, NULL);
+}
+
+#endif
+
+#ifdef _BLOCK_ON_LOOP_CONDWAIT
+
+/** A mutex to access common resource (if using _BLOCK_ON_LOOP_CONDWAIT).*/
+ gasneti_mutex_t gasnetc_mut = GASNETI_MUTEX_INITIALIZER;
+ /** A condition variable to signal/wait threads. */
+ gasneti_cond_t gasnetc_cond = GASNETI_COND_INITIALIZER;
+
+ /**
+  * Block waiting condition.
+  * Must be called after acquaring the gasnetc_mut mutex.
+  * Should be an inline/macro function (but not for now because debugging).
+  */
+void gasnetc_block_on_condition() {
+
+     // must check if there are working to do before blocking!!!
+     if (_recv_avail(axiom_dev)>0) return;
+
+     logmsg(LOG_INFO,"Block until cond....");
+     gasneti_cond_wait(&gasnetc_cond, &gasnetc_mut);
+     logmsg(LOG_INFO,"UNBLOCKED!");
+     gasneti_compiler_fence();
+     gasneti_spinloop_hint();
+}
+
+/**
+ * A high priority thread usde to control low level queues status.
+ * It signals other blocked thread when there is work to do.
+ * @param dummy Not used argument.
+ * @return Nothing.
+ */
+static void *fast_epoller(void *dummy) {
+    int h0,h1,h2;
+    int ep;
+    struct epoll_event epe;
+    int res;
+    axiom_err_t err=axiom_get_fds(axiom_dev,&h0,&h1,&h2);
+    if (!AXIOM_RET_IS_OK(err)) {
+        logmsg(LOG_WARN,"fast_epoller(): axiom_get_fds return %d",err);
+        gasneti_fatalerror("FATAL!");
+    }
+    ep=epoll_create(3);
+    if (ep<0) {
+        logmsg(LOG_WARN,"fast_epoller(): epoll_create() %d",errno);
+        gasneti_fatalerror("FATAL!");
+    }
+    epe.events=EPOLLIN|EPOLLET; // EdgeTrigger DANGER! (fd should be not blocking and there is the possibility of combined events report)
+    //epe.events=EPOLLIN;
+    epe.data.ptr=NULL;
+    epe.data.fd=h0;
+    epe.data.u32=0;
+    epe.data.u64=0;
+    res=epoll_ctl(ep,EPOLL_CTL_ADD,h0,&epe);
+    if (res<0) {
+        logmsg(LOG_WARN,"fast_epoller(): epoll_ctrl() h0 %d",errno);
+        gasneti_fatalerror("FATAL!");
+    }
+    epe.data.fd=h1;
+    res=epoll_ctl(ep,EPOLL_CTL_ADD,h1,&epe);
+    if (res<0) {
+        logmsg(LOG_WARN,"fast_epoller(): epoll_ctrl() h1 %d",errno);
+        gasneti_fatalerror("FATAL!");
+    }
+    epe.data.fd=h2;
+    res=epoll_ctl(ep,EPOLL_CTL_ADD,h2,&epe);
+    if (res<0) {
+        logmsg(LOG_WARN,"fast_epoller(): epoll_ctrl() h2 %d",errno);
+        gasneti_fatalerror("FATAL!");
+    }
+
+    for (;;) {
+        logmsg(LOG_DEBUG,"EPolling for events...");
+        res=epoll_wait(ep,&epe,1,-1);
+        logmsg(LOG_INFO,"EPolled event!");
+        if (res<0) {
+            logmsg(LOG_WARN,"fast_epoller(): epoll_wait %d",errno);
+        } else {
+            gasneti_mutex_lock(&gasnetc_mut);
+            gasneti_cond_broadcast(&gasnetc_cond);
+            gasneti_mutex_unlock(&gasnetc_mut);
+        }
+    }
+
+    close(ep);
 }
 
 #endif
@@ -1249,6 +1464,25 @@ static int gasnetc_init(int *argc, char ***argv) {
         GASNETI_RETURN_ERRR(RESOURCE, s);
     }
 
+#ifdef _BLOCK_ON_LOOP_CONDWAIT
+    {
+        // start high priority thread to signal low level queues state...
+        pthread_t pth;
+        pthread_attr_t attr;
+        struct sched_param params;
+        pthread_attr_init(&attr);
+        pthread_attr_setinheritsched(&attr,PTHREAD_EXPLICIT_SCHED);
+        pthread_attr_setscope(&attr,PTHREAD_SCOPE_PROCESS);
+        pthread_attr_setschedpolicy(&attr,SCHED_FIFO);
+        params.__sched_priority=sched_get_priority_max(SCHED_FIFO);
+        pthread_attr_setschedparam(&attr,&params);
+        int res=pthread_create(&pth,&attr,fast_epoller,NULL);
+        if (res<0) {
+            gasneti_fatalerror("pctread_create fast_epoller() thread!!!!");
+        }
+    }
+#endif
+
     res = gasneti_bootstrapInit(argc, argv);
     if (res != GASNET_OK) {
         return res;
@@ -1341,6 +1575,31 @@ static int gasnetc_init(int *argc, char ***argv) {
 #endif
 
     gasneti_init_done = 1;
+
+    //
+    // wait mode hint
+    //
+    {
+        char *value = getenv("GASNET_AXIOM_WAITMODE");
+        if (value != NULL) {
+            if (strncasecmp(value,"SPIN",5)==0) {
+                gasneti_set_waitmode(GASNET_WAIT_SPIN);
+                logmsg(LOG_INFO,"setting waitmode hint to SPIN");
+            } else if (strncasecmp(value,"BLOCK",6)==0) {
+                gasneti_set_waitmode(GASNET_WAIT_BLOCK);
+                logmsg(LOG_INFO,"setting waitmode hint to BLOCK");
+            } else if (strncasecmp(value,"SPINBLOCK",10)==0) {
+                gasneti_set_waitmode(GASNET_WAIT_SPINBLOCK);
+                logmsg(LOG_INFO,"setting waitmode hint to SPINBLOCK");
+            } else {
+                logmsg(LOG_WARN,"Unknown GASNET_AXIOM_WAITMODE value '%s' (legal values: SPIN, BLOCK, SPINBLOCK), setting SPINGBLOCK",value);
+                gasneti_set_waitmode(GASNET_WAIT_SPINBLOCK);
+            }
+        } else {
+            logmsg(LOG_INFO,"no GASNET_AXIOM_WAITMODE environment variable found, waitmode default to SPINBLOCK");
+            gasneti_set_waitmode(GASNET_WAIT_SPINBLOCK);
+        }
+    }
 
     gasneti_auxseg_init(); /* adjust max seg values based on auxseg */
 
@@ -2153,17 +2412,24 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
 
 /** Maximum remote messages elabotated for gasnet poll request. */
 // do not use ONE !!!!!!!!!!! errors on "testgasnet" (bulk monothread send))
-#define MAX_MSG_PER_POLL 3
+// with the new gasnet_pollwhile() you can set this to one if using a BLOCKUNTIL() thread
+// (if this is too low and we does not have a polling thread this can cause an infinite loop on a sending primitive if the driver can't free hw buffers)
+#ifdef _NOT_BLOCK_ON_LOOP
+#define MAX_MSG_PER_POLL 7
+#else
+#define MAX_MSG_PER_POLL 5
+#endif
 
 //int _counter=0;
 
+// for ASYNC_RDMA_REQUEST
 #define MAX_MSG_RETRANSMIT 16
 
 /**
  * Conduit internal poll request.
  * @return GASNET_OK if success.
  */
-extern int gasnetc_AMPoll(void) {
+extern int gasnetc_internal_AMPoll(void) {
 #ifdef _ASYNC_RDMA_MODE
     static volatile int first_message=1;
 #endif
@@ -2179,6 +2445,7 @@ extern int gasnetc_AMPoll(void) {
     int retval;
     gasnet_token_t token;
     int category;
+    int something_done=0;
     gasnet_handler_t handler_id;
     gasneti_handler_fn_t handler_fn;
     int numargs, isReq;
@@ -2187,7 +2454,9 @@ extern int gasnetc_AMPoll(void) {
     int nbytes;
     // so payload is always GASNETI_MEDBUF_ALIGNMENT aligned
     payload=(gasnetc_axiom_msg_t*)((((uintptr_t)buffer)&~(GASNETI_MEDBUF_ALIGNMENT-1))+GASNETI_MEDBUF_ALIGNMENT);
-        
+
+    logmsg(LOG_DEBUG,"gasnetc_AMPoll() enter");
+
     GASNETI_CHECKATTACH();
 #if GASNET_PSHM
     gasneti_AMPSHMPoll(0);
@@ -2204,6 +2473,7 @@ extern int gasnetc_AMPoll(void) {
         logmsg(LOG_TRACE,"AMPoll: checking async RDMA request completition");
         async_check_buffers(&id,&num);
         if (num!=0) {
+            something_done=1;
             int counter=num;
             int idx;
             logmsg(LOG_DEBUG,"AMPoll: %d async RDMA request completed",counter);
@@ -2267,6 +2537,7 @@ extern int gasnetc_AMPoll(void) {
 #endif
 
         if_pt(AXIOM_RET_IS_OK(ret)) {
+            something_done=1;
 
             info.isReq = isReq = (payload->gen.command == GASNETC_AM_REQ_MESSAGE);
 
@@ -2372,20 +2643,25 @@ extern int gasnetc_AMPoll(void) {
                     break;
 
             }
-
+#ifdef _BLOCK_ON_LOOP_CONDWAIT
+            gasneti_mutex_lock(&gasnetc_mut);
+            gasneti_cond_broadcast(&gasnetc_cond);
+            gasneti_mutex_unlock(&gasnetc_mut);
+#endif
         } else {
 
             //
-            // WARNING da rimettere il fatalerror
+            // WARNING
+            // (read error ignored!!!)
             //
-
             logmsg(LOG_WARN,"AXIOM read message error (err=%d)", ret);
             //gasneti_fatalerror("AXIOM read message error (err=%d)",ret);
         }
         
     }
 
-    return GASNET_OK;
+    logmsg(LOG_DEBUG,"gasnetc_AMPoll() leave with return %s",something_done?"GASNET_OK":"GASNET_ERR_AGAIN");
+    return something_done?GASNET_OK:GASNET_ERR_AGAIN;
 }
 
 /**
@@ -2779,6 +3055,7 @@ extern int gasnetc_AMReplyShortM(gasnet_token_t token, gasnet_handler_t handler,
     }
     va_end(argptr);
 
+    logmsg(LOG_DEBUG,"AMReplyShort leave");
     GASNETI_RETURN(retval);
 }
 
@@ -2885,6 +3162,7 @@ extern int gasnetc_AMReplyLongM(gasnet_token_t token, gasnet_handler_t handler, 
         retval = _requestOrReplyLong(info->node, handler, source_addr, nbytes, dest_addr, numargs, argptr, REPLAY);
     }
     va_end(argptr);
+    logmsg(LOG_DEBUG,"AMReplyLong leave");
     GASNETI_RETURN(retval);
 }
 
