@@ -581,6 +581,9 @@ static int gasnetc_init(int *argc, char ***argv)
     /* Now enable tracing of all the following steps */
     gasneti_trace_init(argc, argv);
 
+    /* Ensure uniform MXM_* env vars */
+    gasneti_propagate_env("MXM_", GASNETI_PROPAGATE_ENV_PREFIX);
+
     /*
      * Process the environment for configuration/settings.
      */
@@ -940,7 +943,9 @@ static int gasnetc_init(int *argc, char ***argv)
 extern int gasnet_init(int *argc, char ***argv) {
     int retval = gasnetc_init(argc, argv);
     if (retval != GASNET_OK) GASNETI_RETURN(retval);
+#if 0 /* Already done in gasnetc_init() to allow tracing of init steps */
     gasneti_trace_init(argc, argv);
+#endif
     return GASNET_OK;
 }
 

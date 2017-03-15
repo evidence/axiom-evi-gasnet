@@ -183,6 +183,10 @@ int gasnetc_ofi_init(int *argc, char ***argv,
   gasneti_spawner = gasneti_spawnerInit(argc, argv, NULL, &gasneti_nodes, &gasneti_mynode);
   if (!gasneti_spawner) GASNETI_RETURN_ERRR(NOT_INIT, "GASNet job spawn failed");
 
+  /* Ensure uniform FI_* env vars */
+  /* TODO: what about provider-specific env vars? */
+  gasneti_propagate_env("FI_", GASNETI_PROPAGATE_ENV_PREFIX);
+
 #if GASNETC_OFI_USE_THREAD_DOMAIN && GASNET_PAR
   gasneti_spinlock_init(&gasnetc_ofi_locks.big_lock);
 #elif GASNET_PAR
@@ -461,6 +465,18 @@ void gasnetc_ofi_exit(void)
   if (!gasnetc_ofi_inited)
 	  return;
 
+#if GASNET_PAR && GASNETC_OFI_USE_THREAD_DOMAIN
+  // Attempt to obtain (and *never* release) the big_lock in bounded time
+  const uint64_t timeout_ns = 10 * 1000000000L; // TODO: arbitrary 10s
+  const gasneti_tick_t t_start = gasneti_ticks_now();
+  while (EBUSY == GASNETC_OFI_TRYLOCK(&gasnetc_ofi_locks.big_lock)) {
+    if (timeout_ns < gasneti_ticks_to_ns(gasneti_ticks_now() - t_start)) {
+      return; // Give up after time out
+    }
+    GASNETI_WAITHOOK();
+  }
+#endif
+
   while(gasnetc_paratomic_read(&pending_am,0) ||
       gasnetc_paratomic_read(&pending_rdma,0))
     GASNETC_OFI_POLL_EVERYTHING();
@@ -477,6 +493,8 @@ void gasnetc_ofi_exit(void)
     #if 0 /* If exiting from a AM handler context, or multi-threaded, then cancel could fail */
       if (FI_SUCCESS != ret) gasneti_fatalerror("failed fi_cancel the %d am_buff_msg\n", i);
       gasneti_free(am_iov[i].iov_base);
+    #elif GASNETI_CLIENT_THREADS
+      /* Unsafe to free AM buffers if other threads may be using them */
     #else
       if (FI_SUCCESS == ret)
         gasneti_free(am_iov[i].iov_base);
