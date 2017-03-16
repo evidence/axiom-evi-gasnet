@@ -17,6 +17,73 @@
 
 #include <stdint.h>
 
+/*
+ * if defined _BLOCKING_MODE (safest)
+ * the axiom device is open in blocking mode so all the axiom user api calls are blocking i.e. if the operation can not be executed (usually caused by low resources)
+ * the calling thread is blocked until the operation can be made
+ *
+ * if defined _NOT_BLOCKING_MODE
+ * all the axiom api calls are not blocking and so if the operation can not be execute immedialty a resource_not_available error is returned (and internally managed by the conduit implementation)
+ */
+//#define _BLOCKING_MODE
+#define _NOT_BLOCKING_MODE
+
+/*
+ * if defined _ASYNC_RDMA_MODE
+ * activate the async rdma request so AMRequestLongSync use a async request
+ *
+ * if defined _NOT_ASYNC_RDMA_MODE (safest)
+ * the AMRequestLongSync is not used and a AMRequestLong is used instead
+ */
+//#define _ASYNC_RDMA_MODE
+#define _NOT_ASYNC_RDMA_MODE
+
+/*
+ * if defined _NOT_BLOCK_ON_LOOP
+ * the standard behaviour of GASNET_BLOCKUNTIL/gasneti_pollwhile is used
+ *
+ * if define _BLOCK_ON_LOOP_CONDWAIT
+ * the gasneti_pollwhile id modified to block using pthread_condwait (and a fast internal polling/blocking thread)
+ *
+ * if define _BLOCK_ON_LOOP_EPOLL
+ * the gasneti_pollwhile id modified to block using linux epoll and eventfd
+ *
+ */
+//#define _NOT_BLOCK_ON_LOOP
+#define _BLOCK_ON_LOOP_CONDWAIT
+//#define _BLOCK_ON_LOOP_EPOLL
+
+//
+//
+//
+
+#if defined(_BLOCKING_MODE)
+#define _PRIMITIVES "blocking"
+#elif defined(_NOT_BLOCKING_MODE)
+#define _PRIMITIVES "not_blocking"
+#else
+#define _PRIMITIVES "unknown"
+#endif
+
+#if defined(_ASYNC_RDMA_MODE)
+#define _ASYNC_RDMA "yes"
+#elif defined(_NOT_ASYNC_RDMA_MODE)
+#define _ASYNC_RDMA "no"
+#else
+#define _ASYNC_RDMA "unknown"
+#endif
+
+#if defined(_NOT_BLOCK_ON_LOOP)
+#define _BLOCK_ON_LOOP "no"
+#elif defined(_BLOCK_ON_LOOP_CONDWAIT)
+#define _BLOCK_ON_LOOP "wait/signal"
+#elif defined(_BLOCK_ON_LOOP_EPOLL)
+#define _BLOCK_ON_LOOP "epoll/eventfd"
+#else
+#define _BLOCK_ON_LOOP "unknown"
+#endif
+
+
 #define GASNET_CORE_VERSION      0.11
 #define GASNET_CORE_VERSION_STR  _STRINGIFY(GASNET_CORE_VERSION)
 #define GASNET_CORE_NAME         AXIOM
@@ -24,6 +91,8 @@
 #define GASNET_CONDUIT_NAME      GASNET_CORE_NAME
 #define GASNET_CONDUIT_NAME_STR  _STRINGIFY(GASNET_CONDUIT_NAME)
 #define GASNET_CONDUIT_AXIOM 1
+
+#define GASNETC_EXTRA_CONFIG_INFO ",AXIOM_CONFIG=(low_api=" _PRIMITIVES ",async_rdma=" _ASYNC_RDMA  ",block_on_loop=" _BLOCK_ON_LOOP ")"
 
   /* GASNET_PSHM defined 1 if this conduit supports PSHM. leave undefined otherwise. */
 #if GASNETI_PSHM_ENABLED

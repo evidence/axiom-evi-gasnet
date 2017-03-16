@@ -27,47 +27,12 @@
 #include "axiom_allocator.h"
 
 /*
- * if defined _BLOCKING_MODE (safest)
- * the axiom device is open in blocking mode so all the axiom user api calls are blocking i.e. if the operation can not be executed (usually caused by low resources)
- * the calling thread is blocked until the operation can be made
- *
- * if defined _NOT_BLOCKING_MODE
- * all the axiom api calls are not blocking and so if the operation can not be execute immedialty a resource_not_available error is returned (and internally managed by the conduit implementation)
- */
-//#define _BLOCKING_MODE
-#define _NOT_BLOCKING_MODE
-
-/*
- * if defined _ASYNC_RDMA_MODE
- * activate the async rdma request so AMRequestLongSync use a async request
- *
- * if defined _NOT_ASYNC_RDMA_MODE (safest)
- * the AMRequestLongSync is not used and a AMRequestLong is used instead
- */
-//#define _ASYNC_RDMA_MODE
-#define _NOT_ASYNC_RDMA_MODE
-
-/*
- * if defined _NOT_BLOCK_ON_LOOP
- * the standard behaviour of GASNET_BLOCKUNTIL/gasneti_pollwhile is used
- *
- * if define _BLOCK_ON_LOOP_CONDWAIT
- * the gasneti_pollwhile id modified to block using pthread_condwait (and a fast internal polling/blocking thread)
- *
- * if define _BLOCK_ON_LOOP_EPOLL
- * the gasneti_pollwhile id modified to block using linux epoll and eventfd
- *
- * PS: this are definde into gasnet_core_help.h
- */
-//#define _NOT_BLOCK_ON_LOOP
-//#define _BLOCK_ON_LOOP_CONDWAIT
-//#define _BLOCK_ON_LOOP_EPOLL
-
-/*
  *
  * checks DEFINEs
  *
  */
+
+/* NMB: gasnet_core_fwd.h defines some compilation "#define" modes */
 
 #if defined(_BLOCKING_MODE)
 #if defined(_NOT_BLOCKING_MODE)

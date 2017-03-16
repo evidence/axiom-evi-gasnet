@@ -18,11 +18,6 @@
 
 GASNETI_BEGIN_EXTERNC
 
-/* see explanation into axiom-conduit/gasnet_core.c */
-//#define _NOT_BLOCK_ON_LOOP
-#define _BLOCK_ON_LOOP_CONDWAIT
-//#define _BLOCK_ON_LOOP_EPOLL
-
 #ifdef _BLOCK_ON_LOOP_CONDWAIT
 
 extern gasneti_mutex_t gasnetc_mut;
