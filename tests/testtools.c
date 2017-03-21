@@ -193,7 +193,13 @@ int main(int argc, char **argv) {
     int timeiters = MAX(1,iters / 10);
     gasnett_tick_t ticktimemin = GASNETT_TICK_MIN;
     gasnett_tick_t ticktimemax = GASNETT_TICK_MAX;
-    double slack = gasnett_getenv_dbl_withdefault("GASNET_TEST_TIME_SLACK", 0.01);
+    #if PLATFORM_OS_CYGWIN
+      // bug 2410: avoid false negatives due to cygwin's high gettimeofday() reference timer granularity
+      double default_slack = 0.05; // 50 ms for cygwin
+    #else
+      double default_slack = 0.01; // 10 ms, sufficient for most platforms
+    #endif
+    double slack = gasnett_getenv_dbl_withdefault("GASNET_TEST_TIME_SLACK", default_slack);
 
     double overhead = gasnett_tick_overheadus();
     double granularity = gasnett_tick_granularityus();
@@ -215,9 +221,10 @@ int main(int argc, char **argv) {
             
 #if GASNET_CORE_NAME!=AXIOM
     if (granularity <= 0.0 || overhead <= 0.0 ||
-        (granularity+0.1) < 0.5*overhead) 
+        (granularity+10*slack) < 0.5*overhead)
         /* allow some leeway for noise at granularities approaching cycle speed */
-        /*granularity < 0.5*overhead)*/
+        // leeway is scaled by slack to allow disabling this test
+        // on platforms where timers are unreliable (eg cpu emulator)
         ERR("nonsensical timer overhead/granularity measurements:\n"
              "  overhead: %.3fus  granularity: %.3fus\n",overhead, granularity);
 #endif

@@ -7,7 +7,8 @@
 #define _AMUDP_INTERNAL_H
 
 #include <portable_inttypes.h>
-#include <portable_platform.h>
+#undef _PORTABLE_PLATFORM_H
+#include <amudp_portable_platform.h>
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -304,6 +305,8 @@ typedef union amudp_bufferheader {
 typedef struct amudp_bufferpool {
   #if AMUDP_DEBUG
     uint64_t magic;
+  #endif
+  #if AMUDP_BUFFER_STATS
     struct {
       uint64_t alloc_curr;
       uint64_t alloc_peak;
