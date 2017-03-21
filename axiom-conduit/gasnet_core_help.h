@@ -18,6 +18,60 @@
 
 GASNETI_BEGIN_EXTERNC
 
+#ifdef _BLOCK_ON_LOOP_EPOLL
+
+extern int gasneti_wait_mode;
+extern gasneti_mutex_t gasnetc_mut;
+
+extern uint64_t *gasneti_get_new_thread_keymask();
+
+#define gasneti_define_thread_keymask() \
+    uint64_t *ptr=pthread_getspecific(gasnetc_thread_key);\
+    uint64_t key;\
+    if (ptr==NULL) ptr=gasneti_get_new_thread_keymask();\
+    key=*ptr;
+
+extern int gasnetc_block_on_condition(uint64_t key);
+
+#define gasneti_pollwhile(cnd) do {\
+  if (cnd) {\
+    gasneti_internal_AMPoll();\
+    if (gasneti_wait_mode == GASNET_WAIT_SPIN) {\
+      /* GASNET_WAIT_SPIN */\
+      while (cnd) {\
+        gasneti_internal_AMPoll();\
+      }\
+    } else if (gasneti_wait_mode == GASNET_WAIT_BLOCK) {\
+      /* GASNET_WAIT_BLOCK */\
+      gasneti_define_thread_keymask();\
+      gasneti_mutex_lock(&gasnetc_mut);\
+      while (cnd) { \
+        gasnetc_block_on_condition(key);\
+        gasneti_mutex_unlock(&gasnetc_mut);\
+        gasneti_internal_AMPoll();\
+        gasneti_mutex_lock(&gasnetc_mut);\
+      }\
+      gasneti_mutex_unlock(&gasnetc_mut);\
+    } else {\
+      /* GASNET_WAIT_SPINBLOCK */\
+      gasneti_define_thread_keymask();\
+      int to_cont=1;\
+      gasneti_mutex_lock(&gasnetc_mut);\
+      while (cnd) { \
+        gasnetc_block_on_condition(key);\
+        gasneti_mutex_unlock(&gasnetc_mut);\
+        while (gasneti_internal_AMPoll()!=GASNET_ERR_AGAIN&&(to_cont=(cnd))) {}\
+        if (!to_cont) break;\
+        gasneti_mutex_lock(&gasnetc_mut);\
+      }\
+      if (to_cont) gasneti_mutex_unlock(&gasnetc_mut);\
+    }\
+    gasneti_local_rmb();\
+  }\
+} while (0)
+
+#endif
+
 #ifdef _BLOCK_ON_LOOP_CONDWAIT
 
 extern gasneti_mutex_t gasnetc_mut;

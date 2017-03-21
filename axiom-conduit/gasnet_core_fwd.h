@@ -50,8 +50,8 @@
  *
  */
 //#define _NOT_BLOCK_ON_LOOP
-#define _BLOCK_ON_LOOP_CONDWAIT
-//#define _BLOCK_ON_LOOP_EPOLL
+//#define _BLOCK_ON_LOOP_CONDWAIT
+#define _BLOCK_ON_LOOP_EPOLL
 
 //
 //
@@ -93,6 +93,24 @@
 #define GASNET_CONDUIT_AXIOM 1
 
 #define GASNETC_EXTRA_CONFIG_INFO ",AXIOM_CONFIG=(low_api=" _PRIMITIVES ",async_rdma=" _ASYNC_RDMA  ",block_on_loop=" _BLOCK_ON_LOOP ")"
+
+#ifdef _BLOCK_ON_LOOP_EPOLL
+extern pthread_key_t gasnetc_thread_key;
+extern int gasnetc_thread_idx;
+#define GASNETI_MAX_THREADS 64
+//#define GASNETE_CONDUIT_THREADDATA_FIELDS uint64_t threadmask;
+//#define GASNETC_NEW_THREADDATA_CALLBACK(td) gasneti_assert((td)->threadidx<GASNETI_MAX_THREADS); (td)->threadmask=((uint64_t)1)<<(td)->threadidx;
+//#define GASNETC_NEW_THREADDATA_CALLBACK(td) {
+//   uint64_t *ptr;
+//   int res;
+//   gasneti_assert((td)->threadidx<GASNETI_MAX_THREADS);
+//   ptr=(uint64_t*)gasneti_malloc(sizeof(uint64_t));
+//   gasneti_assert(ptr!=NULL);
+//   *ptr=((uint64_t)1)<<(td)->threadidx;
+//   res=pthread_setspecific(gasnetc_thread_key,ptr);
+//   gasneti_assert(res==0);
+//}
+#endif
 
   /* GASNET_PSHM defined 1 if this conduit supports PSHM. leave undefined otherwise. */
 #if GASNETI_PSHM_ENABLED
