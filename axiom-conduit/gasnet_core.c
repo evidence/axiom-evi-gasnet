@@ -1105,10 +1105,33 @@ pthread_key_t gasnetc_thread_key;
 /** A thread conter. To compute the bitmap mask associated with every thread. */
 int gasnetc_thread_idx;
 
+#ifdef EVENTFD_PER_THREAD
+/** An array of event-file-descriptor (a descripto for every thread). */
+static int evfds[GASNETI_MAX_THREADS];
+static uint64_t fastmask[]={
+    0x0000000000000001,0x0000000000000002,0x0000000000000004,0x0000000000000008,
+    0x0000000000000010,0x0000000000000020,0x0000000000000040,0x0000000000000080,
+    0x0000000000000100,0x0000000000000200,0x0000000000000400,0x0000000000000800,
+    0x0000000000001000,0x0000000000002000,0x0000000000004000,0x0000000000008000,
+    0x0000000000010000,0x0000000000020000,0x0000000000040000,0x0000000000080000,
+    0x0000000000100000,0x0000000000200000,0x0000000000400000,0x0000000000800000,
+    0x0000000001000000,0x0000000002000000,0x0000000004000000,0x0000000008000000,
+    0x0000000010000000,0x0000000020000000,0x0000000040000000,0x0000000080000000,
+    0x0000000100000000,0x0000000200000000,0x0000000400000000,0x0000000800000000,
+    0x0000001000000000,0x0000002000000000,0x0000004000000000,0x0000008000000000,
+    0x0000010000000000,0x0000020000000000,0x0000040000000000,0x0000080000000000,
+    0x0000100000000000,0x0000200000000000,0x0000400000000000,0x0000800000000000,
+    0x0001000000000000,0x0002000000000000,0x0004000000000000,0x0008000000000000,
+    0x0010000000000000,0x0020000000000000,0x0040000000000000,0x0080000000000000,
+    0x0100000000000000,0x0200000000000000,0x0400000000000000,0x0800000000000000,
+    0x1000000000000000,0x2000000000000000,0x4000000000000000,0x8000000000000000
+    };
+#else
 /** EPoll file descriptor. Shared between all threads. */
 static int epfd; // file descriptor for epoll
 /** Event file descriptor. To signal the need of recheck conditions. */
 static int evfd; // file descriptor for eventfd
+#endif
 
 /**
  * Used to free the buffer allocated and associated with gasnetc_thread_key.
@@ -1122,9 +1145,10 @@ static void gasneti_freethread_keymask(void *ptr) {
  * Data initialization to use epoll/eventfd block.
  */
 static void init_epoll_block() {
+    int res;
+#ifndef EVENTFD_PER_THREAD
     struct epoll_event epe;
     int h0,h1,h2;
-    int res;
     //
     // axiom file descriptors
     //
@@ -1171,6 +1195,7 @@ static void init_epoll_block() {
         logmsg(LOG_WARN,"init_epoll_block(): epoll_ctl() evfd %d",errno);
         gasneti_fatalerror("FATAL on epoll_ctl()!");
     }
+#endif
     //
     // threads queue management
     //
@@ -1196,6 +1221,86 @@ static uint64_t act_wait_bitmap=0;
 /** Saved queue: Contains threads that are blocked into the epoll that must check conditions. */
 static uint64_t svd_wait_bitmap=0;
 
+#ifdef EVENTFD_PER_THREAD
+/**
+ * Compute a new bitmap mask value for a thread.
+ * @return A pointer where the bitmap is stored.
+ */
+gasnetc_tls_t *gasneti_get_new_thread_keymask() {
+    gasnetc_tls_t *ptr;
+    int res,v;
+    axiom_err_t err;
+    struct epoll_event epe;
+    int h0,h1,h2;
+    int epfd,evfd;
+    //
+    ptr=(gasnetc_tls_t*)gasneti_malloc(sizeof(gasnetc_tls_t));
+    gasneti_assert(ptr!=NULL);
+    res=pthread_setspecific(gasnetc_thread_key,ptr);
+    gasneti_assert(res==0);
+#if defined(GASNET_DEBUG)&&defined(GASNET_DEBUG_EMIT_THREAD)
+    v=gasnetc_self(); // so thread debug output index and key mask are in sync
+#else
+    v=__sync_fetch_and_add(&gasnetc_thread_idx,1);
+#endif
+    gasneti_assert(v<GASNETI_MAX_THREADS);
+    ptr->idx=v;
+    ptr->keymask=(((uint64_t)1)<<v);
+    //
+    // axiom file descriptors
+    //
+    err=axiom_get_fds(axiom_dev,&h0,&h1,&h2);
+    if (!AXIOM_RET_IS_OK(err)) {
+        logmsg(LOG_WARN,"init_epoll_block(): axiom_get_fds return %d",err);
+        gasneti_fatalerror("FATAL on axiom_get_fds()!");
+    }
+    epfd=epoll_create(4);
+    if (epfd<0) {
+        logmsg(LOG_WARN,"init_epoll_block(): epoll_create() %d",errno);
+        gasneti_fatalerror("FATAL on epoll_create()!");
+    }
+    epe.events=EPOLLIN;
+    epe.data.u32=RAW_EVENT;
+    res=epoll_ctl(epfd,EPOLL_CTL_ADD,h0,&epe);
+    if (res<0) {
+        logmsg(LOG_WARN,"init_epoll_block(): epoll_ctrl() h0 %d",errno);
+        gasneti_fatalerror("FATAL on epoll_ctl()!");
+    }
+    epe.data.u32=LONG_EVENT;
+    res=epoll_ctl(epfd,EPOLL_CTL_ADD,h1,&epe);
+    if (res<0) {
+        logmsg(LOG_WARN,"init_epoll_block(): epoll_ctl() h1 %d",errno);
+        gasneti_fatalerror("FATAL on epoll_ctl()!");
+    }
+    epe.data.u32=ASYNC_RDMA_EVENT;
+    res=epoll_ctl(epfd,EPOLL_CTL_ADD,h2,&epe);
+    if (res<0) {
+        logmsg(LOG_WARN,"init_epoll_block(): epoll_ctl() h2 %d",errno);
+        gasneti_fatalerror("FATAL on epoll_ctl()!");
+    }
+    //
+    // eventfd file descriptor
+    //
+    evfd=eventfd(0,EFD_NONBLOCK);
+    if (evfd<0) {
+        logmsg(LOG_WARN,"init_epoll_block(): eventfd() %d",errno);
+        gasneti_fatalerror("FATAL on eventfd()!");
+    }
+    epe.data.u32=CHECK_EVENT;
+    res=epoll_ctl(epfd,EPOLL_CTL_ADD,evfd,&epe);
+    if (res<0) {
+        logmsg(LOG_WARN,"init_epoll_block(): epoll_ctl() evfd %d",errno);
+        gasneti_fatalerror("FATAL on epoll_ctl()!");
+    }
+    //
+    ptr->epfd=epfd;
+    ptr->evfd=evfd;
+    evfds[ptr->idx]=evfd;
+    //
+    logmsg(LOG_INFO,"thread index %02d mask 0x%08lx",ptr->idx,ptr->keymask);
+    return ptr;
+}
+#else
 /**
  * Compute a new bitmap mask value for a thread.
  * @return A pointer where the bitmap is stored.
@@ -1217,6 +1322,7 @@ uint64_t *gasneti_get_new_thread_keymask() {
     logmsg(LOG_INFO,"thread index mask 0x%08lx",*ptr);
     return ptr;
 }
+#endif
 
 // experimental.... (and unsafe)
 // try to postpone the LOCK() from the main mutex after the check for eventdfd
@@ -1294,11 +1400,25 @@ static inline void raise_check_event() {
         save_act_into_svd();
     }
     if (!is_svd_empty()) {
+#ifdef EVENTFD_PER_THREAD
+        register uint64_t bmp=svd_wait_bitmap;
+        int idx;
+        while (bmp!=0) {
+            idx=__builtin_ctzl(bmp);
+            logmsg(LOG_DEBUG,"raise_check_event: WRITE check event for %02d (bmp=0x%08lx)",idx,bmp);
+            if (eventfd_write(evfds[idx],1)<0) {
+                logmsg(LOG_ERROR,"raise_check_event: eventfd_write errno %d",errno);
+                gasneti_fatalerror("eventfd_write() error!");
+            }
+            bmp&=~(((uint64_t)1)<<idx);
+        }
+#else
         logmsg(LOG_DEBUG,"raise_check_event: WRITE check event");
         if (eventfd_write(evfd,1)<0) {
             logmsg(LOG_ERROR,"raise_check_event: eventfd_write errno %d",errno);
             gasneti_fatalerror("eventfd_write() error!");
         }
+#endif
     }
     UNLOCK(gasnetc_mut);
 }
@@ -1309,17 +1429,14 @@ static inline void raise_check_event() {
   * Should be an inline/macro function (but not for now because debugging).
   * Used from gasneti_polluntil().
   */
-int gasnetc_block_on_condition(uint64_t keymask) {
+#ifdef EVENTFD_PER_THREAD
+int gasnetc_block_on_condition(uint64_t keymask, int epfd, int evfd) {
     struct epoll_event evt;
     int res;
 
     insert_into_act(keymask);
     logmsg(LOG_DEBUG,"queue bitmaps block act=0x%08lx svd=0x%08lx",act_wait_bitmap,svd_wait_bitmap);
     UNLOCK(gasnetc_mut);
-
-#ifndef THREADSAFE_QUEUE_OPS
-    gasneti_sched_yield(); // not needed but can reduce the wakeup of threads that have already check the condition
-#endif
 
     logmsg(LOG_INFO,"Block until cond....");
     res=epoll_wait(epfd,&evt,1,-1);
@@ -1332,9 +1449,44 @@ int gasnetc_block_on_condition(uint64_t keymask) {
     gasneti_compiler_fence();
     gasneti_spinloop_hint();
 
-#ifndef THREADSAFE_QUEUE_OPS
     LOCK(gasnetc_mut);
-#endif
+    logmsg(LOG_DEBUG,"queue bitmaps unblk act=0x%08lx svd=0x%08lx",act_wait_bitmap,svd_wait_bitmap);
+    remove_from_act(keymask);
+    if (am_i_into_svd(keymask)) {
+        eventfd_t value;
+        remove_from_svd(keymask);
+        logmsg(LOG_DEBUG,"READ check event");
+        if (eventfd_read(evfd,&value)<0) {
+            logmsg(LOG_ERROR,"gasnetc_block_on_condition: eventfd_read errno %d",errno);
+            gasneti_fatalerror("eventfd_read() error!");
+        }
+        logmsg(LOG_DEBUG,"svd queue bitmap after removing myself svd=0x%08lx",svd_wait_bitmap);
+    }
+    return evt.data.u32;
+}
+#else
+int gasnetc_block_on_condition(uint64_t keymask) {
+    struct epoll_event evt;
+    int res;
+
+    insert_into_act(keymask);
+    logmsg(LOG_DEBUG,"queue bitmaps block act=0x%08lx svd=0x%08lx",act_wait_bitmap,svd_wait_bitmap);
+    UNLOCK(gasnetc_mut);
+
+    gasneti_sched_yield(); // not needed but can reduce the wakeup of threads that have already check the condition
+
+    logmsg(LOG_INFO,"Block until cond....");
+    res=epoll_wait(epfd,&evt,1,-1);
+    if (res<0) {
+        logmsg(LOG_WARN,"block_on_condition: epoll_wait errno %d",errno);
+        return -1;
+    }
+    logmsg(LOG_INFO,"UNBLOCKED for event '%s'!",evt.data.u32>MAX_EVENT?"out of range error":event2str[evt.data.u32]);
+
+    gasneti_compiler_fence();
+    gasneti_spinloop_hint();
+
+    LOCK(gasnetc_mut);
     logmsg(LOG_DEBUG,"queue bitmaps unblk act=0x%08lx svd=0x%08lx",act_wait_bitmap,svd_wait_bitmap);
     remove_from_act(keymask);
     if (am_i_into_svd(keymask)) {
@@ -1348,13 +1500,12 @@ int gasnetc_block_on_condition(uint64_t keymask) {
         }
         logmsg(LOG_DEBUG,"svd queue bitmap after removing myself svd=0x%08lx",svd_wait_bitmap);
     }
-#ifdef THREADSAFE_QUEUE_OPS
-    LOCK(gasnetc_mut);
-#endif
 
     return evt.data.u32;
 }
+#endif
 
+// __BLOCK_ON_LOOP_EPOLL
 #endif
 
 #ifdef _BLOCK_ON_LOOP_CONDWAIT

@@ -53,6 +53,14 @@
 //#define _BLOCK_ON_LOOP_CONDWAIT
 #define _BLOCK_ON_LOOP_EPOLL
 
+/*
+ * used only if _BLOCK_ON_LOOP_EPOLL is defined, ignored otherwise
+ *
+ * if defined then is created (and used) an event-file-descriptor for every thread
+ * else global eventfile-descriptor is used
+ */
+#define EVENTFD_PER_THREAD
+
 //
 //
 //

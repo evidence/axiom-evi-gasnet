@@ -23,6 +23,31 @@ GASNETI_BEGIN_EXTERNC
 extern int gasneti_wait_mode;
 extern gasneti_mutex_t gasnetc_mut;
 
+#ifdef EVENTFD_PER_THREAD
+
+typedef struct {
+    /** Thread index. From 0 to GASNETI_MAX_THREADS-1. */
+    int idx;
+    /** A mask for test idx-th thread. */
+    uint64_t keymask;
+    /** e-poll-file-descriptor to block on (with epoll). */
+    int epfd;
+    /** event-file-descriptor to signal to wake up. */
+    int evfd;
+} gasnetc_tls_t;
+
+extern gasnetc_tls_t *gasneti_get_new_thread_keymask();
+
+#define gasneti_define_thread_keymask() \
+    gasnetc_tls_t *ptr=pthread_getspecific(gasnetc_thread_key);\
+    if (ptr==NULL) ptr=gasneti_get_new_thread_keymask();
+
+extern int gasnetc_block_on_condition(uint64_t key, int epfd, int evfd);
+
+#define call_gasnetc_block_on_condition() gasnetc_block_on_condition(ptr->keymask,ptr->epfd,ptr->evfd)
+
+#else
+
 extern uint64_t *gasneti_get_new_thread_keymask();
 
 #define gasneti_define_thread_keymask() \
@@ -32,6 +57,10 @@ extern uint64_t *gasneti_get_new_thread_keymask();
     key=*ptr;
 
 extern int gasnetc_block_on_condition(uint64_t key);
+
+#define call_gasnetc_block_on_condition() gasnetc_block_on_condition(key)
+
+#endif
 
 #define gasneti_pollwhile(cnd) do {\
   if (cnd) {\
@@ -46,7 +75,7 @@ extern int gasnetc_block_on_condition(uint64_t key);
       gasneti_define_thread_keymask();\
       gasneti_mutex_lock(&gasnetc_mut);\
       while (cnd) { \
-        gasnetc_block_on_condition(key);\
+        call_gasnetc_block_on_condition();\
         gasneti_mutex_unlock(&gasnetc_mut);\
         gasneti_internal_AMPoll();\
         gasneti_mutex_lock(&gasnetc_mut);\
@@ -58,7 +87,7 @@ extern int gasnetc_block_on_condition(uint64_t key);
       int to_cont=1;\
       gasneti_mutex_lock(&gasnetc_mut);\
       while (cnd) { \
-        gasnetc_block_on_condition(key);\
+        call_gasnetc_block_on_condition();\
         gasneti_mutex_unlock(&gasnetc_mut);\
         while (gasneti_internal_AMPoll()!=GASNET_ERR_AGAIN&&(to_cont=(cnd))) {}\
         if (!to_cont) break;\
