@@ -39,7 +39,7 @@ typedef struct {
 extern gasnetc_tls_t *gasneti_get_new_thread_keymask();
 
 #define gasneti_define_thread_keymask() \
-    gasnetc_tls_t *ptr=pthread_getspecific(gasnetc_thread_key);\
+    gasnetc_tls_t *ptr=(gasnetc_tls_t*)pthread_getspecific(gasnetc_thread_key);\
     if (ptr==NULL) ptr=gasneti_get_new_thread_keymask();
 
 extern int gasnetc_block_on_condition(uint64_t key, int epfd, int evfd);
@@ -148,12 +148,15 @@ extern void gasnetc_block_on_condition();
 
 extern int gasnetc_internal_AMPoll(void);
 
+/*
+// Can not be inline!!! some program test for the presence of the gasnetc_AMPoll into tht library!!!
 #define GASNETI_GASNETC_AMPOLL
 GASNETI_INLINE(gasnetc_AMPoll)
 int gasnetc_AMPoll(void) {
     register int res=gasnetc_internal_AMPoll();
     return res==GASNET_ERR_AGAIN?GASNET_OK:res;
 }
+*/
 
 #include <gasnet_help.h>
 

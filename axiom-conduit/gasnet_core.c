@@ -33,6 +33,12 @@
  *
  */
 
+// if defined:
+// call axiom_recv_avail at the start of gasnet counduit poll
+// (to generate an extrae axiom user API event)
+// PS: only in _NOT_BLOCKING_MODE
+#define _MARK_POLL
+
 /* NMB: gasnet_core_fwd.h defines some compilation "#define" modes */
 
 #if defined(_BLOCKING_MODE)
@@ -2911,6 +2917,12 @@ extern int gasnetc_internal_AMPoll(void) {
     gasneti_AMPSHMPoll(0);
 #endif
 
+#if defined(_NOT_BLOCKING_MODE)&&defined(_MARK_POLL)
+    // useless...
+    // only to force a axiom device api call (to generate an extrae event)
+    res=_recv_avail(axiom_dev);
+#endif
+
 #ifdef _ASYNC_RDMA_MODE
     if (async_used!=0) {
         int id,num;
@@ -3114,6 +3126,16 @@ extern int gasnetc_internal_AMPoll(void) {
 
     logmsg(LOG_DEBUG,"gasnetc_AMPoll() leave with return %s",something_done?"GASNET_OK":"GASNET_ERR_AGAIN");
     return something_done?GASNET_OK:GASNET_ERR_AGAIN;
+}
+
+/**
+ * Conduit internal poll request.
+ * Hide GASNET_ERR_AGAIN.
+ * @return GASNET_OK if success.
+ */
+int gasnetc_AMPoll(void) {
+    register int res=gasnetc_internal_AMPoll();
+    return res==GASNET_ERR_AGAIN?GASNET_OK:res;
 }
 
 /**
