@@ -30,7 +30,7 @@ CONDUIT_SOURCELIST =          \
 # additional -I or -D directives needed by this specific conduit
 # other than the standard GASNet includes and flags
 #CONDUIT_EXTRALIBCFLAGS = -I$(AXIOM_INCLUDE) -I$(AXIOM_INCLUDE_ALLOCATOR) -I$(AXIOM_APPS_INCLUDE)
-CONDUIT_EXTRALIBCFLAGS = @axiom_libraries_CFLAGS@ @evidence_lmm_CFLAGS@
+CONDUIT_EXTRALIBCFLAGS = @axiom_libraries_CFLAGS@ @evidence_lmm_CFLAGS@ -I@AXIOM_SYSROOT@/usr/include -I@AXIOM_SYSROOT@/usr/include/aarch64-linux-gnu
 
 # additional conduit header files to install from external, non-standard directories
 #CONDUIT_EXTRAHEADERS = $(AXIOM_INCLUDE)/axiom_nic_api_user.h \

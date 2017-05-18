@@ -3275,8 +3275,14 @@ if test "$enabled_axiom" = yes; then
 
   # then we check for all the libraries...
   PKG_CHECK_MODULES([axiom_libraries],[axiom_run_api >= 0.9 axiom_init_api >= 0.9 axiom_user_api >= 0.9],,have_axiom=no)
+  AC_SUBST([axiom_libraries_CFLAGS])
+  AC_SUBST([axiom_libraries_LIBS])
   PKG_CHECK_MODULES([axiom_allocator],[axiom_allocator >= 0.8],,have_axiom=no)
+  AC_SUBST([axiom_allocator_CFLAGS])
+  AC_SUBST([axiom_allocator_LIBS])
   PKG_CHECK_MODULES([evidence_lmm],[evi_lmm >= 0.1],,have_axiom=no)
+  AC_SUBST([evidence_lmm_CFLAGS])
+  AC_SUBST([evidence_lmm_LIBS])
 
 fi
 AM_CONDITIONAL(USE_AXIOM_CONDUIT, test "$have_axiom" = yes)
