@@ -1,0 +1,4 @@
+/usr/include/performance/udp-conduit/*
+/usr/lib/performance/libamudp.a
+/usr/lib/performance/libgasnet-udp-par.a
+/usr/lib/performance/pkgconfig/gasnet-udp-par.pc

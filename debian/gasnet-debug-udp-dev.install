@@ -1,0 +1,4 @@
+/usr/include/debug/udp-conduit/*
+/usr/lib/debug/libgasnet-udp-par.a
+/usr/lib/debug/libamudp.a
+/usr/lib/debug/pkgconfig/gasnet-udp-par.pc

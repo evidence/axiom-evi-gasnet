@@ -1,0 +1,6 @@
+/usr/include/performance/gasnet_tools-par.mak
+/usr/include/performance/*.h
+/usr/lib/performance/libgasnet_tools-par.a
+/usr/lib/performance/valgrind/gasnet.supp
+/usr/lib/pkgconfig/gasnet-performance.pc
+/usr/lib/performance/pkgconfig/gasnet_tools-par.pc

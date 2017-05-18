@@ -1,0 +1,97 @@
+#!/usr/bin/make -f
+
+DEBIAN_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+
+.PHONY: build build-arch build-indep binary binary-arch binary-indep clean
+
+build: build-arch build-indep
+
+build-arch:
+	dh_testdir
+	make
+
+build-indep:
+
+binary: binary-arch binary-indep
+
+binary-arch: make-changelog
+	dh_testroot
+	dh_prep
+	dh_installdirs
+
+	$(MAKE) -C build_debug DESTDIR=$(DEBIAN_DIR)/tmp install
+	$(MAKE) -C build_perf DESTDIR=$(DEBIAN_DIR)/tmp install
+
+	dh_install --fail-missing
+	dh_installdocs
+	dh_installchangelogs
+	dh_installexamples
+	dh_installman
+	dh_installcatalogs
+	dh_installcron
+	dh_installdebconf
+	dh_installemacsen
+	dh_installifupdown
+	dh_installinfo
+	dh_installinit
+	dh_installmenu
+	dh_installmime
+	dh_installmodules
+	dh_installlogcheck
+	dh_installlogrotate
+	dh_installpam
+	dh_installppp
+	dh_installudev
+	dh_installwm
+	dh_installgsettings
+
+	dh_bugfiles
+	dh_ucf
+	dh_lintian
+	dh_gconf
+	dh_icons
+	dh_perl
+	dh_usrlocal
+
+	dh_link
+	dh_installxfonts
+	dh_compress
+	dh_fixperms
+
+#	dh_strip
+	PATH=$(LINARO)/host/usr/bin:$(PATH) dh_makeshlibs
+	dh_shlibdeps  --sysroot=$(ROOTFS)
+	dh_installdeb
+	dh_gencontrol
+	dh_md5sums
+	dh_builddeb
+
+binary-indep:
+
+clean: clean-changelog
+	dh_testdir
+#	make clean
+	dh_clean
+
+#
+# changelog
+#
+
+VERSION := $(shell git describe --tags --dirty | sed -e 's/^axiom-v//'  -e 's/-/+/' -e 's/-/~/g')
+
+define changelog
+gasnet ($(VERSION)) unstable; urgency=low
+
+  * Dummy changelog.
+
+ -- Foo <foo@bar>  Tue, 07 Feb 2017 09:48:11 +0100
+endef
+export changelog
+
+.PHONY: make-changelog clean-changelog
+
+make-changelog:
+	echo "$$changelog" >$(DEBIAN_DIR)/changelog
+
+clean-changelog:
+	rm -f $(DEBIAN_DIR)/changelog

@@ -1,0 +1,51 @@
+Source: gasnet
+Section: unknown
+Priority: optional
+Maintainer: Massimiliano <massy@unknown>
+Build-Depends: debhelper (>= 9)
+Standards-Version: 3.9.5
+Homepage: <insert the upstream URL, if relevant>
+#Vcs-Git: git://anonscm.debian.org/collab-maint/axiom-apps.git
+#Vcs-Browser: http://anonscm.debian.org/?p=collab-maint/axiom-apps.git;a=summary
+
+Package: gasnet-bin
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: GASNet binaries
+ GASNet binaries
+
+Package: gasnet-debug-dev
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: GASNet debug libraries
+ GASNet debug libraries
+
+Package: gasnet-debug-udp-dev
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: GASNet UDP conduit debug libraries
+ GASNet UDP conduit debug libraries
+
+Package: gasnet-debug-axiom-dev
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: GASNet Axiom conduit debug libraries
+ GASNet Axiom conduit debug libraries
+
+Package: gasnet-performance-dev
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: GASNet performance libraries
+ GASNet performance libraries
+
+Package: gasnet-performance-udp-dev
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: GASNet UDP conduit performance libraries
+ GASNet UDP conduit performance libraries
+
+Package: gasnet-performance-axiom-dev
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: GASNet Axiom conduit performance libraries
+ GASNet Axiom conduit performance libraries

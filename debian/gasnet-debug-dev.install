@@ -1,0 +1,6 @@
+/usr/include/debug/gasnet_tools-par.mak
+/usr/include/debug/*.h
+/usr/lib/debug/libgasnet_tools-par.a
+/usr/lib/debug/valgrind/gasnet.supp
+/usr/lib/debug/pkgconfig/gasnet_tools-par.pc
+/usr/lib/pkgconfig/gasnet-debug.pc

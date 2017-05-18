@@ -1,0 +1,3 @@
+/usr/include/debug/axiom-conduit/*
+/usr/lib/debug/libgasnet-axiom-par.a
+/usr/lib/debug/pkgconfig/gasnet-axiom-par.pc
