@@ -21,4 +21,7 @@ gasnet-performance-dev/
 gasnet-performance-udp-dev.debhelper.log
 gasnet-performance-udp-dev.substvars
 gasnet-performance-udp-dev/
+gasnet-dev.debhelper.log
+gasnet-dev.substvars
+gasnet-dev/
 tmp/

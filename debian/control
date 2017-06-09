@@ -8,6 +8,12 @@ Homepage: <insert the upstream URL, if relevant>
 #Vcs-Git: git://anonscm.debian.org/collab-maint/axiom-apps.git
 #Vcs-Browser: http://anonscm.debian.org/?p=collab-maint/axiom-apps.git;a=summary
 
+Package: gasnet-dev
+Architecture: all
+Depends: ${shlibs:Depends}, ${misc:Depends}, gasnet-bin, gasnet-debug-udp-dev, gasnet-performance-udp-dev, gasnet-debug-axiom-dev, gasnet-performance-axiom-dev
+Description: GASNet development meta-package
+ GASNet development meta-package
+
 Package: gasnet-bin
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
@@ -28,7 +34,7 @@ Description: GASNet UDP conduit debug libraries
 
 Package: gasnet-debug-axiom-dev
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}, libaxiom-init-dev, libaxiom-run-dev, libaxiom-user-dev
 Description: GASNet Axiom conduit debug libraries
  GASNet Axiom conduit debug libraries
 
@@ -46,6 +52,6 @@ Description: GASNet UDP conduit performance libraries
 
 Package: gasnet-performance-axiom-dev
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}, libaxiom-init-dev, libaxiom-run-dev, libaxiom-user-dev
 Description: GASNet Axiom conduit performance libraries
  GASNet Axiom conduit performance libraries
