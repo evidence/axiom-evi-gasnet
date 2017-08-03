@@ -3333,7 +3333,7 @@ static int _requestOrReplyLong(gasnet_node_t dest, gasnet_handler_t handler, voi
 //#else
                 ret = _rdma_write_sync(axiom_dev, dest, sz, buf, dstp);
 //                if (AXIOM_RET_IS_OK(ret))
-//                    ret=axiom_rdma_wait(axiom_dev,&token);
+//                    ret=axiom_rdma_wait(axiom_dev,&token,1);
 //#endif
                 if (!AXIOM_RET_IS_OK(ret)) {
                     logmsg(LOG_WARN,"Sync/AsyncReq: _rdma_write/wait error (ret=%d)",ret);
@@ -3360,7 +3360,7 @@ static int _requestOrReplyLong(gasnet_node_t dest, gasnet_handler_t handler, voi
                         // no buffer available... switch to sync mode...
                         logmsg(LOG_DEBUG,"AsyncReq: switch to SYNC request (no buffer availables)... wait RDMA");
                         type=NORMAL_REQUEST;
-                        ret=axiom_rdma_wait(axiom_dev,&token);
+                        ret=axiom_rdma_wait(axiom_dev,&token,1);
                     } else {
                         logmsg(LOG_DEBUG,"AsyncReq: enqueueing RDMA token 0x%016lx",token.raw);
                         async_tok[idx]=token;
