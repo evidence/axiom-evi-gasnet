@@ -2125,6 +2125,13 @@ static int gasnetc_reghandlers(gasnet_handlerentry_t *table, int numentries,
             GASNETI_RETURN_ERRR(BAD_ARG, s);
         }
 
+	/* paranoia */
+        if (newindex < 0 || newindex > 255) {
+            char s[255];
+            snprintf(s, sizeof (s), "handler index (%i) out of max range [%i..%i]", newindex, 0, 255);
+            GASNETI_RETURN_ERRR(BAD_ARG, s);
+        }
+
         /* discover duplicates */
         if (checkuniqhandler[newindex] != 0)
             GASNETI_RETURN_ERRR(BAD_ARG, "handler index not unique");
