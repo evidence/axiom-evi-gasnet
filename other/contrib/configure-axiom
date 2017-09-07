@@ -1,0 +1,52 @@
+#!/bin/sh
+
+LIBTYPE="debug"
+for arg in "$@";do
+  echo "$arg" | grep -q '^--enable-debug' && LIBTYPE="debug"
+  echo "$arg" | grep -q '^--disable-debug' && LIBTYPE="performance"
+done
+
+SRCDIR=`dirname $0`
+SRCDIR=`realpath $SRCDIR`
+if test ! -f "$SRCDIR/configure" ; then
+  echo "ERROR: The $0 script should be placed in the same directory as the configure script before execution"
+  exit 1
+fi
+
+CC="gcc -fPIC" ; export CC
+CXX="g++ -fPIC"; export CXX
+
+# Host C compiler
+# NOTE: you may need to set GCC_EXEC_PREFIX=/usr/bin/
+# to get the correct assembler if gcc is your host compiler
+HOST_CC='gcc' ; export HOST_CC
+HOST_CFLAGS='-g -O2' ; export HOST_CFLAGS
+
+# Host C++ compiler - required by Titanium, not required for UPC or GASNet
+HOST_CXX='g++' ; export HOST_CXX
+HOST_CXXFLAGS='-g -O2' ; export HOST_CXXFLAGS
+
+# Now that everything is setup, run the actual configure script
+echo $SRCDIR/configure \
+    --prefix=/usr/local \
+    --libdir=/usr/local/lib/$LIBTYPE \
+    --includedir=/usr/local/include/$LIBTYPE \
+    --program-prefix='' \
+    --enable-debug --disable-trace --disable-stats --disable-debug-malloc --disable-system-debug-malloc \
+    --disable-seq --disable-parsync \
+    --disable-smp \
+    --disable-udp \
+    --enable-axiom \
+    "$@"
+$SRCDIR/configure \
+    --prefix=/usr/local \
+    --libdir=/usr/local/lib/$LIBTYPE \
+    --includedir=/usr/local/include/$LIBTYPE \
+    --program-prefix='' \
+    --enable-debug --disable-trace --disable-stats --disable-debug-malloc --disable-system-debug-malloc \
+    --disable-seq --disable-parsync \
+    --disable-smp \
+    --disable-udp \
+    --disable-pshm \
+    --enable-axiom \
+    "$@"
