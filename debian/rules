@@ -14,7 +14,7 @@ build-indep:
 
 binary: binary-arch binary-indep
 
-binary-arch: make-changelog
+binary-arch: make-changelog init-install
 	dh_testroot
 	dh_prep
 	dh_installdirs
@@ -51,7 +51,7 @@ binary-arch: make-changelog
 	dh_gconf
 	dh_icons
 	dh_perl
-	dh_usrlocal
+#	dh_usrlocal
 
 	dh_link
 	dh_installxfonts
@@ -68,10 +68,42 @@ binary-arch: make-changelog
 
 binary-indep:
 
-clean: clean-changelog
+clean: clean-changelog clean-install
 	dh_testdir
 #	make clean
 	dh_clean
+
+#
+# clean/init-install
+#
+
+init-install:
+ifeq ($(FS),x86)
+	ln -sf $(DEBIAN_DIR)/gasnet-bin.install.x86 $(DEBIAN_DIR)/gasnet-bin.install
+	ln -sf $(DEBIAN_DIR)/gasnet-debug-axiom-dev.install.x86 $(DEBIAN_DIR)/gasnet-debug-axiom-dev.install
+	ln -sf $(DEBIAN_DIR)/gasnet-debug-dev.install.x86 $(DEBIAN_DIR)/gasnet-debug-dev.install
+	ln -sf $(DEBIAN_DIR)/gasnet-debug-udp-dev.install.x86 $(DEBIAN_DIR)/gasnet-debug-udp-dev.install
+	ln -sf $(DEBIAN_DIR)/gasnet-performance-axiom-dev.install.x86 $(DEBIAN_DIR)/gasnet-performance-axiom-dev.install
+	ln -sf $(DEBIAN_DIR)/gasnet-performance-dev.install.x86 $(DEBIAN_DIR)/gasnet-performance-dev.install
+	ln -sf $(DEBIAN_DIR)/gasnet-performance-udp-dev.install.x86 $(DEBIAN_DIR)/gasnet-performance-udp-dev.install
+else
+	ln -sf $(DEBIAN_DIR)/gasnet-bin.install.other $(DEBIAN_DIR)/gasnet-bin.install
+	ln -sf $(DEBIAN_DIR)/gasnet-debug-axiom-dev.install.other $(DEBIAN_DIR)/gasnet-debug-axiom-dev.install
+	ln -sf $(DEBIAN_DIR)/gasnet-debug-dev.install.other $(DEBIAN_DIR)/gasnet-debug-dev.install
+	ln -sf $(DEBIAN_DIR)/gasnet-debug-udp-dev.install.other $(DEBIAN_DIR)/gasnet-debug-udp-dev.install
+	ln -sf $(DEBIAN_DIR)/gasnet-performance-axiom-dev.install.other $(DEBIAN_DIR)/gasnet-performance-axiom-dev.install
+	ln -sf $(DEBIAN_DIR)/gasnet-performance-dev.install.other $(DEBIAN_DIR)/gasnet-performance-dev.install
+	ln -sf $(DEBIAN_DIR)/gasnet-performance-udp-dev.install.other $(DEBIAN_DIR)/gasnet-performance-udp-dev.install
+endif
+
+clean-install:
+	rm -f $(DEBIAN_DIR)/gasnet-bin.install
+	rm -f $(DEBIAN_DIR)/gasnet-debug-dev.install
+	rm -f $(DEBIAN_DIR)/gasnet-debug-axiom-dev.install
+	rm -f $(DEBIAN_DIR)/gasnet-debug-udp-dev.install
+	rm -f $(DEBIAN_DIR)/gasnet-performance-axiom-dev.install
+	rm -f $(DEBIAN_DIR)/gasnet-performance-dev.install
+	rm -f $(DEBIAN_DIR)/gasnet-performance-udp-dev.install
 
 #
 # changelog

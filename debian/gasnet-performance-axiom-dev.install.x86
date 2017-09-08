@@ -1,0 +1,3 @@
+/usr/local/include/performance/axiom-conduit/*
+/usr/local/lib/performance/libgasnet-axiom-par.a
+/usr/local/lib/performance/pkgconfig/gasnet-axiom-par.pc
