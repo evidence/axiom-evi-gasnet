@@ -3305,7 +3305,7 @@ static int _requestOrReplyLong(gasnet_node_t dest, gasnet_handler_t handler, voi
 
     if (nbytes >= GASNETC_ALIGN_SIZE) {
         if (out) {
-            void *buf = alloca_rdma_buf();
+            uint8_t *buf = (uint8_t *)alloca_rdma_buf();
             uint8_t *srcp = source_addr, *dstp = dest_addr;
             int totras = (nbytes & (~(GASNETC_ALIGN_SIZE - 1)));
             int sz;
@@ -3313,14 +3313,34 @@ static int _requestOrReplyLong(gasnet_node_t dest, gasnet_handler_t handler, voi
             logmsg(LOG_DEBUG,"Sync/AsyncReq: out of RDMA space... switch so SYNC RDMA from internal buffers");
             if (type==ASYNC_REQUEST) type=NORMAL_REQUEST;
             for (;;) {
+                long bytes_not_aligned = ((long)srcp & (GASNETC_ALIGN_SIZE - 1));
                 sz = totras > GASNETC_BUFFER_SIZE ? GASNETC_BUFFER_SIZE : totras;
+
+                logmsg(LOG_INFO, "buf; 0x%p - srcp: 0x%p - dstp: %p - size: %d", buf, srcp, dstp, sz);
+                /*
+                 * If the source addr is not aligned to 8bytes, the memcpy
+                 * generates a fault, because it tries to align the source,
+                 * disaling the destination.
+                 *
+                 * Then it uses STP instruction on RDMA zone that is not cached.
+                 * This instruction fails if not cached address is not aligned.
+                 */
+                if (bytes_not_aligned != 0) {
+                    int i;
+                    for (i = 0; i < bytes_not_aligned; i++) {
+                        buf[i] = srcp[i];
+                    }
+                    buf += bytes_not_aligned;
+                    srcp += bytes_not_aligned;
+                }
+
                 memcpy(buf, srcp, sz);
 //#ifdef _NOT_ASYNC_RDMA_MODE
 //                ret = _rdma_write_sync(axiom_dev, dest, sz, buf, dstp);
 //#else
                 ret = _rdma_write_sync(axiom_dev, dest, sz, buf, dstp);
 //                if (AXIOM_RET_IS_OK(ret))
-//                    ret=axiom_rdma_wait(axiom_dev,&token);
+//                    ret=axiom_rdma_wait(axiom_dev,&token,1);
 //#endif
                 if (!AXIOM_RET_IS_OK(ret)) {
                     logmsg(LOG_WARN,"Sync/AsyncReq: _rdma_write/wait error (ret=%d)",ret);
@@ -3347,7 +3367,7 @@ static int _requestOrReplyLong(gasnet_node_t dest, gasnet_handler_t handler, voi
                         // no buffer available... switch to sync mode...
                         logmsg(LOG_DEBUG,"AsyncReq: switch to SYNC request (no buffer availables)... wait RDMA");
                         type=NORMAL_REQUEST;
-                        ret=axiom_rdma_wait(axiom_dev,&token);
+                        ret=axiom_rdma_wait(axiom_dev,&token,1);
                     } else {
                         logmsg(LOG_DEBUG,"AsyncReq: enqueueing RDMA token 0x%016lx",token.raw);
                         async_tok[idx]=token;
