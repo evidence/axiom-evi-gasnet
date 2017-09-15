@@ -25,3 +25,10 @@ gasnet-dev.debhelper.log
 gasnet-dev.substvars
 gasnet-dev/
 tmp/
+gasnet-bin.install
+gasnet-debug-axiom-dev.install
+gasnet-debug-dev.install
+gasnet-debug-udp-dev.install
+gasnet-performance-axiom-dev.install
+gasnet-performance-dev.install
+gasnet-performance-udp-dev.install
