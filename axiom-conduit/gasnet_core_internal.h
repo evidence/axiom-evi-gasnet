@@ -18,10 +18,8 @@
 #define GASNETC_ALIGN_SIZE 8
 
 // usually 8 MiB (2048*PAGE)=2048*4096=8388608
-//#define GASNETC_RESERVED_PAGES 2048
 #define GASNETC_RESERVED_PAGES (AXIOM_RDMA_PAYLOAD_MAX_SIZE/GASNET_PAGESIZE)
-// usually 64 MiB 8*8MiB (max num buffer 64! we are using a bitwise uint64_t for free/used buffer)
-//#define GASNETC_NUM_BUFFERS 8
+// usually 32 MiB 4*8MiB (max num buffer 64! we are using a bitwise uint64_t for free/used buffer)
 #define GASNETC_NUM_BUFFERS 4
 #define GASNETC_BUFFER_SIZE (GASNETC_RESERVED_PAGES*GASNET_PAGESIZE)
 // 64MiB

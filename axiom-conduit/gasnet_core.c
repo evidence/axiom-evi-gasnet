@@ -182,13 +182,6 @@ static inline int gasnetc_self() {
     if (ptr==NULL) ptr=make_self_index();
     return *ptr;
 }
-///**
-// * To identify a thread.
-// * @return A number to identify the thread.
-// */
-//static inline int gasnetc_self() {
-//    return (int)(pthread_self()&0xfffff);
-//}
 #endif
 
 #ifdef GASNET_DEBUG_SIMPLE_OUTPUT
@@ -375,12 +368,6 @@ gasneti_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS]; /* handler table 
 /** Axiom device. */
 static axiom_dev_t *axiom_dev=NULL;
 
-/*
-#ifndef _BLOCKING_MODE
-static axiom_dev_t *axiom_dev_blocking=NULL;
-#endif
-*/
-
 // commands (for axiom raw messages)
 /** This is a Active Message request. */
 #define GASNETC_AM_REQ_MESSAGE 128
@@ -492,26 +479,9 @@ typedef struct gasnetc_axiom_am_info {
 
 // maps gasnet HSL (High Speed Lock) to friendly name
 
-//#if GASNETC_HSL_SPINLOCK
-#if 0
-#define LOCK(x) \
-    do { \
-        if_pf(gasneti_mutex_trylock(&((x).lock)) == EBUSY) {\
-            if (gasneti_wait_mode == GASNET_WAIT_SPIN) {\
-                while (gasneti_mutex_trylock(&((x).lock)) == EBUSY) {\
-                    gasneti_compiler_fence();\
-                    gasneti_spinloop_hint();\
-                }\
-            } else {\
-                gasneti_mutex_lock(&((x).lock));\
-            }\
-        }\
-    } while (0)
-#else
 /** Lock a mutex. */
 #define LOCK(x) \
     gasneti_mutex_lock(&(x))
-#endif
 /** Unlock a mutes. */
 #define UNLOCK(x) \
     gasneti_mutex_unlock(&(x))
@@ -645,24 +615,6 @@ static inline axiom_msg_id_t axiom_recv_raw(axiom_dev_t *dev, axiom_node_id_t *s
 // safety...
 #if SPINLOOP_FOR_STEP<100
 #error usleep() step can not be < 100usec
-#endif
-
-#if 0
-/** Spinloop in case of polling. */
-#define SPINLOOP_FOR(res) {\
-  if (res!=AXIOM_RET_NOTAVAIL) break;\
-  gasneti_sched_yield();\
-  gasneti_compiler_fence();\
-  gasneti_spinloop_hint();\
-}
-
-/** Spinloop in case of polling. */
-#define SPINLOOP_FOR(res) {\
-  if (++counter>MAX_SPINLOOP_FOR||res!=AXIOM_RET_NOTAVAIL) break;\
-  gasneti_sched_yield();\
-  gasneti_compiler_fence();\
-  gasneti_spinloop_hint();\
-}
 #endif
 
 /** Spinloop in case of polling. */
@@ -880,7 +832,6 @@ static inline axiom_err_t _rdma_write(axiom_dev_t *dev, gasnet_node_t node_id, s
     if (res==AXIOM_RET_NOTAVAIL) {
         register int counter=0; // used into SPINLOOP_FOR()!
         for (;;) {
-            //res=axiom_rdma_write(axiom_dev, node_log2phy(node_id), size, (uintptr_t) source_addr - (uintptr_t) gasneti_seginfo[gasneti_mynode].rdma, (uintptr_t) dest_addr - (uintptr_t) gasneti_seginfo[node_id].rdma);
             res=axiom_rdma_write(axiom_dev, node_log2phy(node_id), size, source_addr, dest_addr, token);
             SPINLOOP_FOR(res);
         }
@@ -905,12 +856,13 @@ static inline axiom_err_t _rdma_write_sync(axiom_dev_t *dev, gasnet_node_t node_
     register axiom_err_t res;
     gasneti_assert((uintptr_t) source_addr >= (uintptr_t) gasneti_seginfo[gasneti_mynode].rdma);
     gasneti_assert((uintptr_t) dest_addr >= (uintptr_t) gasneti_seginfo[node_id].rdma);
-    logmsg(LOG_TRACE,"_rdma_write(): from node %d(phy:%d) %p:%p to node %d(phy:%d) %p:%p for %lu (%lu MiB)",gasneti_mynode,node_log2phy(gasneti_mynode),source_addr,((uint8_t*)source_addr)+size,node_id,node_log2phy(node_id),dest_addr,((uint8_t*)dest_addr)+size-1,(unsigned long)size,(unsigned long)size/1024/1024);
+    logmsg(LOG_TRACE,"_rdma_write(): from node %d(phy:%d) %p:%p to node %d(phy:%d) %p:%p for %lu (%lu MiB)",
+            gasneti_mynode,node_log2phy(gasneti_mynode),source_addr,((uint8_t*)source_addr)+size,node_id,node_log2phy(node_id),dest_addr,
+            ((uint8_t*)dest_addr)+size-1,(unsigned long)size,(unsigned long)size/1024/1024);
     res=axiom_rdma_write_sync(axiom_dev, node_log2phy(node_id), size, source_addr, dest_addr, NULL);
     if (res==AXIOM_RET_NOTAVAIL) {
         register int counter=0; // used into SPINLOOP_FOR()!
         for (;;) {
-            //res=axiom_rdma_write(axiom_dev, node_log2phy(node_id), size, (uintptr_t) source_addr - (uintptr_t) gasneti_seginfo[gasneti_mynode].rdma, (uintptr_t) dest_addr - (uintptr_t) gasneti_seginfo[node_id].rdma);
             res=axiom_rdma_write_sync(axiom_dev, node_log2phy(node_id), size, source_addr, dest_addr, NULL);
             SPINLOOP_FOR(res);
         }
@@ -1067,8 +1019,9 @@ static inline axiom_msg_id_t _recv(axiom_dev_t *dev, gasnet_node_t *node_id, axi
 static inline axiom_err_t _rdma_write(axiom_dev_t *dev, gasnet_node_t node_id, size_t size, void *source_addr, void *dest_addr, axiom_token_t *token) {
     gasneti_assert((uintptr_t) source_addr >= (uintptr_t) gasneti_seginfo[gasneti_mynode].rdma);
     gasneti_assert((uintptr_t) dest_addr >= (uintptr_t) gasneti_seginfo[node_id].rdma);
-    //return axiom_rdma_write(axiom_dev, node_log2phy(node_id), 0, size, (uintptr_t) source_addr - (uintptr_t) gasneti_seginfo[gasneti_mynode].rdma, (uintptr_t) dest_addr - (uintptr_t) gasneti_seginfo[node_id].rdma);
-    logmsg(LOG_TRACE,"_rdma_write(): from node %d(phy:%d) %p:%p to node %d(phy:%d) %p:%p for %lu (%lu MiB)",gasneti_mynode,node_log2phy(gasneti_mynode),source_addr,((uint8_t*)source_addr)+size,node_id,node_log2phy(node_id),dest_addr,((uint8_t*)dest_addr)+size-1,(unsigned long)size,(unsigned long)size/1024/1024);
+    logmsg(LOG_TRACE,"_rdma_write(): from node %d(phy:%d) %p:%p to node %d(phy:%d) %p:%p for %lu (%lu MiB)",gasneti_mynode,node_log2phy(gasneti_mynode),source_addr,
+            ((uint8_t*)source_addr)+size,node_id,node_log2phy(node_id),dest_addr,
+            ((uint8_t*)dest_addr)+size-1,(unsigned long)size,(unsigned long)size/1024/1024);
     return axiom_rdma_write(axiom_dev, node_log2phy(node_id), size, source_addr, dest_addr, token);
 }
 
@@ -1086,8 +1039,9 @@ static inline axiom_err_t _rdma_write(axiom_dev_t *dev, gasnet_node_t node_id, s
 static inline axiom_err_t _rdma_write_sync(axiom_dev_t *dev, gasnet_node_t node_id, size_t size, void *source_addr, void *dest_addr) {
     gasneti_assert((uintptr_t) source_addr >= (uintptr_t) gasneti_seginfo[gasneti_mynode].rdma);
     gasneti_assert((uintptr_t) dest_addr >= (uintptr_t) gasneti_seginfo[node_id].rdma);
-    //return axiom_rdma_write(axiom_dev, node_log2phy(node_id), 0, size, (uintptr_t) source_addr - (uintptr_t) gasneti_seginfo[gasneti_mynode].rdma, (uintptr_t) dest_addr - (uintptr_t) gasneti_seginfo[node_id].rdma);
-    logmsg(LOG_TRACE,"_rdma_write(): from node %d(phy:%d) %p:%p to node %d(phy:%d) %p:%p for %lu (%lu MiB)",gasneti_mynode,node_log2phy(gasneti_mynode),source_addr,((uint8_t*)source_addr)+size,node_id,node_log2phy(node_id),dest_addr,((uint8_t*)dest_addr)+size-1,(unsigned long)size,(unsigned long)size/1024/1024);
+    logmsg(LOG_TRACE,"_rdma_write(): from node %d(phy:%d) %p:%p to node %d(phy:%d) %p:%p for %lu (%lu MiB)",gasneti_mynode,node_log2phy(gasneti_mynode),source_addr,
+            ((uint8_t*)source_addr)+size,node_id,node_log2phy(node_id),dest_addr,
+            ((uint8_t*)dest_addr)+size-1,(unsigned long)size,(unsigned long)size/1024/1024);
     return axiom_rdma_write_sync(axiom_dev, node_log2phy(node_id), size, source_addr, dest_addr, NULL);
 }
 
@@ -1643,7 +1597,6 @@ static void init_signal_manager() {
     struct sigaction sa;
     memset(&sa, 0, sizeof (sa));
     sa.sa_handler = my_signal_handler;
-    //if_pf(sigaction(SIGQUIT, &sa, NULL) != 0) gasneti_fatalerror("Installing %s signal handler!", "SIGSEGV");
 }
 
 /*
@@ -2549,8 +2502,6 @@ static void gasnetc_atexit(void) {
 }
 #endif
 
-//static int received_exit_message = 0;
-
 /**
  * Conduit exit function.
  * This funtion never return.
@@ -2585,16 +2536,7 @@ extern void gasnetc_exit(int exitcode) {
     if (gasnetc_rdma_allocation_done)
         axiom_private_free(gasneti_seginfo[gasneti_mynode].rdma);
     logmsg(LOG_DEBUG,"gasnetc_exit(): free rdma memory done");
-        //axiom_rdma_munmap(axiom_dev);
-    /*
-        if (!received_exit_message) {
-            gasnetc_axiom_msg_t msg;
-            received_exit_message = 1;
-            msg.command = GASNETC_EXIT_MESSAGE;
-            msg.dummy2 = exitcode;
-            send_to_all(&msg, AXIOM_BIND_PORT, 8, get_node_id(), get_nodes());
-        }
-     */
+
     gasneti_killmyprocess(exitcode);
     gasneti_fatalerror("gasnetc_exit failed! killmyprocess() return!");
 }
@@ -2765,29 +2707,6 @@ static void async_check_buffers(int *id, int *num) {
                 if (ret!=AXIOM_RET_NOTAVAIL)
                     logmsg(LOG_WARN,"async buffers: axiom_rdma_check() error (ret=%d)",ret);
             }
-            /*
-             *         for (idx=0;idx<ASYNC_MAX_PENDING_REQ;idx++) {
-             *             if (ASYNC_IS_USED(idx)) {
-             *                 ret=axiom_rdma_check(axiom_dev,async_tok+idx);
-             *                 if (ret==AXIOM_RET_NOTAVAIL) continue;
-             *                 if (!AXIOM_RET_IS_OK(ret)) {
-             *                     continue;
-             *                 }
-             *                 if (*id==0) {
-             *                     *id=pthread_self();
-             *                     gasneti_assert(*id!=0);
-             *                 }
-             *                 logmsg(LOG_DEBUG,"async buffers: freeing idx=%d",idx);
-             *                 (*num)=(*num)+1;
-             *                 async_info[idx].state=*id;
-             * #ifdef USE_ASYNC_TOK2
-             *                 async_tok2[idx].raw=async_tok[idx].raw;
-             * #endif
-             *                 async_tok[idx].raw=INVALID_TOKEN;
-             *                 if (*num>=ASYNC_MAX_NUM_PER_CHECK) break;
-               *                                    }
-               *              }
-               *         */
         } else {
             if (logmsg_is_enabled(LOG_DEBUG)&&__sync_fetch_and_and(&first_message,0)==1) {
                 logmsg(LOG_DEBUG,"async buffers: no request into queue");
@@ -2882,8 +2801,6 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
 #define MAX_MSG_PER_POLL 5
 #endif
 
-//int _counter=0;
-
 // for ASYNC_RDMA_REQUEST
 #define MAX_MSG_RETRANSMIT 16
 
@@ -2899,8 +2816,6 @@ extern int gasnetc_internal_AMPoll(void) {
     gasnetc_axiom_msg_t* payload;
     gasnetc_axiom_am_info_t info;
     size_t size;
-    //axiom_raw_payload_size_t size;
-    //axiom_long_payload_size_t sizel;
     axiom_err_t ret;
     int maxcounter;
     int res;
@@ -3017,16 +2932,6 @@ extern int gasnetc_internal_AMPoll(void) {
 
                 case GASNETC_AM_REQ_MESSAGE:
                 case GASNETC_AM_REPLY_MESSAGE:
-/*
-#ifndef _BLOCKING_MODE
-                    if (payload->gen.command==GASNETC_AM_REQ_MESSAGE) {
-                        info.rdma_token = payload->am.head.rdma_token;
-                    } else {
-                        // TODO
-                        // wait for RDMA ack using rdma_token as key!
-                    }
-#endif
-*/
                     token=&info;
                     category = payload->am.head.category;
                     handler_id = payload->am.head.handler_id;
@@ -3335,13 +3240,7 @@ static int _requestOrReplyLong(gasnet_node_t dest, gasnet_handler_t handler, voi
                 }
 
                 memcpy(buf, srcp, sz);
-//#ifdef _NOT_ASYNC_RDMA_MODE
-//                ret = _rdma_write_sync(axiom_dev, dest, sz, buf, dstp);
-//#else
                 ret = _rdma_write_sync(axiom_dev, dest, sz, buf, dstp);
-//                if (AXIOM_RET_IS_OK(ret))
-//                    ret=axiom_rdma_wait(axiom_dev,&token,1);
-//#endif
                 if (!AXIOM_RET_IS_OK(ret)) {
                     logmsg(LOG_WARN,"Sync/AsyncReq: _rdma_write/wait error (ret=%d)",ret);
                     break;
@@ -3389,14 +3288,6 @@ static int _requestOrReplyLong(gasnet_node_t dest, gasnet_handler_t handler, voi
         
         if (nbytes & (GASNETC_ALIGN_SIZE - 1)) {
             //fprintf(stderr, "GASNET WARNING: requestLong() end address NOT properly aligned (nbytes=%d)\n", (int) nbytes);
-            //gasnetc_axiom_rdma_msg_t payload;
-            //int i;
-            //payload.command = GASNETC_RDMA_MESSAGE;
-            //payload.rest = nbytes & (GASNETC_ALIGN_SIZE - 1);
-            //payload.offset = ((uint8_t*) dest_addr + (nbytes&~(GASNETC_ALIGN_SIZE - 1))) - (uint8_t*) gasneti_seginfo[dest].rdma;
-            //memcpy(payload.data, (uint8_t*) source_addr + (nbytes&~(GASNETC_ALIGN_SIZE - 1)), payload.rest);
-            //ret = _send_raw(axiom_dev, dest, AXIOM_BIND_PORT, sizeof (gasnetc_axiom_rdma_msg_t), &payload);
-            ////to check return value
             int rest = nbytes & (GASNETC_ALIGN_SIZE - 1);
             void *ptr = (uint8_t*) source_addr + (nbytes & (~(GASNETC_ALIGN_SIZE - 1)));
             memcpy(payload->head.data, ptr, rest);
@@ -3408,19 +3299,6 @@ static int _requestOrReplyLong(gasnet_node_t dest, gasnet_handler_t handler, voi
         payload->head.numargs = numargs;
         payload->head.offset = (uintptr_t) dest_addr - (uintptr_t) gasneti_seginfo[dest].rdma;
         payload->head.size = nbytes;
-/*
-#ifdef _BLOCKING_MODE
-        payload->head.rdma_token=0;
-#else
-        // if rdma_token is NOT zero
-        //   we have been called by a AMReply that as received a rdma_token from remote
-        //   so send back
-        // else
-        //   we have been called by a AMReply with no token or by a AMRequest
-        //   so ret contain a new rdma token (if AMRequest Async are used) send the new token or zero (if we haven't one)
-        payload->head.rdma_token=(rdma_token!=0?rdma_token:(ret==AXIOM_RET_OK?0:ret));
-#endif
- */
         for (i = 0; i < numargs; i++) {
             payload->args[i] = va_arg(argptr, gasnet_handlerarg_t);
         }
@@ -3522,7 +3400,6 @@ extern int gasnetc_AMReplyShortM(gasnet_token_t token, gasnet_handler_t handler,
     logmsg(LOG_INFO,"AMReplyShort token=%p dest_node=%d(phy:%d) handler=%d",(void*)token,info->node,node_log2phy(info->node),handler);
     GASNETI_COMMON_AMREPLYSHORT(token, handler, numargs);
     gasneti_assert_always(info->isReq);
-    //GASNETI_CHECK_ERRR((info == NULL), BAD_ARG, "AMReplyXXX() called from a reply handler!");
     va_start(argptr, numargs);
 
 #if GASNET_PSHM
@@ -3538,13 +3415,6 @@ extern int gasnetc_AMReplyShortM(gasnet_token_t token, gasnet_handler_t handler,
         payload.head.category = gasnetc_Short;
         payload.head.handler_id = handler;
         payload.head.numargs = numargs;
-/*
-#ifdef _BLOCKING_MODE
-        payload.head.rdma_token=0;
-#else
-        payload.head.rdma_token=info->rdma_token;
-#endif
-*/
         for (i = 0; i < numargs; i++) {
             payload.args[i] = va_arg(argptr, gasnet_handlerarg_t);
         }
@@ -3602,13 +3472,6 @@ extern int gasnetc_AMReplyMediumM(
         payload.head.category = gasnetc_Medium;
         payload.head.handler_id = handler;
         payload.head.numargs = numargs;
-/*
-#ifdef _BLOCKING_MODE
-        payload.head.rdma_token=0;
-#else
-        payload.head.rdma_token=info->rdma_token;
-#endif
-*/
         for (i = 0; i < numargs; i++) {
             payload.args[i] = va_arg(argptr, gasnet_handlerarg_t);
         }

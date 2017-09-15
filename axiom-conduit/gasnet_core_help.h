@@ -148,15 +148,7 @@ extern void gasnetc_block_on_condition();
 
 extern int gasnetc_internal_AMPoll(void);
 
-/*
-// Can not be inline!!! some program test for the presence of the gasnetc_AMPoll into tht library!!!
-#define GASNETI_GASNETC_AMPOLL
-GASNETI_INLINE(gasnetc_AMPoll)
-int gasnetc_AMPoll(void) {
-    register int res=gasnetc_internal_AMPoll();
-    return res==GASNET_ERR_AGAIN?GASNET_OK:res;
-}
-*/
+// gasnetc_AMPoll Can not be inline!!! some program test for the presence of the gasnetc_AMPoll into tht library!!!
 
 #include <gasnet_help.h>
 

@@ -106,18 +106,6 @@
 extern pthread_key_t gasnetc_thread_key;
 extern int gasnetc_thread_idx;
 #define GASNETI_MAX_THREADS 64
-//#define GASNETE_CONDUIT_THREADDATA_FIELDS uint64_t threadmask;
-//#define GASNETC_NEW_THREADDATA_CALLBACK(td) gasneti_assert((td)->threadidx<GASNETI_MAX_THREADS); (td)->threadmask=((uint64_t)1)<<(td)->threadidx;
-//#define GASNETC_NEW_THREADDATA_CALLBACK(td) {
-//   uint64_t *ptr;
-//   int res;
-//   gasneti_assert((td)->threadidx<GASNETI_MAX_THREADS);
-//   ptr=(uint64_t*)gasneti_malloc(sizeof(uint64_t));
-//   gasneti_assert(ptr!=NULL);
-//   *ptr=((uint64_t)1)<<(td)->threadidx;
-//   res=pthread_setspecific(gasnetc_thread_key,ptr);
-//   gasneti_assert(res==0);
-//}
 #endif
 
   /* GASNET_PSHM defined 1 if this conduit supports PSHM. leave undefined otherwise. */
