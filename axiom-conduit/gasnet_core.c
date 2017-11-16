@@ -720,8 +720,11 @@ static inline axiom_err_t _send_long_iov(axiom_dev_t *dev, gasnet_node_t node_id
     register axiom_err_t res;
     register int i;
     logmsg(LOG_TRACE,"_send_long_iov(): start");
-    for (i=0;i<iovcnt;i++)
+    for (i=0;i<iovcnt;i++) {
+        logmsg(LOG_TRACE,"_send_long_iov(): %d addr=%p size=%ld",i,iov[i].iov_base, iov[i].iov_len);
         payload_size+=iov[i].iov_len;
+    }
+    logmsg(LOG_TRACE,"_send_long_iov(): dest=%d(phy:%d) port=%d payloadsize=%d iov_ptr=%p iov_dim=%d",node_id,node_log2phy(node_id),port,payload_size,iov,iovcnt);
     res=axiom_send_iov_long(axiom_dev, node_log2phy(node_id), port, payload_size, iov,iovcnt);
     if (res==AXIOM_RET_NOTAVAIL) {
         register int counter=0; // used by SPINLOOP_FOR()!
@@ -800,9 +803,12 @@ static inline axiom_err_t _recv(axiom_dev_t *dev, gasnet_node_t *node_id, axiom_
     axiom_node_id_t src_id;
     axiom_err_t res;
     logmsg(LOG_TRACE,"_recv(): start");
+    logmsg(LOG_TRACE,"_recv(): payload_max_size=%ld payload_buffer=%p",*payload_size,payload);
     res = axiom_recv(axiom_dev, &src_id, port, &type, payload_size, payload);
+    if (logmsg_is_enabled(LOG_TRACE))
+        logmsg(LOG_TRACE,"_recv(): src=%d(phy:%d) port=%d type=%d payload_size=%ld payload_buffer=%p",AXIOM_RET_IS_OK(res)?node_phy2log(src_id):-1,src_id,*port,type,*payload_size,payload);
     if (res==AXIOM_RET_NOTAVAIL) {
-    logmsg(LOG_TRACE,"_recv(): end");
+        logmsg(LOG_TRACE,"_recv(): end");
         return res;
     }
     if (AXIOM_RET_IS_OK(res)) *node_id = node_phy2log(src_id);
