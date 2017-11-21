@@ -363,7 +363,10 @@ gasneti_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS]; /* handler table 
  */
 
 /** Default axiom port to use. */
-#define AXIOM_BIND_PORT 7
+#define AXIOM_DEFAULT_BIND_PORT 4
+
+/** Axiom port to use.*/
+static int axiom_bind_port=AXIOM_DEFAULT_BIND_PORT;
 
 /** Axiom device. */
 static axiom_dev_t *axiom_dev=NULL;
@@ -605,9 +608,9 @@ static inline axiom_msg_id_t axiom_recv_raw(axiom_dev_t *dev, axiom_node_id_t *s
 /** SPINLOOP_FOR() iterations before slowing spin. */
 #define WRN_SPINLOOP_FOR 65536
 /** SPINLOOP_FOR() max interactions before return an error. */
-#define MAX_SPINLOOP_FOR (WRN_SPINLOOP_FOR+1024)
+#define MAX_SPINLOOP_FOR (WRN_SPINLOOP_FOR+2048)
 /** SPINLOOP_FOR() comulative max delay after WRN_SPINLOOP iterations. */
-#define MAX_SPINLOOP_FOR_MSEC 5000
+#define MAX_SPINLOOP_FOR_MSEC 10000
 
 /** Sleeping time after WRN_SPINLOOP_FOR iterations (usec for every iteration). */
 #define SPINLOOP_FOR_STEP ((MAX_SPINLOOP_FOR_MSEC)*1000/(MAX_SPINLOOP_FOR-WRN_SPINLOOP_FOR))
@@ -616,6 +619,10 @@ static inline axiom_msg_id_t axiom_recv_raw(axiom_dev_t *dev, axiom_node_id_t *s
 #if SPINLOOP_FOR_STEP<100
 #error usleep() step can not be < 100usec
 #endif
+
+#define SPINLOOP_INIT() \
+  register int counter=0;\
+  int first_err=1;
 
 /** Spinloop in case of polling. */
 /*
@@ -627,9 +634,11 @@ static inline axiom_msg_id_t axiom_recv_raw(axiom_dev_t *dev, axiom_node_id_t *s
 #define SPINLOOP_FOR(res) {\
   if (res!=AXIOM_RET_NOTAVAIL) break;\
   if (++counter>=WRN_SPINLOOP_FOR) {\
-     if (counter==WRN_SPINLOOP_FOR) logmsg(LOG_WARN,"SPINLOOP_FOR: > %d! switch to slow spinning for safety!",WRN_SPINLOOP_FOR);\
-     if (counter>MAX_SPINLOOP_FOR) break;\
-     usleep(SPINLOOP_FOR_STEP);\
+     int err;\
+     if (counter==WRN_SPINLOOP_FOR) logmsg(LOG_WARN,"SPINLOOP_FOR: > %d! switch to slow spinning for safety! (time=%lu) (usleep=%lu)",WRN_SPINLOOP_FOR,time(NULL),SPINLOOP_FOR_STEP);\
+     if (counter>MAX_SPINLOOP_FOR) {logmsg(LOG_ERROR,"SPINLOOP_FOR: > %d! end spinning with error! (time=%lu)",MAX_SPINLOOP_FOR,time(NULL)); break;}\
+     err=usleep(SPINLOOP_FOR_STEP);\
+     if (err==-1&&first_err) {first_err=0; logmsg(LOG_ERROR,"SPINLOOP_FOR: first usleep() errno=%d",errno);}\
   } else {\
      gasneti_sched_yield();\
   }\
@@ -666,7 +675,7 @@ static inline axiom_err_t _send_raw(axiom_dev_t *dev, gasnet_node_t node_id, axi
     logmsg(LOG_TRACE,"_send_raw(): start");
     res=axiom_send_raw(axiom_dev, node_log2phy(node_id), port, AXIOM_TYPE_RAW_DATA, payload_size, payload);
     if (res==AXIOM_RET_NOTAVAIL) {
-        register int counter=0; // used by SPINLOOP_FOR()!
+        SPINLOOP_INIT();
         for (;;) {
             res=axiom_send_raw(axiom_dev, node_log2phy(node_id), port, AXIOM_TYPE_RAW_DATA, payload_size, payload);
             SPINLOOP_FOR(res);
@@ -693,7 +702,7 @@ static inline axiom_err_t _send_long(axiom_dev_t *dev, gasnet_node_t node_id, ax
     logmsg(LOG_TRACE,"_send_long(): start");
     res=axiom_send_long(axiom_dev, node_log2phy(node_id), port, payload_size, payload);
     if (res==AXIOM_RET_NOTAVAIL) {
-        register int counter=0; // used by SPINLOOP_FOR()!
+        SPINLOOP_INIT();
         for (;;) {
             res=axiom_send_long(axiom_dev, node_log2phy(node_id), port, payload_size, payload);
             SPINLOOP_FOR(res);
@@ -727,7 +736,7 @@ static inline axiom_err_t _send_long_iov(axiom_dev_t *dev, gasnet_node_t node_id
     logmsg(LOG_TRACE,"_send_long_iov(): dest=%d(phy:%d) port=%d payloadsize=%d iov_ptr=%p iov_dim=%d",node_id,node_log2phy(node_id),port,payload_size,iov,iovcnt);
     res=axiom_send_iov_long(axiom_dev, node_log2phy(node_id), port, payload_size, iov,iovcnt);
     if (res==AXIOM_RET_NOTAVAIL) {
-        register int counter=0; // used by SPINLOOP_FOR()!
+        SPINLOOP_INIT();
         for (;;) {
             res=axiom_send_iov_long(axiom_dev, node_log2phy(node_id), port, payload_size, iov,iovcnt);
             SPINLOOP_FOR(res);
@@ -836,7 +845,7 @@ static inline axiom_err_t _rdma_write(axiom_dev_t *dev, gasnet_node_t node_id, s
     logmsg(LOG_TRACE,"_rdma_write(): from node %d(phy:%d) %p:%p to node %d(phy:%d) %p:%p for %lu (%lu MiB)",gasneti_mynode,node_log2phy(gasneti_mynode),source_addr,((uint8_t*)source_addr)+size,node_id,node_log2phy(node_id),dest_addr,((uint8_t*)dest_addr)+size-1,(unsigned long)size,(unsigned long)size/1024/1024);
     res=axiom_rdma_write(axiom_dev, node_log2phy(node_id), size, source_addr, dest_addr, token);
     if (res==AXIOM_RET_NOTAVAIL) {
-        register int counter=0; // used into SPINLOOP_FOR()!
+        SPINLOOP_INIT();
         for (;;) {
             res=axiom_rdma_write(axiom_dev, node_log2phy(node_id), size, source_addr, dest_addr, token);
             SPINLOOP_FOR(res);
@@ -867,7 +876,7 @@ static inline axiom_err_t _rdma_write_sync(axiom_dev_t *dev, gasnet_node_t node_
             ((uint8_t*)dest_addr)+size-1,(unsigned long)size,(unsigned long)size/1024/1024);
     res=axiom_rdma_write_sync(axiom_dev, node_log2phy(node_id), size, source_addr, dest_addr, NULL);
     if (res==AXIOM_RET_NOTAVAIL) {
-        register int counter=0; // used into SPINLOOP_FOR()!
+        SPINLOOP_INIT();
         for (;;) {
             res=axiom_rdma_write_sync(axiom_dev, node_log2phy(node_id), size, source_addr, dest_addr, NULL);
             SPINLOOP_FOR(res);
@@ -1851,11 +1860,17 @@ static int gasnetc_init(int *argc, char ***argv) {
         GASNETI_RETURN_ERRR(RESOURCE, s);
     }
 
-    ret = axiom_bind(axiom_dev, AXIOM_BIND_PORT);
+    {
+        char *value = getenv("GASNET_AXIOM_BIND_PORT");
+        if (value != NULL) {
+            axiom_bind_port=atoi(value);
+        }
+    }
+    ret = axiom_bind(axiom_dev, axiom_bind_port);
 
     if_pf(!AXIOM_RET_IS_OK(ret)) {
         char s[255];
-        snprintf(s, sizeof (s), "Can NOT bind axiom device to port %d.", AXIOM_BIND_PORT);
+        snprintf(s, sizeof (s), "Can NOT bind axiom device to port %d.", axiom_bind_port);
         GASNETI_RETURN_ERRR(RESOURCE, s);
     }
 
@@ -2873,14 +2888,14 @@ extern int gasnetc_internal_AMPoll(void) {
 #else
                     logmsg(LOG_DEBUG,"AMPoll: outqueue RDMA token");
 #endif
-                    ret= _send_raw(axiom_dev, async_info[idx].dest, AXIOM_BIND_PORT, async_info[idx].size, async_buf+idx);
+                    ret= _send_raw(axiom_dev, async_info[idx].dest, axiom_bind_port, async_info[idx].size, async_buf+idx);
                     if (!AXIOM_RET_IS_OK(ret)) {
                         // what to do now???
                         logmsg(LOG_WARN,"AMPoll: error sending raw message for pending RDMA request...");
                         if (ret==AXIOM_RET_NOTAVAIL) {
                             int loopc=MAX_MSG_RETRANSMIT;
                             while (loopc-->0) {
-                                ret= _send_raw(axiom_dev, async_info[idx].dest, AXIOM_BIND_PORT, async_info[idx].size, async_buf+idx);
+                                ret= _send_raw(axiom_dev, async_info[idx].dest, axiom_bind_port, async_info[idx].size, async_buf+idx);
                                 if (ret!=AXIOM_RET_NOTAVAIL) break;
                                 gasneti_sched_yield();
                             }
@@ -2915,7 +2930,7 @@ extern int gasnetc_internal_AMPoll(void) {
         }        
 #endif
         info.node = INVALID_PHYSICAL_NODE;
-        info.port = AXIOM_BIND_PORT;
+        info.port = axiom_bind_port;
         size=AXIOM_LONG_PAYLOAD_MAX_SIZE;
         size = sizeof (*payload);
         ret = _recv(axiom_dev, &info.node, &info.port, &size, payload);
@@ -3093,7 +3108,7 @@ extern int gasnetc_AMRequestShortM(gasnet_node_t dest, gasnet_handler_t handler,
         for (i = 0; i < numargs; i++) {
             payload.args[i] = va_arg(argptr, gasnet_handlerarg_t);
         }
-        ret = _send_raw(axiom_dev, dest, AXIOM_BIND_PORT, compute_payload_size(numargs), &payload);
+        ret = _send_raw(axiom_dev, dest, axiom_bind_port, compute_payload_size(numargs), &payload);
         retval = AXIOM_RET_IS_OK(ret) ? GASNET_OK : -1;
         if (retval!=GASNET_OK) {
             logmsg(LOG_WARN,"AMRequestShort failed during axiom_send_raw() with ret=%d",ret);
@@ -3154,7 +3169,7 @@ extern int gasnetc_AMRequestMediumM(
         v[1].iov_base=source_addr;
         v[1].iov_len=nbytes;
         //if (nbytes > 0) memcpy(payload.buffer, source_addr, nbytes);
-        ret = _send_long_iov(axiom_dev, dest, AXIOM_BIND_PORT, v, 2);
+        ret = _send_long_iov(axiom_dev, dest, axiom_bind_port, v, 2);
         //fprintf(stderr, "SENT ID (req) %d\n", ret);
         retval = AXIOM_RET_IS_OK(ret) ? GASNET_OK : -1;
         if (retval!=GASNET_OK) {
@@ -3311,7 +3326,7 @@ static int _requestOrReplyLong(gasnet_node_t dest, gasnet_handler_t handler, voi
         if (type==ASYNC_REQUEST&&nbytes >= GASNETC_ALIGN_SIZE) {
             retval=GASNET_OK;
         } else {
-            axiom_err_t ret2 = _send_raw(axiom_dev, dest, AXIOM_BIND_PORT, compute_payload_size(numargs), payload);
+            axiom_err_t ret2 = _send_raw(axiom_dev, dest, axiom_bind_port, compute_payload_size(numargs), payload);
             if (logmsg_is_enabled(LOG_WARN)&&!AXIOM_RET_IS_OK(ret2)) {
                 logmsg(LOG_WARN,"Error %d calling _send_raw()",ret);
             }
