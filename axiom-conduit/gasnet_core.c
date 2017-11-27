@@ -635,8 +635,8 @@ static inline axiom_msg_id_t axiom_recv_raw(axiom_dev_t *dev, axiom_node_id_t *s
   if (res!=AXIOM_RET_NOTAVAIL) break;\
   if (++counter>=WRN_SPINLOOP_FOR) {\
      int err;\
-     if (counter==WRN_SPINLOOP_FOR) logmsg(LOG_WARN,"SPINLOOP_FOR: > %d! switch to slow spinning for safety! (time=%lu) (usleep=%lu)",WRN_SPINLOOP_FOR,time(NULL),SPINLOOP_FOR_STEP);\
-     if (counter>MAX_SPINLOOP_FOR) {logmsg(LOG_ERROR,"SPINLOOP_FOR: > %d! end spinning with error! (time=%lu)",MAX_SPINLOOP_FOR,time(NULL)); break;}\
+     if (counter==WRN_SPINLOOP_FOR) logmsg(LOG_WARN,"SPINLOOP_FOR: > %d! switch to slow spinning for safety! (time=%ld) (usleep=%d)",WRN_SPINLOOP_FOR,time(NULL),SPINLOOP_FOR_STEP);\
+     if (counter>MAX_SPINLOOP_FOR) {logmsg(LOG_ERROR,"SPINLOOP_FOR: > %d! end spinning with error! (time=%ld)",MAX_SPINLOOP_FOR,time(NULL)); break;}\
      err=usleep(SPINLOOP_FOR_STEP);\
      if (err==-1&&first_err) {first_err=0; logmsg(LOG_ERROR,"SPINLOOP_FOR: first usleep() errno=%d",errno);}\
   } else {\
