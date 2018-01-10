@@ -2,6 +2,10 @@
 
 DEBIAN_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 
+ifndef LINARO
+$(warning LINARO environment variable not definded)
+endif
+
 .PHONY: build build-arch build-indep binary binary-arch binary-indep clean
 
 build: build-arch build-indep

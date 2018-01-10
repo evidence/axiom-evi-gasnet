@@ -1,9 +1,11 @@
 #!/bin/sh
 
-[ -z "$HOST_DIR" ] && HOST_DIR=$HOME/axiom-evi/output/host
+[ -z "$HOST_DIR" ] && HOST_DIR=$HOME/linaro/host
 LIBTYPE="debug"
+SYSROOT=$ROOTFS
 for arg in "$@";do
   echo "$arg" | grep -q '^--with-axiom-host=' && HOST_DIR=$(echo "$arg" | sed 's#^--with-axiom-host=##')
+  echo "$arg" | grep -q '^--with-axiom-sysroot=' && SYSROOT=$(echo "$arg" | sed 's#^--with-axiom-sysroot=##')
   echo "$arg" | grep -q '^--enable-debug' && LIBTYPE="debug"
   echo "$arg" | grep -q '^--disable-debug' && LIBTYPE="performance"
 done
@@ -12,16 +14,10 @@ done
 # Usage Instructions: 
 #  1. fill in the following values to point to the target and host compilers:
 
-if [ X"$FS" = Xseco ]; then
-    export PATH=$HOST_DIR/usr/bin:$PATH
-    CC="$HOST_DIR/usr/bin/aarch64-linux-gnu-gcc -fPIC" ; export CC
-    CXX="$HOST_DIR/usr/bin/aarch64-linux-gnu-g++ -fPIC" ; export CXX
-    LDFLAGS="--sysroot=$ROOTFS"; export LDFLAGS
-else
-    CC="$HOST_DIR/usr/bin/aarch64-buildroot-linux-gnu-gcc -fPIC" ; export CC
-    CXX="$HOST_DIR/usr/bin/aarch64-buildroot-linux-gnu-g++ -fPIC" ; export CXX
-fi
-
+export PATH=$HOST_DIR/usr/bin:$PATH
+CC="$HOST_DIR/usr/bin/aarch64-linux-gnu-gcc -fPIC" ; export CC
+CXX="$HOST_DIR/usr/bin/aarch64-linux-gnu-g++ -fPIC" ; export CXX
+LDFLAGS="--sysroot=$SYSROOT"; export LDFLAGS
 
 # Host C compiler
 # NOTE: you may need to set GCC_EXEC_PREFIX=/usr/bin/
@@ -43,11 +39,7 @@ EXTRA_CONFIGURE_ARGS='' ; export EXTRA_CONFIGURE_ARGS  # misc configure args to 
 
 # 2. Fill in the canonical target machine type. You can usually obtain this
 #   by running config-aux/config.guess on the target machine
-if [ X"$P" = X1 ]; then
-    TARGET_ID='aarch64-linux-gnu'
-else
-    TARGET_ID='aarch64-buildroot-linux-gnu'
-fi
+TARGET_ID='aarch64-linux-gnu'
 
 # 3. Review the automatically-detected settings below and make corrections as necessary.
 
