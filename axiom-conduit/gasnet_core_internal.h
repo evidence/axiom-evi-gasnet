@@ -15,7 +15,7 @@
 #include <gasnet_handler.h>
 
 // RDMA aligmnet request! PS: power of two
-#define GASNETC_ALIGN_SIZE 8
+#define GASNETC_ALIGN_SIZE 16
 
 // usually 8 MiB (2048*PAGE)=2048*4096=8388608
 #define GASNETC_RESERVED_PAGES (AXIOM_RDMA_PAYLOAD_MAX_SIZE/GASNET_PAGESIZE)
