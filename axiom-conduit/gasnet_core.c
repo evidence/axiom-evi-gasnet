@@ -395,8 +395,13 @@ typedef struct gasnetc_axiom_am_header {
     uint32_t offset;
     /** RDMA size. Used for 'data' below. */
     uint32_t size;
+
+    uint16_t src_pre;
+    uint16_t src_post;
+
     /** RDMA residual data to transfert. AXIOM RDMA can transfert only a multiple of GASNETC_ALIGN_SIZE bytes so this array containt the residual data.*/
-    uint8_t data[GASNETC_ALIGN_SIZE]; // need if not using rdma_message!!!!
+    uint8_t data_pre[GASNETC_ALIGN_SIZE];
+    uint8_t data_post[GASNETC_ALIGN_SIZE];
 } __attribute__((__packed__)) gasnetc_axiom_am_header_t;
 
 // Size of the raw message header.
@@ -404,7 +409,7 @@ typedef struct gasnetc_axiom_am_header {
 #ifndef GASNET_AXIOM_AM_MSG_HEADER_SIZE
 #define GASNET_AXIOM_AM_MSG_HEADER_SIZE sizeof(gasnetc_axiom_am_header_t)
 #endif
-#if GASNET_AXIOM_AM_MSG_HEADER_SIZE!=20
+#if GASNET_AXIOM_AM_MSG_HEADER_SIZE!=48
 #error GASNET_AXIOM_AM_MSG_HEADER_SIZE defined into gasnet_core.c must be equal to gasnet_core.h
 #endif
 
@@ -2135,6 +2140,11 @@ static int gasnetc_reghandlers(gasnet_handlerentry_t *table, int numentries,
 
 // used when a user request an Active Long message from an area outside RDMA mapped memory
 
+// this to be sure that our dma buffer are alway aligned!!!!
+#if (GASNETC_BUFFER_SIZE%GASNETC_ALIGN_SIZE)!=0
+#error Internal RDMA buffer must be alligned properly! (see GASNETC_BUFFER_SIZE and GASNETC_ALIGN_SIZE)
+#endif
+
 // is using less than 32 buffers then a uint32_t is used
 #if GASNETC_NUM_BUFFERS<=32
 
@@ -2825,6 +2835,12 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
 // for ASYNC_RDMA_REQUEST
 #define MAX_MSG_RETRANSMIT 16
 
+
+#define GASNETC_ALIGN_MASK (~(GASNETC_ALIGN_SIZE - 1))
+#define COMPUTE_PRE(addr) ((((uintptr_t)addr)&GASNETC_ALIGN_MASK)==0?0:GASNETC_ALIGN_SIZE-(((uintptr_t)addr)&GASNETC_ALIGN_MASK))
+#define COMPUTE_POST(size,pre) (((size)-(pre))&GASNETC_ALIGN_MASK)
+
+
 /**
  * Conduit internal poll request.
  * @return GASNET_OK if success.
@@ -3010,19 +3026,32 @@ extern int gasnetc_internal_AMPoll(void) {
                         {
                             data = (uint8_t*) gasneti_seginfo[gasneti_mynode].rdma + payload->am.head.offset;
                             nbytes = payload->am.head.size;
-                            logmsg(LOG_INFO,"AMPoll %s category=Long handler=%d from %d(phy:%d) numargs=%d size=%u to=%p",
+                            logmsg(LOG_INFO,"AMPoll %s category=Long handler=%d from %d(phy:%d) numargs=%d size=%u to=%p src_pre=%d src_post=%d",
                                     payload->gen.command==GASNETC_AM_REQ_MESSAGE?"AM_REQ_MESSAGE":"AM_REPLY_MESSAGE",
                                     handler_id,
                                     info.node,
                                     node_log2phy(info.node),
                                     numargs,
                                     nbytes,
-                                    data
+                                    data,
+                                    payload->am.head.src_pre,
+                                    payload->am.head.src_post
                                     );
-                            if (nbytes & (GASNETC_ALIGN_SIZE - 1)) {
-                                int rest = nbytes & (GASNETC_ALIGN_SIZE - 1);
-                                void *ptr = (uint8_t*) data + (nbytes & (~(GASNETC_ALIGN_SIZE - 1)));
-                                memcpy(ptr, payload->am.head.data, rest);
+                            uint32_t dest_pre=COMPUTE_PRE(data);
+                            if (dest_pre!=payload->am.head.src_pre) {
+                                // :-(
+                                int32_t delta=dest_pre-payload->am.head.src_pre;
+                                int len=nbytes-payload->am.head.src_pre-payload->am.head.src_post;
+                                memmove(data+dest_pre+delta,data+dest_pre,len);
+                            }
+                            if (payload->am.head.src_pre>0) {
+                                // :-(
+                                memcpy(data,payload->am.head.data_pre,payload->am.head.src_pre);
+                            }
+                            if (payload->am.head.src_post>0) {
+                                // :-(
+                                void *ptr=(uint8_t*)data+nbytes-payload->am.head.src_post;
+                                memcpy(ptr,payload->am.head.data_post,payload->am.head.src_post);
                             }
                             GASNETC_ENTERING_HANDLER_HOOK(category, isReq, handler_id, token, data, nbytes, numargs, args);
                             GASNETI_RUN_HANDLER_LONG(isReq, handler_id, handler_fn, token, args, numargs, data, nbytes);
@@ -3229,20 +3258,43 @@ static int _requestOrReplyLong(gasnet_node_t dest, gasnet_handler_t handler, voi
         out = 0;
     }
 
-    if (nbytes >= GASNETC_ALIGN_SIZE) {
+    uint32_t rdma_size;
+    int src_pre,src_post,dst_pre,dst_post;
+    src_pre=COMPUTE_PRE(source_addr);
+    src_post=COMPUTE_POST(nbytes,src_pre);
+    dst_pre=COMPUTE_PRE(dest_addr);
+    dst_post=COMPUTE_POST(nbytes,dst_pre);
+    rdma_size=nbytes-src_pre-src_post;
+    void *source_addr_aligned=(void*)(((uint8_t*)source_addr)+src_pre);
+    void *dest_addr_aligned=(void*)(((uint8_t*)dest_addr)+dst_pre);
+    // safety
+    gasneti_assert((((uintptr_t)source_addr_aligned)&GASNETC_ALIGN_MASK)==0);
+    gasneti_assert((((uintptr_t)dest_addr_aligned)&GASNETC_ALIGN_MASK)==0);
+    gasneti_assert(src_pre+src_post>=nbytes);
+    gasneti_assert(rdma_size+dst_pre+dst_post==nbytes);
+
+    if (rdma_size > 0) {
         if (out) {
             uint8_t *buf = (uint8_t *)alloca_rdma_buf();
-            uint8_t *srcp = source_addr, *dstp = dest_addr;
-            int totras = (nbytes & (~(GASNETC_ALIGN_SIZE - 1)));
+            uint8_t *srcp, *dstp;
+            int totras;
             int sz;
             axiom_token_t token;
+            long bytes_not_aligned;
             logmsg(LOG_DEBUG,"Sync/AsyncReq: out of RDMA space... switch so SYNC RDMA from internal buffers");
             if (type==ASYNC_REQUEST) type=NORMAL_REQUEST;
-            for (;;) {
-                long bytes_not_aligned = ((long)srcp & (GASNETC_ALIGN_SIZE - 1));
-                sz = totras > GASNETC_BUFFER_SIZE ? GASNETC_BUFFER_SIZE : totras;
 
+            src_pre=0;
+            src_post=COMPUTE_POST(nbytes,src_pre);
+            rdma_size=nbytes-src_pre-src_post;
+            totras=rdma_size;
+            srcp=source_addr;
+            dstp=dest_addr_aligned;
+
+            for (;;) {
+                sz = totras > GASNETC_BUFFER_SIZE ? GASNETC_BUFFER_SIZE : totras;
                 logmsg(LOG_INFO, "buf; 0x%p - srcp: 0x%p - dstp: %p - size: %d", buf, srcp, dstp, sz);
+
                 /*
                  * If the source addr is not aligned to 8bytes, the memcpy
                  * generates a fault, because it tries to align the source,
@@ -3251,6 +3303,7 @@ static int _requestOrReplyLong(gasnet_node_t dest, gasnet_handler_t handler, voi
                  * Then it uses STP instruction on RDMA zone that is not cached.
                  * This instruction fails if not cached address is not aligned.
                  */
+                bytes_not_aligned = ((long)srcp & (GASNETC_ALIGN_SIZE - 1));
                 if (bytes_not_aligned != 0) {
                     int i;
                     for (i = 0; i < bytes_not_aligned; i++) {
@@ -3274,13 +3327,13 @@ static int _requestOrReplyLong(gasnet_node_t dest, gasnet_handler_t handler, voi
             free_rdma_buf(buf);
         } else {
 #ifdef _NOT_ASYNC_RDMA_MODE
-            ret = _rdma_write_sync(axiom_dev, dest, nbytes &(~(GASNETC_ALIGN_SIZE - 1)), source_addr, dest_addr);
+            ret = _rdma_write_sync(axiom_dev, dest, rdma_size, source_addr_aligned, dest_addr_aligned);
 #else
             axiom_token_t token;
             if (type!=ASYNC_REQUEST) {
-                ret = _rdma_write_sync(axiom_dev, dest, nbytes &(~(GASNETC_ALIGN_SIZE - 1)), source_addr, dest_addr);
+                ret = _rdma_write_sync(axiom_dev, dest, rdma_size, source_addr_aligned, dest_addr_aligned);
             } else {
-                ret = _rdma_write(axiom_dev, dest, nbytes &(~(GASNETC_ALIGN_SIZE - 1)), source_addr, dest_addr, &token);
+                ret = _rdma_write(axiom_dev, dest, rdma_size, source_addr_aligned, dest_addr_aligned, &token);
                 if (AXIOM_RET_IS_OK(ret)) {
                     int idx=async_allocate_buffer(ret);
                     if (idx==-1) {
@@ -3306,12 +3359,15 @@ static int _requestOrReplyLong(gasnet_node_t dest, gasnet_handler_t handler, voi
     if (AXIOM_RET_IS_OK(ret)) {
 
         int i;
-        
-        if (nbytes & (GASNETC_ALIGN_SIZE - 1)) {
+
+        if (src_pre>0) {
             //fprintf(stderr, "GASNET WARNING: requestLong() end address NOT properly aligned (nbytes=%d)\n", (int) nbytes);
-            int rest = nbytes & (GASNETC_ALIGN_SIZE - 1);
-            void *ptr = (uint8_t*) source_addr + (nbytes & (~(GASNETC_ALIGN_SIZE - 1)));
-            memcpy(payload->head.data, ptr, rest);
+            memcpy(payload->head.data_pre,source_addr,src_pre);
+        }
+        if (src_post>0) {
+            //fprintf(stderr, "GASNET WARNING: requestLong() end address NOT properly aligned (nbytes=%d)\n", (int) nbytes);
+            void *ptr=(void*)((uint8_t*)source_addr+src_pre+rdma_size);
+            memcpy(payload->head.data_post,ptr,src_post);
         }
 
         payload->head.command = type==REPLAY?GASNETC_AM_REPLY_MESSAGE:GASNETC_AM_REQ_MESSAGE;
@@ -3319,6 +3375,8 @@ static int _requestOrReplyLong(gasnet_node_t dest, gasnet_handler_t handler, voi
         payload->head.handler_id = handler;
         payload->head.numargs = numargs;
         payload->head.offset = (uintptr_t) dest_addr - (uintptr_t) gasneti_seginfo[dest].rdma;
+        payload->head.src_pre = src_pre;
+        payload->head.src_post = src_post;
         payload->head.size = nbytes;
         for (i = 0; i < numargs; i++) {
             payload->args[i] = va_arg(argptr, gasnet_handlerarg_t);

@@ -132,7 +132,7 @@ extern int gasnetc_hsl_trylock(gasnet_hsl_t *hsl) GASNETI_WARN_UNUSED_RESULT;
   ==========================
  */
 
-#define GASNET_AXIOM_AM_MSG_HEADER_SIZE  20
+#define GASNET_AXIOM_AM_MSG_HEADER_SIZE  48
 #define GASNET_AXIOM_AM_MAX_NUM_ARGS     ((size_t)(AXIOM_RAW_PAYLOAD_MAX_SIZE-GASNET_AXIOM_AM_MSG_HEADER_SIZE)/sizeof(gasnet_handlerarg_t))
 #define gasnet_AMMaxArgs()            GASNET_AXIOM_AM_MAX_NUM_ARGS
 #if GASNET_PSHM
