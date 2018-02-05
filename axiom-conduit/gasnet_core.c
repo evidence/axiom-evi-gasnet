@@ -2836,7 +2836,7 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
 #define MAX_MSG_RETRANSMIT 16
 
 
-#define GASNETC_ALIGN_MASK (~(GASNETC_ALIGN_SIZE - 1))
+#define GASNETC_ALIGN_MASK (GASNETC_ALIGN_SIZE - 1)
 #define COMPUTE_PRE(addr) ((((uintptr_t)addr)&GASNETC_ALIGN_MASK)==0?0:GASNETC_ALIGN_SIZE-(((uintptr_t)addr)&GASNETC_ALIGN_MASK))
 #define COMPUTE_POST(size,pre) (((size)-(pre))&GASNETC_ALIGN_MASK)
 
@@ -3039,17 +3039,14 @@ extern int gasnetc_internal_AMPoll(void) {
                                     );
                             uint32_t dest_pre=COMPUTE_PRE(data);
                             if (dest_pre!=payload->am.head.src_pre) {
-                                // :-(
                                 int32_t delta=dest_pre-payload->am.head.src_pre;
                                 int len=nbytes-payload->am.head.src_pre-payload->am.head.src_post;
-                                memmove(data+dest_pre+delta,data+dest_pre,len);
+                                memmove((uint8_t*)data+dest_pre-delta,(uint8_t*)data+dest_pre,len);
                             }
                             if (payload->am.head.src_pre>0) {
-                                // :-(
                                 memcpy(data,payload->am.head.data_pre,payload->am.head.src_pre);
                             }
                             if (payload->am.head.src_post>0) {
-                                // :-(
                                 void *ptr=(uint8_t*)data+nbytes-payload->am.head.src_post;
                                 memcpy(ptr,payload->am.head.data_post,payload->am.head.src_post);
                             }
@@ -3259,19 +3256,24 @@ static int _requestOrReplyLong(gasnet_node_t dest, gasnet_handler_t handler, voi
     }
 
     uint32_t rdma_size;
-    int src_pre,src_post,dst_pre,dst_post;
-    src_pre=COMPUTE_PRE(source_addr);
-    src_post=COMPUTE_POST(nbytes,src_pre);
+    int src_pre = 0,src_post,dst_pre,dst_post;
+    /* if the src address is out of RDMA, we use our aligned buffer that is aligned */
+    if (!out) {
+        src_pre=COMPUTE_PRE(source_addr);
+    }
     dst_pre=COMPUTE_PRE(dest_addr);
     dst_post=COMPUTE_POST(nbytes,dst_pre);
+    src_post=dst_pre+dst_post-src_pre;
+    if (src_post < 0)
+        src_post += 16;
     rdma_size=nbytes-src_pre-src_post;
-    void *source_addr_aligned=(void*)(((uint8_t*)source_addr)+src_pre);
+
     void *dest_addr_aligned=(void*)(((uint8_t*)dest_addr)+dst_pre);
+
     // safety
-    gasneti_assert((((uintptr_t)source_addr_aligned)&GASNETC_ALIGN_MASK)==0);
-    gasneti_assert((((uintptr_t)dest_addr_aligned)&GASNETC_ALIGN_MASK)==0);
-    gasneti_assert(src_pre+src_post>=nbytes);
+    gasneti_assert(src_pre+src_post<=nbytes);
     gasneti_assert(rdma_size+dst_pre+dst_post==nbytes);
+    gasneti_assert((((uintptr_t)dest_addr_aligned)&GASNETC_ALIGN_MASK)==0);
 
     if (rdma_size > 0) {
         if (out) {
@@ -3284,14 +3286,12 @@ static int _requestOrReplyLong(gasnet_node_t dest, gasnet_handler_t handler, voi
             logmsg(LOG_DEBUG,"Sync/AsyncReq: out of RDMA space... switch so SYNC RDMA from internal buffers");
             if (type==ASYNC_REQUEST) type=NORMAL_REQUEST;
 
-            src_pre=0;
-            src_post=COMPUTE_POST(nbytes,src_pre);
-            rdma_size=nbytes-src_pre-src_post;
             totras=rdma_size;
             srcp=source_addr;
             dstp=dest_addr_aligned;
 
             for (;;) {
+                uint8_t *buf_tmp = buf;
                 sz = totras > GASNETC_BUFFER_SIZE ? GASNETC_BUFFER_SIZE : totras;
                 logmsg(LOG_INFO, "buf; 0x%p - srcp: 0x%p - dstp: %p - size: %d", buf, srcp, dstp, sz);
 
@@ -3303,17 +3303,17 @@ static int _requestOrReplyLong(gasnet_node_t dest, gasnet_handler_t handler, voi
                  * Then it uses STP instruction on RDMA zone that is not cached.
                  * This instruction fails if not cached address is not aligned.
                  */
-                bytes_not_aligned = ((long)srcp & (GASNETC_ALIGN_SIZE - 1));
+                bytes_not_aligned = ((long)srcp & (0x7));
                 if (bytes_not_aligned != 0) {
                     int i;
                     for (i = 0; i < bytes_not_aligned; i++) {
-                        buf[i] = srcp[i];
+                        buf_tmp[i] = srcp[i];
                     }
-                    buf += bytes_not_aligned;
+                    buf_tmp += bytes_not_aligned;
                     srcp += bytes_not_aligned;
                 }
 
-                memcpy(buf, srcp, sz);
+                memcpy(buf_tmp, srcp, sz - bytes_not_aligned);
                 ret = _rdma_write_sync(axiom_dev, dest, sz, buf, dstp);
                 if (!AXIOM_RET_IS_OK(ret)) {
                     logmsg(LOG_WARN,"Sync/AsyncReq: _rdma_write/wait error (ret=%d)",ret);
@@ -3326,6 +3326,11 @@ static int _requestOrReplyLong(gasnet_node_t dest, gasnet_handler_t handler, voi
             }
             free_rdma_buf(buf);
         } else {
+            void *source_addr_aligned=(void*)(((uint8_t*)source_addr)+src_pre);
+
+            // safety
+            gasneti_assert((((uintptr_t)source_addr_aligned)&GASNETC_ALIGN_MASK)==0);
+
 #ifdef _NOT_ASYNC_RDMA_MODE
             ret = _rdma_write_sync(axiom_dev, dest, rdma_size, source_addr_aligned, dest_addr_aligned);
 #else
