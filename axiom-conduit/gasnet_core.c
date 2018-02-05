@@ -395,12 +395,14 @@ typedef struct gasnetc_axiom_am_header {
     uint32_t offset;
     /** RDMA size. Used for 'data' below. */
     uint32_t size;
-
+    /** used byte from data_pre */
     uint16_t src_pre;
+    /** used bytes fomr data_post*/
     uint16_t src_post;
-
-    /** RDMA residual data to transfert. AXIOM RDMA can transfert only a multiple of GASNETC_ALIGN_SIZE bytes so this array containt the residual data.*/
+    /* RDMA residual data to transfert. AXIOM RDMA can transfert only a multiple of GASNETC_ALIGN_SIZE bytes so this array containt the residual data.*/
+    /** residual RDMA data prologue */
     uint8_t data_pre[GASNETC_ALIGN_SIZE];
+    /** residual RDMA data epilog */
     uint8_t data_post[GASNETC_ALIGN_SIZE];
 } __attribute__((__packed__)) gasnetc_axiom_am_header_t;
 
@@ -2835,11 +2837,14 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
 // for ASYNC_RDMA_REQUEST
 #define MAX_MSG_RETRANSMIT 16
 
-
+// definitions to fix misaligned's buffers
+//
+// alignment mask (to check alignemnt bits)
 #define GASNETC_ALIGN_MASK (GASNETC_ALIGN_SIZE - 1)
+// compute "prefix" size to align a buffer; from 0 to GASNETC_ALIGN_SIZE-1
 #define COMPUTE_PRE(addr) ((((uintptr_t)addr)&GASNETC_ALIGN_MASK)==0?0:GASNETC_ALIGN_SIZE-(((uintptr_t)addr)&GASNETC_ALIGN_MASK))
+// compute "postfix" size of an aligned buffer; from 0 to GASNET_ALIGN_SIZE-1
 #define COMPUTE_POST(size,pre) (((size)-(pre))&GASNETC_ALIGN_MASK)
-
 
 /**
  * Conduit internal poll request.
@@ -3037,15 +3042,20 @@ extern int gasnetc_internal_AMPoll(void) {
                                     payload->am.head.src_pre,
                                     payload->am.head.src_post
                                     );
+                            /* (see "TO FIX BUFFERS MISALIGNMENT" comments below) */
                             uint32_t dest_pre=COMPUTE_PRE(data);
+                            /* if source pre and destination pre are different....*/
+                            /* the RDMA transfert must be shifthed!!! */
                             if (dest_pre!=payload->am.head.src_pre) {
                                 int32_t delta=dest_pre-payload->am.head.src_pre;
                                 int len=nbytes-payload->am.head.src_pre-payload->am.head.src_post;
                                 memmove((uint8_t*)data+dest_pre-delta,(uint8_t*)data+dest_pre,len);
                             }
+                            /* we must copy the pre buffer (if is filled)!!*/
                             if (payload->am.head.src_pre>0) {
                                 memcpy(data,payload->am.head.data_pre,payload->am.head.src_pre);
                             }
+                            /* we must copy the post buffer (if is filled)!*/
                             if (payload->am.head.src_post>0) {
                                 void *ptr=(uint8_t*)data+nbytes-payload->am.head.src_post;
                                 memcpy(ptr,payload->am.head.data_post,payload->am.head.src_post);
@@ -3243,6 +3253,7 @@ static int _requestOrReplyLong(gasnet_node_t dest, gasnet_handler_t handler, voi
     if (type==ASYNC_REQUEST) type=NORMAL_REQUEST;
 #endif
 
+    // a buffer must be or out the DMA mmemory or in the DMA memory, not between
     if (source_addr < gasneti_seginfo[gasneti_mynode].base) {
         if ((uint8_t*) source_addr + nbytes >= (uint8_t*) gasneti_seginfo[gasneti_mynode].base)
             gasneti_fatalerror("source payload cross starting rdma mapped memory");
@@ -3255,6 +3266,36 @@ static int _requestOrReplyLong(gasnet_node_t dest, gasnet_handler_t handler, voi
         out = 0;
     }
 
+    /*
+     * TO FIX BUFFERS MISALIGNMENT
+     */
+    /*
+     * example with GASNET_ALIGN_SIZE=16
+     *
+     * -3       0             48      57
+     *  --------------------------------
+     *  |       |              |       |
+     *  --------------------------------
+     *
+     *  <-pre--><-rdma_size-><-post->
+     *  <---------- nbytes---------->
+     *
+     *  nbytes=60
+     *
+     *  pre=3
+     *  rdma_size=48
+     *  post=9
+     */
+    /*
+     * we compute pre/post/rdma_size for source and destination address
+     * note that:
+     * - rdma_size must be equals for source and destination
+     * - pre+post must be equal for source and destination
+     * - pre/post for source and setination can be different
+     * note that:
+     * if source is aligned (address and size) but not destination (or viceversa) then
+     * we must reduce the rdma_size
+     */
     uint32_t rdma_size;
     int src_pre = 0,src_post,dst_pre,dst_post;
     /* if the src address is out of RDMA, we use our aligned buffer that is aligned */
@@ -3267,9 +3308,7 @@ static int _requestOrReplyLong(gasnet_node_t dest, gasnet_handler_t handler, voi
     if (src_post < 0)
         src_post += 16;
     rdma_size=nbytes-src_pre-src_post;
-
     void *dest_addr_aligned=(void*)(((uint8_t*)dest_addr)+dst_pre);
-
     // safety
     gasneti_assert(src_pre+src_post<=nbytes);
     gasneti_assert(rdma_size+dst_pre+dst_post==nbytes);
@@ -3365,12 +3404,15 @@ static int _requestOrReplyLong(gasnet_node_t dest, gasnet_handler_t handler, voi
 
         int i;
 
+        /*
+         * FIX for buffer misalignment
+         */
+        // if source address not aligned...
         if (src_pre>0) {
-            //fprintf(stderr, "GASNET WARNING: requestLong() end address NOT properly aligned (nbytes=%d)\n", (int) nbytes);
             memcpy(payload->head.data_pre,source_addr,src_pre);
         }
+        // if source size not aligned...
         if (src_post>0) {
-            //fprintf(stderr, "GASNET WARNING: requestLong() end address NOT properly aligned (nbytes=%d)\n", (int) nbytes);
             void *ptr=(void*)((uint8_t*)source_addr+src_pre+rdma_size);
             memcpy(payload->head.data_post,ptr,src_post);
         }
