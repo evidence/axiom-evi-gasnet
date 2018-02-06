@@ -16,7 +16,7 @@
 
 // RDMA aligmnet request! PS: power of two
 // used for address and size
-#define GASNETC_ALIGN_SIZE 16
+#define GASNETC_ALIGN_SIZE AXIOM_RDMA_ADDRESS_ALIGNMENT
 
 // usually 8 MiB (2048*PAGE)=2048*4096=8388608
 #define GASNETC_RESERVED_PAGES (AXIOM_RDMA_PAYLOAD_MAX_SIZE/GASNET_PAGESIZE)

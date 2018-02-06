@@ -3306,7 +3306,7 @@ static int _requestOrReplyLong(gasnet_node_t dest, gasnet_handler_t handler, voi
     dst_post=COMPUTE_POST(nbytes,dst_pre);
     src_post=dst_pre+dst_post-src_pre;
     if (src_post < 0)
-        src_post += 16;
+        src_post += GASNETC_ALIGN_SIZE;
     rdma_size=nbytes-src_pre-src_post;
     void *dest_addr_aligned=(void*)(((uint8_t*)dest_addr)+dst_pre);
     // safety
