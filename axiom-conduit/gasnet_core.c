@@ -2030,12 +2030,12 @@ static int gasnetc_init(int *argc, char ***argv) {
                 gasneti_set_waitmode(GASNET_WAIT_SPINBLOCK);
                 logmsg(LOG_INFO,"setting waitmode hint to SPINBLOCK");
             } else {
-                logmsg(LOG_WARN,"Unknown GASNET_AXIOM_WAITMODE value '%s' (legal values: SPIN, BLOCK, SPINBLOCK), setting SPINGBLOCK",value);
-                gasneti_set_waitmode(GASNET_WAIT_SPINBLOCK);
+                logmsg(LOG_WARN,"Unknown GASNET_AXIOM_WAITMODE value '%s' (legal values: SPIN, BLOCK, SPINBLOCK), setting SPIN",value);
+                gasneti_set_waitmode(GASNET_WAIT_SPIN);
             }
         } else {
-            logmsg(LOG_INFO,"no GASNET_AXIOM_WAITMODE environment variable found, waitmode default to SPINBLOCK");
-            gasneti_set_waitmode(GASNET_WAIT_SPINBLOCK);
+            logmsg(LOG_INFO,"no GASNET_AXIOM_WAITMODE environment variable found, waitmode default to SPIN");
+            gasneti_set_waitmode(GASNET_WAIT_SPIN);
         }
     }
 
