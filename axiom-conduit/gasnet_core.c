@@ -1424,6 +1424,7 @@ int gasnetc_block_on_condition(uint64_t keymask, int epfd, int evfd) {
     res=epoll_wait(epfd,&evt,1,-1);
     if (res<0) {
         logmsg(LOG_WARN,"block_on_condition: epoll_wait errno %d",errno);
+        LOCK(gasnetc_mut);
         return -1;
     }
     logmsg(LOG_INFO,"UNBLOCKED for event '%s'!",evt.data.u32>MAX_EVENT?"out of range error":event2str[evt.data.u32]);
@@ -1461,6 +1462,7 @@ int gasnetc_block_on_condition(uint64_t keymask) {
     res=epoll_wait(epfd,&evt,1,-1);
     if (res<0) {
         logmsg(LOG_WARN,"block_on_condition: epoll_wait errno %d",errno);
+        LOCK(gasnetc_mut);
         return -1;
     }
     logmsg(LOG_INFO,"UNBLOCKED for event '%s'!",evt.data.u32>MAX_EVENT?"out of range error":event2str[evt.data.u32]);
