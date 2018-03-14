@@ -1421,7 +1421,7 @@ int gasnetc_block_on_condition(uint64_t keymask, int epfd, int evfd) {
     UNLOCK(gasnetc_mut);
 
     logmsg(LOG_INFO,"Block until cond....");
-    res=epoll_wait(epfd,&evt,1,-1);
+    res=epoll_wait(epfd,&evt,1,10);
     if (res<0) {
         logmsg(LOG_WARN,"block_on_condition: epoll_wait errno %d",errno);
         LOCK(gasnetc_mut);
@@ -1437,7 +1437,7 @@ int gasnetc_block_on_condition(uint64_t keymask, int epfd, int evfd) {
     remove_from_act(keymask);
     if (am_i_into_svd(keymask)) {
         remove_from_svd(keymask);
-        if (evt.data.u32 == CHECK_EVENT) {
+        if (res!= 0 && evt.data.u32 == CHECK_EVENT) {
             eventfd_t value;
             logmsg(LOG_DEBUG,"READ check event");
             if (eventfd_read(evfd,&value)<0) {
@@ -1461,7 +1461,7 @@ int gasnetc_block_on_condition(uint64_t keymask) {
     gasneti_sched_yield(); // not needed but can reduce the wakeup of threads that have already check the condition
 
     logmsg(LOG_INFO,"Block until cond....");
-    res=epoll_wait(epfd,&evt,1,-1);
+    res=epoll_wait(epfd,&evt,1,10);
     if (res<0) {
         logmsg(LOG_WARN,"block_on_condition: epoll_wait errno %d",errno);
         LOCK(gasnetc_mut);
@@ -1476,7 +1476,7 @@ int gasnetc_block_on_condition(uint64_t keymask) {
     logmsg(LOG_DEBUG,"queue bitmaps unblk act=0x%08lx svd=0x%08lx",act_wait_bitmap,svd_wait_bitmap);
     remove_from_act(keymask);
     if (am_i_into_svd(keymask)) {
-        if ((remove_from_svd(keymask)==0) && (evt.data.u32 == CHECK_EVENT)) {
+        if ((remove_from_svd(keymask)==0) && res != 0 && (evt.data.u32 == CHECK_EVENT)) {
             eventfd_t value;
             logmsg(LOG_DEBUG,"READ check event");
             if (eventfd_read(evfd,&value)<0) {
