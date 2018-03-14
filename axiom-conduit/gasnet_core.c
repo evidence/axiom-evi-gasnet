@@ -1312,7 +1312,7 @@ uint64_t *gasneti_get_new_thread_keymask() {
 //#define THREADSAFE_QUEUE_OPS
 
 /**
- * Add actual thread que into saved queue.
+ * Add actual thread queue into saved queue.
  */
 static inline void save_act_into_svd() {
     svd_wait_bitmap|=act_wait_bitmap;
@@ -1436,12 +1436,14 @@ int gasnetc_block_on_condition(uint64_t keymask, int epfd, int evfd) {
     logmsg(LOG_DEBUG,"queue bitmaps unblk act=0x%08lx svd=0x%08lx",act_wait_bitmap,svd_wait_bitmap);
     remove_from_act(keymask);
     if (am_i_into_svd(keymask)) {
-        eventfd_t value;
         remove_from_svd(keymask);
-        logmsg(LOG_DEBUG,"READ check event");
-        if (eventfd_read(evfd,&value)<0) {
-            logmsg(LOG_ERROR,"gasnetc_block_on_condition: eventfd_read errno %d",errno);
-            gasneti_fatalerror("eventfd_read() error!");
+        if (evt.data.u32 == CHECK_EVENT) {
+            eventfd_t value;
+            logmsg(LOG_DEBUG,"READ check event");
+            if (eventfd_read(evfd,&value)<0) {
+                logmsg(LOG_ERROR,"gasnetc_block_on_condition: eventfd_read errno %d",errno);
+                gasneti_fatalerror("eventfd_read() error!");
+            }
         }
         logmsg(LOG_DEBUG,"svd queue bitmap after removing myself svd=0x%08lx",svd_wait_bitmap);
     }
@@ -1474,7 +1476,7 @@ int gasnetc_block_on_condition(uint64_t keymask) {
     logmsg(LOG_DEBUG,"queue bitmaps unblk act=0x%08lx svd=0x%08lx",act_wait_bitmap,svd_wait_bitmap);
     remove_from_act(keymask);
     if (am_i_into_svd(keymask)) {
-        if (remove_from_svd(keymask)==0) {
+        if ((remove_from_svd(keymask)==0) && (evt.data.u32 == CHECK_EVENT)) {
             eventfd_t value;
             logmsg(LOG_DEBUG,"READ check event");
             if (eventfd_read(evfd,&value)<0) {
