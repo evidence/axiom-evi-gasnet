@@ -157,6 +157,7 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
 #define gasnet_AMGetMsgSource  gasnetc_AMGetMsgSource
 
 #define GASNET_BLOCKUNTIL(cond) gasneti_polluntil(cond)
+#define GASNET_BLOCKUNTIL2(func, cond) gasneti_polluntil2(func, cond)
 
 /* ------------------------------------------------------------------------------------ */
 

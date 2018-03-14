@@ -139,6 +139,7 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
 
 #if GASNET_PSHM
   #define GASNET_BLOCKUNTIL(cond) gasneti_polluntil(cond)
+  #define GASNET_BLOCKUNTIL2(func, cnd) gasneti_polluntil2(func, cnd)
 #else
   #define GASNET_BLOCKUNTIL(cond) do { \
       while (!(cond)) {                \
@@ -146,6 +147,7 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
       }                                \
       gasneti_sync_reads();            \
     } while (0)
+  #define GASNET_BLOCKUNTIL2(func, cnd) GASNET_BLOCKUNTIL((func, cnd))
 #endif
 /* ------------------------------------------------------------------------------------ */
 

@@ -99,7 +99,49 @@ extern int gasnetc_block_on_condition(uint64_t key);
   }\
 } while (0)
 
-#endif
+#define gasneti_pollwhile2(func, cnd) do {\
+  func; \
+  if (cnd) {\
+    gasneti_internal_AMPoll();\
+    if (gasneti_wait_mode == GASNET_WAIT_SPIN) {\
+      /* GASNET_WAIT_SPIN */\
+      while ((func, cnd)) {\
+        gasneti_internal_AMPoll();\
+      }\
+    } else if (gasneti_wait_mode == GASNET_WAIT_BLOCK) {\
+      /* GASNET_WAIT_BLOCK */\
+      gasneti_define_thread_keymask();\
+      func; \
+      gasneti_mutex_lock(&gasnetc_mut);\
+      while (cnd) { \
+        call_gasnetc_block_on_condition();\
+        gasneti_mutex_unlock(&gasnetc_mut);\
+        gasneti_internal_AMPoll();\
+        func; \
+        gasneti_mutex_lock(&gasnetc_mut);\
+      }\
+      gasneti_mutex_unlock(&gasnetc_mut);\
+    } else {\
+      /* GASNET_WAIT_SPINBLOCK */\
+      gasneti_define_thread_keymask();\
+      int to_cont=1;\
+      func; \
+      gasneti_mutex_lock(&gasnetc_mut);\
+      while (cnd) { \
+        call_gasnetc_block_on_condition();\
+        gasneti_mutex_unlock(&gasnetc_mut);\
+        while (gasneti_internal_AMPoll()!=GASNET_ERR_AGAIN&&(to_cont=(func, cnd))) {}\
+        if (!to_cont) break;\
+        func; \
+        gasneti_mutex_lock(&gasnetc_mut);\
+      }\
+      if (to_cont) gasneti_mutex_unlock(&gasnetc_mut);\
+    }\
+    gasneti_local_rmb();\
+  }\
+} while (0)
+
+#endif /* _BLOCK_ON_LOOP_EPOLL */
 
 #ifdef _BLOCK_ON_LOOP_CONDWAIT
 
@@ -144,7 +186,47 @@ extern void gasnetc_block_on_condition();
   }\
 } while (0)
 
-#endif
+#define gasneti_pollwhile2(func, cnd) do {\
+  func; \
+  if (cnd) {\
+    gasneti_internal_AMPoll();\
+    if (gasneti_wait_mode == GASNET_WAIT_SPIN) {\
+      /* GASNET_WAIT_SPIN */\
+      while ((func, cnd)) {\
+        gasneti_internal_AMPoll();\
+      }\
+    } else if (gasneti_wait_mode == GASNET_WAIT_BLOCK) {\
+      /* GASNET_WAIT_BLOCK */\
+      func; \
+      gasneti_mutex_lock(&gasnetc_mut);\
+      while (cnd) { \
+        gasnetc_block_on_condition();\
+        gasneti_mutex_unlock(&gasnetc_mut);\
+        gasneti_internal_AMPoll();\
+        func; \
+        gasneti_mutex_lock(&gasnetc_mut);\
+      }\
+      gasneti_mutex_unlock(&gasnetc_mut);\
+    } else {\
+      /* GASNET_WAIT_SPINBLOCK */\
+      int to_cont=1;\
+      func; \
+      gasneti_mutex_lock(&gasnetc_mut);\
+      while (cnd) { \
+        gasnetc_block_on_condition();\
+        gasneti_mutex_unlock(&gasnetc_mut);\
+        while (gasneti_internal_AMPoll()!=GASNET_ERR_AGAIN&&(to_cont=(func, cnd))) {}\
+        if (!to_cont) break;\
+        func; \
+        gasneti_mutex_lock(&gasnetc_mut);\
+      }\
+      if (to_cont) gasneti_mutex_unlock(&gasnetc_mut);\
+    }\
+    gasneti_local_rmb();\
+  }\
+} while (0)
+
+#endif /* _BLOCK_ON_LOOP_CONDWAIT */
 
 extern int gasnetc_internal_AMPoll(void);
 

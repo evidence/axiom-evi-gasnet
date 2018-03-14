@@ -711,6 +711,15 @@ extern int gasneti_wait_mode; /* current waitmode hint */
 #endif
 #define gasneti_polluntil(cnd) gasneti_pollwhile(!(cnd)) 
 
+/* busy-wait, with implicit polling */
+/* Use this function when you want to execute a function before to evaluate
+ * the condition
+ */
+#ifndef gasneti_pollwhile2
+  #define gasneti_pollwhile2(func, cnd) gasneti_pollwhile((func, cnd))
+#endif
+#define gasneti_polluntil2(func, cnd) gasneti_pollwhile2(func, !(cnd))
+
 /* ------------------------------------------------------------------------------------ */
 
 /* high-performance timer library */

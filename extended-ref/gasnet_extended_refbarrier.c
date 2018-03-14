@@ -996,7 +996,7 @@ static int gasnete_amdbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
     gasneti_sync_reads(); /* ensure correct amdbarrier_recv_* will be read */
   } else { /*  wait for response */
     gasnete_barrier_pf_disable(team);
-    GASNET_BLOCKUNTIL((gasnete_amdbarrier_kick(team), barrier_data->amdbarrier_step == barrier_data->amdbarrier_size));
+    GASNET_BLOCKUNTIL2(gasnete_amdbarrier_kick(team), barrier_data->amdbarrier_step == barrier_data->amdbarrier_size);
   }
 
   /* determine return value */
@@ -1943,7 +1943,7 @@ static int gasnete_amcbarrier_wait(gasnete_coll_team_t team, int id, int flags) 
     gasneti_sync_reads(); /* ensure we read correct amcbarrier_response_*[] */
   } else { /*  wait for response */
     gasnete_barrier_pf_disable(team);
-    GASNET_BLOCKUNTIL((gasnete_amcbarrier_kick(team), barrier_data->amcbarrier_response_done[phase]));
+    GASNET_BLOCKUNTIL2(gasnete_amcbarrier_kick(team), barrier_data->amcbarrier_response_done[phase]);
     /* GASNET_BLOCKUNTIL contains RMB needed for read of amcbarrier_response_*[] */
   }
 
