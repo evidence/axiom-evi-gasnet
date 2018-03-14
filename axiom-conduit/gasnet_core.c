@@ -2257,12 +2257,16 @@ static void *alloca_rdma_buf() {
     LOCK(rdma_buf_mutex);
     idx = __ctz(rdma_buf_state);
     while (idx >= GASNETC_NUM_BUFFERS) {
+        logmsg(LOG_DEBUG,"alloca_rdma_buf() blocking");
         WAIT_COND(rdma_buf_cond, rdma_buf_mutex);
+        logmsg(LOG_DEBUG,"alloca_rdma_buf() wakeup");
         idx = __ctz(rdma_buf_state);
     }
+    gasneti_assert(idx >= 0);
     gasneti_assert(idx < GASNETC_NUM_BUFFERS);
     rdma_buf_state &= ~(ONE << idx);
     UNLOCK(rdma_buf_mutex);
+    logmsg(LOG_DEBUG,"alloca_rdma_buf() allocate idx: %d", idx);
     return (uint8_t*) gasneti_seginfo[gasneti_mynode].base + idx*GASNETC_BUFFER_SIZE;
 }
 
@@ -2272,10 +2276,13 @@ static void *alloca_rdma_buf() {
  */
 static void free_rdma_buf(void *buf) {
     int idx = ((uint8_t*) buf - (uint8_t*) gasneti_seginfo[gasneti_mynode].base) / GASNETC_BUFFER_SIZE;
+    gasneti_assert(idx >= 0);
+    gasneti_assert(idx < GASNETC_NUM_BUFFERS);
     LOCK(rdma_buf_mutex);
     rdma_buf_state |= (ONE << idx);
     SIGNAL_COND(rdma_buf_cond);
     UNLOCK(rdma_buf_mutex);
+    logmsg(LOG_DEBUG,"free_rdma_buf() free idx: %d", idx);
 }
 
 /*
@@ -3334,7 +3341,7 @@ static int _requestOrReplyLong(gasnet_node_t dest, gasnet_handler_t handler, voi
             for (;;) {
                 uint8_t *buf_tmp = buf;
                 sz = totras > GASNETC_BUFFER_SIZE ? GASNETC_BUFFER_SIZE : totras;
-                logmsg(LOG_INFO, "buf; 0x%p - srcp: 0x%p - dstp: %p - size: %d", buf, srcp, dstp, sz);
+                logmsg(LOG_INFO, "buf; %p - srcp: %p - dstp: %p - size: %d", buf, srcp, dstp, sz);
 
                 /*
                  * If the source addr is not aligned to 8bytes, the memcpy

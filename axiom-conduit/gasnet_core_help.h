@@ -46,7 +46,7 @@ extern int gasnetc_block_on_condition(uint64_t key, int epfd, int evfd);
 
 #define call_gasnetc_block_on_condition() gasnetc_block_on_condition(ptr->keymask,ptr->epfd,ptr->evfd)
 
-#else
+#else /* !EVENTFD_PER_THREAD */
 
 extern uint64_t *gasneti_get_new_thread_keymask();
 
@@ -60,7 +60,7 @@ extern int gasnetc_block_on_condition(uint64_t key);
 
 #define call_gasnetc_block_on_condition() gasnetc_block_on_condition(key)
 
-#endif
+#endif /* EVENTFD_PER_THREAD */
 
 #define gasneti_pollwhile(cnd) do {\
   if (cnd) {\
